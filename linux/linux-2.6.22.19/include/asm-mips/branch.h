@@ -8,11 +8,24 @@
 #ifndef _ASM_BRANCH_H
 #define _ASM_BRANCH_H
 
+#include <asm/cpu-features.h>
+#include <asm/mipsregs.h>
 #include <asm/ptrace.h>
+#include <asm/inst.h>
 
 static inline int delay_slot(struct pt_regs *regs)
 {
 	return regs->cp0_cause & CAUSEF_BD;
+}
+
+static inline void clear_delay_slot(struct pt_regs *regs)
+{
+	regs->cp0_cause &= ~CAUSEF_BD;
+}
+
+static inline void set_delay_slot(struct pt_regs *regs)
+{
+	regs->cp0_cause |= CAUSEF_BD;
 }
 
 static inline unsigned long exception_epc(struct pt_regs *regs)
@@ -23,7 +36,11 @@ static inline unsigned long exception_epc(struct pt_regs *regs)
 	return regs->cp0_epc + 4;
 }
 
+#define BRANCH_LIKELY_TAKEN 0x0001
+
 extern int __compute_return_epc(struct pt_regs *regs);
+extern int __compute_return_epc_for_insn(struct pt_regs *regs,
+					 union mips_instruction insn);
 
 static inline int compute_return_epc(struct pt_regs *regs)
 {
