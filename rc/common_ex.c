@@ -99,30 +99,27 @@ int rmmod(char *module)
 int killall_w(char *program, unsigned sig, int wait)
 {
 	char sigstr[sizeof("-65535")];
-	char *argv[] = { "killall",
-				NULL,   /* -w */
-				NULL,   /* signal */
-				NULL,   /* program */
-				NULL };
-	int i = 1;
+	char *argv[] = { "killall", sigstr, program, NULL, NULL };
+	int ret, i = 1;
 
 #ifdef KILLALL_HAS_WAIT
 	if (wait)
-		argv[i++] = "-w";
+		argv[3] = "-w";
 #endif
-	if (sig) {
-		snprintf(sigstr, sizeof(sigstr), "-%u", sig);
-		argv[i++] = sigstr;
-	}
-	argv[i++] = program;
+	snprintf(sigstr, sizeof(sigstr), "-%u", sig ? : SIGTERM);
+	ret = _eval(argv, NULL, 0, NULL);
 
-#ifdef KILLALL_HAS_WAIT
-	return _eval(argv, NULL, 0, NULL);
-#else
-	while (!_eval(argv, NULL, 0, NULL) && wait)
-		sleep(1);
-	return 0;
+#ifndef KILLALL_HAS_WAIT
+#define CPS 4
+	if (!ret && wait) {
+		snprintf(sigstr, sizeof(sigstr), "-%u", 0);
+		for (i = wait*CPS; !ret && i > 0; i--) {
+			usleep(1000*1000/CPS);
+			ret =_eval(argv, NULL, 0, NULL);
+		}
+	}
 #endif
+	return ret;
 }
 
 int killall_s(char *program, unsigned sig)
@@ -132,7 +129,16 @@ int killall_s(char *program, unsigned sig)
 
 int killall(char *program)
 {
-	return killall_w(program, 0, 0);
+	return killall_w(program, SIGTERM, 0);
+}
+
+int killall_tk(char *program)
+{
+	int ret = killall_w(program, SIGTERM, 1);
+
+	if (ret)
+		return ret;
+	return killall_w(program, SIGKILL, 0);
 }
 
 void getsyspara(void)
