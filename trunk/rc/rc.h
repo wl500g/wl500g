@@ -56,6 +56,7 @@ int rmmod(char *module);
 int killall_w(char *program, unsigned sig, int timeout);
 int killall_s(char *program, unsigned sig);
 int killall(char *program);
+int killall_tk(char *program);
 void setenv_tz();
 time_t update_tztime(int is_resettm);
 
