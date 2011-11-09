@@ -1,0 +1,150 @@
+ext4: Updates from upstream
+
+ 56d35a4cd13e7bc5eca5b2dba5a41794afb17e11 ext4: Fix dirtying of journalled buffers in data=journal mode
+ ad4fb9cafe100a4a9de6e0529015e584d94ac8dc ext4: fix 32bit overflow in ext4_ext_find_goal()
+ c7f5938adce6727b9d17785f289c1146bd88d678 ext4: fix ext4_da_block_invalidatepages() to handle page range properly
+ 7ad8e4e6ae2a7c95445ee1715b1714106fb95037 ext4: Fix fs corruption when make_indexed_dir() fails
+ 177353670085c14e1d358db8bf812bd72a9268c7 ext4: fix BUG_ON() in ext4_ext_insert_extent()
+
+---
+ fs/ext4/extents.c |   30 +++++++++++++++++++++++++++---
+ fs/ext4/inode.c   |   29 +++++++++++++++++++++--------
+ fs/ext4/namei.c   |   14 ++++++++++++--
+ 3 files changed, 60 insertions(+), 13 deletions(-)
+
+diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
+--- a/fs/ext4/extents.c
++++ b/fs/ext4/extents.c
+@@ -159,10 +159,33 @@ static ext4_fsblk_t ext4_ext_find_goal(s
+ 		struct ext4_extent *ex;
+ 		depth = path->p_depth;
+ 
+-		/* try to predict block placement */
++		/*
++		 * Try to predict block placement assuming that we are
++		 * filling in a file which will eventually be
++		 * non-sparse --- i.e., in the case of libbfd writing
++		 * an ELF object sections out-of-order but in a way
++		 * the eventually results in a contiguous object or
++		 * executable file, or some database extending a table
++		 * space file.  However, this is actually somewhat
++		 * non-ideal if we are writing a sparse file such as
++		 * qemu or KVM writing a raw image file that is going
++		 * to stay fairly sparse, since it will end up
++		 * fragmenting the file system's free space.  Maybe we
++		 * should have some hueristics or some way to allow
++		 * userspace to pass a hint to file system,
++		 * especiially if the latter case turns out to be
++		 * common.
++		 */
+ 		ex = path[depth].p_ext;
+-		if (ex)
+-			return ext_pblock(ex)+(block-le32_to_cpu(ex->ee_block));
++		if (ex) {
++			ext4_fsblk_t ext_pblk = ext_pblock(ex);
++			ext4_lblk_t ext_block = le32_to_cpu(ex->ee_block);
++
++			if (block > ext_block)
++				return ext_pblk + (block - ext_block);
++			else
++				return ext_pblk - (ext_block - block);
++		}
+ 
+ 		/* it looks like index is empty;
+ 		 * try to find starting block from index itself */
+@@ -2427,6 +2450,7 @@ static int ext4_ext_convert_to_initializ
+ 		ex1 = ex;
+ 		ex1->ee_len = cpu_to_le16(iblock - ee_block);
+ 		ext4_ext_mark_uninitialized(ex1);
++		ext4_ext_dirty(handle, inode, path + depth);
+ 		ex2 = &newex;
+ 	}
+ 	/*
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -1413,9 +1413,25 @@ static int walk_page_buffers(handle_t *h
+ static int do_journal_get_write_access(handle_t *handle,
+ 					struct buffer_head *bh)
+ {
++	int dirty = buffer_dirty(bh);
++	int ret;
++
+ 	if (!buffer_mapped(bh) || buffer_freed(bh))
+ 		return 0;
+-	return ext4_journal_get_write_access(handle, bh);
++	/*
++	 * __block_prepare_write() could have dirtied some buffers. Clean
++	 * the dirty bit as jbd2_journal_get_write_access() could complain
++	 * otherwise about fs integrity issues. Setting of the dirty bit
++	 * by __block_prepare_write() isn't a real problem here as we clear
++	 * the bit before releasing a page lock and thus writeback cannot
++	 * ever write the buffer.
++	 */
++	if (dirty)
++		clear_buffer_dirty(bh);
++	ret = ext4_journal_get_write_access(handle, bh);
++	if (!ret && dirty)
++		ret = ext4_handle_dirty_metadata(handle, NULL, bh);
++	return ret;
+ }
+ 
+ static int ext4_write_begin(struct file *file, struct address_space *mapping,
+@@ -1894,8 +1910,7 @@ static inline void __unmap_underlying_bl
+ 		unmap_underlying_metadata(bdev, bh->b_blocknr + i);
+ }
+ 
+-static void ext4_da_block_invalidatepages(struct mpage_da_data *mpd,
+-					sector_t logical, long blk_cnt)
++static void ext4_da_block_invalidatepages(struct mpage_da_data *mpd)
+ {
+ 	int nr_pages, i;
+ 	pgoff_t index, end;
+@@ -1903,9 +1918,8 @@ static void ext4_da_block_invalidatepage
+ 	struct inode *inode = mpd->inode;
+ 	struct address_space *mapping = inode->i_mapping;
+ 
+-	index = logical >> (PAGE_CACHE_SHIFT - inode->i_blkbits);
+-	end   = (logical + blk_cnt - 1) >>
+-				(PAGE_CACHE_SHIFT - inode->i_blkbits);
++	index = mpd->first_page;
++	end   = mpd->next_page - 1;
+ 	while (index <= end) {
+ 		nr_pages = pagevec_lookup(&pvec, mapping, index, PAGEVEC_SIZE);
+ 		if (nr_pages == 0)
+@@ -2056,8 +2070,7 @@ static int mpage_da_map_blocks(struct mp
+ 			ext4_print_free_blocks(mpd->inode);
+ 		}
+ 		/* invalidate all the pages */
+-		ext4_da_block_invalidatepages(mpd, next,
+-				mpd->b_size >> mpd->inode->i_blkbits);
++		ext4_da_block_invalidatepages(mpd);
+ 		return err;
+ 	}
+ 	BUG_ON(new.b_size == 0);
+diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
+--- a/fs/ext4/namei.c
++++ b/fs/ext4/namei.c
+@@ -1477,9 +1477,19 @@ static int make_indexed_dir(handle_t *ha
+ 	frame->bh = bh;
+ 	bh = bh2;
+ 	de = do_split(handle,dir, &bh, frame, &hinfo, &retval);
+-	dx_release (frames);
+-	if (!(de))
++	if (!de) {
++		/*
++		 * Even if the block split failed, we have to properly write
++		 * out all the changes we did so far. Otherwise we can end up
++		 * with corrupted filesystem.
++		 */
++		ext4_mark_inode_dirty(handle, dir);
++		ext4_handle_dirty_metadata(handle, dir, frame->bh);
++		ext4_handle_dirty_metadata(handle, dir, bh);
++		dx_release(frames);
+ 		return retval;
++	}
++	dx_release(frames);
+ 
+ 	return add_dirent_to_buf(handle, dentry, inode, de, bh);
+ }
+-- 
