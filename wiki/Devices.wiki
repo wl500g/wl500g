@@ -10,10 +10,10 @@ Originally from [http://oleg.wl500g.info/devices.html]
 ||WL-HDD/WL-HMD||BCM4702 125MHz||N/A||802.11g (BCM4306+BCM2050)||16MB SDR 32bit||4MB||1 x 1.1||1.9.2.7-9||||
 ||_Generation 2_||
 ||WL-500g Deluxe (WL-500gx)||BCM5365P/BCM5364P 200MHz||SoC||802.11g (BCM4306 + BCM2050)||32MB SDR 32bit||4MB||2 x 2.0 (VT6212L)||1.9.2.7-d||5/?||
-||WL-520g (WL-500g-X, WL-500g-C)||BCM5350 200MHz||SoC||802.11g (SoC + BCM2050)||8MB SDR 16bit||2MB||N/A||no||||
-||WL-550gE||BCM5352E 200MHz||SoC||802.11g (SoC + BCM2050)||16MB SDR 32bit||4MB||N/A||1.9.2.7-d||||
-||WL-320gE||BCM5352E 200MHz||SoC||802.11g (SoC + BCM2050)||16MB SDR 32bit||4MB||N/A||1.9.2.7-d||||
-||WL-320gP||BCM5352E 200MHz||SoC||802.11g (SoC + BCM2050)||16MB SDR 32bit||4MB||N/A||1.9.2.7-d||||
+||WL-520g (WL-500g-X, WL-500g-C)||BCM5350 200MHz||SoC||802.11g (SoC + BCM2050)||8MB SDR 16bit||2MB||N/A||no||-||
+||WL-550gE||BCM5352E 200MHz||SoC||802.11g (SoC 4320 + BCM2050)||16MB SDR 32bit||4MB||N/A||1.9.2.7-d||9/?||
+||WL-320gE||BCM5352E 200MHz||SoC||802.11g (SoC 4320 + BCM2050)||16MB SDR 32bit||4MB||N/A||1.9.2.7-d||9/?||
+||WL-320gP||BCM5352E 200MHz||SoC||802.11g (SoC 4320 + BCM2050)||16MB SDR 32bit||4MB||N/A||1.9.2.7-d||9/?||
 ||_Generation 3_||
 ||WL-700gE||BCM4780 264MHz||BCM5325E||802.11g (BCM4318E)||64MB DDR 32bit||2MB||3 x 2.0 (VT6212L)||1.9.2.7-d 1.9.2.7-rtn (after flash upgrade)||9/7||
 ||WL-500g Premium (WL-500gp)||BCM4704/BCM4780 264MHz||BCM5325E||MiniPCI 802.11g (BCM4318E)||32MB DDR 32bit||8MB||2 x 2.0 (VT6212L)||1.9.2.7-d 1.9.2.7-rtn||9/7||
