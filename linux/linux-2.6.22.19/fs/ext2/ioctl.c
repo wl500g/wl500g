@@ -43,8 +43,7 @@ int ext2_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 		if (get_user(flags, (int __user *) arg))
 			return -EFAULT;
 
-		if (!S_ISDIR(inode->i_mode))
-			flags &= ~EXT2_DIRSYNC_FL;
+		flags = ext2_mask_flags(inode->i_mode, flags);
 
 		mutex_lock(&inode->i_mutex);
 		oldflags = ei->i_flags;

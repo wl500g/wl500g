@@ -49,8 +49,7 @@ long ext3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto flags_out;
 		}
 
-		if (!S_ISDIR(inode->i_mode))
-			flags &= ~EXT3_DIRSYNC_FL;
+		flags = ext3_mask_flags(inode->i_mode, flags);
 
 		mutex_lock(&inode->i_mutex);
 
