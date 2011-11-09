@@ -10,3 +10,14 @@
  		}
  	}	/* end of main loop */
  
+--- miniupnpd.orig/upnpredirect.c	2011-02-27 16:17:55.000000000 +0000
++++ miniupnpd/upnpredirect.c	2011-11-09 17:44:33.528729002 +0000
+@@ -164,7 +164,7 @@ int reload_from_lease_file()
+ 	if(!lease_file) return -1;
+ 	fd = fopen( lease_file, "r");
+ 	if (fd==NULL) {
+-		syslog(LOG_ERR, "could not open lease file: %s", lease_file);
++		syslog(LOG_DEBUG, "could not open lease file: %s", lease_file);
+ 		return -1;
+ 	}
+ 	if(unlink(lease_file) < 0) {
