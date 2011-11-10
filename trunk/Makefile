@@ -116,10 +116,10 @@ $(TOP)/.config: config shared
 	$(MAKE) -C $(KERNEL) version
 	$(MAKE) -C $(TOP) .config
 
-$(ROOT)/lzma: $(LZMA).tbz2
+$(ROOT)/lzma: lzma/$(LZMA).tbz2
 	@rm -rf $@ && mkdir -p $@
-	tar -C $@ -xjf $(LZMA).tbz2
-	$(PATCHER) -Z $@ $(LZMA).patch
+	tar -C $@ -xjf $<
+	$(PATCHER) -Z $@ lzma/$(LZMA).patch
 
 lzma: $(ROOT)/lzma
 	@true
