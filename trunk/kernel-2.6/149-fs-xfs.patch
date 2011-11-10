@@ -257,16 +257,16 @@ diff --git a/fs/xfs/linux-2.6/kmem.c b/fs/xfs/linux-2.6/kmem.c
  		congestion_wait(WRITE, HZ/50);
  	} while (1);
  }
-@@ -90,13 +90,13 @@ kmem_zalloc_greedy(size_t *size, size_t
+@@ -90,13 +90,12 @@ kmem_zalloc_greedy(size_t *size, size_t
  }
  
  void
 -kmem_free(void *ptr, size_t size)
 +kmem_free(const void *ptr)
  {
- 	if (((unsigned long)ptr < VMALLOC_START) ||
+-	if (((unsigned long)ptr < VMALLOC_START) ||
 -	    ((unsigned long)ptr >= VMALLOC_END)) {
-+		((unsigned long)ptr >= VMALLOC_END)) {
++	if (!is_vmalloc_addr(ptr)) {
  		kfree(ptr);
  	} else {
 -		vfree(ptr);
@@ -1071,12 +1071,13 @@ diff --git a/fs/xfs/linux-2.6/xfs_buf.c b/fs/xfs/linux-2.6/xfs_buf.c
  			goto no_buffer;
  		}
  	}
-@@ -701,7 +706,7 @@ mem_to_page(
+@@ -701,8 +706,7 @@ mem_to_page(
+ mem_to_page(
  	void			*addr)
  {
- 	if (((unsigned long)addr < VMALLOC_START) ||
+-	if (((unsigned long)addr < VMALLOC_START) ||
 -	    ((unsigned long)addr >= VMALLOC_END)) {
-+		((unsigned long)addr >= VMALLOC_END)) {
++	if ((!is_vmalloc_addr(addr))) {
  		return virt_to_page(addr);
  	} else {
  		return vmalloc_to_page(addr);
