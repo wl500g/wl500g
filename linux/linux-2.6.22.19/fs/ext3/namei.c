@@ -149,7 +149,6 @@ struct dx_map_entry
 	u16 size;
 };
 
-#ifdef CONFIG_EXT3_INDEX
 static inline unsigned dx_get_block (struct dx_entry *entry);
 static void dx_set_block (struct dx_entry *entry, unsigned value);
 static inline unsigned dx_get_hash (struct dx_entry *entry);
@@ -775,8 +774,6 @@ static void dx_insert_block(struct dx_frame *frame, u32 hash, u32 block)
 	dx_set_block(new, block);
 	dx_set_count(entries, count + 1);
 }
-#endif
-
 
 static void ext3_update_dx_flag(struct inode *inode)
 {
@@ -868,17 +865,12 @@ static struct buffer_head * ext3_find_entry (struct dentry *dentry,
 	int nblocks, i, err;
 	struct inode *dir = dentry->d_parent->d_inode;
 	int namelen;
-	const u8 *name;
-	unsigned blocksize;
 
 	*res_dir = NULL;
 	sb = dir->i_sb;
-	blocksize = sb->s_blocksize;
 	namelen = dentry->d_name.len;
-	name = dentry->d_name.name;
 	if (namelen > EXT3_NAME_LEN)
 		return NULL;
-#ifdef CONFIG_EXT3_INDEX
 	if (is_dx(dir)) {
 		bh = ext3_dx_find_entry(dentry, res_dir, &err);
 		/*
@@ -890,7 +882,6 @@ static struct buffer_head * ext3_find_entry (struct dentry *dentry,
 			return bh;
 		dxtrace(printk("ext3_find_entry: dx failed, falling back\n"));
 	}
-#endif
 	nblocks = dir->i_size >> EXT3_BLOCK_SIZE_BITS(sb);
 	start = EXT3_I(dir)->i_dir_start_lookup;
 	if (start >= nblocks)
@@ -966,7 +957,6 @@ cleanup_and_exit:
 	return ret;
 }
 
-#ifdef CONFIG_EXT3_INDEX
 static struct buffer_head * ext3_dx_find_entry(struct dentry *dentry,
 		       struct ext3_dir_entry_2 **res_dir, int *err)
 {
@@ -1001,26 +991,28 @@ static struct buffer_head * ext3_dx_find_entry(struct dentry *dentry,
 		de = (struct ext3_dir_entry_2 *) bh->b_data;
 		top = (struct ext3_dir_entry_2 *) ((char *) de + sb->s_blocksize -
 				       EXT3_DIR_REC_LEN(0));
-		for (; de < top; de = ext3_next_entry(de))
-		if (ext3_match (namelen, name, de)) {
-			if (!ext3_check_dir_entry("ext3_find_entry",
-						  dir, de, bh,
-				  (block<<EXT3_BLOCK_SIZE_BITS(sb))
-					  +((char *)de - bh->b_data))) {
-				brelse (bh);
+		for (; de < top; de = ext3_next_entry(de)) {
+			int off = (block << EXT3_BLOCK_SIZE_BITS(sb))
+				  + ((char *) de - bh->b_data);
+
+			if (!ext3_check_dir_entry(__func__, dir, de, bh, off)) {
+				brelse(bh);
 				*err = ERR_BAD_DX_DIR;
 				goto errout;
 			}
-			*res_dir = de;
-			dx_release (frames);
-			return bh;
+
+			if (ext3_match(namelen, name, de)) {
+				*res_dir = de;
+				dx_release(frames);
+				return bh;
+			}
 		}
 		brelse (bh);
 		/* Check to see if we should continue to search */
 		retval = ext3_htree_next_block(dir, hash, frame,
 					       frames, NULL);
 		if (retval < 0) {
-			ext3_warning(sb, __FUNCTION__,
+			ext3_warning(sb, __func__,
 			     "error reading index page in directory #%lu",
 			     dir->i_ino);
 			*err = retval;
@@ -1034,7 +1026,6 @@ errout:
 	dx_release (frames);
 	return NULL;
 }
-#endif
 
 static struct dentry *ext3_lookup(struct inode * dir, struct dentry *dentry, struct nameidata *nd)
 {
@@ -1053,17 +1044,11 @@ static struct dentry *ext3_lookup(struct inode * dir, struct dentry *dentry, str
 		if (!ext3_valid_inum(dir->i_sb, ino)) {
 			ext3_error(dir->i_sb, "ext3_lookup",
 				   "bad inode number: %lu", ino);
-			inode = NULL;
-		} else
-			inode = iget(dir->i_sb, ino);
-
-		if (!inode)
-			return ERR_PTR(-EACCES);
-
-		if (is_bad_inode(inode)) {
-			iput(inode);
-			return ERR_PTR(-ENOENT);
+			return ERR_PTR(-EIO);
 		}
+		inode = ext3_iget(dir->i_sb, ino);
+		if (IS_ERR(inode))
+			return ERR_CAST(inode);
 	}
 	return d_splice_alias(inode, dentry);
 }
@@ -1092,17 +1077,12 @@ struct dentry *ext3_get_parent(struct dentry *child)
 	if (!ext3_valid_inum(child->d_inode->i_sb, ino)) {
 		ext3_error(child->d_inode->i_sb, "ext3_get_parent",
 			   "bad inode number: %lu", ino);
-		inode = NULL;
-	} else
-		inode = iget(child->d_inode->i_sb, ino);
-
-	if (!inode)
-		return ERR_PTR(-EACCES);
-
-	if (is_bad_inode(inode)) {
-		iput(inode);
-		return ERR_PTR(-ENOENT);
+		return ERR_PTR(-EIO);
 	}
+
+	inode = ext3_iget(child->d_inode->i_sb, ino);
+	if (IS_ERR(inode))
+		return ERR_CAST(inode);
 
 	parent = d_alloc_anon(inode);
 	if (!parent) {
@@ -1130,7 +1110,6 @@ static inline void ext3_set_de_type(struct super_block *sb,
 		de->file_type = ext3_type_by_mode[(mode & S_IFMT)>>S_SHIFT];
 }
 
-#ifdef CONFIG_EXT3_INDEX
 /*
  * Move count entries from end of map between two memory locations.
  * Returns pointer to last entry moved.
@@ -1274,7 +1253,6 @@ errout:
 	*error = err;
 	return NULL;
 }
-#endif
 
 
 /*
@@ -1372,7 +1350,6 @@ static int add_dirent_to_buf(handle_t *handle, struct dentry *dentry,
 	return 0;
 }
 
-#ifdef CONFIG_EXT3_INDEX
 /*
  * This converts a one block unindexed directory to a 3 block indexed
  * directory, and adds the dentry to the indexed directory.
@@ -1397,7 +1374,7 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
 	struct fake_dirent *fde;
 
 	blocksize =  dir->i_sb->s_blocksize;
-	dxtrace(printk("Creating index\n"));
+	dxtrace(printk(KERN_DEBUG "Creating index: inode %lu\n", dir->i_ino));
 	retval = ext3_journal_get_write_access(handle, bh);
 	if (retval) {
 		ext3_std_error(dir->i_sb, retval);
@@ -1405,6 +1382,19 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
 		return retval;
 	}
 	root = (struct dx_root *) bh->b_data;
+
+	/* The 0th block becomes the root, move the dirents out */
+	fde = &root->dotdot;
+	de = (struct ext3_dir_entry_2 *)((char *)fde +
+			ext3_rec_len_from_disk(fde->rec_len));
+	if ((char *) de >= (((char *) root) + blocksize)) {
+		ext3_error(dir->i_sb, __func__,
+			   "invalid rec_len for '..' in inode %lu",
+			   dir->i_ino);
+		brelse(bh);
+		return -EIO;
+	}
+	len = ((char *) root) + blocksize - (char *) de;
 
 	bh2 = ext3_append (handle, dir, &block, &retval);
 	if (!(bh2)) {
@@ -1414,11 +1404,6 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
 	EXT3_I(dir)->i_flags |= EXT3_INDEX_FL;
 	data1 = bh2->b_data;
 
-	/* The 0th block becomes the root, move the dirents out */
-	fde = &root->dotdot;
-	de = (struct ext3_dir_entry_2 *)((char *)fde +
-			ext3_rec_len_from_disk(fde->rec_len));
-	len = ((char *) root) + blocksize - (char *) de;
 	memcpy (data1, de, len);
 	de = (struct ext3_dir_entry_2 *) data1;
 	top = data1 + len;
@@ -1452,7 +1437,6 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
 
 	return add_dirent_to_buf(handle, dentry, inode, de, bh);
 }
-#endif
 
 /*
  *	ext3_add_entry()
@@ -1473,9 +1457,7 @@ static int ext3_add_entry (handle_t *handle, struct dentry *dentry,
 	struct ext3_dir_entry_2 *de;
 	struct super_block * sb;
 	int	retval;
-#ifdef CONFIG_EXT3_INDEX
 	int	dx_fallback=0;
-#endif
 	unsigned blocksize;
 	u32 block, blocks;
 
@@ -1483,7 +1465,6 @@ static int ext3_add_entry (handle_t *handle, struct dentry *dentry,
 	blocksize = sb->s_blocksize;
 	if (!dentry->d_name.len)
 		return -EINVAL;
-#ifdef CONFIG_EXT3_INDEX
 	if (is_dx(dir)) {
 		retval = ext3_dx_add_entry(handle, dentry, inode);
 		if (!retval || (retval != ERR_BAD_DX_DIR))
@@ -1492,7 +1473,6 @@ static int ext3_add_entry (handle_t *handle, struct dentry *dentry,
 		dx_fallback++;
 		ext3_mark_inode_dirty(handle, dir);
 	}
-#endif
 	blocks = dir->i_size >> sb->s_blocksize_bits;
 	for (block = 0, offset = 0; block < blocks; block++) {
 		bh = ext3_bread(handle, dir, block, 0, &retval);
@@ -1502,11 +1482,9 @@ static int ext3_add_entry (handle_t *handle, struct dentry *dentry,
 		if (retval != -ENOSPC)
 			return retval;
 
-#ifdef CONFIG_EXT3_INDEX
 		if (blocks == 1 && !dx_fallback &&
 		    EXT3_HAS_COMPAT_FEATURE(sb, EXT3_FEATURE_COMPAT_DIR_INDEX))
 			return make_indexed_dir(handle, dentry, inode, bh);
-#endif
 		brelse(bh);
 	}
 	bh = ext3_append(handle, dir, &block, &retval);
@@ -1518,7 +1496,6 @@ static int ext3_add_entry (handle_t *handle, struct dentry *dentry,
 	return add_dirent_to_buf(handle, dentry, inode, de, bh);
 }
 
-#ifdef CONFIG_EXT3_INDEX
 /*
  * Returns 0 for success, or a negative error value
  */
@@ -1578,8 +1555,8 @@ static int ext3_dx_add_entry(handle_t *handle, struct dentry *dentry,
 			goto cleanup;
 		node2 = (struct dx_node *)(bh2->b_data);
 		entries2 = node2->entries;
+		memset(&node2->fake, 0, sizeof(struct fake_dirent));
 		node2->fake.rec_len = ext3_rec_len_to_disk(sb->s_blocksize);
-		node2->fake.inode = 0;
 		BUFFER_TRACE(frame->bh, "get_write_access");
 		err = ext3_journal_get_write_access(handle, frame->bh);
 		if (err)
@@ -1653,7 +1630,6 @@ cleanup:
 	dx_release(frames);
 	return err;
 }
-#endif
 
 /*
  * ext3_delete_entry deletes a directory entry by merging it with the

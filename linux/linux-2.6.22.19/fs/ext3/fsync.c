@@ -47,7 +47,7 @@ int ext3_sync_file(struct file * file, struct dentry *dentry, int datasync)
 	struct inode *inode = dentry->d_inode;
 	int ret = 0;
 
-	J_ASSERT(ext3_journal_current_handle() == 0);
+	J_ASSERT(ext3_journal_current_handle() == NULL);
 
 	/*
 	 * data=writeback:
@@ -71,6 +71,9 @@ int ext3_sync_file(struct file * file, struct dentry *dentry, int datasync)
 		ret = ext3_force_commit(inode->i_sb);
 		goto out;
 	}
+
+	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC))
+		goto out;
 
 	/*
 	 * The VFS has written the file data.  If the inode is unaltered

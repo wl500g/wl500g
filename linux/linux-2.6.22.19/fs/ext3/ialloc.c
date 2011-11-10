@@ -202,14 +202,13 @@ static int find_group_dir(struct super_block *sb, struct inode *parent)
 	int ngroups = EXT3_SB(sb)->s_groups_count;
 	unsigned int freei, avefreei;
 	struct ext3_group_desc *desc, *best_desc = NULL;
-	struct buffer_head *bh;
 	int group, best_group = -1;
 
 	freei = percpu_counter_read_positive(&EXT3_SB(sb)->s_freeinodes_counter);
 	avefreei = freei / ngroups;
 
 	for (group = 0; group < ngroups; group++) {
-		desc = ext3_get_group_desc (sb, group, &bh);
+		desc = ext3_get_group_desc (sb, group, NULL);
 		if (!desc || !desc->bg_free_inodes_count)
 			continue;
 		if (le16_to_cpu(desc->bg_free_inodes_count) < avefreei)
@@ -240,7 +239,7 @@ static int find_group_dir(struct super_block *sb, struct inode *parent)
  * it has too few free inodes left (min_inodes) or
  * it has too few free blocks left (min_blocks) or
  * it's already running too large debt (max_debt).
- * Parent's group is prefered, if it doesn't satisfy these
+ * Parent's group is preferred, if it doesn't satisfy these
  * conditions we search cyclically through the rest. If none
  * of the groups look good we just look for a group with more
  * free inodes than average (starting at parent's group).
@@ -267,7 +266,6 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent)
 	ext3_grpblk_t min_blocks;
 	int group = -1, i;
 	struct ext3_group_desc *desc;
-	struct buffer_head *bh;
 
 	freei = percpu_counter_read_positive(&sbi->s_freeinodes_counter);
 	avefreei = freei / ngroups;
@@ -284,7 +282,7 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent)
 		parent_group = (unsigned)group % ngroups;
 		for (i = 0; i < ngroups; i++) {
 			group = (parent_group + i) % ngroups;
-			desc = ext3_get_group_desc (sb, group, &bh);
+			desc = ext3_get_group_desc (sb, group, NULL);
 			if (!desc || !desc->bg_free_inodes_count)
 				continue;
 			if (le16_to_cpu(desc->bg_used_dirs_count) >= best_ndir)
@@ -317,7 +315,7 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent)
 
 	for (i = 0; i < ngroups; i++) {
 		group = (parent_group + i) % ngroups;
-		desc = ext3_get_group_desc (sb, group, &bh);
+		desc = ext3_get_group_desc (sb, group, NULL);
 		if (!desc || !desc->bg_free_inodes_count)
 			continue;
 		if (le16_to_cpu(desc->bg_used_dirs_count) >= max_dirs)
@@ -332,7 +330,7 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent)
 fallback:
 	for (i = 0; i < ngroups; i++) {
 		group = (parent_group + i) % ngroups;
-		desc = ext3_get_group_desc (sb, group, &bh);
+		desc = ext3_get_group_desc (sb, group, NULL);
 		if (!desc || !desc->bg_free_inodes_count)
 			continue;
 		if (le16_to_cpu(desc->bg_free_inodes_count) >= avefreei)
@@ -356,14 +354,13 @@ static int find_group_other(struct super_block *sb, struct inode *parent)
 	int parent_group = EXT3_I(parent)->i_block_group;
 	int ngroups = EXT3_SB(sb)->s_groups_count;
 	struct ext3_group_desc *desc;
-	struct buffer_head *bh;
 	int group, i;
 
 	/*
 	 * Try to place the inode in its parent directory
 	 */
 	group = parent_group;
-	desc = ext3_get_group_desc (sb, group, &bh);
+	desc = ext3_get_group_desc (sb, group, NULL);
 	if (desc && le16_to_cpu(desc->bg_free_inodes_count) &&
 			le16_to_cpu(desc->bg_free_blocks_count))
 		return group;
@@ -387,7 +384,7 @@ static int find_group_other(struct super_block *sb, struct inode *parent)
 		group += i;
 		if (group >= ngroups)
 			group -= ngroups;
-		desc = ext3_get_group_desc (sb, group, &bh);
+		desc = ext3_get_group_desc (sb, group, NULL);
 		if (desc && le16_to_cpu(desc->bg_free_inodes_count) &&
 				le16_to_cpu(desc->bg_free_blocks_count))
 			return group;
@@ -401,7 +398,7 @@ static int find_group_other(struct super_block *sb, struct inode *parent)
 	for (i = 0; i < ngroups; i++) {
 		if (++group >= ngroups)
 			group = 0;
-		desc = ext3_get_group_desc (sb, group, &bh);
+		desc = ext3_get_group_desc (sb, group, NULL);
 		if (desc && le16_to_cpu(desc->bg_free_inodes_count))
 			return group;
 	}
@@ -641,54 +638,75 @@ struct inode *ext3_orphan_get(struct super_block *sb, unsigned long ino)
 	unsigned long max_ino = le32_to_cpu(EXT3_SB(sb)->s_es->s_inodes_count);
 	unsigned long block_group;
 	int bit;
-	struct buffer_head *bitmap_bh = NULL;
+	struct buffer_head *bitmap_bh;
 	struct inode *inode = NULL;
+	long err = -EIO;
 
 	/* Error cases - e2fsck has already cleaned up for us */
 	if (ino > max_ino) {
-		ext3_warning(sb, __FUNCTION__,
+		ext3_warning(sb, __func__,
 			     "bad orphan ino %lu!  e2fsck was run?", ino);
-		goto out;
+		goto error;
 	}
 
 	block_group = (ino - 1) / EXT3_INODES_PER_GROUP(sb);
 	bit = (ino - 1) % EXT3_INODES_PER_GROUP(sb);
 	bitmap_bh = read_inode_bitmap(sb, block_group);
 	if (!bitmap_bh) {
-		ext3_warning(sb, __FUNCTION__,
+		ext3_warning(sb, __func__,
 			     "inode bitmap error for orphan %lu", ino);
-		goto out;
+		goto error;
 	}
 
 	/* Having the inode bit set should be a 100% indicator that this
 	 * is a valid orphan (no e2fsck run on fs).  Orphans also include
 	 * inodes that were being truncated, so we can't check i_nlink==0.
 	 */
-	if (!ext3_test_bit(bit, bitmap_bh->b_data) ||
-			!(inode = iget(sb, ino)) || is_bad_inode(inode) ||
-			NEXT_ORPHAN(inode) > max_ino) {
-		ext3_warning(sb, __FUNCTION__,
-			     "bad orphan inode %lu!  e2fsck was run?", ino);
-		printk(KERN_NOTICE "ext3_test_bit(bit=%d, block=%llu) = %d\n",
-		       bit, (unsigned long long)bitmap_bh->b_blocknr,
-		       ext3_test_bit(bit, bitmap_bh->b_data));
-		printk(KERN_NOTICE "inode=%p\n", inode);
-		if (inode) {
-			printk(KERN_NOTICE "is_bad_inode(inode)=%d\n",
-			       is_bad_inode(inode));
-			printk(KERN_NOTICE "NEXT_ORPHAN(inode)=%u\n",
-			       NEXT_ORPHAN(inode));
-			printk(KERN_NOTICE "max_ino=%lu\n", max_ino);
-		}
-		/* Avoid freeing blocks if we got a bad deleted inode */
-		if (inode && inode->i_nlink == 0)
-			inode->i_blocks = 0;
-		iput(inode);
-		inode = NULL;
-	}
-out:
+	if (!ext3_test_bit(bit, bitmap_bh->b_data))
+		goto bad_orphan;
+
+	inode = ext3_iget(sb, ino);
+	if (IS_ERR(inode))
+		goto iget_failed;
+
+	/*
+	 * If the orphans has i_nlinks > 0 then it should be able to be
+	 * truncated, otherwise it won't be removed from the orphan list
+	 * during processing and an infinite loop will result.
+	 */
+	if (inode->i_nlink && !ext3_can_truncate(inode))
+		goto bad_orphan;
+
+	if (NEXT_ORPHAN(inode) > max_ino)
+		goto bad_orphan;
 	brelse(bitmap_bh);
 	return inode;
+
+iget_failed:
+	err = PTR_ERR(inode);
+	inode = NULL;
+bad_orphan:
+	ext3_warning(sb, __func__,
+		     "bad orphan inode %lu!  e2fsck was run?", ino);
+	printk(KERN_NOTICE "ext3_test_bit(bit=%d, block=%llu) = %d\n",
+	       bit, (unsigned long long)bitmap_bh->b_blocknr,
+	       ext3_test_bit(bit, bitmap_bh->b_data));
+	printk(KERN_NOTICE "inode=%p\n", inode);
+	if (inode) {
+		printk(KERN_NOTICE "is_bad_inode(inode)=%d\n",
+		       is_bad_inode(inode));
+		printk(KERN_NOTICE "NEXT_ORPHAN(inode)=%u\n",
+		       NEXT_ORPHAN(inode));
+		printk(KERN_NOTICE "max_ino=%lu\n", max_ino);
+		printk(KERN_NOTICE "i_nlink=%u\n", inode->i_nlink);
+		/* Avoid freeing blocks if we got a bad deleted inode */
+		if (inode->i_nlink == 0)
+			inode->i_blocks = 0;
+		iput(inode);
+	}
+	brelse(bitmap_bh);
+error:
+	return ERR_PTR(err);
 }
 
 unsigned long ext3_count_free_inodes (struct super_block * sb)
