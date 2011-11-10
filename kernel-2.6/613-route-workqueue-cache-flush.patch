@@ -1,12 +1,12 @@
-From c20419c7d376a35143bbd361f403fd2faab6c18a
 From: Eric Dumazet
 Date: Mon, 16 Aug 2010 01:30:29 -0400
 Subject: [PATCH] IPV4 : Move ip route cache flush (secret_rebuild) from softirq to workqueue
 
 kernel.org commits
-beb659bd8c9f2ccc8195779383f71088f936bf6e
-1bcabbdb0bdfe8b15b05150a7857646430aaa7f8
-0bcceadceb0907094ba4e40bf9a7cd9b080f13fb
+beb659bd8c9f2ccc8195779383f71088f936bf6e IPV4 : Move ip route cache flush (secret_rebuild) from softirq to workqueue
+1bcabbdb0bdfe8b15b05150a7857646430aaa7f8 [IPV4] route.c: mostly kmalloc + memset conversion to k[cz]alloc
+0bcceadceb0907094ba4e40bf9a7cd9b080f13fb [IPV4] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
+
 ---
  net/ipv4/route.c |   93 ++++++++++++++++-------
  1 files changed, 64 insertions(+), 29 deletions(-)
@@ -176,4 +176,3 @@ diff --git a/net/ipv4/route.c b/net/ipv4/route.c
  /*
 -- 
 1.6.5.GIT
-
