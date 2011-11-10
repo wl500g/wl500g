@@ -47,7 +47,7 @@ diff --git a/fs/jbd/commit.c b/fs/jbd/commit.c
 @@ -175,7 +177,8 @@ static void journal_do_submit_data(struct buffer_head **wbuf, int bufs)
   *  Submit all the data buffers to disk
   */
- static void journal_submit_data_buffers(journal_t *journal,
+ static int journal_submit_data_buffers(journal_t *journal,
 -				transaction_t *commit_transaction)
 +				       transaction_t *commit_transaction,
 +				       int write_op)
@@ -78,9 +78,9 @@ diff --git a/fs/jbd/commit.c b/fs/jbd/commit.c
  	spin_unlock(&journal->j_list_lock);
 -	journal_do_submit_data(wbuf, bufs);
 +	journal_do_submit_data(wbuf, bufs, write_op);
- }
  
- /*
+ 	return err;
+ }
 @@ -297,6 +300,7 @@ void journal_commit_transaction(journal_t *journal)
  	int first_tag = 0;
  	int tag_flag;
@@ -99,11 +99,11 @@ diff --git a/fs/jbd/commit.c b/fs/jbd/commit.c
  	while (commit_transaction->t_updates) {
  		DEFINE_WAIT(wait);
 @@ -413,7 +419,8 @@ void journal_commit_transaction(journal_t *journal)
+ 
  	 * on the transaction lists.  Data blocks go first.
  	 */
- 	err = 0;
--	journal_submit_data_buffers(journal, commit_transaction);
-+	journal_submit_data_buffers(journal, commit_transaction,
+-	err = journal_submit_data_buffers(journal, commit_transaction);
++	err = journal_submit_data_buffers(journal, commit_transaction,
 +				    write_op);
  
  	/*
