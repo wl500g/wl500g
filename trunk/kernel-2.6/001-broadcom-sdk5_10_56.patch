@@ -1,3 +1,44 @@
+Broadcom SDK 5.10.56
+
+---
+ Makefile                       |   36 +++++++++
+ arch/mips/Kconfig              |   46 +++++++++++-
+ arch/mips/Kconfig.debug        |    5 +
+ arch/mips/Makefile             |   21 +++++
+ arch/mips/defconfig            |    1 
+ arch/mips/kernel/Makefile      |   13 +++
+ arch/mips/kernel/cpu-probe.c   |   59 +++++++++++++++-
+ arch/mips/kernel/gdb-stub.c    |    2 
+ arch/mips/kernel/genex.S       |    4 +
+ arch/mips/kernel/head.S        |   12 +++
+ arch/mips/kernel/proc.c        |   13 +++
+ arch/mips/kernel/scall32-o32.S |   15 ++++
+ arch/mips/kernel/syscall.c     |   54 ++++++++++++++
+ arch/mips/kernel/time.c        |   49 +++++++++++++
+ arch/mips/mm/c-r4k.c           |   30 +++++++-
+ arch/mips/mm/tlbex.c           |    2 
+ arch/mips/pci/pci.c            |  148 -----------------------------------------
+ drivers/Makefile               |    2 
+ drivers/mtd/chips/cfi_probe.c  |    1 
+ drivers/mtd/devices/Kconfig    |    3 
+ drivers/mtd/devices/Makefile   |    1 
+ drivers/mtd/maps/Kconfig       |    5 +
+ drivers/mtd/maps/Makefile      |    1 
+ drivers/net/Kconfig            |    2 
+ drivers/net/Makefile           |   10 ++
+ include/asm-mips/bootinfo.h    |   10 ++
+ include/asm-mips/cpu.h         |   17 ++++
+ include/asm-mips/fixmap.h      |    2 
+ include/asm-mips/mipsregs.h    |    9 ++
+ include/asm-mips/stackframe.h  |    4 +
+ init/calibrate.c               |    7 +
+ kernel/extable.c               |    3 
+ kernel/irq/spurious.c          |    4 +
+ kernel/printk.c                |    7 +
+ lib/Kconfig.debug              |    7 +
+ mm/bootmem.c                   |    4 +
+ 36 files changed, 444 insertions(+), 165 deletions(-)
+
 diff -urBwNp linux-2.6.22/arch/mips/defconfig linux-2.6/arch/mips/defconfig
 --- linux-2.6.22/arch/mips/defconfig	2007-07-09 03:32:17.000000000 +0400
 +++ linux-2.6/arch/mips/defconfig	2008-12-12 06:25:39.000000000 +0300
@@ -1195,3 +1236,4 @@ diff -urBwNp linux-2.6.22/arch/mips/kernel/gdb-stub.c linux-2.6/arch/mips/kernel
  	{ 9, SIGTRAP },			/* break */
  	{ 10, SIGILL },			/* reserved instruction */
  /*	{ 11, SIGILL },		*/	/* CPU unusable */
+-- 
