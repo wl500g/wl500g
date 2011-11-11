@@ -32,7 +32,7 @@ brcm-shared:
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 brcm-kernel:
-	tar -C kernel $(TAR_EXCL_SVN) -cf - arch drivers | tar -C $(KERNEL_DIR) -xf -
+	tar -C kernel $(TAR_EXCL_SVN) -cf - arch drivers include sound | tar -C $(KERNEL_DIR) -xf -
 
 libbcmcrypto: router/libbcmcrypto
 	tar -C router $(TAR_EXCL_SVN) -cf - $@ | tar -C $(TOP) --recursive-unlink -xf -
