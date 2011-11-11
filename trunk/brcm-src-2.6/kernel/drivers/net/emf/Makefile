@@ -12,15 +12,14 @@
 # $Id: Makefile,v 1.3 2008/08/13 20:20:16 Exp $
 #
 
-EMFSRCDIR := ../../../../../router/emf/emf
-EMFCSRCDIR := ../../../../../emf/emf
-EMFDIR := ../../../../../router/emf
+EMFSRCDIR := ../../../../../emf/emf
+EMFDIR := ../../../../../emf
 
-EMF_OBJS := $(EMFCSRCDIR)/emfc.o $(EMFSRCDIR)/emf_linux.o
+EMF_OBJS := $(EMFSRCDIR)/emfc.o $(EMFSRCDIR)/emf_linux.o
 
-# Search for sources under src/router/emf/emf
+# Search for sources under src/emf/emf
 ifneq ($(wildcard $(src)/$(EMFSRCDIR)),)
-	EXTRA_CFLAGS += -I../../router/emf/emf -I../../router/emf/igs
+	EXTRA_CFLAGS += -I$(EMFDIR)/emf -I$(EMFDIR)/igs
 	EXTRA_CFLAGS += -I../../include/emf/emf -I../../include/emf/igs
 	emf-objs := $(EMF_OBJS)
 else
@@ -40,4 +39,4 @@ clean:
 	$(MAKE) -C $(KERNELDIR) M=`pwd` clean
 endif
 
-clean-files += $(EMFCSRCDIR)/*.o $(EMFSRCDIR)/*.o $(EMFSRCDIR)/.*.o.cmd
+clean-files += $(EMFSRCDIR)/*.o $(EMFSRCDIR)/.*.o.cmd
