@@ -111,7 +111,7 @@ extern struct ext2_dir_entry_2 * ext2_find_entry (struct inode *,struct dentry *
 extern int ext2_delete_entry (struct ext2_dir_entry_2 *, struct page *);
 extern int ext2_empty_dir (struct inode *);
 extern struct ext2_dir_entry_2 * ext2_dotdot (struct inode *, struct page **);
-extern void ext2_set_link(struct inode *, struct ext2_dir_entry_2 *, struct page *, struct inode *);
+extern void ext2_set_link(struct inode *, struct ext2_dir_entry_2 *, struct page *, struct inode *, int);
 
 /* fsync.c */
 extern int ext2_sync_file (struct file *, struct dentry *, int);
