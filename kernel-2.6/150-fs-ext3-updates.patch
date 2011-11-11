@@ -1,0 +1,719 @@
+ext3: Updates from upstream
+
+ 5e1f8c9e20a92743eefc9a82c2db835213905e26 ext3: Add support for non-native signed/unsigned htree hash algorithms
+ 9e80d407736161d9b8b0c5a0d44f786e44c322ea ext3: Avoid starting a transaction in writepage when not necessary
+ 430db323fae7665da721768949ade6304811c648 ext3: Try to avoid starting a transaction in writepage for data=writepage
+ f7ab34ea723ed304b19698efca85d6f40cecd99b ext3: Add replace-on-truncate hueristics for data=writeback mode
+ e7c8f5079ed9ec9e6eb1abe3defc5fb4ebfdf1cb ext3: Add replace-on-rename hueristics for data=writeback mode
+ 9df93939b735dd273e49cbee290b9f4738500ef4 ext3: Use bitops to read/modify EXT3_I(inode)->i_state
+ de329820e920cd9cfbc2127cad26a37026260cce ext3: fix broken handling of EXT3_STATE_NEW
+ ae54870a1dc978a88377ae8af0780648f2ccd4dc ext3: Fix lock inversion in ext3_symlink()
+ 86c4f6d85595cd7da635dc6985d27bfa43b1ae10 ext3: Fix fs corruption when make_indexed_dir() fails
+
+---
+ fs/ext3/file.c             |    4 +
+ fs/ext3/hash.c             |   77 +++++++++++++++++++++++++++++++++-----
+ fs/ext3/ialloc.c           |    4 +
+ fs/ext3/inode.c            |   52 ++++++++++++++++++-------
+ fs/ext3/namei.c            |   91 ++++++++++++++++++++++++++++++++++++++-------
+ fs/ext3/super.c            |   12 +++++
+ fs/ext3/xattr.c            |   14 +++---
+ include/linux/ext3_fs.h    |   60 +++++++++++++++++++++++++----
+ include/linux/ext3_fs_i.h  |    2 
+ include/linux/ext3_fs_sb.h |    1 
+ 10 files changed, 263 insertions(+), 54 deletions(-)
+
+diff --git a/fs/ext3/file.c b/fs/ext3/file.c
+--- a/fs/ext3/file.c
++++ b/fs/ext3/file.c
+@@ -33,6 +33,10 @@
+  */
+ static int ext3_release_file (struct inode * inode, struct file * filp)
+ {
++	if (ext3_test_inode_state(inode, EXT3_STATE_FLUSH_ON_CLOSE)) {
++		filemap_flush(inode->i_mapping);
++		ext3_clear_inode_state(inode, EXT3_STATE_FLUSH_ON_CLOSE);
++	}
+ 	/* if we are the last writer on the inode, drop the block reservation */
+ 	if ((filp->f_mode & FMODE_WRITE) &&
+ 			(atomic_read(&inode->i_writecount) == 1))
+diff --git a/fs/ext3/hash.c b/fs/ext3/hash.c
+--- a/fs/ext3/hash.c
++++ b/fs/ext3/hash.c
+@@ -35,23 +35,71 @@ static void TEA_transform(__u32 buf[4], 
+ 
+ 
+ /* The old legacy hash */
+-static __u32 dx_hack_hash (const char *name, int len)
++static __u32 dx_hack_hash_unsigned(const char *name, int len)
+ {
+-	__u32 hash0 = 0x12a3fe2d, hash1 = 0x37abe8f9;
++	__u32 hash, hash0 = 0x12a3fe2d, hash1 = 0x37abe8f9;
++	const unsigned char *ucp = (const unsigned char *) name;
++
++	while (len--) {
++		hash = hash1 + (hash0 ^ (((int) *ucp++) * 7152373));
++
++		if (hash & 0x80000000)
++			hash -= 0x7fffffff;
++		hash1 = hash0;
++		hash0 = hash;
++	}
++	return hash0 << 1;
++}
++
++static __u32 dx_hack_hash_signed(const char *name, int len)
++{
++	__u32 hash, hash0 = 0x12a3fe2d, hash1 = 0x37abe8f9;
++	const signed char *scp = (const signed char *) name;
++
+ 	while (len--) {
+-		__u32 hash = hash1 + (hash0 ^ (*name++ * 7152373));
++		hash = hash1 + (hash0 ^ (((int) *scp++) * 7152373));
+ 
+-		if (hash & 0x80000000) hash -= 0x7fffffff;
++		if (hash & 0x80000000)
++			hash -= 0x7fffffff;
+ 		hash1 = hash0;
+ 		hash0 = hash;
+ 	}
+-	return (hash0 << 1);
++	return hash0 << 1;
+ }
+ 
+-static void str2hashbuf(const char *msg, int len, __u32 *buf, int num)
++static void str2hashbuf_signed(const char *msg, int len, __u32 *buf, int num)
+ {
+ 	__u32	pad, val;
+ 	int	i;
++	const signed char *scp = (const signed char *) msg;
++
++	pad = (__u32)len | ((__u32)len << 8);
++	pad |= pad << 16;
++
++	val = pad;
++	if (len > num*4)
++		len = num * 4;
++	for (i = 0; i < len; i++) {
++		if ((i % 4) == 0)
++			val = pad;
++		val = ((int) scp[i]) + (val << 8);
++		if ((i % 4) == 3) {
++			*buf++ = val;
++			val = pad;
++			num--;
++		}
++	}
++	if (--num >= 0)
++		*buf++ = val;
++	while (--num >= 0)
++		*buf++ = pad;
++}
++
++static void str2hashbuf_unsigned(const char *msg, int len, __u32 *buf, int num)
++{
++	__u32	pad, val;
++	int	i;
++	const unsigned char *ucp = (const unsigned char *) msg;
+ 
+ 	pad = (__u32)len | ((__u32)len << 8);
+ 	pad |= pad << 16;
+@@ -62,7 +110,7 @@ static void str2hashbuf(const char *msg,
+ 	for (i=0; i < len; i++) {
+ 		if ((i % 4) == 0)
+ 			val = pad;
+-		val = msg[i] + (val << 8);
++		val = ((int) ucp[i]) + (val << 8);
+ 		if ((i % 4) == 3) {
+ 			*buf++ = val;
+ 			val = pad;
+@@ -95,6 +143,8 @@ int ext3fs_dirhash(const char *name, int
+ 	const char	*p;
+ 	int		i;
+ 	__u32		in[8], buf[4];
++	void		(*str2hashbuf)(const char *, int, __u32 *, int) =
++				str2hashbuf_signed;
+ 
+ 	/* Initialize the default seed for the hash checksum functions */
+ 	buf[0] = 0x67452301;
+@@ -113,13 +163,18 @@ int ext3fs_dirhash(const char *name, int
+ 	}
+ 
+ 	switch (hinfo->hash_version) {
++	case DX_HASH_LEGACY_UNSIGNED:
++		hash = dx_hack_hash_unsigned(name, len);
++		break;
+ 	case DX_HASH_LEGACY:
+-		hash = dx_hack_hash(name, len);
++		hash = dx_hack_hash_signed(name, len);
+ 		break;
++	case DX_HASH_HALF_MD4_UNSIGNED:
++		str2hashbuf = str2hashbuf_unsigned;
+ 	case DX_HASH_HALF_MD4:
+ 		p = name;
+ 		while (len > 0) {
+-			str2hashbuf(p, len, in, 8);
++			(*str2hashbuf)(p, len, in, 8);
+ 			half_md4_transform(buf, in);
+ 			len -= 32;
+ 			p += 32;
+@@ -127,10 +182,12 @@ int ext3fs_dirhash(const char *name, int
+ 		minor_hash = buf[2];
+ 		hash = buf[1];
+ 		break;
++	case DX_HASH_TEA_UNSIGNED:
++		str2hashbuf = str2hashbuf_unsigned;
+ 	case DX_HASH_TEA:
+ 		p = name;
+ 		while (len > 0) {
+-			str2hashbuf(p, len, in, 4);
++			(*str2hashbuf)(p, len, in, 4);
+ 			TEA_transform(buf, in);
+ 			len -= 16;
+ 			p += 16;
+diff --git a/fs/ext3/ialloc.c b/fs/ext3/ialloc.c
+--- a/fs/ext3/ialloc.c
++++ b/fs/ext3/ialloc.c
+@@ -580,7 +580,9 @@ got:
+ 	inode->i_generation = sbi->s_next_generation++;
+ 	spin_unlock(&sbi->s_next_gen_lock);
+ 
+-	ei->i_state = EXT3_STATE_NEW;
++	ei->i_state_flags = 0;
++	ext3_set_inode_state(inode, EXT3_STATE_NEW);
++
+ 	ei->i_extra_isize =
+ 		(EXT3_INODE_SIZE(inode->i_sb) > EXT3_GOOD_OLD_INODE_SIZE) ?
+ 		sizeof(struct ext3_inode) - EXT3_GOOD_OLD_INODE_SIZE : 0;
+diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
+--- a/fs/ext3/inode.c
++++ b/fs/ext3/inode.c
+@@ -1330,7 +1330,7 @@ static int ext3_journalled_write_end(str
+ 		SetPageUptodate(page);
+ 	if (pos+copied > inode->i_size)
+ 		i_size_write(inode, pos+copied);
+-	EXT3_I(inode)->i_state |= EXT3_STATE_JDATA;
++	ext3_set_inode_state(inode, EXT3_STATE_JDATA);
+ 	if (inode->i_size > EXT3_I(inode)->i_disksize) {
+ 		EXT3_I(inode)->i_disksize = inode->i_size;
+ 		ret2 = ext3_mark_inode_dirty(handle, inode);
+@@ -1366,7 +1366,7 @@ static sector_t ext3_bmap(struct address
+ 	journal_t *journal;
+ 	int err;
+ 
+-	if (EXT3_I(inode)->i_state & EXT3_STATE_JDATA) {
++	if (ext3_test_inode_state(inode, EXT3_STATE_JDATA)) {
+ 		/*
+ 		 * This is a REALLY heavyweight approach, but the use of
+ 		 * bmap on dirty files is expected to be extremely rare:
+@@ -1385,7 +1385,7 @@ static sector_t ext3_bmap(struct address
+ 		 * everything they get.
+ 		 */
+ 
+-		EXT3_I(inode)->i_state &= ~EXT3_STATE_JDATA;
++		ext3_clear_inode_state(inode, EXT3_STATE_JDATA);
+ 		journal = EXT3_JOURNAL(inode);
+ 		journal_lock_updates(journal);
+ 		err = journal_flush(journal);
+@@ -1417,6 +1417,10 @@ static int journal_dirty_data_fn(handle_
+ 	return 0;
+ }
+ 
++static int buffer_unmapped(handle_t *handle, struct buffer_head *bh)
++{
++	return !buffer_mapped(bh);
++}
+ /*
+  * Note that we always start a transaction even if we're not journalling
+  * data.  This is to preserve ordering: any hole instantiation within
+@@ -1487,6 +1491,19 @@ static int ext3_ordered_writepage(struct
+ 	if (ext3_journal_current_handle())
+ 		goto out_fail;
+ 
++	if (!page_has_buffers(page)) {
++		create_empty_buffers(page, inode->i_sb->s_blocksize,
++				(1 << BH_Dirty)|(1 << BH_Uptodate));
++		page_bufs = page_buffers(page);
++	} else {
++		page_bufs = page_buffers(page);
++		if (!walk_page_buffers(NULL, page_bufs, 0, PAGE_CACHE_SIZE,
++				       NULL, buffer_unmapped)) {
++			/* Provide NULL get_block() to catch bugs if buffers
++			 * weren't really mapped */
++			return block_write_full_page(page, NULL, wbc);
++		}
++	}
+ 	handle = ext3_journal_start(inode, ext3_writepage_trans_blocks(inode));
+ 
+ 	if (IS_ERR(handle)) {
+@@ -1494,11 +1511,6 @@ static int ext3_ordered_writepage(struct
+ 		goto out_fail;
+ 	}
+ 
+-	if (!page_has_buffers(page)) {
+-		create_empty_buffers(page, inode->i_sb->s_blocksize,
+-				(1 << BH_Dirty)|(1 << BH_Uptodate));
+-	}
+-	page_bufs = page_buffers(page);
+ 	walk_page_buffers(handle, page_bufs, 0,
+ 			PAGE_CACHE_SIZE, NULL, bget_one);
+ 
+@@ -1546,6 +1558,15 @@ static int ext3_writeback_writepage(stru
+ 	if (ext3_journal_current_handle())
+ 		goto out_fail;
+ 
++	if (page_has_buffers(page)) {
++		if (!walk_page_buffers(NULL, page_buffers(page), 0,
++				      PAGE_CACHE_SIZE, NULL, buffer_unmapped)) {
++			/* Provide NULL get_block() to catch bugs if buffers
++			 * weren't really mapped */
++			return block_write_full_page(page, NULL, wbc);
++		}
++	}
++
+ 	handle = ext3_journal_start(inode, ext3_writepage_trans_blocks(inode));
+ 	if (IS_ERR(handle)) {
+ 		ret = PTR_ERR(handle);
+@@ -1604,7 +1625,7 @@ static int ext3_journalled_writepage(str
+ 				PAGE_CACHE_SIZE, NULL, write_end_fn);
+ 		if (ret == 0)
+ 			ret = err;
+-		EXT3_I(inode)->i_state |= EXT3_STATE_JDATA;
++		ext3_set_inode_state(inode, EXT3_STATE_JDATA);
+ 		unlock_page(page);
+ 	} else {
+ 		/*
+@@ -2328,6 +2349,9 @@ void ext3_truncate(struct inode *inode)
+ 	if (!ext3_can_truncate(inode))
+ 		return;
+ 
++	if (inode->i_size == 0 && ext3_should_writeback_data(inode))
++		ext3_set_inode_state(inode, EXT3_STATE_FLUSH_ON_CLOSE);
++
+ 	/*
+ 	 * We have to lock the EOF page here, because lock_page() nests
+ 	 * outside journal_start().
+@@ -2637,7 +2661,7 @@ int ext3_get_inode_loc(struct inode *ino
+ {
+ 	/* We have all inode data except xattrs in memory here. */
+ 	return __ext3_get_inode_loc(inode, iloc,
+-		!(EXT3_I(inode)->i_state & EXT3_STATE_XATTR));
++		!ext3_test_inode_state(inode, EXT3_STATE_XATTR));
+ }
+ 
+ void ext3_set_inode_flags(struct inode *inode)
+@@ -2718,7 +2742,7 @@ struct inode *ext3_iget(struct super_blo
+ 	inode->i_mtime.tv_sec = (signed)le32_to_cpu(raw_inode->i_mtime);
+ 	inode->i_atime.tv_nsec = inode->i_ctime.tv_nsec = inode->i_mtime.tv_nsec = 0;
+ 
+-	ei->i_state = 0;
++	ei->i_state_flags = 0;
+ 	ei->i_dir_start_lookup = 0;
+ 	ei->i_dtime = le32_to_cpu(raw_inode->i_dtime);
+ 	/* We now have enough fields to check if the inode was active or not.
+@@ -2787,7 +2811,7 @@ struct inode *ext3_iget(struct super_blo
+ 					EXT3_GOOD_OLD_INODE_SIZE +
+ 					ei->i_extra_isize;
+ 			if (*magic == cpu_to_le32(EXT3_XATTR_MAGIC))
+-				 ei->i_state |= EXT3_STATE_XATTR;
++				 ext3_set_inode_state(inode, EXT3_STATE_XATTR);
+ 		}
+ 	} else
+ 		ei->i_extra_isize = 0;
+@@ -2843,7 +2867,7 @@ static int ext3_do_update_inode(handle_t
+ 
+ 	/* For fields not not tracking in the in-memory inode,
+ 	 * initialise them to zero for new inodes. */
+-	if (ei->i_state & EXT3_STATE_NEW)
++	if (ext3_test_inode_state(inode, EXT3_STATE_NEW))
+ 		memset(raw_inode, 0, EXT3_SB(inode->i_sb)->s_inode_size);
+ 
+ 	ext3_get_inode_flags(ei);
+@@ -2936,7 +2960,7 @@ static int ext3_do_update_inode(handle_t
+ 	rc = ext3_journal_dirty_metadata(handle, bh);
+ 	if (!err)
+ 		err = rc;
+-	ei->i_state &= ~EXT3_STATE_NEW;
++	ext3_clear_inode_state(inode, EXT3_STATE_NEW);
+ 
+ out_brelse:
+ 	brelse (bh);
+diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
+--- a/fs/ext3/namei.c
++++ b/fs/ext3/namei.c
+@@ -369,6 +369,8 @@ dx_probe(struct dentry *dentry, struct i
+ 		goto fail;
+ 	}
+ 	hinfo->hash_version = root->info.hash_version;
++	if (hinfo->hash_version <= DX_HASH_TEA)
++		hinfo->hash_version += EXT3_SB(dir->i_sb)->s_hash_unsigned;
+ 	hinfo->seed = EXT3_SB(dir->i_sb)->s_hash_seed;
+ 	if (dentry)
+ 		ext3fs_dirhash(dentry->d_name.name, dentry->d_name.len, hinfo);
+@@ -637,6 +639,9 @@ int ext3_htree_fill_tree(struct file *di
+ 	dir = dir_file->f_path.dentry->d_inode;
+ 	if (!(EXT3_I(dir)->i_flags & EXT3_INDEX_FL)) {
+ 		hinfo.hash_version = EXT3_SB(dir->i_sb)->s_def_hash_version;
++		if (hinfo.hash_version <= DX_HASH_TEA)
++			hinfo.hash_version +=
++				EXT3_SB(dir->i_sb)->s_hash_unsigned;
+ 		hinfo.seed = EXT3_SB(dir->i_sb)->s_hash_seed;
+ 		count = htree_dirblock_to_tree(dir_file, dir, 0, &hinfo,
+ 					       start_hash, start_minor_hash);
+@@ -1423,6 +1428,8 @@ static int make_indexed_dir(handle_t *ha
+ 
+ 	/* Initialize as for dx_probe */
+ 	hinfo.hash_version = root->info.hash_version;
++	if (hinfo.hash_version <= DX_HASH_TEA)
++		hinfo.hash_version += EXT3_SB(dir->i_sb)->s_hash_unsigned;
+ 	hinfo.seed = EXT3_SB(dir->i_sb)->s_hash_seed;
+ 	ext3fs_dirhash(name, namelen, &hinfo);
+ 	frame = frames;
+@@ -1430,10 +1437,19 @@ static int make_indexed_dir(handle_t *ha
+ 	frame->at = entries;
+ 	frame->bh = bh;
+ 	bh = bh2;
++	/*
++	 * Mark buffers dirty here so that if do_split() fails we write a
++	 * consistent set of buffers to disk.
++	 */
++	ext3_journal_dirty_metadata(handle, frame->bh);
++	ext3_journal_dirty_metadata(handle, bh);
+ 	de = do_split(handle,dir, &bh, frame, &hinfo, &retval);
+-	dx_release (frames);
+-	if (!(de))
++	if (!de) {
++		ext3_mark_inode_dirty(handle, dir);
++		dx_release(frames);
+ 		return retval;
++	}
++	dx_release(frames);
+ 
+ 	return add_dirent_to_buf(handle, dentry, inode, de, bh);
+ }
+@@ -2167,15 +2183,32 @@ static int ext3_symlink (struct inode * 
+ 	handle_t *handle;
+ 	struct inode * inode;
+ 	int l, err, retries = 0;
++	int credits;
+ 
+ 	l = strlen(symname)+1;
+ 	if (l > dir->i_sb->s_blocksize)
+ 		return -ENAMETOOLONG;
+ 
++	if (l > EXT3_N_BLOCKS * 4) {
++		/*
++		 * For non-fast symlinks, we just allocate inode and put it on
++		 * orphan list in the first transaction => we need bitmap,
++		 * group descriptor, sb, inode block, quota blocks.
++		 */
++		credits = 4 + 2*EXT3_QUOTA_INIT_BLOCKS(dir->i_sb);
++	} else {
++		/*
++		 * Fast symlink. We have to add entry to directory
++		 * (EXT3_DATA_TRANS_BLOCKS + EXT3_INDEX_EXTRA_TRANS_BLOCKS),
++		 * allocate new inode (bitmap, group descriptor, inode block,
++		 * quota blocks, sb is already counted in previous macros).
++		 */
++		credits = EXT3_DATA_TRANS_BLOCKS(dir->i_sb) +
++			  EXT3_INDEX_EXTRA_TRANS_BLOCKS + 3 +
++				2*EXT3_QUOTA_INIT_BLOCKS(dir->i_sb);
++	}
+ retry:
+-	handle = ext3_journal_start(dir, EXT3_DATA_TRANS_BLOCKS(dir->i_sb) +
+-					EXT3_INDEX_EXTRA_TRANS_BLOCKS + 5 +
+-					2*EXT3_QUOTA_INIT_BLOCKS(dir->i_sb));
++	handle = ext3_journal_start(dir, credits);
+ 	if (IS_ERR(handle))
+ 		return PTR_ERR(handle);
+ 
+@@ -2187,20 +2220,45 @@ retry:
+ 	if (IS_ERR(inode))
+ 		goto out_stop;
+ 
+-	if (l > sizeof (EXT3_I(inode)->i_data)) {
++	if (l > EXT3_N_BLOCKS * 4) {
+ 		inode->i_op = &ext3_symlink_inode_operations;
+ 		ext3_set_aops(inode);
+ 		/*
+-		 * page_symlink() calls into ext3_prepare/commit_write.
+-		 * We have a transaction open.  All is sweetness.  It also sets
+-		 * i_size in generic_commit_write().
++		 * We cannot call page_symlink() with transaction started
++		 * because it calls into ext3_write_begin() which acquires page
++		 * lock which ranks below transaction start (and it can also
++		 * wait for journal commit if we are running out of space). So
++		 * we have to stop transaction now and restart it when symlink
++		 * contents is written. 
++		 *
++		 * To keep fs consistent in case of crash, we have to put inode
++		 * to orphan list in the mean time.
+ 		 */
++		drop_nlink(inode);
++		err = ext3_orphan_add(handle, inode);
++		ext3_journal_stop(handle);
++		if (err)
++			goto err_drop_inode;
+ 		err = __page_symlink(inode, symname, l, 1);
++		if (err)
++			goto err_drop_inode;
++		/*
++		 * Now inode is being linked into dir (EXT3_DATA_TRANS_BLOCKS
++		 * + EXT3_INDEX_EXTRA_TRANS_BLOCKS), inode is also modified
++		 */
++		handle = ext3_journal_start(dir,
++				EXT3_DATA_TRANS_BLOCKS(dir->i_sb) +
++				EXT3_INDEX_EXTRA_TRANS_BLOCKS + 1);
++		if (IS_ERR(handle)) {
++			err = PTR_ERR(handle);
++			goto err_drop_inode;
++		}
++		inc_nlink(inode);
++		err = ext3_orphan_del(handle, inode);
+ 		if (err) {
++			ext3_journal_stop(handle);
+ 			drop_nlink(inode);
+-			ext3_mark_inode_dirty(handle, inode);
+-			iput (inode);
+-			goto out_stop;
++			goto err_drop_inode;
+ 		}
+ 	} else {
+ 		inode->i_op = &ext3_fast_symlink_inode_operations;
+@@ -2214,6 +2272,9 @@ out_stop:
+ 	if (err == -ENOSPC && ext3_should_retry_alloc(dir->i_sb, &retries))
+ 		goto retry;
+ 	return err;
++err_drop_inode:
++	iput (inode);
++	return err;
+ }
+ 
+ static int ext3_link (struct dentry * old_dentry,
+@@ -2266,7 +2327,7 @@ static int ext3_rename (struct inode * o
+ 	struct inode * old_inode, * new_inode;
+ 	struct buffer_head * old_bh, * new_bh, * dir_bh;
+ 	struct ext3_dir_entry_2 * old_de, * new_de;
+-	int retval;
++	int retval, flush_file = 0;
+ 
+ 	old_bh = new_bh = dir_bh = NULL;
+ 
+@@ -2401,6 +2462,8 @@ static int ext3_rename (struct inode * o
+ 		ext3_mark_inode_dirty(handle, new_inode);
+ 		if (!new_inode->i_nlink)
+ 			ext3_orphan_add(handle, new_inode);
++		if (ext3_should_writeback_data(new_inode))
++			flush_file = 1;
+ 	}
+ 	retval = 0;
+ 
+@@ -2409,6 +2472,8 @@ end_rename:
+ 	brelse (old_bh);
+ 	brelse (new_bh);
+ 	ext3_journal_stop(handle);
++	if (retval == 0 && flush_file)
++		filemap_flush(old_inode->i_mapping);
+ 	return retval;
+ }
+ 
+diff --git a/fs/ext3/super.c b/fs/ext3/super.c
+--- a/fs/ext3/super.c
++++ b/fs/ext3/super.c
+@@ -1733,6 +1733,18 @@ static int ext3_fill_super (struct super
+ 	for (i=0; i < 4; i++)
+ 		sbi->s_hash_seed[i] = le32_to_cpu(es->s_hash_seed[i]);
+ 	sbi->s_def_hash_version = es->s_def_hash_version;
++	i = le32_to_cpu(es->s_flags);
++	if (i & EXT2_FLAGS_UNSIGNED_HASH)
++		sbi->s_hash_unsigned = 3;
++	else if ((i & EXT2_FLAGS_SIGNED_HASH) == 0) {
++#ifdef __CHAR_UNSIGNED__
++		es->s_flags |= cpu_to_le32(EXT2_FLAGS_UNSIGNED_HASH);
++		sbi->s_hash_unsigned = 3;
++#else
++		es->s_flags |= cpu_to_le32(EXT2_FLAGS_SIGNED_HASH);
++#endif
++		sb->s_dirt = 1;
++	}
+ 
+ 	if (sbi->s_blocks_per_group > blocksize * 8) {
+ 		printk (KERN_ERR
+diff --git a/fs/ext3/xattr.c b/fs/ext3/xattr.c
+--- a/fs/ext3/xattr.c
++++ b/fs/ext3/xattr.c
+@@ -274,7 +274,7 @@ ext3_xattr_ibody_get(struct inode *inode
+ 	void *end;
+ 	int error;
+ 
+-	if (!(EXT3_I(inode)->i_state & EXT3_STATE_XATTR))
++	if (!ext3_test_inode_state(inode, EXT3_STATE_XATTR))
+ 		return -ENODATA;
+ 	error = ext3_get_inode_loc(inode, &iloc);
+ 	if (error)
+@@ -400,7 +400,7 @@ ext3_xattr_ibody_list(struct inode *inod
+ 	void *end;
+ 	int error;
+ 
+-	if (!(EXT3_I(inode)->i_state & EXT3_STATE_XATTR))
++	if (!ext3_test_inode_state(inode, EXT3_STATE_XATTR))
+ 		return 0;
+ 	error = ext3_get_inode_loc(inode, &iloc);
+ 	if (error)
+@@ -880,7 +880,7 @@ ext3_xattr_ibody_find(struct inode *inod
+ 	is->s.base = is->s.first = IFIRST(header);
+ 	is->s.here = is->s.first;
+ 	is->s.end = (void *)raw_inode + EXT3_SB(inode->i_sb)->s_inode_size;
+-	if (EXT3_I(inode)->i_state & EXT3_STATE_XATTR) {
++	if (ext3_test_inode_state(inode, EXT3_STATE_XATTR)) {
+ 		error = ext3_xattr_check_names(IFIRST(header), is->s.end);
+ 		if (error)
+ 			return error;
+@@ -912,10 +912,10 @@ ext3_xattr_ibody_set(handle_t *handle, s
+ 	header = IHDR(inode, ext3_raw_inode(&is->iloc));
+ 	if (!IS_LAST_ENTRY(s->first)) {
+ 		header->h_magic = cpu_to_le32(EXT3_XATTR_MAGIC);
+-		EXT3_I(inode)->i_state |= EXT3_STATE_XATTR;
++		ext3_set_inode_state(inode, EXT3_STATE_XATTR);
+ 	} else {
+ 		header->h_magic = cpu_to_le32(0);
+-		EXT3_I(inode)->i_state &= ~EXT3_STATE_XATTR;
++		ext3_clear_inode_state(inode, EXT3_STATE_XATTR);
+ 	}
+ 	return 0;
+ }
+@@ -961,10 +961,10 @@ ext3_xattr_set_handle(handle_t *handle, 
+ 	if (error)
+ 		goto cleanup;
+ 
+-	if (EXT3_I(inode)->i_state & EXT3_STATE_NEW) {
++	if (ext3_test_inode_state(inode, EXT3_STATE_NEW)) {
+ 		struct ext3_inode *raw_inode = ext3_raw_inode(&is.iloc);
+ 		memset(raw_inode, 0, EXT3_SB(inode->i_sb)->s_inode_size);
+-		EXT3_I(inode)->i_state &= ~EXT3_STATE_NEW;
++		ext3_clear_inode_state(inode, EXT3_STATE_NEW);
+ 	}
+ 
+ 	error = ext3_xattr_ibody_find(inode, &i, &is);
+diff --git a/include/linux/ext3_fs.h b/include/linux/ext3_fs.h
+--- a/include/linux/ext3_fs.h
++++ b/include/linux/ext3_fs.h
+@@ -202,13 +202,6 @@ static inline __u32 ext3_mask_flags(umod
+ 		return flags & EXT3_OTHER_FLMASK;
+ }
+ 
+-/*
+- * Inode dynamic state flags
+- */
+-#define EXT3_STATE_JDATA		0x00000001 /* journaled data exists */
+-#define EXT3_STATE_NEW			0x00000002 /* inode is newly created */
+-#define EXT3_STATE_XATTR		0x00000004 /* has in-inode xattrs */
+-
+ /* Used to pass group descriptor data when online resize is done */
+ struct ext3_new_group_input {
+ 	__u32 group;            /* Group number for this data */
+@@ -378,6 +371,13 @@ struct ext3_inode {
+ #define	EXT3_ORPHAN_FS			0x0004	/* Orphans being recovered */
+ 
+ /*
++ * Misc. filesystem flags
++ */
++#define EXT2_FLAGS_SIGNED_HASH		0x0001  /* Signed dirhash in use */
++#define EXT2_FLAGS_UNSIGNED_HASH	0x0002  /* Unsigned dirhash in use */
++#define EXT2_FLAGS_TEST_FILESYS		0x0004	/* to test development code */
++
++/*
+  * Mount flags
+  */
+ #define EXT3_MOUNT_CHECK		0x00001	/* Do mount-time checks */
+@@ -511,7 +511,23 @@ struct ext3_super_block {
+ 	__u16	s_reserved_word_pad;
+ 	__le32	s_default_mount_opts;
+ 	__le32	s_first_meta_bg;	/* First metablock block group */
+-	__u32	s_reserved[190];	/* Padding to the end of the block */
++	__le32	s_mkfs_time;		/* When the filesystem was created */
++	__le32	s_jnl_blocks[17];	/* Backup of the journal inode */
++	/* 64bit support valid if EXT4_FEATURE_COMPAT_64BIT */
++/*150*/	__le32	s_blocks_count_hi;	/* Blocks count */
++	__le32	s_r_blocks_count_hi;	/* Reserved blocks count */
++	__le32	s_free_blocks_count_hi;	/* Free blocks count */
++	__le16	s_min_extra_isize;	/* All inodes have at least # bytes */
++	__le16	s_want_extra_isize; 	/* New inodes should reserve # bytes */
++	__le32	s_flags;		/* Miscellaneous flags */
++	__le16  s_raid_stride;		/* RAID stride */
++	__le16  s_mmp_interval;         /* # seconds to wait in MMP checking */
++	__le64  s_mmp_block;            /* Block for multi-mount protection */
++	__le32  s_raid_stripe_width;    /* blocks on all data disks (N*stride)*/
++	__u8	s_log_groups_per_flex;  /* FLEX_BG group size */
++	__u8	s_reserved_char_pad2;
++	__le16  s_reserved_pad;
++	__u32   s_reserved[162];        /* Padding to the end of the block */
+ };
+ 
+ #ifdef __KERNEL__
+@@ -534,6 +550,31 @@ static inline int ext3_valid_inum(struct
+ 		(ino >= EXT3_FIRST_INO(sb) &&
+ 		 ino <= le32_to_cpu(EXT3_SB(sb)->s_es->s_inodes_count));
+ }
++
++/*
++ * Inode dynamic state flags
++ */
++enum {
++	EXT3_STATE_JDATA,		/* journaled data exists */
++	EXT3_STATE_NEW,			/* inode is newly created */
++	EXT3_STATE_XATTR,		/* has in-inode xattrs */
++	EXT3_STATE_FLUSH_ON_CLOSE,	/* flush dirty pages on close */
++};
++
++static inline int ext3_test_inode_state(struct inode *inode, int bit)
++{
++	return test_bit(bit, &EXT3_I(inode)->i_state_flags);
++}
++
++static inline void ext3_set_inode_state(struct inode *inode, int bit)
++{
++	set_bit(bit, &EXT3_I(inode)->i_state_flags);
++}
++
++static inline void ext3_clear_inode_state(struct inode *inode, int bit)
++{
++	clear_bit(bit, &EXT3_I(inode)->i_state_flags);
++}
+ #else
+ /* Assume that user mode programs are passing in an ext3fs superblock, not
+  * a kernel struct super_block.  This will allow us to call the feature-test
+@@ -725,6 +766,9 @@ static inline __le16 ext3_rec_len_to_dis
+ #define DX_HASH_LEGACY		0
+ #define DX_HASH_HALF_MD4	1
+ #define DX_HASH_TEA		2
++#define DX_HASH_LEGACY_UNSIGNED	3
++#define DX_HASH_HALF_MD4_UNSIGNED	4
++#define DX_HASH_TEA_UNSIGNED		5
+ 
+ #ifdef __KERNEL__
+ 
+diff --git a/include/linux/ext3_fs_i.h b/include/linux/ext3_fs_i.h
+--- a/include/linux/ext3_fs_i.h
++++ b/include/linux/ext3_fs_i.h
+@@ -87,7 +87,7 @@ struct ext3_inode_info {
+ 	 * near to their parent directory's inode.
+ 	 */
+ 	__u32	i_block_group;
+-	__u32	i_state;		/* Dynamic state flags for ext3 */
++	unsigned long	i_state_flags;	/* Dynamic state flags for ext3 */
+ 
+ 	/* block reservation info */
+ 	struct ext3_block_alloc_info *i_block_alloc_info;
+diff --git a/include/linux/ext3_fs_sb.h b/include/linux/ext3_fs_sb.h
+--- a/include/linux/ext3_fs_sb.h
++++ b/include/linux/ext3_fs_sb.h
+@@ -57,6 +57,7 @@ struct ext3_sb_info {
+ 	u32 s_next_generation;
+ 	u32 s_hash_seed[4];
+ 	int s_def_hash_version;
++	int s_hash_unsigned;	/* 3 if hash should be signed, 0 if not */
+ 	struct percpu_counter s_freeblocks_counter;
+ 	struct percpu_counter s_freeinodes_counter;
+ 	struct percpu_counter s_dirs_counter;
+-- 
