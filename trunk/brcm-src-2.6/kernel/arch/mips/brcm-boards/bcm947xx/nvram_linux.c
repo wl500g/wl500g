@@ -11,7 +11,6 @@
  * $Id: nvram_linux.c,v 1.8 2008/07/04 01:15:09 Exp $
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>

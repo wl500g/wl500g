@@ -109,7 +109,7 @@ diff -urBwNp linux-2.6.22/net/ipv4/netfilter/Makefile linux-2.6/net/ipv4/netfilt
 diff -urBwNp linux-2.6.22/net/ipv4/netfilter/nf_nat_autofw.c linux-2.6/net/ipv4/netfilter/nf_nat_autofw.c
 --- linux-2.6.22/net/ipv4/netfilter/nf_nat_autofw.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/net/ipv4/netfilter/nf_nat_autofw.c	2008-12-12 06:35:04.000000000 +0300
-@@ -0,0 +1,260 @@
+@@ -0,0 +1,259 @@
 +/*
 + * Automatic port forwarding target. When this target is entered, a
 + * related connection to a port in the reply direction will be
@@ -126,7 +126,6 @@ diff -urBwNp linux-2.6.22/net/ipv4/netfilter/nf_nat_autofw.c linux-2.6/net/ipv4/
 + * $Id: nf_nat_autofw.c,v 1.1 2008/10/02 03:40:29 Exp $
 + */
 +
-+#include <linux/config.h>
 +#include <linux/types.h>
 +#include <linux/ip.h>
 +#include <linux/timer.h>

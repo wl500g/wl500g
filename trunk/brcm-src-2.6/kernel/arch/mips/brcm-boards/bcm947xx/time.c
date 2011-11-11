@@ -9,7 +9,6 @@
  *
  * $Id: time.c,v 1.8 2008/07/04 01:06:30 Exp $
  */
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>

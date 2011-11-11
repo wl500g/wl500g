@@ -62,7 +62,7 @@
  	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,
 --- a/net/ipv4/netfilter/bcm_nat.c	1970-01-01 00:00:00.000000000 +0000
 +++ b/net/ipv4/netfilter/bcm_nat.c	2011-07-11 19:44:07.418095000 +0000
-@@ -0,0 +1,199 @@
+@@ -0,0 +1,198 @@
 +/*
 + * Packet matching code.
 + *
@@ -73,7 +73,6 @@
 + * 	- increase module usage count as soon as we have rules inside
 + * 	  a table
 + */
-+#include <linux/config.h>
 +#include <linux/cache.h>
 +#include <linux/skbuff.h>
 +#include <linux/kmod.h>

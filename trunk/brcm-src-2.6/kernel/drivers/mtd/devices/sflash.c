@@ -12,7 +12,6 @@
  * $Id: sflash.c,v 1.1 2008/07/09 09:56:22 Exp $
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/ioport.h>

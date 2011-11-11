@@ -1,7 +1,7 @@
 diff -uNBp a/drivers/char/gpiortc.c b/drivers/char/gpiortc.c
 --- a/drivers/char/gpiortc.c	1970-01-01 03:00:00.000000000 +0300
 +++ b/drivers/char/gpiortc.c	2011-03-05 18:50:15.000000000 +0300
-@@ -0,0 +1,559 @@
+@@ -0,0 +1,558 @@
 +/*
 + * Real Time Clock driver for WL-HDD & WL-700gE
 + *
@@ -44,7 +44,6 @@ diff -uNBp a/drivers/char/gpiortc.c b/drivers/char/gpiortc.c
 + * $Id: rtc.c 7 2007-05-25 19:37:01Z ae $
 + */
 +
-+#include <linux/config.h>
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/types.h>
