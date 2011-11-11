@@ -31,6 +31,9 @@ brcm-shared:
 	tar -C . $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx et | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
+brcm-kernel:
+	tar -C kernel $(TAR_EXCL_SVN) -cf - arch drivers | tar -C $(KERNEL_DIR) -xf -
+
 libbcmcrypto: router/libbcmcrypto
 	tar -C router $(TAR_EXCL_SVN) -cf - $@ | tar -C $(TOP) --recursive-unlink -xf -
 
