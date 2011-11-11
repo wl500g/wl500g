@@ -63,13 +63,13 @@ gpio_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 		val = si_gpioin(gpio_sih);
 		break;
 	case 1:
-		val = si_gpioout(gpio_sih, 0, 0);
+		val = si_gpioout(gpio_sih, 0, 0, GPIO_DRV_PRIORITY);
 		break;
 	case 2:
-		val = si_gpioouten(gpio_sih, 0, 0);
+		val = si_gpioouten(gpio_sih, 0, 0, GPIO_DRV_PRIORITY);
 		break;
 	case 3:
-		val = si_gpiocontrol(gpio_sih, 0, 0);
+		val = si_gpiocontrol(gpio_sih, 0, 0, GPIO_DRV_PRIORITY);
 		break;
 	default:
 		return -ENODEV;
@@ -93,13 +93,13 @@ gpio_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 	case 0:
 		return -EACCES;
 	case 1:
-		si_gpioout(gpio_sih, ~0, val);
+		si_gpioout(gpio_sih, ~0, val, GPIO_DRV_PRIORITY);
 		break;
 	case 2:
-		si_gpioouten(gpio_sih, ~0, val);
+		si_gpioouten(gpio_sih, ~0, val, GPIO_DRV_PRIORITY);
 		break;
 	case 3:
-		si_gpiocontrol(gpio_sih, ~0, val);
+		si_gpiocontrol(gpio_sih, ~0, val, GPIO_DRV_PRIORITY);
 		break;
 	default:
 		return -ENODEV;

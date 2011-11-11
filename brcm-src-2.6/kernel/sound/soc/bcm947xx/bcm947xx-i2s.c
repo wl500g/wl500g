@@ -35,6 +35,7 @@
 #include <hnddma.h>
 #include <sbchipc.h>
 #include <i2s_core.h>
+#include <hndpmu.h>
 
 #include "bcm947xx-i2s.h"
 
@@ -253,6 +254,10 @@ static int bcm947xx_i2s_hw_params(struct snd_pcm_substream *substream,
 	devctrl &= ~I2S_DC_WL_TX_MASK;
 	stxctrl &= ~I2S_STXC_WL_MASK;
 	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_U8:
+		devctrl |= 0x4000;
+		stxctrl |= 0x1000;
+		break;
 	case SNDRV_PCM_FORMAT_S16_LE:
 		devctrl |= 0x0;
 		stxctrl |= 0x0;
@@ -282,8 +287,14 @@ static int bcm947xx_i2s_hw_params(struct snd_pcm_substream *substream,
 
 	/* Write I2S devcontrol reg */
 	W_REG(snd_bcm.osh, &snd_bcm->regs->devcontrol, devctrl);
+	devctrl |= I2S_DC_I2SCFG;  /* Set up core's SRAM for Half duplex Tx */
+	W_REG(snd_bcm.osh, &snd_bcm->regs->devcontrol, devctrl);
 	W_REG(snd_bcm.osh, &snd_bcm->regs->stxctrl, stxctrl);
+	DBG("%s: set devctrl 0x%x && stxctrl 0x%x\n", __FUNCTION__, devctrl, stxctrl);
 
+	DBG("%s: read devctrl 0x%x stxctrl 0x%x\n", __FUNCTION__,
+	    R_REG(snd_bcm.osh, &snd_bcm->regs->devcontrol),
+	    R_REG(snd_bcm.osh, &snd_bcm->regs->stxctrl));
 	return 0;
 }
 
@@ -351,11 +362,10 @@ bcm947xx_i2s_pci_attach(uint16 vendor, uint16 device, ulong regs, uint bustype, 
 	bcm947xx_i2s_info_t *snd = NULL;
 	int ret;
 
-	uint addrwidth;
 	int dma_attach_err = 0;
 
 
-	DBG("%s: vendor 0x%x device 0x%x regs 0x%x bustype 0x%x btparam %p irq 0x%x\n",
+	DBG("%s: vendor 0x%x device 0x%x regs 0x%lx bustype 0x%x btparam %p irq 0x%x\n",
 	    __FUNCTION__, vendor, device, regs, bustype, btparam, irq);
 
 
@@ -387,8 +397,7 @@ bcm947xx_i2s_pci_attach(uint16 vendor, uint16 device, ulong regs, uint bustype, 
 	                        NULL, NULL);
 
 	snd->regs = (i2sregs_t *)si_setcore(snd->sih, I2S_CORE_ID, 0);
-
-	addrwidth = dma_addrwidth(snd->sih, DMAREG(snd, DMA_TX, 0));
+	si_core_reset(snd->sih, 0, 0);
 
 	snd->di[0] = dma_attach(snd->osh, "i2s_dma", snd->sih,
 	                            DMAREG(snd, DMA_TX, 0),
@@ -400,12 +409,19 @@ bcm947xx_i2s_pci_attach(uint16 vendor, uint16 device, ulong regs, uint bustype, 
 	/* Tell DMA that we're not using framed/packet data */
 	dma_ctrlflags(snd->di[0], DMA_CTRL_UNFRAMED /* mask */, DMA_CTRL_UNFRAMED /* value */);
 
-	/* for 471X chips, Turn on I2S pins. They're MUX'd with PFLASH pins, and PFLASH is ON
-	 * by default
-	 */
 	if (CHIPID(snd->sih->chip) == BCM4716_CHIP_ID) {
+		/* for 471X chips, Turn on I2S pins. They're MUX'd with PFLASH pins, and PFLASH
+		 * is ON by default
+		 */
 		ret = si_corereg(snd->sih, SI_CC_IDX, OFFSETOF(chipcregs_t, chipcontrol),
-	                 CCTRL471X_I2S_PINS_ENABLE, CCTRL471X_I2S_PINS_ENABLE);
+	                 CCTRL_471X_I2S_PINS_ENABLE, CCTRL_471X_I2S_PINS_ENABLE);
+	} else if (CHIPID(snd->sih->chip) == BCM5357_CHIP_ID) {
+		/* Write to the 2nd chipcontrol reg. to turn on I2S pins */
+		ret = si_pmu_chipcontrol(snd->sih, PMU1_PLL0_CHIPCTL1, CCTRL_5357_I2S_PINS_ENABLE,
+		                         CCTRL_5357_I2S_PINS_ENABLE);
+		/* Write to the 2nd chipcontrol reg. to turn on I2C-via-gpio pins */
+		ret = si_pmu_chipcontrol(snd->sih, PMU1_PLL0_CHIPCTL1,
+		                         CCTRL_5357_I2CSPI_PINS_ENABLE, 0);
 	}
 
 	return snd;
@@ -453,7 +469,6 @@ bcm947xx_i2s_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		return -ENODEV;
 
 	pci_set_drvdata(pdev, snd_bcm);
-	DBG("%s: snd_bcm @ %p snd_bcm.regs @ %p\n", __FUNCTION__, snd_bcm, snd_bcm.regs);
 
 	return err;
 }
