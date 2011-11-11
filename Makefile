@@ -130,6 +130,9 @@ wl:
 brcm-shared:
 	$(MAKE) -C $(BRCM-SRC) $@
 
+brcm-kernel:
+	$(MAKE) -C $(BRCM-SRC) $@
+
 kernel-mrproper:
 	$(MAKE) -C $(KERNEL) mrproper
 
@@ -139,7 +142,7 @@ kernel-patch:
 kernel-extra-drivers:
 	$(MAKE) -C $(KERNEL) extra-drivers
 
-kernel: lzma wl brcm-shared kernel-extra-drivers kernel-patch
+kernel: lzma wl brcm-shared brcm-kernel kernel-extra-drivers kernel-patch
 	$(MAKE) -C $(KERNEL) config
 
 $(ROOT)/asustrx:
