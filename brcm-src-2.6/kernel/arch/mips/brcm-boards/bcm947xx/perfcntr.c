@@ -12,8 +12,6 @@
  * $Id: perfcntr.c,v 1.1 2007/09/04 04:45:20 Exp $
  */
 
-#include <linux/config.h>
-
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #include <typedefs.h>

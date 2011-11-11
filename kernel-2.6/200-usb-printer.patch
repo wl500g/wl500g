@@ -10,14 +10,6 @@ Subject: [PATCH] Printer kernel driver: support multiple procfs entries
 diff --git a/drivers/usb/class/usblp.c b/drivers/usb/class/usblp.c
 --- a/drivers/usb/class/usblp.c
 +++ b/drivers/usb/class/usblp.c
-@@ -46,6 +46,7 @@
-  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-  */
- 
-+#include <linux/config.h>
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/sched.h>
 @@ -62,7 +63,9 @@
  
  #ifdef U2EC

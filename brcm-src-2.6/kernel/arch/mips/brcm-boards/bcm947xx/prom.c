@@ -12,7 +12,6 @@
  * $Id: prom.c,v 1.5 2009/06/08 17:32:33 Exp $
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/types.h>

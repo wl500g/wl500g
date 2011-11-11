@@ -12,7 +12,6 @@
 #
 
 cat <<EOF
-#include <linux/config.h>
 #include <linux/module.h>
 
 EOF

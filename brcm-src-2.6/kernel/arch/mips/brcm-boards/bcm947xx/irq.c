@@ -41,8 +41,6 @@
  * $Id: irq.c,v 1.8 2008/07/04 01:20:42 Exp $
  */
 
-#include <linux/config.h>
-
 #ifdef CONFIG_SMP
 /*
  * This code is designed to work on Uniprocessor only.

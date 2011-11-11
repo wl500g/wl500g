@@ -20,7 +20,6 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
 #include <linux/mtd/partitions.h>
-#include <linux/config.h>
 
 #include <typedefs.h>
 #include <bcmnvram.h>

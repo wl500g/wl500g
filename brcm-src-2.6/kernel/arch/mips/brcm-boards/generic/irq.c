@@ -12,7 +12,6 @@
  * $Id: irq.c,v 1.1 2007/09/04 04:41:12 Exp $
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
