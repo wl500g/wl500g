@@ -56,6 +56,14 @@ obj-$(CONFIG_HND) := hnd.o shared_ksyms.o
 
 clean-files := shared_ksyms.c
 
+#ifdef BCMDBG
+EXP_OBJS := $(HND_OBJS)
+#else
+EXP_OBJS := $(filter-out $(src)/$(SHARED)/aiutils.o $(src)/$(SHARED)/sbutils.o \
+ $(src)/$(SHARED)/nicpci.o \
+ ,$(HND_OBJS))
+#endif
+
 ifeq ($(wildcard $(src)/$(SHARED)/bcmutils.c),)
 $(src)/$(SHARED)/bcmutils.o: $(src)/$(SHARED)/linux/bcmutils.o
 	cp $< $@
@@ -111,5 +119,5 @@ $(src)/$(SHARED)/nicpci.o: $(src)/$(SHARED)/linux/nicpci.o
 	cp $< $@
 endif
 
-$(src)/shared_ksyms.c: $(src)/shared_ksyms.sh $(HND_OBJS)
-	sh -e $< $(HND_OBJS) > $@
+$(src)/shared_ksyms.c: $(src)/shared_ksyms.sh $(EXP_OBJS)
+	sh -e $< $(EXP_OBJS) > $@

@@ -28,6 +28,10 @@ ifeq ($(CONFIG_PCI),y)
 BCM947XX_OBJS += $(addprefix $(SHARED)/, hndpci.o) pcibios.o
 endif
 
+ifeq ($(CONFIG_WAPI),y)
+EXTRA_CFLAGS += -DBCMWAPI_WAI
+endif
+
 ifeq ($(CONFIG_GENERIC_GPIO),y)
 BCM947XX_OBJS += gen_gpio.o
 endif
