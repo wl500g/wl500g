@@ -588,9 +588,9 @@ int snd_pcm_status(struct snd_pcm_substream *substream,
 		if (runtime->tstamp_mode & SNDRV_PCM_TSTAMP_MMAP)
 			status->tstamp = runtime->status->tstamp;
 		else
-			getnstimeofday(&status->tstamp);
+			snd_pcm_gettime(runtime, &status->tstamp);
 	} else
-		getnstimeofday(&status->tstamp);
+		snd_pcm_gettime(runtime, &status->tstamp);
 	status->appl_ptr = runtime->control->appl_ptr;
 	status->hw_ptr = runtime->status->hw_ptr;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -678,7 +678,7 @@ static void snd_pcm_trigger_tstamp(struct snd_pcm_substream *substream)
 	if (runtime->trigger_master == NULL)
 		return;
 	if (runtime->trigger_master == substream) {
-		getnstimeofday(&runtime->trigger_tstamp);
+		snd_pcm_gettime(runtime, &runtime->trigger_tstamp);
 	} else {
 		snd_pcm_trigger_tstamp(runtime->trigger_master);
 		runtime->trigger_tstamp = runtime->trigger_master->runtime->trigger_tstamp;
@@ -2074,7 +2074,6 @@ static int snd_pcm_open_file(struct file *file,
 {
 	struct snd_pcm_file *pcm_file;
 	struct snd_pcm_substream *substream;
-	struct snd_pcm_str *str;
 	int err;
 
 	snd_assert(rpcm_file != NULL, return -EINVAL);
@@ -2091,7 +2090,6 @@ static int snd_pcm_open_file(struct file *file,
 	}
 	pcm_file->substream = substream;
 	if (substream->ref_count == 1) {
-		str = substream->pstr;
 		substream->file = pcm_file;
 		substream->pcm_release = pcm_release_private;
 	}
@@ -2503,6 +2501,21 @@ static int snd_pcm_sync_ptr(struct snd_pcm_substream *substream,
 		return -EFAULT;
 	return 0;
 }
+
+static int snd_pcm_tstamp(struct snd_pcm_substream *substream, int __user *_arg)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	int arg;
+	
+	if (get_user(arg, _arg))
+		return -EFAULT;
+	if (arg < 0 || arg > SNDRV_PCM_TSTAMP_TYPE_LAST)
+		return -EINVAL;
+	runtime->tstamp_type = SNDRV_PCM_TSTAMP_TYPE_GETTIMEOFDAY;
+	if (arg == SNDRV_PCM_TSTAMP_TYPE_MONOTONIC)
+		runtime->tstamp_type = SNDRV_PCM_TSTAMP_TYPE_MONOTONIC;
+	return 0;
+}
 		
 static int snd_pcm_common_ioctl1(struct file *file,
 				 struct snd_pcm_substream *substream,
@@ -2515,8 +2528,8 @@ static int snd_pcm_common_ioctl1(struct file *file,
 		return put_user(SNDRV_PCM_VERSION, (int __user *)arg) ? -EFAULT : 0;
 	case SNDRV_PCM_IOCTL_INFO:
 		return snd_pcm_info_user(substream, arg);
-	case SNDRV_PCM_IOCTL_TSTAMP: /* just for compatibility */
-		return 0;
+	case SNDRV_PCM_IOCTL_TTSTAMP:
+		return snd_pcm_tstamp(substream, arg);
 	case SNDRV_PCM_IOCTL_HW_REFINE:
 		return snd_pcm_hw_refine_user(substream, arg);
 	case SNDRV_PCM_IOCTL_HW_PARAMS:
@@ -3023,12 +3036,9 @@ static struct vm_operations_struct snd_pcm_vm_ops_status =
 static int snd_pcm_mmap_status(struct snd_pcm_substream *substream, struct file *file,
 			       struct vm_area_struct *area)
 {
-	struct snd_pcm_runtime *runtime;
 	long size;
 	if (!(area->vm_flags & VM_READ))
 		return -EINVAL;
-	runtime = substream->runtime;
-	snd_assert(runtime != NULL, return -EAGAIN);
 	size = area->vm_end - area->vm_start;
 	if (size != PAGE_ALIGN(sizeof(struct snd_pcm_mmap_status)))
 		return -EINVAL;
@@ -3066,12 +3076,9 @@ static struct vm_operations_struct snd_pcm_vm_ops_control =
 static int snd_pcm_mmap_control(struct snd_pcm_substream *substream, struct file *file,
 				struct vm_area_struct *area)
 {
-	struct snd_pcm_runtime *runtime;
 	long size;
 	if (!(area->vm_flags & VM_READ))
 		return -EINVAL;
-	runtime = substream->runtime;
-	snd_assert(runtime != NULL, return -EAGAIN);
 	size = area->vm_end - area->vm_start;
 	if (size != PAGE_ALIGN(sizeof(struct snd_pcm_mmap_control)))
 		return -EINVAL;

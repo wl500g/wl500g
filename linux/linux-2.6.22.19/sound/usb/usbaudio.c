@@ -1813,6 +1813,9 @@ static int snd_usb_pcm_check_knot(struct snd_pcm_runtime *runtime,
 	int count = 0, needs_knot = 0;
 	int err;
 
+	kfree(subs->rate_list.list);
+	subs->rate_list.list = NULL;
+
 	list_for_each_entry(fp, &subs->fmt_list, list) {
 		if (fp->rates & SNDRV_PCM_RATE_CONTINUOUS)
 			return 0;
@@ -2871,12 +2874,12 @@ static int create_fixed_stream_quirk(struct snd_usb_audio *chip,
 		return -ENOMEM;
 	}
 	if (fp->nr_rates > 0) {
-		rate_table = kmalloc(sizeof(int) * fp->nr_rates, GFP_KERNEL);
+		rate_table = kmemdup(fp->rate_table,
+				     sizeof(int) * fp->nr_rates, GFP_KERNEL);
 		if (!rate_table) {
 			kfree(fp);
 			return -ENOMEM;
 		}
-		memcpy(rate_table, fp->rate_table, sizeof(int) * fp->nr_rates);
 		fp->rate_table = rate_table;
 	}
 
@@ -2980,10 +2983,9 @@ static int create_ua700_ua25_quirk(struct snd_usb_audio *chip,
 	if (altsd->bNumEndpoints != 1)
 		return -ENXIO;
 
-	fp = kmalloc(sizeof(*fp), GFP_KERNEL);
+	fp = kmemdup(&ua_format, sizeof(*fp), GFP_KERNEL);
 	if (!fp)
 		return -ENOMEM;
-	memcpy(fp, &ua_format, sizeof(*fp));
 
 	fp->iface = altsd->bInterfaceNumber;
 	fp->endpoint = get_endpoint(alts, 0)->bEndpointAddress;
