@@ -1,0 +1,139 @@
+mm: vm_pgoff fixes from upstream
+
+ kernel.org commits
+ 0da7e01f5f37f441cccd7c8c0586e06db0981907 calculation of pgoff in do_linear_fault() uses mixed units
+ b1d0e4f535e10775cffde922208b49629169aeaa mm: special mapping nopage
+ 982134ba62618c2d69fbbbd166d0a11ee3b7e3d8 mm: avoid wrapping vm_pgoff in mremap()
+ a626ca6a656450e9f4df91d0dda238fff23285f4 vm: fix vm_pgoff wrap in stack expansion
+ 42c36f63ac1366ab0ecc2d5717821362c259f517 vm: fix vm_pgoff wrap in upward expansion
+
+---
+ mm/memory.c |    2 +-
+ mm/mmap.c   |   46 ++++++++++++++++++++++++++++++----------------
+ mm/mremap.c |   13 +++++++++++--
+ 3 files changed, 42 insertions(+), 19 deletions(-)
+
+diff --git a/mm/memory.c b/mm/memory.c
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -2497,7 +2497,7 @@ static int do_linear_fault(struct mm_str
+ 		int write_access, pte_t orig_pte)
+ {
+ 	pgoff_t pgoff = (((address & PAGE_MASK)
+-			- vma->vm_start) >> PAGE_CACHE_SHIFT) + vma->vm_pgoff;
++			- vma->vm_start) >> PAGE_SHIFT) + vma->vm_pgoff;
+ 	unsigned int flags = (write_access ? FAULT_FLAG_WRITE : 0);
+ 
+ 	return __do_fault(mm, vma, address, page_table, pmd, pgoff,
+diff --git a/mm/mmap.c b/mm/mmap.c
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -1553,9 +1553,13 @@ int expand_upwards(struct vm_area_struct
+ 		size = address - vma->vm_start;
+ 		grow = (address - vma->vm_end) >> PAGE_SHIFT;
+ 
+-		error = acct_stack_growth(vma, size, grow);
+-		if (!error)
+-			vma->vm_end = address;
++		error = -ENOMEM;
++		if (vma->vm_pgoff + (size >> PAGE_SHIFT) >= vma->vm_pgoff) {
++			error = acct_stack_growth(vma, size, grow);
++			if (!error) {
++				vma->vm_end = address;
++			}
++		}
+ 	}
+ 	anon_vma_unlock(vma);
+ 	return error;
+@@ -1615,10 +1619,13 @@ int expand_stack(struct vm_area_struct *
+ 		size = vma->vm_end - address;
+ 		grow = (vma->vm_start - address) >> PAGE_SHIFT;
+ 
+-		error = acct_stack_growth(vma, size, grow);
+-		if (!error) {
+-			vma->vm_start = address;
+-			vma->vm_pgoff -= grow;
++		error = -ENOMEM;
++		if (grow <= vma->vm_pgoff) {
++			error = acct_stack_growth(vma, size, grow);
++			if (!error) {
++				vma->vm_start = address;
++				vma->vm_pgoff -= grow;
++			}
+ 		}
+ 	}
+ 	anon_vma_unlock(vma);
+@@ -2102,24 +2109,31 @@ int may_expand_vm(struct mm_struct *mm, 
+ }
+ 
+ 
+-static struct page *special_mapping_nopage(struct vm_area_struct *vma,
+-					   unsigned long address, int *type)
++static int special_mapping_fault(struct vm_area_struct *vma,
++				struct vm_fault *vmf)
+ {
++	pgoff_t pgoff;
+ 	struct page **pages;
+ 
+-	BUG_ON(address < vma->vm_start || address >= vma->vm_end);
++	/*
++	 * special mappings have no vm_file, and in that case, the mm
++	 * uses vm_pgoff internally. So we have to subtract it from here.
++	 * We are allowed to do this because we are the mm; do not copy
++	 * this code into drivers!
++	 */
++	pgoff = vmf->pgoff - vma->vm_pgoff;
+ 
+-	address -= vma->vm_start;
+-	for (pages = vma->vm_private_data; address > 0 && *pages; ++pages)
+-		address -= PAGE_SIZE;
++	for (pages = vma->vm_private_data; pgoff && *pages; ++pages)
++		pgoff--;
+ 
+ 	if (*pages) {
+ 		struct page *page = *pages;
+ 		get_page(page);
+-		return page;
++		vmf->page = page;
++		return 0;
+ 	}
+ 
+-	return NOPAGE_SIGBUS;
++	return VM_FAULT_SIGBUS;
+ }
+ 
+ /*
+@@ -2131,7 +2145,7 @@ static void special_mapping_close(struct
+ 
+ static struct vm_operations_struct special_mapping_vmops = {
+ 	.close = special_mapping_close,
+-	.nopage	= special_mapping_nopage,
++	.fault = special_mapping_fault,
+ };
+ 
+ /*
+diff --git a/mm/mremap.c b/mm/mremap.c
+--- a/mm/mremap.c
++++ b/mm/mremap.c
+@@ -325,9 +325,18 @@ unsigned long do_mremap(unsigned long ad
+ 	/* We can't remap across vm area boundaries */
+ 	if (old_len > vma->vm_end - addr)
+ 		goto out;
+-	if (vma->vm_flags & (VM_DONTEXPAND | VM_PFNMAP)) {
+-		if (new_len > old_len)
++	/* Need to be careful about a growing mapping */
++	if (new_len > old_len) {
++		unsigned long pgoff;
++
++		if (vma->vm_flags & (VM_DONTEXPAND | VM_PFNMAP))
++			goto out;
++		pgoff = (addr - vma->vm_start) >> PAGE_SHIFT;
++		pgoff += vma->vm_pgoff;
++		if (pgoff + (new_len >> PAGE_SHIFT) < pgoff) {
++			ret = -EINVAL;
+ 			goto out;
++		}
+ 	}
+ 	if (vma->vm_flags & VM_LOCKED) {
+ 		unsigned long locked, lock_limit;
+-- 
