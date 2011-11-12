@@ -1,36 +1,12 @@
-From: Dave Taht
-Subject: [PATCH] Set TOS (TCLASS) bits under ipv6
-Newsgroups: gmane.network.ssh.dropbear
-Date: 2011-09-28 11:58:24 GMT (3 days, 19 hours and 29 minutes ago)
-
-Setting the TCLASS (TOS) field requires different setsockopt
-params on ipv6 than ipv4.
-
-as per:
-
-http://www.bufferbloat.net/projects/cerowrt/issues/249
----
- dbutil.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/dbutil.c b/dbutil.c
-index b3a119f..2739d2f 100644
---- a/dbutil.c
-+++ b/dbutil.c
-@@ -161,10 +161,12 @@ static void set_sock_priority(int sock) {
- 	val = 1;
- 	setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void*)&val, sizeof(val));
-
--	/* set the TOS bit. note that this will fail for ipv6, I can't find any
--	 * equivalent. */
-+	/* bruteforce the TOS bit for ipv4 or ipv6. Note that for versions of
-+           Linux prior to 2.6.39 this will stomp on the ECN bit under IPv6 */
-+
+diff -Nura dropbear-2011.54.orig/dbutil.c dropbear-2011.54/dbutil.c
+--- dropbear-2011.54.orig/dbutil.c	2011-11-08 09:48:15.000000000 -0300
++++ dropbear-2011.54/dbutil.c	2011-11-09 12:14:59.430074138 -0300
+@@ -164,7 +164,7 @@
+ 	/* set the TOS bit for either ipv4 or ipv6 */
  #ifdef IPTOS_LOWDELAY
  	val = IPTOS_LOWDELAY;
-+	setsockopt(sock, IPPROTO_IPV6, IPV6_TCLASS, (void*)&val, sizeof(val));
- 	setsockopt(sock, IPPROTO_IP, IP_TOS, (void*)&val, sizeof(val));
+-#ifdef IPPROTO_IPV6
++#ifdef IPV6_TCLASS
+ 	setsockopt(sock, IPPROTO_IPV6, IPV6_TCLASS, (void*)&val, sizeof(val));
  #endif
-
--- 
-1.7.4.1
+ 	setsockopt(sock, IPPROTO_IP, IP_TOS, (void*)&val, sizeof(val));
