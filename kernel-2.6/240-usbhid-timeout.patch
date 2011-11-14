@@ -1,0 +1,102 @@
+From 858155fbcc0cd713f6382c527bb1c3abc0ed6d00
+From: Oliver Neukum
+Date: Fri, 12 Feb 2010 13:02:28 +0100
+Subject: [PATCH] HID: usbhid: introduce timeout for stuck ctrl/out URBs
+
+Some devices do not react to a control request (seen on APC UPS's) resulting in
+a slow stream of messages, "generic-usb ... control queue full".  Therefore
+request needs a timeout.
+
+Cc: stable@kernel.org
+Signed-off-by: Oliver Neukum <oliver@neukum.org>
+Signed-off-by: David Fries <david@fries.net>
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+
+---
+ drivers/hid/usbhid/hid-core.c |   28 ++++++++++++++++++++++++++--
+ drivers/hid/usbhid/usbhid.h   |    2 ++
+ 2 files changed, 28 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/hid/usbhid/hid-core.c b/drivers/hid/usbhid/hid-core.c
++++ b/drivers/hid/usbhid/hid-core.c
+@@ -316,6 +316,7 @@ static int hid_submit_out(struct hid_device *hid)
+ 		err_hid("usb_submit_urb(out) failed");
+ 		return -1;
+ 	}
++	usbhid->last_out = jiffies;
+ 
+ 	return 0;
+ }
+@@ -377,6 +378,7 @@ static int hid_submit_ctrl(struct hid_device *hid)
+ 		err_hid("usb_submit_urb(ctrl) failed");
+ 		return -1;
+ 	}
++	usbhid->last_ctrl = jiffies;
+ 
+ 	return 0;
+ }
+@@ -512,9 +514,20 @@ static void usbhid_submit_report(struct hid_device *hid, struct hid_report *re
+ 		usbhid->out[usbhid->outhead] = report;
+ 		usbhid->outhead = head;
+ 
+-		if (!test_and_set_bit(HID_OUT_RUNNING, &usbhid->iofl))
++		if (!test_and_set_bit(HID_OUT_RUNNING, &usbhid->iofl)) {
+ 			if (hid_submit_out(hid))
+ 				clear_bit(HID_OUT_RUNNING, &usbhid->iofl);
++		} else {
++			/*
++			 * the queue is known to run
++			 * but an earlier request may be stuck
++			 * we may need to time out
++			 * no race because this is called under
++			 * spinlock
++			 */
++			if (time_after(jiffies, usbhid->last_out + HZ * 5))
++				usb_unlink_urb(usbhid->urbout);
++		}
+ 
+ 		spin_unlock_irqrestore(&usbhid->outlock, flags);
+ 		return;
+@@ -535,9 +548,20 @@ static void usbhid_submit_report(struct hid_device *hid, struct hid_report *re
+ 	usbhid->ctrl[usbhid->ctrlhead].dir = dir;
+ 	usbhid->ctrlhead = head;
+ 
+-	if (!test_and_set_bit(HID_CTRL_RUNNING, &usbhid->iofl))
++	if (!test_and_set_bit(HID_CTRL_RUNNING, &usbhid->iofl)) {
+ 		if (hid_submit_ctrl(hid))
+ 			clear_bit(HID_CTRL_RUNNING, &usbhid->iofl);
++	} else {
++		/*
++		 * the queue is known to run
++		 * but an earlier request may be stuck
++		 * we may need to time out
++		 * no race because this is called under
++		 * spinlock
++		 */
++		if (time_after(jiffies, usbhid->last_ctrl + HZ * 5))
++			usb_unlink_urb(usbhid->urbctrl);
++	}
+ 
+ 	spin_unlock_irqrestore(&usbhid->ctrllock, flags);
+ }
+diff --git a/drivers/hid/usbhid/usbhid.h b/drivers/hid/usbhid/usbhid.h
+--- a/drivers/hid/usbhid/usbhid.h
++++ b/drivers/hid/usbhid/usbhid.h
+@@ -80,13 +80,15 @@ struct usbhid_device {
+ 	char *ctrlbuf;                                                  /* Control buffer */
+ 	dma_addr_t ctrlbuf_dma;                                         /* Control buffer dma */
+ 	spinlock_t ctrllock;                                            /* Control fifo spinlock */
++	unsigned long last_ctrl;						/* record of last output for timeouts */
+ 
+ 	struct urb *urbout;                                             /* Output URB */
+ 	struct hid_report *out[HID_CONTROL_FIFO_SIZE];                  /* Output pipe fifo */
+ 	unsigned char outhead, outtail;                                 /* Output pipe fifo head & tail */
+ 	char *outbuf;                                                   /* Output buffer */
+ 	dma_addr_t outbuf_dma;                                          /* Output buffer dma */
+ 	spinlock_t outlock;                                             /* Output fifo spinlock */
++	unsigned long last_out;							/* record of last output for timeouts */
+ 
+ 	unsigned long iofl;                                             /* I/O flags (CTRL_RUNNING, OUT_RUNNING) */
+ 	struct timer_list io_retry;                                     /* Retry timer */
+-- 
+1.7.6.2
