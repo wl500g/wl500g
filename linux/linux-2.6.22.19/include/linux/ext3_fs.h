@@ -178,13 +178,6 @@ struct ext3_group_desc
 #define EXT3_FL_USER_VISIBLE		0x0003DFFF /* User visible flags */
 #define EXT3_FL_USER_MODIFIABLE		0x000380FF /* User modifiable flags */
 
-/*
- * Inode dynamic state flags
- */
-#define EXT3_STATE_JDATA		0x00000001 /* journaled data exists */
-#define EXT3_STATE_NEW			0x00000002 /* inode is newly created */
-#define EXT3_STATE_XATTR		0x00000004 /* has in-inode xattrs */
-
 /* Used to pass group descriptor data when online resize is done */
 struct ext3_new_group_input {
 	__u32 group;            /* Group number for this data */
@@ -354,6 +347,13 @@ struct ext3_inode {
 #define	EXT3_ORPHAN_FS			0x0004	/* Orphans being recovered */
 
 /*
+ * Misc. filesystem flags
+ */
+#define EXT2_FLAGS_SIGNED_HASH		0x0001  /* Signed dirhash in use */
+#define EXT2_FLAGS_UNSIGNED_HASH	0x0002  /* Unsigned dirhash in use */
+#define EXT2_FLAGS_TEST_FILESYS		0x0004	/* to test development code */
+
+/*
  * Mount flags
  */
 #define EXT3_MOUNT_CHECK		0x00001	/* Do mount-time checks */
@@ -380,6 +380,8 @@ struct ext3_inode {
 #define EXT3_MOUNT_QUOTA		0x80000 /* Some quota option set */
 #define EXT3_MOUNT_USRQUOTA		0x100000 /* "old" user quota */
 #define EXT3_MOUNT_GRPQUOTA		0x200000 /* "old" group quota */
+#define EXT3_MOUNT_DATA_ERR_ABORT	0x400000 /* Abort on file data write
+						  * error in ordered mode */
 
 /* Compatibility, for having both ext2_fs.h and ext3_fs.h included at once */
 #ifndef _LINUX_EXT2_FS_H
@@ -487,7 +489,23 @@ struct ext3_super_block {
 	__u16	s_reserved_word_pad;
 	__le32	s_default_mount_opts;
 	__le32	s_first_meta_bg;	/* First metablock block group */
-	__u32	s_reserved[190];	/* Padding to the end of the block */
+	__le32	s_mkfs_time;		/* When the filesystem was created */
+	__le32	s_jnl_blocks[17];	/* Backup of the journal inode */
+	/* 64bit support valid if EXT4_FEATURE_COMPAT_64BIT */
+/*150*/	__le32	s_blocks_count_hi;	/* Blocks count */
+	__le32	s_r_blocks_count_hi;	/* Reserved blocks count */
+	__le32	s_free_blocks_count_hi;	/* Free blocks count */
+	__le16	s_min_extra_isize;	/* All inodes have at least # bytes */
+	__le16	s_want_extra_isize; 	/* New inodes should reserve # bytes */
+	__le32	s_flags;		/* Miscellaneous flags */
+	__le16  s_raid_stride;		/* RAID stride */
+	__le16  s_mmp_interval;         /* # seconds to wait in MMP checking */
+	__le64  s_mmp_block;            /* Block for multi-mount protection */
+	__le32  s_raid_stripe_width;    /* blocks on all data disks (N*stride)*/
+	__u8	s_log_groups_per_flex;  /* FLEX_BG group size */
+	__u8	s_reserved_char_pad2;
+	__le16  s_reserved_pad;
+	__u32   s_reserved[162];        /* Padding to the end of the block */
 };
 
 #ifdef __KERNEL__
@@ -509,6 +527,31 @@ static inline int ext3_valid_inum(struct super_block *sb, unsigned long ino)
 		ino == EXT3_RESIZE_INO ||
 		(ino >= EXT3_FIRST_INO(sb) &&
 		 ino <= le32_to_cpu(EXT3_SB(sb)->s_es->s_inodes_count));
+}
+
+/*
+ * Inode dynamic state flags
+ */
+enum {
+	EXT3_STATE_JDATA,		/* journaled data exists */
+	EXT3_STATE_NEW,			/* inode is newly created */
+	EXT3_STATE_XATTR,		/* has in-inode xattrs */
+	EXT3_STATE_FLUSH_ON_CLOSE,	/* flush dirty pages on close */
+};
+
+static inline int ext3_test_inode_state(struct inode *inode, int bit)
+{
+	return test_bit(bit, &EXT3_I(inode)->i_state_flags);
+}
+
+static inline void ext3_set_inode_state(struct inode *inode, int bit)
+{
+	set_bit(bit, &EXT3_I(inode)->i_state_flags);
+}
+
+static inline void ext3_clear_inode_state(struct inode *inode, int bit)
+{
+	clear_bit(bit, &EXT3_I(inode)->i_state_flags);
 }
 #else
 /* Assume that user mode programs are passing in an ext3fs superblock, not
@@ -701,6 +744,9 @@ static inline __le16 ext3_rec_len_to_disk(unsigned len)
 #define DX_HASH_LEGACY		0
 #define DX_HASH_HALF_MD4	1
 #define DX_HASH_TEA		2
+#define DX_HASH_LEGACY_UNSIGNED	3
+#define DX_HASH_HALF_MD4_UNSIGNED	4
+#define DX_HASH_TEA_UNSIGNED		5
 
 #ifdef __KERNEL__
 
@@ -830,7 +876,7 @@ struct buffer_head * ext3_getblk (handle_t *, struct inode *, long, int, int *);
 struct buffer_head * ext3_bread (handle_t *, struct inode *, int, int, int *);
 int ext3_get_blocks_handle(handle_t *handle, struct inode *inode,
 	sector_t iblock, unsigned long maxblocks, struct buffer_head *bh_result,
-	int create, int extend_disksize);
+	int create);
 
 extern struct inode *ext3_iget(struct super_block *, unsigned long);
 extern int  ext3_write_inode (struct inode *, int);
@@ -848,9 +894,8 @@ extern void ext3_get_inode_flags(struct ext3_inode_info *);
 extern void ext3_set_aops(struct inode *inode);
 
 /* ioctl.c */
-extern int ext3_ioctl (struct inode *, struct file *, unsigned int,
-		       unsigned long);
-extern long ext3_compat_ioctl (struct file *, unsigned int, unsigned long);
+extern long ext3_ioctl(struct file *, unsigned int, unsigned long);
+extern long ext3_compat_ioctl(struct file *, unsigned int, unsigned long);
 
 /* namei.c */
 extern int ext3_orphan_add(handle_t *, struct inode *);

@@ -934,7 +934,6 @@ int ext3_group_add(struct super_block *sb, struct ext3_new_group_data *input)
 			   EXT3_INODES_PER_GROUP(sb));
 
 	ext3_journal_dirty_metadata(handle, sbi->s_sbh);
-	sb->s_dirt = 1;
 
 exit_journal:
 	unlock_super(sb);
@@ -964,7 +963,6 @@ int ext3_group_extend(struct super_block *sb, struct ext3_super_block *es,
 		      ext3_fsblk_t n_blocks_count)
 {
 	ext3_fsblk_t o_blocks_count;
-	unsigned long o_groups_count;
 	ext3_grpblk_t last;
 	ext3_grpblk_t add;
 	struct buffer_head * bh;
@@ -976,7 +974,6 @@ int ext3_group_extend(struct super_block *sb, struct ext3_super_block *es,
 	 * yet: we're going to revalidate es->s_blocks_count after
 	 * taking lock_super() below. */
 	o_blocks_count = le32_to_cpu(es->s_blocks_count);
-	o_groups_count = EXT3_SB(sb)->s_groups_count;
 
 	if (test_opt(sb, DEBUG))
 		printk(KERN_DEBUG "EXT3-fs: extending last group from "E3FSBLK" uto "E3FSBLK" blocks\n",
@@ -1066,7 +1063,6 @@ int ext3_group_extend(struct super_block *sb, struct ext3_super_block *es,
 	}
 	es->s_blocks_count = cpu_to_le32(o_blocks_count + add);
 	ext3_journal_dirty_metadata(handle, EXT3_SB(sb)->s_sbh);
-	sb->s_dirt = 1;
 	unlock_super(sb);
 	ext3_debug("freeing blocks %lu through "E3FSBLK"\n", o_blocks_count,
 		   o_blocks_count + add);

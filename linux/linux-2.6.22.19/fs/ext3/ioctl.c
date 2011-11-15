@@ -15,12 +15,11 @@
 #include <linux/mount.h>
 #include <linux/time.h>
 #include <linux/compat.h>
-#include <linux/smp_lock.h>
 #include <asm/uaccess.h>
 
-int ext3_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
-		unsigned long arg)
+long ext3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
+	struct inode *inode = filp->f_dentry->d_inode;
 	struct ext3_inode_info *ei = EXT3_I(inode);
 	unsigned int flags;
 	unsigned short rsv_window_size;
@@ -54,12 +53,12 @@ int ext3_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 			flags &= ~EXT3_DIRSYNC_FL;
 
 		mutex_lock(&inode->i_mutex);
+
 		/* Is it quota file? Do not allow user to mess with it */
-		if (IS_NOQUOTA(inode)) {
-			mutex_unlock(&inode->i_mutex);
-			err = -EPERM;
+		err = -EPERM;
+		if (IS_NOQUOTA(inode))
 			goto flags_out;
-		}
+
 		oldflags = ei->i_flags;
 
 		/* The JOURNAL_DATA flag is modifiable only by root */
@@ -72,11 +71,8 @@ int ext3_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 		 * This test looks nicer. Thanks to Pauline Middelink
 		 */
 		if ((flags ^ oldflags) & (EXT3_APPEND_FL | EXT3_IMMUTABLE_FL)) {
-			if (!capable(CAP_LINUX_IMMUTABLE)) {
-				mutex_unlock(&inode->i_mutex);
-				err = -EPERM;
+			if (!capable(CAP_LINUX_IMMUTABLE))
 				goto flags_out;
-			}
 		}
 
 		/*
@@ -84,17 +80,12 @@ int ext3_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 		 * the relevant capability.
 		 */
 		if ((jflag ^ oldflags) & (EXT3_JOURNAL_DATA_FL)) {
-			if (!capable(CAP_SYS_RESOURCE)) {
-				mutex_unlock(&inode->i_mutex);
-				err = -EPERM;
+			if (!capable(CAP_SYS_RESOURCE))
 				goto flags_out;
-			}
 		}
-
 
 		handle = ext3_journal_start(inode, 1);
 		if (IS_ERR(handle)) {
-			mutex_unlock(&inode->i_mutex);
 			err = PTR_ERR(handle);
 			goto flags_out;
 		}
@@ -114,15 +105,13 @@ int ext3_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 		err = ext3_mark_iloc_dirty(handle, inode, &iloc);
 flags_err:
 		ext3_journal_stop(handle);
-		if (err) {
-			mutex_unlock(&inode->i_mutex);
-			return err;
-		}
+		if (err)
+			goto flags_out;
 
 		if ((jflag ^ oldflags) & (EXT3_JOURNAL_DATA_FL))
 			err = ext3_change_inode_journal_flag(inode, jflag);
-		mutex_unlock(&inode->i_mutex);
 flags_out:
+		mutex_unlock(&inode->i_mutex);
 		return err;
 	}
 	case EXT3_IOC_GETVERSION:
@@ -231,7 +220,7 @@ setrsvsz_out:
 	case EXT3_IOC_GROUP_EXTEND: {
 		ext3_fsblk_t n_blocks_count;
 		struct super_block *sb = inode->i_sb;
-		int err;
+		int err, err2;
 
 		if (!capable(CAP_SYS_RESOURCE))
 			return -EPERM;
@@ -245,15 +234,17 @@ setrsvsz_out:
 		}
 		err = ext3_group_extend(sb, EXT3_SB(sb)->s_es, n_blocks_count);
 		journal_lock_updates(EXT3_SB(sb)->s_journal);
-		journal_flush(EXT3_SB(sb)->s_journal);
+		err2 = journal_flush(EXT3_SB(sb)->s_journal);
 		journal_unlock_updates(EXT3_SB(sb)->s_journal);
+		if (err == 0)
+			err = err2;
 group_extend_out:
 		return err;
 	}
 	case EXT3_IOC_GROUP_ADD: {
 		struct ext3_new_group_data input;
 		struct super_block *sb = inode->i_sb;
-		int err;
+		int err, err2;
 
 		if (!capable(CAP_SYS_RESOURCE))
 			return -EPERM;
@@ -269,8 +260,10 @@ group_extend_out:
 
 		err = ext3_group_add(sb, &input);
 		journal_lock_updates(EXT3_SB(sb)->s_journal);
-		journal_flush(EXT3_SB(sb)->s_journal);
+		err2 = journal_flush(EXT3_SB(sb)->s_journal);
 		journal_unlock_updates(EXT3_SB(sb)->s_journal);
+		if (err == 0)
+			err = err2;
 group_add_out:
 		return err;
 	}
@@ -284,9 +277,6 @@ group_add_out:
 #ifdef CONFIG_COMPAT
 long ext3_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	struct inode *inode = file->f_path.dentry->d_inode;
-	int ret;
-
 	/* These are just misnamed, they actually get/put from/to user an int */
 	switch (cmd) {
 	case EXT3_IOC32_GETFLAGS:
@@ -326,9 +316,6 @@ long ext3_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	default:
 		return -ENOIOCTLCMD;
 	}
-	lock_kernel();
-	ret = ext3_ioctl(inode, file, cmd, (unsigned long) compat_ptr(arg));
-	unlock_kernel();
-	return ret;
+	return ext3_ioctl(file, cmd, (unsigned long) compat_ptr(arg));
 }
 #endif

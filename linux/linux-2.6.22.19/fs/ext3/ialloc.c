@@ -181,7 +181,7 @@ void ext3_free_inode (handle_t *handle, struct inode * inode)
 	err = ext3_journal_dirty_metadata(handle, bitmap_bh);
 	if (!fatal)
 		fatal = err;
-	sb->s_dirt = 1;
+
 error_return:
 	brelse(bitmap_bh);
 	ext3_std_error(sb, fatal);
@@ -537,7 +537,6 @@ got:
 	percpu_counter_dec(&sbi->s_freeinodes_counter);
 	if (S_ISDIR(mode))
 		percpu_counter_inc(&sbi->s_dirs_counter);
-	sb->s_dirt = 1;
 
 	inode->i_uid = current->fsuid;
 	if (test_opt (sb, GRPID))
@@ -584,7 +583,9 @@ got:
 	inode->i_generation = sbi->s_next_generation++;
 	spin_unlock(&sbi->s_next_gen_lock);
 
-	ei->i_state = EXT3_STATE_NEW;
+	ei->i_state_flags = 0;
+	ext3_set_inode_state(inode, EXT3_STATE_NEW);
+
 	ei->i_extra_isize =
 		(EXT3_INODE_SIZE(inode->i_sb) > EXT3_GOOD_OLD_INODE_SIZE) ?
 		sizeof(struct ext3_inode) - EXT3_GOOD_OLD_INODE_SIZE : 0;
