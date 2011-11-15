@@ -152,7 +152,7 @@ obj-$(CONFIG_LPRNG) += LPRng
 obj-$(CONFIG_OTHERS) += others
 obj-$(CONFIG_BPALOGIN) += bpalogin
 obj-$(CONFIG_EMF) += emf igs
-obj-$(CONFIG_LINUX_26) += udev hotplug2
+obj-$(CONFIG_LINUX_26) += udev
 
 # custom firmware
 obj-$(CONFIG_SSHD) += dropbear
@@ -1061,13 +1061,6 @@ udev:
 udev-install:
 	install -d $(TARGETDIR)
 	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev install-udevtrigger
-
-hotplug2:
-	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
-
-hotplug2-install:
-	$(MAKE) -C hotplug2 install PREFIX=$(INSTALLDIR)/hotplug2 SUBDIRS=""
-	$(MAKE) -C hotplug2/examples install PREFIX=$(INSTALLDIR)/hotplug2/usr KERNELVER=$(LINUX_KERNEL)
 
 emf:
 	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
