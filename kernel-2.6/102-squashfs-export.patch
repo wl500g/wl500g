@@ -1,0 +1,159 @@
+Squashfs: NFS export code updates from upstream
+
+---
+ fs/squashfs/inode.c |   93 +++++++++++++++++++++++++++++-----------------------
+ 1 file changed, 52 insertions(+), 41 deletions(-)
+
+diff --git a/fs/squashfs/inode.c b/fs/squashfs/inode.c
+--- a/fs/squashfs/inode.c
++++ b/fs/squashfs/inode.c
+@@ -34,6 +34,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/smp_lock.h>
+ #include <linux/sched.h>
++#include <linux/exportfs.h>
+ 
+ #include "squashfs.h"
+ #include "sqlzma.h"
+@@ -58,7 +59,10 @@ static DEFINE_PER_CPU(struct sqlzma *, s
+ 			     (un)->un_a[1].sz, (un)->un_a[1].buf, \
+ 			     (un)->un_a[2].sz, (un)->un_a[2].buf)
+ 
+-static void vfs_read_inode(struct inode *i);
++static struct dentry *squashfs_fh_to_dentry(struct super_block *s,
++		struct fid *fid, int fh_len, int fh_type);
++static struct dentry *squashfs_fh_to_parent(struct super_block *s,
++		struct fid *fid, int fh_len, int fh_type);
+ static struct dentry *squashfs_get_parent(struct dentry *child);
+ static int squashfs_read_inode(struct inode *i, squashfs_inode_t inode);
+ static int squashfs_statfs(struct dentry *, struct kstatfs *);
+@@ -99,15 +103,9 @@ static struct super_operations squashfs_
+ 	.remount_fs = squashfs_remount
+ };
+ 
+-static struct super_operations squashfs_export_super_ops = {
+-	.alloc_inode = squashfs_alloc_inode,
+-	.destroy_inode = squashfs_destroy_inode,
+-	.statfs = squashfs_statfs,
+-	.put_super = squashfs_put_super,
+-	.read_inode = vfs_read_inode
+-};
+-
+ static struct export_operations squashfs_export_ops = {
++	.fh_to_dentry = squashfs_fh_to_dentry,
++	.fh_to_parent = squashfs_fh_to_parent,
+ 	.get_parent = squashfs_get_parent
+ };
+ 
+@@ -671,56 +669,70 @@ static squashfs_inode_t squashfs_inode_l
+ out:
+ 	return SQUASHFS_INVALID_BLK;
+ }
+-	
+ 
+-static void vfs_read_inode(struct inode *i)
++
++
++SQSH_EXTERN struct inode *squashfs_iget(struct super_block *s,
++				squashfs_inode_t inode, unsigned int inode_number)
+ {
+-	struct squashfs_sb_info *msblk = i->i_sb->s_fs_info;
+-	squashfs_inode_t inode = squashfs_inode_lookup(i->i_sb, i->i_ino);
++	struct squashfs_sb_info *msblk = s->s_fs_info;
++	struct inode *i = iget_locked(s, inode_number);
+ 
+-	TRACE("Entered vfs_read_inode\n");
++	TRACE("Entered squashfs_iget\n");
+ 
+-	if(inode != SQUASHFS_INVALID_BLK)
++	if(i && (i->i_state & I_NEW)) {
+ 		(msblk->read_inode)(i, inode);
++		unlock_new_inode(i);
++	}
++
++	return i;
+ }
+ 
+ 
+-static struct dentry *squashfs_get_parent(struct dentry *child)
++static struct dentry *squashfs_export_iget(struct super_block *s,
++	unsigned int inode_number)
+ {
+-	struct inode *i = child->d_inode;
+-	struct inode *parent = iget(i->i_sb, SQUASHFS_I(i)->u.s2.parent_inode);
+-	struct dentry *rv;
++	squashfs_inode_t inode;
++	struct dentry *dentry = ERR_PTR(-ENOENT);
+ 
+-	TRACE("Entered squashfs_get_parent\n");
++	TRACE("Entered squashfs_export_iget\n");
+ 
+-	if(parent == NULL) {
+-		rv = ERR_PTR(-EACCES);
+-		goto out;
+-	}
++	inode = squashfs_inode_lookup(s, inode_number);
++	if(inode != SQUASHFS_INVALID_BLK)
++		dentry = d_obtain_alias(squashfs_iget(s, inode, inode_number));
+ 
+-	rv = d_alloc_anon(parent);
+-	if(rv == NULL)
+-		rv = ERR_PTR(-ENOMEM);
++	return dentry;
++}
+ 
+-out:
+-	return rv;
++
++static struct dentry *squashfs_fh_to_dentry(struct super_block *s,
++		struct fid *fid, int fh_len, int fh_type)
++{
++	if((fh_type != FILEID_INO32_GEN && fh_type != FILEID_INO32_GEN_PARENT) ||
++			fh_len < 2)
++		return NULL;
++
++	return squashfs_export_iget(s, fid->i32.ino);
+ }
+ 
+-	
+-SQSH_EXTERN struct inode *squashfs_iget(struct super_block *s,
+-				squashfs_inode_t inode, unsigned int inode_number)
++
++static struct dentry *squashfs_fh_to_parent(struct super_block *s,
++		struct fid *fid, int fh_len, int fh_type)
+ {
+-	struct squashfs_sb_info *msblk = s->s_fs_info;
+-	struct inode *i = iget_locked(s, inode_number);
++	if(fh_type != FILEID_INO32_GEN_PARENT || fh_len < 4)
++		return NULL;
+ 
+-	TRACE("Entered squashfs_iget\n");
++	return squashfs_export_iget(s, fid->i32.parent_ino);
++}
+ 
+-	if(i && (i->i_state & I_NEW)) {
+-		(msblk->read_inode)(i, inode);
+-		unlock_new_inode(i);
+-	}
+ 
+-	return i;
++static struct dentry *squashfs_get_parent(struct dentry *child)
++{
++	struct inode *i = child->d_inode;
++
++	TRACE("Entered squashfs_get_parent\n");
++
++	return squashfs_export_iget(i->i_sb, SQUASHFS_I(i)->u.s2.parent_inode);
+ }
+ 
+ 
+@@ -1281,7 +1293,6 @@ static int squashfs_fill_super(struct su
+ 	if (read_inode_lookup_table(s) == 0)
+ 		goto failed_mount;
+ 
+-	s->s_op = &squashfs_export_super_ops;
+ 	s->s_export_op = &squashfs_export_ops;
+ 
+ allocate_root:
+-- 
+1.7.4.1

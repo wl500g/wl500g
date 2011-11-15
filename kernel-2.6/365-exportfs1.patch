@@ -1620,32 +1620,10 @@ diff --git a/fs/libfs.c b/fs/libfs.c
  #include <linux/writeback.h>
  #include <linux/buffer_head.h>
  
-@@ -678,6 +679,93 @@ out:
+@@ -678,6 +679,71 @@ out:
  	return ret;
  }
  
-+/*
-+ * This is what d_alloc_anon should have been.  Once the exportfs
-+ * argument transition has been finished I will update d_alloc_anon
-+ * to this prototype and this wrapper will go away.   --hch
-+ */
-+static struct dentry *exportfs_d_alloc(struct inode *inode)
-+{
-+	struct dentry *dentry;
-+
-+	if (!inode)
-+		return NULL;
-+	if (IS_ERR(inode))
-+		return ERR_PTR(PTR_ERR(inode));
-+
-+	dentry = d_alloc_anon(inode);
-+	if (!dentry) {
-+		iput(inode);
-+		dentry = ERR_PTR(-ENOMEM);
-+	}
-+	return dentry;
-+}
-+
 +/**
 + * generic_fh_to_dentry - generic helper for the fh_to_dentry export operation
 + * @sb:		filesystem to do the file handle conversion on
@@ -1674,7 +1652,7 @@ diff --git a/fs/libfs.c b/fs/libfs.c
 +		break;
 +	}
 +
-+	return exportfs_d_alloc(inode);
++	return d_obtain_alias(inode);
 +}
 +EXPORT_SYMBOL_GPL(generic_fh_to_dentry);
 +
@@ -1707,7 +1685,7 @@ diff --git a/fs/libfs.c b/fs/libfs.c
 +		break;
 +	}
 +
-+	return exportfs_d_alloc(inode);
++	return d_obtain_alias(inode);
 +}
 +EXPORT_SYMBOL_GPL(generic_fh_to_parent);
 +
@@ -2489,7 +2467,7 @@ diff --git a/fs/reiserfs/inode.c b/fs/reiserfs/inode.c
  #include <linux/smp_lock.h>
  #include <linux/pagemap.h>
  #include <linux/highmem.h>
-@@ -1514,19 +1515,20 @@ struct inode *reiserfs_iget(struct super
+@@ -1514,18 +1515,19 @@ struct inode *reiserfs_iget(struct super
  	return inode;
  }
  
@@ -2500,7 +2478,6 @@ diff --git a/fs/reiserfs/inode.c b/fs/reiserfs/inode.c
  {
 -	__u32 *data = vobjp;
  	struct cpu_key key;
- 	struct dentry *result;
  	struct inode *inode;
  
 -	key.on_disk_key.k_objectid = data[0];
@@ -2664,13 +2641,12 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  }
  
  static struct fileIdentDesc *udf_add_entry(struct inode *dir,
-@@ -1227,6 +1235,132 @@ end_rename:
+@@ -1227,6 +1235,119 @@ end_rename:
  	return retval;
  }
  
 +static struct dentry *udf_get_parent(struct dentry *child)
 +{
-+	struct dentry *parent;
 +	struct kernel_lb_addr tloc;
 +	struct inode *inode = NULL;
 +	struct qstr dotdot = {.name = "..", .len = 2};
@@ -2691,13 +2667,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
 +		goto out_unlock;
 +	unlock_kernel();
 +
-+	parent = d_alloc_anon(inode);
-+	if (!parent) {
-+		iput(inode);
-+		parent = ERR_PTR(-ENOMEM);
-+	}
-+
-+	return parent;
++	return d_obtain_alias(inode);
 +out_unlock:
 +	unlock_kernel();
 +	return ERR_PTR(-EACCES);
@@ -2708,7 +2678,6 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
 +					u16 partref, __u32 generation)
 +{
 +	struct inode *inode;
-+	struct dentry *result;
 +	struct kernel_lb_addr loc;
 +
 +	if (block == 0)
@@ -2725,12 +2694,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
 +		iput(inode);
 +		return ERR_PTR(-ESTALE);
 +	}
-+	result = d_alloc_anon(inode);
-+	if (!result) {
-+		iput(inode);
-+		return ERR_PTR(-ENOMEM);
-+	}
-+	return result;
++	return d_obtain_alias(inode);
 +}
 +
 +static struct dentry *udf_fh_to_dentry(struct super_block *sb,
