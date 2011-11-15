@@ -24,14 +24,6 @@
 #endif
 
 /*
- * Open an MTD device
- * @param	mtd	path to or partition name of MTD device
- * @param	flags	open() flags
- * @return	return value of open()
- */
-int mtd_open(const char *mtd, int flags);
-
-/*
  * Erase an MTD device
  * @param	mtd	path to or partition name of MTD device
  * @return	0 on success and errno on failure

@@ -46,7 +46,7 @@
  * @param	flags	open() flags
  * @return	return value of open()
  */
-int
+static int
 mtd_open(const char *mtd, int flags)
 {
 	FILE *fp;
