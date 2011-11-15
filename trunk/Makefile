@@ -57,7 +57,6 @@ MADWIMAX=madwimax-0.1.1
 LLTD=LLTD-PortingKit
 TCPDUMP=tcpdump-4.1.1
 LIBPCAP=libpcap-1.1.1
-HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
 NTFS3G=ntfs-3g_ntfsprogs-2011.4.12AR.7
 SYSFSUTILS=sysfsutils-2.1.0
@@ -88,7 +87,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ppp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	bpalogin bridge ez-ipupdate inadyn httpd libjpeg lib LPRng \
-	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
+	misc netconf nvram others rc mjpg-streamer udev \
 	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
 	sysfsutils e2fsprogs wpa_supplicant lanauth authcli
@@ -542,18 +541,6 @@ $(TOP)/tcpdump: tcpdump/$(TCPDUMP).tar.gz
 	mv $(TOP)/$(TCPDUMP) $@ && touch $@
 
 tcpdump: libpcap $(TOP)/tcpdump
-	@true
-
-hotplug2_Patches := $(call patches_list,hotplug2)
-
-$(TOP)/hotplug2: hotplug2/$(HOTPLUG2).tar.gz
-	@rm -rf $(TOP)/$(HOTPLUG2) $@
-	tar -xzf $^ -C $(TOP)
-	cp -pf hotplug2/hotplug2.rules $(TOP)/$(HOTPLUG2)/examples/hotplug2.rules-2.6kernel
-	$(PATCHER) -Z $(TOP)/$(HOTPLUG2) $(hotplug2_Patches)
-	mv $(TOP)/$(HOTPLUG2) $@ && touch $@
-
-hotplug2: $(TOP)/hotplug2
 	@true
 
 udev_Patches := $(call patches_list,udev)
