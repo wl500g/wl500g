@@ -26,10 +26,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/if_arp.h>
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
-#include <rc.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,10 +42,13 @@
 #define uint unsigned int
 #define uint8 unsigned char
 #define uint64 unsigned long long
+
+#include "rc.h"
 #include <swmod.h>
 #include <swapi.h>
 #include <nvports.h>
 #include <bcmdevs.h>
+#include <netconf.h>
 #include <nvparse.h>
 extern int wan_valid(char *ifname);
 

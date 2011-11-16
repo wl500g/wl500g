@@ -36,8 +36,7 @@
 #include <trxhdr.h>
 #include <rts/crc.h>
 #include <bcmutils.h>
-#include <shutils.h>
-
+#include "rc.h"
 #include "mtd.h"
 
 /*
@@ -46,13 +45,13 @@
  * @param	flags	open() flags
  * @return	return value of open()
  */
-static int
-mtd_open(const char *mtd, int flags)
+static int mtd_open(const char *mtd, int flags)
 {
 	FILE *fp;
 	char dev[PATH_MAX];
 	int i;
 
+	/* Check for mtd partition */
 	if ((fp = fopen("/proc/mtd", "r"))) {
 		while (fgets(dev, sizeof(dev), fp)) {
 			if (sscanf(dev, "mtd%d:", &i) && strstr(dev, mtd)) {
@@ -65,15 +64,14 @@ mtd_open(const char *mtd, int flags)
 	}
 
 	return open(mtd, flags);
-}	
+}
 
 /*
  * Erase an MTD device
  * @param	mtd	path to or partition name of MTD device
  * @return	0 on success and errno on failure
  */
-int
-mtd_erase(const char *mtd)
+int mtd_erase(const char *mtd)
 {
 	int mtd_fd;
 	mtd_info_t mtd_info;
@@ -116,8 +114,7 @@ mtd_erase(const char *mtd)
  * @param	mtd	path to or partition name of MTD device 
  * @return	0 on success and errno on failure
  */
-int
-mtd_flash(const char *path, const char *mtd)
+int mtd_flash(const char *path, const char *mtd)
 {
 	int mtd_fd = -1;
 	mtd_info_t mtd_info;
@@ -199,16 +196,13 @@ mtd_flash(const char *path, const char *mtd)
 	return ret;
 }
 
-extern int http_get(const char *server, char *buf, size_t count, off_t offset);
-
 /*
  * Write a file to an MTD device
  * @param	path	file to write or a URL
  * @param	mtd	path to or partition name of MTD device 
  * @return	0 on success and errno on failure
  */
-int
-mtd_write(const char *path, const char *mtd)
+int mtd_write(const char *path, const char *mtd)
 {
 	int mtd_fd = -1;
 	mtd_info_t mtd_info;

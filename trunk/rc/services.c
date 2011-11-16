@@ -21,9 +21,6 @@
 #include <sys/stat.h>
 #include <arpa/inet.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
 #include "rc.h"
 
 #ifndef ASUS_EXT
@@ -150,10 +147,10 @@ static int start_telnetd(void)
 	if (nvram_invmatch("telnet_enable", "1"))
 		return 0;
 
-	char *argv[] = {"telnetd", NULL};
+	char *telnetd_argv[] = {"telnetd", NULL};
 	pid_t pid;
 
-	ret = _eval(argv, NULL, 0, &pid);
+	ret = _eval(telnetd_argv, NULL, 0, &pid);
 
 	dprintf("done\n");
 	return ret;
@@ -222,13 +219,13 @@ static int start_snmpd(void)
 
 	fprintf(fp, "# automagically generated from web settings\n");
 
-	fprintf(fp, "community %s\n", nvram_get("snmp_community") ? : "public");
-	fprintf(fp, "syscontact %s\n", nvram_get("snmp_contact") ? : "Administrator");
-	fprintf(fp, "syslocation %s\n", nvram_get("snmp_location") ? : "Unknown");
+	fprintf(fp, "community %s\n", nvram_safe_default_get("snmp_community"));
+	fprintf(fp, "syscontact %s\n", nvram_safe_default_get("snmp_contact"));
+	fprintf(fp, "syslocation %s\n", nvram_safe_default_get("snmp_location"));
 
 	fclose(fp);
 	
-	ret = eval("snmpd", "-c", (char *)snmpd_conf);
+	ret = eval("snmpd", "-c", snmpd_conf);
 
 	dprintf("done\n");
 	return ret;
@@ -399,15 +396,17 @@ start_nas(char *type)
 #else
 	char cfgfile[64];
 	char pidfile[64];
+	pid_t pid;
+
 	if (!type || !*type)
 		type = "lan";
+
 	snprintf(cfgfile, sizeof(cfgfile), "/tmp/nas.%s.conf", type);
 	snprintf(pidfile, sizeof(pidfile), "/tmp/nas.%s.pid", type);
 	{
-		char *argv[] = {"nas", cfgfile, pidfile, type, NULL};
-		pid_t pid;
+		char *nas_argv[] = {"nas", cfgfile, pidfile, type, NULL};
 
-		_eval(argv, NULL, 0, &pid);
+		_eval(nas_argv, NULL, 0, &pid);
 	}
 #endif
 	dprintf("done\n");

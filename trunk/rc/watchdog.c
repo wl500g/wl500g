@@ -18,12 +18,10 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <sys/types.h>
 
-#include <bcmnvram.h>
-#include <shutils.h>
 #include <wlioctl.h>
 #include <wlutils.h>
 #include <netconf.h>

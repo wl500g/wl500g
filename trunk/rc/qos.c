@@ -1,6 +1,6 @@
 #ifdef QOS
-#include<stdio.h>
-#include<stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <limits.h>
 #include <time.h>
 #include <unistd.h>
@@ -15,15 +15,14 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/time.h>
-#include <sys/utsname.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <net/if_arp.h>
 #include <dirent.h>
                                                                                                                                                
 #include <epivers.h>
-#include <bcmnvram.h>
 #include <shutils.h>
+#include "rc.h"
 
 static char *Ch_conv(char *proto_name, int idx)
 {

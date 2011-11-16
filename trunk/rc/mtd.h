@@ -15,14 +15,6 @@
 #ifndef _mtd_h_
 #define _mtd_h_
 
-#ifdef LINUX26
- #define	MTD_DEV(arg)		"/dev/mtd"#arg
- #define	MTD_BLKDEV(arg)		"/dev/mtdblock"#arg
-#else
- #define	MTD_DEV(arg)		"/dev/mtd/"#arg
- #define	MTD_BLKDEV(arg)		"/dev/mtdblock/"#arg
-#endif
-
 /*
  * Erase an MTD device
  * @param	mtd	path to or partition name of MTD device

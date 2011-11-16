@@ -27,11 +27,7 @@
 #include <net/if_arp.h>
 #include <signal.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
 #include <wlutils.h>
-#include <nvparse.h>
 #include <bcmutils.h>
 #include "rc.h"
 

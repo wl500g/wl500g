@@ -19,7 +19,6 @@
 #include <syslog.h>
 #include <signal.h>
 #include <string.h>
-#include <sys/klog.h>
 #include <sys/types.h>
 #include <sys/mount.h>
 #include <sys/reboot.h>
@@ -27,31 +26,25 @@
 #include <sys/sysmacros.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include <sys/utsname.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <net/if_arp.h>
 #include <dirent.h>
-#if defined(__UCLIBC__)
-#include <crypt.h>
-#endif
 
 #include <epivers.h>
-#include <bcmnvram.h>
-#include <mtd.h>
-#include <shutils.h>
-#include <rc.h>
 #include <netconf.h>
 #include <nvparse.h>
 #include <bcmdevs.h>
 #include <wlutils.h>
 #include <bcmparams.h>
+#include "mtd.h"
+#include "rc.h"
 
 static void restore_defaults(void);
-static void sysinit(void);
 static void rc_signal(int sig);
 
 extern struct nvram_tuple router_defaults[];
+extern int noconsole;
 
 //static int restore_defaults_g=0;
 int router_model = MDL_UNKNOWN;
@@ -622,169 +615,6 @@ set_wan0_vars(void)
 	nvram_set("wan0_priority", "0");
 }
 
-/*
- * create /etc/passwd and /etc/group files
- */
- 
-static void 
-make_etc(void)
-{
-	FILE *f;
-	char *name, *pass;
-	
-	/* crypt using md5, no salt */
-	name = nvram_get("http_username") ? : "admin";
-	pass = crypt(nvram_get("http_passwd") ? : "admin", "$1$");
-	
-	if ((f = fopen("/etc/passwd", "w"))) {
-		fprintf(f, "%s:%s:0:0:root:/usr/local/root:/bin/sh\n"
-			"nobody:x:99:99:nobody:/:/sbin/nologin\n", name, pass);
-		fclose(f);
-	}
-	
-	if ((f = fopen("/etc/group", "w"))) {
-		fprintf(f, "root:x:0:%s\nnobody:x:99:\n", name);
-		fclose(f);
-	}
-	
-	/* uClibc TZ */
-	if ((f = fopen("/etc/TZ", "w"))) {
-		fprintf(f, "%s\n", nvram_safe_get("time_zone"));
-		fclose(f);
-	}
-	
-	/* /etc/resolv.conf compatibility */
-	symlink("/tmp/resolv.conf", "/etc/resolv.conf");
-	
-	/* hostname */
-	if ((f = fopen("/proc/sys/kernel/hostname", "w"))) {
-		fputs(nvram_safe_get("lan_hostname"), f);
-		fclose(f);
-	}
-
-	/* crond */
-	symlink("/etc/crontabs", "/var/spool/cron/crontabs");
-
-	/* mtab compability */
-	symlink("/proc/mounts", "/etc/mtab");
-}
-
-static int noconsole = 0;
-
-static void
-sysinit(void)
-{
-	char buf[PATH_MAX];
-	struct utsname name;
-	struct stat tmp_stat;
-	struct rlimit lim;
-	int totalram;
-	const char *tmpfsopt = NULL;
-
-	/* set default hardlimit */
-	getrlimit(RLIMIT_NOFILE, &lim);
-	lim.rlim_max = 16384;
-	setrlimit(RLIMIT_NOFILE, &lim);
-
-	/* /proc */
-	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
-
-#ifdef LINUX26
-	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
-	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, "size=100K");
-
-	/* populate /dev */
-	mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1));
-	mknod("/dev/null", S_IFCHR | 0666, makedev(1, 3));
-	eval("/sbin/mdev", "-s");
-
-	/* /dev/pts */
-	mkdir("/dev/pts", 0755);
-	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
-
-	/* /dev/shm */
-	mkdir("/dev/shm", S_ISVTX | 0755);
-	
-	/* extra links */
-	symlink("/proc/self/fd", "/dev/fd");
-	symlink("/proc/self/fd/0", "/dev/stdin");
-	symlink("/proc/self/fd/1", "/dev/stdout");
-	symlink("/proc/self/fd/2", "/dev/stderr");
-#endif
-
-	totalram = router_totalram();
-
-	/* /tmp */
-	if (totalram <= 16*1024*1024 /* 16MB */) {
-		snprintf(buf, sizeof(buf), "size=%dK", (totalram >> 2) >> 10);
-		tmpfsopt = buf;
-	}
-	mount("tmpfs", "/tmp", "tmpfs", MS_MGC_VAL | MS_NOATIME, tmpfsopt);
-
-	/* /var */
-	mkdir("/tmp/var", 0777);
-	mkdir("/var/lock", 0777);
-	mkdir("/var/log", 0777);
-	mkdir("/var/run", 0777);
-	mkdir("/var/spool", 0777);
-	mkdir("/var/spool/cron", 0777);
-	mkdir("/var/state", 0777);
-	mkdir("/var/tmp", 0777);
-	
-	/* /usr/local */
-	mkdir("/tmp/local", 0755);
-	mkdir("/tmp/local/root", 0700);
-	
-	/* /etc contents */
-	eval("cp", "-dpR", "/usr/etc", "/tmp");
-
-	/* create /etc/{passwd,group,TZ} */
-	make_etc();
-	
-	/* Setup console */
-	if (console_init())
-		noconsole = 1;
-	klogctl(8, NULL, atoi(nvram_safe_get("console_loglevel")));
-
-	/* load flashfs */
-	if (!eval("flashfs", "start"))
-		eval("/usr/local/sbin/pre-boot");
-
-	/* Modules */
-	uname(&name);
-	snprintf(buf, sizeof(buf), "/lib/modules/%s", name.release);
-	if (stat("/proc/modules", &tmp_stat) == 0 &&
-	    stat(buf, &tmp_stat) == 0) {
-		char module[80], *modules, *next;
-
-		modules = nvram_get("kernel_mods") ? : 
-#if defined(MODEL_WL700G)
-		"ide-core aec62xx "
-# ifndef LINUX26
-		"ide-detect "
-# endif
-		"ide-disk "
-#endif
-#if defined(__CONFIG_EMF__)
-		"emf igs "
-#endif
-		"et wl";
-		foreach(module, modules, next)
-			insmod(module, NULL);
-	}
-
-	update_tztime(1);
-
-#if defined(MODEL_WL700G)
-	insmod("gpiortc", "sda_mask=0x04", "scl_mask=0x20", NULL);
-	usleep(100000);
-#endif
-
-	if (exists("/dev/misc/rtc"))
-		eval("/sbin/hwclock", "-s");
-
-	dprintf("done\n");
-}
 
 /* States */
 enum RC_STATES {
@@ -872,7 +702,6 @@ main_loop(void)
 	sigemptyset(&sigset);
 
 	/* Give user a chance to run a shell before bringing up the rest of the system */
-
 	if (!noconsole)
 		run_shell(1, 0);
 
@@ -980,10 +809,13 @@ check_option(int argc, char * const argv[], int *index, const char *option) {
 	int res;
 	int found = 0;
 	opterr = 0;
-	if (strlen(option)==0) return 0;
-	while ((res = getopt(argc,argv,option)) != -1) {
+
+	if (strlen(option) == 0)
+		return 0;
+
+	while ((res = getopt(argc, argv, option)) != -1) {
 		if (!found)
-			found = ((char)res == option[0]);
+			found = ((char )res == option[0]);
 	}
 	*index = optind;
 	return found;
@@ -1165,11 +997,11 @@ main(int argc, char **argv)
 	}
 	/* invoke watchdog */
 	else if (!strcmp(base, "watchdog")) {
-		return(watchdog_main());
+		return watchdog_main();
 	}
 	/* run ntp client */
 	else if (!strcmp(base, "ntp")) {
-		return (!start_ntpc());
+		return !start_ntpc();
 	}
 #ifdef USB_SUPPORT
 #ifdef __CONFIG_RCAMD__
@@ -1189,11 +1021,11 @@ main(int argc, char **argv)
 		int scsi_host = -1;
 		if (argc >= 2)
 			scsi_host = atoi(argv[1]);
-		return (remove_storage_main(scsi_host));
+		return remove_storage_main(scsi_host);
 	}
 	/* run ftp server */
 	else if (!strcmp(base, "start_ftpd")) {
-		return (restart_ftpd());
+		return restart_ftpd();
 	}
 #endif //USB_SUPPORT
 	/* write srom */

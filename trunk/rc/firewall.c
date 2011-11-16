@@ -22,8 +22,6 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-#include <bcmnvram.h>
-#include <shutils.h>
 #include <netconf.h>
 #include <nvparse.h>
 #include "rc.h"

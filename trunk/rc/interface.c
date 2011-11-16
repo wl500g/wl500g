@@ -30,13 +30,11 @@
 #include <proto/ethernet.h>
 
 #include <shutils.h>
-#include <bcmnvram.h>
 #include <bcmutils.h>
 #include <bcmparams.h>
 #include "rc.h"
 
-in_addr_t
-ip_addr(const char *str)
+in_addr_t ip_addr(const char *str)
 {
 	struct in_addr addr;
 
@@ -46,8 +44,7 @@ ip_addr(const char *str)
 	return INADDR_ANY;
 }
 
-void
-ip2class(char *lan_ip, char *netmask, char *buf)
+void ip2class(const char *lan_ip, const char *netmask, char *buf)
 {
 	unsigned int val, ip;
 	struct in_addr in;
@@ -64,8 +61,8 @@ ip2class(char *lan_ip, char *netmask, char *buf)
 	dprintf("%s", buf);	
 }
 
-int
-_ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
+int _ifconfig(const char *name, int flags,
+			const char *addr, const char *netmask, const char *peer)
 {
 	int s, ret = 0;
 	struct ifreq ifr;
@@ -125,14 +122,13 @@ _ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
 	return ret;
 }
 
-int
-ifconfig(char *name, int flags, char *addr, char *netmask)
+int ifconfig(const char *name, int flags, const char *addr, const char *netmask)
 {
 	return _ifconfig(name, flags, addr, netmask, NULL);
 }
 
-static int
-route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *genmask)
+static int route_manip(int cmd, const char *name, int metric,
+			const char *dst, const char *gateway, const char *genmask)
 {
 	int s, ret = 0;
 	struct rtentry rt;
@@ -151,7 +147,7 @@ route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *gen
 		rt.rt_flags |= RTF_GATEWAY;
 	if (sin_addr(&rt.rt_genmask).s_addr == INADDR_BROADCAST)
 		rt.rt_flags |= RTF_HOST;
-	rt.rt_dev = name;
+	rt.rt_dev = (char *)name;
 
 	/* Filter out invalid host address */
 	if (rt.rt_flags & RTF_HOST &&
@@ -178,21 +174,18 @@ route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *gen
 	return ret;
 }
 
-int
-route_add(char *name, int metric, char *dst, char *gateway, char *genmask)
+int route_add(const char *name, int metric, const char *dst, const char *gateway, const char *genmask)
 {
 	return route_manip(SIOCADDRT, name, metric, dst, gateway, genmask);
 }
 
-int
-route_del(char *name, int metric, char *dst, char *gateway, char *genmask)
+int route_del(const char *name, int metric, const char *dst, const char *gateway, const char *genmask)
 {
 	return route_manip(SIOCDELRT, name, metric, dst, gateway, genmask);
 }
 
 /* configure loopback interface */
-void
-config_loopback(void)
+void config_loopback(void)
 {
 	/* Bring up loopback interface */
 	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0");
@@ -202,8 +195,7 @@ config_loopback(void)
 }
 
 /* configure/start vlan interface(s) based on nvram settings */
-int
-start_vlan(void)
+int start_vlan(void)
 {
 	int s;
 	struct ifreq ifr;
@@ -267,8 +259,7 @@ start_vlan(void)
 }
 
 /* stop/rem vlan interface(s) based on nvram settings */
-int
-stop_vlan(void)
+int stop_vlan(void)
 {
 	int i, vlan0tag;
 	char nvvar_name[16];
@@ -292,8 +283,7 @@ stop_vlan(void)
 }
 
 #ifdef __CONFIG_IPV6__
-int
-ipv6_addr(const char *str, struct in6_addr *addr6)
+int ipv6_addr(const char *str, struct in6_addr *addr6)
 {
 	char addrstr[INET6_ADDRSTRLEN] = "::/0";
 	char *last, *tmp = addrstr;
@@ -377,4 +367,4 @@ ipv6_map6rd(struct in6_addr *addr6, int netsize, struct in_addr *addr4, int ip4s
 
 	return ret;
 }
-#endif
+#endif /* __CONFIG_IPV6__ */

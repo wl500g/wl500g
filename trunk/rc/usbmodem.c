@@ -8,12 +8,10 @@
 #include <time.h>
 #include <sys/stat.h>
 
-#include <bcmnvram.h>
 #include <netconf.h>
-#include <shutils.h>
+#include <nvparse.h>
 #include "rc.h"
 
-#include <nvparse.h>
 
 #define MODEM_DEVICES_FILE	"/proc/bus/usb/devices"
 #define MODEM_CONFIG_FILE	"/usr/share/modem/modems.conf"
@@ -40,11 +38,11 @@
 #define FORMAT_SHORT	1
 #define FORMAT_JSON	2
 
-#define nvram_prefix_get(name) (nvram_get(strcat_r(prefix, name, tmp)) ? : "")
+#define nvram_prefix_get(name) nvram_safe_get(strcat_r(prefix, (name), tmp))
 
 #ifdef RC_SEMAPHORE_ENABLED
 
-int hotplug_check_prev_zerocd_processed(char *product, char *device)
+int hotplug_check_prev_zerocd_processed(const char *product, const char *device)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char str_devusb[100];
@@ -83,7 +81,7 @@ int hotplug_check_prev_zerocd_processed(char *product, char *device)
 	if (found) return 1;
 	else return 0;
 }
-void hotplug_release_zerocd_processed(char *product, char *device)
+void hotplug_release_zerocd_processed(const char *product, const char *device)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char str_devusb[100];
@@ -495,7 +493,7 @@ void free_dev_list(dev_usb *list)
 }
 
 /// get usb-device number and usb-bus from environment DEVICE
-int get_bus_num_from_devstr(char *device, int *bus, int *num)
+int get_bus_num_from_devstr(const char *device, int *bus, int *num)
 {
 	char *ptr;
 	int result = 0;
@@ -518,7 +516,7 @@ int get_bus_num_from_devstr(char *device, int *bus, int *num)
 }
 
 /// get usb-device by environment DEVICE
-static dev_usb *get_usb_by_location_env(char *device, dev_usb *list)
+static dev_usb *get_usb_by_location_env(const char *device, dev_usb *list)
 {
 	int bus, dev_num;
 	dev_usb *usb_dev, *result;
@@ -550,7 +548,7 @@ start_modem_dial(char *prefix)
 	pid_t pid;
 	FILE * file;
 	char sfn[200], tmp[200];
-	char *argv[] = {
+	char *dial_argv[] = {
 		(modem_get_script_name(sfn), sfn),
 		prefix,
 		NULL
@@ -566,7 +564,7 @@ start_modem_dial(char *prefix)
 			nvram_set(strcat_r(prefix, "dnsenable_x", tmp), "1");
 		}
 		nvram_set("wan_status_t", "Connecting...");
-		ret = _eval(argv, NULL, 0, &pid);
+		ret = _eval(dial_argv, NULL, 0, &pid);
 		if (pid) {
 			sprintf(tmp, "/var/run/%s.pid", prefix);
 			file = fopen(tmp, "w");
@@ -606,8 +604,7 @@ stop_modem_dial(char *prefix)
 	return ret;
 }
 
-int
-parse_product_string(char *product, int *vid, int *pid)
+int parse_product_string(const char *product, int *vid, int *pid)
 {
 	int res = 0;
 	char tmp[512], *str1, *str2;
@@ -628,7 +625,7 @@ parse_product_string(char *product, int *vid, int *pid)
 
 
 /// wait for device appearance in /proc/bus/usb/devices
-int wait_for_dev_appearance(int vid, int pid, char *device)
+int wait_for_dev_appearance(int vid, int pid, const char *device)
 {
 	FILE *fp = NULL;
 	char *vbuf = NULL, *ptr;
@@ -672,8 +669,7 @@ int wait_for_dev_appearance(int vid, int pid, char *device)
 	return result;
 }
 
-int
-hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
+int hotplug_check_modem(const char *interface, const char *product, const char *device, const char *prefix)
 {
 	int ret = 0, i;
 	char *str1, *str2;
@@ -796,7 +792,7 @@ hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 }
 
 void
-hotplug_exec_user_modem_init_script(char *sVid, char *sPid, char *sDevice)
+hotplug_exec_user_modem_init_script(const char *sVid, const char *sPid, const char *sDevice)
 {
 	char **argv_user;
 	char *tok, *context, *delim = " "; int i;
@@ -807,15 +803,15 @@ hotplug_exec_user_modem_init_script(char *sVid, char *sPid, char *sDevice)
 		strncpy(tmp, tok, sizeof(tmp) - 1);
 		dprintf("prepare to execute %s", tmp);
 
-		argv_user = (char**)malloc((strlen(tmp)/2) * sizeof(char*));
+		argv_user = (char **)malloc((strlen(tmp)/2) * sizeof(char*));
 		tok = strtok_r(tmp, delim, &context);
 		for (i = 0; tok ; i++, (tok = strtok_r(0, delim, &context))) {
 			if (!strcasecmp(tok, "$VID"))
-				argv_user[i] = sVid;
+				argv_user[i] = (char *)sVid;
 			else if (!strcasecmp(tok, "$PID"))
-				argv_user[i] = sPid;
+				argv_user[i] = (char *)sPid;
 			else if (!strcasecmp(tok, "$DEV"))
-				argv_user[i] = sDevice;
+				argv_user[i] = (char *)sDevice;
 			else
 				argv_user[i] = tok;
 		};
@@ -826,8 +822,7 @@ hotplug_exec_user_modem_init_script(char *sVid, char *sPid, char *sDevice)
 	}
 }
 
-void
-hotplug_usb_modeswitch(char *interface, char *action, char *product, char *device)
+void hotplug_usb_modeswitch(const char *interface, const char *action, const char *product, const char *device)
 {
 	int vid, pid;
 
@@ -909,7 +904,7 @@ hotplug_usb_modeswitch(char *interface, char *action, char *product, char *devic
 							if (ready) {
 								dprintf("lsUSB: %04x:%04x", dev_vid, dev_pid);
 								if (dev_vid == vid && dev_pid == pid) {
-									i_size = sizeof(sMaList)/sizeof(char*);
+									i_size = ARRAY_SIZE(sMaList);
 									if (ready == 1) {
 										for (i = 0; i < i_size; i++) {
 											if (strncmp(sManufacturer, sMaList[i], strlen(sMaList[i])) == 0) {

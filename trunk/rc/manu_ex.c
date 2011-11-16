@@ -11,10 +11,8 @@
 #include <net/if_arp.h>
 #include <time.h>
 
-#include <shutils.h>
 #include <wlioctl.h>
 #include <wlutils.h>
-#include <bcmnvram.h>
 #include "rc.h"
 
 #define A_UCHAR  unsigned char
@@ -445,13 +443,13 @@ static int
 wlanGetCcEntries(A_UINT16 channelFlags)
 {
     if (channelFlags & CHANNEL_2GHZ) {
-        return(sizeof(regDmnEnum2)/sizeof(REG_DMN_ENUM_FREQ_TABLE));
+        return ARRAY_SIZE(regDmnEnum2);
     }
     else if (channelFlags & CHANNEL_5GHZ) {
         if (channelFlags & CHANNEL_TURBO) {
-            return(sizeof(regDmnEnum5Turbo)/sizeof(REG_DMN_ENUM_FREQ_TABLE));
+            return ARRAY_SIZE(regDmnEnum5Turbo);
         } else {
-            return(sizeof(regDmnEnum5)/sizeof(REG_DMN_ENUM_FREQ_TABLE));
+            return ARRAY_SIZE(regDmnEnum5);
         }
     }
     else {

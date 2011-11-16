@@ -21,8 +21,6 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-#include <bcmnvram.h>
-#include <shutils.h>
 #include <netconf.h>
 #include <nvparse.h>
 #include "rc.h"
@@ -33,7 +31,7 @@ static char *g_buf;
 #define G_BUF_TOTAL	1024
 
 /* Forwards */
-static int porttrigger_setting(FILE *fp, char *lan_if);
+static int porttrigger_setting(FILE *fp, const char *lan_if);
 
 
 static void g_buf_init()
@@ -499,7 +497,7 @@ static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
 }
 #endif
 
-static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
+static void nat_setting(const char *wan_if, const char *wan_ip, const char *lan_if, const char *lan_ip, const char *logaccept, const char *logdrop)
 {
 	FILE *fp;
         char lan_class[32];
@@ -665,8 +663,9 @@ static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, 
  *     DROP -> FORWARD DROP
  *     ACCEPT -> FORWARD ACCEPT 
  */
-static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip,
-			  char *logaccept, char *logdrop)
+static int filter_setting(const char *wan_if, const char *wan_ip,
+			const char *lan_if, const char *lan_ip,
+			const char *logaccept, const char *logdrop)
 {
 
 	FILE *fp, *fp1;
@@ -866,7 +865,7 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 	{   		
 		char lanwan_timematch[128];
 		char ptr[32], *icmplist;
-		char *ftype, *dtype;
+		const char *ftype, *dtype;
 
 		timematch_conv(lanwan_timematch, "filter_lw_date_x", "filter_lw_time_x");	   
  
@@ -911,7 +910,7 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 	{   		
 		char wanlan_timematch[128];
 		char ptr[32], *icmplist;
-		char *dtype, *ftype;
+		const char *dtype, *ftype;
 
 		timematch_conv(wanlan_timematch, "filter_wl_date_x", "filter_wl_time_x");
 		g_buf_init();
@@ -1211,7 +1210,7 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 	return 0;
 }
 
-static int porttrigger_setting(FILE *fp, char *lan_if)
+static int porttrigger_setting(FILE *fp, const char *lan_if)
 {
 	netconf_app_t apptarget, *app;
 	int i;
@@ -1289,8 +1288,7 @@ static int porttrigger_setting(FILE *fp, char *lan_if)
 	return 0;
 }
 
-int
-start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
+int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if, const char *lan_ip)
 {
 	DIR *dir;
 	struct dirent *file;
