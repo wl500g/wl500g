@@ -403,15 +403,14 @@ sh_strrspn(const char *s, const char *accept)
 	
 	if (s[0] == '\0')
 		return 0;
-
-	p = s + strlen(s);
+	
+	p = s + (strlen(s) - 1);
 	i = 0;
-
+	
 	do {
-		p--;
 		if (memchr(accept, *p, accept_len) == NULL)
 			break;
-		i++;
+		p--; i++;
 	} while (p != s);
 
 	return i;
