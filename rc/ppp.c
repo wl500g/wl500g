@@ -21,20 +21,17 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <ctype.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
 #include "rc.h"
 
 /*
 * parse ifname to retrieve unit #
 */
-int
-ppp_ifunit(char *ifname)
+int ppp_ifunit(const char *ifname)
 {
 	if (strncmp(ifname, "ppp", 3))
 		return -1;

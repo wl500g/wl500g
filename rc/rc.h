@@ -15,7 +15,13 @@
 #ifndef _rc_h_
 #define _rc_h_
 
+#if defined(__UCLIBC__)
+#include <crypt.h>
+#endif
+
 #include <bcmconfig.h>
+#include <bcmnvram.h>
+#include <shutils.h>
 #include <netinet/in.h>
 
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
@@ -29,9 +35,11 @@
     #define RC_SEMAPHORE_ENABLED
 #endif
 
+#define DEV_RTC	"/dev/misc/rtc"
+
 /* common */
 in_addr_t ip_addr(const char *cp);
-void ip2class(char *lan_ip, char *netmask, char *buf);
+void ip2class(const char *lan_ip, const char *netmask, char *buf);
 #ifdef __CONFIG_IPV6__
 int ipv6_addr(const char *str, struct in6_addr *addr6);
 int ipv6_network(struct in6_addr *addr6, int netsize);
@@ -40,9 +48,8 @@ int ipv6_map6rd(struct in6_addr *addr6, int netsize, struct in_addr *addr4, int 
 #endif
 char *trim_r(char *str);
 int router_totalram();
-void logmessage(char *logheader, char *fmt, ...);
-void wanmessage(char *fmt, ...);
-int kill_pidfile_s(char *pidfile, int sig);
+void logmessage(const char *logheader, const char *fmt, ...);
+void wanmessage(const char *fmt, ...);
 void update_lan_status(int isup);
 void update_wan_status(int isup);
 char *pppstatus(char *buf);
@@ -50,13 +57,13 @@ void convert_asus_values();
 void convert_country();
 void convert_routes();
 char *mac_conv(char *mac_name, int idx, char *buf);
-int fputs_ex(char *name, char *value);
-int insmod(char *module, ...);
-int rmmod(char *module);
-int killall_w(char *program, unsigned sig, int timeout);
-int killall_s(char *program, unsigned sig);
-int killall(char *program);
-int killall_tk(char *program);
+int fputs_ex(const char *name, const char *value);
+int insmod(const char *module, ...);
+int rmmod(const char *module);
+int killall_w(const char *program, unsigned sig, int timeout);
+int killall_s(const char *program, unsigned sig);
+int killall(const char *program);
+int killall_tk(const char *program);
 void setenv_tz();
 time_t update_tztime(int is_resettm);
 
@@ -65,14 +72,14 @@ int rsrom_main(char *devname, unsigned int pos, int pflag);
 
 /* dhcp/zcip scripts */
 int udhcpc_main(int argc, char **argv);
-int start_dhcpc(char *wan_ifname, int unit);
+int start_dhcpc(const char *wan_ifname, int unit);
 int udhcpc_ex_main(int argc, char **argv);
 int zcip_main(int argc, char **argv);
 int start_zcip(char *wan_ifname);
 void stop_zcip(void);
 #ifdef __CONFIG_IPV6__
 int dhcp6c_main(int argc, char **argv);
-int start_dhcp6c(char *wan_ifname);
+int start_dhcp6c(const char *wan_ifname);
 void stop_dhcp6c(void);
 #endif
 
@@ -85,7 +92,7 @@ int ipdown_main(int argc, char **argv);
 int ip6up_main(int argc, char **argv);
 int ip6down_main(int argc, char **argv);
 #endif
-int ppp_ifunit(char *ifname);
+int ppp_ifunit(const char *ifname);
 
 /* http functions */
 int http_get(const char *server, char *buf, size_t count, off_t offset);
@@ -95,17 +102,17 @@ int http_check(const char *server, char *buf, size_t count, off_t offset);
 int proc_check_pid(const char *pidfile);
 
 /* init */
-int console_init(void);
 pid_t run_shell(int timeout, int nowait);
 void signal_init(void);
 void preshutdown_system(void);
+void sysinit(void);
 void child_reap(int sig);
 
 /* interface */
-int _ifconfig(char *ifname, int flags, char *addr, char *netmask, char *peer);
-int ifconfig(char *ifname, int flags, char *addr, char *netmask);
-int route_add(char *name, int metric, char *dst, char *gateway, char *genmask);
-int route_del(char *name, int metric, char *dst, char *gateway, char *genmask);
+int _ifconfig(const char *ifname, int flags, const char *addr, const char *netmask, const char *peer);
+int ifconfig(const char *ifname, int flags, const char *addr, const char *netmask);
+int route_add(const char *name, int metric, const char *dst, const char *gateway, const char *genmask);
+int route_del(const char *name, int metric, const char *dst, const char *gateway, const char *genmask);
 void config_loopback(void);
 int config_vlan(void);
 int start_vlan(void);
@@ -115,19 +122,19 @@ int stop_vlan(void);
 void start_lan(void);
 void stop_lan(void);
 void start_wan(void);
-void stop_wan(char *ifname);
-void wan_up(char *ifname);
-void wan_down(char *ifname);
+void stop_wan(const char *ifname);
+void wan_up(const char *ifname);
+void wan_down(const char *ifname);
 #ifdef __CONFIG_IPV6__
-void wan6_up(char *ifname, int unit);
-void wan6_down(char *ifname, int unit);
+void wan6_up(const char *ifname, int unit);
+void wan6_down(const char *ifname, int unit);
 #endif
-void lan_up_ex(char *lan_ifname);
-void lan_down_ex(char *lan_ifname);
-int wan_prefix(char *ifname, char *prefix);
+void lan_up_ex(const char *lan_ifname);
+void lan_down_ex(const char *lan_ifname);
+int wan_prefix(const char *ifname, char *prefix);
 
 int hotplug_net(void);
-int wan_ifunit(char *ifname);
+int wan_ifunit(const char *ifname);
 int wan_primary_ifunit(void);
 int start_bpalogin(void);
 int stop_bpalogin(void);
@@ -138,7 +145,7 @@ int write_mac(char *devname, char *mac);
 int bpa_connect_main(int argc, char **argv);
 int bpa_disconnect_main(int argc, char **argv);
 void stop_igmpproxy(void);
-int update_resolvconf(char *ifname, int metric, int up);
+int update_resolvconf(const char *ifname, int metric, int up);
 #ifdef __CONFIG_BCMWL5__
 extern void start_wl(void);
 #else
@@ -190,7 +197,7 @@ int restart_ftpd();
 int ddns_updated_main();
 int sendalarm_main(int argc, char *argv[]);
 int service_handle(void);
-int mkdir_if_none(char *dir);
+int mkdir_if_none(const char *dir);
 void diag_PaN(void);
 int wlan_update();
 
@@ -214,8 +221,8 @@ int stop_authcli(int wait);
 /* firewall */
 #ifdef __CONFIG_NETCONF__
 int start_firewall(void);
-int start_firewall2(char *ifname);
-int start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip);
+int start_firewall2(const char *ifname);
+int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if, const char *lan_ip);
 #else
 #define start_firewall() do {} while (0)
 #define stop_firewall() do {} while (0)
@@ -224,7 +231,7 @@ int start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip);
 #endif
 
 /* routes */
-int preset_wan_routes(char *ifname);
+int preset_wan_routes(const char *ifname);
 
 /* watchdog */
 int refresh_wave(void);
@@ -232,25 +239,25 @@ int poweron_main(int argc, char *argv[]);
 int watchdog_main();
 
 #ifdef __CONFIG_MADWIMAX__
-int start_wimax(char *prefix);
-int stop_wimax(char *prefix);
-int madwimax_check(char *prefix);
+int start_wimax(const char *prefix);
+int stop_wimax(const char *prefix);
+int madwimax_check(const char *prefix);
 int madwimax_main(int argc, char **argv);
-int wimax_ifunit(char *ifname);
-int hotplug_check_wimax(char *interface, char *product, char *prefix);
+int wimax_ifunit(const char *ifname);
+int hotplug_check_wimax(const char *interface, const char *product, const char *prefix);
 #endif
 
 #ifdef __CONFIG_MODEM__
 int start_modem_dial(char *prefix);
 int stop_modem_dial(char *prefix);
 int usb_modem_check(char * prefix);
-int hotplug_check_modem(char *interface, char *product, char *device, char *prefix);
+int hotplug_check_modem(const char *interface, const char *product, const char *device, const char *prefix);
 int lsmodem_main(int argc, char **argv);
 #endif
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-void hotplug_network_device(char *interface, char *action, char *product, char *device);
-void hotplug_usb_modeswitch(char *interface, char *action, char *product, char *device);
+void hotplug_network_device(const char *interface, const char *action, const char *product, const char *device);
+void hotplug_usb_modeswitch(const char *interface, const char *action, const char *product, const char *device);
 int usb_communication_device_processcheck(int wait_flag);
 
 void hotplug_sem_open();

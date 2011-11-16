@@ -7,9 +7,6 @@
 #include <sys/stat.h>
 #include <arpa/inet.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
 #include "rc.h"
 
 #ifdef __CONFIG_EAPOL__
@@ -20,12 +17,12 @@ start_wpa_supplicant(char *prefix, int restart)
 {
 	FILE *fp;
 	char tmp[100];
-	char *options = "/etc/wpa_supplicant.conf";
+	const char *options = "/etc/wpa_supplicant.conf";
 	char *wpa_argv[] = {"/usr/sbin/wpa_supplicant",
 		"-B", "-W",
 		"-D", "roboswitch",
 		"-i", nvram_safe_get(strcat_r(prefix, "ifname", tmp)),
-		"-c", options,
+		"-c", (char *)options,
 		NULL
 	};
 	char *cli_argv[] = {"/usr/sbin/wpa_cli",
@@ -142,10 +139,10 @@ start_authcli(char *prefix, int restart)
 {
 	FILE *fp;
 	char tmp[100];
-	char *options = "/etc/authcliw.conf";
+	const char *options = "/etc/authcliw.conf";
 	char *authcli_argv[] = {
 		"/usr/sbin/authcli",
-		"-c", options,
+		"-c", (char *)options,
 	    /*	"-p", pid_file,    */
 	    /*	"-c", info_name,   */
 	    	"-u", "nobody",
@@ -186,8 +183,8 @@ int
 start_auth(char *prefix, int wan_up)
 {
 	char tmp[100];
-	char *wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
-	char *wan_auth = nvram_safe_get(strcat_r(prefix, "auth_x", tmp));
+	const char *wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
+	const char *wan_auth = nvram_safe_get(strcat_r(prefix, "auth_x", tmp));
 	int ret = 0;
 
 	if (strcmp(wan_proto, "static") == 0 ||
@@ -223,8 +220,8 @@ int
 stop_auth(char *prefix, int wan_down)
 {
 	char tmp[100];
-	char *wan_proto = prefix ? nvram_safe_get(strcat_r(prefix, "proto", tmp)) : NULL;
-	char *wan_auth = prefix ? nvram_safe_get(strcat_r(prefix, "auth_x", tmp)) : NULL;
+	const char *wan_proto = prefix ? nvram_safe_get(strcat_r(prefix, "proto", tmp)) : NULL;
+	const char *wan_auth = prefix ? nvram_safe_get(strcat_r(prefix, "auth_x", tmp)) : NULL;
 
 	if (wan_proto == NULL ||
 	    strcmp(wan_proto, "static") == 0 ||

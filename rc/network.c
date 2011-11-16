@@ -38,18 +38,16 @@ typedef u_int8_t u8;
 #include <semaphore.h>
 #include <fcntl.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
 #include <wlutils.h>
-#include <nvparse.h>
 #include <bcmutils.h>
 #include <etioctl.h>
 #include <bcmparams.h>
+#include <netconf.h>
+#include <nvparse.h>
 #include "rc.h"
 
-static void lan_up(char *lan_ifname);
-static int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr );
+static void lan_up(const char *lan_ifname);
+static int wait_for_ifup(const char *prefix, const char *wan_ifname, struct ifreq *ifr);
 
 #ifdef RC_SEMAPHORE_ENABLED
 
@@ -101,12 +99,12 @@ hotplug_sem_unlock()
 void hotplug_sem_open() {}
 void hotplug_sem_close() {}
 void hotplug_sem_lock() {}
-int hotplug_sem_trylock() {return 1;}
+int hotplug_sem_trylock() { return 1; }
 void hotplug_sem_unlock() {}
 #endif /* RC_SEMAPHORE_ENABLED */
 
 #ifdef __CONFIG_EMF__
-static void emf_mfdb_update(char *lan_ifname, char *lan_port_ifname, bool add)
+static void emf_mfdb_update(const char *lan_ifname, const char *lan_port_ifname, bool add)
 {
         char word[256], *next;
         char *mgrp, *ifname;
@@ -129,7 +127,7 @@ static void emf_mfdb_update(char *lan_ifname, char *lan_port_ifname, bool add)
         return;
 }
 
-static void emf_uffp_update(char *lan_ifname, char *lan_port_ifname, bool add)
+static void emf_uffp_update(const char *lan_ifname, const char *lan_port_ifname, bool add)
 {
         char word[256], *next;
         char *ifname;
@@ -151,7 +149,7 @@ static void emf_uffp_update(char *lan_ifname, char *lan_port_ifname, bool add)
         return;
 }
 
-static void emf_rtport_update(char *lan_ifname, char *lan_port_ifname, bool add)
+static void emf_rtport_update(const char *lan_ifname, const char *lan_port_ifname, bool add)
 {
         char word[256], *next;
         char *ifname;
@@ -173,7 +171,7 @@ static void emf_rtport_update(char *lan_ifname, char *lan_port_ifname, bool add)
         return;
 }
 
-static void start_emf(char *lan_ifname)
+static void start_emf(const char *lan_ifname)
 {
         char word[256], *next;
         char *mgrp, *ifname;
@@ -220,8 +218,7 @@ static void start_emf(char *lan_ifname)
 }
 #endif
 
-static int
-add_routes(char *prefix, char *var, char *ifname)
+static int add_routes(const char *prefix, const char *var, const char *ifname)
 {
 	int err, m;
 	char word[80], *next;
@@ -259,8 +256,7 @@ add_routes(char *prefix, char *var, char *ifname)
 	return 0;
 }
 
-static void
-add_wanx_routes(char *prefix, char *ifname, int metric)
+static void add_wanx_routes(const char *prefix, const char *ifname, int metric)
 {
 	char *routes, *tmp;
 	char buf[30];
@@ -308,8 +304,7 @@ add_wanx_routes(char *prefix, char *ifname, int metric)
 	return;
 }
 
-static int
-del_routes(char *prefix, char *var, char *ifname)
+static int del_routes(const char *prefix, const char *var, const char *ifname)
 {
 	char word[80], *next;
 	char *ipaddr, *netmask, *gateway, *metric;
@@ -354,16 +349,15 @@ del_lan_routes(char *lan_ifname)
 	return del_routes("lan_", "route", lan_ifname);
 }
 
-static void
-start_igmpproxy(char *wan_ifname)
+static void start_igmpproxy(const char *wan_ifname)
 {
 	FILE *fp;
 	struct stat st_buf;
 	char *igmpproxy_conf = "/etc/igmpproxy.conf";
 	char *udpxy_argv[] = { "/usr/sbin/udpxy",
-		"-m", wan_ifname,
+		"-m", (char *)wan_ifname,
 		"-p", nvram_get("udpxy_enable_x"),
-		"-a", nvram_get("lan_ifname") ? : "br0",
+		"-a", nvram_safe_default_get("lan_ifname"),
 		NULL };
 
 	if (atoi(nvram_safe_get("udpxy_enable_x")))
@@ -392,12 +386,12 @@ start_igmpproxy(char *wan_ifname)
 			"phyint %s downstream ratelimit 0\n\n", 
 			wan_ifname, 
 			nvram_get("mr_altnet_x") ? : "0.0.0.0/0", 
-			nvram_get("lan_ifname") ? : "br0");
+			nvram_safe_default_get("lan_ifname"));
 		fclose(fp);
 	}
 
 	killall_w("igmpproxy", 0, 1);
-	eval("/usr/sbin/igmpproxy", (char *)igmpproxy_conf);
+	eval("/usr/sbin/igmpproxy", igmpproxy_conf);
 }
 
 void
@@ -650,7 +644,7 @@ start_lan(void)
 #ifndef ASUS_EXT
 	/* Start syslogd if either log_ipaddr or log_ram_enable is set */
 	if (nvram_invmatch("log_ipaddr", "") || nvram_match("log_ram_enable", "1")) {
-		char *argv[] = {
+		char *syslogd_argv[] = {
 			"syslogd",
 			NULL, 		/* -C */
 			NULL, NULL,	/* -R host */
@@ -660,18 +654,18 @@ start_lan(void)
 		int argc = 1;
 		
 		if (nvram_match("log_ram_enable", "1")) {
-			argv[argc++] = "-C";
+			syslogd_argv[argc++] = "-C";
 		}
 		else if (!nvram_match("log_ram_enable", "0")) {
 			nvram_set("log_ram_enable", "0");
 		}
 				
 		if (nvram_invmatch("log_ipaddr", "")) {
-			argv[argc++] = "-R";
-			argv[argc++] = nvram_get("log_ipaddr");
+			syslogd_argv[argc++] = "-R";
+			syslogd_argv[argc++] = nvram_get("log_ipaddr");
 		}
 
-		_eval(argv, NULL, 0, &pid);
+		_eval(syslogd_argv, NULL, 0, &pid);
 	}
 #endif
 
@@ -680,8 +674,7 @@ start_lan(void)
 		nvram_safe_get("lan_netmask"));
 }
 
-void
-stop_lan(void)
+void stop_lan(void)
 {
 	char *lan_ifname = nvram_safe_get("lan_ifname");
 	char name[80], *next;
@@ -726,8 +719,7 @@ stop_lan(void)
 	dprintf("done\n");
 }
 
-int
-wan_prefix(char *ifname, char *prefix)
+int wan_prefix(const char *ifname, char *prefix)
 {
 	int unit;
 	
@@ -738,8 +730,7 @@ wan_prefix(char *ifname, char *prefix)
 	return 0;
 }
 
-static int
-add_wan_routes(char *wan_ifname)
+static int add_wan_routes(const char *wan_ifname)
 {
 	char prefix[] = "wanXXXXXXXXXX_";
 
@@ -750,8 +741,7 @@ add_wan_routes(char *wan_ifname)
 	return add_routes(prefix, "route", wan_ifname);
 }
 
-static int
-del_wan_routes(char *wan_ifname)
+static int del_wan_routes(const char *wan_ifname)
 {
 	char prefix[] = "wanXXXXXXXXXX_";
 
@@ -762,8 +752,7 @@ del_wan_routes(char *wan_ifname)
 	return del_routes(prefix, "route", wan_ifname);
 }
 
-int
-wan_valid(char *ifname)
+int wan_valid(const char *ifname)
 {
 	char name[80], *next;
 
@@ -778,8 +767,7 @@ wan_valid(char *ifname)
 	return 0;
 }
 
-void
-start_wan(void)
+void start_wan(void)
 {
 	char *wan_ifname;
 	char *wan_proto;
@@ -991,7 +979,7 @@ start_wan(void)
 			/* Pretend that the WAN interface is up */
 			if (demand) 
 			{
-				if ( ! wait_for_ifup( prefix, wan_ifname, &ifr ) ) continue;
+				if (!wait_for_ifup(prefix, wan_ifname, &ifr)) continue;
 			}
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
@@ -1099,7 +1087,7 @@ start_wan(void)
 			/* Pretend that the WAN interface is up */
 			if (demand)
 			{
-				if ( ! wait_for_ifup( prefix, wan_ifname, &ifr ) ) continue;
+				if (!wait_for_ifup(prefix, wan_ifname, &ifr)) continue;
 			}
 		}
 #endif
@@ -1157,8 +1145,7 @@ static int stop_usb_communication_devices(void)
 #endif
 
 
-void
-stop_wan(char *ifname)
+void stop_wan(const char *ifname)
 {
 	char name[80], *next;
 
@@ -1230,8 +1217,7 @@ stop_wan(char *ifname)
 	dprintf("done\n");
 }
 
-int
-update_resolvconf(char *ifname, int metric, int up)
+int update_resolvconf(const char *ifname, int metric, int up)
 {
 	FILE *fp;
 	char word[100], *next;
@@ -1273,8 +1259,7 @@ update_resolvconf(char *ifname, int metric, int up)
 	return 0;
 }
 
-void
-wan_up(char *wan_ifname)
+void wan_up(const char *wan_ifname)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char *wan_proto, *gateway;
@@ -1425,8 +1410,7 @@ wan_up(char *wan_ifname)
 	dprintf("done\n");
 }
 
-void
-wan_down(char *wan_ifname)
+void wan_down(const char *wan_ifname)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char *wan_proto;
@@ -1471,11 +1455,10 @@ wan_down(char *wan_ifname)
 }
 
 #ifdef __CONFIG_IPV6__
-void
-wan6_up(char *wan_ifname, int unit)
+void wan6_up(const char *wan_ifname, int unit)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	char *wan6_ifname = "six0";
+	const char *wan6_ifname = "six0";
 	char *wan6_ipaddr;
 	struct in6_addr addr;
 	struct in_addr addr4;
@@ -1641,11 +1624,10 @@ wan6_up(char *wan_ifname, int unit)
 	nvram_set(strcat_r(prefix, "ipv6_dns", tmp), nvram_safe_get("ipv6_dns1_x"));
 }
 
-void
-wan6_down(char *wan_ifname, int unit)
+void wan6_down(const char *wan_ifname, int unit)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	char *wan6_ifname = "six0";
+	const char *wan6_ifname = "six0";
 	char *wan6_ipaddr;
 
 	if (!nvram_invmatch("ipv6_proto", ""))
@@ -1697,7 +1679,7 @@ wan6_down(char *wan_ifname, int unit)
 #endif
 
 #ifdef ASUS_EXT
-static void lan_up(char *lan_ifname)
+static void lan_up(const char *lan_ifname)
 {
 	FILE *fp;
 	char word[100], *next;
@@ -1738,8 +1720,7 @@ static void lan_up(char *lan_ifname)
 }
 
 #if 0
-void
-lan_down(char *lan_ifname)
+void lan_down(const char *lan_ifname)
 {
 	/* Remove default route to gateway if specified */
 	route_del(lan_ifname, 0, "0.0.0.0", 
@@ -1751,8 +1732,7 @@ lan_down(char *lan_ifname)
 }
 #endif
 
-void
-lan_up_ex(char *lan_ifname)
+void lan_up_ex(const char *lan_ifname)
 {
 	FILE *fp;
 	char word[100], *next;
@@ -1793,8 +1773,7 @@ lan_up_ex(char *lan_ifname)
 	//update_lan_status(1);
 }
 
-void
-lan_down_ex(char *lan_ifname)
+void lan_down_ex(const char *lan_ifname)
 {
 	/* Remove default route to gateway if specified */
 	route_del(lan_ifname, 0, "0.0.0.0", 
@@ -1811,19 +1790,18 @@ lan_down_ex(char *lan_ifname)
 
 #endif
 
-static int
-notify_nas(char *type, char *ifname, char *action)
+static int notify_nas(const char *type, const char *ifname, const char *action)
 {
 #ifdef __CONFIG_BCMWL5__
 
 	/* Inform driver to send up new WDS link event */
-	if (wl_iovar_setint((char *)ifname, "wds_enable", 1)) {
+	if (wl_iovar_setint(ifname, "wds_enable", 1)) {
 		dprintf("%s: set wds_enable failed\n", ifname);
 	}
 	return 1;
 
 #else   /* !__CONFIG_BCMWL5__ */
-	char *argv[] = {"nas4not", type, ifname, action, 
+	char *nas_argv[] = {"nas4not", type, ifname, action, 
 			NULL,	/* role */
 			NULL,	/* crypto */
 			NULL,	/* auth */
@@ -1858,11 +1836,11 @@ notify_nas(char *type, char *ifname, char *action)
 
 		if (get_wds_wsec(unit, i, mac, role, crypto, auth, ssid, pass) &&
 		    ether_atoe(mac, ea) && !bcmp(ea, remote, ETHER_ADDR_LEN)) {
-			argv[4] = role;
-			argv[5] = crypto;
-			argv[6] = auth;
-			argv[7] = pass;
-			argv[8] = ssid;
+			nas_argv[4] = role;
+			nas_argv[5] = crypto;
+			nas_argv[6] = auth;
+			nas_argv[7] = pass;
+			nas_argv[8] = ssid;
 			break;
 		}
 	}
@@ -1870,19 +1848,19 @@ notify_nas(char *type, char *ifname, char *action)
 	/* did not find WDS link configuration, use wireless' */
 	if (i == MAX_NVPARSE) {
 		/* role */
-		argv[4] = "auto";
+		nas_argv[4] = "auto";
 		/* crypto */
-		argv[5] = nvram_safe_get(strcat_r(prefix, "crypto", tmp));
+		nas_argv[5] = nvram_safe_get(strcat_r(prefix, "crypto", tmp));
 		/* auth mode */
 #ifdef WPA2_WMM
-		argv[6] = nvram_safe_get(strcat_r(prefix, "akm", tmp));
+		nas_argv[6] = nvram_safe_get(strcat_r(prefix, "akm", tmp));
 #else
-		argv[6] = nvram_safe_get(strcat_r(prefix, "auth_mode", tmp));
+		nas_argv[6] = nvram_safe_get(strcat_r(prefix, "auth_mode", tmp));
 #endif
 		/* passphrase */
-		argv[7] = nvram_safe_get(strcat_r(prefix, "wpa_psk", tmp));
+		nas_argv[7] = nvram_safe_get(strcat_r(prefix, "wpa_psk", tmp));
 		/* ssid */
-		argv[8] = nvram_safe_get(strcat_r(prefix, "ssid", tmp));
+		nas_argv[8] = nvram_safe_get(strcat_r(prefix, "ssid", tmp));
 	}
 
 	/* wait till nas is started */
@@ -1891,7 +1869,7 @@ notify_nas(char *type, char *ifname, char *action)
 	if (str) {
 		int pid;
 		free(str);
-		return _eval(argv, ">/dev/console", 0, &pid);
+		return _eval(nas_argv, ">/dev/console", 0, &pid);
 	}
 	return -1;
 #endif /* CONFIG_BCMWL5 */
@@ -1957,8 +1935,7 @@ hotplug_net(void)
 }
 
 
-int
-wan_ifunit(char *wan_ifname)
+int wan_ifunit(const char *wan_ifname)
 {
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
@@ -1983,8 +1960,7 @@ wan_ifunit(char *wan_ifname)
 	return -1;
 }
 
-int
-preset_wan_routes(char *wan_ifname)
+int preset_wan_routes(const char *wan_ifname)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 
@@ -2020,7 +1996,7 @@ wan_primary_ifunit(void)
 }
 
 // return 0 if failed
-static int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
+static int wait_for_ifup(const char *prefix, const char *wan_ifname, struct ifreq *ifr)
 {
 	int timeout = 5;
 	int s, pid;
@@ -2064,7 +2040,7 @@ static int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
 }
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-void hotplug_network_device(char * interface, char * action, char * product, char *device)
+void hotplug_network_device(const char *interface, const char *action, const char *product, const char *device)
 {
 	char *wan_ifname;
 	char *wan_proto;
@@ -2113,20 +2089,20 @@ void hotplug_network_device(char * interface, char * action, char * product, cha
 			if (action_add) {
 #ifdef __CONFIG_MADWIMAX__
 			    if ( !strcmp(wan_proto, "wimax") &&
-			         hotplug_check_wimax( interface, product, prefix ) ) {
+			         hotplug_check_wimax(interface, product, prefix) ) {
 				found = 1;
 			    } else 
 #endif
 #ifdef __CONFIG_MODEM__
 			    if ( !strcmp(wan_proto, "usbmodem") &&
-			         hotplug_check_modem( interface, product, device, prefix ) ) {
+			         hotplug_check_modem(interface, product, device, prefix) ) {
 				found = 2;
 			    }
 #else
 			    {}
 #endif
 			} else {
-				dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+				dev_vidpid = nvram_get(strcat_r(prefix, "usb_device", tmp));
 				if (dev_vidpid)
 					found = (strcmp(dev_vidpid, str_devusb) == 0);
 			}

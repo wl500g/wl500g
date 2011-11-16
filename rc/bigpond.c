@@ -21,7 +21,6 @@
 #include <signal.h>
 
 #include <shutils.h>
-#include <bcmnvram.h>
 #include "rc.h"
 
 int
@@ -74,7 +73,6 @@ start_bpalogin(void)
 	nvram_set("hb_server_name", buf);
 	
 	if (!(fp = fopen("/tmp/bpalogin.conf", "w"))) {
-		perror("/tmp/bpalogin.conf");
 		return errno;
 	}
 	fprintf(fp, "username %s\n", nvram_safe_get("wan_pppoe_username"));

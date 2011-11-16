@@ -23,11 +23,9 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <bcmnvram.h>
-#include <shutils.h>
-#include <netconf.h>
 #include <wlioctl.h>
-#include "nvparse.h"
+#include <netconf.h>
+#include <nvparse.h>
 #include "rc.h"
 #include "mtd.h"
 
@@ -76,38 +74,39 @@ char *mac_conv(char *mac_name, int idx, char *buf)
 }
 
 /* load kernel module, trailing NULL in arguments list required! */
-int insmod(char *module, ...)
+int insmod(const char *module, ...)
 {
-        char *argv[8] = { "insmod", module, NULL };
+	char *insmod_argv[8] = { "insmod", (char *)module, NULL };
 	int i = 2;
 	va_list ap;
 
 	va_start(ap, module);
-	while (i < 7 && (argv[i] = va_arg(ap, char *)) != NULL) {
+	while (i < ARRAY_SIZE(insmod_argv) - 1
+			&& (insmod_argv[i] = va_arg(ap, char *)) != NULL) {
 		++i;
 	}
 	va_end(ap);
-	argv[i] = NULL;
-        return _eval(argv, ">/dev/null", 0, NULL);
+	insmod_argv[i] = NULL;
+        return _eval(insmod_argv, ">/dev/null", 0, NULL);
 }
 
-int rmmod(char *module)
+int rmmod(const char *module)
 {
 	return eval("rmmod", module);
 }
 
-int killall_w(char *program, unsigned sig, int wait)
+int killall_w(const char *program, unsigned sig, int wait)
 {
 	char sigstr[sizeof("-65535")];
-	char *argv[] = { "killall", sigstr, program, NULL, NULL };
+	char *killall_argv[] = { "killall", sigstr, (char *)program, NULL, NULL };
 	int ret, i = 1;
 
 #ifdef KILLALL_HAS_WAIT
 	if (wait)
-		argv[3] = "-w";
+		killall_argv[3] = "-w";
 #endif
 	snprintf(sigstr, sizeof(sigstr), "-%u", sig ? : SIGTERM);
-	ret = _eval(argv, NULL, 0, NULL);
+	ret = _eval(killall_argv, NULL, 0, NULL);
 
 #ifndef KILLALL_HAS_WAIT
 #define CPS 4
@@ -115,24 +114,24 @@ int killall_w(char *program, unsigned sig, int wait)
 		snprintf(sigstr, sizeof(sigstr), "-%u", 0);
 		for (i = wait*CPS; !ret && i > 0; i--) {
 			usleep(1000*1000/CPS);
-			ret =_eval(argv, NULL, 0, NULL);
+			ret =_eval(killall_argv, NULL, 0, NULL);
 		}
 	}
 #endif
 	return ret;
 }
 
-int killall_s(char *program, unsigned sig)
+int killall_s(const char *program, unsigned sig)
 {
 	return killall_w(program, sig, 0);
 }
 
-int killall(char *program)
+int killall(const char *program)
 {
 	return killall_w(program, SIGTERM, 0);
 }
 
-int killall_tk(char *program)
+int killall_tk(const char *program)
 {
 	int ret = killall_w(program, SIGTERM, 1);
 
@@ -843,7 +842,7 @@ void update_wan_status(int isup)
  * logmessage
  *
  */
-void logmessage(char *logheader, char *fmt, ...)
+void logmessage(const char *logheader, const char *fmt, ...)
 {
   va_list args;
 
@@ -859,7 +858,7 @@ void logmessage(char *logheader, char *fmt, ...)
  * wanmessage
  *
  */
-void wanmessage(char *fmt, ...)
+void wanmessage(const char *fmt, ...)
 {
   va_list args;
   char buf[512];
@@ -892,7 +891,7 @@ char *pppstatus(char *buf)
    return buf;
 }
 
-int fputs_ex(char *name, char *value)
+int fputs_ex(const char *name, const char *value)
 {
 	FILE *fp;
 

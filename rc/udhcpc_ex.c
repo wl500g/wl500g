@@ -18,14 +18,12 @@
 #include <net/route.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <time.h>
 #include <unistd.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
 #include "rc.h"
 
 static char udhcpstate[12];

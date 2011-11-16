@@ -6,14 +6,10 @@
 #include <errno.h>
 #include <ctype.h>
 #include <time.h>
+#include <net/if.h>
 #include <sys/stat.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
 #include "rc.h"
-
-#include <nvparse.h>
 
 #define wimax_events "/tmp/madwimax.events"
 
@@ -21,34 +17,30 @@ extern int wan_valid(char *ifname);
 
 void update_nvram_wmx(char * ifname, int isup);
 
-inline static int
-wimax_modem(char *prefix)
+static inline int wimax_modem(const char *prefix)
 {
 	char tmp[100];
-	char * tmp1 = nvram_get(strcat_r(prefix, "usb_device", tmp));
-	return ( tmp1!=0 && *tmp1!=0 );
+	char *tmp1 = nvram_get(strcat_r(prefix, "usb_device", tmp));
+
+	return (tmp1 != NULL && (*tmp1) != '\0');
 }
 
-inline static int
-is_chk_con(void)
+static inline int is_chk_con(void)
 {
 	return nvram_match("wan_wimax_check", "1");
 }
 
-inline static int
-is_chk_log(void)
+static inline int is_chk_log(void)
 {
 	return nvram_match("wan_wimax_syslog", "1");
 }
 
-inline static int
-is_chk_restart_wimax(void)
+static inline int is_chk_restart_wimax(void)
 {
 	return nvram_match("wan_wimax_restart", "1");
 }
 
-inline static int
-wmx_chk_interval(void)
+static inline int wmx_chk_interval(void)
 { 
 	int result = atoi(nvram_safe_get("wan_wimax_interval"));
 	if (result == 0)
@@ -57,27 +49,26 @@ wmx_chk_interval(void)
 	return result;
 };
 
-inline static time_t
-wmx_chk_get_last_time(char *prefix)
+static inline time_t wmx_chk_get_last_time(const char *prefix)
 {
 	char tmp[100];
+
 	return atol(nvram_safe_get(strcat_r(prefix, "wimax_check_time", tmp)));
 }
 
-inline static void
-wmx_chk_set_last_time(char *prefix, time_t cur)
+static inline void wmx_chk_set_last_time(const char *prefix, time_t cur)
 {
 	char tmp[100], buf[33];
-	snprintf(buf, sizeof(buf), "%ld", (unsigned long) cur);
+
+	snprintf(buf, sizeof(buf), "%ld", (unsigned long)cur);
 	nvram_set(strcat_r(prefix, "wimax_check_time", tmp), buf);
 }
 
-static void
-init_wmx_variables(char *prefix)
+static void init_wmx_variables(const char *prefix)
 {
 	char tmp[100];
-
 	int t_interval = atoi(nvram_safe_get("wan_wimax_interval"));
+
 	if (t_interval < 20 || t_interval > 3600 ) 
 		nvram_set("wan_wimax_interval", "60");
 
@@ -85,8 +76,7 @@ init_wmx_variables(char *prefix)
 	nvram_unset(strcat_r(prefix, "wimax_check_time", tmp));
 }
 
-int
-wimax_ifunit(char *ifname)
+int wimax_ifunit(const char *ifname)
 {
 	if (strncmp(ifname, "wmx", 3))
 		return -1;
@@ -95,8 +85,7 @@ wimax_ifunit(char *ifname)
 	return atoi(&ifname[3]);
 }
 
-int
-start_wimax(char *prefix)
+int start_wimax(const char *prefix)
 {
 	char tmp[100];
 	int unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
@@ -113,7 +102,7 @@ start_wimax(char *prefix)
 		"--ssid", *wimax_ssid ? wimax_ssid : "@yota.ru",
 		NULL};
 
-	dprintf( "%s", prefix );
+	dprintf("%s", prefix);
 
 	init_wmx_variables(prefix);
 	update_nvram_wmx(wimax_ifname, 0);
@@ -132,13 +121,13 @@ start_wimax(char *prefix)
 }
 
 int
-stop_wimax(char *prefix)
+stop_wimax(const char *prefix)
 {
 	char tmp[100];
 
 	nvram_set(strcat_r(prefix, "wimax_enabled", tmp), "0");
 
-	dprintf( "%s", prefix );
+	dprintf("%s", prefix);
 
 	killall("madwimax");
 	sleep(1);
@@ -150,8 +139,7 @@ stop_wimax(char *prefix)
 
 //time_t prev_time = 0;
 // called from watchdog using the "madwimax-check" symlink to rc.
-int
-madwimax_check(char *prefix)
+int madwimax_check(const char *prefix)
 {
 	char tmp[100], pid_fname[100], buf[256];
 	FILE *fp;
@@ -366,12 +354,11 @@ update_nvram_wmx(char *ifname, int isup)
 		nvram_set("wan_wimax_ping_t", "Disabled");
 }
 
-int 
-hotplug_check_wimax( char * interface, char * product, char * prefix )
+int hotplug_check_wimax(const char *interface, const char *product, const char *prefix)
 {
 	char tmp[100];
 
-	dprintf( "%s %s %s", interface, product, prefix );
+	dprintf("%s %s %s", interface, product, prefix);
 	if (strncmp(product, "4e8/6761", 8) == 0 ||
 	    strncmp(product, "4e9/6761", 8) == 0 ||
 	    strncmp(product, "4e8/6731", 8) == 0 ||

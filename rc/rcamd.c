@@ -21,7 +21,6 @@
 #include <sys/types.h>
 #include <stdarg.h>
 
-#include <bcmnvram.h>
 #include <shutils.h>
 #include "rc.h"
 

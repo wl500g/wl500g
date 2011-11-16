@@ -18,11 +18,9 @@
 #include <string.h>
 #include <signal.h>
 
-#ifdef LINUX26
- #define        MTD_DEV(arg)            "/dev/mtd"#arg
-#else
- #define        MTD_DEV(arg)            "/dev/mtd/"#arg
-#endif
+#define        MTD_DEV(arg)            "/dev/mtd/"#arg
+
+#define	ARRAY_SIZE(x)	((unsigned)(sizeof(x) / sizeof((x)[0])))
 
 /*
  * Checks if file exists

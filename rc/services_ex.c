@@ -25,15 +25,8 @@
 #include <sys/stat.h>
 #include <arpa/inet.h>
 #include <ctype.h>
-#if defined(__UCLIBC__)
-#include <crypt.h>
-#endif
 #include <mntent.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
-#include <nvparse.h>
 #include "rc.h"
 #include "iboxcom.h"
 #include "lp.h"
@@ -85,7 +78,7 @@ int
 start_dns(void)
 {
 	FILE *fp;
-	char *argv[] = {"dnsmasq", NULL};
+	char *dnsmasq_argv[] = {"dnsmasq", NULL};
 	pid_t pid;
 
 	size_t ethers = 0;
@@ -239,7 +232,7 @@ start_dns(void)
 	fclose(fp);
 
 	/* launch it */		
-	ret = _eval(argv, NULL, 0, &pid);
+	ret = _eval(dnsmasq_argv, NULL, 0, &pid);
 
 	dprintf("done\n");
 	return ret;
@@ -267,7 +260,7 @@ int
 start_radvd(void)
 {
 	FILE *fp;
-	char *argv[] = {"radvd", NULL};
+	char *radvd_argv[] = {"radvd", NULL};
 	pid_t pid;
 	struct in6_addr addr;
 	int size, ret;
@@ -382,7 +375,7 @@ start_radvd(void)
 	fputs_ex("/proc/sys/net/ipv6/conf/all/forwarding", "1");
 
 	/* Then start the radvd */
-	ret = _eval(argv, NULL, 0, &pid);
+	ret = _eval(radvd_argv, NULL, 0, &pid);
 
 	dprintf("done\n");
 	return ret;
@@ -393,7 +386,7 @@ stop_radvd(void)
 {
 	return killall("radvd");
 }
-#endif
+#endif /* __CONFIG_IPV6__ */
 
 int
 ddns_updated_main()
@@ -800,7 +793,7 @@ static int start_nfsd(void)
 	return 0;	
 }
 
-int restart_nfsd(void)
+static int restart_nfsd(void)
 {
 	eval("/usr/sbin/exportfs", "-au");
 	eval("/usr/sbin/exportfs", "-a");
@@ -1019,8 +1012,8 @@ static char *nvram_storage_path(char *var)
 
 int restart_ftpd()
 {
-	char vsftpd_users[] = "/etc/vsftpd.users";
-	char vsftpd_passwd[] = "/etc/vsftpd.passwd";
+	const char vsftpd_users[] = "/etc/vsftpd.users";
+	const char vsftpd_passwd[] = "/etc/vsftpd.passwd";
 	int i, count;
 
 	char tmp[256];
@@ -1037,7 +1030,7 @@ int restart_ftpd()
 	{
 		/* rights */
 		sprintf(tmp, "%s/%s", vsftpd_users,
-			nvram_get("http_username") ? : "admin");
+			nvram_safe_default_get("http_username"));
 		if ((f = fopen(tmp, "w")))
 		{
 			fprintf(f, 
@@ -1096,17 +1089,18 @@ int restart_ftpd()
 		vsftpd_users, vsftpd_passwd);
 
 	fprintf(fp,
+		"listen%s=yes\n"
+		"listen_port=%s\n"
+		"background=yes\n"
+		"max_clients=%s\n"
+		"idle_session_timeout=%s\n",
 #ifdef __CONFIG_IPV6__
-		nvram_invmatch("ipv6_proto", "") ? "listen_ipv6=yes\n" :
+		nvram_invmatch("ipv6_proto", "") ? "_ipv6" :
 #endif
-		"listen=yes\n");
-	fprintf(fp,
-		"listen_port=%s\nbackground=yes\n",
-		nvram_get("usb_ftpport_x") ? : "21");
-	fprintf(fp, "max_clients=%s\n", nvram_get("usb_ftpmax_x") ? : "0");
-
-	/* fprintf(fp, "login-timeout=%s\n", nvram_safe_get("usb_ftptimeout_x")); */
-	fprintf(fp, "idle_session_timeout=%s\n", nvram_get("usb_ftpstaytimeout_x") ? : "300");
+		"",
+		nvram_safe_default_get("usb_ftpport_x"),
+		nvram_get("usb_ftpmax_x") ? : "0",
+		nvram_get("usb_ftpstaytimeout_x") ? : "300");
 
 	if (nvram_match("usb_smbcset_x", "utf8"))
 		fprintf(fp, "utf8=yes\n");
@@ -1115,12 +1109,14 @@ int restart_ftpd()
 	fprintf(fp, "use_sendfile=no\n");
 
 	/* bandwidth */
-	fprintf(fp, "anon_max_rate=%d\nlocal_max_rate=%d\n",
+	fprintf(fp,
+		"anon_max_rate=%d\n"
+		"local_max_rate=%d\n",
 		atoi(nvram_safe_get("usb_ftpanonrate_x")) * 1024,
 		atoi(nvram_safe_get("usb_ftprate_x")) * 1024);
-	
+
 	fclose(fp);
-	
+
 	/* prepare passwd file and default users */
 	if ((fp = fopen(vsftpd_passwd, "w")) == NULL)
 		return 2;
@@ -1129,10 +1125,10 @@ int restart_ftpd()
 		"ftp:x:0:0:ftp:%s:/sbin/nologin\n"
 		"%s:%s:0:0:root:/tmp/mnt/:/sbin/nologin\n"
 		"nobody:x:99:99:nobody:/usr/share/empty:/sbin/nologin\n",
-		nvram_storage_path("usb_ftpanonroot_x"), 
-		nvram_get("http_username") ? : "admin",
+		nvram_storage_path("usb_ftpanonroot_x"),
+		nvram_safe_default_get("http_username"),
 		nvram_match("usb_ftpsuper_x", "1") ? 
-			crypt(nvram_get("http_passwd") ? : "admin", "$1$") : "x");
+			crypt(nvram_safe_default_get("http_passwd"), "$1$") : "x");
 
 	for (i = 0, count = atoi(nvram_safe_get("usb_ftpnum_x")); i < count; i++) 
 	{
@@ -1175,7 +1171,7 @@ int restart_ftpd()
 	return 0;
 }
 
-static void restart_smbd()
+static int restart_smbd()
 {
 	FILE *fp;
 	DIR *dir = NULL;
@@ -1187,7 +1183,7 @@ static void restart_smbd()
 
 	if ((fp = fopen("/etc/smb.conf", "w")) == NULL) {
 		perror("/etc/smb.conf");
-		return;
+		return 1;
 	}
 		
 	fprintf(fp, "[global]\n"
@@ -1205,8 +1201,8 @@ static void restart_smbd()
 		"\tencrypt passwords = no\n"
 		"\tpreserve case = yes\n"
 		"\tshort preserve case = yes\n",
-		nvram_get("lan_ifname") ? : "br0",
-		nvram_get("usb_smbwrkgrp_x") ? : "WORKGROUP",
+		nvram_safe_default_get("lan_ifname"),
+		nvram_safe_default_get("usb_smbwrkgrp_x"),
 		nvram_get("productid") ? : "Samba");
 
 	if (nvram_invmatch("usb_smbcpage_x", ""))
@@ -1231,7 +1227,7 @@ static void restart_smbd()
 			fprintf(fp, 
 				"\twritable = yes\n"
 				"\tforce user = %s\n",
-				nvram_get("http_username") ? : "root");
+				nvram_safe_default_get("http_username"));
 	}
 
 	/* share everything below /tmp/mnt */
@@ -1252,10 +1248,9 @@ static void restart_smbd()
 				fprintf(fp, 
 					"\twritable = yes\n"
 					"\tforce user = %s\n",
-					nvram_get("http_username") ? : "root");
+					nvram_safe_default_get("http_username"));
 		}
 	}
-
 	if (dir) closedir(dir);
 
 	if (nvram_match("usb_smbenable_x", "3"))
@@ -1282,7 +1277,7 @@ static void restart_smbd()
 				fprintf(fp, 
 					"\twritable = yes\n"
 					"\tforce user = %s\n",
-					nvram_get("http_username") ? : "root");
+					nvram_safe_default_get("http_username"));
 			/* comment */
 			sprintf(tmp, "usb_smbdesc_x%d", i);
 			if (nvram_invmatch(tmp, ""))
@@ -1294,6 +1289,7 @@ static void restart_smbd()
 
 	eval("/usr/sbin/nmbd", "-D");
 	eval("/usr/sbin/smbd", "-D");
+	return 0;
 }
 
 
@@ -1490,11 +1486,12 @@ remove_usb_mass(char *product, int scsi_host_no)
 	return 0;
 }
 
-int mkdir_if_none(char *dir)
+int mkdir_if_none(const char *dir)
 {
 	DIR *dp;
-	if (!(dp=opendir(dir)))
-		return(mkdir(dir, 0777));
+
+	if (!(dp = opendir(dir)))
+		return mkdir(dir, 0777);
 	closedir(dp);
 	return 0;
 }
@@ -1902,7 +1899,7 @@ usbhandler:
 	}
 	return 0;
 }
-#endif	
+#endif /* USB_SUPPORT */
 
 /* stop necessary services for firmware upgrade */	
 int
@@ -2022,4 +2019,4 @@ stop_audio(void)
 	return 0;
 }
 
-#endif
+#endif /* ASUS_EXT */

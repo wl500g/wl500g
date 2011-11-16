@@ -18,14 +18,12 @@
 #include <net/route.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <time.h>
 #include <unistd.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
 #include "rc.h"
 
 static char udhcpstate[12];
@@ -279,15 +277,14 @@ udhcpc_main(int argc, char **argv)
 	else return 0;
 }
 
-int
-start_dhcpc(char *wan_ifname, int unit)
+int start_dhcpc(const char *wan_ifname, int unit)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char pid[] = "/var/run/udhcpcXXXXXXXXXX.pid";
 	char *wan_hostname;
 	char *dhcp_argv[] = {
 		"/sbin/udhcpc",
-		"-i", wan_ifname,
+		"-i", (char *)wan_ifname,
 		"-p", (snprintf(pid, sizeof(pid), "/var/run/udhcpc%d.pid", unit), pid),
 		"-bN61",
 		NULL, NULL,	/* -H wan_hostname	*/
@@ -391,9 +388,9 @@ zcip_main(int argc, char **argv)
 int
 start_zcip(char *wan_ifname)
 {
-	char *argv[] = { "/sbin/zcip", "-q", wan_ifname, "/tmp/zcip.script", NULL };
+	char *zcip_argv[] = { "/sbin/zcip", "-q", wan_ifname, "/tmp/zcip.script", NULL };
 
-	return _eval(argv, NULL, 0, NULL);
+	return _eval(zcip_argv, NULL, 0, NULL);
 }
 
 void
@@ -420,14 +417,13 @@ dhcp6c_main(int argc, char **argv)
 	return 0;
 }
 
-int
-start_dhcp6c(char *wan_ifname)
+int start_dhcp6c(const char *wan_ifname)
 {
 	FILE *fp;
 	pid_t pid;
 	int sla_len, ret, is_wan6_valid;
 	struct in6_addr wan6_addr;
-	char *argv[] = { "/sbin/dhcp6c", "-v", "-D", "LL",  wan_ifname, NULL };
+	char *dhcp6c_argv[] = { "/sbin/dhcp6c", "-v", "-D", "LL", (char *)wan_ifname, NULL };
 
 	if (!nvram_match("ipv6_proto", "dhcp6")) return 1;
 
@@ -463,7 +459,7 @@ start_dhcp6c(char *wan_ifname)
 		    nvram_safe_get("lan_ifname"), sla_len
 		);
         fclose(fp);
-	ret = _eval(argv, NULL, 0, &pid);
+	ret = _eval(dhcp6c_argv, NULL, 0, &pid);
 
         return ret;
 }

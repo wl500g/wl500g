@@ -18,10 +18,12 @@
 #include <paths.h>
 #include <signal.h>
 #include <stdarg.h>
+#define __USE_GNU
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
 #include <limits.h>
+#include <sys/klog.h>
 #include <sys/fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -29,12 +31,15 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/utsname.h>
 
-#include <shutils.h>
 #include "rc.h"
 
 #define loop_forever() do { sleep(1); } while (1)
 #define SHELL "/bin/sh"
+
+int noconsole = 0;
 
 /* Set terminal settings to reasonable defaults */
 static void set_term(int fd)
@@ -74,8 +79,7 @@ static void set_term(int fd)
 	tcsetattr(fd, TCSANOW, &tty);
 }
 
-int
-console_init()
+static int console_init()
 {
 	int fd;
 	int ret = 0;
@@ -111,7 +115,7 @@ run_shell(int timeout, int nowait)
 {
 	pid_t pid;
 	char tz[1000];
-	char *envp[] = {
+	char * const envp[] = {
 		"TERM=vt100",
 		"HOME=/",
 		"PATH=/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/sbin",
@@ -183,7 +187,7 @@ shutdown_system(void)
 #endif
 	killall("pppd");
 
-	if (exists("/dev/misc/rtc"))
+	if (exists(DEV_RTC))
 		eval("/sbin/hwclock", "-w");
 
 	cprintf("Sending SIGTERM to all processes\n");
@@ -199,6 +203,166 @@ shutdown_system(void)
 	/* bring wifi interfaces down */
 	eval("wl", "radio", "off");
 }
+
+/*
+ * create /etc/passwd and /etc/group files
+ */
+static void make_etc(void)
+{
+	FILE *f;
+	const char *name, *pass;
+	
+	/* crypt using md5, no salt */
+	name = nvram_safe_default_get("http_username");
+	pass = crypt(nvram_safe_default_get("http_passwd"), "$1$");
+	
+	if ((f = fopen("/etc/passwd", "w"))) {
+		fprintf(f, "%s:%s:0:0:root:/usr/local/root:/bin/sh\n"
+			"nobody:x:99:99:nobody:/:/sbin/nologin\n", name, pass);
+		fclose(f);
+	}
+	
+	if ((f = fopen("/etc/group", "w"))) {
+		fprintf(f, "root:x:0:%s\nnobody:x:99:\n", name);
+		fclose(f);
+	}
+	
+	/* uClibc TZ */
+	if ((f = fopen("/etc/TZ", "w"))) {
+		fprintf(f, "%s\n", nvram_safe_get("time_zone"));
+		fclose(f);
+	}
+	
+	/* /etc/resolv.conf compatibility */
+	symlink("/tmp/resolv.conf", "/etc/resolv.conf");
+	
+	/* hostname */
+	if ((f = fopen("/proc/sys/kernel/hostname", "w"))) {
+		fputs(nvram_safe_get("lan_hostname"), f);
+		fclose(f);
+	}
+
+	/* crond */
+	symlink("/etc/crontabs", "/var/spool/cron/crontabs");
+
+	/* mtab compability */
+	symlink("/proc/mounts", "/etc/mtab");
+}
+
+void sysinit(void)
+{
+	char buf[PATH_MAX];
+	struct utsname name;
+	struct stat tmp_stat;
+	struct rlimit lim;
+	int totalram;
+	const char *tmpfsopt = NULL;
+
+	/* set default hardlimit */
+	getrlimit(RLIMIT_NOFILE, &lim);
+	lim.rlim_max = 16384;
+	setrlimit(RLIMIT_NOFILE, &lim);
+
+	/* /proc */
+	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
+
+#ifdef LINUX26
+	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
+	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, "size=100K");
+
+	/* populate /dev */
+	mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1));
+	mknod("/dev/null", S_IFCHR | 0666, makedev(1, 3));
+	eval("/sbin/mdev", "-s");
+
+	/* /dev/pts */
+	mkdir("/dev/pts", 0755);
+	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
+
+	/* /dev/shm */
+	mkdir("/dev/shm", S_ISVTX | 0755);
+	
+	/* extra links */
+	symlink("/proc/self/fd", "/dev/fd");
+	symlink("/proc/self/fd/0", "/dev/stdin");
+	symlink("/proc/self/fd/1", "/dev/stdout");
+	symlink("/proc/self/fd/2", "/dev/stderr");
+#endif
+
+	totalram = router_totalram();
+
+	/* /tmp */
+	if (totalram <= 16*1024*1024 /* 16MB */) {
+		snprintf(buf, sizeof(buf), "size=%dK", (totalram >> 2) >> 10);
+		tmpfsopt = buf;
+	}
+	mount("tmpfs", "/tmp", "tmpfs", MS_MGC_VAL | MS_NOATIME, tmpfsopt);
+
+	/* /var */
+	mkdir("/tmp/var", 0777);
+	mkdir("/var/lock", 0777);
+	mkdir("/var/log", 0777);
+	mkdir("/var/run", 0777);
+	mkdir("/var/spool", 0777);
+	mkdir("/var/spool/cron", 0777);
+	mkdir("/var/state", 0777);
+	mkdir("/var/tmp", 0777);
+	
+	/* /usr/local */
+	mkdir("/tmp/local", 0755);
+	mkdir("/tmp/local/root", 0700);
+	
+	/* /etc contents */
+	eval("cp", "-dpR", "/usr/etc", "/tmp");
+
+	/* create /etc/{passwd,group,TZ} */
+	make_etc();
+	
+	/* Setup console */
+	if (console_init())
+		noconsole = 1;
+	klogctl(8, NULL, atoi(nvram_safe_get("console_loglevel")));
+
+	/* load flashfs */
+	if (!eval("flashfs", "start"))
+		eval("/usr/local/sbin/pre-boot");
+
+	/* Modules */
+	uname(&name);
+	snprintf(buf, sizeof(buf), "/lib/modules/%s", name.release);
+	if (stat("/proc/modules", &tmp_stat) == 0 &&
+	    stat(buf, &tmp_stat) == 0) {
+		char module[80], *modules, *next;
+
+		modules = nvram_get("kernel_mods") ? : 
+#if defined(MODEL_WL700G)
+		"ide-core aec62xx "
+# ifndef LINUX26
+		"ide-detect "
+# endif
+		"ide-disk "
+#endif
+#if defined(__CONFIG_EMF__)
+		"emf igs "
+#endif
+		"et wl";
+		foreach(module, modules, next)
+			insmod(module, NULL);
+	}
+
+	update_tztime(1);
+
+#if defined(MODEL_WL700G)
+	insmod("gpiortc", "sda_mask=0x04", "scl_mask=0x20", NULL);
+	usleep(100000);
+#endif
+
+	if (exists(DEV_RTC))
+		eval("/sbin/hwclock", "-s");
+
+	dprintf("done\n");
+}
+
 
 static const int fatal_signals[] = {
 	SIGQUIT,	/* halt */
@@ -216,21 +380,7 @@ static const int fatal_signals[] = {
 
 static void fatal_signal(int sig)
 {
-	const char *message = NULL;
-	
-	switch (sig) {
-	case SIGQUIT: message = "Quit"; break;
-	case SIGILL: message = "Illegal instruction"; break;
-	case SIGABRT: message = "Abort"; break;
-	case SIGFPE: message = "Floating exception"; break;
-	case SIGPIPE: message = "Broken pipe"; break;
-	case SIGBUS: message = "Bus error"; break;
-	case SIGSEGV: message  = "Segmentation fault"; break;
-	case SIGSYS: message = "Bad system call"; break;
-	case SIGTRAP: message = "Trace trap"; break;
-	case SIGPWR: message = "Power failure"; break;
-	case SIGTERM: message = "Terminated"; break;
-	}
+	const char *message = strsignal(sig);
 
 	if (message)
 		cprintf("%s\n", message);
@@ -267,7 +417,7 @@ signal_init(void)
 {
 	int i;
 
-	for (i = 0; i < sizeof(fatal_signals)/sizeof(fatal_signals[0]); i++)
+	for (i = 0; i < ARRAY_SIZE(fatal_signals); i++)
 		signal(fatal_signals[i], fatal_signal);
 
 	signal(SIGCHLD, child_reap);
