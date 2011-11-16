@@ -28,8 +28,8 @@ SSHD_ETC=/tmp/local/etc/dropbear
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 export PATH
 
-MTD="/dev/mtd4"
-MTDBLOCK="/dev/mtdblock4"
+MTD="/dev/mtd/4"
+MTDBLOCK="/dev/mtd/block4"
 
 #check if the key files are in the right place
 if ! [ -s $SSHD_ETC/dropbear_rsa_host_key -a \
