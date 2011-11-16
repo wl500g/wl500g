@@ -80,15 +80,15 @@ typedef struct wsec_info_s {
 #define WLIFU_ERR_WL_WPA_ROLE		5
 
 extern int get_spoof_mac(const char *osifname, char *mac, int maclen);
-extern int get_spoof_ifname(char *mac, char *osifname, int osifnamelen);
+extern int get_spoof_ifname(const char *mac, char *osifname, int osifnamelen);
 extern int get_real_mac(char *mac, int maclen);
 extern int get_lan_mac(unsigned char *mac);
-extern int get_deviceinfo_by_mac(char *mac, wpsdev_info_t *wpdev_info);
-extern unsigned char *get_wlmacstr_by_unit(char *unit);
-extern int get_wlname_by_mac(unsigned char *mac, char *wlname);
-extern int get_instance_by_wlmac(unsigned char *mac);
-extern char *get_ifname_by_wlmac(unsigned char *mac, char *name);
+extern int get_deviceinfo_by_mac(const char *mac, wpsdev_info_t *wpdev_info);
+extern unsigned char *get_wlmacstr_by_unit(const char *unit);
+extern int get_wlname_by_mac(const unsigned char *mac, char *wlname);
+extern int get_instance_by_wlmac(const unsigned char *mac);
+extern char *get_ifname_by_wlmac(const unsigned char *mac, char *name);
 
-extern int get_wsec(wsec_info_t *info, char *mac, char *osifname);
+extern int get_wsec(wsec_info_t *info, const char *mac, const char *osifname);
 
 #endif /* _wlif_utils_h_ */

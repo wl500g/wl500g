@@ -32,8 +32,7 @@ typedef u_int8_t u8;
 #include <wlutils.h>
 
 
-int
-wl_ioctl(char *name, int cmd, void *buf, int len)
+int wl_ioctl(const char *name, int cmd, void *buf, int len)
 {
 	struct ifreq ifr;
 	wl_ioctl_t ioc;
@@ -66,8 +65,7 @@ wl_ioctl(char *name, int cmd, void *buf, int len)
 	return ret;
 }
 
-int
-wl_get_dev_type(char *name, void *buf, int len)
+int wl_get_dev_type(const char *name, void *buf, int len)
 {
 	int s;
 	int ret;
@@ -94,8 +92,7 @@ wl_get_dev_type(char *name, void *buf, int len)
 	return ret;
 }
 
-int
-wl_hwaddr(char *name, unsigned char *hwaddr)
+int wl_hwaddr(const char *name, unsigned char *hwaddr)
 {
 	struct ifreq ifr;
 	int ret = 0;
@@ -115,5 +112,5 @@ wl_hwaddr(char *name, unsigned char *hwaddr)
 	/* cleanup */
 	close(s);
 	return ret;
-}	
+}
 

@@ -62,7 +62,7 @@ extern int waitfor(int fd, int timeout);
  * @param	ppid	NULL to wait for child termination or pointer to pid
  * @return	return value of executed command or errno
  */
-extern int _eval(char *const argv[], char *path, int timeout, pid_t *ppid);
+extern int _eval(char *const argv[], const char *path, int timeout, pid_t *ppid);
 
 /* 
  * Concatenates NULL-terminated list of arguments into a single
@@ -77,9 +77,9 @@ extern char * _backtick(char *const argv[]);
  * @param	pidfile	PID file
  * @return	0 on success and errno on failure
  */
-int kill_pidfile_s(char *pidfile, int sig);
+int kill_pidfile_s(const char *pidfile, int sig);
 
-int kill_pidfile(char *pidfile);
+int kill_pidfile(const char *pidfile);
 
 /*
  * fread() with automatic retry on syscall interrupt
@@ -164,7 +164,7 @@ extern int get_ifname_unit(const char* ifname, int *unit, int *subunit);
  * @param	eth_ifname 	pointer to eth interface name
  * @return	0 if successful -1 if not.
  */
- extern int set_ipconfig_index(char *eth_ifname,int index);
+ extern int set_ipconfig_index(const char *eth_ifname, int index);
 
 /*
  * Get the ip configuration index if it exists given the 
@@ -173,7 +173,7 @@ extern int get_ifname_unit(const char* ifname, int *unit, int *subunit);
  * @param	wl_ifname 	pointer to eth interface name
  * @return	index or -1 if not found
  */
-extern int get_ipconfig_index(char *eth_ifname);
+extern int get_ipconfig_index(const char *eth_ifname);
 
 /*
  * Get interfaces belonging to a specific bridge.
@@ -182,7 +182,7 @@ extern int get_ipconfig_index(char *eth_ifname);
  * @return	list on interfaces beloging to the bridge
  */	
 extern char *
-get_bridged_interfaces(char *bridge_name);
+get_bridged_interfaces(const char *bridge_name);
 
 /*
  * Get product id & fw version from flash
@@ -259,14 +259,14 @@ extern int osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 
 /* Simple version of _backtick() */
 #define backtick(cmd, args...) ({ \
-	char *argv[] = { cmd, ## args, NULL }; \
-	_backtick(argv); \
+	const char * const argv[] = { cmd, ## args, NULL }; \
+	_backtick((char * const *)argv); \
 })
 
 /* Simple version of _eval() (no timeout and wait for child termination) */
 #define eval(cmd, args...) ({ \
-	char *argv[] = { cmd, ## args, NULL }; \
-	_eval(argv, ">/dev/null", 0, NULL); \
+	const char * const argv[] = { cmd, ## args, NULL }; \
+	_eval((char * const *)argv, ">/dev/null", 0, NULL); \
 })
 
 /* Copy each token in wordlist delimited by space into word */

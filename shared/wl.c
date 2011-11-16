@@ -22,8 +22,7 @@
 #include <bcmutils.h>
 #include <wlutils.h>
 
-int
-wl_probe(char *name)
+int wl_probe(const char *name)
 {
 	int ret, val;
 	
@@ -48,7 +47,7 @@ wl_probe(char *name)
 }
 
 int 
-wl_iovar_getbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufptr, int buflen)
+wl_iovar_getbuf(const char *ifname, const char *iovar, const void *param, int paramlen, void *bufptr, int buflen)
 {
 	int err;
 	uint namelen;
@@ -70,7 +69,7 @@ wl_iovar_getbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufp
 }
 
 int 
-wl_iovar_setbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufptr, int buflen)
+wl_iovar_setbuf(const char *ifname, const char *iovar, const void *param, int paramlen, void *bufptr, int buflen)
 {
 	uint namelen;
 	uint iolen;
@@ -89,7 +88,7 @@ wl_iovar_setbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufp
 }
 
 int
-wl_iovar_set(char *ifname, char *iovar, void *param, int paramlen)
+wl_iovar_set(const char *ifname, const char *iovar, const void *param, int paramlen)
 {
 	char smbuf[WLC_IOCTL_SMLEN];
 
@@ -97,7 +96,7 @@ wl_iovar_set(char *ifname, char *iovar, void *param, int paramlen)
 }
 
 int
-wl_iovar_get(char *ifname, char *iovar, void *bufptr, int buflen)
+wl_iovar_get(const char *ifname, const char *iovar, void *bufptr, int buflen)
 {
 	char smbuf[WLC_IOCTL_SMLEN];
 	int ret;
@@ -119,7 +118,7 @@ wl_iovar_get(char *ifname, char *iovar, void *bufptr, int buflen)
  * calling example: wl_iovar_setint(ifname, "arate", rate) 
 */
 int
-wl_iovar_setint(char *ifname, char *iovar, int val)
+wl_iovar_setint(const char *ifname, const char *iovar, int val)
 {
 	return wl_iovar_set(ifname, iovar, &val, sizeof(val));
 }
@@ -129,7 +128,7 @@ wl_iovar_setint(char *ifname, char *iovar, int val)
  * calling example: wl_iovar_getint(ifname, "arate", &rate) 
  */
 int
-wl_iovar_getint(char *ifname, char *iovar, int *val)
+wl_iovar_getint(const char *ifname, const char *iovar, int *val)
 {
 	return wl_iovar_get(ifname, iovar, val, sizeof(int));
 }
@@ -138,7 +137,7 @@ wl_iovar_getint(char *ifname, char *iovar, int *val)
  * format a bsscfg indexed iovar buffer
  */
 static int
-wl_bssiovar_mkbuf(char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen, int *plen)
+wl_bssiovar_mkbuf(const char *iovar, int bssidx, const void *param, int paramlen, void *bufptr, int buflen, int *plen)
 {
 	char *prefix = "bsscfg:";
 	int8* p;
@@ -182,7 +181,7 @@ wl_bssiovar_mkbuf(char *iovar, int bssidx, void *param, int paramlen, void *bufp
  * set named & bss indexed driver variable to buffer value
  */
 int
-wl_bssiovar_setbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen)
+wl_bssiovar_setbuf(const char *ifname, const char *iovar, int bssidx, const void *param, int paramlen, void *bufptr, int buflen)
 {
 	int err;
 	uint iolen;
@@ -198,7 +197,7 @@ wl_bssiovar_setbuf(char *ifname, char *iovar, int bssidx, void *param, int param
  * get named & bss indexed driver variable buffer value
  */
 int
-wl_bssiovar_getbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen)
+wl_bssiovar_getbuf(const char *ifname, const char *iovar, int bssidx, const void *param, int paramlen, void *bufptr, int buflen)
 {
 	int err;
 	uint iolen;
@@ -214,7 +213,7 @@ wl_bssiovar_getbuf(char *ifname, char *iovar, int bssidx, void *param, int param
  * set named & bss indexed driver variable to buffer value
  */
 int
-wl_bssiovar_set(char *ifname, char *iovar, int bssidx, void *param, int paramlen)
+wl_bssiovar_set(const char *ifname, const char *iovar, int bssidx, const void *param, int paramlen)
 {
 	char smbuf[WLC_IOCTL_SMLEN];
 
@@ -225,7 +224,7 @@ wl_bssiovar_set(char *ifname, char *iovar, int bssidx, void *param, int paramlen
  * get named & bss indexed driver variable buffer value
  */
 int
-wl_bssiovar_get(char *ifname, char *iovar, int bssidx, void *outbuf, int len)
+wl_bssiovar_get(const char *ifname, const char *iovar, int bssidx, void *outbuf, int len)
 {
 	char smbuf[WLC_IOCTL_SMLEN];
 	int err;
@@ -247,7 +246,7 @@ wl_bssiovar_get(char *ifname, char *iovar, int bssidx, void *outbuf, int len)
  * set named & bss indexed driver variable to int value
  */
 int
-wl_bssiovar_setint(char *ifname, char *iovar, int bssidx, int val)
+wl_bssiovar_setint(const char *ifname, const char *iovar, int bssidx, int val)
 {
 	return wl_bssiovar_set(ifname, iovar, bssidx, &val, sizeof(int));
 }

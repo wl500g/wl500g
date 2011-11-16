@@ -115,7 +115,7 @@ get_spoof_mac(const char *osifname, char *mac, int maclen)
 }
 
 int
-get_spoof_ifname(char *mac, char *osifname, int osifnamelen)
+get_spoof_ifname(const char *mac, char *osifname, int osifnamelen)
 {
 	int idx, unit, subunit;
 	char nvifname[16];
@@ -189,7 +189,7 @@ get_real_mac(char *mac, int maclen)
 }
 
 unsigned char *
-get_wlmacstr_by_unit(char *unit)
+get_wlmacstr_by_unit(const char *unit)
 {
 	char tmptr[] = "wlXXXXX_hwaddr";
 	char *macaddr;
@@ -221,7 +221,7 @@ get_lan_mac(unsigned char *mac)
 }
 
 int
-get_wlname_by_mac(unsigned char *mac, char *wlname)
+get_wlname_by_mac(const unsigned char *mac, char *wlname)
 {
 	char eabuf[18];
 	char tmptr[] = "wlXXXXX_hwaddr";
@@ -254,7 +254,7 @@ get_wlname_by_mac(unsigned char *mac, char *wlname)
 }
 
 int
-get_instance_by_wlmac(unsigned char *mac)
+get_instance_by_wlmac(const unsigned char *mac)
 {
 	char nv_name[16], os_name[16], if_name[16];
 	char *ifnames;
@@ -316,7 +316,7 @@ get_instance_by_wlmac(unsigned char *mac)
  * NOTE: We pass ifname in case of same mac in vifs (like URE TR mode)
  */
 char *
-get_ifname_by_wlmac(unsigned char *mac, char *name)
+get_ifname_by_wlmac(const unsigned char *mac, char *name)
 {
 	char nv_name[16], os_name[16], if_name[16];
 	char tmptr[] = "lanXX_ifnames";
@@ -389,7 +389,7 @@ get_ifname_by_wlmac(unsigned char *mac, char *name)
 
 /* Get wireless security setting by interface name */
 int
-get_wsec(wsec_info_t *info, char *mac, char *osifname)
+get_wsec(wsec_info_t *info, const char *mac, const char *osifname)
 {
 	int i, unit, wds = 0, wds_wsec = 0;
 	char nv_name[16], os_name[16], wl_prefix[16], comb[32], key[8];
@@ -622,7 +622,7 @@ get_wsec(wsec_info_t *info, char *mac, char *osifname)
 
 
 int
-get_deviceinfo_by_mac(char *mac, wpsdev_info_t *wpdev_info)
+get_deviceinfo_by_mac(const char *mac, wpsdev_info_t *wpdev_info)
 {
 	char wl_name[16], os_name[16];
 	char tmp[100], prefix[] = "wlXXXXXXXXXX_";

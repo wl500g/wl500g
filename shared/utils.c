@@ -107,7 +107,7 @@ int get_model(void)
  * @return	index or -1 if not found
  */ 
 int 
-get_ipconfig_index(char *eth_ifname)
+get_ipconfig_index(const char *eth_ifname)
 {
 	char varname[64];
 	char varval[64];
@@ -175,7 +175,7 @@ get_ipconfig_index(char *eth_ifname)
  * @return	0 if successful -1 if not.
  */
 int 
-set_ipconfig_index(char *eth_ifname,int index)
+set_ipconfig_index(const char *eth_ifname, int index)
 {
 	char varname[255];
 	char varval[16];
@@ -215,7 +215,7 @@ set_ipconfig_index(char *eth_ifname,int index)
  *              if not found/empty
  */	
 char *
-get_bridged_interfaces(char *bridge_name)
+get_bridged_interfaces(const char *bridge_name)
 {
 	static char interfaces[255] ;	
 	char *ifnames=NULL;
@@ -251,7 +251,7 @@ get_bridged_interfaces(char *bridge_name)
  *		for unit and/or subuint to ignore the value.
  */
 int
-get_ifname_unit(const char* ifname, int *unit, int *subunit)
+get_ifname_unit(const char *ifname, int *unit, int *subunit)
 {
 	const char digits[] = "0123456789";
 	char str[64];
