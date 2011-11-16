@@ -6,23 +6,101 @@ ext3: Updates from 2.6.32.48
  ae54870a1dc978a88377ae8af0780648f2ccd4dc ext3: Fix lock inversion in ext3_symlink()
 
 ---
- fs/ext3/balloc.c           |    3 
- fs/ext3/dir.c              |    5 
- fs/ext3/file.c             |   67 ---------
- fs/ext3/fsync.c            |   40 +++--
- fs/ext3/hash.c             |   77 +++++++++--
- fs/ext3/ialloc.c           |    7 -
- fs/ext3/inode.c            |  307 +++++++++++++++++++++++++++++----------------
- fs/ext3/ioctl.c            |   53 ++-----
- fs/ext3/namei.c            |  198 +++++++++++++++++++----------
- fs/ext3/resize.c           |    2 
- fs/ext3/super.c            |  217 +++++++++++++++++--------------
- fs/ext3/xattr.c            |   34 +++-
- include/linux/ext3_fs.h    |   69 ++++++++--
- include/linux/ext3_fs_i.h  |   10 +
- include/linux/ext3_fs_sb.h |    5 
- 15 files changed, 669 insertions(+), 425 deletions(-)
+ Documentation/filesystems/ext3.txt |   40 +++-
+ fs/ext3/balloc.c                   |    3 
+ fs/ext3/dir.c                      |    5 
+ fs/ext3/file.c                     |   67 --------
+ fs/ext3/fsync.c                    |   40 ++--
+ fs/ext3/hash.c                     |   77 ++++++++-
+ fs/ext3/ialloc.c                   |    7 
+ fs/ext3/inode.c                    |  307 ++++++++++++++++++++++++-------------
+ fs/ext3/ioctl.c                    |   53 ++----
+ fs/ext3/namei.c                    |  198 +++++++++++++++--------
+ fs/ext3/resize.c                   |    2 
+ fs/ext3/super.c                    |  219 ++++++++++++++------------
+ fs/ext3/xattr.c                    |   34 ++--
+ include/linux/ext3_fs.h            |   69 ++++++--
+ include/linux/ext3_fs_i.h          |   10 +
+ include/linux/ext3_fs_sb.h         |    3 
+ 16 files changed, 701 insertions(+), 433 deletions(-)
 
+diff --git a/Documentation/filesystems/ext3.txt b/Documentation/filesystems/ext3.txt
+--- a/Documentation/filesystems/ext3.txt
++++ b/Documentation/filesystems/ext3.txt
+@@ -14,6 +14,11 @@ Options
+ When mounting an ext3 filesystem, the following option are accepted:
+ (*) == default
+ 
++ro			Mount filesystem read only. Note that ext3 will replay
++			the journal (and thus write to the partition) even when
++			mounted "read only". Mount options "ro,noload" can be
++			used to prevent writes to the filesystem.
++
+ journal=update		Update the ext3 file system's journal to the current
+ 			format.
+ 
+@@ -27,7 +32,9 @@ journal_dev=devnum	When the external jou
+ 			identified through its new major/minor numbers encoded
+ 			in devnum.
+ 
+-noload			Don't load the journal on mounting.
++noload			Don't load the journal on mounting. Note that this forces
++			mount of inconsistent filesystem, which can lead to
++			various problems.
+ 
+ data=journal		All data are committed into the journal prior to being
+ 			written into the main file system.
+@@ -92,9 +99,17 @@ nocheck
+ 
+ debug			Extra debugging information is sent to syslog.
+ 
+-errors=remount-ro(*)	Remount the filesystem read-only on an error.
++errors=remount-ro	Remount the filesystem read-only on an error.
+ errors=continue		Keep going on a filesystem error.
+ errors=panic		Panic and halt the machine if an error occurs.
++			(These mount options override the errors behavior
++			specified in the superblock, which can be
++			configured using tune2fs.)
++
++data_err=ignore(*)	Just print an error message if an error occurs
++			in a file data buffer in ordered mode.
++data_err=abort		Abort the journal if an error occurs in a file
++			data buffer in ordered mode.
+ 
+ grpid			Give objects the same group ID as their creator.
+ bsdgroups
+@@ -108,10 +123,18 @@ resuid=n		The user ID which may use the
+ 
+ sb=n			Use alternate superblock at this location.
+ 
+-quota
+-noquota
+-grpquota
+-usrquota
++quota			These options are ignored by the filesystem. They
++noquota			are used only by quota tools to recognize volumes
++grpquota		where quota should be turned on. See documentation
++usrquota		in the quota-tools package for more details
++			(http://sourceforge.net/projects/linuxquota).
++
++jqfmt=<quota type>	These options tell filesystem details about quota
++usrjquota=<file>	so that quota information can be properly updated
++grpjquota=<file>	during journal replay. They replace the above
++			quota options. See documentation in the quota-tools
++			package for more details
++			(http://sourceforge.net/projects/linuxquota).
+ 
+ bh		(*)	ext3 associates buffer heads to data pages to
+ nobh			(a) cache disk block mapping information
+@@ -193,6 +216,5 @@ kernel source:	<file:fs/ext3/>
+ programs: 	http://e2fsprogs.sourceforge.net/
+ 		http://ext2resize.sourceforge.net
+ 
+-useful links:	http://www.zip.com.au/~akpm/linux/ext3/ext3-usage.html
+-		http://www-106.ibm.com/developerworks/linux/library/l-fs7/
+-		http://www-106.ibm.com/developerworks/linux/library/l-fs8/
++useful links:	http://www.ibm.com/developerworks/library/l-fs7.html
++		http://www.ibm.com/developerworks/library/l-fs8.html
 diff --git a/fs/ext3/balloc.c b/fs/ext3/balloc.c
 --- a/fs/ext3/balloc.c
 +++ b/fs/ext3/balloc.c

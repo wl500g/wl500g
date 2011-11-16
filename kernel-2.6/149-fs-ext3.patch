@@ -1,29 +1,61 @@
 ext3: Updates from 2.6.27.59
 
 ---
- fs/ext3/balloc.c           |   16 --
- fs/ext3/bitmap.c           |    2 
- fs/ext3/dir.c              |    7 -
- fs/ext3/fsync.c            |    5 
- fs/ext3/ialloc.c           |   90 +++++++++------
- fs/ext3/inode.c            |  174 +++++++++++++++--------------
- fs/ext3/ioctl.c            |   64 +++++++---
- fs/ext3/namei.c            |   98 ++++++----------
- fs/ext3/resize.c           |   62 +++++++++-
- fs/ext3/super.c            |  266 +++++++++++++++++++++++++++++++++------------
- fs/ext3/xattr.c            |   10 -
- fs/ext3/xattr.h            |    7 -
- fs/jbd/checkpoint.c        |   63 +++++++---
- fs/jbd/commit.c            |  128 ++++++++++++---------
- fs/jbd/journal.c           |  226 +++++++++++---------------------------
- fs/jbd/recovery.c          |   17 +-
- fs/jbd/revoke.c            |  171 +++++++++++++---------------
- fs/jbd/transaction.c       |  168 ++++++++++++++++++++++------
- include/linux/ext3_fs.h    |   17 --
- include/linux/ext3_fs_sb.h |    1 
- include/linux/jbd.h        |   61 +++-------
- 21 files changed, 924 insertions(+), 729 deletions(-)
+ Documentation/filesystems/ext3.txt |   14 -
+ fs/ext3/balloc.c                   |   16 --
+ fs/ext3/bitmap.c                   |    2 
+ fs/ext3/dir.c                      |    7 
+ fs/ext3/fsync.c                    |    5 
+ fs/ext3/ialloc.c                   |   90 +++++++-----
+ fs/ext3/inode.c                    |  174 ++++++++++++------------
+ fs/ext3/ioctl.c                    |   64 ++++++--
+ fs/ext3/namei.c                    |   98 +++++--------
+ fs/ext3/resize.c                   |   62 +++++++-
+ fs/ext3/super.c                    |  266 +++++++++++++++++++++++++++----------
+ fs/ext3/xattr.c                    |   10 -
+ fs/ext3/xattr.h                    |    7 
+ fs/jbd/checkpoint.c                |   63 ++++++--
+ fs/jbd/commit.c                    |  128 ++++++++++-------
+ fs/jbd/journal.c                   |  226 +++++++++----------------------
+ fs/jbd/recovery.c                  |   17 +-
+ fs/jbd/revoke.c                    |  171 ++++++++++-------------
+ fs/jbd/transaction.c               |  168 ++++++++++++++++++-----
+ include/linux/ext3_fs.h            |   17 --
+ include/linux/ext3_fs_sb.h         |    1 
+ include/linux/jbd.h                |   61 +++-----
+ 22 files changed, 931 insertions(+), 736 deletions(-)
 
+diff --git a/Documentation/filesystems/ext3.txt b/Documentation/filesystems/ext3.txt
+--- a/Documentation/filesystems/ext3.txt
++++ b/Documentation/filesystems/ext3.txt
+@@ -130,12 +130,12 @@ Device layer.
+ 
+ Journaling Block Device layer
+ -----------------------------
+-The Journaling Block Device layer (JBD) isn't ext3 specific.  It was design to
+-add journaling capabilities on a block device.  The ext3 filesystem code will
+-inform the JBD of modifications it is performing (called a transaction).  The
+-journal supports the transactions start and stop, and in case of crash, the
+-journal can replayed the transactions to put the partition back in a
+-consistent state fast.
++The Journaling Block Device layer (JBD) isn't ext3 specific.  It was designed
++to add journaling capabilities to a block device.  The ext3 filesystem code
++will inform the JBD of modifications it is performing (called a transaction).
++The journal supports the transactions start and stop, and in case of a crash,
++the journal can replay the transactions to quickly put the partition back into
++a consistent state.
+ 
+ Handles represent a single atomic update to a filesystem.  JBD can handle an
+ external journal on a block device.
+@@ -164,7 +164,7 @@ written to the journal first, and then t
+ In the event of a crash, the journal can be replayed, bringing both data and
+ metadata into a consistent state.  This mode is the slowest except when data
+ needs to be read from and written to disk at the same time where it
+-outperforms all others modes.
++outperforms all other modes.
+ 
+ Compatibility
+ -------------
 diff --git a/fs/ext3/balloc.c b/fs/ext3/balloc.c
 --- a/fs/ext3/balloc.c
 +++ b/fs/ext3/balloc.c
