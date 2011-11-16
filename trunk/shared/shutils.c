@@ -125,7 +125,7 @@ waitfor(int fd, int timeout)
  * @return	return value of executed command or errno
  */
 int
-_eval(char *const argv[], char *path, int timeout, int *ppid)
+_eval(char *const argv[], const char *path, int timeout, int *ppid)
 {
 	sigset_t set, omask;
 	pid_t pid, ret;
@@ -278,13 +278,13 @@ _backtick(char *const argv[])
  * @return      0 on success and errno on failure
  */
 int inline 
-kill_pidfile(char *pidfile)
+kill_pidfile(const char *pidfile)
 {
         return kill_pidfile_s(pidfile, SIGTERM);
 }
 
 int
-kill_pidfile_s(char *pidfile, int sig)
+kill_pidfile_s(const char *pidfile, int sig)
 {
 	FILE *fp = fopen(pidfile, "r");
 	char buf[256];
@@ -403,14 +403,15 @@ sh_strrspn(const char *s, const char *accept)
 	
 	if (s[0] == '\0')
 		return 0;
-	
-	p = s + (strlen(s) - 1);
+
+	p = s + strlen(s);
 	i = 0;
-	
+
 	do {
+		p--;
 		if (memchr(accept, *p, accept_len) == NULL)
 			break;
-		p--; i++;
+		i++;
 	} while (p != s);
 
 	return i;

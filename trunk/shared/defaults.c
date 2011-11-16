@@ -53,7 +53,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "log_ipaddr", "", 0 },		/* syslog recipient */
 	
 	/* LAN H/W parameters */
-	{ "lan_ifname", "", 0 },		/* LAN interface name */
+	{ "lan_ifname", "br0", 0 },		/* LAN interface name */
 	{ "lan_ifnames", "", 0 },		/* Enslaved LAN interfaces */
 	{ "lan_hwnames", "", 0 },		/* LAN driver names (e.g. et0) */
 	{ "lan_hwaddr", "", 0 },		/* LAN interface MAC address */
