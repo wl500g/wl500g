@@ -194,6 +194,7 @@ int remove_usb_webcam(char *product);
 int hotplug_usb_audio(char *product);
 int remove_storage_main(int scsi_host_no);
 int restart_ftpd();
+int restart_smbd();
 int ddns_updated_main();
 int sendalarm_main(int argc, char *argv[]);
 int service_handle(void);

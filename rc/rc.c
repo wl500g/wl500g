@@ -1027,6 +1027,10 @@ main(int argc, char **argv)
 	else if (!strcmp(base, "start_ftpd")) {
 		return restart_ftpd();
 	}
+	/* run samba server */
+	else if (!strcmp(base, "start_smbd")) {
+		return restart_smbd();
+	}
 #endif //USB_SUPPORT
 	/* write srom */
 	else if (!strcmp(base, "wsrom")) 

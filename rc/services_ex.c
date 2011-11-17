@@ -1171,7 +1171,7 @@ int restart_ftpd()
 	return 0;
 }
 
-static int restart_smbd()
+int restart_smbd()
 {
 	FILE *fp;
 	DIR *dir = NULL;
