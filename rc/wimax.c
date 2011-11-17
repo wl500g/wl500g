@@ -7,7 +7,6 @@
 #include <ctype.h>
 #include <time.h>
 #include <net/if.h>
-#include <sys/stat.h>
 
 #include "rc.h"
 
@@ -218,7 +217,7 @@ int
 madwimax_create(char *ifname)
 {
 	//char tmp[100];
-	char prefix[] = "wanXXXXXXXXXX_";
+	char prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit = 0;
 
 	dprintf( "%s", ifname );
@@ -252,8 +251,7 @@ madwimax_create(char *ifname)
 int
 madwimax_release(char *ifname)
 {
-	//char tmp[100];
-	//char prefix[] = "wanXXXXXXXXXX_";
+	//char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 
 	dprintf( "%s", ifname );
@@ -280,8 +278,7 @@ madwimax_release(char *ifname)
 //if-up
 static int madwimax_up(char *ifname)
 {
-	char tmp[100];
-	char prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 
 	dprintf( "%s", ifname );

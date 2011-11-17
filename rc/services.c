@@ -18,7 +18,6 @@
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
-#include <sys/stat.h>
 #include <arpa/inet.h>
 
 #include "rc.h"
@@ -187,7 +186,7 @@ static int start_dropbear(void)
 		dropbear_argv[i++] = "-4";
 #endif
 
-	int ret = _eval(dropbear_argv, ">/dev/null", 0, NULL);
+	int ret = _eval(dropbear_argv, NULL, 0, NULL);
 
 	dprintf("done\n");
 	return ret;
@@ -270,7 +269,7 @@ start_upnp(void)
 {
 	char *wan_ifname, *wan_proto;
 	int ret;
-	char var[100], prefix[] = "wanXXXXXXXXXX_";
+	char var[100], prefix[sizeof("wanXXXXXXXXXX_")];
 #ifdef __CONFIG_MINIUPNPD__
 	FILE *fp;
 	char *lan_addr, *lan_mask, lan_class[32];

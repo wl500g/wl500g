@@ -763,7 +763,7 @@ static int start_nfsd(void)
 	if (stat("/etc/exports", &st_buf) != 0) 
 	{
 		int i, count;
-		char tmp[] = "usb_nfslist_xXXXXX";
+		char tmp[sizeof("usb_nfslist_xXXXXX")];
 		
 		if ((fp = fopen("/etc/exports", "w")) == NULL) {
 			perror("/etc/exports");
@@ -849,7 +849,7 @@ start_usb(void)
 		pid_t pid;
 
 		sleep(1);
-		_eval(lpd_argv, ">/dev/null", 0, &pid);	
+		_eval(lpd_argv, NULL, 0, &pid);	
 	}
 	if (!nvram_invmatch("raw_enable", "1"))
 	{
@@ -1256,7 +1256,7 @@ int restart_smbd()
 	if (nvram_match("usb_smbenable_x", "3"))
 	{
 		int i, count;
-		char tmp[] = "usb_smblist_xXXXXX";
+		char tmp[sizeof("usb_smblist_xXXXXX")];
 		
 		for (i = 0, count = atoi(nvram_safe_get("usb_smbnum_x")); i < count; i++) 
 		{

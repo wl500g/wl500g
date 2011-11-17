@@ -265,6 +265,7 @@ int stop_vlan(void)
 	char nvvar_name[16];
 	char vlan_id[16];
 	char *hwname;
+	char *vconfig_argv[] = { "vconfig", "rem", vlan_id, NULL };
 
 	vlan0tag = strtoul(nvram_safe_get("vlan0tag"), NULL, 0);
 
@@ -276,7 +277,7 @@ int stop_vlan(void)
 
 		/* remove the VLAN interface */
 		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i | vlan0tag);
-		eval("vconfig", "rem", vlan_id);
+		_eval(vconfig_argv, NULL, 0, NULL);
 	}
 
 	return 0;

@@ -25,13 +25,13 @@
 #include <limits.h>
 #include <sys/klog.h>
 #include <sys/fcntl.h>
+#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/reboot.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/stat.h>
 #include <sys/utsname.h>
 
 #include "rc.h"
@@ -114,7 +114,7 @@ pid_t
 run_shell(int timeout, int nowait)
 {
 	pid_t pid;
-	char tz[1000];
+	char tz[128];
 	char * const envp[] = {
 		"TERM=vt100",
 		"HOME=/",
@@ -237,10 +237,7 @@ static void make_etc(void)
 	symlink("/tmp/resolv.conf", "/etc/resolv.conf");
 	
 	/* hostname */
-	if ((f = fopen("/proc/sys/kernel/hostname", "w"))) {
-		fputs(nvram_safe_get("lan_hostname"), f);
-		fclose(f);
-	}
+	fputs_ex("/proc/sys/kernel/hostname", nvram_safe_get("lan_hostname"));
 
 	/* crond */
 	symlink("/etc/crontabs", "/var/spool/cron/crontabs");
@@ -253,7 +250,6 @@ void sysinit(void)
 {
 	char buf[PATH_MAX];
 	struct utsname name;
-	struct stat tmp_stat;
 	struct rlimit lim;
 	int totalram;
 	const char *tmpfsopt = NULL;
@@ -324,14 +320,13 @@ void sysinit(void)
 	klogctl(8, NULL, atoi(nvram_safe_get("console_loglevel")));
 
 	/* load flashfs */
-	if (!eval("flashfs", "start"))
+	if (eval("flashfs", "start") == 0)
 		eval("/usr/local/sbin/pre-boot");
 
 	/* Modules */
 	uname(&name);
 	snprintf(buf, sizeof(buf), "/lib/modules/%s", name.release);
-	if (stat("/proc/modules", &tmp_stat) == 0 &&
-	    stat(buf, &tmp_stat) == 0) {
+	if (exists("/proc/modules") && exists(buf)) {
 		char module[80], *modules, *next;
 
 		modules = nvram_get("kernel_mods") ? : 

@@ -46,7 +46,7 @@ char *trim_r(char *str)
 }
 
 /* convert mac address format from XXXXXXXXXXXX to XX:XX:XX:XX:XX:XX */
-char *mac_conv(char *mac_name, int idx, char *buf)
+char *mac_conv(const char *mac_name, int idx, char *buf)
 {
 	char *mac, name[32];
 	int i, j;
@@ -87,7 +87,7 @@ int insmod(const char *module, ...)
 	}
 	va_end(ap);
 	insmod_argv[i] = NULL;
-        return _eval(insmod_argv, ">/dev/null", 0, NULL);
+        return _eval(insmod_argv, NULL, 0, NULL);
 }
 
 int rmmod(const char *module)
@@ -490,7 +490,7 @@ void convert_asus_values()
 	nvram_set("wan_status_t", "Disconnected");
 
 #if defined( __CONFIG_MADWIMAX__ ) || defined ( __CONFIG_MODEM__ )
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 	for (unit = 0; unit < MAX_NVPARSE; unit ++) 
 	{

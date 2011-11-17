@@ -28,8 +28,7 @@
 
 static char udhcpstate[12];
 
-static int
-expires(char *lan_ifname, unsigned int in)
+static int expires(const char *lan_ifname, unsigned int in)
 {
 	time_t now;
 	FILE *fp;
@@ -44,18 +43,15 @@ expires(char *lan_ifname, unsigned int in)
 	fprintf(fp, "%d", (unsigned int) now + in);
 	fclose(fp);
 	return 0;
-}	
+}
 
 /* 
  * deconfig: This argument is used when udhcpc starts, and when a
  * leases is lost. The script should put the interface in an up, but
  * deconfigured state.
 */
-static int
-deconfig(void)
+static int deconfig(const char *lan_ifname)
 {
-	char *lan_ifname = safe_getenv("interface");
-
 	ifconfig(lan_ifname, IFUP,
 		 nvram_safe_get("lan_ipaddr"),
 		 nvram_safe_get("lan_netmask"));
@@ -77,12 +73,10 @@ deconfig(void)
  * variables, The script should configure the interface, and set any
  * other relavent parameters (default gateway, dns server, etc).
 */
-static int
-bound(void)
+static int bound(const char *lan_ifname)
 {
-	char *lan_ifname = safe_getenv("interface");
 	char *value;
-	char tmp[100], prefix[] = "lanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("lanXXXXXXXXXX_")];
 
 	snprintf(prefix, sizeof(prefix), "lan_");
 	
@@ -131,10 +125,9 @@ bound(void)
  * will not change, however, the other DHCP paramaters, such as the
  * default gateway, subnet mask, and dns server may change.
  */
-static int
-renew(void)
+static int renew(const char *lan_ifname)
 {
-	bound();
+	bound(lan_ifname);
 
 	dprintf("done\n");
 	return 0;
@@ -143,18 +136,21 @@ renew(void)
 int
 udhcpc_ex_main(int argc, char **argv)
 {
+	const char *lan_ifname;
+
 	if (argc<2 || !argv[1])
 		return EINVAL;
 
+	lan_ifname = safe_getenv("interface");
 	strcpy(udhcpstate, argv[1]);
 
 	if (!strcmp(argv[1], "deconfig"))
-		return deconfig();
+		return deconfig(lan_ifname);
 	else if (!strcmp(argv[1], "bound"))
-		return bound();
+		return bound(lan_ifname);
 	else if (!strcmp(argv[1], "renew"))
-		return renew();
+		return renew(lan_ifname);
 	else if (!strcmp(argv[1], "leasefail"))
 		return 0;
-	else return deconfig();
+	else return deconfig(lan_ifname);
 }

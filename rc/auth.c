@@ -1,10 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
-#include <unistd.h>
 #include <errno.h>
-#include <sys/stat.h>
 #include <arpa/inet.h>
 
 #include "rc.h"
@@ -12,8 +9,16 @@
 #ifdef __CONFIG_EAPOL__
 extern int router_model;
 
-int
-start_wpa_supplicant(char *prefix, int restart)
+
+static int stop_wpa_supplicant(int wait)
+{
+	killall_w("wpa_supplicant", 0, wait);
+	killall_w("wpa_cli", 0, wait);
+
+	return 0;
+}
+
+static int start_wpa_supplicant(char *prefix, int restart)
 {
 	FILE *fp;
 	char tmp[100];
@@ -67,25 +72,13 @@ start_wpa_supplicant(char *prefix, int restart)
 	return ret;
 }
 
-int
-stop_wpa_supplicant(int wait)
+int wpacli_main(int argc, char **argv)
 {
-	killall_w("wpa_supplicant", 0, wait);
-	killall_w("wpa_cli", 0, wait);
-
-	return 0;
-}
-
-int
-wpacli_main(int argc, char **argv)
-{
-	char tmp[100];
-	char prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 
-	if (!argv[1] || (unit = wan_ifunit(argv[1])) < 0)
+	if (!argv[1] || (unit = wan_prefix(argv[1], prefix)) < 0)
 		return EINVAL;
-	sprintf(prefix, "wan%d_", unit);
 
 	if (!nvram_match(strcat_r(prefix, "auth_x", tmp), "eap-md5"))
 		return 0;
@@ -102,11 +95,15 @@ wpacli_main(int argc, char **argv)
 
 	return 0;
 }
-#endif
+#endif /* __CONFIG_EAPOL__ */
 
 #ifdef __CONFIG_TELENET__
-int
-start_lanauth(char *prefix, int restart)
+static int stop_lanauth(int wait)
+{
+	return killall_w("lanauth", 0, wait);
+}
+
+static int start_lanauth(char *prefix, int restart)
 {
 	char tmp[100];
 	char *lanauth_argv[] = {
@@ -125,17 +122,15 @@ start_lanauth(char *prefix, int restart)
 	/* Start lanauth */
 	return _eval(lanauth_argv, NULL, 0, NULL);
 }
-
-int
-stop_lanauth(int wait)
-{
-	return killall_w("lanauth", 0, wait);
-}
-#endif
+#endif /* __CONFIG_TELENET__ */
 
 #ifdef __CONFIG_CONVEX__
-int
-start_authcli(char *prefix, int restart)
+static int stop_authcli(int wait)
+{
+	return killall_w("authcli", 0, wait);
+}
+
+static int start_authcli(char *prefix, int restart)
 {
 	FILE *fp;
 	char tmp[100];
@@ -170,13 +165,7 @@ start_authcli(char *prefix, int restart)
 	/* Start authcli */
 	return _eval(authcli_argv, NULL, 0, NULL);
 }
-
-int
-stop_authcli(int wait)
-{
-	return killall_w("authcli", 0, wait);
-}
-#endif
+#endif /* __CONFIG_CONVEX__ */
 
 
 int

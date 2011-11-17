@@ -18,7 +18,6 @@
 #include <ctype.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -104,7 +103,7 @@ vlan_configure(void)
     char *wan_hwaddr = nvram_safe_get("wan0_hwaddr"); /* BUG */
     char *wan_ifname = NULL;
 	char *wan_proto;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
     char *restore_lan_ifname = nvram_safe_get("restore_lan_ifname");
     char *restore_lan_ifnames = nvram_safe_get("restore_lan_ifnames");
     char *restore_wan_ifname = nvram_safe_get("restore_wan_ifname");
@@ -545,7 +544,7 @@ vlan_deconfigure(void)
     char *restore_wan_hwaddr = nvram_safe_get("restore_wan_hwaddr");
     char *wan_ifname = NULL;
 	char *wan_proto;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
     char buf[80];
     char name[80], *next;
     uint  board_index = 0;

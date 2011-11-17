@@ -56,7 +56,7 @@ char *pppstatus(char *buf);
 void convert_asus_values();
 void convert_country();
 void convert_routes();
-char *mac_conv(char *mac_name, int idx, char *buf);
+char *mac_conv(const char *mac_name, int idx, char *buf);
 int fputs_ex(const char *name, const char *value);
 int insmod(const char *module, ...);
 int rmmod(const char *module);
@@ -75,8 +75,6 @@ int udhcpc_main(int argc, char **argv);
 int start_dhcpc(const char *wan_ifname, int unit);
 int udhcpc_ex_main(int argc, char **argv);
 int zcip_main(int argc, char **argv);
-int start_zcip(char *wan_ifname);
-void stop_zcip(void);
 #ifdef __CONFIG_IPV6__
 int dhcp6c_main(int argc, char **argv);
 int start_dhcp6c(const char *wan_ifname);
@@ -134,7 +132,6 @@ void lan_down_ex(const char *lan_ifname);
 int wan_prefix(const char *ifname, char *prefix);
 
 int hotplug_net(void);
-int wan_ifunit(const char *ifname);
 int wan_primary_ifunit(void);
 int start_bpalogin(void);
 int stop_bpalogin(void);
@@ -206,17 +203,7 @@ int wlan_update();
 int start_auth(char *prefix, int wan_up);
 int stop_auth(char *prefix, int wan_down);
 #ifdef __CONFIG_EAPOL__
-int start_wpa_supplicant(char *prefix, int restart);
-int stop_wpa_supplicant(int wait);
 int wpacli_main(int argc, char **argv);
-#endif
-#ifdef __CONFIG_TELENET__
-int start_lanauth(char *prefix, int restart);
-int stop_lanauth(int wait);
-#endif
-#ifdef __CONFIG_CONVEX__
-int start_authcli(char *prefix, int restart);
-int stop_authcli(int wait);
 #endif
 
 /* firewall */

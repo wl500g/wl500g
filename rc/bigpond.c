@@ -16,87 +16,62 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <signal.h>
 
 #include <shutils.h>
 #include "rc.h"
 
-int
-start_bpalogin(void)
+int start_bpalogin(void)
 {
 	FILE *fp;
 	int ret;
-	char authserver[20];
-	char authdomain[80];
-	char buf[254];
+	const char *authserver;
+	const char *authdomain = NULL;
+	char *bpalogin_argv[5] = { "bpalogin", "-c", "/tmp/bpalogin.conf", NULL, NULL };
 
-	if (nvram_invmatch("wan_heartbeat_x", "")) {
-		snprintf(authserver, sizeof(authserver), "%s", nvram_safe_get("wan_heartbeat_x"));
-		snprintf(authdomain, sizeof(authdomain), "%s", "");
+	if (nvram_invmatch("wan_heartbeat_x", ""))
+	{
+		authserver = nvram_safe_get("wan_heartbeat_x");
 	}
 	else if (nvram_invmatch("wan0_domain", " ") && nvram_invmatch("wan0_domain", ""))
-	{	
-		snprintf(authserver, sizeof(authserver), "%s", "sm-server");
-		snprintf(authdomain, sizeof(authdomain), "%s", nvram_safe_get("wan0_domain"));
+	{
+		authserver = "sm-server";
+		authdomain = nvram_get("wan0_domain");
 	}
-#ifdef REMOVE
-	else if (nvram_match("wan0_domain", "nsw.bigpond.net.au")) {            // NSW
-		snprintf(authserver, sizeof(authserver), "%s", "spr3");
-		snprintf(authdomain, sizeof(authdomain), "%s", "nsw-remote.bigpond.net.au");
-	}
-	else if (nvram_match("wan0_domain", "vic.bigpond.net.au")) {           // Victoria
-		snprintf(authserver, sizeof(authserver), "%s", "mer3");
-		snprintf(authdomain, sizeof(authdomain), "%s", "vic-remote.bigpond.net.au");
-	}
-	else if (nvram_match("wan0_domain","qld.bigpond.net.au")) {            // Queensland
-		snprintf(authserver, sizeof(authserver), "%s", "bcr3");
-		snprintf(authdomain, sizeof(authdomain), "%s", "qld-remote.bigpond.net.au");
-	}
-	else if (nvram_match("wan0_domain", "sa.bigpond.net.au")) {            // South Austrialia
-		snprintf(authserver, sizeof(authserver), "%s", "afr3");
-		snprintf(authdomain, sizeof(authdomain), "%s", "sa-remote.bigpond.net.au");
-	}
-	else if (nvram_match("wan0_domain", "wa.bigpond.net.au")) {            // Western Austrialia
-		snprintf(authserver, sizeof(authserver), "%s", "pwr3");
-		snprintf(authdomain, sizeof(authdomain), "%s", "wa-remote.bigpond.net.au");
-	}
-#endif
-	else{
-		snprintf(authserver, sizeof(authserver), "%s", nvram_safe_get("wan0_gateway"));
-		snprintf(authdomain, sizeof(authdomain), "%s", "");
+	else
+	{
+		authserver = nvram_safe_get("wan0_gateway");
 	}
 
-	snprintf(buf, sizeof(buf), "%s%s%s", authserver, !strcmp(authdomain,"") ? "" : ".", authdomain);
-
-	nvram_set("hb_server_name", buf);
-	
 	if (!(fp = fopen("/tmp/bpalogin.conf", "w"))) {
 		return errno;
 	}
-	fprintf(fp, "username %s\n", nvram_safe_get("wan_pppoe_username"));
-	fprintf(fp, "password %s\n", nvram_safe_get("wan_pppoe_passwd"));
-	fprintf(fp, "authserver %s\n", authserver);
-	if (strcmp(authdomain,"")) {
-	  fprintf(fp, "authdomain %s\n", authdomain);
+	fprintf(fp,
+		"username %s\n"
+		"password %s\n"
+		"authserver %s\n",
+		nvram_safe_get("wan_pppoe_username"),
+		nvram_safe_get("wan_pppoe_passwd"),
+		authserver);
+	if (authdomain != NULL) {
+		fprintf(fp, "authdomain %s\n", authdomain);
 	}
-	fprintf(fp, "localport 5050\n");
-	fprintf(fp, "logging syslog\n");
-	fprintf(fp, "debuglevel 0\n");
-	fprintf(fp, "minheartbeatinterval 60\n");
-	fprintf(fp, "maxheartbeatinterval 420\n");
-	fprintf(fp, "connectedprog bpa_connect\n"); 
-	fprintf(fp, "disconnectedprog bpa_disconnect\n");
+	fprintf(fp,
+		"localport 5050\n"
+		"logging syslog\n"
+		"debuglevel 0\n"
+		"minheartbeatinterval 60\n"
+		"maxheartbeatinterval 420\n"
+		"connectedprog bpa_connect\n"
+		"disconnectedprog bpa_disconnect\n");
 	fclose(fp);
 	
 	//mkdir("/tmp/ppp", 0777);
-	if ((fp = fopen("/tmp/bpa_connect_success", "r"))) {
-		ret = eval("bpalogin", "-c", "/tmp/bpalogin.conf", "-t");
-		fclose(fp);	
+	if (exists("/tmp/bpa_connect_success")) {
+		bpalogin_argv[3] = "-t";
 	}
-	else
-		ret = eval("bpalogin", "-c", "/tmp/bpalogin.conf");
+	ret = _eval(bpalogin_argv, NULL, 0, NULL);
 
 	return ret;
 }

@@ -458,7 +458,7 @@ start_lan(void)
 			else 
 			{
 				/* get the instance number of the wl i/f */
-				char wl_name[] = "wlXXXXXXXXXX_mode";
+				char wl_name[sizeof("wlXXXXXXXXXX_mode")];
 				int unit;
 #ifdef ASUS_EXT
 				/* do not play srom games, let asus firmware do everything */
@@ -486,9 +486,10 @@ start_lan(void)
 		/* Bring up interface */
 		ifconfig(lan_ifname, IFUP, NULL, NULL);
 		/* config wireless i/f */
-		if (!eval("wlconf", lan_ifname, "up")) {
-			char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+		if (eval("wlconf", lan_ifname, "up") == 0) {
+			char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 			int unit;
+
 			/* get the instance number of the wl i/f */
 			wl_ioctl(lan_ifname, WLC_GET_INSTANCE, &unit, sizeof(unit));
 			snprintf(prefix, sizeof(prefix), "wl%d_", unit);
@@ -719,20 +720,38 @@ void stop_lan(void)
 	dprintf("done\n");
 }
 
-int wan_prefix(const char *ifname, char *prefix)
+int wan_prefix(const char *wan_ifname, char *prefix)
 {
 	int unit;
-	
-	if ((unit = wan_ifunit(ifname)) < 0)
-		return -1;
+	char tmp[100];
 
+	if ((unit = ppp_ifunit(wan_ifname)) >= 0)
+		goto found;
+#ifdef __CONFIG_MADWIMAX__
+	else if ((unit = wimax_ifunit(wan_ifname)) >= 0)
+		goto found;
+#endif
+	else {
+		for (unit = 0; unit < MAX_NVPARSE; unit ++) {
+			sprintf(prefix, "wan%d_", unit);
+			if (nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname) &&
+			    (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
+			     nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
+			     nvram_match(strcat_r(prefix, "proto", tmp), "static")))
+				return unit;
+		}
+	}
+	strcpy(prefix, "wanx_");
+	return -1;
+
+ found:
 	sprintf(prefix, "wan%d_", unit);
-	return 0;
+	return unit;
 }
 
 static int add_wan_routes(const char *wan_ifname)
 {
-	char prefix[] = "wanXXXXXXXXXX_";
+	char prefix[sizeof("wanXXXXXXXXXX_")];
 
 	/* Figure out nvram variable name prefix for this i/f */
 	if (wan_prefix(wan_ifname, prefix) < 0)
@@ -743,7 +762,7 @@ static int add_wan_routes(const char *wan_ifname)
 
 static int del_wan_routes(const char *wan_ifname)
 {
-	char prefix[] = "wanXXXXXXXXXX_";
+	char prefix[sizeof("wanXXXXXXXXXX_")];
 
 	/* Figure out nvram variable name prefix for this i/f */
 	if (wan_prefix(wan_ifname, prefix) < 0)
@@ -772,7 +791,7 @@ void start_wan(void)
 	char *wan_ifname;
 	char *wan_proto;
 	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char eabuf[32];
 	int s;
 	struct ifreq ifr;
@@ -896,7 +915,7 @@ void start_wan(void)
 			ifconfig(wan_ifname, IFUP, NULL, NULL);
 
 			/* do wireless specific config */
-			if (!eval("wlconf", wan_ifname, "up")) {
+			if (eval("wlconf", wan_ifname, "up") == 0) {
 				/* Kick wl to join network */
 				if (nvram_match("wl0_mode", "wet") || nvram_match("wl0_mode", "sta"))
 					system(nvram_safe_get("wl0_join"));
@@ -1113,7 +1132,7 @@ static int stop_usb_communication_devices(void)
 {
   	char *wan_ifname;
 	char *wan_proto;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 
 	/* Start each configured and enabled wan connection and its undelying i/f */
@@ -1261,7 +1280,7 @@ int update_resolvconf(const char *ifname, int metric, int up)
 
 void wan_up(const char *wan_ifname)
 {
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char *wan_proto, *gateway;
 	int metric;
 
@@ -1412,7 +1431,7 @@ void wan_up(const char *wan_ifname)
 
 void wan_down(const char *wan_ifname)
 {
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char *wan_proto;
 	int metric;
 
@@ -1457,7 +1476,7 @@ void wan_down(const char *wan_ifname)
 #ifdef __CONFIG_IPV6__
 void wan6_up(const char *wan_ifname, int unit)
 {
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	const char *wan6_ifname = "six0";
 	char *wan6_ipaddr;
 	struct in6_addr addr;
@@ -1626,7 +1645,7 @@ void wan6_up(const char *wan_ifname, int unit)
 
 void wan6_down(const char *wan_ifname, int unit)
 {
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	const char *wan6_ifname = "six0";
 	char *wan6_ipaddr;
 
@@ -1810,7 +1829,7 @@ static int notify_nas(const char *type, const char *ifname, const char *action)
 			NULL};
 	char *str = NULL;
 	int retries = 10;
-	char tmp[100], prefix[] = "wlXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 	char remote[ETHER_ADDR_LEN];
 	char ssid[48], pass[80], auth[16], crypto[16], role[8];
@@ -1934,36 +1953,9 @@ hotplug_net(void)
 	return 0;
 }
 
-
-int wan_ifunit(const char *wan_ifname)
-{
-	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-
-	if ((unit = ppp_ifunit(wan_ifname)) >= 0)
-		return unit;
-#ifdef __CONFIG_MADWIMAX__
-	else
-	if ((unit = wimax_ifunit(wan_ifname)) >= 0)
-		return unit;
-#endif
-	else {
-		for (unit = 0; unit < MAX_NVPARSE; unit ++) {
-			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-			if (nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname) &&
-			    (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
-			     nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
-			     nvram_match(strcat_r(prefix, "proto", tmp), "static")))
-				return unit;
-		}
-	}
-	return -1;
-}
-
 int preset_wan_routes(const char *wan_ifname)
 {
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
 	/* Figure out nvram variable name prefix for this i/f */
 	if (wan_prefix(wan_ifname, prefix) < 0)
@@ -1986,7 +1978,8 @@ wan_primary_ifunit(void)
 	int unit;
 	
 	for (unit = 0; unit < MAX_NVPARSE; unit ++) {
-		char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+		char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 		if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
 			return unit;
@@ -2047,7 +2040,7 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 	char *dev_vidpid;
 	int unit;
 	int found=0;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char str_devusb[100];
 
 	dprintf( "%s %s %s", interface, action, product );
