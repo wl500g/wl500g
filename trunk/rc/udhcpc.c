@@ -91,7 +91,7 @@ bound(void)
 	char *wan_ifname = safe_getenv("interface");
 	char *value;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	char route[] = "255.255.255.255/255";
+	char route[sizeof("255.255.255.255/255")];
 	int unit;
 	int changed = 0;
 	int gateway = 0;
@@ -149,8 +149,22 @@ bound(void)
 	}
 
 #ifdef __CONFIG_IPV6__
-	if ((value = getenv("ip6rd")))
-		nvram_set(strcat_r(prefix, "ipv6_6rd", tmp), trim_r(value));
+	if ((value = getenv("ip6rd")) && unit >= 0) {
+		char ip6rd[sizeof("32 128 FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF 255.255.255.255 ")];
+		char addrstr[INET6_ADDRSTRLEN];
+		char *values[4];
+		int i;
+
+		value = strncpy(ip6rd, value, sizeof(ip6rd));
+		for (i = 0; i < 4 && value; i++)
+			values[i] = strsep(&value, " ");
+		if (i == 4) {
+			nvram_set(strcat_r(prefix, "ipv6_ip4size", tmp), values[0]);
+			snprintf(addrstr, sizeof(addrstr), "%s/%s", values[2], values[1]);
+			nvram_set(strcat_r(prefix, "ipv6_ip6addr", tmp), addrstr);
+			nvram_set(strcat_r(prefix, "ipv6_relay", tmp), values[3]);
+		}
+	}
 #endif
 
 	if (changed && unit >= 0)
