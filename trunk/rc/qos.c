@@ -12,7 +12,6 @@
 #include <sys/types.h>
 #include <sys/mount.h>
 #include <sys/reboot.h>
-#include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/time.h>
 #include <sys/wait.h>

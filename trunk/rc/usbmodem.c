@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <ctype.h>
 #include <time.h>
-#include <sys/stat.h>
 
 #include <netconf.h>
 #include <nvparse.h>
@@ -44,7 +43,7 @@
 
 int hotplug_check_prev_zerocd_processed(const char *product, const char *device)
 {
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char str_devusb[100];
 	int found = 0, unit;
 	char *dev_vidpid;
@@ -83,7 +82,7 @@ int hotplug_check_prev_zerocd_processed(const char *product, const char *device)
 }
 void hotplug_release_zerocd_processed(const char *product, const char *device)
 {
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char str_devusb[100];
 	int unit;
 	char *dev_vidpid;

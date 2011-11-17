@@ -191,16 +191,21 @@ sendalarm_main(int argc, char *argv[])
 
 	if ((fp = fopen("/var/tmp/alarmmail", "w"))==NULL) return -1;
 
-	fprintf(fp, "To: %s\n", nvram_safe_get("usb_websendto_x"));
-	fprintf(fp, "Subject: %s\n", nvram_safe_get("usb_websubject_x"));
-	fprintf(fp, "X-Mailer: Mailer\n");
-	fprintf(fp, "Mime-Version: 1.0\n");
-	fprintf(fp, "Content-Type: multipart/mixed; boundary=\"%s\"\n", boundry);
-	fprintf(fp, "Content-Disposition: inline\n\n\n");
-	fprintf(fp, "--%s\n", boundry);
-	fprintf(fp, "Content-Type: text/plain; charset=us-ascii\n");
-	fprintf(fp, "Content-Disposition: inline\n\n");
-	fprintf(fp, "Image motion detected!!!\n\n");
+	fprintf(fp,
+		"To: %s\n"
+		"Subject: %s\n"
+		"X-Mailer: Mailer\n"
+		"Mime-Version: 1.0\n"
+		"Content-Type: multipart/mixed; boundary=\"%s\"\n"
+		"Content-Disposition: inline\n\n\n"
+		"--%s\n"
+		"Content-Type: text/plain; charset=us-ascii\n"
+		"Content-Disposition: inline\n\n"
+		"Image motion detected!!!\n\n",
+		nvram_safe_get("usb_websendto_x"),
+		nvram_safe_get("usb_websubject_x"),
+		boundry,
+		boundry);
 
 	if (nvram_match("usb_webattach_x", "1"))
 	{	
@@ -215,11 +220,14 @@ sendalarm_main(int argc, char *argv[])
 			sprintf(command, "uuencode -m %s %s > /var/tmp/uuencode", image, imagebase);
 			system(command);
 			
-			fprintf(fp, "--%s\n", boundry);
-			fprintf(fp, "Content-Type: application/unknown\n");
-			fprintf(fp, "Content-Disposition: attachment; filename=\"%s\"\n", imagebase);
+			fprintf(fp,
+				"--%s\n"
+				"Content-Type: application/unknown\n"
+				"Content-Disposition: attachment; filename=\"%s\"\n"
+				"Content-Transfer-Encoding: base64\n\n",
+				boundry,
+				imagebase);
 
-			fprintf(fp, "Content-Transfer-Encoding: base64\n\n");
 			filecat(fp, "/var/tmp/uuencode");
 			fprintf(fp, "\n\n\n");
 		}

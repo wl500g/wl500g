@@ -27,12 +27,6 @@
 
 #include <shutils.h>
 
-#ifdef ASUS
-#define PATH_MAX 256
-#endif
-
-/*#define dprintf printf*/
-
 static char *
 base64enc(const char *p, char *buf, int len)
 {
@@ -82,7 +76,8 @@ static int
 wget(int method, const char *server, char *buf, size_t count, off_t offset)
 {
 	char url[PATH_MAX] = { 0 }, *s;
-	char *host = url, *path = "", auth[128] = { 0 }, line[1024];
+	char *host = url, *path = "", auth[128] = { 0 };
+	char line[1024], *p;
 	unsigned short port = 80;
 	int fd;
 	FILE *fp;
@@ -137,20 +132,28 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 //	dprintf("connected!\n");
 
 	/* Send HTTP request */
-	sprintf(line, "%s /%s HTTP/1.1\r\n", method == METHOD_POST ? "POST" : "GET", path);
-	sprintf(line, "%sHost: %s\r\n", line, host);
-	sprintf(line, "%sUser-Agent: wget\r\n", line);
+	p = line;
+	p += sprintf(p,
+		"%s /%s HTTP/1.1\r\n"
+		"Host: %s\r\n"
+		"User-Agent: wget\r\n",
+		method == METHOD_POST ? "POST" : "GET", path,
+		host);
 	if (strlen(auth))
-		sprintf(line, "%sAuthorization: Basic %s\r\n", line, auth);
+		p += sprintf(p, "Authorization: Basic %s\r\n", auth);
 	if (offset)
-		sprintf(line, "%sRange: bytes=%ld-\r\n", line, offset);
+		p += sprintf(p, "Range: bytes=%ld-\r\n", offset);
 
 	if (method == METHOD_POST) {
-		sprintf(line, "%sContent-Type: application/x-www-form-urlencoded\r\n", line);
-		sprintf(line, "%sContent-Length: %d\r\n\r\n", line, (int) strlen(buf));
-		sprintf(line, "%s%s", line, buf);
-	} else
-		sprintf(line,"%sConnection: close\r\n\r\n", line);
+		p += sprintf(p,
+			"Content-Type: application/x-www-form-urlencoded\r\n"
+			"Content-Length: %d\r\n\r\n"
+			"%s",
+			(int )strlen(buf),
+			buf);
+	} else {
+		p += sprintf(p,"Connection: close\r\n\r\n");
+	}
 
 	/* Check HTTP response */
 //	dprintf("HTTP request sent, awaiting response..\n");

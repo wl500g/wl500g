@@ -495,7 +495,7 @@ static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
 		}
 	}
 }
-#endif
+#endif /* !__CONFIG_MINIUPNPD__ */
 
 static void nat_setting(const char *wan_if, const char *wan_ip, const char *lan_if, const char *lan_ip, const char *logaccept, const char *logdrop)
 {
@@ -504,7 +504,7 @@ static void nat_setting(const char *wan_if, const char *wan_ip, const char *lan_
 	int i;
 	int wan_port;
 
-	if ((fp=fopen("/tmp/nat_rules", "w"))==NULL) return;
+	if ((fp=fopen("/tmp/nat_rules", "w")) == NULL) return;
 
 	fprintf(fp, "*nat\n"
 	       	":PREROUTING ACCEPT [0:0]\n"
@@ -676,7 +676,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
         char nvname[36], timef[256], *filterstr;
 #endif
 	
-	if ((fp=fopen("/tmp/filter_rules", "w"))==NULL) return -1;
+	if ((fp=fopen("/tmp/filter_rules", "w")) == NULL) return -1;
 
 	fprintf(fp, "*filter\n"
 		":INPUT ACCEPT [0:0]\n"
@@ -706,19 +706,22 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		} 
 		if (!blacklist)
 			fprintf(fp, "-A MACS -j %s\n", logdrop);
-		fprintf(fp, "-A INPUT -i %s -j MACS\n", lan_if);
-		fprintf(fp, "-A FORWARD -i %s -j MACS\n", lan_if);
+		fprintf(fp,
+			"-A INPUT -i %s -j MACS\n"
+			"-A FORWARD -i %s -j MACS\n",
+			lan_if, lan_if);
 	} 
 
 	// Security checks
+	fprintf(fp,
 	// sync-flood protection
-	fprintf(fp, "-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n");
+		"-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n"
 	// furtive port scanner
-	fprintf(fp, "-A SECURITY -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j RETURN\n");
+		"-A SECURITY -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j RETURN\n"
 	// udp flooding
-	fprintf(fp, "-A SECURITY -p udp -m limit --limit 5/s -j RETURN\n");
+		"-A SECURITY -p udp -m limit --limit 5/s -j RETURN\n"
 	// ping of death
-	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
+		"-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
 	#ifdef __CONFIG_IPV6__
 	// pass ipv6 tunnel packets
 	if (nvram_match("ipv6_proto", "tun6in4") ||
@@ -738,8 +741,10 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j %s\n", lan_if, logaccept);
 	/* Pass multicast */
 	if (nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")) {
-		fprintf(fp, "-A INPUT -p igmp -d 224.0.0.0/4 -j %s\n", logaccept);
-		fprintf(fp, "-A INPUT -p udp -d 224.0.0.0/4 ! --dport 1900 -j %s\n", logaccept);
+		fprintf(fp,
+			"-A INPUT -p igmp -d 224.0.0.0/4 -j %s\n"
+			"-A INPUT -p udp -d 224.0.0.0/4 ! --dport 1900 -j %s\n",
+			 logaccept, logaccept);
 	}
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1"))
@@ -1030,7 +1035,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", "")) {
 	// TODO: sync-flood protection, LAN/WAN filter tables, WAN/LAN filter tables
-	if ((fp=fopen("/tmp/filter6_rules", "w"))==NULL) return -1;
+	if ((fp=fopen("/tmp/filter6_rules", "w")) == NULL) return -1;
 
 	fprintf(fp, "*filter\n"
 		    ":INPUT ACCEPT [0:0]\n"
@@ -1351,7 +1356,7 @@ int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if
 	return 0;
 }
 
-#if 0
+#ifdef REMOVE
 portmapping_main(int argc, char *argv[])
 {	
 	char actionname[32], portname[32], ipname[32];

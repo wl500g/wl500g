@@ -56,17 +56,19 @@ int start_pppd(char *prefix)
 	umask(mask);
 	
 	/* do not authenticate peer and do not use eap */
-	fprintf(fp, "noauth refuse-eap\n");
-	fprintf(fp, "user '%s'\n", 
-       		nvram_safe_get(strcat_r(prefix, "pppoe_username", tmp))); 
-	fprintf(fp, "password '%s'\n", 
+	fprintf(fp,
+		"noauth refuse-eap\n"
+		"user '%s'\n"
+		"password '%s'\n",
+		nvram_safe_get(strcat_r(prefix, "pppoe_username", tmp)),
 		nvram_safe_get(strcat_r(prefix, "pppoe_passwd", tmp)));
-       	       	
+
        	if (nvram_match(strcat_r(prefix, "proto", tmp), "pptp")) {
 #ifdef __CONFIG_ACCEL_PPTP__
 	    {
-		fprintf(fp, "plugin pptp.so\n");
-		fprintf(fp, "pptp_server %s\n", 
+		fprintf(fp,
+			"plugin pptp.so\n"
+			"pptp_server %s\n",
    			nvram_invmatch("wan_heartbeat_x", "") ?
    			nvram_safe_get("wan_heartbeat_x") : 
    			nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))); 
@@ -93,9 +95,10 @@ int start_pppd(char *prefix)
 				nvram_safe_get(strcat_r(prefix, "pppoe_ac", tmp)));
 		}
 
-		fprintf(fp, " nic-%s\n", nvram_safe_get(strcat_r(prefix, "ifname", tmp)));
-		
-		fprintf(fp, "mru %s mtu %s\n", 
+		fprintf(fp,
+			" nic-%s\n"
+			"mru %s mtu %s\n",
+			nvram_safe_get(strcat_r(prefix, "ifname", tmp)),
 			nvram_safe_get(strcat_r(prefix, "pppoe_mru", tmp)),
 			nvram_safe_get(strcat_r(prefix, "pppoe_mtu", tmp)));
 	}
@@ -115,11 +118,12 @@ int start_pppd(char *prefix)
       	if (nvram_invmatch(strcat_r(prefix, "dnsenable_x", tmp), "0"))
 		fprintf(fp, "usepeerdns\n");   
 
-       	if (nvram_invmatch(strcat_r(prefix, "proto", tmp), "l2tp")) 
+	if (nvram_invmatch(strcat_r(prefix, "proto", tmp), "l2tp"))
 		fprintf(fp, "persist\n");
        	
-       	fprintf(fp, "ipcp-accept-remote ipcp-accept-local noipdefault\n");
-       	fprintf(fp, "ktune\n");
+	fprintf(fp,
+		"ipcp-accept-remote ipcp-accept-local noipdefault\n"
+		"ktune\n");
        	
        	/* pppoe set these options automatically */
        	/* looks like pptp also likes them */
@@ -130,8 +134,9 @@ int start_pppd(char *prefix)
        	fprintf(fp, "novj nobsdcomp nodeflate\n");
        	
        	/* echo failures */
-	fprintf(fp, "lcp-echo-interval 10\n");
-	fprintf(fp, "lcp-echo-failure 6\n");
+	fprintf(fp,
+		"lcp-echo-interval 10\n"
+		"lcp-echo-failure 6\n");
 
 	fprintf(fp, "unit %s\n", 
 		nvram_get(strcat_r(prefix, "unit", tmp)) ? : "0");
@@ -262,7 +267,7 @@ void setup_ethernet(char *wan_if)
 				tmp[1] = '\0';
 				mii_argv[3] = tmp;
 			}
-			_eval(mii_argv, ">/dev/null", 0, NULL);
+			_eval(mii_argv, NULL, 0, NULL);
 		}
 		else eval("et", "-i", wan_if, "speed", speed);
 	}

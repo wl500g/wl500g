@@ -17,7 +17,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <stdarg.h>
 
@@ -120,7 +119,7 @@ hotplug_usb_webcam(char *product)
 
 	chdir("/tmp");
 
-	return _eval(rcamd_argv, ">/dev/null", 0, &pid);
+	return _eval(rcamd_argv, NULL, 0, &pid);
 }
 
 int

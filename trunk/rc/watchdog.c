@@ -567,8 +567,10 @@ static int svc_timecheck(void)
 		{
 			svcStatus[RADIOACTIVE] = activeNow;
 
-			if (activeNow) eval("wl", "radio", "on");
-			else eval("wl", "radio", "off");
+			if (activeNow)
+				eval("wl", "radio", "on");
+			else
+				eval("wl", "radio", "off");
 		}
 	}
 
@@ -607,7 +609,7 @@ int usb_communication_device_processcheck(int wait_flag)
 {
 	char *wan_ifname;
 	char *wan_proto;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit, enable;
 
 	hotplug_sem_open();
@@ -771,7 +773,7 @@ static void link_check(void)
 
 	if (status)
 	{
-		char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+		char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 		char *wan_proto;
 
 		sprintf(prefix, "wan%d_", unit);

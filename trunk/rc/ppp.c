@@ -51,7 +51,7 @@ ipup_main(int argc, char **argv)
 	char *value;
 	char buf[256];
 	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
 	umask(022);
 
@@ -106,7 +106,7 @@ ipdown_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("IFNAME");
 	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
 	umask(022);
 	
@@ -137,7 +137,7 @@ ip6up_main(int argc, char **argv)
 	char *wan_ifname = safe_getenv("IFNAME");
 	//char *value;
 	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
 	if (!nvram_match("ipv6_proto", "ppp"))
 		return -1;
@@ -165,7 +165,7 @@ ip6down_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("IFNAME");
 	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
 	if (!nvram_match("ipv6_proto", "ppp"))
 		return -1;
@@ -195,7 +195,7 @@ int
 authup_main(int argc, char **argv)
 {
 	char *wan_ifname = argv[1];
-	char prefix[] = "wanXXXXXXXXXX_";
+	char prefix[sizeof("wanXXXXXXXXXX_")];
 
 	if (wan_ifname == NULL ||
 	    wan_prefix(wan_ifname, prefix) < 0)
@@ -211,7 +211,7 @@ int
 authdown_main(int argc, char **argv)
 {
 	char *wan_ifname = argv[1];
-	char prefix[] = "wanXXXXXXXXXX_";
+	char prefix[sizeof("wanXXXXXXXXXX_")];
 
 	if (wan_ifname == NULL ||
 	    wan_prefix(wan_ifname, prefix) < 0)

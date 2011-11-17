@@ -480,7 +480,7 @@ restore_defaults(void)
 
 	/* Delete dynamically generated variables */
 	if (restore_defaults) {
-		char tmp[100], prefix[] = "wlXXXXXXXXXX_";
+		char tmp[100], prefix[sizeof("wlXXXXXXXXXX_")];
 		for (i = 0; i < MAX_NVPARSE; i++) {
 			del_forward_port(i);
 			del_autofw_port(i);
@@ -577,7 +577,7 @@ static void
 set_wan0_vars(void)
 {
 	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	
 	/* check if there are any connections configured */
 	for (unit = 0; unit < MAX_NVPARSE; unit ++) {

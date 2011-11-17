@@ -12,6 +12,8 @@
  * $Id$
  */
 
+#ifndef ASUS_EXT
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,8 +27,6 @@
 #include <netconf.h>
 #include <nvparse.h>
 #include "rc.h"
-
-#ifndef ASUS_EXT
 
 /* Add filter to specified table */
 static void
@@ -225,7 +225,7 @@ start_firewall2(char *wan_ifname)
 	netconf_nat_t nat;
 	netconf_filter_t filter;
 	int log_level, log_accept;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int i;
 
 	/* Optionally log connections */
@@ -300,7 +300,7 @@ start_firewall2(char *wan_ifname)
 	}
 
 	/* Clamp TCP MSS to PMTU of WAN interface */
-	sprintf(prefix, "wan%d_", wan_ifunit(wan_ifname));
+	wan_prefix(wan_ifname, prefix);
 	if (nvram_match(strcat_r(prefix, "proto", tmp), "pppoe"))
 		netconf_clamp_mss_to_pmtu();
 
@@ -308,4 +308,4 @@ start_firewall2(char *wan_ifname)
 	return 0;
 }
 
-#endif /* ASUS_EXT */
+#endif /* !ASUS_EXT */

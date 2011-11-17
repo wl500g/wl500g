@@ -28,15 +28,18 @@
 
 static char udhcpstate[12];
 
-static int
-expires(char *wan_ifname, unsigned int in)
+static int start_zcip(const char *wan_ifname);
+static void stop_zcip(void);
+
+
+static int expires(const char *wan_ifname, unsigned int in)
 {
 	time_t now;
 	FILE *fp;
-	char tmp[100];
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 
-	if ((unit = wan_ifunit(wan_ifname)) < 0)
+	if ((unit = wan_prefix(wan_ifname, prefix)) < 0)
 		return -1;
 	
 	time(&now);
@@ -55,11 +58,9 @@ expires(char *wan_ifname, unsigned int in)
  * leases is lost. The script should put the interface in an up, but
  * deconfigured state.
 */
-static int
-deconfig(int zcip)
+static int deconfig(const char *wan_ifname, int zcip)
 {
-	char *wan_ifname = safe_getenv("interface");
-	char *client = zcip ? "zcip client" : "dhcp client";
+	const char *client = zcip ? "zcip client" : "dhcp client";
 
 	if (nvram_match("wan0_ifname", wan_ifname)
 	&& (nvram_match("wan0_proto", "l2tp") || nvram_match("wan0_proto", "pptp")))
@@ -85,12 +86,10 @@ deconfig(int zcip)
  * variables, The script should configure the interface, and set any
  * other relavent parameters (default gateway, dns server, etc).
 */
-static int
-bound(void)
+static int bound(const char *wan_ifname)
 {
-	char *wan_ifname = safe_getenv("interface");
 	char *value;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char route[sizeof("255.255.255.255/255")];
 	int unit;
 	int changed = 0;
@@ -98,10 +97,7 @@ bound(void)
 
 	stop_zcip();
 
-	if ((unit = wan_ifunit(wan_ifname)) < 0) 
-		strcpy(prefix, "wanx_");
-	else
-		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	unit = wan_prefix(wan_ifname, prefix);
 
 	if ((value = getenv("ip"))) {
 		changed = nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value);
@@ -192,27 +188,22 @@ bound(void)
  * will not change, however, the other DHCP paramaters, such as the
  * default gateway, subnet mask, and dns server may change.
  */
-static int
-renew(void)
+static int renew(const char *wan_ifname)
 {
-	char *wan_ifname = safe_getenv("interface");
 	char *value;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 	int metric;
 	int changed = 0;
 
 	stop_zcip();
 
-	if ((unit = wan_ifunit(wan_ifname)) < 0)
-		strcpy(prefix, "wanx_");
-	else
-		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	unit = wan_prefix(wan_ifname, prefix);
 
 	if (!(value = getenv("subnet")) || nvram_invmatch(strcat_r(prefix, "netmask", tmp), trim_r(value)))
-		return bound();
+		return bound(wan_ifname);
 	if (!(value = getenv("router")) || nvram_invmatch(strcat_r(prefix, "gateway", tmp), trim_r(value)))
-		return bound();
+		return bound(wan_ifname);
 
 	if ((value = getenv("dns"))) {
 		changed = nvram_invmatch(strcat_r(prefix, "dns", tmp), trim_r(value));
@@ -251,17 +242,12 @@ renew(void)
 	return 0;
 }
 
-static int
-leasefail(void)
+static int leasefail(const char *wan_ifname)
 {
-	char *wan_ifname = safe_getenv("interface");
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 
-	if ((unit = wan_ifunit(wan_ifname)) < 0)
-		strcpy(prefix, "wanx_");
-	else
-		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	unit = wan_prefix(wan_ifname, prefix);
 
 	if ((ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp))) &
 	     ip_addr(nvram_safe_get(strcat_r(prefix, "netmask", tmp)))) ==
@@ -271,30 +257,33 @@ leasefail(void)
 	return start_zcip(wan_ifname);
 }
 
-int
-udhcpc_main(int argc, char **argv)
+int udhcpc_main(int argc, char **argv)
 {
+	const char *wan_ifname;
+
 	if (argc<2 || !argv[1])
 		return EINVAL;
 
+	wan_ifname = safe_getenv("interface");
 	strcpy(udhcpstate, argv[1]);
 
 	if (!strcmp(argv[1], "deconfig"))
-		return deconfig(0);
+		return deconfig(wan_ifname, 0);
 	else if (!strcmp(argv[1], "bound"))
-		return bound();
+		return bound(wan_ifname);
 	else if (!strcmp(argv[1], "renew"))
-		return renew();
+		return renew(wan_ifname);
 	else if (!strcmp(argv[1], "leasefail"))
-		return leasefail();
+		return leasefail(wan_ifname);
 	/* nak */
-	else return 0;
+	else
+		return 0;
 }
 
 int start_dhcpc(const char *wan_ifname, int unit)
 {
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	char pid[] = "/var/run/udhcpcXXXXXXXXXX.pid";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char pid[sizeof("/var/run/udhcpcXXXXXXXXXX.pid")];
 	char *wan_hostname;
 	char *dhcp_argv[] = {
 		"/sbin/udhcpc",
@@ -344,19 +333,14 @@ int start_dhcpc(const char *wan_ifname, int unit)
 	return _eval(dhcp_argv, NULL, 0, NULL);
 }
 
-static int
-config(void)
+static int config(const char *wan_ifname)
 {
-	char *wan_ifname = safe_getenv("interface");
 	char *value;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 	int changed = 0;
 
-	if ((unit = wan_ifunit(wan_ifname)) < 0) 
-		strcpy(prefix, "wanx_");
-	else
-		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	unit = wan_prefix(wan_ifname, prefix);
 
 	if ((value = getenv("ip"))) {
 		changed = nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value);
@@ -383,40 +367,39 @@ config(void)
 	return 0;
 }
 
-int
-zcip_main(int argc, char **argv)
+int zcip_main(int argc, char **argv)
 {
+	const char *wan_ifname;
+
 	if (argc<2 || !argv[1])
 		return EINVAL;
 
+	wan_ifname = safe_getenv("interface");
 	strcpy(udhcpstate, argv[1]);
 
 	if (!strcmp(argv[1], "deconfig"))
-		return deconfig(1);
+		return deconfig(wan_ifname, 1);
 	else if (!strcmp(argv[1], "config"))
-		return config();
+		return config(wan_ifname);
 	/* init */
 	else return 0;
 }
 
-int
-start_zcip(char *wan_ifname)
+static int start_zcip(const char *wan_ifname)
 {
-	char *zcip_argv[] = { "/sbin/zcip", "-q", wan_ifname, "/tmp/zcip.script", NULL };
+	char *zcip_argv[] = { "/sbin/zcip", "-q", (char *)wan_ifname, "/tmp/zcip.script", NULL };
 
 	return _eval(zcip_argv, NULL, 0, NULL);
 }
 
-void
-stop_zcip(void)
+static void stop_zcip(void)
 {
 	killall_s("zcip.script", SIGTERM);
 	killall("zcip");
 }
 
 #ifdef __CONFIG_IPV6__
-int
-dhcp6c_main(int argc, char **argv)
+int dhcp6c_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("interface");
 	char *dns6 = getenv("new_domain_name_servers");
@@ -478,8 +461,7 @@ int start_dhcp6c(const char *wan_ifname)
         return ret;
 }
 
-void
-stop_dhcp6c(void)
+void stop_dhcp6c(void)
 {
 	killall_s("dhcp6c.script", SIGTERM);
 	kill_pidfile("/var/run/dhcp6c.pid");
