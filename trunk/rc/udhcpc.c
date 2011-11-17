@@ -157,7 +157,7 @@ static int bound(const char *wan_ifname)
 		if (i == 4) {
 			nvram_set(strcat_r(prefix, "ipv6_ip4size", tmp), values[0]);
 			snprintf(addrstr, sizeof(addrstr), "%s/%s", values[2], values[1]);
-			nvram_set(strcat_r(prefix, "ipv6_ip6addr", tmp), addrstr);
+			nvram_set(strcat_r(prefix, "ipv6_addr", tmp), addrstr);
 			nvram_set(strcat_r(prefix, "ipv6_relay", tmp), values[3]);
 		}
 	}
