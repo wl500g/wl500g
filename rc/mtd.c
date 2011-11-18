@@ -49,15 +49,25 @@ static int mtd_open(const char *mtd, int flags)
 {
 	FILE *fp;
 	char dev[PATH_MAX];
-	int i;
+	char *tok, *context;
+	int i, m;
 
 	/* Check for mtd partition */
 	if ((fp = fopen("/proc/mtd", "r"))) {
 		while (fgets(dev, sizeof(dev), fp)) {
-			if (sscanf(dev, "mtd%d:", &i) && strstr(dev, mtd)) {
-				snprintf(dev, sizeof(dev), MTD_DEV(%d), i);
-				fclose(fp);
-				return open(dev, flags);
+			/* Match by device name & alias only (fields 1, 4) */
+			tok = strtok_r(dev, " \t", &context);
+			if (sscanf(tok, "mtd%d:", &m) < 1)
+				continue;
+			for (i=1; tok && i<=4; i++, tok = strtok_r(NULL, " \t", &context)) {
+				if (i >1 && i < 4)
+					continue;
+				if (strstr(tok, mtd))
+				{
+					snprintf(dev, sizeof(dev), MTD_DEV(%d), m);
+					fclose(fp);
+					return open(dev, flags);
+				}
 			}
 		}
 		fclose(fp);

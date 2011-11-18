@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
+#include <fcntl.h>
 
 #include <netconf.h>
 #include <bcmnvram.h>
@@ -16,32 +17,32 @@
 
 int get_fw_ver(char *productid, char *fwver)
 {
-	FILE *fp;
+	int fd;
 	uint32_t imagelen;
 	char verPtr[64];
 
 	strcpy(productid, "WL500");
 	strcpy(fwver, "0.1.0.1");
 
-	if ((fp = fopen(MTD_DEV(1), "rb")) == NULL)
+	if ((fd = open(MTD_DEV(1), O_RDONLY)) < 0)
 		return -1;
 
-	if (fseek(fp, 4, SEEK_SET) != 0)
+	if (lseek(fd, 4, SEEK_SET) < 0)
 		return -2;
-	if (fread((char *)&imagelen, 1, 4, fp) < 4)
+	if (read(fd, &imagelen, 4) < 4)
 		return -3;
 
 	dprintf("image len %x\n", imagelen);
-	if (fseek(fp, imagelen - 64, SEEK_SET) != 0)
+	if (lseek(fd, imagelen - 64, SEEK_SET) < 0)
 		return -2;
-	if (fread(verPtr, 1, 64, fp) < 4)
+	if (read(fd, verPtr, 64) < 4)
 		return -3;
 	strncpy(productid, verPtr + 4, 12);
 	productid[12] = '\0';
 	sprintf(fwver, "%d.%d.%d.%d", verPtr[0], verPtr[1], verPtr[2], verPtr[3]);
 
 	dprintf("get_fw_ver: %s - %s\n", productid, fwver);
-	fclose(fp);
+	close(fd);
 	return 0;
 }
 

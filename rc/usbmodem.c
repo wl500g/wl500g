@@ -826,7 +826,9 @@ void
 hotplug_exec_user_modem_init_script(const char *sVid, const char *sPid, const char *sDevice)
 {
 	char **argv_user;
-	char *tok, *context, *delim = " "; int i;
+	char *tok, *context;
+	const char *delim = " ";
+	int i;
 	char tmp[256];
 
 	tok = nvram_get("wan_modem_init_script");
@@ -836,7 +838,7 @@ hotplug_exec_user_modem_init_script(const char *sVid, const char *sPid, const ch
 
 		argv_user = (char **)malloc((strlen(tmp)/2) * sizeof(char*));
 		tok = strtok_r(tmp, delim, &context);
-		for (i = 0; tok ; i++, (tok = strtok_r(0, delim, &context))) {
+		for (i = 0; tok ; i++, (tok = strtok_r(NULL, delim, &context))) {
 			if (!strcasecmp(tok, "$VID"))
 				argv_user[i] = (char *)sVid;
 			else if (!strcasecmp(tok, "$PID"))
