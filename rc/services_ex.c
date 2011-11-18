@@ -32,12 +32,6 @@
 #include "lp.h"
 
 
-#ifdef USB_SUPPORT
-#define PRINTER_SUPPORT 1
-#define AUDIO_SUPPORT 1
-#endif
-
-
 enum WEB_TYPE
 {
 	WEB_NONE = 0,
@@ -46,8 +40,8 @@ enum WEB_TYPE
 };
 
 
-static int umount_all_part(char *product, int scsi_host_no);
-static struct mntent *findmntent(char *file);
+static int umount_all_part(const char *product, int scsi_host_no);
+static struct mntent *findmntent(const char *file);
 static int stop_lltd(void);
 
 void diag_PaN(void)
@@ -55,8 +49,7 @@ void diag_PaN(void)
    fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
 }
 
-size_t
-fappend(char *name, FILE *f)
+static size_t fappend(const char *name, FILE *f)
 {
 	size_t size = 0, count;
 	
@@ -72,6 +65,16 @@ fappend(char *name, FILE *f)
 	}
 	
 	return size;
+}
+
+int mkdir_if_none(const char *dir)
+{
+	DIR *dp;
+
+	if (!(dp = opendir(dir)))
+		return mkdir(dir, 0777);
+	closedir(dp);
+	return 0;
 }
 
 int
@@ -118,9 +121,11 @@ start_dns(void)
 		return errno;
 	}
 
-	fprintf(fp, "127.0.0.1 localhost.localdomain localhost\n");
-	fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("lan_ipaddr"),
-			nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
+	fprintf(fp,
+		"127.0.0.1 localhost.localdomain localhost\n"
+		"%s %s my.router my.%s\n",
+		nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_hostname"),
+		nvram_safe_get("productid"));
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
@@ -208,9 +213,11 @@ start_dns(void)
 		    "cache-size=512\n");
 	
 	if (nvram_match("lan_proto", "dhcp")) {
-		fprintf(fp, "dhcp-leasefile=/tmp/dnsmasq.log\n");
-		fprintf(fp, "dhcp-range=lan,%s,%s,%s\n", nvram_safe_get("dhcp_start"), 
-			nvram_safe_get("dhcp_end"), nvram_safe_get("dhcp_lease"));
+		fprintf(fp,
+			"dhcp-leasefile=/tmp/dnsmasq.log\n"
+			"dhcp-range=lan,%s,%s,%s\n",
+			nvram_safe_get("dhcp_start"), nvram_safe_get("dhcp_end"),
+			nvram_safe_get("dhcp_lease"));
 
 		if (nvram_invmatch("dhcp_dns1_x",""))
 			fprintf(fp, "dhcp-option=lan,6,%s,0.0.0.0\n", nvram_safe_get("dhcp_dns1_x"));
@@ -265,7 +272,7 @@ start_radvd(void)
 	struct in6_addr addr;
 	int size, ret;
 	char addrstr[INET6_ADDRSTRLEN];
-	char *dnsstr = NULL;
+	const char *dnsstr = NULL;
 
 	if (!nvram_invmatch("ipv6_proto", "") ||
 	    !nvram_match("ipv6_radvd_enable", "1"))
@@ -530,7 +537,7 @@ start_ddns(int forced)
 	else if (strcmp(server, "DNS.HE.NET") == 0)
 		strcpy(service, "dyndns@he.net");
 	else strcpy(service, "default@dyndns.org");
-#endif
+#endif /* __CONFIG_INADYN__ */
 
 	if (!(fp = fopen("/etc/ddns.conf", "w"))) {
 		perror("/etc/ddns.conf");
@@ -553,7 +560,7 @@ start_ddns(int forced)
 	    "alias %s\n"
 	    "%s",
 	    service, user, passwd, host, (wild) ? "wildcard\n" : "");
-#endif
+#endif /* __CONFIG_INADYN__ */
 
 	fappend("/usr/local/etc/ddns.conf", fp);
 	fclose(fp);
@@ -573,7 +580,7 @@ start_ddns(int forced)
 		    "--input_file", "/etc/ddns.conf",
 		    "--exec", "/sbin/ddns_updated",
 		    "--cache_file", "/tmp/ddns.cache",
-#endif
+#endif /* __CONFIG_INADYN__ */
 		    NULL };
 		pid_t pid;
 
@@ -667,7 +674,7 @@ start_misc(void)
 {
 	pid_t pid;
 	char *watchdog_argv[] = {"watchdog", NULL};
-	char *txpwr;
+	const char *txpwr;
 
 	_eval(watchdog_argv, NULL, 0, &pid);
 
@@ -741,7 +748,7 @@ int hotplug_usb(void)
 {
 	return 0;
 }
-#else
+#else /* USB_SUPPORT */
 
 static int start_nfsd(void)
 {
@@ -770,7 +777,7 @@ static int start_nfsd(void)
 			return 1;
 		}
 		
-		fprintf(fp, "# automagically generated from web settings\n");
+		fprintf(fp, "# automagically generated\n");
 
 		for (i = 0, count = atoi(nvram_safe_get("usb_nfsnum_x")); i < count; i++) 
 		{
@@ -837,7 +844,6 @@ start_usb(void)
 	/* mount usbfs */
 	mount("usbfs", "/proc/bus/usb", "usbfs", MS_MGC_VAL, NULL);
 
-#ifdef PRINTER_SUPPORT
 # ifdef LINUX26
 	insmod("usblp", NULL);
 # else
@@ -855,15 +861,11 @@ start_usb(void)
 	{
 		eval("p910nd", "-f", LP_DEV(0), "0");
 	}
-#endif	
-#ifdef AUDIO_SUPPORT
 	if (!nvram_invmatch("audio_enable", "1"))
 	{
 		insmod("soundcore", NULL);
 		insmod("audio", NULL);
-		start_audio();
 	}
-#endif
 #ifdef __CONFIG_RCAMD__
 	if (nvram_invmatch("usb_webenable_x", "0"))
 	{	
@@ -943,20 +945,15 @@ stop_usb(void)
 		stop_rcamd();	
 	}
 #endif
-#ifdef AUDIO_SUPPORT
 	rmmod("audio");
 	rmmod("soundcore");
-	stop_audio();
-#endif
-#ifdef PRINTER_SUPPORT	
 	killall("lpd");
 	killall("p910nd");
-# ifdef LINUX26
+#ifdef LINUX26
         rmmod("usblp");
-# else
+#else
 	rmmod("printer");
-# endif
-#endif	
+#endif
 
 	umount("/proc/bus/usb");
 
@@ -997,7 +994,7 @@ static void start_script(void)
 }
 
 /* get full storage path */
-static char *nvram_storage_path(char *var)
+static char *nvram_storage_path(const char *var)
 {
 	static char buf[256];
 	char *val = nvram_safe_get(var);
@@ -1015,7 +1012,7 @@ int restart_ftpd()
 	const char vsftpd_users[] = "/etc/vsftpd.users";
 	const char vsftpd_passwd[] = "/etc/vsftpd.passwd";
 	int i, count;
-
+	int anonymous_mode;
 	char tmp[256];
 	FILE *fp, *f;
 
@@ -1041,7 +1038,8 @@ int restart_ftpd()
 		}
 	}
 
-	if (nvram_invmatch("usb_ftpanonymous_x", "0"))
+	anonymous_mode = atoi(nvram_safe_get("usb_ftpanonymous_x"));
+	if (anonymous_mode > 0)
 	{
 		fprintf(fp, 
 			"anon_allow_writable_root=yes\n"
@@ -1054,20 +1052,19 @@ int restart_ftpd()
 		{
 			if (nvram_match("usb_ftpdirlist_x", "0"))
 				fprintf(f, "dirlist_enable=yes\n");
-			if (nvram_match("usb_ftpanonymous_x", "1") || 
-			    nvram_match("usb_ftpanonymous_x", "3"))
+			if (anonymous_mode == 1 || anonymous_mode == 3)
 				fprintf(f, "write_enable=yes\n");
-			if (nvram_match("usb_ftpanonymous_x", "1") || 
-			    nvram_match("usb_ftpanonymous_x", "2"))
+			if (anonymous_mode == 1 || anonymous_mode == 2)
 				fprintf(f, "download_enable=yes\n");
 			fclose(f);
 		}
-		if (nvram_match("usb_ftpanonymous_x", "1") || 
-		    nvram_match("usb_ftpanonymous_x", "3"))
+		if (anonymous_mode == 1 || anonymous_mode == 3)
+		{
 			fprintf(fp, 
 				"anon_upload_enable=yes\n"
 				"anon_mkdir_write_enable=yes\n"
 				"anon_other_write_enable=yes\n");
+		}
 	} else {
 		fprintf(fp, "anonymous_enable=no\n");
 	}
@@ -1105,7 +1102,7 @@ int restart_ftpd()
 	if (nvram_match("usb_smbcset_x", "utf8"))
 		fprintf(fp, "utf8=yes\n");
 
-	/* ntfs does not support sendfile at the moment */
+	/* ntfs(fuse), cifs does not support sendfile at the moment? */
 	fprintf(fp, "use_sendfile=no\n");
 
 	/* bandwidth */
@@ -1132,10 +1129,10 @@ int restart_ftpd()
 
 	for (i = 0, count = atoi(nvram_safe_get("usb_ftpnum_x")); i < count; i++) 
 	{
-		char *user = (sprintf(tmp, "usb_ftpusername_x%d", i), nvram_get(tmp));
-		char *pass = (sprintf(tmp, "usb_ftppasswd_x%d", i), nvram_get(tmp));
-		char *rights = (sprintf(tmp, "usb_ftprights_x%d", i), nvram_get(tmp));
-		
+		const char *user = (sprintf(tmp, "usb_ftpusername_x%d", i), nvram_get(tmp));
+		const char *pass = (sprintf(tmp, "usb_ftppasswd_x%d", i), nvram_get(tmp));
+		const char *rights = (sprintf(tmp, "usb_ftprights_x%d", i), nvram_get(tmp));
+
 		if (user && pass && rights)
 		{
 			/* directory */
@@ -1299,7 +1296,7 @@ int restart_smbd()
  *              >=  0	- partitions on device with specified scsi host
  */
 static int
-umount_all_part(char *product, int scsi_host_no)
+umount_all_part(const char *product, int scsi_host_no)
 {
 	DIR *dir_to_open, *usb_dev_disc;
 	struct dirent *dp;
@@ -1464,10 +1461,10 @@ dev_found:
 }
 
 /* remove usb mass storage */
-int
-remove_usb_mass(char *product, int scsi_host_no)
+int remove_usb_mass(const char *product, int scsi_host_no)
 {
-	if (product==NULL || nvram_match("usb_ftp_device", product))
+	if ((product == NULL && scsi_host_no < 0)
+		|| (product != NULL && nvram_match("usb_ftp_device", product)))
 	{
 		if (nvram_invmatch("usb_ftpenable_x", "0")) {
 			killall("vsftpd");
@@ -1486,24 +1483,8 @@ remove_usb_mass(char *product, int scsi_host_no)
 	return 0;
 }
 
-int mkdir_if_none(const char *dir)
-{
-	DIR *dp;
-
-	if (!(dp = opendir(dir)))
-		return mkdir(dir, 0777);
-	closedir(dp);
-	return 0;
-}
-
-int
-remove_storage_main(int scsi_host_no)
-{
-	return remove_usb_mass(NULL, scsi_host_no);
-}
-
 /* stollen from the e2fsprogs/ismounted.c */
-static struct mntent *findmntent(char *file)
+static struct mntent *findmntent(const char *file)
 {
 	struct mntent 	*mnt;
 	struct stat	st_buf;
@@ -1541,7 +1522,7 @@ static struct mntent *findmntent(char *file)
 	return mnt;
 }
 
-static char *detect_fs_type(const char *device)
+static const char *detect_fs_type(const char *device)
 {
 	int fd;
 	unsigned char buf[4096];
@@ -1598,10 +1579,10 @@ static char *detect_fs_type(const char *device)
 #define MOUNT_VAL_RW 	2
 #define MOUNT_VAL_DUP 	3
 
-static int mount_r(char *mnt_dev, char *mnt_dir)
+static int mount_r(const char *mnt_dev, char *mnt_dir)
 {
 	struct mntent *mnt = findmntent(mnt_dev);
-	char *type;
+	const char *type;
 	
 	if (mnt) {
 		if (strcmp(mnt->mnt_dir, mnt_dir) == 0)
@@ -1668,7 +1649,7 @@ static int mount_r(char *mnt_dev, char *mnt_dir)
 }
 
 /* insert usb mass storage */
-int hotplug_usb_mass(char *product)
+int hotplug_usb_mass(const char *product)
 {	
 	DIR *dir_to_open, *usb_dev_disc, *usb_dev_part;
 	char usb_disc[128], mnt_dev[128], mnt_dir[128];
@@ -1681,8 +1662,7 @@ int hotplug_usb_mass(char *product)
 	{
 		eval("/usr/local/sbin/pre-mount", product);
 
-		struct stat st_buf;
-		if (stat("/etc/fstab", &st_buf) == 0) {
+		if (exists("/etc/fstab")) {
 			eval("swapon", "-a");
 			eval("mount", "-a");
 		}
@@ -1779,7 +1759,7 @@ hotplug_usb(void)
 	int i;
 	int isweb;
 
-	if ( !(device=getenv("DEVICE")) ) device="";
+	if (!(device=getenv("DEVICE"))) device="";
 #ifdef DEBUG
 	dprintf("%s-%s-%s. Dev:%s\n",getenv("ACTION"),getenv("INTERFACE"),
 		getenv("PRODUCT"), device);
@@ -1806,6 +1786,7 @@ hotplug_usb(void)
 #else
 			char *scsi_host = getenv("SCSI_HOST");
 			int scsi_host_no = -1;
+
 			if (scsi_host)
 				scsi_host_no = atoi(scsi_host);
 #endif /* LINUX26 */
@@ -1999,23 +1980,6 @@ int service_handle(void)
 		}
 	}
 	nvram_unset("rc_service");
-	return 0;
-}
-
-int hotplug_usb_audio(char *product)
-{
-	return 0;
-}
-
-int
-start_audio(void)
-{
-	return 0;
-}
-
-int
-stop_audio(void)
-{
 	return 0;
 }
 

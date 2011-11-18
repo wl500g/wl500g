@@ -18,7 +18,7 @@ static int stop_wpa_supplicant(int wait)
 	return 0;
 }
 
-static int start_wpa_supplicant(char *prefix, int restart)
+static int start_wpa_supplicant(const char *prefix, int restart)
 {
 	FILE *fp;
 	char tmp[100];
@@ -103,7 +103,7 @@ static int stop_lanauth(int wait)
 	return killall_w("lanauth", 0, wait);
 }
 
-static int start_lanauth(char *prefix, int restart)
+static int start_lanauth(const char *prefix, int restart)
 {
 	char tmp[100];
 	char *lanauth_argv[] = {
@@ -130,7 +130,7 @@ static int stop_authcli(int wait)
 	return killall_w("authcli", 0, wait);
 }
 
-static int start_authcli(char *prefix, int restart)
+static int start_authcli(const char *prefix, int restart)
 {
 	FILE *fp;
 	char tmp[100];
@@ -168,8 +168,7 @@ static int start_authcli(char *prefix, int restart)
 #endif /* __CONFIG_CONVEX__ */
 
 
-int
-start_auth(char *prefix, int wan_up)
+int start_auth(const char *prefix, int wan_up)
 {
 	char tmp[100];
 	const char *wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
@@ -205,8 +204,7 @@ start_auth(char *prefix, int wan_up)
 	return ret;
 }
 
-int
-stop_auth(char *prefix, int wan_down)
+int stop_auth(const char *prefix, int wan_down)
 {
 	char tmp[100];
 	const char *wan_proto = prefix ? nvram_safe_get(strcat_r(prefix, "proto", tmp)) : NULL;

@@ -21,6 +21,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -32,29 +33,24 @@
 #include "rc.h"
 
 
-int start_pppd(char *prefix)
+int start_pppd(const char *prefix)
 {
-	int ret;
+	int i, fd, ret;
 	FILE *fp;
 	char options[80];
 	char *pppd_argv[] = { "pppd", "file", options, NULL};
 	char tmp[100];
-	mode_t mask;
 	
 	sprintf(options, "/tmp/ppp/options.wan%s", 
 		nvram_safe_get(strcat_r(prefix, "unit", tmp)));
 
-	mask = umask(066);
-	
 	/* Generate options file */
-	if (!(fp = fopen(options, "w"))) {
+	fd = open(options, O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
+	if ((fd < 0) || !(fp = fdopen(fd, "w"))) {
        	        perror(options);
-		umask(mask);
        	        return -1;
 	}
-	
-	umask(mask);
-	
+
 	/* do not authenticate peer and do not use eap */
 	fprintf(fp,
 		"noauth refuse-eap\n"
@@ -63,7 +59,7 @@ int start_pppd(char *prefix)
 		nvram_safe_get(strcat_r(prefix, "pppoe_username", tmp)),
 		nvram_safe_get(strcat_r(prefix, "pppoe_passwd", tmp)));
 
-       	if (nvram_match(strcat_r(prefix, "proto", tmp), "pptp")) {
+	if (nvram_match(strcat_r(prefix, "proto", tmp), "pptp")) {
 #ifdef __CONFIG_ACCEL_PPTP__
 	    {
 		fprintf(fp,
@@ -81,18 +77,20 @@ int start_pppd(char *prefix)
 		fprintf(fp, "nomppe nomppc\n");
 	}
 
-       	if (nvram_match(strcat_r(prefix, "proto", tmp), "pppoe")) 
-       	{
+	if (nvram_match(strcat_r(prefix, "proto", tmp), "pppoe")) 
+	{
+		const char *var;
+
 		fprintf(fp, "plugin rp-pppoe.so");
 
-		if (nvram_invmatch(strcat_r(prefix, "pppoe_service", tmp), "")) {
-			fprintf(fp, " rp_pppoe_service '%s'", 
-				nvram_safe_get(strcat_r(prefix, "pppoe_service", tmp)));
+		var = strcat_r(prefix, "pppoe_service", tmp);
+		if (nvram_invmatch(var, "")) {
+			fprintf(fp, " rp_pppoe_service '%s'", nvram_get(var));
 		}
-	
-		if (nvram_invmatch(strcat_r(prefix, "pppoe_ac", tmp), "")) {
-			fprintf(fp, " rp_pppoe_ac '%s'", 
-				nvram_safe_get(strcat_r(prefix, "pppoe_ac", tmp)));
+
+		var = strcat_r(prefix, "pppoe_ac", tmp);
+		if (nvram_invmatch(var, "")) {
+			fprintf(fp, " rp_pppoe_ac '%s'", nvram_get(var));
 		}
 
 		fprintf(fp,
@@ -103,10 +101,10 @@ int start_pppd(char *prefix)
 			nvram_safe_get(strcat_r(prefix, "pppoe_mtu", tmp)));
 	}
 	
-	if (atoi(nvram_safe_get(strcat_r(prefix, "pppoe_idletime", tmp))) &&
-	     nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1")) 
+	i = atoi(nvram_safe_get(strcat_r(prefix, "pppoe_idletime", tmp)));
+	if (i > 0 && nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1")) 
 	{
-		fprintf(fp, "idle %s ", nvram_safe_get(strcat_r(prefix, "pppoe_idletime", tmp)));
+		fprintf(fp, "idle %d ", i);
 		if (nvram_invmatch(strcat_r(prefix, "pppoe_txonly_x", tmp), "0")) {
 			fprintf(fp, "tx_only ");
 		}
@@ -151,10 +149,19 @@ int start_pppd(char *prefix)
 	fprintf(fp, "%s\n", 
 		nvram_safe_get(strcat_r(prefix, "pppoe_options_x", tmp)));
 		
-       	fclose(fp);
+	fclose(fp);
+	close(fd);
 
-       	if (nvram_match(strcat_r(prefix, "proto", tmp), "l2tp")) 
-       	{
+
+	if (nvram_match(strcat_r(prefix, "proto", tmp), "l2tp")) 
+	{
+		int maxfail, holdoff;
+
+		maxfail = strtoul(nvram_safe_get(strcat_r(prefix, "pppoe_maxfail", tmp)), NULL, 10);
+		maxfail = (errno == 0) ? maxfail : 32767;
+		holdoff = strtoul(nvram_safe_get(strcat_r(prefix, "pppoe_holdoff", tmp)), NULL, 10);
+		holdoff = (errno == 0) ? holdoff : 30;
+
 #ifdef __CONFIG_XL2TPD__
 		if (!(fp = fopen("/etc/xl2tpd.conf", "w"))) {
 	       	        perror(options);
@@ -168,22 +175,21 @@ int start_pppd(char *prefix)
 			"pppoptfile = %s\n"
 			"lns = %s\n"
 			"redial = yes\n"
-			"max redials = %s\n"
-			"redial timeout = %s\n"
+			"max redials = %d\n"
+			"redial timeout = %d\n"
 			"autodial = yes\n",
 			options,
 			nvram_invmatch("wan_heartbeat_x", "") ?
 				nvram_safe_get("wan_heartbeat_x") : 
 				nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp)),
-			nvram_invmatch(strcat_r(prefix, "pppoe_maxfail", tmp), "") ?
-				nvram_safe_get(strcat_r(prefix, "pppoe_maxfail", tmp)) : "32767",
-			nvram_invmatch(strcat_r(prefix, "pppoe_holdoff", tmp), "") ?
-				nvram_safe_get(strcat_r(prefix, "pppoe_holdoff", tmp)) : "30");
+			maxfail,
+			holdoff);
 		fclose(fp);
 		
 		/* launch xl2tp */
 		ret = eval("xl2tpd");
-#else
+
+#else /* __CONFIG_XL2TPD__ */
        		mkdir("/etc/l2tp", 0755);
        		
 		if (!(fp = fopen("/etc/l2tp/l2tp.conf", "w"))) {
@@ -201,17 +207,15 @@ int start_pppd(char *prefix)
 			"peername %s\n"
 			"lac-handler sync-pppd\n"
 			"persist yes\n"
-			"maxfail %s\n"
-			"holdoff %s\n"
+			"maxfail %d\n"
+			"holdoff %d\n"
 			"section cmd\n\n",
 			options,
 			nvram_invmatch("wan_heartbeat_x", "") ?
    				nvram_safe_get("wan_heartbeat_x") : 
    				nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp)),
-			nvram_invmatch(strcat_r(prefix, "pppoe_maxfail", tmp), "") ?
-				nvram_safe_get(strcat_r(prefix, "pppoe_maxfail", tmp)) : "32767",
-			nvram_invmatch(strcat_r(prefix, "pppoe_holdoff", tmp), "") ?
-				nvram_safe_get(strcat_r(prefix, "pppoe_holdoff", tmp)) : "30");
+			maxfail,
+			holdoff);
 			
 		fclose(fp);
 		
@@ -222,39 +226,41 @@ int start_pppd(char *prefix)
 		
 		/* start-session */
 		ret = eval("l2tp-control", "start-session 0.0.0.0");
-#endif
+#endif /* !__CONFIG_XL2TPD__ */
 		
 		/* pppd sync nodetach noaccomp nobsdcomp nodeflate */
 		/* nopcomp novj novjccomp file /tmp/ppp/options.l2tp */
 		
-       	} else
+    } else {
 		ret = _eval(pppd_argv, NULL, 0, NULL);
-		
+	}
+
 	return ret;
 }
 
-void start_pppoe_relay(char *wan_if)
+int start_pppoe_relay(char *wan_if)
 {
 	if (nvram_match("wan_pppoe_relay_x", "1"))
 	{
 		char *pppoerelay_argv[] = {"pppoe-relay", "-C", "br0", "-S", wan_if, "-F", NULL};
-		int ret;
 		pid_t pid;
 
-		ret = _eval(pppoerelay_argv, NULL, 0, &pid);
+		return _eval(pppoerelay_argv, NULL, 0, &pid);
 	}
+
+	return 0;
 }
 
-void setup_ethernet(char *wan_if)
+void setup_ethernet(const char *wan_if)
 {
 	if (nvram_invmatch("wan_etherspeed_x", "auto"))
 	{
-		char *speed = nvram_safe_get("wan_etherspeed_x");
+		const char *speed = nvram_safe_get("wan_etherspeed_x");
 		
 		if (strncmp(wan_if, "vlan", 4) == 0)
 		{
-			char tmp[16];
-			char *wanport;
+			char tmp[32];
+			const char *wanport;
 			char *mii_argv[] = { "mii-tool", "eth0", "-p", "0",
 				 "-A", !strcmp(speed, "100full") ? "100baseTx-FD" :
 					!strcmp(speed, "100half") ? "100baseTx-HD" :
@@ -273,14 +279,15 @@ void setup_ethernet(char *wan_if)
 	}
 }
 
-int ethernet_port(char *wan_if)
+int ethernet_port(const char *wan_if)
 {
-	char tmp[16];
+	char tmp[32];
 	int ret = -1;
 
 	if (strncmp(wan_if, "vlan", 4) == 0)
 	{
-		char *ports = nvram_safe_get(strcat_r(wan_if, "ports", tmp));
+		const char *ports = nvram_safe_get(strcat_r(wan_if, "ports", tmp));
+
 		tmp[0] = ports[0]; // copy single digit
 		tmp[1] = '\0';
 		ret = atoi(tmp);

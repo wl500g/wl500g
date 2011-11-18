@@ -111,7 +111,7 @@ build_ifnames(char *type, char *names, int *size)
 			else if (!strncmp(name, "et", 2) || !strncmp(name, "il", 2)) {
 				snprintf(var, sizeof(var), "%smacaddr", name);
 				if (!(mac = nvram_get(var)) || !ether_atoe(mac, ea) ||
-				    bcmp(ea, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
+				    memcmp(ea, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
 					continue;
 
 				// add by Chen-I to filter out wl interface here
@@ -120,7 +120,7 @@ build_ifnames(char *type, char *names, int *size)
 
 			}
 			/* mac address: compare value */
-			else if (ether_atoe(name, ea) && !bcmp(ea, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
+			else if (ether_atoe(name, ea) && !memcmp(ea, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
 				;
 			/* others: ignore */
 			else
@@ -630,29 +630,30 @@ static int signalled = -1;
 
 
 /* Signal handling */
-static void
-rc_signal(int sig)
+static void rc_signal(int sig)
 {
-	if (rc_state == IDLE) {	
-		if (sig == SIGHUP) {
-			dprintf("signalling RESTART\n");
-			signalled = RESTART;
-		}
-		else if (sig == SIGUSR2) {
-			dprintf("signalling START\n");
-			signalled = START;
-		}
-		else if (sig == SIGINT) {
-			dprintf("signalling STOP\n");
-			signalled = STOP;
-		}
-		else if (sig == SIGALRM) {
-			dprintf("signalling TIMER\n");
-			signalled = TIMER;
-		}
-		else if (sig == SIGUSR1) {
-			dprintf("signalling USR1\n");
-			signalled = SERVICE;
+	if (rc_state == IDLE) {
+		switch (sig) {
+			case SIGHUP:
+				dprintf("signalling RESTART\n");
+				signalled = RESTART;
+				break;
+			case SIGUSR2:
+				dprintf("signalling START\n");
+				signalled = START;
+				break;
+			case SIGINT:
+				dprintf("signalling STOP\n");
+				signalled = STOP;
+				break;
+			case SIGALRM:
+				dprintf("signalling TIMER\n");
+				signalled = TIMER;
+				break;
+			case SIGUSR1:
+				dprintf("signalling USR1\n");
+				signalled = SERVICE;
+				break;
 		}
 	}
 }
@@ -924,8 +925,8 @@ main(int argc, char **argv)
 			if (reboot && !res) kill(1, SIGABRT);
 			return res;
 		} else {
-			fprintf(stderr, "usage: write [-r] [path] [device]\n");
-			fprintf(stderr, "	-r: reboot after write\n");
+			fprintf(stderr, "usage: write [-r] [path] [device]\n"
+							"		-r: reboot after write\n");
 			return EINVAL;
 		}
 	}
@@ -940,8 +941,8 @@ main(int argc, char **argv)
 			if (reboot && !res) kill(1, SIGABRT);
 			return res;
 		} else {
-			fprintf(stderr, "usage: flash [-r] [path] [device]\n");
-			fprintf(stderr, "	-r: reboot after flash\n");
+			fprintf(stderr, "usage: flash [-r] [path] [device]\n"
+							"		-r: reboot after flash\n");
 			return EINVAL;
 		}
 	}
@@ -1021,7 +1022,7 @@ main(int argc, char **argv)
 		int scsi_host = -1;
 		if (argc >= 2)
 			scsi_host = atoi(argv[1]);
-		return remove_storage_main(scsi_host);
+		return remove_usb_mass(NULL, scsi_host);
 	}
 	/* run ftp server */
 	else if (!strcmp(base, "start_ftpd")) {

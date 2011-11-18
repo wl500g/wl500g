@@ -27,10 +27,9 @@
 
 #include <shutils.h>
 
-static char *
-base64enc(const char *p, char *buf, int len)
+static char *base64enc(const char *p, char *buf, int len)
 {
-        char al[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	const char al[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 		"0123456789+/";
 	char *s = buf;
 
@@ -56,8 +55,7 @@ enum {
 	METHOD_CHECK,
 };
 
-static int 
-waitsock(int fd, int sec, int usec)
+static int waitsock(int fd, int sec, int usec)
 {
 	struct timeval tv;
 	fd_set fdvar;
@@ -72,11 +70,11 @@ waitsock(int fd, int sec, int usec)
 	return res;
 }
 
-static int
-wget(int method, const char *server, char *buf, size_t count, off_t offset)
+static int wget(int method, const char *server, char *buf, size_t count, off_t offset)
 {
 	char url[PATH_MAX] = { 0 }, *s;
-	char *host = url, *path = "", auth[128] = { 0 };
+	const char *host = url, *path = "";
+	char auth[128] = { 0 };
 	char line[1024], *p;
 	unsigned short port = 80;
 	int fd;

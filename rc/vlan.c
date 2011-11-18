@@ -49,7 +49,6 @@
 #include <bcmdevs.h>
 #include <netconf.h>
 #include <nvparse.h>
-extern int wan_valid(char *ifname);
 
 
 /* VLAN Descriptors, per-board or platform setting */

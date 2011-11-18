@@ -68,7 +68,9 @@ static int deconfig(const char *wan_ifname, int zcip)
 		/* fix kernel route-loop issue */
 		logmessage(client, "skipping resetting IP address to 0.0.0.0");
 	} else
+	{
 		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+	}
 
 	expires(wan_ifname, 0);
 

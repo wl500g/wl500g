@@ -266,7 +266,7 @@ static const char *br_name[] =
 	"Israel",
 	"Europe"	
 };
-#endif
+#endif /* REMOVE */
 
 static const REG_DMN_ENUM_FREQ_TABLE regDmnEnum2[] = {
     {DEBUG_REG_DMN, 1, 0, "NONE", {
@@ -530,7 +530,7 @@ RefreshBRCountry(char *regDmnName, char *country, char *country_code)
     strcpy(country, "WorldWide");
     return;    
 }
-#endif
+#endif /* REMOVE */
 
 /***********************************************************
  * RefreshChannelList
@@ -628,36 +628,6 @@ RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
 
 void convert_country(void)
 {
-#ifdef REMOVE
-    char *countrylist[]=
-	{"Worldwide", "Thailand", "Israel", "Jordan", "China", "Japan", "USA", 
-	 "Europe", "USA Low", "Japan High", "All", NULL};
-
-    char country[32], country_code[32];
-    int i;
-
-    strcpy(country, nvram_safe_get("wl_country"));	
-
-    i=0;
-    while (countrylist[i]!=NULL)
-    {
-	if (strcmp(countrylist[i], country)==0) 
-	{
-		break;
-	}
-	i++;
-    }	
-    
-    if (countrylist[i]==NULL)
-    {
-    	RefreshBRCountry(nvram_safe_get("regulation_domain"), country, country_code);
-    	nvram_set("wl_country", country);
-	if (strlen(country_code)<2)	
-		nvram_set("wl_country_code", "ALL");
-	else
-		nvram_set("wl_country_code", country_code);
-    }	
-#endif
     A_UINT16 chanList[16];
     char chanListStr[64];
     char reg[32];
@@ -688,7 +658,7 @@ void convert_country(void)
 
 #define MAXBUF 32
 
-#if 0
+#ifdef REMOVE
 void sync_mac(char *devname, char *mac)
 {
 	int cmd, result, i, j;
@@ -736,10 +706,9 @@ void sync_mac(char *devname, char *mac)
 	}
 	return;
 }
-#endif
+#endif /* REMOVE */
 
-int
-rsrom_main(char *devname, unsigned int pos, int pflag)
+int rsrom_main(const char *devname, unsigned int pos, int pflag)
 {
 	int result;
 	unsigned short *oval;
@@ -762,8 +731,7 @@ rsrom_main(char *devname, unsigned int pos, int pflag)
 	return val;
 }
 
-int
-wsrom_main(char *devname, unsigned int pos, unsigned short val)
+int wsrom_main(const char *devname, unsigned int pos, unsigned short val)
 {
 	int result;
 	unsigned short *oval;
@@ -787,7 +755,7 @@ wsrom_main(char *devname, unsigned int pos, unsigned short val)
 	return 0;
 }
 
-int write_mac(char *devname, char *mac)
+int write_mac(const char *devname, const char *mac)
 {
 	int result, i;
 	char buf[MAXBUF], macstr[32], s[3];

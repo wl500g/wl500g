@@ -203,7 +203,6 @@ static int stop_dropbear(void)
 static int start_snmpd(void)
 {
 	const char *snmpd_conf = "/tmp/snmpd.conf";
-	
 	int ret;
 	FILE *fp;
 	
@@ -216,12 +215,14 @@ static int start_snmpd(void)
 		return 1;
 	}
 
-	fprintf(fp, "# automagically generated from web settings\n");
-
-	fprintf(fp, "community %s\n", nvram_safe_default_get("snmp_community"));
-	fprintf(fp, "syscontact %s\n", nvram_safe_default_get("snmp_contact"));
-	fprintf(fp, "syslocation %s\n", nvram_safe_default_get("snmp_location"));
-
+	fprintf(fp,
+		"# automagically generated\n"
+		"community %s\n"
+		"syscontact %s\n"
+		"syslocation %s\n",
+		nvram_safe_default_get("snmp_community"),
+		nvram_safe_default_get("snmp_contact"),
+		nvram_safe_default_get("snmp_location"));
 	fclose(fp);
 	
 	ret = eval("snmpd", "-c", snmpd_conf);
@@ -264,17 +265,16 @@ static int stop_httpd(void)
 	return ret;
 }
 
-int
-start_upnp(void)
+int start_upnp(void)
 {
-	char *wan_ifname, *wan_proto;
+	const char *wan_ifname, *wan_proto;
 	int ret;
 	char var[100], prefix[sizeof("wanXXXXXXXXXX_")];
 #ifdef __CONFIG_MINIUPNPD__
 	FILE *fp;
-	char *lan_addr, *lan_mask, lan_class[32];
+	const char *lan_addr, *lan_mask, *lan_url;
+	char lan_class[32];
 	uint8_t lan_mac[16];
-	char *lan_url;
 #endif
 
 	if (!nvram_invmatch("upnp_enable", "0") || nvram_match("router_disable", "1"))
@@ -380,8 +380,7 @@ stop_upnp(void)
 	return ret;
 }
 
-int
-start_nas(char *type)
+int start_nas(const char *type)
 {
 	if ((nvram_match("wl0_radio", "0")) || (nvram_match("security_mode", "disabled")))
                 return 1;
@@ -392,7 +391,7 @@ start_nas(char *type)
         unsetenv("UDP_BIND_IP");
         usleep(100000);
         eval("nas");
-#else
+#else /* __CONFIG_BCMWL5__ */
 	char cfgfile[64];
 	char pidfile[64];
 	pid_t pid;
@@ -407,7 +406,7 @@ start_nas(char *type)
 
 		_eval(nas_argv, NULL, 0, &pid);
 	}
-#endif
+#endif /* !__CONFIG_BCMWL5__ */
 	dprintf("done\n");
 	return 0;
 }

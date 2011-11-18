@@ -12,14 +12,13 @@
 
 #define wimax_events "/tmp/madwimax.events"
 
-extern int wan_valid(char *ifname);
+static void update_nvram_wmx(const char *ifname, int isup);
 
-void update_nvram_wmx(char * ifname, int isup);
 
 static inline int wimax_modem(const char *prefix)
 {
 	char tmp[100];
-	char *tmp1 = nvram_get(strcat_r(prefix, "usb_device", tmp));
+	const char *tmp1 = nvram_get(strcat_r(prefix, "usb_device", tmp));
 
 	return (tmp1 != NULL && (*tmp1) != '\0');
 }
@@ -42,6 +41,7 @@ static inline int is_chk_restart_wimax(void)
 static inline int wmx_chk_interval(void)
 { 
 	int result = atoi(nvram_safe_get("wan_wimax_interval"));
+
 	if (result == 0)
 		result = 30;
 
@@ -119,8 +119,7 @@ int start_wimax(const char *prefix)
 	return ret;
 }
 
-int
-stop_wimax(const char *prefix)
+int stop_wimax(const char *prefix)
 {
 	char tmp[100];
 
@@ -213,17 +212,11 @@ int madwimax_check(const char *prefix)
 //=========================== madwimax events ==================================
 
 // if-create
-int
-madwimax_create(char *ifname)
+static int madwimax_create(const char *ifname, int unit)
 {
 	//char tmp[100];
 	char prefix[sizeof("wanXXXXXXXXXX_")];
-	int unit = 0;
 
-	dprintf( "%s", ifname );
-
-	if ((unit = wimax_ifunit(ifname)) < 0)
-		return -1;
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 	wmx_chk_set_last_time(prefix, time(NULL));
@@ -248,16 +241,10 @@ madwimax_create(char *ifname)
 }
 
 //if-release
-int
-madwimax_release(char *ifname)
+static int madwimax_release(const char *ifname, int unit)
 {
 	//char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	int unit;
 
-	dprintf( "%s", ifname );
-
-	if ((unit = wimax_ifunit(ifname)) < 0)
-		return -1;
 	//snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 	//if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
@@ -276,15 +263,10 @@ madwimax_release(char *ifname)
 }
 
 //if-up
-static int madwimax_up(char *ifname)
+static int madwimax_up(const char *ifname, int unit)
 {
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	int unit;
 
-	dprintf( "%s", ifname );
-
-	if ((unit = wimax_ifunit(ifname)) < 0)
-		return -1;
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 	wmx_chk_set_last_time(prefix, time(NULL));
@@ -315,15 +297,9 @@ static int madwimax_up(char *ifname)
 }
 
 //if-down
-static int madwimax_down(char *ifname)
+static int madwimax_down(const char *ifname, int unit)
 {
 	char tmp[100];
-	int unit;
-
-	dprintf( "%s", ifname );
-
-	if ((unit = wimax_ifunit(ifname)) < 0)
-		return -1;
 
 	wan_down(ifname);
 	update_nvram_wmx(ifname, 0);
@@ -340,8 +316,7 @@ static int madwimax_down(char *ifname)
 	return 0;
 }
 
-void
-update_nvram_wmx(char *ifname, int isup)
+static void update_nvram_wmx(const char *ifname, int isup)
 {
 	dprintf( "ifname: %s, is up: %d", ifname, isup );
 
@@ -369,18 +344,25 @@ int hotplug_check_wimax(const char *interface, const char *product, const char *
 
 int madwimax_main(int argc, char **argv)
 {
+	const char *ifname;
+	int unit;
 
 	if (argc != 3)
 		return -1;
 
+	ifname = argv[2];
+	if ((unit = wimax_ifunit(ifname)) < 0)
+		return -1;
+	dprintf("if %s", ifname);
+
 	if (!strcmp(argv[1], "if-create"))
-		return madwimax_create(argv[2]);
+		return madwimax_create(ifname, unit);
 	if (!strcmp(argv[1], "if-up"))
-		return madwimax_up(argv[2]);
+		return madwimax_up(ifname, unit);
 	if (!strcmp(argv[1], "if-down"))
-		return madwimax_down(argv[2]);
+		return madwimax_down(ifname, unit);
 	if (!strcmp(argv[1], "if-release"))
-		return madwimax_release(argv[2]);
+		return madwimax_release(ifname, unit);
 
 	return -1;
 }

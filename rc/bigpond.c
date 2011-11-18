@@ -25,7 +25,6 @@
 int start_bpalogin(void)
 {
 	FILE *fp;
-	int ret;
 	const char *authserver;
 	const char *authdomain = NULL;
 	char *bpalogin_argv[5] = { "bpalogin", "-c", "/tmp/bpalogin.conf", NULL, NULL };
@@ -71,9 +70,8 @@ int start_bpalogin(void)
 	if (exists("/tmp/bpa_connect_success")) {
 		bpalogin_argv[3] = "-t";
 	}
-	ret = _eval(bpalogin_argv, NULL, 0, NULL);
 
-	return ret;
+	return _eval(bpalogin_argv, NULL, 0, NULL);
 }
 
 int
@@ -89,25 +87,24 @@ stop_bpalogin(void)
 	return ret;
 }
 
-int
-bpa_connect_main(int argc, char **argv)
+int bpa_connect_main(int argc, char **argv)
 {
 	char buf[254];
 	
 	nvram_set("wan_auth_t", "OK");
 
-	snprintf(buf, sizeof(buf), "iptables -I INPUT -d %s -i %s -p udp --dport %d -j %s", 
+	snprintf(buf, sizeof(buf),
+		"iptables -I INPUT -d %s -i %s -p udp --dport %d -j %s",
 		   nvram_safe_get("wan0_ipaddr"), 
 		   nvram_safe_get("wan0_ifname"),
 		   5050, 
 		   "ACCEPT");
 
 	system(buf);
-	return TRUE;	
+	return TRUE;
 }
 
-int
-bpa_disconnect_main(int argc, char **argv)
+int bpa_disconnect_main(int argc, char **argv)
 {
 #if 1
 	/* never play with dhcp leases, they're working
@@ -115,17 +112,12 @@ bpa_disconnect_main(int argc, char **argv)
 	 erroneously release lease, which was just aquired */
 	nvram_set("wan_auth_t", "FAIL");
 #else
-	char tmp[100], *str;
-	int pid;
+	char tmp[100];
 
 	nvram_set("wan_auth_t", "FAIL");
 
-	snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", 0);
-	if ((str = file2str(tmp))) {
-		pid = atoi(str);
-		free(str);	
-		kill(pid, SIGUSR2);
-	}
+	sprintf(tmp, "/var/run/udhcpc%d.pid", 0);
+	kill_pidfile_s(tmp, SIGUSR2);
 #endif
 	return TRUE;
 }

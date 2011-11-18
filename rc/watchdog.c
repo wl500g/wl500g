@@ -118,9 +118,10 @@ static int wan_phyport = -1;
 static int notice_rcamd(int flag);
 #endif
 
+
 #ifdef GPIOCTL
 
-static int tgpio_open ()
+static int tgpio_open()
 {
 	int fd = open("/dev/gpio", O_RDWR);
 	if (fd < 0)
@@ -164,9 +165,9 @@ unsigned int gpio_read(int gpioreg, unsigned int mask)
 	}
 	return val & mask;
 }
-#else
+#else /* GPIOCTL */
 
-void gpio_write(char *dev, unsigned int mask, unsigned int value)
+void gpio_write(const char *dev, unsigned int mask, unsigned int value)
 {
 	unsigned long val;
 	int fd = open(dev, O_RDWR);
@@ -181,7 +182,7 @@ void gpio_write(char *dev, unsigned int mask, unsigned int value)
 	}
 }
 
-unsigned int gpio_read(char *dev, unsigned int mask)
+unsigned int gpio_read(const char *dev, unsigned int mask)
 {
 	unsigned int val = 0;
 	int fd = open(dev, O_RDONLY);
@@ -192,7 +193,7 @@ unsigned int gpio_read(char *dev, unsigned int mask)
 	}
 	return val & mask;
 }
-#endif
+#endif /* !GPIOCTL */
 
 /* Functions used to control led and button */
 void gpio_init(void)
@@ -287,7 +288,7 @@ void gpio_init(void)
 #endif
 }
 
-static int phy_status(char *wan_if, int port)
+static int phy_status(const char *wan_if, int port)
 {
 	struct ifreq ifr;
 	int fd;
@@ -316,8 +317,7 @@ error:
 	return ret;
 }
 
-static void
-alarmtimer(unsigned long sec,unsigned long usec)
+static void alarmtimer(unsigned long sec, unsigned long usec)
 {
 	itv.it_value.tv_sec  = sec;
 	itv.it_value.tv_usec = usec;
@@ -465,8 +465,8 @@ enum ACTIVE
 	ACTIVEITEMS
 };
 
-static int svcStatus[ACTIVEITEMS] = { -1, -1, -1};
-static int extStatus[ACTIVEITEMS] = { 0, 0, 0};
+static int svcStatus[ACTIVEITEMS] = { -1, -1, -1 };
+static int extStatus[ACTIVEITEMS] = { 0, 0, 0 };
 static char svcDate[ACTIVEITEMS][10];
 static char svcTime[ACTIVEITEMS][20];
 
@@ -583,7 +583,7 @@ static int http_processcheck(void)
 {
 //	char http_cmd[32];
 //	char buf[256];
-	char *httpd_pid = "/var/run/httpd.pid";
+	const char *httpd_pid = "/var/run/httpd.pid";
 
 	//printf("http check\n");
 
@@ -607,8 +607,7 @@ static int http_processcheck(void)
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 int usb_communication_device_processcheck(int wait_flag)
 {
-	char *wan_ifname;
-	char *wan_proto;
+	const char *wan_ifname, *wan_proto;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit, enable;
 
@@ -721,15 +720,15 @@ static void catch_sig(int sig)
 static void sta_check(void)
 {
 	int ret;
-	char *wl_ifname=nvram_safe_get("wl0_ifname");
+	const char *wl_ifname = nvram_safe_get("wl0_ifname");
 	char bssid[32];
 
-	if (stacheck_interval==-1)
+	if (stacheck_interval == -1)
 	{
 		if (nvram_invmatch("wl0_mode", "sta") && 
             		nvram_invmatch("wl0_mode", "wet")) return;
 
-		stacheck_interval=STACHECK_PERIOD_DISCONNECT;
+		stacheck_interval = STACHECK_PERIOD_DISCONNECT;
 	}
 	
 	stacheck_interval--;
@@ -737,18 +736,17 @@ static void sta_check(void)
 	if (stacheck_interval) return;
 
 	// Get bssid
-	ret=wl_ioctl(wl_ifname, WLC_GET_BSSID, bssid, sizeof(bssid));
+	ret = wl_ioctl(wl_ifname, WLC_GET_BSSID, bssid, sizeof(bssid));
 
-	if (ret==0 && !(bssid[0]==0&&bssid[1]==0&&bssid[2]==0
-		&&bssid[3]==0&&bssid[4]==0&&bssid[5]==0)) 	
+	if (ret==0 && memcmp(bssid, "\0\0\0\0\0\0", 6))
 	{
 		dprintf("connected\n");
-		stacheck_interval=STACHECK_PERIOD_CONNECT;
+		stacheck_interval = STACHECK_PERIOD_CONNECT;
 	}
 	else 
 	{
 		dprintf("disconnected\n");
-		stacheck_interval=STACHECK_PERIOD_DISCONNECT;
+		stacheck_interval = STACHECK_PERIOD_DISCONNECT;
 
 		dprintf("connect: [%s]\n", nvram_safe_get("wl0_join"));
 		system(nvram_safe_get("wl0_join"));
@@ -774,7 +772,7 @@ static void link_check(void)
 	if (status)
 	{
 		char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-		char *wan_proto;
+		const char *wan_proto;
 
 		sprintf(prefix, "wan%d_", unit);
 		wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
@@ -819,7 +817,8 @@ static void watchdog(int signum)
 	if (setup_mask) setup_check();
 
 	/* if timer is set to less than 1 sec, then bypass the following */
-	if (itv.it_value.tv_sec==0) return;
+	if (itv.it_value.tv_sec == 0)
+		return;
 
 	/* handle WAN port link */
 	link_check();
@@ -878,8 +877,7 @@ static void watchdog(int signum)
 	sta_check();
 }
 
-int 
-poweron_main(int argc, char *argv[])
+int poweron_main(int argc, char *argv[])
 {
 	/* Start GPIO function */
 	gpio_init();
@@ -901,8 +899,7 @@ static void readyoff(int sig)
 	running = 0;
 }
 
-int 
-watchdog_main()
+int watchdog_main()
 {
 	FILE *fp;
 
@@ -923,7 +920,7 @@ watchdog_main()
 #endif
 
 	/* write pid */
-	if ((fp=fopen("/var/run/watchdog.pid", "w"))!=NULL)
+	if ((fp=fopen("/var/run/watchdog.pid", "w")) != NULL)
 	{
 		fprintf(fp, "%d", getpid());
 		fclose(fp);
@@ -944,7 +941,7 @@ watchdog_main()
 		power_value | ready_value);
 
 	/* Start sync time */
-	sync_interval=1;
+	sync_interval = 1;
 	start_ntpc();
 
 	/* Is WAN port link required */
