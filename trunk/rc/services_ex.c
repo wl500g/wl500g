@@ -1295,8 +1295,7 @@ int restart_smbd()
  *               = -2	- partitions related to device specified by product (2.6 only)
  *              >=  0	- partitions on device with specified scsi host
  */
-static int
-umount_all_part(const char *product, int scsi_host_no)
+static int umount_all_part(const char *product, int scsi_host_no)
 {
 	DIR *dir_to_open, *usb_dev_disc;
 	struct dirent *dp;
@@ -1522,10 +1521,29 @@ static struct mntent *findmntent(const char *file)
 	return mnt;
 }
 
+struct ext2_super_block {
+	uint32_t	s_inodes_count;
+	uint32_t	s_blocks_count;
+	uint32_t	s_r_blocks_count;
+	uint32_t	s_free_blocks_count;
+	uint32_t	s_free_inodes_count;
+	uint32_t	s_first_data_block;
+	uint32_t	s_log_block_size;
+	uint32_t	s_dummy3[7];
+	uint8_t		s_magic[2];
+	uint16_t	s_state;
+	uint32_t	s_dummy5[8];
+	uint32_t	s_feature_compat;
+	uint32_t	s_feature_incompat;
+	uint32_t	s_feature_ro_compat;
+	uint8_t		s_uuid[16];
+	uint8_t		s_volume_name[16];
+} __attribute__ ((__packed__));
+
 static const char *detect_fs_type(const char *device)
 {
 	int fd;
-	unsigned char buf[4096];
+	uint8_t buf[4096] __attribute__((aligned(4)));
 	
 	if ((fd = open(device, O_RDONLY)) < 0)
 		return NULL;
@@ -1551,11 +1569,34 @@ static const char *detect_fs_type(const char *device)
 	{
 		return "swap";
 	} else
-	/* detect ext2/3 */
+	/* detect ext2/3/4 */
 	if (buf[0x438] == 0x53 && buf[0x439] == 0xEF)
 	{
-		return	((buf[0x460] & 0x0008 /* JOURNAL_DEV */) != 0 ||
-			 (buf[0x45c] & 0x0004 /* HAS_JOURNAL */) != 0) ? "ext3" : "ext2";
+#define EXT3_FEATURE_INCOMPAT_JOURNAL_DEV	0x0008
+#define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x0004
+
+#define EXT2_FEATURE_INCOMPAT_UNSUPPORTED	(~0x0012)
+
+#define EXT3_FEATURE_INCOMPAT_UNSUPPORTED	(~0x0016)
+#define EXT3_FEATURE_RO_COMPAT_UNSUPPORTED	(~0x0007)
+		struct ext2_super_block *es = (struct ext2_super_block *)(buf + 0x400);
+
+		if ((le32_to_cpu(es->s_feature_compat) & EXT3_FEATURE_COMPAT_HAS_JOURNAL)
+		  || (le32_to_cpu(es->s_feature_incompat) & EXT2_FEATURE_INCOMPAT_UNSUPPORTED))
+		{
+			/* Distinguish from jbd */
+			if (le32_to_cpu(es->s_feature_incompat) & EXT3_FEATURE_INCOMPAT_JOURNAL_DEV)
+				return "jbd";
+
+			/* Ext4 has at least one feature which ext3 doesn't understand */
+			if ((le32_to_cpu(es->s_feature_incompat) & EXT3_FEATURE_INCOMPAT_UNSUPPORTED)
+			  || (le32_to_cpu(es->s_feature_ro_compat) & EXT3_FEATURE_RO_COMPAT_UNSUPPORTED))
+				return	"ext4";
+			else
+				return	"ext3";
+		}
+		else
+			return	"ext2";
 	} else 
 	/* detect ntfs */
 	if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */

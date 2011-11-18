@@ -841,7 +841,7 @@ main(int argc, char **argv)
 	setenv_tz();
 
 #ifdef DEBUG
-	cprintf("rc applet: %s %s %s",
+	cprintf("rc applet: %s %s %s\n",
 		 base, (argc>1) ? argv[1] : "", (argc>2) ? argv[2] : "");
 #endif
 
