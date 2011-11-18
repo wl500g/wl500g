@@ -45,12 +45,12 @@
 #define sys_forcereboot() kill(1, SIGABRT)
 
 
-#define sys_upgrade(image) eval("write", image, MTD_DEV(1))
+#define sys_upgrade(image) eval("write", image, "linux")
 #define sys_upload(image) eval("nvram", "restore", image)
 #define sys_download(file) eval("nvram", "save", file)
 #define sys_restore(sid) eval("nvram_x","get",(sid))
 #define sys_commit(sid) (flashfs_commit(), nvram_commit())
-#define sys_default()   eval("erase", MTD_DEV(3))
+#define sys_default()   eval("erase", "nvram")
 #define sys_nvram_set(param) eval("nvram", "set", param)
 
 #define UPNP_E_SUCCESS 0
@@ -1878,7 +1878,7 @@ do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
 {
 	char upload_file[] = "/tmp/linux.trx";
 #ifdef FLASH_DIRECT
-	char *argv[] = {"write", upload_file, MTD_DEV(1), NULL};
+	char *argv[] = {"write", upload_file, "linux", NULL};
 	pid_t pid;
 	int ret;
 #endif

@@ -368,7 +368,7 @@ void btn_check(void)
 #endif
 			case 1:	/* restore to defaults */
 				alarmtimer(0, 0);
-				eval("erase", MTD_DEV(3));
+				eval("erase", "nvram");
 				kill(1, SIGTERM);
 				break;
 			}
