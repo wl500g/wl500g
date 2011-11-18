@@ -58,8 +58,8 @@ static int page_cache_pipe_buf_steal(struct pipe_inode_info *pipe,
 		 */
 		wait_on_page_writeback(page);
 
-		if (PagePrivate(page))
-			try_to_release_page(page, GFP_KERNEL);
+		if (PagePrivate(page) && !try_to_release_page(page, GFP_KERNEL))
+			goto out_unlock;
 
 		/*
 		 * If we succeeded in removing the mapping, set LRU flag
@@ -75,6 +75,7 @@ static int page_cache_pipe_buf_steal(struct pipe_inode_info *pipe,
 	 * Raced with truncate or failed to remove page from current
 	 * address space, unlock and return failure.
 	 */
+out_unlock:
 	unlock_page(page);
 	return 1;
 }
@@ -384,13 +385,22 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
 				lock_page(page);
 
 			/*
-			 * page was truncated, stop here. if this isn't the
-			 * first page, we'll just complete what we already
-			 * added
+			 * Page was truncated, or invalidated by the
+			 * filesystem.  Redo the find/create, but this time the
+			 * page is kept locked, so there's no chance of another
+			 * race with truncate/invalidate.
 			 */
 			if (!page->mapping) {
 				unlock_page(page);
-				break;
+				page = find_or_create_page(mapping, index,
+						mapping_gfp_mask(mapping));
+
+				if (!page) {
+					error = -ENOMEM;
+					break;
+				}
+				page_cache_release(pages[page_nr]);
+				pages[page_nr] = page;
 			}
 			/*
 			 * page was already under io and is now done, great
@@ -520,9 +530,11 @@ static int pipe_to_sendpage(struct pipe_inode_info *pipe,
 	ret = buf->ops->confirm(pipe, buf);
 	if (!ret) {
 		more = (sd->flags & SPLICE_F_MORE) || sd->len < sd->total_len;
-
-		ret = file->f_op->sendpage(file, buf->page, buf->offset,
-					   sd->len, &pos, more);
+		if (file->f_op && file->f_op->sendpage)
+			ret = file->f_op->sendpage(file, buf->page, buf->offset,
+						   sd->len, &pos, more);
+		else
+			ret = -EINVAL;
 	}
 
 	return ret;
@@ -1110,7 +1122,8 @@ static int direct_splice_actor(struct pipe_inode_info *pipe,
 {
 	struct file *file = sd->u.file;
 
-	return do_splice_from(pipe, file, &sd->pos, sd->total_len, sd->flags);
+	return do_splice_from(pipe, file, &file->f_pos, sd->total_len,
+			      sd->flags);
 }
 
 /**
@@ -1176,7 +1189,8 @@ static long do_splice(struct file *in, loff_t __user *off_in,
 		if (off_in)
 			return -ESPIPE;
 		if (off_out) {
-			if (out->f_op->llseek == no_llseek)
+			if (!out->f_op || !out->f_op->llseek ||
+			    out->f_op->llseek == no_llseek)
 				return -EINVAL;
 			if (copy_from_user(&offset, off_out, sizeof(loff_t)))
 				return -EFAULT;
@@ -1197,7 +1211,8 @@ static long do_splice(struct file *in, loff_t __user *off_in,
 		if (off_out)
 			return -ESPIPE;
 		if (off_in) {
-			if (in->f_op->llseek == no_llseek)
+			if (!in->f_op || !in->f_op->llseek ||
+			    in->f_op->llseek == no_llseek)
 				return -EINVAL;
 			if (copy_from_user(&offset, off_in, sizeof(loff_t)))
 				return -EFAULT;
