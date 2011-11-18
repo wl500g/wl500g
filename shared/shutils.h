@@ -22,6 +22,23 @@
 
 #define	ARRAY_SIZE(x)	((unsigned)(sizeof(x) / sizeof((x)[0])))
 
+
+#include <byteswap.h>
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+# define le16_to_cpu(x) (x)
+# define le32_to_cpu(x) (x)
+# define be16_to_cpu(x) bswap_16(x)
+# define be32_to_cpu(x) bswap_32(x)
+#elif __BYTE_ORDER == __BIG_ENDIAN
+# define le16_to_cpu(x) bswap_16(x)
+# define le32_to_cpu(x) bswap_32(x)
+# define be16_to_cpu(x) (x)
+# define be32_to_cpu(x) (x)
+#else
+# error "Can't determine endianness"
+#endif
+
+
 /*
  * Checks if file exists
  * @param	fd	file descriptor
