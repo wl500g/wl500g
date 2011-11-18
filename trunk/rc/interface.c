@@ -214,8 +214,9 @@ int start_vlan(void)
 	for (i = 0; i <= VLAN_MAXVID; i ++) {
 		char nvvar_name[16];
 		char vlan_id[16];
-		char *hwname, *hwaddr;
+		const char *hwname, *hwaddr;
 		char prio[8];
+
 		/* get the address of the EMAC on which the VLAN sits */
 		snprintf(nvvar_name, sizeof(nvvar_name), "vlan%dhwname", i);
 		if (!(hwname = nvram_get(nvvar_name)))
@@ -233,7 +234,7 @@ int start_vlan(void)
 				continue;
 			if (ifr.ifr_hwaddr.sa_family != ARPHRD_ETHER)
 				continue;
-			if (!bcmp(ifr.ifr_hwaddr.sa_data, ea, ETHER_ADDR_LEN))
+			if (!memcmp(ifr.ifr_hwaddr.sa_data, ea, ETHER_ADDR_LEN))
 				break;
 		}
 		if (j > DEV_NUMIFS)
@@ -264,7 +265,7 @@ int stop_vlan(void)
 	int i, vlan0tag;
 	char nvvar_name[16];
 	char vlan_id[16];
-	char *hwname;
+	const char *hwname;
 	char *vconfig_argv[] = { "vconfig", "rem", vlan_id, NULL };
 
 	vlan0tag = strtoul(nvram_safe_get("vlan0tag"), NULL, 0);
@@ -306,8 +307,7 @@ int ipv6_addr(const char *str, struct in6_addr *addr6)
 	return ret;
 }
 
-int
-ipv6_network(struct in6_addr *addr6, int netsize)
+int ipv6_network(struct in6_addr *addr6, int netsize)
 {
 	int i = netsize >> 5;
 	int m = netsize & 0x1f;
@@ -323,8 +323,7 @@ ipv6_network(struct in6_addr *addr6, int netsize)
 	return netsize;
 }
 
-int
-ipv6_host(struct in6_addr *addr6, int netsize)
+int ipv6_host(struct in6_addr *addr6, int netsize)
 {
 	int i = netsize >> 5;
 	int m = netsize & 0x1f;
@@ -340,8 +339,8 @@ ipv6_host(struct in6_addr *addr6, int netsize)
 	return 128 - netsize;
 }
 
-int
-ipv6_map6rd(struct in6_addr *addr6, int netsize, struct in_addr *addr4, int ip4size)
+int ipv6_map6rd(struct in6_addr *addr6, int netsize,
+		const struct in_addr *addr4, int ip4size)
 {
 	int i = netsize >> 5;
 	int m = netsize & 0x1f;

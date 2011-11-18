@@ -40,6 +40,24 @@ int ppp_ifunit(const char *ifname)
 	return atoi(&ifname[3]);
 }
 
+static int ppp_prefix(char **wan_ifname, char *prefix)
+{
+	char tmp[100];
+	int unit;
+
+	*wan_ifname = safe_getenv("IFNAME");
+
+	if ((unit = ppp_ifunit(*wan_ifname)) < 0)
+		return -1;
+
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
+		return -2;
+
+	return unit;
+}
+
 /*
  * Called when link comes up
  */
@@ -47,18 +65,15 @@ int
 ipup_main(int argc, char **argv)
 {
 	FILE *fp;
-	char *wan_ifname = safe_getenv("IFNAME");
+	char *wan_ifname;
 	char *value;
 	char buf[256];
-	int unit;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
-	umask(022);
-
-	if ((unit = ppp_ifunit(wan_ifname)) < 0)
+	if (ppp_prefix(&wan_ifname, prefix) < 0)
 		return -1;
-	
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+	umask(022);
 
 	/* Touch connection file */
 	if (!(fp = fopen(strcat_r("/tmp/ppp/link.", wan_ifname, tmp), "a"))) {
@@ -66,9 +81,6 @@ ipup_main(int argc, char **argv)
 		return errno;
 	}
 	fclose(fp);
-
-	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
-		return -1;
 
 	if ((value = getenv("IPLOCAL"))) {
 		if (nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value))
@@ -104,19 +116,13 @@ ipup_main(int argc, char **argv)
 int
 ipdown_main(int argc, char **argv)
 {
-	char *wan_ifname = safe_getenv("IFNAME");
-	int unit;
+	char *wan_ifname;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
-	umask(022);
-	
-	if ((unit = ppp_ifunit(wan_ifname)) < 0)
+	if (ppp_prefix(&wan_ifname, prefix) < 0)
 		return -1;
-	
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
-		return -1;
+	umask(022);
 
 	wan_down(wan_ifname);
 
@@ -134,20 +140,15 @@ ipdown_main(int argc, char **argv)
 int
 ip6up_main(int argc, char **argv)
 {
-	char *wan_ifname = safe_getenv("IFNAME");
+	char *wan_ifname;
 	//char *value;
 	int unit;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char prefix[sizeof("wanXXXXXXXXXX_")];
 
 	if (!nvram_match("ipv6_proto", "ppp"))
-		return -1;
+		return -2;
 
-	if ((unit = ppp_ifunit(wan_ifname)) < 0)
-		return -1;
-
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-
-	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
+	if ((unit = ppp_prefix(&wan_ifname, prefix)) < 0)
 		return -1;
 
 	//if ((value = getenv("LLLOCAL")))
@@ -163,19 +164,14 @@ ip6up_main(int argc, char **argv)
 int
 ip6down_main(int argc, char **argv)
 {
-	char *wan_ifname = safe_getenv("IFNAME");
+	char *wan_ifname;
 	int unit;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char prefix[sizeof("wanXXXXXXXXXX_")];
 
 	if (!nvram_match("ipv6_proto", "ppp"))
-		return -1;
+		return -2;
 
-	if ((unit = ppp_ifunit(wan_ifname)) < 0)
-		return -1;
-
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-
-	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
+	if ((unit = ppp_prefix(&wan_ifname, prefix)) < 0)
 		return -1;
 
 	wan6_down(wan_ifname, unit);
@@ -191,10 +187,9 @@ ip6down_main(int argc, char **argv)
  * Note: that this script is not executed if the peer doesn't authenticate itself,
  * for example when the noauth option is used.
  */
-int
-authup_main(int argc, char **argv)
+int authup_main(int argc, char **argv)
 {
-	char *wan_ifname = argv[1];
+	const char *wan_ifname = argv[1];
 	char prefix[sizeof("wanXXXXXXXXXX_")];
 
 	if (wan_ifname == NULL ||
@@ -207,10 +202,9 @@ authup_main(int argc, char **argv)
 /*
  * Called when link goes down, if auth-up was previously executed
  */
-int
-authdown_main(int argc, char **argv)
+int authdown_main(int argc, char **argv)
 {
-	char *wan_ifname = argv[1];
+	const char *wan_ifname = argv[1];
 	char prefix[sizeof("wanXXXXXXXXXX_")];
 
 	if (wan_ifname == NULL ||

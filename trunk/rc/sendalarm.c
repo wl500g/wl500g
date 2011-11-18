@@ -36,7 +36,7 @@ static void filecat(FILE *fp, char *catted)
 	char line[1024];
 	size_t i;
 
-	if ((cfp=fopen(catted, "r"))==NULL) return;
+	if ((cfp=fopen(catted, "r")) == NULL) return;
 
 	while ((i=fread(line, 1, sizeof(line), cfp)))
 	{
@@ -44,10 +44,9 @@ static void filecat(FILE *fp, char *catted)
 		fwrite(line, 1, i, fp);
 	}
 	fclose(cfp);
-	return;
 }
 
-static char *nslookup(char *name, int qtype, char *ret, size_t retsize)
+static char *nslookup(const char *name, int qtype, char *ret, size_t retsize)
 {
 	unsigned char	reply[1024];	/* Reply buffer */
 	char		host[MAXDNAME];
@@ -144,28 +143,26 @@ static char *nslookup(char *name, int qtype, char *ret, size_t retsize)
 	return NULL;
 }
 
-int
-sendalarm_main(int argc, char *argv[])
+int sendalarm_main(int argc, char *argv[])
 {
 	FILE *fp;
-	char *serverip, servername[64];
+	char *serverip;
 	char command[128];
 	char image[64], *imagebase;
-	char *boundry="alarmmailalarmmail";
+	const char *boundry = "alarmmailalarmmail";
 	int i;
 	struct hostent *serverhost = NULL;
 
 	if (nvram_invmatch("usb_websecurity_x", "1")) return -1;
 
-	*servername = '\0';
-
 	if (nvram_invmatch("usb_websendto_x", ""))
 	{
+		char servername[64] = "\0";
 		char *mname;
 
 		mname = strstr(nvram_safe_get("usb_websendto_x"), "@");
 
-		if (mname!=NULL)
+		if (mname != NULL)
 			nslookup(mname+1, T_MX, servername, sizeof(servername));
 
 		if (*servername)
@@ -182,13 +179,11 @@ sendalarm_main(int argc, char *argv[])
 		logmessage("sendalarm", "send email alarm, but can not resolve ip of email server!");
 		return -2;
 	}
-	else
-	{
-		serverip = inet_ntoa( *( struct in_addr* )(serverhost->h_addr) );
-		dprintf("send alarm to : %s\n", serverip);
-	}
-	// Build mail source file
 
+	serverip = inet_ntoa( *( struct in_addr* )(serverhost->h_addr) );
+	dprintf("send alarm to : %s\n", serverip);
+
+	// Build mail source file
 	if ((fp = fopen("/var/tmp/alarmmail", "w"))==NULL) return -1;
 
 	fprintf(fp,
@@ -251,4 +246,4 @@ sendalarm_main(int argc, char *argv[])
 	return 0;
 }
 	
-#endif		
+#endif /* ASUS_EXT */

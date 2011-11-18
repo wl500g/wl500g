@@ -44,7 +44,7 @@ void ip2class(const char *lan_ip, const char *netmask, char *buf);
 int ipv6_addr(const char *str, struct in6_addr *addr6);
 int ipv6_network(struct in6_addr *addr6, int netsize);
 int ipv6_host(struct in6_addr *addr6, int netsize);
-int ipv6_map6rd(struct in6_addr *addr6, int netsize, struct in_addr *addr4, int ip4size);
+int ipv6_map6rd(struct in6_addr *addr6, int netsize, const struct in_addr *addr4, int ip4size);
 #endif
 char *trim_r(char *str);
 int router_totalram();
@@ -67,8 +67,8 @@ int killall_tk(const char *program);
 void setenv_tz();
 time_t update_tztime(int is_resettm);
 
-int wsrom_main(char *devname, unsigned int pos, unsigned short val);
-int rsrom_main(char *devname, unsigned int pos, int pflag);
+int wsrom_main(const char *devname, unsigned int pos, unsigned short val);
+int rsrom_main(const char *devname, unsigned int pos, int pflag);
 
 /* dhcp/zcip scripts */
 int udhcpc_main(int argc, char **argv);
@@ -130,15 +130,16 @@ void wan6_down(const char *ifname, int unit);
 void lan_up_ex(const char *lan_ifname);
 void lan_down_ex(const char *lan_ifname);
 int wan_prefix(const char *ifname, char *prefix);
+int wan_valid(const char *ifname);
 
 int hotplug_net(void);
 int wan_primary_ifunit(void);
 int start_bpalogin(void);
 int stop_bpalogin(void);
 void start_qos(char *wan_ipaddr);
-void setup_ethernet(char *wan_if);
-int ethernet_port(char *wan_if);
-int write_mac(char *devname, char *mac);
+void setup_ethernet(const char *wan_if);
+int ethernet_port(const char *wan_if);
+int write_mac(const char *devname, const char *mac);
 int bpa_connect_main(int argc, char **argv);
 int bpa_disconnect_main(int argc, char **argv);
 void stop_igmpproxy(void);
@@ -159,8 +160,8 @@ int start_radvd(void);
 int stop_radvd(void);
 #endif
 int stop_snmpd(void);
-int start_pppd(char *prefix);
-void start_pppoe_relay(char *wan_if);
+int start_pppd(const char *prefix);
+int start_pppoe_relay(char *wan_if);
 int start_dns(void);
 int stop_dns(void);
 int start_upnp(void);
@@ -169,14 +170,12 @@ int start_ddns(int forced);
 int stop_ddns(void);
 int start_ntpc(void);
 int stop_ntpc(void);
-int start_nas(char *type);
+int start_nas(const char *type);
 int stop_nas(void);
 int start_usb(void);
 int stop_usb(void);
 int start_rcamd(void);
 int stop_rcamd(void);
-int start_audio(void);
-int stop_audio(void);
 int start_lltd(void);
 int start_services(void);
 int stop_services(void);
@@ -185,11 +184,10 @@ int stop_logger(void);
 int start_misc(void);
 int stop_misc(void);
 int hotplug_usb(void);
-int hotplug_usb_mass(char *product);
-int hotplug_usb_webcam(char *product);
-int remove_usb_webcam(char *product);
-int hotplug_usb_audio(char *product);
-int remove_storage_main(int scsi_host_no);
+int hotplug_usb_mass(const char *product);
+int hotplug_usb_webcam(const char *product);
+int remove_usb_webcam(const char *product);
+int remove_usb_mass(const char *product, int scsi_host_no);
 int restart_ftpd();
 int restart_smbd();
 int ddns_updated_main();
@@ -200,8 +198,8 @@ void diag_PaN(void);
 int wlan_update();
 
 /* auth */
-int start_auth(char *prefix, int wan_up);
-int stop_auth(char *prefix, int wan_down);
+int start_auth(const char *prefix, int wan_up);
+int stop_auth(const char *prefix, int wan_down);
 #ifdef __CONFIG_EAPOL__
 int wpacli_main(int argc, char **argv);
 #endif
@@ -236,9 +234,9 @@ int hotplug_check_wimax(const char *interface, const char *product, const char *
 #endif
 
 #ifdef __CONFIG_MODEM__
-int start_modem_dial(char *prefix);
-int stop_modem_dial(char *prefix);
-int usb_modem_check(char * prefix);
+int start_modem_dial(const char *prefix);
+int stop_modem_dial(const char *prefix);
+int usb_modem_check(const char *prefix);
 int hotplug_check_modem(const char *interface, const char *product, const char *device, const char *prefix);
 int lsmodem_main(int argc, char **argv);
 #endif

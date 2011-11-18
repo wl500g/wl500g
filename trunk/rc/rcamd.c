@@ -9,7 +9,8 @@
  *
  * $Id$
  */
-#ifdef USB_SUPPORT 
+#ifdef USB_SUPPORT
+
 #include <stdio.h>
 #include <signal.h>
 #include <time.h>
@@ -45,7 +46,7 @@ stop_rcamd(void)
 }
 
 int
-hotplug_usb_webcam(char *product)
+hotplug_usb_webcam(const char *product)
 {
 	char input_plugin_param[256], output_plugin_param[256], security[128], jpg_param[32];
 	char *rcamd_argv[]={"mjpg_streamer", "-b",
@@ -123,7 +124,7 @@ hotplug_usb_webcam(char *product)
 }
 
 int
-remove_usb_webcam(char *product)
+remove_usb_webcam(const char *product)
 {
 	kill_pidfile("/var/run/rcamd.pid");
 
@@ -131,4 +132,4 @@ remove_usb_webcam(char *product)
 	return 0;
 }
 
-#endif
+#endif /* USB_SUPPORT */

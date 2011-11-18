@@ -28,10 +28,6 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <signal.h>
-typedef u_int64_t u64;
-typedef u_int32_t u32;
-typedef u_int16_t u16;
-typedef u_int8_t u8;
 #include <linux/types.h>
 #include <linux/sockios.h>
 #include <linux/ethtool.h>
@@ -123,8 +119,6 @@ static void emf_mfdb_update(const char *lan_ifname, const char *lan_port_ifname,
                              "mfdb", lan_ifname, mgrp, ifname);
                 }
         }
-
-        return;
 }
 
 static void emf_uffp_update(const char *lan_ifname, const char *lan_port_ifname, bool add)
@@ -145,8 +139,6 @@ static void emf_uffp_update(const char *lan_ifname, const char *lan_port_ifname,
                              "uffp", lan_ifname, ifname);
                 }
         }
-
-        return;
 }
 
 static void emf_rtport_update(const char *lan_ifname, const char *lan_port_ifname, bool add)
@@ -167,8 +159,6 @@ static void emf_rtport_update(const char *lan_ifname, const char *lan_port_ifnam
                              "rtport", lan_ifname, ifname);
                 }
         }
-
-        return;
 }
 
 static void start_emf(const char *lan_ifname)
@@ -213,8 +203,6 @@ static void start_emf(const char *lan_ifname)
                 /* Add RTPORT entry for the interface */
                 eval("emf", "add", "rtport", lan_ifname, ifname);
         }
-
-        return;
 }
 #endif
 
@@ -263,7 +251,6 @@ static void add_wanx_routes(const char *prefix, const char *ifname, int metric)
 	struct in_addr mask;
 	char *ipaddr, *gateway;
 	int bits;
-
 	char netmask[] = "255.255.255.255";
 
 	if (!nvram_match("dr_enable_x", "1"))
@@ -300,8 +287,6 @@ static void add_wanx_routes(const char *prefix, const char *ifname, int metric)
 		}
 	}
 	free(routes);
-
-	return;
 }
 
 static int del_routes(const char *prefix, const char *var, const char *ifname)
@@ -337,14 +322,12 @@ static int del_routes(const char *prefix, const char *var, const char *ifname)
 	return 0;
 }
 
-static int
-add_lan_routes(char *lan_ifname)
+static inline int add_lan_routes(const char *lan_ifname)
 {
 	return add_routes("lan_", "route", lan_ifname);
 }
 
-static int
-del_lan_routes(char *lan_ifname)
+static inline int del_lan_routes(const char *lan_ifname)
 {
 	return del_routes("lan_", "route", lan_ifname);
 }
@@ -352,8 +335,7 @@ del_lan_routes(char *lan_ifname)
 static void start_igmpproxy(const char *wan_ifname)
 {
 	FILE *fp;
-	struct stat st_buf;
-	char *igmpproxy_conf = "/etc/igmpproxy.conf";
+	const char *igmpproxy_conf = "/etc/igmpproxy.conf";
 	char *udpxy_argv[] = { "/usr/sbin/udpxy",
 		"-m", (char *)wan_ifname,
 		"-p", nvram_get("udpxy_enable_x"),
@@ -373,13 +355,13 @@ static void start_igmpproxy(const char *wan_ifname)
 	if (!nvram_match("mr_enable_x", "1"))
 		return;
 
-	if (stat(igmpproxy_conf, &st_buf) != 0) 
+	if (!exists(igmpproxy_conf))
 	{
 		if ((fp = fopen(igmpproxy_conf, "w")) == NULL) {
 			perror(igmpproxy_conf);
 			return;
 		}
-		fprintf(fp, "# automagically generated from web settings\n"
+		fprintf(fp, "# automagically generated\n"
 			"quickleave\n\n"
 			"phyint %s upstream\n"
 			"\taltnet %s\n\n"
@@ -394,17 +376,15 @@ static void start_igmpproxy(const char *wan_ifname)
 	eval("/usr/sbin/igmpproxy", igmpproxy_conf);
 }
 
-void
-stop_igmpproxy()
+void stop_igmpproxy()
 {
 	killall("igmpproxy");
 	killall("udpxy");
 }
 
-void
-start_lan(void)
+void start_lan(void)
 {
-	char *lan_ifname = nvram_safe_get("lan_ifname");
+	const char *lan_ifname = nvram_safe_get("lan_ifname");
 	char name[80], *next;
 	int s;
 	struct ifreq ifr;
@@ -501,6 +481,7 @@ start_lan(void)
 	/* Get current LAN hardware address */
 	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) >= 0) {
 		char eabuf[32];
+
 		strncpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
 		if (ioctl(s, SIOCGIFHWADDR, &ifr) == 0)
 			nvram_set("lan_hwaddr", ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
@@ -563,7 +544,7 @@ start_lan(void)
 		if (nvram_match("lan_proto_x", "1")) 
 		{
 			char *dhcp_argv[] = { "/sbin/udhcpc",
-					      "-i", lan_ifname,
+					      "-i", (char *)lan_ifname,
 					      "-p", "/var/run/udhcpc_lan.pid",
 					      "-s", "/tmp/landhcpc",
 #ifdef DEBUG
@@ -606,7 +587,7 @@ start_lan(void)
 
 		update_lan_status(1);
 	}
-#else
+#else /* ASUS_EXT */
 	/* Bring up and configure LAN interface */
 	ifconfig(lan_ifname, IFUP,
 		 nvram_safe_get("lan_ipaddr"),
@@ -614,7 +595,7 @@ start_lan(void)
 
 	/* Install lan specific static routes */
 	add_lan_routes(lan_ifname);
-#endif
+#endif /* !ASUS_EXT */
 
 #ifdef __CONFIG_IPV6__
 	/* Configure LAN IPv6 address */
@@ -635,7 +616,7 @@ start_lan(void)
 		eval("ip", "-6", "addr", "add", addrstr, "dev", lan_ifname);
 		nvram_set("lan_ipv6_addr", addrstr);
 	}
-#endif
+#endif /* __CONFIG_IPV6__ */
 
 #ifdef __CONFIG_EMF__
 	/* Start the EMF for this LAN */
@@ -668,7 +649,7 @@ start_lan(void)
 
 		_eval(syslogd_argv, NULL, 0, &pid);
 	}
-#endif
+#endif /* !ASUS_EXT */
 
 	dprintf("%s %s\n",
 		nvram_safe_get("lan_ipaddr"),
@@ -881,7 +862,7 @@ void start_wan(void)
 		}
 
 		ether_atoe(nvram_safe_get(strcat_r(prefix, "hwaddr", tmp)), eabuf);
-		if (bcmp(eabuf, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
+		if (memcmp(eabuf, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
 		{
 			/* current hardware address is different than user specified */
 			ifconfig(wan_ifname, 0, NULL, NULL);
@@ -1000,11 +981,9 @@ void start_wan(void)
 			{
 				if (!wait_for_ifup(prefix, wan_ifname, &ifr)) continue;
 			}
-#ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
-#endif
 		}
-#endif
+#endif /* ASUS_EXT */
 
 #ifdef __CONFIG_MADWIMAX__
 		else if (strcmp(wan_proto, "wimax") == 0) {
@@ -1020,7 +999,8 @@ void start_wan(void)
 #endif
 			continue;
 		}
-#endif
+#endif /* __CONFIG_MADWIMAX__ */
+
 		/* 
 		* Configure DHCP connection. The DHCP client will run 
 		* 'udhcpc.script bound'/'udhcpc.script deconfig' upon finishing IP address 
@@ -1109,7 +1089,7 @@ void start_wan(void)
 				if (!wait_for_ifup(prefix, wan_ifname, &ifr)) continue;
 			}
 		}
-#endif
+#endif /* __CONFIG_MODEM__ */
 
 #ifndef ASUS_EXT
 		/* Start connection dependent firewall */
@@ -1408,7 +1388,7 @@ void wan_up(const char *wan_ifname)
 	start_ddns(0);
 	//stop_upnp();
 	start_upnp();
-#endif
+#endif /* ASUS_EXT */
 	
 #ifdef QOS
 	// start qos related 
@@ -1532,7 +1512,7 @@ void wan6_up(const char *wan_ifname, int unit)
 				"6rd-prefix", addrstr,
 				"6rd-relay_prefix", netstr);
 		}
-#endif
+#endif /* LINUX26 */
 		/* Set MTU value and enable tunnel */
 		eval("ip", "link", "set", "mtu", nvram_safe_get("ipv6_sit_mtu"), "dev", wan6_ifname, "up");
 	} else
@@ -1695,7 +1675,7 @@ void wan6_down(const char *wan_ifname, int unit)
 	dprintf("done\n");
 
 }
-#endif
+#endif /* __CONFIG_IPV6__ */
 
 #ifdef ASUS_EXT
 static void lan_up(const char *lan_ifname)
@@ -1804,10 +1784,7 @@ void lan_down_ex(const char *lan_ifname)
 
 	update_lan_status(0);
 }
-
-
-
-#endif
+#endif /* ASUS_EXT */
 
 static int notify_nas(const char *type, const char *ifname, const char *action)
 {
@@ -1819,7 +1796,7 @@ static int notify_nas(const char *type, const char *ifname, const char *action)
 	}
 	return 1;
 
-#else   /* !__CONFIG_BCMWL5__ */
+#else   /* __CONFIG_BCMWL5__ */
 	char *nas_argv[] = {"nas4not", type, ifname, action, 
 			NULL,	/* role */
 			NULL,	/* crypto */
@@ -1854,7 +1831,7 @@ static int notify_nas(const char *type, const char *ifname, const char *action)
 		uint8 ea[ETHER_ADDR_LEN];
 
 		if (get_wds_wsec(unit, i, mac, role, crypto, auth, ssid, pass) &&
-		    ether_atoe(mac, ea) && !bcmp(ea, remote, ETHER_ADDR_LEN)) {
+		    ether_atoe(mac, ea) && !memcmp(ea, remote, ETHER_ADDR_LEN)) {
 			nas_argv[4] = role;
 			nas_argv[5] = crypto;
 			nas_argv[6] = auth;
@@ -1891,7 +1868,7 @@ static int notify_nas(const char *type, const char *ifname, const char *action)
 		return _eval(nas_argv, ">/dev/console", 0, &pid);
 	}
 	return -1;
-#endif /* CONFIG_BCMWL5 */
+#endif /* !__CONFIG_BCMWL5__ */
 }
 
 #ifdef __CONFIG_BCMWL5__
@@ -1912,8 +1889,7 @@ void start_wl(void)
 }
 #endif // __CONFIG_BCMWL5__
 
-int
-hotplug_net(void)
+int hotplug_net(void)
 {
 	char *lan_ifname = nvram_safe_get("lan_ifname");
 	char *interface, *action;
@@ -1972,8 +1948,7 @@ int preset_wan_routes(const char *wan_ifname)
 	return 0;
 }
 
-int
-wan_primary_ifunit(void)
+int wan_primary_ifunit(void)
 {
 	int unit;
 	
@@ -2158,4 +2133,4 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 
 	dprintf("done");
 };
-#endif
+#endif /* defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__) */
