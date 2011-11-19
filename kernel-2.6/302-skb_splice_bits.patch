@@ -1,21 +1,14 @@
 Backport of network splice receive.
 
 9c55e01c0cc835818475a6ce8c4d684df9949ac8 [TCP]: Splice receive support.
+a0974dd3da87667e26ef5d3b32989a43319866f2 [TCP] splice: add tcp_splice_read() to IPV6
 293ad60401da621b8b329abbe8c388edb25f658a tcp: Fix for race due to temporary drop of the socket lock in skb_splice_bits.
 db43a282d3ec92ea45109c5551fff3dcc5afef02 tcp: fix for splice receive when used with software LRO
 33966dd0e2f68f26943cd9ee93ec6abbc6547a8e tcp: splice as many packets as possible at once
 9fa5fdf291c9b58b1cb8b4bb2a0ee57efa21d635 tcp: Fix length tcp_splice_data_recv passes to skb_splice_bits.
+997b37da1515c1620692521786a74af271664eb7 [NET]: Make sure sockets implement splice_read
 
 ---
-
- include/linux/net.h    |    3 
- include/linux/skbuff.h |    6 +
- include/net/tcp.h      |    3 
- net/core/skbuff.c      |  254 +++++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv4/af_inet.c     |    1 
- net/ipv4/tcp.c         |  146 +++++++++++++++++++++++++++-
- net/socket.c           |   13 ++
- 7 files changed, 425 insertions(+), 1 deletion(-)
 
 diff -x'.*' -urBp a/include/linux/net.h b/include/linux/net.h
 --- a/include/linux/net.h	2008-02-26 02:59:40.000000000 +0300
@@ -553,6 +546,17 @@ diff -x'.*' -urBp a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  EXPORT_SYMBOL(tcp_sendpage);
  EXPORT_SYMBOL(tcp_setsockopt);
  EXPORT_SYMBOL(tcp_shutdown);
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -491,6 +491,7 @@ const struct proto_ops inet6_stream_ops = {
+ 	.recvmsg	   = sock_common_recvmsg,	/* ok		*/
+ 	.mmap		   = sock_no_mmap,
+ 	.sendpage	   = tcp_sendpage,
++	.splice_read	   = tcp_splice_read,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_sock_common_setsockopt,
+ 	.compat_getsockopt = compat_sock_common_getsockopt,
 diff -x'.*' -urBp a/net/socket.c b/net/socket.c
 --- a/net/socket.c	2010-07-26 04:00:00.000000000 +0400
 +++ b/net/socket.c	2010-07-26 15:51:03.000000000 +0400
@@ -574,7 +578,7 @@ diff -x'.*' -urBp a/net/socket.c b/net/socket.c
  };
  
  /*
-@@ -691,6 +695,15 @@ static ssize_t sock_sendpage(struct file
+@@ -691,6 +695,18 @@ static ssize_t sock_sendpage(struct file
  	return kernel_sendpage(sock, page, offset, size, flags);
  }
  
@@ -583,6 +587,9 @@ diff -x'.*' -urBp a/net/socket.c b/net/socket.c
 +				unsigned int flags)
 +{
 +	struct socket *sock = file->private_data;
++
++	if (unlikely(!sock->ops->splice_read))
++		return -EINVAL;
 +
 +	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
 +}
