@@ -697,16 +697,13 @@ void convert_asus_values()
 	}
 
 #ifdef __CONFIG_IPV6__
+	nvram_set("wan0_ipv6_proto", nvram_safe_get("ipv6_proto"));
+	nvram_set("wan0_ipv6_if_x", nvram_safe_get("ipv6_if_x"));
+
 	nvram_unset("lan_ipv6_addr");
+	nvram_unset("wan_ipv6_addr_t");
 	nvram_unset("wan0_ipv6_addr");
 	nvram_unset("wan0_ipv6_dns");
-	nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_wan_router"));
-	nvram_set("wan0_ipv6_relay", nvram_match("ipv6_proto", "tun6rd") ?
-	    nvram_safe_get("ipv6_6rd_router") :
-	    nvram_safe_get("ipv6_sit_relay"));
-	nvram_set("wan0_ipv6_ip4size", nvram_safe_get("ipv6_6rd_ip4size"));
-
-	nvram_unset("wan_ipv6_addr_t");
 
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
@@ -716,6 +713,13 @@ void convert_asus_values()
 		    nvram_safe_get("ipv6_wan_addr"),
 		    nvram_safe_get("ipv6_wan_netsize"));
 		nvram_set("wan0_ipv6_addr", addrstr);
+		nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_wan_router"));
+		nvram_set("wan0_ipv6_remote", nvram_match("ipv6_proto", "tun6in4") ?
+		    nvram_safe_get("ipv6_sit_remote") : "any");
+		nvram_set("wan0_ipv6_relay", nvram_match("ipv6_proto", "tun6rd") ?
+		    nvram_safe_get("ipv6_6rd_router") :
+		    nvram_safe_get("ipv6_sit_relay"));
+		nvram_set("wan0_ipv6_ip4size", nvram_safe_get("ipv6_6rd_ip4size"));
 
 #if !defined(BROKEN_IPV6_CONNTRACK) && !defined(LINUX26)
 		insmod("ip6_conntrack", NULL);
