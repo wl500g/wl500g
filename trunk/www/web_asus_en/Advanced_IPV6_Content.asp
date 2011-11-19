@@ -76,7 +76,7 @@
 		<input type="radio" value="0" name="ipv6_radvd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'IPv6Config', 'ipv6_radvd_enable', '0')"
 			<% nvram_match_x("IPv6Config","ipv6_radvd_enable", "0", "checked"); %>>No</td>
 </tr>
-<!--- TODO: additinal RDNSS servers
+<!-- TODO: additinal RDNSS servers
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that ZVMODELVZ contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">Advertise DNSv6 Server:
           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_radvd_dns1_x" value="<% nvram_get_x("IPv6Config","ipv6_radvd_dns1_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_radvd_dns1_x')">
@@ -125,7 +125,7 @@
           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns1_x" value="<% nvram_get_x("IPv6Config","ipv6_dns1_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_dns1_x')">
 	  </td>
 </tr>
-<!--- TODO: additinal DNSv6 servers
+<!-- TODO: additinal DNSv6 servers
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that ZVMODELVZ contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNSv6 Server2:
           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns2_x" value="<% nvram_get_x("IPv6Config","ipv6_dns2_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_dns2_x')">
 	  </td>
@@ -133,8 +133,8 @@
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that ZVMODELVZ contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNSv6 Server3:
           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns3_x" value="<% nvram_get_x("IPv6Config","ipv6_dns3_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_dns3_x')">
 	  </td>
-</tr>
--->
+</tr>-->
+
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Tunnel IPv6 Setting
            </td>
