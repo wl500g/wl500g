@@ -2851,6 +2851,16 @@ function change_common_radio(o, s, v, r)
 		else
 			frm.wan_proto.value="dhcp";
 	}
+	else if (v=="ipv6_dnsenable_x")
+	{
+		inputCtrl(frm.ipv6_dns1_x, (r == '1') ? 0 : 1);
+//		inputCtrl(frm.ipv6_dns2_x, (r == '1') ? 0 : 1);
+//		inputCtrl(frm.ipv6_dns3_x, (r == '1') ? 0 : 1);
+	}
+	else if (v=="ipv6_radvd_enable")
+	{
+//		inputCtrl(frm.ipv6_radvd_dns1_x, (r == '1') ? 1 : 0);
+	}
 	return true;
 }
 
@@ -4231,79 +4241,106 @@ function changeDHCPClient()
 	}
 }
 
+function change_ipv6_wanauto_x(enable)
+{
+	var frm = document.form;
+	var val = (!enable || frm.ipv6_wanauto_x[0].checked) ? 0 : 1;
+
+	inputCtrl(frm.ipv6_wan_addr, val);
+	inputCtrl(frm.ipv6_wan_netsize, val);
+	inputCtrl(frm.ipv6_wan_router, val);
+}
+
+function change_ipv6_lanauto_x(enable)
+{
+	var frm = document.form;
+	var val = (!enable || frm.ipv6_lanauto_x[0].checked) ? 0 : 1;
+
+	inputCtrl(frm.ipv6_lan_addr, val);
+	inputCtrl(frm.ipv6_lan_netsize, val);
+}
+
 function change_ipv6_type(v)
 {
 	var frm = document.form;
-	if (v == "native" || v == "dhcp6" || v == "ppp")
+	var enable = 1;
+	var tunnel = 0;
+	var ppp = (frm.wan_proto.value == "pptp" ||
+		   frm.wan_proto.value == "l2tp" ||
+		   frm.wan_proto.value == "pppoe") ? 1 : 0;
+
+	if (v == "native")
 	{
-		inputCtrl(frm.ipv6_wan_netsize, 1);
-		inputCtrl(frm.ipv6_wan_router, 1);
-		inputCtrl(frm.ipv6_dns1_x, 1);
-		inputCtrl(frm.ipv6_sit_remote, 0);
-		inputCtrl(frm.ipv6_sit_relay, 0);
-		inputCtrl(frm.ipv6_6rd_router, 0);
-		inputCtrl(frm.ipv6_6rd_ip4size, 0);
-		inputCtrl(frm.ipv6_sit_mtu, 0);
-		inputCtrl(frm.ipv6_sit_ttl, 0);
-		inputRCtrl1(frm.ipv6_radvd_enable, 1);
-	}
-	else if (v == "tun6in4")
+		inputCtrl(frm.ipv6_if_x, ppp);
+		inputRCtrl1(frm.ipv6_wanauto_x, 0);
+		inputRCtrl2(frm.ipv6_wanauto_x, 1);
+		inputRCtrl1(frm.ipv6_dnsenable_x, 0);
+		inputRCtrl2(frm.ipv6_dnsenable_x, 1);
+		inputRCtrl1(frm.ipv6_lanauto_x, 0);
+		inputRCtrl2(frm.ipv6_lanauto_x, 1);
+	} else
+	if (v == "slaac")
 	{
-		inputCtrl(frm.ipv6_wan_netsize, 1);
-		inputCtrl(frm.ipv6_wan_router, 1);
-		inputCtrl(frm.ipv6_dns1_x, 1);
-		inputCtrl(frm.ipv6_sit_remote, 1);
-		inputCtrl(frm.ipv6_sit_relay, 0);
-		inputCtrl(frm.ipv6_6rd_router, 0);
-		inputCtrl(frm.ipv6_6rd_ip4size, 0);
-		inputCtrl(frm.ipv6_sit_mtu, 1);
-		inputCtrl(frm.ipv6_sit_ttl, 1);
-		if (frm.ipv6_sit_remote.value == "0.0.0.0")
-			frm.ipv6_sit_remote.value = "";
-		inputRCtrl1(frm.ipv6_radvd_enable, 1);
-	}
-	else if(v == "tun6to4")
+		inputCtrl(frm.ipv6_if_x, ppp);
+		inputRCtrl1(frm.ipv6_wanauto_x, 0);
+		inputRCtrl2(frm.ipv6_wanauto_x, 0);
+		inputRCtrl1(frm.ipv6_dnsenable_x, 0);
+		inputRCtrl2(frm.ipv6_dnsenable_x, 1);
+		inputRCtrl1(frm.ipv6_lanauto_x, 0);
+		inputRCtrl2(frm.ipv6_lanauto_x, 1);
+	} else
+	if (v == "dhcp6")
 	{
-		inputCtrl(frm.ipv6_wan_netsize, 0);
-		inputCtrl(frm.ipv6_wan_router, 0);
-		inputCtrl(frm.ipv6_dns1_x, 1);
-		inputCtrl(frm.ipv6_sit_remote, 0);
-		inputCtrl(frm.ipv6_sit_relay, 1);
-		inputCtrl(frm.ipv6_6rd_router, 0);
-		inputCtrl(frm.ipv6_6rd_ip4size, 0);
-		inputCtrl(frm.ipv6_sit_mtu, 1);
-		inputCtrl(frm.ipv6_sit_ttl, 1);
-		if (frm.ipv6_sit_relay.value == "0.0.0.0" ||
-		    frm.ipv6_sit_relay.value === "")
-			frm.ipv6_sit_relay.value = "192.88.99.1";
-		inputRCtrl1(frm.ipv6_radvd_enable, 1);
-	}
-	else if(v == "tun6rd")
+		inputCtrl(frm.ipv6_if_x, ppp);
+		inputRCtrl1(frm.ipv6_wanauto_x, 0);
+		inputRCtrl2(frm.ipv6_wanauto_x, 0);
+		inputRCtrl1(frm.ipv6_dnsenable_x, 1);
+		inputRCtrl1(frm.ipv6_lanauto_x, 1);
+	} else
+	if (v == "tun6in4")
 	{
-		inputCtrl(frm.ipv6_wan_netsize, 1);
-		inputCtrl(frm.ipv6_wan_router, 0);
-		inputCtrl(frm.ipv6_dns1_x, 1);
-		inputCtrl(frm.ipv6_sit_remote, 0);
-		inputCtrl(frm.ipv6_sit_relay, 0);
-		inputCtrl(frm.ipv6_6rd_router, 1);
-		inputCtrl(frm.ipv6_6rd_ip4size, 1);
-		inputCtrl(frm.ipv6_sit_mtu, 1);
-		inputCtrl(frm.ipv6_sit_ttl, 1);
-		inputRCtrl1(frm.ipv6_radvd_enable, 1);
-	}
-	else
+		inputCtrl(frm.ipv6_if_x, 0);
+		inputRCtrl1(frm.ipv6_wanauto_x, 0);
+		inputRCtrl2(frm.ipv6_wanauto_x, 1);
+		inputRCtrl1(frm.ipv6_dnsenable_x, 0);
+		inputRCtrl2(frm.ipv6_dnsenable_x, 1);
+		inputRCtrl1(frm.ipv6_lanauto_x, 0);
+		inputRCtrl2(frm.ipv6_lanauto_x, 1);
+		tunnel = 1;
+	} else
+	if(v == "tun6to4" || v == "tun6rd")
 	{
-		inputCtrl(frm.ipv6_wan_netsize, 1);
-		inputCtrl(frm.ipv6_wan_router, 0);
-		inputCtrl(frm.ipv6_dns1_x, 0);
-		inputCtrl(frm.ipv6_sit_remote, 0);
-		inputCtrl(frm.ipv6_sit_relay, 0);
-		inputCtrl(frm.ipv6_6rd_router, 0);
-		inputCtrl(frm.ipv6_6rd_ip4size, 0);
-		inputCtrl(frm.ipv6_sit_mtu, 0);
-		inputCtrl(frm.ipv6_sit_ttl, 0);
-		inputRCtrl1(frm.ipv6_radvd_enable, 0);
+		inputCtrl(frm.ipv6_if_x, 0);
+		inputRCtrl1(frm.ipv6_wanauto_x, 1);
+		inputRCtrl1(frm.ipv6_dnsenable_x, 0);
+		inputRCtrl2(frm.ipv6_dnsenable_x, 1);
+		inputRCtrl1(frm.ipv6_lanauto_x, 1);
+		tunnel = 1;
+	} else
+	{
+		inputCtrl(frm.ipv6_if_x, 0);
+		inputRCtrl1(frm.ipv6_wanauto_x, 0);
+		inputRCtrl1(frm.ipv6_dnsenable_x, 0);
+		inputRCtrl1(frm.ipv6_lanauto_x, 0);
+		enable = 0;
 	}
+
+	change_ipv6_wanauto_x(enable);
+	change_ipv6_lanauto_x(enable);
+
+	val = (!enable || frm.ipv6_dnsenable_x[0].checked) ? '1' : '0';
+	change_common_radio(frm.ipv6_dnsenable_x, 'IPv6Config', 'ipv6_dnsenable_x', val);
+
+     	inputCtrl(frm.ipv6_sit_remote, (v == "tun6in4") ? enable : 0);
+	inputCtrl(frm.ipv6_sit_relay, (v == "tun6to4") ? enable : 0);
+	inputCtrl(frm.ipv6_6rd_router, (v == "tun6rd") ? enable : 0);
+	inputCtrl(frm.ipv6_6rd_ip4size, (v == "tun6rd") ? enable : 0);
+	inputCtrl(frm.ipv6_sit_mtu, tunnel);
+	inputCtrl(frm.ipv6_sit_ttl, tunnel);
+
+	inputRCtrl1(frm.ipv6_radvd_enable, enable);
+	val = (enable && frm.ipv6_radvd_enable[0].checked) ? '1' : '0';
+	change_common_radio(frm.ipv6_radvd_enable, 'IPv6Config', 'ipv6_radvd_enable', val);
 }
 
 function masq_wepkey()
