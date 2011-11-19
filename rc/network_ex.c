@@ -142,7 +142,7 @@ int start_pppd(const char *prefix)
 #ifdef __CONFIG_IPV6__
 	/* Enable IPv6 and IPv6CP */
 	strcat_r(prefix, "ipv6_proto", tmp);
-	if ((nvram_match(tmp, "static") || nvram_match(tmp, "slaac") || nvram_match(tmp, "dhcpv6")) &&
+	if ((nvram_match(tmp, "static") || nvram_match(tmp, "slaac") || nvram_match(tmp, "dhcp6")) &&
 	    !nvram_invmatch(strcat_r(prefix, "ipv6_if_x", tmp), "0")) {
 		fprintf(fp, "+ipv6\n");
 	}
