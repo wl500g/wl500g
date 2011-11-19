@@ -1597,7 +1597,6 @@ struct variable variables_IPv6Config[] = {
 	"native:Static",
 	"slaac:Stateless",
 	"dhcp6:DHCPv6",
-	"ppp:PPPv6",
 	"tun6in4:6in4 tunnel",
 	"tun6to4:6to4 tunnel",
 	"tun6rd:6rd tunnel",
