@@ -50,7 +50,7 @@ static int ppp_prefix(char **wan_ifname, char *prefix)
 	if ((unit = ppp_ifunit(*wan_ifname)) < 0)
 		return -1;
 
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	sprintf(prefix, "wan%d_", unit);
 
 	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
 		return -2;
