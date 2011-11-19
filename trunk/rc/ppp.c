@@ -143,12 +143,12 @@ ip6up_main(int argc, char **argv)
 	char *wan_ifname;
 	//char *value;
 	int unit;
-	char prefix[sizeof("wanXXXXXXXXXX_")];
-
-	if (!nvram_match("ipv6_proto", "ppp"))
-		return -2;
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
 	if ((unit = ppp_prefix(&wan_ifname, prefix)) < 0)
+		return -1;
+
+	if (nvram_invmatch(strcat_r(prefix, "ipv6_if_x", tmp), "0"))
 		return -1;
 
 	//if ((value = getenv("LLLOCAL")))
@@ -166,12 +166,12 @@ ip6down_main(int argc, char **argv)
 {
 	char *wan_ifname;
 	int unit;
-	char prefix[sizeof("wanXXXXXXXXXX_")];
-
-	if (!nvram_match("ipv6_proto", "ppp"))
-		return -2;
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
 	if ((unit = ppp_prefix(&wan_ifname, prefix)) < 0)
+		return -1;
+
+	if (nvram_invmatch(strcat_r(prefix, "ipv6_if_x", tmp), "0"))
 		return -1;
 
 	wan6_down(wan_ifname, unit);
