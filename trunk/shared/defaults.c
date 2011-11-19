@@ -125,20 +125,38 @@ struct nvram_tuple router_defaults[] = {
 #endif	/* __CONFIG_NAT__ */
 
 #ifdef __CONFIG_IPV6__
+	/* Main parameters */
 	{ "ipv6_proto", "", 0 },
- 	{ "ipv6_lan_addr", "", 0 },
+	{ "ipv6_if_x", "0", 0 },
+
+	/* LAN parameters */
+	{ "ipv6_lanauto_x", "0", 0 },
+	{ "ipv6_lan_addr", "", 0 },
 	{ "ipv6_lan_netsize", "64", 0 },
- 	{ "ipv6_wan_addr", "", 0 },
+
+	/* WAN parameters */
+	{ "ipv6_wanauto_x", "0", 0 },
+	{ "ipv6_wan_addr", "", 0 },
 	{ "ipv6_wan_netsize", "64", 0 },
- 	{ "ipv6_wan_router", "", 0 },
- 	{ "ipv6_sit_remote", "", 0 },
- 	{ "ipv6_sit_relay", "192.88.99.1", 0 },
- 	{ "ipv6_6rd_router", "", 0 },
- 	{ "ipv6_6rd_ip4size", "0", 0 },
- 	{ "ipv6_sit_mtu", "1280", 0 },
- 	{ "ipv6_sit_ttl", "64", 0 },
-	{ "ipv6_radvd_enable", "1", 0 },
+	{ "ipv6_wan_router", "", 0 },
+
+	/* Tunnel parameters */
+	{ "ipv6_sit_remote", "", 0 },
+	{ "ipv6_sit_relay", "192.88.99.1", 0 },
+	{ "ipv6_6rd_router", "", 0 },
+	{ "ipv6_6rd_ip4size", "0", 0 },
+	{ "ipv6_sit_mtu", "1280", 0 },
+	{ "ipv6_sit_ttl", "64", 0 },
+
+	/* DNSv6 parameters */
+	{ "ipv6_dnsenable_x", "0", 0 },
 	{ "ipv6_dns1_x", "", 0 },
+	{ "ipv6_dns2_x", "", 0 },
+	{ "ipv6_dns3_x", "", 0 },
+
+	{ "ipv6_radvd_enable", "1", 0 },
+//	{ "ipv6_radvd_lifetime", "86400", 0 },
+	{ "ipv6_radvd_dns1_x", "", 0 },
 #endif  /* __CONFIG_IPV6__ */
 
 	/* Web server parameters */
