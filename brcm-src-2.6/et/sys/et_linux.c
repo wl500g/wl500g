@@ -103,10 +103,6 @@ static et_info_t *et_list = NULL;
 #define INT_LOCK(flags)		local_irq_save(flags)
 #define INT_UNLOCK(flags)	local_irq_restore(flags)
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 4, 5)
-#error Linux version must be newer than 2.4.5
-#endif	/* LINUX_VERSION_CODE <= KERNEL_VERSION(2, 4, 5) */
-
 /* local prototypes */
 static void et_free(et_info_t *et);
 static int et_open(struct net_device *dev);
@@ -363,19 +359,6 @@ et_resume(struct pci_dev *pdev)
 }
 
 /* Compatibility routines */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 4, 6)
-static void
-_et_suspend(struct pci_dev *pdev)
-{
-	et_suspend(pdev, 0);
-}
-
-static void
-_et_resume(struct pci_dev *pdev)
-{
-	et_resume(pdev);
-}
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2, 4, 6) */
 
 static void __devexit
 et_remove(struct pci_dev *pdev)
@@ -400,13 +383,8 @@ et_remove(struct pci_dev *pdev)
 static struct pci_driver et_pci_driver = {
 	name:		"et",
 	probe:		et_probe,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 4, 6)
-	suspend:	_et_suspend,
-	resume:		_et_resume,
-#else
 	suspend:	et_suspend,
 	resume:		et_resume,
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2, 4, 6) */
 	remove:		__devexit_p(et_remove),
 	id_table:	et_id_table,
 	};

@@ -349,13 +349,8 @@ extern void osl_writel(osl_t *osh, volatile uint32 *r, uint32 v);
 
 /* dereference an address that may cause a bus exception */
 #ifdef mips
-#if defined(MODULE) && (LINUX_VERSION_CODE < KERNEL_VERSION(2, 4, 17))
-#define BUSPROBE(val, addr)	panic("get_dbe() will not fixup a bus exception when compiled into"\
-					" a module")
-#else
 #define	BUSPROBE(val, addr)	get_dbe((val), (addr))
 #include <asm/paccess.h>
-#endif /* defined(MODULE) && (LINUX_VERSION_CODE < KERNEL_VERSION(2, 4, 17)) */
 #else
 #define	BUSPROBE(val, addr)	({ (val) = R_REG(NULL, (addr)); 0; })
 #endif /* mips */
