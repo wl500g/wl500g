@@ -136,7 +136,7 @@ checkentry(const char *tablename,
 	return 1;
 }
 
-static struct xt_match frag_match = {
+static struct xt_match frag_match __read_mostly = {
 	.name		= "frag",
 	.family		= AF_INET6,
 	.match		= match,

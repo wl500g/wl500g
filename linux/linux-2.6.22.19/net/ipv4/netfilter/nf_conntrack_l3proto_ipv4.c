@@ -201,7 +201,7 @@ static unsigned int ipv4_conntrack_local(unsigned int hooknum,
 
 /* Connection tracking may drop packets, but never alters them, so
    make it the first hook. */
-static struct nf_hook_ops ipv4_conntrack_ops[] = {
+static struct nf_hook_ops ipv4_conntrack_ops[] __read_mostly = {
 	{
 		.hook		= ipv4_conntrack_defrag,
 		.owner		= THIS_MODULE,
@@ -417,7 +417,7 @@ static struct nf_sockopt_ops so_getorigdst = {
 	.get		= &getorigdst,
 };
 
-struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 = {
+struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 __read_mostly = {
 	.l3proto	 = PF_INET,
 	.name		 = "ipv4",
 	.pkt_to_tuple	 = ipv4_pkt_to_tuple,

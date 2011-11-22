@@ -265,7 +265,7 @@ static unsigned int ipv6_conntrack_local(unsigned int hooknum,
 	return ipv6_conntrack_in(hooknum, pskb, in, out, okfn);
 }
 
-static struct nf_hook_ops ipv6_conntrack_ops[] = {
+static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
 	{
 		.hook		= ipv6_defrag,
 		.owner		= THIS_MODULE,
@@ -381,7 +381,7 @@ static int ipv6_nfattr_to_tuple(struct nfattr *tb[],
 }
 #endif
 
-struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6 = {
+struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6 __read_mostly = {
 	.l3proto		= PF_INET6,
 	.name			= "ipv6",
 	.pkt_to_tuple		= ipv6_pkt_to_tuple,

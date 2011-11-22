@@ -222,7 +222,7 @@ checkentry(const char *tablename,
 	return 1;
 }
 
-static struct xt_match rt_match = {
+static struct xt_match rt_match __read_mostly = {
 	.name		= "rt",
 	.family		= AF_INET6,
 	.match		= match,

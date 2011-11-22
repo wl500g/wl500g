@@ -468,7 +468,7 @@ static void destroy(const struct xt_target *target, void *targinfo)
 	nf_ct_l3proto_module_put(target->family);
 }
 
-static struct xt_target clusterip_tgt = {
+static struct xt_target clusterip_tgt __read_mostly = {
 	.name		= "CLUSTERIP",
 	.family		= AF_INET,
 	.target		= target,
@@ -566,7 +566,7 @@ arp_mangle(unsigned int hook,
 	return NF_ACCEPT;
 }
 
-static struct nf_hook_ops cip_arp_ops = {
+static struct nf_hook_ops cip_arp_ops __read_mostly = {
 	.hook = arp_mangle,
 	.pf = NF_ARP,
 	.hooknum = NF_ARP_OUT,

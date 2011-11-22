@@ -127,7 +127,7 @@ checkentry(const char *tablename,
 	return 1;
 }
 
-static struct xt_match xt_physdev_match[] = {
+static struct xt_match xt_physdev_match[] __read_mostly = {
 	{
 		.name		= "physdev",
 		.family		= AF_INET,

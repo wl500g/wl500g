@@ -40,26 +40,27 @@
 
 static DEFINE_RWLOCK(nf_nat_lock);
 
-static struct nf_conntrack_l3proto *l3proto = NULL;
+static struct nf_conntrack_l3proto *l3proto __read_mostly;
 
 /* Calculated at init based on memory size */
-static unsigned int nf_nat_htable_size;
+static unsigned int nf_nat_htable_size __read_mostly;
 
-static struct list_head *bysource;
+static struct list_head *bysource __read_mostly;
 
 #define MAX_IP_NAT_PROTO 256
-static struct nf_nat_protocol *nf_nat_protos[MAX_IP_NAT_PROTO];
+static const struct nf_nat_protocol *nf_nat_protos[MAX_IP_NAT_PROTO]
+						__read_mostly;
 
-static inline struct nf_nat_protocol *
+static inline const struct nf_nat_protocol *
 __nf_nat_proto_find(u_int8_t protonum)
 {
 	return rcu_dereference(nf_nat_protos[protonum]);
 }
 
-struct nf_nat_protocol *
+const struct nf_nat_protocol *
 nf_nat_proto_find_get(u_int8_t protonum)
 {
-	struct nf_nat_protocol *p;
+	const struct nf_nat_protocol *p;
 
 	rcu_read_lock();
 	p = __nf_nat_proto_find(protonum);
@@ -123,7 +124,7 @@ static int
 in_range(const struct nf_conntrack_tuple *tuple,
 	 const struct nf_nat_range *range)
 {
-	struct nf_nat_protocol *proto;
+	const struct nf_nat_protocol *proto;
 	int ret = 0;
 
 	/* If we are supposed to map IPs, then we must be in the
@@ -243,7 +244,7 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
 		 struct nf_conn *ct,
 		 enum nf_nat_manip_type maniptype)
 {
-	struct nf_nat_protocol *proto;
+	const struct nf_nat_protocol *proto;
 
 	/* 1) If this srcip/proto/src-proto-part is currently mapped,
 	   and that same mapping gives a unique tuple within the given
@@ -360,7 +361,7 @@ manip_pkt(u_int16_t proto,
 	  enum nf_nat_manip_type maniptype)
 {
 	struct iphdr *iph;
-	struct nf_nat_protocol *p;
+	const struct nf_nat_protocol *p;
 
 	if (!skb_make_writable(pskb, iphdroff + sizeof(*iph)))
 		return 0;

@@ -468,7 +468,7 @@ static int ip6t_log_checkentry(const char *tablename,
 	return 1;
 }
 
-static struct xt_target ip6t_log_reg = {
+static struct xt_target ip6t_log_reg __read_mostly = {
 	.name 		= "LOG",
 	.family		= AF_INET6,
 	.target 	= ip6t_log_target,

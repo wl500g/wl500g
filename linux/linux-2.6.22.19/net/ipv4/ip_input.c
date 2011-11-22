@@ -146,6 +146,9 @@
 #include <linux/mroute.h>
 #include <linux/netlink.h>
 
+ /*
+  *	SNMP management statistics
+  */
 /*
  *	SNMP management statistics
  */

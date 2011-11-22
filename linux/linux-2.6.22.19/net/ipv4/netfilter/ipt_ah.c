@@ -87,7 +87,7 @@ checkentry(const char *tablename,
 	return 1;
 }
 
-static struct xt_match ah_match = {
+static struct xt_match ah_match __read_mostly = {
 	.name		= "ah",
 	.family		= AF_INET,
 	.match		= match,

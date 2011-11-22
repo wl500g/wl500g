@@ -91,7 +91,7 @@ checkentry(const char *tablename,
 	return 1;
 }
 
-static struct xt_match xt_esp_match[] = {
+static struct xt_match xt_esp_match[] __read_mostly = {
 	{
 		.name		= "esp",
 		.family		= AF_INET,

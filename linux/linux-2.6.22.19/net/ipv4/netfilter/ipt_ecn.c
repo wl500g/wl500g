@@ -110,7 +110,7 @@ static int checkentry(const char *tablename, const void *ip_void,
 	return 1;
 }
 
-static struct xt_match ecn_match = {
+static struct xt_match ecn_match __read_mostly = {
 	.name		= "ecn",
 	.family		= AF_INET,
 	.match		= match,

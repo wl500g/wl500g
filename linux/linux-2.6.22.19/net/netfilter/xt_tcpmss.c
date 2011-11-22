@@ -81,7 +81,7 @@ dropit:
 	return 0;
 }
 
-static struct xt_match xt_tcpmss_match[] = {
+static struct xt_match xt_tcpmss_match[] __read_mostly = {
 	{
 		.name		= "tcpmss",
 		.family		= AF_INET,

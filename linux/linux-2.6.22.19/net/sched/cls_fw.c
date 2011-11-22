@@ -367,8 +367,7 @@ rtattr_failure:
 	return -1;
 }
 
-static struct tcf_proto_ops cls_fw_ops = {
-	.next		=	NULL,
+static struct tcf_proto_ops cls_fw_ops __read_mostly = {
 	.kind		=	"fw",
 	.classify	=	fw_classify,
 	.init		=	fw_init,

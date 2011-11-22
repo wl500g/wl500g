@@ -455,7 +455,7 @@ static int ipt_log_checkentry(const char *tablename,
 	return 1;
 }
 
-static struct xt_target ipt_log_reg = {
+static struct xt_target ipt_log_reg __read_mostly = {
 	.name		= "LOG",
 	.family		= AF_INET,
 	.target		= ipt_log_target,

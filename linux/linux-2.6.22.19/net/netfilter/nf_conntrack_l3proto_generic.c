@@ -82,7 +82,7 @@ static u_int32_t generic_get_features(const struct nf_conntrack_tuple *tuple)
 	return NF_CT_F_BASIC;
 }
 
-struct nf_conntrack_l3proto nf_conntrack_l3proto_generic = {
+struct nf_conntrack_l3proto nf_conntrack_l3proto_generic __read_mostly = {
 	.l3proto	 = PF_UNSPEC,
 	.name		 = "unknown",
 	.pkt_to_tuple	 = generic_pkt_to_tuple,

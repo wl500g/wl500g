@@ -109,7 +109,7 @@ static int checkentry(const char *tablename, const void *entry,
 	return 1;
 }
 
-static struct xt_target xt_secmark_target[] = {
+static struct xt_target xt_secmark_target[] __read_mostly = {
 	{
 		.name		= "SECMARK",
 		.family		= AF_INET,

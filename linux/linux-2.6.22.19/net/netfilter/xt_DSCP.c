@@ -81,7 +81,7 @@ static int checkentry(const char *tablename,
 	return 1;
 }
 
-static struct xt_target xt_dscp_target[] = {
+static struct xt_target xt_dscp_target[] __read_mostly = {
 	{
 		.name		= "DSCP",
 		.family		= AF_INET,
