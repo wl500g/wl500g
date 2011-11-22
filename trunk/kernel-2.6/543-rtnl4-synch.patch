@@ -352,7 +352,7 @@ diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
 -	}
 -}
 -
- static struct nf_hook_ops dnrmg_ops = {
+ static struct nf_hook_ops dnrmg_ops __read_mostly = {
  	.hook		= dnrmg_hook,
  	.pf		= PF_DECnet,
 @@ -138,7 +127,8 @@ static int __init dn_rtmsg_init(void)
