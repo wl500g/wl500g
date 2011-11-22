@@ -1,3 +1,22 @@
+IMQ (intermediate queueing device) support
+
+---
+ drivers/net/Kconfig                     |  123 +++++++++
+ drivers/net/Makefile                    |    1 
+ drivers/net/imq.c                       |  407 ++++++++++++++++++++++++++++++++
+ include/linux/imq.h                     |   13 +
+ include/linux/netfilter/xt_IMQ.h        |    9 
+ include/linux/netfilter_ipv4/ipt_IMQ.h  |   10 
+ include/linux/netfilter_ipv6/ip6t_IMQ.h |   10 
+ include/linux/skbuff.h                  |    8 
+ net/core/dev.c                          |    9 
+ net/core/skbuff.c                       |    4 
+ net/netfilter/Kconfig                   |   13 +
+ net/netfilter/Makefile                  |    1 
+ net/netfilter/xt_IMQ.c                  |   79 ++++++
+ net/sched/sch_generic.c                 |    7 
+ 14 files changed, 692 insertions(+), 2 deletions(-)
+
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
@@ -145,7 +164,7 @@ diff --git a/drivers/net/Makefile b/drivers/net/Makefile
 diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 --- /dev/null
 +++ b/drivers/net/imq.c
-@@ -0,0 +1,414 @@
+@@ -0,0 +1,407 @@
 +/*
 + *             Pseudo-driver for the intermediate queue device.
 + *
@@ -424,16 +443,12 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +		goto err2;
 +#endif
 +	if ((err = nf_register_hooks(imq_ops, ARRAY_SIZE(imq_ops))))
-+		goto err3;
++		goto err2;
 +
 +	return 0;
 +
-+err3:
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+	nf_unregister_queue_handler(PF_INET6);
 +err2:
-+#endif
-+	nf_unregister_queue_handler(PF_INET);
++	nf_unregister_queue_handlers(&nfqh);
 +err1:
 +	return err;
 +}
@@ -441,10 +456,7 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +static void __exit imq_unhook(void)
 +{
 +	nf_unregister_hooks(imq_ops, ARRAY_SIZE(imq_ops));
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+	nf_unregister_queue_handler(PF_INET6);
-+#endif
-+	nf_unregister_queue_handler(PF_INET);
++	nf_unregister_queue_handlers(&nfqh);
 +}
 +
 +static int __init imq_dev_init(struct net_device *dev)
