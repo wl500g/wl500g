@@ -145,7 +145,7 @@ diff --git a/drivers/net/Makefile b/drivers/net/Makefile
 diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 --- /dev/null
 +++ b/drivers/net/imq.c
-@@ -0,0 +1,430 @@
+@@ -0,0 +1,414 @@
 +/*
 + *             Pseudo-driver for the intermediate queue device.
 + *
@@ -216,37 +216,36 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +
 +static nf_hookfn imq_nf_hook;
 +
-+static struct nf_hook_ops imq_ingress_ipv4 = {
++static struct nf_hook_ops imq_ops[] __read_mostly = {
++	{
 +	.hook		= imq_nf_hook,
 +	.owner		= THIS_MODULE,
 +	.pf		= PF_INET,
 +	.hooknum	= NF_IP_PRE_ROUTING,
 +	.priority	= NF_IP_PRI_MANGLE + 1
-+};
-+
-+static struct nf_hook_ops imq_egress_ipv4 = {
++	},
++	{
 +	.hook		= imq_nf_hook,
 +	.owner		= THIS_MODULE,
 +	.pf		= PF_INET,
 +	.hooknum	= NF_IP_POST_ROUTING,
 +	.priority	= NF_IP_PRI_NAT_SRC - 1
-+};
-+
++	},
 +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+static struct nf_hook_ops imq_ingress_ipv6 = {
++	{
 +	.hook		= imq_nf_hook,
 +	.owner		= THIS_MODULE,
 +	.pf		= PF_INET6,
 +	.hooknum	= NF_IP6_PRE_ROUTING,
 +	.priority	= NF_IP6_PRI_MANGLE + 1
-+};
-+
-+static struct nf_hook_ops imq_egress_ipv6 = {
++	},
++	{
 +	.hook		= imq_nf_hook,
 +	.owner		= THIS_MODULE,
 +	.pf		= PF_INET6,
 +	.hooknum	= NF_IP6_POST_ROUTING,
 +	.priority	= NF_IP6_PRI_NAT_SRC - 1
++	},
 +};
 +#endif
 +
@@ -405,47 +404,35 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +	}
 +
 +	if (imq_behaviour & IMQ_BEHAV_INGRESS_AFTER) {
-+	       imq_ingress_ipv4.priority = NF_IP_PRI_NAT_DST + 1;
++	       imq_ops[0].priority = NF_IP_PRI_NAT_DST + 1;
 +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+	       imq_ingress_ipv6.priority = NF_IP6_PRI_NAT_DST + 1;
++	       imq_ops[2].priority = NF_IP6_PRI_NAT_DST + 1;
 +#endif
 +	}
 +	if (imq_behaviour & IMQ_BEHAV_EGRESS_AFTER) {
-+	       imq_egress_ipv4.priority = NF_IP_PRI_LAST;
++	       imq_ops[1].priority = NF_IP_PRI_LAST;
 +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+	       imq_egress_ipv6.priority = NF_IP6_PRI_LAST;
++	       imq_ops[3].priority = NF_IP6_PRI_LAST;
 +#endif
 +	}
 +
 +	err = nf_register_queue_handler(PF_INET, &nfqh);
 +	if (err > 0)
 +		goto err1;
-+	if ((err = nf_register_hook(&imq_ingress_ipv4)))
-+		goto err2;
-+	if ((err = nf_register_hook(&imq_egress_ipv4)))
-+		goto err3;
 +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 +	if ((err = nf_register_queue_handler(PF_INET6, &nfqh)))
-+		goto err4;
-+	if ((err = nf_register_hook(&imq_ingress_ipv6)))
-+		goto err5;
-+	if ((err = nf_register_hook(&imq_egress_ipv6)))
-+		goto err6;
++		goto err2;
 +#endif
++	if ((err = nf_register_hooks(imq_ops, ARRAY_SIZE(imq_ops))))
++		goto err3;
 +
 +	return 0;
 +
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+err6:
-+	nf_unregister_hook(&imq_ingress_ipv6);
-+err5:
-+	nf_unregister_queue_handler(PF_INET6);
-+err4:
-+	nf_unregister_hook(&imq_egress_ipv4);
-+#endif
 +err3:
-+	nf_unregister_hook(&imq_ingress_ipv4);
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++	nf_unregister_queue_handler(PF_INET6);
 +err2:
++#endif
 +	nf_unregister_queue_handler(PF_INET);
 +err1:
 +	return err;
@@ -453,13 +440,10 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +
 +static void __exit imq_unhook(void)
 +{
++	nf_unregister_hooks(imq_ops, ARRAY_SIZE(imq_ops));
 +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+	nf_unregister_hook(&imq_ingress_ipv6);
-+	nf_unregister_hook(&imq_egress_ipv6);
 +	nf_unregister_queue_handler(PF_INET6);
 +#endif
-+	nf_unregister_hook(&imq_ingress_ipv4);
-+	nf_unregister_hook(&imq_egress_ipv4);
 +	nf_unregister_queue_handler(PF_INET);
 +}
 +
