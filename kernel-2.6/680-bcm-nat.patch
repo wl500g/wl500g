@@ -593,9 +593,9 @@
  		return NF_ACCEPT;
 --- a/net/netfilter/nf_conntrack_standalone.c
 +++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -379,6 +379,16 @@ static ctl_table nf_ct_netfilter_table[]
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec,
+@@ -358,6 +358,16 @@ static ctl_table nf_ct_sysctl_table[] =
+ 		.extra1		= &log_invalid_proto_min,
+ 		.extra2		= &log_invalid_proto_max,
  	},
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 +	{
@@ -607,6 +607,6 @@
 +		.proc_handler	= &proc_dointvec,
 +	},
 +#endif
+ 
  	{ .ctl_name = 0 }
  };
- 
