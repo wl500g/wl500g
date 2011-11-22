@@ -155,6 +155,8 @@ static inline void pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *pt
 }
 #endif
 
+static inline int pte_special(pte_t pte) { return 0; }
+
 /*
  * (pmds are folded into puds so this doesn't get actually called,
  * but the define is needed for a generic inline function.)

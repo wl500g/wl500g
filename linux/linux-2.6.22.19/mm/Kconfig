@@ -168,3 +168,6 @@ config NR_QUICK
 	depends on QUICKLIST
 	default "2" if (SUPERH && !SUPERH64)
 	default "1"
+
+config HAVE_GET_USER_PAGES_FAST
+	bool
