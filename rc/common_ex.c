@@ -743,7 +743,7 @@ void convert_asus_values()
 
 #if defined(LINUX26) && defined(QOS)
 	/* Kinda smart fast nat management */
-	fputs_ex("/proc/sys/net/ipv4/netfilter/ip_conntrack_fastnat",
+	fputs_ex("/proc/sys/net/netfilter/nf_conntrack_fastnat",
 	    nvram_match("misc_fastnat_x", "0") || !nvram_match("wan_nat_x", "1") ||
 #ifdef __CONFIG_MADWIMAX__
 	    nvram_match("wan_proto", "wimax") ||

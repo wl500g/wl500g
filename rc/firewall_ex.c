@@ -1338,7 +1338,7 @@ int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if
 	filter_setting(wan_if, wan_ip, lan_if, lan_ip, logaccept, logdrop);
 
 	if (nvram_invmatch("misc_conntrack_x", "")) {
-		fputs_ex("/proc/sys/net/ipv4/netfilter/ip_conntrack_max",
+		fputs_ex("/proc/sys/net/netfilter/nf_conntrack_max",
 				nvram_safe_get("misc_conntrack_x"));
 	}
 #ifdef XBOX_SUPPORT
