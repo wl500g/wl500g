@@ -1796,7 +1796,7 @@ diff --git a/net/netfilter/xt_quota.c b/net/netfilter/xt_quota.c
 +	kfree(q->master);
 +}
 +
- static struct xt_match xt_quota_match[] = {
+ static struct xt_match xt_quota_match[] __read_mostly = {
  	{
  		.name		= "quota",
  		.family		= AF_INET,
@@ -1877,7 +1877,7 @@ diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
 +	kfree(info->master);
 +}
 +
- static struct xt_match xt_statistic_match[] = {
+ static struct xt_match xt_statistic_match[] __read_mostly = {
  	{
  		.name		= "statistic",
  		.family		= AF_INET,

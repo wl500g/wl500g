@@ -1,0 +1,1844 @@
+net: __read_mostly marks
+
+ 9f15c5302de4e8b0aac7ca24c36bf26a7fe1a513 [NETFILTER]: x_tables: mark matches and targets __read_mostly
+ 41c5b317036fcb593d14b4dfd12e3318faf3af8a [NETFILTER]: Use nf_register_hooks for multiple registrations
+ ec59a1110aee6846adada8979915cacae64042ce [NETFILTER]: nf_conntrack: mark helpers __read_mostly
+ 61075af51f252913401c41fbe94075b46c94e9f1 [NETFILTER]: nf_conntrack: mark protocols __read_mostly
+ 1999414a4ece2b8cea3fb3c4dc8fe06796256269 [NETFILTER]: Mark hooks __read_mostly
+ ce4b1cebdcd4779097e9862670e5c5208e76712b [NETFILTER]: nf_nat: sprinkle a few __read_mostlys
+ 2eb9d75c723252c1fa8f0206e6a0df220e3c64c0 [NET_SCHED]: mark classifier ops __read_mostly
+ a252bebe22155313ccdadc20b79f67a239dc9ecb tcp: mark tcp_congestion_ops read_mostly
+
+---
+ include/net/netfilter/ipv4/nf_conntrack_ipv4.h |    2 
+ include/net/netfilter/nf_conntrack_l3proto.h   |    2 
+ include/net/netfilter/nf_nat_protocol.h        |    2 
+ net/bridge/br_netfilter.c                      |    2 
+ net/bridge/netfilter/ebtable_filter.c          |    2 
+ net/bridge/netfilter/ebtable_nat.c             |    2 
+ net/decnet/netfilter/dn_rtmsg.c                |    2 
+ net/ipv4/ip_input.c                            |    3 
+ net/ipv4/ipvs/ip_vs_core.c                     |  104 +++++++++----------------
+ net/ipv4/netfilter/arp_tables.c                |    4 
+ net/ipv4/netfilter/arpt_mangle.c               |    2 
+ net/ipv4/netfilter/arptable_filter.c           |    2 
+ net/ipv4/netfilter/ip_tables.c                 |    6 -
+ net/ipv4/netfilter/ipt_CLUSTERIP.c             |    4 
+ net/ipv4/netfilter/ipt_ECN.c                   |    2 
+ net/ipv4/netfilter/ipt_LOG.c                   |    2 
+ net/ipv4/netfilter/ipt_MASQUERADE.c            |    2 
+ net/ipv4/netfilter/ipt_NETMAP.c                |    2 
+ net/ipv4/netfilter/ipt_REDIRECT.c              |    2 
+ net/ipv4/netfilter/ipt_REJECT.c                |    2 
+ net/ipv4/netfilter/ipt_SAME.c                  |    2 
+ net/ipv4/netfilter/ipt_TOS.c                   |    2 
+ net/ipv4/netfilter/ipt_ULOG.c                  |    2 
+ net/ipv4/netfilter/ipt_addrtype.c              |    2 
+ net/ipv4/netfilter/ipt_ah.c                    |    2 
+ net/ipv4/netfilter/ipt_ecn.c                   |    2 
+ net/ipv4/netfilter/ipt_iprange.c               |    2 
+ net/ipv4/netfilter/ipt_owner.c                 |    2 
+ net/ipv4/netfilter/ipt_tos.c                   |    2 
+ net/ipv4/netfilter/iptable_filter.c            |    2 
+ net/ipv4/netfilter/iptable_mangle.c            |    2 
+ net/ipv4/netfilter/iptable_raw.c               |    2 
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    4 
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    3 
+ net/ipv4/netfilter/nf_nat_core.c               |   21 ++---
+ net/ipv4/netfilter/nf_nat_rule.c               |    4 
+ net/ipv4/netfilter/nf_nat_standalone.c         |    2 
+ net/ipv4/tcp_bic.c                             |    2 
+ net/ipv4/tcp_cubic.c                           |    2 
+ net/ipv4/tcp_highspeed.c                       |    2 
+ net/ipv4/tcp_htcp.c                            |    2 
+ net/ipv4/tcp_hybla.c                           |    2 
+ net/ipv4/tcp_illinois.c                        |    2 
+ net/ipv4/tcp_lp.c                              |    2 
+ net/ipv4/tcp_scalable.c                        |    2 
+ net/ipv4/tcp_vegas.c                           |    2 
+ net/ipv4/tcp_veno.c                            |    2 
+ net/ipv4/tcp_westwood.c                        |    2 
+ net/ipv4/tcp_yeah.c                            |    2 
+ net/ipv6/netfilter/ip6_tables.c                |    6 -
+ net/ipv6/netfilter/ip6t_LOG.c                  |    2 
+ net/ipv6/netfilter/ip6t_REJECT.c               |    2 
+ net/ipv6/netfilter/ip6t_ah.c                   |    2 
+ net/ipv6/netfilter/ip6t_eui64.c                |    2 
+ net/ipv6/netfilter/ip6t_frag.c                 |    2 
+ net/ipv6/netfilter/ip6t_hbh.c                  |    2 
+ net/ipv6/netfilter/ip6t_ipv6header.c           |    2 
+ net/ipv6/netfilter/ip6t_mh.c                   |    2 
+ net/ipv6/netfilter/ip6t_owner.c                |    2 
+ net/ipv6/netfilter/ip6t_rt.c                   |    2 
+ net/ipv6/netfilter/ip6table_filter.c           |    2 
+ net/ipv6/netfilter/ip6table_mangle.c           |    2 
+ net/ipv6/netfilter/ip6table_raw.c              |    2 
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    4 
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    4 
+ net/netfilter/nf_conntrack_ftp.c               |    4 
+ net/netfilter/nf_conntrack_l3proto_generic.c   |    2 
+ net/netfilter/nf_conntrack_proto_generic.c     |    2 
+ net/netfilter/nf_conntrack_proto_gre.c         |    2 
+ net/netfilter/nf_conntrack_proto_sctp.c        |    4 
+ net/netfilter/nf_conntrack_proto_tcp.c         |    4 
+ net/netfilter/nf_conntrack_proto_udp.c         |    4 
+ net/netfilter/nf_conntrack_sane.c              |    4 
+ net/netfilter/xt_CLASSIFY.c                    |    2 
+ net/netfilter/xt_CONNSECMARK.c                 |    2 
+ net/netfilter/xt_DSCP.c                        |    2 
+ net/netfilter/xt_MARK.c                        |    2 
+ net/netfilter/xt_NFLOG.c                       |    2 
+ net/netfilter/xt_NFQUEUE.c                     |    2 
+ net/netfilter/xt_NOTRACK.c                     |    2 
+ net/netfilter/xt_SECMARK.c                     |    2 
+ net/netfilter/xt_TCPMSS.c                      |    2 
+ net/netfilter/xt_comment.c                     |    2 
+ net/netfilter/xt_connbytes.c                   |    2 
+ net/netfilter/xt_connmark.c                    |    2 
+ net/netfilter/xt_dccp.c                        |    2 
+ net/netfilter/xt_dscp.c                        |    2 
+ net/netfilter/xt_esp.c                         |    2 
+ net/netfilter/xt_hashlimit.c                   |    2 
+ net/netfilter/xt_helper.c                      |    2 
+ net/netfilter/xt_length.c                      |    2 
+ net/netfilter/xt_limit.c                       |    2 
+ net/netfilter/xt_mac.c                         |    2 
+ net/netfilter/xt_mark.c                        |    2 
+ net/netfilter/xt_multiport.c                   |    2 
+ net/netfilter/xt_physdev.c                     |    2 
+ net/netfilter/xt_pkttype.c                     |    2 
+ net/netfilter/xt_policy.c                      |    2 
+ net/netfilter/xt_quota.c                       |    2 
+ net/netfilter/xt_realm.c                       |    2 
+ net/netfilter/xt_sctp.c                        |    2 
+ net/netfilter/xt_state.c                       |    2 
+ net/netfilter/xt_statistic.c                   |    2 
+ net/netfilter/xt_string.c                      |    2 
+ net/netfilter/xt_tcpmss.c                      |    2 
+ net/netfilter/xt_tcpudp.c                      |    2 
+ net/sched/cls_api.c                            |    2 
+ net/sched/cls_basic.c                          |    2 
+ net/sched/cls_fw.c                             |    3 
+ net/sched/cls_route.c                          |    3 
+ net/sched/cls_tcindex.c                        |    3 
+ net/sched/cls_u32.c                            |    3 
+ net/sched/sch_ingress.c                        |   44 ++++------
+ 113 files changed, 194 insertions(+), 231 deletions(-)
+
+diff --git a/include/net/netfilter/ipv4/nf_conntrack_ipv4.h b/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
+--- a/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
++++ b/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
+@@ -33,6 +33,8 @@ struct nf_conn_nat {
+ struct sk_buff *
+ nf_ct_ipv4_ct_gather_frags(struct sk_buff *skb);
+ 
++extern struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4;
++
+ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4;
+ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4;
+ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp;
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -88,8 +88,6 @@ extern struct nf_conntrack_l3proto *nf_c
+ extern void nf_ct_l3proto_put(struct nf_conntrack_l3proto *p);
+ 
+ /* Existing built-in protocols */
+-extern struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4;
+-extern struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6;
+ extern struct nf_conntrack_l3proto nf_conntrack_l3proto_generic;
+ 
+ static inline struct nf_conntrack_l3proto *
+diff --git a/include/net/netfilter/nf_nat_protocol.h b/include/net/netfilter/nf_nat_protocol.h
+--- a/include/net/netfilter/nf_nat_protocol.h
++++ b/include/net/netfilter/nf_nat_protocol.h
+@@ -49,7 +49,7 @@ struct nf_nat_protocol
+ extern int nf_nat_protocol_register(struct nf_nat_protocol *proto);
+ extern void nf_nat_protocol_unregister(struct nf_nat_protocol *proto);
+ 
+-extern struct nf_nat_protocol *nf_nat_proto_find_get(u_int8_t protocol);
++extern const struct nf_nat_protocol *nf_nat_proto_find_get(u_int8_t protocol);
+ extern void nf_nat_proto_put(struct nf_nat_protocol *proto);
+ 
+ /* Built-in protocols. */
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -862,7 +862,7 @@ static unsigned int ip_sabotage_in(unsig
+  * PF_BRIDGE/NF_BR_LOCAL_OUT functions don't get bridged traffic as input.
+  * For br_nf_post_routing, we need (prio = NF_BR_PRI_LAST), because
+  * ip_refrag() can return NF_STOLEN. */
+-static struct nf_hook_ops br_nf_ops[] = {
++static struct nf_hook_ops br_nf_ops[] __read_mostly = {
+ 	{ .hook = br_nf_pre_routing,
+ 	  .owner = THIS_MODULE,
+ 	  .pf = PF_BRIDGE,
+diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
+--- a/net/bridge/netfilter/ebtable_filter.c
++++ b/net/bridge/netfilter/ebtable_filter.c
+@@ -67,7 +67,7 @@ ebt_hook(unsigned int hook, struct sk_bu
+ 	return ebt_do_table(hook, skb, in, out, &frame_filter);
+ }
+ 
+-static struct nf_hook_ops ebt_ops_filter[] = {
++static struct nf_hook_ops ebt_ops_filter[] __read_mostly = {
+ 	{
+ 		.hook		= ebt_hook,
+ 		.owner		= THIS_MODULE,
+diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
+--- a/net/bridge/netfilter/ebtable_nat.c
++++ b/net/bridge/netfilter/ebtable_nat.c
+@@ -74,7 +74,7 @@ ebt_nat_src(unsigned int hook, struct sk
+ 	return ebt_do_table(hook, skb, in, out, &frame_nat);
+ }
+ 
+-static struct nf_hook_ops ebt_ops_nat[] = {
++static struct nf_hook_ops ebt_ops_nat[] __read_mostly = {
+ 	{
+ 		.hook		= ebt_nat_dst,
+ 		.owner		= THIS_MODULE,
+diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
+--- a/net/decnet/netfilter/dn_rtmsg.c
++++ b/net/decnet/netfilter/dn_rtmsg.c
+@@ -115,7 +115,7 @@ static inline void dnrmg_receive_user_sk
+ 	RCV_SKB_FAIL(-EINVAL);
+ }
+ 
+-static struct nf_hook_ops dnrmg_ops = {
++static struct nf_hook_ops dnrmg_ops __read_mostly = {
+ 	.hook		= dnrmg_hook,
+ 	.pf		= PF_DECnet,
+ 	.hooknum	= NF_DN_ROUTE,
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -150,6 +150,9 @@
+ extern int nf_conntrack_fastnat;
+ #endif
+ 
++ /*
++  *	SNMP management statistics
++  */
+ /*
+  *	SNMP management statistics
+  */
+diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
+--- a/net/ipv4/ipvs/ip_vs_core.c
++++ b/net/ipv4/ipvs/ip_vs_core.c
+@@ -1063,43 +1063,42 @@ ip_vs_forward_icmp(unsigned int hooknum,
+ }
+ 
+ 
+-/* After packet filtering, forward packet through VS/DR, VS/TUN,
+-   or VS/NAT(change destination), so that filtering rules can be
+-   applied to IPVS. */
+-static struct nf_hook_ops ip_vs_in_ops = {
+-	.hook		= ip_vs_in,
+-	.owner		= THIS_MODULE,
+-	.pf		= PF_INET,
+-	.hooknum        = NF_IP_LOCAL_IN,
+-	.priority       = 100,
+-};
+-
+-/* After packet filtering, change source only for VS/NAT */
+-static struct nf_hook_ops ip_vs_out_ops = {
+-	.hook		= ip_vs_out,
+-	.owner		= THIS_MODULE,
+-	.pf		= PF_INET,
+-	.hooknum        = NF_IP_FORWARD,
+-	.priority       = 100,
+-};
+-
+-/* After packet filtering (but before ip_vs_out_icmp), catch icmp
+-   destined for 0.0.0.0/0, which is for incoming IPVS connections */
+-static struct nf_hook_ops ip_vs_forward_icmp_ops = {
+-	.hook		= ip_vs_forward_icmp,
+-	.owner		= THIS_MODULE,
+-	.pf		= PF_INET,
+-	.hooknum        = NF_IP_FORWARD,
+-	.priority       = 99,
+-};
+-
+-/* Before the netfilter connection tracking, exit from POST_ROUTING */
+-static struct nf_hook_ops ip_vs_post_routing_ops = {
+-	.hook		= ip_vs_post_routing,
+-	.owner		= THIS_MODULE,
+-	.pf		= PF_INET,
+-	.hooknum        = NF_IP_POST_ROUTING,
+-	.priority       = NF_IP_PRI_NAT_SRC-1,
++static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
++	/* After packet filtering, forward packet through VS/DR, VS/TUN,
++	 * or VS/NAT(change destination), so that filtering rules can be
++	 * applied to IPVS. */
++	{
++		.hook		= ip_vs_in,
++		.owner		= THIS_MODULE,
++		.pf		= PF_INET,
++		.hooknum        = NF_IP_LOCAL_IN,
++		.priority       = 100,
++	},
++	/* After packet filtering, change source only for VS/NAT */
++	{
++		.hook		= ip_vs_out,
++		.owner		= THIS_MODULE,
++		.pf		= PF_INET,
++		.hooknum        = NF_IP_FORWARD,
++		.priority       = 100,
++	},
++	/* After packet filtering (but before ip_vs_out_icmp), catch icmp
++	 * destined for 0.0.0.0/0, which is for incoming IPVS connections */
++	{
++		.hook		= ip_vs_forward_icmp,
++		.owner		= THIS_MODULE,
++		.pf		= PF_INET,
++		.hooknum        = NF_IP_FORWARD,
++		.priority       = 99,
++	},
++	/* Before the netfilter connection tracking, exit from POST_ROUTING */
++	{
++		.hook		= ip_vs_post_routing,
++		.owner		= THIS_MODULE,
++		.pf		= PF_INET,
++		.hooknum        = NF_IP_POST_ROUTING,
++		.priority       = NF_IP_PRI_NAT_SRC-1,
++	},
+ };
+ 
+ 
+@@ -1130,37 +1129,15 @@ static int __init ip_vs_init(void)
+ 		goto cleanup_app;
+ 	}
+ 
+-	ret = nf_register_hook(&ip_vs_in_ops);
++	ret = nf_register_hooks(ip_vs_ops, ARRAY_SIZE(ip_vs_ops));
+ 	if (ret < 0) {
+-		IP_VS_ERR("can't register in hook.\n");
++		IP_VS_ERR("can't register hooks.\n");
+ 		goto cleanup_conn;
+ 	}
+ 
+-	ret = nf_register_hook(&ip_vs_out_ops);
+-	if (ret < 0) {
+-		IP_VS_ERR("can't register out hook.\n");
+-		goto cleanup_inops;
+-	}
+-	ret = nf_register_hook(&ip_vs_post_routing_ops);
+-	if (ret < 0) {
+-		IP_VS_ERR("can't register post_routing hook.\n");
+-		goto cleanup_outops;
+-	}
+-	ret = nf_register_hook(&ip_vs_forward_icmp_ops);
+-	if (ret < 0) {
+-		IP_VS_ERR("can't register forward_icmp hook.\n");
+-		goto cleanup_postroutingops;
+-	}
+-
+ 	IP_VS_INFO("ipvs loaded.\n");
+ 	return ret;
+ 
+-  cleanup_postroutingops:
+-	nf_unregister_hook(&ip_vs_post_routing_ops);
+-  cleanup_outops:
+-	nf_unregister_hook(&ip_vs_out_ops);
+-  cleanup_inops:
+-	nf_unregister_hook(&ip_vs_in_ops);
+   cleanup_conn:
+ 	ip_vs_conn_cleanup();
+   cleanup_app:
+@@ -1174,10 +1151,7 @@ static int __init ip_vs_init(void)
+ 
+ static void __exit ip_vs_cleanup(void)
+ {
+-	nf_unregister_hook(&ip_vs_forward_icmp_ops);
+-	nf_unregister_hook(&ip_vs_post_routing_ops);
+-	nf_unregister_hook(&ip_vs_out_ops);
+-	nf_unregister_hook(&ip_vs_in_ops);
++	nf_unregister_hooks(ip_vs_ops, ARRAY_SIZE(ip_vs_ops));
+ 	ip_vs_conn_cleanup();
+ 	ip_vs_app_cleanup();
+ 	ip_vs_protocol_cleanup();
+diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
+--- a/net/ipv4/netfilter/arptable_filter.c
++++ b/net/ipv4/netfilter/arptable_filter.c
+@@ -62,7 +62,7 @@ static unsigned int arpt_hook(unsigned i
+ 	return arpt_do_table(skb, hook, in, out, &packet_filter);
+ }
+ 
+-static struct nf_hook_ops arpt_ops[] = {
++static struct nf_hook_ops arpt_ops[] __read_mostly = {
+ 	{
+ 		.hook		= arpt_hook,
+ 		.owner		= THIS_MODULE,
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -1177,13 +1177,13 @@ void arpt_unregister_table(struct arpt_t
+ }
+ 
+ /* The built-in targets: standard (NULL) and error. */
+-static struct arpt_target arpt_standard_target = {
++static struct arpt_target arpt_standard_target __read_mostly = {
+ 	.name		= ARPT_STANDARD_TARGET,
+ 	.targetsize	= sizeof(int),
+ 	.family		= NF_ARP,
+ };
+ 
+-static struct arpt_target arpt_error_target = {
++static struct arpt_target arpt_error_target __read_mostly = {
+ 	.name		= ARPT_ERROR_TARGET,
+ 	.target		= arpt_error,
+ 	.targetsize	= ARPT_FUNCTION_MAXNAMELEN,
+diff --git a/net/ipv4/netfilter/arpt_mangle.c b/net/ipv4/netfilter/arpt_mangle.c
+--- a/net/ipv4/netfilter/arpt_mangle.c
++++ b/net/ipv4/netfilter/arpt_mangle.c
+@@ -73,7 +73,7 @@ checkentry(const char *tablename, const 
+ 	return 1;
+ }
+ 
+-static struct arpt_target arpt_mangle_reg = {
++static struct arpt_target arpt_mangle_reg __read_mostly = {
+ 	.name		= "mangle",
+ 	.target		= target,
+ 	.targetsize	= sizeof(struct arpt_mangle),
+diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
+--- a/net/ipv4/netfilter/iptable_filter.c
++++ b/net/ipv4/netfilter/iptable_filter.c
+@@ -88,7 +88,7 @@ ipt_local_out_hook(unsigned int hook,
+ 	return ipt_do_table(skb, hook, in, out, &packet_filter);
+ }
+ 
+-static struct nf_hook_ops ipt_ops[] = {
++static struct nf_hook_ops ipt_ops[] __read_mostly = {
+ 	{
+ 		.hook		= ipt_hook,
+ 		.owner		= THIS_MODULE,
+diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
+--- a/net/ipv4/netfilter/iptable_mangle.c
++++ b/net/ipv4/netfilter/iptable_mangle.c
+@@ -127,7 +127,7 @@ ipt_local_hook(unsigned int hook,
+ 	return ret;
+ }
+ 
+-static struct nf_hook_ops ipt_ops[] = {
++static struct nf_hook_ops ipt_ops[] __read_mostly = {
+ 	{
+ 		.hook		= ipt_route_hook,
+ 		.owner		= THIS_MODULE,
+diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
+--- a/net/ipv4/netfilter/iptable_raw.c
++++ b/net/ipv4/netfilter/iptable_raw.c
+@@ -73,7 +73,7 @@ ipt_local_hook(unsigned int hook,
+ }
+ 
+ /* 'raw' is the very first table. */
+-static struct nf_hook_ops ipt_ops[] = {
++static struct nf_hook_ops ipt_ops[] __read_mostly = {
+ 	{
+ 		.hook = ipt_hook,
+ 		.pf = PF_INET,
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -2179,7 +2179,7 @@ icmp_checkentry(const char *tablename,
+ }
+ 
+ /* The built-in targets: standard (NULL) and error. */
+-static struct xt_target ipt_standard_target = {
++static struct xt_target ipt_standard_target __read_mostly = {
+ 	.name		= IPT_STANDARD_TARGET,
+ 	.targetsize	= sizeof(int),
+ 	.family		= AF_INET,
+@@ -2190,7 +2190,7 @@ static struct xt_target ipt_standard_tar
+ #endif
+ };
+ 
+-static struct xt_target ipt_error_target = {
++static struct xt_target ipt_error_target __read_mostly = {
+ 	.name		= IPT_ERROR_TARGET,
+ 	.target		= ipt_error,
+ 	.targetsize	= IPT_FUNCTION_MAXNAMELEN,
+@@ -2213,7 +2213,7 @@ static struct nf_sockopt_ops ipt_sockopt
+ #endif
+ };
+ 
+-static struct xt_match icmp_matchstruct = {
++static struct xt_match icmp_matchstruct __read_mostly = {
+ 	.name		= "icmp",
+ 	.match		= icmp_match,
+ 	.matchsize	= sizeof(struct ipt_icmp),
+diff --git a/net/ipv4/netfilter/ipt_addrtype.c b/net/ipv4/netfilter/ipt_addrtype.c
+--- a/net/ipv4/netfilter/ipt_addrtype.c
++++ b/net/ipv4/netfilter/ipt_addrtype.c
+@@ -44,7 +44,7 @@ static int match(const struct sk_buff *s
+ 	return ret;
+ }
+ 
+-static struct xt_match addrtype_match = {
++static struct xt_match addrtype_match __read_mostly = {
+ 	.name		= "addrtype",
+ 	.family		= AF_INET,
+ 	.match		= match,
+diff --git a/net/ipv4/netfilter/ipt_ah.c b/net/ipv4/netfilter/ipt_ah.c
+--- a/net/ipv4/netfilter/ipt_ah.c
++++ b/net/ipv4/netfilter/ipt_ah.c
+@@ -87,7 +87,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_match ah_match = {
++static struct xt_match ah_match __read_mostly = {
+ 	.name		= "ah",
+ 	.family		= AF_INET,
+ 	.match		= match,
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -468,7 +468,7 @@ static void destroy(const struct xt_targ
+ 	nf_ct_l3proto_module_put(target->family);
+ }
+ 
+-static struct xt_target clusterip_tgt = {
++static struct xt_target clusterip_tgt __read_mostly = {
+ 	.name		= "CLUSTERIP",
+ 	.family		= AF_INET,
+ 	.target		= target,
+@@ -566,7 +566,7 @@ arp_mangle(unsigned int hook,
+ 	return NF_ACCEPT;
+ }
+ 
+-static struct nf_hook_ops cip_arp_ops = {
++static struct nf_hook_ops cip_arp_ops __read_mostly = {
+ 	.hook = arp_mangle,
+ 	.pf = NF_ARP,
+ 	.hooknum = NF_ARP_OUT,
+diff --git a/net/ipv4/netfilter/ipt_ecn.c b/net/ipv4/netfilter/ipt_ecn.c
+--- a/net/ipv4/netfilter/ipt_ecn.c
++++ b/net/ipv4/netfilter/ipt_ecn.c
+@@ -110,7 +110,7 @@ static int checkentry(const char *tablen
+ 	return 1;
+ }
+ 
+-static struct xt_match ecn_match = {
++static struct xt_match ecn_match __read_mostly = {
+ 	.name		= "ecn",
+ 	.family		= AF_INET,
+ 	.match		= match,
+diff --git a/net/ipv4/netfilter/ipt_ECN.c b/net/ipv4/netfilter/ipt_ECN.c
+--- a/net/ipv4/netfilter/ipt_ECN.c
++++ b/net/ipv4/netfilter/ipt_ECN.c
+@@ -127,7 +127,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_target ipt_ecn_reg = {
++static struct xt_target ipt_ecn_reg __read_mostly = {
+ 	.name		= "ECN",
+ 	.family		= AF_INET,
+ 	.target		= target,
+diff --git a/net/ipv4/netfilter/ipt_iprange.c b/net/ipv4/netfilter/ipt_iprange.c
+--- a/net/ipv4/netfilter/ipt_iprange.c
++++ b/net/ipv4/netfilter/ipt_iprange.c
+@@ -63,7 +63,7 @@ match(const struct sk_buff *skb,
+ 	return 1;
+ }
+ 
+-static struct xt_match iprange_match = {
++static struct xt_match iprange_match __read_mostly = {
+ 	.name		= "iprange",
+ 	.family		= AF_INET,
+ 	.match		= match,
+diff --git a/net/ipv4/netfilter/ipt_LOG.c b/net/ipv4/netfilter/ipt_LOG.c
+--- a/net/ipv4/netfilter/ipt_LOG.c
++++ b/net/ipv4/netfilter/ipt_LOG.c
+@@ -488,7 +488,7 @@ static int ipt_log_checkentry(const char
+ 	return 1;
+ }
+ 
+-static struct xt_target ipt_log_reg = {
++static struct xt_target ipt_log_reg __read_mostly = {
+ 	.name		= "LOG",
+ 	.family		= AF_INET,
+ 	.target		= ipt_log_target,
+diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
+--- a/net/ipv4/netfilter/ipt_MASQUERADE.c
++++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
+@@ -149,7 +149,7 @@ static struct notifier_block masq_inet_n
+ 	.notifier_call	= masq_inet_event,
+ };
+ 
+-static struct xt_target masquerade = {
++static struct xt_target masquerade __read_mostly = {
+ 	.name		= "MASQUERADE",
+ 	.family		= AF_INET,
+ 	.target		= masquerade_target,
+diff --git a/net/ipv4/netfilter/ipt_NETMAP.c b/net/ipv4/netfilter/ipt_NETMAP.c
+--- a/net/ipv4/netfilter/ipt_NETMAP.c
++++ b/net/ipv4/netfilter/ipt_NETMAP.c
+@@ -85,7 +85,7 @@ target(struct sk_buff *skb,
+ 	return nf_nat_setup_info(ct, &newrange, hooknum);
+ }
+ 
+-static struct xt_target target_module = {
++static struct xt_target target_module __read_mostly = {
+ 	.name 		= MODULENAME,
+ 	.family		= AF_INET,
+ 	.target 	= target,
+diff --git a/net/ipv4/netfilter/ipt_owner.c b/net/ipv4/netfilter/ipt_owner.c
+--- a/net/ipv4/netfilter/ipt_owner.c
++++ b/net/ipv4/netfilter/ipt_owner.c
+@@ -68,7 +68,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_match owner_match = {
++static struct xt_match owner_match __read_mostly = {
+ 	.name		= "owner",
+ 	.family		= AF_INET,
+ 	.match		= match,
+diff --git a/net/ipv4/netfilter/ipt_REDIRECT.c b/net/ipv4/netfilter/ipt_REDIRECT.c
+--- a/net/ipv4/netfilter/ipt_REDIRECT.c
++++ b/net/ipv4/netfilter/ipt_REDIRECT.c
+@@ -101,7 +101,7 @@ redirect_target(struct sk_buff *skb,
+ 	return nf_nat_setup_info(ct, &newrange, hooknum);
+ }
+ 
+-static struct xt_target redirect_reg = {
++static struct xt_target redirect_reg __read_mostly = {
+ 	.name		= "REDIRECT",
+ 	.family		= AF_INET,
+ 	.target		= redirect_target,
+diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
+--- a/net/ipv4/netfilter/ipt_REJECT.c
++++ b/net/ipv4/netfilter/ipt_REJECT.c
+@@ -206,7 +206,7 @@ static int check(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_target ipt_reject_reg = {
++static struct xt_target ipt_reject_reg __read_mostly = {
+ 	.name		= "REJECT",
+ 	.family		= AF_INET,
+ 	.target		= reject,
+diff --git a/net/ipv4/netfilter/ipt_SAME.c b/net/ipv4/netfilter/ipt_SAME.c
+--- a/net/ipv4/netfilter/ipt_SAME.c
++++ b/net/ipv4/netfilter/ipt_SAME.c
+@@ -161,7 +161,7 @@ same_target(struct sk_buff *skb,
+ 	return nf_nat_setup_info(ct, &newrange, hooknum);
+ }
+ 
+-static struct xt_target same_reg = {
++static struct xt_target same_reg __read_mostly = {
+ 	.name		= "SAME",
+ 	.family		= AF_INET,
+ 	.target		= same_target,
+diff --git a/net/ipv4/netfilter/ipt_tos.c b/net/ipv4/netfilter/ipt_tos.c
+--- a/net/ipv4/netfilter/ipt_tos.c
++++ b/net/ipv4/netfilter/ipt_tos.c
+@@ -33,7 +33,7 @@ match(const struct sk_buff *skb,
+ 	return (ip_hdr(skb)->tos == info->tos) ^ info->invert;
+ }
+ 
+-static struct xt_match tos_match = {
++static struct xt_match tos_match __read_mostly = {
+ 	.name		= "tos",
+ 	.family		= AF_INET,
+ 	.match		= match,
+diff --git a/net/ipv4/netfilter/ipt_TOS.c b/net/ipv4/netfilter/ipt_TOS.c
+--- a/net/ipv4/netfilter/ipt_TOS.c
++++ b/net/ipv4/netfilter/ipt_TOS.c
+@@ -63,7 +63,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_target ipt_tos_reg = {
++static struct xt_target ipt_tos_reg __read_mostly = {
+ 	.name		= "TOS",
+ 	.family		= AF_INET,
+ 	.target		= target,
+diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
+--- a/net/ipv4/netfilter/ipt_ULOG.c
++++ b/net/ipv4/netfilter/ipt_ULOG.c
+@@ -384,7 +384,7 @@ static int compat_to_user(void __user *d
+ }
+ #endif /* CONFIG_COMPAT */
+ 
+-static struct xt_target ipt_ulog_reg = {
++static struct xt_target ipt_ulog_reg __read_mostly = {
+ 	.name		= "ULOG",
+ 	.family		= AF_INET,
+ 	.target		= ipt_ulog_target,
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -198,7 +198,7 @@ static unsigned int ipv4_conntrack_local
+ 
+ /* Connection tracking may drop packets, but never alters them, so
+    make it the first hook. */
+-static struct nf_hook_ops ipv4_conntrack_ops[] = {
++static struct nf_hook_ops ipv4_conntrack_ops[] __read_mostly = {
+ 	{
+ 		.hook		= ipv4_conntrack_defrag,
+ 		.owner		= THIS_MODULE,
+@@ -414,7 +414,7 @@ static struct nf_sockopt_ops so_getorigd
+ 	.get		= &getorigdst,
+ };
+ 
+-struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 = {
++struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 __read_mostly = {
+ 	.l3proto	 = PF_INET,
+ 	.name		 = "ipv4",
+ 	.pkt_to_tuple	 = ipv4_pkt_to_tuple,
+diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -329,7 +329,7 @@ static struct ctl_table icmp_compat_sysc
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif /* CONFIG_SYSCTL */
+ 
+-struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp =
++struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp __read_mostly =
+ {
+ 	.l3proto		= PF_INET,
+ 	.l4proto		= IPPROTO_ICMP,
+@@ -354,4 +354,3 @@ struct nf_conntrack_l4proto nf_conntrack
+ #endif
+ #endif
+ };
+-EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_icmp);
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -40,26 +40,27 @@
+ 
+ static DEFINE_RWLOCK(nf_nat_lock);
+ 
+-static struct nf_conntrack_l3proto *l3proto = NULL;
++static struct nf_conntrack_l3proto *l3proto __read_mostly;
+ 
+ /* Calculated at init based on memory size */
+-static unsigned int nf_nat_htable_size;
++static unsigned int nf_nat_htable_size __read_mostly;
+ 
+-static struct list_head *bysource;
++static struct list_head *bysource __read_mostly;
+ 
+ #define MAX_IP_NAT_PROTO 256
+-static struct nf_nat_protocol *nf_nat_protos[MAX_IP_NAT_PROTO];
++static const struct nf_nat_protocol *nf_nat_protos[MAX_IP_NAT_PROTO]
++						__read_mostly;
+ 
+-static inline struct nf_nat_protocol *
++static inline const struct nf_nat_protocol *
+ __nf_nat_proto_find(u_int8_t protonum)
+ {
+ 	return rcu_dereference(nf_nat_protos[protonum]);
+ }
+ 
+-struct nf_nat_protocol *
++const struct nf_nat_protocol *
+ nf_nat_proto_find_get(u_int8_t protonum)
+ {
+-	struct nf_nat_protocol *p;
++	const struct nf_nat_protocol *p;
+ 
+ 	rcu_read_lock();
+ 	p = __nf_nat_proto_find(protonum);
+@@ -127,7 +128,7 @@ static int
+ in_range(const struct nf_conntrack_tuple *tuple,
+ 	 const struct nf_nat_range *range)
+ {
+-	struct nf_nat_protocol *proto;
++	const struct nf_nat_protocol *proto;
+ 	int ret = 0;
+ 
+ 	/* If we are supposed to map IPs, then we must be in the
+@@ -248,7 +249,7 @@ get_unique_tuple(struct nf_conntrack_tup
+ 		 struct nf_conn *ct,
+ 		 enum nf_nat_manip_type maniptype)
+ {
+-	struct nf_nat_protocol *proto;
++	const struct nf_nat_protocol *proto;
+ 
+ 	/* 1) If this srcip/proto/src-proto-part is currently mapped,
+ 	   and that same mapping gives a unique tuple within the given
+@@ -366,7 +367,7 @@ manip_pkt(u_int16_t proto,
+ 	  enum nf_nat_manip_type maniptype)
+ {
+ 	struct iphdr *iph;
+-	struct nf_nat_protocol *p;
++	const struct nf_nat_protocol *p;
+ 
+ 	if (!skb_make_writable(skb, iphdroff + sizeof(*iph)))
+ 		return 0;
+diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
+--- a/net/ipv4/netfilter/nf_nat_rule.c
++++ b/net/ipv4/netfilter/nf_nat_rule.c
+@@ -227,7 +227,7 @@ int nf_nat_rule_find(struct sk_buff *skb
+ 	return ret;
+ }
+ 
+-static struct xt_target ipt_snat_reg = {
++static struct xt_target ipt_snat_reg __read_mostly = {
+ 	.name		= "SNAT",
+ 	.target		= ipt_snat_target,
+ 	.targetsize	= sizeof(struct nf_nat_multi_range_compat),
+@@ -237,7 +237,7 @@ static struct xt_target ipt_snat_reg = {
+ 	.family		= AF_INET,
+ };
+ 
+-static struct xt_target ipt_dnat_reg = {
++static struct xt_target ipt_dnat_reg __read_mostly = {
+ 	.name		= "DNAT",
+ 	.target		= ipt_dnat_target,
+ 	.targetsize	= sizeof(struct nf_nat_multi_range_compat),
+diff --git a/net/ipv4/netfilter/nf_nat_standalone.c b/net/ipv4/netfilter/nf_nat_standalone.c
+--- a/net/ipv4/netfilter/nf_nat_standalone.c
++++ b/net/ipv4/netfilter/nf_nat_standalone.c
+@@ -273,7 +273,7 @@ nf_nat_adjust(unsigned int hooknum,
+ 
+ /* We must be after connection tracking and before packet filtering. */
+ 
+-static struct nf_hook_ops nf_nat_ops[] = {
++static struct nf_hook_ops nf_nat_ops[] __read_mostly = {
+ 	/* Before packet filtering, change destination */
+ 	{
+ 		.hook		= nf_nat_in,
+diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
+--- a/net/ipv4/tcp_bic.c
++++ b/net/ipv4/tcp_bic.c
+@@ -218,7 +218,7 @@ static void bictcp_acked(struct sock *sk
+ }
+ 
+ 
+-static struct tcp_congestion_ops bictcp = {
++static struct tcp_congestion_ops bictcp __read_mostly = {
+ 	.init		= bictcp_init,
+ 	.ssthresh	= bictcp_recalc_ssthresh,
+ 	.cong_avoid	= bictcp_cong_avoid,
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -346,7 +346,7 @@ static void bictcp_acked(struct sock *sk
+ }
+ 
+ 
+-static struct tcp_congestion_ops cubictcp = {
++static struct tcp_congestion_ops cubictcp __read_mostly = {
+ 	.init		= bictcp_init,
+ 	.ssthresh	= bictcp_recalc_ssthresh,
+ 	.cong_avoid	= bictcp_cong_avoid,
+diff --git a/net/ipv4/tcp_highspeed.c b/net/ipv4/tcp_highspeed.c
+--- a/net/ipv4/tcp_highspeed.c
++++ b/net/ipv4/tcp_highspeed.c
+@@ -159,7 +159,7 @@ static u32 hstcp_ssthresh(struct sock *s
+ }
+ 
+ 
+-static struct tcp_congestion_ops tcp_highspeed = {
++static struct tcp_congestion_ops tcp_highspeed __read_mostly = {
+ 	.init		= hstcp_init,
+ 	.ssthresh	= hstcp_ssthresh,
+ 	.cong_avoid	= hstcp_cong_avoid,
+diff --git a/net/ipv4/tcp_htcp.c b/net/ipv4/tcp_htcp.c
+--- a/net/ipv4/tcp_htcp.c
++++ b/net/ipv4/tcp_htcp.c
+@@ -282,7 +282,7 @@ static void htcp_state(struct sock *sk, 
+ 	}
+ }
+ 
+-static struct tcp_congestion_ops htcp = {
++static struct tcp_congestion_ops htcp __read_mostly = {
+ 	.init		= htcp_init,
+ 	.ssthresh	= htcp_recalc_ssthresh,
+ 	.cong_avoid	= htcp_cong_avoid,
+diff --git a/net/ipv4/tcp_hybla.c b/net/ipv4/tcp_hybla.c
+--- a/net/ipv4/tcp_hybla.c
++++ b/net/ipv4/tcp_hybla.c
+@@ -157,7 +157,7 @@ static void hybla_cong_avoid(struct sock
+ 	tp->snd_cwnd = min_t(u32, tp->snd_cwnd, tp->snd_cwnd_clamp);
+ }
+ 
+-static struct tcp_congestion_ops tcp_hybla = {
++static struct tcp_congestion_ops tcp_hybla __read_mostly = {
+ 	.init		= hybla_init,
+ 	.ssthresh	= tcp_reno_ssthresh,
+ 	.min_cwnd	= tcp_reno_min_cwnd,
+diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
+--- a/net/ipv4/tcp_illinois.c
++++ b/net/ipv4/tcp_illinois.c
+@@ -325,7 +325,7 @@ static void tcp_illinois_info(struct soc
+ 	}
+ }
+ 
+-static struct tcp_congestion_ops tcp_illinois = {
++static struct tcp_congestion_ops tcp_illinois __read_mostly = {
+ 	.flags		= TCP_CONG_RTT_STAMP,
+ 	.init		= tcp_illinois_init,
+ 	.ssthresh	= tcp_illinois_ssthresh,
+diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
+--- a/net/ipv4/tcp_lp.c
++++ b/net/ipv4/tcp_lp.c
+@@ -314,7 +314,7 @@ static void tcp_lp_pkts_acked(struct soc
+ 	lp->last_drop = tcp_time_stamp;
+ }
+ 
+-static struct tcp_congestion_ops tcp_lp = {
++static struct tcp_congestion_ops tcp_lp __read_mostly = {
+ 	.flags = TCP_CONG_RTT_STAMP,
+ 	.init = tcp_lp_init,
+ 	.ssthresh = tcp_reno_ssthresh,
+diff --git a/net/ipv4/tcp_scalable.c b/net/ipv4/tcp_scalable.c
+--- a/net/ipv4/tcp_scalable.c
++++ b/net/ipv4/tcp_scalable.c
+@@ -42,7 +42,7 @@ static u32 tcp_scalable_ssthresh(struct 
+ }
+ 
+ 
+-static struct tcp_congestion_ops tcp_scalable = {
++static struct tcp_congestion_ops tcp_scalable __read_mostly = {
+ 	.ssthresh	= tcp_scalable_ssthresh,
+ 	.cong_avoid	= tcp_scalable_cong_avoid,
+ 	.min_cwnd	= tcp_reno_min_cwnd,
+diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
+--- a/net/ipv4/tcp_vegas.c
++++ b/net/ipv4/tcp_vegas.c
+@@ -353,7 +353,7 @@ void tcp_vegas_get_info(struct sock *sk,
+ }
+ EXPORT_SYMBOL_GPL(tcp_vegas_get_info);
+ 
+-static struct tcp_congestion_ops tcp_vegas = {
++static struct tcp_congestion_ops tcp_vegas __read_mostly = {
+ 	.flags		= TCP_CONG_RTT_STAMP,
+ 	.init		= tcp_vegas_init,
+ 	.ssthresh	= tcp_reno_ssthresh,
+diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
+--- a/net/ipv4/tcp_veno.c
++++ b/net/ipv4/tcp_veno.c
+@@ -204,7 +204,7 @@ static u32 tcp_veno_ssthresh(struct sock
+ 		return max(tp->snd_cwnd >> 1U, 2U);
+ }
+ 
+-static struct tcp_congestion_ops tcp_veno = {
++static struct tcp_congestion_ops tcp_veno __read_mostly = {
+ 	.flags		= TCP_CONG_RTT_STAMP,
+ 	.init		= tcp_veno_init,
+ 	.ssthresh	= tcp_veno_ssthresh,
+diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
+--- a/net/ipv4/tcp_westwood.c
++++ b/net/ipv4/tcp_westwood.c
+@@ -271,7 +271,7 @@ static void tcp_westwood_info(struct soc
+ }
+ 
+ 
+-static struct tcp_congestion_ops tcp_westwood = {
++static struct tcp_congestion_ops tcp_westwood __read_mostly = {
+ 	.init		= tcp_westwood_init,
+ 	.ssthresh	= tcp_reno_ssthresh,
+ 	.cong_avoid	= tcp_reno_cong_avoid,
+diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
+--- a/net/ipv4/tcp_yeah.c
++++ b/net/ipv4/tcp_yeah.c
+@@ -233,7 +233,7 @@ static u32 tcp_yeah_ssthresh(struct sock
+ 	return tp->snd_cwnd - reduction;
+ }
+ 
+-static struct tcp_congestion_ops tcp_yeah = {
++static struct tcp_congestion_ops tcp_yeah __read_mostly = {
+ 	.flags		= TCP_CONG_RTT_STAMP,
+ 	.init		= tcp_yeah_init,
+ 	.ssthresh	= tcp_yeah_ssthresh,
+diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
+--- a/net/ipv6/netfilter/ip6table_filter.c
++++ b/net/ipv6/netfilter/ip6table_filter.c
+@@ -87,7 +87,7 @@ ip6t_local_out_hook(unsigned int hook,
+ 	return ip6t_do_table(skb, hook, in, out, &packet_filter);
+ }
+ 
+-static struct nf_hook_ops ip6t_ops[] = {
++static struct nf_hook_ops ip6t_ops[] __read_mostly = {
+ 	{
+ 		.hook		= ip6t_hook,
+ 		.owner		= THIS_MODULE,
+diff --git a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_mangle.c
+--- a/net/ipv6/netfilter/ip6table_mangle.c
++++ b/net/ipv6/netfilter/ip6table_mangle.c
+@@ -125,7 +125,7 @@ ip6t_local_hook(unsigned int hook,
+ 	return ret;
+ }
+ 
+-static struct nf_hook_ops ip6t_ops[] = {
++static struct nf_hook_ops ip6t_ops[] __read_mostly = {
+ 	{
+ 		.hook		= ip6t_route_hook,
+ 		.owner		= THIS_MODULE,
+diff --git a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
+--- a/net/ipv6/netfilter/ip6table_raw.c
++++ b/net/ipv6/netfilter/ip6table_raw.c
+@@ -59,7 +59,7 @@ ip6t_hook(unsigned int hook,
+ 	return ip6t_do_table(skb, hook, in, out, &packet_raw);
+ }
+ 
+-static struct nf_hook_ops ip6t_ops[] = {
++static struct nf_hook_ops ip6t_ops[] __read_mostly = {
+ 	{
+ 	  .hook = ip6t_hook,
+ 	  .pf = PF_INET6,
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -1346,13 +1346,13 @@ icmp6_checkentry(const char *tablename,
+ }
+ 
+ /* The built-in targets: standard (NULL) and error. */
+-static struct xt_target ip6t_standard_target = {
++static struct xt_target ip6t_standard_target __read_mostly = {
+ 	.name		= IP6T_STANDARD_TARGET,
+ 	.targetsize	= sizeof(int),
+ 	.family		= AF_INET6,
+ };
+ 
+-static struct xt_target ip6t_error_target = {
++static struct xt_target ip6t_error_target __read_mostly = {
+ 	.name		= IP6T_ERROR_TARGET,
+ 	.target		= ip6t_error,
+ 	.targetsize	= IP6T_FUNCTION_MAXNAMELEN,
+@@ -1369,7 +1369,7 @@ static struct nf_sockopt_ops ip6t_sockop
+ 	.get		= do_ip6t_get_ctl,
+ };
+ 
+-static struct xt_match icmp6_matchstruct = {
++static struct xt_match icmp6_matchstruct __read_mostly = {
+ 	.name		= "icmp6",
+ 	.match		= &icmp6_match,
+ 	.matchsize	= sizeof(struct ip6t_icmp),
+diff --git a/net/ipv6/netfilter/ip6t_ah.c b/net/ipv6/netfilter/ip6t_ah.c
+--- a/net/ipv6/netfilter/ip6t_ah.c
++++ b/net/ipv6/netfilter/ip6t_ah.c
+@@ -119,7 +119,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_match ah_match = {
++static struct xt_match ah_match __read_mostly = {
+ 	.name		= "ah",
+ 	.family		= AF_INET6,
+ 	.match		= match,
+diff --git a/net/ipv6/netfilter/ip6t_eui64.c b/net/ipv6/netfilter/ip6t_eui64.c
+--- a/net/ipv6/netfilter/ip6t_eui64.c
++++ b/net/ipv6/netfilter/ip6t_eui64.c
+@@ -62,7 +62,7 @@ match(const struct sk_buff *skb,
+ 	return 0;
+ }
+ 
+-static struct xt_match eui64_match = {
++static struct xt_match eui64_match __read_mostly = {
+ 	.name		= "eui64",
+ 	.family		= AF_INET6,
+ 	.match		= match,
+diff --git a/net/ipv6/netfilter/ip6t_frag.c b/net/ipv6/netfilter/ip6t_frag.c
+--- a/net/ipv6/netfilter/ip6t_frag.c
++++ b/net/ipv6/netfilter/ip6t_frag.c
+@@ -136,7 +136,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_match frag_match = {
++static struct xt_match frag_match __read_mostly = {
+ 	.name		= "frag",
+ 	.family		= AF_INET6,
+ 	.match		= match,
+diff --git a/net/ipv6/netfilter/ip6t_hbh.c b/net/ipv6/netfilter/ip6t_hbh.c
+--- a/net/ipv6/netfilter/ip6t_hbh.c
++++ b/net/ipv6/netfilter/ip6t_hbh.c
+@@ -190,7 +190,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_match opts_match[] = {
++static struct xt_match opts_match[] __read_mostly = {
+ 	{
+ 		.name		= "hbh",
+ 		.family		= AF_INET6,
+diff --git a/net/ipv6/netfilter/ip6t_ipv6header.c b/net/ipv6/netfilter/ip6t_ipv6header.c
+--- a/net/ipv6/netfilter/ip6t_ipv6header.c
++++ b/net/ipv6/netfilter/ip6t_ipv6header.c
+@@ -141,7 +141,7 @@ ipv6header_checkentry(const char *tablen
+ 	return 1;
+ }
+ 
+-static struct xt_match ip6t_ipv6header_match = {
++static struct xt_match ip6t_ipv6header_match __read_mostly = {
+ 	.name		= "ipv6header",
+ 	.family		= AF_INET6,
+ 	.match		= &ipv6header_match,
+diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
+--- a/net/ipv6/netfilter/ip6t_LOG.c
++++ b/net/ipv6/netfilter/ip6t_LOG.c
+@@ -498,7 +498,7 @@ static int ip6t_log_checkentry(const cha
+ 	return 1;
+ }
+ 
+-static struct xt_target ip6t_log_reg = {
++static struct xt_target ip6t_log_reg __read_mostly = {
+ 	.name 		= "LOG",
+ 	.family		= AF_INET6,
+ 	.target 	= ip6t_log_target,
+diff --git a/net/ipv6/netfilter/ip6t_mh.c b/net/ipv6/netfilter/ip6t_mh.c
+--- a/net/ipv6/netfilter/ip6t_mh.c
++++ b/net/ipv6/netfilter/ip6t_mh.c
+@@ -91,7 +91,7 @@ mh_checkentry(const char *tablename,
+ 	return !(mhinfo->invflags & ~IP6T_MH_INV_MASK);
+ }
+ 
+-static struct xt_match mh_match = {
++static struct xt_match mh_match __read_mostly = {
+ 	.name		= "mh",
+ 	.family		= AF_INET6,
+ 	.checkentry	= mh_checkentry,
+diff --git a/net/ipv6/netfilter/ip6t_owner.c b/net/ipv6/netfilter/ip6t_owner.c
+--- a/net/ipv6/netfilter/ip6t_owner.c
++++ b/net/ipv6/netfilter/ip6t_owner.c
+@@ -70,7 +70,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_match owner_match = {
++static struct xt_match owner_match __read_mostly = {
+ 	.name		= "owner",
+ 	.family		= AF_INET6,
+ 	.match		= match,
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -246,7 +246,7 @@ static int check(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_target ip6t_reject_reg = {
++static struct xt_target ip6t_reject_reg __read_mostly = {
+ 	.name		= "REJECT",
+ 	.family		= AF_INET6,
+ 	.target		= reject6_target,
+diff --git a/net/ipv6/netfilter/ip6t_rt.c b/net/ipv6/netfilter/ip6t_rt.c
+--- a/net/ipv6/netfilter/ip6t_rt.c
++++ b/net/ipv6/netfilter/ip6t_rt.c
+@@ -222,7 +222,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_match rt_match = {
++static struct xt_match rt_match __read_mostly = {
+ 	.name		= "rt",
+ 	.family		= AF_INET6,
+ 	.match		= match,
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -259,7 +259,7 @@ static unsigned int ipv6_conntrack_local
+ 	return ipv6_conntrack_in(hooknum, skb, in, out, okfn);
+ }
+ 
+-static struct nf_hook_ops ipv6_conntrack_ops[] = {
++static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
+ 	{
+ 		.hook		= ipv6_defrag,
+ 		.owner		= THIS_MODULE,
+@@ -375,7 +375,7 @@ static int ipv6_nfattr_to_tuple(struct n
+ }
+ #endif
+ 
+-struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6 = {
++struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6 __read_mostly = {
+ 	.l3proto		= PF_INET6,
+ 	.name			= "ipv6",
+ 	.pkt_to_tuple		= ipv6_pkt_to_tuple,
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -320,7 +320,7 @@ static struct ctl_table icmpv6_sysctl_ta
+ };
+ #endif /* CONFIG_SYSCTL */
+ 
+-struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6 =
++struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6 __read_mostly =
+ {
+ 	.l3proto		= PF_INET6,
+ 	.l4proto		= IPPROTO_ICMPV6,
+@@ -340,5 +340,3 @@ struct nf_conntrack_l4proto nf_conntrack
+ 	.ctl_table		= icmpv6_sysctl_table,
+ #endif
+ };
+-
+-EXPORT_SYMBOL(nf_conntrack_l4proto_icmpv6);
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -518,8 +518,8 @@ out_update_nl:
+ 	return ret;
+ }
+ 
+-static struct nf_conntrack_helper ftp[MAX_PORTS][2];
+-static char ftp_names[MAX_PORTS][2][sizeof("ftp-65535")];
++static struct nf_conntrack_helper ftp[MAX_PORTS][2] __read_mostly;
++static char ftp_names[MAX_PORTS][2][sizeof("ftp-65535")] __read_mostly;
+ 
+ static const struct nf_conntrack_expect_policy ftp_exp_policy = {
+ 	.max_expected	= 1,
+diff --git a/net/netfilter/nf_conntrack_l3proto_generic.c b/net/netfilter/nf_conntrack_l3proto_generic.c
+--- a/net/netfilter/nf_conntrack_l3proto_generic.c
++++ b/net/netfilter/nf_conntrack_l3proto_generic.c
+@@ -76,7 +76,7 @@ static u_int32_t generic_get_features(co
+ 	return NF_CT_F_BASIC;
+ }
+ 
+-struct nf_conntrack_l3proto nf_conntrack_l3proto_generic = {
++struct nf_conntrack_l3proto nf_conntrack_l3proto_generic __read_mostly = {
+ 	.l3proto	 = PF_UNSPEC,
+ 	.name		 = "unknown",
+ 	.pkt_to_tuple	 = generic_pkt_to_tuple,
+diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
+--- a/net/netfilter/nf_conntrack_proto_generic.c
++++ b/net/netfilter/nf_conntrack_proto_generic.c
+@@ -91,7 +91,7 @@ static struct ctl_table generic_compat_s
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif /* CONFIG_SYSCTL */
+ 
+-struct nf_conntrack_l4proto nf_conntrack_l4proto_generic =
++struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
+ {
+ 	.l3proto		= PF_UNSPEC,
+ 	.l4proto		= 0,
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -267,7 +267,7 @@ static void gre_destroy(struct nf_conn *
+ }
+ 
+ /* protocol helper struct */
+-static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 = {
++static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
+ 	.l3proto	 = AF_INET,
+ 	.l4proto	 = IPPROTO_GRE,
+ 	.name		 = "gre",
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -629,7 +629,7 @@ static struct ctl_table sctp_compat_sysc
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif
+ 
+-struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 = {
++static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 __read_mostly = {
+ 	.l3proto		= PF_INET,
+ 	.l4proto 		= IPPROTO_SCTP,
+ 	.name 			= "sctp",
+@@ -650,7 +650,7 @@ struct nf_conntrack_l4proto nf_conntrack
+ #endif
+ };
+ 
+-struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 = {
++static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 __read_mostly = {
+ 	.l3proto		= PF_INET6,
+ 	.l4proto 		= IPPROTO_SCTP,
+ 	.name 			= "sctp",
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -1478,7 +1478,7 @@ static struct ctl_table tcp_compat_sysct
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif /* CONFIG_SYSCTL */
+ 
+-struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 =
++struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 __read_mostly =
+ {
+ 	.l3proto		= PF_INET,
+ 	.l4proto 		= IPPROTO_TCP,
+@@ -1507,7 +1507,7 @@ struct nf_conntrack_l4proto nf_conntrack
+ };
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_tcp4);
+ 
+-struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp6 =
++struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp6 __read_mostly =
+ {
+ 	.l3proto		= PF_INET6,
+ 	.l4proto 		= IPPROTO_TCP,
+diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
+--- a/net/netfilter/nf_conntrack_proto_udp.c
++++ b/net/netfilter/nf_conntrack_proto_udp.c
+@@ -189,7 +189,7 @@ static struct ctl_table udp_compat_sysct
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif /* CONFIG_SYSCTL */
+ 
+-struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 =
++struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 __read_mostly =
+ {
+ 	.l3proto		= PF_INET,
+ 	.l4proto		= IPPROTO_UDP,
+@@ -215,7 +215,7 @@ struct nf_conntrack_l4proto nf_conntrack
+ };
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp4);
+ 
+-struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 =
++struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 __read_mostly =
+ {
+ 	.l3proto		= PF_INET6,
+ 	.l4proto		= IPPROTO_UDP,
+diff --git a/net/netfilter/nf_conntrack_sane.c b/net/netfilter/nf_conntrack_sane.c
+--- a/net/netfilter/nf_conntrack_sane.c
++++ b/net/netfilter/nf_conntrack_sane.c
+@@ -167,8 +167,8 @@ out:
+ 	return ret;
+ }
+ 
+-static struct nf_conntrack_helper sane[MAX_PORTS][2];
+-static char sane_names[MAX_PORTS][2][sizeof("sane-65535")];
++static struct nf_conntrack_helper sane[MAX_PORTS][2] __read_mostly;
++static char sane_names[MAX_PORTS][2][sizeof("sane-65535")] __read_mostly;
+ 
+ static const struct nf_conntrack_expect_policy sane_exp_policy = {
+ 	.max_expected	= 1,
+diff --git a/net/netfilter/xt_CLASSIFY.c b/net/netfilter/xt_CLASSIFY.c
+--- a/net/netfilter/xt_CLASSIFY.c
++++ b/net/netfilter/xt_CLASSIFY.c
+@@ -39,7 +39,7 @@ target(struct sk_buff *skb,
+ 	return XT_CONTINUE;
+ }
+ 
+-static struct xt_target xt_classify_target[] = {
++static struct xt_target xt_classify_target[] __read_mostly = {
+ 	{
+ 		.family		= AF_INET,
+ 		.name 		= "CLASSIFY",
+diff --git a/net/netfilter/xt_comment.c b/net/netfilter/xt_comment.c
+--- a/net/netfilter/xt_comment.c
++++ b/net/netfilter/xt_comment.c
+@@ -29,7 +29,7 @@ match(const struct sk_buff *skb,
+ 	return 1;
+ }
+ 
+-static struct xt_match xt_comment_match[] = {
++static struct xt_match xt_comment_match[] __read_mostly = {
+ 	{
+ 		.name		= "comment",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_connbytes.c b/net/netfilter/xt_connbytes.c
+--- a/net/netfilter/xt_connbytes.c
++++ b/net/netfilter/xt_connbytes.c
+@@ -128,7 +128,7 @@ destroy(const struct xt_match *match, vo
+ 	nf_ct_l3proto_module_put(match->family);
+ }
+ 
+-static struct xt_match xt_connbytes_match[] = {
++static struct xt_match xt_connbytes_match[] __read_mostly = {
+ 	{
+ 		.name		= "connbytes",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_connmark.c b/net/netfilter/xt_connmark.c
+--- a/net/netfilter/xt_connmark.c
++++ b/net/netfilter/xt_connmark.c
+@@ -109,7 +109,7 @@ static int compat_to_user(void __user *d
+ }
+ #endif /* CONFIG_COMPAT */
+ 
+-static struct xt_match xt_connmark_match[] = {
++static struct xt_match xt_connmark_match[] __read_mostly = {
+ 	{
+ 		.name		= "connmark",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_CONNSECMARK.c b/net/netfilter/xt_CONNSECMARK.c
+--- a/net/netfilter/xt_CONNSECMARK.c
++++ b/net/netfilter/xt_CONNSECMARK.c
+@@ -114,7 +114,7 @@ destroy(const struct xt_target *target, 
+ 	nf_ct_l3proto_module_put(target->family);
+ }
+ 
+-static struct xt_target xt_connsecmark_target[] = {
++static struct xt_target xt_connsecmark_target[] __read_mostly = {
+ 	{
+ 		.name		= "CONNSECMARK",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_dccp.c b/net/netfilter/xt_dccp.c
+--- a/net/netfilter/xt_dccp.c
++++ b/net/netfilter/xt_dccp.c
+@@ -140,7 +140,7 @@ checkentry(const char *tablename,
+ 		&& !(info->invflags & ~info->flags);
+ }
+ 
+-static struct xt_match xt_dccp_match[] = {
++static struct xt_match xt_dccp_match[] __read_mostly = {
+ 	{
+ 		.name 		= "dccp",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_dscp.c b/net/netfilter/xt_dscp.c
+--- a/net/netfilter/xt_dscp.c
++++ b/net/netfilter/xt_dscp.c
+@@ -68,7 +68,7 @@ static int checkentry(const char *tablen
+ 	return 1;
+ }
+ 
+-static struct xt_match xt_dscp_match[] = {
++static struct xt_match xt_dscp_match[] __read_mostly = {
+ 	{
+ 		.name		= "dscp",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_DSCP.c b/net/netfilter/xt_DSCP.c
+--- a/net/netfilter/xt_DSCP.c
++++ b/net/netfilter/xt_DSCP.c
+@@ -81,7 +81,7 @@ static int checkentry(const char *tablen
+ 	return 1;
+ }
+ 
+-static struct xt_target xt_dscp_target[] = {
++static struct xt_target xt_dscp_target[] __read_mostly = {
+ 	{
+ 		.name		= "DSCP",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_esp.c b/net/netfilter/xt_esp.c
+--- a/net/netfilter/xt_esp.c
++++ b/net/netfilter/xt_esp.c
+@@ -91,7 +91,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_match xt_esp_match[] = {
++static struct xt_match xt_esp_match[] __read_mostly = {
+ 	{
+ 		.name		= "esp",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -569,7 +569,7 @@ static int compat_to_user(void __user *d
+ }
+ #endif
+ 
+-static struct xt_match xt_hashlimit[] = {
++static struct xt_match xt_hashlimit[] __read_mostly = {
+ 	{
+ 		.name		= "hashlimit",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_helper.c b/net/netfilter/xt_helper.c
+--- a/net/netfilter/xt_helper.c
++++ b/net/netfilter/xt_helper.c
+@@ -99,7 +99,7 @@ destroy(const struct xt_match *match, vo
+ 	nf_ct_l3proto_module_put(match->family);
+ }
+ 
+-static struct xt_match xt_helper_match[] = {
++static struct xt_match xt_helper_match[] __read_mostly = {
+ 	{
+ 		.name		= "helper",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_length.c b/net/netfilter/xt_length.c
+--- a/net/netfilter/xt_length.c
++++ b/net/netfilter/xt_length.c
+@@ -53,7 +53,7 @@ match6(const struct sk_buff *skb,
+ 	return (pktlen >= info->min && pktlen <= info->max) ^ info->invert;
+ }
+ 
+-static struct xt_match xt_length_match[] = {
++static struct xt_match xt_length_match[] __read_mostly = {
+ 	{
+ 		.name		= "length",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
+--- a/net/netfilter/xt_limit.c
++++ b/net/netfilter/xt_limit.c
+@@ -190,7 +190,7 @@ static int compat_to_user(void __user *d
+ }
+ #endif /* CONFIG_COMPAT */
+ 
+-static struct xt_match xt_limit_match[] = {
++static struct xt_match xt_limit_match[] __read_mostly = {
+ 	{
+ 		.name		= "limit",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_mac.c b/net/netfilter/xt_mac.c
+--- a/net/netfilter/xt_mac.c
++++ b/net/netfilter/xt_mac.c
+@@ -44,7 +44,7 @@ match(const struct sk_buff *skb,
+ 		^ info->invert));
+ }
+ 
+-static struct xt_match xt_mac_match[] = {
++static struct xt_match xt_mac_match[] __read_mostly = {
+ 	{
+ 		.name		= "mac",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_mark.c b/net/netfilter/xt_mark.c
+--- a/net/netfilter/xt_mark.c
++++ b/net/netfilter/xt_mark.c
+@@ -81,7 +81,7 @@ static int compat_to_user(void __user *d
+ }
+ #endif /* CONFIG_COMPAT */
+ 
+-static struct xt_match xt_mark_match[] = {
++static struct xt_match xt_mark_match[] __read_mostly = {
+ 	{
+ 		.name		= "mark",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_MARK.c b/net/netfilter/xt_MARK.c
+--- a/net/netfilter/xt_MARK.c
++++ b/net/netfilter/xt_MARK.c
+@@ -133,7 +133,7 @@ static int compat_to_user_v1(void __user
+ }
+ #endif /* CONFIG_COMPAT */
+ 
+-static struct xt_target xt_mark_target[] = {
++static struct xt_target xt_mark_target[] __read_mostly = {
+ 	{
+ 		.name		= "MARK",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_multiport.c b/net/netfilter/xt_multiport.c
+--- a/net/netfilter/xt_multiport.c
++++ b/net/netfilter/xt_multiport.c
+@@ -228,7 +228,7 @@ checkentry6_v1(const char *tablename,
+ 		     multiinfo->count);
+ }
+ 
+-static struct xt_match xt_multiport_match[] = {
++static struct xt_match xt_multiport_match[] __read_mostly = {
+ 	{
+ 		.name		= "multiport",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_NFLOG.c b/net/netfilter/xt_NFLOG.c
+--- a/net/netfilter/xt_NFLOG.c
++++ b/net/netfilter/xt_NFLOG.c
+@@ -52,7 +52,7 @@ nflog_checkentry(const char *tablename, 
+ 	return 1;
+ }
+ 
+-static struct xt_target xt_nflog_target[] = {
++static struct xt_target xt_nflog_target[] __read_mostly = {
+ 	{
+ 		.name		= "NFLOG",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_NFQUEUE.c b/net/netfilter/xt_NFQUEUE.c
+--- a/net/netfilter/xt_NFQUEUE.c
++++ b/net/netfilter/xt_NFQUEUE.c
+@@ -36,7 +36,7 @@ target(struct sk_buff *skb,
+ 	return NF_QUEUE_NR(tinfo->queuenum);
+ }
+ 
+-static struct xt_target xt_nfqueue_target[] = {
++static struct xt_target xt_nfqueue_target[] __read_mostly = {
+ 	{
+ 		.name		= "NFQUEUE",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_NOTRACK.c b/net/netfilter/xt_NOTRACK.c
+--- a/net/netfilter/xt_NOTRACK.c
++++ b/net/netfilter/xt_NOTRACK.c
+@@ -33,7 +33,7 @@ target(struct sk_buff *skb,
+ 	return XT_CONTINUE;
+ }
+ 
+-static struct xt_target xt_notrack_target[] = {
++static struct xt_target xt_notrack_target[] __read_mostly = {
+ 	{
+ 		.name		= "NOTRACK",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
+--- a/net/netfilter/xt_physdev.c
++++ b/net/netfilter/xt_physdev.c
+@@ -119,7 +119,7 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_match xt_physdev_match[] = {
++static struct xt_match xt_physdev_match[] __read_mostly = {
+ 	{
+ 		.name		= "physdev",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_pkttype.c b/net/netfilter/xt_pkttype.c
+--- a/net/netfilter/xt_pkttype.c
++++ b/net/netfilter/xt_pkttype.c
+@@ -43,7 +43,7 @@ static int match(const struct sk_buff *s
+ 	return (type == info->pkttype) ^ info->invert;
+ }
+ 
+-static struct xt_match xt_pkttype_match[] = {
++static struct xt_match xt_pkttype_match[] __read_mostly = {
+ 	{
+ 		.name		= "pkttype",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_policy.c b/net/netfilter/xt_policy.c
+--- a/net/netfilter/xt_policy.c
++++ b/net/netfilter/xt_policy.c
+@@ -164,7 +164,7 @@ static int checkentry(const char *tablen
+ 	return 1;
+ }
+ 
+-static struct xt_match xt_policy_match[] = {
++static struct xt_match xt_policy_match[] __read_mostly = {
+ 	{
+ 		.name		= "policy",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_quota.c b/net/netfilter/xt_quota.c
+--- a/net/netfilter/xt_quota.c
++++ b/net/netfilter/xt_quota.c
+@@ -71,7 +71,7 @@ static void quota_mt_destroy(const struc
+ 	kfree(q->master);
+ }
+ 
+-static struct xt_match xt_quota_match[] = {
++static struct xt_match xt_quota_match[] __read_mostly = {
+ 	{
+ 		.name		= "quota",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_realm.c b/net/netfilter/xt_realm.c
+--- a/net/netfilter/xt_realm.c
++++ b/net/netfilter/xt_realm.c
+@@ -37,7 +37,7 @@ match(const struct sk_buff *skb,
+ 	return (info->id == (dst->tclassid & info->mask)) ^ info->invert;
+ }
+ 
+-static struct xt_match realm_match = {
++static struct xt_match realm_match __read_mostly = {
+ 	.name		= "realm",
+ 	.match		= match,
+ 	.matchsize	= sizeof(struct xt_realm_info),
+diff --git a/net/netfilter/xt_sctp.c b/net/netfilter/xt_sctp.c
+--- a/net/netfilter/xt_sctp.c
++++ b/net/netfilter/xt_sctp.c
+@@ -177,7 +177,7 @@ checkentry(const char *tablename,
+ 				| SCTP_CHUNK_MATCH_ONLY)));
+ }
+ 
+-static struct xt_match xt_sctp_match[] = {
++static struct xt_match xt_sctp_match[] __read_mostly = {
+ 	{
+ 		.name		= "sctp",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_SECMARK.c b/net/netfilter/xt_SECMARK.c
+--- a/net/netfilter/xt_SECMARK.c
++++ b/net/netfilter/xt_SECMARK.c
+@@ -109,7 +109,7 @@ static int checkentry(const char *tablen
+ 	return 1;
+ }
+ 
+-static struct xt_target xt_secmark_target[] = {
++static struct xt_target xt_secmark_target[] __read_mostly = {
+ 	{
+ 		.name		= "SECMARK",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_state.c b/net/netfilter/xt_state.c
+--- a/net/netfilter/xt_state.c
++++ b/net/netfilter/xt_state.c
+@@ -64,7 +64,7 @@ destroy(const struct xt_match *match, vo
+ 	nf_ct_l3proto_module_put(match->family);
+ }
+ 
+-static struct xt_match xt_state_match[] = {
++static struct xt_match xt_state_match[] __read_mostly = {
+ 	{
+ 		.name		= "state",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
+--- a/net/netfilter/xt_statistic.c
++++ b/net/netfilter/xt_statistic.c
+@@ -83,7 +83,7 @@ static void statistic_mt_destroy(const s
+ 	kfree(info->master);
+ }
+ 
+-static struct xt_match xt_statistic_match[] = {
++static struct xt_match xt_statistic_match[] __read_mostly = {
+ 	{
+ 		.name		= "statistic",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_string.c b/net/netfilter/xt_string.c
+--- a/net/netfilter/xt_string.c
++++ b/net/netfilter/xt_string.c
+@@ -73,7 +73,7 @@ static void destroy(const struct xt_matc
+ 	textsearch_destroy(STRING_TEXT_PRIV(matchinfo)->config);
+ }
+ 
+-static struct xt_match xt_string_match[] = {
++static struct xt_match xt_string_match[] __read_mostly = {
+ 	{
+ 		.name 		= "string",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_tcpmss.c b/net/netfilter/xt_tcpmss.c
+--- a/net/netfilter/xt_tcpmss.c
++++ b/net/netfilter/xt_tcpmss.c
+@@ -81,7 +81,7 @@ dropit:
+ 	return 0;
+ }
+ 
+-static struct xt_match xt_tcpmss_match[] = {
++static struct xt_match xt_tcpmss_match[] __read_mostly = {
+ 	{
+ 		.name		= "tcpmss",
+ 		.family		= AF_INET,
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -297,7 +297,7 @@ xt_tcpmss_checkentry6(const char *tablen
+ }
+ #endif
+ 
+-static struct xt_target xt_tcpmss_reg[] = {
++static struct xt_target xt_tcpmss_reg[] __read_mostly = {
+ 	{
+ 		.family		= AF_INET,
+ 		.name		= "TCPMSS",
+diff --git a/net/netfilter/xt_tcpudp.c b/net/netfilter/xt_tcpudp.c
+--- a/net/netfilter/xt_tcpudp.c
++++ b/net/netfilter/xt_tcpudp.c
+@@ -197,7 +197,7 @@ udp_checkentry(const char *tablename,
+ 	return !(udpinfo->invflags & ~XT_UDP_INV_MASK);
+ }
+ 
+-static struct xt_match xt_tcpudp_match[] = {
++static struct xt_match xt_tcpudp_match[] __read_mostly = {
+ 	{
+ 		.name		= "tcp",
+ 		.family		= AF_INET,
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -45,7 +45,7 @@
+ 
+ /* The list of all installed classifier types */
+ 
+-static struct tcf_proto_ops *tcf_proto_base;
++static struct tcf_proto_ops *tcf_proto_base __read_mostly;
+ 
+ /* Protects list of registered TC modules. It is pure SMP lock. */
+ static DEFINE_RWLOCK(cls_mod_lock);
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -272,7 +272,7 @@ rtattr_failure:
+ 	return -1;
+ }
+ 
+-static struct tcf_proto_ops cls_basic_ops = {
++static struct tcf_proto_ops cls_basic_ops __read_mostly = {
+ 	.kind		=	"basic",
+ 	.classify	=	basic_classify,
+ 	.init		=	basic_init,
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -387,8 +387,7 @@ rtattr_failure:
+ 	return -1;
+ }
+ 
+-static struct tcf_proto_ops cls_fw_ops = {
+-	.next		=	NULL,
++static struct tcf_proto_ops cls_fw_ops __read_mostly = {
+ 	.kind		=	"fw",
+ 	.classify	=	fw_classify,
+ 	.init		=	fw_init,
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -604,8 +604,7 @@ rtattr_failure:
+ 	return -1;
+ }
+ 
+-static struct tcf_proto_ops cls_route4_ops = {
+-	.next		=	NULL,
++static struct tcf_proto_ops cls_route4_ops __read_mostly = {
+ 	.kind		=	"route",
+ 	.classify	=	route4_classify,
+ 	.init		=	route4_init,
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -500,8 +500,7 @@ rtattr_failure:
+ 	return -1;
+ }
+ 
+-static struct tcf_proto_ops cls_tcindex_ops = {
+-	.next		=	NULL,
++static struct tcf_proto_ops cls_tcindex_ops __read_mostly = {
+ 	.kind		=	"tcindex",
+ 	.classify	=	tcindex_classify,
+ 	.init		=	tcindex_init,
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -767,8 +767,7 @@ rtattr_failure:
+ 	return -1;
+ }
+ 
+-static struct tcf_proto_ops cls_u32_ops = {
+-	.next		=	NULL,
++static struct tcf_proto_ops cls_u32_ops __read_mostly = {
+ 	.kind		=	"u32",
+ 	.classify	=	u32_classify,
+ 	.init		=	u32_init,
+diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
+--- a/net/sched/sch_ingress.c
++++ b/net/sched/sch_ingress.c
+@@ -257,20 +257,21 @@ ing_hook(unsigned int hook, struct sk_bu
+ }
+ 
+ /* after ipt_filter */
+-static struct nf_hook_ops ing_ops = {
+-	.hook           = ing_hook,
+-	.owner		= THIS_MODULE,
+-	.pf             = PF_INET,
+-	.hooknum        = NF_IP_PRE_ROUTING,
+-	.priority       = NF_IP_PRI_FILTER + 1,
+-};
+-
+-static struct nf_hook_ops ing6_ops = {
+-	.hook           = ing_hook,
+-	.owner		= THIS_MODULE,
+-	.pf             = PF_INET6,
+-	.hooknum        = NF_IP6_PRE_ROUTING,
+-	.priority       = NF_IP6_PRI_FILTER + 1,
++static struct nf_hook_ops ing_ops[] __read_mostly = {
++	{
++		.hook           = ing_hook,
++		.owner		= THIS_MODULE,
++		.pf             = PF_INET,
++		.hooknum        = NF_IP_PRE_ROUTING,
++		.priority       = NF_IP_PRI_FILTER + 1,
++	},
++	{
++		.hook           = ing_hook,
++		.owner		= THIS_MODULE,
++		.pf             = PF_INET6,
++		.hooknum        = NF_IP6_PRE_ROUTING,
++		.priority       = NF_IP6_PRI_FILTER + 1,
++	},
+ };
+ 
+ #endif
+@@ -294,17 +295,11 @@ static int ingress_init(struct Qdisc *sc
+ #ifndef CONFIG_NET_CLS_ACT
+ #ifdef CONFIG_NETFILTER
+ 	if (!nf_registered) {
+-		if (nf_register_hook(&ing_ops) < 0) {
++		if (nf_register_hooks(ing_ops, ARRAY_SIZE(ing_ops)) < 0) {
+ 			printk("ingress qdisc registration error \n");
+ 			return -EINVAL;
+ 		}
+ 		nf_registered++;
+-
+-		if (nf_register_hook(&ing6_ops) < 0) {
+-			printk("IPv6 ingress qdisc registration error, " \
+-			    "disabling IPv6 support.\n");
+-		} else
+-			nf_registered++;
+ 	}
+ #endif
+ #endif
+@@ -411,11 +406,8 @@ static void __exit ingress_module_exit(v
+ 	unregister_qdisc(&ingress_qdisc_ops);
+ #ifndef CONFIG_NET_CLS_ACT
+ #ifdef CONFIG_NETFILTER
+-	if (nf_registered) {
+-		nf_unregister_hook(&ing_ops);
+-		if (nf_registered > 1)
+-			nf_unregister_hook(&ing6_ops);
+-	}
++	if (nf_registered)
++		nf_unregister_hooks(ing_ops, ARRAY_SIZE(ing_ops));
+ #endif
+ #endif
+ }
+-- 
