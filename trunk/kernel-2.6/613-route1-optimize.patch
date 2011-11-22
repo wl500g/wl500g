@@ -6,7 +6,8 @@ kernel.org commits:
 5969f71d57928511b9cd8744aaf1ed9bc5e88ea2 IPV4: route inline changes
 c0b8c32b1c96afc9b32b717927330025cc1c501e IPV4: use xor rather than multiple ands for route compare
 1294fc4a4868d7e83ff749597fbf4e9d5f4d1aa0 IPV4: route use jhash3
-e88ff22a7ed88b499a0235a2b69425efdb300ef5
+5e016cbf6cffd4a53b7922e0c91b775399d7fe47 ipv4: Don't drop redirected route cache entry unless PTMU actually expired
+
 ---
  net/ipv4/route.c |   97 +++++++++++------------
  1 files changed, 48 insertions(+), 49 deletions(-)
