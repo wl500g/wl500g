@@ -46,7 +46,7 @@ diff -BurpN busybox-1.14.2/networking/httpd.c busybox/networking/httpd.c
 +    	    sep = value + strlen(value);
 +    	    args = 0; /* no more */
 +	}
-+	var = xasprintf("%s%s=%s", "CGI_", decodeString(name,1), decodeString(value,1));
++	var = xasprintf("%s%s=%s", "CGI_", percent_decode_in_place(name, /*strict:*/ 0), percent_decode_in_place(value, /*strict:*/ 0));
 +	putenv(var);
 +    }
 +}
