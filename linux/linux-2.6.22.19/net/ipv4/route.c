@@ -2718,7 +2718,8 @@ static int rt_fill_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
 	error = rt->u.dst.error;
 	expires = rt->u.dst.expires ? rt->u.dst.expires - jiffies : 0;
 	if (rt->peer) {
-		id = rt->peer->ip_id_count;
+		inet_peer_refcheck(rt->peer);
+		id = atomic_read(&rt->peer->ip_id_count) & 0xffff;
 		if (rt->peer->tcp_ts_stamp) {
 			ts = rt->peer->tcp_ts;
 			tsage = get_seconds() - rt->peer->tcp_ts_stamp;
