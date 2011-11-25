@@ -1,0 +1,148 @@
+rcu: Add lockdep-enabled variants of rcu_dereference()
+
+ c26d34a5858f96a564c45048bf5f09319d2abad1 rcu: Add lockdep-enabled variants of rcu_dereference()
+ e3818b8dce2a934cd1521dbc4827e5238d8f45d8 rcu: Make rcu_read_lock_bh_held() allow for disabled BH
+ 773e3f93577ffb493fb7c39b1a6ecf39b5748e87 rcu: move check from rcu_dereference_bh to rcu_read_lock_bh_held
+
+---
+ include/linux/rcupdate.h |   68 ++++++++++++++++++++++++++++++++++++++++++-----
+ kernel/rcupdate.c        |   23 +++++++++++++++
+ 2 files changed, 85 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+--- a/include/linux/rcupdate.h
++++ b/include/linux/rcupdate.h
+@@ -60,6 +60,11 @@ struct rcu_head {
+ } while (0)
+ 
+ 
++/*
++ * rcu_read_lock_bh_held() is defined out of line to avoid #include-file
++ * hell.
++ */
++extern int rcu_read_lock_bh_held(void);
+ 
+ /* Global control variables for rcupdate callback mechanism. */
+ struct rcu_ctrlblk {
+@@ -243,23 +248,74 @@ extern struct lockdep_map rcu_lock_map;
+ 
+ #endif
+ 
++#ifdef CONFIG_PROVE_LOCKING
++
++/**
++ * rcu_dereference_check - rcu_dereference with debug checking
++ *
++ * Do an rcu_dereference(), but check that the context is correct.
++ * For example, rcu_dereference_check(gp, rcu_read_lock_held()) to
++ * ensure that the rcu_dereference_check() executes within an RCU
++ * read-side critical section.  It is also possible to check for
++ * locks being held, for example, by using lockdep_is_held().
++ */
++#define rcu_dereference_check(p, c) \
++	({ \
++		if (debug_lockdep_rcu_enabled() && !(c)) \
++			lockdep_rcu_dereference(__FILE__, __LINE__); \
++		rcu_dereference_raw(p); \
++	})
++
++#else
++
++#define rcu_dereference_check(p, c)	rcu_dereference_raw(p)
++
++#endif /* CONFIG_PROVE_LOCKING */
++
+ /**
+- * rcu_dereference - fetch an RCU-protected pointer in an
+- * RCU read-side critical section.  This pointer may later
+- * be safely dereferenced.
++ * rcu_dereference_raw - fetch an RCU-protected pointer
++ *
++ * The caller must be within some flavor of RCU read-side critical
++ * section, or must be otherwise preventing the pointer from changing,
++ * for example, by holding an appropriate lock.  This pointer may later
++ * be safely dereferenced.  It is the caller's responsibility to have
++ * done the right thing, as this primitive does no checking of any kind.
+  *
+  * Inserts memory barriers on architectures that require them
+  * (currently only the Alpha), and, more importantly, documents
+  * exactly which pointers are protected by RCU.
+  */
+-
+-#define rcu_dereference(p)     ({ \
+-				typeof(p) _________p1 = p; \
++#define rcu_dereference_raw(p)	({ \
++				typeof(p) _________p1 = ACCESS_ONCE(p); \
+ 				smp_read_barrier_depends(); \
+ 				(_________p1); \
+ 				})
+ 
+ /**
++ * rcu_dereference - fetch an RCU-protected pointer, checking for RCU
++ *
++ * Makes rcu_dereference_check() do the dirty work.
++ */
++#define rcu_dereference(p) \
++	rcu_dereference_check(p, rcu_read_lock_held())
++
++/**
++ * rcu_dereference_bh - fetch an RCU-protected pointer, checking for RCU-bh
++ *
++ * Makes rcu_dereference_check() do the dirty work.
++ */
++#define rcu_dereference_bh(p) \
++		rcu_dereference_check(p, rcu_read_lock_bh_held())
++
++/**
++ * rcu_dereference_sched - fetch RCU-protected pointer, checking for RCU-sched
++ *
++ * Makes rcu_dereference_check() do the dirty work.
++ */
++#define rcu_dereference_sched(p) \
++		rcu_dereference_check(p, rcu_read_lock_sched_held())
++
++/**
+  * rcu_assign_pointer - assign (publicize) a pointer to a newly
+  * initialized structure that will be dereferenced by RCU read-side
+  * critical sections.  Returns the value assigned.
+diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
+--- a/kernel/rcupdate.c
++++ b/kernel/rcupdate.c
+@@ -48,6 +48,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/cpu.h>
+ #include <linux/mutex.h>
++#include <linux/hardirq.h>
+ 
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
+ static struct lock_class_key rcu_lock_key;
+@@ -178,6 +179,28 @@ void fastcall call_rcu_bh(struct rcu_hea
+ 	local_irq_restore(flags);
+ }
+ 
++#ifdef CONFIG_DEBUG_LOCK_ALLOC
++
++/**
++ * rcu_read_lock_bh_held - might we be in RCU-bh read-side critical section?
++ *
++ * Check for bottom half being disabled, which covers both the
++ * CONFIG_PROVE_RCU and not cases.  Note that if someone uses
++ * rcu_read_lock_bh(), but then later enables BH, lockdep (if enabled)
++ * will show the situation.
++ *
++ * Check debug_lockdep_rcu_enabled() to prevent false positives during boot.
++ */
++int rcu_read_lock_bh_held(void)
++{
++	if (!debug_lockdep_rcu_enabled())
++		return 1;
++	return in_softirq() || irqs_disabled();
++}
++EXPORT_SYMBOL_GPL(rcu_read_lock_bh_held);
++
++#endif /* #ifdef CONFIG_DEBUG_LOCK_ALLOC */
++
+ /*
+  * Return the number of RCU batches processed thus far.  Useful
+  * for debug and statistics.
+-- 
