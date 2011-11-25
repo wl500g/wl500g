@@ -161,8 +161,8 @@ static void addr_send_arp(struct sockaddr_in *dst_in)
 	if (ip_route_output_key(&rt, &fl))
 		return;
 
-	arp_send(ARPOP_REQUEST, ETH_P_ARP, rt->rt_gateway, rt->idev->dev,
-		 rt->rt_src, NULL, rt->idev->dev->dev_addr, NULL);
+	arp_send(ARPOP_REQUEST, ETH_P_ARP, rt->rt_gateway, rt->u.dst.dev,
+		 rt->rt_src, NULL, rt->u.dst.dev->dev_addr, NULL);
 	ip_rt_put(rt);
 }
 
@@ -185,12 +185,12 @@ static int addr_resolve_remote(struct sockaddr_in *src_in,
 		goto out;
 
 	/* If the device does ARP internally, return 'done' */
-	if (rt->idev->dev->flags & IFF_NOARP) {
-		rdma_copy_addr(addr, rt->idev->dev, NULL);
+	if (rt->dst.dev->flags & IFF_NOARP) {
+		rdma_copy_addr(addr, rt->u.dst.dev, NULL);
 		goto put;
 	}
 
-	neigh = neigh_lookup(&arp_tbl, &rt->rt_gateway, rt->idev->dev);
+	neigh = neigh_lookup(&arp_tbl, &rt->rt_gateway, rt->u.dst.dev);
 	if (!neigh) {
 		ret = -ENODATA;
 		goto put;

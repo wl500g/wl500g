@@ -190,8 +190,6 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int 
 		x->u.rt.rt_dst = rt0->rt_dst;
 		x->u.rt.rt_gateway = rt->rt_gateway;
 		x->u.rt.rt_spec_dst = rt0->rt_spec_dst;
-		x->u.rt.idev = rt0->idev;
-		in_dev_hold(rt0->idev);
 		header_len -= x->u.dst.xfrm->props.header_len;
 		trailer_len -= x->u.dst.xfrm->props.trailer_len;
 	}
@@ -288,8 +286,6 @@ static void xfrm4_dst_destroy(struct dst_entry *dst)
 {
 	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
 
-	if (likely(xdst->u.rt.idev))
-		in_dev_put(xdst->u.rt.idev);
 	if (dst->xfrm && dst->xfrm->props.family == AF_INET && likely(xdst->u.rt.peer))
 		inet_putpeer(xdst->u.rt.peer);
 	xfrm_dst_destroy(xdst);
@@ -298,25 +294,8 @@ static void xfrm4_dst_destroy(struct dst_entry *dst)
 static void xfrm4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
 			     int unregister)
 {
-	struct xfrm_dst *xdst;
-
 	if (!unregister)
 		return;
-
-	xdst = (struct xfrm_dst *)dst;
-	if (xdst->u.rt.idev->dev == dev) {
-		struct in_device *loopback_idev = in_dev_get(&loopback_dev);
-		BUG_ON(!loopback_idev);
-
-		do {
-			in_dev_put(xdst->u.rt.idev);
-			xdst->u.rt.idev = loopback_idev;
-			in_dev_hold(loopback_idev);
-			xdst = (struct xfrm_dst *)xdst->u.dst.child;
-		} while (xdst->u.dst.xfrm);
-
-		__in_dev_put(loopback_idev);
-	}
 
 	xfrm_dst_ifdown(dst, dev);
 }
