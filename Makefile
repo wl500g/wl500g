@@ -115,10 +115,12 @@ $(TOP)/.config: config shared
 	$(MAKE) -C $(KERNEL) version
 	$(MAKE) -C $(TOP) .config
 
+lzma_Patches := $(call patches_list,lzma)
+
 $(ROOT)/lzma: lzma/$(LZMA).tbz2
 	@rm -rf $@ && mkdir -p $@
 	tar -C $@ -xjf $<
-	$(PATCHER) -Z $@ lzma/$(LZMA).patch
+	$(PATCHER) -Z $@ $(lzma_Patches)
 
 lzma: $(ROOT)/lzma
 	@true
