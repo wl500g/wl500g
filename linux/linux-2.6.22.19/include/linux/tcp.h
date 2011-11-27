@@ -370,8 +370,6 @@ struct tcp_sock {
 	unsigned int		keepalive_time;	  /* time before keep alive takes place */
 	unsigned int		keepalive_intvl;  /* time interval between keep alive probes */
 
-	unsigned long last_synq_overflow; 
-
 /* Receiver side RTT estimation */
 	struct {
 		u32	rtt;

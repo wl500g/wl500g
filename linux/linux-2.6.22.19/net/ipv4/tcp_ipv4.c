@@ -1200,10 +1200,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 
 	tcp_parse_options(skb, &tmp_opt, 0);
 
-	if (want_cookie) {
+	if (want_cookie && !tmp_opt.saw_tstamp)
 		tcp_clear_options(&tmp_opt);
-		tmp_opt.saw_tstamp = 0;
-	}
 
 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
 
@@ -1222,6 +1220,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	if (want_cookie) {
 #ifdef CONFIG_SYN_COOKIES
 		syn_flood_warning(skb);
+		req->cookie_ts = tmp_opt.tstamp_ok;
 #endif
 		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
 	} else if (!isn) {
@@ -1398,7 +1397,7 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
 	}
 
 #ifdef CONFIG_SYN_COOKIES
-	if (!th->rst && !th->syn && th->ack)
+	if (!th->syn)
 		sk = cookie_v4_check(sk, skb, &(IPCB(skb)->opt));
 #endif
 	return sk;
