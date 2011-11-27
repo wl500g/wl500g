@@ -83,30 +83,24 @@ static __inline__ void blast_dcache(unsigned long size, unsigned long lsize)
 }
 
 /* beyound the image end, size not known in advance */
-extern unsigned char *workspace;
+extern unsigned char workspace[];
 
 static unsigned int offset;
 static unsigned char *data;
 
 /* flash access should be aligned, so wrapper is used */
 /* read byte from the flash, all accesses are 32-bit aligned */
-static int read_bytes(void *object, const unsigned char **buffer, UInt32 *bufferSize)
+static int read_byte(void *object, const unsigned char **buffer, UInt32 *bufferSize)
 {
-	static uint32_t val;
+	static unsigned int val;
 
-	if ((offset % 4) == 0) {
-		val = *(uint32_t *)data;
+	if (((unsigned int)offset % 4) == 0) {
+		val = *(unsigned int *)data;
 		data += 4;
 	}
 	
-	*buffer = ((unsigned char *)&val) + (offset & 3);
-	if (bufferSize) {
-		/* Up to four bytes */
-		*bufferSize = 4 - (offset & 3);
-		offset = 0;
-	} else {
-		++offset;
-	}
+	*bufferSize = 1;
+	*buffer = ((unsigned char *)&val) + (offset++ & 3);
 	
 	return LZMA_RESULT_OK;
 }
@@ -114,8 +108,9 @@ static int read_bytes(void *object, const unsigned char **buffer, UInt32 *buffer
 static __inline__ unsigned char get_byte(void)
 {
 	const unsigned char *buffer;
+	UInt32 fake;
 	
-	return read_bytes(NULL, &buffer, NULL), *buffer;
+	return read_byte(NULL, &buffer, &fake), *buffer;
 }
 
 /* should be the first function */
@@ -129,7 +124,7 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 	unsigned int i;  /* temp value */
 	unsigned int osize; /* uncompressed size */
 
-	callback.Read = read_bytes;
+	callback.Read = read_byte;
 
 	/* look for trx header, 32-bit data access */
 	for (data = ((unsigned char *) KSEG1ADDR(BCM4710_FLASH));
