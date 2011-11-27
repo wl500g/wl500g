@@ -90,27 +90,32 @@ static unsigned char *data;
 
 /* flash access should be aligned, so wrapper is used */
 /* read byte from the flash, all accesses are 32-bit aligned */
-static int read_byte(void *object, const unsigned char **buffer, UInt32 *bufferSize)
+static int read_bytes(void *object, const unsigned char **buffer, UInt32 *bufferSize)
 {
 	static unsigned int val;
+	unsigned int byteoffset = (unsigned int)offset & 3;
 
-	if (((unsigned int)offset % 4) == 0) {
+	if (byteoffset == 0) {
 		val = *(unsigned int *)data;
 		data += 4;
 	}
-	
-	*bufferSize = 1;
-	*buffer = ((unsigned char *)&val) + (offset++ & 3);
-	
+
+	*buffer = ((unsigned char *)&val) + byteoffset;
+	if (bufferSize) {
+		/* Up to four bytes */
+		*bufferSize = 4 - byteoffset;
+		offset = 0;
+	} else	offset++;
+
 	return LZMA_RESULT_OK;
 }
 
 static __inline__ unsigned char get_byte(void)
 {
 	const unsigned char *buffer;
-	UInt32 fake;
-	
-	return read_byte(NULL, &buffer, &fake), *buffer;
+
+	/* empty bufferSize means 1 byte */
+	return read_bytes(NULL, &buffer, NULL), *buffer;
 }
 
 /* should be the first function */
@@ -124,12 +129,12 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 	unsigned int i;  /* temp value */
 	unsigned int osize; /* uncompressed size */
 
-	callback.Read = read_byte;
+	callback.Read = read_bytes;
 
 	/* look for trx header, 32-bit data access */
 	for (data = ((unsigned char *) KSEG1ADDR(BCM4710_FLASH));
 		((struct trx_header *)data)->magic != TRX_MAGIC; data += 65536);
-	
+
 	/* compressed kernel is in the partition 1 */
 	data += ((struct trx_header *)data)->offsets[1];
 	offset = 0;
