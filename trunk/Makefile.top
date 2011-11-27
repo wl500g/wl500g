@@ -182,9 +182,13 @@ obj-$(CONFIG_LLTD) += lltd
 obj-$(CONFIG_TCPDUMP) += tcpdump libpcap
 obj-y += udpxy
 
-# Exclude targets for non-USB routers or with small flash-memory
+# Exclude targets for non-USB routers
+ifeq ($(filter RT-N10 RT-N12 RT-N12B1,$(MODEL)),$(MODEL))
+obj-y := $(filter-out LPRng e2fsprogs libusb10 madwimax p910nd mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd ntfs-3g,$(obj-y))
+endif
+# Exclude more targets for non-USB routers with small flash-memory
 ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
-obj-y := $(filter-out LPRng e2fsprogs libusb10 madwimax nfs-utils p910nd quagga mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd tcpdump ntfs-3g,$(obj-y))
+obj-y := $(filter-out nfs-utils quagga tcpdump,$(obj-y))
 endif
 
 
@@ -337,10 +341,10 @@ modules_install-WL700g: modules_install-WL500gp
 		$(SRCMODULESDIR)/drivers/ide/ide-disk$(ko) \
 		$(SRCMODULESDIR)/drivers/ide/pci/aec62xx$(ko) 
 
-modules_install-RT-N10 modules_install-RT-N12: modules_install
+modules_install-RT-N10 modules_install-RT-N12 modules_install-RT-N12B1: modules_install
 	@true
 
-modules_install-RT-N10U modules_install-RT-N12B1 modules_install-RT-N16: modules_install modules_install-usb
+modules_install-RT-N10U modules_install-RT-N16: modules_install modules_install-usb
 ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
