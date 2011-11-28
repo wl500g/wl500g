@@ -1,0 +1,103 @@
+usb-storage: Accept 8020i-protocol commands longer than 12 bytes
+
+ 3dae5345311271fe598a61bd01f563fc835b4217 USB: usb-storage: merge ATAPI and QIC-157 protocol routines
+ 2f640bf4c94324aeaa1b6385c10aab8c5ad1e1cf usb-storage: Accept 8020i-protocol commands longer than 12 bytes
+
+---
+ drivers/usb/storage/protocol.c |   29 ++++-------------------------
+ drivers/usb/storage/protocol.h |    3 +--
+ drivers/usb/storage/usb.c      |    6 +++---
+ 3 files changed, 8 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/usb/storage/protocol.c b/drivers/usb/storage/protocol.c
+--- a/drivers/usb/storage/protocol.c
++++ b/drivers/usb/storage/protocol.c
+@@ -58,9 +58,11 @@
+  * Protocol routines
+  ***********************************************************************/
+ 
+-void usb_stor_qic157_command(struct scsi_cmnd *srb, struct us_data *us)
++void usb_stor_pad12_command(struct scsi_cmnd *srb, struct us_data *us)
+ {
+-	/* Pad the ATAPI command with zeros 
++	/*
++	 * Pad the SCSI command with zeros out to 12 bytes.  If the
++	 * command already is 12 bytes or longer, leave it alone.
+ 	 *
+ 	 * NOTE: This only works because a scsi_cmnd struct field contains
+ 	 * a unsigned char cmnd[16], so we know we have storage available
+@@ -68,33 +70,10 @@ void usb_stor_qic157_command(struct scsi
+ 	for (; srb->cmd_len<12; srb->cmd_len++)
+ 		srb->cmnd[srb->cmd_len] = 0;
+ 
+-	/* set command length to 12 bytes */
+-	srb->cmd_len = 12;
+-
+ 	/* send the command to the transport layer */
+ 	usb_stor_invoke_transport(srb, us);
+ }
+ 
+-void usb_stor_ATAPI_command(struct scsi_cmnd *srb, struct us_data *us)
+-{
+-	/* Pad the ATAPI command with zeros 
+-	 *
+-	 * NOTE: This only works because a scsi_cmnd struct field contains
+-	 * a unsigned char cmnd[16], so we know we have storage available
+-	 */
+-
+-	/* Pad the ATAPI command with zeros */
+-	for (; srb->cmd_len<12; srb->cmd_len++)
+-		srb->cmnd[srb->cmd_len] = 0;
+-
+-	/* set command length to 12 bytes */
+-	srb->cmd_len = 12;
+-
+-	/* send the command to the transport layer */
+-	usb_stor_invoke_transport(srb, us);
+-}
+-
+-
+ void usb_stor_ufi_command(struct scsi_cmnd *srb, struct us_data *us)
+ {
+ 	/* fix some commands -- this is a form of mode translation
+diff --git a/drivers/usb/storage/protocol.h b/drivers/usb/storage/protocol.h
+--- a/drivers/usb/storage/protocol.h
++++ b/drivers/usb/storage/protocol.h
+@@ -40,8 +40,7 @@
+ #define _PROTOCOL_H_
+ 
+ /* Protocol handling routines */
+-extern void usb_stor_ATAPI_command(struct scsi_cmnd*, struct us_data*);
+-extern void usb_stor_qic157_command(struct scsi_cmnd*, struct us_data*);
++extern void usb_stor_pad12_command(struct scsi_cmnd*, struct us_data*);
+ extern void usb_stor_ufi_command(struct scsi_cmnd*, struct us_data*);
+ extern void usb_stor_transparent_scsi_command(struct scsi_cmnd*,
+ 		struct us_data*);
+diff --git a/drivers/usb/storage/usb.c b/drivers/usb/storage/usb.c
+--- a/drivers/usb/storage/usb.c
++++ b/drivers/usb/storage/usb.c
+@@ -704,19 +704,19 @@ static int get_protocol(struct us_data *us)
+ 
+ 	case US_SC_8020:
+ 		us->protocol_name = "8020i";
+-		us->proto_handler = usb_stor_ATAPI_command;
++		us->proto_handler = usb_stor_pad12_command;
+ 		us->max_lun = 0;
+ 		break;
+ 
+ 	case US_SC_QIC:
+ 		us->protocol_name = "QIC-157";
+-		us->proto_handler = usb_stor_qic157_command;
++		us->proto_handler = usb_stor_pad12_command;
+ 		us->max_lun = 0;
+ 		break;
+ 
+ 	case US_SC_8070:
+ 		us->protocol_name = "8070i";
+-		us->proto_handler = usb_stor_ATAPI_command;
++		us->proto_handler = usb_stor_pad12_command;
+ 		us->max_lun = 0;
+ 		break;
+ 
+-- 
+1.7.6.2
