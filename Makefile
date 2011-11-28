@@ -48,7 +48,7 @@ XL2TPD=xl2tpd-1.3.1
 BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.4
-UDPXY=udpxy-1.0-Chipmunk-20
+UDPXY=udpxy-1.0-Chipmunk-21
 INADYN=inadyn-1.96.3
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB10=libusb-1.0.8
@@ -115,12 +115,10 @@ $(TOP)/.config: config shared
 	$(MAKE) -C $(KERNEL) version
 	$(MAKE) -C $(TOP) .config
 
-lzma_Patches := $(call patches_list,lzma)
-
 $(ROOT)/lzma: lzma/$(LZMA).tbz2
 	@rm -rf $@ && mkdir -p $@
 	tar -C $@ -xjf $<
-	$(PATCHER) -Z $@ $(lzma_Patches)
+	$(PATCHER) -Z $@ lzma/$(LZMA).patch
 
 lzma: $(ROOT)/lzma
 	@true
