@@ -143,12 +143,25 @@ static int tgpio_ioctl(int fd, int gpioreg, unsigned int mask , unsigned int val
 	return gpio.val;
 }
 
+static unsigned int tgpio_multi(int fd, int gpioreg, unsigned int mask, unsigned int value)
+{
+	unsigned int bit, val = 0;
+	int i;
+
+	for (i = 0; mask >> i; i++) {
+		if ((bit = mask & (1 << i)) && /* enabled */
+		    tgpio_ioctl(fd, gpioreg, bit, value & bit) >= 0)
+			val |= bit;
+	}
+	return val;
+}
+
 void gpio_write(int gpioreg, unsigned int mask, unsigned int value)
 {
 	int fd = tgpio_open();
 	if (fd != -1)
 	{
-		tgpio_ioctl(fd, GPIO_IOC_RESERVE, mask, mask);
+		tgpio_multi(fd, GPIO_IOC_RESERVE, mask, mask);
 		tgpio_ioctl(fd, gpioreg, mask, value & mask);
 		close(fd);
 	}
