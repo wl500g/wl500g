@@ -2550,7 +2550,7 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
  */
 int dev_set_promiscuity(struct net_device *dev, int inc)
 {
-	unsigned short old_flags = dev->flags;
+	unsigned int old_flags = dev->flags;
 
 	dev->flags |= IFF_PROMISC;
 	dev->promiscuity += inc;
@@ -2599,7 +2599,7 @@ int dev_set_promiscuity(struct net_device *dev, int inc)
 
 int dev_set_allmulti(struct net_device *dev, int inc)
 {
-	unsigned short old_flags = dev->flags;
+	unsigned int old_flags = dev->flags;
 
 	dev->flags |= IFF_ALLMULTI;
 	dev->allmulti += inc;
@@ -2647,10 +2647,10 @@ unsigned dev_get_flags(const struct net_device *dev)
 	return flags;
 }
 
-int dev_change_flags(struct net_device *dev, unsigned flags)
+int dev_change_flags(struct net_device *dev, unsigned int flags)
 {
-	int ret, changes;
-	int old_flags = dev->flags;
+	int ret;
+	unsigned int changes, old_flags = dev->flags;
 
 	/*
 	 *	Set the flags on our device.
