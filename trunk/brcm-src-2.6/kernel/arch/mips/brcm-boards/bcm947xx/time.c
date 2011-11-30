@@ -61,7 +61,7 @@ bcm947xx_time_init(void)
 	if (!(hz = si_cpu_clock(sih)))
 		hz = 100000000;
 
-	printk("CPU: BCM%04x rev %d at %d MHz\n", ((si_t *)sih)->chip, ((si_t *)sih)->chiprev,
+	printk("CPU: BCM%X rev %d at %d MHz\n", ((si_t *)sih)->chip, ((si_t *)sih)->chiprev,
 	       (hz + 500000) / 1000000);
 
 	/* Set MIPS counter frequency for fixed_rate_gettimeoffset() */
