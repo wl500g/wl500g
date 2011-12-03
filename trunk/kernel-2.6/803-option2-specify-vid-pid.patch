@@ -28,18 +28,28 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  /* per port private data */
  
-@@ -1115,6 +1119,14 @@ struct option_port_private {
+@@ -1115,6 +1119,24 @@ struct option_port_private {
  static int __init option_init(void)
  {
  	int retval;
++	int found = 0, i;
 +
 +	/* Add user specified VID/PID to reserved element of table. */
 +	if (vendor && product) {
-+		int i = sizeof(option_ids)/sizeof(option_ids[0]) - 2;
-+		option_ids[i].idVendor = vendor;
-+		option_ids[i].idProduct = product;
-+		option_ids[i].match_flags = USB_DEVICE_ID_MATCH_DEVICE;
++		for (i = 0; i < sizeof(option_ids)/sizeof(option_ids[0]) - 2; i++) {
++			if( (option_ids[i].idVendor == vendor) &&
++			    (option_ids[i].idProduct == product) ){
++				found = 1;
++				break;
++			}
++		}
++		if (!found) {
++			option_ids[i].idVendor = vendor;
++			option_ids[i].idProduct = product;
++			option_ids[i].match_flags = USB_DEVICE_ID_MATCH_DEVICE;
++		}
 +	}
++
  	retval = usb_serial_register(&option_1port_device);
  	if (retval)
  		goto failed_1port_device_register;
