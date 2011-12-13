@@ -5,6 +5,44 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
+===RT-N-1.9.2.7-rtn (current)===
+  * Broadcom SDK 5.60.127
+    * RT-N10U, RT-!N12B1 support
+    * RT-N16 802.1x MD5 authentication support
+    * et improvements
+
+  * kernel
+    * backports from upstream - mm, net(ip, route, inetpeer, tcp, ipv4/ipv6), netfilter, vfs, fs(fat, smbfs, isofs, ext2, ext3, ext4), timer/hrtimer, poll/select, splice, usb, hid
+    * CIFS 1.54: backport from 2.6.27.59
+    * ext3: backport from 2.6.32.48
+    * gspca webcam drivers updates from 3.0.4, contributed by Evgeniy Chilikin aka Almair @ wl500g.info
+    * turn off NF_CONNTRACK_PROC_COMPAT
+    * usb-serial: option: prevent adding a new record if device description exists
+
+  * rc
+    * bugfixes
+    * use dhcp ip6rd option
+    * upnp: send address change notify instead restart, listen loopback too
+    * multiple gpio reservation, fixes N12 ses button
+
+  * busybox 1.19.3
+    * dhcp6c: optimizations
+    * fdisk: fix non-512 sector sizes disk(GPT). Patch from TomatoUSB
+    * bugfixes from upstream (getty, modinfo, mount, hexdump, wget)
+
+  * 3g/cdma
+    * usb-modeswitch 1.2.0 + usb-modeswitch-data 2011-10-23
+    * modems.conf update
+
+  * dropbear 2011.54
+
+  * radvd 1.8.3
+
+  * udpxy 1.0-Chipmunk-21
+
+  * misc
+    * miniupnpd: no need to frighten human beings on every wan_up
+    * loader: minor speedup
 
 ===RT-N-1.9.2.7-rtn-`r3497` (2011-10-22)===
   * kernel
