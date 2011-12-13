@@ -1306,33 +1306,35 @@ sitd_slot_ok (
 	if (mask & ~0xffff)
 		return 0;
 
+	/* check bandwidth */
+	uframe %= period_uframes;
+	frame = uframe >> 3;
+
+#ifdef CONFIG_USB_EHCI_TT_NEWSCHED
+	/* The tt's fullspeed bus bandwidth must be available.
+	 * tt_available scheduling guarantees 10+% for control/bulk.
+	 */
+	uf = uframe & 7;
+	if (!tt_available(ehci, period_uframes >> 3,
+			stream->udev, frame, uf, stream->tt_usecs))
+		return 0;
+#else
+	/* tt must be idle for start(s), any gap, and csplit.
+	 * assume scheduling slop leaves 10+% for control/bulk.
+	 */
+	if (!tt_no_collision(ehci, period_uframes >> 3,
+			stream->udev, frame, mask))
+		return 0;
+#endif
+
 	/* this multi-pass logic is simple, but performance may
 	 * suffer when the schedule data isn't cached.
 	 */
-
-	/* check bandwidth */
-	uframe %= period_uframes;
 	do {
 		u32		max_used;
 
 		frame = uframe >> 3;
 		uf = uframe & 7;
-
-#ifdef CONFIG_USB_EHCI_TT_NEWSCHED
-		/* The tt's fullspeed bus bandwidth must be available.
-		 * tt_available scheduling guarantees 10+% for control/bulk.
-		 */
-		if (!tt_available (ehci, period_uframes << 3,
-				stream->udev, frame, uf, stream->tt_usecs))
-			return 0;
-#else
-		/* tt must be idle for start(s), any gap, and csplit.
-		 * assume scheduling slop leaves 10+% for control/bulk.
-		 */
-		if (!tt_no_collision (ehci, period_uframes << 3,
-				stream->udev, frame, mask))
-			return 0;
-#endif
 
 		/* check starts (OUT uses more than one) */
 		max_used = 100 - stream->usecs;
@@ -1448,30 +1450,36 @@ iso_stream_schedule (
 	 * jump until after the queue is primed.
 	 */
 	else {
+		int done = 0;
 		start = SCHEDULE_SLOP + (now & ~0x07);
 
 		/* NOTE:  assumes URB_ISO_ASAP, to limit complexity/bugs */
 
-		/* find a uframe slot with enough bandwidth */
-		next = start + period;
-		for (; start < next; start++) {
-
+		/* find a uframe slot with enough bandwidth.
+		 * Early uframes are more precious because full-speed
+		 * iso IN transfers can't use late uframes,
+		 * and therefore they should be allocated last.
+		 */
+		next = start;
+		start += period;
+		do {
+			start--;
 			/* check schedule: enough space? */
 			if (stream->highspeed) {
 				if (itd_slot_ok(ehci, mod, start,
 						stream->usecs, period))
-					break;
+					done = 1;
 			} else {
 				if ((start % 8) >= 6)
 					continue;
 				if (sitd_slot_ok(ehci, mod, stream,
 						start, sched, period))
-					break;
+					done = 1;
 			}
-		}
+		} while (start > next && !done);
 
 		/* no room in the schedule */
-		if (start == next) {
+		if (!done) {
 			ehci_dbg(ehci, "iso resched full %p (now %d max %d)\n",
 				urb, now, now + mod);
 			status = -ENOSPC;
