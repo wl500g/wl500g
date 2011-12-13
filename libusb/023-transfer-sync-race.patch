@@ -1,0 +1,163 @@
+From 6696512aade99bb15d6792af90ae329af270eba6
+From: Graeme Gill
+Date: Sat, 10 Sep 2011 15:47:05 +0200
+Subject: [PATCH] Fix #56 race condition causing delayed completion of sync transfers
+
+The sync API had a race where it would check a condition to know if it
+needed to call a libusb_handle_events() function. However, the check
+was done outside of the lock that is held while the condition is set,
+so another thread could completely serve whatever was needed to make
+the condition true between it being checked and the event handler being
+called. This situation would be detected after a libusb-internal timeout
+of 60 seconds, after which the transfer would be completed without
+error, but with significant delay.
+
+Original patch at http://marc.info/?l=libusb-devel&m=127252114815709
+
+Changes by Hans de Goede:
+- Renamed the "race-proof" functions from libusb_handle_events*_check()
+  to libusb_handle_events*_completed()
+- Drop r = 0 setting in libusb_handle_events_timeout_completed()
+  (to make both completed checking cases identical flow wise)
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+[stuge: Simplify libusb_handle_events_timeout() change with a goto]
+[pbatard: Fix _handle_events_timeout() and _completed() definitions]
+---
+ libusb/io.c           |   33 ++++++++++++++++++++++++++++-----
+ libusb/libusb-1.0.def |    4 ++++
+ libusb/libusb.h       |    3 +++
+ libusb/sync.c         |    8 ++++----
+ 4 files changed, 39 insertions(+), 9 deletions(-)
+
+diff --git a/libusb/io.c b/libusb/io.c
+--- a/libusb/io.c
++++ b/libusb/io.c
+@@ -1946,8 +1946,8 @@ static int get_next_timeout(libusb_context *ctx, struct timeval *tv,
+  * non-blocking mode
+  * \returns 0 on success, or a LIBUSB_ERROR code on failure
+  */
+-API_EXPORTED int libusb_handle_events_timeout(libusb_context *ctx,
+-	struct timeval *tv)
++API_EXPORTED int libusb_handle_events_timeout_completed(libusb_context *ctx,
++	struct timeval *tv, int *completed)
+ {
+ 	int r;
+ 	struct timeval poll_timeout;
+@@ -1961,8 +1961,11 @@ int API_EXPORTED libusb_handle_events_timeout(libusb_context *ctx,
+ 
+ retry:
+ 	if (libusb_try_lock_events(ctx) == 0) {
+-		/* we obtained the event lock: do our own event handling */
+-		r = handle_events(ctx, &poll_timeout);
++		if (completed == NULL || !*completed) {
++			/* we obtained the event lock: do our own event handling */
++			usbi_dbg("doing our own event handling");
++			r = handle_events(ctx, &poll_timeout);
++		}
+ 		libusb_unlock_events(ctx);
+ 		return r;
+ 	}
+@@ -1971,6 +1974,9 @@ retry:
+ 	 * notify event completion. */
+ 	libusb_lock_event_waiters(ctx);
+ 
++	if (completed && *completed)
++		goto already_done;
++
+ 	if (!libusb_event_handler_active(ctx)) {
+ 		/* we hit a race: whoever was event handling earlier finished in the
+ 		 * time it took us to reach this point. try the cycle again. */
+@@ -1981,6 +1987,8 @@ retry:
+ 
+ 	usbi_dbg("another thread is doing event handling");
+ 	r = libusb_wait_for_event(ctx, &poll_timeout);
++
++already_done:
+ 	libusb_unlock_event_waiters(ctx);
+ 
+ 	if (r < 0)
+@@ -1991,6 +1999,12 @@ retry:
+ 		return 0;
+ }
+ 
++int API_EXPORTED libusb_handle_events_timeout(libusb_context *ctx,
++	struct timeval *tv)
++{
++	return libusb_handle_events_timeout_completed(ctx, tv, NULL);
++}
++
+ /** \ingroup poll
+  * Handle any pending events in blocking mode. There is currently a timeout
+  * hardcoded at 60 seconds but we plan to make it unlimited in future. For
+@@ -2005,7 +2019,16 @@ int API_EXPORTED libusb_handle_events(libusb_context *ctx)
+ 	struct timeval tv;
+ 	tv.tv_sec = 60;
+ 	tv.tv_usec = 0;
+-	return libusb_handle_events_timeout(ctx, &tv);
++	return libusb_handle_events_timeout_completed(ctx, &tv, NULL);
++}
++
++int API_EXPORTED libusb_handle_events_completed(libusb_context *ctx,
++	int *completed)
++{
++	struct timeval tv;
++	tv.tv_sec = 60;
++	tv.tv_usec = 0;
++	return libusb_handle_events_timeout_completed(ctx, &tv, completed);
+ }
+ 
+ /** \ingroup poll
+diff --git a/libusb/libusb.h b/libusb/libusb.h
+--- a/libusb/libusb.h
++++ b/libusb/libusb.h
+@@ -1315,7 +1315,10 @@ int LIBUSB_CALL libusb_wait_for_event(libusb_context *ctx, struct timeval *tv);
+ int libusb_wait_for_event(libusb_context *ctx, struct timeval *tv);
+ 
+ int libusb_handle_events_timeout(libusb_context *ctx, struct timeval *tv);
++int libusb_handle_events_timeout_completed(libusb_context *ctx,
++	struct timeval *tv, int *completed);
+ int libusb_handle_events(libusb_context *ctx);
++int libusb_handle_events_completed(libusb_context *ctx, int *completed);
+ int libusb_handle_events_locked(libusb_context *ctx, struct timeval *tv);
+ int libusb_pollfds_handle_timeouts(libusb_context *ctx);
+ 
+diff --git a/libusb/sync.c b/libusb/sync.c
+index 3870f95..d50413b 100644
+--- a/libusb/sync.c
++++ b/libusb/sync.c
+@@ -102,13 +102,13 @@ int API_EXPORTED libusb_control_transfer(libusb_device_handle *dev_handle,
+ 	}
+ 
+ 	while (!completed) {
+-		r = libusb_handle_events(HANDLE_CTX(dev_handle));
++		r = libusb_handle_events_completed(HANDLE_CTX(dev_handle), &completed);
+ 		if (r < 0) {
+ 			if (r == LIBUSB_ERROR_INTERRUPTED)
+ 				continue;
+ 			libusb_cancel_transfer(transfer);
+ 			while (!completed)
+-				if (libusb_handle_events(HANDLE_CTX(dev_handle)) < 0)
++				if (libusb_handle_events_completed(HANDLE_CTX(dev_handle), &completed) < 0)
+ 					break;
+ 			libusb_free_transfer(transfer);
+ 			return r;
+@@ -172,13 +172,13 @@ static int do_sync_bulk_transfer(struct libusb_device_handle *dev_handle,
+ 	}
+ 
+ 	while (!completed) {
+-		r = libusb_handle_events(HANDLE_CTX(dev_handle));
++		r = libusb_handle_events_completed(HANDLE_CTX(dev_handle), &completed);
+ 		if (r < 0) {
+ 			if (r == LIBUSB_ERROR_INTERRUPTED)
+ 				continue;
+ 			libusb_cancel_transfer(transfer);
+ 			while (!completed)
+-				if (libusb_handle_events(HANDLE_CTX(dev_handle)) < 0)
++				if (libusb_handle_events_completed(HANDLE_CTX(dev_handle), &completed) < 0)
+ 					break;
+ 			libusb_free_transfer(transfer);
+ 			return r;
+-- 
+1.7.6.1
+

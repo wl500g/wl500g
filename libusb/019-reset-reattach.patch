@@ -1,0 +1,85 @@
+From 20e26dda0f86dafa3436b152e090b5f3410c8ce4
+From: Hans de Goede
+Date: Tue, 8 Feb 2011 16:37:18 +0100
+Subject: [PATCH] Linux: Stop kernel from re-attaching in-kernel driver after reset
+
+When an interface is bound to the usbfs driver (iow claimed), the
+kernel will unbind it, and then after the reset do a device_attach
+on the interface, which will bind the default in kernel driver to
+the interface.
+
+So if an app has detached the in kernel driver, and claimed the
+interface and then does a libusb_reset_device. Things end up with
+the interface no longer being bound to the usbfs driver (so no longer
+claimed) and instead it is bound to the in kernel driver (iow the in
+kernel driver is re-attached).
+
+We can stop this from happening by releasing all claimed interfaces
+before the reset, as the kernel will not do the device attach after
+reset, if no driver was bound to the interface before the reset.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ libusb/os/linux_usbfs.c |   40 +++++++++++++++++++++++++++++++++++-----
+ 1 files changed, 35 insertions(+), 5 deletions(-)
+
+diff --git a/libusb/os/linux_usbfs.c b/libusb/os/linux_usbfs.c
+index 207d55d..aca6cd0 100644
+--- a/libusb/os/linux_usbfs.c
++++ b/libusb/os/linux_usbfs.c
+@@ -1271,17 +1271,47 @@ static int op_clear_halt(struct libusb_device_handle *handle,
+ static int op_reset_device(struct libusb_device_handle *handle)
+ {
+ 	int fd = __device_handle_priv(handle)->fd;
+-	int r = ioctl(fd, IOCTL_USBFS_RESET, NULL);
++	int i, r, ret = 0;
++
++	/* Doing a device reset will cause the usbfs driver to get unbound
++	   from any interfaces it is bound to. By voluntarily unbinding
++	   the usbfs driver ourself, we stop the kernel from rebinding
++	   the interface after reset (which would end up with the interface
++	   getting bound to the in kernel driver if any). */
++	for (i = 0; i < USB_MAXINTERFACES; i++) {
++		if (handle->claimed_interfaces & (1L << i)) {
++			op_release_interface(handle, i);
++		}
++	}
++
++	pthread_mutex_lock(&handle->lock);
++	r = ioctl(fd, IOCTL_USBFS_RESET, NULL);
+ 	if (r) {
+-		if (errno == ENODEV)
+-			return LIBUSB_ERROR_NOT_FOUND;
++		if (errno == ENODEV) {
++			ret = LIBUSB_ERROR_NOT_FOUND;
++			goto out;
++		}
+ 
+ 		usbi_err(HANDLE_CTX(handle),
+ 			"reset failed error %d errno %d", r, errno);
+-		return LIBUSB_ERROR_OTHER;
++		ret = LIBUSB_ERROR_OTHER;
++		goto out;
+ 	}
+ 
+-	return 0;
++	/* And re-claim any interfaces which were claimed before the reset */
++	for (i = 0; i < USB_MAXINTERFACES; i++) {
++		if (handle->claimed_interfaces & (1L << i)) {
++			r = op_claim_interface(handle, i);
++			if (r) {
++				usbi_warn(HANDLE_CTX(handle),
++					"failed to re-claim interface %d after reset", i);
++				handle->claimed_interfaces &= ~(1L << i);
++			}
++		}
++	}
++out:
++	pthread_mutex_unlock(&handle->lock);
++	return ret;
+ }
+ 
+ static int op_kernel_driver_active(struct libusb_device_handle *handle,
+-- 
+1.7.6.1
+
