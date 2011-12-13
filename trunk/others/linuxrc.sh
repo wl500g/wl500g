@@ -61,7 +61,7 @@ fi
 if [ ! -b "$boot_dev" ]; then
 	insmod usbcore
 	usb21=$(nvram get usb20_disable_x)
-	[ -z "$usb21"] && usb21="0"
+	[ -z "$usb21" ] && usb21="0"
 	[ "$usb21" -ne 1 ] && insmod ehci-hcd
 	[ "$usb21" -ne 2 ] && (insmod ohci-hcd; insmod uhci-hcd)
 	sleep 2s
@@ -74,7 +74,7 @@ fi
 
 # wait for disc appear, max 15 sec
 i=0
-while [ -z "$(ls /sys/class/scsi_disk/)" -a -z "$(ls /sys/bus/ide/devices/ 2>/dev/null)" ]; do
+while [ ! -b "$boot_dev" ]; do
 	sleep 1s
 	i=$((i + 1))
 	if [ $i -gt 15 ]; then
@@ -83,12 +83,14 @@ while [ -z "$(ls /sys/class/scsi_disk/)" -a -z "$(ls /sys/bus/ide/devices/ 2>/de
 done
 
 # trying to mount new rootfs
-for fstyp in ext3 ext2; do
-	mount -t $fstyp -o ro "$boot_dev" /mnt
-	if [ $? -eq 0 ]; then
-		break
-	fi
-done
+if [ -b "$boot_dev" ]; then
+	for fstyp in ext3 ext2; do
+		mount -t $fstyp -o ro "$boot_dev" /mnt
+		if [ $? -eq 0 ]; then
+			break
+		fi
+	done
+fi
 
 # enable hotplug
 echo /sbin/hotplug > /proc/sys/kernel/hotplug
