@@ -3,6 +3,7 @@ RTNETLINK: Use rtnl_link API for vlans
  0157f60c0caea24fa8347f4c0ed53297c412fce1 [RTNETLINK]: Split up rtnl_setlink
  38f7b870d4a6a5d3ec21557e849620cb7d032965 [RTNETLINK]: Link creation API
  07b5b17e157b7018d0ca40ca0d1581a23096fb45 [VLAN]: Use rtnl_link API
+ 3f03e387893ffa07a4d5dac96772f9db3221a185 [VLAN]: Fix potential race in vlan_cleanup_module vs vlan_ioctl_handler.
 
 ---
  include/linux/if_link.h   |   47 ++++
@@ -201,13 +202,13 @@ diff -urNBp a/net/8021q/vlan.c b/net/8021q/vlan.c
  
  /* Cleanup all vlan devices
 @@ -136,6 +143,7 @@ static void __exit vlan_cleanup_module(v
- {
  	int i;
  
-+	vlan_netlink_fini();
  	vlan_ioctl_set(NULL);
++	vlan_netlink_fini();
  
  	/* Un-register us from receiving netdevice events */
+ 	unregister_netdevice_notifier(&vlan_notifier_block);
 @@ -306,7 +314,7 @@ static int unregister_vlan_dev(struct ne
  	return ret;
  }
