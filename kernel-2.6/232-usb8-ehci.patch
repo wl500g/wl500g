@@ -1,0 +1,103 @@
+EHCI: Updates from upstream
+
+ 0412560e18b4330366653819c0c5e73a743ff7e8 ehci: remove wmb in qh_update
+ 9a971dda8208e0982094f29ef34bd190f2a081bd ehci: only prepare zero packet for out transfer if required
+ 41f05dedeabb0e2cb03734de383db3f0ddecf9e0 ehci: remove the 1st wmb in qh_append_tds
+ 811c926c538f7e8d3c08b630dd5844efd7e000f6 EHCI: fix HUB TT scheduling issue with iso transfer
+ e3420901eba65b1c46bed86d360e3a8685d20734 EHCI: Fix a regression in the ISO scheduler
+
+---
+ drivers/usb/host/ehci-q.c     |    9 ++++-----
+ drivers/usb/host/ehci-sched.c |   22 ++++++++++++++--------
+ 2 files changed, 18 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
+--- a/drivers/usb/host/ehci-q.c
++++ b/drivers/usb/host/ehci-q.c
+@@ -111,8 +111,6 @@ qh_update (struct ehci_hcd *ehci, struct ehci_qh *qh, struct ehci_qtd *qtd)
+ 		}
+ 	}
+ 
+-	/* HC must see latest qtd and qh data before we clear ACTIVE+HALT */
+-	wmb ();
+ 	hw->hw_token &= cpu_to_hc32(ehci, QTD_TOGGLE | QTD_STS_PING);
+ }
+ 
+@@ -722,7 +722,8 @@ qh_urb_transaction (
+ 
+ 	/*
+ 	 * control requests may need a terminating data "status" ack;
+-	 * bulk ones may need a terminating short packet (zero length).
++	 * other OUT ones may need a terminating short packet
++	 * (zero length).
+ 	 */
+ 	if (likely (urb->transfer_buffer_length != 0)) {
+ 		int	one_more = 0;
+@@ -731,7 +732,7 @@ qh_urb_transaction (
+ 			one_more = 1;
+ 			token ^= 0x0100;	/* "in" <--> "out"  */
+ 			token |= QTD_TOGGLE;	/* force DATA1 */
+-		} else if (usb_pipebulk (urb->pipe)
++		} else if (usb_pipeout(urb->pipe)
+ 				&& (urb->transfer_flags & URB_ZERO_PACKET)
+ 				&& !(urb->transfer_buffer_length % maxpacket)) {
+ 			one_more = 1;
+@@ -1056,7 +1056,7 @@ static struct ehci_qh *qh_append_tds (
+ 			 */
+ 			token = qtd->hw_token;
+ 			qtd->hw_token = HALT_BIT(ehci);
+-			wmb ();
++
+ 			dummy = qh->dummy;
+ 
+ 			dma = dummy->qtd_dma;
+diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
+--- a/drivers/usb/host/ehci-sched.c
++++ b/drivers/usb/host/ehci-sched.c
+@@ -1448,30 +1448,36 @@ iso_stream_schedule (
+ 	 * jump until after the queue is primed.
+ 	 */
+ 	else {
++		int done = 0;
+ 		start = SCHEDULE_SLOP + (now & ~0x07);
+ 
+ 		/* NOTE:  assumes URB_ISO_ASAP, to limit complexity/bugs */
+ 
+-		/* find a uframe slot with enough bandwidth */
+-		next = start + period;
+-		for (; start < next; start++) {
+-
++		/* find a uframe slot with enough bandwidth.
++		 * Early uframes are more precious because full-speed
++		 * iso IN transfers can't use late uframes,
++		 * and therefore they should be allocated last.
++		 */
++		next = start;
++		start += period;
++		do {
++			start--;
+ 			/* check schedule: enough space? */
+ 			if (stream->highspeed) {
+ 				if (itd_slot_ok(ehci, mod, start,
+ 						stream->usecs, period))
+-					break;
++					done = 1;
+ 			} else {
+ 				if ((start % 8) >= 6)
+ 					continue;
+ 				if (sitd_slot_ok(ehci, mod, stream,
+ 						start, sched, period))
+-					break;
++					done = 1;
+ 			}
+-		}
++		} while (start > next && !done);
+ 
+ 		/* no room in the schedule */
+-		if (start == next) {
++		if (!done) {
+ 			ehci_dbg(ehci, "iso resched full %p (now %d max %d)\n",
+ 				urb, now, now + mod);
+ 			status = -ENOSPC;
+-- 
+1.7.6.2
