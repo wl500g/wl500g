@@ -18,7 +18,7 @@
     * For 1.9.2.7-rtn branch you need  [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc-4.4.6 hndtools-mipsel-uclibc-4.4.6]
   * Linux kernel 
     * For stable 1.9.2.7-d branch you need [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.11.tar.bz2 linux-2.4.37.11.tar.bz2]
-    * For 1.9.2.7-rtn branch you need [http://www.kernel.org/pub/linux/kernel/v2.6/linux-2.6.22.19.tar.bz2 linux-2.6.22.19.tar.bz2]
+    * For 1.9.2.7-rtn branch you need [http://wl500g.googlecode.com/files/linux-2.6.22.19.tar.bz2 linux-2.6.22.19.tar.bz2]
 
 == 3. Unpack the archives and prepare the building tree ==
 

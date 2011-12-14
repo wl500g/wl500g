@@ -18,7 +18,7 @@
     * Для основной 1.9.2.7-rtn нужен [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc-4.4.6 hndtools-mipsel-uclibc-4.4.6]
   * ядро Linux 
     * Для стабильной ветки 1.9.2.7-d вам нужно ядро [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.11.tar.bz2 linux-2.4.37.11.tar.bz2]
-    * Для основной 1.9.2.7-rtn вам нужно ядро [http://www.kernel.org/pub/linux/kernel/v2.6/linux-2.6.22.19.tar.bz2 linux-2.6.22.19.tar.bz2]
+    * Для основной 1.9.2.7-rtn вам нужно ядро [http://wl500g.googlecode.com/files/linux-2.6.22.19.tar.bz2 linux-2.6.22.19.tar.bz2]
 
 == 3. Распаковать архивы и подготовить дерево сборки ==
 
