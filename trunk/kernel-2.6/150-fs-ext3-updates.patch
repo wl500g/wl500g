@@ -17,12 +17,12 @@ ext3: Updates from 2.6.32.48
  fs/ext3/ioctl.c                    |   53 ++----
  fs/ext3/namei.c                    |  198 +++++++++++++++--------
  fs/ext3/resize.c                   |    2 
- fs/ext3/super.c                    |  219 ++++++++++++++------------
+ fs/ext3/super.c                    |  207 +++++++++++++-----------
  fs/ext3/xattr.c                    |   34 ++--
  include/linux/ext3_fs.h            |   69 ++++++--
  include/linux/ext3_fs_i.h          |   10 +
  include/linux/ext3_fs_sb.h         |    3 
- 16 files changed, 701 insertions(+), 433 deletions(-)
+ 16 files changed, 690 insertions(+), 432 deletions(-)
 
 diff --git a/Documentation/filesystems/ext3.txt b/Documentation/filesystems/ext3.txt
 --- a/Documentation/filesystems/ext3.txt
@@ -1824,14 +1824,12 @@ diff --git a/fs/ext3/super.c b/fs/ext3/super.c
  }
  
  void ext3_warning (struct super_block * sb, const char * function,
-@@ -390,10 +394,16 @@ static void ext3_put_super (struct super
+@@ -390,10 +394,14 @@ static void ext3_put_super (struct super
  {
  	struct ext3_sb_info *sbi = EXT3_SB(sb);
  	struct ext3_super_block *es = sbi->s_es;
 -	int i;
 +	int i, err;
-+
-+	lock_kernel();
  
  	ext3_xattr_put_super(sb);
 -	journal_destroy(sbi->s_journal);
@@ -1843,18 +1841,14 @@ diff --git a/fs/ext3/super.c b/fs/ext3/super.c
  	if (!(sb->s_flags & MS_RDONLY)) {
  		EXT3_CLEAR_INCOMPAT_FEATURE(sb, EXT3_FEATURE_INCOMPAT_RECOVER);
  		es->s_state = cpu_to_le16(sbi->s_mount_state);
-@@ -434,8 +444,10 @@ static void ext3_put_super (struct super
+@@ -434,6 +444,7 @@ static void ext3_put_super (struct super
  		ext3_blkdev_remove(sbi);
  	}
  	sb->s_fs_info = NULL;
 +	kfree(sbi->s_blockgroup_lock);
  	kfree(sbi);
--	return;
-+
-+	unlock_kernel();
+ 	return;
  }
- 
- static struct kmem_cache *ext3_inode_cachep;
 @@ -456,6 +468,8 @@ static struct inode *ext3_alloc_inode(st
  #endif
  	ei->i_block_alloc_info = NULL;
@@ -2190,35 +2184,6 @@ diff --git a/fs/ext3/super.c b/fs/ext3/super.c
  }
  
  static int ext3_remount (struct super_block * sb, int * flags, char * data)
-@@ -2421,7 +2441,10 @@ static int ext3_remount (struct super_bl
- 	int i;
- #endif
- 
-+	lock_kernel();
-+
- 	/* Store the original options */
-+	lock_super(sb);
- 	old_sb_flags = sb->s_flags;
- 	old_opts.s_mount_opt = sbi->s_mount_opt;
- 	old_opts.s_resuid = sbi->s_resuid;
-@@ -2529,6 +2552,8 @@ static int ext3_remount (struct super_bl
- 		    old_opts.s_qf_names[i] != sbi->s_qf_names[i])
- 			kfree(old_opts.s_qf_names[i]);
- #endif
-+	unlock_super(sb);
-+	unlock_kernel();
- 	return 0;
- restore_opts:
- 	sb->s_flags = old_sb_flags;
-@@ -2545,6 +2570,8 @@ restore_opts:
- 		sbi->s_qf_names[i] = old_opts.s_qf_names[i];
- 	}
- #endif
-+	unlock_super(sb);
-+	unlock_kernel();
- 	return err;
- }
- 
 @@ -2599,13 +2626,11 @@ static int ext3_statfs (struct dentry * 
  	buf->f_bsize = sb->s_blocksize;
  	buf->f_blocks = le32_to_cpu(es->s_blocks_count) - sbi->s_overhead_last;
