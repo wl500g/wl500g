@@ -17,11 +17,21 @@ Signed-off-by: Jean Noel Cordenner <jean-noel.cordenner@bull.net>
 Signed-off-by: Kalpak Shah <kalpak@clusterfs.com>
 
 ---
+From 08b9fe6b12d32324f311c46b88102b6b9067d434
+From: Mimi Zohar
+Date: Mon, 13 Oct 2008 00:09:50 -0400
+Subject: [PATCH] i_version: remount support
+
+Add support for remounting a filesystem with the i_version option.
+
+Signed-off-by: Mimi Zohar <zohar@us.ibm.com>
+
+---
  fs/afs/dir.c       |    9 +++++----
  fs/afs/inode.c     |    3 ++-
- fs/inode.c         |   22 ++++++++++++++++++++++
- include/linux/fs.h |    5 ++++-
- 4 files changed, 33 insertions(+), 6 deletions(-)
+ fs/inode.c         |    5 +++++
+ include/linux/fs.h |   21 +++++++++++++++++++--
+ 4 files changed, 31 insertions(+), 7 deletions(-)
 
 diff --git a/fs/afs/dir.c b/fs/afs/dir.c
 --- a/fs/afs/dir.c
@@ -92,6 +102,15 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  #define MS_ACTIVE	(1<<30)
  #define MS_NOUSER	(1<<31)
  
+@@ -136,7 +136,7 @@ extern int dir_notify_enable;
+ /*
+  * Superblock flags that can be altered by MS_REMOUNT
+  */
+-#define MS_RMT_MASK	(MS_RDONLY|MS_SYNCHRONOUS|MS_MANDLOCK)
++#define MS_RMT_MASK	(MS_RDONLY|MS_SYNCHRONOUS|MS_MANDLOCK|MS_I_VERSION)
+ 
+ /*
+  * Old magic mount flag and mask
 @@ -173,6 +174,7 @@ extern int dir_notify_enable;
  					((inode)->i_flags & (S_SYNC|S_DIRSYNC)))
  #define IS_MANDLOCK(inode)	__IS_FLG(inode, MS_MANDLOCK)
