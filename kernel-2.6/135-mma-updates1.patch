@@ -11,6 +11,8 @@ c80e7a826c10cf5bce8487fbaede48bd0bd48d08 permit mempool_free(NULL)
 a200ee182a016752464a12cb2e8762e48254bb09 mm: set_page_dirty_balance() vs ->page_mkwrite()
 369f2389e7d03022abdd25e298bffb9613cd0e54 writeback: remove unnecessary wait in throttle_vm_writeout()
 ce36394269ccd9d1d286d6192ba09fa6894365e9 mmap: fix petty bug in anonymous shared mmap offset handling
+e713a21d8251a4c91772f592af46407dfb0b2e4f trivial: Fix dubious bitwise 'or' usage spotted by sparse.
+9155203a5de94278525647b16733f0c315f3b786 mm: use roundown_pow_of_two() in zone_batchsize()
 
 ---
  include/linux/writeback.h |    2 +-
@@ -226,6 +228,24 @@ diff --git a/mm/page-writeback.c b/mm/page-writeback.c
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
+@@ -331,7 +331,7 @@ static int destroy_compound_page(struct page *page, unsigned long order)
+ 	for (i = 1; i < nr_pages; i++) {
+ 		struct page *p = page + i;
+ 
+-		if (unlikely(!PageTail(p) |
++		if (unlikely(!PageTail(p) ||
+ 				(p->first_page != page)))
+ 			bad_page(page);
+ 		__ClearPageTail(p);
+@@ -2706,7 +2706,7 @@ static int zone_batchsize(struct zone *zone)
+ 	 * of pages of one half of the possible page colors
+ 	 * and the other with pages of the other colors.
+ 	 */
+-	batch = (1 << (fls(batch + batch/2)-1)) - 1;
++	batch = rounddown_pow_of_two(batch + batch/2) - 1;
+ 
+ 	return batch;
+ }
 @@ -3376,6 +3376,21 @@ void *__init alloc_large_system_hash(const char *tablename,
  			for (order = 0; ((1UL << order) << PAGE_SHIFT) < size; order++)
  				;
