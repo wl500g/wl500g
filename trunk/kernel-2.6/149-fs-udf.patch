@@ -9,7 +9,7 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  fs/Kconfig                        |    1 
  fs/buffer.c                       |    1 
  fs/udf/Makefile                   |    4 
- fs/udf/balloc.c                   |  918 +++++-------
+ fs/udf/balloc.c                   |  918 ++++++------
  fs/udf/crc.c                      |  173 --
  fs/udf/dir.c                      |  262 +--
  fs/udf/directory.c                |  283 +--
@@ -17,13 +17,13 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  fs/udf/file.c                     |  195 +-
  fs/udf/fsync.c                    |   50 
  fs/udf/ialloc.c                   |  128 -
- fs/udf/inode.c                    | 2095 +++++++++++++---------------
+ fs/udf/inode.c                    | 2095 +++++++++++++----------------
  fs/udf/lowlevel.c                 |   33 
  fs/udf/misc.c                     |  233 +--
  fs/udf/namei.c                    | 1034 ++++++--------
  fs/udf/osta_udf.h                 |   95 -
  fs/udf/partition.c                |  325 ++--
- fs/udf/super.c                    | 2749 +++++++++++++++++++++-----------------
+ fs/udf/super.c                    | 2739 +++++++++++++++++++++-----------------
  fs/udf/symlink.c                  |   61 
  fs/udf/truncate.c                 |  269 +--
  fs/udf/udf_i.h                    |   46 
@@ -35,7 +35,7 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  include/linux/udf_fs.h            |   54 
  include/linux/udf_fs_i.h          |   30 
  include/linux/udf_fs_sb.h         |  117 -
- 30 files changed, 5151 insertions(+), 5558 deletions(-)
+ 30 files changed, 5142 insertions(+), 5557 deletions(-)
 
 diff --git a/Documentation/filesystems/udf.txt b/Documentation/filesystems/udf.txt
 --- a/Documentation/filesystems/udf.txt
@@ -9921,7 +9921,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  	uopt->partition = 0xFFFF;
  	uopt->session = 0xFFFFFFFF;
  	uopt->lastblock = 0;
-@@ -323,233 +415,207 @@ udf_parse_options(char *options, struct
+@@ -323,233 +415,203 @@ udf_parse_options(char *options, struct
  	if (!options)
  		return 1;
  
@@ -10199,7 +10199,6 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
 -	UDF_SB(sb)->s_uid   = uopt.uid;
 -	UDF_SB(sb)->s_gid   = uopt.gid;
 -	UDF_SB(sb)->s_umask = uopt.umask;
-+	lock_kernel();
 +	sbi->s_flags = uopt.flags;
 +	sbi->s_uid   = uopt.uid;
 +	sbi->s_gid   = uopt.gid;
@@ -10215,17 +10214,13 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  			*flags |= MS_RDONLY;
  	}
  
--	if ((*flags & MS_RDONLY) == (sb->s_flags & MS_RDONLY))
-+	if ((*flags & MS_RDONLY) == (sb->s_flags & MS_RDONLY)) {
-+		unlock_kernel();
+ 	if ((*flags & MS_RDONLY) == (sb->s_flags & MS_RDONLY))
  		return 0;
-+	}
  	if (*flags & MS_RDONLY)
  		udf_close_lvid(sb);
  	else
  		udf_open_lvid(sb);
  
-+	unlock_kernel();
  	return 0;
  }
  
@@ -12568,7 +12563,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  	return -EINVAL;
  }
  
-@@ -1696,130 +2055,118 @@ error_out:
+@@ -1696,130 +2055,114 @@ error_out:
  	return -EINVAL;
  }
  
@@ -12648,8 +12643,6 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
 -	}
 +	sbi = UDF_SB(sb);
 +
-+	lock_kernel();
-+
 +	if (sbi->s_vat_inode)
 +		iput(sbi->s_vat_inode);
 +	if (sbi->s_partitions)
@@ -12668,8 +12661,6 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
 +	kfree(sbi->s_partmaps);
  	kfree(sb->s_fs_info);
  	sb->s_fs_info = NULL;
-+
-+	unlock_kernel();
  }
  
 -/*
