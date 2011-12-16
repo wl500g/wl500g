@@ -10,6 +10,11 @@ Fixes from upstream
  Date: Tue, 6 Jan 2009 19:41:50 -0800
  Subject: [PATCH] Fix tc/m_ipt memory leaks
 
+ From bdc213423ad9c0edcacef2fcf98294f239e4c4de
+ From: Stephen Hemminger
+ Date: Wed, 7 Jan 2009 17:20:14 -0800
+ Subject: [PATCH] Fix leftovers from earlier change
+
  From 4b45abd1f000f62df9b624e393d9f3d62751a266
  From: Stephen Hemminger
  Date: Thu, 29 Jul 2010 18:03:35 -0700
@@ -66,20 +71,18 @@ diff -urBp iproute2.orig/tc/m_ematch.c iproute2/tc/m_ematch.c
 diff -urBp iproute2.orig/tc/m_ipt.c iproute2/tc/m_ipt.c
 --- iproute2.orig/tc/m_ipt.c	2008-04-17 21:12:54.000000000 +0400
 +++ iproute2/tc/m_ipt.c	2011-02-21 19:57:51.000000000 +0300
-@@ -277,6 +277,8 @@ get_target_name(const char *name)
+@@ -277,6 +277,7 @@ get_target_name(const char *name)
  		if (!handle) {
  			fputs(dlerror(), stderr);
  			printf("\n");
-+			free(l_name);
 +			free(new_name);
  			return NULL;
  		}
  	}
-@@ -292,12 +294,16 @@ get_target_name(const char *name)
+@@ -292,12 +294,14 @@ get_target_name(const char *name)
  					fputs(error, stderr);
  					fprintf(stderr, "\n");
  					dlclose(handle);
-+					free(l_name);
 +					free(new_name);
  					return NULL;
  				}
@@ -87,7 +90,6 @@ diff -urBp iproute2.orig/tc/m_ipt.c iproute2/tc/m_ipt.c
  		}
  	}
  
-+	free(l_name);
 +	free(new_name);
  	return m;
  }
