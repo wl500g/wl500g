@@ -89,10 +89,10 @@ match(const struct sk_buff *skb,
 		break;
 	}
 
-	if (sinfo->count.to)
+	if (sinfo->count.to >= sinfo->count.from)
 		return (what <= sinfo->count.to && what >= sinfo->count.from);
-	else
-		return (what >= sinfo->count.from);
+	else /* inverted */
+		return what < sinfo->count.to || what > sinfo->count.from;
 }
 
 static int check(const char *tablename,
