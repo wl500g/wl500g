@@ -1,0 +1,33 @@
+tc: Filter fixes
+
+ ae76106841d764fc64188e78f5c2a2575fba725e tc: don't set protococol field on filter delete
+ 05fb9184f2129c50cd0e406e9eda80509307af25 tc: filter: fix default 'protocol all' on little-endian platforms
+
+---
+ tc/tc_filter.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/tc/tc_filter.c b/tc/tc_filter.c
+--- a/tc/tc_filter.c
++++ b/tc/tc_filter.c
+@@ -54,7 +54,7 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
+ 	} req;
+ 	struct filter_util *q = NULL;
+ 	__u32 prio = 0;
+-	__u32 protocol = ETH_P_ALL;
++	__u32 protocol = 0;
+ 	int protocol_set = 0;
+ 	char *fhandle = NULL;
+ 	char  d[16];
+@@ -72,6 +72,9 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
+ 	req.n.nlmsg_type = cmd;
+ 	req.t.tcm_family = AF_UNSPEC;
+ 
++	if (cmd == RTM_NEWTFILTER && flags & NLM_F_CREATE)
++		protocol = htons(ETH_P_ALL);
++
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-- 
+1.7.6.2
