@@ -1037,6 +1037,7 @@ static int iproute_flush_cache(void)
 
 	if ((write (flush_fd, (void *)buffer, len)) < len) {
 		fprintf (stderr, "Cannot flush routing cache\n");
+		close(flush_fd);
 		return -1;
 	}
 	close(flush_fd);
