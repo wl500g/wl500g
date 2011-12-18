@@ -1,7 +1,7 @@
 diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 --- linux.orig/drivers/net/pptp.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux/drivers/net/pptp.c	2010-10-08 15:57:19.790000002 +0000
-@@ -0,0 +1,1244 @@
+@@ -0,0 +1,1242 @@
 +/*
 + *  Point-to-Point Tunneling Protocol for Linux
 + *
@@ -768,10 +768,8 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +
 +	opt->src_addr=sp->sa_addr.pptp;
 +	if (add_chan(po))
-+	{
-+	    release_sock(sk);
 +		error=-EBUSY;
-+	}
++
 +#ifdef DEBUG
 +	if (log_level>=1)
 +		printk(KERN_INFO"PPTP: using call_id %i\n",opt->src_addr.call_id);
