@@ -40,7 +40,7 @@ int start_pppd(const char *prefix)
 	char options[80];
 	char *pppd_argv[] = { "pppd", "file", options, NULL};
 	char tmp[100];
-	
+
 	sprintf(options, "/tmp/ppp/options.wan%s", 
 		nvram_safe_get(strcat_r(prefix, "unit", tmp)));
 
@@ -60,18 +60,14 @@ int start_pppd(const char *prefix)
 		nvram_safe_get(strcat_r(prefix, "pppoe_passwd", tmp)));
 
 	if (nvram_match(strcat_r(prefix, "proto", tmp), "pptp")) {
-#ifdef __CONFIG_ACCEL_PPTP__
-	    {
 		fprintf(fp,
 			"plugin pptp.so\n"
 			"pptp_server %s\n",
    			nvram_invmatch("wan_heartbeat_x", "") ?
    			nvram_safe_get("wan_heartbeat_x") : 
    			nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))); 
- 	    }
-#endif
-	    /* see KB Q189595 -- historyless & mtu */
-	    fprintf(fp, "nomppe-stateful %s mtu 1400\n",
+		/* see KB Q189595 -- historyless & mtu */
+		fprintf(fp, "nomppe-stateful %s mtu 1400\n",
 			nvram_safe_get(strcat_r(prefix, "pptp_options_x", tmp)));
 	} else {
 		fprintf(fp, "nomppe nomppc\n");

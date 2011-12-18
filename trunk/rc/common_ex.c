@@ -531,6 +531,18 @@ void convert_asus_values()
 		
 		/* current interface address (dhcp + firewall) */
 		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
+
+		/* load kernel modules, if any */
+		insmod("pppox", NULL);
+		if (nvram_match("wan_proto", "pppoe")) {
+			insmod("pppoe", NULL);
+		} else
+		if (nvram_match("wan_proto", "pptp")) {
+			insmod("pptp", NULL);
+		} else
+		if (nvram_match("wan_proto", "l2tp")) {
+			insmod("pppol2tp", NULL);
+		}
 	}
 #ifdef __CONFIG_MADWIMAX__
 	else if (nvram_match("wan_proto", "wimax"))
