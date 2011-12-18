@@ -26,6 +26,7 @@ DIR=$1
 shift
 
 # reverse patch order
+LC_COLLATE=C
 for a in $*; do
 	RPATCHES="$a $RPATCHES"
 done
