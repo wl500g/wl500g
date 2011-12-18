@@ -47,11 +47,11 @@
 
 #else	/* MIPS32r2 */
 
-#define D11CONF		0x123b0000	/* 16,17,19,20,21,25,28 */
+#define D11CONF		0x133b0000	/* 16,17,19,20,21,24,25,28 */
 
 #define ACONF		0		/* No A-Phy */
 #define GCONF		0		/* No G-Phy */
-#define NCONF		0x00320 /* 5 (4716), 8-9 (5357, 43236a0) */
+#define NCONF		0x20360 /* 5 (4716), 6 (43222a0, 43224a0), 8-9 (5357, 43236a0), 17 (53572a0) */
 #define HTCONF		0		/* No HT-Phy */
 #define LPCONF		0		/* No LP-Phy */
 #define SSLPNCONF	0x0000b /* 0-1 (4329), 3 (5356) */
