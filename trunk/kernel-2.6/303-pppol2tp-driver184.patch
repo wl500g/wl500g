@@ -1,0 +1,166 @@
+diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol2tp.c
+--- linux-2.6.22.orig/drivers/net/pppol2tp.c	2011-05-13 19:21:40.000000000 +0000
++++ linux-2.6/drivers/net/pppol2tp.c	2011-12-18 15:09:24.816683000 +0000
+@@ -5,7 +5,7 @@
+  * PPPoL2TP --- PPP over L2TP (RFC 2661)
+  *
+  *
+- * Version:    0.18.3
++ * Version:    0.18.4
+  *
+  * 230411 :	Added ASUS backports from 2.6.3x.
+  * 251003 :	Copied from pppoe.c version 0.6.9.
+@@ -98,7 +98,7 @@
+ #include <asm/byteorder.h>
+ #include <asm/atomic.h>
+ 
+-#define PPPOL2TP_DRV_VERSION	"V0.18.3"
++#define PPPOL2TP_DRV_VERSION	"V0.18.4"
+ 
+ /* Developer debug code. */
+ #if 0
+@@ -240,7 +240,7 @@ struct pppol2tp_tunnel
+ {
+ 	int			magic;		/* Should be L2TP_TUNNEL_MAGIC */
+ 
+-	rwlock_t		hlist_lock;	/* protect session_hlist */
++	spinlock_t		hlist_lock;	/* protect session_hlist */
+ 	struct hlist_head	session_hlist[PPPOL2TP_HASH_SIZE];
+ 						/* hashed list of sessions,
+ 						 * hashed by id */
+@@ -304,6 +304,11 @@ static LIST_HEAD(pppol2tp_tunnel_list);
+ 		goto label; \
+ 	}
+ 
++#define hlist_for_each_safe_rcu(pos, n, head) \
++	for (pos = (head)->first; \
++	     rcu_dereference(pos) && ({ n = pos->next; 1; }); \
++	     pos = n)
++
+ /* Session hash list.
+  * The session_id SHOULD be random according to RFC2661, but several
+  * L2TP implementations (Cisco and Microsoft) use incrementing
+@@ -328,16 +333,15 @@ pppol2tp_session_find(struct pppol2tp_tu
+ 	struct hlist_node *walk;
+ 	struct pppol2tp_session *session;
+ 
+-	//TODO: Switch to RCU
+-	read_lock_bh(&tunnel->hlist_lock);
+-	hlist_for_each_safe(walk, tmp, session_list) {
++	rcu_read_lock();
++	hlist_for_each_safe_rcu(walk, tmp, session_list) {
+ 		session = hlist_entry(walk, struct pppol2tp_session, hlist);
+ 		if (session->tunnel_addr.s_session == session_id) {
+-			read_unlock_bh(&tunnel->hlist_lock);
++			rcu_read_unlock();
+ 			return session;
+ 		}
+ 	}
+-	read_unlock_bh(&tunnel->hlist_lock);
++	rcu_read_unlock();
+ 
+ 	return NULL;
+ }
+@@ -1221,7 +1225,7 @@ static void pppol2tp_tunnel_closeall(str
+ 	PRINTK(tunnel->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
+ 	       "%s: closing all sessions...\n", tunnel->name);
+ 
+-	write_lock_bh(&tunnel->hlist_lock);
++	spin_lock(&tunnel->hlist_lock);
+ 	for (hash = 0; hash < PPPOL2TP_HASH_SIZE; hash++) {
+ again:
+ 		hlist_for_each_safe(walk, tmp, &tunnel->session_hlist[hash]) {
+@@ -1233,7 +1237,7 @@ again:
+ 			PRINTK(session->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
+ 			       "%s: closing session\n", session->name);
+ 
+-			hlist_del_init(&session->hlist);
++			hlist_del_init_rcu(&session->hlist);
+ 
+ 			/* Since we should hold the sock lock while
+ 			 * doing any unbinding, we need to release the
+@@ -1242,7 +1246,8 @@ again:
+ 			 * disappear as we're jumping between locks.
+ 			 */
+ 			sock_hold(sk);
+-			write_unlock_bh(&tunnel->hlist_lock);
++			spin_unlock(&tunnel->hlist_lock);
++			synchronize_rcu();
+ 			lock_sock(sk);
+ 
+ 			if (sk->sk_state & (PPPOX_CONNECTED | PPPOX_BOUND)) {
+@@ -1270,11 +1275,11 @@ again:
+ 			 * list so we are guaranteed to make forward
+ 			 * progress.
+ 			 */
+-			write_lock_bh(&tunnel->hlist_lock);
++			spin_lock(&tunnel->hlist_lock);
+ 			goto again;
+ 		}
+ 	}
+-	write_unlock_bh(&tunnel->hlist_lock);
++	spin_unlock(&tunnel->hlist_lock);
+ 
+ 	EXIT_FUNCTION;
+ }
+@@ -1415,9 +1420,10 @@ static int pppol2tp_release(struct socke
+ 		if (tunnel != NULL) {
+ 			if (tunnel->magic == L2TP_TUNNEL_MAGIC) {
+ 				/* Delete the session socket from the hash */
+-				write_lock_bh(&tunnel->hlist_lock);
+-				hlist_del_init(&session->hlist);
+-				write_unlock_bh(&tunnel->hlist_lock);
++				spin_lock(&tunnel->hlist_lock);
++				hlist_del_init_rcu(&session->hlist);
++				spin_unlock(&tunnel->hlist_lock);
++				synchronize_rcu();
+ 			} else {
+ 				printk(KERN_ERR "%s: %s:%d: BAD TUNNEL MAGIC "
+ 				       "( tunnel=%p magic=%x )\n",
+@@ -1628,7 +1634,7 @@ static struct sock *pppol2tp_prepare_tun
+ 	tunnel->sock = sk;
+ 	sk->sk_allocation = GFP_ATOMIC;
+ 
+-	rwlock_init(&tunnel->hlist_lock);
++	spin_lock_init(&tunnel->hlist_lock);
+ 
+ 	/* Add tunnel to our list */
+ 	INIT_LIST_HEAD(&tunnel->list);
+@@ -1810,11 +1816,12 @@ int pppol2tp_connect(struct socket *sock
+ 
+ 	/* Add session to the tunnel's hash list */
+ 	SOCK_2_TUNNEL(tunnel_sock, tunnel, error, -EBADF, end, 0);
+-	write_lock_bh(&tunnel->hlist_lock);
+-	hlist_add_head(&session->hlist,
++	spin_lock(&tunnel->hlist_lock);
++	hlist_add_head_rcu(&session->hlist,
+ 		       pppol2tp_session_id_hash(tunnel,
+ 						session->tunnel_addr.s_session));
+-	write_unlock_bh(&tunnel->hlist_lock);
++	spin_unlock(&tunnel->hlist_lock);
++	synchronize_rcu();
+ 
+ 	/* This is how we get the session context from the socket. */
+ 	sk->sk_user_data = session;
+@@ -2565,7 +2572,8 @@ static int pppol2tp_proc_show(struct seq
+ 	}
+ 
+ 	for (i = 0; i < PPPOL2TP_HASH_SIZE; i++) {
+-		hlist_for_each_safe(walk, tmp, &tunnel->session_hlist[i]) {
++		rcu_read_lock();
++		hlist_for_each_safe_rcu(walk, tmp, &tunnel->session_hlist[i]) {
+ 			session = hlist_entry(walk, struct pppol2tp_session, hlist);
+ 			seq_printf(m, "  SESSION '%s' %08X/%d %04X/%04X -> "
+ 				   "%04X/%04X %d %c MAGIC %s\n",
+@@ -2600,9 +2608,11 @@ static int pppol2tp_proc_show(struct seq
+ 
+ 			if (session->magic != L2TP_SESSION_MAGIC) {
+ 				seq_puts(m, "*** Aborting ***\n");
++				rcu_read_unlock();
+ 				goto out;
+ 			}
+ 		}
++		rcu_read_unlock();
+ 	}
+ out:
+ 	seq_puts(m, "\n");
