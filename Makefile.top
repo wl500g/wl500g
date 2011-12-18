@@ -434,6 +434,10 @@ modules_install: .config
 		$(SRCMODULESDIR)/drivers/net/wl/wl$(ko) \
 		$(SRCMODULESDIR)/drivers/net/emf/emf$(ko) \
 		$(SRCMODULESDIR)/drivers/net/igs/igs$(ko) \
+		$(SRCMODULESDIR)/drivers/net/pppox$(ko) \
+		$(SRCMODULESDIR)/drivers/net/pppoe$(ko) \
+		$(SRCMODULESDIR)/drivers/net/pptp$(ko) \
+		$(SRCMODULESDIR)/drivers/net/pppol2tp$(ko) \
 		$(SRCMODULESDIR)/drivers/net/tun$(ko) \
 		$(SRCMODULESDIR)/drivers/net/imq$(ko) \
 		$(SRCMODULESDIR)/drivers/connector/cn$(ko) \
