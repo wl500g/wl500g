@@ -3,21 +3,25 @@ From: Fedor <fedork@ubuntu.(none)>
 Date: Sat, 25 Sep 2010 18:56:10 -0400
 Subject: [PATCH] [IPV6] MROUTE: Support multicast forwarding (backport from 2.6.26)
 
+ kernel.org commits
+ 4af04aba93f47699e7ac33e7cfd4da22550e6114 ipv6: Fix for adding multicast route for loopback device automatically.
+
 ---
- include/linux/Kbuild     |    1 +
- include/linux/ipv6.h     |    5 +
- include/linux/mroute6.h  |  228 +++
- net/ipv6/Kconfig         |   14 +
- net/ipv6/Makefile        |    2 +
- net/ipv6/addrconf.c      |   13 +
- net/ipv6/af_inet6.c      |    6 +
- net/ipv6/ip6_input.c     |   90 +-
- net/ipv6/ip6_output.c    |    6 +-
- net/ipv6/ip6mr.c         | 1673 ++++++++++++++++++++
- net/ipv6/ipv6_sockglue.c |    7 +
- net/ipv6/raw.c           |    7 +-
- net/ipv6/route.c         |   30 +-
- 13 files changed, 2051 insertions(+), 31 deletions(-)
+ include/linux/Kbuild     |    1 
+ include/linux/ipv6.h     |    5 
+ include/linux/mroute6.h  |  228 ++++++
+ include/linux/pim.h      |   27 
+ net/ipv6/Kconfig         |   14 
+ net/ipv6/Makefile        |    2 
+ net/ipv6/addrconf.c      |   16 
+ net/ipv6/af_inet6.c      |    6 
+ net/ipv6/ip6_input.c     |   94 ++
+ net/ipv6/ip6_output.c    |    6 
+ net/ipv6/ip6mr.c         | 1641 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/ipv6_sockglue.c |    7 
+ net/ipv6/raw.c           |    7 
+ net/ipv6/route.c         |   30 
+ 14 files changed, 2049 insertions(+), 35 deletions(-)
  create mode 100644 include/linux/mroute6.h
  create mode 100644 net/ipv6/ip6mr.c
 
@@ -361,6 +365,16 @@ diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
+@@ -1805,7 +1805,8 @@ static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
+ 		return ERR_PTR(-EACCES);
+ 
+ 	/* Add default multicast route */
+-	addrconf_add_mroute(dev);
++	if (!(dev->flags & IFF_LOOPBACK))
++		addrconf_add_mroute(dev);
+ 
+ 	/* Add link local route */
+ 	addrconf_add_lroute(dev);
 @@ -3520,6 +3520,9 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
  #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
  	array[DEVCONF_OPTIMISTIC_DAD] = cnf->optimistic_dad;
@@ -2342,4 +2356,3 @@ diff --git a/net/ipv6/route.c b/net/ipv6/route.c
  		WARN_ON(err == -EMSGSIZE);
 -- 
 1.6.5.GIT
-
