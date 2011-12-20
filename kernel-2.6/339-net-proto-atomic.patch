@@ -1,0 +1,84 @@
+From: Glauber Costa
+Date: Fri, 16 Dec 2011 00:51:59 +0000
+Subject: [PATCH] net: fix sleeping while atomic problem in sock mem_cgroup.
+
+We can't scan the proto_list to initialize sock cgroups, as it
+holds a rwlock, and we also want to keep the code generic enough to
+avoid calling the initialization functions of protocols directly,
+
+Convert proto_list_lock into a mutex, so we can sleep and do the
+necessary allocations. This lock is seldom taken, so there shouldn't
+be any performance penalties associated with that
+
+Signed-off-by: Glauber Costa <glommer@parallels.com>
+CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Stephen Rothwell <sfr@canb.auug.org.au>
+CC: Randy Dunlap <rdunlap@xenotime.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/core/sock.c |   28 ++++++++++++++--------------
+ 1 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -136,7 +136,7 @@
+ 
+ EXPORT_SYMBOL(sk_common_release);
+ 
+-static DEFINE_RWLOCK(proto_list_lock);
++static DEFINE_MUTEX(proto_list_mutex);
+ static LIST_HEAD(proto_list);
+ 
+ #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+@@ -2479,9 +2479,9 @@ int proto_register(struct proto *prot, int alloc_slab)
+ 		}
+ 	}
+ 
+-	write_lock(&proto_list_lock);
++	mutex_lock(&proto_list_mutex);
+ 	list_add(&prot->node, &proto_list);
+-	write_unlock(&proto_list_lock);
++	mutex_unlock(&proto_list_mutex);
+ 	rc = 0;
+ out:
+ 	return 0;
+@@ -2505,9 +2505,9 @@ EXPORT_SYMBOL(proto_register);
+ 
+ void proto_unregister(struct proto *prot)
+ {
+-	write_lock(&proto_list_lock);
++	mutex_lock(&proto_list_mutex);
+ 	list_del(&prot->node);
+-	write_unlock(&proto_list_lock);
++	mutex_unlock(&proto_list_mutex);
+ 
+ 	if (prot->slab != NULL) {
+ 		kmem_cache_destroy(prot->slab);
+@@ -2531,8 +2531,9 @@ EXPORT_SYMBOL(proto_unregister);
+ 
+ 
+ static void *proto_seq_start(struct seq_file *seq, loff_t *pos)
++	__acquires(proto_list_mutex)
+ {
+-	read_lock(&proto_list_lock);
++	mutex_lock(&proto_list_mutex);
+ 	return *pos ? proto_get_idx(*pos - 1) : SEQ_START_TOKEN;
+ }
+ 
+@@ -2543,8 +2543,9 @@ static void *proto_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ }
+ 
+ static void proto_seq_stop(struct seq_file *seq, void *v)
++	__releases(proto_list_mutex)
+ {
+-	read_unlock(&proto_list_lock);
++	mutex_unlock(&proto_list_mutex);
+ }
+ 
+ static char proto_method_implemented(const void *method)
+-- 
+1.7.6.2
