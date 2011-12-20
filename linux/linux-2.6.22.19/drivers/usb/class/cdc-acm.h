@@ -59,7 +59,7 @@
  * when processing onlcr, so we only need 2 buffers. These values must be
  * powers of 2.
  */
-#define ACM_NW  2
+#define ACM_NW  16
 #define ACM_NR  16
 
 struct acm_wb {
@@ -67,6 +67,8 @@ struct acm_wb {
 	dma_addr_t dmah;
 	int len;
 	int use;
+	struct urb		*urb;
+	struct acm		*instance;
 };
 
 struct acm_rb {
@@ -88,7 +90,7 @@ struct acm {
 	struct usb_interface *control;			/* control interface */
 	struct usb_interface *data;			/* data interface */
 	struct tty_struct *tty;				/* the corresponding tty */
-	struct urb *ctrlurb, *writeurb;			/* urbs */
+	struct urb *ctrlurb;			/* urbs */
 	u8 *ctrl_buffer;				/* buffers of urbs */
 	dma_addr_t ctrl_dma;				/* dma handles of buffers */
 	u8 *country_codes;				/* country codes from device */
@@ -103,12 +105,15 @@ struct acm {
 	struct list_head spare_read_urbs;
 	struct list_head spare_read_bufs;
 	struct list_head filled_read_bufs;
-	int write_current;				/* current write buffer */
 	int write_used;					/* number of non-empty write buffers */
-	int write_ready;				/* write urb is not running */
+	int processing;
+	int transmitting;
 	spinlock_t write_lock;
+	struct mutex mutex;
 	struct usb_cdc_line_coding line;		/* bits, stop, parity */
 	struct work_struct work;			/* work queue entry for line discipline waking up */
+	struct work_struct waker;
+	wait_queue_head_t drain_wait;			/* close processing */
 	struct tasklet_struct urb_task;                 /* rx processing */
 	spinlock_t throttle_lock;			/* synchronize throtteling and read callback */
 	unsigned int ctrlin;				/* input control lines (DCD, DSR, RI, break, overruns) */
@@ -120,6 +125,8 @@ struct acm {
 	unsigned char throttle;				/* throttled by tty layer */
 	unsigned char clocal;				/* termios CLOCAL */
 	unsigned int ctrl_caps;				/* control capabilities from the class specific header */
+	unsigned int susp_count;			/* number of suspended interfaces */
+	struct acm_wb *delayed_wb;			/* write queued for a device about to be woken */
 };
 
 #define CDC_DATA_INTERFACE_TYPE	0x0a
