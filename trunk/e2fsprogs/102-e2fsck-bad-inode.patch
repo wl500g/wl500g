@@ -1,5 +1,5 @@
-From 96a8afa7c134ef9239a70f264c35e709737f42cd Mon Sep 17 00:00:00 2001
-From: Theodore Ts'o <tytso@mit.edu>
+From 96a8afa7c134ef9239a70f264c35e709737f42cd
+From: Theodore Ts'o
 Date: Wed, 28 Sep 2011 15:12:55 -0400
 Subject: [PATCH] e2fsck: check for invalid bad block inode
 
@@ -23,7 +23,6 @@ Signed-off-by: "Theodore Ts'o" <tytso@mit.edu>
  create mode 100644 tests/f_invalid_bad_inode/name
 
 diff --git a/e2fsck/pass1.c b/e2fsck/pass1.c
-index f45831f..7ce6697 100644
 --- a/e2fsck/pass1.c
 +++ b/e2fsck/pass1.c
 @@ -821,6 +821,14 @@ void e2fsck_pass1(e2fsck_t ctx)
@@ -52,7 +51,6 @@ index f45831f..7ce6697 100644
  }
  
 diff --git a/e2fsck/problem.c b/e2fsck/problem.c
-index cf4a270..6ee3fa4 100644
 --- a/e2fsck/problem.c
 +++ b/e2fsck/problem.c
 @@ -936,6 +936,11 @@ static struct e2fsck_problem problem_table[] = {
@@ -68,7 +66,6 @@ index cf4a270..6ee3fa4 100644
  
  	/* Pass 1B: Rescan for duplicate/bad blocks */
 diff --git a/e2fsck/problem.h b/e2fsck/problem.h
-index 17b0c10..9db29d8 100644
 --- a/e2fsck/problem.h
 +++ b/e2fsck/problem.h
 @@ -547,6 +547,9 @@ struct problem_context {
@@ -83,7 +80,6 @@ index 17b0c10..9db29d8 100644
   */
 diff --git a/tests/f_invalid_bad_inode/expect.1 b/tests/f_invalid_bad_inode/expect.1
 new file mode 100644
-index 0000000..5a37cb0
 --- /dev/null
 +++ b/tests/f_invalid_bad_inode/expect.1
 @@ -0,0 +1,11 @@
@@ -100,7 +96,6 @@ index 0000000..5a37cb0
 +Exit status is 1
 diff --git a/tests/f_invalid_bad_inode/expect.2 b/tests/f_invalid_bad_inode/expect.2
 new file mode 100644
-index 0000000..41ceefb
 --- /dev/null
 +++ b/tests/f_invalid_bad_inode/expect.2
 @@ -0,0 +1,7 @@
@@ -116,11 +111,9 @@ new file mode 100644
 index 0000000000000000000000000000000000000000..5dac14705634bdd79b6561ae1f1a6d53c5defae0
 diff --git a/tests/f_invalid_bad_inode/name b/tests/f_invalid_bad_inode/name
 new file mode 100644
-index 0000000..f981e8d
 --- /dev/null
 +++ b/tests/f_invalid_bad_inode/name
 @@ -0,0 +1 @@
 +check for bogus bad inode
 -- 
 1.7.4.1
-
