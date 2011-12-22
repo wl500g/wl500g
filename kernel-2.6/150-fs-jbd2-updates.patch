@@ -4,16 +4,17 @@ jbd2 updates from 2.6.32.46
  39e3ac2599a5f9aba499b5f8af809108e70a6163 jbd2: Fix I/O hang in jbd2_journal_release_jbd_inode
  0587aa3d11f9769a301b21bff2c3ed8365606b8d jbd2: fix /proc/fs/jbd2/<dev> when using an external journal
  de1b794130b130e77ffa975bb58cb843744f9ae5 jbd2: Fix oops in jbd2_journal_remove_journal_head()
+ 8762202dd0d6e46854f786bdb6fb3780a1625efe jbd/jbd2: validate sb->s_first in journal_get_superblock()
 
 ---
  fs/jbd2/checkpoint.c         |  121 +++++---
  fs/jbd2/commit.c             |  198 ++++++++-----
- fs/jbd2/journal.c            |  624 ++++++++++++++++---------------------------
+ fs/jbd2/journal.c            |  632 ++++++++++++++++---------------------------
  fs/jbd2/recovery.c           |    7 
  fs/jbd2/transaction.c        |  298 +++++++++++---------
  include/linux/jbd2.h         |  129 ++++++--
  include/linux/journal-head.h |    6 
- 7 files changed, 724 insertions(+), 659 deletions(-)
+ 7 files changed, 732 insertions(+), 659 deletions(-)
 
 diff --git a/fs/jbd2/checkpoint.c b/fs/jbd2/checkpoint.c
 --- a/fs/jbd2/checkpoint.c
@@ -1476,6 +1477,21 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
   * void jbd2_journal_update_superblock() - Update journal sb on disk.
   * @journal: The journal to update.
   * @wait: Set to '0' if you don't want to wait for IO completion.
+@@ -1351,6 +1251,14 @@ static int journal_get_superblock(journal_t *journal)
+ 		goto out;
+ 	}
+ 
++	if (be32_to_cpu(sb->s_first) == 0 ||
++	    be32_to_cpu(sb->s_first) >= journal->j_maxlen) {
++		printk(KERN_WARNING
++			"JBD2: Invalid start block of journal: %u\n",
++			be32_to_cpu(sb->s_first));
++		goto out;
++	}
++
+ 	return 0;
+ 
+ out:
 @@ -1448,6 +1257,13 @@ int jbd2_journal_load(journal_t *journal
  	if (jbd2_journal_recover(journal))
  		goto recovery_error;

@@ -4,16 +4,17 @@ jbd: updates from 2.6.32.48
  bd5c9e1854e13d0c62a3de29a5fbc15dd6a4d8c6 jbd: fix a bug of leaking jh->b_jcount
  e4d5e3a497e159be7c2dbe4c61cfb185d60cfde2 jbd: Convert atomic_inc() to get_bh()
  bb189247f35688a3353545902c56290fb7d7754a jbd: Fix oops in journal_remove_journal_head()
+ 8762202dd0d6e46854f786bdb6fb3780a1625efe jbd/jbd2: validate sb->s_first in journal_get_superblock()
 
 ---
  fs/jbd/checkpoint.c  |   75 +++++++++++-----
  fs/jbd/commit.c      |  109 +++++++++++++++--------
- fs/jbd/journal.c     |  223 ++++++++++++++++++++++++------------------------
+ fs/jbd/journal.c     |  231 ++++++++++++++++++++++++++-----------------------
  fs/jbd/recovery.c    |   18 +--
  fs/jbd/revoke.c      |   40 +++++---
  fs/jbd/transaction.c |  236 +++++++++++++++++++++++----------------------------
  include/linux/jbd.h  |   54 ++++++++---
- 7 files changed, 425 insertions(+), 330 deletions(-)
+ 7 files changed, 433 insertions(+), 330 deletions(-)
 
 diff --git a/fs/jbd/checkpoint.c b/fs/jbd/checkpoint.c
 --- a/fs/jbd/checkpoint.c
@@ -825,6 +826,21 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
  		  journal->j_tail, journal->j_tail_sequence, journal->j_errno);
  
  	sb->s_sequence = cpu_to_be32(journal->j_tail_sequence);
+@@ -1135,6 +1135,14 @@ static int journal_get_superblock(journal_t *journal)
+ 		goto out;
+ 	}
+ 
++	if (be32_to_cpu(sb->s_first) == 0 ||
++	    be32_to_cpu(sb->s_first) >= journal->j_maxlen) {
++		printk(KERN_WARNING
++			"JBD: Invalid start block of journal: %u\n",
++			be32_to_cpu(sb->s_first));
++		goto out;
++	}
++
+ 	return 0;
+ 
+ out:
 @@ -1344,7 +1384,7 @@ int journal_flush(journal_t *journal)
  {
  	int err = 0;
