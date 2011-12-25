@@ -21,7 +21,7 @@
 <!-- Table for the conntent page -->	    
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
-<td class="content_header_td_title" colspan="2">Status &amp; Log - 11g Interface</td>
+<td class="content_header_td_title" colspan="2">Status &amp; Log - WiFi Interface</td>
 </tr>
 <tr class="content_header_tr">
 <td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly>

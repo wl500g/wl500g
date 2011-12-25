@@ -217,12 +217,12 @@ function generateTree() {
 	if (mode == 'AP') {
 		aux1 = appendChild(foldersTree, leafNode("Status & Log"));
 		appendChild(aux1, generateDocEntry(0, "Status", "Main_AStatus_Content.asp", ""));
-		appendChild(aux1, generateDocEntry(0, "Wireless", "Main_WStatus_Content.asp", ""));
+		appendChild(aux1, generateDocEntry(0, "WiFi", "Main_WStatus_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "System Log", "Main_LogStatus_Content.asp", ""));
 	} else {
 		aux1 = appendChild(foldersTree, leafNode("Status & Log"));
 		appendChild(aux1, generateDocEntry(0, "Status", "Main_GStatus_Content.asp", ""));
-		appendChild(aux1, generateDocEntry(0, "Wireless", "Main_WStatus_Content.asp", ""));
+		appendChild(aux1, generateDocEntry(0, "WiFi", "Main_WStatus_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "WiMAX", "Main_WiMaxStatus_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "USB PPP Log", "Main_ChatStatus_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "DHCP Leases", "Main_DHCPStatus_Content.asp", ""));
