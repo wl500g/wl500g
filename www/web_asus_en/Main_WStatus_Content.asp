@@ -30,7 +30,7 @@
 </tr>
 
 <tr class="content_header_tr">
-<td class="content_header_td_title" colspan="2">Status &amp; Log - 11g Interface</td>
+<td class="content_header_td_title" colspan="2">Status &amp; Log - WiFi Interface</td>
 </tr>
 <tr class="content_header_tr">
 <td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly>
