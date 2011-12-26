@@ -23,12 +23,19 @@ static inline int sb_is_blkdev_sb(struct super_block *sb)
 	return sb == blockdev_superblock;
 }
 
+extern int __sync_blockdev(struct block_device *bdev, int wait);
+
 #else
 static inline void bdev_cache_init(void)
 {
 }
 
 static inline int sb_is_blkdev_sb(struct super_block *sb)
+{
+	return 0;
+}
+
+static inline int __sync_blockdev(struct block_device *bdev, int wait)
 {
 	return 0;
 }
