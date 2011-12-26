@@ -3,9 +3,9 @@ Date: Sun, 15 Aug 2010 13:57:54 -0400
 Subject: [PATCH] crc32: major optimization and cleanup
 
  kernel.org commits
- ddcaccbc17d7d15d0f050519cfeb0e45acbd9b15
- 4f2a9463d18517a9839401c3de6419ee1435875b
- 836e2af92503f1642dbc3c3281ec68ec1dd39d2e
+ ddcaccbc17d7d15d0f050519cfeb0e45acbd9b15 crc32: minor optimizations and cleanup
+ 4f2a9463d18517a9839401c3de6419ee1435875b crc32: some minor cleanups
+ 836e2af92503f1642dbc3c3281ec68ec1dd39d2e crc32: major optimization
 
 ---
  lib/crc32.c          |  149 ++++++++------------
@@ -299,4 +299,3 @@ diff --git a/lib/gen_crc32table.c b/lib/gen_crc32table.c
  	}
 -- 
 1.6.5.GIT
-
