@@ -68,6 +68,12 @@
 #define REG_CTRL_MIIPO	0x0E	/* 5325: MII Port Override register */
 #define REG_CTRL_PWRDOWN 0x0F   /* 5325: Power Down Mode register */
 #define REG_CTRL_SRST	0x79	/* Software reset control register */
+#define REG_CTRL_MIIP5O	0x5d	/* 53115: Port State Override register for port 5 */
+
+/* Management/Mirroring Registers */
+#define REG_MMR_ATCR	0x06	/* Aging Time Control register */
+#define REG_MMR_MCCR	0x10	/* Mirror Capture Control register */
+#define REG_MMR_IMCR	0x12	/* Ingress Mirror Control register */
 
 /* Status Page Registers */
 #define REG_STATUS_LINK		0x00	/* Link Status Summary, 16bit */
