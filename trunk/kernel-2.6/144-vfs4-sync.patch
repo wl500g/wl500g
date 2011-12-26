@@ -1,0 +1,133 @@
+From 5a3e5cb8e08bd876e2542c1451c9a93dab1b0e39
+From: Jan Kara
+Date: Mon, 27 Apr 2009 16:43:48 +0200
+Subject: [PATCH] vfs: Fix sys_sync() and fsync_super() reliability (version 4)
+
+So far, do_sync() called:
+  sync_inodes(0);
+  sync_supers();
+  sync_filesystems(0);
+  sync_filesystems(1);
+  sync_inodes(1);
+
+This ordering makes it kind of hard for filesystems as sync_inodes(0) need not
+submit all the IO (for example it skips inodes with I_SYNC set) so e.g. forcing
+transaction to disk in ->sync_fs() is not really enough. Therefore sys_sync has
+not been completely reliable on some filesystems (ext3, ext4, reiserfs, ocfs2
+and others are hit by this) when racing e.g. with background writeback. A
+similar problem hits also other filesystems (e.g. ext2) because of
+write_supers() being called before the sync_inodes(1).
+
+Change the ordering of calls in do_sync() - this requires a new function
+sync_blockdevs() to preserve the property that block devices are always synced
+after write_super() / sync_fs() call.
+
+The same issue is fixed in __fsync_super() function used on umount /
+remount read-only.
+
+[AV: build fixes]
+
+Signed-off-by: Jan Kara <jack@suse.cz>
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+
+---
+ fs/internal.h |    9 +++++++++
+ fs/super.c    |   29 ++++++++++++++++++++++++++++-
+ fs/sync.c     |    4 +++-
+ 3 files changed, 40 insertions(+), 2 deletions(-)
+
+diff --git a/fs/internal.h b/fs/internal.h
+--- a/fs/internal.h
++++ b/fs/internal.h
+@@ -71,3 +71,12 @@ extern void chroot_fs_refs(struct path *, struct path *);
+  * namespace.c
+  */
+ extern int copy_mount_options(const void __user *, unsigned long *);
++
++/*
++ * super.c
++ */
++#ifdef CONFIG_BLOCK
++extern void sync_blockdevs(void);
++#else
++static inline void sync_blockdevs(void) { }
++#endif
+diff --git a/fs/super.c b/fs/super.c
+--- a/fs/super.c
++++ b/fs/super.c
+@@ -293,6 +293,7 @@ void __fsync_super(struct super_block *sb)
+ {
+ 	sync_inodes_sb(sb, 0);
+ 	DQUOT_SYNC(sb);
++	sync_inodes_sb(sb, 1);
+ 	lock_super(sb);
+ 	if (sb->s_dirt && sb->s_op->write_super)
+ 		sb->s_op->write_super(sb);
+@@ -300,7 +301,6 @@ void __fsync_super(struct super_block *sb)
+ 	if (sb->s_op->sync_fs)
+ 		sb->s_op->sync_fs(sb, 1);
+ 	sync_blockdev(sb->s_bdev);
+-	sync_inodes_sb(sb, 1);
+ }
+ 
+ /*
+@@ -522,6 +522,33 @@ restart:
+ 	mutex_unlock(&mutex);
+ }
+ 
++#ifdef CONFIG_BLOCK
++/*
++ *  Sync all block devices underlying some superblock
++ */
++void sync_blockdevs(void)
++{
++	struct super_block *sb;
++
++	spin_lock(&sb_lock);
++restart:
++	list_for_each_entry(sb, &super_blocks, s_list) {
++		if (!sb->s_bdev)
++			continue;
++		sb->s_count++;
++		spin_unlock(&sb_lock);
++		down_read(&sb->s_umount);
++		if (sb->s_root)
++			sync_blockdev(sb->s_bdev);
++		up_read(&sb->s_umount);
++		spin_lock(&sb_lock);
++		if (__put_super_and_need_restart(sb))
++			goto restart;
++	}
++	spin_unlock(&sb_lock);
++}
++#endif
++
+ /**
+  *	get_super - get the superblock of a device
+  *	@bdev: device to get the superblock for
+diff --git a/fs/sync.c b/fs/sync.c
+--- a/fs/sync.c
++++ b/fs/sync.c
+@@ -13,6 +13,7 @@
+ #include <linux/pagemap.h>
+ #include <linux/quotaops.h>
+ #include <linux/buffer_head.h>
++#include "internal.h"
+ 
+ #define VALID_FLAGS (SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE| \
+ 			SYNC_FILE_RANGE_WAIT_AFTER)
+@@ -26,10 +27,11 @@ static void do_sync(unsigned long wait)
+ 	wakeup_pdflush(0);
+ 	sync_inodes(0);		/* All mappings, inodes and their blockdevs */
+ 	DQUOT_SYNC(NULL);
++	sync_inodes(wait);	/* Mappings, inodes and blockdevs, again. */
+ 	sync_supers();		/* Write the superblocks */
+ 	sync_filesystems(0);	/* Start syncing the filesystems */
+ 	sync_filesystems(wait);	/* Waitingly sync the filesystems */
+-	sync_inodes(wait);	/* Mappings, inodes and blockdevs, again. */
++	sync_blockdevs();
+ 	if (!wait)
+ 		printk("Emergency Sync complete\n");
+ 	if (unlikely(laptop_mode))
+-- 
+1.7.6.2
