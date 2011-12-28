@@ -119,5 +119,9 @@ $(src)/$(SHARED)/nicpci.o: $(src)/$(SHARED)/linux/nicpci.o
 	cp $< $@
 endif
 
+
+quiet_cmd_shared_ksyms = GEN     $@
+      cmd_shared_ksyms = sh -e $< $(EXP_OBJS) > $@
+
 $(src)/shared_ksyms.c: $(src)/shared_ksyms.sh $(EXP_OBJS)
-	sh -e $< $(EXP_OBJS) > $@
+	$(call cmd,shared_ksyms)
