@@ -8,23 +8,11 @@ NB! Full TCP syncookies support still incomplete & requires backports of TCPCT
  4dfc2817025965a2fc78a18c50f540736a6b5c24 [Syncookies]: Add support for TCP options via timestamps.
  16df845f4566bc252f3e09db12f5c2f22cb44226 syncookies: Make sure ECN is disabled
  a3116ac5c216fc3c145906a46df9ce542ff7dcf2 tcp: Port redirection support for TCP
+ fd5070370c74c32b7a98090eabb46c53baf41733 tcp: Fix IPv6 fallout from 'Port redirection support for TCP' (partial)
  a0f82f64e26929776c58a5c93c2ecb38e3d82815 syncookies: remove last_synq_overflow from struct tcp_sock
  af9b4738574b46025de7ccbe75c7b24fd8914379 syncookies: avoid unneeded tcp header flag double check
 
 ---
- include/linux/tcp.h             |    2 
- include/net/inet_sock.h         |    2 
- include/net/request_sock.h      |    2 
- include/net/tcp.h               |   26 +++++++++
- net/ipv4/inet_connection_sock.c |    2 
- net/ipv4/syncookies.c           |  111 ++++++++++++++++++++++++++++++++++------
- net/ipv4/tcp_input.c            |    1 
- net/ipv4/tcp_ipv4.c             |    7 +-
- net/ipv4/tcp_minisocks.c        |    2 
- net/ipv4/tcp_output.c           |    9 ++-
- net/ipv6/Makefile               |    1 
- net/ipv6/tcp_ipv6.c             |   80 ++++++++++++++++++++--------
- 12 files changed, 196 insertions(+), 49 deletions(-)
 
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
 --- a/include/linux/tcp.h
@@ -467,6 +455,15 @@ diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
+@@ -476,7 +476,7 @@ static int tcp_v6_send_synack(struct sock *sk, struct request_sock *req)
+ 	fl.fl6_flowlabel = 0;
+ 	fl.oif = treq->iif;
+ 	fl.fl_ip_dport = inet_rsk(req)->rmt_port;
+-	fl.fl_ip_sport = inet_sk(sk)->sport;
++	fl.fl_ip_sport = inet_rsk(req)->loc_port;
+ 	security_req_classify_flow(req, &fl);
+ 
+ 	opt = np->opt;
 @@ -529,6 +529,20 @@ done:
  	return err;
  }
@@ -607,4 +604,22 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
  
  drop:
  	if (req)
+@@ -1319,7 +1359,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		ipv6_addr_copy(&fl.fl6_src, &treq->loc_addr);
+ 		fl.oif = sk->sk_bound_dev_if;
+ 		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
+-		fl.fl_ip_sport = inet_sk(sk)->sport;
++		fl.fl_ip_sport = inet_rsk(req)->loc_port;
+ 		security_req_classify_flow(req, &fl);
+ 
+ 		if (ip6_dst_lookup(sk, &dst, &fl))
+@@ -1815,7 +1865,7 @@ static void get_openreq6(struct seq_file *seq,
+ 		   i,
+ 		   src->s6_addr32[0], src->s6_addr32[1],
+ 		   src->s6_addr32[2], src->s6_addr32[3],
+-		   ntohs(inet_sk(sk)->sport),
++		   ntohs(inet_rsk(req)->loc_port),
+ 		   dest->s6_addr32[0], dest->s6_addr32[1],
+ 		   dest->s6_addr32[2], dest->s6_addr32[3],
+ 		   ntohs(inet_rsk(req)->rmt_port),
 -- 
