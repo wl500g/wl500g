@@ -19,10 +19,10 @@
  * [GUIUSBNetworkDevices3GCDMA#Custom_USB_device_parameters Custom USB device parameters]
   * [GUIUSBNetworkDevices3GCDMA#USB_device_location_ID USB device location ID]
   * [GUIUSBNetworkDevices3GCDMA#Autodetect_device Autodetect device]
-  * [GUIUSBNetworkDevices3GCDMA#USB_tts(ac)_port USB tts(ac) port]
+  * [GUIUSBNetworkDevices3GCDMA#Data_port Data port]
+  * [GUIUSBNetworkDevices3GCDMA#User_interface_port  User interface port]
   * [GUIUSBNetworkDevices3GCDMA#USB_device_Vendor_ID_(0xabcd) USB device Vendor ID (0xabcd)]
   * [GUIUSBNetworkDevices3GCDMA#USB_device_Product_ID_(0xefgh) USB device Product ID (0xefgh)]
-  * [GUIUSBNetworkDevices3GCDMA#USB_device_packet_size_(0_for_default) USB device packet size (0 for default)]
   * [GUIUSBNetworkDevices3GCDMA#USB_device_serial_speed_(usually_921600) USB device serial speed (usually 921600)]
  * [GUIUSBNetworkDevices3GCDMA#Additional_parameters Additional parameters]
   * [GUIUSBNetworkDevices3GCDMA#Additional_AT_commands Additional AT commands]
@@ -86,7 +86,7 @@ _Значение по умолчанию: не установлено_
 == APN ==
 Access Point Name – имя точки доступа
  * MTS – internet.mts.ru
- * Билайн – internet.beeline.ru
+ * Билайн – home.beeline.ru или internet.beeline.ru (в зависимости от тарифа).
  * Мегафон - internet
 
 _Значение по умолчанию: не установлено_
@@ -117,34 +117,29 @@ Maximum Receive Unit
 _Значение по умолчанию: 1492_
 -------
 = Custom USB device parameters =
-== USB device location ID ==
-Позволяет выбрать устройство в соответствии с физическим портом USB. В отличии от USB tts(ac) port выбранный номер не будет изменяться при добавлении других устройств.
-
-Допустим как непосредственный ввод, так и выбор в таблице, открывающейся при нажатии на кнопку View.
-
-Использование этого параметра исключает возможность использования USB tts(ac) port.
-
-_Значение по умолчанию: не установлено_
 == Autodetect device ==
-Определение идентификаторов USB-устройства VID:PID и записывание их значений.
+Автоматическое определение USB-устройства по идентификаторам VID:PID. Если модем присутствует в базе известных модемов, его тип, идентификатор, порты обмена данными и информацией для пользователя будут настроены автоматически.
 
 _Значение по умолчанию: Yes_
 
-== USB tts(ac) port ==
-Номер канала, под которым присоединено устройство.
-В прошивках с ядром 2.4 устройства подсоединяются:
- * /dev/usb/tts/$port - модемы
- * /dev/usb/acm/$port - телефоны
+== USB device location ID ==
+Позволяет выбрать устройство в соответствии с физическим портом USB. Выбранный номер не будет изменяться при добавлении других устройств.
 
-В прошивках с ядром 2.6 устройства подсоединяются:
- * /dev/ttyUSB$port - модемы
- * /dev/ttyACM$port - телефоны
+Допустим как непосредственный ввод, так и выбор в таблице, открывающейся при нажатии на кнопку View.
 
-Список каналов, предоставляемых устройством, можно посмотреть после загрузки драйверов usbserial, acm, option командой *cat /proc/bus/usb/devpath* или воспользоваться страницей *Status & Log - Diagnostic Information*.
+_Значение по умолчанию: не установлено_
 
-В зависимости от типа устройства, номер канала может меняться. 
+== Data port ==
+USB-устройство может иметь несколько портов обмена (USB Endpoints). Порт обмена данными имеется у всех модемов и необходим для подключения к сети.
 
-Для большинства сотовых телефонов используется /dev/usb/acm/0 или /dev/ttyACM0.
+Если модем неизвестен, необходимо подобрать порт обмена данными. См. количество портов и их возможные номера в разделе USB Devices и USB devfs на странице http://my.router/Main_SysInfo_Content.asp
+
+_Значение по умолчанию: 0_
+
+== User interface port ==
+Порт обмена информацие для пользователя предназначен для получения по запросу пользователя уровня радиосигнала, информации о сети, о трафике, а также для отправки и получения USSD-запросов.
+
+Модем может не иметь этот порт.
 
 _Значение по умолчанию: 0_
 
@@ -157,11 +152,6 @@ _Значение по умолчанию: не установлено_
 Идентификатор продукта. Параметр не обязателен. Указывается в шестнадцатеричном коде с обязательным префиксом 0x.
 
 _Значение по умолчанию: не установлено_
-
-== USB device packet size (0 for default) ==
-Размер пакета обмена данными с USB-устройством.
-
-_Значение по умолчанию: 4096_
 
 == USB device serial speed (usually 921600) ==
 Скорость обмена данными с USB-устройством. В зависимости от используемого драйвера, указанное значение может игнорироваться.
