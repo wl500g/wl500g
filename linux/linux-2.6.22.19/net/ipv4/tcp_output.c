@@ -211,16 +211,10 @@ void tcp_select_initial_window(int __space, __u32 mss,
 		}
 	}
 
-	/* Set initial window to value enough for senders,
-	 * following RFC2414. Senders, not following this RFC,
-	 * will be satisfied with 2.
-	 */
+	/* Set initial window to value enough for senders, following RFC5681. */
 	if (mss > (1<<*rcv_wscale)) {
-		int init_cwnd = 4;
-		if (mss > 1460*3)
-			init_cwnd = 2;
-		else if (mss > 1460)
-			init_cwnd = 3;
+		int init_cwnd = rfc3390_bytes_to_packets(mss);
+
 		if (*rcv_wnd > init_cwnd*mss)
 			*rcv_wnd = init_cwnd*mss;
 	}

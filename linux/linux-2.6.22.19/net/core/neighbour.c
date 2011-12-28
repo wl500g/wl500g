@@ -872,8 +872,7 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
 			neigh->updated = jiffies;
 			write_unlock_bh(&neigh->lock);
 
-			if (skb)
-				kfree_skb(skb);
+			kfree_skb(skb);
 			return 1;
 		}
 	} else if (neigh->nud_state & NUD_STALE) {

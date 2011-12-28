@@ -110,8 +110,10 @@ static void linkwatch_schedule_work(int urgent)
 	}
 
 	/* If we wrap around we'll delay it by at most HZ. */
-	if (delay > HZ)
+	if (delay > HZ) {
+		linkwatch_nextevent = jiffies;
 		delay = 0;
+	}
 
 	/*
 	 * This is true if we've scheduled it immeditately or if we don't

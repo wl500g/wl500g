@@ -1035,8 +1035,7 @@ unsigned char *__pskb_pull_tail(struct sk_buff *skb, int delta)
 					insp = list;
 				}
 				if (!pskb_pull(list, eat)) {
-					if (clone)
-						kfree_skb(clone);
+					kfree_skb(clone);
 					return NULL;
 				}
 				break;
