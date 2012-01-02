@@ -11,11 +11,11 @@ From: Fedor <fedork@ubuntu.(none)>
 Date: Wed, 27 Oct 2010 02:21:15 -0400
 
  kernel.org commits:
- 669a6db1037efeb064dd6620f69384f99fb45584
- bd5e47ccb656e74a775c002d0308c666bea65a2b
- bbc5d276ec1e24d48f794dae1c4bdfc1512f65d5
- 43b11d33f2c20c33fcf197780edb2e5d8a1b6a67
- 5d1ca6cf7f80644b07c348d6be870ccd8e3a92ed
+ 669a6db1037efeb064dd6620f69384f99fb45584 USB: ftd_sio: cleanups and updates for new termios work
+ bd5e47ccb656e74a775c002d0308c666bea65a2b USB: ftd_sio cleanups and updates for new termios work checkpatch fixes
+ bbc5d276ec1e24d48f794dae1c4bdfc1512f65d5 USB: ftdi_sio.c add missing '|'
+ 43b11d33f2c20c33fcf197780edb2e5d8a1b6a67 ftdi: A few errors are err() that should be debug which causes much spewage
+ 5d1ca6cf7f80644b07c348d6be870ccd8e3a92ed USB: ftdi_sio: remove pointless syslog spew
 
 ---
 
