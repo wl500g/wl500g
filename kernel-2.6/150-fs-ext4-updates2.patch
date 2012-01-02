@@ -5,13 +5,12 @@ ext4: Updates from upstream
  c7f5938adce6727b9d17785f289c1146bd88d678 ext4: fix ext4_da_block_invalidatepages() to handle page range properly
  7ad8e4e6ae2a7c95445ee1715b1714106fb95037 ext4: Fix fs corruption when make_indexed_dir() fails
  177353670085c14e1d358db8bf812bd72a9268c7 ext4: fix BUG_ON() in ext4_ext_insert_extent()
- ea51d132dbf9b00063169c1159bee253d9649224 ext4: avoid hangs in ext4_da_should_update_i_disksize()
 
 ---
  fs/ext4/extents.c |   30 +++++++++++++++++++++++++++---
- fs/ext4/inode.c   |   31 ++++++++++++++++++++++---------
+ fs/ext4/inode.c   |   29 +++++++++++++++++++++--------
  fs/ext4/namei.c   |   14 ++++++++++++--
- 3 files changed, 61 insertions(+), 14 deletions(-)
+ 3 files changed, 60 insertions(+), 13 deletions(-)
 
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
 --- a/fs/ext4/extents.c
@@ -123,15 +122,6 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  		return err;
  	}
  	BUG_ON(new.b_size == 0);
-@@ -2508,7 +2508,7 @@ static int ext4_da_write_end(struct file *file,
- 	 */
- 
- 	new_i_size = pos + copied;
--	if (new_i_size > EXT4_I(inode)->i_disksize) {
-+	if (copied && new_i_size > EXT4_I(inode)->i_disksize) {
- 		if (ext4_da_should_update_i_disksize(page, end)) {
- 			down_write(&EXT4_I(inode)->i_data_sem);
- 			if (new_i_size > EXT4_I(inode)->i_disksize) {
 diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
 --- a/fs/ext4/namei.c
 +++ b/fs/ext4/namei.c
