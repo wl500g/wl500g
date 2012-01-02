@@ -36,14 +36,22 @@
  extern int tunable_chown_uploads;             /* chown() anon uploaded files */
  extern int tunable_connect_from_port_20;      /* PORT connects from port 20 */
  extern int tunable_xferlog_enable;            /* Log transfers to a file */
---- vsftpd.orig/twoprocess.c	2005-03-18 22:04:13.000000000 +0300
-+++ vsftpd/twoprocess.c	2008-01-08 17:56:22.000000000 +0300
-@@ -377,7 +377,7 @@
-     /* Guard against the config error of having the anonymous ftp tree owned
-      * by the user we are running as
-      */
--    if (was_anon && vsf_sysutil_write_access("/"))
-+    if (!tunable_anon_allow_writable_root && was_anon && vsf_sysutil_write_access("/"))
+--- vsftpd.orig/secutil.c	2011-12-17 23:44:20.000000000 +0400
++++ vsftpd/secutil.c	2012-01-01 20:48:05.000000000 +0400
+@@ -11,6 +11,7 @@
+ #include "sysstr.h"
+ #include "utility.h"
+ #include "sysdeputil.h"
++#include "tunables.h"
+ 
+ void
+ vsf_secutil_change_credentials(const struct mystr* p_user_str,
+@@ -134,7 +135,7 @@ vsf_secutil_change_credentials(const str
+    */
+   if (options & VSF_SECUTIL_OPTION_CHROOT)
+   {
+-    if (vsf_sysutil_write_access("/"))
++    if (!tunable_anon_allow_writable_root && vsf_sysutil_write_access("/"))
      {
-       die("vsftpd: refusing to run with writable anonymous root");
+       die("vsftpd: refusing to run with writable root inside chroot()");
      }
