@@ -267,7 +267,7 @@ ext4_xattr_ibody_get(struct inode *inode, int name_index, const char *name,
 	void *end;
 	int error;
 
-	if (!(EXT4_I(inode)->i_state & EXT4_STATE_XATTR))
+	if (!ext4_test_inode_state(inode, EXT4_STATE_XATTR))
 		return -ENODATA;
 	error = ext4_get_inode_loc(inode, &iloc);
 	if (error)
@@ -393,7 +393,7 @@ ext4_xattr_ibody_list(struct inode *inode, char *buffer, size_t buffer_size)
 	void *end;
 	int error;
 
-	if (!(EXT4_I(inode)->i_state & EXT4_STATE_XATTR))
+	if (!ext4_test_inode_state(inode, EXT4_STATE_XATTR))
 		return 0;
 	error = ext4_get_inode_loc(inode, &iloc);
 	if (error)
@@ -457,7 +457,7 @@ static void ext4_xattr_update_super_block(handle_t *handle,
 	if (ext4_journal_get_write_access(handle, EXT4_SB(sb)->s_sbh) == 0) {
 		EXT4_SET_COMPAT_FEATURE(sb, EXT4_FEATURE_COMPAT_EXT_ATTR);
 		sb->s_dirt = 1;
-		ext4_journal_dirty_metadata(handle, EXT4_SB(sb)->s_sbh);
+		ext4_handle_dirty_metadata(handle, NULL, EXT4_SB(sb)->s_sbh);
 	}
 }
 
@@ -487,9 +487,9 @@ ext4_xattr_release_block(handle_t *handle, struct inode *inode,
 		ext4_forget(handle, 1, inode, bh, bh->b_blocknr);
 	} else {
 		le32_add_cpu(&BHDR(bh)->h_refcount, -1);
-		error = ext4_journal_dirty_metadata(handle, bh);
+		error = ext4_handle_dirty_metadata(handle, inode, bh);
 		if (IS_SYNC(inode))
-			handle->h_sync = 1;
+			ext4_handle_sync(handle);
 		DQUOT_FREE_BLOCK(inode, 1);
 		ea_bdebug(bh, "refcount now=%d; releasing",
 			  le32_to_cpu(BHDR(bh)->h_refcount));
@@ -724,8 +724,9 @@ ext4_xattr_block_set(handle_t *handle, struct inode *inode,
 			if (error == -EIO)
 				goto bad_block;
 			if (!error)
-				error = ext4_journal_dirty_metadata(handle,
-								    bs->bh);
+				error = ext4_handle_dirty_metadata(handle,
+								   inode,
+								   bs->bh);
 			if (error)
 				goto cleanup;
 			goto inserted;
@@ -794,8 +795,9 @@ inserted:
 				ea_bdebug(new_bh, "reusing; refcount now=%d",
 					le32_to_cpu(BHDR(new_bh)->h_refcount));
 				unlock_buffer(new_bh);
-				error = ext4_journal_dirty_metadata(handle,
-								    new_bh);
+				error = ext4_handle_dirty_metadata(handle,
+								   inode,
+								   new_bh);
 				if (error)
 					goto cleanup_dquot;
 			}
@@ -808,12 +810,23 @@ inserted:
 			get_bh(new_bh);
 		} else {
 			/* We need to allocate a new block */
-			ext4_fsblk_t goal = ext4_group_first_block_no(sb,
+			ext4_fsblk_t goal, block;
+
+			goal = ext4_group_first_block_no(sb,
 						EXT4_I(inode)->i_block_group);
-			ext4_fsblk_t block = ext4_new_meta_block(handle, inode,
-							goal, &error);
+
+			/* non-extent files can't have physical blocks past 2^32 */
+			if (!(ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS)))
+				goal = goal & EXT4_MAX_BLOCK_FILE_PHYS;
+
+			block = ext4_new_meta_blocks(handle, inode,
+						  goal, NULL, &error);
 			if (error)
 				goto cleanup;
+
+			if (!(ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS)))
+				BUG_ON(block > EXT4_MAX_BLOCK_FILE_PHYS);
+
 			ea_idebug(inode, "creating block %d", block);
 
 			new_bh = sb_getblk(sb, block);
@@ -833,7 +846,8 @@ getblk_failed:
 			set_buffer_uptodate(new_bh);
 			unlock_buffer(new_bh);
 			ext4_xattr_cache_insert(new_bh);
-			error = ext4_journal_dirty_metadata(handle, new_bh);
+			error = ext4_handle_dirty_metadata(handle,
+							   inode, new_bh);
 			if (error)
 				goto cleanup;
 		}
@@ -889,7 +903,7 @@ ext4_xattr_ibody_find(struct inode *inode, struct ext4_xattr_info *i,
 	is->s.base = is->s.first = IFIRST(header);
 	is->s.here = is->s.first;
 	is->s.end = (void *)raw_inode + EXT4_SB(inode->i_sb)->s_inode_size;
-	if (EXT4_I(inode)->i_state & EXT4_STATE_XATTR) {
+	if (ext4_test_inode_state(inode, EXT4_STATE_XATTR)) {
 		error = ext4_xattr_check_names(IFIRST(header), is->s.end);
 		if (error)
 			return error;
@@ -921,10 +935,10 @@ ext4_xattr_ibody_set(handle_t *handle, struct inode *inode,
 	header = IHDR(inode, ext4_raw_inode(&is->iloc));
 	if (!IS_LAST_ENTRY(s->first)) {
 		header->h_magic = cpu_to_le32(EXT4_XATTR_MAGIC);
-		EXT4_I(inode)->i_state |= EXT4_STATE_XATTR;
+		ext4_set_inode_state(inode, EXT4_STATE_XATTR);
 	} else {
 		header->h_magic = cpu_to_le32(0);
-		EXT4_I(inode)->i_state &= ~EXT4_STATE_XATTR;
+		ext4_clear_inode_state(inode, EXT4_STATE_XATTR);
 	}
 	return 0;
 }
@@ -967,17 +981,21 @@ ext4_xattr_set_handle(handle_t *handle, struct inode *inode, int name_index,
 	if (strlen(name) > 255)
 		return -ERANGE;
 	down_write(&EXT4_I(inode)->xattr_sem);
-	no_expand = EXT4_I(inode)->i_state & EXT4_STATE_NO_EXPAND;
-	EXT4_I(inode)->i_state |= EXT4_STATE_NO_EXPAND;
+	no_expand = ext4_test_inode_state(inode, EXT4_STATE_NO_EXPAND);
+	ext4_set_inode_state(inode, EXT4_STATE_NO_EXPAND);
 
 	error = ext4_get_inode_loc(inode, &is.iloc);
 	if (error)
 		goto cleanup;
 
-	if (EXT4_I(inode)->i_state & EXT4_STATE_NEW) {
+	error = ext4_journal_get_write_access(handle, is.iloc.bh);
+	if (error)
+		goto cleanup;
+
+	if (ext4_test_inode_state(inode, EXT4_STATE_NEW)) {
 		struct ext4_inode *raw_inode = ext4_raw_inode(&is.iloc);
 		memset(raw_inode, 0, EXT4_SB(inode->i_sb)->s_inode_size);
-		EXT4_I(inode)->i_state &= ~EXT4_STATE_NEW;
+		ext4_clear_inode_state(inode, EXT4_STATE_NEW);
 	}
 
 	error = ext4_xattr_ibody_find(inode, &i, &is);
@@ -999,9 +1017,6 @@ ext4_xattr_set_handle(handle_t *handle, struct inode *inode, int name_index,
 		if (flags & XATTR_CREATE)
 			goto cleanup;
 	}
-	error = ext4_journal_get_write_access(handle, is.iloc.bh);
-	if (error)
-		goto cleanup;
 	if (!value) {
 		if (!is.s.not_found)
 			error = ext4_xattr_ibody_set(handle, inode, &i, &is);
@@ -1032,7 +1047,7 @@ ext4_xattr_set_handle(handle_t *handle, struct inode *inode, int name_index,
 		ext4_xattr_update_super_block(handle, inode->i_sb);
 		inode->i_ctime = ext4_current_time(inode);
 		if (!value)
-			EXT4_I(inode)->i_state &= ~EXT4_STATE_NO_EXPAND;
+			ext4_clear_inode_state(inode, EXT4_STATE_NO_EXPAND);
 		error = ext4_mark_iloc_dirty(handle, inode, &is.iloc);
 		/*
 		 * The bh is consumed by ext4_mark_iloc_dirty, even with
@@ -1040,14 +1055,14 @@ ext4_xattr_set_handle(handle_t *handle, struct inode *inode, int name_index,
 		 */
 		is.iloc.bh = NULL;
 		if (IS_SYNC(inode))
-			handle->h_sync = 1;
+			ext4_handle_sync(handle);
 	}
 
 cleanup:
 	brelse(is.iloc.bh);
 	brelse(bs.bh);
 	if (no_expand == 0)
-		EXT4_I(inode)->i_state &= ~EXT4_STATE_NO_EXPAND;
+		ext4_clear_inode_state(inode, EXT4_STATE_NO_EXPAND);
 	up_write(&EXT4_I(inode)->xattr_sem);
 	return error;
 }
@@ -1312,6 +1327,8 @@ retry:
 			goto cleanup;
 		kfree(b_entry_name);
 		kfree(buffer);
+		b_entry_name = NULL;
+		buffer = NULL;
 		brelse(is->iloc.bh);
 		kfree(is);
 		kfree(bs);

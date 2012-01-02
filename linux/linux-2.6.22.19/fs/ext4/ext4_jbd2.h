@@ -32,8 +32,8 @@
  * 5 levels of tree + root which are stored in the inode. */
 
 #define EXT4_SINGLEDATA_TRANS_BLOCKS(sb)				\
-	(EXT4_HAS_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_EXTENTS)	\
-		|| test_opt(sb, EXTENTS) ? 27U : 8U)
+	(EXT4_HAS_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_EXTENTS)   \
+	 ? 27U : 8U)
 
 /* Extended attribute operations touch at most two data buffers,
  * two bitmap buffers, and two group summaries, in addition to the inode
@@ -49,7 +49,7 @@
 
 #define EXT4_DATA_TRANS_BLOCKS(sb)	(EXT4_SINGLEDATA_TRANS_BLOCKS(sb) + \
 					 EXT4_XATTR_TRANS_BLOCKS - 2 + \
-					 2*EXT4_QUOTA_TRANS_BLOCKS(sb))
+					 EXT4_MAXQUOTAS_TRANS_BLOCKS(sb))
 
 /*
  * Define the number of metadata blocks we need to account to modify data.
@@ -57,7 +57,7 @@
  * This include super block, inode block, quota blocks and xattr blocks
  */
 #define EXT4_META_TRANS_BLOCKS(sb)	(EXT4_XATTR_TRANS_BLOCKS + \
-					2*EXT4_QUOTA_TRANS_BLOCKS(sb))
+					EXT4_MAXQUOTAS_TRANS_BLOCKS(sb))
 
 /* Delete operations potentially hit one directory's namespace plus an
  * entire inode, plus arbitrary amounts of bitmap/indirection data.  Be
@@ -99,6 +99,9 @@
 #define EXT4_QUOTA_INIT_BLOCKS(sb) 0
 #define EXT4_QUOTA_DEL_BLOCKS(sb) 0
 #endif
+#define EXT4_MAXQUOTAS_TRANS_BLOCKS(sb) (MAXQUOTAS*EXT4_QUOTA_TRANS_BLOCKS(sb))
+#define EXT4_MAXQUOTAS_INIT_BLOCKS(sb) (MAXQUOTAS*EXT4_QUOTA_INIT_BLOCKS(sb))
+#define EXT4_MAXQUOTAS_DEL_BLOCKS(sb) (MAXQUOTAS*EXT4_QUOTA_DEL_BLOCKS(sb))
 
 int
 ext4_mark_iloc_dirty(handle_t *handle,
@@ -122,12 +125,6 @@ int ext4_mark_inode_dirty(handle_t *handle, struct inode *inode);
  * been done yet.
  */
 
-static inline void ext4_journal_release_buffer(handle_t *handle,
-						struct buffer_head *bh)
-{
-	jbd2_journal_release_buffer(handle, bh);
-}
-
 void ext4_journal_abort_handle(const char *caller, const char *err_fn,
 		struct buffer_head *bh, handle_t *handle, int err);
 
@@ -137,17 +134,19 @@ int __ext4_journal_get_undo_access(const char *where, handle_t *handle,
 int __ext4_journal_get_write_access(const char *where, handle_t *handle,
 				struct buffer_head *bh);
 
+/* When called with an invalid handle, this will still do a put on the BH */
 int __ext4_journal_forget(const char *where, handle_t *handle,
 				struct buffer_head *bh);
 
+/* When called with an invalid handle, this will still do a put on the BH */
 int __ext4_journal_revoke(const char *where, handle_t *handle,
 				ext4_fsblk_t blocknr, struct buffer_head *bh);
 
 int __ext4_journal_get_create_access(const char *where,
 				handle_t *handle, struct buffer_head *bh);
 
-int __ext4_journal_dirty_metadata(const char *where,
-				handle_t *handle, struct buffer_head *bh);
+int __ext4_handle_dirty_metadata(const char *where, handle_t *handle,
+				 struct inode *inode, struct buffer_head *bh);
 
 #define ext4_journal_get_undo_access(handle, bh) \
 	__ext4_journal_get_undo_access(__func__, (handle), (bh))
@@ -157,13 +156,58 @@ int __ext4_journal_dirty_metadata(const char *where,
 	__ext4_journal_revoke(__func__, (handle), (blocknr), (bh))
 #define ext4_journal_get_create_access(handle, bh) \
 	__ext4_journal_get_create_access(__func__, (handle), (bh))
-#define ext4_journal_dirty_metadata(handle, bh) \
-	__ext4_journal_dirty_metadata(__func__, (handle), (bh))
 #define ext4_journal_forget(handle, bh) \
 	__ext4_journal_forget(__func__, (handle), (bh))
+#define ext4_handle_dirty_metadata(handle, inode, bh) \
+	__ext4_handle_dirty_metadata(__func__, (handle), (inode), (bh))
 
 handle_t *ext4_journal_start_sb(struct super_block *sb, int nblocks);
 int __ext4_journal_stop(const char *where, handle_t *handle);
+
+#define EXT4_NOJOURNAL_MAX_REF_COUNT ((unsigned long) 4096)
+
+/* Note:  Do not use this for NULL handles.  This is only to determine if
+ * a properly allocated handle is using a journal or not. */
+static inline int ext4_handle_valid(handle_t *handle)
+{
+	if ((unsigned long)handle < EXT4_NOJOURNAL_MAX_REF_COUNT)
+		return 0;
+	return 1;
+}
+
+static inline void ext4_handle_sync(handle_t *handle)
+{
+	if (ext4_handle_valid(handle))
+		handle->h_sync = 1;
+}
+
+static inline void ext4_handle_release_buffer(handle_t *handle,
+						struct buffer_head *bh)
+{
+	if (ext4_handle_valid(handle))
+		jbd2_journal_release_buffer(handle, bh);
+}
+
+static inline int ext4_handle_is_aborted(handle_t *handle)
+{
+	if (ext4_handle_valid(handle))
+		return is_handle_aborted(handle);
+	return 0;
+}
+
+static inline int ext4_handle_has_enough_credits(handle_t *handle, int needed)
+{
+	if (ext4_handle_valid(handle) && handle->h_buffer_credits < needed)
+		return 0;
+	return 1;
+}
+
+static inline void ext4_journal_release_buffer(handle_t *handle,
+						struct buffer_head *bh)
+{
+	if (ext4_handle_valid(handle))
+		jbd2_journal_release_buffer(handle, bh);
+}
 
 static inline handle_t *ext4_journal_start(struct inode *inode, int nblocks)
 {
@@ -180,27 +224,50 @@ static inline handle_t *ext4_journal_current_handle(void)
 
 static inline int ext4_journal_extend(handle_t *handle, int nblocks)
 {
-	return jbd2_journal_extend(handle, nblocks);
+	if (ext4_handle_valid(handle))
+		return jbd2_journal_extend(handle, nblocks);
+	return 0;
 }
 
 static inline int ext4_journal_restart(handle_t *handle, int nblocks)
 {
-	return jbd2_journal_restart(handle, nblocks);
+	if (ext4_handle_valid(handle))
+		return jbd2_journal_restart(handle, nblocks);
+	return 0;
 }
 
 static inline int ext4_journal_blocks_per_page(struct inode *inode)
 {
-	return jbd2_journal_blocks_per_page(inode);
+	if (EXT4_JOURNAL(inode) != NULL)
+		return jbd2_journal_blocks_per_page(inode);
+	return 0;
 }
 
 static inline int ext4_journal_force_commit(journal_t *journal)
 {
-	return jbd2_journal_force_commit(journal);
+	if (journal)
+		return jbd2_journal_force_commit(journal);
+	return 0;
 }
 
 static inline int ext4_jbd2_file_inode(handle_t *handle, struct inode *inode)
 {
-	return jbd2_journal_file_inode(handle, &EXT4_I(inode)->jinode);
+	if (ext4_handle_valid(handle))
+		return jbd2_journal_file_inode(handle, &EXT4_I(inode)->jinode);
+	return 0;
+}
+
+static inline void ext4_update_inode_fsync_trans(handle_t *handle,
+						 struct inode *inode,
+						 int datasync)
+{
+	struct ext4_inode_info *ei = EXT4_I(inode);
+
+	if (ext4_handle_valid(handle)) {
+		ei->i_sync_tid = handle->h_transaction->t_tid;
+		if (datasync)
+			ei->i_datasync_tid = handle->h_transaction->t_tid;
+	}
 }
 
 /* super.c */
@@ -208,20 +275,24 @@ int ext4_force_commit(struct super_block *sb);
 
 static inline int ext4_should_journal_data(struct inode *inode)
 {
+	if (EXT4_JOURNAL(inode) == NULL)
+		return 0;
 	if (!S_ISREG(inode->i_mode))
 		return 1;
 	if (test_opt(inode->i_sb, DATA_FLAGS) == EXT4_MOUNT_JOURNAL_DATA)
 		return 1;
-	if (EXT4_I(inode)->i_flags & EXT4_JOURNAL_DATA_FL)
+	if (ext4_test_inode_flag(inode, EXT4_INODE_JOURNAL_DATA))
 		return 1;
 	return 0;
 }
 
 static inline int ext4_should_order_data(struct inode *inode)
 {
+	if (EXT4_JOURNAL(inode) == NULL)
+		return 0;
 	if (!S_ISREG(inode->i_mode))
 		return 0;
-	if (EXT4_I(inode)->i_flags & EXT4_JOURNAL_DATA_FL)
+	if (ext4_test_inode_flag(inode, EXT4_INODE_JOURNAL_DATA))
 		return 0;
 	if (test_opt(inode->i_sb, DATA_FLAGS) == EXT4_MOUNT_ORDERED_DATA)
 		return 1;
@@ -232,7 +303,9 @@ static inline int ext4_should_writeback_data(struct inode *inode)
 {
 	if (!S_ISREG(inode->i_mode))
 		return 0;
-	if (EXT4_I(inode)->i_flags & EXT4_JOURNAL_DATA_FL)
+	if (EXT4_JOURNAL(inode) == NULL)
+		return 1;
+	if (ext4_test_inode_flag(inode, EXT4_INODE_JOURNAL_DATA))
 		return 0;
 	if (test_opt(inode->i_sb, DATA_FLAGS) == EXT4_MOUNT_WRITEBACK_DATA)
 		return 1;

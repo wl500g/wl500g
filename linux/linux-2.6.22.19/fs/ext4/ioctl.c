@@ -12,7 +12,8 @@
 #include <linux/capability.h>
 #include <linux/time.h>
 #include <linux/compat.h>
-#include <linux/smp_lock.h>
+#include <linux/mount.h>
+#include <linux/file.h>
 #include <asm/uaccess.h>
 #include "ext4_jbd2.h"
 #include "ext4.h"
@@ -22,9 +23,8 @@ long ext4_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct inode *inode = filp->f_dentry->d_inode;
 	struct ext4_inode_info *ei = EXT4_I(inode);
 	unsigned int flags;
-	unsigned short rsv_window_size;
 
-	ext4_debug ("cmd = %u, arg = %lu\n", cmd, arg);
+	ext4_debug("cmd = %u, arg = %lu\n", cmd, arg);
 
 	switch (cmd) {
 	case EXT4_IOC_GETFLAGS:
@@ -33,7 +33,7 @@ long ext4_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return put_user(flags, (int __user *) arg);
 	case EXT4_IOC_SETFLAGS: {
 		handle_t *handle = NULL;
-		int err;
+		int err, migrate = 0;
 		struct ext4_iloc iloc;
 		unsigned int oldflags;
 		unsigned int jflag;
@@ -78,20 +78,39 @@ long ext4_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		 * the relevant capability.
 		 */
 		if ((jflag ^ oldflags) & (EXT4_JOURNAL_DATA_FL)) {
-			if (!capable(CAP_SYS_RESOURCE)) {
-				mutex_unlock(&inode->i_mutex);
-				return -EPERM;
+ 			if (!capable(CAP_SYS_RESOURCE)) {
+ 				mutex_unlock(&inode->i_mutex);
+ 				return -EPERM;
+ 			}
+		}
+		if (oldflags & EXT4_EXTENTS_FL) {
+			/* We don't support clearning extent flags */
+			if (!(flags & EXT4_EXTENTS_FL)) {
+				err = -EOPNOTSUPP;
+				goto flags_out;
 			}
+		} else if (flags & EXT4_EXTENTS_FL) {
+			/* migrate the file */
+			migrate = 1;
+			flags &= ~EXT4_EXTENTS_FL;
 		}
 
+		if (flags & EXT4_EOFBLOCKS_FL) {
+			/* we don't support adding EOFBLOCKS flag */
+			if (!(oldflags & EXT4_EOFBLOCKS_FL)) {
+				err = -EOPNOTSUPP;
+				goto flags_out;
+			}
+		} else if (oldflags & EXT4_EOFBLOCKS_FL)
+			ext4_truncate(inode);
 
 		handle = ext4_journal_start(inode, 1);
 		if (IS_ERR(handle)) {
-			mutex_unlock(&inode->i_mutex);
-			return PTR_ERR(handle);
+			err = PTR_ERR(handle);
+			goto flags_out;
 		}
 		if (IS_SYNC(inode))
-			handle->h_sync = 1;
+			ext4_handle_sync(handle);
 		err = ext4_reserve_inode_write(handle, inode, &iloc);
 		if (err)
 			goto flags_err;
@@ -106,13 +125,16 @@ long ext4_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		err = ext4_mark_iloc_dirty(handle, inode, &iloc);
 flags_err:
 		ext4_journal_stop(handle);
-		if (err) {
-			mutex_unlock(&inode->i_mutex);
-			return err;
-		}
+		if (err)
+			goto flags_out;
 
 		if ((jflag ^ oldflags) & (EXT4_JOURNAL_DATA_FL))
 			err = ext4_change_inode_journal_flag(inode, jflag);
+		if (err)
+			goto flags_out;
+		if (migrate)
+			err = ext4_ext_migrate(inode);
+flags_out:
 		mutex_unlock(&inode->i_mutex);
 		return err;
 	}
@@ -169,86 +191,94 @@ flags_err:
 			return ret;
 		}
 #endif
-	case EXT4_IOC_GETRSVSZ:
-		if (test_opt(inode->i_sb, RESERVATION)
-			&& S_ISREG(inode->i_mode)
-			&& ei->i_block_alloc_info) {
-			rsv_window_size = ei->i_block_alloc_info->rsv_window_node.rsv_goal_size;
-			return put_user(rsv_window_size, (int __user *)arg);
-		}
-		return -ENOTTY;
-	case EXT4_IOC_SETRSVSZ: {
-
-		if (!test_opt(inode->i_sb, RESERVATION) ||!S_ISREG(inode->i_mode))
-			return -ENOTTY;
-
-		if (IS_RDONLY(inode))
-			return -EROFS;
-
-		if ((current->fsuid != inode->i_uid) && !capable(CAP_FOWNER))
-			return -EACCES;
-
-		if (get_user(rsv_window_size, (int __user *)arg))
-			return -EFAULT;
-
-		if (rsv_window_size > EXT4_MAX_RESERVE_BLOCKS)
-			rsv_window_size = EXT4_MAX_RESERVE_BLOCKS;
-
-		/*
-		 * need to allocate reservation structure for this inode
-		 * before set the window size
-		 */
-		down_write(&ei->i_data_sem);
-		if (!ei->i_block_alloc_info)
-			ext4_init_block_alloc_info(inode);
-
-		if (ei->i_block_alloc_info){
-			struct ext4_reserve_window_node *rsv = &ei->i_block_alloc_info->rsv_window_node;
-			rsv->rsv_goal_size = rsv_window_size;
-		}
-		up_write(&ei->i_data_sem);
-		return 0;
-	}
 	case EXT4_IOC_GROUP_EXTEND: {
 		ext4_fsblk_t n_blocks_count;
 		struct super_block *sb = inode->i_sb;
-		int err;
+		int err, err2=0;
 
 		if (!capable(CAP_SYS_RESOURCE))
 			return -EPERM;
-
-		if (IS_RDONLY(inode))
-			return -EROFS;
 
 		if (get_user(n_blocks_count, (__u32 __user *)arg))
 			return -EFAULT;
 
+		if (IS_RDONLY(inode))
+			return -EROFS;
+
 		err = ext4_group_extend(sb, EXT4_SB(sb)->s_es, n_blocks_count);
-		jbd2_journal_lock_updates(EXT4_SB(sb)->s_journal);
-		jbd2_journal_flush(EXT4_SB(sb)->s_journal);
-		jbd2_journal_unlock_updates(EXT4_SB(sb)->s_journal);
+		if (EXT4_SB(sb)->s_journal) {
+			jbd2_journal_lock_updates(EXT4_SB(sb)->s_journal);
+			err2 = jbd2_journal_flush(EXT4_SB(sb)->s_journal);
+			jbd2_journal_unlock_updates(EXT4_SB(sb)->s_journal);
+		}
+		if (err == 0)
+			err = err2;
 
 		return err;
 	}
-	case EXT4_IOC_GROUP_ADD: {
-		struct ext4_new_group_data input;
-		struct super_block *sb = inode->i_sb;
+
+	case EXT4_IOC_MOVE_EXT: {
+		struct move_extent me;
+		struct file *donor_filp;
 		int err;
 
-		if (!capable(CAP_SYS_RESOURCE))
-			return -EPERM;
+		if (!(filp->f_mode & FMODE_READ) ||
+		    !(filp->f_mode & FMODE_WRITE))
+			return -EBADF;
+
+		if (copy_from_user(&me,
+			(struct move_extent __user *)arg, sizeof(me)))
+			return -EFAULT;
+		me.moved_len = 0;
+
+		donor_filp = fget(me.donor_fd);
+		if (!donor_filp)
+			return -EBADF;
+
+		if (!(donor_filp->f_mode & FMODE_WRITE)) {
+			err = -EBADF;
+			goto mext_out;
+		}
 
 		if (IS_RDONLY(inode))
 			return -EROFS;
+
+		err = ext4_move_extents(filp, donor_filp, me.orig_start,
+					me.donor_start, me.len, &me.moved_len);
+		if (me.moved_len > 0)
+			remove_suid(donor_filp->f_path.dentry);
+
+		if (copy_to_user((struct move_extent __user *)arg,
+				 &me, sizeof(me)))
+			err = -EFAULT;
+mext_out:
+		fput(donor_filp);
+		return err;
+	}
+
+	case EXT4_IOC_GROUP_ADD: {
+		struct ext4_new_group_data input;
+		struct super_block *sb = inode->i_sb;
+		int err, err2=0;
+
+		if (!capable(CAP_SYS_RESOURCE))
+			return -EPERM;
 
 		if (copy_from_user(&input, (struct ext4_new_group_input __user *)arg,
 				sizeof(input)))
 			return -EFAULT;
 
+		if (IS_RDONLY(inode))
+			return -EROFS;
+
 		err = ext4_group_add(sb, &input);
-		jbd2_journal_lock_updates(EXT4_SB(sb)->s_journal);
-		jbd2_journal_flush(EXT4_SB(sb)->s_journal);
-		jbd2_journal_unlock_updates(EXT4_SB(sb)->s_journal);
+		if (EXT4_SB(sb)->s_journal) {
+			jbd2_journal_lock_updates(EXT4_SB(sb)->s_journal);
+			err2 = jbd2_journal_flush(EXT4_SB(sb)->s_journal);
+			jbd2_journal_unlock_updates(EXT4_SB(sb)->s_journal);
+		}
+		if (err == 0)
+			err = err2;
 
 		return err;
 	}
@@ -328,7 +358,30 @@ long ext4_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case EXT4_IOC32_SETRSVSZ:
 		cmd = EXT4_IOC_SETRSVSZ;
 		break;
-	case EXT4_IOC_GROUP_ADD:
+	case EXT4_IOC32_GROUP_ADD: {
+		struct compat_ext4_new_group_input __user *uinput;
+		struct ext4_new_group_input input;
+		mm_segment_t old_fs;
+		int err;
+
+		uinput = compat_ptr(arg);
+		err = get_user(input.group, &uinput->group);
+		err |= get_user(input.block_bitmap, &uinput->block_bitmap);
+		err |= get_user(input.inode_bitmap, &uinput->inode_bitmap);
+		err |= get_user(input.inode_table, &uinput->inode_table);
+		err |= get_user(input.blocks_count, &uinput->blocks_count);
+		err |= get_user(input.reserved_blocks,
+				&uinput->reserved_blocks);
+		if (err)
+			return -EFAULT;
+		old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		err = ext4_ioctl(file, EXT4_IOC_GROUP_ADD,
+				 (unsigned long) &input);
+		set_fs(old_fs);
+		return err;
+	}
+	case EXT4_IOC_MOVE_EXT:
 		break;
 	default:
 		return -ENOIOCTLCMD;
