@@ -12,16 +12,32 @@ by IGMPv2 while correcting the other problems introduced
 by the patch.
 
 Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
+
 ---
- net/ipv4/igmp.c |   14 +++++++++++++-
- 1 files changed, 13 insertions(+), 1 deletions(-)
+From a8c1f65c79cbbb2f7da782d4c9d15639a9b94b27
+From: Ben Hutchings
+Date: Mon, 9 Jan 2012 14:06:46 -0800
+Subject: [PATCH] igmp: Avoid zero delay when receiving odd mixture of IGMP queries
+
+Commit 5b7c84066733c5dfb0e4016d939757b38de189e4 ('ipv4: correct IGMP
+behavior on v3 query during v2-compatibility mode') added yet another
+case for query parsing, which can result in max_delay = 0.  Substitute
+a value of 1, as in the usual v3 case.
+
+Reported-by: Simon McVittie <smcv@debian.org>
+References: http://bugs.debian.org/654876
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/ipv4/igmp.c |   14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
 diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
 --- a/net/ipv4/igmp.c
 +++ b/net/ipv4/igmp.c
-@@ -856,6 +856,18 @@ static void igmp_heard_query(struct in_device *in_dev, struct sk_buff *skb,
+@@ -856,6 +856,20 @@ static void igmp_heard_query(struct in_device *in_dev, struct sk_buff *skb,
  		igmpv3_clear_delrec(in_dev);
  	} else if (len < 12) {
  		return;	/* ignore bogus packet; freed by caller */
@@ -37,6 +53,8 @@ diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
 +		 * to be intended in a v3 query.
 +		 */
 +		max_delay = IGMPV3_MRC(ih3->code)*(HZ/IGMP_TIMER_SCALE);
++		if (!max_delay)
++			max_delay = 1;	/* can't mod w/ 0 */
  	} else { /* v3 */
  		if (!pskb_may_pull(skb, sizeof(struct igmpv3_query)))
  			return;
