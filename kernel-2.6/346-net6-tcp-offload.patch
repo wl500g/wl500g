@@ -1,0 +1,93 @@
+tcp: TSO/GSO updates from upstream
+
+ dd9e0dda66ba38a2ddd1405ac279894260dc5c36 [TCP]: Increase the max_burst threshold from 3 to tp->reordering.
+ ce447eb91409225f8a488f6b7b2a1bdf7b2d884f tcp: Allow send-limited cwnd to grow up to max_burst when gso disabled
+ 6b5a5c0dbb11dcff4e1b0f1ef87a723197948ed4 tcp: do not scale TSO segment size with reordering degree
+ f07d960df33c5aef8f513efce0fd201f962f94a1 tcp: avoid frag allocation for small frames
+
+---
+ include/net/tcp.h     |   26 +++++++++++++++++---------
+ net/ipv4/tcp.c        |    9 ++++++---
+ net/ipv4/tcp_output.c |    2 +-
+ 3 files changed, 24 insertions(+), 13 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -790,12 +790,23 @@ static inline void tcp_sync_left_out(str
+ extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+ extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
+ 
++/* The maximum number of MSS of available cwnd for which TSO defers
++ * sending if not using sysctl_tcp_tso_win_divisor.
++ */
++static inline __u32 tcp_max_tso_deferred_mss(const struct tcp_sock *tp)
++{
++	return 3;
++}
++
+ /* Slow start with delack produces 3 packets of burst, so that
+- * it is safe "de facto".
++ * it is safe "de facto".  This will be the default - same as
++ * the default reordering threshold - but if reordering increases,
++ * we must be able to allow cwnd to burst at least this much in order
++ * to not pull it back when holes are filled.
+  */
+ static __inline__ __u32 tcp_max_burst(const struct tcp_sock *tp)
+ {
+-	return 3;
++	return tp->reordering;
+ }
+ 
+ /* RFC2861 Check whether we are limited by application or congestion window
+@@ -809,14 +820,11 @@ static inline int tcp_is_cwnd_limited(co
+ 	if (in_flight >= tp->snd_cwnd)
+ 		return 1;
+ 
+-	if (!sk_can_gso(sk))
+-		return 0;
+-
+ 	left = tp->snd_cwnd - in_flight;
+-	if (sysctl_tcp_tso_win_divisor)
+-		return left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd;
+-	else
+-		return left <= tcp_max_burst(tp);
++	if (sk_can_gso(sk) &&
++	    left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd)
++		return 1;
++	return left <= tcp_max_tso_deferred_mss(tp);
+ }
+ 
+ static inline void tcp_minshall_update(struct tcp_sock *tp, int mss,
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -843,9 +843,12 @@ static inline int select_size(struct soc
+ 	int tmp = tp->mss_cache;
+ 
+ 	if (sg) {
+-		if (sk_can_gso(sk))
+-			tmp = 0;
+-		else {
++		if (sk_can_gso(sk)) {
++			/* Small frames wont use a full page:
++			 * Payload will immediately follow tcp header.
++			 */
++			tmp = SKB_WITH_OVERHEAD(2048 - MAX_TCP_HEADER);
++		} else {
+ 			int pgbreak = SKB_MAX_HEAD(MAX_TCP_HEADER);
+ 
+ 			if (tmp >= pgbreak &&
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1223,7 +1223,7 @@ static int tcp_tso_should_defer(struct s
+ 		 * frame, so if we have space for more than 3 frames
+ 		 * then send now.
+ 		 */
+-		if (limit > tcp_max_burst(tp) * tp->mss_cache)
++		if (limit > tcp_max_tso_deferred_mss(tp) * tp->mss_cache)
+ 			goto send_now;
+ 	}
+ 
+-- 
