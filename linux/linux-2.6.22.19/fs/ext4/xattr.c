@@ -482,9 +482,10 @@ ext4_xattr_release_block(handle_t *handle, struct inode *inode,
 		ea_bdebug(bh, "refcount now=0; freeing");
 		if (ce)
 			mb_cache_entry_free(ce);
-		ext4_free_blocks(handle, inode, bh->b_blocknr, 1, 1);
 		get_bh(bh);
-		ext4_forget(handle, 1, inode, bh, bh->b_blocknr);
+		ext4_free_blocks(handle, inode, bh, 0, 1,
+				 EXT4_FREE_BLOCKS_METADATA |
+				 EXT4_FREE_BLOCKS_FORGET);
 	} else {
 		le32_add_cpu(&BHDR(bh)->h_refcount, -1);
 		error = ext4_handle_dirty_metadata(handle, inode, bh);
@@ -819,8 +820,14 @@ inserted:
 			if (!(ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS)))
 				goal = goal & EXT4_MAX_BLOCK_FILE_PHYS;
 
+			/*
+			 * take i_data_sem because we will test
+			 * i_delalloc_reserved_flag in ext4_mb_new_blocks
+			 */
+			down_read((&EXT4_I(inode)->i_data_sem));
 			block = ext4_new_meta_blocks(handle, inode,
 						  goal, NULL, &error);
+			up_read((&EXT4_I(inode)->i_data_sem));
 			if (error)
 				goto cleanup;
 
@@ -832,7 +839,8 @@ inserted:
 			new_bh = sb_getblk(sb, block);
 			if (!new_bh) {
 getblk_failed:
-				ext4_free_blocks(handle, inode, block, 1, 1);
+				ext4_free_blocks(handle, inode, 0, block, 1,
+						 EXT4_FREE_BLOCKS_METADATA);
 				error = -EIO;
 				goto cleanup;
 			}

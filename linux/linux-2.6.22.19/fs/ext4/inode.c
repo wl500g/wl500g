@@ -205,7 +205,7 @@ int ext4_truncate_restart_trans(handle_t *handle, struct inode *inode,
 	BUG_ON(EXT4_JOURNAL(inode) == NULL);
 	jbd_debug(2, "restarting handle %p\n", handle);
 	up_write(&EXT4_I(inode)->i_data_sem);
-	ret = ext4_journal_restart(handle, blocks_for_truncate(inode));
+	ret = ext4_journal_restart(handle, nblocks);
 	down_write(&EXT4_I(inode)->i_data_sem);
 	ext4_discard_preallocations(inode);
 
@@ -719,7 +719,7 @@ allocated:
 	return ret;
 failed_out:
 	for (i = 0; i < index; i++)
-		ext4_free_blocks(handle, inode, new_blocks[i], 1, 0);
+		ext4_free_blocks(handle, inode, 0, new_blocks[i], 1, 0);
 	return ret;
 }
 
@@ -815,14 +815,20 @@ static int ext4_alloc_branch(handle_t *handle, struct inode *inode,
 	return err;
 failed:
 	/* Allocation failed, free what we already allocated */
+	ext4_free_blocks(handle, inode, 0, new_blocks[0], 1, 0);
 	for (i = 1; i <= n ; i++) {
-		BUFFER_TRACE(branch[i].bh, "call jbd2_journal_forget");
-		ext4_journal_forget(handle, branch[i].bh);
+		/*
+		 * branch[i].bh is newly allocated, so there is no
+		 * need to revoke the block, which is why we don't
+		 * need to set EXT4_FREE_BLOCKS_METADATA.
+		 */
+		ext4_free_blocks(handle, inode, 0, new_blocks[i], 1,
+				 EXT4_FREE_BLOCKS_FORGET);
 	}
-	for (i = 0; i < indirect_blks; i++)
-		ext4_free_blocks(handle, inode, new_blocks[i], 1, 0);
+	for (i = n+1; i < indirect_blks; i++)
+		ext4_free_blocks(handle, inode, 0, new_blocks[i], 1, 0);
 
-	ext4_free_blocks(handle, inode, new_blocks[i], num, 0);
+	ext4_free_blocks(handle, inode, 0, new_blocks[i], num, 0);
 
 	return err;
 }
@@ -901,12 +907,16 @@ static int ext4_splice_branch(handle_t *handle, struct inode *inode,
 
 err_out:
 	for (i = 1; i <= num; i++) {
-		BUFFER_TRACE(where[i].bh, "call jbd2_journal_forget");
-		ext4_journal_forget(handle, where[i].bh);
-		ext4_free_blocks(handle, inode,
-					le32_to_cpu(where[i-1].key), 1, 0);
+		/*
+		 * branch[i].bh is newly allocated, so there is no
+		 * need to revoke the block, which is why we don't
+		 * need to set EXT4_FREE_BLOCKS_METADATA.
+		 */
+		ext4_free_blocks(handle, inode, where[i].bh, 0, 1,
+				 EXT4_FREE_BLOCKS_FORGET);
 	}
-	ext4_free_blocks(handle, inode, le32_to_cpu(where[num].key), blks, 0);
+	ext4_free_blocks(handle, inode, 0, le32_to_cpu(where[num].key),
+			 blks, 0);
 
 	return err;
 }
@@ -1215,8 +1225,10 @@ static pgoff_t ext4_num_dirty_pages(struct inode *inode, pgoff_t idx,
 				break;
 			idx++;
 			num++;
-			if (num >= max_pages)
+			if (num >= max_pages) {
+				done = 1;
 				break;
+			}
 		}
 		pagevec_release(&pvec);
 	}
@@ -2104,7 +2116,7 @@ static void mpage_put_bnr_to_bhs(struct mpage_da_data *mpd, sector_t logical,
 			} while ((bh = bh->b_this_page) != head);
 
 			do {
-				if (cur_logical >= logical + blocks)
+				if (cur_logical > logical + (blocks - 1))
 					break;
 
 				if (buffer_delay(bh) ||
@@ -2904,9 +2916,12 @@ static int ext4_da_writepages(struct address_space *mapping,
 	 * sbi->max_writeback_mb_bump whichever is smaller.
 	 */
 	max_pages = sbi->s_max_writeback_mb_bump << (20 - PAGE_CACHE_SHIFT);
-	if (!range_cyclic && range_whole)
-		desired_nr_to_write = wbc->nr_to_write * 8;
-	else
+	if (!range_cyclic && range_whole) {
+		if (wbc->nr_to_write == LONG_MAX)
+			desired_nr_to_write = wbc->nr_to_write;
+		else
+			desired_nr_to_write = wbc->nr_to_write * 8;
+	} else
 		desired_nr_to_write = ext4_num_dirty_pages(inode, index,
 							   max_pages);
 	if (desired_nr_to_write > max_pages)
@@ -4144,14 +4159,26 @@ no_top:
  * We release `count' blocks on disk, but (last - first) may be greater
  * than `count' because there can be holes in there.
  */
-static void ext4_clear_blocks(handle_t *handle, struct inode *inode,
-			      struct buffer_head *bh,
-			      ext4_fsblk_t block_to_free,
-			      unsigned long count, __le32 *first,
-			      __le32 *last)
+static int ext4_clear_blocks(handle_t *handle, struct inode *inode,
+			     struct buffer_head *bh,
+			     ext4_fsblk_t block_to_free,
+			     unsigned long count, __le32 *first,
+			     __le32 *last)
 {
 	__le32 *p;
-	int	is_metadata = S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode);
+	int	flags = EXT4_FREE_BLOCKS_FORGET | EXT4_FREE_BLOCKS_VALIDATED;
+
+	if (S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode))
+		flags |= EXT4_FREE_BLOCKS_METADATA;
+
+	if (!ext4_data_block_valid(EXT4_SB(inode->i_sb), block_to_free,
+				   count)) {
+		ext4_error(inode->i_sb, __func__, "inode #%lu: "
+			   "attempt to clear blocks %llu len %lu, invalid",
+			   inode->i_ino, (unsigned long long) block_to_free,
+			   count);
+		return 1;
+	}
 
 	if (try_to_extend_transaction(handle, inode)) {
 		if (bh) {
@@ -4167,27 +4194,11 @@ static void ext4_clear_blocks(handle_t *handle, struct inode *inode,
 		}
 	}
 
-	/*
-	 * Any buffers which are on the journal will be in memory. We
-	 * find them on the hash table so jbd2_journal_revoke() will
-	 * run jbd2_journal_forget() on them.  We've already detached
-	 * each block from the file, so bforget() in
-	 * jbd2_journal_forget() should be safe.
-	 *
-	 * AKPM: turn on bforget in jbd2_journal_forget()!!!
-	 */
-	for (p = first; p < last; p++) {
-		u32 nr = le32_to_cpu(*p);
-		if (nr) {
-			struct buffer_head *tbh;
+	for (p = first; p < last; p++)
+		*p = 0;
 
-			*p = 0;
-			tbh = sb_find_get_block(inode->i_sb, nr);
-			ext4_forget(handle, is_metadata, inode, tbh, nr);
-		}
-	}
-
-	ext4_free_blocks(handle, inode, block_to_free, count, is_metadata);
+	ext4_free_blocks(handle, inode, 0, block_to_free, count, flags);
+	return 0;
 }
 
 /**
@@ -4243,9 +4254,10 @@ static void ext4_free_data(handle_t *handle, struct inode *inode,
 			} else if (nr == block_to_free + count) {
 				count++;
 			} else {
-				ext4_clear_blocks(handle, inode, this_bh,
-						  block_to_free,
-						  count, block_to_free_p, p);
+				if (ext4_clear_blocks(handle, inode, this_bh,
+						      block_to_free, count,
+						      block_to_free_p, p))
+					break;
 				block_to_free = nr;
 				block_to_free_p = p;
 				count = 1;
@@ -4309,6 +4321,16 @@ static void ext4_free_branches(handle_t *handle, struct inode *inode,
 			if (!nr)
 				continue;		/* A hole */
 
+			if (!ext4_data_block_valid(EXT4_SB(inode->i_sb),
+						   nr, 1)) {
+				ext4_error(inode->i_sb, __func__,
+					   "indirect mapped block in inode "
+					   "#%lu invalid (level %d, blk #%lu)",
+					   inode->i_ino, depth,
+					   (unsigned long) nr);
+				break;
+			}
+
 			/* Go read the buffer for the next level down */
 			bh = sb_bread(inode->i_sb, nr);
 
@@ -4329,27 +4351,7 @@ static void ext4_free_branches(handle_t *handle, struct inode *inode,
 					(__le32 *) bh->b_data,
 					(__le32 *) bh->b_data + addr_per_block,
 					depth);
-
-			/*
-			 * We've probably journalled the indirect block several
-			 * times during the truncate.  But it's no longer
-			 * needed and we now drop it from the transaction via
-			 * jbd2_journal_revoke().
-			 *
-			 * That's easy if it's exclusively part of this
-			 * transaction.  But if it's part of the committing
-			 * transaction then jbd2_journal_forget() will simply
-			 * brelse() it.  That means that if the underlying
-			 * block is reallocated in ext4_get_block(),
-			 * unmap_underlying_metadata() will find this block
-			 * and will try to get rid of it.  damn, damn.
-			 *
-			 * If this block has already been committed to the
-			 * journal, a revoke record will be written.  And
-			 * revoke records must be emitted *before* clearing
-			 * this block's bit in the bitmaps.
-			 */
-			ext4_forget(handle, 1, inode, bh, bh->b_blocknr);
+			brelse(bh);
 
 			/*
 			 * Everything below this this pointer has been
@@ -4375,7 +4377,20 @@ static void ext4_free_branches(handle_t *handle, struct inode *inode,
 					    blocks_for_truncate(inode));
 			}
 
-			ext4_free_blocks(handle, inode, nr, 1, 1);
+			/*
+			 * The forget flag here is critical because if
+			 * we are journaling (and not doing data
+			 * journaling), we have to make sure a revoke
+			 * record is written to prevent the journal
+			 * replay from overwriting the (former)
+			 * indirect block if it gets reallocated as a
+			 * data block.  This must happen in the same
+			 * transaction where the data blocks are
+			 * actually freed.
+			 */
+			ext4_free_blocks(handle, inode, 0, nr, 1,
+					 EXT4_FREE_BLOCKS_METADATA|
+					 EXT4_FREE_BLOCKS_FORGET);
 
 			if (parent_bh) {
 				/*

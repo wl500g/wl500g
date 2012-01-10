@@ -124,8 +124,11 @@ struct ext4_ext_path {
 #define EXT4_EXT_CACHE_EXTENT	2
 
 
-/* Maximum logical block in a file; ext4_extent's ee_block is __le32 */
-#define EXT_MAX_BLOCK	0xffffffff
+/*
+ * Maximum number of logical blocks in a file; ext4_extent's ee_block is
+ * __le32.
+ */
+#define EXT_MAX_BLOCKS	0xffffffff
 
 /*
  * EXT_INIT_MAX_LEN is the maximum number of blocks we can have in an

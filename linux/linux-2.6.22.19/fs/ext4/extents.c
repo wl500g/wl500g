@@ -1040,7 +1040,8 @@ cleanup:
 		for (i = 0; i < depth; i++) {
 			if (!ablocks[i])
 				continue;
-			ext4_free_blocks(handle, inode, ablocks[i], 1, 1);
+			ext4_free_blocks(handle, inode, 0, ablocks[i], 1,
+					 EXT4_FREE_BLOCKS_METADATA);
 		}
 	}
 	kfree(ablocks);
@@ -1351,7 +1352,7 @@ got_index:
 
 /*
  * ext4_ext_next_allocated_block:
- * returns allocated block in subsequent extent or EXT_MAX_BLOCK.
+ * returns allocated block in subsequent extent or EXT_MAX_BLOCKS.
  * NOTE: it considers block number from index entry as
  * allocated block. Thus, index entries have to be consistent
  * with leaves.
@@ -1365,7 +1366,7 @@ ext4_ext_next_allocated_block(struct ext4_ext_path *path)
 	depth = path->p_depth;
 
 	if (depth == 0 && path->p_ext == NULL)
-		return EXT_MAX_BLOCK;
+		return EXT_MAX_BLOCKS;
 
 	while (depth >= 0) {
 		if (depth == path->p_depth) {
@@ -1382,12 +1383,12 @@ ext4_ext_next_allocated_block(struct ext4_ext_path *path)
 		depth--;
 	}
 
-	return EXT_MAX_BLOCK;
+	return EXT_MAX_BLOCKS;
 }
 
 /*
  * ext4_ext_next_leaf_block:
- * returns first allocated block from next leaf or EXT_MAX_BLOCK
+ * returns first allocated block from next leaf or EXT_MAX_BLOCKS
  */
 static ext4_lblk_t ext4_ext_next_leaf_block(struct inode *inode,
 					struct ext4_ext_path *path)
@@ -1399,7 +1400,7 @@ static ext4_lblk_t ext4_ext_next_leaf_block(struct inode *inode,
 
 	/* zero-tree has no leaf blocks at all */
 	if (depth == 0)
-		return EXT_MAX_BLOCK;
+		return EXT_MAX_BLOCKS;
 
 	/* go to index block */
 	depth--;
@@ -1412,7 +1413,7 @@ static ext4_lblk_t ext4_ext_next_leaf_block(struct inode *inode,
 		depth--;
 	}
 
-	return EXT_MAX_BLOCK;
+	return EXT_MAX_BLOCKS;
 }
 
 /*
@@ -1592,13 +1593,13 @@ unsigned int ext4_ext_check_overlap(struct inode *inode,
 	 */
 	if (b2 < b1) {
 		b2 = ext4_ext_next_allocated_block(path);
-		if (b2 == EXT_MAX_BLOCK)
+		if (b2 == EXT_MAX_BLOCKS)
 			goto out;
 	}
 
 	/* check for wrap through zero on extent logical start block*/
 	if (b1 + len1 < b1) {
-		len1 = EXT_MAX_BLOCK - b1;
+		len1 = EXT_MAX_BLOCKS - b1;
 		newext->ee_len = cpu_to_le16(len1);
 		ret = 1;
 	}
@@ -1674,7 +1675,7 @@ repeat:
 	fex = EXT_LAST_EXTENT(eh);
 	next = ext4_ext_next_leaf_block(inode, path);
 	if (le32_to_cpu(newext->ee_block) > le32_to_cpu(fex->ee_block)
-	    && next != EXT_MAX_BLOCK) {
+	    && next != EXT_MAX_BLOCKS) {
 		ext_debug("next leaf block - %d\n", next);
 		BUG_ON(npath != NULL);
 		npath = ext4_ext_find_extent(inode, next, NULL);
@@ -1811,7 +1812,7 @@ ext4_ext_put_gap_in_cache(struct inode *inode, struct ext4_ext_path *path,
 	if (ex == NULL) {
 		/* there is no extent yet, so gap is [0;-] */
 		lblock = 0;
-		len = EXT_MAX_BLOCK;
+		len = EXT_MAX_BLOCKS;
 		ext_debug("cache gap(whole file):");
 	} else if (block < le32_to_cpu(ex->ee_block)) {
 		lblock = block;
@@ -1884,7 +1885,6 @@ errout:
 static int ext4_ext_rm_idx(handle_t *handle, struct inode *inode,
 			struct ext4_ext_path *path)
 {
-	struct buffer_head *bh;
 	int err;
 	ext4_fsblk_t leaf;
 
@@ -1900,9 +1900,8 @@ static int ext4_ext_rm_idx(handle_t *handle, struct inode *inode,
 	if (err)
 		return err;
 	ext_debug("index is empty, remove it, free block %llu\n", leaf);
-	bh = sb_find_get_block(inode->i_sb, leaf);
-	ext4_forget(handle, 1, inode, bh, leaf);
-	ext4_free_blocks(handle, inode, leaf, 1, 1);
+	ext4_free_blocks(handle, inode, 0, leaf, 1,
+			 EXT4_FREE_BLOCKS_METADATA | EXT4_FREE_BLOCKS_FORGET);
 	return err;
 }
 
@@ -1969,12 +1968,11 @@ static int ext4_remove_blocks(handle_t *handle, struct inode *inode,
 				struct ext4_extent *ex,
 				ext4_lblk_t from, ext4_lblk_t to)
 {
-	struct buffer_head *bh;
 	unsigned short ee_len =  ext4_ext_get_actual_len(ex);
-	int i, metadata = 0;
+	int flags = EXT4_FREE_BLOCKS_FORGET;
 
 	if (S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode))
-		metadata = 1;
+		flags |= EXT4_FREE_BLOCKS_METADATA;
 #ifdef EXTENTS_STATS
 	{
 		struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
@@ -1999,11 +1997,7 @@ static int ext4_remove_blocks(handle_t *handle, struct inode *inode,
 		num = le32_to_cpu(ex->ee_block) + ee_len - from;
 		start = ext_pblock(ex) + ee_len - num;
 		ext_debug("free last %u blocks starting %llu\n", num, start);
-		for (i = 0; i < num; i++) {
-			bh = sb_find_get_block(inode->i_sb, start + i);
-			ext4_forget(handle, metadata, inode, bh, start + i);
-		}
-		ext4_free_blocks(handle, inode, start, num, metadata);
+		ext4_free_blocks(handle, inode, 0, start, num, flags);
 	} else if (from == le32_to_cpu(ex->ee_block)
 		   && to <= le32_to_cpu(ex->ee_block) + ee_len - 1) {
 		printk(KERN_INFO "strange request: removal %u-%u from %u:%u\n",
@@ -2056,8 +2050,8 @@ ext4_ext_rm_leaf(handle_t *handle, struct inode *inode,
 		path[depth].p_ext = ex;
 
 		a = ex_ee_block > start ? ex_ee_block : start;
-		b = ex_ee_block + ex_ee_len - 1 < EXT_MAX_BLOCK ?
-			ex_ee_block + ex_ee_len - 1 : EXT_MAX_BLOCK;
+		b = ex_ee_block + ex_ee_len - 1 < EXT_MAX_BLOCKS ?
+			ex_ee_block + ex_ee_len - 1 : EXT_MAX_BLOCKS;
 
 		ext_debug("  border %u:%u\n", a, b);
 
@@ -3353,12 +3347,14 @@ int ext4_ext_get_blocks(handle_t *handle, struct inode *inode,
 	}
 	err = ext4_ext_insert_extent(handle, inode, path, &newex, flags);
 	if (err) {
+		int fb_flags = flags & EXT4_GET_BLOCKS_DELALLOC_RESERVE ?
+			EXT4_FREE_BLOCKS_NO_QUOT_UPDATE : 0;
 		/* free data blocks we just allocated */
 		/* not a good idea to call discard here directly,
 		 * but otherwise we'd need to call it every free() */
 		ext4_discard_preallocations(inode);
-		ext4_free_blocks(handle, inode, ext_pblock(&newex),
-					ext4_ext_get_actual_len(&newex), 0);
+		ext4_free_blocks(handle, inode, 0, ext_pblock(&newex),
+				 ext4_ext_get_actual_len(&newex), fb_flags);
 		goto out2;
 	}
 
@@ -3448,8 +3444,9 @@ void ext4_ext_truncate(struct inode *inode)
 	if (IS_SYNC(inode))
 		ext4_handle_sync(handle);
 
-out_stop:
 	up_write(&EXT4_I(inode)->i_data_sem);
+
+out_stop:
 	/*
 	 * If this was a simple ftruncate() and the file will remain alive,
 	 * then we need to clear up the orphan record which we created above.

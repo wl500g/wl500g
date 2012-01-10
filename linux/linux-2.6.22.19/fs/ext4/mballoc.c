@@ -4519,18 +4519,24 @@ ext4_mb_free_metadata(handle_t *handle, struct ext4_buddy *e4b,
 	return 0;
 }
 
-/*
- * Main entry point into mballoc to free blocks
+/**
+ * ext4_free_blocks() -- Free given blocks and update quota
+ * @handle:		handle for this transaction
+ * @inode:		inode
+ * @block:		start physical block to free
+ * @count:		number of blocks to count
+ * @metadata: 		Are these metadata blocks
  */
-void ext4_mb_free_blocks(handle_t *handle, struct inode *inode,
-			ext4_fsblk_t block, unsigned long count,
-			int metadata, unsigned long *freed)
+void ext4_free_blocks(handle_t *handle, struct inode *inode,
+		      struct buffer_head *bh, ext4_fsblk_t block,
+		      unsigned long count, int flags)
 {
 	struct buffer_head *bitmap_bh = NULL;
 	struct super_block *sb = inode->i_sb;
 	struct ext4_allocation_context *ac = NULL;
 	struct ext4_group_desc *gdp;
 	struct ext4_super_block *es;
+	unsigned long freed = 0;
 	unsigned int overflow;
 	ext4_grpblk_t bit;
 	struct buffer_head *gd_bh;
@@ -4540,20 +4546,49 @@ void ext4_mb_free_blocks(handle_t *handle, struct inode *inode,
 	int err = 0;
 	int ret;
 
-	*freed = 0;
+	if (bh) {
+		if (block)
+			BUG_ON(block != bh->b_blocknr);
+		else
+			block = bh->b_blocknr;
+	}
 
 	sbi = EXT4_SB(sb);
 	es = EXT4_SB(sb)->s_es;
-	if (block < le32_to_cpu(es->s_first_data_block) ||
-	    block + count < block ||
-	    block + count > ext4_blocks_count(es)) {
+	if (!(flags & EXT4_FREE_BLOCKS_VALIDATED) &&
+	    !ext4_data_block_valid(sbi, block, count)) {
 		ext4_error(sb, __func__,
-			    "Freeing blocks not in datazone - "
-			    "block = %llu, count = %lu", block, count);
+			   "Freeing blocks not in datazone - "
+			   "block = %llu, count = %lu", block, count);
 		goto error_return;
 	}
 
 	ext4_debug("freeing block %llu\n", block);
+
+	if (flags & EXT4_FREE_BLOCKS_FORGET) {
+		struct buffer_head *tbh = bh;
+		int i;
+
+		BUG_ON(bh && (count > 1));
+
+		for (i = 0; i < count; i++) {
+			if (!bh)
+				tbh = sb_find_get_block(inode->i_sb,
+							block + i);
+			ext4_forget(handle, flags & EXT4_FREE_BLOCKS_METADATA, 
+				    inode, tbh, block + i);
+		}
+	}
+
+	/* 
+	 * We need to make sure we don't reuse the freed block until
+	 * after the transaction is committed, which we can do by
+	 * treating the block as metadata, below.  We make an
+	 * exception if the inode is to be written in writeback mode
+	 * since writeback mode has weak data consistency guarantees.
+	 */
+	if (!ext4_should_writeback_data(inode))
+		flags |= EXT4_FREE_BLOCKS_METADATA;
 
 	ac = kmem_cache_alloc(ext4_ac_cachep, GFP_NOFS);
 	if (ac) {
@@ -4628,7 +4663,8 @@ do_more:
 	err = ext4_mb_load_buddy(sb, block_group, &e4b);
 	if (err)
 		goto error_return;
-	if (metadata && ext4_handle_valid(handle)) {
+
+	if ((flags & EXT4_FREE_BLOCKS_METADATA) && ext4_handle_valid(handle)) {
 		struct ext4_free_data *new_entry;
 		/*
 		 * blocks being freed are metadata. these blocks shouldn't
@@ -4667,7 +4703,7 @@ do_more:
 
 	ext4_mb_unload_buddy(&e4b);
 
-	*freed += count;
+	freed += count;
 
 	/* We dirtied the bitmap block */
 	BUFFER_TRACE(bitmap_bh, "dirtied bitmap block");
@@ -4687,6 +4723,8 @@ do_more:
 	}
 	sb->s_dirt = 1;
 error_return:
+	if (freed && !(flags & EXT4_FREE_BLOCKS_NO_QUOT_UPDATE))
+		DQUOT_FREE_BLOCK(inode, freed);
 	brelse(bitmap_bh);
 	ext4_std_error(sb, err);
 	if (ac)
