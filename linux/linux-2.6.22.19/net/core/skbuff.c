@@ -2079,8 +2079,6 @@ int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
 			return -ENOMEM;
 
 		/* initialize the next frag */
-		sk->sk_sndmsg_page = page;
-		sk->sk_sndmsg_off = 0;
 		skb_fill_page_desc(skb, frg_cnt, page, 0, 0);
 		skb->truesize += PAGE_SIZE;
 		atomic_add(PAGE_SIZE, &sk->sk_wmem_alloc);
@@ -2100,7 +2098,6 @@ int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
 			return -EFAULT;
 
 		/* copy was successful so update the size parameters */
-		sk->sk_sndmsg_off += copy;
 		frag->size += copy;
 		skb->len += copy;
 		skb->data_len += copy;
