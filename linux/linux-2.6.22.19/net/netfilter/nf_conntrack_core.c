@@ -828,7 +828,7 @@ init_conntrack(const struct nf_conntrack_tuple *tuple,
 		__set_bit(IPS_EXPECTED_BIT, &conntrack->status);
 		conntrack->master = exp->master;
 		if (exp->helper)
-			RCU_INIT_POINTER(help->helper, exp->helper);
+			rcu_assign_pointer(help->helper, exp->helper);
 #ifdef CONFIG_NF_CONNTRACK_MARK
 		conntrack->mark = exp->master->mark;
 #endif

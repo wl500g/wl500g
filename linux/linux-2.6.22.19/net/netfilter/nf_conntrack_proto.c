@@ -199,7 +199,7 @@ int nf_conntrack_l3proto_register(struct nf_conntrack_l3proto *proto)
 	if (ret < 0)
 		goto out_unlock;
 
-	RCU_INIT_POINTER(nf_ct_l3protos[proto->l3proto], proto);
+	rcu_assign_pointer(nf_ct_l3protos[proto->l3proto], proto);
 
 out_unlock:
 	mutex_unlock(&nf_ct_proto_mutex);
@@ -307,7 +307,7 @@ int nf_conntrack_l4proto_register(struct nf_conntrack_l4proto *l4proto)
 	if (ret < 0)
 		goto out_unlock;
 
-	RCU_INIT_POINTER(nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
+	rcu_assign_pointer(nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
 			   l4proto);
 
 out_unlock:

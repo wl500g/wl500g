@@ -33,7 +33,7 @@ int nf_log_register(int pf, const struct nf_logger *logger)
 		return ret;
 
 	if (!nf_loggers[pf])
-		RCU_INIT_POINTER(nf_loggers[pf], logger);
+		rcu_assign_pointer(nf_loggers[pf], logger);
 	else if (nf_loggers[pf] == logger)
 		ret = -EEXIST;
 	else

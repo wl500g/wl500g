@@ -2558,7 +2558,7 @@ static int __init xfrm_user_init(void)
 				     xfrm_netlink_rcv, NULL, THIS_MODULE);
 	if (nlsk == NULL)
 		return -ENOMEM;
-	RCU_INIT_POINTER(xfrm_nl, nlsk);
+	rcu_assign_pointer(xfrm_nl, nlsk);
 
 	xfrm_register_km(&netlink_mgr);
 

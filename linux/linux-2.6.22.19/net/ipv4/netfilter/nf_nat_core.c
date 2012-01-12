@@ -536,7 +536,7 @@ int nf_nat_protocol_register(const struct nf_nat_protocol *proto)
 		ret = -EBUSY;
 		goto out;
 	}
-	RCU_INIT_POINTER(nf_nat_protos[proto->protonum], proto);
+	rcu_assign_pointer(nf_nat_protos[proto->protonum], proto);
  out:
 	write_unlock_bh(&nf_nat_lock);
 	return ret;

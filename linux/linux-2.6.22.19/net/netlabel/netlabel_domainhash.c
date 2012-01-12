@@ -178,7 +178,7 @@ int netlbl_domhsh_init(u32 size)
 
 	rcu_read_lock();
 	spin_lock(&netlbl_domhsh_lock);
-	RCU_INIT_POINTER(netlbl_domhsh, hsh_tbl);
+	rcu_assign_pointer(netlbl_domhsh, hsh_tbl);
 	spin_unlock(&netlbl_domhsh_lock);
 	rcu_read_unlock();
 
