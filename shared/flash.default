@@ -366,6 +366,12 @@
 
 {"usb_ftpenable_x", "1", 0},
 
+{"usb_ftp_pasvenable_x", "0", 0},
+
+{"usb_ftp_pasvminport_x", "50000", 0},
+
+{"usb_ftp_pasvmaxport_x", "50100", 0},
+
 {"usb_ftpanonymous_x", "1", 0},
 
 {"usb_ftpsuper_x", "0", 0},
