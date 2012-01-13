@@ -1,7 +1,7 @@
 diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 --- linux.orig/drivers/net/pptp.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux/drivers/net/pptp.c	2010-10-08 15:57:19.790000002 +0000
-@@ -0,0 +1,1242 @@
+@@ -0,0 +1,1231 @@
 +/*
 + *  Point-to-Point Tunneling Protocol for Linux
 + *
@@ -95,7 +95,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +#endif
 +}
 +#define __user
-+#endif
++#endif /* LINUX_VERSION_CODE <= KERNEL_VERSION(2,4,20) */
 +
 +/**
 + * __ffs - find first bit in word.
@@ -176,7 +176,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +found_middle:
 +	return result + __ffs(tmp);
 +}
-+#endif
++#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0) */
 +
 +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 +static rwlock_t chan_lock=RW_LOCK_UNLOCKED;
@@ -403,7 +403,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +			goto tx_error;
 +		}
 +	}
-+#endif
++#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0) */
 +	tdev = rt->u.dst.dev;
 +
 +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
@@ -738,7 +738,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +		return sk_receive_skb(sk_pppox(po), skb, 0);
 +#endif
 +		
-+#endif /* LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,0) */
++#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0) */
 +	}else {
 +#ifdef DEBUG
 +		if (log_level>=1)
@@ -829,16 +829,13 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +			.src=opt->src_addr.sin_addr.s_addr,
 +			.tos=RT_TOS(0),
 +		};
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 +		if (ip_route_output_key(&rt, &key)) {
-+#else
-+		if (ip_route_output_key(&init_net, &rt, &key)) {
-+#endif
 +			error = -EHOSTUNREACH;
 +			goto end;
 +		}
 +	}
-+#else
++	po->chan.mtu=PPP_MTU;
++#else /* LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0) */
 +	{
 +		struct flowi fl = {
 +				    .nl_u = { .ip4_u =
@@ -859,13 +856,9 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +		}
 +		sk_setup_caps(sk, &rt->u.dst);
 +	}
-+#endif
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-+	po->chan.mtu=PPP_MTU;
-+#else
 +	po->chan.mtu=dst_mtu(&rt->u.dst);
 +	if (!po->chan.mtu) po->chan.mtu=PPP_MTU;
-+#endif
++#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0) */
 +	ip_rt_put(rt);
 +	po->chan.mtu-=PPTP_HEADER_OVERHEAD;
 +
@@ -1022,16 +1015,16 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +
 +	po = pppox_sk(sk);
 +	po->sk=sk;
-+	opt=&po->proto.pptp;
++	opt = &po->proto.pptp;
 +
-+	opt->seq_sent=0; opt->seq_recv=0;
-+	opt->ack_recv=0; opt->ack_sent=0;
++	opt->seq_sent = 0; opt->seq_recv = 0xffffffff;
++	opt->ack_recv = 0; opt->ack_sent = 0xffffffff;
 +
 +	error = 0;
 +out:
 +	return error;
 +}
-+#else
++#else /* LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0) */
 +static void pptp_sock_destruct(struct sock *sk)
 +{
 +    if (!(SK_STATE(sk) & PPPOX_DEAD)){
@@ -1072,19 +1065,16 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	sk->sk_destruct	   = pptp_sock_destruct;
 +
 +	po = pppox_sk(sk);
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-+	po->sk=sk;
-+#endif
-+	opt=&po->proto.pptp;
++	opt = &po->proto.pptp;
 +
-+	opt->seq_sent=0; opt->seq_recv=0;
-+	opt->ack_recv=0; opt->ack_sent=0;
++	opt->seq_sent = 0; opt->seq_recv = 0xffffffff;
++	opt->ack_recv = 0; opt->ack_sent = 0xffffffff;
 +
 +	error = 0;
 +out:
 +	return error;
 +}
-+#endif
++#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0) */
 +
 +
 +static int pptp_ppp_ioctl(struct ppp_channel *chan, unsigned int cmd,
@@ -1243,4 +1233,3 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +module_param(log_packets,int,0);
 +#endif
 +MODULE_PARM_DESC(log_level,"Logging level (default=0)");
-+
