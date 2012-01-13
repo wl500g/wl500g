@@ -9,15 +9,6 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
  #include <linux/errno.h>
  #include <linux/netdevice.h>
  #include <linux/net.h>
-@@ -21,7 +22,7 @@
- #include <linux/init.h>
- #include <linux/ppp_channel.h>
- #include <linux/ppp_defs.h>
--#include "if_pppox.h"
-+#include <linux/if_pppox.h>
- #include <linux/if_ppp.h>
- #include <linux/notifier.h>
- #include <linux/file.h>
 @@ -43,11 +44,11 @@
  
  #include <asm/uaccess.h>
@@ -34,40 +25,6 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
  #endif
  
  #define PPTP_DRIVER_VERSION "0.8.5"
-@@ -93,6 +94,7 @@ static inline void nf_reset(struct sk_bu
- #define __user
- #endif
- 
-+#if 0 // already defined for mips32
- /**
-  * __ffs - find first bit in word.
-  * @word: The word to search
-@@ -173,6 +175,7 @@ found_middle:
- 	return result + __ffs(tmp);
- }
- #endif
-+#endif
- 
- #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
- static rwlock_t chan_lock=RW_LOCK_UNLOCKED;
-@@ -270,7 +273,7 @@ static int lookup_chan_dst(u16 call_id, 
- #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
- 	rcu_read_lock();
- #else
--	down(&chan_lock);
-+	read_lock(&chan_lock);
- #endif
- 	for(i = find_next_bit(callid_bitmap,MAX_CALLID,1); i < MAX_CALLID; 
- 	                i = find_next_bit(callid_bitmap, MAX_CALLID, i + 1)){
-@@ -287,7 +290,7 @@ static int lookup_chan_dst(u16 call_id, 
- #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
- 	rcu_read_unlock();
- #else
--	up(&chan_lock);
-+	read_unlock(&chan_lock);
- #endif
- 	
- 	return i<MAX_CALLID;
 @@ -669,8 +672,10 @@ static int pptp_rcv(struct sk_buff *skb)
  	if (skb->pkt_type != PACKET_HOST)
  		goto drop;
@@ -108,23 +65,23 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
  		printk(KERN_INFO "PPTP: can't add protocol\n");
  		goto out_free_mem;
 @@ -1196,7 +1201,7 @@ out_unregister_sk_proto:
- out_inet_del_protocol:
- #endif
+ 	proto_unregister(&pptp_sk_proto);
  
+ out_inet_del_protocol:
 -#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
 +#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
  	gre_del_protocol(&gre_pptp_protocol, GREPROTO_PPTP);
- #elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
- 	inet_del_protocol(&net_pptp_protocol);
+ #else
+ 	inet_del_protocol(&net_pptp_protocol, IPPROTO_GRE);
 @@ -1212,7 +1217,7 @@ out_free_mem:
  static void __exit pptp_exit_module(void)
  {
  	unregister_pppox_proto(PX_PROTO_PPTP);
 -#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
 +#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
- #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
  	proto_unregister(&pptp_sk_proto);
- #endif
+ 	gre_del_protocol(&gre_pptp_protocol, GREPROTO_PPTP);
+ #else
 diff -BurpN linux.orig/net/ipv4/gre.c linux/net/ipv4/gre.c
 --- linux.orig/net/ipv4/gre.c	2010-08-21 14:27:23.000000000 +0000
 +++ linux/net/ipv4/gre.c	2010-08-21 14:52:12.000000000 +0000
