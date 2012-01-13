@@ -1,0 +1,99 @@
+output_http: Redirect to stream automagically if no www folder configured
+
+diff -urBp a/mjpg-streamer/plugins/output_http/httpd.c b/mjpg-streamer/plugins/output_http/httpd.c
+--- a/mjpg-streamer/plugins/output_http/httpd.c	2010-09-14 13:42:39.000000000 +0400
++++ b/mjpg-streamer/plugins/output_http/httpd.c	2012-01-12 14:27:03.000000000 +0300
+@@ -690,6 +690,7 @@ Return Value: always NULL
+ void *client_thread( void *arg ) {
+   int cnt;
+   char buffer[BUFFER_SIZE]={0}, *pb=buffer;
++  int len;
+   iobuffer iobuf;
+   request req;
+   cfd lcfd; /* local-connected-file-descriptor */
+@@ -713,26 +714,28 @@ void *client_thread( void *arg ) {
+     return NULL;
+   }
+ 
++  /* Validate http request */
++  pb = strstr(buffer, "GET /");
++  if (pb == NULL) {
++    DBG("HTTP request seems to be malformed\n");
++    send_error(lcfd.fd, 400, "Malformed HTTP request");
++    close(lcfd.fd);
++    return NULL;
++  }
++
+   /* determine what to deliver */
+-  if ( strstr(buffer, "GET /?action=snapshot") != NULL ) {
++  if ( strstr(pb, "GET /?action=snapshot") != NULL ) {
+     req.type = A_SNAPSHOT;
+-  } else if ( strstr(buffer, "GET /?action=stream") != NULL ) {
++  } else if ( strstr(pb, "GET /?action=stream") != NULL ) {
+     req.type = A_STREAM;
+-  } else if ( strstr(buffer, "GET /controls.json") != NULL ) {
++  } else if ( strstr(pb, "GET /controls.json") != NULL ) {
+     req.type = A_JSON;
+-  } else if ( strstr(buffer, "GET /info.json") != NULL ) {
++  } else if ( strstr(pb, "GET /info.json") != NULL ) {
+     req.type = A_INFO;
+-  } else if ( strstr(buffer, "GET /?action=command") != NULL ) {
+-    int len;
++  } else if ( strstr(pb, "GET /?action=command") != NULL ) {
+     req.type = A_COMMAND;
+ 
+     /* advance by the length of known string */
+-    if ( (pb = strstr(buffer, "GET /?action=command")) == NULL ) {
+-      DBG("HTTP request seems to be malformed\n");
+-      send_error(lcfd.fd, 400, "Malformed HTTP request");
+-      close(lcfd.fd);
+-      return NULL;
+-    }
+     pb += strlen("GET /?action=command"); // a pb points to thestring after the first & after command
+ 
+     /* only accept certain characters */
+@@ -755,28 +758,26 @@ void *client_thread( void *arg ) {
+ 
+     DBG("command parameter (len: %d): \"%s\"\n", len, req.parameter);
+   } else {
+-    int len;
+ 
+-    DBG("try to serve a file\n");
+-    req.type = A_FILE;
++    if (lcfd.pc->conf.www_folder == NULL) {
++      /* Redirect to stream */
++      req.type = A_STREAM;
++    } else {
+ 
+-    if ( (pb = strstr(buffer, "GET /")) == NULL ) {
+-      DBG("HTTP request seems to be malformed\n");
+-      send_error(lcfd.fd, 400, "Malformed HTTP request");
+-      close(lcfd.fd);
+-      return NULL;
+-    }
++      req.type = A_FILE;
++      DBG("try to serve a file\n");
+ 
+-    pb += strlen("GET /");
+-    len = MIN(MAX(strspn(pb, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-1234567890"), 0), 100);
+-    req.parameter = malloc(len+1);
+-    if ( req.parameter == NULL ) {
+-      exit(EXIT_FAILURE);
+-    }
+-    memset(req.parameter, 0, len+1);
+-    strncpy(req.parameter, pb, len);
++      pb += strlen("GET /");
++      len = MIN(MAX(strspn(pb, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-1234567890"), 0), 100);
++      req.parameter = malloc(len+1);
++      if ( req.parameter == NULL ) {
++        exit(EXIT_FAILURE);
++      }
++      memset(req.parameter, 0, len+1);
++      strncpy(req.parameter, pb, len);
+ 
+-    DBG("parameter (len: %d): \"%s\"\n", len, req.parameter);
++      DBG("parameter (len: %d): \"%s\"\n", len, req.parameter);
++    }
+   }
+ 
+   /*
