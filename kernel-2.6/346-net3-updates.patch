@@ -8,13 +8,14 @@
  ccc2d97cb7c798e785c9f198de243e2b59f7073b ipv4: udp: fix short packet and bad checksum logging
  9c6d5e5537e3997c47b65925a235392c1968fb51 TCP: Fix setting of snd_ssthresh in tcp_mtu_probe_success
  44f5324b5d13ef2187729d949eca442689627f39 TCP: fix a bug that triggers large number of TCP RST by mistake
+ 761965eab38d2cbc59c36e355c59609e3a04705a tcp: tcp_sendmsg() page recycling
 
 ---
- net/ipv4/tcp.c        |   17 +++++++-------
+ net/ipv4/tcp.c        |   24 +++++++++++++--------
  net/ipv4/tcp_input.c  |    4 +--
  net/ipv4/tcp_output.c |   57 ++++++++++++++++----------------------------------
  net/ipv4/udp.c        |    6 +++--
- 4 files changed, 34 insertions(+), 50 deletions(-)
+ 4 files changed, 40 insertions(+), 51 deletions(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c
@@ -64,6 +65,20 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  				if (!skb)
  					goto wait_for_memory;
  
+@@ -967,7 +967,12 @@ new_segment:
+ 				int merge = 0;
+ 				int i = skb_shinfo(skb)->nr_frags;
+ 				struct page *page = TCP_PAGE(sk);
+-				int off = TCP_OFF(sk);
++				int off;
++
++				if (page && page_count(page) == 1)
++					TCP_OFF(sk) = 0;
++
++				off = TCP_OFF(sk);
+ 
+ 				if (skb_can_coalesce(skb, i, page, off) &&
+ 				    off != PAGE_SIZE) {
 @@ -996,9 +999,7 @@ new_segment:
  					/* We can extend the last page
  					 * fragment. */
