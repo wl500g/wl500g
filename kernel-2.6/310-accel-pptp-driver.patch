@@ -72,9 +72,9 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +			   unsigned long arg);
 +static int pptp_rcv_core(struct sock *sk,struct sk_buff *skb);
 +
-+static struct ppp_channel_ops pptp_chan_ops= {
++static struct ppp_channel_ops pptp_chan_ops = {
 +	.start_xmit = pptp_xmit,
-+	.ioctl=pptp_ppp_ioctl,
++	.ioctl = pptp_ppp_ioctl,
 +};
 +
 +
@@ -120,9 +120,11 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	rcu_read_lock();
 +	sock = rcu_dereference(callid_sock[call_id]);
 +	if (sock) {
-+		opt=&sock->proto.pptp;
-+		if (opt->dst_addr.sin_addr.s_addr!=s_addr) sock=NULL;
-+		else sock_hold(sk_pppox(sock));
++		opt = &sock->proto.pptp;
++		if (opt->dst_addr.sin_addr.s_addr != s_addr)
++			sock = NULL;
++		else
++			sock_hold(sk_pppox(sock));
 +	}
 +	rcu_read_unlock();
 +
@@ -136,13 +138,14 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	int i;
 +
 +	rcu_read_lock();
-+	for(i = find_next_bit(callid_bitmap,MAX_CALLID,1); i < MAX_CALLID; 
-+	                i = find_next_bit(callid_bitmap, MAX_CALLID, i + 1)){
++	for(i = find_next_bit(callid_bitmap, MAX_CALLID, 1); i < MAX_CALLID; 
++	                i = find_next_bit(callid_bitmap, MAX_CALLID, i + 1)) {
 +	    sock = rcu_dereference(callid_sock[i]);
 +		if (!sock)
 +			continue;
 +	    opt = &sock->proto.pptp;
-+	    if (opt->dst_addr.call_id == call_id && opt->dst_addr.sin_addr.s_addr == d_addr) break;
++	    if (opt->dst_addr.call_id == call_id && opt->dst_addr.sin_addr.s_addr == d_addr)
++			break;
 +	}
 +	rcu_read_unlock();
 +
@@ -151,31 +154,27 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +
 +static int add_chan(struct pppox_sock *sock)
 +{
-+	static int call_id=0;
-+	int res=-1;
++	static int call_id = 0;
++	int res = -1;
 +
 +	spin_lock(&chan_lock);
 +
 +	if (!sock->proto.pptp.src_addr.call_id)
 +	{
-+	    call_id=find_next_zero_bit(callid_bitmap,MAX_CALLID,call_id+1);
-+	    if (call_id==MAX_CALLID)
-+				call_id=find_next_zero_bit(callid_bitmap,MAX_CALLID,1);
-+	    sock->proto.pptp.src_addr.call_id=call_id;
++	    call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, call_id+1);
++	    if (call_id == MAX_CALLID)
++				call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, 1);
++	    sock->proto.pptp.src_addr.call_id = call_id;
 +	}
-+	else if (test_bit(sock->proto.pptp.src_addr.call_id,callid_bitmap))
++	else if (test_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap))
 +		goto exit;
 +	
-+	rcu_assign_pointer(callid_sock[sock->proto.pptp.src_addr.call_id],sock);
-+	set_bit(sock->proto.pptp.src_addr.call_id,callid_bitmap);
++	rcu_assign_pointer(callid_sock[sock->proto.pptp.src_addr.call_id], sock);
++	set_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap);
 +	res=0;
 +
 +exit:	
-+	#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
 +	spin_unlock(&chan_lock);
-+	#else
-+	write_unlock_bh(&chan_lock);
-+	#endif
 +
 +	return res;
 +}
@@ -183,8 +182,8 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +static void del_chan(struct pppox_sock *sock)
 +{
 +	spin_lock(&chan_lock);
-+	clear_bit(sock->proto.pptp.src_addr.call_id,callid_bitmap);
-+	rcu_assign_pointer(callid_sock[sock->proto.pptp.src_addr.call_id],NULL);
++	clear_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap);
++	rcu_assign_pointer(callid_sock[sock->proto.pptp.src_addr.call_id], NULL);
 +	spin_unlock(&chan_lock);
 +	synchronize_rcu();
 +}
@@ -193,10 +192,10 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +{
 +	struct sock *sk = (struct sock *) chan->private;
 +	struct pppox_sock *po = pppox_sk(sk);
-+	struct pptp_opt *opt=&po->proto.pptp;
++	struct pptp_opt *opt = &po->proto.pptp;
 +	struct pptp_gre_header *hdr;
-+	unsigned int header_len=sizeof(*hdr);
-+	int err=0;
++	unsigned int header_len = sizeof(*hdr);
++	int err = 0;
 +	int islcp;
 +	int len;
 +	unsigned char *data;
@@ -219,9 +218,9 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +						.tos = RT_TOS(0) } },
 +				    .proto = IPPROTO_GRE };
 +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
-+		if ((err=ip_route_output_key(&rt, &fl))) {
++		if ((err = ip_route_output_key(&rt, &fl))) {
 +#else
-+		if ((err=ip_route_output_key(&init_net,&rt, &fl))) {
++		if ((err = ip_route_output_key(&init_net, &rt, &fl))) {
 +#endif
 +			goto tx_error;
 +		}
@@ -230,10 +229,10 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +
 +	max_headroom = LL_RESERVED_SPACE(tdev) + sizeof(*iph)+sizeof(*hdr)+2;
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-+	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
-+#else
 +	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
++		  skb_cloned(skb)) {
++#else
 +		  (skb_cloned(skb) && !skb_clone_writable(skb,0))) {
 +#endif
 + 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
@@ -242,36 +241,36 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +			goto tx_error;
 +		}
 +		if (skb->sk)
-+		skb_set_owner_w(new_skb, skb->sk);
++			skb_set_owner_w(new_skb, skb->sk);
 +		kfree_skb(skb);
 +		skb = new_skb;
 +	}
 +
-+	data=skb->data;
-+	islcp=((data[0] << 8) + data[1])== PPP_LCP && 1 <= data[2] && data[2] <= 7;
++	data = skb->data;
++	islcp = ((data[0] << 8) + data[1])== PPP_LCP && 1 <= data[2] && data[2] <= 7;
 +
 +	/* compress protocol field */
 +	if ((opt->ppp_flags & SC_COMP_PROT) && data[0]==0 && !islcp)
-+		skb_pull(skb,1);
++		skb_pull(skb, 1);
 +
 +	/*
 +		* Put in the address/control bytes if necessary
 +		*/
 +	if ((opt->ppp_flags & SC_COMP_AC) == 0 || islcp) {
-+		data=skb_push(skb,2);
-+		data[0]=PPP_ALLSTATIONS;
-+		data[1]=PPP_UI;
++		data = skb_push(skb, 2);
++		data[0] = PPP_ALLSTATIONS;
++		data[1] = PPP_UI;
 +	}
 +	
-+	len=skb->len;
++	len = skb->len;
 +  
 +	seq_recv = opt->seq_recv;
 +  
-+	if (opt->ack_sent == seq_recv) header_len-=sizeof(hdr->ack);
++	if (opt->ack_sent == seq_recv) header_len -= sizeof(hdr->ack);
 +
 +	// Push down and install GRE header
-+	skb_push(skb,header_len);
-+	hdr=(struct pptp_gre_header *)(skb->data);
++	skb_push(skb, header_len);
++	hdr = (struct pptp_gre_header *)(skb->data);
 +
 +	hdr->flags       = PPTP_GRE_FLAG_K;
 +	hdr->ver         = PPTP_GRE_VER;
@@ -342,7 +341,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +
 +#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
 +	skb_dst_drop(skb);
-+	skb_dst_set(skb,&rt->u.dst);
++	skb_dst_set(skb, &rt->u.dst);
 +#else
 +	dst_release(skb->dst);
 +	skb->dst = &rt->u.dst;
@@ -367,7 +366,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +static int pptp_rcv_core(struct sock *sk,struct sk_buff *skb)
 +{
 +	struct pppox_sock *po = pppox_sk(sk);
-+	struct pptp_opt *opt=&po->proto.pptp;
++	struct pptp_opt *opt = &po->proto.pptp;
 +	int headersize,payload_len,seq;
 +	u8 *payload;
 +	struct pptp_gre_header *header;
@@ -381,9 +380,9 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	header = (struct pptp_gre_header *)(skb->data);
 +
 +	/* test if acknowledgement present */
-+	if (PPTP_GRE_IS_A(header->ver)){
-+			u32 ack = (PPTP_GRE_IS_S(header->flags))?
-+					header->ack:header->seq; /* ack in different place if S = 0 */
++	if (PPTP_GRE_IS_A(header->ver)) {
++			u32 ack = (PPTP_GRE_IS_S(header->flags)) ?
++					header->ack : header->seq; /* ack in different place if S = 0 */
 +
 +			ack = ntohl( ack);
 +
@@ -393,7 +392,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	}
 +
 +	/* test if payload present */
-+	if (!PPTP_GRE_IS_S(header->flags)){
++	if (!PPTP_GRE_IS_S(header->flags)) {
 +		goto drop;
 +	}
 +
@@ -404,7 +403,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	/* no ack present? */
 +	if (!PPTP_GRE_IS_A(header->ver)) headersize -= sizeof(header->ack);
 +	/* check for incomplete packet (length smaller than expected) */
-+	if (skb->len - headersize < payload_len){
++	if (skb->len - headersize < payload_len) {
 +#ifdef DEBUG
 +		if (log_level>=1)
 +			printk(KERN_INFO"PPTP: discarding truncated packet (expected %d, got %d bytes)\n",
@@ -413,12 +412,12 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +		goto drop;
 +	}
 +
-+	payload=skb->data+headersize;
++	payload = skb->data + headersize;
 +	/* check for expected sequence number */
-+	if ( seq < opt->seq_recv + 1 || WRAPPED(opt->seq_recv, seq) ){
++	if (seq < opt->seq_recv + 1 || WRAPPED(opt->seq_recv, seq)) {
 +		if ( (payload[0] == PPP_ALLSTATIONS) && (payload[1] == PPP_UI) &&
 +		     (PPP_PROTOCOL(payload) == PPP_LCP) &&
-+		     ((payload[4] == PPP_LCP_ECHOREQ) || (payload[4] == PPP_LCP_ECHOREP)) ){
++		     ((payload[4] == PPP_LCP_ECHOREQ) || (payload[4] == PPP_LCP_ECHOREP)) ) {
 +#ifdef DEBUG
 +			if ( log_level >= 1)
 +				printk(KERN_INFO"PPTP[%i]: allowing old LCP Echo packet %d (expecting %d)\n", opt->src_addr.call_id,
@@ -445,25 +444,25 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +				*(payload +5));
 +#endif
 +
-+		skb_pull(skb,headersize);
++		skb_pull(skb, headersize);
 +
-+		if (payload[0] == PPP_ALLSTATIONS && payload[1] == PPP_UI){
++		if (payload[0] == PPP_ALLSTATIONS && payload[1] == PPP_UI) {
 +			/* chop off address/control */
 +			if (skb->len < 3)
 +				goto drop;
-+			skb_pull(skb,2);
++			skb_pull(skb, 2);
 +		}
 +
-+		if ((*skb->data) & 1){
++		if ((*skb->data) & 1) {
 +			/* protocol is compressed */
 +			skb_push(skb, 1)[0] = 0;
 +		}
 +
-+		skb->ip_summed=CHECKSUM_NONE;
++		skb->ip_summed = CHECKSUM_NONE;
 +#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,21)
-+		skb_set_network_header(skb,skb->head-skb->data);
++		skb_set_network_header(skb, skb->head-skb->data);
 +#endif
-+		ppp_input(&po->chan,skb);
++		ppp_input(&po->chan, skb);
 +
 +		return NET_RX_SUCCESS;
 +	}
@@ -503,7 +502,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +					/* flag K should be set     */
 +					(!PPTP_GRE_IS_K(header->flags)) ||
 +					/* routing and recursion ctrl = 0  */
-+					((header->flags&0xF) != 0)){
++					((header->flags&0xF) != 0)) {
 +			/* if invalid, discard this packet */
 +		if (log_level>=1)
 +			printk(KERN_INFO"PPTP: Discarding GRE: %X %X %X %X %X %X\n",
@@ -516,7 +515,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	}
 +
 +
-+	if ((po=lookup_chan(htons(header->call_id),iph->saddr))) {
++	if ((po=lookup_chan(htons(header->call_id), iph->saddr))) {
 +#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
 +		skb_dst_drop(skb);
 +#else
@@ -533,7 +532,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	} else {
 +#ifdef DEBUG
 +		if (log_level>=1)
-+			printk(KERN_INFO"PPTP: Discarding packet from unknown call_id %i\n",htons(header->call_id));
++			printk(KERN_INFO"PPTP: Discarding packet from unknown call_id %i\n", htons(header->call_id));
 +#endif
 +	}
 +
@@ -542,28 +541,28 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	return NET_RX_DROP;
 +}
 +
-+static int pptp_bind(struct socket *sock,struct sockaddr *uservaddr,int sockaddr_len)
++static int pptp_bind(struct socket *sock, struct sockaddr *uservaddr, int sockaddr_len)
 +{
 +	struct sock *sk = sock->sk;
 +	struct sockaddr_pppox *sp = (struct sockaddr_pppox *) uservaddr;
 +	struct pppox_sock *po = pppox_sk(sk);
-+	struct pptp_opt *opt=&po->proto.pptp;
-+	int error=0;
++	struct pptp_opt *opt = &po->proto.pptp;
++	int error = 0;
 +
 +#ifdef DEBUG	
 +	if (log_level>=1)
-+		printk(KERN_INFO"PPTP: bind: addr=%X call_id=%i\n",sp->sa_addr.pptp.sin_addr.s_addr,
++		printk(KERN_INFO"PPTP: bind: addr=%X call_id=%i\n", sp->sa_addr.pptp.sin_addr.s_addr,
 +						sp->sa_addr.pptp.call_id);
 +#endif
 +	lock_sock(sk);
 +
-+	opt->src_addr=sp->sa_addr.pptp;
++	opt->src_addr = sp->sa_addr.pptp;
 +	if (add_chan(po))
-+		error=-EBUSY;
++		error = -EBUSY;
 +
 +#ifdef DEBUG
 +	if (log_level>=1)
-+		printk(KERN_INFO"PPTP: using call_id %i\n",opt->src_addr.call_id);
++		printk(KERN_INFO"PPTP: using call_id %i\n", opt->src_addr.call_id);
 +#endif
 +
 +	release_sock(sk);
@@ -578,40 +577,40 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	struct pppox_sock *po = pppox_sk(sk);
 +	struct pptp_opt *opt = &po->proto.pptp;
 +	struct rtable *rt;     			/* Route to the other host */
-+	int error=0;
++	int error = 0;
 +
 +	if (sp->sa_protocol != PX_PROTO_PPTP)
 +		return -EINVAL;
 +	
 +#ifdef DEBUG
 +	if (log_level>=1)
-+		printk(KERN_INFO"PPTP[%i]: connect: addr=%X call_id=%i\n",opt->src_addr.call_id,
++		printk(KERN_INFO"PPTP[%i]: connect: addr=%X call_id=%i\n", opt->src_addr.call_id,
 +						sp->sa_addr.pptp.sin_addr.s_addr,sp->sa_addr.pptp.call_id);
 +#endif
 +	
-+	if (lookup_chan_dst(sp->sa_addr.pptp.call_id,sp->sa_addr.pptp.sin_addr.s_addr))
++	if (lookup_chan_dst(sp->sa_addr.pptp.call_id, sp->sa_addr.pptp.sin_addr.s_addr))
 +		return -EALREADY;
 +
 +	lock_sock(sk);
 +	/* Check for already bound sockets */
-+	if (SK_STATE(sk) & PPPOX_CONNECTED){
++	if (SK_STATE(sk) & PPPOX_CONNECTED) {
 +		error = -EBUSY;
 +		goto end;
 +	}
 +
 +	/* Check for already disconnected sockets, on attempts to disconnect */
-+	if (SK_STATE(sk) & PPPOX_DEAD){
++	if (SK_STATE(sk) & PPPOX_DEAD) {
 +		error = -EALREADY;
 +		goto end;
 +	}
 +
-+	if (!opt->src_addr.sin_addr.s_addr || !sp->sa_addr.pptp.sin_addr.s_addr){
++	if (!opt->src_addr.sin_addr.s_addr || !sp->sa_addr.pptp.sin_addr.s_addr) {
 +		error = -EINVAL;
 +		goto end;
 +	}
 +
-+	po->chan.private=sk;
-+	po->chan.ops=&pptp_chan_ops;
++	po->chan.private = sk;
++	po->chan.ops = &pptp_chan_ops;
 +
 +	{
 +		struct flowi fl = {
@@ -624,9 +623,9 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +		security_sk_classify_flow(sk, &fl);
 +#endif
 +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
-+		if (ip_route_output_key(&rt, &fl)){
++		if (ip_route_output_key(&rt, &fl)) {
 +#else
-+		if (ip_route_output_key(&init_net, &rt, &fl)){
++		if (ip_route_output_key(&init_net, &rt, &fl)) {
 +#endif
 +			error = -EHOSTUNREACH;
 +			goto end;
@@ -635,19 +634,19 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	}
 +	po->chan.mtu = dst_mtu(&rt->u.dst);
 +	if (!po->chan.mtu)
-+		po->chan.mtu=PPP_MTU;
++		po->chan.mtu = PPP_MTU;
 +
 +	ip_rt_put(rt);
-+	po->chan.mtu-=PPTP_HEADER_OVERHEAD;
++	po->chan.mtu -= PPTP_HEADER_OVERHEAD;
 +
-+	po->chan.hdrlen=2+sizeof(struct pptp_gre_header);
++	po->chan.hdrlen = 2+sizeof(struct pptp_gre_header);
 +	error = ppp_register_channel(&po->chan);
-+	if (error){
-+		printk(KERN_ERR "PPTP: failed to register PPP channel (%d)\n",error);
++	if (error) {
++		printk(KERN_ERR "PPTP: failed to register PPP channel (%d)\n", error);
 +		goto end;
 +	}
 +
-+	opt->dst_addr=sp->sa_addr.pptp;
++	opt->dst_addr = sp->sa_addr.pptp;
 +	SK_STATE(sk) = PPPOX_CONNECTED;
 +
 + end:
@@ -663,7 +662,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +
 +	sp.sa_family	= AF_PPPOX;
 +	sp.sa_protocol	= PX_PROTO_PPTP;
-+	sp.sa_addr.pptp=pppox_sk(sock->sk)->proto.pptp.src_addr;
++	sp.sa_addr.pptp = pppox_sk(sock->sk)->proto.pptp.src_addr;
 +
 +	memcpy(uaddr, &sp, len);
 +
@@ -691,7 +690,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	}
 +		
 +	po = pppox_sk(sk);
-+	opt=&po->proto.pptp;
++	opt = &po->proto.pptp;
 +	del_chan(po);
 +
 +	pppox_unbind_sock(sk);
@@ -699,7 +698,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +
 +#ifdef DEBUG
 +	if (log_level>=1)
-+		printk(KERN_INFO"PPTP[%i]: release\n",opt->src_addr.call_id);
++		printk(KERN_INFO"PPTP[%i]: release\n", opt->src_addr.call_id);
 +#endif
 +
 +	sock_orphan(sk);
@@ -743,7 +742,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +
 +static void pptp_sock_destruct(struct sock *sk)
 +{
-+    if (!(SK_STATE(sk) & PPPOX_DEAD)){
++    if (!(SK_STATE(sk) & PPPOX_DEAD)) {
 +	    del_chan(pppox_sk(sk));
 +	    pppox_unbind_sock(sk);
 +    }
@@ -764,7 +763,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 +	sk = sk_alloc(PF_PPPOX, GFP_KERNEL, &pptp_sk_proto, 1);
 +#else
-+	sk = sk_alloc(net,PF_PPPOX, GFP_KERNEL, &pptp_sk_proto);
++	sk = sk_alloc(net, PF_PPPOX, GFP_KERNEL, &pptp_sk_proto);
 +#endif
 +	if (!sk)
 +		goto out;
@@ -798,7 +797,7 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +{
 +	struct sock *sk = (struct sock *) chan->private;
 +	struct pppox_sock *po = pppox_sk(sk);
-+	struct pptp_opt *opt=&po->proto.pptp;
++	struct pptp_opt *opt = &po->proto.pptp;
 +	void __user *argp = (void __user *)arg;
 +	int __user *p = argp;
 +	int err, val;
@@ -844,13 +843,14 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +
 +static int __init pptp_init_module(void)
 +{
-+	int err=0;
++	int err = 0;
++
 +	printk(KERN_INFO "PPTP driver version " PPTP_DRIVER_VERSION "\n");
 +
 +	callid_sock = __vmalloc((MAX_CALLID + 1) * sizeof(void *),
 +	                        GFP_KERNEL | __GFP_ZERO, PAGE_KERNEL);
 +	if (!callid_sock) {
-+		printk(KERN_ERR "PPTP: cann't allocate memory\n");
++		printk(KERN_ERR "PPTP: can't allocate memory\n");
 +		return -ENOMEM;
 +	}
 +
@@ -867,13 +867,13 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +#endif
 +
 +	err = proto_register(&pptp_sk_proto, 0);
-+	if (err){
++	if (err) {
 +		printk(KERN_INFO "PPTP: can't register sk_proto\n");
 +		goto out_inet_del_protocol;
 +	}
 +
 + 	err = register_pppox_proto(PX_PROTO_PPTP, &pppox_pptp_proto);
-+	if (err){
++	if (err) {
 +		printk(KERN_INFO "PPTP: can't register pppox_proto\n");
 +		goto out_unregister_sk_proto;
 +	}
@@ -914,6 +914,6 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +MODULE_AUTHOR("Kozlov D. (xeb@mail.ru)");
 +MODULE_LICENSE("GPL");
 +
-+module_param(log_level,int,0);
-+module_param(log_packets,int,0);
-+MODULE_PARM_DESC(log_level,"Logging level (default=0)");
++module_param(log_level, int, 0);
++module_param(log_packets, int, 0);
++MODULE_PARM_DESC(log_level, "Logging level (default=0)");
