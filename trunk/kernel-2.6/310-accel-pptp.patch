@@ -1,3 +1,9 @@
+
+ drivers/net/Kconfig      |   11 +++++++++++
+ drivers/net/Makefile     |    1 +
+ include/linux/if_pppox.h |   30 +++++++++++++++++++++++++++---
+ 3 files changed, 39 insertions(+), 3 deletions(-)
+
 diff -BurpN linux.orig/drivers/net/Kconfig linux/drivers/net/Kconfig
 --- linux.orig/drivers/net/Kconfig	2009-12-14 18:10:02.000000000 +0000
 +++ linux/drivers/net/Kconfig	2010-08-22 10:44:00.000000000 +0000
@@ -19,7 +25,6 @@ diff -BurpN linux.orig/drivers/net/Kconfig linux/drivers/net/Kconfig
  config SLIP
  	tristate "SLIP (serial line) support"
  	---help---
-diff -BurpN linux.orig/drivers/net/Kconfig.orig linux/drivers/net/Kconfig.orig
 diff -BurpN linux.orig/drivers/net/Makefile linux/drivers/net/Makefile
 --- linux.orig/drivers/net/Makefile	2009-12-14 18:10:02.000000000 +0000
 +++ linux/drivers/net/Makefile	2010-08-22 10:41:52.000000000 +0000
@@ -31,7 +36,6 @@ diff -BurpN linux.orig/drivers/net/Makefile linux/drivers/net/Makefile
  
  obj-$(CONFIG_SLIP) += slip.o
  obj-$(CONFIG_SLHC) += slhc.o
-diff -BurpN linux.orig/drivers/net/Makefile.orig linux/drivers/net/Makefile.orig
 diff -BurpN linux.orig/include/linux/if_pppox.h linux/include/linux/if_pppox.h
 --- linux.orig/include/linux/if_pppox.h	2009-12-14 18:10:02.000000000 +0000
 +++ linux/include/linux/if_pppox.h	2010-08-22 10:45:46.000000000 +0000
@@ -118,3 +122,4 @@ diff -BurpN linux.orig/include/linux/if_pppox.h linux/include/linux/if_pppox.h
  	} proto;
  	unsigned short		num;
  };
+-- 
