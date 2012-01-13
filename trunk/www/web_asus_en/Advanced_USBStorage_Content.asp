@@ -54,6 +54,21 @@
              </a></td>
 </tr>
 <tr class="content_section_header_tr">
+<td class="content_section_header_td" colspan="2">Passive mode</td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Set to YES if you want to allow the PASV method of obtaining a data connection.', LEFT);" onMouseOut="return nd();">Enable Passive mode:</td>
+<td class="content_input_td"><input type="radio" value="1" name="usb_ftp_pasvenable_x" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_ftp_pasvenable_x', '1')" <% nvram_match_x("PrinterStatus","usb_ftp_pasvenable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="usb_ftp_pasvenable_x" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_ftp_pasvenable_x', '0')" <% nvram_match_x("PrinterStatus","usb_ftp_pasvenable_x", "0", "checked"); %>>No</input></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('The minimum port to allocate for PASV style data connections.', LEFT);" onMouseOut="return nd();">PASV minimum port:</td>
+<td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftp_pasvminport_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftp_pasvminport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(event, this)"></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('The maximum port to allocate for PASV style data connections.', LEFT);" onMouseOut="return nd();">PASV maximum port:</td>
+<td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftp_pasvmaxport_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftp_pasvmaxport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(event, this)"></td>
+</tr>
+<tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Directories</td>
 </tr>
 <tr>

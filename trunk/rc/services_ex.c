@@ -1069,6 +1069,15 @@ int restart_ftpd()
 		fprintf(fp, "anonymous_enable=no\n");
 	}
 	
+	/* Passive mode */
+	if (nvram_match("usb_ftp_pasvenable_x", "1"))
+		fprintf(fp,
+			"pasv_enable=yes\n"
+			"pasv_min_port=%d\n"
+			"pasv_max_port=%d\n",
+			atoi(nvram_safe_get("usb_ftp_pasvminport_x")),
+			atoi(nvram_safe_get("usb_ftp_pasvmaxport_x")));
+
 	fprintf(fp,
 		"dirmessage_enable=yes\n"
 		"download_enable=no\n"
