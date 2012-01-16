@@ -1028,7 +1028,7 @@ int restart_ftpd()
 		/* rights */
 		sprintf(tmp, "%s/%s", vsftpd_users,
 			nvram_safe_default_get("http_username"));
-		if ((f = fopen(tmp, "w")))
+		if ((f = fopen(tmp, "w")) != NULL)
 		{
 			fprintf(f, 
 				"dirlist_enable=yes\n"
@@ -1042,7 +1042,6 @@ int restart_ftpd()
 	if (anonymous_mode > 0)
 	{
 		fprintf(fp, 
-			"anon_allow_writable_root=yes\n"
 			"anon_world_readable_only=no\n"
 			"anon_umask=022\n");
 		
@@ -1088,6 +1087,7 @@ int restart_ftpd()
 		"local_umask=022\n"
 		"chmod_enable=no\n"
 		"chroot_local_user=yes\n"
+		"allow_writable_root=yes\n"
 		"check_shell=no\n"
 		"isolate=no\n"
 		"user_config_dir=%s\n"
