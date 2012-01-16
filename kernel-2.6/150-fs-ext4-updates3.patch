@@ -16,6 +16,7 @@ ext4: Updates from upstream 2
  f6d2f6b327ceef5c689581529a852dc6ec3b74a6 ext4: fix unbalanced up_write() in ext4_ext_truncate() error path
  f17722f917b2f21497deb6edc62fb1683daa08e6 ext4: Fix max file size and logical block counting of extent format file
  6d6a435190bdf2e04c9465cde5bdc3ac68cf11a4 ext4: fix race in xattr block allocation path
+ 8e8eaabefee3ff645b9551ee32c6c54c7d80ad19 ext4: use the nblocks arg to ext4_truncate_restart_trans()
 
 ---
  fs/ext4/balloc.c       |   38 ------------
@@ -23,15 +24,15 @@ ext4: Updates from upstream 2
  fs/ext4/ext4.h         |   16 +++--
  fs/ext4/ext4_extents.h |    7 +-
  fs/ext4/extents.c      |   53 ++++++++---------
- fs/ext4/file.c         |   44 ++++++++++++++
- fs/ext4/inode.c        |  149 ++++++++++++++++++++++++++-----------------------
- fs/ext4/mballoc.c      |   64 ++++++++++++++++-----
+ fs/ext4/file.c         |   44 +++++++++++++-
+ fs/ext4/inode.c        |  151 ++++++++++++++++++++++++++-----------------------
+ fs/ext4/mballoc.c      |   64 ++++++++++++++++----
  fs/ext4/migrate.c      |   23 +++++--
  fs/ext4/move_extent.c  |   10 +--
  fs/ext4/namei.c        |   63 ++++++++------------
  fs/ext4/super.c        |   15 +++-
  fs/ext4/xattr.c        |   14 +++-
- 13 files changed, 290 insertions(+), 208 deletions(-)
+ 13 files changed, 291 insertions(+), 209 deletions(-)
 
 diff --git a/fs/ext4/balloc.c b/fs/ext4/balloc.c
 --- a/fs/ext4/balloc.c
@@ -400,6 +401,15 @@ diff --git a/fs/ext4/file.c b/fs/ext4/file.c
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
+@@ -173,7 +173,7 @@ int ext4_truncate_restart_trans(handle_t *handle, struct inode *inode,
+ 	BUG_ON(EXT4_JOURNAL(inode) == NULL);
+ 	jbd_debug(2, "restarting handle %p\n", handle);
+ 	up_write(&EXT4_I(inode)->i_data_sem);
+-	ret = ext4_journal_restart(handle, blocks_for_truncate(inode));
++	ret = ext4_journal_restart(handle, nblocks);
+ 	down_write(&EXT4_I(inode)->i_data_sem);
+ 	ext4_discard_preallocations(inode);
+ 
 @@ -719,7 +719,7 @@ allocated:
  	return ret;
  failed_out:
