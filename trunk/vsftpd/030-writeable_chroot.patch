@@ -4,7 +4,7 @@
    { "anon_upload_enable", &tunable_anon_upload_enable },
    { "anon_mkdir_write_enable", &tunable_anon_mkdir_write_enable },
    { "anon_other_write_enable", &tunable_anon_other_write_enable },
-+  { "anon_allow_writable_root", &tunable_anon_allow_writable_root },
++  { "allow_writable_root", &tunable_allow_writable_root },
    { "chown_uploads", &tunable_chown_uploads },
    { "connect_from_port_20", &tunable_connect_from_port_20 },
    { "xferlog_enable", &tunable_xferlog_enable },
@@ -14,7 +14,7 @@
  int tunable_anon_upload_enable;
  int tunable_anon_mkdir_write_enable;
  int tunable_anon_other_write_enable;
-+int tunable_anon_allow_writable_root;
++int tunable_allow_writable_root;
  int tunable_chown_uploads;
  int tunable_connect_from_port_20;
  int tunable_xferlog_enable;
@@ -22,7 +22,7 @@
    tunable_anon_upload_enable = 0;
    tunable_anon_mkdir_write_enable = 0;
    tunable_anon_other_write_enable = 0;
-+  tunable_anon_allow_writable_root = 0;
++  tunable_allow_writable_root = 0;
    tunable_chown_uploads = 0;
    tunable_connect_from_port_20 = 0;
    tunable_xferlog_enable = 0;
@@ -32,7 +32,7 @@
  extern int tunable_anon_upload_enable;        /* Enable STOR for anon users */
  extern int tunable_anon_mkdir_write_enable;   /* MKD for anon */
  extern int tunable_anon_other_write_enable;   /* APPE DELE RMD RNFR for anon */
-+extern int tunable_anon_allow_writable_root;  /* allow writable / for anon */
++extern int tunable_allow_writable_root;       /* allow writable / */
  extern int tunable_chown_uploads;             /* chown() anon uploaded files */
  extern int tunable_connect_from_port_20;      /* PORT connects from port 20 */
  extern int tunable_xferlog_enable;            /* Log transfers to a file */
@@ -51,7 +51,7 @@
    if (options & VSF_SECUTIL_OPTION_CHROOT)
    {
 -    if (vsf_sysutil_write_access("/"))
-+    if (!tunable_anon_allow_writable_root && vsf_sysutil_write_access("/"))
++    if (!tunable_allow_writable_root && vsf_sysutil_write_access("/"))
      {
        die("vsftpd: refusing to run with writable root inside chroot()");
      }
