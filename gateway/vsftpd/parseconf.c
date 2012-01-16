@@ -36,6 +36,7 @@ parseconf_bool_array[] =
   { "anon_upload_enable", &tunable_anon_upload_enable },
   { "anon_mkdir_write_enable", &tunable_anon_mkdir_write_enable },
   { "anon_other_write_enable", &tunable_anon_other_write_enable },
+  { "allow_writable_root", &tunable_allow_writable_root },
   { "chown_uploads", &tunable_chown_uploads },
   { "connect_from_port_20", &tunable_connect_from_port_20 },
   { "xferlog_enable", &tunable_xferlog_enable },

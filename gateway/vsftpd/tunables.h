@@ -18,6 +18,7 @@ extern int tunable_write_enable;              /* Global enable writes */
 extern int tunable_anon_upload_enable;        /* Enable STOR for anon users */
 extern int tunable_anon_mkdir_write_enable;   /* MKD for anon */
 extern int tunable_anon_other_write_enable;   /* APPE DELE RMD RNFR for anon */
+extern int tunable_allow_writable_root;       /* allow writable / */
 extern int tunable_chown_uploads;             /* chown() anon uploaded files */
 extern int tunable_connect_from_port_20;      /* PORT connects from port 20 */
 extern int tunable_xferlog_enable;            /* Log transfers to a file */

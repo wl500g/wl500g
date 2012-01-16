@@ -17,6 +17,7 @@ int tunable_write_enable;
 int tunable_anon_upload_enable;
 int tunable_anon_mkdir_write_enable;
 int tunable_anon_other_write_enable;
+int tunable_allow_writable_root;
 int tunable_chown_uploads;
 int tunable_connect_from_port_20;
 int tunable_xferlog_enable;
@@ -157,6 +158,7 @@ tunables_load_defaults()
   tunable_anon_upload_enable = 0;
   tunable_anon_mkdir_write_enable = 0;
   tunable_anon_other_write_enable = 0;
+  tunable_allow_writable_root = 0;
   tunable_chown_uploads = 0;
   tunable_connect_from_port_20 = 0;
   tunable_xferlog_enable = 0;
