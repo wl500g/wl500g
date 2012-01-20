@@ -752,7 +752,7 @@ static int create_urbs(struct gspca_dev *gspca_dev,
 						    ep->desc.bEndpointAddress);
 			urb->transfer_flags = URB_ISO_ASAP
 					| URB_NO_TRANSFER_DMA_MAP;
-			urb->interval = ep->desc.bInterval;
+			urb->interval = 1 << (ep->desc.bInterval - 1);
 			urb->complete = isoc_irq;
 			urb->number_of_packets = npkt;
 			for (i = 0; i < npkt; i++) {
