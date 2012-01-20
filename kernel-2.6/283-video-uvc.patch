@@ -7522,9 +7522,9 @@ diff -urNBp a/drivers/media/video/uvc/uvcvideo.h b/drivers/media/video/uvc/uvcvi
 +#define DRIVER_VERSION_NUMBER	KERNEL_VERSION(0, 1, 0)
 +
 +/* Number of isochronous URBs. */
-+#define UVC_URBS		5
++#define UVC_URBS		15
 +/* Maximum number of packets per URB. */
-+#define UVC_MAX_PACKETS		32
++#define UVC_MAX_PACKETS		64
 +/* Maximum number of video buffers. */
 +#define UVC_MAX_VIDEO_BUFFERS	32
 +/* Maximum status buffer size in bytes of interrupt URB. */
