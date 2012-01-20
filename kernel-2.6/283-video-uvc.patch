@@ -7003,7 +7003,7 @@ diff -urNBp a/drivers/media/video/uvc/uvc_video.c b/drivers/media/video/uvc/uvc_
 +		urb->pipe = usb_rcvisocpipe(stream->dev->udev,
 +				ep->desc.bEndpointAddress);
 +		urb->transfer_flags = URB_ISO_ASAP | URB_NO_TRANSFER_DMA_MAP;
-+		urb->interval = ep->desc.bInterval;
++		urb->interval = 1 << (ep->desc.bInterval - 1);
 +		urb->transfer_buffer = stream->urb_buffer[i];
 +		urb->transfer_dma = stream->urb_dma[i];
 +		urb->complete = uvc_video_complete;
