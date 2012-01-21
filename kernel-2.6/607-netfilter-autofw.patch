@@ -144,7 +144,7 @@ diff -urBwNp linux-2.6.22/net/ipv4/netfilter/nf_nat_autofw.c linux-2.6/net/ipv4/
 +#include <net/netfilter/nf_conntrack_helper.h>
 +#include <linux/netfilter_ipv4/ip_autofw.h>
 +
-+DEFINE_RWLOCK(nf_nat_autofw_lock);
++static DEFINE_SPINLOCK(nf_nat_autofw_lock);
 +
 +#define DEBUGP(format, args...)
 +
