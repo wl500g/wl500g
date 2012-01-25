@@ -65,25 +65,34 @@ int ext2_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 		flags = flags & EXT2_FL_USER_MODIFIABLE;
 		flags |= oldflags & ~EXT2_FL_USER_MODIFIABLE;
 		ei->i_flags = flags;
-		mutex_unlock(&inode->i_mutex);
 
 		ext2_set_inode_flags(inode);
 		inode->i_ctime = CURRENT_TIME_SEC;
+		mutex_unlock(&inode->i_mutex);
+
 		mark_inode_dirty(inode);
 		return 0;
 	}
 	case EXT2_IOC_GETVERSION:
 		return put_user(inode->i_generation, (int __user *) arg);
-	case EXT2_IOC_SETVERSION:
+	case EXT2_IOC_SETVERSION: {
+		__u32 generation;
+
 		if ((current->fsuid != inode->i_uid) && !capable(CAP_FOWNER))
 			return -EPERM;
 		if (IS_RDONLY(inode))
 			return -EROFS;
-		if (get_user(inode->i_generation, (int __user *) arg))
+		if (get_user(generation, (int __user *) arg))
 			return -EFAULT;	
+
+		mutex_lock(&inode->i_mutex);
 		inode->i_ctime = CURRENT_TIME_SEC;
+		inode->i_generation = generation;
+		mutex_unlock(&inode->i_mutex);
+
 		mark_inode_dirty(inode);
 		return 0;
+	}
 	case EXT2_IOC_GETRSVSZ:
 		if (test_opt(inode->i_sb, RESERVATION)
 			&& S_ISREG(inode->i_mode)
