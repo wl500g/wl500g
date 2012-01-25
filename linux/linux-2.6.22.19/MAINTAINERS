@@ -2127,6 +2127,16 @@ L:	linux-kernel@vger.kernel.org
 L:	kexec@lists.infradead.org
 S:	Maintained
 
+KMEMLEAK
+P:	Catalin Marinas
+M:	catalin.marinas@arm.com
+L:	linux-kernel@vger.kernel.org
+S:	Maintained
+F:	Documentation/kmemleak.txt
+F:	include/linux/kmemleak.h
+F:	mm/kmemleak.c
+F:	mm/kmemleak-test.c
+
 KPROBES
 P:	Prasanna S Panchamukhi
 M:	prasanna@in.ibm.com

@@ -10,6 +10,7 @@
 #include <linux/gfp.h>
 #include <linux/workqueue.h>
 #include <linux/kobject.h>
+#include <linux/kmemleak.h>
 
 struct kmem_cache_cpu {
 	void **freelist;	/* Pointer to first free per cpu object */
@@ -184,7 +185,12 @@ void *__kmalloc(size_t size, gfp_t flags);
 
 static inline void *kmalloc_large(size_t size, gfp_t flags)
 {
-	return (void *)__get_free_pages(flags | __GFP_COMP, get_order(size));
+	unsigned int order = get_order(size);
+	void *ret = (void *) __get_free_pages(flags | __GFP_COMP, order);
+
+	kmemleak_alloc(ret, size, 1, flags);
+
+	return ret;
 }
 
 static inline void *kmalloc(size_t size, gfp_t flags)

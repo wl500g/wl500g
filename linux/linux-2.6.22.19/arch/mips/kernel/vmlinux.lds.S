@@ -58,6 +58,8 @@ SECTIONS
 
   RODATA
 
+  _sdata =  .;			/* Start of data section */
+
   /* writeable */
   .data : {			/* Data */
     . = . + DATAOFFSET;		/* for CONFIG_MAPPED_KERNEL */

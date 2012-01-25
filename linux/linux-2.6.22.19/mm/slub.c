@@ -188,7 +188,7 @@ static inline void ClearSlabDebug(struct page *page)
  * Set of flags that will prevent slab merging
  */
 #define SLUB_NEVER_MERGE (SLAB_RED_ZONE | SLAB_POISON | SLAB_STORE_USER | \
-		SLAB_TRACE | SLAB_DESTROY_BY_RCU)
+		SLAB_TRACE | SLAB_DESTROY_BY_RCU | SLAB_NOLEAKTRACE)
 
 #define SLUB_MERGE_SAME (SLAB_DEBUG_FREE | SLAB_RECLAIM_ACCOUNT | \
 		SLAB_CACHE_DMA)
@@ -1505,6 +1505,7 @@ static void __always_inline *slab_alloc(struct kmem_cache *s,
 	if (unlikely((gfpflags & __GFP_ZERO) && object))
 		memset(object, 0, c->objsize);
 
+	kmemleak_alloc_recursive(object, s->objsize, 1, s->flags, gfpflags);
 	return object;
 }
 
@@ -1603,8 +1604,10 @@ static void __always_inline slab_free(struct kmem_cache *s,
 	unsigned long flags;
 	struct kmem_cache_cpu *c;
 
+	kmemleak_free_recursive(x, s->flags);
 	local_irq_save(flags);
 	c = get_cpu_slab(s, smp_processor_id());
+	debug_check_no_locks_freed(object, c->objsize);
 	if (likely(page == c->page && !SlabDebug(page))) {
 		object[c->offset] = c->freelist;
 		c->freelist = object;
@@ -2488,11 +2491,13 @@ static void *kmalloc_large_node(size_t size, gfp_t flags, int node)
 {
 	struct page *page = alloc_pages_node(node, flags | __GFP_COMP,
 						get_order(size));
+	void *ptr = NULL;
 
 	if (page)
-		return page_address(page);
-	else
-		return NULL;
+		ptr = page_address(page);
+
+	kmemleak_alloc(ptr, size, 1, flags);
+	return ptr;
 }
 
 #ifdef CONFIG_NUMA
@@ -2523,8 +2528,10 @@ size_t ksize(const void *object)
 
 	page = virt_to_head_page(object);
 
-	if (unlikely(!PageSlab(page)))
+	if (unlikely(!PageSlab(page))) {
+		WARN_ON(!PageCompound(page));
 		return PAGE_SIZE << compound_order(page);
+	}
 
 	s = page->slab;
 
@@ -2561,6 +2568,8 @@ void kfree(const void *x)
 
 	page = virt_to_head_page(x);
 	if (unlikely(!PageSlab(page))) {
+		WARN_ON(!PageCompound(page));
+		kmemleak_free(x);
 		put_page(page);
 		return;
 	}

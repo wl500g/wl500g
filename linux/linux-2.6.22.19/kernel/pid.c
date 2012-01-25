@@ -28,6 +28,7 @@
 #include <linux/hash.h>
 #include <linux/pid_namespace.h>
 #include <linux/init_task.h>
+#include <linux/kmemleak.h>
 
 #define pid_hashfn(nr) hash_long((unsigned long)nr, pidhash_shift)
 static struct hlist_head *pid_hash;
@@ -399,6 +400,12 @@ void __init pidhash_init(void)
 					   &pidhash_shift, NULL, 4096);
 	pidhash_size = 1 << pidhash_shift;
 
+	/*
+	 * pid_hash contains references to allocated struct pid objects and it
+	 * must be scanned by kmemleak to avoid false positives.
+	 */
+	kmemleak_alloc(pid_hash, pidhash_size *	sizeof(*(pid_hash)), 0,
+		       GFP_KERNEL);
 	for (i = 0; i < pidhash_size; i++)
 		INIT_HLIST_HEAD(&pid_hash[i]);
 }

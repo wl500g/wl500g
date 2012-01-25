@@ -52,6 +52,7 @@
 #include <linux/buffer_head.h>
 #include <linux/debug_locks.h>
 #include <linux/lockdep.h>
+#include <linux/kmemleak.h>
 #include <linux/pid_namespace.h>
 #include <linux/device.h>
 #include <linux/kthread.h>
@@ -565,6 +566,7 @@ asmlinkage void __init start_kernel(void)
 	trap_init();
 	rcu_init();
 	init_IRQ();
+	prio_tree_init();
 	pidhash_init();
 	init_timers();
 	hrtimers_init();
@@ -607,6 +609,7 @@ asmlinkage void __init start_kernel(void)
 	cpuset_init_early();
 	mem_init();
 	kmem_cache_init();
+	kmemleak_init();
 	idr_init_cache();
 	setup_per_cpu_pageset();
 	numa_policy_init();
@@ -615,7 +618,6 @@ asmlinkage void __init start_kernel(void)
 	calibrate_delay();
 	pidmap_init();
 	pgtable_cache_init();
-	prio_tree_init();
 	anon_vma_init();
 #ifdef CONFIG_X86
 	if (efi_enabled)
