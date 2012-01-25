@@ -24,11 +24,62 @@ diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
  
  /* Global control variables for rcupdate callback mechanism. */
  struct rcu_ctrlblk {
-@@ -243,23 +248,74 @@ extern struct lockdep_map rcu_lock_map;
+@@ -140,13 +140,23 @@ extern int rcu_pending(int cpu);
+ extern int rcu_needs_cpu(int cpu);
+ 
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
++
++#ifdef CONFIG_PROVE_RCU
++extern int rcu_is_cpu_idle(void);
++#else /* !CONFIG_PROVE_RCU */
++static inline int rcu_is_cpu_idle(void)
++{
++	return 0;
++}
++#endif /* else !CONFIG_PROVE_RCU */
++
+ extern struct lockdep_map rcu_lock_map;
+ # define rcu_read_acquire()	lock_acquire(&rcu_lock_map, 0, 0, 2, 1, _THIS_IP_)
+ # define rcu_read_release()	lock_release(&rcu_lock_map, 1, _THIS_IP_)
+ #else
+ # define rcu_read_acquire()	do { } while (0)
+ # define rcu_read_release()	do { } while (0)
+-#endif
++#endif /* else CONFIG_DEBUG_LOCK_ALLOC */
+ 
+ /**
+  * rcu_read_lock - mark the beginning of an RCU read-side critical section.
+@@ -243,23 +248,101 @@ extern struct lockdep_map rcu_lock_map;
  
  #endif
  
 +#ifdef CONFIG_PROVE_LOCKING
++
++extern int debug_lockdep_rcu_enabled(void);
++
++/**
++ * rcu_read_lock_held() - might we be in RCU read-side critical section?
++ *
++ * If CONFIG_DEBUG_LOCK_ALLOC is selected, returns nonzero iff in an RCU
++ * read-side critical section.  In absence of CONFIG_DEBUG_LOCK_ALLOC,
++ * this assumes we are in an RCU read-side critical section unless it can
++ * prove otherwise.  This is useful for debug checks in functions that
++ * require that they be called within an RCU read-side critical section.
++ *
++ * Checks debug_lockdep_rcu_enabled() to prevent false positives during boot
++ * and while lockdep is disabled.
++ *
++ * Note that rcu_read_lock() and the matching rcu_read_unlock() must
++ * occur in the same context, for example, it is illegal to invoke
++ * rcu_read_unlock() in process context if the matching rcu_read_lock()
++ * was invoked from within an irq handler.
++ */
++static inline int rcu_read_lock_held(void)
++{
++	if (!debug_lockdep_rcu_enabled())
++		return 1;
++	return lock_is_held(&rcu_lock_map);
++}
 +
 +/**
 + * rcu_dereference_check - rcu_dereference with debug checking
@@ -42,7 +93,8 @@ diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
 +#define rcu_dereference_check(p, c) \
 +	({ \
 +		if (debug_lockdep_rcu_enabled() && !(c)) \
-+			lockdep_rcu_dereference(__FILE__, __LINE__); \
++			lockdep_rcu_suspicious(__FILE__, __LINE__, \
++				"suspicious rcu_dereference_check() usage"); \
 +		rcu_dereference_raw(p); \
 +	})
 +
@@ -116,7 +168,20 @@ diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
  
  #ifdef CONFIG_DEBUG_LOCK_ALLOC
  static struct lock_class_key rcu_lock_key;
-@@ -178,6 +179,28 @@ void fastcall call_rcu_bh(struct rcu_hea
+@@ -56,6 +56,12 @@ struct lockdep_map rcu_lock_map =
+ 	STATIC_LOCKDEP_MAP_INIT("rcu_read_lock", &rcu_lock_key);
+ 
+ EXPORT_SYMBOL_GPL(rcu_lock_map);
++
++int debug_lockdep_rcu_enabled(void)
++{
++	return debug_locks && current->lockdep_recursion == 0;
++}
++EXPORT_SYMBOL_GPL(debug_lockdep_rcu_enabled);
+ #endif
+ 
+ /* Definition for rcupdate control block. */
+@@ -178,6 +179,30 @@ void fastcall call_rcu_bh(struct rcu_hea
  	local_irq_restore(flags);
  }
  
@@ -136,6 +201,8 @@ diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
 +{
 +	if (!debug_lockdep_rcu_enabled())
 +		return 1;
++	if (rcu_is_cpu_idle())
++		return 0;
 +	return in_softirq() || irqs_disabled();
 +}
 +EXPORT_SYMBOL_GPL(rcu_read_lock_bh_held);
