@@ -1,13 +1,7 @@
-########################################################
-# Huawei EC156, EC306
-
-DefaultVendor= 0x12d1
-DefaultProduct=0x1505
+# Huawei EC156
 
 TargetVendor=  0x12d1
-TargetProductList="140b,1506"
+TargetProductList="140b,1506,150f"
 
 MessageContent="55534243123456780000000000000011062000000100000000000000000000"
-
-CheckSuccess=20
 

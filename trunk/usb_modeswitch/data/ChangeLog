@@ -1,3 +1,11 @@
+20120120:
+    Added devices: Air FlexiNet/StrongRising, BandLuxe C339, Celot CT-680,
+    Huawei E353, Haier CE682, LG L-02C LTE, LG SD711, LG L-08C, LG L-07A,
+    I-O Data WMX2-U, Option GI1515, ZTE A371B, ZTE MF652 (two Variants);
+    reduced redundancies in parameters, resulting in smaller files;
+    ATTENTION !! Needs program version >= 1.2.1 !!
+ C-motech CDU-685a, Qisda H21 "Flying Beetle" (needs
+    program version >= 1.2.0)
 20111023:
     Added devices: C-motech CDU-685a, Qisda H21 "Flying Beetle" (needs
     program version >= 1.2.0)
