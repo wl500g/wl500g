@@ -2111,9 +2111,6 @@ static inline ino_t parent_ino(struct dentry *dentry)
 	return res;
 }
 
-/* kernel/fork.c */
-extern int unshare_files(void);
-
 /* Transaction based IO helpers */
 
 /*

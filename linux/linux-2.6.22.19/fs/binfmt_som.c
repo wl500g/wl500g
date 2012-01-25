@@ -195,7 +195,6 @@ load_som_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	unsigned long som_entry;
 	struct som_hdr *som_ex;
 	struct som_exec_auxhdr *hpuxhdr;
-	struct files_struct *files;
 
 	/* Get the exec-header */
 	som_ex = (struct som_hdr *) bprm->buf;
@@ -220,15 +219,6 @@ load_som_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		if (retval >= 0)
 			retval = -EIO;
 		goto out_free;
-	}
-
-	files = current->files; /* Refcounted so ok */
-	retval = unshare_files();
-	if (retval < 0)
-		goto out_free;
-	if (files == current->files) {
-		put_files_struct(files);
-		files = NULL;
 	}
 
 	retval = get_unused_fd();
