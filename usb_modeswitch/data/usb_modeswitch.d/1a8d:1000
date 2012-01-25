@@ -1,8 +1,4 @@
-########################################################
 # BandRich BandLuxe C100, C120, C170, C270, C3xx
-
-DefaultVendor= 0x1a8d
-DefaultProduct=0x1000
 
 TargetVendor=  0x1a8d
 TargetProductList="1002,1009,2006"
@@ -13,4 +9,3 @@ ReleaseDelay=4000
 
 NeedResponse=1
 
-CheckSuccess=20

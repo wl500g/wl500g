@@ -1,12 +1,6 @@
-########################################################
 # Huawei ET302
-
-DefaultVendor= 0x12d1
-DefaultProduct=0x1d50
 
 TargetClass=0xff
 
 Configuration=2
-
-CheckSuccess=20
 

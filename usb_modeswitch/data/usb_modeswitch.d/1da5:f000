@@ -1,13 +1,7 @@
-########################################################
 # Qisda H21 Flying Beetle
-
-DefaultVendor= 0x1da5
-DefaultProduct=0xf000
 
 TargetVendor=  0x1da5
 TargetProduct= 0x4512
 
 QisdaMode=1
-
-CheckSuccess=20
 
