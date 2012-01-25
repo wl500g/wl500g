@@ -1,0 +1,383 @@
+kernel/fork.c: Updates from upstream
+
+ a24efe62dd165be7d03431cf936ae17d345fed69 kernel/fork.c: remove unneeded variable initialization in copy_process()
+ 6b335d9c80d7f3c2a3f6545f664ae9007a0f3821 close race in unshare_files()
+ fd8328be874f4190a811c58cd4778ec2c74d2c05 sanitize handling of shared descriptor tables in failing execve()
+ 3b1253880b7a9e6db54b943b2d40bcf2202f58ab sanitize unshare_files/reset_files_struct
+ 50704516f334d5036c09b0ecc0064598f7c5596f Fix uninitialized 'copy' in unshare_files
+
+---
+ fs/binfmt_elf.c      |   23 -------------------
+ fs/binfmt_misc.c     |   18 ---------------
+ fs/binfmt_som.c      |   10 --------
+ fs/exec.c            |   28 ++++++++++-------------
+ include/linux/file.h |    3 +-
+ include/linux/fs.h   |    3 --
+ kernel/exit.c        |    6 +----
+ kernel/fork.c        |   60 +++++++++++++++++++++------------------------------
+ 8 files changed, 43 insertions(+), 108 deletions(-)
+
+diff --git a/fs/binfmt_elf.c b/fs/binfmt_elf.c
+--- a/fs/binfmt_elf.c
++++ b/fs/binfmt_elf.c
+@@ -544,7 +544,6 @@ static int load_elf_binary(struct linux_
+ 	unsigned long start_code, end_code, start_data, end_data;
+ 	unsigned long reloc_func_desc = 0;
+ 	char passed_fileno[6];
+-	struct files_struct *files;
+ 	int executable_stack = EXSTACK_DEFAULT;
+ 	unsigned long def_flags = 0;
+ 	struct {
+@@ -594,20 +593,9 @@ static int load_elf_binary(struct linux_
+ 		goto out_free_ph;
+ 	}
+ 
+-	files = current->files;	/* Refcounted so ok */
+-	retval = unshare_files();
+-	if (retval < 0)
+-		goto out_free_ph;
+-	if (files == current->files) {
+-		put_files_struct(files);
+-		files = NULL;
+-	}
+-
+-	/* exec will make our files private anyway, but for the a.out
+-	   loader stuff we need to do it earlier */
+ 	retval = get_unused_fd();
+ 	if (retval < 0)
+-		goto out_free_fh;
++		goto out_free_ph;
+ 	get_file(bprm->file);
+ 	fd_install(elf_exec_fileno = retval, bprm->file);
+ 
+@@ -770,12 +758,6 @@ static int load_elf_binary(struct linux_
+ 	if (retval)
+ 		goto out_free_dentry;
+ 
+-	/* Discard our unneeded old files struct */
+-	if (files) {
+-		put_files_struct(files);
+-		files = NULL;
+-	}
+-
+ 	/* OK, This is the point of no return */
+ 	current->mm->start_data = 0;
+ 	current->mm->end_data = 0;
+@@ -1047,9 +1029,6 @@ out_free_interp:
+ 	kfree(elf_interpreter);
+ out_free_file:
+ 	sys_close(elf_exec_fileno);
+-out_free_fh:
+-	if (files)
+-		reset_files_struct(current, files);
+ out_free_ph:
+ 	kfree(elf_phdata);
+ 	goto out;
+diff --git a/fs/binfmt_misc.c b/fs/binfmt_misc.c
+--- a/fs/binfmt_misc.c
++++ b/fs/binfmt_misc.c
+@@ -110,7 +110,6 @@ static int load_misc_binary(struct linux
+ 	char *iname_addr = iname;
+ 	int retval;
+ 	int fd_binary = -1;
+-	struct files_struct *files = NULL;
+ 
+ 	retval = -ENOEXEC;
+ 	if (!enabled)
+@@ -131,21 +130,13 @@ static int load_misc_binary(struct linux
+ 
+ 	if (fmt->flags & MISC_FMT_OPEN_BINARY) {
+ 
+-		files = current->files;
+-		retval = unshare_files();
+-		if (retval < 0)
+-			goto _ret;
+-		if (files == current->files) {
+-			put_files_struct(files);
+-			files = NULL;
+-		}
+ 		/* if the binary should be opened on behalf of the
+ 		 * interpreter than keep it open and assign descriptor
+ 		 * to it */
+  		fd_binary = get_unused_fd();
+  		if (fd_binary < 0) {
+  			retval = fd_binary;
+- 			goto _unshare;
++ 			goto _ret;
+  		}
+  		fd_install(fd_binary, bprm->file);
+ 
+@@ -203,10 +194,6 @@ static int load_misc_binary(struct linux
+ 	if (retval < 0)
+ 		goto _error;
+ 
+-	if (files) {
+-		put_files_struct(files);
+-		files = NULL;
+-	}
+ _ret:
+ 	return retval;
+ _error:
+@@ -214,9 +201,6 @@ _error:
+ 		sys_close(fd_binary);
+ 	bprm->interp_flags = 0;
+ 	bprm->interp_data = 0;
+-_unshare:
+-	if (files)
+-		reset_files_struct(current, files);
+ 	goto _ret;
+ }
+ 
+diff --git a/fs/binfmt_som.c b/fs/binfmt_som.c
+--- a/fs/binfmt_som.c
++++ b/fs/binfmt_som.c
+@@ -195,7 +195,6 @@ load_som_binary(struct linux_binprm * bp
+ 	unsigned long som_entry;
+ 	struct som_hdr *som_ex;
+ 	struct som_exec_auxhdr *hpuxhdr;
+-	struct files_struct *files;
+ 
+ 	/* Get the exec-header */
+ 	som_ex = (struct som_hdr *) bprm->buf;
+@@ -222,15 +221,6 @@ load_som_binary(struct linux_binprm * bp
+ 		goto out_free;
+ 	}
+ 
+-	files = current->files; /* Refcounted so ok */
+-	retval = unshare_files();
+-	if (retval < 0)
+-		goto out_free;
+-	if (files == current->files) {
+-		put_files_struct(files);
+-		files = NULL;
+-	}
+-
+ 	retval = get_unused_fd();
+ 	if (retval < 0)
+ 		goto out_free;
+diff --git a/fs/exec.c b/fs/exec.c
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -813,7 +813,6 @@ int flush_old_exec(struct linux_binprm *
+ {
+ 	char * name;
+ 	int i, ch, retval;
+-	struct files_struct *files;
+ 	char tcomm[sizeof(current->comm)];
+ 
+ 	/*
+@@ -825,26 +824,15 @@ int flush_old_exec(struct linux_binprm *
+ 		goto out;
+ 
+ 	/*
+-	 * Make sure we have private file handles. Ask the
+-	 * fork helper to do the work for us and the exit
+-	 * helper to do the cleanup of the old one.
+-	 */
+-	files = current->files;		/* refcounted so safe to hold */
+-	retval = unshare_files();
+-	if (retval)
+-		goto out;
+-	/*
+ 	 * Release all of the old mmap stuff
+ 	 */
+ 	retval = exec_mmap(bprm->mm);
+ 	if (retval)
+-		goto mmap_failed;
++		goto out;
+ 
+ 	bprm->mm = NULL;		/* We're using it now */
+ 
+ 	/* This is the point of no return */
+-	put_files_struct(files);
+-
+ 	current->sas_ss_sp = current->sas_ss_size = 0;
+ 
+ 	if (current->euid == current->uid && current->egid == current->gid)
+@@ -894,8 +882,6 @@ int flush_old_exec(struct linux_binprm *
+ 
+ 	return 0;
+ 
+-mmap_failed:
+-	reset_files_struct(current, files);
+ out:
+ 	return retval;
+ }
+@@ -1143,13 +1129,18 @@ int do_execve(char * filename,
+ {
+ 	struct linux_binprm *bprm;
+ 	struct file *file;
++	struct files_struct *displaced;
+ 	int retval;
+ 	int i;
+ 
++	retval = unshare_files(&displaced);
++	if (retval)
++		goto out_ret;
++
+ 	retval = -ENOMEM;
+ 	bprm = kzalloc(sizeof(*bprm), GFP_KERNEL);
+ 	if (!bprm)
+-		goto out_ret;
++		goto out_files;
+ 
+ 	file = open_exec(filename);
+ 	retval = PTR_ERR(file);
+@@ -1209,6 +1200,8 @@ int do_execve(char * filename,
+ 		security_bprm_free(bprm);
+ 		acct_update_integrals(current);
+ 		kfree(bprm);
++		if (displaced)
++			put_files_struct(displaced);
+ 		return retval;
+ 	}
+ 
+@@ -1236,6 +1229,9 @@ out_file:
+ out_kfree:
+ 	kfree(bprm);
+ 
++out_files:
++	if (displaced)
++		reset_files_struct(displaced);
+ out_ret:
+ 	return retval;
+ }
+diff --git a/include/linux/file.h b/include/linux/file.h
+--- a/include/linux/file.h
++++ b/include/linux/file.h
+@@ -107,7 +107,8 @@ struct task_struct;
+ 
+ struct files_struct *get_files_struct(struct task_struct *);
+ void FASTCALL(put_files_struct(struct files_struct *fs));
+-void reset_files_struct(struct task_struct *, struct files_struct *);
++void reset_files_struct(struct files_struct *);
++int unshare_files(struct files_struct **);
+ 
+ extern struct kmem_cache *files_cachep;
+ 
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -1922,9 +1922,6 @@ static inline ino_t parent_ino(struct de
+ 	return res;
+ }
+ 
+-/* kernel/fork.c */
+-extern int unshare_files(void);
+-
+ /* Transaction based IO helpers */
+ 
+ /*
+diff --git a/kernel/exit.c b/kernel/exit.c
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -473,10 +473,9 @@ void fastcall put_files_struct(struct fi
+ 	}
+ }
+ 
+-EXPORT_SYMBOL(put_files_struct);
+-
+-void reset_files_struct(struct task_struct *tsk, struct files_struct *files)
++void reset_files_struct(struct files_struct *files)
+ {
++	struct task_struct *tsk = current;
+ 	struct files_struct *old;
+ 
+ 	old = tsk->files;
+@@ -485,7 +484,6 @@ void reset_files_struct(struct task_stru
+ 	task_unlock(tsk);
+ 	put_files_struct(old);
+ }
+-EXPORT_SYMBOL(reset_files_struct);
+ 
+ static inline void __exit_files(struct task_struct *tsk)
+ {
+diff --git a/kernel/fork.c b/kernel/fork.c
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -761,12 +761,6 @@ static int copy_files(unsigned long clon
+ 		goto out;
+ 	}
+ 
+-	/*
+-	 * Note: we may be using current for both targets (See exec.c)
+-	 * This works because we cache current->files (old) as oldf. Don't
+-	 * break this.
+-	 */
+-	tsk->files = NULL;
+ 	newf = dup_fd(oldf, &error);
+ 	if (!newf)
+ 		goto out;
+@@ -777,34 +771,6 @@ out:
+ 	return error;
+ }
+ 
+-/*
+- *	Helper to unshare the files of the current task.
+- *	We don't want to expose copy_files internals to
+- *	the exec layer of the kernel.
+- */
+-
+-int unshare_files(void)
+-{
+-	struct files_struct *files  = current->files;
+-	int rc;
+-
+-	BUG_ON(!files);
+-
+-	/* This can race but the race causes us to copy when we don't
+-	   need to and drop the copy */
+-	if(atomic_read(&files->count) == 1)
+-	{
+-		atomic_inc(&files->count);
+-		return 0;
+-	}
+-	rc = copy_files(0, current);
+-	if(rc)
+-		current->files = files;
+-	return rc;
+-}
+-
+-EXPORT_SYMBOL(unshare_files);
+-
+ static inline int copy_sighand(unsigned long clone_flags, struct task_struct * tsk)
+ {
+ 	struct sighand_struct *sig;
+@@ -960,7 +926,7 @@ static struct task_struct *copy_process(
+ 					struct pid *pid)
+ {
+ 	int retval;
+-	struct task_struct *p = NULL;
++	struct task_struct *p;
+ 
+ 	if ((clone_flags & (CLONE_NEWNS|CLONE_FS)) == (CLONE_NEWNS|CLONE_FS))
+ 		return ERR_PTR(-EINVAL);
+@@ -1681,3 +1647,27 @@ bad_unshare_cleanup_thread:
+ bad_unshare_out:
+ 	return err;
+ }
++
++/*
++ *	Helper to unshare the files of the current task.
++ *	We don't want to expose copy_files internals to
++ *	the exec layer of the kernel.
++ */
++
++int unshare_files(struct files_struct **displaced)
++{
++	struct task_struct *task = current;
++	struct files_struct *copy = NULL;
++	int error;
++
++	error = unshare_fd(CLONE_FILES, &copy);
++	if (error || !copy) {
++		*displaced = NULL;
++		return error;
++	}
++	*displaced = task->files;
++	task_lock(task);
++	task->files = copy;
++	task_unlock(task);
++	return 0;
++}
+-- 
