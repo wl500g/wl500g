@@ -1,10 +1,19 @@
 #ifndef __LINUX_DEBUG_LOCKING_H
 #define __LINUX_DEBUG_LOCKING_H
 
+#include <asm/atomic.h>
+#include <asm/system.h>
+
 struct task_struct;
 
 extern int debug_locks;
 extern int debug_locks_silent;
+
+
+static inline int __debug_locks_off(void)
+{
+	return xchg(&debug_locks, 0);
+}
 
 /*
  * Generic 'turn off all lock debugging' function:
@@ -15,7 +24,7 @@ extern int debug_locks_off(void);
 ({									\
 	int __ret = 0;							\
 									\
-	if (unlikely(c)) {						\
+	if (!oops_in_progress && unlikely(c)) {				\
 		if (debug_locks_off() && !debug_locks_silent)		\
 			WARN_ON(1);					\
 		__ret = 1;						\

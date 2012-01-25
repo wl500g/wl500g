@@ -35,7 +35,7 @@ int debug_locks_silent;
  */
 int debug_locks_off(void)
 {
-	if (xchg(&debug_locks, 0)) {
+	if (__debug_locks_off()) {
 		if (!debug_locks_silent) {
 			console_verbose();
 			return 1;
