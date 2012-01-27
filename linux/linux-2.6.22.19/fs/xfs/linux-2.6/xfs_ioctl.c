@@ -549,17 +549,12 @@ xfs_attrmulti_attr_set(
 	if (len > XATTR_SIZE_MAX)
 		return EINVAL;
 
-	kbuf = kmalloc(len, GFP_KERNEL);
-	if (!kbuf)
-		return ENOMEM;
-
-	if (copy_from_user(kbuf, ubuf, len))
-		goto out_kfree;
+	kbuf = memdup_user(ubuf, len);
+	if (IS_ERR(kbuf))
+		return PTR_ERR(kbuf);
 
 	error = xfs_attr_set(XFS_I(inode), name, kbuf, len, flags);
 
- out_kfree:
-	kfree(kbuf);
 	return error;
 }
 
@@ -604,13 +599,11 @@ xfs_attrmulti_by_handle(
 		goto out_vn_rele;
 
 	error = ENOMEM;
-	ops = kmalloc(size, GFP_KERNEL);
-	if (!ops)
-		goto out_vn_rele;
-
-	error = EFAULT;
-	if (copy_from_user(ops, am_hreq.ops, size))
+	ops = memdup_user(am_hreq.ops, size);
+	if (IS_ERR(ops)) {
+		error = PTR_ERR(ops);
 		goto out_kfree_ops;
+	}
 
 	attr_name = kmalloc(MAXNAMELEN, GFP_KERNEL);
 	if (!attr_name)

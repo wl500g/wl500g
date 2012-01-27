@@ -545,12 +545,9 @@ int ide_taskfile_ioctl (ide_drive_t *drive, unsigned int cmd, unsigned long arg)
 
 //	printk("IDE Taskfile ...\n");
 
-	req_task = kzalloc(tasksize, GFP_KERNEL);
-	if (req_task == NULL) return -ENOMEM;
-	if (copy_from_user(req_task, buf, tasksize)) {
-		kfree(req_task);
-		return -EFAULT;
-	}
+	req_task = memdup_user(buf, tasksize);
+	if (IS_ERR(req_task))
+		return PTR_ERR(req_task);
 
 	taskout = req_task->out_size;
 	taskin  = req_task->in_size;

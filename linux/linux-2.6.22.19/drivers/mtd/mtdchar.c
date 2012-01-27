@@ -504,14 +504,9 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 		if (ops.ooboffs && ops.ooblen > (mtd->oobsize - ops.ooboffs))
 			return -EINVAL;
 
-		ops.oobbuf = kmalloc(buf.length, GFP_KERNEL);
-		if (!ops.oobbuf)
-			return -ENOMEM;
-
-		if (copy_from_user(ops.oobbuf, buf.ptr, buf.length)) {
-			kfree(ops.oobbuf);
-			return -EFAULT;
-		}
+		ops.oobbuf = memdup_user(buf.ptr, buf.length);
+		if (IS_ERR(ops.oobbuf))
+			return PTR_ERR(ops.oobbuf);
 
 		buf.start &= ~(mtd->oobsize - 1);
 		ret = mtd->write_oob(mtd, buf.start, &ops);
