@@ -1052,6 +1052,11 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	p->utime = cputime_zero;
 	p->stime = cputime_zero;
  	p->sched_time = 0;
+#ifdef CONFIG_DETECT_SOFTLOCKUP
+	p->last_switch_count = 0;
+	p->last_switch_timestamp = 0;
+#endif
+
 #ifdef CONFIG_TASK_XACCT
 	p->rchar = 0;		/* I/O counter: bytes read */
 	p->wchar = 0;		/* I/O counter: bytes written */
