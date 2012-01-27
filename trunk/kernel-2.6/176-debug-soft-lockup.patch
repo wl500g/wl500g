@@ -1,0 +1,738 @@
+[debug] softlockup: Updates from upstream
+
+ a115d5caca1a2905ba7a32b408a6042b20179aaa fix the softlockup watchdog to actually work
+ 43581a10075492445f65234384210492ff333eba softlockup: improve debug output
+ a5f2ce3c6024a5bb895647b6bd88ecae5001020a softlockup watchdog: style cleanups
+ c4f3b63fe15b4629aa1ec163c95ab30423d0f76a softlockup: add a /proc tuning parameter
+ bcdcd8e725b923ad7c0de809680d5d5658a7bf8c Report that kernel is tainted if there was an OOPS
+ 82a1fcb90287052aabfa235e7ffc693ea003fe69 softlockup: automatically detect hung TASK_UNINTERRUPTIBLE tasks
+ 90739081ef8d5495d50abba9c5d333be9acd872a softlockup: fix signedness
+ ed50d6cbc394cd0966469d3e249353c9dd1d38b9 debug: softlockup looping fix
+ 7be2a03e3174cee3a3cdcdf17db357470f51caff softlockup: fix task state setting
+ 9383d9679056e6cc4e7ff70f31da945a268238f4 softlockup: fix softlockup_thresh unaligned access and disable detection at runtime
+ 688c91755dc3d3c03d8c67c1df13c02be258768e softlockup: print a module list on being stuck
+ 8d5be7f4e8515af461cbc8f07687ccc81507d508 softlockup: show irqtrace
+ dd7a1e5615b1719c0fdffee1ea5a7820ac8141a6 softlockup: fix watchdog task wakeup frequency
+ 316d9679f33caf7e683471647d1472bfe133d858 Don't trigger softlockup detector on network fs blocked tasks
+ cbaed698f37494b30b2449b51c728ae48630cb2b softlockup: minor cleanup, don't check task->state twice
+ baf48f6577e581a9adb8fe849dc80e24b21d171d softlock: fix false panic which can occur if softlockup_thresh is reduced
+ 8c2eb4805d422bdbf60ba00ff233c794d23c3c00 softlockup: Stop spurious softlockup messages due to overflow
+
+---
+ Documentation/oops-tracing.txt  |    2 
+ Documentation/sysctl/kernel.txt |    8 +
+ arch/alpha/kernel/traps.c       |    1 
+ arch/arm/kernel/traps.c         |    1 
+ arch/arm26/kernel/traps.c       |    1 
+ arch/avr32/kernel/traps.c       |    1 
+ arch/i386/kernel/traps.c        |    1 
+ arch/ia64/kernel/traps.c        |    1 
+ arch/m68k/kernel/traps.c        |    1 
+ arch/m68knommu/kernel/traps.c   |    1 
+ arch/mips/kernel/traps.c        |    1 
+ arch/parisc/kernel/traps.c      |    1 
+ arch/powerpc/kernel/traps.c     |    1 
+ arch/ppc/kernel/traps.c         |    1 
+ arch/s390/kernel/traps.c        |    1 
+ arch/sh/kernel/traps.c          |    1 
+ arch/sparc/kernel/traps.c       |    1 
+ arch/sparc64/kernel/traps.c     |    1 
+ arch/x86_64/kernel/traps.c      |    1 
+ arch/xtensa/kernel/traps.c      |    1 
+ include/linux/kernel.h          |    1 
+ include/linux/sched.h           |   14 +++
+ kernel/fork.c                   |    5 +
+ kernel/panic.c                  |    5 -
+ kernel/sched.c                  |    4 
+ kernel/softlockup.c             |  181 +++++++++++++++++++++++++++++++++++-----
+ kernel/sysctl.c                 |   60 +++++++++++--
+ 27 files changed, 267 insertions(+), 31 deletions(-)
+
+diff --git a/arch/alpha/kernel/traps.c b/arch/alpha/kernel/traps.c
+--- a/arch/alpha/kernel/traps.c
++++ b/arch/alpha/kernel/traps.c
+@@ -184,6 +184,7 @@ die_if_kernel(char * str, struct pt_regs
+ #endif
+ 	printk("%s(%d): %s %ld\n", current->comm, current->pid, str, err);
+ 	dik_show_regs(regs, r9_15);
++	add_taint(TAINT_DIE);
+ 	dik_show_trace((unsigned long *)(regs+1));
+ 	dik_show_code((unsigned int *)regs->pc);
+ 
+diff --git a/arch/arm/kernel/traps.c b/arch/arm/kernel/traps.c
+--- a/arch/arm/kernel/traps.c
++++ b/arch/arm/kernel/traps.c
+@@ -249,6 +249,7 @@ NORET_TYPE void die(const char *str, str
+ 	bust_spinlocks(1);
+ 	__die(str, err, thread, regs);
+ 	bust_spinlocks(0);
++	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die_lock);
+ 
+ 	if (in_interrupt())
+diff --git a/arch/arm26/kernel/traps.c b/arch/arm26/kernel/traps.c
+--- a/arch/arm26/kernel/traps.c
++++ b/arch/arm26/kernel/traps.c
+@@ -185,6 +185,7 @@ NORET_TYPE void die(const char *str, str
+ 	printk("Internal error: %s: %x\n", str, err);
+ 	printk("CPU: %d\n", smp_processor_id());
+ 	show_regs(regs);
++	add_taint(TAINT_DIE);
+ 	printk("Process %s (pid: %d, stack limit = 0x%p)\n",
+ 		current->comm, current->pid, end_of_stack(tsk));
+ 
+diff --git a/arch/avr32/kernel/traps.c b/arch/avr32/kernel/traps.c
+--- a/arch/avr32/kernel/traps.c
++++ b/arch/avr32/kernel/traps.c
+@@ -56,6 +56,7 @@ void NORET_TYPE die(const char *str, str
+ 	show_regs_log_lvl(regs, KERN_EMERG);
+ 	show_stack_log_lvl(current, regs->sp, regs, KERN_EMERG);
+ 	bust_spinlocks(0);
++	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die_lock);
+ 
+ 	if (in_interrupt())
+diff --git a/arch/i386/kernel/traps.c b/arch/i386/kernel/traps.c
+--- a/arch/i386/kernel/traps.c
++++ b/arch/i386/kernel/traps.c
+@@ -433,6 +433,7 @@ void die(const char * str, struct pt_reg
+ 
+ 	bust_spinlocks(0);
+ 	die.lock_owner = -1;
++	add_taint(TAINT_DIE);
+ 	spin_unlock_irqrestore(&die.lock, flags);
+ 
+ 	if (!regs)
+diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
+--- a/arch/ia64/kernel/traps.c
++++ b/arch/ia64/kernel/traps.c
+@@ -69,6 +69,7 @@ die (const char *str, struct pt_regs *re
+ 
+ 	bust_spinlocks(0);
+ 	die.lock_owner = -1;
++	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die.lock);
+ 
+ 	if (panic_on_oops)
+diff --git a/arch/m68k/kernel/traps.c b/arch/m68k/kernel/traps.c
+--- a/arch/m68k/kernel/traps.c
++++ b/arch/m68k/kernel/traps.c
+@@ -1170,6 +1170,7 @@ void die_if_kernel (char *str, struct pt
+ 	console_verbose();
+ 	printk("%s: %08x\n",str,nr);
+ 	show_registers(fp);
++	add_taint(TAINT_DIE);
+ 	do_exit(SIGSEGV);
+ }
+ 
+diff --git a/arch/m68knommu/kernel/traps.c b/arch/m68knommu/kernel/traps.c
+--- a/arch/m68knommu/kernel/traps.c
++++ b/arch/m68knommu/kernel/traps.c
+@@ -83,6 +83,7 @@ void die_if_kernel(char *str, struct pt_
+ 	printk(KERN_EMERG "Process %s (pid: %d, stackpage=%08lx)\n",
+ 		current->comm, current->pid, PAGE_SIZE+(unsigned long)current);
+ 	show_stack(NULL, (unsigned long *)fp);
++	add_taint(TAINT_DIE);
+ 	do_exit(SIGSEGV);
+ }
+ 
+diff --git a/arch/mips/kernel/traps.c b/arch/mips/kernel/traps.c
+--- a/arch/mips/kernel/traps.c
++++ b/arch/mips/kernel/traps.c
+@@ -331,6 +331,7 @@ NORET_TYPE void ATTRIB_NORET die(const c
+ #endif /* CONFIG_MIPS_MT_SMTC */
+ 	printk("%s[#%d]:\n", str, ++die_counter);
+ 	show_registers(regs);
++	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die_lock);
+ 
+ 	if (in_interrupt())
+diff --git a/arch/parisc/kernel/traps.c b/arch/parisc/kernel/traps.c
+--- a/arch/parisc/kernel/traps.c
++++ b/arch/parisc/kernel/traps.c
+@@ -264,6 +264,7 @@ KERN_CRIT "                     ||     |
+ 
+ 	show_regs(regs);
+ 	dump_stack();
++	add_taint(TAINT_DIE);
+ 
+ 	if (in_interrupt())
+ 		panic("Fatal exception in interrupt");
+diff --git a/arch/powerpc/kernel/traps.c b/arch/powerpc/kernel/traps.c
+--- a/arch/powerpc/kernel/traps.c
++++ b/arch/powerpc/kernel/traps.c
+@@ -149,6 +149,7 @@ int die(const char *str, struct pt_regs 
+ 
+ 	bust_spinlocks(0);
+ 	die.lock_owner = -1;
++	add_taint(TAINT_DIE);
+ 	spin_unlock_irqrestore(&die.lock, flags);
+ 
+ 	if (kexec_should_crash(current) ||
+diff --git a/arch/ppc/kernel/traps.c b/arch/ppc/kernel/traps.c
+--- a/arch/ppc/kernel/traps.c
++++ b/arch/ppc/kernel/traps.c
+@@ -92,6 +92,7 @@ int die(const char * str, struct pt_regs
+ 	if (nl)
+ 		printk("\n");
+ 	show_regs(fp);
++	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die_lock);
+ 	/* do_exit() should take care of panic'ing from an interrupt
+ 	 * context so we don't handle it here
+diff --git a/arch/s390/kernel/traps.c b/arch/s390/kernel/traps.c
+--- a/arch/s390/kernel/traps.c
++++ b/arch/s390/kernel/traps.c
+@@ -262,6 +262,7 @@ void die(const char * str, struct pt_reg
+ 	print_modules();
+ 	show_regs(regs);
+ 	bust_spinlocks(0);
++	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die_lock);
+ 	if (in_interrupt())
+ 		panic("Fatal exception in interrupt");
+diff --git a/arch/sh/kernel/traps.c b/arch/sh/kernel/traps.c
+--- a/arch/sh/kernel/traps.c
++++ b/arch/sh/kernel/traps.c
+@@ -103,6 +103,7 @@ void die(const char * str, struct pt_reg
+ 			 (unsigned long)task_stack_page(current));
+ 
+ 	bust_spinlocks(0);
++	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die_lock);
+ 
+ 	if (kexec_should_crash(current))
+diff --git a/arch/sparc/kernel/traps.c b/arch/sparc/kernel/traps.c
+--- a/arch/sparc/kernel/traps.c
++++ b/arch/sparc/kernel/traps.c
+@@ -101,6 +101,7 @@ void die_if_kernel(char *str, struct pt_
+ 
+ 	printk("%s(%d): %s [#%d]\n", current->comm, current->pid, str, ++die_counter);
+ 	show_regs(regs);
++	add_taint(TAINT_DIE);
+ 
+ 	__SAVE; __SAVE; __SAVE; __SAVE;
+ 	__SAVE; __SAVE; __SAVE; __SAVE;
+diff --git a/arch/sparc64/kernel/traps.c b/arch/sparc64/kernel/traps.c
+--- a/arch/sparc64/kernel/traps.c
++++ b/arch/sparc64/kernel/traps.c
+@@ -2229,6 +2229,7 @@ void die_if_kernel(char *str, struct pt_
+ 	notify_die(DIE_OOPS, str, regs, 0, 255, SIGSEGV);
+ 	__asm__ __volatile__("flushw");
+ 	__show_regs(regs);
++	add_taint(TAINT_DIE);
+ 	if (regs->tstate & TSTATE_PRIV) {
+ 		struct reg_window *rw = (struct reg_window *)
+ 			(regs->u_regs[UREG_FP] + STACK_BIAS);
+diff --git a/arch/x86_64/kernel/traps.c b/arch/x86_64/kernel/traps.c
+--- a/arch/x86_64/kernel/traps.c
++++ b/arch/x86_64/kernel/traps.c
+@@ -518,6 +518,7 @@ void __kprobes __die(const char * str, s
+ 	printk("\n");
+ 	notify_die(DIE_OOPS, str, regs, err, current->thread.trap_no, SIGSEGV);
+ 	show_registers(regs);
++	add_taint(TAINT_DIE);
+ 	/* Executive summary in case the oops scrolled away */
+ 	printk(KERN_ALERT "RIP ");
+ 	printk_address(regs->rip); 
+diff --git a/arch/xtensa/kernel/traps.c b/arch/xtensa/kernel/traps.c
+--- a/arch/xtensa/kernel/traps.c
++++ b/arch/xtensa/kernel/traps.c
+@@ -482,6 +482,7 @@ void die(const char * str, struct pt_reg
+ 	if (!user_mode(regs))
+ 		show_stack(NULL, (unsigned long*)regs->areg[1]);
+ 
++	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die_lock);
+ 
+ 	if (in_interrupt())
+diff --git a/Documentation/oops-tracing.txt b/Documentation/oops-tracing.txt
+--- a/Documentation/oops-tracing.txt
++++ b/Documentation/oops-tracing.txt
+@@ -237,6 +237,8 @@ characters, each representing a particul
+   7: 'U' if a user or user application specifically requested that the
+      Tainted flag be set, ' ' otherwise.
+ 
++  8: 'D' if the kernel has died recently, i.e. there was an OOPS or BUG.
++
+ The primary reason for the 'Tainted: ' string is to tell kernel
+ debuggers if this is a clean kernel or if anything unusual has
+ occurred.  Tainting is permanent: even if an offending module is
+diff --git a/Documentation/sysctl/kernel.txt b/Documentation/sysctl/kernel.txt
+--- a/Documentation/sysctl/kernel.txt
++++ b/Documentation/sysctl/kernel.txt
+@@ -320,6 +320,14 @@ kernel.  This value defaults to SHMMAX.
+ 
+ ==============================================================
+ 
++softlockup_thresh:
++
++This value can be used to lower the softlockup tolerance
++threshold. The default threshold is 10s.  If a cpu is locked up
++for 10s, the kernel complains.  Valid values are 1-60s.
++
++==============================================================
++
+ tainted: 
+ 
+ Non-zero if the kernel has been tainted.  Numeric values, which
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -254,6 +254,7 @@ extern enum system_states {
+ #define TAINT_MACHINE_CHECK		(1<<4)
+ #define TAINT_BAD_PAGE			(1<<5)
+ #define TAINT_USER			(1<<6)
++#define TAINT_DIE			(1<<7)
+ 
+ extern void dump_stack(void) __cold;
+ 
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -237,11 +237,20 @@ extern void trap_init(void);
+ extern void update_process_times(int user);
+ extern void scheduler_tick(void);
+ 
++extern void sched_show_task(struct task_struct *p);
++
+ #ifdef CONFIG_DETECT_SOFTLOCKUP
+ extern void softlockup_tick(void);
+ extern void spawn_softlockup_task(void);
+ extern void touch_softlockup_watchdog(void);
+ extern void touch_all_softlockup_watchdogs(void);
++extern int proc_dosoftlockup_thresh(struct ctl_table *table, int write,
++				    struct file *filp, void __user *buffer,
++				    size_t *lenp, loff_t *ppos);
++extern unsigned long sysctl_hung_task_check_count;
++extern unsigned long sysctl_hung_task_timeout_secs;
++extern unsigned long sysctl_hung_task_warnings;
++extern int softlockup_thresh;
+ #else
+ static inline void softlockup_tick(void)
+ {
+@@ -958,6 +967,11 @@ struct task_struct {
+ /* ipc stuff */
+ 	struct sysv_sem sysvsem;
+ #endif
++#ifdef CONFIG_DETECT_SOFTLOCKUP
++/* hung task detection */
++	unsigned long last_switch_timestamp;
++	unsigned long last_switch_count;
++#endif
+ /* CPU-specific state of this task */
+ 	struct thread_struct thread;
+ /* filesystem information */
+diff --git a/kernel/fork.c b/kernel/fork.c
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1007,6 +1007,11 @@ static struct task_struct *copy_process(
+ 	p->utime = cputime_zero;
+ 	p->stime = cputime_zero;
+  	p->sched_time = 0;
++#ifdef CONFIG_DETECT_SOFTLOCKUP
++	p->last_switch_count = 0;
++	p->last_switch_timestamp = 0;
++#endif
++
+ #ifdef CONFIG_TASK_XACCT
+ 	p->rchar = 0;		/* I/O counter: bytes read */
+ 	p->wchar = 0;		/* I/O counter: bytes written */
+diff --git a/kernel/panic.c b/kernel/panic.c
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -159,14 +159,15 @@ const char *print_tainted(void)
+ {
+ 	static char buf[20];
+ 	if (tainted) {
+-		snprintf(buf, sizeof(buf), "Tainted: %c%c%c%c%c%c%c",
++		snprintf(buf, sizeof(buf), "Tainted: %c%c%c%c%c%c%c%c",
+ 			tainted & TAINT_PROPRIETARY_MODULE ? 'P' : 'G',
+ 			tainted & TAINT_FORCED_MODULE ? 'F' : ' ',
+ 			tainted & TAINT_UNSAFE_SMP ? 'S' : ' ',
+ 			tainted & TAINT_FORCED_RMMOD ? 'R' : ' ',
+  			tainted & TAINT_MACHINE_CHECK ? 'M' : ' ',
+ 			tainted & TAINT_BAD_PAGE ? 'B' : ' ',
+-			tainted & TAINT_USER ? 'U' : ' ');
++			tainted & TAINT_USER ? 'U' : ' ',
++			tainted & TAINT_DIE ? 'D' : ' ');
+ 	}
+ 	else
+ 		snprintf(buf, sizeof(buf), "Not tainted");
+diff --git a/kernel/sched.c b/kernel/sched.c
+--- a/kernel/sched.c
++++ b/kernel/sched.c
+@@ -5018,7 +5018,7 @@ out_unlock:
+ 
+ static const char stat_nam[] = "RSDTtZX";
+ 
+-static void show_task(struct task_struct *p)
++void sched_show_task(struct task_struct *p)
+ {
+ 	unsigned long free = 0;
+ 	unsigned state;
+@@ -5076,7 +5076,7 @@ void show_state_filter(unsigned long sta
+ 		 */
+ 		touch_nmi_watchdog();
+ 		if (!state_filter || (p->state & state_filter))
+-			show_task(p);
++			sched_show_task(p);
+ 	} while_each_thread(g, p);
+ 
+ 	touch_all_softlockup_watchdogs();
+diff --git a/kernel/softlockup.c b/kernel/softlockup.c
+--- a/kernel/softlockup.c
++++ b/kernel/softlockup.c
+@@ -8,11 +8,16 @@
+  */
+ #include <linux/mm.h>
+ #include <linux/cpu.h>
++#include <linux/nmi.h>
+ #include <linux/init.h>
+ #include <linux/delay.h>
+ #include <linux/kthread.h>
++#include <linux/lockdep.h>
+ #include <linux/notifier.h>
+ #include <linux/module.h>
++#include <linux/sysctl.h>
++
++#include <asm/irq_regs.h>
+ 
+ static DEFINE_SPINLOCK(print_lock);
+ 
+@@ -20,7 +25,8 @@ static DEFINE_PER_CPU(unsigned long, tou
+ static DEFINE_PER_CPU(unsigned long, print_timestamp);
+ static DEFINE_PER_CPU(struct task_struct *, watchdog_task);
+ 
+-static int did_panic = 0;
++static int __read_mostly did_panic;
++int __read_mostly softlockup_thresh = 120;
+ 
+ static int
+ softlock_panic(struct notifier_block *this, unsigned long event, void *ptr)
+@@ -60,6 +66,14 @@ void touch_all_softlockup_watchdogs(void
+ }
+ EXPORT_SYMBOL(touch_all_softlockup_watchdogs);
+ 
++int proc_dosoftlockup_thresh(struct ctl_table *table, int write,
++			     struct file *filp, void __user *buffer,
++			     size_t *lenp, loff_t *ppos)
++{
++	touch_all_softlockup_watchdogs();
++	return proc_dointvec_minmax(table, write, filp, buffer, lenp, ppos);
++}
++
+ /*
+  * This callback runs from the timer interrupt, and checks
+  * whether the watchdog thread has hung or not:
+@@ -69,8 +83,17 @@ void softlockup_tick(void)
+ 	int this_cpu = smp_processor_id();
+ 	unsigned long touch_timestamp = per_cpu(touch_timestamp, this_cpu);
+ 	unsigned long print_timestamp;
++	struct pt_regs *regs = get_irq_regs();
+ 	unsigned long now;
+ 
++	/* Is detection switched off? */
++	if (!per_cpu(watchdog_task, this_cpu) || softlockup_thresh <= 0) {
++		/* Be sure we don't false trigger if switched back on */
++		if (touch_timestamp)
++			per_cpu(touch_timestamp, this_cpu) = 0;
++		return;
++	}
++
+ 	if (touch_timestamp == 0) {
+ 		touch_softlockup_watchdog();
+ 		return;
+@@ -79,10 +102,11 @@ void softlockup_tick(void)
+ 	print_timestamp = per_cpu(print_timestamp, this_cpu);
+ 
+ 	/* report at most once a second */
+-	if (print_timestamp < (touch_timestamp + 1) ||
+-		did_panic ||
+-			!per_cpu(watchdog_task, this_cpu))
++	if ((print_timestamp >= touch_timestamp &&
++			print_timestamp < (touch_timestamp + 1)) ||
++			did_panic) {
+ 		return;
++	}
+ 
+ 	/* do not print during early bootup: */
+ 	if (unlikely(system_state != SYSTEM_RUNNING)) {
+@@ -92,28 +116,121 @@ void softlockup_tick(void)
+ 
+ 	now = get_timestamp();
+ 
+-	/* Wake up the high-prio watchdog task every second: */
+-	if (now > (touch_timestamp + 1))
++	/*
++	 * Wake up the high-prio watchdog task twice per
++	 * threshold timespan.
++	 */
++	if (time_after(now - softlockup_thresh/2, touch_timestamp))
+ 		wake_up_process(per_cpu(watchdog_task, this_cpu));
+ 
+-	/* Warn about unreasonable 10+ seconds delays: */
+-	if (now > (touch_timestamp + 10)) {
+-		per_cpu(print_timestamp, this_cpu) = touch_timestamp;
+-
+-		spin_lock(&print_lock);
+-		printk(KERN_ERR "BUG: soft lockup detected on CPU#%d!\n",
+-			this_cpu);
++	/* Warn about unreasonable delays: */
++	if (time_before_eq(now - softlockup_thresh, touch_timestamp))
++		return;
++
++	per_cpu(print_timestamp, this_cpu) = touch_timestamp;
++
++	spin_lock(&print_lock);
++	printk(KERN_ERR "BUG: soft lockup - CPU#%d stuck for %lus! [%s:%d]\n",
++			this_cpu, now - touch_timestamp,
++				current->comm, current->pid);
++	print_modules();
++	print_irqtrace_events(current);
++	if (regs)
++		show_regs(regs);
++	else
+ 		dump_stack();
+-		spin_unlock(&print_lock);
++	spin_unlock(&print_lock);
++}
++
++/*
++ * Have a reasonable limit on the number of tasks checked:
++ */
++unsigned long __read_mostly sysctl_hung_task_check_count = 1024;
++
++/*
++ * Zero means infinite timeout - no checking done:
++ */
++unsigned long __read_mostly sysctl_hung_task_timeout_secs = 120;
++
++unsigned long __read_mostly sysctl_hung_task_warnings = 10;
++
++/*
++ * Only do the hung-tasks check on one CPU:
++ */
++static int check_cpu __read_mostly = -1;
++
++static void check_hung_task(struct task_struct *t, unsigned long now)
++{
++	unsigned long switch_count = t->nvcsw + t->nivcsw;
++
++	if (t->flags & PF_FROZEN)
++		return;
++
++	if (switch_count != t->last_switch_count || !t->last_switch_timestamp) {
++		t->last_switch_count = switch_count;
++		t->last_switch_timestamp = now;
++		return;
+ 	}
++	if ((long)(now - t->last_switch_timestamp) <
++					sysctl_hung_task_timeout_secs)
++		return;
++	if (sysctl_hung_task_warnings < 0)
++		return;
++	sysctl_hung_task_warnings--;
++
++	/*
++	 * Ok, the task did not get scheduled for more than 2 minutes,
++	 * complain:
++	 */
++	printk(KERN_ERR "INFO: task %s:%d blocked for more than "
++			"%ld seconds.\n", t->comm, t->pid,
++			sysctl_hung_task_timeout_secs);
++	printk(KERN_ERR "\"echo 0 > /proc/sys/kernel/hung_task_timeout_secs\""
++			" disables this message.\n");
++	sched_show_task(t);
++	debug_show_held_locks(t);
++
++	t->last_switch_timestamp = now;
++	touch_nmi_watchdog();
++}
++
++/*
++ * Check whether a TASK_UNINTERRUPTIBLE does not get woken up for
++ * a really long time (120 seconds). If that happens, print out
++ * a warning.
++ */
++static void check_hung_uninterruptible_tasks(int this_cpu)
++{
++	int max_count = sysctl_hung_task_check_count;
++	unsigned long now = get_timestamp();
++	struct task_struct *g, *t;
++
++	/*
++	 * If the system crashed already then all bets are off,
++	 * do not report extra hung tasks:
++	 */
++	if ((tainted & TAINT_DIE) || did_panic)
++		return;
++
++	read_lock(&tasklist_lock);
++	do_each_thread(g, t) {
++		if (!--max_count)
++			goto unlock;
++		/* use "==" to skip the TASK_KILLABLE tasks waiting on NFS */
++		if (t->state == TASK_UNINTERRUPTIBLE)
++			check_hung_task(t, now);
++	} while_each_thread(g, t);
++ unlock:
++	read_unlock(&tasklist_lock);
+ }
+ 
+ /*
+  * The watchdog thread - runs every second and touches the timestamp.
+  */
+-static int watchdog(void * __bind_cpu)
++static int watchdog(void *__bind_cpu)
+ {
+ 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
++	int this_cpu = (long)__bind_cpu;
+ 
+ 	sched_setscheduler(current, SCHED_FIFO, &param);
+ 	current->flags |= PF_NOFREEZE;
+@@ -121,16 +238,27 @@ static int watchdog(void * __bind_cpu)
+ 	/* initialize timestamp */
+ 	touch_softlockup_watchdog();
+ 
++	set_current_state(TASK_INTERRUPTIBLE);
+ 	/*
+ 	 * Run briefly once per second to reset the softlockup timestamp.
+-	 * If this gets delayed for more than 10 seconds then the
++	 * If this gets delayed for more than 60 seconds then the
+ 	 * debug-printout triggers in softlockup_tick().
+ 	 */
+ 	while (!kthread_should_stop()) {
+-		set_current_state(TASK_INTERRUPTIBLE);
+ 		touch_softlockup_watchdog();
+ 		schedule();
++
++		if (kthread_should_stop())
++			break;
++
++		if (this_cpu == check_cpu) {
++			if (sysctl_hung_task_timeout_secs)
++				check_hung_uninterruptible_tasks(this_cpu);
++		}
++
++		set_current_state(TASK_INTERRUPTIBLE);
+ 	}
++	__set_current_state(TASK_RUNNING);
+ 
+ 	return 0;
+ }
+@@ -150,18 +278,29 @@ cpu_callback(struct notifier_block *nfb,
+ 		BUG_ON(per_cpu(watchdog_task, hotcpu));
+ 		p = kthread_create(watchdog, hcpu, "watchdog/%d", hotcpu);
+ 		if (IS_ERR(p)) {
+-			printk("watchdog for %i failed\n", hotcpu);
++			printk(KERN_ERR "watchdog for %i failed\n", hotcpu);
+ 			return NOTIFY_BAD;
+ 		}
+-  		per_cpu(touch_timestamp, hotcpu) = 0;
+-  		per_cpu(watchdog_task, hotcpu) = p;
++		per_cpu(touch_timestamp, hotcpu) = 0;
++		per_cpu(watchdog_task, hotcpu) = p;
+ 		kthread_bind(p, hotcpu);
+- 		break;
++		break;
+ 	case CPU_ONLINE:
+ 	case CPU_ONLINE_FROZEN:
++		check_cpu = any_online_cpu(cpu_online_map);
+ 		wake_up_process(per_cpu(watchdog_task, hotcpu));
+ 		break;
+ #ifdef CONFIG_HOTPLUG_CPU
++	case CPU_DOWN_PREPARE:
++	case CPU_DOWN_PREPARE_FROZEN:
++		if (hotcpu == check_cpu) {
++			cpumask_t temp_cpu_online_map = cpu_online_map;
++
++			cpu_clear(hotcpu, temp_cpu_online_map);
++			check_cpu = any_online_cpu(temp_cpu_online_map);
++		}
++		break;
++
+ 	case CPU_UP_CANCELED:
+ 	case CPU_UP_CANCELED_FROZEN:
+ 		if (!per_cpu(watchdog_task, hotcpu))
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -80,6 +80,16 @@ extern int compat_log;
+ extern int maps_protect;
+ extern int sysctl_stat_interval;
+ 
++/* Constants used for minimum and  maximum */
++#ifdef CONFIG_DETECT_SOFTLOCKUP
++static int one = 1;
++static int sixty = 60;
++static int neg_one = -1;
++#endif
++
++static int zero;
++static int one_hundred = 100;
++
+ /* this is needed for the proc_dointvec_minmax for [fs_]overflow UID and GID */
+ static int maxolduid = 65535;
+ static int minolduid;
+@@ -608,6 +622,46 @@ static ctl_table kern_table[] = {
+ 		.proc_handler	= &proc_dointvec,
+ 	},
+ #endif
++#ifdef CONFIG_DETECT_SOFTLOCKUP
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "softlockup_thresh",
++		.data		= &softlockup_thresh,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dosoftlockup_thresh,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &neg_one,
++		.extra2		= &sixty,
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "hung_task_check_count",
++		.data		= &sysctl_hung_task_check_count,
++		.maxlen		= sizeof(unsigned long),
++		.mode		= 0644,
++		.proc_handler	= &proc_doulongvec_minmax,
++		.strategy	= &sysctl_intvec,
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "hung_task_timeout_secs",
++		.data		= &sysctl_hung_task_timeout_secs,
++		.maxlen		= sizeof(unsigned long),
++		.mode		= 0644,
++		.proc_handler	= &proc_doulongvec_minmax,
++		.strategy	= &sysctl_intvec,
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "hung_task_warnings",
++		.data		= &sysctl_hung_task_warnings,
++		.maxlen		= sizeof(unsigned long),
++		.mode		= 0644,
++		.proc_handler	= &proc_doulongvec_minmax,
++		.strategy	= &sysctl_intvec,
++	},
++#endif
+ #ifdef CONFIG_COMPAT
+ 	{
+ 		.ctl_name	= KERN_COMPAT_LOG,
+@@ -642,12 +696,6 @@ static ctl_table kern_table[] = {
+ 	{ .ctl_name = 0 }
+ };
+ 
+-/* Constants for minimum and maximum testing in vm_table.
+-   We use these as one-element integer vectors. */
+-static int zero;
+-static int one_hundred = 100;
+-
+-
+ static ctl_table vm_table[] = {
+ 	{
+ 		.ctl_name	= VM_OVERCOMMIT_MEMORY,
+-- 
