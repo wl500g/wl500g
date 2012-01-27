@@ -5,6 +5,7 @@ jbd: updates from 2.6.32.48
  e4d5e3a497e159be7c2dbe4c61cfb185d60cfde2 jbd: Convert atomic_inc() to get_bh()
  bb189247f35688a3353545902c56290fb7d7754a jbd: Fix oops in journal_remove_journal_head()
  8762202dd0d6e46854f786bdb6fb3780a1625efe jbd/jbd2: validate sb->s_first in journal_get_superblock()
+ 353b67d8ced4dc53281c88150ad295e24bc4b4c5 jbd: Issue cache flush after checkpointing
 
 ---
  fs/jbd/checkpoint.c  |   75 +++++++++++-----
@@ -826,7 +827,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
  		  journal->j_tail, journal->j_tail_sequence, journal->j_errno);
  
  	sb->s_sequence = cpu_to_be32(journal->j_tail_sequence);
-@@ -1135,6 +1135,14 @@ static int journal_get_superblock(journal_t *journal)
+@@ -1030,6 +1070,14 @@ static int journal_get_superblock(journa
  		goto out;
  	}
  
@@ -841,7 +842,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
  	return 0;
  
  out:
-@@ -1344,7 +1384,7 @@ int journal_flush(journal_t *journal)
+@@ -1344,7 +1392,7 @@ int journal_flush(journal_t *journal)
  {
  	int err = 0;
  	transaction_t *transaction = NULL;
@@ -850,7 +851,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
  
  	spin_lock(&journal->j_state_lock);
  
-@@ -1708,10 +1748,9 @@ static void journal_free_journal_head(st
+@@ -1708,10 +1756,9 @@ static void journal_free_journal_head(st
   * When a buffer has its BH_JBD bit set it is immune from being released by
   * core kernel code, mainly via ->b_count.
   *
@@ -864,7 +865,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
   *
   * Various places in the kernel want to attach a journal_head to a buffer_head
   * _before_ attaching the journal_head to a transaction.  To protect the
-@@ -1724,17 +1763,16 @@ static void journal_free_journal_head(st
+@@ -1724,17 +1771,16 @@ static void journal_free_journal_head(st
   *	(Attach a journal_head if needed.  Increments b_jcount)
   *	struct journal_head *jh = journal_add_journal_head(bh);
   *	...
@@ -887,7 +888,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
   * May sleep.
   */
  struct journal_head *journal_add_journal_head(struct buffer_head *bh)
-@@ -1798,61 +1836,29 @@ static void __journal_remove_journal_hea
+@@ -1798,61 +1844,29 @@ static void __journal_remove_journal_hea
  	struct journal_head *jh = bh2jh(bh);
  
  	J_ASSERT_JH(jh, jh->b_jcount >= 0);
@@ -969,7 +970,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
   * release the journal_head from the buffer_head.
   */
  void journal_put_journal_head(struct journal_head *jh)
-@@ -1862,11 +1868,12 @@ void journal_put_journal_head(struct jou
+@@ -1862,11 +1876,12 @@ void journal_put_journal_head(struct jou
  	jbd_lock_bh_journal_head(bh);
  	J_ASSERT_JH(jh, jh->b_jcount > 0);
  	--jh->b_jcount;
@@ -985,7 +986,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
  }
  
  /*
-@@ -1884,7 +1891,7 @@ static void __init jbd_create_debugfs_en
+@@ -1884,7 +1899,7 @@ static void __init jbd_create_debugfs_en
  {
  	jbd_debugfs_dir = debugfs_create_dir("jbd", NULL);
  	if (jbd_debugfs_dir)
