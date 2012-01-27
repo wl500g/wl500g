@@ -273,7 +273,8 @@ PPPOEDisconnectDevice(void)
 		sizeof(struct sockaddr_pppox)) < 0)
 	error("Failed to disconnect PPPoE socket: %d %m", errno);
     close(conn->sessionSocket);
-    /* don't send PADT?? */
+    /* Send PADT to reset the session unresponsive at buggy nas */
+    sendPADT(conn, NULL);
     if (conn->discoverySocket >= 0)
 	close(conn->discoverySocket);
 }
