@@ -863,6 +863,8 @@ void hotplug_usb_modeswitch(const char *interface, const char *action, const cha
 	int i = 0;
 	char sFileName[128];
 	char sPath[128] = "";
+	char sVid[0x0F] = "";
+	char sPid[0x0F] = "";
 
 #define CNT_VE_STR 2
 	char *sMaList[] = {
@@ -872,6 +874,7 @@ void hotplug_usb_modeswitch(const char *interface, const char *action, const cha
 
 		// names for uMa=...
 		"AnyDATA",
+		"DGT",
 		"SAMSUNG",
 		"Vertex",
 		"SSE",
@@ -885,21 +888,30 @@ void hotplug_usb_modeswitch(const char *interface, const char *action, const cha
 		"-W",
 #endif
 		"-D",
+		"-v",
+		sVid,
+		"-p",
+		sPid,
 		"-c",
 		sPath,
 		NULL
 	};
 
 	if (strcmp(action, "add") == 0 && !hotplug_check_prev_zerocd_processed(product,device)) {
+
+		if (parse_product_string(product, &vid, &pid)) {
+			sprintf(sVid, "0x%04x", vid);
+			sprintf(sPid, "0x%04x", pid);
+		}
+
 		if (nvram_match("wan_modem_zerocd_mode", "UserDefined")) {
 			strcpy(sPath, "/usr/local/etc/usb_modeswitch.conf");
 		} else if (nvram_match("wan_modem_zerocd_mode", "Auto")) {
-			if (parse_product_string(product, &vid, &pid)) 
-			{
+			if ( *sVid && *sPid ){
 				sprintf(sFileName, "%04x:%04x", vid, pid);
 				if ((vid == 0x05c6 && pid == 0x1000) ||
 					(vid == 0x1a8d && pid == 0x1000) ||
-					(vid == 0x0471 && pid == 0x1210)) 
+					(vid == 0x0471 && pid == 0x1210))
 				{
 					FILE *file;
 					char str[255];
@@ -977,15 +989,8 @@ void hotplug_usb_modeswitch(const char *interface, const char *action, const cha
 		}
 
 		//******* exec user script ******************
-		char *sVid = sPath, *sPid = sPath + 0x10;
-
-		if (parse_product_string(product, &vid, &pid)) {
-			sprintf(sVid, "0x%04x", vid);
-			sprintf(sPid, "0x%04x", pid);
-		} else { 
-			*sVid = *sPid = '\0';
-		}
 		hotplug_exec_user_modem_init_script(sVid, sPid, device);
+
 	} else if(strcmp(action, "remove") == 0 ) {
 		hotplug_release_zerocd_processed(product, device);
 	}
