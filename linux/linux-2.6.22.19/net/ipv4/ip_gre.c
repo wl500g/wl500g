@@ -66,10 +66,7 @@
    solution, but it supposes maintaing new variable in ALL
    skb, even if no tunneling is used.
 
-   Current solution: t->recursion lock breaks dead loops. It looks
-   like dev->tbusy flag, but I preferred new variable, because
-   the semantics is different. One day, when hard_start_xmit
-   will be multithreaded we will have to use skb->encapsulation.
+   Current solution: HARD_TX_LOCK lock breaks dead loops.
 
 
 
@@ -262,35 +259,35 @@ static struct ip_tunnel * ipgre_tunnel_locate(struct ip_tunnel_parm *parms, int 
 
 	if (parms->name[0])
 		strlcpy(name, parms->name, IFNAMSIZ);
-	else {
-		int i;
-		for (i=1; i<100; i++) {
-			sprintf(name, "gre%d", i);
-			if (__dev_get_by_name(name) == NULL)
-				break;
-		}
-		if (i==100)
-			goto failed;
-	}
+	else
+		sprintf(name, "gre%%d");
 
 	dev = alloc_netdev(sizeof(*t), name, ipgre_tunnel_setup);
 	if (!dev)
 	  return NULL;
 
+	if (strchr(name, '%')) {
+		if (dev_alloc_name(dev, name) < 0)
+			goto failed_free;
+	}
+
 	dev->init = ipgre_tunnel_init;
 	nt = netdev_priv(dev);
 	nt->parms = *parms;
 
-	if (register_netdevice(dev) < 0) {
-		free_netdev(dev);
-		goto failed;
-	}
+	if (register_netdevice(dev) < 0)
+		goto failed_free;
+
+	/* Can use a lockless transmit, unless we generate output sequences */
+	if (!(nt->parms.o_flags & GRE_SEQ))
+		dev->features |= NETIF_F_LLTX;
 
 	dev_hold(dev);
 	ipgre_tunnel_link(nt);
 	return nt;
 
-failed:
+failed_free:
+	free_netdev(dev);
 	return NULL;
 }
 
@@ -683,11 +680,6 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 	__be32 dst;
 	int    mtu;
 
-	if (tunnel->recursion++) {
-		tunnel->stat.collisions++;
-		goto tx_error;
-	}
-
 	if (dev->hard_header) {
 		gre_hlen = 0;
 		tiph = (struct iphdr*)skb->data;
@@ -737,10 +729,10 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	tos = tiph->tos;
-	if (tos&1) {
+	if (tos == 1) {
+		tos = 0;
 		if (skb->protocol == htons(ETH_P_IP))
 			tos = old_iph->tos;
-		tos &= ~1;
 	}
 
 	{
@@ -820,7 +812,6 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 			ip_rt_put(rt);
 			stats->tx_dropped++;
 			dev_kfree_skb(skb);
-			tunnel->recursion--;
 			return 0;
 		}
 		if (skb->sk)
@@ -887,7 +878,6 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 	nf_reset(skb);
 
 	IPTUNNEL_XMIT();
-	tunnel->recursion--;
 	return 0;
 
 tx_error_icmp:
@@ -896,7 +886,6 @@ tx_error_icmp:
 tx_error:
 	stats->tx_errors++;
 	dev_kfree_skb(skb);
-	tunnel->recursion--;
 	return 0;
 }
 

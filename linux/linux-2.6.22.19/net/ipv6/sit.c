@@ -163,35 +163,32 @@ static struct ip_tunnel * ipip6_tunnel_locate(struct ip_tunnel_parm *parms, int 
 
 	if (parms->name[0])
 		strlcpy(name, parms->name, IFNAMSIZ);
-	else {
-		int i;
-		for (i=1; i<100; i++) {
-			sprintf(name, "sit%d", i);
-			if (__dev_get_by_name(name) == NULL)
-				break;
-		}
-		if (i==100)
-			goto failed;
-	}
+	else
+		sprintf(name, "sit%%d");
 
 	dev = alloc_netdev(sizeof(*t), name, ipip6_tunnel_setup);
 	if (dev == NULL)
 		return NULL;
 
+	if (strchr(name, '%')) {
+		if (dev_alloc_name(dev, name) < 0)
+			goto failed_free;
+	}
+
 	nt = netdev_priv(dev);
 	dev->init = ipip6_tunnel_init;
 	nt->parms = *parms;
 
-	if (register_netdevice(dev) < 0) {
-		free_netdev(dev);
-		goto failed;
-	}
+	if (register_netdevice(dev) < 0)
+		goto failed_free;
 
 	dev_hold(dev);
 
 	ipip6_tunnel_link(nt);
 	return nt;
 
+failed_free:
+	free_netdev(dev);
 failed:
 	return NULL;
 }
@@ -436,11 +433,6 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct in6_addr *addr6;
 	int addr_type;
 
-	if (tunnel->recursion++) {
-		tunnel->stat.collisions++;
-		goto tx_error;
-	}
-
 	if (skb->protocol != htons(ETH_P_IPV6))
 		goto tx_error;
 
@@ -539,7 +531,6 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 			ip_rt_put(rt);
 			stats->tx_dropped++;
 			dev_kfree_skb(skb);
-			tunnel->recursion--;
 			return 0;
 		}
 		if (skb->sk)
@@ -580,7 +571,6 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 	nf_reset(skb);
 
 	IPTUNNEL_XMIT();
-	tunnel->recursion--;
 	return 0;
 
 tx_error_icmp:
@@ -588,7 +578,6 @@ tx_error_icmp:
 tx_error:
 	stats->tx_errors++;
 	dev_kfree_skb(skb);
-	tunnel->recursion--;
 	return 0;
 }
 
