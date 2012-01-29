@@ -1,0 +1,14 @@
+Workaround for buggy nas
+
+diff --git a/src/plugin.c b/src/plugin.c
+--- a/src/plugin.c
++++ b/src/plugin.c
+@@ -266,6 +266,8 @@ PPPOEDisconnectDevice(void)
+ 	return;
+     }
+     close(conn->sessionSocket);
++    /* Send PADT to reset the session unresponsive at buggy nas */
++    sendPADT(conn, NULL);
+     close(conn->discoverySocket);
+ 
+ }
