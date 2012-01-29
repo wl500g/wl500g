@@ -11748,7 +11748,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 +	ext_debug("ext4_end_io_dio(): io_end 0x%p"
 +		  "for inode %lu, iocb 0x%p, offset %llu, size %llu\n",
 + 		  iocb->private, io_end->inode->i_ino, iocb, offset,
-+		  size);
++		  (unsigned long long) size);
 +
 +	/* if not aio dio with unwritten extents, just free io and return */
 +	if (io_end->flag != DIO_AIO_UNWRITTEN){
