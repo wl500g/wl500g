@@ -17,6 +17,7 @@ ext4: Updates from upstream 2
  f17722f917b2f21497deb6edc62fb1683daa08e6 ext4: Fix max file size and logical block counting of extent format file
  6d6a435190bdf2e04c9465cde5bdc3ac68cf11a4 ext4: fix race in xattr block allocation path
  8e8eaabefee3ff645b9551ee32c6c54c7d80ad19 ext4: use the nblocks arg to ext4_truncate_restart_trans()
+ b4fb718e49d077ae66524193c749cf4b3b5f934e ext4: fix undefined behavior in ext4_fill_flex_info()
 
 ---
  fs/ext4/balloc.c       |   38 ------------
@@ -30,9 +31,9 @@ ext4: Updates from upstream 2
  fs/ext4/migrate.c      |   23 +++++--
  fs/ext4/move_extent.c  |   10 +--
  fs/ext4/namei.c        |   63 ++++++++------------
- fs/ext4/super.c        |   15 +++-
+ fs/ext4/super.c        |   22 ++++---
  fs/ext4/xattr.c        |   14 +++-
- 13 files changed, 291 insertions(+), 209 deletions(-)
+ 13 files changed, 294 insertions(+), 213 deletions(-)
 
 diff --git a/fs/ext4/balloc.c b/fs/ext4/balloc.c
 --- a/fs/ext4/balloc.c
@@ -951,6 +952,27 @@ diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
+@@ -1705,17 +1705,16 @@ static int ext4_fill_flex_info(struct super_block *sb)
+ 	struct ext4_group_desc *gdp = NULL;
+ 	ext4_group_t flex_group_count;
+ 	ext4_group_t flex_group;
+-	int groups_per_flex = 0;
++	unsigned int groups_per_flex = 0;
+ 	size_t size;
+ 	int i;
+ 
+ 	sbi->s_log_groups_per_flex = sbi->s_es->s_log_groups_per_flex;
+-	groups_per_flex = 1 << sbi->s_log_groups_per_flex;
+-
+-	if (groups_per_flex < 2) {
++	if (sbi->s_log_groups_per_flex < 1 || sbi->s_log_groups_per_flex > 31) {
+ 		sbi->s_log_groups_per_flex = 0;
+ 		return 1;
+ 	}
++	groups_per_flex = 1 << sbi->s_log_groups_per_flex;
+ 
+ 	/* We allocate both existing and potentially added groups */
+ 	flex_group_count = ((sbi->s_groups_count + groups_per_flex - 1) +
 @@ -1913,6 +1913,12 @@ static void ext4_orphan_cleanup(struct s
   * in the vfs.  ext4 inode has 48 bits of i_block in fsblock units,
   * so that won't be a limiting factor.
