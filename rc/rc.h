@@ -120,7 +120,9 @@ int stop_vlan(void);
 void start_lan(void);
 void stop_lan(void);
 void start_wan(void);
-void stop_wan(const char *ifname);
+void stop_wan(void);
+void start_wan_unit(int unit);
+void stop_wan_unit(int unit);
 void wan_up(const char *ifname);
 void wan_down(const char *ifname);
 #ifdef __CONFIG_IPV6__

@@ -503,11 +503,12 @@ void convert_asus_values()
 	}
 #endif
 
-	if (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") ||
-		nvram_match("wan_proto", "l2tp"))
+	if (nvram_match("wan_proto", "pppoe") ||
+	    nvram_match("wan_proto", "pptp") ||
+	    nvram_match("wan_proto", "l2tp"))
 	{
 		nvram_set("wan0_pppoe_ifname", "ppp0");
-		nvram_set("upnp_wan_proto", "pppoe");
+		//nvram_set("upnp_wan_proto", "pppoe");
 		nvram_set("wan0_pppoe_username", nvram_safe_get("wan_pppoe_username"));
 		nvram_set("wan0_pppoe_passwd", nvram_safe_get("wan_pppoe_passwd"));
 		nvram_set("wan0_pppoe_idletime", nvram_safe_get("wan_pppoe_idletime"));

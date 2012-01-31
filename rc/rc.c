@@ -744,7 +744,7 @@ main_loop(void)
 			stop_misc();
 #endif
 			stop_services();
-			stop_wan(NULL);
+			stop_wan();
 			stop_lan();
 
 			if (boardflags & BFL_ENETVLAN)
