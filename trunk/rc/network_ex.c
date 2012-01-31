@@ -35,14 +35,14 @@
 
 int start_pppd(const char *prefix)
 {
-	int i, fd, ret;
+	int i, fd, unit, ret;
 	FILE *fp;
 	char options[80];
 	char *pppd_argv[] = { "pppd", "file", options, NULL};
 	char tmp[100];
 
-	sprintf(options, "/tmp/ppp/options.wan%s", 
-		nvram_safe_get(strcat_r(prefix, "unit", tmp)));
+	unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
+	sprintf(options, "/tmp/ppp/options.wan%d", unit);
 
 	/* Generate options file */
 	fd = open(options, O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
@@ -132,8 +132,7 @@ int start_pppd(const char *prefix)
 		"lcp-echo-interval 10\n"
 		"lcp-echo-failure 6\n");
 
-	fprintf(fp, "unit %s\n", 
-		nvram_get(strcat_r(prefix, "unit", tmp)) ? : "0");
+	fprintf(fp, "unit %d\n", unit);
 
 #ifdef __CONFIG_IPV6__
 	/* Enable IPv6 and IPv6CP */

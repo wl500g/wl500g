@@ -767,64 +767,20 @@ int wan_valid(const char *ifname)
 	return 0;
 }
 
-void start_wan(void)
+void start_wan_unit(int unit)
 {
 	char *wan_ifname;
 	char *wan_proto;
-	int unit;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char eabuf[32];
 	int s;
 	struct ifreq ifr;
 
-	/* check if we need to setup WAN */
-	if (nvram_match("router_disable", "1"))
-		return;
-
-#if defined(__CONFIG_MADWIMAX__) || defined( __CONFIG_MODEM__)
-	hotplug_sem_open();
-#endif
-
 #ifdef ASUS_EXT
 	update_wan_status(0);
-	/* start connection independent firewall */
-	/* start_firewall(); */
-#else
-	/* start connection independent firewall */
-	start_firewall();
 #endif
 
-	/* Create links */
-	mkdir("/tmp/ppp", 0777);
-	symlink("/sbin/rc", "/tmp/ppp/auth-up");
-	symlink("/sbin/rc", "/tmp/ppp/auth-down");
-	symlink("/sbin/rc", "/tmp/ppp/ip-up");
-	symlink("/sbin/rc", "/tmp/ppp/ip-down");
-#ifdef __CONFIG_IPV6__
-	symlink("/sbin/rc", "/tmp/ppp/ipv6-up");
-	symlink("/sbin/rc", "/tmp/ppp/ipv6-down");
-	symlink("/sbin/rc", "/tmp/dhcp6c.script");
-#endif
-	symlink("/sbin/rc", "/tmp/udhcpc.script");
-	symlink("/sbin/rc", "/tmp/zcip.script");
-#ifdef __CONFIG_EAPOL__
-	symlink("/sbin/rc", "/tmp/wpa_cli.script");
-#endif
-
-#ifdef __CONFIG_MODEM__
-	/* ppp contents */
-	mkdir("/tmp/ppp/peers", 0777);
-#endif
-
-	//symlink("/dev/null", "/tmp/ppp/connect-errors");
-
-	/* Start each configured and enabled wan connection and its undelying i/f */
-	for (unit = 0; unit < MAX_NVPARSE; unit ++) 
-	{
-#ifdef ASUS_EXT // Only multiple pppoe is allowed 
-		if (unit>0 && nvram_invmatch("wan_proto", "pppoe")) break;
-#endif
-
+	do {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 		/* make sure the connection exists and is enabled */ 
@@ -843,6 +799,7 @@ void start_wan(void)
 			nvram_set(strcat_r(prefix, "proto", tmp), "disabled");
 			continue;
 		}
+
 #ifdef __CONFIG_MADWIMAX__
 		if (strcmp(wan_proto, "wimax") != 0)
 		{
@@ -905,9 +862,9 @@ void start_wan(void)
 		close(s);
 
 #ifdef ASUS_EXT
-		if (unit==0)
+		if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
 		{
-			setup_ethernet(nvram_safe_get("wan_ifname"));
+			setup_ethernet(wan_ifname);
 			start_pppoe_relay(wan_ifname);
 		}
 #endif
@@ -917,7 +874,7 @@ void start_wan(void)
 #endif
 
 #ifdef ASUS_EXT
-		if (unit==0)
+		//if (unit==0)
 		{
 			/* Enable Forwarding */
 			fputs_ex("/proc/sys/net/ipv4/ip_forward", "1");
@@ -937,7 +894,7 @@ void start_wan(void)
 		{
 			int demand = atoi(nvram_safe_get(strcat_r(prefix, "pppoe_idletime", tmp))) &&
 			    strcmp(wan_proto, "l2tp") /* L2TP does not support idling */;
-			
+
 			/* update demand option */
 			nvram_set(strcat_r(prefix, "pppoe_demand", tmp), demand ? "1" : "0");
 
@@ -967,7 +924,8 @@ void start_wan(void)
 					route_add(wan_ifname, 2, "0.0.0.0", 
 						nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp)), "0.0.0.0");
 				/* start multicast router */
-				start_igmpproxy(wan_ifname);
+				if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
+					start_igmpproxy(wan_ifname);
 			}
 			
 			/* launch pppoe client daemon */
@@ -1099,25 +1057,75 @@ void start_wan(void)
 		dprintf("%s %s\n",
 			nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
 			nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
+	} while (0);
+
+	dprintf("done\n");
+}
+
+void start_wan(void)
+{
+	int unit;
+
+	/* check if we need to setup WAN */
+	if (nvram_match("router_disable", "1"))
+		return;
+
+#if defined(__CONFIG_MADWIMAX__) || defined( __CONFIG_MODEM__)
+	hotplug_sem_open();
+#endif
+
+#ifndef ASUS_EXT
+	/* start connection independent firewall */
+	start_firewall();
+#endif
+
+	/* Create links */
+	mkdir("/tmp/ppp", 0777);
+	symlink("/sbin/rc", "/tmp/ppp/auth-up");
+	symlink("/sbin/rc", "/tmp/ppp/auth-down");
+	symlink("/sbin/rc", "/tmp/ppp/ip-up");
+	symlink("/sbin/rc", "/tmp/ppp/ip-down");
+#ifdef __CONFIG_IPV6__
+	symlink("/sbin/rc", "/tmp/ppp/ipv6-up");
+	symlink("/sbin/rc", "/tmp/ppp/ipv6-down");
+	symlink("/sbin/rc", "/tmp/dhcp6c.script");
+#endif
+	symlink("/sbin/rc", "/tmp/udhcpc.script");
+	symlink("/sbin/rc", "/tmp/zcip.script");
+#ifdef __CONFIG_EAPOL__
+	symlink("/sbin/rc", "/tmp/wpa_cli.script");
+#endif
+
+#ifdef __CONFIG_MODEM__
+	/* ppp contents */
+	mkdir("/tmp/ppp/peers", 0777);
+#endif
+
+	//symlink("/dev/null", "/tmp/ppp/connect-errors");
+
+	/* Start each configured and enabled wan connection and its undelying i/f */
+	for (unit = 0; unit < MAX_NVPARSE; unit ++)
+	{
+#ifdef ASUS_EXT // Only multiple pppoe is allowed 
+		if (unit>0 && nvram_invmatch("wan_proto", "pppoe")) break;
+#endif
+		start_wan_unit(unit);
 	}
 
 #if defined(__CONFIG_MADWIMAX__) || defined( __CONFIG_MODEM__)
 	hotplug_sem_close();
 #endif
 
+	dprintf("done\n");
 }
 
-#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-static int stop_usb_communication_devices(void)
+void stop_wan_unit(int unit)
 {
-  	char *wan_ifname;
+	char *wan_ifname;
 	char *wan_proto;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	int unit;
 
-	/* Start each configured and enabled wan connection and its undelying i/f */
-	for (unit=0; unit<MAX_NVPARSE; unit++)
-	{
+	do {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 		/* make sure the connection exists and is enabled */ 
@@ -1129,24 +1137,91 @@ static int stop_usb_communication_devices(void)
 		if (!wan_proto || !strcmp(wan_proto, "disabled"))
 			continue;
 
+		if (unit == wan_primary_ifunit())
+		{
+			stop_igmpproxy();
+			killall("pppoe-relay");
+		}
+
+		/* Stop authenticator */
+		stop_auth(prefix, 0);
+
+
 #ifdef __CONFIG_MADWIMAX__
-		if (!strcmp(wan_proto, "wimax")) stop_wimax(prefix);
-#endif
-#ifdef __CONFIG_MODEM__
-		if (!strcmp(wan_proto, "usbmodem")) {
-		    nvram_unset(strcat_r(prefix, "prepared", tmp));
-		     stop_modem_dial(prefix); 
+		/* Stop WiMAX connection */
+		if (strcmp(wan_proto, "wimax") == 0)
+		{
+			stop_wimax(prefix);
+			continue;
 		}
 #endif
-	}
-	return 0;
-}
+#ifdef __CONFIG_MODEM__
+		/* Stop USB modem */
+		else if (strcmp(wan_proto, "usbmodem") == 0 )
+		{
+			nvram_unset(strcat_r(prefix, "prepared", tmp));
+			stop_modem_dial(prefix);
+			continue;
+		}
 #endif
 
+		/* Stop VPN connection */
+		else if (strcmp(wan_proto, "pppoe") == 0 || strcmp(wan_proto, "pptp") == 0 ||
+			 strcmp(wan_proto, "l2tp") == 0)
+		{
+#ifdef __CONFIG_XL2TPD__
+			killall("xl2tpd");
+#else
+			killall("l2tpd");
+#endif
+			sprintf(tmp, "/var/run/ppp%d.pid", unit);
+			kill_pidfile(tmp);
+			usleep(10000);
 
-void stop_wan(const char *ifname)
+			if (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0"))
+				goto stop_dhcp;
+			else	goto stop_static;
+		}
+
+		/* Stop DHCP connection */
+		else if (strcmp(wan_proto, "dhcp") == 0 ||
+			 strcmp(wan_proto, "bigpond") == 0)
+		{
+#ifdef __CONFIG_IPV6__
+			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
+				wan6_down(wan_ifname, unit);
+#endif
+		stop_dhcp:
+			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
+			kill_pidfile_s(tmp, SIGUSR2);
+			usleep(10000);
+			kill_pidfile(tmp);
+		}
+
+		/* Stop Static */
+		else if (strcmp(wan_proto, "static") == 0)
+		{
+#ifdef __CONFIG_IPV6__
+			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
+				wan6_down(wan_ifname, unit);
+#endif
+		stop_static:
+			wan_down(wan_ifname);
+		}
+
+	} while (0);
+
+#ifdef ASUS_EXT
+	update_wan_status(0);
+#endif
+
+	dprintf("done\n");
+}
+
+void stop_wan(void)
 {
 	char name[80], *next;
+	int unit;
 
 	/* Shutdown and kill all possible tasks */
 	killall("auth-up");
@@ -1157,39 +1232,20 @@ void stop_wan(const char *ifname)
 	killall("ipv6-up");
 	killall("ipv6-down");
 #endif
-#ifdef __CONFIG_XL2TPD__
-	killall("xl2tpd");
-#else
-	killall("l2tpd");
-#endif
-	killall("pppd");
 
-#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-	stop_usb_communication_devices();
-#endif
-	killall_s("udhcpc", SIGUSR2);
-	usleep(10000);
-	killall("udhcpc");
-	stop_igmpproxy();
-	killall("pppoe-relay");
-
-	/* Stop authenticator */
-	stop_auth(NULL, 0);
-
-	if (ifname)
+	/* Stop each configured and enabled wan connection and its undelying i/f */
+	for (unit = 0; unit < MAX_NVPARSE; unit ++)
 	{
-#ifdef __CONFIG_IPV6__
-		if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
-			wan6_down(ifname, -1);
+#ifdef ASUS_EXT // Only multiple pppoe is allowed 
+		if (unit>0 && nvram_invmatch("wan_proto", "pppoe")) break;
 #endif
-		wan_down(ifname);
-	} else
+		stop_wan_unit(unit);
+	}
+
+	/* Bring down WAN interfaces */
+	foreach(name, nvram_safe_get("wan_ifnames"), next)
 	{
-		/* Bring down WAN interfaces */
-		foreach(name, nvram_safe_get("wan_ifnames"), next)
-		{
-			ifconfig(name, 0, NULL, NULL);
-		}
+		ifconfig(name, 0, NULL, NULL);
 	}
 
 	/* Remove dynamically created links */
@@ -1208,10 +1264,6 @@ void stop_wan(const char *ifname)
 	unlink("/tmp/ppp/auth-up");
 	unlink("/tmp/ppp/auth-down");
 	rmdir("/tmp/ppp");
-
-#ifdef ASUS_EXT
-	update_wan_status(0);
-#endif
 
 	dprintf("done\n");
 }
@@ -1262,7 +1314,7 @@ void wan_up(const char *wan_ifname)
 {
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char *wan_proto, *gateway;
-	int metric;
+	int unit, metric;
 
 #ifdef DEBUG
 	int r;
@@ -1271,14 +1323,21 @@ void wan_up(const char *wan_ifname)
 #endif
 
 	/* Figure out nvram variable name prefix for this i/f */
-	if (wan_prefix(wan_ifname, prefix) < 0) 
+	unit = wan_prefix(wan_ifname, prefix);
+	if (unit < 0)
 	{
+		/* TODO: add multiwan support */
+		unit = 0;
+		sprintf(prefix, "wan%d_", unit);
+
 		/* called for dhcp+ppp */
-		if (!nvram_match("wan0_ifname", wan_ifname))
+		if (!nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname))
 			return;
 
-		/* re-start firewall with old ppp0 address or 0.0.0.0 */
-		start_firewall_ex("ppp0", nvram_safe_get("wan0_ipaddr"),
+		/* re-start firewall with old ppp address or 0.0.0.0 */
+		start_firewall_ex(
+			nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)),
+			nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
 			"br0", nvram_safe_get("lan_ipaddr"));
 
 	 	/* setup static wan routes via physical device */
@@ -1307,7 +1366,8 @@ void wan_up(const char *wan_ifname)
 		}
 
 		/* start multicast router */
-		start_igmpproxy(wan_ifname);
+		if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
+			start_igmpproxy(wan_ifname);
 
 		update_resolvconf(wan_ifname, 2, 1);
 
@@ -1316,7 +1376,7 @@ void wan_up(const char *wan_ifname)
 
 	wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
 
-	dprintf("%s %s\n", wan_ifname, wan_proto);
+	dprintf("unit %d %s %s\n", unit, wan_ifname, wan_proto);
 	metric = atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp)));
 
 	/* Set default route to gateway if specified */
@@ -1396,13 +1456,14 @@ void wan_up(const char *wan_ifname)
 #endif
 
 	/* start multicast router */
-	if (   strcmp(wan_proto, "dhcp") == 0
+	if (nvram_match(strcat_r(prefix, "primary", tmp), "1") &&
+	      (strcmp(wan_proto, "dhcp") == 0
 	    || strcmp(wan_proto, "bigpond") == 0
 	    || strcmp(wan_proto, "static") == 0 
 #ifdef __CONFIG_MADWIMAX__
 	    || strcmp(wan_proto, "wimax") == 0
 #endif
-	) {
+	)) {
 		start_igmpproxy(wan_ifname);
 	}
 

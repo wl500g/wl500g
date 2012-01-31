@@ -1961,74 +1961,61 @@ stop_service_main()
 
 int service_handle(void)
 {
-	char *service;
-	char tmp[100], *str;
-	int pid;
-	char *ping_argv[] = { "ping", "-c2", "140.113.1.1", NULL};
-	FILE *fp;
-
-	service = nvram_get("rc_service");
+	char *service = nvram_get("rc_service");
+	char *value;
 
 	if (!service)
 		kill(1, SIGHUP);
+	if (!(value = strdup(service)))
+		return 0;
 
-	if (strstr(service,"wan_disconnect")!=NULL)
+	service = strsep(&value, ",");
+	value = strsep(&value, ",");
+
+	if (strcmp(service,"wan_disconnect") == 0)
 	{
-		cprintf("wan disconnect\n");
-		logmessage("wan", "disconnected manually");
+		int unit = (value && *value) ? atoi(value) : -1;
 
-		if (nvram_match("wan0_proto", "dhcp") ||
-		    nvram_match("wan0_proto", "bigpond"))
-		{
-			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", 0);
-			kill_pidfile_s(tmp, SIGUSR2);
-		}
-		else 
-		{
-			stop_wan(nvram_invmatch("wan_ifname_t", "") ? nvram_safe_get("wan_ifname_t") : NULL);
-		}
-	}
-	else if (strstr(service,"wan_connect")!=NULL)
-	{
-		cprintf("wan connect\n");
-		logmessage("wan", "connected manually");
-		setup_ethernet(nvram_safe_get("wan_ifname"));
-
-#ifdef __CONFIG_EAPOL__
-		if (nvram_match("wan0_auth_x", "eap-md5")
-		&& (nvram_match("wan0_proto", "static") == 0 ||
-		    nvram_match("wan0_proto", "dhcp") == 0))
-			killall_s("wpa_supplicant", SIGUSR2);
+		cprintf("wan disconnect, unit %d\n", unit);
+		logmessage("wan", "disconnected manually (unit %d)", unit);
+		if (unit < 0)
+			stop_wan();
 		else
-#endif
-		if (nvram_match("wan0_proto", "dhcp") ||
-		    nvram_match("wan0_proto", "bigpond"))
+			stop_wan_unit(unit);
+	} else
+	if (strcmp(service,"wan_connect") == 0)
+	{
+		int unit = (value && *value) ? atoi(value) : -1;
+
+		cprintf("wan connect, unit %d\n", unit);
+		logmessage("wan", "connected manually (unit %d)", unit);
+
+		if (unit < 0)
 		{
-			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", 0);
-			kill_pidfile_s(tmp, SIGUSR1);
-		}
-		else 
-		{
-			// pppoe or ppptp, check if /tmp/ppp exist
-			if (nvram_invmatch("wan0_proto", "static") &&
-			     (fp=fopen("/tmp/ppp/ip-up", "r"))!=NULL)
-			{
-				fclose(fp);                                     
-			}
-			else
-			{
-				stop_wan(NULL);
-				sleep(3);
-	    			start_wan();
-				sleep(2);
-			}
+			stop_wan();
+			sleep(3);
+	    		start_wan();
+	    		sleep(2);
+		} else {
+			char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+			char *ping_argv[] = { "ping", "-c2", "140.113.1.1", NULL};
+			char *str;
+			pid_t pid;
+
+			stop_wan_unit(unit);
+			sleep(3);
+	    		start_wan_unit(unit);
+			sleep(2);
+
 			/* trigger connect */
-			str = nvram_get("wan0_gateway");
+			sprintf(prefix, "wan%d_", unit);
+			str = nvram_get(strcat_r(prefix, "gateway", tmp));
 			if (str)
 				ping_argv[2] = str;
 			_eval(ping_argv, NULL, 0, &pid);
 		}
 	}
+
 	nvram_unset("rc_service");
 	return 0;
 }
