@@ -4,12 +4,13 @@ tcp: TSO/GSO updates from upstream
  ce447eb91409225f8a488f6b7b2a1bdf7b2d884f tcp: Allow send-limited cwnd to grow up to max_burst when gso disabled
  6b5a5c0dbb11dcff4e1b0f1ef87a723197948ed4 tcp: do not scale TSO segment size with reordering degree
  f07d960df33c5aef8f513efce0fd201f962f94a1 tcp: avoid frag allocation for small frames
+ 5b35e1e6e9ca651e6b291c96d1106043c9af314a tcp: fix tcp_trim_head() to adjust segment count with skb MSS
 
 ---
  include/net/tcp.h     |   26 +++++++++++++++++---------
  net/ipv4/tcp.c        |    9 ++++++---
- net/ipv4/tcp_output.c |    2 +-
- 3 files changed, 24 insertions(+), 13 deletions(-)
+ net/ipv4/tcp_output.c |    8 +++-----
+ 3 files changed, 26 insertions(+), 17 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
 --- a/include/net/tcp.h
@@ -81,6 +82,20 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
+@@ -1141,11 +1141,9 @@ int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
+ 	sk_mem_uncharge(sk, len);
+ 	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
+ 
+-	/* Any change of skb->len requires recalculation of tso
+-	 * factor and mss.
+-	 */
++	/* Any change of skb->len requires recalculation of tso factor. */
+ 	if (tcp_skb_pcount(skb) > 1)
+-		tcp_set_skb_tso_segs(sk, skb, tcp_current_mss(sk, 1));
++		tcp_set_skb_tso_segs(sk, skb, tcp_skb_mss(skb));
+ 
+ 	return 0;
+ }
 @@ -1223,7 +1223,7 @@ static int tcp_tso_should_defer(struct s
  		 * frame, so if we have space for more than 3 frames
  		 * then send now.
