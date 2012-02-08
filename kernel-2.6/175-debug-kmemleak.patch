@@ -61,6 +61,7 @@
  6ae4bd1f0bc479984f30061b5e5116060c24a267 kmemleak: Allow kmemleak metadata allocations to fail
  9718269a7f5f6f3d723dd34e05269579a3ccfc1e kemleak-test: build as module only
  52c3ce4ec5601ee383a14f1485f6bac7b278896e kmemleak: Do not return a pointer to an object that kmemleak did not get
+ b469d4329cf949043f9b93a6644f2c64015ef8cd kmemleak: Only scan non-zero-size areas
 
 ---
  Documentation/kmemleak.txt     |  182 ++++
@@ -1663,7 +1664,7 @@ diff --git a/mm/kmemleak.c b/mm/kmemleak.c
 +{
 +	pr_debug("%s(0x%p)\n", __func__, ptr);
 +
-+	if (atomic_read(&kmemleak_enabled) && ptr && !IS_ERR(ptr))
++	if (atomic_read(&kmemleak_enabled) && ptr && size && !IS_ERR(ptr))
 +		add_scan_area((unsigned long)ptr, size, gfp);
 +	else if (atomic_read(&kmemleak_early_log))
 +		log_early(KMEMLEAK_SCAN_AREA, ptr, size, 0);
