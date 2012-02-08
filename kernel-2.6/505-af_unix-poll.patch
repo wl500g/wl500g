@@ -1,51 +1,65 @@
-From 0884d7aa24e15e72b3c07f7da910a13bb7df3592
-From: Alexey Moiseytsev
-Date: Mon, 21 Nov 2011 13:35:25 +0000
-Subject: [PATCH] AF_UNIX: Fix poll blocking problem when reading from a stream socket
+AF_UNIX: Fix poll blocking problem when reading from a stream socket
 
-poll() call may be blocked by concurrent reading from the same stream
-socket.
+ 0884d7aa24e15e72b3c07f7da910a13bb7df3592 AF_UNIX: Fix poll blocking problem when reading from a stream socket
+ 6f01fd6e6f6809061b56e78f1e8d143099716d70 af_unix: fix EPOLLET regression for stream sockets
 
-Signed-off-by: Alexey Moiseytsev <himeraster@gmail.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/unix/af_unix.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ net/unix/af_unix.c |   14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
 
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 466fbcc..b595a3d 100644
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
-@@ -1857,6 +1857,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
+@@ -1780,7 +1780,7 @@ static int unix_stream_recvmsg(struct ki
+ 		struct sk_buff *skb;
+ 
+ 		unix_state_lock(sk);
+-		skb = skb_dequeue(&sk->sk_receive_queue);
++		skb = skb_peek(&sk->sk_receive_queue);
+ 		if (skb==NULL)
+ 		{
+ 			if (copied >= target)
+@@ -1818,10 +1818,8 @@ static int unix_stream_recvmsg(struct ki
+ 
+ 		if (check_creds) {
  			/* Never glue messages from different writers */
- 			if (memcmp(UNIXCREDS(skb), &siocb->scm->creds, sizeof(siocb->scm->creds)) != 0) {
- 				skb_queue_head(&sk->sk_receive_queue, skb);
-+				sk->sk_data_ready(sk, skb->len);
+-			if (memcmp(UNIXCREDS(skb), &siocb->scm->creds, sizeof(siocb->scm->creds)) != 0) {
+-				skb_queue_head(&sk->sk_receive_queue, skb);
++			if (memcmp(UNIXCREDS(skb), &siocb->scm->creds, sizeof(siocb->scm->creds)) != 0)
  				break;
- 			}
+-			}
  		} else {
-@@ -1974,6 +1975,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			/* Copy credentials */
+ 			siocb->scm->creds = *UNIXCREDS(skb);
+@@ -1837,7 +1835,6 @@ static int unix_stream_recvmsg(struct ki
+ 
  		chunk = min_t(unsigned int, skb->len, size);
  		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
- 			skb_queue_head(&sk->sk_receive_queue, skb);
-+			sk->sk_data_ready(sk, skb->len);
+-			skb_queue_head(&sk->sk_receive_queue, skb);
  			if (copied == 0)
  				copied = -EFAULT;
  			break;
-@@ -1991,6 +1993,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			/* put the skb back if we didn't use it up.. */
- 			if (skb->len) {
- 				skb_queue_head(&sk->sk_receive_queue, skb);
-+				sk->sk_data_ready(sk, skb->len);
+@@ -1853,13 +1850,10 @@ static int unix_stream_recvmsg(struct ki
+ 			if (UNIXCB(skb).fp)
+ 				unix_detach_fds(siocb->scm, skb);
+ 
+-			/* put the skb back if we didn't use it up.. */
+ 			if (skb->len)
+-			{
+-				skb_queue_head(&sk->sk_receive_queue, skb);
  				break;
- 			}
+-			}
  
-@@ -2006,6 +2009,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
++			skb_unlink(skb, &sk->sk_receive_queue);
+ 			kfree_skb(skb);
  
- 			/* put message back and return */
- 			skb_queue_head(&sk->sk_receive_queue, skb);
-+			sk->sk_data_ready(sk, skb->len);
+ 			if (siocb->scm->fp)
+@@ -1872,8 +1866,6 @@ static int unix_stream_recvmsg(struct ki
+ 			if (UNIXCB(skb).fp)
+ 				siocb->scm->fp = scm_fp_dup(UNIXCB(skb).fp);
+ 
+-			/* put message back and return */
+-			skb_queue_head(&sk->sk_receive_queue, skb);
  			break;
  		}
  	} while (size);
