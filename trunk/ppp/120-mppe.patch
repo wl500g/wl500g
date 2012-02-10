@@ -83,7 +83,7 @@ diff -urBp ppp-2.4.5-pre/include/net/ppp-comp.h ppp/include/net/ppp-comp.h
   */
 diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
 --- ppp-2.4.5-pre/pppd/ccp.c	2008-11-26 13:02:29.000000000 +0300
-+++ ppp/pppd/ccp.c	2009-02-09 18:09:48.000000000 +0300
++++ ppp/pppd/ccp.c	2012-02-10 19:34:55.311543002 +0000
 @@ -62,13 +62,6 @@ static int setdeflate __P((char **));
  static char bsd_value[8];
  static char deflate_value[8];
@@ -212,7 +212,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
 +    { "+mppe-128", o_bool, &ccp_wantoptions[0].mppe_128,
 +      "require MPPE 128-bit encryption", 1, &ccp_allowoptions[0].mppe_128,
 +      OPT_ALIAS | OPT_PRIO },
-+    { "nomppe-128", o_bool, &ccp_wantoptions[0].mppe_40,
++    { "nomppe-128", o_bool, &ccp_wantoptions[0].mppe_128,
 +      "don't allow MPPE 128-bit encryption", OPT_PRIOSUB | OPT_A2CLR,
 +      &ccp_allowoptions[0].mppe_128 },
 +    { "-mppe-128", o_bool, &ccp_wantoptions[0].mppe_128,
@@ -237,38 +237,76 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  
  /*
   * Local state (mainly for handling reset-reqs and reset-acks).
-@@ -378,6 +404,30 @@ ccp_init(unit)
-     ccp_allowoptions[0].bsd_bits = BSD_MAX_BITS;
+@@ -352,6 +378,8 @@ ccp_init(unit)
+     int unit;
+ {
+     fsm *f = &ccp_fsm[unit];
++    ccp_options *wo = &ccp_wantoptions[unit];
++    ccp_options *ao = &ccp_allowoptions[unit];
  
-     ccp_allowoptions[0].predictor_1 = 1;
+     f->unit = unit;
+     f->protocol = PPP_CCP;
+@@ -363,21 +391,45 @@ ccp_init(unit)
+     memset(&ccp_allowoptions[unit], 0, sizeof(ccp_options));
+     memset(&ccp_hisoptions[unit],   0, sizeof(ccp_options));
+ 
+-    ccp_wantoptions[0].deflate = 1;
+-    ccp_wantoptions[0].deflate_size = DEFLATE_MAX_SIZE;
+-    ccp_wantoptions[0].deflate_correct = 1;
+-    ccp_wantoptions[0].deflate_draft = 1;
+-    ccp_allowoptions[0].deflate = 1;
+-    ccp_allowoptions[0].deflate_size = DEFLATE_MAX_SIZE;
+-    ccp_allowoptions[0].deflate_correct = 1;
+-    ccp_allowoptions[0].deflate_draft = 1;
+-
+-    ccp_wantoptions[0].bsd_compress = 1;
+-    ccp_wantoptions[0].bsd_bits = BSD_MAX_BITS;
+-    ccp_allowoptions[0].bsd_compress = 1;
+-    ccp_allowoptions[0].bsd_bits = BSD_MAX_BITS;
++    wo->deflate = 1;
++    wo->deflate_size = DEFLATE_MAX_SIZE;
++    wo->deflate_correct = 1;
++    wo->deflate_draft = 1;
++    ao->deflate = 1;
++    ao->deflate_size = DEFLATE_MAX_SIZE;
++    ao->deflate_correct = 1;
++    ao->deflate_draft = 1;
 +
-+    ccp_wantoptions[0].lzs = 0; /* Stac LZS  - will be enabled in the future */
-+    ccp_wantoptions[0].lzs_mode = LZS_MODE_SEQ;
-+    ccp_wantoptions[0].lzs_hists = 1;
-+    ccp_allowoptions[0].lzs = 0; /* Stac LZS  - will be enabled in the future */
-+    ccp_allowoptions[0].lzs_mode = LZS_MODE_SEQ;
-+    ccp_allowoptions[0].lzs_hists = 1;
++    wo->bsd_compress = 1;
++    wo->bsd_bits = BSD_MAX_BITS;
++    ao->bsd_compress = 1;
++    ao->bsd_bits = BSD_MAX_BITS;
 +
++    ao->predictor_1 = 1;
++
++    wo->lzs = 0; /* Stac LZS  - will be enabled in the future */
++    wo->lzs_mode = LZS_MODE_SEQ;
++    wo->lzs_hists = 1;
++    ao->lzs = 0; /* Stac LZS  - will be enabled in the future */
++    ao->lzs_mode = LZS_MODE_SEQ;
++    ao->lzs_hists = 1;
+ 
+-    ccp_allowoptions[0].predictor_1 = 1;
 +#ifdef MPPE
 +    /* by default allow and request MPPC... */
-+    ccp_wantoptions[0].mppc = ccp_allowoptions[0].mppc = 1;
++    wo->mppc = ao->mppc = 1;
 +
 +    /* ... and allow but don't request MPPE */
-+    ccp_allowoptions[0].mppe = 1;
-+    ccp_allowoptions[0].mppe_40 = 1;
-+    ccp_allowoptions[0].mppe_56 = 1;
-+    ccp_allowoptions[0].mppe_128 = 1;
-+    ccp_allowoptions[0].mppe_stateless = 1;
-+    ccp_wantoptions[0].mppe = 0;
-+    ccp_wantoptions[0].mppe_40 = 0;
-+    ccp_wantoptions[0].mppe_56 = 0;
-+    ccp_wantoptions[0].mppe_128 = 0;
-+    ccp_wantoptions[0].mppe_stateless = 0;
++    ao->mppe = 1;
++    ao->mppe_40 = 1;
++    ao->mppe_56 = 1;
++    ao->mppe_128 = 1;
++    ao->mppe_stateless = 1;
++    wo->mppe = 0;
++    wo->mppe_40 = 0;
++    wo->mppe_56 = 0;
++    wo->mppe_128 = 0;
++    wo->mppe_stateless = 0;
 +#endif /* MPPE */
  }
  
  /*
-@@ -455,11 +505,11 @@ ccp_input(unit, p, len)
+@@ -455,11 +507,11 @@ ccp_input(unit, p, len)
      if (oldstate == OPENED && p[0] == TERMREQ && f->state != OPENED) {
  	notice("Compression disabled by peer.");
  #ifdef MPPE
@@ -282,7 +320,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
      }
  
      /*
-@@ -487,6 +537,15 @@ ccp_extcode(f, code, id, p, len)
+@@ -487,6 +539,15 @@ ccp_extcode(f, code, id, p, len)
  	    break;
  	/* send a reset-ack, which the transmitter will see and
  	   reset its compression state. */
@@ -298,7 +336,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  	fsm_sdata(f, CCP_RESETACK, id, NULL, 0);
  	break;
  
-@@ -515,12 +574,11 @@ ccp_protrej(unit)
+@@ -515,12 +576,11 @@ ccp_protrej(unit)
      fsm_lowerdown(&ccp_fsm[unit]);
  
  #ifdef MPPE
@@ -313,7 +351,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  }
  
  /*
-@@ -537,7 +595,7 @@ ccp_resetci(f)
+@@ -537,7 +597,7 @@ ccp_resetci(f)
      all_rejected[f->unit] = 0;
  
  #ifdef MPPE
@@ -322,7 +360,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  	ccp_options *ao = &ccp_allowoptions[f->unit];
  	int auth_mschap_bits = auth_done[f->unit];
  	int numbits;
-@@ -551,80 +609,109 @@ ccp_resetci(f)
+@@ -551,80 +611,109 @@ ccp_resetci(f)
  	 * NB: If MPPE is required, all other compression opts are invalid.
  	 *     So, we return right away if we can't do it.
  	 */
@@ -498,7 +536,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
      if (go->bsd_compress) {
  	opt_buf[0] = CI_BSD_COMPRESS;
  	opt_buf[1] = CILEN_BSD_COMPRESS;
-@@ -679,7 +766,8 @@ ccp_cilen(f)
+@@ -679,7 +768,8 @@ ccp_cilen(f)
  	+ (go->deflate? CILEN_DEFLATE: 0)
  	+ (go->predictor_1? CILEN_PREDICTOR_1: 0)
  	+ (go->predictor_2? CILEN_PREDICTOR_2: 0)
@@ -508,7 +546,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  }
  
  /*
-@@ -693,6 +781,8 @@ ccp_addci(f, p, lenp)
+@@ -693,6 +783,8 @@ ccp_addci(f, p, lenp)
  {
      int res;
      ccp_options *go = &ccp_gotoptions[f->unit];
@@ -517,7 +555,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
      u_char *p0 = p;
  
      /*
-@@ -701,22 +791,43 @@ ccp_addci(f, p, lenp)
+@@ -701,22 +793,43 @@ ccp_addci(f, p, lenp)
       * in case it gets Acked.
       */
  #ifdef MPPE
@@ -570,7 +608,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
      if (go->deflate) {
  	p[0] = go->deflate_correct? CI_DEFLATE: CI_DEFLATE_DRAFT;
  	p[1] = CILEN_DEFLATE;
-@@ -802,7 +913,7 @@ ccp_addci(f, p, lenp)
+@@ -802,7 +915,7 @@ ccp_addci(f, p, lenp)
  
  /*
   * ccp_ackci - process a received configure-ack, and return
@@ -579,7 +617,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
   */
  static int
  ccp_ackci(f, p, len)
-@@ -811,24 +922,44 @@ ccp_ackci(f, p, len)
+@@ -811,24 +924,44 @@ ccp_ackci(f, p, len)
      int len;
  {
      ccp_options *go = &ccp_gotoptions[f->unit];
@@ -633,7 +671,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
      if (go->deflate) {
  	if (len < CILEN_DEFLATE
  	    || p[0] != (go->deflate_correct? CI_DEFLATE: CI_DEFLATE_DRAFT)
-@@ -891,7 +1022,7 @@ ccp_ackci(f, p, len)
+@@ -891,7 +1024,7 @@ ccp_ackci(f, p, len)
  
  /*
   * ccp_nakci - process received configure-nak.
@@ -642,7 +680,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
   */
  static int
  ccp_nakci(f, p, len, treat_as_reject)
-@@ -901,6 +1032,8 @@ ccp_nakci(f, p, len, treat_as_reject)
+@@ -901,6 +1034,8 @@ ccp_nakci(f, p, len, treat_as_reject)
      int treat_as_reject;
  {
      ccp_options *go = &ccp_gotoptions[f->unit];
@@ -651,7 +689,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
      ccp_options no;		/* options we've seen already */
      ccp_options try;		/* options to ask for next time */
  
-@@ -908,28 +1041,100 @@ ccp_nakci(f, p, len, treat_as_reject)
+@@ -908,28 +1043,102 @@ ccp_nakci(f, p, len, treat_as_reject)
      try = *go;
  
  #ifdef MPPE
@@ -724,8 +762,9 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
 +	    if (wo->mppe) {
 +		/* we require encryption, but peer doesn't support it
 +		   so we close connection */
-+		wo->mppc = wo->mppe = wo->mppe_stateless = wo->mppe_40 =
-+		    wo->mppe_56 = wo->mppe_128 = 0;
++		//wo->mppc = wo->mppe = wo->mppe_stateless = wo->mppe_40 =
++		//    wo->mppe_56 = wo->mppe_128 = 0;
++		error("MPPE required but cannot negotiate MPPE key length");
 +		lcp_close(f->unit, "MPPE required but cannot negotiate MPPE "
 +			  "key length");
 +	    }
@@ -733,8 +772,9 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
 +	if (wo->mppe && (wo->mppe_40 != try.mppe_40) &&
 +	    (wo->mppe_56 != try.mppe_56) && (wo->mppe_128 != try.mppe_128)) {
 +	    /* cannot negotiate key length */
-+	    wo->mppc = wo->mppe = wo->mppe_stateless = wo->mppe_40 =
-+		wo->mppe_56 = wo->mppe_128 = 0;
++	    //wo->mppc = wo->mppe = wo->mppe_stateless = wo->mppe_40 =
++	    //	wo->mppe_56 = wo->mppe_128 = 0;
++	    error("Cannot negotiate MPPE key length");
 +	    lcp_close(f->unit, "Cannot negotiate MPPE key length");
  	}
 +	if (try.mppe_40 && try.mppe_56 && try.mppe_128)
@@ -770,7 +810,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
      if (go->deflate && len >= CILEN_DEFLATE
  	&& p[0] == (go->deflate_correct? CI_DEFLATE: CI_DEFLATE_DRAFT)
  	&& p[1] == CILEN_DEFLATE) {
-@@ -1002,14 +1207,50 @@ ccp_rejci(f, p, len)
+@@ -1002,14 +1211,51 @@ ccp_rejci(f, p, len)
  	return -1;
  
  #ifdef MPPE
@@ -803,8 +843,9 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
 +	    if (!try.mppe_56 && !try.mppe_40 && !try.mppe_128)
 +		try.mppe = try.mppe_stateless = 0;
 +	    if (wo->mppe) { /* we want MPPE but cannot negotiate key length */
-+		wo->mppc = wo->mppe = wo->mppe_stateless = wo->mppe_40 =
-+		    wo->mppe_56 = wo->mppe_128 = 0;
++		//wo->mppc = wo->mppe = wo->mppe_stateless = wo->mppe_40 =
++		//    wo->mppe_56 = wo->mppe_128 = 0;
++		error("MPPE required but cannot negotiate MPPE key length");
 +		lcp_close(f->unit, "MPPE required but cannot negotiate MPPE "
 +			  "key length");
 +	    }
@@ -825,7 +866,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
      if (go->deflate_correct && len >= CILEN_DEFLATE
  	&& p[0] == CI_DEFLATE && p[1] == CILEN_DEFLATE) {
  	if (p[2] != DEFLATE_MAKE_OPT(go->deflate_size)
-@@ -1073,14 +1314,15 @@ ccp_reqci(f, p, lenp, dont_nak)
+@@ -1073,14 +1319,15 @@ ccp_reqci(f, p, lenp, dont_nak)
      int dont_nak;
  {
      int ret, newret, res;
@@ -845,7 +886,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  
      ret = CONFACK;
      retp = p0 = p;
-@@ -1103,106 +1345,299 @@ ccp_reqci(f, p, lenp, dont_nak)
+@@ -1103,106 +1350,299 @@ ccp_reqci(f, p, lenp, dont_nak)
  	    switch (type) {
  #ifdef MPPE
  	    case CI_MPPE:
@@ -923,7 +964,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
 +		    }
 +		} else {
 +		    if (wo->mppe_stateless && !dont_nak) {
-+			wo->mppe_stateless = 0;
++			//wo->mppe_stateless = 0;
 +			newret = CONFNAK;
 +			p[2] |= MPPE_STATELESS;
  		    }
@@ -1219,7 +1260,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  	    case CI_DEFLATE:
  	    case CI_DEFLATE_DRAFT:
  		if (!ao->deflate || clen != CILEN_DEFLATE
-@@ -1344,12 +1779,6 @@ ccp_reqci(f, p, lenp, dont_nak)
+@@ -1344,12 +1784,6 @@ ccp_reqci(f, p, lenp, dont_nak)
  	else
  	    *lenp = retp - p0;
      }
@@ -1232,7 +1273,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
      return ret;
  }
  
-@@ -1371,24 +1800,35 @@ method_name(opt, opt2)
+@@ -1371,24 +1805,35 @@ method_name(opt, opt2)
  	char *p = result;
  	char *q = result + sizeof(result); /* 1 past result */
  
@@ -1284,7 +1325,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
      case CI_DEFLATE:
      case CI_DEFLATE_DRAFT:
  	if (opt2 != NULL && opt2->deflate_size != opt->deflate_size)
-@@ -1444,12 +1884,12 @@ ccp_up(f)
+@@ -1444,12 +1889,12 @@ ccp_up(f)
      } else if (ANY_COMPRESS(*ho))
  	notice("%s transmit compression enabled", method_name(ho, NULL));
  #ifdef MPPE
@@ -1299,7 +1340,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  }
  
  /*
-@@ -1472,7 +1912,7 @@ ccp_down(f)
+@@ -1472,7 +1917,7 @@ ccp_down(f)
  	    lcp_close(f->unit, "MPPE disabled");
  	}
      }
@@ -1308,7 +1349,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  }
  
  /*
-@@ -1532,24 +1972,28 @@ ccp_printpkt(p, plen, printer, arg)
+@@ -1532,24 +1977,28 @@ ccp_printpkt(p, plen, printer, arg)
  #ifdef MPPE
  	    case CI_MPPE:
  		if (optlen >= CILEN_MPPE) {
@@ -1349,7 +1390,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  	    case CI_DEFLATE:
  	    case CI_DEFLATE_DRAFT:
  		if (optlen >= CILEN_DEFLATE) {
-@@ -1635,6 +2079,7 @@ ccp_datainput(unit, pkt, len)
+@@ -1635,6 +2084,7 @@ ccp_datainput(unit, pkt, len)
  	    error("Lost compression sync: disabling compression");
  	    ccp_close(unit, "Lost compression sync");
  #ifdef MPPE
@@ -1357,7 +1398,7 @@ diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
  	    /*
  	     * If we were doing MPPE, we must also take the link down.
  	     */
-@@ -1642,9 +2087,18 @@ ccp_datainput(unit, pkt, len)
+@@ -1642,9 +2092,18 @@ ccp_datainput(unit, pkt, len)
  		error("Too many MPPE errors, closing LCP");
  		lcp_close(unit, "Too many MPPE errors");
  	    }
