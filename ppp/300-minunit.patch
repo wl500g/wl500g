@@ -6,9 +6,9 @@ diff -BurpN ppp-2.4.5-pre/pppd/options.c ppp/pppd/options.c
  int	connect_delay = 1000;	/* wait this many ms after connect script */
  int	req_unit = -1;		/* requested interface unit */
 +int	req_minunit = -1;	/* requested minimal interface unit */
- char	path_ipup[MAXPATHLEN];	/* pathname of ip-up script */
- char	path_ipdown[MAXPATHLEN];/* pathname of ip-down script */
  bool	multilink = 0;		/* Enable multilink operation */
+ char	*bundle_name = NULL;	/* bundle name for multilink */
+ bool	dump_options;		/* print out option values */
 @@ -274,6 +275,9 @@ option_t general_options[] = {
      { "unit", o_int, &req_unit,
        "PPP interface unit number to use if possible",
@@ -51,9 +51,9 @@ diff -BurpN ppp-2.4.5-pre/pppd/pppd.h ppp/pppd/pppd.h
  extern int	max_data_rate;	/* max bytes/sec through charshunt */
  extern int	req_unit;	/* interface unit number to use */
 +extern int	req_minunit;	/* interface minimal unit number to use */
- extern char	path_ipup[MAXPATHLEN]; /* pathname of ip-up script */
- extern char	path_ipdown[MAXPATHLEN]; /* pathname of ip-down script */
  extern bool	multilink;	/* enable multilink operation */
+ extern bool	noendpoint;	/* don't send or accept endpt. discrim. */
+ extern char	*bundle_name;	/* bundle name for multilink */
 diff -BurpN ppp-2.4.5-pre/pppd/sys-linux.c ppp/pppd/sys-linux.c
 --- ppp-2.4.5-pre/pppd/sys-linux.c	2009-09-06 15:52:13.000000000 +0000
 +++ ppp/pppd/sys-linux.c	2009-09-06 17:04:50.000000000 +0000
