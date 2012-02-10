@@ -96,6 +96,9 @@ static int ipcp_is_open;		/* haven't called np_finished() */
 static bool ask_for_local;		/* request our address from peer */
 static char vj_value[8];		/* string form of vj option value */
 static char netmask_str[20];		/* string form of netmask value */
+static char *path_ipup = _PATH_IPUP;	/* pathname of ip-up script */
+static char *path_ipdown = _PATH_IPDOWN;/* pathname of ip-down script */
+static char *path_ippreup = _PATH_IPPREUP;/* pathname of ip-pre-up script */
 
 /*
  * Callbacks for fsm code.  (CI = Configuration Information)
@@ -230,6 +233,13 @@ static option_t ipcp_option_list[] = {
     { "IP addresses", o_wild, (void *) &setipaddr,
       "set local and remote IP addresses",
       OPT_NOARG | OPT_A2PRINTER, (void *) &printipaddr },
+
+    { "ip-up-script", o_string, &path_ipup,
+      "Set pathname of ip-up script", OPT_PRIV },
+    { "ip-down-script", o_string, &path_ipdown,
+      "Set pathname of ip-down script", OPT_PRIV },
+    { "ip-pre-up-script", o_string, &path_ippreup,
+      "Set pathname of ip-pre-up script", OPT_PRIV },
 
     { NULL }
 };
@@ -1755,7 +1765,7 @@ ip_demand_conf(u)
     }
     if (!sifaddr(u, wo->ouraddr, wo->hisaddr, GetMask(wo->ouraddr)))
 	return 0;
-    ipcp_script(_PATH_IPPREUP, 1);
+    ipcp_script(path_ippreup, 1);
     if (!sifup(u))
 	return 0;
     if (!sifnpmode(u, PPP_IP, NPMODE_QUEUE))
@@ -1902,7 +1912,7 @@ ipcp_up(f)
 #endif
 
 	/* run the pre-up script, if any, and wait for it to finish */
-	ipcp_script(_PATH_IPPREUP, 1);
+	ipcp_script(path_ippreup, 1);
 
 	/* bring the interface up for IP */
 	if (!sifup(f->unit)) {
@@ -1958,7 +1968,7 @@ ipcp_up(f)
      */
     if (ipcp_script_state == s_down && ipcp_script_pid == 0) {
 	ipcp_script_state = s_up;
-	ipcp_script(_PATH_IPUP, 0);
+	ipcp_script(path_ipup, 0);
     }
 }
 
@@ -2008,7 +2018,7 @@ ipcp_down(f)
     /* Execute the ip-down script */
     if (ipcp_script_state == s_up && ipcp_script_pid == 0) {
 	ipcp_script_state = s_down;
-	ipcp_script(_PATH_IPDOWN, 0);
+	ipcp_script(path_ipdown, 0);
     }
 }
 
@@ -2062,13 +2072,13 @@ ipcp_script_done(arg)
     case s_up:
 	if (ipcp_fsm[0].state != OPENED) {
 	    ipcp_script_state = s_down;
-	    ipcp_script(_PATH_IPDOWN, 0);
+	    ipcp_script(path_ipdown, 0);
 	}
 	break;
     case s_down:
 	if (ipcp_fsm[0].state == OPENED) {
 	    ipcp_script_state = s_up;
-	    ipcp_script(_PATH_IPUP, 0);
+	    ipcp_script(path_ipup, 0);
 	}
 	break;
     }
