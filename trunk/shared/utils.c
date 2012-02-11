@@ -103,6 +103,19 @@ int get_model(void)
 	return MDL_UNKNOWN;
 }
 
+int nvram_get_int(const char *key)
+{
+	return atoi(nvram_safe_get(key));
+}
+
+int nvram_set_int(const char *key, int value)
+{
+	char nvramstr[16];
+
+	snprintf(nvramstr, sizeof(nvramstr), "%d", value);
+	return nvram_set(key, nvramstr);
+}
+
 /*
  * Get the ip configuration index if it exists given the 
  * eth name.
