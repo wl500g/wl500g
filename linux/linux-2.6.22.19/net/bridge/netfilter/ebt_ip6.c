@@ -22,9 +22,15 @@
 #include <linux/module.h>
 #include <net/dsfield.h>
 
-struct tcpudphdr {
-	__be16 src;
-	__be16 dst;
+union pkthdr {
+	struct {
+		__be16 src;
+		__be16 dst;
+	} tcpudphdr;
+	struct {
+		u8 type;
+		u8 code;
+	} icmphdr;
 };
 
 static int ebt_filter_ip6(const struct sk_buff *skb,
@@ -35,10 +41,8 @@ static int ebt_filter_ip6(const struct sk_buff *skb,
 	const struct ebt_ip6_info *info = (struct ebt_ip6_info *)data;
 	struct ipv6hdr *ih6;
 	struct ipv6hdr _ip6h;
-	const struct tcpudphdr *pptr;
-	struct tcpudphdr _ports;
-	struct in6_addr tmp_addr;
-	int i;
+	const union pkthdr *pptr;
+	union pkthdr _pkthdr;
 
 	ih6 = skb_header_pointer(skb, 0, sizeof(_ip6h), &_ip6h);
 	if (ih6 == NULL)
@@ -46,18 +50,10 @@ static int ebt_filter_ip6(const struct sk_buff *skb,
 	if (info->bitmask & EBT_IP6_TCLASS &&
 	   FWINV(info->tclass != ipv6_get_dsfield(ih6), EBT_IP6_TCLASS))
 		return EBT_NOMATCH;
-	for (i = 0; i < 4; i++)
-		tmp_addr.in6_u.u6_addr32[i] = ih6->saddr.in6_u.u6_addr32[i] &
-			info->smsk.in6_u.u6_addr32[i];
-	if (info->bitmask & EBT_IP6_SOURCE &&
-		FWINV((ipv6_addr_cmp(&tmp_addr, &info->saddr) != 0),
-			EBT_IP6_SOURCE))
-		return EBT_NOMATCH;
-	for (i = 0; i < 4; i++)
-		tmp_addr.in6_u.u6_addr32[i] = ih6->daddr.in6_u.u6_addr32[i] &
-			info->dmsk.in6_u.u6_addr32[i];
-	if (info->bitmask & EBT_IP6_DEST &&
-	   FWINV((ipv6_addr_cmp(&tmp_addr, &info->daddr) != 0), EBT_IP6_DEST))
+	if (FWINV(ipv6_masked_addr_cmp(&ih6->saddr, &info->smsk,
+				       &info->saddr), EBT_IP6_SOURCE) ||
+	    FWINV(ipv6_masked_addr_cmp(&ih6->daddr, &info->dmsk,
+				       &info->daddr), EBT_IP6_DEST))
 		return EBT_NOMATCH;
 	if (info->bitmask & EBT_IP6_PROTO) {
 		uint8_t nexthdr = ih6->nexthdr;
@@ -68,26 +64,34 @@ static int ebt_filter_ip6(const struct sk_buff *skb,
 			return EBT_NOMATCH;
 		if (FWINV(info->protocol != nexthdr, EBT_IP6_PROTO))
 			return EBT_NOMATCH;
-		if (!(info->bitmask & EBT_IP6_DPORT) &&
-		    !(info->bitmask & EBT_IP6_SPORT))
+		if (!(info->bitmask & ( EBT_IP6_DPORT |
+					EBT_IP6_SPORT | EBT_IP6_ICMP6)))
 			return EBT_MATCH;
-		pptr = skb_header_pointer(skb, offset_ph, sizeof(_ports),
-					  &_ports);
+
+		/* min icmpv6 headersize is 4, so sizeof(_pkthdr) is ok. */
+		pptr = skb_header_pointer(skb, offset_ph, sizeof(_pkthdr),
+					  &_pkthdr);
 		if (pptr == NULL)
 			return EBT_NOMATCH;
 		if (info->bitmask & EBT_IP6_DPORT) {
-			u32 dst = ntohs(pptr->dst);
+			u16 dst = ntohs(pptr->tcpudphdr.dst);
 			if (FWINV(dst < info->dport[0] ||
 				  dst > info->dport[1], EBT_IP6_DPORT))
 				return EBT_NOMATCH;
 		}
 		if (info->bitmask & EBT_IP6_SPORT) {
-			u32 src = ntohs(pptr->src);
+			u16 src = ntohs(pptr->tcpudphdr.src);
 			if (FWINV(src < info->sport[0] ||
 				  src > info->sport[1], EBT_IP6_SPORT))
 			return EBT_NOMATCH;
 		}
-		return EBT_MATCH;
+		if ((info->bitmask & EBT_IP6_ICMP6) &&
+		     FWINV(pptr->icmphdr.type < info->icmpv6_type[0] ||
+			   pptr->icmphdr.type > info->icmpv6_type[1] ||
+			   pptr->icmphdr.code < info->icmpv6_code[0] ||
+			   pptr->icmphdr.code > info->icmpv6_code[1],
+							EBT_IP6_ICMP6))
+			return EBT_NOMATCH;
 	}
 	return EBT_MATCH;
 }
@@ -117,6 +121,14 @@ static int ebt_ip6_check(const char *tablename, unsigned int hookmask,
 		return -EINVAL;
 	if (info->bitmask & EBT_IP6_SPORT && info->sport[0] > info->sport[1])
 		return -EINVAL;
+	if (info->bitmask & EBT_IP6_ICMP6) {
+		if ((info->invflags & EBT_IP6_PROTO) ||
+		     info->protocol != IPPROTO_ICMPV6)
+			return -EINVAL;
+		if (info->icmpv6_type[0] > info->icmpv6_type[1] ||
+		    info->icmpv6_code[0] > info->icmpv6_code[1])
+			return -EINVAL;
+	}
 	return 0;
 }
 
