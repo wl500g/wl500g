@@ -239,6 +239,7 @@ if [ -n "$1" ]; then
 	elif [ "$MODEL" = "WL500gx" ] || [ "$MODEL" = "WL500gp" ] \
 		|| [ "$MODEL" = "WL500gpv2" ] || [ "$MODEL" = "WL700g" ] \
 		|| [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "RT-N16" ] \
+		|| [ "$MODEL" = "RT-N15U" ] \
 		|| [ "$MODEL" = "RT-N12" ] || [ "$MODEL" = "RT-N12B1" ] || [ "$MODEL" = "RT-N12C1" ] \
 		|| [ "$MODEL" = "RT-N10" ] || [ "$MODEL" = "RT-N10U" ] \
 		|| [ "$MODEL" = "WL550gE" ] || [ "$MODEL" = "WL520gu" ]; then
@@ -250,6 +251,7 @@ if [ -n "$1" ]; then
 				
 		### 6.2 web page ###							
 		if [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "RT-N16" ] \
+		    || [ "$MODEL" = "RT-N15U" ] \
 		    || [ "$MODEL" = "RT-N12" ] || [ "$MODEL" = "RT-N12B1" ] || [ "$MODEL" = "RT-N12C1" ] \
 		    || [ "$MODEL" = "RT-N10" ] || [ "$MODEL" = "RT-N10U" ]; then
 			cp -f ../web_$MODEL/Advanced_Wireless11n_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp

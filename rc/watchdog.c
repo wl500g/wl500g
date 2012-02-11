@@ -267,6 +267,11 @@ void gpio_init(void)
 			ready_mask = GPIO1, ready_value = 0;
 			setup_mask = GPIO8, setup_value = 0;
 			break;
+		case MDL_RTN15U:
+			reset_mask = GPIO5, reset_value = 0;
+			ready_mask = GPIO6, ready_value = 0;
+			setup_mask = GPIO8, setup_value = 0;
+			break;
 		case MDL_RTN12:
 			reset_mask = GPIO1, reset_value = 0;
 			ready_mask = GPIO2, ready_value = 0;

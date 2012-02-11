@@ -6,6 +6,7 @@
 # Router Models
 #
 CONFIG_RTN16=y
+# CONFIG_RTN15U is not set
 CONFIG_RTN12=y
 CONFIG_RTN12B1=y
 CONFIG_RTN12C1=y

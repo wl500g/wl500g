@@ -41,7 +41,9 @@ static int start_wpa_supplicant(const char *prefix, int restart)
 		stop_wpa_supplicant(1);
 
 	/* Select supplicant drivers here */
-	if (router_model == MDL_RTN16 || router_model == MDL_WL500W)
+	if (router_model == MDL_RTN16 ||
+	    router_model == MDL_RTN15U ||
+	    router_model == MDL_WL500W)
 		wpa_argv[4] = "wired";
 
 	/* Generate options file */
