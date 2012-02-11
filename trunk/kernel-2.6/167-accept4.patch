@@ -1,0 +1,842 @@
+Backport accept4() system call
+
+ 230b183921ecbaa5fedc0d35ad6ba7bb64b6e06a net: Use standard structures for generic socket address structures.
+ a677a039be7243357d93502bff2b40850c942e2d flag parameters: socket and socketpair
+ 77d2720059618b9b6e827a8b73831eb6c6fad63c flag parameters: NONBLOCK in socket and socketpair
+ aaca0bdca573f3f51ea03139f9c7289541e7bca3 flag parameters: paccept
+ de11defebf00007677fb7ee91d9b089b78786fbb reintroduce accept4
+ 54822de7793bf9aa56d79cc173281cdb23b37f9f MIPS: Wire up accept4 syscall.
+
+---
+ arch/mips/kernel/scall32-o32.S |   11 ++
+ arch/mips/kernel/scall64-64.S  |   11 ++
+ arch/mips/kernel/scall64-n32.S |    2 
+ arch/mips/kernel/scall64-o32.S |   11 ++
+ include/asm-mips/socket.h      |    7 +
+ include/asm-mips/unistd.h      |   32 ++++++--
+ include/linux/net.h            |   14 +++
+ include/linux/socket.h         |    6 -
+ include/linux/syscalls.h       |    1 
+ include/net/compat.h           |    2 
+ kernel/sys_ni.c                |    1 
+ net/compat.c                   |   14 ++-
+ net/core/iovec.c               |    2 
+ net/sctp/socket.c              |    2 
+ net/socket.c                   |  161 ++++++++++++++++++++++++++---------------
+ 15 files changed, 201 insertions(+), 76 deletions(-)
+
+diff --git a/arch/mips/kernel/scall32-o32.S b/arch/mips/kernel/scall32-o32.S
+--- a/arch/mips/kernel/scall32-o32.S
++++ b/arch/mips/kernel/scall32-o32.S
+@@ -673,6 +673,17 @@ einval:	li	v0, -ENOSYS
+ 	sys	sys_timerfd_create	2
+ 	sys	sys_timerfd_gettime	2
+ 	sys	sys_timerfd_settime	4
++	sys	sys_ni_syscall		4	/* sys_signalfd4 */
++	sys	sys_ni_syscall		2	/* 4325, sys_eventfd2 */
++	sys	sys_ni_syscall	1	/* sys_epoll_create1 */
++	sys	sys_ni_syscall		3	/* sys_dup3 */
++	sys	sys_ni_syscall		2	/* sys_pipe2 */
++	sys	sys_ni_syscall	1	/* sys_inotify_init1 */
++	sys	sys_ni_syscall		6	/* 4330, sys_preadv */
++	sys	sys_ni_syscall		6	/* sys_pwritev */
++	sys	sys_ni_syscall	4	/* sys_rt_tgsigqueueinfo */
++	sys	sys_ni_syscall	5	/* sys_perf_event_open */
++	sys	sys_accept4		4
+ 	.endm
+ 
+ 	/* We pre-compute the number of _instruction_ bytes needed to
+diff --git a/arch/mips/kernel/scall64-64.S b/arch/mips/kernel/scall64-64.S
+--- a/arch/mips/kernel/scall64-64.S
++++ b/arch/mips/kernel/scall64-64.S
+@@ -482,4 +482,15 @@ sys_call_table:
+ 	PTR	sys_timerfd_create		/* 5280 */
+ 	PTR	sys_timerfd_gettime
+ 	PTR	sys_timerfd_settime
++	PTR	sys_ni_syscall		4	/* sys_signalfd4 */
++	PTR	sys_ni_syscall		2	/* sys_eventfd2 */
++	PTR	sys_ni_syscall	1	/* 5285, sys_epoll_create1 */
++	PTR	sys_ni_syscall		3	/* sys_dup3 */
++	PTR	sys_ni_syscall		2	/* sys_pipe2 */
++	PTR	sys_ni_syscall	1	/* sys_inotify_init1 */
++	PTR	sys_ni_syscall		6	/* sys_preadv */
++	PTR	sys_ni_syscall		6	/* 5290, sys_pwritev */
++	PTR	sys_ni_syscall	4	/* sys_rt_tgsigqueueinfo */
++	PTR	sys_ni_syscall	5	/* sys_perf_event_open */
++	PTR	sys_accept4		4
+ 	.size	sys_call_table,.-sys_call_table
+diff --git a/arch/mips/kernel/scall64-n32.S b/arch/mips/kernel/scall64-n32.S
+--- a/arch/mips/kernel/scall64-n32.S
++++ b/arch/mips/kernel/scall64-n32.S
+@@ -419,7 +419,7 @@ EXPORT(sysn32_call_table)
+ 	PTR	sys_ni_syscall			/* sys_pwritev */
+ 	PTR	sys_ni_syscall		/* 6295, compat_sys_rt_tgsigqueueinfo */
+ 	PTR	sys_ni_syscall			/* sys_perf_counter_open */
+-	PTR	sys_ni_syscall			/* sys_accept4 */
++	PTR	sys_accept4
+ 	PTR     sys_ni_syscall
+ 	PTR     sys_getdents64
+ 	.size	sysn32_call_table,.-sysn32_call_table
+diff --git a/arch/mips/kernel/scall64-o32.S b/arch/mips/kernel/scall64-o32.S
+--- a/arch/mips/kernel/scall64-o32.S
++++ b/arch/mips/kernel/scall64-o32.S
+@@ -528,4 +528,15 @@ sys_call_table:
+ 	PTR	sys_timerfd_create
+ 	PTR	compat_sys_timerfd_gettime
+ 	PTR	compat_sys_timerfd_settime
++	PTR	sys_ni_syscall			/* sys_signalfd4 */
++	PTR	sys_ni_syscall			/* 4325, sys_eventfd2 */
++	PTR	sys_ni_syscall			/* sys_epoll_create1 */
++	PTR	sys_ni_syscall			/* sys_dup3 */
++	PTR	sys_ni_syscall			/* sys_pipe2 */
++	PTR	sys_ni_syscall			/* sys_inotify_init1 */
++	PTR	sys_ni_syscall			/* 4330, compat_sys_preadv */
++	PTR	sys_ni_syscall			/* compat_sys_pwritev */
++	PTR	sys_ni_syscall		/* compat_sys_rt_tgsigqueueinfo */
++	PTR	sys_ni_syscall			/* sys_perf_counter_open */
++	PTR	sys_accept4
+ 	.size	sys_call_table,.-sys_call_table
+diff --git a/include/asm-mips/socket.h b/include/asm-mips/socket.h
+--- a/include/asm-mips/socket.h
++++ b/include/asm-mips/socket.h
+@@ -100,6 +100,13 @@ enum sock_type {
+ };
+ 
+ #define SOCK_MAX (SOCK_PACKET + 1)
++/* Mask which covers at least up to SOCK_MASK-1.  The
++ *  * remaining bits are used as flags. */
++#define SOCK_TYPE_MASK 0xf
++
++/* Flags for socket, socketpair, paccept */
++#define SOCK_CLOEXEC	O_CLOEXEC
++#define SOCK_NONBLOCK	O_NONBLOCK
+ 
+ #define ARCH_HAS_SOCKET_TYPES 1
+ 
+diff --git a/include/asm-mips/unistd.h b/include/asm-mips/unistd.h
+--- a/include/asm-mips/unistd.h
++++ b/include/asm-mips/unistd.h
+@@ -344,16 +344,27 @@
+ #define __NR_timerfd_create		(__NR_Linux + 321)
+ #define __NR_timerfd_gettime		(__NR_Linux + 322)
+ #define __NR_timerfd_settime		(__NR_Linux + 323)
++/* #define __NR_signalfd4			(__NR_Linux + 324) */
++/* #define __NR_eventfd2			(__NR_Linux + 325) */
++/* #define __NR_epoll_create1		(__NR_Linux + 326) */
++/* #define __NR_dup3			(__NR_Linux + 327) */
++/* #define __NR_pipe2			(__NR_Linux + 328) */
++/* #define __NR_inotify_init1		(__NR_Linux + 329) */
++/* #define __NR_preadv			(__NR_Linux + 330) */
++/* #define __NR_pwritev			(__NR_Linux + 331) */
++/* #define __NR_rt_tgsigqueueinfo		(__NR_Linux + 332) */
++/* #define __NR_perf_event_open		(__NR_Linux + 333) */
++#define __NR_accept4			(__NR_Linux + 334)
+ 
+ /*
+  * Offset of the last Linux o32 flavoured syscall
+  */
+-#define __NR_Linux_syscalls		323
++#define __NR_Linux_syscalls		334
+ 
+ #endif /* _MIPS_SIM == _MIPS_SIM_ABI32 */
+ 
+ #define __NR_O32_Linux			4000
+-#define __NR_O32_Linux_syscalls		323
++#define __NR_O32_Linux_syscalls		334
+ 
+ #if _MIPS_SIM == _MIPS_SIM_ABI64
+ 
+@@ -644,16 +655,27 @@
+ #define __NR_timerfd_create		(__NR_Linux + 280)
+ #define __NR_timerfd_gettime		(__NR_Linux + 281)
+ #define __NR_timerfd_settime		(__NR_Linux + 282)
++/* #define __NR_signalfd4			(__NR_Linux + 283) */
++/* #define __NR_eventfd2			(__NR_Linux + 284) */
++/* #define __NR_epoll_create1		(__NR_Linux + 285) */
++/* #define __NR_dup3			(__NR_Linux + 286) */
++/* #define __NR_pipe2			(__NR_Linux + 287) */
++/* #define __NR_inotify_init1		(__NR_Linux + 288) */
++/* #define __NR_preadv			(__NR_Linux + 289) */
++/* #define __NR_pwritev			(__NR_Linux + 290) */
++/* #define __NR_rt_tgsigqueueinfo		(__NR_Linux + 291) */
++/* #define __NR_perf_event_open		(__NR_Linux + 292) */
++#define __NR_accept4			(__NR_Linux + 293)
+ 
+ /*
+  * Offset of the last Linux 64-bit flavoured syscall
+  */
+-#define __NR_Linux_syscalls		282
++#define __NR_Linux_syscalls		293
+ 
+ #endif /* _MIPS_SIM == _MIPS_SIM_ABI64 */
+ 
+ #define __NR_64_Linux			5000
+-#define __NR_64_Linux_syscalls		282
++#define __NR_64_Linux_syscalls		293
+ 
+ #if _MIPS_SIM == _MIPS_SIM_NABI32
+ 
+@@ -958,7 +980,7 @@
+ /* #define __NR_pwritev			(__NR_Linux + 294) */
+ /* #define __NR_rt_tgsigqueueinfo	(__NR_Linux + 295) */
+ /* #define __NR_perf_counter_open	(__NR_Linux + 296) */
+-/* #define __NR_accept4			(__NR_Linux + 297) */
++#define __NR_accept4			(__NR_Linux + 297)
+ /* #define __NR_recvmmsg		(__NR_Linux + 298) */
+ #define __NR_getdents64			(__NR_Linux + 299)
+ 
+diff --git a/include/linux/net.h b/include/linux/net.h
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -19,6 +19,8 @@
+ #define _LINUX_NET_H
+ 
+ #include <linux/wait.h>
++#include <linux/socket.h>
++#include <linux/fcntl.h>	/* For O_CLOEXEC and O_NONBLOCK */
+ #include <asm/socket.h>
+ 
+ struct poll_table_struct;
+@@ -44,6 +46,7 @@ struct inode;
+ #define SYS_GETSOCKOPT	15		/* sys_getsockopt(2)		*/
+ #define SYS_SENDMSG	16		/* sys_sendmsg(2)		*/
+ #define SYS_RECVMSG	17		/* sys_recvmsg(2)		*/
++#define SYS_ACCEPT4	18		/* sys_accept4(2)		*/
+ 
+ typedef enum {
+ 	SS_FREE = 0,			/* not allocated		*/
+@@ -92,6 +95,15 @@ enum sock_type {
+ };
+ 
+ #define SOCK_MAX (SOCK_PACKET + 1)
++/* Mask which covers at least up to SOCK_MASK-1.  The
++ * remaining bits are used as flags. */
++#define SOCK_TYPE_MASK 0xf
++
++/* Flags for socket, socketpair, accept4 */
++#define SOCK_CLOEXEC	O_CLOEXEC
++#ifndef SOCK_NONBLOCK
++#define SOCK_NONBLOCK	O_NONBLOCK
++#endif
+ 
+ #endif /* ARCH_HAS_SOCKET_TYPES */
+ 
+@@ -198,7 +210,7 @@ extern int   	     sock_sendmsg(struct s
+ 				  size_t len);
+ extern int	     sock_recvmsg(struct socket *sock, struct msghdr *msg,
+ 				  size_t size, int flags);
+-extern int 	     sock_map_fd(struct socket *sock);
++extern int 	     sock_map_fd(struct socket *sock, int flags);
+ extern struct socket *sockfd_lookup(int fd, int *err);
+ #define		     sockfd_put(sock) fput(sock->file)
+ extern int	     net_ratelimit(void);
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -306,10 +306,10 @@ extern int csum_partial_copy_fromiovecen
+ 					  int offset, 
+ 					  unsigned int len, __wsum *csump);
+ 
+-extern int verify_iovec(struct msghdr *m, struct iovec *iov, char *address, int mode);
++extern int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr *address, int mode);
+ extern int memcpy_toiovec(struct iovec *v, unsigned char *kdata, int len);
+-extern int move_addr_to_user(void *kaddr, int klen, void __user *uaddr, int __user *ulen);
+-extern int move_addr_to_kernel(void __user *uaddr, int ulen, void *kaddr);
++extern int move_addr_to_user(struct sockaddr *kaddr, int klen, void __user *uaddr, int __user *ulen);
++extern int move_addr_to_kernel(void __user *uaddr, int ulen, struct sockaddr *kaddr);
+ extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
+ 
+ #endif
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -408,6 +408,7 @@ asmlinkage long sys_getsockopt(int fd, i
+ asmlinkage long sys_bind(int, struct sockaddr __user *, int);
+ asmlinkage long sys_connect(int, struct sockaddr __user *, int);
+ asmlinkage long sys_accept(int, struct sockaddr __user *, int __user *);
++asmlinkage long sys_accept4(int, struct sockaddr __user *, int __user *, int);
+ asmlinkage long sys_getsockname(int, struct sockaddr __user *, int __user *);
+ asmlinkage long sys_getpeername(int, struct sockaddr __user *, int __user *);
+ asmlinkage long sys_send(int, void __user *, size_t, unsigned);
+diff --git a/include/net/compat.h b/include/net/compat.h
+--- a/include/net/compat.h
++++ b/include/net/compat.h
+@@ -32,7 +32,7 @@ extern int compat_sock_get_timestampns(s
+ #endif /* defined(CONFIG_COMPAT) */
+ 
+ extern int get_compat_msghdr(struct msghdr *, struct compat_msghdr __user *);
+-extern int verify_compat_iovec(struct msghdr *, struct iovec *, char *, int);
++extern int verify_compat_iovec(struct msghdr *, struct iovec *, struct sockaddr *, int);
+ extern asmlinkage long compat_sys_sendmsg(int,struct compat_msghdr __user *,unsigned);
+ extern asmlinkage long compat_sys_recvmsg(int,struct compat_msghdr __user *,unsigned);
+ extern asmlinkage long compat_sys_getsockopt(int, int, int, char __user *, int __user *);
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -26,6 +26,7 @@ cond_syscall(sys_socketpair);
+ cond_syscall(sys_bind);
+ cond_syscall(sys_listen);
+ cond_syscall(sys_accept);
++cond_syscall(sys_accept4);
+ cond_syscall(sys_connect);
+ cond_syscall(sys_getsockname);
+ cond_syscall(sys_getpeername);
+diff --git a/net/compat.c b/net/compat.c
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -74,7 +74,7 @@ int get_compat_msghdr(struct msghdr *kms
+ 
+ /* I've named the args so it is easy to tell whose space the pointers are in. */
+ int verify_compat_iovec(struct msghdr *kern_msg, struct iovec *kern_iov,
+-		   char *kern_address, int mode)
++		   struct sockaddr *kern_address, int mode)
+ {
+ 	int tot_len;
+ 
+@@ -627,9 +627,10 @@ asmlinkage long compat_sys_getsockopt(in
+ }
+ /* Argument list sizes for compat_sys_socketcall */
+ #define AL(x) ((x) * sizeof(u32))
+-static unsigned char nas[18]={AL(0),AL(3),AL(3),AL(3),AL(2),AL(3),
++static unsigned char nas[19]={AL(0),AL(3),AL(3),AL(3),AL(2),AL(3),
+ 				AL(3),AL(3),AL(4),AL(4),AL(4),AL(6),
+-				AL(6),AL(2),AL(5),AL(5),AL(3),AL(3)};
++				AL(6),AL(2),AL(5),AL(5),AL(3),AL(3),
++				AL(4)};
+ #undef AL
+ 
+ asmlinkage long compat_sys_sendmsg(int fd, struct compat_msghdr __user *msg, unsigned flags)
+@@ -648,7 +649,7 @@ asmlinkage long compat_sys_socketcall(in
+ 	u32 a[6];
+ 	u32 a0, a1;
+ 
+-	if (call < SYS_SOCKET || call > SYS_RECVMSG)
++	if (call < SYS_SOCKET || call > SYS_ACCEPT4)
+ 		return -EINVAL;
+ 	if (copy_from_user(a, args, nas[call]))
+ 		return -EFAULT;
+@@ -669,7 +670,7 @@ asmlinkage long compat_sys_socketcall(in
+ 		ret = sys_listen(a0, a1);
+ 		break;
+ 	case SYS_ACCEPT:
+-		ret = sys_accept(a0, compat_ptr(a1), compat_ptr(a[2]));
++		ret = sys_accept4(a0, compat_ptr(a1), compat_ptr(a[2]), 0);
+ 		break;
+ 	case SYS_GETSOCKNAME:
+ 		ret = sys_getsockname(a0, compat_ptr(a1), compat_ptr(a[2]));
+@@ -709,6 +710,9 @@ asmlinkage long compat_sys_socketcall(in
+ 	case SYS_RECVMSG:
+ 		ret = compat_sys_recvmsg(a0, compat_ptr(a1), a[2]);
+ 		break;
++	case SYS_ACCEPT4:
++		ret = sys_accept4(a0, compat_ptr(a1), compat_ptr(a[2]), a[3]);
++		break;
+ 	default:
+ 		ret = -EINVAL;
+ 		break;
+diff --git a/net/core/iovec.c b/net/core/iovec.c
+--- a/net/core/iovec.c
++++ b/net/core/iovec.c
+@@ -36,7 +36,7 @@
+  *	in any case.
+  */
+ 
+-int verify_iovec(struct msghdr *m, struct iovec *iov, char *address, int mode)
++int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr *address, int mode)
+ {
+ 	int size, err, ct;
+ 
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -3634,7 +3634,7 @@ static int sctp_getsockopt_peeloff(struc
+ 		goto out;
+ 
+ 	/* Map the socket to an unused fd that can be returned to the user.  */
+-	retval = sock_map_fd(newsock);
++	retval = sock_map_fd(newsock, 0);
+ 	if (retval < 0) {
+ 		sock_release(newsock);
+ 		goto out;
+diff --git a/net/socket.c b/net/socket.c
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -63,6 +63,7 @@
+ #include <linux/file.h>
+ #include <linux/net.h>
+ #include <linux/interrupt.h>
++#include <linux/thread_info.h>
+ #include <linux/rcupdate.h>
+ #include <linux/netdevice.h>
+ #include <linux/proc_fs.h>
+@@ -178,9 +179,9 @@ static DEFINE_PER_CPU(int, sockets_in_us
+  *	invalid addresses -EFAULT is returned. On a success 0 is returned.
+  */
+ 
+-int move_addr_to_kernel(void __user *uaddr, int ulen, void *kaddr)
++int move_addr_to_kernel(void __user *uaddr, int ulen, struct sockaddr *kaddr)
+ {
+-	if (ulen < 0 || ulen > MAX_SOCK_ADDR)
++	if (ulen < 0 || ulen > sizeof(struct sockaddr_storage))
+ 		return -EINVAL;
+ 	if (ulen == 0)
+ 		return 0;
+@@ -206,7 +207,7 @@ int move_addr_to_kernel(void __user *uad
+  *	specified. Zero is returned for a success.
+  */
+ 
+-int move_addr_to_user(void *kaddr, int klen, void __user *uaddr,
++int move_addr_to_user(struct sockaddr *kaddr, int klen, void __user *uaddr,
+ 		      int __user *ulen)
+ {
+ 	int err;
+@@ -217,7 +218,7 @@ int move_addr_to_user(void *kaddr, int k
+ 		return err;
+ 	if (len > klen)
+ 		len = klen;
+-	if (len < 0 || len > MAX_SOCK_ADDR)
++	if (len < 0 || len > sizeof(struct sockaddr_storage))
+ 		return -EINVAL;
+ 	if (len) {
+ 		if (audit_sockaddr(klen, kaddr))
+@@ -348,11 +349,11 @@ static struct dentry_operations sockfs_d
+  *	but we take care of internal coherence yet.
+  */
+ 
+-static int sock_alloc_fd(struct file **filep)
++static int sock_alloc_fd(struct file **filep, int flags)
+ {
+ 	int fd;
+ 
+-	fd = get_unused_fd();
++	fd = get_unused_fd_flags(flags);
+ 	if (likely(fd >= 0)) {
+ 		struct file *file = get_empty_filp();
+ 
+@@ -366,7 +367,7 @@ static int sock_alloc_fd(struct file **f
+ 	return fd;
+ }
+ 
+-static int sock_attach_fd(struct socket *sock, struct file *file)
++static int sock_attach_fd(struct socket *sock, struct file *file, int flags)
+ {
+ 	struct qstr name = { .name = "" };
+ 
+@@ -388,20 +389,20 @@ static int sock_attach_fd(struct socket
+ 	sock->file = file;
+ 	file->f_op = SOCK_INODE(sock)->i_fop = &socket_file_ops;
+ 	file->f_mode = FMODE_READ | FMODE_WRITE;
+-	file->f_flags = O_RDWR;
++	file->f_flags = O_RDWR | (flags & O_NONBLOCK);
+ 	file->f_pos = 0;
+ 	file->private_data = sock;
+ 
+ 	return 0;
+ }
+ 
+-int sock_map_fd(struct socket *sock)
++int sock_map_fd(struct socket *sock, int flags)
+ {
+ 	struct file *newfile;
+-	int fd = sock_alloc_fd(&newfile);
++	int fd = sock_alloc_fd(&newfile, flags);
+ 
+ 	if (likely(fd >= 0)) {
+-		int err = sock_attach_fd(sock, newfile);
++		int err = sock_attach_fd(sock, newfile, flags);
+ 
+ 		if (unlikely(err < 0)) {
+ 			put_filp(newfile);
+@@ -1215,12 +1216,21 @@ asmlinkage long sys_socket(int family, i
+ {
+ 	int retval;
+ 	struct socket *sock;
++	int flags;
++
++	flags = type & ~SOCK_TYPE_MASK;
++	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
++		return -EINVAL;
++	type &= SOCK_TYPE_MASK;
++
++	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
++		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
+ 
+ 	retval = sock_create(family, type, protocol, &sock);
+ 	if (retval < 0)
+ 		goto out;
+ 
+-	retval = sock_map_fd(sock);
++	retval = sock_map_fd(sock, flags & (O_CLOEXEC | O_NONBLOCK));
+ 	if (retval < 0)
+ 		goto out_release;
+ 
+@@ -1243,6 +1253,15 @@ asmlinkage long sys_socketpair(int famil
+ 	struct socket *sock1, *sock2;
+ 	int fd1, fd2, err;
+ 	struct file *newfile1, *newfile2;
++	int flags;
++
++	flags = type & ~SOCK_TYPE_MASK;
++	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
++		return -EINVAL;
++	type &= SOCK_TYPE_MASK;
++
++	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
++		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
+ 
+ 	/*
+ 	 * Obtain the first socket and check if the underlying protocol
+@@ -1261,13 +1280,13 @@ asmlinkage long sys_socketpair(int famil
+ 	if (err < 0)
+ 		goto out_release_both;
+ 
+-	fd1 = sock_alloc_fd(&newfile1);
++	fd1 = sock_alloc_fd(&newfile1, flags & O_CLOEXEC);
+ 	if (unlikely(fd1 < 0)) {
+ 		err = fd1;
+ 		goto out_release_both;
+ 	}
+ 
+-	fd2 = sock_alloc_fd(&newfile2);
++	fd2 = sock_alloc_fd(&newfile2, flags & O_CLOEXEC);
+ 	if (unlikely(fd2 < 0)) {
+ 		err = fd2;
+ 		put_filp(newfile1);
+@@ -1275,12 +1294,12 @@ asmlinkage long sys_socketpair(int famil
+ 		goto out_release_both;
+ 	}
+ 
+-	err = sock_attach_fd(sock1, newfile1);
++	err = sock_attach_fd(sock1, newfile1, flags & O_NONBLOCK);
+ 	if (unlikely(err < 0)) {
+ 		goto out_fd2;
+ 	}
+ 
+-	err = sock_attach_fd(sock2, newfile2);
++	err = sock_attach_fd(sock2, newfile2, flags & O_NONBLOCK);
+ 	if (unlikely(err < 0)) {
+ 		fput(newfile1);
+ 		goto out_fd1;
+@@ -1339,20 +1358,20 @@ out_fd:
+ asmlinkage long sys_bind(int fd, struct sockaddr __user *umyaddr, int addrlen)
+ {
+ 	struct socket *sock;
+-	char address[MAX_SOCK_ADDR];
++	struct sockaddr_storage address;
+ 	int err, fput_needed;
+ 
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (sock) {
+-		err = move_addr_to_kernel(umyaddr, addrlen, address);
++		err = move_addr_to_kernel(umyaddr, addrlen, (struct sockaddr *)&address);
+ 		if (err >= 0) {
+ 			err = security_socket_bind(sock,
+-						   (struct sockaddr *)address,
++						   (struct sockaddr *)&address,
+ 						   addrlen);
+ 			if (!err)
+ 				err = sock->ops->bind(sock,
+ 						      (struct sockaddr *)
+-						      address, addrlen);
++						      &address, addrlen);
+ 		}
+ 		fput_light(sock->file, fput_needed);
+ 	}
+@@ -1398,13 +1417,19 @@ asmlinkage long sys_listen(int fd, int b
+  *	clean when we restucture accept also.
+  */
+ 
+-asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
+-			   int __user *upeer_addrlen)
++asmlinkage long sys_accept4(int fd, struct sockaddr __user *upeer_sockaddr,
++			    int __user *upeer_addrlen, int flags)
+ {
+ 	struct socket *sock, *newsock;
+ 	struct file *newfile;
+ 	int err, len, newfd, fput_needed;
+-	char address[MAX_SOCK_ADDR];
++	struct sockaddr_storage address;
++
++	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
++		return -EINVAL;
++
++	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
++		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
+ 
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (!sock)
+@@ -1423,14 +1448,14 @@ asmlinkage long sys_accept(int fd, struc
+ 	 */
+ 	__module_get(newsock->ops->owner);
+ 
+-	newfd = sock_alloc_fd(&newfile);
++	newfd = sock_alloc_fd(&newfile, flags & O_CLOEXEC);
+ 	if (unlikely(newfd < 0)) {
+ 		err = newfd;
+ 		sock_release(newsock);
+ 		goto out_put;
+ 	}
+ 
+-	err = sock_attach_fd(newsock, newfile);
++	err = sock_attach_fd(newsock, newfile, flags & O_NONBLOCK);
+ 	if (err < 0)
+ 		goto out_fd_simple;
+ 
+@@ -1443,13 +1468,13 @@ asmlinkage long sys_accept(int fd, struc
+ 		goto out_fd;
+ 
+ 	if (upeer_sockaddr) {
+-		if (newsock->ops->getname(newsock, (struct sockaddr *)address,
++		if (newsock->ops->getname(newsock, (struct sockaddr *)&address,
+ 					  &len, 2) < 0) {
+ 			err = -ECONNABORTED;
+ 			goto out_fd;
+ 		}
+-		err = move_addr_to_user(address, len, upeer_sockaddr,
+-					upeer_addrlen);
++		err = move_addr_to_user((struct sockaddr *)&address,
++					len, upeer_sockaddr, upeer_addrlen);
+ 		if (err < 0)
+ 			goto out_fd;
+ 	}
+@@ -1476,6 +1501,12 @@ out_fd:
+ 	goto out_put;
+ }
+ 
++asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
++			   int __user *upeer_addrlen)
++{
++	return sys_accept4(fd, upeer_sockaddr, upeer_addrlen, 0);
++}
++
+ /*
+  *	Attempt to connect to a socket with the server address.  The address
+  *	is in user space so we verify it is OK and move it to kernel space.
+@@ -1492,22 +1523,22 @@ asmlinkage long sys_connect(int fd, stru
+ 			    int addrlen)
+ {
+ 	struct socket *sock;
+-	char address[MAX_SOCK_ADDR];
++	struct sockaddr_storage address;
+ 	int err, fput_needed;
+ 
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (!sock)
+ 		goto out;
+-	err = move_addr_to_kernel(uservaddr, addrlen, address);
++	err = move_addr_to_kernel(uservaddr, addrlen, (struct sockaddr *)&address);
+ 	if (err < 0)
+ 		goto out_put;
+ 
+ 	err =
+-	    security_socket_connect(sock, (struct sockaddr *)address, addrlen);
++	    security_socket_connect(sock, (struct sockaddr *)&address, addrlen);
+ 	if (err)
+ 		goto out_put;
+ 
+-	err = sock->ops->connect(sock, (struct sockaddr *)address, addrlen,
++	err = sock->ops->connect(sock, (struct sockaddr *)&address, addrlen,
+ 				 sock->file->f_flags);
+ out_put:
+ 	fput_light(sock->file, fput_needed);
+@@ -1524,7 +1555,7 @@ asmlinkage long sys_getsockname(int fd,
+ 				int __user *usockaddr_len)
+ {
+ 	struct socket *sock;
+-	char address[MAX_SOCK_ADDR];
++	struct sockaddr_storage address;
+ 	int len, err, fput_needed;
+ 
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+@@ -1535,10 +1566,10 @@ asmlinkage long sys_getsockname(int fd,
+ 	if (err)
+ 		goto out_put;
+ 
+-	err = sock->ops->getname(sock, (struct sockaddr *)address, &len, 0);
++	err = sock->ops->getname(sock, (struct sockaddr *)&address, &len, 0);
+ 	if (err)
+ 		goto out_put;
+-	err = move_addr_to_user(address, len, usockaddr, usockaddr_len);
++	err = move_addr_to_user((struct sockaddr *)&address, len, usockaddr, usockaddr_len);
+ 
+ out_put:
+ 	fput_light(sock->file, fput_needed);
+@@ -1555,7 +1586,7 @@ asmlinkage long sys_getpeername(int fd,
+ 				int __user *usockaddr_len)
+ {
+ 	struct socket *sock;
+-	char address[MAX_SOCK_ADDR];
++	struct sockaddr_storage address;
+ 	int len, err, fput_needed;
+ 
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+@@ -1567,10 +1598,10 @@ asmlinkage long sys_getpeername(int fd,
+ 		}
+ 
+ 		err =
+-		    sock->ops->getname(sock, (struct sockaddr *)address, &len,
++		    sock->ops->getname(sock, (struct sockaddr *)&address, &len,
+ 				       1);
+ 		if (!err)
+-			err = move_addr_to_user(address, len, usockaddr,
++			err = move_addr_to_user((struct sockaddr *)&address, len, usockaddr,
+ 						usockaddr_len);
+ 		fput_light(sock->file, fput_needed);
+ 	}
+@@ -1588,7 +1619,7 @@ asmlinkage long sys_sendto(int fd, void
+ 			   int addr_len)
+ {
+ 	struct socket *sock;
+-	char address[MAX_SOCK_ADDR];
++	struct sockaddr_storage address;
+ 	int err;
+ 	struct msghdr msg;
+ 	struct iovec iov;
+@@ -1612,10 +1643,10 @@ asmlinkage long sys_sendto(int fd, void
+ 	msg.msg_controllen = 0;
+ 	msg.msg_namelen = 0;
+ 	if (addr) {
+-		err = move_addr_to_kernel(addr, addr_len, address);
++		err = move_addr_to_kernel(addr, addr_len, (struct sockaddr *)&address);
+ 		if (err < 0)
+ 			goto out_put;
+-		msg.msg_name = address;
++		msg.msg_name = (struct sockaddr *)&address;
+ 		msg.msg_namelen = addr_len;
+ 	}
+ 	if (sock->file->f_flags & O_NONBLOCK)
+@@ -1651,7 +1682,7 @@ asmlinkage long sys_recvfrom(int fd, voi
+ 	struct socket *sock;
+ 	struct iovec iov;
+ 	struct msghdr msg;
+-	char address[MAX_SOCK_ADDR];
++	struct sockaddr_storage address;
+ 	int err, err2;
+ 	struct file *sock_file;
+ 	int fput_needed;
+@@ -1671,14 +1702,15 @@ asmlinkage long sys_recvfrom(int fd, voi
+ 	msg.msg_iov = &iov;
+ 	iov.iov_len = size;
+ 	iov.iov_base = ubuf;
+-	msg.msg_name = address;
+-	msg.msg_namelen = MAX_SOCK_ADDR;
++	msg.msg_name = (struct sockaddr *)&address;
++	msg.msg_namelen = sizeof(address);
+ 	if (sock->file->f_flags & O_NONBLOCK)
+ 		flags |= MSG_DONTWAIT;
+ 	err = sock_recvmsg(sock, &msg, size, flags);
+ 
+ 	if (err >= 0 && addr != NULL) {
+-		err2 = move_addr_to_user(address, msg.msg_namelen, addr, addr_len);
++		err2 = move_addr_to_user((struct sockaddr *)&address,
++					 msg.msg_namelen, addr, addr_len);
+ 		if (err2 < 0)
+ 			err = err2;
+ 	}
+@@ -1798,7 +1830,7 @@ asmlinkage long sys_sendmsg(int fd, stru
+ 	struct compat_msghdr __user *msg_compat =
+ 	    (struct compat_msghdr __user *)msg;
+ 	struct socket *sock;
+-	char address[MAX_SOCK_ADDR];
++	struct sockaddr_storage address;
+ 	struct iovec iovstack[UIO_FASTIOV], *iov = iovstack;
+ 	unsigned char ctl[sizeof(struct cmsghdr) + 20]
+ 	    __attribute__ ((aligned(sizeof(__kernel_size_t))));
+@@ -1836,9 +1868,13 @@ asmlinkage long sys_sendmsg(int fd, stru
+ 
+ 	/* This will also move the address data into kernel space */
+ 	if (MSG_CMSG_COMPAT & flags) {
+-		err = verify_compat_iovec(&msg_sys, iov, address, VERIFY_READ);
++		err = verify_compat_iovec(&msg_sys, iov,
++					  (struct sockaddr *)&address,
++					  VERIFY_READ);
+ 	} else
+-		err = verify_iovec(&msg_sys, iov, address, VERIFY_READ);
++		err = verify_iovec(&msg_sys, iov,
++				   (struct sockaddr *)&address,
++				   VERIFY_READ);
+ 	if (err < 0)
+ 		goto out_freeiov;
+ 	total_len = err;
+@@ -1909,7 +1945,7 @@ asmlinkage long sys_recvmsg(int fd, stru
+ 	int fput_needed;
+ 
+ 	/* kernel mode address */
+-	char addr[MAX_SOCK_ADDR];
++	struct sockaddr_storage addr;
+ 
+ 	/* user mode address pointers */
+ 	struct sockaddr __user *uaddr;
+@@ -1947,9 +1983,13 @@ asmlinkage long sys_recvmsg(int fd, stru
+ 	uaddr = (void __user *)msg_sys.msg_name;
+ 	uaddr_len = COMPAT_NAMELEN(msg);
+ 	if (MSG_CMSG_COMPAT & flags) {
+-		err = verify_compat_iovec(&msg_sys, iov, addr, VERIFY_WRITE);
++		err = verify_compat_iovec(&msg_sys, iov,
++					  (struct sockaddr *)&addr,
++					  VERIFY_WRITE);
+ 	} else
+-		err = verify_iovec(&msg_sys, iov, addr, VERIFY_WRITE);
++		err = verify_iovec(&msg_sys, iov,
++				   (struct sockaddr *)&addr,
++				   VERIFY_WRITE);
+ 	if (err < 0)
+ 		goto out_freeiov;
+ 	total_len = err;
+@@ -1965,7 +2005,8 @@ asmlinkage long sys_recvmsg(int fd, stru
+ 	len = err;
+ 
+ 	if (uaddr != NULL) {
+-		err = move_addr_to_user(addr, msg_sys.msg_namelen, uaddr,
++		err = move_addr_to_user((struct sockaddr *)&addr,
++					msg_sys.msg_namelen, uaddr,
+ 					uaddr_len);
+ 		if (err < 0)
+ 			goto out_freeiov;
+@@ -1997,10 +2038,11 @@ out:
+ 
+ /* Argument list sizes for sys_socketcall */
+ #define AL(x) ((x) * sizeof(unsigned long))
+-static const unsigned char nargs[18]={
++static const unsigned char nargs[19]={
+ 	AL(0),AL(3),AL(3),AL(3),AL(2),AL(3),
+ 	AL(3),AL(3),AL(4),AL(4),AL(4),AL(6),
+-	AL(6),AL(2),AL(5),AL(5),AL(3),AL(3)
++	AL(6),AL(2),AL(5),AL(5),AL(3),AL(3),
++	AL(4)
+ };
+ 
+ #undef AL
+@@ -2019,7 +2061,7 @@ asmlinkage long sys_socketcall(int call,
+ 	unsigned long a0, a1;
+ 	int err;
+ 
+-	if (call < 1 || call > SYS_RECVMSG)
++	if (call < 1 || call > SYS_ACCEPT4)
+ 		return -EINVAL;
+ 
+ 	/* copy_from_user should be SMP safe. */
+@@ -2047,9 +2089,8 @@ asmlinkage long sys_socketcall(int call,
+ 		err = sys_listen(a0, a1);
+ 		break;
+ 	case SYS_ACCEPT:
+-		err =
+-		    sys_accept(a0, (struct sockaddr __user *)a1,
+-			       (int __user *)a[2]);
++		err = sys_accept4(a0, (struct sockaddr __user *)a1,
++				  (int __user *)a[2], 0);
+ 		break;
+ 	case SYS_GETSOCKNAME:
+ 		err =
+@@ -2096,6 +2137,10 @@ asmlinkage long sys_socketcall(int call,
+ 	case SYS_RECVMSG:
+ 		err = sys_recvmsg(a0, (struct msghdr __user *)a1, a[2]);
+ 		break;
++	case SYS_ACCEPT4:
++		err = sys_accept4(a0, (struct sockaddr __user *)a1,
++				  (int __user *)a[2], a[3]);
++		break;
+ 	default:
+ 		err = -EINVAL;
+ 		break;
+-- 
