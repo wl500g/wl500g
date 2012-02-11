@@ -172,6 +172,28 @@ stb_set(void)
 			nvram_set("vlan2ports", vlan2ports[stbport]);
 			break;
 			}
+		case MDL_RTN15U:
+			{
+			/* Set LAN ports */
+			char *vlan1ports[] = {
+					"0 1 2 3 8*",	// Defaults
+					"0 1 2 8*",	// LAN 2 + LAN 3 + LAN 4
+					"0 1 3 8*",	// LAN 1 + LAN 3 + LAN 4
+					"0 2 3 8*",	// LAN 1 + LAN 2 + LAN 4
+					"1 2 3 8*",	// LAN 1 + LAN 2 + LAN 3
+					"2 3 8*"};	// LAN 1 + LAN 2
+			/* Set WAN ports */
+			char *vlan2ports[] = {
+					"4 8",		// Defaults
+					"3 4 8",	// WAN + LAN 1
+					"2 4 8",	// WAN + LAN 2
+					"1 4 8",	// WAN + LAN 3
+					"0 4 8",	// WAN + LAN 4
+					"0 1 4 8"};	// WAN + LAN 3 + LAN 4
+			nvram_set("vlan1ports", vlan1ports[stbport]);
+			nvram_set("vlan2ports", vlan2ports[stbport]);
+			break;
+			}
 		case MDL_RTN12:
 		case MDL_RTN12B1:
 		case MDL_RTN12C1:
@@ -246,11 +268,11 @@ early_defaults(void)
 		switch (router_model)
 		{
 		    case MDL_RTN16:
+		    case MDL_RTN15U:
 		    case MDL_WNR3500L:
                         nvram_set("vlan1ports", "0 1 2 3 4 8*");
                         nvram_set("vlan2ports", "8");
                         break;
-
                     default:
 			nvram_set("vlan0ports", "0 1 2 3 4 5*");
 			nvram_set("vlan1ports", "5");
@@ -287,17 +309,22 @@ early_defaults(void)
 				nvram_match("vlan1ports", "0 5u") ? "0 5" : "4 5");
 		}
 
-		/* USE 0x04cf for N16(BCM4718) *
-		 * RT-N16, WAN=0, LAN1~4=4~1 CPU port=8 */
-		if (nvram_match("boardtype", "0x04cf"))
+		/* fix RT-N16 / RT-N15U vlans */
+		if (router_model == MDL_RTN16 || router_model == MDL_RTN15U ||
+		    router_model == MDL_WNR3500L)
 		{
 			if (!nvram_get("wan_ifname") || !nvram_get("vlan2hwname"))
 			{
+				nvram_unset("br0_ifnames");
 				nvram_unset("vlan0ports");
 				nvram_unset("vlan0hwname");
-				nvram_unset("br0_ifnames");
-				nvram_set("vlan1ports", "1 2 3 4 8*");
-				nvram_set("vlan2ports", "0 8");
+				if (router_model == MDL_RTN15U) {
+					nvram_set("vlan1ports", "0 1 2 3 8*");
+					nvram_set("vlan2ports", "4 8");
+				} else {
+					nvram_set("vlan1ports", "1 2 3 4 8*");
+					nvram_set("vlan2ports", "0 8");
+				}
 				nvram_set("vlan1hwname", "et0");
 				nvram_set("vlan2hwname", "et0");
 				nvram_set("landevs", "vlan1 wl0");

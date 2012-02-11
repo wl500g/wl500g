@@ -107,6 +107,7 @@ CONFIG_LINUX_26=y
 export CONFIG_LINUX_26
 
 img-$(if $(CONFIG_RTN16),y,n)	+= RT-N16
+img-$(if $(CONFIG_RTN15U),y,n)	+= RT-N15U
 img-$(if $(CONFIG_RTN12),y,n)	+= RT-N12
 img-$(if $(CONFIG_RTN12B1),y,n)	+= RT-N12B1
 img-$(if $(CONFIG_RTN12C1),y,n)	+= RT-N12C1
@@ -251,7 +252,7 @@ FlashMaxSize = \
     $(if $(filter $(1),WL520gc),1703936, \
     $(if $(filter $(1),WL500gx WL550gE WL320gE WL320gP WL520gu WL330gE RT-N10 RT-N12),3801880, \
     $(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g RT-N10U RT-N12B1 RT-N12C1),7995392, \
-    $(if $(filter $(1),RT-N16),16384000,0)))) \
+    $(if $(filter $(1),RT-N16 RT-N15U),16384000,0)))) \
 
 #
 # Basic rules
@@ -345,7 +346,7 @@ modules_install-WL700g: modules_install-WL500gp
 modules_install-RT-N10 modules_install-RT-N12 modules_install-RT-N12B1 modules_install-RT-N12C1: modules_install
 	@true
 
-modules_install-RT-N10U modules_install-RT-N16: modules_install modules_install-usb
+modules_install-RT-N10U modules_install-RT-N15U modules_install-RT-N16: modules_install modules_install-usb
 ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
