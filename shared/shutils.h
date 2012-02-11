@@ -231,6 +231,10 @@ enum {
 
 extern int get_model(void);
 
+extern int nvram_get_int(const char *key);
+
+extern int nvram_set_int(const char *key, int value);
+
 /* 
 		remove_from_list
 		Remove the specified word from the list.
