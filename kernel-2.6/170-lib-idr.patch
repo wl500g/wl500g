@@ -1,10 +1,14 @@
 IDR updates from 2.6.35.4
 
+ 066a9be6c0124edc9527088231f03c6236be375d idr: fix idr_pre_get() locking description
+ 94bfa3b6692c7a3f6f119596724204ec975d3ef0 idr: fix RCU lockdep splat in idr_get_next()
+ 083d929d312cc52d2854d578a34a0ae41102b8e1 idr: make idr_get_next() good for rcu_read_lock()
+
 ---
- include/linux/idr.h |   63 +++++
+ include/linux/idr.h |   66 +++++
  init/main.c         |    2 
- lib/idr.c           |  636 +++++++++++++++++++++++++++++++++++++++++++++-------
- 3 files changed, 616 insertions(+), 85 deletions(-)
+ lib/idr.c           |  661 ++++++++++++++++++++++++++++++++++++++++++++--------
+ 3 files changed, 634 insertions(+), 95 deletions(-)
 
 diff --git a/include/linux/idr.h b/include/linux/idr.h
 --- a/include/linux/idr.h
@@ -63,7 +67,7 @@ diff --git a/include/linux/idr.h b/include/linux/idr.h
  /*
   * This is what we export.
   */
-@@ -78,9 +104,44 @@ void *idr_find(struct idr *idp, int id);
+@@ -78,9 +104,47 @@ void *idr_find(struct idr *idp, int id);
  int idr_pre_get(struct idr *idp, gfp_t gfp_mask);
  int idr_get_new(struct idr *idp, void *ptr, int *id);
  int idr_get_new_above(struct idr *idp, void *ptr, int starting_id, int *id);
@@ -80,10 +84,13 @@ diff --git a/include/linux/idr.h b/include/linux/idr.h
 +/*
 + * IDA - IDR based id allocator, use when translation from id to
 + * pointer isn't necessary.
++ *
++ * IDA_BITMAP_LONGS is calculated to be one less to accommodate
++ * ida_bitmap->nr_busy so that the whole struct fits in 128 bytes.
 + */
 +#define IDA_CHUNK_SIZE		128	/* 128 bytes per chunk */
-+#define IDA_BITMAP_LONGS	(128 / sizeof(long) - 1)
-+#define IDA_BITMAP_BITS		(IDA_BITMAP_LONGS * sizeof(long) * 8)
++#define IDA_BITMAP_LONGS	(IDA_CHUNK_SIZE / sizeof(long) - 1)
++#define IDA_BITMAP_BITS 	(IDA_BITMAP_LONGS * sizeof(long) * 8)
 +
 +struct ida_bitmap {
 +	long			nr_busy;
@@ -179,7 +186,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  {
  	unsigned long flags;
  
-@@ -66,17 +81,37 @@ static void free_layer(struct idr *idp,
+@@ -66,18 +81,39 @@ static void free_layer(struct idr *idp, 
  	 * Depends on the return element being zeroed.
  	 */
  	spin_lock_irqsave(&idp->lock, flags);
@@ -213,13 +220,17 @@ diff --git a/lib/idr.c b/lib/idr.c
   * @idp:	idr handle
   * @gfp_mask:	memory allocation flags
   *
-  * This function should be called prior to locking and calling the
+- * This function should be called prior to locking and calling the
 - * following function.  It preallocates enough memory to satisfy
-+ * idr_get_new* functions. It preallocates enough memory to satisfy
-  * the worst possible allocation.
+- * the worst possible allocation.
++ * This function should be called prior to calling the idr_get_new* functions.
++ * It preallocates enough memory to satisfy the worst possible allocation. The
++ * caller should pass in GFP_KERNEL if possible.  This of course requires that
++ * no spinning locks be held.
   *
   * If the system is REALLY out of memory this function returns 0,
-@@ -89,21 +124,21 @@ int idr_pre_get(struct idr *idp, gfp_t g
+  * otherwise 1.
+@@ -89,21 +125,21 @@ int idr_pre_get(struct idr *idp, gfp_t g
  		new = kmem_cache_alloc(idr_layer_cache, gfp_mask);
  		if (new == NULL)
  			return (0);
@@ -246,7 +257,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  	p = idp->top;
  	l = idp->layers;
  	pa[l--] = NULL;
-@@ -117,57 +152,55 @@ static int sub_alloc(struct idr *idp, vo
+@@ -117,57 +153,55 @@ static int sub_alloc(struct idr *idp, vo
  		if (m == IDR_SIZE) {
  			/* no space available go back to previous layer. */
  			l++;
@@ -330,7 +341,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  {
  	struct idr_layer *p, *new;
  	int layers, v, id;
-@@ -178,8 +211,9 @@ build_up:
+@@ -178,8 +212,9 @@ build_up:
  	p = idp->top;
  	layers = idp->layers;
  	if (unlikely(!p)) {
@@ -341,7 +352,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  		layers = 1;
  	}
  	/*
-@@ -188,9 +222,15 @@ build_up:
+@@ -188,9 +223,15 @@ build_up:
  	 */
  	while ((layers < (MAX_LEVEL - 1)) && (id >= (1 << (layers*IDR_BITS)))) {
  		layers++;
@@ -359,7 +370,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  			/*
  			 * The allocation failed.  If we built part of
  			 * the structure tear it down.
-@@ -200,29 +240,50 @@ build_up:
+@@ -200,40 +241,63 @@ build_up:
  				p = p->ary[0];
  				new->ary[0] = NULL;
  				new->bitmap = new->count = 0;
@@ -415,16 +426,24 @@ diff --git a/lib/idr.c b/lib/idr.c
   * @start_id: id to start search at
   * @id: pointer to the allocated handle
   *
-@@ -233,7 +294,7 @@ build_up:
-  * and go back to the idr_pre_get() call.  If the idr is full, it will
-  * return -ENOSPC.
+  * This is the allocate id function.  It should be called with any
+  * required locks.
+  *
+- * If memory is required, it will return -EAGAIN, you should unlock
+- * and go back to the idr_pre_get() call.  If the idr is full, it will
+- * return -ENOSPC.
++ * If allocation from IDR's private freelist fails, idr_get_new_above() will
++ * return -EAGAIN.  The caller should retry the idr_pre_get() call to refill
++ * IDR's preallocation and then retry the idr_get_new_above() call.
   *
 - * @id returns a value in the range 0 ... 0x7fffffff
++ * If the idr is full idr_get_new_above() will return -ENOSPC.
++ *
 + * @id returns a value in the range @starting_id ... 0x7fffffff
   */
  int idr_get_new_above(struct idr *idp, void *ptr, int starting_id, int *id)
  {
-@@ -244,12 +305,8 @@ int idr_get_new_above(struct idr *idp, v
+@@ -244,12 +308,8 @@ int idr_get_new_above(struct idr *idp, v
  	 * This is a cheap hack until the IDR code can be fixed to
  	 * return proper error values.
  	 */
@@ -439,7 +458,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  	*id = rv;
  	return 0;
  }
-@@ -258,7 +315,7 @@ EXPORT_SYMBOL(idr_get_new_above);
+@@ -258,15 +318,14 @@ EXPORT_SYMBOL(idr_get_new_above);
  /**
   * idr_get_new - allocate new idr entry
   * @idp: idr handle
@@ -447,8 +466,20 @@ diff --git a/lib/idr.c b/lib/idr.c
 + * @ptr: pointer you want associated with the id
   * @id: pointer to the allocated handle
   *
-  * This is the allocate id function.  It should be called with any
-@@ -279,12 +336,8 @@ int idr_get_new(struct idr *idp, void *p
+- * This is the allocate id function.  It should be called with any
+- * required locks.
++ * If allocation from IDR's private freelist fails, idr_get_new_above() will
++ * return -EAGAIN.  The caller should retry the idr_pre_get() call to refill
++ * IDR's preallocation and then retry the idr_get_new_above() call.
+  *
+- * If memory is required, it will return -EAGAIN, you should unlock
+- * and go back to the idr_pre_get() call.  If the idr is full, it will
+- * return -ENOSPC.
++ * If the idr is full idr_get_new_above() will return -ENOSPC.
+  *
+  * @id returns a value in the range 0 ... 0x7fffffff
+  */
+@@ -279,12 +338,8 @@ int idr_get_new(struct idr *idp, void *p
  	 * This is a cheap hack until the IDR code can be fixed to
  	 * return proper error values.
  	 */
@@ -463,7 +494,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  	*id = rv;
  	return 0;
  }
-@@ -292,7 +345,8 @@ EXPORT_SYMBOL(idr_get_new);
+@@ -292,7 +347,8 @@ EXPORT_SYMBOL(idr_get_new);
  
  static void idr_remove_warning(int id)
  {
@@ -473,7 +504,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  	dump_stack();
  }
  
-@@ -301,6 +355,7 @@ static void sub_remove(struct idr *idp,
+@@ -301,6 +357,7 @@ static void sub_remove(struct idr *idp, 
  	struct idr_layer *p = idp->top;
  	struct idr_layer **pa[MAX_LEVEL];
  	struct idr_layer ***paa = &pa[0];
@@ -481,7 +512,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  	int n;
  
  	*paa = NULL;
-@@ -316,13 +371,18 @@ static void sub_remove(struct idr *idp,
+@@ -316,13 +373,18 @@ static void sub_remove(struct idr *idp, 
  	n = id & IDR_MASK;
  	if (likely(p != NULL && test_bit(n, &p->bitmap))){
  		__clear_bit(n, &p->bitmap);
@@ -502,7 +533,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  	} else
  		idr_remove_warning(id);
  }
-@@ -335,36 +395,96 @@ static void sub_remove(struct idr *idp,
+@@ -335,36 +397,96 @@ static void sub_remove(struct idr *idp, 
  void idr_remove(struct idr *idp, int id)
  {
  	struct idr_layer *p;
@@ -607,7 +638,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  		kmem_cache_free(idr_layer_cache, p);
  	}
  }
-@@ -379,31 +499,137 @@ EXPORT_SYMBOL(idr_destroy);
+@@ -379,31 +501,140 @@ EXPORT_SYMBOL(idr_destroy);
   * return indicates that @id is not valid or you passed %NULL in
   * idr_get_new().
   *
@@ -705,9 +736,12 @@ diff --git a/lib/idr.c b/lib/idr.c
 + * @id:  pointer to lookup key
 + *
 + * Returns pointer to registered object with id, which is next number to
-+ * given id.
++ * given id. After being looked up, *@nextidp will be updated for the next
++ * iteration.
++ *
++ * This function can be called under rcu_read_lock(), given that the leaf
++ * pointers lifetimes are correctly managed.
 + */
-+
 +void *idr_get_next(struct idr *idp, int *nextidp)
 +{
 +	struct idr_layer *p, *pa[MAX_LEVEL];
@@ -716,17 +750,17 @@ diff --git a/lib/idr.c b/lib/idr.c
 +	int n, max;
 +
 +	/* find first ent */
-+	n = idp->layers * IDR_BITS;
-+	max = 1 << n;
-+	p = rcu_dereference(idp->top);
++	p = rcu_dereference_raw(idp->top);
 +	if (!p)
 +		return NULL;
++	n = (p->layer + 1) * IDR_BITS;
++	max = 1 << n;
 +
 +	while (id < max) {
 +		while (n > 0 && p) {
 +			n -= IDR_BITS;
 +			*paa++ = p;
-+			p = rcu_dereference(p->ary[(id >> n) & IDR_MASK]);
++			p = rcu_dereference_raw(p->ary[(id >> n) & IDR_MASK]);
 +		}
 +
 +		if (p) {
@@ -749,7 +783,7 @@ diff --git a/lib/idr.c b/lib/idr.c
   * idr_replace - replace pointer for given id
   * @idp: idr handle
   * @ptr: pointer you want associated with the id
-@@ -413,15 +639,18 @@ EXPORT_SYMBOL(idr_find);
+@@ -413,15 +644,18 @@ EXPORT_SYMBOL(idr_find);
   * A -ENOENT return indicates that @id was not found.
   * A -EINVAL return indicates that @id was not within valid constraints.
   *
@@ -770,7 +804,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  
  	id &= MAX_ID_MASK;
  
-@@ -439,7 +668,7 @@ void *idr_replace(struct idr *idp, void
+@@ -439,7 +673,7 @@ void *idr_replace(struct idr *idp, void 
  		return ERR_PTR(-ENOENT);
  
  	old_p = p->ary[n];
@@ -779,7 +813,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  
  	return old_p;
  }
-@@ -451,12 +680,10 @@ static void idr_cache_ctor(void * idr_la
+@@ -451,12 +685,10 @@ static void idr_cache_ctor(void * idr_la
  	memset(idr_layer, 0, sizeof(struct idr_layer));
  }
  
@@ -795,7 +829,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  }
  
  /**
-@@ -468,8 +695,249 @@ static  int init_id_cache(void)
+@@ -468,8 +700,249 @@ static  int init_id_cache(void)
   */
  void idr_init(struct idr *idp)
  {
