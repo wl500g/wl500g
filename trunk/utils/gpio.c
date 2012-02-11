@@ -104,9 +104,13 @@ enum {
 	MDL_WL520GU,
 	MDL_WL520GC,
 	MDL_DIR320,
+	MDL_RTN66U,
+	MDL_RTN53,
 	MDL_RTN16,
+	MDL_RTN15U,
 	MDL_RTN12,
 	MDL_RTN12B1,
+	MDL_RTN12C1,
 	MDL_RTN10,
 	MDL_RTN10U,
 	MDL_WNR3500L,
@@ -189,7 +193,8 @@ static platform_t platforms[] = {
 	{MDL_WL700G,	"ASUS WL-700g",			{_PWR(GPIO1, 1)}},
 	{MDL_RTN16,	"ASUS RT-N16",			{_PWR(GPIO1, 0), _WLN(GPIO7, 1)}},
 	{MDL_RTN12,	"ASUS RT-N12",			{_PWR(GPIO2, 0)}},
-	{MDL_RTN12B1,	"ASUS RT-N12B1",		{_PWR(GPIO18,0)}},
+	{MDL_RTN12B1,	"ASUS RT-N12B1",		{_PWR(GPIO18,0), _WLN(GPIO5, 1)}},
+	{MDL_RTN12B1,	"ASUS RT-N12C1",		{_PWR(GPIO18,0), _WLN(GPIO5, 1)}},
 	{MDL_RTN10,	"ASUS RT-N10",			{_PWR(GPIO1, 0)}},
 	{MDL_RTN10U,	"ASUS RT-N10U",			{_PWR(GPIO6, 0), _WLN(GPIO5, 1), _WPS(GPIO7, 1), _USB(GPIO8, 1)}},
 	/* D-Link */
@@ -323,6 +328,9 @@ static int get_model(void)
 				return MDL_RTN16;
 			if (!strcmp(boardtype,"0x04CD"))
 				return MDL_RTN12;
+			if (!strcmp(boardtype,"0x054D") &&
+			    !strncmp(nvram_safe_get("hardware_version", "RTN12C1", 7))
+				return MDL_RTN12C1;
 			if (!strcmp(boardtype,"0x054D"))
 				return MDL_RTN12B1;
 			if (!strcmp(boardtype,"0x04EC"))

@@ -48,6 +48,8 @@ int get_fw_ver(char *productid, char *fwver)
 
 int get_model(void)
 {
+	char *hwver = nvram_safe_get("hardware_version");
+
 	if (nvram_match("boardnum", "mn700"))
 		return MDL_MN700;
 	else if (nvram_match("boardtype", "bcm95365r"))
@@ -66,13 +68,11 @@ int get_model(void)
 		return MDL_WL500W;
 	else if (nvram_match("boardtype", "0x48E") &&
 		 nvram_match("boardnum", "45")) {
-		char *hwver = nvram_safe_get("hardware_version");
 		if (strncmp(hwver, "WL520GU", 7) == 0)
 			return MDL_WL520GU;
-		else if (strncmp(hwver, "WL330GE", 7) == 0)
+		if (strncmp(hwver, "WL330GE", 7) == 0)
 			return MDL_WL330GE;
-		else
-			return MDL_WL500GPV2;
+		return MDL_WL500GPV2;
 	}
 	else if (nvram_match("boardtype", "0x048e") &&
 		 !nvram_match("boardnum", "45"))
@@ -84,8 +84,11 @@ int get_model(void)
 		 nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1201"))
 		return MDL_RTN12;
 	else if (nvram_match("boardtype", "0x054D") &&
-		 nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1101"))
+		 nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1101")) {
+		if (strncmp(hwver, "RTN12C1", 7) == 0)
+			return MDL_RTN12C1;
 		return MDL_RTN12B1;
+	}
 	else if (nvram_match("boardtype", "0x04EC") &&
 		 nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1402"))
 		return MDL_RTN10;

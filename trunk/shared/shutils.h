@@ -205,9 +205,9 @@ get_bridged_interfaces(const char *bridge_name);
 extern int get_fw_ver(char *productid, char *fwver);
 
 enum {
-        MDL_UNKNOWN,
+	MDL_UNKNOWN,
 	MDL_MN700,
-        MDL_WL700G,
+	MDL_WL700G,
 	MDL_WL500GX,
 	MDL_WL550GE,
 	MDL_WL320GE,
@@ -217,9 +217,13 @@ enum {
 	MDL_WL500W,
 	MDL_WL520GU,
 	MDL_DIR320,
+	MDL_RTN66U,
+	MDL_RTN53,
 	MDL_RTN16,
+	MDL_RTN15U,
 	MDL_RTN12,
 	MDL_RTN12B1,
+	MDL_RTN12C1,
 	MDL_RTN10,
 	MDL_RTN10U,
 	MDL_WNR3500L,

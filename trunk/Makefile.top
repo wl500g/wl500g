@@ -109,6 +109,7 @@ export CONFIG_LINUX_26
 img-$(if $(CONFIG_RTN16),y,n)	+= RT-N16
 img-$(if $(CONFIG_RTN12),y,n)	+= RT-N12
 img-$(if $(CONFIG_RTN12B1),y,n)	+= RT-N12B1
+img-$(if $(CONFIG_RTN12C1),y,n)	+= RT-N12C1
 img-$(if $(CONFIG_RTN10),y,n)	+= RT-N10
 img-$(if $(CONFIG_RTN10U),y,n)	+= RT-N10U
 img-$(if $(CONFIG_WL500GP),y,n)	+= WL500gp
@@ -183,7 +184,7 @@ obj-$(CONFIG_TCPDUMP) += tcpdump libpcap
 obj-y += udpxy
 
 # Exclude targets for non-USB routers
-ifeq ($(filter RT-N10 RT-N12 RT-N12B1,$(MODEL)),$(MODEL))
+ifeq ($(filter RT-N10 RT-N12 RT-N12B1 RT-N12C1,$(MODEL)),$(MODEL))
 obj-y := $(filter-out LPRng e2fsprogs libusb10 madwimax p910nd mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd ntfs-3g,$(obj-y))
 endif
 # Exclude more targets for non-USB routers with small flash-memory
@@ -249,7 +250,7 @@ endef
 FlashMaxSize = \
     $(if $(filter $(1),WL520gc),1703936, \
     $(if $(filter $(1),WL500gx WL550gE WL320gE WL320gP WL520gu WL330gE RT-N10 RT-N12),3801880, \
-    $(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g RT-N10U RT-N12B1),7995392, \
+    $(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g RT-N10U RT-N12B1 RT-N12C1),7995392, \
     $(if $(filter $(1),RT-N16),16384000,0)))) \
 
 #
@@ -341,7 +342,7 @@ modules_install-WL700g: modules_install-WL500gp
 		$(SRCMODULESDIR)/drivers/ide/ide-disk$(ko) \
 		$(SRCMODULESDIR)/drivers/ide/pci/aec62xx$(ko) 
 
-modules_install-RT-N10 modules_install-RT-N12 modules_install-RT-N12B1: modules_install
+modules_install-RT-N10 modules_install-RT-N12 modules_install-RT-N12B1 modules_install-RT-N12C1: modules_install
 	@true
 
 modules_install-RT-N10U modules_install-RT-N16: modules_install modules_install-usb
