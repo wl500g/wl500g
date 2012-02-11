@@ -81,7 +81,8 @@ static inline int startswith(char *source, char *cmp)
 
 enum {
 	LED_PWR = 0,
-	LED_INT,
+	LED_WAN,
+	LED_LAN,
 	LED_WLN,
 	LED_WPS,
 	LED_USB,
@@ -160,7 +161,8 @@ static preset_t defopt =
 
 static led_t leds[] = {
 	[LED_PWR] = {"pwr"},
-	[LED_INT] = {"inet"},
+	[LED_WAN] = {"wan"},
+	[LED_LAN] = {"lan"},
 	[LED_WLN] = {"wlan"},
 	[LED_WPS] = {"wps"},
 	[LED_USB] = {"usb"},
@@ -169,7 +171,8 @@ static led_t leds[] = {
 
 #define _LED(led, m, h) [led] = {.mask = m, .value = h ? m : 0}
 #define _PWR(mask, high) _LED(LED_PWR, mask, high)
-#define _INT(mask, high) _LED(LED_INT, mask, high)
+#define _WAN(mask, high) _LED(LED_WAN, mask, high)
+#define _LAN(mask, high) _LED(LED_LAN, mask, high)
 #define _WLN(mask, high) _LED(LED_WLN, mask, high)
 #define _WPS(mask, high) _LED(LED_WPS, mask, high)
 #define _USB(mask, high) _LED(LED_USB, mask, high)
@@ -192,6 +195,7 @@ static platform_t platforms[] = {
 	{MDL_WL550GE,	"ASUS WL-550gE",		{_PWR(GPIO2, 0)}},
 	{MDL_WL700G,	"ASUS WL-700g",			{_PWR(GPIO1, 1)}},
 	{MDL_RTN16,	"ASUS RT-N16",			{_PWR(GPIO1, 0), _WLN(GPIO7, 1)}},
+	{MDL_RTN15U,	"ASUS RT-N15U",			{_PWR(GPIO6, 0), _WLN(GPIO0, 1), _USB(GPIO9, 1)}},
 	{MDL_RTN12,	"ASUS RT-N12",			{_PWR(GPIO2, 0)}},
 	{MDL_RTN12B1,	"ASUS RT-N12B1",		{_PWR(GPIO18,0), _WLN(GPIO5, 1)}},
 	{MDL_RTN12C1,	"ASUS RT-N12C1",		{_PWR(GPIO18,0), _WLN(GPIO5, 1)}},
@@ -326,6 +330,8 @@ static int get_model(void)
 		if (!strcmp(boardnum, "45")) {
 			if (!strcmp(boardtype,"0x04cf"))
 				return MDL_RTN16;
+			if (!strcmp(boardtype,"0x052b"))
+				return MDL_RTN15U;
 			if (!strcmp(boardtype,"0x04CD"))
 				return MDL_RTN12;
 			if (!strcmp(boardtype,"0x054D") &&
