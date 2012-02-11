@@ -419,7 +419,7 @@ EXPORT(sysn32_call_table)
 	PTR	sys_ni_syscall			/* sys_pwritev */
 	PTR	sys_ni_syscall		/* 6295, compat_sys_rt_tgsigqueueinfo */
 	PTR	sys_ni_syscall			/* sys_perf_counter_open */
-	PTR	sys_ni_syscall			/* sys_accept4 */
+	PTR	sys_accept4
 	PTR     sys_ni_syscall
 	PTR     sys_getdents64
 	.size	sysn32_call_table,.-sysn32_call_table

@@ -528,4 +528,15 @@ sys_call_table:
 	PTR	sys_timerfd_create
 	PTR	compat_sys_timerfd_gettime
 	PTR	compat_sys_timerfd_settime
+	PTR	sys_ni_syscall			/* sys_signalfd4 */
+	PTR	sys_eventfd2			/* 4325 */
+	PTR	sys_ni_syscall			/* sys_epoll_create1 */
+	PTR	sys_ni_syscall			/* sys_dup3 */
+	PTR	sys_ni_syscall			/* sys_pipe2 */
+	PTR	sys_inotify_init1
+	PTR	sys_ni_syscall			/* 4330, compat_sys_preadv */
+	PTR	sys_ni_syscall			/* compat_sys_pwritev */
+	PTR	sys_ni_syscall		/* compat_sys_rt_tgsigqueueinfo */
+	PTR	sys_ni_syscall			/* sys_perf_counter_open */
+	PTR	sys_accept4
 	.size	sys_call_table,.-sys_call_table

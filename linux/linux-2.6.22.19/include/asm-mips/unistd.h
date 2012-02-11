@@ -344,16 +344,27 @@
 #define __NR_timerfd_create		(__NR_Linux + 321)
 #define __NR_timerfd_gettime		(__NR_Linux + 322)
 #define __NR_timerfd_settime		(__NR_Linux + 323)
+/* #define __NR_signalfd4			(__NR_Linux + 324) */
+#define __NR_eventfd2				(__NR_Linux + 325)
+/* #define __NR_epoll_create1		(__NR_Linux + 326) */
+/* #define __NR_dup3			(__NR_Linux + 327) */
+/* #define __NR_pipe2			(__NR_Linux + 328) */
+#define __NR_inotify_init1		(__NR_Linux + 329)
+/* #define __NR_preadv			(__NR_Linux + 330) */
+/* #define __NR_pwritev			(__NR_Linux + 331) */
+/* #define __NR_rt_tgsigqueueinfo		(__NR_Linux + 332) */
+/* #define __NR_perf_event_open		(__NR_Linux + 333) */
+#define __NR_accept4			(__NR_Linux + 334)
 
 /*
  * Offset of the last Linux o32 flavoured syscall
  */
-#define __NR_Linux_syscalls		323
+#define __NR_Linux_syscalls		334
 
 #endif /* _MIPS_SIM == _MIPS_SIM_ABI32 */
 
 #define __NR_O32_Linux			4000
-#define __NR_O32_Linux_syscalls		323
+#define __NR_O32_Linux_syscalls		334
 
 #if _MIPS_SIM == _MIPS_SIM_ABI64
 
@@ -644,16 +655,27 @@
 #define __NR_timerfd_create		(__NR_Linux + 280)
 #define __NR_timerfd_gettime		(__NR_Linux + 281)
 #define __NR_timerfd_settime		(__NR_Linux + 282)
+/* #define __NR_signalfd4			(__NR_Linux + 283) */
+#define __NR_eventfd2				(__NR_Linux + 284)
+/* #define __NR_epoll_create1		(__NR_Linux + 285) */
+/* #define __NR_dup3			(__NR_Linux + 286) */
+/* #define __NR_pipe2			(__NR_Linux + 287) */
+#define __NR_inotify_init1		(__NR_Linux + 288)
+/* #define __NR_preadv			(__NR_Linux + 289) */
+/* #define __NR_pwritev			(__NR_Linux + 290) */
+/* #define __NR_rt_tgsigqueueinfo		(__NR_Linux + 291) */
+/* #define __NR_perf_event_open		(__NR_Linux + 292) */
+#define __NR_accept4			(__NR_Linux + 293)
 
 /*
  * Offset of the last Linux 64-bit flavoured syscall
  */
-#define __NR_Linux_syscalls		282
+#define __NR_Linux_syscalls		293
 
 #endif /* _MIPS_SIM == _MIPS_SIM_ABI64 */
 
 #define __NR_64_Linux			5000
-#define __NR_64_Linux_syscalls		282
+#define __NR_64_Linux_syscalls		293
 
 #if _MIPS_SIM == _MIPS_SIM_NABI32
 
@@ -958,7 +980,7 @@
 /* #define __NR_pwritev			(__NR_Linux + 294) */
 /* #define __NR_rt_tgsigqueueinfo	(__NR_Linux + 295) */
 /* #define __NR_perf_counter_open	(__NR_Linux + 296) */
-/* #define __NR_accept4			(__NR_Linux + 297) */
+#define __NR_accept4			(__NR_Linux + 297)
 /* #define __NR_recvmmsg		(__NR_Linux + 298) */
 #define __NR_getdents64			(__NR_Linux + 299)
 
