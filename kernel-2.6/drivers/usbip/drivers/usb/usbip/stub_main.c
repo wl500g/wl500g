@@ -279,6 +279,8 @@ static int __init usb_stub_init(void)
 {
 	int ret;
 
+	init_busid_table();
+
 	stub_priv_cache = kmem_cache_create("usbip_priv",
 					    sizeof(struct stub_priv), 0,
 					    SLAB_HWCACHE_ALIGN, NULL, NULL);
@@ -298,8 +300,6 @@ static int __init usb_stub_init(void)
 
 	printk(KERN_INFO KBUILD_MODNAME ":"
 	       DRIVER_DESC ":" DRIVER_VERSION "\n");
-
-	init_busid_table();
 
 	ret = driver_create_file(&stub_driver.drvwrap.driver,
 				 &driver_attr_match_busid);
