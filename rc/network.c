@@ -1154,19 +1154,21 @@ void stop_wan_unit(int unit)
 			stop_wimax(prefix);
 			continue;
 		}
+		else
 #endif
 #ifdef __CONFIG_MODEM__
 		/* Stop USB modem */
-		else if (strcmp(wan_proto, "usbmodem") == 0 )
+		if (strcmp(wan_proto, "usbmodem") == 0 )
 		{
 			nvram_unset(strcat_r(prefix, "prepared", tmp));
 			stop_modem_dial(prefix);
 			continue;
 		}
+		else
 #endif
 
 		/* Stop VPN connection */
-		else if (strcmp(wan_proto, "pppoe") == 0 || strcmp(wan_proto, "pptp") == 0 ||
+		if (strcmp(wan_proto, "pppoe") == 0 || strcmp(wan_proto, "pptp") == 0 ||
 			 strcmp(wan_proto, "l2tp") == 0)
 		{
 #ifdef __CONFIG_XL2TPD__
