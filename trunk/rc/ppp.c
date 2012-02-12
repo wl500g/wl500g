@@ -127,7 +127,7 @@ ipdown_main(int argc, char **argv)
 	wan_down(wan_ifname);
 
 	unlink(strcat_r("/tmp/ppp/link.", wan_ifname, tmp));
-	
+
 	preset_wan_routes(wan_ifname);
 
 	logmessage(nvram_safe_get("wan_proto_t"), "Disconnected");
