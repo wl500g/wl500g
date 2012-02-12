@@ -385,7 +385,7 @@ early_defaults(void)
 	} // vlans
 
 	/* fix RT-N15U AIR led */
-	if (router_model == RT-N15U && nvram_match("sb/1/ledbh0", "2"))
+	if (router_model == MDL_RTN15U && nvram_match("sb/1/ledbh0", "2"))
 		nvram_set("sb/1/ledbh0", "8");
 
 	/* wl550ge -- missing wl0gpio values */
