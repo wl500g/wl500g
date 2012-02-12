@@ -721,8 +721,6 @@ int wan_prefix(const char *wan_ifname, char *prefix)
 		    nvram_match(strcat_r(prefix, "proto", tmp), "static"))
 			return unit;
 	}
-/* TODO: unsafe, switch code to wanx/s_prefix approach */
-	strcpy(prefix, "wan0_x");
 	return -1;
 
  found:
@@ -1355,27 +1353,24 @@ int update_resolvconf(const char *ifname, int metric, int up)
 void wan_up(const char *wan_ifname)
 {
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char xprefix[sizeof("wanXXXXXXXXXX_")];
 	char *wan_proto, *gateway;
 	int unit, metric;
 
 #ifdef DEBUG
 	int r;
-	r = wan_prefix(wan_ifname, prefix);
-	dprintf("wan_up: %s %s %d\n", wan_ifname, prefix, r);
+	r = wans_prefix(wan_ifname, prefix, xprefix);
+	dprintf("wan_up: %s %s %s %d\n", wan_ifname, wanprefix, prefix, r);
 #endif
 
 	/* Figure out nvram variable name prefix for this i/f */
-	unit = wan_prefix(wan_ifname, prefix);
+	unit = wans_prefix(wan_ifname, prefix, xprefix);
 	if (unit < 0)
+		return;
+
+	/* Called for DHCP+PPP, there should be no wanN_xifname */
+	if (!nvram_match(strcat_r(xprefix, "ifname", tmp), wan_ifname))
 	{
-		/* TODO: add multiwan support */
-		unit = 0;
-		sprintf(prefix, "wan%d_", unit);
-
-		/* called for dhcp+ppp */
-		if (!nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname))
-			return;
-
 		/* re-start firewall with old ppp address or 0.0.0.0 */
 		start_firewall_ex(
 			nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)),
@@ -1385,10 +1380,11 @@ void wan_up(const char *wan_ifname)
 	 	/* setup static wan routes via physical device */
 		add_routes("wan_", "route", wan_ifname);
 		/* and one supplied via DHCP */
-		add_wanx_routes("wan0_x", wan_ifname, 0);
-		
+		add_wanx_routes(xprefix, wan_ifname, 0);
+
 		gateway = ip_addr(nvram_safe_get("wan_gateway")) != INADDR_ANY ?
-			nvram_get("wan_gateway") : nvram_safe_get("wan0_xgateway");
+			nvram_get("wan_gateway") :
+			nvram_safe_get(strcat_r(xprefix, "gateway", tmp));
 
 		/* and default route with metric 1 */
 		if (ip_addr(gateway) != INADDR_ANY)
@@ -1399,10 +1395,11 @@ void wan_up(const char *wan_ifname)
 
 			/* ... and to dns servers as well for demand ppp to work */
 			if (nvram_match("wan_dnsenable_x", "1"))
-				foreach(word, nvram_safe_get("wan0_xdns"), next) 
+				foreach(word, nvram_safe_get(strcat_r(xprefix, "dns", tmp)), next) 
 			{
-				in_addr_t mask = inet_addr(nvram_safe_get("wan0_xnetmask"));
-				if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wan0_xipaddr")) & mask))
+				in_addr_t mask = inet_addr(nvram_safe_get(strcat_r(xprefix, "netmask", tmp)));
+				if ((inet_addr(word) & mask) !=
+				    (inet_addr(nvram_safe_get(strcat_r(xprefix, "ipaddr", tmp))) & mask))
 					route_add(wan_ifname, 2, word, gateway, "255.255.255.255");
 			}
 		}
@@ -1457,7 +1454,8 @@ void wan_up(const char *wan_ifname)
 	     || strcmp(wan_proto, "wimax") == 0 
 #endif
 	) {
-		nvram_set("wan0_xgateway", nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
+		char *gateway = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
+		nvram_set(strcat_r(prefix, "xgateway", tmp), gateway);
 		add_routes("wan_", "route", wan_ifname);
 	}
 

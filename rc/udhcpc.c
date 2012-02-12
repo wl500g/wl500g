@@ -41,7 +41,7 @@ static int expires(const char *wan_ifname, unsigned int in)
 
 	if ((unit = wan_prefix(wan_ifname, prefix)) < 0)
 		return -1;
-	
+
 	time(&now);
 	snprintf(tmp, sizeof(tmp), "/tmp/udhcpc%d.expires", unit); 
 	if (!(fp = fopen(tmp, "w"))) {
@@ -51,7 +51,7 @@ static int expires(const char *wan_ifname, unsigned int in)
 	fprintf(fp, "%d", (unsigned int) now + in);
 	fclose(fp);
 	return 0;
-}	
+}
 
 /* 
  * deconfig: This argument is used when udhcpc starts, and when a
@@ -61,16 +61,18 @@ static int expires(const char *wan_ifname, unsigned int in)
 static int deconfig(const char *wan_ifname, int zcip)
 {
 	const char *client = zcip ? "zcip client" : "dhcp client";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char wanprefix[sizeof("wanXXXXXXXXXX_")];
 
-	if (nvram_match("wan0_ifname", wan_ifname)
-	&& (nvram_match("wan0_proto", "l2tp") || nvram_match("wan0_proto", "pptp")))
-	{
+	if (wans_prefix(wan_ifname, wanprefix, prefix) < 0)
+		return EINVAL;
+
+	if (nvram_match(strcat_r(wanprefix, "proto", tmp), "l2tp") ||
+	    nvram_match(strcat_r(wanprefix, "proto", tmp), "pptp")) {
 		/* fix kernel route-loop issue */
 		logmessage(client, "skipping resetting IP address to 0.0.0.0");
 	} else
-	{
 		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
-	}
 
 	expires(wan_ifname, 0);
 
@@ -78,6 +80,7 @@ static int deconfig(const char *wan_ifname, int zcip)
 
 	logmessage(client, "%s: lease is lost", udhcpstate);
 	wanmessage("lost IP from server");
+
 	dprintf("done\n");
 	return 0;
 }
@@ -92,14 +95,15 @@ static int bound(const char *wan_ifname)
 {
 	char *value;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char wanprefix[sizeof("wanXXXXXXXXXX_")];
 	char route[sizeof("255.255.255.255/255")];
-	int unit;
 	int changed = 0;
 	int gateway = 0;
 
 	stop_zcip();
 
-	unit = wan_prefix(wan_ifname, prefix);
+	if (wans_prefix(wan_ifname, wanprefix, prefix) < 0)
+		return EINVAL;
 
 	if ((value = getenv("ip"))) {
 		changed = nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value);
@@ -116,12 +120,10 @@ static int bound(const char *wan_ifname)
 	if ((value = getenv("wins")))
 		nvram_set(strcat_r(prefix, "wins", tmp), trim_r(value));
 
-	/* classful static routes*/
+	/* classful static routes */
 	nvram_set(strcat_r(prefix, "routes", tmp), getenv("routes"));
-
-	/* ms classless static routes*/
+	/* ms classless static routes */
 	nvram_set(strcat_r(prefix, "routes_ms", tmp), getenv("msstaticroutes"));
-
 	/* rfc3442 classless static routes */
 	nvram_set(strcat_r(prefix, "routes_rfc", tmp), getenv("staticroutes"));
 
@@ -147,7 +149,7 @@ static int bound(const char *wan_ifname)
 	}
 
 #ifdef __CONFIG_IPV6__
-	if ((value = getenv("ip6rd")) && unit >= 0) {
+	if ((value = getenv("ip6rd"))) {
 		char ip6rd[sizeof("32 128 FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF 255.255.255.255 ")];
 		char addrstr[INET6_ADDRSTRLEN];
 		char *values[4];
@@ -157,28 +159,29 @@ static int bound(const char *wan_ifname)
 		for (i = 0; i < 4 && value; i++)
 			values[i] = strsep(&value, " ");
 		if (i == 4) {
-			nvram_set(strcat_r(prefix, "ipv6_ip4size", tmp), values[0]);
+			nvram_set(strcat_r(wanprefix, "ipv6_ip4size", tmp), values[0]);
 			snprintf(addrstr, sizeof(addrstr), "%s/%s", values[2], values[1]);
-			nvram_set(strcat_r(prefix, "ipv6_addr", tmp), addrstr);
-			nvram_set(strcat_r(prefix, "ipv6_relay", tmp), values[3]);
+			nvram_set(strcat_r(wanprefix, "ipv6_addr", tmp), addrstr);
+			nvram_set(strcat_r(wanprefix, "ipv6_relay", tmp), values[3]);
 		}
 	}
 #endif
 
-	if (changed && unit >= 0)
+	if (changed &&
+	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "l2tp") &&
+	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "pptp"))
 		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 	ifconfig(wan_ifname, IFUP,
 		 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
 		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
-
 	wan_up(wan_ifname);
 
 	logmessage("dhcp client", "%s IP : %s from %s", 
 		udhcpstate, 
 		nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), 
 		nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
-
 	wanmessage("");
+
 	dprintf("done\n");
 	return 0;
 }
@@ -194,13 +197,14 @@ static int renew(const char *wan_ifname)
 {
 	char *value;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	int unit;
+	char wanprefix[sizeof("wanXXXXXXXXXX_")];
 	int metric;
 	int changed = 0;
 
 	stop_zcip();
 
-	unit = wan_prefix(wan_ifname, prefix);
+	if (wans_prefix(wan_ifname, wanprefix, prefix) < 0)
+		return EINVAL;
 
 	if (!(value = getenv("subnet")) || nvram_invmatch(strcat_r(prefix, "netmask", tmp), trim_r(value)))
 		return bound(wan_ifname);
@@ -227,19 +231,22 @@ static int renew(const char *wan_ifname)
 	}
 
 	if (changed) {
-		metric = (unit >= 0) ? atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp))) : 2;
+		metric = nvram_get_int(strcat_r(wanprefix, "priority", tmp));
 		update_resolvconf(wan_ifname, metric, 1);
 	}
 
-	if (changed && unit >= 0)
+	if (changed &&
+	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "l2tp") &&
+	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "pptp") &&
+	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "pppoe"))
 		update_wan_status(1);
 
 	//logmessage("dhcp client", "%s IP : %s from %s", 
 	//		udhcpstate, 
 	//		nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), 
 	//		nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
-
 	wanmessage("");
+
 	dprintf("done\n");
 	return 0;
 }
@@ -247,9 +254,9 @@ static int renew(const char *wan_ifname)
 static int leasefail(const char *wan_ifname)
 {
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	int unit;
 
-	unit = wan_prefix(wan_ifname, prefix);
+	if (wanx_prefix(wan_ifname, prefix) < 0)
+		return EINVAL;
 
 	if ((ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp))) &
 	     ip_addr(nvram_safe_get(strcat_r(prefix, "netmask", tmp)))) ==
@@ -339,10 +346,11 @@ static int config(const char *wan_ifname)
 {
 	char *value;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	int unit;
+	char wanprefix[sizeof("wanXXXXXXXXXX_")];
 	int changed = 0;
 
-	unit = wan_prefix(wan_ifname, prefix);
+	if (wans_prefix(wan_ifname, wanprefix, prefix) < 0)
+		return EINVAL;
 
 	if ((value = getenv("ip"))) {
 		changed = nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value);
@@ -352,19 +360,20 @@ static int config(const char *wan_ifname)
 	nvram_set(strcat_r(prefix, "gateway", tmp), "");
 	nvram_set(strcat_r(prefix, "dns", tmp), "");
 
-	if (changed && unit >= 0)
+	if (changed &&
+	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "l2tp") &&
+	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "pptp"))
 		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 	ifconfig(wan_ifname, IFUP,
 		 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
 		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
-
 	wan_up(wan_ifname);
 
 	logmessage("zcip client", "%s IP : %s", 
 		udhcpstate,
 		nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
-
 	wanmessage("");
+
 	dprintf("done\n");
 	return 0;
 }
