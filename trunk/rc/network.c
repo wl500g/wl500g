@@ -712,21 +712,61 @@ int wan_prefix(const char *wan_ifname, char *prefix)
 	else if ((unit = wimax_ifunit(wan_ifname)) >= 0)
 		goto found;
 #endif
-	else {
-		for (unit = 0; unit < MAX_NVPARSE; unit ++) {
-			sprintf(prefix, "wan%d_", unit);
-			if (nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname) &&
-			    (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
-			     nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
-			     nvram_match(strcat_r(prefix, "proto", tmp), "static")))
-				return unit;
-		}
+	else for (unit = 0; unit < MAX_NVPARSE; unit ++) {
+		sprintf(prefix, "wan%d_", unit);
+		if (!nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname))
+			continue;
+		if (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
+		    nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
+		    nvram_match(strcat_r(prefix, "proto", tmp), "static"))
+			return unit;
 	}
+/* TODO: unsafe, switch code to wanx/s_prefix approach */
 	strcpy(prefix, "wan0_x");
 	return -1;
 
  found:
 	sprintf(prefix, "wan%d_", unit);
+	return unit;
+}
+
+int wanx_prefix(const char *wan_ifname, char *prefix)
+{
+	int unit, xunit = -1;
+	char tmp[100];
+
+	if ((unit = ppp_ifunit(wan_ifname)) >= 0)
+		goto found;
+#ifdef __CONFIG_MADWIMAX__
+	else if ((unit = wimax_ifunit(wan_ifname)) >= 0)
+		goto found;
+#endif
+	else for (unit = 0; unit < MAX_NVPARSE; unit ++) {
+		sprintf(prefix, "wan%d_", unit);
+		if (!nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname))
+			continue;
+		if (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
+		    nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
+		    nvram_match(strcat_r(prefix, "proto", tmp), "static"))
+			return unit;
+		if (xunit < 0)
+			xunit = unit;
+	}
+	if (xunit >= 0)
+		sprintf(prefix, "wan%d_x", xunit);
+	return xunit;
+
+ found:
+	sprintf(prefix, "wan%d_", unit);
+	return unit;
+}
+
+int wans_prefix(const char *wan_ifname, char *prefix, char *xprefix)
+{
+	int unit;
+
+	if ((unit = wanx_prefix(wan_ifname, xprefix)) >= 0)
+		sprintf(prefix, "wan%d_", unit);
 	return unit;
 }
 

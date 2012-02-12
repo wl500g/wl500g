@@ -132,6 +132,8 @@ void wan6_down(const char *ifname, int unit);
 void lan_up_ex(const char *lan_ifname);
 void lan_down_ex(const char *lan_ifname);
 int wan_prefix(const char *ifname, char *prefix);
+int wanx_prefix(const char *ifname, char *prefix);
+int wans_prefix(const char *ifname, char *prefix, char *xprefix);
 int wan_valid(const char *ifname);
 
 int hotplug_net(void);
