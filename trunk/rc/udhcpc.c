@@ -416,7 +416,7 @@ int dhcp6c_main(int argc, char **argv)
 	char *dns6 = getenv("new_domain_name_servers");
 
 	if (dns6) {
-//TODO: Process new DNS records
+//TODO: Process new DNS records and correct metric
 		update_resolvconf(wan_ifname, 2, 1);
 	}
 	// notify radvd of possible change
