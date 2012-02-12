@@ -185,10 +185,18 @@ _eval(char *const argv[], const char *path, int timeout, int *ppid)
 			dup2(fd, STDERR_FILENO);
 		}
 
-		/* execute command */
-		dprintf("%s\n", argv[0]);
+#ifdef DEBUG
+	{
+		char **ptr, tmp[1024] = "";
+		for (ptr = (char **)argv; *ptr; ptr++)
+			snprintf(tmp, sizeof(tmp), "%s%s ", tmp, *ptr);
+		dprintf("<%d> %s\n", getpid(), tmp);
+	}
+#endif
 		setenv("PATH", "/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin", 1);
 		alarm(timeout);
+
+		/* execute command */
 		execvp(argv[0], argv);
 		perror(argv[0]);
 		_exit(errno);
@@ -207,20 +215,7 @@ _eval(char *const argv[], const char *path, int timeout, int *ppid)
 			errno = flags;
 
 			if (ret != pid) {
-			#undef EVAL_DEBUG
-			#ifdef EVAL_DEBUG
-				int i;
-				char *buff = malloc(1024);
-				if (buff) {
-					strcpy(buff, "waitpid:");
-					for (i = 0; argv[i]; i++) {
-						strncat(buff, " ", 1024);
-						strncat(buff, argv[i], 1024);
-					}
-					perror(buff);
-					free(buff);
-				} else
-			#endif
+				dprintf("<%d> waitpid: %s\n", pid, strerror(errno));
 				perror("waitpid");
 				return errno;
 			}
