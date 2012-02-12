@@ -614,7 +614,7 @@ int stop_modem_dial(const char *prefix)
 	int unit;
 
 
-	unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
+	unit = nvram_get_int(strcat_r(prefix, "unit", tmp));
 	ret = 0;
 
 	sprintf(tmp, MODEM_DIAL_PIDFILE, prefix);

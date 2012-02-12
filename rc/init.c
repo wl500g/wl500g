@@ -317,7 +317,7 @@ void sysinit(void)
 	/* Setup console */
 	if (console_init())
 		noconsole = 1;
-	klogctl(8, NULL, atoi(nvram_safe_get("console_loglevel")));
+	klogctl(8, NULL, nvram_get_int("console_loglevel"));
 
 	/* load flashfs */
 	if (eval("flashfs", "start") == 0)

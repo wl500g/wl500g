@@ -73,8 +73,8 @@ static void tc_filter_D(char *network, char *ipaddr, char *port, int idx)
 	char flowid_lan[32];
 	char lan_ipaddr[32];
 	
-	int rulenum=atoi(nvram_safe_get("qos_rulenum_x"));
-	int urulenum=atoi(nvram_safe_get("qos_urulenum_x")); 
+	int rulenum=nvram_get_int("qos_rulenum_x");
+	int urulenum=nvram_get_int("qos_urulenum_x"); 
 	int idx_class_D80=rulenum+urulenum;
 
 	snprintf(flowid, sizeof(flowid), "%s%d", "1:1", idx);
@@ -134,8 +134,8 @@ void start_qos(char *wan_ipaddr)
 //void main(void)
 {
 	//printf("starting QoS service ...\n");
-	int rulenum=atoi(nvram_safe_get("qos_rulenum_x")); //Download stream number
-	int urulenum=atoi(nvram_safe_get("qos_urulenum_x")); //Upload stream number
+	int rulenum=nvram_get_int("qos_rulenum_x"); //Download stream number
+	int urulenum=nvram_get_int("qos_urulenum_x"); //Upload stream number
 	int idx_class_D=0,idx_class_U=0, idx_filter_D=0, idx_filter_U=0; //control index
 	int def=rulenum+urulenum+1; //default Down/Up stream or total stream(rule) number
 	int idx=0;

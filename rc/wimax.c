@@ -40,7 +40,7 @@ static inline int is_chk_restart_wimax(void)
 
 static inline int wmx_chk_interval(void)
 { 
-	int result = atoi(nvram_safe_get("wan_wimax_interval"));
+	int result = nvram_get_int("wan_wimax_interval");
 
 	if (result == 0)
 		result = 30;
@@ -66,7 +66,7 @@ static inline void wmx_chk_set_last_time(const char *prefix, time_t cur)
 static void init_wmx_variables(const char *prefix)
 {
 	char tmp[100];
-	int t_interval = atoi(nvram_safe_get("wan_wimax_interval"));
+	int t_interval = nvram_get_int("wan_wimax_interval");
 
 	if (t_interval < 20 || t_interval > 3600 ) 
 		nvram_set("wan_wimax_interval", "60");
@@ -87,7 +87,7 @@ int wimax_ifunit(const char *ifname)
 int start_wimax(const char *prefix)
 {
 	char tmp[100];
-	int unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
+	int unit = nvram_get_int(strcat_r(prefix, "unit", tmp));
 	char *wimax_ifname = nvram_safe_get(strcat_r(prefix, "wimax_ifname", tmp));
 	char *wimax_ssid = nvram_safe_get(strcat_r(prefix, "wimax_ssid", tmp));
 	int ret = 0;
@@ -143,7 +143,7 @@ int madwimax_check(const char *prefix)
 	FILE *fp;
 	pid_t pid = 0;
 
-	int unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
+	int unit = nvram_get_int(strcat_r(prefix, "unit", tmp));
 
 	if (!wimax_modem(prefix))
 		return -1;

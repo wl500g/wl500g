@@ -375,7 +375,7 @@ void convert_asus_values()
 	if (nvram_invmatch("wl_mode_ex", "ap"))
 	{
 #ifndef __CONFIG_BCMWL5__
-		int wepidx=atoi(nvram_safe_get("wl0_key"));
+		int wepidx = nvram_get_int("wl0_key");
 		char wepname[16];
 #endif
 
@@ -432,7 +432,7 @@ void convert_asus_values()
 
 	if (nvram_match("wl_wdsapply_x", "1"))
 	{
-		num = atoi(nvram_safe_get("wl_wdsnum_x"));
+		num = nvram_get_int("wl_wdsnum_x");
 		list[0]=0;
 
 		for (i=0;i<num;i++)
@@ -452,7 +452,7 @@ void convert_asus_values()
 
 	if (nvram_invmatch("wl_macmode", "disabled"))
 	{
-		num = atoi(nvram_safe_get("wl_macnum_x"));
+		num = nvram_get_int("wl_macnum_x");
 		list[0]=0;
 
 		for (i=0;i<num;i++)

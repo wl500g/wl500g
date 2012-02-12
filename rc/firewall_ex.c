@@ -25,7 +25,7 @@
 #include <nvparse.h>
 #include "rc.h"
 
-#define foreach_x(x)	for (i=0; i<atoi(nvram_safe_get(x)); i++)
+#define foreach_x(x) for (i = 0; i < nvram_get_int(x); i++)
 
 static char *g_buf;
 #define G_BUF_TOTAL	1024
@@ -529,9 +529,9 @@ static void nat_setting(const char *wan_if, const char *wan_ip, const char *lan_
       
    	if (nvram_match("misc_http_x", "1"))
 	{
-		wan_port=8080;
+		wan_port = 8080;
    		if (nvram_invmatch("misc_httpport_x", ""))
-      			wan_port=atoi(nvram_safe_get("misc_httpport_x")); 	
+      			wan_port = nvram_get_int("misc_httpport_x");
    		fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:%s\n",
 			wan_port, lan_ip, nvram_safe_get("http_lanport"));
 	}
@@ -1007,7 +1007,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	if (nvram_match("url_enable_x", "1") && nvram_invmatch("url_date_x", "0000000")) {
 
 		timematch_conv(timef, "url_date_x", "url_time_x");
-		for (i = 0; i < atoi(nvram_safe_get("url_num_x")); i++)
+		for (i = 0; i < nvram_get_int("url_num_x"); i++)
 		{
 			memset(nvname, 0, sizeof(nvname));
 			sprintf(nvname, "url_keyword_x%d", i);

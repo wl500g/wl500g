@@ -41,7 +41,7 @@ int start_pppd(const char *prefix)
 	char *pppd_argv[] = { "pppd", "file", options, NULL};
 	char tmp[100];
 
-	unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
+	unit = nvram_get_int(strcat_r(prefix, "unit", tmp));
 	sprintf(options, "/tmp/ppp/options.wan%d", unit);
 
 	/* Generate options file */
@@ -95,7 +95,7 @@ int start_pppd(const char *prefix)
 			nvram_safe_get(strcat_r(prefix, "pppoe_mtu", tmp)));
 	}
 
-	i = atoi(nvram_safe_get(strcat_r(prefix, "pppoe_idletime", tmp)));
+	i = nvram_get_int(strcat_r(prefix, "pppoe_idletime", tmp));
 	if (i > 0 && nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1")) 
 	{
 		fprintf(fp, "idle %d ", i);

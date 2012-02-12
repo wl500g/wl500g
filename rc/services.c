@@ -307,7 +307,7 @@ int start_upnp(void)
 		ether_atoe(nvram_safe_get("lan_hwaddr"), lan_mac);
 
 		lan_url = lan_addr;
-		ret = atoi(nvram_safe_get("http_lanport"));
+		ret = nvram_get_int("http_lanport");
 		if (ret && ret != 80) {
 			sprintf(var, "%s:%d", lan_addr, ret);
 			lan_url = var;
