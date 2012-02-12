@@ -1369,7 +1369,7 @@ void wan_up(const char *wan_ifname)
 		return;
 
 	/* Called for DHCP+PPP, there should be no wanN_xifname */
-	if (!nvram_match(strcat_r(xprefix, "ifname", tmp), wan_ifname))
+	if (!nvram_get(strcat_r(xprefix, "ifname", tmp)))
 	{
 		/* re-start firewall with old ppp address or 0.0.0.0 */
 		start_firewall_ex(
