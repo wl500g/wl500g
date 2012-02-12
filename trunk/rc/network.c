@@ -229,7 +229,7 @@ static int add_routes(const char *prefix, const char *var, const char *ifname)
 			continue;
 			
 		if (ip_addr(gateway) == INADDR_ANY) 
-			gateway = nvram_safe_get("wanx_gateway");
+			gateway = nvram_safe_get("wan0_xgateway");
 
 		m = atoi(metric) + 1;
 		dprintf("\n\n\nadd %s %d %s %s %s\n\n\n", ifname, m, ipaddr, gateway, netmask);
@@ -312,7 +312,7 @@ static int del_routes(const char *prefix, const char *var, const char *ifname)
 			continue;
 			
 		if (ip_addr(gateway) == INADDR_ANY) 
-			gateway = nvram_safe_get("wanx_gateway");
+			gateway = nvram_safe_get("wan0_xgateway");
 		
 		dprintf("add %s\n", ifname);
 		
@@ -722,7 +722,7 @@ int wan_prefix(const char *wan_ifname, char *prefix)
 				return unit;
 		}
 	}
-	strcpy(prefix, "wanx_");
+	strcpy(prefix, "wan0_x");
 	return -1;
 
  found:
@@ -1287,7 +1287,7 @@ int update_resolvconf(const char *ifname, int metric, int up)
 	}
 
 	foreach(word, (*nvram_safe_get("wan0_dns") ? nvram_safe_get("wan0_dns") :
-		nvram_safe_get("wanx_dns")), next)
+		nvram_safe_get("wan0_xdns")), next)
 	{
 		fprintf(fp, "nameserver %s\n", word);
 		dprintf( "nameserver %s\n", word );
@@ -1345,10 +1345,10 @@ void wan_up(const char *wan_ifname)
 	 	/* setup static wan routes via physical device */
 		add_routes("wan_", "route", wan_ifname);
 		/* and one supplied via DHCP */
-		add_wanx_routes("wanx_", wan_ifname, 0);
+		add_wanx_routes("wan0_x", wan_ifname, 0);
 		
 		gateway = ip_addr(nvram_safe_get("wan_gateway")) != INADDR_ANY ?
-			nvram_get("wan_gateway") : nvram_safe_get("wanx_gateway");
+			nvram_get("wan_gateway") : nvram_safe_get("wan0_xgateway");
 
 		/* and default route with metric 1 */
 		if (ip_addr(gateway) != INADDR_ANY)
@@ -1359,10 +1359,10 @@ void wan_up(const char *wan_ifname)
 
 			/* ... and to dns servers as well for demand ppp to work */
 			if (nvram_match("wan_dnsenable_x", "1"))
-				foreach(word, nvram_safe_get("wanx_dns"), next) 
+				foreach(word, nvram_safe_get("wan0_xdns"), next) 
 			{
-				in_addr_t mask = inet_addr(nvram_safe_get("wanx_netmask"));
-				if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wanx_ipaddr")) & mask))
+				in_addr_t mask = inet_addr(nvram_safe_get("wan0_xnetmask"));
+				if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wan0_xipaddr")) & mask))
 					route_add(wan_ifname, 2, word, gateway, "255.255.255.255");
 			}
 		}
@@ -1417,7 +1417,7 @@ void wan_up(const char *wan_ifname)
 	     || strcmp(wan_proto, "wimax") == 0 
 #endif
 	) {
-		nvram_set("wanx_gateway", nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
+		nvram_set("wan0_xgateway", nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
 		add_routes("wan_", "route", wan_ifname);
 	}
 
@@ -1505,7 +1505,7 @@ void wan_down(const char *wan_ifname)
 	del_wan_routes(wan_ifname);
 
 	/* Update resolv.conf -- leave as is if no dns servers left for demand to work */
-	if (*nvram_safe_get("wanx_dns"))
+	if (*nvram_safe_get("wan0_xdns"))
 		nvram_unset(strcat_r(prefix, "dns", tmp));
 	update_resolvconf(wan_ifname, metric, 0);
 
