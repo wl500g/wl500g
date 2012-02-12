@@ -140,7 +140,7 @@ build_ifnames(char *type, char *names, int *size)
 static void
 stb_set(void)
 {
-	int stbport = atoi(nvram_safe_get("wan_stb_x"));
+	int stbport = nvram_get_int("wan_stb_x");
 
 	if (stbport < 0 || stbport > 5)
 		return;
@@ -694,7 +694,7 @@ static void rc_signal(int sig)
 static int do_timer(void)
 {
 #ifndef ASUS_EXT
-	int interval = atoi(nvram_safe_get("timer_interval"));
+	int interval = nvram_get_int("timer_interval");
 
 	dprintf("%d\n", interval);
 

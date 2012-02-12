@@ -139,7 +139,7 @@ start_dns(void)
 	{	
 		int i;
 		char ip[32], name[32];
-		for (i = 0; i < atoi(nvram_safe_get("dhcp_staticnum_x")); i++) 
+		for (i = 0; i < nvram_get_int("dhcp_staticnum_x"); i++) 
 		{
 			sprintf(ip, "dhcp_staticip_x%d", i);
 			sprintf(name, "dhcp_staticname_x%d", i);
@@ -166,7 +166,7 @@ start_dns(void)
 		{	
 			int i;
 			char buf[32], *mac;
-			for (i = 0; i < atoi(nvram_safe_get("dhcp_staticnum_x")); i++) 
+			for (i = 0; i < nvram_get_int("dhcp_staticnum_x"); i++) 
 			{
 				sprintf(buf, "dhcp_staticmac_x%d", i);
 				
@@ -284,7 +284,7 @@ start_radvd(void)
 		return errno;
 	}
 
-	size = atoi(nvram_safe_get("ipv6_lan_netsize"));
+	size = nvram_get_int("ipv6_lan_netsize");
 	if (size < 8 || size > 120) {
 		size = 64;
 		nvram_set("ipv6_lan_netsize","64");
@@ -307,7 +307,7 @@ start_radvd(void)
 //TODO: implement 6RD prefix copy into wan_addr
 			struct in6_addr wan_addr;
 			int prefix_size = ipv6_addr(nvram_safe_get("wan0_ipv6_addr"), &wan_addr);
-			int addr4masklen = atoi(nvram_safe_get("wan0_ipv6_ip4size"));
+			int addr4masklen = nvram_get_int("wan0_ipv6_ip4size");
 			ipv6_host(&addr, prefix_size);
 			ipv6_map6rd(&addr, prefix_size, NULL, addr4masklen);
 		}
@@ -779,7 +779,7 @@ static int start_nfsd(void)
 		
 		fprintf(fp, "# automagically generated\n");
 
-		for (i = 0, count = atoi(nvram_safe_get("usb_nfsnum_x")); i < count; i++) 
+		for (i = 0, count = nvram_get_int("usb_nfsnum_x"); i < count; i++) 
 		{
 			sprintf(tmp, "usb_nfslist_x%d", i);
 			if (nvram_safe_get(tmp)[0] == '/')
@@ -1038,7 +1038,7 @@ int restart_ftpd()
 		}
 	}
 
-	anonymous_mode = atoi(nvram_safe_get("usb_ftpanonymous_x"));
+	anonymous_mode = nvram_get_int("usb_ftpanonymous_x");
 	if (anonymous_mode > 0)
 	{
 		fprintf(fp, 
@@ -1074,8 +1074,8 @@ int restart_ftpd()
 			"pasv_enable=yes\n"
 			"pasv_min_port=%d\n"
 			"pasv_max_port=%d\n",
-			atoi(nvram_safe_get("usb_ftp_pasvminport_x")),
-			atoi(nvram_safe_get("usb_ftp_pasvmaxport_x")));
+			nvram_get_int("usb_ftp_pasvminport_x"),
+			nvram_get_int("usb_ftp_pasvmaxport_x"));
 
 	fprintf(fp,
 		"dirmessage_enable=yes\n"
@@ -1118,8 +1118,8 @@ int restart_ftpd()
 	fprintf(fp,
 		"anon_max_rate=%d\n"
 		"local_max_rate=%d\n",
-		atoi(nvram_safe_get("usb_ftpanonrate_x")) * 1024,
-		atoi(nvram_safe_get("usb_ftprate_x")) * 1024);
+		nvram_get_int("usb_ftpanonrate_x") * 1024,
+		nvram_get_int("usb_ftprate_x") * 1024);
 
 	fclose(fp);
 
@@ -1136,7 +1136,7 @@ int restart_ftpd()
 		nvram_match("usb_ftpsuper_x", "1") ? 
 			crypt(nvram_safe_default_get("http_passwd"), "$1$") : "x");
 
-	for (i = 0, count = atoi(nvram_safe_get("usb_ftpnum_x")); i < count; i++) 
+	for (i = 0, count = nvram_get_int("usb_ftpnum_x"); i < count; i++) 
 	{
 		const char *user = (sprintf(tmp, "usb_ftpusername_x%d", i), nvram_get(tmp));
 		const char *pass = (sprintf(tmp, "usb_ftppasswd_x%d", i), nvram_get(tmp));
@@ -1264,7 +1264,7 @@ int restart_smbd()
 		int i, count;
 		char tmp[sizeof("usb_smblist_xXXXXX")];
 		
-		for (i = 0, count = atoi(nvram_safe_get("usb_smbnum_x")); i < count; i++) 
+		for (i = 0, count = nvram_get_int("usb_smbnum_x"); i < count; i++) 
 		{
 			/* share name */
 			sprintf(tmp, "usb_smbshare_x%d", i);

@@ -93,7 +93,7 @@ start_firewall(void)
 		closedir(dir);
 
 	/* Optionally log connections */
-	log_level = atoi(nvram_safe_get("log_level"));
+	log_level = nvram_get_int("log_level");
 	log_drop = (log_level & 1) ? NETCONF_LOG_DROP : NETCONF_DROP;
 	log_accept = (log_level & 2) ? NETCONF_LOG_ACCEPT : NETCONF_ACCEPT;
 
@@ -147,7 +147,7 @@ start_firewall(void)
 		}
 
 		// LAN/WAN filter		
-		num = atoi(nvram_safe_get("macfilter_num_x"));
+		num = nvram_get_int("macfilter_num_x");
 
 		for (i=0;i<num;i++)
 		{	
@@ -229,7 +229,7 @@ start_firewall2(char *wan_ifname)
 	int i;
 
 	/* Optionally log connections */
-	log_level = atoi(nvram_safe_get("log_level"));
+	log_level = nvram_get_int("log_level");
 	log_accept = (log_level & 2) ? NETCONF_LOG_ACCEPT : NETCONF_ACCEPT;
 	
 	/* Allow new connections from the WAN side */
@@ -257,15 +257,15 @@ start_firewall2(char *wan_ifname)
 		memset(&nat, 0, sizeof(nat));
 		nat.match.ipproto = IPPROTO_TCP;
 		nat.match.src.ports[1] = htons(0xffff);
-		nat.match.dst.ports[0] = htons(atoi(nvram_safe_get("http_wanport")));
-		nat.match.dst.ports[1] = htons(atoi(nvram_safe_get("http_wanport")));
+		nat.match.dst.ports[0] = htons(nvram_get_int("http_wanport"));
+		nat.match.dst.ports[1] = htons(nvram_get_int("http_wanport"));
 		strncpy(nat.match.in.name, wan_ifname, IFNAMSIZ);
 
 		/* Set up DNAT to LAN */
 		nat.target = NETCONF_DNAT;
 		(void) inet_aton(nvram_safe_get("lan_ipaddr"), &nat.ipaddr);
-		nat.ports[0] = htons(atoi(nvram_safe_get("http_lanport")));
-		nat.ports[1] = htons(atoi(nvram_safe_get("http_lanport")));
+		nat.ports[0] = htons(nvram_get_int("http_lanport"));
+		nat.ports[1] = htons(nvram_get_int("http_lanport"));
 
 		add_forward(&nat, NETCONF_IN, log_accept);
 	}

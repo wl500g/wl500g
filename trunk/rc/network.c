@@ -345,7 +345,7 @@ static void start_igmpproxy(const char *wan_ifname)
 		"-a", nvram_safe_default_get("lan_ifname"),
 		NULL };
 
-	if (atoi(nvram_safe_get("udpxy_enable_x")))
+	if (nvram_get_int("udpxy_enable_x"))
 	{
 		/* listen on all interfaces */
 		if (nvram_invmatch("udpxy_wan_x", "0"))
@@ -613,7 +613,7 @@ void start_lan(void)
 
 		ipv6_addr(nvram_safe_get("ipv6_lan_addr"), &addr);
     		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
-    		size = atoi(nvram_safe_get("ipv6_lan_netsize"));
+    		size = nvram_get_int("ipv6_lan_netsize");
     		if (size > 0)
     			sprintf(addrstr, "%s/%d", addrstr, size);
 		eval("ip", "-6", "addr", "add", addrstr, "dev", lan_ifname);
@@ -933,7 +933,7 @@ void start_wan_unit(int unit)
 		if (strcmp(wan_proto, "pppoe") == 0 || strcmp(wan_proto, "pptp") == 0 ||
 		    strcmp(wan_proto, "l2tp") == 0) 
 		{
-			int demand = atoi(nvram_safe_get(strcat_r(prefix, "pppoe_idletime", tmp))) &&
+			int demand = nvram_get_int(strcat_r(prefix, "pppoe_idletime", tmp)) &&
 			    strcmp(wan_proto, "l2tp") /* L2TP does not support idling */;
 
 			/* update demand option */
@@ -1054,7 +1054,7 @@ void start_wan_unit(int unit)
 		*/
 		else if (strcmp(wan_proto, "usbmodem") == 0 )
 		{
-			int demand = atoi(nvram_safe_get(strcat_r(prefix, "modem_idletime", tmp)));
+			int demand = nvram_get_int(strcat_r(prefix, "modem_idletime", tmp));
 			
 			/* update demand option */
 			nvram_set(strcat_r(prefix, "modem_demand", tmp), demand ? "1" : "0");
@@ -1611,7 +1611,7 @@ void wan6_up(const char *wan_ifname, int unit)
 			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
 			sprintf(addrstr, "%s/%d", addrstr, size);
 
-			addr4masklen = atoi(nvram_safe_get(strcat_r(prefix, "ipv6_ip4size", tmp)));
+			addr4masklen = nvram_get_int(strcat_r(prefix, "ipv6_ip4size", tmp));
 			if (addr4masklen > 0 && addr4masklen <= 32)
 			{
 				struct in_addr net;
@@ -1704,14 +1704,14 @@ void wan6_up(const char *wan_ifname, int unit)
 			addr.s6_addr16[0] = htons(0x2002);
 			ipv6_map6rd(&addr, 16, &addr4, 0);
     			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
-    			size = atoi(nvram_safe_get("ipv6_lan_netsize"));
+    			size = nvram_get_int("ipv6_lan_netsize");
     		} else {
 //TODO: implement 6RD prefix copy into wan_addr
 			struct in6_addr wan6_addr;
 			size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &wan6_addr);
 			ipv6_map6rd(&addr, size, &addr4, addr4masklen);
 			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
-			size = atoi(nvram_safe_get("ipv6_lan_netsize"));
+			size = nvram_get_int("ipv6_lan_netsize");
 		}
 		if (size > 0)
 			sprintf(addrstr, "%s/%d", addrstr, size);

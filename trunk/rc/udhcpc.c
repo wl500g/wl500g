@@ -437,7 +437,7 @@ int start_dhcp6c(const char *wan_ifname)
 
 	stop_dhcp6c();
 
-	sla_len = 64 - atoi(nvram_safe_get("ipv6_lan_netsize"));
+	sla_len = 64 - nvram_get_int("ipv6_lan_netsize");
 	if (sla_len <= 0)
 		sla_len = 0;
 	else if (sla_len > 16)
