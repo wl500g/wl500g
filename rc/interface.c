@@ -48,7 +48,7 @@ void ip2class(const char *lan_ip, const char *netmask, char *buf)
 {
 	unsigned int val, ip;
 	struct in_addr in;
-	int i=0;
+	int i = 0;
 
 	val = (unsigned int)inet_addr(netmask);
 	ip = (unsigned int)inet_addr(lan_ip);
@@ -58,7 +58,7 @@ void ip2class(const char *lan_ip, const char *netmask, char *buf)
         	val <<= 1;
 
         sprintf(buf, "%s/%d", inet_ntoa(in), i);
-	dprintf("%s", buf);	
+	dprintf("%s\n", buf);
 }
 
 int _ifconfig(const char *name, int flags,
@@ -176,11 +176,13 @@ static int route_manip(int cmd, const char *name, int metric,
 
 int route_add(const char *name, int metric, const char *dst, const char *gateway, const char *genmask)
 {
+	dprintf("%s %s via %s dev %s metric %d\n", dst, genmask, gateway, name, metric);
 	return route_manip(SIOCADDRT, name, metric, dst, gateway, genmask);
 }
 
 int route_del(const char *name, int metric, const char *dst, const char *gateway, const char *genmask)
 {
+	dprintf("%s %s via %s dev %s metric %d\n", dst, genmask, gateway, name, metric);
 	return route_manip(SIOCDELRT, name, metric, dst, gateway, genmask);
 }
 

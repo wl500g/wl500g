@@ -127,7 +127,7 @@ run_shell(int timeout, int nowait)
 	int sig;
 
 	/* Wait for user input */
-	cprintf("Hit enter to continue...");
+	cprintf("Hit enter to continue...\n");
 	if (waitfor(STDIN_FILENO, timeout) <= 0)
 		return 0;
 
