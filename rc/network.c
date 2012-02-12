@@ -213,8 +213,8 @@ static int add_routes(const char *prefix, const char *var, const char *ifname)
 	char *ipaddr, *netmask, *gateway, *metric;
 	char tmp[100];
 
-	foreach(word, nvram_safe_get(strcat_r(prefix, var, tmp)), next) {
-
+	foreach(word, nvram_safe_get(strcat_r(prefix, var, tmp)), next)
+	{
 		netmask = word;
 		ipaddr = strsep(&netmask, ":");
 		if (!ipaddr || !netmask)
@@ -227,17 +227,18 @@ static int add_routes(const char *prefix, const char *var, const char *ifname)
 		gateway = strsep(&metric, ":");
 		if (!gateway || !metric)
 			continue;
-			
+
+		/* TODO: use gateway from prefix? */
 		if (ip_addr(gateway) == INADDR_ANY) 
 			gateway = nvram_safe_get("wan0_xgateway");
 
 		m = atoi(metric) + 1;
-		dprintf("\n\n\nadd %s %d %s %s %s\n\n\n", ifname, m, ipaddr, gateway, netmask);
-		
+
+		dprintf("=> ");
 		if ((err = route_add(ifname, m, ipaddr, gateway, netmask))) {
 			logmessage("route", "add failed(%d) '%s': %s dst %s mask %s gw %s metric %d",
 			err, strerror(err),
-			ifname, ipaddr, gateway, netmask, m);
+			ifname, ipaddr, netmask, gateway, m);
 		}
 	}
 
@@ -263,8 +264,10 @@ static void add_wanx_routes(const char *prefix, const char *ifname, int metric)
 		ipaddr  = strsep(&tmp, "/");
 		gateway = strsep(&tmp, " ");
 
-		if (gateway && ip_addr(ipaddr) != INADDR_ANY)
+		if (gateway && ip_addr(ipaddr) != INADDR_ANY) {
+			dprintf("=> ");
 			route_add(ifname, metric + 1, ipaddr, gateway, netmask);
+		}
 	}
 	free(routes);
 
@@ -283,6 +286,7 @@ static void add_wanx_routes(const char *prefix, const char *ifname, int metric)
 		{
 			mask.s_addr = htonl(0xffffffff << (32 - bits));
 			strcpy(netmask, inet_ntoa(mask));
+			dprintf("=> ");
 			route_add(ifname, metric + 1, ipaddr, gateway, netmask);
 		}
 	}
@@ -294,10 +298,9 @@ static int del_routes(const char *prefix, const char *var, const char *ifname)
 	char word[80], *next;
 	char *ipaddr, *netmask, *gateway, *metric;
 	char tmp[100];
-	
-	foreach(word, nvram_safe_get(strcat_r(prefix, var, tmp)), next) {
-		dprintf("add %s\n", word);
-		
+
+	foreach(word, nvram_safe_get(strcat_r(prefix, var, tmp)), next)
+	{
 		netmask = word;
 		ipaddr = strsep(&netmask, ":");
 		if (!ipaddr || !netmask)
@@ -310,12 +313,12 @@ static int del_routes(const char *prefix, const char *var, const char *ifname)
 		gateway = strsep(&metric, ":");
 		if (!gateway || !metric)
 			continue;
-			
+
+		/* TODO: use gateway from prefix? */
 		if (ip_addr(gateway) == INADDR_ANY) 
 			gateway = nvram_safe_get("wan0_xgateway");
-		
-		dprintf("add %s\n", ifname);
-		
+
+		dprintf("=> ");
 		route_del(ifname, atoi(metric) + 1, ipaddr, gateway, netmask);
 	}
 
@@ -958,14 +961,17 @@ void start_wan_unit(int unit)
 				add_routes("wan_", "route", wan_ifname);
 				/* and set default route if specified with metric 1 */
 				if (ip_addr(nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))) &&
-				    !nvram_match("wan_heartbeat_x", ""))
-					route_add(wan_ifname, 2, "0.0.0.0", 
+				    !nvram_match("wan_heartbeat_x", "")) {
+					dprintf("=> ");
+					route_add(wan_ifname, 2, "0.0.0.0",
 						nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp)), "0.0.0.0");
+				}
+
 				/* start multicast router */
 				if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
 					start_igmpproxy(wan_ifname);
 			}
-			
+
 			/* launch pppoe client daemon */
 			start_pppd(prefix);
 
@@ -1357,16 +1363,15 @@ void wan_up(const char *wan_ifname)
 	char *wan_proto, *gateway;
 	int unit, metric;
 
-#ifdef DEBUG
-	int r;
-	r = wans_prefix(wan_ifname, prefix, xprefix);
-	dprintf("wan_up: %s %s %s %d\n", wan_ifname, wanprefix, prefix, r);
-#endif
-
 	/* Figure out nvram variable name prefix for this i/f */
 	unit = wans_prefix(wan_ifname, prefix, xprefix);
+	dprintf("%s unit %d prefix %s %s\n", wan_ifname, unit, prefix, xprefix);
 	if (unit < 0)
 		return;
+
+	wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
+	metric = nvram_get_int(strcat_r(prefix, "priority", tmp));
+	dprintf("%s unit %d proto %s metric %d\n", wan_ifname, unit, wan_proto, metric);
 
 	/* Called for DHCP+PPP, there should be no wanN_xifname */
 	if (!nvram_get(strcat_r(xprefix, "ifname", tmp)))
@@ -1380,17 +1385,18 @@ void wan_up(const char *wan_ifname)
 	 	/* setup static wan routes via physical device */
 		add_routes("wan_", "route", wan_ifname);
 		/* and one supplied via DHCP */
-		add_wanx_routes(xprefix, wan_ifname, 0);
+		add_wanx_routes(xprefix, wan_ifname, 0); /* why not 2 ? */
 
-		gateway = ip_addr(nvram_safe_get("wan_gateway")) != INADDR_ANY ?
-			nvram_get("wan_gateway") :
-			nvram_safe_get(strcat_r(xprefix, "gateway", tmp));
+		gateway = nvram_safe_get("wan_gateway");
+		if (ip_addr(gateway) == INADDR_ANY)
+			gateway = nvram_safe_get(strcat_r(xprefix, "gateway", tmp));
 
 		/* and default route with metric 1 */
 		if (ip_addr(gateway) != INADDR_ANY)
 		{
 			char word[100], *next;
 
+			dprintf("=> ");
 			route_add(wan_ifname, 2, "0.0.0.0", gateway, "0.0.0.0");
 
 			/* ... and to dns servers as well for demand ppp to work */
@@ -1400,7 +1406,10 @@ void wan_up(const char *wan_ifname)
 				in_addr_t mask = inet_addr(nvram_safe_get(strcat_r(xprefix, "netmask", tmp)));
 				if ((inet_addr(word) & mask) !=
 				    (inet_addr(nvram_safe_get(strcat_r(xprefix, "ipaddr", tmp))) & mask))
+				{
+					dprintf("=> ");
 					route_add(wan_ifname, 2, word, gateway, "255.255.255.255");
+				}
 			}
 		}
 
@@ -1408,19 +1417,16 @@ void wan_up(const char *wan_ifname)
 		if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
 			start_igmpproxy(wan_ifname);
 
-		update_resolvconf(wan_ifname, 2, 1);
+		update_resolvconf(wan_ifname, metric, 1);
 
 		return;
 	}
 
-	wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
-
-	dprintf("unit %d %s %s\n", unit, wan_ifname, wan_proto);
-	metric = atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp)));
-
 	/* Set default route to gateway if specified */
 	if (nvram_match(strcat_r(prefix, "primary", tmp), "1")) 
 	{
+		char *gateway = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
+
 		if (strcmp(wan_proto, "dhcp") == 0 || 
 		    strcmp(wan_proto, "static") == 0 
 #ifdef __CONFIG_MADWIMAX__
@@ -1428,19 +1434,20 @@ void wan_up(const char *wan_ifname)
 #endif
 		) {
 			/* the gateway is in the local network */
-			route_add(wan_ifname, 0, nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
-				NULL, "255.255.255.255");
+			dprintf("=> ");
+			route_add(wan_ifname, 0, gateway, NULL, "255.255.255.255");
 		}
+
 		/* default route via default gateway */
-		
-		dprintf("metric %s - %d\n",nvram_safe_get(strcat_r(prefix, "priority", tmp)),metric);
-		route_add(wan_ifname, metric, "0.0.0.0", 
-			nvram_safe_get(strcat_r(prefix, "gateway", tmp)), "0.0.0.0");
+		dprintf("=> ");
+		route_add(wan_ifname, metric, "0.0.0.0", gateway, "0.0.0.0");
+
 		/* hack: avoid routing cycles, when both peer and server has the same IP */
-		if (strcmp(wan_proto, "pptp") == 0 || strcmp(wan_proto, "l2tp") == 0) {
+		if (strcmp(wan_proto, "pptp") == 0 ||
+		    strcmp(wan_proto, "l2tp") == 0) {
 			/* delete gateway route as it's no longer needed */
-			route_del(wan_ifname, 0, nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
-				"0.0.0.0", "255.255.255.255");
+			dprintf("=> ");
+			route_del(wan_ifname, 0, gateway, "0.0.0.0", "255.255.255.255");
 		}
 	}
 
@@ -1474,7 +1481,7 @@ void wan_up(const char *wan_ifname)
 #endif
 
 	/* Add dns servers to resolv.conf */
-	update_resolvconf(wan_ifname, metric, 1 );
+	update_resolvconf(wan_ifname, metric, 1);
 
 	/* Sync time */
 	//start_ntpc();
@@ -1485,6 +1492,7 @@ void wan_up(const char *wan_ifname)
 #ifdef ASUS_EXT
 	update_wan_status(1);
 	start_firewall_ex(wan_ifname, nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), "br0", nvram_safe_get("lan_ipaddr"));
+
 	start_ddns(0);
 	//stop_upnp();
 	start_upnp();
@@ -1514,15 +1522,17 @@ void wan_down(const char *wan_ifname)
 {
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char *wan_proto;
-	int metric;
+	int unit, metric;
 
 	/* Figure out nvram variable name prefix for this i/f */
-	if (wan_prefix(wan_ifname, prefix) < 0)
+	unit = wan_prefix(wan_ifname, prefix);
+	dprintf("%s unit %d prefix %s\n", wan_ifname, unit, prefix);
+	if (unit < 0)
 		return;
 
 	wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
-	
-	dprintf("%s %s\n", wan_ifname, wan_proto);
+	metric = nvram_get_int(strcat_r(prefix, "priority", tmp));
+	dprintf("%s unit %d proto %s metric %d\n", wan_ifname, unit, wan_proto, metric);
 
 	/* Stop authenticator */
 	stop_auth(prefix, 1);
@@ -1533,17 +1543,18 @@ void wan_down(const char *wan_ifname)
 #endif
 
 	/* Remove default route to gateway if specified */
-	metric = atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp)));
-	if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
-		route_del(wan_ifname, metric, "0.0.0.0", 
+	if (nvram_match(strcat_r(prefix, "primary", tmp), "1")) {
+		dprintf("=> ");
+		route_del(wan_ifname, metric, "0.0.0.0",
 			nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
 			"0.0.0.0");
+	}
 
 	/* Remove interface dependent static routes */
 	del_wan_routes(wan_ifname);
 
 	/* Update resolv.conf -- leave as is if no dns servers left for demand to work */
-	if (*nvram_safe_get("wan0_xdns"))
+	if (*nvram_safe_get(strcat_r(prefix, "xdns", tmp)))
 		nvram_unset(strcat_r(prefix, "dns", tmp));
 	update_resolvconf(wan_ifname, metric, 0);
 
@@ -1785,6 +1796,7 @@ static void lan_up(const char *lan_ifname)
 	char word[100], *next;
 
 	/* Set default route to gateway if specified */
+	dprintf("=> ");
 	route_add(lan_ifname, 0, "0.0.0.0", 
 			nvram_safe_get("lan_gateway"),
 			"0.0.0.0");
@@ -1823,6 +1835,7 @@ static void lan_up(const char *lan_ifname)
 void lan_down(const char *lan_ifname)
 {
 	/* Remove default route to gateway if specified */
+	dprintf("=> ");
 	route_del(lan_ifname, 0, "0.0.0.0", 
 			nvram_safe_get("lan_gateway"),
 			"0.0.0.0");
@@ -1838,6 +1851,7 @@ void lan_up_ex(const char *lan_ifname)
 	char word[100], *next;
 
 	/* Set default route to gateway if specified */
+	dprintf("=> ");
 	route_add(lan_ifname, 0, "0.0.0.0", 
 			nvram_safe_get("lan_gateway_t"),
 			"0.0.0.0");
@@ -1876,6 +1890,7 @@ void lan_up_ex(const char *lan_ifname)
 void lan_down_ex(const char *lan_ifname)
 {
 	/* Remove default route to gateway if specified */
+	dprintf("=> ");
 	route_del(lan_ifname, 0, "0.0.0.0", 
 			nvram_safe_get("lan_gateway_t"),
 			"0.0.0.0");
@@ -2041,6 +2056,7 @@ int preset_wan_routes(const char *wan_ifname)
 	/* Set default route to gateway if specified */
 	if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
 	{
+		dprintf("=> ");
 		route_add(wan_ifname, 0, "0.0.0.0", "0.0.0.0", "0.0.0.0");
 	}
 
