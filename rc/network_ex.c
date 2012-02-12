@@ -75,19 +75,17 @@ int start_pppd(const char *prefix)
 
 	if (nvram_match(strcat_r(prefix, "proto", tmp), "pppoe")) 
 	{
-		const char *var;
+		const char *value;
 
 		fprintf(fp, "plugin rp-pppoe.so");
 
-		var = strcat_r(prefix, "pppoe_service", tmp);
-		if (nvram_invmatch(var, "")) {
-			fprintf(fp, " rp_pppoe_service '%s'", nvram_get(var));
-		}
+		value = nvram_safe_get(strcat_r(prefix, "pppoe_service", tmp));
+		if (*value)
+			fprintf(fp, " rp_pppoe_service '%s'", value);
 
-		var = strcat_r(prefix, "pppoe_ac", tmp);
-		if (nvram_invmatch(var, "")) {
-			fprintf(fp, " rp_pppoe_ac '%s'", nvram_get(var));
-		}
+		value = nvram_safe_get(strcat_r(prefix, "pppoe_ac", tmp));
+		if (*value)
+			fprintf(fp, " rp_pppoe_ac '%s'", value);
 
 		fprintf(fp,
 			" nic-%s\n"
@@ -96,29 +94,28 @@ int start_pppd(const char *prefix)
 			nvram_safe_get(strcat_r(prefix, "pppoe_mru", tmp)),
 			nvram_safe_get(strcat_r(prefix, "pppoe_mtu", tmp)));
 	}
-	
+
 	i = atoi(nvram_safe_get(strcat_r(prefix, "pppoe_idletime", tmp)));
 	if (i > 0 && nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1")) 
 	{
 		fprintf(fp, "idle %d ", i);
-		if (nvram_invmatch(strcat_r(prefix, "pppoe_txonly_x", tmp), "0")) {
+		if (nvram_invmatch(strcat_r(prefix, "pppoe_txonly_x", tmp), "0"))
 			fprintf(fp, "tx_only ");
-		}
 		fprintf(fp, "demand\n");
 	}
 
 	fprintf(fp, "maxfail 0\n");
 
       	if (nvram_invmatch(strcat_r(prefix, "dnsenable_x", tmp), "0"))
-		fprintf(fp, "usepeerdns\n");   
+		fprintf(fp, "usepeerdns\n");
 
 	if (nvram_invmatch(strcat_r(prefix, "proto", tmp), "l2tp"))
 		fprintf(fp, "persist\n");
-       	
+
 	fprintf(fp,
 		"ipcp-accept-remote ipcp-accept-local noipdefault\n"
 		"ktune\n");
-       	
+
        	/* pppoe set these options automatically */
        	/* looks like pptp also likes them */
     	fprintf(fp, "default-asyncmap nopcomp noaccomp\n");
@@ -146,10 +143,8 @@ int start_pppd(const char *prefix)
 	/* user specific options */
 	fprintf(fp, "%s\n", 
 		nvram_safe_get(strcat_r(prefix, "pppoe_options_x", tmp)));
-		
-	fclose(fp);
-	close(fd);
 
+	fclose(fp);
 
 	if (nvram_match(strcat_r(prefix, "proto", tmp), "l2tp")) 
 	{
