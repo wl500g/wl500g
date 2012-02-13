@@ -650,7 +650,7 @@ asmlinkage long compat_sys_socketcall(int call, u32 __user *args)
 	u32 a0, a1;
 
 	if (call < SYS_SOCKET || call > SYS_ACCEPT4)
-		return -EINVAL;
+		return -ENOSYS;
 	if (copy_from_user(a, args, nas[call]))
 		return -EFAULT;
 	a0 = a[0];
@@ -714,7 +714,7 @@ asmlinkage long compat_sys_socketcall(int call, u32 __user *args)
 		ret = sys_accept4(a0, compat_ptr(a1), compat_ptr(a[2]), a[3]);
 		break;
 	default:
-		ret = -EINVAL;
+		ret = -ENOSYS;
 		break;
 	}
 	return ret;

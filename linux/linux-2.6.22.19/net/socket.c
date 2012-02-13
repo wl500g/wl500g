@@ -2004,7 +2004,7 @@ asmlinkage long sys_socketcall(int call, unsigned long __user *args)
 	int err;
 
 	if (call < 1 || call > SYS_ACCEPT4)
-		return -EINVAL;
+		return -ENOSYS;
 
 	/* copy_from_user should be SMP safe. */
 	if (copy_from_user(a, args, nargs[call]))
@@ -2084,7 +2084,7 @@ asmlinkage long sys_socketcall(int call, unsigned long __user *args)
 				  (int __user *)a[2], a[3]);
 		break;
 	default:
-		err = -EINVAL;
+		err = -ENOSYS;
 		break;
 	}
 	return err;
