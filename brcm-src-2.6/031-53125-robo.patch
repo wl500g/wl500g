@@ -1,0 +1,110 @@
+--- src.orig/include/bcmdevs.h	2011-10-23 14:57:47.000000000 +0000
++++ src/include/bcmdevs.h	2012-02-11 21:57:38.000000000 +0000
+@@ -224,6 +224,7 @@
+ #define BCM5365_CHIP_ID		0x5365		/* 5365 chipcommon chipid */
+ #define	BCM5356_CHIP_ID		0x5356		/* 5356 chipcommon chipid */
+ #define	BCM5357_CHIP_ID		0x5357		/* 5357 chipcommon chipid */
++#define	BCM53572_CHIP_ID	53572		/* 53572 chipcommon chipid */
+ 
+ /* Package IDs */
+ #define	BCM4303_PKG_ID		2		/* 4303 package id */
+@@ -247,6 +248,7 @@
+ #define BCM47186_PKG_ID		10		/* 47186 package id */
+ #define BCM5357_PKG_ID		11		/* 5357 package id */
+ #define BCM5356U_PKG_ID		12		/* 5356U package id */
++#define BCM47188_PKG_ID		9		/* 47188 package id */
+ #define HDLSIM5350_PKG_ID	1		/* HDL simulator package id for a 5350 */
+ #define HDLSIM_PKG_ID		14		/* HDL simulator package id */
+ #define HWSIM_PKG_ID		15		/* Hardware simulator package id */
+--- src.orig/include/bcmrobo.h	2011-11-07 00:16:12.000000000 +0000
++++ src/include/bcmrobo.h	2012-02-11 21:18:58.000000000 +0000
+@@ -33,6 +33,7 @@
+ #define	DEVID5397	0x97	/* 5397 */
+ #define	DEVID5398	0x98	/* 5398 */
+ #define	DEVID53115	0x3115	/* 53115 */
++#define	DEVID53125	0x3125	/* 53125 */
+ 
+ /* Power save duty cycle times */
+ #define MAX_NO_PHYS		5
+--- src.orig/shared/bcmrobo.c	2012-02-12 17:10:20.924343000 +0000
++++ src/shared/bcmrobo.c	2012-02-11 22:01:38.000000000 +0000
+@@ -703,11 +703,12 @@ bcm_robo_attach(si_t *sih, void *h, char
+ 	/* Enable switch leds */
+ 	if (sih->chip == BCM5356_CHIP_ID) {
+ 		si_pmu_chipcontrol(sih, 2, (1 << 25), (1 << 25));
+-	} else if (sih->chip == BCM5357_CHIP_ID) {
++	} else if ((sih->chip == BCM5357_CHIP_ID) || (sih->chip == BCM53572_CHIP_ID)) {
++
+ 		uint32 led_gpios = 0;
+ 		char *var;
+ 
+-		if (sih->chippkg != BCM47186_PKG_ID)
++		if ((sih->chippkg != BCM47186_PKG_ID) && (sih->chippkg != BCM47188_PKG_ID))
+ 			led_gpios = 0x1f;
+ 		var = getvar(vars, "et_swleds");
+ 		if (var)
+@@ -759,7 +760,8 @@ bcm_robo_attach(si_t *sih, void *h, char
+ 	       (robo->devid == DEVID5395) ||
+ 	       (robo->devid == DEVID5397) ||
+ 	       (robo->devid == DEVID5398) ||
+-	       (robo->devid == DEVID53115));
++	       (robo->devid == DEVID53115) ||
++	       (robo->devid == DEVID53125));
+ 
+ 	/* nvram variable switch_mode controls the power save mode on the switch
+ 	 * set the default value in the beginning
+@@ -1136,7 +1138,9 @@ vlan_setup:
+ 		} else {
+ 			uint8 vtble, vtbli, vtbla;
+ 
+-			if ((robo->devid == DEVID5395) || (robo->devid == DEVID53115)) {
++			if ((robo->devid == DEVID5395) ||
++				(robo->devid == DEVID53115) ||
++				(robo->devid == DEVID53125)) {
+ 				vtble = REG_VTBL_ENTRY_5395;
+ 				vtbli = REG_VTBL_INDX_5395;
+ 				vtbla = REG_VTBL_ACCESS_5395;
+@@ -1266,7 +1270,8 @@ bcm_robo_enable_switch(robo_info_t *robo
+ 
+ 		/* No spanning tree for unmanaged mode */
+ 		val8 = 0;
+-		max_port_ind = ((robo->devid == DEVID5398) ? REG_CTRL_PORT7 : REG_CTRL_PORT4);
++		max_port_ind = ((robo->devid == DEVID5398) ? REG_CTRL_PORT7 :
++		                (robo->devid == DEVID53115) ? REG_CTRL_PORT5 : REG_CTRL_PORT4);
+ 		for (i = REG_CTRL_PORT0; i <= max_port_ind; i++) {
+ 			robo->ops->write_reg(robo, PAGE_CTRL, i, &val8, sizeof(val8));
+ 		}
+@@ -1280,6 +1285,13 @@ bcm_robo_enable_switch(robo_info_t *robo
+ 	{
+ 		val8 = 0;
+ 		robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT0, &val8, sizeof(val8));
++	} else
++	if (robo->devid == DEVID53125) {
++		/* Over ride IMP port status to make it link by default */
++		val8 = 0;
++		robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_MIIPO, &val8, sizeof(val8));
++		val8 |= 0x81;	/* Make Link pass and override it. */
++		robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_MIIPO, &val8, sizeof(val8));
+ 	}
+ 
+ 	/* Disable management interface access */
+@@ -1676,7 +1688,8 @@ robo_power_save_mode_manual(robo_info_t
+ 		return 0;
+ 
+ 	/* If the switch supports manual power down enable that */  
+-	if (robo->devid ==  DEVID53115) {
++	if ((robo->devid ==  DEVID53115) ||
++	    (robo->sih->chip == BCM5356_CHIP_ID)) {
+ 		/* For 53115 0x0 is the MII control register bit 11 is the
+ 		 * power down mode bit 
+ 		 */
+@@ -1722,7 +1735,8 @@ robo_power_save_mode_wlonly(robo_info_t
+ 	uint16 val16;
+ 	int32 phy;
+ 
+-	if (robo->devid ==  DEVID53115) {
++	if ((robo->devid ==  DEVID53115) ||
++	    (robo->devid ==  DEVID53125)) {
+ 		/* For 53115 0x0 is the MII control register bit 11 is the
+ 		 * power down mode bit 
+ 		 */
