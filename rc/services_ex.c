@@ -886,7 +886,10 @@ start_usb(void)
 		}
 		else
 #endif
-		insmod("ntfs", NULL);
+		if (nvram_match("usb_ntfs3g_enable", "0"))
+		{
+			insmod("ntfs", NULL);
+		}
 	}	
 
 	if (nvram_match("usb_nfsenable_x", "1"))
@@ -936,7 +939,10 @@ stop_usb(void)
 		}
 		else
 #endif
+		if (nvram_match("usb_ntfs3g_enable", "0"))
+		{
 			rmmod("ntfs");
+		}
 	}
 
 #ifdef __CONFIG_RCAMD__

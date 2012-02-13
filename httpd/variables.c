@@ -979,7 +979,7 @@ struct variable variables_PrinterStatus[] = {
 	{"audio_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"usb20_disable_x", "", validate_range, ARGV("0","2"), FALSE, FALSE},
 	{"lltd_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
-	{"usb_ntfs3g_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"usb_ntfs3g_enable", "", validate_range, ARGV("0","2"), FALSE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 };
 
