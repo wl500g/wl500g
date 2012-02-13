@@ -251,8 +251,8 @@ endef
 FlashMaxSize = \
     $(if $(filter $(1),WL520gc),1703936, \
     $(if $(filter $(1),WL500gx WL550gE WL320gE WL320gP WL520gu WL330gE RT-N10 RT-N12),3801880, \
-    $(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g RT-N10U RT-N12B1 RT-N12C1),7995392, \
-    $(if $(filter $(1),RT-N16 RT-N15U),16384000,0)))) \
+    $(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g RT-N10U RT-N12B1 RT-N12C1 RT-N15U),7995392, \
+    $(if $(filter $(1),RT-N16),16384000,0)))) \
 
 #
 # Basic rules
