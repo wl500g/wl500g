@@ -64,7 +64,44 @@
  				vtble = REG_VTBL_ENTRY_5395;
  				vtbli = REG_VTBL_INDX_5395;
  				vtbla = REG_VTBL_ACCESS_5395;
-@@ -1266,7 +1270,8 @@ bcm_robo_enable_switch(robo_info_t *robo
+@@ -1205,24 +1209,25 @@ vlan_setup:
+ 			 (3 << 12) |	/* Pri 6 mapped to TXQ 3 */
+ 			 (3 << 14));	/* Pri 7 mapped to TXQ 3 */
+ 		robo->ops->write_reg(robo, 0x30, 0x62, &val16, sizeof(val16));
++	}
+ 
+-		/* Drop reserved bit, if any */
+-		robo->ops->read_reg(robo, PAGE_CTRL, 0x2f, &val8, sizeof(val8));
+-		if (val8 & (1 << 1)) {
+-			val8 &= ~(1 << 1);
+-			robo->ops->write_reg(robo, PAGE_CTRL, 0x2f, &val8, sizeof(val8));
+-		}
++	/* Drop reserved bit, if any */
++	robo->ops->read_reg(robo, PAGE_CTRL, 0x2f, &val8, sizeof(val8));
++	if (/*((robo->devid == DEVID53115) || (robo->devid == DEVID53125)) &&*/
++	    val8 & (1 << 1)) {
++		val8 &= ~(1 << 1);
++		robo->ops->write_reg(robo, PAGE_CTRL, 0x2f, &val8, sizeof(val8));
++	}
+ 
+-		/* Jumbo Frame control refister (Page 0x40, Address 0x01 */
++	/* Jumbo Frame control register (Page 0x40, Address 0x01 */
++	if ((robo->devid == DEVID53115) || (robo->devid == DEVID53125)) {
+ 		if (nvram_match("jumbo_frame_enable", "1")) {
+ 			val16 = (( 1 << 0) |
+ 				 ( 1 << 1) |
+ 				 ( 1 << 2) |
+ 				 ( 1 << 3) |
+-				 ( 1 << 4) 
+-				);
+-		}
+-		else
++				 ( 1 << 4));
++		} else
+ 			val16 = 0;
+ 		robo->ops->write_reg(robo, PAGE_JUMBO, REG_JUMBO_CTRL, &val16, sizeof(val16));
+ 	}
+@@ -1266,7 +1271,8 @@ bcm_robo_enable_switch(robo_info_t *robo
  
  		/* No spanning tree for unmanaged mode */
  		val8 = 0;
@@ -74,7 +111,7 @@
  		for (i = REG_CTRL_PORT0; i <= max_port_ind; i++) {
  			robo->ops->write_reg(robo, PAGE_CTRL, i, &val8, sizeof(val8));
  		}
-@@ -1280,6 +1285,13 @@ bcm_robo_enable_switch(robo_info_t *robo
+@@ -1280,6 +1286,13 @@ bcm_robo_enable_switch(robo_info_t *robo
  	{
  		val8 = 0;
  		robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT0, &val8, sizeof(val8));
@@ -88,7 +125,7 @@
  	}
  
  	/* Disable management interface access */
-@@ -1676,7 +1688,8 @@ robo_power_save_mode_manual(robo_info_t
+@@ -1676,7 +1689,8 @@ robo_power_save_mode_manual(robo_info_t
  		return 0;
  
  	/* If the switch supports manual power down enable that */  
@@ -98,7 +135,7 @@
  		/* For 53115 0x0 is the MII control register bit 11 is the
  		 * power down mode bit 
  		 */
-@@ -1722,7 +1735,8 @@ robo_power_save_mode_wlonly(robo_info_t
+@@ -1722,7 +1736,8 @@ robo_power_save_mode_wlonly(robo_info_t
  	uint16 val16;
  	int32 phy;
  
