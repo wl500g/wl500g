@@ -11,16 +11,17 @@ fs/partitions: backports from upstream kernel 2.6
  7d13af3279985f554784a45cc961f706dbcdbdd1 partitions: use sector size for EFI GPT
  87038c2d5bda2418fda8b1456a0ae81cc3ff5bd8 partitions: read whole sector with EFI GPT header
  8e0cc811e0f8029a7225372fb0951fab102c012f fs/partition/msdos: fix unusable extended partition for > 512B sector
+ fa039d5f6b126fbd65eefa05db2f67e44df8f121 Validate size of EFI GUID partition entries.
 
 ---
  fs/fat/inode.c           |    2 +-
  fs/partitions/check.c    |   23 +++++++++++++++++++++--
- fs/partitions/efi.c      |   30 +++++++++++++++++++-----------
+ fs/partitions/efi.c      |   36 +++++++++++++++++++++++++-----------
  fs/partitions/efi.h      |    8 ++++++--
  fs/partitions/msdos.c    |   38 +++++++++++++++++++++++++++++++-------
  include/linux/genhd.h    |    2 +-
  include/linux/msdos_fs.h |    8 ++++++--
- 7 files changed, 85 insertions(+), 26 deletions(-)
+ 7 files changed, 91 insertions(+), 26 deletions(-)
 
 diff --git a/fs/fat/inode.c b/fs/fat/inode.c
 --- a/fs/fat/inode.c
@@ -143,6 +144,19 @@ diff --git a/fs/partitions/efi.c b/fs/partitions/efi.c
  		kfree(gpt);
                  gpt=NULL;
  		return NULL;
+@@ -348,6 +348,12 @@ static int is_gpt_valid(struct parsed_partitions *state, u64 lba,
+ 		goto fail;
+ 	}
+ 
++	/* Check that sizeof_partition_entry has the correct value */
++	if (le32_to_cpu((*gpt)->sizeof_partition_entry) != sizeof(gpt_entry)) {
++		pr_debug("GUID Partitition Entry Size check failed.\n");
++		goto fail;
++	}
++
+ 	if (!(*ptes = alloc_read_gpt_entries(bdev, *gpt)))
+ 		goto fail;
+ 
 @@ -609,6 +615,7 @@ efi_partition(struct parsed_partitions *
  	gpt_header *gpt = NULL;
  	gpt_entry *ptes = NULL;
