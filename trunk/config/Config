@@ -21,7 +21,7 @@ config CONFIG_RTN16
 
 config CONFIG_RTN15U
        bool "ASUS RT-N15U"
-       default n
+       default y
 
 config CONFIG_RTN12
        bool "ASUS RT-N12"
