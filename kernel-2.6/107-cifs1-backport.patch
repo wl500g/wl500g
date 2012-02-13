@@ -1,5 +1,7 @@
 CIFS 1.54: backport from kernel 2.6.27.59
 
+ 9438fabb73eb48055b58b89fc51e0bc4db22fabd cifs: fix possible memory corruption in CIFSFindNext
+
 ---
  fs/cifs/AUTHORS        |    1 
  fs/cifs/CHANGES        |   85 +
@@ -10124,7 +10126,7 @@ diff --git a/fs/cifs/cifssmb.c b/fs/cifs/cifssmb.c
  			*pnetfid = parms->SearchHandle;
  		} else {
  			cifs_buf_release(pSMB);
-@@ -3498,11 +3642,11 @@ findFirstRetry:
+@@ -3498,14 +3642,15 @@ findFirstRetry:
  }
  
  int CIFSFindNext(const int xid, struct cifsTconInfo *tcon,
@@ -10137,7 +10139,12 @@ diff --git a/fs/cifs/cifssmb.c b/fs/cifs/cifssmb.c
 +	T2_FNEXT_RSP_PARMS *parms;
  	char *response_data;
  	int rc = 0;
- 	int bytes_returned, name_len;
+-	int bytes_returned, name_len;
++	int bytes_returned;
++	unsigned int name_len;
+ 	__u16 params, byte_count;
+ 
+ 	cFYI(1, "In FindNext");
 @@ -3510,7 +3654,7 @@ int CIFSFindNext(const int xid, struct c
  
  	cFYI(1, ("In FindNext"));
