@@ -933,6 +933,8 @@ void start_wan_unit(int unit)
 		if (strcmp(wan_proto, "pppoe") == 0 || strcmp(wan_proto, "pptp") == 0 ||
 		    strcmp(wan_proto, "l2tp") == 0) 
 		{
+			char *ipaddr = nvram_get(strcat_r(prefix, "pppoe_ipaddr", tmp));
+			char *netmask = nvram_get(strcat_r(prefix, "pppoe_netmask", tmp));
 			int demand = nvram_get_int(strcat_r(prefix, "pppoe_idletime", tmp)) &&
 			    strcmp(wan_proto, "l2tp") /* L2TP does not support idling */;
 
@@ -940,9 +942,7 @@ void start_wan_unit(int unit)
 			nvram_set(strcat_r(prefix, "pppoe_demand", tmp), demand ? "1" : "0");
 
 			/* Bring up WAN interface */
-			ifconfig(wan_ifname, IFUP, 
-				nvram_get(strcat_r(prefix, "pppoe_ipaddr", tmp)),
-				nvram_get(strcat_r(prefix, "pppoe_netmask", tmp)));
+			ifconfig(wan_ifname, IFUP, ipaddr, netmask);
 #ifdef __CONFIG_IPV6__
 			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
 				wan6_up(wan_ifname, unit);
@@ -952,19 +952,32 @@ void start_wan_unit(int unit)
 				"0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 
 		 	/* launch dhcp client and wait for lease forawhile */
-		 	if (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0")) 
+		 	if (ipaddr && ip_addr(ipaddr) == INADDR_ANY)
 		 	{
 				/* Start dhcp daemon */
 				start_dhcpc(wan_ifname, unit);
 		 	} else {
+		 		char *gateway = nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp));
+
 			 	/* setup static wan routes via physical device */
 				add_routes("wan_", "route", wan_ifname);
+
 				/* and set default route if specified with metric 1 */
-				if (ip_addr(nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))) &&
-				    !nvram_match("wan_heartbeat_x", "")) {
+				if (ip_addr(gateway) != INADDR_ANY &&
+				    !nvram_match("wan_heartbeat_x", ""))
+				{
+					in_addr_t mask = netmask ? inet_addr(netmask) : 0;
+					if ((inet_addr(gateway) & mask) !=
+					    (inet_addr(ipaddr) & mask))
+					{
+						/* the gateway is out of the local network */
+						dprintf("=> ");
+						route_add(wan_ifname, 2, gateway, NULL, "255.255.255.255");
+					}
+
+					/* default route via default gateway */
 					dprintf("=> ");
-					route_add(wan_ifname, 2, "0.0.0.0",
-						nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp)), "0.0.0.0");
+					route_add(wan_ifname, 2, "0.0.0.0", gateway, "0.0.0.0");
 				}
 
 				/* start multicast router */
@@ -1395,7 +1408,17 @@ void wan_up(const char *wan_ifname)
 		if (ip_addr(gateway) != INADDR_ANY)
 		{
 			char word[100], *next;
+			in_addr_t addr = inet_addr(nvram_safe_get(strcat_r(xprefix, "ipaddr", tmp)));
+			in_addr_t mask = inet_addr(nvram_safe_get(strcat_r(xprefix, "netmask", tmp)));
 
+			if ((inet_addr(gateway) & mask) != (addr & mask))
+			{
+				/* the gateway is out of the local network */
+				dprintf("=> ");
+				route_add(wan_ifname, 2, gateway, NULL, "255.255.255.255");
+			}
+
+			/* default route via default gateway */
 			dprintf("=> ");
 			route_add(wan_ifname, 2, "0.0.0.0", gateway, "0.0.0.0");
 
@@ -1403,9 +1426,8 @@ void wan_up(const char *wan_ifname)
 			if (nvram_match("wan_dnsenable_x", "1"))
 				foreach(word, nvram_safe_get(strcat_r(xprefix, "dns", tmp)), next) 
 			{
-				in_addr_t mask = inet_addr(nvram_safe_get(strcat_r(xprefix, "netmask", tmp)));
-				if ((inet_addr(word) & mask) !=
-				    (inet_addr(nvram_safe_get(strcat_r(xprefix, "ipaddr", tmp))) & mask))
+				if ((inet_addr(word) != inet_addr(gateway)) &&
+				    (inet_addr(word) & mask) != (addr & mask))
 				{
 					dprintf("=> ");
 					route_add(wan_ifname, 2, word, gateway, "255.255.255.255");
@@ -1427,8 +1449,8 @@ void wan_up(const char *wan_ifname)
 	{
 		char *gateway = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
 
-		if (strcmp(wan_proto, "dhcp") == 0 || 
-		    strcmp(wan_proto, "static") == 0 
+		if (strcmp(wan_proto, "dhcp") == 0 ||
+		    strcmp(wan_proto, "static") == 0
 #ifdef __CONFIG_MADWIMAX__
 		 || strcmp(wan_proto, "wimax") == 0
 #endif
