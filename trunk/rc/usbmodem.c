@@ -58,8 +58,6 @@ int hotplug_check_prev_zerocd_processed(const char *product, const char *device)
 	for (unit = 0; !found && unit < MAX_NVPARSE; unit ++)
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-		if (!nvram_match( strcat_r(prefix, "proto", tmp), "usbmodem") != 0)
-			continue;
 
 		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
 		if (dev_vidpid)
@@ -72,11 +70,9 @@ int hotplug_check_prev_zerocd_processed(const char *product, const char *device)
 	if (!found ) for (unit = 0; unit < MAX_NVPARSE; unit ++) {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-		if (!nvram_match( strcat_r(prefix, "proto", tmp), "usbmodem") != 0)
-			continue;
-
 		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
 		if (!dev_vidpid) {
+			dprintf("set: %s, %s\n", prefix, str_devusb);
 			nvram_set( strcat_r(prefix, "usb_device", tmp), str_devusb );
 			break;
 		}
@@ -105,6 +101,7 @@ void hotplug_release_zerocd_processed(const char *product, const char *device)
 	for (unit = 0; unit < MAX_NVPARSE; unit ++)
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
 		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
 		if (dev_vidpid && strcmp(dev_vidpid, str_devusb) == 0) {
 			nvram_unset( strcat_r(prefix, "usb_device", tmp) );
@@ -349,7 +346,7 @@ static int search_modems_in_list(dev_usb_t *list, int vid, int pid)
 					sprintf(dev->loc,"%d",dev->port+1);
 			}
 		}
-		dprintf("dev:%04x:%04x\tprod:%s\tloc:%s\tcls:%x\tsub:%x\tprot:%x",
+		dprintf("dev:%04x:%04x\tprod:%s\tloc:%s\tcls:%x\tsub:%x\tprot:%x\n",
 			dev->vid,dev->pid,dev->prod, dev->loc, dev->cls, dev->sub, dev->prot);
 		// get type
 		switch (dev->cls) {
@@ -542,7 +539,7 @@ int get_bus_num_from_devstr(const char *device, int *bus, int *num)
 		if (ptr > device) {
 			*bus = atoi(ptr+1);
 
-			dprintf("device: %s\t%d\t%d", device, *bus, *num);
+			dprintf("device: %s\t%d\t%d\n", device, *bus, *num);
 
 			result = 1;
 		}
@@ -559,10 +556,10 @@ static dev_usb_t *get_usb_by_location_env(const char *device, dev_usb_t *list)
 
 	result = NULL;
 
-	dprintf("%s",device);
+	dprintf("%s\n",device);
 	if (get_bus_num_from_devstr(device, &bus, &dev_num)) {
 		for (usb_dev = list; usb_dev; usb_dev=usb_dev->next) {
-			dprintf("%x/%x	%s	%d/%d", 
+			dprintf("%x/%x	%s	%d/%d\n", 
 				usb_dev->vid, usb_dev->pid, usb_dev->loc,
 				usb_dev->bus, usb_dev->number);
 
@@ -592,7 +589,7 @@ int start_modem_dial(const char *prefix)
 	if (nvram_match(strcat_r(prefix, "dial_enabled", tmp), "1") &&
 		nvram_match(strcat_r(prefix, "prepared", tmp), "1") &&
 		nvram_get(strcat_r(prefix, "usb_device", tmp))) {
-		dprintf("%s", sfn);
+		dprintf("%s\n", sfn);
 
 		if (nvram_match(strcat_r(prefix, "proto", tmp), "usbmodem")) {
 			nvram_set(strcat_r(prefix, "ifname", tmp) , nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)));
@@ -699,7 +696,7 @@ int wait_for_dev_appearance(int vid, int pid, const char *device)
 		}
 		fclose (fp);
 	}
-	dprintf("rep_counter %d", max_time*1000/rep_time-rep_counter);
+	dprintf("rep_counter %d\n", max_time*1000/rep_time-rep_counter);
 
 	free (vbuf);
 
@@ -757,7 +754,7 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 		}
 	} else {
 		if (search_modems_in_list(list, 0, 0) > 0) {
-			dprintf("get_config_list");
+			dprintf("get_config_list\n");
 			conf_list = get_config_list(MODEM_CONFIG_FILE);
 			for (found_dev = list; found_dev; found_dev = found_dev->next) {
 				check_config(found_dev, conf_list);
@@ -802,7 +799,7 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 			sprintf(stored_product, "product=0x%x", found_dev->pid);
 			sprintf(tmp, "vendor=0x%x", found_dev->vid);
 			insmod("option", tmp, stored_product, NULL);
-			dprintf("load option with %s %s", tmp, stored_product);
+			dprintf("load option with %s %s\n", tmp, stored_product);
 			for(i=0; i<500 && !exists("/sys/module/option"); i++)
 				usleep(10000);
 		} else {
@@ -812,7 +809,7 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 				fprintf(fnew_id, "0x%x 0x%x\n", found_dev->vid, found_dev->pid);
 				fclose(fnew_id);
 			} else {
-				dprintf( "Option file open error: %s", strerror(errno) );
+				dprintf( "Option file open error: %s\n", strerror(errno) );
 			}
 		}
 #ifndef LINUX26
@@ -824,7 +821,7 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 
 	free_dev_list(list);
 
-	dprintf("done. ret %d", ret);
+	dprintf("done. ret %d\n", ret);
 
 	return ret;
 }
@@ -841,7 +838,7 @@ hotplug_exec_user_modem_init_script(const char *sVid, const char *sPid, const ch
 	tok = nvram_get("wan_modem_init_script");
 	if (tok && *tok) {
 		strncpy(tmp, tok, sizeof(tmp) - 1);
-		dprintf("prepare to execute %s", tmp);
+		dprintf("prepare to execute %s\n", tmp);
 
 		argv_user = (char **)malloc((strlen(tmp)/2) * sizeof(char*));
 		tok = strtok_r(tmp, delim, &context);
@@ -858,7 +855,7 @@ hotplug_exec_user_modem_init_script(const char *sVid, const char *sPid, const ch
 		argv_user[i] = NULL;
 		_eval(argv_user, NULL, 0, NULL);
 		free((void*)argv_user);
-		dprintf("%s executed", tmp);
+		dprintf("%s executed\n", tmp);
 	}
 }
 
@@ -953,7 +950,7 @@ void hotplug_usb_modeswitch(const char *interface, const char *action, const cha
 							}
 
 							if (ready) {
-								dprintf("lsUSB: %04x:%04x", dev_vid, dev_pid);
+								dprintf("lsUSB: %04x:%04x\n", dev_vid, dev_pid);
 								if (dev_vid == vid && dev_pid == pid) {
 									i_size = ARRAY_SIZE(sMaList);
 									if (ready == 1) {
@@ -988,9 +985,9 @@ void hotplug_usb_modeswitch(const char *interface, const char *action, const cha
 		}
 
 		if (*sPath) {
-			dprintf("Check usb_modeswitch data file %s",sPath);
+			dprintf("Check usb_modeswitch data file %s\n",sPath);
 			if (exists(sPath)) {
-				dprintf("usb_modeswitch -c %s", sPath);
+				dprintf("usb_modeswitch -c %s\n", sPath);
 				_eval(argv_usb_modeswitch, ">>/tmp/chat.log", 0, NULL);
 			}
 		}
@@ -1001,7 +998,7 @@ void hotplug_usb_modeswitch(const char *interface, const char *action, const cha
 	} else if(strcmp(action, "remove") == 0 ) {
 		hotplug_release_zerocd_processed(product, device);
 	}
-	dprintf("done");
+	dprintf("done\n");
 }
 
 int usb_modem_check(const char *prefix)

@@ -2188,7 +2188,7 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 		if (!wan_proto || !strcmp(wan_proto, "disabled"))
 			continue;
 
-		dprintf("%s \n\n\n\n\n", wan_proto);
+		dprintf("%s \n\n", wan_proto);
 
 		if (!found) {
 			if (action_add) {
@@ -2218,8 +2218,10 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 		    if (action_add)
 		    {
 			dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
-			if ( !dev_vidpid || !*dev_vidpid ) 
+			if ( !dev_vidpid || !*dev_vidpid ||
+			     !(dev_vidpid && strncmp(dev_vidpid, "zerocd", 6 == 0) ) ) 
 			{
+				dprintf("set: %s - %s - %s\n", prefix, wan_proto, str_devusb );
 #ifdef __CONFIG_MADWIMAX__
 			    if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
 			    {
@@ -2268,6 +2270,6 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 	hotplug_sem_unlock();
 	hotplug_sem_close();
 
-	dprintf("done");
+	dprintf("done\n");
 };
 #endif /* defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__) */
