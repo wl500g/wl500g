@@ -1331,8 +1331,12 @@ int update_resolvconf(const char *ifname, int metric, int up)
 {
 	FILE *fp;
 	char word[100], *next;
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	int unit;
 
 	dprintf("%s %d %d\n", ifname, metric, up);
+
+	unit = wan_prefix(ifname, prefix);
 
 	/* check if auto dns enabled */
 	if (nvram_invmatch("wan_dnsenable_x", "1"))
@@ -1343,8 +1347,8 @@ int update_resolvconf(const char *ifname, int metric, int up)
 		return errno;
 	}
 
-	foreach(word, (*nvram_safe_get("wan0_dns") ? nvram_safe_get("wan0_dns") :
-		nvram_safe_get("wan0_xdns")), next)
+	foreach(word, (*nvram_safe_get(strcat_r(prefix, "dns", tmp)) ? nvram_safe_get(tmp) :
+		nvram_safe_get(strcat_r(prefix, "xdns", tmp))), next)
 	{
 		fprintf(fp, "nameserver %s\n", word);
 		dprintf( "nameserver %s\n", word );
