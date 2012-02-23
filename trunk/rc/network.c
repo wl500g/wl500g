@@ -1357,7 +1357,7 @@ int update_resolvconf(const char *ifname, int metric, int up)
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
-		foreach(word, nvram_safe_get("wan0_ipv6_dns"), next)
+		foreach(word, nvram_safe_get(strcat_r(prefix, "ipv6_dns", tmp)), next)
 		{
 			fprintf(fp, "nameserver %s\n", word);
 			dprintf( "nameserver %s\n", word );
@@ -2153,7 +2153,6 @@ static int wait_for_ifup(const char *prefix, const char *wan_ifname, struct ifre
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 void hotplug_network_device(const char *interface, const char *action, const char *product, const char *device)
 {
-	char *wan_ifname;
 	char *wan_proto;
 	char *dev_vidpid;
 	int unit;
@@ -2185,16 +2184,11 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-		/* make sure the connection exists and is enabled */ 
-		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
-		if (!wan_ifname)
-			continue;
-
 		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
 		if (!wan_proto || !strcmp(wan_proto, "disabled"))
 			continue;
 
-		dprintf("%s %s \n\n\n\n\n", wan_ifname, wan_proto);
+		dprintf("%s \n\n\n\n\n", wan_proto);
 
 		if (!found) {
 			if (action_add) {

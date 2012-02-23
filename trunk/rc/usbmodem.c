@@ -58,6 +58,9 @@ int hotplug_check_prev_zerocd_processed(const char *product, const char *device)
 	for (unit = 0; !found && unit < MAX_NVPARSE; unit ++)
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		if (!nvram_match( strcat_r(prefix, "proto", tmp), "usbmodem") != 0)
+			continue;
+
 		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
 		if (dev_vidpid)
 			found = (strcmp(dev_vidpid, str_devusb) == 0);
@@ -68,6 +71,10 @@ int hotplug_check_prev_zerocd_processed(const char *product, const char *device)
 
 	if (!found ) for (unit = 0; unit < MAX_NVPARSE; unit ++) {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+		if (!nvram_match( strcat_r(prefix, "proto", tmp), "usbmodem") != 0)
+			continue;
+
 		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
 		if (!dev_vidpid) {
 			nvram_set( strcat_r(prefix, "usb_device", tmp), str_devusb );
