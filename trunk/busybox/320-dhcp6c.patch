@@ -1,3 +1,12 @@
+dhcp6c: DHCPv6 client
+
+ Port of wide-dhcpv6-20080615
+
+
+ Depends on: 180-libbb-base64-str.patch
+			 300-udhcp-sprint_nip6.patch
+			 304-udhcp-verbose.patch
+
 diff -urNBp a/examples/udhcp/dhcp6c.conf b/examples/udhcp/dhcp6c.conf
 --- a/examples/udhcp/dhcp6c.conf	1970-01-01 03:00:00.000000000 +0300
 +++ b/examples/udhcp/dhcp6c.conf	2011-10-21 18:39:13.000000000 +0400
@@ -6992,7 +7001,7 @@ diff -urNBp a/networking/udhcp/dhcp6.h b/networking/udhcp/dhcp6.h
 diff -urNBp a/networking/udhcp/if6.c b/networking/udhcp/if6.c
 --- a/networking/udhcp/if6.c	1970-01-01 03:00:00.000000000 +0300
 +++ b/networking/udhcp/if6.c	2011-10-21 19:15:07.000000000 +0400
-@@ -0,0 +1,274 @@
+@@ -0,0 +1,277 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * Copyright (C) 2002 WIDE Project.
@@ -7132,8 +7141,11 @@ diff -urNBp a/networking/udhcp/if6.c b/networking/udhcp/if6.c
 +	for (cm = (struct cmsghdr *)CMSG_FIRSTHDR(&mhdr); cm;
 +	     cm = (struct cmsghdr *)CMSG_NXTHDR(&mhdr, cm)) {
 +		if (cm->cmsg_level == IPPROTO_IPV6 &&
-+		    cm->cmsg_type == IPV6_PKTINFO &&
-+		    cm->cmsg_len == CMSG_LEN(sizeof(struct in6_pktinfo))
++		    (cm->cmsg_type == IPV6_PKTINFO 
++#if defined(IPV6_2292PKTINFO) && defined(IPV6_RECVPKTINFO)
++			 || cm->cmsg_type == IPV6_2292PKTINFO
++#endif
++		    ) && cm->cmsg_len == CMSG_LEN(sizeof(struct in6_pktinfo))
 +		) {
 +			const int IPI6_IFINDEX_OFF = offsetof(struct in6_pktinfo, ipi6_ifindex);
 +			move_from_unaligned_int(*to_ifindex, (char*)(CMSG_DATA(cm)) + IPI6_IFINDEX_OFF);
