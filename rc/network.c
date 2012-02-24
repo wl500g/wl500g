@@ -1327,6 +1327,7 @@ void stop_wan(void)
 	dprintf("done\n");
 }
 
+/* TODO: Incompatible with multiwan yet */
 int update_resolvconf(const char *ifname, int metric, int up)
 {
 	FILE *fp;
@@ -1334,13 +1335,19 @@ int update_resolvconf(const char *ifname, int metric, int up)
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 
-	dprintf("%s %d %d\n", ifname, metric, up);
+	/* Figure out nvram variable name prefix for this i/f */
+	unit = wans_prefix(ifname, prefix, tmp);
+	dprintf("%s unit %d prefix %s metric %d up %d\n",
+		ifname, unit, prefix, metric, up);
+	if (unit < 0)
+		return 0;
 
-	unit = wan_prefix(ifname, prefix);
-
-	/* check if auto dns enabled */
+	/* Check if auto dns enabled */
 	if (nvram_invmatch("wan_dnsenable_x", "1"))
 		return 0;
+
+	/* Metric can be obtained directly, do we need it?
+	 * metric = nvram_get_int(strcat_r(wanprefix, "priority", tmp)); */
 
 	if (!(fp = fopen("/tmp/resolv.conf", "w+"))) {
 		perror("/tmp/resolv.conf");
