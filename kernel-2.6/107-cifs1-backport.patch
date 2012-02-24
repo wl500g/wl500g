@@ -1,6 +1,4 @@
-CIFS 1.54: backport from kernel 2.6.27.59
-
- 9438fabb73eb48055b58b89fc51e0bc4db22fabd cifs: fix possible memory corruption in CIFSFindNext
+CIFS 1.54: backport from kernel 2.6.27.61
 
 ---
  fs/cifs/AUTHORS        |    1 
@@ -26,7 +24,7 @@ CIFS 1.54: backport from kernel 2.6.27.59
  fs/cifs/cifsglob.h     |  252 +++-
  fs/cifs/cifspdu.h      |  514 ++++++---
  fs/cifs/cifsproto.h    |  222 ++--
- fs/cifs/cifssmb.c      | 2578 +++++++++++++++++++++++++----------------------
+ fs/cifs/cifssmb.c      | 2581 +++++++++++++++++++++++++----------------------
  fs/cifs/connect.c      | 2636 ++++++++++++++++++++++++++-----------------------
  fs/cifs/dir.c          |  197 ++-
  fs/cifs/dns_resolve.c  |  174 +++
@@ -51,7 +49,7 @@ CIFS 1.54: backport from kernel 2.6.27.59
  fs/cifs/smberr.h       |   13 
  fs/cifs/transport.c    |  435 ++++----
  fs/cifs/xattr.c        |  264 ++--
- 48 files changed, 9259 insertions(+), 6418 deletions(-)
+ 48 files changed, 9261 insertions(+), 6419 deletions(-)
 
 diff --git a/fs/cifs/asn1.c b/fs/cifs/asn1.c
 --- a/fs/cifs/asn1.c
