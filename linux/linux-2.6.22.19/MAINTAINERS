@@ -3593,6 +3593,14 @@ L:	linux-kernel@vger.kernel.org
 W:	http://www.kernel.dk
 S:	Maintained
 
+UNIONFS
+P:	Erez Zadok
+M:	ezk@cs.sunysb.edu
+L:	unionfs@filesystems.org
+W:	http://unionfs.filesystems.org
+T:	git git.kernel.org/pub/scm/linux/kernel/git/ezk/unionfs.git
+S:	Maintained
+
 USB ACM DRIVER
 P:	Oliver Neukum
 M:	oliver@neukum.name

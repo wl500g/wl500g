@@ -3,6 +3,7 @@
 
 #include <linux/dcache.h>
 #include <linux/linkage.h>
+#include <linux/mount.h>
 
 struct vfsmount;
 
@@ -105,6 +106,18 @@ static inline char *nd_get_link(struct nameidata *nd)
 static inline void nd_terminate_link(void *name, size_t len, size_t maxlen)
 {
 	((char *) name)[min(len, maxlen)] = '\0';
+}
+
+static inline void pathget(struct path *path)
+{
+	mntget(path->mnt);
+	dget(path->dentry);
+}
+
+static inline void pathput(struct path *path)
+{
+	dput(path->dentry);
+	mntput(path->mnt);
 }
 
 #endif /* _LINUX_NAMEI_H */

@@ -337,6 +337,7 @@ unifdef-y += ufs_fs.h
 unifdef-y += uinput.h
 unifdef-y += uio.h
 unifdef-y += unistd.h
+unifdef-y += union_fs.h
 unifdef-y += usbdevice_fs.h
 unifdef-y += user.h
 unifdef-y += utsname.h

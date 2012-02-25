@@ -1042,6 +1042,47 @@ config DIRECT_IO
 
 endmenu
 
+menu "Layered filesystems"
+
+config ECRYPT_FS
+	tristate "eCrypt filesystem layer support (EXPERIMENTAL)"
+	depends on EXPERIMENTAL && KEYS && CRYPTO && NET
+	help
+	  Encrypted filesystem that operates on the VFS layer.  See
+	  <file:Documentation/ecryptfs.txt> to learn more about
+	  eCryptfs.  Userspace components are required and can be
+	  obtained from <http://ecryptfs.sf.net>.
+
+	  To compile this file system support as a module, choose M here: the
+	  module will be called ecryptfs.
+
+config UNION_FS
+	tristate "Union file system (EXPERIMENTAL)"
+	depends on EXPERIMENTAL
+	help
+	  Unionfs is a stackable unification file system, which appears to
+	  merge the contents of several directories (branches), while keeping
+	  their physical content separate.
+
+	  See <http://unionfs.filesystems.org> for details
+
+config UNION_FS_XATTR
+	bool "Unionfs extended attributes"
+	depends on UNION_FS
+	help
+	  Extended attributes are name:value pairs associated with inodes by
+	  the kernel or by users (see the attr(5) manual page).
+
+	  If unsure, say N.
+
+config UNION_FS_DEBUG
+	bool "Debug Unionfs"
+	depends on UNION_FS
+	help
+	  If you say Y here, you can turn on debugging output from Unionfs.
+
+endmenu
+
 menu "Miscellaneous filesystems"
 
 config ADFS_FS
@@ -1093,18 +1134,6 @@ config AFFS_FS
 
 	  To compile this file system support as a module, choose M here: the
 	  module will be called affs.  If unsure, say N.
-
-config ECRYPT_FS
-	tristate "eCrypt filesystem layer support (EXPERIMENTAL)"
-	depends on EXPERIMENTAL && KEYS && CRYPTO && NET
-	help
-	  Encrypted filesystem that operates on the VFS layer.  See
-	  <file:Documentation/ecryptfs.txt> to learn more about
-	  eCryptfs.  Userspace components are required and can be
-	  obtained from <http://ecryptfs.sf.net>.
-
-	  To compile this file system support as a module, choose M here: the
-	  module will be called ecryptfs.
 
 config HFS_FS
 	tristate "Apple Macintosh file system support (EXPERIMENTAL)"
