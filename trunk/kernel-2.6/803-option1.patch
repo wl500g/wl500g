@@ -2,23 +2,24 @@ Subject: [PATCH] USB option driver: updates from upstream
 From: Fedor <fedork@ubuntu.(none)>
 
 kernel.org commits:
-bf162019b7f5bda9eb3241ae22de831df2126132
-eaff4cdc978f414cf7b5441a333de3070d80e9c7
-bb73ed2a268a29ab1b7d8cc50b5f248578e7e188
-3b04872aa75006e2a4adaaec21e9c9ede8b8ad9d
-33c387529b7931248c6637bf9720ac7504a0b28b
-a559d2c8c1bf652ea2d0ecd6ab4a250fcdb37db8
-fe30bc1b16dcfbbadf3f77bbad1c9014b23704cd
-6f44bcb60bfa58590142545096b64f44144f0bc1
-281b064f237205053ef1874ffc77b9211265af4c
-a71ee85e1d74e862d68cc9b2f2ab6a806d2550c9
-86234d4975ce084d14711283a3bfc69305f97602
+ bf162019b7f5bda9eb3241ae22de831df2126132 USB: Option: Add support for a variant of DLink DWM 652 U5
+ eaff4cdc978f414cf7b5441a333de3070d80e9c7 USB: option: fix incorrect manufacturer name in usb/serial/option: MAXON->CMOTECH
+ bb73ed2a268a29ab1b7d8cc50b5f248578e7e188 USB: option: move hardcoded PID to a macro in usb/serial/option
+ 3b04872aa75006e2a4adaaec21e9c9ede8b8ad9d USB: option: add support for a new CMOTECH device to usb/serial/option
+ 33c387529b7931248c6637bf9720ac7504a0b28b USB: option.c: Add Pirelli VID/PID and indicate Pirelli's modem interface is 0xff
+ a559d2c8c1bf652ea2d0ecd6ab4a250fcdb37db8 USB: option: add ID for ZTE MF 330
+ fe30bc1b16dcfbbadf3f77bbad1c9014b23704cd USB: serial: option: ZTEAC8710 Support with Device ID 0xffff
+ 6f44bcb60bfa58590142545096b64f44144f0bc1 USB: serial: option: add cinterion device id
+ 281b064f237205053ef1874ffc77b9211265af4c USB: unusual dev for Option N.V. ZeroCD modems
+ a71ee85e1d74e862d68cc9b2f2ab6a806d2550c9 USB: option: add PID for ZTE product
+ 86234d4975ce084d14711283a3bfc69305f97602 USB: option.c: OLIVETTI OLICARD100 support
+ 4901b2c34ecb6fc45909228ad269c8126efe4401 USB: suspend/resume support for option driver
 linux 3.0 backports
 
 ---
- serial/option.c
- storage/unusual_devs.h
- 2 files changed
+ drivers/usb/serial/option.c        | 1007 ++++++++++++++++++++++++++++++-------
+ drivers/usb/storage/unusual_devs.h |   25 
+ 2 files changed, 849 insertions(+), 183 deletions(-)
 
 diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 --- a/drivers/usb/serial/option.c
@@ -44,7 +45,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  static int  option_open(struct usb_serial_port *port, struct file *filp);
  static void option_close(struct usb_serial_port *port, struct file *filp);
  static int  option_startup(struct usb_serial *serial);
-@@ -50,12 +55,8 @@ static void option_shutdown(struct usb_s
+@@ -51,12 +56,8 @@ static void option_release(struct usb_se
  static void option_rx_throttle(struct usb_serial_port *port);
  static void option_rx_unthrottle(struct usb_serial_port *port);
  static int  option_write_room(struct usb_serial_port *port);
@@ -58,15 +59,17 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  static int  option_chars_in_buffer(struct usb_serial_port *port);
  static int  option_ioctl(struct usb_serial_port *port, struct file *file,
  			unsigned int cmd, unsigned long arg);
-@@ -65,7 +66,6 @@ static void option_break_ctl(struct usb_
+@@ -66,7 +67,8 @@ static void option_break_ctl(struct usb_
  static int  option_tiocmget(struct usb_serial_port *port, struct file *file);
  static int  option_tiocmset(struct usb_serial_port *port, struct file *file,
  				unsigned int set, unsigned int clear);
 -static int  option_send_setup(struct usb_serial_port *port);
++static int  option_suspend(struct usb_serial *serial, pm_message_t message);
++static int  option_resume(struct usb_serial *serial);
  
  /* Vendor and product IDs */
  #define OPTION_VENDOR_ID			0x0AF0
-@@ -104,12 +104,7 @@ static int  option_send_setup(struct usb
+@@ -105,12 +107,7 @@ static int  option_send_setup(struct usb
  #define OPTION_PRODUCT_ETNA_NETWORK_EX		0x7071
  #define OPTION_PRODUCT_ETNA_KOI_MODEM		0x7100
  #define OPTION_PRODUCT_ETNA_KOI_NETWORK		0x7111
@@ -80,7 +83,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  #define HUAWEI_VENDOR_ID			0x12D1
  #define HUAWEI_PRODUCT_E600			0x1001
-@@ -178,14 +173,34 @@ static int  option_send_setup(struct usb
+@@ -179,14 +176,34 @@ static int  option_send_setup(struct usb
  #define HUAWEI_PRODUCT_E143D			0x143D
  #define HUAWEI_PRODUCT_E143E			0x143E
  #define HUAWEI_PRODUCT_E143F			0x143F
@@ -117,7 +120,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  /* MERLIN EVDO PRODUCTS */
  #define NOVATELWIRELESS_PRODUCT_V640		0x1100
  #define NOVATELWIRELESS_PRODUCT_V620		0x1110
-@@ -211,17 +226,36 @@ static int  option_send_setup(struct usb
+@@ -212,17 +229,36 @@ static int  option_send_setup(struct usb
  /* OVATION PRODUCTS */
  #define NOVATELWIRELESS_PRODUCT_MC727		0x4100
  #define NOVATELWIRELESS_PRODUCT_MC950D		0x4400
@@ -165,7 +168,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  /* AMOI PRODUCTS */
  #define AMOI_VENDOR_ID				0x1614
-@@ -270,11 +304,6 @@ static int  option_send_setup(struct usb
+@@ -271,11 +307,6 @@ static int  option_send_setup(struct usb
  #define AXESSTEL_VENDOR_ID			0x1726
  #define AXESSTEL_PRODUCT_MV110H			0x1000
  
@@ -177,7 +180,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  #define BANDRICH_VENDOR_ID			0x1A8D
  #define BANDRICH_PRODUCT_C100_1			0x1002
  #define BANDRICH_PRODUCT_C100_2			0x1003
-@@ -296,28 +325,167 @@ static int  option_send_setup(struct usb
+@@ -297,28 +328,167 @@ static int  option_send_setup(struct usb
  #define BANDRICH_PRODUCT_1011			0x1011
  #define BANDRICH_PRODUCT_1012			0x1012
  
@@ -297,7 +300,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 -#define ERICSSON_PRODUCT_F3507G			0x1900
 +#define ERICSSON_PRODUCT_F3507G_1		0x1900
 +#define ERICSSON_PRODUCT_F3507G_2		0x1902
-+
+ 
 +/* Celot products */
 +#define CELOT_VENDOR_ID				0x211f
 +#define CELOT_PRODUCT_CT680M			0x6801
@@ -324,7 +327,8 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +	const u8  *ifaceinfo;	/* pointer to the array holding the numbers */
 +	enum option_blacklist_reason reason;
 +};
-+
+ 
+-static struct usb_device_id option_ids[] = {
 +static const u8 four_g_w14_no_sendsetup[] = { 0, 1 };
 +static const struct option_blacklist_info four_g_w14_blacklist = {
 +	.infolen = ARRAY_SIZE(four_g_w14_no_sendsetup),
@@ -338,20 +342,19 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +	.ifaceinfo = alcatel_x200_no_sendsetup,
 +	.reason = OPTION_BLACKLIST_SENDSETUP
 +};
- 
++
 +static const u8 zte_k3765_z_no_sendsetup[] = { 0, 1, 2 };
 +static const struct option_blacklist_info zte_k3765_z_blacklist = {
 +	.infolen = ARRAY_SIZE(zte_k3765_z_no_sendsetup),
 +	.ifaceinfo = zte_k3765_z_no_sendsetup,
 +	.reason = OPTION_BLACKLIST_SENDSETUP
 +};
- 
--static struct usb_device_id option_ids[] = {
++
 +static const struct usb_device_id option_ids[] = {
  	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_COLT) },
  	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_RICOLA) },
  	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_RICOLA_LIGHT) },
-@@ -342,8 +510,12 @@ static struct usb_device_id option_ids[]
+@@ -343,8 +513,12 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_ETNA_MODEM_GT) },
  	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_ETNA_MODEM_EX) },
  	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_ETNA_KOI_MODEM) },
@@ -366,7 +369,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E600, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E220, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E220BIS, 0xff, 0xff, 0xff) },
-@@ -410,34 +582,49 @@ static struct usb_device_id option_ids[]
+@@ -411,34 +585,49 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E143D, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E143E, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E143F, 0xff, 0xff, 0xff) },
@@ -444,7 +447,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  	{ USB_DEVICE(AMOI_VENDOR_ID, AMOI_PRODUCT_H01) },
  	{ USB_DEVICE(AMOI_VENDOR_ID, AMOI_PRODUCT_H01A) },
-@@ -465,42 +652,6 @@ static struct usb_device_id option_ids[]
+@@ -466,42 +655,6 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(ANYDATA_VENDOR_ID, ANYDATA_PRODUCT_ADU_500A) },
  	{ USB_DEVICE(ANYDATA_VENDOR_ID, ANYDATA_PRODUCT_ADU_620UW) },
  	{ USB_DEVICE(AXESSTEL_VENDOR_ID, AXESSTEL_PRODUCT_MV110H) },
@@ -487,7 +490,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE(YISO_VENDOR_ID, YISO_PRODUCT_U893) },
  	{ USB_DEVICE(BANDRICH_VENDOR_ID, BANDRICH_PRODUCT_C100_1) },
  	{ USB_DEVICE(BANDRICH_VENDOR_ID, BANDRICH_PRODUCT_C100_2) },
-@@ -523,12 +674,368 @@ static struct usb_device_id option_ids[]
+@@ -524,12 +677,368 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(KYOCERA_VENDOR_ID, KYOCERA_PRODUCT_KPC680) },
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, 0x6000)}, /* ZTE AC8700 */
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, 0x6613)}, /* Onda H600/ZTE MF330 */
@@ -861,7 +864,16 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ } /* Terminating entry */
  };
  MODULE_DEVICE_TABLE(usb, option_ids);
-@@ -557,6 +1064,7 @@ static struct usb_serial_driver option_1
+@@ -538,6 +1047,8 @@ static struct usb_driver option_driver =
+ 	.name       = "option",
+ 	.probe      = usb_serial_probe,
+ 	.disconnect = usb_serial_disconnect,
++	.suspend    = usb_serial_suspend,
++	.resume     = usb_serial_resume,
+ 	.id_table   = option_ids,
+ 	.no_dynamic_id = 	1,
+ };
+@@ -558,6 +1069,7 @@ static struct usb_serial_driver option_1
  	.num_bulk_in       = NUM_DONT_CARE,
  	.num_bulk_out      = NUM_DONT_CARE,
  	.num_ports         = 1,
@@ -869,7 +881,16 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	.open              = option_open,
  	.close             = option_close,
  	.write             = option_write,
-@@ -579,17 +1087,17 @@ static int debug;
+@@ -574,6 +1086,8 @@ static struct usb_serial_driver option_1
+ 	.disconnect        = option_disconnect,
+ 	.release           = option_release,
+ 	.read_int_callback = option_instat_callback,
++	.suspend           = option_suspend,
++	.resume            = option_resume,
+ };
+ 
+ static int debug;
+@@ -581,17 +1095,17 @@ static int debug;
  /* per port private data */
  
  #define N_IN_URB 4
@@ -891,7 +912,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	unsigned long out_busy;		/* Bit vector of URBs in use */
  
  	/* Settings for the port */
-@@ -633,6 +1141,56 @@ static void __exit option_exit(void)
+@@ -635,6 +1149,56 @@ static void __exit option_exit(void)
  module_init(option_init);
  module_exit(option_exit);
  
@@ -948,7 +969,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  static void option_rx_throttle(struct usb_serial_port *port)
  {
  	dbg("%s", __FUNCTION__);
-@@ -653,7 +1211,8 @@ static void option_set_termios(struct us
+@@ -655,7 +1219,8 @@ static void option_set_termios(struct us
  			struct ktermios *old_termios)
  {
  	dbg("%s", __FUNCTION__);
@@ -958,7 +979,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	option_send_setup(port);
  }
  
-@@ -681,6 +1240,7 @@ static int option_tiocmset(struct usb_se
+@@ -683,6 +1248,7 @@ static int option_tiocmset(struct usb_se
  
  	portdata = usb_get_serial_port_data(port);
  
@@ -966,7 +987,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	if (set & TIOCM_RTS)
  		portdata->rts_state = 1;
  	if (set & TIOCM_DTR)
-@@ -728,10 +1288,6 @@ static int option_write(struct usb_seria
+@@ -730,10 +1296,6 @@ static int option_write(struct usb_seria
  			usb_unlink_urb(this_urb);
  			continue;
  		}
@@ -977,7 +998,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  		dbg("%s: endpoint %d buf %d", __FUNCTION__,
  			usb_pipeendpoint(this_urb->pipe), i);
  
-@@ -739,12 +1295,10 @@ static int option_write(struct usb_seria
+@@ -741,12 +1303,10 @@ static int option_write(struct usb_seria
  		memcpy (this_urb->transfer_buffer, buf, todo);
  		this_urb->transfer_buffer_length = todo;
  
@@ -991,7 +1012,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  			clear_bit(i, &portdata->out_busy);
  			continue;
  		}
-@@ -770,28 +1324,39 @@ static void option_indat_callback(struct
+@@ -772,28 +1332,39 @@ static void option_indat_callback(struct
  	dbg("%s: %p", __FUNCTION__, urb);
  
  	endpoint = usb_pipeendpoint(urb->pipe);
@@ -1048,7 +1069,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	}
  	return;
  }
-@@ -862,8 +1427,7 @@ static void option_instat_callback(struc
+@@ -864,8 +1435,7 @@ static void option_instat_callback(struc
  		dbg("%s: error %d", __FUNCTION__, status);
  
  	/* Resubmit urb so we continue receiving IRQ data */
@@ -1058,7 +1079,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  		err = usb_submit_urb(urb, GFP_ATOMIC);
  		if (err)
  			dbg("%s: resubmit intr urb failed. (%d)",
-@@ -899,8 +1463,11 @@ static int option_chars_in_buffer(struct
+@@ -901,8 +1471,11 @@ static int option_chars_in_buffer(struct
  
  	portdata = usb_get_serial_port_data(port);
  
@@ -1070,7 +1091,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  		if (this_urb && test_bit(i, &portdata->out_busy))
  			data_len += this_urb->transfer_buffer_length;
  	}
-@@ -923,23 +1490,11 @@ static int option_open(struct usb_serial
+@@ -925,23 +1498,11 @@ static int option_open(struct usb_serial
  	portdata->rts_state = 1;
  	portdata->dtr_state = 1;
  
@@ -1095,7 +1116,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  		err = usb_submit_urb(urb, GFP_KERNEL);
  		if (err) {
  			dbg("%s: submit urb %d failed (%d) %d",
-@@ -948,16 +1503,6 @@ static int option_open(struct usb_serial
+@@ -950,16 +1511,6 @@ static int option_open(struct usb_serial
  		}
  	}
  
@@ -1112,7 +1133,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	option_send_setup(port);
  
  	return (0);
-@@ -1043,15 +1588,25 @@ static void option_setup_urbs(struct usb
+@@ -1045,15 +1596,25 @@ static void option_setup_urbs(struct usb
  	}
  }
  
@@ -1141,7 +1162,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  	portdata = usb_get_serial_port_data(port);
  
-@@ -1064,7 +1619,7 @@ static int option_send_setup(struct usb_
+@@ -1066,7 +1627,7 @@ static int option_send_setup(struct usb_
  
  		return usb_control_msg(serial->dev,
  				usb_rcvctrlpipe(serial->dev, 0),
@@ -1150,7 +1171,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	}
  
  	return 0;
-@@ -1072,9 +1627,10 @@ static int option_send_setup(struct usb_
+@@ -1074,9 +1635,10 @@ static int option_send_setup(struct usb_
  
  static int option_startup(struct usb_serial *serial)
  {
@@ -1162,7 +1183,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  	dbg("%s", __FUNCTION__);
  
-@@ -1088,6 +1644,20 @@ static int option_startup(struct usb_ser
+@@ -1090,6 +1652,20 @@ static int option_startup(struct usb_ser
  			return (1);
  		}
  
@@ -1183,11 +1204,17 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  		usb_set_serial_port_data(port, portdata);
  
  		if (! port->interrupt_in_urb)
-@@ -1101,6 +1671,16 @@ static int option_startup(struct usb_ser
+@@ -1103,23 +1679,24 @@ static int option_startup(struct usb_ser
  	option_setup_urbs(serial);
  
  	return (0);
-+
+-}
+-
+-static void option_disconnect(struct usb_serial *serial)
+-{
+-	dbg("%s", __func__);
+ 
+-	stop_read_write_urbs(serial);
 +bail_out_error2:
 +	for (j = 0; j < N_OUT_URB; j++)
 +		kfree(portdata->out_buffer[j]);
@@ -1199,8 +1226,42 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +	return 1;
  }
  
- static void option_shutdown(struct usb_serial *serial)
-@@ -1129,12 +1709,14 @@ static void option_shutdown(struct usb_s
+-static void option_release(struct usb_serial *serial)
++static void stop_read_write_urbs(struct usb_serial *serial)
+ {
+ 	int i, j;
+ 	struct usb_serial_port *port;
+ 	struct option_port_private *portdata;
+ 
+-	dbg("%s", __FUNCTION__);
+-
+ 	/* Stop reading/writing urbs */
+ 	for (i = 0; i < serial->num_ports; ++i) {
+ 		port = serial->port[i];
+@@ -1129,6 +1706,22 @@ static void option_release(struct usb_se
+ 		for (j = 0; j < N_OUT_URB; j++)
+ 			usb_kill_urb(portdata->out_urbs[j]);
+ 	}
++}
++
++static void option_disconnect(struct usb_serial *serial)
++{
++	dbg("%s", __func__);
++
++	stop_read_write_urbs(serial);
++}
++
++static void option_release(struct usb_serial *serial)
++{
++	int i, j;
++	struct usb_serial_port *port;
++	struct option_port_private *portdata;
++
++	dbg("%s", __func__);
+ 
+ 	/* Now free them */
+ 	for (i = 0; i < serial->num_ports; ++i) {
+@@ -1138,12 +1731,14 @@ static void option_release(struct usb_se
  		for (j = 0; j < N_IN_URB; j++) {
  			if (portdata->in_urbs[j]) {
  				usb_free_urb(portdata->in_urbs[j]);
@@ -1215,6 +1276,73 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  				portdata->out_urbs[j] = NULL;
  			}
  		}
+@@ -1156,6 +1751,66 @@ static void option_release(struct usb_se
+ 	}
+ }
+ 
++static int option_suspend(struct usb_serial *serial, pm_message_t message)
++{
++	dbg("%s entered", __func__);
++	stop_read_write_urbs(serial);
++
++	return 0;
++}
++
++static int option_resume(struct usb_serial *serial)
++{
++	int err, i, j;
++	struct usb_serial_port *port;
++	struct urb *urb;
++	struct option_port_private *portdata;
++
++	dbg("%s entered", __func__);
++	/* get the interrupt URBs resubmitted unconditionally */
++	for (i = 0; i < serial->num_ports; i++) {
++		port = serial->port[i];
++		if (!port->interrupt_in_urb) {
++			dbg("%s: No interrupt URB for port %d\n", __func__, i);
++			continue;
++		}
++		port->interrupt_in_urb->dev = serial->dev;
++		err = usb_submit_urb(port->interrupt_in_urb, GFP_NOIO);
++		dbg("Submitted interrupt URB for port %d (result %d)", i, err);
++		if (err < 0) {
++			err("%s: Error %d for interrupt URB of port%d",
++				 __func__, err, i);
++			return err;
++		}
++	}
++
++	for (i = 0; i < serial->num_ports; i++) {
++		/* walk all ports */
++		port = serial->port[i];
++		portdata = usb_get_serial_port_data(port);
++		mutex_lock(&port->mutex);
++
++		/* skip closed ports */
++		if (!port->open_count) {
++			mutex_unlock(&port->mutex);
++			continue;
++		}
++
++		for (j = 0; j < N_IN_URB; j++) {
++			urb = portdata->in_urbs[j];
++			err = usb_submit_urb(urb, GFP_NOIO);
++			if (err < 0) {
++				mutex_unlock(&port->mutex);
++				err("%s: Error %d for bulk URB %d",
++					 __func__, err, i);
++				return err;
++			}
++		}
++		mutex_unlock(&port->mutex);
++	}
++	return 0;
++}
++
+ MODULE_AUTHOR(DRIVER_AUTHOR);
+ MODULE_DESCRIPTION(DRIVER_DESC);
+ MODULE_VERSION(DRIVER_VERSION);
 diff --git a/drivers/usb/storage/unusual_devs.h b/drivers/usb/storage/unusual_devs.h
 --- a/drivers/usb/storage/unusual_devs.h
 +++ b/drivers/usb/storage/unusual_devs.h
@@ -1261,3 +1389,4 @@ diff --git a/drivers/usb/storage/unusual_devs.h b/drivers/usb/storage/unusual_de
  
  /* Reported by Jan Dumon <j.dumon@option.com>
   * This device (wrongly) has a vendor-specific device descriptor.
+-- 

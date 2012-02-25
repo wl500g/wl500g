@@ -536,15 +536,6 @@ diff --git a/drivers/usb/serial/ftdi_sio.c b/drivers/usb/serial/ftdi_sio.c
  	return 0;
  }
  
-@@ -1754,7 +1879,7 @@ static int ftdi_mtxorb_hack_setup(struct
-  *      calls __serial_close for each open of the port
-  *      shutdown is called then (ie ftdi_shutdown)
-  */
--static void ftdi_shutdown (struct usb_serial *serial)
-+static void ftdi_shutdown(struct usb_serial *serial)
- {
- 	dbg("%s", __FUNCTION__);
- }
 @@ -1779,7 +1904,7 @@ static int ftdi_sio_port_remove(struct u
  	return 0;
  }
