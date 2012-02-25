@@ -66,7 +66,7 @@ for a in $FPATCHES; do
 	echo "\$ +++++++++++++++++++++++++++++++" >> $dbg_output
 	# try to apply patches
 	if patch -d $DIR --dry-run -p1 -f $flg_apply < $a >> $dbg_output ; then
-		patch -d $DIR -p1 -f $flg_apply $flg_opt < $a || exit 1
+		patch -d $DIR -p1 -f -E $flg_apply $flg_opt < $a || exit 1
 	else
 		echo "Can not apply $a cleanly"
 		exit 1
