@@ -47,7 +47,7 @@ static int cp2101_tiocmset (struct usb_serial_port *, struct file *,
 		unsigned int, unsigned int);
 static void cp2101_break_ctl(struct usb_serial_port*, int);
 static int cp2101_startup (struct usb_serial *);
-static void cp2101_shutdown(struct usb_serial*);
+static void cp2101_disconnect(struct usb_serial *);
 
 
 static int debug;
@@ -107,7 +107,7 @@ static struct usb_serial_driver cp2101_device = {
 	.tiocmget 		= cp2101_tiocmget,
 	.tiocmset		= cp2101_tiocmset,
 	.attach			= cp2101_startup,
-	.shutdown		= cp2101_shutdown,
+	.disconnect		= cp2101_disconnect,
 };
 
 /* Config request types */
@@ -734,7 +734,7 @@ static int cp2101_startup (struct usb_serial *serial)
 	return 0;
 }
 
-static void cp2101_shutdown (struct usb_serial *serial)
+static void cp2101_disconnect(struct usb_serial *serial)
 {
 	int i;
 

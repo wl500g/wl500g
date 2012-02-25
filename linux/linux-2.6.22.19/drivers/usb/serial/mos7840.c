@@ -38,7 +38,7 @@
 /*
  * Version Information
  */
-#define DRIVER_VERSION "1.3.1"
+#define DRIVER_VERSION "1.3.2"
 #define DRIVER_DESC "Moschip 7840/7820 USB Serial Driver"
 
 /*
@@ -2540,9 +2540,14 @@ static int mos7840_startup(struct usb_serial *serial)
 		mos7840_set_port_private(serial->port[i], mos7840_port);
 		spin_lock_init(&mos7840_port->pool_lock);
 
-		mos7840_port->port_num = ((serial->port[i]->number -
-					   (serial->port[i]->serial->minor)) +
-					  1);
+		/* minor is not initialised until later by
+		 * usb-serial.c:get_free_serial() and cannot therefore be used
+		 * to index device instances */
+		mos7840_port->port_num = i + 1;
+		dbg ("serial->port[i]->number = %d", serial->port[i]->number);
+		dbg ("serial->port[i]->serial->minor = %d", serial->port[i]->serial->minor);
+		dbg ("mos7840_port->port_num = %d", mos7840_port->port_num);
+		dbg ("serial->minor = %d", serial->minor);
 
 		if (mos7840_port->port_num == 1) {
 			mos7840_port->SpRegOffset = 0x0;
@@ -2752,16 +2757,16 @@ error:
 }
 
 /****************************************************************************
- * mos7840_shutdown
+ * mos7840_disconnect
  *	This function is called whenever the device is removed from the usb bus.
  ****************************************************************************/
 
-static void mos7840_shutdown(struct usb_serial *serial)
+static void mos7840_disconnect(struct usb_serial *serial)
 {
 	int i;
 	unsigned long flags;
 	struct moschip_port *mos7840_port;
-	dbg("%s \n", " shutdown :entering..........");
+	dbg("%s", " disconnect :entering..........");
 
 	if (!serial) {
 		dbg("%s", "Invalid Handler \n");
@@ -2775,14 +2780,48 @@ static void mos7840_shutdown(struct usb_serial *serial)
 
 	for (i = 0; i < serial->num_ports; ++i) {
 		mos7840_port = mos7840_get_port_private(serial->port[i]);
-		spin_lock_irqsave(&mos7840_port->pool_lock, flags);
-		mos7840_port->zombie = 1;
-		spin_unlock_irqrestore(&mos7840_port->pool_lock, flags);
-		usb_kill_urb(mos7840_port->control_urb);
-		kfree(mos7840_port->ctrl_buf);
-		kfree(mos7840_port->dr);
-		kfree(mos7840_port);
-		mos7840_set_port_private(serial->port[i], NULL);
+		dbg ("mos7840_port %d = %p", i, mos7840_port);
+		if (mos7840_port) {
+			spin_lock_irqsave(&mos7840_port->pool_lock, flags);
+			mos7840_port->zombie = 1;
+			spin_unlock_irqrestore(&mos7840_port->pool_lock, flags);
+			usb_kill_urb(mos7840_port->control_urb);
+		}
+	}
+
+	dbg("%s", "Thank u :: ");
+
+}
+
+/****************************************************************************
+ * mos7840_release
+ *	This function is called when the usb_serial structure is freed.
+ ****************************************************************************/
+
+static void mos7840_release(struct usb_serial *serial)
+{
+	int i;
+	struct moschip_port *mos7840_port;
+	dbg("%s", " release :entering..........");
+
+	if (!serial) {
+		dbg("%s", "Invalid Handler");
+		return;
+	}
+
+	/* check for the ports to be closed,close the ports and disconnect */
+
+	/* free private structure allocated for serial port  *
+	 * stop reads and writes on all ports                */
+
+	for (i = 0; i < serial->num_ports; ++i) {
+		mos7840_port = mos7840_get_port_private(serial->port[i]);
+		dbg("mos7840_port %d = %p", i, mos7840_port);
+		if (mos7840_port) {
+			kfree(mos7840_port->ctrl_buf);
+			kfree(mos7840_port->dr);
+			kfree(mos7840_port);
+		}
 	}
 
 	dbg("%s\n", "Thank u :: ");
@@ -2828,7 +2867,8 @@ static struct usb_serial_driver moschip7840_4port_device = {
 	.tiocmget = mos7840_tiocmget,
 	.tiocmset = mos7840_tiocmset,
 	.attach = mos7840_startup,
-	.shutdown = mos7840_shutdown,
+	.disconnect = mos7840_disconnect,
+	.release = mos7840_release,
 	.read_bulk_callback = mos7840_bulk_in_callback,
 	.read_int_callback = mos7840_interrupt_callback,
 };

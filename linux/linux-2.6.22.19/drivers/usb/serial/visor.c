@@ -44,7 +44,7 @@ static void visor_throttle	(struct usb_serial_port *port);
 static void visor_unthrottle	(struct usb_serial_port *port);
 static int  visor_probe		(struct usb_serial *serial, const struct usb_device_id *id);
 static int  visor_calc_num_ports(struct usb_serial *serial);
-static void visor_shutdown	(struct usb_serial *serial);
+static void visor_release(struct usb_serial *serial);
 static int  visor_ioctl		(struct usb_serial_port *port, struct file * file, unsigned int cmd, unsigned long arg);
 static void visor_set_termios	(struct usb_serial_port *port, struct ktermios *old_termios);
 static void visor_write_bulk_callback	(struct urb *urb);
@@ -201,7 +201,7 @@ static struct usb_serial_driver handspring_device = {
 	.attach =		treo_attach,
 	.probe =		visor_probe,
 	.calc_num_ports =	visor_calc_num_ports,
-	.shutdown =		visor_shutdown,
+	.release =		visor_release,
 	.ioctl =		visor_ioctl,
 	.set_termios =		visor_set_termios,
 	.write =		visor_write,
@@ -232,7 +232,7 @@ static struct usb_serial_driver clie_5_device = {
 	.attach =		clie_5_attach,
 	.probe =		visor_probe,
 	.calc_num_ports =	visor_calc_num_ports,
-	.shutdown =		visor_shutdown,
+	.release =		visor_release,
 	.ioctl =		visor_ioctl,
 	.set_termios =		visor_set_termios,
 	.write =		visor_write,
@@ -913,7 +913,7 @@ static int clie_5_attach (struct usb_serial *serial)
 	return generic_startup(serial);
 }
 
-static void visor_shutdown (struct usb_serial *serial)
+static void visor_release(struct usb_serial *serial)
 {
 	struct visor_private *priv;
 	int i;
@@ -922,10 +922,7 @@ static void visor_shutdown (struct usb_serial *serial)
 
 	for (i = 0; i < serial->num_ports; i++) {
 		priv = usb_get_serial_port_data(serial->port[i]);
-		if (priv) {
-			usb_set_serial_port_data(serial->port[i], NULL);
-			kfree(priv);
-		}
+		kfree(priv);
 	}
 }
 

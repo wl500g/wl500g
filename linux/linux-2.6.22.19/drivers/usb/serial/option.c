@@ -46,7 +46,8 @@
 static int  option_open(struct usb_serial_port *port, struct file *filp);
 static void option_close(struct usb_serial_port *port, struct file *filp);
 static int  option_startup(struct usb_serial *serial);
-static void option_shutdown(struct usb_serial *serial);
+static void option_disconnect(struct usb_serial *serial);
+static void option_release(struct usb_serial *serial);
 static void option_rx_throttle(struct usb_serial_port *port);
 static void option_rx_unthrottle(struct usb_serial_port *port);
 static int  option_write_room(struct usb_serial_port *port);
@@ -570,7 +571,8 @@ static struct usb_serial_driver option_1port_device = {
 	.tiocmget          = option_tiocmget,
 	.tiocmset          = option_tiocmset,
 	.attach            = option_startup,
-	.shutdown          = option_shutdown,
+	.disconnect        = option_disconnect,
+	.release           = option_release,
 	.read_int_callback = option_instat_callback,
 };
 
@@ -1103,7 +1105,14 @@ static int option_startup(struct usb_serial *serial)
 	return (0);
 }
 
-static void option_shutdown(struct usb_serial *serial)
+static void option_disconnect(struct usb_serial *serial)
+{
+	dbg("%s", __func__);
+
+	stop_read_write_urbs(serial);
+}
+
+static void option_release(struct usb_serial *serial)
 {
 	int i, j;
 	struct usb_serial_port *port;

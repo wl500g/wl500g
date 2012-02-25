@@ -1002,7 +1002,6 @@ static const char *ftdi_chip_name[] = {
 
 /* function prototypes for a FTDI serial converter */
 static int  ftdi_sio_probe	(struct usb_serial *serial, const struct usb_device_id *id);
-static void ftdi_shutdown		(struct usb_serial *serial);
 static int  ftdi_sio_port_probe	(struct usb_serial_port *port);
 static int  ftdi_sio_port_remove	(struct usb_serial_port *port);
 static int  ftdi_open			(struct usb_serial_port *port, struct file *filp);
@@ -1055,7 +1054,6 @@ static struct usb_serial_driver ftdi_sio_device = {
 	.ioctl =		ftdi_ioctl,
 	.set_termios =		ftdi_set_termios,
 	.break_ctl =		ftdi_break_ctl,
-	.shutdown =		ftdi_shutdown,
 };
 
 
@@ -1745,18 +1743,6 @@ static int ftdi_mtxorb_hack_setup(struct usb_serial *serial)
 	}
 
 	return 0;
-}
-
-/* ftdi_shutdown is called from usbserial:usb_serial_disconnect
- *   it is called when the usb device is disconnected
- *
- *   usbserial:usb_serial_disconnect
- *      calls __serial_close for each open of the port
- *      shutdown is called then (ie ftdi_shutdown)
- */
-static void ftdi_shutdown (struct usb_serial *serial)
-{
-	dbg("%s", __FUNCTION__);
 }
 
 static void ftdi_sio_priv_release(struct kref *k)

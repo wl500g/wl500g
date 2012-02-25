@@ -461,7 +461,8 @@ static int digi_open(struct usb_serial_port *port, struct file *filp);
 static void digi_close(struct usb_serial_port *port, struct file *filp);
 static int digi_startup_device(struct usb_serial *serial);
 static int digi_startup(struct usb_serial *serial);
-static void digi_shutdown(struct usb_serial *serial);
+static void digi_disconnect(struct usb_serial *serial);
+static void digi_release(struct usb_serial *serial);
 static void digi_read_bulk_callback(struct urb *urb);
 static int digi_read_inb_callback(struct urb *urb);
 static int digi_read_oob_callback(struct urb *urb);
@@ -527,7 +528,8 @@ static struct usb_serial_driver digi_acceleport_2_device = {
 	.tiocmget =			digi_tiocmget,
 	.tiocmset =			digi_tiocmset,
 	.attach =			digi_startup,
-	.shutdown =			digi_shutdown,
+	.disconnect =			digi_disconnect,
+	.release =			digi_release,
 };
 
 static struct usb_serial_driver digi_acceleport_4_device = {
@@ -557,7 +559,8 @@ static struct usb_serial_driver digi_acceleport_4_device = {
 	.tiocmget =			digi_tiocmget,
 	.tiocmset =			digi_tiocmset,
 	.attach =			digi_startup,
-	.shutdown =			digi_shutdown,
+	.disconnect =			digi_disconnect,
+	.release =			digi_release,
 };
 
 
@@ -1591,16 +1594,23 @@ static int digi_startup(struct usb_serial *serial)
 }
 
 
-static void digi_shutdown(struct usb_serial *serial)
+static void digi_disconnect(struct usb_serial *serial)
 {
 	int i;
-	dbg("digi_shutdown: TOP, in_interrupt()=%ld", in_interrupt());
+	dbg("digi_disconnect: TOP, in_interrupt()=%ld", in_interrupt());
 
 	/* stop reads and writes on all ports */
 	for (i = 0; i < serial->type->num_ports + 1; i++) {
 		usb_kill_urb(serial->port[i]->read_urb);
 		usb_kill_urb(serial->port[i]->write_urb);
 	}
+}
+
+
+static void digi_release(struct usb_serial *serial)
+{
+	int i;
+	dbg("digi_release: TOP, in_interrupt()=%ld", in_interrupt());
 
 	/* free the private data structures for all ports */
 	/* number of regular ports + 1 for the out-of-band port */

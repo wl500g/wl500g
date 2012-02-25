@@ -140,7 +140,7 @@ static int  whiteheat_firmware_attach	(struct usb_serial *serial);
 
 /* function prototypes for the Connect Tech WhiteHEAT serial converter */
 static int  whiteheat_attach		(struct usb_serial *serial);
-static void whiteheat_shutdown		(struct usb_serial *serial);
+static void whiteheat_release	(struct usb_serial *serial);
 static int  whiteheat_open		(struct usb_serial_port *port, struct file *filp);
 static void whiteheat_close		(struct usb_serial_port *port, struct file *filp);
 static int  whiteheat_write		(struct usb_serial_port *port, const unsigned char *buf, int count);
@@ -185,7 +185,7 @@ static struct usb_serial_driver whiteheat_device = {
 	.num_bulk_out =		NUM_DONT_CARE,
 	.num_ports =		4,
 	.attach =		whiteheat_attach,
-	.shutdown =		whiteheat_shutdown,
+	.release =		whiteheat_release,
 	.open =			whiteheat_open,
 	.close =		whiteheat_close,
 	.write =		whiteheat_write,
@@ -556,7 +556,7 @@ no_command_buffer:
 }
 
 
-static void whiteheat_shutdown (struct usb_serial *serial)
+static void whiteheat_release(struct usb_serial *serial)
 {
 	struct usb_serial_port *command_port;
 	struct usb_serial_port *port;

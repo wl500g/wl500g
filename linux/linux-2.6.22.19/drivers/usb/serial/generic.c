@@ -66,7 +66,8 @@ struct usb_serial_driver usb_serial_generic_device = {
 	.num_bulk_in =		NUM_DONT_CARE,
 	.num_bulk_out =		NUM_DONT_CARE,
 	.num_ports =		1,
-	.shutdown =		usb_serial_generic_shutdown,
+	.disconnect =		usb_serial_generic_disconnect,
+	.release =		usb_serial_generic_release,
 	.throttle =		usb_serial_generic_throttle,
 	.unthrottle =		usb_serial_generic_unthrottle,
 	.resume =		usb_serial_generic_resume,
@@ -411,7 +412,7 @@ void usb_serial_generic_unthrottle (struct usb_serial_port *port)
 	}
 }
 
-void usb_serial_generic_shutdown (struct usb_serial *serial)
+void usb_serial_generic_disconnect(struct usb_serial *serial)
 {
 	int i;
 
@@ -423,3 +424,7 @@ void usb_serial_generic_shutdown (struct usb_serial *serial)
 	}
 }
 
+void usb_serial_generic_release(struct usb_serial *serial)
+{
+	dbg("%s", __func__);
+}

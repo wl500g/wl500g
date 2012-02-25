@@ -69,7 +69,7 @@ static int debug;
 
 /* Function prototypes */
 static int  kobil_startup (struct usb_serial *serial);
-static void kobil_shutdown (struct usb_serial *serial);
+static void kobil_release(struct usb_serial *serial);
 static int  kobil_open (struct usb_serial_port *port, struct file *filp);
 static void kobil_close (struct usb_serial_port *port, struct file *filp);
 static int  kobil_write (struct usb_serial_port *port, 
@@ -117,7 +117,7 @@ static struct usb_serial_driver kobil_device = {
 	.num_bulk_out =		0,
 	.num_ports =		1,
 	.attach =		kobil_startup,
-	.shutdown =		kobil_shutdown,
+	.release =		kobil_release,
 	.ioctl =		kobil_ioctl,
 	.tiocmget =		kobil_tiocmget,
 	.tiocmset =		kobil_tiocmset,
@@ -199,18 +199,13 @@ static int kobil_startup (struct usb_serial *serial)
 }
 
 
-static void kobil_shutdown (struct usb_serial *serial)
+static void kobil_release(struct usb_serial *serial)
 {
 	int i;
 	dbg("%s - port %d", __FUNCTION__, serial->port[0]->number);
 
-	for (i=0; i < serial->num_ports; ++i) {
-		while (serial->port[i]->open_count > 0) {
-			kobil_close (serial->port[i], NULL);
-		}
+	for (i = 0; i < serial->num_ports; ++i)
 		kfree(usb_get_serial_port_data(serial->port[i]));
-		usb_set_serial_port_data(serial->port[i], NULL);
-	}
 }
 
 
