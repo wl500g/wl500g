@@ -3,13 +3,16 @@ From: Fedor <fedork@ubuntu.(none)>
 Date: Tue, 31 Aug 2010 14:07:25 -0400
 Subject: [PATCH] Kernel 2.6 USB: continue backport of USB driver (USB serial)
 
+ Additional kernel.org commits:
+ d2b391822a11302add9e46476f3da4e18e6de84c tty: USB hangup is racy
+
 ---
  drivers/usb/serial/bus.c        |   16 ++++
- drivers/usb/serial/io_ti.c      |   26 +++-----
+ drivers/usb/serial/io_ti.c      |   26 +++----
  drivers/usb/serial/pl2303.c     |    1 
  drivers/usb/serial/pl2303.h     |    4 +
- drivers/usb/serial/usb-serial.c |  130 +++++++++++++++++++++++++++-------------
- 5 files changed, 120 insertions(+), 57 deletions(-)
+ drivers/usb/serial/usb-serial.c |  132 +++++++++++++++++++++++++++-------------
+ 5 files changed, 121 insertions(+), 58 deletions(-)
 
 diff --git a/drivers/usb/serial/bus.c b/drivers/usb/serial/bus.c
 --- a/drivers/usb/serial/bus.c
@@ -424,7 +427,8 @@ diff --git a/drivers/usb/serial/usb-serial.c b/drivers/usb/serial/usb-serial.c
  		port = serial->port[i];
  		if (port) {
  			if (port->tty)
- 				tty_hangup(port->tty);
+-				tty_hangup(port->tty);
++				tty_vhangup(port->tty);
  			kill_traffic(port);
 +			cancel_work_sync(&port->work);
 +			device_del(&port->dev);
