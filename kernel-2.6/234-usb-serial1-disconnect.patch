@@ -1,0 +1,1483 @@
+From f9c99bb8b3a1ec81af68d484a551307326c2e933
+From: Alan Stern
+Date: Tue, 2 Jun 2009 11:53:55 -0400
+Subject: [PATCH] USB: usb-serial: replace shutdown with disconnect, release
+
+This patch (as1254) splits up the shutdown method of usb_serial_driver
+into a disconnect and a release method.
+
+The problem is that the usb-serial core was calling shutdown during
+disconnect handling, but drivers didn't expect it to be called until
+after all the open file references had been closed.  The result was an
+oops when the close method tried to use memory that had been
+deallocated by shutdown.
+
+Signed-off-by: Alan Stern <stern@rowland.harvard.edu>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ 37768adf9a1d49aeac0db1ba3dc28b3274b7b789 USB: fix mos7840 problem with minor numbers
+
+---
+ drivers/usb/serial/aircable.c         |    5 --
+ drivers/usb/serial/belkin_sa.c        |    7 +--
+ drivers/usb/serial/cp2101.c           |    6 +-
+ drivers/usb/serial/cyberjack.c        |   20 +++++++--
+ drivers/usb/serial/cypress_m8.c       |   11 ++---
+ drivers/usb/serial/digi_acceleport.c  |   20 +++++++--
+ drivers/usb/serial/empeg.c            |    8 ---
+ drivers/usb/serial/ftdi_sio.c         |   14 ------
+ drivers/usb/serial/garmin_gps.c       |   16 ++++++-
+ drivers/usb/serial/generic.c          |    9 +++-
+ drivers/usb/serial/io_edgeport.c      |   29 +++++++++----
+ drivers/usb/serial/io_tables.h        |   12 +++--
+ drivers/usb/serial/io_ti.c            |   22 ++++++++--
+ drivers/usb/serial/ipaq.c             |    7 ---
+ drivers/usb/serial/keyspan.c          |   13 +++++-
+ drivers/usb/serial/keyspan.h          |   12 +++--
+ drivers/usb/serial/keyspan_pda.c      |    4 -
+ drivers/usb/serial/kl5kusb105.c       |   41 ++++++++++---------
+ drivers/usb/serial/kobil_sct.c        |   13 +-----
+ drivers/usb/serial/mct_u232.c         |   13 ++----
+ drivers/usb/serial/mos7720.c          |    9 +---
+ drivers/usb/serial/mos7840.c          |   72 ++++++++++++++++++++++++++--------
+ drivers/usb/serial/omninet.c          |   19 +++++++-
+ drivers/usb/serial/option.c           |   15 +++++--
+ drivers/usb/serial/oti6858.c          |    7 +--
+ drivers/usb/serial/pl2303.c           |    5 --
+ drivers/usb/serial/sierra.c           |    4 -
+ drivers/usb/serial/ti_usb_3410_5052.c |   10 +---
+ drivers/usb/serial/usb-serial.c       |   29 ++++++-------
+ drivers/usb/serial/visor.c            |   13 ++----
+ drivers/usb/serial/whiteheat.c        |    6 +-
+ include/linux/usb/serial.h            |   12 +++--
+ 32 files changed, 287 insertions(+), 196 deletions(-)
+
+diff --git a/drivers/usb/serial/aircable.c b/drivers/usb/serial/aircable.c
+--- a/drivers/usb/serial/aircable.c
++++ b/drivers/usb/serial/aircable.c
+@@ -364,7 +364,7 @@ static int aircable_attach(struct usb_serial *serial)
+ 	return 0;
+ }
+ 
+-static void aircable_shutdown(struct usb_serial *serial)
++static void aircable_release(struct usb_serial *serial)
+ {
+ 
+ 	struct usb_serial_port *port = serial->port[0];
+@@ -375,7 +375,6 @@ static void aircable_shutdown(struct usb_serial *serial)
+ 	if (priv) {
+ 		serial_buf_free(priv->tx_buf);
+ 		serial_buf_free(priv->rx_buf);
+-		usb_set_serial_port_data(port, NULL);
+ 		kfree(priv);
+ 	}
+ }
+@@ -601,7 +600,7 @@ static struct usb_serial_driver aircable_device = {
+ 	.num_ports =		1,
+ 	.attach =		aircable_attach,
+ 	.probe =		aircable_probe,
+-	.shutdown =		aircable_shutdown,
++	.release =		aircable_release,
+ 	.write =		aircable_write,
+ 	.write_room =		aircable_write_room,
+ 	.write_bulk_callback =	aircable_write_bulk_callback,
+diff --git a/drivers/usb/serial/belkin_sa.c b/drivers/usb/serial/belkin_sa.c
+--- a/drivers/usb/serial/belkin_sa.c
++++ b/drivers/usb/serial/belkin_sa.c
+@@ -90,7 +90,7 @@ static int debug;
+ 
+ /* function prototypes for a Belkin USB Serial Adapter F5U103 */
+ static int  belkin_sa_startup		(struct usb_serial *serial);
+-static void belkin_sa_shutdown		(struct usb_serial *serial);
++static void belkin_sa_release		(struct usb_serial *serial);
+ static int  belkin_sa_open		(struct usb_serial_port *port, struct file *filp);
+ static void belkin_sa_close		(struct usb_serial_port *port, struct file *filp);
+ 
+@@ -142,7 +142,7 @@ static struct usb_serial_driver belkin_device = {
+ 	.tiocmget =		belkin_sa_tiocmget,
+ 	.tiocmset =		belkin_sa_tiocmset,
+ 	.attach =		belkin_sa_startup,
+-	.shutdown =		belkin_sa_shutdown,
++	.release =		belkin_sa_release,
+ };
+ 
+ 
+@@ -197,14 +197,13 @@ static int belkin_sa_startup(struct usb_serial *serial)
+ }
+ 
+ 
+-static void belkin_sa_shutdown (struct usb_serial *serial)
++static void belkin_sa_release(struct usb_serial *serial)
+ {
+ 	struct belkin_sa_private *priv;
+ 	int i;
+ 	
+ 	dbg ("%s", __FUNCTION__);
+ 
+-	/* stop reads and writes on all ports */
+ 	for (i=0; i < serial->num_ports; ++i) {
+ 		/* My special items, the standard routines free my urbs */
+ 		priv = usb_get_serial_port_data(serial->port[i]);
+diff --git a/drivers/usb/serial/cp2101.c b/drivers/usb/serial/cp2101.c
+--- a/drivers/usb/serial/cp2101.c
++++ b/drivers/usb/serial/cp2101.c
+@@ -50,7 +50,7 @@ static int cp210x_tiocmset_port(struct usb_serial_port *port, struct file *,
+ 		unsigned int, unsigned int);
+ static void cp2101_break_ctl(struct usb_serial_port*, int);
+ static int cp2101_startup (struct usb_serial *);
+-static void cp2101_shutdown(struct usb_serial*);
++static void cp2101_disconnect(struct usb_serial *);
+ 
+ 
+ static int debug;
+@@ -137,7 +137,7 @@ static struct usb_serial_driver cp210x_device = {
+ 	.tiocmget 		= cp2101_tiocmget,
+ 	.tiocmset		= cp2101_tiocmset,
+ 	.attach			= cp2101_startup,
+-	.shutdown		= cp2101_shutdown,
++	.disconnect		= cp2101_disconnect,
+ };
+ 
+ /* Config request types */
+@@ -792,7 +792,7 @@ static int cp2101_startup(struct usb_serial *serial)
+ 	return 0;
+ }
+ 
+-static void cp2101_shutdown (struct usb_serial *serial)
++static void cp2101_disconnect(struct usb_serial *serial)
+ {
+ 	int i;
+ 
+diff --git a/drivers/usb/serial/cyberjack.c b/drivers/usb/serial/cyberjack.c
+--- a/drivers/usb/serial/cyberjack.c
++++ b/drivers/usb/serial/cyberjack.c
+@@ -58,7 +58,8 @@ static int debug;
+ 
+ /* Function prototypes */
+ static int cyberjack_startup (struct usb_serial *serial);
+-static void cyberjack_shutdown (struct usb_serial *serial);
++static void cyberjack_disconnect(struct usb_serial *serial);
++static void cyberjack_release(struct usb_serial *serial);
+ static int  cyberjack_open (struct usb_serial_port *port, struct file *filp);
+ static void cyberjack_close (struct usb_serial_port *port, struct file *filp);
+ 
+@@ -94,7 +95,8 @@ static struct usb_serial_driver cyberjack_device = {
+ 	.id_table =		id_table,
+ 	.num_ports =		1,
+ 	.attach =		cyberjack_startup,
+-	.shutdown =		cyberjack_shutdown,
++	.disconnect =		cyberjack_disconnect,
++	.release =		cyberjack_release,
+ 	.open =			cyberjack_open,
+ 	.close =		cyberjack_close,
+ 	.write =		cyberjack_write,
+@@ -148,17 +150,25 @@ static int cyberjack_startup(struct usb_serial *serial)
+ 	return 0;
+ }
+ 
+-static void cyberjack_shutdown (struct usb_serial *serial)
++static void cyberjack_disconnect(struct usb_serial *serial)
+ {
+ 	int i;
+ 	
+ 	dbg("%s", __FUNCTION__);
+ 
+-	for (i=0; i < serial->num_ports; ++i) {
++	for (i = 0; i < serial->num_ports; ++i)
+ 		usb_kill_urb(serial->port[i]->interrupt_in_urb);
++}
++
++static void cyberjack_release(struct usb_serial *serial)
++{
++	int i;
++
++	dbg("%s", __func__);
++
++	for (i = 0; i < serial->num_ports; ++i) {
+ 		/* My special items, the standard routines free my urbs */
+ 		kfree(usb_get_serial_port_data(serial->port[i]));
+-		usb_set_serial_port_data(serial->port[i], NULL);
+ 	}
+ }
+ 
+diff --git a/drivers/usb/serial/cypress_m8.c b/drivers/usb/serial/cypress_m8.c
+--- a/drivers/usb/serial/cypress_m8.c
++++ b/drivers/usb/serial/cypress_m8.c
+@@ -171,7 +171,7 @@ struct cypress_buf {
+ static int  cypress_earthmate_startup	(struct usb_serial *serial);
+ static int  cypress_hidcom_startup	(struct usb_serial *serial);
+ static int  cypress_ca42v2_startup	(struct usb_serial *serial);
+-static void cypress_shutdown		(struct usb_serial *serial);
++static void cypress_release		(struct usb_serial *serial);
+ static int  cypress_open		(struct usb_serial_port *port, struct file *filp);
+ static void cypress_close		(struct usb_serial_port *port, struct file *filp);
+ static int  cypress_write		(struct usb_serial_port *port, const unsigned char *buf, int count);
+@@ -215,7 +215,7 @@ static struct usb_serial_driver cypress_earthmate_device = {
+ 	.id_table =			id_table_earthmate,
+ 	.num_ports =			1,
+ 	.attach =			cypress_earthmate_startup,
+-	.shutdown =			cypress_shutdown,
++	.release =			cypress_release,
+ 	.open =				cypress_open,
+ 	.close =			cypress_close,
+ 	.dtr_rts =			cypress_dtr_rts,
+@@ -242,7 +242,7 @@ static struct usb_serial_driver cypress_hidcom_device = {
+ 	.id_table =			id_table_cyphidcomrs232,
+ 	.num_ports =			1,
+ 	.attach =			cypress_hidcom_startup,
+-	.shutdown =			cypress_shutdown,
++	.release =			cypress_release,
+ 	.open =				cypress_open,
+ 	.close =			cypress_close,
+ 	.dtr_rts =			cypress_dtr_rts,
+@@ -269,7 +269,7 @@ static struct usb_serial_driver cypress_ca42v2_device = {
+ 	.id_table =			id_table_nokiaca42v2,
+ 	.num_ports =			1,
+ 	.attach =			cypress_ca42v2_startup,
+-	.shutdown =			cypress_shutdown,
++	.release =			cypress_release,
+ 	.open =				cypress_open,
+ 	.close =			cypress_close,
+ 	.dtr_rts =			cypress_dtr_rts,
+@@ -616,7 +616,7 @@ static int cypress_ca42v2_startup(struct usb_serial *serial)
+ } /* cypress_ca42v2_startup */
+ 
+ 
+-static void cypress_shutdown (struct usb_serial *serial)
++static void cypress_release(struct usb_serial *serial)
+ {
+ 	struct cypress_private *priv;
+ 
+@@ -629,7 +629,6 @@ static void cypress_shutdown(struct usb_serial *serial)
+ 	if (priv) {
+ 		cypress_buf_free(priv->buf);
+ 		kfree(priv);
+-		usb_set_serial_port_data(serial->port[0], NULL);
+ 	}
+ }
+ 
+diff --git a/drivers/usb/serial/digi_acceleport.c b/drivers/usb/serial/digi_acceleport.c
+--- a/drivers/usb/serial/digi_acceleport.c
++++ b/drivers/usb/serial/digi_acceleport.c
+@@ -460,7 +460,8 @@ static int digi_carrier_raised(struct usb_serial_port *port);
+ static void digi_dtr_rts(struct usb_serial_port *port, int on);
+ static int digi_startup_device(struct usb_serial *serial);
+ static int digi_startup(struct usb_serial *serial);
+-static void digi_shutdown(struct usb_serial *serial);
++static void digi_disconnect(struct usb_serial *serial);
++static void digi_release(struct usb_serial *serial);
+ static void digi_read_bulk_callback(struct urb *urb);
+ static int digi_read_inb_callback(struct urb *urb);
+ static int digi_read_oob_callback(struct urb *urb);
+@@ -524,7 +525,8 @@ static struct usb_serial_driver digi_acceleport_2_device = {
+ 	.tiocmget =			digi_tiocmget,
+ 	.tiocmset =			digi_tiocmset,
+ 	.attach =			digi_startup,
+-	.shutdown =			digi_shutdown,
++	.disconnect =			digi_disconnect,
++	.release =			digi_release,
+ };
+ 
+ static struct usb_serial_driver digi_acceleport_4_device = {
+@@ -550,7 +552,8 @@ static struct usb_serial_driver digi_acceleport_4_device = {
+ 	.tiocmget =			digi_tiocmget,
+ 	.tiocmset =			digi_tiocmset,
+ 	.attach =			digi_startup,
+-	.shutdown =			digi_shutdown,
++	.disconnect =			digi_disconnect,
++	.release =			digi_release,
+ };
+ 
+ 
+@@ -1556,16 +1559,23 @@ static int digi_startup(struct usb_serial *serial)
+ }
+ 
+ 
+-static void digi_shutdown(struct usb_serial *serial)
++static void digi_disconnect(struct usb_serial *serial)
+ {
+ 	int i;
+-	dbg("digi_shutdown: TOP, in_interrupt()=%ld", in_interrupt());
++	dbg("digi_disconnect: TOP, in_interrupt()=%ld", in_interrupt());
+ 
+ 	/* stop reads and writes on all ports */
+ 	for (i = 0; i < serial->type->num_ports + 1; i++) {
+ 		usb_kill_urb(serial->port[i]->read_urb);
+ 		usb_kill_urb(serial->port[i]->write_urb);
+ 	}
++}
++
++
++static void digi_release(struct usb_serial *serial)
++{
++	int i;
++	dbg("digi_release: TOP, in_interrupt()=%ld", in_interrupt());
+ 
+ 	/* free the private data structures for all ports */
+ 	/* number of regular ports + 1 for the out-of-band port */
+diff --git a/drivers/usb/serial/empeg.c b/drivers/usb/serial/empeg.c
+--- a/drivers/usb/serial/empeg.c
++++ b/drivers/usb/serial/empeg.c
+@@ -90,7 +90,6 @@ static int  empeg_chars_in_buffer(struct tty_struct *tty);
+ static void empeg_throttle		(struct usb_serial_port *port);
+ static void empeg_unthrottle		(struct usb_serial_port *port);
+ static int  empeg_startup		(struct usb_serial *serial);
+-static void empeg_shutdown		(struct usb_serial *serial);
+ static int  empeg_ioctl			(struct usb_serial_port *port,
+ 					struct file * file,
+ 					unsigned int cmd,
+@@ -124,7 +123,6 @@ static struct usb_serial_driver empeg_device = {
+ 	.throttle =		empeg_throttle,
+ 	.unthrottle =		empeg_unthrottle,
+ 	.attach =		empeg_startup,
+-	.shutdown =		empeg_shutdown,
+ 	.ioctl =		empeg_ioctl,
+ 	.set_termios =		empeg_set_termios,
+ 	.write =		empeg_write,
+@@ -427,12 +425,6 @@ static int  empeg_startup(struct usb_serial *serial)
+ }
+ 
+ 
+-static void empeg_shutdown (struct usb_serial *serial)
+-{
+-	dbg ("%s", __FUNCTION__);
+-}
+-
+-
+ static int empeg_ioctl (struct usb_serial_port *port, struct file * file, unsigned int cmd, unsigned long arg)
+ {
+ 
+diff --git a/drivers/usb/serial/ftdi_sio.c b/drivers/usb/serial/ftdi_sio.c
+--- a/drivers/usb/serial/ftdi_sio.c
++++ b/drivers/usb/serial/ftdi_sio.c
+@@ -720,7 +720,6 @@ static const char *ftdi_chip_name[] = {
+ 
+ /* function prototypes for a FTDI serial converter */
+ static int  ftdi_sio_probe	(struct usb_serial *serial, const struct usb_device_id *id);
+-static void ftdi_shutdown		(struct usb_serial *serial);
+ static int  ftdi_sio_port_probe	(struct usb_serial_port *port);
+ static int  ftdi_sio_port_remove	(struct usb_serial_port *port);
+ static int  ftdi_open			(struct usb_serial_port *port, struct file *filp);
+@@ -779,7 +778,6 @@ static struct usb_serial_driver ftdi_sio_device = {
+ 	.ioctl =		ftdi_ioctl,
+ 	.set_termios =		ftdi_set_termios,
+ 	.break_ctl =		ftdi_break_ctl,
+-	.shutdown =		ftdi_shutdown,
+ };
+ 
+ 
+@@ -1594,18 +1592,6 @@ static int ftdi_mtxorb_hack_setup(struct usb_serial *serial)
+ 	return 0;
+ }
+ 
+-/* ftdi_shutdown is called from usbserial:usb_serial_disconnect
+- *   it is called when the usb device is disconnected
+- *
+- *   usbserial:usb_serial_disconnect
+- *      calls __serial_close for each open of the port
+- *      shutdown is called then (ie ftdi_shutdown)
+- */
+-static void ftdi_shutdown (struct usb_serial *serial)
+-{
+-	dbg("%s", __FUNCTION__);
+-}
+-
+ static void ftdi_sio_priv_release(struct kref *k)
+ {
+ 	struct ftdi_private *priv = container_of(k, struct ftdi_private, kref);
+diff --git a/drivers/usb/serial/garmin_gps.c b/drivers/usb/serial/garmin_gps.c
+--- a/drivers/usb/serial/garmin_gps.c
++++ b/drivers/usb/serial/garmin_gps.c
+@@ -1475,7 +1475,7 @@ static int garmin_attach(struct usb_serial *serial)
+ }
+ 
+ 
+-static void garmin_shutdown (struct usb_serial *serial)
++static void garmin_disconnect(struct usb_serial *serial)
+ {
+ 	struct usb_serial_port *port = serial->port[0];
+ 	struct garmin_data *garmin_data_p = usb_get_serial_port_data(port);
+@@ -1484,8 +1484,17 @@ static void garmin_shutdown(struct usb_serial *serial)
+ 
+ 	usb_kill_urb (port->interrupt_in_urb);
+ 	del_timer_sync(&garmin_data_p->timer);
++}
++
++
++static void garmin_release(struct usb_serial *serial)
++{
++	struct usb_serial_port *port = serial->port[0];
++	struct garmin_data *garmin_data_p = usb_get_serial_port_data(port);
++
++	dbg("%s", __func__);
++
+ 	kfree (garmin_data_p);
+-	usb_set_serial_port_data(port, NULL);
+ }
+ 
+ 
+@@ -1504,7 +1513,8 @@ static struct usb_serial_driver garmin_device = {
+ 	.throttle            = garmin_throttle,
+ 	.unthrottle          = garmin_unthrottle,
+ 	.attach              = garmin_attach,
+-	.shutdown            = garmin_shutdown,
++	.disconnect          = garmin_disconnect,
++	.release             = garmin_release,
+ 	.write               = garmin_write,
+ 	.write_room          = garmin_write_room,
+ 	.write_bulk_callback = garmin_write_bulk_callback,
+diff --git a/drivers/usb/serial/generic.c b/drivers/usb/serial/generic.c
+--- a/drivers/usb/serial/generic.c
++++ b/drivers/usb/serial/generic.c
+@@ -63,7 +63,8 @@ struct usb_serial_driver usb_serial_generic_device = {
+ 	.id_table =		generic_device_ids,
+ 	.usb_driver = 		&generic_driver,
+ 	.num_ports =		1,
+-	.shutdown =		usb_serial_generic_shutdown,
++	.disconnect =		usb_serial_generic_disconnect,
++	.release =		usb_serial_generic_release,
+ 	.throttle =		usb_serial_generic_throttle,
+ 	.unthrottle =		usb_serial_generic_unthrottle,
+ 	.resume =		usb_serial_generic_resume,
+@@ -551,7 +552,7 @@ int usb_serial_handle_break(struct usb_serial_port *port)
+ }
+ EXPORT_SYMBOL_GPL(usb_serial_handle_break);
+ 
+-void usb_serial_generic_shutdown (struct usb_serial *serial)
++void usb_serial_generic_disconnect(struct usb_serial *serial)
+ {
+ 	int i;
+ 
+@@ -562,3 +563,7 @@ void usb_serial_generic_shutdown(struct usb_serial *serial)
+ 		generic_cleanup(serial->port[i]);
+ }
+ 
++void usb_serial_generic_release(struct usb_serial *serial)
++{
++	dbg("%s", __func__);
++}
+diff --git a/drivers/usb/serial/io_edgeport.c b/drivers/usb/serial/io_edgeport.c
+--- a/drivers/usb/serial/io_edgeport.c
++++ b/drivers/usb/serial/io_edgeport.c
+@@ -224,7 +224,8 @@ static int  edge_tiocmget(struct tty_struct *tty, struct file *file);
+ 
+ static int  edge_tiocmset		(struct usb_serial_port *port, struct file *file, unsigned int set, unsigned int clear);
+ static int  edge_startup		(struct usb_serial *serial);
+-static void edge_shutdown		(struct usb_serial *serial);
++static void edge_disconnect	(struct usb_serial *serial);
++static void edge_release		(struct usb_serial *serial);
+ 
+ #include "io_tables.h"	/* all of the devices that this driver supports */
+ 
+@@ -3193,21 +3194,16 @@ static int edge_startup(struct usb_serial *serial)
+ 
+ 
+ /****************************************************************************
+- * edge_shutdown
++ * edge_disconnect
+  *	This function is called whenever the device is removed from the usb bus.
+  ****************************************************************************/
+-static void edge_shutdown (struct usb_serial *serial)
++static void edge_disconnect(struct usb_serial *serial)
+ {
+ 	struct edgeport_serial *edge_serial = usb_get_serial_data(serial);
+-	int i;
+ 
+ 	dbg("%s", __FUNCTION__);
+ 
+ 	/* stop reads and writes on all ports */
+-	for (i=0; i < serial->num_ports; ++i) {
+-		kfree (usb_get_serial_port_data(serial->port[i]));
+-		usb_set_serial_port_data(serial->port[i],  NULL);
+-	}
+ 	/* free up our endpoint stuff */
+ 	if (edge_serial->is_epic) {
+ 		usb_kill_urb(edge_serial->interrupt_read_urb);
+@@ -3218,9 +3214,24 @@ static void edge_shutdown(struct usb_serial *serial)
+ 		usb_free_urb(edge_serial->read_urb);
+ 		kfree(edge_serial->bulk_in_buffer);
+ 	}
++}
++
++
++/****************************************************************************
++ * edge_release
++ *	This function is called when the device structure is deallocated.
++ ****************************************************************************/
++static void edge_release(struct usb_serial *serial)
++{
++	struct edgeport_serial *edge_serial = usb_get_serial_data(serial);
++	int i;
++
++	dbg("%s", __func__);
++
++	for (i = 0; i < serial->num_ports; ++i)
++		kfree(usb_get_serial_port_data(serial->port[i]));
+ 
+ 	kfree(edge_serial);
+-	usb_set_serial_data(serial, NULL);
+ }
+ 
+ 
+diff --git a/drivers/usb/serial/io_tables.h b/drivers/usb/serial/io_tables.h
+--- a/drivers/usb/serial/io_tables.h
++++ b/drivers/usb/serial/io_tables.h
+@@ -117,7 +117,8 @@ static struct usb_serial_driver edgeport_2port_device = {
+ 	.throttle		= edge_throttle,
+ 	.unthrottle		= edge_unthrottle,
+ 	.attach			= edge_startup,
+-	.shutdown		= edge_shutdown,
++	.disconnect		= edge_disconnect,
++	.release		= edge_release,
+ 	.ioctl			= edge_ioctl,
+ 	.set_termios		= edge_set_termios,
+ 	.tiocmget		= edge_tiocmget,
+@@ -145,7 +146,8 @@ static struct usb_serial_driver edgeport_4port_device = {
+ 	.throttle		= edge_throttle,
+ 	.unthrottle		= edge_unthrottle,
+ 	.attach			= edge_startup,
+-	.shutdown		= edge_shutdown,
++	.disconnect		= edge_disconnect,
++	.release		= edge_release,
+ 	.ioctl			= edge_ioctl,
+ 	.set_termios		= edge_set_termios,
+ 	.tiocmget		= edge_tiocmget,
+@@ -173,7 +175,8 @@ static struct usb_serial_driver edgeport_8port_device = {
+ 	.throttle		= edge_throttle,
+ 	.unthrottle		= edge_unthrottle,
+ 	.attach			= edge_startup,
+-	.shutdown		= edge_shutdown,
++	.disconnect		= edge_disconnect,
++	.release		= edge_release,
+ 	.ioctl			= edge_ioctl,
+ 	.set_termios		= edge_set_termios,
+ 	.tiocmget		= edge_tiocmget,
+@@ -200,7 +203,8 @@ static struct usb_serial_driver epic_device = {
+ 	.throttle		= edge_throttle,
+ 	.unthrottle		= edge_unthrottle,
+ 	.attach			= edge_startup,
+-	.shutdown		= edge_shutdown,
++	.disconnect		= edge_disconnect,
++	.release		= edge_release,
+ 	.ioctl			= edge_ioctl,
+ 	.set_termios		= edge_set_termios,
+ 	.tiocmget		= edge_tiocmget,
+diff --git a/drivers/usb/serial/io_ti.c b/drivers/usb/serial/io_ti.c
+--- a/drivers/usb/serial/io_ti.c
++++ b/drivers/usb/serial/io_ti.c
+@@ -2663,7 +2663,7 @@ cleanup:
+ 	return -ENOMEM;
+ }
+ 
+-static void edge_shutdown (struct usb_serial *serial)
++static void edge_disconnect(struct usb_serial *serial)
+ {
+ 	int i;
+ 	struct edgeport_port *edge_port;
+@@ -2673,12 +2673,22 @@ static void edge_shutdown(struct usb_serial *serial)
+ 	for (i = 0; i < serial->num_ports; ++i) {
+ 		edge_port = usb_get_serial_port_data(serial->port[i]);
+ 		edge_remove_sysfs_attrs(edge_port->port);
++	}
++}
++
++static void edge_release(struct usb_serial *serial)
++{
++	int i;
++	struct edgeport_port *edge_port;
++
++	dbg("%s", __func__);
++
++	for (i = 0; i < serial->num_ports; ++i) {
++		edge_port = usb_get_serial_port_data(serial->port[i]);
+ 		edge_buf_free(edge_port->ep_out_buf);
+ 		kfree(edge_port);
+-		usb_set_serial_port_data(serial->port[i], NULL);
+ 	}
+ 	kfree(usb_get_serial_data(serial));
+-	usb_set_serial_data(serial, NULL);
+ }
+ 
+ 
+@@ -2915,7 +2925,8 @@ static struct usb_serial_driver edgeport_1port_device = {
+ 	.throttle		= edge_throttle,
+ 	.unthrottle		= edge_unthrottle,
+ 	.attach			= edge_startup,
+-	.shutdown		= edge_shutdown,
++	.disconnect		= edge_disconnect,
++	.release		= edge_release,
+ 	.port_probe		= edge_create_sysfs_attrs,
+ 	.ioctl			= edge_ioctl,
+ 	.set_termios		= edge_set_termios,
+@@ -2944,7 +2955,8 @@ static struct usb_serial_driver edgeport_2port_device = {
+ 	.throttle		= edge_throttle,
+ 	.unthrottle		= edge_unthrottle,
+ 	.attach			= edge_startup,
+-	.shutdown		= edge_shutdown,
++	.disconnect		= edge_disconnect,
++	.release		= edge_release,
+ 	.port_probe		= edge_create_sysfs_attrs,
+ 	.ioctl			= edge_ioctl,
+ 	.set_termios		= edge_set_termios,
+diff --git a/drivers/usb/serial/ipaq.c b/drivers/usb/serial/ipaq.c
+--- a/drivers/usb/serial/ipaq.c
++++ b/drivers/usb/serial/ipaq.c
+@@ -79,7 +79,6 @@ static int  ipaq_open(struct tty_struct *tty,
+ static int  ipaq_open (struct usb_serial_port *port, struct file *filp);
+ static void ipaq_close (struct usb_serial_port *port, struct file *filp);
+ static int  ipaq_startup (struct usb_serial *serial);
+-static void ipaq_shutdown (struct usb_serial *serial);
+ static int ipaq_write(struct usb_serial_port *port, const unsigned char *buf,
+ 		       int count);
+ static int ipaq_write_bulk(struct usb_serial_port *port,
+@@ -576,7 +575,6 @@ static struct usb_serial_driver ipaq_device = {
+ 
+ 	.close =		ipaq_close,
+ 	.attach =		ipaq_startup,
+-	.shutdown =		ipaq_shutdown,
+ 	.write =		ipaq_write,
+ 	.write_room =		ipaq_write_room,
+ 	.chars_in_buffer =	ipaq_chars_in_buffer,
+@@ -990,11 +988,6 @@ static int ipaq_startup(struct usb_serial *serial)
+ 	return usb_reset_configuration(serial->dev);
+ }
+ 
+-static void ipaq_shutdown(struct usb_serial *serial)
+-{
+-	dbg("%s", __FUNCTION__);
+-}
+-
+ static int __init ipaq_init(void)
+ {
+ 	int retval;
+diff --git a/drivers/usb/serial/keyspan.c b/drivers/usb/serial/keyspan.c
+--- a/drivers/usb/serial/keyspan.c
++++ b/drivers/usb/serial/keyspan.c
+@@ -2689,7 +2689,7 @@ static int keyspan_startup(struct usb_serial *serial)
+ 	return 0;
+ }
+ 
+-static void keyspan_shutdown (struct usb_serial *serial)
++static void keyspan_disconnect(struct usb_serial *serial)
+ {
+ 	int				i, j;
+ 	struct usb_serial_port		*port;
+@@ -2729,6 +2729,17 @@ static void keyspan_shutdown(struct usb_serial *serial)
+ 			usb_free_urb(p_priv->out_urbs[j]);
+ 		}
+ 	}
++}
++
++static void keyspan_release(struct usb_serial *serial)
++{
++	int				i;
++	struct usb_serial_port		*port;
++	struct keyspan_serial_private 	*s_priv;
++
++	dbg("%s", __func__);
++
++	s_priv = usb_get_serial_data(serial);
+ 
+ 	/*  dbg("Freeing serial->private."); */
+ 	kfree(s_priv);
+diff --git a/drivers/usb/serial/keyspan.h b/drivers/usb/serial/keyspan.h
+--- a/drivers/usb/serial/keyspan.h
++++ b/drivers/usb/serial/keyspan.h
+@@ -41,7 +41,8 @@ static int  keyspan_open		(struct tty_struct *tty,
+ static void keyspan_close		(struct usb_serial_port *port);
+ static void keyspan_dtr_rts		(struct usb_serial_port *port, int on);
+ static int  keyspan_startup		(struct usb_serial *serial);
+-static void keyspan_shutdown		(struct usb_serial *serial);
++static void keyspan_disconnect		(struct usb_serial *serial);
++static void keyspan_release		(struct usb_serial *serial);
+ static void keyspan_rx_throttle		(struct usb_serial_port *port);
+ static void keyspan_rx_unthrottle	(struct usb_serial_port *port);
+ static int  keyspan_write_room		(struct tty_struct *tty);
+@@ -569,7 +570,8 @@ static struct usb_serial_driver keyspan_1port_device = {
+ 	.tiocmget		= keyspan_tiocmget,
+ 	.tiocmset		= keyspan_tiocmset,
+ 	.attach			= keyspan_startup,
+-	.shutdown		= keyspan_shutdown,
++	.disconnect		= keyspan_disconnect,
++	.release		= keyspan_release,
+ };
+ 
+ static struct usb_serial_driver keyspan_2port_device = {
+@@ -590,7 +592,8 @@ static struct usb_serial_driver keyspan_2port_device = {
+ 	.tiocmget		= keyspan_tiocmget,
+ 	.tiocmset		= keyspan_tiocmset,
+ 	.attach			= keyspan_startup,
+-	.shutdown		= keyspan_shutdown,
++	.disconnect		= keyspan_disconnect,
++	.release		= keyspan_release,
+ };
+ 
+ static struct usb_serial_driver keyspan_4port_device = {
+@@ -611,7 +614,8 @@ static struct usb_serial_driver keyspan_4port_device = {
+ 	.tiocmget		= keyspan_tiocmget,
+ 	.tiocmset		= keyspan_tiocmset,
+ 	.attach			= keyspan_startup,
+-	.shutdown		= keyspan_shutdown,
++	.disconnect		= keyspan_disconnect,
++	.release		= keyspan_release,
+ };
+ 
+ #endif
+diff --git a/drivers/usb/serial/keyspan_pda.c b/drivers/usb/serial/keyspan_pda.c
+--- a/drivers/usb/serial/keyspan_pda.c
++++ b/drivers/usb/serial/keyspan_pda.c
+@@ -809,7 +809,7 @@ static int keyspan_pda_startup(struct usb_serial *serial)
+ 	return 0;
+ }
+ 
+-static void keyspan_pda_shutdown (struct usb_serial *serial)
++static void keyspan_pda_release(struct usb_serial *serial)
+ {
+ 	dbg("%s", __func__);
+ 
+@@ -869,7 +869,7 @@ static struct usb_serial_driver keyspan_pda_device = {
+ 	.tiocmget =		keyspan_pda_tiocmget,
+ 	.tiocmset =		keyspan_pda_tiocmset,
+ 	.attach =		keyspan_pda_startup,
+-	.shutdown =		keyspan_pda_shutdown,
++	.release =		keyspan_pda_release,
+ };
+ 
+ 
+diff --git a/drivers/usb/serial/kl5kusb105.c b/drivers/usb/serial/kl5kusb105.c
+--- a/drivers/usb/serial/kl5kusb105.c
++++ b/drivers/usb/serial/kl5kusb105.c
+@@ -73,7 +73,8 @@ static int debug;
+  * Function prototypes
+  */
+ static int  klsi_105_startup	         (struct usb_serial *serial);
+-static void klsi_105_shutdown	         (struct usb_serial *serial);
++static void klsi_105_disconnect		(struct usb_serial *serial);
++static void klsi_105_release			(struct usb_serial *serial);
+ static int  klsi_105_open	         (struct usb_serial_port *port,
+ 					  struct file *filp);
+ static void klsi_105_close(struct usb_serial_port *port);
+@@ -131,7 +132,8 @@ static struct usb_serial_driver kl5kusb105d_device = {
+ 	.tiocmget =          klsi_105_tiocmget,
+ 	.tiocmset =          klsi_105_tiocmset,
+ 	.attach =	     klsi_105_startup,
+-	.shutdown =	     klsi_105_shutdown,
++	.disconnect =	     klsi_105_disconnect,
++	.release =	     klsi_105_release,
+ 	.throttle =	     klsi_105_throttle,
+ 	.unthrottle =	     klsi_105_unthrottle,
+ };
+@@ -315,7 +317,7 @@ err_cleanup:
+ } /* klsi_105_startup */
+ 
+ 
+-static void klsi_105_shutdown (struct usb_serial *serial)
++static void klsi_105_disconnect(struct usb_serial *serial)
+ {
+ 	int i;
+ 
+@@ -325,35 +327,36 @@ static void klsi_105_shutdown(struct usb_serial *serial)
+ 	/* stop reads and writes on all ports */
+ 	for (i=0; i < serial->num_ports; ++i) {
+ 		struct klsi_105_private *priv = usb_get_serial_port_data(serial->port[i]);
+-		unsigned long flags;
+ 
+ 		if (priv) {
+ 			/* kill our write urb pool */
+ 			int j;
+ 			struct urb **write_urbs = priv->write_urb_pool;
+-			spin_lock_irqsave(&priv->lock,flags);
+ 
+ 			for (j = 0; j < NUM_URBS; j++) {
+ 				if (write_urbs[j]) {
+-					/* FIXME - uncomment the following
+-					 * usb_kill_urb call when the host
+-					 * controllers get fixed to set
+-					 * urb->dev = NULL after the urb is
+-					 * finished.  Otherwise this call
+-					 * oopses. */
+-					/* usb_kill_urb(write_urbs[j]); */
+-					kfree(write_urbs[j]->transfer_buffer);
++					usb_kill_urb(write_urbs[j]);
+ 					usb_free_urb (write_urbs[j]);
+ 				}
+ 			}
+-
+-			spin_unlock_irqrestore (&priv->lock, flags);
+-
+-			kfree(priv);
+-			usb_set_serial_port_data(serial->port[i], NULL);
+ 		}
+ 	}
+-} /* klsi_105_shutdown */
++} /* klsi_105_disconnect */
++
++
++static void klsi_105_release(struct usb_serial *serial)
++{
++	int i;
++
++	dbg("%s", __func__);
++
++	for (i = 0; i < serial->num_ports; ++i) {
++		struct klsi_105_private *priv =
++				usb_get_serial_port_data(serial->port[i]);
++
++		kfree(priv);
++	}
++} /* klsi_105_release */
+ 
+ static int  klsi_105_open (struct usb_serial_port *port, struct file *filp)
+ {
+diff --git a/drivers/usb/serial/kobil_sct.c b/drivers/usb/serial/kobil_sct.c
+--- a/drivers/usb/serial/kobil_sct.c
++++ b/drivers/usb/serial/kobil_sct.c
+@@ -69,7 +69,7 @@ static int debug;
+ 
+ /* Function prototypes */
+ static int  kobil_startup (struct usb_serial *serial);
+-static void kobil_shutdown (struct usb_serial *serial);
++static void kobil_release(struct usb_serial *serial);
+ static int  kobil_open (struct usb_serial_port *port, struct file *filp);
+ static void kobil_close (struct usb_serial_port *port, struct file *filp);
+ 
+@@ -117,7 +117,7 @@ static struct usb_serial_driver kobil_device = {
+ 	.id_table =		id_table,
+ 	.num_ports =		1,
+ 	.attach =		kobil_startup,
+-	.shutdown =		kobil_shutdown,
++	.release =		kobil_release,
+ 	.ioctl =		kobil_ioctl,
+ 	.set_termios =		kobil_set_termios,
+ 	.tiocmget =		kobil_tiocmget,
+@@ -201,18 +201,13 @@ static int kobil_startup(struct usb_serial *serial)
+ }
+ 
+ 
+-static void kobil_shutdown (struct usb_serial *serial)
++static void kobil_release(struct usb_serial *serial)
+ {
+ 	int i;
+ 	dbg("%s - port %d", __FUNCTION__, serial->port[0]->number);
+ 
+-	for (i=0; i < serial->num_ports; ++i) {
+-		while (serial->port[i]->open_count > 0) {
+-			kobil_close (serial->port[i], NULL);
+-		}
++	for (i = 0; i < serial->num_ports; ++i)
+ 		kfree(usb_get_serial_port_data(serial->port[i]));
+-		usb_set_serial_port_data(serial->port[i], NULL);
+-	}
+ }
+ 
+ 
+diff --git a/drivers/usb/serial/mct_u232.c b/drivers/usb/serial/mct_u232.c
+--- a/drivers/usb/serial/mct_u232.c
++++ b/drivers/usb/serial/mct_u232.c
+@@ -92,7 +92,7 @@ static int debug;
+  * Function prototypes
+  */
+ static int  mct_u232_startup	         (struct usb_serial *serial);
+-static void mct_u232_shutdown	         (struct usb_serial *serial);
++static void mct_u232_release		(struct usb_serial *serial);
+ static int  mct_u232_open	         (struct usb_serial_port *port,
+ 					  struct file *filp);
+ static void mct_u232_close(struct usb_serial_port *port);
+@@ -149,7 +149,7 @@ static struct usb_serial_driver mct_u232_device = {
+ 	.tiocmget =	     mct_u232_tiocmget,
+ 	.tiocmset =	     mct_u232_tiocmset,
+ 	.attach =	     mct_u232_startup,
+-	.shutdown =	     mct_u232_shutdown,
++	.release =	     mct_u232_release,
+ };
+ 
+ 
+@@ -407,7 +407,7 @@ static int mct_u232_startup(struct usb_serial *serial)
+ } /* mct_u232_startup */
+ 
+ 
+-static void mct_u232_shutdown (struct usb_serial *serial)
++static void mct_u232_release(struct usb_serial *serial)
+ {
+ 	struct mct_u232_private *priv;
+ 	int i;
+@@ -417,12 +417,9 @@ static void mct_u232_shutdown(struct usb_serial *serial)
+ 	for (i = 0; i < serial->num_ports; ++i) {
+ 		/* My special items, the standard routines free my urbs */
+ 		priv = usb_get_serial_port_data(serial->port[i]);
+-		if (priv) {
+-			usb_set_serial_port_data(serial->port[i], NULL);
+-			kfree(priv);
+-		}
++		kfree(priv);
+ 	}
+-} /* mct_u232_shutdown */
++} /* mct_u232_release */
+ 
+ static int  mct_u232_open(struct tty_struct *tty,
+ 			struct usb_serial_port *port, struct file *filp)
+diff --git a/drivers/usb/serial/mos7720.c b/drivers/usb/serial/mos7720.c
+--- a/drivers/usb/serial/mos7720.c
++++ b/drivers/usb/serial/mos7720.c
+@@ -1521,19 +1521,16 @@ static int mos7720_startup(struct usb_serial *serial)
+ 	return 0;
+ }
+ 
+-static void mos7720_shutdown(struct usb_serial *serial)
++static void mos7720_release(struct usb_serial *serial)
+ {
+ 	int i;
+ 
+ 	/* free private structure allocated for serial port */
+-	for (i=0; i < serial->num_ports; ++i) {
++	for (i = 0; i < serial->num_ports; ++i)
+ 		kfree(usb_get_serial_port_data(serial->port[i]));
+-		usb_set_serial_port_data(serial->port[i], NULL);
+-	}
+ 
+ 	/* free private structure allocated for serial device */
+ 	kfree(usb_get_serial_data(serial));
+-	usb_set_serial_data(serial, NULL);
+ }
+ 
+ static struct usb_driver usb_driver = {
+@@ -1558,7 +1555,7 @@ static struct usb_serial_driver moschip7720_2port_driver = {
+ 	.throttle		= mos7720_throttle,
+ 	.unthrottle		= mos7720_unthrottle,
+ 	.attach			= mos7720_startup,
+-	.shutdown		= mos7720_shutdown,
++	.release		= mos7720_release,
+ 	.ioctl			= mos7720_ioctl,
+ 	.set_termios		= mos7720_set_termios,
+ 	.write			= mos7720_write,
+diff --git a/drivers/usb/serial/mos7840.c b/drivers/usb/serial/mos7840.c
+--- a/drivers/usb/serial/mos7840.c
++++ b/drivers/usb/serial/mos7840.c
+@@ -38,7 +38,7 @@
+ /*
+  * Version Information
+  */
+-#define DRIVER_VERSION "1.3.1"
++#define DRIVER_VERSION "1.3.2"
+ #define DRIVER_DESC "Moschip 7840/7820 USB Serial Driver"
+ 
+ /*
+@@ -2540,9 +2540,14 @@ static int mos7840_startup(struct usb_se
+ 		mos7840_set_port_private(serial->port[i], mos7840_port);
+ 		spin_lock_init(&mos7840_port->pool_lock);
+ 
+-		mos7840_port->port_num = ((serial->port[i]->number -
+-					   (serial->port[i]->serial->minor)) +
+-					  1);
++		/* minor is not initialised until later by
++		 * usb-serial.c:get_free_serial() and cannot therefore be used
++		 * to index device instances */
++		mos7840_port->port_num = i + 1;
++		dbg ("serial->port[i]->number = %d", serial->port[i]->number);
++		dbg ("serial->port[i]->serial->minor = %d", serial->port[i]->serial->minor);
++		dbg ("mos7840_port->port_num = %d", mos7840_port->port_num);
++		dbg ("serial->minor = %d", serial->minor);
+ 
+ 		if (mos7840_port->port_num == 1) {
+ 			mos7840_port->SpRegOffset = 0x0;
+@@ -2752,16 +2757,16 @@ error:
+ }
+ 
+ /****************************************************************************
+- * mos7840_shutdown
++ * mos7840_disconnect
+  *	This function is called whenever the device is removed from the usb bus.
+  ****************************************************************************/
+ 
+-static void mos7840_shutdown(struct usb_serial *serial)
++static void mos7840_disconnect(struct usb_serial *serial)
+ {
+ 	int i;
+ 	unsigned long flags;
+ 	struct moschip_port *mos7840_port;
+-	dbg("%s \n", " shutdown :entering..........");
++	dbg("%s", " disconnect :entering..........");
+ 
+ 	if (!serial) {
+ 		dbg("%s", "Invalid Handler \n");
+@@ -2775,14 +2780,48 @@ static void mos7840_shutdown(struct usb_
+ 
+ 	for (i = 0; i < serial->num_ports; ++i) {
+ 		mos7840_port = mos7840_get_port_private(serial->port[i]);
+-		spin_lock_irqsave(&mos7840_port->pool_lock, flags);
+-		mos7840_port->zombie = 1;
+-		spin_unlock_irqrestore(&mos7840_port->pool_lock, flags);
+-		usb_kill_urb(mos7840_port->control_urb);
+-		kfree(mos7840_port->ctrl_buf);
+-		kfree(mos7840_port->dr);
+-		kfree(mos7840_port);
+-		mos7840_set_port_private(serial->port[i], NULL);
++		dbg ("mos7840_port %d = %p", i, mos7840_port);
++		if (mos7840_port) {
++			spin_lock_irqsave(&mos7840_port->pool_lock, flags);
++			mos7840_port->zombie = 1;
++			spin_unlock_irqrestore(&mos7840_port->pool_lock, flags);
++			usb_kill_urb(mos7840_port->control_urb);
++		}
++	}
++
++	dbg("%s", "Thank u :: ");
++
++}
++
++/****************************************************************************
++ * mos7840_release
++ *	This function is called when the usb_serial structure is freed.
++ ****************************************************************************/
++
++static void mos7840_release(struct usb_serial *serial)
++{
++	int i;
++	struct moschip_port *mos7840_port;
++	dbg("%s", " release :entering..........");
++
++	if (!serial) {
++		dbg("%s", "Invalid Handler");
++		return;
++	}
++
++	/* check for the ports to be closed,close the ports and disconnect */
++
++	/* free private structure allocated for serial port  *
++	 * stop reads and writes on all ports                */
++
++	for (i = 0; i < serial->num_ports; ++i) {
++		mos7840_port = mos7840_get_port_private(serial->port[i]);
++		dbg("mos7840_port %d = %p", i, mos7840_port);
++		if (mos7840_port) {
++			kfree(mos7840_port->ctrl_buf);
++			kfree(mos7840_port->dr);
++			kfree(mos7840_port);
++		}
+ 	}
+ 
+ 	dbg("%s\n", "Thank u :: ");
+@@ -2828,7 +2867,8 @@ static struct usb_serial_driver moschip7
+ 	.tiocmget = mos7840_tiocmget,
+ 	.tiocmset = mos7840_tiocmset,
+ 	.attach = mos7840_startup,
+-	.shutdown = mos7840_shutdown,
++	.disconnect = mos7840_disconnect,
++	.release = mos7840_release,
+ 	.read_bulk_callback = mos7840_bulk_in_callback,
+ 	.read_int_callback = mos7840_interrupt_callback,
+ };
+diff --git a/drivers/usb/serial/omninet.c b/drivers/usb/serial/omninet.c
+--- a/drivers/usb/serial/omninet.c
++++ b/drivers/usb/serial/omninet.c
+@@ -72,7 +72,8 @@ static void omninet_write_bulk_callback(struct urb *urb);
+ 
+ static int  omninet_write		(struct usb_serial_port *port, const unsigned char *buf, int count);
+ static int  omninet_write_room		(struct usb_serial_port *port);
+-static void omninet_shutdown		(struct usb_serial *serial);
++static void omninet_disconnect		(struct usb_serial *serial);
++static void omninet_release		(struct usb_serial *serial);
+ static int omninet_attach		(struct usb_serial *serial);
+ 
+ static struct usb_device_id id_table[] = {
+@@ -108,7 +109,8 @@ static struct usb_serial_driver zyxel_omninet_device = {
+ 	.write_room =		omninet_write_room,
+ 	.read_bulk_callback =	omninet_read_bulk_callback,
+ 	.write_bulk_callback =	omninet_write_bulk_callback,
+-	.shutdown =		omninet_shutdown,
++	.disconnect =		omninet_disconnect,
++	.release =		omninet_release,
+ };
+ 
+ 
+@@ -345,13 +347,22 @@ static void omninet_write_bulk_callback(struct urb *urb)
+ }
+ 
+ 
+-static void omninet_shutdown (struct usb_serial *serial)
++static void omninet_disconnect(struct usb_serial *serial)
+ {
+ 	struct usb_serial_port *wport = serial->port[1];
+-	struct usb_serial_port *port = serial->port[0];
++
+ 	dbg ("%s", __FUNCTION__);
+ 
+ 	usb_kill_urb(wport->write_urb);
++}
++
++
++static void omninet_release(struct usb_serial *serial)
++{
++	struct usb_serial_port *port = serial->port[0];
++
++	dbg("%s", __func__);
++
+ 	kfree(usb_get_serial_port_data(port));
+ }
+ 
+diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
+--- a/drivers/usb/serial/option.c
++++ b/drivers/usb/serial/option.c
+@@ -51,7 +51,8 @@ static void option_close(struct usb_serial_port *port);
+ static int  option_open(struct usb_serial_port *port, struct file *filp);
+ static void option_close(struct usb_serial_port *port, struct file *filp);
+ static int  option_startup(struct usb_serial *serial);
+-static void option_shutdown(struct usb_serial *serial);
++static void option_disconnect(struct usb_serial *serial);
++static void option_release(struct usb_serial *serial);
+ static void option_rx_throttle(struct usb_serial_port *port);
+ static void option_rx_unthrottle(struct usb_serial_port *port);
+ static int  option_write_room(struct tty_struct *tty);
+@@ -568,7 +569,8 @@ static struct usb_serial_driver option_1port_device = {
+ 	.tiocmget          = option_tiocmget,
+ 	.tiocmset          = option_tiocmset,
+ 	.attach            = option_startup,
+-	.shutdown          = option_shutdown,
++	.disconnect        = option_disconnect,
++	.release           = option_release,
+ 	.read_int_callback = option_instat_callback,
+ 	.suspend           = option_suspend,
+ 	.resume            = option_resume,
+@@ -1149,7 +1151,14 @@ static void stop_read_write_urbs(struct usb_serial *serial)
+ 	}
+ }
+ 
+-static void option_shutdown(struct usb_serial *serial)
++static void option_disconnect(struct usb_serial *serial)
++{
++	dbg("%s", __func__);
++
++	stop_read_write_urbs(serial);
++}
++
++static void option_release(struct usb_serial *serial)
+ {
+ 	int i, j;
+ 	struct usb_serial_port *port;
+diff --git a/drivers/usb/serial/oti6858.c b/drivers/usb/serial/oti6858.c
+--- a/drivers/usb/serial/oti6858.c
++++ b/drivers/usb/serial/oti6858.c
+@@ -159,7 +159,7 @@ static int oti6858_tiocmget(struct tty_struct *tty, struct file *file);
+ static int oti6858_tiocmset(struct tty_struct *tty, struct file *file,
+ 				unsigned int set, unsigned int clear);
+ static int oti6858_startup(struct usb_serial *serial);
+-static void oti6858_shutdown(struct usb_serial *serial);
++static void oti6858_release(struct usb_serial *serial);
+ 
+ /* functions operating on buffers */
+ static struct oti6858_buf *oti6858_buf_alloc(unsigned int size);
+@@ -194,7 +194,7 @@ static struct usb_serial_driver oti6858_device = {
+ 	.write_room =		oti6858_write_room,
+ 	.chars_in_buffer =	oti6858_chars_in_buffer,
+ 	.attach =		oti6858_startup,
+-	.shutdown =		oti6858_shutdown,
++	.release =		oti6858_release,
+ };
+ 
+ struct oti6858_private {
+@@ -782,7 +782,7 @@ static int oti6858_ioctl(struct tty_struct *tty, struct file *file,
+ }
+ 
+ 
+-static void oti6858_shutdown(struct usb_serial *serial)
++static void oti6858_release(struct usb_serial *serial)
+ {
+ 	struct oti6858_private *priv;
+ 	int i;
+@@ -794,7 +794,6 @@ static void oti6858_shutdown(struct usb_serial *serial)
+ 		if (priv) {
+ 			oti6858_buf_free(priv->buf);
+ 			kfree(priv);
+-			usb_set_serial_port_data(serial->port[i], NULL);
+ 		}
+ 	}
+ }
+diff --git a/drivers/usb/serial/pl2303.c b/drivers/usb/serial/pl2303.c
+--- a/drivers/usb/serial/pl2303.c
++++ b/drivers/usb/serial/pl2303.c
+@@ -878,7 +878,7 @@ static void pl2303_break_ctl(struct tty_struct *tty, int break_state)
+ 		dbg("%s - error sending break = %d", __func__, result);
+ }
+ 
+-static void pl2303_shutdown(struct usb_serial *serial)
++static void pl2303_release(struct usb_serial *serial)
+ {
+ 	int i;
+ 	struct pl2303_private *priv;
+@@ -890,7 +890,6 @@ static void pl2303_shutdown(struct usb_serial *serial)
+ 		if (priv) {
+ 			pl2303_buf_free(priv->buf);
+ 			kfree(priv);
+-			usb_set_serial_port_data(serial->port[i], NULL);
+ 		}
+ 	}
+ }
+@@ -1123,7 +1122,7 @@ static struct usb_serial_driver pl2303_device = {
+ 	.write_room =		pl2303_write_room,
+ 	.chars_in_buffer =	pl2303_chars_in_buffer,
+ 	.attach =		pl2303_startup,
+-	.shutdown =		pl2303_shutdown,
++	.release =		pl2303_release,
+ };
+ 
+ static int __init pl2303_init(void)
+diff --git a/drivers/usb/serial/sierra.c b/drivers/usb/serial/sierra.c
+--- a/drivers/usb/serial/sierra.c
++++ b/drivers/usb/serial/sierra.c
+@@ -814,7 +814,7 @@ static int sierra_startup(struct usb_serial *serial)
+ 	return 0;
+ }
+ 
+-static void sierra_shutdown(struct usb_serial *serial)
++static void sierra_disconnect(struct usb_serial *serial)
+ {
+ 	int i;
+ 	struct usb_serial_port *port;
+@@ -853,7 +853,7 @@ static struct usb_serial_driver sierra_device = {
+ 	.tiocmget          = sierra_tiocmget,
+ 	.tiocmset          = sierra_tiocmset,
+ 	.attach            = sierra_startup,
+-	.shutdown          = sierra_shutdown,
++	.disconnect        = sierra_disconnect,
+ 	.read_int_callback = sierra_instat_callback,
+ };
+ 
+diff --git a/drivers/usb/serial/ti_usb_3410_5052.c b/drivers/usb/serial/ti_usb_3410_5052.c
+--- a/drivers/usb/serial/ti_usb_3410_5052.c
++++ b/drivers/usb/serial/ti_usb_3410_5052.c
+@@ -97,7 +97,7 @@ struct ti_device {
+ /* Function Declarations */
+ 
+ static int ti_startup(struct usb_serial *serial);
+-static void ti_shutdown(struct usb_serial *serial);
++static void ti_release(struct usb_serial *serial);
+ static int ti_open(struct usb_serial_port *port, struct file *file);
+ static void ti_close(struct usb_serial_port *port, struct file *file);
+ 
+@@ -230,7 +230,7 @@ static struct usb_serial_driver ti_1port_device = {
+ 	.id_table		= ti_id_table_3410,
+ 	.num_ports		= 1,
+ 	.attach			= ti_startup,
+-	.shutdown		= ti_shutdown,
++	.release		= ti_release,
+ 	.open			= ti_open,
+ 	.close			= ti_close,
+ 	.write			= ti_write,
+@@ -258,7 +258,7 @@ static struct usb_serial_driver ti_2port_device = {
+ 	.id_table		= ti_id_table_5052,
+ 	.num_ports		= 2,
+ 	.attach			= ti_startup,
+-	.shutdown		= ti_shutdown,
++	.release		= ti_release,
+ 	.open			= ti_open,
+ 	.close			= ti_close,
+ 	.write			= ti_write,
+@@ -473,7 +473,7 @@ free_tdev:
+ }
+ 
+ 
+-static void ti_shutdown(struct usb_serial *serial)
++static void ti_release(struct usb_serial *serial)
+ {
+ 	int i;
+ 	struct ti_device *tdev = usb_get_serial_data(serial);
+@@ -486,12 +486,10 @@ static void ti_shutdown(struct usb_serial *serial)
+ 		if (tport) {
+ 			ti_buf_free(tport->tp_write_buf);
+ 			kfree(tport);
+-			usb_set_serial_port_data(serial->port[i], NULL);
+ 		}
+ 	}
+ 
+ 	kfree(tdev);
+-	usb_set_serial_data(serial, NULL);
+ }
+ 
+ 
+diff --git a/drivers/usb/serial/usb-serial.c b/drivers/usb/serial/usb-serial.c
+--- a/drivers/usb/serial/usb-serial.c
++++ b/drivers/usb/serial/usb-serial.c
+@@ -141,6 +141,14 @@ static void destroy_serial(struct kref *kref)
+ 	if (serial->minor != SERIAL_TTY_NO_MINOR)
+ 		return_serial(serial);
+ 
++	serial->type->release(serial);
++
++	for (i = 0; i < serial->num_ports; ++i) {
++		port = serial->port[i];
++		if (port)
++			put_device(&port->dev);
++	}
++
+ 	/* If this is a "fake" port, we have to clean it up here, as it will
+ 	 * not get cleaned up in port_release() as it was never registered with
+ 	 * the driver core */
+@@ -148,9 +156,8 @@ static void destroy_serial(struct kref *kref)
+ 		for (i = serial->num_ports;
+ 					i < serial->num_port_pointers; ++i) {
+ 			port = serial->port[i];
+-			if (!port)
+-				continue;
+-			port_free(port);
++			if (port)
++				port_free(port);
+ 		}
+ 	}
+ 
+@@ -1118,10 +1125,6 @@ void usb_serial_disconnect(struct usb_interface *interface)
+ 	serial->disconnected = 1;
+ 	mutex_unlock(&serial->disc_mutex);
+ 
+-	/* Unfortunately, many of the sub-drivers expect the port structures
+-	 * to exist when their shutdown method is called, so we have to go
+-	 * through this awkward two-step unregistration procedure.
+-	 */
+ 	for (i = 0; i < serial->num_ports; ++i) {
+ 		port = serial->port[i];
+ 		if (port) {
+@@ -1153,14 +1156,7 @@ void usb_serial_disconnect(struct usb_interface *interface)
+ 			}
+ 		}
+ 	}
+-	serial->type->shutdown(serial);
+-	for (i = 0; i < serial->num_ports; ++i) {
+-		port = serial->port[i];
+-		if (port) {
+-			put_device(&port->dev);
+-			serial->port[i] = NULL;
+-		}
+-	}
++	serial->type->disconnect(serial);
+ 
+ 	/* let the last holder of this object
+ 	 * cause it to be cleaned up */
+@@ -1338,7 +1334,8 @@ static void fixup_generic(struct usb_serial_driver *device)
+ 	set_to_generic_if_null(device, chars_in_buffer);
+ 	set_to_generic_if_null(device, read_bulk_callback);
+ 	set_to_generic_if_null(device, write_bulk_callback);
+-	set_to_generic_if_null(device, shutdown);
++	set_to_generic_if_null(device, disconnect);
++	set_to_generic_if_null(device, release);
+ 	set_to_generic_if_null(device, resume);
+ }
+ 
+diff --git a/drivers/usb/serial/visor.c b/drivers/usb/serial/visor.c
+--- a/drivers/usb/serial/visor.c
++++ b/drivers/usb/serial/visor.c
+@@ -47,7 +47,7 @@ static void visor_unthrottle(struct tty_struct *tty);
+ static int  visor_probe(struct usb_serial *serial,
+ 					const struct usb_device_id *id);
+ static int  visor_calc_num_ports(struct usb_serial *serial);
+-static void visor_shutdown	(struct usb_serial *serial);
++static void visor_release(struct usb_serial *serial);
+ static int  visor_ioctl		(struct usb_serial_port *port, struct file * file, unsigned int cmd, unsigned long arg);
+ static void visor_write_bulk_callback(struct urb *urb);
+ static void visor_read_bulk_callback(struct urb *urb);
+@@ -202,7 +202,7 @@ static struct usb_serial_driver handspring_device = {
+ 	.attach =		treo_attach,
+ 	.probe =		visor_probe,
+ 	.calc_num_ports =	visor_calc_num_ports,
+-	.shutdown =		visor_shutdown,
++	.release =		visor_release,
+ 	.ioctl =		visor_ioctl,
+ 	.write =		visor_write,
+ 	.write_room =		visor_write_room,
+@@ -227,7 +227,7 @@ static struct usb_serial_driver clie_5_device = {
+ 	.attach =		clie_5_attach,
+ 	.probe =		visor_probe,
+ 	.calc_num_ports =	visor_calc_num_ports,
+-	.shutdown =		visor_shutdown,
++	.release =		visor_release,
+ 	.ioctl =		visor_ioctl,
+ 	.write =		visor_write,
+ 	.write_room =		visor_write_room,
+@@ -918,7 +918,7 @@ static int clie_5_attach(struct usb_serial *serial)
+ 	return generic_startup(serial);
+ }
+ 
+-static void visor_shutdown (struct usb_serial *serial)
++static void visor_release(struct usb_serial *serial)
+ {
+ 	struct visor_private *priv;
+ 	int i;
+@@ -927,10 +927,7 @@ static void visor_shutdown(struct usb_serial *serial)
+ 
+ 	for (i = 0; i < serial->num_ports; i++) {
+ 		priv = usb_get_serial_port_data(serial->port[i]);
+-		if (priv) {
+-			usb_set_serial_port_data(serial->port[i], NULL);
+-			kfree(priv);
+-		}
++		kfree(priv);
+ 	}
+ }
+ 
+diff --git a/drivers/usb/serial/whiteheat.c b/drivers/usb/serial/whiteheat.c
+--- a/drivers/usb/serial/whiteheat.c
++++ b/drivers/usb/serial/whiteheat.c
+@@ -144,7 +144,7 @@ static int  whiteheat_firmware_attach(struct usb_serial *serial);
+ 
+ /* function prototypes for the Connect Tech WhiteHEAT serial converter */
+ static int  whiteheat_attach		(struct usb_serial *serial);
+-static void whiteheat_shutdown		(struct usb_serial *serial);
++static void whiteheat_release	(struct usb_serial *serial);
+ static int  whiteheat_open		(struct usb_serial_port *port, struct file *filp);
+ static void whiteheat_close		(struct usb_serial_port *port, struct file *filp);
+ 
+@@ -189,7 +189,7 @@ static struct usb_serial_driver whiteheat_device = {
+ 	.id_table =		id_table_std,
+ 	.num_ports =		4,
+ 	.attach =		whiteheat_attach,
+-	.shutdown =		whiteheat_shutdown,
++	.release =		whiteheat_release,
+ 	.open =			whiteheat_open,
+ 	.close =		whiteheat_close,
+ 	.write =		whiteheat_write,
+@@ -617,7 +617,7 @@ no_command_buffer:
+ }
+ 
+ 
+-static void whiteheat_shutdown (struct usb_serial *serial)
++static void whiteheat_release(struct usb_serial *serial)
+ {
+ 	struct usb_serial_port *command_port;
+ 	struct usb_serial_port *port;
+diff --git a/include/linux/usb/serial.h b/include/linux/usb/serial.h
+--- a/include/linux/usb/serial.h
++++ b/include/linux/usb/serial.h
+@@ -194,8 +194,10 @@ static inline void usb_set_serial_data(struct usb_serial *serial, void *data)
+  *	This will be called when the struct usb_serial structure is fully set
+  *	set up.  Do any local initialization of the device, or any private
+  *	memory structure allocation at this point in time.
+- * @shutdown: pointer to the driver's shutdown function.  This will be
+- *	called when the device is removed from the system.
++ * @disconnect: pointer to the driver's disconnect function.  This will be
++ *	called when the device is unplugged or unbound from the driver.
++ * @release: pointer to the driver's release function.  This will be called
++ *	when the usb_serial data structure is about to be destroyed.
+  * @usb_driver: pointer to the struct usb_driver that controls this
+  *	device.  This is necessary to allow dynamic ids to be added to
+  *	the driver from sysfs.
+@@ -226,7 +228,8 @@ struct usb_serial_driver {
+ 	int (*attach) (struct usb_serial *serial);
+ 	int (*calc_num_ports) (struct usb_serial *serial);
+ 
+-	void (*shutdown) (struct usb_serial *serial);
++	void (*disconnect) (struct usb_serial *serial);
++	void (*release) (struct usb_serial *serial);
+ 
+ 	int (*port_probe) (struct usb_serial_port *port);
+ 	int (*port_remove) (struct usb_serial_port *port);
+@@ -308,7 +311,8 @@ extern void usb_serial_generic_read_bulk_callback(struct urb *urb);
+ extern void usb_serial_generic_write_bulk_callback (struct urb *urb);
+ extern void usb_serial_generic_throttle (struct usb_serial_port *port);
+ extern void usb_serial_generic_unthrottle (struct usb_serial_port *port);
+-extern void usb_serial_generic_shutdown (struct usb_serial *serial);
++extern void usb_serial_generic_disconnect (struct usb_serial *serial);
++extern void usb_serial_generic_release (struct usb_serial *serial);
+ extern int usb_serial_generic_register (int debug);
+ extern void usb_serial_generic_deregister (void);
+ 
+-- 
+1.7.6.5
