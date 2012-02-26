@@ -912,14 +912,33 @@ int fputs_ex(const char *name, const char *value)
 {
 	FILE *fp;
 
-	if ((fp = fopen(name, "r+")))
-	{
-		fputs(value, fp);
-		fclose(fp);
-	} else
+	if (!(fp = fopen(name, "r+"))) {
 		perror(name);
+		return errno;
+	}
 
-	return errno;
+	fputs(value, fp);
+	fclose(fp);
+
+	return 0;
+}
+
+int fgets_ex(const char *name, char *value, int size)
+{
+	FILE *fp;
+	char *tmp = value;
+
+	if (!(fp = fopen(name, "r+"))) {
+		perror(name);
+		return errno;
+	}
+
+	*value = 0;
+	if (fgets(value, size, fp))
+		strsep(&tmp, "\n");
+	fclose(fp);
+
+	return 0;
 }
 
 int router_totalram()
