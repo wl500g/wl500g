@@ -21,7 +21,7 @@
 // 4.150.10		- 5,9,11,13,14,15
 // 5.10.56		- 4,5,9,11,13,14,15,16,17,19,20,21
 // 5.60.127		- 5,7,9,11,12,13,15,16,17,18,21,23,24,25,26,28,29
-// 5.100.138	- 4,5,9,11,13,14,15,16,17,19,20,21,22,24,25,26,27,29,30,32,33
+// 5.100.138		- 4,5,9,11,13,14,15,16,17,19,20,21,22,24,25,26,27,29,30,32,33
 
 //#define D11CONF	 D11 Core Rev
 					/* 5 (4306C0), 7 (4712), 9 (4318b0, 5352),
@@ -33,36 +33,38 @@
 
 //#define D11CONF		0x123bea30	/* 4,5,9,11,13,14,15,16,17,19,20,21,25,28 */
 
-#ifndef CONFIG_CPU_MIPS32_R2
-		/* MIPS32r1 */
+#ifndef CONFIG_CPU_MIPS32_R2		/* MIPS32r1 */
+
 #define D11CONF		0x0000aa20	/* 5,9,11,13,15 */
 
-#define ACONF		0x000c0	/* 6 (4318), 7 (5352) */
-#define GCONF		0x00080	/* 7 (4318, 5352) */
-#define NCONF		0x00007 /* 0-2 (4321) */
+#define ACONF		0x000c0		/* 6 (4318), 7 (5352) */
+#define GCONF		0x00080		/* 7 (4318, 5352) */
+#define NCONF		0x00007		/* 0-2 (4321) */
 #define HTCONF		0		/* No HT-Phy */
-#define LPCONF		0x00001	/* 0 (5354) */
+#define LPCONF		0x00001		/* 0 (5354) */
 #define SSLPNCONF	0		/* No SSLPN-Phy */
 #define LCNCONF		0		/* No LCN-Phy */
 
-#else	/* MIPS32r2 */
+#define NRXBUFPOST	64	/* # rx buffers posted */
+
+#else					/* MIPS32r2 */
 
 #define D11CONF		0x133b0000	/* 16,17,19,20,21,24,25,28 */
 
 #define ACONF		0		/* No A-Phy */
 #define GCONF		0		/* No G-Phy */
-#define NCONF		0x20360 /* 5 (4716), 6 (43222a0, 43224a0), 8-9 (5357, 43236a0), 17 (53572a0) */
+#define NCONF		0x20360		/* 5 (4716), 6 (43222a0, 43224a0), 8-9 (5357, 43236a0), 17 (53572a0) */
 #define HTCONF		0		/* No HT-Phy */
 #define LPCONF		0		/* No LP-Phy */
-#define SSLPNCONF	0x0000b /* 0-1 (4329), 3 (5356) */
+#define SSLPNCONF	0x0000b		/* 0-1 (4329), 3 (5356) */
 #define LCNCONF		0		/* No LCN-Phy */
+
+#define NRXBUFPOST	128	/* # rx buffers posted */
 
 #endif	/* MIPS32r2 */
 
-
-#define NRXBUFPOST	64	/* # rx buffers posted */
 #define RXBND		24	/* max # rx frames to process */
-//#define CTFPOOLSZ       64	/* max buffers in ctfpool */
+#define CTFPOOLSZ	192	/* max buffers in ctfpool */
 
 #define WME_PER_AC_TX_PARAMS 1
 #define WME_PER_AC_TUNING 1
