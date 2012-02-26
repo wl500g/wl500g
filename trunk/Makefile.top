@@ -394,6 +394,11 @@ modules_install-usb:
 		$(SRCMODULESDIR)/drivers/usb/serial/ftdi_sio$(ko) \
 		$(SRCMODULESDIR)/drivers/usb/serial/option$(ko) \
 		$(SRCMODULESDIR)/drivers/usb/class/cdc-acm$(ko) 
+	# usb net
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/net/usb/usbnet$(ko) \
+		$(SRCMODULESDIR)/drivers/net/usb/cdc_ether$(ko) \
+		$(SRCMODULESDIR)/drivers/net/usb/rndis_host$(ko) 
 	# usb webcams
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/media/video/videodev$(ko) \
