@@ -1,0 +1,49 @@
+From 5095d64db1b978bdb31d30fed9e47dbf04f729be
+From: "RongQing.Li"
+Date: Tue, 21 Feb 2012 22:10:49 +0000
+Subject: [PATCH] ipv6: ip6_route_output() never returns NULL.
+
+ip6_route_output() never returns NULL, so it is wrong to
+check if the return value is NULL.
+
+Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/ipv6/ip6mr.c |    4 +++-
+ net/ipv6/ndisc.c |    5 +++--
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -1926,8 +1926,10 @@ static int ip6mr_forward2(struct net *net, struct mr6_table *mrt,
+ 	};
+ 
+ 	dst = ip6_route_output(NULL, &fl);
+-	if (!dst)
++	if (dst->error) {
++		dst_release(dst);
+ 		goto out_free;
++	}
+ 
+ 	dst_release(skb->dst);
+ 	skb->dst = dst;
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1545,9 +1545,10 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
+ 			 dev->ifindex);
+ 
+ 	dst = ip6_route_output(NULL, &fl);
+-	if (dst == NULL)
++	if (dst->error) {
++		dst_release(dst);
+ 		return;
+-
++	}
+ 	err = xfrm_lookup(&dst, &fl, NULL, 0);
+ 	if (err)
+ 		return;
+-- 
+1.7.6.5
