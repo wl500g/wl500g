@@ -1,0 +1,841 @@
+ntfs: Updates from upstream
+
+ bfab36e81611e60573b84eb4e4b4c8d8545b2320 NTFS: Fix a mount time deadlock.
+ a9c62a18a291499d15a370d08771e781fbaf91e6 fs: correct SuS compliance for open of large file without options
+ ebab89909e0dc716282d5e7f6e73a3155fe66d4a NTFS: Fix read regression.
+ 2818ef50c4dc103ce52e12d14ce2dfbde5268120 NTFS: writev() fix and maintenance/contact details update
+ c4af96449e20f9245cf3d904098db508cdebcda8 ntfs: use bitmap_weight
+ af5eb745efe97d91d2cbe793029838b3311c15da NTFS: Fix invalid pointer dereference in ntfs_mft_record_alloc().
+ 45d95bcd7ac961eef26374a0ad6100cda55bcea1 NTFS: Do not dereference pointer before checking for NULL.
+
+---
+ Documentation/filesystems/ntfs.txt |    9 ++
+ MAINTAINERS                        |    6 -
+ fs/gfs2/ops_file.c                 |    2 
+ fs/ntfs/ChangeLog                  |   12 +++
+ fs/ntfs/Makefile                   |    2 
+ fs/ntfs/aops.c                     |   32 +++++---
+ fs/ntfs/attrib.c                   |   17 ++--
+ fs/ntfs/compress.c                 |   10 ++
+ fs/ntfs/file.c                     |   67 ++++++++---------
+ fs/ntfs/inode.c                    |    3 
+ fs/ntfs/logfile.c                  |  141 +++++++++++++++++++++++++++++++++----
+ fs/ntfs/mft.c                      |   11 +-
+ fs/ntfs/runlist.c                  |    4 -
+ fs/ntfs/super.c                    |   31 ++++----
+ fs/open.c                          |    2 
+ 15 files changed, 250 insertions(+), 99 deletions(-)
+
+diff --git a/Documentation/filesystems/ntfs.txt b/Documentation/filesystems/ntfs.txt
+--- a/Documentation/filesystems/ntfs.txt
++++ b/Documentation/filesystems/ntfs.txt
+@@ -407,7 +407,7 @@ raiddev /dev/md0
+ 	device		/dev/hda5
+ 	raid-disk	0
+ 	device		/dev/hdb1
+-	raid-disl	1
++	raid-disk	1
+ 
+ For linear raid, just change the raid-level above to "raid-level linear", for
+ mirrors, change it to "raid-level 1", and for stripe sets with parity, change
+@@ -457,6 +457,13 @@ ChangeLog
+ 
+ Note, a technical ChangeLog aimed at kernel hackers is in fs/ntfs/ChangeLog.
+ 
++2.1.30:
++	- Fix writev() (it kept writing the first segment over and over again
++	  instead of moving onto subsequent segments).
++	- Fix crash in ntfs_mft_record_alloc() when mapping the new extent mft
++	  record failed.
++2.1.29:
++	- Fix a deadlock when mounting read-write.
+ 2.1.28:
+ 	- Fix a deadlock.
+ 2.1.27:
+diff --git a/fs/gfs2/ops_file.c b/fs/gfs2/ops_file.c
+--- a/fs/gfs2/ops_file.c
++++ b/fs/gfs2/ops_file.c
+@@ -401,7 +401,7 @@ static int gfs2_open(struct inode *inode
+ 
+ 		if (!(file->f_flags & O_LARGEFILE) &&
+ 		    ip->i_di.di_size > MAX_NON_LFS) {
+-			error = -EFBIG;
++			error = -EOVERFLOW;
+ 			goto fail_gunlock;
+ 		}
+ 
+diff --git a/fs/ntfs/aops.c b/fs/ntfs/aops.c
+--- a/fs/ntfs/aops.c
++++ b/fs/ntfs/aops.c
+@@ -2,7 +2,7 @@
+  * aops.c - NTFS kernel address space operations and page cache handling.
+  *	    Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2006 Anton Altaparmakov
++ * Copyright (c) 2001-2007 Anton Altaparmakov
+  * Copyright (c) 2002 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -396,7 +396,7 @@ static int ntfs_readpage(struct file *fi
+ 	loff_t i_size;
+ 	struct inode *vi;
+ 	ntfs_inode *ni, *base_ni;
+-	u8 *kaddr;
++	u8 *addr;
+ 	ntfs_attr_search_ctx *ctx;
+ 	MFT_RECORD *mrec;
+ 	unsigned long flags;
+@@ -405,6 +405,15 @@ static int ntfs_readpage(struct file *fi
+ 
+ retry_readpage:
+ 	BUG_ON(!PageLocked(page));
++	vi = page->mapping->host;
++	i_size = i_size_read(vi);
++	/* Is the page fully outside i_size? (truncate in progress) */
++	if (unlikely(page->index >= (i_size + PAGE_CACHE_SIZE - 1) >>
++			PAGE_CACHE_SHIFT)) {
++		zero_user_page(page, 0, PAGE_CACHE_SIZE, KM_USER0);
++		ntfs_debug("Read outside i_size - truncated?");
++		goto done;
++	}
+ 	/*
+ 	 * This can potentially happen because we clear PageUptodate() during
+ 	 * ntfs_writepage() of MstProtected() attributes.
+@@ -413,7 +422,6 @@ retry_readpage:
+ 		unlock_page(page);
+ 		return 0;
+ 	}
+-	vi = page->mapping->host;
+ 	ni = NTFS_I(vi);
+ 	/*
+ 	 * Only $DATA attributes can be encrypted and only unnamed $DATA
+@@ -491,15 +499,15 @@ retry_readpage:
+ 		/* Race with shrinking truncate. */
+ 		attr_len = i_size;
+ 	}
+-	kaddr = kmap_atomic(page, KM_USER0);
++	addr = kmap_atomic(page, KM_USER0);
+ 	/* Copy the data to the page. */
+-	memcpy(kaddr, (u8*)ctx->attr +
++	memcpy(addr, (u8*)ctx->attr +
+ 			le16_to_cpu(ctx->attr->data.resident.value_offset),
+ 			attr_len);
+ 	/* Zero the remainder of the page. */
+-	memset(kaddr + attr_len, 0, PAGE_CACHE_SIZE - attr_len);
++	memset(addr + attr_len, 0, PAGE_CACHE_SIZE - attr_len);
+ 	flush_dcache_page(page);
+-	kunmap_atomic(kaddr, KM_USER0);
++	kunmap_atomic(addr, KM_USER0);
+ put_unm_err_out:
+ 	ntfs_attr_put_search_ctx(ctx);
+ unm_err_out:
+@@ -1344,7 +1352,7 @@ static int ntfs_writepage(struct page *p
+ 	loff_t i_size;
+ 	struct inode *vi = page->mapping->host;
+ 	ntfs_inode *base_ni = NULL, *ni = NTFS_I(vi);
+-	char *kaddr;
++	char *addr;
+ 	ntfs_attr_search_ctx *ctx = NULL;
+ 	MFT_RECORD *m = NULL;
+ 	u32 attr_len;
+@@ -1484,14 +1492,14 @@ retry_writepage:
+ 		/* Shrinking cannot fail. */
+ 		BUG_ON(err);
+ 	}
+-	kaddr = kmap_atomic(page, KM_USER0);
++	addr = kmap_atomic(page, KM_USER0);
+ 	/* Copy the data from the page to the mft record. */
+ 	memcpy((u8*)ctx->attr +
+ 			le16_to_cpu(ctx->attr->data.resident.value_offset),
+-			kaddr, attr_len);
++			addr, attr_len);
+ 	/* Zero out of bounds area in the page cache page. */
+-	memset(kaddr + attr_len, 0, PAGE_CACHE_SIZE - attr_len);
+-	kunmap_atomic(kaddr, KM_USER0);
++	memset(addr + attr_len, 0, PAGE_CACHE_SIZE - attr_len);
++	kunmap_atomic(addr, KM_USER0);
+ 	flush_dcache_page(page);
+ 	flush_dcache_mft_record_page(ctx->ntfs_ino);
+ 	/* We are done with the page. */
+diff --git a/fs/ntfs/attrib.c b/fs/ntfs/attrib.c
+--- a/fs/ntfs/attrib.c
++++ b/fs/ntfs/attrib.c
+@@ -1,7 +1,7 @@
+ /**
+  * attrib.c - NTFS attribute operations.  Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2006 Anton Altaparmakov
++ * Copyright (c) 2001-2012 Anton Altaparmakov and Tuxera Inc.
+  * Copyright (c) 2002 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -179,10 +179,7 @@ int ntfs_map_runlist_nolock(ntfs_inode *
+ 	 * ntfs_mapping_pairs_decompress() fails.
+ 	 */
+ 	end_vcn = sle64_to_cpu(a->data.non_resident.highest_vcn) + 1;
+-	if (!a->data.non_resident.lowest_vcn && end_vcn == 1)
+-		end_vcn = sle64_to_cpu(a->data.non_resident.allocated_size) >>
+-				ni->vol->cluster_size_bits;
+-	if (unlikely(vcn >= end_vcn)) {
++	if (unlikely(vcn && vcn >= end_vcn)) {
+ 		err = -ENOENT;
+ 		goto err_out;
+ 	}
+@@ -347,10 +344,10 @@ LCN ntfs_attr_vcn_to_lcn_nolock(ntfs_ino
+ 	unsigned long flags;
+ 	bool is_retry = false;
+ 
++	BUG_ON(!ni);
+ 	ntfs_debug("Entering for i_ino 0x%lx, vcn 0x%llx, %s_locked.",
+ 			ni->mft_no, (unsigned long long)vcn,
+ 			write_locked ? "write" : "read");
+-	BUG_ON(!ni);
+ 	BUG_ON(!NInoNonResident(ni));
+ 	BUG_ON(vcn < 0);
+ 	if (!ni->runlist.rl) {
+@@ -471,9 +468,9 @@ runlist_element *ntfs_attr_find_vcn_nolo
+ 	int err = 0;
+ 	bool is_retry = false;
+ 
++	BUG_ON(!ni);
+ 	ntfs_debug("Entering for i_ino 0x%lx, vcn 0x%llx, with%s ctx.",
+ 			ni->mft_no, (unsigned long long)vcn, ctx ? "" : "out");
+-	BUG_ON(!ni);
+ 	BUG_ON(!NInoNonResident(ni));
+ 	BUG_ON(vcn < 0);
+ 	if (!ni->runlist.rl) {
+@@ -2500,7 +2497,7 @@ int ntfs_attr_set(ntfs_inode *ni, const
+ 	struct page *page;
+ 	u8 *kaddr;
+ 	pgoff_t idx, end;
+-	unsigned int start_ofs, end_ofs, size;
++	unsigned start_ofs, end_ofs, size;
+ 
+ 	ntfs_debug("Entering for ofs 0x%llx, cnt 0x%llx, val 0x%hx.",
+ 			(long long)ofs, (long long)cnt, val);
+@@ -2548,6 +2545,8 @@ int ntfs_attr_set(ntfs_inode *ni, const
+ 		kunmap_atomic(kaddr, KM_USER0);
+ 		set_page_dirty(page);
+ 		page_cache_release(page);
++		balance_dirty_pages_ratelimited(mapping);
++		cond_resched();
+ 		if (idx == end)
+ 			goto done;
+ 		idx++;
+@@ -2604,6 +2603,8 @@ int ntfs_attr_set(ntfs_inode *ni, const
+ 		kunmap_atomic(kaddr, KM_USER0);
+ 		set_page_dirty(page);
+ 		page_cache_release(page);
++		balance_dirty_pages_ratelimited(mapping);
++		cond_resched();
+ 	}
+ done:
+ 	ntfs_debug("Done.");
+diff --git a/fs/ntfs/ChangeLog b/fs/ntfs/ChangeLog
+--- a/fs/ntfs/ChangeLog
++++ b/fs/ntfs/ChangeLog
+@@ -17,6 +17,18 @@ ToDo/Notes:
+ 	  happen is unclear however so it is worth waiting until someone hits
+ 	  the problem.
+ 
++2.1.29 - Fix a deadlock at mount time.
++
++	- During mount the VFS holds s_umount lock on the superblock.  So when
++	  we try to empty the journal $LogFile contents by calling
++	  ntfs_attr_set() when the machine does not have much memory and the
++	  journal is large ntfs_attr_set() results in the VM trying to balance
++	  dirty pages which in turn tries to that the s_umount lock and thus we
++	  get a deadlock.  The solution is to not use ntfs_attr_set() and
++	  instead do the zeroing by hand at the block level rather than page
++	  cache level.
++	- Fix sparse warnings.
++
+ 2.1.28 - Fix a deadlock.
+ 
+ 	- Fix deadlock in fs/ntfs/inode.c::ntfs_put_inode().  Thanks to Sergey
+diff --git a/fs/ntfs/compress.c b/fs/ntfs/compress.c
+--- a/fs/ntfs/compress.c
++++ b/fs/ntfs/compress.c
+@@ -561,6 +561,16 @@ int ntfs_read_compressed_block(struct pa
+ 	read_unlock_irqrestore(&ni->size_lock, flags);
+ 	max_page = ((i_size + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT) -
+ 			offset;
++	/* Is the page fully outside i_size? (truncate in progress) */
++	if (xpage >= max_page) {
++		kfree(bhs);
++		kfree(pages);
++		zero_user_page(page, 0, PAGE_CACHE_SIZE, KM_USER0);
++		ntfs_debug("Compressed read outside i_size - truncated?");
++		SetPageUptodate(page);
++		unlock_page(page);
++		return 0;
++	}
+ 	if (nr_pages < max_page)
+ 		max_page = nr_pages;
+ 	for (i = 0; i < max_page; i++, offset++) {
+diff --git a/fs/ntfs/file.c b/fs/ntfs/file.c
+--- a/fs/ntfs/file.c
++++ b/fs/ntfs/file.c
+@@ -1,7 +1,7 @@
+ /*
+  * file.c - NTFS kernel file operations.  Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2006 Anton Altaparmakov
++ * Copyright (c) 2001-2011 Anton Altaparmakov and Tuxera Inc.
+  *
+  * This program/include file is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as published
+@@ -26,7 +26,6 @@
+ #include <linux/swap.h>
+ #include <linux/uio.h>
+ #include <linux/writeback.h>
+-#include <linux/sched.h>
+ 
+ #include <asm/page.h>
+ #include <asm/uaccess.h>
+@@ -62,7 +61,7 @@ static int ntfs_file_open(struct inode *
+ {
+ 	if (sizeof(unsigned long) < 8) {
+ 		if (i_size_read(vi) > MAX_LFS_FILESIZE)
+-			return -EFBIG;
++			return -EOVERFLOW;
+ 	}
+ 	return generic_file_open(vi, filp);
+ }
+@@ -362,7 +361,7 @@ static inline void ntfs_fault_in_pages_r
+ 	volatile char c;
+ 
+ 	/* Set @end to the first byte outside the last page we care about. */
+-	end = (const char __user*)PAGE_ALIGN((ptrdiff_t __user)uaddr + bytes);
++	end = (const char __user*)PAGE_ALIGN((unsigned long)uaddr + bytes);
+ 
+ 	while (!__get_user(c, uaddr) && (uaddr += PAGE_SIZE, uaddr < end))
+ 		;
+@@ -532,7 +531,8 @@ static int ntfs_prepare_pages_for_non_re
+ 	blocksize_bits = vol->sb->s_blocksize_bits;
+ 	u = 0;
+ 	do {
+-		struct page *page = pages[u];
++		page = pages[u];
++		BUG_ON(!page);
+ 		/*
+ 		 * create_empty_buffers() will create uptodate/dirty buffers if
+ 		 * the page is uptodate/dirty.
+@@ -1291,7 +1291,7 @@ static inline size_t ntfs_copy_from_user
+ 		size_t bytes)
+ {
+ 	struct page **last_page = pages + nr_pages;
+-	char *kaddr;
++	char *addr;
+ 	size_t total = 0;
+ 	unsigned len;
+ 	int left;
+@@ -1300,13 +1300,13 @@ static inline size_t ntfs_copy_from_user
+ 		len = PAGE_CACHE_SIZE - ofs;
+ 		if (len > bytes)
+ 			len = bytes;
+-		kaddr = kmap_atomic(*pages, KM_USER0);
+-		left = __copy_from_user_inatomic(kaddr + ofs, buf, len);
+-		kunmap_atomic(kaddr, KM_USER0);
++		addr = kmap_atomic(*pages, KM_USER0);
++		left = __copy_from_user_inatomic(addr + ofs, buf, len);
++		kunmap_atomic(addr, KM_USER0);
+ 		if (unlikely(left)) {
+ 			/* Do it the slow way. */
+-			kaddr = kmap(*pages);
+-			left = __copy_from_user(kaddr + ofs, buf, len);
++			addr = kmap(*pages);
++			left = __copy_from_user(addr + ofs, buf, len);
+ 			kunmap(*pages);
+ 			if (unlikely(left))
+ 				goto err_out;
+@@ -1393,57 +1393,56 @@ static inline void ntfs_set_next_iovec(c
+  * pages (out to offset + bytes), to emulate ntfs_copy_from_user()'s
+  * single-segment behaviour.
+  *
+- * We call the same helper (__ntfs_copy_from_user_iovec_inatomic()) both
+- * when atomic and when not atomic.  This is ok because
+- * __ntfs_copy_from_user_iovec_inatomic() calls __copy_from_user_inatomic()
+- * and it is ok to call this when non-atomic.
+- * Infact, the only difference between __copy_from_user_inatomic() and
++ * We call the same helper (__ntfs_copy_from_user_iovec_inatomic()) both when
++ * atomic and when not atomic.  This is ok because it calls
++ * __copy_from_user_inatomic() and it is ok to call this when non-atomic.  In
++ * fact, the only difference between __copy_from_user_inatomic() and
+  * __copy_from_user() is that the latter calls might_sleep() and the former
+- * should not zero the tail of the buffer on error.  And on many
+- * architectures __copy_from_user_inatomic() is just defined to
+- * __copy_from_user() so it makes no difference at all on those architectures.
++ * should not zero the tail of the buffer on error.  And on many architectures
++ * __copy_from_user_inatomic() is just defined to __copy_from_user() so it
++ * makes no difference at all on those architectures.
+  */
+ static inline size_t ntfs_copy_from_user_iovec(struct page **pages,
+ 		unsigned nr_pages, unsigned ofs, const struct iovec **iov,
+ 		size_t *iov_ofs, size_t bytes)
+ {
+ 	struct page **last_page = pages + nr_pages;
+-	char *kaddr;
++	char *addr;
+ 	size_t copied, len, total = 0;
+ 
+ 	do {
+ 		len = PAGE_CACHE_SIZE - ofs;
+ 		if (len > bytes)
+ 			len = bytes;
+-		kaddr = kmap_atomic(*pages, KM_USER0);
+-		copied = __ntfs_copy_from_user_iovec_inatomic(kaddr + ofs,
++		addr = kmap_atomic(*pages, KM_USER0);
++		copied = __ntfs_copy_from_user_iovec_inatomic(addr + ofs,
+ 				*iov, *iov_ofs, len);
+-		kunmap_atomic(kaddr, KM_USER0);
++		kunmap_atomic(addr, KM_USER0);
+ 		if (unlikely(copied != len)) {
+ 			/* Do it the slow way. */
+-			kaddr = kmap(*pages);
+-			copied = __ntfs_copy_from_user_iovec_inatomic(kaddr + ofs,
+-					*iov, *iov_ofs, len);
+-			/*
+-			 * Zero the rest of the target like __copy_from_user().
+-			 */
+-			memset(kaddr + ofs + copied, 0, len - copied);
+-			kunmap(*pages);
++			addr = kmap(*pages);
++			copied = __ntfs_copy_from_user_iovec_inatomic(addr +
++					ofs, *iov, *iov_ofs, len);
+ 			if (unlikely(copied != len))
+ 				goto err_out;
++			kunmap(*pages);
+ 		}
+ 		total += len;
++		ntfs_set_next_iovec(iov, iov_ofs, len);
+ 		bytes -= len;
+ 		if (!bytes)
+ 			break;
+-		ntfs_set_next_iovec(iov, iov_ofs, len);
+ 		ofs = 0;
+ 	} while (++pages < last_page);
+ out:
+ 	return total;
+ err_out:
+-	total += copied;
++	BUG_ON(copied > len);
+ 	/* Zero the rest of the target like __copy_from_user(). */
++	memset(addr + ofs + copied, 0, len - copied);
++	kunmap(*pages);
++	total += copied;
++	ntfs_set_next_iovec(iov, iov_ofs, copied);
+ 	while (++pages < last_page) {
+ 		bytes -= len;
+ 		if (!bytes)
+@@ -1735,8 +1734,6 @@ static int ntfs_commit_pages_after_write
+ 	read_unlock_irqrestore(&ni->size_lock, flags);
+ 	BUG_ON(initialized_size != i_size);
+ 	if (end > initialized_size) {
+-		unsigned long flags;
+-
+ 		write_lock_irqsave(&ni->size_lock, flags);
+ 		ni->initialized_size = end;
+ 		i_size_write(vi, end);
+diff --git a/fs/ntfs/inode.c b/fs/ntfs/inode.c
+--- a/fs/ntfs/inode.c
++++ b/fs/ntfs/inode.c
+@@ -34,7 +34,6 @@
+ #include "dir.h"
+ #include "debug.h"
+ #include "inode.h"
+-#include "attrib.h"
+ #include "lcnalloc.h"
+ #include "malloc.h"
+ #include "mft.h"
+@@ -2500,8 +2499,6 @@ retry_truncate:
+ 	/* Resize the attribute record to best fit the new attribute size. */
+ 	if (new_size < vol->mft_record_size &&
+ 			!ntfs_resident_attr_value_resize(m, a, new_size)) {
+-		unsigned long flags;
+-
+ 		/* The resize succeeded! */
+ 		flush_dcache_mft_record_page(ctx->ntfs_ino);
+ 		mark_mft_record_dirty(ctx->ntfs_ino);
+diff --git a/fs/ntfs/logfile.c b/fs/ntfs/logfile.c
+--- a/fs/ntfs/logfile.c
++++ b/fs/ntfs/logfile.c
+@@ -1,7 +1,7 @@
+ /*
+  * logfile.c - NTFS kernel journal handling. Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2002-2005 Anton Altaparmakov
++ * Copyright (c) 2002-2007 Anton Altaparmakov
+  *
+  * This program/include file is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as published
+@@ -724,24 +724,139 @@ bool ntfs_is_logfile_clean(struct inode
+  */
+ bool ntfs_empty_logfile(struct inode *log_vi)
+ {
+-	ntfs_volume *vol = NTFS_SB(log_vi->i_sb);
++	VCN vcn, end_vcn;
++	ntfs_inode *log_ni = NTFS_I(log_vi);
++	ntfs_volume *vol = log_ni->vol;
++	struct super_block *sb = vol->sb;
++	runlist_element *rl;
++	unsigned long flags;
++	unsigned block_size, block_size_bits;
++	int err;
++	bool should_wait = true;
+ 
+ 	ntfs_debug("Entering.");
+-	if (!NVolLogFileEmpty(vol)) {
+-		int err;
+-		
+-		err = ntfs_attr_set(NTFS_I(log_vi), 0, i_size_read(log_vi),
+-				0xff);
+-		if (unlikely(err)) {
+-			ntfs_error(vol->sb, "Failed to fill $LogFile with "
+-					"0xff bytes (error code %i).", err);
+-			return false;
++	if (NVolLogFileEmpty(vol)) {
++		ntfs_debug("Done.");
++		return true;
++	}
++	/*
++	 * We cannot use ntfs_attr_set() because we may be still in the middle
++	 * of a mount operation.  Thus we do the emptying by hand by first
++	 * zapping the page cache pages for the $LogFile/$DATA attribute and
++	 * then emptying each of the buffers in each of the clusters specified
++	 * by the runlist by hand.
++	 */
++	block_size = sb->s_blocksize;
++	block_size_bits = sb->s_blocksize_bits;
++	vcn = 0;
++	read_lock_irqsave(&log_ni->size_lock, flags);
++	end_vcn = (log_ni->initialized_size + vol->cluster_size_mask) >>
++			vol->cluster_size_bits;
++	read_unlock_irqrestore(&log_ni->size_lock, flags);
++	truncate_inode_pages(log_vi->i_mapping, 0);
++	down_write(&log_ni->runlist.lock);
++	rl = log_ni->runlist.rl;
++	if (unlikely(!rl || vcn < rl->vcn || !rl->length)) {
++map_vcn:
++		err = ntfs_map_runlist_nolock(log_ni, vcn, NULL);
++		if (err) {
++			ntfs_error(sb, "Failed to map runlist fragment (error "
++					"%d).", -err);
++			goto err;
+ 		}
+-		/* Set the flag so we do not have to do it again on remount. */
+-		NVolSetLogFileEmpty(vol);
++		rl = log_ni->runlist.rl;
++		BUG_ON(!rl || vcn < rl->vcn || !rl->length);
+ 	}
++	/* Seek to the runlist element containing @vcn. */
++	while (rl->length && vcn >= rl[1].vcn)
++		rl++;
++	do {
++		LCN lcn;
++		sector_t block, end_block;
++		s64 len;
++
++		/*
++		 * If this run is not mapped map it now and start again as the
++		 * runlist will have been updated.
++		 */
++		lcn = rl->lcn;
++		if (unlikely(lcn == LCN_RL_NOT_MAPPED)) {
++			vcn = rl->vcn;
++			goto map_vcn;
++		}
++		/* If this run is not valid abort with an error. */
++		if (unlikely(!rl->length || lcn < LCN_HOLE))
++			goto rl_err;
++		/* Skip holes. */
++		if (lcn == LCN_HOLE)
++			continue;
++		block = lcn << vol->cluster_size_bits >> block_size_bits;
++		len = rl->length;
++		if (rl[1].vcn > end_vcn)
++			len = end_vcn - rl->vcn;
++		end_block = (lcn + len) << vol->cluster_size_bits >>
++				block_size_bits;
++		/* Iterate over the blocks in the run and empty them. */
++		do {
++			struct buffer_head *bh;
++
++			/* Obtain the buffer, possibly not uptodate. */
++			bh = sb_getblk(sb, block);
++			BUG_ON(!bh);
++			/* Setup buffer i/o submission. */
++			lock_buffer(bh);
++			bh->b_end_io = end_buffer_write_sync;
++			get_bh(bh);
++			/* Set the entire contents of the buffer to 0xff. */
++			memset(bh->b_data, -1, block_size);
++			if (!buffer_uptodate(bh))
++				set_buffer_uptodate(bh);
++			if (buffer_dirty(bh))
++				clear_buffer_dirty(bh);
++			/*
++			 * Submit the buffer and wait for i/o to complete but
++			 * only for the first buffer so we do not miss really
++			 * serious i/o errors.  Once the first buffer has
++			 * completed ignore errors afterwards as we can assume
++			 * that if one buffer worked all of them will work.
++			 */
++			submit_bh(WRITE, bh);
++			if (should_wait) {
++				should_wait = false;
++				wait_on_buffer(bh);
++				if (unlikely(!buffer_uptodate(bh)))
++					goto io_err;
++			}
++			brelse(bh);
++		} while (++block < end_block);
++	} while ((++rl)->vcn < end_vcn);
++	up_write(&log_ni->runlist.lock);
++	/*
++	 * Zap the pages again just in case any got instantiated whilst we were
++	 * emptying the blocks by hand.  FIXME: We may not have completed
++	 * writing to all the buffer heads yet so this may happen too early.
++	 * We really should use a kernel thread to do the emptying
++	 * asynchronously and then we can also set the volume dirty and output
++	 * an error message if emptying should fail.
++	 */
++	truncate_inode_pages(log_vi->i_mapping, 0);
++	/* Set the flag so we do not have to do it again on remount. */
++	NVolSetLogFileEmpty(vol);
+ 	ntfs_debug("Done.");
+ 	return true;
++io_err:
++	ntfs_error(sb, "Failed to write buffer.  Unmount and run chkdsk.");
++	goto dirty_err;
++rl_err:
++	ntfs_error(sb, "Runlist is corrupt.  Unmount and run chkdsk.");
++dirty_err:
++	NVolSetErrors(vol);
++	err = -EIO;
++err:
++	up_write(&log_ni->runlist.lock);
++	ntfs_error(sb, "Failed to fill $LogFile with 0xff bytes (error %d).",
++			-err);
++	return false;
+ }
+ 
+ #endif /* NTFS_RW */
+diff --git a/fs/ntfs/Makefile b/fs/ntfs/Makefile
+--- a/fs/ntfs/Makefile
++++ b/fs/ntfs/Makefile
+@@ -6,7 +6,7 @@ ntfs-objs := aops.o attrib.o collate.o c
+ 	     index.o inode.o mft.o mst.o namei.o runlist.o super.o sysctl.o \
+ 	     unistr.o upcase.o
+ 
+-EXTRA_CFLAGS = -DNTFS_VERSION=\"2.1.28\"
++EXTRA_CFLAGS = -DNTFS_VERSION=\"2.1.30\"
+ 
+ ifeq ($(CONFIG_NTFS_DEBUG),y)
+ EXTRA_CFLAGS += -DDEBUG
+diff --git a/fs/ntfs/mft.c b/fs/ntfs/mft.c
+--- a/fs/ntfs/mft.c
++++ b/fs/ntfs/mft.c
+@@ -1,7 +1,7 @@
+ /**
+  * mft.c - NTFS kernel mft record operations. Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2006 Anton Altaparmakov
++ * Copyright (c) 2001-2011 Anton Altaparmakov and Tuxera Inc.
+  * Copyright (c) 2002 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -2576,6 +2576,8 @@ mft_rec_already_initialized:
+ 	flush_dcache_page(page);
+ 	SetPageUptodate(page);
+ 	if (base_ni) {
++		MFT_RECORD *m_tmp;
++
+ 		/*
+ 		 * Setup the base mft record in the extent mft record.  This
+ 		 * completes initialization of the allocated extent mft record
+@@ -2588,11 +2590,11 @@ mft_rec_already_initialized:
+ 		 * attach it to the base inode @base_ni and map, pin, and lock
+ 		 * its, i.e. the allocated, mft record.
+ 		 */
+-		m = map_extent_mft_record(base_ni, bit, &ni);
+-		if (IS_ERR(m)) {
++		m_tmp = map_extent_mft_record(base_ni, bit, &ni);
++		if (IS_ERR(m_tmp)) {
+ 			ntfs_error(vol->sb, "Failed to map allocated extent "
+ 					"mft record 0x%llx.", (long long)bit);
+-			err = PTR_ERR(m);
++			err = PTR_ERR(m_tmp);
+ 			/* Set the mft record itself not in use. */
+ 			m->flags &= cpu_to_le16(
+ 					~le16_to_cpu(MFT_RECORD_IN_USE));
+@@ -2603,6 +2605,7 @@ mft_rec_already_initialized:
+ 			ntfs_unmap_page(page);
+ 			goto undo_mftbmp_alloc;
+ 		}
++		BUG_ON(m != m_tmp);
+ 		/*
+ 		 * Make sure the allocated mft record is written out to disk.
+ 		 * No need to set the inode dirty because the caller is going
+diff --git a/fs/ntfs/runlist.c b/fs/ntfs/runlist.c
+--- a/fs/ntfs/runlist.c
++++ b/fs/ntfs/runlist.c
+@@ -1,7 +1,7 @@
+ /**
+  * runlist.c - NTFS runlist handling code.  Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2005 Anton Altaparmakov
++ * Copyright (c) 2001-2007 Anton Altaparmakov
+  * Copyright (c) 2002-2005 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -1714,7 +1714,7 @@ extend_hole:
+ 					sizeof(*rl));
+ 		/* Adjust the beginning of the tail if necessary. */
+ 		if (end > rl->vcn) {
+-			s64 delta = end - rl->vcn;
++			delta = end - rl->vcn;
+ 			rl->vcn = end;
+ 			rl->length -= delta;
+ 			/* Only adjust the lcn if it is real. */
+diff --git a/fs/ntfs/super.c b/fs/ntfs/super.c
+--- a/fs/ntfs/super.c
++++ b/fs/ntfs/super.c
+@@ -1,7 +1,7 @@
+ /*
+  * super.c - NTFS kernel super block handling. Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2007 Anton Altaparmakov
++ * Copyright (c) 2001-2011 Anton Altaparmakov and Tuxera Inc.
+  * Copyright (c) 2001,2002 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -31,6 +31,7 @@
+ #include <linux/vfs.h>
+ #include <linux/moduleparam.h>
+ #include <linux/smp_lock.h>
++#include <linux/bitmap.h>
+ 
+ #include "sysctl.h"
+ #include "logfile.h"
+@@ -2469,7 +2470,6 @@ static void ntfs_put_super(struct super_
+ static s64 get_nr_free_clusters(ntfs_volume *vol)
+ {
+ 	s64 nr_free = vol->nr_clusters;
+-	u32 *kaddr;
+ 	struct address_space *mapping = vol->lcnbmp_ino->i_mapping;
+ 	struct page *page;
+ 	pgoff_t index, max_index;
+@@ -2488,7 +2488,8 @@ static s64 get_nr_free_clusters(ntfs_vol
+ 	ntfs_debug("Reading $Bitmap, max_index = 0x%lx, max_size = 0x%lx.",
+ 			max_index, PAGE_CACHE_SIZE / 4);
+ 	for (index = 0; index < max_index; index++) {
+-		unsigned int i;
++		unsigned long *kaddr;
++
+ 		/*
+ 		 * Read the page from page cache, getting it from backing store
+ 		 * if necessary, and increment the use count.
+@@ -2501,16 +2502,16 @@ static s64 get_nr_free_clusters(ntfs_vol
+ 			nr_free -= PAGE_CACHE_SIZE * 8;
+ 			continue;
+ 		}
+-		kaddr = (u32*)kmap_atomic(page, KM_USER0);
++		kaddr = kmap_atomic(page, KM_USER0);
+ 		/*
+-		 * For each 4 bytes, subtract the number of set bits. If this
++		 * Subtract the number of set bits. If this
+ 		 * is the last page and it is partial we don't really care as
+ 		 * it just means we do a little extra work but it won't affect
+ 		 * the result as all out of range bytes are set to zero by
+ 		 * ntfs_readpage().
+ 		 */
+-	  	for (i = 0; i < PAGE_CACHE_SIZE / 4; i++)
+-			nr_free -= (s64)hweight32(kaddr[i]);
++		nr_free -= bitmap_weight(kaddr,
++					PAGE_CACHE_SIZE * BITS_PER_BYTE);
+ 		kunmap_atomic(kaddr, KM_USER0);
+ 		page_cache_release(page);
+ 	}
+@@ -2549,7 +2550,6 @@ static s64 get_nr_free_clusters(ntfs_vol
+ static unsigned long __get_nr_free_mft_records(ntfs_volume *vol,
+ 		s64 nr_free, const pgoff_t max_index)
+ {
+-	u32 *kaddr;
+ 	struct address_space *mapping = vol->mftbmp_ino->i_mapping;
+ 	struct page *page;
+ 	pgoff_t index;
+@@ -2559,7 +2559,8 @@ static unsigned long __get_nr_free_mft_r
+ 	ntfs_debug("Reading $MFT/$BITMAP, max_index = 0x%lx, max_size = "
+ 			"0x%lx.", max_index, PAGE_CACHE_SIZE / 4);
+ 	for (index = 0; index < max_index; index++) {
+-		unsigned int i;
++		unsigned long *kaddr;
++
+ 		/*
+ 		 * Read the page from page cache, getting it from backing store
+ 		 * if necessary, and increment the use count.
+@@ -2572,16 +2573,16 @@ static unsigned long __get_nr_free_mft_r
+ 			nr_free -= PAGE_CACHE_SIZE * 8;
+ 			continue;
+ 		}
+-		kaddr = (u32*)kmap_atomic(page, KM_USER0);
++		kaddr = kmap_atomic(page, KM_USER0);
+ 		/*
+-		 * For each 4 bytes, subtract the number of set bits. If this
++		 * Subtract the number of set bits. If this
+ 		 * is the last page and it is partial we don't really care as
+ 		 * it just means we do a little extra work but it won't affect
+ 		 * the result as all out of range bytes are set to zero by
+ 		 * ntfs_readpage().
+ 		 */
+-	  	for (i = 0; i < PAGE_CACHE_SIZE / 4; i++)
+-			nr_free -= (s64)hweight32(kaddr[i]);
++		nr_free -= bitmap_weight(kaddr,
++					PAGE_CACHE_SIZE * BITS_PER_BYTE);
+ 		kunmap_atomic(kaddr, KM_USER0);
+ 		page_cache_release(page);
+ 	}
+@@ -3233,8 +3234,8 @@ static void __exit exit_ntfs_fs(void)
+ 	ntfs_sysctl(0);
+ }
+ 
+-MODULE_AUTHOR("Anton Altaparmakov <aia21@cantab.net>");
+-MODULE_DESCRIPTION("NTFS 1.2/3.x driver - Copyright (c) 2001-2007 Anton Altaparmakov");
++MODULE_AUTHOR("Anton Altaparmakov <anton@tuxera.com>");
++MODULE_DESCRIPTION("NTFS 1.2/3.x driver - Copyright (c) 2001-2011 Anton Altaparmakov and Tuxera Inc.");
+ MODULE_VERSION(NTFS_VERSION);
+ MODULE_LICENSE("GPL");
+ #ifdef DEBUG
+diff --git a/fs/open.c b/fs/open.c
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -1173,7 +1173,7 @@ asmlinkage long sys_vhangup(void)
+ int generic_file_open(struct inode * inode, struct file * filp)
+ {
+ 	if (!(filp->f_flags & O_LARGEFILE) && i_size_read(inode) > MAX_NON_LFS)
+-		return -EFBIG;
++		return -EOVERFLOW;
+ 	return 0;
+ }
+ 
+diff --git a/MAINTAINERS b/MAINTAINERS
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2634,12 +2634,12 @@ S:	Maintained
+ 
+ NTFS FILESYSTEM
+ P:	Anton Altaparmakov
+-M:	aia21@cantab.net
++M:	anton@tuxera.com
+ L:	linux-ntfs-dev@lists.sourceforge.net
+ L:	linux-kernel@vger.kernel.org
+-W:	http://linux-ntfs.sf.net/
++W:	http://www.tuxera.com/
+ T:	git kernel.org:/pub/scm/linux/kernel/git/aia21/ntfs-2.6.git
+-S:	Maintained
++S:	Supported
+ 
+ NVIDIA (rivafb and nvidiafb) FRAMEBUFFER DRIVER
+ P:	Antonino Daplas
+-- 
