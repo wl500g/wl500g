@@ -2624,12 +2624,12 @@ S:	Maintained
 
 NTFS FILESYSTEM
 P:	Anton Altaparmakov
-M:	aia21@cantab.net
+M:	anton@tuxera.com
 L:	linux-ntfs-dev@lists.sourceforge.net
 L:	linux-kernel@vger.kernel.org
-W:	http://linux-ntfs.sf.net/
+W:	http://www.tuxera.com/
 T:	git kernel.org:/pub/scm/linux/kernel/git/aia21/ntfs-2.6.git
-S:	Maintained
+S:	Supported
 
 NVIDIA (rivafb and nvidiafb) FRAMEBUFFER DRIVER
 P:	Antonino Daplas
