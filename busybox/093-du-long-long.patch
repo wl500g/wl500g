@@ -1,0 +1,62 @@
+From 694738f4eb26e8c46e72be7f9c0be64b3a785161
+From: Ian Wienand
+Date: Tue, 28 Feb 2012 02:10:31 +0000
+Subject: du: use long long for size field
+
+du has issues with files reporting large block counts on
+32-bit systems with 4 byte longs.  From looking at the stat.c code, it
+seems the preference is to use 'long long', rather than blkcnt_t.
+
+function                                             old     new   delta
+du                                                   420     444     +24
+du_main                                              317     321      +4
+print                                                 43      41      -2
+------------------------------------------------------------------------------
+(add/remove: 0/0 grow/shrink: 2/1 up/down: 28/-2)              Total: 26 bytes
+
+Signed-off-by: Ian Wienand <ianw@vmware.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/coreutils/du.c b/coreutils/du.c
+--- a/coreutils/du.c
++++ b/coreutils/du.c
+@@ -91,7 +91,7 @@ struct globals {
+ #define INIT_G() do { } while (0)
+ 
+ 
+-static void print(unsigned long size, const char *filename)
++static void print(unsigned long long size, const char *filename)
+ {
+ 	/* TODO - May not want to defer error checking here. */
+ #if ENABLE_FEATURE_HUMAN_READABLE
+@@ -105,15 +105,15 @@ static void print(unsigned long size, const char *filename)
+ 		size++;
+ 		size >>= 1;
+ 	}
+-	printf("%lu\t%s\n", size, filename);
++	printf("%llu\t%s\n", size, filename);
+ #endif
+ }
+ 
+ /* tiny recursive du */
+-static unsigned long du(const char *filename)
++static unsigned long long du(const char *filename)
+ {
+ 	struct stat statbuf;
+-	unsigned long sum;
++	unsigned long long sum;
+ 
+ 	if (lstat(filename, &statbuf) != 0) {
+ 		bb_simple_perror_msg(filename);
+@@ -190,7 +190,7 @@ static unsigned long du(const char *filename)
+ int du_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+ int du_main(int argc UNUSED_PARAM, char **argv)
+ {
+-	unsigned long total;
++	unsigned long long total;
+ 	int slink_depth_save;
+ 	unsigned opt;
+ 
+--
+cgit v0.9.0.1-2-gef13
