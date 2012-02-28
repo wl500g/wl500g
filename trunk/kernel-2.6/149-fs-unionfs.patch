@@ -1,5 +1,52 @@
+unionfs 2.5.11
+
+---
+ Documentation/filesystems/00-INDEX             |    2 
+ Documentation/filesystems/unionfs/00-INDEX     |   10 
+ Documentation/filesystems/unionfs/concepts.txt |  287 ++++++
+ Documentation/filesystems/unionfs/issues.txt   |   28 
+ Documentation/filesystems/unionfs/rename.txt   |   31 
+ Documentation/filesystems/unionfs/usage.txt    |  134 +++
+ MAINTAINERS                                    |    8 
+ fs/Kconfig                                     |   53 -
+ fs/Makefile                                    |    1 
+ fs/ecryptfs/dentry.c                           |    2 
+ fs/ecryptfs/inode.c                            |    6 
+ fs/ecryptfs/main.c                             |    2 
+ fs/namei.c                                     |    1 
+ fs/splice.c                                    |   22 
+ fs/stack.c                                     |   82 +
+ fs/unionfs/Makefile                            |   17 
+ fs/unionfs/commonfops.c                        |  882 ++++++++++++++++++++
+ fs/unionfs/copyup.c                            |  889 ++++++++++++++++++++
+ fs/unionfs/debug.c                             |  538 ++++++++++++
+ fs/unionfs/dentry.c                            |  397 +++++++++
+ fs/unionfs/dirfops.c                           |  302 +++++++
+ fs/unionfs/dirhelper.c                         |  158 +++
+ fs/unionfs/fanout.h                            |  407 +++++++++
+ fs/unionfs/file.c                              |  364 ++++++++
+ fs/unionfs/inode.c                             | 1078 +++++++++++++++++++++++++
+ fs/unionfs/lookup.c                            |  572 +++++++++++++
+ fs/unionfs/main.c                              |  782 ++++++++++++++++++
+ fs/unionfs/mmap.c                              |   89 ++
+ fs/unionfs/rdstate.c                           |  285 ++++++
+ fs/unionfs/rename.c                            |  520 ++++++++++++
+ fs/unionfs/sioq.c                              |  101 ++
+ fs/unionfs/sioq.h                              |   92 ++
+ fs/unionfs/subr.c                              |   95 ++
+ fs/unionfs/super.c                             | 1048 ++++++++++++++++++++++++
+ fs/unionfs/union.h                             |  663 +++++++++++++++
+ fs/unionfs/unlink.c                            |  282 ++++++
+ fs/unionfs/whiteout.c                          |  574 +++++++++++++
+ fs/unionfs/xattr.c                             |  173 ++++
+ include/linux/fs_stack.h                       |   20 
+ include/linux/magic.h                          |    2 
+ include/linux/namei.h                          |   13 
+ include/linux/splice.h                         |    5 
+ include/linux/union_fs.h                       |   22 
+ 43 files changed, 10991 insertions(+), 48 deletions(-)
+
 diff --git a/Documentation/filesystems/00-INDEX b/Documentation/filesystems/00-INDEX
-index 59db1bc..40816d4 100644
 --- a/Documentation/filesystems/00-INDEX
 +++ b/Documentation/filesystems/00-INDEX
 @@ -86,6 +86,8 @@ udf.txt
@@ -13,7 +60,6 @@ index 59db1bc..40816d4 100644
  vfs.txt
 diff --git a/Documentation/filesystems/unionfs/00-INDEX b/Documentation/filesystems/unionfs/00-INDEX
 new file mode 100644
-index 0000000..96fdf67
 --- /dev/null
 +++ b/Documentation/filesystems/unionfs/00-INDEX
 @@ -0,0 +1,10 @@
@@ -29,7 +75,6 @@ index 0000000..96fdf67
 +	- Usage information and examples.
 diff --git a/Documentation/filesystems/unionfs/concepts.txt b/Documentation/filesystems/unionfs/concepts.txt
 new file mode 100644
-index 0000000..b853788
 --- /dev/null
 +++ b/Documentation/filesystems/unionfs/concepts.txt
 @@ -0,0 +1,287 @@
@@ -322,7 +367,6 @@ index 0000000..b853788
 +For more information, see <http://unionfs.filesystems.org/>.
 diff --git a/Documentation/filesystems/unionfs/issues.txt b/Documentation/filesystems/unionfs/issues.txt
 new file mode 100644
-index 0000000..f4b7e7e
 --- /dev/null
 +++ b/Documentation/filesystems/unionfs/issues.txt
 @@ -0,0 +1,28 @@
@@ -356,7 +400,6 @@ index 0000000..f4b7e7e
 +For more information, see <http://unionfs.filesystems.org/>.
 diff --git a/Documentation/filesystems/unionfs/rename.txt b/Documentation/filesystems/unionfs/rename.txt
 new file mode 100644
-index 0000000..e20bb82
 --- /dev/null
 +++ b/Documentation/filesystems/unionfs/rename.txt
 @@ -0,0 +1,31 @@
@@ -393,7 +436,6 @@ index 0000000..e20bb82
 +
 diff --git a/Documentation/filesystems/unionfs/usage.txt b/Documentation/filesystems/unionfs/usage.txt
 new file mode 100644
-index 0000000..1adde69
 --- /dev/null
 +++ b/Documentation/filesystems/unionfs/usage.txt
 @@ -0,0 +1,134 @@
@@ -532,7 +574,6 @@ index 0000000..1adde69
 +
 +For more information, see <http://unionfs.filesystems.org/>.
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 9a91d9e..87e1e63 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -3740,6 +3740,14 @@ L:	linux-kernel@vger.kernel.org
@@ -551,7 +592,6 @@ index 9a91d9e..87e1e63 100644
  P:	Oliver Neukum
  M:	oliver@neukum.name
 diff --git a/fs/Kconfig b/fs/Kconfig
-index f9eed6d..9afb8df 100644
 --- a/fs/Kconfig
 +++ b/fs/Kconfig
 @@ -1027,6 +1027,47 @@ config CONFIGFS_FS
@@ -622,7 +662,6 @@ index f9eed6d..9afb8df 100644
  	tristate "Apple Macintosh file system support (EXPERIMENTAL)"
  	depends on BLOCK && EXPERIMENTAL
 diff --git a/fs/Makefile b/fs/Makefile
-index 720c29d..f1301f3 100644
 --- a/fs/Makefile
 +++ b/fs/Makefile
 @@ -84,6 +84,7 @@ obj-$(CONFIG_ISO9660_FS)	+= isofs/
@@ -634,7 +673,6 @@ index 720c29d..f1301f3 100644
  obj-$(CONFIG_NFS_FS)		+= nfs/
  obj-$(CONFIG_EXPORTFS)		+= exportfs/
 diff --git a/fs/ecryptfs/dentry.c b/fs/ecryptfs/dentry.c
-index cb20b96..a8c1686 100644
 --- a/fs/ecryptfs/dentry.c
 +++ b/fs/ecryptfs/dentry.c
 @@ -62,7 +62,7 @@ static int ecryptfs_d_revalidate(struct dentry *dentry, struct nameidata *nd)
@@ -647,7 +685,6 @@ index cb20b96..a8c1686 100644
  out:
  	return rc;
 diff --git a/fs/ecryptfs/inode.c b/fs/ecryptfs/inode.c
-index 131954b..fc4c6cb 100644
 --- a/fs/ecryptfs/inode.c
 +++ b/fs/ecryptfs/inode.c
 @@ -601,9 +601,9 @@ ecryptfs_rename(struct inode *old_dir, struct dentry *old_dentry,
@@ -672,7 +709,6 @@ index 131954b..fc4c6cb 100644
  }
  
 diff --git a/fs/ecryptfs/main.c b/fs/ecryptfs/main.c
-index a984972..cb349a4 100644
 --- a/fs/ecryptfs/main.c
 +++ b/fs/ecryptfs/main.c
 @@ -151,7 +151,7 @@ int ecryptfs_interpose(struct dentry *lower_dentry, struct dentry *dentry,
@@ -685,7 +721,6 @@ index a984972..cb349a4 100644
  	 * other metadata */
  	fsstack_copy_inode_size(inode, lower_inode);
 diff --git a/fs/namei.c b/fs/namei.c
-index 314afe6..c15ce85 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -374,6 +374,7 @@ void release_open_intent(struct nameidata *nd)
@@ -697,7 +732,6 @@ index 314afe6..c15ce85 100644
  static inline struct dentry *
  do_revalidate(struct dentry *dentry, struct nameidata *nd)
 diff --git a/fs/splice.c b/fs/splice.c
-index 1a9c0e6..f931be4 100644
 --- a/fs/splice.c
 +++ b/fs/splice.c
 @@ -943,8 +943,8 @@ EXPORT_SYMBOL(generic_splice_sendpage);
@@ -776,7 +810,6 @@ index 1a9c0e6..f931be4 100644
  		if (off_in && copy_to_user(off_in, off, sizeof(loff_t)))
  			ret = -EFAULT;
 diff --git a/fs/stack.c b/fs/stack.c
-index 67716f6..cc1443d 100644
 --- a/fs/stack.c
 +++ b/fs/stack.c
 @@ -1,24 +1,82 @@
@@ -887,7 +920,6 @@ index 67716f6..cc1443d 100644
  EXPORT_SYMBOL_GPL(fsstack_copy_attr_all);
 diff --git a/fs/unionfs/Makefile b/fs/unionfs/Makefile
 new file mode 100644
-index 0000000..3b0f333
 --- /dev/null
 +++ b/fs/unionfs/Makefile
 @@ -0,0 +1,17 @@
@@ -910,7 +942,6 @@ index 0000000..3b0f333
 +endif
 diff --git a/fs/unionfs/commonfops.c b/fs/unionfs/commonfops.c
 new file mode 100644
-index 0000000..b154ccc
 --- /dev/null
 +++ b/fs/unionfs/commonfops.c
 @@ -0,0 +1,882 @@
@@ -1798,7 +1829,6 @@ index 0000000..b154ccc
 +}
 diff --git a/fs/unionfs/copyup.c b/fs/unionfs/copyup.c
 new file mode 100644
-index 0000000..530ae0a
 --- /dev/null
 +++ b/fs/unionfs/copyup.c
 @@ -0,0 +1,889 @@
@@ -2693,7 +2723,6 @@ index 0000000..530ae0a
 +}
 diff --git a/fs/unionfs/debug.c b/fs/unionfs/debug.c
 new file mode 100644
-index 0000000..6fc5a3e
 --- /dev/null
 +++ b/fs/unionfs/debug.c
 @@ -0,0 +1,538 @@
@@ -3237,7 +3266,6 @@ index 0000000..6fc5a3e
 +}
 diff --git a/fs/unionfs/dentry.c b/fs/unionfs/dentry.c
 new file mode 100644
-index 0000000..1be7946
 --- /dev/null
 +++ b/fs/unionfs/dentry.c
 @@ -0,0 +1,397 @@
@@ -3640,7 +3668,6 @@ index 0000000..1be7946
 +};
 diff --git a/fs/unionfs/dirfops.c b/fs/unionfs/dirfops.c
 new file mode 100644
-index 0000000..72a9c1a
 --- /dev/null
 +++ b/fs/unionfs/dirfops.c
 @@ -0,0 +1,302 @@
@@ -3948,7 +3975,6 @@ index 0000000..72a9c1a
 +};
 diff --git a/fs/unionfs/dirhelper.c b/fs/unionfs/dirhelper.c
 new file mode 100644
-index 0000000..67e0432
 --- /dev/null
 +++ b/fs/unionfs/dirhelper.c
 @@ -0,0 +1,158 @@
@@ -4112,7 +4138,6 @@ index 0000000..67e0432
 +}
 diff --git a/fs/unionfs/fanout.h b/fs/unionfs/fanout.h
 new file mode 100644
-index 0000000..ae1b86a
 --- /dev/null
 +++ b/fs/unionfs/fanout.h
 @@ -0,0 +1,407 @@
@@ -4525,7 +4550,6 @@ index 0000000..ae1b86a
 +#endif	/* not _FANOUT_H */
 diff --git a/fs/unionfs/file.c b/fs/unionfs/file.c
 new file mode 100644
-index 0000000..5e0e76e
 --- /dev/null
 +++ b/fs/unionfs/file.c
 @@ -0,0 +1,364 @@
@@ -4629,7 +4653,7 @@ index 0000000..5e0e76e
 +	struct file *lower_file;
 +	struct dentry *dentry = file->f_path.dentry;
 +	struct dentry *parent;
-+	struct vm_operations_struct *saved_vm_ops = NULL;
++	const struct vm_operations_struct *saved_vm_ops = NULL;
 +
 +	unionfs_read_lock(dentry->d_sb, UNIONFS_SMUTEX_PARENT);
 +	parent = unionfs_lock_parent(dentry, UNIONFS_DMUTEX_PARENT);
@@ -4895,7 +4919,6 @@ index 0000000..5e0e76e
 +};
 diff --git a/fs/unionfs/inode.c b/fs/unionfs/inode.c
 new file mode 100644
-index 0000000..55bbe51
 --- /dev/null
 +++ b/fs/unionfs/inode.c
 @@ -0,0 +1,1078 @@
@@ -5979,7 +6002,6 @@ index 0000000..55bbe51
 +};
 diff --git a/fs/unionfs/lookup.c b/fs/unionfs/lookup.c
 new file mode 100644
-index 0000000..921e22f
 --- /dev/null
 +++ b/fs/unionfs/lookup.c
 @@ -0,0 +1,572 @@
@@ -6557,7 +6579,6 @@ index 0000000..921e22f
 +}
 diff --git a/fs/unionfs/main.c b/fs/unionfs/main.c
 new file mode 100644
-index 0000000..35d4b31
 --- /dev/null
 +++ b/fs/unionfs/main.c
 @@ -0,0 +1,782 @@
@@ -7345,7 +7366,6 @@ index 0000000..35d4b31
 +module_exit(exit_unionfs_fs);
 diff --git a/fs/unionfs/mmap.c b/fs/unionfs/mmap.c
 new file mode 100644
-index 0000000..3f339a3
 --- /dev/null
 +++ b/fs/unionfs/mmap.c
 @@ -0,0 +1,89 @@
@@ -7390,7 +7410,7 @@ index 0000000..3f339a3
 +{
 +	int err;
 +	struct file *file, *lower_file;
-+	struct vm_operations_struct *lower_vm_ops;
++	const struct vm_operations_struct *lower_vm_ops;
 +	struct vm_area_struct lower_vma;
 +
 +	BUG_ON(!vma);
@@ -7440,7 +7460,6 @@ index 0000000..3f339a3
 +};
 diff --git a/fs/unionfs/rdstate.c b/fs/unionfs/rdstate.c
 new file mode 100644
-index 0000000..6f215a6
 --- /dev/null
 +++ b/fs/unionfs/rdstate.c
 @@ -0,0 +1,285 @@
@@ -7731,7 +7750,6 @@ index 0000000..6f215a6
 +}
 diff --git a/fs/unionfs/rename.c b/fs/unionfs/rename.c
 new file mode 100644
-index 0000000..49d5a4f
 --- /dev/null
 +++ b/fs/unionfs/rename.c
 @@ -0,0 +1,520 @@
@@ -8257,7 +8275,6 @@ index 0000000..49d5a4f
 +}
 diff --git a/fs/unionfs/sioq.c b/fs/unionfs/sioq.c
 new file mode 100644
-index 0000000..1fd4a61
 --- /dev/null
 +++ b/fs/unionfs/sioq.c
 @@ -0,0 +1,101 @@
@@ -8364,7 +8381,6 @@ index 0000000..1fd4a61
 +}
 diff --git a/fs/unionfs/sioq.h b/fs/unionfs/sioq.h
 new file mode 100644
-index 0000000..e84c2f6
 --- /dev/null
 +++ b/fs/unionfs/sioq.h
 @@ -0,0 +1,92 @@
@@ -8462,7 +8478,6 @@ index 0000000..e84c2f6
 +#endif /* not _SIOQ_H */
 diff --git a/fs/unionfs/subr.c b/fs/unionfs/subr.c
 new file mode 100644
-index 0000000..bdca2f7
 --- /dev/null
 +++ b/fs/unionfs/subr.c
 @@ -0,0 +1,95 @@
@@ -8563,7 +8578,6 @@ index 0000000..bdca2f7
 +}
 diff --git a/fs/unionfs/super.c b/fs/unionfs/super.c
 new file mode 100644
-index 0000000..86dc254
 --- /dev/null
 +++ b/fs/unionfs/super.c
 @@ -0,0 +1,1048 @@
@@ -9617,7 +9631,6 @@ index 0000000..86dc254
 +};
 diff --git a/fs/unionfs/union.h b/fs/unionfs/union.h
 new file mode 100644
-index 0000000..d47291f
 --- /dev/null
 +++ b/fs/unionfs/union.h
 @@ -0,0 +1,663 @@
@@ -9724,7 +9737,7 @@ index 0000000..d47291f
 +	struct unionfs_dir_state *rdstate;
 +	struct file **lower_files;
 +	int *saved_branch_ids; /* IDs of branches when file was opened */
-+	struct vm_operations_struct *lower_vm_ops;
++	const struct vm_operations_struct *lower_vm_ops;
 +	bool wrote_to_file;	/* for delayed copyup */
 +};
 +
@@ -10286,7 +10299,6 @@ index 0000000..d47291f
 +#endif	/* not _UNION_H_ */
 diff --git a/fs/unionfs/unlink.c b/fs/unionfs/unlink.c
 new file mode 100644
-index 0000000..b7fff58
 --- /dev/null
 +++ b/fs/unionfs/unlink.c
 @@ -0,0 +1,282 @@
@@ -10574,7 +10586,6 @@ index 0000000..b7fff58
 +}
 diff --git a/fs/unionfs/whiteout.c b/fs/unionfs/whiteout.c
 new file mode 100644
-index 0000000..ea90da0
 --- /dev/null
 +++ b/fs/unionfs/whiteout.c
 @@ -0,0 +1,574 @@
@@ -11154,7 +11165,6 @@ index 0000000..ea90da0
 +}
 diff --git a/fs/unionfs/xattr.c b/fs/unionfs/xattr.c
 new file mode 100644
-index 0000000..a93d803
 --- /dev/null
 +++ b/fs/unionfs/xattr.c
 @@ -0,0 +1,173 @@
@@ -11332,7 +11342,6 @@ index 0000000..a93d803
 +	return err;
 +}
 diff --git a/include/linux/fs_stack.h b/include/linux/fs_stack.h
-index bb516ce..64f1ced 100644
 --- a/include/linux/fs_stack.h
 +++ b/include/linux/fs_stack.h
 @@ -1,17 +1,27 @@
@@ -11369,7 +11378,6 @@ index bb516ce..64f1ced 100644
  /* inlines */
  static inline void fsstack_copy_attr_atime(struct inode *dest,
 diff --git a/include/linux/magic.h b/include/linux/magic.h
-index 36cc20d..8dac50ba 100644
 --- a/include/linux/magic.h
 +++ b/include/linux/magic.h
 @@ -35,6 +35,8 @@
@@ -11382,7 +11390,6 @@ index 36cc20d..8dac50ba 100644
  #define USBDEVICE_SUPER_MAGIC	0x9fa2
  
 diff --git a/include/linux/namei.h b/include/linux/namei.h
-index 6c38efb..e9477b5 100644
 --- a/include/linux/namei.h
 +++ b/include/linux/namei.h
 @@ -3,6 +3,7 @@
@@ -11411,7 +11418,6 @@ index 6c38efb..e9477b5 100644
 +
  #endif /* _LINUX_NAMEI_H */
 diff --git a/include/linux/splice.h b/include/linux/splice.h
-index 33e447f..616d473 100644
 --- a/include/linux/splice.h
 +++ b/include/linux/splice.h
 @@ -69,5 +69,10 @@ extern ssize_t splice_to_pipe(struct pipe_inode_info *,
@@ -11427,7 +11433,6 @@ index 33e447f..616d473 100644
  #endif
 diff --git a/include/linux/union_fs.h b/include/linux/union_fs.h
 new file mode 100644
-index 0000000..c84d97e
 --- /dev/null
 +++ b/include/linux/union_fs.h
 @@ -0,0 +1,22 @@
@@ -11453,3 +11458,4 @@ index 0000000..c84d97e
 +
 +#endif /* _LINUX_UNIONFS_H */
 +
+-- 
