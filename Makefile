@@ -39,6 +39,7 @@ PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.10
 ACCEL-PPTP=accel-pptp-git-20100829
 LZMA=lzma457
+LZMA9=lzma920
 NFSUTILS=nfs-utils-1.1.6
 PORTMAP=portmap_6
 RADVD=radvd-1.8.3
@@ -70,7 +71,7 @@ export TAR_EXCL_SVN := $(shell tar --exclude .svn -cf - Makefile >/dev/null 2>&1
 export PATCHER := $(shell pwd)/patch.sh
 
 define patches_list
-    $(shell ls -1 $(1)/[0-9][0-9][0-9]-*.patch 2>/dev/null)
+    $(shell ls -1 $(1)/$(2)[0-9][0-9][0-9]-*.patch 2>/dev/null)
 endef
 
 DIFF := LC_ALL=C TZ=UTC0 diff
@@ -122,7 +123,14 @@ $(ROOT)/lzma: lzma/$(LZMA).tbz2
 	tar -C $@ -xjf $<
 	$(PATCHER) -Z $@ $(lzma_Patches)
 
-lzma: $(ROOT)/lzma
+lzma9_Patches := $(call patches_list,lzma,9)
+
+$(ROOT)/lzma9: lzma/$(LZMA9).tar.bz2
+	@rm -rf $@ && mkdir -p $@
+	tar -C $@ -xjf $<
+	$(PATCHER) -Z $@ $(lzma9_Patches)
+
+lzma: $(ROOT)/lzma $(ROOT)/lzma9
 	@true
 
 wl:
