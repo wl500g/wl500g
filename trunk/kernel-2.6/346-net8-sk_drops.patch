@@ -1,0 +1,315 @@
+Add raw/udp drops counter for:
+ /proc/net/raw & /proc/net/raw6
+ /proc/net/udp & /proc/net/udp6
+
+ 33c732c36169d7022ad7d6eb474b0c9be43a2dc1 [IPV4]: Add raw drops counter.
+ a92aa318b4b369091fd80433c80e62838db8bc1c [IPV6]: Add raw6 drops counter.
+ cb61cb9b8b5ef6c2697d84e5015e314626eb2fba udp: sk_drops handling
+ bcdce7195e0eab55b37dbd53be53057f38006380 net: speedup sk_wake_async()
+
+---
+ include/net/sock.h |   14 ++++++++++----
+ net/core/sock.c    |    1 +
+ net/ipv4/raw.c     |   17 ++++++++++-------
+ net/ipv4/udp.c     |   11 +++++++----
+ net/ipv6/raw.c     |   15 ++++++++-------
+ net/ipv6/udp.c     |   11 +++++++----
+ net/socket.c       |    3 +++
+ 7 files changed, 46 insertions(+), 26 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -142,7 +142,8 @@ struct sock_common {
+   *	@sk_forward_alloc: space allocated forward
+   *	@sk_allocation: allocation mode
+   *	@sk_sndbuf: size of send buffer in bytes
+-  *	@sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE, %SO_OOBINLINE settings
++  *	@sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
++  *		   %SO_OOBINLINE settings
+   *	@sk_no_check: %SO_NO_CHECK setting, wether or not checkup packets
+   *	@sk_route_caps: route capabilities (e.g. %NETIF_F_TSO)
+   *	@sk_gso_type: GSO type (e.g. %SKB_GSO_TCPV4)
+@@ -150,9 +151,12 @@ struct sock_common {
+   *	@sk_backlog: always used with the per-socket spinlock held
+   *	@sk_callback_lock: used with the callbacks in the end of this struct
+   *	@sk_error_queue: rarely used
+-  *	@sk_prot_creator: sk_prot of original sock creator (see ipv6_setsockopt, IPV6_ADDRFORM for instance)
++  *	@sk_prot_creator: sk_prot of original sock creator (see ipv6_setsockopt,
++  *			  IPV6_ADDRFORM for instance)
+   *	@sk_err: last error
+-  *	@sk_err_soft: errors that don't cause failure but are the cause of a persistent failure not just 'timed out'
++  *	@sk_err_soft: errors that don't cause failure but are the cause of a
++  *		      persistent failure not just 'timed out'
++  *	@sk_drops: raw/udp drops counter
+   *	@sk_ack_backlog: current listen backlog
+   *	@sk_max_ack_backlog: listen backlog set in listen()
+   *	@sk_priority: %SO_PRIORITY setting
+@@ -235,6 +239,7 @@ struct sock {
+ 	rwlock_t		sk_callback_lock;
+ 	int			sk_err,
+ 				sk_err_soft;
++	atomic_t		sk_drops;
+ 	unsigned short		sk_ack_backlog;
+ 	unsigned short		sk_max_ack_backlog;
+ 	__u32			sk_priority;
+@@ -393,6 +398,7 @@ enum sock_flags {
+ 	SOCK_RCVTSTAMPNS, /* %SO_TIMESTAMPNS setting */
+ 	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
+ 	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
++	SOCK_FASYNC, /* fasync() active */
+ };
+ 
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+@@ -1216,7 +1222,7 @@ static inline unsigned long sock_wspace(
+ 
+ static inline void sk_wake_async(struct sock *sk, int how, int band)
+ {
+-	if (sk->sk_socket && sk->sk_socket->fasync_list)
++	if (sock_flag(sk, SOCK_FASYNC))
+ 		sock_wake_async(sk->sk_socket, how, band);
+ }
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1592,6 +1592,7 @@ void sock_init_data(struct socket *sock,
+ 	sk->sk_stamp = ktime_set(-1L, -1L);
+ 
+ 	atomic_set(&sk->sk_refcnt, 1);
++	atomic_set(&sk->sk_drops, 0);
+ }
+ 
+ void fastcall lock_sock_nested(struct sock *sk, int subclass)
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -240,7 +240,7 @@ static int raw_rcv_skb(struct sock * sk,
+ 	/* Charge it to the socket. */
+ 
+ 	if (sock_queue_rcv_skb(sk, skb) < 0) {
+-		/* FIXME: increment a raw drops counter here */
++		atomic_inc(&sk->sk_drops);
+ 		kfree_skb(skb);
+ 		return NET_RX_DROP;
+ 	}
+@@ -251,6 +251,7 @@ static int raw_rcv_skb(struct sock * sk,
+ int raw_rcv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb)) {
++		atomic_inc(&sk->sk_drops);
+ 		kfree_skb(skb);
+ 		return NET_RX_DROP;
+ 	}
+@@ -872,28 +873,30 @@ static __inline__ char *get_raw_sock(str
+ 	      srcp  = inet->num;
+ 
+ 	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
+-		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p",
++		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d",
+ 		i, src, srcp, dest, destp, sp->sk_state,
+ 		atomic_read(&sp->sk_wmem_alloc),
+ 		atomic_read(&sp->sk_rmem_alloc),
+ 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+-		atomic_read(&sp->sk_refcnt), sp);
++		atomic_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
+ 	return tmpbuf;
+ }
+ 
++#define TMPSZ 128
++
+ static int raw_seq_show(struct seq_file *seq, void *v)
+ {
+-	char tmpbuf[129];
++	char tmpbuf[TMPSZ+1];
+ 
+ 	if (v == SEQ_START_TOKEN)
+-		seq_printf(seq, "%-127s\n",
++		seq_printf(seq, "%-*s\n", TMPSZ-1,
+ 			       "  sl  local_address rem_address   st tx_queue "
+ 			       "rx_queue tr tm->when retrnsmt   uid  timeout "
+-			       "inode");
++			       "inode ref pointer drops\n");
+ 	else {
+ 		struct raw_iter_state *state = raw_seq_private(seq);
+ 
+-		seq_printf(seq, "%-127s\n",
++		seq_printf(seq, "%-*s\n", TMPSZ-1,
+ 			   get_raw_sock(v, tmpbuf, state->bucket));
+ 	}
+ 	return 0;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1032,8 +1032,10 @@ int udp_queue_rcv_skb(struct sock * sk, 
+ 
+ 	if ((rc = sock_queue_rcv_skb(sk,skb)) < 0) {
+ 		/* Note that an ENOMEM error is charged twice */
+-		if (rc == -ENOMEM)
++		if (rc == -ENOMEM) {
+ 			UDP_INC_STATS_BH(UDP_MIB_RCVBUFERRORS, up->pcflag);
++			atomic_inc(&sk->sk_drops);
++		}
+ 		goto drop;
+ 	}
+ 
+@@ -1601,12 +1603,13 @@ static void udp4_format_sock(struct sock
+ 	__u16 srcp	  = ntohs(inet->sport);
+ 
+ 	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
+-		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p",
++		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d",
+ 		bucket, src, srcp, dest, destp, sp->sk_state,
+ 		atomic_read(&sp->sk_wmem_alloc),
+ 		atomic_read(&sp->sk_rmem_alloc),
+ 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+-		atomic_read(&sp->sk_refcnt), sp);
++		atomic_read(&sp->sk_refcnt), sp,
++		atomic_read(&sp->sk_drops));
+ }
+ 
+ int udp4_seq_show(struct seq_file *seq, void *v)
+@@ -1615,7 +1618,7 @@ int udp4_seq_show(struct seq_file *seq, 
+ 		seq_printf(seq, "%-127s\n",
+ 			   "  sl  local_address rem_address   st tx_queue "
+ 			   "rx_queue tr tm->when retrnsmt   uid  timeout "
+-			   "inode");
++			   "inode ref pointer drops");
+ 	else {
+ 		char tmpbuf[129];
+ 		struct udp_iter_state *state = seq->private;
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -326,14 +326,14 @@ static inline int rawv6_rcv_skb(struct s
+ {
+ 	if ((raw6_sk(sk)->checksum || sk->sk_filter) &&
+ 	    skb_checksum_complete(skb)) {
+-		/* FIXME: increment a raw6 drops counter here */
++		atomic_inc(&sk->sk_drops);
+ 		kfree_skb(skb);
+ 		return 0;
+ 	}
+ 
+ 	/* Charge it to the socket. */
+ 	if (sock_queue_rcv_skb(sk,skb)<0) {
+-		/* FIXME: increment a raw6 drops counter here */
++		atomic_inc(&sk->sk_drops);
+ 		kfree_skb(skb);
+ 		return 0;
+ 	}
+@@ -354,6 +354,7 @@ int rawv6_rcv(struct sock *sk, struct sk
+ 	struct raw6_sock *rp = raw6_sk(sk);
+ 
+ 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb)) {
++		atomic_inc(&sk->sk_drops);
+ 		kfree_skb(skb);
+ 		return NET_RX_DROP;
+ 	}
+@@ -377,7 +378,7 @@ int rawv6_rcv(struct sock *sk, struct sk
+ 
+ 	if (inet->hdrincl) {
+ 		if (skb_checksum_complete(skb)) {
+-			/* FIXME: increment a raw6 drops counter here */
++			atomic_inc(&sk->sk_drops);
+ 			kfree_skb(skb);
+ 			return 0;
+ 		}
+@@ -468,7 +469,7 @@ csum_copy_err:
+ 	   as some normal condition.
+ 	 */
+ 	err = (flags&MSG_DONTWAIT) ? -EAGAIN : -EHOSTUNREACH;
+-	/* FIXME: increment a raw6 drops counter here */
++	atomic_inc(&sk->sk_drops);
+ 	goto out;
+ }
+ 
+@@ -1239,7 +1240,7 @@ static void raw6_sock_seq_show(struct se
+ 	srcp  = inet_sk(sp)->num;
+ 	seq_printf(seq,
+ 		   "%4d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
+-		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p\n",
++		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d\n",
+ 		   i,
+ 		   src->s6_addr32[0], src->s6_addr32[1],
+ 		   src->s6_addr32[2], src->s6_addr32[3], srcp,
+@@ -1251,7 +1252,7 @@ static void raw6_sock_seq_show(struct se
+ 		   0, 0L, 0,
+ 		   sock_i_uid(sp), 0,
+ 		   sock_i_ino(sp),
+-		   atomic_read(&sp->sk_refcnt), sp);
++		   atomic_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
+ }
+ 
+ static int raw6_seq_show(struct seq_file *seq, void *v)
+@@ -1262,7 +1263,7 @@ static int raw6_seq_show(struct seq_file
+ 			   "local_address                         "
+ 			   "remote_address                        "
+ 			   "st tx_queue rx_queue tr tm->when retrnsmt"
+-			   "   uid  timeout inode\n");
++			   "   uid  timeout inode ref pointer drops\n");
+ 	else
+ 		raw6_sock_seq_show(seq, v, raw6_seq_private(seq)->bucket);
+ 	return 0;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -304,8 +304,10 @@ int udpv6_queue_rcv_skb(struct sock * sk
+ 
+ 	if ((rc = sock_queue_rcv_skb(sk,skb)) < 0) {
+ 		/* Note that an ENOMEM error is charged twice */
+-		if (rc == -ENOMEM)
++		if (rc == -ENOMEM) {
+ 			UDP6_INC_STATS_BH(UDP_MIB_RCVBUFERRORS, up->pcflag);
++			atomic_inc(&sk->sk_drops);
++		}
+ 		goto drop;
+ 	}
+ 	UDP6_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
+@@ -932,7 +934,7 @@ static void udp6_sock_seq_show(struct se
+ 	srcp  = ntohs(inet->sport);
+ 	seq_printf(seq,
+ 		   "%4d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
+-		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p\n",
++		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d\n",
+ 		   bucket,
+ 		   src->s6_addr32[0], src->s6_addr32[1],
+ 		   src->s6_addr32[2], src->s6_addr32[3], srcp,
+@@ -944,7 +946,8 @@ static void udp6_sock_seq_show(struct se
+ 		   0, 0L, 0,
+ 		   sock_i_uid(sp), 0,
+ 		   sock_i_ino(sp),
+-		   atomic_read(&sp->sk_refcnt), sp);
++		   atomic_read(&sp->sk_refcnt), sp,
++		   atomic_read(&sp->sk_drops));
+ }
+ 
+ int udp6_seq_show(struct seq_file *seq, void *v)
+@@ -955,7 +958,7 @@ int udp6_seq_show(struct seq_file *seq, 
+ 			   "local_address                         "
+ 			   "remote_address                        "
+ 			   "st tx_queue rx_queue tr tm->when retrnsmt"
+-			   "   uid  timeout inode\n");
++			   "   uid  timeout inode ref pointer drops\n");
+ 	else
+ 		udp6_sock_seq_show(seq, v, ((struct udp_iter_state *)seq->private)->bucket);
+ 	return 0;
+diff --git a/net/socket.c b/net/socket.c
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1048,11 +1048,14 @@ static int sock_fasync(int fd, struct fi
+ 		fna->fa_next = sock->fasync_list;
+ 		write_lock_bh(&sk->sk_callback_lock);
+ 		sock->fasync_list = fna;
++		sock_set_flag(sk, SOCK_FASYNC);
+ 		write_unlock_bh(&sk->sk_callback_lock);
+ 	} else {
+ 		if (fa != NULL) {
+ 			write_lock_bh(&sk->sk_callback_lock);
+ 			*prev = fa->fa_next;
++			if (!sock->fasync_list)
++				sock_reset_flag(sk, SOCK_FASYNC);
+ 			write_unlock_bh(&sk->sk_callback_lock);
+ 			kfree(fa);
+ 		}
+-- 
