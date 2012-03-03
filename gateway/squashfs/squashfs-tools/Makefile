@@ -86,7 +86,7 @@ XATTR_SUPPORT = 1
 #
 # If unselected, Mksquashfs/Unsquashfs won't store and extract xattrs by
 # default.  Users can enable xattrs by using the -xattrs option.
-XATTR_DEFAULT = 1
+#XATTR_DEFAULT = 1
 
 
 ###############################################
