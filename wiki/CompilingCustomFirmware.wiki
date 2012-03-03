@@ -23,7 +23,7 @@
 mkdir -p /opt/brcm
 mkdir -p /whatever-you-want/broadcom/src/linux
 tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.4.6-K26-r3826.tar.bz2
-ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.4.6 /opt/brcm/hndtools-mipsel-uclibc
+ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.4.6-K26 /opt/brcm/hndtools-mipsel-uclibc
 tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.6.22.19.tar.bz2
 ln -sf linux-2.6.22.19 /whatever-you-want/broadcom/src/linux/linux-2.6
 }}}
