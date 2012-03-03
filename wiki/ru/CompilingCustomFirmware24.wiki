@@ -1,4 +1,4 @@
-#summary Самостоятельная сборка прошивки
+#summary Самостоятельная сборка прошивки 1.9.2.7-d
 
 == 1. Необходимый софт ==
 
@@ -13,38 +13,23 @@
     * subversion
 
 == 2. Скачать дополнительные инструменты и исходники ==
-  * Toolchain (компилятор + библиотеки + утилиты)
-    * Для стабильной ветки 1.9.2.7-d нужен [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc-4.3.5 hndtools-mipsel-uclibc-4.3.5]
-    * Для основной 1.9.2.7-rtn нужен [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc-4.4.6 hndtools-mipsel-uclibc-4.4.6]
-  * ядро Linux 
-    * Для стабильной ветки 1.9.2.7-d вам нужно ядро [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.11.tar.bz2 linux-2.4.37.11.tar.bz2]
-    * Для основной 1.9.2.7-rtn вам нужно ядро [http://wl500g.googlecode.com/files/linux-2.6.22.19.tar.bz2 linux-2.6.22.19.tar.bz2]
+  * Toolchain (компилятор + библиотеки + утилиты) [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc-4.3.5 hndtools-mipsel-uclibc-4.3.5]
+  * Ядро Linux [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.11.tar.bz2 linux-2.4.37.11.tar.bz2]
 
 == 3. Распаковать архивы и подготовить дерево сборки ==
 
   # Распаковка (путь _/whatever-you-want_ заменить на тот, где будет храниться дерево сборки) 
-    установите переменную KVER в версию ядра из пункта 2
 {{{
-KVER=2.4.37.11
-mkdir -p /whatever-you-want/broadcom/src/linux
 mkdir -p /opt/brcm
-tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.3.5-2.tar.bz2
+mkdir -p /whatever-you-want/broadcom/src/linux
+tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.3.5-3.tar.bz2
 ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.3.5 /opt/brcm/hndtools-mipsel-uclibc
-tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-$KVER.tar.bz2
-if [ "${KVER#2.6}" != "${KVER}" ]; then
-  ln -sf linux-$KVER /whatever-you-want/broadcom/src/linux/linux-2.6
-else
-  ln -sf linux-$KVER /whatever-you-want/broadcom/src/linux/linux
-fi
+tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.4.37.11.tar.bz2
+ln -sf linux-2.4.37.11 /whatever-you-want/broadcom/src/linux/linux
 }}}
   # Получение исходников прошивки
-    * 1.9.2.7-d
 {{{
 svn checkout http://wl500g.googlecode.com/svn/branches/d/ /whatever-you-want/broadcom/src/1.9.2.7-d
-}}}
-    * 1.9.2.7-rtn
-{{{
-svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/src/1.9.2.7-rtn
 }}}
   # Добавить путь к Toolchain (можно внести в личный .profile для удобства)
 {{{

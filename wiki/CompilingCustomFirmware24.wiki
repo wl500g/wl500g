@@ -26,7 +26,6 @@ tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.3.5-3.tar.bz2
 ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.3.5 /opt/brcm/hndtools-mipsel-uclibc
 tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.4.37.11.tar.bz2
 ln -sf linux-2.4.37.11 /whatever-you-want/broadcom/src/linux/linux
-fi
 }}}
   # Checking out firmware sources
 {{{
