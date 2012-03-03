@@ -1,4 +1,4 @@
-#summary HowTo Compile Custom Firmware
+#summary HowTo Compile Custom Firmware 1.9.2.7-rtn
 
 == 1. Required software ==
 
@@ -13,36 +13,21 @@
     * subversion
 
 == 2. Download the additional tools/sources ==
-  * Toolchain
-    * For stable 1.9.2.7-d branch you need [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc-4.3.5 hndtools-mipsel-uclibc-4.3.5]
-    * For 1.9.2.7-rtn branch you need  [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc-4.4.6 hndtools-mipsel-uclibc-4.4.6]
-  * Linux kernel 
-    * For stable 1.9.2.7-d branch you need [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.11.tar.bz2 linux-2.4.37.11.tar.bz2]
-    * For 1.9.2.7-rtn branch you need [http://wl500g.googlecode.com/files/linux-2.6.22.19.tar.bz2 linux-2.6.22.19.tar.bz2]
+  * Toolchain [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc-4.4.6 hndtools-mipsel-uclibc-4.4.6]
+  * Linux kernel [http://wl500g.googlecode.com/files/linux-2.6.22.19.tar.bz2 linux-2.6.22.19.tar.bz2]
 
 == 3. Unpack the archives and prepare the building tree ==
 
   # Unpacking (replace the path _/whatever-you-want_ with the one, where your building tree will be located), 
-    set KVER to real kernel version from p.p.2
 {{{
-KVER=2.4.37.11
 mkdir -p /opt/brcm
 mkdir -p /whatever-you-want/broadcom/src/linux
-tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.3.5-2.tar.bz2
-ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.3.5 /opt/brcm/hndtools-mipsel-uclibc
-tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-$KVER.tar.bz2
-if [ "${KVER#2.6}" != "${KVER}" ]; then
-  ln -sf linux-$KVER /whatever-you-want/broadcom/src/linux/linux-2.6
-else
-  ln -sf linux-$KVER /whatever-you-want/broadcom/src/linux/linux
-fi
+tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.4.6-K26-r3826.tar.bz2
+ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.4.6 /opt/brcm/hndtools-mipsel-uclibc
+tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.6.22.19.tar.bz2
+ln -sf linux-2.6.22.19 /whatever-you-want/broadcom/src/linux/linux-2.6
 }}}
-  # Checking out proper firmware sources
-    * 1.9.2.7-d branch
-{{{
-svn checkout http://wl500g.googlecode.com/svn/branches/d/ /whatever-you-want/broadcom/src/1.9.2.7-d
-}}}
-    * 1.9.2.7-rtn branch
+  # Checking out firmware sources
 {{{
 svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/src/1.9.2.7-rtn
 }}}
@@ -55,11 +40,16 @@ $ export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
 
   # Preparation of the sources
 {{{
-$ cd /whatever-you-want/broadcom/src/1.9.2.7-d
+$ cd /whatever-you-want/broadcom/src/1.9.2.7-rtn
 $ make kernel
 $ make
 }}}
-  # Edit /whatever-you-want/broadcom/src/gateway/Makefile and set MODEL=wl500gp or whichever fits your expectance better.
+  # Selecting router model
+{{{
+$ cd /whatever-you-want/broadcom/src/gateway
+$ make menuconfig
+}}}
+    under menu Router Model check desired, uncheck other router models, exit with saving new configuration
   # Compiling
 {{{
 $ cd /whatever-you-want/broadcom/src/gateway
@@ -74,14 +64,14 @@ $ make install
        * unarchive entire kernel sources (see. paragraph 3.1)
        * reapply patches & refresh kernel config
 {{{
-$ cd /whatever-you-want/broadcom/src/1.9.2.7-d
+$ cd /whatever-you-want/broadcom/src/1.9.2.7-rtn
 $ make kernel
 $ cd /whatever-you-want/broadcom/src/gateway
 $ make koldconf
 }}}
      * If packages only updated, then following is enough
 {{{
-$ cd /whatever-you-want/broadcom/src/1.9.2.7-d
+$ cd /whatever-you-want/broadcom/src/1.9.2.7-rtn
 $ rm -rf /whatever-you-want/broadcom/src/gateway
 $ make
 }}}
