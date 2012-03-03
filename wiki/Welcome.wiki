@@ -2,5 +2,6 @@
 
 ==!HowTo articles==
 
- * [CompilingCustomFirmware How to compile custom firmware]
- * [CoLinux How to compile custom firmware on MS Windows]
+ * [CompilingCustomFirmware Firmware compiling 1.9.2.7-rtn]
+ * [CompilingCustomFirmware24 Firmware compiling 1.9.2.7-d]
+ * [CoLinux Firmware compiling on MS Widnows]
