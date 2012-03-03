@@ -2,7 +2,8 @@
   * [Welcome Home]
   * [News History of Changes]
   * !HowTo articles
-    * [CompilingCustomFirmware Firmware compiling]
+    * [CompilingCustomFirmware Firmware compiling 1.9.2.7-rtn]
+    * [CompilingCustomFirmware24 Firmware compiling 1.9.2.7-d]
     * [CoLinux Firmware compiling on MS Widnows]
   * Hardware
     * [Devices Devices list]
