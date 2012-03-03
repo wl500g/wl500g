@@ -40,6 +40,7 @@ RP-PPPOE=rp-pppoe-3.10
 ACCEL-PPTP=accel-pptp-git-20100829
 LZMA=lzma457
 LZMA9=lzma920
+SQUASHFS=squashfs4.2
 NFSUTILS=nfs-utils-1.1.6
 PORTMAP=portmap_6
 RADVD=radvd-1.8.3
@@ -131,6 +132,17 @@ $(ROOT)/lzma9: lzma/$(LZMA9).tar.bz2
 	$(PATCHER) -Z $@ $(lzma9_Patches)
 
 lzma: $(ROOT)/lzma $(ROOT)/lzma9
+	@true
+
+squashfs_Patches := $(call patches_list,squashfs)
+
+$(TOP)/squashfs: squashfs/$(SQUASHFS).tar.gz
+	@rm -rf $(TOP)/$(SQUASHFS) $@
+	tar -xzf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(SQUASHFS) $(squashfs_Patches)
+	mv $(TOP)/$(SQUASHFS) $@
+
+squashfs: $(TOP)/squashfs
 	@true
 
 wl:
