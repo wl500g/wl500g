@@ -63,4 +63,5 @@
   * FAQ
     * [UserScripts User scripts]
   * [Links Links]
+  * [Donate Make a donation]
   * [TOC Wiki Index]
