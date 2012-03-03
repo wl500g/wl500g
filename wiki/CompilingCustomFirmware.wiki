@@ -49,8 +49,8 @@ $ make
 $ cd /whatever-you-want/broadcom/src/gateway
 $ make menuconfig
 }}}
-  * under menu Router Model check desired, uncheck other router models
-  * exit with saving new configuration
+    * under menu Router Model check desired, uncheck other router models
+    * exit with saving new configuration
   # Compiling
 {{{
 $ cd /whatever-you-want/broadcom/src/gateway
