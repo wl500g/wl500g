@@ -2,7 +2,8 @@
   * [Welcome Главная]
   * [News История изменений]
   * Статьи !HowTo
-    * [CompilingCustomFirmware Сборка прошивки]
+    * [CompilingCustomFirmware Сборка прошивки 1.9.2.7-rtn]
+    * [CompilingCustomFirmware24 Сборка прошивки 1.9.2.7-d]
     * [CoLinux Сборка прошивки под MS Windows]
   * Оборудование
     * [Devices Краткая характеристика устройств]

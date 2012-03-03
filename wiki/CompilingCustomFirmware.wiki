@@ -18,7 +18,7 @@
 
 == 3. Unpack the archives and prepare the building tree ==
 
-  # Unpacking (replace the path _/whatever-you-want_ with the one, where your building tree will be located), 
+  # Unpacking (replace the path _/whatever-you-want_ with the one, where your building tree will be located),
 {{{
 mkdir -p /opt/brcm
 mkdir -p /whatever-you-want/broadcom/src/linux
@@ -44,13 +44,13 @@ $ cd /whatever-you-want/broadcom/src/1.9.2.7-rtn
 $ make kernel
 $ make
 }}}
-  # Model(s) selection
+  # Model selection
 {{{
 $ cd /whatever-you-want/broadcom/src/gateway
 $ make menuconfig
 }}}
-    * under menu Router Model check desired, uncheck other router models
-    * exit with saving new configuration
+    * select one or more models from Router Models menu
+    * exit & save new configuraton
   # Compiling
 {{{
 $ cd /whatever-you-want/broadcom/src/gateway
