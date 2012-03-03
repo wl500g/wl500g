@@ -193,8 +193,6 @@ ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
 obj-y := $(filter-out nfs-utils quagga tcpdump,$(obj-y))
 endif
 
-
-
 # Kernel modules extension
 ifeq ($(CONFIG_LINUX_26),y)
 EXTRACFLAGS += -DLINUX26
@@ -218,7 +216,21 @@ obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 export LANGUAGE := "EN"
 GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM -DASUS_EXT
 
-LZMADIR=$(SRCBASE)/lzma/CPP/7zip/Compress
+LZMASDK=$(SRCBASE)/lzma9
+LZMADIR=$(LZMASDK)/CPP/7zip/Bundles/LzmaCon
+
+# legacy, to remove in future
+LZMA3SDK=$(SRCBASE)/lzma
+LZMA3LIB=$(LZMA3SDK)/CPP/7zip/Compress/LZMA_Lib
+SQUASHFS3=y
+
+ifeq ($(SQUASHFS3),y)
+MKSQUASHFSDIR=$(LINUXDIR)/scripts/squashfs
+MKSQUASHFS=$(MKSQUASHFSDIR)/mksquashfs-lzma
+else
+MKSQUASHFSDIR=$(TOP)/squashfs/squashfs-tools
+MKSQUASHFS=$(MKSQUASHFSDIR)/mksquashfs
+endif
 
 SVNREVISION:=$(shell cat $(TOP)/.svnrev 2>/dev/null)
 ifneq (0,$(words $(SVNREVISION)))
@@ -260,7 +272,7 @@ FlashMaxSize = \
 
 all: $(obj-y) 
 
-clean: $(obj-clean) config-clean lzma-clean
+clean: $(obj-clean) config-clean lzma-clean mksquashfs-clean
 	rm -rf $(TARGETDIR)
 	rm -f $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 
@@ -272,29 +284,34 @@ distclean:
 		$(MAKE) -C $$subdir distclean; \
 	done
 
+lzma $(LZMADIR)/lzma:
+	$(MAKE) -C $(LZMADIR) -f makefile.gcc
 
-lzma-lib:
-	$(MAKE) -C $(LZMADIR)/LZMA_Lib/ CC=$(HOSTCC) CXX=$(HOSTCXX)
-
-lzma-lib-clean:
-	$(MAKE) -C $(LZMADIR)/LZMA_Lib/ clean
-
-lzma:
-	$(MAKE) -C $(LZMADIR)/LZMA_Alone/ -f makefile.gcc
-
-lzma-clean: lzma-lib-clean
-	$(MAKE) -C $(LZMADIR)/LZMA_Alone/ -f makefile.gcc clean
+lzma-clean:
+	$(MAKE) -C $(LZMADIR) -f makefile.gcc clean
 
 loader:
-	$(MAKE) -C $@ LZMAPATH=$(SRCBASE)/lzma/C/Compress/Lzma
+	$(MAKE) -C $@ LZMAPATH=$(LZMA3SDK)/C/Compress/Lzma
 
-mksquashfs-lzma: lzma-lib
-	$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma \
-		LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
+mksquashfs $(MKSQUASHFS):
+ifeq ($(SQUASHFS3),y)
+	$(MAKE) -C $(LZMA3LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
+	$(MAKE) -C $(MKSQUASHFSDIR) mksquashfs-lzma \
+		LZMAPATH=$(LZMA3LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
+else
+	$(MAKE) -C $(MKSQUASHFSDIR) CC=$(HOSTCC) CXX=$(HOSTCXX) \
+		LZMA_DIR=$(LZMASDK) EXTRA_CFLAGS="-D_7ZIP_ST"
+endif
+
+mksquashfs-clean:
+	$(MAKE) -C $(MKSQUASHFSDIR) clean LZMA_DIR=.
+ifeq ($(SQUASHFS3),y)
+	$(MAKE) -C $(LZMA3LIB) clean
+endif
 
 $(PLATFORMDIR)/vmlinuz: $(LINUXDIR)/vmlinux lzma
 ifeq ($(CONFIG_LOADER),y)
-	$(MAKE) -C loader vmlinuz-install LZMA=$(LZMADIR)/LZMA_Alone/lzma DESTDIR=$(PLATFORMDIR)
+	$(MAKE) -C loader vmlinuz-install LZMA=$(LZMADIR)/lzma DESTDIR=$(PLATFORMDIR)
 else
 	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed vmlinuz
 	cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz $(PLATFORMDIR)/
@@ -393,25 +410,25 @@ modules_install-usb:
 		$(SRCMODULESDIR)/drivers/usb/serial/pl2303$(ko) \
 		$(SRCMODULESDIR)/drivers/usb/serial/ftdi_sio$(ko) \
 		$(SRCMODULESDIR)/drivers/usb/serial/option$(ko) \
-		$(SRCMODULESDIR)/drivers/usb/class/cdc-acm$(ko) 
-	# usb net
+		$(SRCMODULESDIR)/drivers/usb/class/cdc-acm$(ko)
+	# usb ethernet
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/net/usb/usbnet$(ko) \
 		$(SRCMODULESDIR)/drivers/net/usb/cdc_ether$(ko) \
-		$(SRCMODULESDIR)/drivers/net/usb/rndis_host$(ko) 
+		$(SRCMODULESDIR)/drivers/net/usb/rndis_host$(ko)
 	# usb webcams
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/media/video/videodev$(ko) \
 		$(SRCMODULESDIR)/drivers/media/video/v4l2-common$(ko) \
 		$(SRCMODULESDIR)/drivers/media/video/uvc/uvcvideo$(ko) \
-		$(SRCMODULESDIR)/drivers/input/input-core$(ko) 
+		$(SRCMODULESDIR)/drivers/input/input-core$(ko)
 	# usb audio
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/sound/soundcore$(ko) \
 		$(SRCMODULESDIR)/sound/core/snd$(ko) \
 		$(SRCMODULESDIR)/sound/core/snd-*$(ko) \
 		$(SRCMODULESDIR)/sound/core/oss/snd-*$(ko) \
-		$(SRCMODULESDIR)/sound/usb/snd-usb-*$(ko) 
+		$(SRCMODULESDIR)/sound/usb/snd-usb-*$(ko)
 	# NFS
 ifeq ($(CONFIG_NFS),y)
 	install -t $(MODULESDIR) \
@@ -458,7 +475,7 @@ modules_install: .config
 install: package-$(MODEL)
 	@true
 
-package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs-lzma
+package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs
 	$(MAKE) www-pages-$*
 	# Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
@@ -479,8 +496,14 @@ package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.con
 	# Prepare filesystem
 	cd $(TARGETDIR) && $(TOP)/misc/rootprep.sh
         # Make rootfs image
-	$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.cramfs \
+ifeq ($(SQUASHFS3),y)
+	$(MKSQUASHFS) $(TARGETDIR) $(PLATFORMDIR)/target.cramfs \
 		-all-root -noappend -nopad -pf $(TOP)/misc/rootprep.files
+else
+	$(MKSQUASHFS) $(TARGETDIR) $(PLATFORMDIR)/target.cramfs \
+		-all-root -noappend -nopad -pf $(TOP)/misc/rootprep.files \
+		-comp lzma -Xlc 0 -Xlp 2 -Xpb 2 -Xfb 128
+endif
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
 ifeq ($(CONFIG_LOADER),y)
@@ -495,7 +518,6 @@ endif
 	@echo
 	@echo "Finished building $* firmware version $(KERNEL_VER).$(FS_VER) ($(RELEASE))"
 	@echo
-
 
 MANPAGES-y := busybox/docs/BusyBox.1 \
 	    LPRng/man/lpd.8 bridge/doc/brctl.8 dnsmasq/man/dnsmasq.8 \
