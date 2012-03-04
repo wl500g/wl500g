@@ -216,12 +216,12 @@ obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 export LANGUAGE := "EN"
 GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM -DASUS_EXT
 
-LZMASDK=$(SRCBASE)/lzma9
+LZMASDK=$(SRCBASE)/lzma
 LZMADIR=$(LZMASDK)/CPP/7zip/Bundles/LzmaCon
 
 # legacy, to remove in future
-LZMA3SDK=$(SRCBASE)/lzma
-LZMA3LIB=$(LZMA3SDK)/CPP/7zip/Compress/LZMA_Lib
+LZMA4SDK=$(SRCBASE)/lzma4xx
+LZMA4LIB=$(LZMA4SDK)/CPP/7zip/Compress/LZMA_Lib
 SQUASHFS3=y
 
 ifeq ($(SQUASHFS3),y)
@@ -291,13 +291,13 @@ lzma-clean:
 	$(MAKE) -C $(LZMADIR) -f makefile.gcc clean
 
 loader:
-	$(MAKE) -C $@ LZMAPATH=$(LZMA3SDK)/C/Compress/Lzma
+	$(MAKE) -C $@ LZMAPATH=$(LZMA4SDK)/C/Compress/Lzma
 
 mksquashfs $(MKSQUASHFS):
 ifeq ($(SQUASHFS3),y)
-	$(MAKE) -C $(LZMA3LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
+	$(MAKE) -C $(LZMA4LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
 	$(MAKE) -C $(MKSQUASHFSDIR) mksquashfs-lzma \
-		LZMAPATH=$(LZMA3LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
+		LZMAPATH=$(LZMA4LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
 else
 	$(MAKE) -C $(MKSQUASHFSDIR) CC=$(HOSTCC) CXX=$(HOSTCXX) \
 		LZMA_DIR=$(LZMASDK) EXTRA_CFLAGS="-D_7ZIP_ST"
@@ -306,7 +306,7 @@ endif
 mksquashfs-clean:
 	$(MAKE) -C $(MKSQUASHFSDIR) clean LZMA_DIR=.
 ifeq ($(SQUASHFS3),y)
-	$(MAKE) -C $(LZMA3LIB) clean
+	$(MAKE) -C $(LZMA4LIB) clean
 endif
 
 $(PLATFORMDIR)/vmlinuz: $(LINUXDIR)/vmlinux lzma

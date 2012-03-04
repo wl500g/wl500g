@@ -38,8 +38,8 @@ MINIUPNPD=miniupnpd-1.6
 PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.10
 ACCEL-PPTP=accel-pptp-git-20100829
-LZMA=lzma457
-LZMA9=lzma922
+LZMA=lzma922
+LZMA4XX=lzma457
 SQUASHFS=squashfs4.2
 NFSUTILS=nfs-utils-1.1.6
 PORTMAP=portmap_6
@@ -117,21 +117,21 @@ $(TOP)/.config: config shared
 	$(MAKE) -C $(KERNEL) version
 	$(MAKE) -C $(TOP) .config
 
+lzma4xx_Patches := $(call patches_list,lzma,4xx-)
+
+$(ROOT)/lzma4xx: lzma/$(LZMA4XX).tbz2
+	@rm -rf $@ && mkdir -p $@
+	tar -C $@ -xjf $<
+	$(PATCHER) -Z $@ $(lzma4xx_Patches)
+
 lzma_Patches := $(call patches_list,lzma)
 
-$(ROOT)/lzma: lzma/$(LZMA).tbz2
+$(ROOT)/lzma: lzma/$(LZMA).tar.bz2
 	@rm -rf $@ && mkdir -p $@
 	tar -C $@ -xjf $<
 	$(PATCHER) -Z $@ $(lzma_Patches)
 
-lzma9_Patches := $(call patches_list,lzma,9)
-
-$(ROOT)/lzma9: lzma/$(LZMA9).tar.bz2
-	@rm -rf $@ && mkdir -p $@
-	tar -C $@ -xjf $<
-	$(PATCHER) -Z $@ $(lzma9_Patches)
-
-lzma: $(ROOT)/lzma $(ROOT)/lzma9
+lzma: $(ROOT)/lzma4xx $(ROOT)/lzma
 	@true
 
 squashfs_Patches := $(call patches_list,squashfs)
