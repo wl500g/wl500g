@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (!pass || !*pass) usage();
+	if (!*pass) usage();
 
 	openlog("lanauth", nodaemon ? LOG_PERROR|LOG_PID : LOG_PID, LOG_DAEMON);
 
