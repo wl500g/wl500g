@@ -1,4 +1,4 @@
-diff -urN a/udpxy.c b/udpxy.c
+diff -urp a/udpxy.c b/udpxy.c
 --- a/udpxy.c
 +++ b/udpxy.c
 @@ -29,6 +29,7 @@
@@ -17,7 +17,7 @@ diff -urN a/udpxy.c b/udpxy.c
      int                 new_sockfd = -1, err = 0, peer_port = -1,
                          wmark = g_uopt.ss_rlwmark;
      size_t              nmax = *alen, naccepted = 0;
-@@ -979,6 +981,9 @@
+@@ -979,6 +981,9 @@ accept_requests (int sockfd, tmfd_t* asock, size_t* alen)
              }
          }
  
@@ -27,4 +27,3 @@ diff -urN a/udpxy.c b/udpxy.c
          asock [naccepted].fd = new_sockfd;
          asock [naccepted].atime = time (NULL);
          ++naccepted;
-epted;
