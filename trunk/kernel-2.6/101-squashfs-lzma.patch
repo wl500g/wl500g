@@ -475,7 +475,7 @@ diff -urNBp linux-2.6.22.orig/fs/squashfs/Makefile linux-2.6/fs/squashfs/Makefil
 -squashfs-y += inode.o
 -squashfs-y += squashfs2_0.o
 +
-+LZMADIR = ../../../../lzma/C/Compress/Lzma
++LZMADIR = ../../../../lzma4xx/C/Compress/Lzma
 +
 +squashfs-objs := inode.o
 +#squashfs-objs += squashfs2_0.o
