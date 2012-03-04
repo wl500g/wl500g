@@ -10,13 +10,19 @@ curdir:=tools
 
 # subdirectories to descend into
 tools-y := pkg-config automake
-tools-$(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4) += gmp mpfr
+tools-$(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4)$(CONFIG_GCC_VERSION_4_5) += gmp mpfr
+tools-$(CONFIG_GCC_VERSION_4_5) += mpc libelf
 tools-$(CONFIG_CCACHE) += ccache
 #tools-y += sed sstrip ipkg-utils bison
 $(curdir)/builddirs := $(tools-y)
+$(curdir)/builddirs-compile := $($(curdir)/builddirs)
+$(curdir)/builddirs-install := $($(curdir)/builddirs-compile)
 
 # builddir dependencies
+$(curdir)/gmp/compile := $(curdir)/automake/install
 $(curdir)/mpfr/compile := $(curdir)/gmp/install
+$(curdir)/mpc/compile := $(curdir)/mpfr/install $(curdir)/gmp/install
+$(curdir)/libelf/compile := $(curdir)/automake/install
 
 # preparatory work
 $(STAGING_DIR)/.prepared: $(TMP_DIR)/.build
@@ -30,11 +36,11 @@ $(STAGING_DIR)/.prepared: $(TMP_DIR)/.build
 	$(INSTALL_DATA) $(TOPDIR)/tools/include/*.h $(STAGING_DIR_HOST)/include/
 	touch $@
 
-$(curdir)//prepare = $(STAGING_DIR)/.prepared
-$(curdir)//compile = $(STAGING_DIR)/.prepared
 
 # prerequisites for the individual targets
 $(curdir)/ := .config prereq
+$(curdir)//prepare = $(STAGING_DIR)/.prepared
+$(curdir)//compile = $(1)/prepare
 $(curdir)//install = $(1)/compile
 
 $(eval $(call stampfile,$(curdir),tools,install))

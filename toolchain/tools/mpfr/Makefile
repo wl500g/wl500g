@@ -21,13 +21,13 @@ HOST_CONFIGURE_ARGS += \
 	--with-gmp=$(STAGING_DIR_HOST)
 
 define Build/Configure
-        $(call Build/Configure/Default,\
-            $(HOST_CONFIGURE_ARGS) \
-        )
+	$(call Build/Configure/Default,\
+		$(HOST_CONFIGURE_ARGS) \
+	)
 endef
 
 define Build/Install
-        $(MAKE) -C $(PKG_BUILD_DIR) install
+	$(MAKE) -C $(PKG_BUILD_DIR) install
 endef
 
 $(eval $(call HostBuild))

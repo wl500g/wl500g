@@ -2,7 +2,7 @@
 
 choice
 	prompt "GCC compiler Version"
-	default GCC_VERSION_4_3_6
+	default GCC_VERSION_4_4_6
 	help
 	  Select the version of gcc you wish to use.
 
@@ -17,6 +17,9 @@ choice
 
 	config GCC_VERSION_4_4_6
 		bool "gcc 4.4.6"
+
+	config GCC_VERSION_4_5_3
+		bool "gcc 4.5.3"
 
 endchoice
 

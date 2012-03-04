@@ -6,31 +6,26 @@
 #
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=gmp
-PKG_VERSION:=5.0.4
+PKG_NAME:=mpc
+PKG_VERSION:=0.9
 
-PKG_SOURCE_URL:=@GNU/gmp/
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
-PKG_MD5SUM:=50c3edcb7c9438e04377ee9a1a061b79
+PKG_SOURCE_URL:=http://www.multiprecision.org/mpc/download/
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_MD5SUM:=0d6acab8d214bd7d1fbbc593e83dd00d
 
 include $(INCLUDE_DIR)/host-build.mk
 
 unexport CFLAGS
 
-ifeq ($(HOST_OS),Darwin)
-  GNU_HOST_NAME:=
-  HOST_CONFIGURE_ARGS:=$(filter-out --target= --build= --host=,$(HOST_CONFIGURE_ARGS))
-endif
-
 HOST_CONFIGURE_ARGS += \
 	--enable-static \
 	--disable-shared \
-	--enable-cxx \
-	--enable-mpbsd
+	--with-mpfr=$(TOPDIR)/staging_dir/host \
+	--with-gmp=$(TOPDIR)/staging_dir/host
 
 define Build/Configure
 	$(call Build/Configure/Default,\
-		$(HOST_CONFIGURE_ARGS) \
+	    $(HOST_CONFIGURE_ARGS) \
 	)
 endef
 
