@@ -1,0 +1,30 @@
+diff -urN a/udpxy.c b/udpxy.c
+--- a/udpxy.c
++++ b/udpxy.c
+@@ -29,6 +29,7 @@
+ #include <sys/select.h>
+ 
+ #include <netinet/in.h>
++#include <netinet/tcp.h>
+ #include <sys/time.h>
+ 
+ /* #include <sys/select.h> */
+@@ -928,6 +929,7 @@
+ static void
+ accept_requests (int sockfd, tmfd_t* asock, size_t* alen)
+ {
++    const int yes = 1;
+     int                 new_sockfd = -1, err = 0, peer_port = -1,
+                         wmark = g_uopt.ss_rlwmark;
+     size_t              nmax = *alen, naccepted = 0;
+@@ -979,6 +981,9 @@
+             }
+         }
+ 
++
++        setsockopt(new_sockfd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
++
+         asock [naccepted].fd = new_sockfd;
+         asock [naccepted].atime = time (NULL);
+         ++naccepted;
+epted;
