@@ -18,6 +18,6 @@ EOF
 
 for file in $* ; do
 	echo "/* $file */"
-	${NM} $file | sed -ne 's/[0-9A-Fa-f]* [BDRT] \([^ ]*\)/extern void \1; EXPORT_SYMBOL(\1);/p'
+	${NM} $file | sed -ne 's/[0-9A-Fa-f]* [BDR] \([^ ]*\)/extern int \1; EXPORT_SYMBOL(\1);/p;s/[0-9A-Fa-f]* [T] \([^ ]*\)/extern void \1(void); EXPORT_SYMBOL(\1);/p'
 	echo ""
 done
