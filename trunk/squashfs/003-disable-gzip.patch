@@ -1,0 +1,22 @@
+--- squashfs.orig/squashfs-tools/compressor.c	2011-02-11 15:49:24.000000000 +0000
++++ squashfs/squashfs-tools/compressor.c	2012-03-04 09:06:28.988019000 +0000
+@@ -27,7 +27,7 @@
+ 
+ #ifndef GZIP_SUPPORT
+ static struct compressor gzip_comp_ops =  {
+-	NULL, NULL, NULL, NULL, NULL, NULL, ZLIB_COMPRESSION, "gzip", 0
++	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ZLIB_COMPRESSION, "gzip", 0
+ };
+ #else
+ extern struct compressor gzip_comp_ops;
+--- squashfs.orig/squashfs-tools/Makefile	2012-03-02 07:21:06.000000000 +0000
++++ squashfs/squashfs-tools/Makefile	2012-03-03 21:04:52.578019000 +0000
+@@ -15,7 +15,7 @@
+ # Obviously, you must select at least one of the available gzip, lzma, lzo
+ # compression types.
+ #
+-GZIP_SUPPORT = 1
++#GZIP_SUPPORT = 1
+ 
+ ########### Building XZ support #############
+ #
