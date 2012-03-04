@@ -32,7 +32,6 @@ int mainloop(struct session * s)
 	struct sockaddr_in listenaddr;
 	struct hostent * he;
 	int addrsize;
-	FILE *fp;
 
 	s->lastheartbeat = 0;
 	s->sequence = 0;
