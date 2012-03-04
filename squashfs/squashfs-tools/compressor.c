@@ -27,7 +27,7 @@
 
 #ifndef GZIP_SUPPORT
 static struct compressor gzip_comp_ops =  {
-	NULL, NULL, NULL, NULL, NULL, NULL, ZLIB_COMPRESSION, "gzip", 0
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ZLIB_COMPRESSION, "gzip", 0
 };
 #else
 extern struct compressor gzip_comp_ops;
