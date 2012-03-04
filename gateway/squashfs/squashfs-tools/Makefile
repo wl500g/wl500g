@@ -15,7 +15,7 @@
 # Obviously, you must select at least one of the available gzip, lzma, lzo
 # compression types.
 #
-GZIP_SUPPORT = 1
+#GZIP_SUPPORT = 1
 
 ########### Building XZ support #############
 #
