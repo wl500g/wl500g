@@ -1,5 +1,5 @@
---- a/LPRng/src/common/plp_snprintf.c
-+++ b/LPRng/src/common/plp_snprintf.c
+--- a/src/common/plp_snprintf.c
++++ b/src/common/plp_snprintf.c
 @@ -933,7 +933,7 @@
  	}
  	convert[2*i] = 0;
