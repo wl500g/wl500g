@@ -9,7 +9,7 @@
 curdir:=tools
 
 # subdirectories to descend into
-tools-y := pkg-config automake
+tools-y := pkg-config
 tools-$(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4)$(CONFIG_GCC_VERSION_4_5) += gmp mpfr
 tools-$(CONFIG_GCC_VERSION_4_5) += mpc libelf
 tools-$(CONFIG_CCACHE) += ccache
@@ -19,10 +19,8 @@ $(curdir)/builddirs-compile := $($(curdir)/builddirs)
 $(curdir)/builddirs-install := $($(curdir)/builddirs-compile)
 
 # builddir dependencies
-$(curdir)/gmp/compile := $(curdir)/automake/install
 $(curdir)/mpfr/compile := $(curdir)/gmp/install
 $(curdir)/mpc/compile := $(curdir)/mpfr/install $(curdir)/gmp/install
-$(curdir)/libelf/compile := $(curdir)/automake/install
 
 # preparatory work
 $(STAGING_DIR)/.prepared: $(TMP_DIR)/.build
