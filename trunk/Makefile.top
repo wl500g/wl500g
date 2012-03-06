@@ -772,7 +772,7 @@ upnp: netconf nvram shared
 miniupnpd/config.h:
 	cd miniupnpd && ./genconfig.sh
 
-miniupnpd: iptables miniupnpd/config.h
+miniupnpd: iptables netconf miniupnpd/config.h
 	$(MAKE) -C $@ -f Makefile.linux EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    IPTABLESPATH=$(TOP)/iptables ARCH=$(PLATFORM) \
 	    $(if $(CONFIG_NETCONF),LDFLAGS="-L$(TOP)/netconf -lnetconf",LDFLAGS="-liptc") \
