@@ -761,7 +761,7 @@ static int pptp_create(struct net *net, struct socket *sock)
 	struct pptp_opt *opt;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-	sk = sk_alloc(PF_PPPOX, GFP_KERNEL, &pptp_sk_proto, 1);
+	sk = sk_alloc(PF_PPPOX, GFP_KERNEL, &pptp_sk_proto);
 #else
 	sk = sk_alloc(net, PF_PPPOX, GFP_KERNEL, &pptp_sk_proto);
 #endif

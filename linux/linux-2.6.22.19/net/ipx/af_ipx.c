@@ -1375,7 +1375,7 @@ static int ipx_create(struct socket *sock, int protocol)
 		goto out;
 
 	rc = -ENOMEM;
-	sk = sk_alloc(PF_IPX, GFP_KERNEL, &ipx_proto, 1);
+	sk = sk_alloc(PF_IPX, GFP_KERNEL, &ipx_proto);
 	if (!sk)
 		goto out;
 #ifdef IPX_REFCNT_DEBUG

@@ -619,7 +619,7 @@ static int econet_create(struct socket *sock, int protocol)
 	sock->state = SS_UNCONNECTED;
 
 	err = -ENOBUFS;
-	sk = sk_alloc(PF_ECONET, GFP_KERNEL, &econet_proto, 1);
+	sk = sk_alloc(PF_ECONET, GFP_KERNEL, &econet_proto);
 	if (sk == NULL)
 		goto out;
 

@@ -388,7 +388,7 @@ static int __netlink_create(struct socket *sock, struct mutex *cb_mutex,
 
 	sock->ops = &netlink_ops;
 
-	sk = sk_alloc(PF_NETLINK, GFP_KERNEL, &netlink_proto, 1);
+	sk = sk_alloc(PF_NETLINK, GFP_KERNEL, &netlink_proto);
 	if (!sk)
 		return -ENOMEM;
 

@@ -1684,7 +1684,7 @@ static int pppol2tp_create(struct socket *sock)
 
 	try_module_get(THIS_MODULE);
 
-	sk = sk_alloc(PF_PPPOX, GFP_KERNEL, &pppol2tp_sk_proto, 1);
+	sk = sk_alloc(PF_PPPOX, GFP_KERNEL, &pppol2tp_sk_proto);
 	if (!sk)
 		goto out;
 

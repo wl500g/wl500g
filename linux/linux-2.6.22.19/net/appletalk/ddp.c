@@ -1034,7 +1034,7 @@ static int atalk_create(struct socket *sock, int protocol)
 	if (sock->type != SOCK_RAW && sock->type != SOCK_DGRAM)
 		goto out;
 	rc = -ENOMEM;
-	sk = sk_alloc(PF_APPLETALK, GFP_KERNEL, &ddp_proto, 1);
+	sk = sk_alloc(PF_APPLETALK, GFP_KERNEL, &ddp_proto);
 	if (!sk)
 		goto out;
 	rc = 0;

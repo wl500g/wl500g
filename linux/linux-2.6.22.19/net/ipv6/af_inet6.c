@@ -177,7 +177,7 @@ lookup_protocol:
 	BUG_TRAP(answer_prot->slab != NULL);
 
 	err = -ENOBUFS;
-	sk = sk_alloc(PF_INET6, GFP_KERNEL, answer_prot, 1);
+	sk = sk_alloc(PF_INET6, GFP_KERNEL, answer_prot);
 	if (sk == NULL)
 		goto out;
 

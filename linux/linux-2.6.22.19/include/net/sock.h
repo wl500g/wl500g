@@ -200,54 +200,65 @@ struct sock {
 #define sk_refcnt		__sk_common.skc_refcnt
 #define sk_hash			__sk_common.skc_hash
 #define sk_prot			__sk_common.skc_prot
-	unsigned char		sk_shutdown : 2,
-				sk_no_check : 2,
-				sk_userlocks : 4;
-	unsigned char		sk_protocol;
-	unsigned short		sk_type;
-	int			sk_rcvbuf;
 	socket_lock_t		sk_lock;
+	struct sk_buff_head	sk_receive_queue;
 	/*
 	 * The backlog queue is special, it is always used with
 	 * the per-socket spinlock held and requires low latency
 	 * access. Therefore we special case it's implementation.
+	 * Note : rmem_alloc is in this structure to fill a hole
+	 * on 64bit arches, not because its logically part of
+	 * backlog.
 	 */
 	struct {
+		atomic_t	rmem_alloc;
 		struct sk_buff *head;
 		struct sk_buff *tail;
 	} sk_backlog;
+#define sk_rmem_alloc sk_backlog.rmem_alloc
+	int			sk_forward_alloc;
+	atomic_t		sk_drops;
+	int			sk_rcvbuf;
+
+	struct sk_filter      	*sk_filter;
+
 	wait_queue_head_t	*sk_sleep;
-	struct dst_entry	*sk_dst_cache;
+#ifdef CONFIG_NET_DMA
+	struct sk_buff_head	sk_async_wait_queue;
+#endif
+
+#ifdef CONFIG_XFRM
 	struct xfrm_policy	*sk_policy[2];
+#endif
+	unsigned long 		sk_flags;
+	struct dst_entry	*sk_dst_cache;
 	rwlock_t		sk_dst_lock;
-	atomic_t		sk_rmem_alloc;
 	atomic_t		sk_wmem_alloc;
 	atomic_t		sk_omem_alloc;
 	int			sk_sndbuf;
-	struct sk_buff_head	sk_receive_queue;
 	struct sk_buff_head	sk_write_queue;
-	struct sk_buff_head	sk_async_wait_queue;
+	unsigned int		sk_shutdown  : 2,
+				sk_no_check  : 2,
+				sk_userlocks : 4,
+				sk_protocol  : 8,
+				sk_type      : 16;
 	int			sk_wmem_queued;
-	int			sk_forward_alloc;
 	gfp_t			sk_allocation;
 	int			sk_route_caps;
 	int			sk_gso_type;
 	int			sk_rcvlowat;
-	unsigned long 		sk_flags;
 	unsigned long	        sk_lingertime;
 	struct sk_buff_head	sk_error_queue;
 	struct proto		*sk_prot_creator;
 	rwlock_t		sk_callback_lock;
 	int			sk_err,
 				sk_err_soft;
-	atomic_t		sk_drops;
 	unsigned short		sk_ack_backlog;
 	unsigned short		sk_max_ack_backlog;
 	__u32			sk_priority;
 	struct ucred		sk_peercred;
 	long			sk_rcvtimeo;
 	long			sk_sndtimeo;
-	struct sk_filter      	*sk_filter;
 	void			*sk_protinfo;
 	struct timer_list	sk_timer;
 	ktime_t			sk_stamp;
@@ -782,7 +793,7 @@ extern void FASTCALL(release_sock(struct sock *sk));
 
 extern struct sock		*sk_alloc(int family,
 					  gfp_t priority,
-					  struct proto *prot, int zero_it);
+					  struct proto *prot);
 extern void			sk_free(struct sock *sk);
 extern struct sock		*sk_clone(const struct sock *sk,
 					  const gfp_t priority);
@@ -1336,7 +1347,7 @@ static inline int sock_writeable(const struct sock *sk)
 
 static inline gfp_t gfp_any(void)
 {
-	return in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
+	return in_softirq() ? GFP_ATOMIC : GFP_KERNEL;
 }
 
 static inline long sock_rcvtimeo(const struct sock *sk, int noblock)

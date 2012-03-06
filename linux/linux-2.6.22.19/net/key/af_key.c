@@ -149,7 +149,7 @@ static int pfkey_create(struct socket *sock, int protocol)
 		return -EPROTONOSUPPORT;
 
 	err = -ENOMEM;
-	sk = sk_alloc(PF_KEY, GFP_KERNEL, &key_proto, 1);
+	sk = sk_alloc(PF_KEY, GFP_KERNEL, &key_proto);
 	if (sk == NULL)
 		goto out;
 

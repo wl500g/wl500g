@@ -468,7 +468,7 @@ static struct proto x25_proto = {
 static struct sock *x25_alloc_socket(void)
 {
 	struct x25_sock *x25;
-	struct sock *sk = sk_alloc(AF_X25, GFP_ATOMIC, &x25_proto, 1);
+	struct sock *sk = sk_alloc(AF_X25, GFP_ATOMIC, &x25_proto);
 
 	if (!sk)
 		goto out;

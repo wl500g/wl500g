@@ -316,7 +316,7 @@ lookup_protocol:
 	BUG_TRAP(answer_prot->slab != NULL);
 
 	err = -ENOBUFS;
-	sk = sk_alloc(PF_INET, GFP_KERNEL, answer_prot, 1);
+	sk = sk_alloc(PF_INET, GFP_KERNEL, answer_prot);
 	if (sk == NULL)
 		goto out;
 
@@ -344,7 +344,6 @@ lookup_protocol:
 	sock_init_data(sock, sk);
 
 	sk->sk_destruct	   = inet_sock_destruct;
-	sk->sk_family	   = PF_INET;
 	sk->sk_protocol	   = protocol;
 	sk->sk_backlog_rcv = sk->sk_prot->backlog_rcv;
 
