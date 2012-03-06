@@ -1,4 +1,3 @@
-From 604b73c3cb127b831d90c82fcd9605663519a4b0
 From: Fedor <fedork@ubuntu.(none)>
 Date: Wed, 29 Sep 2010 02:10:27 -0400
 Subject: [PATCH] [BRIDGE]: patches from upstream
@@ -10,13 +9,14 @@ a598f6aebea2481531b0757ed90cfb0d8cf1d8f5 bridge: relay bridge multicast pkgs if 
 7b995651e373d6424f81db23f2ec503306dfd7f0 [BRIDGE]: Unshare skb upon entry
 9c2842bd94dd72d77bddb498bdd76342a0089168 [BRIDGE]: Remove SKB share checks in br_nf_pre_routing()
 1e253c3b8a1aeed51eef6fc366812f219b97de65 bridge: Forward reserved group addresses if !STP
----
+aaca735f4f188641c4786af8f20ed39fcce3809c bridge: Adjust min age inc for HZ > 256
 
+---
  net/bridge/br_fdb.c       |    2 +-
- net/bridge/br_input.c     |   22 ++++++++++++-------
- net/bridge/br_netfilter.c |    3 --
- net/bridge/br_stp.c       |    3 ++
- 4 files changed, 18 insertions(+), 12 deletions(-)
+ net/bridge/br_input.c     |   22 ++++++++++++++--------
+ net/bridge/br_netfilter.c |    3 ---
+ net/bridge/br_stp.c       |    7 +++++--
+ 4 files changed, 20 insertions(+), 14 deletions(-)
 
 diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
 --- a/net/bridge/br_fdb.c
@@ -85,6 +85,18 @@ diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
 diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
 --- a/net/bridge/br_stp.c
 +++ b/net/bridge/br_stp.c
+@@ -17,9 +17,9 @@
+ #include "br_private_stp.h"
+ 
+ /* since time values in bpdu are in jiffies and then scaled (1/256)
+- * before sending, make sure that is at least one.
++ * before sending, make sure that is at least one STP tick.
+  */
+-#define MESSAGE_AGE_INCR	((HZ < 256) ? 1 : (HZ/256))
++#define MESSAGE_AGE_INCR	((HZ / 256) + 1)
+ 
+ static const char *br_port_state_names[] = {
+ 	[BR_STATE_DISABLED] = "disabled",
 @@ -298,6 +298,9 @@ void br_topology_change_detection(struct net_bridge *br)
  {
  	int isroot = br_is_root_bridge(br);
@@ -97,4 +109,3 @@ diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
  
 -- 
 1.6.5.GIT
-
