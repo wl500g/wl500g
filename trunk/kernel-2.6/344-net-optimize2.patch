@@ -1,5 +1,6 @@
 
  ef711cf1d156428d4c2911b8c86c6ce90519dc45 net: speedup dst_release()
+ 6f11df8355e8f59f7572bf6ac1f63d692483b0c6 [NET]: "wrong timeout value in sk_wait_data()": cleanups
  23aeeec365dcf8bc87fae44c533e50d0bb4f23cc [TCP] FRTO: Plug potential LOST-bit leak
  db40980fcdb560d7992b0511df16cdd3f7e381f3 net: poll() optimizations
  7f53878dc2618bf7c01e2135bd271ac01bd85dc9 [IPv4]: Reply net unreachable ICMP message
@@ -18,7 +19,7 @@
  net/bluetooth/af_bluetooth.c |    5 +--
  net/core/datagram.c          |    5 +--
  net/core/dev.c               |   56 +++++++++++++++++++++++++++++--------------
- net/core/sock.c              |    1 
+ net/core/sock.c              |    4 ++-
  net/ipv4/af_inet.c           |    7 +----
  net/ipv4/arp.c               |    5 +--
  net/ipv4/icmp.c              |    8 +++---
@@ -30,7 +31,7 @@
  net/sched/sch_netem.c        |    9 ++++++
  net/sctp/socket.c            |    5 +--
  net/unix/af_unix.c           |    5 +--
- 17 files changed, 111 insertions(+), 84 deletions(-)
+ 17 files changed, 113 insertions(+), 85 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
@@ -261,6 +262,16 @@ diff --git a/net/core/dev.c b/net/core/dev.c
 diff --git a/net/core/sock.c b/net/core/sock.c
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
+@@ -210,7 +210,8 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+ 		return -EDOM;
+ 
+ 	if (tv.tv_sec < 0) {
+-		static int warned = 0;
++		static int warned __read_mostly;
++
+ 		*timeo_p = 0;
+ 		if (warned < 10 && net_ratelimit())
+ 			warned++;
 @@ -1257,6 +1257,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
  			/* It is still raw copy of parent, so invalidate
  			 * destructor and make plain sk_free() */
