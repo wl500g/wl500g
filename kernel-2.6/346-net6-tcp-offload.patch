@@ -5,13 +5,12 @@ tcp: TSO/GSO updates from upstream
  6b5a5c0dbb11dcff4e1b0f1ef87a723197948ed4 tcp: do not scale TSO segment size with reordering degree
  f07d960df33c5aef8f513efce0fd201f962f94a1 tcp: avoid frag allocation for small frames
  5b35e1e6e9ca651e6b291c96d1106043c9af314a tcp: fix tcp_trim_head() to adjust segment count with skb MSS
- 4fa48bf3c75069d636fc8830743c929a062e80dc tcp: fix tcp_trim_head()
 
 ---
  include/net/tcp.h     |   26 +++++++++++++++++---------
  net/ipv4/tcp.c        |    9 ++++++---
- net/ipv4/tcp_output.c |   21 +++++++++++----------
- 3 files changed, 34 insertions(+), 22 deletions(-)
+ net/ipv4/tcp_output.c |    8 +++-----
+ 3 files changed, 26 insertions(+), 17 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
 --- a/include/net/tcp.h
@@ -83,33 +82,6 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -1093,6 +1093,13 @@ static void __pskb_trim_head(struct sk_buff *skb, int len)
- {
- 	int i, k, eat;
- 
-+	eat = min_t(int, len, skb_headlen(skb));
-+	if (eat) {
-+		__skb_pull(skb, eat);
-+		len -= eat;
-+		if (!len)
-+			return;
-+	}
- 	eat = len;
- 	k = 0;
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-@@ -1124,11 +1131,7 @@ int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
- 	if (skb_cloned(skb) && pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
- 		return -ENOMEM;
- 
--	/* If len == headlen, we avoid __skb_pull to preserve alignment. */
--	if (unlikely(len < skb_headlen(skb)))
--		__skb_pull(skb, len);
--	else
--		__pskb_trim_head(skb, len - skb_headlen(skb));
-+	__pskb_trim_head(skb, len);
- 
- 	TCP_SKB_CB(skb)->seq += len;
- 	skb->ip_summed = CHECKSUM_PARTIAL;
 @@ -1141,11 +1141,9 @@ int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
  	sk_mem_uncharge(sk, len);
  	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
