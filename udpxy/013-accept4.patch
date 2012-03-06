@@ -1,0 +1,53 @@
+diff -urN a/Makefile b/Makefile
+--- a/Makefile	2011-12-27 11:50:30.000000000 +0400
++++ b/Makefile	2012-02-24 13:37:26.000000000 +0400
+@@ -99,7 +99,7 @@
+ ARCDIR = ..
+ ARCFILE := $(ARCDIR)/$(EXEC).$(VERSION).$(BUILDNO)-$(PATCHNO)-$(BTYPE).tgz
+ 
+-COMMON_OPT :=
++COMMON_OPT := -D_GNU_SOURCE
+ ifneq (yes,$(NO_UDPXREC))
+ COMMON_OPT := $(COMMON_OPT) -DUDPXREC_MOD
+ endif
+diff -urN a/osdef.h b/osdef.h
+--- a/osdef.h	2011-12-26 23:44:33.000000000 +0400
++++ b/osdef.h	2012-02-24 13:42:55.000000000 +0400
+@@ -40,6 +43,9 @@
+ 
+ #if defined(__linux)
+     #define NO_SOCKADDR_SA_LEN
++    #ifdef _GNU_SOURCE
++        #define USE_ACCEPT4
++    #endif
+ #endif
+ 
+ #ifndef HAS_SOCKLEN
+diff -urNp a/udpxy.c b/udpxy.c
+--- a/udpxy.c	2012-01-19 23:16:19.000000000 +0400
++++ b/udpxy.c	2012-02-24 13:43:35.000000000 +0400
+@@ -940,7 +940,11 @@ accept_requests (int sockfd, tmfd_t* asock, size_t* alen)
+     while (naccepted < nmax) {
+         TRACE( (void)tmfputs ("Accepting new connection\n", g_flog) );
+ 
++#if defined(USE_ACCEPT4)
++        new_sockfd = accept4 (sockfd, (struct sockaddr*)&cliaddr, &addrlen, SOCK_NONBLOCK );
++#else
+         new_sockfd = accept (sockfd, (struct sockaddr*)&cliaddr, &addrlen );
++#endif
+         if (-1 == new_sockfd) {
+             err = errno;
+             if ((EWOULDBLOCK == err) || (EAGAIN == err)) {
+@@ -957,10 +961,12 @@ accept_requests (int sockfd, tmfd_t* asock, size_t* alen)
+             break;
+         }
+ 
++#if !defined(USE_ACCEPT4)
+         if (0 != set_nblock (new_sockfd, 1)) {
+             (void) close (new_sockfd); /* TODO: error-aware close */
+             continue;
+         }
++#endif
+         /*
+         if (0 != set_timeouts(new_sockfd, new_sockfd, g_uopt.sr_tmout, 0,
+             g_uopt.sw_tmout, 0)) {
