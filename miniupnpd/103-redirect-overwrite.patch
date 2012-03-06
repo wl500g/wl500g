@@ -23,7 +23,7 @@ diff --git a/upnpredirect.c b/upnpredirect.c
 -	} else {
 -		timestamp = (leaseduration > 0) ? time(NULL) + leaseduration : 0;
 -		syslog(LOG_INFO, "redirecting port %hu to %s:%hu protocol %s for: %s",
--			eport, iaddr, iport, protocol, desc);			
+-			eport, iaddr, iport, protocol, desc);
 -		return upnp_redirect_internal(rhost, eport, iaddr, iport, proto,
 -		                              desc, timestamp);
  	}
