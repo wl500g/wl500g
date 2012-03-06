@@ -1,20 +1,23 @@
-diff -BurpN dnsmasq-2.51/src/config.h dnsmasq/src/config.h
---- dnsmasq-2.50/src/config.h	2009-08-18 15:28:01.000000000 +0000
-+++ dnsmasq/src/config.h	2009-08-29 07:09:19.000000000 +0000
-@@ -166,9 +166,9 @@ NOTES:
+diff -BurpN dnsmasq-2.60/src/config.h dnsmasq/src/config.h
+--- dnsmasq-2.60/src/config.h	2012-03-04 23:04:22.000000000 +0300
++++ dnsmasq/src/config.h	2012-03-06 13:24:13.000000000 +0300
+@@ -116,11 +116,11 @@ RESOLVFILE
+    has no library dependencies other than libc */
  
- /* platform independent options- uncomment to enable */
  #define HAVE_DHCP
+-#define HAVE_DHCP6 
 -#define HAVE_TFTP
 -#define HAVE_SCRIPT
--/* #define HAVE_BROKEN_RTC */
++/* #define HAVE_DHCP6 */
 +/* #define HAVE_TFTP */
 +/* #define HAVE_SCRIPT */
+ /* #define HAVE_LUASCRIPT */
+-/* #define HAVE_BROKEN_RTC */
 +#define HAVE_BROKEN_RTC
  /* #define HAVE_DBUS */
- 
- /* Allow TFTP to be disabled with COPTS=-DNO_TFTP */
-@@ -213,10 +213,13 @@ NOTES:
+ /* #define HAVE_IDN */
+ /* #define HAVE_CONNTRACK */
+@@ -200,10 +200,13 @@ HAVE_SOCKADDR_SA_LEN
  #if !defined(__ARCH_HAS_MMU__) && !defined(__UCLIBC_HAS_MMU__)
  #  define NO_FORK
  #endif
