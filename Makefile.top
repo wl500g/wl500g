@@ -292,6 +292,7 @@ lzma-clean:
 
 loader:
 	$(MAKE) -C $@ LZMAPATH=$(LZMA4SDK)/C/Compress/Lzma
+#	$(MAKE) -C $@ LZMAPATH=$(SRCBASE)/lzma/C
 
 mksquashfs $(MKSQUASHFS):
 ifeq ($(SQUASHFS3),y)
@@ -300,7 +301,7 @@ ifeq ($(SQUASHFS3),y)
 		LZMAPATH=$(LZMA4LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
 else
 	$(MAKE) -C $(MKSQUASHFSDIR) CC=$(HOSTCC) CXX=$(HOSTCXX) \
-		LZMA_DIR=$(LZMASDK) EXTRA_CFLAGS="-D_7ZIP_ST"
+		LZMA_DIR=$(LZMASDK) EXTRA_CFLAGS="-O3 -D_7ZIP_ST"
 endif
 
 mksquashfs-clean:
