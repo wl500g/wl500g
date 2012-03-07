@@ -1,0 +1,48 @@
+[4.5 Regression] var-tracking.c: valgrind error
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=47903
+
+--- trunk/gcc/ChangeLog	2011/02/27 18:12:41	170546
++++ trunk/gcc/ChangeLog	2011/02/27 19:37:35	170547
+@@ -1,6 +1,13 @@
+ 	(avr_help): New function.
+ 	(TARGET_HELP): Define.
+ 
++2011-02-27  Jakub Jelinek  <jakub@redhat.com>
++
++	PR middle-end/47903
++	* real.c (real_arithmetic) <case PLUS_EXPR, MINUS_EXPR,
++	MULT_EXPR, RDIV_EXPR>: Clear padding bits in *r first if
++	r isn't op0 nor op1.
++
+ 2011-02-26  Gerald Pfeifer  <gerald@pfeifer.com>
+ 
+ 	* doc/invoke.texi (ARC Options): Use CPU instead of cpu.
+--- trunk/gcc/real.c	2011/02/27 18:12:41	170546
++++ trunk/gcc/real.c	2011/02/27 19:37:35	170547
+@@ -1009,15 +1010,25 @@
+   switch (code)
+     {
+     case PLUS_EXPR:
++      /* Clear any padding areas in *r if it isn't equal to one of the
++	 operands so that we can later do bitwise comparisons later on.  */
++      if (r != op0 && r != op1)
++	memset (r, '\0', sizeof (*r));
+       return do_add (r, op0, op1, 0);
+ 
+     case MINUS_EXPR:
++      if (r != op0 && r != op1)
++	memset (r, '\0', sizeof (*r));
+       return do_add (r, op0, op1, 1);
+ 
+     case MULT_EXPR:
++      if (r != op0 && r != op1)
++	memset (r, '\0', sizeof (*r));
+       return do_multiply (r, op0, op1);
+ 
+     case RDIV_EXPR:
++      if (r != op0 && r != op1)
++	memset (r, '\0', sizeof (*r));
+       return do_divide (r, op0, op1);
+ 
+     case MIN_EXPR:
