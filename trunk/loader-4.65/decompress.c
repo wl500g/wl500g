@@ -33,11 +33,12 @@
  * 06-Oct-2009 Leonid Lisovskiy
  *   LZMA SDK 4.57
  *
+ * 05-Mar-2012 Vladiaslav Grishenko
+ *   LZMA SDK 4.65/9.xx
  */
 
-#include "LzmaDecode.h"
+#include "LzmaDec.h"
 #include "trxhdr.h"
-
 
 #define BCM4710_FLASH		0x1fc00000	/* Flash */
 
@@ -90,7 +91,7 @@ static unsigned char *data;
 
 /* flash access should be aligned, so wrapper is used */
 /* read bytes from the flash, all accesses are 32-bit aligned */
-static int read_bytes(void *object, const unsigned char **buffer, UInt32 *size)
+static unsigned char *read_bytes(size_t *size)
 {
 	static unsigned int val;
 	unsigned int byteoffset = offset & 3;
@@ -99,23 +100,19 @@ static int read_bytes(void *object, const unsigned char **buffer, UInt32 *size)
 		val = *(unsigned int *)data;
 		data += 4;
 	}
-
-	*buffer = ((unsigned char *)&val) + byteoffset;
 	if (size) {
 		/* Up to four bytes */
 		*size = 4 - byteoffset;
 		offset = 0;
 	} else	offset++;
 
-	return LZMA_RESULT_OK;
+	return ((unsigned char *)&val) + byteoffset;
 }
 
 static __inline__ unsigned char get_byte(void)
 {
-	const unsigned char *buffer;
-
 	/* empty size means 1 byte */
-	return read_bytes(NULL, &buffer, NULL), *buffer;
+	return *read_bytes(NULL);
 }
 
 /* should be the first function */
@@ -124,12 +121,10 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 	unsigned long fw_arg0, unsigned long fw_arg1,
 	unsigned long fw_arg2, unsigned long fw_arg3)
 {
-	CLzmaDecoderState vs;
-	ILzmaInCallback callback;
+	CLzmaDec state;
+	ELzmaStatus status;
 	unsigned int i;  /* temp value */
 	unsigned int osize; /* uncompressed size */
-
-	callback.Read = read_bytes;
 
 	/* look for trx header, 32-bit data access */
 	for (data = ((unsigned char *)KSEG1ADDR(BCM4710_FLASH));
@@ -141,12 +136,13 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 
 	/* read LZMA args */
 	i = get_byte();
-	vs.Properties.lc = i % 9, i = i / 9;
-	vs.Properties.lp = i % 5;
-	vs.Properties.pb = i / 5;
+	state.prop.lc = i % 9, i = i / 9;
+	state.prop.lp = i % 5;
+	state.prop.pb = i / 5;
 
 	/* skip dicSize LZMA property? */
 	for (i = 0; i < 4; i++) get_byte();
+	state.prop.dicSize = 0;
 
 	/* read the lower half of uncompressed size in the header */
 	osize = ((unsigned int)get_byte()) +
@@ -157,14 +153,20 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 	/* skip rest of the header (upper half of uncompressed size) */
 	for (i = 0; i < 4; i++) get_byte();
 
-	vs.Probs = (CProb *)workspace;
+	state.dic = (unsigned char *)LOADADDR;
+	state.dicBufSize = osize;
+	state.probs = (CLzmaProb *)workspace;
 
 	/* decompress kernel */
-	if (LzmaDecode(&vs, &callback, (unsigned char*)LOADADDR,
-	    osize, &i) != LZMA_RESULT_OK) {
-		/* something went wrong */
-		return;
-	}
+	LzmaDec_Init(&state);
+	do {
+		unsigned char *src = read_bytes(&i);
+		if (LzmaDec_DecodeToDic(&state, osize, src, &i,
+		    LZMA_FINISH_ANY, &status) != SZ_OK) {
+			/* something went wrong */
+			return;
+		}
+	} while (status == LZMA_STATUS_NEEDS_MORE_INPUT);
 
 	blast_dcache(dcache_size, dcache_lsize);
 	blast_icache(icache_size, icache_lsize);
