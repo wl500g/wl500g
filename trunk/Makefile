@@ -117,7 +117,7 @@ $(TOP)/.config: config shared
 	$(MAKE) -C $(KERNEL) version
 	$(MAKE) -C $(TOP) .config
 
-lzma4xx_Patches := $(call patches_list,lzma,4xx-)
+lzma4xx_Patches := $(call patches_list,lzma,457-)
 
 $(ROOT)/lzma4xx: lzma/$(LZMA4XX).tbz2
 	@rm -rf $@ && mkdir -p $@
