@@ -22,7 +22,7 @@
 +	multiplying by number of iterations for equal step.
 +	(vect_create_cond_for_alias_checks): Likewise.
 +
- 2011-07-04  Richard Guenther  <rguenther@suse.de>
+ 2011-07-19  Jakub Jelinek  <jakub@redhat.com>
  
  	Backport from mainline
 --- gcc-4_5-branch/gcc/tree-vect-loop-manip.c	(revision 182840)
