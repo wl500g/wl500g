@@ -2907,8 +2907,8 @@
 +	if (stream->state == NULL)
 +		goto failed;
 +
-+        stream->dict = kmalloc(dict_size, GFP_KERNEL);
-+        if (stream->dict == NULL)
++	stream->dict = kmalloc(dict_size, GFP_KERNEL);
++	if (stream->dict == NULL)
 +		goto failed;
 +
 +	LzmaDec_Construct(stream->state);
