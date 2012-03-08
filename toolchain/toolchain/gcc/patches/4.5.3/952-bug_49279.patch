@@ -1,0 +1,92 @@
+[4.5 Regression] Optimization incorrectly presuming constant variable inside loop in g++ 4.5 and 4.6 with -O2 and -O3 for x86_64 targets
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=49279
+
+--- gcc-4_5-branch/gcc/ChangeLog	(revision 182845)
++++ gcc-4_5-branch/gcc/ChangeLog	(revision 182846)
+@@ -1,3 +1,12 @@
++2012-01-03  Richard Guenther  <rguenther@suse.de>
++
++	Backport from mainline
++	2011-10-06  Jakub Jelinek  <jakub@redhat.com>
++
++	PR tree-optimization/49279
++	* tree-ssa-structalias.c (find_func_aliases): Don't handle
++	CAST_RESTRICT.
++
+ 2012-01-03  Richard Guenther  <rguenther@suse.de>
+ 
+ 	Backport from mainline
+--- gcc-4_5-branch/gcc/testsuite/gcc.c-torture/execute/pr49279.c	(revision 0)
++++ gcc-4_5-branch/gcc/testsuite/gcc.c-torture/execute/pr49279.c	(revision 182846)
+@@ -0,0 +1,35 @@
++/* PR tree-optimization/49279 */
++extern void abort (void);
++
++struct S { int a; int *__restrict p; };
++
++__attribute__((noinline, noclone))
++struct S *bar (struct S *p)
++{
++  struct S *r;
++  asm volatile ("" : "=r" (r) : "0" (p) : "memory");
++  return r;
++}
++
++__attribute__((noinline, noclone))
++int
++foo (int *p, int *q)
++{
++  struct S s, *t;
++  s.a = 1;
++  s.p = p;
++  t = bar (&s);
++  t->p = q;
++  s.p[0] = 0;
++  t->p[0] = 1;
++  return s.p[0];
++}
++
++int
++main ()
++{
++  int a, b;
++  if (foo (&a, &b) != 1)
++    abort ();
++  return 0;
++}
+--- gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 182845)
++++ gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 182846)
+@@ -1,6 +1,14 @@
+ 2012-01-03  Richard Guenther  <rguenther@suse.de>
+ 
+ 	Backport from mainline
++	2011-10-06  Jakub Jelinek  <jakub@redhat.com>
++
++	PR tree-optimization/49279
++	* gcc.c-torture/execute/pr49279.c: New test.
++
++2012-01-03  Richard Guenther  <rguenther@suse.de>
++
++	Backport from mainline
+ 	2011-05-12  Richard Guenther  <rguenther@suse.de>
+ 
+ 	PR tree-optimization/48172
+--- gcc-4_5-branch/gcc/tree-ssa-structalias.c	(revision 182845)
++++ gcc-4_5-branch/gcc/tree-ssa-structalias.c	(revision 182846)
+@@ -3968,15 +3968,6 @@ find_func_aliases (gimple origt)
+ 	  && DECL_P (lhsop)
+ 	  && is_global_var (lhsop))
+ 	make_escape_constraint (rhsop);
+-      /* If this is a conversion of a non-restrict pointer to a
+-	 restrict pointer track it with a new heapvar.  */
+-      else if (gimple_assign_cast_p (t)
+-	       && POINTER_TYPE_P (TREE_TYPE (rhsop))
+-	       && POINTER_TYPE_P (TREE_TYPE (lhsop))
+-	       && !TYPE_RESTRICT (TREE_TYPE (rhsop))
+-	       && TYPE_RESTRICT (TREE_TYPE (lhsop)))
+-	make_constraint_from_restrict (get_vi_for_tree (lhsop),
+-				       "CAST_RESTRICT");
+     }
+   /* Handle escapes through return.  */
+   else if (gimple_code (t) == GIMPLE_RETURN
