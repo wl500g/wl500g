@@ -1,0 +1,98 @@
+[4.5 Regression] G++ gets stucks and never finishes compilation when enabling -O2/3 optimization options.
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=48822
+
+--- gcc-4_5-branch/gcc/tree-ssa-sccvn.c	(revision 175812)
++++ gcc-4_5-branch/gcc/tree-ssa-sccvn.c	(revision 175813)
+@@ -1805,12 +1805,26 @@ print_scc (FILE *out, VEC (tree, heap) *scc)
+ static inline bool
+ set_ssa_val_to (tree from, tree to)
+ {
+-  tree currval;
++  tree currval = SSA_VAL (from);
+ 
+-  if (from != to
+-      && TREE_CODE (to) == SSA_NAME
+-      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (to))
+-    to = from;
++  if (from != to)
++    {
++      if (currval == from)
++	{
++	  if (dump_file && (dump_flags & TDF_DETAILS))
++	    {
++	      fprintf (dump_file, "Not changing value number of ");
++	      print_generic_expr (dump_file, from, 0);
++	      fprintf (dump_file, " from VARYING to ");
++	      print_generic_expr (dump_file, to, 0);
++	      fprintf (dump_file, "\n");
++	    }
++	  return false;
++	}
++      else if (TREE_CODE (to) == SSA_NAME
++	       && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (to))
++	to = from;
++    }
+ 
+   /* The only thing we allow as value numbers are VN_TOP, ssa_names
+      and invariants.  So assert that here.  */
+@@ -1827,8 +1841,6 @@ set_ssa_val_to (tree from, tree to)
+       print_generic_expr (dump_file, to, 0);
+     }
+ 
+-  currval = SSA_VAL (from);
+-
+   if (currval != to  && !operand_equal_p (currval, to, OEP_PURE_SAME))
+     {
+       VN_INFO (from)->valnum = to;
+--- gcc-4_5-branch/gcc/ChangeLog	(revision 175812)
++++ gcc-4_5-branch/gcc/ChangeLog	(revision 175813)
+@@ -1,3 +1,11 @@
++2011-07-04  Richard Guenther  <rguenther@suse.de>
++
++	Backport from mainline
++	2011-05-02  Richard Guenther  <rguenther@suse.de>
++
++	PR tree-optimization/48822
++	* tree-ssa-sccvn.c (set_ssa_val_to): Never go up the lattice.
++
+ 2011-05-03  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backport from mainline
+--- gcc-4_5-branch/gcc/testsuite/gcc.dg/torture/pr48822.c	(revision 0)
++++ gcc-4_5-branch/gcc/testsuite/gcc.dg/torture/pr48822.c	(revision 175813)
+@@ -0,0 +1,20 @@
++/* { dg-do compile } */
++
++void foo (int *, int *);
++int bar ()
++{
++  int a = 0;
++  int b = 0;
++  if (b != 0)
++    {
++      int ax = a;
++      int bx = b;
++      while (bx != 0)
++	{
++	  int tem = ax % bx;
++	  ax = bx;
++	  bx = tem;
++	}
++    }
++  foo (&a, &b);
++}
+--- gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 175812)
++++ gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 175813)
+@@ -1,3 +1,11 @@
++2011-07-04  Richard Guenther  <rguenther@suse.de>
++
++	Backport from mainline
++	2011-05-02  Richard Guenther  <rguenther@suse.de>
++
++	PR tree-optimization/48822
++	* gcc.dg/torture/pr48822.c: New testcase.
++
+ 2011-05-03  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backport from mainline
