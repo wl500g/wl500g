@@ -60,4 +60,8 @@ extern const struct squashfs_decompressor squashfs_lzo_comp_ops;
 extern const struct squashfs_decompressor squashfs_zlib_comp_ops;
 #endif
 
+#ifdef CONFIG_SQUASHFS_LZMA
+extern const struct squashfs_decompressor squashfs_lzma_comp_ops;
+#endif
+
 #endif

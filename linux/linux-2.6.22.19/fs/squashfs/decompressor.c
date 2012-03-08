@@ -36,9 +36,11 @@
  * Squashfs, allowing multiple decompressors to be easily supported
  */
 
-static const struct squashfs_decompressor squashfs_lzma_unsupported_comp_ops = {
+#ifndef CONFIG_SQUASHFS_LZMA
+static const struct squashfs_decompressor squashfs_lzma_comp_ops = {
 	NULL, NULL, NULL, LZMA_COMPRESSION, "lzma", 0
 };
+#endif
 
 #ifndef CONFIG_SQUASHFS_LZO
 static const struct squashfs_decompressor squashfs_lzo_comp_ops = {
@@ -66,7 +68,7 @@ static const struct squashfs_decompressor *decompressor[] = {
 	&squashfs_zlib_comp_ops,
 	&squashfs_lzo_comp_ops,
 	&squashfs_xz_comp_ops,
-	&squashfs_lzma_unsupported_comp_ops,
+	&squashfs_lzma_comp_ops,
 	&squashfs_unknown_comp_ops
 };
 
