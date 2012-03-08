@@ -1,0 +1,78 @@
+[4.5 Regression] invalid return value optimization (?) when exception is thrown and caught
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=49115
+
+--- gcc-4_5-branch/gcc/ChangeLog	(revision 175811)
++++ gcc-4_5-branch/gcc/ChangeLog	(revision 175812)
+@@ -1,3 +1,11 @@
++2011-07-04  Richard Guenther  <rguenther@suse.de>
++
++	Backport from mainline
++	2011-05-23  Richard Guenther  <rguenther@suse.de>
++
++	PR tree-optimization/49115
++	* tree-ssa-dce.c (mark_aliased_reaching_defs_necessary_1): Likewise.
++
+ 2011-05-03  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backport from mainline
+--- gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 175811)
++++ gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 175812)
+@@ -1,3 +1,11 @@
++2011-07-04  Richard Guenther  <rguenther@suse.de>
++
++	Backport from mainline
++	2011-05-23  Richard Guenther  <rguenther@suse.de>
++
++	PR tree-optimization/49115
++	* g++.dg/torture/pr49115.C: New testcase.
++
+ 2011-05-03  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backport from mainline
+--- gcc-4_5-branch/gcc/testsuite/g++.dg/torture/pr49115.C	(revision 0)
++++ gcc-4_5-branch/gcc/testsuite/g++.dg/torture/pr49115.C	(revision 175812)
+@@ -0,0 +1,25 @@
++// { dg-do run }
++
++extern "C" void abort (void);
++struct MyException {};
++struct Data {
++    int nr;
++    Data() : nr(66) {}
++};
++Data __attribute__((noinline,noclone)) getData(int i)
++{
++  if (i) throw MyException();
++  Data data;
++  data.nr = i;
++  return data;
++}
++int main(int, char **)
++{
++  Data data;
++  try {
++      data = getData(1);
++  } catch (MyException& e) {
++      if (data.nr != 66)
++	abort ();
++  }
++}
+--- gcc-4_5-branch/gcc/tree-ssa-dce.c	(revision 175811)
++++ gcc-4_5-branch/gcc/tree-ssa-dce.c	(revision 175812)
+@@ -509,7 +509,14 @@ mark_aliased_reaching_defs_necessary_1 (ao_ref *re
+ 
+   /* If the stmt lhs kills ref, then we can stop walking.  */
+   if (gimple_has_lhs (def_stmt)
+-      && TREE_CODE (gimple_get_lhs (def_stmt)) != SSA_NAME)
++      && TREE_CODE (gimple_get_lhs (def_stmt)) != SSA_NAME
++      /* The assignment is not necessarily carried out if it can throw
++         and we can catch it in the current function where we could inspect
++	 the previous value.
++         ???  We only need to care about the RHS throwing.  For aggregate
++	 assignments or similar calls and non-call exceptions the LHS
++	 might throw as well.  */
++      && !stmt_can_throw_internal (def_stmt))
+     {
+       tree base, lhs = gimple_get_lhs (def_stmt);
+       HOST_WIDE_INT size, offset, max_size;
