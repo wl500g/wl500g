@@ -247,7 +247,7 @@ csum_copy_err:
 			UDP6_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
 	}
 
-	if (flags & MSG_DONTWAIT)
+	if (noblock)
 		return -EAGAIN;
 	goto try_again;
 }
@@ -549,7 +549,9 @@ static void udp_v6_flush_pending_frames(struct sock *sk)
 {
 	struct udp_sock *up = udp_sk(sk);
 
-	if (up->pending) {
+	if (up->pending == AF_INET)
+		udp_flush_pending_frames(sk);
+	else if (up->pending) {
 		up->len = 0;
 		up->pending = 0;
 		ip6_flush_pending_frames(sk);
@@ -770,7 +772,10 @@ do_udp_sendmsg:
 	opt = ipv6_fixup_options(&opt_space, opt);
 
 	fl.proto = sk->sk_protocol;
-	ipv6_addr_copy(&fl.fl6_dst, daddr);
+	if (!ipv6_addr_any(daddr))
+		ipv6_addr_copy(&fl.fl6_dst, daddr);
+	else
+		fl.fl6_dst.s6_addr[15] = 0x1; /* :: means loopback (BSD'ism) */
 	if (ipv6_addr_any(&fl.fl6_src) && !ipv6_addr_any(&np->saddr))
 		ipv6_addr_copy(&fl.fl6_src, &np->saddr);
 	fl.fl_ip_sport = inet->sport;
@@ -867,12 +872,14 @@ do_append_data:
 		} else {
 			dst_release(dst);
 		}
+		dst = NULL;
 	}
 
 	if (err > 0)
 		err = np->recverr ? net_xmit_errno(err) : 0;
 	release_sock(sk);
 out:
+	dst_release(dst);
 	fl6_sock_release(flowlabel);
 	if (!err)
 		return len;

@@ -267,6 +267,7 @@ struct inet6_skb_parm {
 
 #define IP6SKB_XFRM_TRANSFORMED	1
 #define IP6SKB_FORWARDED	2
+#define IP6SKB_REROUTED		4
 };
 
 #define IP6CB(skb)	((struct inet6_skb_parm*)((skb)->cb))
@@ -349,8 +350,8 @@ struct ipv6_pinfo {
 	struct {
 		struct ipv6_txoptions *opt;
 		struct rt6_info	*rt;
-		int hop_limit;
-		int tclass;
+		u8 hop_limit;
+		u8 tclass;
 	} cork;
 };
 

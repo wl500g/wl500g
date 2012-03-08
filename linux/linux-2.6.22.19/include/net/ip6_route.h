@@ -73,13 +73,13 @@ extern void			rt6_sndmsg(int type, struct in6_addr *dst,
 					   int dstlen, int srclen,
 					   int metric, __u32 flags);
 
-extern struct rt6_info		*rt6_lookup(struct in6_addr *daddr,
-					    struct in6_addr *saddr,
+extern struct rt6_info		*rt6_lookup(const struct in6_addr *daddr,
+					    const struct in6_addr *saddr,
 					    int oif, int flags);
 
 extern struct dst_entry *ndisc_dst_alloc(struct net_device *dev,
 					 struct neighbour *neigh,
-					 struct in6_addr *addr,
+					 const struct in6_addr *addr,
 					 int (*output)(struct sk_buff *));
 extern int ndisc_dst_gc(int *more);
 extern void fib6_force_start_gc(void);

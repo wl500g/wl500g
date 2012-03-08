@@ -1393,8 +1393,10 @@ static int ip6mr_forward2(struct sk_buff *skb, struct mfc6_cache *c, int vifi)
 	};
 
 	dst = ip6_route_output(NULL, &fl);
-	if (!dst)
+	if (dst->error) {
+		dst_release(dst);
 		goto out_free;
+	}
 
 	dst_release(skb->dst);
 	skb->dst = dst;

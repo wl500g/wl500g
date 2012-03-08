@@ -160,7 +160,9 @@ static int ip6_output2(struct sk_buff *skb)
 		IP6_INC_STATS(idev, IPSTATS_MIB_OUTMCASTPKTS);
 	}
 
-	return NF_HOOK(PF_INET6, NF_IP6_POST_ROUTING, skb,NULL, skb->dev,ip6_output_finish);
+	return NF_HOOK_COND(PF_INET6, NF_IP6_POST_ROUTING, skb, NULL, skb->dev,
+			    ip6_output_finish,
+			    !(IP6CB(skb)->flags & IP6SKB_REROUTED));
 }
 
 static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
@@ -223,8 +225,7 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
 			}
 			kfree_skb(skb);
 			skb = skb2;
-			if (sk)
-				skb_set_owner_w(skb, sk);
+			skb_set_owner_w(skb, sk);
 		}
 		if (opt->opt_flen)
 			ipv6_push_frag_opts(skb, opt, &proto);
@@ -271,10 +272,8 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
 				dst_output);
 	}
 
-	if (net_ratelimit())
-		printk(KERN_DEBUG "IPv6: sending pkt_too_big to self\n");
 	skb->dev = dst->dev;
-	icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu, skb->dev);
+	ipv6_local_error(sk, EMSGSIZE, fl, mtu);
 	IP6_INC_STATS(ip6_dst_idev(skb->dst), IPSTATS_MIB_FRAGFAILS);
 	kfree_skb(skb);
 	return -EMSGSIZE;
@@ -290,17 +289,14 @@ EXPORT_SYMBOL(ip6_xmit);
  */
 
 int ip6_nd_hdr(struct sock *sk, struct sk_buff *skb, struct net_device *dev,
-	       struct in6_addr *saddr, struct in6_addr *daddr,
+	       const struct in6_addr *saddr, const struct in6_addr *daddr,
 	       int proto, int len)
 {
 	struct ipv6_pinfo *np = inet6_sk(sk);
 	struct ipv6hdr *hdr;
-	int totlen;
 
 	skb->protocol = htons(ETH_P_IPV6);
 	skb->dev = dev;
-
-	totlen = len + sizeof(struct ipv6hdr);
 
 	skb_reset_network_header(skb);
 	skb_put(skb, sizeof(struct ipv6hdr));
@@ -416,6 +412,9 @@ int ip6_forward(struct sk_buff *skb)
 		IP6_INC_STATS(ip6_dst_idev(dst), IPSTATS_MIB_INDISCARDS);
 		goto drop;
 	}
+
+	if (skb->pkt_type != PACKET_HOST)
+		goto drop;
 
 	skb_forward_csum(skb);
 
@@ -600,7 +599,6 @@ EXPORT_SYMBOL_GPL(ip6_find_1stfragopt);
 
 static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 {
-	struct net_device *dev;
 	struct sk_buff *frag;
 	struct rt6_info *rt = (struct rt6_info*)skb->dst;
 	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
@@ -611,7 +609,6 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 	int ptr, offset = 0, err=0;
 	u8 *prevhdr, nexthdr = 0;
 
-	dev = rt->u.dst.dev;
 	hlen = ip6_find_1stfragopt(skb, &prevhdr);
 	nexthdr = *prevhdr;
 
@@ -761,6 +758,10 @@ slow_path_clean:
 	}
 
 slow_path:
+	if ((skb->ip_summed == CHECKSUM_PARTIAL) &&
+	    skb_checksum_help(skb))
+		goto fail;
+
 	left = skb->len - hlen;		/* Space per frame */
 	ptr = hlen;			/* Where to start from */
 

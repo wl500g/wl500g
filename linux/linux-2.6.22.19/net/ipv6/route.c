@@ -575,8 +575,8 @@ out:
 
 }
 
-struct rt6_info *rt6_lookup(struct in6_addr *daddr, struct in6_addr *saddr,
-			    int oif, int strict)
+struct rt6_info *rt6_lookup(const struct in6_addr *daddr,
+			    const struct in6_addr *saddr, int oif, int strict)
 {
 	struct flowi fl = {
 		.oif = oif,
@@ -1014,7 +1014,7 @@ static DEFINE_SPINLOCK(ndisc_lock);
 
 struct dst_entry *ndisc_dst_alloc(struct net_device *dev,
 				  struct neighbour *neigh,
-				  struct in6_addr *addr,
+				  const struct in6_addr *addr,
 				  int (*output)(struct sk_buff *))
 {
 	struct rt6_info *rt;
@@ -1068,10 +1068,9 @@ out:
 
 int ndisc_dst_gc(int *more)
 {
-	struct dst_entry *dst, *next, **pprev;
+	struct dst_entry *dst, **pprev;
 	int freed;
 
-	next = NULL;
 	freed = 0;
 
 	spin_lock_bh(&ndisc_lock);
@@ -2223,10 +2222,12 @@ static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
 	rtm->rtm_protocol = rt->rt6i_protocol;
 	if (rt->rt6i_flags&RTF_DYNAMIC)
 		rtm->rtm_protocol = RTPROT_REDIRECT;
-	else if (rt->rt6i_flags & RTF_ADDRCONF)
-		rtm->rtm_protocol = RTPROT_KERNEL;
-	else if (rt->rt6i_flags&RTF_DEFAULT)
-		rtm->rtm_protocol = RTPROT_RA;
+	else if (rt->rt6i_flags & RTF_ADDRCONF) {
+		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ROUTEINFO))
+			rtm->rtm_protocol = RTPROT_RA;
+		else
+			rtm->rtm_protocol = RTPROT_KERNEL;
+	}
 
 	if (rt->rt6i_flags&RTF_CACHE)
 		rtm->rtm_flags |= RTM_F_CLONED;

@@ -414,7 +414,7 @@ static void pndisc_destructor(struct pneigh_entry *n)
  */
 
 static inline void ndisc_flow_init(struct flowi *fl, u8 type,
-			    struct in6_addr *saddr, struct in6_addr *daddr,
+			    const struct in6_addr *saddr, const struct in6_addr *daddr,
 			    int oif)
 {
 	memset(fl, 0, sizeof(*fl));
@@ -429,8 +429,9 @@ static inline void ndisc_flow_init(struct flowi *fl, u8 type,
 
 static void __ndisc_send(struct net_device *dev,
 			 struct neighbour *neigh,
-			 struct in6_addr *daddr, struct in6_addr *saddr,
-			 struct icmp6hdr *icmp6h, struct in6_addr *target,
+			 const struct in6_addr *daddr,
+			 const struct in6_addr *saddr,
+			 struct icmp6hdr *icmp6h, const struct in6_addr *target,
 			 int llinfo, int icmp6_mib_outnd)
 {
 	struct flowi fl;
@@ -513,12 +514,13 @@ static void __ndisc_send(struct net_device *dev,
 }
 
 static void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
-		   struct in6_addr *daddr, struct in6_addr *solicited_addr,
-		   int router, int solicited, int override, int inc_opt)
+			  const struct in6_addr *daddr,
+			  const struct in6_addr *solicited_addr,
+			  int router, int solicited, int override, int inc_opt)
 {
 	struct in6_addr tmpaddr;
 	struct inet6_ifaddr *ifp;
-	struct in6_addr *src_addr;
+	const struct in6_addr *src_addr;
 	struct icmp6hdr icmp6h = {
 		.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT,
 	};
@@ -547,8 +549,8 @@ static void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
 }
 
 void ndisc_send_ns(struct net_device *dev, struct neighbour *neigh,
-		   struct in6_addr *solicit,
-		   struct in6_addr *daddr, struct in6_addr *saddr)
+		   const struct in6_addr *solicit,
+		   const struct in6_addr *daddr, const struct in6_addr *saddr)
 {
 	struct in6_addr addr_buf;
 	struct icmp6hdr icmp6h = {
@@ -568,8 +570,8 @@ void ndisc_send_ns(struct net_device *dev, struct neighbour *neigh,
 		     ICMP6_MIB_OUTNEIGHBORSOLICITS);
 }
 
-void ndisc_send_rs(struct net_device *dev, struct in6_addr *saddr,
-		   struct in6_addr *daddr)
+void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
+		   const struct in6_addr *daddr)
 {
 	struct icmp6hdr icmp6h = {
 		.icmp6_type = NDISC_ROUTER_SOLICITATION,
@@ -1325,7 +1327,7 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
 }
 
 void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
-			 struct in6_addr *target)
+			 const struct in6_addr *target)
 {
 	struct sock *sk = ndisc_socket->sk;
 	int len = sizeof(struct icmp6hdr) + 2 * sizeof(struct in6_addr);
@@ -1364,9 +1366,10 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
 			dev->ifindex);
 
 	dst = ip6_route_output(NULL, &fl);
-	if (dst == NULL)
+	if (dst->error) {
+		dst_release(dst);
 		return;
-
+	}
 	err = xfrm_lookup(&dst, &fl, NULL, 0);
 	if (err)
 		return;
@@ -1612,10 +1615,10 @@ int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, struct file * f
 	return ret;
 }
 
-static int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
-					int nlen, void __user *oldval,
-					size_t __user *oldlenp,
-					void __user *newval, size_t newlen)
+int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
+				 int nlen, void __user *oldval,
+				 size_t __user *oldlenp,
+				 void __user *newval, size_t newlen)
 {
 	struct net_device *dev = ctl->extra1;
 	struct inet6_dev *idev;
