@@ -9,7 +9,11 @@
 #include <linux/string.h>
 
 #include "do_mounts.h"
+#if defined(CONFIG_SQUASHFS3)
 #include "../fs/squashfs3/squashfs_fs.h"
+#else
+#include "../fs/squashfs/squashfs_fs.h"
+#endif
 
 #define BUILD_CRAMDISK
 
@@ -40,11 +44,11 @@ static int __init crd_load(int in_fd, int out_fd);
  * numbers could not be found.
  *
  * We currently check for the following magic numbers:
- *      squashfs
  * 	minix
  * 	ext2
  *	romfs
  *	cramfs
+ *	squashfs
  * 	gzip
  */
 static int __init 
@@ -105,6 +109,7 @@ identify_ramdisk_image(int fd, int start_block)
 		goto done;
 	}
 
+#if defined(CONFIG_SQUASHFS3)
 	/* squashfs is at block zero too */
 	if (squashfsb->s_magic == SQUASHFS_MAGIC) {
 		printk(KERN_NOTICE
@@ -116,6 +121,17 @@ identify_ramdisk_image(int fd, int start_block)
 			nblocks = (squashfsb->bytes_used+BLOCK_SIZE-1)>>BLOCK_SIZE_BITS;
 		goto done;
 	}
+#else
+	/* squashfs is at block zero too */
+	if (le32_to_cpu(squashfsb->s_magic) == SQUASHFS_MAGIC) {
+		printk(KERN_NOTICE
+		       "RAMDISK: squashfs filesystem found at block %d\n",
+		       start_block);
+		nblocks = (le64_to_cpu(squashfsb->bytes_used) + BLOCK_SIZE - 1)
+			 >> BLOCK_SIZE_BITS;
+		goto done;
+	}
+#endif
 
 	/*
 	 * Read block 1 to test for minix and ext2 superblock

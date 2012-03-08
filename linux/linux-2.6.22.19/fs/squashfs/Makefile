@@ -3,15 +3,9 @@
 #
 
 obj-$(CONFIG_SQUASHFS) += squashfs.o
-
-LZMADIR := ../../../../lzma4xx/C/Compress/Lzma
-LZMA_OBJS := $(addprefix $(LZMADIR)/, LzmaDecode.o)
-
-squashfs-objs := inode.o
-squashfs-objs += uncomp.o
-squashfs-objs += $(LZMA_OBJS)
-
-EXTRA_CFLAGS = -I$(src)/$(LZMADIR)
-
-clean_cmds := $(foreach f,$(LZMA_OBJS),$(dir $(f)).$(notdir $(f)).cmd)
-clean-files := $(LZMA_OBJS) $(clean_cmds)
+squashfs-y += block.o cache.o dir.o export.o file.o fragment.o id.o inode.o
+squashfs-y += namei.o super.o symlink.o decompressor.o
+squashfs-$(CONFIG_SQUASHFS_XATTR) += xattr.o xattr_id.o
+squashfs-$(CONFIG_SQUASHFS_LZO) += lzo_wrapper.o
+squashfs-$(CONFIG_SQUASHFS_XZ) += xz_wrapper.o
+squashfs-$(CONFIG_SQUASHFS_ZLIB) += zlib_wrapper.o

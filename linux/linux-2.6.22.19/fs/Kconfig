@@ -1419,7 +1419,15 @@ config CRAMFS
 
 	  If unsure, say N.
 
+choice
+	prompt "SquashFS"
+	default SQUASHFS3
+	optional
+
+source "fs/squashfs/Kconfig"
 source "fs/squashfs3/Kconfig"
+
+endchoice
 
 config VXFS_FS
 	tristate "FreeVxFS file system support (VERITAS VxFS(TM) compatible)"

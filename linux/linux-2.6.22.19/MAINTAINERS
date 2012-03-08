@@ -3326,6 +3326,14 @@ M:	dbrownell@users.sourceforge.net
 L:	spi-devel-general@lists.sourceforge.net
 S:	Maintained
 
+SQUASHFS FILE SYSTEM
+M:	Phillip Lougher <phillip@squashfs.org.uk>
+L:	squashfs-devel@lists.sourceforge.net (subscribers-only)
+W:	http://squashfs.org.uk
+S:	Maintained
+F:	Documentation/filesystems/squashfs.txt
+F:	fs/squashfs/
+
 STABLE BRANCH:
 P:	Greg Kroah-Hartman
 M:	greg@kroah.com

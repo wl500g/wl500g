@@ -4,7 +4,7 @@
  * Squashfs
  *
  * Copyright (c) 2002, 2003, 2004, 2005, 2006, 2007, 2008
- * Phillip Lougher <phillip@lougher.demon.co.uk>
+ * Phillip Lougher <phillip@squashfs.org.uk>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,28 +18,37 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  * squashfs_fs_i.h
  */
 
 struct squashfs_inode_info {
-	long long	start_block;
-	unsigned int	offset;
+	u64		start;
+	int		offset;
+	u64		xattr;
+	unsigned int	xattr_size;
+	int		xattr_count;
 	union {
 		struct {
-			long long	fragment_start_block;
-			unsigned int	fragment_size;
-			unsigned int	fragment_offset;
-			long long	block_list_start;
-		} s1;
+			u64		fragment_block;
+			int		fragment_size;
+			int		fragment_offset;
+			u64		block_list_start;
+		};
 		struct {
-			long long	directory_index_start;
-			unsigned int	directory_index_offset;
-			unsigned int	directory_index_count;
-			unsigned int	parent_inode;
-		} s2;
-	} u;
+			u64		dir_idx_start;
+			int		dir_idx_offset;
+			int		dir_idx_cnt;
+			int		parent;
+		};
+	};
 	struct inode	vfs_inode;
 };
+
+
+static inline struct squashfs_inode_info *squashfs_i(struct inode *inode)
+{
+	return list_entry(inode, struct squashfs_inode_info, vfs_inode);
+}
 #endif
