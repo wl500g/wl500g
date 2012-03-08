@@ -1,0 +1,59 @@
+[4.5 Regression] Expected diagnostic "reference to 'type' is ambiguous" not given for function-local static declaration
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=48046
+
+--- gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 173115)
++++ gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 173116)
+@@ -1,3 +1,7 @@
++2011-04-27  Jason Merrill  <jason@redhat.com>
++
++	* g++.dg/parse/ambig6.C: New.
++
+ 2011-04-28  Release Manager
+ 
+ 	* GCC 4.5.3 released.
+--- gcc-4_5-branch/gcc/testsuite/g++.dg/parse/ambig6.C	(revision 0)
++++ gcc-4_5-branch/gcc/testsuite/g++.dg/parse/ambig6.C	(revision 173116)
+@@ -0,0 +1,12 @@
++// PR c++/48046
++
++namespace N1 { typedef int   T; } // { dg-error "" }
++namespace N2 { typedef float T; } // { dg-error "" }
++
++int main()
++{
++  using namespace N1;
++  using namespace N2;
++
++  static T t;			// { dg-error "" }
++}
+--- gcc-4_5-branch/gcc/cp/ChangeLog	(revision 173115)
++++ gcc-4_5-branch/gcc/cp/ChangeLog	(revision 173116)
+@@ -1,3 +1,9 @@
++2011-04-27  Jason Merrill  <jason@redhat.com>
++
++	PR c++/48046
++	* parser.c (cp_parser_diagnose_invalid_type_name): Commit
++	to tentative parse sooner.
++
+ 2011-04-28  Release Manager
+ 
+ 	* GCC 4.5.3 released.
+--- gcc-4_5-branch/gcc/cp/parser.c	(revision 173115)
++++ gcc-4_5-branch/gcc/cp/parser.c	(revision 173116)
+@@ -2333,6 +2333,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *p
+ 				      location_t location)
+ {
+   tree decl, old_scope;
++  cp_parser_commit_to_tentative_parse (parser);
+   /* Try to lookup the identifier.  */
+   old_scope = parser->scope;
+   parser->scope = scope;
+@@ -2423,7 +2424,6 @@ cp_parser_diagnose_invalid_type_name (cp_parser *p
+       else
+ 	gcc_unreachable ();
+     }
+-  cp_parser_commit_to_tentative_parse (parser);
+ }
+ 
+ /* Check for a common situation where a type-name should be present,
