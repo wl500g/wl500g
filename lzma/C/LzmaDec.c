@@ -3,7 +3,11 @@
 
 #include "LzmaDec.h"
 
+#ifdef __KERNEL__
+#include <linux/string.h>
+#else
 #include <string.h>
+#endif
 
 #define kNumTopBits 24
 #define kTopValue ((UInt32)1 << kNumTopBits)
