@@ -1,0 +1,130 @@
+[4.5 Regression] post-increment of promoted operand is incorrect.
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=49644
+
+--- gcc-4_5-branch/gcc/ChangeLog	(revision 176455)
++++ gcc-4_5-branch/gcc/ChangeLog	(revision 176456)
+@@ -1,6 +1,14 @@
+ 2011-07-19  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backport from mainline
++	2011-07-07  Jakub Jelinek  <jakub@redhat.com>
++
++	PR c/49644
++	* c-typeck.c (build_binary_op): For MULT_EXPR and TRUNC_DIV_EXPR with
++	one non-complex and one complex argument, call c_save_expr on both
++	operands.
++
++	Backport from mainline
+ 	2011-05-26  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	PR tree-optimization/49161
+--- gcc-4_5-branch/gcc/testsuite/gcc.c-torture/execute/pr49644.c	(revision 0)
++++ gcc-4_5-branch/gcc/testsuite/gcc.c-torture/execute/pr49644.c	(revision 176456)
+@@ -0,0 +1,16 @@
++/* PR c/49644 */
++
++extern void abort (void);
++
++int
++main ()
++{
++  _Complex double a[12], *c = a, s = 3.0 + 1.0i;
++  double b[12] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }, *d = b;
++  int i;
++  for (i = 0; i < 6; i++)
++    *c++ = *d++ * s;
++  if (c != a + 6 || d != b + 6)
++    abort ();
++  return 0;
++}
+--- gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 176455)
++++ gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 176456)
+@@ -1,6 +1,15 @@
+ 2011-07-19  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backport from mainline
++	2011-07-07  Jakub Jelinek  <jakub@redhat.com>
++
++	PR c/49644
++	* g++.dg/torture/pr49644.C: New test.
++
++	PR c/49644
++	* gcc.c-torture/execute/pr49644.c: New test.
++
++ 	Backport from mainline
+ 	2011-05-26  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	PR tree-optimization/49161
+--- gcc-4_5-branch/gcc/c-typeck.c	(revision 176455)
++++ gcc-4_5-branch/gcc/c-typeck.c	(revision 176456)
+@@ -9655,6 +9655,7 @@ build_binary_op (location_t location, enum tree_co
+ 		{
+ 		case MULT_EXPR:
+ 		case TRUNC_DIV_EXPR:
++		  op1 = c_save_expr (op1);
+ 		  imag = build2 (resultcode, real_type, imag, op1);
+ 		  /* Fall through.  */
+ 		case PLUS_EXPR:
+@@ -9675,6 +9676,7 @@ build_binary_op (location_t location, enum tree_co
+ 	      switch (code)
+ 		{
+ 		case MULT_EXPR:
++		  op0 = c_save_expr (op0);
+ 		  imag = build2 (resultcode, real_type, op0, imag);
+ 		  /* Fall through.  */
+ 		case PLUS_EXPR:
+--- gcc-4_5-branch/gcc/testsuite/g++.dg/torture/pr49644.C	(revision 0)
++++ gcc-4_5-branch/gcc/testsuite/g++.dg/torture/pr49644.C	(revision 176457)
+@@ -0,0 +1,17 @@
++// PR c/49644
++// { dg-do run }
++
++extern "C" void abort ();
++
++int
++main ()
++{
++  _Complex double a[12], *c = a, s = 3.0 + 1.0i;
++  double b[12] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }, *d = b;
++  int i;
++  for (i = 0; i < 6; i++)
++    *c++ = *d++ * s;
++  if (c != a + 6 || d != b + 6)
++    abort ();
++  return 0;
++}
+--- gcc-4_5-branch/gcc/cp/typeck.c	(revision 176456)
++++ gcc-4_5-branch/gcc/cp/typeck.c	(revision 176457)
+@@ -4297,6 +4297,7 @@ cp_build_binary_op (location_t location,
+ 		{
+ 		case MULT_EXPR:
+ 		case TRUNC_DIV_EXPR:
++		  op1 = save_expr (op1);
+ 		  imag = build2 (resultcode, real_type, imag, op1);
+ 		  /* Fall through.  */
+ 		case PLUS_EXPR:
+@@ -4315,6 +4316,7 @@ cp_build_binary_op (location_t location,
+ 	      switch (code)
+ 		{
+ 		case MULT_EXPR:
++		  op0 = save_expr (op0);
+ 		  imag = build2 (resultcode, real_type, op0, imag);
+ 		  /* Fall through.  */
+ 		case PLUS_EXPR:
+--- gcc-4_5-branch/gcc/cp/ChangeLog	(revision 176456)
++++ gcc-4_5-branch/gcc/cp/ChangeLog	(revision 176457)
+@@ -1,3 +1,13 @@
++2011-07-19  Jakub Jelinek  <jakub@redhat.com>
++
++	Backport from mainline
++	2011-07-07  Jakub Jelinek  <jakub@redhat.com>
++
++	PR c/49644
++	* typeck.c (cp_build_binary_op): For MULT_EXPR and TRUNC_DIV_EXPR with
++	one non-complex and one complex argument, call save_expr on both
++	operands.
++
+ 2011-06-23  Jason Merrill  <jason@redhat.com>
+ 
+ 	PR c++/49440

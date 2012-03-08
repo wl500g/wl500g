@@ -12,7 +12,7 @@
 +	* g++.dg/cpp0x/rv-cast3.C: New.
 +	* g++.dg/cpp0x/rv-cast4.C: New.
 +
- 2011-07-04  Richard Guenther  <rguenther@suse.de>
+ 2011-07-19  Jakub Jelinek  <jakub@redhat.com>
  
  	Backport from mainline
 --- gcc-4_5-branch/gcc/testsuite/g++.dg/cpp0x/rv-cast3.C	(revision 0)
@@ -84,6 +84,6 @@
 +	* typeck.c (build_static_cast_1): Fix cast of lvalue to
 +	base rvalue reference.
 +
- 2011-04-27  Jason Merrill  <jason@redhat.com>
+ 2011-07-19  Jakub Jelinek  <jakub@redhat.com>
  
- 	PR c++/48046
+ 	Backport from mainline
