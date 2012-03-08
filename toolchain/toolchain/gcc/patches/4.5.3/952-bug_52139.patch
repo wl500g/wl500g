@@ -1,0 +1,100 @@
+[4.5 Regression] ICE: in remove_insn, at emit-rtl.c:3960 with -O -fPIC -fno-tree-dominator-opts -fno-tree-fre
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=52139
+
+--- gcc-4_5-branch/gcc/ChangeLog	(revision 184073)
++++ gcc-4_5-branch/gcc/ChangeLog	(revision 184074)
+@@ -1,3 +1,13 @@
++2012-02-09  Jakub Jelinek  <jakub@redhat.com>
++
++	Backported from mainline
++	2012-02-08  Jakub Jelinek  <jakub@redhat.com>
++
++	PR rtl-optimization/52139
++	* cfgrtl.c (cfg_layout_merge_blocks): If BB_END
++	is a BARRIER after emit_insn_after_noloc, move BB_END
++	to the last non-BARRIER insn before it.
++
+ 2012-01-03  Richard Guenther  <rguenther@suse.de>
+ 
+ 	Backport from mainline
+--- gcc-4_5-branch/gcc/testsuite/gcc.dg/pr52139.c	(revision 0)
++++ gcc-4_5-branch/gcc/testsuite/gcc.dg/pr52139.c	(revision 184074)
+@@ -0,0 +1,49 @@
++/* PR rtl-optimization/52139 */
++/* { dg-do compile } */
++/* { dg-options "-O -fno-tree-dominator-opts -fno-tree-fre" } */
++/* { dg-options "-O -fno-tree-dominator-opts -fno-tree-fre -fpic" { target fpic } } */
++
++void *p;
++
++void
++foo (int a)
++{
++  switch (a)
++    {
++    case 0:
++    a0:
++    case 1:
++    a1:
++      p = &&a1;
++    case 2:
++    a2:
++      p = &&a2;
++    case 3:
++    a3:
++      p = &&a3;
++    case 4:
++    a4:
++      p = &&a4;
++    case 5:
++    a5:
++      p = &&a5;
++    case 6:
++    a6:
++      p = &&a6;
++    case 7:
++    a7:
++      p = &&a7;
++    case 8:
++    a8:
++      p = &&a8;
++    case 9:
++    a9:
++      p = &&a9;
++    case 10:
++    a10:
++      p = &&a10;
++    default:
++      p = &&a0;
++    }
++  goto *p;
++}
+--- gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 184073)
++++ gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 184074)
+@@ -1,3 +1,11 @@
++2012-02-09  Jakub Jelinek  <jakub@redhat.com>
++
++	Backported from mainline
++	2012-02-08  Jakub Jelinek  <jakub@redhat.com>
++
++	PR rtl-optimization/52139
++	* gcc.dg/pr52139.c: New test.
++
+ 2012-01-03  Richard Guenther  <rguenther@suse.de>
+ 
+ 	Backport from mainline
+--- gcc-4_5-branch/gcc/cfgrtl.c	(revision 184073)
++++ gcc-4_5-branch/gcc/cfgrtl.c	(revision 184074)
+@@ -2790,6 +2790,11 @@ cfg_layout_merge_blocks (basic_block a, basic_bloc
+       rtx first = BB_END (a), last;
+ 
+       last = emit_insn_after_noloc (b->il.rtl->header, BB_END (a), a);
++      /* The above might add a BARRIER as BB_END, but as barriers
++	 aren't valid parts of a bb, remove_insn doesn't update
++	 BB_END if it is a barrier.  So adjust BB_END here.  */
++      while (BB_END (a) != first && BARRIER_P (BB_END (a)))
++	BB_END (a) = PREV_INSN (BB_END (a));
+       delete_insn_chain (NEXT_INSN (first), last, false);
+       b->il.rtl->header = NULL;
+     }
