@@ -34,6 +34,7 @@
 #include <linux/ipv6.h>
 #include <linux/icmpv6.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/skbuff.h>
 #include <asm/uaccess.h>
 
@@ -51,6 +52,7 @@
 #include "udp_impl.h"
 
 DEFINE_SNMP_STAT(struct udp_mib, udp_stats_in6) __read_mostly;
+EXPORT_SYMBOL(udp_stats_in6);
 
 static inline int udp_v6_get_port(struct sock *sk, unsigned short snum)
 {
@@ -121,8 +123,10 @@ int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk,
 	struct inet_sock *inet = inet_sk(sk);
 	struct sk_buff *skb;
 	unsigned int ulen, copied;
+	int peeked;
 	int err;
 	int is_udplite = IS_UDPLITE(sk);
+	int is_udp4;
 
 	if (addr_len)
 		*addr_len=sizeof(struct sockaddr_in6);
@@ -131,7 +135,8 @@ int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk,
 		return ipv6_recv_error(sk, msg, len);
 
 try_again:
-	skb = skb_recv_datagram(sk, flags, noblock, &err);
+	skb = __skb_recv_datagram(sk, flags | (noblock ? MSG_DONTWAIT : 0),
+				  &peeked, &err);
 	if (!skb)
 		goto out;
 
@@ -141,6 +146,8 @@ try_again:
 		copied = ulen;
 	else if (copied < ulen)
 		msg->msg_flags |= MSG_TRUNC;
+
+	is_udp4 = (skb->protocol == htons(ETH_P_IP));
 
 	/*
 	 * If checksum is needed at all, try to do it while copying the
@@ -164,6 +171,13 @@ try_again:
 	if (err)
 		goto out_free;
 
+	if (!peeked) {
+		if (is_udp4)
+			UDP_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
+		else
+			UDP6_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
+	}
+
 	sock_recv_timestamp(msg, sk, skb);
 
 	/* Copy the address. */
@@ -176,7 +190,7 @@ try_again:
 		sin6->sin6_flowinfo = 0;
 		sin6->sin6_scope_id = 0;
 
-		if (skb->protocol == htons(ETH_P_IP))
+		if (is_udp4)
 			ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
 					       &sin6->sin6_addr);
 		else {
@@ -187,7 +201,7 @@ try_again:
 		}
 
 	}
-	if (skb->protocol == htons(ETH_P_IP)) {
+	if (is_udp4) {
 		if (inet->cmsg_flags)
 			ip_cmsg_recv(msg, skb);
 	} else {
@@ -205,12 +219,15 @@ out:
 	return err;
 
 csum_copy_err:
-	skb_kill_datagram(sk, skb, flags);
-
-	if (flags & MSG_DONTWAIT) {
-		UDP6_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
-		return -EAGAIN;
+	if (!skb_kill_datagram(sk, skb, flags)) {
+		if (is_udp4)
+			UDP_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
+		else
+			UDP6_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
 	}
+
+	if (flags & MSG_DONTWAIT)
+		return -EAGAIN;
 	goto try_again;
 }
 
@@ -293,7 +310,7 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 			UDP6_INC_STATS_BH(UDP_MIB_RCVBUFERRORS, up->pcflag);
 		goto drop;
 	}
-	UDP6_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
+
 	return 0;
 drop:
 	UDP6_INC_STATS_BH(UDP_MIB_INERRORS, up->pcflag);
@@ -555,6 +572,8 @@ static int udp_v6_push_pending_frames(struct sock *sk)
 out:
 	up->len = 0;
 	up->pending = 0;
+	if (!err)
+		UDP6_INC_STATS_USER(UDP_MIB_OUTDATAGRAMS, up->pcflag);
 	return err;
 }
 
@@ -823,10 +842,8 @@ do_append_data:
 	release_sock(sk);
 out:
 	fl6_sock_release(flowlabel);
-	if (!err) {
-		UDP6_INC_STATS_USER(UDP_MIB_OUTDATAGRAMS, is_udplite);
+	if (!err)
 		return len;
-	}
 	/*
 	 * ENOBUFS = no kernel mem, SOCK_NOSPACE = no sndbuf space.  Reporting
 	 * ENOBUFS might not be good (it's not tunable per se), but otherwise

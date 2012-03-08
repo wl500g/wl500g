@@ -280,7 +280,8 @@ struct sk_buff {
 				nfctinfo:3;
 	__u8			pkt_type:3,
 				fclone:2,
-				ipvs_property:1;
+				ipvs_property:1,
+				peeked:1;
 	__be16			protocol;
 
 	void			(*destructor)(struct sk_buff *skb);
@@ -1584,6 +1585,8 @@ static inline int pskb_trim_rcsum(struct sk_buff *skb, unsigned int len)
 		     skb = skb->prev)
 
 
+extern struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned flags,
+					   int *peeked, int *err);
 extern struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
 					 int noblock, int *err);
 extern unsigned int    datagram_poll(struct file *file, struct socket *sock,
@@ -1597,7 +1600,7 @@ extern int	       skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
 extern void	       skb_free_datagram(struct sock *sk, struct sk_buff *skb);
 extern void	       skb_free_datagram_locked(struct sock *sk,
 						struct sk_buff *skb);
-extern void	       skb_kill_datagram(struct sock *sk, struct sk_buff *skb,
+extern int	       skb_kill_datagram(struct sock *sk, struct sk_buff *skb,
 					 unsigned int flags);
 extern __wsum	       skb_checksum(const struct sk_buff *skb, int offset,
 				    int len, __wsum csum);

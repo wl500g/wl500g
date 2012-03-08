@@ -109,6 +109,7 @@
  */
 
 DEFINE_SNMP_STAT(struct udp_mib, udp_statistics) __read_mostly;
+EXPORT_SYMBOL(udp_statistics);
 
 struct hlist_head udp_hash[UDP_HTABLE_SIZE];
 DEFINE_RWLOCK(udp_hash_lock);
@@ -823,6 +824,7 @@ int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	struct sockaddr_in *sin = (struct sockaddr_in *)msg->msg_name;
 	struct sk_buff *skb;
 	unsigned int ulen, copied;
+	int peeked;
 	int err;
 	int is_udplite = IS_UDPLITE(sk);
 
@@ -836,7 +838,8 @@ int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 		return ip_recv_error(sk, msg, len);
 
 try_again:
-	skb = skb_recv_datagram(sk, flags, noblock, &err);
+	skb = __skb_recv_datagram(sk, flags | (noblock ? MSG_DONTWAIT : 0),
+				  &peeked, &err);
 	if (!skb)
 		goto out;
 
@@ -871,6 +874,9 @@ try_again:
 	if (err)
 		goto out_free;
 
+	if (!peeked)
+		UDP_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
+
 	sock_recv_timestamp(msg, sk, skb);
 
 	/* Copy the address. */
@@ -894,9 +900,8 @@ out:
 	return err;
 
 csum_copy_err:
-	UDP_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
-
-	skb_kill_datagram(sk, skb, flags);
+	if (!skb_kill_datagram(sk, skb, flags))
+		UDP_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
 
 	if (noblock)
 		return -EAGAIN;
@@ -965,7 +970,8 @@ int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 
 			ret = (*up->encap_rcv)(sk, skb);
 			if (ret <= 0) {
-				UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
+				UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS,
+						 up->pcflag);
 				return -ret;
 			}
 		}
@@ -1021,7 +1027,6 @@ int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 		goto drop;
 	}
 
-	UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
 	return 0;
 
 drop:
