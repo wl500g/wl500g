@@ -1011,6 +1011,7 @@ new_rule:
 			if (t->target.u.target_size
 			    != ALIGN(sizeof(STRUCT_STANDARD_TARGET))) {
 				errno = EINVAL;
+				free(r);
 				return -1;
 			}
 
