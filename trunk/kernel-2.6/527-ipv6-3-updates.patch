@@ -1,19 +1,47 @@
-From 5095d64db1b978bdb31d30fed9e47dbf04f729be
-From: "RongQing.Li"
-Date: Tue, 21 Feb 2012 22:10:49 +0000
-Subject: [PATCH] ipv6: ip6_route_output() never returns NULL.
 
-ip6_route_output() never returns NULL, so it is wrong to
-check if the return value is NULL.
-
-Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+ a3c960899e042bc1c2b730a2115fa32da7802039 [IPV6] UDP: Possible dst leak in udpv6_sendmsg.
+ 36d926b94a9908937593e5669162305a071b9cc3 [IPV6]: inet_sk(sk)->cork.opt leak
+ 5095d64db1b978bdb31d30fed9e47dbf04f729be ipv6: ip6_route_output() never returns NULL.
 
 ---
- net/ipv6/ip6mr.c |    4 +++-
- net/ipv6/ndisc.c |    5 +++--
- 2 files changed, 6 insertions(+), 3 deletions(-)
+ include/net/udp.h |    1 +
+ net/ipv4/udp.c    |    3 ++-
+ net/ipv6/ip6mr.c  |    4 +++-
+ net/ipv6/ndisc.c  |    5 +++--
+ net/ipv6/udp.c    |    6 +++++-
+ 5 files changed, 14 insertions(+), 5 deletions(-)
 
+diff --git a/include/net/udp.h b/include/net/udp.h
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -135,6 +135,7 @@ extern void	udp_err(struct sk_buff *, u32);
+ 
+ extern int	udp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 			    struct msghdr *msg, size_t len);
++extern void	udp_flush_pending_frames(struct sock *sk);
+ 
+ extern int	udp_rcv(struct sk_buff *skb);
+ extern int	udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -420,7 +420,7 @@ void udp_err(struct sk_buff *skb, u32 info)
+ /*
+  * Throw away all pending data and cancel the corking. Socket is locked.
+  */
+-static void udp_flush_pending_frames(struct sock *sk)
++void udp_flush_pending_frames(struct sock *sk)
+ {
+ 	struct udp_sock *up = udp_sk(sk);
+ 
+@@ -430,6 +430,7 @@ static void udp_flush_pending_frames(struct sock *sk)
+ 		ip_flush_pending_frames(sk);
+ 	}
+ }
++EXPORT_SYMBOL(udp_flush_pending_frames);
+ 
+ /**
+  * 	udp4_hwcsum_outgoing  -  handle outgoing HW checksumming
 diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
 --- a/net/ipv6/ip6mr.c
 +++ b/net/ipv6/ip6mr.c
@@ -45,5 +73,34 @@ diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
  	err = xfrm_lookup(&dst, &fl, NULL, 0);
  	if (err)
  		return;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -534,7 +534,9 @@ static void udp_v6_flush_pending_frames(struct sock *sk)
+ {
+ 	struct udp_sock *up = udp_sk(sk);
+ 
+-	if (up->pending) {
++	if (up->pending == AF_INET)
++		udp_flush_pending_frames(sk);
++	else if (up->pending) {
+ 		up->len = 0;
+ 		up->pending = 0;
+ 		ip6_flush_pending_frames(sk);
+@@ -848,12 +848,14 @@ do_append_data:
+ 		} else {
+ 			dst_release(dst);
+ 		}
++		dst = NULL;
+ 	}
+ 
+ 	if (err > 0)
+ 		err = np->recverr ? net_xmit_errno(err) : 0;
+ 	release_sock(sk);
+ out:
++	dst_release(dst);
+ 	fl6_sock_release(flowlabel);
+ 	if (!err)
+ 		return len;
 -- 
 1.7.6.5
