@@ -124,7 +124,7 @@ $(ROOT)/lzma4xx: lzma/$(LZMA4XX).tbz2
 	tar -C $@ -xjf $<
 	$(PATCHER) -Z $@ $(lzma4xx_Patches)
 
-lzma_Patches := $(call patches_list,lzma)
+lzma_Patches := $(call patches_list,lzma,922-)
 
 $(ROOT)/lzma: lzma/$(LZMA).tar.bz2
 	@rm -rf $@ && mkdir -p $@
