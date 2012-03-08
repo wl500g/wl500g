@@ -617,12 +617,15 @@ read_packet( struct dstream_ctx* spc, int fd, char* buf, size_t len )
     if( (spc->stype == UPXDT_RTP_TS) || (spc->flags & F_CHECK_FMT) )
         chunk_len = (len > spc->mtu) ? spc->mtu : len;
 
+#ifdef UDPXY_FILEIO
     if( spc->flags & F_FILE_INPUT ) {
         assert( !buf_overrun( buf, len, 0, chunk_len, g_flog ) );
         n = read_frecord( fd, buf, chunk_len, &(spc->stype), g_flog );
         if( n <= 0 ) return n;
     }
-    else {
+    else
+#endif /* UDPXY_FILEIO */
+    {
         assert( !buf_overrun(buf, len, 0, chunk_len, g_flog) );
         n = read_buf( fd, buf, chunk_len, g_flog );
         if( n <= 0 ) return n;
