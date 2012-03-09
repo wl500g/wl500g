@@ -566,6 +566,8 @@ void convert_asus_values()
 	else if (nvram_match("wan_proto", "usbmodem"))
 	{
 		nvram_set("wan0_pppoe_ifname", "ppp0");
+		nvram_set("wan0_ifname", "ppp0");
+
 		//nvram_set("upnp_wan_proto", "dhcp");
 		nvram_set("wan0_modem_ipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_modem_netmask", 
@@ -576,6 +578,26 @@ void convert_asus_values()
 		/* current interface address (dhcp + firewall) */
 		nvram_set("wan0_xipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_dial_enabled", "1");
+
+		nvram_set("wan0_modem_type", nvram_safe_get("wan_modem_type"));
+		nvram_set("wan0_modem_username", nvram_safe_get("wan_modem_username"));
+		nvram_set("wan0_modem_passwd", nvram_safe_get("wan_modem_passwd"));
+		nvram_set("wan0_modem_usbloc", nvram_safe_get("wan_modem_usbloc"));
+		nvram_set("wan0_modem_apn", nvram_safe_get("wan_modem_apn"));
+		nvram_set("wan0_modem_dialno", nvram_safe_get("wan_modem_dialno"));
+		nvram_set("wan0_modem_autodetect", nvram_safe_get("wan_modem_autodetect"));
+		nvram_set("wan0_modem_vid", nvram_safe_get("wan_modem_vid"));
+		nvram_set("wan0_modem_pid", nvram_safe_get("wan_modem_pid"));
+		nvram_set("wan0_modem_portspeed", nvram_safe_get("wan_modem_portspeed"));
+		nvram_set("wan0_modem_dialup_init", nvram_safe_get("wan_modem_dialup_init"));
+		nvram_set("wan0_modem_options", nvram_safe_get("wan_modem_options"));
+		nvram_set("wan0_modem_pdata", nvram_safe_get("wan_modem_pdata"));
+		nvram_set("wan0_modem_pui", nvram_safe_get("wan_modem_pui"));
+		nvram_set("wan0_modem_demand", nvram_safe_get("wan_modem_demand"));
+		nvram_set("wan0_modem_idle", nvram_safe_get("wan_modem_idle"));
+		nvram_set("wan0_modem_mtu", nvram_safe_get("wan_modem_mtu"));
+		nvram_set("wan0_modem_mru", nvram_safe_get("wan_modem_mru"));
+		nvram_set("wan0_modem_maxfail", nvram_safe_get("wan_modem_maxfail"));
 	}
 #endif
 
