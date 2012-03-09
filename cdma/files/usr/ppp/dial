@@ -237,8 +237,8 @@ terminate_all() {
 # main
 
 wan_pref=$1
-# set_pref="${wan_pref}modem_"
-set_pref="wan_modem_"
+set_pref="${wan_pref}modem_"
+#set_pref="wan_modem_"
 
 init_global
 load_drivers

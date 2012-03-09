@@ -713,25 +713,25 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 	dev_usb_t *list, *found_dev;
 	dev_conf_t *conf_list;
 
-	//	int autodetect = nvram_match(strcat_r(prefix, "modem_autodetect", tmp), "1");
-	int autodetect = nvram_match("wan_modem_autodetect", "1");
+	int autodetect = nvram_match(strcat_r(prefix, "modem_autodetect", tmp), "1");
+	//int autodetect = nvram_match("wan_modem_autodetect", "1");
 
 	// if device was already found for this wan, do nothing
 	if (nvram_get(strcat_r(prefix, "usb_device", tmp))) return 0;
 
-	//	str1 = nvram_prefix_get("modem_vid");
-	str1 = nvram_safe_get("wan_modem_vid");
+	str1 = nvram_prefix_get("modem_vid");
+	//str1 = nvram_safe_get("wan_modem_vid");
 	sscanf(str1, "%x", &vid);
-	//	str2 = nvram_prefix_get("modem_pid");
-	str2 = nvram_safe_get("wan_modem_pid");
+	str2 = nvram_prefix_get("modem_pid");
+	//str2 = nvram_safe_get("wan_modem_pid");
 	sscanf(str2, "%x", &pid);
 
-	dprintf("stored: %x/%x, found: %s, autodetect: %d", vid, pid, product, autodetect);
+	dprintf("stored: %x/%x, found: %s, autodetect: %d\n", vid, pid, product, autodetect);
 
 	sscanf(product, "%x/%x", &hp_vid, &hp_pid);
 
 	if (!wait_for_dev_appearance(hp_vid, hp_pid, device)) {
-		dprintf("device not found in /proc/bus/usb/devices");
+		dprintf("device not found in /proc/bus/usb/devices\n");
 		return 0;
 	}
 
@@ -741,12 +741,12 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 	if (autodetect == 0) {
 		if (vid == hp_vid && pid == hp_pid &&
 			search_modems_in_list(list, 0, 0) > 0) {
-				//		str1 = nvram_prefix_get("modem_usbloc");
-				str1 = nvram_safe_get("wan_modem_usbloc");
+				str1 = nvram_prefix_get("modem_usbloc");
+				//str1 = nvram_safe_get("wan_modem_usbloc");
 				found_dev = get_usb_by_location_env(device, list);
 #ifdef DEBUG
 				if (found_dev)
-				    dprintf("found loc=%s, vid=%04x, pid=%04x", found_dev->loc, found_dev->vid, found_dev->pid);
+				    dprintf("found loc=%s, vid=%04x, pid=%04x\n", found_dev->loc, found_dev->vid, found_dev->pid);
 #endif
 				if (found_dev && strcmp(str1, found_dev->loc) == 0 &&
 					found_dev->vid == vid && found_dev->pid == pid)
@@ -763,29 +763,29 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 
 			if ((found_dev = get_usb_by_location_env(device, list))) {
 				sprintf(stored_product, "0x%04x", found_dev->vid);
-				//		nvram_set(strcat_r(prefix, "modem_vid", tmp), stored_product);
-				nvram_set("wan_modem_vid", stored_product);
+				nvram_set(strcat_r(prefix, "modem_vid", tmp), stored_product);
+				//nvram_set("wan_modem_vid", stored_product);
 				sprintf(stored_product, "0x%04x", found_dev->pid);
-				//		nvram_set(strcat_r(prefix, "modem_pid", tmp), stored_product);
-				nvram_set("wan_modem_pid", stored_product);
+				nvram_set(strcat_r(prefix, "modem_pid", tmp), stored_product);
+				//nvram_set("wan_modem_pid", stored_product);
 
 				strcpy(stored_product, found_dev->loc);
-				//		nvram_set(strcat_r(prefix, "modem_usbloc", tmp), stored_product);
-				nvram_set("wan_modem_usbloc", stored_product);
+				nvram_set(strcat_r(prefix, "modem_usbloc", tmp), stored_product);
+				//nvram_set("wan_modem_usbloc", stored_product);
 
 				sprintf(stored_product, "%d", found_dev->data_port);
-				//		nvram_set(strcat_r(prefix, "modem_pdata", tmp), stored_product);
-				nvram_set("wan_modem_pdata", stored_product);
+				nvram_set(strcat_r(prefix, "modem_pdata", tmp), stored_product);
+				//nvram_set("wan_modem_pdata", stored_product);
 
 				sprintf(stored_product, "%d", found_dev->ui_port);
-				//		nvram_set(strcat_r(prefix, "modem_pui", tmp), stored_product);
-				nvram_set("wan_modem_pui", stored_product);
+				nvram_set(strcat_r(prefix, "modem_pui", tmp), stored_product);
+				//nvram_set("wan_modem_pui", stored_product);
 				
 				sprintf(stored_product, "%c", found_dev->type);
-				//		nvram_set(strcat_r(prefix, "modem_type", tmp), stored_product);
-				nvram_set("wan_modem_type", stored_product);
+				nvram_set(strcat_r(prefix, "modem_type", tmp), stored_product);
+				//nvram_set("wan_modem_type", stored_product);
 
-				dprintf("wrote: %04x:%04x USB:%s", found_dev->vid, found_dev->pid, found_dev->loc);
+				dprintf("wrote: %04x:%04x USB:%s\n", found_dev->vid, found_dev->pid, found_dev->loc);
 				ret = 1;
 			}
 		}
