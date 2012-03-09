@@ -139,7 +139,8 @@ function generateTree() {
 		appendChild(aux1, generateDocEntry(0, "Miscellaneous", "Advanced_RMISC_Content.asp", ""));
 	} else {
 		aux1 = appendChild(foldersTree, leafNode("IP Config"));
-		appendChild(aux1, generateDocEntry(0, "WAN &amp; LAN", "Advanced_LANWAN_Content.asp", ""));
+		appendChild(aux1, generateDocEntry(0, "LAN", "Advanced_LAN_Content.asp", ""));
+		appendChild(aux1, generateDocEntry(0, "WAN", "Advanced_WAN_Content.asp", ""));
 
 		appendChild(aux1, generateDocEntry(0, "IPv6", "Advanced_IPV6_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "SNMP", "Advanced_SNMP_Content.asp", ""));
@@ -271,7 +272,7 @@ function clickOnFolderLink(folderName) {
 		if (mode == 'AP')
 			top.folderFrame.location = "Advanced_APLAN_Content.asp";
 		else
-			top.folderFrame.location = "Advanced_LANWAN_Content.asp";
+			top.folderFrame.location = "Advanced_WAN_Content.asp";
 	} else if (folderName == "Internet Firewall") {
 		top.folderFrame.location = "Advanced_BasicFirewall_Content.asp";
 	} else if (folderName == "Wireless Firewall") {
