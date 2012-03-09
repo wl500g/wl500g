@@ -1,0 +1,401 @@
+[NETFILTER]: xt_iprange match, revision 1
+
+ f72e25a897c7edda03a0e1f767925d98772684da [NETFILTER]: Rename ipt_iprange to xt_iprange
+ 1a50c5a1fe20864f1f902ef76862519a65d14723 [NETFILTER]: xt_iprange match, revision 1
+ 22e0e62cd09dcf56fe1a7be66698b6e130e4314c [NETFILTER]: xt_iprange: fix sparse warnings
+ d9d17578d9f11cdbe41e4559e8f264ec757ddce8 [NETFILTER]: xt_iprange: fix typo in address family
+ 5da621f1c514b8a39c6f7112becb97262ae76900 [NETFILTER]: xt_iprange: add missing #include
+ 27ecb1ff0afa2260e6856c05efd6fedcd0cc76b9 [NETFILTER]: xt_iprange: fix subtraction-based comparison
+ 01b7a314291b2ef56ad718ee1374a1bac4768b29 netfilter: xt_iprange: module aliases for xt_iprange
+ 6def1eb48101600884ebed56de03041fadc7a985 netfilter: xt_iprange: fix range inversion match
+ 36d4084dc8eb7a9a3655a2041097a46aff3061e9 netfilter: xtables: remove xt_iprange v0
+ 08b5194b5d6485d12ebf24cf6ee389fc55691122 netfilter: xt_iprange: Incorrect xt_iprange boundary check for IPv6
+ 705ca147176090203afd7503392e6e770637499b netfilter: xt_iprange: typo in IPv4 match debug print code
+ 6a4ddef2a3805d5b0664a94579b7a651bc202266 netfilter: xt_iprange: add IPv6 match debug print code
+
+---
+ include/linux/netfilter/Kbuild             |    1 
+ include/linux/netfilter/xt_iprange.h       |   17 +++
+ include/linux/netfilter_ipv4/Kbuild        |    1 
+ include/linux/netfilter_ipv4/ipt_iprange.h |   25 ----
+ net/ipv4/netfilter/Kconfig                 |    9 -
+ net/ipv4/netfilter/Makefile                |    1 
+ net/ipv4/netfilter/ipt_iprange.c           |   85 ----------------
+ net/netfilter/Kconfig                      |   10 +
+ net/netfilter/Makefile                     |    1 
+ net/netfilter/xt_iprange.c                 |  146 +++++++++++++++++++++++++++++
+ 10 files changed, 175 insertions(+), 121 deletions(-)
+
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -15,6 +15,7 @@ header-y += xt_DSCP.h
+ header-y += xt_esp.h
+ header-y += xt_helper.h
+ header-y += xt_hashlimit.h
++header-y += xt_iprange.h
+ header-y += xt_length.h
+ header-y += xt_limit.h
+ header-y += xt_mac.h
+diff --git /dev/null b/include/linux/netfilter/xt_iprange.h
+--- /dev/null
++++ b/include/linux/netfilter/xt_iprange.h
+@@ -0,0 +1,17 @@
++#ifndef _LINUX_NETFILTER_XT_IPRANGE_H
++#define _LINUX_NETFILTER_XT_IPRANGE_H 1
++
++enum {
++	IPRANGE_SRC     = 1 << 0,	/* match source IP address */
++	IPRANGE_DST     = 1 << 1,	/* match destination IP address */
++	IPRANGE_SRC_INV = 1 << 4,	/* negate the condition */
++	IPRANGE_DST_INV = 1 << 5,	/* -"- */
++};
++
++struct xt_iprange_mtinfo {
++	union nf_inet_addr src_min, src_max;
++	union nf_inet_addr dst_min, dst_max;
++	u_int8_t flags;
++};
++
++#endif /* _LINUX_NETFILTER_XT_IPRANGE_H */
+diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
+--- a/include/linux/netfilter_ipv4/Kbuild
++++ b/include/linux/netfilter_ipv4/Kbuild
+@@ -15,7 +15,6 @@
+ header-y += ipt_esp.h
+ header-y += ipt_hashlimit.h
+ header-y += ipt_helper.h
+-header-y += ipt_iprange.h
+ header-y += ipt_length.h
+ header-y += ipt_limit.h
+ header-y += ipt_LOG.h
+diff --git a/include/linux/netfilter_ipv4/ipt_iprange.h b/include/linux/netfilter_ipv4/ipt_iprange.h
+--- a/include/linux/netfilter_ipv4/ipt_iprange.h
++++ b/include/linux/netfilter_ipv4/ipt_iprange.h
+@@ -1,25 +0,0 @@
+-#ifndef _IPT_IPRANGE_H
+-#define _IPT_IPRANGE_H
+-
+-#include <linux/types.h>
+-
+-#define IPRANGE_SRC		0x01	/* Match source IP address */
+-#define IPRANGE_DST		0x02	/* Match destination IP address */
+-#define IPRANGE_SRC_INV		0x10	/* Negate the condition */
+-#define IPRANGE_DST_INV		0x20	/* Negate the condition */
+-
+-struct ipt_iprange {
+-	/* Inclusive: network order. */
+-	__be32 min_ip, max_ip;
+-};
+-
+-struct ipt_iprange_info
+-{
+-	struct ipt_iprange src;
+-	struct ipt_iprange dst;
+-
+-	/* Flags from above */
+-	u_int8_t flags;
+-};
+-
+-#endif /* _IPT_IPRANGE_H */
+diff --git a/net/ipv4/netfilter/ipt_iprange.c b/net/ipv4/netfilter/ipt_iprange.c
+--- a/net/ipv4/netfilter/ipt_iprange.c
++++ b/net/ipv4/netfilter/ipt_iprange.c
+@@ -1,85 +0,0 @@
+-/*
+- * iptables module to match IP address ranges
+- *
+- * (C) 2003 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
+-#include <linux/module.h>
+-#include <linux/skbuff.h>
+-#include <linux/ip.h>
+-#include <linux/netfilter/x_tables.h>
+-#include <linux/netfilter_ipv4/ipt_iprange.h>
+-
+-MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+-MODULE_DESCRIPTION("iptables arbitrary IP range match module");
+-
+-#if 0
+-#define DEBUGP printk
+-#else
+-#define DEBUGP(format, args...)
+-#endif
+-
+-static int
+-match(const struct sk_buff *skb,
+-      const struct net_device *in,
+-      const struct net_device *out,
+-      const struct xt_match *match,
+-      const void *matchinfo,
+-      int offset, unsigned int protoff, int *hotdrop)
+-{
+-	const struct ipt_iprange_info *info = matchinfo;
+-	const struct iphdr *iph = ip_hdr(skb);
+-
+-	if (info->flags & IPRANGE_SRC) {
+-		if (((ntohl(iph->saddr) < ntohl(info->src.min_ip))
+-			  || (ntohl(iph->saddr) > ntohl(info->src.max_ip)))
+-			 ^ !!(info->flags & IPRANGE_SRC_INV)) {
+-			DEBUGP("src IP %u.%u.%u.%u NOT in range %s"
+-			       "%u.%u.%u.%u-%u.%u.%u.%u\n",
+-				NIPQUAD(iph->saddr),
+-				info->flags & IPRANGE_SRC_INV ? "(INV) " : "",
+-				NIPQUAD(info->src.min_ip),
+-				NIPQUAD(info->src.max_ip));
+-			return 0;
+-		}
+-	}
+-	if (info->flags & IPRANGE_DST) {
+-		if (((ntohl(iph->daddr) < ntohl(info->dst.min_ip))
+-			  || (ntohl(iph->daddr) > ntohl(info->dst.max_ip)))
+-			 ^ !!(info->flags & IPRANGE_DST_INV)) {
+-			DEBUGP("dst IP %u.%u.%u.%u NOT in range %s"
+-			       "%u.%u.%u.%u-%u.%u.%u.%u\n",
+-				NIPQUAD(iph->daddr),
+-				info->flags & IPRANGE_DST_INV ? "(INV) " : "",
+-				NIPQUAD(info->dst.min_ip),
+-				NIPQUAD(info->dst.max_ip));
+-			return 0;
+-		}
+-	}
+-	return 1;
+-}
+-
+-static struct xt_match iprange_match __read_mostly = {
+-	.name		= "iprange",
+-	.family		= AF_INET,
+-	.match		= match,
+-	.matchsize	= sizeof(struct ipt_iprange_info),
+-	.me		= THIS_MODULE
+-};
+-
+-static int __init ipt_iprange_init(void)
+-{
+-	return xt_register_match(&iprange_match);
+-}
+-
+-static void __exit ipt_iprange_fini(void)
+-{
+-	xt_unregister_match(&iprange_match);
+-}
+-
+-module_init(ipt_iprange_init);
+-module_exit(ipt_iprange_fini);
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -54,15 +54,6 @@ config IP_NF_IPTABLES
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+ # The matches.
+-config IP_NF_MATCH_IPRANGE
+-	tristate "IP range match support"
+-	depends on IP_NF_IPTABLES
+-	help
+-	  This option makes possible to match IP addresses against IP address
+-	  ranges.
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
+-
+ config IP_NF_MATCH_TOS
+ 	tristate "TOS match support"
+ 	depends on IP_NF_IPTABLES
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -46,7 +46,6 @@ obj-$(CONFIG_NF_NAT) += iptable_nat.o
+ obj-$(CONFIG_IP_NF_RAW) += iptable_raw.o
+ 
+ # matches
+-obj-$(CONFIG_IP_NF_MATCH_IPRANGE) += ipt_iprange.o
+ obj-$(CONFIG_IP_NF_MATCH_OWNER) += ipt_owner.o
+ obj-$(CONFIG_IP_NF_MATCH_TOS) += ipt_tos.o
+ obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -539,6 +539,16 @@ config NETFILTER_XT_MATCH_HELPER
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say Y.
+ 
++config NETFILTER_XT_MATCH_IPRANGE
++	tristate '"iprange" address range match support'
++	depends on NETFILTER_XTABLES
++	---help---
++	This option adds a "iprange" match, which allows you to match based on
++	an IP address range. (Normal iptables only matches on single addresses
++	with an optional mask.)
++
++	If unsure, say M.
++
+ config NETFILTER_XT_MATCH_LENGTH
+ 	tristate '"length" match support'
+ 	depends on NETFILTER_XTABLES
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -63,6 +63,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_DSCP) +=
+ obj-$(CONFIG_NETFILTER_XT_MATCH_ESP) += xt_esp.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_HELPER) += xt_helper.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_HL) += xt_hl.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_IPRANGE) += xt_iprange.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_LENGTH) += xt_length.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_LIMIT) += xt_limit.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_MAC) += xt_mac.o
+diff --git /dev/null b/net/netfilter/xt_iprange.c
+--- /dev/null
++++ b/net/netfilter/xt_iprange.c
+@@ -0,0 +1,146 @@
++/*
++ *	xt_iprange - Netfilter module to match IP address ranges
++ *
++ *	(C) 2003 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
++ *	(C) CC Computer Consultants GmbH, 2008
++ *
++ *	This program is free software; you can redistribute it and/or modify
++ *	it under the terms of the GNU General Public License version 2 as
++ *	published by the Free Software Foundation.
++ */
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_iprange.h>
++
++static int
++iprange_mt4(const struct sk_buff *skb, const struct net_device *in,
++            const struct net_device *out, const struct xt_match *match,
++            const void *matchinfo, int offset, unsigned int protoff,
++            int *hotdrop)
++{
++	const struct xt_iprange_mtinfo *info = matchinfo;
++	const struct iphdr *iph = ip_hdr(skb);
++	bool m;
++
++	if (info->flags & IPRANGE_SRC) {
++		m  = ntohl(iph->saddr) < ntohl(info->src_min.ip);
++		m |= ntohl(iph->saddr) > ntohl(info->src_max.ip);
++		m ^= !!(info->flags & IPRANGE_SRC_INV);
++		if (m) {
++			pr_debug("src IP " NIPQUAD_FMT " NOT in range %s"
++			         NIPQUAD_FMT "-" NIPQUAD_FMT "\n",
++			         NIPQUAD(iph->saddr),
++			         (info->flags & IPRANGE_SRC_INV) ? "(INV) " : "",
++			         NIPQUAD(info->src_min.ip),
++			         NIPQUAD(info->src_max.ip));
++			return 0;
++		}
++	}
++	if (info->flags & IPRANGE_DST) {
++		m  = ntohl(iph->daddr) < ntohl(info->dst_min.ip);
++		m |= ntohl(iph->daddr) > ntohl(info->dst_max.ip);
++		m ^= !!(info->flags & IPRANGE_DST_INV);
++		if (m) {
++			pr_debug("dst IP " NIPQUAD_FMT " NOT in range %s"
++			         NIPQUAD_FMT "-" NIPQUAD_FMT "\n",
++			         NIPQUAD(iph->daddr),
++			         (info->flags & IPRANGE_DST_INV) ? "(INV) " : "",
++			         NIPQUAD(info->dst_min.ip),
++			         NIPQUAD(info->dst_max.ip));
++			return 0;
++		}
++	}
++	return 1;
++}
++
++static inline int
++iprange_ipv6_lt(const struct in6_addr *a, const struct in6_addr *b)
++{
++	unsigned int i;
++
++	for (i = 0; i < 4; ++i) {
++		if (a->s6_addr32[i] != b->s6_addr32[i])
++			return ntohl(a->s6_addr32[i]) < ntohl(b->s6_addr32[i]);
++	}
++
++	return 0;
++}
++
++static int
++iprange_mt6(const struct sk_buff *skb, const struct net_device *in,
++            const struct net_device *out, const struct xt_match *match,
++            const void *matchinfo, int offset, unsigned int protoff,
++            int *hotdrop)
++{
++	const struct xt_iprange_mtinfo *info = matchinfo;
++	const struct ipv6hdr *iph = ipv6_hdr(skb);
++	bool m;
++
++	if (info->flags & IPRANGE_SRC) {
++		m  = iprange_ipv6_lt(&iph->saddr, &info->src_min.in6);
++		m |= iprange_ipv6_lt(&info->src_max.in6, &iph->saddr);
++		m ^= !!(info->flags & IPRANGE_SRC_INV);
++		if (m) {
++			pr_debug("src IP " NIP6_FMT " NOT in range %s" NIP6_FMT "-" NIP6_FMT "\n",
++				 NIP6(iph->saddr),
++				 (info->flags & IPRANGE_SRC_INV) ? "(INV) " : "",
++				 NIP6(info->src_min.in6),
++				 NIP6(info->src_max.in6));
++			return 0;
++		}
++	}
++	if (info->flags & IPRANGE_DST) {
++		m  = iprange_ipv6_lt(&iph->daddr, &info->dst_min.in6);
++		m |= iprange_ipv6_lt(&info->dst_max.in6, &iph->daddr);
++		m ^= !!(info->flags & IPRANGE_DST_INV);
++		if (m) {
++			pr_debug("dst IP " NIP6_FMT " NOT in range %s" NIP6_FMT "-" NIP6_FMT "\n",
++				 NIP6(iph->daddr),
++				 (info->flags & IPRANGE_DST_INV) ? "(INV) " : "",
++				 NIP6(info->dst_min.in6),
++				 NIP6(info->dst_max.in6));
++			return 0;
++		}
++	}
++	return 1;
++}
++
++static struct xt_match iprange_mt_reg[] __read_mostly = {
++	{
++		.name      = "iprange",
++		.revision  = 1,
++		.family    = AF_INET,
++		.match     = iprange_mt4,
++		.matchsize = sizeof(struct xt_iprange_mtinfo),
++		.me        = THIS_MODULE,
++	},
++	{
++		.name      = "iprange",
++		.revision  = 1,
++		.family    = AF_INET6,
++		.match     = iprange_mt6,
++		.matchsize = sizeof(struct xt_iprange_mtinfo),
++		.me        = THIS_MODULE,
++	},
++};
++
++static int __init iprange_mt_init(void)
++{
++	return xt_register_matches(iprange_mt_reg, ARRAY_SIZE(iprange_mt_reg));
++}
++
++static void __exit iprange_mt_exit(void)
++{
++	xt_unregister_matches(iprange_mt_reg, ARRAY_SIZE(iprange_mt_reg));
++}
++
++module_init(iprange_mt_init);
++module_exit(iprange_mt_exit);
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Jan Engelhardt <jengelh@medozas.de>");
++MODULE_DESCRIPTION("Xtables: arbitrary IPv4 range matching");
++MODULE_ALIAS("ipt_iprange");
++MODULE_ALIAS("ip6t_iprange");
+-- 
