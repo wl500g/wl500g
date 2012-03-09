@@ -17,7 +17,6 @@ Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
 
 diff --git a/extensions/libxt_CONNMARK.c b/extensions/libxt_CONNMARK.c
-index 6e42898..5e9c374 100644
 --- a/extensions/libxt_CONNMARK.c
 +++ b/extensions/libxt_CONNMARK.c
 @@ -399,23 +399,7 @@ connmark_tg_save(const void *ip, const struct xt_entry_target *target)
@@ -79,7 +78,6 @@ index 6e42898..5e9c374 100644
 -	xtables_register_target(&connmark_tg6_reg);
  }
 diff --git a/extensions/libxt_CONNSECMARK.c b/extensions/libxt_CONNSECMARK.c
-index 11ec01a..d95339f 100644
 --- a/extensions/libxt_CONNSECMARK.c
 +++ b/extensions/libxt_CONNSECMARK.c
 @@ -107,22 +107,7 @@ CONNSECMARK_save(const void *ip, const struct xt_entry_target *target)
@@ -113,7 +111,6 @@ index 11ec01a..d95339f 100644
 -	xtables_register_target(&connsecmark_target6);
  }
 diff --git a/extensions/libxt_DSCP.c b/extensions/libxt_DSCP.c
-index ddb9c99..82ac10c 100644
 --- a/extensions/libxt_DSCP.c
 +++ b/extensions/libxt_DSCP.c
 @@ -130,21 +130,7 @@ static void DSCP_save(const void *ip, const struct xt_entry_target *target)
@@ -146,7 +143,6 @@ index ddb9c99..82ac10c 100644
 -	xtables_register_target(&dscp_target6);
  }
 diff --git a/extensions/libxt_MARK.c b/extensions/libxt_MARK.c
-index ff48a76..cab052b 100644
 --- a/extensions/libxt_MARK.c
 +++ b/extensions/libxt_MARK.c
 @@ -278,7 +278,7 @@ static void mark_tg_save(const void *ip, const struct xt_entry_target *target)
@@ -188,7 +184,6 @@ index ff48a76..cab052b 100644
  	xtables_register_target(&mark_tg_reg_v2);
  }
 diff --git a/extensions/libxt_NFLOG.c b/extensions/libxt_NFLOG.c
-index 007c7b4..0768e88 100644
 --- a/extensions/libxt_NFLOG.c
 +++ b/extensions/libxt_NFLOG.c
 @@ -139,21 +139,7 @@ static void NFLOG_save(const void *ip, const struct xt_entry_target *target)
@@ -221,7 +216,6 @@ index 007c7b4..0768e88 100644
 -	xtables_register_target(&nflog_target6);
  }
 diff --git a/extensions/libxt_NFQUEUE.c b/extensions/libxt_NFQUEUE.c
-index 3ca2239..53ecf1c 100644
 --- a/extensions/libxt_NFQUEUE.c
 +++ b/extensions/libxt_NFQUEUE.c
 @@ -78,7 +78,7 @@ static void NFQUEUE_save(const void *ip, const struct xt_entry_target *target)
@@ -256,7 +250,6 @@ index 3ca2239..53ecf1c 100644
 -	xtables_register_target(&nfqueue_target6);
  }
 diff --git a/extensions/libxt_NOTRACK.c b/extensions/libxt_NOTRACK.c
-index ef26654..d997d84 100644
 --- a/extensions/libxt_NOTRACK.c
 +++ b/extensions/libxt_NOTRACK.c
 @@ -20,17 +20,7 @@ NOTRACK_parse(int c, char **argv, int invert, unsigned int *flags,
@@ -285,7 +278,6 @@ index ef26654..d997d84 100644
 -	xtables_register_target(&notrack_target6);
  }
 diff --git a/extensions/libxt_TCPOPTSTRIP.c b/extensions/libxt_TCPOPTSTRIP.c
-index cf946fc..a063d0d 100644
 --- a/extensions/libxt_TCPOPTSTRIP.c
 +++ b/extensions/libxt_TCPOPTSTRIP.c
 @@ -180,22 +180,7 @@ tcpoptstrip_tg_save(const void *ip, const struct xt_entry_target *target)
@@ -319,7 +311,6 @@ index cf946fc..a063d0d 100644
 -	xtables_register_target(&tcpoptstrip_tg6_reg);
  }
 diff --git a/extensions/libxt_TOS.c b/extensions/libxt_TOS.c
-index c08f53b..e6382e1 100644
 --- a/extensions/libxt_TOS.c
 +++ b/extensions/libxt_TOS.c
 @@ -224,22 +224,7 @@ static struct xtables_target tos_tg_reg = {
@@ -353,7 +344,6 @@ index c08f53b..e6382e1 100644
 -	xtables_register_target(&tos_tg6_reg);
  }
 diff --git a/extensions/libxt_comment.c b/extensions/libxt_comment.c
-index 5f393bb..2e665b1 100644
 --- a/extensions/libxt_comment.c
 +++ b/extensions/libxt_comment.c
 @@ -89,21 +89,7 @@ comment_save(const void *ip, const struct xt_entry_match *match)
@@ -386,7 +376,6 @@ index 5f393bb..2e665b1 100644
 -	xtables_register_match(&comment_match6);
  }
 diff --git a/extensions/libxt_connbytes.c b/extensions/libxt_connbytes.c
-index c7bdff0..d6c3b1b 100644
 --- a/extensions/libxt_connbytes.c
 +++ b/extensions/libxt_connbytes.c
 @@ -180,21 +180,7 @@ static void connbytes_save(const void *ip, const struct xt_entry_match *match)
@@ -419,7 +408,6 @@ index c7bdff0..d6c3b1b 100644
 -	xtables_register_match(&connbytes_match6);
  }
 diff --git a/extensions/libxt_connmark.c b/extensions/libxt_connmark.c
-index ce2002c..db7c3a1 100644
 --- a/extensions/libxt_connmark.c
 +++ b/extensions/libxt_connmark.c
 @@ -164,22 +164,7 @@ connmark_mt_save(const void *ip, const struct xt_entry_match *match)
@@ -479,7 +467,6 @@ index ce2002c..db7c3a1 100644
 -	xtables_register_match(&connmark_mt6_reg);
  }
 diff --git a/extensions/libxt_dccp.c b/extensions/libxt_dccp.c
-index 7321145..ae23225 100644
 --- a/extensions/libxt_dccp.c
 +++ b/extensions/libxt_dccp.c
 @@ -336,21 +336,7 @@ static void dccp_save(const void *ip, const struct xt_entry_match *match)
@@ -512,7 +499,6 @@ index 7321145..ae23225 100644
 -	xtables_register_match(&dccp_match6);
  }
 diff --git a/extensions/libxt_dscp.c b/extensions/libxt_dscp.c
-index 62fa6af..306643e 100644
 --- a/extensions/libxt_dscp.c
 +++ b/extensions/libxt_dscp.c
 @@ -131,21 +131,7 @@ static void dscp_save(const void *ip, const struct xt_entry_match *match)
@@ -545,7 +531,6 @@ index 62fa6af..306643e 100644
 -	xtables_register_match(&dscp_match6);
  }
 diff --git a/extensions/libxt_esp.c b/extensions/libxt_esp.c
-index 5769edb..89c3fb4 100644
 --- a/extensions/libxt_esp.c
 +++ b/extensions/libxt_esp.c
 @@ -149,21 +149,7 @@ static void esp_save(const void *ip, const struct xt_entry_match *match)
@@ -578,7 +563,6 @@ index 5769edb..89c3fb4 100644
 -	xtables_register_match(&esp_match6);
  }
 diff --git a/extensions/libxt_hashlimit.c b/extensions/libxt_hashlimit.c
-index 84dd786..9d8c86a 100644
 --- a/extensions/libxt_hashlimit.c
 +++ b/extensions/libxt_hashlimit.c
 @@ -660,23 +660,7 @@ hashlimit_mt6_save(const void *ip, const struct xt_entry_match *match)
@@ -615,7 +599,6 @@ index 84dd786..9d8c86a 100644
  	xtables_register_match(&hashlimit_mt6_reg);
  }
 diff --git a/extensions/libxt_helper.c b/extensions/libxt_helper.c
-index 7b56bef..22c3113 100644
 --- a/extensions/libxt_helper.c
 +++ b/extensions/libxt_helper.c
 @@ -69,20 +69,7 @@ static void helper_save(const void *ip, const struct xt_entry_match *match)
@@ -647,7 +630,6 @@ index 7b56bef..22c3113 100644
 -	xtables_register_match(&helper_match6);
  }
 diff --git a/extensions/libxt_mac.c b/extensions/libxt_mac.c
-index a57e341..449fff9 100644
 --- a/extensions/libxt_mac.c
 +++ b/extensions/libxt_mac.c
 @@ -112,21 +112,7 @@ static void mac_save(const void *ip, const struct xt_entry_match *match)
@@ -680,7 +662,6 @@ index a57e341..449fff9 100644
 -	xtables_register_match(&mac_match6);
  }
 diff --git a/extensions/libxt_owner.c b/extensions/libxt_owner.c
-index d27b3ae..f1d6b4a 100644
 --- a/extensions/libxt_owner.c
 +++ b/extensions/libxt_owner.c
 @@ -567,22 +567,7 @@ static struct xtables_match owner_mt_reg = {
@@ -714,7 +695,6 @@ index d27b3ae..f1d6b4a 100644
 -	xtables_register_match(&owner_mt6_reg);
  }
 diff --git a/extensions/libxt_physdev.c b/extensions/libxt_physdev.c
-index 5522a32..74d311d 100644
 --- a/extensions/libxt_physdev.c
 +++ b/extensions/libxt_physdev.c
 @@ -161,21 +161,7 @@ static void physdev_save(const void *ip, const struct xt_entry_match *match)
@@ -747,7 +727,6 @@ index 5522a32..74d311d 100644
 -	xtables_register_match(&physdev_match6);
  }
 diff --git a/extensions/libxt_recent.c b/extensions/libxt_recent.c
-index 47c35ff..d503685 100644
 --- a/extensions/libxt_recent.c
 +++ b/extensions/libxt_recent.c
 @@ -215,7 +215,7 @@ static void recent_save(const void *ip, const struct xt_entry_match *match)
@@ -785,7 +764,6 @@ index 47c35ff..d503685 100644
 -	xtables_register_match(&recent_mt6_reg);
  }
 diff --git a/extensions/libxt_sctp.c b/extensions/libxt_sctp.c
-index 829eade..dfa72d3 100644
 --- a/extensions/libxt_sctp.c
 +++ b/extensions/libxt_sctp.c
 @@ -496,21 +496,7 @@ static void sctp_save(const void *ip, const struct xt_entry_match *match)
@@ -818,7 +796,6 @@ index 829eade..dfa72d3 100644
 -	xtables_register_match(&sctp_match6);
  }
 diff --git a/extensions/libxt_state.c b/extensions/libxt_state.c
-index 7387e26..c8a7454 100644
 --- a/extensions/libxt_state.c
 +++ b/extensions/libxt_state.c
 @@ -139,21 +139,7 @@ static void state_save(const void *ip, const struct xt_entry_match *match)
@@ -851,7 +828,6 @@ index 7387e26..c8a7454 100644
 -	xtables_register_match(&state_match6);
  }
 diff --git a/extensions/libxt_tcp.c b/extensions/libxt_tcp.c
-index 5ea9ebd..7abecc1 100644
 --- a/extensions/libxt_tcp.c
 +++ b/extensions/libxt_tcp.c
 @@ -375,21 +375,7 @@ static void tcp_save(const void *ip, const struct xt_entry_match *match)
@@ -884,7 +860,6 @@ index 5ea9ebd..7abecc1 100644
 -	xtables_register_match(&tcp_match6);
  }
 diff --git a/extensions/libxt_tcpmss.c b/extensions/libxt_tcpmss.c
-index 46529f9..36785a3 100644
 --- a/extensions/libxt_tcpmss.c
 +++ b/extensions/libxt_tcpmss.c
 @@ -109,21 +109,7 @@ static void tcpmss_save(const void *ip, const struct xt_entry_match *match)
@@ -917,7 +892,6 @@ index 46529f9..36785a3 100644
 -	xtables_register_match(&tcpmss_match6);
  }
 diff --git a/extensions/libxt_tos.c b/extensions/libxt_tos.c
-index b810ea6..1f7b2cd 100644
 --- a/extensions/libxt_tos.c
 +++ b/extensions/libxt_tos.c
 @@ -155,22 +155,7 @@ static struct xtables_match tos_mt_reg_v0 = {
@@ -951,7 +925,6 @@ index b810ea6..1f7b2cd 100644
 -	xtables_register_match(&tos_mt6_reg);
  }
 diff --git a/extensions/libxt_udp.c b/extensions/libxt_udp.c
-index 4b4e84f..bf0b34f 100644
 --- a/extensions/libxt_udp.c
 +++ b/extensions/libxt_udp.c
 @@ -191,21 +191,7 @@ static void udp_save(const void *ip, const struct xt_entry_match *match)
