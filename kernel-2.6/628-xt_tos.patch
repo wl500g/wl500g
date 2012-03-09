@@ -1,0 +1,415 @@
+[NETFILTER]: xt_TOS/xt_tos v1
+
+ c3b33e6a2cdefba38d83442ebae2ee42e853ea51 [NETFILTER]: Merge ipt_tos into xt_dscp
+ c9fd49680954714473d6cbd2546d6ff120f96840 [NETFILTER]: Merge ipt_TOS into xt_DSCP
+ 5c350e5a380333c64da8580fa134a2fd8e71fea4 [NETFILTER]: IPv6 capable xt_TOS v1 target
+ f1095ab51d4297d4a84b64a65c71054183a73486 [NETFILTER]: IPv6 capable xt_tos v1 match
+ 9bb268ed7c5f0ec76a5bd6824450a104231152ba [NETFILTER]: xt_TOS: Change semantic of mask value
+ cdfe8b9797f1a47fe24a9bf9e98a351bae11ab99 [NETFILTER]: xt_TOS: Properly set the TOS field
+ 7cd1837b5d24417eca667d674a97bea936849785 netfilter: xtables: remove xt_TOS v0
+ 1ed2f73d90fb49bcf5704aee7e9084adb882bfc5 netfilter: IPv6: fix DSCP mangle code
+
+---
+ include/linux/netfilter/xt_DSCP.h      |    5 ++
+ include/linux/netfilter/xt_dscp.h      |    6 +++
+ include/linux/netfilter_ipv4/Kbuild    |    2 -
+ include/linux/netfilter_ipv4/ipt_TOS.h |   12 ------
+ include/linux/netfilter_ipv4/ipt_tos.h |   13 ------
+ net/ipv4/netfilter/Kconfig             |   19 ---------
+ net/ipv4/netfilter/Makefile            |    2 -
+ net/ipv4/netfilter/ipt_tos.c           |   55 ----------------------------
+ net/netfilter/Kconfig                  |   12 +++++-
+ net/netfilter/xt_DSCP.c                |   64 +++++++++++++++++++++++++++++++++
+ net/netfilter/xt_dscp.c                |   37 ++++++++++++++++++-
+ 11 files changed, 120 insertions(+), 107 deletions(-)
+ delete mode 100644 include/linux/netfilter_ipv4/ipt_TOS.h
+ delete mode 100644 include/linux/netfilter_ipv4/ipt_tos.h
+ delete mode 100644 net/ipv4/netfilter/ipt_tos.c
+
+diff --git a/include/linux/netfilter/xt_dscp.h b/include/linux/netfilter/xt_dscp.h
+--- a/include/linux/netfilter/xt_dscp.h
++++ b/include/linux/netfilter/xt_dscp.h
+@@ -20,4 +20,10 @@ struct xt_dscp_info {
+ 	u_int8_t invert;
+ };
+ 
++struct xt_tos_match_info {
++	u_int8_t tos_mask;
++	u_int8_t tos_value;
++	u_int8_t invert;
++};
++
+ #endif /* _XT_DSCP_H */
+diff --git a/include/linux/netfilter/xt_DSCP.h b/include/linux/netfilter/xt_DSCP.h
+--- a/include/linux/netfilter/xt_DSCP.h
++++ b/include/linux/netfilter/xt_DSCP.h
+@@ -17,4 +17,9 @@ struct xt_DSCP_info {
+ 	u_int8_t dscp;
+ };
+ 
++struct xt_tos_target_info {
++	u_int8_t tos_value;
++	u_int8_t tos_mask;
++};
++
+ #endif /* _XT_DSCP_TARGET_H */
+diff --git a/include/linux/netfilter_ipv4/ipt_tos.h b/include/linux/netfilter_ipv4/ipt_tos.h
+deleted file mode 100644
+--- a/include/linux/netfilter_ipv4/ipt_tos.h
++++ /dev/null
+@@ -1,13 +0,0 @@
+-#ifndef _IPT_TOS_H
+-#define _IPT_TOS_H
+-
+-struct ipt_tos_info {
+-    u_int8_t tos;
+-    u_int8_t invert;
+-};
+-
+-#ifndef IPTOS_NORMALSVC
+-#define IPTOS_NORMALSVC 0
+-#endif
+-
+-#endif /*_IPT_TOS_H*/
+diff --git a/include/linux/netfilter_ipv4/ipt_TOS.h b/include/linux/netfilter_ipv4/ipt_TOS.h
+deleted file mode 100644
+--- a/include/linux/netfilter_ipv4/ipt_TOS.h
++++ /dev/null
+@@ -1,12 +0,0 @@
+-#ifndef _IPT_TOS_H_target
+-#define _IPT_TOS_H_target
+-
+-#ifndef IPTOS_NORMALSVC
+-#define IPTOS_NORMALSVC 0
+-#endif
+-
+-struct ipt_tos_target_info {
+-	u_int8_t tos;
+-};
+-
+-#endif /*_IPT_TOS_H_target*/
+diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
+--- a/include/linux/netfilter_ipv4/Kbuild
++++ b/include/linux/netfilter_ipv4/Kbuild
+@@ -36,8 +36,6 @@ header-y += ipt_state.h
+ header-y += ipt_string.h
+ header-y += ipt_tcpmss.h
+ header-y += ipt_TCPMSS.h
+-header-y += ipt_tos.h
+-header-y += ipt_TOS.h
+ header-y += ipt_ttl.h
+ header-y += ipt_TTL.h
+ header-y += ipt_ULOG.h
+diff --git a/net/ipv4/netfilter/ipt_tos.c b/net/ipv4/netfilter/ipt_tos.c
+deleted file mode 100644
+--- a/net/ipv4/netfilter/ipt_tos.c
++++ /dev/null
+@@ -1,55 +0,0 @@
+-/* Kernel module to match TOS values. */
+-
+-/* (C) 1999-2001 Paul `Rusty' Russell
+- * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
+-
+-#include <linux/ip.h>
+-#include <linux/module.h>
+-#include <linux/skbuff.h>
+-
+-#include <linux/netfilter_ipv4/ipt_tos.h>
+-#include <linux/netfilter/x_tables.h>
+-
+-MODULE_LICENSE("GPL");
+-MODULE_DESCRIPTION("iptables TOS match module");
+-
+-static int
+-match(const struct sk_buff *skb,
+-      const struct net_device *in,
+-      const struct net_device *out,
+-      const struct xt_match *match,
+-      const void *matchinfo,
+-      int offset,
+-      unsigned int protoff,
+-      int *hotdrop)
+-{
+-	const struct ipt_tos_info *info = matchinfo;
+-
+-	return (ip_hdr(skb)->tos == info->tos) ^ info->invert;
+-}
+-
+-static struct xt_match tos_match __read_mostly = {
+-	.name		= "tos",
+-	.family		= AF_INET,
+-	.match		= match,
+-	.matchsize	= sizeof(struct ipt_tos_info),
+-	.me		= THIS_MODULE,
+-};
+-
+-static int __init ipt_multiport_init(void)
+-{
+-	return xt_register_match(&tos_match);
+-}
+-
+-static void __exit ipt_multiport_fini(void)
+-{
+-	xt_unregister_match(&tos_match);
+-}
+-
+-module_init(ipt_multiport_init);
+-module_exit(ipt_multiport_fini);
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -54,15 +54,6 @@ config IP_NF_IPTABLES
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+ # The matches.
+-config IP_NF_MATCH_TOS
+-	tristate "TOS match support"
+-	depends on IP_NF_IPTABLES
+-	help
+-	  TOS matching allows you to match packets based on the Type Of
+-	  Service fields of the IP packet.
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
+-
+ config IP_NF_MATCH_ECN
+ 	tristate "ECN match support"
+ 	depends on IP_NF_IPTABLES
+@@ -299,16 +290,6 @@ config IP_NF_MANGLE
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+-config IP_NF_TARGET_TOS
+-	tristate "TOS target support"
+-	depends on IP_NF_MANGLE
+-	help
+-	  This option adds a `TOS' target, which allows you to create rules in
+-	  the `mangle' table which alter the Type Of Service field of an IP
+-	  packet prior to routing.
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
+-
+ config IP_NF_TARGET_ECN
+ 	tristate "ECN target support"
+ 	depends on IP_NF_MANGLE
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -47,14 +47,12 @@ obj-$(CONFIG_IP_NF_RAW) += iptable_raw.o
+ 
+ # matches
+ obj-$(CONFIG_IP_NF_MATCH_OWNER) += ipt_owner.o
+-obj-$(CONFIG_IP_NF_MATCH_TOS) += ipt_tos.o
+ obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
+ obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
+ obj-$(CONFIG_IP_NF_MATCH_ADDRTYPE) += ipt_addrtype.o
+ 
+ # targets
+ obj-$(CONFIG_IP_NF_TARGET_REJECT) += ipt_REJECT.o
+-obj-$(CONFIG_IP_NF_TARGET_TOS) += ipt_TOS.o
+ obj-$(CONFIG_IP_NF_TARGET_ECN) += ipt_ECN.o
+ obj-$(CONFIG_IP_NF_TARGET_MASQUERADE) += ipt_MASQUERADE.o
+ obj-$(CONFIG_IP_NF_TARGET_REDIRECT) += ipt_REDIRECT.o
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -293,7 +293,7 @@ config NETFILTER_XT_TARGET_CONNMARK
+ 	  ipt_CONNMARK.ko.  If unsure, say `N'.
+ 
+ config NETFILTER_XT_TARGET_DSCP
+-	tristate '"DSCP" target support'
++	tristate '"DSCP" and "TOS" target support'
+ 	depends on NETFILTER_XTABLES
+ 	depends on IP_NF_MANGLE || IP6_NF_MANGLE
+ 	help
+@@ -302,6 +302,10 @@ config NETFILTER_XT_TARGET_DSCP
+ 
+ 	  The DSCP field can have any value between 0x0 and 0x3f inclusive.
+ 
++	  It also adds the "TOS" target, which allows you to create rules in
++	  the "mangle" table which alter the Type Of Service field of an IPv4
++	  or the Priority field of an IPv6 packet, prior to routing.
++
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+ config NETFILTER_XT_TARGET_IMQ
+@@ -510,7 +514,7 @@ config NETFILTER_XT_MATCH_DCCP
+ 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
+ 
+ config NETFILTER_XT_MATCH_DSCP
+-	tristate '"DSCP" match support'
++	tristate '"dscp" and "tos" match support'
+ 	depends on NETFILTER_XTABLES
+ 	help
+ 	  This option adds a `DSCP' match, which allows you to match against
+@@ -518,6 +522,10 @@ config NETFILTER_XT_MATCH_DSCP
+ 
+ 	  The DSCP field can have any value between 0x0 and 0x3f inclusive.
+ 
++	  It will also add a "tos" match, which allows you to match packets
++	  based on the Type Of Service fields of the IPv4 packet (which share
++	  the same bits as DSCP).
++
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+ config NETFILTER_XT_MATCH_ESP
+diff --git a/net/netfilter/xt_dscp.c b/net/netfilter/xt_dscp.c
+--- a/net/netfilter/xt_dscp.c
++++ b/net/netfilter/xt_dscp.c
+@@ -13,14 +13,16 @@
+ #include <linux/ipv6.h>
+ #include <net/dsfield.h>
+ 
+-#include <linux/netfilter/xt_dscp.h>
+ #include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_dscp.h>
+ 
+ MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
+-MODULE_DESCRIPTION("x_tables DSCP matching module");
++MODULE_DESCRIPTION("x_tables DSCP/tos matching module");
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS("ipt_dscp");
+ MODULE_ALIAS("ip6t_dscp");
++MODULE_ALIAS("ipt_tos");
++MODULE_ALIAS("ip6t_tos");
+ 
+ static int match(const struct sk_buff *skb,
+ 		 const struct net_device *in,
+@@ -68,6 +70,21 @@ static int checkentry(const char *tablen
+ 	return 1;
+ }
+ 
++static int tos_mt(const struct sk_buff *skb, const struct net_device *in,
++                   const struct net_device *out, const struct xt_match *match,
++                   const void *matchinfo, int offset, unsigned int protoff,
++                   int *hotdrop)
++{
++	const struct xt_tos_match_info *info = matchinfo;
++
++	if (match->family == AF_INET)
++		return ((ip_hdr(skb)->tos & info->tos_mask) ==
++		       info->tos_value) ^ !!info->invert;
++	else
++		return ((ipv6_get_dsfield(ipv6_hdr(skb)) & info->tos_mask) ==
++		       info->tos_value) ^ !!info->invert;
++}
++
+ static struct xt_match xt_dscp_match[] __read_mostly = {
+ 	{
+ 		.name		= "dscp",
+@@ -85,6 +102,22 @@ static struct xt_match xt_dscp_match[] _
+ 		.matchsize	= sizeof(struct xt_dscp_info),
+ 		.me		= THIS_MODULE,
+ 	},
++	{
++		.name		= "tos",
++		.revision	= 1,
++		.family		= AF_INET,
++		.match		= tos_mt,
++		.matchsize	= sizeof(struct xt_tos_match_info),
++		.me		= THIS_MODULE,
++	},
++	{
++		.name		= "tos",
++		.revision	= 1,
++		.family		= AF_INET6,
++		.match		= tos_mt,
++		.matchsize	= sizeof(struct xt_tos_match_info),
++		.me		= THIS_MODULE,
++	},
+ };
+ 
+ static int __init xt_dscp_match_init(void)
+diff --git a/net/netfilter/xt_DSCP.c b/net/netfilter/xt_DSCP.c
+--- a/net/netfilter/xt_DSCP.c
++++ b/net/netfilter/xt_DSCP.c
+@@ -24,6 +24,8 @@ MODULE_DESCRIPTION("x_tables DSCP modifi
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS("ipt_DSCP");
+ MODULE_ALIAS("ip6t_DSCP");
++MODULE_ALIAS("ipt_TOS");
++MODULE_ALIAS("ip6t_TOS");
+ 
+ static unsigned int target(struct sk_buff *skb,
+ 			   const struct net_device *in,
+@@ -81,6 +83,50 @@ static int checkentry(const char *tablen
+ 	return 1;
+ }
+ 
++static unsigned int
++tos_tg(struct sk_buff *skb, const struct net_device *in,
++       const struct net_device *out, unsigned int hooknum,
++       const struct xt_target *target, const void *targinfo)
++{
++	const struct xt_tos_target_info *info = targinfo;
++	struct iphdr *iph = ip_hdr(skb);
++	u_int8_t orig, nv;
++
++	orig = ipv4_get_dsfield(iph);
++	nv   = (orig & ~info->tos_mask) ^ info->tos_value;
++
++	if (orig != nv) {
++		if (!skb_make_writable(skb, sizeof(struct iphdr)))
++			return NF_DROP;
++		iph = ip_hdr(skb);
++		ipv4_change_dsfield(iph, 0, nv);
++	}
++
++	return XT_CONTINUE;
++}
++
++static unsigned int
++tos_tg6(struct sk_buff *skb, const struct net_device *in,
++        const struct net_device *out, unsigned int hooknum,
++        const struct xt_target *target, const void *targinfo)
++{
++	const struct xt_tos_target_info *info = targinfo;
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++	u_int8_t orig, nv;
++
++	orig = ipv6_get_dsfield(iph);
++	nv   = (orig & ~info->tos_mask) ^ info->tos_value;
++
++	if (orig != nv) {
++		if (!skb_make_writable(skb, sizeof(struct iphdr)))
++			return NF_DROP;
++		iph = ipv6_hdr(skb);
++		ipv6_change_dsfield(iph, 0, nv);
++	}
++
++	return XT_CONTINUE;
++}
++
+ static struct xt_target xt_dscp_target[] __read_mostly = {
+ 	{
+ 		.name		= "DSCP",
+@@ -100,6 +146,24 @@ static struct xt_target xt_dscp_target[]
+ 		.table		= "mangle",
+ 		.me		= THIS_MODULE,
+ 	},
++	{
++		.name		= "TOS",
++		.revision	= 1,
++		.family		= AF_INET,
++		.table		= "mangle",
++		.target		= tos_tg,
++		.targetsize	= sizeof(struct xt_tos_target_info),
++		.me		= THIS_MODULE,
++	},
++	{
++		.name		= "TOS",
++		.revision	= 1,
++		.family		= AF_INET6,
++		.table		= "mangle",
++		.target		= tos_tg6,
++		.targetsize	= sizeof(struct xt_tos_target_info),
++		.me		= THIS_MODULE,
++	},
+ };
+ 
+ static int __init xt_dscp_target_init(void)
+-- 

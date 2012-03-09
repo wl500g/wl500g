@@ -25,6 +25,8 @@
  net/netfilter/Makefile                     |    1 
  net/netfilter/xt_iprange.c                 |  146 +++++++++++++++++++++++++++++
  10 files changed, 175 insertions(+), 121 deletions(-)
+ delete mode 100644 include/linux/netfilter_ipv4/ipt_iprange.h
+ delete mode 100644 net/ipv4/netfilter/ipt_iprange.c
 
 diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
 --- a/include/linux/netfilter/Kbuild
@@ -70,8 +72,9 @@ diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/
  header-y += ipt_limit.h
  header-y += ipt_LOG.h
 diff --git a/include/linux/netfilter_ipv4/ipt_iprange.h b/include/linux/netfilter_ipv4/ipt_iprange.h
+deleted file mode 100644
 --- a/include/linux/netfilter_ipv4/ipt_iprange.h
-+++ b/include/linux/netfilter_ipv4/ipt_iprange.h
++++ /dev/null
 @@ -1,25 +0,0 @@
 -#ifndef _IPT_IPRANGE_H
 -#define _IPT_IPRANGE_H
@@ -99,8 +102,9 @@ diff --git a/include/linux/netfilter_ipv4/ipt_iprange.h b/include/linux/netfilte
 -
 -#endif /* _IPT_IPRANGE_H */
 diff --git a/net/ipv4/netfilter/ipt_iprange.c b/net/ipv4/netfilter/ipt_iprange.c
+deleted file mode 100644
 --- a/net/ipv4/netfilter/ipt_iprange.c
-+++ b/net/ipv4/netfilter/ipt_iprange.c
++++ /dev/null
 @@ -1,85 +0,0 @@
 -/*
 - * iptables module to match IP address ranges
