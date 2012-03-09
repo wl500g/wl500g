@@ -1696,7 +1696,7 @@ function load_body()
 			frm.wl_radio_time_x_endmin.value = getTimeRange(frm.wl_radio_time_x.value, 3);
 		}
 	}
-	else if (frm.current_page.value == "Advanced_LANWAN_Content.asp")
+	else if (frm.current_page.value == "Advanced_WAN_Content.asp")
 	{
 		if (frm.wan_dnsenable_x[0].checked === true)
 		{
@@ -2259,7 +2259,7 @@ function onSubmit()
 		else if (window.top.isMode() == "Router")
 			document.form.next_page.value = "Advanced_RLANWAN_Content.asp";
 	}
-	else if (document.form.current_page.value == "Advanced_LANWAN_Content.asp")
+	else if (document.form.current_page.value == "Advanced_WAN_Content.asp")
 	{
 		if (document.form.wan_proto.value == "Static IP")
 		{
@@ -2274,6 +2274,10 @@ function onSubmit()
 		inputCtrl(document.form.wan_ipaddr, 1);
 		inputCtrl(document.form.wan_netmask, 1);
 		inputCtrl(document.form.wan_gateway, 1);
+	}
+	else if (document.form.current_page.value == "Advanced_LAN_Content.asp" )
+	{
+		checkSubnet();
 	}
 //	else if (document.form.current_page.value == "Advanced_IPV6_Content.asp")
 //	{

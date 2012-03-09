@@ -14,7 +14,7 @@
 	<div id="overDiv" style="position: absolute; visibility: hidden; z-index: 1000;">
 	</div>
 	<form method="GET" name="form" action="apply.cgi">
-	<input type="hidden" name="current_page" value="Advanced_LANWAN_Content.asp">
+	<input type="hidden" name="current_page" value="Advanced_WAN_Content.asp">
 	<input type="hidden" name="next_page" value="Advanced_DHCP_Content.asp">
 	<input type="hidden" name="next_host" value="">
 	<input type="hidden" name="sid_list" value="Layer3Forwarding;LANHostConfig;IPConnection;PPPConnection;">
@@ -24,11 +24,16 @@
 		value="">
 	<input type="hidden" name="action_script" value="">
 	<input type="hidden" name="wan_pppoe_txonly_x" value="<% nvram_get_x("PPPConnection","wan_pppoe_txonly_x"); %>">
+
+	<input type="hidden" name="dhcp_start" value="<% nvram_get_x("LANHostConfig","dhcp_start"); %>">
+	<input type="hidden" name="dhcp_end" value="<% nvram_get_x("LANHostConfig","dhcp_end"); %>">
+	<input type="hidden" name="lan_ipaddr" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>">
+
 	<!-- Table for the conntent page -->
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 					<tr class="content_header_tr">
 						<td class="content_header_td_title" colspan="2">
-							IP Config - WAN &amp; LAN
+							IP Config - WAN
 						</td>
 					</tr>
 					<tr>
@@ -367,49 +372,7 @@
 								onblur="validate_string(this)">
 						</td>
 					</tr>
-
-					<tr class="content_section_header_tr">
-						<td class="content_section_header_td" colspan="2">
-							LAN IP Setting
-						</td>
-					</tr>
-					<tr>
-						<td class="content_header_td" onmouseover="return overlib('This field allows you to provide a LAN host name for ZVMODELVZ.', LEFT);"
-							onmouseout="return nd();">
-							Host Name:
-						</td>
-						<td class="content_input_td">
-							<input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname"
-								value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onkeypress="return is_string(event, this)"
-								onblur="validate_string(this)">
-						</td>
-					</tr>
-					<tr>
-						<td class="content_header_td" onmouseover="return overlib('This is IP Address of ZVMODELVZ as seen in your local network. The default value is 192.168.1.1.', LEFT);"
-							onmouseout="return nd();">
-							IP Address:
-						</td>
-						<td class="content_input_td">
-							<input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_ipaddr"
-								value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" onblur="return validate_ipaddr(this, 'lan_ipaddr')"
-								onkeypress="return is_ipaddr(event, this)" onkeyup="change_ipaddr(this)">
-						</td>
-					</tr>
-					<tr>
-						<td class="content_header_td" onmouseover="return overlib('This is Subnet Mask of ZVMODELVZ as seen in your local network. The default value is 255.255.255.0.', LEFT);"
-							onmouseout="return nd();">
-							Subnet Mask:
-						</td>
-						<td class="content_input_td">
-							<input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_netmask"
-								value="<% nvram_get_x("LANHostConfig","lan_netmask"); %>" onblur="return validate_ipaddr(this, 'lan_netmask')"
-								onkeypress="return is_ipaddr(event, this)" onkeyup="change_ipaddr(this)">
-						</td>
-					</tr>
 				</table>
-				<input type="hidden" name="dhcp_start" value="<% nvram_get_x("LANHostConfig","dhcp_start"); %>">
-				<input type="hidden" name="dhcp_end" value="<% nvram_get_x("LANHostConfig","dhcp_end"); %>">
-				<!-- moget on top v etoi form'e perenesti?? -->
 
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 					<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2">&nbsp;</font></td></tr>
