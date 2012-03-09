@@ -19,11 +19,6 @@ enum {
 	FLAG_TOS = 1 << 0,
 };
 
-static const struct option tos_tg_opts_v0[] = {
-	{.name = "set-tos", .has_arg = true, .val = '='},
-	{ .name = NULL }
-};
-
 static const struct option tos_tg_opts[] = {
 	{.name = "set-tos", .has_arg = true, .val = '='},
 	{.name = "and-tos", .has_arg = true, .val = '&'},
@@ -31,23 +26,6 @@ static const struct option tos_tg_opts[] = {
 	{.name = "xor-tos", .has_arg = true, .val = '^'},
 	{ .name = NULL }
 };
-
-static void tos_tg_help_v0(void)
-{
-	const struct tos_symbol_info *symbol;
-
-	printf(
-"TOS target options:\n"
-"  --set-tos value     Set Type of Service/Priority field to value\n"
-"  --set-tos symbol    Set TOS field (IPv4 only) by symbol\n"
-"                      Accepted symbolic names for value are:\n");
-
-	for (symbol = tos_symbol_names; symbol->name != NULL; ++symbol)
-		printf("                        (0x%02x) %2u %s\n",
-		       symbol->value, symbol->value, symbol->name);
-
-	printf("\n");
-}
 
 static void tos_tg_help(void)
 {
@@ -72,30 +50,6 @@ XTABLES_VERSION);
 "  --or-tos  bits          Binary OR the TOS value with bits\n"
 "  --xor-tos bits          Binary XOR the TOS value with bits\n"
 );
-}
-
-static int tos_tg_parse_v0(int c, char **argv, int invert, unsigned int *flags,
-                           const void *entry, struct xt_entry_target **target)
-{
-	struct ipt_tos_target_info *info = (void *)(*target)->data;
-	struct tos_value_mask tvm;
-
-	switch (c) {
-	case '=':
-		xtables_param_act(XTF_ONLY_ONCE, "TOS", "--set-tos", *flags & FLAG_TOS);
-		xtables_param_act(XTF_NO_INVERT, "TOS", "--set-tos", invert);
-		if (!tos_parse_symbolic(optarg, &tvm, 0xFF))
-			xtables_param_act(XTF_BAD_VALUE, "TOS", "--set-tos", optarg);
-		if (tvm.mask != 0xFF)
-			xtables_error(PARAMETER_PROBLEM, "tos match: Your kernel "
-			           "is too old to support anything besides "
-				   "/0xFF as a mask.");
-		info->tos = tvm.value;
-		*flags |= FLAG_TOS;
-		return true;
-	}
-
-	return false;
 }
 
 static int tos_tg_parse(int c, char **argv, int invert, unsigned int *flags,
@@ -157,16 +111,6 @@ static void tos_tg_check(unsigned int flags)
 		           "TOS: The --set-tos parameter is required");
 }
 
-static void tos_tg_print_v0(const void *ip,
-                            const struct xt_entry_target *target, int numeric)
-{
-	const struct ipt_tos_target_info *info = (const void *)target->data;
-
-	printf("TOS set ");
-	if (numeric || !tos_try_print_symbolic("", info->tos, 0xFF))
-		printf("0x%02x ", info->tos);
-}
-
 static void tos_tg_print(const void *ip, const struct xt_entry_target *target,
                          int numeric)
 {
@@ -191,34 +135,12 @@ static void tos_tg_print(const void *ip, const struct xt_entry_target *target,
 		       info->tos_value, info->tos_mask);
 }
 
-static void tos_tg_save_v0(const void *ip, const struct xt_entry_target *target)
-{
-	const struct ipt_tos_target_info *info = (const void *)target->data;
-
-	printf("--set-tos 0x%02x ", info->tos);
-}
-
 static void tos_tg_save(const void *ip, const struct xt_entry_target *target)
 {
 	const struct xt_tos_target_info *info = (const void *)target->data;
 
 	printf("--set-tos 0x%02x/0x%02x ", info->tos_value, info->tos_mask);
 }
-
-static struct xtables_target tos_tg_reg_v0 = {
-	.version       = XTABLES_VERSION,
-	.name          = "TOS",
-	.revision      = 0,
-	.family        = NFPROTO_IPV4,
-	.size          = XT_ALIGN(sizeof(struct xt_tos_target_info)),
-	.userspacesize = XT_ALIGN(sizeof(struct xt_tos_target_info)),
-	.help          = tos_tg_help_v0,
-	.parse         = tos_tg_parse_v0,
-	.final_check   = tos_tg_check,
-	.print         = tos_tg_print_v0,
-	.save          = tos_tg_save_v0,
-	.extra_opts    = tos_tg_opts_v0,
-};
 
 static struct xtables_target tos_tg_reg = {
 	.version       = XTABLES_VERSION,
@@ -237,6 +159,5 @@ static struct xtables_target tos_tg_reg = {
 
 void _init(void)
 {
-	xtables_register_target(&tos_tg_reg_v0);
 	xtables_register_target(&tos_tg_reg);
 }
