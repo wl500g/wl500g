@@ -13,14 +13,16 @@
 #include <linux/ipv6.h>
 #include <net/dsfield.h>
 
-#include <linux/netfilter/xt_dscp.h>
 #include <linux/netfilter/x_tables.h>
+#include <linux/netfilter/xt_dscp.h>
 
 MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
-MODULE_DESCRIPTION("x_tables DSCP matching module");
+MODULE_DESCRIPTION("x_tables DSCP/tos matching module");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_dscp");
 MODULE_ALIAS("ip6t_dscp");
+MODULE_ALIAS("ipt_tos");
+MODULE_ALIAS("ip6t_tos");
 
 static int match(const struct sk_buff *skb,
 		 const struct net_device *in,
@@ -68,6 +70,21 @@ static int checkentry(const char *tablename,
 	return 1;
 }
 
+static bool tos_mt(const struct sk_buff *skb, const struct net_device *in,
+                   const struct net_device *out, const struct xt_match *match,
+                   const void *matchinfo, int offset, unsigned int protoff,
+                   bool *hotdrop)
+{
+	const struct xt_tos_match_info *info = matchinfo;
+
+	if (match->family == AF_INET)
+		return ((ip_hdr(skb)->tos & info->tos_mask) ==
+		       info->tos_value) ^ !!info->invert;
+	else
+		return ((ipv6_get_dsfield(ipv6_hdr(skb)) & info->tos_mask) ==
+		       info->tos_value) ^ !!info->invert;
+}
+
 static struct xt_match xt_dscp_match[] __read_mostly = {
 	{
 		.name		= "dscp",
@@ -83,6 +100,22 @@ static struct xt_match xt_dscp_match[] __read_mostly = {
 		.checkentry	= checkentry,
 		.match		= match6,
 		.matchsize	= sizeof(struct xt_dscp_info),
+		.me		= THIS_MODULE,
+	},
+	{
+		.name		= "tos",
+		.revision	= 1,
+		.family		= AF_INET,
+		.match		= tos_mt,
+		.matchsize	= sizeof(struct xt_tos_match_info),
+		.me		= THIS_MODULE,
+	},
+	{
+		.name		= "tos",
+		.revision	= 1,
+		.family		= AF_INET6,
+		.match		= tos_mt,
+		.matchsize	= sizeof(struct xt_tos_match_info),
 		.me		= THIS_MODULE,
 	},
 };
