@@ -37,7 +37,7 @@
 					</tr>
 					<tr>
 						<td class="content_desc_td" colspan="2">
-							Input LAN-settings for ZVMODELVZ.
+							Configure the LAN IP of ZVMODELVZ.
 						</td>
 					</tr>
 

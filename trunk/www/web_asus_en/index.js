@@ -139,9 +139,8 @@ function generateTree() {
 		appendChild(aux1, generateDocEntry(0, "Miscellaneous", "Advanced_RMISC_Content.asp", ""));
 	} else {
 		aux1 = appendChild(foldersTree, leafNode("IP Config"));
-		appendChild(aux1, generateDocEntry(0, "LAN", "Advanced_LAN_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "WAN", "Advanced_WAN_Content.asp", ""));
-
+		appendChild(aux1, generateDocEntry(0, "LAN", "Advanced_LAN_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "IPv6", "Advanced_IPV6_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "SNMP", "Advanced_SNMP_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "DHCP Server", "Advanced_DHCP_Content.asp", ""));
