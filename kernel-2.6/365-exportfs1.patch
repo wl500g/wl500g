@@ -61,7 +61,6 @@ exportfs: Updates from upstream
  fs/ocfs2/export.h                   |    4 
  fs/reiserfs/inode.c                 |   63 +---
  fs/reiserfs/super.c                 |    7 
- fs/squashfs/inode.c                 |    1 
  fs/udf/namei.c                      |  138 +++++++++
  fs/udf/super.c                      |    1 
  fs/udf/udfdecl.h                    |    1 
@@ -75,7 +74,7 @@ exportfs: Updates from upstream
  mm/shmem.c                          |   38 +-
  net/sunrpc/auth_gss/svcauth_gss.c   |   21 +
  net/sunrpc/svcauth_unix.c           |    4 
- 43 files changed, 1167 insertions(+), 899 deletions(-)
+ 42 files changed, 1166 insertions(+), 899 deletions(-)
 
 diff --git a/Documentation/filesystems/Exporting b/Documentation/filesystems/Exporting
 --- a/Documentation/filesystems/Exporting
@@ -2587,17 +2586,6 @@ diff --git a/fs/reiserfs/super.c b/fs/reiserfs/super.c
  };
  
  /* this struct is used in reiserfs_getopt () for containing the value for those
-diff --git a/fs/squashfs/inode.c b/fs/squashfs/inode.c
---- a/fs/squashfs/inode.c
-+++ b/fs/squashfs/inode.c
-@@ -25,6 +25,7 @@
- #include <linux/module.h>
- #include <linux/zlib.h>
- #include <linux/fs.h>
-+#include <linux/exportfs.h>
- #include <linux/squashfs_fs_sb.h>
- #include <linux/squashfs_fs_i.h>
- #include <linux/buffer_head.h>
 diff --git a/fs/udf/namei.c b/fs/udf/namei.c
 --- a/fs/udf/namei.c
 +++ b/fs/udf/namei.c
