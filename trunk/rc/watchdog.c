@@ -669,7 +669,7 @@ int usb_communication_device_processcheck(int wait_flag)
 #ifdef __CONFIG_RCAMD__
 static int notice_rcamd(int flag)
 {
-	int ret;
+	int ret = 0;
 
 //TODO: mjpg-streamer start/stop control
 //	ret = kill_pidfile_s("/var/run/rcamd.pid", flag ? SIGUSR1 : SIGUSR2);
