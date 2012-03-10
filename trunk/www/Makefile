@@ -31,6 +31,7 @@ install:
 	./mkweb $(MODEL) "$(LANGUAGE)"
 	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
 	install -m 644 web_$(MODEL)/*.asp $(INSTALLDIR)/www
+	install -m 644 web_$(MODEL)/*.inc $(INSTALLDIR)/www
 	install -m 644 web_$(MODEL)/*.js $(INSTALLDIR)/www
 	install -m 644 web_$(MODEL)/*.css $(INSTALLDIR)/www
 	install -m 644 web_$(MODEL)/*.svg $(INSTALLDIR)/www
@@ -45,6 +46,7 @@ install-%:
 	rm -rf www_$*	
 	install -d www_$*
 	install -m 644 web_$*/*.asp www_$*
+	install -m 644 web_$*/*.inc www_$*
 	install -m 644 web_$*/*.js www_$*
 	install -m 644 web_$*/*.css www_$*
 	install -m 644 web_$*/*.svg www_$*
@@ -61,6 +63,7 @@ pages-%:
 	./mkweb $* "$(LANGUAGE)"
 	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
 	install -m 644 web_$*/*.asp $(INSTALLDIR)/www
+	install -m 644 web_$*/*.inc $(INSTALLDIR)/www
 	install -m 644 web_$*/*.js $(INSTALLDIR)/www
 	install -m 644 web_$*/*.css $(INSTALLDIR)/www
 	install -m 644 web_$*/*.svg $(INSTALLDIR)/www
