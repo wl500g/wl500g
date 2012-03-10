@@ -126,7 +126,6 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/netfilter/xt_CONNMARK.c                    |   28 +-
  net/netfilter/xt_CONNSECMARK.c                 |    3 
  net/netfilter/xt_DSCP.c                        |   16 -
- net/netfilter/xt_MARK.c                        |   12 -
  net/netfilter/xt_NFLOG.c                       |    4 
  net/netfilter/xt_NFQUEUE.c                     |    2 
  net/netfilter/xt_NOTRACK.c                     |   10 -
@@ -135,7 +134,7 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/sched/act_ipt.c                            |    6 
  net/sched/sch_ingress.c                        |    5 
  net/sctp/ipv6.c                                |    4 
- 126 files changed, 1000 insertions(+), 1135 deletions(-)
+ 125 files changed, 994 insertions(+), 1129 deletions(-)
 
 diff -urBp a/include/linux/if_bridge.h b/include/linux/if_bridge.h
 --- a/include/linux/if_bridge.h	2008-02-26 02:59:40.000000000 +0300
@@ -7062,52 +7061,6 @@ diff -urBp a/net/netfilter/xt_DSCP.c b/net/netfilter/xt_DSCP.c
  				    dinfo->dscp << XT_DSCP_SHIFT);
  	}
  	return XT_CONTINUE;
-diff -urBp a/net/netfilter/xt_MARK.c b/net/netfilter/xt_MARK.c
---- a/net/netfilter/xt_MARK.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/net/netfilter/xt_MARK.c	2011-03-14 16:32:14.000000000 +0300
-@@ -22,7 +22,7 @@ MODULE_ALIAS("ipt_MARK");
- MODULE_ALIAS("ip6t_MARK");
- 
- static unsigned int
--target_v0(struct sk_buff **pskb,
-+target_v0(struct sk_buff *skb,
- 	  const struct net_device *in,
- 	  const struct net_device *out,
- 	  unsigned int hooknum,
-@@ -31,12 +31,12 @@ target_v0(struct sk_buff **pskb,
- {
- 	const struct xt_mark_target_info *markinfo = targinfo;
- 
--	(*pskb)->mark = markinfo->mark;
-+	skb->mark = markinfo->mark;
- 	return XT_CONTINUE;
- }
- 
- static unsigned int
--target_v1(struct sk_buff **pskb,
-+target_v1(struct sk_buff *skb,
- 	  const struct net_device *in,
- 	  const struct net_device *out,
- 	  unsigned int hooknum,
-@@ -52,15 +52,15 @@ target_v1(struct sk_buff **pskb,
- 		break;
- 
- 	case XT_MARK_AND:
--		mark = (*pskb)->mark & markinfo->mark;
-+		mark = skb->mark & markinfo->mark;
- 		break;
- 
- 	case XT_MARK_OR:
--		mark = (*pskb)->mark | markinfo->mark;
-+		mark = skb->mark | markinfo->mark;
- 		break;
- 	}
- 
--	(*pskb)->mark = mark;
-+	skb->mark = mark;
- 	return XT_CONTINUE;
- }
- 
 diff -urBp a/net/netfilter/xt_NFLOG.c b/net/netfilter/xt_NFLOG.c
 --- a/net/netfilter/xt_NFLOG.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/net/netfilter/xt_NFLOG.c	2011-03-14 16:32:14.000000000 +0300

@@ -363,7 +363,7 @@ deleted file mode 100644
 -MODULE_ALIAS("ip6t_MARK");
 -
 -static unsigned int
--target_v0(struct sk_buff *skb,
+-target_v0(struct sk_buff **pskb,
 -	  const struct net_device *in,
 -	  const struct net_device *out,
 -	  unsigned int hooknum,
@@ -372,12 +372,12 @@ deleted file mode 100644
 -{
 -	const struct xt_mark_target_info *markinfo = targinfo;
 -
--	skb->mark = markinfo->mark;
+-	(*pskb)->mark = markinfo->mark;
 -	return XT_CONTINUE;
 -}
 -
 -static unsigned int
--target_v1(struct sk_buff *skb,
+-target_v1(struct sk_buff **pskb,
 -	  const struct net_device *in,
 -	  const struct net_device *out,
 -	  unsigned int hooknum,
@@ -393,15 +393,15 @@ deleted file mode 100644
 -		break;
 -
 -	case XT_MARK_AND:
--		mark = skb->mark & markinfo->mark;
+-		mark = (*pskb)->mark & markinfo->mark;
 -		break;
 -
 -	case XT_MARK_OR:
--		mark = skb->mark | markinfo->mark;
+-		mark = (*pskb)->mark | markinfo->mark;
 -		break;
 -	}
 -
--	skb->mark = mark;
+-	(*pskb)->mark = mark;
 -	return XT_CONTINUE;
 -}
 -
