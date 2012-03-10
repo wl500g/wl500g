@@ -170,6 +170,7 @@ time_t update_tztime(int is_resettm)
 	struct tm gm, local;
 	struct timezone tz;
 	struct timeval tv = { 0 };
+	struct timeval *ptv = is_resettm ? &tv : NULL;
 
 	/* Update kernel timezone and time */
 	setenv_tz();
@@ -177,7 +178,7 @@ time_t update_tztime(int is_resettm)
 	gmtime_r(&now, &gm);
 	localtime_r(&now, &local);
 	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
-	settimeofday(is_resettm ? &tv : NULL, &tz);
+	settimeofday(ptv, &tz);
 
 	return now;
 }
