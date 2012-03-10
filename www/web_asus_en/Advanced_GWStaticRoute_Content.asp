@@ -98,14 +98,10 @@
 </table>
 </td>
 </tr>
-
-<tr>
-<td>
-<% include("footer_buttons.inc"); %>
-</td>
-</tr>
-
 </table>
+
+<% include("footer_buttons.inc"); %>
+
 </form>
 </body>
 </html>
