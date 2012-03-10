@@ -69,29 +69,20 @@ if [ -n "$1" ]; then
 
 	### 1. copy all files to tempdir ###
 	cp -rf ./web/. ./web_$MODEL
-	rm -rf ./web_$MODEL/*.asp
+	rm -rf ./web_$MODEL/*.{asp,inc}
 	cd ./web
 
-	### 2. Replace ProductID in *.asp and *.js ###
+	### 2. Replace ProductID in *.asp, *.inc and *.js ###
 
-	LIST=`ls *.asp`
+	LIST=`ls *.{asp,inc,js}`
 	PATTERN="s/ZVMODELVZ/$MODEL_STR/g"
 
 	echo $PATTERN
 
-	# Embed Module ID to *.asp
-	for i in $LIST; do
-		# echo $i $1
-		cat $i | sed "$PATTERN" > ../web_$MODEL/$i
-	done
-
-	LIST=`ls *.js`
-
-	# Embed Module ID to *.js 
+	# Embed Module ID
 	for i in $LIST; do
 		cat $i | sed "$PATTERN" > ../web_$MODEL/$i
 	done
-
 
 	### 3. Removing IPV6 & WiMAX pages
 	if [ "$CONFIG_IPV6" != "y" ]; then
@@ -133,11 +124,11 @@ if [ -n "$1" ]; then
 		sed -ri '/ntfs/d' ../web_$MODEL/Advanced_Services_Content.asp
 	fi
 
-	### 4. Strip *.asp, *.css and *.js ###
+	### 4. Strip *.asp, *.inc, *.css and *.js ###
 	echo "Stripping web interface..."
 
-	# Strip c++ style (//...) full line comments from js and asp
-	LIST=$(ls ../web_$MODEL/*.{js,asp})
+	# Strip c++ style (//...) full line comments from js, asp and inc
+	LIST=$(ls ../web_$MODEL/*.{js,asp,inc})
 	PATTERN="s|^[ \t]*//.*$||"
 	echo "sed $PATTERN"
 	for i in $LIST; do
@@ -153,14 +144,14 @@ if [ -n "$1" ]; then
 	done
 
 	# Strip single and multilne /*...*/ comments
-	LIST=$(ls ../web_$MODEL/*.{js,asp,css})
+	LIST=$(ls ../web_$MODEL/*.{js,asp,inc,css})
 	echo "Stripping JS comments..."
 	for i in $LIST; do
 		../remccoms2.sh $i
 	done
 
-	# Remove \r, trim each line from both sides, delete empty lines from asp,css,js
-	LIST=$(ls ../web_$MODEL/*.{asp,css,js})
+	# Remove \r, trim each line from both sides, delete empty lines from asp, inc, css, js
+	LIST=$(ls ../web_$MODEL/*.{asp,inc,css,js})
 #	PATTERN="s/\x0D//g;s/[ \t]+/ /g;s/^[ \t]+//;s/[ \t]+$//;/^$/d"
 	PATTERN="s/^[ \t]+//;s/[ \t\x0d]+$//;/^$/d"
 	echo "sed $PATTERN"
@@ -168,7 +159,7 @@ if [ -n "$1" ]; then
 		sed -ri "$PATTERN" $i
 	done
 
-	LIST=$(ls ../web_$MODEL/*.asp)
+	LIST=$(ls ../web_$MODEL/*.{asp,inc})
 	echo "Performing final processing of HTML..."
 	for i in $LIST; do
 # Remove single line HTML comments
