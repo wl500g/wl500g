@@ -414,30 +414,9 @@
 			</td>
 		</tr>
 	</table>
-	<!-- ********************************************************************** -->
-	<table class="content_table">
-		<tr bgcolor="#CCCCCC">
-			<td colspan="3" style="height: 15px;">
-			</td>
-		</tr>
-		<tr bgcolor="#FFFFFF">
-			<td id="Confirm" height="25" width="34%">
-				<div style='text-align: center; font-family: "Arial";'>
-					<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
-						onclick="onSubmitCtrl(this, ' Restore ')" type="submit" value=" Restore " name="action"></div>
-			</td>
-			<td height="25" width="33%">
-				<div style='text-align: center; font-family: "Arial";'>
-					<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
-						onclick="onSubmitCtrl(this, ' Finish ')" type="submit" value=" Finish " name="action"></div>
-			</td>
-			<td height="25" width="33%">
-				<div style='text-align: center; font-family: "Arial";'>
-					<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
-						onclick="onSubmitCtrl(this, ' Apply ')" type="submit" value=" Apply " name="action"></div>
-			</td>
-		</tr>
-	</table>
+
+<% include("footer_buttons.inc"); %>
+
 	</form>
 </body>
 </html>

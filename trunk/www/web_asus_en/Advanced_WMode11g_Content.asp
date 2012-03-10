@@ -45,39 +45,8 @@
 <td class="content_header_td">Remote Bridge 4:</td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="WLANConfig11b_x_BRhwaddr4" value="<% nvram_get_x("WLANConfig11b","x_BRhwaddr4"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr(event, this)"></td>
 </tr>
 </table>
-	
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2">&nbsp;</font></td></tr>
-<tr bgcolor="#FFFFFF">  
-   <td id ="Confirm" height="25" width="34%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Restore " name="action"></font></div> 
-   </td>  
-   <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Finish " name="action"></font></div> 
-   </td>
-   <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Apply " name="action"></font></div> 
-   </td>    
-</tr>
-</table>
 
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-<tr>
-    <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
-</tr>                   
-<tr bgcolor="#FFFFFF">
-    <td class="content_header_td_15" align="left">Restore: </td>
-    <td class="content_input_td_padding" align="left">Clear the above settings and restore the settings in effect.</td>
-</tr>
-<tr bgcolor="#FFFFFF">
-    <td class="content_header_td_15" align="left">Finish: </td>
-    <td class="content_input_td_padding" align="left">Confirm all settings and restart ZVMODELVZ now.</td>
-</tr>
-<tr bgcolor="#FFFFFF">
-    <td class="content_header_td_15" align="left">Apply: </td>
-    <td class="content_input_td_padding" align="left">Confirm above settings and continue.</td>
-</tr>
-</table>
+<% include("footer_buttons.inc"); %>
 
 </form>
 </body>
