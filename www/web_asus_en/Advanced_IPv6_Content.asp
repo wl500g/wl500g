@@ -9,7 +9,7 @@
 <body onLoad="load_body()" onunLoad="return unload_body();">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="GET" name="form" action="apply.cgi">
-<input type="hidden" name="current_page" value="Advanced_IPV6_Content.asp">
+<input type="hidden" name="current_page" value="Advanced_IPv6_Content.asp">
 <input type="hidden" name="next_page" value="SaveRestart.asp">
 <input type="hidden" name="next_host" value="">
 <input type="hidden" name="sid_list" value="IPv6Config;">
