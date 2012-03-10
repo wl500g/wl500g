@@ -1727,9 +1727,11 @@ function load_body()
 
 //		change_common(frm.wan_proto, "Layer3Forwarding", "x_ConnectionType");
 	}
-	else if (frm.current_page.value == "Advanced_IPV6_Content.asp")
+	else if (frm.current_page.value == "Advanced_IPv6_Content.asp")
 	{
 		change_ipv6_type(frm.ipv6_proto.value);
+		/* temporary until all options are supported */
+		window.top.pageChanged = 0;
 	}
 	else if (frm.current_page.value == "Advanced_MultiPPPoE_Content.asp")
 	{
@@ -2279,7 +2281,7 @@ function onSubmit()
 	{
 		checkSubnet();
 	}
-//	else if (document.form.current_page.value == "Advanced_IPV6_Content.asp")
+//	else if (document.form.current_page.value == "Advanced_IPv6_Content.asp")
 //	{
 //	checkSubnet();
 //	}
