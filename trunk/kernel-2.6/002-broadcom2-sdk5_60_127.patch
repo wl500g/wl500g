@@ -9,11 +9,12 @@ Broadcom SDK 5.60.127
 diff -urBp a/arch/mips/Kconfig b/arch/mips/Kconfig
 --- a/arch/mips/Kconfig	2009-11-26 02:33:34.000000000 +0300
 +++ b/arch/mips/Kconfig	2011-03-20 11:33:53.000000000 +0300
-@@ -25,6 +25,7 @@ config MIPS_BRCM
+@@ -25,6 +25,8 @@ config MIPS_BRCM
  	select SYS_SUPPORTS_KGDB
  	select SYS_HAS_CPU_MIPS32_R1
  	select SYS_HAS_CPU_MIPS32_R2
 +	select SYS_SUPPORTS_HIGHMEM
++	select HAVE_GET_USER_PAGES_FAST
  
  config MACH_ALCHEMY
  	bool "Alchemy processor based machines"

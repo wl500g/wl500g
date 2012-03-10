@@ -1,0 +1,586 @@
+mm: get_user_pages_fast backport
+
+ 7a36a752d006f6874049da510297eeb7f09d92a7 get_user_pages(): fix possible page leak on oom
+ 21cc199baa815d7b3f1ace4be20b9558cbddc00f mm: introduce get_user_pages_fast
+ f5dd33c494a427b1d1a3b574de5c9e511c888864 dio: use get_user_pages_fast
+ bc40d73c950146725e9e768e856a416ec8949065 splice: use get_user_pages_fast
+ 38d47c1b7075bd7ec3881141bb3629da58f88dab futex: rely on get_user_pages() for shared futexes
+ 5ecb01cfdf96c5f465192bdb2a4fd4a61a24c6cc futex_lock_pi() key refcnt fix
+ ce2ae53b750abfaa012ce408e93da131a5b5649b futexes: Fix infinite loop in get_futex_key() on huge page
+ 734b05b10e51d4ba38c8fc3ee02e846aab09eedf futex: use fast_gup()
+ 878b63ac889df706d01048f2c110e322ad2f996d mm: gup persist for write permission
+ d2bf6be8ab63aa84e6149aac934649aadf3828b1 mm: clean up get_user_pages_fast() documentation
+ 1bf94ca73ea524228b864275efa44373ebb939a0 fuse: use get_user_pages_fast()
+ ab967d86015a19777955370deebc8262d50fed63 mm: wp lock page before deciding cow
+
+---
+ fs/bio.c              |    8 +---
+ fs/direct-io.c        |   10 +----
+ fs/fuse/dev.c         |    5 --
+ fs/fuse/file.c        |    5 --
+ fs/splice.c           |   41 +-------------------
+ include/linux/futex.h |    2 +
+ include/linux/mm.h    |   36 ++++++++++++++++++
+ kernel/futex.c        |  100 +++++++++++++++++++++++---------------------------
+ mm/memory.c           |   79 ++++++++++++++++++++++++++++++++++++---
+ 9 files changed, 166 insertions(+), 120 deletions(-)
+
+diff --git a/fs/bio.c b/fs/bio.c
+--- a/fs/bio.c
++++ b/fs/bio.c
+@@ -646,12 +646,8 @@ static struct bio *__bio_map_user_iov(re
+ 		const int local_nr_pages = end - start;
+ 		const int page_limit = cur_page + local_nr_pages;
+ 		
+-		down_read(&current->mm->mmap_sem);
+-		ret = get_user_pages(current, current->mm, uaddr,
+-				     local_nr_pages,
+-				     write_to_vm, 0, &pages[cur_page], NULL);
+-		up_read(&current->mm->mmap_sem);
+-
++		ret = get_user_pages_fast(uaddr, local_nr_pages,
++				write_to_vm, &pages[cur_page]);
+ 		if (ret < local_nr_pages) {
+ 			ret = -EFAULT;
+ 			goto out_unmap;
+diff --git a/fs/direct-io.c b/fs/direct-io.c
+--- a/fs/direct-io.c
++++ b/fs/direct-io.c
+@@ -150,17 +150,11 @@ static int dio_refill_pages(struct dio *
+ 	int nr_pages;
+ 
+ 	nr_pages = min(dio->total_pages - dio->curr_page, DIO_PAGES);
+-	down_read(&current->mm->mmap_sem);
+-	ret = get_user_pages(
+-		current,			/* Task for fault acounting */
+-		current->mm,			/* whose pages? */
++	ret = get_user_pages_fast(
+ 		dio->curr_user_address,		/* Where from? */
+ 		nr_pages,			/* How many pages? */
+ 		dio->rw == READ,		/* Write to memory? */
+-		0,				/* force (?) */
+-		&dio->pages[0],
+-		NULL);				/* vmas */
+-	up_read(&current->mm->mmap_sem);
++		&dio->pages[0]);		/* Put results here */
+ 
+ 	if (ret < 0 && dio->blocks_available && (dio->rw & WRITE)) {
+ 		struct page *page = ZERO_PAGE(dio->curr_user_address);
+diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
+--- a/fs/fuse/dev.c
++++ b/fs/fuse/dev.c
+@@ -542,10 +542,7 @@ static int fuse_copy_fill(struct fuse_co
+ 		cs->iov ++;
+ 		cs->nr_segs --;
+ 	}
+-	down_read(&current->mm->mmap_sem);
+-	err = get_user_pages(current, current->mm, cs->addr, 1, cs->write, 0,
+-			     &cs->pg, NULL);
+-	up_read(&current->mm->mmap_sem);
++	err = get_user_pages_fast(cs->addr, 1, cs->write, &cs->pg);
+ 	if (err < 0)
+ 		return err;
+ 	BUG_ON(err != 1);
+diff --git a/fs/fuse/file.c b/fs/fuse/file.c
+--- a/fs/fuse/file.c
++++ b/fs/fuse/file.c
+@@ -936,10 +936,7 @@ static int fuse_get_user_pages(struct fu
+ 	nbytes = min(nbytes, (unsigned) FUSE_MAX_PAGES_PER_REQ << PAGE_SHIFT);
+ 	npages = (nbytes + offset + PAGE_SIZE - 1) >> PAGE_SHIFT;
+ 	npages = clamp(npages, 1, FUSE_MAX_PAGES_PER_REQ);
+-	down_read(&current->mm->mmap_sem);
+-	npages = get_user_pages(current, current->mm, user_addr, npages, write,
+-				0, req->pages, NULL);
+-	up_read(&current->mm->mmap_sem);
++	npages = get_user_pages_fast(user_addr, npages, write, req->pages);
+ 	if (npages < 0)
+ 		return npages;
+ 
+diff --git a/fs/splice.c b/fs/splice.c
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -1164,36 +1164,6 @@ static long do_splice(struct file *in, l
+ }
+ 
+ /*
+- * Do a copy-from-user while holding the mmap_semaphore for reading, in a
+- * manner safe from deadlocking with simultaneous mmap() (grabbing mmap_sem
+- * for writing) and page faulting on the user memory pointed to by src.
+- * This assumes that we will very rarely hit the partial != 0 path, or this
+- * will not be a win.
+- */
+-static int copy_from_user_mmap_sem(void *dst, const void __user *src, size_t n)
+-{
+-	int partial;
+-
+-	if (!access_ok(VERIFY_READ, src, n))
+-		return -EFAULT;
+-
+-	pagefault_disable();
+-	partial = __copy_from_user_inatomic(dst, src, n);
+-	pagefault_enable();
+-
+-	/*
+-	 * Didn't copy everything, drop the mmap_sem and do a faulting copy
+-	 */
+-	if (unlikely(partial)) {
+-		up_read(&current->mm->mmap_sem);
+-		partial = copy_from_user(dst, src, n);
+-		down_read(&current->mm->mmap_sem);
+-	}
+-
+-	return partial;
+-}
+-
+-/*
+  * Map an iov into an array of pages and offset/length tupples. With the
+  * partial_page structure, we can map several non-contiguous ranges into
+  * our ones pages[] map instead of splitting that operation into pieces.
+@@ -1206,8 +1176,6 @@ static int get_iovec_page_array(const st
+ {
+ 	int buffers = 0, error = 0;
+ 
+-	down_read(&current->mm->mmap_sem);
+-
+ 	while (nr_vecs) {
+ 		unsigned long off, npages;
+ 		struct iovec entry;
+@@ -1216,7 +1184,7 @@ static int get_iovec_page_array(const st
+ 		int i;
+ 
+ 		error = -EFAULT;
+-		if (copy_from_user_mmap_sem(&entry, iov, sizeof(entry)))
++		if (copy_from_user(&entry, iov, sizeof(entry)))
+ 			break;
+ 
+ 		base = entry.iov_base;
+@@ -1251,9 +1219,8 @@ static int get_iovec_page_array(const st
+ 		if (npages > PIPE_BUFFERS - buffers)
+ 			npages = PIPE_BUFFERS - buffers;
+ 
+-		error = get_user_pages(current, current->mm,
+-				       (unsigned long) base, npages, 0, 0,
+-				       &pages[buffers], NULL);
++		error = get_user_pages_fast((unsigned long)base, npages,
++					0, &pages[buffers]);
+ 
+ 		if (unlikely(error <= 0))
+ 			break;
+@@ -1292,8 +1259,6 @@ static int get_iovec_page_array(const st
+ 		iov++;
+ 	}
+ 
+-	up_read(&current->mm->mmap_sem);
+-
+ 	if (buffers)
+ 		return buffers;
+ 
+diff --git a/include/linux/futex.h b/include/linux/futex.h
+--- a/include/linux/futex.h
++++ b/include/linux/futex.h
+@@ -154,6 +154,8 @@ int get_futex_key(u32 __user *uaddr, str
+ void get_futex_key_refs(union futex_key *key);
+ void drop_futex_key_refs(union futex_key *key);
+ 
++#define FUTEX_KEY_INIT (union futex_key) { .both = { .ptr = NULL } }
++
+ #ifdef CONFIG_FUTEX
+ extern void exit_robust_list(struct task_struct *curr);
+ extern void exit_pi_state_list(struct task_struct *curr);
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -829,6 +829,42 @@ extern unsigned long do_mremap(unsigned 
+ 			       unsigned long old_len, unsigned long new_len,
+ 			       unsigned long flags, unsigned long new_addr);
+ 
++#ifdef CONFIG_HAVE_GET_USER_PAGES_FAST
++/*
++ * get_user_pages_fast provides equivalent functionality to get_user_pages,
++ * operating on current and current->mm, with force=0 and vma=NULL. However
++ * unlike get_user_pages, it must be called without mmap_sem held.
++ *
++ * get_user_pages_fast may take mmap_sem and page table locks, so no
++ * assumptions can be made about lack of locking. get_user_pages_fast is to be
++ * implemented in a way that is advantageous (vs get_user_pages()) when the
++ * user memory area is already faulted in and present in ptes. However if the
++ * pages have to be faulted in, it may turn out to be slightly slower so
++ * callers need to carefully consider what to use. On many architectures,
++ * get_user_pages_fast simply falls back to get_user_pages.
++ */
++int get_user_pages_fast(unsigned long start, int nr_pages, int write,
++			struct page **pages);
++
++#else
++/*
++ * Should probably be moved to asm-generic, and architectures can include it if
++ * they don't implement their own get_user_pages_fast.
++ */
++#define get_user_pages_fast(start, nr_pages, write, pages)	\
++({								\
++	struct mm_struct *mm = current->mm;			\
++	int ret;						\
++								\
++	down_read(&mm->mmap_sem);				\
++	ret = get_user_pages(current, mm, start, nr_pages,	\
++					write, 0, pages, NULL);	\
++	up_read(&mm->mmap_sem);					\
++								\
++	ret;							\
++})
++#endif
++
+ /*
+  * Prototype to add a shrinker callback for ageable caches.
+  * 
+diff --git a/kernel/futex.c b/kernel/futex.c
+--- a/kernel/futex.c
++++ b/kernel/futex.c
+@@ -157,7 +157,6 @@ int get_futex_key(u32 __user *uaddr, str
+ {
+ 	unsigned long address = (unsigned long)uaddr;
+ 	struct mm_struct *mm = current->mm;
+-	struct vm_area_struct *vma;
+ 	struct page *page;
+ 	int err;
+ 
+@@ -183,65 +182,49 @@ int get_futex_key(u32 __user *uaddr, str
+ 		key->private.address = address;
+ 		return 0;
+ 	}
+-	/*
+-	 * The futex is hashed differently depending on whether
+-	 * it's in a shared or private mapping.  So check vma first.
+-	 */
+-	vma = find_extend_vma(mm, address);
+-	if (unlikely(!vma))
+-		return -EFAULT;
+-
+-	/*
+-	 * Permissions.
+-	 */
+-	if (unlikely((vma->vm_flags & (VM_IO|VM_READ)) != VM_READ))
+-		return (vma->vm_flags & VM_IO) ? -EPERM : -EACCES;
++again:
++	err = get_user_pages_fast(address, 1, 0, &page);
++	if (err < 0)
++		return err;
++
++	page = compound_head(page);
++	lock_page(page);
++	if (!page->mapping) {
++		unlock_page(page);
++		put_page(page);
++		goto again;
++	}
+ 
+ 	/*
+ 	 * Private mappings are handled in a simple way.
+ 	 *
+ 	 * NOTE: When userspace waits on a MAP_SHARED mapping, even if
+ 	 * it's a read-only handle, it's expected that futexes attach to
+-	 * the object not the particular process.  Therefore we use
+-	 * VM_MAYSHARE here, not VM_SHARED which is restricted to shared
+-	 * mappings of _writable_ handles.
++	 * the object not the particular process.
+ 	 */
+-	if (likely(!(vma->vm_flags & VM_MAYSHARE))) {
+-		key->both.offset |= FUT_OFF_MMSHARED; /* reference taken on mm */
++	if (PageAnon(page)) {
++		key->both.offset |= FUT_OFF_MMSHARED; /* ref taken on mm */
+ 		key->private.mm = mm;
+ 		key->private.address = address;
+-		get_futex_key_refs(key);
+-		return 0;
++	} else {
++		key->both.offset |= FUT_OFF_INODE; /* inode-based key */
++		key->shared.inode = page->mapping->host;
++		key->shared.pgoff = page->index;
+ 	}
+ 
+-	/*
+-	 * Linear file mappings are also simple.
+-	 */
+-	key->shared.inode = vma->vm_file->f_path.dentry->d_inode;
+-	key->both.offset |= FUT_OFF_INODE; /* inode-based key. */
+-	if (likely(!(vma->vm_flags & VM_NONLINEAR))) {
+-		key->shared.pgoff = (((address - vma->vm_start) >> PAGE_SHIFT)
+-				     + vma->vm_pgoff);
+-		return 0;
+-	}
++	get_futex_key_refs(key);
+ 
+-	/*
+-	 * We could walk the page table to read the non-linear
+-	 * pte, and get the page index without fetching the page
+-	 * from swap.  But that's a lot of code to duplicate here
+-	 * for a rare case, so we simply fetch the page.
+-	 */
+-	err = get_user_pages(current, mm, address, 1, 0, 0, &page, NULL);
+-	if (err >= 0) {
+-		key->shared.pgoff =
+-			page->index << (PAGE_CACHE_SHIFT - PAGE_SHIFT);
+-		put_page(page);
+-		return 0;
+-	}
+-	return err;
++	unlock_page(page);
++	put_page(page);
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(get_futex_key);
+ 
++static inline void put_futex_key(union futex_key *key)
++{
++	drop_futex_key_refs(key);
++}
++
+ /*
+  * Take a reference to the resource addressed by a key.
+  * Can be called while holding spinlocks.
+@@ -351,6 +334,7 @@ static int refill_pi_state_cache(void)
+ 	/* pi_mutex gets initialized later */
+ 	pi_state->owner = NULL;
+ 	atomic_set(&pi_state->refcount, 1);
++	pi_state->key = FUTEX_KEY_INIT;
+ 
+ 	current->pi_state_cache = pi_state;
+ 
+@@ -429,7 +413,7 @@ void exit_pi_state_list(struct task_stru
+ 	struct list_head *next, *head = &curr->pi_state_list;
+ 	struct futex_pi_state *pi_state;
+ 	struct futex_hash_bucket *hb;
+-	union futex_key key;
++	union futex_key key = FUTEX_KEY_INIT;
+ 
+ 	/*
+ 	 * We are a ZOMBIE and nobody can enqueue itself on
+@@ -694,7 +678,7 @@ static int futex_wake(u32 __user *uaddr,
+ 	struct futex_hash_bucket *hb;
+ 	struct futex_q *this, *next;
+ 	struct plist_head *head;
+-	union futex_key key;
++	union futex_key key = FUTEX_KEY_INIT;
+ 	int ret;
+ 
+ 	if (fshared)
+@@ -722,6 +706,7 @@ static int futex_wake(u32 __user *uaddr,
+ 
+ 	spin_unlock(&hb->lock);
+ out:
++	put_futex_key(&key);
+ 	if (fshared)
+ 		up_read(fshared);
+ 	return ret;
+@@ -736,7 +721,7 @@ futex_wake_op(u32 __user *uaddr1, struct
+ 	      u32 __user *uaddr2,
+ 	      int nr_wake, int nr_wake2, int op)
+ {
+-	union futex_key key1, key2;
++	union futex_key key1 = FUTEX_KEY_INIT, key2 = FUTEX_KEY_INIT;
+ 	struct futex_hash_bucket *hb1, *hb2;
+ 	struct plist_head *head;
+ 	struct futex_q *this, *next;
+@@ -838,6 +823,8 @@ retry:
+ 	if (hb1 != hb2)
+ 		spin_unlock(&hb2->lock);
+ out:
++	put_futex_key(&key2);
++	put_futex_key(&key1);
+ 	if (fshared)
+ 		up_read(fshared);
+ 	return ret;
+@@ -851,7 +838,7 @@ static int futex_requeue(u32 __user *uad
+ 			 u32 __user *uaddr2,
+ 			 int nr_wake, int nr_requeue, u32 *cmpval)
+ {
+-	union futex_key key1, key2;
++	union futex_key key1 = FUTEX_KEY_INIT, key2 = FUTEX_KEY_INIT;
+ 	struct futex_hash_bucket *hb1, *hb2;
+ 	struct plist_head *head1;
+ 	struct futex_q *this, *next;
+@@ -941,6 +928,8 @@ out_unlock:
+ 		drop_futex_key_refs(&key1);
+ 
+ out:
++	put_futex_key(&key2);
++	put_futex_key(&key1);
+ 	if (fshared)
+ 		up_read(fshared);
+ 	return ret;
+@@ -1135,6 +1124,7 @@ static int futex_wait(u32 __user *uaddr,
+ 	if (fshared)
+ 		down_read(fshared);
+ 
++	q.key = FUTEX_KEY_INIT;
+ 	ret = get_futex_key(uaddr, fshared, &q.key);
+ 	if (unlikely(ret != 0))
+ 		goto out_release_sem;
+@@ -1270,6 +1260,7 @@ static int futex_wait(u32 __user *uaddr,
+ 	queue_unlock(&q, hb);
+ 
+  out_release_sem:
++	put_futex_key(&q.key);
+ 	if (fshared)
+ 		up_read(fshared);
+ 	return ret;
+@@ -1321,6 +1312,7 @@ static int futex_lock_pi(u32 __user *uad
+ 	if (fshared)
+ 		down_read(fshared);
+ 
++	q.key = FUTEX_KEY_INIT;
+ 	ret = get_futex_key(uaddr, fshared, &q.key);
+ 	if (unlikely(ret != 0))
+ 		goto out_release_sem;
+@@ -1534,18 +1526,17 @@ static int futex_lock_pi(u32 __user *uad
+ 
+ 	/* Unqueue and drop the lock */
+ 	unqueue_me_pi(&q);
+-	if (fshared)
+-		up_read(fshared);
+ 
+-	return ret != -EINTR ? ret : -ERESTARTNOINTR;
++	goto out_release_sem;
+ 
+  out_unlock_release_sem:
+ 	queue_unlock(&q, hb);
+ 
+  out_release_sem:
++	put_futex_key(&q.key);
+ 	if (fshared)
+ 		up_read(fshared);
+-	return ret;
++	return ret != -EINTR ? ret : -ERESTARTNOINTR;
+ 
+  uaddr_faulted:
+ 	/*
+@@ -1587,7 +1578,7 @@ static int futex_unlock_pi(u32 __user *u
+ 	struct futex_q *this, *next;
+ 	u32 uval;
+ 	struct plist_head *head;
+-	union futex_key key;
++	union futex_key key = FUTEX_KEY_INIT;
+ 	int ret, attempt = 0;
+ 
+ retry:
+@@ -1663,6 +1654,7 @@ retry_unlocked:
+ out_unlock:
+ 	spin_unlock(&hb->lock);
+ out:
++	put_futex_key(&key);
+ 	if (fshared)
+ 		up_read(fshared);
+ 
+diff --git a/mm/memory.c b/mm/memory.c
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -976,6 +976,56 @@ no_page_table:
+ 	return page;
+ }
+ 
++/**
++ * get_user_pages() - pin user pages in memory
++ * @tsk:	task_struct of target task
++ * @mm:		mm_struct of target mm
++ * @start:	starting user address
++ * @len:	number of pages from start to pin
++ * @write:	whether pages will be written to by the caller
++ * @force:	whether to force write access even if user mapping is
++ *		readonly. This will result in the page being COWed even
++ *		in MAP_SHARED mappings. You do not want this.
++ * @pages:	array that receives pointers to the pages pinned.
++ *		Should be at least nr_pages long. Or NULL, if caller
++ *		only intends to ensure the pages are faulted in.
++ * @vmas:	array of pointers to vmas corresponding to each page.
++ *		Or NULL if the caller does not require them.
++ *
++ * Returns number of pages pinned. This may be fewer than the number
++ * requested. If len is 0 or negative, returns 0. If no pages
++ * were pinned, returns -errno. Each page returned must be released
++ * with a put_page() call when it is finished with. vmas will only
++ * remain valid while mmap_sem is held.
++ *
++ * Must be called with mmap_sem held for read or write.
++ *
++ * get_user_pages walks a process's page tables and takes a reference to
++ * each struct page that each user address corresponds to at a given
++ * instant. That is, it takes the page that would be accessed if a user
++ * thread accesses the given user virtual address at that instant.
++ *
++ * This does not guarantee that the page exists in the user mappings when
++ * get_user_pages returns, and there may even be a completely different
++ * page there in some cases (eg. if mmapped pagecache has been invalidated
++ * and subsequently re faulted). However it does guarantee that the page
++ * won't be freed completely. And mostly callers simply care that the page
++ * contains data that was valid *at some point in time*. Typically, an IO
++ * or similar operation cannot guarantee anything stronger anyway because
++ * locks can't be held over the syscall boundary.
++ *
++ * If write=0, the page must not be written to. If the page is written to,
++ * set_page_dirty (or set_page_dirty_lock, as appropriate) must be called
++ * after the page is finished with, and before put_page is called.
++ *
++ * get_user_pages is typically used for fewer-copy IO operations, to get a
++ * handle on the memory by some means other than accesses via the user virtual
++ * addresses. The pages may be submitted for DMA to devices or accessed via
++ * their kernel linear mapping (via the kmap APIs). Care should be taken to
++ * use the correct cache flushing APIs.
++ *
++ * See also get_user_pages_fast, for performance critical applications.
++ */
+ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
+ 		unsigned long start, int len, int write, int force,
+ 		struct page **pages, struct vm_area_struct **vmas)
+@@ -1064,7 +1114,7 @@ int get_user_pages(struct task_struct *t
+ 			 * be processed until returning to user space.
+ 			 */
+ 			if (unlikely(test_tsk_thread_flag(tsk, TIF_MEMDIE)))
+-				return -ENOMEM;
++				return i ? i : -ENOMEM;
+ 
+ 			if (write)
+ 				foll_flags |= FOLL_WRITE;
+@@ -1091,9 +1141,15 @@ int get_user_pages(struct task_struct *t
+ 				 * do_wp_page has broken COW when necessary,
+ 				 * even if maybe_mkwrite decided not to set
+ 				 * pte_write. We can thus safely do subsequent
+-				 * page lookups as if they were reads.
++				 * page lookups as if they were reads. But only
++				 * do so when looping for pte_write is futile:
++				 * in some cases userspace may also be wanting
++				 * to write to the gotten user page, which a
++				 * read fault here might prevent (a readonly
++				 * page might get reCOWed by userspace write).
+ 				 */
+-				if (ret & VM_FAULT_WRITE)
++				if ((ret & VM_FAULT_WRITE) &&
++				    !(vma->vm_flags & VM_WRITE))
+ 					foll_flags &= ~FOLL_WRITE;
+ 
+ 				cond_resched();
+@@ -1655,10 +1711,21 @@ static int do_wp_page(struct mm_struct *
+ 	 * not dirty accountable.
+ 	 */
+ 	if (PageAnon(old_page)) {
+-		if (!TestSetPageLocked(old_page)) {
+-			reuse = can_share_swap_page(old_page);
+-			unlock_page(old_page);
++		if (TestSetPageLocked(old_page)) {
++			page_cache_get(old_page);
++			pte_unmap_unlock(page_table, ptl);
++			lock_page(old_page);
++			page_table = pte_offset_map_lock(mm, pmd, address,
++							 &ptl);
++			if (!pte_same(*page_table, orig_pte)) {
++				unlock_page(old_page);
++				page_cache_release(old_page);
++				goto unlock;
++			}
++			page_cache_release(old_page);
+ 		}
++		reuse = can_share_swap_page(old_page);
++		unlock_page(old_page);
+ 	} else if (unlikely((vma->vm_flags & (VM_WRITE|VM_SHARED)) ==
+ 					(VM_WRITE|VM_SHARED))) {
+ 		/*
+-- 
