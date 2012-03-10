@@ -7,16 +7,18 @@ USB: rndis_host/cdc_ether: Updates from upstream
  786e3dfbae8e2da422affcc1736ca1888f200a27 cdc_ether: Hardwire CDC descriptors when missing
  10d0f27c1baa4a094b4965708a15f2b0c4d65f5e rndis_host: fix transfer size negotiation
  74ef5c5025fed5ad6a1cbdfb5c2e831acdbbd2fe rndis_host: increase delay in command response loop
+ 9ff55874fea71f483581f48990658d3929adb034 rndis_host: Halt device if rndis_bind fails.
  818727badc14ce57dc099a075b05505d50b7956e rndis_host: pass buffer length to rndis_command
  7e99eeddb35cdaafb820676a57517b5e58685e4c rndis_host: support WM6 devices as modems
+ 40ac7b62d8c132c73a709bd83858b3419f38ec23 rndis_host: debug info clobbered before it is logged
  03ad032bb78b2732b607ed198e951240e1d21e59 export usbnet_get_ethernet_addr from usbnet and fixed cdc_ether.c
 
 ---
- drivers/net/usb/cdc_ether.c  |   54 +++++++++----------------------
- drivers/net/usb/rndis_host.c |   73 ++++++++++++++++++++++++++++++++-----------
- drivers/net/usb/usbnet.c     |   31 ++++++++++++++++++
+ drivers/net/usb/cdc_ether.c  |   54 ++++++++-------------------
+ drivers/net/usb/rndis_host.c |   83 ++++++++++++++++++++++++++++++++-----------
+ drivers/net/usb/usbnet.c     |   31 ++++++++++++++++
  drivers/net/usb/usbnet.h     |    1 
- 4 files changed, 103 insertions(+), 56 deletions(-)
+ 4 files changed, 111 insertions(+), 58 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
 --- a/drivers/net/usb/cdc_ether.c
@@ -211,7 +213,15 @@ diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
  	if (unlikely(retval < 0)) {
  		dev_err(&intf->dev, "RNDIS_MSG_QUERY(0x%08x) failed, %d\n",
  				oid, retval);
-@@ -499,12 +516,20 @@ static int rndis_bind(struct usbnet *dev
+@@ -467,6 +484,7 @@ static int rndis_bind(struct usbnet *dev
+ 		struct rndis_query_c	*get_c;
+ 		struct rndis_set	*set;
+ 		struct rndis_set_c	*set_c;
++		struct rndis_halt	*halt;
+ 	} u;
+ 	u32			tmp;
+ 	int			reply_len;
+@@ -499,12 +517,20 @@ static int rndis_bind(struct usbnet *dev
  	net->hard_header_len += sizeof (struct rndis_data_hdr);
  	dev->hard_mtu = net->mtu + net->hard_header_len;
  
@@ -233,7 +243,7 @@ diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
  	if (unlikely(retval < 0)) {
  		/* it might not even be an RNDIS device!! */
  		dev_err(&intf->dev, "RNDIS init failed, %d\n", retval);
-@@ -512,11 +537,19 @@ static int rndis_bind(struct usbnet *dev
+@@ -512,11 +538,19 @@ static int rndis_bind(struct usbnet *dev
  	}
  	tmp = le32_to_cpu(u.init_c->max_transfer_size);
  	if (tmp < dev->hard_mtu) {
@@ -247,18 +257,27 @@ diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
 +				"dev can't take %u byte packets (max %u)\n",
 +				dev->hard_mtu, tmp);
 +			retval = -EINVAL;
-+			goto fail_and_release;
++			goto halt_fail_and_release;
 +		}
-+		dev->hard_mtu = tmp;
-+		net->mtu = dev->hard_mtu - net->hard_header_len;
 +		dev_warn(&intf->dev,
 +			 "dev can't take %u byte packets (max %u), "
 +			 "adjusting MTU to %u\n",
-+			 dev->hard_mtu, tmp, net->mtu);
++			 dev->hard_mtu, tmp, tmp - net->hard_header_len);
++		dev->hard_mtu = tmp;
++		net->mtu = dev->hard_mtu - net->hard_header_len;
  	}
  
  	/* REVISIT:  peripheral "alignment" request is ignored ... */
-@@ -542,9 +575,9 @@ static int rndis_bind(struct usbnet *dev
+@@ -531,7 +565,7 @@ static int rndis_bind(struct usbnet *dev
+ 			48, (void **) &bp, &reply_len);
+ 	if (unlikely(retval< 0)) {
+ 		dev_err(&intf->dev, "rndis get ethaddr, %d\n", retval);
+-		goto fail_and_release;
++		goto halt_fail_and_release;
+ 	}
+ 	memcpy(net->dev_addr, bp, ETH_ALEN);
+ 
+@@ -542,12 +576,12 @@ static int rndis_bind(struct usbnet *dev
  	u.set->oid = OID_GEN_CURRENT_PACKET_FILTER;
  	u.set->len = ccpu2(4);
  	u.set->offset = ccpu2((sizeof *u.set) - 8);
@@ -269,8 +288,24 @@ diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
 +	retval = rndis_command(dev, u.header, CONTROL_BUFFER_SIZE);
  	if (unlikely(retval < 0)) {
  		dev_err(&intf->dev, "rndis set packet filter, %d\n", retval);
- 		goto fail_and_release;
-@@ -569,11 +602,11 @@ static void rndis_unbind(struct usbnet *
+-		goto fail_and_release;
++		goto halt_fail_and_release;
+ 	}
+ 
+ 	retval = 0;
+@@ -555,6 +589,11 @@ static int rndis_bind(struct usbnet *dev
+ 	kfree(u.buf);
+ 	return retval;
+ 
++halt_fail_and_release:
++	memset(u.halt, 0, sizeof *u.halt);
++	u.halt->msg_type = RNDIS_MSG_HALT;
++	u.halt->msg_len = ccpu2(sizeof *u.halt);
++	(void) rndis_command(dev, (void *)u.halt, CONTROL_BUFFER_SIZE);
+ fail_and_release:
+ 	usb_set_intfdata(info->data, NULL);
+ 	usb_driver_release_interface(driver_of(intf), info->data);
+@@ -569,11 +608,11 @@ static void rndis_unbind(struct usbnet *
  	struct rndis_halt	*halt;
  
  	/* try to clear any rndis state/activity (no i/o from stack!) */
@@ -284,7 +319,7 @@ diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
  		kfree(halt);
  	}
  
-@@ -697,6 +730,10 @@ static const struct usb_device_id	produc
+@@ -697,6 +736,10 @@ static const struct usb_device_id	produc
  	/* "ActiveSync" is an undocumented variant of RNDIS, used in WM5 */
  	USB_INTERFACE_INFO(USB_CLASS_MISC, 1, 1),
  	.driver_info = (unsigned long) &rndis_info,
