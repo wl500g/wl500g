@@ -263,6 +263,23 @@ config NETFILTER_XTABLES
 	  This is required if you intend to use any of ip_tables,
 	  ip6_tables or arp_tables.
 
+comment "Xtables combined modules"
+
+config NETFILTER_XT_MARK
+	tristate 'nfmark target and match support'
+	default m if NETFILTER_ADVANCED=n
+	---help---
+	This option adds the "MARK" target and "mark" match.
+
+	Netfilter mark matching allows you to match packets based on the
+	"nfmark" value in the packet.
+	The target allows you to create rules in the "mangle" table which alter
+	the netfilter mark (nfmark) field associated with the packet.
+
+	Prior to routing, the nfmark can influence the routing method (see
+	"Use netfilter MARK value as routing key") and can also be used by
+	other subsystems to change their behavior.
+
 # alphabetically ordered list of targets
 
 config NETFILTER_XT_TARGET_CLASSIFY
@@ -338,15 +355,11 @@ config NETFILTER_XT_TARGET_HL
 config NETFILTER_XT_TARGET_MARK
 	tristate '"MARK" target support'
 	depends on NETFILTER_XTABLES
+	select NETFILTER_XT_MARK
 	help
-	  This option adds a `MARK' target, which allows you to create rules
-	  in the `mangle' table which alter the netfilter mark (nfmark) field
-	  associated with the packet prior to routing. This can change
-	  the routing method (see `Use netfilter MARK value as routing
-	  key') and can also be used by other subsystems to change their
-	  behavior.
-
-	  To compile it as a module, choose M here.  If unsure, say N.
+	  This is a backwards-compat option for the user's convenience
+	  (e.g. when running oldconfig). It selects
+	  CONFIG_NETFILTER_XT_MARK (combined mark/MARK module).
 
 config NETFILTER_XT_TARGET_NFQUEUE
 	tristate '"NFQUEUE" target Support'
@@ -596,12 +609,11 @@ config NETFILTER_XT_MATCH_HL
 config NETFILTER_XT_MATCH_MARK
 	tristate '"mark" match support'
 	depends on NETFILTER_XTABLES
+	select NETFILTER_XT_MARK
 	help
-	  Netfilter mark matching allows you to match packets based on the
-	  `nfmark' value in the packet.  This can be set by the MARK target
-	  (see below).
-
-	  To compile it as a module, choose M here.  If unsure, say N.
+	  This is a backwards-compat option for the user's convenience
+	  (e.g. when running oldconfig). It selects
+	  CONFIG_NETFILTER_XT_MARK (combined mark/MARK module).
 
 config NETFILTER_XT_MATCH_POLICY
 	tristate 'IPsec "policy" match support'
