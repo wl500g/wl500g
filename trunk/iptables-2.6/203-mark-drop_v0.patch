@@ -1,0 +1,99 @@
+diff -uBp iptables.orig/extensions/libxt_mark.c iptables/extensions/libxt_mark.c
+--- iptables.orig/extensions/libxt_mark.c	2009-04-06 15:09:17.000000000 +0400
++++ iptables/extensions/libxt_mark.c	2012-03-10 15:40:47.000000000 +0400
+@@ -53,34 +53,6 @@ static int mark_mt_parse(int c, char **a
+ 	return false;
+ }
+ 
+-static int
+-mark_parse(int c, char **argv, int invert, unsigned int *flags,
+-           const void *entry, struct xt_entry_match **match)
+-{
+-	struct xt_mark_info *markinfo = (struct xt_mark_info *)(*match)->data;
+-
+-	switch (c) {
+-		char *end;
+-	case '1':
+-		xtables_check_inverse(optarg, &invert, &optind, 0);
+-		markinfo->mark = strtoul(optarg, &end, 0);
+-		if (*end == '/') {
+-			markinfo->mask = strtoul(end+1, &end, 0);
+-		} else
+-			markinfo->mask = 0xffffffff;
+-		if (*end != '\0' || end == optarg)
+-			xtables_error(PARAMETER_PROBLEM, "Bad MARK value \"%s\"", optarg);
+-		if (invert)
+-			markinfo->invert = 1;
+-		*flags = 1;
+-		break;
+-
+-	default:
+-		return 0;
+-	}
+-	return 1;
+-}
+-
+ static void print_mark(unsigned int mark, unsigned int mask)
+ {
+ 	if (mask != 0xffffffffU)
+@@ -107,19 +79,6 @@ mark_mt_print(const void *ip, const stru
+ 	print_mark(info->mark, info->mask);
+ }
+ 
+-static void
+-mark_print(const void *ip, const struct xt_entry_match *match, int numeric)
+-{
+-	struct xt_mark_info *info = (struct xt_mark_info *)match->data;
+-
+-	printf("MARK match ");
+-
+-	if (info->invert)
+-		printf("!");
+-	
+-	print_mark(info->mark, info->mask);
+-}
+-
+ static void mark_mt_save(const void *ip, const struct xt_entry_match *match)
+ {
+ 	const struct xt_mark_mtinfo1 *info = (const void *)match->data;
+@@ -131,33 +90,6 @@ static void mark_mt_save(const void *ip,
+ 	print_mark(info->mark, info->mask);
+ }
+ 
+-static void
+-mark_save(const void *ip, const struct xt_entry_match *match)
+-{
+-	struct xt_mark_info *info = (struct xt_mark_info *)match->data;
+-
+-	if (info->invert)
+-		printf("! ");
+-	
+-	printf("--mark ");
+-	print_mark(info->mark, info->mask);
+-}
+-
+-static struct xtables_match mark_match = {
+-	.family		= AF_UNSPEC,
+-	.name		= "mark",
+-	.revision	= 0,
+-	.version	= XTABLES_VERSION,
+-	.size		= XT_ALIGN(sizeof(struct xt_mark_info)),
+-	.userspacesize	= XT_ALIGN(sizeof(struct xt_mark_info)),
+-	.help		= mark_mt_help,
+-	.parse		= mark_parse,
+-	.final_check	= mark_mt_check,
+-	.print		= mark_print,
+-	.save		= mark_save,
+-	.extra_opts	= mark_mt_opts,
+-};
+-
+ static struct xtables_match mark_mt_reg = {
+ 	.version        = XTABLES_VERSION,
+ 	.name           = "mark",
+@@ -175,6 +107,5 @@ static struct xtables_match mark_mt_reg
+ 
+ void _init(void)
+ {
+-	xtables_register_match(&mark_match);
+ 	xtables_register_match(&mark_mt_reg);
+ }
