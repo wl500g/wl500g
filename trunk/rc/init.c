@@ -41,6 +41,20 @@
 
 int noconsole = 0;
 
+static const int fatal_signals[] = {
+	SIGQUIT,	/* halt */
+	SIGILL,
+	SIGABRT,
+	SIGFPE,
+	SIGPIPE,
+	SIGBUS,
+	SIGSEGV,
+	SIGSYS,
+	SIGTRAP,
+	SIGPWR,		/* reboot w/o preshutdown */
+	SIGTERM,	/* reboot */
+};
+
 /* Set terminal settings to reasonable defaults */
 static void set_term(int fd)
 {
@@ -174,6 +188,13 @@ static void
 shutdown_system(void)
 {
 	int sig;
+	sigset_t set;
+
+	/* Block fatal signals */
+	sigemptyset(&set);
+	for (sig = 0; sig < ARRAY_SIZE(fatal_signals); sig++)
+		sigaddset(&set, fatal_signals[sig]);
+	sigprocmask(SIG_BLOCK, &set, NULL);
 
 	/* Disable signal handlers */
 	for (sig = 0; sig < (_NSIG-1); sig++)
@@ -358,21 +379,6 @@ void sysinit(void)
 	dprintf("done\n");
 }
 
-
-static const int fatal_signals[] = {
-	SIGQUIT,	/* halt */
-	SIGILL,
-	SIGABRT,
-	SIGFPE,
-	SIGPIPE,
-	SIGBUS,
-	SIGSEGV,
-	SIGSYS,
-	SIGTRAP,
-	SIGPWR,
-	SIGTERM,	/* reboot */
-};
-
 static void fatal_signal(int sig)
 {
 	const char *message = strsignal(sig);
@@ -402,10 +408,10 @@ void
 child_reap(int sig)
 {
 	pid_t pid;
+
 	while ((pid = waitpid(-1, NULL, WNOHANG)) > 0)
 		dprintf("Reaped %d\n", pid);
 }
-
 
 void
 signal_init(void)
