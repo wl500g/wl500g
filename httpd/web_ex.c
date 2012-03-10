@@ -982,14 +982,15 @@ ej_load(int eid, webs_t wp, int argc, char_t **argv)
 	return (websWrite(wp, "%s", ""));
 }	
 
-int ej_print_text_file(int eid, webs_t wp, int argc, char_t **argv)
+int
+ej_print_text_file(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *file;
 	int  fd, n;
 	char buf[2048 + 1];	/* aaa2ppp: imho size must be (n * minimum_io_size + 1) */
 	int  ret = 0;
 
-	if (ejArgs(argc, argv, "%s %s", &file) < 1) {
+	if (ejArgs(argc, argv, "%s", &file) < 1) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
@@ -1010,6 +1011,29 @@ int ej_print_text_file(int eid, webs_t wp, int argc, char_t **argv)
 	return ret;
 }
 
+static int
+ej_include(int eid, webs_t wp, int argc, char_t **argv)
+{
+	char *file;
+	struct mime_handler *handler;
+
+	if (ejArgs(argc, argv, "%s", &file) < 1) {
+		websError(wp, 400, "Insufficient args\n");
+		return -1;
+	}
+
+	for (handler = &mime_handlers[0]; handler->pattern; handler++) {
+		if (match(handler->pattern, file) && handler->output) {
+			handler->output(file, wp);
+			break;
+		}
+	}
+	
+	if (!handler->pattern)
+		websError(wp, 404, "File not found\n");
+
+	return handler->pattern ? 0 : -1;
+}
 
 static void
 validate_cgi(webs_t wp, int sid, int groupFlag)
@@ -2346,21 +2370,22 @@ struct mime_handler mime_handlers[] = {
 
 
 struct ej_handler ej_handlers[] = {
-	{ "nvram_get_x", ej_nvram_get_x},
-	{ "nvram_get_f", ej_nvram_get_f},
-	{ "nvram_get_list_x", ej_nvram_get_list_x},
-	{ "nvram_get_table_x", ej_nvram_get_table_x},
-	{ "nvram_match_x", ej_nvram_match_x},
-	{ "nvram_double_match_x", ej_nvram_double_match_x},
-	{ "nvram_match_both_x", ej_nvram_match_both_x},
-	{ "nvram_match_list_x", ej_nvram_match_list_x},
-	{ "select_channel", ej_select_channel},
-	{ "select_country", ej_select_country},
-	{ "urlcache", ej_urlcache},     
-	{ "uptime", ej_uptime},   
-	{ "nvram_dump", ej_dump},
-	{ "load_script", ej_load},
-	{ "print_text_file", ej_print_text_file},
+	{ "nvram_get_x", ej_nvram_get_x },
+	{ "nvram_get_f", ej_nvram_get_f },
+	{ "nvram_get_list_x", ej_nvram_get_list_x },
+	{ "nvram_get_table_x", ej_nvram_get_table_x },
+	{ "nvram_match_x", ej_nvram_match_x },
+	{ "nvram_double_match_x", ej_nvram_double_match_x },
+	{ "nvram_match_both_x", ej_nvram_match_both_x },
+	{ "nvram_match_list_x", ej_nvram_match_list_x },
+	{ "select_channel", ej_select_channel },
+	{ "select_country", ej_select_country },
+	{ "urlcache", ej_urlcache },
+	{ "uptime", ej_uptime },
+	{ "nvram_dump", ej_dump },
+	{ "load_script", ej_load },
+	{ "print_text_file", ej_print_text_file },
+	{ "include", ej_include },
 	{ NULL, NULL }
 };
 
