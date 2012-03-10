@@ -89,7 +89,6 @@ typedef char char_t;
 #define websWriteData(wp, buf, nChars) ({ int TMPVAR = fwrite(buf, 1, nChars, wp); fflush(wp); TMPVAR; })
 #define websWriteDataNonBlock websWriteData
 
-extern int match(const char* pattern, const char* string);
 extern int ejArgs(int argc, char_t **argv, char_t *fmt, ...);
 
 /* GoAhead 2.1 Embedded JavaScript compatibility */
@@ -105,7 +104,6 @@ extern int ej_nat_table(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_route_table(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_wl_status(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_wl_status_nobr(int eid, webs_t wp, int argc, char_t **argv);
-extern int ej_print_text_file(int eid, webs_t wp, int argc, char_t **argv);
 
 extern int sys_renew(void);
 extern int sys_release(void);

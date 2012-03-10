@@ -982,7 +982,7 @@ ej_load(int eid, webs_t wp, int argc, char_t **argv)
 	return (websWrite(wp, "%s", ""));
 }	
 
-int
+static int
 ej_print_text_file(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *file;
@@ -1015,24 +1015,14 @@ static int
 ej_include(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *file;
-	struct mime_handler *handler;
 
 	if (ejArgs(argc, argv, "%s", &file) < 1) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
 
-	for (handler = &mime_handlers[0]; handler->pattern; handler++) {
-		if (match(handler->pattern, file) && handler->output) {
-			handler->output(file, wp);
-			break;
-		}
-	}
-	
-	if (!handler->pattern)
-		websError(wp, 404, "File not found\n");
-
-	return handler->pattern ? 0 : -1;
+	do_ej(file, wp);
+	return 0;
 }
 
 static void
