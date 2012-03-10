@@ -125,7 +125,6 @@ static void send_authenticate( char* realm );
 static void send_error( int status, char* title, char* extra_header, char* text );
 static void send_headers( int status, char* title, char* extra_header, char* mime_type );
 static int b64_decode( const char* str, unsigned char* space, int size );
-static int match( const char* pattern, const char* string );
 static int match_one( const char* pattern, int patternlen, const char* string );
 static void handle_request(void);
 
