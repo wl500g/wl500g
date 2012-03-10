@@ -1,0 +1,527 @@
+[NETFILTER]: xt_mark v1, xt_MARK v2. Merge xt_MARK into xt_mark
+
+---
+ include/linux/netfilter/xt_MARK.h |   17 ---
+ include/linux/netfilter/xt_mark.h |   10 +-
+ net/netfilter/Kconfig             |   38 +++++--
+ net/netfilter/Makefile            |    5 -
+ net/netfilter/xt_MARK.c           |  185 --------------------------------------
+ net/netfilter/xt_mark.c           |  145 +++++++++++++----------------
+ 6 files changed, 103 insertions(+), 297 deletions(-)
+ delete mode 100644 net/netfilter/xt_MARK.c
+
+diff --git a/include/linux/netfilter/xt_mark.h b/include/linux/netfilter/xt_mark.h
+--- a/include/linux/netfilter/xt_mark.h
++++ b/include/linux/netfilter/xt_mark.h
+@@ -1,9 +1,13 @@
+ #ifndef _XT_MARK_H
+ #define _XT_MARK_H
+ 
+-struct xt_mark_info {
+-    unsigned long mark, mask;
+-    u_int8_t invert;
++struct xt_mark_tginfo2 {
++	u_int32_t mark, mask;
++};
++
++struct xt_mark_mtinfo1 {
++	u_int32_t mark, mask;
++	u_int8_t invert;
+ };
+ 
+ #endif /*_XT_MARK_H*/
+diff --git a/include/linux/netfilter/xt_MARK.h b/include/linux/netfilter/xt_MARK.h
+--- a/include/linux/netfilter/xt_MARK.h
++++ b/include/linux/netfilter/xt_MARK.h
+@@ -1,21 +1,6 @@
+ #ifndef _XT_MARK_H_target
+ #define _XT_MARK_H_target
+ 
+-/* Version 0 */
+-struct xt_mark_target_info {
+-	unsigned long mark;
+-};
+-
+-/* Version 1 */
+-enum {
+-	XT_MARK_SET=0,
+-	XT_MARK_AND,
+-	XT_MARK_OR,
+-};
+-
+-struct xt_mark_target_info_v1 {
+-	unsigned long mark;
+-	u_int8_t mode;
+-};
++#include <linux/netfilter/xt_mark.h>
+ 
+ #endif /*_XT_MARK_H_target */
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -263,6 +263,23 @@ config NETFILTER_XTABLES
+ 	  This is required if you intend to use any of ip_tables,
+ 	  ip6_tables or arp_tables.
+ 
++comment "Xtables combined modules"
++
++config NETFILTER_XT_MARK
++	tristate 'nfmark target and match support'
++	default m if NETFILTER_ADVANCED=n
++	---help---
++	This option adds the "MARK" target and "mark" match.
++
++	Netfilter mark matching allows you to match packets based on the
++	"nfmark" value in the packet.
++	The target allows you to create rules in the "mangle" table which alter
++	the netfilter mark (nfmark) field associated with the packet.
++
++	Prior to routing, the nfmark can influence the routing method (see
++	"Use netfilter MARK value as routing key") and can also be used by
++	other subsystems to change their behavior.
++
+ # alphabetically ordered list of targets
+ 
+ config NETFILTER_XT_TARGET_CLASSIFY
+@@ -338,15 +355,11 @@ config NETFILTER_XT_TARGET_HL
+ config NETFILTER_XT_TARGET_MARK
+ 	tristate '"MARK" target support'
+ 	depends on NETFILTER_XTABLES
++	select NETFILTER_XT_MARK
+ 	help
+-	  This option adds a `MARK' target, which allows you to create rules
+-	  in the `mangle' table which alter the netfilter mark (nfmark) field
+-	  associated with the packet prior to routing. This can change
+-	  the routing method (see `Use netfilter MARK value as routing
+-	  key') and can also be used by other subsystems to change their
+-	  behavior.
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
++	  This is a backwards-compat option for the user's convenience
++	  (e.g. when running oldconfig). It selects
++	  CONFIG_NETFILTER_XT_MARK (combined mark/MARK module).
+ 
+ config NETFILTER_XT_TARGET_NFQUEUE
+ 	tristate '"NFQUEUE" target Support'
+@@ -596,12 +609,11 @@ config NETFILTER_XT_MATCH_HL
+ config NETFILTER_XT_MATCH_MARK
+ 	tristate '"mark" match support'
+ 	depends on NETFILTER_XTABLES
++	select NETFILTER_XT_MARK
+ 	help
+-	  Netfilter mark matching allows you to match packets based on the
+-	  `nfmark' value in the packet.  This can be set by the MARK target
+-	  (see below).
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
++	  This is a backwards-compat option for the user's convenience
++	  (e.g. when running oldconfig). It selects
++	  CONFIG_NETFILTER_XT_MARK (combined mark/MARK module).
+ 
+ config NETFILTER_XT_MATCH_POLICY
+ 	tristate 'IPsec "policy" match support'
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -37,13 +37,15 @@ obj-$(CONFIG_NF_CONNTRACK_RTSP) += nf_co
+ # generic X tables 
+ obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
+ 
++# combos
++obj-$(CONFIG_NETFILTER_XT_MARK) += xt_mark.o
++
+ # targets
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CLASSIFY) += xt_CLASSIFY.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNMARK) += xt_CONNMARK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_DSCP) += xt_DSCP.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_HL) += xt_HL.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_IMQ) += xt_IMQ.o
+-obj-$(CONFIG_NETFILTER_XT_TARGET_MARK) += xt_MARK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NFQUEUE) += xt_NFQUEUE.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NFLOG) += xt_NFLOG.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NOTRACK) += xt_NOTRACK.o
+@@ -67,7 +69,6 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_IPRANGE)
+ obj-$(CONFIG_NETFILTER_XT_MATCH_LENGTH) += xt_length.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_LIMIT) += xt_limit.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_MAC) += xt_mac.o
+-obj-$(CONFIG_NETFILTER_XT_MATCH_MARK) += xt_mark.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_MULTIPORT) += xt_multiport.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_POLICY) += xt_policy.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_PKTTYPE) += xt_pkttype.o
+diff --git a/net/netfilter/xt_mark.c b/net/netfilter/xt_mark.c
+--- a/net/netfilter/xt_mark.c
++++ b/net/netfilter/xt_mark.c
+@@ -1,10 +1,13 @@
+-/* Kernel module to match NFMARK values. */
+-
+-/* (C) 1999-2001 Marc Boucher <marc@mbsi.ca>
++/*
++ *	xt_mark - Netfilter module to match NFMARK value
++ *
++ *	(C) 1999-2001 Marc Boucher <marc@mbsi.ca>
++ *	Copyright Â© CC Computer Consultants GmbH, 2007 - 2008
++ *	Jan Engelhardt <jengelh@medozas.de>
+  *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
++ *	This program is free software; you can redistribute it and/or modify
++ *	it under the terms of the GNU General Public License version 2 as
++ *	published by the Free Software Foundation.
+  */
+ 
+ #include <linux/module.h>
+@@ -15,104 +18,90 @@
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
+-MODULE_DESCRIPTION("iptables mark matching module");
++MODULE_DESCRIPTION("Xtables: packet mark operations");
+ MODULE_ALIAS("ipt_mark");
+ MODULE_ALIAS("ip6t_mark");
++MODULE_ALIAS("ipt_MARK");
++MODULE_ALIAS("ip6t_MARK");
+ 
+-static int
+-match(const struct sk_buff *skb,
+-      const struct net_device *in,
+-      const struct net_device *out,
+-      const struct xt_match *match,
+-      const void *matchinfo,
+-      int offset,
+-      unsigned int protoff,
+-      int *hotdrop)
++static unsigned int
++mark_tg(struct sk_buff *skb, const struct net_device *in,
++		const struct net_device *out, unsigned int hooknum,
++		const struct xt_target *target, const void *targinfo)
+ {
+-	const struct xt_mark_info *info = matchinfo;
++	const struct xt_mark_tginfo2 *info = targinfo;
+ 
+-	return ((skb->mark & info->mask) == info->mark) ^ info->invert;
++	skb->mark = (skb->mark & ~info->mask) ^ info->mark;
++	return XT_CONTINUE;
+ }
+ 
+ static int
+-checkentry(const char *tablename,
+-	   const void *entry,
+-	   const struct xt_match *match,
+-	   void *matchinfo,
+-	   unsigned int hook_mask)
++mark_mt(const struct sk_buff *skb, const struct net_device *in,
++        const struct net_device *out, const struct xt_match *match,
++        const void *matchinfo, int offset, unsigned int protoff, int *hotdrop)
+ {
+-	const struct xt_mark_info *minfo = matchinfo;
++	const struct xt_mark_mtinfo1 *info = matchinfo;
+ 
+-	if (minfo->mark > 0xffffffff || minfo->mask > 0xffffffff) {
+-		printk(KERN_WARNING "mark: only supports 32bit mark\n");
+-		return 0;
+-	}
+-	return 1;
++	return ((skb->mark & info->mask) == info->mark) ^ info->invert;
+ }
+ 
+-#ifdef CONFIG_COMPAT
+-struct compat_xt_mark_info {
+-	compat_ulong_t	mark, mask;
+-	u_int8_t	invert;
+-	u_int8_t	__pad1;
+-	u_int16_t	__pad2;
++static struct xt_target mark_tg_reg[] __read_mostly = {
++	{
++		.name           = "MARK",
++		.revision       = 2,
++		.family         = AF_INET,
++		.target         = mark_tg,
++		.targetsize     = sizeof(struct xt_mark_tginfo2),
++		.me             = THIS_MODULE,
++	},
++	{
++		.name           = "MARK",
++		.revision       = 2,
++		.family         = AF_INET6,
++		.target         = mark_tg,
++		.targetsize     = sizeof(struct xt_mark_tginfo2),
++		.me             = THIS_MODULE,
++	},
+ };
+ 
+-static void compat_from_user(void *dst, void *src)
+-{
+-	struct compat_xt_mark_info *cm = src;
+-	struct xt_mark_info m = {
+-		.mark	= cm->mark,
+-		.mask	= cm->mask,
+-		.invert	= cm->invert,
+-	};
+-	memcpy(dst, &m, sizeof(m));
+-}
+-
+-static int compat_to_user(void __user *dst, void *src)
+-{
+-	struct xt_mark_info *m = src;
+-	struct compat_xt_mark_info cm = {
+-		.mark	= m->mark,
+-		.mask	= m->mask,
+-		.invert	= m->invert,
+-	};
+-	return copy_to_user(dst, &cm, sizeof(cm)) ? -EFAULT : 0;
+-}
+-#endif /* CONFIG_COMPAT */
+-
+-static struct xt_match xt_mark_match[] __read_mostly = {
++static struct xt_match mark_mt_reg[] __read_mostly = {
+ 	{
+-		.name		= "mark",
+-		.family		= AF_INET,
+-		.checkentry	= checkentry,
+-		.match		= match,
+-		.matchsize	= sizeof(struct xt_mark_info),
+-#ifdef CONFIG_COMPAT
+-		.compatsize	= sizeof(struct compat_xt_mark_info),
+-		.compat_from_user = compat_from_user,
+-		.compat_to_user	= compat_to_user,
+-#endif
+-		.me		= THIS_MODULE,
++		.name           = "mark",
++		.revision       = 1,
++		.family         = AF_INET,
++		.match          = mark_mt,
++		.matchsize      = sizeof(struct xt_mark_mtinfo1),
++		.me             = THIS_MODULE,
+ 	},
+ 	{
+-		.name		= "mark",
+-		.family		= AF_INET6,
+-		.checkentry	= checkentry,
+-		.match		= match,
+-		.matchsize	= sizeof(struct xt_mark_info),
+-		.me		= THIS_MODULE,
++		.name           = "mark",
++		.revision       = 1,
++		.family         = AF_INET6,
++		.match          = mark_mt,
++		.matchsize      = sizeof(struct xt_mark_mtinfo1),
++		.me             = THIS_MODULE,
+ 	},
+ };
+ 
+ static int __init xt_mark_init(void)
+ {
+-	return xt_register_matches(xt_mark_match, ARRAY_SIZE(xt_mark_match));
++	int ret;
++
++	ret = xt_register_targets(mark_tg_reg, ARRAY_SIZE(mark_tg_reg));
++	if (ret < 0)
++		return ret;
++	ret = xt_register_matches(mark_mt_reg, ARRAY_SIZE(mark_mt_reg));
++	if (ret < 0) {
++		xt_unregister_targets(mark_tg_reg, ARRAY_SIZE(mark_tg_reg));
++		return ret;
++	}
++	return 0;
+ }
+ 
+ static void __exit xt_mark_fini(void)
+ {
+-	xt_unregister_matches(xt_mark_match, ARRAY_SIZE(xt_mark_match));
++	xt_unregister_matches(mark_mt_reg, ARRAY_SIZE(mark_mt_reg));
++	xt_unregister_targets(mark_tg_reg, ARRAY_SIZE(mark_tg_reg));
+ }
+ 
+ module_init(xt_mark_init);
+diff --git a/net/netfilter/xt_MARK.c b/net/netfilter/xt_MARK.c
+deleted file mode 100644
+--- a/net/netfilter/xt_MARK.c
++++ /dev/null
+@@ -1,185 +0,0 @@
+-/* This is a module which is used for setting the NFMARK field of an skb. */
+-
+-/* (C) 1999-2001 Marc Boucher <marc@mbsi.ca>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
+-
+-#include <linux/module.h>
+-#include <linux/skbuff.h>
+-#include <linux/ip.h>
+-#include <net/checksum.h>
+-
+-#include <linux/netfilter/x_tables.h>
+-#include <linux/netfilter/xt_MARK.h>
+-
+-MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
+-MODULE_DESCRIPTION("ip[6]tables MARK modification module");
+-MODULE_ALIAS("ipt_MARK");
+-MODULE_ALIAS("ip6t_MARK");
+-
+-static unsigned int
+-target_v0(struct sk_buff *skb,
+-	  const struct net_device *in,
+-	  const struct net_device *out,
+-	  unsigned int hooknum,
+-	  const struct xt_target *target,
+-	  const void *targinfo)
+-{
+-	const struct xt_mark_target_info *markinfo = targinfo;
+-
+-	skb->mark = markinfo->mark;
+-	return XT_CONTINUE;
+-}
+-
+-static unsigned int
+-target_v1(struct sk_buff *skb,
+-	  const struct net_device *in,
+-	  const struct net_device *out,
+-	  unsigned int hooknum,
+-	  const struct xt_target *target,
+-	  const void *targinfo)
+-{
+-	const struct xt_mark_target_info_v1 *markinfo = targinfo;
+-	int mark = 0;
+-
+-	switch (markinfo->mode) {
+-	case XT_MARK_SET:
+-		mark = markinfo->mark;
+-		break;
+-
+-	case XT_MARK_AND:
+-		mark = skb->mark & markinfo->mark;
+-		break;
+-
+-	case XT_MARK_OR:
+-		mark = skb->mark | markinfo->mark;
+-		break;
+-	}
+-
+-	skb->mark = mark;
+-	return XT_CONTINUE;
+-}
+-
+-
+-static int
+-checkentry_v0(const char *tablename,
+-	      const void *entry,
+-	      const struct xt_target *target,
+-	      void *targinfo,
+-	      unsigned int hook_mask)
+-{
+-	struct xt_mark_target_info *markinfo = targinfo;
+-
+-	if (markinfo->mark > 0xffffffff) {
+-		printk(KERN_WARNING "MARK: Only supports 32bit wide mark\n");
+-		return 0;
+-	}
+-	return 1;
+-}
+-
+-static int
+-checkentry_v1(const char *tablename,
+-	      const void *entry,
+-	      const struct xt_target *target,
+-	      void *targinfo,
+-	      unsigned int hook_mask)
+-{
+-	struct xt_mark_target_info_v1 *markinfo = targinfo;
+-
+-	if (markinfo->mode != XT_MARK_SET
+-	    && markinfo->mode != XT_MARK_AND
+-	    && markinfo->mode != XT_MARK_OR) {
+-		printk(KERN_WARNING "MARK: unknown mode %u\n",
+-		       markinfo->mode);
+-		return 0;
+-	}
+-	if (markinfo->mark > 0xffffffff) {
+-		printk(KERN_WARNING "MARK: Only supports 32bit wide mark\n");
+-		return 0;
+-	}
+-	return 1;
+-}
+-
+-#ifdef CONFIG_COMPAT
+-struct compat_xt_mark_target_info_v1 {
+-	compat_ulong_t	mark;
+-	u_int8_t	mode;
+-	u_int8_t	__pad1;
+-	u_int16_t	__pad2;
+-};
+-
+-static void compat_from_user_v1(void *dst, void *src)
+-{
+-	struct compat_xt_mark_target_info_v1 *cm = src;
+-	struct xt_mark_target_info_v1 m = {
+-		.mark	= cm->mark,
+-		.mode	= cm->mode,
+-	};
+-	memcpy(dst, &m, sizeof(m));
+-}
+-
+-static int compat_to_user_v1(void __user *dst, void *src)
+-{
+-	struct xt_mark_target_info_v1 *m = src;
+-	struct compat_xt_mark_target_info_v1 cm = {
+-		.mark	= m->mark,
+-		.mode	= m->mode,
+-	};
+-	return copy_to_user(dst, &cm, sizeof(cm)) ? -EFAULT : 0;
+-}
+-#endif /* CONFIG_COMPAT */
+-
+-static struct xt_target xt_mark_target[] __read_mostly = {
+-	{
+-		.name		= "MARK",
+-		.family		= AF_INET,
+-		.revision	= 0,
+-		.checkentry	= checkentry_v0,
+-		.target		= target_v0,
+-		.targetsize	= sizeof(struct xt_mark_target_info),
+-		.table		= "mangle",
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "MARK",
+-		.family		= AF_INET,
+-		.revision	= 1,
+-		.checkentry	= checkentry_v1,
+-		.target		= target_v1,
+-		.targetsize	= sizeof(struct xt_mark_target_info_v1),
+-#ifdef CONFIG_COMPAT
+-		.compatsize	= sizeof(struct compat_xt_mark_target_info_v1),
+-		.compat_from_user = compat_from_user_v1,
+-		.compat_to_user	= compat_to_user_v1,
+-#endif
+-		.table		= "mangle",
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "MARK",
+-		.family		= AF_INET6,
+-		.revision	= 0,
+-		.checkentry	= checkentry_v0,
+-		.target		= target_v0,
+-		.targetsize	= sizeof(struct xt_mark_target_info),
+-		.table		= "mangle",
+-		.me		= THIS_MODULE,
+-	},
+-};
+-
+-static int __init xt_mark_init(void)
+-{
+-	return xt_register_targets(xt_mark_target, ARRAY_SIZE(xt_mark_target));
+-}
+-
+-static void __exit xt_mark_fini(void)
+-{
+-	xt_unregister_targets(xt_mark_target, ARRAY_SIZE(xt_mark_target));
+-}
+-
+-module_init(xt_mark_init);
+-module_exit(xt_mark_fini);
+-- 
