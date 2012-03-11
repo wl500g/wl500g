@@ -1,0 +1,426 @@
+MIPS: topdown mmap support
+
+ Testcase & discussion:
+  http://www.linux-mips.org/archives/linux-mips/2011-05/msg00252.html
+
+ kernel.org commits
+ 1091458d09e1a0788268578001f279250d2c0844 MIPS: Randomize mmap if randomize_va_space is set
+ 9c1e8a9138ff92a4ff816ea8a1884ad2461a993a MIPS: Cleanup arch_get_unmapped_area
+ 6f6c3c33c027f2c83d53e8562cd9daa73fe8108b MIPS: Move arch_get_unmapped_area and gang to new file.
+ d0be89f6c2570a63ac44ccdd12473a54243cd296 MIPS: topdown mmap support
+
+---
+ arch/mips/kernel/syscall.c   |   73 ------------
+ arch/mips/mm/Makefile        |    2 
+ arch/mips/mm/mmap.c          |  242 +++++++++++++++++++++++++++++++++++++++++++
+ include/asm-mips/pgtable.h   |    1 
+ include/asm-mips/processor.h |   11 +
+ 5 files changed, 255 insertions(+), 74 deletions(-)
+ create mode 100644 arch/mips/mm/mmap.c
+
+diff --git a/arch/mips/kernel/syscall.c b/arch/mips/kernel/syscall.c
+--- a/arch/mips/kernel/syscall.c
++++ b/arch/mips/kernel/syscall.c
+@@ -11,11 +11,9 @@
+ #include <linux/capability.h>
+ #include <linux/errno.h>
+ #include <linux/linkage.h>
+-#include <linux/mm.h>
+ #include <linux/smp.h>
+ #include <linux/mman.h>
+ #include <linux/ptrace.h>
+-#include <linux/sched.h>
+ #include <linux/string.h>
+ #include <linux/syscalls.h>
+ #include <linux/file.h>
+@@ -26,7 +24,6 @@
+ #include <linux/msg.h>
+ #include <linux/shm.h>
+ #include <linux/compiler.h>
+-#include <linux/module.h>
+ 
+ #include <asm/branch.h>
+ #include <asm/cachectl.h>
+@@ -55,76 +52,6 @@ out:
+ 	return res;
+ }
+ 
+-unsigned long shm_align_mask = PAGE_SIZE - 1;	/* Sane caches */
+-
+-EXPORT_SYMBOL(shm_align_mask);
+-
+-#define COLOUR_ALIGN(addr,pgoff)				\
+-	((((addr) + shm_align_mask) & ~shm_align_mask) +	\
+-	 (((pgoff) << PAGE_SHIFT) & shm_align_mask))
+-
+-unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
+-	unsigned long len, unsigned long pgoff, unsigned long flags)
+-{
+-	struct vm_area_struct * vmm;
+-	int do_color_align;
+-	unsigned long task_size;
+-
+-#ifdef CONFIG_32BIT
+-	task_size = TASK_SIZE;
+-#else /* Must be CONFIG_64BIT*/
+-	task_size = test_thread_flag(TIF_32BIT_ADDR) ? TASK_SIZE32 : TASK_SIZE;
+-#endif
+-
+-	if (len > task_size)
+-		return -ENOMEM;
+-
+-	if (flags & MAP_FIXED) {
+-		/* Even MAP_FIXED mappings must reside within task_size.  */
+-		if (task_size - len < addr)
+-			return -EINVAL;
+-
+-		/*
+-		 * We do not accept a shared mapping if it would violate
+-		 * cache aliasing constraints.
+-		 */
+-		if ((flags & MAP_SHARED) &&
+-		    ((addr - (pgoff << PAGE_SHIFT)) & shm_align_mask))
+-			return -EINVAL;
+-		return addr;
+-	}
+-
+-	do_color_align = 0;
+-	if (filp || (flags & MAP_SHARED))
+-		do_color_align = 1;
+-	if (addr) {
+-		if (do_color_align)
+-			addr = COLOUR_ALIGN(addr, pgoff);
+-		else
+-			addr = PAGE_ALIGN(addr);
+-		vmm = find_vma(current->mm, addr);
+-		if (task_size - len >= addr &&
+-		    (!vmm || addr + len <= vmm->vm_start))
+-			return addr;
+-	}
+-	addr = TASK_UNMAPPED_BASE;
+-	if (do_color_align)
+-		addr = COLOUR_ALIGN(addr, pgoff);
+-	else
+-		addr = PAGE_ALIGN(addr);
+-
+-	for (vmm = find_vma(current->mm, addr); ; vmm = vmm->vm_next) {
+-		/* At this point:  (!vmm || addr < vmm->vm_end). */
+-		if (task_size - len < addr)
+-			return -ENOMEM;
+-		if (!vmm || addr + len <= vmm->vm_start)
+-			return addr;
+-		addr = vmm->vm_end;
+-		if (do_color_align)
+-			addr = COLOUR_ALIGN(addr, pgoff);
+-	}
+-}
+-
+ /* common code for old and new mmaps */
+ static inline unsigned long
+ do_mmap2(unsigned long addr, unsigned long len, unsigned long prot,
+diff --git a/arch/mips/mm/Makefile b/arch/mips/mm/Makefile
+--- a/arch/mips/mm/Makefile
++++ b/arch/mips/mm/Makefile
+@@ -4,7 +4,7 @@
+ 
+ obj-y				+= cache.o dma-default.o extable.o fault.o \
+ 				   init.o pgtable.o tlbex.o tlbex-fault.o \
+-				   gup.o
++				   gup.o mmap.o
+ 
+ obj-$(CONFIG_32BIT)		+= ioremap.o pgtable-32.o
+ obj-$(CONFIG_64BIT)		+= pgtable-64.o
+diff --git /dev/null b/arch/mips/mm/mmap.c
+new file mode 100644
+--- /dev/null
++++ b/arch/mips/mm/mmap.c
+@@ -0,0 +1,242 @@
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ *
++ * Copyright (C) 2011 Wind River Systems,
++ *   written by Ralf Baechle <ralf@linux-mips.org>
++ */
++#include <linux/errno.h>
++#include <linux/mm.h>
++#include <linux/mman.h>
++#include <linux/module.h>
++#include <linux/personality.h>
++#include <linux/random.h>
++#include <linux/sched.h>
++
++unsigned long shm_align_mask = PAGE_SIZE - 1;	/* Sane caches */
++
++EXPORT_SYMBOL(shm_align_mask);
++
++/* gap between mmap and stack */
++#define MIN_GAP (128*1024*1024UL)
++#define MAX_GAP        ((TASK_SIZE)/6*5)
++
++static int mmap_is_legacy(void)
++{
++	if (current->personality & ADDR_COMPAT_LAYOUT)
++		return 1;
++
++	if (current->signal->rlim[RLIMIT_STACK].rlim_cur == RLIM_INFINITY)
++		return 1;
++
++	return sysctl_legacy_va_layout;
++}
++
++static unsigned long mmap_base(unsigned long rnd)
++{
++	unsigned long gap = current->signal->rlim[RLIMIT_STACK].rlim_cur;
++
++	if (gap < MIN_GAP)
++		gap = MIN_GAP;
++	else if (gap > MAX_GAP)
++		gap = MAX_GAP;
++
++	return PAGE_ALIGN(TASK_SIZE - gap - rnd);
++}
++
++static inline unsigned long COLOUR_ALIGN_DOWN(unsigned long addr,
++					      unsigned long pgoff)
++{
++	unsigned long base = addr & ~shm_align_mask;
++	unsigned long off = (pgoff << PAGE_SHIFT) & shm_align_mask;
++
++	if (base + off <= addr)
++		return base + off;
++
++	return base - off;
++}
++
++#define COLOUR_ALIGN(addr,pgoff)				\
++	((((addr) + shm_align_mask) & ~shm_align_mask) +	\
++	 (((pgoff) << PAGE_SHIFT) & shm_align_mask))
++
++enum mmap_allocation_direction {UP, DOWN};
++
++static unsigned long arch_get_unmapped_area_foo(struct file *filp,
++	unsigned long addr0, unsigned long len, unsigned long pgoff,
++	unsigned long flags, enum mmap_allocation_direction dir)
++{
++	struct mm_struct *mm = current->mm;
++	struct vm_area_struct *vma;
++	unsigned long addr = addr0;
++	int do_color_align;
++
++	if (unlikely(len > TASK_SIZE))
++		return -ENOMEM;
++
++	if (flags & MAP_FIXED) {
++		/* Even MAP_FIXED mappings must reside within TASK_SIZE */
++		if (TASK_SIZE - len < addr)
++			return -EINVAL;
++
++		/*
++		 * We do not accept a shared mapping if it would violate
++		 * cache aliasing constraints.
++		 */
++		if ((flags & MAP_SHARED) &&
++		    ((addr - (pgoff << PAGE_SHIFT)) & shm_align_mask))
++			return -EINVAL;
++		return addr;
++	}
++
++	do_color_align = 0;
++	if (filp || (flags & MAP_SHARED))
++		do_color_align = 1;
++
++	/* requesting a specific address */
++	if (addr) {
++		if (do_color_align)
++			addr = COLOUR_ALIGN(addr, pgoff);
++		else
++			addr = PAGE_ALIGN(addr);
++
++		vma = find_vma(mm, addr);
++		if (TASK_SIZE - len >= addr &&
++		   (!vma || addr + len <= vma->vm_start))
++			return addr;
++	}
++
++	if (dir == UP) {
++		addr = mm->mmap_base;
++			if (do_color_align)
++				addr = COLOUR_ALIGN(addr, pgoff);
++			else
++				addr = PAGE_ALIGN(addr);
++
++		for (vma = find_vma(current->mm, addr); ; vma = vma->vm_next) {
++			/* At this point:  (!vma || addr < vma->vm_end). */
++			if (TASK_SIZE - len < addr)
++				return -ENOMEM;
++			if (!vma || addr + len <= vma->vm_start)
++				return addr;
++			addr = vma->vm_end;
++			if (do_color_align)
++				addr = COLOUR_ALIGN(addr, pgoff);
++		 }
++	 } else {
++		/* check if free_area_cache is useful for us */
++		if (len <= mm->cached_hole_size) {
++			mm->cached_hole_size = 0;
++			mm->free_area_cache = mm->mmap_base;
++		}
++
++		/* either no address requested or can't fit in requested address hole */
++		addr = mm->free_area_cache;
++			if (do_color_align) {
++				unsigned long base =
++					COLOUR_ALIGN_DOWN(addr - len, pgoff);
++
++			addr = base + len;
++		 }
++
++		/* make sure it can fit in the remaining address space */
++		if (likely(addr > len)) {
++			vma = find_vma(mm, addr - len);
++			if (!vma || addr <= vma->vm_start) {
++				/* remember the address as a hint for next time */
++				return mm->free_area_cache = addr-len;
++			}
++		}
++
++		if (unlikely(mm->mmap_base < len))
++			goto bottomup;
++
++		addr = mm->mmap_base-len;
++		if (do_color_align)
++			addr = COLOUR_ALIGN_DOWN(addr, pgoff);
++
++		do {
++			/*
++			 * Lookup failure means no vma is above this address,
++			 * else if new region fits below vma->vm_start,
++			 * return with success:
++			 */
++			vma = find_vma(mm, addr);
++			if (likely(!vma || addr+len <= vma->vm_start)) {
++				/* remember the address as a hint for next time */
++				return mm->free_area_cache = addr;
++			}
++
++			/* remember the largest hole we saw so far */
++			if (addr + mm->cached_hole_size < vma->vm_start)
++				mm->cached_hole_size = vma->vm_start - addr;
++
++			/* try just below the current vma->vm_start */
++			addr = vma->vm_start-len;
++			if (do_color_align)
++				addr = COLOUR_ALIGN_DOWN(addr, pgoff);
++		} while (likely(len < vma->vm_start));
++
++bottomup:
++		/*
++		 * A failed mmap() very likely causes application failure,
++		 * so fall back to the bottom-up function here. This scenario
++		 * can happen with large stack limits and large mmap()
++		 * allocations.
++		 */
++		mm->cached_hole_size = ~0UL;
++		mm->free_area_cache = TASK_UNMAPPED_BASE;
++		addr = arch_get_unmapped_area(filp, addr0, len, pgoff, flags);
++		/*
++		 * Restore the topdown base:
++		 */
++		mm->free_area_cache = mm->mmap_base;
++		mm->cached_hole_size = ~0UL;
++
++		return addr;
++	}
++}
++
++unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr0,
++	unsigned long len, unsigned long pgoff, unsigned long flags)
++{
++	return arch_get_unmapped_area_foo(filp,
++			addr0, len, pgoff, flags, UP);
++}
++
++/*
++ * There is no need to export this but sched.h declares the function as
++ * extern so making it static here results in an error.
++ */
++unsigned long arch_get_unmapped_area_topdown(struct file *filp,
++	unsigned long addr0, unsigned long len, unsigned long pgoff,
++	unsigned long flags)
++{
++	return arch_get_unmapped_area_foo(filp,
++			addr0, len, pgoff, flags, DOWN);
++}
++
++void arch_pick_mmap_layout(struct mm_struct *mm)
++{
++	unsigned long random_factor = 0UL;
++
++	if (current->flags & PF_RANDOMIZE) {
++		random_factor = get_random_int();
++		random_factor = random_factor << PAGE_SHIFT;
++		if (TASK_IS_32BIT_ADDR)
++			random_factor &= 0xfffffful;
++		else
++			random_factor &= 0xffffffful;
++	}
++
++	if (mmap_is_legacy()) {
++		mm->mmap_base = TASK_UNMAPPED_BASE + random_factor;
++		mm->get_unmapped_area = arch_get_unmapped_area;
++		mm->unmap_area = arch_unmap_area;
++	} else {
++		mm->mmap_base = mmap_base(random_factor);
++		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
++		mm->unmap_area = arch_unmap_area_topdown;
++	}
++}
+diff --git a/include/asm-mips/pgtable.h b/include/asm-mips/pgtable.h
+--- a/include/asm-mips/pgtable.h
++++ b/include/asm-mips/pgtable.h
+@@ -397,6 +397,7 @@ static inline int io_remap_pfn_range(str
+  * constraints placed on us by the cache architecture.
+  */
+ #define HAVE_ARCH_UNMAPPED_AREA
++#define HAVE_ARCH_UNMAPPED_AREA_TOPDOWN
+ 
+ /*
+  * No page table caches to initialise
+diff --git a/include/asm-mips/processor.h b/include/asm-mips/processor.h
+--- a/include/asm-mips/processor.h
++++ b/include/asm-mips/processor.h
+@@ -34,6 +34,11 @@ extern void (*cpu_wait)(void);
+ extern unsigned int vced_count, vcei_count;
+ 
+ /*
++ * MIPS does have an arch_pick_mmap_layout()
++ */
++#define HAVE_ARCH_PICK_MMAP_LAYOUT 1
++
++/*
+  * A special page (the vdso) is mapped into all processes at the very
+  * top of the virtual memory space.
+  */
+@@ -52,6 +57,9 @@ extern unsigned int vced_count, vcei_cou
+  * space during mmap's.
+  */
+ #define TASK_UNMAPPED_BASE	(PAGE_ALIGN(TASK_SIZE / 3))
++
++#define TASK_IS_32BIT_ADDR 1
++
+ #endif
+ 
+ #ifdef CONFIG_64BIT
+@@ -74,6 +82,9 @@ extern unsigned int vced_count, vcei_cou
+  */
+ #define TASK_UNMAPPED_BASE	((current->thread.mflags & MF_32BIT_ADDR) ? \
+ 	PAGE_ALIGN(TASK_SIZE32 / 3) : PAGE_ALIGN(TASK_SIZE / 3))
++
++#define TASK_IS_32BIT_ADDR test_thread_flag(TIF_32BIT_ADDR)
++
+ #endif
+ 
+ #define NUM_FPU_REGS	32
+-- 
