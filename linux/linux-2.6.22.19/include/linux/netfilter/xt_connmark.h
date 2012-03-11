@@ -10,8 +10,20 @@
  * (at your option) any later version.
  */
 
-struct xt_connmark_info {
-	unsigned long mark, mask;
+enum {
+	XT_CONNMARK_SET = 0,
+	XT_CONNMARK_SAVE,
+	XT_CONNMARK_RESTORE,
+	XT_CONNMARK_SET_RETURN
+};
+
+struct xt_connmark_tginfo1 {
+	u_int32_t ctmark, ctmask, nfmask;
+	u_int8_t mode;
+};
+
+struct xt_connmark_mtinfo1 {
+	u_int32_t mark, mask;
 	u_int8_t invert;
 };
 
