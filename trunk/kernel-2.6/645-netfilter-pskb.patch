@@ -123,7 +123,6 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/netfilter/nf_queue.c                       |    4 
  net/netfilter/nfnetlink_queue.c                |   20 --
  net/netfilter/xt_CLASSIFY.c                    |    4 
- net/netfilter/xt_CONNMARK.c                    |   28 +-
  net/netfilter/xt_CONNSECMARK.c                 |    3 
  net/netfilter/xt_DSCP.c                        |   16 -
  net/netfilter/xt_NFLOG.c                       |    4 
@@ -134,7 +133,7 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/sched/act_ipt.c                            |    6 
  net/sched/sch_ingress.c                        |    5 
  net/sctp/ipv6.c                                |    4 
- 125 files changed, 994 insertions(+), 1129 deletions(-)
+ 124 files changed, 980 insertions(+), 1115 deletions(-)
 
 diff -urBp a/include/linux/if_bridge.h b/include/linux/if_bridge.h
 --- a/include/linux/if_bridge.h	2008-02-26 02:59:40.000000000 +0300
@@ -6897,98 +6896,6 @@ diff -urBp a/net/netfilter/xt_CLASSIFY.c b/net/netfilter/xt_CLASSIFY.c
 +	skb->priority = clinfo->priority;
  	return XT_CONTINUE;
  }
- 
-diff -urBp a/net/netfilter/xt_CONNMARK.c b/net/netfilter/xt_CONNMARK.c
---- a/net/netfilter/xt_CONNMARK.c	2011-03-15 03:00:00.000000000 +0300
-+++ b/net/netfilter/xt_CONNMARK.c	2011-03-14 17:45:47.000000000 +0300
-@@ -35,7 +35,7 @@ MODULE_ALIAS("ipt_CONNMARK");
- #include <net/netfilter/nf_conntrack_ecache.h>
- 
- static unsigned int
--connmark_tg_v0(struct sk_buff **pskb, const struct net_device *in,
-+connmark_tg_v0(struct sk_buff *skb, const struct net_device *in,
-                const struct net_device *out, unsigned int hooknum,
-                const struct xt_target *target, const void *targinfo)
- {
-@@ -46,28 +46,28 @@ connmark_tg_v0(struct sk_buff **pskb, co
- 	u_int32_t mark;
- 	u_int32_t newmark;
- 
--	ct = nf_ct_get(*pskb, &ctinfo);
-+	ct = nf_ct_get(skb, &ctinfo);
- 	if (ct) {
- 		switch(markinfo->mode) {
- 		case XT_CONNMARK_SET:
- 			newmark = (ct->mark & ~markinfo->mask) | markinfo->mark;
- 			if (newmark != ct->mark) {
- 				ct->mark = newmark;
--				nf_conntrack_event_cache(IPCT_MARK, *pskb);
-+				nf_conntrack_event_cache(IPCT_MARK, skb);
- 			}
- 			break;
- 		case XT_CONNMARK_SAVE:
- 			newmark = (ct->mark & ~markinfo->mask) |
--				  ((*pskb)->mark & markinfo->mask);
-+				  (skb->mark & markinfo->mask);
- 			if (ct->mark != newmark) {
- 				ct->mark = newmark;
--				nf_conntrack_event_cache(IPCT_MARK, *pskb);
-+				nf_conntrack_event_cache(IPCT_MARK, skb);
- 			}
- 			break;
- 		case XT_CONNMARK_RESTORE:
--			mark = (*pskb)->mark;
-+			mark = skb->mark;
- 			diff = (ct->mark ^ mark) & markinfo->mask;
--			(*pskb)->mark = mark ^ diff;
-+			skb->mark = mark ^ diff;
- 			break;
- 		}
- 	}
-@@ -76,7 +76,7 @@ connmark_tg_v0(struct sk_buff **pskb, co
- }
- 
- static unsigned int
--connmark_tg(struct sk_buff **pskb, const struct net_device *in,
-+connmark_tg(struct sk_buff *skb, const struct net_device *in,
-             const struct net_device *out, unsigned int hooknum,
-             const struct xt_target *target, const void *targinfo)
- {
-@@ -85,7 +85,7 @@ connmark_tg(struct sk_buff **pskb, const
- 	struct nf_conn *ct;
- 	u_int32_t newmark;
- 
--	ct = nf_ct_get(*pskb, &ctinfo);
-+	ct = nf_ct_get(skb, &ctinfo);
- 	if (ct == NULL)
- 		return XT_CONTINUE;
- 
-@@ -94,21 +94,21 @@ connmark_tg(struct sk_buff **pskb, const
- 		newmark = (ct->mark & ~info->ctmask) ^ info->ctmark;
- 		if (ct->mark != newmark) {
- 			ct->mark = newmark;
--			nf_conntrack_event_cache(IPCT_MARK, *pskb);
-+			nf_conntrack_event_cache(IPCT_MARK, skb);
- 		}
- 		break;
- 	case XT_CONNMARK_SAVE:
- 		newmark = (ct->mark & ~info->ctmask) ^
--		          ((*pskb)->mark & info->nfmask);
-+		          (skb->mark & info->nfmask);
- 		if (ct->mark != newmark) {
- 			ct->mark = newmark;
--			nf_conntrack_event_cache(IPCT_MARK, *pskb);
-+			nf_conntrack_event_cache(IPCT_MARK, skb);
- 		}
- 		break;
- 	case XT_CONNMARK_RESTORE:
--		newmark = ((*pskb)->mark & ~info->nfmask) ^
-+		newmark = (skb->mark & ~info->nfmask) ^
- 		          (ct->mark & info->ctmask);
--		(*pskb)->mark = newmark;
-+		skb->mark = newmark;
- 		break;
- 	}
  
 diff -urBp a/net/netfilter/xt_CONNSECMARK.c b/net/netfilter/xt_CONNSECMARK.c
 --- a/net/netfilter/xt_CONNSECMARK.c	2008-02-26 02:59:40.000000000 +0300
