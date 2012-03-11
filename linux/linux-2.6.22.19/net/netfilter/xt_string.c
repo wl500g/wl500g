@@ -32,12 +32,14 @@ static int match(const struct sk_buff *skb,
 {
 	const struct xt_string_info *conf = matchinfo;
 	struct ts_state state;
+	bool invert;
 
 	memset(&state, 0, sizeof(struct ts_state));
+	invert = conf->u.v1.flags & XT_STRING_FLAG_INVERT;
 
 	return (skb_find_text((struct sk_buff *)skb, conf->from_offset,
 			     conf->to_offset, conf->config, &state)
-			     != UINT_MAX) ^ conf->invert;
+			     != UINT_MAX) ^ invert;
 }
 
 #define STRING_TEXT_PRIV(m) ((struct xt_string_info *) m)
@@ -50,6 +52,7 @@ static int checkentry(const char *tablename,
 {
 	struct xt_string_info *conf = matchinfo;
 	struct ts_config *ts_conf;
+	int flags = TS_AUTOLOAD;
 
 	/* Damn, can't handle this case properly with iptables... */
 	if (conf->from_offset > conf->to_offset)
@@ -58,8 +61,13 @@ static int checkentry(const char *tablename,
 		return 0;
 	if (conf->patlen > XT_STRING_MAX_PATTERN_SIZE)
 		return 0;
+	if (conf->u.v1.flags &
+	    ~(XT_STRING_FLAG_IGNORECASE | XT_STRING_FLAG_INVERT))
+		return -EINVAL;
+	if (conf->u.v1.flags & XT_STRING_FLAG_IGNORECASE)
+		flags |= TS_IGNORECASE;
 	ts_conf = textsearch_prepare(conf->algo, conf->pattern, conf->patlen,
-				     GFP_KERNEL, TS_AUTOLOAD);
+				     GFP_KERNEL, flags);
 	if (IS_ERR(ts_conf))
 		return 0;
 
@@ -76,6 +84,7 @@ static void destroy(const struct xt_match *match, void *matchinfo)
 static struct xt_match xt_string_match[] __read_mostly = {
 	{
 		.name 		= "string",
+		.revision	= 1,
 		.family		= AF_INET,
 		.checkentry	= checkentry,
 		.match 		= match,
@@ -85,6 +94,7 @@ static struct xt_match xt_string_match[] __read_mostly = {
 	},
 	{
 		.name 		= "string",
+		.revision	= 1,
 		.family		= AF_INET6,
 		.checkentry	= checkentry,
 		.match 		= match,
