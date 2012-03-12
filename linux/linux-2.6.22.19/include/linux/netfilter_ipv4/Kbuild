@@ -5,6 +5,7 @@ header-y += ipt_CLASSIFY.h
 header-y += ipt_CLUSTERIP.h
 header-y += ipt_comment.h
 header-y += ipt_connbytes.h
+header-y += ipt_connlimit.h
 header-y += ipt_connmark.h
 header-y += ipt_CONNMARK.h
 header-y += ipt_conntrack.h
