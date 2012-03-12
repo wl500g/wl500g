@@ -221,7 +221,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +
 +	/* check the saved connections */
 +	hlist_for_each_entry_safe(conn, pos, n, hash, node) {
-+		found    = __nf_conntrack_find(&conn->tuple);
++		found    = __nf_conntrack_find(&conn->tuple, NULL);
 +		found_ct = NULL;
 +
 +		if (found != NULL)
