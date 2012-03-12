@@ -5,6 +5,8 @@ Subject: [PATCH] mm: minor updates/fixes from upstream 2.6 kernel
 kernel.org commits
 45726cb43d11b288c58243a26010f397054222f0 mm: improve find_lock_page
 1037b83bd04e31449dc9323f1e8ddada4264ef66 MM: alloc_large_system_hash() can free some memory for non power-of-two bucketsize
+ae1276b9349a2fd9c3afb4651e25a77ac03299d9 set_page_refcounted() VM_BUG_ON fix
+a62f735cbb1a0937ab6a9196dadf752694ef0b7f MM: Fix macro argument substitution in PageHead() and PageTail()
 f7977793240d836e60ff413e94e6914f08e10941 speed up madvise_need_mmap_write() usage
 c80e7a826c10cf5bce8487fbaede48bd0bd48d08 permit mempool_free(NULL)
 0da7e01f5f37f441cccd7c8c0586e06db0981907 calculation of pgoff in do_linear_fault() uses mixed units
@@ -15,16 +17,28 @@ e713a21d8251a4c91772f592af46407dfb0b2e4f trivial: Fix dubious bitwise 'or' usage
 9155203a5de94278525647b16733f0c315f3b786 mm: use roundown_pow_of_two() in zone_batchsize()
 
 ---
- include/linux/writeback.h |    2 +-
- mm/filemap.c              |    9 +++++----
- mm/madvise.c              |    6 ++++--
- mm/memory.c               |    9 +++++++--
- mm/mempool.c              |    3 +++
- mm/mmap.c                 |    4 ++++
- mm/page-writeback.c       |   22 ++++++++++------------
- mm/page_alloc.c           |   15 +++++++++++++++
- 8 files changed, 49 insertions(+), 21 deletions(-)
 
+diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
+--- a/include/linux/page-flags.h
++++ b/include/linux/page-flags.h
+@@ -266,7 +266,7 @@ static inline void SetPageUptodate(struct page *page)
+ 
+ #define PG_head_tail_mask ((1L << PG_compound) | (1L << PG_reclaim))
+ 
+-#define PageTail(page)	((page->flags & PG_head_tail_mask) \
++#define PageTail(page)	(((page)->flags & PG_head_tail_mask)	\
+ 				== PG_head_tail_mask)
+ 
+ static inline void __SetPageTail(struct page *page)
+@@ -279,7 +279,7 @@ static inline void __ClearPageTail(struct page *page)
+ 	page->flags &= ~PG_head_tail_mask;
+ }
+ 
+-#define PageHead(page)	((page->flags & PG_head_tail_mask) \
++#define PageHead(page)	(((page)->flags & PG_head_tail_mask)	\
+ 				== (1L << PG_compound))
+ #define __SetPageHead(page)	__SetPageCompound(page)
+ #define __ClearPageHead(page)	__ClearPageCompound(page)
 diff --git a/include/linux/writeback.h b/include/linux/writeback.h
 --- a/include/linux/writeback.h
 +++ b/include/linux/writeback.h
@@ -72,6 +86,18 @@ diff --git a/mm/filemap.c b/mm/filemap.c
  	return page;
  }
  EXPORT_SYMBOL(find_lock_page);
+diff --git a/mm/internal.h b/mm/internal.h
+--- a/mm/internal.h
++++ b/mm/internal.h
+@@ -24,7 +24,7 @@ static inline void set_page_count(struct page *page, int v)
+  */
+ static inline void set_page_refcounted(struct page *page)
+ {
+-	VM_BUG_ON(PageCompound(page) && PageTail(page));
++	VM_BUG_ON(PageTail(page));
+ 	VM_BUG_ON(atomic_read(&page->_count));
+ 	set_page_count(page, 1);
+ }
 diff --git a/mm/madvise.c b/mm/madvise.c
 --- a/mm/madvise.c
 +++ b/mm/madvise.c
