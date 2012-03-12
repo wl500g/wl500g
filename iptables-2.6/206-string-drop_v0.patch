@@ -1,0 +1,116 @@
+diff -uBp iptables.orig/extensions/libxt_string.c iptables/extensions/libxt_string.c
+--- iptables.orig/extensions/libxt_string.c	2009-04-06 15:09:17.000000000 +0400
++++ iptables/extensions/libxt_string.c	2012-03-11 14:02:58.000000000 +0400
+@@ -174,7 +174,6 @@ string_parse(int c, char **argv, int inv
+ {
+ 	struct xt_string_info *stringinfo =
+ 	    (struct xt_string_info *)(*match)->data;
+-	const int revision = (*match)->u.user.revision;
+ 
+ 	switch (c) {
+ 	case '1':
+@@ -204,12 +203,8 @@ string_parse(int c, char **argv, int inv
+ 				   "Can't specify multiple --string");
+ 		xtables_check_inverse(optarg, &invert, &optind, 0);
+ 		parse_string(argv[optind-1], stringinfo);
+-		if (invert) {
+-			if (revision == 0)
+-				stringinfo->u.v0.invert = 1;
+-			else
+-				stringinfo->u.v1.flags |= XT_STRING_FLAG_INVERT;
+-		}
++		if (invert)
++			stringinfo->u.v1.flags |= XT_STRING_FLAG_INVERT;
+ 		*flags |= STRING;
+ 		break;
+ 
+@@ -220,20 +215,12 @@ string_parse(int c, char **argv, int inv
+ 
+ 		xtables_check_inverse(optarg, &invert, &optind, 0);
+ 		parse_hex_string(argv[optind-1], stringinfo);  /* sets length */
+-		if (invert) {
+-			if (revision == 0)
+-				stringinfo->u.v0.invert = 1;
+-			else
+-				stringinfo->u.v1.flags |= XT_STRING_FLAG_INVERT;
+-		}
++		if (invert)
++			stringinfo->u.v1.flags |= XT_STRING_FLAG_INVERT;
+ 		*flags |= STRING;
+ 		break;
+ 
+ 	case '6':
+-		if (revision == 0)
+-			xtables_error(VERSION_PROBLEM,
+-				   "Kernel doesn't support --icase");
+-
+ 		stringinfo->u.v1.flags |= XT_STRING_FLAG_IGNORECASE;
+ 		*flags |= ICASE;
+ 		break;
+@@ -305,9 +292,7 @@ string_print(const void *ip, const struc
+ {
+ 	const struct xt_string_info *info =
+ 	    (const struct xt_string_info*) match->data;
+-	const int revision = match->u.user.revision;
+-	int invert = (revision == 0 ? info->u.v0.invert :
+-				    info->u.v1.flags & XT_STRING_FLAG_INVERT);
++	int invert = (info->u.v1.flags & XT_STRING_FLAG_INVERT);
+ 
+ 	if (is_hex_string(info->pattern, info->patlen)) {
+ 		printf("STRING match %s", invert ? "!" : "");
+@@ -321,7 +306,7 @@ string_print(const void *ip, const struc
+ 		printf("FROM %u ", info->from_offset);
+ 	if (info->to_offset != 0)
+ 		printf("TO %u ", info->to_offset);
+-	if (revision > 0 && info->u.v1.flags & XT_STRING_FLAG_IGNORECASE)
++	if (info->u.v1.flags & XT_STRING_FLAG_IGNORECASE)
+ 		printf("ICASE ");
+ }
+ 
+@@ -329,9 +314,7 @@ static void string_save(const void *ip,
+ {
+ 	const struct xt_string_info *info =
+ 	    (const struct xt_string_info*) match->data;
+-	const int revision = match->u.user.revision;
+-	int invert = (revision == 0 ? info->u.v0.invert :
+-				    info->u.v1.flags & XT_STRING_FLAG_INVERT);
++	int invert = (info->u.v1.flags & XT_STRING_FLAG_INVERT);
+ 
+ 	if (is_hex_string(info->pattern, info->patlen)) {
+ 		printf("%s--hex-string ", (invert) ? "! ": "");
+@@ -345,27 +328,10 @@ static void string_save(const void *ip,
+ 		printf("--from %u ", info->from_offset);
+ 	if (info->to_offset != 0)
+ 		printf("--to %u ", info->to_offset);
+-	if (revision > 0 && info->u.v1.flags & XT_STRING_FLAG_IGNORECASE)
++	if (info->u.v1.flags & XT_STRING_FLAG_IGNORECASE)
+ 		printf("--icase ");
+ }
+ 
+-
+-static struct xtables_match string_match = {
+-    .name		= "string",
+-    .revision		= 0,
+-    .family		= AF_UNSPEC,
+-    .version		= XTABLES_VERSION,
+-    .size		= XT_ALIGN(sizeof(struct xt_string_info)),
+-    .userspacesize	= offsetof(struct xt_string_info, config),
+-    .help		= string_help,
+-    .init		= string_init,
+-    .parse		= string_parse,
+-    .final_check	= string_check,
+-    .print		= string_print,
+-    .save		= string_save,
+-    .extra_opts		= string_opts,
+-};
+-
+ static struct xtables_match string_match_v1 = {
+     .name		= "string",
+     .revision		= 1,
+@@ -384,6 +350,5 @@ static struct xtables_match string_match
+ 
+ void _init(void)
+ {
+-	xtables_register_match(&string_match);
+ 	xtables_register_match(&string_match_v1);
+ }
