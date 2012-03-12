@@ -37,6 +37,21 @@
 
 #define DEV_RTC	"/dev/misc/rtc"
 
+enum {
+	WAN_STATIC = 0,
+	WAN_DHCP,
+	WAN_PPPOE,
+	WAN_PPTP,
+	WAN_L2TP,
+	WAN_BIGPOND,
+#ifdef __CONFIG_MADWIMAX__
+	WAN_WIMAX,
+#endif
+#ifdef __CONFIG_MODEM__
+	WAN_USBMODEM,
+#endif
+};
+
 /* common */
 in_addr_t ip_addr(const char *cp);
 void ip2class(const char *lan_ip, const char *netmask, char *buf);
@@ -136,6 +151,8 @@ int wan_prefix(const char *ifname, char *prefix);
 int wanx_prefix(const char *ifname, char *prefix);
 int wans_prefix(const char *ifname, char *prefix, char *xprefix);
 int wan_valid(const char *ifname);
+int _wan_proto(const char *prefix, char *buffer);
+int wan_proto(const char *prefix);
 
 int hotplug_net(void);
 int wan_primary_ifunit(void);
