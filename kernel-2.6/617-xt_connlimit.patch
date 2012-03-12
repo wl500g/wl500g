@@ -1,37 +1,58 @@
-From: Fedor <fedork@ubuntu.(none)>
-Date: Fri, 19 Mar 2010 23:49:49 -0400
-Subject: [PATCH] Updated version of xt_connlimit match from 2.6.23
+netfilter: xtables: connlimit revision 1
 
  Additionally:
  1cc34c30be0e27d4ba8c1ce04a8a4f46c927d121 netfilter: xt_connlimit: use hotdrop jump mark
+ 22c2d8bca212a655c120fd6617328ffa3480afad [NETFILTER]: xt_connlimit: use the new union nf_inet_addr
  294188ae32f984a072c64c959354b2f6f52f80a7 netfilter: xtables: obtain random bytes earlier, in checkentry (limited to xt_connlimit.c)
+ cc4fc022571376412986e27e08b0765e9cb2aafb netfilter: xtables: connlimit revision 1
+ ad86e1f27a9a97a9e50810b10bca678407b1d6fd netfilter: xt_connlimit: pick right dstaddr in NAT scenario
+ 8183e3a88aced228ab9770762692be6cc3786e80 netfilter: xt_connlimit: fix daddr connlimit in SNAT scenario
+ 3e0d5149e6dcbe7111a63773a07c5b33f7ca7236 netfilter: xt_connlimit: use hlist instead
+ 4656c4d61adb8dc3ee04c08f57a5cc7598814420 netfilter: xt_connlimit: remove connlimit_rnd_inited
 
 ---
- include/linux/netfilter/xt_connlimit.h       |   18 +
+ include/linux/netfilter/xt_connlimit.h       |   35 ++
  include/linux/netfilter_ipv4/ipt_connlimit.h |    8 
  net/netfilter/Kconfig                        |    7 
  net/netfilter/Makefile                       |    1 
- net/netfilter/xt_connlimit.c                 |  321 +++++++++++++++++++++++++++
- 5 files changed, 355 insertions(+)
+ net/netfilter/xt_connlimit.c                 |  319 +++++++++++++++++++++++++++
+ 5 files changed, 370 insertions(+)
  create mode 100644 include/linux/netfilter/xt_connlimit.h
  create mode 100644 net/netfilter/xt_connlimit.c
 
 diff --git a/include/linux/netfilter/xt_connlimit.h b/include/linux/netfilter/xt_connlimit.h
 --- /dev/null
 +++ b/include/linux/netfilter/xt_connlimit.h
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,35 @@
 +#ifndef _XT_CONNLIMIT_H
 +#define _XT_CONNLIMIT_H
 +
 +struct xt_connlimit_data;
 +
++enum {
++	XT_CONNLIMIT_INVERT = 1 << 0,
++	XT_CONNLIMIT_DADDR  = 1 << 1,
++};
++
 +struct xt_connlimit_info {
 +	union {
-+		u_int32_t mask; /* compat */
-+		u_int32_t v4_mask;
-+		u_int32_t v6_mask[4];
++		union nf_inet_addr _mask;
++#ifndef __KERNEL__
++		union {
++			__be32 mask; /* compat */
++			__be32 v4_mask;
++			__be32 v6_mask[4];
++		};
++#endif
 +	};
 +	unsigned int limit, inverse;
++	union {
++		/* revision 0 */
++		unsigned int inverse;
++
++		/* revision 1 */
++		__u32 flags;
++	};
 +
 +	/* this needs to be at the end */
 +	struct xt_connlimit_data *data __attribute__((aligned(8)));
@@ -81,7 +102,7 @@ diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
 diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 --- /dev/null
 +++ b/net/netfilter/xt_connlimit.c
-@@ -0,0 +1,321 @@
+@@ -0,0 +1,319 @@
 +/*
 + * netfilter module to limit the number of parallel tcp
 + * connections per IP address.
@@ -115,17 +136,17 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +
 +/* we will save the tuples of all connections we care about */
 +struct xt_connlimit_conn {
-+	struct list_head list;
-+	struct nf_conntrack_tuple tuple;
++	struct hlist_node		node;
++	struct nf_conntrack_tuple	tuple;
++	union nf_inet_addr		addr;
 +};
 +
 +struct xt_connlimit_data {
-+	struct list_head iphash[256];
-+	spinlock_t lock;
++	struct hlist_head	iphash[256];
++	spinlock_t		lock;
 +};
 +
 +static u_int32_t connlimit_rnd __read_mostly;
-+static bool connlimit_rnd_inited __read_mostly;
 +
 +static inline unsigned int connlimit_iphash(u_int32_t addr)
 +{
@@ -133,10 +154,10 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +}
 +
 +static inline unsigned int
-+connlimit_iphash6(const union nf_conntrack_address *addr,
-+                  const union nf_conntrack_address *mask)
++connlimit_iphash6(const union nf_inet_addr *addr,
++                  const union nf_inet_addr *mask)
 +{
-+	union nf_conntrack_address res;
++	union nf_inet_addr res;
 +	unsigned int i;
 +
 +	for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i)
@@ -157,14 +178,14 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +}
 +
 +static inline unsigned int
-+same_source_net(const union nf_conntrack_address *addr,
-+		const union nf_conntrack_address *mask,
-+		const union nf_conntrack_address *u3, unsigned int family)
++same_source_net(const union nf_inet_addr *addr,
++		const union nf_inet_addr *mask,
++		const union nf_inet_addr *u3, unsigned int family)
 +{
 +	if (family == AF_INET) {
 +		return (addr->ip & mask->ip) == (u3->ip & mask->ip);
 +	} else {
-+		union nf_conntrack_address lh, rh;
++		union nf_inet_addr lh, rh;
 +		unsigned int i;
 +
 +		for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i) {
@@ -178,15 +199,15 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +
 +static int count_them(struct xt_connlimit_data *data,
 +		      const struct nf_conntrack_tuple *tuple,
-+		      const union nf_conntrack_address *addr,
-+		      const union nf_conntrack_address *mask,
++		      const union nf_inet_addr *addr,
++		      const union nf_inet_addr *mask,
 +		      const struct xt_match *match)
 +{
 +	struct nf_conntrack_tuple_hash *found;
 +	struct xt_connlimit_conn *conn;
-+	struct xt_connlimit_conn *tmp;
++	struct hlist_node *pos, *n;
 +	struct nf_conn *found_ct;
-+	struct list_head *hash;
++	struct hlist_head *hash;
 +	bool addit = true;
 +	int matches = 0;
 +
@@ -199,8 +220,8 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +	read_lock_bh(&nf_conntrack_lock);
 +
 +	/* check the saved connections */
-+	list_for_each_entry_safe(conn, tmp, hash, list) {
-+		found    = __nf_conntrack_find(&conn->tuple, NULL);
++	hlist_for_each_entry_safe(conn, pos, n, hash, node) {
++		found    = __nf_conntrack_find(&conn->tuple);
 +		found_ct = NULL;
 +
 +		if (found != NULL)
@@ -218,7 +239,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +
 +		if (found == NULL) {
 +			/* this one is gone */
-+			list_del(&conn->list);
++			hlist_del(&conn->node);
 +			kfree(conn);
 +			continue;
 +		}
@@ -228,12 +249,12 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +			 * we do not care about connections which are
 +			 * closed already -> ditch it
 +			 */
-+			list_del(&conn->list);
++			hlist_del(&conn->node);
 +			kfree(conn);
 +			continue;
 +		}
 +
-+		if (same_source_net(addr, mask, &conn->tuple.src.u3,
++		if (same_source_net(addr, mask, &conn->addr,
 +		    match->family))
 +			/* same source network -> be counted! */
 +			++matches;
@@ -247,7 +268,8 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +		if (conn == NULL)
 +			return -ENOMEM;
 +		conn->tuple = *tuple;
-+		list_add(&conn->list, hash);
++		conn->addr = *addr;
++		hlist_add_head(&conn->node, hash);
 +		++matches;
 +	}
 +
@@ -261,7 +283,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +             int *hotdrop)
 +{
 +	const struct xt_connlimit_info *info = matchinfo;
-+	union nf_conntrack_address addr, mask;
++	union nf_inet_addr addr;
 +	struct nf_conntrack_tuple tuple;
 +	const struct nf_conntrack_tuple *tuple_ptr = &tuple;
 +	enum ip_conntrack_info ctinfo;
@@ -270,41 +292,32 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +
 +	ct = nf_ct_get(skb, &ctinfo);
 +	if (ct != NULL)
-+		tuple_ptr = &ct->tuplehash[0].tuple;
-+	else {
-+		struct nf_conntrack_l3proto *l3proto;
-+		struct nf_conntrack_l4proto *l4proto;
-+
-+		l3proto = __nf_ct_l3proto_find(match->family);
-+		if (l3proto == NULL)
-+			goto hotdrop;
-+		l4proto = __nf_ct_l4proto_find(match->family, match->proto);
-+		if (l4proto == NULL)
-+			goto hotdrop;
-+		if (nf_ct_get_tuple(skb, 0, 0, match->family, match->proto,
-+		    &tuple, NULL, NULL) != 0)
-+			goto hotdrop;
-+	}
++		tuple_ptr = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
++	else if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb),
++				    match->family, &tuple))
++		goto hotdrop;
 +
 +	if (match->family == AF_INET6) {
 +		const struct ipv6hdr *iph = ipv6_hdr(skb);
-+		memcpy(&addr.ip6, &iph->saddr, sizeof(iph->saddr));
-+		memcpy(&mask.ip6, info->v6_mask, sizeof(info->v6_mask));
++		memcpy(&addr.ip6, (info->flags & XT_CONNLIMIT_DADDR) ?
++		       &iph->daddr : &iph->saddr, sizeof(addr.ip6));
 +	} else {
 +		const struct iphdr *iph = ip_hdr(skb);
-+		addr.ip = iph->saddr;
-+		mask.ip = info->v4_mask;
++		addr.ip = (info->flags & XT_CONNLIMIT_DADDR) ?
++			  iph->daddr : iph->saddr;
 +	}
 +
 +	spin_lock_bh(&info->data->lock);
-+	connections = count_them(info->data, tuple_ptr, &addr, &mask, match);
++	connections = count_them(info->data, tuple_ptr, &addr,
++	                         &info->_mask, match);
 +	spin_unlock_bh(&info->data->lock);
 +
 +	if (connections < 0)
 +		/* kmalloc failed, drop it entirely */
 +			goto hotdrop;
 +
-+	return (connections > info->limit) ^ info->inverse;
++	return (connections > info->limit) ^
++	       !!(info->flags & XT_CONNLIMIT_INVERT);
 +
 + hotdrop:
 +	*hotdrop = true;
@@ -319,9 +332,13 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +	struct xt_connlimit_info *info = matchinfo;
 +	unsigned int i;
 +
-+	if (unlikely(!connlimit_rnd_inited)) {
-+		get_random_bytes(&connlimit_rnd, sizeof(connlimit_rnd));
-+		connlimit_rnd_inited = true;
++	if (unlikely(!connlimit_rnd)) {
++		u_int32_t rand;
++
++		do {
++			get_random_bytes(&rand, sizeof(rand));
++		} while (!rand);
++		cmpxchg(&connlimit_rnd, 0, rand);
 +	}
 +	if (nf_ct_l3proto_try_module_get(match->family) < 0) {
 +		printk(KERN_WARNING "cannot load conntrack support for "
@@ -338,7 +355,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +
 +	spin_lock_init(&info->data->lock);
 +	for (i = 0; i < ARRAY_SIZE(info->data->iphash); ++i)
-+		INIT_LIST_HEAD(&info->data->iphash[i]);
++		INIT_HLIST_HEAD(&info->data->iphash[i]);
 +
 +	return 1;
 +}
@@ -348,15 +365,15 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +{
 +	struct xt_connlimit_info *info = matchinfo;
 +	struct xt_connlimit_conn *conn;
-+	struct xt_connlimit_conn *tmp;
-+	struct list_head *hash = info->data->iphash;
++	struct hlist_node *pos, *n;
++	struct hlist_head *hash = info->data->iphash;
 +	unsigned int i;
 +
 +	nf_ct_l3proto_module_put(match->family);
 +
 +	for (i = 0; i < ARRAY_SIZE(info->data->iphash); ++i) {
-+		list_for_each_entry_safe(conn, tmp, &hash[i], list) {
-+			list_del(&conn->list);
++		hlist_for_each_entry_safe(conn, pos, n, &hash[i], node) {
++			hlist_del(&conn->node);
 +			kfree(conn);
 +		}
 +	}
@@ -367,6 +384,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +static struct xt_match connlimit_mt_reg[] __read_mostly = {
 +	{
 +		.name       = "connlimit",
++		.revision   = 1,
 +		.family     = AF_INET,
 +		.checkentry = connlimit_mt_check,
 +		.match      = connlimit_mt,
@@ -376,6 +394,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +	},
 +	{
 +		.name       = "connlimit",
++		.revision   = 1,
 +		.family     = AF_INET6,
 +		.checkentry = connlimit_mt_check,
 +		.match      = connlimit_mt,
@@ -404,4 +423,3 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +MODULE_ALIAS("ipt_connlimit");
 +MODULE_ALIAS("ip6t_connlimit");
 -- 
-1.6.5.GIT
