@@ -1,0 +1,525 @@
+[NETFILTER]: xt_owner v1
+
+ 0265ab44bacc1a1e0e3f5873d8ca2d5a29e33db2 [NETFILTER]: merge ipt_owner/ip6t_owner in xt_owner
+ edc26f7aaa23591c779d6d6fc833c0c96fbeb3c0 [NETFILTER]: xt_owner: allow matching UID/GID ranges
+ 6461caed83412ae3e9a16785ffa64396fb66c6a6 netfilter: xtables: remove xt_owner v0
+
+---
+ include/linux/netfilter/Kbuild            |    1 
+ include/linux/netfilter/xt_owner.h        |   16 ++++
+ include/linux/netfilter_ipv4/Kbuild       |    1 
+ include/linux/netfilter_ipv4/ipt_owner.h  |   20 -----
+ include/linux/netfilter_ipv6/Kbuild       |    1 
+ include/linux/netfilter_ipv6/ip6t_owner.h |   18 -----
+ net/ipv4/netfilter/Kconfig                |    9 --
+ net/ipv4/netfilter/Makefile               |    1 
+ net/ipv4/netfilter/ipt_owner.c            |   92 ---------------------------
+ net/ipv6/netfilter/Kconfig                |    9 --
+ net/ipv6/netfilter/Makefile               |    1 
+ net/ipv6/netfilter/ip6t_owner.c           |   94 ---------------------------
+ net/netfilter/Kconfig                     |    8 ++
+ net/netfilter/Makefile                    |    1 
+ net/netfilter/xt_owner.c                  |  101 ++++++++++++++++++++++++++++++
+ 15 files changed, 127 insertions(+), 246 deletions(-)
+ delete mode 100644 include/linux/netfilter_ipv4/ipt_owner.h
+ delete mode 100644 include/linux/netfilter_ipv6/ip6t_owner.h
+ create mode 100644 include/linux/netfilter/xt_owner.h
+ delete mode 100644 net/ipv4/netfilter/ipt_owner.c
+ delete mode 100644 net/ipv6/netfilter/ip6t_owner.c
+ create mode 100644 net/netfilter/xt_owner.c
+
+diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
+--- a/include/linux/netfilter_ipv4/Kbuild
++++ b/include/linux/netfilter_ipv4/Kbuild
+@@ -28,7 +28,6 @@ header-y += ipt_limit.h
+ header-y += ipt_MARK.h
+ header-y += ipt_multiport.h
+ header-y += ipt_NFQUEUE.h
+-header-y += ipt_owner.h
+ header-y += ipt_physdev.h
+ header-y += ipt_pkttype.h
+ header-y += ipt_policy.h
+diff --git a/include/linux/netfilter_ipv4/ipt_owner.h b/include/linux/netfilter_ipv4/ipt_owner.h
+deleted file mode 100644
+--- a/include/linux/netfilter_ipv4/ipt_owner.h
++++ /dev/null
+@@ -1,20 +0,0 @@
+-#ifndef _IPT_OWNER_H
+-#define _IPT_OWNER_H
+-
+-/* match and invert flags */
+-#define IPT_OWNER_UID	0x01
+-#define IPT_OWNER_GID	0x02
+-#define IPT_OWNER_PID	0x04
+-#define IPT_OWNER_SID	0x08
+-#define IPT_OWNER_COMM	0x10
+-
+-struct ipt_owner_info {
+-    uid_t uid;
+-    gid_t gid;
+-    pid_t pid;
+-    pid_t sid;
+-    char comm[16];
+-    u_int8_t match, invert;	/* flags */
+-};
+-
+-#endif /*_IPT_OWNER_H*/
+diff --git a/include/linux/netfilter_ipv6/Kbuild b/include/linux/netfilter_ipv6/Kbuild
+--- a/include/linux/netfilter_ipv6/Kbuild
++++ b/include/linux/netfilter_ipv6/Kbuild
+@@ -14,7 +14,6 @@ header-y += ip6t_mark.h
+ header-y += ip6t_mh.h
+ header-y += ip6t_multiport.h
+ header-y += ip6t_opts.h
+-header-y += ip6t_owner.h
+ header-y += ip6t_policy.h
+ header-y += ip6t_physdev.h
+ header-y += ip6t_rt.h
+diff --git a/include/linux/netfilter_ipv6/ip6t_owner.h b/include/linux/netfilter_ipv6/ip6t_owner.h
+deleted file mode 100644
+--- a/include/linux/netfilter_ipv6/ip6t_owner.h
++++ /dev/null
+@@ -1,18 +0,0 @@
+-#ifndef _IP6T_OWNER_H
+-#define _IP6T_OWNER_H
+-
+-/* match and invert flags */
+-#define IP6T_OWNER_UID	0x01
+-#define IP6T_OWNER_GID	0x02
+-#define IP6T_OWNER_PID	0x04
+-#define IP6T_OWNER_SID	0x08
+-
+-struct ip6t_owner_info {
+-    uid_t uid;
+-    gid_t gid;
+-    pid_t pid;
+-    pid_t sid;
+-    u_int8_t match, invert;	/* flags */
+-};
+-
+-#endif /*_IPT_OWNER_H*/
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -26,6 +26,7 @@ header-y += xt_limit.h
+ header-y += xt_multiport.h
+ header-y += xt_NFQUEUE.h
+ header-y += xt_NFLOG.h
++header-y += xt_owner.h
+ header-y += xt_pkttype.h
+ header-y += xt_policy.h
+ header-y += xt_realm.h
+diff --git a/include/linux/netfilter/xt_owner.h b/include/linux/netfilter/xt_owner.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/netfilter/xt_owner.h
+@@ -0,0 +1,16 @@
++#ifndef _XT_OWNER_MATCH_H
++#define _XT_OWNER_MATCH_H
++
++enum {
++	XT_OWNER_UID    = 1 << 0,
++	XT_OWNER_GID    = 1 << 1,
++	XT_OWNER_SOCKET = 1 << 2,
++};
++
++struct xt_owner_match_info {
++	u_int32_t uid_min, uid_max;
++	u_int32_t gid_min, gid_max;
++	u_int8_t match, invert;
++};
++
++#endif /* _XT_OWNER_MATCH_H */
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -111,15 +111,6 @@ config IP_NF_MATCH_TTL
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+-config IP_NF_MATCH_OWNER
+-	tristate "Owner match support"
+-	depends on IP_NF_IPTABLES
+-	help
+-	  Packet owner matching allows you to match locally-generated packets
+-	  based on who created them: the user, group, process or session.
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
+-
+ config IP_NF_MATCH_ADDRTYPE
+ 	tristate  'address type match support'
+ 	depends on IP_NF_IPTABLES
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -45,7 +45,6 @@ obj-$(CONFIG_IP_NF_MATCH_ADDRTYPE) += ipt_addrtype.o
+ obj-$(CONFIG_IP_NF_RAW) += iptable_raw.o
+ 
+ # matches
+-obj-$(CONFIG_IP_NF_MATCH_OWNER) += ipt_owner.o
+ obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
+ obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
+ obj-$(CONFIG_IP_NF_MATCH_ADDRTYPE) += ipt_addrtype.o
+diff --git a/net/ipv4/netfilter/ipt_owner.c b/net/ipv4/netfilter/ipt_owner.c
+deleted file mode 100644
+--- a/net/ipv4/netfilter/ipt_owner.c
++++ /dev/null
+@@ -1,92 +0,0 @@
+-/* Kernel module to match various things tied to sockets associated with
+-   locally generated outgoing packets. */
+-
+-/* (C) 2000 Marc Boucher <marc@mbsi.ca>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
+-
+-#include <linux/module.h>
+-#include <linux/skbuff.h>
+-#include <linux/file.h>
+-#include <linux/rcupdate.h>
+-#include <net/sock.h>
+-
+-#include <linux/netfilter_ipv4/ipt_owner.h>
+-#include <linux/netfilter/x_tables.h>
+-
+-MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
+-MODULE_DESCRIPTION("iptables owner match");
+-
+-static int
+-match(const struct sk_buff *skb,
+-      const struct net_device *in,
+-      const struct net_device *out,
+-      const struct xt_match *match,
+-      const void *matchinfo,
+-      int offset,
+-      unsigned int protoff,
+-      int *hotdrop)
+-{
+-	const struct ipt_owner_info *info = matchinfo;
+-
+-	if (!skb->sk || !skb->sk->sk_socket || !skb->sk->sk_socket->file)
+-		return 0;
+-
+-	if(info->match & IPT_OWNER_UID) {
+-		if ((skb->sk->sk_socket->file->f_uid != info->uid) ^
+-		    !!(info->invert & IPT_OWNER_UID))
+-			return 0;
+-	}
+-
+-	if(info->match & IPT_OWNER_GID) {
+-		if ((skb->sk->sk_socket->file->f_gid != info->gid) ^
+-		    !!(info->invert & IPT_OWNER_GID))
+-			return 0;
+-	}
+-
+-	return 1;
+-}
+-
+-static int
+-checkentry(const char *tablename,
+-	   const void *ip,
+-	   const struct xt_match *match,
+-	   void *matchinfo,
+-	   unsigned int hook_mask)
+-{
+-	const struct ipt_owner_info *info = matchinfo;
+-
+-	if (info->match & (IPT_OWNER_PID|IPT_OWNER_SID|IPT_OWNER_COMM)) {
+-		printk("ipt_owner: pid, sid and command matching "
+-		       "not supported anymore\n");
+-		return 0;
+-	}
+-	return 1;
+-}
+-
+-static struct xt_match owner_match __read_mostly = {
+-	.name		= "owner",
+-	.family		= AF_INET,
+-	.match		= match,
+-	.matchsize	= sizeof(struct ipt_owner_info),
+-	.hooks		= (1 << NF_IP_LOCAL_OUT) | (1 << NF_IP_POST_ROUTING),
+-	.checkentry	= checkentry,
+-	.me		= THIS_MODULE,
+-};
+-
+-static int __init ipt_owner_init(void)
+-{
+-	return xt_register_match(&owner_match);
+-}
+-
+-static void __exit ipt_owner_fini(void)
+-{
+-	xt_unregister_match(&owner_match);
+-}
+-
+-module_init(ipt_owner_init);
+-module_exit(ipt_owner_fini);
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -89,15 +89,6 @@ config IP6_NF_MATCH_HL
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+-config IP6_NF_MATCH_OWNER
+-	tristate "Owner match support"
+-	depends on IP6_NF_IPTABLES
+-	help
+-	  Packet owner matching allows you to match locally-generated packets
+-	  based on who created them: the user, group, process or session.
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
+-
+ config IP6_NF_MATCH_IPV6HEADER
+ 	tristate "IPv6 Extension Headers Match"
+ 	depends on IP6_NF_IPTABLES
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -23,7 +23,6 @@ obj-$(CONFIG_IP6_NF_MATCH_HL) += ip6t_hl.o
+ obj-$(CONFIG_IP6_NF_MATCH_FRAG) += ip6t_frag.o
+ obj-$(CONFIG_IP6_NF_MATCH_AH) += ip6t_ah.o
+ obj-$(CONFIG_IP6_NF_MATCH_EUI64) += ip6t_eui64.o
+-obj-$(CONFIG_IP6_NF_MATCH_OWNER) += ip6t_owner.o
+ obj-$(CONFIG_IP6_NF_FILTER) += ip6table_filter.o
+ obj-$(CONFIG_IP6_NF_MANGLE) += ip6table_mangle.o
+ obj-$(CONFIG_IP6_NF_QUEUE) += ip6_queue.o
+diff --git a/net/ipv6/netfilter/ip6t_owner.c b/net/ipv6/netfilter/ip6t_owner.c
+deleted file mode 100644
+--- a/net/ipv6/netfilter/ip6t_owner.c
++++ /dev/null
+@@ -1,94 +0,0 @@
+-/* Kernel module to match various things tied to sockets associated with
+-   locally generated outgoing packets. */
+-
+-/* (C) 2000-2001 Marc Boucher <marc@mbsi.ca>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
+-
+-#include <linux/module.h>
+-#include <linux/skbuff.h>
+-#include <linux/file.h>
+-#include <linux/rcupdate.h>
+-#include <net/sock.h>
+-
+-#include <linux/netfilter_ipv6/ip6t_owner.h>
+-#include <linux/netfilter_ipv6/ip6_tables.h>
+-#include <linux/netfilter/x_tables.h>
+-
+-MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
+-MODULE_DESCRIPTION("IP6 tables owner matching module");
+-MODULE_LICENSE("GPL");
+-
+-
+-static int
+-match(const struct sk_buff *skb,
+-      const struct net_device *in,
+-      const struct net_device *out,
+-      const struct xt_match *match,
+-      const void *matchinfo,
+-      int offset,
+-      unsigned int protoff,
+-      int *hotdrop)
+-{
+-	const struct ip6t_owner_info *info = matchinfo;
+-
+-	if (!skb->sk || !skb->sk->sk_socket || !skb->sk->sk_socket->file)
+-		return 0;
+-
+-	if (info->match & IP6T_OWNER_UID) {
+-		if ((skb->sk->sk_socket->file->f_uid != info->uid) ^
+-		    !!(info->invert & IP6T_OWNER_UID))
+-			return 0;
+-	}
+-
+-	if (info->match & IP6T_OWNER_GID) {
+-		if ((skb->sk->sk_socket->file->f_gid != info->gid) ^
+-		    !!(info->invert & IP6T_OWNER_GID))
+-			return 0;
+-	}
+-
+-	return 1;
+-}
+-
+-static int
+-checkentry(const char *tablename,
+-	   const void *ip,
+-	   const struct xt_match *match,
+-	   void *matchinfo,
+-	   unsigned int hook_mask)
+-{
+-	const struct ip6t_owner_info *info = matchinfo;
+-
+-	if (info->match & (IP6T_OWNER_PID | IP6T_OWNER_SID)) {
+-		printk("ipt_owner: pid and sid matching "
+-		       "not supported anymore\n");
+-		return 0;
+-	}
+-	return 1;
+-}
+-
+-static struct xt_match owner_match __read_mostly = {
+-	.name		= "owner",
+-	.family		= AF_INET6,
+-	.match		= match,
+-	.matchsize	= sizeof(struct ip6t_owner_info),
+-	.hooks		= (1 << NF_IP6_LOCAL_OUT) | (1 << NF_IP6_POST_ROUTING),
+-	.checkentry	= checkentry,
+-	.me		= THIS_MODULE,
+-};
+-
+-static int __init ip6t_owner_init(void)
+-{
+-	return xt_register_match(&owner_match);
+-}
+-
+-static void __exit ip6t_owner_fini(void)
+-{
+-	xt_unregister_match(&owner_match);
+-}
+-
+-module_init(ip6t_owner_init);
+-module_exit(ip6t_owner_fini);
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 693f861..4bc0552 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -554,6 +554,14 @@ config NETFILTER_XT_MATCH_MARK
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config NETFILTER_XT_MATCH_OWNER
++	tristate '"owner" match support'
++	depends on NETFILTER_XTABLES
++	---help---
++	Socket owner matching allows you to match locally-generated packets
++	based on who created the socket: the user or group. It is also
++	possible to check whether a socket actually exists.
++
+ config NETFILTER_XT_MATCH_POLICY
+ 	tristate 'IPsec "policy" match support'
+ 	depends on NETFILTER_XTABLES && XFRM
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -67,6 +67,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_LIMIT) += xt_limit.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_TIME) += xt_time.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_WEBSTR) += xt_webstr.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_TCPMSS) += xt_tcpmss.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_OWNER) += xt_owner.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_PHYSDEV) += xt_physdev.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_U32) += xt_u32.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
+diff --git a/net/netfilter/xt_owner.c b/net/netfilter/xt_owner.c
+new file mode 100644
+--- /dev/null
++++ b/net/netfilter/xt_owner.c
+@@ -0,0 +1,101 @@
++/*
++ * Kernel module to match various things tied to sockets associated with
++ * locally generated outgoing packets.
++ *
++ * (C) 2000 Marc Boucher <marc@mbsi.ca>
++ *
++ * Copyright Â© CC Computer Consultants GmbH, 2007 - 2008
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/file.h>
++#include <net/sock.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_owner.h>
++
++#include <linux/netfilter_ipv4.h>
++#include <linux/netfilter_ipv6.h>
++#include <linux/netfilter.h>
++
++static int
++owner_mt(const struct sk_buff *skb, const struct net_device *in,
++         const struct net_device *out, const struct xt_match *match,
++         const void *matchinfo, int offset, unsigned int protoff,
++         int *hotdrop)
++{
++	const struct xt_owner_match_info *info = matchinfo;
++	const struct file *filp;
++
++	if (skb->sk == NULL || skb->sk->sk_socket == NULL)
++		return (info->match ^ info->invert) == 0;
++	else if (info->match & info->invert & XT_OWNER_SOCKET)
++		/*
++		 * Socket exists but user wanted ! --socket-exists.
++		 * (Single ampersands intended.)
++		 */
++		return 0;
++
++	filp = skb->sk->sk_socket->file;
++	if (filp == NULL)
++		return ((info->match ^ info->invert) &
++		       (XT_OWNER_UID | XT_OWNER_GID)) == 0;
++
++	if (info->match & XT_OWNER_UID)
++		if ((filp->f_uid >= info->uid_min &&
++		    filp->f_uid <= info->uid_max) ^
++		    !(info->invert & XT_OWNER_UID))
++			return 0;
++
++	if (info->match & XT_OWNER_GID)
++		if ((filp->f_gid >= info->gid_min &&
++		    filp->f_gid <= info->gid_max) ^
++		    !(info->invert & XT_OWNER_GID))
++			return 0;
++
++	return 1;
++}
++
++static struct xt_match owner_mt_reg[] __read_mostly = {
++	{
++		.name       = "owner",
++		.revision   = 1,
++		.family     = AF_INET,
++		.match      = owner_mt,
++		.matchsize  = sizeof(struct xt_owner_match_info),
++		.hooks      = (1 << NF_IP_LOCAL_OUT) |
++		              (1 << NF_IP_POST_ROUTING),
++		.me         = THIS_MODULE,
++	},
++	{
++		.name       = "owner",
++		.revision   = 1,
++		.family     = AF_INET6,
++		.match      = owner_mt,
++		.matchsize  = sizeof(struct xt_owner_match_info),
++		.hooks      = (1 << NF_IP6_LOCAL_OUT) |
++		              (1 << NF_IP6_POST_ROUTING),
++		.me         = THIS_MODULE,
++	},
++};
++
++static int __init owner_mt_init(void)
++{
++	return xt_register_matches(owner_mt_reg, ARRAY_SIZE(owner_mt_reg));
++}
++
++static void __exit owner_mt_exit(void)
++{
++	xt_unregister_matches(owner_mt_reg, ARRAY_SIZE(owner_mt_reg));
++}
++
++module_init(owner_mt_init);
++module_exit(owner_mt_exit);
++MODULE_AUTHOR("Jan Engelhardt <jengelh@computergmbh.de>");
++MODULE_DESCRIPTION("netfilter \"owner\" match module");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("ipt_owner");
++MODULE_ALIAS("ip6t_owner");
+-- 
