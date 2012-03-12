@@ -1,4 +1,3 @@
-From 90eab0b2b7f19ced2b8b1d7c46118cd12840fac2
 From: Fedor <fedork@ubuntu.(none)>
 Date: Thu, 5 Aug 2010 20:43:09 -0400
 Subject: [PATCH] netfilter: xt_recent: rename from ipt_recent, ipv6 support, fixes from upstream
@@ -13,6 +12,7 @@ kernel.org commits
  5dc7a6d5749d3ddbf9fbea9512cb45762428512c netfilter: xt_recent: allow changing ip_list_[ug]id at runtime
  0079c5aee34880bcee7feee9960f0502c73dc5fa netfilter: xt_recent: add an entry reaper
  606a9a02633c02d0e09fc96706f041053dbc57ee netfilter: xt_recent: check for unsupported user space flags
+ 294188ae32f984a072c64c959354b2f6f52f80a7 netfilter: xtables: obtain random bytes earlier, in checkentry (limited to xt_recent.c)
 
 ---
  include/linux/netfilter.h                 |   11 
@@ -21,11 +21,11 @@ kernel.org commits
  include/linux/netfilter_ipv4/ipt_recent.h |   31 -
  net/ipv4/netfilter/Kconfig                |   12 
  net/ipv4/netfilter/Makefile               |    1 
- net/ipv4/netfilter/ipt_recent.c           |  514 ---------------------
+ net/ipv4/netfilter/ipt_recent.c           |  507 --------------------
  net/netfilter/Kconfig                     |   17 
  net/netfilter/Makefile                    |    1 
- net/netfilter/xt_recent.c                 |  732 +++++++++++++++++++++++++++++-
- 10 files changed, 808 insertions(+), 545 deletions(-)
+ net/netfilter/xt_recent.c                 |  727 ++++++++++++++++++++++++++++++
+ 10 files changed, 804 insertions(+), 537 deletions(-)
  create mode 100644 include/linux/netfilter/xt_recent.h
  delete mode 100644 net/ipv4/netfilter/ipt_recent.c
  create mode 100644 net/netfilter/xt_recent.c
@@ -742,7 +742,7 @@ diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
 new file mode 100644
 --- /dev/null
 +++ b/net/netfilter/xt_recent.c
-@@ -0,0 +1,731 @@
+@@ -0,0 +1,727 @@
 +/*
 + * Copyright (c) 2006 Patrick McHardy <kaber@trash.net>
 + * Copyright ÃÂ© CC Computer Consultants GmbH, 2007 - 2008
@@ -835,25 +835,17 @@ new file mode 100644
 +static const struct file_operations recent_mt_fops;
 +#endif
 +
-+static u_int32_t hash_rnd;
-+static bool hash_rnd_initted;
++static u_int32_t hash_rnd __read_mostly;
++static bool hash_rnd_inited __read_mostly;
 +
-+static unsigned int recent_entry_hash4(const union nf_inet_addr *addr)
++static inline unsigned int recent_entry_hash4(const union nf_inet_addr *addr)
 +{
-+	if (!hash_rnd_initted) {
-+		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
-+		hash_rnd_initted = true;
-+	}
 +	return jhash_1word((__force u32)addr->ip, hash_rnd) &
 +	       (ip_list_hash_size - 1);
 +}
 +
-+static unsigned int recent_entry_hash6(const union nf_inet_addr *addr)
++static inline unsigned int recent_entry_hash6(const union nf_inet_addr *addr)
 +{
-+	if (!hash_rnd_initted) {
-+		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
-+		hash_rnd_initted = true;
-+	}
 +	return jhash2((u32 *)addr->ip6, ARRAY_SIZE(addr->ip6), hash_rnd) &
 +	       (ip_list_hash_size - 1);
 +}
@@ -1062,6 +1054,10 @@ new file mode 100644
 +	unsigned i;
 +	int ret = 0;
 +
++	if (unlikely(!hash_rnd_inited)) {
++		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
++		hash_rnd_inited = true;
++	}
 +	if (info->check_set & ~XT_RECENT_VALID_FLAGS) {
 +		pr_info(KBUILD_MODNAME ": Unsupported user space flags "
 +			"(%08x)\n", info->check_set);

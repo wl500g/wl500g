@@ -1,17 +1,20 @@
-From cdb221dea0ca00c1e8761f1053892fa8a37fc3d8
 From: Fedor <fedork@ubuntu.(none)>
 Date: Fri, 19 Mar 2010 23:49:49 -0400
 Subject: [PATCH] Updated version of xt_connlimit match from 2.6.23
 
+ Additionally:
+ 1cc34c30be0e27d4ba8c1ce04a8a4f46c927d121 netfilter: xt_connlimit: use hotdrop jump mark
+ 294188ae32f984a072c64c959354b2f6f52f80a7 netfilter: xtables: obtain random bytes earlier, in checkentry (limited to xt_connlimit.c)
+
 ---
- include/linux/netfilter/xt_connlimit.h         |   18 +
- include/linux/netfilter_ipv4/ipt_connlimit.h   |   10 +-
- net/ipv4/netfilter/Kconfig                     |   10 -
- net/ipv4/netfilter/Makefile                    |    1 -
- net/netfilter/Kconfig                          |    7 +
- net/netfilter/Makefile                         |    1 +
- net/netfilter/xt_connlimit.c                   |  329 ++++++++++++++++++++
- 7 files changed, 358 insertions(+), 18 deletions(-)
+ include/linux/netfilter/xt_connlimit.h       |   18 +
+ include/linux/netfilter_ipv4/ipt_connlimit.h |    8 
+ net/netfilter/Kconfig                        |    7 
+ net/netfilter/Makefile                       |    1 
+ net/netfilter/xt_connlimit.c                 |  321 +++++++++++++++++++++++++++
+ 5 files changed, 355 insertions(+)
+ create mode 100644 include/linux/netfilter/xt_connlimit.h
+ create mode 100644 net/netfilter/xt_connlimit.c
 
 diff --git a/include/linux/netfilter/xt_connlimit.h b/include/linux/netfilter/xt_connlimit.h
 --- /dev/null
@@ -78,7 +81,7 @@ diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
 diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 --- /dev/null
 +++ b/net/netfilter/xt_connlimit.c
-@@ -0,0 +1,329 @@
+@@ -0,0 +1,321 @@
 +/*
 + * netfilter module to limit the number of parallel tcp
 + * connections per IP address.
@@ -121,15 +124,11 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +	spinlock_t lock;
 +};
 +
-+static u_int32_t connlimit_rnd;
-+static bool connlimit_rnd_inited;
++static u_int32_t connlimit_rnd __read_mostly;
++static bool connlimit_rnd_inited __read_mostly;
 +
 +static inline unsigned int connlimit_iphash(u_int32_t addr)
 +{
-+	if (unlikely(!connlimit_rnd_inited)) {
-+		get_random_bytes(&connlimit_rnd, sizeof(connlimit_rnd));
-+		connlimit_rnd_inited = true;
-+	}
 +	return jhash_1word(addr, connlimit_rnd) & 0xFF;
 +}
 +
@@ -139,11 +138,6 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +{
 +	union nf_conntrack_address res;
 +	unsigned int i;
-+
-+	if (unlikely(!connlimit_rnd_inited)) {
-+		get_random_bytes(&connlimit_rnd, sizeof(connlimit_rnd));
-+		connlimit_rnd_inited = true;
-+	}
 +
 +	for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i)
 +		res.ip6[i] = addr->ip6[i] & mask->ip6[i];
@@ -306,16 +300,13 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +	connections = count_them(info->data, tuple_ptr, &addr, &mask, match);
 +	spin_unlock_bh(&info->data->lock);
 +
-+	if (connections < 0) {
++	if (connections < 0)
 +		/* kmalloc failed, drop it entirely */
-+		*hotdrop = true;
-+		return 0;
-+	}
++			goto hotdrop;
 +
 +	return (connections > info->limit) ^ info->inverse;
 +
 + hotdrop:
-+	rcu_read_unlock();
 +	*hotdrop = true;
 +	return 0;
 +}
@@ -328,6 +319,10 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +	struct xt_connlimit_info *info = matchinfo;
 +	unsigned int i;
 +
++	if (unlikely(!connlimit_rnd_inited)) {
++		get_random_bytes(&connlimit_rnd, sizeof(connlimit_rnd));
++		connlimit_rnd_inited = true;
++	}
 +	if (nf_ct_l3proto_try_module_get(match->family) < 0) {
 +		printk(KERN_WARNING "cannot load conntrack support for "
 +		       "address family %u\n", match->family);
