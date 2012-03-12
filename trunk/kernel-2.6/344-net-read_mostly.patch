@@ -37,7 +37,6 @@ net: __read_mostly marks
  net/ipv4/netfilter/ipt_ah.c                    |    2 
  net/ipv4/netfilter/ipt_ecn.c                   |    2 
  net/ipv4/netfilter/ipt_iprange.c               |    2 
- net/ipv4/netfilter/ipt_owner.c                 |    2 
  net/ipv4/netfilter/ipt_tos.c                   |    2 
  net/ipv4/netfilter/iptable_filter.c            |    2 
  net/ipv4/netfilter/iptable_mangle.c            |    2 
@@ -68,7 +67,6 @@ net: __read_mostly marks
  net/ipv6/netfilter/ip6t_hbh.c                  |    2 
  net/ipv6/netfilter/ip6t_ipv6header.c           |    2 
  net/ipv6/netfilter/ip6t_mh.c                   |    2 
- net/ipv6/netfilter/ip6t_owner.c                |    2 
  net/ipv6/netfilter/ip6t_rt.c                   |    2 
  net/ipv6/netfilter/ip6table_filter.c           |    2 
  net/ipv6/netfilter/ip6table_mangle.c           |    2 
@@ -123,7 +121,7 @@ net: __read_mostly marks
  net/sched/cls_tcindex.c                        |    3 
  net/sched/cls_u32.c                            |    3 
  net/sched/sch_ingress.c                        |   44 ++++------
- 113 files changed, 194 insertions(+), 231 deletions(-)
+ 111 files changed, 192 insertions(+), 229 deletions(-)
 
 diff --git a/include/net/netfilter/ipv4/nf_conntrack_ipv4.h b/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
 --- a/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
@@ -583,18 +581,6 @@ diff --git a/net/ipv4/netfilter/ipt_NETMAP.c b/net/ipv4/netfilter/ipt_NETMAP.c
  	.name 		= MODULENAME,
  	.family		= AF_INET,
  	.target 	= target,
-diff --git a/net/ipv4/netfilter/ipt_owner.c b/net/ipv4/netfilter/ipt_owner.c
---- a/net/ipv4/netfilter/ipt_owner.c
-+++ b/net/ipv4/netfilter/ipt_owner.c
-@@ -68,7 +68,7 @@ checkentry(const char *tablename,
- 	return 1;
- }
- 
--static struct xt_match owner_match = {
-+static struct xt_match owner_match __read_mostly = {
- 	.name		= "owner",
- 	.family		= AF_INET,
- 	.match		= match,
 diff --git a/net/ipv4/netfilter/ipt_REDIRECT.c b/net/ipv4/netfilter/ipt_REDIRECT.c
 --- a/net/ipv4/netfilter/ipt_REDIRECT.c
 +++ b/net/ipv4/netfilter/ipt_REDIRECT.c
@@ -1095,18 +1081,6 @@ diff --git a/net/ipv6/netfilter/ip6t_mh.c b/net/ipv6/netfilter/ip6t_mh.c
  	.name		= "mh",
  	.family		= AF_INET6,
  	.checkentry	= mh_checkentry,
-diff --git a/net/ipv6/netfilter/ip6t_owner.c b/net/ipv6/netfilter/ip6t_owner.c
---- a/net/ipv6/netfilter/ip6t_owner.c
-+++ b/net/ipv6/netfilter/ip6t_owner.c
-@@ -70,7 +70,7 @@ checkentry(const char *tablename,
- 	return 1;
- }
- 
--static struct xt_match owner_match = {
-+static struct xt_match owner_match __read_mostly = {
- 	.name		= "owner",
- 	.family		= AF_INET6,
- 	.match		= match,
 diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
 --- a/net/ipv6/netfilter/ip6t_REJECT.c
 +++ b/net/ipv6/netfilter/ip6t_REJECT.c
