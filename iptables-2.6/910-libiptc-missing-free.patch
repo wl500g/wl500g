@@ -1,0 +1,28 @@
+From 1a7732f965c2b09e526eeca8a551538fbdc099ef
+From: Franz Flasch
+Date: Thu, 8 Mar 2012 04:20:37 +0000
+Subject: [PATCH] iptables: missing free() in function cache_add_entry()
+
+Fixed a memory leak in the error path of function cache_add_entry().
+
+Signed-off-by: Franz Flasch <franz.flasch@frequentis.com>
+Signed-off-by: Christian Engelmayer <christian.engelmayer@frequentis.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+---
+ libiptc/libiptc.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/libiptc/libiptc.c b/libiptc/libiptc.c
+--- a/libiptc/libiptc.c
++++ b/libiptc/libiptc.c
+@@ -1003,6 +1003,7 @@ new_rule:
+ 			if (t->target.u.target_size
+ 			    != ALIGN(sizeof(STRUCT_STANDARD_TARGET))) {
+ 				errno = EINVAL;
++				free(r);
+ 				return -1;
+ 			}
+ 
+-- 
+1.7.2.5
