@@ -299,7 +299,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 @@ -116,7 +116,7 @@ static int count_them(struct xt_connlimit_data *data,
  
  	/* check the saved connections */
- 	list_for_each_entry_safe(conn, tmp, hash, list) {
+ 	hlist_for_each_entry_safe(conn, pos, n, hash, node) {
 -		found    = __nf_conntrack_find(&conn->tuple, NULL);
 +		found    = __nf_conntrack_find(&conn->tuple);
  		found_ct = NULL;

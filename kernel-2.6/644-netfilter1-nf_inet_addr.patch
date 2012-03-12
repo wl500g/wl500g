@@ -1,27 +1,23 @@
-From 90a78aec318fd8908ef81aee6d0f77718845d590
 From: Fedor <fedork@ubuntu.(none)>
 Date: Sat, 29 Jan 2011 00:35:49 -0500
 Subject: [PATCH] [NETFILTER]: use nf_inet_addr union
 
  Backport from kernel.org commits
  643a2c15a407faf08101a20e1a3461160711899d [NETFILTER]: Introduce nf_inet_address
- 22c2d8bca212a655c120fd6617328ffa3480afad [NETFILTER]: xt_connlimit: use the new union nf_inet_addr
  7b33ed22194d8f0dbcf682f5cdf5b9c2ef551e7c [NETFILTER]: Use __u32 in struct nf_inet_addr
  b8beedd25d3913d45b8330a08ab88fdf90eb54b8 [NETFILTER]: Add nf_inet_addr_cmp()
 
 ---
- include/linux/netfilter.h                    |   11 ++++++-
- include/linux/netfilter/nf_conntrack_h323.h  |    6 ++--
- include/linux/netfilter/xt_connlimit.h       |   11 +++++--
- include/net/netfilter/nf_conntrack_expect.h  |    4 +-
- include/net/netfilter/nf_conntrack_tuple.h   |   25 +++-----------
- net/ipv4/netfilter/nf_nat_h323.c             |   10 +++---
- net/netfilter/nf_conntrack_expect.c          |    4 +-
- net/netfilter/nf_conntrack_ftp.c             |    2 +-
- net/netfilter/nf_conntrack_h323_main.c       |   34 ++++++++++----------
- net/netfilter/nf_conntrack_sip.c             |    8 ++--
- net/netfilter/xt_connlimit.c                 |   25 +++++++-------
- 11 files changed, 70 insertions(+), 70 deletions(-)
+ include/linux/netfilter.h                   |   11 ++++++++-
+ include/linux/netfilter/nf_conntrack_h323.h |    6 ++--
+ include/net/netfilter/nf_conntrack_expect.h |    4 +--
+ include/net/netfilter/nf_conntrack_tuple.h  |   25 ++++----------------
+ net/ipv4/netfilter/nf_nat_h323.c            |   10 ++++----
+ net/netfilter/nf_conntrack_expect.c         |    4 +--
+ net/netfilter/nf_conntrack_ftp.c            |    2 -
+ net/netfilter/nf_conntrack_h323_main.c      |   34 ++++++++++++++--------------
+ net/netfilter/nf_conntrack_sip.c            |    8 +++---
+ 9 files changed, 50 insertions(+), 54 deletions(-)
 
 diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
 --- a/include/linux/netfilter.h
@@ -78,27 +74,6 @@ diff --git a/include/linux/netfilter/nf_conntrack_h323.h b/include/linux/netfilt
  				  __be16 port);
  extern int (*set_sig_addr_hook) (struct sk_buff **pskb,
  				 struct nf_conn *ct,
-diff --git a/include/linux/netfilter/xt_connlimit.h b/include/linux/netfilter/xt_connlimit.h
---- a/include/linux/netfilter/xt_connlimit.h
-+++ b/include/linux/netfilter/xt_connlimit.h
-@@ -5,9 +5,14 @@ struct xt_connlimit_data;
- 
- struct xt_connlimit_info {
- 	union {
--		u_int32_t mask; /* compat */
--		u_int32_t v4_mask;
--		u_int32_t v6_mask[4];
-+		union nf_inet_addr _mask;
-+#ifndef __KERNEL__
-+		union {
-+			__be32 mask; /* compat */
-+			__be32 v4_mask;
-+			__be32 v6_mask[4];
-+		};
-+#endif
- 	};
- 	unsigned int limit, inverse;
- 
 diff --git a/include/net/netfilter/nf_conntrack_expect.h b/include/net/netfilter/nf_conntrack_expect.h
 --- a/include/net/netfilter/nf_conntrack_expect.h
 +++ b/include/net/netfilter/nf_conntrack_expect.h
@@ -442,79 +417,5 @@ diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
  	unsigned int dataoff, datalen;
  	const char *dptr;
  	int ret = NF_ACCEPT;
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -49,10 +49,10 @@ static inline unsigned int connlimit_iphash(u_int32_t addr)
- }
- 
- static inline unsigned int
--connlimit_iphash6(const union nf_conntrack_address *addr,
--                  const union nf_conntrack_address *mask)
-+connlimit_iphash6(const union nf_inet_addr *addr,
-+                  const union nf_inet_addr *mask)
- {
--	union nf_conntrack_address res;
-+	union nf_inet_addr res;
- 	unsigned int i;
- 
- 	for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i)
-@@ -73,14 +73,14 @@ static inline bool already_closed(const struct nf_conn *conn)
- }
- 
- static inline unsigned int
--same_source_net(const union nf_conntrack_address *addr,
--		const union nf_conntrack_address *mask,
--		const union nf_conntrack_address *u3, unsigned int family)
-+same_source_net(const union nf_inet_addr *addr,
-+		const union nf_inet_addr *mask,
-+		const union nf_inet_addr *u3, unsigned int family)
- {
- 	if (family == AF_INET) {
- 		return (addr->ip & mask->ip) == (u3->ip & mask->ip);
- 	} else {
--		union nf_conntrack_address lh, rh;
-+		union nf_inet_addr lh, rh;
- 		unsigned int i;
- 
- 		for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i) {
-@@ -94,8 +94,8 @@ same_source_net(const union nf_conntrack_address *addr,
- 
- static int count_them(struct xt_connlimit_data *data,
- 		      const struct nf_conntrack_tuple *tuple,
--		      const union nf_conntrack_address *addr,
--		      const union nf_conntrack_address *mask,
-+		      const union nf_inet_addr *addr,
-+		      const union nf_inet_addr *mask,
- 		      const struct xt_match *match)
- {
- 	struct nf_conntrack_tuple_hash *found;
-@@ -177,7 +177,7 @@ connlimit_mt(const struct sk_buff *skb, const struct net_device *in,
-              int *hotdrop)
- {
- 	const struct xt_connlimit_info *info = matchinfo;
--	union nf_conntrack_address addr, mask;
-+	union nf_inet_addr addr;
- 	struct nf_conntrack_tuple tuple;
- 	const struct nf_conntrack_tuple *tuple_ptr = &tuple;
- 	enum ip_conntrack_info ctinfo;
-@@ -205,15 +205,14 @@ connlimit_mt(const struct sk_buff *skb, const struct net_device *in,
- 	if (match->family == AF_INET6) {
- 		const struct ipv6hdr *iph = ipv6_hdr(skb);
- 		memcpy(&addr.ip6, &iph->saddr, sizeof(iph->saddr));
--		memcpy(&mask.ip6, info->v6_mask, sizeof(info->v6_mask));
- 	} else {
- 		const struct iphdr *iph = ip_hdr(skb);
- 		addr.ip = iph->saddr;
--		mask.ip = info->v4_mask;
- 	}
- 
- 	spin_lock_bh(&info->data->lock);
--	connections = count_them(info->data, tuple_ptr, &addr, &mask, match);
-+	connections = count_them(info->data, tuple_ptr, &addr,
-+	                         &info->_mask, match);
- 	spin_unlock_bh(&info->data->lock);
- 
- 	if (connections < 0) {
 -- 
 1.6.5.GIT
