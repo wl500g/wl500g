@@ -1,0 +1,434 @@
+diff -uBp iptables.orig/extensions/libxt_owner.c iptables/extensions/libxt_owner.c
+--- iptables.orig/extensions/libxt_owner.c
++++ iptables/extensions/libxt_owner.c
+@@ -33,39 +33,6 @@ enum {
+ 	FLAG_COMM          = 1 << 5,
+ };
+ 
+-static void owner_mt_help_v0(void)
+-{
+-#ifdef IPT_OWNER_COMM
+-	printf(
+-"owner match options:\n"
+-"[!] --uid-owner userid       Match local UID\n"
+-"[!] --gid-owner groupid      Match local GID\n"
+-"[!] --pid-owner processid    Match local PID\n"
+-"[!] --sid-owner sessionid    Match local SID\n"
+-"[!] --cmd-owner name         Match local command name\n"
+-"NOTE: PID, SID and command matching are broken on SMP\n");
+-#else
+-	printf(
+-"owner match options:\n"
+-"[!] --uid-owner userid       Match local UID\n"
+-"[!] --gid-owner groupid      Match local GID\n"
+-"[!] --pid-owner processid    Match local PID\n"
+-"[!] --sid-owner sessionid    Match local SID\n"
+-"NOTE: PID and SID matching are broken on SMP\n");
+-#endif /* IPT_OWNER_COMM */
+-}
+-
+-static void owner_mt6_help_v0(void)
+-{
+-	printf(
+-"owner match options:\n"
+-"[!] --uid-owner userid       Match local UID\n"
+-"[!] --gid-owner groupid      Match local GID\n"
+-"[!] --pid-owner processid    Match local PID\n"
+-"[!] --sid-owner sessionid    Match local SID\n"
+-"NOTE: PID and SID matching are broken on SMP\n");
+-}
+-
+ static void owner_mt_help(void)
+ {
+ 	printf(
+@@ -75,25 +42,6 @@ static void owner_mt_help(void)
+ "[!] --socket-exists                  Match if socket exists\n");
+ }
+ 
+-static const struct option owner_mt_opts_v0[] = {
+-	{.name = "uid-owner", .has_arg = true, .val = 'u'},
+-	{.name = "gid-owner", .has_arg = true, .val = 'g'},
+-	{.name = "pid-owner", .has_arg = true, .val = 'p'},
+-	{.name = "sid-owner", .has_arg = true, .val = 's'},
+-#ifdef IPT_OWNER_COMM
+-	{.name = "cmd-owner", .has_arg = true, .val = 'c'},
+-#endif
+-	{ .name = NULL }
+-};
+-
+-static const struct option owner_mt6_opts_v0[] = {
+-	{.name = "uid-owner", .has_arg = true, .val = 'u'},
+-	{.name = "gid-owner", .has_arg = true, .val = 'g'},
+-	{.name = "pid-owner", .has_arg = true, .val = 'p'},
+-	{.name = "sid-owner", .has_arg = true, .val = 's'},
+-	{ .name = NULL }
+-};
+-
+ static const struct option owner_mt_opts[] = {
+ 	{.name = "uid-owner",     .has_arg = true,  .val = 'u'},
+ 	{.name = "gid-owner",     .has_arg = true,  .val = 'g'},
+@@ -101,150 +49,6 @@ static const struct option owner_mt_opts
+ 	{ .name = NULL }
+ };
+ 
+-static int
+-owner_mt_parse_v0(int c, char **argv, int invert, unsigned int *flags,
+-                  const void *entry, struct xt_entry_match **match)
+-{
+-	struct ipt_owner_info *info = (void *)(*match)->data;
+-	struct passwd *pwd;
+-	struct group *grp;
+-	unsigned int id;
+-
+-	switch (c) {
+-	case 'u':
+-		xtables_param_act(XTF_ONLY_ONCE, "owner", "--uid-owner", *flags & FLAG_UID_OWNER);
+-		if ((pwd = getpwnam(optarg)) != NULL)
+-			id = pwd->pw_uid;
+-		else if (!xtables_strtoui(optarg, NULL, &id, 0, UINT32_MAX - 1))
+-			xtables_param_act(XTF_BAD_VALUE, "owner", "--uid-owner", optarg);
+-		if (invert)
+-			info->invert |= IPT_OWNER_UID;
+-		info->match |= IPT_OWNER_UID;
+-		info->uid    = id;
+-		*flags      |= FLAG_UID_OWNER;
+-		return true;
+-
+-	case 'g':
+-		xtables_param_act(XTF_ONLY_ONCE, "owner", "--gid-owner", *flags & FLAG_GID_OWNER);
+-		if ((grp = getgrnam(optarg)) != NULL)
+-			id = grp->gr_gid;
+-		else if (!xtables_strtoui(optarg, NULL, &id, 0, UINT32_MAX - 1))
+-			xtables_param_act(XTF_BAD_VALUE, "owner", "--gid-owner", optarg);
+-		if (invert)
+-			info->invert |= IPT_OWNER_GID;
+-		info->match |= IPT_OWNER_GID;
+-		info->gid    = id;
+-		*flags      |= FLAG_GID_OWNER;
+-		return true;
+-
+-	case 'p':
+-		xtables_param_act(XTF_ONLY_ONCE, "owner", "--pid-owner", *flags & FLAG_PID_OWNER);
+-		if (!xtables_strtoui(optarg, NULL, &id, 0, INT_MAX))
+-			xtables_param_act(XTF_BAD_VALUE, "owner", "--pid-owner", optarg);
+-		if (invert)
+-			info->invert |= IPT_OWNER_PID;
+-		info->match |= IPT_OWNER_PID;
+-		info->pid    = id;
+-		*flags      |= FLAG_PID_OWNER;
+-		return true;
+-
+-	case 's':
+-		xtables_param_act(XTF_ONLY_ONCE, "owner", "--sid-owner", *flags & FLAG_SID_OWNER);
+-		if (!xtables_strtoui(optarg, NULL, &id, 0, INT_MAX))
+-			xtables_param_act(XTF_BAD_VALUE, "owner", "--sid-value", optarg);
+-		if (invert)
+-			info->invert |= IPT_OWNER_SID;
+-		info->match |= IPT_OWNER_SID;
+-		info->sid    = id;
+-		*flags      |= FLAG_SID_OWNER;
+-		return true;
+-
+-#ifdef IPT_OWNER_COMM
+-	case 'c':
+-		xtables_param_act(XTF_ONLY_ONCE, "owner", "--cmd-owner", *flags & FLAG_COMM);
+-		if (strlen(optarg) > sizeof(info->comm))
+-			xtables_error(PARAMETER_PROBLEM, "owner match: command "
+-			           "\"%s\" too long, max. %zu characters",
+-			           optarg, sizeof(info->comm));
+-
+-		info->comm[sizeof(info->comm)-1] = '\0';
+-		strncpy(info->comm, optarg, sizeof(info->comm));
+-
+-		if (invert)
+-			info->invert |= IPT_OWNER_COMM;
+-		info->match |= IPT_OWNER_COMM;
+-		*flags      |= FLAG_COMM;
+-		return true;
+-#endif
+-	}
+-	return false;
+-}
+-
+-static int
+-owner_mt6_parse_v0(int c, char **argv, int invert, unsigned int *flags,
+-                   const void *entry, struct xt_entry_match **match)
+-{
+-	struct ip6t_owner_info *info = (void *)(*match)->data;
+-	struct passwd *pwd;
+-	struct group *grp;
+-	unsigned int id;
+-
+-	switch (c) {
+-	case 'u':
+-		xtables_param_act(XTF_ONLY_ONCE, "owner", "--uid-owner",
+-		          *flags & FLAG_UID_OWNER);
+-		if ((pwd = getpwnam(optarg)) != NULL)
+-			id = pwd->pw_uid;
+-		else if (!xtables_strtoui(optarg, NULL, &id, 0, UINT32_MAX - 1))
+-			xtables_param_act(XTF_BAD_VALUE, "owner", "--uid-owner", optarg);
+-		if (invert)
+-			info->invert |= IP6T_OWNER_UID;
+-		info->match |= IP6T_OWNER_UID;
+-		info->uid    = id;
+-		*flags      |= FLAG_UID_OWNER;
+-		return true;
+-
+-	case 'g':
+-		xtables_param_act(XTF_ONLY_ONCE, "owner", "--gid-owner",
+-		          *flags & FLAG_GID_OWNER);
+-		if ((grp = getgrnam(optarg)) != NULL)
+-			id = grp->gr_gid;
+-		else if (!xtables_strtoui(optarg, NULL, &id, 0, UINT32_MAX - 1))
+-			xtables_param_act(XTF_BAD_VALUE, "owner", "--gid-owner", optarg);
+-		if (invert)
+-			info->invert |= IP6T_OWNER_GID;
+-		info->match |= IP6T_OWNER_GID;
+-		info->gid    = id;
+-		*flags      |= FLAG_GID_OWNER;
+-		return true;
+-
+-	case 'p':
+-		xtables_param_act(XTF_ONLY_ONCE, "owner", "--pid-owner",
+-		          *flags & FLAG_PID_OWNER);
+-		if (!xtables_strtoui(optarg, NULL, &id, 0, INT_MAX))
+-			xtables_param_act(XTF_BAD_VALUE, "owner", "--pid-owner", optarg);
+-		if (invert)
+-			info->invert |= IP6T_OWNER_PID;
+-		info->match |= IP6T_OWNER_PID;
+-		info->pid    = id;
+-		*flags      |= FLAG_PID_OWNER;
+-		return true;
+-
+-	case 's':
+-		xtables_param_act(XTF_ONLY_ONCE, "owner", "--sid-owner",
+-		          *flags & FLAG_SID_OWNER);
+-		if (!xtables_strtoui(optarg, NULL, &id, 0, INT_MAX))
+-			xtables_param_act(XTF_BAD_VALUE, "owner", "--sid-owner", optarg);
+-		if (invert)
+-			info->invert |= IP6T_OWNER_SID;
+-		info->match |= IP6T_OWNER_SID;
+-		info->sid    = id;
+-		*flags      |= FLAG_SID_OWNER;
+-		return true;
+-	}
+-	return false;
+-}
+-
+ static void owner_parse_range(const char *s, unsigned int *from,
+                               unsigned int *to, const char *opt)
+ {
+@@ -322,102 +126,6 @@ static void owner_mt_check(unsigned int
+ }
+ 
+ static void
+-owner_mt_print_item_v0(const struct ipt_owner_info *info, const char *label,
+-                       u_int8_t flag, bool numeric)
+-{
+-	if (!(info->match & flag))
+-		return;
+-	if (info->invert & flag)
+-		printf("! ");
+-	printf("%s ", label);
+-
+-	switch (info->match & flag) {
+-	case IPT_OWNER_UID:
+-		if (!numeric) {
+-			struct passwd *pwd = getpwuid(info->uid);
+-
+-			if (pwd != NULL && pwd->pw_name != NULL) {
+-				printf("%s ", pwd->pw_name);
+-				break;
+-			}
+-		}
+-		printf("%u ", (unsigned int)info->uid);
+-		break;
+-
+-	case IPT_OWNER_GID:
+-		if (!numeric) {
+-			struct group *grp = getgrgid(info->gid);
+-
+-			if (grp != NULL && grp->gr_name != NULL) {
+-				printf("%s ", grp->gr_name);
+-				break;
+-			}
+-		}
+-		printf("%u ", (unsigned int)info->gid);
+-		break;
+-
+-	case IPT_OWNER_PID:
+-		printf("%u ", (unsigned int)info->pid);
+-		break;
+-
+-	case IPT_OWNER_SID:
+-		printf("%u ", (unsigned int)info->sid);
+-		break;
+-
+-#ifdef IPT_OWNER_COMM
+-	case IPT_OWNER_COMM:
+-		printf("%.*s ", (int)sizeof(info->comm), info->comm);
+-		break;
+-#endif
+-	}
+-}
+-
+-static void
+-owner_mt6_print_item_v0(const struct ip6t_owner_info *info, const char *label,
+-                        u_int8_t flag, bool numeric)
+-{
+-	if (!(info->match & flag))
+-		return;
+-	if (info->invert & flag)
+-		printf("! ");
+-	printf("%s ", label);
+-
+-	switch (info->match & flag) {
+-	case IP6T_OWNER_UID:
+-		if (!numeric) {
+-			struct passwd *pwd = getpwuid(info->uid);
+-
+-			if (pwd != NULL && pwd->pw_name != NULL) {
+-				printf("%s ", pwd->pw_name);
+-				break;
+-			}
+-		}
+-		printf("%u ", (unsigned int)info->uid);
+-		break;
+-
+-	case IP6T_OWNER_GID:
+-		if (!numeric) {
+-			struct group *grp = getgrgid(info->gid);
+-
+-			if (grp != NULL && grp->gr_name != NULL) {
+-				printf("%s ", grp->gr_name);
+-				break;
+-			}
+-		}
+-		printf("%u ", (unsigned int)info->gid);
+-		break;
+-
+-	case IP6T_OWNER_PID:
+-		printf("%u ", (unsigned int)info->pid);
+-		break;
+-
+-	case IP6T_OWNER_SID:
+-		printf("%u ", (unsigned int)info->sid);
+-		break;
+-	}
+-}
+-
+-static void
+ owner_mt_print_item(const struct xt_owner_match_info *info, const char *label,
+                     u_int8_t flag, bool numeric)
+ {
+@@ -462,33 +170,6 @@ owner_mt_print_item(const struct xt_owne
+ 	}
+ }
+ 
+-static void
+-owner_mt_print_v0(const void *ip, const struct xt_entry_match *match,
+-                  int numeric)
+-{
+-	const struct ipt_owner_info *info = (void *)match->data;
+-
+-	owner_mt_print_item_v0(info, "owner UID match", IPT_OWNER_UID, numeric);
+-	owner_mt_print_item_v0(info, "owner GID match", IPT_OWNER_GID, numeric);
+-	owner_mt_print_item_v0(info, "owner PID match", IPT_OWNER_PID, numeric);
+-	owner_mt_print_item_v0(info, "owner SID match", IPT_OWNER_SID, numeric);
+-#ifdef IPT_OWNER_COMM
+-	owner_mt_print_item_v0(info, "owner CMD match", IPT_OWNER_COMM, numeric);
+-#endif
+-}
+-
+-static void
+-owner_mt6_print_v0(const void *ip, const struct xt_entry_match *match,
+-                   int numeric)
+-{
+-	const struct ip6t_owner_info *info = (void *)match->data;
+-
+-	owner_mt6_print_item_v0(info, "owner UID match", IPT_OWNER_UID, numeric);
+-	owner_mt6_print_item_v0(info, "owner GID match", IPT_OWNER_GID, numeric);
+-	owner_mt6_print_item_v0(info, "owner PID match", IPT_OWNER_PID, numeric);
+-	owner_mt6_print_item_v0(info, "owner SID match", IPT_OWNER_SID, numeric);
+-}
+-
+ static void owner_mt_print(const void *ip, const struct xt_entry_match *match,
+                            int numeric)
+ {
+@@ -499,31 +180,6 @@ static void owner_mt_print(const void *i
+ 	owner_mt_print_item(info, "owner GID match",     XT_OWNER_GID,    numeric);
+ }
+ 
+-static void
+-owner_mt_save_v0(const void *ip, const struct xt_entry_match *match)
+-{
+-	const struct ipt_owner_info *info = (void *)match->data;
+-
+-	owner_mt_print_item_v0(info, "--uid-owner", IPT_OWNER_UID, true);
+-	owner_mt_print_item_v0(info, "--gid-owner", IPT_OWNER_GID, true);
+-	owner_mt_print_item_v0(info, "--pid-owner", IPT_OWNER_PID, true);
+-	owner_mt_print_item_v0(info, "--sid-owner", IPT_OWNER_SID, true);
+-#ifdef IPT_OWNER_COMM
+-	owner_mt_print_item_v0(info, "--cmd-owner", IPT_OWNER_COMM, true);
+-#endif
+-}
+-
+-static void
+-owner_mt6_save_v0(const void *ip, const struct xt_entry_match *match)
+-{
+-	const struct ip6t_owner_info *info = (void *)match->data;
+-
+-	owner_mt6_print_item_v0(info, "--uid-owner", IPT_OWNER_UID, true);
+-	owner_mt6_print_item_v0(info, "--gid-owner", IPT_OWNER_GID, true);
+-	owner_mt6_print_item_v0(info, "--pid-owner", IPT_OWNER_PID, true);
+-	owner_mt6_print_item_v0(info, "--sid-owner", IPT_OWNER_SID, true);
+-}
+-
+ static void owner_mt_save(const void *ip, const struct xt_entry_match *match)
+ {
+ 	const struct xt_owner_match_info *info = (void *)match->data;
+@@ -533,36 +189,6 @@ static void owner_mt_save(const void *ip
+ 	owner_mt_print_item(info, "--gid-owner",      XT_OWNER_GID,    false);
+ }
+ 
+-static struct xtables_match owner_mt_reg_v0 = {
+-	.version       = XTABLES_VERSION,
+-	.name          = "owner",
+-	.revision      = 0,
+-	.family        = NFPROTO_IPV4,
+-	.size          = XT_ALIGN(sizeof(struct ipt_owner_info)),
+-	.userspacesize = XT_ALIGN(sizeof(struct ipt_owner_info)),
+-	.help          = owner_mt_help_v0,
+-	.parse         = owner_mt_parse_v0,
+-	.final_check   = owner_mt_check,
+-	.print         = owner_mt_print_v0,
+-	.save          = owner_mt_save_v0,
+-	.extra_opts    = owner_mt_opts_v0,
+-};
+-
+-static struct xtables_match owner_mt6_reg_v0 = {
+-	.version       = XTABLES_VERSION,
+-	.name          = "owner",
+-	.revision      = 0,
+-	.family        = NFPROTO_IPV6,
+-	.size          = XT_ALIGN(sizeof(struct ip6t_owner_info)),
+-	.userspacesize = XT_ALIGN(sizeof(struct ip6t_owner_info)),
+-	.help          = owner_mt6_help_v0,
+-	.parse         = owner_mt6_parse_v0,
+-	.final_check   = owner_mt_check,
+-	.print         = owner_mt6_print_v0,
+-	.save          = owner_mt6_save_v0,
+-	.extra_opts    = owner_mt6_opts_v0,
+-};
+-
+ static struct xtables_match owner_mt_reg = {
+ 	.version       = XTABLES_VERSION,
+ 	.name          = "owner",
+@@ -580,7 +206,5 @@ static struct xtables_match owner_mt_reg
+ 
+ void _init(void)
+ {
+-	xtables_register_match(&owner_mt_reg_v0);
+-	xtables_register_match(&owner_mt6_reg_v0);
+ 	xtables_register_match(&owner_mt_reg);
+ }
