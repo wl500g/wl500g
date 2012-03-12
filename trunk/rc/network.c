@@ -704,6 +704,40 @@ void stop_lan(void)
 	dprintf("done\n");
 }
 
+int _wan_proto(const char *prefix, char *buffer)
+{
+	if (!nvram_invmatch(strcat_r(prefix, "proto", buffer), ""))
+		return -1;
+	else if (strcmp(buffer, "static") == 0)
+		return WAN_STATIC;
+	else if (strcmp(buffer, "dhcp") == 0)
+		return WAN_DHCP;
+	else if (strcmp(buffer, "pppoe") == 0)
+		return WAN_PPPOE;
+	else if (strcmp(buffer, "pptp") == 0)
+		return WAN_PPTP;
+	else if (strcmp(buffer, "l2tp") == 0)
+		return WAN_L2TP;
+	else if (strcmp(buffer, "bigpond") == 0)
+		return WAN_BIGPOND;
+#ifdef __CONFIG_MADWIMAX__
+	else if (strcmp(buffer, "wimax") == 0)
+		return WAN_WIMAX;
+#endif
+#ifdef __CONFIG_MODEM__
+	else if (strcmp(buffer, "usbmodem") == 0)
+		return WAN_USBMODEM;
+#endif
+
+	return -1;
+}
+
+int wan_proto(const char *prefix)
+{
+	char tmp[100];
+	return _wan_proto(prefix, tmp);
+}
+
 int wan_prefix(const char *wan_ifname, char *prefix)
 {
 	int unit;
@@ -719,10 +753,12 @@ int wan_prefix(const char *wan_ifname, char *prefix)
 		sprintf(prefix, "wan%d_", unit);
 		if (!nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname))
 			continue;
-		if (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
-		    nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
-		    nvram_match(strcat_r(prefix, "proto", tmp), "static"))
+		switch (_wan_proto(prefix, tmp)) {
+		case WAN_DHCP:
+		case WAN_BIGPOND:
+		case WAN_STATIC:
 			return unit;
+		}
 	}
 	return -1;
 
@@ -746,10 +782,12 @@ int wanx_prefix(const char *wan_ifname, char *prefix)
 		sprintf(prefix, "wan%d_", unit);
 		if (!nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname))
 			continue;
-		if (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
-		    nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
-		    nvram_match(strcat_r(prefix, "proto", tmp), "static"))
+		switch (_wan_proto(prefix, tmp)) {
+		case WAN_DHCP:
+		case WAN_BIGPOND:
+		case WAN_STATIC:
 			return unit;
+		}
 		if (xunit < 0)
 			xunit = unit;
 	}
