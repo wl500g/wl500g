@@ -706,35 +706,37 @@ void stop_lan(void)
 
 int _wan_proto(const char *prefix, char *buffer)
 {
-	if (!nvram_invmatch(strcat_r(prefix, "proto", buffer), ""))
-		return -1;
-	else if (strcmp(buffer, "static") == 0)
-		return WAN_STATIC;
-	else if (strcmp(buffer, "dhcp") == 0)
-		return WAN_DHCP;
-	else if (strcmp(buffer, "pppoe") == 0)
-		return WAN_PPPOE;
-	else if (strcmp(buffer, "pptp") == 0)
-		return WAN_PPTP;
-	else if (strcmp(buffer, "l2tp") == 0)
-		return WAN_L2TP;
-	else if (strcmp(buffer, "bigpond") == 0)
-		return WAN_BIGPOND;
+	char *wan_proto = nvram_get(strcat_r(prefix, "proto", buffer));
+
+	if (wan_proto && *wan_proto) {
+		if (strcmp(wan_proto, "static") == 0)
+			return WAN_STATIC;
+		else if (strcmp(wan_proto, "dhcp") == 0)
+			return WAN_DHCP;
+		else if (strcmp(wan_proto, "pppoe") == 0)
+			return WAN_PPPOE;
+		else if (strcmp(wan_proto, "pptp") == 0)
+			return WAN_PPTP;
+		else if (strcmp(wan_proto, "l2tp") == 0)
+			return WAN_L2TP;
+		else if (strcmp(wan_proto, "bigpond") == 0)
+			return WAN_BIGPOND;
 #ifdef __CONFIG_MADWIMAX__
-	else if (strcmp(buffer, "wimax") == 0)
-		return WAN_WIMAX;
+		else if (strcmp(wan_proto, "wimax") == 0)
+			return WAN_WIMAX;
 #endif
 #ifdef __CONFIG_MODEM__
-	else if (strcmp(buffer, "usbmodem") == 0)
-		return WAN_USBMODEM;
+		else if (strcmp(wan_proto, "usbmodem") == 0)
+			return WAN_USBMODEM;
 #endif
-
+	}
 	return -1;
 }
 
 int wan_proto(const char *prefix)
 {
 	char tmp[100];
+
 	return _wan_proto(prefix, tmp);
 }
 
