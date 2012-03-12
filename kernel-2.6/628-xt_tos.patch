@@ -10,20 +10,22 @@
  1ed2f73d90fb49bcf5704aee7e9084adb882bfc5 netfilter: IPv6: fix DSCP mangle code
 
 ---
- include/linux/netfilter/xt_DSCP.h      |    5 ++
- include/linux/netfilter/xt_dscp.h      |    6 +++
- include/linux/netfilter_ipv4/Kbuild    |    2 -
- include/linux/netfilter_ipv4/ipt_TOS.h |   12 ------
- include/linux/netfilter_ipv4/ipt_tos.h |   13 ------
- net/ipv4/netfilter/Kconfig             |   19 ---------
- net/ipv4/netfilter/Makefile            |    2 -
- net/ipv4/netfilter/ipt_tos.c           |   55 ----------------------------
- net/netfilter/Kconfig                  |   12 +++++-
- net/netfilter/xt_DSCP.c                |   64 +++++++++++++++++++++++++++++++++
- net/netfilter/xt_dscp.c                |   37 ++++++++++++++++++-
- 11 files changed, 120 insertions(+), 107 deletions(-)
+ include/linux/netfilter/xt_DSCP.h      |    5 +
+ include/linux/netfilter/xt_dscp.h      |    6 ++
+ include/linux/netfilter_ipv4/Kbuild    |    2 
+ include/linux/netfilter_ipv4/ipt_TOS.h |   12 ----
+ include/linux/netfilter_ipv4/ipt_tos.h |   13 ----
+ net/ipv4/netfilter/Kconfig             |   19 -------
+ net/ipv4/netfilter/Makefile            |    2 
+ net/ipv4/netfilter/ipt_TOS.c           |   87 ---------------------------------
+ net/ipv4/netfilter/ipt_tos.c           |   55 --------------------
+ net/netfilter/Kconfig                  |   12 +++-
+ net/netfilter/xt_DSCP.c                |   64 ++++++++++++++++++++++++
+ net/netfilter/xt_dscp.c                |   37 +++++++++++++-
+ 12 files changed, 120 insertions(+), 194 deletions(-)
  delete mode 100644 include/linux/netfilter_ipv4/ipt_TOS.h
  delete mode 100644 include/linux/netfilter_ipv4/ipt_tos.h
+ delete mode 100644 net/ipv4/netfilter/ipt_TOS.c
  delete mode 100644 net/ipv4/netfilter/ipt_tos.c
 
 diff --git a/include/linux/netfilter/xt_dscp.h b/include/linux/netfilter/xt_dscp.h
@@ -100,6 +102,98 @@ diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/
  header-y += ipt_ttl.h
  header-y += ipt_TTL.h
  header-y += ipt_ULOG.h
+diff --git a/net/ipv4/netfilter/ipt_TOS.c b/net/ipv4/netfilter/ipt_TOS.c
+deleted file mode 100644
+--- a/net/ipv4/netfilter/ipt_TOS.c
++++ /dev/null
+@@ -1,87 +0,0 @@
+-/* This is a module which is used for setting the TOS field of a packet. */
+-
+-/* (C) 1999-2001 Paul `Rusty' Russell
+- * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
+-
+-#include <linux/module.h>
+-#include <linux/skbuff.h>
+-#include <linux/ip.h>
+-#include <net/checksum.h>
+-
+-#include <linux/netfilter/x_tables.h>
+-#include <linux/netfilter_ipv4/ipt_TOS.h>
+-
+-MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
+-MODULE_DESCRIPTION("iptables TOS mangling module");
+-
+-static unsigned int
+-target(struct sk_buff **pskb,
+-       const struct net_device *in,
+-       const struct net_device *out,
+-       unsigned int hooknum,
+-       const struct xt_target *target,
+-       const void *targinfo)
+-{
+-	const struct ipt_tos_target_info *tosinfo = targinfo;
+-	struct iphdr *iph = ip_hdr(*pskb);
+-
+-	if ((iph->tos & IPTOS_TOS_MASK) != tosinfo->tos) {
+-		__u8 oldtos;
+-		if (!skb_make_writable(pskb, sizeof(struct iphdr)))
+-			return NF_DROP;
+-		iph = ip_hdr(*pskb);
+-		oldtos = iph->tos;
+-		iph->tos = (iph->tos & IPTOS_PREC_MASK) | tosinfo->tos;
+-		nf_csum_replace2(&iph->check, htons(oldtos), htons(iph->tos));
+-	}
+-	return XT_CONTINUE;
+-}
+-
+-static int
+-checkentry(const char *tablename,
+-	   const void *e_void,
+-	   const struct xt_target *target,
+-	   void *targinfo,
+-	   unsigned int hook_mask)
+-{
+-	const u_int8_t tos = ((struct ipt_tos_target_info *)targinfo)->tos;
+-
+-	if (tos != IPTOS_LOWDELAY
+-	    && tos != IPTOS_THROUGHPUT
+-	    && tos != IPTOS_RELIABILITY
+-	    && tos != IPTOS_MINCOST
+-	    && tos != IPTOS_NORMALSVC) {
+-		printk(KERN_WARNING "TOS: bad tos value %#x\n", tos);
+-		return 0;
+-	}
+-	return 1;
+-}
+-
+-static struct xt_target ipt_tos_reg = {
+-	.name		= "TOS",
+-	.family		= AF_INET,
+-	.target		= target,
+-	.targetsize	= sizeof(struct ipt_tos_target_info),
+-	.table		= "mangle",
+-	.checkentry	= checkentry,
+-	.me		= THIS_MODULE,
+-};
+-
+-static int __init ipt_tos_init(void)
+-{
+-	return xt_register_target(&ipt_tos_reg);
+-}
+-
+-static void __exit ipt_tos_fini(void)
+-{
+-	xt_unregister_target(&ipt_tos_reg);
+-}
+-
+-module_init(ipt_tos_init);
+-module_exit(ipt_tos_fini);
 diff --git a/net/ipv4/netfilter/ipt_tos.c b/net/ipv4/netfilter/ipt_tos.c
 deleted file mode 100644
 --- a/net/ipv4/netfilter/ipt_tos.c
