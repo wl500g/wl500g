@@ -235,7 +235,7 @@ deleted file mode 100644
 -	return 1;
 -}
 -
--static struct xt_match owner_match __read_mostly = {
+-static struct xt_match owner_match = {
 -	.name		= "owner",
 -	.family		= AF_INET,
 -	.match		= match,
@@ -364,7 +364,7 @@ deleted file mode 100644
 -	return 1;
 -}
 -
--static struct xt_match owner_match __read_mostly = {
+-static struct xt_match owner_match = {
 -	.name		= "owner",
 -	.family		= AF_INET6,
 -	.match		= match,
