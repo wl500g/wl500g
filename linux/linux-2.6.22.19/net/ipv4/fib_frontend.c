@@ -147,7 +147,12 @@ out:
 	return dev;
 }
 
-unsigned inet_addr_type(__be32 addr)
+/*
+ * Find address type as if only "dev" was present in the system. If
+ * on_dev is NULL then all interfaces are taken into consideration.
+ */
+static inline unsigned __inet_dev_addr_type(const struct net_device *dev,
+					    __be32 addr)
 {
 	struct flowi		fl = { .nl_u = { .ip4_u = { .daddr = addr } } };
 	struct fib_result	res;
@@ -166,11 +171,22 @@ unsigned inet_addr_type(__be32 addr)
 		ret = RTN_UNICAST;
 		if (!ip_fib_local_table->tb_lookup(ip_fib_local_table,
 						   &fl, &res)) {
-			ret = res.type;
+			if (!dev || dev == res.fi->fib_dev)
+				ret = res.type;
 			fib_res_put(&res);
 		}
 	}
 	return ret;
+}
+
+unsigned int inet_addr_type(__be32 addr)
+{
+	return __inet_dev_addr_type(NULL, addr);
+}
+
+unsigned int inet_dev_addr_type(const struct net_device *dev, __be32 addr)
+{
+       return __inet_dev_addr_type(dev, addr);
 }
 
 /* Given (packet source, input interface) and optional (dst, oif, tos):
@@ -925,4 +941,5 @@ void __init ip_fib_init(void)
 }
 
 EXPORT_SYMBOL(inet_addr_type);
+EXPORT_SYMBOL(inet_dev_addr_type);
 EXPORT_SYMBOL(ip_dev_find);
