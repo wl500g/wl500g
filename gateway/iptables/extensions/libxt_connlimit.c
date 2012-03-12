@@ -69,7 +69,6 @@ connlimit_parse(int c, char **argv, int invert, unsigned int *flags,
                 struct xt_entry_match **match, unsigned int family)
 {
 	struct xt_connlimit_info *info = (void *)(*match)->data;
-	const unsigned int revision = (*match)->u.user.revision;
 	char *err;
 	int i;
 
@@ -118,10 +117,6 @@ connlimit_parse(int c, char **argv, int invert, unsigned int *flags,
 		info->flags &= ~XT_CONNLIMIT_DADDR;
 		return 1;
 	case 'd': /* --connlimit-daddr */
-		if (revision < 1)
-			xtables_error(PARAMETER_PROBLEM,
-				"xt_connlimit.0 does not support "
-				"--connlimit-daddr");
 		info->flags |= XT_CONNLIMIT_DADDR;
 		return 1;
 	}
@@ -195,70 +190,32 @@ static void connlimit_print6(const void *ip,
 static void connlimit_save4(const void *ip, const struct xt_entry_match *match)
 {
 	const struct xt_connlimit_info *info = (const void *)match->data;
-	const int revision = match->u.user.revision;
 
 	if (info->flags & XT_CONNLIMIT_INVERT)
 		printf("--connlimit-upto %u ", info->limit);
 	else
 		printf("--connlimit-above %u ", info->limit);
 	printf("--connlimit-mask %u ", count_bits4(info->v4_mask));
-	if (revision >= 1) {
-		if (info->flags & XT_CONNLIMIT_DADDR)
-			printf("--connlimit-daddr ");
-		else
-			printf("--connlimit-saddr ");
-	}
+	if (info->flags & XT_CONNLIMIT_DADDR)
+		printf("--connlimit-daddr ");
+	else
+		printf("--connlimit-saddr ");
 }
 
 static void connlimit_save6(const void *ip, const struct xt_entry_match *match)
 {
 	const struct xt_connlimit_info *info = (const void *)match->data;
-	const int revision = match->u.user.revision;
 
 	if (info->flags & XT_CONNLIMIT_INVERT)
 		printf("--connlimit-upto %u ", info->limit);
 	else
 		printf("--connlimit-above %u ", info->limit);
 	printf("--connlimit-mask %u ", count_bits6(info->v6_mask));
-	if (revision >= 1) {
-		if (info->flags & XT_CONNLIMIT_DADDR)
-			printf("--connlimit-daddr ");
-		else
-			printf("--connlimit-saddr ");
-	}
+	if (info->flags & XT_CONNLIMIT_DADDR)
+		printf("--connlimit-daddr ");
+	else
+		printf("--connlimit-saddr ");
 }
-
-static struct xtables_match connlimit_match_v0 = {
-	.name          = "connlimit",
-	.revision      = 0,
-	.family        = NFPROTO_IPV4,
-	.version       = XTABLES_VERSION,
-	.size          = XT_ALIGN(sizeof(struct xt_connlimit_info)),
-	.userspacesize = offsetof(struct xt_connlimit_info, data),
-	.help          = connlimit_help,
-	.init          = connlimit_init,
-	.parse         = connlimit_parse4,
-	.final_check   = connlimit_check,
-	.print         = connlimit_print4,
-	.save          = connlimit_save4,
-	.extra_opts    = connlimit_opts,
-};
-
-static struct xtables_match connlimit_match6_v0 = {
-	.name          = "connlimit",
-	.revision      = 0,
-	.family        = NFPROTO_IPV6,
-	.version       = XTABLES_VERSION,
-	.size          = XT_ALIGN(sizeof(struct xt_connlimit_info)),
-	.userspacesize = offsetof(struct xt_connlimit_info, data),
-	.help          = connlimit_help,
-	.init          = connlimit_init,
-	.parse         = connlimit_parse6,
-	.final_check   = connlimit_check,
-	.print         = connlimit_print6,
-	.save          = connlimit_save6,
-	.extra_opts    = connlimit_opts,
-};
 
 static struct xtables_match connlimit_match = {
 	.name          = "connlimit",
@@ -294,8 +251,6 @@ static struct xtables_match connlimit_match6 = {
 
 void _init(void)
 {
-	xtables_register_match(&connlimit_match_v0);
-	xtables_register_match(&connlimit_match6_v0);
 	xtables_register_match(&connlimit_match);
 	xtables_register_match(&connlimit_match6);
 }
