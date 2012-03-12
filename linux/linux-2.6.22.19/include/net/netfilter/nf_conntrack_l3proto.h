@@ -44,11 +44,11 @@ struct nf_conntrack_l3proto
 
 	/*
 	 * Called before tracking. 
-	 *	*dataoff: offset of protocol header (TCP, UDP,...) in *pskb
+	 *	*dataoff: offset of protocol header (TCP, UDP,...) in skb
 	 *	*protonum: protocol number
 	 */
-	int (*prepare)(struct sk_buff **pskb, unsigned int hooknum,
-		       unsigned int *dataoff, u_int8_t *protonum);
+	int (*get_l4proto)(const struct sk_buff *skb, unsigned int nhoff,
+			   unsigned int *dataoff, u_int8_t *protonum);
 
 	u_int32_t (*get_features)(const struct nf_conntrack_tuple *tuple);
 

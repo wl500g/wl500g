@@ -79,21 +79,22 @@ static int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
 	return err;
 }
 
-static int
-ipv4_prepare(struct sk_buff **pskb, unsigned int hooknum, unsigned int *dataoff,
-	     u_int8_t *protonum)
+static int ipv4_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
+			    unsigned int *dataoff, u_int8_t *protonum)
 {
-	/* Never happen */
-	if (ip_hdr(*pskb)->frag_off & htons(IP_OFFSET)) {
-		if (net_ratelimit()) {
-			printk(KERN_ERR "ipv4_prepare: Frag of proto %u (hook=%u)\n",
-			ip_hdr(*pskb)->protocol, hooknum);
-		}
-		return -NF_DROP;
-	}
+	struct iphdr _iph, *iph;
 
-	*dataoff = skb_network_offset(*pskb) + ip_hdrlen(*pskb);
-	*protonum = ip_hdr(*pskb)->protocol;
+	iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
+	if (iph == NULL)
+		return -NF_DROP;
+
+	/* Conntrack defragments packets, we might still see fragments
+	 * inside ICMP packets though. */
+	if (iph->frag_off & htons(IP_OFFSET))
+		return -NF_DROP;
+
+	*dataoff = nhoff + (iph->ihl << 2);
+	*protonum = iph->protocol;
 
 	return NF_ACCEPT;
 }
@@ -417,7 +418,7 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 __read_mostly = {
 	.pkt_to_tuple	 = ipv4_pkt_to_tuple,
 	.invert_tuple	 = ipv4_invert_tuple,
 	.print_tuple	 = ipv4_print_tuple,
-	.prepare	 = ipv4_prepare,
+	.get_l4proto	 = ipv4_get_l4proto,
 	.get_features	 = ipv4_get_features,
 #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 	.tuple_to_nfattr = ipv4_tuple_to_nfattr,
