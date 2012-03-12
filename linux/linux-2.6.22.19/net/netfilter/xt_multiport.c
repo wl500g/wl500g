@@ -32,24 +32,6 @@ MODULE_ALIAS("ip6t_multiport");
 #define duprintf(format, args...)
 #endif
 
-/* Returns 1 if the port is matched by the test, 0 otherwise. */
-static inline int
-ports_match(const u_int16_t *portlist, enum xt_multiport_flags flags,
-	    u_int8_t count, u_int16_t src, u_int16_t dst)
-{
-	unsigned int i;
-	for (i = 0; i < count; i++) {
-		if (flags != XT_MULTIPORT_DESTINATION && portlist[i] == src)
-			return 1;
-
-		if (flags != XT_MULTIPORT_SOURCE && portlist[i] == dst)
-			return 1;
-	}
-
-	return 0;
-}
-
-/* Returns 1 if the port is matched by the test, 0 otherwise. */
 static inline int
 ports_match_v1(const struct xt_multiport_v1 *minfo,
 	       u_int16_t src, u_int16_t dst)
@@ -94,38 +76,7 @@ ports_match_v1(const struct xt_multiport_v1 *minfo,
 	return minfo->invert;
 }
 
-static int
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      int *hotdrop)
-{
-	__be16 _ports[2], *pptr;
-	const struct xt_multiport *multiinfo = matchinfo;
-
-	if (offset)
-		return 0;
-
-	pptr = skb_header_pointer(skb, protoff, sizeof(_ports), _ports);
-	if (pptr == NULL) {
-		/* We've been asked to examine this packet, and we
-		 * can't.  Hence, no choice but to drop.
-		 */
-		duprintf("xt_multiport: Dropping evil offset=0 tinygram.\n");
-		*hotdrop = 1;
-		return 0;
-	}
-
-	return ports_match(multiinfo->ports,
-			   multiinfo->flags, multiinfo->count,
-			   ntohs(pptr[0]), ntohs(pptr[1]));
-}
-
-static int
+static bool
 match_v1(const struct sk_buff *skb,
 	 const struct net_device *in,
 	 const struct net_device *out,
@@ -133,7 +84,7 @@ match_v1(const struct sk_buff *skb,
 	 const void *matchinfo,
 	 int offset,
 	 unsigned int protoff,
-	 int *hotdrop)
+	 bool *hotdrop)
 {
 	__be16 _ports[2], *pptr;
 	const struct xt_multiport_v1 *multiinfo = matchinfo;
@@ -154,7 +105,7 @@ match_v1(const struct sk_buff *skb,
 	return ports_match_v1(multiinfo, ntohs(pptr[0]), ntohs(pptr[1]));
 }
 
-static inline int
+static inline bool
 check(u_int16_t proto,
       u_int8_t ip_invflags,
       u_int8_t match_flags,
@@ -172,21 +123,7 @@ check(u_int16_t proto,
 }
 
 /* Called when user tries to insert an entry of this type. */
-static int
-checkentry(const char *tablename,
-	   const void *info,
-	   const struct xt_match *match,
-	   void *matchinfo,
-	   unsigned int hook_mask)
-{
-	const struct ipt_ip *ip = info;
-	const struct xt_multiport *multiinfo = matchinfo;
-
-	return check(ip->proto, ip->invflags, multiinfo->flags,
-		     multiinfo->count);
-}
-
-static int
+static bool
 checkentry_v1(const char *tablename,
 	      const void *info,
 	      const struct xt_match *match,
@@ -200,21 +137,7 @@ checkentry_v1(const char *tablename,
 		     multiinfo->count);
 }
 
-static int
-checkentry6(const char *tablename,
-	    const void *info,
-	    const struct xt_match *match,
-	    void *matchinfo,
-	    unsigned int hook_mask)
-{
-	const struct ip6t_ip6 *ip = info;
-	const struct xt_multiport *multiinfo = matchinfo;
-
-	return check(ip->proto, ip->invflags, multiinfo->flags,
-		     multiinfo->count);
-}
-
-static int
+static bool
 checkentry6_v1(const char *tablename,
 	       const void *info,
 	       const struct xt_match *match,
@@ -232,28 +155,10 @@ static struct xt_match xt_multiport_match[] __read_mostly = {
 	{
 		.name		= "multiport",
 		.family		= AF_INET,
-		.revision	= 0,
-		.checkentry	= checkentry,
-		.match		= match,
-		.matchsize	= sizeof(struct xt_multiport),
-		.me		= THIS_MODULE,
-	},
-	{
-		.name		= "multiport",
-		.family		= AF_INET,
 		.revision	= 1,
 		.checkentry	= checkentry_v1,
 		.match		= match_v1,
 		.matchsize	= sizeof(struct xt_multiport_v1),
-		.me		= THIS_MODULE,
-	},
-	{
-		.name		= "multiport",
-		.family		= AF_INET6,
-		.revision	= 0,
-		.checkentry	= checkentry6,
-		.match		= match,
-		.matchsize	= sizeof(struct xt_multiport),
 		.me		= THIS_MODULE,
 	},
 	{
