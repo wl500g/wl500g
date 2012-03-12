@@ -31,7 +31,6 @@ net: __read_mostly marks
  net/ipv4/netfilter/ipt_REDIRECT.c              |    2 
  net/ipv4/netfilter/ipt_REJECT.c                |    2 
  net/ipv4/netfilter/ipt_SAME.c                  |    2 
- net/ipv4/netfilter/ipt_TOS.c                   |    2 
  net/ipv4/netfilter/ipt_ULOG.c                  |    2 
  net/ipv4/netfilter/ipt_addrtype.c              |    2 
  net/ipv4/netfilter/ipt_ah.c                    |    2 
@@ -121,7 +120,7 @@ net: __read_mostly marks
  net/sched/cls_tcindex.c                        |    3 
  net/sched/cls_u32.c                            |    3 
  net/sched/sch_ingress.c                        |   44 ++++------
- 111 files changed, 192 insertions(+), 229 deletions(-)
+ 110 files changed, 191 insertions(+), 228 deletions(-)
 
 diff --git a/include/net/netfilter/ipv4/nf_conntrack_ipv4.h b/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
 --- a/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
@@ -629,18 +628,6 @@ diff --git a/net/ipv4/netfilter/ipt_tos.c b/net/ipv4/netfilter/ipt_tos.c
  	.name		= "tos",
  	.family		= AF_INET,
  	.match		= match,
-diff --git a/net/ipv4/netfilter/ipt_TOS.c b/net/ipv4/netfilter/ipt_TOS.c
---- a/net/ipv4/netfilter/ipt_TOS.c
-+++ b/net/ipv4/netfilter/ipt_TOS.c
-@@ -63,7 +63,7 @@ checkentry(const char *tablename,
- 	return 1;
- }
- 
--static struct xt_target ipt_tos_reg = {
-+static struct xt_target ipt_tos_reg __read_mostly = {
- 	.name		= "TOS",
- 	.family		= AF_INET,
- 	.target		= target,
 diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
 --- a/net/ipv4/netfilter/ipt_ULOG.c
 +++ b/net/ipv4/netfilter/ipt_ULOG.c

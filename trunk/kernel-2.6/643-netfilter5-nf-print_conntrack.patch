@@ -4,8 +4,9 @@ Date: Thu, 23 Sep 2010 18:36:18 -0400
 Subject: [PATCH] [NETFILTER]: nf_conntrack: remove print_conntrack from l3protos, make it optional for l4protos
 
 kernel.org commits
-c56cc9c07b049acc9d2ca97be0b540978c0c80bf
-c71e9167081a6a0d2a076cda674b696b89bb31c2
+ c56cc9c07b049acc9d2ca97be0b540978c0c80bf [NETFILTER]: nf_conntrack: remove print_conntrack function from l3protos
+ c71e9167081a6a0d2a076cda674b696b89bb31c2 [NETFILTER]: nf_conntrack: make print_conntrack function optional for l4protos
+
 ---
  include/net/netfilter/nf_conntrack_l3proto.h   |    3 ---
  net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    7 -------

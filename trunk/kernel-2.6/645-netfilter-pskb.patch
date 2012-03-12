@@ -28,7 +28,6 @@ netfilter: Replace sk_buff ** with sk_buff *
  include/net/ipv6.h                             |    2 
  include/net/netfilter/nf_conntrack_core.h      |   10 -
  include/net/netfilter/nf_conntrack_helper.h    |    2 
- include/net/netfilter/nf_conntrack_l3proto.h   |    2 
  include/net/netfilter/nf_nat_core.h            |    4 
  include/net/netfilter/nf_nat_helper.h          |   10 -
  include/net/netfilter/nf_nat_protocol.h        |    2 
@@ -63,12 +62,11 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/ipv4/netfilter/ipt_REDIRECT.c              |    6 
  net/ipv4/netfilter/ipt_REJECT.c                |   20 +-
  net/ipv4/netfilter/ipt_SAME.c                  |    4 
- net/ipv4/netfilter/ipt_TOS.c                   |    8 
  net/ipv4/netfilter/ipt_ULOG.c                  |    4 
  net/ipv4/netfilter/iptable_filter.c            |   12 -
  net/ipv4/netfilter/iptable_mangle.c            |   22 +-
  net/ipv4/netfilter/iptable_raw.c               |   12 -
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   40 ++--
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   30 +--
  net/ipv4/netfilter/nf_nat_amanda.c             |    4 
  net/ipv4/netfilter/nf_nat_core.c               |   44 ++--
  net/ipv4/netfilter/nf_nat_ftp.c                |   18 -
@@ -98,7 +96,7 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/ipv6/netfilter/ip6table_filter.c           |   12 -
  net/ipv6/netfilter/ip6table_mangle.c           |   32 +--
  net/ipv6/netfilter/ip6table_raw.c              |    4 
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   58 +++---
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   44 ++--
  net/ipv6/reassembly.c                          |    3 
  net/ipv6/tcp_ipv6.c                            |    3 
  net/ipv6/tunnel6.c                             |    6 
@@ -109,11 +107,10 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/ipv6/xfrm6_output.c                        |    2 
  net/netfilter/core.c                           |   46 +---
  net/netfilter/nf_conntrack_amanda.c            |   20 +-
- net/netfilter/nf_conntrack_core.c              |   30 +--
+ net/netfilter/nf_conntrack_core.c              |   28 +-
  net/netfilter/nf_conntrack_ftp.c               |   18 -
  net/netfilter/nf_conntrack_h323_main.c         |  236 ++++++++++++-------------
  net/netfilter/nf_conntrack_irc.c               |   14 -
- net/netfilter/nf_conntrack_l3proto_generic.c   |    2 
  net/netfilter/nf_conntrack_netbios_ns.c        |   10 -
  net/netfilter/nf_conntrack_pptp.c              |   28 +-
  net/netfilter/nf_conntrack_sane.c              |   10 -
@@ -133,7 +130,7 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/sched/act_ipt.c                            |    6 
  net/sched/sch_ingress.c                        |    5 
  net/sctp/ipv6.c                                |    4 
- 124 files changed, 980 insertions(+), 1115 deletions(-)
+ 121 files changed, 961 insertions(+), 1096 deletions(-)
 
 diff -urBp a/include/linux/if_bridge.h b/include/linux/if_bridge.h
 --- a/include/linux/if_bridge.h	2008-02-26 02:59:40.000000000 +0300
@@ -626,18 +623,6 @@ diff -urBp a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter
  		    unsigned int protoff,
  		    struct nf_conn *ct,
  		    enum ip_conntrack_info conntrackinfo);
-diff -urBp a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
---- a/include/net/netfilter/nf_conntrack_l3proto.h	2011-03-15 03:00:00.000000000 +0300
-+++ b/include/net/netfilter/nf_conntrack_l3proto.h	2011-03-14 17:24:06.000000000 +0300
-@@ -58,7 +58,7 @@ struct nf_conntrack_l3proto
- 	 *	*dataoff: offset of protocol header (TCP, UDP,...) in *pskb
- 	 *	*protonum: protocol number
- 	 */
--	int (*prepare)(struct sk_buff **pskb, unsigned int hooknum,
-+	int (*prepare)(struct sk_buff *skb, unsigned int hooknum,
- 		       unsigned int *dataoff, u_int8_t *protonum);
- 
- 	u_int32_t (*get_features)(const struct nf_conntrack_tuple *tuple);
 diff -urBp a/include/net/netfilter/nf_nat_core.h b/include/net/netfilter/nf_nat_core.h
 --- a/include/net/netfilter/nf_nat_core.h	2008-02-26 02:59:40.000000000 +0300
 +++ b/include/net/netfilter/nf_nat_core.h	2011-03-14 16:32:13.000000000 +0300
@@ -1995,35 +1980,6 @@ diff -urBp a/net/ipv4/netfilter/ipt_SAME.c b/net/ipv4/netfilter/ipt_SAME.c
  
  	t = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
  
-diff -urBp a/net/ipv4/netfilter/ipt_TOS.c b/net/ipv4/netfilter/ipt_TOS.c
---- a/net/ipv4/netfilter/ipt_TOS.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/net/ipv4/netfilter/ipt_TOS.c	2011-03-14 16:32:14.000000000 +0300
-@@ -21,7 +21,7 @@ MODULE_AUTHOR("Netfilter Core Team <core
- MODULE_DESCRIPTION("iptables TOS mangling module");
- 
- static unsigned int
--target(struct sk_buff **pskb,
-+target(struct sk_buff *skb,
-        const struct net_device *in,
-        const struct net_device *out,
-        unsigned int hooknum,
-@@ -29,13 +29,13 @@ target(struct sk_buff **pskb,
-        const void *targinfo)
- {
- 	const struct ipt_tos_target_info *tosinfo = targinfo;
--	struct iphdr *iph = ip_hdr(*pskb);
-+	struct iphdr *iph = ip_hdr(skb);
- 
- 	if ((iph->tos & IPTOS_TOS_MASK) != tosinfo->tos) {
- 		__u8 oldtos;
--		if (!skb_make_writable(pskb, sizeof(struct iphdr)))
-+		if (!skb_make_writable(skb, sizeof(struct iphdr)))
- 			return NF_DROP;
--		iph = ip_hdr(*pskb);
-+		iph = ip_hdr(skb);
- 		oldtos = iph->tos;
- 		iph->tos = (iph->tos & IPTOS_PREC_MASK) | tosinfo->tos;
- 		nf_csum_replace2(&iph->check, htons(oldtos), htons(iph->tos));
 diff -urBp a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
 --- a/net/ipv4/netfilter/ipt_ULOG.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/net/ipv4/netfilter/ipt_ULOG.c	2011-03-14 16:32:14.000000000 +0300
@@ -2048,32 +2004,6 @@ diff -urBp a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
 diff -urBp a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
 --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c	2011-03-15 03:00:00.000000000 +0300
 +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c	2011-03-14 17:35:32.000000000 +0300
-@@ -80,20 +80,20 @@ static int nf_ct_ipv4_gather_frags(struc
- }
- 
- static int
--ipv4_prepare(struct sk_buff **pskb, unsigned int hooknum, unsigned int *dataoff,
-+ipv4_prepare(struct sk_buff *skb, unsigned int hooknum, unsigned int *dataoff,
- 	     u_int8_t *protonum)
- {
- 	/* Never happen */
--	if (ip_hdr(*pskb)->frag_off & htons(IP_OFFSET)) {
-+	if (ip_hdr(skb)->frag_off & htons(IP_OFFSET)) {
- 		if (net_ratelimit()) {
- 			printk(KERN_ERR "ipv4_prepare: Frag of proto %u (hook=%u)\n",
--			ip_hdr(*pskb)->protocol, hooknum);
-+			ip_hdr(skb)->protocol, hooknum);
- 		}
- 		return -NF_DROP;
- 	}
- 
--	*dataoff = skb_network_offset(*pskb) + ip_hdrlen(*pskb);
--	*protonum = ip_hdr(*pskb)->protocol;
-+	*dataoff = skb_network_offset(skb) + ip_hdrlen(skb);
-+	*protonum = ip_hdr(skb)->protocol;
- 
- 	return NF_ACCEPT;
- }
 @@ -110,17 +110,17 @@ static u_int32_t ipv4_get_features(const
  }
  
@@ -4488,32 +4418,6 @@ diff -urBp a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
 diff -urBp a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
 --- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c	2011-03-15 03:00:00.000000000 +0300
 +++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c	2011-03-14 17:32:47.000000000 +0300
-@@ -118,18 +118,18 @@ int nf_ct_ipv6_skip_exthdr(struct sk_buf
- }
- 
- static int
--ipv6_prepare(struct sk_buff **pskb, unsigned int hooknum, unsigned int *dataoff,
-+ipv6_prepare(struct sk_buff *skb, unsigned int hooknum, unsigned int *dataoff,
- 	     u_int8_t *protonum)
- {
--	unsigned int extoff = (u8 *)(ipv6_hdr(*pskb) + 1) - (*pskb)->data;
--	unsigned char pnum = ipv6_hdr(*pskb)->nexthdr;
--	int protoff = nf_ct_ipv6_skip_exthdr(*pskb, extoff, &pnum,
--					     (*pskb)->len - extoff);
-+	unsigned int extoff = (u8 *)(ipv6_hdr(skb) + 1) - skb->data;
-+	unsigned char pnum = ipv6_hdr(skb)->nexthdr;
-+	int protoff = nf_ct_ipv6_skip_exthdr(skb, extoff, &pnum,
-+					     skb->len - extoff);
- 	/*
--	 * (protoff == (*pskb)->len) mean that the packet doesn't have no data
-+	 * (protoff == skb->len) mean that the packet doesn't have no data
- 	 * except of IPv6 & ext headers. but it's tracked anyway. - YK
- 	 */
--	if ((protoff < 0) || (protoff > (*pskb)->len)) {
-+	if ((protoff < 0) || (protoff > skb->len)) {
- 		DEBUGP("ip6_conntrack_core: can't find proto in pkt\n");
- 		NF_CT_STAT_INC_ATOMIC(error);
- 		NF_CT_STAT_INC_ATOMIC(invalid);
 @@ -147,7 +147,7 @@ static u_int32_t ipv6_get_features(const
  }
  
@@ -5024,15 +4928,6 @@ diff -urBp a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core
 +	if (skb->nfct) {
  		NF_CT_STAT_INC_ATOMIC(ignore);
  		return NF_ACCEPT;
- 	}
-@@ -858,7 +858,7 @@ nf_conntrack_in(int pf, unsigned int hoo
- 	/* rcu_read_lock()ed by nf_hook_slow */
- 	l3proto = __nf_ct_l3proto_find((u_int16_t)pf);
- 
--	if ((ret = l3proto->prepare(pskb, hooknum, &dataoff, &protonum)) <= 0) {
-+	if ((ret = l3proto->prepare(skb, hooknum, &dataoff, &protonum)) <= 0) {
- 		DEBUGP("not prepared to track yet or error occured\n");
- 		return -ret;
  	}
 @@ -869,13 +869,13 @@ nf_conntrack_in(int pf, unsigned int hoo
  	 * inverse of the return code tells to the netfilter
@@ -6145,18 +6040,6 @@ diff -urBp a/net/netfilter/nf_conntrack_irc.c b/net/netfilter/nf_conntrack_irc.c
  						 addr_beg_p - ib_ptr,
  						 addr_end_p - addr_beg_p,
  						 exp);
-diff -urBp a/net/netfilter/nf_conntrack_l3proto_generic.c b/net/netfilter/nf_conntrack_l3proto_generic.c
---- a/net/netfilter/nf_conntrack_l3proto_generic.c	2011-03-15 03:00:00.000000000 +0300
-+++ b/net/netfilter/nf_conntrack_l3proto_generic.c	2011-03-14 17:33:28.000000000 +0300
-@@ -62,7 +62,7 @@ static int generic_print_tuple(struct se
- }
- 
- static int
--generic_prepare(struct sk_buff **pskb, unsigned int hooknum,
-+generic_prepare(struct sk_buff *skb, unsigned int hooknum,
- 		unsigned int *dataoff, u_int8_t *protonum)
- {
- 	/* Never track !!! */
 diff -urBp a/net/netfilter/nf_conntrack_netbios_ns.c b/net/netfilter/nf_conntrack_netbios_ns.c
 --- a/net/netfilter/nf_conntrack_netbios_ns.c	2011-03-15 03:00:00.000000000 +0300
 +++ b/net/netfilter/nf_conntrack_netbios_ns.c	2011-03-14 16:32:14.000000000 +0300
