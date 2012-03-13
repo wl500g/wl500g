@@ -1,0 +1,503 @@
+netfilter: xt_addrtype v1
+
+ e2cf5ecbea861ff05105bbd40f4f0d7823d9e213 [NETFILTER]: ipt_addrtype: limit address type checking to an interface
+ 46faec9858e8943226464dac50e205bf210d9174 netfilter: ipt_addrtype: Fix matching of inverted destination address type
+ de81bbea17650769882bc625d6b5df11ee7c4b24 netfilter: ipt_addrtype: rename to xt_addrtype
+ 2f5dc63123905a89d4260ab8ee08d19ec104db04 netfilter: xt_addrtype: ipv6 support
+ b7225041e93f81e7e38fcdf27fc82044e7695efd netfilter: xt_addrtype: replace rt6_lookup with nf_afinfo->route
+
+---
+ include/linux/netfilter/Kbuild              |    1 
+ include/linux/netfilter/xt_addrtype.h       |   44 ++++
+ include/linux/netfilter_ipv4/ipt_addrtype.h |   14 +
+ net/ipv4/netfilter/Kconfig                  |   10 -
+ net/ipv4/netfilter/Makefile                 |    1 
+ net/ipv4/netfilter/ipt_addrtype.c           |   66 -------
+ net/netfilter/Kconfig                       |   12 +
+ net/netfilter/Makefile                      |    1 
+ net/netfilter/xt_addrtype.c                 |  247 ++++++++++++++++++++++++++++
+ 9 files changed, 319 insertions(+), 77 deletions(-)
+ create mode 100644 include/linux/netfilter/xt_addrtype.h
+ create mode 100644 net/netfilter/xt_addrtype.c
+ delete mode 100644 net/ipv4/netfilter/ipt_addrtype.c
+
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -4,6 +4,7 @@ header-y += nfnetlink_conntrack.h
+ header-y += nfnetlink_log.h
+ header-y += nfnetlink_queue.h
+ header-y += xt_CLASSIFY.h
++header-y += xt_addrtype.h
+ header-y += xt_comment.h
+ header-y += xt_connbytes.h
+ header-y += xt_connmark.h
+diff --git a/include/linux/netfilter/xt_addrtype.h b/include/linux/netfilter/xt_addrtype.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/netfilter/xt_addrtype.h
+@@ -0,0 +1,44 @@
++#ifndef _XT_ADDRTYPE_H
++#define _XT_ADDRTYPE_H
++
++#include <linux/types.h>
++
++enum {
++	XT_ADDRTYPE_INVERT_SOURCE	= 0x0001,
++	XT_ADDRTYPE_INVERT_DEST		= 0x0002,
++	XT_ADDRTYPE_LIMIT_IFACE_IN	= 0x0004,
++	XT_ADDRTYPE_LIMIT_IFACE_OUT	= 0x0008,
++};
++
++
++/* rtn_type enum values from rtnetlink.h, but shifted */
++enum {
++	XT_ADDRTYPE_UNSPEC = 1 << 0,
++	XT_ADDRTYPE_UNICAST = 1 << 1,	/* 1 << RTN_UNICAST */
++	XT_ADDRTYPE_LOCAL  = 1 << 2,	/* 1 << RTN_LOCAL, etc */
++	XT_ADDRTYPE_BROADCAST = 1 << 3,
++	XT_ADDRTYPE_ANYCAST = 1 << 4,
++	XT_ADDRTYPE_MULTICAST = 1 << 5,
++	XT_ADDRTYPE_BLACKHOLE = 1 << 6,
++	XT_ADDRTYPE_UNREACHABLE = 1 << 7,
++	XT_ADDRTYPE_PROHIBIT = 1 << 8,
++	XT_ADDRTYPE_THROW = 1 << 9,
++	XT_ADDRTYPE_NAT = 1 << 10,
++	XT_ADDRTYPE_XRESOLVE = 1 << 11,
++};
++
++struct xt_addrtype_info_v1 {
++	__u16	source;		/* source-type mask */
++	__u16	dest;		/* dest-type mask */
++	__u32	flags;
++};
++
++/* revision 0 */
++struct xt_addrtype_info {
++	__u16	source;		/* source-type mask */
++	__u16	dest;		/* dest-type mask */
++	__u32	invert_source;
++	__u32	invert_dest;
++};
++
++#endif
+diff --git a/include/linux/netfilter_ipv4/ipt_addrtype.h b/include/linux/netfilter_ipv4/ipt_addrtype.h
+--- a/include/linux/netfilter_ipv4/ipt_addrtype.h
++++ b/include/linux/netfilter_ipv4/ipt_addrtype.h
+@@ -1,6 +1,20 @@
+ #ifndef _IPT_ADDRTYPE_H
+ #define _IPT_ADDRTYPE_H
+ 
++enum {
++	IPT_ADDRTYPE_INVERT_SOURCE	= 0x0001,
++	IPT_ADDRTYPE_INVERT_DEST	= 0x0002,
++	IPT_ADDRTYPE_LIMIT_IFACE_IN	= 0x0004,
++	IPT_ADDRTYPE_LIMIT_IFACE_OUT	= 0x0008,
++};
++
++struct ipt_addrtype_info_v1 {
++	u_int16_t	source;		/* source-type mask */
++	u_int16_t	dest;		/* dest-type mask */
++	u_int32_t	flags;
++};
++
++/* revision 0 */
+ struct ipt_addrtype_info {
+ 	u_int16_t	source;		/* source-type mask */
+ 	u_int16_t	dest;		/* dest-type mask */
+diff --git a/net/ipv4/netfilter/ipt_addrtype.c b/net/ipv4/netfilter/ipt_addrtype.c
+--- a/net/ipv4/netfilter/ipt_addrtype.c
++++ /dev/null
+@@ -1,66 +0,0 @@
+-/*
+- *  iptables module to match inet_addr_type() of an ip.
+- *
+- *  Copyright (c) 2004 Patrick McHardy <kaber@trash.net>
+- *
+- *  This program is free software; you can redistribute it and/or modify
+- *  it under the terms of the GNU General Public License version 2 as
+- *  published by the Free Software Foundation.
+- */
+-
+-#include <linux/kernel.h>
+-#include <linux/module.h>
+-#include <linux/skbuff.h>
+-#include <linux/netdevice.h>
+-#include <linux/ip.h>
+-#include <net/route.h>
+-
+-#include <linux/netfilter_ipv4/ipt_addrtype.h>
+-#include <linux/netfilter/x_tables.h>
+-
+-MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
+-MODULE_DESCRIPTION("iptables addrtype match");
+-
+-static inline int match_type(__be32 addr, u_int16_t mask)
+-{
+-	return !!(mask & (1 << inet_addr_type(addr)));
+-}
+-
+-static int match(const struct sk_buff *skb,
+-		 const struct net_device *in, const struct net_device *out,
+-		 const struct xt_match *match, const void *matchinfo,
+-		 int offset, unsigned int protoff, int *hotdrop)
+-{
+-	const struct ipt_addrtype_info *info = matchinfo;
+-	const struct iphdr *iph = ip_hdr(skb);
+-	int ret = 1;
+-
+-	if (info->source)
+-		ret &= match_type(iph->saddr, info->source)^info->invert_source;
+-	if (info->dest)
+-		ret &= match_type(iph->daddr, info->dest)^info->invert_dest;
+-
+-	return ret;
+-}
+-
+-static struct xt_match addrtype_match __read_mostly = {
+-	.name		= "addrtype",
+-	.family		= AF_INET,
+-	.match		= match,
+-	.matchsize	= sizeof(struct ipt_addrtype_info),
+-	.me		= THIS_MODULE
+-};
+-
+-static int __init ipt_addrtype_init(void)
+-{
+-	return xt_register_match(&addrtype_match);
+-}
+-
+-static void __exit ipt_addrtype_fini(void)
+-{
+-	xt_unregister_match(&addrtype_match);
+-}
+-
+-module_init(ipt_addrtype_init);
+-module_exit(ipt_addrtype_fini);
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -72,16 +72,6 @@ config IP_NF_MATCH_AH
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+-config IP_NF_MATCH_ADDRTYPE
+-	tristate  'address type match support'
+-	depends on IP_NF_IPTABLES
+-	help
+-	  This option allows you to match what routing thinks of an address,
+-	  eg. UNICAST, LOCAL, BROADCAST, ...
+-	
+-	  If you want to compile it as a module, say M here and read
+-	  <file:Documentation/modules.txt>.  If unsure, say `N'.
+-
+ # `filter', generic and specific targets
+ config IP_NF_FILTER
+ 	tristate "Packet filtering"
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -45,7 +45,6 @@ obj-$(CONFIG_IP_NF_RAW) += iptable_raw.o
+ # matches
+ obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
+ obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
+-obj-$(CONFIG_IP_NF_MATCH_ADDRTYPE) += ipt_addrtype.o
+ 
+ # targets
+ obj-$(CONFIG_IP_NF_TARGET_REJECT) += ipt_REJECT.o
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -468,6 +468,18 @@ config NETFILTER_XT_TARGET_TCPMSS
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++comment "Xtables matches"
++
++config NETFILTER_XT_MATCH_ADDRTYPE
++	tristate '"addrtype" address type match support'
++	depends on NETFILTER_XTABLES
++	help
++	  This option allows you to match what routing thinks of an address,
++	  eg. UNICAST, LOCAL, BROADCAST, ...
++
++	  If you want to compile it as a module, say M here and read
++	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
++
+ config NETFILTER_XT_MATCH_COMMENT
+ 	tristate  '"comment" match support'
+ 	depends on NETFILTER_XTABLES
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -55,6 +55,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_TCPMSS)
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
+ 
+ # matches
++obj-$(CONFIG_NETFILTER_XT_MATCH_ADDRTYPE) += xt_addrtype.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_COMMENT) += xt_comment.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_CONNBYTES) += xt_connbytes.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_CONNLIMIT) += xt_connlimit.o
+diff --git a/net/netfilter/xt_addrtype.c b/net/netfilter/xt_addrtype.c
+new file mode 100644
+--- /dev/null
++++ b/net/netfilter/xt_addrtype.c
+@@ -0,0 +1,256 @@
++/*
++ *  iptables module to match inet_addr_type() of an ip.
++ *
++ *  Copyright (c) 2004 Patrick McHardy <kaber@trash.net>
++ *  (C) 2007 Laszlo Attila Toth <panther@balabit.hu>
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License version 2 as
++ *  published by the Free Software Foundation.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <linux/ip.h>
++#include <net/route.h>
++
++#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
++#include <net/ipv6.h>
++#include <net/ip6_route.h>
++#include <net/ip6_fib.h>
++#endif
++
++#include <linux/netfilter/xt_addrtype.h>
++#include <linux/netfilter/x_tables.h>
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
++MODULE_DESCRIPTION("Xtables: address type match");
++MODULE_ALIAS("ipt_addrtype");
++MODULE_ALIAS("ip6t_addrtype");
++
++#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
++static u32 match_lookup_rt6(const struct net_device *dev,
++			    const struct in6_addr *addr)
++{
++	const struct nf_afinfo *afinfo;
++	struct flowi flow6;
++	struct rt6_info *rt;
++	u32 ret;
++	int route_err;
++
++	memset(&flow6, 0, sizeof(flow6));
++	ipv6_addr_copy(&flow6.fl6_dst, addr);
++	if (dev)
++		flow6.oif = dev->ifindex;
++
++	rcu_read_lock();
++
++	afinfo = nf_get_afinfo(NFPROTO_IPV6);
++	if (afinfo != NULL)
++		route_err = afinfo->route((struct dst_entry **)&rt,	&flow6);
++	else
++		route_err = 1;
++
++	rcu_read_unlock();
++
++	if (route_err)
++		return XT_ADDRTYPE_UNREACHABLE;
++
++	if (rt->rt6i_flags & RTF_REJECT)
++		ret = XT_ADDRTYPE_UNREACHABLE;
++	else
++		ret = 0;
++
++	if (rt->rt6i_flags & RTF_LOCAL)
++		ret |= XT_ADDRTYPE_LOCAL;
++	if (rt->rt6i_flags & RTF_ANYCAST)
++		ret |= XT_ADDRTYPE_ANYCAST;
++
++
++	dst_release(&rt->u.dst);
++	return ret;
++}
++
++static bool match_type6(const struct net_device *dev,
++				const struct in6_addr *addr, u16 mask)
++{
++	int addr_type = ipv6_addr_type(addr);
++
++	if ((mask & XT_ADDRTYPE_MULTICAST) &&
++	    !(addr_type & IPV6_ADDR_MULTICAST))
++		return false;
++	if ((mask & XT_ADDRTYPE_UNICAST) && !(addr_type & IPV6_ADDR_UNICAST))
++		return false;
++	if ((mask & XT_ADDRTYPE_UNSPEC) && addr_type != IPV6_ADDR_ANY)
++		return false;
++
++	if ((XT_ADDRTYPE_LOCAL | XT_ADDRTYPE_ANYCAST |
++	     XT_ADDRTYPE_UNREACHABLE) & mask)
++		return !!(mask & match_lookup_rt6(dev, addr));
++	return true;
++}
++
++static bool
++addrtype_mt6(const struct net_device *dev,
++	const struct sk_buff *skb, const struct xt_addrtype_info_v1 *info)
++{
++	const struct ipv6hdr *iph = ipv6_hdr(skb);
++	bool ret = true;
++
++	if (info->source)
++		ret &= match_type6(dev, &iph->saddr, info->source) ^
++		       (info->flags & XT_ADDRTYPE_INVERT_SOURCE);
++	if (ret && info->dest)
++		ret &= match_type6(dev, &iph->daddr, info->dest) ^
++		       !!(info->flags & XT_ADDRTYPE_INVERT_DEST);
++	return ret;
++}
++#endif
++
++static inline int match_type(const struct net_device *dev, __be32 addr,
++			      u_int16_t mask)
++{
++	return !!(mask & (1 << inet_dev_addr_type(dev, addr)));
++}
++
++static int
++addrtype_mt_v0(const struct sk_buff *skb, const struct net_device *in,
++	       const struct net_device *out, const struct xt_match *match,
++	       const void *matchinfo, int offset, unsigned int protoff,
++	       int *hotdrop)
++{
++	const struct xt_addrtype_info *info = matchinfo;
++	const struct iphdr *iph = ip_hdr(skb);
++	int ret = 1;
++
++	if (info->source)
++		ret &= match_type(NULL, iph->saddr, info->source) ^
++		       info->invert_source;
++	if (info->dest)
++		ret &= match_type(NULL, iph->daddr, info->dest) ^
++		       info->invert_dest;
++
++	return ret;
++}
++
++static int
++addrtype_mt_v1(const struct sk_buff *skb, const struct net_device *in,
++	       const struct net_device *out, const struct xt_match *match,
++	       const void *matchinfo, int offset, unsigned int protoff,
++	       int *hotdrop)
++{
++	const struct xt_addrtype_info_v1 *info = matchinfo;
++	const struct iphdr *iph;
++	const struct net_device *dev = NULL;
++	int ret = 1;
++
++	if (info->flags & XT_ADDRTYPE_LIMIT_IFACE_IN)
++		dev = in;
++	else if (info->flags & XT_ADDRTYPE_LIMIT_IFACE_OUT)
++		dev = out;
++
++#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
++	if (match->family == NFPROTO_IPV6)
++		return addrtype_mt6(dev, skb, info);
++#endif
++	iph = ip_hdr(skb);
++	if (info->source)
++		ret &= match_type(dev, iph->saddr, info->source) ^
++		       (info->flags & XT_ADDRTYPE_INVERT_SOURCE);
++	if (ret && info->dest)
++		ret &= match_type(dev, iph->daddr, info->dest) ^
++		       !!(info->flags & XT_ADDRTYPE_INVERT_DEST);
++	return ret;
++}
++
++static int
++addrtype_mt_checkentry_v1(const char *tablename, const void *ip_void,
++			  const struct xt_match *match, void *matchinfo,
++			  unsigned int hook_mask)
++{
++	struct xt_addrtype_info_v1 *info = matchinfo;
++
++	if (info->flags & XT_ADDRTYPE_LIMIT_IFACE_IN &&
++	    info->flags & XT_ADDRTYPE_LIMIT_IFACE_OUT) {
++		printk(KERN_ERR "ipt_addrtype: both incoming and outgoing "
++				"interface limitation cannot be selected\n");
++		return 0;
++	}
++
++	if (hook_mask & (1 << NF_IP_PRE_ROUTING | 1 << NF_IP_LOCAL_IN) &&
++	    info->flags & XT_ADDRTYPE_LIMIT_IFACE_OUT) {
++		printk(KERN_ERR "ipt_addrtype: output interface limitation "
++				"not valid in PRE_ROUTING and INPUT\n");
++		return 0;
++	}
++
++	if (hook_mask & (1 << NF_IP_POST_ROUTING | 1 << NF_IP_LOCAL_OUT) &&
++	    info->flags & XT_ADDRTYPE_LIMIT_IFACE_IN) {
++		printk(KERN_ERR "ipt_addrtype: input interface limitation "
++				"not valid in POST_ROUTING and OUTPUT\n");
++		return 0;
++	}
++
++#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
++	if (match->family == NFPROTO_IPV6) {
++		if ((info->source | info->dest) & XT_ADDRTYPE_BLACKHOLE) {
++			pr_err("ipv6 BLACKHOLE matching not supported\n");
++			return -EINVAL;
++		}
++		if ((info->source | info->dest) >= XT_ADDRTYPE_PROHIBIT) {
++			pr_err("ipv6 PROHIBT (THROW, NAT ..) matching not supported\n");
++			return -EINVAL;
++		}
++		if ((info->source | info->dest) & XT_ADDRTYPE_BROADCAST) {
++			pr_err("ipv6 does not support BROADCAST matching\n");
++			return -EINVAL;
++		}
++	}
++#endif
++	return 1;
++}
++
++static struct xt_match addrtype_mt_reg[] __read_mostly = {
++	{
++		.name		= "addrtype",
++		.family		= AF_INET,
++		.match		= addrtype_mt_v0,
++		.matchsize	= sizeof(struct xt_addrtype_info),
++		.me		= THIS_MODULE
++	},
++	{
++		.name		= "addrtype",
++		.family		= AF_INET,
++		.revision	= 1,
++		.match		= addrtype_mt_v1,
++		.checkentry	= addrtype_mt_checkentry_v1,
++		.matchsize	= sizeof(struct xt_addrtype_info_v1),
++		.me		= THIS_MODULE
++	},
++	{
++		.name		= "addrtype",
++		.family		= AF_INET6,
++		.revision	= 1,
++		.match		= addrtype_mt_v1,
++		.checkentry	= addrtype_mt_checkentry_v1,
++		.matchsize	= sizeof(struct xt_addrtype_info_v1),
++		.me		= THIS_MODULE
++	},
++};
++
++static int __init addrtype_mt_init(void)
++{
++	return xt_register_matches(addrtype_mt_reg,
++				   ARRAY_SIZE(addrtype_mt_reg));
++}
++
++static void __exit addrtype_mt_fini(void)
++{
++	xt_unregister_matches(addrtype_mt_reg, ARRAY_SIZE(addrtype_mt_reg));
++}
++
++module_init(addrtype_mt_init);
++module_exit(addrtype_mt_fini);
+-- 
