@@ -2263,7 +2263,7 @@ function onSubmit()
 	}
 	else if (document.form.current_page.value == "Advanced_WAN_Content.asp")
 	{
-		if (document.form.wan_proto.value == "Static IP")
+		if (document.form.wan_proto.value == "static")
 		{
 			if (document.form.wan_ipaddr.value==="" ||
 					document.form.wan_netmask.value==="")
