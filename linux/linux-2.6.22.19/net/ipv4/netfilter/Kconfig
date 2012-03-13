@@ -72,16 +72,6 @@ config IP_NF_MATCH_AH
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
-config IP_NF_MATCH_ADDRTYPE
-	tristate  'address type match support'
-	depends on IP_NF_IPTABLES
-	help
-	  This option allows you to match what routing thinks of an address,
-	  eg. UNICAST, LOCAL, BROADCAST, ...
-	
-	  If you want to compile it as a module, say M here and read
-	  <file:Documentation/modules.txt>.  If unsure, say `N'.
-
 # `filter', generic and specific targets
 config IP_NF_FILTER
 	tristate "Packet filtering"

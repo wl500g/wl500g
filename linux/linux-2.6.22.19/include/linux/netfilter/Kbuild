@@ -4,6 +4,7 @@ header-y += nfnetlink_conntrack.h
 header-y += nfnetlink_log.h
 header-y += nfnetlink_queue.h
 header-y += xt_CLASSIFY.h
+header-y += xt_addrtype.h
 header-y += xt_comment.h
 header-y += xt_connbytes.h
 header-y += xt_connlimit.h
