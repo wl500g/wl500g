@@ -17,7 +17,6 @@ ed1a6f5e77441c4020b8541b3f03f03e37d638e1 [NETFILTER]: ip6_tables: move counter a
 acc738fec03bdaa5b77340c32a82fbfedaaabef0 netfilter: xtables: avoid pointer to self
 6d62182fea6cc6bbc8d82a691ad0608d68a54aeb netfilter: xt_quota: fix incomplete initialization
 8fa539bd911e8a7faa7cd77b5192229c9666d9b8 netfilter: xt_limit: fix invalid return code in limit_mt_check()
-28337ff5438a640afa713d874d076e3a8a9150da netfilter: xt_hashlimit fix
 fa9a86ddc8ecd2830a5e773facc250f110300ae7 netfilter: use rcu_read_bh() in ipt_do_table()
 49a88d18a1721ac14dbc67cd390db18ee1f3a42f netfilter: ip6tables regression fix
 942e4a2bd680c606af0211e64eb216be2e19bf61 netfilter: revised locking for x_tables
@@ -28,8 +27,8 @@ b8dfe498775de912116f275680ddb57c8799d9ef netfilter: factorize ifname_compare()
 9c8222b9e71b690c8388bb0ebe5c3e5a1469e884 netfilter: x_tables: remove unneeded initializations
 e12f8e29a8526172b7715881503bae636d60bdd8 netfilter: vmalloc_node cleanup
 42046e2e45c109ba703993c510401a11f716c8df netfilter: x_tables: return -ENOENT for non-existant matches/targets
----
 
+---
  include/linux/netfilter/x_tables.h        |  142 ++++++++++++++++++++-
  include/linux/netfilter/xt_limit.h        |    9 -
  include/linux/netfilter/xt_quota.h        |    6 
@@ -49,12 +48,11 @@ e12f8e29a8526172b7715881503bae636d60bdd8 netfilter: vmalloc_node cleanup
  net/ipv6/netfilter/ip6table_mangle.c      |    1 
  net/ipv6/netfilter/ip6table_raw.c         |    1 
  net/netfilter/x_tables.c                  |   42 ++++--
- net/netfilter/xt_hashlimit.c              |    6 
  net/netfilter/xt_limit.c                  |   42 ++++--
  net/netfilter/xt_physdev.c                |   20 --
  net/netfilter/xt_quota.c                  |   33 ++++
  net/netfilter/xt_statistic.c              |   31 +++-
- 24 files changed, 489 insertions(+), 376 deletions(-)
+ 23 files changed, 487 insertions(+), 372 deletions(-)
 
 diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
 --- a/include/linux/netfilter/x_tables.h
@@ -1553,29 +1551,6 @@ diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
  
  	xt = kmalloc(sizeof(struct xt_af) * NPROTO, GFP_KERNEL);
  	if (!xt)
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -449,8 +449,8 @@ hashlimit_match(const struct sk_buff *skb,
- 		unsigned int protoff,
- 		int *hotdrop)
- {
--	struct xt_hashlimit_info *r =
--		((struct xt_hashlimit_info *)matchinfo)->u.master;
-+	const struct xt_hashlimit_info *r = matchinfo;
-+
- 	struct xt_hashlimit_htable *hinfo = r->hinfo;
- 	unsigned long now = jiffies;
- 	struct dsthash_ent *dh;
-@@ -535,8 +535,6 @@ hashlimit_checkentry(const char *tablename,
- 	}
- 	mutex_unlock(&hlimit_mutex);
- 
--	/* Ugly hack: For SMP, we only want to use one set */
--	r->u.master = r;
- 	return 1;
- }
- 
 diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
 --- a/net/netfilter/xt_limit.c
 +++ b/net/netfilter/xt_limit.c
