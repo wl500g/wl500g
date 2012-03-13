@@ -724,7 +724,7 @@ static int callforward_do_filter(union nf_inet_addr *src,
 				 union nf_inet_addr *dst,
 				 int family)
 {
-	struct nf_afinfo *afinfo;
+	const struct nf_afinfo *afinfo;
 	struct flowi fl1, fl2;
 	int ret = 0;
 

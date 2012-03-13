@@ -39,35 +39,24 @@ static bool imq_checkentry(const char *tablename,
 	return true;
 }
 
-static struct xt_target xt_imq_reg[] __read_mostly = {
-	{
-		.name		= "IMQ",
-		.family		= AF_INET,
-		.target		= imq_target,
-		.targetsize	= sizeof(struct xt_imq_info),
-		.checkentry	= imq_checkentry,
-		.table		= "mangle",
-		.me		= THIS_MODULE,
-	},
-	{
-		.name           = "IMQ",
-		.family		= AF_INET6,
-		.target         = imq_target,
-		.targetsize	= sizeof(struct xt_imq_info),
-		.checkentry     = imq_checkentry,
-		.table		= "mangle",
-		.me             = THIS_MODULE,
-	},
+static struct xt_target xt_imq_reg __read_mostly = {
+	.name		= "IMQ",
+	.family		= NFPROTO_UNSPEC,
+	.target		= imq_target,
+	.targetsize	= sizeof(struct xt_imq_info),
+	.checkentry	= imq_checkentry,
+	.table		= "mangle",
+	.me		= THIS_MODULE,
 };
 
 static int __init init(void)
 {
-	return xt_register_targets(xt_imq_reg, ARRAY_SIZE(xt_imq_reg));
+	return xt_register_target(&xt_imq_reg);
 }
 
 static void __exit fini(void)
 {
-	xt_unregister_targets(xt_imq_reg, ARRAY_SIZE(xt_imq_reg));
+	xt_unregister_target(&xt_imq_reg);
 }
 
 module_init(init);

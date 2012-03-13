@@ -42,6 +42,16 @@
 #define NFC_ALTERED 0x8000
 #endif
 
+enum {
+	NFPROTO_UNSPEC =  0,
+	NFPROTO_IPV4   =  2,
+	NFPROTO_ARP    =  3,
+	NFPROTO_BRIDGE =  7,
+	NFPROTO_IPV6   = 10,
+	NFPROTO_DECNET = 12,
+	NFPROTO_NUMPROTO,
+};
+
 union nf_inet_addr {
 	__u32		all[4];
 	__be32		ip;
@@ -147,7 +157,7 @@ extern struct ctl_table nf_net_netfilter_sysctl_path[];
 extern struct ctl_table nf_net_ipv4_netfilter_sysctl_path[];
 #endif /* CONFIG_SYSCTL */
 
-extern struct list_head nf_hooks[NPROTO][NF_MAX_HOOKS];
+extern struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
 
 /* those NF_LOG_* defines and struct nf_loginfo are legacy definitios that will
  * disappear once iptables is replaced with pkttables.  Please DO NOT use them
@@ -343,8 +353,8 @@ struct nf_afinfo {
 	int		route_key_size;
 };
 
-extern struct nf_afinfo *nf_afinfo[];
-static inline struct nf_afinfo *nf_get_afinfo(unsigned short family)
+extern const struct nf_afinfo *nf_afinfo[NFPROTO_NUMPROTO];
+static inline const struct nf_afinfo *nf_get_afinfo(unsigned short family)
 {
 	return rcu_dereference(nf_afinfo[family]);
 }
@@ -353,7 +363,7 @@ static inline __sum16
 nf_checksum(struct sk_buff *skb, unsigned int hook, unsigned int dataoff,
 	    u_int8_t protocol, unsigned short family)
 {
-	struct nf_afinfo *afinfo;
+	const struct nf_afinfo *afinfo;
 	__sum16 csum = 0;
 
 	rcu_read_lock();

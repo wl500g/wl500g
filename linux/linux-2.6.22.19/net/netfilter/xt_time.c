@@ -242,33 +242,23 @@ static bool xt_time_check(const char *tablename, const void *ip,
 	return true;
 }
 
-static struct xt_match xt_time_reg[] __read_mostly = {
-	{
-		.name       = "time",
-		.family     = AF_INET,
-		.match      = xt_time_match,
-		.matchsize  = sizeof(struct xt_time_info),
-		.checkentry = xt_time_check,
-		.me         = THIS_MODULE,
-	},
-	{
-		.name       = "time",
-		.family     = AF_INET6,
-		.match      = xt_time_match,
-		.matchsize  = sizeof(struct xt_time_info),
-		.checkentry = xt_time_check,
-		.me         = THIS_MODULE,
-	},
+static struct xt_match xt_time_mt_reg __read_mostly = {
+	.name       = "time",
+	.family     = NFPROTO_UNSPEC,
+	.match      = xt_time_match,
+	.checkentry = xt_time_check,
+	.matchsize  = sizeof(struct xt_time_info),
+	.me         = THIS_MODULE,
 };
 
 static int __init xt_time_init(void)
 {
-	return xt_register_matches(xt_time_reg, ARRAY_SIZE(xt_time_reg));
+	return xt_register_match(&xt_time_mt_reg);
 }
 
 static void __exit xt_time_exit(void)
 {
-	xt_unregister_matches(xt_time_reg, ARRAY_SIZE(xt_time_reg));
+	xt_unregister_match(&xt_time_mt_reg);
 }
 
 module_init(xt_time_init);

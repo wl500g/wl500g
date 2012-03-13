@@ -223,16 +223,7 @@ static struct xt_match addrtype_mt_reg[] __read_mostly = {
 	},
 	{
 		.name		= "addrtype",
-		.family		= AF_INET,
-		.revision	= 1,
-		.match		= addrtype_mt_v1,
-		.checkentry	= addrtype_mt_checkentry_v1,
-		.matchsize	= sizeof(struct xt_addrtype_info_v1),
-		.me		= THIS_MODULE
-	},
-	{
-		.name		= "addrtype",
-		.family		= AF_INET6,
+		.family		= NFPROTO_UNSPEC,
 		.revision	= 1,
 		.match		= addrtype_mt_v1,
 		.checkentry	= addrtype_mt_checkentry_v1,

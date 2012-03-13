@@ -99,31 +99,23 @@ static bool u32_match(const struct sk_buff *skb,
 	return ret ^ data->invert;
 }
 
-static struct xt_match u32_reg[] __read_mostly = {
-	{
-		.name       = "u32",
-		.family     = AF_INET,
-		.match      = u32_match,
-		.matchsize  = sizeof(struct xt_u32),
-		.me         = THIS_MODULE,
-	},
-	{
-		.name       = "u32",
-		.family     = AF_INET6,
-		.match      = u32_match,
-		.matchsize  = sizeof(struct xt_u32),
-		.me         = THIS_MODULE,
-	},
+static struct xt_match xt_u32_mt_reg __read_mostly = {
+	.name       = "u32",
+	.revision   = 0,
+	.family     = NFPROTO_UNSPEC,
+	.match      = u32_match,
+	.matchsize  = sizeof(struct xt_u32),
+	.me         = THIS_MODULE,
 };
 
 static int __init xt_u32_init(void)
 {
-	return xt_register_matches(u32_reg, ARRAY_SIZE(u32_reg));
+	return xt_register_match(&xt_u32_mt_reg);
 }
 
 static void __exit xt_u32_exit(void)
 {
-	xt_unregister_matches(u32_reg, ARRAY_SIZE(u32_reg));
+	xt_unregister_match(&xt_u32_mt_reg);
 }
 
 module_init(xt_u32_init);

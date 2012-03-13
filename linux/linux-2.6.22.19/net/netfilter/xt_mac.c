@@ -44,37 +44,26 @@ match(const struct sk_buff *skb,
 		^ info->invert));
 }
 
-static struct xt_match xt_mac_match[] __read_mostly = {
-	{
-		.name		= "mac",
-		.family		= AF_INET,
-		.match		= match,
-		.matchsize	= sizeof(struct xt_mac_info),
-		.hooks		= (1 << NF_IP_PRE_ROUTING) |
-				  (1 << NF_IP_LOCAL_IN) |
-				  (1 << NF_IP_FORWARD),
-		.me		= THIS_MODULE,
-	},
-	{
-		.name		= "mac",
-		.family		= AF_INET6,
-		.match		= match,
-		.matchsize	= sizeof(struct xt_mac_info),
-		.hooks		= (1 << NF_IP6_PRE_ROUTING) |
-				  (1 << NF_IP6_LOCAL_IN) |
-				  (1 << NF_IP6_FORWARD),
-		.me		= THIS_MODULE,
-	},
+static struct xt_match xt_mac_match __read_mostly = {
+	.name		= "mac",
+	.revision   = 0,
+	.family		= NFPROTO_UNSPEC,
+	.match		= match,
+	.matchsize	= sizeof(struct xt_mac_info),
+	.hooks		= (1 << NF_IP_PRE_ROUTING) |
+			  (1 << NF_IP_LOCAL_IN) |
+			  (1 << NF_IP_FORWARD),
+	.me		= THIS_MODULE,
 };
 
 static int __init xt_mac_init(void)
 {
-	return xt_register_matches(xt_mac_match, ARRAY_SIZE(xt_mac_match));
+	return xt_register_match(&xt_mac_match);
 }
 
 static void __exit xt_mac_fini(void)
 {
-	xt_unregister_matches(xt_mac_match, ARRAY_SIZE(xt_mac_match));
+	xt_unregister_match(&xt_mac_match);
 }
 
 module_init(xt_mac_init);

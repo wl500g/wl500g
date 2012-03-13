@@ -142,62 +142,38 @@ destroy(const struct xt_match *match, void *matchinfo)
 	nf_ct_l3proto_module_put(match->family);
 }
 
-static struct xt_target connmark_tg_reg[] __read_mostly = {
-	{
-		.name           = "CONNMARK",
-		.revision       = 1,
-		.family         = AF_INET,
-		.checkentry     = connmark_tg_check,
-		.target         = connmark_tg,
-		.targetsize     = sizeof(struct xt_connmark_tginfo1),
-		.destroy        = connmark_tg_destroy,
-		.me             = THIS_MODULE,
-	},
-	{
-		.name           = "CONNMARK",
-		.revision       = 1,
-		.family         = AF_INET6,
-		.checkentry     = connmark_tg_check,
-		.target         = connmark_tg,
-		.targetsize     = sizeof(struct xt_connmark_tginfo1),
-		.destroy        = connmark_tg_destroy,
-		.me             = THIS_MODULE,
-	},
+static struct xt_target connmark_tg_reg __read_mostly = {
+	.name           = "CONNMARK",
+	.revision       = 1,
+	.family         = NFPROTO_UNSPEC,
+	.checkentry     = connmark_tg_check,
+	.target         = connmark_tg,
+	.targetsize     = sizeof(struct xt_connmark_tginfo1),
+	.destroy        = connmark_tg_destroy,
+	.me             = THIS_MODULE,
 };
 
-static struct xt_match xt_connmark_match[] __read_mostly = {
-	{
-		.name           = "connmark",
-		.revision       = 1,
-		.family         = AF_INET,
-		.checkentry     = connmark_mt_check,
-		.match          = connmark_mt,
-		.matchsize      = sizeof(struct xt_connmark_mtinfo1),
-		.destroy        = destroy,
-		.me             = THIS_MODULE,
-	},
-	{
-		.name           = "connmark",
-		.revision       = 1,
-		.family         = AF_INET6,
-		.checkentry     = connmark_mt_check,
-		.match          = connmark_mt,
-		.matchsize      = sizeof(struct xt_connmark_mtinfo1),
-		.destroy        = destroy,
-		.me             = THIS_MODULE,
-	},
+static struct xt_match xt_connmark_match __read_mostly = {
+	.name           = "connmark",
+	.revision       = 1,
+	.family         = NFPROTO_UNSPEC,
+	.checkentry     = connmark_mt_check,
+	.match          = connmark_mt,
+	.matchsize      = sizeof(struct xt_connmark_mtinfo1),
+	.destroy        = destroy,
+	.me             = THIS_MODULE,
 };
 
 static int __init xt_connmark_init(void)
 {
 	int ret;
 
-	ret = xt_register_targets(connmark_tg_reg, ARRAY_SIZE(connmark_tg_reg));
+	ret = xt_register_target(&connmark_tg_reg);
 	if (ret < 0)
 		return ret;
-	ret = xt_register_matches(xt_connmark_match, ARRAY_SIZE(xt_connmark_match));
+	ret = xt_register_match(&xt_connmark_match);
 	if (ret < 0) {
-		xt_unregister_targets(connmark_tg_reg, ARRAY_SIZE(connmark_tg_reg));
+		xt_unregister_target(&connmark_tg_reg);
 		return ret;
 	}
 	return 0;
@@ -205,8 +181,8 @@ static int __init xt_connmark_init(void)
 
 static void __exit xt_connmark_fini(void)
 {
-	xt_unregister_matches(xt_connmark_match, ARRAY_SIZE(xt_connmark_match));
-	xt_unregister_targets(connmark_tg_reg, ARRAY_SIZE(connmark_tg_reg));
+	xt_unregister_match(&xt_connmark_match);
+	xt_unregister_target(&connmark_tg_reg);
 }
 
 module_init(xt_connmark_init);

@@ -99,36 +99,25 @@ destroy(const struct xt_match *match, void *matchinfo)
 	nf_ct_l3proto_module_put(match->family);
 }
 
-static struct xt_match xt_helper_match[] __read_mostly = {
-	{
-		.name		= "helper",
-		.family		= AF_INET,
-		.checkentry	= check,
-		.match		= match,
-		.destroy	= destroy,
-		.matchsize	= sizeof(struct xt_helper_info),
-		.me		= THIS_MODULE,
-	},
-	{
-		.name		= "helper",
-		.family		= AF_INET6,
-		.checkentry	= check,
-		.match		= match,
-		.destroy	= destroy,
-		.matchsize	= sizeof(struct xt_helper_info),
-		.me		= THIS_MODULE,
-	},
+static struct xt_match xt_helper_match __read_mostly = {
+	.name		= "helper",
+	.revision   = 0,
+	.family		= NFPROTO_UNSPEC,
+	.checkentry	= check,
+	.match		= match,
+	.destroy	= destroy,
+	.matchsize	= sizeof(struct xt_helper_info),
+	.me		= THIS_MODULE,
 };
 
 static int __init xt_helper_init(void)
 {
-	return xt_register_matches(xt_helper_match,
-				   ARRAY_SIZE(xt_helper_match));
+	return xt_register_match(&xt_helper_match);
 }
 
 static void __exit xt_helper_fini(void)
 {
-	xt_unregister_matches(xt_helper_match, ARRAY_SIZE(xt_helper_match));
+	xt_unregister_match(&xt_helper_match);
 }
 
 module_init(xt_helper_init);

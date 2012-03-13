@@ -14,7 +14,7 @@
 
 #define NF_LOG_PREFIXLEN		128
 
-static struct nf_logger *nf_loggers[NPROTO];
+static const struct nf_logger *nf_loggers[NFPROTO_NUMPROTO] __read_mostly;
 static DEFINE_MUTEX(nf_log_mutex);
 
 /* return EBUSY if somebody else is registered, EEXIST if the same logger
@@ -23,7 +23,7 @@ int nf_log_register(int pf, const struct nf_logger *logger)
 {
 	int ret;
 
-	if (pf >= NPROTO)
+	if (pf >= ARRAY_SIZE(nf_loggers))
 		return -EINVAL;
 
 	/* Any setup of logging members must be done before
@@ -46,7 +46,7 @@ EXPORT_SYMBOL(nf_log_register);
 
 void nf_log_unregister_pf(int pf)
 {
-	if (pf >= NPROTO)
+	if (pf >= ARRAY_SIZE(nf_loggers))
 		return;
 	mutex_lock(&nf_log_mutex);
 	rcu_assign_pointer(nf_loggers[pf], NULL);
@@ -62,7 +62,7 @@ void nf_log_unregister(const struct nf_logger *logger)
 	int i;
 
 	mutex_lock(&nf_log_mutex);
-	for (i = 0; i < NPROTO; i++) {
+	for (i = 0; i < ARRAY_SIZE(nf_loggers); i++) {
 		if (nf_loggers[i] == logger)
 			rcu_assign_pointer(nf_loggers[i], NULL);
 	}
@@ -82,7 +82,7 @@ void nf_log_packet(int pf,
 {
 	va_list args;
 	char prefix[NF_LOG_PREFIXLEN];
-	struct nf_logger *logger;
+	const struct nf_logger *logger;
 
 	rcu_read_lock();
 	logger = rcu_dereference(nf_loggers[pf]);
@@ -106,7 +106,7 @@ static void *seq_start(struct seq_file *seq, loff_t *pos)
 {
 	rcu_read_lock();
 
-	if (*pos >= NPROTO)
+	if (*pos >= ARRAY_SIZE(nf_loggers))
 		return NULL;
 
 	return pos;
@@ -116,7 +116,7 @@ static void *seq_next(struct seq_file *s, void *v, loff_t *pos)
 {
 	(*pos)++;
 
-	if (*pos >= NPROTO)
+	if (*pos >= ARRAY_SIZE(nf_loggers))
 		return NULL;
 
 	return pos;

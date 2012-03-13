@@ -109,36 +109,25 @@ static int checkentry(const char *tablename, const void *entry,
 	return 1;
 }
 
-static struct xt_target xt_secmark_target[] __read_mostly = {
-	{
-		.name		= "SECMARK",
-		.family		= AF_INET,
-		.checkentry	= checkentry,
-		.target		= target,
-		.targetsize	= sizeof(struct xt_secmark_target_info),
-		.table		= "mangle",
-		.me		= THIS_MODULE,
-	},
-	{
-		.name		= "SECMARK",
-		.family		= AF_INET6,
-		.checkentry	= checkentry,
-		.target		= target,
-		.targetsize	= sizeof(struct xt_secmark_target_info),
-		.table		= "mangle",
-		.me		= THIS_MODULE,
-	},
+static struct xt_target xt_secmark_target __read_mostly = {
+	.name		= "SECMARK",
+	.revision   = 0,
+	.family		= NFPROTO_UNSPEC,
+	.table		= "mangle",
+	.checkentry	= checkentry,
+	.target		= target,
+	.targetsize	= sizeof(struct xt_secmark_target_info),
+	.me		= THIS_MODULE,
 };
 
 static int __init xt_secmark_init(void)
 {
-	return xt_register_targets(xt_secmark_target,
-				   ARRAY_SIZE(xt_secmark_target));
+	return xt_register_target(&xt_secmark_target);
 }
 
 static void __exit xt_secmark_fini(void)
 {
-	xt_unregister_targets(xt_secmark_target, ARRAY_SIZE(xt_secmark_target));
+	xt_unregister_target(&xt_secmark_target);
 }
 
 module_init(xt_secmark_init);

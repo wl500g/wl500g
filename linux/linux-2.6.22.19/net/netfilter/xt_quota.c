@@ -71,35 +71,25 @@ static void quota_mt_destroy(const struct xt_match *match, void *matchinfo)
 	kfree(q->master);
 }
 
-static struct xt_match xt_quota_match[] __read_mostly = {
-	{
-		.name		= "quota",
-		.family		= AF_INET,
-		.checkentry	= checkentry,
-		.match		= match,
-		.destroy	= quota_mt_destroy,
-		.matchsize	= sizeof(struct xt_quota_info),
-		.me		= THIS_MODULE
-	},
-	{
-		.name		= "quota",
-		.family		= AF_INET6,
-		.checkentry	= checkentry,
-		.match		= match,
-		.destroy	= quota_mt_destroy,
-		.matchsize	= sizeof(struct xt_quota_info),
-		.me		= THIS_MODULE
-	},
+static struct xt_match xt_quota_match __read_mostly = {
+	.name		= "quota",
+	.revision   = 0,
+	.family		= NFPROTO_UNSPEC,
+	.match		= match,
+	.checkentry	= checkentry,
+	.destroy	= quota_mt_destroy,
+	.matchsize	= sizeof(struct xt_quota_info),
+	.me		= THIS_MODULE
 };
 
 static int __init xt_quota_init(void)
 {
-	return xt_register_matches(xt_quota_match, ARRAY_SIZE(xt_quota_match));
+	return xt_register_match(&xt_quota_match);
 }
 
 static void __exit xt_quota_fini(void)
 {
-	xt_unregister_matches(xt_quota_match, ARRAY_SIZE(xt_quota_match));
+	xt_unregister_match(&xt_quota_match);
 }
 
 module_init(xt_quota_init);

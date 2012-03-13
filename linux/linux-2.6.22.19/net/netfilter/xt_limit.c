@@ -190,40 +190,30 @@ static int compat_to_user(void __user *dst, void *src)
 }
 #endif /* CONFIG_COMPAT */
 
-static struct xt_match xt_limit_match[] __read_mostly = {
-	{
-		.name		= "limit",
-		.family		= AF_INET,
-		.checkentry	= ipt_limit_checkentry,
-		.match		= ipt_limit_match,
-		.destroy	= limit_mt_destroy,
-		.matchsize	= sizeof(struct xt_rateinfo),
+static struct xt_match xt_limit_match __read_mostly = {
+	.name             = "limit",
+	.revision         = 0,
+	.family           = NFPROTO_UNSPEC,
+	.checkentry       = ipt_limit_checkentry,
+	.match            = ipt_limit_match,
+	.destroy          = limit_mt_destroy,
+	.matchsize        = sizeof(struct xt_rateinfo),
 #ifdef CONFIG_COMPAT
-		.compatsize	= sizeof(struct compat_xt_rateinfo),
-		.compat_from_user = compat_from_user,
-		.compat_to_user	= compat_to_user,
+	.compatsize       = sizeof(struct compat_xt_rateinfo),
+	.compat_from_user = compat_from_user,
+	.compat_to_user   = compat_to_user,
 #endif
-		.me		= THIS_MODULE,
-	},
-	{
-		.name		= "limit",
-		.family		= AF_INET6,
-		.checkentry	= ipt_limit_checkentry,
-		.match		= ipt_limit_match,
-		.destroy	= limit_mt_destroy,
-		.matchsize	= sizeof(struct xt_rateinfo),
-		.me		= THIS_MODULE,
-	},
+	.me		= THIS_MODULE,
 };
 
 static int __init xt_limit_init(void)
 {
-	return xt_register_matches(xt_limit_match, ARRAY_SIZE(xt_limit_match));
+	return xt_register_match(&xt_limit_match);
 }
 
 static void __exit xt_limit_fini(void)
 {
-	xt_unregister_matches(xt_limit_match, ARRAY_SIZE(xt_limit_match));
+	xt_unregister_match(&xt_limit_match);
 }
 
 module_init(xt_limit_init);

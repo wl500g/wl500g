@@ -29,32 +29,23 @@ match(const struct sk_buff *skb,
 	return 1;
 }
 
-static struct xt_match xt_comment_match[] __read_mostly = {
-	{
-		.name		= "comment",
-		.family		= AF_INET,
-		.match		= match,
-		.matchsize	= sizeof(struct xt_comment_info),
-		.me		= THIS_MODULE
-	},
-	{
-		.name		= "comment",
-		.family		= AF_INET6,
-		.match		= match,
-		.matchsize	= sizeof(struct xt_comment_info),
-		.me		= THIS_MODULE
-	},
+static struct xt_match xt_comment_match __read_mostly = {
+	.name		= "comment",
+	.revision   = 0,
+	.family		= AF_INET,
+	.match		= match,
+	.matchsize	= sizeof(struct xt_comment_info),
+	.me		= THIS_MODULE
 };
 
 static int __init xt_comment_init(void)
 {
-	return xt_register_matches(xt_comment_match,
-				   ARRAY_SIZE(xt_comment_match));
+	return xt_register_match(&xt_comment_match);
 }
 
 static void __exit xt_comment_fini(void)
 {
-	xt_unregister_matches(xt_comment_match, ARRAY_SIZE(xt_comment_match));
+	xt_unregister_match(&xt_comment_match);
 }
 
 module_init(xt_comment_init);

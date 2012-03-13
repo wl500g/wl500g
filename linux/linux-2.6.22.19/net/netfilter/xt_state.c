@@ -64,35 +64,25 @@ destroy(const struct xt_match *match, void *matchinfo)
 	nf_ct_l3proto_module_put(match->family);
 }
 
-static struct xt_match xt_state_match[] __read_mostly = {
-	{
-		.name		= "state",
-		.family		= AF_INET,
-		.checkentry	= check,
-		.match		= match,
-		.destroy	= destroy,
-		.matchsize	= sizeof(struct xt_state_info),
-		.me		= THIS_MODULE,
-	},
-	{
-		.name		= "state",
-		.family		= AF_INET6,
-		.checkentry	= check,
-		.match		= match,
-		.destroy	= destroy,
-		.matchsize	= sizeof(struct xt_state_info),
-		.me		= THIS_MODULE,
-	},
+static struct xt_match xt_state_match __read_mostly = {
+	.name		= "state",
+	.revision   = 0,
+	.family		= NFPROTO_UNSPEC,
+	.checkentry	= check,
+	.match		= match,
+	.destroy	= destroy,
+	.matchsize	= sizeof(struct xt_state_info),
+	.me		= THIS_MODULE,
 };
 
 static int __init xt_state_init(void)
 {
-	return xt_register_matches(xt_state_match, ARRAY_SIZE(xt_state_match));
+	return xt_register_match(&xt_state_match);
 }
 
 static void __exit xt_state_fini(void)
 {
-	xt_unregister_matches(xt_state_match, ARRAY_SIZE(xt_state_match));
+	xt_unregister_match(&xt_state_match);
 }
 
 module_init(xt_state_init);

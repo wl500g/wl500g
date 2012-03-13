@@ -55,10 +55,12 @@ enum {
 	MATCH,
 };
 
-static const char *xt_prefix[NPROTO] = {
-	[AF_INET]	= "ip",
-	[AF_INET6]	= "ip6",
-	[NF_ARP]	= "arp",
+static const char *const xt_prefix[NFPROTO_NUMPROTO] = {
+	[NFPROTO_UNSPEC] = "x",
+	[NFPROTO_IPV4]   = "ip",
+	[NFPROTO_ARP]    = "arp",
+	[NFPROTO_BRIDGE] = "eb",
+	[NFPROTO_IPV6]   = "ip6",
 };
 
 /* Registration hooks for targets. */
@@ -202,6 +204,11 @@ struct xt_match *xt_find_match(int af, const char *name, u8 revision)
 		}
 	}
 	mutex_unlock(&xt[af].mutex);
+
+	if (af != NFPROTO_UNSPEC)
+		/* Try searching again in the family-independent list */
+		return xt_find_match(NFPROTO_UNSPEC, name, revision);
+
 	return ERR_PTR(err);
 }
 EXPORT_SYMBOL(xt_find_match);
@@ -227,6 +234,11 @@ struct xt_target *xt_find_target(int af, const char *name, u8 revision)
 		}
 	}
 	mutex_unlock(&xt[af].mutex);
+
+	if (af != NFPROTO_UNSPEC)
+		/* Try searching again in the family-independent list */
+		return xt_find_target(NFPROTO_UNSPEC, name, revision);
+
 	return ERR_PTR(err);
 }
 EXPORT_SYMBOL(xt_find_target);
@@ -256,6 +268,10 @@ static int match_revfn(int af, const char *name, u8 revision, int *bestp)
 				have_rev = 1;
 		}
 	}
+
+	if (af != NFPROTO_UNSPEC && !have_rev)
+		return match_revfn(NFPROTO_UNSPEC, name, revision, bestp);
+
 	return have_rev;
 }
 
@@ -272,6 +288,10 @@ static int target_revfn(int af, const char *name, u8 revision, int *bestp)
 				have_rev = 1;
 		}
 	}
+
+	if (af != NFPROTO_UNSPEC && !have_rev)
+		return target_revfn(NFPROTO_UNSPEC, name, revision, bestp);
+
 	return have_rev;
 }
 
@@ -804,7 +824,7 @@ int xt_proto_init(int af)
 	struct proc_dir_entry *proc;
 #endif
 
-	if (af >= NPROTO)
+	if (af >= ARRAY_SIZE(xt_prefix))
 		return -EINVAL;
 
 
@@ -881,11 +901,11 @@ static int __init xt_init(void)
 		lock->readers = 0;
 	}
 
-	xt = kmalloc(sizeof(struct xt_af) * NPROTO, GFP_KERNEL);
+	xt = kmalloc(sizeof(struct xt_af) * NFPROTO_NUMPROTO, GFP_KERNEL);
 	if (!xt)
 		return -ENOMEM;
 
-	for (i = 0; i < NPROTO; i++) {
+	for (i = 0; i < NFPROTO_NUMPROTO; i++) {
 		mutex_init(&xt[i].mutex);
 #ifdef CONFIG_COMPAT
 		mutex_init(&xt[i].compat_mutex);
@@ -894,11 +914,13 @@ static int __init xt_init(void)
 		INIT_LIST_HEAD(&xt[i].match);
 		INIT_LIST_HEAD(&xt[i].tables);
 	}
+	xt_proto_init(NFPROTO_UNSPEC);
 	return 0;
 }
 
 static void __exit xt_fini(void)
 {
+	xt_proto_fini(NFPROTO_UNSPEC);
 	kfree(xt);
 }
 

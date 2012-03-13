@@ -45,54 +45,34 @@ mark_mt(const struct sk_buff *skb, const struct net_device *in,
 	return ((skb->mark & info->mask) == info->mark) ^ info->invert;
 }
 
-static struct xt_target mark_tg_reg[] __read_mostly = {
-	{
-		.name           = "MARK",
-		.revision       = 2,
-		.family         = AF_INET,
-		.target         = mark_tg,
-		.targetsize     = sizeof(struct xt_mark_tginfo2),
-		.me             = THIS_MODULE,
-	},
-	{
-		.name           = "MARK",
-		.revision       = 2,
-		.family         = AF_INET6,
-		.target         = mark_tg,
-		.targetsize     = sizeof(struct xt_mark_tginfo2),
-		.me             = THIS_MODULE,
-	},
+static struct xt_target mark_tg_reg __read_mostly = {
+	.name           = "MARK",
+	.revision       = 2,
+	.family         = NFPROTO_UNSPEC,
+	.target         = mark_tg,
+	.targetsize     = sizeof(struct xt_mark_tginfo2),
+	.me             = THIS_MODULE,
 };
 
-static struct xt_match mark_mt_reg[] __read_mostly = {
-	{
-		.name           = "mark",
-		.revision       = 1,
-		.family         = AF_INET,
-		.match          = mark_mt,
-		.matchsize      = sizeof(struct xt_mark_mtinfo1),
-		.me             = THIS_MODULE,
-	},
-	{
-		.name           = "mark",
-		.revision       = 1,
-		.family         = AF_INET6,
-		.match          = mark_mt,
-		.matchsize      = sizeof(struct xt_mark_mtinfo1),
-		.me             = THIS_MODULE,
-	},
+static struct xt_match mark_mt_reg __read_mostly = {
+	.name           = "mark",
+	.revision       = 1,
+	.family         = NFPROTO_UNSPEC,
+	.match          = mark_mt,
+	.matchsize      = sizeof(struct xt_mark_mtinfo1),
+	.me             = THIS_MODULE,
 };
 
 static int __init xt_mark_init(void)
 {
 	int ret;
 
-	ret = xt_register_targets(mark_tg_reg, ARRAY_SIZE(mark_tg_reg));
+	ret = xt_register_target(&mark_tg_reg);
 	if (ret < 0)
 		return ret;
-	ret = xt_register_matches(mark_mt_reg, ARRAY_SIZE(mark_mt_reg));
+	ret = xt_register_match(&mark_mt_reg);
 	if (ret < 0) {
-		xt_unregister_targets(mark_tg_reg, ARRAY_SIZE(mark_tg_reg));
+		xt_unregister_target(&mark_tg_reg);
 		return ret;
 	}
 	return 0;
@@ -100,8 +80,8 @@ static int __init xt_mark_init(void)
 
 static void __exit xt_mark_fini(void)
 {
-	xt_unregister_matches(mark_mt_reg, ARRAY_SIZE(mark_mt_reg));
-	xt_unregister_targets(mark_tg_reg, ARRAY_SIZE(mark_tg_reg));
+	xt_unregister_match(&mark_mt_reg);
+	xt_unregister_target(&mark_tg_reg);
 }
 
 module_init(xt_mark_init);

@@ -25,7 +25,7 @@
 
 static DEFINE_MUTEX(afinfo_mutex);
 
-struct nf_afinfo *nf_afinfo[NPROTO] __read_mostly;
+const struct nf_afinfo *nf_afinfo[NFPROTO_NUMPROTO] __read_mostly;
 EXPORT_SYMBOL(nf_afinfo);
 
 int nf_register_afinfo(struct nf_afinfo *afinfo)
@@ -55,7 +55,7 @@ EXPORT_SYMBOL_GPL(nf_unregister_afinfo);
  * of skbuffs queued for userspace, and not deregister a hook unless
  * this is zero, but that sucks.  Now, we simply check when the
  * packets come back: if the hook is gone, the packet is discarded. */
-struct list_head nf_hooks[NPROTO][NF_MAX_HOOKS] __read_mostly;
+struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS] __read_mostly;
 EXPORT_SYMBOL(nf_hooks);
 static DEFINE_MUTEX(nf_hook_mutex);
 
@@ -278,7 +278,7 @@ EXPORT_SYMBOL(proc_net_netfilter);
 void __init netfilter_init(void)
 {
 	int i, h;
-	for (i = 0; i < NPROTO; i++) {
+	for (i = 0; i < ARRAY_SIZE(nf_hooks); i++) {
 		for (h = 0; h < NF_MAX_HOOKS; h++)
 			INIT_LIST_HEAD(&nf_hooks[i][h]);
 	}

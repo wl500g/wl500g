@@ -15,7 +15,7 @@
  * long term mutex.  The handler must provide an an outfn() to accept packets
  * for queueing and must reinject all packets it receives, no matter what.
  */
-static struct nf_queue_handler *queue_handler[NPROTO];
+static const struct nf_queue_handler *queue_handler[NFPROTO_NUMPROTO] __read_mostly;
 
 static DEFINE_RWLOCK(queue_handler_lock);
 
@@ -25,7 +25,7 @@ int nf_register_queue_handler(int pf, struct nf_queue_handler *qh)
 {
 	int ret;
 
-	if (pf >= NPROTO)
+	if (pf >= ARRAY_SIZE(queue_handler))
 		return -EINVAL;
 
 	write_lock_bh(&queue_handler_lock);
@@ -46,7 +46,7 @@ EXPORT_SYMBOL(nf_register_queue_handler);
 /* The caller must flush their queue before this */
 int nf_unregister_queue_handler(int pf)
 {
-	if (pf >= NPROTO)
+	if (pf >= ARRAY_SIZE(queue_handler))
 		return -EINVAL;
 
 	write_lock_bh(&queue_handler_lock);
@@ -62,7 +62,7 @@ void nf_unregister_queue_handlers(struct nf_queue_handler *qh)
 	int pf;
 
 	write_lock_bh(&queue_handler_lock);
-	for (pf = 0; pf < NPROTO; pf++)  {
+	for (pf = 0; pf < ARRAY_SIZE(queue_handler); pf++)  {
 		if (queue_handler[pf] == qh)
 			queue_handler[pf] = NULL;
 	}
@@ -88,7 +88,7 @@ static int __nf_queue(struct sk_buff *skb,
 	struct net_device *physindev = NULL;
 	struct net_device *physoutdev = NULL;
 #endif
-	struct nf_afinfo *afinfo;
+	const struct nf_afinfo *afinfo;
 
 	/* QUEUE == DROP if noone is waiting, to be safe. */
 	read_lock(&queue_handler_lock);
@@ -205,7 +205,7 @@ void nf_reinject(struct sk_buff *skb, struct nf_info *info,
 {
 	struct list_head *elem = &info->elem->list;
 	struct list_head *i;
-	struct nf_afinfo *afinfo;
+	const struct nf_afinfo *afinfo;
 
 	rcu_read_lock();
 
@@ -280,7 +280,7 @@ EXPORT_SYMBOL(nf_reinject);
 #ifdef CONFIG_PROC_FS
 static void *seq_start(struct seq_file *seq, loff_t *pos)
 {
-	if (*pos >= NPROTO)
+	if (*pos >= ARRAY_SIZE(queue_handler))
 		return NULL;
 
 	return pos;
@@ -290,7 +290,7 @@ static void *seq_next(struct seq_file *s, void *v, loff_t *pos)
 {
 	(*pos)++;
 
-	if (*pos >= NPROTO)
+	if (*pos >= ARRAY_SIZE(queue_handler))
 		return NULL;
 
 	return pos;
@@ -305,7 +305,7 @@ static int seq_show(struct seq_file *s, void *v)
 {
 	int ret;
 	loff_t *pos = v;
-	struct nf_queue_handler *qh;
+	const struct nf_queue_handler *qh;
 
 	read_lock_bh(&queue_handler_lock);
 	qh = queue_handler[*pos];

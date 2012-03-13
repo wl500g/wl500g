@@ -39,41 +39,26 @@ target(struct sk_buff *skb,
 	return XT_CONTINUE;
 }
 
-static struct xt_target xt_classify_target[] __read_mostly = {
-	{
-		.family		= AF_INET,
-		.name 		= "CLASSIFY",
-		.target 	= target,
-		.targetsize	= sizeof(struct xt_classify_target_info),
-		.table		= "mangle",
-		.hooks		= (1 << NF_IP_LOCAL_OUT) |
-				  (1 << NF_IP_FORWARD) |
-				  (1 << NF_IP_POST_ROUTING),
-		.me 		= THIS_MODULE,
-	},
-	{
-		.name 		= "CLASSIFY",
-		.family		= AF_INET6,
-		.target 	= target,
-		.targetsize	= sizeof(struct xt_classify_target_info),
-		.table		= "mangle",
-		.hooks		= (1 << NF_IP6_LOCAL_OUT) |
-				  (1 << NF_IP6_FORWARD) |
-				  (1 << NF_IP6_POST_ROUTING),
-		.me 		= THIS_MODULE,
-	},
+static struct xt_target xt_classify_target __read_mostly = {
+	.name 		= "CLASSIFY",
+	.revision   = 0,
+	.family		= NFPROTO_UNSPEC,
+	.table		= "mangle",
+	.hooks		= (1 << NF_IP_LOCAL_OUT) | (1 << NF_IP_FORWARD) |
+			  (1 << NF_IP_POST_ROUTING),
+	.target 	= target,
+	.targetsize	= sizeof(struct xt_classify_target_info),
+	.me 		= THIS_MODULE,
 };
 
 static int __init xt_classify_init(void)
 {
-	return xt_register_targets(xt_classify_target,
-				   ARRAY_SIZE(xt_classify_target));
+	return xt_register_target(&xt_classify_target);
 }
 
 static void __exit xt_classify_fini(void)
 {
-	xt_unregister_targets(xt_classify_target,
-			      ARRAY_SIZE(xt_classify_target));
+	xt_unregister_target(&xt_classify_target);
 }
 
 module_init(xt_classify_init);

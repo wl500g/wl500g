@@ -114,39 +114,25 @@ destroy(const struct xt_target *target, void *targinfo)
 	nf_ct_l3proto_module_put(target->family);
 }
 
-static struct xt_target xt_connsecmark_target[] __read_mostly = {
-	{
-		.name		= "CONNSECMARK",
-		.family		= AF_INET,
-		.checkentry	= checkentry,
-		.destroy	= destroy,
-		.target		= target,
-		.targetsize	= sizeof(struct xt_connsecmark_target_info),
-		.table		= "mangle",
-		.me		= THIS_MODULE,
-	},
-	{
-		.name		= "CONNSECMARK",
-		.family		= AF_INET6,
-		.checkentry	= checkentry,
-		.destroy	= destroy,
-		.target		= target,
-		.targetsize	= sizeof(struct xt_connsecmark_target_info),
-		.table		= "mangle",
-		.me		= THIS_MODULE,
-	},
+static struct xt_target xt_connsecmark_target __read_mostly = {
+	.name		= "CONNSECMARK",
+	.family		= NFPROTO_UNSPEC,
+	.checkentry	= checkentry,
+	.destroy	= destroy,
+	.target		= target,
+	.targetsize	= sizeof(struct xt_connsecmark_target_info),
+	.table		= "mangle",
+	.me		= THIS_MODULE,
 };
 
 static int __init xt_connsecmark_init(void)
 {
-	return xt_register_targets(xt_connsecmark_target,
-				   ARRAY_SIZE(xt_connsecmark_target));
+	return xt_register_target(&xt_connsecmark_target);
 }
 
 static void __exit xt_connsecmark_fini(void)
 {
-	xt_unregister_targets(xt_connsecmark_target,
-			      ARRAY_SIZE(xt_connsecmark_target));
+	xt_unregister_target(&xt_connsecmark_target);
 }
 
 module_init(xt_connsecmark_init);

@@ -33,32 +33,22 @@ target(struct sk_buff *skb,
 	return XT_CONTINUE;
 }
 
-static struct xt_target xt_notrack_target[] __read_mostly = {
-	{
-		.name		= "NOTRACK",
-		.family		= AF_INET,
-		.target		= target,
-		.table		= "raw",
-		.me		= THIS_MODULE,
-	},
-	{
-		.name		= "NOTRACK",
-		.family		= AF_INET6,
-		.target		= target,
-		.table		= "raw",
-		.me		= THIS_MODULE,
-	},
+static struct xt_target xt_notrack_target __read_mostly = {
+	.name		= "NOTRACK",
+	.family		= NFPROTO_UNSPEC,
+	.target		= target,
+	.table		= "raw",
+	.me		= THIS_MODULE,
 };
 
 static int __init xt_notrack_init(void)
 {
-	return xt_register_targets(xt_notrack_target,
-				   ARRAY_SIZE(xt_notrack_target));
+	return xt_register_target(&xt_notrack_target);
 }
 
 static void __exit xt_notrack_fini(void)
 {
-	xt_unregister_targets(xt_notrack_target, ARRAY_SIZE(xt_notrack_target));
+	xt_unregister_target(&xt_notrack_target);
 }
 
 module_init(xt_notrack_init);

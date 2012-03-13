@@ -81,37 +81,25 @@ static void destroy(const struct xt_match *match, void *matchinfo)
 	textsearch_destroy(STRING_TEXT_PRIV(matchinfo)->config);
 }
 
-static struct xt_match xt_string_match[] __read_mostly = {
-	{
-		.name 		= "string",
-		.revision	= 1,
-		.family		= AF_INET,
-		.checkentry	= checkentry,
-		.match 		= match,
-		.destroy 	= destroy,
-		.matchsize	= sizeof(struct xt_string_info),
-		.me 		= THIS_MODULE
-	},
-	{
-		.name 		= "string",
-		.revision	= 1,
-		.family		= AF_INET6,
-		.checkentry	= checkentry,
-		.match 		= match,
-		.destroy 	= destroy,
-		.matchsize	= sizeof(struct xt_string_info),
-		.me 		= THIS_MODULE
-	},
+static struct xt_match xt_string_match __read_mostly = {
+	.name 		= "string",
+	.revision	= 1,
+	.family		= NFPROTO_UNSPEC,
+	.checkentry	= checkentry,
+	.match 		= match,
+	.destroy 	= destroy,
+	.matchsize	= sizeof(struct xt_string_info),
+	.me 		= THIS_MODULE
 };
 
 static int __init xt_string_init(void)
 {
-	return xt_register_matches(xt_string_match, ARRAY_SIZE(xt_string_match));
+	return xt_register_match(&xt_string_match);
 }
 
 static void __exit xt_string_fini(void)
 {
-	xt_unregister_matches(xt_string_match, ARRAY_SIZE(xt_string_match));
+	xt_unregister_match(&xt_string_match);
 }
 
 module_init(xt_string_init);

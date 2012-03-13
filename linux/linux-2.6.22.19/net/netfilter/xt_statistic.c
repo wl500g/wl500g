@@ -83,37 +83,25 @@ static void statistic_mt_destroy(const struct xt_match *match, void *matchinfo)
 	kfree(info->master);
 }
 
-static struct xt_match xt_statistic_match[] __read_mostly = {
-	{
-		.name		= "statistic",
-		.family		= AF_INET,
-		.checkentry	= checkentry,
-		.match		= match,
-		.destroy	= statistic_mt_destroy,
-		.matchsize	= sizeof(struct xt_statistic_info),
-		.me		= THIS_MODULE,
-	},
-	{
-		.name		= "statistic",
-		.family		= AF_INET6,
-		.checkentry	= checkentry,
-		.match		= match,
-		.destroy	= statistic_mt_destroy,
-		.matchsize	= sizeof(struct xt_statistic_info),
-		.me		= THIS_MODULE,
-	},
+static struct xt_match xt_statistic_match __read_mostly = {
+	.name		= "statistic",
+	.revision   = 0,
+	.family		= NFPROTO_UNSPEC,
+	.match		= match,
+	.checkentry	= checkentry,
+	.destroy	= statistic_mt_destroy,
+	.matchsize	= sizeof(struct xt_statistic_info),
+	.me		= THIS_MODULE,
 };
 
 static int __init xt_statistic_init(void)
 {
-	return xt_register_matches(xt_statistic_match,
-				   ARRAY_SIZE(xt_statistic_match));
+	return xt_register_match(&xt_statistic_match);
 }
 
 static void __exit xt_statistic_fini(void)
 {
-	xt_unregister_matches(xt_statistic_match,
-			      ARRAY_SIZE(xt_statistic_match));
+	xt_unregister_match(&xt_statistic_match);
 }
 
 module_init(xt_statistic_init);
