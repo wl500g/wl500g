@@ -17,6 +17,17 @@ e713a21d8251a4c91772f592af46407dfb0b2e4f trivial: Fix dubious bitwise 'or' usage
 9155203a5de94278525647b16733f0c315f3b786 mm: use roundown_pow_of_two() in zone_batchsize()
 
 ---
+ include/linux/page-flags.h |    4 ++--
+ include/linux/writeback.h  |    2 +-
+ mm/filemap.c               |    9 +++++----
+ mm/internal.h              |    2 +-
+ mm/madvise.c               |    6 ++++--
+ mm/memory.c                |    9 +++++++--
+ mm/mempool.c               |    3 +++
+ mm/mmap.c                  |    4 ++++
+ mm/page-writeback.c        |   22 ++++++++++------------
+ mm/page_alloc.c            |   19 +++++++++++++++++--
+ 10 files changed, 54 insertions(+), 26 deletions(-)
 
 diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
 --- a/include/linux/page-flags.h
