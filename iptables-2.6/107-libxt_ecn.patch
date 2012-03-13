@@ -1,0 +1,432 @@
+extensions: add IPv6 capable ECN match extension
+
+diff -urNBp iptables/extensions/libipt_ecn.c iptables.ecn/extensions/libipt_ecn.c
+--- iptables/extensions/libipt_ecn.c	2009-04-06 15:09:17.000000000 +0400
++++ /dev/null
+@@ -1,160 +0,0 @@
+-/* Shared library add-on to iptables for ECN matching
+- *
+- * (C) 2002 by Harald Welte <laforge@gnumonks.org>
+- *
+- * This program is distributed under the terms of GNU GPL v2, 1991
+- *
+- * libipt_ecn.c borrowed heavily from libipt_dscp.c
+- *
+- */
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-#include <getopt.h>
+-
+-#include <xtables.h>
+-#include <linux/netfilter_ipv4/ipt_ecn.h>
+-
+-static void ecn_help(void)
+-{
+-	printf(
+-"ECN match options\n"
+-"[!] --ecn-tcp-cwr 		Match CWR bit of TCP header\n"
+-"[!] --ecn-tcp-ece		Match ECE bit of TCP header\n"
+-"[!] --ecn-ip-ect [0..3]	Match ECN codepoint in IPv4 header\n");
+-}
+-
+-static const struct option ecn_opts[] = {
+-	{ .name = "ecn-tcp-cwr", .has_arg = 0, .val = 'F' },
+-	{ .name = "ecn-tcp-ece", .has_arg = 0, .val = 'G' },
+-	{ .name = "ecn-ip-ect",  .has_arg = 1, .val = 'H' },
+-	{ .name = NULL }
+-};
+-
+-static int ecn_parse(int c, char **argv, int invert, unsigned int *flags,
+-                     const void *entry, struct xt_entry_match **match)
+-{
+-	unsigned int result;
+-	struct ipt_ecn_info *einfo
+-		= (struct ipt_ecn_info *)(*match)->data;
+-
+-	switch (c) {
+-	case 'F':
+-		if (*flags & IPT_ECN_OP_MATCH_CWR)
+-			xtables_error(PARAMETER_PROBLEM,
+-			           "ECN match: can only use parameter ONCE!");
+-		xtables_check_inverse(optarg, &invert, &optind, 0);
+-		einfo->operation |= IPT_ECN_OP_MATCH_CWR;
+-		if (invert)
+-			einfo->invert |= IPT_ECN_OP_MATCH_CWR;
+-		*flags |= IPT_ECN_OP_MATCH_CWR;
+-		break;
+-
+-	case 'G':
+-		if (*flags & IPT_ECN_OP_MATCH_ECE)
+-			xtables_error(PARAMETER_PROBLEM,
+-				   "ECN match: can only use parameter ONCE!");
+-		xtables_check_inverse(optarg, &invert, &optind, 0);
+-		einfo->operation |= IPT_ECN_OP_MATCH_ECE;
+-		if (invert)
+-			einfo->invert |= IPT_ECN_OP_MATCH_ECE;
+-		*flags |= IPT_ECN_OP_MATCH_ECE;
+-		break;
+-
+-	case 'H':
+-		if (*flags & IPT_ECN_OP_MATCH_IP)
+-			xtables_error(PARAMETER_PROBLEM,
+-				   "ECN match: can only use parameter ONCE!");
+-		xtables_check_inverse(optarg, &invert, &optind, 0);
+-		if (invert)
+-			einfo->invert |= IPT_ECN_OP_MATCH_IP;
+-		*flags |= IPT_ECN_OP_MATCH_IP;
+-		einfo->operation |= IPT_ECN_OP_MATCH_IP;
+-		if (!xtables_strtoui(optarg, NULL, &result, 0, 3))
+-			xtables_error(PARAMETER_PROBLEM,
+-				   "ECN match: Value out of range");
+-		einfo->ip_ect = result;
+-		break;
+-	default:
+-		return 0;
+-	}
+-
+-	return 1;
+-}
+-
+-static void ecn_check(unsigned int flags)
+-{
+-	if (!flags)
+-		xtables_error(PARAMETER_PROBLEM,
+-		           "ECN match: some option required");
+-}
+-
+-static void ecn_print(const void *ip, const struct xt_entry_match *match,
+-                      int numeric)
+-{
+-	const struct ipt_ecn_info *einfo =
+-		(const struct ipt_ecn_info *)match->data;
+-
+-	printf("ECN match ");
+-
+-	if (einfo->operation & IPT_ECN_OP_MATCH_ECE) {
+-		if (einfo->invert & IPT_ECN_OP_MATCH_ECE)
+-			fputc('!', stdout);
+-		printf("ECE ");
+-	}
+-
+-	if (einfo->operation & IPT_ECN_OP_MATCH_CWR) {
+-		if (einfo->invert & IPT_ECN_OP_MATCH_CWR)
+-			fputc('!', stdout);
+-		printf("CWR ");
+-	}
+-
+-	if (einfo->operation & IPT_ECN_OP_MATCH_IP) {
+-		if (einfo->invert & IPT_ECN_OP_MATCH_IP)
+-			fputc('!', stdout);
+-		printf("ECT=%d ", einfo->ip_ect);
+-	}
+-}
+-
+-static void ecn_save(const void *ip, const struct xt_entry_match *match)
+-{
+-	const struct ipt_ecn_info *einfo =
+-		(const struct ipt_ecn_info *)match->data;
+-	
+-	if (einfo->operation & IPT_ECN_OP_MATCH_ECE) {
+-		if (einfo->invert & IPT_ECN_OP_MATCH_ECE)
+-			printf("! ");
+-		printf("--ecn-tcp-ece ");
+-	}
+-
+-	if (einfo->operation & IPT_ECN_OP_MATCH_CWR) {
+-		if (einfo->invert & IPT_ECN_OP_MATCH_CWR)
+-			printf("! ");
+-		printf("--ecn-tcp-cwr ");
+-	}
+-
+-	if (einfo->operation & IPT_ECN_OP_MATCH_IP) {
+-		if (einfo->invert & IPT_ECN_OP_MATCH_IP)
+-			printf("! ");
+-		printf("--ecn-ip-ect %d", einfo->ip_ect);
+-	}
+-}
+-
+-static struct xtables_match ecn_mt_reg = {
+-    .name          = "ecn",
+-    .version       = XTABLES_VERSION,
+-    .family        = NFPROTO_IPV4,
+-    .size          = XT_ALIGN(sizeof(struct ipt_ecn_info)),
+-    .userspacesize = XT_ALIGN(sizeof(struct ipt_ecn_info)),
+-    .help          = ecn_help,
+-    .parse         = ecn_parse,
+-    .final_check   = ecn_check,
+-    .print         = ecn_print,
+-    .save          = ecn_save,
+-    .extra_opts    = ecn_opts,
+-};
+-
+-void _init(void)
+-{
+-	xtables_register_match(&ecn_mt_reg);
+-}
+diff -urNBp iptables/extensions/libipt_ecn.man iptables.ecn/extensions/libipt_ecn.man
+--- iptables/extensions/libipt_ecn.man	2009-04-06 15:09:17.000000000 +0400
++++ /dev/null
+@@ -1,11 +0,0 @@
+-This allows you to match the ECN bits of the IPv4 and TCP header.  ECN is the Explicit Congestion Notification mechanism as specified in RFC3168
+-.TP
+-[\fB!\fP] \fB\-\-ecn\-tcp\-cwr\fP
+-This matches if the TCP ECN CWR (Congestion Window Received) bit is set.
+-.TP
+-[\fB!\fP] \fB\-\-ecn\-tcp\-ece\fP
+-This matches if the TCP ECN ECE (ECN Echo) bit is set.
+-.TP
+-[\fB!\fP] \fB\-\-ecn\-ip\-ect\fP \fInum\fP
+-This matches a particular IPv4 ECT (ECN-Capable Transport). You have to specify
+-a number between `0' and `3'.
+diff -urNBp iptables/extensions/libxt_ecn.c iptables.ecn/extensions/libxt_ecn.c
+--- /dev/null
++++ iptables.ecn/extensions/libxt_ecn.c	2012-03-13 14:48:03.000000000 +0400
+@@ -0,0 +1,158 @@
++/* Shared library add-on to iptables for ECN matching
++ *
++ * (C) 2002 by Harald Welte <laforge@gnumonks.org>
++ *
++ * This program is distributed under the terms of GNU GPL v2, 1991
++ *
++ * libipt_ecn.c borrowed heavily from libipt_dscp.c
++ *
++ */
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <getopt.h>
++
++#include <xtables.h>
++#include <linux/netfilter/xt_ecn.h>
++
++static void ecn_help(void)
++{
++	printf(
++"ECN match options\n"
++"[!] --ecn-tcp-cwr 		Match CWR bit of TCP header\n"
++"[!] --ecn-tcp-ece		Match ECE bit of TCP header\n"
++"[!] --ecn-ip-ect [0..3]	Match ECN codepoint in IPv4/IPv6 header\n");
++}
++
++static const struct option ecn_opts[] = {
++	{ .name = "ecn-tcp-cwr", .has_arg = 0, .val = 'F' },
++	{ .name = "ecn-tcp-ece", .has_arg = 0, .val = 'G' },
++	{ .name = "ecn-ip-ect",  .has_arg = 1, .val = 'H' },
++	{ .name = NULL }
++};
++
++static int ecn_parse(int c, char **argv, int invert, unsigned int *flags,
++                     const void *entry, struct xt_entry_match **match)
++{
++	unsigned int result;
++	struct xt_ecn_info *einfo
++		= (struct xt_ecn_info *)(*match)->data;
++
++	switch (c) {
++	case 'F':
++		if (*flags & XT_ECN_OP_MATCH_CWR)
++			xtables_error(PARAMETER_PROBLEM,
++			           "ECN match: can only use parameter ONCE!");
++		xtables_check_inverse(optarg, &invert, &optind, 0);
++		einfo->operation |= XT_ECN_OP_MATCH_CWR;
++		if (invert)
++			einfo->invert |= XT_ECN_OP_MATCH_CWR;
++		*flags |= XT_ECN_OP_MATCH_CWR;
++		break;
++
++	case 'G':
++		if (*flags & XT_ECN_OP_MATCH_ECE)
++			xtables_error(PARAMETER_PROBLEM,
++				   "ECN match: can only use parameter ONCE!");
++		xtables_check_inverse(optarg, &invert, &optind, 0);
++		einfo->operation |= XT_ECN_OP_MATCH_ECE;
++		if (invert)
++			einfo->invert |= XT_ECN_OP_MATCH_ECE;
++		*flags |= XT_ECN_OP_MATCH_ECE;
++		break;
++
++	case 'H':
++		if (*flags & XT_ECN_OP_MATCH_IP)
++			xtables_error(PARAMETER_PROBLEM,
++				   "ECN match: can only use parameter ONCE!");
++		xtables_check_inverse(optarg, &invert, &optind, 0);
++		if (invert)
++			einfo->invert |= XT_ECN_OP_MATCH_IP;
++		*flags |= XT_ECN_OP_MATCH_IP;
++		einfo->operation |= XT_ECN_OP_MATCH_IP;
++		if (!xtables_strtoui(optarg, NULL, &result, 0, 3))
++			xtables_error(PARAMETER_PROBLEM,
++				   "ECN match: Value out of range");
++		einfo->ip_ect = result;
++		break;
++	default:
++		return 0;
++	}
++
++	return 1;
++}
++
++static void ecn_check(unsigned int flags)
++{
++	if (!flags)
++		xtables_error(PARAMETER_PROBLEM,
++		           "ECN match: some option required");
++}
++
++static void ecn_print(const void *ip, const struct xt_entry_match *match,
++                      int numeric)
++{
++	const struct xt_ecn_info *einfo =
++		(const struct xt_ecn_info *)match->data;
++
++	printf(" ECN match ");
++
++	if (einfo->operation & XT_ECN_OP_MATCH_ECE) {
++		printf(" %sECE",
++		       (einfo->invert & XT_ECN_OP_MATCH_ECE) ? "!" : "");
++	}
++
++	if (einfo->operation & XT_ECN_OP_MATCH_CWR) {
++		printf(" %sCWR",
++		       (einfo->invert & XT_ECN_OP_MATCH_CWR) ? "!" : "");
++	}
++
++	if (einfo->operation & XT_ECN_OP_MATCH_IP) {
++		printf(" %sECT=%d",
++		       (einfo->invert & XT_ECN_OP_MATCH_IP) ? "!" : "",
++		       einfo->ip_ect);
++	}
++}
++
++static void ecn_save(const void *ip, const struct xt_entry_match *match)
++{
++	const struct xt_ecn_info *einfo =
++		(const struct xt_ecn_info *)match->data;
++	
++	if (einfo->operation & XT_ECN_OP_MATCH_ECE) {
++		if (einfo->invert & XT_ECN_OP_MATCH_ECE)
++			printf("! ");
++		printf("--ecn-tcp-ece ");
++	}
++
++	if (einfo->operation & XT_ECN_OP_MATCH_CWR) {
++		if (einfo->invert & XT_ECN_OP_MATCH_CWR)
++			printf("! ");
++		printf("--ecn-tcp-cwr ");
++	}
++
++	if (einfo->operation & XT_ECN_OP_MATCH_IP) {
++		if (einfo->invert & XT_ECN_OP_MATCH_IP)
++			printf("! ");
++		printf("--ecn-ip-ect %d", einfo->ip_ect);
++	}
++}
++
++static struct xtables_match ecn_mt_reg = {
++    .name          = "ecn",
++    .version       = XTABLES_VERSION,
++    .family        = NFPROTO_UNSPEC,
++    .size          = XT_ALIGN(sizeof(struct xt_ecn_info)),
++    .userspacesize = XT_ALIGN(sizeof(struct xt_ecn_info)),
++    .help          = ecn_help,
++    .parse         = ecn_parse,
++    .final_check   = ecn_check,
++    .print         = ecn_print,
++    .save          = ecn_save,
++    .extra_opts    = ecn_opts,
++};
++
++void _init(void)
++{
++	xtables_register_match(&ecn_mt_reg);
++}
+diff -urNBp iptables/extensions/libxt_ecn.man iptables.ecn/extensions/libxt_ecn.man
+--- /dev/null
++++ iptables.ecn/extensions/libxt_ecn.man	2012-03-13 14:40:11.000000000 +0400
+@@ -0,0 +1,11 @@
++This allows you to match the ECN bits of the IPv4/IPv6 and TCP header.  ECN is the Explicit Congestion Notification mechanism as specified in RFC3168
++.TP
++[\fB!\fP] \fB\-\-ecn\-tcp\-cwr\fP
++This matches if the TCP ECN CWR (Congestion Window Received) bit is set.
++.TP
++[\fB!\fP] \fB\-\-ecn\-tcp\-ece\fP
++This matches if the TCP ECN ECE (ECN Echo) bit is set.
++.TP
++[\fB!\fP] \fB\-\-ecn\-ip\-ect\fP \fInum\fP
++This matches a particular IPv4/IPv6 ECT (ECN-Capable Transport). You have to specify
++a number between `0' and `3'.
+diff -urNBp iptables/include/linux/netfilter/xt_ecn.h iptables.ecn/include/linux/netfilter/xt_ecn.h
+--- /dev/null
++++ iptables.ecn/include/linux/netfilter/xt_ecn.h	2012-03-13 14:40:11.000000000 +0400
+@@ -0,0 +1,33 @@
++/* iptables module for matching the ECN header in IPv4 and TCP header
++ *
++ * (C) 2002 Harald Welte <laforge@netfilter.org>
++ *
++ * This software is distributed under GNU GPL v2, 1991
++*/
++#ifndef _XT_ECN_H
++#define _XT_ECN_H
++
++#include <linux/types.h>
++#include <linux/netfilter/xt_dscp.h>
++
++#define XT_ECN_IP_MASK	(~XT_DSCP_MASK)
++
++#define XT_ECN_OP_MATCH_IP	0x01
++#define XT_ECN_OP_MATCH_ECE	0x10
++#define XT_ECN_OP_MATCH_CWR	0x20
++
++#define XT_ECN_OP_MATCH_MASK	0xce
++
++/* match info */
++struct xt_ecn_info {
++	__u8 operation;
++	__u8 invert;
++	__u8 ip_ect;
++	union {
++		struct {
++			__u8 ect;
++		} tcp;
++	} proto;
++};
++
++#endif /* _XT_ECN_H */
+diff -urNBp iptables/include/linux/netfilter_ipv4/ipt_ecn.h iptables.ecn/include/linux/netfilter_ipv4/ipt_ecn.h
+--- iptables/include/linux/netfilter_ipv4/ipt_ecn.h	2009-04-06 15:09:17.000000000 +0400
++++ /dev/null
+@@ -1,33 +0,0 @@
+-/* iptables module for matching the ECN header in IPv4 and TCP header
+- *
+- * (C) 2002 Harald Welte <laforge@gnumonks.org>
+- *
+- * This software is distributed under GNU GPL v2, 1991
+- * 
+- * ipt_ecn.h,v 1.4 2002/08/05 19:39:00 laforge Exp
+-*/
+-#ifndef _IPT_ECN_H
+-#define _IPT_ECN_H
+-#include <linux/netfilter_ipv4/ipt_dscp.h>
+-
+-#define IPT_ECN_IP_MASK	(~IPT_DSCP_MASK)
+-
+-#define IPT_ECN_OP_MATCH_IP	0x01
+-#define IPT_ECN_OP_MATCH_ECE	0x10
+-#define IPT_ECN_OP_MATCH_CWR	0x20
+-
+-#define IPT_ECN_OP_MATCH_MASK	0xce
+-
+-/* match info */
+-struct ipt_ecn_info {
+-	u_int8_t operation;
+-	u_int8_t invert;
+-	u_int8_t ip_ect;
+-	union {
+-		struct {
+-			u_int8_t ect;
+-		} tcp;
+-	} proto;
+-};
+-
+-#endif /* _IPT_ECN_H */
