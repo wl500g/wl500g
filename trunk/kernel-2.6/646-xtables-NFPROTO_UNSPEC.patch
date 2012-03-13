@@ -1,0 +1,1530 @@
+netfilter: implement NFPROTO_UNSPEC as a wildcard for extensions
+
+ As result, list of netfilter names/targets/matches can be found in:
+
+ /proc/net/x_tables_names
+ /proc/net/x_tables_targets
+ /proc/net/x_tables_matches
+ /proc/net/ip_tables_names
+ /proc/net/ip_tables_targets
+ /proc/net/ip_tables_matches
+ /proc/net/ip6_tables_names
+ /proc/net/ip6_tables_targets
+ /proc/net/ip6_tables_matches
+
+ Requires iptables 1.4.2 or newer for user-space support.
+
+
+ 7e9c6eeb136a46dfd941852803b3a9dd78939b69 netfilter: Introduce NFPROTO_* constants
+ 55b69e91040c685a064198bd76e59885b7ad26c6 netfilter: implement NFPROTO_UNSPEC as a wildcard for extensions
+ 656caff20e12ba6e07b4bf342641df5ab33b4e49 netfilter 04/09: x_tables: fix match/target revision lookup
+
+---
+
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -47,6 +47,16 @@
+ #define NFC_ALTERED 0x8000
+ #endif
+ 
++enum {
++	NFPROTO_UNSPEC =  0,
++	NFPROTO_IPV4   =  2,
++	NFPROTO_ARP    =  3,
++	NFPROTO_BRIDGE =  7,
++	NFPROTO_IPV6   = 10,
++	NFPROTO_DECNET = 12,
++	NFPROTO_NUMPROTO,
++};
++
+ union nf_inet_addr {
+ 	__u32		all[4];
+ 	__be32		ip;
+@@ -152,7 +162,7 @@ extern struct ctl_table nf_net_netfilter
+ extern struct ctl_table nf_net_ipv4_netfilter_sysctl_path[];
+ #endif /* CONFIG_SYSCTL */
+ 
+-extern struct list_head nf_hooks[NPROTO][NF_MAX_HOOKS];
++extern struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+ 
+ /* those NF_LOG_* defines and struct nf_loginfo are legacy definitios that will
+  * disappear once iptables is replaced with pkttables.  Please DO NOT use them
+@@ -349,8 +359,8 @@ struct nf_afinfo {
+ 	int		route_key_size;
+ };
+ 
+-extern struct nf_afinfo *nf_afinfo[];
+-static inline struct nf_afinfo *nf_get_afinfo(unsigned short family)
++extern const struct nf_afinfo *nf_afinfo[NFPROTO_NUMPROTO];
++static inline const struct nf_afinfo *nf_get_afinfo(unsigned short family)
+ {
+ 	return rcu_dereference(nf_afinfo[family]);
+ }
+@@ -359,7 +369,7 @@ static inline __sum16
+ nf_checksum(struct sk_buff *skb, unsigned int hook, unsigned int dataoff,
+ 	    u_int8_t protocol, unsigned short family)
+ {
+-	struct nf_afinfo *afinfo;
++	const struct nf_afinfo *afinfo;
+ 	__sum16 csum = 0;
+ 
+ 	rcu_read_lock();
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -30,7 +30,7 @@ extern bcmNatHitHook bcm_nat_hit_hook;
+ 
+ static DEFINE_MUTEX(afinfo_mutex);
+ 
+-struct nf_afinfo *nf_afinfo[NPROTO] __read_mostly;
++const struct nf_afinfo *nf_afinfo[NFPROTO_NUMPROTO] __read_mostly;
+ EXPORT_SYMBOL(nf_afinfo);
+ 
+ int nf_register_afinfo(struct nf_afinfo *afinfo)
+@@ -60,7 +60,7 @@ EXPORT_SYMBOL_GPL(nf_unregister_afinfo);
+  * of skbuffs queued for userspace, and not deregister a hook unless
+  * this is zero, but that sucks.  Now, we simply check when the
+  * packets come back: if the hook is gone, the packet is discarded. */
+-struct list_head nf_hooks[NPROTO][NF_MAX_HOOKS] __read_mostly;
++struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS] __read_mostly;
+ EXPORT_SYMBOL(nf_hooks);
+ static DEFINE_MUTEX(nf_hook_mutex);
+ 
+@@ -307,7 +307,7 @@ EXPORT_SYMBOL(proc_net_netfilter);
+ void __init netfilter_init(void)
+ {
+ 	int i, h;
+-	for (i = 0; i < NPROTO; i++) {
++	for (i = 0; i < ARRAY_SIZE(nf_hooks); i++) {
+ 		for (h = 0; h < NF_MAX_HOOKS; h++)
+ 			INIT_LIST_HEAD(&nf_hooks[i][h]);
+ 	}
+diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+--- a/net/netfilter/nf_conntrack_h323_main.c
++++ b/net/netfilter/nf_conntrack_h323_main.c
+@@ -725,7 +725,7 @@ static int callforward_do_filter(union n
+ 				 union nf_inet_addr *dst,
+ 				 int family)
+ {
+-	struct nf_afinfo *afinfo;
++	const struct nf_afinfo *afinfo;
+ 	struct flowi fl1, fl2;
+ 	int ret = 0;
+ 
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -14,7 +14,7 @@
+ 
+ #define NF_LOG_PREFIXLEN		128
+ 
+-static struct nf_logger *nf_loggers[NPROTO];
++static const struct nf_logger *nf_loggers[NFPROTO_NUMPROTO] __read_mostly;
+ static DEFINE_MUTEX(nf_log_mutex);
+ 
+ /* return EBUSY if somebody else is registered, EEXIST if the same logger
+@@ -23,7 +23,7 @@ int nf_log_register(int pf, struct nf_lo
+ {
+ 	int ret;
+ 
+-	if (pf >= NPROTO)
++	if (pf >= ARRAY_SIZE(nf_loggers))
+ 		return -EINVAL;
+ 
+ 	/* Any setup of logging members must be done before
+@@ -46,7 +46,7 @@ EXPORT_SYMBOL(nf_log_register);
+ 
+ void nf_log_unregister_pf(int pf)
+ {
+-	if (pf >= NPROTO)
++	if (pf >= ARRAY_SIZE(nf_loggers))
+ 		return;
+ 	mutex_lock(&nf_log_mutex);
+ 	rcu_assign_pointer(nf_loggers[pf], NULL);
+@@ -62,7 +62,7 @@ void nf_log_unregister(struct nf_logger
+ 	int i;
+ 
+ 	mutex_lock(&nf_log_mutex);
+-	for (i = 0; i < NPROTO; i++) {
++	for (i = 0; i < ARRAY_SIZE(nf_loggers); i++) {
+ 		if (nf_loggers[i] == logger)
+ 			rcu_assign_pointer(nf_loggers[i], NULL);
+ 	}
+@@ -82,7 +82,7 @@ void nf_log_packet(int pf,
+ {
+ 	va_list args;
+ 	char prefix[NF_LOG_PREFIXLEN];
+-	struct nf_logger *logger;
++	const struct nf_logger *logger;
+ 
+ 	rcu_read_lock();
+ 	logger = rcu_dereference(nf_loggers[pf]);
+@@ -106,7 +106,7 @@ static void *seq_start(struct seq_file *
+ {
+ 	rcu_read_lock();
+ 
+-	if (*pos >= NPROTO)
++	if (*pos >= ARRAY_SIZE(nf_loggers))
+ 		return NULL;
+ 
+ 	return pos;
+@@ -116,7 +116,7 @@ static void *seq_next(struct seq_file *s
+ {
+ 	(*pos)++;
+ 
+-	if (*pos >= NPROTO)
++	if (*pos >= ARRAY_SIZE(nf_loggers))
+ 		return NULL;
+ 
+ 	return pos;
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -15,7 +15,7 @@
+  * long term mutex.  The handler must provide an an outfn() to accept packets
+  * for queueing and must reinject all packets it receives, no matter what.
+  */
+-static struct nf_queue_handler *queue_handler[NPROTO];
++static const struct nf_queue_handler *queue_handler[NFPROTO_NUMPROTO] __read_mostly;
+ 
+ static DEFINE_RWLOCK(queue_handler_lock);
+ 
+@@ -25,7 +25,7 @@ int nf_register_queue_handler(int pf, st
+ {
+ 	int ret;
+ 
+-	if (pf >= NPROTO)
++	if (pf >= ARRAY_SIZE(queue_handler))
+ 		return -EINVAL;
+ 
+ 	write_lock_bh(&queue_handler_lock);
+@@ -46,7 +46,7 @@ EXPORT_SYMBOL(nf_register_queue_handler)
+ /* The caller must flush their queue before this */
+ int nf_unregister_queue_handler(int pf)
+ {
+-	if (pf >= NPROTO)
++	if (pf >= ARRAY_SIZE(queue_handler))
+ 		return -EINVAL;
+ 
+ 	write_lock_bh(&queue_handler_lock);
+@@ -62,7 +62,7 @@ void nf_unregister_queue_handlers(struct
+ 	int pf;
+ 
+ 	write_lock_bh(&queue_handler_lock);
+-	for (pf = 0; pf < NPROTO; pf++)  {
++	for (pf = 0; pf < ARRAY_SIZE(queue_handler); pf++)  {
+ 		if (queue_handler[pf] == qh)
+ 			queue_handler[pf] = NULL;
+ 	}
+@@ -88,7 +88,7 @@ static int __nf_queue(struct sk_buff *sk
+ 	struct net_device *physindev = NULL;
+ 	struct net_device *physoutdev = NULL;
+ #endif
+-	struct nf_afinfo *afinfo;
++	const struct nf_afinfo *afinfo;
+ 
+ 	/* QUEUE == DROP if noone is waiting, to be safe. */
+ 	read_lock(&queue_handler_lock);
+@@ -206,7 +206,7 @@ void nf_reinject(struct sk_buff *skb, st
+ {
+ 	struct list_head *elem = &info->elem->list;
+ 	struct list_head *i;
+-	struct nf_afinfo *afinfo;
++	const struct nf_afinfo *afinfo;
+ 
+ 	rcu_read_lock();
+ 
+@@ -281,7 +281,7 @@ EXPORT_SYMBOL(nf_reinject);
+ #ifdef CONFIG_PROC_FS
+ static void *seq_start(struct seq_file *seq, loff_t *pos)
+ {
+-	if (*pos >= NPROTO)
++	if (*pos >= ARRAY_SIZE(queue_handler))
+ 		return NULL;
+ 
+ 	return pos;
+@@ -291,7 +291,7 @@ static void *seq_next(struct seq_file *s
+ {
+ 	(*pos)++;
+ 
+-	if (*pos >= NPROTO)
++	if (*pos >= ARRAY_SIZE(queue_handler))
+ 		return NULL;
+ 
+ 	return pos;
+@@ -306,7 +306,7 @@ static int seq_show(struct seq_file *s,
+ {
+ 	int ret;
+ 	loff_t *pos = v;
+-	struct nf_queue_handler *qh;
++	const struct nf_queue_handler *qh;
+ 
+ 	read_lock_bh(&queue_handler_lock);
+ 	qh = queue_handler[*pos];
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -55,10 +55,12 @@ enum {
+ 	MATCH,
+ };
+ 
+-static const char *xt_prefix[NPROTO] = {
+-	[AF_INET]	= "ip",
+-	[AF_INET6]	= "ip6",
+-	[NF_ARP]	= "arp",
++static const char *const xt_prefix[NFPROTO_NUMPROTO] = {
++	[NFPROTO_UNSPEC] = "x",
++	[NFPROTO_IPV4]   = "ip",
++	[NFPROTO_ARP]    = "arp",
++	[NFPROTO_BRIDGE] = "eb",
++	[NFPROTO_IPV6]   = "ip6",
+ };
+ 
+ /* Registration hooks for targets. */
+@@ -202,6 +204,11 @@ struct xt_match *xt_find_match(int af, c
+ 		}
+ 	}
+ 	mutex_unlock(&xt[af].mutex);
++
++	if (af != NFPROTO_UNSPEC)
++		/* Try searching again in the family-independent list */
++		return xt_find_match(NFPROTO_UNSPEC, name, revision);
++
+ 	return ERR_PTR(err);
+ }
+ EXPORT_SYMBOL(xt_find_match);
+@@ -227,6 +234,11 @@ struct xt_target *xt_find_target(int af,
+ 		}
+ 	}
+ 	mutex_unlock(&xt[af].mutex);
++
++	if (af != NFPROTO_UNSPEC)
++		/* Try searching again in the family-independent list */
++		return xt_find_target(NFPROTO_UNSPEC, name, revision);
++
+ 	return ERR_PTR(err);
+ }
+ EXPORT_SYMBOL(xt_find_target);
+@@ -256,6 +268,10 @@ static int match_revfn(int af, const cha
+ 				have_rev = 1;
+ 		}
+ 	}
++
++	if (af != NFPROTO_UNSPEC && !have_rev)
++		return match_revfn(NFPROTO_UNSPEC, name, revision, bestp);
++
+ 	return have_rev;
+ }
+ 
+@@ -272,6 +288,10 @@ static int target_revfn(int af, const ch
+ 				have_rev = 1;
+ 		}
+ 	}
++
++	if (af != NFPROTO_UNSPEC && !have_rev)
++		return target_revfn(NFPROTO_UNSPEC, name, revision, bestp);
++
+ 	return have_rev;
+ }
+ 
+@@ -799,7 +819,7 @@ int xt_proto_init(int af)
+ 	struct proc_dir_entry *proc;
+ #endif
+ 
+-	if (af >= NPROTO)
++	if (af >= ARRAY_SIZE(xt_prefix))
+ 		return -EINVAL;
+ 
+ 
+@@ -876,11 +896,11 @@ static int __init xt_init(void)
+ 		lock->readers = 0;
+ 	}
+ 
+-	xt = kmalloc(sizeof(struct xt_af) * NPROTO, GFP_KERNEL);
++	xt = kmalloc(sizeof(struct xt_af) * NFPROTO_NUMPROTO, GFP_KERNEL);
+ 	if (!xt)
+ 		return -ENOMEM;
+ 
+-	for (i = 0; i < NPROTO; i++) {
++	for (i = 0; i < NFPROTO_NUMPROTO; i++) {
+ 		mutex_init(&xt[i].mutex);
+ #ifdef CONFIG_COMPAT
+ 		mutex_init(&xt[i].compat_mutex);
+@@ -889,11 +909,13 @@ static int __init xt_init(void)
+ 		INIT_LIST_HEAD(&xt[i].match);
+ 		INIT_LIST_HEAD(&xt[i].tables);
+ 	}
++	xt_proto_init(NFPROTO_UNSPEC);
+ 	return 0;
+ }
+ 
+ static void __exit xt_fini(void)
+ {
++	xt_proto_fini(NFPROTO_UNSPEC);
+ 	kfree(xt);
+ }
+ 
+diff --git a/net/netfilter/xt_addrtype.c b/net/netfilter/xt_addrtype.c
+--- a/net/netfilter/xt_addrtype.c
++++ b/net/netfilter/xt_addrtype.c
+@@ -210,16 +210,7 @@ static struct xt_match addrtype_mt_reg[]
+ 	},
+ 	{
+ 		.name		= "addrtype",
+-		.family		= AF_INET,
+-		.revision	= 1,
+-		.match		= addrtype_mt_v1,
+-		.checkentry	= addrtype_mt_checkentry_v1,
+-		.matchsize	= sizeof(struct xt_addrtype_info_v1),
+-		.me		= THIS_MODULE
+-	},
+-	{
+-		.name		= "addrtype",
+-		.family		= AF_INET6,
++		.family		= NFPROTO_UNSPEC,
+ 		.revision	= 1,
+ 		.match		= addrtype_mt_v1,
+ 		.checkentry	= addrtype_mt_checkentry_v1,
+diff --git a/net/netfilter/xt_CLASSIFY.c b/net/netfilter/xt_CLASSIFY.c
+--- a/net/netfilter/xt_CLASSIFY.c
++++ b/net/netfilter/xt_CLASSIFY.c
+@@ -39,41 +39,26 @@ target(struct sk_buff *skb,
+ 	return XT_CONTINUE;
+ }
+ 
+-static struct xt_target xt_classify_target[] __read_mostly = {
+-	{
+-		.family		= AF_INET,
+-		.name 		= "CLASSIFY",
+-		.target 	= target,
+-		.targetsize	= sizeof(struct xt_classify_target_info),
+-		.table		= "mangle",
+-		.hooks		= (1 << NF_IP_LOCAL_OUT) |
+-				  (1 << NF_IP_FORWARD) |
+-				  (1 << NF_IP_POST_ROUTING),
+-		.me 		= THIS_MODULE,
+-	},
+-	{
+-		.name 		= "CLASSIFY",
+-		.family		= AF_INET6,
+-		.target 	= target,
+-		.targetsize	= sizeof(struct xt_classify_target_info),
+-		.table		= "mangle",
+-		.hooks		= (1 << NF_IP6_LOCAL_OUT) |
+-				  (1 << NF_IP6_FORWARD) |
+-				  (1 << NF_IP6_POST_ROUTING),
+-		.me 		= THIS_MODULE,
+-	},
++static struct xt_target xt_classify_target __read_mostly = {
++	.name 		= "CLASSIFY",
++	.revision   = 0,
++	.family		= NFPROTO_UNSPEC,
++	.table		= "mangle",
++	.hooks		= (1 << NF_IP_LOCAL_OUT) | (1 << NF_IP_FORWARD) |
++			  (1 << NF_IP_POST_ROUTING),
++	.target 	= target,
++	.targetsize	= sizeof(struct xt_classify_target_info),
++	.me 		= THIS_MODULE,
+ };
+ 
+ static int __init xt_classify_init(void)
+ {
+-	return xt_register_targets(xt_classify_target,
+-				   ARRAY_SIZE(xt_classify_target));
++	return xt_register_target(&xt_classify_target);
+ }
+ 
+ static void __exit xt_classify_fini(void)
+ {
+-	xt_unregister_targets(xt_classify_target,
+-			      ARRAY_SIZE(xt_classify_target));
++	xt_unregister_target(&xt_classify_target);
+ }
+ 
+ module_init(xt_classify_init);
+diff --git a/net/netfilter/xt_comment.c b/net/netfilter/xt_comment.c
+--- a/net/netfilter/xt_comment.c
++++ b/net/netfilter/xt_comment.c
+@@ -29,32 +29,23 @@ match(const struct sk_buff *skb,
+ 	return 1;
+ }
+ 
+-static struct xt_match xt_comment_match[] __read_mostly = {
+-	{
+-		.name		= "comment",
+-		.family		= AF_INET,
+-		.match		= match,
+-		.matchsize	= sizeof(struct xt_comment_info),
+-		.me		= THIS_MODULE
+-	},
+-	{
+-		.name		= "comment",
+-		.family		= AF_INET6,
+-		.match		= match,
+-		.matchsize	= sizeof(struct xt_comment_info),
+-		.me		= THIS_MODULE
+-	},
++static struct xt_match xt_comment_match __read_mostly = {
++	.name		= "comment",
++	.revision   = 0,
++	.family		= AF_INET,
++	.match		= match,
++	.matchsize	= sizeof(struct xt_comment_info),
++	.me		= THIS_MODULE
+ };
+ 
+ static int __init xt_comment_init(void)
+ {
+-	return xt_register_matches(xt_comment_match,
+-				   ARRAY_SIZE(xt_comment_match));
++	return xt_register_match(&xt_comment_match);
+ }
+ 
+ static void __exit xt_comment_fini(void)
+ {
+-	xt_unregister_matches(xt_comment_match, ARRAY_SIZE(xt_comment_match));
++	xt_unregister_match(&xt_comment_match);
+ }
+ 
+ module_init(xt_comment_init);
+diff --git a/net/netfilter/xt_connbytes.c b/net/netfilter/xt_connbytes.c
+--- a/net/netfilter/xt_connbytes.c
++++ b/net/netfilter/xt_connbytes.c
+@@ -128,37 +128,25 @@ destroy(const struct xt_match *match, vo
+ 	nf_ct_l3proto_module_put(match->family);
+ }
+ 
+-static struct xt_match xt_connbytes_match[] __read_mostly = {
+-	{
+-		.name		= "connbytes",
+-		.family		= AF_INET,
+-		.checkentry	= check,
+-		.match		= match,
+-		.destroy	= destroy,
+-		.matchsize	= sizeof(struct xt_connbytes_info),
+-		.me		= THIS_MODULE
+-	},
+-	{
+-		.name		= "connbytes",
+-		.family		= AF_INET6,
+-		.checkentry	= check,
+-		.match		= match,
+-		.destroy	= destroy,
+-		.matchsize	= sizeof(struct xt_connbytes_info),
+-		.me		= THIS_MODULE
+-	},
++static struct xt_match xt_connbytes_match __read_mostly = {
++	.name		= "connbytes",
++	.revision   = 0,
++	.family		= NFPROTO_UNSPEC,
++	.checkentry	= check,
++	.match		= match,
++	.destroy	= destroy,
++	.matchsize	= sizeof(struct xt_connbytes_info),
++	.me		= THIS_MODULE
+ };
+ 
+ static int __init xt_connbytes_init(void)
+ {
+-	return xt_register_matches(xt_connbytes_match,
+-				   ARRAY_SIZE(xt_connbytes_match));
++	return xt_register_match(&xt_connbytes_match);
+ }
+ 
+ static void __exit xt_connbytes_fini(void)
+ {
+-	xt_unregister_matches(xt_connbytes_match,
+-			      ARRAY_SIZE(xt_connbytes_match));
++	xt_unregister_match(&xt_connbytes_match);
+ }
+ 
+ module_init(xt_connbytes_init);
+diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
+--- a/net/netfilter/xt_connlimit.c
++++ b/net/netfilter/xt_connlimit.c
+@@ -276,38 +276,25 @@ connlimit_mt_destroy(const struct xt_mat
+ 	kfree(info->data);
+ }
+ 
+-static struct xt_match connlimit_mt_reg[] __read_mostly = {
+-	{
+-		.name       = "connlimit",
+-		.revision   = 1,
+-		.family     = AF_INET,
+-		.checkentry = connlimit_mt_check,
+-		.match      = connlimit_mt,
+-		.matchsize  = sizeof(struct xt_connlimit_info),
+-		.destroy    = connlimit_mt_destroy,
+-		.me         = THIS_MODULE,
+-	},
+-	{
+-		.name       = "connlimit",
+-		.revision   = 1,
+-		.family     = AF_INET6,
+-		.checkentry = connlimit_mt_check,
+-		.match      = connlimit_mt,
+-		.matchsize  = sizeof(struct xt_connlimit_info),
+-		.destroy    = connlimit_mt_destroy,
+-		.me         = THIS_MODULE,
+-	},
++static struct xt_match connlimit_mt_reg __read_mostly = {
++	.name       = "connlimit",
++	.revision   = 1,
++	.family     = NFPROTO_UNSPEC,
++	.checkentry = connlimit_mt_check,
++	.match      = connlimit_mt,
++	.matchsize  = sizeof(struct xt_connlimit_info),
++	.destroy    = connlimit_mt_destroy,
++	.me         = THIS_MODULE,
+ };
+ 
+ static int __init connlimit_mt_init(void)
+ {
+-	return xt_register_matches(connlimit_mt_reg,
+-	       ARRAY_SIZE(connlimit_mt_reg));
++	return xt_register_match(&connlimit_mt_reg);
+ }
+ 
+ static void __exit connlimit_mt_exit(void)
+ {
+-	xt_unregister_matches(connlimit_mt_reg, ARRAY_SIZE(connlimit_mt_reg));
++	xt_unregister_match(&connlimit_mt_reg);
+ }
+ 
+ module_init(connlimit_mt_init);
+diff --git a/net/netfilter/xt_connmark.c b/net/netfilter/xt_connmark.c
+--- a/net/netfilter/xt_connmark.c
++++ b/net/netfilter/xt_connmark.c
+@@ -134,62 +134,38 @@ destroy(const struct xt_match *match, vo
+ 	nf_ct_l3proto_module_put(match->family);
+ }
+ 
+-static struct xt_target connmark_tg_reg[] __read_mostly = {
+-	{
+-		.name           = "CONNMARK",
+-		.revision       = 1,
+-		.family         = AF_INET,
+-		.checkentry     = connmark_tg_check,
+-		.target         = connmark_tg,
+-		.targetsize     = sizeof(struct xt_connmark_tginfo1),
+-		.destroy        = connmark_tg_destroy,
+-		.me             = THIS_MODULE,
+-	},
+-	{
+-		.name           = "CONNMARK",
+-		.revision       = 1,
+-		.family         = AF_INET6,
+-		.checkentry     = connmark_tg_check,
+-		.target         = connmark_tg,
+-		.targetsize     = sizeof(struct xt_connmark_tginfo1),
+-		.destroy        = connmark_tg_destroy,
+-		.me             = THIS_MODULE,
+-	},
++static struct xt_target connmark_tg_reg __read_mostly = {
++	.name           = "CONNMARK",
++	.revision       = 1,
++	.family         = NFPROTO_UNSPEC,
++	.checkentry     = connmark_tg_check,
++	.target         = connmark_tg,
++	.targetsize     = sizeof(struct xt_connmark_tginfo1),
++	.destroy        = connmark_tg_destroy,
++	.me             = THIS_MODULE,
+ };
+ 
+-static struct xt_match xt_connmark_match[] __read_mostly = {
+-	{
+-		.name           = "connmark",
+-		.revision       = 1,
+-		.family         = AF_INET,
+-		.checkentry     = connmark_mt_check,
+-		.match          = connmark_mt,
+-		.matchsize      = sizeof(struct xt_connmark_mtinfo1),
+-		.destroy        = destroy,
+-		.me             = THIS_MODULE,
+-	},
+-	{
+-		.name           = "connmark",
+-		.revision       = 1,
+-		.family         = AF_INET6,
+-		.checkentry     = connmark_mt_check,
+-		.match          = connmark_mt,
+-		.matchsize      = sizeof(struct xt_connmark_mtinfo1),
+-		.destroy        = destroy,
+-		.me             = THIS_MODULE,
+-	},
++static struct xt_match xt_connmark_match __read_mostly = {
++	.name           = "connmark",
++	.revision       = 1,
++	.family         = NFPROTO_UNSPEC,
++	.checkentry     = connmark_mt_check,
++	.match          = connmark_mt,
++	.matchsize      = sizeof(struct xt_connmark_mtinfo1),
++	.destroy        = destroy,
++	.me             = THIS_MODULE,
+ };
+ 
+ static int __init xt_connmark_init(void)
+ {
+ 	int ret;
+ 
+-	ret = xt_register_targets(connmark_tg_reg, ARRAY_SIZE(connmark_tg_reg));
++	ret = xt_register_target(&connmark_tg_reg);
+ 	if (ret < 0)
+ 		return ret;
+-	ret = xt_register_matches(xt_connmark_match, ARRAY_SIZE(xt_connmark_match));
++	ret = xt_register_match(&xt_connmark_match);
+ 	if (ret < 0) {
+-		xt_unregister_targets(connmark_tg_reg, ARRAY_SIZE(connmark_tg_reg));
++		xt_unregister_target(&connmark_tg_reg);
+ 		return ret;
+ 	}
+ 	return 0;
+@@ -197,8 +173,8 @@ static int __init xt_connmark_init(void)
+ 
+ static void __exit xt_connmark_fini(void)
+ {
+-	xt_unregister_matches(xt_connmark_match, ARRAY_SIZE(xt_connmark_match));
+-	xt_unregister_targets(connmark_tg_reg, ARRAY_SIZE(connmark_tg_reg));
++	xt_unregister_match(&xt_connmark_match);
++	xt_unregister_target(&connmark_tg_reg);
+ }
+ 
+ module_init(xt_connmark_init);
+diff --git a/net/netfilter/xt_CONNSECMARK.c b/net/netfilter/xt_CONNSECMARK.c
+--- a/net/netfilter/xt_CONNSECMARK.c
++++ b/net/netfilter/xt_CONNSECMARK.c
+@@ -114,39 +114,25 @@ destroy(const struct xt_target *target,
+ 	nf_ct_l3proto_module_put(target->family);
+ }
+ 
+-static struct xt_target xt_connsecmark_target[] __read_mostly = {
+-	{
+-		.name		= "CONNSECMARK",
+-		.family		= AF_INET,
+-		.checkentry	= checkentry,
+-		.destroy	= destroy,
+-		.target		= target,
+-		.targetsize	= sizeof(struct xt_connsecmark_target_info),
+-		.table		= "mangle",
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "CONNSECMARK",
+-		.family		= AF_INET6,
+-		.checkentry	= checkentry,
+-		.destroy	= destroy,
+-		.target		= target,
+-		.targetsize	= sizeof(struct xt_connsecmark_target_info),
+-		.table		= "mangle",
+-		.me		= THIS_MODULE,
+-	},
++static struct xt_target xt_connsecmark_target __read_mostly = {
++	.name		= "CONNSECMARK",
++	.family		= NFPROTO_UNSPEC,
++	.checkentry	= checkentry,
++	.destroy	= destroy,
++	.target		= target,
++	.targetsize	= sizeof(struct xt_connsecmark_target_info),
++	.table		= "mangle",
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init xt_connsecmark_init(void)
+ {
+-	return xt_register_targets(xt_connsecmark_target,
+-				   ARRAY_SIZE(xt_connsecmark_target));
++	return xt_register_target(&xt_connsecmark_target);
+ }
+ 
+ static void __exit xt_connsecmark_fini(void)
+ {
+-	xt_unregister_targets(xt_connsecmark_target,
+-			      ARRAY_SIZE(xt_connsecmark_target));
++	xt_unregister_target(&xt_connsecmark_target);
+ }
+ 
+ module_init(xt_connsecmark_init);
+diff --git a/net/netfilter/xt_helper.c b/net/netfilter/xt_helper.c
+--- a/net/netfilter/xt_helper.c
++++ b/net/netfilter/xt_helper.c
+@@ -99,36 +99,25 @@ destroy(const struct xt_match *match, vo
+ 	nf_ct_l3proto_module_put(match->family);
+ }
+ 
+-static struct xt_match xt_helper_match[] __read_mostly = {
+-	{
+-		.name		= "helper",
+-		.family		= AF_INET,
+-		.checkentry	= check,
+-		.match		= match,
+-		.destroy	= destroy,
+-		.matchsize	= sizeof(struct xt_helper_info),
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "helper",
+-		.family		= AF_INET6,
+-		.checkentry	= check,
+-		.match		= match,
+-		.destroy	= destroy,
+-		.matchsize	= sizeof(struct xt_helper_info),
+-		.me		= THIS_MODULE,
+-	},
++static struct xt_match xt_helper_match __read_mostly = {
++	.name		= "helper",
++	.revision   = 0,
++	.family		= NFPROTO_UNSPEC,
++	.checkentry	= check,
++	.match		= match,
++	.destroy	= destroy,
++	.matchsize	= sizeof(struct xt_helper_info),
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init xt_helper_init(void)
+ {
+-	return xt_register_matches(xt_helper_match,
+-				   ARRAY_SIZE(xt_helper_match));
++	return xt_register_match(&xt_helper_match);
+ }
+ 
+ static void __exit xt_helper_fini(void)
+ {
+-	xt_unregister_matches(xt_helper_match, ARRAY_SIZE(xt_helper_match));
++	xt_unregister_match(&xt_helper_match);
+ }
+ 
+ module_init(xt_helper_init);
+diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
+--- a/net/netfilter/xt_limit.c
++++ b/net/netfilter/xt_limit.c
+@@ -190,40 +190,30 @@ static int compat_to_user(void __user *d
+ }
+ #endif /* CONFIG_COMPAT */
+ 
+-static struct xt_match xt_limit_match[] __read_mostly = {
+-	{
+-		.name		= "limit",
+-		.family		= AF_INET,
+-		.checkentry	= ipt_limit_checkentry,
+-		.match		= ipt_limit_match,
+-		.destroy	= limit_mt_destroy,
+-		.matchsize	= sizeof(struct xt_rateinfo),
++static struct xt_match xt_limit_match __read_mostly = {
++	.name             = "limit",
++	.revision         = 0,
++	.family           = NFPROTO_UNSPEC,
++	.checkentry       = ipt_limit_checkentry,
++	.match            = ipt_limit_match,
++	.destroy          = limit_mt_destroy,
++	.matchsize        = sizeof(struct xt_rateinfo),
+ #ifdef CONFIG_COMPAT
+-		.compatsize	= sizeof(struct compat_xt_rateinfo),
+-		.compat_from_user = compat_from_user,
+-		.compat_to_user	= compat_to_user,
++	.compatsize       = sizeof(struct compat_xt_rateinfo),
++	.compat_from_user = compat_from_user,
++	.compat_to_user   = compat_to_user,
+ #endif
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "limit",
+-		.family		= AF_INET6,
+-		.checkentry	= ipt_limit_checkentry,
+-		.match		= ipt_limit_match,
+-		.destroy	= limit_mt_destroy,
+-		.matchsize	= sizeof(struct xt_rateinfo),
+-		.me		= THIS_MODULE,
+-	},
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init xt_limit_init(void)
+ {
+-	return xt_register_matches(xt_limit_match, ARRAY_SIZE(xt_limit_match));
++	return xt_register_match(&xt_limit_match);
+ }
+ 
+ static void __exit xt_limit_fini(void)
+ {
+-	xt_unregister_matches(xt_limit_match, ARRAY_SIZE(xt_limit_match));
++	xt_unregister_match(&xt_limit_match);
+ }
+ 
+ module_init(xt_limit_init);
+diff --git a/net/netfilter/xt_mac.c b/net/netfilter/xt_mac.c
+--- a/net/netfilter/xt_mac.c
++++ b/net/netfilter/xt_mac.c
+@@ -44,37 +44,26 @@ match(const struct sk_buff *skb,
+ 		^ info->invert));
+ }
+ 
+-static struct xt_match xt_mac_match[] __read_mostly = {
+-	{
+-		.name		= "mac",
+-		.family		= AF_INET,
+-		.match		= match,
+-		.matchsize	= sizeof(struct xt_mac_info),
+-		.hooks		= (1 << NF_IP_PRE_ROUTING) |
+-				  (1 << NF_IP_LOCAL_IN) |
+-				  (1 << NF_IP_FORWARD),
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "mac",
+-		.family		= AF_INET6,
+-		.match		= match,
+-		.matchsize	= sizeof(struct xt_mac_info),
+-		.hooks		= (1 << NF_IP6_PRE_ROUTING) |
+-				  (1 << NF_IP6_LOCAL_IN) |
+-				  (1 << NF_IP6_FORWARD),
+-		.me		= THIS_MODULE,
+-	},
++static struct xt_match xt_mac_match __read_mostly = {
++	.name		= "mac",
++	.revision   = 0,
++	.family		= NFPROTO_UNSPEC,
++	.match		= match,
++	.matchsize	= sizeof(struct xt_mac_info),
++	.hooks		= (1 << NF_IP_PRE_ROUTING) |
++			  (1 << NF_IP_LOCAL_IN) |
++			  (1 << NF_IP_FORWARD),
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init xt_mac_init(void)
+ {
+-	return xt_register_matches(xt_mac_match, ARRAY_SIZE(xt_mac_match));
++	return xt_register_match(&xt_mac_match);
+ }
+ 
+ static void __exit xt_mac_fini(void)
+ {
+-	xt_unregister_matches(xt_mac_match, ARRAY_SIZE(xt_mac_match));
++	xt_unregister_match(&xt_mac_match);
+ }
+ 
+ module_init(xt_mac_init);
+diff --git a/net/netfilter/xt_mark.c b/net/netfilter/xt_mark.c
+--- a/net/netfilter/xt_mark.c
++++ b/net/netfilter/xt_mark.c
+@@ -45,54 +45,34 @@ mark_mt(const struct sk_buff *skb, const
+ 	return ((skb->mark & info->mask) == info->mark) ^ info->invert;
+ }
+ 
+-static struct xt_target mark_tg_reg[] __read_mostly = {
+-	{
+-		.name           = "MARK",
+-		.revision       = 2,
+-		.family         = AF_INET,
+-		.target         = mark_tg,
+-		.targetsize     = sizeof(struct xt_mark_tginfo2),
+-		.me             = THIS_MODULE,
+-	},
+-	{
+-		.name           = "MARK",
+-		.revision       = 2,
+-		.family         = AF_INET6,
+-		.target         = mark_tg,
+-		.targetsize     = sizeof(struct xt_mark_tginfo2),
+-		.me             = THIS_MODULE,
+-	},
++static struct xt_target mark_tg_reg __read_mostly = {
++	.name           = "MARK",
++	.revision       = 2,
++	.family         = NFPROTO_UNSPEC,
++	.target         = mark_tg,
++	.targetsize     = sizeof(struct xt_mark_tginfo2),
++	.me             = THIS_MODULE,
+ };
+ 
+-static struct xt_match mark_mt_reg[] __read_mostly = {
+-	{
+-		.name           = "mark",
+-		.revision       = 1,
+-		.family         = AF_INET,
+-		.match          = mark_mt,
+-		.matchsize      = sizeof(struct xt_mark_mtinfo1),
+-		.me             = THIS_MODULE,
+-	},
+-	{
+-		.name           = "mark",
+-		.revision       = 1,
+-		.family         = AF_INET6,
+-		.match          = mark_mt,
+-		.matchsize      = sizeof(struct xt_mark_mtinfo1),
+-		.me             = THIS_MODULE,
+-	},
++static struct xt_match mark_mt_reg __read_mostly = {
++	.name           = "mark",
++	.revision       = 1,
++	.family         = NFPROTO_UNSPEC,
++	.match          = mark_mt,
++	.matchsize      = sizeof(struct xt_mark_mtinfo1),
++	.me             = THIS_MODULE,
+ };
+ 
+ static int __init xt_mark_init(void)
+ {
+ 	int ret;
+ 
+-	ret = xt_register_targets(mark_tg_reg, ARRAY_SIZE(mark_tg_reg));
++	ret = xt_register_target(&mark_tg_reg);
+ 	if (ret < 0)
+ 		return ret;
+-	ret = xt_register_matches(mark_mt_reg, ARRAY_SIZE(mark_mt_reg));
++	ret = xt_register_match(&mark_mt_reg);
+ 	if (ret < 0) {
+-		xt_unregister_targets(mark_tg_reg, ARRAY_SIZE(mark_tg_reg));
++		xt_unregister_target(&mark_tg_reg);
+ 		return ret;
+ 	}
+ 	return 0;
+@@ -100,8 +80,8 @@ static int __init xt_mark_init(void)
+ 
+ static void __exit xt_mark_fini(void)
+ {
+-	xt_unregister_matches(mark_mt_reg, ARRAY_SIZE(mark_mt_reg));
+-	xt_unregister_targets(mark_tg_reg, ARRAY_SIZE(mark_tg_reg));
++	xt_unregister_match(&mark_mt_reg);
++	xt_unregister_target(&mark_tg_reg);
+ }
+ 
+ module_init(xt_mark_init);
+diff --git a/net/netfilter/xt_NOTRACK.c b/net/netfilter/xt_NOTRACK.c
+--- a/net/netfilter/xt_NOTRACK.c
++++ b/net/netfilter/xt_NOTRACK.c
+@@ -33,32 +33,22 @@ target(struct sk_buff *skb,
+ 	return XT_CONTINUE;
+ }
+ 
+-static struct xt_target xt_notrack_target[] __read_mostly = {
+-	{
+-		.name		= "NOTRACK",
+-		.family		= AF_INET,
+-		.target		= target,
+-		.table		= "raw",
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "NOTRACK",
+-		.family		= AF_INET6,
+-		.target		= target,
+-		.table		= "raw",
+-		.me		= THIS_MODULE,
+-	},
++static struct xt_target xt_notrack_target __read_mostly = {
++	.name		= "NOTRACK",
++	.family		= NFPROTO_UNSPEC,
++	.target		= target,
++	.table		= "raw",
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init xt_notrack_init(void)
+ {
+-	return xt_register_targets(xt_notrack_target,
+-				   ARRAY_SIZE(xt_notrack_target));
++	return xt_register_target(&xt_notrack_target);
+ }
+ 
+ static void __exit xt_notrack_fini(void)
+ {
+-	xt_unregister_targets(xt_notrack_target, ARRAY_SIZE(xt_notrack_target));
++	xt_unregister_target(&xt_notrack_target);
+ }
+ 
+ module_init(xt_notrack_init);
+diff --git a/net/netfilter/xt_owner.c b/net/netfilter/xt_owner.c
+--- a/net/netfilter/xt_owner.c
++++ b/net/netfilter/xt_owner.c
+@@ -59,37 +59,25 @@ owner_mt(const struct sk_buff *skb, cons
+ 	return 1;
+ }
+ 
+-static struct xt_match owner_mt_reg[] __read_mostly = {
+-	{
+-		.name       = "owner",
+-		.revision   = 1,
+-		.family     = AF_INET,
+-		.match      = owner_mt,
+-		.matchsize  = sizeof(struct xt_owner_match_info),
+-		.hooks      = (1 << NF_IP_LOCAL_OUT) |
+-		              (1 << NF_IP_POST_ROUTING),
+-		.me         = THIS_MODULE,
+-	},
+-	{
+-		.name       = "owner",
+-		.revision   = 1,
+-		.family     = AF_INET6,
+-		.match      = owner_mt,
+-		.matchsize  = sizeof(struct xt_owner_match_info),
+-		.hooks      = (1 << NF_IP6_LOCAL_OUT) |
+-		              (1 << NF_IP6_POST_ROUTING),
+-		.me         = THIS_MODULE,
+-	},
++static struct xt_match owner_mt_reg __read_mostly = {
++	.name       = "owner",
++	.revision   = 1,
++	.family     = NFPROTO_UNSPEC,
++	.match      = owner_mt,
++	.matchsize  = sizeof(struct xt_owner_match_info),
++	.hooks      = (1 << NF_IP_LOCAL_OUT) |
++	              (1 << NF_IP_POST_ROUTING),
++	.me         = THIS_MODULE,
+ };
+ 
+ static int __init owner_mt_init(void)
+ {
+-	return xt_register_matches(owner_mt_reg, ARRAY_SIZE(owner_mt_reg));
++	return xt_register_match(&owner_mt_reg);
+ }
+ 
+ static void __exit owner_mt_exit(void)
+ {
+-	xt_unregister_matches(owner_mt_reg, ARRAY_SIZE(owner_mt_reg));
++	xt_unregister_match(&owner_mt_reg);
+ }
+ 
+ module_init(owner_mt_init);
+diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
+--- a/net/netfilter/xt_physdev.c
++++ b/net/netfilter/xt_physdev.c
+@@ -119,34 +119,24 @@ checkentry(const char *tablename,
+ 	return 1;
+ }
+ 
+-static struct xt_match xt_physdev_match[] __read_mostly = {
+-	{
+-		.name		= "physdev",
+-		.family		= AF_INET,
+-		.checkentry	= checkentry,
+-		.match		= match,
+-		.matchsize	= sizeof(struct xt_physdev_info),
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "physdev",
+-		.family		= AF_INET6,
+-		.checkentry	= checkentry,
+-		.match		= match,
+-		.matchsize	= sizeof(struct xt_physdev_info),
+-		.me		= THIS_MODULE,
+-	},
++static struct xt_match xt_physdev_match __read_mostly = {
++	.name		= "physdev",
++	.revision   = 0,
++	.family		= NFPROTO_UNSPEC,
++	.checkentry	= checkentry,
++	.match		= match,
++	.matchsize	= sizeof(struct xt_physdev_info),
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init xt_physdev_init(void)
+ {
+-	return xt_register_matches(xt_physdev_match,
+-				   ARRAY_SIZE(xt_physdev_match));
++	return xt_register_match(&xt_physdev_match);
+ }
+ 
+ static void __exit xt_physdev_fini(void)
+ {
+-	xt_unregister_matches(xt_physdev_match, ARRAY_SIZE(xt_physdev_match));
++	xt_unregister_match(&xt_physdev_match);
+ }
+ 
+ module_init(xt_physdev_init);
+diff --git a/net/netfilter/xt_pkttype.c b/net/netfilter/xt_pkttype.c
+--- a/net/netfilter/xt_pkttype.c
++++ b/net/netfilter/xt_pkttype.c
+@@ -43,32 +43,23 @@ static int match(const struct sk_buff *s
+ 	return (type == info->pkttype) ^ info->invert;
+ }
+ 
+-static struct xt_match xt_pkttype_match[] __read_mostly = {
+-	{
+-		.name		= "pkttype",
+-		.family		= AF_INET,
+-		.match		= match,
+-		.matchsize	= sizeof(struct xt_pkttype_info),
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "pkttype",
+-		.family		= AF_INET6,
+-		.match		= match,
+-		.matchsize	= sizeof(struct xt_pkttype_info),
+-		.me		= THIS_MODULE,
+-	},
++static struct xt_match xt_pkttype_match __read_mostly = {
++	.name		= "pkttype",
++	.revision   = 0,
++	.family		= NFPROTO_UNSPEC,
++	.match		= match,
++	.matchsize	= sizeof(struct xt_pkttype_info),
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init xt_pkttype_init(void)
+ {
+-	return xt_register_matches(xt_pkttype_match,
+-				   ARRAY_SIZE(xt_pkttype_match));
++	return xt_register_match(&xt_pkttype_match);
+ }
+ 
+ static void __exit xt_pkttype_fini(void)
+ {
+-	xt_unregister_matches(xt_pkttype_match, ARRAY_SIZE(xt_pkttype_match));
++	xt_unregister_match(&xt_pkttype_match);
+ }
+ 
+ module_init(xt_pkttype_init);
+diff --git a/net/netfilter/xt_quota.c b/net/netfilter/xt_quota.c
+--- a/net/netfilter/xt_quota.c
++++ b/net/netfilter/xt_quota.c
+@@ -71,35 +71,25 @@ static void quota_mt_destroy(const struc
+ 	kfree(q->master);
+ }
+ 
+-static struct xt_match xt_quota_match[] __read_mostly = {
+-	{
+-		.name		= "quota",
+-		.family		= AF_INET,
+-		.checkentry	= checkentry,
+-		.match		= match,
+-		.destroy	= quota_mt_destroy,
+-		.matchsize	= sizeof(struct xt_quota_info),
+-		.me		= THIS_MODULE
+-	},
+-	{
+-		.name		= "quota",
+-		.family		= AF_INET6,
+-		.checkentry	= checkentry,
+-		.match		= match,
+-		.destroy	= quota_mt_destroy,
+-		.matchsize	= sizeof(struct xt_quota_info),
+-		.me		= THIS_MODULE
+-	},
++static struct xt_match xt_quota_match __read_mostly = {
++	.name		= "quota",
++	.revision   = 0,
++	.family		= NFPROTO_UNSPEC,
++	.match		= match,
++	.checkentry	= checkentry,
++	.destroy	= quota_mt_destroy,
++	.matchsize	= sizeof(struct xt_quota_info),
++	.me		= THIS_MODULE
+ };
+ 
+ static int __init xt_quota_init(void)
+ {
+-	return xt_register_matches(xt_quota_match, ARRAY_SIZE(xt_quota_match));
++	return xt_register_match(&xt_quota_match);
+ }
+ 
+ static void __exit xt_quota_fini(void)
+ {
+-	xt_unregister_matches(xt_quota_match, ARRAY_SIZE(xt_quota_match));
++	xt_unregister_match(&xt_quota_match);
+ }
+ 
+ module_init(xt_quota_init);
+diff --git a/net/netfilter/xt_SECMARK.c b/net/netfilter/xt_SECMARK.c
+--- a/net/netfilter/xt_SECMARK.c
++++ b/net/netfilter/xt_SECMARK.c
+@@ -109,36 +109,25 @@ static int checkentry(const char *tablen
+ 	return 1;
+ }
+ 
+-static struct xt_target xt_secmark_target[] __read_mostly = {
+-	{
+-		.name		= "SECMARK",
+-		.family		= AF_INET,
+-		.checkentry	= checkentry,
+-		.target		= target,
+-		.targetsize	= sizeof(struct xt_secmark_target_info),
+-		.table		= "mangle",
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "SECMARK",
+-		.family		= AF_INET6,
+-		.checkentry	= checkentry,
+-		.target		= target,
+-		.targetsize	= sizeof(struct xt_secmark_target_info),
+-		.table		= "mangle",
+-		.me		= THIS_MODULE,
+-	},
++static struct xt_target xt_secmark_target __read_mostly = {
++	.name		= "SECMARK",
++	.revision   = 0,
++	.family		= NFPROTO_UNSPEC,
++	.table		= "mangle",
++	.checkentry	= checkentry,
++	.target		= target,
++	.targetsize	= sizeof(struct xt_secmark_target_info),
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init xt_secmark_init(void)
+ {
+-	return xt_register_targets(xt_secmark_target,
+-				   ARRAY_SIZE(xt_secmark_target));
++	return xt_register_target(&xt_secmark_target);
+ }
+ 
+ static void __exit xt_secmark_fini(void)
+ {
+-	xt_unregister_targets(xt_secmark_target, ARRAY_SIZE(xt_secmark_target));
++	xt_unregister_target(&xt_secmark_target);
+ }
+ 
+ module_init(xt_secmark_init);
+diff --git a/net/netfilter/xt_state.c b/net/netfilter/xt_state.c
+--- a/net/netfilter/xt_state.c
++++ b/net/netfilter/xt_state.c
+@@ -64,35 +64,25 @@ destroy(const struct xt_match *match, vo
+ 	nf_ct_l3proto_module_put(match->family);
+ }
+ 
+-static struct xt_match xt_state_match[] __read_mostly = {
+-	{
+-		.name		= "state",
+-		.family		= AF_INET,
+-		.checkentry	= check,
+-		.match		= match,
+-		.destroy	= destroy,
+-		.matchsize	= sizeof(struct xt_state_info),
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "state",
+-		.family		= AF_INET6,
+-		.checkentry	= check,
+-		.match		= match,
+-		.destroy	= destroy,
+-		.matchsize	= sizeof(struct xt_state_info),
+-		.me		= THIS_MODULE,
+-	},
++static struct xt_match xt_state_match __read_mostly = {
++	.name		= "state",
++	.revision   = 0,
++	.family		= NFPROTO_UNSPEC,
++	.checkentry	= check,
++	.match		= match,
++	.destroy	= destroy,
++	.matchsize	= sizeof(struct xt_state_info),
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init xt_state_init(void)
+ {
+-	return xt_register_matches(xt_state_match, ARRAY_SIZE(xt_state_match));
++	return xt_register_match(&xt_state_match);
+ }
+ 
+ static void __exit xt_state_fini(void)
+ {
+-	xt_unregister_matches(xt_state_match, ARRAY_SIZE(xt_state_match));
++	xt_unregister_match(&xt_state_match);
+ }
+ 
+ module_init(xt_state_init);
+diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
+--- a/net/netfilter/xt_statistic.c
++++ b/net/netfilter/xt_statistic.c
+@@ -83,37 +83,25 @@ static void statistic_mt_destroy(const s
+ 	kfree(info->master);
+ }
+ 
+-static struct xt_match xt_statistic_match[] __read_mostly = {
+-	{
+-		.name		= "statistic",
+-		.family		= AF_INET,
+-		.checkentry	= checkentry,
+-		.match		= match,
+-		.destroy	= statistic_mt_destroy,
+-		.matchsize	= sizeof(struct xt_statistic_info),
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "statistic",
+-		.family		= AF_INET6,
+-		.checkentry	= checkentry,
+-		.match		= match,
+-		.destroy	= statistic_mt_destroy,
+-		.matchsize	= sizeof(struct xt_statistic_info),
+-		.me		= THIS_MODULE,
+-	},
++static struct xt_match xt_statistic_match __read_mostly = {
++	.name		= "statistic",
++	.revision   = 0,
++	.family		= NFPROTO_UNSPEC,
++	.match		= match,
++	.checkentry	= checkentry,
++	.destroy	= statistic_mt_destroy,
++	.matchsize	= sizeof(struct xt_statistic_info),
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init xt_statistic_init(void)
+ {
+-	return xt_register_matches(xt_statistic_match,
+-				   ARRAY_SIZE(xt_statistic_match));
++	return xt_register_match(&xt_statistic_match);
+ }
+ 
+ static void __exit xt_statistic_fini(void)
+ {
+-	xt_unregister_matches(xt_statistic_match,
+-			      ARRAY_SIZE(xt_statistic_match));
++	xt_unregister_match(&xt_statistic_match);
+ }
+ 
+ module_init(xt_statistic_init);
+diff --git a/net/netfilter/xt_string.c b/net/netfilter/xt_string.c
+--- a/net/netfilter/xt_string.c
++++ b/net/netfilter/xt_string.c
+@@ -81,37 +81,25 @@ static void destroy(const struct xt_matc
+ 	textsearch_destroy(STRING_TEXT_PRIV(matchinfo)->config);
+ }
+ 
+-static struct xt_match xt_string_match[] __read_mostly = {
+-	{
+-		.name 		= "string",
+-		.revision	= 1,
+-		.family		= AF_INET,
+-		.checkentry	= checkentry,
+-		.match 		= match,
+-		.destroy 	= destroy,
+-		.matchsize	= sizeof(struct xt_string_info),
+-		.me 		= THIS_MODULE
+-	},
+-	{
+-		.name 		= "string",
+-		.revision	= 1,
+-		.family		= AF_INET6,
+-		.checkentry	= checkentry,
+-		.match 		= match,
+-		.destroy 	= destroy,
+-		.matchsize	= sizeof(struct xt_string_info),
+-		.me 		= THIS_MODULE
+-	},
++static struct xt_match xt_string_match __read_mostly = {
++	.name 		= "string",
++	.revision	= 1,
++	.family		= NFPROTO_UNSPEC,
++	.checkentry	= checkentry,
++	.match 		= match,
++	.destroy 	= destroy,
++	.matchsize	= sizeof(struct xt_string_info),
++	.me 		= THIS_MODULE
+ };
+ 
+ static int __init xt_string_init(void)
+ {
+-	return xt_register_matches(xt_string_match, ARRAY_SIZE(xt_string_match));
++	return xt_register_match(&xt_string_match);
+ }
+ 
+ static void __exit xt_string_fini(void)
+ {
+-	xt_unregister_matches(xt_string_match, ARRAY_SIZE(xt_string_match));
++	xt_unregister_match(&xt_string_match);
+ }
+ 
+ module_init(xt_string_init);
+diff --git a/net/netfilter/xt_time.c b/net/netfilter/xt_time.c
+--- a/net/netfilter/xt_time.c
++++ b/net/netfilter/xt_time.c
+@@ -242,33 +242,23 @@ static int xt_time_check(const char *tab
+ 	return 1;
+ }
+ 
+-static struct xt_match xt_time_reg[] __read_mostly = {
+-	{
+-		.name       = "time",
+-		.family     = AF_INET,
+-		.match      = xt_time_match,
+-		.matchsize  = sizeof(struct xt_time_info),
+-		.checkentry = xt_time_check,
+-		.me         = THIS_MODULE,
+-	},
+-	{
+-		.name       = "time",
+-		.family     = AF_INET6,
+-		.match      = xt_time_match,
+-		.matchsize  = sizeof(struct xt_time_info),
+-		.checkentry = xt_time_check,
+-		.me         = THIS_MODULE,
+-	},
++static struct xt_match xt_time_mt_reg __read_mostly = {
++	.name       = "time",
++	.family     = NFPROTO_UNSPEC,
++	.match      = xt_time_match,
++	.checkentry = xt_time_check,
++	.matchsize  = sizeof(struct xt_time_info),
++	.me         = THIS_MODULE,
+ };
+ 
+ static int __init xt_time_init(void)
+ {
+-	return xt_register_matches(xt_time_reg, ARRAY_SIZE(xt_time_reg));
++	return xt_register_match(&xt_time_mt_reg);
+ }
+ 
+ static void __exit xt_time_exit(void)
+ {
+-	xt_unregister_matches(xt_time_reg, ARRAY_SIZE(xt_time_reg));
++	xt_unregister_match(&xt_time_mt_reg);
+ }
+ 
+ module_init(xt_time_init);
+diff --git a/net/netfilter/xt_u32.c b/net/netfilter/xt_u32.c
+--- a/net/netfilter/xt_u32.c
++++ b/net/netfilter/xt_u32.c
+@@ -99,31 +99,23 @@ static int u32_match(const struct sk_buf
+ 	return ret ^ data->invert;
+ }
+ 
+-static struct xt_match u32_reg[] __read_mostly = {
+-	{
+-		.name       = "u32",
+-		.family     = AF_INET,
+-		.match      = u32_match,
+-		.matchsize  = sizeof(struct xt_u32),
+-		.me         = THIS_MODULE,
+-	},
+-	{
+-		.name       = "u32",
+-		.family     = AF_INET6,
+-		.match      = u32_match,
+-		.matchsize  = sizeof(struct xt_u32),
+-		.me         = THIS_MODULE,
+-	},
++static struct xt_match xt_u32_mt_reg __read_mostly = {
++	.name       = "u32",
++	.revision   = 0,
++	.family     = NFPROTO_UNSPEC,
++	.match      = u32_match,
++	.matchsize  = sizeof(struct xt_u32),
++	.me         = THIS_MODULE,
+ };
+ 
+ static int __init xt_u32_init(void)
+ {
+-	return xt_register_matches(u32_reg, ARRAY_SIZE(u32_reg));
++	return xt_register_match(&xt_u32_mt_reg);
+ }
+ 
+ static void __exit xt_u32_exit(void)
+ {
+-	xt_unregister_matches(u32_reg, ARRAY_SIZE(u32_reg));
++	xt_unregister_match(&xt_u32_mt_reg);
+ }
+ 
+ module_init(xt_u32_init);
+-- 
