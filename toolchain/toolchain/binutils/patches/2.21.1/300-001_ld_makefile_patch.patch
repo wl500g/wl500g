@@ -19,7 +19,7 @@
  	  if test "$(bindir)" != "$(tooldir)/bin"; then \
  	    rm -f $(DESTDIR)$(tooldir)/bin/ld$(EXEEXT); \
 -	    ln $(DESTDIR)$(bindir)/$$n$(EXEEXT) $(DESTDIR)$(tooldir)/bin/ld$(EXEEXT) >/dev/null 2>/dev/null \
-+	    ln -s $$n$(EXEEXT) $(DESTDIR)$(tooldir)/bin/ld$(EXEEXT) >/dev/null 2>/dev/null \
++	    ln -s $(installed_linker)$(EXEEXT) $(DESTDIR)$(tooldir)/bin/ld$(EXEEXT) >/dev/null 2>/dev/null \
  	    || $(LIBTOOL) --mode=install $(INSTALL_PROGRAM) ld-new$(EXEEXT) $(DESTDIR)$(tooldir)/bin/ld$(EXEEXT); \
  	  fi; \
  	fi
@@ -44,7 +44,7 @@
  	  if test "$(bindir)" != "$(tooldir)/bin"; then \
  	    rm -f $(DESTDIR)$(tooldir)/bin/ld$(EXEEXT); \
 -	    ln $(DESTDIR)$(bindir)/$$n$(EXEEXT) $(DESTDIR)$(tooldir)/bin/ld$(EXEEXT) >/dev/null 2>/dev/null \
-+	    ln -s $$n$(EXEEXT) $(DESTDIR)$(tooldir)/bin/ld$(EXEEXT) >/dev/null 2>/dev/null \
++	    ln -s $(installed_linker)$(EXEEXT) $(DESTDIR)$(tooldir)/bin/ld$(EXEEXT) >/dev/null 2>/dev/null \
  	    || $(LIBTOOL) --mode=install $(INSTALL_PROGRAM) ld-new$(EXEEXT) $(DESTDIR)$(tooldir)/bin/ld$(EXEEXT); \
  	  fi; \
  	fi
