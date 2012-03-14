@@ -4,7 +4,10 @@
 
 --- trunk/gcc/ChangeLog	2009/12/02 14:49:11	154913
 +++ trunk/gcc/ChangeLog	2009/12/02 15:22:01	154914
-@@ -1,3 +1,11 @@
+@@ -384,6 +384,14 @@
+ 	(iorsi3): Likewise.
+ 	* config/pa/pa-protos.h (ior_operand): Delete declarations.
+ 
 +2011-04-21  Richard Guenther  <rguenther@suse.de>
 +	Backported from mainline
 +	2009-12-02  Richard Guenther  <rguenther@suse.de>
@@ -13,9 +16,9 @@
 +	* cfgloopmanip.c (remove_path): Avoid cancelling loops
 +	twice.
 +
- 2011-04-16  Release Manager
+ 2011-04-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
  
- 	* GCC 4.4.6 released.
+ 	* config/pa/pa.h (REGISTER_MOVE_COST): Increase to 18 cost of
 --- trunk/gcc/cfgloopmanip.c	2009/12/02 14:49:11	154913
 +++ trunk/gcc/cfgloopmanip.c	2009/12/02 15:22:01	154914
 @@ -278,10 +278,9 @@

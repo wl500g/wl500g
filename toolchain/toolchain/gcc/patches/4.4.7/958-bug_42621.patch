@@ -4,7 +4,10 @@
 
 --- trunk/gcc/ChangeLog	2010/01/10 21:46:42	155795
 +++ trunk/gcc/ChangeLog	2010/01/10 23:31:30	155796
-@@ -1,3 +1,13 @@
+@@ -267,6 +267,16 @@
+ 	* reload1.c (reload_as_needed): Invalidate all reload
+ 	registers when crossing a setjmp-type call.
+ 
 +2011-06-10  Steven Bosscher  <steven@gcc.gnu.org>
 +
 +	Backport from mainline
@@ -15,9 +18,9 @@
 +	optimizing for size.
 +	(duplicate_computed_gotos): Remove now-redundant check.
 +
- 2011-05-29  Richard Sandiford  <rdsandiford@googlemail.com>
+ 2011-06-09  Eric Botcazou  <ebotcazou@adacore.com>
  
- 	PR target/43700
+ 	* config/sparc/sparc.md (return_internal): Adjust 'length' attribute.
 --- trunk/gcc/bb-reorder.c	2010/01/10 21:46:42	155795
 +++ trunk/gcc/bb-reorder.c	2010/01/10 23:31:30	155796
 @@ -1981,7 +1981,9 @@
