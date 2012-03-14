@@ -1,6 +1,6 @@
-diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt_conntrack.c
---- iptables.orig/extensions/libxt_conntrack.c	2011-03-13 19:29:49.000000000 +0000
-+++ iptables/extensions/libxt_conntrack.c	2011-04-05 18:02:09.000000000 +0400
+diff -uBp iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt_conntrack.c
+--- iptables.orig/extensions/libxt_conntrack.c
++++ iptables/extensions/libxt_conntrack.c
 @@ -46,18 +46,6 @@ static void conntrack_mt_help(void)
  "    --ctdir {ORIGINAL|REPLY}   Flow direction of packet\n");
  }
@@ -312,7 +312,42 @@ diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt
  static int
  conntrack_mt_parse(int c, bool invert, unsigned int *flags,
                     struct xt_conntrack_mtinfo2 *info)
-@@ -834,121 +558,6 @@ conntrack_dump_addr(const union nf_inet_
+@@ -688,34 +412,6 @@ conntrack_mt6_parse(int c, bool invert,
+ 	} while (false);
+ 
+ static int
+-conntrack1_mt4_parse(int c, char **argv, int invert, unsigned int *flags,
+-                     const void *entry, struct xt_entry_match **match)
+-{
+-	struct xt_conntrack_mtinfo1 *info = (void *)(*match)->data;
+-	struct xt_conntrack_mtinfo2 up;
+-
+-	cinfo_transform(&up, info);
+-	if (!conntrack_mt4_parse(c, invert, flags, &up))
+-		return false;
+-	cinfo_transform(info, &up);
+-	return true;
+-}
+-
+-static int
+-conntrack1_mt6_parse(int c, char **argv, int invert, unsigned int *flags,
+-                     const void *entry, struct xt_entry_match **match)
+-{
+-	struct xt_conntrack_mtinfo1 *info = (void *)(*match)->data;
+-	struct xt_conntrack_mtinfo2 up;
+-
+-	cinfo_transform(&up, info);
+-	if (!conntrack_mt6_parse(c, invert, flags, &up))
+-		return false;
+-	cinfo_transform(info, &up);
+-	return true;
+-}
+-
+-static int
+ conntrack2_mt4_parse(int c, char **argv, int invert, unsigned int *flags,
+                      const void *entry, struct xt_entry_match **match)
+ {
+@@ -834,121 +530,6 @@ conntrack_dump_addr(const union nf_inet_
  }
  
  static void
@@ -434,7 +469,7 @@ diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt
  conntrack_dump(const struct xt_conntrack_mtinfo2 *info, const char *prefix,
                 unsigned int family, bool numeric)
  {
-@@ -1052,12 +661,6 @@ conntrack_dump(const struct xt_conntrack
+@@ -1052,34 +633,6 @@ conntrack_dump(const struct xt_conntrack
  	}
  }
  
@@ -444,10 +479,32 @@ diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt
 -	matchinfo_print(ip, match, numeric, "");
 -}
 -
+-static void
+-conntrack1_mt4_print(const void *ip, const struct xt_entry_match *match,
+-                     int numeric)
+-{
+-	const struct xt_conntrack_mtinfo1 *info = (void *)match->data;
+-	struct xt_conntrack_mtinfo2 up;
+-
+-	cinfo_transform(&up, info);
+-	conntrack_dump(&up, "", NFPROTO_IPV4, numeric);
+-}
+-
+-static void
+-conntrack1_mt6_print(const void *ip, const struct xt_entry_match *match,
+-                     int numeric)
+-{
+-	const struct xt_conntrack_mtinfo1 *info = (void *)match->data;
+-	struct xt_conntrack_mtinfo2 up;
+-
+-	cinfo_transform(&up, info);
+-	conntrack_dump(&up, "", NFPROTO_IPV6, numeric);
+-}
+-
  static void
- conntrack1_mt4_print(const void *ip, const struct xt_entry_match *match,
-                      int numeric)
-@@ -1094,11 +697,6 @@ conntrack_mt6_print(const void *ip, cons
+ conntrack_mt_print(const void *ip, const struct xt_entry_match *match,
+                    int numeric)
+@@ -1094,11 +647,6 @@ conntrack_mt6_print(const void *ip, cons
  	conntrack_dump((const void *)match->data, "", NFPROTO_IPV6, numeric);
  }
  
@@ -459,10 +516,30 @@ diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt
  static void conntrack_mt_save(const void *ip,
                                const struct xt_entry_match *match)
  {
-@@ -1131,21 +729,6 @@ conntrack1_mt6_save(const void *ip, cons
- 	conntrack_dump(&up, "--", NFPROTO_IPV6, true);
+@@ -1111,71 +659,6 @@ static void conntrack_mt6_save(const voi
+ 	conntrack_dump((const void *)match->data, "--", NFPROTO_IPV6, true);
  }
  
+-static void
+-conntrack1_mt4_save(const void *ip, const struct xt_entry_match *match)
+-{
+-	const struct xt_conntrack_mtinfo1 *info = (void *)match->data;
+-	struct xt_conntrack_mtinfo2 up;
+-
+-	cinfo_transform(&up, info);
+-	conntrack_dump(&up, "--", NFPROTO_IPV4, true);
+-}
+-
+-static void
+-conntrack1_mt6_save(const void *ip, const struct xt_entry_match *match)
+-{
+-	const struct xt_conntrack_mtinfo1 *info = (void *)match->data;
+-	struct xt_conntrack_mtinfo2 up;
+-
+-	cinfo_transform(&up, info);
+-	conntrack_dump(&up, "--", NFPROTO_IPV6, true);
+-}
+-
 -static struct xtables_match conntrack_mt_v0_reg = {
 -	.version       = XTABLES_VERSION,
 -	.name          = "conntrack",
@@ -478,14 +555,46 @@ diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt
 -	.extra_opts    = conntrack_mt_opts_v0,
 -};
 -
- static struct xtables_match conntrack_mt_v1_reg = {
+-static struct xtables_match conntrack_mt_v1_reg = {
+-	.version       = XTABLES_VERSION,
+-	.name          = "conntrack",
+-	.revision      = 1,
+-	.family        = NFPROTO_IPV4,
+-	.size          = XT_ALIGN(sizeof(struct xt_conntrack_mtinfo1)),
+-	.userspacesize = XT_ALIGN(sizeof(struct xt_conntrack_mtinfo1)),
+-	.help          = conntrack_mt_help,
+-	.parse         = conntrack1_mt4_parse,
+-	.final_check   = conntrack_mt_check,
+-	.print         = conntrack1_mt4_print,
+-	.save          = conntrack1_mt4_save,
+-	.extra_opts    = conntrack_mt_opts,
+-};
+-
+-static struct xtables_match conntrack_mt6_v1_reg = {
+-	.version       = XTABLES_VERSION,
+-	.name          = "conntrack",
+-	.revision      = 1,
+-	.family        = NFPROTO_IPV6,
+-	.size          = XT_ALIGN(sizeof(struct xt_conntrack_mtinfo1)),
+-	.userspacesize = XT_ALIGN(sizeof(struct xt_conntrack_mtinfo1)),
+-	.help          = conntrack_mt_help,
+-	.parse         = conntrack1_mt6_parse,
+-	.final_check   = conntrack_mt_check,
+-	.print         = conntrack1_mt6_print,
+-	.save          = conntrack1_mt6_save,
+-	.extra_opts    = conntrack_mt_opts,
+-};
+-
+ static struct xtables_match conntrack_mt_v2_reg = {
  	.version       = XTABLES_VERSION,
  	.name          = "conntrack",
-@@ -1208,7 +791,6 @@ static struct xtables_match conntrack_mt
+@@ -1208,9 +691,6 @@ static struct xtables_match conntrack_mt
  
  void _init(void)
  {
 -	xtables_register_match(&conntrack_mt_v0_reg);
- 	xtables_register_match(&conntrack_mt_v1_reg);
- 	xtables_register_match(&conntrack_mt6_v1_reg);
+-	xtables_register_match(&conntrack_mt_v1_reg);
+-	xtables_register_match(&conntrack_mt6_v1_reg);
  	xtables_register_match(&conntrack_mt_v2_reg);
+ 	xtables_register_match(&conntrack_mt6_v2_reg);
+ }
