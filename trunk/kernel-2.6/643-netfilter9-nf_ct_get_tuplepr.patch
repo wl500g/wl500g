@@ -2,18 +2,19 @@
 
  ffc30690480bdd337e4914302b926d24870b56b2 [NETFILTER]: nf_conntrack: make l3proto->prepare() generic and renames it
  e2a3123fbe58da9fd3f35cd242087896ace6049f [NETFILTER]: nf_conntrack: Introduces nf_ct_get_tuplepr and uses it
+ 0fb96701376874c9f1f80322f89a5bf4457c709f [NETFILTER]: nf_conntrack_ipv4: fix "Frag of proto ..." messages
 
 ---
  include/net/netfilter/ipv6/nf_conntrack_ipv6.h |    2 -
  include/net/netfilter/nf_conntrack.h           |    4 ++
  include/net/netfilter/nf_conntrack_l3proto.h   |    6 +--
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   23 ++++++++------
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   27 ++++++++--------
  net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   32 ++++----------------
  net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   27 ++++++++++------
  net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   40 +++++--------------------
  net/netfilter/nf_conntrack_core.c              |   35 ++++++++++++++++++++-
  net/netfilter/nf_conntrack_l3proto_generic.c   |    7 +---
- 9 files changed, 89 insertions(+), 87 deletions(-)
+ 9 files changed, 89 insertions(+), 91 deletions(-)
 
 diff --git a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
 --- a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
@@ -113,8 +114,8 @@ diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/n
 diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
 --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
 +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -78,21 +78,26 @@ nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
- 	return skb;
+@@ -82,21 +82,22 @@ nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
+ 	return err;
  }
  
 -static int
@@ -123,23 +124,23 @@ diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter
 +static int ipv4_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
 +			    unsigned int *dataoff, u_int8_t *protonum)
  {
+-	/* Never happen */
+-	if (ip_hdr(*pskb)->frag_off & htons(IP_OFFSET)) {
+-		if (net_ratelimit()) {
+-			printk(KERN_ERR "ipv4_prepare: Frag of proto %u (hook=%u)\n",
+-			ip_hdr(*pskb)->protocol, hooknum);
+-		}
 +	struct iphdr _iph, *iph;
 +
 +	iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
 +	if (iph == NULL)
 +		return -NF_DROP;
 +
- 	/* Never happen */
--	if (ip_hdr(*pskb)->frag_off & htons(IP_OFFSET)) {
-+	if (iph->frag_off & htons(IP_OFFSET)) {
- 		if (net_ratelimit()) {
--			printk(KERN_ERR "ipv4_prepare: Frag of proto %u (hook=%u)\n",
--			ip_hdr(*pskb)->protocol, hooknum);
-+			printk(KERN_ERR "ipv4_get_l4proto: Frag of proto %u\n",
-+			iph->protocol);
- 		}
++	/* Conntrack defragments packets, we might still see fragments
++	 * inside ICMP packets though. */
++	if (iph->frag_off & htons(IP_OFFSET))
  		return -NF_DROP;
- 	}
+-	}
  
 -	*dataoff = skb_network_offset(*pskb) + ip_hdrlen(*pskb);
 -	*protonum = ip_hdr(*pskb)->protocol;
