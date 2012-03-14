@@ -126,17 +126,14 @@ diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
-@@ -347,6 +347,14 @@ destroy_conntrack(struct nf_conntrack *nfct)
+@@ -347,6 +347,11 @@ destroy_conntrack(struct nf_conntrack *nfct)
  	 * too. */
  	nf_ct_remove_expectations(ct);
  
 +	#if defined(CONFIG_NETFILTER_XT_MATCH_LAYER7) || defined(CONFIG_NETFILTER_XT_MATCH_LAYER7_MODULE)
-+	if(ct->layer7.app_proto)
-+		kfree(ct->layer7.app_proto);
-+	if(ct->layer7.app_data)
++	kfree(ct->layer7.app_proto);
 +	kfree(ct->layer7.app_data);
 +	#endif
-+
 +
  	/* We overload first tuple to link into unconfirmed list. */
  	if (!nf_ct_is_confirmed(ct)) {
@@ -159,7 +156,7 @@ diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrac
 diff --git a/net/netfilter/regexp/regexp.c b/net/netfilter/regexp/regexp.c
 --- /dev/null
 +++ b/net/netfilter/regexp/regexp.c
-@@ -0,0 +1,1197 @@
+@@ -0,0 +1,1180 @@
 +/*
 + * regcomp and regexec -- regsub and regerror are elsewhere
 + * @(#)regexp.c	1.3 of 18 April 87
@@ -354,23 +351,6 @@ diff --git a/net/netfilter/regexp/regexp.c b/net/netfilter/regexp/regexp.c
 +STATIC void reginsert(struct match_globals *g, char op, char *opnd);
 +STATIC void regtail(struct match_globals *g, char *p, char *val);
 +STATIC void regoptail(struct match_globals *g, char *p, char *val);
-+
-+
-+__kernel_size_t my_strcspn(const char *s1,const char *s2)
-+{
-+        char *scan1;
-+        char *scan2;
-+        int count;
-+
-+        count = 0;
-+        for (scan1 = (char *)s1; *scan1 != '\0'; scan1++) {
-+                for (scan2 = (char *)s2; *scan2 != '\0';)       /* ++ moved down. */
-+                        if (*scan1 == *scan2++)
-+                                return(count);
-+                count++;
-+        }
-+        return(count);
-+}
 +
 +/*
 + - regcomp - compile a regular expression into internal code
@@ -733,7 +713,7 @@ diff --git a/net/netfilter/regexp/regexp.c b/net/netfilter/regexp/regexp.c
 +			register char ender;
 +
 +			g->regparse--;
-+			len = my_strcspn((const char *)g->regparse, (const char *)META);
++			len = strcspn((const char *)g->regparse, (const char *)META);
 +			if (len <= 0)
 +				FAIL("internal disaster");
 +			ender = *(g->regparse+len);
@@ -1576,7 +1556,7 @@ diff --git a/net/netfilter/xt_layer7.c b/net/netfilter/xt_layer7.c
 +	struct pattern_cache * next;
 +} * first_pattern_cache = NULL;
 +
-+DEFINE_SPINLOCK(l7_lock);
++static DEFINE_SPINLOCK(l7_lock);
 +
 +#ifdef CONFIG_IP_NF_MATCH_LAYER7_DEBUG
 +/* Converts an unfriendly string into a friendly one by
