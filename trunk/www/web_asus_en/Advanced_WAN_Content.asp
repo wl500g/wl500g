@@ -65,6 +65,8 @@
 									WiMAX</option>
 								<option class="content_input_fd" value="usbmodem" <% nvram_match_x("Layer3Forwarding","wan_proto", "usbmodem","selected"); %>>
 									USB Modem</option>
+								<option class="content_input_fd" value="usbnet" <% nvram_match_x("Layer3Forwarding","wan_proto", "usbnet","selected"); %>>
+									Ethernet over USB</option>
 							</select>
 						</td>
 					</tr>

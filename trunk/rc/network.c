@@ -50,6 +50,12 @@ static int wait_for_ifup(const char *prefix, const char *wan_ifname, struct ifre
 #define HOTPLUG_DEV_START
 sem_t * hotplug_sem = SEM_FAILED;
 
+enum {
+	RC_NETWORK_NONE = 0,
+	RC_NETWORK_STATIC,
+	RC_NETWORK_DYNAMIC
+};
+
 void hotplug_sem_open()
 {
 	hotplug_sem = sem_open( "/hotplug_sem", O_CREAT | O_EXCL, S_IRWXU | S_IRWXG, 1 );
@@ -729,8 +735,14 @@ int _wan_proto(const char *prefix, char *buffer)
 		else if (strcmp(wan_proto, "usbmodem") == 0)
 			return WAN_USBMODEM;
 #endif
+#ifdef __CONFIG_USBNET__
+		else if (strcmp(wan_proto, "usbnet") == 0)
+			return WAN_USBNET;
+#endif
+
+
 	}
-	return -1;
+	return WAN_DISABLED;
 }
 
 int wan_proto(const char *prefix)
@@ -739,6 +751,39 @@ int wan_proto(const char *prefix)
 
 	return _wan_proto(prefix, tmp);
 }
+
+#if defined(__CONFIG_USBNET__)
+void prepare_wan_unit(int unit)
+{
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char wan_ifname[10];
+	int wan_proto;
+
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+	wan_proto = _wan_proto(prefix, tmp);
+
+	dprintf("unit: %d, proto: %d\n", unit, wan_proto);
+
+	if (wan_proto != WAN_USBNET)
+		return;
+
+	usbnet_load_drivers();
+
+	snprintf(wan_ifname, sizeof(wan_ifname), "wan%d", unit);
+
+	nvram_set(strcat_r(prefix, "ifname", tmp), wan_ifname);
+	nvram_set(strcat_r(prefix, "ifnames", tmp), wan_ifname);
+
+	sprintf(tmp, "%s %s", nvram_safe_get("wan_ifnames"), wan_ifname );
+	nvram_set("wan_ifnames", tmp);
+
+	eval("brctl", "addbr", wan_ifname, "stp", "0" );
+	ifconfig(wan_ifname, IFUP, NULL, NULL);
+
+	dprintf("done\n");
+}
+#endif
 
 int wan_prefix(const char *wan_ifname, char *prefix)
 {
@@ -755,10 +800,14 @@ int wan_prefix(const char *wan_ifname, char *prefix)
 		sprintf(prefix, "wan%d_", unit);
 		if (!nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname))
 			continue;
+
 		switch (_wan_proto(prefix, tmp)) {
 		case WAN_DHCP:
 		case WAN_BIGPOND:
 		case WAN_STATIC:
+#ifdef __CONFIG_USBNET__
+		case WAN_USBNET:
+#endif
 			return unit;
 		}
 	}
@@ -784,10 +833,14 @@ int wanx_prefix(const char *wan_ifname, char *prefix)
 		sprintf(prefix, "wan%d_", unit);
 		if (!nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname))
 			continue;
+
 		switch (_wan_proto(prefix, tmp)) {
 		case WAN_DHCP:
 		case WAN_BIGPOND:
 		case WAN_STATIC:
+#ifdef __CONFIG_USBNET__
+		case WAN_USBNET:
+#endif
 			return unit;
 		}
 		if (xunit < 0)
@@ -851,11 +904,12 @@ int wan_valid(const char *ifname)
 void start_wan_unit(int unit)
 {
 	char *wan_ifname;
-	char *wan_proto;
+	int wan_proto;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char eabuf[32];
 	int s;
 	struct ifreq ifr;
+	int ip_mode = RC_NETWORK_NONE;
 
 #ifdef ASUS_EXT
 	update_wan_status(0);
@@ -869,22 +923,26 @@ void start_wan_unit(int unit)
 		if (!wan_ifname)
 			continue;
 
-		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
-		if (!wan_proto || !strcmp(wan_proto, "disabled"))
+		wan_proto = _wan_proto(prefix, tmp);
+		if (wan_proto == WAN_DISABLED)
 			continue;
-
-		dprintf("%s %s\n\n\n\n\n", wan_ifname, wan_proto);
-
+#ifdef DEBUG
+		dprintf("%s %s\n\n\n\n\n",
+			wan_ifname, nvram_safe_get(strcat_r(prefix, "proto", tmp)));
+#endif
 		/* disable the connection if the i/f is not in wan_ifnames */
 		if (!wan_valid(wan_ifname)) {
 			nvram_set(strcat_r(prefix, "proto", tmp), "disabled");
 			continue;
 		}
 
-#ifdef __CONFIG_MADWIMAX__
-		if (strcmp(wan_proto, "wimax") != 0)
-		{
+#if defined(__CONFIG_MADWIMAX__)
+		if (wan_proto != WAN_WIMAX)
 #endif
+#if defined(__CONFIG_USBNET__)
+		if (wan_proto != WAN_USBNET)
+#endif
+		{
 		/* Set i/f hardware address before bringing it up */
 		if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
 			continue;
@@ -949,10 +1007,7 @@ void start_wan_unit(int unit)
 			start_pppoe_relay(wan_ifname);
 		}
 #endif
-
-#ifdef __CONFIG_MADWIMAX__
 		}
-#endif
 
 #ifdef ASUS_EXT
 		//if (unit==0)
@@ -966,17 +1021,19 @@ void start_wan_unit(int unit)
 #endif
 		}
 
+		switch (wan_proto) {
 		/* 
 		* Configure PPPoE connection. The PPPoE client will run 
 		* ip-up/ip-down scripts upon link's connect/disconnect.
 		*/
-		if (strcmp(wan_proto, "pppoe") == 0 || strcmp(wan_proto, "pptp") == 0 ||
-		    strcmp(wan_proto, "l2tp") == 0) 
+		case WAN_PPPOE:
+		case WAN_PPTP:
+		case WAN_L2TP:
 		{
 			char *ipaddr = nvram_get(strcat_r(prefix, "pppoe_ipaddr", tmp));
 			char *netmask = nvram_get(strcat_r(prefix, "pppoe_netmask", tmp));
 			int demand = nvram_get_int(strcat_r(prefix, "pppoe_idletime", tmp)) &&
-			    strcmp(wan_proto, "l2tp") /* L2TP does not support idling */;
+				wan_proto == WAN_L2TP /* L2TP does not support idling */;
 
 			/* update demand option */
 			nvram_set(strcat_r(prefix, "pppoe_demand", tmp), demand ? "1" : "0");
@@ -1037,11 +1094,14 @@ void start_wan_unit(int unit)
 				if (!wait_for_ifup(prefix, wan_ifname, &ifr)) continue;
 			}
 			nvram_set("wan_ifname_t", wan_ifname);
+
+			break;
 		}
 #endif /* ASUS_EXT */
 
 #ifdef __CONFIG_MADWIMAX__
-		else if (strcmp(wan_proto, "wimax") == 0) {
+		case WAN_WIMAX:
+		{
 			// wait for usb-device initializing
 			sleep(1);
 			/* launch wimax daemon */
@@ -1056,56 +1116,28 @@ void start_wan_unit(int unit)
 		}
 #endif /* __CONFIG_MADWIMAX__ */
 
-		/* 
-		* Configure DHCP connection. The DHCP client will run 
-		* 'udhcpc.script bound'/'udhcpc.script deconfig' upon finishing IP address 
-		* renew and release.
-		*/
-		else if (strcmp(wan_proto, "dhcp") == 0 ||
-			 strcmp(wan_proto, "bigpond") == 0 )
+#ifdef __CONFIG_USBNET__
+		case WAN_USBNET:
 		{
-#ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
-				wan6_up(wan_ifname, -1);
-#endif
-			/* Start firewall */
-			start_firewall_ex(wan_ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
-			/* (Re)start pre-authenticator */
-			start_auth(prefix, 0);
-			/* Start dhcp daemon */
-			start_dhcpc(wan_ifname, unit);
-			/* Update wan information for null DNS server */
-			update_wan_status(1);
-#ifdef ASUS_EXT
-			wanmessage("Can not get IP from server");
-			nvram_set("wan_ifname_t", wan_ifname);
-#endif
+			// start previously manually disconnected interface
+			char *wan_xifname = nvram_safe_get(strcat_r(prefix, "usb_ifname", tmp));
+
+			if (strncmp(wan_xifname, "eth", 3) != 0 &&
+			    strncmp(wan_xifname, "usb", 3) != 0)
+				continue;
+			ip_mode = (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0") == 1) ? 
+				RC_NETWORK_DYNAMIC : RC_NETWORK_STATIC;
+
+			break;
 		}
-		/* Configure static IP connection. */
-		else if (strcmp(wan_proto, "static") == 0 )
-		{
-			/* Assign static IP address to i/f */
-			ifconfig(wan_ifname, IFUP,
-				 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
-				 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
-			/* (Re)start pre-authenticator */
-			start_auth(prefix, 0);
-			/* We are done configuration */
-			wan_up(wan_ifname);
-#ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
-				wan6_up(wan_ifname, -1);
-#endif
-#ifdef ASUS_EXT
-			nvram_set("wan_ifname_t", wan_ifname);
-#endif
-		}
+#endif // __CONFIG_USBNET__
+
 #ifdef __CONFIG_MODEM__
 		/* 
 		* Configure PPP connection. The PPP client will run 
 		* ip-up/ip-down scripts upon link's connect/disconnect.
 		*/
-		else if (strcmp(wan_proto, "usbmodem") == 0 )
+		case WAN_USBMODEM:
 		{
 			int demand = nvram_get_int(strcat_r(prefix, "modem_idletime", tmp));
 			
@@ -1143,8 +1175,64 @@ void start_wan_unit(int unit)
 			{
 				if (!wait_for_ifup(prefix, wan_ifname, &ifr)) continue;
 			}
+
+			break;
 		}
 #endif /* __CONFIG_MODEM__ */
+
+		case WAN_DHCP:
+		case WAN_BIGPOND:
+			ip_mode = RC_NETWORK_DYNAMIC;
+			break;
+
+		case WAN_STATIC:
+			ip_mode = RC_NETWORK_STATIC;
+			break;
+		}
+
+		/*
+		* Configure DHCP connection. The DHCP client will run 
+		* 'udhcpc.script bound'/'udhcpc.script deconfig' upon finishing IP address 
+		* renew and release.
+		*/
+		if (ip_mode == RC_NETWORK_DYNAMIC) {
+			dprintf("Start dynamic_if: %s\n", wan_ifname);
+#ifdef __CONFIG_IPV6__
+			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
+				wan6_up(wan_ifname, -1);
+#endif
+			/* Start firewall */
+			start_firewall_ex(wan_ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
+			/* (Re)start pre-authenticator */
+			start_auth(prefix, 0);
+			/* Start dhcp daemon */
+			start_dhcpc(wan_ifname, unit);
+			/* Update wan information for null DNS server */
+			update_wan_status(1);
+#ifdef ASUS_EXT
+			wanmessage("Can not get IP from server");
+			nvram_set("wan_ifname_t", wan_ifname);
+#endif
+		}
+		/* Configure static IP connection. */
+		else if (ip_mode == RC_NETWORK_STATIC ) {
+			dprintf("Start static_if: %s\n", wan_ifname);
+			/* Assign static IP address to i/f */
+			ifconfig(wan_ifname, IFUP,
+				 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
+				 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
+			/* (Re)start pre-authenticator */
+			start_auth(prefix, 0);
+			/* We are done configuration */
+			wan_up(wan_ifname);
+#ifdef __CONFIG_IPV6__
+			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
+				wan6_up(wan_ifname, -1);
+#endif
+#ifdef ASUS_EXT
+			nvram_set("wan_ifname_t", wan_ifname);
+#endif
+		}
 
 #ifndef ASUS_EXT
 		/* Start connection dependent firewall */
@@ -1206,6 +1294,9 @@ void start_wan(void)
 #ifdef ASUS_EXT // Only multiple pppoe is allowed 
 		if (unit>0 && nvram_invmatch("wan_proto", "pppoe")) break;
 #endif
+#if defined(__CONFIG_USBNET__)
+		prepare_wan_unit(unit);
+#endif
 		start_wan_unit(unit);
 	}
 
@@ -1221,6 +1312,7 @@ void stop_wan_unit(int unit)
 	char *wan_ifname;
 	char *wan_proto;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	int dynamic_ip = 0;
 
 	do {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
@@ -1263,7 +1355,13 @@ void stop_wan_unit(int unit)
 		}
 		else
 #endif
-
+#ifdef __CONFIG_USBNET__
+		/* Stop Ethernet over USB */
+		if (strcmp(wan_proto, "usbnet") == 0 ) {
+			dynamic_ip = nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0");
+		}
+		else
+#endif
 		/* Stop VPN connection */
 		if (strcmp(wan_proto, "pppoe") == 0 || strcmp(wan_proto, "pptp") == 0 ||
 			 strcmp(wan_proto, "l2tp") == 0)
@@ -1277,9 +1375,7 @@ void stop_wan_unit(int unit)
 			kill_pidfile(tmp);
 			usleep(10000);
 
-			if (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0"))
-				goto stop_dhcp;
-			else	goto stop_static;
+			dynamic_ip = nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0");
 		}
 
 		/* Stop DHCP connection */
@@ -1290,11 +1386,7 @@ void stop_wan_unit(int unit)
 			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
 				wan6_down(wan_ifname, unit);
 #endif
-		stop_dhcp:
-			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
-			kill_pidfile_s(tmp, SIGUSR2);
-			usleep(10000);
-			kill_pidfile(tmp);
+			dynamic_ip = 1;
 		}
 
 		/* Stop Static */
@@ -1304,7 +1396,14 @@ void stop_wan_unit(int unit)
 			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
 				wan6_down(wan_ifname, unit);
 #endif
-		stop_static:
+		}
+
+		if (dynamic_ip != 0) {
+			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
+			kill_pidfile_s(tmp, SIGUSR2);
+			usleep(10000);
+			kill_pidfile(tmp);
+		} else {
 			wan_down(wan_ifname);
 		}
 
@@ -1505,6 +1604,10 @@ void wan_up(const char *wan_ifname)
 #ifdef __CONFIG_MADWIMAX__
 		 || strcmp(wan_proto, "wimax") == 0
 #endif
+#ifdef __CONFIG_USBNET__
+		 || strcmp(wan_proto, "usbnet") == 0
+#endif
+
 		) {
 			/* the gateway is in the local network */
 			dprintf("=> ");
@@ -1533,6 +1636,9 @@ void wan_up(const char *wan_ifname)
 #ifdef __CONFIG_MADWIMAX__
 	     || strcmp(wan_proto, "wimax") == 0 
 #endif
+#ifdef __CONFIG_USBNET__
+	     || strcmp(wan_proto, "usbnet") == 0
+#endif
 	) {
 		char *gateway = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
 		nvram_set(strcat_r(prefix, "xgateway", tmp), gateway);
@@ -1542,8 +1648,12 @@ void wan_up(const char *wan_ifname)
 	/* and one supplied via DHCP */
 	if (    strcmp(wan_proto, "dhcp") == 0 
 #ifdef __CONFIG_MADWIMAX__
-	     || strcmp(wan_proto, "wimax") == 0 
+	    || strcmp(wan_proto, "wimax") == 0 
 #endif
+#ifdef __CONFIG_USBNET__
+	    || strcmp(wan_proto, "usbnet") == 0
+#endif
+
 	) {
 		add_wanx_routes(prefix, wan_ifname, 0);
 	}
@@ -1580,9 +1690,12 @@ void wan_up(const char *wan_ifname)
 	if (nvram_match(strcat_r(prefix, "primary", tmp), "1") &&
 	      (strcmp(wan_proto, "dhcp") == 0
 	    || strcmp(wan_proto, "bigpond") == 0
-	    || strcmp(wan_proto, "static") == 0 
+	    || strcmp(wan_proto, "static") == 0
 #ifdef __CONFIG_MADWIMAX__
 	    || strcmp(wan_proto, "wimax") == 0
+#endif
+#ifdef __CONFIG_USBNET__
+	    || strcmp(wan_proto, "usbnet") == 0
 #endif
 	)) {
 		start_igmpproxy(wan_ifname);
@@ -2087,6 +2200,19 @@ int hotplug_net(void)
 	    !(action = getenv("ACTION")))
 		return EINVAL;
 
+	dprintf("%s %s\n", interface, action);
+
+#ifdef __CONFIG_USBNET__
+	if (!strncmp(interface, "usb", 3) || !strncmp(interface, "eth", 3)) {
+
+		if (!strcmp(action, "add") || !strcmp(action, "remove")) {
+			usbnet_check_and_act(interface, action);
+		}
+
+		return 0;
+	}
+#endif
+
 	if (strncmp(interface, "wds", 3))
 		return 0;
 
@@ -2197,7 +2323,7 @@ static int wait_for_ifup(const char *prefix, const char *wan_ifname, struct ifre
 	return 1;
 }
 
-#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__) || defined(__CONFIG_USBNET__)
 void hotplug_network_device(const char *interface, const char *action, const char *product, const char *device)
 {
 	char *wan_proto;
@@ -2207,7 +2333,7 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char str_devusb[100];
 
-	dprintf( "%s %s %s", interface, action, product );
+	dprintf( "%s %s %s\n", interface, action, product );
 
 	int action_add = (strcmp(action, "add") == 0);
 
@@ -2217,7 +2343,7 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 	hotplug_sem_lock();
 
 	// prevent multiple processing of the same device
-	for (unit = 0; !found && unit < MAX_NVPARSE; unit ++)
+	if (action_add) for (unit = 0; !found && unit < MAX_NVPARSE; unit ++)
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
@@ -2239,20 +2365,27 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 
 		if (!found) {
 			if (action_add) {
+			    if (0) {}
+			    else
 #ifdef __CONFIG_MADWIMAX__
 			    if ( !strcmp(wan_proto, "wimax") &&
 			         hotplug_check_wimax(interface, product, prefix) ) {
 				found = 1;
-			    } else 
+			    } else
+#endif
+#ifdef __CONFIG_USBNET__
+			    if ( !strcmp(wan_proto, "usbnet") &&
+				hotplug_usbnet_check(interface, product, device, prefix) ) {
+				found = 3;
+			    } else
 #endif
 #ifdef __CONFIG_MODEM__
 			    if ( !strcmp(wan_proto, "usbmodem") &&
 			         hotplug_check_modem(interface, product, device, prefix) ) {
 				found = 2;
-			    }
-#else
-			    {}
+			    } else
 #endif
+			    {}
 			} else {
 				dev_vidpid = nvram_get(strcat_r(prefix, "usb_device", tmp));
 				if (dev_vidpid)
@@ -2269,6 +2402,8 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 			     !(dev_vidpid && strncmp(dev_vidpid, "zerocd", 6 == 0) ) ) 
 			{
 				dprintf("set: %s - %s - %s\n", prefix, wan_proto, str_devusb );
+			    if (0) {}
+			    else
 #ifdef __CONFIG_MADWIMAX__
 			    if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
 			    {
@@ -2278,6 +2413,14 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 #endif
 			    } else
 #endif
+
+#ifdef __CONFIG_USBNET__
+			    // Do nothing. Real processing by hotplug_net.
+/*			    if ( found==3 && strcmp(wan_proto, "usbnet") == 0 ) {
+				nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
+			    } else*/
+#endif
+
 #ifdef __CONFIG_MODEM__
 			    if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
 			    {
@@ -2286,29 +2429,34 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 				// now starts from hotplug usb-serial
 				//usb_modem_check(prefix);
 #endif
-			    }
-#else
-			    {}
+			    } else
 #endif
+			    {}
 			}
 		    } else if (found) {
+			if (0) {}
+			else
 #ifdef __CONFIG_MADWIMAX__
-			if ( strcmp(wan_proto, "wimax") == 0 )
-			{
+			if ( strcmp(wan_proto, "wimax") == 0 ) {
 			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
 			    nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
 			} else
 #endif
 #ifdef __CONFIG_MODEM__
-			if ( strcmp(wan_proto, "usbmodem") == 0 )
-			{
+			if ( strcmp(wan_proto, "usbmodem") == 0 ) {
 			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
 			    nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
 			    stop_modem_dial(prefix);
-			}
-#else
-			{}
+			} else
 #endif
+
+#ifdef __CONFIG_USBNET__
+			if ( found==3 && strcmp(wan_proto, "usbnet") == 0 ) {
+			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
+			    nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
+			} else
+#endif
+			{}
 		    }
 
 		    break;

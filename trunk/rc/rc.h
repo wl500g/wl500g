@@ -38,6 +38,7 @@
 #define DEV_RTC	"/dev/misc/rtc"
 
 enum {
+	WAN_DISABLED = -1,
 	WAN_STATIC = 0,
 	WAN_DHCP,
 	WAN_PPPOE,
@@ -49,6 +50,9 @@ enum {
 #endif
 #ifdef __CONFIG_MODEM__
 	WAN_USBMODEM,
+#endif
+#ifdef __CONFIG_USBNET__
+	WAN_USBNET,
 #endif
 };
 
@@ -261,6 +265,12 @@ int stop_modem_dial(const char *prefix);
 int usb_modem_check(const char *prefix);
 int hotplug_check_modem(const char *interface, const char *product, const char *device, const char *prefix);
 int lsmodem_main(int argc, char **argv);
+#endif
+
+#ifdef __CONFIG_USBNET__
+int  hotplug_usbnet_check(const char *interface, const char *product, const char *device, const char *prefix);
+void usbnet_check_and_act(char *ifname, char *action);
+void usbnet_load_drivers();
 #endif
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)

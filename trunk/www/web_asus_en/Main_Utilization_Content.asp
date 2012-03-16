@@ -52,7 +52,11 @@
 	} else
 	if (wan_proto=="usbmodem") {
 	    wan_ifname="<% nvram_get_x("IPConnection","wan0_pppoe_ifname"); %>";
+	} else
+	if (wan_proto=="usbnet") {
+	    wan_ifname="<% nvram_get_x("IPConnection","wan0_ifname"); %>";
 	}
+
 	if (ipv6_proto=="tun6in4" || ipv6_proto=="tun6to4") {
 	    ipv6_ifname="six0";
 	}

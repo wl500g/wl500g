@@ -417,6 +417,13 @@ config CONFIG_MODEM
        help
        Include 3G, CDMA, Dialup scripts.
 
+config CONFIG_USBNET
+       bool "Ethernet over usb support"
+       default y
+       help
+       Include usbnet, rndis, cdc_ether drivers.
+
+
 config CONFIG_LLTD
        bool "LLTD responder"
        default n
