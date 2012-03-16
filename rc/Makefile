@@ -36,6 +36,7 @@ OBJS-y := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
 OBJS-$(CONFIG_NETCONF) += firewall_ex.o
 OBJS-$(CONFIG_MADWIMAX) += wimax.o
 OBJS-$(CONFIG_MODEM) += usbmodem.o
+OBJS-$(CONFIG_USBNET) += usbnet.o
 OBJS-$(CONFIG_RCAMD) += rcamd.o
 
 

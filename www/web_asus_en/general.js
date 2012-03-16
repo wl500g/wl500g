@@ -4161,7 +4161,7 @@ function change_wan_type(v)
 		inputRCtrl1(frm.x_DHCPClient, 0);
 		inputRCtrl2(frm.x_DHCPClient, 0);
 	}
-	else if (v == "wimax")
+	else if (v == "wimax" || v=="usbnet")
 	{
 		inputCtrl(frm.wan_ipaddr, 1);
 		inputCtrl(frm.wan_netmask, 1);
@@ -4204,12 +4204,12 @@ function change_wan_type(v)
 		inputRCtrl1(frm.x_DHCPClient, 0);
 		inputRCtrl2(frm.x_DHCPClient, 0);
 	}
-	if ((v=="l2tp" || v=="pptp" || v=="wimax" || v=="usbmodem" ) &&
+	if ((v=="l2tp" || v=="pptp" || v=="wimax" || v=="usbmodem" || v=="usbnet") &&
 			frm.wan_ipaddr.value === "")
 	{
 		inputRCtrl2(frm.x_DHCPClient, 0);
 	}
-	if ((v=="l2tp" || v=="pptp" || v=="pppoe" || v=="wimax" || v=="usbmodem") &&
+	if ((v=="l2tp" || v=="pptp" || v=="pppoe" || v=="wimax" || v=="usbmodem" || v=="usbnet") &&
 			frm.wan_ipaddr.value == "0.0.0.0")
 	{
 		inputRCtrl2(frm.x_DHCPClient, 0);
@@ -4226,7 +4226,7 @@ function changeDHCPClient()
 		inputCtrl(frm.wan_netmask, 0);
 		inputCtrl(frm.wan_gateway, 0);
 		v = frm.wan_proto.value;
-		if (v=="l2tp" || v=="pptp" || v=="pppoe" || v=="wimax" || v=="usbmodem")
+		if (v=="l2tp" || v=="pptp" || v=="pppoe" || v=="wimax" || v=="usbmodem" || v=="usbnet")
 		{
 			frm.wan_ipaddr.value = "0.0.0.0";
 			frm.wan_netmask.value = "0.0.0.0";

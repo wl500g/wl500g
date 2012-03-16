@@ -490,7 +490,7 @@ void convert_asus_values()
 	nvram_set("wan_dns_t", "");
 	nvram_set("wan_status_t", "Disconnected");
 
-#if defined( __CONFIG_MADWIMAX__ ) || defined ( __CONFIG_MODEM__ )
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__) || defined (__CONFIG_USBNET__)
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 	for (unit = 0; unit < MAX_NVPARSE; unit ++) 
@@ -599,6 +599,14 @@ void convert_asus_values()
 		nvram_set("wan0_modem_mtu", nvram_safe_get("wan_modem_mtu"));
 		nvram_set("wan0_modem_mru", nvram_safe_get("wan_modem_mru"));
 		nvram_set("wan0_modem_maxfail", nvram_safe_get("wan_modem_maxfail"));
+	}
+#endif
+#ifdef __CONFIG_USBNET__
+	else if (nvram_match("wan_proto", "usbnet")) {
+		nvram_set("wan0_pppoe_ipaddr", nvram_safe_get("wan_ipaddr"));
+		nvram_set("wan0_xipaddr", nvram_safe_get("wan_ipaddr"));
+		nvram_set("wan0_ifname", nvram_safe_get("wan0"));
+		nvram_unset("wan0_usb_ifname");
 	}
 #endif
 
@@ -846,6 +854,9 @@ void update_wan_status(int isup)
 #endif
 #ifdef __CONFIG_MODEM__
 	else if (!strcmp(proto, "usbmodem")) nvram_set("wan_proto_t", "3G USB Modem");
+#endif
+#ifdef __CONFIG_USBNET__
+	else if (!strcmp(proto, "usbnet")) nvram_set("wan_proto_t", "Ethernet over USB");
 #endif
 
 	if (!isup)
