@@ -97,16 +97,17 @@ void usbnet_check_and_act(char *ifname, char *action)
 	int unit, found = 0, i;
 	char prefix[sizeof("wanXXXXXXXXXX_")];
 	char	tmp[100], tmp2[200],
-		product[50], device[50], product_descr[50], serial[50], devpath[200];
+		product[50], device[50], product_descr[50], serial[50], 
+		*devpath;
 
 	char	csz_prod[] = "PRODUCT=",
-		csz_dev[] = "DEVICE=",
-		csz_physdev[] = "PHYSDEVPATH=";
+		csz_dev[] = "DEVICE=";
+
 	char *tmp_str;
 
 	// search wan by interface
 	*tmp = 0;
-	*devpath = *product = *device = *product_descr = *serial = 0;
+	*product = *device = *product_descr = *serial = 0;
 
 	if (!strcmp(action, "remove")) {
 		for (unit = 0; !found && unit < MAX_NVPARSE; unit++) {
@@ -127,48 +128,41 @@ void usbnet_check_and_act(char *ifname, char *action)
 	if (strcmp(action, "add")) return;
 
 	// read device info using ifname from hotplug_net event
-	snprintf( tmp, sizeof(tmp), "/sys/class/net/%s/uevent", ifname );
+	snprintf( tmp, sizeof(tmp), "/sys/class/net/%s/device", ifname );
 	dprintf("%s\n", tmp);
-	fusb_descr = fopen( tmp, "rt" );
-	if (fusb_descr) {
-		while (!feof(fusb_descr)) {
-			fgets(tmp, sizeof(tmp), fusb_descr);
-			// get physical device name
-			if (!strncmp(tmp, csz_physdev, sizeof(csz_physdev)-1)) {
+	if ((devpath = realpath(tmp, NULL))) {
+		// shrink usb-endpoint
+		if ((tmp_str = strrchr(devpath, '/'))) *tmp_str = 0;
+
+		// read device information by physical device name
+		snprintf( tmp2, sizeof(tmp2), "%s/uevent", devpath );
+		dprintf("%s\n",tmp2);
+		fusb_descr = fopen( tmp2, "rt" );
+		if (fusb_descr) {
+			while (!feof(fusb_descr) && !(*product && *device)) {
+				fgets(tmp, sizeof(tmp), fusb_descr);
 				if((tmp_str = strchr(tmp, '\n'))) *tmp_str = 0;
-				strcpy(devpath, tmp + sizeof(csz_physdev) - 1);
-				break;
-			}
-		}
-		fclose(fusb_descr);
-		if (*devpath) {
-			// read device information by physical device name
-			snprintf( tmp2, sizeof(tmp2), "/sys%s/uevent", devpath );
-			dprintf("%s\n",tmp2);
-			fusb_descr = fopen( tmp2, "rt" );
-			if (fusb_descr) {
-				while (!feof(fusb_descr) && !(*product && *device)) {
-					fgets(tmp, sizeof(tmp), fusb_descr);
-					if((tmp_str = strchr(tmp, '\n'))) *tmp_str = 0;
-					if (!strncmp(tmp, csz_prod, sizeof(csz_prod)-1)) {
-						strcpy(product, tmp + sizeof(csz_prod) - 1);
-					} else if (!strncmp(tmp, csz_dev, sizeof(csz_dev)-1)) {
-						strcpy(device, tmp + sizeof(csz_dev) - 1);
-					}
+				if (!strncmp(tmp, csz_prod, sizeof(csz_prod)-1)) {
+					strcpy(product, tmp + sizeof(csz_prod) - 1);
+				} else if (!strncmp(tmp, csz_dev, sizeof(csz_dev)-1)) {
+					strcpy(device, tmp + sizeof(csz_dev) - 1);
 				}
 			}
-			if ((tmp_str = strrchr(devpath, '/'))) *tmp_str = 0;
-			// get product description
-			snprintf( tmp2, sizeof(tmp2), "/sys%s/product", devpath );
-			dprintf("%s\n", tmp2);
-			fgets_ex(tmp2, product_descr, sizeof(product_descr));
-			// get serial number
-			snprintf( tmp2, sizeof(tmp2), "/sys%s/serial", devpath );
-			dprintf("%s\n", tmp2);
-			fgets_ex(tmp2, serial, sizeof(serial));
-			dprintf("found: %s, %s, %s\n", product_descr, product, serial);
 		}
+
+		// get product description
+		snprintf( tmp2, sizeof(tmp2), "%s/product", devpath );
+		dprintf("%s\n", tmp2);
+		fgets_ex(tmp2, product_descr, sizeof(product_descr));
+		// get serial number
+		snprintf( tmp2, sizeof(tmp2), "%s/serial", devpath );
+		dprintf("%s\n", tmp2);
+		fgets_ex(tmp2, serial, sizeof(serial));
+		dprintf("found: %s, %s, %s\n", product_descr, product, serial);
+
+		free(devpath);
 	}
+
 	dprintf( "action for %s : %s\n", product, device );
 
 	// checking device type
