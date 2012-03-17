@@ -1391,46 +1391,45 @@ portmapping_main(int argc, char *argv[])
 }
 #endif	
 
-void convert_routes(void)
+void convert_routes(int unit)
 {
 	int i;
 	char *ip, *netmask, *gateway, *matric, *interface;
 	char wroutes[1024], lroutes[1024], mroutes[1024];
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
 	wroutes[0] = 0;
-	lroutes[0] = 0;	
-	mroutes[0] = 0;	
+	lroutes[0] = 0;
+	mroutes[0] = 0;
 
 	g_buf_init();
-			
+
 	if (nvram_match("sr_enable_x", "1")) foreach_x("sr_num_x")
 	{
+		char *routes;
 		ip = general_conv("sr_ipaddr_x", i);
 		netmask = general_conv("sr_netmask_x", i);
 		gateway = general_conv("sr_gateway_x", i);
 		matric = general_conv("sr_matric_x", i);
 		interface = general_conv("sr_if_x", i);
 
-
 		dprintf("%x %s %s %s %s %s\n", i, ip, netmask, gateway, matric, interface);
 
-		if (!strcmp(interface, "WAN"))
-		{		
-			sprintf(wroutes, "%s %s:%s:%s:%d", wroutes, ip, netmask, gateway, atoi(matric)+1);
-		}
-		else if (!strcmp(interface, "LAN"))
-		{
-			sprintf(lroutes, "%s %s:%s:%s:%d", lroutes, ip, netmask, gateway, atoi(matric)+1);
-		}	
-		else if (!strcmp(interface, "MAN"))
-		{
-			sprintf(mroutes, "%s %s:%s:%s:%d", mroutes, ip, netmask, gateway, atoi(matric)+1);
-		}	
+		if (strcmp(interface, "WAN") == 0)
+			routes = wroutes;
+		else if (strcmp(interface, "LAN") == 0)
+			routes = lroutes;
+		else if (strcmp(interface, "MAN") == 0)
+			routes = mroutes;
+		else
+			continue;
+
+		sprintf(routes, "%s %s:%s:%s:%d", routes, ip, netmask, gateway, atoi(matric)+1);
 	}
 
-	//printf("route: %s %s\n", lroutes, wroutes);
 	nvram_set("lan_route", lroutes);
-	nvram_set("wan0_route", wroutes);
-	nvram_set("wan_route", mroutes);
-}
 
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	nvram_set(strcat_r(prefix, "route", tmp), wroutes);
+	nvram_set(strcat_r(prefix, "mroute", tmp), mroutes);
+}
