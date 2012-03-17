@@ -73,7 +73,7 @@ void update_wan_status(int isup);
 char *pppstatus(char *buf);
 void convert_asus_values();
 void convert_country();
-void convert_routes();
+void convert_routes(int unit);
 char *mac_conv(const char *mac_name, int idx, char *buf);
 int fputs_ex(const char *name, const char *value);
 int fgets_ex(const char *name, char *value, int size);

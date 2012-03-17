@@ -631,7 +631,7 @@ void convert_asus_values()
 	nvram_set("wan0_auth_username", nvram_safe_get("wan_pppoe_username"));
 	nvram_set("wan0_auth_passwd", nvram_safe_get("wan_pppoe_passwd"));
 
-	convert_routes();
+	convert_routes(0);
 
 	if (nvram_match("wan_nat_x", "0") && nvram_match("wan_route_x", "IP_Bridged"))
 	{

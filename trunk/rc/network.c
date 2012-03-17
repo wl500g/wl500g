@@ -208,7 +208,7 @@ static void start_emf(const char *lan_ifname)
 
 static int add_routes(const char *prefix, const char *var, const char *ifname)
 {
-	int err, m;
+	int err;
 	char word[80], *next;
 	char *ipaddr, *netmask, *gateway, *metric;
 	char tmp[100];
@@ -228,17 +228,14 @@ static int add_routes(const char *prefix, const char *var, const char *ifname)
 		if (!gateway || !metric)
 			continue;
 
-		/* TODO: use gateway from prefix? */
 		if (ip_addr(gateway) == INADDR_ANY) 
-			gateway = nvram_safe_get("wan0_xgateway");
-
-		m = atoi(metric) + 1;
+			gateway = nvram_safe_get(strcat_r(prefix, "xgateway", tmp));
 
 		dprintf("=> ");
-		if ((err = route_add(ifname, m, ipaddr, gateway, netmask))) {
-			logmessage("route", "add failed(%d) '%s': %s dst %s mask %s gw %s metric %d",
+		if ((err = route_add(ifname, atoi(metric) + 1, ipaddr, gateway, netmask))) {
+			logmessage("route", "add failed(%d) '%s': %s dst %s mask %s gw %s",
 			err, strerror(err),
-			ifname, ipaddr, netmask, gateway, m);
+			ifname, ipaddr, netmask, gateway);
 		}
 	}
 
@@ -1048,7 +1045,7 @@ void start_wan_unit(int unit)
 		 		char *gateway = nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp));
 
 			 	/* setup static wan routes via physical device */
-				add_routes("wan_", "route", wan_ifname);
+				add_routes(prefix, "mroute", wan_ifname);
 
 				/* and set default route if specified with metric 1 */
 				if (ip_addr(gateway) != INADDR_ANY &&
@@ -1538,7 +1535,7 @@ void wan_up(const char *wan_ifname)
 			"br0", nvram_safe_get("lan_ipaddr"));
 
 	 	/* setup static wan routes via physical device */
-		add_routes("wan_", "route", wan_ifname);
+		add_routes(prefix, "mroute", wan_ifname);
 		/* and one supplied via DHCP */
 		add_wanx_routes(xprefix, wan_ifname, 0); /* why not 2 ? */
 
@@ -1634,7 +1631,7 @@ void wan_up(const char *wan_ifname)
 	) {
 		char *gateway = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
 		nvram_set(strcat_r(prefix, "xgateway", tmp), gateway);
-		add_routes("wan_", "route", wan_ifname);
+		add_routes(prefix, "mroute", wan_ifname);
 	}
 
 	/* and one supplied via DHCP */
