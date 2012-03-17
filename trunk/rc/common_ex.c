@@ -954,7 +954,7 @@ int fgets_ex(const char *name, char *value, int size)
 	FILE *fp;
 	char *tmp = value;
 
-	if (!(fp = fopen(name, "r+"))) {
+	if (!(fp = fopen(name, "rt"))) {
 		perror(name);
 		return errno;
 	}

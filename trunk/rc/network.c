@@ -2315,10 +2315,10 @@ static int wait_for_ifup(const char *prefix, const char *wan_ifname, struct ifre
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__) || defined(__CONFIG_USBNET__)
 void hotplug_network_device(const char *interface, const char *action, const char *product, const char *device)
 {
-	char *wan_proto;
+	int wan_proto;
 	char *dev_vidpid;
 	int unit;
-	int found=0;
+	int found = 0;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char str_devusb[100];
 
@@ -2346,109 +2346,86 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
-		if (!wan_proto || !strcmp(wan_proto, "disabled"))
+		if ((wan_proto = _wan_proto(prefix, tmp)) < 0)
 			continue;
 
-		dprintf("%s \n\n", wan_proto);
+		dprintf("%d \n\n", wan_proto);
 
 		if (!found) {
 			if (action_add) {
-			    if (0) {}
-			    else
+				switch(wan_proto) {
 #ifdef __CONFIG_MADWIMAX__
-			    if ( !strcmp(wan_proto, "wimax") &&
-			         hotplug_check_wimax(interface, product, prefix) ) {
-				found = 1;
-			    } else
+				case WAN_WIMAX:
+					found = hotplug_check_wimax(interface, product, prefix);
+					break;
 #endif
 #ifdef __CONFIG_USBNET__
-			    if ( !strcmp(wan_proto, "usbnet") &&
-				hotplug_usbnet_check(interface, product, device, prefix) ) {
-				found = 3;
-			    } else
+				case WAN_USBNET:
+					found = hotplug_usbnet_check(interface, product, device, prefix);
+					break;
 #endif
 #ifdef __CONFIG_MODEM__
-			    if ( !strcmp(wan_proto, "usbmodem") &&
-			         hotplug_check_modem(interface, product, device, prefix) ) {
-				found = 2;
-			    } else
+				case WAN_USBMODEM:
+					found = hotplug_check_modem(interface, product, device, prefix);
+					break;
 #endif
-			    {}
-			} else {
+				}
+			} else { // action remove
 				dev_vidpid = nvram_get(strcat_r(prefix, "usb_device", tmp));
 				if (dev_vidpid)
 					found = (strcmp(dev_vidpid, str_devusb) == 0);
 			}
 		}
-		if (found)
-		{
-
-		    if (action_add)
-		    {
+		if (found) {
+		    if (action_add) {
 			dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
 			if ( !dev_vidpid || !*dev_vidpid ||
-			     !(dev_vidpid && strncmp(dev_vidpid, "zerocd", 6 == 0) ) ) 
+			     !(dev_vidpid && strncmp(dev_vidpid, "zerocd", 6 == 0) ) )
 			{
-				dprintf("set: %s - %s - %s\n", prefix, wan_proto, str_devusb );
-			    if (0) {}
-			    else
+				dprintf("set: %s - %d - %s\n", prefix, wan_proto, str_devusb );
+				switch (wan_proto) {
 #ifdef __CONFIG_MADWIMAX__
-			    if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
-			    {
-				nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
+				case WAN_WIMAX:
+					nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
 #ifdef HOTPLUG_DEV_START
-				start_wimax( prefix );
+					start_wimax( prefix );
 #endif
-			    } else
+					break;
 #endif
 
 #ifdef __CONFIG_USBNET__
-			    // Do nothing. Real processing by hotplug_net.
-/*			    if ( found==3 && strcmp(wan_proto, "usbnet") == 0 ) {
-				nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
-			    } else*/
+				// Do nothing. Real processing by hotplug_net.
+/*				case WAN_USBNET:
+					nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
+					break; */
 #endif
 
 #ifdef __CONFIG_MODEM__
-			    if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
-			    {
-				nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
+				case WAN_USBMODEM:
+					nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
 #ifdef HOTPLUG_DEV_START
-				// now starts from hotplug usb-serial
-				//usb_modem_check(prefix);
+					// now starts from hotplug usb-serial
+					//usb_modem_check(prefix);
 #endif
-			    } else
+					break;
 #endif
-			    {}
+				}
 			}
-		    } else if (found) {
-			if (0) {}
-			else
-#ifdef __CONFIG_MADWIMAX__
-			if ( strcmp(wan_proto, "wimax") == 0 ) {
-			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
-			    nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
-			} else
-#endif
+		    } else { // action remove
+			nvram_unset(strcat_r(prefix, "usb_device", tmp) );
+			nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
+
+			switch (wan_proto) {
 #ifdef __CONFIG_MODEM__
-			if ( strcmp(wan_proto, "usbmodem") == 0 ) {
-			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
-			    nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
-			    stop_modem_dial(prefix);
-			} else
+			case WAN_USBMODEM:
+				nvram_unset(strcat_r(prefix, "usb_device", tmp) );
+				nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
+				stop_modem_dial(prefix);
+				break;
 #endif
-
-#ifdef __CONFIG_USBNET__
-			if ( found==3 && strcmp(wan_proto, "usbnet") == 0 ) {
-			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
-			    nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
-			} else
-#endif
-			{}
+			}
+			break;
 		    }
-
-		    break;
 		}
 	}
 	hotplug_sem_unlock();
@@ -2456,4 +2433,4 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 
 	dprintf("done\n");
 }
-#endif /* defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__) */
+#endif /* defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__) || defined(__CONFIG_USBNET__)*/
