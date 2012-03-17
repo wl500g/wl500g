@@ -50,12 +50,6 @@ static int wait_for_ifup(const char *prefix, const char *wan_ifname, struct ifre
 #define HOTPLUG_DEV_START
 sem_t * hotplug_sem = SEM_FAILED;
 
-enum {
-	RC_NETWORK_NONE = 0,
-	RC_NETWORK_STATIC,
-	RC_NETWORK_DYNAMIC
-};
-
 void hotplug_sem_open()
 {
 	hotplug_sem = sem_open( "/hotplug_sem", O_CREAT | O_EXCL, S_IRWXU | S_IRWXG, 1 );
@@ -739,10 +733,8 @@ int _wan_proto(const char *prefix, char *buffer)
 		else if (strcmp(wan_proto, "usbnet") == 0)
 			return WAN_USBNET;
 #endif
-
-
 	}
-	return WAN_DISABLED;
+	return -1;
 }
 
 int wan_proto(const char *prefix)
@@ -909,7 +901,6 @@ void start_wan_unit(int unit)
 	char eabuf[32];
 	int s;
 	struct ifreq ifr;
-	int ip_mode = RC_NETWORK_NONE;
 
 #ifdef ASUS_EXT
 	update_wan_status(0);
@@ -924,7 +915,7 @@ void start_wan_unit(int unit)
 			continue;
 
 		wan_proto = _wan_proto(prefix, tmp);
-		if (wan_proto == WAN_DISABLED)
+		if (wan_proto < 0)
 			continue;
 #ifdef DEBUG
 		dprintf("%s %s\n\n\n\n\n",
@@ -936,12 +927,15 @@ void start_wan_unit(int unit)
 			continue;
 		}
 
+		switch (wan_proto) {
+		/* proto which doesn't need ethernet */
 #if defined(__CONFIG_MADWIMAX__)
-		if (wan_proto != WAN_WIMAX)
+		case WAN_WIMAX: break;
 #endif
 #if defined(__CONFIG_USBNET__)
-		if (wan_proto != WAN_USBNET)
+		case WAN_USBNET: break;
 #endif
+		default:
 		{
 		/* Set i/f hardware address before bringing it up */
 		if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
@@ -958,8 +952,7 @@ void start_wan_unit(int unit)
 		}
 
 		ether_atoe(nvram_safe_get(strcat_r(prefix, "hwaddr", tmp)), eabuf);
-		if (memcmp(eabuf, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
-		{
+		if (memcmp(eabuf, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN)) {
 			/* current hardware address is different than user specified */
 			ifconfig(wan_ifname, 0, NULL, NULL);
 		}
@@ -968,9 +961,7 @@ void start_wan_unit(int unit)
 		if (ioctl(s, SIOCGIFFLAGS, &ifr)) {
 			close(s);
 			continue;
-		}
-		else if ( !(ifr.ifr_flags & IFF_UP) )
-		{
+		} else if (!(ifr.ifr_flags & IFF_UP) ) {
 			/* Sync connection nvram address and i/f hardware address */
 			memset(ifr.ifr_hwaddr.sa_data, 0, ETHER_ADDR_LEN);
 
@@ -982,8 +973,7 @@ void start_wan_unit(int unit)
 					continue;
 				}
 				nvram_set(strcat_r(prefix, "hwaddr", tmp), ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
-			}
-			else {
+			} else {
 				ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
 				ioctl(s, SIOCSIFHWADDR, &ifr);
 			}
@@ -1001,13 +991,13 @@ void start_wan_unit(int unit)
 		close(s);
 
 #ifdef ASUS_EXT
-		if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
-		{
+		if (nvram_match(strcat_r(prefix, "primary", tmp), "1")) {
 			setup_ethernet(wan_ifname);
 			start_pppoe_relay(wan_ifname);
 		}
 #endif
-		}
+		} /* default */
+		} /* switch (wan_proto) */
 
 #ifdef ASUS_EXT
 		//if (unit==0)
@@ -1020,6 +1010,7 @@ void start_wan_unit(int unit)
 				fputs_ex("/proc/sys/net/ipv6/conf/all/forwarding", "1");
 #endif
 		}
+#endif /* ASUS_EXT */
 
 		switch (wan_proto) {
 		/* 
@@ -1033,7 +1024,7 @@ void start_wan_unit(int unit)
 			char *ipaddr = nvram_get(strcat_r(prefix, "pppoe_ipaddr", tmp));
 			char *netmask = nvram_get(strcat_r(prefix, "pppoe_netmask", tmp));
 			int demand = nvram_get_int(strcat_r(prefix, "pppoe_idletime", tmp)) &&
-				wan_proto == WAN_L2TP /* L2TP does not support idling */;
+				wan_proto != WAN_L2TP /* L2TP does not support idling */;
 
 			/* update demand option */
 			nvram_set(strcat_r(prefix, "pppoe_demand", tmp), demand ? "1" : "0");
@@ -1093,16 +1084,17 @@ void start_wan_unit(int unit)
 			{
 				if (!wait_for_ifup(prefix, wan_ifname, &ifr)) continue;
 			}
+#ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
-
+#endif
+			/* fall through to dhcp/static, firewall2 */
 			break;
 		}
-#endif /* ASUS_EXT */
 
 #ifdef __CONFIG_MADWIMAX__
 		case WAN_WIMAX:
 		{
-			// wait for usb-device initializing
+			/* wait for usb-device initializing */
 			sleep(1);
 			/* launch wimax daemon */
 			start_wimax(prefix);
@@ -1112,22 +1104,25 @@ void start_wan_unit(int unit)
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
 #endif
+			/* why not fall through to dhcp/static, firewall2? */
 			continue;
 		}
 #endif /* __CONFIG_MADWIMAX__ */
 
 #ifdef __CONFIG_USBNET__
+		/* Start previously manually disconnected USB interface */
 		case WAN_USBNET:
 		{
-			// start previously manually disconnected interface
-			char *wan_xifname = nvram_safe_get(strcat_r(prefix, "usb_ifname", tmp));
+			char *usb_ifname = nvram_safe_get(strcat_r(prefix, "usb_ifname", tmp));
 
-			if (strncmp(wan_xifname, "eth", 3) != 0 &&
-			    strncmp(wan_xifname, "usb", 3) != 0)
+			if (strncmp(usb_ifname, "eth", 3) != 0 &&
+			    strncmp(usb_ifname, "usb", 3) != 0)
 				continue;
-			ip_mode = (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0") == 1) ? 
-				RC_NETWORK_DYNAMIC : RC_NETWORK_STATIC;
 
+			/* override wan_proto */
+			wan_proto = nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp),
+				"0.0.0.0") ? WAN_DHCP : WAN_STATIC;
+			/* fall through to dhcp/static, firewall2 */
 			break;
 		}
 #endif // __CONFIG_USBNET__
@@ -1175,28 +1170,21 @@ void start_wan_unit(int unit)
 			{
 				if (!wait_for_ifup(prefix, wan_ifname, &ifr)) continue;
 			}
-
+			/* fall through to dhcp/static, firewall2 */
 			break;
 		}
 #endif /* __CONFIG_MODEM__ */
-
-		case WAN_DHCP:
-		case WAN_BIGPOND:
-			ip_mode = RC_NETWORK_DYNAMIC;
-			break;
-
-		case WAN_STATIC:
-			ip_mode = RC_NETWORK_STATIC;
-			break;
-		}
+		} /* switch(wan_proto) */
 
 		/*
-		* Configure DHCP connection. The DHCP client will run 
-		* 'udhcpc.script bound'/'udhcpc.script deconfig' upon finishing IP address 
-		* renew and release.
-		*/
-		if (ip_mode == RC_NETWORK_DYNAMIC) {
-			dprintf("Start dynamic_if: %s\n", wan_ifname);
+		 * Configure DHCP connection. The DHCP client will run 
+		 * 'udhcpc.script bound'/'udhcpc.script deconfig' upon finishing IP address 
+		 * renew and release.
+		 */
+		switch (wan_proto) {
+		case WAN_DHCP:
+		case WAN_BIGPOND:
+		{
 #ifdef __CONFIG_IPV6__
 			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
 				wan6_up(wan_ifname, -1);
@@ -1213,10 +1201,12 @@ void start_wan_unit(int unit)
 			wanmessage("Can not get IP from server");
 			nvram_set("wan_ifname_t", wan_ifname);
 #endif
+			break;
 		}
+
 		/* Configure static IP connection. */
-		else if (ip_mode == RC_NETWORK_STATIC ) {
-			dprintf("Start static_if: %s\n", wan_ifname);
+		case WAN_STATIC:
+		{
 			/* Assign static IP address to i/f */
 			ifconfig(wan_ifname, IFUP,
 				 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
@@ -1232,7 +1222,9 @@ void start_wan_unit(int unit)
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
 #endif
+			break;
 		}
+		} /* switch(wan_proto) */
 
 #ifndef ASUS_EXT
 		/* Start connection dependent firewall */
@@ -2466,5 +2458,5 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 	hotplug_sem_close();
 
 	dprintf("done\n");
-};
+}
 #endif /* defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__) */

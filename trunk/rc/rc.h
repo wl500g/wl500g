@@ -38,7 +38,6 @@
 #define DEV_RTC	"/dev/misc/rtc"
 
 enum {
-	WAN_DISABLED = -1,
 	WAN_STATIC = 0,
 	WAN_DHCP,
 	WAN_PPPOE,

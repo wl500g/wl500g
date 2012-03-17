@@ -603,9 +603,7 @@ void convert_asus_values()
 #endif
 #ifdef __CONFIG_USBNET__
 	else if (nvram_match("wan_proto", "usbnet")) {
-		nvram_set("wan0_pppoe_ipaddr", nvram_safe_get("wan_ipaddr"));
-		nvram_set("wan0_xipaddr", nvram_safe_get("wan_ipaddr"));
-		nvram_set("wan0_ifname", nvram_safe_get("wan0"));
+		nvram_set("wan0_ifname", "wan0");
 		nvram_unset("wan0_usb_ifname");
 	}
 #endif
