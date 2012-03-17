@@ -836,53 +836,47 @@ void update_lan_status(int isup)
 
 void update_wan_status(int isup)
 {
-	char *proto;
-	char dns_str[36];
+	int proto;
+	char tmp[36];
 
-	proto = nvram_safe_get("wan_proto");
-
-	if (!strcmp(proto, "static")) nvram_set("wan_proto_t", "Static");
-	else if (!strcmp(proto, "dhcp")) nvram_set("wan_proto_t", "Automatic IP");
-	else if (!strcmp(proto, "pppoe")) nvram_set("wan_proto_t", "PPPoE");	
-	else if (!strcmp(proto, "pptp")) nvram_set("wan_proto_t", "PPTP");
-	else if (!strcmp(proto, "l2tp")) nvram_set("wan_proto_t", "L2TP");
-	else if (!strcmp(proto, "bigpond")) nvram_set("wan_proto_t", "BigPond");
+	proto = _wan_proto("wan_", tmp);
+	if (proto == WAN_STATIC) nvram_set("wan_proto_t", "Static");
+	else if (proto == WAN_DHCP) nvram_set("wan_proto_t", "Automatic IP");
+	else if (proto == WAN_PPPOE) nvram_set("wan_proto_t", "PPPoE");
+	else if (proto == WAN_PPTP) nvram_set("wan_proto_t", "PPTP");
+	else if (proto == WAN_L2TP) nvram_set("wan_proto_t", "L2TP");
+	else if (proto == WAN_BIGPOND) nvram_set("wan_proto_t", "BigPond");
 #ifdef __CONFIG_MADWIMAX__
-	else if (!strcmp(proto, "wimax")) nvram_set("wan_proto_t", "WiMAX");
+	else if (proto == WAN_WIMAX) nvram_set("wan_proto_t", "WiMAX");
 #endif
 #ifdef __CONFIG_MODEM__
-	else if (!strcmp(proto, "usbmodem")) nvram_set("wan_proto_t", "3G USB Modem");
+	else if (proto == WAN_USBMODEM) nvram_set("wan_proto_t", "USB Modem");
 #endif
 #ifdef __CONFIG_USBNET__
-	else if (!strcmp(proto, "usbnet")) nvram_set("wan_proto_t", "Ethernet over USB");
+	else if (proto == WAN_USBNET) nvram_set("wan_proto_t", "USB Ethernet");
 #endif
 
-	if (!isup)
-	{
+	if (!isup) {
 		nvram_set("wan_ipaddr_t", "");
 		nvram_set("wan_netmask_t", "");
 		nvram_set("wan_gateway_t", "");
 		nvram_set("wan_dns_t", "");
 		nvram_set("wan_ifname_t", "");
 		nvram_set("wan_status_t", "Disconnected");
-	}
-	else
-	{
+	} else {
 		nvram_set("wan_ipaddr_t", nvram_safe_get("wan0_ipaddr"));
 		nvram_set("wan_netmask_t", nvram_safe_get("wan0_netmask"));
 		nvram_set("wan_gateway_t", nvram_safe_get("wan0_gateway"));
 
-
-		if (nvram_invmatch("wan_dnsenable_x", "1"))
-		{
-			dns_str[0] = '\0';
+		if (nvram_invmatch("wan_dnsenable_x", "1")) {
+			tmp[0] = '\0';
 			if (nvram_invmatch("wan_dns1_x",""))
-				sprintf(dns_str, "%s", nvram_safe_get("wan_dns1_x"));
+				snprintf(tmp, sizeof(tmp), "%s", nvram_safe_get("wan_dns1_x"));
 			if (nvram_invmatch("wan_dns2_x",""))
-				sprintf(dns_str+strlen(dns_str), " %s", nvram_safe_get("wan_dns2_x"));
-			nvram_set("wan_dns_t", dns_str);
-		}
-		else nvram_set("wan_dns_t", nvram_safe_get("wan0_dns"));
+				snprintf(tmp, sizeof(tmp), "%s %s", tmp, nvram_safe_get("wan_dns2_x"));
+			nvram_set("wan_dns_t", tmp);
+		} else
+			nvram_set("wan_dns_t", nvram_safe_get("wan0_dns"));
 		nvram_set("wan_status_t", "Connected");
 	}
 }
