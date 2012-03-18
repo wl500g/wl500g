@@ -90,7 +90,7 @@
 					USB device location ID:
 				</td>
 				<td class="content_input_td">
-					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan0_modem_usbloc"
+					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_usbloc"
 						value="<% nvram_get_x("LANHostConfig","wan0_modem_usbloc"); %>" onkeypress="return is_string(event, this)"
 						onblur="validate_string(this)">
 				</td>
@@ -101,7 +101,7 @@
 					User interface port:
 				</td>
 				<td class="content_input_td">
-					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan0_modem_pui"
+					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_pui"
 						value="<% nvram_get_x("3GConfig","wan0_modem_pui"); %>" onkeypress="return is_string(event, this)"
 						onblur="validate_string(this)">
 				</td>
