@@ -36,7 +36,7 @@ Originally from [http://oleg.wl500g.info/devices.html]
 ||RT-N12 C1||BCM5357 300Mhz||SoC||802.11n (SoC 4329) 2.4Ghz||32MB DDR||8MB||N/A||1.9.2.7-rtn||28/9||
 ||RT-N13U||RA3052F 384Mhz !RaLink||SoC||802.11n (SoC) 2.4GHz||32MB SDR 16bit||4MB||1 x 2.0 (SoC)||no||-||
 ||RT-N16||BCM4718 480MHz||BCM53115 (Gigabit)||802.11n (SoC 4329 + BCM2050) 2.4GHz||128MB DDR 32bit||32MB||2 x 2.0||1.9.2.7-rtn||17/5||
-||RT-N15U||BCM5358 500MHz||BCM53125 (Gigabit)||802.11n (SoC 4329) 2.4GHz||64MB DDR 32bit||8MB||1 x 2.0 (SoC)||1.9.2.7-rtn||28/9||
+||RT-N15U||BCM47186B 500MHz||BCM53125S (Gigabit)||802.11n (SoC 4329) 2.4GHz||64MB DDR 32bit||8MB||1 x 2.0 (SoC)||1.9.2.7-rtn||28/9||
 ||RT-N53||BCM5358 500MHz||SoC||802.11n (SoC) 2.4GHz + BCM43236 5Ghz||32MB DDR 32bit||8MB||N/A||WiP||28/9 + 24/9||
 ||RT-N56U||RT3662F 500MHz !RaLink||RTL8367M (Gigabit)||802.11n (SoC) 2.4GHz/5GHz||128MB DDR 32bit||8MB||2 x 2.0||no||-||
-||RT-N66U||BCM4706 600MHz||BCM53125 (Gigabit)||802.11n (SoC 4331) 2.4GHz/5GHz||256MB DDR 32bit||32MB||2 x 2.0||?||29/1||
+||RT-N66U||BCM4706 600MHz||BCM53125S (Gigabit)||802.11n (SoC 4331) 2.4GHz/5GHz||256MB DDR 32bit||32MB||2 x 2.0||?||29/1||
