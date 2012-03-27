@@ -4,25 +4,28 @@ ext3: Updates from 2.6.32.48
  9df93939b735dd273e49cbee290b9f4738500ef4 ext3: Use bitops to read/modify EXT3_I(inode)->i_state
  de329820e920cd9cfbc2127cad26a37026260cce ext3: fix broken handling of EXT3_STATE_NEW
  ae54870a1dc978a88377ae8af0780648f2ccd4dc ext3: Fix lock inversion in ext3_symlink()
+ 8cef107a1d890ff76c85d665083ff3562be01d32 ext3: Avoid loading bitmaps for full groups during block allocation
+ f25f624263445785b94f39739a6339ba9ed3275d ext3: Avoid filesystem corruption after a crash under heavy delete load
+ 5f11e6a44059f728dddd8d0dbe5b4368ea93575b ext3: Fix dirtying of journalled buffers in data=journal mode
 
 ---
- Documentation/filesystems/ext3.txt |   40 +++-
- fs/ext3/balloc.c                   |    3 
+ Documentation/filesystems/ext3.txt |   40 +++
+ fs/ext3/balloc.c                   |    9 
  fs/ext3/dir.c                      |    5 
- fs/ext3/file.c                     |   67 --------
- fs/ext3/fsync.c                    |   40 ++--
- fs/ext3/hash.c                     |   77 ++++++++-
+ fs/ext3/file.c                     |   67 ------
+ fs/ext3/fsync.c                    |   40 ++-
+ fs/ext3/hash.c                     |   77 ++++++-
  fs/ext3/ialloc.c                   |    7 
- fs/ext3/inode.c                    |  307 ++++++++++++++++++++++++-------------
- fs/ext3/ioctl.c                    |   53 ++----
- fs/ext3/namei.c                    |  198 +++++++++++++++--------
+ fs/ext3/inode.c                    |  371 ++++++++++++++++++++++++-------------
+ fs/ext3/ioctl.c                    |   53 +----
+ fs/ext3/namei.c                    |  198 +++++++++++++------
  fs/ext3/resize.c                   |    2 
- fs/ext3/super.c                    |  207 +++++++++++++-----------
- fs/ext3/xattr.c                    |   34 ++--
- include/linux/ext3_fs.h            |   69 ++++++--
- include/linux/ext3_fs_i.h          |   10 +
+ fs/ext3/super.c                    |  215 +++++++++++----------
+ fs/ext3/xattr.c                    |   34 ++-
+ include/linux/ext3_fs.h            |   69 +++++-
+ include/linux/ext3_fs_i.h          |   10 
  include/linux/ext3_fs_sb.h         |    3 
- 16 files changed, 690 insertions(+), 432 deletions(-)
+ 16 files changed, 738 insertions(+), 462 deletions(-)
 
 diff --git a/Documentation/filesystems/ext3.txt b/Documentation/filesystems/ext3.txt
 --- a/Documentation/filesystems/ext3.txt
@@ -113,6 +116,19 @@ diff --git a/fs/ext3/balloc.c b/fs/ext3/balloc.c
  error_return:
  	brelse(bitmap_bh);
  	ext3_std_error(sb, err);
+@@ -1584,6 +1584,12 @@ retry_alloc:
+ 			goto io_error;
+ 		free_blocks = le16_to_cpu(gdp->bg_free_blocks_count);
+ 		/*
++		 * skip this group (and avoid loading bitmap) if there
++		 * are no free blocks
++		 */
++		if (!free_blocks)
++			continue;
++		/*
+ 		 * skip this group if the number of
+ 		 * free blocks is less than half of the reservation
+ 		 * window size.
 @@ -1708,7 +1708,6 @@ allocated:
  	if (!fatal)
  		fatal = err;
@@ -576,8 +592,30 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  	/*
  	 * ext3_get_blocks_handle() returns number of blocks
  	 * mapped. 0 in case of a HOLE.
-@@ -1135,17 +1143,30 @@ static int do_journal_get_write_access(h
- 	return ext3_journal_get_write_access(handle, bh);
+@@ -1135,22 +1143,51 @@ static int walk_page_buffers(	handle_t *handle,
+ static int do_journal_get_write_access(handle_t *handle,
+ 					struct buffer_head *bh)
+ {
++	int dirty = buffer_dirty(bh);
++	int ret;
++
+ 	if (!buffer_mapped(bh) || buffer_freed(bh))
+ 		return 0;
+-	return ext3_journal_get_write_access(handle, bh);
++	/*
++	 * __block_prepare_write() could have dirtied some buffers. Clean
++	 * the dirty bit as jbd2_journal_get_write_access() could complain
++	 * otherwise about fs integrity issues. Setting of the dirty bit
++	 * by __block_prepare_write() isn't a real problem here as we clear
++	 * the bit before releasing a page lock and thus writeback cannot
++	 * ever write the buffer.
++	 */
++	if (dirty)
++		clear_buffer_dirty(bh);
++	ret = ext3_journal_get_write_access(handle, bh);
++	if (!ret && dirty)
++		ret = ext3_journal_dirty_metadata(handle, bh);
++	return ret;
  }
  
 +/*
@@ -934,7 +972,35 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  		if (bh) {
  			BUFFER_TRACE(bh, "retaking write access");
  			ext3_journal_get_write_access(handle, bh);
-@@ -2240,7 +2300,7 @@ static void ext3_free_branches(handle_t 
+@@ -2200,27 +2270,6 @@ static void ext3_free_branches(handle_t *handle, struct inode *inode,
+ 					   depth);
+ 
+ 			/*
+-			 * We've probably journalled the indirect block several
+-			 * times during the truncate.  But it's no longer
+-			 * needed and we now drop it from the transaction via
+-			 * journal_revoke().
+-			 *
+-			 * That's easy if it's exclusively part of this
+-			 * transaction.  But if it's part of the committing
+-			 * transaction then journal_forget() will simply
+-			 * brelse() it.  That means that if the underlying
+-			 * block is reallocated in ext3_get_block(),
+-			 * unmap_underlying_metadata() will find this block
+-			 * and will try to get rid of it.  damn, damn.
+-			 *
+-			 * If this block has already been committed to the
+-			 * journal, a revoke record will be written.  And
+-			 * revoke records must be emitted *before* clearing
+-			 * this block's bit in the bitmaps.
+-			 */
+-			ext3_forget(handle, 1, inode, bh, bh->b_blocknr);
+-
+-			/*
+ 			 * Everything below this this pointer has been
+ 			 * released.  Now let this top-of-subtree go.
+ 			 *
+@@ -2240,9 +2300,34 @@ static void ext3_free_branches(handle_t 
  				return;
  			if (try_to_extend_transaction(handle, inode)) {
  				ext3_mark_inode_dirty(handle, inode);
@@ -942,7 +1008,34 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
 +				truncate_restart_transaction(handle, inode);
  			}
  
++			/*
++			 * We've probably journalled the indirect block several
++			 * times during the truncate.  But it's no longer
++			 * needed and we now drop it from the transaction via
++			 * journal_revoke().
++			 *
++			 * That's easy if it's exclusively part of this
++			 * transaction.  But if it's part of the committing
++			 * transaction then journal_forget() will simply
++			 * brelse() it.  That means that if the underlying
++			 * block is reallocated in ext3_get_block(),
++			 * unmap_underlying_metadata() will find this block
++			 * and will try to get rid of it.  damn, damn. Thus
++			 * we don't allow a block to be reallocated until
++			 * a transaction freeing it has fully committed.
++			 *
++			 * We also have to make sure journal replay after a
++			 * crash does not overwrite non-journaled data blocks
++			 * with old metadata when the block got reallocated for
++			 * data.  Thus we have to store a revoke record for a
++			 * block in the same transaction in which we free the
++			 * block.
++			 */
++			ext3_forget(handle, 1, inode, bh, bh->b_blocknr);
++
  			ext3_free_blocks(handle, inode, nr, 1);
+ 
+ 			if (parent_bh) {
 @@ -2326,7 +2386,10 @@ void ext3_truncate(struct inode *inode)
  	struct page *page;
  
