@@ -8,12 +8,13 @@
  6257ff2177ff02d7f260a7a501876aa41cb9a9f6 [NET]: Forget the zero_it argument of sk_alloc()
  5309fbcc475084e6c1566084f770cef927937b7b Remove documentation of non-existent sk_alloc arg
  f15fbcd7d857ca2ea20b57ba6dfe63aab89d0b8b ipv4: Delete redundant sk_family assignment
+ 99709372736a216f99eb32b76fba835a2bfc93a8 net: don't use in_atomic() in gfp_any()
 
 ---
  drivers/net/pppoe.c         |    2 -
  drivers/net/pppol2tp.c      |    2 -
  drivers/net/pptp.c          |    2 -
- include/net/sock.h          |    2 -
+ include/net/sock.h          |    4 +-
  net/appletalk/ddp.c         |    2 -
  net/atm/common.c            |    2 -
  net/ax25/af_ax25.c          |    6 ++-
@@ -44,7 +45,7 @@
  net/tipc/socket.c           |    2 -
  net/unix/af_unix.c          |    2 -
  net/x25/af_x25.c            |    2 -
- 34 files changed, 96 insertions(+), 69 deletions(-)
+ 34 files changed, 97 insertions(+), 70 deletions(-)
 
 diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
 --- a/drivers/net/pppoe.c
@@ -94,6 +95,15 @@ diff --git a/include/net/sock.h b/include/net/sock.h
  extern void			sk_free(struct sock *sk);
  extern struct sock		*sk_clone(const struct sock *sk,
  					  const gfp_t priority);
+@@ -1308,7 +1308,7 @@ static inline int sock_writeable(const struct sock *sk)
+ 
+ static inline gfp_t gfp_any(void)
+ {
+-	return in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
++	return in_softirq() ? GFP_ATOMIC : GFP_KERNEL;
+ }
+ 
+ static inline long sock_rcvtimeo(const struct sock *sk, int noblock)
 diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
 --- a/net/appletalk/ddp.c
 +++ b/net/appletalk/ddp.c
