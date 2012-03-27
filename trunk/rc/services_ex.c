@@ -1650,10 +1650,15 @@ static int mount_r(const char *mnt_dev, char *mnt_dir)
 	if ((type = detect_fs_type(mnt_dev))) 
 	{
 		char options[64];
+		const char *nls_cp;
 		unsigned long flags = MS_NOATIME;
 
 		options[0] = '\0';
-		
+		if (nvram_invmatch("usb_smbcset_x", ""))
+			nls_cp = nvram_get("usb_smbcset_x");
+		else
+			nls_cp = NULL;
+
 		if (strcmp(type, "swap") == 0 || strcmp(type, "mbr") == 0)
 			flags = 0; /* not a mountable partition */
 		else if (strcmp(type, "vfat") == 0)
@@ -1662,10 +1667,9 @@ static int mount_r(const char *mnt_dev, char *mnt_dir)
 
 			if (nvram_invmatch("usb_vfat_options", ""))
 				l = snprintf(options, 64, "%s", nvram_get("usb_vfat_options"));
-			if (nvram_invmatch("usb_smbcset_x", ""))
+			if (nls_cp)
 				l += snprintf(options + l, 64-l, ",iocharset=%s%s" + ((l>0) ? 0 : 1),
-					isdigit(nvram_get("usb_smbcset_x")[0]) ? "cp" : "",
-						nvram_get("usb_smbcset_x"));
+					isdigit(nls_cp[0]) ? "cp" : "", nls_cp);
 			if (nvram_invmatch("usb_smbcpage_x", ""))
 				l += snprintf(options + l, 64-l, ",codepage=%s" + ((l>0) ? 0 : 1), 
 					nvram_get("usb_smbcpage_x"));
@@ -1674,10 +1678,9 @@ static int mount_r(const char *mnt_dev, char *mnt_dir)
 		else if (strcmp(type, "ntfs") == 0)
 		{
 			flags = MS_RDONLY;
-			if (nvram_invmatch("usb_smbcset_x", ""))
-				sprintf(options, "iocharset=%s%s", 
-					isdigit(nvram_get("usb_smbcset_x")[0]) ? "cp" : "",
-						nvram_get("usb_smbcset_x"));
+			if (nls_cp)
+				sprintf(options, "nls=%s%s", 
+					isdigit(nls_cp[0]) ? "cp" : "", nls_cp);
 #ifdef __CONFIG_NTFS3G__
 			if (nvram_match("usb_ntfs3g_enable", "1")) {
 				flags = MS_NOATIME;
