@@ -5,17 +5,18 @@ kernel/fork.c: Updates from upstream
  fd8328be874f4190a811c58cd4778ec2c74d2c05 sanitize handling of shared descriptor tables in failing execve()
  3b1253880b7a9e6db54b943b2d40bcf2202f58ab sanitize unshare_files/reset_files_struct
  50704516f334d5036c09b0ecc0064598f7c5596f Fix uninitialized 'copy' in unshare_files
-
+ af61b96b4f68f7ab25ebf34fed275fabf64f2edc vfs: Abstract rcu_dereference_check for files-fdtable use
+ 
 ---
  fs/binfmt_elf.c      |   23 -------------------
  fs/binfmt_misc.c     |   18 ---------------
  fs/binfmt_som.c      |   10 --------
  fs/exec.c            |   28 ++++++++++-------------
- include/linux/file.h |    3 +-
+ include/linux/file.h |   14 +++++++++--
  include/linux/fs.h   |    3 --
  kernel/exit.c        |    6 +----
  kernel/fork.c        |   60 +++++++++++++++++++++------------------------------
- 8 files changed, 43 insertions(+), 108 deletions(-)
+ 8 files changed, 52 insertions(+), 110 deletions(-)
 
 diff --git a/fs/binfmt_elf.c b/fs/binfmt_elf.c
 --- a/fs/binfmt_elf.c
@@ -245,6 +246,31 @@ diff --git a/fs/exec.c b/fs/exec.c
 diff --git a/include/linux/file.h b/include/linux/file.h
 --- a/include/linux/file.h
 +++ b/include/linux/file.h
+@@ -55,7 +55,14 @@ struct files_struct {
+ 	struct file * fd_array[NR_OPEN_DEFAULT];
+ };
+ 
+-#define files_fdtable(files) (rcu_dereference((files)->fdt))
++#define rcu_dereference_check_fdtable(files, fdtfd) \
++	(rcu_dereference_check((fdtfd), \
++			       rcu_read_lock_held() || \
++			       lockdep_is_held(&(files)->file_lock) || \
++			       atomic_read(&(files)->count) == 1))
++
++#define files_fdtable(files) \
++		(rcu_dereference_check_fdtable((files), (files)->fdt))
+ 
+ extern struct kmem_cache *filp_cachep;
+ 
+@@ -92,7 +99,7 @@ static inline struct file * fcheck_files
+ 	struct fdtable *fdt = files_fdtable(files);
+ 
+ 	if (fd < fdt->max_fds)
+-		file = rcu_dereference(fdt->fd[fd]);
++		file = rcu_dereference_check_fdtable(files, fdt->fd[fd]);
+ 	return file;
+ }
+ 
 @@ -107,7 +107,8 @@ struct task_struct;
  
  struct files_struct *get_files_struct(struct task_struct *);
