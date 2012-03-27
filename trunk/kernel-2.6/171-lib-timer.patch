@@ -6,13 +6,14 @@ timer: Updates from upstream
  97fd9ed48ce2b807edc363bef3e817aeeb5cd5e6 timers: Cache __next_timer_interrupt result
  5e7f5a178bba45c5aca3448fddecabd4e28f1f6b timer: Added usleep_range timer
  0fcb80818bc3ade5befd409051089f710adcf7b0 Documentation: Add timers/timers-howto.txt
+ 5cba6d22e35a05adb28fdea191b232501518c455 ndelay(): switch to C function to avoid 64-bit division
 
 ---
  Documentation/timers/timers-howto.txt |  105 ++++++++++++++++++++
- include/linux/delay.h                 |    1 
+ include/linux/delay.h                 |    9 +
  include/linux/timer.h                 |    5 
  kernel/timer.c                        |  177 +++++++++++++++++++++++++++-------
- 4 files changed, 256 insertions(+), 32 deletions(-)
+ 4 files changed, 263 insertions(+), 33 deletions(-)
 
 diff --git a/Documentation/timers/timers-howto.txt b/Documentation/timers/timers-howto.txt
 new file mode 100644
@@ -127,7 +128,27 @@ new file mode 100644
 diff --git a/include/linux/delay.h b/include/linux/delay.h
 --- a/include/linux/delay.h
 +++ b/include/linux/delay.h
-@@ -45,6 +45,7 @@ extern unsigned long lpj_fine;
+@@ -7,6 +7,8 @@
+  * Delay routines, using a pre-computed "loops_per_jiffy" value.
+  */
+ 
++#include <linux/kernel.h>
++
+ extern unsigned long loops_per_jiffy;
+ 
+ #include <asm/delay.h>
+@@ -32,12 +34,17 @@ extern unsigned long loops_per_jiffy;
+ #endif
+ 
+ #ifndef ndelay
+-#define ndelay(x)	udelay(((x)+999)/1000)
++static inline void ndelay(unsigned long x)
++{
++	udelay(DIV_ROUND_UP(x, 1000));
++}
++#define ndelay(x) ndelay(x)
+ #endif
+ 
  void calibrate_delay(void);
  void msleep(unsigned int msecs);
  unsigned long msleep_interruptible(unsigned int msecs);
