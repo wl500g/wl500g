@@ -5,6 +5,61 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
+===RT-N-1.9.2.7-rtn (current)===
+  * ipkg: Switch to new OpenWRT-based repository http://wl500g-repo.googlecode.com
+
+  * kernel
+    * backports from upstream - MIPS, mm, net(udp/raw, tcp, af_unix, arp, ipv4/ipv6, neigh, pptp, tunnel), bridge, fs(cifs, ntfs), usb(uvcvideo, gspca, usbnet, rndis_host, cdc_ether)
+    * netfilter backports:
+      * xt_iprange v1
+      * xt_TOS/xt_tos v1 merged into xt_DSCP/xt_dscp
+      * u32 match
+      * xt_mark v1, xt_MARK v2, merge xt_MARK into xt_mark
+      * xt_string v1
+      * xt_connmark v1, merge xt_CONNMARK into xt_connmark
+      * xt_owner v1
+      * xt_connlimit v1
+      * xt_addrtype v1 (EXPERIMENTAL)
+      * xt_hashlimit v1 (EXPERIMENTAL)
+    * kmemleak: backport memory leak detector support (EXPERIMENTAL)
+    * unionfs 2.5.11 - contributed by VA_DOS at wl500g.info
+
+  * rc
+    * bugfixes
+    * draft multiwan support(incomplete)
+    * basic usbnet support
+
+  * www
+    * allow to disable ntfs support at all
+    * split WAN and LAN pages
+
+  * 3g/cdma
+    * usb-modeswitch 1.2.3 + usb-modeswitch-data 2012-01-20
+
+  * dropbear 2012.55
+
+  * vsftpd 2.3.5
+
+  * dnsmasq 2.60
+
+  * ntfs-3g 2012.1.15AR.1
+
+  * udpxy 1.0.21-2
+    * patches by AlexeyS @ wl500g.info:
+      * setup TCP_NODELAY on accept socket
+      * call get_mstream_type() for F_CHECK_FMT case only
+      * optimize multicast address internal passing
+      * compile out UDPXY_FILEIO specific parts
+
+  * miniupnpd 1.6.20120305
+
+  * misc
+    * busybox: bugfixes from upstream (mdev, read, httpd, test)
+    * mjpg-streamer: output_http - redirect to stream automagically if no www folder configured
+    * pppd: pppoe - workaround for buggy nas; mppe fixes
+    * igmpproxy: support multiple multicast sources
+    * iptables: fixes from upstream
+
 ===RT-N-1.9.2.7-rtn-`r3702` (2011-12-25)===
   * Broadcom SDK 5.60.127
     * RT-N10U, RT-!N12B1 support
