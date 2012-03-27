@@ -1,0 +1,41 @@
+From f01eb3640308c005d31b29d0a8bc2b7acb4e3f75
+From: Linus Torvalds
+Date: Sat, 12 Dec 2009 14:46:33 -0800
+Subject: [PATCH] [BKL] add 'might_sleep()' to the outermost lock taker
+
+As shown by the previous patch (6698e3472: "tty: Fix BKL taken under a
+spinlock bug introduced in the BKL split") the BKL removal is prone to
+some subtle issues, where removing the BKL in one place may in fact make
+a previously nested BKL call the new outer call, and then prone to nasty
+deadlocks with other spinlocks.
+
+In general, we should never take the BKL while we're holding a spinlock,
+so let's just add a "might_sleep()" to it (even though the BKL doesn't
+technically sleep - at least not yet), and we'll get nice warnings the
+next time this kind of problem happens during BKL removal.
+
+Acked-and-Tested-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
+ lib/kernel_lock.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/lib/kernel_lock.c b/lib/kernel_lock.c
+--- a/lib/kernel_lock.c
++++ b/lib/kernel_lock.c
+@@ -122,8 +122,11 @@ void __lockfunc lock_kernel(void)
+ void __lockfunc lock_kernel(void)
+ {
+ 	int depth = current->lock_depth+1;
+-	if (likely(!depth))
++
++	if (likely(!depth)) {
++		might_sleep();
+ 		__lock_kernel();
++	}
+ 	current->lock_depth = depth;
+ }
+ 
+-- 
+1.7.6.5
