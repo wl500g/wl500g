@@ -1,0 +1,594 @@
+mutex: implement adaptive spinning
+
+ ad776537cc6b4b936cfd11893e7b698dfa072666 Add mutex_lock_killable
+ 6ad36762d7a88d747f6fed95194b4f7ff5da8df4 __mutex_lock_common: use signal_pending_state()
+ 0e241ffd306c0896bb9959be7faa4d4cfcb706d9 locking: fix mutex @key parameter kernel-doc notation
+ d98d38f2014ab79f28c126ff175d034891f7aefc mutex: improve header comment to be actually informative about the API
+ 0d66bf6d3514b35eb6897629059443132992dbd7 mutex: implement adaptive spinning
+ 93d81d1aca26e64a75d06a85f7e128b5f49053e7 mutex: small cleanup
+ ac6e60ee405aa3bf718f7fe4cb01b7ee0b8877ec mutex: adaptive spinnning, performance tweaks
+ b1fca26631f76a5e8b18435a43f5d82b8734da4b mutex: add atomic_dec_and_mutex_lock()
+ b09d2501ed3d294619cbfbcf828ad39324d0e548 mutex: drop "inline" from mutex_lock() inside kernel/mutex.c
+ a511e3f968c462a55ef58697257f5347c73d306e mutex: add atomic_dec_and_mutex_lock(), fix
+
+---
+ drivers/base/class.c  |    1 
+ include/linux/mutex.h |   35 +++++++++++
+ include/linux/sched.h |    1 
+ kernel/mutex-debug.c  |    9 ---
+ kernel/mutex-debug.h  |   18 +++---
+ kernel/mutex.c        |  150 +++++++++++++++++++++++++++++++++++++++++++-------
+ kernel/mutex.h        |   22 ++++++-
+ kernel/sched.c        |   61 ++++++++++++++++++++
+ 8 files changed, 258 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/base/class.c b/drivers/base/class.c
+--- a/drivers/base/class.c
++++ b/drivers/base/class.c
+@@ -198,6 +198,7 @@ static void class_create_release(struct class *cls)
+  * class_create - create a struct class structure
+  * @owner: pointer to the module that is to "own" this struct class
+  * @name: pointer to a string for the name of this class.
++ * @key: the lock_class_key for this class; used by mutex lock debugging
+  *
+  * This is used to create a struct class pointer that can then be used
+  * in calls to device_create().
+diff -urBp a/include/linux/mutex.h b/include/linux/mutex.h
+--- a/include/linux/mutex.h	2012-03-27 04:00:00.000000000 +0400
++++ b/include/linux/mutex.h	2012-03-27 17:33:02.000000000 +0400
+@@ -49,8 +49,10 @@ struct mutex {
+ 	atomic_t		count;
+ 	spinlock_t		wait_lock;
+ 	struct list_head	wait_list;
+-#ifdef CONFIG_DEBUG_MUTEXES
++#if defined(CONFIG_DEBUG_MUTEXES) || defined(CONFIG_SMP)
+ 	struct thread_info	*owner;
++#endif
++#ifdef CONFIG_DEBUG_MUTEXES
+ 	const char 		*name;
+ 	void			*magic;
+ #endif
+@@ -67,7 +69,6 @@ struct mutex_waiter {
+ 	struct list_head	list;
+ 	struct task_struct	*task;
+ #ifdef CONFIG_DEBUG_MUTEXES
+-	struct mutex		*lock;
+ 	void			*magic;
+ #endif
+ };
+@@ -124,22 +125,52 @@ static inline int fastcall mutex_is_lock
+ extern void mutex_lock_nested(struct mutex *lock, unsigned int subclass);
+ extern int __must_check mutex_lock_interruptible_nested(struct mutex *lock,
+ 					unsigned int subclass);
++extern int __must_check mutex_lock_killable_nested(struct mutex *lock,
++					unsigned int subclass);
+ 
+ #define mutex_lock(lock) mutex_lock_nested(lock, 0)
+ #define mutex_lock_interruptible(lock) mutex_lock_interruptible_nested(lock, 0)
++#define mutex_lock_killable(lock) mutex_lock_killable_nested(lock, 0)
+ #else
+ extern void fastcall mutex_lock(struct mutex *lock);
+ extern int __must_check fastcall mutex_lock_interruptible(struct mutex *lock);
++extern int __must_check fastcall mutex_lock_killable(struct mutex *lock);
+ 
+ # define mutex_lock_nested(lock, subclass) mutex_lock(lock)
+ # define mutex_lock_interruptible_nested(lock, subclass) mutex_lock_interruptible(lock)
++# define mutex_lock_killable_nested(lock, subclass) mutex_lock_killable(lock)
+ #endif
+ 
+ /*
+  * NOTE: mutex_trylock() follows the spin_trylock() convention,
+  *       not the down_trylock() convention!
++ *
++ * Returns 1 if the mutex has been acquired successfully, and 0 on contention.
+  */
+ extern int fastcall mutex_trylock(struct mutex *lock);
+ extern void fastcall mutex_unlock(struct mutex *lock);
+ 
++/**
++ * atomic_dec_and_mutex_lock - return holding mutex if we dec to 0
++ * @cnt: the atomic which we are to dec
++ * @lock: the mutex to return holding if we dec to 0
++ *
++ * return true and hold lock if we dec to 0, return false otherwise
++ */
++static inline int atomic_dec_and_mutex_lock(atomic_t *cnt, struct mutex *lock)
++{
++	/* dec if we can't possibly hit 0 */
++	if (atomic_add_unless(cnt, -1, 1))
++		return 0;
++	/* we might hit 0, so take the lock */
++	mutex_lock(lock);
++	if (!atomic_dec_and_test(cnt)) {
++		/* when we actually did the dec, we didn't hit 0 */
++		mutex_unlock(lock);
++		return 0;
++	}
++	/* we hit 0, and we hold the lock */
++	return 1;
++}
++
+ #endif
+diff -urBp a/include/linux/sched.h b/include/linux/sched.h
+--- a/include/linux/sched.h	2012-03-27 04:00:00.000000000 +0400
++++ b/include/linux/sched.h	2012-03-27 17:32:47.000000000 +0400
+@@ -292,6 +292,7 @@ extern signed long schedule_timeout_inte
+ extern signed long schedule_timeout_killable(signed long timeout);
+ extern signed long schedule_timeout_uninterruptible(signed long timeout);
+ asmlinkage void schedule(void);
++extern int mutex_spin_on_owner(struct mutex *lock, struct thread_info *owner);
+ 
+ struct nsproxy;
+ 
+diff -urBp a/kernel/mutex.c b/kernel/mutex.c
+--- a/kernel/mutex.c	2012-03-27 04:00:00.000000000 +0400
++++ b/kernel/mutex.c	2012-03-27 17:33:07.000000000 +0400
+@@ -10,6 +10,11 @@
+  * Many thanks to Arjan van de Ven, Thomas Gleixner, Steven Rostedt and
+  * David Howells for suggestions and improvements.
+  *
++ *  - Adaptive spinning for mutexes by Peter Zijlstra. (Ported to mainline
++ *    from the -rt tree, where it was originally implemented for rtmutexes
++ *    by Steven Rostedt, based on work by Gregory Haskins, Peter Morreale
++ *    and Sven Dietrich.
++ *
+  * Also see Documentation/mutex-design.txt.
+  */
+ #include <linux/mutex.h>
+@@ -34,6 +39,7 @@
+ /***
+  * mutex_init - initialize the mutex
+  * @lock: the mutex to be initialized
++ * @key: the lock_class_key for the class; used by mutex lock debugging
+  *
+  * Initialize the mutex to unlocked state.
+  *
+@@ -45,6 +51,7 @@ __mutex_init(struct mutex *lock, const c
+ 	atomic_set(&lock->count, 1);
+ 	spin_lock_init(&lock->wait_lock);
+ 	INIT_LIST_HEAD(&lock->wait_list);
++	mutex_clear_owner(lock);
+ 
+ 	debug_mutex_init(lock, name, key);
+ }
+@@ -82,7 +89,7 @@ __mutex_lock_slowpath(atomic_t *lock_cou
+  *
+  * This function is similar to (but not equivalent to) down().
+  */
+-void inline fastcall __sched mutex_lock(struct mutex *lock)
++void fastcall __sched mutex_lock(struct mutex *lock)
+ {
+ 	might_sleep();
+ 	/*
+@@ -90,6 +97,7 @@ void inline fastcall __sched mutex_lock(
+ 	 * 'unlocked' into 'locked' state.
+ 	 */
+ 	__mutex_fastpath_lock(&lock->count, __mutex_lock_slowpath);
++	mutex_set_owner(lock);
+ }
+ 
+ EXPORT_SYMBOL(mutex_lock);
+@@ -115,6 +123,14 @@ void fastcall __sched mutex_unlock(struc
+ 	 * The unlocking fastpath is the 0->1 transition from 'locked'
+ 	 * into 'unlocked' state:
+ 	 */
++#ifndef CONFIG_DEBUG_MUTEXES
++	/*
++	 * When debugging is enabled we must not clear the owner before time,
++	 * the slow path will always be taken, and that clears the owner field
++	 * after verifying that it was indeed current.
++	 */
++	mutex_clear_owner(lock);
++#endif
+ 	__mutex_fastpath_unlock(&lock->count, __mutex_unlock_slowpath);
+ }
+ 
+@@ -129,21 +145,74 @@ __mutex_lock_common(struct mutex *lock, 
+ {
+ 	struct task_struct *task = current;
+ 	struct mutex_waiter waiter;
+-	unsigned int old_val;
+ 	unsigned long flags;
+ 
++	mutex_acquire(&lock->dep_map, subclass, 0, ip);
++#if defined(CONFIG_SMP) && !defined(CONFIG_DEBUG_MUTEXES)
++	/*
++	 * Optimistic spinning.
++	 *
++	 * We try to spin for acquisition when we find that there are no
++	 * pending waiters and the lock owner is currently running on a
++	 * (different) CPU.
++	 *
++	 * The rationale is that if the lock owner is running, it is likely to
++	 * release the lock soon.
++	 *
++	 * Since this needs the lock owner, and this mutex implementation
++	 * doesn't track the owner atomically in the lock field, we need to
++	 * track it non-atomically.
++	 *
++	 * We can't do this for DEBUG_MUTEXES because that relies on wait_lock
++	 * to serialize everything.
++	 */
++
++	for (;;) {
++		struct thread_info *owner;
++
++		/*
++		 * If there's an owner, wait for it to either
++		 * release the lock or go to sleep.
++		 */
++		owner = ACCESS_ONCE(lock->owner);
++		if (owner && !mutex_spin_on_owner(lock, owner))
++			break;
++
++		if (atomic_cmpxchg(&lock->count, 1, 0) == 1) {
++			lock_acquired(&lock->dep_map, ip);
++			mutex_set_owner(lock);
++			preempt_enable();
++			return 0;
++		}
++
++		/*
++		 * When there's no owner, we might have preempted between the
++		 * owner acquiring the lock and setting the owner field. If
++		 * we're an RT task that will live-lock because we won't let
++		 * the owner complete.
++		 */
++		if (!owner && (need_resched() || rt_task(task)))
++			break;
++
++		/*
++		 * The cpu_relax() call is a compiler barrier which forces
++		 * everything in this loop to be re-loaded. We don't need
++		 * memory barriers as we'll eventually observe the right
++		 * values at the cost of a few extra spins.
++		 */
++		cpu_relax();
++	}
++#endif
+ 	spin_lock_mutex(&lock->wait_lock, flags);
+ 
+ 	debug_mutex_lock_common(lock, &waiter);
+-	mutex_acquire(&lock->dep_map, subclass, 0, ip);
+ 	debug_mutex_add_waiter(lock, &waiter, task_thread_info(task));
+ 
+ 	/* add waiting tasks to the end of the waitqueue (FIFO): */
+ 	list_add_tail(&waiter.list, &lock->wait_list);
+ 	waiter.task = task;
+ 
+-	old_val = atomic_xchg(&lock->count, -1);
+-	if (old_val == 1)
++	if (atomic_xchg(&lock->count, -1) == 1)
+ 		goto done;
+ 
+ 	lock_contended(&lock->dep_map, ip);
+@@ -158,17 +227,16 @@ __mutex_lock_common(struct mutex *lock, 
+ 		 * that when we release the lock, we properly wake up the
+ 		 * other waiters:
+ 		 */
+-		old_val = atomic_xchg(&lock->count, -1);
+-		if (old_val == 1)
++		if (atomic_xchg(&lock->count, -1) == 1)
+ 			break;
+ 
+ 		/*
+ 		 * got a signal? (This code gets eliminated in the
+ 		 * TASK_UNINTERRUPTIBLE case.)
+ 		 */
+-		if (unlikely(state == TASK_INTERRUPTIBLE &&
+-						signal_pending(task))) {
+-			mutex_remove_waiter(lock, &waiter, task_thread_info(task));
++		if (unlikely(signal_pending_state(state, task))) {
++			mutex_remove_waiter(lock, &waiter,
++					    task_thread_info(task));
+ 			mutex_release(&lock->dep_map, 1, ip);
+ 			spin_unlock_mutex(&lock->wait_lock, flags);
+ 
+@@ -186,8 +254,8 @@ __mutex_lock_common(struct mutex *lock, 
+ done:
+ 	lock_acquired(&lock->dep_map, ip);
+ 	/* got the lock - rejoice! */
+-	mutex_remove_waiter(lock, &waiter, task_thread_info(task));
+-	debug_mutex_set_owner(lock, task_thread_info(task));
++	mutex_remove_waiter(lock, &waiter, current_thread_info());
++	mutex_set_owner(lock);
+ 
+ 	/* set it to 0 if there are no waiters left: */
+ 	if (likely(list_empty(&lock->wait_list)))
+@@ -211,10 +279,19 @@ mutex_lock_nested(struct mutex *lock, un
+ EXPORT_SYMBOL_GPL(mutex_lock_nested);
+ 
+ int __sched
++mutex_lock_killable_nested(struct mutex *lock, unsigned int subclass)
++{
++	might_sleep();
++	return __mutex_lock_common(lock, TASK_KILLABLE, subclass, _RET_IP_);
++}
++EXPORT_SYMBOL_GPL(mutex_lock_killable_nested);
++
++int __sched
+ mutex_lock_interruptible_nested(struct mutex *lock, unsigned int subclass)
+ {
+ 	might_sleep();
+-	return __mutex_lock_common(lock, TASK_INTERRUPTIBLE, subclass, _RET_IP_);
++	return __mutex_lock_common(lock, TASK_INTERRUPTIBLE,
++				   subclass, _RET_IP_);
+ }
+ 
+ EXPORT_SYMBOL_GPL(mutex_lock_interruptible_nested);
+@@ -252,8 +329,6 @@ __mutex_unlock_common_slowpath(atomic_t 
+ 		wake_up_process(waiter->task);
+ 	}
+ 
+-	debug_mutex_clear_owner(lock);
+-
+ 	spin_unlock_mutex(&lock->wait_lock, flags);
+ }
+ 
+@@ -272,6 +347,9 @@ __mutex_unlock_slowpath(atomic_t *lock_c
+  * mutex_lock_interruptible() and mutex_trylock().
+  */
+ static int fastcall noinline __sched
++__mutex_lock_killable_slowpath(atomic_t *lock_count);
++
++static noinline int fastcall __sched
+ __mutex_lock_interruptible_slowpath(atomic_t *lock_count);
+ 
+ /***
+@@ -287,13 +365,33 @@ __mutex_lock_interruptible_slowpath(atom
+  */
+ int fastcall __sched mutex_lock_interruptible(struct mutex *lock)
+ {
++	int ret;
++
+ 	might_sleep();
+-	return __mutex_fastpath_lock_retval
++	ret =  __mutex_fastpath_lock_retval
+ 			(&lock->count, __mutex_lock_interruptible_slowpath);
++	if (!ret)
++		mutex_set_owner(lock);
++
++	return ret;
+ }
+ 
+ EXPORT_SYMBOL(mutex_lock_interruptible);
+ 
++int fastcall __sched mutex_lock_killable(struct mutex *lock)
++{
++	int ret;
++
++	might_sleep();
++	ret = __mutex_fastpath_lock_retval
++			(&lock->count, __mutex_lock_killable_slowpath);
++	if (!ret)
++		mutex_set_owner(lock);
++
++	return ret;
++}
++EXPORT_SYMBOL(mutex_lock_killable);
++
+ static void fastcall noinline __sched
+ __mutex_lock_slowpath(atomic_t *lock_count)
+ {
+@@ -303,6 +401,14 @@ __mutex_lock_slowpath(atomic_t *lock_cou
+ }
+ 
+ static int fastcall noinline __sched
++__mutex_lock_killable_slowpath(atomic_t *lock_count)
++{
++	struct mutex *lock = container_of(lock_count, struct mutex, count);
++
++	return __mutex_lock_common(lock, TASK_KILLABLE, 0, _RET_IP_);
++}
++
++static noinline int fastcall __sched
+ __mutex_lock_interruptible_slowpath(atomic_t *lock_count)
+ {
+ 	struct mutex *lock = container_of(lock_count, struct mutex, count);
+@@ -325,9 +431,10 @@ static inline int __mutex_trylock_slowpa
+ 
+ 	prev = atomic_xchg(&lock->count, -1);
+ 	if (likely(prev == 1)) {
+-		debug_mutex_set_owner(lock, current_thread_info());
++		mutex_set_owner(lock);
+ 		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+ 	}
++
+ 	/* Set it back to 0 if there are no waiters: */
+ 	if (likely(list_empty(&lock->wait_list)))
+ 		atomic_set(&lock->count, 0);
+@@ -353,8 +460,13 @@ static inline int __mutex_trylock_slowpa
+  */
+ int fastcall __sched mutex_trylock(struct mutex *lock)
+ {
+-	return __mutex_fastpath_trylock(&lock->count,
+-					__mutex_trylock_slowpath);
++	int ret;
++
++	ret = __mutex_fastpath_trylock(&lock->count, __mutex_trylock_slowpath);
++	if (ret)
++		mutex_set_owner(lock);
++
++	return ret;
+ }
+ 
+ EXPORT_SYMBOL(mutex_trylock);
+diff -urBp a/kernel/mutex-debug.c b/kernel/mutex-debug.c
+--- a/kernel/mutex-debug.c	2008-02-26 02:59:40.000000000 +0300
++++ b/kernel/mutex-debug.c	2012-03-27 17:32:47.000000000 +0400
+@@ -26,11 +26,6 @@
+ /*
+  * Must be called with lock->wait_lock held.
+  */
+-void debug_mutex_set_owner(struct mutex *lock, struct thread_info *new_owner)
+-{
+-	lock->owner = new_owner;
+-}
+-
+ void debug_mutex_lock_common(struct mutex *lock, struct mutex_waiter *waiter)
+ {
+ 	memset(waiter, MUTEX_DEBUG_INIT, sizeof(*waiter));
+@@ -59,7 +54,6 @@ void debug_mutex_add_waiter(struct mutex
+ 
+ 	/* Mark the current thread as blocked on the lock: */
+ 	ti->task->blocked_on = waiter;
+-	waiter->lock = lock;
+ }
+ 
+ void mutex_remove_waiter(struct mutex *lock, struct mutex_waiter *waiter,
+@@ -82,7 +76,7 @@ void debug_mutex_unlock(struct mutex *lo
+ 	DEBUG_LOCKS_WARN_ON(lock->owner != current_thread_info());
+ 	DEBUG_LOCKS_WARN_ON(lock->magic != lock);
+ 	DEBUG_LOCKS_WARN_ON(!lock->wait_list.prev && !lock->wait_list.next);
+-	DEBUG_LOCKS_WARN_ON(lock->owner != current_thread_info());
++	mutex_clear_owner(lock);
+ }
+ 
+ void debug_mutex_init(struct mutex *lock, const char *name,
+@@ -95,7 +89,6 @@ void debug_mutex_init(struct mutex *lock
+ 	debug_check_no_locks_freed((void *)lock, sizeof(*lock));
+ 	lockdep_init_map(&lock->dep_map, name, key, 0);
+ #endif
+-	lock->owner = NULL;
+ 	lock->magic = lock;
+ }
+ 
+diff -urBp a/kernel/mutex-debug.h b/kernel/mutex-debug.h
+--- a/kernel/mutex-debug.h	2008-02-26 02:59:40.000000000 +0300
++++ b/kernel/mutex-debug.h	2012-03-27 17:32:47.000000000 +0400
+@@ -13,14 +13,6 @@
+ /*
+  * This must be called with lock->wait_lock held.
+  */
+-extern void
+-debug_mutex_set_owner(struct mutex *lock, struct thread_info *new_owner);
+-
+-static inline void debug_mutex_clear_owner(struct mutex *lock)
+-{
+-	lock->owner = NULL;
+-}
+-
+ extern void debug_mutex_lock_common(struct mutex *lock,
+ 				    struct mutex_waiter *waiter);
+ extern void debug_mutex_wake_waiter(struct mutex *lock,
+@@ -35,6 +27,16 @@ extern void debug_mutex_unlock(struct mu
+ extern void debug_mutex_init(struct mutex *lock, const char *name,
+ 			     struct lock_class_key *key);
+ 
++static inline void mutex_set_owner(struct mutex *lock)
++{
++	lock->owner = current_thread_info();
++}
++
++static inline void mutex_clear_owner(struct mutex *lock)
++{
++	lock->owner = NULL;
++}
++
+ #define spin_lock_mutex(lock, flags)			\
+ 	do {						\
+ 		struct mutex *l = container_of(lock, struct mutex, wait_lock); \
+diff -urBp a/kernel/mutex.h b/kernel/mutex.h
+--- a/kernel/mutex.h	2008-02-26 02:59:40.000000000 +0300
++++ b/kernel/mutex.h	2012-03-27 17:32:47.000000000 +0400
+@@ -16,8 +16,26 @@
+ #define mutex_remove_waiter(lock, waiter, ti) \
+ 		__list_del((waiter)->list.prev, (waiter)->list.next)
+ 
+-#define debug_mutex_set_owner(lock, new_owner)		do { } while (0)
+-#define debug_mutex_clear_owner(lock)			do { } while (0)
++#ifdef CONFIG_SMP
++static inline void mutex_set_owner(struct mutex *lock)
++{
++	lock->owner = current_thread_info();
++}
++
++static inline void mutex_clear_owner(struct mutex *lock)
++{
++	lock->owner = NULL;
++}
++#else
++static inline void mutex_set_owner(struct mutex *lock)
++{
++}
++
++static inline void mutex_clear_owner(struct mutex *lock)
++{
++}
++#endif
++
+ #define debug_mutex_wake_waiter(lock, waiter)		do { } while (0)
+ #define debug_mutex_free_waiter(waiter)			do { } while (0)
+ #define debug_mutex_add_waiter(lock, waiter, ti)	do { } while (0)
+diff -urBp a/kernel/sched.c b/kernel/sched.c
+--- a/kernel/sched.c	2012-03-27 04:00:00.000000000 +0400
++++ b/kernel/sched.c	2012-03-27 17:32:47.000000000 +0400
+@@ -3576,6 +3576,67 @@ switch_tasks:
+ }
+ EXPORT_SYMBOL(schedule);
+ 
++#ifdef CONFIG_SMP
++/*
++ * Look out! "owner" is an entirely speculative pointer
++ * access and not reliable.
++ */
++int mutex_spin_on_owner(struct mutex *lock, struct thread_info *owner)
++{
++	unsigned int cpu;
++	struct rq *rq;
++
++	if (!sched_feat(OWNER_SPIN))
++		return 0;
++
++#ifdef CONFIG_DEBUG_PAGEALLOC
++	/*
++	 * Need to access the cpu field knowing that
++	 * DEBUG_PAGEALLOC could have unmapped it if
++	 * the mutex owner just released it and exited.
++	 */
++	if (probe_kernel_address(&owner->cpu, cpu))
++		goto out;
++#else
++	cpu = owner->cpu;
++#endif
++
++	/*
++	 * Even if the access succeeded (likely case),
++	 * the cpu field may no longer be valid.
++	 */
++	if (cpu >= nr_cpumask_bits)
++		goto out;
++
++	/*
++	 * We need to validate that we can do a
++	 * get_cpu() and that we have the percpu area.
++	 */
++	if (!cpu_online(cpu))
++		goto out;
++
++	rq = cpu_rq(cpu);
++
++	for (;;) {
++		/*
++		 * Owner changed, break to re-assess state.
++		 */
++		if (lock->owner != owner)
++			break;
++
++		/*
++		 * Is that owner really running on that cpu?
++		 */
++		if (task_thread_info(rq->curr) != owner || need_resched())
++			return 0;
++
++		cpu_relax();
++	}
++out:
++	return 1;
++}
++#endif
++
+ #ifdef CONFIG_PREEMPT
+ /*
+  * this is the entry point to schedule() from in-kernel preemption
+-- 
