@@ -1,0 +1,143 @@
+[4.8 Regression] performance bottleneck: gcc/tree.c;value_member
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=52640
+
+--- gcc-4_5-branch/gcc/ChangeLog	(revision 185761)
++++ gcc-4_5-branch/gcc/ChangeLog	(revision 185762)
+@@ -1,3 +1,13 @@
++2012-03-24  Steven Bosscher  <steven@gcc.gnu.org>
++
++	PR middle-end/52640
++	* varasm.c: Include pointer-set.h.
++	(pending_assemble_externals_set): New pointer set.
++	(process_pending_assemble_externals): Destroy the pointer set.
++	(assemble_external): See if decl is in pending_assemble_externals_set,
++	and add it to pending_assemble_externals if necessary.
++	(init_varasm_once): Allocate pending_assemble_externals_set.
++
+ 2012-02-09  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backported from mainline
+--- gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 185761)
++++ gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 185762)
+@@ -1,3 +1,8 @@
++2012-03-24  Steven Bosscher  <steven@gcc.gnu.org>
++
++	PR middle-end/52640
++	* gcc.c-torture/compile/limits-externdecl.c: New test.
++
+ 2012-02-09  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backported from mainline
+--- gcc-4_5-branch/gcc/testsuite/gcc.c-torture/compile/limits-externdecl.c	(revision 0)
++++ gcc-4_5-branch/gcc/testsuite/gcc.c-torture/compile/limits-externdecl.c	(revision 185757)
+@@ -0,0 +1,56 @@
++/* Inspired by the test case for PR middle-end/52640.  */
++
++typedef struct
++{
++    char *value;
++} REFERENCE;
++
++/* Add a few "extern int Xxxxxx ();" declarations.  */
++#undef DEF
++#undef LIM1
++#undef LIM2
++#undef LIM3
++#undef LIM4
++#undef LIM5
++#undef LIM6
++#define DEF(x) 	extern int x ()
++#define LIM1(x) DEF(x##0); DEF(x##1); DEF(x##2); DEF(x##3); DEF(x##4); \
++		DEF(x##5); DEF(x##6); DEF(x##7); DEF(x##8); DEF(x##9);
++#define LIM2(x) LIM1(x##0) LIM1(x##1) LIM1(x##2) LIM1(x##3) LIM1(x##4) \
++		LIM1(x##5) LIM1(x##6) LIM1(x##7) LIM1(x##8) LIM1(x##9)
++#define LIM3(x) LIM2(x##0) LIM2(x##1) LIM2(x##2) LIM2(x##3) LIM2(x##4) \
++		LIM2(x##5) LIM2(x##6) LIM2(x##7) LIM2(x##8) LIM2(x##9)
++#define LIM4(x) LIM3(x##0) LIM3(x##1) LIM3(x##2) LIM3(x##3) LIM3(x##4) \
++		LIM3(x##5) LIM3(x##6) LIM3(x##7) LIM3(x##8) LIM3(x##9)
++#define LIM5(x) LIM4(x##0) LIM4(x##1) LIM4(x##2) LIM4(x##3) LIM4(x##4) \
++		LIM4(x##5) LIM4(x##6) LIM4(x##7) LIM4(x##8) LIM4(x##9)
++#define LIM6(x) LIM5(x##0) LIM5(x##1) LIM5(x##2) LIM5(x##3) LIM5(x##4) \
++		LIM5(x##5) LIM5(x##6) LIM5(x##7) LIM5(x##8) LIM5(x##9)
++LIM5 (X);
++
++/* Add references to them, or GCC will simply ignore the extern decls.  */
++#undef DEF
++#undef LIM1
++#undef LIM2
++#undef LIM3
++#undef LIM4
++#undef LIM5
++#undef LIM6
++#define DEF(x)	(char *) x
++#define LIM1(x) DEF(x##0), DEF(x##1), DEF(x##2), DEF(x##3), DEF(x##4), \
++		DEF(x##5), DEF(x##6), DEF(x##7), DEF(x##8), DEF(x##9),
++#define LIM2(x) LIM1(x##0) LIM1(x##1) LIM1(x##2) LIM1(x##3) LIM1(x##4) \
++		LIM1(x##5) LIM1(x##6) LIM1(x##7) LIM1(x##8) LIM1(x##9)
++#define LIM3(x) LIM2(x##0) LIM2(x##1) LIM2(x##2) LIM2(x##3) LIM2(x##4) \
++		LIM2(x##5) LIM2(x##6) LIM2(x##7) LIM2(x##8) LIM2(x##9)
++#define LIM4(x) LIM3(x##0) LIM3(x##1) LIM3(x##2) LIM3(x##3) LIM3(x##4) \
++		LIM3(x##5) LIM3(x##6) LIM3(x##7) LIM3(x##8) LIM3(x##9)
++#define LIM5(x) LIM4(x##0) LIM4(x##1) LIM4(x##2) LIM4(x##3) LIM4(x##4) \
++		LIM4(x##5) LIM4(x##6) LIM4(x##7) LIM4(x##8) LIM4(x##9)
++#define LIM6(x) LIM5(x##0) LIM5(x##1) LIM5(x##2) LIM5(x##3) LIM5(x##4) \
++		LIM5(x##5) LIM5(x##6) LIM5(x##7) LIM5(x##8) LIM5(x##9)
++REFERENCE references[] = {
++  LIM5 (X)
++  0
++};
++
+--- gcc-4_5-branch/gcc/varasm.c	(revision 185756)
++++ gcc-4_5-branch/gcc/varasm.c	(revision 185757)
+@@ -30,6 +30,7 @@
+ #include "config.h"
+ #include "system.h"
+ #include "coretypes.h"
++#include "pointer-set.h"
+ #include "tm.h"
+ #include "rtl.h"
+ #include "tree.h"
+@@ -2302,6 +2303,14 @@
+    it all the way to final.  See PR 17982 for further discussion.  */
+ static GTY(()) tree pending_assemble_externals;
+ 
++/* FIXME: Trunk is at GCC 4.8 now and the above problem still hasn't been
++   addressed properly.  This caused PR 52640 due to O(external_decls**2)
++   lookups in the pending_assemble_externals TREE_LIST in assemble_external.
++   Paper over with this pointer set, which we use to see if we have already
++   added a decl to pending_assemble_externals without first traversing
++   the entire pending_assemble_externals list.  See assemble_external().  */
++static struct pointer_set_t *pending_assemble_externals_set;
++
+ #ifdef ASM_OUTPUT_EXTERNAL
+ /* True if DECL is a function decl for which no out-of-line copy exists.
+    It is assumed that DECL's assembler name has been set.  */
+@@ -2351,6 +2360,7 @@
+     assemble_external_real (TREE_VALUE (list));
+ 
+   pending_assemble_externals = 0;
++  pointer_set_destroy (pending_assemble_externals_set);
+ #endif
+ }
+ 
+@@ -2391,7 +2401,7 @@
+     weak_decls = tree_cons (NULL, decl, weak_decls);
+ 
+ #ifdef ASM_OUTPUT_EXTERNAL
+-  if (value_member (decl, pending_assemble_externals) == NULL_TREE)
++  if (! pointer_set_insert (pending_assemble_externals_set, decl))
+     pending_assemble_externals = tree_cons (NULL, decl,
+ 					    pending_assemble_externals);
+ #endif
+@@ -5952,6 +5962,10 @@
+ 
+   if (readonly_data_section == NULL)
+     readonly_data_section = text_section;
++
++#ifdef ASM_OUTPUT_EXTERNAL
++  pending_assemble_externals_set = pointer_set_create ();
++#endif
+ }
+ 
+ enum tls_model
