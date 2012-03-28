@@ -1,0 +1,457 @@
+sched: Updates from upstream
+
+ c18a17329b3389315e8a138d998b217077509c13 sched: remove expired_starving()
+ f2ac58ee617fd9f6cd9922fbcd291b661d7c9954 sched: remove sleep_type
+ f3479f10c5d667e591f4417a0bba78e221924206 sched: remove the sleep-bonus interactivity code
+ af92723262f3e0c431083f668b605a1dcdbe8f3d sched: cleanup, remove the TASK_NONINTERACTIVE flag
+ f776d12dd16da1b0cd55a1240002c1b31f315d5d Add fatal_signal_pending
+ 294d5cc233d81ec4aec77ebc60dc5752a3d0082a Add schedule_timeout_killable
+ 92a1f4bc7af13949d2185449307088cf98b4755d Add macros to replace direct uses of TASK_ flags
+ f021a3c2b14d0dd082c2cee890c204d9e1dee52b Add TASK_WAKEKILL
+ 16882c1e962b4be5122fc05aaf2afc10fd9e2d15 sched: fix TASK_WAKEKILL vs SIGKILL race
+
+---
+ fs/pipe.c             |    3 
+ include/linux/sched.h |   59 +++++++++++++----
+ kernel/sched.c        |  164 +-------------------------------------------------
+ kernel/signal.c       |   13 ++-
+ kernel/timer.c        |    7 ++
+ 5 files changed, 65 insertions(+), 181 deletions(-)
+
+diff --git a/fs/pipe.c b/fs/pipe.c
+--- a/fs/pipe.c
++++ b/fs/pipe.c
+@@ -45,8 +45,7 @@ void pipe_wait(struct pipe_inode_info *pipe)
+ 	 * Pipes are system-local resources, so sleeping on them
+ 	 * is considered a noninteractive wait:
+ 	 */
+-	prepare_to_wait(&pipe->wait, &wait,
+-			TASK_INTERRUPTIBLE | TASK_NONINTERACTIVE);
++	prepare_to_wait(&pipe->wait, &wait, TASK_INTERRUPTIBLE);
+ 	if (pipe->inode)
+ 		mutex_unlock(&pipe->inode->i_mutex);
+ 	schedule();
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -144,20 +144,34 @@ extern unsigned long weighted_cpuload(co
+ #define TASK_RUNNING		0
+ #define TASK_INTERRUPTIBLE	1
+ #define TASK_UNINTERRUPTIBLE	2
+-#define TASK_STOPPED		4
+-#define TASK_TRACED		8
++#define __TASK_STOPPED		4
++#define __TASK_TRACED		8
+ /* in tsk->exit_state */
+ #define EXIT_ZOMBIE		16
+ #define EXIT_DEAD		32
+ /* in tsk->state again */
+-#define TASK_NONINTERACTIVE	64
+-#define TASK_DEAD		128
++#define TASK_DEAD		64
++#define TASK_WAKEKILL		128
+ 
+-#define task_is_traced(task)    (((task)->state & TASK_TRACED) != 0)
+-#define task_is_stopped(task)   (((task)->state & TASK_STOPPED) != 0)
++/* Convenience macros for the sake of set_task_state */
++#define TASK_KILLABLE		(TASK_WAKEKILL | TASK_UNINTERRUPTIBLE)
++#define TASK_STOPPED		(TASK_WAKEKILL | __TASK_STOPPED)
++#define TASK_TRACED		(TASK_WAKEKILL | __TASK_TRACED)
++
++/* Convenience macros for the sake of wake_up */
++#define TASK_NORMAL		(TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE)
++#define TASK_ALL		(TASK_NORMAL | __TASK_STOPPED | __TASK_TRACED)
++
++/* get_task_state() */
++#define TASK_REPORT		(TASK_RUNNING | TASK_INTERRUPTIBLE | \
++				 TASK_UNINTERRUPTIBLE | __TASK_STOPPED | \
++				 __TASK_TRACED)
++
++#define task_is_traced(task)	(((task)->state & __TASK_TRACED) != 0)
++#define task_is_stopped(task)	(((task)->state & __TASK_STOPPED) != 0)
+ #define task_is_dead(task)	((task)->exit_state != 0)
+ #define task_is_stopped_or_traced(task) \
+-			(((task)->state & (TASK_STOPPED | TASK_TRACED)) != 0)
++			(((task)->state & (__TASK_STOPPED | __TASK_TRACED)) != 0)
+ 
+ #define __set_task_state(tsk, state_value)		\
+ 	do { (tsk)->state = (state_value); } while (0)
+@@ -275,6 +289,7 @@ extern int in_sched_functions(unsigned l
+ #define	MAX_SCHEDULE_TIMEOUT	LONG_MAX
+ extern signed long FASTCALL(schedule_timeout(signed long timeout));
+ extern signed long schedule_timeout_interruptible(signed long timeout);
++extern signed long schedule_timeout_killable(signed long timeout);
+ extern signed long schedule_timeout_uninterruptible(signed long timeout);
+ asmlinkage void schedule(void);
+ extern int mutex_spin_on_owner(struct mutex *lock, struct thread_info *owner);
+@@ -832,13 +847,6 @@ struct mempolicy;
+ struct pipe_inode_info;
+ struct uts_namespace;
+ 
+-enum sleep_type {
+-	SLEEP_NORMAL,
+-	SLEEP_NONINTERACTIVE,
+-	SLEEP_INTERACTIVE,
+-	SLEEP_INTERRUPTED,
+-};
+-
+ struct prio_array;
+ 
+ struct task_struct {
+@@ -867,7 +875,6 @@ struct task_struct {
+ 	unsigned long sleep_avg;
+ 	unsigned long long timestamp, last_ran;
+ 	unsigned long long sched_time; /* sched_clock time spent running */
+-	enum sleep_type sleep_type;
+ 
+ 	unsigned int policy;
+ 	cpumask_t cpus_allowed;
+@@ -1613,7 +1620,27 @@ static inline int signal_pending(struct 
+ {
+ 	return unlikely(test_tsk_thread_flag(p,TIF_SIGPENDING));
+ }
+-  
++
++extern int FASTCALL(__fatal_signal_pending(struct task_struct *p));
++
++static inline int fatal_signal_pending(struct task_struct *p)
++{
++	return signal_pending(p) && __fatal_signal_pending(p);
++}
++
++static inline int signal_pending_state(long state, struct task_struct *p)
++{
++	if (!(state & (TASK_INTERRUPTIBLE | TASK_WAKEKILL)))
++		return 0;
++	if (!signal_pending(p))
++		return 0;
++
++	if (state & (__TASK_STOPPED | __TASK_TRACED))
++		return 0;
++
++	return (state & TASK_INTERRUPTIBLE) || __fatal_signal_pending(p);
++}
++
+ static inline int need_resched(void)
+ {
+ 	return unlikely(test_thread_flag(TIF_NEED_RESCHED));
+diff --git a/kernel/sched.c b/kernel/sched.c
+--- a/kernel/sched.c
++++ b/kernel/sched.c
+@@ -766,7 +766,7 @@ static inline int __normal_prio(struct t
+ {
+ 	int bonus, prio;
+ 
+-	bonus = CURRENT_BONUS(p) - MAX_BONUS / 2;
++	bonus = 0;
+ 
+ 	prio = p->static_prio - bonus;
+ 	if (prio < MAX_RT_PRIO)
+@@ -906,67 +906,6 @@ static inline void __activate_idle_task(
+  */
+ static int recalc_task_prio(struct task_struct *p, unsigned long long now)
+ {
+-	/* Caller must always ensure 'now >= p->timestamp' */
+-	unsigned long sleep_time = now - p->timestamp;
+-
+-	if (batch_task(p))
+-		sleep_time = 0;
+-
+-	if (likely(sleep_time > 0)) {
+-		/*
+-		 * This ceiling is set to the lowest priority that would allow
+-		 * a task to be reinserted into the active array on timeslice
+-		 * completion.
+-		 */
+-		unsigned long ceiling = INTERACTIVE_SLEEP(p);
+-
+-		if (p->mm && sleep_time > ceiling && p->sleep_avg < ceiling) {
+-			/*
+-			 * Prevents user tasks from achieving best priority
+-			 * with one single large enough sleep.
+-			 */
+-			p->sleep_avg = ceiling;
+-			/*
+-			 * Using INTERACTIVE_SLEEP() as a ceiling places a
+-			 * nice(0) task 1ms sleep away from promotion, and
+-			 * gives it 700ms to round-robin with no chance of
+-			 * being demoted.  This is more than generous, so
+-			 * mark this sleep as non-interactive to prevent the
+-			 * on-runqueue bonus logic from intervening should
+-			 * this task not receive cpu immediately.
+-			 */
+-			p->sleep_type = SLEEP_NONINTERACTIVE;
+-		} else {
+-			/*
+-			 * Tasks waking from uninterruptible sleep are
+-			 * limited in their sleep_avg rise as they
+-			 * are likely to be waiting on I/O
+-			 */
+-			if (p->sleep_type == SLEEP_NONINTERACTIVE && p->mm) {
+-				if (p->sleep_avg >= ceiling)
+-					sleep_time = 0;
+-				else if (p->sleep_avg + sleep_time >=
+-					 ceiling) {
+-						p->sleep_avg = ceiling;
+-						sleep_time = 0;
+-				}
+-			}
+-
+-			/*
+-			 * This code gives a bonus to interactive tasks.
+-			 *
+-			 * The boost works by updating the 'average sleep time'
+-			 * value here, based on ->timestamp. The more time a
+-			 * task spends sleeping, the higher the average gets -
+-			 * and the higher the priority boost gets as well.
+-			 */
+-			p->sleep_avg += sleep_time;
+-
+-		}
+-		if (p->sleep_avg > NS_MAX_SLEEP_AVG)
+-			p->sleep_avg = NS_MAX_SLEEP_AVG;
+-	}
+-
+ 	return effective_prio(p);
+ }
+ 
+@@ -1005,29 +944,6 @@ static void activate_task(struct task_st
+ 	}
+ 
+ 	p->prio = recalc_task_prio(p, now);
+-
+-	/*
+-	 * This checks to make sure it's not an uninterruptible task
+-	 * that is now waking up.
+-	 */
+-	if (p->sleep_type == SLEEP_NORMAL) {
+-		/*
+-		 * Tasks which were woken up by interrupts (ie. hw events)
+-		 * are most likely of interactive nature. So we give them
+-		 * the credit of extending their sleep time to the period
+-		 * of time they spend on the runqueue, waiting for execution
+-		 * on a CPU, first time around:
+-		 */
+-		if (in_interrupt())
+-			p->sleep_type = SLEEP_INTERRUPTED;
+-		else {
+-			/*
+-			 * Normal first-time wakeups get a credit too for
+-			 * on-runqueue time, but it will be weighted down:
+-			 */
+-			p->sleep_type = SLEEP_INTERACTIVE;
+-		}
+-	}
+ 	p->timestamp = now;
+ out:
+ 	__activate_task(p, rq);
+@@ -1623,23 +1539,8 @@ out_set_cpu:
+ 
+ out_activate:
+ #endif /* CONFIG_SMP */
+-	if (old_state == TASK_UNINTERRUPTIBLE) {
++	if (old_state == TASK_UNINTERRUPTIBLE)
+ 		rq->nr_uninterruptible--;
+-		/*
+-		 * Tasks on involuntary sleep don't earn
+-		 * sleep_avg beyond just interactive state.
+-		 */
+-		p->sleep_type = SLEEP_NONINTERACTIVE;
+-	} else
+-
+-	/*
+-	 * Tasks that have marked their sleep as noninteractive get
+-	 * woken up with their sleep average not weighted in an
+-	 * interactive way.
+-	 */
+-		if (old_state & TASK_NONINTERACTIVE)
+-			p->sleep_type = SLEEP_NONINTERACTIVE;
+-
+ 
+ 	activate_task(p, rq, cpu == this_cpu);
+ 	/*
+@@ -3322,27 +3223,6 @@ unsigned long long current_sched_time(co
+ }
+ 
+ /*
+- * We place interactive tasks back into the active array, if possible.
+- *
+- * To guarantee that this does not starve expired tasks we ignore the
+- * interactivity of a task if the first expired task had to wait more
+- * than a 'reasonable' amount of time. This deadline timeout is
+- * load-dependent, as the frequency of array switched decreases with
+- * increasing number of running tasks. We also ignore the interactivity
+- * if a better static_prio task has expired:
+- */
+-static inline int expired_starving(struct rq *rq)
+-{
+-	if (rq->curr->static_prio > rq->best_expired_prio)
+-		return 1;
+-	if (!STARVATION_LIMIT || !rq->expired_timestamp)
+-		return 0;
+-	if (jiffies - rq->expired_timestamp > STARVATION_LIMIT * rq->nr_running)
+-		return 1;
+-	return 0;
+-}
+-
+-/*
+  * Account user cpu time to a process.
+  * @p: the process that the cpu time gets accounted to
+  * @hardirq_offset: the offset to subtract from hardirq_count()
+@@ -3454,7 +3334,7 @@ static void task_running_tick(struct rq 
+ 
+ 		if (!rq->expired_timestamp)
+ 			rq->expired_timestamp = jiffies;
+-		if (!TASK_INTERACTIVE(p) || expired_starving(rq)) {
++		if (!TASK_INTERACTIVE(p)) {
+ 			enqueue_task(p, rq->expired);
+ 			if (p->static_prio < rq->best_expired_prio)
+ 				rq->best_expired_prio = p->static_prio;
+@@ -3554,12 +3434,6 @@ EXPORT_SYMBOL(sub_preempt_count);
+ 
+ #endif
+ 
+-static inline int interactive_sleep(enum sleep_type sleep_type)
+-{
+-	return (sleep_type == SLEEP_INTERACTIVE ||
+-		sleep_type == SLEEP_INTERRUPTED);
+-}
+-
+ /*
+  * schedule() is the main scheduler function.
+  */
+@@ -3570,7 +3444,7 @@ asmlinkage void __sched schedule(void)
+ 	struct list_head *queue;
+ 	unsigned long long now;
+ 	unsigned long run_time;
+-	int cpu, idx, new_prio;
++	int cpu, idx;
+ 	long *switch_count;
+ 	struct rq *rq;
+ 
+@@ -3626,8 +3500,7 @@ need_resched_nonpreemptible:
+ 	switch_count = &prev->nivcsw;
+ 	if (prev->state && !(preempt_count() & PREEMPT_ACTIVE)) {
+ 		switch_count = &prev->nvcsw;
+-		if (unlikely((prev->state & TASK_INTERRUPTIBLE) &&
+-				unlikely(signal_pending(prev))))
++		if (unlikely(signal_pending_state(prev->state, prev)))
+ 			prev->state = TASK_RUNNING;
+ 		else {
+ 			if (prev->state == TASK_UNINTERRUPTIBLE)
+@@ -3663,24 +3536,6 @@ need_resched_nonpreemptible:
+ 	queue = array->queue + idx;
+ 	next = list_entry(queue->next, struct task_struct, run_list);
+ 
+-	if (!rt_task(next) && interactive_sleep(next->sleep_type)) {
+-		unsigned long long delta = now - next->timestamp;
+-		if (unlikely((long long)(now - next->timestamp) < 0))
+-			delta = 0;
+-
+-		if (next->sleep_type == SLEEP_INTERACTIVE)
+-			delta = delta * (ON_RUNQUEUE_WEIGHT * 128 / 100) / 128;
+-
+-		array = next->array;
+-		new_prio = recalc_task_prio(next, next->timestamp + delta);
+-
+-		if (unlikely(next->prio != new_prio)) {
+-			dequeue_task(next, array);
+-			next->prio = new_prio;
+-			enqueue_task(next, array);
+-		}
+-	}
+-	next->sleep_type = SLEEP_NORMAL;
+ switch_tasks:
+ 	if (next == rq->idle)
+ 		schedstat_inc(rq, sched_goidle);
+@@ -3691,9 +3546,6 @@ switch_tasks:
+ 
+ 	update_cpu_clock(prev, rq, now);
+ 
+-	prev->sleep_avg -= run_time;
+-	if ((long)prev->sleep_avg <= 0)
+-		prev->sleep_avg = 0;
+ 	prev->timestamp = prev->last_ran = now;
+ 
+ 	sched_info_switch(prev, next);
+@@ -4442,11 +4294,6 @@ static void __setscheduler(struct task_s
+ 	p->normal_prio = normal_prio(p);
+ 	/* we are holding p->pi_lock already */
+ 	p->prio = rt_mutex_getprio(p);
+-	/*
+-	 * SCHED_BATCH tasks are treated as perpetual CPU hogs:
+-	 */
+-	if (policy == SCHED_BATCH)
+-		p->sleep_avg = 0;
+ 	set_load_weight(p);
+ }
+ 
+@@ -5164,7 +5011,6 @@ void __cpuinit init_idle(struct task_str
+ 	unsigned long flags;
+ 
+ 	idle->timestamp = sched_clock();
+-	idle->sleep_avg = 0;
+ 	idle->array = NULL;
+ 	idle->prio = idle->normal_prio = MAX_PRIO;
+ 	idle->state = TASK_RUNNING;
+diff --git a/kernel/signal.c b/kernel/signal.c
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -446,15 +446,15 @@ void signal_wake_up(struct task_struct *
+ 	set_tsk_thread_flag(t, TIF_SIGPENDING);
+ 
+ 	/*
+-	 * For SIGKILL, we want to wake it up in the stopped/traced case.
+-	 * We don't check t->state here because there is a race with it
++	 * For SIGKILL, we want to wake it up in the stopped/traced/killable
++	 * case. We don't check t->state here because there is a race with it
+ 	 * executing another processor and just now entering stopped state.
+ 	 * By using wake_up_state, we ensure the process will wake up and
+ 	 * handle its death signal.
+ 	 */
+ 	mask = TASK_INTERRUPTIBLE;
+ 	if (resume)
+-		mask |= TASK_STOPPED | TASK_TRACED;
++		mask |= TASK_WAKEKILL;
+ 	if (!wake_up_state(t, mask))
+ 		kick_process(t);
+ }
+@@ -610,7 +610,7 @@ static void handle_stop_signal(int sig, 
+ 			 * Wake up the stopped thread _after_ setting
+ 			 * TIF_SIGPENDING
+ 			 */
+-			state = TASK_STOPPED;
++			state = __TASK_STOPPED;
+ 			if (sig_user_defined(t, SIGCONT) && !sigismember(&t->blocked, SIGCONT)) {
+ 				set_tsk_thread_flag(t, TIF_SIGPENDING);
+ 				state |= TASK_INTERRUPTIBLE;
+@@ -958,6 +958,11 @@ void zap_other_threads(struct task_struc
+ 	}
+ }
+ 
++int fastcall __fatal_signal_pending(struct task_struct *tsk)
++{
++	return sigismember(&tsk->pending.signal, SIGKILL);
++}
++
+ /*
+  * Must be called under rcu_read_lock() or with tasklist_lock read-held.
+  */
+diff --git a/kernel/timer.c b/kernel/timer.c
+--- a/kernel/timer.c
++++ b/kernel/timer.c
+@@ -1163,6 +1163,13 @@ signed long __sched schedule_timeout_interruptible
+ }
+ EXPORT_SYMBOL(schedule_timeout_interruptible);
+ 
++signed long __sched schedule_timeout_killable(signed long timeout)
++{
++	__set_current_state(TASK_KILLABLE);
++	return schedule_timeout(timeout);
++}
++EXPORT_SYMBOL(schedule_timeout_killable);
++
+ signed long __sched schedule_timeout_uninterruptible(signed long timeout)
+ {
+ 	__set_current_state(TASK_UNINTERRUPTIBLE);
+-- 

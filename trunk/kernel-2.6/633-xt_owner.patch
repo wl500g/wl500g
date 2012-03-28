@@ -387,7 +387,6 @@ deleted file mode 100644
 -module_init(ip6t_owner_init);
 -module_exit(ip6t_owner_fini);
 diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 693f861..4bc0552 100644
 --- a/net/netfilter/Kconfig
 +++ b/net/netfilter/Kconfig
 @@ -554,6 +554,14 @@ config NETFILTER_XT_MATCH_MARK
