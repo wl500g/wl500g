@@ -44,7 +44,7 @@ SQUASHFS=squashfs4.2
 NFSUTILS=nfs-utils-1.1.6
 PORTMAP=portmap_6
 RADVD=radvd-1.8.3
-QUAGGA=quagga-0.99.20
+QUAGGA=quagga-0.99.20.1
 L2TP=rp-l2tp
 XL2TPD=xl2tpd-1.3.1
 BRIDGE=bridge-utils-1.0.6
@@ -344,9 +344,9 @@ radvd: $(TOP)/radvd
 
 quagga_Patches := $(call patches_list,quagga)
 
-$(TOP)/quagga: quagga/$(QUAGGA).tar.gz
+$(TOP)/quagga: quagga/$(QUAGGA).tar.bz2
 	@rm -rf $(TOP)/$(QUAGGA) $@
-	tar -xzf $^ -C $(TOP)
+	tar -xjf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(QUAGGA) $(quagga_Patches)
 	mv $(TOP)/$(QUAGGA) $@
 
