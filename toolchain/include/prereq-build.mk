@@ -37,9 +37,15 @@ $(eval $(call Require,case-sensitive-fs, \
 	Toolchain can only be built on a case-sensitive filesystem \
 ))
 
+CC=gcc
+CXX=g++
+ac_out:=$(TMP_DIR)/a.out
+ac_cin:=$(TMP_DIR)/conftest.c
+
 define Require/working-gcc
-	echo 'int main(int argc, char **argv) { return 0; }' | \
-		gcc -x c -o $(TMP_DIR)/a.out -
+	echo 'int main(int argc, char **argv) { return 0; }' >$(ac_cin) && \
+		$(CC) -x c -o $(ac_out) $(ac_cin) && \
+		rm -f $(ac_out) $(ac_cin)
 endef
 
 $(eval $(call Require,working-gcc, \
@@ -47,9 +53,9 @@ $(eval $(call Require,working-gcc, \
 ))
 
 define Require/working-g++
-	echo 'int main(int argc, char **argv) { return 0; }' | \
-		g++ -x c++ -o $(TMP_DIR)/a.out -lstdc++ - && \
-		$(TMP_DIR)/a.out
+	echo 'int main(int argc, char **argv) { return 0; }' >$(ac_cin) && \
+		$(CXX) -x c++ -o $(ac_out) -lstdc++ $(ac_cin) && \
+		rm -f $(ac_out) $(ac_cin)
 endef
 
 $(eval $(call Require,working-g++, \
@@ -57,8 +63,9 @@ $(eval $(call Require,working-g++, \
 ))
 
 define Require/ncurses
-	echo 'int main(int argc, char **argv) { initscr(); return 0; }' | \
-		gcc -include ncurses.h -x c -o $(TMP_DIR)/a.out -lncurses -
+	echo 'int main(int argc, char **argv) { initscr(); return 0; }' >$(ac_cin) && \
+		$(CC) -x c -o $(ac_out) -include ncurses.h -lncurses $(ac_cin) && \
+		rm -f $(ac_out) $(ac_cin)
 endef
 
 $(eval $(call Require,ncurses, \
@@ -67,8 +74,9 @@ $(eval $(call Require,ncurses, \
 
 
 define Require/zlib
-	echo 'int main(int argc, char **argv) { gzdopen(0, "rb"); return 0; }' | \
-		gcc -include zlib.h -x c -o $(TMP_DIR)/a.out -lz -
+	echo 'int main(int argc, char **argv) { gzdopen(0, "rb"); return 0; }' >$(ac_cin) && \
+		$(CC) -x c -o $(ac_out) -include zlib.h -lz $(ac_cin) && \
+		rm -f $(ac_out) $(ac_cin)
 endef
 
 $(eval $(call Require,zlib, \
