@@ -10,6 +10,7 @@
  42a73808ed4f30b739eb52bcbb33a02fe62ceef5 [RAW]: Consolidate proc interface.
  377cf82d66ea43f3d3cb82c2563e65b5c12c9bfd [RAW]: Family check in the /proc/net/raw[6] is extra.
  3046d76746311ac7ff0cdc3ec42db15730528dbf [RAW]: Wrong content of the /proc/net/raw6.
+ 938b93adb2642885e688390396472d22a7548748 [NET]: Add debugging names to __RW_LOCK_UNLOCKED macros.
 
 ---
  include/net/inet6_hashtables.h     |    2 
@@ -688,7 +689,7 @@ diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
 -struct hlist_head raw_v4_htable[RAWV4_HTABLE_SIZE];
 -DEFINE_RWLOCK(raw_v4_lock);
 +static struct raw_hashinfo raw_v4_hashinfo = {
-+	.lock = __RW_LOCK_UNLOCKED(),
++	.lock = __RW_LOCK_UNLOCKED(raw_v4_hashinfo.lock),
 +};
  
 -static void raw_v4_hash(struct sock *sk)
@@ -1127,7 +1128,7 @@ diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
 -struct hlist_head raw_v6_htable[RAWV6_HTABLE_SIZE];
 -DEFINE_RWLOCK(raw_v6_lock);
 +static struct raw_hashinfo raw_v6_hashinfo = {
-+	.lock = __RW_LOCK_UNLOCKED(),
++	.lock = __RW_LOCK_UNLOCKED(raw_v6_hashinfo.lock),
 +};
  
  static void raw_v6_hash(struct sock *sk)
