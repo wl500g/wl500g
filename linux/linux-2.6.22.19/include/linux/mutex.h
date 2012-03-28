@@ -49,8 +49,10 @@ struct mutex {
 	atomic_t		count;
 	spinlock_t		wait_lock;
 	struct list_head	wait_list;
-#ifdef CONFIG_DEBUG_MUTEXES
+#if defined(CONFIG_DEBUG_MUTEXES) || defined(CONFIG_SMP)
 	struct thread_info	*owner;
+#endif
+#ifdef CONFIG_DEBUG_MUTEXES
 	const char 		*name;
 	void			*magic;
 #endif
@@ -67,7 +69,6 @@ struct mutex_waiter {
 	struct list_head	list;
 	struct task_struct	*task;
 #ifdef CONFIG_DEBUG_MUTEXES
-	struct mutex		*lock;
 	void			*magic;
 #endif
 };
@@ -124,22 +125,52 @@ static inline int fastcall mutex_is_locked(struct mutex *lock)
 extern void mutex_lock_nested(struct mutex *lock, unsigned int subclass);
 extern int __must_check mutex_lock_interruptible_nested(struct mutex *lock,
 					unsigned int subclass);
+extern int __must_check mutex_lock_killable_nested(struct mutex *lock,
+					unsigned int subclass);
 
 #define mutex_lock(lock) mutex_lock_nested(lock, 0)
 #define mutex_lock_interruptible(lock) mutex_lock_interruptible_nested(lock, 0)
+#define mutex_lock_killable(lock) mutex_lock_killable_nested(lock, 0)
 #else
 extern void fastcall mutex_lock(struct mutex *lock);
 extern int __must_check fastcall mutex_lock_interruptible(struct mutex *lock);
+extern int __must_check fastcall mutex_lock_killable(struct mutex *lock);
 
 # define mutex_lock_nested(lock, subclass) mutex_lock(lock)
 # define mutex_lock_interruptible_nested(lock, subclass) mutex_lock_interruptible(lock)
+# define mutex_lock_killable_nested(lock, subclass) mutex_lock_killable(lock)
 #endif
 
 /*
  * NOTE: mutex_trylock() follows the spin_trylock() convention,
  *       not the down_trylock() convention!
+ *
+ * Returns 1 if the mutex has been acquired successfully, and 0 on contention.
  */
 extern int fastcall mutex_trylock(struct mutex *lock);
 extern void fastcall mutex_unlock(struct mutex *lock);
+
+/**
+ * atomic_dec_and_mutex_lock - return holding mutex if we dec to 0
+ * @cnt: the atomic which we are to dec
+ * @lock: the mutex to return holding if we dec to 0
+ *
+ * return true and hold lock if we dec to 0, return false otherwise
+ */
+static inline int atomic_dec_and_mutex_lock(atomic_t *cnt, struct mutex *lock)
+{
+	/* dec if we can't possibly hit 0 */
+	if (atomic_add_unless(cnt, -1, 1))
+		return 0;
+	/* we might hit 0, so take the lock */
+	mutex_lock(lock);
+	if (!atomic_dec_and_test(cnt)) {
+		/* when we actually did the dec, we didn't hit 0 */
+		mutex_unlock(lock);
+		return 0;
+	}
+	/* we hit 0, and we hold the lock */
+	return 1;
+}
 
 #endif
