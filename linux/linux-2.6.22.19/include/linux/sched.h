@@ -74,7 +74,6 @@ struct sched_param {
 #include <linux/topology.h>
 #include <linux/seccomp.h>
 #include <linux/rcupdate.h>
-#include <linux/futex.h>
 #include <linux/rtmutex.h>
 
 #include <linux/time.h>
@@ -88,6 +87,7 @@ struct sched_param {
 
 struct exec_domain;
 struct futex_pi_state;
+struct robust_list_head;
 struct bio;
 
 /*
@@ -144,20 +144,34 @@ extern unsigned long weighted_cpuload(const int cpu);
 #define TASK_RUNNING		0
 #define TASK_INTERRUPTIBLE	1
 #define TASK_UNINTERRUPTIBLE	2
-#define TASK_STOPPED		4
-#define TASK_TRACED		8
+#define __TASK_STOPPED		4
+#define __TASK_TRACED		8
 /* in tsk->exit_state */
 #define EXIT_ZOMBIE		16
 #define EXIT_DEAD		32
 /* in tsk->state again */
-#define TASK_NONINTERACTIVE	64
-#define TASK_DEAD		128
+#define TASK_DEAD		64
+#define TASK_WAKEKILL		128
 
-#define task_is_traced(task)    (((task)->state & TASK_TRACED) != 0)
-#define task_is_stopped(task)   (((task)->state & TASK_STOPPED) != 0)
+/* Convenience macros for the sake of set_task_state */
+#define TASK_KILLABLE		(TASK_WAKEKILL | TASK_UNINTERRUPTIBLE)
+#define TASK_STOPPED		(TASK_WAKEKILL | __TASK_STOPPED)
+#define TASK_TRACED		(TASK_WAKEKILL | __TASK_TRACED)
+
+/* Convenience macros for the sake of wake_up */
+#define TASK_NORMAL		(TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE)
+#define TASK_ALL		(TASK_NORMAL | __TASK_STOPPED | __TASK_TRACED)
+
+/* get_task_state() */
+#define TASK_REPORT		(TASK_RUNNING | TASK_INTERRUPTIBLE | \
+				 TASK_UNINTERRUPTIBLE | __TASK_STOPPED | \
+				 __TASK_TRACED)
+
+#define task_is_traced(task)	(((task)->state & __TASK_TRACED) != 0)
+#define task_is_stopped(task)	(((task)->state & __TASK_STOPPED) != 0)
 #define task_is_dead(task)	((task)->exit_state != 0)
 #define task_is_stopped_or_traced(task) \
-			(((task)->state & (TASK_STOPPED | TASK_TRACED)) != 0)
+			(((task)->state & (__TASK_STOPPED | __TASK_TRACED)) != 0)
 
 #define __set_task_state(tsk, state_value)		\
 	do { (tsk)->state = (state_value); } while (0)
@@ -266,6 +280,7 @@ extern int in_sched_functions(unsigned long addr);
 #define	MAX_SCHEDULE_TIMEOUT	LONG_MAX
 extern signed long FASTCALL(schedule_timeout(signed long timeout));
 extern signed long schedule_timeout_interruptible(signed long timeout);
+extern signed long schedule_timeout_killable(signed long timeout);
 extern signed long schedule_timeout_uninterruptible(signed long timeout);
 asmlinkage void schedule(void);
 
@@ -815,13 +830,6 @@ struct mempolicy;
 struct pipe_inode_info;
 struct uts_namespace;
 
-enum sleep_type {
-	SLEEP_NORMAL,
-	SLEEP_NONINTERACTIVE,
-	SLEEP_INTERACTIVE,
-	SLEEP_INTERRUPTED,
-};
-
 struct prio_array;
 
 struct task_struct {
@@ -850,7 +858,6 @@ struct task_struct {
 	unsigned long sleep_avg;
 	unsigned long long timestamp, last_ran;
 	unsigned long long sched_time; /* sched_clock time spent running */
-	enum sleep_type sleep_type;
 
 	unsigned int policy;
 	cpumask_t cpus_allowed;
@@ -1585,7 +1592,27 @@ static inline int signal_pending(struct task_struct *p)
 {
 	return unlikely(test_tsk_thread_flag(p,TIF_SIGPENDING));
 }
-  
+
+extern int FASTCALL(__fatal_signal_pending(struct task_struct *p));
+
+static inline int fatal_signal_pending(struct task_struct *p)
+{
+	return signal_pending(p) && __fatal_signal_pending(p);
+}
+
+static inline int signal_pending_state(long state, struct task_struct *p)
+{
+	if (!(state & (TASK_INTERRUPTIBLE | TASK_WAKEKILL)))
+		return 0;
+	if (!signal_pending(p))
+		return 0;
+
+	if (state & (__TASK_STOPPED | __TASK_TRACED))
+		return 0;
+
+	return (state & TASK_INTERRUPTIBLE) || __fatal_signal_pending(p);
+}
+
 static inline int need_resched(void)
 {
 	return unlikely(test_thread_flag(TIF_NEED_RESCHED));
