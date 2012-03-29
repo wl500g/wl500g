@@ -7,6 +7,7 @@ ext3: Updates from 2.6.32.48
  8cef107a1d890ff76c85d665083ff3562be01d32 ext3: Avoid loading bitmaps for full groups during block allocation
  f25f624263445785b94f39739a6339ba9ed3275d ext3: Avoid filesystem corruption after a crash under heavy delete load
  5f11e6a44059f728dddd8d0dbe5b4368ea93575b ext3: Fix dirtying of journalled buffers in data=journal mode
+ ac1334bfdae33be17ae6ae641bbbd1e6a2f04005 ext3: Update ctime in ext3_splice_branch() only when needed
 
 ---
  Documentation/filesystems/ext3.txt |   40 +++
@@ -16,16 +17,16 @@ ext3: Updates from 2.6.32.48
  fs/ext3/fsync.c                    |   40 ++-
  fs/ext3/hash.c                     |   77 ++++++-
  fs/ext3/ialloc.c                   |    7 
- fs/ext3/inode.c                    |  371 ++++++++++++++++++++++++-------------
+ fs/ext3/inode.c                    |  380 ++++++++++++++++++++++++-------------
  fs/ext3/ioctl.c                    |   53 +----
- fs/ext3/namei.c                    |  198 +++++++++++++------
+ fs/ext3/namei.c                    |  198 ++++++++++++-------
  fs/ext3/resize.c                   |    2 
- fs/ext3/super.c                    |  215 +++++++++++----------
+ fs/ext3/super.c                    |  215 ++++++++++----------
  fs/ext3/xattr.c                    |   34 ++-
  include/linux/ext3_fs.h            |   69 +++++-
  include/linux/ext3_fs_i.h          |   10 
  include/linux/ext3_fs_sb.h         |    3 
- 16 files changed, 738 insertions(+), 462 deletions(-)
+ 16 files changed, 744 insertions(+), 465 deletions(-)
 
 diff --git a/Documentation/filesystems/ext3.txt b/Documentation/filesystems/ext3.txt
 --- a/Documentation/filesystems/ext3.txt
@@ -522,21 +523,30 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  }
  
  /*
-@@ -686,8 +698,9 @@ static int ext3_splice_branch(handle_t *
+@@ -686,8 +698,10 @@ static int ext3_splice_branch(handle_t *
  	int err = 0;
  	struct ext3_block_alloc_info *block_i;
  	ext3_fsblk_t current_block;
 +	struct ext3_inode_info *ei = EXT3_I(inode);
++	struct timespec now;
  
 -	block_i = EXT3_I(inode)->i_block_alloc_info;
 +	block_i = ei->i_block_alloc_info;
  	/*
  	 * If we're splicing into a [td]indirect block (as opposed to the
  	 * inode) then we need to get write access to the [td]indirect block
-@@ -728,6 +741,8 @@ static int ext3_splice_branch(handle_t *
+@@ -728,9 +741,13 @@ static int ext3_splice_branch(handle_t *
+ 	}
  
- 	inode->i_ctime = CURRENT_TIME_SEC;
- 	ext3_mark_inode_dirty(handle, inode);
+ 	/* We are done with atomic stuff, now do the rest of housekeeping */
+-
+-	inode->i_ctime = CURRENT_TIME_SEC;
+-	ext3_mark_inode_dirty(handle, inode);
++	now = CURRENT_TIME_SEC;
++	if (!timespec_equal(&inode->i_ctime, &now) || !where->bh) {
++		inode->i_ctime = now;
++		ext3_mark_inode_dirty(handle, inode);
++	}
 +	/* ext3_mark_inode_dirty already updated i_sync_tid */
 +	atomic_set(&ei->i_datasync_tid, handle->h_transaction->t_tid);
  
