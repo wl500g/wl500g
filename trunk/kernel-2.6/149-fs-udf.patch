@@ -3,24 +3,27 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  aae917cd188f397e9223001d9f6c0adfb339fd64 udf: Fix unalloc space handling in udf_update_inode
  5833ded9b6d783b8446349bada08f0f5e4227895 udf: Do not read inode before writing it
  4651c5900e7a3c84d4b70412f8bbc40c1bcb50cf udf: Fix directory corruption after extent merging
+ 7abc2e45e48ca04206949682402d5d55bc64a16b udf: Call udf_add_free_space() for more blocks at once in udf_free_blocks()
+ fd4287dbc07763595c1e74edbb6520092290185c udf: Fix handling of i_blocks
+ b2527bfa535956d99663718b9d9aac0b8fe3f017 udf: Fix file entry logicalBlocksRecorded
 
 ---
  Documentation/filesystems/udf.txt |    2 
  fs/Kconfig                        |    1 
  fs/buffer.c                       |    1 
  fs/udf/Makefile                   |    4 
- fs/udf/balloc.c                   |  918 ++++++------
+ fs/udf/balloc.c                   |  942 +++++--------
  fs/udf/crc.c                      |  173 --
  fs/udf/dir.c                      |  262 +--
  fs/udf/directory.c                |  283 +--
  fs/udf/ecma_167.h                 |  584 +++-----
  fs/udf/file.c                     |  195 +-
  fs/udf/fsync.c                    |   50 
- fs/udf/ialloc.c                   |  128 -
- fs/udf/inode.c                    | 2095 +++++++++++++----------------
+ fs/udf/ialloc.c                   |  143 -
+ fs/udf/inode.c                    | 2107 ++++++++++++++---------------
  fs/udf/lowlevel.c                 |   33 
  fs/udf/misc.c                     |  233 +--
- fs/udf/namei.c                    | 1034 ++++++--------
+ fs/udf/namei.c                    | 1035 ++++++--------
  fs/udf/osta_udf.h                 |   95 -
  fs/udf/partition.c                |  325 ++--
  fs/udf/super.c                    | 2739 +++++++++++++++++++++-----------------
@@ -35,7 +38,7 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  include/linux/udf_fs.h            |   54 
  include/linux/udf_fs_i.h          |   30 
  include/linux/udf_fs_sb.h         |  117 -
- 30 files changed, 5142 insertions(+), 5557 deletions(-)
+ 30 files changed, 5147 insertions(+), 5604 deletions(-)
 
 diff --git a/Documentation/filesystems/udf.txt b/Documentation/filesystems/udf.txt
 --- a/Documentation/filesystems/udf.txt
@@ -209,7 +212,7 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  {
  	int slot;
  
-@@ -138,13 +140,29 @@ static inline int load_block_bitmap(stru
+@@ -138,13 +140,28 @@ static inline int load_block_bitmap(stru
  	return slot;
  }
  
@@ -232,7 +235,6 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 +}
 +
 +static void udf_bitmap_free_blocks(struct super_block *sb,
-+				   struct inode *inode,
 +				   struct udf_bitmap *bitmap,
 +				   struct kernel_lb_addr *bloc,
 +				   uint32_t offset,
@@ -244,7 +246,7 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  	unsigned long block;
  	unsigned long block_group;
  	unsigned long bit;
-@@ -153,138 +171,123 @@ static void udf_bitmap_free_blocks(struc
+@@ -153,138 +170,110 @@ static void udf_bitmap_free_blocks(struc
  	unsigned long overflow;
  
  	mutex_lock(&sbi->s_alloc_mutex);
@@ -252,9 +254,8 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -		(bloc.logicalBlockNum + count) > UDF_SB_PARTLEN(sb, bloc.partitionReferenceNum))
 -	{
 +	partmap = &sbi->s_partmaps[bloc->partitionReferenceNum];
-+	if (bloc->logicalBlockNum < 0 ||
-+	    (bloc->logicalBlockNum + count) >
-+		partmap->s_partition_len) {
++	if (bloc->logicalBlockNum + count < count ||
++	    (bloc->logicalBlockNum + count) > partmap->s_partition_len) {
  		udf_debug("%d < %d || %d + %d > %d\n",
 -			bloc.logicalBlockNum, 0, bloc.logicalBlockNum, count,
 -			UDF_SB_PARTLEN(sb, bloc.partitionReferenceNum));
@@ -314,23 +315,13 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -			{
 -				UDF_SB_LVID(sb)->freeSpaceTable[UDF_SB_PARTITION(sb)] =
 -					cpu_to_le32(le32_to_cpu(UDF_SB_LVID(sb)->freeSpaceTable[UDF_SB_PARTITION(sb)])+1);
--			}
 +		bh = bitmap->s_block_bitmap[bitmap_nr];
 +		for (i = 0; i < count; i++) {
 +			if (udf_set_bit(bit + i, bh->b_data)) {
 +				udf_debug("bit %ld already set\n", bit + i);
 +				udf_debug("byte=%2x\n",
 +					((char *)bh->b_data)[(bit + i) >> 3]);
-+			} else {
-+				if (inode)
-+					DQUOT_FREE_BLOCK(inode, 1);
-+				udf_add_free_space(sb, sbi->s_partition, 1);
-+			}
-+		}
-+		mark_buffer_dirty(bh);
-+		if (overflow) {
-+			block += count;
-+			count = overflow;
+ 			}
  		}
 -	}
 -	mark_buffer_dirty(bh);
@@ -340,6 +331,12 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -		count = overflow;
 -		goto do_more;
 -	}
++		udf_add_free_space(sb, sbi->s_partition, count);
++		mark_buffer_dirty(bh);
++		if (overflow) {
++			block += count;
++			count = overflow;
++		}
 +	} while (overflow);
 +
  error_return:
@@ -355,7 +352,6 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -	struct udf_bitmap *bitmap, uint16_t partition, uint32_t first_block,
 -	uint32_t block_count)
 +static int udf_bitmap_prealloc_blocks(struct super_block *sb,
-+				      struct inode *inode,
 +				      struct udf_bitmap *bitmap,
 +				      uint16_t partition, uint32_t first_block,
 +				      uint32_t block_count)
@@ -414,15 +410,8 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -			DQUOT_FREE_BLOCK(inode, 1);
 -			goto out;
 +		while (bit < (sb->s_blocksize << 3) && block_count > 0) {
-+			if (!udf_test_bit(bit, bh->b_data))
++			if (!udf_clear_bit(bit, bh->b_data))
 +				goto out;
-+			else if (DQUOT_PREALLOC_BLOCK(inode, 1))
-+				goto out;
-+			else if (!udf_clear_bit(bit, bh->b_data)) {
-+				udf_debug("bit already cleared for block %d\n", bit);
-+				DQUOT_FREE_BLOCK(inode, 1);
-+				goto out;
-+			}
 +			block_count--;
 +			alloc_count++;
 +			bit++;
@@ -456,7 +445,6 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -	struct inode * inode,
 -	struct udf_bitmap *bitmap, uint16_t partition, uint32_t goal, int *err)
 +static int udf_bitmap_new_block(struct super_block *sb,
-+				struct inode *inode,
 +				struct udf_bitmap *bitmap, uint16_t partition,
 +				uint32_t goal, int *err)
  {
@@ -466,7 +454,7 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  	int end_goal, nr_groups, bitmap_nr, i;
  	struct buffer_head *bh = NULL;
  	char *ptr;
-@@ -294,7 +297,7 @@ static int udf_bitmap_new_block(struct s
+@@ -294,7 +283,7 @@ static int udf_bitmap_new_block(struct s
  	mutex_lock(&sbi->s_alloc_mutex);
  
  repeat:
@@ -475,7 +463,7 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  		goal = 0;
  
  	nr_groups = bitmap->s_nr_groups;
-@@ -306,38 +309,37 @@ repeat:
+@@ -306,38 +295,37 @@ repeat:
  	if (bitmap_nr < 0)
  		goto error_return;
  	bh = bitmap->s_block_bitmap[bitmap_nr];
@@ -528,7 +516,7 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  		if (block_group >= nr_groups)
  			block_group = 0;
  		group_start = block_group ? 0 : sizeof(struct spaceBitmapDesc);
-@@ -346,47 +348,49 @@ repeat:
+@@ -346,70 +334,55 @@ repeat:
  		if (bitmap_nr < 0)
  			goto error_return;
  		bh = bitmap->s_block_bitmap[bitmap_nr];
@@ -577,25 +565,25 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  
  search_back:
 -	for (i=0; i<7 && bit > (group_start << 3) && udf_test_bit(bit - 1, bh->b_data); i++, bit--);
+-
+-got_block:
+-
+-	/*
+-	 * Check quota for allocation of this block.
+-	 */
+-	if (inode && DQUOT_ALLOC_BLOCK(inode, 1))
+-	{
+-		mutex_unlock(&sbi->s_alloc_mutex);
+-		*err = -EDQUOT;
+-		return 0;
 +	i = 0;
 +	while (i < 7 && bit > (group_start << 3) &&
 +	       udf_test_bit(bit - 1, bh->b_data)) {
 +		++i;
 +		--bit;
-+	}
+ 	}
  
- got_block:
- 
- 	/*
- 	 * Check quota for allocation of this block.
- 	 */
--	if (inode && DQUOT_ALLOC_BLOCK(inode, 1))
--	{
-+	if (inode && DQUOT_ALLOC_BLOCK(inode, 1)) {
- 		mutex_unlock(&sbi->s_alloc_mutex);
- 		*err = -EDQUOT;
- 		return 0;
-@@ -395,21 +399,14 @@ got_block:
++got_block:
  	newblock = bit + (block_group << (sb->s_blocksize_bits + 3)) -
  		(sizeof(struct spaceBitmapDesc) << 3);
  
@@ -619,7 +607,7 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  	mutex_unlock(&sbi->s_alloc_mutex);
  	*err = 0;
  	return newblock;
-@@ -420,238 +417,228 @@ error_return:
+@@ -420,238 +393,222 @@ error_return:
  	return 0;
  }
  
@@ -628,7 +616,6 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -	struct inode * table,
 -	kernel_lb_addr bloc, uint32_t offset, uint32_t count)
 +static void udf_table_free_blocks(struct super_block *sb,
-+				  struct inode *inode,
 +				  struct inode *table,
 +				  struct kernel_lb_addr *bloc,
 +				  uint32_t offset,
@@ -650,9 +637,8 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -		(bloc.logicalBlockNum + count) > UDF_SB_PARTLEN(sb, bloc.partitionReferenceNum))
 -	{
 +	partmap = &sbi->s_partmaps[bloc->partitionReferenceNum];
-+	if (bloc->logicalBlockNum < 0 ||
-+	    (bloc->logicalBlockNum + count) >
-+		partmap->s_partition_len) {
++	if (bloc->logicalBlockNum + count < count ||
++	    (bloc->logicalBlockNum + count) > partmap->s_partition_len) {
  		udf_debug("%d < %d || %d + %d > %d\n",
 -			bloc.logicalBlockNum, 0, bloc.logicalBlockNum, count,
 -			UDF_SB_PARTLEN(sb, bloc.partitionReferenceNum));
@@ -663,17 +649,15 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  
 -	/* We do this up front - There are some error conditions that could occure,
 -	   but.. oh well */
-+	iinfo = UDF_I(table);
-+	/* We do this up front - There are some error conditions that
-+	   could occure, but.. oh well */
- 	if (inode)
- 		DQUOT_FREE_BLOCK(inode, count);
+-	if (inode)
+-		DQUOT_FREE_BLOCK(inode, count);
 -	if (UDF_SB_LVIDBH(sb))
 -	{
 -		UDF_SB_LVID(sb)->freeSpaceTable[UDF_SB_PARTITION(sb)] =
 -			cpu_to_le32(le32_to_cpu(UDF_SB_LVID(sb)->freeSpaceTable[UDF_SB_PARTITION(sb)])+count);
 -		mark_buffer_dirty(UDF_SB_LVIDBH(sb));
 -	}
++	iinfo = UDF_I(table);
 +	udf_add_free_space(sb, sbi->s_partition, count);
  
 -	start = bloc.logicalBlockNum + offset;
@@ -711,11 +695,11 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 +							sb->s_blocksize_bits);
 +				count -= tmp;
 +				start += tmp;
- 				elen = (etype << 30) |
--					(elen + (count << sb->s_blocksize_bits));
++				elen = (etype << 30) |
 +					(0x40000000 - sb->s_blocksize);
 +			} else {
-+				elen = (etype << 30) |
+ 				elen = (etype << 30) |
+-					(elen + (count << sb->s_blocksize_bits));
 +					(elen +
 +					(count << sb->s_blocksize_bits));
  				start += count;
@@ -996,7 +980,7 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  				udf_update_tag(epos.bh->b_data, epos.offset);
  				mark_buffer_dirty(epos.bh);
  			}
-@@ -662,133 +649,127 @@ static void udf_table_free_blocks(struct
+@@ -662,133 +619,122 @@ static void udf_table_free_blocks(struct
  	brelse(oepos.bh);
  
  error_return:
@@ -1010,7 +994,6 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -	struct inode *table, uint16_t partition, uint32_t first_block,
 -	uint32_t block_count)
 +static int udf_table_prealloc_blocks(struct super_block *sb,
-+				     struct inode *inode,
 +				     struct inode *table, uint16_t partition,
 +				     uint32_t first_block, uint32_t block_count)
  {
@@ -1064,12 +1047,10 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  
  		alloc_count = (elen >> sb->s_blocksize_bits);
 -		if (inode && DQUOT_PREALLOC_BLOCK(inode, alloc_count > block_count ? block_count : alloc_count))
-+		if (inode && DQUOT_PREALLOC_BLOCK(inode,
-+			alloc_count > block_count ? block_count : alloc_count))
- 			alloc_count = 0;
+-			alloc_count = 0;
 -		else if (alloc_count > block_count)
 -		{
-+		else if (alloc_count > block_count) {
++		if (alloc_count > block_count) {
  			alloc_count = block_count;
  			eloc.logicalBlockNum += alloc_count;
  			elen -= (alloc_count << sb->s_blocksize_bits);
@@ -1107,7 +1088,6 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -	struct inode * inode,
 -	struct inode *table, uint16_t partition, uint32_t goal, int *err)
 +static int udf_table_new_block(struct super_block *sb,
-+			       struct inode *inode,
 +			       struct inode *table, uint16_t partition,
 +			       uint32_t goal, int *err)
  {
@@ -1185,7 +1165,7 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  				brelse(goal_epos.bh);
  				goal_epos.bh = epos.bh;
  				get_bh(goal_epos.bh);
-@@ -802,8 +783,7 @@ static int udf_table_new_block(struct su
+@@ -802,8 +748,7 @@ static int udf_table_new_block(struct su
  
  	brelse(epos.bh);
  
@@ -1195,7 +1175,7 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  		brelse(goal_epos.bh);
  		mutex_unlock(&sbi->s_alloc_mutex);
  		return 0;
-@@ -815,11 +795,10 @@ static int udf_table_new_block(struct su
+@@ -815,136 +760,113 @@ static int udf_table_new_block(struct su
  	/* This works, but very poorly.... */
  
  	newblock = goal_eloc.logicalBlockNum;
@@ -1205,13 +1185,12 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
  
 -	if (inode && DQUOT_ALLOC_BLOCK(inode, 1))
 -	{
-+	if (inode && DQUOT_ALLOC_BLOCK(inode, 1)) {
- 		brelse(goal_epos.bh);
- 		mutex_unlock(&sbi->s_alloc_mutex);
- 		*err = -EDQUOT;
-@@ -827,123 +806,94 @@ static int udf_table_new_block(struct su
- 	}
- 
+-		brelse(goal_epos.bh);
+-		mutex_unlock(&sbi->s_alloc_mutex);
+-		*err = -EDQUOT;
+-		return 0;
+-	}
+-
  	if (goal_elen)
 -		udf_write_aext(table, &goal_epos, goal_eloc, goal_elen, 1);
 +		udf_write_aext(table, &goal_epos, &goal_eloc, goal_elen, 1);
@@ -1270,17 +1249,22 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 +	struct udf_part_map *map = &UDF_SB(sb)->s_partmaps[partition];
 +
 +	if (map->s_partition_flags & UDF_PART_FLAG_UNALLOC_BITMAP) {
-+		udf_bitmap_free_blocks(sb, inode, map->s_uspace.s_bitmap,
++		udf_bitmap_free_blocks(sb, map->s_uspace.s_bitmap,
 +				       bloc, offset, count);
 +	} else if (map->s_partition_flags & UDF_PART_FLAG_UNALLOC_TABLE) {
-+		udf_table_free_blocks(sb, inode, map->s_uspace.s_table,
++		udf_table_free_blocks(sb, map->s_uspace.s_table,
 +				      bloc, offset, count);
 +	} else if (map->s_partition_flags & UDF_PART_FLAG_FREED_BITMAP) {
-+		udf_bitmap_free_blocks(sb, inode, map->s_fspace.s_bitmap,
++		udf_bitmap_free_blocks(sb, map->s_fspace.s_bitmap,
 +				       bloc, offset, count);
 +	} else if (map->s_partition_flags & UDF_PART_FLAG_FREED_TABLE) {
-+		udf_table_free_blocks(sb, inode, map->s_fspace.s_table,
++		udf_table_free_blocks(sb, map->s_fspace.s_table,
 +				      bloc, offset, count);
++	}
++
++	if (inode) {
++		inode_sub_bytes(inode,
++				((sector_t)count) << sb->s_blocksize_bits);
  	}
 -	else
 -		return;
@@ -1289,56 +1273,62 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -inline int udf_prealloc_blocks(struct super_block * sb,
 -	struct inode * inode,
 -	uint16_t partition, uint32_t first_block, uint32_t block_count)
-+inline int udf_prealloc_blocks(struct super_block *sb,
-+			       struct inode *inode,
-+			       uint16_t partition, uint32_t first_block,
-+			       uint32_t block_count)
- {
+-{
 -	if (UDF_SB_PARTFLAGS(sb, partition) & UDF_PART_FLAG_UNALLOC_BITMAP)
 -	{
-+	struct udf_part_map *map = &UDF_SB(sb)->s_partmaps[partition];
-+
-+	if (map->s_partition_flags & UDF_PART_FLAG_UNALLOC_BITMAP)
- 		return udf_bitmap_prealloc_blocks(sb, inode,
+-		return udf_bitmap_prealloc_blocks(sb, inode,
 -			UDF_SB_PARTMAPS(sb)[partition].s_uspace.s_bitmap,
 -			partition, first_block, block_count);
 -	}
 -	else if (UDF_SB_PARTFLAGS(sb, partition) & UDF_PART_FLAG_UNALLOC_TABLE)
 -	{
-+						  map->s_uspace.s_bitmap,
-+						  partition, first_block,
-+						  block_count);
-+	else if (map->s_partition_flags & UDF_PART_FLAG_UNALLOC_TABLE)
- 		return udf_table_prealloc_blocks(sb, inode,
+-		return udf_table_prealloc_blocks(sb, inode,
 -			UDF_SB_PARTMAPS(sb)[partition].s_uspace.s_table,
 -			partition, first_block, block_count);
 -	}
 -	else if (UDF_SB_PARTFLAGS(sb, partition) & UDF_PART_FLAG_FREED_BITMAP)
 -	{
-+						 map->s_uspace.s_table,
-+						 partition, first_block,
-+						 block_count);
-+	else if (map->s_partition_flags & UDF_PART_FLAG_FREED_BITMAP)
- 		return udf_bitmap_prealloc_blocks(sb, inode,
+-		return udf_bitmap_prealloc_blocks(sb, inode,
 -			UDF_SB_PARTMAPS(sb)[partition].s_fspace.s_bitmap,
 -			partition, first_block, block_count);
 -	}
 -	else if (UDF_SB_PARTFLAGS(sb, partition) & UDF_PART_FLAG_FREED_TABLE)
 -	{
-+						  map->s_fspace.s_bitmap,
-+						  partition, first_block,
-+						  block_count);
-+	else if (map->s_partition_flags & UDF_PART_FLAG_FREED_TABLE)
- 		return udf_table_prealloc_blocks(sb, inode,
+-		return udf_table_prealloc_blocks(sb, inode,
 -			UDF_SB_PARTMAPS(sb)[partition].s_fspace.s_table,
 -			partition, first_block, block_count);
 -	}
-+						 map->s_fspace.s_table,
-+						 partition, first_block,
-+						 block_count);
++inline int udf_prealloc_blocks(struct super_block *sb,
++			       struct inode *inode,
++			       uint16_t partition, uint32_t first_block,
++			       uint32_t block_count)
++{
++	struct udf_part_map *map = &UDF_SB(sb)->s_partmaps[partition];
++	sector_t allocated;
++
++	if (map->s_partition_flags & UDF_PART_FLAG_UNALLOC_BITMAP)
++		allocated = udf_bitmap_prealloc_blocks(sb,
++						       map->s_uspace.s_bitmap,
++						       partition, first_block,
++						       block_count);
++	else if (map->s_partition_flags & UDF_PART_FLAG_UNALLOC_TABLE)
++		allocated = udf_table_prealloc_blocks(sb,
++						      map->s_uspace.s_table,
++						      partition, first_block,
++						      block_count);
++	else if (map->s_partition_flags & UDF_PART_FLAG_FREED_BITMAP)
++		allocated = udf_bitmap_prealloc_blocks(sb,
++						       map->s_fspace.s_bitmap,
++						       partition, first_block,
++						       block_count);
++	else if (map->s_partition_flags & UDF_PART_FLAG_FREED_TABLE)
++		allocated = udf_table_prealloc_blocks(sb,
++						      map->s_fspace.s_table,
++						      partition, first_block,
++						      block_count);
  	else
  		return 0;
- }
+-}
  
 -inline int udf_new_block(struct super_block * sb,
 -	struct inode * inode,
@@ -1355,47 +1345,60 @@ diff --git a/fs/udf/balloc.c b/fs/udf/balloc.c
 -	}
 -	else if (UDF_SB_PARTFLAGS(sb, partition) & UDF_PART_FLAG_UNALLOC_TABLE)
 -	{
-+inline int udf_new_block(struct super_block *sb,
-+			 struct inode *inode,
-+			 uint16_t partition, uint32_t goal, int *err)
-+{
-+	struct udf_part_map *map = &UDF_SB(sb)->s_partmaps[partition];
-+
-+	if (map->s_partition_flags & UDF_PART_FLAG_UNALLOC_BITMAP)
-+		return udf_bitmap_new_block(sb, inode,
-+					   map->s_uspace.s_bitmap,
-+					   partition, goal, err);
-+	else if (map->s_partition_flags & UDF_PART_FLAG_UNALLOC_TABLE)
- 		return udf_table_new_block(sb, inode,
+-		return udf_table_new_block(sb, inode,
 -			UDF_SB_PARTMAPS(sb)[partition].s_uspace.s_table,
 -			partition, goal, err);
 -	}
 -	else if (UDF_SB_PARTFLAGS(sb, partition) & UDF_PART_FLAG_FREED_BITMAP)
 -	{
-+					   map->s_uspace.s_table,
-+					   partition, goal, err);
-+	else if (map->s_partition_flags & UDF_PART_FLAG_FREED_BITMAP)
- 		return udf_bitmap_new_block(sb, inode,
+-		return udf_bitmap_new_block(sb, inode,
 -			UDF_SB_PARTMAPS(sb)[partition].s_fspace.s_bitmap,
 -			partition, goal, err);
 -	}
 -	else if (UDF_SB_PARTFLAGS(sb, partition) & UDF_PART_FLAG_FREED_TABLE)
 -	{
-+					    map->s_fspace.s_bitmap,
-+					    partition, goal, err);
-+	else if (map->s_partition_flags & UDF_PART_FLAG_FREED_TABLE)
- 		return udf_table_new_block(sb, inode,
+-		return udf_table_new_block(sb, inode,
 -			UDF_SB_PARTMAPS(sb)[partition].s_fspace.s_table,
 -			partition, goal, err);
 -	}
 -	else
 -	{
-+					   map->s_fspace.s_table,
-+					   partition, goal, err);
++	if (inode && allocated > 0)
++		inode_add_bytes(inode, allocated << sb->s_blocksize_bits);
++	return allocated;
++}
++
++inline int udf_new_block(struct super_block *sb,
++			 struct inode *inode,
++			 uint16_t partition, uint32_t goal, int *err)
++{
++	struct udf_part_map *map = &UDF_SB(sb)->s_partmaps[partition];
++	int block;
++
++	if (map->s_partition_flags & UDF_PART_FLAG_UNALLOC_BITMAP)
++		block = udf_bitmap_new_block(sb,
++					     map->s_uspace.s_bitmap,
++					     partition, goal, err);
++	else if (map->s_partition_flags & UDF_PART_FLAG_UNALLOC_TABLE)
++		block = udf_table_new_block(sb,
++					    map->s_uspace.s_table,
++					    partition, goal, err);
++	else if (map->s_partition_flags & UDF_PART_FLAG_FREED_BITMAP)
++		block = udf_bitmap_new_block(sb,
++					     map->s_fspace.s_bitmap,
++					     partition, goal, err);
++	else if (map->s_partition_flags & UDF_PART_FLAG_FREED_TABLE)
++		block = udf_table_new_block(sb,
++					    map->s_fspace.s_table,
++					    partition, goal, err);
 +	else {
  		*err = -EIO;
  		return 0;
  	}
++	if (inode && block)
++		inode_add_bytes(inode, sb->s_blocksize);
++	return block;
+ }
 diff --git a/fs/udf/crc.c b/fs/udf/crc.c
 --- a/fs/udf/crc.c
 +++ b/fs/udf/crc.c
@@ -3600,10 +3603,11 @@ diff --git a/fs/udf/fsync.c b/fs/udf/fsync.c
 diff --git a/fs/udf/ialloc.c b/fs/udf/ialloc.c
 --- a/fs/udf/ialloc.c
 +++ b/fs/udf/ialloc.c
-@@ -21,14 +21,13 @@
+@@ -20,143 +20,130 @@
+ 
  #include "udfdecl.h"
  #include <linux/fs.h>
- #include <linux/quotaops.h>
+-#include <linux/quotaops.h>
 -#include <linux/udf_fs.h>
  #include <linux/sched.h>
  #include <linux/slab.h>
@@ -3616,7 +3620,14 @@ diff --git a/fs/udf/ialloc.c b/fs/udf/ialloc.c
  {
  	struct super_block *sb = inode->i_sb;
  	struct udf_sb_info *sbi = UDF_SB(sb);
-@@ -43,113 +42,118 @@ void udf_free_inode(struct inode * inode
+ 
+-	/*
+-	 * Note: we must free any quota before locking the superblock,
+-	 * as writing the quota to disk may need the lock as well.
+-	 */
+-	DQUOT_FREE_INODE(inode);
+-	DQUOT_DROP(inode);
+-
  	clear_inode(inode);
  
  	mutex_lock(&sbi->s_alloc_mutex);
@@ -3788,13 +3799,19 @@ diff --git a/fs/udf/ialloc.c b/fs/udf/ialloc.c
  	insert_inode_hash(inode);
  	mark_inode_dirty(inode);
 -	mutex_unlock(&sbi->s_alloc_mutex);
- 
+-
 -	if (DQUOT_ALLOC_INODE(inode))
 -	{
-+	if (DQUOT_ALLOC_INODE(inode)) {
- 		DQUOT_DROP(inode);
- 		inode->i_flags |= S_NOQUOTA;
- 		inode->i_nlink = 0;
+-		DQUOT_DROP(inode);
+-		inode->i_flags |= S_NOQUOTA;
+-		inode->i_nlink = 0;
+-		iput(inode);
+-		*err = -EDQUOT;
+-		return NULL;
+-	}
+ 
+ 	*err = 0;
+ 	return inode;
 diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 --- a/fs/udf/inode.c
 +++ b/fs/udf/inode.c
@@ -5306,7 +5323,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		brelse(bh);
  		make_bad_inode(inode);
  		return;
-@@ -1133,249 +1135,218 @@ static void udf_fill_inode(struct inode
+@@ -1133,249 +1135,218 @@ static void udf_fill_inode(struct inode 
  {
  	struct fileEntry *fe;
  	struct extendedFileEntry *efe;
@@ -5526,9 +5543,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 -		{
 -			UDF_I_CRTIME(inode) = UDF_SB_RECORDTIME(inode->i_sb);
 -		}
-+		if (!udf_disk_stamp_to_time(&inode->i_atime, fe->accessTime))
-+			inode->i_atime = sbi->s_record_time;
- 
+-
 -		if ( udf_stamp_to_time(&convtime, &convtime_usec,
 -			lets_to_cpu(efe->attrTime)) )
 -		{
@@ -5539,7 +5554,9 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 -		{
 -			inode->i_ctime = UDF_SB_RECORDTIME(inode->i_sb);
 -		}
--
++		if (!udf_disk_stamp_to_time(&inode->i_atime, fe->accessTime))
++			inode->i_atime = sbi->s_record_time;
+ 
 -		UDF_I_UNIQUE(inode) = le64_to_cpu(efe->uniqueID);
 -		UDF_I_LENEATTR(inode) = le32_to_cpu(efe->lengthExtendedAttr);
 -		UDF_I_LENALLOC(inode) = le32_to_cpu(efe->lengthAllocDescs);
@@ -5780,7 +5797,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	lock_kernel();
  	ret = udf_update_inode(inode, sync);
  	unlock_kernel();
-@@ -1418,13 +1375,12 @@ int udf_write_inode(struct inode * inode
+@@ -1418,77 +1375,77 @@ int udf_write_inode(struct inode * inode
  	return ret;
  }
  
@@ -5796,7 +5813,8 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  {
  	struct buffer_head *bh = NULL;
  	struct fileEntry *fe;
-@@ -1432,63 +1388,63 @@ udf_update_inode(struct inode *inode, in
+ 	struct extendedFileEntry *efe;
++	uint64_t lb_recorded;
  	uint32_t udfperms;
  	uint16_t icbflags;
  	uint16_t crclen;
@@ -5851,16 +5869,16 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 +				iinfo->i_lenAlloc - sizeof(struct tag);
  		use->descTag.descCRCLength = cpu_to_le16(crclen);
 -		use->descTag.descCRC = cpu_to_le16(udf_crc((char *)use + sizeof(tag), crclen, 0));
--
--		use->descTag.tagChecksum = 0;
--		for (i=0; i<16; i++)
--			if (i != 4)
--				use->descTag.tagChecksum += ((uint8_t *)&(use->descTag))[i];
 +		use->descTag.descCRC = cpu_to_le16(crc_itu_t(0, (char *)use +
 +							   sizeof(struct tag),
 +							   crclen));
 +		use->descTag.tagChecksum = udf_tag_checksum(&use->descTag);
  
+-		use->descTag.tagChecksum = 0;
+-		for (i=0; i<16; i++)
+-			if (i != 4)
+-				use->descTag.tagChecksum += ((uint8_t *)&(use->descTag))[i];
+-
 -		mark_buffer_dirty(bh);
 -		brelse(bh);
 -		return err;
@@ -5898,7 +5916,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	fe->permissions = cpu_to_le32(udfperms);
  
  	if (S_ISDIR(inode->i_mode))
-@@ -1498,27 +1454,24 @@ udf_update_inode(struct inode *inode, in
+@@ -1498,27 +1455,24 @@ udf_update_inode(struct inode *inode, in
  
  	fe->informationLength = cpu_to_le64(inode->i_size);
  
@@ -5938,23 +5956,17 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		strcpy(eid->ident, UDF_ID_DEVELOPER);
  		eid->identSuffix[0] = UDF_OS_CLASS_UNIX;
  		eid->identSuffix[1] = UDF_OS_ID_LINUX;
-@@ -1526,83 +1479,71 @@ udf_update_inode(struct inode *inode, in
+@@ -1526,83 +1480,74 @@ udf_update_inode(struct inode *inode, in
  		dsea->minorDeviceIdent = cpu_to_le32(iminor(inode));
  	}
  
 -	if (UDF_I_EFE(inode) == 0)
 -	{
 -		memcpy(bh->b_data + sizeof(struct fileEntry), UDF_I_DATA(inode), inode->i_sb->s_blocksize - sizeof(struct fileEntry));
-+	if (iinfo->i_efe == 0) {
-+		memcpy(bh->b_data + sizeof(struct fileEntry),
-+		       iinfo->i_ext.i_data,
-+		       inode->i_sb->s_blocksize - sizeof(struct fileEntry));
- 		fe->logicalBlocksRecorded = cpu_to_le64(
+-		fe->logicalBlocksRecorded = cpu_to_le64(
 -			(inode->i_blocks + (1 << (inode->i_sb->s_blocksize_bits - 9)) - 1) >>
 -			(inode->i_sb->s_blocksize_bits - 9));
-+			(inode->i_blocks + (1 << (blocksize_bits - 9)) - 1) >>
-+			(blocksize_bits - 9));
- 
+-
 -		if (udf_time_to_stamp(&cpu_time, inode->i_atime))
 -			fe->accessTime = cpu_to_lets(cpu_time);
 -		if (udf_time_to_stamp(&cpu_time, inode->i_mtime))
@@ -5962,6 +5974,19 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 -		if (udf_time_to_stamp(&cpu_time, inode->i_ctime))
 -			fe->attrTime = cpu_to_lets(cpu_time);
 -		memset(&(fe->impIdent), 0, sizeof(regid));
++	if (iinfo->i_alloc_type == ICBTAG_FLAG_AD_IN_ICB)
++		lb_recorded = 0; /* No extents => no blocks! */
++	else
++		lb_recorded =
++			(inode->i_blocks + (1 << (blocksize_bits - 9)) - 1) >>
++			(blocksize_bits - 9);
++
++	if (iinfo->i_efe == 0) {
++		memcpy(bh->b_data + sizeof(struct fileEntry),
++		       iinfo->i_ext.i_data,
++		       inode->i_sb->s_blocksize - sizeof(struct fileEntry));
++		fe->logicalBlocksRecorded = cpu_to_le64(lb_recorded);
++
 +		udf_time_to_disk_stamp(&fe->accessTime, inode->i_atime);
 +		udf_time_to_disk_stamp(&fe->modificationTime, inode->i_mtime);
 +		udf_time_to_disk_stamp(&fe->attrTime, inode->i_ctime);
@@ -5987,12 +6012,10 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 +		       inode->i_sb->s_blocksize -
 +					sizeof(struct extendedFileEntry));
  		efe->objectSize = cpu_to_le64(inode->i_size);
- 		efe->logicalBlocksRecorded = cpu_to_le64(
+-		efe->logicalBlocksRecorded = cpu_to_le64(
 -			(inode->i_blocks + (1 << (inode->i_sb->s_blocksize_bits - 9)) - 1) >>
 -			(inode->i_sb->s_blocksize_bits - 9));
-+			(inode->i_blocks + (1 << (blocksize_bits - 9)) - 1) >>
-+			(blocksize_bits - 9));
- 
+-
 -		if (UDF_I_CRTIME(inode).tv_sec > inode->i_atime.tv_sec ||
 -			(UDF_I_CRTIME(inode).tv_sec == inode->i_atime.tv_sec &&
 -			 UDF_I_CRTIME(inode).tv_nsec > inode->i_atime.tv_nsec))
@@ -6020,6 +6043,9 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 -			efe->createTime = cpu_to_lets(cpu_time);
 -		if (udf_time_to_stamp(&cpu_time, inode->i_ctime))
 -			efe->attrTime = cpu_to_lets(cpu_time);
++		efe->logicalBlocksRecorded = cpu_to_le64(lb_recorded);
+ 
+-		memset(&(efe->impIdent), 0, sizeof(regid));
 +		if (iinfo->i_crtime.tv_sec > inode->i_atime.tv_sec ||
 +		    (iinfo->i_crtime.tv_sec == inode->i_atime.tv_sec &&
 +		     iinfo->i_crtime.tv_nsec > inode->i_atime.tv_nsec))
@@ -6039,8 +6065,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 +		udf_time_to_disk_stamp(&efe->modificationTime, inode->i_mtime);
 +		udf_time_to_disk_stamp(&efe->createTime, iinfo->i_crtime);
 +		udf_time_to_disk_stamp(&efe->attrTime, inode->i_ctime);
- 
--		memset(&(efe->impIdent), 0, sizeof(regid));
++
 +		memset(&(efe->impIdent), 0, sizeof(struct regid));
  		strcpy(efe->impIdent.ident, UDF_ID_DEVELOPER);
  		efe->impIdent.identSuffix[0] = UDF_OS_CLASS_UNIX;
@@ -6067,7 +6092,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		fe->icbTag.strategyType = cpu_to_le16(4);
  		fe->icbTag.numEntries = cpu_to_le16(1);
  	}
-@@ -1622,7 +1563,7 @@ udf_update_inode(struct inode *inode, in
+@@ -1622,7 +1567,7 @@ udf_update_inode(struct inode *inode, in
  	else if (S_ISSOCK(inode->i_mode))
  		fe->icbTag.fileType = ICBTAG_FILE_TYPE_SOCKET;
  
@@ -6076,7 +6101,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			((inode->i_mode & S_ISUID) ? ICBTAG_FLAG_SETUID : 0) |
  			((inode->i_mode & S_ISGID) ? ICBTAG_FLAG_SETGID : 0) |
  			((inode->i_mode & S_ISVTX) ? ICBTAG_FLAG_STICKY : 0) |
-@@ -1631,30 +1572,31 @@ udf_update_inode(struct inode *inode, in
+@@ -1631,30 +1576,31 @@ udf_update_inode(struct inode *inode, in
  				ICBTAG_FLAG_SETGID | ICBTAG_FLAG_STICKY));
  
  	fe->icbTag.flags = cpu_to_le16(icbflags);
@@ -6123,7 +6148,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			err = -EIO;
  		}
  	}
-@@ -1662,8 +1604,7 @@ udf_update_inode(struct inode *inode, in
+@@ -1662,8 +1608,7 @@ udf_update_inode(struct inode *inode, in
  	return err;
  }
  
@@ -6133,7 +6158,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  {
  	unsigned long block = udf_get_lb_pblock(sb, ino, 0);
  	struct inode *inode = iget_locked(sb, block);
-@@ -1672,7 +1613,7 @@ udf_iget(struct super_block *sb, kernel_
+@@ -1672,7 +1617,7 @@ udf_iget(struct super_block *sb, kernel_
  		return NULL;
  
  	if (inode->i_state & I_NEW) {
@@ -6142,7 +6167,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		__udf_read_inode(inode);
  		unlock_new_inode(inode);
  	}
-@@ -1680,9 +1621,10 @@ udf_iget(struct super_block *sb, kernel_
+@@ -1680,9 +1625,10 @@ udf_iget(struct super_block *sb, kernel_
  	if (is_bad_inode(inode))
  		goto out_iput;
  
@@ -6155,7 +6180,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		make_bad_inode(inode);
  		goto out_iput;
  	}
-@@ -1695,44 +1637,46 @@ udf_iget(struct super_block *sb, kernel_
+@@ -1695,44 +1641,46 @@ udf_iget(struct super_block *sb, kernel_
  }
  
  int8_t udf_add_aext(struct inode *inode, struct extent_position *epos,
@@ -6221,7 +6246,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		lock_buffer(nbh);
  		memset(nbh->b_data, 0x00, inode->i_sb->s_blocksize);
  		set_buffer_uptodate(nbh);
-@@ -1741,93 +1685,81 @@ int8_t udf_add_aext(struct inode *inode,
+@@ -1741,93 +1689,81 @@ int8_t udf_add_aext(struct inode *inode,
  
  		aed = (struct allocExtDesc *)(nbh->b_data);
  		if (!UDF_QUERY_FLAG(inode->i_sb, UDF_FLAG_STRICT))
@@ -6358,7 +6383,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		mark_buffer_dirty_inode(epos->bh, inode);
  	}
  
-@@ -1835,51 +1767,52 @@ int8_t udf_add_aext(struct inode *inode,
+@@ -1835,51 +1771,52 @@ int8_t udf_add_aext(struct inode *inode,
  }
  
  int8_t udf_write_aext(struct inode *inode, struct extent_position *epos,
@@ -6442,7 +6467,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  
  	if (inc)
  		epos->offset += adsize;
-@@ -1887,20 +1820,20 @@ int8_t udf_write_aext(struct inode *inod
+@@ -1887,20 +1824,20 @@ int8_t udf_write_aext(struct inode *inod
  }
  
  int8_t udf_next_aext(struct inode *inode, struct extent_position *epos,
@@ -6470,7 +6495,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			return -1;
  		}
  	}
-@@ -1909,84 +1842,78 @@ int8_t udf_next_aext(struct inode *inode
+@@ -1909,84 +1846,78 @@ int8_t udf_next_aext(struct inode *inode
  }
  
  int8_t udf_current_aext(struct inode *inode, struct extent_position *epos,
@@ -6598,7 +6623,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	return (nelen >> 30);
  }
  
-@@ -1991,23 +1918,24 @@ udf_insert_aext(struct inode *inode, str
+@@ -1991,23 +1922,24 @@ udf_insert_aext(struct inode *inode, str
  }
  
  int8_t udf_delete_aext(struct inode *inode, struct extent_position epos,
@@ -6630,7 +6655,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	else
  		adsize = 0;
  
-@@ -2015,11 +1943,9 @@ int8_t udf_delete_aext(struct inode *ino
+@@ -2015,11 +1947,9 @@ int8_t udf_delete_aext(struct inode *ino
  	if (udf_next_aext(inode, &epos, &eloc, &elen, 1) == -1)
  		return -1;
  
@@ -6645,7 +6670,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			oepos.block = epos.block;
  			brelse(oepos.bh);
  			get_bh(epos.bh);
-@@ -2027,54 +1953,50 @@ int8_t udf_delete_aext(struct inode *ino
+@@ -2027,54 +1957,50 @@ int8_t udf_delete_aext(struct inode *ino
  			oepos.offset = epos.offset - adsize;
  		}
  	}
@@ -6729,7 +6754,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	return (elen >> 30);
  }
  
-@@ -2078,51 +2000,50 @@ int8_t udf_delete_aext(struct inode *ino
+@@ -2078,51 +2004,50 @@ int8_t udf_delete_aext(struct inode *ino
  	return (elen >> 30);
  }
  
@@ -7266,7 +7291,11 @@ diff --git a/fs/udf/misc.c b/fs/udf/misc.c
 diff --git a/fs/udf/namei.c b/fs/udf/namei.c
 --- a/fs/udf/namei.c
 +++ b/fs/udf/namei.c
-@@ -31,8 +31,10 @@
+@@ -31,12 +31,13 @@
+ #include <linux/errno.h>
+ #include <linux/mm.h>
+ #include <linux/slab.h>
+-#include <linux/quotaops.h>
  #include <linux/smp_lock.h>
  #include <linux/buffer_head.h>
  #include <linux/sched.h>
