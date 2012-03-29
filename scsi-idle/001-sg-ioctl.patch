@@ -1,33 +1,50 @@
---- scsi-idle-2.4.23/scsi-start.c	2003-12-15 22:44:13.000000000 +0000
-+++ scsi-idle/scsi-start.c	2012-03-29 10:05:43.337871000 +0000
-@@ -25,7 +25,8 @@
+diff -BurpN scsi-idle.orig/Makefile scsi-idle/Makefile
+--- scsi-idle.orig/Makefile	2009-06-08 17:42:55.000000000 +0000
++++ scsi-idle/Makefile	2012-03-29 10:23:45.087871000 +0000
+@@ -1,4 +1,7 @@
+ CFLAGS=-Wall -O2 -I$(LINUXDIR)/include $(EXTRACFLAGS)
++ifeq ($(CONFIG_LINUX_26),y)
++CFLAGS += -DHAVE_SG_IO
++endif
+ 
+ TARGETS = scsi-start scsi-stop
+ 
+diff -BurpN scsi-idle.orig/scsi-start.c scsi-idle/scsi-start.c
+--- scsi-idle.orig/scsi-start.c	2003-12-15 22:44:13.000000000 +0000
++++ scsi-idle/scsi-start.c	2012-03-29 10:30:24.447871000 +0000
+@@ -25,7 +25,12 @@
  #include <sys/stat.h>
  #include <linux/major.h>
  #include <linux/kdev_t.h>
--#include <scsi/scsi_ioctl.h>
++#ifdef HAVE_SG_IO
 +#include <scsi/scsi.h>
 +#include <scsi/sg.h>
++#else
+ #include <scsi/scsi_ioctl.h>
++#endif
  
  #ifdef SCSI_DISK0_MAJOR
  #define IS_SCSI_DISK(rdev)	SCSI_DISK_MAJOR(MAJOR(rdev))
-@@ -35,8 +36,10 @@
+@@ -35,8 +40,12 @@
  
  int main(int argc, char *argv[])
  {
 -	int fd, mode;
-+	int fd, mode, ret;
++	int fd, mode, ret = 0;
  	struct stat statbuf;
++#ifdef HAVE_SG_IO
 +	sg_io_hdr_t sg_io_hdr;
 +	unsigned char sense_data[255];
++#endif
  
  	mode = argv[0][strlen(argv[0])-1];
  	if(mode=='p' || mode=='P')  {
-@@ -69,12 +72,20 @@ int main(int argc, char *argv[])
+@@ -69,12 +78,25 @@ int main(int argc, char *argv[])
  		exit(1);
  	}
  
--	if (ioctl(fd, mode?SCSI_IOCTL_START_UNIT:SCSI_IOCTL_STOP_UNIT) < 0) {
-+	memset(&sg_io_hdr, 0, sizeof (sg_io_hdr));
++#ifdef HAVE_SG_IO
++	memset(&sg_io_hdr, 0, sizeof(sg_io_hdr));
 +	sg_io_hdr.interface_id = 'S';
 +	sg_io_hdr.dxfer_direction = SG_DXFER_NONE;
 +	sg_io_hdr.cmdp = (unsigned char []){START_STOP, 0, 0, 0, mode ? 1 : 0, 0};
@@ -35,14 +52,17 @@
 +	sg_io_hdr.sbp = sense_data;
 +	sg_io_hdr.mx_sb_len = sizeof(sense_data);
 +
-+	if (ioctl(fd, SG_IO, &sg_io_hdr) < 0) {
++	if (ioctl(fd, SG_IO, &sg_io_hdr) == 0) {
++		ret = sg_io_hdr.status;
++	} else {
++#else
+ 	if (ioctl(fd, mode?SCSI_IOCTL_START_UNIT:SCSI_IOCTL_STOP_UNIT) < 0) {
++#endif
  		perror(argv[1]);
 -		close(fd);
 -		exit(1);
--	}
 +		ret = 1;
-+	} else
-+		ret = sg_io_hdr.status;
+ 	}
  
  	close(fd);
 -	exit(0);
