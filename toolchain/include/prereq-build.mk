@@ -54,7 +54,7 @@ $(eval $(call Require,working-gcc, \
 
 define Require/working-g++
 	echo 'int main(int argc, char **argv) { return 0; }' >$(ac_cin) && \
-		$(CXX) -x c++ -o $(ac_out) -lstdc++ $(ac_cin) && \
+		$(CXX) -x c++ -o $(ac_out) $(ac_cin) -lstdc++ && \
 		rm -f $(ac_out) $(ac_cin)
 endef
 
@@ -64,7 +64,7 @@ $(eval $(call Require,working-g++, \
 
 define Require/ncurses
 	echo 'int main(int argc, char **argv) { initscr(); return 0; }' >$(ac_cin) && \
-		$(CC) -x c -o $(ac_out) -include ncurses.h -lncurses $(ac_cin) && \
+		$(CC) -x c -o $(ac_out) -include ncurses.h $(ac_cin) -lncurses && \
 		rm -f $(ac_out) $(ac_cin)
 endef
 
@@ -75,7 +75,7 @@ $(eval $(call Require,ncurses, \
 
 define Require/zlib
 	echo 'int main(int argc, char **argv) { gzdopen(0, "rb"); return 0; }' >$(ac_cin) && \
-		$(CC) -x c -o $(ac_out) -include zlib.h -lz $(ac_cin) && \
+		$(CC) -x c -o $(ac_out) -include zlib.h $(ac_cin) -lz && \
 		rm -f $(ac_out) $(ac_cin)
 endef
 
