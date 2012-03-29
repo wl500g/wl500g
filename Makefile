@@ -52,7 +52,6 @@ IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.5
 UDPXY=udpxy-1.0.21-2
 INADYN=inadyn-1.96.3
-SCSIIDLE=scsi-idle-2.4.23
 LIBUSB10=libusb-1.0.8
 USBMODESWITCH=usb-modeswitch-1.2.2
 MADWIMAX=madwimax-0.1.1
@@ -487,11 +486,10 @@ libjpeg: $(TOP)/jpeg-8b
 
 scsi_idle_Patches := $(call patches_list,scsi-idle)
 
-$(TOP)/scsi-idle: scsi-idle/$(SCSIIDLE).tar.gz
-	@rm -rf $(TOP)/$(SCSIIDLE) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(SCSIIDLE) $(scsi_idle_Patches)
-	mv $(TOP)/$(SCSIIDLE) $@ && touch $@
+$(TOP)/scsi-idle:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - scsi-idle | tar -C $(TOP) -xf -
+	$(PATCHER) -Z $@ $(scsi_idle_Patches)
 
 scsi-idle: $(TOP)/scsi-idle
 	@true
