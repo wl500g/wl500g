@@ -1,6 +1,6 @@
-CFLAGS=-Wall -O2 -I/lib/modules/`uname -r`/build/include
+CFLAGS=-Wall -O2 -I$(LINUXDIR)/include $(EXTRACFLAGS)
 
-TARGETS = scsi-start scsi-stop scsi-idle
+TARGETS = scsi-start scsi-stop
 
 all: $(TARGETS)
 

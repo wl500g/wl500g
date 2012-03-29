@@ -484,12 +484,9 @@ $(TOP)/jpeg-8b: libjpeg/jpegsrc.v8b.tar.bz2
 libjpeg: $(TOP)/jpeg-8b
 	@true
 
-scsi_idle_Patches := $(call patches_list,scsi-idle)
-
 $(TOP)/scsi-idle:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - scsi-idle | tar -C $(TOP) -xf -
-	$(PATCHER) -Z $@ $(scsi_idle_Patches)
 
 scsi-idle: $(TOP)/scsi-idle
 	@true
