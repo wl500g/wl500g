@@ -25,7 +25,16 @@
 #include <sys/stat.h>
 #include <linux/major.h>
 #include <linux/kdev_t.h>
+#ifdef HAVE_SG_IO
+#include <scsi/scsi.h>
+#include <scsi/sg.h>
+#else
 #include <scsi/scsi_ioctl.h>
+#endif
+
+#ifndef HZ // for START_STOP_TIMEOUT
+#define HZ 1000
+#endif
 
 #ifdef SCSI_DISK0_MAJOR
 #define IS_SCSI_DISK(rdev)	SCSI_DISK_MAJOR(MAJOR(rdev))
@@ -35,8 +44,11 @@
 
 int main(int argc, char *argv[])
 {
-	int fd, mode;
+	int fd, mode, ret = 0;
 	struct stat statbuf;
+#ifdef HAVE_SG_IO
+	sg_io_hdr_t sg_io_hdr;
+#endif
 
 	mode = argv[0][strlen(argv[0])-1];
 	if(mode=='p' || mode=='P')  {
@@ -69,12 +81,24 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+#ifdef HAVE_SG_IO
+	memset(&sg_io_hdr, 0, sizeof(sg_io_hdr));
+	sg_io_hdr.interface_id = 'S';
+	sg_io_hdr.dxfer_direction = SG_DXFER_NONE;
+	sg_io_hdr.cmdp = (unsigned char []){START_STOP, 0, 0, 0, mode ? 1 : 0, 0};
+	sg_io_hdr.cmd_len = 6;
+	sg_io_hdr.timeout = START_STOP_TIMEOUT;
+
+	if (ioctl(fd, SG_IO, &sg_io_hdr) == 0) {
+		ret = sg_io_hdr.status;
+	} else {
+#else
 	if (ioctl(fd, mode?SCSI_IOCTL_START_UNIT:SCSI_IOCTL_STOP_UNIT) < 0) {
+#endif
 		perror(argv[1]);
-		close(fd);
-		exit(1);
+		ret = 1;
 	}
 
 	close(fd);
-	exit(0);
+	exit(ret);
 }

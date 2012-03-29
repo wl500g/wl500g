@@ -1,4 +1,7 @@
 CFLAGS=-Wall -O2 -I$(LINUXDIR)/include $(EXTRACFLAGS)
+ifeq ($(CONFIG_LINUX_26),y)
+CFLAGS += -DHAVE_SG_IO
+endif
 
 TARGETS = scsi-start scsi-stop
 
