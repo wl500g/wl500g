@@ -5,16 +5,17 @@ jbd2 updates from 2.6.32.46
  0587aa3d11f9769a301b21bff2c3ed8365606b8d jbd2: fix /proc/fs/jbd2/<dev> when using an external journal
  de1b794130b130e77ffa975bb58cb843744f9ae5 jbd2: Fix oops in jbd2_journal_remove_journal_head()
  8762202dd0d6e46854f786bdb6fb3780a1625efe jbd/jbd2: validate sb->s_first in journal_get_superblock()
+ 96c866782b5e0cbdcd8e4d921d0a893278430830 jbd2: fix BH_JWrite setting in checkpointing code
 
 ---
- fs/jbd2/checkpoint.c         |  121 +++++---
+ fs/jbd2/checkpoint.c         |  123 +++++---
  fs/jbd2/commit.c             |  198 ++++++++-----
  fs/jbd2/journal.c            |  632 ++++++++++++++++---------------------------
  fs/jbd2/recovery.c           |    7 
  fs/jbd2/transaction.c        |  298 +++++++++++---------
  include/linux/jbd2.h         |  129 ++++++--
  include/linux/journal-head.h |    6 
- 7 files changed, 732 insertions(+), 659 deletions(-)
+ 7 files changed, 732 insertions(+), 661 deletions(-)
 
 diff --git a/fs/jbd2/checkpoint.c b/fs/jbd2/checkpoint.c
 --- a/fs/jbd2/checkpoint.c
@@ -84,7 +85,7 @@ diff --git a/fs/jbd2/checkpoint.c b/fs/jbd2/checkpoint.c
  			spin_unlock(&journal->j_list_lock);
  			jbd_unlock_bh_state(bh);
  			wait_on_buffer(bh);
-@@ -227,27 +237,29 @@ restart:
+@@ -227,28 +237,29 @@ restart:
  			spin_lock(&journal->j_list_lock);
  			goto restart;
  		}
@@ -117,9 +118,10 @@ diff --git a/fs/jbd2/checkpoint.c b/fs/jbd2/checkpoint.c
  	for (i = 0; i < *batch_count; i++) {
 -		struct buffer_head *bh = bhs[i];
 +		struct buffer_head *bh = journal->j_chkpt_bhs[i];
- 		clear_buffer_jwrite(bh);
+-		clear_buffer_jwrite(bh);
  		BUFFER_TRACE(bh, "brelse");
  		__brelse(bh);
+ 	}
 @@ -259,20 +271,20 @@ __flush_batch(journal_t *journal, struct
   * Try to flush one buffer from the checkpoint list to disk.
   *
@@ -164,10 +166,11 @@ diff --git a/fs/jbd2/checkpoint.c b/fs/jbd2/checkpoint.c
  	} else {
  		/*
  		 * Important: we are about to write the buffer, and
-@@ -311,14 +325,14 @@ static int __process_buffer(journal_t *j
+@@ -311,15 +325,14 @@ static int __process_buffer(journal_t *j
+ 		BUFFER_TRACE(bh, "queue");
  		get_bh(bh);
  		J_ASSERT_BH(bh, !buffer_jwrite(bh));
- 		set_buffer_jwrite(bh);
+-		set_buffer_jwrite(bh);
 -		bhs[*batch_count] = bh;
 +		journal->j_chkpt_bhs[*batch_count] = bh;
  		__buffer_relink_io(jh);
