@@ -1,0 +1,242 @@
+<% include("new/header.inc"); %>
+// Web interface page script
+// WAN page
+// written by  dlukanidin
+var wan_ver = 'ver. 1.100 from 30.03.2012';
+
+// Global variables
+var data_obj = {
+	<% nvram_get_json("Layer3Forwarding","wan_pppoe_txonly_x","wan_proto","wan_etherspeed_x","wan_stb_x"); %>,
+	<% nvram_get_json("Layer3Forwarding","wan_pppoe_txonly_x","wan_proto","wan_etherspeed_x","wan_stb_x"); %>,
+	<% nvram_get_json("Layer3Forwarding","wan_ipaddr","wan_netmask","wan_gateway","wan_dnsenable_x","wan_dns1_x","wan_dns2_x"); %>,
+	<% nvram_get_json("Layer3Forwarding","wan_pppoe_username","wan_pppoe_passwd","wan_pppoe_idletime","wan_pppoe_mtu"); %>,
+	<% nvram_get_json("Layer3Forwarding","wan_pppoe_mru","wan_pppoe_service","wan_pppoe_ac","wan_pptp_options_x","wan_pppoe_options_x"); %>,
+	<% nvram_get_json("Layer3Forwarding","wan_pppoe_relay_x","wan_hostname","wan_hwaddr_x","wan_heartbeat_x"); %>,
+	<% nvram_get_json("Layer3Forwarding","dhcp_start","dhcp_end"); %>
+}
+var page_obj = {
+	'id':'Advanced_WAN_Content',
+	'header':{'text':'page_header'},
+	'subheader':{'text':'page_subheader'},
+	'buttons':['restore','finish','apply'],
+	'content': [
+		{'type':'section','content':[
+			{'type':'select','id':'wan_proto','on':'onchange="onChangeWanProto();"','label':'wan_type','options':[
+				{'value':'dhcp','text':'wan_dhcp','state':'on'},
+				{'value':'static','text':'wan_static','state':'off'},
+				{'value':'pppoe','text':'wan_pppoe','state':'off'},
+				{'value':'pptp','text':'wan_pptp','state':'off'},
+				{'value':'l2tp','text':'wan_l2tp','state':'off'},
+				{'value':'bigpond','text':'wan_bigpond','state':'off'},
+				{'value':'wimax','text':'wan_wimax','state':'off'},
+				{'value':'usbmodem','text':'wan_usbmodem','state':'off'}
+			]},
+			{'type':'select','id':'wan_etherspeed_x','label':'speed_wan','options':[
+				{'value':'auto','text':'speed_auto','state':'on'},
+				{'value':'10half','text':'speed_10half','state':'off'},
+				{'value':'10full','text':'speed_10full','state':'off'},
+				{'value':'100half','text':'speed_100half','state':'off'},
+				{'value':'100full','text':'speed_100full','state':'off'}
+			]},
+			{'type':'select','id':'wan_stb_x','label':'iptv_port','help':'iptv_help','options':[
+				{'value':'0','text':'iptv_0','state':'on'},
+				{'value':'1','text':'iptv_1','state':'off'},
+				{'value':'2','text':'iptv_2','state':'off'},
+				{'value':'3','text':'iptv_3','state':'off'},
+				{'value':'4','text':'iptv_4','state':'off'},
+				{'value':'5','text':'iptv_5','state':'off'}
+			]},
+		]},
+		{'type':'section','text':'wanip_secheader','content':[
+			{'type':'radio','id':'x_DHCPClient','label':'get_ip_auto','on':'onclick="onClickIpAuto()"','buttons':[
+				{'value':'1','text':'yes','state':'off'},
+				{'value':'0','text':'no','state':'on'}
+			]},
+			{'type':'text','id':'wan_ipaddr','on':'onchange="onChangeIP(this)"','max':'15','size':'15','label':'wanip_label','help':'wanip_help','value':'','validate':{'type':'ipv4fill','defvalue':'0.0.0.0'}},
+			{'type':'text','id':'wan_netmask','max':'15','size':'15','label':'netmask_label','help':'netmask_help','value':'','validate':{'type':'ipv4fill','defvalue':'0.0.0.0'}},
+			{'type':'text','id':'wan_gateway','max':'15','size':'15','label':'gateway_label','help':'gateway_help','value':'','validate':{'type':'ipv4fill','defvalue':'0.0.0.0'}}
+		]},
+		{'type':'section','text':'wandns_secheader','content':[
+			{'type':'radio','id':'wan_dnsenable_x','label':'dnsenable_auto','on':'onclick="onClickDnsAuto();"','buttons':[
+				{'value':'1','text':'yes','state':'off'},
+				{'value':'0','text':'no','state':'on'}
+			]},
+			{'type':'text','id':'wan_dns1_x','max':'15','size':'15','label':'dns1_label','help':'dns1_help','value':'','validate':{'type':'ipv4'}},
+			{'type':'text','id':'wan_dns2_x','max':'15','size':'15','label':'dns2_label','help':'dns2_help','value':'','validate':{'type':'ipv4'}}
+		]},
+		{'type':'section','text':'pppoe_secheader','content':[
+			{'type':'text','id':'wan_pppoe_username','max':'64','size':'32','label':'uname_label','help':'uname_help','value':'','validate':{'type':'string'}},
+			{'type':'password','id':'wan_pppoe_passwd','max':'64','size':'32','label':'upass_label','help':'upass_help','value':'','validate':{'type':'string'}},
+			{'type':'text','id':'wan_pppoe_idletime','max':'10','size':'10','label':'idle_label','help':'idle_help','value':'','validate':{'type':'int','min':0,'max':4294967295},'content':[
+				{'type':'checkbox','id':'wan_pppoe_idletime_check','style':'margin-left: 30','text':'idle_check','value':'0', 'state':'off'}
+			]},
+			{'type':'text','id':'wan_pppoe_mtu','max':'5','size':'5','label':'mtu_label','help':'mtu_help','value':'','validate':{'type':'int','min':576,'max':1492,'defvalue':1492}},
+			{'type':'text','id':'wan_pppoe_mru','max':'5','size':'5','label':'mru_label','help':'mru_help','value':'','validate':{'type':'int','min':576,'max':1492,'defvalue':1492}},
+			{'type':'text','id':'wan_pppoe_service','max':'32','size':'32','label':'serv_label','help':'serv_help','value':'','validate':{'type':'string'}},
+			{'type':'text','id':'wan_pppoe_ac','max':'32','size':'32','label':'conc_label','help':'conc_help','value':'','validate':{'type':'string'}},
+			{'type':'select','id':'wan_pptp_options_x','label':'pptp_label','help':'pptp_help','options':[
+				{'value':'','text':'pptp_none','state':'on'},
+				{'value':'-mppc','text':'pptp_mppc','state':'off'},
+				{'value':'+mppe-40','text':'pptp_mppe40','state':'off'},
+				{'value':'+mppe-56','text':'pptp_mppe56','state':'off'},
+				{'value':'+mppe-128','text':'pptp_mppe128','state':'off'}
+			]},
+			{'type':'text','id':'wan_pppoe_options_x','max':'255','size':'32','label':'pppd_label','help':'pppd_help','value':'','validate':{'type':'string'}},
+			{'type':'radio','id':'wan_pppoe_relay_x','label':'relay_label','help':'relay_help','buttons':[
+				{'value':'1','text':'yes','state':'off'},
+				{'value':'0','text':'no','state':'on'}
+			]}
+		]},
+		{'type':'section','text':'spec_secheader','content':[
+			{'type':'text','id':'wan_hostname','max':'32','size':'32','label':'hname_label','help':'hname_help','value':'','validate':{'type':'string'}},
+			{'type':'text','id':'wan_hwaddr_x','max':'12','size':'12','label':'mac_label','help':'mac_help','value':'','validate':{'type':'mac'}},
+			{'type':'text','id':'wan_heartbeat_x','max':'256','size':'32','label':'heart_label','value':'','validate':{'type':'string'}}
+		]}
+	]
+};
+
+var proto_enable = {
+	'input_enable':['wan_ipaddr','wan_netmask','wan_gateway','wan_pppoe_username','wan_pppoe_passwd',
+		'wan_pppoe_idletime','wan_pppoe_idletime_check','wan_pppoe_mtu','wan_pppoe_mru',
+		'wan_pppoe_service','wan_pppoe_ac','wan_pppoe_options_x','wan_pptp_options_x'],
+	'radio_enable':['wan_pppoe_relay_x','x_DHCPClient'],
+	'radio_check':['x_DHCPClient'],
+	'states':{
+		'static': [1,1,1,1,1, 0,0,0,0, 0,0,0,0, 1,0,1],
+		'pppoe':  [1,1,1,1,1, 1,1,1,1, 1,1,1,0, 1,1,1],
+		'pptp':   [1,1,1,1,1, 1,1,0,0, 0,0,1,1, 1,1,1],
+		'l2tp':   [1,1,1,1,1, 0,0,0,0, 0,0,1,0, 1,1,1],
+		'bigpond':[0,0,0,1,1, 0,0,0,0, 0,0,0,0, 1,0,0],
+		'wimax':  [1,1,1,0,0, 0,0,0,0, 0,0,0,0, 1,1,1],
+		'other':  [0,0,0,1,1, 0,0,0,0, 0,0,0,0, 1,0,0]
+	}
+}
+
+// ON functions
+function onChangeIP(obj)
+{
+	var ip = ipv4Trace(obj.value);
+	var mask = '0.0.0.0';
+	if ((ip.v1 > 0) && (ip.v1 < 127)) mask = '255.0.0.0';
+	else if ((ip.v1 > 127) && (ip.v1 < 192)) mask = '255.255.0.0';
+	else if ((ip.v1 > 191) && (ip.v1 < 224)) mask = '255.255.255.0';
+	var id = 'lan_netmask';
+	if ( obj.id != 'lan_ipaddr' ) id = 'wan_netmask';
+	var elem = document.getElementById(id);
+	elem.value = mask;
+}
+function onChangeWanProto()
+{
+	var state = document.getElementById('wan_proto').value;
+	var j = 0;
+	var vals;
+	if ( proto_enable.states[state] ) vals = proto_enable.states[state];
+	else vals = proto_enable.states['other'];
+	var colors = getEnableColors();
+	for (var i=0; i < proto_enable.input_enable.length; i++, j++){
+		ctrlEnable(document.getElementById(proto_enable.input_enable[i]),vals[j],colors);
+	}
+	for (var i=0; i < proto_enable.radio_enable.length; i++, j++){
+		ctrlArrayEnable(document.getElementsByName(proto_enable.radio_enable[i]),vals[j]);
+	}
+	for (var i=0; i < proto_enable.radio_check.length; i++, j++){
+		ctrlArrayCheck(document.getElementsByName(proto_enable.radio_check[i]),vals[j]);
+	}
+}
+function onClickIpAuto()
+{
+	var colors = getEnableColors();
+	if (document.getElementsByName('x_DHCPClient')[0].checked === true) {
+		ctrlEnable(document.getElementById('wan_ipaddr'),0,colors);
+		ctrlEnable(document.getElementById('wan_netmask'),0,colors);
+		ctrlEnable(document.getElementById('wan_gateway'),0,colors);
+	} else {
+		ctrlEnable(document.getElementById('wan_ipaddr'),1,colors);
+		ctrlEnable(document.getElementById('wan_netmask'),1,colors);
+		ctrlEnable(document.getElementById('wan_gateway'),1,colors);
+	}
+}
+function onClickDnsAuto()
+{
+	var colors = getEnableColors();
+	if (document.getElementsByName('wan_dnsenable_x')[0].checked === true) {
+		ctrlEnable(document.getElementById('wan_dns1_x'),0,colors);
+		ctrlEnable(document.getElementById('wan_dns2_x'),0,colors);
+	} else {
+		ctrlEnable(document.getElementById('wan_dns1_x'),1,colors);
+		ctrlEnable(document.getElementById('wan_dns2_x'),1,colors);
+	}
+}
+
+// Save data of page
+function saveData(data)
+{
+	if ( ! data || ! checkData(data) ) return;
+	var changed = false;
+	var str = '{"nvram_set":{';
+	for ( var p in data ) {
+		if ( data[p] != data_obj[p] ) {
+			if ( p == 'wan_pppoe_passwd' && isAsterix(data[p]) ) continue;
+			if ( changed ) str+=',';
+			changed = true;
+			str+='"'+p+'":"'+data[p]+'"';
+		}
+	}
+	str+='}}'
+	sendJSON(str,on_save);
+}
+
+// Data was saved
+function on_save(str)
+{
+	return;	// do nothing
+}
+
+// Check data
+function checkData(data)
+{
+	if ( data.wan_proto == 'static' ) {
+		if ( data.wan_ipaddr == '' || data.wan_netmask == '' ) {
+			onError(tr('bad_static'));
+			data.wan_proto = 'dhcp';
+			document.getElementById('wan_proto').value = data.wan_proto;
+			onChangeWanProto();
+		}
+	}
+	return true;
+}
+
+// Set page elements from data
+function setDataElements(obj)
+{
+	setPageValues(page_obj,obj);
+}
+
+// Return page description
+function getPage()
+{
+	return page_obj;
+}
+
+// Prepare page from data and show it
+function onDataReady()
+{
+	trPage(page_obj,tr);
+	setDataElements(data_obj);
+	showPage();
+	onChangeWanProto();
+	onClickIpAuto();
+	onClickDnsAuto();
+}
+
+// Initialisation of page
+function initPage()
+{
+	loadFlags.page = true;
+	onDataReady();
+}
+
+initLocale(page_obj.id);
+waitLoading(['lc_page','skin'],initPage);
+
+<% include("new/footer.inc"); %>
