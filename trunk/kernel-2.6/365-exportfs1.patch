@@ -30,6 +30,7 @@ exportfs: Updates from upstream
  9078dc08143e23b18ea72e70265f0df920cf2998 Use a zero sized array for raw field in struct fid
  221e583a735fc5d879d83c2a76b8ee5afcbdf146 udf: Make udf exportable
  39655164405940d4818224a085e35420e2f97aed exportfs: make struct export_operations const
+ a4264b3f4049ae7aeeb0017f8158119e22fa354f UDF: Close small mem leak in udf_find_entry()
 
 ---
  Documentation/filesystems/Exporting |  113 ++-----
@@ -48,7 +49,7 @@ exportfs: Updates from upstream
  fs/jfs/jfs_inode.h                  |    6 
  fs/jfs/namei.c                      |   35 ++
  fs/jfs/super.c                      |    7 
- fs/libfs.c                          |   88 ++++++
+ fs/libfs.c                          |   66 ++++
  fs/nfsd/export.c                    |  105 ++++---
  fs/nfsd/nfs4idmap.c                 |   13 
  fs/nfsd/nfs4proc.c                  |    7 
@@ -61,7 +62,7 @@ exportfs: Updates from upstream
  fs/ocfs2/export.h                   |    4 
  fs/reiserfs/inode.c                 |   63 +---
  fs/reiserfs/super.c                 |    7 
- fs/udf/namei.c                      |  138 +++++++++
+ fs/udf/namei.c                      |  123 ++++++++
  fs/udf/super.c                      |    1 
  fs/udf/udfdecl.h                    |    1 
  include/linux/efs_fs.h              |    1 
@@ -74,7 +75,7 @@ exportfs: Updates from upstream
  mm/shmem.c                          |   38 +-
  net/sunrpc/auth_gss/svcauth_gss.c   |   21 +
  net/sunrpc/svcauth_unix.c           |    4 
- 42 files changed, 1166 insertions(+), 899 deletions(-)
+ 42 files changed, 1129 insertions(+), 899 deletions(-)
 
 diff --git a/Documentation/filesystems/Exporting b/Documentation/filesystems/Exporting
 --- a/Documentation/filesystems/Exporting
@@ -2606,15 +2607,13 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  
  	size = udf_ext0_offset(dir) + dir->i_size;
  	f_pos = udf_ext0_offset(dir);
-@@ -224,6 +227,12 @@ static struct fileIdentDesc *udf_find_en
+@@ -224,6 +227,10 @@ static struct fileIdentDesc *udf_find_en
  				continue;
  		}
  
 +		if ((cfi->fileCharacteristics & FID_FILE_CHAR_PARENT) &&
-+		    isdotdot) {
-+			brelse(epos.bh);
-+			return fi;
-+		}
++		    isdotdot)
++			goto out_ok;
 +
  		if (!lfi)
  			continue;
