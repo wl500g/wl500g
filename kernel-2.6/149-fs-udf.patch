@@ -6,6 +6,7 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  7abc2e45e48ca04206949682402d5d55bc64a16b udf: Call udf_add_free_space() for more blocks at once in udf_free_blocks()
  fd4287dbc07763595c1e74edbb6520092290185c udf: Fix handling of i_blocks
  b2527bfa535956d99663718b9d9aac0b8fe3f017 udf: Fix file entry logicalBlocksRecorded
+ 853a0c25baf96b028de1654bea1e0c8857eadf3d udf: Mark LVID buffer as uptodate before marking it dirty
 
 ---
  Documentation/filesystems/udf.txt |    2 
@@ -26,7 +27,7 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  fs/udf/namei.c                    | 1035 ++++++--------
  fs/udf/osta_udf.h                 |   95 -
  fs/udf/partition.c                |  325 ++--
- fs/udf/super.c                    | 2739 +++++++++++++++++++++-----------------
+ fs/udf/super.c                    | 2745 +++++++++++++++++++++-----------------
  fs/udf/symlink.c                  |   61 
  fs/udf/truncate.c                 |  269 +--
  fs/udf/udf_i.h                    |   46 
@@ -38,7 +39,7 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  include/linux/udf_fs.h            |   54 
  include/linux/udf_fs_i.h          |   30 
  include/linux/udf_fs_sb.h         |  117 -
- 30 files changed, 5147 insertions(+), 5604 deletions(-)
+ 30 files changed, 5153 insertions(+), 5604 deletions(-)
 
 diff --git a/Documentation/filesystems/udf.txt b/Documentation/filesystems/udf.txt
 --- a/Documentation/filesystems/udf.txt
@@ -11607,7 +11608,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  		brelse(bh);
  }
  
-@@ -1158,377 +1446,464 @@ udf_load_logicalvolint(struct super_bloc
+@@ -1158,377 +1446,470 @@ udf_load_logicalvolint(struct super_bloc
   *	July 1, 1997 - Andrew E. Mileski
   *	Written, tested, and released.
   */
@@ -12245,6 +12246,12 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
 +				le16_to_cpu(lvid->descTag.descCRCLength)));
 +
 +	lvid->descTag.tagChecksum = udf_tag_checksum(&lvid->descTag);
++	/*
++	 * We set buffer uptodate unconditionally here to avoid spurious
++	 * warnings from mark_buffer_dirty() when previous EIO has marked
++	 * the buffer as !uptodate
++	 */
++	set_buffer_uptodate(bh);
 +	mark_buffer_dirty(bh);
 +	sbi->s_lvid_dirty = 0;
 +}
