@@ -121,4 +121,13 @@ extern int tar_fgetc(FILE *fp);
 #define sys_restart() kill(1, SIGHUP)
 #define sys_reboot() kill(1, SIGTERM)
 
+#ifdef USE_JSON
+extern int js0n(unsigned char *js, unsigned int len, unsigned short *out);
+extern void do_json_get(char *url, FILE *stream);
+extern void do_json_set(char *url, FILE *stream, int len, char *boundary);
+extern void do_ej_ex(char *path, FILE *stream);
+extern int ej_nvram_get_json(int eid, webs_t wp, int argc, char_t **argv);
+extern int ej_nvram_get_n_json(int eid, webs_t wp, int argc, char_t **argv);
+#endif
+
 #endif /* _httpd_h_ */
