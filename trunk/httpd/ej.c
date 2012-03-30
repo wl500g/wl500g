@@ -64,7 +64,7 @@ call(char *func, FILE *stream)
 {
 	char *args, *end, *next;
 	int argc;
-	char * argv[16];
+	char * argv[64];
 	struct ej_handler *handler;
 
 	/* Parse out ( args ) */
@@ -92,7 +92,7 @@ do_ej(char *path, FILE *stream)
 {
 	FILE *fp;
 	int c;
-	char pattern[1000], *asp = NULL, *func = NULL, *end = NULL;
+	char pattern[4096], *asp = NULL, *func = NULL, *end = NULL;
 	int len = 0;
 
 	if (!(fp = fopen(path, "r")))

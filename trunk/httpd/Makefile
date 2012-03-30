@@ -12,13 +12,14 @@ endif
 
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux -DMIPS
 #CFLAGS	+= -g -DDEBUG
+#CFLAGS	+= -g -DDEBUG_TO_SYSLOG
 CFLAGS	+= -g -O2 $(EXTRACFLAGS)
 LDFLAGS	+= -s -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
 
 OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o prninfo.o
 
 ifneq ($(USE_JSON),)
-OBJS += json.o
+OBJS += json.o web_ex_json.o
 CFLAGS += -DUSE_JSON
 endif
 
