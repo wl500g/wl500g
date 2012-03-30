@@ -5,13 +5,36 @@ ext4: Updates from upstream
  c7f5938adce6727b9d17785f289c1146bd88d678 ext4: fix ext4_da_block_invalidatepages() to handle page range properly
  7ad8e4e6ae2a7c95445ee1715b1714106fb95037 ext4: Fix fs corruption when make_indexed_dir() fails
  177353670085c14e1d358db8bf812bd72a9268c7 ext4: fix BUG_ON() in ext4_ext_insert_extent()
+ 72b8ab9dde211ea518ff27e631b2046ef90c29a2 ext4: don't use quota reservation for speculative metadata
 
 ---
- fs/ext4/extents.c |   30 +++++++++++++++++++++++++++---
- fs/ext4/inode.c   |   29 +++++++++++++++++++++--------
- fs/ext4/namei.c   |   14 ++++++++++++--
- 3 files changed, 60 insertions(+), 13 deletions(-)
+ fs/ext4/balloc.c  |    5 +--
+ fs/ext4/extents.c |   30 +++++++++++++++++--
+ fs/ext4/inode.c   |   83 +++++++++++++++++++++++++-----------------------------
+ fs/ext4/namei.c   |   14 +++++++--
+ 4 files changed, 81 insertions(+), 51 deletions(-)
 
+diff --git a/fs/ext4/balloc.c b/fs/ext4/balloc.c
+--- a/fs/ext4/balloc.c
++++ b/fs/ext4/balloc.c
+@@ -591,14 +591,15 @@ ext4_fsblk_t ext4_new_meta_blocks(handle_t *handle, struct inode *inode,
+ 	ret = ext4_mb_new_blocks(handle, &ar, errp);
+ 	if (count)
+ 		*count = ar.len;
+-
+ 	/*
+-	 * Account for the allocated meta blocks
++	 * Account for the allocated meta blocks.  We will never
++	 * fail EDQUOT for metdata, but we do account for it.
+ 	 */
+ 	if (!(*errp) && EXT4_I(inode)->i_delalloc_reserved_flag) {
+ 		spin_lock(&EXT4_I(inode)->i_block_reservation_lock);
+ 		EXT4_I(inode)->i_allocated_meta_blocks += ar.len;
+ 		spin_unlock(&EXT4_I(inode)->i_block_reservation_lock);
++		DQUOT_ALLOC_BLOCK(inode, ar.len);
+ 	}
+ 	return ret;
+ }
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
 --- a/fs/ext4/extents.c
 +++ b/fs/ext4/extents.c
@@ -63,9 +86,66 @@ diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -1413,9 +1413,25 @@ static int walk_page_buffers(handle_t *h
+@@ -1091,7 +1091,6 @@ void ext4_da_update_reserve_space(struct
+ {
+ 	struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
+ 	struct ext4_inode_info *ei = EXT4_I(inode);
+-	int mdb_free = 0, allocated_meta_blocks = 0;
+ 
+ 	spin_lock(&ei->i_block_reservation_lock);
+ 	if (unlikely(used > ei->i_reserved_data_blocks)) {
+@@ -1105,11 +1104,10 @@ void ext4_da_update_reserve_space(struct
+ 
+ 	/* Update per-inode reservations */
+ 	ei->i_reserved_data_blocks -= used;
+-	used += ei->i_allocated_meta_blocks;
+ 	ei->i_reserved_meta_blocks -= ei->i_allocated_meta_blocks;
+-	allocated_meta_blocks = ei->i_allocated_meta_blocks;
++	percpu_counter_sub(&sbi->s_dirtyblocks_counter,
++			   used + ei->i_allocated_meta_blocks);
+ 	ei->i_allocated_meta_blocks = 0;
+-	percpu_counter_sub(&sbi->s_dirtyblocks_counter, used);
+ 
+ 	if (ei->i_reserved_data_blocks == 0) {
+ 		/*
+@@ -1117,27 +1115,23 @@ void ext4_da_update_reserve_space(struct
+ 		 * only when we have written all of the delayed
+ 		 * allocation blocks.
+ 		 */
+-		mdb_free = ei->i_reserved_meta_blocks;
++		percpu_counter_sub(&sbi->s_dirtyblocks_counter,
++				   ei->i_reserved_meta_blocks);
+ 		ei->i_reserved_meta_blocks = 0;
+ 		ei->i_da_metadata_calc_len = 0;
+-		percpu_counter_sub(&sbi->s_dirtyblocks_counter, mdb_free);
+ 	}
+ 	spin_unlock(&EXT4_I(inode)->i_block_reservation_lock);
+ 
+-	/* Update quota subsystem */
+-	if (quota_claim) {
++	/* Update quota subsystem for data blocks */
++	if (quota_claim)
+ 		DQUOT_ALLOC_BLOCK(inode, used);
+-	} else {
++	else {
+ 		/*
+ 		 * We did fallocate with an offset that is already delayed
+ 		 * allocated. So on delayed allocated writeback we should
+-		 * not update the quota for allocated blocks. But then
+-		 * converting an fallocate region to initialized region would
+-		 * have caused a metadata allocation. So claim quota for
+-		 * that
++		 * not re-claim the quota for fallocated blocks.
+ 		 */
+-		if (allocated_meta_blocks)
+-			DQUOT_ALLOC_BLOCK(inode, allocated_meta_blocks);
++//		dquot_release_reservation_block(inode, used);
+ 	}
+ 
+ 	/*
+@@ -1549,9 +1543,25 @@ static int walk_page_buffers(handle_t *h
  static int do_journal_get_write_access(handle_t *handle,
- 					struct buffer_head *bh)
+ 				       struct buffer_head *bh)
  {
 +	int dirty = buffer_dirty(bh);
 +	int ret;
@@ -89,8 +169,48 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 +	return ret;
  }
  
- static int ext4_write_begin(struct file *file, struct address_space *mapping,
-@@ -1894,8 +1910,7 @@ static inline void __unmap_underlying_bl
+ /*
+@@ -1861,7 +1871,7 @@ static int ext4_da_reserve_space(struct 
+ 	int retries = 0;
+ 	struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
+ 	struct ext4_inode_info *ei = EXT4_I(inode);
+-	unsigned long md_needed, md_reserved;
++	unsigned long md_needed;
+ 
+ 	/*
+ 	 * recalculate the amount of metadata blocks to reserve
+@@ -1870,10 +1880,13 @@ static int ext4_da_reserve_space(struct 
+ 	 */
+ repeat:
+ 	spin_lock(&ei->i_block_reservation_lock);
+-	md_reserved = ei->i_reserved_meta_blocks;
+ 	md_needed = ext4_calc_metadata_amount(inode, lblock);
+ 	spin_unlock(&ei->i_block_reservation_lock);
+ 
++	/*
++	 * We do still charge estimated metadata to the sb though;
++	 * we cannot afford to run out of free blocks.
++	 */
+ 	if (ext4_claim_free_blocks(sbi, md_needed + 1)) {
+ 		if (ext4_should_retry_alloc(inode->i_sb, &retries)) {
+ 			yield();
+@@ -1921,12 +1934,13 @@ static void ext4_da_release_space(struct
+ 		 * only when we have written all of the delayed
+ 		 * allocation blocks.
+ 		 */
+-		to_free += ei->i_reserved_meta_blocks;
++		percpu_counter_sub(&sbi->s_dirtyblocks_counter,
++				   ei->i_reserved_meta_blocks);
+ 		ei->i_reserved_meta_blocks = 0;
+ 		ei->i_da_metadata_calc_len = 0;
+ 	}
+ 
+-	/* update fs dirty blocks counter */
++	/* update fs dirty data blocks counter */
+ 	percpu_counter_sub(&sbi->s_dirtyblocks_counter, to_free);
+ 
+ 	spin_unlock(&EXT4_I(inode)->i_block_reservation_lock);
+@@ -2130,8 +2144,7 @@ static inline void __unmap_underlying_bl
  		unmap_underlying_metadata(bdev, bh->b_blocknr + i);
  }
  
@@ -100,7 +220,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  {
  	int nr_pages, i;
  	pgoff_t index, end;
-@@ -1903,9 +1918,8 @@ static void ext4_da_block_invalidatepage
+@@ -2139,9 +2152,8 @@ static void ext4_da_block_invalidatepage
  	struct inode *inode = mpd->inode;
  	struct address_space *mapping = inode->i_mapping;
  
@@ -112,7 +232,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  	while (index <= end) {
  		nr_pages = pagevec_lookup(&pvec, mapping, index, PAGEVEC_SIZE);
  		if (nr_pages == 0)
-@@ -2056,8 +2070,7 @@ static int mpage_da_map_blocks(struct mp
+@@ -2275,8 +2287,7 @@ static int mpage_da_map_blocks(struct mp
  			ext4_print_free_blocks(mpd->inode);
  		}
  		/* invalidate all the pages */
@@ -121,7 +241,39 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 +		ext4_da_block_invalidatepages(mpd);
  		return err;
  	}
- 	BUG_ON(new.b_size == 0);
+ 	BUG_ON(blks == 0);
+@@ -3051,7 +3062,7 @@ static int ext4_da_write_begin(struct fi
+ 			       loff_t pos, unsigned len, unsigned flags,
+ 			       struct page **pagep, void **fsdata)
+ {
+-	int ret, retries = 0, quota_retries = 0;
++	int ret, retries = 0;
+ 	struct page *page;
+ 	pgoff_t index;
+ 	unsigned from, to;
+@@ -3110,22 +3121,6 @@ retry:
+ 
+ 	if (ret == -ENOSPC && ext4_should_retry_alloc(inode->i_sb, &retries))
+ 		goto retry;
+-
+-	if ((ret == -EDQUOT) &&
+-	    EXT4_I(inode)->i_reserved_meta_blocks &&
+-	    (quota_retries++ < 3)) {
+-		/*
+-		 * Since we often over-estimate the number of meta
+-		 * data blocks required, we may sometimes get a
+-		 * spurios out of quota error even though there would
+-		 * be enough space once we write the data blocks and
+-		 * find out how many meta data blocks were _really_
+-		 * required.  So try forcing the inode write to see if
+-		 * that helps.
+-		 */
+-		write_inode_now(inode, (quota_retries == 3));
+-		goto retry;
+-	}
+ out:
+ 	return ret;
+ }
 diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
 --- a/fs/ext4/namei.c
 +++ b/fs/ext4/namei.c

@@ -4177,10 +4177,11 @@ diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
  extern void ext4_set_inode_flags(struct inode *);
  extern void ext4_get_inode_flags(struct ext4_inode_info *);
  extern int ext4_alloc_da_blocks(struct inode *inode);
-@@ -1114,10 +1571,13 @@ extern int ext4_chunk_trans_blocks(struc
+@@ -1114,10 +1571,14 @@ extern int ext4_chunk_trans_blocks(struc
  extern int ext4_block_truncate_page(handle_t *handle,
  		struct address_space *mapping, loff_t from);
  extern int ext4_page_mkwrite(struct vm_area_struct *vma, struct page *page);
++extern qsize_t *ext4_get_reserved_space(struct inode *inode);
 +extern int flush_aio_dio_completed_IO(struct inode *inode);
 +extern void ext4_da_update_reserve_space(struct inode *inode,
 +					int used, int quota_claim);
@@ -8968,8 +8969,17 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  got_it:
  	map_bh(bh_result, inode->i_sb, le32_to_cpu(chain[depth-1].key));
  	if (count > blocks_to_boundary)
-@@ -986,66 +1045,83 @@ out:
+@@ -986,70 +1045,110 @@ out:
+ 	return err;
+ }
  
++#ifdef CONFIG_QUOTA
++qsize_t *ext4_get_reserved_space(struct inode *inode)
++{
++	return &EXT4_I(inode)->i_reserved_quota;
++}
++#endif
++
  /*
   * Calculate the number of metadata blocks need to reserve
 - * to allocate @blocks for non extent file based file
@@ -9091,7 +9101,25 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 -
  	spin_unlock(&EXT4_I(inode)->i_block_reservation_lock);
  
++	/* Update quota subsystem */
++	if (quota_claim) {
++		DQUOT_ALLOC_BLOCK(inode, used);
++	} else {
++		/*
++		 * We did fallocate with an offset that is already delayed
++		 * allocated. So on delayed allocated writeback we should
++		 * not update the quota for allocated blocks. But then
++		 * converting an fallocate region to initialized region would
++		 * have caused a metadata allocation. So claim quota for
++		 * that
++		 */
++		if (allocated_meta_blocks)
++			DQUOT_ALLOC_BLOCK(inode, allocated_meta_blocks);
++	}
++
  	/*
+ 	 * If we have done all the pending block allocations and if
+ 	 * there aren't any writers on the inode, we can discard the
 @@ -1053,12 +1129,85 @@ static void ext4_da_update_reserve_space
  	 * there aren't any writers on the inode, we can discard the
  	 * inode's preallocations.
