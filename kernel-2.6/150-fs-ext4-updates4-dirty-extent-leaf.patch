@@ -1,0 +1,106 @@
+From 45a027d961f72632b15b46337ebbd7317f7528ed
+From: Xiaoyun Mao
+Date: Sun, 25 Sep 2011 16:24:03 +0800
+Subject: [PATCH] ext4 : fix dirty extent when origin leaf extent reach max
+
+Extents are supposed to be dirtied in ext4_ext_insert_extent.
+Two existing scenarios
+1) path has free spaces
+   extent in path will be dirtied, this is correct
+2) path has no free spaces
+   Actually new path is dirtied, the origin path isn't dirted, might cause problem
+
+there's a chance that extent is forgotten to mark dirty in ext4_ext_convert_to_initialized()
+
+For example: ex is the last extend in leaf which has no free space
+ex:
+{
+  ee_block          : 3885
+  is_uninitialized  : Yes
+  actually ee_len   : 211
+  pb_block          : 113020697
+}
+after insert iblock 3886 max_blocks: 210,  ex will be split into
+ex
+{
+  ee_block          : 3885
+  is_uninitialized  : Yes
+  actually ee_len   : 1
+  pb_block          : 113020697
+}
+newex in new path
+{
+  ee_block          : 3886
+  is_uninitialized  : no
+  actually ee_len   : 200
+  pb_block          : 113020698
+}
+
+ex is not dirtied both in ext4_ext_convert_to_initialized() and ext4_ext_insert_extent()
+although ee_len is updated, so the page cache contains ex may be freed. If this happens,
+the later ext4_ext_convert_to_initialized() on this extent will load the stale data from disk.
+And this stale ex overlaps with newex, will cause the BUG_ON(newext->ee_block == nearex->ee_block),
+in ext4_ext_insert_extent(). The patch dirties the ex in scenario 2)
+
+Signed-off-by: Xiaoyun Mao <xiaoyun.maoxy@aliyun-inc.com>
+Signed-off-by: Yingbin Wang <yingbin.wangyb@aliyun-inc.com>
+Signed-off-by: Jia Wan <jia.wanj@aliyun-inc.com>
+---
+ fs/ext4/extents.c |   29 +++++++++++++++++++++++++++++
+ 1 files changed, 29 insertions(+), 0 deletions(-)
+
+diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
+--- a/fs/ext4/extents.c
++++ b/fs/ext4/extents.c
+@@ -2556,6 +2556,8 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
+ 	int err = 0;
+ 	int ret = 0;
+ 	int may_zeroout;
++	int insert_max_extent = 0;
++	struct ext4_ext_path *old_leaf_path = NULL;
+ 
+ 	ext_debug("ext4_ext_convert_to_initialized: inode %lu, logical"
+ 		"block %llu, max_blocks %u\n", inode->i_ino,
+@@ -2816,6 +2818,9 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
+ 	err = ext4_ext_dirty(handle, inode, path + depth);
+ 	goto out;
+ insert:
++	if (path[depth].p_ext == EXT_MAX_EXTENT(path[depth].p_hdr))
++		insert_max_extent = 1;
++
+ 	err = ext4_ext_insert_extent(handle, inode, path, &newex, 0);
+ 	if (err == -ENOSPC && may_zeroout) {
+ 		err =  ext4_ext_zeroout(inode, &orig_ex);
+@@ -2830,6 +2835,30 @@ insert:
+ 		return allocated;
+ 	} else if (err)
+ 		goto fix_extent_len;
++
++	if (insert_max_extent) {
++		old_leaf_path = ext4_ext_find_extent(inode, ee_block, NULL);
++		if (IS_ERR(old_leaf_path)) {
++			err = PTR_ERR(old_leaf_path);
++			old_leaf_path = NULL;
++			goto out;
++		}
++		depth = ext_depth(inode);
++
++		err = ext4_ext_get_access(handle, inode, old_leaf_path + depth);
++		if (err)
++			goto out;
++
++		old_leaf_path[depth].p_ext->ee_len = cpu_to_le16(iblock - ee_block);
++		ext4_ext_mark_uninitialized(old_leaf_path[depth].p_ext);
++
++		err = ext4_ext_dirty(handle, inode, old_leaf_path + depth);
++
++		if (old_leaf_path) {
++			ext4_ext_drop_refs(old_leaf_path);
++			kfree(old_leaf_path);
++		}
++	}
+ out:
+ 	ext4_ext_show_leaf(inode, path);
+ 	return err ? err : allocated;
+-- 
+1.5.5.6
