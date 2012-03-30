@@ -56,7 +56,7 @@ function loadDynamic(id,name,ready)
 function sendJSON(str,call_back)
 {
 	var host = window.location.host;
-	var url = 'http://' + host + '/appJson.cgi';
+	var url = 'http://' + host + '/json.cgi';
 	sendHTTPRequest(url,str,call_back,onError);
 }
 
