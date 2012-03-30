@@ -1066,6 +1066,13 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, stru
 				   "bad inode number: %u", ino);
 			return ERR_PTR(-EIO);
 		}
+		if (unlikely(ino == dir->i_ino)) {
+			ext4_error(dir->i_sb, __func__,
+					 "'%.*s' linked to parent dir",
+					 dentry->d_name.len,
+					 dentry->d_name.name);
+			return ERR_PTR(-EIO);
+		}
 		inode = ext4_iget(dir->i_sb, ino);
 		if (unlikely(IS_ERR(inode))) {
 			if (PTR_ERR(inode) == -ESTALE) {
@@ -1086,7 +1093,6 @@ struct dentry *ext4_get_parent(struct dentry *child)
 {
 	__u32 ino;
 	struct dentry *parent;
-	struct inode *inode;
 	static const struct qstr dotdot = {
 		.name = "..",
 		.len = 2,
@@ -1095,7 +1101,6 @@ struct dentry *ext4_get_parent(struct dentry *child)
 	struct buffer_head *bh;
 
 	bh = ext4_find_entry(child->d_inode, &dotdot, &de);
-	inode = NULL;
 	if (!bh)
 		return ERR_PTR(-ENOENT);
 	ino = le32_to_cpu(de->inode);

@@ -380,6 +380,8 @@ static int ext4_valid_extent(struct inode *inode, struct ext4_extent *ext)
 	ext4_fsblk_t block = ext_pblock(ext);
 	int len = ext4_ext_get_actual_len(ext);
 
+	if (len == 0)
+		return 0;
 	return ext4_data_block_valid(EXT4_SB(inode->i_sb), block, len);
 }
 
@@ -1063,7 +1065,6 @@ static int ext4_ext_grow_indepth(handle_t *handle, struct inode *inode,
 {
 	struct ext4_ext_path *curp = path;
 	struct ext4_extent_header *neh;
-	struct ext4_extent_idx *fidx;
 	struct buffer_head *bh;
 	ext4_fsblk_t newblock;
 	int err = 0;
@@ -1124,10 +1125,10 @@ static int ext4_ext_grow_indepth(handle_t *handle, struct inode *inode,
 	ext4_idx_store_pblock(curp->p_idx, newblock);
 
 	neh = ext_inode_hdr(inode);
-	fidx = EXT_FIRST_INDEX(neh);
 	ext_debug("new root: num %d(%d), lblock %d, ptr %llu\n",
 		  le16_to_cpu(neh->eh_entries), le16_to_cpu(neh->eh_max),
-		  le32_to_cpu(fidx->ei_block), idx_pblock(fidx));
+		  le32_to_cpu(EXT_FIRST_INDEX(neh)->ei_block),
+		  idx_pblock(EXT_FIRST_INDEX(neh)));
 
 	neh->eh_depth = cpu_to_le16(path->p_depth + 1);
 	err = ext4_ext_dirty(handle, inode, curp);
@@ -1969,10 +1970,13 @@ static int ext4_remove_blocks(handle_t *handle, struct inode *inode,
 				ext4_lblk_t from, ext4_lblk_t to)
 {
 	unsigned short ee_len =  ext4_ext_get_actual_len(ex);
-	int flags = EXT4_FREE_BLOCKS_FORGET;
+	int flags = 0;
 
 	if (S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode))
-		flags |= EXT4_FREE_BLOCKS_METADATA;
+		flags |= EXT4_FREE_BLOCKS_METADATA | EXT4_FREE_BLOCKS_FORGET;
+	else if (ext4_should_journal_data(inode))
+		flags |= EXT4_FREE_BLOCKS_FORGET;
+
 #ifdef EXTENTS_STATS
 	{
 		struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
@@ -2797,7 +2801,6 @@ static int ext4_split_unwritten_extents(handle_t *handle,
 	struct ext4_extent *ex1 = NULL;
 	struct ext4_extent *ex2 = NULL;
 	struct ext4_extent *ex3 = NULL;
-	struct ext4_extent_header *eh;
 	ext4_lblk_t ee_block, eof_block;
 	unsigned int allocated, ee_len, depth;
 	ext4_fsblk_t newblock;
@@ -2814,7 +2817,6 @@ static int ext4_split_unwritten_extents(handle_t *handle,
 		eof_block = iblock + max_blocks;
 
 	depth = ext_depth(inode);
-	eh = path[depth].p_hdr;
 	ex = path[depth].p_ext;
 	ee_block = le32_to_cpu(ex->ee_block);
 	ee_len = ext4_ext_get_actual_len(ex);
@@ -2901,7 +2903,6 @@ static int ext4_split_unwritten_extents(handle_t *handle,
 			err = PTR_ERR(path);
 			goto out;
 		}
-		eh = path[depth].p_hdr;
 		ex = path[depth].p_ext;
 		if (ex2 != &newex)
 			ex2 = ex;

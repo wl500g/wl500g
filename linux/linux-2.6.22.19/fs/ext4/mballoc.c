@@ -2003,7 +2003,6 @@ ext4_mb_regular_allocator(struct ext4_allocation_context *ac)
 	ext4_group_t ngroups, group, i;
 	int cr;
 	int err = 0;
-	int bsbits;
 	struct ext4_sb_info *sbi;
 	struct super_block *sb;
 	struct ext4_buddy e4b;
@@ -2044,8 +2043,6 @@ ext4_mb_regular_allocator(struct ext4_allocation_context *ac)
 		if ((ac->ac_g_ex.fe_len & (~(1 << (i - 1)))) == 0)
 			ac->ac_2order = i - 1;
 	}
-
-	bsbits = ac->ac_sb->s_blocksize_bits;
 
 	/* if stream allocation is enabled, use global goal */
 	if (ac->ac_flags & EXT4_MB_STREAM_ALLOC) {
@@ -2865,7 +2862,7 @@ ext4_mb_mark_diskspace_used(struct ext4_allocation_context *ac,
 	err = ext4_handle_dirty_metadata(handle, NULL, gdp_bh);
 
 out_err:
-	sb->s_dirt = 1;
+	ext4_mark_super_dirty(sb);
 	brelse(bitmap_bh);
 	return err;
 }
@@ -2903,7 +2900,7 @@ ext4_mb_normalize_request(struct ext4_allocation_context *ac,
 	int bsbits, max;
 	ext4_lblk_t end;
 	loff_t size, orig_size, start_off;
-	ext4_lblk_t start, orig_start;
+	ext4_lblk_t start;
 	struct ext4_inode_info *ei = EXT4_I(ac->ac_inode);
 	struct ext4_prealloc_space *pa;
 
@@ -2934,6 +2931,7 @@ ext4_mb_normalize_request(struct ext4_allocation_context *ac,
 	size = size << bsbits;
 	if (size < i_size_read(ac->ac_inode))
 		size = i_size_read(ac->ac_inode);
+	orig_size = size;
 
 	/* max size of free chunks */
 	max = 2 << bsbits;
@@ -2975,8 +2973,8 @@ ext4_mb_normalize_request(struct ext4_allocation_context *ac,
 		start_off = (loff_t)ac->ac_o_ex.fe_logical << bsbits;
 		size	  = ac->ac_o_ex.fe_len << bsbits;
 	}
-	orig_size = size = size >> bsbits;
-	orig_start = start = start_off >> bsbits;
+	size = size >> bsbits;
+	start = start_off >> bsbits;
 
 	/* don't cover already allocated blocks in selected range */
 	if (ar->pleft && start <= ar->lleft) {
@@ -4535,7 +4533,6 @@ void ext4_free_blocks(handle_t *handle, struct inode *inode,
 	struct super_block *sb = inode->i_sb;
 	struct ext4_allocation_context *ac = NULL;
 	struct ext4_group_desc *gdp;
-	struct ext4_super_block *es;
 	unsigned long freed = 0;
 	unsigned int overflow;
 	ext4_grpblk_t bit;
@@ -4554,7 +4551,6 @@ void ext4_free_blocks(handle_t *handle, struct inode *inode,
 	}
 
 	sbi = EXT4_SB(sb);
-	es = EXT4_SB(sb)->s_es;
 	if (!(flags & EXT4_FREE_BLOCKS_VALIDATED) &&
 	    !ext4_data_block_valid(sbi, block, count)) {
 		ext4_error(sb, __func__,
@@ -4721,7 +4717,7 @@ do_more:
 		put_bh(bitmap_bh);
 		goto do_more;
 	}
-	sb->s_dirt = 1;
+	ext4_mark_super_dirty(sb);
 error_return:
 	if (freed && !(flags & EXT4_FREE_BLOCKS_NO_QUOT_UPDATE))
 		DQUOT_FREE_BLOCK(inode, freed);
