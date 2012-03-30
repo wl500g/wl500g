@@ -1,0 +1,258 @@
+ext4: Updates from upstream 3
+
+ 31d4f3a2f3c73f279ff96a7135d7202ef6833f12 ext4: check for zero length extent
+ a0375156ca1041574b5d47cc7e32f10b891151b0 ext4: Clean up s_dirt handling
+ 1b8b9750f07cdd6e13f12c06ae7ec853f2abbe6c ext4: do not mark superblock as dirty unnecessarily
+ a8e25a83245618e6b0ddf82a9bba79c1b466804d ext4: write superblock only once on unmount
+
+---
+ fs/ext4/balloc.c    |    6 +-----
+ fs/ext4/ext4.h      |    6 ++++++
+ fs/ext4/ext4_jbd2.c |   16 ++++++++++++++++
+ fs/ext4/ext4_jbd2.h |    5 +++++
+ fs/ext4/extents.c   |    2 ++
+ fs/ext4/file.c      |    2 +-
+ fs/ext4/ialloc.c    |    4 ++--
+ fs/ext4/inode.c     |    4 +---
+ fs/ext4/mballoc.c   |    4 ++--
+ fs/ext4/resize.c    |    6 ++----
+ fs/ext4/super.c     |    7 +++----
+ fs/ext4/xattr.c     |    3 +--
+ 12 files changed, 42 insertions(+), 23 deletions(-)
+
+diff --git a/fs/ext4/balloc.c b/fs/ext4/balloc.c
+--- a/fs/ext4/balloc.c
++++ b/fs/ext4/balloc.c
+@@ -384,14 +384,11 @@ void ext4_add_groupblocks(handle_t *hand
+ 	ext4_grpblk_t bit;
+ 	unsigned int i;
+ 	struct ext4_group_desc *desc;
+-	struct ext4_super_block *es;
+-	struct ext4_sb_info *sbi;
++	struct ext4_sb_info *sbi = EXT4_SB(sb);
+ 	int err = 0, ret, blk_free_count;
+ 	ext4_grpblk_t blocks_freed;
+ 	struct ext4_group_info *grp;
+ 
+-	sbi = EXT4_SB(sb);
+-	es = sbi->s_es;
+ 	ext4_debug("Adding block(s) %llu-%llu\n", block, block + count - 1);
+ 
+ 	ext4_get_group_no_and_offset(sb, block, &block_group, &bit);
+@@ -486,7 +483,6 @@ void ext4_add_groupblocks(handle_t *hand
+ 	ret = ext4_handle_dirty_metadata(handle, NULL, gd_bh);
+ 	if (!err)
+ 		err = ret;
+-	sb->s_dirt = 1;
+ 
+ error_return:
+ 	brelse(bitmap_bh);
+diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
+--- a/fs/ext4/ext4.h
++++ b/fs/ext4/ext4.h
+@@ -1842,6 +1842,12 @@ static inline void ext4_unlock_group(str
+ 	spin_unlock(ext4_group_lock_ptr(sb, group));
+ }
+ 
++static inline void ext4_mark_super_dirty(struct super_block *sb)
++{
++	if (EXT4_SB(sb)->s_journal == NULL)
++		sb->s_dirt =1;
++}
++
+ /*
+  * Inodes and files operations
+  */
+diff --git a/fs/ext4/ext4_jbd2.c b/fs/ext4/ext4_jbd2.c
+--- a/fs/ext4/ext4_jbd2.c
++++ b/fs/ext4/ext4_jbd2.c
+@@ -107,3 +107,19 @@ int __ext4_handle_dirty_metadata(const c
+ 	}
+ 	return err;
+ }
++
++int __ext4_handle_dirty_super(const char *where, handle_t *handle,
++			      struct super_block *sb)
++{
++	struct buffer_head *bh = EXT4_SB(sb)->s_sbh;
++	int err = 0;
++
++	if (ext4_handle_valid(handle)) {
++		err = jbd2_journal_dirty_metadata(handle, bh);
++		if (err)
++			ext4_journal_abort_handle(where, __func__, bh,
++						  handle, err);
++	} else
++		sb->s_dirt = 1;
++	return err;
++}
+diff --git a/fs/ext4/ext4_jbd2.h b/fs/ext4/ext4_jbd2.h
+--- a/fs/ext4/ext4_jbd2.h
++++ b/fs/ext4/ext4_jbd2.h
+@@ -148,6 +148,9 @@ int __ext4_journal_get_create_access(con
+ int __ext4_handle_dirty_metadata(const char *where, handle_t *handle,
+ 				 struct inode *inode, struct buffer_head *bh);
+ 
++int __ext4_handle_dirty_super(const char *where, handle_t *handle,
++			      struct super_block *sb);
++
+ #define ext4_journal_get_undo_access(handle, bh) \
+ 	__ext4_journal_get_undo_access(__func__, (handle), (bh))
+ #define ext4_journal_get_write_access(handle, bh) \
+@@ -160,6 +163,8 @@ int __ext4_handle_dirty_metadata(const c
+ 	__ext4_journal_forget(__func__, (handle), (bh))
+ #define ext4_handle_dirty_metadata(handle, inode, bh) \
+ 	__ext4_handle_dirty_metadata(__func__, (handle), (inode), (bh))
++#define ext4_handle_dirty_super(handle, sb) \
++	__ext4_handle_dirty_super(__func__, (handle), (sb))
+ 
+ handle_t *ext4_journal_start_sb(struct super_block *sb, int nblocks);
+ int __ext4_journal_stop(const char *where, handle_t *handle);
+diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
+--- a/fs/ext4/extents.c
++++ b/fs/ext4/extents.c
+@@ -380,6 +380,8 @@ static int ext4_valid_extent(struct inod
+ 	ext4_fsblk_t block = ext_pblock(ext);
+ 	int len = ext4_ext_get_actual_len(ext);
+ 
++	if (len == 0)
++		return 0;
+ 	return ext4_data_block_valid(EXT4_SB(inode->i_sb), block, len);
+ }
+ 
+diff --git a/fs/ext4/file.c b/fs/ext4/file.c
+--- a/fs/ext4/file.c
++++ b/fs/ext4/file.c
+@@ -117,7 +117,7 @@ static int ext4_file_open(struct inode *
+ 		if (!IS_ERR(cp)) {
+ 			memcpy(sbi->s_es->s_last_mounted, cp,
+ 			       sizeof(sbi->s_es->s_last_mounted));
+-			sb->s_dirt = 1;
++			ext4_mark_super_dirty(sb);
+ 		}
+ 	}
+ 	return generic_file_open(inode, filp);
+diff --git a/fs/ext4/ialloc.c b/fs/ext4/ialloc.c
+--- a/fs/ext4/ialloc.c
++++ b/fs/ext4/ialloc.c
+@@ -279,7 +279,7 @@ out:
+ 		err = ext4_handle_dirty_metadata(handle, NULL, bitmap_bh);
+ 		if (!fatal)
+ 			fatal = err;
+-		sb->s_dirt = 1;
++		ext4_mark_super_dirty(sb);
+ 	} else
+ 		ext4_error(sb, "ext4_free_inode",
+ 			   "bit already cleared for inode %lu", ino);
+@@ -966,7 +966,7 @@ got:
+ 	percpu_counter_dec(&sbi->s_freeinodes_counter);
+ 	if (S_ISDIR(mode))
+ 		percpu_counter_inc(&sbi->s_dirs_counter);
+-	sb->s_dirt = 1;
++	ext4_mark_super_dirty(sb);
+ 
+ 	if (sbi->s_log_groups_per_flex) {
+ 		flex_group = ext4_flex_group(sbi, group);
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -5142,10 +5142,8 @@ static int ext4_do_update_inode(handle_t
+ 			ext4_update_dynamic_rev(sb);
+ 			EXT4_SET_RO_COMPAT_FEATURE(sb,
+ 					EXT4_FEATURE_RO_COMPAT_LARGE_FILE);
+-			sb->s_dirt = 1;
+ 			ext4_handle_sync(handle);
+-			err = ext4_handle_dirty_metadata(handle, NULL,
+-					EXT4_SB(sb)->s_sbh);
++			err = ext4_handle_dirty_super(handle, sb);
+ 		}
+ 	}
+ 	raw_inode->i_generation = cpu_to_le32(inode->i_generation);
+diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
+--- a/fs/ext4/mballoc.c
++++ b/fs/ext4/mballoc.c
+@@ -2865,7 +2865,7 @@ ext4_mb_mark_diskspace_used(struct ext4_
+ 	err = ext4_handle_dirty_metadata(handle, NULL, gdp_bh);
+ 
+ out_err:
+-	sb->s_dirt = 1;
++	ext4_mark_super_dirty(sb);
+ 	brelse(bitmap_bh);
+ 	return err;
+ }
+@@ -4722,7 +4722,7 @@ do_more:
+ 		put_bh(bitmap_bh);
+ 		goto do_more;
+ 	}
+-	sb->s_dirt = 1;
++	ext4_mark_super_dirty(sb);
+ error_return:
+ 	if (freed && !(flags & EXT4_FREE_BLOCKS_NO_QUOT_UPDATE))
+ 		DQUOT_FREE_BLOCK(inode, freed);
+diff --git a/fs/ext4/resize.c b/fs/ext4/resize.c
+--- a/fs/ext4/resize.c
++++ b/fs/ext4/resize.c
+@@ -940,8 +940,7 @@ int ext4_group_add(struct super_block *s
+ 			   &sbi->s_flex_groups[flex_group].free_inodes);
+ 	}
+ 
+-	ext4_handle_dirty_metadata(handle, NULL, sbi->s_sbh);
+-	sb->s_dirt = 1;
++	ext4_handle_dirty_super(handle, sb);
+ 
+ exit_journal:
+ 	mutex_unlock(&sbi->s_resize_lock);
+@@ -1071,13 +1070,12 @@ int ext4_group_extend(struct super_block
+ 		goto exit_put;
+ 	}
+ 	ext4_blocks_count_set(es, o_blocks_count + add);
+-	ext4_handle_dirty_metadata(handle, NULL, EXT4_SB(sb)->s_sbh);
+-	sb->s_dirt = 1;
+ 	mutex_unlock(&EXT4_SB(sb)->s_resize_lock);
+ 	ext4_debug("freeing blocks %llu through %llu\n", o_blocks_count,
+ 		   o_blocks_count + add);
+ 	/* We add the blocks to the bitmap and set the group need init bit */
+ 	ext4_add_groupblocks(handle, sb, o_blocks_count, add);
++	ext4_handle_dirty_super(handle, sb);
+ 	ext4_debug("freed blocks %llu through %llu\n", o_blocks_count,
+ 		   o_blocks_count + add);
+ 	if ((err = ext4_journal_stop(handle)))
+diff --git a/fs/ext4/super.c b/fs/ext4/super.c
+--- a/fs/ext4/super.c
++++ b/fs/ext4/super.c
+@@ -595,9 +595,6 @@ static void ext4_put_super(struct super_
+ 	flush_workqueue(sbi->dio_unwritten_wq);
+ 	destroy_workqueue(sbi->dio_unwritten_wq);
+ 
+-	if (sb->s_dirt)
+-		ext4_commit_super(sb, 1);
+-
+ 	if (sbi->s_journal) {
+ 		err = jbd2_journal_destroy(sbi->s_journal);
+ 		sbi->s_journal = NULL;
+@@ -614,8 +611,10 @@ static void ext4_put_super(struct super_
+ 	if (!(sb->s_flags & MS_RDONLY)) {
+ 		EXT4_CLEAR_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_RECOVER);
+ 		es->s_state = cpu_to_le16(sbi->s_mount_state);
+-		ext4_commit_super(sb, 1);
+ 	}
++	if (sb->s_dirt || !(sb->s_flags & MS_RDONLY))
++		ext4_commit_super(sb, 1);
++
+ 	if (sbi->s_proc) {
+ 		remove_proc_entry("inode_readahead_blks", sbi->s_proc);
+ 		remove_proc_entry(sb->s_id, ext4_proc_root);
+diff --git a/fs/ext4/xattr.c b/fs/ext4/xattr.c
+--- a/fs/ext4/xattr.c
++++ b/fs/ext4/xattr.c
+@@ -456,8 +456,7 @@ static void ext4_xattr_update_super_bloc
+ 
+ 	if (ext4_journal_get_write_access(handle, EXT4_SB(sb)->s_sbh) == 0) {
+ 		EXT4_SET_COMPAT_FEATURE(sb, EXT4_FEATURE_COMPAT_EXT_ATTR);
+-		sb->s_dirt = 1;
+-		ext4_handle_dirty_metadata(handle, NULL, EXT4_SB(sb)->s_sbh);
++		ext4_handle_dirty_super(handle, sb);
+ 	}
+ }
+ 
+-- 
