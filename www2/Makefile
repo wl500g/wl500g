@@ -55,6 +55,7 @@ install-%:
 	install -m 644 web_$*/$(PAGES_DIR) www_$*/graph
 
 	ln -sf /var/tmp/display.jpg www_$*/display.jpg
+	ln -sf /usr/local/www www_$*/ext
 
 	rm -rf web
 	rm -rf web_$*
@@ -72,6 +73,7 @@ pages-%:
 	install -m 644 web_$*/$(PAGES_DIR) $(INSTALLDIR)/www/graph
 
 	ln -sf /var/tmp/display.jpg $(INSTALLDIR)/www/display.jpg
+	ln -sf /usr/local/www $(INSTALLDIR)/www/ext
 
 	rm -rf web
 	rm -rf web_$*
