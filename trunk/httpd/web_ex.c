@@ -186,6 +186,7 @@ void sys_script(char *name)
 		if (strcmp(SystemCmd, "")==0)
 			Cmd_argv[2] = "echo None";
 		_eval(Cmd_argv, ">/tmp/syscmd.log", 10, NULL);
+		*SystemCmd = 0;
 	}else if (strcmp(name, "syslog.sh")==0){
 		// to nothing
 	}else if (strcmp(name, "wan.sh")==0 || strcmp(name, "printer.sh")==0){
