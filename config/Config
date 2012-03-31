@@ -33,7 +33,7 @@ config CONFIG_RTN12B1
 
 config CONFIG_RTN12C1
        bool "ASUS RT-N12C1"
-       default y
+       default n
 
 config CONFIG_RTN10
        bool "ASUS RT-N10"
