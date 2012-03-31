@@ -1913,11 +1913,13 @@ function load_body()
 	{
 //		if (frm.LANHostConfig_x_DDNSStatus.value != "1")
 //		frm.LANHostConfig_x_DDNSStatus_button.disabled = true;
+		inputCtrl(document.form.upnp_proto, document.form.upnp_enable.value == 0 ? 0 : 1);
 		TimeZoneList();
 		if (frm.udpxy_wan_x.value == "1")
 			frm.udpxy_wan_check.checked = true;
 		else
 			frm.udpxy_wan_check.checked = false;
+		
 	}
 	else if (frm.current_page.value == "Advanced_APLAN_Content.asp")
 	{
@@ -2611,6 +2613,10 @@ function change_common(o, s, v)
 			inputCtrl2(document.form.time_zone, 0);
 			document.form.time_zone.value = opts[opts.selectedIndex].value;
 		}
+	}
+	else if (s=="LANHostConfig" && v=="upnp_enable")
+	{
+		inputCtrl(document.form.upnp_proto, o.value == 0 ? 0 : 1);
 	}
 	else if (v == "usb_webformat_x")
 	{

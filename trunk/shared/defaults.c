@@ -38,7 +38,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "log_level", "0", 0 },		/* Bitmask 0:off 1:denied 2:accepted */
 	{ "upnp_enable", "1", 0 },		/* Start UPnP */
 #ifndef __CONFIG_MINIUPNPD__
-	{ "natpmp_enable", "1", 0 },		/* Start NAT-PNP */
+	{ "upnp_proto", "0", 0 },		/* 0: Both, 1: UPNP, 2: NAT-PNP */
 #endif
 	{ "ezc_enable", "1", 0 },		/* Enable EZConfig updates */
 	{ "ezc_version", EZC_VERSION_STR, 0 },	/* EZConfig version */
