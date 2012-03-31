@@ -267,7 +267,7 @@ static int stop_httpd(void)
 
 int start_upnp(void)
 {
-	const char *wan_ifname, *wan_proto;
+	const char *wan_ifname;
 	int ret;
 	char var[100], prefix[sizeof("wanXXXXXXXXXX_")];
 #ifdef __CONFIG_MINIUPNPD__
@@ -288,17 +288,22 @@ int start_upnp(void)
 	if (ret != 0)
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
-		wan_proto = nvram_safe_get(strcat_r(prefix, "proto", var));
-		wan_ifname = nvram_match("upnp_enable", "1") &&
-		    (strcmp(wan_proto, "pppoe") == 0 ||
-		     strcmp(wan_proto, "pptp") ==0 ||
-		     strcmp(wan_proto, "l2tp") == 0) ?
-		        nvram_safe_get(strcat_r(prefix, "pppoe_ifname", var)) :
+		switch (_wan_proto(prefix, var)) {
+		case WAN_PPPOE:
+		case WAN_PPTP:
+		case WAN_L2TP:
+			wan_ifname = nvram_safe_get(strcat_r(prefix, "pppoe_ifname", var));
+			break;
 #ifdef __CONFIG_MADWIMAX__
-		    (strcmp(wan_proto, "wimax") == 0) ?
-			nvram_safe_get(strcat_r(prefix, "wimax_ifname", var)) :
+		case WAN_WIMAX:
+			wan_ifname = nvram_safe_get(strcat_r(prefix, "wimax_ifname", var));
+			break;
 #endif
-			nvram_safe_get(strcat_r(prefix, "ifname", var));
+		default:
+			wan_ifname = nvram_safe_get(strcat_r(prefix, "ifname", var));
+			break;
+		}
+
 #ifdef __CONFIG_MINIUPNPD__
 		lan_addr = nvram_safe_get("lan_ipaddr");
 		lan_mask = nvram_safe_get("lan_netmask");
@@ -326,7 +331,11 @@ int start_upnp(void)
 			return errno;
 		}
 
+		/* General settings */
 		fprintf(fp, "# automagically generated\n"
+			"uuid=%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x00000000\n"
+                        "model_number=%s\n"
+                        "presentation_url=http://%s/\n"
 			"ext_ifname=%s\n"
 			"listening_ip=%s/%s\n"
 			"listening_ip=127.0.0.1/8\n"
@@ -334,23 +343,33 @@ int start_upnp(void)
 			"enable_upnp=%s\n"
 			"enable_natpmp=%s\n"
 			"lease_file=/tmp/upnp.leases\n"
-			"secure_mode=no\n"
-			"presentation_url=http://%s/\n"
-			"system_uptime=yes\n"
-			"notify_interval=60\n"
-			"clean_ruleset_interval=600\n"
-			"uuid=%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x00000000\n"
-			"model_number=%s\n"
-			"allow 1024-65535 %s 1024-65535\n"
-			"deny 0-65535 0.0.0.0/0 0-65535\n",
+			"system_uptime=yes\n",
+			lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5],
+			lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5],
+			nvram_safe_get("productid"),
+			lan_url,
 			wan_ifname,
 			lan_addr, lan_mask,
-			/*nvram_match("upnp_enable", "0") ? "no" :*/ "yes",
-			nvram_match("natpmp_enable", "0") ? "no" : "yes",
-			lan_url,
-			lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5], lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5],
-			nvram_safe_get("productid"),
-			lan_class);
+			nvram_match("upnp_proto", "2") ? "no" : "yes",
+			nvram_match("upnp_proto", "1") ? "no" : "yes");
+
+		/* Time-dependent settings */
+		fprintf(fp,
+			"notify_interval=%u\n"
+			"clean_ruleset_interval=%u\n",
+			nvram_get_int("upnp_notify") ? : 60,
+			nvram_get_int("upnp_clean_ruleset") ? : 600);
+
+		/* Security settings */
+		fprintf(fp,
+			"secure_mode=%s\n"
+			"allow %u-65535 %s %u-65535\n"
+			"deny 0-65535 0.0.0.0/0 0-65535\n",
+			nvram_get_int("upnp_secure_mode") ? "yes" : "no",
+			nvram_get_int("upnp_min_port") ? : 1024,
+			lan_class,
+			nvram_get_int("upnp_min_port") ? : 1024);
+
 		fclose(fp);
 
 		ret = eval("miniupnpd");
