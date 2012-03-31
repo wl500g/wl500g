@@ -654,6 +654,7 @@ struct variable variables_LANHostConfig[] = {
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"DmzDHCPLog", "Status", NULL, ARGV("dleases.log",""), FALSE, FALSE},
 	{"upnp_enable", "", validate_range, ARGV("0","2"), FALSE, FALSE},
+	{"upnp_proto", "", validate_range, ARGV("0","2"), FALSE, FALSE},
 	{"udpxy_enable_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"udpxy_wan_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 #ifdef __CONFIG_EMF__

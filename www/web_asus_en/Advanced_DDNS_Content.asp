@@ -25,10 +25,18 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('If you enable UPnP, your ZVMODELVZ will be found automatically by systems, such as Windows XP. And it allows these systems to automatically configure ZVMODELVZ for various Internet applications, such as gaming and videoconferencing.', LEFT);" onMouseOut="return nd();">Enable UPnP?</td>
-<td class="content_input_td"><select name="upnp_enable" class="content_input_fd">
+<td class="content_input_td"><select name="upnp_enable" class="content_input_fd" onchange="return change_common(this, 'LANHostConfig', 'upnp_enable')">
 <option class="content_input_fd" value="0" <% nvram_match_x("LANHostConfig","upnp_enable","0","selected"); %>>No</option>
 <option class="content_input_fd" value="1" <% nvram_match_x("LANHostConfig","upnp_enable","1","selected"); %>>Yes, report WAN address</option>
 <option class="content_input_fd" value="2" <% nvram_match_x("LANHostConfig","upnp_enable","2","selected"); %>>Yes, report MAN address</option>
+</select></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Choose the port mapping protocol, if you are unsure, enable both.', LEFT);" onMouseOut="return nd();">UPNP Protocol:</td>
+<td class="content_input_td"><select name="upnp_proto" class="content_input_fd">
+<option class="content_input_fd" value="0" <% nvram_match_x("LANHostConfig","upnp_proto","0","selected"); %>>Both</option>
+<option class="content_input_fd" value="1" <% nvram_match_x("LANHostConfig","upnp_proto","1","selected"); %>>UPNP</option>
+<option class="content_input_fd" value="2" <% nvram_match_x("LANHostConfig","upnp_proto","2","selected"); %>>NAT-PMP</option>
 </select></td>
 </tr>
 <tr>
