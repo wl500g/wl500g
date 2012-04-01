@@ -1,0 +1,114 @@
+From 867bac0c750401d2f429ad6bb066498c3b8b35c1
+From: Denys Vlasenko
+Date: Mon, 12 Mar 2012 05:27:08 +0000
+Subject: stdio: prevent retries on fclose/fflush after write errors
+
+Some test results:
+
+The longer patch posted at Sun 14:46:24 +0100 made my target system
+unbootable.  I did not attempt to troubleshoot it, as we are focusing
+our efforts on the shorter patch now.
+
+The shorter patch posted at Mon 01:50:27 +0100 is a good start, but it
+didn't completely fix the problem for me.  I am posting an updated
+version with a few changes at the end of this message; the patched
+uClibc 0.9.32.1 tree passes both of my test cases.
+
+My changes:
+
+1) Need to break out of the loop on "hard" errors.  Otherwise the
+library call never returns:
+
+open("/dev/null", O_RDONLY)             = 4
+dup2(4, 1)                              = 1
+write(1, "hello world\n", 12)           = -1 EBADF (Bad file descriptor)
+write(1, "hello world\n", 12)           = -1 EBADF (Bad file descriptor)
+write(1, "hello world\n", 12)           = -1 EBADF (Bad file descriptor)
+write(1, "hello world\n", 12)           = -1 EBADF (Bad file descriptor)
+...
+
+2) Move all of the error handling logic back into the "else" clause.  In
+particular, I believe we do not want to be checking errno unless
+__WRITE() had indicated a failure, since the value may be undefined:
+
+        if (errno == EINTR
+         || errno == EAGAIN
+         /* do we have other "soft" errors? */
+        ) {
+
+3) Whitespace/indentation consistency.
+
+-- 8< --
+
+From: Denys Vlasenko <vda.linux@googlemail.com>
+
+Currently, uclibc retains buffered data on stdio write errors,
+and subsequent fclose and fflush will try to write it out again
+(in most cases, in vain).
+
+Which results in something like this:
+
+On Wednesday 26 January 2011 13:21, Baruch Siach wrote:
+> Hi busybox list,
+>
+> I'm running the following command under strace (thanks Rob):
+>
+> echo 56 > /sys/class/gpio/export
+>
+> and I see the following output:
+>
+> write(1, "56\n", 3)                     = -1 EBUSY (Device or resource busy)
+> write(1, "5", 1)                        = 1
+>
+> The first EBUSY is OK, since GPIO 56 is already requested. But the second
+> write() attempt seems strange, and leads to an unwanted outcome. GPIO 5 gets
+> exported.
+
+This patch prevents that.
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+Signed-off-by: Kevin Cernekee <cernekee@gmail.com>
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+diff --git a/libc/stdio/_WRITE.c b/libc/stdio/_WRITE.c
+--- a/libc/stdio/_WRITE.c
++++ b/libc/stdio/_WRITE.c
+@@ -57,14 +57,30 @@ size_t attribute_hidden __stdio_WRITE(register FILE *stream,
+ #endif
+ 			todo -= rv;
+ 			buf += rv;
+-		} else
+-#ifdef __UCLIBC_MJN3_ONLY__
+-#warning EINTR?
+-#endif
+-/* 		if (errno != EINTR) */
+-		{
++		} else {
++
+ 			__STDIO_STREAM_SET_ERROR(stream);
+ 
++			/* We buffer data on "transient" errors, but discard it
++			 * on "hard" ones. Example of a hard error:
++			 *
++			 * close(fileno(stdout));
++			 * printf("Hi there 1\n"); // EBADF
++			 * dup2(good_fd, fileno(stdout));
++			 * printf("Hi there 2\n"); // buffers new data
++			 *
++			 * This program should not print "Hi there 1" to good_fd.
++			 * The rationale is that the caller of writing operation
++			 * should check for error and act on it.
++			 * If he didn't, then future users of the stream
++			 * have no idea what to do.
++			 * It's least confusing to at least not burden them with
++			 * some hidden buffered crap in the buffer.
++			 */
++			if (errno != EINTR && errno != EAGAIN) {
++				/* do we have other "soft" errors? */
++				break;
++			}
+ #ifdef __STDIO_BUFFERS
+ 			if ((stodo = __STDIO_STREAM_BUFFER_SIZE(stream)) != 0) {
+ 				unsigned char *s;
+--
+cgit v0.9.0.1-2-gef13
