@@ -1,0 +1,54 @@
+From 577c6ee118c2c6342984f3d43d98dd46b0e7f778
+From: Mike Frysinger
+Date: Mon, 02 Apr 2012 04:37:10 +0000
+Subject: fchmodat: fix handling of flags
+
+The Linux syscall takes 3 args, not 4.  We have to process flags in
+userspace ourselves.
+
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+
+diff --git a/libc/sysdeps/linux/common/fchmodat.c b/libc/sysdeps/linux/common/fchmodat.c
+--- a/libc/sysdeps/linux/common/fchmodat.c
++++ b/libc/sysdeps/linux/common/fchmodat.c
+@@ -2,15 +2,36 @@
+  * fchmodat() for uClibc
+  *
+  * Copyright (C) 2009 Analog Devices Inc.
++ * Copyright (C) 2012 Mike Frysinger
+  *
+  * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
+  */
+ 
++#include <fcntl.h>
+ #include <sys/syscall.h>
+ #include <sys/stat.h>
+ 
+ #ifdef __NR_fchmodat
+-_syscall4(int, fchmodat, int, fd, const char *, file, mode_t, mode, int, flag)
++/*
++ * The kernel takes 3 args, but userland takes 4.
++ * We have to process all the flags ourselves.
++ */
++int fchmodat(int fd, const char *file, mode_t mode, int flag)
++{
++	/* We only support one flag atm ... */
++	if (flag & ~AT_SYMLINK_NOFOLLOW) {
++		__set_errno(EINVAL);
++		return -1;
++	}
++
++	/* ... but Linux doesn't support perms on symlinks. */
++	if (flag & AT_SYMLINK_NOFOLLOW) {
++		__set_errno(ENOTSUP);
++		return -1;
++	}
++
++	return INLINE_SYSCALL(fchmodat, 3, fd, file, mode);
++}
+ #else
+ /* should add emulation with fchmod() and /proc/self/fd/ ... */
+ #endif
+--
+cgit v0.9.0.1-2-gef13
