@@ -5,11 +5,11 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
-===RT-N-1.9.2.7-rtn (current)===
-  * ipkg: Switch to new OpenWRT-based repository http://wl500g-repo.googlecode.com
+===RT-N-1.9.2.7-rtn-`r4051` (2012-04-02)===
+  * ipkg: Switch to new OpenWRT-based repository http://wl500g-repo.googlecode.com , thanks to ryzhov_al at wl500g.info
 
   * kernel
-    * backports from upstream - MIPS, mm, net(udp/raw, tcp, af_unix, arp, ipv4/ipv6, neigh, pptp, tunnel), bridge, fs(cifs, ntfs), usb(uvcvideo, gspca, usbnet, rndis_host, cdc_ether)
+    * backports from upstream - MIPS, mm, sched, net(udp/raw, tcp, af_unix, arp, ipv4/ipv6, neigh, pptp, tunnel), bridge, fs(ext3/ext4, cifs, ntfs, udf), usb(uvcvideo, gspca, usbnet, rndis_host, cdc_ether)
     * netfilter backports:
       * xt_iprange v1
       * xt_TOS/xt_tos v1 merged into xt_DSCP/xt_dscp
@@ -51,7 +51,9 @@
       * optimize multicast address internal passing
       * compile out UDPXY_FILEIO specific parts
 
-  * miniupnpd 1.6.20120305
+  * miniupnpd 1.6.20120320
+
+  * quagga 0.99.20.1
 
   * misc
     * busybox: bugfixes from upstream (mdev, read, httpd, test)
@@ -59,6 +61,7 @@
     * pppd: pppoe - workaround for buggy nas; mppe fixes
     * igmpproxy: support multiple multicast sources
     * iptables: fixes from upstream
+    * scsi-idle: switch scsi-start/stop to use SG_IO
 
 ===RT-N-1.9.2.7-rtn-`r3702` (2011-12-25)===
   * Broadcom SDK 5.60.127
