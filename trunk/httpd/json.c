@@ -1,13 +1,13 @@
-// https://github.com/quartzjer/js0n/blob/master/js0n.c
 // by jeremie miller - 2010
 // public domain, contributions/improvements welcome via github
 
 // opportunity to further optimize would be having different jump tables for higher depths
-#define PUSH(i) if(depth == 1) *out++ = ((cur+i) - js)
-#define CAP(i) if(depth == 1) *out++ = (cur+i) - (js + *(out-1)) + 1
+#define PUSH(i) if(depth == 1) prev = *out++ = ((cur+i) - js)
+#define CAP(i) if(depth == 1) prev = *out++ = ((cur+i) - (js + prev) + 1)
 
 int js0n(unsigned char *js, unsigned int len, unsigned short *out)
 {
+	unsigned short prev = 0;
 	unsigned char *cur, *end;
 	int depth=0;
 	int utf8_remain=0;
@@ -54,18 +54,18 @@ int js0n(unsigned char *js, unsigned int len, unsigned short *out)
 		['f'] = &&l_unesc, ['n'] = &&l_unesc, ['r'] = &&l_unesc, ['t'] = &&l_unesc, ['u'] = &&l_unesc
 	};
 	static void **go = gostruct;
-
+	
 	for(cur=js,end=js+len; cur<end; cur++)
 	{
 			goto *go[*cur];
 			l_loop:;
 	}
-
+	
 	return depth; // 0 if successful full parse, >0 for incomplete data
-
+	
 	l_bad:
 		return 1;
-
+	
 	l_up:
 		PUSH(0);
 		++depth;
@@ -85,11 +85,11 @@ int js0n(unsigned char *js, unsigned int len, unsigned short *out)
 		CAP(-1);
 		go=gostruct;
 		goto l_loop;
-
+		
 	l_esc:
 		go = goesc;
 		goto l_loop;
-
+		
 	l_unesc:
 		go = gostring;
 		goto l_loop;
@@ -125,3 +125,4 @@ int js0n(unsigned char *js, unsigned int len, unsigned short *out)
 		goto l_loop;
 
 }
+
