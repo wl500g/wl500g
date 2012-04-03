@@ -1,12 +1,16 @@
  83bfba5fca16d040bb78a24148da844db3de6a76 usbnet: Use skb_queue_walk_safe() instead of by-hand implementation.
  4231d47e6fe69f061f96c98c30eaf9fb4c14b96d net/usbnet: avoid recursive locking in usbnet_stop()
+ 0956a8c20b23d429e79ff86d4325583fc06f9eb4 usbnet: increase URB reference count before usb_unlink_urb
+ 5d5440a835710d09f0ef18da5000541ec98b537a usbnet: don't clear urb->dev in tx_complete
 
 ---
+ drivers/net/usb/usbnet.c |   15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
 --- a/drivers/net/usb/usbnet.c
 +++ b/drivers/net/usb/usbnet.c
-@@ -542,15 +542,15 @@ static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q)
+@@ -542,15 +542,23 @@ static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q)
  	int			count = 0;
  
  	spin_lock_irqsave (&q->lock, flags);
@@ -20,17 +24,34 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  		urb = entry->urb;
 -		skbnext = skb->next;
  
++		/*
++		 * Get reference count of the URB to avoid it to be
++		 * freed during usb_unlink_urb, which may trigger
++		 * use-after-free problem inside usb_unlink_urb since
++		 * usb_unlink_urb is always racing with .complete
++		 * handler(include defer_bh).
++		 */
++		usb_get_urb(urb);
 +		spin_unlock_irqrestore(&q->lock, flags);
  		// during some PM-driven resume scenarios,
  		// these (async) unlinks complete immediately
  		retval = usb_unlink_urb (urb);
-@@ -596,6 +597,7 @@ static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q)
+@@ -596,6 +597,8 @@ static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q)
  			netdev_dbg(dev->net, "unlink urb err, %d\n", retval);
  		else
  			count++;
++		usb_put_urb(urb);
 +		spin_lock_irqsave(&q->lock, flags);
  	}
  	spin_unlock_irqrestore (&q->lock, flags);
  	return count;
+@@ -1037,7 +1037,6 @@ static void tx_complete (struct urb *urb)
+ 		}
+ 	}
+ 
+-	urb->dev = NULL;
+ 	entry->state = tx_done;
+ 	defer_bh(dev, skb, &dev->txq);
+ }
 -- 
 1.7.6.5
