@@ -1033,9 +1033,7 @@ udpxy-install:
 	ln -sf udpxy $(INSTALLDIR)/udpxy/usr/sbin/udpxrec
 
 scsi-idle-install:
-	install -D scsi-idle/scsi-start $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-start
-	$(STRIP) $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-start
-	ln -sf scsi-start $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-stop
+	$(MAKE) -C scsi-idle DESTDIR=$(INSTALLDIR)/scsi-idle/usr/sbin/ install
 
 libusb10/Makefile: libusb10/Makefile.in
 	cd libusb10 && CFLAGS="-O2 $(EXTRACFLAGS)" \
