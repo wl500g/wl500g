@@ -6,6 +6,15 @@ Subject: httpd: make byte ranges which start at 0 work too. Closes 4766
 Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
 ---
 
+From 7a4269329fa05411b477b540beebf18af90e9b42
+From: Rob Walker
+Date: Tue, 03 Apr 2012 06:09:28 +0000
+Subject: httpd: emit correct content length on range requests past the end. Closes 4952
+
+Signed-off-by: Rob Walker <rwalker@codeaurora.org>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
 diff --git a/networking/httpd.c b/networking/httpd.c
 --- a/networking/httpd.c
 +++ b/networking/httpd.c
@@ -26,7 +35,7 @@ diff --git a/networking/httpd.c b/networking/httpd.c
  	bind_addr_or_port = "80"; \
  	index_page = index_html; \
  	file_size = -1; \
-@@ -1589,10 +1590,10 @@ static NOINLINE void send_file_and_exit(const char *url, int what)
+@@ -1589,11 +1590,11 @@ static NOINLINE void send_file_and_exit(const char *url, int what)
  	if (what == SEND_BODY /* err pages and ranges don't mix */
  	 || content_gzip /* we are sending compressed page: can't do ranges */  ///why?
  	) {
@@ -35,10 +44,12 @@ diff --git a/networking/httpd.c b/networking/httpd.c
  	}
  	range_len = MAXINT(off_t);
 -	if (range_start) {
+-		if (!range_end) {
 +	if (range_start >= 0) {
- 		if (!range_end) {
++		if (!range_end || range_end > file_size - 1) {
  			range_end = file_size - 1;
  		}
+ 		if (range_end < range_start
 @@ -1600,7 +1601,7 @@ static NOINLINE void send_file_and_exit(const char *url, int what)
  		 || lseek(fd, range_start, SEEK_SET) != range_start
  		) {
