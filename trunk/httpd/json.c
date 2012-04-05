@@ -1,3 +1,4 @@
+// https://github.com/quartzjer/js0n/blob/master/js0n.c
 // by jeremie miller - 2010
 // public domain, contributions/improvements welcome via github
 
