@@ -1,0 +1,33 @@
+getaddrinfo() optimization
+
+ I found out that getaddrinfo() function in uclibc may cause performance
+ downgrades for some heavy-loaded services (e.g. squid) due to
+ unnecessary calls to __check_pf() (and hence getifaddrs() ). Really
+ these calls only needed when AI_ADDRCONFIG hint flag is given.
+
+ For example, squid uses getaddrinfo() to convert IP addresses from
+ textual to numeric form, providing just AI_NUMERICHOST hint flag. You
+ can imagine how many calls there are when you have about 1000 requests
+ per second and the overhead from netlink communications to kernel every
+ time in getifaddrs().
+
+Alexander Komyagin <komyagin at altell.ru>
+
+--- a/libc/inet/getaddrinfo.c	2012-03-29 18:32:08.487911701 +0400
++++ b/libc/inet/getaddrinfo.c	2012-03-29 18:32:25.735299532 +0400
+@@ -401,7 +401,14 @@
+ 	int rc;
+ 	int v4mapped = (req->ai_family == PF_UNSPEC || req->ai_family == PF_INET6)
+ 			&& (req->ai_flags & AI_V4MAPPED);
+-	unsigned seen = __check_pf();
++
++	//"seen" variable won't be used if AI_ADDRCONFIG is 
++	// not specified. So avoid unnecessary call to __check_pf()
++	// since it can be costly esp. when RSBAC-Net is enabled.
++	unsigned seen = 0;
++	if (req->ai_flags & AI_ADDRCONFIG) {
++		seen = __check_pf();
++	}
+ 
+ 	memset(&nullserv, 0, sizeof(nullserv));
+ 
