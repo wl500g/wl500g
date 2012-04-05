@@ -1,0 +1,66 @@
+[4.5/4.6/4.7 Regression] initializer element is not computable at load time
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=50565
+
+--- gcc-4_5-branch/gcc/ChangeLog	(revision 179846)
++++ gcc-4_5-branch/gcc/ChangeLog	(revision 179847)
+@@ -61,6 +61,12 @@
+ 	multiplying by number of iterations for equal step.
+ 	(vect_create_cond_for_alias_checks): Likewise.
+ 
++2011-10-12  Joseph Myers  <joseph@codesourcery.com>
++
++	PR c/50565
++	* convert.c (convert_to_integer): Do not narrow operands of
++	pointer subtraction.
++
+ 2011-07-19  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backport from mainline
+--- gcc-4_5-branch/gcc/testsuite/gcc.c-torture/compile/pr50565-1.c	(revision 0)
++++ gcc-4_5-branch/gcc/testsuite/gcc.c-torture/compile/pr50565-1.c	(revision 179847)
+@@ -0,0 +1,4 @@
++struct s { char p[2]; };
++static struct s v;
++const int o0 = (int) ((void *) &v.p[0] - (void *) &v) + 0U;
++const int o1 = (int) ((void *) &v.p[0] - (void *) &v) + 1U;
+--- gcc-4_5-branch/gcc/testsuite/gcc.c-torture/compile/pr50565-2.c	(revision 0)
++++ gcc-4_5-branch/gcc/testsuite/gcc.c-torture/compile/pr50565-2.c	(revision 179847)
+@@ -0,0 +1,4 @@
++struct s { char p[2]; };
++static struct s v;
++const int o0 = (int) ((void *) &v.p[0] - (void *) &v) + 0;
++const int o1 = (int) ((void *) &v.p[0] - (void *) &v) + 1;
+--- gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 179846)
++++ gcc-4_5-branch/gcc/testsuite/ChangeLog	(revision 179847)
+@@ -51,6 +51,12 @@
+ 	* g++.dg/cpp0x/rv-cast3.C: New.
+ 	* g++.dg/cpp0x/rv-cast4.C: New.
+ 
++2011-10-12  Joseph Myers  <joseph@codesourcery.com>
++
++	PR c/50565
++	* gcc.c-torture/compile/pr50565-1.c,
++	gcc.c-torture/compile/pr50565-2.c: New tests.
++
+ 2011-07-19  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backport from mainline
+--- gcc-4_5-branch/gcc/convert.c	(revision 179846)
++++ gcc-4_5-branch/gcc/convert.c	(revision 179847)
+@@ -728,6 +728,15 @@
+ 	    tree arg0 = get_unwidened (TREE_OPERAND (expr, 0), type);
+ 	    tree arg1 = get_unwidened (TREE_OPERAND (expr, 1), type);
+ 
++	    /* Do not try to narrow operands of pointer subtraction;
++	       that will interfere with other folding.  */
++	    if (ex_form == MINUS_EXPR
++		&& CONVERT_EXPR_P (arg0)
++		&& CONVERT_EXPR_P (arg1)
++		&& POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg0, 0)))
++		&& POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg1, 0))))
++	      break;
++
+ 	    if (outprec >= BITS_PER_WORD
+ 		|| TRULY_NOOP_TRUNCATION (outprec, inprec)
+ 		|| inprec > TYPE_PRECISION (TREE_TYPE (arg0))
