@@ -1,0 +1,73 @@
+From da4ef5cf6a195d42339e2e6901c43f7566219ed3
+From: Denys Vlasenko
+Date: Sun, 11 Mar 2012 12:33:49 +0000
+Subject: __stdio_WRITE: make code more readable. No code changes
+
+Pulled assignments out of ifs.
+do {...} while (1); is a weird method of writing "loop forever",
+thus rewrote it.
+No code changes: objdump output is the same.
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/libc/stdio/_WRITE.c b/libc/stdio/_WRITE.c
+--- a/libc/stdio/_WRITE.c
++++ b/libc/stdio/_WRITE.c
+@@ -42,13 +42,10 @@ size_t attribute_hidden __stdio_WRITE(register FILE *stream,
+ 
+ 	todo = bufsize;
+ 
+-	do {
+-		if (todo == 0) {		/* Done? */
+-			__STDIO_STREAM_VALIDATE(stream);
+-			return bufsize;
+-		}
++	while (todo != 0) {
+ 		stodo = (todo <= SSIZE_MAX) ? todo : SSIZE_MAX;
+-		if ((rv = __WRITE(stream, (char *) buf, stodo)) >= 0) {
++		rv = __WRITE(stream, (char *) buf, stodo);
++		if (rv >= 0) {
+ #ifdef __UCLIBC_MJN3_ONLY__
+ #warning TODO: Make custom stream write return check optional.
+ #endif
+@@ -69,17 +66,19 @@ size_t attribute_hidden __stdio_WRITE(register FILE *stream,
+ 			__STDIO_STREAM_SET_ERROR(stream);
+ 
+ #ifdef __STDIO_BUFFERS
+-			if ((stodo = __STDIO_STREAM_BUFFER_SIZE(stream)) != 0) {
++			stodo = __STDIO_STREAM_BUFFER_SIZE(stream);
++			if (stodo != 0) {
+ 				unsigned char *s;
+ 
+ 				if (stodo > todo) {
+ 					stodo = todo;
+ 				}
+ 
+-				s  = stream->__bufstart;
++				s = stream->__bufstart;
+ 
+ 				do {
+-					if (((*s = *buf) == '\n')
++					*s = *buf;
++					if ((*s == '\n')
+ 						&& __STDIO_STREAM_IS_LBF(stream)
+ 						) {
+ 						break;
+@@ -94,8 +93,11 @@ size_t attribute_hidden __stdio_WRITE(register FILE *stream,
+ 			}
+ #endif /* __STDIO_BUFFERS */
+ 
+-			__STDIO_STREAM_VALIDATE(stream);
+-			return bufsize - todo;
++			bufsize -= todo;
++			break;
+ 		}
+-	} while (1);
++	}
++
++	__STDIO_STREAM_VALIDATE(stream);
++	return bufsize;
+ }
+--
+cgit v0.9.0.1-2-gef13
