@@ -3,11 +3,9 @@ rcu: Add lockdep-enabled variants of rcu_dereference()
  c26d34a5858f96a564c45048bf5f09319d2abad1 rcu: Add lockdep-enabled variants of rcu_dereference()
  e3818b8dce2a934cd1521dbc4827e5238d8f45d8 rcu: Make rcu_read_lock_bh_held() allow for disabled BH
  773e3f93577ffb493fb7c39b1a6ecf39b5748e87 rcu: move check from rcu_dereference_bh to rcu_read_lock_bh_held
+ b62730baea32f86fe91a7930e4b7ee8d82778b79 rcu: Add rcu_access_pointer and rcu_dereference_protected
 
 ---
- include/linux/rcupdate.h |   68 ++++++++++++++++++++++++++++++++++++++++++-----
- kernel/rcupdate.c        |   23 +++++++++++++++
- 2 files changed, 85 insertions(+), 6 deletions(-)
 
 diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
 --- a/include/linux/rcupdate.h
@@ -49,7 +47,7 @@ diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
  
  /**
   * rcu_read_lock - mark the beginning of an RCU read-side critical section.
-@@ -243,23 +248,101 @@ extern struct lockdep_map rcu_lock_map;
+@@ -243,23 +248,133 @@ extern struct lockdep_map rcu_lock_map;
  
  #endif
  
@@ -98,9 +96,28 @@ diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
 +		rcu_dereference_raw(p); \
 +	})
 +
++/**
++ * rcu_dereference_protected - fetch RCU pointer when updates prevented
++ *
++ * Return the value of the specified RCU-protected pointer, but omit
++ * both the smp_read_barrier_depends() and the ACCESS_ONCE().  This
++ * is useful in cases where update-side locks prevent the value of the
++ * pointer from changing.  Please note that this primitive does -not-
++ * prevent the compiler from repeating this reference or combining it
++ * with other references, so it should not be used without protection
++ * of appropriate locks.
++ */
++#define rcu_dereference_protected(p, c) \
++	({ \
++		if (debug_lockdep_rcu_enabled() && !(c)) \
++			lockdep_rcu_dereference(__FILE__, __LINE__); \
++		(p); \
++	})
++
 +#else
 +
 +#define rcu_dereference_check(p, c)	rcu_dereference_raw(p)
++#define rcu_dereference_protected(p, c) (p)
 +
 +#endif /* CONFIG_PROVE_LOCKING */
 +
@@ -108,6 +125,19 @@ diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
 - * rcu_dereference - fetch an RCU-protected pointer in an
 - * RCU read-side critical section.  This pointer may later
 - * be safely dereferenced.
++ * rcu_access_pointer - fetch RCU pointer with no dereferencing
++ *
++ * Return the value of the specified RCU-protected pointer, but omit the
++ * smp_read_barrier_depends() and keep the ACCESS_ONCE().  This is useful
++ * when the value of this pointer is accessed, but the pointer is not
++ * dereferenced, for example, when testing an RCU-protected pointer against
++ * NULL.  This may also be used in cases where update-side locks prevent
++ * the value of the pointer from changing, but rcu_dereference_protected()
++ * is a lighter-weight primitive for this use case.
++ */
++#define rcu_access_pointer(p)	ACCESS_ONCE(p)
++
++/**
 + * rcu_dereference_raw - fetch an RCU-protected pointer
 + *
 + * The caller must be within some flavor of RCU read-side critical
