@@ -3,12 +3,26 @@ mm: write_cache_pages updates from upstream
  bd19e012f6fd3b7309689165ea865cbb7bb88c1e mm: write_cache_pages early loop termination
  00266770b8b3a6a77f896ca501a0613739086832 mm: write_cache_pages writepage error fix
  05fe478dd04e02fa230c305ab9b5616669821dd3 mm: write_cache_pages integrity fix
+ ee53a891f47444c53318b98dac947ede963db400 mm: do_sync_mapping_range integrity fix
 
 ---
+ fs/sync.c           |    2 +-
  mm/filemap.c        |    2 +-
  mm/page-writeback.c |   34 +++++++++++++++++++++++++++-------
- 2 files changed, 28 insertions(+), 8 deletions(-)
+ 3 files changed, 29 insertions(+), 9 deletions(-)
 
+diff --git a/fs/sync.c b/fs/sync.c
+--- a/fs/sync.c
++++ b/fs/sync.c
+@@ -295,7 +295,7 @@ int do_sync_mapping_range(struct address_space *mapping, loff_t offset,
+ 
+ 	if (flags & SYNC_FILE_RANGE_WRITE) {
+ 		ret = __filemap_fdatawrite_range(mapping, offset, endbyte,
+-						WB_SYNC_NONE);
++						WB_SYNC_ALL);
+ 		if (ret < 0)
+ 			goto out;
+ 	}
 diff --git a/mm/filemap.c b/mm/filemap.c
 --- a/mm/filemap.c
 +++ b/mm/filemap.c
