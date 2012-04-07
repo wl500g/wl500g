@@ -19,6 +19,7 @@ readahead: Updates from upstream
  f4e6b498d6e06742d72706ef50593a9c4dd72214 readahead: combine file_ra_state.prev_index/prev_offset into prev_pos
  7ff81078d8b9f3d05a27b7bd3786ffb1ef1b0d1f readahead: remove the local copy of ra in do_generic_mapping_read()
  6b10c6c9fbfe754e8482efb8c8b84f8e40c0f2eb readahead: basic support of interleaved reads
+ 30002ed2e41830ec03ec3e577ad83ac6b188f96e mm: readahead scan lockless
 
 ---
  fs/ext3/dir.c              |   14 -

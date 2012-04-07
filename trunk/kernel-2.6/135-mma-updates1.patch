@@ -1,12 +1,13 @@
-From: Fedor <fedork@ubuntu.(none)>
-Date: Wed, 2 Feb 2011 02:51:04 -0500
-Subject: [PATCH] mm: minor updates/fixes from upstream 2.6 kernel
+mm: minor updates/fixes from upstream 2.6 kernel
 
 kernel.org commits
 45726cb43d11b288c58243a26010f397054222f0 mm: improve find_lock_page
 1037b83bd04e31449dc9323f1e8ddada4264ef66 MM: alloc_large_system_hash() can free some memory for non power-of-two bucketsize
 ae1276b9349a2fd9c3afb4651e25a77ac03299d9 set_page_refcounted() VM_BUG_ON fix
 a62f735cbb1a0937ab6a9196dadf752694ef0b7f MM: Fix macro argument substitution in PageHead() and PageTail()
+b2c3843b1e25e2c67347c4671f33fbe6f5067e6b filemap: trivial code cleanups
+57f6b96c09c30e444e0d3fc3080feba037657a7b filemap: convert some unsigned long to pgoff_t
+b55ed816235cf41c29159d22a4cdeec7deb5821c mm: clarify __add_to_swap_cache locking
 f7977793240d836e60ff413e94e6914f08e10941 speed up madvise_need_mmap_write() usage
 c80e7a826c10cf5bce8487fbaede48bd0bd48d08 permit mempool_free(NULL)
 0da7e01f5f37f441cccd7c8c0586e06db0981907 calculation of pgoff in do_linear_fault() uses mixed units
@@ -18,8 +19,9 @@ e713a21d8251a4c91772f592af46407dfb0b2e4f trivial: Fix dubious bitwise 'or' usage
 
 ---
  include/linux/page-flags.h |    4 ++--
+ include/linux/pagemap.h    |   23 ++++++++++++-----------
  include/linux/writeback.h  |    2 +-
- mm/filemap.c               |    9 +++++----
+ mm/filemap.c               |   44 +++++++++++++++++++++-----------------------
  mm/internal.h              |    2 +-
  mm/madvise.c               |    6 ++++--
  mm/memory.c                |    9 +++++++--
@@ -27,12 +29,13 @@ e713a21d8251a4c91772f592af46407dfb0b2e4f trivial: Fix dubious bitwise 'or' usage
  mm/mmap.c                  |    4 ++++
  mm/page-writeback.c        |   22 ++++++++++------------
  mm/page_alloc.c            |   19 +++++++++++++++++--
- 10 files changed, 54 insertions(+), 26 deletions(-)
+ mm/swap_state.c            |    5 ++++-
+ 12 files changed, 86 insertions(+), 57 deletions(-)
 
 diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
 --- a/include/linux/page-flags.h
 +++ b/include/linux/page-flags.h
-@@ -266,7 +266,7 @@ static inline void SetPageUptodate(struct page *page)
+@@ -240,7 +240,7 @@ static inline void SetPageUptodate(struc
  
  #define PG_head_tail_mask ((1L << PG_compound) | (1L << PG_reclaim))
  
@@ -41,7 +44,7 @@ diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
  				== PG_head_tail_mask)
  
  static inline void __SetPageTail(struct page *page)
-@@ -279,7 +279,7 @@ static inline void __ClearPageTail(struct page *page)
+@@ -253,7 +253,7 @@ static inline void __ClearPageTail(struc
  	page->flags &= ~PG_head_tail_mask;
  }
  
@@ -50,10 +53,79 @@ diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
  				== (1L << PG_compound))
  #define __SetPageHead(page)	__SetPageCompound(page)
  #define __ClearPageHead(page)	__ClearPageCompound(page)
+diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
+--- a/include/linux/pagemap.h
++++ b/include/linux/pagemap.h
+@@ -84,11 +84,11 @@ static inline struct page *page_cache_al
+ typedef int filler_t(void *, struct page *);
+ 
+ extern struct page * find_get_page(struct address_space *mapping,
+-				unsigned long index);
++				pgoff_t index);
+ extern struct page * find_lock_page(struct address_space *mapping,
+-				unsigned long index);
++				pgoff_t index);
+ extern struct page * find_or_create_page(struct address_space *mapping,
+-				unsigned long index, gfp_t gfp_mask);
++				pgoff_t index, gfp_t gfp_mask);
+ unsigned find_get_pages(struct address_space *mapping, pgoff_t start,
+ 			unsigned int nr_pages, struct page **pages);
+ unsigned find_get_pages_contig(struct address_space *mapping, pgoff_t start,
+@@ -99,41 +99,42 @@ unsigned find_get_pages_tag(struct addre
+ /*
+  * Returns locked page at given index in given cache, creating it if needed.
+  */
+-static inline struct page *grab_cache_page(struct address_space *mapping, unsigned long index)
++static inline struct page *grab_cache_page(struct address_space *mapping,
++								pgoff_t index)
+ {
+ 	return find_or_create_page(mapping, index, mapping_gfp_mask(mapping));
+ }
+ 
+ extern struct page * grab_cache_page_nowait(struct address_space *mapping,
+-				unsigned long index);
++				pgoff_t index);
+ extern struct page * read_cache_page_async(struct address_space *mapping,
+-				unsigned long index, filler_t *filler,
++				pgoff_t index, filler_t *filler,
+ 				void *data);
+ extern struct page * read_cache_page(struct address_space *mapping,
+-				unsigned long index, filler_t *filler,
++				pgoff_t index, filler_t *filler,
+ 				void *data);
+ extern int read_cache_pages(struct address_space *mapping,
+ 		struct list_head *pages, filler_t *filler, void *data);
+ 
+ static inline struct page *read_mapping_page_async(
+ 						struct address_space *mapping,
+-					     unsigned long index, void *data)
++						     pgoff_t index, void *data)
+ {
+ 	filler_t *filler = (filler_t *)mapping->a_ops->readpage;
+ 	return read_cache_page_async(mapping, index, filler, data);
+ }
+ 
+ static inline struct page *read_mapping_page(struct address_space *mapping,
+-					     unsigned long index, void *data)
++					     pgoff_t index, void *data)
+ {
+ 	filler_t *filler = (filler_t *)mapping->a_ops->readpage;
+ 	return read_cache_page(mapping, index, filler, data);
+ }
+ 
+ int add_to_page_cache(struct page *page, struct address_space *mapping,
+-				unsigned long index, gfp_t gfp_mask);
++				pgoff_t index, gfp_t gfp_mask);
+ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
+-				unsigned long index, gfp_t gfp_mask);
++				pgoff_t index, gfp_t gfp_mask);
+ extern void remove_from_page_cache(struct page *page);
+ extern void __remove_from_page_cache(struct page *page);
+ 
 diff --git a/include/linux/writeback.h b/include/linux/writeback.h
 --- a/include/linux/writeback.h
 +++ b/include/linux/writeback.h
-@@ -127,7 +127,7 @@ int sync_page_range(struct inode *inode, struct address_space *mapping,
+@@ -127,7 +127,7 @@ int sync_page_range(struct inode *inode,
  			loff_t pos, loff_t count);
  int sync_page_range_nolock(struct inode *inode, struct address_space *mapping,
  			   loff_t pos, loff_t count);
@@ -65,7 +137,21 @@ diff --git a/include/linux/writeback.h b/include/linux/writeback.h
 diff --git a/mm/filemap.c b/mm/filemap.c
 --- a/mm/filemap.c
 +++ b/mm/filemap.c
-@@ -620,26 +620,27 @@ struct page *find_lock_page(struct address_space *mapping,
+@@ -592,7 +592,7 @@ void fastcall __lock_page_nosync(struct
+  * Is there a pagecache struct page at the given (mapping, offset) tuple?
+  * If yes, increment its refcount and return it; if no, return NULL.
+  */
+-struct page * find_get_page(struct address_space *mapping, unsigned long offset)
++struct page * find_get_page(struct address_space *mapping, pgoff_t offset)
+ {
+ 	struct page *page;
+ 
+@@ -616,30 +616,31 @@ EXPORT_SYMBOL(find_get_page);
+  * Returns zero if the page was not present. find_lock_page() may sleep.
+  */
+ struct page *find_lock_page(struct address_space *mapping,
+-				unsigned long offset)
++				pgoff_t offset)
  {
  	struct page *page;
  
@@ -97,10 +183,125 @@ diff --git a/mm/filemap.c b/mm/filemap.c
  	return page;
  }
  EXPORT_SYMBOL(find_lock_page);
+@@ -662,7 +663,7 @@ EXPORT_SYMBOL(find_lock_page);
+  * memory exhaustion.
+  */
+ struct page *find_or_create_page(struct address_space *mapping,
+-		unsigned long index, gfp_t gfp_mask)
++		pgoff_t index, gfp_t gfp_mask)
+ {
+ 	struct page *page, *cached_page = NULL;
+ 	int err;
+@@ -796,7 +797,7 @@ EXPORT_SYMBOL(find_get_pages_tag);
+  * and deadlock against the caller's locked page.
+  */
+ struct page *
+-grab_cache_page_nowait(struct address_space *mapping, unsigned long index)
++grab_cache_page_nowait(struct address_space *mapping, pgoff_t index)
+ {
+ 	struct page *page = find_get_page(mapping, index);
+ 
+@@ -865,11 +866,10 @@ void do_generic_mapping_read(struct addr
+ 			     read_actor_t actor)
+ {
+ 	struct inode *inode = mapping->host;
+-	unsigned long index;
+-	unsigned long offset;
+-	unsigned long last_index;
+-	unsigned long next_index;
+-	unsigned long prev_index;
++	pgoff_t index;
++	pgoff_t last_index;
++	pgoff_t prev_index;
++	unsigned long offset;      /* offset into pagecache page */
+ 	unsigned int prev_offset;
+ 	struct page *cached_page;
+ 	int error;
+@@ -877,7 +877,6 @@ void do_generic_mapping_read(struct addr
+ 
+ 	cached_page = NULL;
+ 	index = *ppos >> PAGE_CACHE_SHIFT;
+-	next_index = index;
+ 	prev_index = ra.prev_index;
+ 	prev_offset = ra.prev_offset;
+ 	last_index = (*ppos + desc->count + PAGE_CACHE_SIZE-1) >> PAGE_CACHE_SHIFT;
+@@ -885,7 +884,7 @@ void do_generic_mapping_read(struct addr
+ 
+ 	for (;;) {
+ 		struct page *page;
+-		unsigned long end_index;
++		pgoff_t end_index;
+ 		loff_t isize;
+ 		unsigned long nr, ret;
+ 
+@@ -1231,7 +1230,7 @@ int file_send_actor(read_descriptor_t *
+ 
+ static ssize_t
+ do_readahead(struct address_space *mapping, struct file *filp,
+-	     unsigned long index, unsigned long nr)
++	     pgoff_t index, unsigned long nr)
+ {
+ 	if (!mapping || !mapping->a_ops || !mapping->a_ops->readpage)
+ 		return -EINVAL;
+@@ -1251,8 +1250,8 @@ asmlinkage ssize_t sys_readahead(int fd,
+ 	if (file) {
+ 		if (file->f_mode & FMODE_READ) {
+ 			struct address_space *mapping = file->f_mapping;
+-			unsigned long start = offset >> PAGE_CACHE_SHIFT;
+-			unsigned long end = (offset + count - 1) >> PAGE_CACHE_SHIFT;
++			pgoff_t start = offset >> PAGE_CACHE_SHIFT;
++			pgoff_t end = (offset + count - 1) >> PAGE_CACHE_SHIFT;
+ 			unsigned long len = end - start + 1;
+ 			ret = do_readahead(mapping, file, start, len);
+ 		}
+@@ -1262,7 +1261,6 @@ asmlinkage ssize_t sys_readahead(int fd,
+ }
+ 
+ #ifdef CONFIG_MMU
+-static int FASTCALL(page_cache_read(struct file * file, unsigned long offset));
+ /**
+  * page_cache_read - adds requested page to the page cache if not already there
+  * @file:	file to read
+@@ -1271,7 +1269,7 @@ static int FASTCALL(page_cache_read(stru
+  * This adds the requested page to the page cache if it isn't already there,
+  * and schedules an I/O to read in its contents from disk.
+  */
+-static int fastcall page_cache_read(struct file * file, unsigned long offset)
++static int fastcall page_cache_read(struct file * file, pgoff_t offset)
+ {
+ 	struct address_space *mapping = file->f_mapping;
+ 	struct page *page; 
+@@ -1507,7 +1505,7 @@ EXPORT_SYMBOL(generic_file_mmap);
+ EXPORT_SYMBOL(generic_file_readonly_mmap);
+ 
+ static struct page *__read_cache_page(struct address_space *mapping,
+-				unsigned long index,
++				pgoff_t index,
+ 				int (*filler)(void *,struct page*),
+ 				void *data)
+ {
+@@ -1548,7 +1546,7 @@ repeat:
+  * after submitting it to the filler.
+  */
+ struct page *read_cache_page_async(struct address_space *mapping,
+-				unsigned long index,
++				pgoff_t index,
+ 				int (*filler)(void *,struct page*),
+ 				void *data)
+ {
+@@ -1596,7 +1594,7 @@ EXPORT_SYMBOL(read_cache_page_async);
+  * If the page does not get brought uptodate, return -EIO.
+  */
+ struct page *read_cache_page(struct address_space *mapping,
+-				unsigned long index,
++				pgoff_t index,
+ 				int (*filler)(void *,struct page*),
+ 				void *data)
+ {
 diff --git a/mm/internal.h b/mm/internal.h
 --- a/mm/internal.h
 +++ b/mm/internal.h
-@@ -24,7 +24,7 @@ static inline void set_page_count(struct page *page, int v)
+@@ -24,7 +24,7 @@ static inline void set_page_count(struct
   */
  static inline void set_page_refcounted(struct page *page)
  {
@@ -112,7 +313,7 @@ diff --git a/mm/internal.h b/mm/internal.h
 diff --git a/mm/madvise.c b/mm/madvise.c
 --- a/mm/madvise.c
 +++ b/mm/madvise.c
-@@ -287,9 +287,11 @@ asmlinkage long sys_madvise(unsigned long start, size_t len_in, int behavior)
+@@ -287,9 +287,11 @@ asmlinkage long sys_madvise(unsigned lon
  	struct vm_area_struct * vma, *prev;
  	int unmapped_error = 0;
  	int error = -EINVAL;
@@ -125,7 +326,7 @@ diff --git a/mm/madvise.c b/mm/madvise.c
  		down_write(&current->mm->mmap_sem);
  	else
  		down_read(&current->mm->mmap_sem);
-@@ -354,7 +356,7 @@ asmlinkage long sys_madvise(unsigned long start, size_t len_in, int behavior)
+@@ -354,7 +356,7 @@ asmlinkage long sys_madvise(unsigned lon
  			vma = find_vma(current->mm, start);
  	}
  out:
@@ -137,7 +338,7 @@ diff --git a/mm/madvise.c b/mm/madvise.c
 diff --git a/mm/memory.c b/mm/memory.c
 --- a/mm/memory.c
 +++ b/mm/memory.c
-@@ -1643,6 +1643,7 @@ static int do_wp_page(struct mm_struct *mm, struct vm_area_struct *vma,
+@@ -1643,6 +1643,7 @@ static int do_wp_page(struct mm_struct *
  	struct page *old_page, *new_page;
  	pte_t entry;
  	int reuse = 0, ret = 0;
@@ -145,7 +346,7 @@ diff --git a/mm/memory.c b/mm/memory.c
  	struct page *dirty_page = NULL;
  
  	old_page = vm_normal_page(vma, address, orig_pte);
-@@ -1691,6 +1692,8 @@ static int do_wp_page(struct mm_struct *mm, struct vm_area_struct *vma,
+@@ -1691,6 +1692,8 @@ static int do_wp_page(struct mm_struct *
  			page_cache_release(old_page);
  			if (!pte_same(*page_table, orig_pte))
  				goto unlock;
@@ -163,7 +364,7 @@ diff --git a/mm/memory.c b/mm/memory.c
  		put_page(dirty_page);
  	}
  	return ret;
-@@ -2348,6 +2351,7 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
+@@ -2348,6 +2351,7 @@ static int __do_fault(struct mm_struct *
  	struct page *dirty_page = NULL;
  	struct vm_fault vmf;
  	int ret;
@@ -171,7 +372,7 @@ diff --git a/mm/memory.c b/mm/memory.c
  
  	vmf.virtual_address = (void __user *)(address & PAGE_MASK);
  	vmf.pgoff = pgoff;
-@@ -2425,6 +2429,7 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
+@@ -2425,6 +2429,7 @@ static int __do_fault(struct mm_struct *
  					anon = 1; /* no anon but release vmf.page */
  					goto out;
  				}
@@ -191,7 +392,7 @@ diff --git a/mm/memory.c b/mm/memory.c
 diff --git a/mm/mempool.c b/mm/mempool.c
 --- a/mm/mempool.c
 +++ b/mm/mempool.c
-@@ -263,6 +263,9 @@ void mempool_free(void *element, mempool_t *pool)
+@@ -263,6 +263,9 @@ void mempool_free(void *element, mempool
  {
  	unsigned long flags;
  
@@ -204,7 +405,7 @@ diff --git a/mm/mempool.c b/mm/mempool.c
 diff --git a/mm/mmap.c b/mm/mmap.c
 --- a/mm/mmap.c
 +++ b/mm/mmap.c
-@@ -1030,6 +1030,10 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
+@@ -1010,6 +1010,10 @@ unsigned long do_mmap_pgoff(struct file
  	} else {
  		switch (flags & MAP_TYPE) {
  		case MAP_SHARED:
@@ -215,57 +416,10 @@ diff --git a/mm/mmap.c b/mm/mmap.c
  			vm_flags |= VM_SHARED | VM_MAYSHARE;
  			break;
  		case MAP_PRIVATE:
-diff --git a/mm/page-writeback.c b/mm/page-writeback.c
---- a/mm/page-writeback.c
-+++ b/mm/page-writeback.c
-@@ -274,9 +274,9 @@ static void balance_dirty_pages(struct address_space *mapping)
- 		pdflush_operation(background_writeout, 0);
- }
- 
--void set_page_dirty_balance(struct page *page)
-+void set_page_dirty_balance(struct page *page, int page_mkwrite)
- {
--	if (set_page_dirty(page)) {
-+	if (set_page_dirty(page) || page_mkwrite) {
- 		struct address_space *mapping = page_mapping(page);
- 
- 		if (mapping)
-@@ -502,16 +502,6 @@ void throttle_vm_writeout(gfp_t gfp_mask)
- 	long background_thresh;
- 	long dirty_thresh;
- 
--	if ((gfp_mask & (__GFP_FS|__GFP_IO)) != (__GFP_FS|__GFP_IO)) {
--		/*
--		 * The caller might hold locks which can prevent IO completion
--		 * or progress in the filesystem.  So we cannot just sit here
--		 * waiting for IO to complete.
--		 */
--		congestion_wait(WRITE, HZ/10);
--		return;
--	}
--
-         for ( ; ; ) {
- 		get_dirty_limits(&background_thresh, &dirty_thresh, NULL);
- 
-@@ -525,6 +515,14 @@ void throttle_vm_writeout(gfp_t gfp_mask)
- 			global_page_state(NR_WRITEBACK) <= dirty_thresh)
-                         	break;
-                 congestion_wait(WRITE, HZ/10);
-+
-+		/*
-+		 * The caller might hold locks which can prevent IO completion
-+		 * or progress in the filesystem.  So we cannot just sit here
-+		 * waiting for IO to complete.
-+		 */
-+		if ((gfp_mask & (__GFP_FS|__GFP_IO)) != (__GFP_FS|__GFP_IO))
-+			break;
-         }
- }
- 
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
-@@ -331,7 +331,7 @@ static int destroy_compound_page(struct page *page, unsigned long order)
+@@ -263,7 +263,7 @@ static void destroy_compound_page(struct
  	for (i = 1; i < nr_pages; i++) {
  		struct page *p = page + i;
  
@@ -274,7 +428,7 @@ diff --git a/mm/page_alloc.c b/mm/page_alloc.c
  				(p->first_page != page)))
  			bad_page(page);
  		__ClearPageTail(p);
-@@ -2706,7 +2706,7 @@ static int zone_batchsize(struct zone *zone)
+@@ -2010,7 +2010,7 @@ static int __devinit zone_batchsize(stru
  	 * of pages of one half of the possible page colors
  	 * and the other with pages of the other colors.
  	 */
@@ -283,7 +437,7 @@ diff --git a/mm/page_alloc.c b/mm/page_alloc.c
  
  	return batch;
  }
-@@ -3376,6 +3376,21 @@ void *__init alloc_large_system_hash(const char *tablename,
+@@ -3376,6 +3376,21 @@ void *__init alloc_large_system_hash(con
  			for (order = 0; ((1UL << order) << PAGE_SHIFT) < size; order++)
  				;
  			table = (void*) __get_free_pages(GFP_ATOMIC, order);
@@ -305,5 +459,89 @@ diff --git a/mm/page_alloc.c b/mm/page_alloc.c
  		}
  	} while (!table && size > PAGE_SIZE && --log2qty);
  
+diff --git a/mm/page-writeback.c b/mm/page-writeback.c
+--- a/mm/page-writeback.c
++++ b/mm/page-writeback.c
+@@ -274,9 +274,9 @@ static void balance_dirty_pages(struct a
+ 		pdflush_operation(background_writeout, 0);
+ }
+ 
+-void set_page_dirty_balance(struct page *page)
++void set_page_dirty_balance(struct page *page, int page_mkwrite)
+ {
+-	if (set_page_dirty(page)) {
++	if (set_page_dirty(page) || page_mkwrite) {
+ 		struct address_space *mapping = page_mapping(page);
+ 
+ 		if (mapping)
+@@ -331,16 +331,6 @@ void throttle_vm_writeout(gfp_t gfp_mask
+ 	long background_thresh;
+ 	long dirty_thresh;
+ 
+-	if ((gfp_mask & (__GFP_FS|__GFP_IO)) != (__GFP_FS|__GFP_IO)) {
+-		/*
+-		 * The caller might hold locks which can prevent IO completion
+-		 * or progress in the filesystem.  So we cannot just sit here
+-		 * waiting for IO to complete.
+-		 */
+-		congestion_wait(WRITE, HZ/10);
+-		return;
+-	}
+-
+         for ( ; ; ) {
+ 		get_dirty_limits(&background_thresh, &dirty_thresh, NULL);
+ 
+@@ -354,6 +344,14 @@ void throttle_vm_writeout(gfp_t gfp_mask
+ 			global_page_state(NR_WRITEBACK) <= dirty_thresh)
+                         	break;
+                 congestion_wait(WRITE, HZ/10);
++
++		/*
++		 * The caller might hold locks which can prevent IO completion
++		 * or progress in the filesystem.  So we cannot just sit here
++		 * waiting for IO to complete.
++		 */
++		if ((gfp_mask & (__GFP_FS|__GFP_IO)) != (__GFP_FS|__GFP_IO))
++			break;
+         }
+ }
+ 
+diff --git a/mm/swap_state.c b/mm/swap_state.c
+--- a/mm/swap_state.c
++++ b/mm/swap_state.c
+@@ -74,6 +74,7 @@ static int __add_to_swap_cache(struct pa
+ {
+ 	int error;
+ 
++	BUG_ON(!PageLocked(page));
+ 	BUG_ON(PageSwapCache(page));
+ 	BUG_ON(PagePrivate(page));
+ 	error = radix_tree_preload(gfp_mask);
+@@ -83,7 +84,6 @@ static int __add_to_swap_cache(struct pa
+ 						entry.val, page);
+ 		if (!error) {
+ 			page_cache_get(page);
+-			SetPageLocked(page);
+ 			SetPageSwapCache(page);
+ 			set_page_private(page, entry.val);
+ 			total_swapcache_pages++;
+@@ -99,15 +99,18 @@ static int add_to_swap_cache(struct page
+ {
+ 	int error;
+ 
++	BUG_ON(PageLocked(page));
+ 	if (!swap_duplicate(entry)) {
+ 		INC_CACHE_INFO(noent_race);
+ 		return -ENOENT;
+ 	}
++	SetPageLocked(page);
+ 	error = __add_to_swap_cache(page, entry, GFP_KERNEL);
+ 	/*
+ 	 * Anon pages are already on the LRU, we don't run lru_cache_add here.
+ 	 */
+ 	if (error) {
++		ClearPageLocked(page);
+ 		swap_free(entry);
+ 		if (error == -EEXIST)
+ 			INC_CACHE_INFO(exist_race);
 -- 
-1.6.5.GIT
