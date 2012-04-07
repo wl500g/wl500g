@@ -104,7 +104,7 @@ diff --git a/include/linux/radix-tree.h b/include/linux/radix-tree.h
   * radix_tree_tagged is able to be called without locking or RCU.
   */
  
-@@ -125,13 +134,29 @@ do {									\
+@@ -125,13 +134,45 @@ do {									\
   *		removed.
   *
   * For use with radix_tree_lookup_slot().  Caller must hold tree at least read
@@ -120,6 +120,22 @@ diff --git a/include/linux/radix-tree.h b/include/linux/radix-tree.h
  {
 -	return radix_tree_direct_to_ptr(*pslot);
 +	return rcu_dereference(*pslot);
++}
++
++/**
++ * radix_tree_deref_slot_protected	- dereference a slot without RCU lock but with tree lock held
++ * @pslot:	pointer to slot, returned by radix_tree_lookup_slot
++ * Returns:	item that was stored in that slot with any direct pointer flag
++ *		removed.
++ *
++ * Similar to radix_tree_deref_slot but only used during migration when a pages
++ * mapping is being moved. The caller does not hold the RCU read lock but it
++ * must hold the tree lock to prevent parallel updates.
++ */
++static inline void *radix_tree_deref_slot_protected(void **pslot,
++							spinlock_t *treelock)
++{
++	return rcu_dereference_protected(*pslot, lockdep_is_held(treelock));
 +}
 +
 +/**
