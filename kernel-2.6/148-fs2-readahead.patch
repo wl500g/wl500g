@@ -241,14 +241,13 @@ diff --git a/mm/filemap.c b/mm/filemap.c
  			     struct file *filp,
  			     loff_t *ppos,
  			     read_descriptor_t *desc,
-@@ -901,12 +901,11 @@ void do_generic_mapping_read(struct addr
+@@ -901,11 +901,10 @@ void do_generic_mapping_read(struct addr
  	unsigned long prev_index;
  	unsigned int prev_offset;
  	int error;
 -	struct file_ra_state ra = *_ra;
  
  	index = *ppos >> PAGE_CACHE_SHIFT;
- 	next_index = index;
 -	prev_index = ra.prev_index;
 -	prev_offset = ra.prev_offset;
 +	prev_index = ra->prev_pos >> PAGE_CACHE_SHIFT;
@@ -955,9 +954,9 @@ diff --git a/mm/readahead.c b/mm/readahead.c
 -	if (ra->ahead_start == 0) {	 /* no ahead window yet */
 -		if (!make_ahead_window(mapping, filp, ra, 0))
 -			goto recheck;
-+		read_lock_irq(&mapping->tree_lock);
++		rcu_read_lock();
 +		start = radix_tree_next_hole(&mapping->page_tree, offset, max+1);
-+		read_unlock_irq(&mapping->tree_lock);
++		rcu_read_unlock();
 +
 +		if (!start || start - offset > max)
 +			return 0;
