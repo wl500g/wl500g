@@ -1,27 +1,11 @@
-From 6eca9004dfcb274a502438a591df5b197690afb1 Mon Sep 17 00:00:00 2001
-From: Jens Axboe <jens.axboe@oracle.com>
-Date: Thu, 25 Oct 2007 10:14:47 +0200
-Subject: [PATCH] [BLOCK] Fix bad sharing of tag busy list on queues with shared tag maps
 
-For the locking to work, only the tag map and tag bit map may be shared
-(incidentally, I was just explaining this to Nick yesterday, but I
-apparently didn't review the code well enough myself). But we also share
-the busy list!  The busy_list must be queue private, or we need a
-block_queue_tag covering lock as well.
+ 6eca9004dfcb274a502438a591df5b197690afb1 [BLOCK] Fix bad sharing of tag busy list on queues with shared tag maps
+ d85532ed284e63b5c56eaf2418f262822af60be4 block: fix requeue handling in blk_queue_invalidate_tags()
 
-So we have to move the busy_list to the queue. This'll work fine, and
-it'll actually also fix a problem with blk_queue_invalidate_tags() which
-will invalidate tags across all shared queues. This is a bit confusing,
-the low level driver should call it for each queue seperately since
-otherwise you cannot kill tags on just a single queue for eg a hard
-drive that stops responding. Since the function has no callers
-currently, it's not an issue.
-
-Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
 ---
- block/ll_rw_blk.c      |    8 +++-----
+ block/ll_rw_blk.c      |   23 ++++-------------------
  include/linux/blkdev.h |    2 +-
- 2 files changed, 4 insertions(+), 6 deletions(-)
+ 2 files changed, 5 insertions(+), 20 deletions(-)
 
 diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
 --- a/block/ll_rw_blk.c
@@ -59,19 +43,33 @@ diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
  	bqt->busy++;
  	return 0;
  }
-@@ -1143,11 +1142,10 @@ EXPORT_SYMBOL(blk_queue_start_tag);
+@@ -1189,24 +1189,10 @@ EXPORT_SYMBOL(blk_queue_start_tag);
   **/
  void blk_queue_invalidate_tags(request_queue_t *q)
  {
 -	struct blk_queue_tag *bqt = q->queue_tags;
  	struct list_head *tmp, *n;
- 	struct request *rq;
+-	struct request *rq;
  
 -	list_for_each_safe(tmp, n, &bqt->busy_list) {
-+	list_for_each_safe(tmp, n, &q->tag_busy_list) {
- 		rq = list_entry_rq(tmp);
+-		rq = list_entry_rq(tmp);
+-
+-		if (rq->tag == -1) {
+-			printk(KERN_ERR
+-			       "%s: bad tag found on list\n", __FUNCTION__);
+-			list_del_init(&rq->queuelist);
+-			rq->cmd_flags &= ~REQ_QUEUED;
+-		} else
+-			blk_queue_end_tag(q, rq);
+-
+-		rq->cmd_flags &= ~REQ_STARTED;
+-		__elv_add_request(q, rq, ELEVATOR_INSERT_BACK, 0);
+-	}
++	list_for_each_safe(tmp, n, &q->tag_busy_list)
++		blk_requeue_request(q, list_entry_rq(tmp));
+ }
  
- 		if (rq->tag == -1) {
+ EXPORT_SYMBOL(blk_queue_invalidate_tags);
 diff --git a/include/linux/blkdev.h b/include/linux/blkdev.h
 --- a/include/linux/blkdev.h
 +++ b/include/linux/blkdev.h
