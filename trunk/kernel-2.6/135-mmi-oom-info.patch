@@ -1,0 +1,130 @@
+mm: oom analysis: Show kernel stack usage in /proc/meminfo and OOM log output
+
+ 3701b0332330ca1add3e5d56513ef201ff7efdbb mm: show_free_areas(): display slab pages in two separate fields
+ c6a7f5728a1db45d30df55a01adc130b4ab0327c mm: oom analysis: Show kernel stack usage in /proc/meminfo and OOM log output
+
+---
+ drivers/base/node.c    |    3 +++
+ fs/proc/proc_misc.c    |    2 ++
+ include/linux/mmzone.h |    1 +
+ kernel/fork.c          |   11 +++++++++++
+ mm/page_alloc.c        |    7 ++++---
+ mm/vmstat.c            |    1 +
+ 6 files changed, 22 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/base/node.c b/drivers/base/node.c
+--- a/drivers/base/node.c
++++ b/drivers/base/node.c
+@@ -85,6 +85,7 @@ static ssize_t node_read_meminfo(struct sys_device * dev,
+ 		       "Node %d FilePages:    %8lu kB\n"
+ 		       "Node %d Mapped:       %8lu kB\n"
+ 		       "Node %d AnonPages:    %8lu kB\n"
++		       "Node %d KernelStack:  %8lu kB\n"
+ 		       "Node %d PageTables:   %8lu kB\n"
+ 		       "Node %d NFS_Unstable: %8lu kB\n"
+ 		       "Node %d Bounce:       %8lu kB\n"
+@@ -116,6 +117,8 @@ static ssize_t node_read_meminfo(struct sys_device * dev,
+ 		       nid, K(node_page_state(nid, NR_FILE_PAGES)),
+ 		       nid, K(node_page_state(nid, NR_FILE_MAPPED)),
+ 		       nid, K(node_page_state(nid, NR_ANON_PAGES)),
++		       nid, node_page_state(nid, NR_KERNEL_STACK) *
++				THREAD_SIZE / 1024,
+ 		       nid, K(node_page_state(nid, NR_PAGETABLE)),
+ 		       nid, K(node_page_state(nid, NR_UNSTABLE_NFS)),
+ 		       nid, K(node_page_state(nid, NR_BOUNCE)),
+diff --git a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
+--- a/fs/proc/proc_misc.c
++++ b/fs/proc/proc_misc.c
+@@ -84,6 +84,7 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
+ 		"Slab:         %8lu kB\n"
+ 		"SReclaimable: %8lu kB\n"
+ 		"SUnreclaim:   %8lu kB\n"
++		"KernelStack:  %8lu kB\n"
+ 		"PageTables:   %8lu kB\n"
+ 		"NFS_Unstable: %8lu kB\n"
+ 		"Bounce:       %8lu kB\n"
+@@ -128,6 +129,7 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
+ 				global_page_state(NR_SLAB_UNRECLAIMABLE)),
+ 		K(global_page_state(NR_SLAB_RECLAIMABLE)),
+ 		K(global_page_state(NR_SLAB_UNRECLAIMABLE)),
++		global_page_state(NR_KERNEL_STACK) * THREAD_SIZE / 1024,
+ 		K(global_page_state(NR_PAGETABLE)),
+ #ifdef CONFIG_QUICKLIST
+ 		K(quicklist_total_size()),
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -94,6 +94,7 @@ enum zone_stat_item {
+ 	NR_SLAB_RECLAIMABLE,
+ 	NR_SLAB_UNRECLAIMABLE,
+ 	NR_PAGETABLE,		/* used for pagetables */
++	NR_KERNEL_STACK,
+ 	NR_UNSTABLE_NFS,	/* NFS unstable pages */
+ 	NR_BOUNCE,
+ 	NR_VMSCAN_WRITE,
+diff --git a/kernel/fork.c b/kernel/fork.c
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -136,8 +136,16 @@ struct kmem_cache *vm_area_cachep;
+ /* SLAB cache for mm_struct structures (tsk->mm) */
+ static struct kmem_cache *mm_cachep;
+ 
++static void account_kernel_stack(struct thread_info *ti, int account)
++{
++	struct zone *zone = page_zone(virt_to_page(ti));
++
++	mod_zone_page_state(zone, NR_KERNEL_STACK, account);
++}
++
+ void free_task(struct task_struct *tsk)
+ {
++	account_kernel_stack(tsk->stack, -1);
+ 	free_thread_info(tsk->stack);
+ 	rt_mutex_debug_task_free(tsk);
+ 
+@@ -253,6 +261,9 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
+ 	tsk->btrace_seq = 0;
+ #endif
+ 	tsk->splice_pipe = NULL;
++
++	account_kernel_stack(ti, 1);
++
+ 	return tsk;
+ 
+ out:
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1554,15 +1554,16 @@ void show_free_areas(void)
+ 	}
+ 
+ 	printk("Active:%lu inactive:%lu dirty:%lu writeback:%lu unstable:%lu\n"
+-		" free:%lu slab:%lu mapped:%lu pagetables:%lu bounce:%lu\n",
++		" free:%lu slab_reclaimable:%lu slab_unreclaimable:%lu\n"
++		" mapped:%lu pagetables:%lu bounce:%lu\n",
+ 		global_page_state(NR_ACTIVE),
+ 		global_page_state(NR_INACTIVE),
+ 		global_page_state(NR_FILE_DIRTY),
+ 		global_page_state(NR_WRITEBACK),
+ 		global_page_state(NR_UNSTABLE_NFS),
+ 		global_page_state(NR_FREE_PAGES),
+-		global_page_state(NR_SLAB_RECLAIMABLE) +
+-			global_page_state(NR_SLAB_UNRECLAIMABLE),
++		global_page_state(NR_SLAB_RECLAIMABLE),
++		global_page_state(NR_SLAB_UNRECLAIMABLE),
+ 		global_page_state(NR_FILE_MAPPED),
+ 		global_page_state(NR_PAGETABLE),
+ 		global_page_state(NR_BOUNCE));
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+--- a/mm/vmstat.c
++++ b/mm/vmstat.c
+@@ -639,6 +639,7 @@ static const char * const vmstat_text[] = {
+ 	"nr_slab_reclaimable",
+ 	"nr_slab_unreclaimable",
+ 	"nr_page_table_pages",
++	"nr_kernel_stack",
+ 	"nr_unstable",
+ 	"nr_bounce",
+ 	"nr_vmscan_write",
+-- 
+1.7.7.6

@@ -3,9 +3,9 @@ radix-tree updates from 2.6.35.4
 Additionally commits:
  27d20fddc8af539464fc3ba499d6a830054c3bd6 radix-tree: fix RCU bug (2010.11.11)
  ac15ee691fe84cb46cbd2497ddcb10e246f7ee47 radix_tree: radix_tree_gang_lookup_tag_slot() may never return (2011.01.25)
- 6328650bb4d854a7dc1498d1c0048b838b0d340c radix_tree: exceptional entries and indices
- 3fa36acbced23c563345de3179dfe1775f15be5e radix_tree: clean away saw_unset_tag leftovers
- 78c1d78488a3c45685d993130c9f17102dc79a54 radix-tree: introduce bit-optimized iterator
+ 6328650bb4d854a7dc1498d1c0048b838b0d340c radix_tree: exceptional entries and indices (2011.08.03)
+ 3fa36acbced23c563345de3179dfe1775f15be5e radix_tree: clean away saw_unset_tag leftovers (2011.10.31)
+ 78c1d78488a3c45685d993130c9f17102dc79a54 radix-tree: introduce bit-optimized iterator (2012.03.28)
  cebbd29e1c2f7a969919f19f74583070840163d7 radix-tree: rewrite gang lookup using iterator
 
 ---
