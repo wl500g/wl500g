@@ -13,12 +13,14 @@ mm: BDI updates from upstream
  fc3ba692a4d19019387c5acaea63131f9eab05dd mm: Add NR_WRITEBACK_TEMP counter
  e4ad08fe64afca4ef79ecc4c624e6e871688da0d mm: bdi: add separate writeback accounting capability
  dd5656e59ca7b25fb60a22f9079905ed0da5ed0c mm: bdi: export bdi_writeout_inc()
+ 2c96ce9f2084c1e04d02883e622f74a537a63aea fs: remove bdev->bd_inode_backing_dev_info
 
 ---
  block/ll_rw_blk.c               |   13 +-
  drivers/base/node.c             |    2 
  drivers/block/rd.c              |   20 +++
  drivers/char/mem.c              |    5 
+ fs/block_dev.c                  |    1 
  fs/buffer.c                     |    2 
  fs/char_dev.c                   |    1 
  fs/configfs/configfs_internal.h |    2 
@@ -26,6 +28,7 @@ mm: BDI updates from upstream
  fs/configfs/mount.c             |    9 +
  fs/fuse/inode.c                 |    9 +
  fs/hugetlbfs/inode.c            |   11 +
+ fs/inode.c                      |    4 
  fs/nfs/client.c                 |    5 
  fs/nfs/write.c                  |    7 +
  fs/ocfs2/dlm/dlmfs.c            |   11 +
@@ -35,9 +38,10 @@ mm: BDI updates from upstream
  fs/sysfs/mount.c                |    4 
  fs/sysfs/sysfs.h                |    1 
  include/linux/backing-dev.h     |  173 ++++++++++++++++++++++++---
+ include/linux/fs.h              |    1 
  include/linux/mmzone.h          |    1 
  include/linux/page-flags.h      |   38 +-----
- include/linux/percpu_counter.h  |   11 +
+ include/linux/percpu_counter.h  |   16 ++
  include/linux/writeback.h       |    4 
  kernel/sysctl.c                 |    2 
  mm/backing-dev.c                |   44 ++++---
@@ -48,7 +52,7 @@ mm: BDI updates from upstream
  mm/swap_state.c                 |    2 
  mm/truncate.c                   |    2 
  mm/vmstat.c                     |    1 
- 33 files changed, 562 insertions(+), 121 deletions(-)
+ 36 files changed, 568 insertions(+), 126 deletions(-)
 
 diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
 --- a/block/ll_rw_blk.c
@@ -170,6 +174,17 @@ diff --git a/drivers/char/mem.c b/drivers/char/mem.c
  
  	if (register_chrdev(MEM_MAJOR,"mem",&memory_fops))
  		printk("unable to get major %d for memory devs\n", MEM_MAJOR);
+diff --git a/fs/block_dev.c b/fs/block_dev.c
+--- a/fs/block_dev.c
++++ b/fs/block_dev.c
+@@ -449,7 +449,6 @@ static void bdev_destroy_inode(struct in
+ {
+ 	struct bdev_inode *bdi = BDEV_I(inode);
+ 
+-	bdi->bdev.bd_inode_backing_dev_info = NULL;
+ 	kmem_cache_free(bdev_cachep, bdi);
+ }
+ 
 diff --git a/fs/buffer.c b/fs/buffer.c
 --- a/fs/buffer.c
 +++ b/fs/buffer.c
@@ -341,6 +356,20 @@ diff --git a/fs/hugetlbfs/inode.c b/fs/hugetlbfs/inode.c
  }
  
  module_init(init_hugetlbfs_fs)
+diff --git a/fs/inode.c b/fs/inode.c
+--- a/fs/inode.c
++++ b/fs/inode.c
+@@ -157,9 +157,7 @@ static struct inode *alloc_inode(struct 
+ 		if (sb->s_bdev) {
+ 			struct backing_dev_info *bdi;
+ 
+-			bdi = sb->s_bdev->bd_inode_backing_dev_info;
+-			if (!bdi)
+-				bdi = sb->s_bdev->bd_inode->i_mapping->backing_dev_info;
++			bdi = sb->s_bdev->bd_inode->i_mapping->backing_dev_info;
+ 			mapping->backing_dev_info = bdi;
+ 		}
+ 		inode->i_private = NULL;
 diff --git a/fs/nfs/client.c b/fs/nfs/client.c
 --- a/fs/nfs/client.c
 +++ b/fs/nfs/client.c
@@ -766,6 +795,17 @@ diff --git a/include/linux/backing-dev.h b/include/linux/backing-dev.h
 +}
  
  #endif		/* _LINUX_BACKING_DEV_H */
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -478,7 +478,6 @@ struct block_device {
+ 	int			bd_invalidated;
+ 	struct gendisk *	bd_disk;
+ 	struct list_head	bd_list;
+-	struct backing_dev_info *bd_inode_backing_dev_info;
+ 	/*
+ 	 * Private data.  You must have bd_claim'ed the block_device
+ 	 * to use this.  NOTE:  bd_claim allows an owner to claim
 diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
 --- a/include/linux/mmzone.h
 +++ b/include/linux/mmzone.h
@@ -854,7 +894,7 @@ diff --git a/include/linux/percpu_counter.h b/include/linux/percpu_counter.h
  	return percpu_counter_read_positive(fbc);
  }
  
-@@ -105,4 +105,9 @@ static inline void percpu_counter_dec(struct percpu_counter *fbc)
+@@ -111,4 +122,9 @@ static inline void percpu_counter_dec(st
  	percpu_counter_mod(fbc, -1);
  }
  
