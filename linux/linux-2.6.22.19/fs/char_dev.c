@@ -378,7 +378,6 @@ int chrdev_open(struct inode * inode, struct file * filp)
 		p = inode->i_cdev;
 		if (!p) {
 			inode->i_cdev = p = new;
-			inode->i_cindex = idx;
 			list_add(&inode->i_devices, &p->list);
 			new = NULL;
 		} else if (!cdev_get(p))
@@ -402,6 +401,18 @@ int chrdev_open(struct inode * inode, struct file * filp)
 	if (ret)
 		cdev_put(p);
 	return ret;
+}
+
+int cdev_index(struct inode *inode)
+{
+	int idx;
+	struct kobject *kobj;
+
+	kobj = kobj_lookup(cdev_map, inode->i_rdev, &idx);
+	if (!kobj)
+		return -1;
+	kobject_put(kobj);
+	return idx;
 }
 
 void cd_forget(struct inode *inode)
@@ -558,6 +569,7 @@ EXPORT_SYMBOL(cdev_init);
 EXPORT_SYMBOL(cdev_alloc);
 EXPORT_SYMBOL(cdev_del);
 EXPORT_SYMBOL(cdev_add);
+EXPORT_SYMBOL(cdev_index);
 EXPORT_SYMBOL(register_chrdev);
 EXPORT_SYMBOL(unregister_chrdev);
 EXPORT_SYMBOL(directly_mappable_cdev_bdi);
