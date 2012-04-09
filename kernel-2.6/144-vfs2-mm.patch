@@ -1,15 +1,110 @@
 vfs updates from upstream
 
  kernel.org commits
+ 787d2214c19bcc9b6ac48af0ce098277a801eded fs: introduce some page/buffer invariants
  f4c0a0fdfae708f7aa438c27a380ed4071294e11 vfs: export filemap_fdatawrite_range()
  d3bccb6f4b886060aa0f58976b92b77d951f5434 vfs: Introduce filemap_fdatawait_range
  91803b499cca2fe558abad709ce83dc896b80950 do_generic_file_read: clear page errors when issuing a fresh read of the page
+ bdb76ef5a4bc8676a81034a443f1eda450b4babb dio: fix cache invalidation after sync writes
 
 ---
- include/linux/fs.h |    4 ++++
- mm/filemap.c       |   29 ++++++++++++++++++++++++++++-
- 2 files changed, 32 insertions(+), 1 deletion(-)
+ fs/buffer.c         |   58 ++++++++++++++++++++++++++++++++++------------------
+ include/linux/fs.h  |    4 +++
+ mm/filemap.c        |   45 ++++++++++++++++++++++++++++++----------
+ mm/page-writeback.c |    1 
+ mm/truncate.c       |    2 -
+ 5 files changed, 79 insertions(+), 31 deletions(-)
 
+diff --git a/fs/buffer.c b/fs/buffer.c
+--- a/fs/buffer.c
++++ b/fs/buffer.c
+@@ -676,6 +676,41 @@ void mark_buffer_dirty_inode(struct buffer_head *bh, struct inode *inode)
+ EXPORT_SYMBOL(mark_buffer_dirty_inode);
+ 
+ /*
++ * Mark the page dirty, and set it dirty in the radix tree, and mark the inode
++ * dirty.
++ *
++ * If warn is true, then emit a warning if the page is not uptodate and has
++ * not been truncated.
++ */
++static int __set_page_dirty(struct page *page,
++		struct address_space *mapping, int warn)
++{
++	if (unlikely(!mapping))
++		return !TestSetPageDirty(page);
++
++	if (TestSetPageDirty(page))
++		return 0;
++
++	write_lock_irq(&mapping->tree_lock);
++	if (page->mapping) {	/* Race with truncate? */
++		WARN_ON_ONCE(warn && !PageUptodate(page));
++
++		if (mapping_cap_account_dirty(mapping)) {
++			__inc_zone_page_state(page, NR_FILE_DIRTY);
++			__inc_bdi_stat(mapping->backing_dev_info,
++					BDI_RECLAIMABLE);
++			task_io_account_write(PAGE_CACHE_SIZE);
++		}
++		radix_tree_tag_set(&mapping->page_tree,
++				page_index(page), PAGECACHE_TAG_DIRTY);
++	}
++	write_unlock_irq(&mapping->tree_lock);
++	__mark_inode_dirty(mapping->host, I_DIRTY_PAGES);
++
++	return 1;
++}
++
++/*
+  * Add a page to the dirty page list.
+  *
+  * It is a sad fact of life that this function is called from several places
+@@ -702,7 +735,7 @@ EXPORT_SYMBOL(mark_buffer_dirty_inode);
+  */
+ int __set_page_dirty_buffers(struct page *page)
+ {
+-	struct address_space * const mapping = page_mapping(page);
++	struct address_space *mapping = page_mapping(page);
+ 
+ 	if (unlikely(!mapping))
+ 		return !TestSetPageDirty(page);
+@@ -719,23 +752,7 @@ int __set_page_dirty_buffers(struct page *page)
+ 	}
+ 	spin_unlock(&mapping->private_lock);
+ 
+-	if (TestSetPageDirty(page))
+-		return 0;
+-
+-	write_lock_irq(&mapping->tree_lock);
+-	if (page->mapping) {	/* Race with truncate? */
+-		if (mapping_cap_account_dirty(mapping)) {
+-			__inc_zone_page_state(page, NR_FILE_DIRTY);
+-			__inc_bdi_stat(mapping->backing_dev_info,
+-					BDI_RECLAIMABLE);
+-			task_io_account_write(PAGE_CACHE_SIZE);
+-		}
+-		radix_tree_tag_set(&mapping->page_tree,
+-				page_index(page), PAGECACHE_TAG_DIRTY);
+-	}
+-	write_unlock_irq(&mapping->tree_lock);
+-	__mark_inode_dirty(mapping->host, I_DIRTY_PAGES);
+-	return 1;
++	return __set_page_dirty(page, mapping, 1);
+ }
+ EXPORT_SYMBOL(__set_page_dirty_buffers);
+ 
+@@ -1132,8 +1151,9 @@ __getblk_slow(struct block_device *bdev, sector_t block, int size)
+  */
+ void fastcall mark_buffer_dirty(struct buffer_head *bh)
+ {
++	WARN_ON_ONCE(!buffer_uptodate(bh));
+ 	if (!buffer_dirty(bh) && !test_set_buffer_dirty(bh))
+-		__set_page_dirty_nobuffers(bh->b_page);
++		__set_page_dirty(bh->b_page, page_mapping(bh->b_page), 0);
+ }
+ 
+ /*
 diff --git a/include/linux/fs.h b/include/linux/fs.h
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
@@ -87,6 +182,59 @@ diff --git a/mm/filemap.c b/mm/filemap.c
 +		ClearPageError(page);
  		/* Start the actual read. The read will unlock the page. */
  		error = mapping->a_ops->readpage(filp, page);
+ 
+@@ -2511,21 +2511,17 @@ generic_file_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 	}
+ 
+ 	retval = mapping->a_ops->direct_IO(rw, iocb, iov, offset, nr_segs);
+-	if (retval)
+-		goto out;
+ 
+ 	/*
+ 	 * Finally, try again to invalidate clean pages which might have been
+-	 * faulted in by get_user_pages() if the source of the write was an
+-	 * mmap()ed region of the file we're writing.  That's a pretty crazy
+-	 * thing to do, so we don't support it 100%.  If this invalidation
+-	 * fails and we have -EIOCBQUEUED we ignore the failure.
++	 * cached by non-direct readahead, or faulted in by get_user_pages()
++	 * if the source of the write was an mmap'ed region of the file
++	 * we're writing.  Either one is a pretty crazy thing to do,
++	 * so we don't support it 100%.  If this invalidation
++	 * fails, tough, the write still worked...
+ 	 */
+ 	if (rw == WRITE && mapping->nrpages) {
+-		int err = invalidate_inode_pages2_range(mapping,
+-					      offset >> PAGE_CACHE_SHIFT, end);
+-		if (err && retval >= 0)
+-			retval = err;
++		invalidate_inode_pages2_range(mapping, offset >> PAGE_CACHE_SHIFT, end);
+ 	}
+ out:
+ 	return retval;
+diff --git a/mm/page-writeback.c b/mm/page-writeback.c
+--- a/mm/page-writeback.c
++++ b/mm/page-writeback.c
+@@ -824,6 +824,7 @@ int __set_page_dirty_nobuffers(struct page *page)
+ 		mapping2 = page_mapping(page);
+ 		if (mapping2) { /* Race with truncate? */
+ 			BUG_ON(mapping2 != mapping);
++			WARN_ON_ONCE(!PagePrivate(page) && !PageUptodate(page));
+ 			if (mapping_cap_account_dirty(mapping)) {
+ 				__inc_zone_page_state(page, NR_FILE_DIRTY);
+ 				task_io_account_write(PAGE_CACHE_SIZE);
+diff --git a/mm/truncate.c b/mm/truncate.c
+--- a/mm/truncate.c
++++ b/mm/truncate.c
+@@ -100,9 +100,9 @@ truncate_complete_page(struct address_space *mapping, struct page *page)
+ 	if (PagePrivate(page))
+ 		do_invalidatepage(page, 0);
+ 
++	remove_from_page_cache(page);
+ 	ClearPageUptodate(page);
+ 	ClearPageMappedToDisk(page);
+-	remove_from_page_cache(page);
+ 	page_cache_release(page);	/* pagecache ref */
+ }
  
 -- 
 1.7.1.1
