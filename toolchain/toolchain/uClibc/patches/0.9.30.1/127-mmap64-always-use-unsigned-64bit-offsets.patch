@@ -20,9 +20,16 @@ Signed-off-by: Mike Frysinger <vapier@gentoo.org>
  1 files changed, 8 insertions(+), 7 deletions(-)
 
 diff --git a/libc/sysdeps/linux/common/mmap64.c b/libc/sysdeps/linux/common/mmap64.c
-index 4ef0397..3c97c84 100644
 --- a/libc/sysdeps/linux/common/mmap64.c
 +++ b/libc/sysdeps/linux/common/mmap64.c
+@@ -11,6 +11,7 @@
+ 
+ #include <errno.h>
+ #include <unistd.h>
++#include <stdint.h>
+ #include <sys/mman.h>
+ #include <sys/syscall.h>
+ #include <bits/uClibc_page.h>
 @@ -59,13 +59,14 @@ __ptr_t mmap64(__ptr_t addr, size_t len, int prot, int flags, int fd, __off64_t
  		return MAP_FAILED;
  	}
