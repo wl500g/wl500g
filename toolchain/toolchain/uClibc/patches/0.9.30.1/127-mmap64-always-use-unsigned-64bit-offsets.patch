@@ -1,0 +1,49 @@
+From 813ebc7c9fea58c9a45435ffaf3d86f6df7af0f2
+From: Mike Frysinger
+Date: Tue, 10 Apr 2012 00:27:04 -0400
+Subject: [PATCH] mmap64: always use unsigned 64bit offsets
+
+The current code will sometimes cast the offset to an unsigned long.
+On 32bit systems, that doesn't make much sense since we always know
+that the off64_t type is 64bits.  So drop the ifdef logic, cast it
+to an unsigned 64bit value, and then do the shift.
+
+If the system is 32bits, and the address is still too large, then
+there's really nothing we could do about it anyways, so the extra
+ifdef logic wasn't helping.
+
+URL: https://bugs.busybox.net/show_bug.cgi?id=3853
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+
+---
+ libc/sysdeps/linux/common/mmap64.c |   15 ++++++++-------
+ 1 files changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/libc/sysdeps/linux/common/mmap64.c b/libc/sysdeps/linux/common/mmap64.c
+index 4ef0397..3c97c84 100644
+--- a/libc/sysdeps/linux/common/mmap64.c
++++ b/libc/sysdeps/linux/common/mmap64.c
+@@ -59,13 +59,14 @@ __ptr_t mmap64(__ptr_t addr, size_t len, int prot, int flags, int fd, __off64_t
+ 		return MAP_FAILED;
+ 	}
+ 
+-#  ifdef __USE_FILE_OFFSET64
+-	return __syscall_mmap2(addr, len, prot, flags,
+-	                       fd, ((__u_quad_t) offset >> MMAP2_PAGE_SHIFT));
+-#  else
+-	return __syscall_mmap2(addr, len, prot, flags,
+-	                       fd, ((__u_long) offset >> MMAP2_PAGE_SHIFT));
+-#  endif
++	/*
++	 * We know __off64_t is always a signed 64-bit type, but need things
++	 * to be unsigned before doing the shift.  If it isn't, we might
++	 * sign extend things and pass in the wrong value.  So cast it to
++	 * an unsigned 64-bit value before doing the shift.
++	 */
++	return __syscall_mmap2(addr, len, prot, flags, fd,
++	                       ((uint64_t)offset >> MMAP2_PAGE_SHIFT));
+ }
+ 
+ # endif
+-- 
+1.7.8.5
