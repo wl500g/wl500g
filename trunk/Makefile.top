@@ -12,7 +12,9 @@
 # $Id$
 #
 
+ifneq ($(MAKECMDGOALS),.config)
 include .config
+endif
 
 RELEASE=1.9.2.7-rtn
 
@@ -91,7 +93,7 @@ export INSTALLDIR := $(PLATFORMDIR)/install
 export TARGETDIR := $(PLATFORMDIR)/target
 
 # Determine kernel version
-kver=$(subst ",,$(word 3, $(shell grep "UTS_RELEASE" $(LINUXDIR)/include/linux/$(1))))
+kver=$(subst ",,$(word 3, $(shell grep -s "UTS_RELEASE" $(LINUXDIR)/include/linux/$(1))))
 
 LINUX_KERNEL=$(call kver,version.h)
 ifeq ($(LINUX_KERNEL),)
@@ -310,7 +312,10 @@ ifeq ($(SQUASHFS3),y)
 	$(MAKE) -C $(LZMA4LIB) clean
 endif
 
-$(PLATFORMDIR)/vmlinuz: $(LINUXDIR)/vmlinux lzma
+$(PLATFORMDIR):
+	install -d $@
+
+$(PLATFORMDIR)/vmlinuz: $(LINUXDIR)/vmlinux lzma $(PLATFORMDIR)
 ifeq ($(CONFIG_LOADER),y)
 	$(MAKE) -C loader vmlinuz-install LZMA=$(LZMADIR)/lzma DESTDIR=$(PLATFORMDIR)
 else
