@@ -2,6 +2,8 @@
 #define _LINUX_IPC_H
 
 #include <linux/types.h>
+#include <linux/idr.h>
+#include <linux/rwsem.h>
 
 #define IPC_PRIVATE ((__kernel_key_t) 0)  
 
@@ -60,6 +62,7 @@ struct kern_ipc_perm
 {
 	spinlock_t	lock;
 	int		deleted;
+	int		id;
 	key_t		key;
 	uid_t		uid;
 	gid_t		gid;
@@ -70,10 +73,17 @@ struct kern_ipc_perm
 	void		*security;
 };
 
-struct ipc_ids;
+struct ipc_ids {
+	int in_use;
+	unsigned short seq;
+	unsigned short seq_max;
+	struct rw_semaphore rw_mutex;
+	struct idr ipcs_idr;
+};
+
 struct ipc_namespace {
 	struct kref	kref;
-	struct ipc_ids	*ids[3];
+	struct ipc_ids	ids[3];
 
 	int		sem_ctls[4];
 	int		used_sems;
@@ -106,6 +116,9 @@ static inline struct ipc_namespace *copy_ipcs(unsigned long flags,
 #ifdef CONFIG_IPC_NS
 extern void free_ipc_ns(struct kref *kref);
 #endif
+extern void free_ipcs(struct ipc_namespace *ns, struct ipc_ids *ids,
+		      void (*free)(struct ipc_namespace *,
+				   struct kern_ipc_perm *));
 
 static inline struct ipc_namespace *get_ipc_ns(struct ipc_namespace *ns)
 {
