@@ -1,11 +1,44 @@
 netlink: Fixes from upstream
 
  974c37e9d88c3e5a3e56eb98cb9c84232eb2bdcb netlink: fix for too early rmmod
+ 7ee015e0fa3c856416e9477aac4b850ec6f09017 [NET]: cleanup 3rd argument in netlink_sendskb
 
 ---
- net/netlink/af_netlink.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
 
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -194,7 +194,7 @@ struct sock *netlink_getsockbyfilp(struct file *filp);
+ int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock,
+ 		long timeo, struct sock *ssk);
+ void netlink_detachskb(struct sock *sk, struct sk_buff *skb);
+-int netlink_sendskb(struct sock *sk, struct sk_buff *skb, int protocol);
++int netlink_sendskb(struct sock *sk, struct sk_buff *skb);
+ 
+ /*
+  *	skb should fit one page. This choice is good for headerless malloc.
+diff --git a/ipc/mqueue.c b/ipc/mqueue.c
+--- a/ipc/mqueue.c
++++ b/ipc/mqueue.c
+@@ -521,8 +521,7 @@ static void __do_notify(struct mqueue_inode_info *info)
+ 			break;
+ 		case SIGEV_THREAD:
+ 			set_cookie(info->notify_cookie, NOTIFY_WOKENUP);
+-			netlink_sendskb(info->notify_sock,
+-					info->notify_cookie, 0);
++			netlink_sendskb(info->notify_sock, info->notify_cookie);
+ 			break;
+ 		}
+ 		/* after notification unregisters process */
+@@ -568,7 +567,7 @@ static void remove_notification(struct mqueue_inode_info *info)
+ 	if (info->notify_owner != NULL &&
+ 	    info->notify.sigev_notify == SIGEV_THREAD) {
+ 		set_cookie(info->notify_cookie, NOTIFY_REMOVED);
+-		netlink_sendskb(info->notify_sock, info->notify_cookie, 0);
++		netlink_sendskb(info->notify_sock, info->notify_cookie);
+ 	}
+ 	put_pid(info->notify_owner);
+ 	info->notify_owner = NULL;
 diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
 --- a/net/netlink/af_netlink.c
 +++ b/net/netlink/af_netlink.c
@@ -24,5 +57,23 @@ diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
  	if ((err = __netlink_create(sock, cb_mutex, protocol)) < 0)
  		goto out_module;
  
+@@ -791,7 +791,7 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock,
+ 	return 0;
+ }
+ 
+-int netlink_sendskb(struct sock *sk, struct sk_buff *skb, int protocol)
++int netlink_sendskb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int len = skb->len;
+ 
+@@ -853,7 +853,7 @@ retry:
+ 	if (err)
+ 		return err;
+ 
+-	return netlink_sendskb(sk, skb, ssk->sk_protocol);
++	return netlink_sendskb(sk, skb);
+ }
+ 
+ int netlink_has_listeners(struct sock *sk, unsigned int group)
 -- 
 1.7.6.5
