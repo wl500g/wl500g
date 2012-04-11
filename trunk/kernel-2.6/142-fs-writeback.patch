@@ -24,6 +24,7 @@ writeback: Updates from upstream
  eccb95cee4f0d56faa46ef22fb94dd4a3578d3eb vfs: fix lock inversion in drop_pagecache_sb()
  af065b8a19041554196971d8b6ae1459798d3b14 vfs: skip inodes without pages to free in drop_pagecache_sb()
  ae8547b0a9e5d718ce272ddc48f91703a0f52a0b VFS: move inode_lock into sync_sb_inodes
+ 7d455e0030eeab820773e7786605be4d9e56a04b fs/inode.c: properly init address_space->writeback_index
  38f21977663126fef53f5585e7f1653d8ebe55c4 fs: sync_sb_inodes fix
  856bf4d717feb8c55d4e2f817b71ebb70cfbc67b fs: sys_sync fix
  4f5a99d64c17470a784a6c68064207d82e3e74a5 fs: remove WB_SYNC_HOLD
@@ -32,30 +33,45 @@ writeback: Updates from upstream
  704503d836042d4a4c7685b7036e7de0418fbc0f mm: fix proc_dointvec_userhz_jiffies "breakage"
  b6fac63cc1f52ec27f29fe6c6c8494a2ffac33fd vfs: skip I_CLEAR state inodes
  d2caa3c549c74d6476e2c29e13bd4d0e7d21c7fe writeback: guard against jiffies wraparound on inode->dirtied_when checks (try #3)
+ 01c031945f2755c7afaaf456088543312f2b72ea cleanup __writeback_single_inode
+ 1fe06ad89255c211fe100d7f690d10b161398df8 writeback: get rid of wbc->for_writepages
 
 ---
- fs/dquot.c                  |   10 -
+ fs/afs/write.c              |    1 
+ fs/dquot.c                  |   10 
  fs/drop_caches.c            |   18 +
- fs/fs-writeback.c           |  403 ++++++++++++++++++++++++++++----------------
+ fs/fs-writeback.c           |  479 +++++++++++++++++++++++++++-----------------
  fs/hugetlbfs/inode.c        |    2 
- fs/inode.c                  |   33 ++-
+ fs/inode.c                  |   34 ++-
  fs/inotify.c                |   16 -
  fs/jfs/jfs_txnmgr.c         |    9 
+ fs/nfs/write.c              |    1 
  fs/ntfs/super.c             |    4 
  fs/super.c                  |    1 
  include/linux/backing-dev.h |    2 
- include/linux/fs.h          |   77 +++++++-
+ include/linux/fs.h          |   77 ++++++-
  include/linux/mm.h          |    2 
- include/linux/writeback.h   |   25 ++
+ include/linux/writeback.h   |   26 +-
  kernel/sysctl.c             |    2 
- mm/page-writeback.c         |   43 ++--
- mm/truncate.c               |   38 ++--
- 16 files changed, 461 insertions(+), 224 deletions(-)
+ mm/page-writeback.c         |   45 ++--
+ mm/truncate.c               |   38 ++-
+ 18 files changed, 500 insertions(+), 267 deletions(-)
 
+diff --git a/fs/afs/write.c b/fs/afs/write.c
+--- a/fs/afs/write.c
++++ b/fs/afs/write.c
+@@ -712,7 +712,6 @@ int afs_writeback_all(struct afs_vnode *
+ 		.bdi		= mapping->backing_dev_info,
+ 		.sync_mode	= WB_SYNC_ALL,
+ 		.nr_to_write	= LONG_MAX,
+-		.for_writepages = 1,
+ 		.range_cyclic	= 1,
+ 	};
+ 	int ret;
 diff --git a/fs/dquot.c b/fs/dquot.c
 --- a/fs/dquot.c
 +++ b/fs/dquot.c
-@@ -692,12 +692,12 @@ static void add_dquot_ref(struct super_b
+@@ -700,12 +700,12 @@ static void add_dquot_ref(struct super_b
  restart:
  	spin_lock(&inode_lock);
  	list_for_each_entry(inode, &sb->s_inodes, i_sb_list) {
@@ -70,7 +86,7 @@ diff --git a/fs/dquot.c b/fs/dquot.c
  
  		__iget(inode);
  		spin_unlock(&inode_lock);
-@@ -767,6 +767,12 @@ static void remove_dquot_ref(struct supe
+@@ -775,6 +775,12 @@ static void remove_dquot_ref(struct supe
  
  	spin_lock(&inode_lock);
  	list_for_each_entry(inode, &sb->s_inodes, i_sb_list) {
@@ -198,10 +214,11 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  		 * reposition it (that would break s_dirty time-ordering).
  		 */
  		if (!was_dirty) {
-@@ -140,6 +179,97 @@ static int write_inode(struct inode *ino
+@@ -140,7 +179,117 @@ static int write_inode(struct inode *ino
  }
  
  /*
+- * Write a single inode's dirty pages and inode data out to disk.
 + * Redirty an inode: set its when-it-was dirtied timestamp and move it to the
 + * furthest end of its superblock's dirty-inode list.
 + *
@@ -293,18 +310,69 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
 +EXPORT_SYMBOL(sb_has_dirty_inodes);
 +
 +/*
-  * Write a single inode's dirty pages and inode data out to disk.
++ * Wait for writeback on an inode to complete.
++ */
++static void inode_wait_for_writeback(struct inode *inode)
++{
++	DEFINE_WAIT_BIT(wq, &inode->i_state, __I_SYNC);
++	wait_queue_head_t *wqh;
++
++	wqh = bit_waitqueue(&inode->i_state, __I_SYNC);
++	do {
++		spin_unlock(&inode_lock);
++		__wait_on_bit(wqh, &wq, inode_wait, TASK_UNINTERRUPTIBLE);
++		spin_lock(&inode_lock);
++	} while (inode->i_state & I_SYNC);
++}
++
++/*
++ * Write out an inode's dirty pages.  Called under inode_lock.  Either the
++ * caller has ref on the inode (either via __iget or via syscall against an fd)
++ * or the inode has I_WILL_FREE set (via generic_forget_inode)
++ *
   * If `wait' is set, wait on the writeout.
   *
-@@ -154,15 +284,15 @@ __sync_single_inode(struct inode *inode,
+  * The whole writeout design is quite complex and fragile.  We want to avoid
+@@ -150,19 +299,44 @@ static int write_inode(struct inode *ino
+  * Called under inode_lock.
+  */
+ static int
+-__sync_single_inode(struct inode *inode, struct writeback_control *wbc)
++writeback_single_inode(struct inode *inode, struct writeback_control *wbc)
  {
- 	unsigned dirty;
+-	unsigned dirty;
  	struct address_space *mapping = inode->i_mapping;
 -	struct super_block *sb = inode->i_sb;
  	int wait = wbc->sync_mode == WB_SYNC_ALL;
++	unsigned dirty;
  	int ret;
  
 -	BUG_ON(inode->i_state & I_LOCK);
++	if (!atomic_read(&inode->i_count))
++		WARN_ON(!(inode->i_state & (I_WILL_FREE|I_FREEING)));
++	else
++		WARN_ON(inode->i_state & I_WILL_FREE);
++
++	if (inode->i_state & I_SYNC) {
++		/*
++		 * If this inode is locked for writeback and we are not doing
++		 * writeback-for-data-integrity, move it to s_more_io so that
++		 * writeback can proceed with the other inodes on s_io.
++		 *
++		 * We'll have another go at writing back this inode when we
++		 * completed a full scan of s_io.
++		 */
++		if (!wait) {
++			requeue_io(inode);
++			return 0;
++		}
++
++		/*
++		 * It's a data-integrity sync.  We must wait.
++		 */
++		inode_wait_for_writeback(inode);
++	}
++
 +	BUG_ON(inode->i_state & I_SYNC);
 +	WARN_ON(inode->i_state & I_NEW);
  
@@ -316,7 +384,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  	inode->i_state &= ~I_DIRTY;
  
  	spin_unlock(&inode_lock);
-@@ -183,24 +313,43 @@ __sync_single_inode(struct inode *inode,
+@@ -183,24 +357,43 @@ __sync_single_inode(struct inode *inode,
  	}
  
  	spin_lock(&inode_lock);
@@ -367,7 +435,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  			} else {
  				/*
  				 * Otherwise fully redirty the inode so that
-@@ -210,15 +359,14 @@ __sync_single_inode(struct inode *inode,
+@@ -210,15 +403,14 @@ __sync_single_inode(struct inode *inode,
  				 * all the other files.
  				 */
  				inode->i_state |= I_DIRTY_PAGES;
@@ -385,7 +453,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  		} else if (atomic_read(&inode->i_count)) {
  			/*
  			 * The inode is clean, inuse
-@@ -231,7 +379,7 @@ __sync_single_inode(struct inode *inode,
+@@ -231,59 +423,11 @@ __sync_single_inode(struct inode *inode,
  			list_move(&inode->i_list, &inode_unused);
  		}
  	}
@@ -394,54 +462,58 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  	return ret;
  }
  
-@@ -250,35 +398,31 @@ __writeback_single_inode(struct inode *i
- 	else
- 		WARN_ON(inode->i_state & I_WILL_FREE);
- 
+ /*
+- * Write out an inode's dirty pages.  Called under inode_lock.  Either the
+- * caller has ref on the inode (either via __iget or via syscall against an fd)
+- * or the inode has I_WILL_FREE set (via generic_forget_inode)
+- */
+-static int
+-__writeback_single_inode(struct inode *inode, struct writeback_control *wbc)
+-{
+-	wait_queue_head_t *wqh;
+-
+-	if (!atomic_read(&inode->i_count))
+-		WARN_ON(!(inode->i_state & (I_WILL_FREE|I_FREEING)));
+-	else
+-		WARN_ON(inode->i_state & I_WILL_FREE);
+-
 -	if ((wbc->sync_mode != WB_SYNC_ALL) && (inode->i_state & I_LOCK)) {
 -		struct address_space *mapping = inode->i_mapping;
 -		int ret;
 -
 -		list_move(&inode->i_list, &inode->i_sb->s_dirty);
 -
-+	if ((wbc->sync_mode != WB_SYNC_ALL) && (inode->i_state & I_SYNC)) {
- 		/*
+-		/*
 -		 * Even if we don't actually write the inode itself here,
 -		 * we can at least start some of the data writeout..
-+		 * We're skipping this inode because it's locked, and we're not
-+		 * doing writeback-for-data-integrity.  Move it to s_more_io so
-+		 * that writeback can proceed with the other inodes on s_io.
-+		 * We'll have another go at writing back this inode when we
-+		 * completed a full scan of s_io.
- 		 */
+-		 */
 -		spin_unlock(&inode_lock);
 -		ret = do_writepages(mapping, wbc);
 -		spin_lock(&inode_lock);
 -		return ret;
-+		requeue_io(inode);
-+		return 0;
- 	}
- 
- 	/*
- 	 * It's a data-integrity sync.  We must wait.
- 	 */
+-	}
+-
+-	/*
+-	 * It's a data-integrity sync.  We must wait.
+-	 */
 -	if (inode->i_state & I_LOCK) {
 -		DEFINE_WAIT_BIT(wq, &inode->i_state, __I_LOCK);
-+	if (inode->i_state & I_SYNC) {
-+		DEFINE_WAIT_BIT(wq, &inode->i_state, __I_SYNC);
- 
+-
 -		wqh = bit_waitqueue(&inode->i_state, __I_LOCK);
-+		wqh = bit_waitqueue(&inode->i_state, __I_SYNC);
- 		do {
- 			spin_unlock(&inode_lock);
- 			__wait_on_bit(wqh, &wq, inode_wait,
- 							TASK_UNINTERRUPTIBLE);
- 			spin_lock(&inode_lock);
+-		do {
+-			spin_unlock(&inode_lock);
+-			__wait_on_bit(wqh, &wq, inode_wait,
+-							TASK_UNINTERRUPTIBLE);
+-			spin_lock(&inode_lock);
 -		} while (inode->i_state & I_LOCK);
-+		} while (inode->i_state & I_SYNC);
- 	}
- 	return __sync_single_inode(inode, wbc);
- }
+-	}
+-	return __sync_single_inode(inode, wbc);
+-}
+-
+-/*
+  * Write out a superblock's list of dirty inodes.  A wait will be performed
+  * upon no inodes, all inodes or the final one, depending upon sync_mode.
+  *
 @@ -293,11 +437,6 @@ __writeback_single_inode(struct inode *i
   * If we're a pdlfush thread, then implement pdflush collision avoidance
   * against the entire list.
@@ -524,14 +596,16 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  			break;
  
  		/* Is another pdflush already flushing this queue? */
-@@ -377,10 +521,6 @@ sync_sb_inodes(struct super_block *sb, s
+@@ -376,11 +520,7 @@ sync_sb_inodes(struct super_block *sb, s
+ 		BUG_ON(inode->i_state & I_FREEING);
  		__iget(inode);
  		pages_skipped = wbc->pages_skipped;
- 		__writeback_single_inode(inode, wbc);
+-		__writeback_single_inode(inode, wbc);
 -		if (wbc->sync_mode == WB_SYNC_HOLD) {
 -			inode->dirtied_when = jiffies;
 -			list_move(&inode->i_list, &sb->s_dirty);
 -		}
++		writeback_single_inode(inode, wbc);
  		if (current_is_pdflush())
  			writeback_release(bdi);
  		if (wbc->pages_skipped != pages_skipped) {
@@ -724,8 +798,12 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  		.range_start = 0,
  		.range_end = LLONG_MAX,
  	};
-@@ -583,7 +747,7 @@ int write_inode_now(struct inode *inode,
- 	ret = __writeback_single_inode(inode, &wbc);
+@@ -580,10 +744,10 @@ int write_inode_now(struct inode *inode,
+ 
+ 	might_sleep();
+ 	spin_lock(&inode_lock);
+-	ret = __writeback_single_inode(inode, &wbc);
++	ret = writeback_single_inode(inode, &wbc);
  	spin_unlock(&inode_lock);
  	if (sync)
 -		wait_on_inode(inode);
@@ -733,6 +811,15 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  	return ret;
  }
  EXPORT_SYMBOL(write_inode_now);
+@@ -604,7 +768,7 @@ int sync_inode(struct inode *inode, stru
+ 	int ret;
+ 
+ 	spin_lock(&inode_lock);
+-	ret = __writeback_single_inode(inode, wbc);
++	ret = writeback_single_inode(inode, wbc);
+ 	spin_unlock(&inode_lock);
+ 	return ret;
+ }
 @@ -658,7 +822,7 @@ int generic_osync_inode(struct inode *in
  			err = err2;
  	}
@@ -789,7 +876,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
 diff --git a/fs/hugetlbfs/inode.c b/fs/hugetlbfs/inode.c
 --- a/fs/hugetlbfs/inode.c
 +++ b/fs/hugetlbfs/inode.c
-@@ -233,7 +233,7 @@ static void hugetlbfs_forget_inode(struc
+@@ -237,7 +237,7 @@ static void hugetlbfs_forget_inode(struc
  	struct super_block *sb = inode->i_sb;
  
  	if (!hlist_unhashed(&inode->i_hash)) {
@@ -817,7 +904,15 @@ diff --git a/fs/inode.c b/fs/inode.c
  static struct inode *alloc_inode(struct super_block *sb)
  {
  	static const struct address_space_operations empty_aops;
-@@ -226,7 +235,7 @@ void __iget(struct inode * inode)
+@@ -148,6 +157,7 @@ static struct inode *alloc_inode(struct 
+ 		mapping_set_gfp_mask(mapping, GFP_HIGHUSER_PAGECACHE);
+ 		mapping->assoc_mapping = NULL;
+ 		mapping->backing_dev_info = &default_backing_dev_info;
++		mapping->writeback_index = 0;
+ 
+ 		/*
+ 		 * If the block_device provides a backing_dev_info for client
+@@ -224,7 +234,7 @@ void __iget(struct inode * inode)
  		return;
  	}
  	atomic_inc(&inode->i_count);
@@ -826,7 +921,7 @@ diff --git a/fs/inode.c b/fs/inode.c
  		list_move(&inode->i_list, &inode_in_use);
  	inodes_stat.nr_unused--;
  }
-@@ -247,7 +256,7 @@ void clear_inode(struct inode *inode)
+@@ -245,7 +255,7 @@ void clear_inode(struct inode *inode)
  	BUG_ON(inode->i_data.nrpages);
  	BUG_ON(!(inode->i_state & I_FREEING));
  	BUG_ON(inode->i_state & I_CLEAR);
@@ -835,7 +930,7 @@ diff --git a/fs/inode.c b/fs/inode.c
  	DQUOT_DROP(inode);
  	if (inode->i_sb->s_op->clear_inode)
  		inode->i_sb->s_op->clear_inode(inode);
-@@ -320,9 +329,12 @@ static int invalidate_list(struct list_h
+@@ -318,9 +328,12 @@ static int invalidate_list(struct list_h
  		if (tmp == head)
  			break;
  		inode = list_entry(tmp, struct inode, i_sb_list);
@@ -848,7 +943,7 @@ diff --git a/fs/inode.c b/fs/inode.c
  			inode->i_state |= I_FREEING;
  			count++;
  			continue;
-@@ -424,6 +436,7 @@ static void prune_icache(int nr_to_scan)
+@@ -422,6 +435,7 @@ static void prune_icache(int nr_to_scan)
  				continue;
  		}
  		list_move(&inode->i_list, &freeable);
@@ -856,7 +951,7 @@ diff --git a/fs/inode.c b/fs/inode.c
  		inode->i_state |= I_FREEING;
  		nr_pruned++;
  	}
-@@ -564,6 +577,7 @@ void unlock_new_inode(struct inode *inod
+@@ -562,6 +576,7 @@ void unlock_new_inode(struct inode *inod
  	 * just created it (so there can be no old holders
  	 * that haven't tested I_LOCK).
  	 */
@@ -864,7 +959,7 @@ diff --git a/fs/inode.c b/fs/inode.c
  	inode->i_state &= ~(I_LOCK|I_NEW);
  	wake_up_inode(inode);
  }
-@@ -1014,6 +1028,7 @@ void generic_delete_inode(struct inode *
+@@ -1012,6 +1027,7 @@ void generic_delete_inode(struct inode *
  
  	list_del_init(&inode->i_list);
  	list_del_init(&inode->i_sb_list);
@@ -872,7 +967,7 @@ diff --git a/fs/inode.c b/fs/inode.c
  	inode->i_state |= I_FREEING;
  	inodes_stat.nr_inodes--;
  	spin_unlock(&inode_lock);
-@@ -1048,23 +1063,26 @@ static void generic_forget_inode(struct 
+@@ -1046,23 +1062,26 @@ static void generic_forget_inode(struct 
  	struct super_block *sb = inode->i_sb;
  
  	if (!hlist_unhashed(&inode->i_hash)) {
@@ -900,7 +995,7 @@ diff --git a/fs/inode.c b/fs/inode.c
  	inode->i_state |= I_FREEING;
  	inodes_stat.nr_inodes--;
  	spin_unlock(&inode_lock);
-@@ -1291,15 +1309,6 @@ static void __wait_on_freeing_inode(stru
+@@ -1294,15 +1313,6 @@ static void __wait_on_freeing_inode(stru
  	spin_lock(&inode_lock);
  }
  
@@ -968,10 +1063,21 @@ diff --git a/fs/jfs/jfs_txnmgr.c b/fs/jfs/jfs_txnmgr.c
  			tblk->xflag &= ~COMMIT_LAZY;
  	}
  
+diff --git a/fs/nfs/write.c b/fs/nfs/write.c
+--- a/fs/nfs/write.c
++++ b/fs/nfs/write.c
+@@ -1369,7 +1369,6 @@ static int nfs_write_mapping(struct addr
+ 		.bdi = mapping->backing_dev_info,
+ 		.sync_mode = WB_SYNC_NONE,
+ 		.nr_to_write = LONG_MAX,
+-		.for_writepages = 1,
+ 		.range_cyclic = 1,
+ 	};
+ 	int ret;
 diff --git a/fs/ntfs/super.c b/fs/ntfs/super.c
 --- a/fs/ntfs/super.c
 +++ b/fs/ntfs/super.c
-@@ -2381,14 +2381,14 @@ static void ntfs_put_super(struct super_
+@@ -2382,14 +2382,14 @@ static void ntfs_put_super(struct super_
  	 */
  	ntfs_commit_inode(vol->mft_ino);
  	write_inode_now(vol->mft_ino, 1);
@@ -1015,7 +1121,7 @@ diff --git a/include/linux/backing-dev.h b/include/linux/backing-dev.h
 diff --git a/include/linux/fs.h b/include/linux/fs.h
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -904,7 +904,6 @@ extern int send_sigurg(struct fown_struc
+@@ -984,7 +984,6 @@ extern int send_sigurg(struct fown_struc
  extern struct list_head super_blocks;
  extern spinlock_t sb_lock;
  
@@ -1023,7 +1129,7 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  #define S_BIAS (1<<30)
  struct super_block {
  	struct list_head	s_list;		/* Keep this first */
-@@ -924,7 +923,6 @@ struct super_block {
+@@ -1004,7 +1003,6 @@ struct super_block {
  	struct rw_semaphore	s_umount;
  	struct mutex		s_lock;
  	int			s_count;
@@ -1031,7 +1137,7 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  	int			s_need_sync_fs;
  	atomic_t		s_active;
  #ifdef CONFIG_SECURITY
-@@ -935,6 +933,7 @@ struct super_block {
+@@ -1015,6 +1013,7 @@ struct super_block {
  	struct list_head	s_inodes;	/* all inodes */
  	struct list_head	s_dirty;	/* dirty inodes */
  	struct list_head	s_io;		/* parked for writeback */
@@ -1039,7 +1145,7 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  	struct hlist_head	s_anon;		/* anonymous dentries for (nfs) exporting */
  	struct list_head	s_files;
  
-@@ -1188,16 +1187,68 @@ struct super_operations {
+@@ -1249,16 +1248,68 @@ struct super_operations {
  #endif
  };
  
@@ -1117,7 +1223,7 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  
  #define I_DIRTY (I_DIRTY_SYNC | I_DIRTY_DATASYNC | I_DIRTY_PAGES)
  
-@@ -1612,6 +1663,9 @@ extern int __invalidate_device(struct bl
+@@ -1575,6 +1626,9 @@ extern int __invalidate_device(struct bl
  extern int invalidate_partition(struct gendisk *, int);
  #endif
  extern int invalidate_inodes(struct super_block *);
@@ -1127,7 +1233,7 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  unsigned long invalidate_mapping_pages(struct address_space *mapping,
  					pgoff_t start, pgoff_t end);
  
-@@ -1748,6 +1802,7 @@ extern int bdev_read_only(struct block_d
+@@ -1715,6 +1769,7 @@ extern int bdev_read_only(struct block_d
  extern int set_blocksize(struct block_device *, int);
  extern int sb_set_blocksize(struct super_block *, int);
  extern int sb_min_blocksize(struct super_block *, int);
@@ -1138,7 +1244,7 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
 diff --git a/include/linux/mm.h b/include/linux/mm.h
 --- a/include/linux/mm.h
 +++ b/include/linux/mm.h
-@@ -1232,8 +1232,6 @@ int drop_caches_sysctl_handler(struct ct
+@@ -1231,8 +1231,6 @@ int drop_caches_sysctl_handler(struct ct
  					void __user *, size_t *, loff_t *);
  unsigned long shrink_slab(unsigned long scanned, gfp_t gfp_mask,
  			unsigned long lru_pages);
@@ -1158,9 +1264,11 @@ diff --git a/include/linux/writeback.h b/include/linux/writeback.h
  };
  
  /*
-@@ -61,15 +60,22 @@ struct writeback_control {
+@@ -59,17 +58,23 @@ struct writeback_control {
+ 	unsigned encountered_congestion:1; /* An output: a queue is full */
+ 	unsigned for_kupdate:1;		/* A kupdate writeback */
  	unsigned for_reclaim:1;		/* Invoked from the page allocator */
- 	unsigned for_writepages:1;	/* This is a writepages() call */
+-	unsigned for_writepages:1;	/* This is a writepages() call */
  	unsigned range_cyclic:1;	/* range_start is cyclic */
 -
 -	void *fs_private;		/* For use by ->writepages() */
@@ -1184,7 +1292,7 @@ diff --git a/include/linux/writeback.h b/include/linux/writeback.h
  int inode_wait(void *);
  void sync_inodes_sb(struct super_block *, int wait);
  void sync_inodes(int wait);
-@@ -81,6 +87,13 @@ static inline void wait_on_inode(struct 
+@@ -81,6 +86,13 @@ static inline void wait_on_inode(struct 
  	wait_on_bit(&inode->i_state, __I_LOCK, inode_wait,
  							TASK_UNINTERRUPTIBLE);
  }
@@ -1198,7 +1306,7 @@ diff --git a/include/linux/writeback.h b/include/linux/writeback.h
  
  /*
   * mm/page-writeback.c
-@@ -93,8 +106,8 @@ void throttle_vm_writeout(gfp_t gfp_mask
+@@ -93,8 +105,8 @@ void throttle_vm_writeout(gfp_t gfp_mask
  /* These are exported to sysctl. */
  extern int dirty_background_ratio;
  extern int vm_dirty_ratio;
@@ -1212,7 +1320,7 @@ diff --git a/include/linux/writeback.h b/include/linux/writeback.h
 diff --git a/kernel/sysctl.c b/kernel/sysctl.c
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
-@@ -725,7 +725,7 @@ static ctl_table vm_table[] = {
+@@ -769,7 +769,7 @@ static ctl_table vm_table[] = {
  		.data		= &dirty_expire_interval,
  		.maxlen		= sizeof(dirty_expire_interval),
  		.mode		= 0644,
@@ -1344,6 +1452,19 @@ diff --git a/mm/page-writeback.c b/mm/page-writeback.c
  	return ret;
  }
  EXPORT_SYMBOL(write_cache_pages);
+@@ -926,12 +935,10 @@ int do_writepages(struct address_space *
+ 
+ 	if (wbc->nr_to_write <= 0)
+ 		return 0;
+-	wbc->for_writepages = 1;
+ 	if (mapping->a_ops->writepages)
+ 		ret = mapping->a_ops->writepages(mapping, wbc);
+ 	else
+ 		ret = generic_writepages(mapping, wbc);
+-	wbc->for_writepages = 0;
+ 	return ret;
+ }
+ 
 diff --git a/mm/truncate.c b/mm/truncate.c
 --- a/mm/truncate.c
 +++ b/mm/truncate.c

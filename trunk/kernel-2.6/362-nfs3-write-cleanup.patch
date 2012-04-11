@@ -206,7 +206,7 @@ diff --git a/fs/nfs/write.c b/fs/nfs/write.c
  	nfsi->npages--;
  	if (!nfsi->npages) {
  		spin_unlock(&inode->i_lock);
-@@ -1368,53 +1346,52 @@ long nfs_sync_mapping_wait(struct addres
+@@ -1368,52 +1346,51 @@ long nfs_sync_mapping_wait(struct addres
  	return ret;
  }
  
@@ -221,7 +221,6 @@ diff --git a/fs/nfs/write.c b/fs/nfs/write.c
 -		.bdi = mapping->backing_dev_info,
 -		.sync_mode = WB_SYNC_ALL,
 -		.nr_to_write = LONG_MAX,
--		.for_writepages = 1,
 -		.range_cyclic = 1,
 -	};
  	int ret;
@@ -253,7 +252,7 @@ diff --git a/fs/nfs/write.c b/fs/nfs/write.c
  		.nr_to_write = LONG_MAX,
 -		.range_start = range_start,
 -		.range_end = range_end,
- 		.for_writepages = 1,
+-		.for_writepages = 1,
 +		.range_cyclic = 1,
  	};
  	int ret;
