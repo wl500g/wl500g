@@ -434,8 +434,13 @@ static int netlink_create(struct socket *sock, int protocol)
 	if (nl_table[protocol].registered &&
 	    try_module_get(nl_table[protocol].module))
 		module = nl_table[protocol].module;
+	else
+		err = -EPROTONOSUPPORT;
 	cb_mutex = nl_table[protocol].cb_mutex;
 	netlink_unlock_table();
+
+	if (err < 0)
+		goto out;
 
 	if ((err = __netlink_create(sock, cb_mutex, protocol)) < 0)
 		goto out_module;
@@ -771,7 +776,7 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock,
 	return 0;
 }
 
-int netlink_sendskb(struct sock *sk, struct sk_buff *skb, int protocol)
+int netlink_sendskb(struct sock *sk, struct sk_buff *skb)
 {
 	int len = skb->len;
 
@@ -833,7 +838,7 @@ retry:
 	if (err)
 		return err;
 
-	return netlink_sendskb(sk, skb, ssk->sk_protocol);
+	return netlink_sendskb(sk, skb);
 }
 
 int netlink_has_listeners(struct sock *sk, unsigned int group)
