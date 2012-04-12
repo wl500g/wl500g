@@ -16,13 +16,36 @@ URL: https://bugs.busybox.net/show_bug.cgi?id=3853
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 
 ---
- libc/sysdeps/linux/common/mmap64.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+ 47009e1e1c6b721c38b5ffa2eeb9202fb8db298a mmap64: include stdint.h for uint64_t
+ f6f98ad8665811e0d30ee130fc65d965aee6be04 mmap64: use INLINE_SYSCALL() helper
+
+---
+ libc/sysdeps/linux/common/mmap64.c |   21 +++++++++------------
+ 1 file changed, 9 insertions(+), 12 deletions(-)
 
 diff --git a/libc/sysdeps/linux/common/mmap64.c b/libc/sysdeps/linux/common/mmap64.c
-index 4ef0397..3c97c84 100644
 --- a/libc/sysdeps/linux/common/mmap64.c
 +++ b/libc/sysdeps/linux/common/mmap64.c
+@@ -10,6 +10,7 @@
+ #ifdef __UCLIBC_HAS_LFS__
+ 
+ #include <errno.h>
++#include <stdint.h>
+ #include <unistd.h>
+ #include <sys/mman.h>
+ #include <sys/syscall.h>
+@@ -39,11 +40,6 @@ __ptr_t mmap64(__ptr_t addr, size_t len, int prot, int flags, int fd, __off64_t
+ 
+ # else
+ 
+-#  define __NR___syscall_mmap2	    __NR_mmap2
+-static __inline__ _syscall6(__ptr_t, __syscall_mmap2, __ptr_t, addr,
+-			size_t, len, int, prot, int, flags, int, fd,
+-			off_t, offset)
+-
+ /* Some architectures always use 12 as page shift for mmap2() eventhough the
+  * real PAGE_SHIFT != 12.  Other architectures use the same value as
+  * PAGE_SHIFT...
 @@ -59,13 +59,14 @@ __ptr_t mmap64(__ptr_t addr, size_t len, int prot, int flags, int fd, __off64_t
  		return MAP_FAILED;
  	}
@@ -40,8 +63,8 @@ index 4ef0397..3c97c84 100644
 +	 * sign extend things and pass in the wrong value.  So cast it to
 +	 * an unsigned 64-bit value before doing the shift.
 +	 */
-+	return __syscall_mmap2(addr, len, prot, flags, fd,
-+	                       ((uint64_t)offset >> MMAP2_PAGE_SHIFT));
++	return (__ptr_t) INLINE_SYSCALL(mmap2, 6, addr, len, prot, flags, fd,
++	                                ((uint64_t)offset >> MMAP2_PAGE_SHIFT));
  }
  
  # endif
