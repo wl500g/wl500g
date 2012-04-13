@@ -286,7 +286,7 @@ diff -urBwNp linux-2.6.22/arch/mips/kernel/proc.c linux-2.6/arch/mips/kernel/pro
  	unsigned int version = cpu_data[n].processor_id;
  	unsigned int fp_vers = cpu_data[n].fpu_id;
  	char fmt [64];
-+	extern unsigned long unaligned_instructions;
++	extern u32 unaligned_instructions;
  
  #ifdef CONFIG_SMP
  	if (!cpu_isset(n, cpu_online_map))
@@ -294,7 +294,7 @@ diff -urBwNp linux-2.6.22/arch/mips/kernel/proc.c linux-2.6/arch/mips/kernel/pro
  	seq_printf(m, fmt, 'I', vcei_count);
  	seq_printf(m, "\n");
  
-+	seq_printf(m, "unaligned_instructions\t: %lu\n", unaligned_instructions);
++	seq_printf(m, "unaligned_instructions\t: %u\n", unaligned_instructions);
 +
 +#ifdef CONFIG_HND_BMIPS3300_PROF
 +	seq_printf(m, "dcache hits\t\t: %u\n", read_perf_cntr(0));
