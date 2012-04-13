@@ -1,0 +1,892 @@
+[NETFILTER]: nf_nat: move NAT ctnetlink helpers to nf_nat_proto_common
+
+ 2b628a0866860d44652362aafe403e5b5895583d [NETFILTER]: nf_nat: mark NAT protocols const
+ 937e0dfd87a8b7946a17161664500fba93eb13fd [NETFILTER]: nf_nat: add helpers for common NAT protocol operations
+ 5abd363f738dcd048ee790fb9b84d0768a8a407f [NETFILTER]: nf_nat: fix random mode not to overwrite port rover
+ 535b57c7c1524125444aa1b874332f6ff1608ef5 [NETFILTER]: nf_nat: move NAT ctnetlink helpers to nf_nat_proto_common
+ ca6a50749012fc17feeec91ee2f9eeacacf06f0b [NETFILTER]: nf_conntrack_netlink: clean up NAT protocol parsing
+ 2d2d84c40e19a7fce51ba1f124ecde105104192d [NETFILTER]: nf_nat: remove unused name from struct nf_nat_protocol
+ f2ea825f483d5d78754ae813b6db63f8b74e9343 [NETFILTER]: nf_nat: use bool type in nf_nat_proto
+
+---
+ include/net/netfilter/nf_nat_protocol.h   |   64 ++++++++-------
+ net/ipv4/netfilter/Makefile               |    2 
+ net/ipv4/netfilter/nf_nat_core.c          |   58 +-------------
+ net/ipv4/netfilter/nf_nat_proto_common.c  |  122 ++++++++++++++++++++++++++++++
+ net/ipv4/netfilter/nf_nat_proto_gre.c     |   45 +++--------
+ net/ipv4/netfilter/nf_nat_proto_icmp.c    |   21 ++---
+ net/ipv4/netfilter/nf_nat_proto_tcp.c     |   82 ++------------------
+ net/ipv4/netfilter/nf_nat_proto_udp.c     |   79 ++-----------------
+ net/ipv4/netfilter/nf_nat_proto_unknown.c |   27 +++---
+ net/netfilter/nf_conntrack_netlink.c      |   17 ----
+ 10 files changed, 229 insertions(+), 288 deletions(-)
+
+diff --git a/include/net/netfilter/nf_nat_protocol.h b/include/net/netfilter/nf_nat_protocol.h
+--- a/include/net/netfilter/nf_nat_protocol.h
++++ b/include/net/netfilter/nf_nat_protocol.h
+@@ -8,9 +8,6 @@ struct nf_nat_range;
+ 
+ struct nf_nat_protocol
+ {
+-	/* Protocol name */
+-	const char *name;
+-
+ 	/* Protocol number. */
+ 	unsigned int protonum;
+ 
+@@ -18,25 +15,25 @@ struct nf_nat_protocol
+ 
+ 	/* Translate a packet to the target according to manip type.
+ 	   Return true if succeeded. */
+-	int (*manip_pkt)(struct sk_buff *skb,
+-			 unsigned int iphdroff,
+-			 const struct nf_conntrack_tuple *tuple,
+-			 enum nf_nat_manip_type maniptype);
++	bool (*manip_pkt)(struct sk_buff *skb,
++			  unsigned int iphdroff,
++			  const struct nf_conntrack_tuple *tuple,
++			  enum nf_nat_manip_type maniptype);
+ 
+ 	/* Is the manipable part of the tuple between min and max incl? */
+-	int (*in_range)(const struct nf_conntrack_tuple *tuple,
+-			enum nf_nat_manip_type maniptype,
+-			const union nf_conntrack_man_proto *min,
+-			const union nf_conntrack_man_proto *max);
++	bool (*in_range)(const struct nf_conntrack_tuple *tuple,
++			 enum nf_nat_manip_type maniptype,
++			 const union nf_conntrack_man_proto *min,
++			 const union nf_conntrack_man_proto *max);
+ 
+ 	/* Alter the per-proto part of the tuple (depending on
+ 	   maniptype), to give a unique tuple in the given range if
+ 	   possible; return false if not.  Per-protocol part of tuple
+ 	   is initialized to the incoming packet. */
+-	int (*unique_tuple)(struct nf_conntrack_tuple *tuple,
+-			    const struct nf_nat_range *range,
+-			    enum nf_nat_manip_type maniptype,
+-			    const struct nf_conn *ct);
++	bool (*unique_tuple)(struct nf_conntrack_tuple *tuple,
++			     const struct nf_nat_range *range,
++			     enum nf_nat_manip_type maniptype,
++			     const struct nf_conn *ct);
+ 
+ 	int (*range_to_nfattr)(struct sk_buff *skb,
+ 			       const struct nf_nat_range *range);
+@@ -46,25 +43,36 @@ struct nf_nat_protocol
+ };
+ 
+ /* Protocol registration. */
+-extern int nf_nat_protocol_register(struct nf_nat_protocol *proto);
+-extern void nf_nat_protocol_unregister(struct nf_nat_protocol *proto);
++extern int nf_nat_protocol_register(const struct nf_nat_protocol *proto);
++extern void nf_nat_protocol_unregister(const struct nf_nat_protocol *proto);
+ 
+-extern struct nf_nat_protocol *nf_nat_proto_find_get(u_int8_t protocol);
+-extern void nf_nat_proto_put(struct nf_nat_protocol *proto);
++extern const struct nf_nat_protocol *nf_nat_proto_find_get(u_int8_t protocol);
++extern void nf_nat_proto_put(const struct nf_nat_protocol *proto);
+ 
+ /* Built-in protocols. */
+-extern struct nf_nat_protocol nf_nat_protocol_tcp;
+-extern struct nf_nat_protocol nf_nat_protocol_udp;
+-extern struct nf_nat_protocol nf_nat_protocol_icmp;
+-extern struct nf_nat_protocol nf_nat_unknown_protocol;
++extern const struct nf_nat_protocol nf_nat_protocol_tcp;
++extern const struct nf_nat_protocol nf_nat_protocol_udp;
++extern const struct nf_nat_protocol nf_nat_protocol_icmp;
++extern const struct nf_nat_protocol nf_nat_unknown_protocol;
+ 
+ extern int init_protocols(void) __init;
+ extern void cleanup_protocols(void);
+-extern struct nf_nat_protocol *find_nat_proto(u_int16_t protonum);
++extern const struct nf_nat_protocol *find_nat_proto(u_int16_t protonum);
+ 
+-extern int nf_nat_port_range_to_nfattr(struct sk_buff *skb,
+-				       const struct nf_nat_range *range);
+-extern int nf_nat_port_nfattr_to_range(struct nfattr *tb[],
+-				       struct nf_nat_range *range);
++extern bool nf_nat_proto_in_range(const struct nf_conntrack_tuple *tuple,
++				  enum nf_nat_manip_type maniptype,
++				  const union nf_conntrack_man_proto *min,
++				  const union nf_conntrack_man_proto *max);
++
++extern bool nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
++				      const struct nf_nat_range *range,
++				      enum nf_nat_manip_type maniptype,
++				      const struct nf_conn *ct,
++				      u_int16_t *rover);
++
++extern int nf_nat_proto_range_to_nfattr(struct sk_buff *skb,
++					const struct nf_nat_range *range);
++extern int nf_nat_proto_nfattr_to_range(struct nfattr *tb[],
++					struct nf_nat_range *range);
+ 
+ #endif /*_NF_NAT_PROTO_H*/
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -10,7 +10,7 @@ nf_conntrack_ipv4-objs	+= nf_conntrack_l
+ endif
+ endif
+ 
+-nf_nat-objs		:= nf_nat_core.o nf_nat_helper.o nf_nat_proto_unknown.o nf_nat_proto_tcp.o nf_nat_proto_udp.o nf_nat_proto_icmp.o
++nf_nat-objs		:= nf_nat_core.o nf_nat_helper.o nf_nat_proto_unknown.o nf_nat_proto_common.o nf_nat_proto_tcp.o nf_nat_proto_udp.o nf_nat_proto_icmp.o
+ iptable_nat-objs	:= nf_nat_rule.o nf_nat_standalone.o
+ 
+ # connection tracking
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -73,7 +73,7 @@ nf_nat_proto_find_get(u_int8_t protonum)
+ EXPORT_SYMBOL_GPL(nf_nat_proto_find_get);
+ 
+ void
+-nf_nat_proto_put(struct nf_nat_protocol *p)
++nf_nat_proto_put(const struct nf_nat_protocol *p)
+ {
+ 	module_put(p->me);
+ }
+@@ -359,7 +359,7 @@ nf_nat_setup_info(struct nf_conn *ct,
+ EXPORT_SYMBOL(nf_nat_setup_info);
+ 
+ /* Returns true if succeeded. */
+-static int
++static bool
+ manip_pkt(u_int16_t proto,
+ 	  struct sk_buff *skb,
+ 	  unsigned int iphdroff,
+@@ -370,7 +370,7 @@ manip_pkt(u_int16_t proto,
+ 	const struct nf_nat_protocol *p;
+ 
+ 	if (!skb_make_writable(skb, iphdroff + sizeof(*iph)))
+-		return 0;
++		return false;
+ 
+ 	iph = (void *)skb->data + iphdroff;
+ 
+@@ -379,7 +379,7 @@ manip_pkt(u_int16_t proto,
+ 	/* rcu_read_lock()ed by nf_hook_slow */
+ 	p = __nf_nat_proto_find(proto);
+ 	if (!p->manip_pkt(skb, iphdroff, target, maniptype))
+-		return 0;
++		return false;
+ 
+ 	iph = (void *)skb->data + iphdroff;
+ 
+@@ -390,7 +390,7 @@ manip_pkt(u_int16_t proto,
+ 		nf_csum_replace4(&iph->check, iph->daddr, target->dst.u3.ip);
+ 		iph->daddr = target->dst.u3.ip;
+ 	}
+-	return 1;
++	return true;
+ }
+ 
+ /* Do packet manipulations according to nf_nat_setup_info. */
+@@ -522,7 +522,7 @@ int nf_nat_icmp_reply_translation(struct
+ EXPORT_SYMBOL_GPL(nf_nat_icmp_reply_translation);
+ 
+ /* Protocol registration. */
+-int nf_nat_protocol_register(struct nf_nat_protocol *proto)
++int nf_nat_protocol_register(const struct nf_nat_protocol *proto)
+ {
+ 	int ret = 0;
+ 
+@@ -539,7 +539,7 @@ int nf_nat_protocol_register(struct nf_n
+ EXPORT_SYMBOL(nf_nat_protocol_register);
+ 
+ /* Noone stores the protocol anywhere; simply delete it. */
+-void nf_nat_protocol_unregister(struct nf_nat_protocol *proto)
++void nf_nat_protocol_unregister(const struct nf_nat_protocol *proto)
+ {
+ 	write_lock_bh(&nf_nat_lock);
+ 	rcu_assign_pointer(nf_nat_protos[proto->protonum],
+@@ -549,50 +549,6 @@ void nf_nat_protocol_unregister(struct n
+ }
+ EXPORT_SYMBOL(nf_nat_protocol_unregister);
+ 
+-#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
+-int
+-nf_nat_port_range_to_nfattr(struct sk_buff *skb,
+-			    const struct nf_nat_range *range)
+-{
+-	NFA_PUT(skb, CTA_PROTONAT_PORT_MIN, sizeof(__be16),
+-		&range->min.tcp.port);
+-	NFA_PUT(skb, CTA_PROTONAT_PORT_MAX, sizeof(__be16),
+-		&range->max.tcp.port);
+-
+-	return 0;
+-
+-nfattr_failure:
+-	return -1;
+-}
+-EXPORT_SYMBOL_GPL(nf_nat_port_nfattr_to_range);
+-
+-int
+-nf_nat_port_nfattr_to_range(struct nfattr *tb[], struct nf_nat_range *range)
+-{
+-	int ret = 0;
+-
+-	/* we have to return whether we actually parsed something or not */
+-
+-	if (tb[CTA_PROTONAT_PORT_MIN-1]) {
+-		ret = 1;
+-		range->min.tcp.port =
+-			*(__be16 *)NFA_DATA(tb[CTA_PROTONAT_PORT_MIN-1]);
+-	}
+-
+-	if (!tb[CTA_PROTONAT_PORT_MAX-1]) {
+-		if (ret)
+-			range->max.tcp.port = range->min.tcp.port;
+-	} else {
+-		ret = 1;
+-		range->max.tcp.port =
+-			*(__be16 *)NFA_DATA(tb[CTA_PROTONAT_PORT_MAX-1]);
+-	}
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(nf_nat_port_range_to_nfattr);
+-#endif
+-
+ static int __init nf_nat_init(void)
+ {
+ 	size_t i;
+diff --git a/net/ipv4/netfilter/nf_nat_proto_common.c b/net/ipv4/netfilter/nf_nat_proto_common.c
+--- a/net/ipv4/netfilter/nf_nat_proto_common.c	1970-01-01 03:00:00.000000000 +0300
++++ b/net/ipv4/netfilter/nf_nat_proto_common.c
+@@ -0,0 +1,122 @@
++/* (C) 1999-2001 Paul `Rusty' Russell
++ * (C) 2002-2006 Netfilter Core Team <coreteam@netfilter.org>
++ * (C) 2008 Patrick McHardy <kaber@trash.net>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/types.h>
++#include <linux/random.h>
++#include <linux/ip.h>
++
++#include <linux/netfilter.h>
++#include <net/netfilter/nf_nat.h>
++#include <net/netfilter/nf_nat_core.h>
++#include <net/netfilter/nf_nat_rule.h>
++#include <net/netfilter/nf_nat_protocol.h>
++
++bool nf_nat_proto_in_range(const struct nf_conntrack_tuple *tuple,
++			   enum nf_nat_manip_type maniptype,
++			   const union nf_conntrack_man_proto *min,
++			   const union nf_conntrack_man_proto *max)
++{
++	__be16 port;
++
++	if (maniptype == IP_NAT_MANIP_SRC)
++		port = tuple->src.u.all;
++	else
++		port = tuple->dst.u.all;
++
++	return ntohs(port) >= ntohs(min->all) &&
++	       ntohs(port) <= ntohs(max->all);
++}
++EXPORT_SYMBOL_GPL(nf_nat_proto_in_range);
++
++bool nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
++			       const struct nf_nat_range *range,
++			       enum nf_nat_manip_type maniptype,
++			       const struct nf_conn *ct,
++			       u_int16_t *rover)
++{
++	unsigned int range_size, min, i;
++	__be16 *portptr;
++	u_int16_t off;
++
++	if (maniptype == IP_NAT_MANIP_SRC)
++		portptr = &tuple->src.u.all;
++	else
++		portptr = &tuple->dst.u.all;
++
++	/* If no range specified... */
++	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED)) {
++		/* If it's dst rewrite, can't change port */
++		if (maniptype == IP_NAT_MANIP_DST)
++			return false;
++
++		if (ntohs(*portptr) < 1024) {
++			/* Loose convention: >> 512 is credential passing */
++			if (ntohs(*portptr) < 512) {
++				min = 1;
++				range_size = 511 - min + 1;
++			} else {
++				min = 600;
++				range_size = 1023 - min + 1;
++			}
++		} else {
++			min = 1024;
++			range_size = 65535 - 1024 + 1;
++		}
++	} else {
++		min = ntohs(range->min.all);
++		range_size = ntohs(range->max.all) - min + 1;
++	}
++
++	off = *rover;
++	if (range->flags & IP_NAT_RANGE_PROTO_RANDOM)
++		off = net_random();
++
++	for (i = 0; ; ++off) {
++		*portptr = htons(min + off % range_size);
++		if (++i != range_size && nf_nat_used_tuple(tuple, ct))
++			continue;
++		if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM))
++			*rover = off;
++		return true;
++	}
++	return false;
++}
++EXPORT_SYMBOL_GPL(nf_nat_proto_unique_tuple);
++
++#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
++int nf_nat_proto_range_to_nfattr(struct sk_buff *skb,
++				 const struct nf_nat_range *range)
++{
++	NFA_PUT(skb, CTA_PROTONAT_PORT_MIN, sizeof(__be16),
++		&range->min.all);
++	NFA_PUT(skb, CTA_PROTONAT_PORT_MAX, sizeof(__be16),
++		&range->max.all);
++	return 0;
++
++nfattr_failure:
++	return -1;
++}
++EXPORT_SYMBOL_GPL(nf_nat_proto_nfattr_to_range);
++
++int nf_nat_proto_nfattr_to_range(struct nfattr *tb[],
++				 struct nf_nat_range *range)
++{
++	if (tb[CTA_PROTONAT_PORT_MIN-1]) {
++		range->min.all = *(__be16 *)NFA_DATA(tb[CTA_PROTONAT_PORT_MIN-1]);
++		range->max.all = range->min.tcp.port;
++		range->flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
++	}
++	if (tb[CTA_PROTONAT_PORT_MAX-1]) {
++		range->max.all = *(__be16 *)NFA_DATA(tb[CTA_PROTONAT_PORT_MAX-1]);
++		range->flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
++	}
++	return 0;
++}
++EXPORT_SYMBOL_GPL(nf_nat_proto_range_to_nfattr);
++#endif
+diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
+--- a/net/ipv4/netfilter/nf_nat_proto_gre.c
++++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
+@@ -43,26 +43,8 @@ MODULE_DESCRIPTION("Netfilter NAT protoc
+ #define DEBUGP(x, args...)
+ #endif
+ 
+-/* is key in given range between min and max */
+-static int
+-gre_in_range(const struct nf_conntrack_tuple *tuple,
+-	     enum nf_nat_manip_type maniptype,
+-	     const union nf_conntrack_man_proto *min,
+-	     const union nf_conntrack_man_proto *max)
+-{
+-	__be16 key;
+-
+-	if (maniptype == IP_NAT_MANIP_SRC)
+-		key = tuple->src.u.gre.key;
+-	else
+-		key = tuple->dst.u.gre.key;
+-
+-	return ntohs(key) >= ntohs(min->gre.key) &&
+-	       ntohs(key) <= ntohs(max->gre.key);
+-}
+-
+ /* generate unique tuple ... */
+-static int
++static bool
+ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		 const struct nf_nat_range *range,
+ 		 enum nf_nat_manip_type maniptype,
+@@ -75,7 +57,7 @@ gre_unique_tuple(struct nf_conntrack_tup
+ 	/* If there is no master conntrack we are not PPTP,
+ 	   do not change tuples */
+ 	if (!conntrack->master)
+-		return 0;
++		return false;
+ 
+ 	if (maniptype == IP_NAT_MANIP_SRC)
+ 		keyptr = &tuple->src.u.gre.key;
+@@ -96,15 +78,15 @@ gre_unique_tuple(struct nf_conntrack_tup
+ 	for (i = 0; ; ++key) {
+ 		*keyptr = htons(min + key % range_size);
+ 		if (++i == range_size || !nf_nat_used_tuple(tuple, conntrack))
+-			return 1;
++			return true;
+ 	}
+ 
+ 	DEBUGP("%p: no NAT mapping\n", conntrack);
+-	return 0;
++	return false;
+ }
+ 
+ /* manipulate a GRE packet according to maniptype */
+-static int
++static bool
+ gre_manip_pkt(struct sk_buff *skb, unsigned int iphdroff,
+ 	      const struct nf_conntrack_tuple *tuple,
+ 	      enum nf_nat_manip_type maniptype)
+@@ -117,7 +99,7 @@ gre_manip_pkt(struct sk_buff *skb, unsig
+ 	/* pgreh includes two optional 32bit fields which are not required
+ 	 * to be there.  That's where the magic '8' comes from */
+ 	if (!skb_make_writable(skb, hdroff + sizeof(*pgreh) - 8))
+-		return 0;
++		return false;
+ 
+ 	greh = (void *)skb->data + hdroff;
+ 	pgreh = (struct gre_hdr_pptp *)greh;
+@@ -125,7 +107,7 @@ gre_manip_pkt(struct sk_buff *skb, unsig
+ 	/* we only have destination manip of a packet, since 'source key'
+ 	 * is not present in the packet itself */
+ 	if (maniptype != IP_NAT_MANIP_DST)
+-		return 1;
++		return true;
+ 	switch (greh->version) {
+ 	case GRE_VERSION_1701:
+ 		/* We do not currently NAT any GREv0 packets.
+@@ -137,20 +119,19 @@ gre_manip_pkt(struct sk_buff *skb, unsig
+ 		break;
+ 	default:
+ 		DEBUGP("can't nat unknown GRE version\n");
+-		return 0;
++		return false;
+ 	}
+-	return 1;
++	return true;
+ }
+ 
+-static struct nf_nat_protocol gre __read_mostly = {
+-	.name			= "GRE",
++static const struct nf_nat_protocol gre = {
+ 	.protonum		= IPPROTO_GRE,
+ 	.manip_pkt		= gre_manip_pkt,
+-	.in_range		= gre_in_range,
++	.in_range		= nf_nat_proto_in_range,
+ 	.unique_tuple		= gre_unique_tuple,
+ #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
+-	.range_to_nfattr	= nf_nat_port_range_to_nfattr,
+-	.nfattr_to_range	= nf_nat_port_nfattr_to_range,
++	.range_to_nfattr	= nf_nat_proto_range_to_nfattr,
++	.nfattr_to_range	= nf_nat_proto_nfattr_to_range,
+ #endif
+ };
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_proto_icmp.c b/net/ipv4/netfilter/nf_nat_proto_icmp.c
+--- a/net/ipv4/netfilter/nf_nat_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_icmp.c
+@@ -17,7 +17,7 @@
+ #include <net/netfilter/nf_nat_rule.h>
+ #include <net/netfilter/nf_nat_protocol.h>
+ 
+-static int
++static bool
+ icmp_in_range(const struct nf_conntrack_tuple *tuple,
+ 	      enum nf_nat_manip_type maniptype,
+ 	      const union nf_conntrack_man_proto *min,
+@@ -27,7 +27,7 @@ icmp_in_range(const struct nf_conntrack_
+ 	       ntohs(tuple->src.u.icmp.id) <= ntohs(max->icmp.id);
+ }
+ 
+-static int
++static bool
+ icmp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		  const struct nf_nat_range *range,
+ 		  enum nf_nat_manip_type maniptype,
+@@ -46,12 +46,12 @@ icmp_unique_tuple(struct nf_conntrack_tu
+ 		tuple->src.u.icmp.id = htons(ntohs(range->min.icmp.id) +
+ 					     (id % range_size));
+ 		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
+-			return 1;
++			return true;
+ 	}
+-	return 0;
++	return false;
+ }
+ 
+-static int
++static bool
+ icmp_manip_pkt(struct sk_buff *skb,
+ 	       unsigned int iphdroff,
+ 	       const struct nf_conntrack_tuple *tuple,
+@@ -62,24 +62,23 @@ icmp_manip_pkt(struct sk_buff *skb,
+ 	unsigned int hdroff = iphdroff + iph->ihl*4;
+ 
+ 	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
+-		return 0;
++		return false;
+ 
+ 	hdr = (struct icmphdr *)(skb->data + hdroff);
+ 	nf_proto_csum_replace2(&hdr->checksum, skb,
+ 			       hdr->un.echo.id, tuple->src.u.icmp.id, 0);
+ 	hdr->un.echo.id = tuple->src.u.icmp.id;
+-	return 1;
++	return true;
+ }
+ 
+-struct nf_nat_protocol nf_nat_protocol_icmp = {
+-	.name			= "ICMP",
++const struct nf_nat_protocol nf_nat_protocol_icmp = {
+ 	.protonum		= IPPROTO_ICMP,
+ 	.me			= THIS_MODULE,
+ 	.manip_pkt		= icmp_manip_pkt,
+ 	.in_range		= icmp_in_range,
+ 	.unique_tuple		= icmp_unique_tuple,
+ #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
+-	.range_to_nfattr	= nf_nat_port_range_to_nfattr,
+-	.nfattr_to_range	= nf_nat_port_nfattr_to_range,
++	.range_to_nfattr	= nf_nat_proto_range_to_nfattr,
++	.nfattr_to_range	= nf_nat_proto_nfattr_to_range,
+ #endif
+ };
+diff --git a/net/ipv4/netfilter/nf_nat_proto_tcp.c b/net/ipv4/netfilter/nf_nat_proto_tcp.c
+--- a/net/ipv4/netfilter/nf_nat_proto_tcp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_tcp.c
+@@ -8,7 +8,6 @@
+ 
+ #include <linux/types.h>
+ #include <linux/init.h>
+-#include <linux/random.h>
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
+ 
+@@ -19,75 +18,19 @@
+ #include <net/netfilter/nf_nat_protocol.h>
+ #include <net/netfilter/nf_nat_core.h>
+ 
+-static int
+-tcp_in_range(const struct nf_conntrack_tuple *tuple,
+-	     enum nf_nat_manip_type maniptype,
+-	     const union nf_conntrack_man_proto *min,
+-	     const union nf_conntrack_man_proto *max)
+-{
+-	__be16 port;
+-
+-	if (maniptype == IP_NAT_MANIP_SRC)
+-		port = tuple->src.u.tcp.port;
+-	else
+-		port = tuple->dst.u.tcp.port;
++static u_int16_t tcp_port_rover;
+ 
+-	return ntohs(port) >= ntohs(min->tcp.port) &&
+-	       ntohs(port) <= ntohs(max->tcp.port);
+-}
+-
+-static int
++static bool
+ tcp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		 const struct nf_nat_range *range,
+ 		 enum nf_nat_manip_type maniptype,
+ 		 const struct nf_conn *ct)
+ {
+-	static u_int16_t port;
+-	__be16 *portptr;
+-	unsigned int range_size, min, i;
+-
+-	if (maniptype == IP_NAT_MANIP_SRC)
+-		portptr = &tuple->src.u.tcp.port;
+-	else
+-		portptr = &tuple->dst.u.tcp.port;
+-
+-	/* If no range specified... */
+-	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED)) {
+-		/* If it's dst rewrite, can't change port */
+-		if (maniptype == IP_NAT_MANIP_DST)
+-			return 0;
+-
+-		/* Map privileged onto privileged. */
+-		if (ntohs(*portptr) < 1024) {
+-			/* Loose convention: >> 512 is credential passing */
+-			if (ntohs(*portptr)<512) {
+-				min = 1;
+-				range_size = 511 - min + 1;
+-			} else {
+-				min = 600;
+-				range_size = 1023 - min + 1;
+-			}
+-		} else {
+-			min = 1024;
+-			range_size = 65535 - 1024 + 1;
+-		}
+-	} else {
+-		min = ntohs(range->min.tcp.port);
+-		range_size = ntohs(range->max.tcp.port) - min + 1;
+-	}
+-
+-	if (range->flags & IP_NAT_RANGE_PROTO_RANDOM)
+-		port =  net_random();
+-
+-	for (i = 0; ; ++port) {
+-		*portptr = htons(min + port % range_size);
+-		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
+-			return 1;
+-	}
+-	return 0;
++	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
++					 &tcp_port_rover);
+ }
+ 
+-static int
++static bool
+ tcp_manip_pkt(struct sk_buff *skb,
+ 	      unsigned int iphdroff,
+ 	      const struct nf_conntrack_tuple *tuple,
+@@ -107,7 +50,7 @@ tcp_manip_pkt(struct sk_buff *skb,
+ 		hdrsize = sizeof(struct tcphdr);
+ 
+ 	if (!skb_make_writable(skb, hdroff + hdrsize))
+-		return 0;
++		return false;
+ 
+ 	iph = (struct iphdr *)(skb->data + iphdroff);
+ 	hdr = (struct tcphdr *)(skb->data + hdroff);
+@@ -130,22 +73,21 @@ tcp_manip_pkt(struct sk_buff *skb,
+ 	*portptr = newport;
+ 
+ 	if (hdrsize < sizeof(*hdr))
+-		return 1;
++		return true;
+ 
+ 	nf_proto_csum_replace4(&hdr->check, skb, oldip, newip, 1);
+ 	nf_proto_csum_replace2(&hdr->check, skb, oldport, newport, 0);
+-	return 1;
++	return true;
+ }
+ 
+-struct nf_nat_protocol nf_nat_protocol_tcp = {
+-	.name			= "TCP",
++const struct nf_nat_protocol nf_nat_protocol_tcp = {
+ 	.protonum		= IPPROTO_TCP,
+ 	.me			= THIS_MODULE,
+ 	.manip_pkt		= tcp_manip_pkt,
+-	.in_range		= tcp_in_range,
++	.in_range		= nf_nat_proto_in_range,
+ 	.unique_tuple		= tcp_unique_tuple,
+ #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
+-	.range_to_nfattr	= nf_nat_port_range_to_nfattr,
+-	.nfattr_to_range	= nf_nat_port_nfattr_to_range,
++	.range_to_nfattr	= nf_nat_proto_range_to_nfattr,
++	.nfattr_to_range	= nf_nat_proto_nfattr_to_range,
+ #endif
+ };
+diff --git a/net/ipv4/netfilter/nf_nat_proto_udp.c b/net/ipv4/netfilter/nf_nat_proto_udp.c
+--- a/net/ipv4/netfilter/nf_nat_proto_udp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_udp.c
+@@ -8,7 +8,6 @@
+ 
+ #include <linux/types.h>
+ #include <linux/init.h>
+-#include <linux/random.h>
+ #include <linux/ip.h>
+ #include <linux/udp.h>
+ 
+@@ -18,74 +17,19 @@
+ #include <net/netfilter/nf_nat_rule.h>
+ #include <net/netfilter/nf_nat_protocol.h>
+ 
+-static int
+-udp_in_range(const struct nf_conntrack_tuple *tuple,
+-	     enum nf_nat_manip_type maniptype,
+-	     const union nf_conntrack_man_proto *min,
+-	     const union nf_conntrack_man_proto *max)
+-{
+-	__be16 port;
+-
+-	if (maniptype == IP_NAT_MANIP_SRC)
+-		port = tuple->src.u.udp.port;
+-	else
+-		port = tuple->dst.u.udp.port;
++static u_int16_t udp_port_rover;
+ 
+-	return ntohs(port) >= ntohs(min->udp.port) &&
+-	       ntohs(port) <= ntohs(max->udp.port);
+-}
+-
+-static int
++static bool
+ udp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		 const struct nf_nat_range *range,
+ 		 enum nf_nat_manip_type maniptype,
+ 		 const struct nf_conn *ct)
+ {
+-	static u_int16_t port;
+-	__be16 *portptr;
+-	unsigned int range_size, min, i;
+-
+-	if (maniptype == IP_NAT_MANIP_SRC)
+-		portptr = &tuple->src.u.udp.port;
+-	else
+-		portptr = &tuple->dst.u.udp.port;
+-
+-	/* If no range specified... */
+-	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED)) {
+-		/* If it's dst rewrite, can't change port */
+-		if (maniptype == IP_NAT_MANIP_DST)
+-			return 0;
+-
+-		if (ntohs(*portptr) < 1024) {
+-			/* Loose convention: >> 512 is credential passing */
+-			if (ntohs(*portptr)<512) {
+-				min = 1;
+-				range_size = 511 - min + 1;
+-			} else {
+-				min = 600;
+-				range_size = 1023 - min + 1;
+-			}
+-		} else {
+-			min = 1024;
+-			range_size = 65535 - 1024 + 1;
+-		}
+-	} else {
+-		min = ntohs(range->min.udp.port);
+-		range_size = ntohs(range->max.udp.port) - min + 1;
+-	}
+-
+-	if (range->flags & IP_NAT_RANGE_PROTO_RANDOM)
+-		port = net_random();
+-
+-	for (i = 0; ; ++port) {
+-		*portptr = htons(min + port % range_size);
+-		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
+-			return 1;
+-	}
+-	return 0;
++	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
++					 &udp_port_rover);
+ }
+ 
+-static int
++static bool
+ udp_manip_pkt(struct sk_buff *skb,
+ 	      unsigned int iphdroff,
+ 	      const struct nf_conntrack_tuple *tuple,
+@@ -98,7 +42,7 @@ udp_manip_pkt(struct sk_buff *skb,
+ 	__be16 *portptr, newport;
+ 
+ 	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
+-		return 0;
++		return false;
+ 
+ 	iph = (struct iphdr *)(skb->data + iphdroff);
+ 	hdr = (struct udphdr *)(skb->data + hdroff);
+@@ -124,18 +68,17 @@ udp_manip_pkt(struct sk_buff *skb,
+ 			hdr->check = CSUM_MANGLED_0;
+ 	}
+ 	*portptr = newport;
+-	return 1;
++	return true;
+ }
+ 
+-struct nf_nat_protocol nf_nat_protocol_udp = {
+-	.name			= "UDP",
++const struct nf_nat_protocol nf_nat_protocol_udp = {
+ 	.protonum		= IPPROTO_UDP,
+ 	.me			= THIS_MODULE,
+ 	.manip_pkt		= udp_manip_pkt,
+-	.in_range		= udp_in_range,
++	.in_range		= nf_nat_proto_in_range,
+ 	.unique_tuple		= udp_unique_tuple,
+ #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
+-	.range_to_nfattr	= nf_nat_port_range_to_nfattr,
+-	.nfattr_to_range	= nf_nat_port_nfattr_to_range,
++	.range_to_nfattr	= nf_nat_proto_range_to_nfattr,
++	.nfattr_to_range	= nf_nat_proto_nfattr_to_range,
+ #endif
+ };
+diff --git a/net/ipv4/netfilter/nf_nat_proto_unknown.c b/net/ipv4/netfilter/nf_nat_proto_unknown.c
+--- a/net/ipv4/netfilter/nf_nat_proto_unknown.c
++++ b/net/ipv4/netfilter/nf_nat_proto_unknown.c
+@@ -18,35 +18,34 @@
+ #include <net/netfilter/nf_nat_rule.h>
+ #include <net/netfilter/nf_nat_protocol.h>
+ 
+-static int unknown_in_range(const struct nf_conntrack_tuple *tuple,
+-			    enum nf_nat_manip_type manip_type,
+-			    const union nf_conntrack_man_proto *min,
+-			    const union nf_conntrack_man_proto *max)
++static bool unknown_in_range(const struct nf_conntrack_tuple *tuple,
++			     enum nf_nat_manip_type manip_type,
++			     const union nf_conntrack_man_proto *min,
++			     const union nf_conntrack_man_proto *max)
+ {
+-	return 1;
++	return true;
+ }
+ 
+-static int unknown_unique_tuple(struct nf_conntrack_tuple *tuple,
+-				const struct nf_nat_range *range,
+-				enum nf_nat_manip_type maniptype,
+-				const struct nf_conn *ct)
++static bool unknown_unique_tuple(struct nf_conntrack_tuple *tuple,
++				 const struct nf_nat_range *range,
++				 enum nf_nat_manip_type maniptype,
++				 const struct nf_conn *ct)
+ {
+ 	/* Sorry: we can't help you; if it's not unique, we can't frob
+ 	   anything. */
+-	return 0;
++	return false;
+ }
+ 
+-static int
++static bool
+ unknown_manip_pkt(struct sk_buff *skb,
+ 		  unsigned int iphdroff,
+ 		  const struct nf_conntrack_tuple *tuple,
+ 		  enum nf_nat_manip_type maniptype)
+ {
+-	return 1;
++	return true;
+ }
+ 
+-struct nf_nat_protocol nf_nat_unknown_protocol = {
+-	.name			= "unknown",
++const struct nf_nat_protocol nf_nat_unknown_protocol = {
+ 	/* .me isn't set: getting a ref to this cannot fail. */
+ 	.manip_pkt		= unknown_manip_pkt,
+ 	.in_range		= unknown_in_range,
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -575,7 +575,7 @@ static int nfnetlink_parse_nat_proto(str
+ 				     struct nf_nat_range *range)
+ {
+ 	struct nfattr *tb[CTA_PROTONAT_MAX];
+-	struct nf_nat_protocol *npt;
++	const struct nf_nat_protocol *npt;
+ 
+ 	nfattr_parse_nested(tb, CTA_PROTONAT_MAX, attr);
+ 
+@@ -583,19 +583,10 @@ static int nfnetlink_parse_nat_proto(str
+ 		return -EINVAL;
+ 
+ 	npt = nf_nat_proto_find_get(ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum);
+-
+-	if (!npt->nfattr_to_range) {
+-		nf_nat_proto_put(npt);
+-		return 0;
+-	}
+-
+-	/* nfattr_to_range returns 1 if it parsed, 0 if not, neg. on error */
+-	if (npt->nfattr_to_range(tb, range) > 0)
+-		range->flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
+-
++	if (npt->nfattr_to_range)
++		err = npt->nfattr_to_range(tb, range);
+ 	nf_nat_proto_put(npt);
+-
+-	return 0;
++	return err;
+ }
+ 
+ static const size_t cta_min_nat[CTA_NAT_MAX] = {
+-- 
