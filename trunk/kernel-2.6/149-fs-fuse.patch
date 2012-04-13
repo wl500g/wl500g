@@ -3283,7 +3283,7 @@ diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
  	req->in.h.opcode = FUSE_INIT;
  	req->in.numargs = 1;
  	req->in.args[0].size = sizeof(*arg);
-@@ -559,22 +807,27 @@ static int fuse_fill_super(struct super_
+@@ -559,24 +807,29 @@ static int fuse_fill_super(struct super_
  	sb->s_magic = FUSE_SUPER_MAGIC;
  	sb->s_op = &fuse_super_operations;
  	sb->s_maxbytes = MAX_LFS_FILESIZE;
@@ -3305,6 +3305,8 @@ diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
 +		fput(file);
  		return -ENOMEM;
 +	}
+ 
+ 	sb->s_bdi = &fc->bdi;
  
  	fc->flags = d.flags;
  	fc->user_id = d.user_id;
