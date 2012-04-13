@@ -424,15 +424,23 @@ static void __init setup_command_line(char *command_line)
  * gcc-3.4 accidentally inlines this function, so use noinline.
  */
 
+static __initdata DECLARE_COMPLETION(kthreadd_done);
+
 static void noinline __init_refok rest_init(void)
 	__releases(kernel_lock)
 {
 	int pid;
 
+	/*
+	 * We need to spawn init first so that it obtains pid-1, however
+	 * the init task will end up wanting to create kthreads, which, if
+	 * we schedule it before we create kthreadd, will OOPS.
+	 */
 	kernel_thread(kernel_init, NULL, CLONE_FS | CLONE_SIGHAND);
 	numa_default_policy();
 	pid = kernel_thread(kthreadd, NULL, CLONE_FS | CLONE_FILES);
 	kthreadd_task = find_task_by_pid(pid);
+	complete(&kthreadd_done);
 	unlock_kernel();
 
 	/*
@@ -648,63 +656,63 @@ static int __init initcall_debug_setup(char *str)
 }
 __setup("initcall_debug", initcall_debug_setup);
 
+static char msgbuf[64];
+
+static int do_one_initcall_debug(initcall_t fn)
+{
+	ktime_t t0, t1, delta;
+	int ret;
+
+	print_fn_descriptor_symbol("calling  %s\n", fn);
+	t0 = ktime_get();
+	ret = fn();
+	t1 = ktime_get();
+	delta = ktime_sub(t1, t0);
+	print_fn_descriptor_symbol("initcall %s", fn);
+	printk(" returned %d after %Ld msecs\n", ret,
+		(unsigned long long) delta.tv64 >> 20);
+
+	return ret;
+}
+
+static void __init do_one_initcall(initcall_t fn)
+{
+	int count = preempt_count();
+	int result;
+
+	if (initcall_debug)
+		result = do_one_initcall_debug(fn);
+	else
+		result = fn();
+
+	msgbuf[0] = 0;
+
+	if (result && result != -ENODEV && initcall_debug)
+		sprintf(msgbuf, "error code %d ", result);
+
+	if (preempt_count() != count) {
+		strncat(msgbuf, "preemption imbalance ", sizeof(msgbuf));
+		preempt_count() = count;
+	}
+	if (irqs_disabled()) {
+		strncat(msgbuf, "disabled interrupts ", sizeof(msgbuf));
+		local_irq_enable();
+	}
+	if (msgbuf[0]) {
+		print_fn_descriptor_symbol(KERN_WARNING "initcall %s", fn);
+		printk(" returned with %s\n", msgbuf);
+	}
+}
+
+
 extern initcall_t __initcall_start[], __initcall_end[];
 
 static void __init do_initcalls(void)
 {
 	initcall_t *call;
-	int count = preempt_count();
 
-	for (call = __initcall_start; call < __initcall_end; call++) {
-		ktime_t t0, t1, delta;
-		char *msg = NULL;
-		char msgbuf[40];
-		int result;
-
-		if (initcall_debug) {
-			printk("Calling initcall 0x%p", *call);
-			print_fn_descriptor_symbol(": %s()",
-					(unsigned long) *call);
-			printk("\n");
-			t0 = ktime_get();
-		}
-
-		result = (*call)();
-
-		if (initcall_debug) {
-			t1 = ktime_get();
-			delta = ktime_sub(t1, t0);
-
-			printk("initcall 0x%p", *call);
-			print_fn_descriptor_symbol(": %s()",
-					(unsigned long) *call);
-			printk(" returned %d.\n", result);
-
-			printk("initcall 0x%p ran for %Ld msecs: ",
-				*call, (unsigned long long)delta.tv64 >> 20);
-			print_fn_descriptor_symbol("%s()\n",
-				(unsigned long) *call);
-		}
-
-		if (result && result != -ENODEV && initcall_debug) {
-			sprintf(msgbuf, "error code %d", result);
-			msg = msgbuf;
-		}
-		if (preempt_count() != count) {
-			msg = "preemption imbalance";
-			preempt_count() = count;
-		}
-		if (irqs_disabled()) {
-			msg = "disabled interrupts";
-			local_irq_enable();
-		}
-		if (msg) {
-			printk(KERN_WARNING "initcall at 0x%p", *call);
-			print_fn_descriptor_symbol(": %s()",
-					(unsigned long) *call);
-			printk(": returned with %s\n", msg);
-		}
-	}
+	for (call = __initcall_start; call < __initcall_end; call++)
+		do_one_initcall(*call);
 
 	/* Make sure there is no pending stuff from the initcall sequence */
 	flush_scheduled_work();
@@ -785,6 +793,10 @@ static int noinline init_post(void)
 
 static int __init kernel_init(void * unused)
 {
+	/*
+	 * Wait until kthreadd is all set-up.
+	 */
+	wait_for_completion(&kthreadd_done);
 	lock_kernel();
 	/*
 	 * init can run on any cpu.
