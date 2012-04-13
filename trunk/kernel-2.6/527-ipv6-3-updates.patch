@@ -3,8 +3,23 @@
  a3c960899e042bc1c2b730a2115fa32da7802039 [IPV6] UDP: Possible dst leak in udpv6_sendmsg.
  36d926b94a9908937593e5669162305a071b9cc3 [IPV6]: inet_sk(sk)->cork.opt leak
  5095d64db1b978bdb31d30fed9e47dbf04f729be ipv6: ip6_route_output() never returns NULL.
+ 2bda8a0c8af5294b869da1efd2c2b9a562f50dcf ipv6: Disable router anycast address for /127 prefixes
 
 ---
+ include/net/addrconf.h  |   28 +++++++++++++++-------------
+ include/net/ip6_route.h |    6 +++---
+ include/net/ipv6.h      |    4 ++--
+ include/net/ndisc.h     |   14 +++++++-------
+ include/net/udp.h       |    1 +
+ net/ipv4/udp.c          |    3 ++-
+ net/ipv6/addrconf.c     |    9 ++++++---
+ net/ipv6/ip6_output.c   |    2 +-
+ net/ipv6/ip6mr.c        |    4 +++-
+ net/ipv6/mcast.c        |   20 +++++++++-----------
+ net/ipv6/ndisc.c        |   29 ++++++++++++++++-------------
+ net/ipv6/route.c        |    6 +++---
+ net/ipv6/udp.c          |    6 +++++-
+ 13 files changed, 73 insertions(+), 59 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
@@ -197,6 +212,15 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  {
  	struct inet6_ifaddr * ifp;
  	unsigned int hash = ipv6_addr_hash(addr);
+@@ -1470,6 +1470,8 @@ void addrconf_leave_solict(struct inet6_dev *idev, const struct in6_addr *addr)
+ static void addrconf_join_anycast(struct inet6_ifaddr *ifp)
+ {
+ 	struct in6_addr addr;
++	if (ifp->prefix_len == 127) /* RFC 6164 */
++		return;
+ 	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
+ 	if (ipv6_addr_any(&addr))
+ 		return;
 diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
 --- a/net/ipv6/ip6mr.c
 +++ b/net/ipv6/ip6mr.c
