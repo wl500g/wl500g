@@ -14,6 +14,7 @@ mm: BDI updates from upstream
  e4ad08fe64afca4ef79ecc4c624e6e871688da0d mm: bdi: add separate writeback accounting capability
  dd5656e59ca7b25fb60a22f9079905ed0da5ed0c mm: bdi: export bdi_writeout_inc()
  2c96ce9f2084c1e04d02883e622f74a537a63aea fs: remove bdev->bd_inode_backing_dev_info
+ 32a88aa1b6dfb901cec64e1898cac78d0f25028a fs: Assign bdi in super_block
 
 ---
  block/ll_rw_blk.c               |   13 +-
@@ -26,19 +27,21 @@ mm: BDI updates from upstream
  fs/configfs/configfs_internal.h |    2 
  fs/configfs/inode.c             |   10 +
  fs/configfs/mount.c             |    9 +
- fs/fuse/inode.c                 |    9 +
+ fs/fuse/inode.c                 |   11 +
  fs/hugetlbfs/inode.c            |   11 +
  fs/inode.c                      |    4 
  fs/nfs/client.c                 |    5 
+ fs/nfs/super.c                  |    2 
  fs/nfs/write.c                  |    7 +
  fs/ocfs2/dlm/dlmfs.c            |   11 +
  fs/proc/proc_misc.c             |    2 
  fs/ramfs/inode.c                |   14 +-
+ fs/super.c                      |   15 ++
  fs/sysfs/inode.c                |    7 -
  fs/sysfs/mount.c                |    4 
  fs/sysfs/sysfs.h                |    1 
  include/linux/backing-dev.h     |  173 ++++++++++++++++++++++++---
- include/linux/fs.h              |    1 
+ include/linux/fs.h              |    2 
  include/linux/mmzone.h          |    1 
  include/linux/page-flags.h      |   38 +-----
  include/linux/percpu_counter.h  |   16 ++
@@ -52,7 +55,7 @@ mm: BDI updates from upstream
  mm/swap_state.c                 |    2 
  mm/truncate.c                   |    2 
  mm/vmstat.c                     |    1 
- 36 files changed, 568 insertions(+), 126 deletions(-)
+ 38 files changed, 587 insertions(+), 127 deletions(-)
 
 diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
 --- a/block/ll_rw_blk.c
@@ -310,6 +313,15 @@ diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
  		kfree(fc);
  	}
  }
+@@ -562,6 +571,8 @@ static int fuse_fill_super(struct super_
+ 	if (!fc)
+ 		return -ENOMEM;
+ 
++	sb->s_bdi = &fc->bdi;
++
+ 	fc->flags = d.flags;
+ 	fc->user_id = d.user_id;
+ 	fc->group_id = d.group_id;
 diff --git a/fs/hugetlbfs/inode.c b/fs/hugetlbfs/inode.c
 --- a/fs/hugetlbfs/inode.c
 +++ b/fs/hugetlbfs/inode.c
@@ -392,6 +404,18 @@ diff --git a/fs/nfs/client.c b/fs/nfs/client.c
  	kfree(server);
  	nfs_release_automount_timer();
  	dprintk("<-- nfs_free_server()\n");
+diff --git a/fs/nfs/super.c b/fs/nfs/super.c
+--- a/fs/nfs/super.c
++++ b/fs/nfs/super.c
+@@ -533,6 +533,8 @@ static inline void nfs_initialise_sb(str
+ 	if (server->flags & NFS_MOUNT_NOAC)
+ 		sb->s_flags |= MS_SYNCHRONOUS;
+ 
++	sb->s_bdi = &server->backing_dev_info;
++
+ 	nfs_super_set_maxbytes(sb, server->maxfilesize);
+ }
+ 
 diff --git a/fs/nfs/write.c b/fs/nfs/write.c
 --- a/fs/nfs/write.c
 +++ b/fs/nfs/write.c
@@ -528,6 +552,45 @@ diff --git a/fs/ramfs/inode.c b/fs/ramfs/inode.c
  }
  
  MODULE_LICENSE("GPL");
+diff --git a/fs/super.c b/fs/super.c
+--- a/fs/super.c
++++ b/fs/super.c
+@@ -247,6 +247,13 @@ EXPORT_SYMBOL(unlock_super);
+  */
+ void __fsync_super(struct super_block *sb)
+ {
++	/*
++	 * This should be safe, as we require bdi backing to actually
++	 * write out data in the first place
++	 */
++	if (!sb->s_bdi)
++		return 0;
++
+ 	sync_inodes_sb(sb, 0);
+ 	DQUOT_SYNC(sb);
+ 	lock_super(sb);
+@@ -387,7 +394,7 @@ EXPORT_SYMBOL(drop_super);
+ static inline void write_super(struct super_block *sb)
+ {
+ 	lock_super(sb);
+-	if (sb->s_root && sb->s_dirt)
++	if (sb->s_root && sb->s_bdi && sb->s_dirt)
+ 		if (sb->s_op->write_super)
+ 			sb->s_op->write_super(sb);
+ 	unlock_super(sb);
+@@ -718,6 +725,12 @@ static int set_bdev_super(struct super_b
+ {
+ 	s->s_bdev = data;
+ 	s->s_dev = s->s_bdev->bd_dev;
++
++	/*
++	 * We set the bdi here to the queue backing, file systems can
++	 * overwrite this in ->fill_super()
++	 */
++	s->s_bdi = &bdev_get_queue(s->s_bdev)->backing_dev_info;
+ 	return 0;
+ }
+ 
 diff --git a/fs/sysfs/inode.c b/fs/sysfs/inode.c
 --- a/fs/sysfs/inode.c
 +++ b/fs/sysfs/inode.c
@@ -806,6 +869,14 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  	/*
  	 * Private data.  You must have bd_claim'ed the block_device
  	 * to use this.  NOTE:  bd_claim allows an owner to claim
+@@ -939,6 +938,7 @@ struct super_block {
+ 	struct list_head	s_files;
+ 
+ 	struct block_device	*s_bdev;
++	struct backing_dev_info *s_bdi;
+ 	struct mtd_info		*s_mtd;
+ 	struct list_head	s_instances;
+ 	struct quota_info	s_dquot;	/* Diskquota specific options */
 diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
 --- a/include/linux/mmzone.h
 +++ b/include/linux/mmzone.h
