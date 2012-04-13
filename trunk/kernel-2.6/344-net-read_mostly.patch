@@ -146,18 +146,6 @@ diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilte
  extern struct nf_conntrack_l3proto nf_conntrack_l3proto_generic;
  
  static inline struct nf_conntrack_l3proto *
-diff --git a/include/net/netfilter/nf_nat_protocol.h b/include/net/netfilter/nf_nat_protocol.h
---- a/include/net/netfilter/nf_nat_protocol.h
-+++ b/include/net/netfilter/nf_nat_protocol.h
-@@ -49,7 +49,7 @@ struct nf_nat_protocol
- extern int nf_nat_protocol_register(struct nf_nat_protocol *proto);
- extern void nf_nat_protocol_unregister(struct nf_nat_protocol *proto);
- 
--extern struct nf_nat_protocol *nf_nat_proto_find_get(u_int8_t protocol);
-+extern const struct nf_nat_protocol *nf_nat_proto_find_get(u_int8_t protocol);
- extern void nf_nat_proto_put(struct nf_nat_protocol *proto);
- 
- /* Built-in protocols. */
 diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
 --- a/net/bridge/br_netfilter.c
 +++ b/net/bridge/br_netfilter.c
