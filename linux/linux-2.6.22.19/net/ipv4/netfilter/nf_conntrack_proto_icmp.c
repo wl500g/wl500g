@@ -162,7 +162,7 @@ icmp_error_message(struct sk_buff *skb,
 
 	*ctinfo = IP_CT_RELATED;
 
-	h = nf_conntrack_find_get(&innertuple, NULL);
+	h = nf_conntrack_find_get(&innertuple);
 	if (!h) {
 		DEBUGP("icmp_error_message: no match\n");
 		return -NF_ACCEPT;

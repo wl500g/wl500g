@@ -72,7 +72,7 @@ nf_nat_proto_find_get(u_int8_t protonum)
 EXPORT_SYMBOL_GPL(nf_nat_proto_find_get);
 
 void
-nf_nat_proto_put(struct nf_nat_protocol *p)
+nf_nat_proto_put(const struct nf_nat_protocol *p)
 {
 	module_put(p->me);
 }
@@ -358,7 +358,7 @@ nf_nat_setup_info(struct nf_conn *ct,
 EXPORT_SYMBOL(nf_nat_setup_info);
 
 /* Returns true if succeeded. */
-static int
+static bool
 manip_pkt(u_int16_t proto,
 	  struct sk_buff *skb,
 	  unsigned int iphdroff,
@@ -369,7 +369,7 @@ manip_pkt(u_int16_t proto,
 	const struct nf_nat_protocol *p;
 
 	if (!skb_make_writable(skb, iphdroff + sizeof(*iph)))
-		return 0;
+		return false;
 
 	iph = (void *)skb->data + iphdroff;
 
@@ -378,7 +378,7 @@ manip_pkt(u_int16_t proto,
 	/* rcu_read_lock()ed by nf_hook_slow */
 	p = __nf_nat_proto_find(proto);
 	if (!p->manip_pkt(skb, iphdroff, target, maniptype))
-		return 0;
+		return false;
 
 	iph = (void *)skb->data + iphdroff;
 
@@ -389,7 +389,7 @@ manip_pkt(u_int16_t proto,
 		nf_csum_replace4(&iph->check, iph->daddr, target->dst.u3.ip);
 		iph->daddr = target->dst.u3.ip;
 	}
-	return 1;
+	return true;
 }
 
 /* Do packet manipulations according to nf_nat_setup_info. */
@@ -510,7 +510,7 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 EXPORT_SYMBOL_GPL(nf_nat_icmp_reply_translation);
 
 /* Protocol registration. */
-int nf_nat_protocol_register(struct nf_nat_protocol *proto)
+int nf_nat_protocol_register(const struct nf_nat_protocol *proto)
 {
 	int ret = 0;
 
@@ -527,7 +527,7 @@ int nf_nat_protocol_register(struct nf_nat_protocol *proto)
 EXPORT_SYMBOL(nf_nat_protocol_register);
 
 /* Noone stores the protocol anywhere; simply delete it. */
-void nf_nat_protocol_unregister(struct nf_nat_protocol *proto)
+void nf_nat_protocol_unregister(const struct nf_nat_protocol *proto)
 {
 	write_lock_bh(&nf_nat_lock);
 	rcu_assign_pointer(nf_nat_protos[proto->protonum],
@@ -536,50 +536,6 @@ void nf_nat_protocol_unregister(struct nf_nat_protocol *proto)
 	synchronize_rcu();
 }
 EXPORT_SYMBOL(nf_nat_protocol_unregister);
-
-#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
-int
-nf_nat_port_range_to_nfattr(struct sk_buff *skb,
-			    const struct nf_nat_range *range)
-{
-	NFA_PUT(skb, CTA_PROTONAT_PORT_MIN, sizeof(__be16),
-		&range->min.tcp.port);
-	NFA_PUT(skb, CTA_PROTONAT_PORT_MAX, sizeof(__be16),
-		&range->max.tcp.port);
-
-	return 0;
-
-nfattr_failure:
-	return -1;
-}
-EXPORT_SYMBOL_GPL(nf_nat_port_nfattr_to_range);
-
-int
-nf_nat_port_nfattr_to_range(struct nfattr *tb[], struct nf_nat_range *range)
-{
-	int ret = 0;
-
-	/* we have to return whether we actually parsed something or not */
-
-	if (tb[CTA_PROTONAT_PORT_MIN-1]) {
-		ret = 1;
-		range->min.tcp.port =
-			*(__be16 *)NFA_DATA(tb[CTA_PROTONAT_PORT_MIN-1]);
-	}
-
-	if (!tb[CTA_PROTONAT_PORT_MAX-1]) {
-		if (ret)
-			range->max.tcp.port = range->min.tcp.port;
-	} else {
-		ret = 1;
-		range->max.tcp.port =
-			*(__be16 *)NFA_DATA(tb[CTA_PROTONAT_PORT_MAX-1]);
-	}
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(nf_nat_port_range_to_nfattr);
-#endif
 
 static int __init nf_nat_init(void)
 {

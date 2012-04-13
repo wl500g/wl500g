@@ -137,8 +137,6 @@ static int ipv6_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
 	 */
 	if ((protoff < 0) || (protoff > skb->len)) {
 		DEBUGP("ip6_conntrack_core: can't find proto in pkt\n");
-		NF_CT_STAT_INC_ATOMIC(error);
-		NF_CT_STAT_INC_ATOMIC(invalid);
 		return -NF_ACCEPT;
 	}
 

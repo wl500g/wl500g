@@ -242,7 +242,7 @@ nfattr_failure:
 static inline int
 ctnetlink_dump_id(struct sk_buff *skb, const struct nf_conn *ct)
 {
-	__be32 id = htonl(ct->id);
+	__be32 id = htonl((unsigned long)ct);
 	NFA_PUT(skb, CTA_ID, sizeof(u_int32_t), &id);
 	return 0;
 
@@ -428,7 +428,7 @@ ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct nf_conn *ct, *last;
 	struct nf_conntrack_tuple_hash *h;
-	struct list_head *i;
+	struct hlist_node *n;
 	struct nfgenmsg *nfmsg = NLMSG_DATA(cb->nlh);
 	u_int8_t l3proto = nfmsg->nfgen_family;
 
@@ -436,8 +436,8 @@ ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
 	last = (struct nf_conn *)cb->args[1];
 	for (; cb->args[0] < nf_conntrack_htable_size; cb->args[0]++) {
 restart:
-		list_for_each_prev(i, &nf_conntrack_hash[cb->args[0]]) {
-			h = (struct nf_conntrack_tuple_hash *) i;
+		hlist_for_each_entry(h, n, &nf_conntrack_hash[cb->args[0]],
+				     hnode) {
 			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
 				continue;
 			ct = nf_ct_tuplehash_to_ctrack(h);
@@ -575,7 +575,7 @@ static int nfnetlink_parse_nat_proto(struct nfattr *attr,
 				     struct nf_nat_range *range)
 {
 	struct nfattr *tb[CTA_PROTONAT_MAX];
-	struct nf_nat_protocol *npt;
+	const struct nf_nat_protocol *npt;
 
 	nfattr_parse_nested(tb, CTA_PROTONAT_MAX, attr);
 
@@ -583,19 +583,10 @@ static int nfnetlink_parse_nat_proto(struct nfattr *attr,
 		return -EINVAL;
 
 	npt = nf_nat_proto_find_get(ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum);
-
-	if (!npt->nfattr_to_range) {
-		nf_nat_proto_put(npt);
-		return 0;
-	}
-
-	/* nfattr_to_range returns 1 if it parsed, 0 if not, neg. on error */
-	if (npt->nfattr_to_range(tb, range) > 0)
-		range->flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
-
+	if (npt->nfattr_to_range)
+		err = npt->nfattr_to_range(tb, range);
 	nf_nat_proto_put(npt);
-
-	return 0;
+	return err;
 }
 
 static const size_t cta_min_nat[CTA_NAT_MAX] = {
@@ -689,7 +680,7 @@ ctnetlink_del_conntrack(struct sock *ctnl, struct sk_buff *skb,
 	if (err < 0)
 		return err;
 
-	h = nf_conntrack_find_get(&tuple, NULL);
+	h = nf_conntrack_find_get(&tuple);
 	if (!h)
 		return -ENOENT;
 
@@ -697,7 +688,7 @@ ctnetlink_del_conntrack(struct sock *ctnl, struct sk_buff *skb,
 
 	if (cda[CTA_ID-1]) {
 		u_int32_t id = ntohl(*(__be32 *)NFA_DATA(cda[CTA_ID-1]));
-		if (ct->id != id) {
+		if (id != (u32)(unsigned long)ct) {
 			nf_ct_put(ct);
 			return -ENOENT;
 		}
@@ -744,7 +735,7 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
 	if (err < 0)
 		return err;
 
-	h = nf_conntrack_find_get(&tuple, NULL);
+	h = nf_conntrack_find_get(&tuple);
 	if (!h)
 		return -ENOENT;
 
@@ -1422,7 +1413,7 @@ ctnetlink_create_expect(struct nfattr *cda[], u_int8_t u3)
 		return err;
 
 	/* Look for master conntrack of this expectation */
-	h = nf_conntrack_find_get(&master_tuple, NULL);
+	h = nf_conntrack_find_get(&master_tuple);
 	if (!h)
 		return -ENOENT;
 	ct = nf_ct_tuplehash_to_ctrack(h);

@@ -55,8 +55,7 @@ nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 
 /* Find a connection corresponding to a tuple. */
 extern struct nf_conntrack_tuple_hash *
-nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple,
-		      const struct nf_conn *ignored_conntrack);
+nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple);
 
 extern int __nf_conntrack_confirm(struct sk_buff *skb);
 
@@ -82,9 +81,9 @@ print_tuple(struct seq_file *s, const struct nf_conntrack_tuple *tuple,
 	    struct nf_conntrack_l3proto *l3proto,
 	    struct nf_conntrack_l4proto *proto);
 
-extern struct list_head *nf_conntrack_hash;
+extern struct hlist_head *nf_conntrack_hash;
 extern struct list_head nf_conntrack_expect_list;
 extern rwlock_t nf_conntrack_lock ;
-extern struct list_head unconfirmed;
+extern struct hlist_head unconfirmed;
 
 #endif /* _NF_CONNTRACK_CORE_H */

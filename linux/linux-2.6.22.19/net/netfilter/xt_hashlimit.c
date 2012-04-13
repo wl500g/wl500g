@@ -620,6 +620,7 @@ static struct xt_match xt_hashlimit[] __read_mostly = {
 
 /* PROC stuff */
 static void *dl_seq_start(struct seq_file *s, loff_t *pos)
+	__acquires(htable->lock)
 {
 	struct xt_hashlimit_htable *htable = s->private;
 	unsigned int *bucket;
@@ -650,6 +651,7 @@ static void *dl_seq_next(struct seq_file *s, void *v, loff_t *pos)
 }
 
 static void dl_seq_stop(struct seq_file *s, void *v)
+	__releases(htable->lock)
 {
 	struct xt_hashlimit_htable *htable = s->private;
 	unsigned int *bucket = (unsigned int *)v;

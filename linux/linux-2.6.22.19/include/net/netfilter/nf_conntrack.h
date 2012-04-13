@@ -138,9 +138,6 @@ struct nf_conn
 	struct ip_conntrack_counter counters[IP_CT_DIR_MAX];
 #endif
 
-	/* Unique ID that identifies this conntrack*/
-	unsigned int id;
-
 	/* features - nat, helper, ... used by allocating system */
 	u_int32_t features;
 
