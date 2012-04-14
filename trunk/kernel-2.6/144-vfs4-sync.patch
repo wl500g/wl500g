@@ -8,18 +8,19 @@ VFS: sync_xxx() updates from upstream
  3beab0b42413e83a7907db7176b54c840fc75a81 sys_sync(): fix 16% performance regression in ffsb create_4k test
  4ee6afd34409d296782a5b667d7991b1050e910a VFS: export sync_sb_inodes
  d8a8559cd7a9ccac98d5f6f13297a2ff68a43627 writeback: get rid of generic_sync_sb_inodes() export
+ 17bd55d037a02b04d9119511cfd1a4b985d20f63 fs-writeback: Add helper function to start writeback if idle
 
 ---
- fs/buffer.c               |   17 +++++--
- fs/fs-writeback.c         |   98 ++++++++++++++++------------------------------
- fs/internal.h             |    7 +++
- fs/super.c                |   64 +++++++++++++++++-------------
- fs/sync.c                 |   34 +++++++++------
+ fs/buffer.c               |   17 ++++---
+ fs/fs-writeback.c         |  109 ++++++++++++++++++++--------------------------
+ fs/internal.h             |    7 ++
+ fs/super.c                |   64 ++++++++++++++++-----------
+ fs/sync.c                 |   34 ++++++++------
  include/linux/fs.h        |    3 -
- include/linux/writeback.h |    4 -
- 7 files changed, 115 insertions(+), 112 deletions(-)
+ include/linux/writeback.h |    5 +-
+ 7 files changed, 130 insertions(+), 109 deletions(-)
 
-diff --git a/fs/buffer.c b/fs/buffer.c
+diff -urBp a/fs/buffer.c b/fs/buffer.c
 --- a/fs/buffer.c
 +++ b/fs/buffer.c
 @@ -145,17 +145,22 @@ void end_buffer_write_sync(struct buffer
@@ -59,7 +60,7 @@ diff --git a/fs/buffer.c b/fs/buffer.c
  
  		sb->s_frozen = SB_FREEZE_TRANS;
  		smp_wmb();
-diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
+diff -urBp a/fs/fs-writeback.c b/fs/fs-writeback.c
 --- a/fs/fs-writeback.c
 +++ b/fs/fs-writeback.c
 @@ -452,8 +452,8 @@ writeback_single_inode(struct inode *ino
@@ -82,7 +83,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  				up_read(&sb->s_umount);
  			}
  			spin_lock(&sb_lock);
-@@ -640,84 +640,56 @@ restart:
+@@ -640,84 +640,73 @@ restart:
  	spin_unlock(&sb_lock);
  }
  
@@ -136,7 +137,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  /**
 - * sync_inodes - writes all inodes to disk
 - * @wait: wait for completion
-+ * sync_inodes_sb	-	sync sb inode pages
++ * writeback_inodes_sb_if_idle	-	start writeback if none underway
 + * @sb: the superblock
   *
 - * sync_inodes() goes through each super block's dirty inode list, writes the
@@ -153,11 +154,11 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
 - * sure that really happens.  Because if we call sync_inodes_sb(wait=1) with
 - * outstanding dirty inodes, the writeback goes block-at-a-time within the
 - * filesystem's write_inode().  This is extremely slow.
-+ * This function writes and waits on any dirty inode belonging to this
-+ * super_block. The number of pages synced is returned.
++ * Invoke writeback_inodes_sb if no writeback is currently underway.
++ * Returns 1 if writeback was started, 0 if not.
   */
 -static void __sync_inodes(int wait)
-+long sync_inodes_sb(struct super_block *sb)
++int writeback_inodes_sb_if_idle(struct super_block *sb)
  {
 -	struct super_block *sb;
 -
@@ -177,10 +178,24 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
 -			goto restart;
 -	}
 -	spin_unlock(&sb_lock);
--}
--
++	if (!writeback_in_progress(sb->s_bdi)) {
++		writeback_inodes_sb(sb);
++		return 1;
++	} else
++		return 0;
+ }
++EXPORT_SYMBOL(writeback_inodes_sb_if_idle);
+ 
 -void sync_inodes(int wait)
--{
++/**
++ * sync_inodes_sb	-	sync sb inode pages
++ * @sb: the superblock
++ *
++ * This function writes and waits on any dirty inode belonging to this
++ * super_block. The number of pages synced is returned.
++ */
++long sync_inodes_sb(struct super_block *sb)
+ {
 -	__sync_inodes(0);
 +	struct writeback_control wbc = {
 +		.sync_mode	= WB_SYNC_ALL,
@@ -199,7 +214,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  
  /**
   * write_inode_now	-	write an inode to disk
-diff --git a/fs/internal.h b/fs/internal.h
+diff -urBp a/fs/internal.h b/fs/internal.h
 --- a/fs/internal.h
 +++ b/fs/internal.h
 @@ -23,6 +23,8 @@ static inline int sb_is_blkdev_sb(struct
@@ -223,7 +238,7 @@ diff --git a/fs/internal.h b/fs/internal.h
  #endif
  
  /*
-diff --git a/fs/super.c b/fs/super.c
+diff -urBp a/fs/super.c b/fs/super.c
 --- a/fs/super.c
 +++ b/fs/super.c
 @@ -38,6 +38,7 @@
@@ -234,7 +249,7 @@ diff --git a/fs/super.c b/fs/super.c
  
  
  void get_filesystem(struct file_system_type *fs);
-@@ -241,23 +242,27 @@ EXPORT_SYMBOL(lock_super);
+@@ -241,12 +242,13 @@ EXPORT_SYMBOL(lock_super);
  EXPORT_SYMBOL(unlock_super);
  
  /*
@@ -251,6 +266,12 @@ diff --git a/fs/super.c b/fs/super.c
 -void __fsync_super(struct super_block *sb)
 +static int __fsync_super(struct super_block *sb, int wait)
  {
+ 	/*
+ 	 * This should be safe, as we require bdi backing to actually
+@@ -255,16 +257,19 @@ void __fsync_super(struct super_block *s
+ 	if (!sb->s_bdi)
+ 		return 0;
+ 
 -	sync_inodes_sb(sb, 0);
  	DQUOT_SYNC(sb);
 +	if (!wait) {
@@ -271,7 +292,7 @@ diff --git a/fs/super.c b/fs/super.c
  }
  
  /*
-@@ -267,8 +272,12 @@ void __fsync_super(struct super_block *s
+@@ -274,8 +279,12 @@ void __fsync_super(struct super_block *s
   */
  int fsync_super(struct super_block *sb)
  {
@@ -286,7 +307,7 @@ diff --git a/fs/super.c b/fs/super.c
  }
  
  /**
-@@ -421,20 +430,18 @@ restart:
+@@ -428,20 +437,18 @@ restart:
  }
  
  /*
@@ -311,7 +332,7 @@ diff --git a/fs/super.c b/fs/super.c
   */
  void sync_filesystems(int wait)
  {
-@@ -444,25 +451,23 @@ void sync_filesystems(int wait)
+@@ -451,25 +458,23 @@ void sync_filesystems(int wait)
  	mutex_lock(&mutex);		/* Could be down_interruptible */
  	spin_lock(&sb_lock);
  	list_for_each_entry(sb, &super_blocks, s_list) {
@@ -342,7 +363,7 @@ diff --git a/fs/super.c b/fs/super.c
  		up_read(&sb->s_umount);
  		/* restart only when sb is no longer on the list */
  		spin_lock(&sb_lock);
-@@ -633,7 +638,7 @@ int do_remount_sb(struct super_block *sb
+@@ -627,7 +632,7 @@ int do_remount_sb(struct super_block *sb
  	return 0;
  }
  
@@ -351,7 +372,7 @@ diff --git a/fs/super.c b/fs/super.c
  {
  	struct super_block *sb;
  
-@@ -656,12 +661,19 @@ static void do_emergency_remount(unsigne
+@@ -650,12 +655,19 @@ static void do_emergency_remount(unsigne
  		spin_lock(&sb_lock);
  	}
  	spin_unlock(&sb_lock);
@@ -372,7 +393,7 @@ diff --git a/fs/super.c b/fs/super.c
  }
  
  /*
-diff --git a/fs/sync.c b/fs/sync.c
+diff -urBp a/fs/sync.c b/fs/sync.c
 --- a/fs/sync.c
 +++ b/fs/sync.c
 @@ -13,6 +13,7 @@
@@ -434,10 +455,10 @@ diff --git a/fs/sync.c b/fs/sync.c
  }
  
  /*
-diff --git a/include/linux/fs.h b/include/linux/fs.h
+diff -urBp a/include/linux/fs.h b/include/linux/fs.h
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -1003,7 +1003,7 @@ struct super_block {
+@@ -947,7 +947,7 @@ struct super_block {
  	struct rw_semaphore	s_umount;
  	struct mutex		s_lock;
  	int			s_count;
@@ -446,7 +467,7 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  	atomic_t		s_active;
  #ifdef CONFIG_SECURITY
  	void                    *s_security;
-@@ -1666,7 +1666,6 @@ extern int filemap_fdatawrite_range(stru
+@@ -1722,7 +1722,6 @@ extern int filemap_fdatawrite_range(stru
  extern long do_fsync(struct file *file, int datasync);
  extern void sync_supers(void);
  extern void sync_filesystems(int wait);
@@ -454,16 +475,17 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  extern void emergency_sync(void);
  extern void emergency_remount(void);
  extern int do_remount_sb(struct super_block *sb, int flags,
-diff --git a/include/linux/writeback.h b/include/linux/writeback.h
+diff -urBp a/include/linux/writeback.h b/include/linux/writeback.h
 --- a/include/linux/writeback.h
 +++ b/include/linux/writeback.h
-@@ -76,8 +76,8 @@ struct writeback_control {
+@@ -76,8 +76,9 @@ struct writeback_control {
   */	
  void writeback_inodes(struct writeback_control *wbc);
  int inode_wait(void *);
 -void sync_inodes_sb(struct super_block *, int wait);
 -void sync_inodes(int wait);
 +long writeback_inodes_sb(struct super_block *);
++int writeback_inodes_sb_if_idle(struct super_block *);
 +long sync_inodes_sb(struct super_block *);
  
  /* writeback.h requires fs.h; it, too, is not included from here. */
