@@ -37,8 +37,8 @@ struct nvram_tuple router_defaults[] = {
 	{ "time_zone", "GMT0", 0 },		/* Time zone (GNU TZ format) */
 	{ "log_level", "0", 0 },		/* Bitmask 0:off 1:denied 2:accepted */
 	{ "upnp_enable", "1", 0 },		/* Start UPnP */
-#ifndef __CONFIG_MINIUPNPD__
-	{ "upnp_proto", "0", 0 },		/* 0: Both, 1: UPNP, 2: NAT-PNP */
+#ifdef __CONFIG_MINIUPNPD__
+	{ "upnp_proto", "0", 0 },		/* 0: Both, 1: UPNP, 2: NAT-PMP */
 #endif
 	{ "ezc_enable", "1", 0 },		/* Enable EZConfig updates */
 	{ "ezc_version", EZC_VERSION_STR, 0 },	/* EZConfig version */
