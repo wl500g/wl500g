@@ -1,12 +1,6 @@
-From 8d48fdf689fed2c73c493e5146d1463689246442
-From: Michal Sroczynski
-Date: Tue, 5 Jul 2011 21:53:35 +0200
-Subject: [PATCH] USB: PL2303: correctly handle baudrates above 115200
 
-PL2303: correctly handle baudrates above 115200
-
-Signed-off-by: Michal Sroczynski <msroczyn@gmail.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+ 8d48fdf689fed2c73c493e5146d1463689246442 USB: PL2303: correctly handle baudrates above 115200
+ ce5c9851855bab190c9a142761d54ba583ab094c USB: pl2303: fix DTR/RTS being raised on baud rate change
 
 ---
  drivers/usb/serial/pl2303.c |   26 ++++++++++++++++++++++----
@@ -48,5 +42,14 @@ diff --git a/drivers/usb/serial/pl2303.c b/drivers/usb/serial/pl2303.c
  	}
  
  	/* For reference buf[4]=0 is 1 stop bits */
+@@ -420,7 +420,7 @@ static void pl2303_set_termios(struct tty_struct *tty,
+ 	control = priv->line_control;
+ 	if ((cflag & CBAUD) == B0)
+ 		priv->line_control &= ~(CONTROL_DTR | CONTROL_RTS);
+-	else
++	else if ((old_termios->c_cflag & CBAUD) == B0)
+ 		priv->line_control |= (CONTROL_DTR | CONTROL_RTS);
+ 	if (control != priv->line_control) {
+ 		control = priv->line_control;
 -- 
 1.7.6.2
