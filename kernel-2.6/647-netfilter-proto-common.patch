@@ -1,26 +1,115 @@
 [NETFILTER]: nf_nat: move NAT ctnetlink helpers to nf_nat_proto_common
 
+ 330f7db5e578e1e298ba3a41748e5ea333a64a2b [NETFILTER]: nf_conntrack: remove 'ignore_conntrack' argument from nf_conntrack_find_get
+ f205c5e0c28aa7e0fb6eaaa66e97928f9d9e6994 [NETFILTER]: nf_conntrack: use hlists for conntrack hash
+ 7ae7730fd6d98be1afe8ad9ea77813de607ec970 [NETFILTER]: nf_conntrack: early_drop improvement
+ d87d8469e2dd19a3a134b99f78288d41854c614b [NETFILTER]: nf_conntrack: Increment error count on parsing IPv4 header
+ 7f85f914721ffcef382a57995182916bd43d8a65 [NETFILTER]: nf_conntrack: kill unique ID
  2b628a0866860d44652362aafe403e5b5895583d [NETFILTER]: nf_nat: mark NAT protocols const
+ 3ee9e760387c38558df976bc2905959826adf331 [NETFILTER]: nf_nat_proto_gre: add missing module reference
+ f4f6fb714f139f45f90c6a5048ee67f9960543f1 [NETFILTER]: more sparse fixes
+ da3f13c95a4c6e275a9b568f358c0c120ad83ecb [NETFILTER]: nf_{conntrack,nat}_proto_udp{,lite}: annotate with const
+ dc35dc5a4c8e7752c82643ff2ad442685331ab28 [NETFILTER]: nf_{conntrack,nat}_proto_gre: annotate with const
  937e0dfd87a8b7946a17161664500fba93eb13fd [NETFILTER]: nf_nat: add helpers for common NAT protocol operations
  5abd363f738dcd048ee790fb9b84d0768a8a407f [NETFILTER]: nf_nat: fix random mode not to overwrite port rover
  535b57c7c1524125444aa1b874332f6ff1608ef5 [NETFILTER]: nf_nat: move NAT ctnetlink helpers to nf_nat_proto_common
  ca6a50749012fc17feeec91ee2f9eeacacf06f0b [NETFILTER]: nf_conntrack_netlink: clean up NAT protocol parsing
  2d2d84c40e19a7fce51ba1f124ecde105104192d [NETFILTER]: nf_nat: remove unused name from struct nf_nat_protocol
  f2ea825f483d5d78754ae813b6db63f8b74e9343 [NETFILTER]: nf_nat: use bool type in nf_nat_proto
+ 9f593653742d1dd816c4e94c6e5154a57ccba6d1 nf_nat: use secure_ipv4_port_ephemeral() for NAT port randomization
 
 ---
- include/net/netfilter/nf_nat_protocol.h   |   64 ++++++++-------
- net/ipv4/netfilter/Makefile               |    2 
- net/ipv4/netfilter/nf_nat_core.c          |   58 +-------------
- net/ipv4/netfilter/nf_nat_proto_common.c  |  122 ++++++++++++++++++++++++++++++
- net/ipv4/netfilter/nf_nat_proto_gre.c     |   45 +++--------
- net/ipv4/netfilter/nf_nat_proto_icmp.c    |   21 ++---
- net/ipv4/netfilter/nf_nat_proto_tcp.c     |   82 ++------------------
- net/ipv4/netfilter/nf_nat_proto_udp.c     |   79 ++-----------------
- net/ipv4/netfilter/nf_nat_proto_unknown.c |   27 +++---
- net/netfilter/nf_conntrack_netlink.c      |   17 ----
- 10 files changed, 229 insertions(+), 288 deletions(-)
+ drivers/char/random.c                                 |    1 
+ include/net/netfilter/nf_conntrack.h                  |    3 
+ include/net/netfilter/nf_conntrack_core.h             |    7 -
+ include/net/netfilter/nf_conntrack_tuple.h            |    3 
+ include/net/netfilter/nf_nat_protocol.h               |   64 +++++----
+ net/ipv4/netfilter/Makefile                           |    2 
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c        |    2 
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |   17 +-
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c          |    2 
+ net/ipv4/netfilter/nf_nat_core.c                      |   58 +-------
+ net/ipv4/netfilter/nf_nat_proto_common.c              |  126 ++++++++++++++++++
+ net/ipv4/netfilter/nf_nat_proto_gre.c                 |   52 ++-----
+ net/ipv4/netfilter/nf_nat_proto_icmp.c                |   21 +--
+ net/ipv4/netfilter/nf_nat_proto_tcp.c                 |   82 +----------
+ net/ipv4/netfilter/nf_nat_proto_udp.c                 |   81 +----------
+ net/ipv4/netfilter/nf_nat_proto_unknown.c             |   27 +--
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c        |    2 
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c        |    2 
+ net/netfilter/nf_conntrack_core.c                     |  126 ++++++++++--------
+ net/netfilter/nf_conntrack_helper.c                   |    5 
+ net/netfilter/nf_conntrack_netlink.c                  |   33 +---
+ net/netfilter/nf_conntrack_pptp.c                     |    2 
+ net/netfilter/nf_conntrack_proto_gre.c                |    6 
+ net/netfilter/nf_conntrack_proto_udp.c                |    6 
+ net/netfilter/nf_conntrack_standalone.c               |   17 +-
+ net/netfilter/xt_hashlimit.c                          |    2 
+ 26 files changed, 359 insertions(+), 390 deletions(-)
+ create mode 100644 net/ipv4/netfilter/nf_nat_proto_common.c
 
+diff --git a/drivers/char/random.c b/drivers/char/random.c
+--- a/drivers/char/random.c
++++ b/drivers/char/random.c
+@@ -1583,6 +1583,7 @@ u32 secure_ipv4_port_ephemeral(__be32 sa
+ 
+ 	return half_md4_transform(hash, keyptr->secret);
+ }
++EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
+ 
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr, __be16 dport)
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -55,8 +55,7 @@ nf_ct_invert_tuple(struct nf_conntrack_t
+ 
+ /* Find a connection corresponding to a tuple. */
+ extern struct nf_conntrack_tuple_hash *
+-nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple,
+-		      const struct nf_conn *ignored_conntrack);
++nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple);
+ 
+ extern int __nf_conntrack_confirm(struct sk_buff *skb);
+ 
+@@ -82,9 +81,9 @@ print_tuple(struct seq_file *s, const st
+ 	    struct nf_conntrack_l3proto *l3proto,
+ 	    struct nf_conntrack_l4proto *proto);
+ 
+-extern struct list_head *nf_conntrack_hash;
++extern struct hlist_head *nf_conntrack_hash;
+ extern struct list_head nf_conntrack_expect_list;
+ extern rwlock_t nf_conntrack_lock ;
+-extern struct list_head unconfirmed;
++extern struct hlist_head unconfirmed;
+ 
+ #endif /* _NF_CONNTRACK_CORE_H */
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -138,9 +138,6 @@ struct nf_conn
+ 	struct ip_conntrack_counter counters[IP_CT_DIR_MAX];
+ #endif
+ 
+-	/* Unique ID that identifies this conntrack*/
+-	unsigned int id;
+-
+ 	/* features - nat, helper, ... used by allocating system */
+ 	u_int32_t features;
+ 
+diff --git a/include/net/netfilter/nf_conntrack_tuple.h b/include/net/netfilter/nf_conntrack_tuple.h
+--- a/include/net/netfilter/nf_conntrack_tuple.h
++++ b/include/net/netfilter/nf_conntrack_tuple.h
+@@ -108,8 +108,7 @@ DEBUGP("tuple %p: %u %u " NIP6_FMT " %hu
+ /* Connections have two entries in the hash table: one for each way */
+ struct nf_conntrack_tuple_hash
+ {
+-	struct list_head list;
+-
++	struct hlist_node hnode;
+ 	struct nf_conntrack_tuple tuple;
+ };
+ 
 diff --git a/include/net/netfilter/nf_nat_protocol.h b/include/net/netfilter/nf_nat_protocol.h
 --- a/include/net/netfilter/nf_nat_protocol.h
 +++ b/include/net/netfilter/nf_nat_protocol.h
@@ -134,6 +223,78 @@ diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
  iptable_nat-objs	:= nf_nat_rule.o nf_nat_standalone.o
  
  # connection tracking
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -340,7 +340,7 @@ getorigdst(struct sock *sk, int optval, 
+ 		return -EINVAL;
+ 	}
+ 
+-	h = nf_conntrack_find_get(&tuple, NULL);
++	h = nf_conntrack_find_get(&tuple);
+ 	if (h) {
+ 		struct sockaddr_in sin;
+ 		struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+@@ -41,35 +41,36 @@ struct ct_iter_state {
+ 	unsigned int bucket;
+ };
+ 
+-static struct list_head *ct_get_first(struct seq_file *seq)
++static struct hlist_node *ct_get_first(struct seq_file *seq)
+ {
+ 	struct ct_iter_state *st = seq->private;
+ 
+ 	for (st->bucket = 0;
+ 	     st->bucket < nf_conntrack_htable_size;
+ 	     st->bucket++) {
+-		if (!list_empty(&nf_conntrack_hash[st->bucket]))
+-			return nf_conntrack_hash[st->bucket].next;
++		if (!hlist_empty(&nf_conntrack_hash[st->bucket]))
++			return nf_conntrack_hash[st->bucket].first;
+ 	}
+ 	return NULL;
+ }
+ 
+-static struct list_head *ct_get_next(struct seq_file *seq, struct list_head *head)
++static struct hlist_node *ct_get_next(struct seq_file *seq,
++				      struct hlist_node *head)
+ {
+ 	struct ct_iter_state *st = seq->private;
+ 
+ 	head = head->next;
+-	while (head == &nf_conntrack_hash[st->bucket]) {
++	while (head == NULL) {
+ 		if (++st->bucket >= nf_conntrack_htable_size)
+ 			return NULL;
+-		head = nf_conntrack_hash[st->bucket].next;
++		head = nf_conntrack_hash[st->bucket].first;
+ 	}
+ 	return head;
+ }
+ 
+-static struct list_head *ct_get_idx(struct seq_file *seq, loff_t pos)
++static struct hlist_node *ct_get_idx(struct seq_file *seq, loff_t pos)
+ {
+-	struct list_head *head = ct_get_first(seq);
++	struct hlist_node *head = ct_get_first(seq);
+ 
+ 	if (head)
+ 		while (pos && (head = ct_get_next(seq, head)))
+diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -162,7 +162,7 @@ icmp_error_message(struct sk_buff *skb,
+ 
+ 	*ctinfo = IP_CT_RELATED;
+ 
+-	h = nf_conntrack_find_get(&innertuple, NULL);
++	h = nf_conntrack_find_get(&innertuple);
+ 	if (!h) {
+ 		DEBUGP("icmp_error_message: no match\n");
+ 		return -NF_ACCEPT;
 diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
 --- a/net/ipv4/netfilter/nf_nat_core.c
 +++ b/net/ipv4/netfilter/nf_nat_core.c
@@ -252,9 +413,10 @@ diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
  {
  	size_t i;
 diff --git a/net/ipv4/netfilter/nf_nat_proto_common.c b/net/ipv4/netfilter/nf_nat_proto_common.c
---- a/net/ipv4/netfilter/nf_nat_proto_common.c	1970-01-01 03:00:00.000000000 +0300
+new file mode 100644
+--- /dev/null
 +++ b/net/ipv4/netfilter/nf_nat_proto_common.c
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,126 @@
 +/* (C) 1999-2001 Paul `Rusty' Russell
 + * (C) 2002-2006 Netfilter Core Team <coreteam@netfilter.org>
 + * (C) 2008 Patrick McHardy <kaber@trash.net>
@@ -330,9 +492,13 @@ diff --git a/net/ipv4/netfilter/nf_nat_proto_common.c b/net/ipv4/netfilter/nf_na
 +		range_size = ntohs(range->max.all) - min + 1;
 +	}
 +
-+	off = *rover;
 +	if (range->flags & IP_NAT_RANGE_PROTO_RANDOM)
-+		off = net_random();
++		off = secure_ipv4_port_ephemeral(tuple->src.u3.ip, tuple->dst.u3.ip,
++						 maniptype == IP_NAT_MANIP_SRC
++						 ? tuple->dst.u.all
++						 : tuple->src.u.all);
++	else
++		off = *rover;
 +
 +	for (i = 0; ; ++off) {
 +		*portptr = htons(min + off % range_size);
@@ -417,7 +583,7 @@ diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_p
  
  	if (maniptype == IP_NAT_MANIP_SRC)
  		keyptr = &tuple->src.u.gre.key;
-@@ -96,15 +78,15 @@ gre_unique_tuple(struct nf_conntrack_tup
+@@ -96,28 +78,28 @@ gre_unique_tuple(struct nf_conntrack_tup
  	for (i = 0; ; ++key) {
  		*keyptr = htons(min + key % range_size);
  		if (++i == range_size || !nf_nat_used_tuple(tuple, conntrack))
@@ -436,7 +602,13 @@ diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_p
  gre_manip_pkt(struct sk_buff *skb, unsigned int iphdroff,
  	      const struct nf_conntrack_tuple *tuple,
  	      enum nf_nat_manip_type maniptype)
-@@ -117,7 +99,7 @@ gre_manip_pkt(struct sk_buff *skb, unsig
+ {
+ 	struct gre_hdr *greh;
+ 	struct gre_hdr_pptp *pgreh;
+-	struct iphdr *iph = (struct iphdr *)(skb->data + iphdroff);
++	const struct iphdr *iph = (struct iphdr *)(skb->data + iphdroff);
+ 	unsigned int hdroff = iphdroff + iph->ihl * 4;
+ 
  	/* pgreh includes two optional 32bit fields which are not required
  	 * to be there.  That's where the magic '8' comes from */
  	if (!skb_make_writable(skb, hdroff + sizeof(*pgreh) - 8))
@@ -454,7 +626,7 @@ diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_p
  	switch (greh->version) {
  	case GRE_VERSION_1701:
  		/* We do not currently NAT any GREv0 packets.
-@@ -137,20 +119,19 @@ gre_manip_pkt(struct sk_buff *skb, unsig
+@@ -137,29 +119,29 @@ gre_manip_pkt(struct sk_buff *skb, unsig
  		break;
  	default:
  		DEBUGP("can't nat unknown GRE version\n");
@@ -469,6 +641,7 @@ diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_p
 -	.name			= "GRE",
 +static const struct nf_nat_protocol gre = {
  	.protonum		= IPPROTO_GRE,
++	.me			= THIS_MODULE,
  	.manip_pkt		= gre_manip_pkt,
 -	.in_range		= gre_in_range,
 +	.in_range		= nf_nat_proto_in_range,
@@ -481,6 +654,17 @@ diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_p
  #endif
  };
  
+-int __init nf_nat_proto_gre_init(void)
++static int __init nf_nat_proto_gre_init(void)
+ {
+ 	return nf_nat_protocol_register(&gre);
+ }
+ 
+-void __exit nf_nat_proto_gre_fini(void)
++static void __exit nf_nat_proto_gre_fini(void)
+ {
+ 	nf_nat_protocol_unregister(&gre);
+ }
 diff --git a/net/ipv4/netfilter/nf_nat_proto_icmp.c b/net/ipv4/netfilter/nf_nat_proto_icmp.c
 --- a/net/ipv4/netfilter/nf_nat_proto_icmp.c
 +++ b/net/ipv4/netfilter/nf_nat_proto_icmp.c
@@ -689,7 +873,7 @@ diff --git a/net/ipv4/netfilter/nf_nat_proto_udp.c b/net/ipv4/netfilter/nf_nat_p
  #include <linux/ip.h>
  #include <linux/udp.h>
  
-@@ -18,74 +17,19 @@
+@@ -18,87 +17,32 @@
  #include <net/netfilter/nf_nat_rule.h>
  #include <net/netfilter/nf_nat_protocol.h>
  
@@ -769,7 +953,13 @@ diff --git a/net/ipv4/netfilter/nf_nat_proto_udp.c b/net/ipv4/netfilter/nf_nat_p
  udp_manip_pkt(struct sk_buff *skb,
  	      unsigned int iphdroff,
  	      const struct nf_conntrack_tuple *tuple,
-@@ -98,7 +42,7 @@ udp_manip_pkt(struct sk_buff *skb,
+ 	      enum nf_nat_manip_type maniptype)
+ {
+-	struct iphdr *iph = (struct iphdr *)(skb->data + iphdroff);
++	const struct iphdr *iph = (struct iphdr *)(skb->data + iphdroff);
+ 	struct udphdr *hdr;
+ 	unsigned int hdroff = iphdroff + iph->ihl*4;
+ 	__be32 oldip, newip;
  	__be16 *portptr, newport;
  
  	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
@@ -854,9 +1044,428 @@ diff --git a/net/ipv4/netfilter/nf_nat_proto_unknown.c b/net/ipv4/netfilter/nf_n
  	/* .me isn't set: getting a ref to this cannot fail. */
  	.manip_pkt		= unknown_manip_pkt,
  	.in_range		= unknown_in_range,
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -136,8 +136,6 @@ static int ipv6_get_l4proto(const struct
+ 	 */
+ 	if ((protoff < 0) || (protoff > skb->len)) {
+ 		DEBUGP("ip6_conntrack_core: can't find proto in pkt\n");
+-		NF_CT_STAT_INC_ATOMIC(error);
+-		NF_CT_STAT_INC_ATOMIC(invalid);
+ 		return -NF_ACCEPT;
+ 	}
+ 
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -162,7 +162,7 @@ icmpv6_error_message(struct sk_buff *skb
+ 
+ 	*ctinfo = IP_CT_RELATED;
+ 
+-	h = nf_conntrack_find_get(&intuple, NULL);
++	h = nf_conntrack_find_get(&intuple);
+ 	if (!h) {
+ 		DEBUGP("icmpv6_error: no match\n");
+ 		return -NF_ACCEPT;
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -61,17 +61,16 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_si
+ int nf_conntrack_max __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_conntrack_max);
+ 
+-struct list_head *nf_conntrack_hash __read_mostly;
++struct hlist_head *nf_conntrack_hash __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_conntrack_hash);
+ 
+ struct nf_conn nf_conntrack_untracked __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_conntrack_untracked);
+ 
+ unsigned int nf_ct_log_invalid __read_mostly;
+-LIST_HEAD(unconfirmed);
++HLIST_HEAD(unconfirmed);
+ static int nf_conntrack_vmalloc __read_mostly;
+ 
+-static unsigned int nf_conntrack_next_id;
+ 
+ DEFINE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
+ EXPORT_PER_CPU_SYMBOL(nf_conntrack_stat);
+@@ -321,8 +320,8 @@ static void
+ clean_from_lists(struct nf_conn *ct)
+ {
+ 	DEBUGP("clean_from_lists(%p)\n", ct);
+-	list_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].list);
+-	list_del(&ct->tuplehash[IP_CT_DIR_REPLY].list);
++	hlist_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnode);
++	hlist_del(&ct->tuplehash[IP_CT_DIR_REPLY].hnode);
+ 
+ 	/* Destroy all pending expectations */
+ 	nf_ct_remove_expectations(ct);
+@@ -371,8 +370,8 @@ destroy_conntrack(struct nf_conntrack *n
+ 
+ 	/* We overload first tuple to link into unconfirmed list. */
+ 	if (!nf_ct_is_confirmed(ct)) {
+-		BUG_ON(list_empty(&ct->tuplehash[IP_CT_DIR_ORIGINAL].list));
+-		list_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].list);
++		BUG_ON(hlist_unhashed(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnode));
++		hlist_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnode);
+ 	}
+ 
+ 	NF_CT_STAT_INC(delete);
+@@ -412,9 +411,10 @@ struct nf_conntrack_tuple_hash *
+ __nf_conntrack_find(const struct nf_conntrack_tuple *tuple)
+ {
+ 	struct nf_conntrack_tuple_hash *h;
++	struct hlist_node *n;
+ 	unsigned int hash = hash_conntrack(tuple);
+ 
+-	list_for_each_entry(h, &nf_conntrack_hash[hash], list) {
++	hlist_for_each_entry(h, n, &nf_conntrack_hash[hash], hnode) {
+ 		if (nf_ct_tuple_equal(tuple, &h->tuple)) {
+ 			NF_CT_STAT_INC(found);
+ 			return h;
+@@ -428,8 +428,7 @@ EXPORT_SYMBOL_GPL(__nf_conntrack_find);
+ 
+ /* Find a connection corresponding to a tuple. */
+ struct nf_conntrack_tuple_hash *
+-nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple,
+-		      const struct nf_conn *ignored_conntrack)
++nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple)
+ {
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct nf_conn *ct;
+@@ -452,11 +451,10 @@ static void __nf_conntrack_hash_insert(s
+ 				       unsigned int hash,
+ 				       unsigned int repl_hash)
+ {
+-	ct->id = ++nf_conntrack_next_id;
+-	list_add(&ct->tuplehash[IP_CT_DIR_ORIGINAL].list,
+-		 &nf_conntrack_hash[hash]);
+-	list_add(&ct->tuplehash[IP_CT_DIR_REPLY].list,
+-		 &nf_conntrack_hash[repl_hash]);
++	hlist_add_head(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnode,
++		       &nf_conntrack_hash[hash]);
++	hlist_add_head(&ct->tuplehash[IP_CT_DIR_REPLY].hnode,
++		       &nf_conntrack_hash[repl_hash]);
+ }
+ 
+ void nf_conntrack_hash_insert(struct nf_conn *ct)
+@@ -480,6 +478,7 @@ __nf_conntrack_confirm(struct sk_buff *s
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct nf_conn *ct;
+ 	struct nf_conn_help *help;
++	struct hlist_node *n;
+ 	enum ip_conntrack_info ctinfo;
+ 
+ 	ct = nf_ct_get(skb, &ctinfo);
+@@ -519,17 +518,17 @@ __nf_conntrack_confirm(struct sk_buff *s
+ 	/* See if there's one in the list already, including reverse:
+ 	   NAT could have grabbed it without realizing, since we're
+ 	   not in the hash.  If there is, we lost race. */
+-	list_for_each_entry(h, &nf_conntrack_hash[hash], list)
++	hlist_for_each_entry(h, n, &nf_conntrack_hash[hash], hnode)
+ 		if (nf_ct_tuple_equal(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
+ 				      &h->tuple))
+ 			goto out;
+-	list_for_each_entry(h, &nf_conntrack_hash[repl_hash], list)
++	hlist_for_each_entry(h, n, &nf_conntrack_hash[repl_hash], hnode)
+ 		if (nf_ct_tuple_equal(&ct->tuplehash[IP_CT_DIR_REPLY].tuple,
+ 				      &h->tuple))
+ 			goto out;
+ 
+ 	/* Remove from unconfirmed list */
+-	list_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].list);
++	hlist_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnode);
+ 
+ 	__nf_conntrack_hash_insert(ct, hash, repl_hash);
+ 	/* Timer relative to confirmation time, not original
+@@ -567,10 +566,11 @@ nf_conntrack_tuple_taken(const struct nf
+ 			 const struct nf_conn *ignored_conntrack)
+ {
+ 	struct nf_conntrack_tuple_hash *h;
++	struct hlist_node *n;
+ 	unsigned int hash = hash_conntrack(tuple);
+ 
+ 	read_lock_bh(&nf_conntrack_lock);
+-	list_for_each_entry(h, &nf_conntrack_hash[hash], list) {
++	hlist_for_each_entry(h, n, &nf_conntrack_hash[hash], hnode) {
+ 		if (nf_ct_tuplehash_to_ctrack(h) != ignored_conntrack &&
+ 		    nf_ct_tuple_equal(tuple, &h->tuple)) {
+ 			NF_CT_STAT_INC(found);
+@@ -585,24 +585,33 @@ nf_conntrack_tuple_taken(const struct nf
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_tuple_taken);
+ 
++#define NF_CT_EVICTION_RANGE	8
++
+ /* There's a small race here where we may free a just-assured
+    connection.  Too bad: we're in trouble anyway. */
+-static noinline int early_drop(struct list_head *chain)
++static noinline int early_drop(unsigned int hash)
+ {
+-	/* Traverse backwards: gives us oldest, which is roughly LRU */
++	/* Use oldest entry, which is roughly LRU */
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct nf_conn *ct = NULL, *tmp;
++	struct hlist_node *n;
++	unsigned int i, cnt = 0;
+ 	int dropped = 0;
+ 
+ 	read_lock_bh(&nf_conntrack_lock);
+-	list_for_each_entry_reverse(h, chain, list) {
+-		tmp = nf_ct_tuplehash_to_ctrack(h);
+-		if (!test_bit(IPS_ASSURED_BIT, &tmp->status)) {
+-			ct = tmp;
+-			atomic_inc(&ct->ct_general.use);
+-			break;
++	for (i = 0; i < nf_conntrack_htable_size; i++) {
++		hlist_for_each_entry(h, n, &nf_conntrack_hash[hash], hnode) {
++			tmp = nf_ct_tuplehash_to_ctrack(h);
++			if (!test_bit(IPS_ASSURED_BIT, &tmp->status))
++				ct = tmp;
++			cnt++;
+ 		}
++		if (ct || cnt >= NF_CT_EVICTION_RANGE)
++			break;
++		hash = (hash + 1) % nf_conntrack_htable_size;
+ 	}
++	if (ct)
++		atomic_inc(&ct->ct_general.use);
+ 	read_unlock_bh(&nf_conntrack_lock);
+ 
+ 	if (!ct)
+@@ -646,8 +655,7 @@ __nf_conntrack_alloc(const struct nf_con
+ 	if (nf_conntrack_max &&
+ 	    unlikely(atomic_read(&nf_conntrack_count) > nf_conntrack_max)) {
+ 		unsigned int hash = hash_conntrack(orig);
+-		/* Try dropping from this hash chain. */
+-		if (!early_drop(&nf_conntrack_hash[hash])) {
++		if (!early_drop(hash)) {
+ 			atomic_dec(&nf_conntrack_count);
+ 			if (net_ratelimit())
+ 				printk(KERN_WARNING
+@@ -794,7 +802,8 @@ init_conntrack(const struct nf_conntrack
+ 	}
+ 
+ 	/* Overload tuple linked list to put us in unconfirmed list. */
+-	list_add(&conntrack->tuplehash[IP_CT_DIR_ORIGINAL].list, &unconfirmed);
++	hlist_add_head(&conntrack->tuplehash[IP_CT_DIR_ORIGINAL].hnode,
++		       &unconfirmed);
+ 
+ 	write_unlock_bh(&nf_conntrack_lock);
+ 
+@@ -830,7 +839,7 @@ resolve_normal_ct(struct sk_buff *skb,
+ 	}
+ 
+ 	/* look for tuple match */
+-	h = nf_conntrack_find_get(&tuple, NULL);
++	h = nf_conntrack_find_get(&tuple);
+ 	if (!h) {
+ 		h = init_conntrack(&tuple, l3proto, l4proto, skb, dataoff);
+ 		if (!h)
+@@ -888,6 +897,8 @@ nf_conntrack_in(int pf, unsigned int hoo
+ 				   &dataoff, &protonum);
+ 	if (ret <= 0) {
+ 		DEBUGP("not prepared to track yet or error occured\n");
++		NF_CT_STAT_INC_ATOMIC(error);
++		NF_CT_STAT_INC_ATOMIC(invalid);
+ 		return -ret;
+ 	}
+ 
+@@ -1123,16 +1134,17 @@ get_next_corpse(int (*iter)(struct nf_co
+ {
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct nf_conn *ct;
++	struct hlist_node *n;
+ 
+ 	write_lock_bh(&nf_conntrack_lock);
+ 	for (; *bucket < nf_conntrack_htable_size; (*bucket)++) {
+-		list_for_each_entry(h, &nf_conntrack_hash[*bucket], list) {
++		hlist_for_each_entry(h, n, &nf_conntrack_hash[*bucket], hnode) {
+ 			ct = nf_ct_tuplehash_to_ctrack(h);
+ 			if (iter(ct, data))
+ 				goto found;
+ 		}
+ 	}
+-	list_for_each_entry(h, &unconfirmed, list) {
++	hlist_for_each_entry(h, n, &unconfirmed, hnode) {
+ 		ct = nf_ct_tuplehash_to_ctrack(h);
+ 		if (iter(ct, data))
+ 			set_bit(IPS_DYING_BIT, &ct->status);
+@@ -1167,13 +1179,14 @@ static int kill_all(struct nf_conn *i, v
+ 	return 1;
+ }
+ 
+-static void free_conntrack_hash(struct list_head *hash, int vmalloced, int size)
++static void free_conntrack_hash(struct hlist_head *hash, int vmalloced,
++				int size)
+ {
+ 	if (vmalloced)
+ 		vfree(hash);
+ 	else
+ 		free_pages((unsigned long)hash,
+-			   get_order(sizeof(struct list_head) * size));
++			   get_order(sizeof(struct hlist_head) * size));
+ }
+ 
+ void nf_conntrack_flush(void)
+@@ -1223,26 +1236,26 @@ void nf_conntrack_cleanup(void)
+ 	nf_conntrack_proto_fini();
+ }
+ 
+-static struct list_head *alloc_hashtable(int *sizep, int *vmalloced)
++static struct hlist_head *alloc_hashtable(int *sizep, int *vmalloced)
+ {
+-	struct list_head *hash;
++	struct hlist_head *hash;
+ 	unsigned int size, i;
+ 
+ 	*vmalloced = 0;
+ 
+-	size = *sizep = roundup(*sizep, PAGE_SIZE / sizeof(struct list_head));
++	size = *sizep = roundup(*sizep, PAGE_SIZE / sizeof(struct hlist_head));
+ 	hash = (void*)__get_free_pages(GFP_KERNEL|__GFP_NOWARN,
+-				       get_order(sizeof(struct list_head)
++				       get_order(sizeof(struct hlist_head)
+ 						 * size));
+ 	if (!hash) {
+ 		*vmalloced = 1;
+ 		printk(KERN_WARNING "nf_conntrack: falling back to vmalloc.\n");
+-		hash = vmalloc(sizeof(struct list_head) * size);
++		hash = vmalloc(sizeof(struct hlist_head) * size);
+ 	}
+ 
+ 	if (hash)
+ 		for (i = 0; i < size; i++)
+-			INIT_LIST_HEAD(&hash[i]);
++			INIT_HLIST_HEAD(&hash[i]);
+ 
+ 	return hash;
+ }
+@@ -1252,7 +1265,7 @@ int set_hashsize(const char *val, struct
+ 	int i, bucket, hashsize, vmalloced;
+ 	int old_vmalloced, old_size;
+ 	int rnd;
+-	struct list_head *hash, *old_hash;
++	struct hlist_head *hash, *old_hash;
+ 	struct nf_conntrack_tuple_hash *h;
+ 
+ 	/* On boot, we can set this without any fancy locking. */
+@@ -1273,12 +1286,12 @@ int set_hashsize(const char *val, struct
+ 
+ 	write_lock_bh(&nf_conntrack_lock);
+ 	for (i = 0; i < nf_conntrack_htable_size; i++) {
+-		while (!list_empty(&nf_conntrack_hash[i])) {
+-			h = list_entry(nf_conntrack_hash[i].next,
+-				       struct nf_conntrack_tuple_hash, list);
+-			list_del(&h->list);
++		while (!hlist_empty(&nf_conntrack_hash[i])) {
++			h = hlist_entry(nf_conntrack_hash[i].first,
++					struct nf_conntrack_tuple_hash, hnode);
++			hlist_del(&h->hnode);
+ 			bucket = __hash_conntrack(&h->tuple, hashsize, rnd);
+-			list_add_tail(&h->list, &hash[bucket]);
++			hlist_add_head(&h->hnode, &hash[bucket]);
+ 		}
+ 	}
+ 	old_size = nf_conntrack_htable_size;
+@@ -1305,18 +1318,25 @@ EXPORT_SYMBOL_GPL(nf_ct_nat_offset);
+ 
+ int __init nf_conntrack_init(void)
+ {
++	int max_factor = 8;
+ 	int ret;
+ 
+ 	/* Idea from tcp.c: use 1/16384 of memory.  On i386: 32MB
+-	 * machine has 256 buckets.  >= 1GB machines have 8192 buckets. */
++	 * machine has 512 buckets. >= 1GB machines have 16384 buckets. */
+ 	if (!nf_conntrack_htable_size) {
+ 		nf_conntrack_htable_size
+ 			= (((num_physpages << PAGE_SHIFT) / 16384)
+-			   / sizeof(struct list_head));
++			   / sizeof(struct hlist_head));
+ 		if (num_physpages > (1024 * 1024 * 1024 / PAGE_SIZE))
+-			nf_conntrack_htable_size = 8192;
+-		if (nf_conntrack_htable_size < 16)
+-			nf_conntrack_htable_size = 16;
++			nf_conntrack_htable_size = 16384;
++		if (nf_conntrack_htable_size < 32)
++			nf_conntrack_htable_size = 32;
++
++		/* Use a max. factor of four by default to get the same max as
++		 * with the old struct list_heads. When a table size is given
++		 * we use the old value of 8 to avoid reducing the max.
++		 * entries. */
++		max_factor = 4;
+ 	}
+ 
+ 	nf_conntrack_hash = alloc_hashtable(&nf_conntrack_htable_size,
+@@ -1326,7 +1346,7 @@ int __init nf_conntrack_init(void)
+ 		goto err_out;
+ 	}
+ 
+-	nf_conntrack_max = 8 * nf_conntrack_htable_size;
++	nf_conntrack_max = max_factor * nf_conntrack_htable_size;
+ 
+ 	printk("nf_conntrack version %s (%u buckets, %d max)\n",
+ 	       NF_CONNTRACK_VERSION, nf_conntrack_htable_size,
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -126,6 +126,7 @@ void nf_conntrack_helper_unregister(stru
+ 	unsigned int i;
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct nf_conntrack_expect *exp, *tmp;
++	struct hlist_node *n;
+ 
+ 	/* Need write lock here, to delete helper. */
+ 	write_lock_bh(&nf_conntrack_lock);
+@@ -142,10 +143,10 @@ void nf_conntrack_helper_unregister(stru
+ 	}
+ 
+ 	/* Get rid of expecteds, set helpers to NULL. */
+-	list_for_each_entry(h, &unconfirmed, list)
++	hlist_for_each_entry(h, n, &unconfirmed, hnode)
+ 		unhelp(h, me);
+ 	for (i = 0; i < nf_conntrack_htable_size; i++) {
+-		list_for_each_entry(h, &nf_conntrack_hash[i], list)
++		hlist_for_each_entry(h, n, &nf_conntrack_hash[i], hnode)
+ 			unhelp(h, me);
+ 	}
+ 	write_unlock_bh(&nf_conntrack_lock);
 diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
 --- a/net/netfilter/nf_conntrack_netlink.c
 +++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -242,7 +242,7 @@ nfattr_failure:
+ static inline int
+ ctnetlink_dump_id(struct sk_buff *skb, const struct nf_conn *ct)
+ {
+-	__be32 id = htonl(ct->id);
++	__be32 id = htonl((unsigned long)ct);
+ 	NFA_PUT(skb, CTA_ID, sizeof(u_int32_t), &id);
+ 	return 0;
+ 
+@@ -428,7 +428,7 @@ ctnetlink_dump_table(struct sk_buff *skb
+ {
+ 	struct nf_conn *ct, *last;
+ 	struct nf_conntrack_tuple_hash *h;
+-	struct list_head *i;
++	struct hlist_node *n;
+ 	struct nfgenmsg *nfmsg = NLMSG_DATA(cb->nlh);
+ 	u_int8_t l3proto = nfmsg->nfgen_family;
+ 
+@@ -436,8 +436,8 @@ ctnetlink_dump_table(struct sk_buff *skb
+ 	last = (struct nf_conn *)cb->args[1];
+ 	for (; cb->args[0] < nf_conntrack_htable_size; cb->args[0]++) {
+ restart:
+-		list_for_each_prev(i, &nf_conntrack_hash[cb->args[0]]) {
+-			h = (struct nf_conntrack_tuple_hash *) i;
++		hlist_for_each_entry(h, n, &nf_conntrack_hash[cb->args[0]],
++				     hnode) {
+ 			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
+ 				continue;
+ 			ct = nf_ct_tuplehash_to_ctrack(h);
 @@ -575,7 +575,7 @@ static int nfnetlink_parse_nat_proto(str
  				     struct nf_nat_range *range)
  {
@@ -889,4 +1498,159 @@ diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_n
  }
  
  static const size_t cta_min_nat[CTA_NAT_MAX] = {
+@@ -689,7 +680,7 @@ ctnetlink_del_conntrack(struct sock *ctn
+ 	if (err < 0)
+ 		return err;
+ 
+-	h = nf_conntrack_find_get(&tuple, NULL);
++	h = nf_conntrack_find_get(&tuple);
+ 	if (!h)
+ 		return -ENOENT;
+ 
+@@ -697,7 +688,7 @@ ctnetlink_del_conntrack(struct sock *ctn
+ 
+ 	if (cda[CTA_ID-1]) {
+ 		u_int32_t id = ntohl(*(__be32 *)NFA_DATA(cda[CTA_ID-1]));
+-		if (ct->id != id) {
++		if (id != (u32)(unsigned long)ct) {
+ 			nf_ct_put(ct);
+ 			return -ENOENT;
+ 		}
+@@ -744,7 +735,7 @@ ctnetlink_get_conntrack(struct sock *ctn
+ 	if (err < 0)
+ 		return err;
+ 
+-	h = nf_conntrack_find_get(&tuple, NULL);
++	h = nf_conntrack_find_get(&tuple);
+ 	if (!h)
+ 		return -ENOENT;
+ 
+@@ -1422,7 +1413,7 @@ ctnetlink_create_expect(struct nfattr *c
+ 		return err;
+ 
+ 	/* Look for master conntrack of this expectation */
+-	h = nf_conntrack_find_get(&master_tuple, NULL);
++	h = nf_conntrack_find_get(&master_tuple);
+ 	if (!h)
+ 		return -ENOENT;
+ 	ct = nf_ct_tuplehash_to_ctrack(h);
+diff --git a/net/netfilter/nf_conntrack_pptp.c b/net/netfilter/nf_conntrack_pptp.c
+--- a/net/netfilter/nf_conntrack_pptp.c
++++ b/net/netfilter/nf_conntrack_pptp.c
+@@ -146,7 +146,7 @@ static int destroy_sibling_or_exp(const 
+ 	DEBUGP("trying to timeout ct or exp for tuple ");
+ 	NF_CT_DUMP_TUPLE(t);
+ 
+-	h = nf_conntrack_find_get(t, NULL);
++	h = nf_conntrack_find_get(t);
+ 	if (h)  {
+ 		sibling = nf_ct_tuplehash_to_ctrack(h);
+ 		DEBUGP("setting timeout of conntrack %p to 0\n", sibling);
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -167,9 +167,11 @@ static int gre_pkt_to_tuple(const struct
+ 			   unsigned int dataoff,
+ 			   struct nf_conntrack_tuple *tuple)
+ {
+-	struct gre_hdr_pptp _pgrehdr, *pgrehdr;
++	const struct gre_hdr_pptp *pgrehdr;
++	struct gre_hdr_pptp _pgrehdr;
+ 	__be16 srckey;
+-	struct gre_hdr _grehdr, *grehdr;
++	const struct gre_hdr *grehdr;
++	struct gre_hdr _grehdr;
+ 
+ 	/* first only delinearize old RFC1701 GRE header */
+ 	grehdr = skb_header_pointer(skb, dataoff, sizeof(_grehdr), &_grehdr);
+diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
+--- a/net/netfilter/nf_conntrack_proto_udp.c
++++ b/net/netfilter/nf_conntrack_proto_udp.c
+@@ -30,7 +30,8 @@ static int udp_pkt_to_tuple(const struct
+ 			     unsigned int dataoff,
+ 			     struct nf_conntrack_tuple *tuple)
+ {
+-	struct udphdr _hdr, *hp;
++	const struct udphdr *hp;
++	struct udphdr _hdr;
+ 
+ 	/* Actually only need first 8 bytes. */
+ 	hp = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
+@@ -95,7 +96,8 @@ static int udp_error(struct sk_buff *skb
+ 		     unsigned int hooknum)
+ {
+ 	unsigned int udplen = skb->len - dataoff;
+-	struct udphdr _hdr, *hdr;
++	const struct udphdr *hdr;
++	struct udphdr _hdr;
+ 
+ 	/* Header is too small? */
+ 	hdr = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+--- a/net/netfilter/nf_conntrack_standalone.c
++++ b/net/netfilter/nf_conntrack_standalone.c
+@@ -60,35 +60,36 @@ struct ct_iter_state {
+ 	unsigned int bucket;
+ };
+ 
+-static struct list_head *ct_get_first(struct seq_file *seq)
++static struct hlist_node *ct_get_first(struct seq_file *seq)
+ {
+ 	struct ct_iter_state *st = seq->private;
+ 
+ 	for (st->bucket = 0;
+ 	     st->bucket < nf_conntrack_htable_size;
+ 	     st->bucket++) {
+-		if (!list_empty(&nf_conntrack_hash[st->bucket]))
+-			return nf_conntrack_hash[st->bucket].next;
++		if (!hlist_empty(&nf_conntrack_hash[st->bucket]))
++			return nf_conntrack_hash[st->bucket].first;
+ 	}
+ 	return NULL;
+ }
+ 
+-static struct list_head *ct_get_next(struct seq_file *seq, struct list_head *head)
++static struct hlist_node *ct_get_next(struct seq_file *seq,
++				      struct hlist_node *head)
+ {
+ 	struct ct_iter_state *st = seq->private;
+ 
+ 	head = head->next;
+-	while (head == &nf_conntrack_hash[st->bucket]) {
++	while (head == NULL) {
+ 		if (++st->bucket >= nf_conntrack_htable_size)
+ 			return NULL;
+-		head = nf_conntrack_hash[st->bucket].next;
++		head = nf_conntrack_hash[st->bucket].first;
+ 	}
+ 	return head;
+ }
+ 
+-static struct list_head *ct_get_idx(struct seq_file *seq, loff_t pos)
++static struct hlist_node *ct_get_idx(struct seq_file *seq, loff_t pos)
+ {
+-	struct list_head *head = ct_get_first(seq);
++	struct hlist_node *head = ct_get_first(seq);
+ 
+ 	if (head)
+ 		while (pos && (head = ct_get_next(seq, head)))
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -627,6 +627,7 @@ static struct xt_match xt_hashlimit[] __
+ 
+ /* PROC stuff */
+ static void *dl_seq_start(struct seq_file *s, loff_t *pos)
++	__acquires(htable->lock)
+ {
+ 	struct xt_hashlimit_htable *htable = s->private;
+ 	unsigned int *bucket;
+@@ -657,6 +658,7 @@ static void *dl_seq_next(struct seq_file
+ }
+ 
+ static void dl_seq_stop(struct seq_file *s, void *v)
++	__releases(htable->lock)
+ {
+ 	struct xt_hashlimit_htable *htable = s->private;
+ 	unsigned int *bucket = (unsigned int *)v;
 -- 
