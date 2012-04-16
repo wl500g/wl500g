@@ -1,3 +1,26 @@
+From 9a5d2bd99e0dfe9a31b3c160073ac445ba3d773f
+From: David Woodhouse
+Date: Sun, 8 Apr 2012 10:01:44 +0000
+Subject: [PATCH] ppp: Fix race condition with queue start/stop
+
+Commit e675f0cc9a872fd152edc0c77acfed19bf28b81e ("ppp: Don't stop and
+restart queue on every TX packet") introduced a race condition which
+could leave the net queue stopped even when the channel is no longer
+busy. By calling netif_stop_queue() from ppp_start_xmit(), based on the
+return value from ppp_xmit_process() but *after* all the locks have been
+dropped, we could potentially do so *after* the channel has actually
+finished transmitting and attempted to re-wake the queue.
+
+Fix this by moving the netif_stop_queue() into ppp_xmit_process() under
+the xmit lock. I hadn't done this previously, because it gets called
+from other places than ppp_start_xmit(). But I now think it's the better
+option. The net queue *should* be stopped if the channel becomes
+congested due to writes from pppd, anyway.
+
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
 From e675f0cc9a872fd152edc0c77acfed19bf28b81e
 From: David Woodhouse
 Date: Mon, 26 Mar 2012 00:03:42 +0000
@@ -29,60 +52,27 @@ Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 
 ---
- drivers/net/ppp_generic.c |   14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+ drivers/net/ppp_generic.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
 --- a/drivers/net/ppp_generic.c	2012-01-26 00:39:32.000000000 +0000
 +++ b/drivers/net/ppp_generic.c	2012-03-26 10:32:31.286744147 +0100
-@@ -235,7 +235,7 @@ struct ppp_net {
- /* Prototypes. */
- static int ppp_unattached_ioctl(struct ppp_file *pf, struct file *file,
- 				unsigned int cmd, unsigned long arg);
--static void ppp_xmit_process(struct ppp *ppp);
-+static int ppp_xmit_process(struct ppp *ppp);
- static void ppp_send_frame(struct ppp *ppp, struct sk_buff *skb);
- static void ppp_push(struct ppp *ppp);
- static void ppp_channel_push(struct channel *pch);
-@@ -968,9 +968,9 @@ ppp_start_xmit(struct sk_buff *skb, stru
+@@ -968,7 +968,6 @@ ppp_start_xmit(struct sk_buff *skb, stru
  	pp[0] = proto >> 8;
  	pp[1] = proto;
  
 -	netif_stop_queue(dev);
  	skb_queue_tail(&ppp->file.xq, skb);
--	ppp_xmit_process(ppp);
-+	if (!ppp_xmit_process(ppp))
-+		netif_stop_queue(dev);
+ 	ppp_xmit_process(ppp);
  	return 0;
- 
-  outf:
-@@ -1048,10 +1048,11 @@ static void ppp_setup(struct net_device
-  * Called to do any work queued up on the transmit side
-  * that can now be done.
-  */
--static void
-+static int
- ppp_xmit_process(struct ppp *ppp)
- {
- 	struct sk_buff *skb;
-+	int ret = 0;
- 
- 	ppp_xmit_lock(ppp);
- 	if (!ppp->closing) {
-@@ -1061,10 +1062,13 @@ ppp_xmit_process(struct ppp *ppp)
- 			ppp_send_frame(ppp, skb);
- 		/* If there's no work left to do, tell the core net
+@@ -1061,6 +1062,8 @@ ppp_xmit_process(struct ppp *ppp)
  		   code that we can accept some more. */
--		if (ppp->xmit_pending == 0 && skb_peek(&ppp->file.xq) == 0)
-+		if (ppp->xmit_pending == 0 && skb_peek(&ppp->file.xq) == 0) {
+ 		if (ppp->xmit_pending == 0 && skb_peek(&ppp->file.xq) == 0)
  			netif_wake_queue(ppp->dev);
-+			ret = 1;
-+		}
++		else
++			netif_stop_queue(ppp->dev);
  	}
  	ppp_xmit_unlock(ppp);
-+	return ret;
  }
- 
- static inline struct sk_buff *
-
 -- 
