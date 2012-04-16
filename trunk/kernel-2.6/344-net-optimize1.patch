@@ -1,8 +1,7 @@
-From: Fedor <fedork@ubuntu.(none)>
-Date: Thu, 26 Aug 2010 13:42:30 -0400
-Subject: [PATCH] net: minor backports from kernel 2.6 upstream
+net: minor backports from kernel 2.6 upstream
 
  kernel.org commits
+ de0fa95c14bc4d4b545fae26439371ebfdcb8534 [NET]: Use sockfd_lookup_light in the rest of the net/socket.c
  607bfbf2d55dd1cfe5368b41c2a81a8c9ccf4723 [TCP]: Fix shrinking windows with window scaling
  fa8705b00aeca19d91a1437b8a5cf865999b28f6 [NET]: sanitize kernel_accept() error path
  e081e1e3ef4682802ac63b1e5e26158fb9ca9e90 [BRIDGE]: Kill clone argument to br_flood_*
@@ -20,8 +19,8 @@ Subject: [PATCH] net: minor backports from kernel 2.6 upstream
  net/ipv6/mcast.c        |    5 +-
  net/sched/act_api.c     |    8 +--
  net/sched/act_police.c  |    4 -
- net/socket.c            |    1 
- 10 files changed, 101 insertions(+), 106 deletions(-)
+ net/socket.c            |   26 +++--------
+ 10 files changed, 108 insertions(+), 124 deletions(-)
 
 diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
 --- a/net/bridge/br_device.c
@@ -399,6 +398,65 @@ diff --git a/net/sched/act_police.c b/net/sched/act_police.c
 diff --git a/net/socket.c b/net/socket.c
 --- a/net/socket.c
 +++ b/net/socket.c
+@@ -1594,16 +1594,11 @@ asmlinkage long sys_sendto(int fd, void __user *buff, size_t len,
+ 	struct msghdr msg;
+ 	struct iovec iov;
+ 	int fput_needed;
+-	struct file *sock_file;
+ 
+-	sock_file = fget_light(fd, &fput_needed);
+-	err = -EBADF;
+-	if (!sock_file)
++	sock = sockfd_lookup_light(fd, &err, &fput_needed);
++	if (!sock)
+ 		goto out;
+ 
+-	sock = sock_from_file(sock_file, &err);
+-	if (!sock)
+-		goto out_put;
+ 	iov.iov_base = buff;
+ 	iov.iov_len = len;
+ 	msg.msg_name = NULL;
+@@ -1625,7 +1620,7 @@ asmlinkage long sys_sendto(int fd, void __user *buff, size_t len,
+ 	err = sock_sendmsg(sock, &msg, len);
+ 
+ out_put:
+-	fput_light(sock_file, fput_needed);
++	fput_light(sock->file, fput_needed);
+ out:
+ 	return err;
+ }
+@@ -1654,17 +1649,11 @@ asmlinkage long sys_recvfrom(int fd, void __user *ubuf, size_t size,
+ 	struct msghdr msg;
+ 	char address[MAX_SOCK_ADDR];
+ 	int err, err2;
+-	struct file *sock_file;
+ 	int fput_needed;
+ 
+-	sock_file = fget_light(fd, &fput_needed);
+-	err = -EBADF;
+-	if (!sock_file)
+-		goto out;
+-
+-	sock = sock_from_file(sock_file, &err);
++	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (!sock)
+-		goto out_put;
++		goto out;
+ 
+ 	msg.msg_control = NULL;
+ 	msg.msg_controllen = 0;
+@@ -1683,8 +1672,8 @@ asmlinkage long sys_recvfrom(int fd, void __user *ubuf, size_t size,
+ 		if (err2 < 0)
+ 			err = err2;
+ 	}
+-out_put:
+-	fput_light(sock_file, fput_needed);
++
++	fput_light(sock->file, fput_needed);
+ out:
+ 	return err;
+ }
 @@ -2247,6 +2247,7 @@ int kernel_accept(struct socket *sock, struct socket **newsock, int flags)
  	err = sock->ops->accept(sock, *newsock, flags);
  	if (err < 0) {
