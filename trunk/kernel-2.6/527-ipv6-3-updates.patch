@@ -1,25 +1,29 @@
 
+ f68635e627f9b21db05102e2d8fcd2894493d6bc [IPV6]: Cleanup the addconf_sysctl_register
+ f52295a9c55ccb4d9b3580ce889f958ac740a44b [IPV6]: Unify and cleanup calls to addrconf_sysctl_register
+ c8fecf2242a0ab7230210665986b8ef915e1ae9e [IPV6]: Eliminate difference in actions of sysctl and proc handler for conf.all.forwarding
  9acd9f3ae92d0dc0ca7504fb48c1040e8bbc39fe [IPV6]: Make address arguments const.
+ 0686caa35ed17cf5b9043f453957e702a7eb588d ndisc: Add missing strategies for per-device retrans timer/reachable time settings.
  a3c960899e042bc1c2b730a2115fa32da7802039 [IPV6] UDP: Possible dst leak in udpv6_sendmsg.
  36d926b94a9908937593e5669162305a071b9cc3 [IPV6]: inet_sk(sk)->cork.opt leak
  5095d64db1b978bdb31d30fed9e47dbf04f729be ipv6: ip6_route_output() never returns NULL.
  2bda8a0c8af5294b869da1efd2c2b9a562f50dcf ipv6: Disable router anycast address for /127 prefixes
 
 ---
- include/net/addrconf.h  |   28 +++++++++++++++-------------
- include/net/ip6_route.h |    6 +++---
- include/net/ipv6.h      |    4 ++--
- include/net/ndisc.h     |   14 +++++++-------
- include/net/udp.h       |    1 +
- net/ipv4/udp.c          |    3 ++-
- net/ipv6/addrconf.c     |    9 ++++++---
- net/ipv6/ip6_output.c   |    2 +-
- net/ipv6/ip6mr.c        |    4 +++-
- net/ipv6/mcast.c        |   20 +++++++++-----------
- net/ipv6/ndisc.c        |   29 ++++++++++++++++-------------
- net/ipv6/route.c        |    6 +++---
- net/ipv6/udp.c          |    6 +++++-
- 13 files changed, 73 insertions(+), 59 deletions(-)
+ include/net/addrconf.h  |   28 +++++-----
+ include/net/ip6_route.h |    6 +-
+ include/net/ipv6.h      |    4 -
+ include/net/ndisc.h     |   18 ++++--
+ include/net/udp.h       |    1 
+ net/ipv4/udp.c          |    3 -
+ net/ipv6/addrconf.c     |  125 ++++++++++++++++++++----------------------------
+ net/ipv6/ip6_output.c   |    2 
+ net/ipv6/ip6mr.c        |    4 +
+ net/ipv6/mcast.c        |   20 +++----
+ net/ipv6/ndisc.c        |   37 +++++++-------
+ net/ipv6/route.c        |    6 +-
+ net/ipv6/udp.c          |    6 +-
+ 13 files changed, 129 insertions(+), 131 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
@@ -141,7 +145,16 @@ diff --git a/include/net/ndisc.h b/include/net/ndisc.h
  
  extern int			ndisc_mc_map(struct in6_addr *addr, char *buf, struct net_device *dev, int dir);
  
-@@ -129,7 +129,7 @@ extern int 			ndisc_ifinfo_sysctl_change
+@@ -129,12 +129,16 @@ extern int 			ndisc_ifinfo_sysctl_change(struct ctl_table *ctl,
+ 							   void __user *buffer,
+ 							   size_t *lenp,
+ 							   loff_t *ppos);
++int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
++				 int nlen, void __user *oldval,
++				 size_t __user *oldlenp,
++				 void __user *newval, size_t newlen);
+ #endif
+ 
  extern void 			inet6_ifinfo_notify(int event,
  						    struct inet6_dev *idev);
  
@@ -184,7 +197,51 @@ diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -902,7 +902,7 @@ struct ipv6_saddr_score {
+@@ -100,7 +100,7 @@
+ #define TIME_DELTA(a,b) ((unsigned long)((long)(a) - (long)(b)))
+ 
+ #ifdef CONFIG_SYSCTL
+-static void addrconf_sysctl_register(struct inet6_dev *idev, struct ipv6_devconf *p);
++static void addrconf_sysctl_register(struct inet6_dev *idev);
+ static void addrconf_sysctl_unregister(struct ipv6_devconf *p);
+ #endif
+ 
+@@ -391,11 +391,7 @@ static struct inet6_dev * ipv6_add_dev(s
+ 	ipv6_mc_init_dev(ndev);
+ 	ndev->tstamp = jiffies;
+ #ifdef CONFIG_SYSCTL
+-	neigh_sysctl_register(dev, ndev->nd_parms, NET_IPV6,
+-			      NET_IPV6_NEIGH, "ipv6",
+-			      &ndisc_ifinfo_sysctl_change,
+-			      NULL);
+-	addrconf_sysctl_register(ndev, &ndev->cnf);
++	addrconf_sysctl_register(ndev);
+ #endif
+ 	/* protected by rtnl_lock */
+ 	rcu_assign_pointer(dev->ip6_ptr, ndev);
+@@ -480,6 +476,21 @@ static void addrconf_forward_change(void
+ 	}
+ 	read_unlock(&dev_base_lock);
+ }
++
++static void addrconf_fixup_forwarding(struct ctl_table *table, int *p, int old)
++{
++	if (p == &ipv6_devconf_dflt.forwarding)
++		return;
++
++	if (p == &ipv6_devconf.forwarding) {
++		ipv6_devconf_dflt.forwarding = ipv6_devconf.forwarding;
++		addrconf_forward_change();
++	} else if ((!*p) ^ (!old))
++		dev_forward_change((struct inet6_dev *)table->extra1);
++
++	if (*p)
++		rt6_purge_dflt_routers();
++}
+ #endif
+ 
+ /* Nobody refers to this ifaddr, destroy it */
+@@ -902,7 +913,7 @@ struct ipv6_saddr_score {
  };
  
  struct ipv6_saddr_dst {
@@ -193,7 +250,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	int ifindex;
  	int scope;
  	int label;
-@@ -1058,7 +1058,7 @@ out:
+@@ -1058,7 +1069,7 @@ out:
  }
  
  int ipv6_dev_get_saddr(struct net_device *dst_dev,
@@ -202,7 +259,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  {
  	struct ipv6_saddr_score scores[2],
  				*score = &scores[0], *hiscore = &scores[1];
-@@ -1260,7 +1260,8 @@ int ipv6_chk_same_addr(const struct in6_
+@@ -1260,7 +1271,8 @@ int ipv6_chk_same_addr(const struct in6_
  	return ifp != NULL;
  }
  
@@ -212,7 +269,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  {
  	struct inet6_ifaddr * ifp;
  	unsigned int hash = ipv6_addr_hash(addr);
-@@ -1470,6 +1470,8 @@ void addrconf_leave_solict(struct inet6_dev *idev, const struct in6_addr *addr)
+@@ -1379,6 +1391,8 @@ void addrconf_leave_solict(struct inet6_
  static void addrconf_join_anycast(struct inet6_ifaddr *ifp)
  {
  	struct in6_addr addr;
@@ -221,6 +278,173 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
  	if (ipv6_addr_any(&addr))
  		return;
+@@ -2494,11 +2508,7 @@ static int addrconf_notify(struct notifi
+ #ifdef CONFIG_SYSCTL
+ 			addrconf_sysctl_unregister(&idev->cnf);
+ 			neigh_sysctl_unregister(idev->nd_parms);
+-			neigh_sysctl_register(dev, idev->nd_parms,
+-					      NET_IPV6, NET_IPV6_NEIGH, "ipv6",
+-					      &ndisc_ifinfo_sysctl_change,
+-					      NULL);
+-			addrconf_sysctl_register(idev, &idev->cnf);
++			addrconf_sysctl_register(idev);
+ #endif
+ 			snmp6_register_dev(idev);
+ 		}
+@@ -3869,22 +3879,8 @@ int addrconf_sysctl_forward(ctl_table *c
+ 
+ 	ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+ 
+-	if (write && valp != &ipv6_devconf_dflt.forwarding) {
+-		if (valp != &ipv6_devconf.forwarding) {
+-			if ((!*valp) ^ (!val)) {
+-				struct inet6_dev *idev = (struct inet6_dev *)ctl->extra1;
+-				if (idev == NULL)
+-					return ret;
+-				dev_forward_change(idev);
+-			}
+-		} else {
+-			ipv6_devconf_dflt.forwarding = ipv6_devconf.forwarding;
+-			addrconf_forward_change();
+-		}
+-		if (*valp)
+-			rt6_purge_dflt_routers();
+-	}
+-
++	if (write)
++		addrconf_fixup_forwarding(ctl, valp, val);
+ 	return ret;
+ }
+ 
+@@ -3895,6 +3891,7 @@ static int addrconf_sysctl_forward_strat
+ 					    void __user *newval, size_t newlen)
+ {
+ 	int *valp = table->data;
++	int val = *valp;
+ 	int new;
+ 
+ 	if (!newval || !newlen)
+@@ -3919,26 +3916,8 @@ static int addrconf_sysctl_forward_strat
+ 		}
+ 	}
+ 
+-	if (valp != &ipv6_devconf_dflt.forwarding) {
+-		if (valp != &ipv6_devconf.forwarding) {
+-			struct inet6_dev *idev = (struct inet6_dev *)table->extra1;
+-			int changed;
+-			if (unlikely(idev == NULL))
+-				return -ENODEV;
+-			changed = (!*valp) ^ (!new);
+-			*valp = new;
+-			if (changed)
+-				dev_forward_change(idev);
+-		} else {
+-			*valp = new;
+-			addrconf_forward_change();
+-		}
+-
+-		if (*valp)
+-			rt6_purge_dflt_routers();
+-	} else
+-		*valp = new;
+-
++	*valp = new;
++	addrconf_fixup_forwarding(table, valp, val);
+ 	return 1;
+ }
+ 
+@@ -4296,27 +4275,20 @@ static struct addrconf_sysctl_table
+ 	},
+ };
+ 
+-static void addrconf_sysctl_register(struct inet6_dev *idev, struct ipv6_devconf *p)
++static void __addrconf_sysctl_register(char *dev_name, int ctl_name,
++		struct inet6_dev *idev, struct ipv6_devconf *p)
+ {
+ 	int i;
+-	struct net_device *dev = idev ? idev->dev : NULL;
+ 	struct addrconf_sysctl_table *t;
+-	char *dev_name = NULL;
+ 
+ 	t = kmemdup(&addrconf_sysctl, sizeof(*t), GFP_KERNEL);
+ 	if (t == NULL)
+-		return;
++		goto out;
++
+ 	for (i=0; t->addrconf_vars[i].data; i++) {
+ 		t->addrconf_vars[i].data += (char*)p - (char*)&ipv6_devconf;
+ 		t->addrconf_vars[i].extra1 = idev; /* embedded; no ref */
+ 	}
+-	if (dev) {
+-		dev_name = dev->name;
+-		t->addrconf_dev[0].ctl_name = dev->ifindex;
+-	} else {
+-		dev_name = "default";
+-		t->addrconf_dev[0].ctl_name = NET_PROTO_CONF_DEFAULT;
+-	}
+ 
+ 	/*
+ 	 * Make a copy of dev_name, because '.procname' is regarded as const
+@@ -4325,8 +4297,9 @@ static void addrconf_sysctl_register(str
+ 	 */
+ 	dev_name = kstrdup(dev_name, GFP_KERNEL);
+ 	if (!dev_name)
+-	    goto free;
++		goto free;
+ 
++	t->addrconf_dev[0].ctl_name = ctl_name;
+ 	t->addrconf_dev[0].procname = dev_name;
+ 
+ 	t->addrconf_dev[0].child = t->addrconf_vars;
+@@ -4337,19 +4310,28 @@ static void addrconf_sysctl_register(str
+ 	t->sysctl_header = register_sysctl_table(t->addrconf_root_dir);
+ 	if (t->sysctl_header == NULL)
+ 		goto free_procname;
+-	else
+-		p->sysctl = t;
++
++	p->sysctl = t;
+ 	return;
+ 
+-	/* error path */
+- free_procname:
++free_procname:
+ 	kfree(dev_name);
+- free:
++free:
+ 	kfree(t);
+-
++out:
+ 	return;
+ }
+ 
++static void addrconf_sysctl_register(struct inet6_dev *idev)
++{
++	neigh_sysctl_register(idev->dev, idev->nd_parms, NET_IPV6,
++			      NET_IPV6_NEIGH, "ipv6",
++			      &ndisc_ifinfo_sysctl_change,
++			      ndisc_ifinfo_sysctl_strategy);
++	__addrconf_sysctl_register(idev->dev->name, idev->dev->ifindex,
++			idev, &idev->cnf);
++}
++
+ static void addrconf_sysctl_unregister(struct ipv6_devconf *p)
+ {
+ 	if (p->sysctl) {
+@@ -4437,9 +4419,10 @@ int __init addrconf_init(void)
+ 	__rtnl_register(PF_INET6, RTM_GETANYCAST, NULL, inet6_dump_ifacaddr);
+ 
+ #ifdef CONFIG_SYSCTL
+-	addrconf_sysctl.sysctl_header =
+-		register_sysctl_table(addrconf_sysctl.addrconf_root_dir);
+-	addrconf_sysctl_register(NULL, &ipv6_devconf_dflt);
++	__addrconf_sysctl_register("all", NET_PROTO_CONF_ALL,
++			NULL, &ipv6_devconf);
++	__addrconf_sysctl_register("default", NET_PROTO_CONF_DEFAULT,
++			NULL, &ipv6_devconf_dflt);
+ #endif
+ 
+ 	return 0;
 diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
 --- a/net/ipv6/ip6mr.c
 +++ b/net/ipv6/ip6mr.c
@@ -412,6 +636,21 @@ diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
  	err = xfrm_lookup(&dst, &fl, NULL, 0);
  	if (err)
  		return;
+@@ -1727,10 +1727,10 @@ int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, struct file * f
+ 	return ret;
+ }
+ 
+-static int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
+-					int nlen, void __user *oldval,
+-					size_t __user *oldlenp,
+-					void __user *newval, size_t newlen)
++int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
++				 int nlen, void __user *oldval,
++				 size_t __user *oldlenp,
++				 void __user *newval, size_t newlen)
+ {
+ 	struct net_device *dev = ctl->extra1;
+ 	struct inet6_dev *idev;
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
