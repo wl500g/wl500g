@@ -9,13 +9,14 @@
  9c6d5e5537e3997c47b65925a235392c1968fb51 TCP: Fix setting of snd_ssthresh in tcp_mtu_probe_success
  44f5324b5d13ef2187729d949eca442689627f39 TCP: fix a bug that triggers large number of TCP RST by mistake
  761965eab38d2cbc59c36e355c59609e3a04705a tcp: tcp_sendmsg() page recycling
+ 18a223e0b9ec8979320ba364b47c9772391d6d05 tcp: fix tcp_rcv_rtt_update() use of an unscaled RTT sample
 
 ---
  net/ipv4/tcp.c        |   24 +++++++++++++--------
- net/ipv4/tcp_input.c  |    4 +--
+ net/ipv4/tcp_input.c  |   11 ++++++---
  net/ipv4/tcp_output.c |   57 ++++++++++++++++----------------------------------
  net/ipv4/udp.c        |    6 +++--
- 4 files changed, 40 insertions(+), 51 deletions(-)
+ 4 files changed, 45 insertions(+), 53 deletions(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c
@@ -93,6 +94,20 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
+@@ -474,8 +474,11 @@ static void tcp_rcv_rtt_update(struct tcp_sock *tp, u32 sample, int win_dep)
+ 		if (!win_dep) {
+ 			m -= (new_sample >> 3);
+ 			new_sample += m;
+-		} else if (m < new_sample)
+-			new_sample = m << 3;
++		} else {
++			m <<= 3;
++			if (m < new_sample)
++				new_sample = m;
++		}
+ 	} else {
+ 		/* No previous measure. */
+ 		new_sample = m << 3;
 @@ -2174,7 +2174,7 @@ static void tcp_mtup_probe_success(struct sock *sk)
  		       icsk->icsk_mtup.probe_size;
  	tp->snd_cwnd_cnt = 0;
