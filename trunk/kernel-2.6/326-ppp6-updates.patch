@@ -1,0 +1,176 @@
+ppp: Updates from upstream
+
+ c8019bf3aff653cceb64f66489fc299ee5957b57 netdevice ppp: Convert directly reference of netdev->priv
+ 739840d529eb7505d3cbfe9d468bf1440c9a8e27 ppp: fix segfaults introduced by netdev_priv changes
+ 1d2f8c950745f47f2937742eb886cffee439b754 ppp: remove some pointless conditionals before kfree_skb()
+
+---
+ drivers/net/ppp_async.c   |    6 ++----
+ drivers/net/ppp_generic.c |   46 +++++++++++++++++++---------------------------
+ drivers/net/ppp_synctty.c |    3 +--
+ 3 files changed, 22 insertions(+), 33 deletions(-)
+
+diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
+--- a/drivers/net/ppp_async.c
++++ b/drivers/net/ppp_async.c
+@@ -233,11 +233,9 @@ ppp_asynctty_close(struct tty_struct *tty)
+ 	tasklet_kill(&ap->tsk);
+ 
+ 	ppp_unregister_channel(&ap->chan);
+-	if (ap->rpkt != 0)
+-		kfree_skb(ap->rpkt);
++	kfree_skb(ap->rpkt);
+ 	skb_queue_purge(&ap->rqueue);
+-	if (ap->tpkt != 0)
+-		kfree_skb(ap->tpkt);
++	kfree_skb(ap->tpkt);
+ 	kfree(ap);
+ }
+ 
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -119,6 +119,7 @@ struct ppp {
+ 	unsigned long	last_xmit;	/* jiffies when last pkt sent 9c */
+ 	unsigned long	last_recv;	/* jiffies when last pkt rcvd a0 */
+ 	struct net_device *dev;		/* network interface device a4 */
++	int		closing;	/* is device closing down? a8 */
+ #ifdef CONFIG_PPP_MULTILINK
+ 	int		nxchan;		/* next channel to send something on */
+ 	u32		nxseq;		/* next sequence number to send */
+@@ -879,7 +880,7 @@ out_chrdev:
+ static int
+ ppp_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct ppp *ppp = (struct ppp *) dev->priv;
++	struct ppp *ppp = netdev_priv(dev);
+ 	int npi, proto;
+ 	unsigned char *pp;
+ 
+@@ -931,7 +932,7 @@ ppp_net_stats(struct net_device *dev)
+ static int
+ ppp_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+-	struct ppp *ppp = dev->priv;
++	struct ppp *ppp = netdev_priv(dev);
+ 	int err = -EFAULT;
+ 	void __user *addr = (void __user *) ifr->ifr_ifru.ifru_data;
+ 	struct ppp_stats stats;
+@@ -995,7 +996,7 @@ ppp_xmit_process(struct ppp *ppp)
+ 	struct sk_buff *skb;
+ 
+ 	ppp_xmit_lock(ppp);
+-	if (ppp->dev != 0) {
++	if (!ppp->closing) {
+ 		ppp_push(ppp);
+ 		while (ppp->xmit_pending == 0
+ 		       && (skb = skb_dequeue(&ppp->file.xq)) != 0)
+@@ -1464,8 +1465,7 @@ static inline void
+ ppp_do_recv(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
+ {
+ 	ppp_recv_lock(ppp);
+-	/* ppp->dev == 0 means interface is closing down */
+-	if (ppp->dev != 0)
++	if (!ppp->closing)
+ 		ppp_receive_frame(ppp, skb, pch);
+ 	else
+ 		kfree_skb(skb);
+@@ -2434,13 +2434,12 @@ ppp_create_interface(int unit, int *retp
+ 	int ret = -ENOMEM;
+ 	int i;
+ 
+-	ppp = kzalloc(sizeof(struct ppp), GFP_KERNEL);
+-	if (!ppp)
+-		goto out;
+-	dev = alloc_netdev(0, "", ppp_setup);
++	dev = alloc_netdev(sizeof(struct ppp), "", ppp_setup);
+ 	if (!dev)
+ 		goto out1;
+ 
++	ppp = netdev_priv(dev);
++	ppp->dev = dev;
+ 	ppp->mru = PPP_MRU;
+ 	ppp->mru_alloc = PPP_MRU;
+ 	init_ppp_file(&ppp->file, INTERFACE);
+@@ -2454,8 +2453,6 @@ ppp_create_interface(int unit, int *retp
+ 	ppp->minseq = -1;
+ 	skb_queue_head_init(&ppp->mrq);
+ #endif /* CONFIG_PPP_MULTILINK */
+-	ppp->dev = dev;
+-	dev->priv = ppp;
+ 
+ 	dev->hard_start_xmit = ppp_start_xmit;
+ 	dev->get_stats = ppp_net_stats;
+@@ -2494,8 +2491,6 @@ out2:
+ 	mutex_unlock(&all_ppp_mutex);
+ 	free_netdev(dev);
+ out1:
+-	kfree(ppp);
+-out:
+ 	*retp = ret;
+ 	return NULL;
+ }
+@@ -2519,18 +2514,16 @@ init_ppp_file(struct ppp_file *pf, int k
+  */
+ static void ppp_shutdown_interface(struct ppp *ppp)
+ {
+-	struct net_device *dev;
+-
+ 	mutex_lock(&all_ppp_mutex);
+-	ppp_lock(ppp);
+-	dev = ppp->dev;
+-	ppp->dev = NULL;
+-	ppp_unlock(ppp);
+ 	/* This will call dev_close() for us. */
+-	if (dev) {
+-		unregister_netdev(dev);
+-		free_netdev(dev);
+-	}
++	ppp_lock(ppp);
++	if (!ppp->closing) {
++		ppp->closing = 1;
++		ppp_unlock(ppp);
++		unregister_netdev(ppp->dev);
++	} else
++		ppp_unlock(ppp);
++
+ 	cardmap_set(&all_ppp_units, ppp->file.index, NULL);
+ 	ppp->file.dead = 1;
+ 	ppp->owner = NULL;
+@@ -2572,10 +2565,9 @@ static void ppp_destroy_interface(struct
+ 	ppp->active_filter = NULL;
+ #endif /* CONFIG_PPP_FILTER */
+ 
+-	if (ppp->xmit_pending)
+-		kfree_skb(ppp->xmit_pending);
++	kfree_skb(ppp->xmit_pending);
+ 
+-	kfree(ppp);
++	free_netdev(ppp->dev);
+ }
+ 
+ /*
+@@ -2637,7 +2629,7 @@ ppp_connect_channel(struct channel *pch,
+ 	if (pch->file.hdrlen > ppp->file.hdrlen)
+ 		ppp->file.hdrlen = pch->file.hdrlen;
+ 	hdrlen = pch->file.hdrlen + 2;	/* for protocol bytes */
+-	if (ppp->dev && hdrlen > ppp->dev->hard_header_len)
++	if (hdrlen > ppp->dev->hard_header_len)
+ 		ppp->dev->hard_header_len = hdrlen;
+ 	list_add_tail(&pch->clist, &ppp->channels);
+ 	++ppp->n_channels;
+diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
+--- a/drivers/net/ppp_synctty.c
++++ b/drivers/net/ppp_synctty.c
+@@ -281,8 +281,7 @@ ppp_sync_close(struct tty_struct *tty)
+ 
+ 	ppp_unregister_channel(&ap->chan);
+ 	skb_queue_purge(&ap->rqueue);
+-	if (ap->tpkt != 0)
+-		kfree_skb(ap->tpkt);
++	kfree_skb(ap->tpkt);
+ 	kfree(ap);
+ }
+ 
+-- 
+1.7.6.5
