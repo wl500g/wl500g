@@ -1,12 +1,11 @@
-From 6500d123d01af895d2b8eae1a36e553a1f75e211 Mon Sep 17 00:00:00 2001
-From: Denys Vlasenko <vda.linux@googlemail.com>
+From 6500d123d01af895d2b8eae1a36e553a1f75e211
+From: Denys Vlasenko
 Date: Tue, 17 Apr 2012 15:10:31 +0000
 Subject: udhcp: make arpping code resistant to time jumps
 
 Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
 ---
 diff --git a/networking/udhcp/arpping.c b/networking/udhcp/arpping.c
-index ff63478..b43e52e 100644
 --- a/networking/udhcp/arpping.c
 +++ b/networking/udhcp/arpping.c
 @@ -118,8 +118,13 @@ int FAST_FUNC arpping(uint32_t test_nip,
