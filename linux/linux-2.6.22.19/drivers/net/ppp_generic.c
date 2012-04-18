@@ -44,6 +44,7 @@
 #include <linux/stddef.h>
 #include <linux/device.h>
 #include <linux/mutex.h>
+#include <asm/unaligned.h>
 #include <net/slhc_vj.h>
 #include <asm/atomic.h>
 
@@ -115,6 +116,7 @@ struct ppp {
 	unsigned long	last_xmit;	/* jiffies when last pkt sent 9c */
 	unsigned long	last_recv;	/* jiffies when last pkt rcvd a0 */
 	struct net_device *dev;		/* network interface device a4 */
+	int		closing;	/* is device closing down? a8 */
 #ifdef CONFIG_PPP_MULTILINK
 	int		nxchan;		/* next channel to send something on */
 	u32		nxseq;		/* next sequence number to send */
@@ -214,7 +216,7 @@ static int last_channel_index;
 static atomic_t channel_count = ATOMIC_INIT(0);
 
 /* Get the PPP protocol number from a skb */
-#define PPP_PROTO(skb)	(((skb)->data[0] << 8) + (skb)->data[1])
+#define PPP_PROTO(skb)	get_unaligned_be16((skb)->data)
 
 /* We limit the length of ppp->file.rq to this (arbitrary) value */
 #define PPP_MAX_RQLEN	32
@@ -874,7 +876,7 @@ out_chrdev:
 static int
 ppp_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-	struct ppp *ppp = (struct ppp *) dev->priv;
+	struct ppp *ppp = netdev_priv(dev);
 	int npi, proto;
 	unsigned char *pp;
 
@@ -910,8 +912,7 @@ ppp_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 	pp = skb_push(skb, 2);
 	proto = npindex_to_proto[npi];
-	pp[0] = proto >> 8;
-	pp[1] = proto;
+	put_unaligned_be16(proto, pp);
 
 	netif_stop_queue(dev);
 	skb_queue_tail(&ppp->file.xq, skb);
@@ -935,7 +936,7 @@ ppp_net_stats(struct net_device *dev)
 static int
 ppp_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
-	struct ppp *ppp = dev->priv;
+	struct ppp *ppp = netdev_priv(dev);
 	int err = -EFAULT;
 	void __user *addr = (void __user *) ifr->ifr_ifru.ifru_data;
 	struct ppp_stats stats;
@@ -999,7 +1000,7 @@ ppp_xmit_process(struct ppp *ppp)
 	struct sk_buff *skb;
 
 	ppp_xmit_lock(ppp);
-	if (ppp->dev != 0) {
+	if (!ppp->closing) {
 		ppp_push(ppp);
 		while (ppp->xmit_pending == 0
 		       && (skb = skb_dequeue(&ppp->file.xq)) != 0)
@@ -1366,8 +1367,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
 		q = skb_put(frag, flen + hdrlen);
 
 		/* make the MP header */
-		q[0] = PPP_MP >> 8;
-		q[1] = PPP_MP;
+		put_unaligned_be16(PPP_MP, q);
 		if (ppp->flags & SC_MP_XSHORTSEQ) {
 			q[2] = bits + ((ppp->nxseq >> 8) & 0xf);
 			q[3] = ppp->nxseq;
@@ -1467,8 +1467,7 @@ static inline void
 ppp_do_recv(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
 {
 	ppp_recv_lock(ppp);
-	/* ppp->dev == 0 means interface is closing down */
-	if (ppp->dev != 0)
+	if (!ppp->closing)
 		ppp_receive_frame(ppp, skb, pch);
 	else
 		kfree_skb(skb);
@@ -2432,13 +2431,12 @@ ppp_create_interface(int unit, int *retp)
 	int ret = -ENOMEM;
 	int i;
 
-	ppp = kzalloc(sizeof(struct ppp), GFP_KERNEL);
-	if (!ppp)
-		goto out;
-	dev = alloc_netdev(0, "", ppp_setup);
+	dev = alloc_netdev(sizeof(struct ppp), "", ppp_setup);
 	if (!dev)
 		goto out1;
 
+	ppp = netdev_priv(dev);
+	ppp->dev = dev;
 	ppp->mru = PPP_MRU;
 	init_ppp_file(&ppp->file, INTERFACE);
 	ppp->file.hdrlen = PPP_HDRLEN - 2;	/* don't count proto bytes */
@@ -2451,8 +2449,6 @@ ppp_create_interface(int unit, int *retp)
 	ppp->minseq = -1;
 	skb_queue_head_init(&ppp->mrq);
 #endif /* CONFIG_PPP_MULTILINK */
-	ppp->dev = dev;
-	dev->priv = ppp;
 
 	dev->hard_start_xmit = ppp_start_xmit;
 	dev->get_stats = ppp_net_stats;
@@ -2491,8 +2487,6 @@ out2:
 	mutex_unlock(&all_ppp_mutex);
 	free_netdev(dev);
 out1:
-	kfree(ppp);
-out:
 	*retp = ret;
 	return NULL;
 }
@@ -2516,18 +2510,16 @@ init_ppp_file(struct ppp_file *pf, int kind)
  */
 static void ppp_shutdown_interface(struct ppp *ppp)
 {
-	struct net_device *dev;
-
 	mutex_lock(&all_ppp_mutex);
-	ppp_lock(ppp);
-	dev = ppp->dev;
-	ppp->dev = NULL;
-	ppp_unlock(ppp);
 	/* This will call dev_close() for us. */
-	if (dev) {
-		unregister_netdev(dev);
-		free_netdev(dev);
-	}
+	ppp_lock(ppp);
+	if (!ppp->closing) {
+		ppp->closing = 1;
+		ppp_unlock(ppp);
+		unregister_netdev(ppp->dev);
+	} else
+		ppp_unlock(ppp);
+
 	cardmap_set(&all_ppp_units, ppp->file.index, NULL);
 	ppp->file.dead = 1;
 	ppp->owner = NULL;
@@ -2569,10 +2561,9 @@ static void ppp_destroy_interface(struct ppp *ppp)
 	ppp->active_filter = NULL;
 #endif /* CONFIG_PPP_FILTER */
 
-	if (ppp->xmit_pending)
-		kfree_skb(ppp->xmit_pending);
+	kfree_skb(ppp->xmit_pending);
 
-	kfree(ppp);
+	free_netdev(ppp->dev);
 }
 
 /*
@@ -2634,7 +2625,7 @@ ppp_connect_channel(struct channel *pch, int unit)
 	if (pch->file.hdrlen > ppp->file.hdrlen)
 		ppp->file.hdrlen = pch->file.hdrlen;
 	hdrlen = pch->file.hdrlen + 2;	/* for protocol bytes */
-	if (ppp->dev && hdrlen > ppp->dev->hard_header_len)
+	if (hdrlen > ppp->dev->hard_header_len)
 		ppp->dev->hard_header_len = hdrlen;
 	list_add_tail(&pch->clist, &ppp->channels);
 	++ppp->n_channels;

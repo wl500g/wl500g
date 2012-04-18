@@ -42,9 +42,10 @@
 #include <linux/if_ppp.h>
 #include <linux/ppp_channel.h>
 #include <linux/spinlock.h>
+#include <linux/completion.h>
 #include <linux/init.h>
+#include <asm/unaligned.h>
 #include <asm/uaccess.h>
-#include <asm/semaphore.h>
 
 #define PPP_VERSION	"2.4.2"
 
@@ -70,7 +71,7 @@ struct syncppp {
 	struct tasklet_struct tsk;
 
 	atomic_t	refcnt;
-	struct semaphore dead_sem;
+	struct completion dead_cmp;
 	struct ppp_channel chan;	/* interface to generic ppp layer */
 };
 
@@ -102,64 +103,15 @@ static struct ppp_channel_ops sync_ops = {
 };
 
 /*
- * Utility procedures to print a buffer in hex/ascii
+ * Utility procedure to print a buffer in hex/ascii
  */
-static void
-ppp_print_hex (register __u8 * out, const __u8 * in, int count)
-{
-	register __u8 next_ch;
-	static const char hex[] = "0123456789ABCDEF";
-
-	while (count-- > 0) {
-		next_ch = *in++;
-		*out++ = hex[(next_ch >> 4) & 0x0F];
-		*out++ = hex[next_ch & 0x0F];
-		++out;
-	}
-}
-
-static void
-ppp_print_char (register __u8 * out, const __u8 * in, int count)
-{
-	register __u8 next_ch;
-
-	while (count-- > 0) {
-		next_ch = *in++;
-
-		if (next_ch < 0x20 || next_ch > 0x7e)
-			*out++ = '.';
-		else {
-			*out++ = next_ch;
-			if (next_ch == '%')   /* printk/syslogd has a bug !! */
-				*out++ = '%';
-		}
-	}
-	*out = '\0';
-}
-
 static void
 ppp_print_buffer (const char *name, const __u8 *buf, int count)
 {
-	__u8 line[44];
-
 	if (name != NULL)
 		printk(KERN_DEBUG "ppp_synctty: %s, count = %d\n", name, count);
 
-	while (count > 8) {
-		memset (line, 32, 44);
-		ppp_print_hex (line, buf, 8);
-		ppp_print_char (&line[8 * 3], buf, 8);
-		printk(KERN_DEBUG "%s\n", line);
-		count -= 8;
-		buf += 8;
-	}
-
-	if (count > 0) {
-		memset (line, 32, 44);
-		ppp_print_hex (line, buf, count);
-		ppp_print_char (&line[8 * 3], buf, count);
-		printk(KERN_DEBUG "%s\n", line);
-	}
+	print_hex_dump_bytes("", DUMP_PREFIX_NONE, buf, count);
 }
 
 
@@ -197,7 +149,7 @@ static struct syncppp *sp_get(struct tty_struct *tty)
 static void sp_put(struct syncppp *ap)
 {
 	if (atomic_dec_and_test(&ap->refcnt))
-		up(&ap->dead_sem);
+		complete(&ap->dead_cmp);
 }
 
 /*
@@ -228,7 +180,7 @@ ppp_sync_open(struct tty_struct *tty)
 	tasklet_init(&ap->tsk, ppp_sync_process, (unsigned long) ap);
 
 	atomic_set(&ap->refcnt, 1);
-	init_MUTEX_LOCKED(&ap->dead_sem);
+	init_completion(&ap->dead_cmp);
 
 	ap->chan.private = ap;
 	ap->chan.ops = &sync_ops;
@@ -277,13 +229,12 @@ ppp_sync_close(struct tty_struct *tty)
 	 * by the time it returns.
 	 */
 	if (!atomic_dec_and_test(&ap->refcnt))
-		down(&ap->dead_sem);
+		wait_for_completion(&ap->dead_cmp);
 	tasklet_kill(&ap->tsk);
 
 	ppp_unregister_channel(&ap->chan);
 	skb_queue_purge(&ap->rqueue);
-	if (ap->tpkt != 0)
-		kfree_skb(ap->tpkt);
+	kfree_skb(ap->tpkt);
 	kfree(ap);
 }
 
@@ -576,7 +527,7 @@ ppp_sync_txmunge(struct syncppp *ap, struct sk_buff *skb)
 	int islcp;
 
 	data  = skb->data;
-	proto = (data[0] << 8) + data[1];
+	proto = get_unaligned_be16(data);
 
 	/* LCP packets with codes between 1 (configure-request)
 	 * and 7 (code-reject) must be sent as though no options
