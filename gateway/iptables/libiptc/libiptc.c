@@ -1316,6 +1316,7 @@ TC_INIT(const char *tablename)
 	socklen_t s;
 	int sockfd;
 
+retry:
 	iptc_fn = TC_INIT;
 
 	if (strlen(tablename) >= TABLE_MAXNAMELEN) {
@@ -1327,7 +1328,6 @@ TC_INIT(const char *tablename)
 	if (sockfd < 0)
 		return NULL;
 
-retry:
 	s = sizeof(info);
 
 	strcpy(info.name, tablename);
