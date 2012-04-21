@@ -1,0 +1,37 @@
+From a2cc7378449b37ecc56d6f24ad54a00aada8cfb9
+From: Bernhard Reutner-Fischer
+Date: Tue, 17 Apr 2012 20:05:07 +0000
+Subject: ipc: eventually use stat64 in ftok()
+
+PR 4201
+ftok() always used 32bit stat
+
+Signed-off-by: Bernhard Reutner-Fischer <rep.dot.nop@gmail.com>
+---
+diff --git a/libc/misc/sysvipc/ftok.c b/libc/misc/sysvipc/ftok.c
+--- a/libc/misc/sysvipc/ftok.c
++++ b/libc/misc/sysvipc/ftok.c
+@@ -19,14 +19,18 @@
+ 
+ #include <sys/ipc.h>
+ #include <sys/stat.h>
+-
++#ifdef __UCLIBC_HAS_LFS__
++# include <_lfs_64.h>
++#else
++# define stat64 stat
++#endif
+ 
+ key_t ftok (const char *pathname, int proj_id)
+ {
+-  struct stat st;
++  struct stat64 st;
+   key_t key;
+ 
+-  if (stat(pathname, &st) < 0)
++  if (stat64(pathname, &st) < 0)
+     return (key_t) -1;
+ 
+   key = ((st.st_ino & 0xffff) | ((st.st_dev & 0xff) << 16)
+--
+cgit v0.9.0.1-2-gef13
