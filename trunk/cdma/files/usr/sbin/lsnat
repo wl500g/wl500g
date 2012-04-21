@@ -1,20 +1,23 @@
 #!/bin/sh
+CTRACK=/proc/net/nf_conntrack
+
 if [ "$1" = "-n" ]; then
- cat /proc/net/ip_conntrack|grep tcp|sed -e "s/\[UNREPLIED\] //g"|grep -v TIME_WAIT|awk -F " |      |=" \
+ cat $CTRACK|grep tcp|sed -e "s/\[UNREPLIED\] //g"|grep -v TIME_WAIT|awk -F " |      |=" \
  '{printf "%s %11s %15s:%5d [%5d]  ->  %15s:%5d\n",$1,$4,$6,$10,$20,$8,$12}'|sort
 
- cat /proc/net/ip_conntrack|grep udp|sed -e "s/\[UNREPLIED\] //g"|awk -F " |      |=" \
+ cat $CTRACK|grep udp|sed -e "s/\[UNREPLIED\] //g"|awk -F " |      |=" \
  '{printf "%s             %15s:%5d [%5d]  ->  %15s:%5d\n",$1,$5,$9,$19,$7,$11}'|sort
 
- cat /proc/net/ip_conntrack|grep icmp|awk -F " |     |=" \
+ cat $CTRACK|grep icmp|awk -F " |     |=" \
  '{printf "%s            %15s:%5d          ->  %15s:%5d\n",$1,$5,$9,$7,$9}'|sort
 else
- cat /proc/net/ip_conntrack|grep tcp|sed -e "s/\[UNREPLIED\] //g"|grep -v TIME_WAIT|awk -F " |      |=" \
- '{"nslookup "$8|getline host;close("nslookup "$8);printf "%s %11s %15s:%5d [%5d]  ->  %s:%d\n",$1,$4,$6,$10,$20,host,$12}'|sort
+ cat $CTRACK|grep tcp|sed -e "s/\[UNREPLIED\] //g"|grep -v TIME_WAIT|awk -F " |      |=" \
+ '{"nslookup "$14|getline host;close("nslookup "$14);printf "%s %11s %15s:%5d [%5d]  ->  %s:%d\n",$1,$4,$6,$10,$20,host,$12}'|sort
 
- cat /proc/net/ip_conntrack|grep udp|sed -e "s/\[UNREPLIED\] //g"|awk -F " |      |=" \
- '{"nslookup "$7|getline host;close("nslookup "$7);printf "%s             %15s:%5d [%5d]  ->  %s:%d\n",$1,$5,$9,$19,host,$11}'|sort
+ cat $CTRACK|grep udp|sed -e "s/\[UNREPLIED\] //g"|awk -F " |      |=" \
+ '{"nslookup "$13|getline host;close("nslookup "$13);printf "%s             %15s:%5d [%5d]  ->  %s:%d\n",$1,$5,$9,$19,host,$11}'|sort
 
- cat /proc/net/ip_conntrack|grep icmp|awk -F " |     |=" \
- '{"nslookup "$7|getline host;close("nslookup "$7);printf "%s            %15s:%5d          ->  %s:%d\n",$1,$5,$9,host,$9}'|sort
+
+ cat $CTRACK|grep icmp|awk -F " |     |=" \
+ '{"nslookup "$13|getline host;close("nslookup "$13);printf "%s            %15s:%5d          ->  %s:%d\n",$1,$5,$9,host,$9}'|sort
 fi
