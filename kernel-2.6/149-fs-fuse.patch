@@ -4,15 +4,16 @@ fuse backport from 2.6.27.59
  769415c61191bc860f60c6edc3cb7cba24fb3218 fuse: fix SEEK_END incorrectness
  17e18ab6ff6ec44e95514c7346d2cbd0363ef640 fuse: add missing fuse_request_free
  e9bb09dd6c5b8ec6a971ed6251df5eba3a4c8d3c fuse: don't let fuse_req->end() put the base reference
+ ac45d61357e86b9a0cf14e45e8e09dfb626970ef fuse: fix nlink after unlink
 
 ---
  fs/fuse/dev.c        |  221 +++++++------
- fs/fuse/dir.c        |  569 ++++++++++++++++++++++++----------
- fs/fuse/file.c       |  849 +++++++++++++++++++++++++++++++++++++++++++++------
+ fs/fuse/dir.c        |  589 +++++++++++++++++++++++++----------
+ fs/fuse/file.c       |  846 +++++++++++++++++++++++++++++++++++++++++++++------
  fs/fuse/fuse_i.h     |  142 +++++++-
- fs/fuse/inode.c      |  316 +++++++++++++++++-
+ fs/fuse/inode.c      |  316 +++++++++++++++++--
  include/linux/fuse.h |   74 ++++
- 6 files changed, 1770 insertions(+), 401 deletions(-)
+ 6 files changed, 1782 insertions(+), 406 deletions(-)
 
 diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
 --- a/fs/fuse/dev.c
@@ -790,6 +791,23 @@ diff --git a/fs/fuse/dir.c b/fs/fuse/dir.c
  	fuse_invalidate_attr(dir);
  	return 0;
  
+@@ -544,11 +644,12 @@ static int fuse_unlink(struct inode *dir, struct dentry *entry)
+ 	fuse_put_request(fc, req);
+ 	if (!err) {
+ 		struct inode *inode = entry->d_inode;
++		struct fuse_inode *fi = get_fuse_inode(inode);
+ 
+-		/* Set nlink to zero so the inode can be cleared, if
+-                   the inode does have more links this will be
+-                   discovered at the next lookup/getattr */
+-		clear_nlink(inode);
++		spin_lock(&fc->lock);
++		fi->attr_version = ++fc->attr_version;
++		drop_nlink(inode);
++		spin_unlock(&fc->lock);
+ 		fuse_invalidate_attr(inode);
+ 		fuse_invalidate_attr(dir);
+ 		fuse_invalidate_entry_cache(entry);
 @@ -612,6 +702,9 @@ static int fuse_rename(struct inode *old
  	err = req->out.h.error;
  	fuse_put_request(fc, req);
@@ -800,7 +818,22 @@ diff --git a/fs/fuse/dir.c b/fs/fuse/dir.c
  		fuse_invalidate_attr(olddir);
  		if (olddir != newdir)
  			fuse_invalidate_attr(newdir);
-@@ -664,37 +757,106 @@ static int fuse_link(struct dentry *entr
+@@ -664,42 +757,120 @@ static int fuse_link(struct dentry *entry, struct inode *newdir,
+ 	   will reflect changes in the backing inode (link count,
+ 	   etc.)
+ 	*/
+-	if (!err || err == -EINTR)
++	if (!err) {
++		struct fuse_inode *fi = get_fuse_inode(inode);
++
++		spin_lock(&fc->lock);
++		fi->attr_version = ++fc->attr_version;
++		inc_nlink(inode);
++		spin_unlock(&fc->lock);
+ 		fuse_invalidate_attr(inode);
++	} else if (err == -EINTR) {
++		fuse_invalidate_attr(inode);
++	}
  	return err;
  }
  
