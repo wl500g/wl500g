@@ -9,18 +9,40 @@
  9c6d5e5537e3997c47b65925a235392c1968fb51 TCP: Fix setting of snd_ssthresh in tcp_mtu_probe_success
  44f5324b5d13ef2187729d949eca442689627f39 TCP: fix a bug that triggers large number of TCP RST by mistake
  761965eab38d2cbc59c36e355c59609e3a04705a tcp: tcp_sendmsg() page recycling
+ a4d258036ed9b2a1811c3670c6099203a0f284a0 tcp: Fix race in tcp_poll
  18a223e0b9ec8979320ba364b47c9772391d6d05 tcp: fix tcp_rcv_rtt_update() use of an unscaled RTT sample
 
 ---
- net/ipv4/tcp.c        |   24 +++++++++++++--------
- net/ipv4/tcp_input.c  |   11 ++++++---
+ net/ipv4/tcp.c        |   31 +++++++++++++++++----------
+ net/ipv4/tcp_input.c  |   13 +++++++----
  net/ipv4/tcp_output.c |   57 ++++++++++++++++----------------------------------
  net/ipv4/udp.c        |    6 +++--
- 4 files changed, 45 insertions(+), 53 deletions(-)
+ 4 files changed, 52 insertions(+), 55 deletions(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
+@@ -386,8 +386,6 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	 */
+ 
+ 	mask = 0;
+-	if (sk->sk_err)
+-		mask = POLLERR;
+ 
+ 	/*
+ 	 * POLLHUP is certainly not done right. But poll() doesn't
+@@ -457,6 +455,11 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 		if (tp->urg_data & TCP_URG_VALID)
+ 			mask |= POLLPRI;
+ 	}
++	/* This barrier is coupled with smp_wmb() in tcp_reset() */
++	smp_rmb();
++	if (sk->sk_err)
++		mask |= POLLERR;
++
+ 	return mask;
+ }
+ EXPORT_SYMBOL(tcp_poll);
 @@ -876,12 +876,12 @@ ssize_t tcp_sendpage(struct socket *sock, struct page *page, int offset,
  #define TCP_PAGE(sk)	(sk->sk_sndmsg_page)
  #define TCP_OFF(sk)	(sk->sk_sndmsg_off)
@@ -126,6 +148,15 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  				tcp_rcv_space_adjust(sk);
  			}
  			local_bh_disable();
+@@ -4048,6 +4048,8 @@ static void tcp_reset(struct sock *sk)
+ 		default:
+ 			sk->sk_err = ECONNRESET;
+ 	}
++	/* This barrier is coupled with smp_rmb() in tcp_poll() */
++	smp_wmb();
+ 
+ 	if (!sock_flag(sk, SOCK_DEAD))
+ 		sk->sk_error_report(sk);
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
