@@ -1,0 +1,34 @@
+From 4db8275da59996eb1c22d2e9e9c527fa58b288ad
+From: Hans de Goede
+Date: Fri, 9 Mar 2012 11:31:06 +0100
+Subject: [PATCH] Linux: Fix cancel_transfer return value when cancelling a multi-urb transfer
+
+If we fail to cancel the last urb of a multi-urb transfer because it
+has already completed (errno == EINVAL on DISCARD_URB), then the entire
+transfer has already completed, so returning NOT_FOUND is consistent
+with what the documentation for libusb_cancel_transfer() says.
+
+But if we've successfully cancelled the last urb, and then another urb
+fails with errno == EINVAL, this means that we've still cancelled the
+transfer, as it has only *partially* completed.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ libusb/os/linux_usbfs.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/libusb/os/linux_usbfs.c b/libusb/os/linux_usbfs.c
+--- a/libusb/os/linux_usbfs.c
++++ b/libusb/os/linux_usbfs.c
+@@ -1483,7 +1483,8 @@ static int discard_urbs(struct usbi_transfer *itransfer, int first, int last_plu
+ 
+ 		if (EINVAL == errno) {
+ 			usbi_dbg("URB not found --> assuming ready to be reaped");
+-			ret = LIBUSB_ERROR_NOT_FOUND;
++			if (i == (last_plus_one - 1))
++				ret = LIBUSB_ERROR_NOT_FOUND;
+ 		} else if (ENODEV == errno) {
+ 			usbi_dbg("Device not found for URB --> assuming ready to be reaped");
+ 			ret = LIBUSB_ERROR_NO_DEVICE;
+-- 
+1.7.6.1
