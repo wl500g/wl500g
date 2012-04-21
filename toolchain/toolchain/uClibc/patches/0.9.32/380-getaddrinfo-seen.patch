@@ -1,33 +1,34 @@
-getaddrinfo() optimization
+From 777aef50973bc3a20db8d9545494e8abb86a692e
+From: Alexander Komyagin
+Date: Wed, 04 Apr 2012 08:58:37 +0000
+Subject: getaddrinfo(): avoid call to __check_pf() when not needed
 
- I found out that getaddrinfo() function in uclibc may cause performance
- downgrades for some heavy-loaded services (e.g. squid) due to
- unnecessary calls to __check_pf() (and hence getifaddrs() ). Really
- these calls only needed when AI_ADDRCONFIG hint flag is given.
+__check_pf() function is called from getaddrinfo() and it calls
+getifaddrs(), which is too much overhead especially if RSBAC-Net
+is enabled. So with this patch __check_pf() is being called only
+when AI_ADDRCONFIG hint flag is specified - just when we really
+need that check.
 
- For example, squid uses getaddrinfo() to convert IP addresses from
- textual to numeric form, providing just AI_NUMERICHOST hint flag. You
- can imagine how many calls there are when you have about 1000 requests
- per second and the overhead from netlink communications to kernel every
- time in getifaddrs().
-
-Alexander Komyagin <komyagin at altell.ru>
-
---- a/libc/inet/getaddrinfo.c	2012-03-29 18:32:08.487911701 +0400
-+++ b/libc/inet/getaddrinfo.c	2012-03-29 18:32:25.735299532 +0400
-@@ -401,7 +401,14 @@
+Signed-off-by: Alexander Komyagin <komyagin@altell.ru>
+Signed-off-by: Bernhard Reutner-Fischer <rep.dot.nop@gmail.com>
+---
+diff --git a/libc/inet/getaddrinfo.c b/libc/inet/getaddrinfo.c
+--- a/libc/inet/getaddrinfo.c
++++ b/libc/inet/getaddrinfo.c
+@@ -401,7 +401,13 @@ gaih_inet(const char *name, const struct gaih_service *service,
  	int rc;
  	int v4mapped = (req->ai_family == PF_UNSPEC || req->ai_family == PF_INET6)
  			&& (req->ai_flags & AI_V4MAPPED);
 -	unsigned seen = __check_pf();
-+
-+	//"seen" variable won't be used if AI_ADDRCONFIG is 
-+	// not specified. So avoid unnecessary call to __check_pf()
-+	// since it can be costly esp. when RSBAC-Net is enabled.
 +	unsigned seen = 0;
 +	if (req->ai_flags & AI_ADDRCONFIG) {
++		/* "seen" is only used when AI_ADDRCONFIG is specified.
++		   Avoid unnecessary call to __check_pf() otherwise
++		   since it can be costly especially when RSBAC-Net is enabled.  */
 +		seen = __check_pf();
 +	}
  
  	memset(&nullserv, 0, sizeof(nullserv));
  
+--
+cgit v0.9.0.1-2-gef13
