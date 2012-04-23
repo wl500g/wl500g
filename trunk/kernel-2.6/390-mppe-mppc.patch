@@ -1275,6 +1275,7 @@ diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_mppe_mppc.c linux-2.6.22.19/dri
 +
 +#include <linux/ppp_defs.h>
 +#include <linux/ppp-comp.h>
++#include <asm/unaligned.h>
 +
 +/*
 + * State for a mppc/mppe "(de)compressor".
@@ -1962,8 +1963,7 @@ diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_mppe_mppc.c linux-2.6.22.19/dri
 +    /* Copy over the PPP header */
 +    wptr[0] = PPP_ADDRESS(ibuf);
 +    wptr[1] = PPP_CONTROL(ibuf);
-+    wptr[2] = PPP_COMP >> 8;
-+    wptr[3] = PPP_COMP;
++    put_unaligned_be16(PPP_COMP, wptr + 2);
 +    wptr += PPP_HDRLEN + (MPPE_OVHD / 2); /* Leave two octets for MPPE/MPPC bits */
 +
 +    /* 

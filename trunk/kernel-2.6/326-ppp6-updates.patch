@@ -3,17 +3,27 @@ ppp: Updates from upstream
  c8019bf3aff653cceb64f66489fc299ee5957b57 netdevice ppp: Convert directly reference of netdev->priv
  739840d529eb7505d3cbfe9d468bf1440c9a8e27 ppp: fix segfaults introduced by netdev_priv changes
  1d2f8c950745f47f2937742eb886cffee439b754 ppp: remove some pointless conditionals before kfree_skb()
+ 96545aeb7b4457594d764af4d689a738e97f14b8 ppp: use {get,put}_unaligned_be{16,32}
 
 ---
- drivers/net/ppp_async.c   |    6 ++----
- drivers/net/ppp_generic.c |   46 +++++++++++++++++++---------------------------
- drivers/net/ppp_synctty.c |    3 +--
- 3 files changed, 22 insertions(+), 33 deletions(-)
+ drivers/net/ppp_async.c   |   16 +++++--------
+ drivers/net/ppp_deflate.c |    9 +++----
+ drivers/net/ppp_generic.c |   55 +++++++++++++++++++---------------------------
+ drivers/net/ppp_synctty.c |    6 ++---
+ 4 files changed, 37 insertions(+), 49 deletions(-)
 
 diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
 --- a/drivers/net/ppp_async.c
 +++ b/drivers/net/ppp_async.c
-@@ -233,11 +233,9 @@ ppp_asynctty_close(struct tty_struct *tty)
+@@ -31,6 +31,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/init.h>
+ #include <linux/jiffies.h>
++#include <asm/unaligned.h>
+ #include <asm/uaccess.h>
+ #include <asm/string.h>
+ 
+@@ -233,11 +234,9 @@ ppp_asynctty_close(struct tty_struct *tt
  	tasklet_kill(&ap->tsk);
  
  	ppp_unregister_channel(&ap->chan);
@@ -27,10 +37,88 @@ diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
  	kfree(ap);
  }
  
+@@ -555,7 +554,7 @@ ppp_async_encode(struct asyncppp *ap)
+ 	data = ap->tpkt->data;
+ 	count = ap->tpkt->len;
+ 	fcs = ap->tfcs;
+-	proto = (data[0] << 8) + data[1];
++	proto = get_unaligned_be16(data);
+ 
+ 	/*
+ 	 * LCP packets with code values between 1 (configure-reqest)
+@@ -976,7 +975,7 @@ static void async_lcp_peek(struct asyncp
+ 	code = data[0];
+ 	if (code != CONFACK && code != CONFREQ)
+ 		return;
+-	dlen = (data[2] << 8) + data[3];
++	dlen = get_unaligned_be16(data + 2);
+ 	if (len < dlen)
+ 		return;		/* packet got truncated or length is bogus */
+ 
+@@ -1010,15 +1009,14 @@ static void async_lcp_peek(struct asyncp
+ 	while (dlen >= 2 && dlen >= data[1] && data[1] >= 2) {
+ 		switch (data[0]) {
+ 		case LCP_MRU:
+-			val = (data[2] << 8) + data[3];
++			val = get_unaligned_be16(data + 2);
+ 			if (inbound)
+ 				ap->mru = val;
+ 			else
+ 				ap->chan.mtu = val;
+ 			break;
+ 		case LCP_ASYNCMAP:
+-			val = (data[2] << 24) + (data[3] << 16)
+-				+ (data[4] << 8) + data[5];
++			val = get_unaligned_be32(data + 2);
+ 			if (inbound)
+ 				ap->raccm = val;
+ 			else
+diff --git a/drivers/net/ppp_deflate.c b/drivers/net/ppp_deflate.c
+--- a/drivers/net/ppp_deflate.c
++++ b/drivers/net/ppp_deflate.c
+@@ -41,6 +41,7 @@
+ #include <linux/ppp-comp.h>
+ 
+ #include <linux/zlib.h>
++#include <asm/unaligned.h>
+ 
+ /*
+  * State for a Deflate (de)compressor.
+@@ -232,11 +233,9 @@ int z_compress(void *arg, unsigned char 
+ 	 */
+ 	wptr[0] = PPP_ADDRESS(rptr);
+ 	wptr[1] = PPP_CONTROL(rptr);
+-	wptr[2] = PPP_COMP >> 8;
+-	wptr[3] = PPP_COMP;
++	put_unaligned_be16(PPP_COMP, wptr + 2);
+ 	wptr += PPP_HDRLEN;
+-	wptr[0] = state->seqno >> 8;
+-	wptr[1] = state->seqno;
++	put_unaligned_be16(state->seqno, wptr);
+ 	wptr += DEFLATE_OVHD;
+ 	olen = PPP_HDRLEN + DEFLATE_OVHD;
+ 	state->strm.next_out = wptr;
+@@ -451,7 +450,7 @@ int z_decompress(void *arg, unsigned cha
+ 	}
+ 
+ 	/* Check the sequence number. */
+-	seq = (ibuf[PPP_HDRLEN] << 8) + ibuf[PPP_HDRLEN+1];
++	seq = get_unaligned_be16(ibuf + PPP_HDRLEN);
+ 	if (seq != (state->seqno & 0xffff)) {
+ 		if (state->debug)
+ 			printk(KERN_DEBUG "z_decompress%d: bad seq # %d, expected %d\n",
 diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
 --- a/drivers/net/ppp_generic.c
 +++ b/drivers/net/ppp_generic.c
-@@ -119,6 +119,7 @@ struct ppp {
+@@ -45,6 +45,7 @@
+ #include <linux/stddef.h>
+ #include <linux/device.h>
+ #include <linux/mutex.h>
++#include <asm/unaligned.h>
+ #include <net/slhc_vj.h>
+ #include <asm/atomic.h>
+ 
+@@ -119,6 +120,7 @@ struct ppp {
  	unsigned long	last_xmit;	/* jiffies when last pkt sent 9c */
  	unsigned long	last_recv;	/* jiffies when last pkt rcvd a0 */
  	struct net_device *dev;		/* network interface device a4 */
@@ -38,7 +126,16 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
  #ifdef CONFIG_PPP_MULTILINK
  	int		nxchan;		/* next channel to send something on */
  	u32		nxseq;		/* next sequence number to send */
-@@ -879,7 +880,7 @@ out_chrdev:
+@@ -217,7 +219,7 @@ static int last_channel_index;
+ static atomic_t channel_count = ATOMIC_INIT(0);
+ 
+ /* Get the PPP protocol number from a skb */
+-#define PPP_PROTO(skb)	(((skb)->data[0] << 8) + (skb)->data[1])
++#define PPP_PROTO(skb)	get_unaligned_be16((skb)->data)
+ 
+ /* We limit the length of ppp->file.rq to this (arbitrary) value */
+ #define PPP_MAX_RQLEN	32
+@@ -879,7 +881,7 @@ out_chrdev:
  static int
  ppp_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
@@ -47,6 +144,16 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
  	int npi, proto;
  	unsigned char *pp;
  
+@@ -907,8 +909,7 @@ ppp_start_xmit(struct sk_buff *skb, stru
+ 
+ 	pp = skb_push(skb, 2);
+ 	proto = npindex_to_proto[npi];
+-	pp[0] = proto >> 8;
+-	pp[1] = proto;
++	put_unaligned_be16(proto, pp);
+ 
+ 	skb_queue_tail(&ppp->file.xq, skb);
+ 	ppp_xmit_process(ppp);
 @@ -931,7 +932,7 @@ ppp_net_stats(struct net_device *dev)
  static int
  ppp_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
@@ -65,7 +172,17 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
  		ppp_push(ppp);
  		while (ppp->xmit_pending == 0
  		       && (skb = skb_dequeue(&ppp->file.xq)) != 0)
-@@ -1464,8 +1465,7 @@ static inline void
+@@ -1363,8 +1364,7 @@ static int ppp_mp_explode(struct ppp *pp
+ 		q = skb_put(frag, flen + hdrlen);
+ 
+ 		/* make the MP header */
+-		q[0] = PPP_MP >> 8;
+-		q[1] = PPP_MP;
++		put_unaligned_be16(PPP_MP, q);
+ 		if (ppp->flags & SC_MP_XSHORTSEQ) {
+ 			q[2] = bits + ((ppp->nxseq >> 8) & 0xf);
+ 			q[3] = ppp->nxseq;
+@@ -1464,8 +1464,7 @@ static inline void
  ppp_do_recv(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
  {
  	ppp_recv_lock(ppp);
@@ -75,7 +192,7 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
  		ppp_receive_frame(ppp, skb, pch);
  	else
  		kfree_skb(skb);
-@@ -2434,13 +2434,12 @@ ppp_create_interface(int unit, int *retp
+@@ -2434,13 +2433,12 @@ ppp_create_interface(int unit, int *retp
  	int ret = -ENOMEM;
  	int i;
  
@@ -92,7 +209,7 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
  	ppp->mru = PPP_MRU;
  	ppp->mru_alloc = PPP_MRU;
  	init_ppp_file(&ppp->file, INTERFACE);
-@@ -2454,8 +2453,6 @@ ppp_create_interface(int unit, int *retp
+@@ -2454,8 +2452,6 @@ ppp_create_interface(int unit, int *retp
  	ppp->minseq = -1;
  	skb_queue_head_init(&ppp->mrq);
  #endif /* CONFIG_PPP_MULTILINK */
@@ -101,7 +218,7 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
  
  	dev->hard_start_xmit = ppp_start_xmit;
  	dev->get_stats = ppp_net_stats;
-@@ -2494,8 +2491,6 @@ out2:
+@@ -2494,8 +2490,6 @@ out2:
  	mutex_unlock(&all_ppp_mutex);
  	free_netdev(dev);
  out1:
@@ -110,7 +227,7 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
  	*retp = ret;
  	return NULL;
  }
-@@ -2519,18 +2514,16 @@ init_ppp_file(struct ppp_file *pf, int k
+@@ -2519,18 +2513,16 @@ init_ppp_file(struct ppp_file *pf, int k
   */
  static void ppp_shutdown_interface(struct ppp *ppp)
  {
@@ -137,7 +254,7 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
  	cardmap_set(&all_ppp_units, ppp->file.index, NULL);
  	ppp->file.dead = 1;
  	ppp->owner = NULL;
-@@ -2572,10 +2565,9 @@ static void ppp_destroy_interface(struct
+@@ -2572,10 +2564,9 @@ static void ppp_destroy_interface(struct
  	ppp->active_filter = NULL;
  #endif /* CONFIG_PPP_FILTER */
  
@@ -150,7 +267,7 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
  }
  
  /*
-@@ -2637,7 +2629,7 @@ ppp_connect_channel(struct channel *pch,
+@@ -2637,7 +2628,7 @@ ppp_connect_channel(struct channel *pch,
  	if (pch->file.hdrlen > ppp->file.hdrlen)
  		ppp->file.hdrlen = pch->file.hdrlen;
  	hdrlen = pch->file.hdrlen + 2;	/* for protocol bytes */
@@ -162,7 +279,15 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
 diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
 --- a/drivers/net/ppp_synctty.c
 +++ b/drivers/net/ppp_synctty.c
-@@ -281,8 +281,7 @@ ppp_sync_close(struct tty_struct *tty)
+@@ -43,6 +43,7 @@
+ #include <linux/ppp_channel.h>
+ #include <linux/spinlock.h>
+ #include <linux/init.h>
++#include <asm/unaligned.h>
+ #include <asm/uaccess.h>
+ #include <asm/semaphore.h>
+ 
+@@ -281,8 +282,7 @@ ppp_sync_close(struct tty_struct *tty)
  
  	ppp_unregister_channel(&ap->chan);
  	skb_queue_purge(&ap->rqueue);
@@ -172,5 +297,13 @@ diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
  	kfree(ap);
  }
  
+@@ -575,7 +575,7 @@ ppp_sync_txmunge(struct syncppp *ap, str
+ 	int islcp;
+ 
+ 	data  = skb->data;
+-	proto = (data[0] << 8) + data[1];
++	proto = get_unaligned_be16(data);
+ 
+ 	/* LCP packets with codes between 1 (configure-request)
+ 	 * and 7 (code-reject) must be sent as though no options
 -- 
-1.7.6.5
