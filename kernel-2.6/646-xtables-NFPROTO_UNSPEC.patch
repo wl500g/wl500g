@@ -20,6 +20,35 @@ netfilter: implement NFPROTO_UNSPEC as a wildcard for extensions
  656caff20e12ba6e07b4bf342641df5ab33b4e49 netfilter 04/09: x_tables: fix match/target revision lookup
 
 ---
+ include/linux/netfilter.h              |   18 ++++++--
+ net/netfilter/core.c                   |    6 +-
+ net/netfilter/nf_conntrack_h323_main.c |    2 
+ net/netfilter/nf_log.c                 |   14 +++---
+ net/netfilter/nf_queue.c               |   18 ++++----
+ net/netfilter/x_tables.c               |   36 +++++++++++++---
+ net/netfilter/xt_CLASSIFY.c            |   39 +++++-------------
+ net/netfilter/xt_CONNSECMARK.c         |   36 +++++-----------
+ net/netfilter/xt_NOTRACK.c             |   26 +++---------
+ net/netfilter/xt_SECMARK.c             |   33 +++++----------
+ net/netfilter/xt_addrtype.c            |   11 -----
+ net/netfilter/xt_comment.c             |   27 ++++--------
+ net/netfilter/xt_connbytes.c           |   34 +++++-----------
+ net/netfilter/xt_connlimit.c           |   35 +++++-----------
+ net/netfilter/xt_connmark.c            |   70 ++++++++++-----------------------
+ net/netfilter/xt_helper.c              |   33 +++++----------
+ net/netfilter/xt_limit.c               |   38 ++++++-----------
+ net/netfilter/xt_mac.c                 |   35 +++++-----------
+ net/netfilter/xt_mark.c                |   58 ++++++++-------------------
+ net/netfilter/xt_owner.c               |   34 +++++-----------
+ net/netfilter/xt_physdev.c             |   30 ++++----------
+ net/netfilter/xt_pkttype.c             |   27 ++++--------
+ net/netfilter/xt_quota.c               |   32 +++++----------
+ net/netfilter/xt_state.c               |   32 +++++----------
+ net/netfilter/xt_statistic.c           |   34 +++++-----------
+ net/netfilter/xt_string.c              |   34 +++++-----------
+ net/netfilter/xt_time.c                |   28 ++++---------
+ net/netfilter/xt_u32.c                 |   26 ++++--------
+ 28 files changed, 308 insertions(+), 538 deletions(-)
 
 diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
 --- a/include/linux/netfilter.h

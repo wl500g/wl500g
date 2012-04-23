@@ -102,7 +102,7 @@ diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
 diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 --- /dev/null
 +++ b/net/netfilter/xt_connlimit.c
-@@ -0,0 +1,319 @@
+@@ -0,0 +1,318 @@
 +/*
 + * netfilter module to limit the number of parallel tcp
 + * connections per IP address.
@@ -180,7 +180,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +static inline unsigned int
 +same_source_net(const union nf_inet_addr *addr,
 +		const union nf_inet_addr *mask,
-+		const union nf_inet_addr *u3, unsigned int family)
++		const union nf_inet_addr *u3, unsigned short family)
 +{
 +	if (family == AF_INET) {
 +		return (addr->ip & mask->ip) == (u3->ip & mask->ip);
@@ -201,7 +201,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +		      const struct nf_conntrack_tuple *tuple,
 +		      const union nf_inet_addr *addr,
 +		      const union nf_inet_addr *mask,
-+		      const struct xt_match *match)
++		      unsigned short family)
 +{
 +	struct nf_conntrack_tuple_hash *found;
 +	struct xt_connlimit_conn *conn;
@@ -212,7 +212,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +	int matches = 0;
 +
 +
-+	if (match->family == AF_INET6)
++	if (family == AF_INET6)
 +		hash = &data->iphash[connlimit_iphash6(addr, mask)];
 +	else
 +		hash = &data->iphash[connlimit_iphash(addr->ip & mask->ip)];
@@ -254,8 +254,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +			continue;
 +		}
 +
-+		if (same_source_net(addr, mask, &conn->addr,
-+		    match->family))
++		if (same_source_net(addr, mask, &conn->addr, family))
 +			/* same source network -> be counted! */
 +			++matches;
 +	}
@@ -309,7 +308,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +
 +	spin_lock_bh(&info->data->lock);
 +	connections = count_them(info->data, tuple_ptr, &addr,
-+	                         &info->_mask, match);
++	                         &info->_mask, match->family);
 +	spin_unlock_bh(&info->data->lock);
 +
 +	if (connections < 0)
