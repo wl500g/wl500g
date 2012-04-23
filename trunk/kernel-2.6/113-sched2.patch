@@ -9,14 +9,15 @@ sched: Updates from upstream
  92a1f4bc7af13949d2185449307088cf98b4755d Add macros to replace direct uses of TASK_ flags
  f021a3c2b14d0dd082c2cee890c204d9e1dee52b Add TASK_WAKEKILL
  16882c1e962b4be5122fc05aaf2afc10fd9e2d15 sched: fix TASK_WAKEKILL vs SIGKILL race
+ 29cbef4869bf288256ab76c7dc674cb132b35de2 make might_sleep() display the oopsing process
 
 ---
  fs/pipe.c             |    3 
- include/linux/sched.h |   59 +++++++++++++----
- kernel/sched.c        |  164 +-------------------------------------------------
+ include/linux/sched.h |   59 ++++++++++++-----
+ kernel/sched.c        |  168 ++------------------------------------------------
  kernel/signal.c       |   13 ++-
  kernel/timer.c        |    7 ++
- 5 files changed, 65 insertions(+), 181 deletions(-)
+ 5 files changed, 67 insertions(+), 183 deletions(-)
 
 diff --git a/fs/pipe.c b/fs/pipe.c
 --- a/fs/pipe.c
@@ -394,6 +395,17 @@ diff --git a/kernel/sched.c b/kernel/sched.c
  	idle->array = NULL;
  	idle->prio = idle->normal_prio = MAX_PRIO;
  	idle->state = TASK_RUNNING;
+@@ -8233,8 +8233,8 @@ void __might_sleep(char *file, int line)
+ 		prev_jiffy = jiffies;
+ 		printk(KERN_ERR "BUG: sleeping function called from invalid"
+ 				" context at %s:%d\n", file, line);
+-		printk("in_atomic():%d, irqs_disabled():%d\n",
+-			in_atomic(), irqs_disabled());
++		printk("in_atomic():%d, irqs_disabled():%d, pid: %d, name: %s\n",
++			in_atomic(), irqs_disabled(), current->pid, current->comm);
+ 		debug_show_held_locks(current);
+ 		if (irqs_disabled())
+ 			print_irqtrace_events(current);
 diff --git a/kernel/signal.c b/kernel/signal.c
 --- a/kernel/signal.c
 +++ b/kernel/signal.c
