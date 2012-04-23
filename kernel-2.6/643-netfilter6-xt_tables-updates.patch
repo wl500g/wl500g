@@ -1,6 +1,4 @@
-From: Fedor <fedork@ubuntu.(none)>
-Date: Tue, 28 Sep 2010 11:27:23 -0400
-Subject: [NETFILTER]: iptables: lock free counters, and other backports from 2.6.30
+[NETFILTER]: iptables: lock free counters, and other backports from 2.6.30
 
 kernel.org commits:
 259d4e41f3ec25f22169daece42729f597b89f9a [NETFILTER]: x_tables: struct xt_table_info diet
@@ -25,34 +23,35 @@ fa9a86ddc8ecd2830a5e773facc250f110300ae7 netfilter: use rcu_read_bh() in ipt_do_
 eacc17fb64f03b6c268aaf6cea320100d19d8af5 netfilter: xt_physdev: unfold two loops in physdev_mt()
 b8dfe498775de912116f275680ddb57c8799d9ef netfilter: factorize ifname_compare()
 9c8222b9e71b690c8388bb0ebe5c3e5a1469e884 netfilter: x_tables: remove unneeded initializations
+47901dc2c4a3f1f9af453486a005d31fe9b393f0 netfilter: xtables: use memcmp in unconditional check
 e12f8e29a8526172b7715881503bae636d60bdd8 netfilter: vmalloc_node cleanup
 42046e2e45c109ba703993c510401a11f716c8df netfilter: x_tables: return -ENOENT for non-existant matches/targets
 
 ---
- include/linux/netfilter/x_tables.h        |  142 ++++++++++++++++++++-
+ include/linux/netfilter/x_tables.h        |  142 +++++++++++++++++++-
  include/linux/netfilter/xt_limit.h        |    9 -
  include/linux/netfilter/xt_quota.h        |    6 
  include/linux/netfilter/xt_statistic.h    |    6 
  include/linux/netfilter_arp/arp_tables.h  |   17 --
- include/linux/netfilter_ipv4/ip_tables.h  |   55 --------
+ include/linux/netfilter_ipv4/ip_tables.h  |   55 -------
  include/linux/netfilter_ipv6/ip6_tables.h |   36 -----
- net/ipv4/netfilter/arp_tables.c           |  202 +++++++++++++++++-------------
+ net/ipv4/netfilter/arp_tables.c           |  212 ++++++++++++++++--------------
  net/ipv4/netfilter/arptable_filter.c      |    2 
- net/ipv4/netfilter/ip_tables.c            |  109 +++++-----------
+ net/ipv4/netfilter/ip_tables.c            |  120 +++++-----------
  net/ipv4/netfilter/iptable_filter.c       |    1 
  net/ipv4/netfilter/iptable_mangle.c       |    1 
  net/ipv4/netfilter/iptable_raw.c          |    1 
  net/ipv4/netfilter/nf_nat_rule.c          |    1 
- net/ipv6/netfilter/ip6_tables.c           |  100 +++++++-------
+ net/ipv6/netfilter/ip6_tables.c           |  111 +++++++--------
  net/ipv6/netfilter/ip6table_filter.c      |    1 
  net/ipv6/netfilter/ip6table_mangle.c      |    1 
  net/ipv6/netfilter/ip6table_raw.c         |    1 
- net/netfilter/x_tables.c                  |   42 ++++--
- net/netfilter/xt_limit.c                  |   42 ++++--
- net/netfilter/xt_physdev.c                |   20 --
- net/netfilter/xt_quota.c                  |   33 ++++
+ net/netfilter/x_tables.c                  |   42 ++++-
+ net/netfilter/xt_limit.c                  |   42 ++++-
+ net/netfilter/xt_physdev.c                |   19 --
+ net/netfilter/xt_quota.c                  |   33 +++-
  net/netfilter/xt_statistic.c              |   31 +++-
- 23 files changed, 487 insertions(+), 372 deletions(-)
+ 23 files changed, 495 insertions(+), 395 deletions(-)
 
 diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
 --- a/include/linux/netfilter/x_tables.h
@@ -550,6 +549,25 @@ diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
  
  	if (hotdrop)
  		return NF_DROP;
+@@ -341,15 +341,11 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+ }
+ 
+ /* All zeroes == unconditional rule. */
+-static inline int unconditional(const struct arpt_arp *arp)
++static inline bool unconditional(const struct arpt_arp *arp)
+ {
+-	unsigned int i;
+-
+-	for (i = 0; i < sizeof(*arp)/sizeof(__u32); i++)
+-		if (((__u32 *)arp)[i])
+-			return 0;
++	static const struct arpt_arp uncond;
+ 
+-	return 1;
++	return memcmp(arp, &uncond, sizeof(uncond)) == 0;
+ }
+ 
+ /* Figures out from what hook each rule can be called: returns 0 if
 @@ -435,29 +453,9 @@ static int mark_source_chains(struct xt_table_info *newinfo,
  	return 1;
  }
@@ -929,6 +947,26 @@ diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
  
  #ifdef DEBUG_ALLOW_ALL
  	return NF_ACCEPT;
+@@ -390,16 +390,11 @@ get_entry(void *base, unsigned int offset)
+ }
+ 
+ /* All zeroes == unconditional rule. */
+-static inline int
+-unconditional(const struct ipt_ip *ip)
++static inline bool unconditional(const struct ipt_ip *ip)
+ {
+-	unsigned int i;
++	static const struct ipt_ip uncond;
+ 
+-	for (i = 0; i < sizeof(*ip)/sizeof(__u32); i++)
+-		if (((__u32 *)ip)[i])
+-			return 0;
+-
+-	return 1;
++	return memcmp(ip, &uncond, sizeof(uncond)) == 0;
+ }
+ 
+ 
 @@ -858,10 +839,13 @@ get_counters(const struct xt_table_info *t,
  
  	/* Instead of clearing (by a previous call to memset())
@@ -1242,6 +1280,26 @@ diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
  
  #ifdef DEBUG_ALLOW_ALL
  	return NF_ACCEPT;
+@@ -382,16 +382,11 @@ get_entry(void *base, unsigned int offset)
+ }
+ 
+ /* All zeroes == unconditional rule. */
+-static inline int
+-unconditional(const struct ip6t_ip6 *ipv6)
++static inline bool unconditional(const struct ip6t_ip6 *ipv6)
+ {
+-	unsigned int i;
+-
+-	for (i = 0; i < sizeof(*ipv6); i++)
+-		if (((char *)ipv6)[i])
+-			break;
++	static const struct ip6t_ip6 uncond;
+ 
+-	return (i == sizeof(*ipv6));
++	return memcmp(ipv6, &uncond, sizeof(uncond)) == 0;
+ }
+ 
+ #if defined(CONFIG_NETFILTER_XT_TARGET_TRACE) || \
 @@ -795,9 +787,12 @@ get_counters(const struct xt_table_info *t,
  	/* Instead of clearing (by a previous call to memset())
  	 * the counters and using adds, we set the counters
@@ -1657,14 +1715,6 @@ diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
 diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
 --- a/net/netfilter/xt_physdev.c
 +++ b/net/netfilter/xt_physdev.c
-@@ -23,6 +23,7 @@ MODULE_DESCRIPTION("iptables bridge physical device match module");
- MODULE_ALIAS("ipt_physdev");
- MODULE_ALIAS("ip6t_physdev");
- 
-+
- static int
- match(const struct sk_buff *skb,
-       const struct net_device *in,
 @@ -33,10 +34,9 @@ match(const struct sk_buff *skb,
        unsigned int protoff,
        int *hotdrop)
@@ -1871,4 +1921,3 @@ diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
  		.me		= THIS_MODULE,
  	},
 -- 
-1.6.5.GIT
