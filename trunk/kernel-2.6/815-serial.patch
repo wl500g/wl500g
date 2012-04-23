@@ -1,15 +1,18 @@
 serial: Updates from upstream
 
+ ad4c2aa6354fad5316565b1cff57f80db0e04db8 Serial 8250: handle saving the clear-on-read bits from the LSR and MSR
  e991a2bd4fa0b2f475b67dfe8f33e8ecbdcbb40b Fix tty speed handling on 8250
  b430428a188e8a434325e251d0704af4b88b4711 8250: Don't clobber spinlocks.
  125c97d8a59888c5678734c2b70cbd08c847bd99 fix early_serial_setup() regression
  97d97224ff361e08777fb33e0fd193ca877dac28 [SERIAL] Fix console initialisation ordering
  9e845abfc8a8973373821aa05302794fd254514b serial: fix NULL pointer dereference
+ e4f05af136016958f52455da3070ca6622439b10 8250: fix uninitialized FIFOs
 
 ---
- drivers/serial/8250.c        |   24 ++++++++++++++++++++++--
- drivers/serial/serial_core.c |   42 ++++++++++++++++++++++--------------------
- 2 files changed, 44 insertions(+), 22 deletions(-)
+ drivers/serial/8250.c        |  111 ++++++++++++++++++++++++++++++-------------
+ drivers/serial/serial_core.c |   39 +++++++--------
+ include/linux/serial_reg.h   |    1 
+ 3 files changed, 101 insertions(+), 50 deletions(-)
 
 diff -uBp a/drivers/serial/serial_core.c b/drivers/serial/serial_core.c
 --- a/drivers/serial/serial_core.c	2008-02-26 02:59:40.000000000 +0300
@@ -101,8 +104,176 @@ diff -uBp a/drivers/serial/serial_core.c b/drivers/serial/serial_core.c
  	port->flags &= ~UPF_DEAD;
 diff -uBp a/drivers/serial/8250.c b/drivers/serial/8250.c
 --- a/drivers/serial/8250.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/drivers/serial/8250.c	2010-11-12 19:27:13.000000000 +0300
-@@ -2156,6 +2164,9 @@ serial8250_set_termios(struct uart_port
++++ b/drivers/serial/8250.c	2012-04-23 15:51:29.000000000 +0400
+@@ -129,7 +129,16 @@ struct uart_8250_port {
+ 	unsigned char		mcr;
+ 	unsigned char		mcr_mask;	/* mask of user bits */
+ 	unsigned char		mcr_force;	/* mask of forced bits */
+-	unsigned char		lsr_break_flag;
++
++	/*
++	 * Some bits in registers are cleared on a read, so they must
++	 * be saved whenever the register is read but the bits will not
++	 * be immediately processed.
++	 */
++#define LSR_SAVE_FLAGS UART_LSR_BRK_ERROR_BITS
++	unsigned char		lsr_saved_flags;
++#define MSR_SAVE_FLAGS UART_MSR_ANY_DELTA
++	unsigned char		msr_saved_flags;
+ 
+ 	/*
+ 	 * We provide a per-port pm hook.
+@@ -1245,6 +1254,7 @@ static void serial8250_start_tx(struct u
+ 		if (up->bugs & UART_BUG_TXEN) {
+ 			unsigned char lsr, iir;
+ 			lsr = serial_in(up, UART_LSR);
++			up->lsr_saved_flags |= lsr & LSR_SAVE_FLAGS;
+ 			iir = serial_in(up, UART_IIR) & 0x0f;
+ 			if ((up->port.type == PORT_RM9000) ?
+ 				(lsr & UART_LSR_THRE &&
+@@ -1297,18 +1307,10 @@ receive_chars(struct uart_8250_port *up,
+ 		flag = TTY_NORMAL;
+ 		up->port.icount.rx++;
+ 
+-#ifdef CONFIG_SERIAL_8250_CONSOLE
+-		/*
+-		 * Recover the break flag from console xmit
+-		 */
+-		if (up->port.line == up->port.cons->index) {
+-			lsr |= up->lsr_break_flag;
+-			up->lsr_break_flag = 0;
+-		}
+-#endif
++		lsr |= up->lsr_saved_flags;
++		up->lsr_saved_flags = 0;
+ 
+-		if (unlikely(lsr & (UART_LSR_BI | UART_LSR_PE |
+-				    UART_LSR_FE | UART_LSR_OE))) {
++		if (unlikely(lsr & UART_LSR_BRK_ERROR_BITS)) {
+ 			/*
+ 			 * For statistics only
+ 			 */
+@@ -1399,6 +1401,8 @@ static unsigned int check_modem_status(s
+ {
+ 	unsigned int status = serial_in(up, UART_MSR);
+ 
++	status |= up->msr_saved_flags;
++	up->msr_saved_flags = 0;
+ 	if (status & UART_MSR_ANY_DELTA && up->ier & UART_IER_MSI &&
+ 	    up->port.info != NULL) {
+ 		if (status & UART_MSR_TERI)
+@@ -1598,7 +1602,8 @@ static void serial8250_timeout(unsigned 
+ static void serial8250_backup_timeout(unsigned long data)
+ {
+ 	struct uart_8250_port *up = (struct uart_8250_port *)data;
+-	unsigned int iir, ier = 0;
++	unsigned int iir, ier = 0, lsr;
++	unsigned long flags;
+ 
+ 	/*
+ 	 * Must disable interrupts or else we risk racing with the interrupt
+@@ -1617,9 +1622,13 @@ static void serial8250_backup_timeout(un
+ 	 * the "Diva" UART used on the management processor on many HP
+ 	 * ia64 and parisc boxes.
+ 	 */
++	spin_lock_irqsave(&up->port.lock, flags);
++	lsr = serial_in(up, UART_LSR);
++	up->lsr_saved_flags |= lsr & LSR_SAVE_FLAGS;
++	spin_unlock_irqrestore(&up->port.lock, flags);
+ 	if ((iir & UART_IIR_NO_INT) && (up->ier & UART_IER_THRI) &&
+ 	    (!uart_circ_empty(&up->port.info->xmit) || up->port.x_char) &&
+-	    (serial_in(up, UART_LSR) & UART_LSR_THRE)) {
++	    (lsr & UART_LSR_THRE)) {
+ 		iir &= ~(UART_IIR_ID | UART_IIR_NO_INT);
+ 		iir |= UART_IIR_THRI;
+ 	}
+@@ -1638,13 +1647,14 @@ static unsigned int serial8250_tx_empty(
+ {
+ 	struct uart_8250_port *up = (struct uart_8250_port *)port;
+ 	unsigned long flags;
+-	unsigned int ret;
++	unsigned int lsr;
+ 
+ 	spin_lock_irqsave(&up->port.lock, flags);
+-	ret = serial_in(up, UART_LSR) & UART_LSR_TEMT ? TIOCSER_TEMT : 0;
++	lsr = serial_in(up, UART_LSR);
++	up->lsr_saved_flags |= lsr & LSR_SAVE_FLAGS;
+ 	spin_unlock_irqrestore(&up->port.lock, flags);
+ 
+-	return ret;
++	return lsr & UART_LSR_TEMT ? TIOCSER_TEMT : 0;
+ }
+ 
+ static unsigned int serial8250_get_mctrl(struct uart_port *port)
+@@ -1715,8 +1725,7 @@ static inline void wait_for_xmitr(struct
+ 	do {
+ 		status = serial_in(up, UART_LSR);
+ 
+-		if (status & UART_LSR_BI)
+-			up->lsr_break_flag = UART_LSR_BI;
++		up->lsr_saved_flags |= status & LSR_SAVE_FLAGS;
+ 
+ 		if (--tmout == 0)
+ 			break;
+@@ -1725,8 +1734,12 @@ static inline void wait_for_xmitr(struct
+ 
+ 	/* Wait up to 1s for flow control if necessary */
+ 	if (up->port.flags & UPF_CONS_FLOW) {
+-		tmout = 1000000;
+-		while (!(serial_in(up, UART_MSR) & UART_MSR_CTS) && --tmout) {
++		unsigned int tmout;
++		for (tmout = 1000000; tmout; tmout--) {
++			unsigned int msr = serial_in(up, UART_MSR);
++			up->msr_saved_flags |= msr & MSR_SAVE_FLAGS;
++			if (msr & UART_MSR_CTS)
++				break;
+ 			udelay(1);
+ 			touch_nmi_watchdog();
+ 		}
+@@ -1740,6 +1753,8 @@ static int serial8250_startup(struct uar
+ 	unsigned char lsr, iir;
+ 	int retval;
+ 
++	up->port.fifosize = uart_config[up->port.type].fifo_size;
++	up->tx_loadsz = uart_config[up->port.type].tx_loadsz;
+ 	up->capabilities = uart_config[up->port.type].flags;
+ 	up->mcr = 0;
+ 
+@@ -1896,6 +1911,18 @@ static int serial8250_startup(struct uar
+ 	spin_unlock_irqrestore(&up->port.lock, flags);
+ 
+ 	/*
++	 * Clear the interrupt registers again for luck, and clear the
++	 * saved flags to avoid getting false values from polling
++	 * routines or the previous session.
++	 */
++	serial_inp(up, UART_LSR);
++	serial_inp(up, UART_RX);
++	serial_inp(up, UART_IIR);
++	serial_inp(up, UART_MSR);
++	up->lsr_saved_flags = 0;
++	up->msr_saved_flags = 0;
++
++	/*
+ 	 * Finally, enable interrupts.  Note: Modem status interrupts
+ 	 * are set via set_termios(), which will be occurring imminently
+ 	 * anyway, so we don't enable them here.
+@@ -1913,14 +1940,6 @@ static int serial8250_startup(struct uar
+ 		(void) inb_p(icp);
+ 	}
+ 
+-	/*
+-	 * And clear the interrupt registers again for luck.
+-	 */
+-	(void) serial_inp(up, UART_LSR);
+-	(void) serial_inp(up, UART_RX);
+-	(void) serial_inp(up, UART_IIR);
+-	(void) serial_inp(up, UART_MSR);
+-
+ 	return 0;
+ }
+ 
+@@ -2163,6 +2182,9 @@ serial8250_set_termios(struct uart_port 
  	}
  	serial8250_set_mctrl(&up->port, up->port.mctrl);
  	spin_unlock_irqrestore(&up->port.lock, flags);
@@ -112,7 +283,24 @@ diff -uBp a/drivers/serial/8250.c b/drivers/serial/8250.c
  }
  
  static void
-@@ -2527,6 +2538,9 @@ static struct console serial8250_console
+@@ -2491,6 +2513,16 @@ serial8250_console_write(struct console 
+ 	wait_for_xmitr(up, BOTH_EMPTY);
+ 	serial_out(up, UART_IER, ier);
+ 
++	/*
++	 *	The receive handling will happen properly because the
++	 *	receive ready bit will still be set; it is not cleared
++	 *	on read.  However, modem control will not, we must
++	 *	call it if we have saved something in the saved flags
++	 *	while processing with interrupts off.
++	 */
++	if (up->msr_saved_flags)
++		check_modem_status(up);
++
+ 	if (locked)
+ 		spin_unlock(&up->port.lock);
+ 	local_irq_restore(flags);
+@@ -2534,6 +2566,9 @@ static struct console serial8250_console
  
  static int __init serial8250_console_init(void)
  {
@@ -122,7 +310,7 @@ diff -uBp a/drivers/serial/8250.c b/drivers/serial/8250.c
  	serial8250_isa_init_ports();
  	register_console(&serial8250_console);
  	return 0;
-@@ -2589,12 +2603,26 @@ static struct uart_driver serial8250_reg
+@@ -2596,12 +2631,26 @@ static struct uart_driver serial8250_reg
   */
  int __init early_serial_setup(struct uart_port *port)
  {
@@ -151,4 +339,15 @@ diff -uBp a/drivers/serial/8250.c b/drivers/serial/8250.c
  	return 0;
  }
  
+diff --git a/include/linux/serial_reg.h b/include/linux/serial_reg.h
+--- a/include/linux/serial_reg.h
++++ b/include/linux/serial_reg.h
+@@ -118,6 +118,7 @@
+ #define UART_LSR_PE		0x04 /* Parity error indicator */
+ #define UART_LSR_OE		0x02 /* Overrun error indicator */
+ #define UART_LSR_DR		0x01 /* Receiver data ready */
++#define UART_LSR_BRK_ERROR_BITS	0x1E /* BI, FE, PE, OE bits */
+ 
+ #define UART_MSR	6	/* In:  Modem Status Register */
+ #define UART_MSR_DCD		0x80 /* Data Carrier Detect */
 -- 
