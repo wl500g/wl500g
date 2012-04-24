@@ -46,6 +46,7 @@ struct inet_connection_sock_af_ops {
 				      struct dst_entry *dst);
 	int	    (*remember_stamp)(struct sock *sk);
 	u16	    net_header_len;
+	u16	    net_frag_header_len;
 	u16	    sockaddr_len;
 	int	    (*setsockopt)(struct sock *sk, int level, int optname, 
 				  char __user *optval, int optlen);

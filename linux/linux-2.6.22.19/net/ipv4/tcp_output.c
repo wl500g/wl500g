@@ -775,6 +775,14 @@ int tcp_mtu_to_mss(struct sock *sk, int pmtu)
 	 */
 	mss_now = pmtu - icsk->icsk_af_ops->net_header_len - sizeof(struct tcphdr);
 
+	/* IPv6 adds a frag_hdr in case RTAX_FEATURE_ALLFRAG is set */
+	if (icsk->icsk_af_ops->net_frag_header_len) {
+		const struct dst_entry *dst = __sk_dst_get(sk);
+
+		if (dst && dst_allfrag(dst))
+			mss_now -= icsk->icsk_af_ops->net_frag_header_len;
+	}
+
 	/* Clamp it (mss_clamp does not include tcp options) */
 	if (mss_now > tp->rx_opt.mss_clamp)
 		mss_now = tp->rx_opt.mss_clamp;
@@ -804,6 +812,13 @@ int tcp_mss_to_mtu(struct sock *sk, int mss)
 	      icsk->icsk_ext_hdr_len +
 	      icsk->icsk_af_ops->net_header_len;
 
+	/* IPv6 adds a frag_hdr in case RTAX_FEATURE_ALLFRAG is set */
+	if (icsk->icsk_af_ops->net_frag_header_len) {
+		const struct dst_entry *dst = __sk_dst_get(sk);
+
+		if (dst && dst_allfrag(dst))
+			mtu += icsk->icsk_af_ops->net_frag_header_len;
+	}
 	return mtu;
 }
 
