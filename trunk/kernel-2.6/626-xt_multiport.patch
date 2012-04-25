@@ -32,10 +32,11 @@ diff --git a/net/netfilter/xt_multiport.c b/net/netfilter/xt_multiport.c
  static inline int
  ports_match_v1(const struct xt_multiport_v1 *minfo,
  	       u_int16_t src, u_int16_t dst)
-@@ -95,37 +78,6 @@ ports_match_v1(const struct xt_multiport
+@@ -95,46 +78,15 @@ ports_match_v1(const struct xt_multiport
+ 	return minfo->invert;
  }
  
- static int
+-static int
 -match(const struct sk_buff *skb,
 -      const struct net_device *in,
 -      const struct net_device *out,
@@ -67,13 +68,33 @@ diff --git a/net/netfilter/xt_multiport.c b/net/netfilter/xt_multiport.c
 -}
 -
 -static int
++static bool
  match_v1(const struct sk_buff *skb,
  	 const struct net_device *in,
  	 const struct net_device *out,
-@@ -173,20 +125,6 @@ check(u_int16_t proto,
+ 	 const struct xt_match *match,
+ 	 const void *matchinfo,
+ 	 int offset,
+ 	 unsigned int protoff,
+-	 int *hotdrop)
++	 bool *hotdrop)
+ {
+ 	__be16 _ports[2], *pptr;
+ 	const struct xt_multiport_v1 *multiinfo = matchinfo;
+@@ -125,7 +105,7 @@ match_v1(const struct sk_buff *skb,
+ 	return ports_match_v1(multiinfo, ntohs(pptr[0]), ntohs(pptr[1]));
+ }
+ 
+-static inline int
++static inline bool
+ check(u_int16_t proto,
+       u_int8_t ip_invflags,
+       u_int8_t match_flags,
+@@ -173,21 +125,7 @@ check(u_int16_t proto,
+ }
  
  /* Called when user tries to insert an entry of this type. */
- static int
+-static int
 -checkentry(const char *tablename,
 -	   const void *info,
 -	   const struct xt_match *match,
@@ -88,13 +109,15 @@ diff --git a/net/netfilter/xt_multiport.c b/net/netfilter/xt_multiport.c
 -}
 -
 -static int
++static bool
  checkentry_v1(const char *tablename,
  	      const void *info,
  	      const struct xt_match *match,
-@@ -201,20 +139,6 @@ checkentry_v1(const char *tablename,
+@@ -201,21 +139,7 @@ checkentry_v1(const char *tablename,
+ 		     multiinfo->count);
  }
  
- static int
+-static int
 -checkentry6(const char *tablename,
 -	    const void *info,
 -	    const struct xt_match *match,
@@ -109,6 +132,7 @@ diff --git a/net/netfilter/xt_multiport.c b/net/netfilter/xt_multiport.c
 -}
 -
 -static int
++static bool
  checkentry6_v1(const char *tablename,
  	       const void *info,
  	       const struct xt_match *match,

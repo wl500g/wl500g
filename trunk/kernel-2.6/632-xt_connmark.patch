@@ -418,16 +418,16 @@ diff --git a/net/netfilter/xt_connmark.c b/net/netfilter/xt_connmark.c
 +	return XT_CONTINUE;
 +}
 +
-+static int connmark_tg_check(const char *tablename, const void *entry,
++static bool connmark_tg_check(const char *tablename, const void *entry,
 +		      const struct xt_target *target, void *targinfo,
 +		      unsigned int hook_mask)
 +{
 +	if (nf_ct_l3proto_try_module_get(target->family) < 0) {
 +		printk(KERN_WARNING "cannot load conntrack support for "
 +		       "proto=%u\n", target->family);
-+		return 0;
++		return false;
 +	}
-+	return 1;
++	return true;
 +}
 +
 +static void connmark_tg_destroy(const struct xt_target *target, void *targinfo)
@@ -435,8 +435,9 @@ diff --git a/net/netfilter/xt_connmark.c b/net/netfilter/xt_connmark.c
 +	nf_ct_l3proto_module_put(target->family);
 +}
  
- static int
+-static int
 -match(const struct sk_buff *skb,
++static bool
 +connmark_mt(const struct sk_buff *skb,
        const struct net_device *in,
        const struct net_device *out,
@@ -461,12 +462,13 @@ diff --git a/net/netfilter/xt_connmark.c b/net/netfilter/xt_connmark.c
 +	return ((ct->mark & info->mask) == info->mark) ^ info->invert;
  }
  
- static int
+-static int
 -checkentry(const char *tablename,
 -	   const void *ip,
 -	   const struct xt_match *match,
 -	   void *matchinfo,
 -	   unsigned int hook_mask)
++static bool
 +connmark_mt_check(const char *tablename, const void *ip,
 +                  const struct xt_match *match, void *matchinfo,
 +                  unsigned int hook_mask)

@@ -273,11 +273,11 @@ diff --git /dev/null b/net/netfilter/xt_iprange.c
 +#include <linux/netfilter/x_tables.h>
 +#include <linux/netfilter/xt_iprange.h>
 +
-+static int
++static bool
 +iprange_mt4(const struct sk_buff *skb, const struct net_device *in,
 +            const struct net_device *out, const struct xt_match *match,
 +            const void *matchinfo, int offset, unsigned int protoff,
-+            int *hotdrop)
++            bool *hotdrop)
 +{
 +	const struct xt_iprange_mtinfo *info = matchinfo;
 +	const struct iphdr *iph = ip_hdr(skb);
@@ -327,11 +327,11 @@ diff --git /dev/null b/net/netfilter/xt_iprange.c
 +	return 0;
 +}
 +
-+static int
++static bool
 +iprange_mt6(const struct sk_buff *skb, const struct net_device *in,
 +            const struct net_device *out, const struct xt_match *match,
 +            const void *matchinfo, int offset, unsigned int protoff,
-+            int *hotdrop)
++            bool *hotdrop)
 +{
 +	const struct xt_iprange_mtinfo *info = matchinfo;
 +	const struct ipv6hdr *iph = ipv6_hdr(skb);

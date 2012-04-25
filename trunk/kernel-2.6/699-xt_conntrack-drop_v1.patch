@@ -2,23 +2,23 @@ diff --git a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
 --- a/net/netfilter/xt_conntrack.c
 +++ b/net/netfilter/xt_conntrack.c
 @@ -192,17 +192,6 @@ conntrack_mt(const struct sk_buff *skb,
+ 	return 1;
  }
  
- static int
+-static bool
 -conntrack_mt_v1(const struct sk_buff *skb, const struct net_device *in,
 -             const struct net_device *out, const struct xt_match *match,
 -             const void *matchinfo, int offset, unsigned int protoff,
--             int *hotdrop)
+-             bool *hotdrop)
 -{
 -	const struct xt_conntrack_mtinfo1 *info = matchinfo;
 -
 -	return conntrack_mt(skb, match, matchinfo, info->state_mask, info->status_mask);
 -}
 -
--static int
+ static bool
  conntrack_mt_v2(const struct sk_buff *skb, const struct net_device *in,
               const struct net_device *out, const struct xt_match *match,
-              const void *matchinfo, int offset, unsigned int protoff,
 @@ -235,26 +224,6 @@ conntrack_mt_destroy(const struct xt_mat
  static struct xt_match conntrack_mt_reg[] __read_mostly = {
  	{

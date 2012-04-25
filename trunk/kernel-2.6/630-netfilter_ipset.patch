@@ -6586,7 +6586,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ip_set_setlist.c linuz/net/ipv4/netfilt
 diff -urNB linux.orig/net/ipv4/netfilter/ipt_set.c linuz/net/ipv4/netfilter/ipt_set.c
 --- linux.orig/net/ipv4/netfilter/ipt_set.c	1970-01-01 00:00:00.000000000 +0000
 +++ linuz/net/ipv4/netfilter/ipt_set.c	2009-11-10 20:45:41.000000000 +0000
-@@ -0,0 +1,238 @@
+@@ -0,0 +1,134 @@
 +/* Copyright (C) 2000-2002 Joakim Axelsson <gozem@linux.nu>
 + *                         Patrick Schaaf <bof@bof.de>
 + *                         Martin Josefsson <gandalf@wlug.westbo.se>
@@ -6604,14 +6604,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_set.c linuz/net/ipv4/netfilter/ipt_
 +#include <linux/skbuff.h>
 +#include <linux/version.h>
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-+#include <linux/netfilter_ipv4/ip_tables.h>
-+#define xt_register_match	ipt_register_match
-+#define xt_unregister_match	ipt_unregister_match
-+#define xt_match		ipt_match
-+#else
 +#include <linux/netfilter/x_tables.h>
-+#endif
 +#include <linux/netfilter_ipv4/ip_set.h>
 +#include <linux/netfilter_ipv4/ipt_set.h>
 +
@@ -6625,44 +6618,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_set.c linuz/net/ipv4/netfilter/ipt_
 +	return inv;
 +}
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-+static int
-+match(const struct sk_buff *skb,
-+      const struct net_device *in,
-+      const struct net_device *out,
-+      const void *matchinfo,
-+      int offset,
-+      const void *hdr,
-+      u_int16_t datalen,
-+      int *hotdrop) 
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-+static int
-+match(const struct sk_buff *skb,
-+      const struct net_device *in,
-+      const struct net_device *out,
-+      const void *matchinfo,
-+      int offset,
-+      int *hotdrop) 
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+static int
-+match(const struct sk_buff *skb,
-+      const struct net_device *in,
-+      const struct net_device *out,
-+      const void *matchinfo,
-+      int offset,
-+      unsigned int protoff,
-+      int *hotdrop)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-+static int
-+match(const struct sk_buff *skb,
-+      const struct net_device *in,
-+      const struct net_device *out,
-+      const struct xt_match *match,
-+      const void *matchinfo,
-+      int offset,
-+      unsigned int protoff,
-+      int *hotdrop)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 +static bool
 +match(const struct sk_buff *skb,
 +      const struct net_device *in,
@@ -6689,36 +6645,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_set.c linuz/net/ipv4/netfilter/ipt_
 +			 info->match_set.flags[0] & IPSET_MATCH_INV);
 +}
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-+static int
-+checkentry(const char *tablename,
-+	   const struct ipt_ip *ip,
-+	   void *matchinfo,
-+	   unsigned int matchsize,
-+	   unsigned int hook_mask)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+static int
-+checkentry(const char *tablename,
-+	   const void *inf,
-+	   void *matchinfo,
-+	   unsigned int matchsize,
-+	   unsigned int hook_mask)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-+static int
-+checkentry(const char *tablename,
-+	   const void *inf,
-+	   const struct xt_match *match,
-+	   void *matchinfo,
-+	   unsigned int matchsize,
-+	   unsigned int hook_mask)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-+static int
-+checkentry(const char *tablename,
-+	   const void *inf,
-+	   const struct xt_match *match,
-+	   void *matchinfo,
-+	   unsigned int hook_mask)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 +static bool
 +checkentry(const char *tablename,
 +	   const void *inf,
@@ -6737,13 +6664,6 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_set.c linuz/net/ipv4/netfilter/ipt_
 +#endif
 +	ip_set_id_t index;
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+	if (matchsize != IPT_ALIGN(sizeof(struct ipt_set_info_match))) {
-+		ip_set_printk("invalid matchsize %d", matchsize);
-+		return 0;
-+	}
-+#endif
-+
 +	index = ip_set_get_byindex(info->match_set.index);
 +		
 +	if (index == IP_SET_INVALID_ID) {
@@ -6759,14 +6679,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_set.c linuz/net/ipv4/netfilter/ipt_
 +	return 1;
 +}
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+static void destroy(void *matchinfo,
-+		    unsigned int matchsize)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-+static void destroy(const struct xt_match *match,
-+		    void *matchinfo,
-+		    unsigned int matchsize)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 +static void destroy(const struct xt_match *match,
 +		    void *matchinfo)
 +#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
@@ -6779,25 +6692,9 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_set.c linuz/net/ipv4/netfilter/ipt_
 +	struct ipt_set_info_match *info = par->matchinfo;
 +#endif
 +
-+
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+	if (matchsize != IPT_ALIGN(sizeof(struct ipt_set_info_match))) {
-+		ip_set_printk("invalid matchsize %d", matchsize);
-+		return;
-+	}
-+#endif
 +	ip_set_put_byindex(info->match_set.index);
 +}
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+static struct xt_match set_match = {
-+	.name		= "set",
-+	.match		= &match,
-+	.checkentry	= &checkentry,
-+	.destroy	= &destroy,
-+	.me		= THIS_MODULE
-+};
-+#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17) */
 +static struct xt_match set_match = {
 +	.name		= "set",
 +	.family		= AF_INET,
@@ -6807,7 +6704,6 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_set.c linuz/net/ipv4/netfilter/ipt_
 +	.destroy	= &destroy,
 +	.me		= THIS_MODULE
 +};
-+#endif
 +
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
@@ -6828,7 +6724,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_set.c linuz/net/ipv4/netfilter/ipt_
 diff -urNB linux.orig/net/ipv4/netfilter/ipt_SET.c linuz/net/ipv4/netfilter/ipt_SET.c
 --- linux.orig/net/ipv4/netfilter/ipt_SET.c	1970-01-01 00:00:00.000000000 +0000
 +++ linuz/net/ipv4/netfilter/ipt_SET.c	2009-11-10 20:45:41.000000000 +0000
-@@ -0,0 +1,242 @@
+@@ -0,0 +1,146 @@
 +/* Copyright (C) 2000-2002 Joakim Axelsson <gozem@linux.nu>
 + *                         Patrick Schaaf <bof@bof.de>
 + *                         Martin Josefsson <gandalf@wlug.westbo.se>
@@ -6847,48 +6743,11 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_SET.c linuz/net/ipv4/netfilter/ipt_
 +#include <linux/version.h>
 +
 +#include <linux/netfilter_ipv4.h>
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-+#include <linux/netfilter_ipv4/ip_tables.h>
-+#define xt_register_target	ipt_register_target
-+#define xt_unregister_target	ipt_unregister_target
-+#define xt_target		ipt_target
-+#define XT_CONTINUE		IPT_CONTINUE
-+#else
 +#include <linux/netfilter/x_tables.h>
-+#endif
 +#include <linux/netfilter_ipv4/ipt_set.h>
 +
 +static unsigned int
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-+target(struct sk_buff **pskb,
-+       unsigned int hooknum,
-+       const struct net_device *in,
-+       const struct net_device *out,
-+       const void *targinfo,
-+       void *userinfo)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+target(struct sk_buff **pskb,
-+       const struct net_device *in,
-+       const struct net_device *out,
-+       unsigned int hooknum,
-+       const void *targinfo,
-+       void *userinfo)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-+target(struct sk_buff **pskb,
-+       const struct net_device *in,
-+       const struct net_device *out,
-+       unsigned int hooknum,
-+       const struct xt_target *target,
-+       const void *targinfo,
-+       void *userinfo)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-+target(struct sk_buff **pskb,
-+       const struct net_device *in,
-+       const struct net_device *out,
-+       unsigned int hooknum,
-+       const struct xt_target *target,
-+       const void *targinfo)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 +target(struct sk_buff *skb,
 +       const struct net_device *in,
 +       const struct net_device *out,
@@ -6922,36 +6781,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_SET.c linuz/net/ipv4/netfilter/ipt_
 +	return XT_CONTINUE;
 +}
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-+static int
-+checkentry(const char *tablename,
-+	   const struct ipt_entry *e,
-+	   void *targinfo,
-+	   unsigned int targinfosize,
-+	   unsigned int hook_mask)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+static int
-+checkentry(const char *tablename,
-+	   const void *e,
-+	   void *targinfo,
-+	   unsigned int targinfosize,
-+	   unsigned int hook_mask)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-+static int
-+checkentry(const char *tablename,
-+	   const void *e,
-+	   const struct xt_target *target,
-+	   void *targinfo,
-+	   unsigned int targinfosize,
-+	   unsigned int hook_mask)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-+static int
-+checkentry(const char *tablename,
-+	   const void *e,
-+	   const struct xt_target *target,
-+	   void *targinfo,
-+	   unsigned int hook_mask)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 +static bool
 +checkentry(const char *tablename,
 +	   const void *e,
@@ -6969,13 +6799,6 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_SET.c linuz/net/ipv4/netfilter/ipt_
 +	const struct ipt_set_info_target *info = par->targinfo;
 +#endif
 +	ip_set_id_t index;
-+
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+	if (targinfosize != IPT_ALIGN(sizeof(*info))) {
-+		DP("bad target info size %u", targinfosize);
-+		return 0;
-+	}
-+#endif
 +
 +	if (info->add_set.index != IP_SET_INVALID_ID) {
 +		index = ip_set_get_byindex(info->add_set.index);
@@ -7003,14 +6826,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_SET.c linuz/net/ipv4/netfilter/ipt_
 +	return 1;
 +}
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+static void destroy(void *targetinfo,
-+		    unsigned int targetsize)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-+static void destroy(const struct xt_target *target,
-+		    void *targetinfo,
-+		    unsigned int targetsize)
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 +static void destroy(const struct xt_target *target,
 +		    void *targetinfo)
 +#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
@@ -7023,27 +6839,12 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_SET.c linuz/net/ipv4/netfilter/ipt_
 +	const struct ipt_set_info_target *info = par->targinfo;
 +#endif
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+	if (targetsize != IPT_ALIGN(sizeof(struct ipt_set_info_target))) {
-+		ip_set_printk("invalid targetsize %d", targetsize);
-+		return;
-+	}
-+#endif
 +	if (info->add_set.index != IP_SET_INVALID_ID)
 +		ip_set_put_byindex(info->add_set.index);
 +	if (info->del_set.index != IP_SET_INVALID_ID)
 +		ip_set_put_byindex(info->del_set.index);
 +}
 +
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
-+static struct xt_target SET_target = {
-+	.name 		= "SET",
-+	.target 	= target,
-+	.checkentry 	= checkentry,
-+	.destroy 	= destroy,
-+	.me 		= THIS_MODULE
-+};
-+#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17) */
 +static struct xt_target SET_target = {
 +	.name 		= "SET",
 +	.family		= AF_INET,
@@ -7053,7 +6854,6 @@ diff -urNB linux.orig/net/ipv4/netfilter/ipt_SET.c linuz/net/ipv4/netfilter/ipt_
 +	.destroy 	= destroy,
 +	.me 		= THIS_MODULE
 +};
-+#endif
 +
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");

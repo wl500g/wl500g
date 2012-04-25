@@ -1894,15 +1894,15 @@ diff --git a/net/netfilter/xt_layer7.c b/net/netfilter/xt_layer7.c
 +	return count;
 +}
 +
-+static int
-+match(const struct sk_buff *skbin,
++static bool
++layer7_mt(const struct sk_buff *skbin,
 +      const struct net_device *in,
 +      const struct net_device *out,
 +      const struct xt_match *match,
 +      const void *matchinfo,
 +      int offset,
 +      unsigned int protoff,
-+      int *hotdrop)
++      bool *hotdrop)
 +{
 +	/* sidestep const without getting a compiler warning... */
 +	struct sk_buff * skb = (struct sk_buff *)skbin; 
@@ -2065,7 +2065,7 @@ diff --git a/net/netfilter/xt_layer7.c b/net/netfilter/xt_layer7.c
 +	return (pattern_result ^ info->invert);
 +}
 +
-+static int check(const char *tablename,
++static bool check(const char *tablename,
 +		 const void *inf,
 +		 const struct xt_match *match,
 +		 void *matchinfo,
@@ -2076,9 +2076,9 @@ diff --git a/net/netfilter/xt_layer7.c b/net/netfilter/xt_layer7.c
 +        if (nf_ct_l3proto_try_module_get(match->family) < 0) {
 +                printk(KERN_WARNING "can't load conntrack support for "
 +                                    "proto=%d\n", match->family);
-+                return 0;
++                return false;
 +        }
-+	return 1;
++	return true;
 +}
 +
 +static void
@@ -2092,7 +2092,7 @@ diff --git a/net/netfilter/xt_layer7.c b/net/netfilter/xt_layer7.c
 +	.name		= "layer7",
 +	.family		= AF_INET,
 +	.checkentry	= check,
-+	.match		= match,
++	.match		= layer7_mt,
 +	.destroy	= destroy,
 +	.matchsize	= sizeof(struct xt_layer7_info),
 +	.me		= THIS_MODULE

@@ -37,11 +37,6 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/bridge/br.c                                |    2 
  net/bridge/br_input.c                          |    4 
  net/bridge/br_netfilter.c                      |   33 +--
- net/bridge/netfilter/ebt_arpreply.c            |    3 
- net/bridge/netfilter/ebt_dnat.c                |   17 -
- net/bridge/netfilter/ebt_mark.c                |   10 -
- net/bridge/netfilter/ebt_redirect.c            |   21 --
- net/bridge/netfilter/ebt_snat.c                |   23 --
  net/bridge/netfilter/ebtable_broute.c          |    4 
  net/bridge/netfilter/ebtable_filter.c          |    4 
  net/bridge/netfilter/ebtable_nat.c             |    8 
@@ -130,7 +125,7 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/sched/act_ipt.c                            |    6 
  net/sched/sch_ingress.c                        |    5 
  net/sctp/ipv6.c                                |    4 
- 121 files changed, 961 insertions(+), 1096 deletions(-)
+ 116 files changed, 935 insertions(+), 1048 deletions(-)
 
 diff -urBp a/include/linux/if_bridge.h b/include/linux/if_bridge.h
 --- a/include/linux/if_bridge.h	2008-02-26 02:59:40.000000000 +0300
@@ -370,16 +365,16 @@ diff -urBp a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter
 @@ -237,7 +237,7 @@ struct ebt_target
  	struct list_head list;
  	const char name[EBT_FUNCTION_MAXNAMELEN];
- 	/* returns one of the standard verdicts */
--	int (*target)(struct sk_buff **pskb, unsigned int hooknr,
-+	int (*target)(struct sk_buff *skb, unsigned int hooknr,
- 	   const struct net_device *in, const struct net_device *out,
- 	   const void *targetdata, unsigned int datalen);
- 	/* 0 == let it in */
+ 	/* returns one of the standard EBT_* verdicts */
+-	unsigned int (*target)(struct sk_buff **pskb,
++	unsigned int (*target)(struct sk_buff *skb,
+ 		const struct net_device *in, const struct net_device *out,
+ 		unsigned int hook_num, const struct xt_target *target,
+ 		const void *targinfo);
 @@ -294,7 +294,7 @@ extern int ebt_register_watcher(struct e
- extern void ebt_unregister_watcher(struct ebt_watcher *watcher);
- extern int ebt_register_target(struct ebt_target *target);
- extern void ebt_unregister_target(struct ebt_target *target);
+ 
+ extern int ebt_register_table(struct ebt_table *table);
+ extern void ebt_unregister_table(struct ebt_table *table);
 -extern unsigned int ebt_do_table(unsigned int hook, struct sk_buff **pskb,
 +extern unsigned int ebt_do_table(unsigned int hook, struct sk_buff *skb,
     const struct net_device *in, const struct net_device *out,
@@ -970,7 +965,7 @@ diff -urBp a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
     const struct net_device *in, const struct net_device *out,
     struct ebt_table *table)
  {
-@@ -172,19 +172,19 @@ unsigned int ebt_do_table (unsigned int 
+@@ -172,24 +172,24 @@ unsigned int ebt_do_table (unsigned int 
  	base = private->entries;
  	i = 0;
  	while (i < nentries) {
@@ -978,9 +973,14 @@ diff -urBp a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
 +		if (ebt_basic_match(point, eth_hdr(skb), in, out))
  			goto letscontinue;
  
--		if (EBT_MATCH_ITERATE(point, ebt_do_match, *pskb, in, out) != 0)
-+		if (EBT_MATCH_ITERATE(point, ebt_do_match, skb, in, out) != 0)
+-		if (EBT_MATCH_ITERATE(point, ebt_do_match, *pskb,
++		if (EBT_MATCH_ITERATE(point, ebt_do_match, skb,
+ 		    in, out, &hotdrop) != 0)
  			goto letscontinue;
+ 		if (hotdrop) {
+ 			read_unlock_bh(&table->lock);
+ 			return NF_DROP;
+ 		}
  
  		/* increase counter */
  		(*(counter_base + i)).pcnt++;
@@ -998,198 +998,11 @@ diff -urBp a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
  		if (!t->u.target->target)
  			verdict = ((struct ebt_standard_target *)t)->verdict;
  		else
--			verdict = t->u.target->target(pskb, hook,
-+			verdict = t->u.target->target(skb, hook,
- 			   in, out, t->data, t->target_size);
+-			verdict = t->u.target->target(pskb, in, out, hook,
++			verdict = t->u.target->target(skb, in, out, hook,
+ 				  t->u.target, t->data);
  		if (verdict == EBT_ACCEPT) {
  			read_unlock_bh(&table->lock);
-diff -urBp a/net/bridge/netfilter/ebt_arpreply.c b/net/bridge/netfilter/ebt_arpreply.c
---- a/net/bridge/netfilter/ebt_arpreply.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/net/bridge/netfilter/ebt_arpreply.c	2011-03-14 16:32:13.000000000 +0300
-@@ -15,7 +15,7 @@
- #include <net/arp.h>
- #include <linux/module.h>
- 
--static int ebt_target_reply(struct sk_buff **pskb, unsigned int hooknr,
-+static int ebt_target_reply(struct sk_buff *skb, unsigned int hooknr,
-    const struct net_device *in, const struct net_device *out,
-    const void *data, unsigned int datalen)
- {
-@@ -23,7 +23,6 @@ static int ebt_target_reply(struct sk_bu
- 	__be32 _sip, *siptr, _dip, *diptr;
- 	struct arphdr _ah, *ap;
- 	unsigned char _sha[ETH_ALEN], *shp;
--	struct sk_buff *skb = *pskb;
- 
- 	ap = skb_header_pointer(skb, 0, sizeof(_ah), &_ah);
- 	if (ap == NULL)
-diff -urBp a/net/bridge/netfilter/ebt_dnat.c b/net/bridge/netfilter/ebt_dnat.c
---- a/net/bridge/netfilter/ebt_dnat.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/net/bridge/netfilter/ebt_dnat.c	2011-03-14 18:05:52.000000000 +0300
-@@ -8,29 +8,22 @@
-  *
-  */
- 
-+#include <linux/netfilter.h>
- #include <linux/netfilter_bridge/ebtables.h>
- #include <linux/netfilter_bridge/ebt_nat.h>
- #include <linux/module.h>
- #include <net/sock.h>
- 
--static int ebt_target_dnat(struct sk_buff **pskb, unsigned int hooknr,
-+static int ebt_target_dnat(struct sk_buff *skb, unsigned int hooknr,
-    const struct net_device *in, const struct net_device *out,
-    const void *data, unsigned int datalen)
- {
- 	struct ebt_nat_info *info = (struct ebt_nat_info *)data;
- 
--	if (skb_shared(*pskb) || skb_cloned(*pskb)) {
--		struct sk_buff *nskb;
-+	if (!skb_make_writable(skb, 0))
-+		return EBT_DROP;
- 
--		nskb = skb_copy(*pskb, GFP_ATOMIC);
--		if (!nskb)
--			return NF_DROP;
--		if ((*pskb)->sk)
--			skb_set_owner_w(nskb, (*pskb)->sk);
--		kfree_skb(*pskb);
--		*pskb = nskb;
--	}
--	memcpy(eth_hdr(*pskb)->h_dest, info->mac, ETH_ALEN);
-+	memcpy(eth_hdr(skb)->h_dest, info->mac, ETH_ALEN);
- 	return info->target;
- }
- 
-diff -urBp a/net/bridge/netfilter/ebt_mark.c b/net/bridge/netfilter/ebt_mark.c
---- a/net/bridge/netfilter/ebt_mark.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/net/bridge/netfilter/ebt_mark.c	2011-03-14 16:32:13.000000000 +0300
-@@ -17,7 +17,7 @@
- #include <linux/netfilter_bridge/ebt_mark_t.h>
- #include <linux/module.h>
- 
--static int ebt_target_mark(struct sk_buff **pskb, unsigned int hooknr,
-+static int ebt_target_mark(struct sk_buff *skb, unsigned int hooknr,
-    const struct net_device *in, const struct net_device *out,
-    const void *data, unsigned int datalen)
- {
-@@ -25,13 +25,13 @@ static int ebt_target_mark(struct sk_buf
- 	int action = info->target & -16;
- 
- 	if (action == MARK_SET_VALUE)
--		(*pskb)->mark = info->mark;
-+		skb->mark = info->mark;
- 	else if (action == MARK_OR_VALUE)
--		(*pskb)->mark |= info->mark;
-+		skb->mark |= info->mark;
- 	else if (action == MARK_AND_VALUE)
--		(*pskb)->mark &= info->mark;
-+		skb->mark &= info->mark;
- 	else
--		(*pskb)->mark ^= info->mark;
-+		skb->mark ^= info->mark;
- 
- 	return info->target | ~EBT_VERDICT_BITS;
- }
-diff -urBp a/net/bridge/netfilter/ebt_redirect.c b/net/bridge/netfilter/ebt_redirect.c
---- a/net/bridge/netfilter/ebt_redirect.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/net/bridge/netfilter/ebt_redirect.c	2011-03-14 18:05:52.000000000 +0300
-@@ -8,35 +8,28 @@
-  *
-  */
- 
-+#include <linux/netfilter.h>
- #include <linux/netfilter_bridge/ebtables.h>
- #include <linux/netfilter_bridge/ebt_redirect.h>
- #include <linux/module.h>
- #include <net/sock.h>
- #include "../br_private.h"
- 
--static int ebt_target_redirect(struct sk_buff **pskb, unsigned int hooknr,
-+static int ebt_target_redirect(struct sk_buff *skb, unsigned int hooknr,
-    const struct net_device *in, const struct net_device *out,
-    const void *data, unsigned int datalen)
- {
- 	struct ebt_redirect_info *info = (struct ebt_redirect_info *)data;
- 
--	if (skb_shared(*pskb) || skb_cloned(*pskb)) {
--		struct sk_buff *nskb;
-+	if (!skb_make_writable(skb, 0))
-+		return EBT_DROP;
- 
--		nskb = skb_copy(*pskb, GFP_ATOMIC);
--		if (!nskb)
--			return NF_DROP;
--		if ((*pskb)->sk)
--			skb_set_owner_w(nskb, (*pskb)->sk);
--		kfree_skb(*pskb);
--		*pskb = nskb;
--	}
- 	if (hooknr != NF_BR_BROUTING)
--		memcpy(eth_hdr(*pskb)->h_dest,
-+		memcpy(eth_hdr(skb)->h_dest,
- 		       in->br_port->br->dev->dev_addr, ETH_ALEN);
- 	else
--		memcpy(eth_hdr(*pskb)->h_dest, in->dev_addr, ETH_ALEN);
--	(*pskb)->pkt_type = PACKET_HOST;
-+		memcpy(eth_hdr(skb)->h_dest, in->dev_addr, ETH_ALEN);
-+	skb->pkt_type = PACKET_HOST;
- 	return info->target;
- }
- 
-diff -urBp a/net/bridge/netfilter/ebt_snat.c b/net/bridge/netfilter/ebt_snat.c
---- a/net/bridge/netfilter/ebt_snat.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/net/bridge/netfilter/ebt_snat.c	2011-03-14 18:05:52.000000000 +0300
-@@ -8,6 +8,7 @@
-  *
-  */
- 
-+#include <linux/netfilter.h>
- #include <linux/netfilter_bridge/ebtables.h>
- #include <linux/netfilter_bridge/ebt_nat.h>
- #include <linux/module.h>
-@@ -15,34 +16,26 @@
- #include <linux/if_arp.h>
- #include <net/arp.h>
- 
--static int ebt_target_snat(struct sk_buff **pskb, unsigned int hooknr,
-+static int ebt_target_snat(struct sk_buff *skb, unsigned int hooknr,
-    const struct net_device *in, const struct net_device *out,
-    const void *data, unsigned int datalen)
- {
- 	struct ebt_nat_info *info = (struct ebt_nat_info *) data;
- 
--	if (skb_shared(*pskb) || skb_cloned(*pskb)) {
--		struct sk_buff *nskb;
-+	if (!skb_make_writable(skb, 0))
-+		return EBT_DROP;
- 
--		nskb = skb_copy(*pskb, GFP_ATOMIC);
--		if (!nskb)
--			return NF_DROP;
--		if ((*pskb)->sk)
--			skb_set_owner_w(nskb, (*pskb)->sk);
--		kfree_skb(*pskb);
--		*pskb = nskb;
--	}
--	memcpy(eth_hdr(*pskb)->h_source, info->mac, ETH_ALEN);
-+	memcpy(eth_hdr(skb)->h_source, info->mac, ETH_ALEN);
- 	if (!(info->target & NAT_ARP_BIT) &&
--	    eth_hdr(*pskb)->h_proto == htons(ETH_P_ARP)) {
-+	    eth_hdr(skb)->h_proto == htons(ETH_P_ARP)) {
- 		struct arphdr _ah, *ap;
- 
--		ap = skb_header_pointer(*pskb, 0, sizeof(_ah), &_ah);
-+		ap = skb_header_pointer(skb, 0, sizeof(_ah), &_ah);
- 		if (ap == NULL)
- 			return EBT_DROP;
- 		if (ap->ar_hln != ETH_ALEN)
- 			goto out;
--		if (skb_store_bits(*pskb, sizeof(_ah), info->mac,ETH_ALEN))
-+		if (skb_store_bits(skb, sizeof(_ah), info->mac,ETH_ALEN))
- 			return EBT_DROP;
- 	}
- out:
 diff -urBp a/net/dccp/ipv6.c b/net/dccp/ipv6.c
 --- a/net/dccp/ipv6.c	2010-09-24 16:43:36.000000000 +0400
 +++ b/net/dccp/ipv6.c	2011-03-15 15:10:02.000000000 +0300
