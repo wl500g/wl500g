@@ -235,7 +235,7 @@ unsigned int arpt_do_table(struct sk_buff **pskb,
 			   unsigned int hook,
 			   const struct net_device *in,
 			   const struct net_device *out,
-			   struct arpt_table *table)
+			   struct xt_table *table)
 {
 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
 	unsigned int verdict = NF_DROP;
@@ -473,7 +473,7 @@ static inline int check_entry(struct arpt_entry *e, const char *name)
 static inline int check_target(struct arpt_entry *e, const char *name)
 {
 	struct arpt_entry_target *t;
-	struct arpt_target *target;
+	struct xt_target *target;
 	int ret;
 
 	t = arpt_get_target(e);
@@ -496,7 +496,7 @@ find_check_entry(struct arpt_entry *e, const char *name, unsigned int size,
 		 unsigned int *i)
 {
 	struct arpt_entry_target *t;
-	struct arpt_target *target;
+	struct xt_target *target;
 	int ret;
 
 	ret = check_entry(e, name);
@@ -731,7 +731,7 @@ static void get_counters(const struct xt_table_info *t,
 	local_bh_enable();
 }
 
-static struct xt_counters *alloc_counters(struct arpt_table *table)
+static struct xt_counters *alloc_counters(struct xt_table *table)
 {
 	unsigned int countersize;
 	struct xt_counters *counters;
@@ -753,7 +753,7 @@ static struct xt_counters *alloc_counters(struct arpt_table *table)
 }
 
 static int copy_entries_to_user(unsigned int total_size,
-				struct arpt_table *table,
+				struct xt_table *table,
 				void __user *userptr)
 {
 	unsigned int off, num;
@@ -808,7 +808,7 @@ static int get_entries(const struct arpt_get_entries *entries,
 		       struct arpt_get_entries __user *uptr)
 {
 	int ret;
-	struct arpt_table *t;
+	struct xt_table *t;
 
 	t = xt_find_table_lock(NF_ARP, entries->name);
 	if (t && !IS_ERR(t)) {
@@ -835,7 +835,7 @@ static int do_replace(void __user *user, unsigned int len)
 {
 	int ret;
 	struct arpt_replace tmp;
-	struct arpt_table *t;
+	struct xt_table *t;
 	struct xt_table_info *newinfo, *oldinfo;
 	struct xt_counters *counters;
 	void *loc_cpu_entry, *loc_cpu_old_entry;
@@ -946,7 +946,7 @@ static int do_add_counters(void __user *user, unsigned int len)
 {
 	unsigned int i, curcpu;
 	struct xt_counters_info tmp, *paddc;
-	struct arpt_table *t;
+	struct xt_table *t;
 	struct xt_table_info *private;
 	int ret = 0;
 	void *loc_cpu_entry;
@@ -1034,7 +1034,7 @@ static int do_arpt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len
 	switch (cmd) {
 	case ARPT_SO_GET_INFO: {
 		char name[ARPT_TABLE_MAXNAMELEN];
-		struct arpt_table *t;
+		struct xt_table *t;
 
 		if (*len != sizeof(struct arpt_getinfo)) {
 			duprintf("length %u != %Zu\n", *len,
@@ -1118,7 +1118,7 @@ static int do_arpt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len
 	return ret;
 }
 
-int arpt_register_table(struct arpt_table *table,
+int arpt_register_table(struct xt_table *table,
 			const struct arpt_replace *repl)
 {
 	int ret;
@@ -1158,7 +1158,7 @@ int arpt_register_table(struct arpt_table *table,
 	return 0;
 }
 
-void arpt_unregister_table(struct arpt_table *table)
+void arpt_unregister_table(struct xt_table *table)
 {
 	struct xt_table_info *private;
 	void *loc_cpu_entry;
@@ -1173,13 +1173,13 @@ void arpt_unregister_table(struct arpt_table *table)
 }
 
 /* The built-in targets: standard (NULL) and error. */
-static struct arpt_target arpt_standard_target __read_mostly = {
+static struct xt_target arpt_standard_target __read_mostly = {
 	.name		= ARPT_STANDARD_TARGET,
 	.targetsize	= sizeof(int),
 	.family		= NF_ARP,
 };
 
-static struct arpt_target arpt_error_target __read_mostly = {
+static struct xt_target arpt_error_target __read_mostly = {
 	.name		= ARPT_ERROR_TARGET,
 	.target		= arpt_error,
 	.targetsize	= ARPT_FUNCTION_MAXNAMELEN,
