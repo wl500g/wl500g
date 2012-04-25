@@ -408,10 +408,11 @@ diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
  			return -1;
  		break;
  #endif
-@@ -433,18 +479,13 @@ hashlimit_init_dst(struct xt_hashlimit_h
+@@ -433,19 +479,14 @@ hashlimit_init_dst(struct xt_hashlimit_h
+ 	return 0;
  }
  
- static int
+-static int
 -hashlimit_match(const struct sk_buff *skb,
 -		const struct net_device *in,
 -		const struct net_device *out,
@@ -424,10 +425,11 @@ diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
 -	struct xt_hashlimit_info *r =
 -		((struct xt_hashlimit_info *)matchinfo)->u.master;
 -	struct xt_hashlimit_htable *hinfo = r->hinfo;
++static bool
 +hashlimit_mt(const struct sk_buff *skb, const struct net_device *in,
 +             const struct net_device *out, const struct xt_match *match,
 +             const void *matchinfo, int offset, unsigned int protoff,
-+             int *hotdrop)
++             bool *hotdrop)
 +{
 +	const struct xt_hashlimit_mtinfo1 *info = matchinfo;
 +	struct xt_hashlimit_htable *hinfo = info->hinfo;
@@ -478,17 +480,20 @@ diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
 -	return 0;
 -
 -hotdrop:
+-	*hotdrop = 1;
+-	return 0;
 + hotdrop:
- 	*hotdrop = 1;
- 	return 0;
++	*hotdrop = true;
++	return false;
  }
  
- static int
+-static int
 -hashlimit_checkentry(const char *tablename,
 -		     const void *inf,
 -		     const struct xt_match *match,
 -		     void *matchinfo,
 -		     unsigned int hook_mask)
++static bool
 +hashlimit_mt_check(const char *tablename, const void *inf,
 +                   const struct xt_match *match, void *matchinfo,
 +                   unsigned int hook_mask)

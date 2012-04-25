@@ -275,11 +275,11 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +	return matches;
 +}
 +
-+static int
++static bool
 +connlimit_mt(const struct sk_buff *skb, const struct net_device *in,
 +             const struct net_device *out, const struct xt_match *match,
 +             const void *matchinfo, int offset, unsigned int protoff,
-+             int *hotdrop)
++             bool *hotdrop)
 +{
 +	const struct xt_connlimit_info *info = matchinfo;
 +	union nf_inet_addr addr;
@@ -320,10 +320,10 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +
 + hotdrop:
 +	*hotdrop = true;
-+	return 0;
++	return false;
 +}
 +
-+static int
++static bool
 +connlimit_mt_check(const char *tablename, const void *ip,
 +                   const struct xt_match *match, void *matchinfo,
 +                   unsigned int hook_mask)
@@ -342,21 +342,21 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 +	if (nf_ct_l3proto_try_module_get(match->family) < 0) {
 +		printk(KERN_WARNING "cannot load conntrack support for "
 +		       "address family %u\n", match->family);
-+		return 0;
++		return false;
 +	}
 +
 +	/* init private data */
 +	info->data = kmalloc(sizeof(struct xt_connlimit_data), GFP_KERNEL);
 +	if (info->data == NULL) {
 +		nf_ct_l3proto_module_put(match->family);
-+		return 0;
++		return false;
 +	}
 +
 +	spin_lock_init(&info->data->lock);
 +	for (i = 0; i < ARRAY_SIZE(info->data->iphash); ++i)
 +		INIT_HLIST_HEAD(&info->data->iphash[i]);
 +
-+	return 1;
++	return true;
 +}
 +
 +static void

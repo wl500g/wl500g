@@ -684,7 +684,7 @@ new file mode 100644
 +	return XT_CONTINUE;
 +}
 +
-+static int ttl_tg_check(const char *tablename,
++static bool ttl_tg_check(const char *tablename,
 +			const void *e,
 +			const struct xt_target *target,
 +			void *targinfo,
@@ -695,14 +695,14 @@ new file mode 100644
 +	if (info->mode > IPT_TTL_MAXMODE) {
 +		printk(KERN_WARNING "ipt_TTL: invalid or unknown Mode %u\n",
 +			info->mode);
-+		return 0;
++		return false;
 +	}
 +	if (info->mode != IPT_TTL_SET && info->ttl == 0)
-+		return 0;
-+	return 1;
++		return false;
++	return true;
 +}
 +
-+static int hl_tg6_check(const char *tablename,
++static bool hl_tg6_check(const char *tablename,
 +			const void *e,
 +			const struct xt_target *target,
 +			void *targinfo,
@@ -713,14 +713,14 @@ new file mode 100644
 +	if (info->mode > IP6T_HL_MAXMODE) {
 +		printk(KERN_WARNING "ip6t_HL: invalid or unknown Mode %u\n",
 +			info->mode);
-+		return 0;
++		return false;
 +	}
 +	if (info->mode != IP6T_HL_SET && info->hop_limit == 0) {
 +		printk(KERN_WARNING "ip6t_HL: increment/decrement doesn't "
 +			"make sense with value 0\n");
-+		return 0;
++		return false;
 +	}
-+	return 1;
++	return true;
 +}
 +
 +static struct xt_target hl_tg_reg[] __read_mostly = {
@@ -792,10 +792,10 @@ new file mode 100644
 +MODULE_ALIAS("ipt_ttl");
 +MODULE_ALIAS("ip6t_hl");
 +
-+static int ttl_mt(const struct sk_buff *skb,
++static bool ttl_mt(const struct sk_buff *skb,
 +		  const struct net_device *in, const struct net_device *out,
 +		  const struct xt_match *match, const void *matchinfo,
-+		  int offset, unsigned int protoff, int *hotdrop)
++		  int offset, unsigned int protoff, bool *hotdrop)
 +{
 +	const struct ipt_ttl_info *info = matchinfo;
 +	const u8 ttl = ip_hdr(skb)->ttl;
@@ -812,16 +812,16 @@ new file mode 100644
 +		default:
 +			printk(KERN_WARNING "ipt_ttl: unknown mode %d\n",
 +				info->mode);
-+			return 0;
++			return false;
 +	}
 +
-+	return 0;
++	return false;
 +}
 +
-+static int hl_mt6(const struct sk_buff *skb,
++static bool hl_mt6(const struct sk_buff *skb,
 +		  const struct net_device *in, const struct net_device *out,
 +		  const struct xt_match *match, const void *matchinfo,
-+		  int offset, unsigned int protoff, int *hotdrop)
++		  int offset, unsigned int protoff, bool *hotdrop)
 +{
 +	const struct ip6t_hl_info *info = matchinfo;
 +	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
@@ -842,10 +842,10 @@ new file mode 100644
 +		default:
 +			printk(KERN_WARNING "ip6t_hl: unknown mode %d\n",
 +				info->mode);
-+			return 0;
++			return false;
 +	}
 +
-+	return 0;
++	return false;
 +}
 +
 +static struct xt_match hl_mt_reg[] __read_mostly = {

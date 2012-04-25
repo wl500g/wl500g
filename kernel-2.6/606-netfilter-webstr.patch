@@ -306,15 +306,15 @@ diff -urBwNp linux-2.6.22/net/netfilter/xt_webstr.c linux-2.6/net/netfilter/xt_w
 +	return NULL;
 +}
 +
-+static int
-+match(const struct sk_buff *skb,
++static bool
++webstr_mt(const struct sk_buff *skb,
 +      const struct net_device *in,
 +      const struct net_device *out,
 +      const struct xt_match *match,
 +      const void *matchinfo,
 +      int offset,
 +      unsigned int protoff,
-+      int *hotdrop)
++      bool *hotdrop)
 +{
 +	const struct xt_webstr_info *info = matchinfo;
 +	const struct tcphdr *tcph;
@@ -469,7 +469,7 @@ diff -urBwNp linux-2.6.22/net/netfilter/xt_webstr.c linux-2.6/net/netfilter/xt_w
 +	return (found ^ info->invert);
 +}
 +
-+static int
++static bool
 +checkentry(const char *tablename,
 +	   const void *entry,
 +	   const struct xt_match *match,
@@ -488,20 +488,20 @@ diff -urBwNp linux-2.6.22/net/netfilter/xt_webstr.c linux-2.6/net/netfilter/xt_w
 +		case XT_WEBSTR_CONTENT:
 +			break;
 +		default:
-+			return 0;
++			return false;
 +	}
 +	/* pattern length */
 +	if (info->len < 1)
-+		return 0;
++		return false;
 +
-+       return 1;
++       return true;
 +}
 +
 +static struct xt_match xt_webstr_match[] = {
 +	{
 +	.name		= "webstr",
 +	.family		= AF_INET,
-+	.match		= match,
++	.match		= webstr_mt,
 +	.checkentry	= checkentry,
 +	.matchsize	= sizeof(struct xt_webstr_info),
 +	.proto		= IPPROTO_TCP,
@@ -510,7 +510,7 @@ diff -urBwNp linux-2.6.22/net/netfilter/xt_webstr.c linux-2.6/net/netfilter/xt_w
 +	{
 +	.name		= "webstr",
 +	.family		= AF_INET6,
-+	.match		= match,
++	.match		= webstr_mt,
 +	.checkentry	= checkentry,
 +	.matchsize	= sizeof(struct xt_webstr_info),
 +	.proto		= IPPROTO_TCP,

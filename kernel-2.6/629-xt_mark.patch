@@ -204,15 +204,16 @@ diff --git a/net/netfilter/xt_mark.c b/net/netfilter/xt_mark.c
 +	return XT_CONTINUE;
  }
  
- static int
+-static int
 -checkentry(const char *tablename,
 -	   const void *entry,
 -	   const struct xt_match *match,
 -	   void *matchinfo,
 -	   unsigned int hook_mask)
++static bool
 +mark_mt(const struct sk_buff *skb, const struct net_device *in,
 +        const struct net_device *out, const struct xt_match *match,
-+        const void *matchinfo, int offset, unsigned int protoff, int *hotdrop)
++        const void *matchinfo, int offset, unsigned int protoff, bool *hotdrop)
  {
 -	const struct xt_mark_info *minfo = matchinfo;
 +	const struct xt_mark_mtinfo1 *info = matchinfo;

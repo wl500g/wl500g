@@ -277,16 +277,16 @@
 +	return NF_DROP;
 +}
 +
-+static int xt_tarpit_check(const char *tablename, const void *entry,
++static bool xt_tarpit_check(const char *tablename, const void *entry,
 +                            const struct xt_target *target, void *targinfo,
 +                            unsigned int hook_mask)
 +{
 +	int invalid;
 +
 +	if (strcmp(tablename, "raw") == 0 && hook_mask == NF_IP_PRE_ROUTING)
-+		return 1;
++		return true;
 +	if (strcmp(tablename, "filter") != 0)
-+		return 0;
++		return false;
 +	invalid = hook_mask & ~((1 << NF_IP_LOCAL_IN) | (1 << NF_IP_FORWARD));
 +	return !invalid;
 +}

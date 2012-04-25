@@ -217,11 +217,11 @@ diff -urBwNp linux-2.6.22/net/netfilter/xt_time.c linux-2.6/net/netfilter/xt_tim
 +	return;
 +}
 +
-+static int xt_time_match(const struct sk_buff *skb,
++static bool xt_time_match(const struct sk_buff *skb,
 +                          const struct net_device *in,
 +                          const struct net_device *out,
 +                          const struct xt_match *match, const void *matchinfo,
-+                          int offset, unsigned int protoff, int *hotdrop)
++                          int offset, unsigned int protoff, bool *hotdrop)
 +{
 +	const struct xt_time_info *info = matchinfo;
 +	unsigned int packet_time;
@@ -259,36 +259,36 @@ diff -urBwNp linux-2.6.22/net/netfilter/xt_time.c linux-2.6/net/netfilter/xt_tim
 +	 */
 +
 +	if (stamp < info->date_start || stamp > info->date_stop)
-+		return 0;
++		return false;
 +
 +	packet_time = localtime_1(&current_time, stamp);
 +
 +	if (info->daytime_start < info->daytime_stop) {
 +		if (packet_time < info->daytime_start ||
 +		    packet_time > info->daytime_stop)
-+			return 0;
++			return false;
 +	} else {
 +		if (packet_time < info->daytime_start &&
 +		    packet_time > info->daytime_stop)
-+			return 0;
++			return false;
 +	}
 +
 +	localtime_2(&current_time, stamp);
 +
 +	if (!(info->weekdays_match & (1 << current_time.weekday)))
-+		return 0;
++		return false;
 +
 +	/* Do not spend time computing monthday if all days match anyway */
 +	if (info->monthdays_match != XT_TIME_ALL_MONTHDAYS) {
 +		localtime_3(&current_time, stamp);
 +		if (!(info->monthdays_match & (1 << current_time.monthday)))
-+			return 0;
++			return false;
 +	}
 +
-+	return 1;
++	return true;
 +}
 +
-+static int xt_time_check(const char *tablename, const void *ip,
++static bool xt_time_check(const char *tablename, const void *ip,
 +                          const struct xt_match *match, void *matchinfo,
 +                          unsigned int hook_mask)
 +{
@@ -298,10 +298,10 @@ diff -urBwNp linux-2.6.22/net/netfilter/xt_time.c linux-2.6/net/netfilter/xt_tim
 +	    info->daytime_stop > XT_TIME_MAX_DAYTIME) {
 +		printk(KERN_WARNING "xt_time: invalid argument - start or "
 +		       "stop time greater than 23:59:59\n");
-+		return 0;
++		return false;
 +	}
 +
-+	return 1;
++	return true;
 +}
 +
 +static struct xt_match xt_time_reg[] __read_mostly = {

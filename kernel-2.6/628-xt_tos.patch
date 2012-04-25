@@ -377,10 +377,10 @@ diff --git a/net/netfilter/xt_dscp.c b/net/netfilter/xt_dscp.c
  	return 1;
  }
  
-+static int tos_mt(const struct sk_buff *skb, const struct net_device *in,
++static bool tos_mt(const struct sk_buff *skb, const struct net_device *in,
 +                   const struct net_device *out, const struct xt_match *match,
 +                   const void *matchinfo, int offset, unsigned int protoff,
-+                   int *hotdrop)
++                   bool *hotdrop)
 +{
 +	const struct xt_tos_match_info *info = matchinfo;
 +

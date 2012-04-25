@@ -238,7 +238,7 @@ diff -urBp a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
 +	return true;
 +}
  
- static int
+-static int
 -match(const struct sk_buff *skb,
 -      const struct net_device *in,
 -      const struct net_device *out,
@@ -247,6 +247,7 @@ diff -urBp a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
 -      int offset,
 -      unsigned int protoff,
 -      int *hotdrop)
++static bool
 +conntrack_mt(const struct sk_buff *skb,
 +             const struct xt_match *match, const void *matchinfo,
 +             u16 state_mask, u16 status_mask)
@@ -377,34 +378,35 @@ diff -urBp a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
  	return 1;
  }
  
- static int
+-static int
 -checkentry(const char *tablename,
 -	   const void *ip,
 -	   const struct xt_match *match,
 -	   void *matchinfo,
 -	   unsigned int hook_mask)
++static bool
 +conntrack_mt_v1(const struct sk_buff *skb, const struct net_device *in,
 +             const struct net_device *out, const struct xt_match *match,
 +             const void *matchinfo, int offset, unsigned int protoff,
-+             int *hotdrop)
++             bool *hotdrop)
 +{
 +	const struct xt_conntrack_mtinfo1 *info = matchinfo;
 +
 +	return conntrack_mt(skb, match, matchinfo, info->state_mask, info->status_mask);
 +}
 +
-+static int
++static bool
 +conntrack_mt_v2(const struct sk_buff *skb, const struct net_device *in,
 +             const struct net_device *out, const struct xt_match *match,
 +             const void *matchinfo, int offset, unsigned int protoff,
-+             int *hotdrop)
++             bool *hotdrop)
 +{
 +	const struct xt_conntrack_mtinfo2 *info = matchinfo;
 +
 +	return conntrack_mt(skb, match, matchinfo, info->state_mask, info->status_mask);
 +}
 +
-+static int
++static bool
 +conntrack_mt_check(const char *tablename, const void *ip,
 +                   const struct xt_match *match, void *matchinfo,
 +                   unsigned int hook_mask)

@@ -312,7 +312,7 @@ diff -urBwNp linux-2.6.22/net/ipv4/netfilter/nf_nat_autofw.c linux-2.6/net/ipv4/
 +	return IPT_CONTINUE;
 +}
 +
-+static int
++static bool
 +autofw_check(const char *tablename,
 +	const void *e,
 +	const struct xt_target *target,
@@ -324,10 +324,10 @@ diff -urBwNp linux-2.6.22/net/ipv4/netfilter/nf_nat_autofw.c linux-2.6/net/ipv4/
 +
 +	if (info->proto != IPPROTO_TCP && info->proto != IPPROTO_UDP) {
 +		DEBUGP("autofw_check: bad proto %d.\n", info->proto);
-+		return 0;
++		return false;
 +	}
 +
-+	return 1;
++	return true;
 +}
 +
 +static struct xt_target autofw = {
