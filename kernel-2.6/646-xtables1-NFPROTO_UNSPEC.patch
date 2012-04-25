@@ -28,6 +28,7 @@ netfilter: implement NFPROTO_UNSPEC as a wildcard for extensions
  net/netfilter/x_tables.c               |   36 +++++++++++++---
  net/netfilter/xt_CLASSIFY.c            |   39 +++++-------------
  net/netfilter/xt_CONNSECMARK.c         |   36 +++++-----------
+ net/netfilter/xt_IMQ.c                 |   31 ++++----------
  net/netfilter/xt_NOTRACK.c             |   26 +++---------
  net/netfilter/xt_SECMARK.c             |   33 +++++----------
  net/netfilter/xt_addrtype.c            |   11 -----
@@ -48,7 +49,7 @@ netfilter: implement NFPROTO_UNSPEC as a wildcard for extensions
  net/netfilter/xt_string.c              |   34 +++++-----------
  net/netfilter/xt_time.c                |   28 ++++---------
  net/netfilter/xt_u32.c                 |   26 ++++--------
- 28 files changed, 308 insertions(+), 538 deletions(-)
+ 29 files changed, 318 insertions(+), 559 deletions(-)
 
 diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
 --- a/include/linux/netfilter.h
@@ -774,6 +775,55 @@ diff --git a/net/netfilter/xt_CONNSECMARK.c b/net/netfilter/xt_CONNSECMARK.c
  }
  
  module_init(xt_connsecmark_init);
+diff --git a/net/netfilter/xt_IMQ.c b/net/netfilter/xt_IMQ.c
+--- a/net/netfilter/xt_IMQ.c
++++ b/net/netfilter/xt_IMQ.c
+@@ -39,35 +39,24 @@ static bool imq_checkentry(const char *t
+ 	return true;
+ }
+ 
+-static struct xt_target xt_imq_reg[] __read_mostly = {
+-	{
+-		.name		= "IMQ",
+-		.family		= AF_INET,
+-		.target		= imq_target,
+-		.targetsize	= sizeof(struct xt_imq_info),
+-		.checkentry	= imq_checkentry,
+-		.table		= "mangle",
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name           = "IMQ",
+-		.family		= AF_INET6,
+-		.target         = imq_target,
+-		.targetsize	= sizeof(struct xt_imq_info),
+-		.checkentry     = imq_checkentry,
+-		.table		= "mangle",
+-		.me             = THIS_MODULE,
+-	},
++static struct xt_target xt_imq_reg __read_mostly = {
++	.name		= "IMQ",
++	.family		= NFPROTO_UNSPEC,
++	.target		= imq_target,
++	.targetsize	= sizeof(struct xt_imq_info),
++	.checkentry	= imq_checkentry,
++	.table		= "mangle",
++	.me		= THIS_MODULE,
+ };
+ 
+ static int __init init(void)
+ {
+-	return xt_register_targets(xt_imq_reg, ARRAY_SIZE(xt_imq_reg));
++	return xt_register_target(&xt_imq_reg);
+ }
+ 
+ static void __exit fini(void)
+ {
+-	xt_unregister_targets(xt_imq_reg, ARRAY_SIZE(xt_imq_reg));
++	xt_unregister_target(&xt_imq_reg);
+ }
+ 
+ module_init(init);
 diff --git a/net/netfilter/xt_helper.c b/net/netfilter/xt_helper.c
 --- a/net/netfilter/xt_helper.c
 +++ b/net/netfilter/xt_helper.c
