@@ -1,0 +1,48 @@
+[NETFILTER]: xt_pkttype: Updates from upstream
+
+ 13b0e83b5b52d1a0ab87772ecc93fe91b2740386 [NETFILTER]: xt_pkttype: Add explicit check for IPv4
+ 57de0abbffa9724e2a89860a49725d805bfc07ca [NETFILTER]: xt_pkttype: IPv6 multicast address recognition
+
+---
+ net/netfilter/xt_pkttype.c |   17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/net/netfilter/xt_pkttype.c b/net/netfilter/xt_pkttype.c
+--- a/net/netfilter/xt_pkttype.c
++++ b/net/netfilter/xt_pkttype.c
+@@ -11,6 +11,7 @@
+ #include <linux/if_packet.h>
+ #include <linux/in.h>
+ #include <linux/ip.h>
++#include <linux/ipv6.h>
+ 
+ #include <linux/netfilter/xt_pkttype.h>
+ #include <linux/netfilter/x_tables.h>
+@@ -30,15 +31,19 @@ static bool match(const struct sk_buff *
+       unsigned int protoff,
+       bool *hotdrop)
+ {
+-	u_int8_t type;
+ 	const struct xt_pkttype_info *info = matchinfo;
++	u_int8_t type;
+ 
+-	if (skb->pkt_type == PACKET_LOOPBACK)
+-		type = (MULTICAST(ip_hdr(skb)->daddr)
+-			? PACKET_MULTICAST
+-			: PACKET_BROADCAST);
+-	else
++	if (skb->pkt_type != PACKET_LOOPBACK)
+ 		type = skb->pkt_type;
++	else if (match->family == AF_INET &&
++	    MULTICAST(ip_hdr(skb)->daddr))
++		type = PACKET_MULTICAST;
++	else if (match->family == AF_INET6 &&
++	    ipv6_hdr(skb)->daddr.s6_addr[0] == 0xFF)
++		type = PACKET_MULTICAST;
++	else
++		type = PACKET_BROADCAST;
+ 
+ 	return (type == info->pkttype) ^ info->invert;
+ }
+-- 
+1.7.6.5
