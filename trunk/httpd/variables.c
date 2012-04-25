@@ -421,7 +421,7 @@ struct variable variables_IPConnection[] = {
 	{"", "", validate_string, ARGV(""), FALSE, FALSE},
 	{"PortMappingList", "Group", validate_group, ARGV(variables_IPConnection_PortMappingList, "16", "58", "PortMappingNumberOfEntries"), FALSE, FALSE},
 	{"ExposedIPList", "Group", validate_group, ARGV(variables_IPConnection_ExposedIPList, "32", "52", "ExposedIPCount"), FALSE, FALSE},
-	{"VSList", "Group", validate_group, ARGV(variables_IPConnection_VSList, "24", "75", "vts_num_x"), FALSE, FALSE},
+	{"VSList", "Group", validate_group, ARGV(variables_IPConnection_VSList, "24", "91", "vts_num_x"), FALSE, FALSE},
 	{"TriggerList", "Group", validate_group, ARGV(variables_IPConnection_TriggerList, "10", "56", "autofw_num_x"), FALSE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 };
