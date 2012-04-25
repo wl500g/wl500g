@@ -7,68 +7,66 @@
  *  June, 2002
  *
  */
-
-#include <linux/netfilter_bridge/ebtables.h>
-#include <linux/netfilter_bridge/ebt_nat.h>
 #include <linux/module.h>
 #include <net/sock.h>
+#include <linux/netfilter.h>
+#include <linux/netfilter/x_tables.h>
+#include <linux/netfilter_bridge/ebtables.h>
+#include <linux/netfilter_bridge/ebt_nat.h>
 
-static int ebt_target_dnat(struct sk_buff **pskb, unsigned int hooknr,
-   const struct net_device *in, const struct net_device *out,
-   const void *data, unsigned int datalen)
+static unsigned int
+ebt_dnat_tg(struct sk_buff *skb, const struct net_device *in,
+	    const struct net_device *out, unsigned int hook_nr,
+	    const struct xt_target *target, const void *data)
 {
-	struct ebt_nat_info *info = (struct ebt_nat_info *)data;
+	const struct ebt_nat_info *info = data;
 
-	if (skb_shared(*pskb) || skb_cloned(*pskb)) {
-		struct sk_buff *nskb;
+	if (!skb_make_writable(skb, 0))
+		return EBT_DROP;
 
-		nskb = skb_copy(*pskb, GFP_ATOMIC);
-		if (!nskb)
-			return NF_DROP;
-		if ((*pskb)->sk)
-			skb_set_owner_w(nskb, (*pskb)->sk);
-		kfree_skb(*pskb);
-		*pskb = nskb;
-	}
-	memcpy(eth_hdr(*pskb)->h_dest, info->mac, ETH_ALEN);
+	memcpy(eth_hdr(skb)->h_dest, info->mac, ETH_ALEN);
 	return info->target;
 }
 
-static int ebt_target_dnat_check(const char *tablename, unsigned int hookmask,
-   const struct ebt_entry *e, void *data, unsigned int datalen)
+static bool
+ebt_dnat_tg_check(const char *tablename, const void *entry,
+		  const struct xt_target *target, void *data,
+		  unsigned int hookmask)
 {
-	struct ebt_nat_info *info = (struct ebt_nat_info *)data;
+	const struct ebt_nat_info *info = data;
 
 	if (BASE_CHAIN && info->target == EBT_RETURN)
-		return -EINVAL;
+		return false;
 	CLEAR_BASE_CHAIN_BIT;
 	if ( (strcmp(tablename, "nat") ||
 	   (hookmask & ~((1 << NF_BR_PRE_ROUTING) | (1 << NF_BR_LOCAL_OUT)))) &&
 	   (strcmp(tablename, "broute") || hookmask & ~(1 << NF_BR_BROUTING)) )
-		return -EINVAL;
-	if (datalen != EBT_ALIGN(sizeof(struct ebt_nat_info)))
-		return -EINVAL;
+		return false;
 	if (INVALID_TARGET)
-		return -EINVAL;
-	return 0;
+		return false;
+	return true;
 }
 
-static struct ebt_target dnat =
-{
-	.name		= EBT_DNAT_TARGET,
-	.target		= ebt_target_dnat,
-	.check		= ebt_target_dnat_check,
+static struct xt_target ebt_dnat_tg_reg __read_mostly = {
+	.name		= "dnat",
+	.revision	= 0,
+	.family		= NFPROTO_BRIDGE,
+	.hooks		= (1 << NF_BR_NUMHOOKS) | (1 << NF_BR_PRE_ROUTING) |
+			  (1 << NF_BR_LOCAL_OUT) | (1 << NF_BR_BROUTING),
+	.target		= ebt_dnat_tg,
+	.checkentry	= ebt_dnat_tg_check,
+	.targetsize	= XT_ALIGN(sizeof(struct ebt_nat_info)),
 	.me		= THIS_MODULE,
 };
 
 static int __init ebt_dnat_init(void)
 {
-	return ebt_register_target(&dnat);
+	return xt_register_target(&ebt_dnat_tg_reg);
 }
 
 static void __exit ebt_dnat_fini(void)
 {
-	ebt_unregister_target(&dnat);
+	xt_unregister_target(&ebt_dnat_tg_reg);
 }
 
 module_init(ebt_dnat_init);

@@ -8,11 +8,7 @@
  *  April, 2002
  *
  */
-
 #include <linux/in.h>
-#include <linux/netfilter_bridge/ebtables.h>
-#include <linux/netfilter_bridge/ebt_log.h>
-#include <linux/netfilter.h>
 #include <linux/module.h>
 #include <linux/ip.h>
 #include <linux/in.h>
@@ -21,22 +17,26 @@
 #include <linux/ipv6.h>
 #include <net/ipv6.h>
 #include <linux/in6.h>
+#include <linux/netfilter/x_tables.h>
+#include <linux/netfilter_bridge/ebtables.h>
+#include <linux/netfilter_bridge/ebt_log.h>
+#include <linux/netfilter.h>
 
 static DEFINE_SPINLOCK(ebt_log_lock);
 
-static int ebt_log_check(const char *tablename, unsigned int hookmask,
-   const struct ebt_entry *e, void *data, unsigned int datalen)
+static bool
+ebt_log_tg_check(const char *table, const void *entry,
+		 const struct xt_target *target, void *data,
+		 unsigned int hook_mask)
 {
-	struct ebt_log_info *info = (struct ebt_log_info *)data;
+	struct ebt_log_info *info = data;
 
-	if (datalen != EBT_ALIGN(sizeof(struct ebt_log_info)))
-		return -EINVAL;
 	if (info->bitmask & ~EBT_LOG_MASK)
-		return -EINVAL;
+		return false;
 	if (info->loglevel >= 8)
-		return -EINVAL;
+		return false;
 	info->prefix[EBT_LOG_PREFIX_SIZE - 1] = '\0';
-	return 0;
+	return true;
 }
 
 struct tcpudphdr
@@ -53,7 +53,7 @@ struct arppayload
 	unsigned char ip_dst[4];
 };
 
-static void print_MAC(unsigned char *p)
+static void print_MAC(const unsigned char *p)
 {
 	int i;
 
@@ -108,7 +108,8 @@ ebt_log_packet(unsigned int pf, unsigned int hooknum,
 
 	if ((bitmask & EBT_LOG_IP) && eth_hdr(skb)->h_proto ==
 	   htons(ETH_P_IP)){
-		struct iphdr _iph, *ih;
+		const struct iphdr *ih;
+		struct iphdr _iph;
 
 		ih = skb_header_pointer(skb, 0, sizeof(_iph), &_iph);
 		if (ih == NULL) {
@@ -151,7 +152,8 @@ ebt_log_packet(unsigned int pf, unsigned int hooknum,
 	if ((bitmask & EBT_LOG_ARP) &&
 	    ((eth_hdr(skb)->h_proto == htons(ETH_P_ARP)) ||
 	     (eth_hdr(skb)->h_proto == htons(ETH_P_RARP)))) {
-		struct arphdr _arph, *ah;
+		const struct arphdr *ah;
+		struct arphdr _arph;
 
 		ah = skb_header_pointer(skb, 0, sizeof(_arph), &_arph);
 		if (ah == NULL) {
@@ -167,7 +169,8 @@ ebt_log_packet(unsigned int pf, unsigned int hooknum,
 		if (ah->ar_hrd == htons(1) &&
 		    ah->ar_hln == ETH_ALEN &&
 		    ah->ar_pln == sizeof(__be32)) {
-			struct arppayload _arpp, *ap;
+			const struct arppayload *ap;
+			struct arppayload _arpp;
 
 			ap = skb_header_pointer(skb, sizeof(_arph),
 						sizeof(_arpp), &_arpp);
@@ -191,11 +194,12 @@ out:
 
 }
 
-static void ebt_log(const struct sk_buff *skb, unsigned int hooknr,
-   const struct net_device *in, const struct net_device *out,
-   const void *data, unsigned int datalen)
+static unsigned int
+ebt_log_tg(struct sk_buff *skb, const struct net_device *in,
+	   const struct net_device *out, unsigned int hooknr,
+	   const struct xt_target *target, const void *data)
 {
-	struct ebt_log_info *info = (struct ebt_log_info *)data;
+	const struct ebt_log_info *info = data;
 	struct nf_loginfo li;
 
 	li.type = NF_LOG_TYPE_LOG;
@@ -208,17 +212,20 @@ static void ebt_log(const struct sk_buff *skb, unsigned int hooknr,
 	else
 		ebt_log_packet(PF_BRIDGE, hooknr, skb, in, out, &li,
 			       info->prefix);
+	return EBT_CONTINUE;
 }
 
-static struct ebt_watcher log =
-{
-	.name		= EBT_LOG_WATCHER,
-	.watcher	= ebt_log,
-	.check		= ebt_log_check,
+static struct xt_target ebt_log_tg_reg __read_mostly = {
+	.name		= "log",
+	.revision	= 0,
+	.family		= NFPROTO_BRIDGE,
+	.target		= ebt_log_tg,
+	.checkentry	= ebt_log_tg_check,
+	.targetsize	= XT_ALIGN(sizeof(struct ebt_log_info)),
 	.me		= THIS_MODULE,
 };
 
-static struct nf_logger ebt_log_logger = {
+static const struct nf_logger ebt_log_logger = {
 	.name 		= "ebt_log",
 	.logfn		= &ebt_log_packet,
 	.me		= THIS_MODULE,
@@ -228,7 +235,7 @@ static int __init ebt_log_init(void)
 {
 	int ret;
 
-	ret = ebt_register_watcher(&log);
+	ret = xt_register_target(&ebt_log_tg_reg);
 	if (ret < 0)
 		return ret;
 	nf_log_register(PF_BRIDGE, &ebt_log_logger);
@@ -238,7 +245,7 @@ static int __init ebt_log_init(void)
 static void __exit ebt_log_fini(void)
 {
 	nf_log_unregister(&ebt_log_logger);
-	ebt_unregister_watcher(&log);
+	xt_unregister_target(&ebt_log_tg_reg);
 }
 
 module_init(ebt_log_init);

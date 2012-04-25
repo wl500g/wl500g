@@ -37,6 +37,7 @@
 #include <linux/netlink.h>
 #include <linux/netdevice.h>
 #include <linux/module.h>
+#include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_bridge/ebtables.h>
 #include <linux/netfilter_bridge/ebt_ulog.h>
 #include <net/sock.h>
@@ -245,24 +246,26 @@ static void ebt_log_packet(unsigned int pf, unsigned int hooknum,
 	ebt_ulog_packet(hooknum, skb, in, out, &loginfo, prefix);
 }
 
-static void ebt_ulog(const struct sk_buff *skb, unsigned int hooknr,
-   const struct net_device *in, const struct net_device *out,
-   const void *data, unsigned int datalen)
+static unsigned int
+ebt_ulog_tg(struct sk_buff *skb, const struct net_device *in,
+	    const struct net_device *out, unsigned int hooknr,
+	    const struct xt_target *target, const void *data)
 {
-	struct ebt_ulog_info *uloginfo = (struct ebt_ulog_info *)data;
+	const struct ebt_ulog_info *uloginfo = data;
 
 	ebt_ulog_packet(hooknr, skb, in, out, uloginfo, NULL);
+	return EBT_CONTINUE;
 }
 
-
-static int ebt_ulog_check(const char *tablename, unsigned int hookmask,
-   const struct ebt_entry *e, void *data, unsigned int datalen)
+static bool
+ebt_ulog_tg_check(const char *table, const void *entry,
+		  const struct xt_target *target, void *data,
+		  unsigned int hookmask)
 {
-	struct ebt_ulog_info *uloginfo = (struct ebt_ulog_info *)data;
+	struct ebt_ulog_info *uloginfo = data;
 
-	if (datalen != EBT_ALIGN(sizeof(struct ebt_ulog_info)) ||
-	    uloginfo->nlgroup > 31)
-		return -EINVAL;
+	if (uloginfo->nlgroup > 31)
+		return false;
 
 	uloginfo->prefix[EBT_ULOG_PREFIX_LEN - 1] = '\0';
 
@@ -272,27 +275,31 @@ static int ebt_ulog_check(const char *tablename, unsigned int hookmask,
 	return 0;
 }
 
-static struct ebt_watcher ulog = {
-	.name		= EBT_ULOG_WATCHER,
-	.watcher	= ebt_ulog,
-	.check		= ebt_ulog_check,
+static struct xt_target ebt_ulog_tg_reg __read_mostly = {
+	.name		= "ulog",
+	.revision	= 0,
+	.family		= NFPROTO_BRIDGE,
+	.target		= ebt_ulog_tg,
+	.checkentry	= ebt_ulog_tg_check,
+	.targetsize	= XT_ALIGN(sizeof(struct ebt_ulog_info)),
 	.me		= THIS_MODULE,
 };
 
-static struct nf_logger ebt_ulog_logger = {
-	.name		= EBT_ULOG_WATCHER,
+static const struct nf_logger ebt_ulog_logger = {
+	.name		= "ulog",
 	.logfn		= &ebt_log_packet,
 	.me		= THIS_MODULE,
 };
 
 static int __init ebt_ulog_init(void)
 {
-	int i, ret = 0;
+	bool ret = true;
+	int i;
 
 	if (nlbufsiz >= 128*1024) {
 		printk(KERN_NOTICE "ebt_ulog: Netlink buffer has to be <= 128kB,"
 		       " please try a smaller nlbufsiz parameter.\n");
-		return -EINVAL;
+		return false;
 	}
 
 	/* initialize ulog_buffers */
@@ -303,12 +310,15 @@ static int __init ebt_ulog_init(void)
 
 	ebtulognl = netlink_kernel_create(NETLINK_NFLOG, EBT_ULOG_MAXNLGROUPS,
 					  NULL, NULL, THIS_MODULE);
-	if (!ebtulognl)
-		ret = -ENOMEM;
-	else if ((ret = ebt_register_watcher(&ulog)))
+	if (!ebtulognl) {
+		printk(KERN_WARNING KBUILD_MODNAME ": out of memory trying to "
+		       "call netlink_kernel_create\n");
+		ret = false;
+	} else if (xt_register_target(&ebt_ulog_tg_reg) != 0) {
 		sock_release(ebtulognl->sk_socket);
+	}
 
-	if (ret == 0)
+	if (ret)
 		nf_log_register(PF_BRIDGE, &ebt_ulog_logger);
 
 	return ret;
@@ -320,7 +330,7 @@ static void __exit ebt_ulog_fini(void)
 	int i;
 
 	nf_log_unregister(&ebt_ulog_logger);
-	ebt_unregister_watcher(&ulog);
+	xt_unregister_target(&ebt_ulog_tg_reg);
 	for (i = 0; i < EBT_ULOG_MAXNLGROUPS; i++) {
 		ub = &ulog_buffers[i];
 		if (timer_pending(&ub->timer))

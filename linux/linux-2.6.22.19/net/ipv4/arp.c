@@ -557,8 +557,9 @@ static inline int arp_fwd_proxy(struct in_device *in_dev, struct rtable *rt)
  */
 struct sk_buff *arp_create(int type, int ptype, __be32 dest_ip,
 			   struct net_device *dev, __be32 src_ip,
-			   unsigned char *dest_hw, unsigned char *src_hw,
-			   unsigned char *target_hw)
+			   const unsigned char *dest_hw,
+			   const unsigned char *src_hw,
+			   const unsigned char *target_hw)
 {
 	struct sk_buff *skb;
 	struct arphdr *arp;
@@ -587,7 +588,7 @@ struct sk_buff *arp_create(int type, int ptype, __be32 dest_ip,
 	 *	Fill the device header for the ARP frame
 	 */
 	if (dev->hard_header &&
-	    dev->hard_header(skb,dev,ptype,dest_hw,src_hw,skb->len) < 0)
+	    dev->hard_header(skb,dev,ptype,(void *)dest_hw,(void *)src_hw,skb->len) < 0)
 		goto out;
 
 	/*
@@ -672,8 +673,8 @@ void arp_xmit(struct sk_buff *skb)
  */
 void arp_send(int type, int ptype, __be32 dest_ip,
 	      struct net_device *dev, __be32 src_ip,
-	      unsigned char *dest_hw, unsigned char *src_hw,
-	      unsigned char *target_hw)
+	      const unsigned char *dest_hw, const unsigned char *src_hw,
+	      const unsigned char *target_hw)
 {
 	struct sk_buff *skb;
 
