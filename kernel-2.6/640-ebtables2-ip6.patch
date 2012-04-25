@@ -1,20 +1,14 @@
-From 6faee60a4e82075853a437831768cc9e2e563e4e
-From: Florian Westphal
-Date: Mon, 20 Dec 2010 15:57:47 +0100
-Subject: [PATCH] netfilter: ebt_ip6: allow matching on ipv6-icmp types/codes
+[NETFILTER]: ebtables: Updates from upstream
 
-To avoid adding a new match revision icmp type/code are stored
-in the sport/dport area.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Reviewed-by: Holger Eitzenberger <holger@eitzenberger.org>
-Reviewed-by: Bart De Schuymer<bdschuym@pandora.be>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+ e011ff48abc1b0ee97cde26b7700d2cca689e7c3 [NETFILTER]: ebt_arp: fix --arp-gratuitous matching dependence on --arp-ip-{src,dst}
+ 0898f99a267f89a7dc72cc687955f17613a711b8 netfilter: ebt_ip6: Use ipv6_masked_addr_cmp()
+ 6faee60a4e82075853a437831768cc9e2e563e4e netfilter: ebt_ip6: allow matching on ipv6-icmp types/codes
 
 ---
- include/linux/netfilter_bridge/ebt_ip6.h |   15 ++++++++--
- net/bridge/netfilter/ebt_ip6.c           |   46 ++++++++++++++++++++++--------
- 2 files changed, 46 insertions(+), 15 deletions(-)
+ include/linux/netfilter_bridge/ebt_ip6.h |   15 +++++--
+ net/bridge/netfilter/ebt_arp.c           |    2 
+ net/bridge/netfilter/ebt_ip6.c           |   64 ++++++++++++++++++-------------
+ 3 files changed, 51 insertions(+), 30 deletions(-)
 
 diff --git a/include/linux/netfilter_bridge/ebt_ip6.h b/include/linux/netfilter_bridge/ebt_ip6.h
 --- a/include/linux/netfilter_bridge/ebt_ip6.h
@@ -49,6 +43,18 @@ diff --git a/include/linux/netfilter_bridge/ebt_ip6.h b/include/linux/netfilter_
  };
  
  #endif
+diff --git a/net/bridge/netfilter/ebt_arp.c b/net/bridge/netfilter/ebt_arp.c
+--- a/net/bridge/netfilter/ebt_arp.c
++++ b/net/bridge/netfilter/ebt_arp.c
+@@ -34,7 +34,7 @@ static int ebt_filter_arp(const struct s
+ 	   ah->ar_pro, EBT_ARP_PTYPE))
+ 		return EBT_NOMATCH;
+ 
+-	if (info->bitmask & (EBT_ARP_SRC_IP | EBT_ARP_DST_IP)) {
++	if (info->bitmask & (EBT_ARP_SRC_IP | EBT_ARP_DST_IP | EBT_ARP_GRAT)) {
+ 		__be32 saddr, daddr, *sap, *dap;
+ 
+ 		if (ah->ar_pln != sizeof(__be32) || ah->ar_pro != htons(ETH_P_IP))
 diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
 --- a/net/bridge/netfilter/ebt_ip6.c
 +++ b/net/bridge/netfilter/ebt_ip6.c
@@ -71,18 +77,43 @@ diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
  };
  
  static int ebt_filter_ip6(const struct sk_buff *skb,
-@@ -35,8 +41,8 @@ static int ebt_filter_ip6(const struct sk_buff *skb,
+@@ -35,10 +41,8 @@ static int ebt_filter_ip6(const struct s
  	const struct ebt_ip6_info *info = (struct ebt_ip6_info *)data;
  	struct ipv6hdr *ih6;
  	struct ipv6hdr _ip6h;
 -	const struct tcpudphdr *pptr;
 -	struct tcpudphdr _ports;
+-	struct in6_addr tmp_addr;
+-	int i;
 +	const union pkthdr *pptr;
 +	union pkthdr _pkthdr;
- 	struct in6_addr tmp_addr;
- 	int i;
  
-@@ -68,26 +74,34 @@ static int ebt_filter_ip6(const struct sk_buff *skb,
+ 	ih6 = skb_header_pointer(skb, 0, sizeof(_ip6h), &_ip6h);
+ 	if (ih6 == NULL)
+@@ -46,18 +50,10 @@ static int ebt_filter_ip6(const struct s
+ 	if (info->bitmask & EBT_IP6_TCLASS &&
+ 	   FWINV(info->tclass != ipv6_get_dsfield(ih6), EBT_IP6_TCLASS))
+ 		return EBT_NOMATCH;
+-	for (i = 0; i < 4; i++)
+-		tmp_addr.in6_u.u6_addr32[i] = ih6->saddr.in6_u.u6_addr32[i] &
+-			info->smsk.in6_u.u6_addr32[i];
+-	if (info->bitmask & EBT_IP6_SOURCE &&
+-		FWINV((ipv6_addr_cmp(&tmp_addr, &info->saddr) != 0),
+-			EBT_IP6_SOURCE))
+-		return EBT_NOMATCH;
+-	for (i = 0; i < 4; i++)
+-		tmp_addr.in6_u.u6_addr32[i] = ih6->daddr.in6_u.u6_addr32[i] &
+-			info->dmsk.in6_u.u6_addr32[i];
+-	if (info->bitmask & EBT_IP6_DEST &&
+-	   FWINV((ipv6_addr_cmp(&tmp_addr, &info->daddr) != 0), EBT_IP6_DEST))
++	if (FWINV(ipv6_masked_addr_cmp(&ih6->saddr, &info->smsk,
++				       &info->saddr), EBT_IP6_SOURCE) ||
++	    FWINV(ipv6_masked_addr_cmp(&ih6->daddr, &info->dmsk,
++				       &info->daddr), EBT_IP6_DEST))
+ 		return EBT_NOMATCH;
+ 	if (info->bitmask & EBT_IP6_PROTO) {
+ 		uint8_t nexthdr = ih6->nexthdr;
+@@ -68,26 +64,34 @@ static int ebt_filter_ip6(const struct s
  			return EBT_NOMATCH;
  		if (FWINV(info->protocol != nexthdr, EBT_IP6_PROTO))
  			return EBT_NOMATCH;
@@ -124,7 +155,7 @@ diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
  	}
  	return EBT_MATCH;
  }
-@@ -117,6 +131,14 @@ static int ebt_ip6_check(const char *tablename, unsigned int hookmask,
+@@ -117,6 +121,14 @@ static int ebt_ip6_check(const char *tab
  		return -EINVAL;
  	if (info->bitmask & EBT_IP6_SPORT && info->sport[0] > info->sport[1])
  		return -EINVAL;
@@ -140,4 +171,3 @@ diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
  }
  
 -- 
-1.6.5.GIT
