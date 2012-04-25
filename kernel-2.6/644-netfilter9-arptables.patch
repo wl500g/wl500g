@@ -1,0 +1,188 @@
+[NETFILTER]: arp_tables: Updates from upstream
+
+ 4abff0775d5e4feb20b21371e1c63a1b30fc2140 [NETFILTER]: remove arpt_table indirection macro
+ 95eea855af69bfd54a7b73546190e76046ca2e07 [NETFILTER]: remove arpt_target indirection macro
+ 0495cf957bfacbca123cb4c4e1c4cf0e265f522e [NETFILTER]: arp_tables: use XT_ALIGN
+
+---
+ include/linux/netfilter_arp/arp_tables.h |   10 ++++------
+ net/ipv4/netfilter/arp_tables.c          |   26 +++++++++++++-------------
+ net/ipv4/netfilter/arpt_mangle.c         |    2 +-
+ net/ipv4/netfilter/arptable_filter.c     |    2 +-
+ 4 files changed, 19 insertions(+), 21 deletions(-)
+
+diff --git a/include/linux/netfilter_arp/arp_tables.h b/include/linux/netfilter_arp/arp_tables.h
+--- a/include/linux/netfilter_arp/arp_tables.h
++++ b/include/linux/netfilter_arp/arp_tables.h
+@@ -23,8 +23,6 @@
+ 
+ #define ARPT_FUNCTION_MAXNAMELEN XT_FUNCTION_MAXNAMELEN
+ #define ARPT_TABLE_MAXNAMELEN XT_TABLE_MAXNAMELEN
+-#define arpt_target xt_target
+-#define arpt_table xt_table
+ 
+ #define ARPT_DEV_ADDR_LEN_MAX 16
+ 
+@@ -271,15 +269,15 @@ struct arpt_error
+  	xt_register_target(tgt); })
+ #define arpt_unregister_target(tgt) xt_unregister_target(tgt)
+ 
+-extern int arpt_register_table(struct arpt_table *table,
++extern int arpt_register_table(struct xt_table *table,
+ 			       const struct arpt_replace *repl);
+-extern void arpt_unregister_table(struct arpt_table *table);
++extern void arpt_unregister_table(struct xt_table *table);
+ extern unsigned int arpt_do_table(struct sk_buff **pskb,
+ 				  unsigned int hook,
+ 				  const struct net_device *in,
+ 				  const struct net_device *out,
+-				  struct arpt_table *table);
++				  struct xt_table *table);
+ 
+-#define ARPT_ALIGN(s) (((s) + (__alignof__(struct arpt_entry)-1)) & ~(__alignof__(struct arpt_entry)-1))
++#define ARPT_ALIGN(s) XT_ALIGN(s)
+ #endif /*__KERNEL__*/
+ #endif /* _ARPTABLES_H */
+diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
+--- a/net/ipv4/netfilter/arptable_filter.c
++++ b/net/ipv4/netfilter/arptable_filter.c
+@@ -45,7 +45,7 @@ static struct
+ 	.term = ARPT_ERROR_INIT,
+ };
+ 
+-static struct arpt_table packet_filter = {
++static struct xt_table packet_filter = {
+ 	.name		= "filter",
+ 	.valid_hooks	= FILTER_VALID_HOOKS,
+ 	.me		= THIS_MODULE,
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -232,7 +232,7 @@ unsigned int arpt_do_table(struct sk_buf
+ 			   unsigned int hook,
+ 			   const struct net_device *in,
+ 			   const struct net_device *out,
+-			   struct arpt_table *table)
++			   struct xt_table *table)
+ {
+ 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
+ 	unsigned int verdict = NF_DROP;
+@@ -478,7 +478,7 @@ static inline int check_entry(struct arp
+ static inline int check_target(struct arpt_entry *e, const char *name)
+ {
+ 	struct arpt_entry_target *t;
+-	struct arpt_target *target;
++	struct xt_target *target;
+ 	int ret;
+ 
+ 	t = arpt_get_target(e);
+@@ -499,7 +499,7 @@ find_check_entry(struct arpt_entry *e, c
+ 		 unsigned int *i)
+ {
+ 	struct arpt_entry_target *t;
+-	struct arpt_target *target;
++	struct xt_target *target;
+ 	int ret;
+ 
+ 	ret = check_entry(e, name);
+@@ -734,7 +734,7 @@ static void get_counters(const struct xt
+ 	local_bh_enable();
+ }
+ 
+-static struct xt_counters *alloc_counters(struct arpt_table *table)
++static struct xt_counters *alloc_counters(struct xt_table *table)
+ {
+ 	unsigned int countersize;
+ 	struct xt_counters *counters;
+@@ -756,7 +756,7 @@ static struct xt_counters *alloc_counter
+ }
+ 
+ static int copy_entries_to_user(unsigned int total_size,
+-				struct arpt_table *table,
++				struct xt_table *table,
+ 				void __user *userptr)
+ {
+ 	unsigned int off, num;
+@@ -811,7 +811,7 @@ static int get_entries(const struct arpt
+ 		       struct arpt_get_entries __user *uptr)
+ {
+ 	int ret;
+-	struct arpt_table *t;
++	struct xt_table *t;
+ 
+ 	t = xt_find_table_lock(NF_ARP, entries->name);
+ 	if (t && !IS_ERR(t)) {
+@@ -838,7 +838,7 @@ static int do_replace(void __user *user,
+ {
+ 	int ret;
+ 	struct arpt_replace tmp;
+-	struct arpt_table *t;
++	struct xt_table *t;
+ 	struct xt_table_info *newinfo, *oldinfo;
+ 	struct xt_counters *counters;
+ 	void *loc_cpu_entry, *loc_cpu_old_entry;
+@@ -949,7 +949,7 @@ static int do_add_counters(void __user *
+ {
+ 	unsigned int i, curcpu;
+ 	struct xt_counters_info tmp, *paddc;
+-	struct arpt_table *t;
++	struct xt_table *t;
+ 	struct xt_table_info *private;
+ 	int ret = 0;
+ 	void *loc_cpu_entry;
+@@ -1037,7 +1037,7 @@ static int do_arpt_get_ctl(struct sock *
+ 	switch (cmd) {
+ 	case ARPT_SO_GET_INFO: {
+ 		char name[ARPT_TABLE_MAXNAMELEN];
+-		struct arpt_table *t;
++		struct xt_table *t;
+ 
+ 		if (*len != sizeof(struct arpt_getinfo)) {
+ 			duprintf("length %u != %Zu\n", *len,
+@@ -1121,7 +1121,7 @@ static int do_arpt_get_ctl(struct sock *
+ 	return ret;
+ }
+ 
+-int arpt_register_table(struct arpt_table *table,
++int arpt_register_table(struct xt_table *table,
+ 			const struct arpt_replace *repl)
+ {
+ 	int ret;
+@@ -1161,7 +1161,7 @@ int arpt_register_table(struct arpt_tabl
+ 	return 0;
+ }
+ 
+-void arpt_unregister_table(struct arpt_table *table)
++void arpt_unregister_table(struct xt_table *table)
+ {
+ 	struct xt_table_info *private;
+ 	void *loc_cpu_entry;
+@@ -1176,13 +1176,13 @@ void arpt_unregister_table(struct arpt_t
+ }
+ 
+ /* The built-in targets: standard (NULL) and error. */
+-static struct arpt_target arpt_standard_target __read_mostly = {
++static struct xt_target arpt_standard_target __read_mostly = {
+ 	.name		= ARPT_STANDARD_TARGET,
+ 	.targetsize	= sizeof(int),
+ 	.family		= NF_ARP,
+ };
+ 
+-static struct arpt_target arpt_error_target __read_mostly = {
++static struct xt_target arpt_error_target __read_mostly = {
+ 	.name		= ARPT_ERROR_TARGET,
+ 	.target		= arpt_error,
+ 	.targetsize	= ARPT_FUNCTION_MAXNAMELEN,
+diff --git a/net/ipv4/netfilter/arpt_mangle.c b/net/ipv4/netfilter/arpt_mangle.c
+--- a/net/ipv4/netfilter/arpt_mangle.c
++++ b/net/ipv4/netfilter/arpt_mangle.c
+@@ -70,7 +70,7 @@ checkentry(const char *tablename, const 
+ 	return true;
+ }
+ 
+-static struct arpt_target arpt_mangle_reg __read_mostly = {
++static struct xt_target arpt_mangle_reg __read_mostly = {
+ 	.name		= "mangle",
+ 	.target		= target,
+ 	.targetsize	= sizeof(struct arpt_mangle),
+-- 

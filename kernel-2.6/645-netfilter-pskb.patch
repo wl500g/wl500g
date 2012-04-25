@@ -351,9 +351,9 @@ diff -urBp a/include/linux/netfilter_arp/arp_tables.h b/include/linux/netfilter_
 --- a/include/linux/netfilter_arp/arp_tables.h	2011-03-15 03:00:00.000000000 +0300
 +++ b/include/linux/netfilter_arp/arp_tables.h	2011-03-14 16:32:13.000000000 +0300
 @@ -274,7 +274,7 @@ struct arpt_error
- extern int arpt_register_table(struct arpt_table *table,
+ extern int arpt_register_table(struct xt_table *table,
  			       const struct arpt_replace *repl);
- extern void arpt_unregister_table(struct arpt_table *table);
+ extern void arpt_unregister_table(struct xt_table *table);
 -extern unsigned int arpt_do_table(struct sk_buff **pskb,
 +extern unsigned int arpt_do_table(struct sk_buff *skb,
  				  unsigned int hook,
