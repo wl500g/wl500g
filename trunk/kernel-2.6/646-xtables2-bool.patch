@@ -2956,7 +2956,7 @@ diff --git a/net/netfilter/xt_sctp.c b/net/netfilter/xt_sctp.c
  match_flags(const struct xt_sctp_flag_info *flag_info,
  	    const int flag_count,
  	    u_int8_t chunktype,
-@@ -37,17 +37,17 @@ match_flags(const struct xt_sctp_flag_in
+@@ -37,14 +37,14 @@ match_flags(const struct xt_sctp_flag_in
  		}
  	}
  
@@ -2968,10 +2968,7 @@ diff --git a/net/netfilter/xt_sctp.c b/net/netfilter/xt_sctp.c
 +static inline bool
  match_packet(const struct sk_buff *skb,
  	     unsigned int offset,
- 	     const u_int32_t *chunkmap,
- 	     int chunk_match_type,
- 	     const struct xt_sctp_flag_info *flag_info,
- 	     const int flag_count,
+ 	     const struct xt_sctp_info *info,
 -	     int *hotdrop)
 +	     bool *hotdrop)
  {
