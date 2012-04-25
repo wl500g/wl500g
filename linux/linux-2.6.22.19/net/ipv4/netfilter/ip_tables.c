@@ -146,7 +146,7 @@ ip_packet_match(const struct iphdr *ip,
 	return 1;
 }
 
-static inline int
+static inline bool
 ip_checkentry(struct ipt_ip *ip)
 {
 #define FWINV(bool, invflg) ((bool) || (ip->invflags & (invflg)))
@@ -198,19 +198,19 @@ ipt_error(struct sk_buff *skb,
 }
 
 static inline
-int do_match(struct ipt_entry_match *m,
-	     const struct sk_buff *skb,
-	     const struct net_device *in,
-	     const struct net_device *out,
-	     int offset,
-	     int *hotdrop)
+bool do_match(struct ipt_entry_match *m,
+	      const struct sk_buff *skb,
+	      const struct net_device *in,
+	      const struct net_device *out,
+	      int offset,
+	      bool *hotdrop)
 {
 	/* Stop iteration if it doesn't match */
 	if (!m->u.kernel.match->match(skb, in, out, m->u.kernel.match, m->data,
 				      offset, ip_hdrlen(skb), hotdrop))
-		return 1;
+		return true;
 	else
-		return 0;
+		return false;
 }
 
 static inline struct ipt_entry *
@@ -230,7 +230,7 @@ ipt_do_table(struct sk_buff *skb,
 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
 	u_int16_t offset;
 	struct iphdr *ip;
-	int hotdrop = 0;
+	bool hotdrop = false;
 	/* Initializing verdict to NF_DROP keeps gcc happy. */
 	unsigned int verdict = NF_DROP;
 	const char *indev, *outdev;
@@ -535,17 +535,14 @@ static inline int check_match(struct ipt_entry_match *m, const char *name,
 	match = m->u.kernel.match;
 	ret = xt_check_match(match, AF_INET, m->u.match_size - sizeof(*m),
 			     name, hookmask, ip->proto,
-			     ip->invflags & IPT_INV_PROTO);
-	if (!ret && m->u.kernel.match->checkentry
-	    && !m->u.kernel.match->checkentry(name, ip, match, m->data,
-					      hookmask)) {
+			     ip->invflags & IPT_INV_PROTO, ip, m->data);
+	if (ret < 0) {
 		duprintf("ip_tables: check failed for `%s'.\n",
 			 m->u.kernel.match->name);
-		ret = -EINVAL;
+		return ret;
 	}
-	if (!ret)
-		(*i)++;
-	return ret;
+	++*i;
+	return 0;
 }
 
 static inline int
@@ -587,15 +584,13 @@ static inline int check_target(struct ipt_entry *e, const char *name)
 	target = t->u.kernel.target;
 	ret = xt_check_target(target, AF_INET, t->u.target_size - sizeof(*t),
 			      name, e->comefrom, e->ip.proto,
-			      e->ip.invflags & IPT_INV_PROTO);
-	if (!ret && t->u.kernel.target->checkentry
-		   && !t->u.kernel.target->checkentry(name, e, target,
-						      t->data, e->comefrom)) {
+			      e->ip.invflags & IPT_INV_PROTO, e, t->data);
+	if (ret < 0) {
 		duprintf("ip_tables: check failed for `%s'.\n",
 			 t->u.kernel.target->name);
-		ret = -EINVAL;
+		return ret;
 	}
-	return ret;
+	return 0;
 }
 
 static inline int
@@ -2117,16 +2112,16 @@ void ipt_unregister_table(struct xt_table *table)
 }
 
 /* Returns 1 if the type and code is matched by the range, 0 otherwise */
-static inline int
+static inline bool
 icmp_type_code_match(u_int8_t test_type, u_int8_t min_code, u_int8_t max_code,
 		     u_int8_t type, u_int8_t code,
-		     int invert)
+		     bool invert)
 {
 	return ((test_type == 0xFF) || (type == test_type && code >= min_code && code <= max_code))
 		^ invert;
 }
 
-static int
+static bool
 icmp_match(const struct sk_buff *skb,
 	   const struct net_device *in,
 	   const struct net_device *out,
@@ -2134,14 +2129,14 @@ icmp_match(const struct sk_buff *skb,
 	   const void *matchinfo,
 	   int offset,
 	   unsigned int protoff,
-	   int *hotdrop)
+	   bool *hotdrop)
 {
 	struct icmphdr _icmph, *ic;
 	const struct ipt_icmp *icmpinfo = matchinfo;
 
 	/* Must not be a fragment. */
 	if (offset)
-		return 0;
+		return false;
 
 	ic = skb_header_pointer(skb, protoff, sizeof(_icmph), &_icmph);
 	if (ic == NULL) {
@@ -2149,8 +2144,8 @@ icmp_match(const struct sk_buff *skb,
 		 * can't.  Hence, no choice but to drop.
 		 */
 		duprintf("Dropping evil ICMP tinygram.\n");
-		*hotdrop = 1;
-		return 0;
+		*hotdrop = true;
+		return false;
 	}
 
 	return icmp_type_code_match(icmpinfo->type,
@@ -2161,7 +2156,7 @@ icmp_match(const struct sk_buff *skb,
 }
 
 /* Called when user tries to insert an entry of this type. */
-static int
+static bool
 icmp_checkentry(const char *tablename,
 	   const void *info,
 	   const struct xt_match *match,

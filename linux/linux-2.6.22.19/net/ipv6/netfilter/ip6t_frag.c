@@ -29,10 +29,10 @@ MODULE_AUTHOR("Andras Kis-Szabo <kisza@sch.bme.hu>");
 #endif
 
 /* Returns 1 if the id is matched by the range, 0 otherwise */
-static inline int
-id_match(u_int32_t min, u_int32_t max, u_int32_t id, int invert)
+static inline bool
+id_match(u_int32_t min, u_int32_t max, u_int32_t id, bool invert)
 {
-	int r = 0;
+	bool r;
 	DEBUGP("frag id_match:%c 0x%x <= 0x%x <= 0x%x", invert ? '!' : ' ',
 	       min, id, max);
 	r = (id >= min && id <= max) ^ invert;
@@ -40,7 +40,7 @@ id_match(u_int32_t min, u_int32_t max, u_int32_t id, int invert)
 	return r;
 }
 
-static int
+static bool
 match(const struct sk_buff *skb,
       const struct net_device *in,
       const struct net_device *out,
@@ -48,7 +48,7 @@ match(const struct sk_buff *skb,
       const void *matchinfo,
       int offset,
       unsigned int protoff,
-      int *hotdrop)
+      bool *hotdrop)
 {
 	struct frag_hdr _frag, *fh;
 	const struct ip6t_frag *fraginfo = matchinfo;
@@ -58,14 +58,14 @@ match(const struct sk_buff *skb,
 	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_FRAGMENT, NULL);
 	if (err < 0) {
 		if (err != -ENOENT)
-			*hotdrop = 1;
-		return 0;
+			*hotdrop = true;
+		return false;
 	}
 
 	fh = skb_header_pointer(skb, ptr, sizeof(_frag), &_frag);
 	if (fh == NULL) {
-		*hotdrop = 1;
-		return 0;
+		*hotdrop = true;
+		return false;
 	}
 
 	DEBUGP("INFO %04X ", fh->frag_off);
@@ -120,7 +120,7 @@ match(const struct sk_buff *skb,
 }
 
 /* Called when user tries to insert an entry of this type. */
-static int
+static bool
 checkentry(const char *tablename,
 	   const void *ip,
 	   const struct xt_match *match,
@@ -131,9 +131,9 @@ checkentry(const char *tablename,
 
 	if (fraginfo->invflags & ~IP6T_FRAG_INV_MASK) {
 		DEBUGP("ip6t_frag: unknown flags %X\n", fraginfo->invflags);
-		return 0;
+		return false;
 	}
-	return 1;
+	return true;
 }
 
 static struct xt_match frag_match __read_mostly = {

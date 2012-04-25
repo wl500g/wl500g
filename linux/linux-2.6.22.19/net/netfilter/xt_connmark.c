@@ -110,7 +110,7 @@ connmark_mt(const struct sk_buff *skb,
       const void *matchinfo,
       int offset,
       unsigned int protoff,
-      int *hotdrop)
+      bool *hotdrop)
 {
 	const struct xt_connmark_mtinfo1 *info = matchinfo;
 	enum ip_conntrack_info ctinfo;

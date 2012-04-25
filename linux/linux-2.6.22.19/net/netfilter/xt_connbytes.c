@@ -15,7 +15,7 @@ MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
 MODULE_DESCRIPTION("iptables match for matching number of pkts/bytes per connection");
 MODULE_ALIAS("ipt_connbytes");
 
-static int
+static bool
 match(const struct sk_buff *skb,
       const struct net_device *in,
       const struct net_device *out,
@@ -23,7 +23,7 @@ match(const struct sk_buff *skb,
       const void *matchinfo,
       int offset,
       unsigned int protoff,
-      int *hotdrop)
+      bool *hotdrop)
 {
 	const struct xt_connbytes_info *sinfo = matchinfo;
 	struct nf_conn *ct;
@@ -35,7 +35,7 @@ match(const struct sk_buff *skb,
 
 	ct = nf_ct_get(skb, &ctinfo);
 	if (!ct)
-		return 0;
+		return false;
 	counters = ct->counters;
 
 	switch (sinfo->what) {
@@ -95,31 +95,31 @@ match(const struct sk_buff *skb,
 		return what < sinfo->count.to || what > sinfo->count.from;
 }
 
-static int check(const char *tablename,
-		 const void *ip,
-		 const struct xt_match *match,
-		 void *matchinfo,
-		 unsigned int hook_mask)
+static bool check(const char *tablename,
+		  const void *ip,
+		  const struct xt_match *match,
+		  void *matchinfo,
+		  unsigned int hook_mask)
 {
 	const struct xt_connbytes_info *sinfo = matchinfo;
 
 	if (sinfo->what != XT_CONNBYTES_PKTS &&
 	    sinfo->what != XT_CONNBYTES_BYTES &&
 	    sinfo->what != XT_CONNBYTES_AVGPKT)
-		return 0;
+		return false;
 
 	if (sinfo->direction != XT_CONNBYTES_DIR_ORIGINAL &&
 	    sinfo->direction != XT_CONNBYTES_DIR_REPLY &&
 	    sinfo->direction != XT_CONNBYTES_DIR_BOTH)
-		return 0;
+		return false;
 
 	if (nf_ct_l3proto_try_module_get(match->family) < 0) {
 		printk(KERN_WARNING "can't load conntrack support for "
 				    "proto=%d\n", match->family);
-		return 0;
+		return false;
 	}
 
-	return 1;
+	return true;
 }
 
 static void

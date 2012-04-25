@@ -31,10 +31,10 @@ MODULE_AUTHOR("Andras Kis-Szabo <kisza@sch.bme.hu>");
 #endif
 
 /* Returns 1 if the id is matched by the range, 0 otherwise */
-static inline int
-segsleft_match(u_int32_t min, u_int32_t max, u_int32_t id, int invert)
+static inline bool
+segsleft_match(u_int32_t min, u_int32_t max, u_int32_t id, bool invert)
 {
-	int r = 0;
+	bool r;
 	DEBUGP("rt segsleft_match:%c 0x%x <= 0x%x <= 0x%x",
 	       invert ? '!' : ' ', min, id, max);
 	r = (id >= min && id <= max) ^ invert;
@@ -42,7 +42,7 @@ segsleft_match(u_int32_t min, u_int32_t max, u_int32_t id, int invert)
 	return r;
 }
 
-static int
+static bool
 match(const struct sk_buff *skb,
       const struct net_device *in,
       const struct net_device *out,
@@ -50,34 +50,34 @@ match(const struct sk_buff *skb,
       const void *matchinfo,
       int offset,
       unsigned int protoff,
-      int *hotdrop)
+      bool *hotdrop)
 {
 	struct ipv6_rt_hdr _route, *rh;
 	const struct ip6t_rt *rtinfo = matchinfo;
 	unsigned int temp;
 	unsigned int ptr;
 	unsigned int hdrlen = 0;
-	unsigned int ret = 0;
+	bool ret = false;
 	struct in6_addr *ap, _addr;
 	int err;
 
 	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_ROUTING, NULL);
 	if (err < 0) {
 		if (err != -ENOENT)
-			*hotdrop = 1;
-		return 0;
+			*hotdrop = true;
+		return false;
 	}
 
 	rh = skb_header_pointer(skb, ptr, sizeof(_route), &_route);
 	if (rh == NULL) {
-		*hotdrop = 1;
-		return 0;
+		*hotdrop = true;
+		return false;
 	}
 
 	hdrlen = ipv6_optlen(rh);
 	if (skb->len - ptr < hdrlen) {
 		/* Pcket smaller than its length field */
-		return 0;
+		return false;
 	}
 
 	DEBUGP("IPv6 RT LEN %u %u ", hdrlen, rh->hdrlen);
@@ -136,7 +136,7 @@ match(const struct sk_buff *skb,
 		DEBUGP("Not strict ");
 		if (rtinfo->addrnr > (unsigned int)((hdrlen - 8) / 16)) {
 			DEBUGP("There isn't enough space\n");
-			return 0;
+			return false;
 		} else {
 			unsigned int i = 0;
 
@@ -164,13 +164,13 @@ match(const struct sk_buff *skb,
 			if (i == rtinfo->addrnr)
 				return ret;
 			else
-				return 0;
+				return false;
 		}
 	} else {
 		DEBUGP("Strict ");
 		if (rtinfo->addrnr > (unsigned int)((hdrlen - 8) / 16)) {
 			DEBUGP("There isn't enough space\n");
-			return 0;
+			return false;
 		} else {
 			DEBUGP("#%d ", rtinfo->addrnr);
 			for (temp = 0; temp < rtinfo->addrnr; temp++) {
@@ -190,15 +190,15 @@ match(const struct sk_buff *skb,
 			    (temp == (unsigned int)((hdrlen - 8) / 16)))
 				return ret;
 			else
-				return 0;
+				return false;
 		}
 	}
 
-	return 0;
+	return false;
 }
 
 /* Called when user tries to insert an entry of this type. */
-static int
+static bool
 checkentry(const char *tablename,
 	   const void *entry,
 	   const struct xt_match *match,
@@ -209,17 +209,17 @@ checkentry(const char *tablename,
 
 	if (rtinfo->invflags & ~IP6T_RT_INV_MASK) {
 		DEBUGP("ip6t_rt: unknown flags %X\n", rtinfo->invflags);
-		return 0;
+		return false;
 	}
 	if ((rtinfo->flags & (IP6T_RT_RES | IP6T_RT_FST_MASK)) &&
 	    (!(rtinfo->flags & IP6T_RT_TYP) ||
 	     (rtinfo->rt_type != 0) ||
 	     (rtinfo->invflags & IP6T_RT_INV_TYP))) {
 		DEBUGP("`--rt-type 0' required before `--rt-0-*'");
-		return 0;
+		return false;
 	}
 
-	return 1;
+	return true;
 }
 
 static struct xt_match rt_match __read_mostly = {

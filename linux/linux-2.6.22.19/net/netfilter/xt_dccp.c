@@ -31,12 +31,12 @@ MODULE_ALIAS("ipt_dccp");
 static unsigned char *dccp_optbuf;
 static DEFINE_SPINLOCK(dccp_buflock);
 
-static inline int
+static inline bool
 dccp_find_option(u_int8_t option,
 		 const struct sk_buff *skb,
 		 unsigned int protoff,
 		 const struct dccp_hdr *dh,
-		 int *hotdrop)
+		 bool *hotdrop)
 {
 	/* tcp.doff is only 4 bits, ie. max 15 * 4 bytes */
 	unsigned char *op;
@@ -45,26 +45,26 @@ dccp_find_option(u_int8_t option,
 	unsigned int i;
 
 	if (dh->dccph_doff * 4 < __dccp_hdr_len(dh)) {
-		*hotdrop = 1;
-		return 0;
+		*hotdrop = true;
+		return false;
 	}
 
 	if (!optlen)
-		return 0;
+		return false;
 
 	spin_lock_bh(&dccp_buflock);
 	op = skb_header_pointer(skb, protoff + optoff, optlen, dccp_optbuf);
 	if (op == NULL) {
 		/* If we don't have the whole header, drop packet. */
 		spin_unlock_bh(&dccp_buflock);
-		*hotdrop = 1;
-		return 0;
+		*hotdrop = true;
+		return false;
 	}
 
 	for (i = 0; i < optlen; ) {
 		if (op[i] == option) {
 			spin_unlock_bh(&dccp_buflock);
-			return 1;
+			return true;
 		}
 
 		if (op[i] < 2)
@@ -74,24 +74,24 @@ dccp_find_option(u_int8_t option,
 	}
 
 	spin_unlock_bh(&dccp_buflock);
-	return 0;
+	return false;
 }
 
 
-static inline int
+static inline bool
 match_types(const struct dccp_hdr *dh, u_int16_t typemask)
 {
 	return (typemask & (1 << dh->dccph_type));
 }
 
-static inline int
+static inline bool
 match_option(u_int8_t option, const struct sk_buff *skb, unsigned int protoff,
-	     const struct dccp_hdr *dh, int *hotdrop)
+	     const struct dccp_hdr *dh, bool *hotdrop)
 {
 	return dccp_find_option(option, skb, protoff, dh, hotdrop);
 }
 
-static int
+static bool
 match(const struct sk_buff *skb,
       const struct net_device *in,
       const struct net_device *out,
@@ -99,18 +99,18 @@ match(const struct sk_buff *skb,
       const void *matchinfo,
       int offset,
       unsigned int protoff,
-      int *hotdrop)
+      bool *hotdrop)
 {
 	const struct xt_dccp_info *info = matchinfo;
 	struct dccp_hdr _dh, *dh;
 
 	if (offset)
-		return 0;
+		return false;
 
 	dh = skb_header_pointer(skb, protoff, sizeof(_dh), &_dh);
 	if (dh == NULL) {
-		*hotdrop = 1;
-		return 0;
+		*hotdrop = true;
+		return false;
 	}
 
 	return  DCCHECK(((ntohs(dh->dccph_sport) >= info->spts[0])
@@ -126,7 +126,7 @@ match(const struct sk_buff *skb,
 			   XT_DCCP_OPTION, info->flags, info->invflags);
 }
 
-static int
+static bool
 checkentry(const char *tablename,
 	   const void *inf,
 	   const struct xt_match *match,

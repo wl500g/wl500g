@@ -62,7 +62,7 @@ static DEFINE_SPINLOCK(limit_lock);
 
 #define CREDITS_PER_JIFFY POW2_BELOW32(MAX_CPJ)
 
-static int
+static bool
 ipt_limit_match(const struct sk_buff *skb,
 		const struct net_device *in,
 		const struct net_device *out,
@@ -70,7 +70,7 @@ ipt_limit_match(const struct sk_buff *skb,
 		const void *matchinfo,
 		int offset,
 		unsigned int protoff,
-		int *hotdrop)
+		bool *hotdrop)
 {
 	const struct xt_rateinfo *r = (struct xt_rateinfo *)matchinfo;
 	struct xt_limit_priv *priv = r->master;
@@ -85,11 +85,11 @@ ipt_limit_match(const struct sk_buff *skb,
 		/* We're not limited. */
 		priv->credit -= r->cost;
 		spin_unlock_bh(&limit_lock);
-		return 1;
+		return true;
 	}
 
 	spin_unlock_bh(&limit_lock);
-	return 0;
+	return false;
 }
 
 /* Precision saver. */
@@ -104,7 +104,7 @@ user2credits(u_int32_t user)
 	return (user * HZ * CREDITS_PER_JIFFY) / XT_LIMIT_SCALE;
 }
 
-static int
+static bool
 ipt_limit_checkentry(const char *tablename,
 		     const void *inf,
 		     const struct xt_match *match,
@@ -119,7 +119,7 @@ ipt_limit_checkentry(const char *tablename,
 	    || user2credits(r->avg * r->burst) < user2credits(r->avg)) {
 		printk("Overflow in xt_limit, try lower: %u/%u\n",
 		       r->avg, r->burst);
-		return 0;
+		return false;
 	}
 
 	priv = kmalloc(sizeof(*priv), GFP_KERNEL);
@@ -136,7 +136,7 @@ ipt_limit_checkentry(const char *tablename,
 		r->credit_cap = user2credits(r->avg * r->burst); /* Credits full. */
 		r->cost = user2credits(r->avg);
 	}
-	return 1;
+	return true;
 }
 
 static void limit_mt_destroy(const struct xt_match *match, void *matchinfo)

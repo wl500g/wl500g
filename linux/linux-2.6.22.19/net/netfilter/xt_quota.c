@@ -21,20 +21,20 @@ MODULE_ALIAS("ip6t_quota");
 
 static DEFINE_SPINLOCK(quota_lock);
 
-static int
+static bool
 match(const struct sk_buff *skb,
       const struct net_device *in, const struct net_device *out,
       const struct xt_match *match, const void *matchinfo,
-      int offset, unsigned int protoff, int *hotdrop)
+      int offset, unsigned int protoff, bool *hotdrop)
 {
 	struct xt_quota_info *q = (void *)matchinfo;
 	struct xt_quota_priv *priv = q->master;
-	int ret = q->flags & XT_QUOTA_INVERT ? 1 : 0;
+	bool ret = q->flags & XT_QUOTA_INVERT;
 
 	spin_lock_bh(&quota_lock);
 	if (priv->quota >= skb->len) {
 		priv->quota -= skb->len;
-		ret ^= 1;
+		ret = !ret;
 	} else {
 		/* we do not allow even small packets from now on */
 		priv->quota = 0;
@@ -46,7 +46,7 @@ match(const struct sk_buff *skb,
 	return ret;
 }
 
-static int
+static bool
 checkentry(const char *tablename, const void *entry,
 	   const struct xt_match *match, void *matchinfo,
 	   unsigned int hook_mask)

@@ -28,7 +28,7 @@ MODULE_ALIAS("ip6t_helper");
 #define DEBUGP(format, args...)
 #endif
 
-static int
+static bool
 match(const struct sk_buff *skb,
       const struct net_device *in,
       const struct net_device *out,
@@ -36,13 +36,13 @@ match(const struct sk_buff *skb,
       const void *matchinfo,
       int offset,
       unsigned int protoff,
-      int *hotdrop)
+      bool *hotdrop)
 {
 	const struct xt_helper_info *info = matchinfo;
 	struct nf_conn *ct;
 	struct nf_conn_help *master_help;
 	enum ip_conntrack_info ctinfo;
-	int ret = info->invert;
+	bool ret = info->invert;
 
 	ct = nf_ct_get((struct sk_buff *)skb, &ctinfo);
 	if (!ct) {
@@ -67,7 +67,7 @@ match(const struct sk_buff *skb,
 		ct->master->helper->name, info->name);
 
 	if (info->name[0] == '\0')
-		ret ^= 1;
+		ret = !ret;
 	else
 		ret ^= !strncmp(master_help->helper->name, info->name,
 				strlen(master_help->helper->name));
@@ -76,21 +76,21 @@ out_unlock:
 	return ret;
 }
 
-static int check(const char *tablename,
-		 const void *inf,
-		 const struct xt_match *match,
-		 void *matchinfo,
-		 unsigned int hook_mask)
+static bool check(const char *tablename,
+		  const void *inf,
+		  const struct xt_match *match,
+		  void *matchinfo,
+		  unsigned int hook_mask)
 {
 	struct xt_helper_info *info = matchinfo;
 
 	if (nf_ct_l3proto_try_module_get(match->family) < 0) {
 		printk(KERN_WARNING "can't load conntrack support for "
 				    "proto=%d\n", match->family);
-		return 0;
+		return false;
 	}
 	info->name[29] = '\0';
-	return 1;
+	return true;
 }
 
 static void

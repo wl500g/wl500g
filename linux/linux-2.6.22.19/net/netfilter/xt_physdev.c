@@ -14,8 +14,6 @@
 #include <linux/netfilter/xt_physdev.h>
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_bridge.h>
-#define MATCH   1
-#define NOMATCH 0
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Bart De Schuymer <bdschuym@pandora.be>");
@@ -23,7 +21,7 @@ MODULE_DESCRIPTION("iptables bridge physical device match module");
 MODULE_ALIAS("ipt_physdev");
 MODULE_ALIAS("ip6t_physdev");
 
-static int
+static bool
 match(const struct sk_buff *skb,
       const struct net_device *in,
       const struct net_device *out,
@@ -31,7 +29,7 @@ match(const struct sk_buff *skb,
       const void *matchinfo,
       int offset,
       unsigned int protoff,
-      int *hotdrop)
+      bool *hotdrop)
 {
 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
 	const struct xt_physdev_info *info = matchinfo;
@@ -92,7 +90,7 @@ match_outdev:
 	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
 }
 
-static int
+static bool
 checkentry(const char *tablename,
 		       const void *ip,
 		       const struct xt_match *match,
@@ -103,7 +101,7 @@ checkentry(const char *tablename,
 
 	if (!(info->bitmask & XT_PHYSDEV_OP_MASK) ||
 	    info->bitmask & ~XT_PHYSDEV_OP_MASK)
-		return 0;
+		return false;
 	if (info->bitmask & XT_PHYSDEV_OP_OUT &&
 	    (!(info->bitmask & XT_PHYSDEV_OP_BRIDGED) ||
 	     info->invert & XT_PHYSDEV_OP_BRIDGED) &&
@@ -113,9 +111,9 @@ checkentry(const char *tablename,
 		       "OUTPUT, FORWARD and POSTROUTING chains for non-bridged "
 		       "traffic is not supported anymore.\n");
 		if (hook_mask & (1 << NF_IP_LOCAL_OUT))
-			return 0;
+			return false;
 	}
-	return 1;
+	return true;
 }
 
 static struct xt_match xt_physdev_match __read_mostly = {

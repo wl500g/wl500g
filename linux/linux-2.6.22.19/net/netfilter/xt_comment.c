@@ -15,7 +15,7 @@ MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_comment");
 MODULE_ALIAS("ip6t_comment");
 
-static int
+static bool
 match(const struct sk_buff *skb,
       const struct net_device *in,
       const struct net_device *out,
@@ -23,10 +23,10 @@ match(const struct sk_buff *skb,
       const void *matchinfo,
       int offset,
       unsigned int protooff,
-      int *hotdrop)
+      bool *hotdrop)
 {
 	/* We always match */
-	return 1;
+	return true;
 }
 
 static struct xt_match xt_comment_match __read_mostly = {
