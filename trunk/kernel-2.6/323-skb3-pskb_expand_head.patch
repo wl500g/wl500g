@@ -11,10 +11,33 @@ well, avoiding a lot of cache misses.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
+
 ---
- include/linux/skbuff.h |    3 ++-
- net/core/skbuff.c      |    2 +-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+From 87151b8689d890dfb495081f7be9b9e257f7a2df
+From: Eric Dumazet
+Date: Tue, 10 Apr 2012 20:08:39 +0000
+Subject: [PATCH] net: allow pskb_expand_head() to get maximum tailroom
+
+Marc Merlin reported many order-1 allocations failures in TX path on its
+wireless setup, that dont make any sense with MTU=1500 network, and non
+SG capable hardware.
+
+Turns out part of the problem comes from pskb_expand_head() not using
+ksize() to get exact head size given by kmalloc(). Doing the same thing
+than __alloc_skb() allows more tailroom in skb and can prevent future
+reallocations.
+
+As a bonus, struct skb_shared_info becomes cache line aligned.
+
+Reported-by: Marc MERLIN <marc@merlins.org>
+Tested-by: Marc MERLIN <marc@merlins.org>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ include/linux/skbuff.h |    1 +
+ net/core/skbuff.c      |    6 ++++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
 --- a/include/linux/skbuff.h
@@ -30,6 +53,19 @@ diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
+@@ -680,9 +680,11 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 
+ 	size = SKB_DATA_ALIGN(size);
+ 
+-	data = kmalloc(size + sizeof(struct skb_shared_info), gfp_mask);
++	data = kmalloc(size + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
++		       gfp_mask);
+ 	if (!data)
+ 		goto nodata;
++	size = SKB_WITH_OVERHEAD(ksize(data));
+ 
+ 	/* Copy only real data... and, alas, header. This should be
+ 	 * optimized for the cases when header is void. */
 @@ -697,7 +697,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
  	memcpy(data + nhead, skb->head, skb->tail - skb->head);
  #endif
