@@ -42,13 +42,48 @@ no dst_gc_work should be pending in the queue when it's running.
 Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 Acked-by: Eric Dumazet <dada1@cosmosbay.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
+
 ---
- net/core/dst.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+From 2fc1b5dd99f66d93ffc23fd8df82d384c1a354c8
+From: Eric Dumazet
+Date: Mon, 8 Feb 2010 15:00:39 -0800
+Subject: [PATCH] dst: call cond_resched() in dst_gc_task()
+
+Kernel bugzilla #15239
+
+On some workloads, it is quite possible to get a huge dst list to
+process in dst_gc_task(), and trigger soft lockup detection.
+
+Fix is to call cond_resched(), as we run in process context.
+
+Reported-by: Pawel Staszewski <pstaszewski@itcare.pl>
+Tested-by: Pawel Staszewski <pstaszewski@itcare.pl>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/core/dst.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/net/core/dst.c b/net/core/dst.c
 --- a/net/core/dst.c
 +++ b/net/core/dst.c
+@@ -17,6 +17,7 @@
+ 
+ #include <linux/string.h>
+ #include <linux/types.h>
++#include <linux/sched.h>
+ 
+ #include <net/dst.h>
+ 
+@@ -79,6 +80,7 @@ loop:
+ 	while ((dst = next) != NULL) {
+ 		next = dst->next;
+ 		prefetch(&next->next);
++		cond_resched();
+ 		if (likely(atomic_read(&dst->__refcnt))) {
+ 			last->next = dst;
+ 			last = dst;
 @@ -203,6 +203,7 @@ void __dst_free(struct dst_entry * dst)
  	if (dst_garbage.timer_inc > DST_GC_INC) {
  		dst_garbage.timer_inc = DST_GC_INC;
