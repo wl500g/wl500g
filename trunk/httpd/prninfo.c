@@ -6,8 +6,8 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 
-#include <bcmnvram.h>
 #include <bcmconfig.h>
+#include <bcmnvram.h>
 #include "lp.h"
 
 #ifdef DEBUG
@@ -45,6 +45,8 @@ static void readUsbPrnID(char *prninfo)
     if (fd < 0 && errno != ENOENT) // Someone is opening the usb lp0
     {
         FILE *fp = fopen("/proc/usblp/lp0", "r");
+
+		PRINT("Old way\n");
 
         if (fp != NULL)
         {
@@ -87,7 +89,7 @@ static void readUsbPrnID(char *prninfo)
             PRINT("PRINTER MODEL %s\n",prninfo);
         }
     }
-    else if (fd > 0)
+    else if (fd >= 0)
     {
         if (ioctl(fd, LPGETID, &prn_info) < 0)
         {
