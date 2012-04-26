@@ -138,14 +138,9 @@ static struct nf_conntrack_helper autofw_helper __read_mostly = {
 };
 
 static unsigned int
-autofw_target(struct sk_buff *skb,
-	const struct net_device *in,
-	const struct net_device *out,
-	unsigned int hooknum,
-	const struct xt_target *target,
-	const void *targinfo)
+autofw_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ip_autofw_info *info = targinfo;
+	const struct ip_autofw_info *info = par->targinfo;
 	const struct iphdr *iph = ip_hdr(skb);
 	int ret;
 	struct nf_conntrack_helper *helper;
@@ -213,14 +208,10 @@ out:
 }
 
 static bool
-autofw_check(const char *tablename,
-	const void *e,
-	const struct xt_target *target,
-	void *targinfo,
-	unsigned int hook_mask)
+autofw_check(const struct xt_tgchk_param *par)
 {
 
-	const struct ip_autofw_info *info = targinfo;
+	const struct ip_autofw_info *info = par->targinfo;
 
 	if (info->proto != IPPROTO_TCP && info->proto != IPPROTO_UDP) {
 		DEBUGP("autofw_check: bad proto %d.\n", info->proto);

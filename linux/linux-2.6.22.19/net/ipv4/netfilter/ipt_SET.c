@@ -20,26 +20,10 @@
 #include <linux/netfilter_ipv4/ipt_set.h>
 
 static unsigned int
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-target(struct sk_buff *skb,
-       const struct net_device *in,
-       const struct net_device *out,
-       unsigned int hooknum,
-       const struct xt_target *target,
-       const void *targinfo)
-#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
 target(struct sk_buff *skb,
        const struct xt_target_param *par)
-#endif
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-	const struct ipt_set_info_target *info = targinfo;
-#else
 	const struct ipt_set_info_target *info = par->targinfo;
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-	struct sk_buff *skb = *pskb;
-#endif
 
 	
 	if (info->add_set.index != IP_SET_INVALID_ID)
@@ -54,23 +38,10 @@ target(struct sk_buff *skb,
 	return XT_CONTINUE;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-static bool
-checkentry(const char *tablename,
-	   const void *e,
-	   const struct xt_target *target,
-	   void *targinfo,
-	   unsigned int hook_mask)
-#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
 static bool
 checkentry(const struct xt_tgchk_param *par)
-#endif
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-	const struct ipt_set_info_target *info = targinfo;
-#else
 	const struct ipt_set_info_target *info = par->targinfo;
-#endif
 	ip_set_id_t index;
 
 	if (info->add_set.index != IP_SET_INVALID_ID) {
@@ -99,18 +70,9 @@ checkentry(const struct xt_tgchk_param *par)
 	return 1;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-static void destroy(const struct xt_target *target,
-		    void *targetinfo)
-#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
 static void destroy(const struct xt_tgdtor_param *par)
-#endif
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-	const struct ipt_set_info_target *info = targetinfo;
-#else
 	const struct ipt_set_info_target *info = par->targinfo;
-#endif
 
 	if (info->add_set.index != IP_SET_INVALID_ID)
 		ip_set_put_byindex(info->add_set.index);

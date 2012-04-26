@@ -13,23 +13,18 @@
 #include <linux/netfilter_bridge/ebt_mark_m.h>
 
 static bool
-ebt_mark_mt(const struct sk_buff *skb, const struct net_device *in,
-	    const struct net_device *out, const struct xt_match *match,
-	    const void *data, int offset, unsigned int protoff, bool *hotdrop)
+ebt_mark_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ebt_mark_m_info *info = data;
+	const struct ebt_mark_m_info *info = par->matchinfo;
 
 	if (info->bitmask & EBT_MARK_OR)
 		return !!(skb->mark & info->mask) ^ info->invert;
 	return ((skb->mark & info->mask) == info->mark) ^ info->invert;
 }
 
-static bool
-ebt_mark_mt_check(const char *table, const void *e,
-		  const struct xt_match *match, void *data,
-		  unsigned int hook_mask)
+static bool ebt_mark_mt_check(const struct xt_mtchk_param *par)
 {
-	const struct ebt_mark_m_info *info = data;
+	const struct ebt_mark_m_info *info = par->matchinfo;
 
 	if (info->bitmask & ~EBT_MARK_MASK)
 		return false;

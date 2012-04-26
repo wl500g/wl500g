@@ -92,24 +92,17 @@ match_option(u_int8_t option, const struct sk_buff *skb, unsigned int protoff,
 }
 
 static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_dccp_info *info = matchinfo;
+	const struct xt_dccp_info *info = par->matchinfo;
 	struct dccp_hdr _dh, *dh;
 
-	if (offset)
+	if (par->fragoff != 0)
 		return false;
 
-	dh = skb_header_pointer(skb, protoff, sizeof(_dh), &_dh);
+	dh = skb_header_pointer(skb, par->thoff, sizeof(_dh), &_dh);
 	if (dh == NULL) {
-		*hotdrop = true;
+		par->hotdrop = true;
 		return false;
 	}
 
@@ -121,19 +114,14 @@ match(const struct sk_buff *skb,
 			XT_DCCP_DEST_PORTS, info->flags, info->invflags)
 		&& DCCHECK(match_types(dh, info->typemask),
 			   XT_DCCP_TYPE, info->flags, info->invflags)
-		&& DCCHECK(match_option(info->option, skb, protoff, dh,
-					hotdrop),
+		&& DCCHECK(match_option(info->option, skb, par->thoff, dh,
+					&par->hotdrop),
 			   XT_DCCP_OPTION, info->flags, info->invflags);
 }
 
-static bool
-checkentry(const char *tablename,
-	   const void *inf,
-	   const struct xt_match *match,
-	   void *matchinfo,
-	   unsigned int hook_mask)
+static bool checkentry(const struct xt_mtchk_param *par)
 {
-	const struct xt_dccp_info *info = matchinfo;
+	const struct xt_dccp_info *info = par->matchinfo;
 
 	return !(info->flags & ~XT_DCCP_VALID_FLAGS)
 		&& !(info->invflags & ~XT_DCCP_VALID_FLAGS)

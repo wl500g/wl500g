@@ -28,13 +28,11 @@ MODULE_ALIAS("ip6t_SECMARK");
 
 static u8 mode;
 
-static unsigned int target(struct sk_buff *skb, const struct net_device *in,
-			   const struct net_device *out, unsigned int hooknum,
-			   const struct xt_target *target,
-			   const void *targinfo)
+static unsigned int
+target(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	u32 secmark = 0;
-	const struct xt_secmark_target_info *info = targinfo;
+	const struct xt_secmark_target_info *info = par->targinfo;
 
 	BUG_ON(info->mode != mode);
 
@@ -81,11 +79,9 @@ static bool checkentry_selinux(struct xt_secmark_target_info *info)
 	return true;
 }
 
-static bool checkentry(const char *tablename, const void *entry,
-		       const struct xt_target *target, void *targinfo,
-		       unsigned int hook_mask)
+static bool secmark_tg_check(const struct xt_tgchk_param *par)
 {
-	struct xt_secmark_target_info *info = targinfo;
+	const struct xt_secmark_target_info *info = par->targinfo;
 
 	if (mode && mode != info->mode) {
 		printk(KERN_INFO PFX "mode already set to %hu cannot mix with "

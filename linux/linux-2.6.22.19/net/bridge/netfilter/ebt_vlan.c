@@ -44,11 +44,9 @@ MODULE_LICENSE("GPL");
 #define EXIT_ON_MISMATCH(_MATCH_,_MASK_) {if (!((info->_MATCH_ == _MATCH_)^!!(info->invflags & _MASK_))) return false; }
 
 static bool
-ebt_vlan_mt(const struct sk_buff *skb, const struct net_device *in,
-	    const struct net_device *out, const struct xt_match *match,
-	    const void *data, int offset, unsigned int protoff, bool *hotdrop)
+ebt_vlan_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ebt_vlan_info *info = data;
+	const struct ebt_vlan_info *info = par->matchinfo;
 	const struct vlan_hdr *fp;
 	struct vlan_hdr _frame;
 
@@ -89,13 +87,10 @@ ebt_vlan_mt(const struct sk_buff *skb, const struct net_device *in,
 	return true;
 }
 
-static bool
-ebt_vlan_mt_check(const char *table, const void *entry,
-		  const struct xt_match *match, void *data,
-		  unsigned int hook_mask)
+static bool ebt_vlan_mt_check(const struct xt_mtchk_param *par)
 {
-	struct ebt_vlan_info *info = data;
-	const struct ebt_entry *e = entry;
+	struct ebt_vlan_info *info = par->matchinfo;
+	const struct ebt_entry *e = par->entryinfo;
 
 	/* Is it 802.1Q frame checked? */
 	if (e->ethproto != htons(ETH_P_8021Q)) {

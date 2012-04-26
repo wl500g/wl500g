@@ -24,17 +24,9 @@ MODULE_DESCRIPTION("iptables mac matching module");
 MODULE_ALIAS("ipt_mac");
 MODULE_ALIAS("ip6t_mac");
 
-static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+static bool match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-    const struct xt_mac_info *info = matchinfo;
+    const struct xt_mac_info *info = par->matchinfo;
 
     /* Is mac pointer valid? */
     return (skb_mac_header(skb) >= skb->head &&

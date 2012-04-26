@@ -40,31 +40,23 @@ id_match(u_int32_t min, u_int32_t max, u_int32_t id, bool invert)
 	return r;
 }
 
-static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+static bool match(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	struct frag_hdr _frag, *fh;
-	const struct ip6t_frag *fraginfo = matchinfo;
+	const struct ip6t_frag *fraginfo = par->matchinfo;
 	unsigned int ptr;
 	int err;
 
 	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_FRAGMENT, NULL);
 	if (err < 0) {
 		if (err != -ENOENT)
-			*hotdrop = true;
+			par->hotdrop = true;
 		return false;
 	}
 
 	fh = skb_header_pointer(skb, ptr, sizeof(_frag), &_frag);
 	if (fh == NULL) {
-		*hotdrop = true;
+		par->hotdrop = true;
 		return false;
 	}
 
@@ -119,15 +111,9 @@ match(const struct sk_buff *skb,
 		 && (ntohs(fh->frag_off) & IP6_MF));
 }
 
-/* Called when user tries to insert an entry of this type. */
-static bool
-checkentry(const char *tablename,
-	   const void *ip,
-	   const struct xt_match *match,
-	   void *matchinfo,
-	   unsigned int hook_mask)
+static bool checkentry(const struct xt_mtchk_param *par)
 {
-	const struct ip6t_frag *fraginfo = matchinfo;
+	const struct ip6t_frag *fraginfo = par->matchinfo;
 
 	if (fraginfo->invflags & ~IP6T_FRAG_INV_MASK) {
 		DEBUGP("ip6t_frag: unknown flags %X\n", fraginfo->invflags);

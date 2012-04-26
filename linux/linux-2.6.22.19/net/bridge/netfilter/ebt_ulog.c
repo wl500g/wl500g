@@ -247,22 +247,16 @@ static void ebt_log_packet(unsigned int pf, unsigned int hooknum,
 }
 
 static unsigned int
-ebt_ulog_tg(struct sk_buff *skb, const struct net_device *in,
-	    const struct net_device *out, unsigned int hooknr,
-	    const struct xt_target *target, const void *data)
+ebt_ulog_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ebt_ulog_info *uloginfo = data;
-
-	ebt_ulog_packet(hooknr, skb, in, out, uloginfo, NULL);
+	ebt_ulog_packet(par->hooknum, skb, par->in, par->out,
+	                par->targinfo, NULL);
 	return EBT_CONTINUE;
 }
 
-static bool
-ebt_ulog_tg_check(const char *table, const void *entry,
-		  const struct xt_target *target, void *data,
-		  unsigned int hookmask)
+static bool ebt_ulog_tg_check(const struct xt_tgchk_param *par)
 {
-	struct ebt_ulog_info *uloginfo = data;
+	struct ebt_ulog_info *uloginfo = par->targinfo;
 
 	if (uloginfo->nlgroup > 31)
 		return false;

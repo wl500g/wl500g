@@ -41,18 +41,10 @@ spi_match(u_int32_t min, u_int32_t max, u_int32_t spi, bool invert)
 	return r;
 }
 
-static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+static bool match(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	struct ip_auth_hdr *ah, _ah;
-	const struct ip6t_ah *ahinfo = matchinfo;
+	const struct ip6t_ah *ahinfo = par->matchinfo;
 	unsigned int ptr;
 	unsigned int hdrlen = 0;
 	int err;
@@ -60,13 +52,13 @@ match(const struct sk_buff *skb,
 	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_AUTH, NULL);
 	if (err < 0) {
 		if (err != -ENOENT)
-			*hotdrop = true;
+			par->hotdrop = true;
 		return false;
 	}
 
 	ah = skb_header_pointer(skb, ptr, sizeof(_ah), &_ah);
 	if (ah == NULL) {
-		*hotdrop = true;
+		par->hotdrop = true;
 		return false;
 	}
 
@@ -102,15 +94,9 @@ match(const struct sk_buff *skb,
 	       !(ahinfo->hdrres && ah->reserved);
 }
 
-/* Called when user tries to insert an entry of this type. */
-static bool
-checkentry(const char *tablename,
-	  const void *entry,
-	  const struct xt_match *match,
-	  void *matchinfo,
-	  unsigned int hook_mask)
+static bool checkentry(const struct xt_mtchk_param *par)
 {
-	const struct ip6t_ah *ahinfo = matchinfo;
+	const struct ip6t_ah *ahinfo = par->matchinfo;
 
 	if (ahinfo->invflags & ~IP6T_AH_INV_MASK) {
 		DEBUGP("ip6t_ah: unknown flags %X\n", ahinfo->invflags);

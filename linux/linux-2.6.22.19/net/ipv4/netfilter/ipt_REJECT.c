@@ -139,14 +139,10 @@ static inline void send_unreach(struct sk_buff *skb_in, int code)
 	icmp_send(skb_in, ICMP_DEST_UNREACH, code, 0);
 }
 
-static unsigned int reject(struct sk_buff *skb,
-			   const struct net_device *in,
-			   const struct net_device *out,
-			   unsigned int hooknum,
-			   const struct xt_target *target,
-			   const void *targinfo)
+static unsigned int
+reject(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ipt_reject_info *reject = targinfo;
+	const struct ipt_reject_info *reject = par->targinfo;
 
 	/* WARNING: This code causes reentry within iptables.
 	   This means that the iptables jump stack is now crap.  We
@@ -174,7 +170,7 @@ static unsigned int reject(struct sk_buff *skb,
 		send_unreach(skb, ICMP_PKT_FILTERED);
 		break;
 	case IPT_TCP_RESET:
-		send_reset(skb, hooknum);
+		send_reset(skb, par->hooknum);
 	case IPT_ICMP_ECHOREPLY:
 		/* Doesn't happen. */
 		break;
@@ -183,14 +179,10 @@ static unsigned int reject(struct sk_buff *skb,
 	return NF_DROP;
 }
 
-static bool check(const char *tablename,
-		  const void *e_void,
-		  const struct xt_target *target,
-		  void *targinfo,
-		  unsigned int hook_mask)
+static bool check(const struct xt_tgchk_param *par)
 {
-	const struct ipt_reject_info *rejinfo = targinfo;
-	const struct ipt_entry *e = e_void;
+	const struct ipt_reject_info *rejinfo = par->targinfo;
+	const struct ipt_entry *e = par->entryinfo;
 
 	if (rejinfo->with == IPT_ICMP_ECHOREPLY) {
 		printk("REJECT: ECHOREPLY no longer supported.\n");

@@ -155,13 +155,10 @@ static void localtime_3(struct xtm *r, time_t time)
 	return;
 }
 
-static bool xt_time_match(const struct sk_buff *skb,
-                          const struct net_device *in,
-                          const struct net_device *out,
-                          const struct xt_match *match, const void *matchinfo,
-                          int offset, unsigned int protoff, bool *hotdrop)
+static bool
+xt_time_match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_time_info *info = matchinfo;
+	const struct xt_time_info *info = par->matchinfo;
 	unsigned int packet_time;
 	struct xtm current_time;
 	time_t stamp;
@@ -226,11 +223,9 @@ static bool xt_time_match(const struct sk_buff *skb,
 	return true;
 }
 
-static bool xt_time_check(const char *tablename, const void *ip,
-                          const struct xt_match *match, void *matchinfo,
-                          unsigned int hook_mask)
+static bool xt_time_check(const struct xt_mtchk_param *par)
 {
-	struct xt_time_info *info = matchinfo;
+	const struct xt_time_info *info = par->matchinfo;
 
 	if (info->daytime_start > XT_TIME_MAX_DAYTIME ||
 	    info->daytime_stop > XT_TIME_MAX_DAYTIME) {

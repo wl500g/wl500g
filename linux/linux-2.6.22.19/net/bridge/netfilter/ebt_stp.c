@@ -120,11 +120,9 @@ static bool ebt_filter_config(const struct ebt_stp_info *info,
 }
 
 static bool
-ebt_stp_mt(const struct sk_buff *skb, const struct net_device *in,
-	   const struct net_device *out, const struct xt_match *match,
-	   const void *data, int offset, unsigned int protoff, bool *hotdrop)
+ebt_stp_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ebt_stp_info *info = data;
+	const struct ebt_stp_info *info = par->matchinfo;
 	const struct stp_header *sp;
 	struct stp_header _stph;
 	const uint8_t header[6] = {0x42, 0x42, 0x03, 0x00, 0x00, 0x00};
@@ -155,15 +153,12 @@ ebt_stp_mt(const struct sk_buff *skb, const struct net_device *in,
 	return true;
 }
 
-static bool
-ebt_stp_mt_check(const char *table, const void *entry,
-		 const struct xt_match *match, void *data,
-		 unsigned int hook_mask)
+static bool ebt_stp_mt_check(const struct xt_mtchk_param *par)
 {
-	const struct ebt_stp_info *info = data;
+	const struct ebt_stp_info *info = par->matchinfo;
 	const uint8_t bridge_ula[6] = {0x01, 0x80, 0xc2, 0x00, 0x00, 0x00};
 	const uint8_t msk[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-	const struct ebt_entry *e = entry;
+	const struct ebt_entry *e = par->entryinfo;
 
 	if (info->bitmask & ~EBT_STP_MASK || info->invflags & ~EBT_STP_MASK ||
 	    !(info->bitmask & EBT_STP_MASK))

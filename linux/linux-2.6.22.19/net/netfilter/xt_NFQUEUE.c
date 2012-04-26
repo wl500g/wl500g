@@ -24,14 +24,9 @@ MODULE_ALIAS("ip6t_NFQUEUE");
 MODULE_ALIAS("arpt_NFQUEUE");
 
 static unsigned int
-target(struct sk_buff *skb,
-       const struct net_device *in,
-       const struct net_device *out,
-       unsigned int hooknum,
-       const struct xt_target *target,
-       const void *targinfo)
+target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct xt_NFQ_info *tinfo = targinfo;
+	const struct xt_NFQ_info *tinfo = par->targinfo;
 
 	return NF_QUEUE_NR(tinfo->queuenum);
 }

@@ -15,11 +15,9 @@
 #include <linux/netfilter_bridge/ebt_nat.h>
 
 static unsigned int
-ebt_dnat_tg(struct sk_buff *skb, const struct net_device *in,
-	    const struct net_device *out, unsigned int hook_nr,
-	    const struct xt_target *target, const void *data)
+ebt_dnat_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ebt_nat_info *info = data;
+	const struct ebt_nat_info *info = par->targinfo;
 
 	if (!skb_make_writable(skb, 0))
 		return EBT_DROP;
@@ -28,19 +26,20 @@ ebt_dnat_tg(struct sk_buff *skb, const struct net_device *in,
 	return info->target;
 }
 
-static bool
-ebt_dnat_tg_check(const char *tablename, const void *entry,
-		  const struct xt_target *target, void *data,
-		  unsigned int hookmask)
+static bool ebt_dnat_tg_check(const struct xt_tgchk_param *par)
 {
-	const struct ebt_nat_info *info = data;
+	const struct ebt_nat_info *info = par->targinfo;
+	unsigned int hook_mask;
 
 	if (BASE_CHAIN && info->target == EBT_RETURN)
 		return false;
-	CLEAR_BASE_CHAIN_BIT;
-	if ( (strcmp(tablename, "nat") ||
-	   (hookmask & ~((1 << NF_BR_PRE_ROUTING) | (1 << NF_BR_LOCAL_OUT)))) &&
-	   (strcmp(tablename, "broute") || hookmask & ~(1 << NF_BR_BROUTING)) )
+
+	hook_mask = par->hook_mask & ~(1 << NF_BR_NUMHOOKS);
+	if ((strcmp(par->table, "nat") != 0 ||
+	    (hook_mask & ~((1 << NF_BR_PRE_ROUTING) |
+	    (1 << NF_BR_LOCAL_OUT)))) &&
+	    (strcmp(par->table, "broute") != 0 ||
+	    hook_mask & ~(1 << NF_BR_BROUTING)))
 		return false;
 	if (INVALID_TARGET)
 		return false;

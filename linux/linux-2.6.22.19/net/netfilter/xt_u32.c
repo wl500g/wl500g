@@ -86,13 +86,9 @@ static bool u32_match_it(const struct xt_u32 *data,
 	return true;
 }
 
-static bool u32_match(const struct sk_buff *skb,
-		      const struct net_device *in,
-		      const struct net_device *out,
-		      const struct xt_match *match, const void *matchinfo,
-		      int offset, unsigned int protoff, bool *hotdrop)
+static bool u32_match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_u32 *data = matchinfo;
+	const struct xt_u32 *data = par->matchinfo;
 	bool ret;
 
 	ret = u32_match_it(data, skb);

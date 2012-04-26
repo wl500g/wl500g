@@ -173,11 +173,101 @@ struct xt_counters_info
 
 #include <linux/netdevice.h>
 
+#define xt_match_param xt_action_param
+#define xt_target_param xt_action_param
+/**
+ * struct xt_action_param - parameters for matches/targets
+ *
+ * @match:	the match extension
+ * @target:	the target extension
+ * @matchinfo:	per-match data
+ * @targetinfo:	per-target data
+ * @in:		input netdevice
+ * @out:	output netdevice
+ * @fragoff:	packet is a fragment, this is the data offset
+ * @thoff:	position of transport header relative to skb->data
+ * @hook:	hook number given packet came from
+ * @family:	Actual NFPROTO_* through which the function is invoked
+ * 		(helpful when match->family == NFPROTO_UNSPEC)
+ *
+ * Fields written to by extensions:
+ *
+ * @hotdrop:	drop packet if we had inspection problems
+ */
+struct xt_action_param {
+	union {
+		const struct xt_match *match;
+		const struct xt_target *target;
+	};
+	union {
+		const void *matchinfo, *targinfo;
+	};
+	const struct net_device *in, *out;
+	int fragoff;
+	unsigned int thoff;
+	unsigned int hooknum;
+	u_int8_t family;
+	bool hotdrop;
+};
+
+/**
+ * struct xt_mtchk_param - parameters for match extensions'
+ * checkentry functions
+ *
+ * @table:	table the rule is tried to be inserted into
+ * @entryinfo:	the family-specific rule data
+ * 		(struct ipt_ip, ip6t_ip, ebt_entry)
+ * @match:	struct xt_match through which this function was invoked
+ * @matchinfo:	per-match data
+ * @hook_mask:	via which hooks the new rule is reachable
+ */
+struct xt_mtchk_param {
+	const char *table;
+	const void *entryinfo;
+	const struct xt_match *match;
+	void *matchinfo;
+	unsigned int hook_mask;
+	u_int8_t family;
+};
+
+/* Match destructor parameters */
+struct xt_mtdtor_param {
+	const struct xt_match *match;
+	void *matchinfo;
+	u_int8_t family;
+};
+
+/**
+ * struct xt_tgchk_param - parameters for target extensions'
+ * checkentry functions
+ *
+ * @entryinfo:	the family-specific rule data
+ * 		(struct ipt_entry, ip6t_entry, arpt_entry, ebt_entry)
+ *
+ * Other fields see above.
+ */
+struct xt_tgchk_param {
+	const char *table;
+	void *entryinfo;
+	const struct xt_target *target;
+	void *targinfo;
+	unsigned int hook_mask;
+	u_int8_t family;
+};
+
+/* Target destructor parameters */
+struct xt_tgdtor_param {
+	const struct xt_target *target;
+	void *targinfo;
+	u_int8_t family;
+};
+
 struct xt_match
 {
 	struct list_head list;
 
 	const char name[XT_FUNCTION_MAXNAMELEN-1];
+	u_int8_t revision;
 
 	/* Return true or false: return FALSE and set *hotdrop = 1 to
            force immediate packet drop. */
@@ -185,24 +275,13 @@ struct xt_match
 	   non-linear skb, using skb_header_pointer and
 	   skb_ip_make_writable. */
 	bool (*match)(const struct sk_buff *skb,
-		      const struct net_device *in,
-		      const struct net_device *out,
-		      const struct xt_match *match,
-		      const void *matchinfo,
-		      int offset,
-		      unsigned int protoff,
-		      bool *hotdrop);
+		      struct xt_action_param *);
 
 	/* Called when user tries to insert an entry of this type. */
-	/* Should return true or false. */
-	bool (*checkentry)(const char *tablename,
-			   const void *ip,
-			   const struct xt_match *match,
-			   void *matchinfo,
-			   unsigned int hook_mask);
+	bool (*checkentry)(const struct xt_mtchk_param *);
 
 	/* Called when entry of this type deleted. */
-	void (*destroy)(const struct xt_match *match, void *matchinfo);
+	void (*destroy)(const struct xt_mtdtor_param *);
 
 	/* Called when userspace align differs from kernel space one */
 	void (*compat_from_user)(void *dst, void *src);
@@ -211,9 +290,6 @@ struct xt_match
 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
 	struct module *me;
 
-	/* Free to use by each match */
-	unsigned long data;
-
 	char *table;
 	unsigned int matchsize;
 	unsigned int compatsize;
@@ -221,7 +297,6 @@ struct xt_match
 	unsigned short proto;
 
 	unsigned short family;
-	u_int8_t revision;
 };
 
 /* Registration hooks for targets. */
@@ -230,29 +305,22 @@ struct xt_target
 	struct list_head list;
 
 	const char name[XT_FUNCTION_MAXNAMELEN-1];
+	u_int8_t revision;
 
 	/* Returns verdict. Argument order changed since 2.6.9, as this
 	   must now handle non-linear skbs, using skb_copy_bits and
 	   skb_ip_make_writable. */
 	unsigned int (*target)(struct sk_buff *skb,
-			       const struct net_device *in,
-			       const struct net_device *out,
-			       unsigned int hooknum,
-			       const struct xt_target *target,
-			       const void *targinfo);
+			       const struct xt_action_param *);
 
 	/* Called when user tries to insert an entry of this type:
            hook_mask is a bitmask of hooks from which it can be
            called. */
 	/* Should return true or false. */
-	bool (*checkentry)(const char *tablename,
-			   const void *entry,
-			   const struct xt_target *target,
-			   void *targinfo,
-			   unsigned int hook_mask);
+	bool (*checkentry)(const struct xt_tgchk_param *);
 
 	/* Called when entry of this type deleted. */
-	void (*destroy)(const struct xt_target *target, void *targinfo);
+	void (*destroy)(const struct xt_tgdtor_param *);
 
 	/* Called when userspace align differs from kernel space one */
 	void (*compat_from_user)(void *dst, void *src);
@@ -268,7 +336,6 @@ struct xt_target
 	unsigned short proto;
 
 	unsigned short family;
-	u_int8_t revision;
 };
 
 /* Furniture shopping... */
@@ -325,14 +392,10 @@ extern void xt_unregister_match(struct xt_match *target);
 extern int xt_register_matches(struct xt_match *match, unsigned int n);
 extern void xt_unregister_matches(struct xt_match *match, unsigned int n);
 
-extern int xt_check_match(const struct xt_match *match, unsigned short family,
-			  unsigned int size, const char *table, unsigned int hook,
-			  unsigned short proto, int inv_proto,
-			  const void *entry, void *matchinfo);
-extern int xt_check_target(const struct xt_target *target, unsigned short family,
-			   unsigned int size, const char *table, unsigned int hook,
-			   unsigned short proto, int inv_proto,
-			   const void *entry, void *targinfo);
+extern int xt_check_match(struct xt_mtchk_param *,
+			  unsigned int size, u_int8_t proto, bool inv_proto);
+extern int xt_check_target(struct xt_tgchk_param *,
+			   unsigned int size, u_int8_t proto, bool inv_proto);
 
 extern int xt_register_table(struct xt_table *table,
 			     struct xt_table_info *bootstrap,

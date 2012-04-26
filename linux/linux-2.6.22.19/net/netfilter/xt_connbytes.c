@@ -16,16 +16,9 @@ MODULE_DESCRIPTION("iptables match for matching number of pkts/bytes per connect
 MODULE_ALIAS("ipt_connbytes");
 
 static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_connbytes_info *sinfo = matchinfo;
+	const struct xt_connbytes_info *sinfo = par->matchinfo;
 	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
 	u_int64_t what = 0;	/* initialize to make gcc happy */
@@ -95,13 +88,9 @@ match(const struct sk_buff *skb,
 		return what < sinfo->count.to || what > sinfo->count.from;
 }
 
-static bool check(const char *tablename,
-		  const void *ip,
-		  const struct xt_match *match,
-		  void *matchinfo,
-		  unsigned int hook_mask)
+static bool check(const struct xt_mtchk_param *par)
 {
-	const struct xt_connbytes_info *sinfo = matchinfo;
+	const struct xt_connbytes_info *sinfo = par->matchinfo;
 
 	if (sinfo->what != XT_CONNBYTES_PKTS &&
 	    sinfo->what != XT_CONNBYTES_BYTES &&
@@ -113,19 +102,18 @@ static bool check(const char *tablename,
 	    sinfo->direction != XT_CONNBYTES_DIR_BOTH)
 		return false;
 
-	if (nf_ct_l3proto_try_module_get(match->family) < 0) {
+	if (nf_ct_l3proto_try_module_get(par->family) < 0) {
 		printk(KERN_WARNING "can't load conntrack support for "
-				    "proto=%d\n", match->family);
+				    "proto=%u\n", par->family);
 		return false;
 	}
 
 	return true;
 }
 
-static void
-destroy(const struct xt_match *match, void *matchinfo)
+static void destroy(const struct xt_mtdtor_param *par)
 {
-	nf_ct_l3proto_module_put(match->family);
+	nf_ct_l3proto_module_put(par->family);
 }
 
 static struct xt_match xt_connbytes_match __read_mostly = {

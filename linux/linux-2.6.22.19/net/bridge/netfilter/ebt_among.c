@@ -128,11 +128,9 @@ static int get_ip_src(const struct sk_buff *skb, __be32 *addr)
 }
 
 static bool
-ebt_among_mt(const struct sk_buff *skb, const struct net_device *in,
-	     const struct net_device *out, const struct xt_match *match,
-	     const void *data, int offset, unsigned int protoff, bool *hotdrop)
+ebt_among_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ebt_among_info *info = data;
+	const struct ebt_among_info *info = par->matchinfo;
 	const char *dmac, *smac;
 	const struct ebt_mac_wormhash *wh_dst, *wh_src;
 	__be32 dip = 0, sip = 0;
@@ -173,14 +171,11 @@ ebt_among_mt(const struct sk_buff *skb, const struct net_device *in,
 	return true;
 }
 
-static bool
-ebt_among_mt_check(const char *table, const void *entry,
-		   const struct xt_match *match, void *data,
-		   unsigned int hook_mask)
+static bool ebt_among_mt_check(const struct xt_mtchk_param *par)
 {
+	const struct ebt_among_info *info = par->matchinfo;
 	const struct ebt_entry_match *em =
-		container_of(data, const struct ebt_entry_match, data);
-	const struct ebt_among_info *info = data;
+		container_of(par->matchinfo, const struct ebt_entry_match, data);
 	int expected_length = sizeof(struct ebt_among_info);
 	const struct ebt_mac_wormhash *wh_dst, *wh_src;
 	int err;

@@ -399,19 +399,12 @@ static int layer7_write_proc(struct file* file, const char* buffer,
 }
 
 static bool
-layer7_mt(const struct sk_buff *skbin,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+layer7_mt(const struct sk_buff *skbin, struct xt_action_param *par)
 {
 	/* sidestep const without getting a compiler warning... */
 	struct sk_buff * skb = (struct sk_buff *)skbin; 
 
-	const struct xt_layer7_info * info = matchinfo;
+	const struct xt_layer7_info * info = par->matchinfo;
 	enum ip_conntrack_info master_ctinfo, ctinfo;
 	struct nf_conn *master_conntrack, *conntrack;
 	unsigned char *app_data, *tmp_data;
@@ -569,26 +562,20 @@ layer7_mt(const struct sk_buff *skbin,
 	return (pattern_result ^ info->invert);
 }
 
-static bool check(const char *tablename,
-		 const void *inf,
-		 const struct xt_match *match,
-		 void *matchinfo,
-		 unsigned int hook_mask)
-
+static bool check(const struct xt_mtchk_param *par)
 {
 	// load nf_conntrack_ipv4
-        if (nf_ct_l3proto_try_module_get(match->family) < 0) {
+        if (nf_ct_l3proto_try_module_get(par->family) < 0) {
                 printk(KERN_WARNING "can't load conntrack support for "
-                                    "proto=%d\n", match->family);
+                                    "proto=%u\n", par->family);
                 return false;
         }
 	return true;
 }
 
-static void
-destroy(const struct xt_match *match, void *matchinfo)
+static void destroy(const struct xt_mtdtor_param *par)
 {
-	nf_ct_l3proto_module_put(match->family);
+	nf_ct_l3proto_module_put(par->family);
 }
 
 static struct xt_match xt_layer7_match[] = {

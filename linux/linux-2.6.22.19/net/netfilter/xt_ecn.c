@@ -27,18 +27,17 @@ MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_ecn");
 MODULE_ALIAS("ip6t_ecn");
 
-static inline bool match_tcp(const struct sk_buff *skb,
-			    const struct xt_ecn_info *einfo,
-			    unsigned int protoff, bool *hotdrop)
+static inline bool match_tcp(const struct sk_buff *skb, struct xt_action_param *par)
 {
+    const struct xt_ecn_info *einfo = par->matchinfo;
 	struct tcphdr _tcph, *th;
 
 	/* In practice, TCP match does this, so can't fail.  But let's
 	 * be good citizens.
 	 */
-	th = skb_header_pointer(skb, protoff, sizeof(_tcph), &_tcph);
+	th = skb_header_pointer(skb, par->thoff, sizeof(_tcph), &_tcph);
 	if (th == NULL) {
-		*hotdrop = false;
+		par->hotdrop = false;
 		return 0;
 	}
 
@@ -72,29 +71,24 @@ static inline bool match_ip(const struct sk_buff *skb,
 	       !!(einfo->invert & XT_ECN_OP_MATCH_IP);
 }
 
-static bool ecn_mt4(const struct sk_buff *skb,
-		 const struct net_device *in, const struct net_device *out,
-		 const struct xt_match *match, const void *matchinfo,
-		 int offset, unsigned int protoff, bool *hotdrop)
+static bool ecn_mt4(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_ecn_info *info = matchinfo;
+	const struct xt_ecn_info *info = par->matchinfo;
 
 	if (info->operation & XT_ECN_OP_MATCH_IP && !match_ip(skb, info))
 		return false;
 
 	if (info->operation & (XT_ECN_OP_MATCH_ECE | XT_ECN_OP_MATCH_CWR) &&
-		!match_tcp(skb, info, protoff, hotdrop))
+		!match_tcp(skb, par))
 		return false;
 
 	return true;
 }
 
-static bool ecn_mt_check4(const char *tablename, const void *ip_void,
-		      const struct xt_match *match,
-		      void *matchinfo, unsigned int hook_mask)
+static bool ecn_mt_check4(const struct xt_mtchk_param *par)
 {
-	const struct xt_ecn_info *info = matchinfo;
-	const struct ipt_ip *ip = ip_void;
+	const struct xt_ecn_info *info = par->matchinfo;
+	const struct ipt_ip *ip = par->entryinfo;
 
 	if (info->operation & XT_ECN_OP_MATCH_MASK)
 		return false;
@@ -120,29 +114,24 @@ static inline bool match_ipv6(const struct sk_buff *skb,
 	       !!(einfo->invert & XT_ECN_OP_MATCH_IP);
 }
 
-static bool ecn_mt6(const struct sk_buff *skb,
-		 const struct net_device *in, const struct net_device *out,
-		 const struct xt_match *match, const void *matchinfo,
-		 int offset, unsigned int protoff, bool *hotdrop)
+static bool ecn_mt6(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_ecn_info *info = matchinfo;
+	const struct xt_ecn_info *info = par->matchinfo;
 
 	if (info->operation & XT_ECN_OP_MATCH_IP && !match_ipv6(skb, info))
 		return false;
 
 	if (info->operation & (XT_ECN_OP_MATCH_ECE | XT_ECN_OP_MATCH_CWR) &&
-	    !match_tcp(skb, info, protoff, hotdrop))
+	    !match_tcp(skb, par))
 		return false;
 
 	return true;
 }
 
-static bool ecn_mt_check6(const char *tablename, const void *ip_void,
-		      const struct xt_match *match,
-		      void *matchinfo, unsigned int hook_mask)
+static bool ecn_mt_check6(const struct xt_mtchk_param *par)
 {
-	const struct xt_ecn_info *info = matchinfo;
-	const struct ip6t_ip6 *ip = ip_void;
+	const struct xt_ecn_info *info = par->matchinfo;
+	const struct ip6t_ip6 *ip = par->entryinfo;
 
 	if (info->operation & XT_ECN_OP_MATCH_MASK)
 		return false;

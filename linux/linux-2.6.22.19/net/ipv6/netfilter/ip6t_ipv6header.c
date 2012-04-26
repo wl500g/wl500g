@@ -27,16 +27,9 @@ MODULE_DESCRIPTION("IPv6 headers match");
 MODULE_AUTHOR("Andras Kis-Szabo <kisza@sch.bme.hu>");
 
 static bool
-ipv6header_match(const struct sk_buff *skb,
-		 const struct net_device *in,
-		 const struct net_device *out,
-		 const struct xt_match *match,
-		 const void *matchinfo,
-		 int offset,
-		 unsigned int protoff,
-		 bool *hotdrop)
+ipv6header_match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ip6t_ipv6header_info *info = matchinfo;
+	const struct ip6t_ipv6header_info *info = par->matchinfo;
 	unsigned int temp;
 	int len;
 	u8 nexthdr;
@@ -124,14 +117,9 @@ ipv6header_match(const struct sk_buff *skb,
 	}
 }
 
-static bool
-ipv6header_checkentry(const char *tablename,
-		      const void *ip,
-		      const struct xt_match *match,
-		      void *matchinfo,
-		      unsigned int hook_mask)
+static bool ipv6header_checkentry(const struct xt_mtchk_param *par)
 {
-	const struct ip6t_ipv6header_info *info = matchinfo;
+	const struct ip6t_ipv6header_info *info = par->matchinfo;
 
 	/* invflags is 0 or 0xff in hard mode */
 	if ((!info->modeflag) && info->invflags != 0x00 &&

@@ -24,23 +24,16 @@ MODULE_DESCRIPTION("iptables TCP MSS match module");
 MODULE_ALIAS("ipt_tcpmss");
 
 static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_tcpmss_match_info *info = matchinfo;
+	const struct xt_tcpmss_match_info *info = par->matchinfo;
 	struct tcphdr _tcph, *th;
 	/* tcp.doff is only 4 bits, ie. max 15 * 4 bytes */
 	u8 _opt[15 * 4 - sizeof(_tcph)], *op;
 	unsigned int i, optlen;
 
 	/* If we don't have the whole header, drop packet. */
-	th = skb_header_pointer(skb, protoff, sizeof(_tcph), &_tcph);
+	th = skb_header_pointer(skb, par->thoff, sizeof(_tcph), &_tcph);
 	if (th == NULL)
 		goto dropit;
 
@@ -53,7 +46,7 @@ match(const struct sk_buff *skb,
 		goto out;
 
 	/* Truncated options. */
-	op = skb_header_pointer(skb, protoff + sizeof(*th), optlen, _opt);
+	op = skb_header_pointer(skb, par->thoff + sizeof(*th), optlen, _opt);
 	if (op == NULL)
 		goto dropit;
 
@@ -77,7 +70,7 @@ out:
 	return info->invert;
 
 dropit:
-	*hotdrop = true;
+	par->hotdrop = true;
 	return false;
 }
 

@@ -117,12 +117,9 @@ static inline bool match_type(const struct net_device *dev, __be32 addr,
 }
 
 static bool
-addrtype_mt_v0(const struct sk_buff *skb, const struct net_device *in,
-	       const struct net_device *out, const struct xt_match *match,
-	       const void *matchinfo, int offset, unsigned int protoff,
-	       bool *hotdrop)
+addrtype_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_addrtype_info *info = matchinfo;
+	const struct xt_addrtype_info *info = par->matchinfo;
 	const struct iphdr *iph = ip_hdr(skb);
 	int ret = true;
 
@@ -137,23 +134,20 @@ addrtype_mt_v0(const struct sk_buff *skb, const struct net_device *in,
 }
 
 static bool
-addrtype_mt_v1(const struct sk_buff *skb, const struct net_device *in,
-	       const struct net_device *out, const struct xt_match *match,
-	       const void *matchinfo, int offset, unsigned int protoff,
-	       bool *hotdrop)
+addrtype_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_addrtype_info_v1 *info = matchinfo;
+	const struct xt_addrtype_info_v1 *info = par->matchinfo;
 	const struct iphdr *iph;
 	const struct net_device *dev = NULL;
 	bool ret = true;
 
 	if (info->flags & XT_ADDRTYPE_LIMIT_IFACE_IN)
-		dev = in;
+		dev = par->in;
 	else if (info->flags & XT_ADDRTYPE_LIMIT_IFACE_OUT)
-		dev = out;
+		dev = par->out;
 
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
-	if (match->family == NFPROTO_IPV6)
+	if (par->family == NFPROTO_IPV6)
 		return addrtype_mt6(dev, skb, info);
 #endif
 	iph = ip_hdr(skb);
@@ -166,12 +160,9 @@ addrtype_mt_v1(const struct sk_buff *skb, const struct net_device *in,
 	return ret;
 }
 
-static bool
-addrtype_mt_checkentry_v1(const char *tablename, const void *ip_void,
-			  const struct xt_match *match, void *matchinfo,
-			  unsigned int hook_mask)
+static bool addrtype_mt_checkentry_v1(const struct xt_mtchk_param *par)
 {
-	struct xt_addrtype_info_v1 *info = matchinfo;
+	struct xt_addrtype_info_v1 *info = par->matchinfo;
 
 	if (info->flags & XT_ADDRTYPE_LIMIT_IFACE_IN &&
 	    info->flags & XT_ADDRTYPE_LIMIT_IFACE_OUT) {
@@ -180,14 +171,16 @@ addrtype_mt_checkentry_v1(const char *tablename, const void *ip_void,
 		return 0;
 	}
 
-	if (hook_mask & (1 << NF_IP_PRE_ROUTING | 1 << NF_IP_LOCAL_IN) &&
+	if (par->hook_mask & ((1 << NF_IP_PRE_ROUTING) |
+	    (1 << NF_IP_LOCAL_IN)) &&
 	    info->flags & XT_ADDRTYPE_LIMIT_IFACE_OUT) {
 		printk(KERN_ERR "ipt_addrtype: output interface limitation "
 				"not valid in PRE_ROUTING and INPUT\n");
 		return 0;
 	}
 
-	if (hook_mask & (1 << NF_IP_POST_ROUTING | 1 << NF_IP_LOCAL_OUT) &&
+	if (par->hook_mask & ((1 << NF_IP_POST_ROUTING) |
+	    (1 << NF_IP_LOCAL_OUT)) &&
 	    info->flags & XT_ADDRTYPE_LIMIT_IFACE_IN) {
 		printk(KERN_ERR "ipt_addrtype: input interface limitation "
 				"not valid in POST_ROUTING and OUTPUT\n");
@@ -195,7 +188,7 @@ addrtype_mt_checkentry_v1(const char *tablename, const void *ip_void,
 	}
 
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
-	if (match->family == NFPROTO_IPV6) {
+	if (par->family == NFPROTO_IPV6) {
 		if ((info->source | info->dest) & XT_ADDRTYPE_BLACKHOLE) {
 			pr_err("ipv6 BLACKHOLE matching not supported\n");
 			return -EINVAL;

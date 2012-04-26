@@ -7,27 +7,19 @@
 #include <linux/netfilter/xt_IMQ.h>
 #include <linux/imq.h>
 
-static unsigned int imq_target(struct sk_buff *skb,
-			       const struct net_device *in,
-			       const struct net_device *out,
-			       unsigned int hooknum,
-			       const struct xt_target *target,
-			       const void *targinfo)
+static unsigned int
+imq_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	struct xt_imq_info *mr = (struct xt_imq_info*)targinfo;
+	const struct xt_imq_info *mr = par->targinfo;
 
 	skb->imq_flags = mr->todev | IMQ_F_ENQUEUE;
 
 	return XT_CONTINUE;
 }
 
-static bool imq_checkentry(const char *tablename,
-			  const void *e,
-			  const struct xt_target *target,
-			  void *targinfo,
-			  unsigned int hook_mask)
+static bool imq_checkentry(const struct xt_tgchk_param *par)
 {
-	struct xt_imq_info *mr = (struct xt_imq_info*)targinfo;
+	struct xt_imq_info *mr = par->targinfo;
 
 	if (mr->todev > IMQ_MAX_DEVS) {
 		printk(KERN_WARNING

@@ -479,18 +479,15 @@ hashlimit_init_dst(struct xt_hashlimit_htable *hinfo, struct dsthash_dst *dst,
 }
 
 static bool
-hashlimit_mt(const struct sk_buff *skb, const struct net_device *in,
-             const struct net_device *out, const struct xt_match *match,
-             const void *matchinfo, int offset, unsigned int protoff,
-             bool *hotdrop)
+hashlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_hashlimit_mtinfo1 *info = matchinfo;
+	const struct xt_hashlimit_mtinfo1 *info = par->matchinfo;
 	struct xt_hashlimit_htable *hinfo = info->hinfo;
 	unsigned long now = jiffies;
 	struct dsthash_ent *dh;
 	struct dsthash_dst dst;
 
-	if (hashlimit_init_dst(hinfo, &dst, skb, protoff) < 0)
+	if (hashlimit_init_dst(hinfo, &dst, skb, par->thoff) < 0)
 		goto hotdrop;
 
 	spin_lock_bh(&hinfo->lock);
@@ -527,16 +524,13 @@ hashlimit_mt(const struct sk_buff *skb, const struct net_device *in,
 	return info->cfg.mode & XT_HASHLIMIT_INVERT;
 
  hotdrop:
-	*hotdrop = true;
+	par->hotdrop = true;
 	return false;
 }
 
-static bool
-hashlimit_mt_check(const char *tablename, const void *inf,
-                   const struct xt_match *match, void *matchinfo,
-                   unsigned int hook_mask)
+static bool hashlimit_mt_check(const struct xt_mtchk_param *par)
 {
-	struct xt_hashlimit_mtinfo1 *info = matchinfo;
+	struct xt_hashlimit_mtinfo1 *info = par->matchinfo;
 
 	/* Check for overflow. */
 	if (info->cfg.burst == 0 ||
@@ -550,7 +544,7 @@ hashlimit_mt_check(const char *tablename, const void *inf,
 		return 0;
 	if (info->name[sizeof(info->name)-1] != '\0')
 		return 0;
-	if (match->family == AF_INET) {
+	if (par->family == NFPROTO_IPV4) {
 		if (info->cfg.srcmask > 32 || info->cfg.dstmask > 32)
 			return false;
 	} else {
@@ -559,8 +553,8 @@ hashlimit_mt_check(const char *tablename, const void *inf,
 	}
 
 	mutex_lock(&hashlimit_mutex);
-	info->hinfo = htable_find_get(info->name, match->family);
-	if (!info->hinfo && htable_create(info, match->family) != 0) {
+	info->hinfo = htable_find_get(info->name, par->family);
+	if (!info->hinfo && htable_create(info, par->family) != 0) {
 		mutex_unlock(&hashlimit_mutex);
 		return 0;
 	}
@@ -568,10 +562,9 @@ hashlimit_mt_check(const char *tablename, const void *inf,
 	return 1;
 }
 
-static void
-hashlimit_mt_destroy(const struct xt_match *match, void *matchinfo)
+static void hashlimit_mt_destroy(const struct xt_mtdtor_param *par)
 {
-	const struct xt_hashlimit_mtinfo1 *info = matchinfo;
+	const struct xt_hashlimit_mtinfo1 *info = par->matchinfo;
 
 	htable_put(info->hinfo);
 }

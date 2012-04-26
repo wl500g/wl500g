@@ -201,12 +201,8 @@ static void tarpit_tcp(const struct sk_buff *oskb, struct rtable *ort,
 	kfree_skb(nskb);
 }
 
-static unsigned int xt_tarpit_target(struct sk_buff *skb,
-                                     const struct net_device *in,
-                                     const struct net_device *out,
-                                     unsigned int hooknum,
-                                     const struct xt_target *target,
-                                     const void *targinfo)
+static unsigned int
+xt_tarpit_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct iphdr *iph   = ip_hdr(skb);
 	struct rtable *rt         = (void *)skb->dst;
@@ -234,21 +230,19 @@ static unsigned int xt_tarpit_target(struct sk_buff *skb,
 	if (iph->frag_off & htons(IP_OFFSET))
 		return NF_DROP;
 
-	tarpit_tcp(skb, rt, hooknum == NF_IP_LOCAL_IN);
+	tarpit_tcp(skb, rt, par->hooknum == NF_IP_LOCAL_IN);
 	return NF_DROP;
 }
 
-static bool xt_tarpit_check(const char *tablename, const void *entry,
-                            const struct xt_target *target, void *targinfo,
-                            unsigned int hook_mask)
+static bool xt_tarpit_check(const struct xt_tgchk_param *par)
 {
 	int invalid;
 
-	if (strcmp(tablename, "raw") == 0 && hook_mask == NF_IP_PRE_ROUTING)
+	if (strcmp(par->table, "raw") == 0 && par->hook_mask == NF_IP_PRE_ROUTING)
 		return true;
-	if (strcmp(tablename, "filter") != 0)
+	if (strcmp(par->table, "filter") != 0)
 		return false;
-	invalid = hook_mask & ~((1 << NF_IP_LOCAL_IN) | (1 << NF_IP_FORWARD));
+	invalid = par->hook_mask & ~((1 << NF_IP_LOCAL_IN) | (1 << NF_IP_FORWARD));
 	return !invalid;
 }
 

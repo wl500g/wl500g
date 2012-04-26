@@ -47,18 +47,13 @@ MODULE_ALIAS("ip6t_dst");
  *	5	-> RTALERT 2 x x
  */
 
+static struct xt_match hbh_mt6_reg[] __read_mostly;
+
 static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	struct ipv6_opt_hdr _optsh, *oh;
-	const struct ip6t_opts *optinfo = matchinfo;
+	const struct ip6t_opts *optinfo = par->matchinfo;
 	unsigned int temp;
 	unsigned int ptr;
 	unsigned int hdrlen = 0;
@@ -68,16 +63,18 @@ match(const struct sk_buff *skb,
 	unsigned int optlen;
 	int err;
 
-	err = ipv6_find_hdr(skb, &ptr, match->data, NULL);
+	err = ipv6_find_hdr(skb, &ptr,
+			    (par->match == &hbh_mt6_reg[0]) ?
+			    NEXTHDR_HOP : NEXTHDR_DEST, NULL);
 	if (err < 0) {
 		if (err != -ENOENT)
-			*hotdrop = true;
+			par->hotdrop = true;
 		return false;
 	}
 
 	oh = skb_header_pointer(skb, ptr, sizeof(_optsh), &_optsh);
 	if (oh == NULL) {
-		*hotdrop = true;
+		par->hotdrop = true;
 		return false;
 	}
 
@@ -173,15 +170,9 @@ match(const struct sk_buff *skb,
 	return false;
 }
 
-/* Called when user tries to insert an entry of this type. */
-static bool
-checkentry(const char *tablename,
-	   const void *entry,
-	   const struct xt_match *match,
-	   void *matchinfo,
-	   unsigned int hook_mask)
+static bool checkentry(const struct xt_mtchk_param *par)
 {
-	const struct ip6t_opts *optsinfo = matchinfo;
+	const struct ip6t_opts *optsinfo = par->matchinfo;
 
 	if (optsinfo->invflags & ~IP6T_OPTS_INV_MASK) {
 		DEBUGP("ip6t_opts: unknown flags %X\n", optsinfo->invflags);
@@ -190,15 +181,15 @@ checkentry(const char *tablename,
 	return true;
 }
 
-static struct xt_match opts_match[] __read_mostly = {
+static struct xt_match hbh_mt6_reg[] __read_mostly = {
 	{
+		/* Note, hbh_mt6 relies on the order of hbh_mt6_reg */
 		.name		= "hbh",
 		.family		= AF_INET6,
 		.match		= match,
 		.matchsize	= sizeof(struct ip6t_opts),
 		.checkentry	= checkentry,
 		.me		= THIS_MODULE,
-		.data		= NEXTHDR_HOP,
 	},
 	{
 		.name		= "dst",
@@ -207,18 +198,17 @@ static struct xt_match opts_match[] __read_mostly = {
 		.matchsize	= sizeof(struct ip6t_opts),
 		.checkentry	= checkentry,
 		.me		= THIS_MODULE,
-		.data		= NEXTHDR_DEST,
 	},
 };
 
 static int __init ip6t_hbh_init(void)
 {
-	return xt_register_matches(opts_match, ARRAY_SIZE(opts_match));
+	return xt_register_matches(hbh_mt6_reg, ARRAY_SIZE(hbh_mt6_reg));
 }
 
 static void __exit ip6t_hbh_fini(void)
 {
-	xt_unregister_matches(opts_match, ARRAY_SIZE(opts_match));
+	xt_unregister_matches(hbh_mt6_reg, ARRAY_SIZE(hbh_mt6_reg));
 }
 
 module_init(ip6t_hbh_init);

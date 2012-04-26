@@ -66,21 +66,24 @@ static struct xt_target ebt_standard_target = {
 	.targetsize = sizeof(int),
 };
 
-static inline int ebt_do_watcher (struct ebt_entry_watcher *w,
-   struct sk_buff *skb, unsigned int hooknr, const struct net_device *in,
-   const struct net_device *out)
+static inline int
+ebt_do_watcher(const struct ebt_entry_watcher *w, struct sk_buff *skb,
+	       struct xt_action_param *par)
 {
-	w->u.watcher->target(skb, in, out, hooknr, w->u.watcher, w->data);
+	par->target   = w->u.watcher;
+	par->targinfo = w->data;
+	w->u.watcher->target(skb, par);
 	/* watchers don't give a verdict */
 	return 0;
 }
 
-static inline int ebt_do_match (struct ebt_entry_match *m,
-   const struct sk_buff *skb, const struct net_device *in,
-   const struct net_device *out, bool *hotdrop)
+static inline int
+ebt_do_match(struct ebt_entry_match *m, const struct sk_buff *skb,
+	     struct xt_action_param *par)
 {
-	return m->u.match->match(skb, in, out, m->u.match,
-	       m->data, 0, 0, hotdrop);
+	par->match     = m->u.match;
+	par->matchinfo = m->data;
+	return m->u.match->match(skb, par);
 }
 
 static inline int ebt_dev_check(char *entry, const struct net_device *device)
@@ -156,7 +159,13 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
 	struct ebt_entries *chaininfo;
 	char *base;
 	struct ebt_table_info *private;
-	bool hotdrop = false;
+	struct xt_action_param acpar;
+
+	acpar.family  = NFPROTO_BRIDGE;
+	acpar.in      = in;
+	acpar.out     = out;
+	acpar.hotdrop = false;
+	acpar.hooknum = hook;
 
 	read_lock_bh(&table->lock);
 	private = table->private;
@@ -177,10 +186,9 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
 		if (ebt_basic_match(point, eth_hdr(skb), in, out))
 			goto letscontinue;
 
-		if (EBT_MATCH_ITERATE(point, ebt_do_match, skb,
-		    in, out, &hotdrop) != 0)
+		if (EBT_MATCH_ITERATE(point, ebt_do_match, skb, &acpar) != 0)
 			goto letscontinue;
-		if (hotdrop) {
+		if (acpar.hotdrop) {
 			read_unlock_bh(&table->lock);
 			return NF_DROP;
 		}
@@ -191,17 +199,18 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
 
 		/* these should only watch: not modify, nor tell us
 		   what to do with the packet */
-		EBT_WATCHER_ITERATE(point, ebt_do_watcher, skb, hook, in,
-		   out);
+		EBT_WATCHER_ITERATE(point, ebt_do_watcher, skb, &acpar);
 
 		t = (struct ebt_entry_target *)
 		   (((char *)point) + point->target_offset);
 		/* standard target */
 		if (!t->u.target->target)
 			verdict = ((struct ebt_standard_target *)t)->verdict;
-		else
-			verdict = t->u.target->target(skb, in, out, hook,
-				  t->u.target, t->data);
+		else {
+			acpar.target   = t->u.target;
+			acpar.targinfo = t->data;
+			verdict = t->u.target->target(skb, &acpar);
+		}
 		if (verdict == EBT_ACCEPT) {
 			read_unlock_bh(&table->lock);
 			return NF_ACCEPT;
@@ -322,9 +331,10 @@ find_table_lock(const char *name, int *error, struct mutex *mutex)
 }
 
 static inline int
-ebt_check_match(struct ebt_entry_match *m, struct ebt_entry *e,
-   const char *name, unsigned int hookmask, unsigned int *cnt)
+ebt_check_match(struct ebt_entry_match *m, struct xt_mtchk_param *par,
+		unsigned int *cnt)
 {
+	const struct ebt_entry *e = par->entryinfo;
 	struct xt_match *match;
 	size_t left = ((char *)e + e->watchers_offset) - (char *)m;
 	int ret;
@@ -341,9 +351,10 @@ ebt_check_match(struct ebt_entry_match *m, struct ebt_entry *e,
 		return -ENOENT;
 	m->u.match = match;
 
-	ret = xt_check_match(match, NFPROTO_BRIDGE, m->match_size,
-	      name, hookmask, e->ethproto, e->invflags & EBT_IPROTO,
-	      e, m->data);
+	par->match     = match;
+	par->matchinfo = m->data;
+	ret = xt_check_match(par, m->match_size,
+	      e->ethproto, e->invflags & EBT_IPROTO);
 	if (ret < 0) {
 		module_put(match->me);
 		return ret;
@@ -354,9 +365,10 @@ ebt_check_match(struct ebt_entry_match *m, struct ebt_entry *e,
 }
 
 static inline int
-ebt_check_watcher(struct ebt_entry_watcher *w, struct ebt_entry *e,
-   const char *name, unsigned int hookmask, unsigned int *cnt)
+ebt_check_watcher(struct ebt_entry_watcher *w, struct xt_tgchk_param *par,
+		  unsigned int *cnt)
 {
+	const struct ebt_entry *e = par->entryinfo;
 	struct xt_target *watcher;
 	size_t left = ((char *)e + e->target_offset) - (char *)w;
 	int ret;
@@ -374,9 +386,10 @@ ebt_check_watcher(struct ebt_entry_watcher *w, struct ebt_entry *e,
 		return -ENOENT;
 	w->u.watcher = watcher;
 
-	ret = xt_check_target(watcher, NFPROTO_BRIDGE, w->watcher_size,
-	      name, hookmask, e->ethproto, e->invflags & EBT_IPROTO,
-	      e, w->data);
+	par->target   = watcher;
+	par->targinfo = w->data;
+	ret = xt_check_target(par, w->watcher_size,
+	      e->ethproto, e->invflags & EBT_IPROTO);
 	if (ret < 0) {
 		module_put(watcher->me);
 		return ret;
@@ -554,30 +567,41 @@ ebt_get_udc_positions(struct ebt_entry *e, struct ebt_table_info *newinfo,
 static inline int
 ebt_cleanup_match(struct ebt_entry_match *m, unsigned int *i)
 {
+	struct xt_mtdtor_param par;
+
 	if (i && (*i)-- == 0)
 		return 1;
-	if (m->u.match->destroy)
-		m->u.match->destroy(m->u.match, m->data);
-	module_put(m->u.match->me);
 
+	par.match     = m->u.match;
+	par.matchinfo = m->data;
+	par.family    = NFPROTO_BRIDGE;
+	if (par.match->destroy != NULL)
+		par.match->destroy(&par);
+	module_put(par.match->me);
 	return 0;
 }
 
 static inline int
 ebt_cleanup_watcher(struct ebt_entry_watcher *w, unsigned int *i)
 {
+	struct xt_tgdtor_param par;
+
 	if (i && (*i)-- == 0)
 		return 1;
-	if (w->u.watcher->destroy)
-		w->u.watcher->destroy(w->u.watcher, w->data);
-	module_put(w->u.watcher->me);
 
+	par.target   = w->u.watcher;
+	par.targinfo = w->data;
+	par.family   = NFPROTO_BRIDGE;
+	if (par.target->destroy != NULL)
+		par.target->destroy(&par);
+	module_put(par.target->me);
 	return 0;
 }
 
 static inline int
 ebt_cleanup_entry(struct ebt_entry *e, unsigned int *cnt)
 {
+	struct xt_tgdtor_param par;
 	struct ebt_entry_target *t;
 
 	if (e->bitmask == 0)
@@ -588,10 +612,13 @@ ebt_cleanup_entry(struct ebt_entry *e, unsigned int *cnt)
 	EBT_WATCHER_ITERATE(e, ebt_cleanup_watcher, NULL);
 	EBT_MATCH_ITERATE(e, ebt_cleanup_match, NULL);
 	t = (struct ebt_entry_target *)(((char *)e) + e->target_offset);
-	if (t->u.target->destroy)
-		t->u.target->destroy(t->u.target, t->data);
-	module_put(t->u.target->me);
 
+	par.target   = t->u.target;
+	par.targinfo = t->data;
+	par.family   = NFPROTO_BRIDGE;
+	if (par.target->destroy != NULL)
+		par.target->destroy(&par);
+	module_put(par.target->me);
 	return 0;
 }
 
@@ -605,6 +632,8 @@ ebt_check_entry(struct ebt_entry *e, struct ebt_table_info *newinfo,
 	unsigned int i, j, hook = 0, hookmask = 0;
 	size_t gap;
 	int ret;
+	struct xt_mtchk_param mtpar;
+	struct xt_tgchk_param tgpar;
 
 	/* don't mess with the struct ebt_entries */
 	if (e->bitmask == 0)
@@ -645,11 +674,16 @@ ebt_check_entry(struct ebt_entry *e, struct ebt_table_info *newinfo,
 			hookmask = cl_s[i - 1].hookmask;
 	}
 	i = 0;
-	ret = EBT_MATCH_ITERATE(e, ebt_check_match, e, name, hookmask, &i);
+
+	mtpar.table     = tgpar.table     = name;
+	mtpar.entryinfo = tgpar.entryinfo = e;
+	mtpar.hook_mask = tgpar.hook_mask = hookmask;
+	mtpar.family    = tgpar.family    = NFPROTO_BRIDGE;
+	ret = EBT_MATCH_ITERATE(e, ebt_check_match, &mtpar, &i);
 	if (ret != 0)
 		goto cleanup_matches;
 	j = 0;
-	ret = EBT_WATCHER_ITERATE(e, ebt_check_watcher, e, name, hookmask, &j);
+	ret = EBT_WATCHER_ITERATE(e, ebt_check_watcher, &tgpar, &j);
 	if (ret != 0)
 		goto cleanup_watchers;
 	t = (struct ebt_entry_target *)(((char *)e) + e->target_offset);
@@ -685,9 +719,10 @@ ebt_check_entry(struct ebt_entry *e, struct ebt_table_info *newinfo,
 		goto cleanup_watchers;
 	}
 
-	ret = xt_check_target(target, NFPROTO_BRIDGE, t->target_size,
-	      name, hookmask, e->ethproto, e->invflags & EBT_IPROTO,
-	      e, t->data);
+	tgpar.target   = target;
+	tgpar.targinfo = t->data;
+	ret = xt_check_target(&tgpar, t->target_size,
+	      e->ethproto, e->invflags & EBT_IPROTO);
 	if (ret < 0) {
 		module_put(target->me);
 		goto cleanup_watchers;

@@ -16,11 +16,9 @@
 #include <linux/netfilter_bridge/ebt_arpreply.h>
 
 static unsigned int
-ebt_arpreply_tg(struct sk_buff *skb, const struct net_device *in,
-		const struct net_device *out, unsigned int hook_nr,
-		const struct xt_target *target, const void *data)
+ebt_arpreply_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ebt_arpreply_info *info = data;
+	const struct ebt_arpreply_info *info = par->targinfo;
 	const __be32 *siptr, *diptr;
 	__be32 _sip, _dip;
 	const struct arphdr *ap;
@@ -53,26 +51,22 @@ ebt_arpreply_tg(struct sk_buff *skb, const struct net_device *in,
 	if (diptr == NULL)
 		return EBT_DROP;
 
-	arp_send(ARPOP_REPLY, ETH_P_ARP, *siptr, (struct net_device *)in,
+	arp_send(ARPOP_REPLY, ETH_P_ARP, *siptr, (struct net_device *)par->in,
 		 *diptr, shp, info->mac, shp);
 
 	return info->target;
 }
 
-static bool
-ebt_arpreply_tg_check(const char *tablename, const void *entry,
-		      const struct xt_target *target, void *data,
-		      unsigned int hookmask)
+static bool ebt_arpreply_tg_check(const struct xt_tgchk_param *par)
 {
-	const struct ebt_arpreply_info *info = data;
-	const struct ebt_entry *e = entry;
+	const struct ebt_arpreply_info *info = par->targinfo;
+	const struct ebt_entry *e = par->entryinfo;
 
 	if (BASE_CHAIN && info->target == EBT_RETURN)
 		return false;
 	if (e->ethproto != htons(ETH_P_ARP) ||
 	    e->invflags & EBT_IPROTO)
 		return false;
-	CLEAR_BASE_CHAIN_BIT;
 	return true;
 }
 

@@ -21,16 +21,10 @@ MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_string");
 MODULE_ALIAS("ip6t_string");
 
-static bool match(const struct sk_buff *skb,
-		  const struct net_device *in,
-		  const struct net_device *out,
-		  const struct xt_match *match,
-		  const void *matchinfo,
-		  int offset,
-		  unsigned int protoff,
-		  bool *hotdrop)
+static bool
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_string_info *conf = matchinfo;
+	const struct xt_string_info *conf = par->matchinfo;
 	struct ts_state state;
 	bool invert;
 
@@ -44,13 +38,9 @@ static bool match(const struct sk_buff *skb,
 
 #define STRING_TEXT_PRIV(m) ((struct xt_string_info *) m)
 
-static bool checkentry(const char *tablename,
-		       const void *ip,
-		       const struct xt_match *match,
-		       void *matchinfo,
-		       unsigned int hook_mask)
+static bool checkentry(const struct xt_mtchk_param *par)
 {
-	struct xt_string_info *conf = matchinfo;
+	struct xt_string_info *conf = par->matchinfo;
 	struct ts_config *ts_conf;
 	int flags = TS_AUTOLOAD;
 
@@ -76,9 +66,9 @@ static bool checkentry(const char *tablename,
 	return 1;
 }
 
-static void destroy(const struct xt_match *match, void *matchinfo)
+static void destroy(const struct xt_mtdtor_param *par)
 {
-	textsearch_destroy(STRING_TEXT_PRIV(matchinfo)->config);
+	textsearch_destroy(STRING_TEXT_PRIV(par->matchinfo)->config);
 }
 
 static struct xt_match xt_string_match __read_mostly = {

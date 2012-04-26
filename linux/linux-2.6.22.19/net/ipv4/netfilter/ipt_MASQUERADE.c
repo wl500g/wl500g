@@ -34,14 +34,9 @@ MODULE_DESCRIPTION("iptables MASQUERADE target module");
 #endif
 
 /* FIXME: Multiple targets. --RR */
-static bool
-masquerade_check(const char *tablename,
-		 const void *e,
-		 const struct xt_target *target,
-		 void *targinfo,
-		 unsigned int hook_mask)
+static bool masquerade_check(const struct xt_tgchk_param *par)
 {
-	const struct nf_nat_multi_range_compat *mr = targinfo;
+	const struct nf_nat_multi_range_compat *mr = par->targinfo;
 
 	if (mr->range[0].flags & IP_NAT_RANGE_MAP_IPS) {
 		DEBUGP("masquerade_check: bad MAP_IPS.\n");
@@ -55,12 +50,7 @@ masquerade_check(const char *tablename,
 }
 
 static unsigned int
-masquerade_target(struct sk_buff *skb,
-		  const struct net_device *in,
-		  const struct net_device *out,
-		  unsigned int hooknum,
-		  const struct xt_target *target,
-		  const void *targinfo)
+masquerade_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	struct nf_conn *ct;
 	struct nf_conn_nat *nat;
@@ -70,7 +60,7 @@ masquerade_target(struct sk_buff *skb,
 	struct rtable *rt;
 	__be32 newsrc;
 
-	NF_CT_ASSERT(hooknum == NF_IP_POST_ROUTING);
+	NF_CT_ASSERT(par->hooknum == NF_IP_POST_ROUTING);
 
 	ct = nf_ct_get(skb, &ctinfo);
 	nat = nfct_nat(ct);
@@ -84,15 +74,15 @@ masquerade_target(struct sk_buff *skb,
 	if (ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip == 0)
 		return NF_ACCEPT;
 
-	mr = targinfo;
+	mr = par->targinfo;
 	rt = (struct rtable *)skb->dst;
-	newsrc = inet_select_addr(out, rt->rt_gateway, RT_SCOPE_UNIVERSE);
+	newsrc = inet_select_addr(par->out, rt->rt_gateway, RT_SCOPE_UNIVERSE);
 	if (!newsrc) {
-		printk("MASQUERADE: %s ate my IP address\n", out->name);
+		printk("MASQUERADE: %s ate my IP address\n", par->out->name);
 		return NF_DROP;
 	}
 
-	nat->masq_index = out->ifindex;
+	nat->masq_index = par->out->ifindex;
 
 	/* Transfer from original range. */
 	newrange = ((struct nf_nat_range)
@@ -101,7 +91,7 @@ masquerade_target(struct sk_buff *skb,
 		  mr->range[0].min, mr->range[0].max });
 
 	/* Hand modified range to generic setup. */
-	return nf_nat_setup_info(ct, &newrange, hooknum);
+	return nf_nat_setup_info(ct, &newrange, par->hooknum);
 }
 
 static inline int

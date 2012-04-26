@@ -72,11 +72,12 @@ static u_int32_t tcpmss_reverse_mtu(const struct sk_buff *skb,
 
 static int
 tcpmss_mangle_packet(struct sk_buff *skb,
-		     const struct xt_tcpmss_info *info,
+		     const struct xt_action_param *par,
 		     unsigned int family,
 		     unsigned int tcphoff,
 		     unsigned int minlen)
 {
+	const struct xt_tcpmss_info *info = par->targinfo;
 	struct tcphdr *tcph;
 	int len, tcp_hdrlen;
 	unsigned int i;
@@ -196,18 +197,13 @@ tcpmss_mangle_packet(struct sk_buff *skb,
 }
 
 static unsigned int
-xt_tcpmss_target4(struct sk_buff *skb,
-		  const struct net_device *in,
-		  const struct net_device *out,
-		  unsigned int hooknum,
-		  const struct xt_target *target,
-		  const void *targinfo)
+xt_tcpmss_target4(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	struct iphdr *iph = ip_hdr(skb);
 	__be16 newlen;
 	int ret;
 
-	ret = tcpmss_mangle_packet(skb, targinfo,
+	ret = tcpmss_mangle_packet(skb, par,
 				   PF_INET,
 				   iph->ihl * 4,
 				   sizeof(*iph) + sizeof(struct tcphdr));
@@ -224,12 +220,7 @@ xt_tcpmss_target4(struct sk_buff *skb,
 
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 static unsigned int
-xt_tcpmss_target6(struct sk_buff *skb,
-		  const struct net_device *in,
-		  const struct net_device *out,
-		  unsigned int hooknum,
-		  const struct xt_target *target,
-		  const void *targinfo)
+xt_tcpmss_target6(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
 	u8 nexthdr;
@@ -240,7 +231,7 @@ xt_tcpmss_target6(struct sk_buff *skb,
 	tcphoff = ipv6_skip_exthdr(skb, sizeof(*ipv6h), &nexthdr);
 	if (tcphoff < 0)
 		return NF_DROP;
-	ret = tcpmss_mangle_packet(skb, targinfo,
+	ret = tcpmss_mangle_packet(skb, par,
 				   PF_INET6,
 				   tcphoff,
 				   sizeof(*ipv6h) + sizeof(struct tcphdr));
@@ -269,18 +260,13 @@ static inline bool find_syn_match(const struct xt_entry_match *m)
 	return false;
 }
 
-static bool
-xt_tcpmss_checkentry4(const char *tablename,
-		      const void *entry,
-		      const struct xt_target *target,
-		      void *targinfo,
-		      unsigned int hook_mask)
+static bool xt_tcpmss_checkentry4(const struct xt_tgchk_param *par)
 {
-	const struct xt_tcpmss_info *info = targinfo;
-	const struct ipt_entry *e = entry;
+	const struct xt_tcpmss_info *info = par->targinfo;
+	const struct ipt_entry *e = par->entryinfo;
 
 	if (info->mss == XT_TCPMSS_CLAMP_PMTU &&
-	    (hook_mask & ~((1 << NF_IP_FORWARD) |
+	    (par->hook_mask & ~((1 << NF_IP_FORWARD) |
 			   (1 << NF_IP_LOCAL_OUT) |
 			   (1 << NF_IP_POST_ROUTING))) != 0) {
 		printk("xt_TCPMSS: path-MTU clamping only supported in "
@@ -294,18 +280,13 @@ xt_tcpmss_checkentry4(const char *tablename,
 }
 
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
-static bool
-xt_tcpmss_checkentry6(const char *tablename,
-		      const void *entry,
-		      const struct xt_target *target,
-		      void *targinfo,
-		      unsigned int hook_mask)
+static bool xt_tcpmss_checkentry6(const struct xt_tgchk_param *par)
 {
-	const struct xt_tcpmss_info *info = targinfo;
-	const struct ip6t_entry *e = entry;
+	const struct xt_tcpmss_info *info = par->targinfo;
+	const struct ip6t_entry *e = par->entryinfo;
 
 	if (info->mss == XT_TCPMSS_CLAMP_PMTU &&
-	    (hook_mask & ~((1 << NF_IP6_FORWARD) |
+	    (par->hook_mask & ~((1 << NF_IP6_FORWARD) |
 			   (1 << NF_IP6_LOCAL_OUT) |
 			   (1 << NF_IP6_POST_ROUTING))) != 0) {
 		printk("xt_TCPMSS: path-MTU clamping only supported in "

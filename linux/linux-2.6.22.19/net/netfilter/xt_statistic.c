@@ -29,12 +29,9 @@ MODULE_ALIAS("ip6t_statistic");
 static DEFINE_SPINLOCK(nth_lock);
 
 static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in, const struct net_device *out,
-      const struct xt_match *match, const void *matchinfo,
-      int offset, unsigned int protoff, bool *hotdrop)
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_statistic_info *info = matchinfo;
+	const struct xt_statistic_info *info = (void *)par->matchinfo;
 	bool ret = info->flags & XT_STATISTIC_INVERT;
 
 	switch (info->mode) {
@@ -55,12 +52,9 @@ match(const struct sk_buff *skb,
 	return ret;
 }
 
-static bool
-checkentry(const char *tablename, const void *entry,
-	   const struct xt_match *match, void *matchinfo,
-	   unsigned int hook_mask)
+static bool checkentry(const struct xt_mtchk_param *par)
 {
-	struct xt_statistic_info *info = (struct xt_statistic_info *)matchinfo;
+	struct xt_statistic_info *info = par->matchinfo;
 
 	if (info->mode > XT_STATISTIC_MODE_MAX ||
 	    info->flags & ~XT_STATISTIC_MASK)
@@ -76,9 +70,9 @@ checkentry(const char *tablename, const void *entry,
 	return 1;
 }
 
-static void statistic_mt_destroy(const struct xt_match *match, void *matchinfo)
+static void statistic_mt_destroy(const struct xt_mtdtor_param *par)
 {
-	const struct xt_statistic_info *info = matchinfo;
+	const struct xt_statistic_info *info = par->matchinfo;
 
 	kfree(info->master);
 }

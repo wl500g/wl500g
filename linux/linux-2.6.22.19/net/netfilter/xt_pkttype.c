@@ -22,24 +22,18 @@ MODULE_DESCRIPTION("IP tables match to match on linklayer packet type");
 MODULE_ALIAS("ipt_pkttype");
 MODULE_ALIAS("ip6t_pkttype");
 
-static bool match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+static bool
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_pkttype_info *info = matchinfo;
+	const struct xt_pkttype_info *info = par->matchinfo;
 	u_int8_t type;
 
 	if (skb->pkt_type != PACKET_LOOPBACK)
 		type = skb->pkt_type;
-	else if (match->family == AF_INET &&
+	else if (par->family == NFPROTO_IPV4 &&
 	    MULTICAST(ip_hdr(skb)->daddr))
 		type = PACKET_MULTICAST;
-	else if (match->family == AF_INET6 &&
+	else if (par->family == NFPROTO_IPV6 &&
 	    ipv6_hdr(skb)->daddr.s6_addr[0] == 0xFF)
 		type = PACKET_MULTICAST;
 	else

@@ -24,12 +24,9 @@
 
 static DEFINE_SPINLOCK(ebt_log_lock);
 
-static bool
-ebt_log_tg_check(const char *table, const void *entry,
-		 const struct xt_target *target, void *data,
-		 unsigned int hook_mask)
+static bool ebt_log_tg_check(const struct xt_tgchk_param *par)
 {
-	struct ebt_log_info *info = data;
+	struct ebt_log_info *info = par->targinfo;
 
 	if (info->bitmask & ~EBT_LOG_MASK)
 		return false;
@@ -195,11 +192,9 @@ out:
 }
 
 static unsigned int
-ebt_log_tg(struct sk_buff *skb, const struct net_device *in,
-	   const struct net_device *out, unsigned int hooknr,
-	   const struct xt_target *target, const void *data)
+ebt_log_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ebt_log_info *info = data;
+	const struct ebt_log_info *info = par->targinfo;
 	struct nf_loginfo li;
 
 	li.type = NF_LOG_TYPE_LOG;
@@ -207,11 +202,11 @@ ebt_log_tg(struct sk_buff *skb, const struct net_device *in,
 	li.u.log.logflags = info->bitmask;
 
 	if (info->bitmask & EBT_LOG_NFLOG)
-		nf_log_packet(PF_BRIDGE, hooknr, skb, in, out, &li,
-			      "%s", info->prefix);
+		nf_log_packet(NFPROTO_BRIDGE, par->hooknum, skb, par->in,
+		              par->out, &li, "%s", info->prefix);
 	else
-		ebt_log_packet(PF_BRIDGE, hooknr, skb, in, out, &li,
-			       info->prefix);
+		ebt_log_packet(NFPROTO_BRIDGE, par->hooknum, skb, par->in,
+		               par->out, &li, info->prefix);
 	return EBT_CONTINUE;
 }
 

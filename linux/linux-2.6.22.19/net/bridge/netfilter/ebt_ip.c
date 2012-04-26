@@ -25,11 +25,9 @@ struct tcpudphdr {
 };
 
 static bool
-ebt_ip_mt(const struct sk_buff *skb, const struct net_device *in,
-	  const struct net_device *out, const struct xt_match *match,
-	  const void *data, int offset, unsigned int protoff, bool *hotdrop)
+ebt_ip_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ebt_ip_info *info = data;
+	const struct ebt_ip_info *info = par->matchinfo;
 	const struct iphdr *ih;
 	struct iphdr _iph;
 	const struct tcpudphdr *pptr;
@@ -79,13 +77,10 @@ ebt_ip_mt(const struct sk_buff *skb, const struct net_device *in,
 	return true;
 }
 
-static bool
-ebt_ip_mt_check(const char *table, const void *entry,
-		const struct xt_match *match, void *data,
-		unsigned int hook_mask)
+static bool ebt_ip_mt_check(const struct xt_mtchk_param *par)
 {
-	const struct ebt_ip_info *info = data;
-	const struct ebt_entry *e = entry;
+	const struct ebt_ip_info *info = par->matchinfo;
+	const struct ebt_entry *e = par->entryinfo;
 
 	if (e->ethproto != htons(ETH_P_IP) ||
 	   e->invflags & EBT_IPROTO)

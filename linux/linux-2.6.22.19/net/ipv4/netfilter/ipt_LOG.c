@@ -449,32 +449,23 @@ ipt_log_packet(unsigned int pf,
 }
 
 static unsigned int
-ipt_log_target(struct sk_buff *skb,
-	       const struct net_device *in,
-	       const struct net_device *out,
-	       unsigned int hooknum,
-	       const struct xt_target *target,
-	       const void *targinfo)
+ipt_log_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ipt_log_info *loginfo = targinfo;
+	const struct ipt_log_info *loginfo = par->targinfo;
 	struct nf_loginfo li;
 
 	li.type = NF_LOG_TYPE_LOG;
 	li.u.log.level = loginfo->level;
 	li.u.log.logflags = loginfo->logflags;
 
-	ipt_log_packet(PF_INET, hooknum, skb, in, out, &li,
+	ipt_log_packet(NFPROTO_IPV4, par->hooknum, skb, par->in, par->out, &li,
 		       loginfo->prefix);
 	return XT_CONTINUE;
 }
 
-static bool ipt_log_checkentry(const char *tablename,
-			       const void *e,
-			       const struct xt_target *target,
-			       void *targinfo,
-			       unsigned int hook_mask)
+static bool ipt_log_checkentry(const struct xt_tgchk_param *par)
 {
-	const struct ipt_log_info *loginfo = targinfo;
+	const struct ipt_log_info *loginfo = par->targinfo;
 
 	if (loginfo->level >= 8) {
 		DEBUGP("LOG: level %u >= 8\n", loginfo->level);

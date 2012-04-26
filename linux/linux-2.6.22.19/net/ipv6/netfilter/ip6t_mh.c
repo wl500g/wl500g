@@ -37,36 +37,28 @@ type_match(u_int8_t min, u_int8_t max, u_int8_t type, bool invert)
 	return (type >= min && type <= max) ^ invert;
 }
 
-static bool
-match(const struct sk_buff *skb,
-	 const struct net_device *in,
-	 const struct net_device *out,
-	 const struct xt_match *match,
-	 const void *matchinfo,
-	 int offset,
-	 unsigned int protoff,
-	 bool *hotdrop)
+static bool match(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	struct ip6_mh _mh, *mh;
-	const struct ip6t_mh *mhinfo = matchinfo;
+	const struct ip6t_mh *mhinfo = par->matchinfo;
 
 	/* Must not be a fragment. */
-	if (offset)
+	if (par->fragoff != 0)
 		return false;
 
-	mh = skb_header_pointer(skb, protoff, sizeof(_mh), &_mh);
+	mh = skb_header_pointer(skb, par->thoff, sizeof(_mh), &_mh);
 	if (mh == NULL) {
 		/* We've been asked to examine this packet, and we
 		   can't.  Hence, no choice but to drop. */
 		duprintf("Dropping evil MH tinygram.\n");
-		*hotdrop = true;
+		par->hotdrop = true;
 		return false;
 	}
 
 	if (mh->ip6mh_proto != IPPROTO_NONE) {
 		duprintf("Dropping invalid MH Payload Proto: %u\n",
 			 mh->ip6mh_proto);
-		*hotdrop = true;
+		par->hotdrop = true;
 		return false;
 	}
 
@@ -74,15 +66,9 @@ match(const struct sk_buff *skb,
 			  !!(mhinfo->invflags & IP6T_MH_INV_TYPE));
 }
 
-/* Called when user tries to insert an entry of this type. */
-static bool
-mh_checkentry(const char *tablename,
-	      const void *entry,
-	      const struct xt_match *match,
-	      void *matchinfo,
-	      unsigned int hook_mask)
+static bool mh_checkentry(const struct xt_mtchk_param *par)
 {
-	const struct ip6t_mh *mhinfo = matchinfo;
+	const struct ip6t_mh *mhinfo = par->matchinfo;
 
 	/* Must specify no unknown invflags */
 	return !(mhinfo->invflags & ~IP6T_MH_INV_MASK);

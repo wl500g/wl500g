@@ -179,14 +179,10 @@ send_unreach(struct sk_buff *skb_in, unsigned char code, unsigned int hooknum)
 	icmpv6_send(skb_in, ICMPV6_DEST_UNREACH, code, 0, NULL);
 }
 
-static unsigned int reject6_target(struct sk_buff *skb,
-			   const struct net_device *in,
-			   const struct net_device *out,
-			   unsigned int hooknum,
-			   const struct xt_target *target,
-			   const void *targinfo)
+static unsigned int
+reject6_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ip6t_reject_info *reject = targinfo;
+	const struct ip6t_reject_info *reject = par->targinfo;
 
 	DEBUGP(KERN_DEBUG "%s: medium point\n", __FUNCTION__);
 	/* WARNING: This code causes reentry within ip6tables.
@@ -194,19 +190,19 @@ static unsigned int reject6_target(struct sk_buff *skb,
 	   must return an absolute verdict. --RR */
 	switch (reject->with) {
 	case IP6T_ICMP6_NO_ROUTE:
-		send_unreach(skb, ICMPV6_NOROUTE, hooknum);
+		send_unreach(skb, ICMPV6_NOROUTE, par->hooknum);
 		break;
 	case IP6T_ICMP6_ADM_PROHIBITED:
-		send_unreach(skb, ICMPV6_ADM_PROHIBITED, hooknum);
+		send_unreach(skb, ICMPV6_ADM_PROHIBITED, par->hooknum);
 		break;
 	case IP6T_ICMP6_NOT_NEIGHBOUR:
-		send_unreach(skb, ICMPV6_NOT_NEIGHBOUR, hooknum);
+		send_unreach(skb, ICMPV6_NOT_NEIGHBOUR, par->hooknum);
 		break;
 	case IP6T_ICMP6_ADDR_UNREACH:
-		send_unreach(skb, ICMPV6_ADDR_UNREACH, hooknum);
+		send_unreach(skb, ICMPV6_ADDR_UNREACH, par->hooknum);
 		break;
 	case IP6T_ICMP6_PORT_UNREACH:
-		send_unreach(skb, ICMPV6_PORT_UNREACH, hooknum);
+		send_unreach(skb, ICMPV6_PORT_UNREACH, par->hooknum);
 		break;
 	case IP6T_ICMP6_ECHOREPLY:
 		/* Do nothing */
@@ -223,14 +219,10 @@ static unsigned int reject6_target(struct sk_buff *skb,
 	return NF_DROP;
 }
 
-static bool check(const char *tablename,
-		  const void *entry,
-		  const struct xt_target *target,
-		  void *targinfo,
-		  unsigned int hook_mask)
+static bool check(const struct xt_tgchk_param *par)
 {
-	const struct ip6t_reject_info *rejinfo = targinfo;
-	const struct ip6t_entry *e = entry;
+	const struct ip6t_reject_info *rejinfo = par->targinfo;
+	const struct ip6t_entry *e = par->entryinfo;
 
 	if (rejinfo->with == IP6T_ICMP6_ECHOREPLY) {
 		printk("ip6t_REJECT: ECHOREPLY is not supported.\n");

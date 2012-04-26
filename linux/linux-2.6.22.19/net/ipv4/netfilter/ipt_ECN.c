@@ -77,14 +77,9 @@ set_ect_tcp(struct sk_buff *skb, const struct ipt_ECN_info *einfo)
 }
 
 static unsigned int
-target(struct sk_buff *skb,
-       const struct net_device *in,
-       const struct net_device *out,
-       unsigned int hooknum,
-       const struct xt_target *target,
-       const void *targinfo)
+target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ipt_ECN_info *einfo = targinfo;
+	const struct ipt_ECN_info *einfo = par->targinfo;
 
 	if (einfo->operation & IPT_ECN_OP_SET_IP)
 		if (!set_ect_ip(skb, einfo))
@@ -98,15 +93,10 @@ target(struct sk_buff *skb,
 	return XT_CONTINUE;
 }
 
-static bool
-checkentry(const char *tablename,
-	   const void *e_void,
-	   const struct xt_target *target,
-	   void *targinfo,
-	   unsigned int hook_mask)
+static bool checkentry(const struct xt_tgchk_param *par)
 {
-	const struct ipt_ECN_info *einfo = (struct ipt_ECN_info *)targinfo;
-	const struct ipt_entry *e = e_void;
+	const struct ipt_ECN_info *einfo = par->targinfo;
+	const struct ipt_entry *e = par->entryinfo;
 
 	if (einfo->operation & IPT_ECN_OP_MASK) {
 		printk(KERN_WARNING "ECN: unsupported ECN operation %x\n",

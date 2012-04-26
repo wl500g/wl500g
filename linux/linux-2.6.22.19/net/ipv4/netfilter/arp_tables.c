@@ -213,15 +213,12 @@ static inline int arp_checkentry(const struct arpt_arp *arp)
 	return 1;
 }
 
-static unsigned int arpt_error(struct sk_buff *skb,
-			       const struct net_device *in,
-			       const struct net_device *out,
-			       unsigned int hooknum,
-			       const struct xt_target *target,
-			       const void *targinfo)
+static unsigned int
+arpt_error(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	if (net_ratelimit())
-		printk("arp_tables: error: '%s'\n", (char *)targinfo);
+		printk("arp_tables: error: '%s'\n",
+		       (const char *)par->targinfo);
 
 	return NF_DROP;
 }
@@ -240,11 +237,11 @@ unsigned int arpt_do_table(struct sk_buff *skb,
 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
 	unsigned int verdict = NF_DROP;
 	struct arphdr *arp;
-	bool hotdrop = false;
 	struct arpt_entry *e, *back;
 	const char *indev, *outdev;
 	void *table_base;
 	struct xt_table_info *private;
+	struct xt_action_param acpar;
 
 	/* ARP header, plus 2 device addresses, plus 2 IP addresses.  */
 	if (!pskb_may_pull(skb, (sizeof(struct arphdr) +
@@ -261,6 +258,12 @@ unsigned int arpt_do_table(struct sk_buff *skb,
 
 	e = get_entry(table_base, private->hook_entry[hook]);
 	back = get_entry(table_base, private->underflow[hook]);
+
+	acpar.in      = in;
+	acpar.out     = out;
+	acpar.hooknum = hook;
+	acpar.family  = NFPROTO_ARP;
+	acpar.hotdrop = false;
 
 	arp = arp_hdr(skb);
 	do {
@@ -308,11 +311,9 @@ unsigned int arpt_do_table(struct sk_buff *skb,
 				/* Targets which reenter must return
 				 * abs. verdicts
 				 */
-				verdict = t->u.kernel.target->target(skb,
-								     in, out,
-								     hook,
-								     t->u.kernel.target,
-								     t->data);
+				acpar.target   = t->u.kernel.target;
+				acpar.targinfo = t->data;
+				verdict = t->u.kernel.target->target(skb, &acpar);
 
 				/* Target might have changed stuff. */
 				arp = arp_hdr(skb);
@@ -326,10 +327,10 @@ unsigned int arpt_do_table(struct sk_buff *skb,
 		} else {
 			e = (void *)e + e->next_offset;
 		}
-	} while (!hotdrop);
+	} while (!acpar.hotdrop);
 	xt_info_rdunlock_bh();
 
-	if (hotdrop)
+	if (acpar.hotdrop)
 		return NF_DROP;
 	else
 		return verdict;
@@ -472,15 +473,18 @@ static inline int check_entry(struct arpt_entry *e, const char *name)
 
 static inline int check_target(struct arpt_entry *e, const char *name)
 {
-	struct arpt_entry_target *t;
-	struct xt_target *target;
+	struct arpt_entry_target *t = arpt_get_target(e);
 	int ret;
+	struct xt_tgchk_param par = {
+		.table     = name,
+		.entryinfo = e,
+		.target    = t->u.kernel.target,
+		.targinfo  = t->data,
+		.hook_mask = e->comefrom,
+		.family    = NFPROTO_ARP,
+	};
 
-	t = arpt_get_target(e);
-	target = t->u.kernel.target;
-
-	ret = xt_check_target(target, NF_ARP, t->u.target_size - sizeof(*t),
-			      name, e->comefrom, 0, 0, e, t->data);
+	ret = xt_check_target(&par, t->u.target_size - sizeof(*t), 0, false);
 	if (ret < 0) {
 		duprintf("arp_tables: check failed for `%s'.\n",
 			 t->u.kernel.target->name);
@@ -571,15 +575,19 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
 
 static inline int cleanup_entry(struct arpt_entry *e, unsigned int *i)
 {
+	struct xt_tgdtor_param par;
 	struct arpt_entry_target *t;
 
 	if (i && (*i)-- == 0)
 		return 1;
 
 	t = arpt_get_target(e);
-	if (t->u.kernel.target->destroy)
-		t->u.kernel.target->destroy(t->u.kernel.target, t->data);
-	module_put(t->u.kernel.target->me);
+	par.target   = t->u.kernel.target;
+	par.targinfo = t->data;
+	par.family   = NFPROTO_ARP;
+	if (par.target->destroy != NULL)
+		par.target->destroy(&par);
+	module_put(par.target->me);
 	return 0;
 }
 
@@ -819,7 +827,7 @@ static int get_entries(const struct arpt_get_entries *entries,
 		else {
 			duprintf("get_entries: I've got %u not %u!\n",
 				 private->size, entries->size);
-			ret = -EINVAL;
+			ret = -EAGAIN;
 		}
 		module_put(t->me);
 		xt_table_unlock(t);

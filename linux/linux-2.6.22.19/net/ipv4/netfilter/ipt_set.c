@@ -29,50 +29,21 @@ match_set(const struct ipt_set_info *info,
 	return inv;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 static bool
 match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset, 
-      unsigned int protoff, 
-      bool *hotdrop)
-#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
-static bool
-match(const struct sk_buff *skb,
-      const struct xt_match_param *par)
-#endif
+       struct xt_action_param *par)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-	const struct ipt_set_info_match *info = matchinfo;
-#else
 	const struct ipt_set_info_match *info = par->matchinfo;
-#endif
 		
 	return match_set(&info->match_set,
 			 skb,
 			 info->match_set.flags[0] & IPSET_MATCH_INV);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-static bool
-checkentry(const char *tablename,
-	   const void *inf,
-	   const struct xt_match *match,
-	   void *matchinfo,
-	   unsigned int hook_mask)
-#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
 static bool
 checkentry(const struct xt_mtchk_param *par)
-#endif
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-	struct ipt_set_info_match *info = matchinfo;
-#else
 	struct ipt_set_info_match *info = par->matchinfo;
-#endif
 	ip_set_id_t index;
 
 	index = ip_set_get_byindex(info->match_set.index);
@@ -90,18 +61,9 @@ checkentry(const struct xt_mtchk_param *par)
 	return 1;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-static void destroy(const struct xt_match *match,
-		    void *matchinfo)
-#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
 static void destroy(const struct xt_mtdtor_param *par)
-#endif
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-	struct ipt_set_info_match *info = matchinfo;
-#else
 	struct ipt_set_info_match *info = par->matchinfo;
-#endif
 
 	ip_set_put_byindex(info->match_set.index);
 }

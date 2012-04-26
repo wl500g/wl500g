@@ -108,22 +108,16 @@ match_policy_out(const struct sk_buff *skb, const struct xt_policy_info *info,
 	return strict ? i == info->len : 0;
 }
 
-static bool match(const struct sk_buff *skb,
-		  const struct net_device *in,
-		  const struct net_device *out,
-		  const struct xt_match *match,
-		  const void *matchinfo,
-		  int offset,
-		  unsigned int protoff,
-		  bool *hotdrop)
+static bool
+policy_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_policy_info *info = matchinfo;
+	const struct xt_policy_info *info = par->matchinfo;
 	int ret;
 
 	if (info->flags & XT_POLICY_MATCH_IN)
-		ret = match_policy_in(skb, info, match->family);
+		ret = match_policy_in(skb, info, par->family);
 	else
-		ret = match_policy_out(skb, info, match->family);
+		ret = match_policy_out(skb, info, par->family);
 
 	if (ret < 0)
 		ret = info->flags & XT_POLICY_MATCH_NONE ? true : false;
@@ -133,11 +127,9 @@ static bool match(const struct sk_buff *skb,
 	return ret;
 }
 
-static bool checkentry(const char *tablename, const void *ip_void,
-		       const struct xt_match *match,
-		       void *matchinfo, unsigned int hook_mask)
+static bool checkentry(const struct xt_mtchk_param *par)
 {
-	struct xt_policy_info *info = matchinfo;
+	const struct xt_policy_info *info = par->matchinfo;
 
 	if (!(info->flags & (XT_POLICY_MATCH_IN|XT_POLICY_MATCH_OUT))) {
 		printk(KERN_ERR "xt_policy: neither incoming nor "
@@ -145,14 +137,14 @@ static bool checkentry(const char *tablename, const void *ip_void,
 		return false;
 	}
 	/* hook values are equal for IPv4 and IPv6 */
-	if (hook_mask & (1 << NF_IP_PRE_ROUTING | 1 << NF_IP_LOCAL_IN)
-	    && info->flags & XT_POLICY_MATCH_OUT) {
+	if (par->hook_mask & ((1 << NF_IP_PRE_ROUTING) |
+	    (1 << NF_IP_LOCAL_IN)) && info->flags & XT_POLICY_MATCH_OUT) {
 		printk(KERN_ERR "xt_policy: output policy not valid in "
 				"PRE_ROUTING and INPUT\n");
 		return false;
 	}
-	if (hook_mask & (1 << NF_IP_POST_ROUTING | 1 << NF_IP_LOCAL_OUT)
-	    && info->flags & XT_POLICY_MATCH_IN) {
+	if (par->hook_mask & ((1 << NF_IP_POST_ROUTING) |
+	    (1 << NF_IP_LOCAL_OUT)) && info->flags & XT_POLICY_MATCH_IN) {
 		printk(KERN_ERR "xt_policy: input policy not valid in "
 				"POST_ROUTING and OUTPUT\n");
 		return false;

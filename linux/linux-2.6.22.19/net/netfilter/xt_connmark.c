@@ -37,12 +37,9 @@ MODULE_ALIAS("ipt_connmark");
 MODULE_ALIAS("ip6t_connmark");
 
 static unsigned int
-connmark_tg(struct sk_buff *skb, const struct net_device *in,
-			   const struct net_device *out, unsigned int hooknum,
-			   const struct xt_target *target,
-			   const void *targinfo)
+connmark_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct xt_connmark_tginfo1 *info = targinfo;
+	const struct xt_connmark_tginfo1 *info = par->targinfo;
 	enum ip_conntrack_info ctinfo;
 	struct nf_conn *ct;
 	u_int32_t newmark;
@@ -85,34 +82,25 @@ connmark_tg(struct sk_buff *skb, const struct net_device *in,
 	return XT_CONTINUE;
 }
 
-static bool connmark_tg_check(const char *tablename, const void *entry,
-		      const struct xt_target *target, void *targinfo,
-		      unsigned int hook_mask)
+static bool connmark_tg_check(const struct xt_tgchk_param *par)
 {
-	if (nf_ct_l3proto_try_module_get(target->family) < 0) {
+	if (nf_ct_l3proto_try_module_get(par->family) < 0) {
 		printk(KERN_WARNING "cannot load conntrack support for "
-		       "proto=%u\n", target->family);
+		       "proto=%u\n", par->family);
 		return false;
 	}
 	return true;
 }
 
-static void connmark_tg_destroy(const struct xt_target *target, void *targinfo)
+static void connmark_tg_destroy(const struct xt_tgdtor_param *par)
 {
-	nf_ct_l3proto_module_put(target->family);
+	nf_ct_l3proto_module_put(par->family);
 }
 
 static bool
-connmark_mt(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+connmark_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_connmark_mtinfo1 *info = matchinfo;
+	const struct xt_connmark_mtinfo1 *info = par->matchinfo;
 	enum ip_conntrack_info ctinfo;
 	const struct nf_conn *ct;
 
@@ -123,23 +111,19 @@ connmark_mt(const struct sk_buff *skb,
 	return ((ct->mark & info->mask) == info->mark) ^ info->invert;
 }
 
-static bool
-connmark_mt_check(const char *tablename, const void *ip,
-                  const struct xt_match *match, void *matchinfo,
-                  unsigned int hook_mask)
+static bool connmark_mt_check(const struct xt_mtchk_param *par)
 {
-	if (nf_ct_l3proto_try_module_get(match->family) < 0) {
+	if (nf_ct_l3proto_try_module_get(par->family) < 0) {
 		printk(KERN_WARNING "cannot load conntrack support for "
-		       "proto=%u\n", match->family);
+		       "proto=%u\n", par->family);
 		return 0;
 	}
 	return 1;
 }
 
-static void
-destroy(const struct xt_match *match, void *matchinfo)
+static void destroy(const struct xt_mtdtor_param *par)
 {
-	nf_ct_l3proto_module_put(match->family);
+	nf_ct_l3proto_module_put(par->family);
 }
 
 static struct xt_target connmark_tg_reg __read_mostly = {

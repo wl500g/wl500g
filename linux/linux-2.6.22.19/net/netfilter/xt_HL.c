@@ -26,13 +26,10 @@ MODULE_DESCRIPTION("Xtables: Hoplimit/TTL Limit field modification target");
 MODULE_LICENSE("GPL");
 
 static unsigned int
-ttl_tg(struct sk_buff *skb,
-       const struct net_device *in, const struct net_device *out,
-       unsigned int hooknum, const struct xt_target *target,
-       const void *targinfo)
+ttl_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	struct iphdr *iph;
-	const struct ipt_TTL_info *info = targinfo;
+	const struct ipt_TTL_info *info = par->targinfo;
 	int new_ttl;
 
 	if (!skb_make_writable(skb, skb->len))
@@ -69,13 +66,10 @@ ttl_tg(struct sk_buff *skb,
 }
 
 static unsigned int
-hl_tg6(struct sk_buff *skb,
-       const struct net_device *in, const struct net_device *out,
-       unsigned int hooknum, const struct xt_target *target,
-       const void *targinfo)
+hl_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	struct ipv6hdr *ip6h;
-	const struct ip6t_HL_info *info = targinfo;
+	const struct ip6t_HL_info *info = par->targinfo;
 	int new_hl;
 
 	if (!skb_make_writable(skb, skb->len))
@@ -107,13 +101,9 @@ hl_tg6(struct sk_buff *skb,
 	return XT_CONTINUE;
 }
 
-static bool ttl_tg_check(const char *tablename,
-			const void *e,
-			const struct xt_target *target,
-			void *targinfo,
-			unsigned int hook_mask)
+static bool ttl_tg_check(const struct xt_tgchk_param *par)
 {
-	const struct ipt_TTL_info *info = targinfo;
+	const struct ipt_TTL_info *info = par->targinfo;
 
 	if (info->mode > IPT_TTL_MAXMODE) {
 		printk(KERN_WARNING "ipt_TTL: invalid or unknown Mode %u\n",
@@ -125,13 +115,9 @@ static bool ttl_tg_check(const char *tablename,
 	return true;
 }
 
-static bool hl_tg6_check(const char *tablename,
-			const void *e,
-			const struct xt_target *target,
-			void *targinfo,
-			unsigned int hook_mask)
+static bool hl_tg6_check(const struct xt_tgchk_param *par)
 {
-	const struct ip6t_HL_info *info = targinfo;
+	const struct ip6t_HL_info *info = par->targinfo;
 
 	if (info->mode > IP6T_HL_MAXMODE) {
 		printk(KERN_WARNING "ip6t_HL: invalid or unknown Mode %u\n",

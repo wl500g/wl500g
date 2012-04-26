@@ -34,11 +34,9 @@ union pkthdr {
 };
 
 static bool
-ebt_ip6_mt(const struct sk_buff *skb, const struct net_device *in,
-	   const struct net_device *out, const struct xt_match *match,
-	   const void *data, int offset, unsigned int protoff, bool *hotdrop)
+ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ebt_ip6_info *info = data;
+	const struct ebt_ip6_info *info = par->matchinfo;
 	struct ipv6hdr *ih6;
 	struct ipv6hdr _ip6h;
 	const union pkthdr *pptr;
@@ -96,13 +94,10 @@ ebt_ip6_mt(const struct sk_buff *skb, const struct net_device *in,
 	return true;
 }
 
-static bool
-ebt_ip6_mt_check(const char *table, const void *entry,
-		 const struct xt_match *match, void *data,
-		 unsigned int hook_mask)
+static bool ebt_ip6_mt_check(const struct xt_mtchk_param *par)
 {
-	const struct ebt_entry *e = entry;
-	struct ebt_ip6_info *info = data;
+	const struct ebt_entry *e = par->entryinfo;
+	struct ebt_ip6_info *info = par->matchinfo;
 
 	if (e->ethproto != htons(ETH_P_IPV6) || e->invflags & EBT_IPROTO)
 		return false;

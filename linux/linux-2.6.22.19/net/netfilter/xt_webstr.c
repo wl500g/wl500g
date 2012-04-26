@@ -244,16 +244,9 @@ static char *search_linear (char *needle, char *haystack, int needle_len, int ha
 }
 
 static bool
-webstr_mt(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+webstr_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_webstr_info *info = matchinfo;
+	const struct xt_webstr_info *info = par->matchinfo;
 	const struct tcphdr *tcph;
 	unsigned char *data;
 	unsigned int datalen;
@@ -264,7 +257,7 @@ webstr_mt(const struct sk_buff *skb,
 	int found = 0;
 	u_int32_t opt = 0;
 
-	if (offset != 0) return info->invert;
+	if (par->fragoff != 0) return info->invert;
 
 	if (skb_is_nonlinear(skb)) {
 		if (unlikely(skb_linearize((struct sk_buff *)skb))) {
@@ -277,7 +270,7 @@ webstr_mt(const struct sk_buff *skb,
 
 	/* assumption: we accept IPPROTO_TCP only */
 #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-	if (match->family == AF_INET6) {
+	if (par->family == AF_INET6) {
 		const struct ipv6hdr *iph = ipv6_hdr(skb);
 		u8 nexthdr;
 
@@ -301,7 +294,7 @@ webstr_mt(const struct sk_buff *skb,
 		(info->type == XT_WEBSTR_URL) ? "XT_WEBSTR_URL"
 		: (info->type == XT_WEBSTR_HOST) ? "XT_WEBSTR_HOST"
 		: "XT_WEBSTR_CONTENT",
-		ntohl(tcph->seq), match->family, datalen);
+		ntohl(tcph->seq), par->family, datalen);
 
 	/* Determine the flags value for get_http_info(), and mangle packet 
 	 * if needed. */
@@ -406,14 +399,9 @@ match_ret:
 	return (found ^ info->invert);
 }
 
-static bool
-checkentry(const char *tablename,
-	   const void *entry,
-	   const struct xt_match *match,
-           void *matchinfo,
-           unsigned int hook_mask)
+static bool checkentry(const struct xt_mtchk_param *par)
 {
-	const struct xt_webstr_info *info = matchinfo;
+	const struct xt_webstr_info *info = par->matchinfo;
 #if 0
        if (matchsize != IPT_ALIGN(sizeof(struct xt_webstr_info)))
                return 0;
@@ -434,37 +422,25 @@ checkentry(const char *tablename,
        return true;
 }
 
-static struct xt_match xt_webstr_match[] = {
-	{
+static struct xt_match xt_webstr_match = {
 	.name		= "webstr",
-	.family		= AF_INET,
+	.family		= NFPROTO_UNSPEC,
 	.match		= webstr_mt,
 	.checkentry	= checkentry,
 	.matchsize	= sizeof(struct xt_webstr_info),
 	.proto		= IPPROTO_TCP,
 	.me		= THIS_MODULE
-	},
-	{
-	.name		= "webstr",
-	.family		= AF_INET6,
-	.match		= webstr_mt,
-	.checkentry	= checkentry,
-	.matchsize	= sizeof(struct xt_webstr_info),
-	.proto		= IPPROTO_TCP,
-	.me		= THIS_MODULE
-	},
-
 };
 
 static int __init init(void)
 {
 	search = search_linear;
-	return xt_register_matches(xt_webstr_match, ARRAY_SIZE(xt_webstr_match));
+	return xt_register_match(&xt_webstr_match);
 }
 
 static void __exit fini(void)
 {
-	xt_unregister_matches(xt_webstr_match, ARRAY_SIZE(xt_webstr_match));
+	xt_unregister_match(&xt_webstr_match);
 }
 
 module_init(init);

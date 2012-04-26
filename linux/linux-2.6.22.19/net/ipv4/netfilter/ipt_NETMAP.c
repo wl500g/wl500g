@@ -29,14 +29,9 @@ MODULE_DESCRIPTION("iptables 1:1 NAT mapping of IP networks target");
 #define DEBUGP(format, args...)
 #endif
 
-static bool
-check(const char *tablename,
-      const void *e,
-      const struct xt_target *target,
-      void *targinfo,
-      unsigned int hook_mask)
+static bool check(const struct xt_tgchk_param *par)
 {
-	const struct nf_nat_multi_range_compat *mr = targinfo;
+	const struct nf_nat_multi_range_compat *mr = par->targinfo;
 
 	if (!(mr->range[0].flags & IP_NAT_RANGE_MAP_IPS)) {
 		DEBUGP(MODULENAME":check: bad MAP_IPS.\n");
@@ -50,27 +45,23 @@ check(const char *tablename,
 }
 
 static unsigned int
-target(struct sk_buff *skb,
-       const struct net_device *in,
-       const struct net_device *out,
-       unsigned int hooknum,
-       const struct xt_target *target,
-       const void *targinfo)
+target(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
 	__be32 new_ip, netmask;
-	const struct nf_nat_multi_range_compat *mr = targinfo;
+	const struct nf_nat_multi_range_compat *mr = par->targinfo;
 	struct nf_nat_range newrange;
 
-	NF_CT_ASSERT(hooknum == NF_IP_PRE_ROUTING
-		     || hooknum == NF_IP_POST_ROUTING
-		     || hooknum == NF_IP_LOCAL_OUT);
+	NF_CT_ASSERT(par->hooknum == NF_IP_PRE_ROUTING ||
+		     par->hooknum == NF_IP_POST_ROUTING ||
+		     par->hooknum == NF_IP_LOCAL_OUT);
 	ct = nf_ct_get(skb, &ctinfo);
 
 	netmask = ~(mr->range[0].min_ip ^ mr->range[0].max_ip);
 
-	if (hooknum == NF_IP_PRE_ROUTING || hooknum == NF_IP_LOCAL_OUT)
+	if (par->hooknum == NF_IP_PRE_ROUTING ||
+	    par->hooknum == NF_IP_LOCAL_OUT)
 		new_ip = ip_hdr(skb)->daddr & ~netmask;
 	else
 		new_ip = ip_hdr(skb)->saddr & ~netmask;
@@ -82,7 +73,7 @@ target(struct sk_buff *skb,
 		  mr->range[0].min, mr->range[0].max });
 
 	/* Hand modified range to generic setup. */
-	return nf_nat_setup_info(ct, &newrange, hooknum);
+	return nf_nat_setup_info(ct, &newrange, par->hooknum);
 }
 
 static struct xt_target target_module __read_mostly = {

@@ -299,14 +299,9 @@ clusterip_responsible(struct clusterip_config *config, u_int32_t hash)
  ***********************************************************************/
 
 static unsigned int
-target(struct sk_buff *skb,
-       const struct net_device *in,
-       const struct net_device *out,
-       unsigned int hooknum,
-       const struct xt_target *target,
-       const void *targinfo)
+target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ipt_clusterip_tgt_info *cipinfo = targinfo;
+	const struct ipt_clusterip_tgt_info *cipinfo = par->targinfo;
 	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
 	u_int32_t hash;
@@ -370,15 +365,10 @@ target(struct sk_buff *skb,
 	return XT_CONTINUE;
 }
 
-static bool
-checkentry(const char *tablename,
-	   const void *e_void,
-	   const struct xt_target *target,
-	   void *targinfo,
-	   unsigned int hook_mask)
+static bool checkentry(const struct xt_tgchk_param *par)
 {
-	struct ipt_clusterip_tgt_info *cipinfo = targinfo;
-	const struct ipt_entry *e = e_void;
+	struct ipt_clusterip_tgt_info *cipinfo = par->targinfo;
+	const struct ipt_entry *e = par->entryinfo;
 
 	struct clusterip_config *config;
 
@@ -445,9 +435,9 @@ checkentry(const char *tablename,
 		cipinfo->config = config;
 	}
 
-	if (nf_ct_l3proto_try_module_get(target->family) < 0) {
+	if (nf_ct_l3proto_try_module_get(par->target->family) < 0) {
 		printk(KERN_WARNING "can't load conntrack support for "
-				    "proto=%d\n", target->family);
+				    "proto=%u\n", par->target->family);
 		return false;
 	}
 
@@ -455,9 +445,9 @@ checkentry(const char *tablename,
 }
 
 /* drop reference count of cluster config when rule is deleted */
-static void destroy(const struct xt_target *target, void *targinfo)
+static void destroy(const struct xt_tgdtor_param *par)
 {
-	struct ipt_clusterip_tgt_info *cipinfo = targinfo;
+	const struct ipt_clusterip_tgt_info *cipinfo = par->targinfo;
 
 	/* if no more entries are referencing the config, remove it
 	 * from the list and destroy the proc entry */
@@ -465,7 +455,7 @@ static void destroy(const struct xt_target *target, void *targinfo)
 
 	clusterip_config_put(cipinfo->config);
 
-	nf_ct_l3proto_module_put(target->family);
+	nf_ct_l3proto_module_put(par->target->family);
 }
 
 static struct xt_target clusterip_tgt __read_mostly = {

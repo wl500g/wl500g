@@ -25,12 +25,9 @@ MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_ttl");
 MODULE_ALIAS("ip6t_hl");
 
-static bool ttl_mt(const struct sk_buff *skb,
-		  const struct net_device *in, const struct net_device *out,
-		  const struct xt_match *match, const void *matchinfo,
-		  int offset, unsigned int protoff, bool *hotdrop)
+static bool ttl_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ipt_ttl_info *info = matchinfo;
+	const struct ipt_ttl_info *info = par->matchinfo;
 	const u8 ttl = ip_hdr(skb)->ttl;
 
 	switch (info->mode) {
@@ -51,12 +48,9 @@ static bool ttl_mt(const struct sk_buff *skb,
 	return false;
 }
 
-static bool hl_mt6(const struct sk_buff *skb,
-		  const struct net_device *in, const struct net_device *out,
-		  const struct xt_match *match, const void *matchinfo,
-		  int offset, unsigned int protoff, bool *hotdrop)
+static bool hl_mt6(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ip6t_hl_info *info = matchinfo;
+	const struct ip6t_hl_info *info = par->matchinfo;
 	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
 
 	switch (info->mode) {

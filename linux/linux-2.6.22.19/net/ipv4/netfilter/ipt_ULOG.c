@@ -289,17 +289,11 @@ alloc_failure:
 	spin_unlock_bh(&ulog_lock);
 }
 
-static unsigned int ipt_ulog_target(struct sk_buff *skb,
-				    const struct net_device *in,
-				    const struct net_device *out,
-				    unsigned int hooknum,
-				    const struct xt_target *target,
-				    const void *targinfo)
+static unsigned int
+ipt_ulog_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	struct ipt_ulog_info *loginfo = (struct ipt_ulog_info *) targinfo;
-
-	ipt_ulog_packet(hooknum, skb, in, out, loginfo, NULL);
-
+	ipt_ulog_packet(par->hooknum, skb, par->in, par->out,
+	                par->targinfo, NULL);
 	return XT_CONTINUE;
 }
 
@@ -328,13 +322,9 @@ static void ipt_logfn(unsigned int pf,
 	ipt_ulog_packet(hooknum, skb, in, out, &loginfo, prefix);
 }
 
-static bool ipt_ulog_checkentry(const char *tablename,
-				const void *e,
-				const struct xt_target *target,
-				void *targinfo,
-				unsigned int hookmask)
+static bool ipt_ulog_checkentry(const struct xt_tgchk_param *par)
 {
-	struct ipt_ulog_info *loginfo = (struct ipt_ulog_info *) targinfo;
+	const struct ipt_ulog_info *loginfo = par->targinfo;
 
 	if (loginfo->prefix[sizeof(loginfo->prefix) - 1] != '\0') {
 		DEBUGP("ipt_ULOG: prefix term %i\n",

@@ -22,12 +22,9 @@ MODULE_ALIAS("ip6t_quota");
 static DEFINE_SPINLOCK(quota_lock);
 
 static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in, const struct net_device *out,
-      const struct xt_match *match, const void *matchinfo,
-      int offset, unsigned int protoff, bool *hotdrop)
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	struct xt_quota_info *q = (void *)matchinfo;
+	struct xt_quota_info *q = (void *)par->matchinfo;
 	struct xt_quota_priv *priv = q->master;
 	bool ret = q->flags & XT_QUOTA_INVERT;
 
@@ -46,12 +43,9 @@ match(const struct sk_buff *skb,
 	return ret;
 }
 
-static bool
-checkentry(const char *tablename, const void *entry,
-	   const struct xt_match *match, void *matchinfo,
-	   unsigned int hook_mask)
+static bool checkentry(const struct xt_mtchk_param *par)
 {
-	struct xt_quota_info *q = (struct xt_quota_info *)matchinfo;
+	struct xt_quota_info *q = par->matchinfo;
 
 	if (q->flags & ~XT_QUOTA_MASK)
 		return 0;
@@ -64,9 +58,9 @@ checkentry(const char *tablename, const void *entry,
 	return 1;
 }
 
-static void quota_mt_destroy(const struct xt_match *match, void *matchinfo)
+static void quota_mt_destroy(const struct xt_mtdtor_param *par)
 {
-	const struct xt_quota_info *q = matchinfo;
+	const struct xt_quota_info *q = par->matchinfo;
 
 	kfree(q->master);
 }

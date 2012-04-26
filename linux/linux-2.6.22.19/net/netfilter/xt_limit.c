@@ -63,16 +63,9 @@ static DEFINE_SPINLOCK(limit_lock);
 #define CREDITS_PER_JIFFY POW2_BELOW32(MAX_CPJ)
 
 static bool
-ipt_limit_match(const struct sk_buff *skb,
-		const struct net_device *in,
-		const struct net_device *out,
-		const struct xt_match *match,
-		const void *matchinfo,
-		int offset,
-		unsigned int protoff,
-		bool *hotdrop)
+ipt_limit_match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_rateinfo *r = (struct xt_rateinfo *)matchinfo;
+	const struct xt_rateinfo *r = (struct xt_rateinfo *)par->matchinfo;
 	struct xt_limit_priv *priv = r->master;
 	unsigned long now = jiffies;
 
@@ -104,14 +97,9 @@ user2credits(u_int32_t user)
 	return (user * HZ * CREDITS_PER_JIFFY) / XT_LIMIT_SCALE;
 }
 
-static bool
-ipt_limit_checkentry(const char *tablename,
-		     const void *inf,
-		     const struct xt_match *match,
-		     void *matchinfo,
-		     unsigned int hook_mask)
+static bool ipt_limit_checkentry(const struct xt_mtchk_param *par)
 {
-	struct xt_rateinfo *r = matchinfo;
+	struct xt_rateinfo *r = par->matchinfo;
 	struct xt_limit_priv *priv;
 
 	/* Check for overflow. */
@@ -139,9 +127,9 @@ ipt_limit_checkentry(const char *tablename,
 	return true;
 }
 
-static void limit_mt_destroy(const struct xt_match *match, void *matchinfo)
+static void limit_mt_destroy(const struct xt_mtdtor_param *par)
 {
-	const struct xt_rateinfo *info = matchinfo;
+	const struct xt_rateinfo *info = par->matchinfo;
 
 	kfree(info->master);
 }

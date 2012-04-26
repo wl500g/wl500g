@@ -22,12 +22,9 @@
 #include <linux/netfilter.h>
 
 static bool
-owner_mt(const struct sk_buff *skb, const struct net_device *in,
-         const struct net_device *out, const struct xt_match *match,
-         const void *matchinfo, int offset, unsigned int protoff,
-         bool *hotdrop)
+owner_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_owner_match_info *info = matchinfo;
+	const struct xt_owner_match_info *info = par->matchinfo;
 	const struct file *filp;
 
 	if (skb->sk == NULL || skb->sk->sk_socket == NULL)

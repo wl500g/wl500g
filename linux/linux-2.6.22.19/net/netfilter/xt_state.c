@@ -21,16 +21,9 @@ MODULE_ALIAS("ipt_state");
 MODULE_ALIAS("ip6t_state");
 
 static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct xt_state_info *sinfo = matchinfo;
+	const struct xt_state_info *sinfo = par->matchinfo;
 	enum ip_conntrack_info ctinfo;
 	unsigned int statebit;
 
@@ -44,24 +37,19 @@ match(const struct sk_buff *skb,
 	return (sinfo->statemask & statebit);
 }
 
-static bool check(const char *tablename,
-		  const void *inf,
-		  const struct xt_match *match,
-		  void *matchinfo,
-		  unsigned int hook_mask)
+static bool check(const struct xt_mtchk_param *par)
 {
-	if (nf_ct_l3proto_try_module_get(match->family) < 0) {
+	if (nf_ct_l3proto_try_module_get(par->family) < 0) {
 		printk(KERN_WARNING "can't load conntrack support for "
-				    "proto=%d\n", match->family);
+				    "proto=%u\n", par->family);
 		return false;
 	}
 	return true;
 }
 
-static void
-destroy(const struct xt_match *match, void *matchinfo)
+static void destroy(const struct xt_mtdtor_param *par)
 {
-	nf_ct_l3proto_module_put(match->family);
+	nf_ct_l3proto_module_put(par->family);
 }
 
 static struct xt_match xt_state_match __read_mostly = {

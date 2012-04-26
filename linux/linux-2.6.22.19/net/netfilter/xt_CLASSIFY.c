@@ -26,14 +26,9 @@ MODULE_DESCRIPTION("iptables qdisc classification target module");
 MODULE_ALIAS("ipt_CLASSIFY");
 
 static unsigned int
-target(struct sk_buff *skb,
-       const struct net_device *in,
-       const struct net_device *out,
-       unsigned int hooknum,
-       const struct xt_target *target,
-       const void *targinfo)
+target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct xt_classify_target_info *clinfo = targinfo;
+	const struct xt_classify_target_info *clinfo = par->targinfo;
 
 	skb->priority = clinfo->priority;
 	return XT_CONTINUE;

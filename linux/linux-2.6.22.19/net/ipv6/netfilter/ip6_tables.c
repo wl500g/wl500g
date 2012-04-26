@@ -195,31 +195,25 @@ ip6_checkentry(const struct ip6t_ip6 *ipv6)
 }
 
 static unsigned int
-ip6t_error(struct sk_buff *skb,
-	  const struct net_device *in,
-	  const struct net_device *out,
-	  unsigned int hooknum,
-	  const struct xt_target *target,
-	  const void *targinfo)
+ip6t_error(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	if (net_ratelimit())
-		printk("ip6_tables: error: `%s'\n", (char *)targinfo);
+		printk("ip6_tables: error: `%s'\n",
+		       (const char *)par->targinfo);
 
 	return NF_DROP;
 }
 
-static inline
-bool do_match(struct ip6t_entry_match *m,
-	      const struct sk_buff *skb,
-	      const struct net_device *in,
-	      const struct net_device *out,
-	      int offset,
-	      unsigned int protoff,
-	      bool *hotdrop)
+/* Performance critical - called for every packet */
+static inline bool
+do_match(struct ip6t_entry_match *m, const struct sk_buff *skb,
+	 struct xt_match_param *par)
 {
+	par->match     = m->u.kernel.match;
+	par->matchinfo = m->data;
+
 	/* Stop iteration if it doesn't match */
-	if (!m->u.kernel.match->match(skb, in, out, m->u.kernel.match, m->data,
-				      offset, protoff, hotdrop))
+	if (!m->u.kernel.match->match(skb, par))
 		return true;
 	else
 		return false;
@@ -240,15 +234,13 @@ ip6t_do_table(struct sk_buff *skb,
 	      struct xt_table *table)
 {
 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
-	int offset = 0;
-	unsigned int protoff = 0;
-	bool hotdrop = false;
 	/* Initializing verdict to NF_DROP keeps gcc happy. */
 	unsigned int verdict = NF_DROP;
 	const char *indev, *outdev;
 	void *table_base;
 	struct ip6t_entry *e, *back;
 	struct xt_table_info *private;
+	struct xt_action_param acpar;
 
 	/* Initialization */
 	indev = in ? in->name : nulldevname;
@@ -259,6 +251,11 @@ ip6t_do_table(struct sk_buff *skb,
 	 * things we don't know, ie. tcp syn flag or ports).  If the
 	 * rule is also a fragment-specific rule, non-fragments won't
 	 * match it. */
+	acpar.hotdrop = false;
+	acpar.in      = in;
+	acpar.out     = out;
+	acpar.family  = NFPROTO_IPV6;
+	acpar.hooknum = hook;
 
 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
 
@@ -275,12 +272,10 @@ ip6t_do_table(struct sk_buff *skb,
 		IP_NF_ASSERT(e);
 		IP_NF_ASSERT(back);
 		if (ip6_packet_match(skb, indev, outdev, &e->ipv6,
-			&protoff, &offset, &hotdrop)) {
+		    &acpar.thoff, &acpar.fragoff, &acpar.hotdrop)) {
 			struct ip6t_entry_target *t;
 
-			if (IP6T_MATCH_ITERATE(e, do_match,
-					       skb, in, out,
-					       offset, protoff, &hotdrop) != 0)
+			if (IP6T_MATCH_ITERATE(e, do_match, skb, &acpar) != 0)
 				goto no_match;
 
 			ADD_COUNTER(e->counters,
@@ -321,16 +316,14 @@ ip6t_do_table(struct sk_buff *skb,
 			} else {
 				/* Targets which reenter must return
 				   abs. verdicts */
+				acpar.target   = t->u.kernel.target;
+				acpar.targinfo = t->data;
 #ifdef CONFIG_NETFILTER_DEBUG
 				((struct ip6t_entry *)table_base)->comefrom
 					= 0xeeeeeeec;
 #endif
 				verdict = t->u.kernel.target->target(skb,
-								     in, out,
-								     hook,
-								     t->u.kernel.target,
-								     t->data);
-
+								     &acpar);
 #ifdef CONFIG_NETFILTER_DEBUG
 				if (((struct ip6t_entry *)table_base)->comefrom
 				    != 0xeeeeeeec
@@ -358,7 +351,7 @@ ip6t_do_table(struct sk_buff *skb,
 		no_match:
 			e = (void *)e + e->next_offset;
 		}
-	} while (!hotdrop);
+	} while (!acpar.hotdrop);
 
 #ifdef CONFIG_NETFILTER_DEBUG
 	((struct ip6t_entry *)table_base)->comefrom = NETFILTER_LINK_POISON;
@@ -368,7 +361,7 @@ ip6t_do_table(struct sk_buff *skb,
 #ifdef DEBUG_ALLOW_ALL
 	return NF_ACCEPT;
 #else
-	if (hotdrop)
+	if (acpar.hotdrop)
 		return NF_DROP;
 	else return verdict;
 #endif
@@ -499,12 +492,17 @@ mark_source_chains(struct xt_table_info *newinfo,
 static inline int
 cleanup_match(struct ip6t_entry_match *m, unsigned int *i)
 {
+	struct xt_mtdtor_param par;
+
 	if (i && (*i)-- == 0)
 		return 1;
 
-	if (m->u.kernel.match->destroy)
-		m->u.kernel.match->destroy(m->u.kernel.match, m->data);
-	module_put(m->u.kernel.match->me);
+	par.match     = m->u.kernel.match;
+	par.matchinfo = m->data;
+	par.family    = NFPROTO_IPV6;
+	if (par.match->destroy != NULL)
+		par.match->destroy(&par);
+	module_put(par.match->me);
 	return 0;
 }
 
@@ -529,20 +527,20 @@ check_entry(struct ip6t_entry *e, const char *name)
 	return 0;
 }
 
-static inline int check_match(struct ip6t_entry_match *m, const char *name,
-			      const struct ip6t_ip6 *ipv6,
-			      unsigned int hookmask, unsigned int *i)
+static int check_match(struct ip6t_entry_match *m, struct xt_mtchk_param *par,
+		       unsigned int *i)
 {
-	struct xt_match *match;
+	const struct ip6t_ip6 *ipv6 = par->entryinfo;
 	int ret;
 
-	match = m->u.kernel.match;
-	ret = xt_check_match(match, AF_INET6, m->u.match_size - sizeof(*m),
-			     name, hookmask, ipv6->proto,
-			     ipv6->invflags & IP6T_INV_PROTO, ipv6, m->data);
+	par->match     = m->u.kernel.match;
+	par->matchinfo = m->data;
+
+	ret = xt_check_match(par, m->u.match_size - sizeof(*m),
+			     ipv6->proto, ipv6->invflags & IP6T_INV_PROTO);
 	if (ret < 0) {
 		duprintf("ip_tables: check failed for `%s'.\n",
-			 m->u.kernel.match->name);
+			 par.match->name);
 		return ret;
 	}
 	++*i;
@@ -550,10 +548,7 @@ static inline int check_match(struct ip6t_entry_match *m, const char *name,
 }
 
 static inline int
-find_check_match(struct ip6t_entry_match *m,
-		 const char *name,
-		 const struct ip6t_ip6 *ipv6,
-		 unsigned int hookmask,
+find_check_match(struct ip6t_entry_match *m, struct xt_mtchk_param *par,
 		 unsigned int *i)
 {
 	struct xt_match *match;
@@ -568,7 +563,7 @@ find_check_match(struct ip6t_entry_match *m,
 	}
 	m->u.kernel.match = match;
 
-	ret = check_match(m, name, ipv6, hookmask, i);
+	ret = check_match(m, par, i);
 	if (ret)
 		goto err;
 
@@ -582,15 +577,20 @@ static struct xt_target ip6t_standard_target;
 
 static inline int check_target(struct ip6t_entry *e, const char *name)
 {
-	struct ip6t_entry_target *t;
-	struct xt_target *target;
+	struct ip6t_entry_target *t = ip6t_get_target(e);
+	struct xt_tgchk_param par = {
+		.table     = name,
+		.entryinfo = e,
+		.target    = t->u.kernel.target,
+		.targinfo  = t->data,
+		.hook_mask = e->comefrom,
+		.family    = NFPROTO_IPV6,
+	};
 	int ret;
 
 	t = ip6t_get_target(e);
-	target = t->u.kernel.target;
-	ret = xt_check_target(target, AF_INET6, t->u.target_size - sizeof(*t),
-			      name, e->comefrom, e->ipv6.proto,
-			      e->ipv6.invflags & IP6T_INV_PROTO, e, t->data);
+	ret = xt_check_target(&par, t->u.target_size - sizeof(*t),
+	      e->ipv6.proto, e->ipv6.invflags & IP6T_INV_PROTO);
 	if (ret < 0) {
 		duprintf("ip_tables: check failed for `%s'.\n",
 			 t->u.kernel.target->name);
@@ -607,14 +607,18 @@ find_check_entry(struct ip6t_entry *e, const char *name, unsigned int size,
 	struct xt_target *target;
 	int ret;
 	unsigned int j;
+	struct xt_mtchk_param mtpar;
 
 	ret = check_entry(e, name);
 	if (ret)
 		return ret;
 
 	j = 0;
-	ret = IP6T_MATCH_ITERATE(e, find_check_match, name, &e->ipv6,
-				 e->comefrom, &j);
+	mtpar.table     = name;
+	mtpar.entryinfo = &e->ipv6;
+	mtpar.hook_mask = e->comefrom;
+	mtpar.family    = NFPROTO_IPV6;
+	ret = IP6T_MATCH_ITERATE(e, find_check_match, &mtpar, &j);
 	if (ret != 0)
 		goto cleanup_matches;
 
@@ -692,6 +696,7 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
 static inline int
 cleanup_entry(struct ip6t_entry *e, unsigned int *i)
 {
+	struct xt_tgdtor_param par;
 	struct ip6t_entry_target *t;
 
 	if (i && (*i)-- == 0)
@@ -700,9 +705,13 @@ cleanup_entry(struct ip6t_entry *e, unsigned int *i)
 	/* Cleanup all matches */
 	IP6T_MATCH_ITERATE(e, cleanup_match, NULL);
 	t = ip6t_get_target(e);
-	if (t->u.kernel.target->destroy)
-		t->u.kernel.target->destroy(t->u.kernel.target, t->data);
-	module_put(t->u.kernel.target->me);
+
+	par.target   = t->u.kernel.target;
+	par.targinfo = t->data;
+	par.family   = NFPROTO_IPV6;
+	if (par.target->destroy != NULL)
+		par.target->destroy(&par);
+	module_put(par.target->me);
 	return 0;
 }
 
@@ -959,7 +968,7 @@ get_entries(const struct ip6t_get_entries *entries,
 		else {
 			duprintf("get_entries: I've got %u not %u!\n",
 				 private->size, entries->size);
-			ret = -EINVAL;
+			ret = -EAGAIN;
 		}
 		module_put(t->me);
 		xt_table_unlock(t);
@@ -1329,28 +1338,21 @@ icmp6_type_code_match(u_int8_t test_type, u_int8_t min_code, u_int8_t max_code,
 }
 
 static bool
-icmp6_match(const struct sk_buff *skb,
-	   const struct net_device *in,
-	   const struct net_device *out,
-	   const struct xt_match *match,
-	   const void *matchinfo,
-	   int offset,
-	   unsigned int protoff,
-	   bool *hotdrop)
+icmp6_match(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	struct icmp6hdr _icmp, *ic;
-	const struct ip6t_icmp *icmpinfo = matchinfo;
+	const struct ip6t_icmp *icmpinfo = par->matchinfo;
 
 	/* Must not be a fragment. */
-	if (offset)
+	if (par->fragoff != 0)
 		return false;
 
-	ic = skb_header_pointer(skb, protoff, sizeof(_icmp), &_icmp);
+	ic = skb_header_pointer(skb, par->thoff, sizeof(_icmp), &_icmp);
 	if (ic == NULL) {
 		/* We've been asked to examine this packet, and we
 		   can't.  Hence, no choice but to drop. */
 		duprintf("Dropping evil ICMP tinygram.\n");
-		*hotdrop = true;
+		par->hotdrop = true;
 		return false;
 	}
 
@@ -1362,14 +1364,9 @@ icmp6_match(const struct sk_buff *skb,
 }
 
 /* Called when user tries to insert an entry of this type. */
-static bool
-icmp6_checkentry(const char *tablename,
-	   const void *entry,
-	   const struct xt_match *match,
-	   void *matchinfo,
-	   unsigned int hook_mask)
+static bool icmp6_checkentry(const struct xt_mtchk_param *par)
 {
-	const struct ip6t_icmp *icmpinfo = matchinfo;
+	const struct ip6t_icmp *icmpinfo = par->matchinfo;
 
 	/* Must specify no unknown invflags */
 	return !(icmpinfo->invflags & ~IP6T_ICMP_INV);

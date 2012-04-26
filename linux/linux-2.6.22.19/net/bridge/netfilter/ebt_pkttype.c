@@ -13,22 +13,16 @@
 #include <linux/netfilter_bridge/ebt_pkttype.h>
 
 static bool
-ebt_pkttype_mt(const struct sk_buff *skb, const struct net_device *in,
-	       const struct net_device *out, const struct xt_match *match,
-	       const void *data, int offset, unsigned int protoff,
-	       bool *hotdrop)
+ebt_pkttype_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ebt_pkttype_info *info = data;
+	const struct ebt_pkttype_info *info = par->matchinfo;
 
 	return (skb->pkt_type == info->pkt_type) ^ info->invert;
 }
 
-static bool
-ebt_pkttype_mt_check(const char *table, const void *e,
-		     const struct xt_match *match, void *data,
-		     unsigned int hook_mask)
+static bool ebt_pkttype_mt_check(const struct xt_mtchk_param *par)
 {
-	const struct ebt_pkttype_info *info = data;
+	const struct ebt_pkttype_info *info = par->matchinfo;
 
 	if (info->invert != 0 && info->invert != 1)
 		return false;

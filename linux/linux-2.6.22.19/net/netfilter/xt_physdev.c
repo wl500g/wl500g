@@ -22,17 +22,10 @@ MODULE_ALIAS("ipt_physdev");
 MODULE_ALIAS("ip6t_physdev");
 
 static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
-	const struct xt_physdev_info *info = matchinfo;
+	const struct xt_physdev_info *info = par->matchinfo;
 	unsigned long ret;
 	const char *indev, *outdev;
 	struct nf_bridge_info *nf_bridge;
@@ -90,14 +83,9 @@ match_outdev:
 	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
 }
 
-static bool
-checkentry(const char *tablename,
-		       const void *ip,
-		       const struct xt_match *match,
-		       void *matchinfo,
-		       unsigned int hook_mask)
+static bool checkentry(const struct xt_mtchk_param *par)
 {
-	const struct xt_physdev_info *info = matchinfo;
+	const struct xt_physdev_info *info = par->matchinfo;
 
 	if (!(info->bitmask & XT_PHYSDEV_OP_MASK) ||
 	    info->bitmask & ~XT_PHYSDEV_OP_MASK)
@@ -105,12 +93,12 @@ checkentry(const char *tablename,
 	if (info->bitmask & XT_PHYSDEV_OP_OUT &&
 	    (!(info->bitmask & XT_PHYSDEV_OP_BRIDGED) ||
 	     info->invert & XT_PHYSDEV_OP_BRIDGED) &&
-	    hook_mask & ((1 << NF_IP_LOCAL_OUT) | (1 << NF_IP_FORWARD) |
-			 (1 << NF_IP_POST_ROUTING))) {
+	    par->hook_mask & ((1 << NF_IP_LOCAL_OUT) |
+	    (1 << NF_IP_FORWARD) | (1 << NF_IP_POST_ROUTING))) {
 		printk(KERN_WARNING "physdev match: using --physdev-out in the "
 		       "OUTPUT, FORWARD and POSTROUTING chains for non-bridged "
 		       "traffic is not supported anymore.\n");
-		if (hook_mask & (1 << NF_IP_LOCAL_OUT))
+		if (par->hook_mask & (1 << NF_IP_LOCAL_OUT))
 			return false;
 	}
 	return true;

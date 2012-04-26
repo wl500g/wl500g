@@ -27,14 +27,10 @@ MODULE_ALIAS("ip6t_DSCP");
 MODULE_ALIAS("ipt_TOS");
 MODULE_ALIAS("ip6t_TOS");
 
-static unsigned int target(struct sk_buff *skb,
-			   const struct net_device *in,
-			   const struct net_device *out,
-			   unsigned int hooknum,
-			   const struct xt_target *target,
-			   const void *targinfo)
+static unsigned int
+target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct xt_DSCP_info *dinfo = targinfo;
+	const struct xt_DSCP_info *dinfo = par->targinfo;
 	u_int8_t dscp = ipv4_get_dsfield(ip_hdr(skb)) >> XT_DSCP_SHIFT;
 
 	if (dscp != dinfo->dscp) {
@@ -48,14 +44,10 @@ static unsigned int target(struct sk_buff *skb,
 	return XT_CONTINUE;
 }
 
-static unsigned int target6(struct sk_buff *skb,
-			    const struct net_device *in,
-			    const struct net_device *out,
-			    unsigned int hooknum,
-			    const struct xt_target *target,
-			    const void *targinfo)
+static unsigned int
+target6(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct xt_DSCP_info *dinfo = targinfo;
+	const struct xt_DSCP_info *dinfo = par->targinfo;
 	u_int8_t dscp = ipv6_get_dsfield(ipv6_hdr(skb)) >> XT_DSCP_SHIFT;
 
 	if (dscp != dinfo->dscp) {
@@ -68,27 +60,21 @@ static unsigned int target6(struct sk_buff *skb,
 	return XT_CONTINUE;
 }
 
-static bool checkentry(const char *tablename,
-		       const void *e_void,
-		       const struct xt_target *target,
-		       void *targinfo,
-		       unsigned int hook_mask)
+static bool checkentry(const struct xt_tgchk_param *par)
 {
-	const u_int8_t dscp = ((struct xt_DSCP_info *)targinfo)->dscp;
+	const struct xt_DSCP_info *info = par->targinfo;
 
-	if ((dscp > XT_DSCP_MAX)) {
-		printk(KERN_WARNING "DSCP: dscp %x out of range\n", dscp);
+	if (info->dscp > XT_DSCP_MAX) {
+		printk(KERN_WARNING "DSCP: dscp %x out of range\n", info->dscp);
 		return false;
 	}
 	return true;
 }
 
 static unsigned int
-tos_tg(struct sk_buff *skb, const struct net_device *in,
-       const struct net_device *out, unsigned int hooknum,
-       const struct xt_target *target, const void *targinfo)
+tos_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct xt_tos_target_info *info = targinfo;
+	const struct xt_tos_target_info *info = par->targinfo;
 	struct iphdr *iph = ip_hdr(skb);
 	u_int8_t orig, nv;
 
@@ -106,11 +92,9 @@ tos_tg(struct sk_buff *skb, const struct net_device *in,
 }
 
 static unsigned int
-tos_tg6(struct sk_buff *skb, const struct net_device *in,
-        const struct net_device *out, unsigned int hooknum,
-        const struct xt_target *target, const void *targinfo)
+tos_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct xt_tos_target_info *info = targinfo;
+	const struct xt_tos_target_info *info = par->targinfo;
 	struct ipv6hdr *iph = ipv6_hdr(skb);
 	u_int8_t orig, nv;
 
