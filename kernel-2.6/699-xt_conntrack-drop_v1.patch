@@ -2,10 +2,9 @@ diff --git a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
 --- a/net/netfilter/xt_conntrack.c
 +++ b/net/netfilter/xt_conntrack.c
 @@ -192,17 +192,6 @@ conntrack_mt(const struct sk_buff *skb,
- 	return 1;
  }
  
--static bool
+ static bool
 -conntrack_mt_v1(const struct sk_buff *skb, const struct net_device *in,
 -             const struct net_device *out, const struct xt_match *match,
 -             const void *matchinfo, int offset, unsigned int protoff,
@@ -16,15 +15,19 @@ diff --git a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
 -	return conntrack_mt(skb, match, matchinfo, info->state_mask, info->status_mask);
 -}
 -
- static bool
- conntrack_mt_v2(const struct sk_buff *skb, const struct net_device *in,
-              const struct net_device *out, const struct xt_match *match,
-@@ -235,26 +224,6 @@ conntrack_mt_destroy(const struct xt_mat
- static struct xt_match conntrack_mt_reg[] __read_mostly = {
- 	{
- 		.name       = "conntrack",
+-static bool
+ conntrack_mt_v2(const struct sk_buff *skb, const struct xt_match_param *par)
+ {
+ 	const struct xt_conntrack_mtinfo2 *info = par->matchinfo;
+@@ -232,38 +221,25 @@ conntrack_mt_destroy(const struct xt_mat
+ 	nf_ct_l3proto_module_put(match->family);
+ }
+ 
+-static struct xt_match conntrack_mt_reg[] __read_mostly = {
+-	{
+-		.name       = "conntrack",
 -		.revision   = 1,
--		.family     = AF_INET,
+-		.family     = NFPROTO_UNSPEC,
 -		.matchsize  = sizeof(struct xt_conntrack_mtinfo1),
 -		.match      = conntrack_mt_v1,
 -		.checkentry = conntrack_mt_check,
@@ -33,16 +36,36 @@ diff --git a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
 -	},
 -	{
 -		.name       = "conntrack",
--		.revision   = 1,
--		.family     = AF_INET6,
--		.matchsize  = sizeof(struct xt_conntrack_mtinfo1),
--		.match      = conntrack_mt_v1,
+-		.revision   = 2,
+-		.family     = NFPROTO_UNSPEC,
+-		.matchsize  = sizeof(struct xt_conntrack_mtinfo2),
+-		.match      = conntrack_mt_v2,
 -		.checkentry = conntrack_mt_check,
 -		.destroy    = conntrack_mt_destroy,
 -		.me         = THIS_MODULE,
 -	},
--	{
--		.name       = "conntrack",
- 		.revision   = 2,
- 		.family     = AF_INET,
- 		.matchsize  = sizeof(struct xt_conntrack_mtinfo2),
++static struct xt_match conntrack_mt_reg __read_mostly = {
++	.name       = "conntrack",
++	.revision   = 2,
++	.family     = NFPROTO_UNSPEC,
++	.matchsize  = sizeof(struct xt_conntrack_mtinfo2),
++	.match      = conntrack_mt_v2,
++	.checkentry = conntrack_mt_check,
++	.destroy    = conntrack_mt_destroy,
++	.me         = THIS_MODULE,
+ };
+ 
+ static int __init conntrack_mt_init(void)
+ {
+-	return xt_register_matches(conntrack_mt_reg,
+-	       ARRAY_SIZE(conntrack_mt_reg));
++	return xt_register_match(&conntrack_mt_reg);
+ }
+ 
+ static void __exit conntrack_mt_exit(void)
+ {
+-	xt_unregister_matches(conntrack_mt_reg, ARRAY_SIZE(conntrack_mt_reg));
++	xt_unregister_match(&conntrack_mt_reg);
+ }
+ 
+ module_init(conntrack_mt_init);
