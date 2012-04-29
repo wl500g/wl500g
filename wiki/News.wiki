@@ -5,6 +5,17 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
+===RT-N-1.9.2.7-rtn (Current)===
+  * kernel
+    * backports from upstream - mm, net(tcp, ipv6, ppp), fs(writeback, bdi, fuse), usb(usbnet)
+    * netfilter backports, fix for issue 308
+
+  * rc/www: bugfixes
+
+  * misc
+    * busybox: bugfixes from upstream (udhcp, hwclock)
+    * libusb: bugfixes from upstream
+
 ===RT-N-1.9.2.7-rtn-`r4051` (2012-04-02)===
   * ipkg: Switch to new OpenWRT-based repository http://wl500g-repo.googlecode.com , thanks to ryzhov_al at wl500g.info
 
@@ -74,7 +85,7 @@
     * CIFS 1.54: backport from 2.6.27.59
     * ext3: backport from 2.6.32.48
     * gspca webcam drivers updates from 3.0.4, contributed by Evgeniy Chilikin aka Almair @ wl500g.info
-    * turn off NF_CONNTRACK_PROC_COMPAT
+    * turn off NF_CONNTRACK_PROC_COMPAT (All controls in /proc/sys/net/netfilter/ now)
     * usb-serial: option: prevent adding a new record if device description exists
     * cdc-acm: Updates from 2.6.27.59
 
