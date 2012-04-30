@@ -1,4 +1,4 @@
-mm: minor updates/fixes from upstream 2.6 kernel
+mm: updates/fixes from upstream 2.6 kernel
 
 kernel.org commits
 45726cb43d11b288c58243a26010f397054222f0 mm: improve find_lock_page
@@ -16,6 +16,7 @@ a200ee182a016752464a12cb2e8762e48254bb09 mm: set_page_dirty_balance() vs ->page_
 ce36394269ccd9d1d286d6192ba09fa6894365e9 mmap: fix petty bug in anonymous shared mmap offset handling
 e713a21d8251a4c91772f592af46407dfb0b2e4f trivial: Fix dubious bitwise 'or' usage spotted by sparse.
 9155203a5de94278525647b16733f0c315f3b786 mm: use roundown_pow_of_two() in zone_batchsize()
+1ac0cb5d0e22d5e483f56b2bc12172dec1cf7536 mm: fix anonymous dirtying
 
 ---
  include/linux/page-flags.h |    4 ++--
@@ -24,13 +25,13 @@ e713a21d8251a4c91772f592af46407dfb0b2e4f trivial: Fix dubious bitwise 'or' usage
  mm/filemap.c               |   44 +++++++++++++++++++++-----------------------
  mm/internal.h              |    2 +-
  mm/madvise.c               |    6 ++++--
- mm/memory.c                |    9 +++++++--
+ mm/memory.c                |   12 +++++++++---
  mm/mempool.c               |    3 +++
  mm/mmap.c                  |    4 ++++
  mm/page-writeback.c        |   22 ++++++++++------------
  mm/page_alloc.c            |   19 +++++++++++++++++--
  mm/swap_state.c            |    5 ++++-
- 12 files changed, 86 insertions(+), 57 deletions(-)
+ 12 files changed, 88 insertions(+), 58 deletions(-)
 
 diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
 --- a/include/linux/page-flags.h
@@ -364,6 +365,16 @@ diff --git a/mm/memory.c b/mm/memory.c
  		put_page(dirty_page);
  	}
  	return ret;
+@@ -2290,7 +2290,8 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
+ 			goto oom;
+ 
+ 		entry = mk_pte(page, vma->vm_page_prot);
+-		entry = maybe_mkwrite(pte_mkdirty(entry), vma);
++		if (vma->vm_flags & VM_WRITE)
++			entry = pte_mkwrite(pte_mkdirty(entry));
+ 
+ 		page_table = pte_offset_map_lock(mm, pmd, address, &ptl);
+ 		if (!pte_none(*page_table))
 @@ -2348,6 +2351,7 @@ static int __do_fault(struct mm_struct *
  	struct page *dirty_page = NULL;
  	struct vm_fault vmf;
