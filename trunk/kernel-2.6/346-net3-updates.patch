@@ -11,13 +11,14 @@
  761965eab38d2cbc59c36e355c59609e3a04705a tcp: tcp_sendmsg() page recycling
  a4d258036ed9b2a1811c3670c6099203a0f284a0 tcp: Fix race in tcp_poll
  18a223e0b9ec8979320ba364b47c9772391d6d05 tcp: fix tcp_rcv_rtt_update() use of an unscaled RTT sample
+ 651913ce9de2bbcedef608c5d6cf39c244248509 tcp: clean up use of jiffies in tcp_rcv_rtt_measure()
 
 ---
  net/ipv4/tcp.c        |   31 +++++++++++++++++----------
- net/ipv4/tcp_input.c  |   13 +++++++----
+ net/ipv4/tcp_input.c  |   17 ++++++++------
  net/ipv4/tcp_output.c |   57 ++++++++++++++++----------------------------------
  net/ipv4/udp.c        |    6 +++--
- 4 files changed, 52 insertions(+), 55 deletions(-)
+ 4 files changed, 53 insertions(+), 58 deletions(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c
@@ -116,6 +117,17 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
+@@ -425,9 +425,7 @@ static inline void tcp_rcv_rtt_measure(struct tcp_sock *tp)
+ 		goto new_measure;
+ 	if (before(tp->rcv_nxt, tp->rcv_rtt_est.seq))
+ 		return;
+-	tcp_rcv_rtt_update(tp,
+-			   jiffies - tp->rcv_rtt_est.time,
+-			   1);
++	tcp_rcv_rtt_update(tp, tcp_time_stamp - tp->rcv_rtt_est.time, 1);
+ 
+ new_measure:
+ 	tp->rcv_rtt_est.seq = tp->rcv_nxt + tp->rcv_wnd;
 @@ -474,8 +474,11 @@ static void tcp_rcv_rtt_update(struct tcp_sock *tp, u32 sample, int win_dep)
  		if (!win_dep) {
  			m -= (new_sample >> 3);
