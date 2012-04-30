@@ -6,18 +6,13 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 
+#include <shutils.h>
 #include <bcmconfig.h>
 #include <bcmnvram.h>
-#include "lp.h"
+#include <lp.h>
 
-#ifdef DEBUG
-# define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
-#else
-# define PRINT(fmt, args...)
-#endif
 
 void readPrnID();
-
 
 static void deCR(char *str)
 {
@@ -46,7 +41,7 @@ static void readUsbPrnID(char *prninfo)
     {
         FILE *fp = fopen("/proc/usblp/lp0", "r");
 
-		PRINT("Old way\n");
+		dprintf("Old way\n");
 
         if (fp != NULL)
         {
@@ -60,14 +55,14 @@ static void readUsbPrnID(char *prninfo)
             {
                 if (buf[0] == '\n')
                 {
-		    PRINT("skip empty line\n");
+		    dprintf("skip empty line\n");
                     continue;
                 }
 
                 if (strncmp(buf , "Manufacturer=" , strlen("Manufacturer=")) == 0)
                 {
                     token= buf + strlen("Manufacturer=");
-                    PRINT("Manufacturer token %s",token);
+                    dprintf("Manufacturer token %s", token);
 
                     memccpy(mfr , token , '\n' , 31);
 					deCR(mfr);
@@ -76,7 +71,7 @@ static void readUsbPrnID(char *prninfo)
                 if (strncmp(buf , "Model=" , strlen("Model="))   == 0)
                 {
                     token= buf + strlen("Model=");
-                    PRINT("Model token %s",token);
+                    dprintf("Model token %s", token);
 
                     memccpy(model   , token , '\n' , 63);
 					deCR(model);
@@ -86,7 +81,7 @@ static void readUsbPrnID(char *prninfo)
             fclose(fp);
 
             sprintf( prninfo , "%s %s", mfr , model );
-            PRINT("PRINTER MODEL %s\n",prninfo);
+            dprintf("PRINTER MODEL %s\n", prninfo);
         }
     }
     else if (fd >= 0)
@@ -97,7 +92,7 @@ static void readUsbPrnID(char *prninfo)
         }
         else
         {
-            PRINT("manufacturer: %s\n"
+            dprintf("manufacturer: %s\n"
         	  "model: %s\n"
         	  "class: %s\n"
 		  "description: %s\n",
@@ -145,7 +140,7 @@ static void readLpdStatus(void)
                 if(strncmp(buf , ukeyword , strlen(ukeyword)) == 0)
                 {
                     token= buf + strlen(ukeyword);
-		    PRINT("User token %s",token);
+		    dprintf("User token %s", token);
 
 		    deCR(token);
 		    strcpy(user, token);
@@ -153,7 +148,7 @@ static void readLpdStatus(void)
                 else if(strncmp(buf , skeyword, strlen(skeyword)) == 0)
                 {
                     token= buf + strlen(skeyword);
-		    PRINT("Status token %s",token);
+		    dprintf("Status token %s", token);
 
 		    deCR(token);
 		    strcpy(status, token);

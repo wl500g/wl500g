@@ -196,7 +196,7 @@ sys_upgrade(char *url, FILE *stream, int *total)
 	unlink(upload_fifo);
 	return ret;
 }
-#endif
+#endif // REMOVE
 
 
 struct lease_t {
@@ -468,7 +468,7 @@ ej_wan_iflist(int eid, webs_t wp, int argc, char_t **argv)
 
 	return ret;
 }
-#endif
+#endif // REMOVE
 
 
 #endif // linux
@@ -507,7 +507,7 @@ ej_wl_parse_str(int eid, webs_t wp, int argc, char_t **argv)
 
 	return websWrite(wp, "%u", val);
 }
-#endif
+#endif // REMOVE
 
 static int
 ej_wl_sta_status(int eid, webs_t wp, char *ifname)

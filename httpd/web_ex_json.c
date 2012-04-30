@@ -19,11 +19,12 @@
 #include <sys/wait.h>
 #include <dirent.h>
 #include <wlutils.h>
-#include "typedefs.h"
-#include "shutils.h"
-#include "bcmconfig.h"
-#include "bcmutils.h"
-#include "bcmnvram.h"
+#include <typedefs.h>
+#include <shutils.h>
+#include <bcmconfig.h>
+#include <bcmutils.h>
+#include <bcmnvram.h>
+
 #include "bcmnvram_f.h"
 #include "common.h"
 

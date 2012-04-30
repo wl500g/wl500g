@@ -10,9 +10,8 @@ ifneq ($(MAKECMDGOALS),clean)
 include $(TOP)/.config
 endif
 
-CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux -DMIPS
-#CFLAGS	+= -g -DDEBUG
-#CFLAGS	+= -g -DDEBUG_TO_SYSLOG
+CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux
+#CFLAGS	+= -g -DDEBUG -DDEBUG_TO_SYSLOG
 CFLAGS	+= -g -O2 $(EXTRACFLAGS)
 LDFLAGS	+= -s -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
 
