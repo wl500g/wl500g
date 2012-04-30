@@ -740,7 +740,7 @@ iptables/Makefile: iptables/Makefile.in
 	 blacklist_modules="dscp DSCP rateest RATEEST realm SECMARK socket sctp TRACE state"
 
 iptables: $(LINUXDIR)/include/linux/version.h iptables/Makefile
-	$(MAKE) -C $@ EXTRA_LDFLAGS="-Wl,-rpath /lib"
+	$(MAKE) -C $@ EXTRA_LDFLAGS="-Wl,-rpath=/lib:/usr/lib"
 
 iptables-install: iptables
 ifeq ($(CONFIG_IPTABLES),y)
