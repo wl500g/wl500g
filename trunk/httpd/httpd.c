@@ -700,18 +700,7 @@ static int is_phyconnected(void)
 		return 0;
 	}
 }
-
-int is_fileexist(char *filename)
-{
-	FILE *fp;
-
-	fp=fopen(filename, "r");
-
-	if (fp==NULL) return 0;
-	fclose(fp);
-	return 1;
-}
-#endif
+#endif // REMOVE
 
 static int is_connected(void)
 {

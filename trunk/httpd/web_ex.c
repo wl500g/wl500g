@@ -34,11 +34,12 @@
 #include <sys/wait.h>
 #include <dirent.h>
 #include <wlutils.h>
-#include "typedefs.h"
-#include "shutils.h"
-#include "bcmconfig.h"
-#include "bcmutils.h"
-#include "bcmnvram.h"
+#include <typedefs.h>
+#include <shutils.h>
+#include <bcmconfig.h>
+#include <bcmutils.h>
+#include <bcmnvram.h>
+
 #include "bcmnvram_f.h"
 #include "common.h"
 
@@ -476,7 +477,7 @@ ej_nvram_match_list_both_x(int eid, webs_t wp, int argc, char_t **argv)
 	else
 		return websWrite(wp, output_ex);
 }	
-#endif
+#endif // REMOVE
 
 /*
 * Example: 
@@ -894,7 +895,7 @@ ej_dumpiptable(int eid, webs_t wp, char *iptable_file)
 
 	return ret;
 }
-#endif
+#endif // REMOVE
 
 static int dump_file(webs_t wp, char *filename)
 {

@@ -228,7 +228,7 @@ static void readFromNvram()
 
 	/* Storage Section */
 }
-#endif
+#endif // REMOVE
 
 void findNVRAMName(const char *serviceId, const char *field, char *name)
 {

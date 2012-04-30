@@ -27,8 +27,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "shutils.h"
-#include "bcmconfig.h"
+#include <shutils.h>
+#include <bcmconfig.h>
+
 #include "bcmnvram_f.h"
 #include "common.h"
 

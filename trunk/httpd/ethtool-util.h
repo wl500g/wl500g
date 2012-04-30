@@ -4,9 +4,9 @@
 #define ETHTOOL_UTIL_H__
 
 #include <sys/types.h>
-typedef unsigned long long u64;         /* hack, so we may include kernel's ethtool.h */
-typedef __uint32_t u32;         /* ditto */
-typedef __uint16_t u16;         /* ditto */
-typedef __uint8_t u8;           /* ditto */
-#include "ethtool-copy.h"
+typedef unsigned long long __u64;         /* hack, so we may include kernel's ethtool.h */
+typedef __uint32_t __u32;         /* ditto */
+typedef __uint16_t __u16;         /* ditto */
+typedef __uint8_t __u8;           /* ditto */
+#include <linux/ethtool.h>
 #endif
