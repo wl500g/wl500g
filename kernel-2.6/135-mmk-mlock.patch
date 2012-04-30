@@ -1,0 +1,160 @@
+From a477097d9c37c1cf289c7f0257dffcfa42d50197
+From: KOSAKI Motohiro
+Date: Mon, 4 Aug 2008 13:41:14 -0700
+Subject: [PATCH] mlock() fix return values
+
+Halesh says:
+
+Please find the below testcase provide to test mlock.
+
+Test Case :
+===========================
+
+#include <sys/resource.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <stdlib.h>
+
+int main(void)
+{
+  int fd,ret, i = 0;
+  char *addr, *addr1 = NULL;
+  unsigned int page_size;
+  struct rlimit rlim;
+
+  if (0 != geteuid())
+  {
+   printf("Execute this pgm as root\n");
+   exit(1);
+  }
+
+  /* create a file */
+  if ((fd = open("mmap_test.c",O_RDWR|O_CREAT,0755)) == -1)
+  {
+   printf("cant create test file\n");
+   exit(1);
+  }
+
+  page_size = sysconf(_SC_PAGE_SIZE);
+
+  /* set the MEMLOCK limit */
+  rlim.rlim_cur = 2000;
+  rlim.rlim_max = 2000;
+
+  if ((ret = setrlimit(RLIMIT_MEMLOCK,&rlim)) != 0)
+  {
+   printf("Cant change limit values\n");
+   exit(1);
+  }
+
+  addr = 0;
+  while (1)
+  {
+  /* map a page into memory each time*/
+  if ((addr = (char *) mmap(addr,page_size, PROT_READ | PROT_WRITE,MAP_SHARED,fd,0)) == MAP_FAILED)
+  {
+   printf("cant do mmap on file\n");
+   exit(1);
+  }
+
+  if (0 == i)
+    addr1 = addr;
+  i++;
+  errno = 0;
+  /* lock the mapped memory pagewise*/
+  if ((ret = mlock((char *)addr, 1500)) == -1)
+  {
+   printf("errno value is %d\n", errno);
+   printf("cant lock maped region\n");
+   exit(1);
+  }
+  addr = addr + page_size;
+ }
+}
+======================================================
+
+This testcase results in an mlock() failure with errno 14 that is EFAULT,
+but it has nowhere been specified that mlock() will return EFAULT.  When I
+tested the same on older kernels like 2.6.18, I got the correct result i.e
+errno 12 (ENOMEM).
+
+I think in source code mlock(2), setting errno ENOMEM has been missed in
+do_mlock() , on mlock_fixup() failure.
+
+SUSv3 requires the following behavior frmo mlock(2).
+
+[ENOMEM]
+    Some or all of the address range specified by the addr and
+    len arguments does not correspond to valid mapped pages
+    in the address space of the process.
+
+[EAGAIN]
+    Some or all of the memory identified by the operation could not
+    be locked when the call was made.
+
+This rule isn't so nice and slighly strange.  but many people think
+POSIX/SUS compliance is important.
+
+Reported-by: Halesh Sadashiv <halesh.sadashiv@ap.sony.com>
+Tested-by: Halesh Sadashiv <halesh.sadashiv@ap.sony.com>
+Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Cc: <stable@kernel.org>		[2.6.25.x, 2.6.26.x]
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/memory.c |   16 +++++++++++++---
+ mm/mlock.c  |    2 --
+ 2 files changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/mm/memory.c b/mm/memory.c
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -2765,16 +2765,26 @@ int make_pages_present(unsigned long addr, unsigned long end)
+ 
+ 	vma = find_vma(current->mm, addr);
+ 	if (!vma)
+-		return -1;
++		return -ENOMEM;
+ 	write = (vma->vm_flags & VM_WRITE) != 0;
+ 	BUG_ON(addr >= end);
+ 	BUG_ON(end > vma->vm_end);
+ 	len = DIV_ROUND_UP(end, PAGE_SIZE) - addr/PAGE_SIZE;
+ 	ret = get_user_pages(current, current->mm, addr,
+ 			len, write, 0, NULL, NULL);
+-	if (ret < 0)
++	if (ret < 0) {
++		/*
++		   SUS require strange return value to mlock
++		    - invalid addr generate to ENOMEM.
++		    - out of memory should generate EAGAIN.
++		*/
++		if (ret == -EFAULT)
++			ret = -ENOMEM;
++		else if (ret == -ENOMEM)
++			ret = -EAGAIN;
+ 		return ret;
+-	return ret == len ? 0 : -1;
++	}
++	return ret == len ? 0 : -ENOMEM;
+ }
+ 
+ #if !defined(__HAVE_ARCH_GATE_AREA)
+diff --git a/mm/mlock.c b/mm/mlock.c
+--- a/mm/mlock.c
++++ b/mm/mlock.c
+@@ -78,8 +78,6 @@ success:
+ 
+ 	mm->locked_vm -= pages;
+ out:
+-	if (ret == -ENOMEM)
+-		ret = -EAGAIN;
+ 	return ret;
+ }
+ 
+-- 
+1.7.7.6
