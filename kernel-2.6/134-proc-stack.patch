@@ -1,0 +1,112 @@
+From 2ec220e27f5040aec1e88901c1b6ea3d135787ad
+From: Ken Chen
+Date: Mon, 10 Nov 2008 11:26:08 +0300
+Subject: [PATCH] proc: add /proc/*/stack
+
+/proc/*/stack adds the ability to query a task's stack trace. It is more
+useful than /proc/*/wchan as it provides full stack trace instead of single
+depth. Example output:
+
+	$ cat /proc/self/stack
+	[<c010a271>] save_stack_trace_tsk+0x17/0x35
+	[<c01827b4>] proc_pid_stack+0x4a/0x76
+	[<c018312d>] proc_single_show+0x4a/0x5e
+	[<c016bdec>] seq_read+0xf3/0x29f
+	[<c015a004>] vfs_read+0x6d/0x91
+	[<c015a0c1>] sys_read+0x3b/0x60
+	[<c0102eda>] syscall_call+0x7/0xb
+	[<ffffffff>] 0xffffffff
+
+[add save_stack_trace_tsk() on mips, ACK Ralf --adobriyan]
+Signed-off-by: Ken Chen <kenchen@google.com>
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+
+---
+ Documentation/filesystems/proc.txt |    1 
+ fs/proc/base.c                     |   39 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 40 insertions(+)
+
+diff --git a/Documentation/filesystems/proc.txt b/Documentation/filesystems/proc.txt
+--- a/Documentation/filesystems/proc.txt
++++ b/Documentation/filesystems/proc.txt
+@@ -140,6 +140,7 @@ Table 1-1: Process specific entries in /proc
+  statm		Process memory status information
+  status		Process status in human readable form
+  wchan		If CONFIG_KALLSYMS is set, a pre-decoded wchan
++ stack		Report full stack trace, enable via CONFIG_STACKTRACE
+  smaps		Extension based on maps, the rss size for each mapped file
+ ..............................................................................
+ 
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -63,6 +63,7 @@
+ #include <linux/mm.h>
+ #include <linux/rcupdate.h>
+ #include <linux/kallsyms.h>
++#include <linux/stacktrace.h>
+ #include <linux/module.h>
+ #include <linux/mount.h>
+ #include <linux/security.h>
+@@ -290,6 +291,38 @@ static int proc_pid_wchan(struct task_st
+ }
+ #endif /* CONFIG_KALLSYMS */
+ 
++#ifdef CONFIG_STACKTRACE
++
++#define MAX_STACK_TRACE_DEPTH	64
++
++static int proc_pid_stack(struct task_struct *task, char *buffer)
++{
++	struct stack_trace trace;
++	unsigned long *entries;
++	int i, len;
++
++	entries = kmalloc(MAX_STACK_TRACE_DEPTH * sizeof(*entries), GFP_KERNEL);
++	if (!entries)
++		return -ENOMEM;
++
++	trace.nr_entries	= 0;
++	trace.max_entries	= MAX_STACK_TRACE_DEPTH;
++	trace.entries		= entries;
++	trace.skip		= 0;
++	save_stack_trace_tsk(task, &trace);
++
++	for (i = 0, len = 0; i < trace.nr_entries; i++) {
++		len += snprintf(buffer+len, PAGE_SIZE-len, "[<%p>] %pS\n",
++			   (void *)entries[i], (void *)entries[i]);
++		if (len >= PAGE_SIZE)
++			break;
++	}
++	kfree(entries);
++
++	return len;
++}
++#endif
++
+ #ifdef CONFIG_SCHEDSTATS
+ /*
+  * Provides /proc/PID/schedstat
+@@ -1998,6 +2031,9 @@ static const struct pid_entry tgid_base_
+ #ifdef CONFIG_KALLSYMS
+ 	INF("wchan",      S_IRUGO, pid_wchan),
+ #endif
++#ifdef CONFIG_STACKTRACE
++	INF("stack",      S_IRUSR, pid_stack),
++#endif
+ #ifdef CONFIG_SCHEDSTATS
+ 	INF("schedstat",  S_IRUGO, pid_schedstat),
+ #endif
+@@ -2281,6 +2317,9 @@ static const struct pid_entry tid_base_s
+ #ifdef CONFIG_KALLSYMS
+ 	INF("wchan",     S_IRUGO, pid_wchan),
+ #endif
++#ifdef CONFIG_STACKTRACE
++	INF("stack",      S_IRUSR, pid_stack),
++#endif
+ #ifdef CONFIG_SCHEDSTATS
+ 	INF("schedstat", S_IRUGO, pid_schedstat),
+ #endif
+-- 
+1.7.7.6
