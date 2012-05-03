@@ -13,6 +13,7 @@
  6e583ce5242f32e925dcb198f7123256d0798370 net: eliminate refcounting in backlog queue
  b0691c8ee7c28a72748ff32e91b165ec12ae4de6 net: Unlock sock before calling sk_free()
  e754834e65220b2b674c55c3b6dfb2fb1a2804d0 icmp: move icmp_err_convert[] to .rodata
+ 573636cbafeba88f7c88832ae053dafe265bf94b net: remove superfluous call to synchronize_net()
 
 ---
  include/net/dst.h            |    6 +++-
@@ -318,6 +319,15 @@ diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
  }
  EXPORT_SYMBOL(build_ehash_secret);
  
+@@ -980,8 +978,6 @@ void inet_register_protosw(struct inet_protosw *p)
+ out:
+ 	spin_unlock_bh(&inetsw_lock);
+ 
+-	synchronize_net();
+-
+ 	return;
+ 
+ out_permanent:
 diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
 --- a/net/ipv4/arp.c
 +++ b/net/ipv4/arp.c
