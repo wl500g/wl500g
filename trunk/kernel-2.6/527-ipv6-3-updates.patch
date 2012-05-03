@@ -1,4 +1,5 @@
 
+ 4953f0fcc06a125f87874743d968c0e185c8b296 [IPv6]: Update setsockopt(IPV6_MULTICAST_IF) to support RFC 3493, try2
  f68635e627f9b21db05102e2d8fcd2894493d6bc [IPV6]: Cleanup the addconf_sysctl_register
  f52295a9c55ccb4d9b3580ce889f958ac740a44b [IPV6]: Unify and cleanup calls to addrconf_sysctl_register
  c8fecf2242a0ab7230210665986b8ef915e1ae9e [IPV6]: Eliminate difference in actions of sysctl and proc handler for conf.all.forwarding
@@ -10,20 +11,21 @@
  2bda8a0c8af5294b869da1efd2c2b9a562f50dcf ipv6: Disable router anycast address for /127 prefixes
 
 ---
- include/net/addrconf.h  |   28 +++++-----
- include/net/ip6_route.h |    6 +-
- include/net/ipv6.h      |    4 -
- include/net/ndisc.h     |   18 ++++--
- include/net/udp.h       |    1 
- net/ipv4/udp.c          |    3 -
- net/ipv6/addrconf.c     |  125 ++++++++++++++++++++----------------------------
- net/ipv6/ip6_output.c   |    2 
- net/ipv6/ip6mr.c        |    4 +
- net/ipv6/mcast.c        |   20 +++----
- net/ipv6/ndisc.c        |   37 +++++++-------
- net/ipv6/route.c        |    6 +-
- net/ipv6/udp.c          |    6 +-
- 13 files changed, 129 insertions(+), 131 deletions(-)
+ include/net/addrconf.h   |   28 +++++-----
+ include/net/ip6_route.h  |    6 +-
+ include/net/ipv6.h       |    4 -
+ include/net/ndisc.h      |   18 ++++--
+ include/net/udp.h        |    1 
+ net/ipv4/udp.c           |    3 -
+ net/ipv6/addrconf.c      |  125 ++++++++++++++++++++---------------------------
+ net/ipv6/ip6_output.c    |    2 
+ net/ipv6/ip6mr.c         |    4 +
+ net/ipv6/ipv6_sockglue.c |   13 +++-
+ net/ipv6/mcast.c         |   20 +++----
+ net/ipv6/ndisc.c         |   37 +++++++------
+ net/ipv6/route.c         |    6 +-
+ net/ipv6/udp.c           |    6 +-
+ 14 files changed, 137 insertions(+), 136 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
@@ -472,6 +474,30 @@ diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
  	       int proto, int len)
  {
  	struct ipv6_pinfo *np = inet6_sk(sk);
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -539,12 +539,15 @@ done:
+ 	case IPV6_MULTICAST_IF:
+ 		if (sk->sk_type == SOCK_STREAM)
+ 			goto e_inval;
+-		if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != val)
+-			goto e_inval;
+ 
+-		if (__dev_get_by_index(val) == NULL) {
+-			retv = -ENODEV;
+-			break;
++		if (val) {
++			if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != val)
++				goto e_inval;
++
++			if (__dev_get_by_index(val) == NULL) {
++				retv = -ENODEV;
++				break;
++			}
+ 		}
+ 		np->mcast_oif = val;
+ 		retv = 0;
 diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
 --- a/net/ipv6/mcast.c
 +++ b/net/ipv6/mcast.c
