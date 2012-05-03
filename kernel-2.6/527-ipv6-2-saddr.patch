@@ -1,20 +1,22 @@
 ipv6: source address selection updates
 
+ c61a7d10efbd187ab9bb54871238ebd1dfcacd44 [IPV6]: ipv6_addr_type() doesn't know about RFC4193 addresses.
  5fe47b8a65f8b4104e41dc46092dfcf942ce0758 [IPV6]: Add ORCHID prefix to address label table
  99cd07a537bf4c7c954f31611e30064407104410 [IPV6]: Fix source address selection for ORCHID addresses
  a9b05723ffa2e427b0257b81ea74363fcd7c304f [IPV6] ADDRCONF: Clean-up ipv6_dev_get_saddr().
  5e5f3f0f801321078c897a5de0b4b4304f234da0 [IPV6] ADDRCONF: Convert ipv6_get_saddr() to ipv6_dev_get_saddr().
 
 ---
- include/net/addrconf.h  |    3 
- include/net/ipv6.h      |   10 +
- net/ipv6/addrconf.c     |  423 +++++++++++++++++++++++-------------------------
- net/ipv6/fib6_rules.c   |    4 
- net/ipv6/ip6_output.c   |    3 
- net/ipv6/route.c        |    3 
- net/ipv6/xfrm6_policy.c |    5 
- net/sctp/ipv6.c         |    3 
- 8 files changed, 231 insertions(+), 223 deletions(-)
+ include/net/addrconf.h   |    3 
+ include/net/ipv6.h       |   10 +
+ net/ipv6/addrconf.c      |  423 +++++++++++++++++++++++------------------------
+ net/ipv6/addrconf_core.c |    3 
+ net/ipv6/fib6_rules.c    |    4 
+ net/ipv6/ip6_output.c    |    3 
+ net/ipv6/route.c         |    3 
+ net/ipv6/xfrm6_policy.c  |    5 
+ net/sctp/ipv6.c          |    3 
+ 9 files changed, 234 insertions(+), 223 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
@@ -566,6 +568,19 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  
  int ipv6_get_lladdr(struct net_device *dev, struct in6_addr *addr,
  		    unsigned char banned_flags)
+diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+--- a/net/ipv6/addrconf_core.c
++++ b/net/ipv6/addrconf_core.c
+@@ -50,6 +50,9 @@ int __ipv6_addr_type(const struct in6_addr *addr)
+ 	if ((st & htonl(0xFFC00000)) == htonl(0xFEC00000))
+ 		return (IPV6_ADDR_SITELOCAL | IPV6_ADDR_UNICAST |
+ 			IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_SITELOCAL));		/* addr-select 3.1 */
++	if ((st & htonl(0xFE000000)) == htonl(0xFC000000))
++		return (IPV6_ADDR_UNICAST |
++			IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_GLOBAL));			/* RFC 4193 */
+ 
+ 	if ((addr->s6_addr32[0] | addr->s6_addr32[1]) == 0) {
+ 		if (addr->s6_addr32[2] == 0) {
 diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
 --- a/net/ipv6/fib6_rules.c
 +++ b/net/ipv6/fib6_rules.c
