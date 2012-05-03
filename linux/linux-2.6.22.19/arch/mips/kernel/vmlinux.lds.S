@@ -168,6 +168,7 @@ SECTIONS
 	*(.pdr)
 	*(.reginfo)
 	*(.mdebug*)
+	*(.eh_frame)
   }
 
   /* This is the MIPS specific mdebug section.  */

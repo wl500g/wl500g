@@ -232,8 +232,6 @@ void copy_user_highpage(struct page *to, struct page *from,
 	smp_wmb();
 }
 
-EXPORT_SYMBOL(copy_user_highpage);
-
 void copy_to_user_page(struct vm_area_struct *vma,
 	struct page *page, unsigned long vaddr, void *dst, const void *src,
 	unsigned long len)
@@ -252,8 +250,6 @@ void copy_to_user_page(struct vm_area_struct *vma,
 		flush_cache_page(vma, vaddr, page_to_pfn(page));
 }
 
-EXPORT_SYMBOL(copy_to_user_page);
-
 void copy_from_user_page(struct vm_area_struct *vma,
 	struct page *page, unsigned long vaddr, void *dst, const void *src,
 	unsigned long len)
@@ -269,9 +265,6 @@ void copy_from_user_page(struct vm_area_struct *vma,
 			SetPageDcacheDirty(page);
 	}
 }
-
-EXPORT_SYMBOL(copy_from_user_page);
-
 
 #ifdef CONFIG_HIGHMEM
 unsigned long highstart_pfn, highend_pfn;
@@ -499,7 +492,7 @@ void free_initrd_mem(unsigned long start, unsigned long end)
 }
 #endif
 
-void free_initmem(void)
+void __init_refok free_initmem(void)
 {
 	prom_free_prom_memory();
 	free_init_pages("unused kernel memory",
