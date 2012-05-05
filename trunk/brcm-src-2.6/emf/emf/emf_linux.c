@@ -190,23 +190,30 @@ static int32
 emf_stats_get(char *buf, char **start, off_t offset, int32 size,
               int32 *eof, void *data)
 {
-	emf_info_t *emfi;
-	emf_cfg_request_t cfg;
+	emf_info_t *emfi = (emf_info_t *)data;
+	emf_cfg_request_t *cfg;
 	emf_stats_t *emfs;
 	struct bcmstrbuf b;
 
-	emfi = (emf_info_t *)data;
 	ASSERT(emfi);
 
-	cfg.command_id = EMFCFG_CMD_EMF_STATS;
-	cfg.oper_type = EMFCFG_OPER_TYPE_GET;
-	cfg.size = sizeof(emf_stats_t);
-	emfs = (emf_stats_t *)cfg.arg;
+	cfg = kmalloc(sizeof(emf_cfg_request_t), GFP_KERNEL);
+	if (cfg == NULL)
+	{
+		EMF_ERROR("Out of memory allocating emf_cfg_request\n");
+		return (FAILURE);
+	}
 
-	emfc_cfg_request_process(emfi->emfci, &cfg);
-	if (cfg.status != EMFCFG_STATUS_SUCCESS)
+	cfg->command_id = EMFCFG_CMD_EMF_STATS;
+	cfg->oper_type = EMFCFG_OPER_TYPE_GET;
+	cfg->size = sizeof(emf_stats_t);
+	emfs = (emf_stats_t *)cfg->arg;
+
+	emfc_cfg_request_process(emfi->emfci, cfg);
+	if (cfg->status != EMFCFG_STATUS_SUCCESS)
 	{
 		EMF_ERROR("Unable to get the EMF stats\n");
+		kfree(cfg);
 		return (FAILURE);
 	}
 
@@ -223,6 +230,7 @@ emf_stats_get(char *buf, char **start, off_t offset, int32 size,
 	            emfs->igmp_frames, emfs->igmp_frames_fwd,
 	            emfs->igmp_frames_sentup, emfs->mfdb_cache_hits,
 	            emfs->mfdb_cache_misses);
+	kfree(cfg);
 
 	if (b.size == 0)
 	{
@@ -237,22 +245,31 @@ static int32
 emf_mfdb_list(char *buf, char **start, off_t offset, int32 size,
               int32 *eof, void *data)
 {
-	emf_info_t *emfi;
-	emf_cfg_request_t cfg;
+	emf_info_t *emfi = (emf_info_t *)data;
+	emf_cfg_request_t *cfg;
 	struct bcmstrbuf b;
 	emf_cfg_mfdb_list_t *list;
 	int32 i;
 
-	emfi = (emf_info_t *)data;
-	cfg.command_id = EMFCFG_CMD_MFDB_LIST;
-	cfg.oper_type = EMFCFG_OPER_TYPE_GET;
-	cfg.size = sizeof(cfg.arg);
-	list = (emf_cfg_mfdb_list_t *)cfg.arg;
+	ASSERT(emfi);
 
-	emfc_cfg_request_process(emfi->emfci, &cfg);
-	if (cfg.status != EMFCFG_STATUS_SUCCESS)
+	cfg = kmalloc(sizeof(emf_cfg_request_t), GFP_KERNEL);
+	if (cfg == NULL)
+	{
+		EMF_ERROR("Out of memory allocating emf_cfg_request\n");
+		return (FAILURE);
+	}
+
+	cfg->command_id = EMFCFG_CMD_MFDB_LIST;
+	cfg->oper_type = EMFCFG_OPER_TYPE_GET;
+	cfg->size = sizeof(cfg->arg);
+	list = (emf_cfg_mfdb_list_t *)cfg->arg;
+
+	emfc_cfg_request_process(emfi->emfci, cfg);
+	if (cfg->status != EMFCFG_STATUS_SUCCESS)
 	{
 		EMF_ERROR("Unable to get the MFDB list\n");
+		kfree(cfg);
 		return (FAILURE);
 	}
 
@@ -265,6 +282,7 @@ emf_mfdb_list(char *buf, char **start, off_t offset, int32 size,
 		bcm_bprintf(&b, "%-15s", list->mfdb_entry[i].if_name);
 		bcm_bprintf(&b, "%d\n", list->mfdb_entry[i].pkts_fwd);
 	}
+	kfree(cfg);
 
 	if (b.size == 0)
 	{
