@@ -1,15 +1,32 @@
-gcc 4.4 fixes from upstream
+gcc 4.4 updates from upstream
 
  1d965fe0eb435b3f9a10538815f6a68de0aef03c reiserfs: fix warnings with gcc 4.4
  ea6b101d8a3ea4e1dec29df31188c2f9852296fe include/linux/compiler-gcc.h: use __same_type() in  __must_be_array()
+ 35bb5b1e0e84cfa1a8906f7e6a77f391ff315791 Add option to enable -Wframe-larger-than= on gcc 4.4
 
 ---
+ Makefile                     |    4 +++
  fs/reiserfs/do_balan.c       |    5 +---
  fs/reiserfs/lbalance.c       |   10 +++++----
  include/linux/compiler-gcc.h |    3 --
  include/linux/reiserfs_fs.h  |   47 +++++++++++++++++++++++++++++++++++--------
- 4 files changed, 48 insertions(+), 17 deletions(-)
+ lib/Kconfig.debug            |   11 ++++++++++
+ 6 files changed, 63 insertions(+), 17 deletions(-)
 
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -507,6 +507,10 @@ else
+ CFLAGS		+= -g
+ endif
+ 
++ifneq (CONFIG_FRAME_WARN,0)
++CFLAGS += $(call cc-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
++endif
++
+ # Force gcc to behave correct even for buggy distributions
+ CFLAGS          += $(call cc-option, -fno-stack-protector)
+ 
 diff --git a/fs/reiserfs/do_balan.c b/fs/reiserfs/do_balan.c
 --- a/fs/reiserfs/do_balan.c
 +++ b/fs/reiserfs/do_balan.c
@@ -139,5 +156,25 @@ diff --git a/include/linux/reiserfs_fs.h b/include/linux/reiserfs_fs.h
  //
  // key is pointer to cpu key, result is cpu
 
+diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -25,6 +25,17 @@ config ENABLE_MUST_CHECK
+ 	  suppress the "warning: ignoring return value of 'foo', declared with
+ 	  attribute warn_unused_result" messages.
+ 
++config FRAME_WARN
++	int "Warn for stack frames larger than (needs gcc 4.4)"
++	range 0 8192
++	default 1024 if !64BIT
++	default 2048 if 64BIT
++	help
++	  Tell gcc to warn at build time for stack frames larger than this.
++	  Setting this too low will cause a lot of warnings.
++	  Setting it to 0 disables the warning.
++	  Requires gcc 4.4
++
+ config MAGIC_SYSRQ
+ 	bool "Magic SysRq key"
+ 	depends on !UML
 -- 
-1.7.4.1
