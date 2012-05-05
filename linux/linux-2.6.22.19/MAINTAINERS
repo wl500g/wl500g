@@ -3596,6 +3596,12 @@ M:	bfennema@falcon.csc.calpoly.edu
 W:	http://linux-udf.sourceforge.net
 S:	Maintained
 
+UNIFDEF
+M:	Tony Finch <dot@dotat.at>
+W:	http://dotat.at/prog/unifdef
+S:	Maintained
+F:	scripts/unifdef.c
+
 UNIFORM CDROM DRIVER
 P:	Jens Axboe
 M:	axboe@kernel.dk
