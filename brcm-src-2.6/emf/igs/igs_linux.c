@@ -108,23 +108,29 @@ static int32
 igs_stats_get(char *buf, char **start, off_t offset, int32 size,
               int32 *eof, void *data)
 {
-	igs_info_t *igs_info;
-	igs_cfg_request_t cfg;
+	igs_info_t *igs_info = (igs_info_t *)data;
+	igs_cfg_request_t *cfg;
 	igs_stats_t *stats;
 	struct bcmstrbuf b;
 
-	igs_info = (igs_info_t *)data;
+	cfg = kmalloc(sizeof(igs_cfg_request_t), GFP_KERNEL);
+	if (cfg == NULL)
+	{
+		IGS_ERROR("Out of memory allocating igs_cfg_request\n");
+		return (FAILURE);
+	}
 
-	strcpy(cfg.inst_id, igs_info->inst_id);
-	cfg.command_id = IGSCFG_CMD_IGS_STATS;
-	cfg.oper_type = IGSCFG_OPER_TYPE_GET;
-	cfg.size = sizeof(cfg.arg);
-	stats = (igs_stats_t *)cfg.arg;
+	strcpy(cfg->inst_id, igs_info->inst_id);
+	cfg->command_id = IGSCFG_CMD_IGS_STATS;
+	cfg->oper_type = IGSCFG_OPER_TYPE_GET;
+	cfg->size = sizeof(cfg->arg);
+	stats = (igs_stats_t *)cfg->arg;
 
-	igsc_cfg_request_process(igs_info->igsc_info, &cfg);
-	if (cfg.status != IGSCFG_STATUS_SUCCESS)
+	igsc_cfg_request_process(igs_info->igsc_info, cfg);
+	if (cfg->status != IGSCFG_STATUS_SUCCESS)
 	{
 		IGS_ERROR("Unable to get the IGS stats\n");
+		kfree(cfg);
 		return (FAILURE);
 	}
 
@@ -140,6 +146,7 @@ igs_stats_get(char *buf, char **start, off_t offset, int32 size,
 	bcm_bprintf(&b, "%-15d %-15d %-15d %d\n",
 	            stats->igmp_not_handled, stats->igmp_mcast_groups,
 	            stats->igmp_mcast_members, stats->igmp_mem_timeouts);
+	kfree(cfg);
 
 	if (b.size == 0)
 	{
@@ -154,24 +161,30 @@ static int32
 igs_sdb_list(char *buf, char **start, off_t offset, int32 size,
              int32 *eof, void *data)
 {
-	igs_info_t *igs_info;
-	igs_cfg_request_t cfg;
+	igs_info_t *igs_info = (igs_info_t *)data;
+	igs_cfg_request_t *cfg;
 	igs_cfg_sdb_list_t *list;
 	int32 i;
 	struct bcmstrbuf b;
 
-	igs_info = (igs_info_t *)data;
+	cfg = kmalloc(sizeof(igs_cfg_request_t), GFP_KERNEL);
+	if (cfg == NULL)
+	{
+		IGS_ERROR("Out of memory allocating igs_cfg_request\n");
+		return (FAILURE);
+	}
 
-	strcpy(cfg.inst_id, igs_info->inst_id);
-	cfg.command_id = IGSCFG_CMD_IGSDB_LIST;
-	cfg.oper_type = IGSCFG_OPER_TYPE_GET;
-	cfg.size = sizeof(cfg.arg);
-	list = (igs_cfg_sdb_list_t *)cfg.arg;
+	strcpy(cfg->inst_id, igs_info->inst_id);
+	cfg->command_id = IGSCFG_CMD_IGSDB_LIST;
+	cfg->oper_type = IGSCFG_OPER_TYPE_GET;
+	cfg->size = sizeof(cfg->arg);
+	list = (igs_cfg_sdb_list_t *)cfg->arg;
 
-	igsc_cfg_request_process(igs_info->igsc_info, &cfg);
-	if (cfg.status != IGSCFG_STATUS_SUCCESS)
+	igsc_cfg_request_process(igs_info->igsc_info, cfg);
+	if (cfg->status != IGSCFG_STATUS_SUCCESS)
 	{
 		IGS_ERROR("Unable to get the IGSDB list\n");
+		kfree(cfg);
 		return (FAILURE);
 	}
 
@@ -184,6 +197,7 @@ igs_sdb_list(char *buf, char **start, off_t offset, int32 size,
 		bcm_bprintf(&b, "%08x        ", list->sdb_entry[i].mh_ip);
 		bcm_bprintf(&b, "%s\n", list->sdb_entry[i].if_name);
 	}
+	kfree(cfg);
 
 	if (b.size == 0)
 	{
