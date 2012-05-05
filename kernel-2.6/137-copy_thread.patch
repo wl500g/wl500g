@@ -1,0 +1,123 @@
+From 6f2c55b843836d26528c56a0968689accaedbc67
+From: Alexey Dobriyan
+Date: Thu, 2 Apr 2009 16:56:59 -0700
+Subject: [PATCH] Simplify copy_thread()
+
+First argument unused since 2.3.11.
+
+[akpm@linux-foundation.org: coding-style fixes]
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: <linux-arch@vger.kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
+ arch/arm/kernel/process.c      |    2 +-
+ arch/avr32/kernel/process.c    |    2 +-
+ arch/blackfin/kernel/process.c |    2 +-
+ arch/i386/kernel/process.c     |    2 +-
+ arch/mips/kernel/process.c     |    2 +-
+ arch/sh/kernel/process.c       |    2 +-
+ include/linux/sched.h          |    3 ++-
+ kernel/fork.c                  |    2 +-
+ 8 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/arch/arm/kernel/process.c b/arch/arm/kernel/process.c
+--- a/arch/arm/kernel/process.c
++++ b/arch/arm/kernel/process.c
+@@ -301,7 +301,7 @@ void release_thread(struct task_struct *dead_task)
+ asmlinkage void ret_from_fork(void) __asm__("ret_from_fork");
+ 
+ int
+-copy_thread(int nr, unsigned long clone_flags, unsigned long stack_start,
++copy_thread(unsigned long clone_flags, unsigned long stack_start,
+ 	    unsigned long stk_sz, struct task_struct *p, struct pt_regs *regs)
+ {
+ 	struct thread_info *thread = task_thread_info(p);
+diff --git a/arch/avr32/kernel/process.c b/arch/avr32/kernel/process.c
+--- a/arch/avr32/kernel/process.c
++++ b/arch/avr32/kernel/process.c
+@@ -332,7 +332,7 @@ int dump_fpu(struct pt_regs *regs, elf_fpregset_t *fpu)
+ 
+ asmlinkage void ret_from_fork(void);
+ 
+-int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
++int copy_thread(unsigned long clone_flags, unsigned long usp,
+ 		unsigned long unused,
+ 		struct task_struct *p, struct pt_regs *regs)
+ {
+diff --git a/arch/blackfin/kernel/process.c b/arch/blackfin/kernel/process.c
+--- a/arch/blackfin/kernel/process.c
++++ b/arch/blackfin/kernel/process.c
+@@ -193,7 +193,7 @@ asmlinkage int bfin_clone(struct pt_regs *regs)
+ }
+ 
+ int
+-copy_thread(int nr, unsigned long clone_flags,
++copy_thread(unsigned long clone_flags,
+ 	    unsigned long usp, unsigned long topstk,
+ 	    struct task_struct *p, struct pt_regs *regs)
+ {
+diff --git a/arch/mips/kernel/process.c b/arch/mips/kernel/process.c
+--- a/arch/mips/kernel/process.c
++++ b/arch/mips/kernel/process.c
+@@ -99,7 +99,7 @@ void flush_thread(void)
+ {
+ }
+ 
+-int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
++int copy_thread(unsigned long clone_flags, unsigned long usp,
+ 	unsigned long unused, struct task_struct *p, struct pt_regs *regs)
+ {
+ 	struct thread_info *ti = task_thread_info(p);
+diff --git a/arch/sh/kernel/process.c b/arch/sh/kernel/process.c
+--- a/arch/sh/kernel/process.c
++++ b/arch/sh/kernel/process.c
+@@ -170,7 +170,7 @@ int dump_fpu(struct pt_regs *regs, elf_fpregset_t *fpu)
+ 
+ asmlinkage void ret_from_fork(void);
+ 
+-int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
++int copy_thread(unsigned long clone_flags, unsigned long usp,
+ 		unsigned long unused,
+ 		struct task_struct *p, struct pt_regs *regs)
+ {
+diff --git a/arch/i386/kernel/process.c b/arch/i386/kernel/process.c
+--- a/arch/i386/kernel/process.c
++++ b/arch/i386/kernel/process.c
+@@ -245,7 +245,7 @@ void prepare_to_copy(struct task_struct *tsk)
+ 	unlazy_fpu(tsk);
+ }
+ 
+-int copy_thread(int nr, unsigned long clone_flags, unsigned long esp,
++int copy_thread(unsigned long clone_flags, unsigned long esp,
+ 	unsigned long unused,
+ 	struct task_struct * p, struct pt_regs * regs)
+ {
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1475,7 +1475,8 @@ extern void mm_release(struct task_struct *, struct mm_struct *);
+ /* Remove the current tasks stale references to the old mm_struct */
+ extern void mm_release(struct task_struct *, struct mm_struct *);
+ 
+-extern int  copy_thread(int, unsigned long, unsigned long, unsigned long, struct task_struct *, struct pt_regs *);
++extern int copy_thread(unsigned long, unsigned long, unsigned long,
++			struct task_struct *, struct pt_regs *);
+ extern void flush_thread(void);
+ extern void exit_thread(void);
+ 
+diff --git a/kernel/fork.c b/kernel/fork.c
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1025,7 +1025,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
+ 		goto bad_fork_cleanup_mm;
+ 	if ((retval = copy_namespaces(clone_flags, p)))
+ 		goto bad_fork_cleanup_keys;
+-	retval = copy_thread(0, clone_flags, stack_start, stack_size, p, regs);
++	retval = copy_thread(clone_flags, stack_start, stack_size, p, regs);
+ 	if (retval)
+ 		goto bad_fork_cleanup_namespaces;
+ 
+-- 
+1.7.6.5
