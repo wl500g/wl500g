@@ -101,7 +101,7 @@ static int add_argv(char *what) {
 	DEBUGP("add_argv: %s\n", what);
 	if (what && ((newargc + 1) < sizeof(newargv)/sizeof(char *))) {
 		newargv[newargc] = strdup(what);
-		newargc++;
+		newargv[++newargc] = NULL;
 		return 1;
 	} else
 		return 0;
