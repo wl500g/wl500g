@@ -265,8 +265,8 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +	.hooknum	= NF_IP6_POST_ROUTING,
 +	.priority	= NF_IP6_PRI_NAT_SRC - 1
 +	},
-+};
 +#endif
++};
 +
 +#if defined(CONFIG_IMQ_NUM_DEVS)
 +static unsigned int numdevs = CONFIG_IMQ_NUM_DEVS;
