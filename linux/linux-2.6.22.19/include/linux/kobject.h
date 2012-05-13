@@ -55,8 +55,8 @@ struct kobject {
 	struct kobject		* parent;
 	struct kset		* kset;
 	struct kobj_type	* ktype;
-	struct dentry		* dentry;
-	wait_queue_head_t	poll;
+	struct sysfs_dirent	* sd;
+	wait_queue_head_t	poll_unused;	/* Unable to change size due wl driver blob */
 };
 
 extern int kobject_set_name(struct kobject *, const char *, ...)
@@ -71,13 +71,9 @@ extern void kobject_init(struct kobject *);
 extern void kobject_cleanup(struct kobject *);
 
 extern int __must_check kobject_add(struct kobject *);
-extern int __must_check kobject_shadow_add(struct kobject *, struct dentry *);
 extern void kobject_del(struct kobject *);
 
 extern int __must_check kobject_rename(struct kobject *, const char *new_name);
-extern int __must_check kobject_shadow_rename(struct kobject *kobj,
-						struct dentry *new_parent,
-						const char *new_name);
 extern int __must_check kobject_move(struct kobject *, struct kobject *);
 
 extern int __must_check kobject_register(struct kobject *);

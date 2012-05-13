@@ -1,7 +1,11 @@
 /*
- * inode.c - basic inode and dentry operations.
+ * fs/sysfs/inode.c - basic sysfs inode and dentry operations
  *
- * sysfs is Copyright (c) 2001-3 Patrick Mochel
+ * Copyright (c) 2001-3 Patrick Mochel
+ * Copyright (c) 2007 SUSE Linux Products GmbH
+ * Copyright (c) 2007 Tejun Heo <teheo@suse.de>
+ *
+ * This file is released under the GPLv2.
  *
  * Please see Documentation/filesystems/sysfs.txt for more information.
  */
@@ -14,7 +18,6 @@
 #include <linux/capability.h>
 #include <linux/errno.h>
 #include <linux/sched.h>
-#include <asm/semaphore.h>
 #include "sysfs.h"
 
 extern struct super_block * sysfs_sb;
@@ -27,22 +30,12 @@ static const struct address_space_operations sysfs_aops = {
 
 static struct backing_dev_info sysfs_backing_dev_info = {
 	.ra_pages	= 0,	/* No readahead */
-	.capabilities	= BDI_CAP_NO_ACCT_AND_WRITEBACK,
+	.capabilities	= BDI_CAP_NO_ACCT_DIRTY | BDI_CAP_NO_WRITEBACK,
 };
 
 static const struct inode_operations sysfs_inode_operations ={
 	.setattr	= sysfs_setattr,
 };
-
-void sysfs_delete_inode(struct inode *inode)
-{
-	/* Free the shadowed directory inode operations */
-	if (sysfs_is_shadowed_inode(inode)) {
-		kfree(inode->i_op);
-		inode->i_op = NULL;
-	}
-	return generic_delete_inode(inode);
-}
 
 int __init sysfs_inode_init(void)
 {
@@ -65,6 +58,8 @@ int sysfs_setattr(struct dentry * dentry, struct iattr * iattr)
 	error = inode_change_ok(inode, iattr);
 	if (error)
 		return error;
+
+	iattr->ia_valid &= ~ATTR_SIZE; /* ignore size changes */
 
 	error = inode_setattr(inode, iattr);
 	if (error)
@@ -138,187 +133,108 @@ static inline void set_inode_attr(struct inode * inode, struct iattr * iattr)
  */
 static struct lock_class_key sysfs_inode_imutex_key;
 
-struct inode * sysfs_new_inode(mode_t mode, struct sysfs_dirent * sd)
+static int sysfs_count_nlink(struct sysfs_dirent *sd)
 {
-	struct inode * inode = new_inode(sysfs_sb);
-	if (inode) {
-		inode->i_blocks = 0;
-		inode->i_mapping->a_ops = &sysfs_aops;
-		inode->i_mapping->backing_dev_info = &sysfs_backing_dev_info;
-		inode->i_op = &sysfs_inode_operations;
-		inode->i_ino = sd->s_ino;
-		lockdep_set_class(&inode->i_mutex, &sysfs_inode_imutex_key);
+	struct sysfs_dirent *child;
+	int nr = 0;
 
-		if (sd->s_iattr) {
-			/* sysfs_dirent has non-default attributes
-			 * get them for the new inode from persistent copy
-			 * in sysfs_dirent
-			 */
-			set_inode_attr(inode, sd->s_iattr);
-		} else
-			set_default_inode_attr(inode, mode);
+	for (child = sd->s_dir.children; child; child = child->s_sibling)
+		if (sysfs_type(child) == SYSFS_DIR)
+			nr++;
+
+	return nr + 2;
+}
+
+static void sysfs_init_inode(struct sysfs_dirent *sd, struct inode *inode)
+{
+	struct bin_attribute *bin_attr;
+
+	inode->i_blocks = 0;
+	inode->i_mapping->a_ops = &sysfs_aops;
+	inode->i_mapping->backing_dev_info = &sysfs_backing_dev_info;
+	inode->i_op = &sysfs_inode_operations;
+	inode->i_ino = sd->s_ino;
+	lockdep_set_class(&inode->i_mutex, &sysfs_inode_imutex_key);
+
+	if (sd->s_iattr) {
+		/* sysfs_dirent has non-default attributes
+		 * get them for the new inode from persistent copy
+		 * in sysfs_dirent
+		 */
+		set_inode_attr(inode, sd->s_iattr);
+	} else
+		set_default_inode_attr(inode, sd->s_mode);
+
+
+	/* initialize inode according to type */
+	switch (sysfs_type(sd)) {
+	case SYSFS_DIR:
+		inode->i_op = &sysfs_dir_inode_operations;
+		inode->i_fop = &sysfs_dir_operations;
+		inode->i_nlink = sysfs_count_nlink(sd);
+		break;
+	case SYSFS_KOBJ_ATTR:
+		inode->i_size = PAGE_SIZE;
+		inode->i_fop = &sysfs_file_operations;
+		break;
+	case SYSFS_KOBJ_BIN_ATTR:
+		bin_attr = sd->s_bin_attr.bin_attr;
+		inode->i_size = bin_attr->size;
+		inode->i_fop = &bin_fops;
+		break;
+	case SYSFS_KOBJ_LINK:
+		inode->i_op = &sysfs_symlink_inode_operations;
+		break;
+	default:
+		BUG();
 	}
+
+	unlock_new_inode(inode);
+}
+
+/**
+ *	sysfs_get_inode - get inode for sysfs_dirent
+ *	@sd: sysfs_dirent to allocate inode for
+ *
+ *	Get inode for @sd.  If such inode doesn't exist, a new inode
+ *	is allocated and basics are initialized.  New inode is
+ *	returned locked.
+ *
+ *	LOCKING:
+ *	Kernel thread context (may sleep).
+ *
+ *	RETURNS:
+ *	Pointer to allocated inode on success, NULL on failure.
+ */
+struct inode * sysfs_get_inode(struct sysfs_dirent *sd)
+{
+	struct inode *inode;
+
+	inode = iget_locked(sysfs_sb, sd->s_ino);
+	if (inode && (inode->i_state & I_NEW))
+		sysfs_init_inode(sd, inode);
+
 	return inode;
 }
 
-int sysfs_create(struct dentry * dentry, int mode, int (*init)(struct inode *))
+int sysfs_hash_and_remove(struct sysfs_dirent *dir_sd, const char *name)
 {
-	int error = 0;
-	struct inode * inode = NULL;
-	if (dentry) {
-		if (!dentry->d_inode) {
-			struct sysfs_dirent * sd = dentry->d_fsdata;
-			if ((inode = sysfs_new_inode(mode, sd))) {
-				if (dentry->d_parent && dentry->d_parent->d_inode) {
-					struct inode *p_inode = dentry->d_parent->d_inode;
-					p_inode->i_mtime = p_inode->i_ctime = CURRENT_TIME;
-				}
-				goto Proceed;
-			}
-			else 
-				error = -ENOMEM;
-		} else
-			error = -EEXIST;
-	} else 
-		error = -ENOENT;
-	goto Done;
+	struct sysfs_addrm_cxt acxt;
+	struct sysfs_dirent *sd;
 
- Proceed:
-	if (init)
-		error = init(inode);
-	if (!error) {
-		d_instantiate(dentry, inode);
-		if (S_ISDIR(mode))
-			dget(dentry);  /* pin only directory dentry in core */
-	} else
-		iput(inode);
- Done:
-	return error;
-}
-
-/*
- * Get the name for corresponding element represented by the given sysfs_dirent
- */
-const unsigned char * sysfs_get_name(struct sysfs_dirent *sd)
-{
-	struct attribute * attr;
-	struct bin_attribute * bin_attr;
-	struct sysfs_symlink  * sl;
-
-	BUG_ON(!sd || !sd->s_element);
-
-	switch (sd->s_type) {
-		case SYSFS_DIR:
-			/* Always have a dentry so use that */
-			return sd->s_dentry->d_name.name;
-
-		case SYSFS_KOBJ_ATTR:
-			attr = sd->s_element;
-			return attr->name;
-
-		case SYSFS_KOBJ_BIN_ATTR:
-			bin_attr = sd->s_element;
-			return bin_attr->attr.name;
-
-		case SYSFS_KOBJ_LINK:
-			sl = sd->s_element;
-			return sl->link_name;
-	}
-	return NULL;
-}
-
-static inline void orphan_all_buffers(struct inode *node)
-{
-	struct sysfs_buffer_collection *set;
-	struct sysfs_buffer *buf;
-
-	mutex_lock_nested(&node->i_mutex, I_MUTEX_CHILD);
-	set = node->i_private;
-	if (set) {
-		list_for_each_entry(buf, &set->associates, associates) {
-			down(&buf->sem);
-			buf->orphaned = 1;
-			up(&buf->sem);
-		}
-	}
-	mutex_unlock(&node->i_mutex);
-}
-
-
-/*
- * Unhashes the dentry corresponding to given sysfs_dirent
- * Called with parent inode's i_mutex held.
- */
-void sysfs_drop_dentry(struct sysfs_dirent * sd, struct dentry * parent)
-{
-	struct dentry *dentry = NULL;
-	struct inode *inode;
-
-	/* We're not holding a reference to ->s_dentry dentry but the
-	 * field will stay valid as long as sysfs_lock is held.
-	 */
-	spin_lock(&sysfs_lock);
-	spin_lock(&dcache_lock);
-
-	/* dget dentry if it's still alive */
-	if (sd->s_dentry && sd->s_dentry->d_inode)
-		dentry = dget_locked(sd->s_dentry);
-
-	spin_unlock(&dcache_lock);
-	spin_unlock(&sysfs_lock);
-
-	/* drop dentry */
-	if (dentry) {
-		spin_lock(&dcache_lock);
-		spin_lock(&dentry->d_lock);
-		if (!d_unhashed(dentry) && dentry->d_inode) {
-			inode = dentry->d_inode;
-			spin_lock(&inode->i_lock);
-			__iget(inode);
-			spin_unlock(&inode->i_lock);
-			dget_locked(dentry);
-			__d_drop(dentry);
-			spin_unlock(&dentry->d_lock);
-			spin_unlock(&dcache_lock);
-			simple_unlink(parent->d_inode, dentry);
-			orphan_all_buffers(inode);
-			iput(inode);
-		} else {
-			spin_unlock(&dentry->d_lock);
-			spin_unlock(&dcache_lock);
-		}
-
-		dput(dentry);
-	}
-}
-
-int sysfs_hash_and_remove(struct dentry * dir, const char * name)
-{
-	struct sysfs_dirent * sd;
-	struct sysfs_dirent * parent_sd;
-	int found = 0;
-
-	if (!dir)
+	if (!dir_sd)
 		return -ENOENT;
 
-	if (dir->d_inode == NULL)
-		/* no inode means this hasn't been made visible yet */
+	sysfs_addrm_start(&acxt, dir_sd);
+
+	sd = sysfs_find_dirent(dir_sd, name);
+	if (sd)
+		sysfs_remove_one(&acxt, sd);
+
+	sysfs_addrm_finish(&acxt);
+
+	if (sd)
+		return 0;
+	else
 		return -ENOENT;
-
-	parent_sd = dir->d_fsdata;
-	mutex_lock_nested(&dir->d_inode->i_mutex, I_MUTEX_PARENT);
-	list_for_each_entry(sd, &parent_sd->s_children, s_sibling) {
-		if (!sd->s_element)
-			continue;
-		if (!strcmp(sysfs_get_name(sd), name)) {
-			list_del_init(&sd->s_sibling);
-			sysfs_drop_dentry(sd, dir);
-			sysfs_put(sd);
-			found = 1;
-			break;
-		}
-	}
-	mutex_unlock(&dir->d_inode->i_mutex);
-
-	return found ? 0 : -ENOENT;
 }

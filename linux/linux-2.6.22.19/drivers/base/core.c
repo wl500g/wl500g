@@ -1255,14 +1255,11 @@ int device_rename(struct device *dev, char *new_name)
 #endif
 
 	if (dev->class) {
-		sysfs_remove_link(&dev->class->subsys.kobj, old_device_name);
 		error = sysfs_create_link(&dev->class->subsys.kobj, &dev->kobj,
 					  dev->bus_id);
-		if (error) {
-			/* Uh... how to unravel this if restoring can fail? */
-			dev_err(dev, "%s: sysfs_create_symlink failed (%d)\n",
-				__FUNCTION__, error);
-		}
+		if (error)
+			goto out;
+		sysfs_remove_link(&dev->class->subsys.kobj, old_device_name);
 	}
 out:
 	put_device(dev);

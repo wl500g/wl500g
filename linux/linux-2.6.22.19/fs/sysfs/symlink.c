@@ -1,5 +1,13 @@
 /*
- * symlink.c - operations for sysfs symlinks.
+ * fs/sysfs/symlink.c - sysfs symlink implementation
+ *
+ * Copyright (c) 2001-3 Patrick Mochel
+ * Copyright (c) 2007 SUSE Linux Products GmbH
+ * Copyright (c) 2007 Tejun Heo <teheo@suse.de>
+ *
+ * This file is released under the GPLv2.
+ *
+ * Please see Documentation/filesystems/sysfs.txt for more information.
  */
 
 #include <linux/fs.h>
@@ -7,74 +15,9 @@
 #include <linux/module.h>
 #include <linux/kobject.h>
 #include <linux/namei.h>
-#include <asm/semaphore.h>
+#include <linux/mutex.h>
 
 #include "sysfs.h"
-
-static int object_depth(struct kobject * kobj)
-{
-	struct kobject * p = kobj;
-	int depth = 0;
-	do { depth++; } while ((p = p->parent));
-	return depth;
-}
-
-static int object_path_length(struct kobject * kobj)
-{
-	struct kobject * p = kobj;
-	int length = 1;
-	do {
-		length += strlen(kobject_name(p)) + 1;
-		p = p->parent;
-	} while (p);
-	return length;
-}
-
-static void fill_object_path(struct kobject * kobj, char * buffer, int length)
-{
-	struct kobject * p;
-
-	--length;
-	for (p = kobj; p; p = p->parent) {
-		int cur = strlen(kobject_name(p));
-
-		/* back up enough to print this bus id with '/' */
-		length -= cur;
-		strncpy(buffer + length,kobject_name(p),cur);
-		*(buffer + --length) = '/';
-	}
-}
-
-static int sysfs_add_link(struct dentry * parent, const char * name, struct kobject * target)
-{
-	struct sysfs_dirent * parent_sd = parent->d_fsdata;
-	struct sysfs_symlink * sl;
-	int error = 0;
-
-	error = -ENOMEM;
-	sl = kmalloc(sizeof(*sl), GFP_KERNEL);
-	if (!sl)
-		goto exit1;
-
-	sl->link_name = kmalloc(strlen(name) + 1, GFP_KERNEL);
-	if (!sl->link_name)
-		goto exit2;
-
-	strcpy(sl->link_name, name);
-	sl->target_kobj = kobject_get(target);
-
-	error = sysfs_make_dirent(parent_sd, NULL, sl, S_IFLNK|S_IRWXUGO,
-				SYSFS_KOBJ_LINK);
-	if (!error)
-		return 0;
-
-	kobject_put(target);
-	kfree(sl->link_name);
-exit2:
-	kfree(sl);
-exit1:
-	return error;
-}
 
 /**
  *	sysfs_create_link - create symlink between two objects.
@@ -84,24 +27,55 @@ exit1:
  */
 int sysfs_create_link(struct kobject * kobj, struct kobject * target, const char * name)
 {
-	struct dentry *dentry = NULL;
-	int error = -EEXIST;
+	struct sysfs_dirent *parent_sd = NULL;
+	struct sysfs_dirent *target_sd = NULL;
+	struct sysfs_dirent *sd = NULL;
+	struct sysfs_addrm_cxt acxt;
+	int error;
 
 	BUG_ON(!name);
 
-	if (!kobj) {
-		if (sysfs_mount && sysfs_mount->mnt_sb)
-			dentry = sysfs_mount->mnt_sb->s_root;
-	} else
-		dentry = kobj->dentry;
+	if (!kobj)
+		parent_sd = &sysfs_root;
+	else
+		parent_sd = kobj->sd;
 
-	if (!dentry)
-		return -EFAULT;
+	error = -EFAULT;
+	if (!parent_sd)
+		goto out_put;
 
-	mutex_lock(&dentry->d_inode->i_mutex);
-	if (!sysfs_dirent_exist(dentry->d_fsdata, name))
-		error = sysfs_add_link(dentry, name, target);
-	mutex_unlock(&dentry->d_inode->i_mutex);
+	/* target->sd can go away beneath us but is protected with
+	 * sysfs_assoc_lock.  Fetch target_sd from it.
+	 */
+	spin_lock(&sysfs_assoc_lock);
+	if (target->sd)
+		target_sd = sysfs_get(target->sd);
+	spin_unlock(&sysfs_assoc_lock);
+
+	error = -ENOENT;
+	if (!target_sd)
+		goto out_put;
+
+	error = -ENOMEM;
+	sd = sysfs_new_dirent(name, S_IFLNK|S_IRWXUGO, SYSFS_KOBJ_LINK);
+	if (!sd)
+		goto out_put;
+
+	sd->s_symlink.target_sd = target_sd;
+	target_sd = NULL;	/* reference is now owned by the symlink */
+
+	sysfs_addrm_start(&acxt, parent_sd);
+	error = sysfs_add_one(&acxt, sd);
+	sysfs_addrm_finish(&acxt);
+
+	if (error)
+		goto out_put;
+
+	return 0;
+
+ out_put:
+	sysfs_put(target_sd);
+	sysfs_put(sd);
 	return error;
 }
 
@@ -114,54 +88,80 @@ int sysfs_create_link(struct kobject * kobj, struct kobject * target, const char
 
 void sysfs_remove_link(struct kobject * kobj, const char * name)
 {
-	sysfs_hash_and_remove(kobj->dentry,name);
+	struct sysfs_dirent *parent_sd = NULL;
+
+	if (!kobj)
+		parent_sd = &sysfs_root;
+	else
+		parent_sd = kobj->sd;
+
+	sysfs_hash_and_remove(parent_sd, name);
 }
 
-static int sysfs_get_target_path(struct kobject * kobj, struct kobject * target,
-				 char *path)
+static int sysfs_get_target_path(struct sysfs_dirent *parent_sd,
+				 struct sysfs_dirent *target_sd, char *path)
 {
-	char * s;
-	int depth, size;
+	struct sysfs_dirent *base, *sd;
+	char *s = path;
+	int len = 0;
 
-	depth = object_depth(kobj);
-	size = object_path_length(target) + depth * 3 - 1;
-	if (size > PATH_MAX)
+	/* go up to the root, stop at the base */
+	base = parent_sd;
+	while (base->s_parent) {
+		sd = target_sd->s_parent;
+		while (sd->s_parent && base != sd)
+			sd = sd->s_parent;
+
+		if (base == sd)
+			break;
+
+		strcpy(s, "../");
+		s += 3;
+		base = base->s_parent;
+	}
+
+	/* determine end of target string for reverse fillup */
+	sd = target_sd;
+	while (sd->s_parent && sd != base) {
+		len += strlen(sd->s_name) + 1;
+		sd = sd->s_parent;
+	}
+
+	/* check limits */
+	if (len < 2)
+		return -EINVAL;
+	len--;
+	if ((s - path) + len > PATH_MAX)
 		return -ENAMETOOLONG;
 
-	pr_debug("%s: depth = %d, size = %d\n", __FUNCTION__, depth, size);
+	/* reverse fillup of target string from target to base */
+	sd = target_sd;
+	while (sd->s_parent && sd != base) {
+		int slen = strlen(sd->s_name);
 
-	for (s = path; depth--; s += 3)
-		strcpy(s,"../");
+		len -= slen;
+		strncpy(s + len, sd->s_name, slen);
+		if (len)
+			s[--len] = '/';
 
-	fill_object_path(target, path, size);
-	pr_debug("%s: path = '%s'\n", __FUNCTION__, path);
+		sd = sd->s_parent;
+	}
 
 	return 0;
 }
 
 static int sysfs_getlink(struct dentry *dentry, char * path)
 {
-	struct kobject *kobj, *target_kobj;
-	int error = 0;
+	struct sysfs_dirent *sd = dentry->d_fsdata;
+	struct sysfs_dirent *parent_sd = sd->s_parent;
+	struct sysfs_dirent *target_sd = sd->s_symlink.target_sd;
+	int error;
 
-	kobj = sysfs_get_kobject(dentry->d_parent);
-	if (!kobj)
-		return -EINVAL;
+	mutex_lock(&sysfs_mutex);
+	error = sysfs_get_target_path(parent_sd, target_sd, path);
+	mutex_unlock(&sysfs_mutex);
 
-	target_kobj = sysfs_get_kobject(dentry);
-	if (!target_kobj) {
-		kobject_put(kobj);
-		return -EINVAL;
-	}
-
-	down_read(&sysfs_rename_sem);
-	error = sysfs_get_target_path(kobj, target_kobj, path);
-	up_read(&sysfs_rename_sem);
-	
-	kobject_put(kobj);
-	kobject_put(target_kobj);
 	return error;
-
 }
 
 static void *sysfs_follow_link(struct dentry *dentry, struct nameidata *nd)
