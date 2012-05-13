@@ -1,21 +1,60 @@
-From 7693143481730686362cc6360e3d47c012d9b2c8
-From: Pekka J Enberg
-Date: Sat, 1 Mar 2008 13:43:54 -0800
-Subject: [PATCH] slub: look up object from the freelist once
+slub: Updates from upstream
 
-We only need to look up object from c->page->freelist once in
-__slab_alloc().
+ a0e1d1be204612ee83b3afe8aa24c5d27e63d464 SLUB: Move sysfs operations outside of slub_lock
+ 0c710013200e72b5e0bc680ff4ec6bdac53c5ce8 SLUB: add some more inlines and #ifdef CONFIG_SLUB_DEBUG
+ 5b95a4acf157eee552e013795b54eaa2ab1ee4a1 SLUB: use list_for_each_entry for loops over all slabs
+ 7693143481730686362cc6360e3d47c012d9b2c8 slub: look up object from the freelist once
 
-Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
 ---
- mm/slub.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ include/linux/slub_def.h |    4 ++
+ mm/slub.c                |   89 +++++++++++++++++------------------------------
+ 2 files changed, 37 insertions(+), 56 deletions(-)
 
+diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
+--- a/include/linux/slub_def.h
++++ b/include/linux/slub_def.h
+@@ -16,7 +16,9 @@ struct kmem_cache_node {
+ 	unsigned long nr_partial;
+ 	atomic_long_t nr_slabs;
+ 	struct list_head partial;
++#ifdef CONFIG_SLUB_DEBUG
+ 	struct list_head full;
++#endif
+ };
+ 
+ /*
+@@ -44,7 +46,9 @@ struct kmem_cache {
+ 	int align;		/* Alignment */
+ 	const char *name;	/* Name (only for display!) */
+ 	struct list_head list;	/* List of slab caches */
++#ifdef CONFIG_SLUB_DEBUG
+ 	struct kobject kobj;	/* For sysfs */
++#endif
+ 
+ #ifdef CONFIG_NUMA
+ 	int defrag_ratio;
 diff --git a/mm/slub.c b/mm/slub.c
 --- a/mm/slub.c
 +++ b/mm/slub.c
-@@ -1486,7 +1486,6 @@ load_freelist:
+@@ -1324,7 +1324,7 @@ static void deactivate_slab(struct kmem_
+ 	unfreeze_slab(s, page, tail);
+ }
+ 
+-static void flush_slab(struct kmem_cache *s, struct page *page, int cpu)
++static inline void flush_slab(struct kmem_cache *s, struct page *page, int cpu)
+ {
+ 	slab_lock(page);
+ 	deactivate_slab(s, page, cpu);
+@@ -1334,7 +1334,7 @@ static void flush_slab(struct kmem_cache
+  * Flush cpu slab.
+  * Called from IPI handler with interrupts disabled.
+  */
+-static void __flush_cpu_slab(struct kmem_cache *s, int cpu)
++static inline void __flush_cpu_slab(struct kmem_cache *s, int cpu)
+ {
+ 	struct page *page = s->cpu_slab[cpu];
+ 
+@@ -1402,7 +1402,6 @@ load_freelist:
  	if (unlikely(SlabDebug(page)))
  		goto debug;
  
@@ -23,7 +62,7 @@ diff --git a/mm/slub.c b/mm/slub.c
  	page->lockless_freelist = object[page->offset];
  	page->inuse = s->objects;
  	page->freelist = NULL;
-@@ -1542,7 +1541,6 @@ new_slab:
+@@ -1458,7 +1457,6 @@ new_slab:
  	}
  	return NULL;
  debug:
@@ -31,6 +70,177 @@ diff --git a/mm/slub.c b/mm/slub.c
  	if (!alloc_debug_processing(s, page, object, addr))
  		goto another_slab;
  
+@@ -1795,7 +1793,9 @@ init_kmem_cache_node(struct kmem_cache_n
+ 	atomic_long_set(&n->nr_slabs, 0);
+ 	spin_lock_init(&n->list_lock);
+ 	INIT_LIST_HEAD(&n->partial);
++#ifdef CONFIG_SLUB_DEBUG
+ 	INIT_LIST_HEAD(&n->full);
++#endif
+ }
+ 
+ #ifdef CONFIG_NUMA
+@@ -2145,7 +2145,7 @@ static int free_list(struct kmem_cache *
+ /*
+  * Release all resources used by a slab cache.
+  */
+-static int kmem_cache_close(struct kmem_cache *s)
++static inline int kmem_cache_close(struct kmem_cache *s)
+ {
+ 	int node;
+ 
+@@ -2173,13 +2173,14 @@ void kmem_cache_destroy(struct kmem_cach
+ 	s->refcount--;
+ 	if (!s->refcount) {
+ 		list_del(&s->list);
++		up_write(&slub_lock);
+ 		if (kmem_cache_close(s))
+ 			WARN_ON(1);
+ 		if (s->flags & SLAB_DESTROY_BY_RCU)
+ 			rcu_barrier();
+ 		sysfs_slab_remove(s);
+-	}
+-	up_write(&slub_lock);
++	} else
++		up_write(&slub_lock);
+ }
+ EXPORT_SYMBOL(kmem_cache_destroy);
+ 
+@@ -2647,7 +2648,7 @@ static struct kmem_cache *find_mergeable
+ 		size_t align, unsigned long flags,
+ 		void (*ctor)(void *, struct kmem_cache *, unsigned long))
+ {
+-	struct list_head *h;
++	struct kmem_cache *s;
+ 
+ 	if (slub_nomerge || (flags & SLUB_NEVER_MERGE))
+ 		return NULL;
+@@ -2659,10 +2660,7 @@ static struct kmem_cache *find_mergeable
+ 	align = calculate_alignment(flags, align, size);
+ 	size = ALIGN(size, align);
+ 
+-	list_for_each(h, &slab_caches) {
+-		struct kmem_cache *s =
+-			container_of(h, struct kmem_cache, list);
+-
++	list_for_each_entry(s, &slab_caches, list) {
+ 		if (slab_unmergeable(s))
+ 			continue;
+ 
+@@ -2705,25 +2703,26 @@ struct kmem_cache *kmem_cache_create(con
+ 		 */
+ 		s->objsize = max(s->objsize, (int)size);
+ 		s->inuse = max_t(int, s->inuse, ALIGN(size, sizeof(void *)));
++		up_write(&slub_lock);
+ 		if (sysfs_slab_alias(s, name))
+ 			goto err;
+-	} else {
+-		s = kmalloc(kmem_size, GFP_KERNEL);
+-		if (s && kmem_cache_open(s, GFP_KERNEL, name,
++		return s;
++	}
++	s = kmalloc(kmem_size, GFP_KERNEL);
++	if (s) {
++		if (kmem_cache_open(s, GFP_KERNEL, name,
+ 				size, align, flags, ctor)) {
+-			if (sysfs_slab_add(s)) {
+-				kfree(s);
+-				goto err;
+-			}
+ 			list_add(&s->list, &slab_caches);
+-		} else
+-			kfree(s);
++			up_write(&slub_lock);
++			if (sysfs_slab_add(s))
++				goto err;
++			return s;
++		}
++		kfree(s);
+ 	}
+ 	up_write(&slub_lock);
+-	return s;
+ 
+ err:
+-	up_write(&slub_lock);
+ 	if (flags & SLAB_PANIC)
+ 		panic("Cannot create slabcache %s\n", name);
+ 	else
+@@ -2733,33 +2732,6 @@ err:
+ EXPORT_SYMBOL(kmem_cache_create);
+ 
+ #ifdef CONFIG_SMP
+-static void for_all_slabs(void (*func)(struct kmem_cache *, int), int cpu)
+-{
+-	struct list_head *h;
+-
+-	down_read(&slub_lock);
+-	list_for_each(h, &slab_caches) {
+-		struct kmem_cache *s =
+-			container_of(h, struct kmem_cache, list);
+-
+-		func(s, cpu);
+-	}
+-	up_read(&slub_lock);
+-}
+-
+-/*
+- * Version of __flush_cpu_slab for the case that interrupts
+- * are enabled.
+- */
+-static void cpu_slab_flush(struct kmem_cache *s, int cpu)
+-{
+-	unsigned long flags;
+-
+-	local_irq_save(flags);
+-	__flush_cpu_slab(s, cpu);
+-	local_irq_restore(flags);
+-}
+-
+ /*
+  * Use the cpu notifier to insure that the cpu slabs are flushed when
+  * necessary.
+@@ -2768,13 +2740,21 @@ static int __cpuinit slab_cpuup_callback
+ 		unsigned long action, void *hcpu)
+ {
+ 	long cpu = (long)hcpu;
++	struct kmem_cache *s;
++	unsigned long flags;
+ 
+ 	switch (action) {
+ 	case CPU_UP_CANCELED:
+ 	case CPU_UP_CANCELED_FROZEN:
+ 	case CPU_DEAD:
+ 	case CPU_DEAD_FROZEN:
+-		for_all_slabs(cpu_slab_flush, cpu);
++		down_read(&slub_lock);
++		list_for_each_entry(s, &slab_caches, list) {
++			local_irq_save(flags);
++			__flush_cpu_slab(s, cpu);
++			local_irq_restore(flags);
++		}
++		up_read(&slub_lock);
+ 		break;
+ 	default:
+ 		break;
+@@ -3824,7 +3804,7 @@ static int sysfs_slab_alias(struct kmem_
+ 
+ static int __init slab_sysfs_init(void)
+ {
+-	struct list_head *h;
++	struct kmem_cache *s;
+ 	int err;
+ 
+ 	err = subsystem_register(&slab_subsys);
+@@ -3835,10 +3815,7 @@ static int __init slab_sysfs_init(void)
+ 
+ 	slab_state = SYSFS;
+ 
+-	list_for_each(h, &slab_caches) {
+-		struct kmem_cache *s =
+-			container_of(h, struct kmem_cache, list);
+-
++	list_for_each_entry(s, &slab_caches, list) {
+ 		err = sysfs_slab_add(s);
+ 		BUG_ON(err);
+ 	}
 -- 
-1.7.1
-
