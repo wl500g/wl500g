@@ -212,11 +212,13 @@
 #define	BCM4342_CHIP_ID		4342		/* 4342 chipcommon chipid (OTP, RBBU) */
 #define	BCM4402_CHIP_ID		0x4402		/* 4402 chipid */
 #define	BCM4704_CHIP_ID		0x4704		/* 4704 chipcommon chipid */
+#define	BCM4706_CHIP_ID		0x5300		/* 4706 chipcommon chipid */
 #define	BCM4710_CHIP_ID		0x4710		/* 4710 chipid */
 #define	BCM4712_CHIP_ID		0x4712		/* 4712 chipcommon chipid */
 #define	BCM4716_CHIP_ID		0x4716		/* 4716 chipcommon chipid */
 #define	BCM47162_CHIP_ID	47162		/* 47162 chipcommon chipid */
 #define	BCM4748_CHIP_ID		0x4748		/* 4716 chipcommon chipid (OTP, RBBU) */
+#define	BCM4749_CHIP_ID		0x4749		/* 5357 chipcommon chipid (OTP, RBBU) */
 #define BCM4785_CHIP_ID		0x4785		/* 4785 chipcommon chipid */
 #define	BCM5350_CHIP_ID		0x5350		/* 5350 chipcommon chipid */
 #define	BCM5352_CHIP_ID		0x5352		/* 5352 chipcommon chipid */
@@ -224,6 +226,7 @@
 #define BCM5365_CHIP_ID		0x5365		/* 5365 chipcommon chipid */
 #define	BCM5356_CHIP_ID		0x5356		/* 5356 chipcommon chipid */
 #define	BCM5357_CHIP_ID		0x5357		/* 5357 chipcommon chipid */
+#define	BCM53572_CHIP_ID	53572		/* 53572 chipcommon chipid */
 
 /* Package IDs */
 #define	BCM4303_PKG_ID		2		/* 4303 package id */
@@ -247,6 +250,12 @@
 #define BCM47186_PKG_ID		10		/* 47186 package id */
 #define BCM5357_PKG_ID		11		/* 5357 package id */
 #define BCM5356U_PKG_ID		12		/* 5356U package id */
+#define BCM53572_PKG_ID		8		/* 53572 package id */
+#define BCM5357C0_PKG_ID	8		/* 5357c0 package id (the same as 53572) */
+#define BCM47188_PKG_ID		9		/* 47188 package id */
+#define BCM5358C0_PKG_ID	0xa		/* 5358c0 package id */
+#define BCM5356C0_PKG_ID	0xb		/* 5356c0 package id */
+
 #define HDLSIM5350_PKG_ID	1		/* HDL simulator package id for a 5350 */
 #define HDLSIM_PKG_ID		14		/* HDL simulator package id */
 #define HWSIM_PKG_ID		15		/* Hardware simulator package id */
