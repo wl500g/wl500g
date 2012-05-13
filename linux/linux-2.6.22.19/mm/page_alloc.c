@@ -57,7 +57,7 @@ EXPORT_SYMBOL(node_possible_map);
 unsigned long totalram_pages __read_mostly;
 unsigned long totalreserve_pages __read_mostly;
 long nr_swap_pages;
-int percpu_pagelist_fraction;
+int percpu_pagelist_fraction = 8;
 
 static void __free_pages_ok(struct page *page, unsigned int order);
 
@@ -3291,7 +3291,7 @@ int percpu_pagelist_fraction_sysctl_handler(ctl_table *table, int write,
 	int ret;
 
 	ret = proc_dointvec_minmax(table, write, file, buffer, length, ppos);
-	if (!write || (ret == -EINVAL))
+	if (!write || (ret < 0))
 		return ret;
 	for_each_zone(zone) {
 		for_each_online_cpu(cpu) {
