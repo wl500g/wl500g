@@ -1,16 +1,52 @@
-mm: write_cache_pages cyclic fix
+mm: write_cache_pages updates from upstream
 
  31a12666d8f0c22235297e1c1575f82061480029 mm: write_cache_pages cyclic fix
  3a4c6800f31ea8395628af5e7e490270ee5d0585 Fix page writeback thinko, causing Berkeley DB slowdown
+ bd19e012f6fd3b7309689165ea865cbb7bb88c1e mm: write_cache_pages early loop termination
+ 00266770b8b3a6a77f896ca501a0613739086832 mm: write_cache_pages writepage error fix
+ 05fe478dd04e02fa230c305ab9b5616669821dd3 mm: write_cache_pages integrity fix
+ ee53a891f47444c53318b98dac947ede963db400 mm: do_sync_mapping_range integrity fix
+ 5a3d5c9813db56a75934eb1015367fda23a8b0b4 mm: write_cache_pages cleanups
+ 515f4a037fb9ab736f8bad733fcd2ffd350cf265 mm: write_cache_pages optimise page cleaning
+ d5482cdf8a0aacb1e6468a97d5544f5829c8d8c4 mm: write_cache_pages terminate quickly
+ 82fd1a9a8ced9607312b54859572bcc6211e8919 mm: write_cache_pages more terminate quickly
+ dcf6a79dda5cc2a2bec183e50d829030c0972aaa write-back: fix nr_to_write counter
+ 89e1219004b3657cc014521663eeef0744f1c99d writeback: fix break condition
 
 ---
- mm/page-writeback.c |   25 ++++++++++++++++++-------
- 1 file changed, 18 insertions(+), 7 deletions(-)
+ fs/sync.c           |    2 
+ mm/filemap.c        |    2 
+ mm/page-writeback.c |  133 ++++++++++++++++++++++++++++++++++++++--------------
+ 3 files changed, 101 insertions(+), 36 deletions(-)
 
+diff --git a/fs/sync.c b/fs/sync.c
+--- a/fs/sync.c
++++ b/fs/sync.c
+@@ -295,7 +295,7 @@ int do_sync_mapping_range(struct address_space *mapping, loff_t offset,
+ 
+ 	if (flags & SYNC_FILE_RANGE_WRITE) {
+ 		ret = __filemap_fdatawrite_range(mapping, offset, endbyte,
+-						WB_SYNC_NONE);
++						WB_SYNC_ALL);
+ 		if (ret < 0)
+ 			goto out;
+ 	}
+diff --git a/mm/filemap.c b/mm/filemap.c
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -210,7 +210,7 @@ int __filemap_fdatawrite_range(struct address_space *mapping, loff_t start,
+ 	int ret;
+ 	struct writeback_control wbc = {
+ 		.sync_mode = sync_mode,
+-		.nr_to_write = mapping->nrpages * 2,
++		.nr_to_write = LONG_MAX,
+ 		.range_start = start,
+ 		.range_end = end,
+ 	};
 diff --git a/mm/page-writeback.c b/mm/page-writeback.c
 --- a/mm/page-writeback.c
 +++ b/mm/page-writeback.c
-@@ -611,9 +611,10 @@ int write_cache_pages(struct address_spa
+@@ -611,9 +611,11 @@ int write_cache_pages(struct address_spa
  	int done = 0;
  	struct pagevec pvec;
  	int nr_pages;
@@ -18,11 +54,12 @@ diff --git a/mm/page-writeback.c b/mm/page-writeback.c
  	pgoff_t index;
  	pgoff_t end;		/* Inclusive */
 -	int scanned = 0;
++	pgoff_t done_index;
 +	int cycled;
  	int range_whole = 0;
  
  	if (wbc->nonblocking && bdi_write_congested(bdi)) {
-@@ -623,14 +624,19 @@ int write_cache_pages(struct address_spa
+@@ -623,82 +625,145 @@ int write_cache_pages(struct address_spa
  
  	pagevec_init(&pvec, 0);
  	if (wbc->range_cyclic) {
@@ -43,29 +80,142 @@ diff --git a/mm/page-writeback.c b/mm/page-writeback.c
 +		cycled = 1; /* ignore range_cyclic tests */
  	}
  retry:
- 	while (!done && (index <= end) &&
-@@ -639,7 +645,6 @@ retry:
- 					      min(end - index, (pgoff_t)PAGEVEC_SIZE-1) + 1))) {
- 		unsigned i;
+-	while (!done && (index <= end) &&
+-	       (nr_pages = pagevec_lookup_tag(&pvec, mapping, &index,
+-					      PAGECACHE_TAG_DIRTY,
+-					      min(end - index, (pgoff_t)PAGEVEC_SIZE-1) + 1))) {
+-		unsigned i;
++	done_index = index;
++	while (!done && (index <= end)) {
++		int i;
++
++		nr_pages = pagevec_lookup_tag(&pvec, mapping, &index,
++			      PAGECACHE_TAG_DIRTY,
++			      min(end - index, (pgoff_t)PAGEVEC_SIZE-1) + 1);
++		if (nr_pages == 0)
++			break;
  
 -		scanned = 1;
  		for (i = 0; i < nr_pages; i++) {
  			struct page *page = pvec.pages[i];
  
-@@ -657,7 +662,11 @@ retry:
- 				continue;
- 			}
- 
--			if (!wbc->range_cyclic && page->index > end) {
+ 			/*
+-			 * At this point we hold neither mapping->tree_lock nor
+-			 * lock on the page itself: the page may be truncated or
+-			 * invalidated (changing page->mapping to NULL), or even
+-			 * swizzled back from swapper_space to tmpfs file
+-			 * mapping
++			 * At this point, the page may be truncated or
++			 * invalidated (changing page->mapping to NULL), or
++			 * even swizzled back from swapper_space to tmpfs file
++			 * mapping. However, page->index will not change
++			 * because we have a reference on the page.
+ 			 */
 +			if (page->index > end) {
 +				/*
 +				 * can't be range_cyclic (1st pass) because
 +				 * end == -1 in that case.
 +				 */
- 				done = 1;
++				done = 1;
++				break;
++			}
++
++			done_index = page->index + 1;
++
+ 			lock_page(page);
+ 
++			/*
++			 * Page truncated or invalidated. We can freely skip it
++			 * then, even for data integrity operations: the page
++			 * has disappeared concurrently, so there could be no
++			 * real expectation of this data interity operation
++			 * even if there is now a new, dirty page at the same
++			 * pagecache address.
++			 */
+ 			if (unlikely(page->mapping != mapping)) {
++continue_unlock:
  				unlock_page(page);
  				continue;
-@@ -688,13 +697,15 @@ retry:
+ 			}
+ 
+-			if (!wbc->range_cyclic && page->index > end) {
+-				done = 1;
+-				unlock_page(page);
+-				continue;
++			if (!PageDirty(page)) {
++				/* someone wrote it for us */
++				goto continue_unlock;
+ 			}
+ 
+-			if (wbc->sync_mode != WB_SYNC_NONE)
+-				wait_on_page_writeback(page);
+-
+-			if (PageWriteback(page) ||
+-			    !clear_page_dirty_for_io(page)) {
+-				unlock_page(page);
+-				continue;
++			if (PageWriteback(page)) {
++				if (wbc->sync_mode != WB_SYNC_NONE)
++					wait_on_page_writeback(page);
++				else
++					goto continue_unlock;
+ 			}
+ 
+-			ret = (*writepage)(page, wbc, data);
++			BUG_ON(PageWriteback(page));
++			if (!clear_page_dirty_for_io(page))
++				goto continue_unlock;
+ 
+-			if (unlikely(ret == AOP_WRITEPAGE_ACTIVATE)) {
+-				unlock_page(page);
+-				ret = 0;
++			ret = (*writepage)(page, wbc, data);
++			if (unlikely(ret)) {
++				if (ret == AOP_WRITEPAGE_ACTIVATE) {
++					unlock_page(page);
++					ret = 0;
++				} else {
++					/*
++					 * done_index is set past this page,
++					 * so media errors will not choke
++					 * background writeout for the entire
++					 * file. This has consequences for
++					 * range_cyclic semantics (ie. it may
++					 * not be suitable for data integrity
++					 * writeout).
++					 */
++					done = 1;
++					break;
++				}
++ 			}
++
++			if (nr_to_write > 0) {
++				nr_to_write--;
++				if (nr_to_write == 0 &&
++				    wbc->sync_mode == WB_SYNC_NONE) {
++					/*
++					 * We stop writing back only if we are
++					 * not doing integrity sync. In case of
++					 * integrity sync we have to keep going
++					 * because someone may be concurrently
++					 * dirtying pages, and we might have
++					 * synced a lot of newly appeared dirty
++					 * pages, but have not synced all of the
++					 * old dirty pages.
++					 */
++					done = 1;
++					break;
++				}
+ 			}
+-			if (ret || (--(wbc->nr_to_write) <= 0))
+-				done = 1;
++
+ 			if (wbc->nonblocking && bdi_write_congested(bdi)) {
+ 				wbc->encountered_congestion = 1;
+ 				done = 1;
++				break;
+ 			}
+ 		}
  		pagevec_release(&pvec);
  		cond_resched();
  	}
@@ -83,5 +233,9 @@ diff --git a/mm/page-writeback.c b/mm/page-writeback.c
  		goto retry;
  	}
  	if (wbc->range_cyclic || (range_whole && wbc->nr_to_write > 0))
+-		mapping->writeback_index = index;
++		mapping->writeback_index = done_index;
+ 	return ret;
+ }
+ EXPORT_SYMBOL(write_cache_pages);
 -- 
-1.7.3.4
