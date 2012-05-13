@@ -5,12 +5,16 @@
  715243e6c3e8e74202eb663a8e45880ff6a1dff7 [MIPS] unexport copy_to_user_page()
  e698d66b813bbe38940d2d80a2488214bdaf96b6 [MIPS] unexport copy_from_user_page()
  f366e2085f28358a5294b8cdc847a377c02eb22d [MIPS] unexport {allocate,free}_irqno
+ c5b0680aa1d7a751b7dd8ebf6854e5baf0a2e54b [MIPS] unexport rtc_mips_set_time()
+ a64063046026729a69ad06c94453f4ddaa562d60 [MIPS] unexport __kmap_atomic_to_page
 
 ---
- arch/mips/kernel/irq.c |    4 ----
- arch/mips/mm/init.c    |    7 -------
- arch/mips/mm/tlbex.c   |    4 ++--
- 3 files changed, 2 insertions(+), 13 deletions(-)
+ arch/mips/kernel/irq.c  |    4 ----
+ arch/mips/kernel/time.c |    2 --
+ arch/mips/mm/highmem.c  |    1 -
+ arch/mips/mm/init.c     |    7 -------
+ arch/mips/mm/tlbex.c    |    4 ++--
+ 5 files changed, 2 insertions(+), 16 deletions(-)
 
 diff --git a/arch/mips/kernel/irq.c b/arch/mips/kernel/irq.c
 --- a/arch/mips/kernel/irq.c
@@ -33,6 +37,23 @@ diff --git a/arch/mips/kernel/irq.c b/arch/mips/kernel/irq.c
  /*
   * 'what should we do if we get a hw irq event on an illegal vector'.
   * each architecture has to answer this themselves.
+diff --git a/arch/mips/kernel/time.c b/arch/mips/kernel/time.c
+--- a/arch/mips/kernel/time.c
++++ b/arch/mips/kernel/time.c
+@@ -38,5 +38,3 @@ int __weak rtc_mips_set_time(unsigned long sec)
+ 
+ EXPORT_SYMBOL(rtc_lock);
+ EXPORT_SYMBOL(to_tm);
+-EXPORT_SYMBOL(rtc_mips_set_time);
+-EXPORT_SYMBOL(rtc_mips_get_time);
+diff --git a/arch/mips/mm/highmem.c b/arch/mips/mm/highmem.c
+--- a/arch/mips/mm/highmem.c
++++ b/arch/mips/mm/highmem.c
+@@ -116,4 +116,3 @@ EXPORT_SYMBOL(__kmap);
+ EXPORT_SYMBOL(__kunmap);
+ EXPORT_SYMBOL(__kmap_atomic);
+ EXPORT_SYMBOL(__kunmap_atomic);
+-EXPORT_SYMBOL(__kmap_atomic_to_page);
 diff --git a/arch/mips/mm/init.c b/arch/mips/mm/init.c
 --- a/arch/mips/mm/init.c
 +++ b/arch/mips/mm/init.c
