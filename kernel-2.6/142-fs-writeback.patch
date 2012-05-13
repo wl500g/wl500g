@@ -35,6 +35,9 @@ writeback: Updates from upstream
  d2caa3c549c74d6476e2c29e13bd4d0e7d21c7fe writeback: guard against jiffies wraparound on inode->dirtied_when checks (try #3)
  01c031945f2755c7afaaf456088543312f2b72ea cleanup __writeback_single_inode
  1fe06ad89255c211fe100d7f690d10b161398df8 writeback: get rid of wbc->for_writepages
+ d87815cb2090e07b0b0b2d73dc9740706e92c80c writeback: limit write_cache_pages integrity scanning to current EOF
+ 0b5649278e39a068aaf91399941bab1b4a4a3cc2 writeback: pay attention to wbc->nr_to_write in write_cache_pages
+ 546a1924224078c6f582e68f890b05b387b42653 writeback: write_cache_pages doesn't terminate at nr_to_write <= 0
 
 ---
  fs/afs/write.c              |    1 
@@ -51,11 +54,11 @@ writeback: Updates from upstream
  include/linux/backing-dev.h |    2 
  include/linux/fs.h          |   77 ++++++-
  include/linux/mm.h          |    2 
- include/linux/writeback.h   |   26 +-
+ include/linux/writeback.h   |   17 -
  kernel/sysctl.c             |    2 
- mm/page-writeback.c         |   45 ++--
+ mm/page-writeback.c         |   80 ++++---
  mm/truncate.c               |   38 ++-
- 18 files changed, 500 insertions(+), 267 deletions(-)
+ 18 files changed, 510 insertions(+), 283 deletions(-)
 
 diff --git a/fs/afs/write.c b/fs/afs/write.c
 --- a/fs/afs/write.c
@@ -1264,7 +1267,7 @@ diff --git a/include/linux/writeback.h b/include/linux/writeback.h
  };
  
  /*
-@@ -59,17 +58,23 @@ struct writeback_control {
+@@ -59,17 +58,14 @@ struct writeback_control {
  	unsigned encountered_congestion:1; /* An output: a queue is full */
  	unsigned for_kupdate:1;		/* A kupdate writeback */
  	unsigned for_reclaim:1;		/* Invoked from the page allocator */
@@ -1273,15 +1276,6 @@ diff --git a/include/linux/writeback.h b/include/linux/writeback.h
 -
 -	void *fs_private;		/* For use by ->writepages() */
 +	unsigned more_io:1;		/* more io to be dispatched */
-+	/*
-+	 * write_cache_pages() won't update wbc->nr_to_write and
-+	 * mapping->writeback_index if no_nrwrite_index_update
-+	 * is set.  write_cache_pages() may write more than we
-+	 * requested and we want to make sure nr_to_write and
-+	 * writeback_index are updated in a consistent manner
-+	 * so we use a single control to update them
-+	 */
-+	unsigned no_nrwrite_index_update:1;
  };
  
  /*
@@ -1292,7 +1286,7 @@ diff --git a/include/linux/writeback.h b/include/linux/writeback.h
  int inode_wait(void *);
  void sync_inodes_sb(struct super_block *, int wait);
  void sync_inodes(int wait);
-@@ -81,6 +86,13 @@ static inline void wait_on_inode(struct 
+@@ -81,6 +77,13 @@ static inline void wait_on_inode(struct 
  	wait_on_bit(&inode->i_state, __I_LOCK, inode_wait,
  							TASK_UNINTERRUPTIBLE);
  }
@@ -1306,7 +1300,7 @@ diff --git a/include/linux/writeback.h b/include/linux/writeback.h
  
  /*
   * mm/page-writeback.c
-@@ -93,8 +105,8 @@ void throttle_vm_writeout(gfp_t gfp_mask
+@@ -93,8 +96,8 @@ void throttle_vm_writeout(gfp_t gfp_mask
  /* These are exported to sysctl. */
  extern int dirty_background_ratio;
  extern int vm_dirty_ratio;
@@ -1429,30 +1423,67 @@ diff --git a/mm/page-writeback.c b/mm/page-writeback.c
  	writeback_set_ratelimit();
  	register_cpu_notifier(&ratelimit_nb);
  
-@@ -770,6 +774,7 @@ int write_cache_pages(struct address_spa
- 	pgoff_t done_index;
- 	int cycled;
- 	int range_whole = 0;
-+	long nr_to_write = wbc->nr_to_write;
- 
- 	if (wbc->nonblocking && bdi_write_congested(bdi)) {
- 		wbc->encountered_congestion = 1;
-@@ -881,8 +886,12 @@ retry:
- 		end = writeback_index - 1;
- 		goto retry;
- 	}
--	if (wbc->range_cyclic || (range_whole && wbc->nr_to_write > 0))
--		mapping->writeback_index = done_index;
-+	if (!wbc->no_nrwrite_index_update) {
-+		if (wbc->range_cyclic || (range_whole && nr_to_write > 0))
-+			mapping->writeback_index = done_index;
-+		wbc->nr_to_write = nr_to_write;
-+	}
+@@ -791,7 +795,22 @@ int write_cache_pages(struct address_spa
+ 		if (wbc->range_start == 0 && wbc->range_end == LLONG_MAX)
+ 			range_whole = 1;
+ 		cycled = 1; /* ignore range_cyclic tests */
 +
- 	return ret;
- }
- EXPORT_SYMBOL(write_cache_pages);
-@@ -926,12 +935,10 @@ int do_writepages(struct address_space *
++		/*
++		 * If this is a data integrity sync, cap the writeback to the
++		 * current end of file. Any extension to the file that occurs
++		 * after this is a new write and we don't need to write those
++		 * pages out to fulfil our data integrity requirements. If we
++		 * try to write them out, we can get stuck in this scan until
++		 * the concurrent writer stops adding dirty pages and extending
++		 * EOF.
++		 */
++		if (wbc->sync_mode == WB_SYNC_ALL &&
++		    wbc->range_end == LLONG_MAX) {
++			end = i_size_read(mapping->host) >> PAGE_CACHE_SHIFT;
++		}
+ 	}
++
+ retry:
+ 	done_index = index;
+ 	while (!done && (index <= end)) {
+@@ -874,25 +893,18 @@ continue_unlock:
+ 					done = 1;
+ 					break;
+ 				}
+- 			}
++			}
+ 
+-			if (nr_to_write > 0) {
+-				nr_to_write--;
+-				if (nr_to_write == 0 &&
+-				    wbc->sync_mode == WB_SYNC_NONE) {
+-					/*
+-					 * We stop writing back only if we are
+-					 * not doing integrity sync. In case of
+-					 * integrity sync we have to keep going
+-					 * because someone may be concurrently
+-					 * dirtying pages, and we might have
+-					 * synced a lot of newly appeared dirty
+-					 * pages, but have not synced all of the
+-					 * old dirty pages.
+-					 */
+-					done = 1;
+-					break;
+-				}
++			/*
++			 * We stop writing back only if we are not doing
++			 * integrity sync. In case of integrity sync we have to
++			 * keep going until we have written all the pages
++			 * we tagged for writeback prior to entering this loop.
++			 */
++			if (--wbc->nr_to_write <= 0 &&
++			    wbc->sync_mode == WB_SYNC_NONE) {
++				done = 1;
++				break;
+ 			}
+ 
+ 			if (wbc->nonblocking && bdi_write_congested(bdi)) {
+@@ -960,12 +973,10 @@ int do_writepages(struct address_space *
  
  	if (wbc->nr_to_write <= 0)
  		return 0;
