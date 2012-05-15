@@ -23,6 +23,12 @@
 #include <linux/acpi.h>
 #include "pci.h"
 
+int isa_dma_bridge_buggy;
+EXPORT_SYMBOL(isa_dma_bridge_buggy);
+int pci_pci_problems;
+EXPORT_SYMBOL(pci_pci_problems);
+
+#ifdef CONFIG_PCI_GENERIC_QUIRKS
 /* The Mellanox Tavor device gives false positive parity errors
  * Mark this device with a broken_parity_status, to allow
  * PCI scanning code to "skip" this now blacklisted device.
@@ -61,8 +67,6 @@ DECLARE_PCI_FIXUP_RESUME(PCI_VENDOR_ID_INTEL,	PCI_DEVICE_ID_INTEL_82441,	quirk_p
     
     This appears to be BIOS not version dependent. So presumably there is a 
     chipset level fix */
-int isa_dma_bridge_buggy;
-EXPORT_SYMBOL(isa_dma_bridge_buggy);
     
 static void __devinit quirk_isa_dma_hangs(struct pci_dev *dev)
 {
@@ -83,8 +87,6 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_NEC,	PCI_DEVICE_ID_NEC_CBUS_1,	quirk_isa_d
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_NEC,	PCI_DEVICE_ID_NEC_CBUS_2,	quirk_isa_dma_hangs );
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_NEC,	PCI_DEVICE_ID_NEC_CBUS_3,	quirk_isa_dma_hangs );
 
-int pci_pci_problems;
-EXPORT_SYMBOL(pci_pci_problems);
 
 /*
  *	Chipsets where PCI->PCI transfers vanish or hang
@@ -1495,6 +1497,7 @@ static void __devinit fixup_rev1_53c810(struct pci_dev* dev)
 	}
 }
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_NCR, PCI_DEVICE_ID_NCR_53C810, fixup_rev1_53c810);
+#endif /* CONFIG_PCI_GENERIC_QUIRKS */
 
 static void pci_do_fixups(struct pci_dev *dev, struct pci_fixup *f, struct pci_fixup *end)
 {
@@ -1558,6 +1561,7 @@ void pci_fixup_device(enum pci_fixup_pass pass, struct pci_dev *dev)
 }
 EXPORT_SYMBOL(pci_fixup_device);
 
+#ifdef CONFIG_PCI_GENERIC_QUIRKS
 /* Enable 1k I/O space granularity on the Intel P64H2 */
 static void __devinit quirk_p64h2_1k_io(struct pci_dev *dev)
 {
@@ -1629,6 +1633,8 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_NVIDIA,  PCI_DEVICE_ID_NVIDIA_CK804_PCIE,
 			quirk_nvidia_ck804_pcie_aer_ext_cap);
 DECLARE_PCI_FIXUP_RESUME(PCI_VENDOR_ID_NVIDIA,  PCI_DEVICE_ID_NVIDIA_CK804_PCIE,
 			quirk_nvidia_ck804_pcie_aer_ext_cap);
+
+#endif /* CONFIG_PCI_GENERIC_QUIRKS */
 
 #ifdef CONFIG_PCI_MSI
 /* Some chipsets do not support MSI. We cannot easily rely on setting
