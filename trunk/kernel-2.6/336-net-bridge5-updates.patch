@@ -1,5 +1,4 @@
 From: Fedor <fedork@ubuntu.(none)>
-Date: Wed, 29 Sep 2010 02:10:27 -0400
 Subject: [PATCH] [BRIDGE]: patches from upstream
 
 43aa1920117801fe9ae3d1fad886b62511e09bee bridge: handle process all link-local frames
@@ -10,14 +9,23 @@ a598f6aebea2481531b0757ed90cfb0d8cf1d8f5 bridge: relay bridge multicast pkgs if 
 9c2842bd94dd72d77bddb498bdd76342a0089168 [BRIDGE]: Remove SKB share checks in br_nf_pre_routing()
 1e253c3b8a1aeed51eef6fc366812f219b97de65 bridge: Forward reserved group addresses if !STP
 aaca735f4f188641c4786af8f20ed39fcce3809c bridge: Adjust min age inc for HZ > 256
+2fd8e526f44beaf439f351b310648b559e62a7cb [NETFILTER]: bridge netfilter: remove nf_bridge_info read-only netoutdev member
 
 ---
- net/bridge/br_fdb.c       |    2 +-
- net/bridge/br_input.c     |   22 ++++++++++++++--------
- net/bridge/br_netfilter.c |    3 ---
- net/bridge/br_stp.c       |    7 +++++--
- 4 files changed, 20 insertions(+), 14 deletions(-)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -108,9 +108,6 @@ struct nf_bridge_info {
+ 	atomic_t use;
+ 	struct net_device *physindev;
+ 	struct net_device *physoutdev;
+-#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+-	struct net_device *netoutdev;
+-#endif
+ 	unsigned int mask;
+ 	unsigned long data[32 / sizeof(unsigned long)];
+ };
 diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
 --- a/net/bridge/br_fdb.c
 +++ b/net/bridge/br_fdb.c
@@ -81,6 +89,17 @@ diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
 -
  	if (unlikely(!pskb_may_pull(skb, len)))
  		goto out;
+ 
+@@ -828,10 +828,6 @@ static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff *skb,
+ 	nf_bridge_pull_encap_header(skb);
+ 	nf_bridge_save_header(skb);
+ 
+-#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+-	if (nf_bridge->netoutdev)
+-		realoutdev = nf_bridge->netoutdev;
+-#endif
+ 	NF_HOOK(pf, NF_IP_POST_ROUTING, skb, NULL, realoutdev,
+ 		br_nf_dev_queue_xmit);
  
 diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
 --- a/net/bridge/br_stp.c
