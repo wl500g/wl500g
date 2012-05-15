@@ -1,0 +1,96 @@
+From 80f03e349f06a261a8e980bf6005c61811a0d66a
+From: Kay Sievers
+Date: Sat, 26 May 2007 11:21:36 +0200
+Subject: [PATCH] Driver core: add missing kset uevent
+
+We get uevents for a bus/class going away, but not one registering.
+Add the missing uevent in kset_register(), which will send an
+event for a new bus/class. Suppress all unwanted uevents for bus
+subdirectories like /bus/*/devices/, /bus/*/drivers/.
+
+Now we get for module usbcore:
+  add      /module/usbcore (module)
+  add      /bus/usb (bus)
+  add      /class/usb_host (class)
+  add      /bus/usb/drivers/hub (drivers)
+  add      /bus/usb/drivers/usb (drivers)
+  remove   /bus/usb/drivers/usb (drivers)
+  remove   /bus/usb/drivers/hub (drivers)
+  remove   /class/usb_host (class)
+  remove   /bus/usb (bus)
+  remove   /module/usbcore (module)
+
+instead of:
+  add      /module/usbcore (module)
+  add      /bus/usb/drivers/hub (drivers)
+  add      /bus/usb/drivers/usb (drivers)
+  remove   /bus/usb/drivers/usb (drivers)
+  remove   /bus/usb/drivers/hub (drivers)
+  remove   /class/usb_host (class)
+  remove   /bus/usb/drivers (bus)
+  remove   /bus/usb/devices (bus)
+  remove   /bus/usb (bus)
+  remove   /module/usbcore (module)
+
+Signed-off-by: Kay Sievers <kay.sievers@vrfy.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ drivers/base/bus.c |   16 ++++++++++++++--
+ lib/kobject.c      |    9 ++++++++-
+ 2 files changed, 22 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/base/bus.c b/drivers/base/bus.c
+--- a/drivers/base/bus.c
++++ b/drivers/base/bus.c
+@@ -138,12 +138,24 @@ void bus_remove_file(struct bus_type * bus, struct bus_attribute * attr)
+ 	}
+ }
+ 
+-static struct kobj_type ktype_bus = {
++static struct kobj_type bus_ktype = {
+ 	.sysfs_ops	= &bus_sysfs_ops,
++};
++
++static int bus_uevent_filter(struct kset *kset, struct kobject *kobj)
++{
++	struct kobj_type *ktype = get_ktype(kobj);
++
++	if (ktype == &bus_ktype)
++		return 1;
++	return 0;
++}
+ 
++static struct kset_uevent_ops bus_uevent_ops = {
++	.filter = bus_uevent_filter,
+ };
+ 
+-static decl_subsys(bus, &ktype_bus, NULL);
++static decl_subsys(bus, &bus_ktype, &bus_uevent_ops);
+ 
+ 
+ #ifdef CONFIG_HOTPLUG
+diff --git a/lib/kobject.c b/lib/kobject.c
+--- a/lib/kobject.c
++++ b/lib/kobject.c
+@@ -597,10 +597,17 @@ int kset_add(struct kset * k)
+ 
+ int kset_register(struct kset * k)
+ {
++	int err;
++
+ 	if (!k)
+ 		return -EINVAL;
++
+ 	kset_init(k);
+-	return kset_add(k);
++	err = kset_add(k);
++	if (err)
++		return err;
++	kobject_uevent(&k->kobj, KOBJ_ADD);
++	return 0;
+ }
+ 
+ 
+-- 
+1.7.6.5
