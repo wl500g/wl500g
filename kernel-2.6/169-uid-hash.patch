@@ -1,0 +1,87 @@
+Convert uid hash to hlist
+
+ d8a4821dca693867a7953104c1e3cc830eb9191f kernel/user.c: Use list_for_each_entry instead of list_for_each
+ 735de2230f09741077a645a913de0a04b10208bf Convert uid hash to hlist
+ 40aeb400f68090f92010920ddf284b672a1461b8 user.c: deinline
+
+---
+ include/linux/sched.h |    2 +-
+ kernel/user.c         |   23 ++++++++++-------------
+ 2 files changed, 11 insertions(+), 14 deletions(-)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -593,7 +593,7 @@ struct user_struct {
+ #endif
+ 
+ 	/* Hash table maintenance information */
+-	struct list_head uidhash_list;
++	struct hlist_node uidhash_node;
+ 	uid_t uid;
+ };
+ 
+diff --git a/kernel/user.c b/kernel/user.c
+--- a/kernel/user.c
++++ b/kernel/user.c
+@@ -27,7 +27,7 @@
+ #define uidhashentry(uid)	(uidhash_table + __uidhashfn((uid)))
+ 
+ static struct kmem_cache *uid_cachep;
+-static struct list_head uidhash_table[UIDHASH_SZ];
++static struct hlist_head uidhash_table[UIDHASH_SZ];
+ 
+ /*
+  * The uidhash_lock is mostly taken from process context, but it is
+@@ -56,25 +56,22 @@ struct user_struct root_user = {
+ /*
+  * These routines must be called with the uidhash spinlock held!
+  */
+-static inline void uid_hash_insert(struct user_struct *up, struct list_head *hashent)
++static inline void uid_hash_insert(struct user_struct *up, struct hlist_head *hashent)
+ {
+-	list_add(&up->uidhash_list, hashent);
++	hlist_add_head(&up->uidhash_node, hashent);
+ }
+ 
+ static inline void uid_hash_remove(struct user_struct *up)
+ {
+-	list_del(&up->uidhash_list);
++	hlist_del(&up->uidhash_node);
+ }
+ 
+-static inline struct user_struct *uid_hash_find(uid_t uid, struct list_head *hashent)
++static struct user_struct *uid_hash_find(uid_t uid, struct hlist_head *hashent)
+ {
+-	struct list_head *up;
+-
+-	list_for_each(up, hashent) {
+-		struct user_struct *user;
+-
+-		user = list_entry(up, struct user_struct, uidhash_list);
++	struct user_struct *user;
++	struct hlist_node *h;
+ 
++	hlist_for_each_entry(user, h, hashent, uidhash_node) {
+ 		if(user->uid == uid) {
+ 			atomic_inc(&user->__count);
+ 			return user;
+@@ -122,7 +119,7 @@ void free_uid(struct user_struct *up)
+ 
+ struct user_struct * alloc_uid(uid_t uid)
+ {
+-	struct list_head *hashent = uidhashentry(uid);
++	struct hlist_head *hashent = uidhashentry(uid);
+ 	struct user_struct *up;
+ 
+ 	spin_lock_irq(&uidhash_lock);
+@@ -211,7 +208,7 @@ static int __init uid_cache_init(void)
+ 			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
+ 
+ 	for(n = 0; n < UIDHASH_SZ; ++n)
+-		INIT_LIST_HEAD(uidhash_table + n);
++		INIT_HLIST_HEAD(uidhash_table + n);
+ 
+ 	/* Insert the root user immediately (init already runs as root) */
+ 	spin_lock_irq(&uidhash_lock);
+-- 
