@@ -299,7 +299,7 @@ loader:
 mksquashfs $(MKSQUASHFS):
 ifeq ($(SQUASHFS3),y)
 	$(MAKE) -C $(LZMA4LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
-	$(MAKE) -C $(MKSQUASHFSDIR) mksquashfs-lzma \
+	$(MAKE) -C $(MKSQUASHFSDIR) \
 		LZMAPATH=$(LZMA4LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
 else
 	$(MAKE) -C $(MKSQUASHFSDIR) CC=$(HOSTCC) CXX=$(HOSTCXX) \
