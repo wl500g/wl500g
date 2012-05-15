@@ -1,0 +1,74 @@
+From 6b3766a263a62fc82ca0457faa73dc34b98ceb87
+From: Atsushi Nemoto
+Date: Tue, 5 Aug 2008 23:45:14 +0900
+Subject: [PATCH] [MIPS] vmlinux.lds.S: handle .text.*
+
+The -ffunction-sections puts each text in .text.function_name section.
+Without this patch, most functions are placed outside _text..._etext
+area and it breaks show_stacktrace(), etc.
+
+Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ 603bb99c8bca114fcd586271b19fa9fe65877b62 [MIPS] vmlinux.lds.S: Fix handling of .notes in final link.
+ fb5e2b379732e1a6ea32392980bb42e0212db842 vmlinux.lds: move __attribute__((__cold__)) functions back into final .text section
+
+---
+ arch/mips/kernel/vmlinux.lds.S    |   10 ++++++++--
+ include/asm-generic/vmlinux.lds.h |    4 +++-
+ 2 files changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
+--- a/arch/mips/kernel/vmlinux.lds.S
++++ b/arch/mips/kernel/vmlinux.lds.S
+@@ -5,6 +5,10 @@
+ #define mips mips
+ OUTPUT_ARCH(mips)
+ ENTRY(kernel_entry)
++PHDRS {
++	text PT_LOAD FLAGS(7);	/* RWX */
++	note PT_NOTE FLAGS(4);	/* R__ */
++}
+ jiffies = JIFFIES;
+ SECTIONS
+ {
+@@ -30,9 +34,10 @@ SECTIONS
+     TEXT_TEXT
+     SCHED_TEXT
+     LOCK_TEXT
++    *(.text.*)
+     *(.fixup)
+     *(.gnu.warning)
+-  } =0
++  } :text =0
+ 
+   _etext = .;			/* End of text section */
+ 
+@@ -45,7 +50,8 @@ SECTIONS
+   __dbe_table : { *(__dbe_table) }
+   __stop___dbe_table = .;
+ 
+-  NOTES
++  NOTES :text :note
++  .dummy : { *(.dummy) } :text
+ 
+   RODATA
+ 
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -152,8 +152,10 @@
+  * during second ld run in second ld pass when generating System.map */
+ #define TEXT_TEXT							\
+ 		ALIGN_FUNCTION();					\
++		*(.text.hot)						\
+ 		*(.text)						\
+-		*(.text.init.refok)
++		*(.text.init.refok)				\
++		*(.text.unlikely)
+ 
+ /* sched.text is aling to function alignment to secure we have same
+  * address even at second ld pass when generating System.map */
+-- 
+1.7.7.6
