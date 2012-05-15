@@ -484,6 +484,14 @@ config ANON_INODES
 
 	  If unsure, say Y.
 
+config AIO
+	default y
+	bool "Enable AIO support" if EMBEDDED
+	help
+	  This option enables POSIX async IO which may be used by
+	  some high performance threaded applications. Disabling
+	  this option saves about 5k.
+
 config EPOLL
 	bool "Enable eventpoll support" if EMBEDDED
 	default y

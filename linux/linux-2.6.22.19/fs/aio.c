@@ -36,6 +36,8 @@
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
 
+#ifdef CONFIG_AIO
+
 #if DEBUG > 1
 #define dprintk		printk
 #else
@@ -1783,6 +1785,52 @@ asmlinkage long sys_io_getevents(aio_context_t ctx_id,
 }
 
 __initcall(aio_setup);
+
+#else /* !CONFIG_AIO */
+
+ssize_t fastcall wait_on_sync_kiocb(struct kiocb *iocb)
+{
+	return 0;
+}
+
+void fastcall exit_aio(struct mm_struct *mm)
+{
+}
+
+void fastcall __put_ioctx(struct kioctx *ctx)
+{
+}
+
+int fastcall aio_put_req(struct kiocb *req)
+{
+	return 0;
+}
+
+struct kioctx *lookup_ioctx(unsigned long ctx_id)
+{
+	return 0;
+}
+
+void fastcall kick_iocb(struct kiocb *iocb)
+{
+}
+
+int fastcall aio_complete(struct kiocb *iocb, long res, long res2)
+{
+	return 0;
+}
+
+int fastcall io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
+			 struct iocb *iocb)
+{
+	return -EINVAL;
+}
+
+struct kiocb *lookup_kiocb(struct kioctx *ctx, struct iocb *iocb, u32 key)
+{
+	return 0;
+}
+#endif /* CONFIG_AIO */
 
 EXPORT_SYMBOL(aio_complete);
 EXPORT_SYMBOL(aio_put_req);
