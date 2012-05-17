@@ -28,7 +28,7 @@
 /* version information */
 #define DRIVER_VERSION "1.0"
 #define DRIVER_AUTHOR "Takahiro Hirofuchi <hirofuchi _at_ users.sourceforge.net>"
-#define DRIVER_DESC "usbip common driver"
+#define DRIVER_DESC "USB/IP Core"
 
 /*-------------------------------------------------------------------------*/
 /* debug routines */
