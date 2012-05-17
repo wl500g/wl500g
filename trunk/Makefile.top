@@ -166,7 +166,7 @@ obj-$(CONFIG_NFSD) += nfs-utils
 obj-$(CONFIG_NFSD) += portmap
 obj-$(CONFIG_IPROUTE2) += iproute2
 obj-$(CONFIG_LOADER) += loader
-obj-$(CONFIG_IPV6) += radvd
+obj-$(CONFIG_RADVD) += radvd
 obj-$(CONFIG_SNMP) += ucd-snmp
 obj-$(CONFIG_L2TP) += rp-l2tp
 obj-$(CONFIG_XL2TPD) += xl2tpd
@@ -557,7 +557,7 @@ ifeq ($(CONFIG_NFSD),y)
 	$(MAKE) -C nfs-utils/utils/$${subdir} install-man DESTDIR=$(PLATFORMDIR)/ datarootdir=manpages ; \
 	done
 endif
-ifeq ($(CONFIG_IPV6),y)
+ifeq ($(CONFIG_RADVD),y)
 	$(MAKE) -C radvd install-man DESTDIR=$(PLATFORMDIR)/manpages
 endif
 

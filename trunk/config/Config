@@ -354,6 +354,13 @@ config CONFIG_IPV6
        help
        IPv6 is the next-generation IP protocol. Please ensure IPv6 is enabled in the kernel and busybox config
 
+config CONFIG_RADVD
+       bool "Router Advertisement Daemon"
+       depends on CONFIG_IPV6
+       default y
+       help
+       Implements link-local advertisements of IPv6 router addresses and IPv6 routing prefixes using the Neighbor Discovery Protocol
+
 config CONFIG_SNMP
        bool "SNMP agent support"
        default y
