@@ -1,0 +1,56 @@
+From 919dd7cf145c62c7e9f9487a1a52a4a76b359190 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Sat, 12 May 2012 15:23:09 +0100
+Subject: [PATCH 3/3] Fixed missing periodic-ras in some configurations.
+
+---
+ CHANGELOG   |    4 ++++
+ src/lease.c |   15 +++++++++++----
+ 2 files changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/CHANGELOG b/CHANGELOG
+index e810306..6c3f0e3 100644
+--- a/CHANGELOG
++++ b/CHANGELOG
+@@ -2,6 +2,10 @@ version 2.62
+ 	    Cope with router-solict packets wich don't have a valid 
+ 	    source address. Thanks to Vladislav Grishenko for the patch.
+ 
++	    Fixed bug which caused missing periodic router
++	    advertisements with some configurations. Thanks to
++	    Vladislav Grishenko for the patch.
++
+ 
+ version 2.61
+ 	    Re-write interface discovery code on *BSD to use
+diff --git a/src/lease.c b/src/lease.c
+index aeb589e..cff24a2 100644
+--- a/src/lease.c
++++ b/src/lease.c
+@@ -310,12 +310,19 @@ void lease_update_file(time_t now)
+   /* do timed RAs and determine when the next is, also pings to potential SLAAC addresses */
+   if (daemon->ra_contexts)
+     {
+-      time_t ra_event = periodic_slaac(now, leases);
++      time_t event;
+       
+-      next_event = periodic_ra(now);
++      if ((event = periodic_slaac(now, leases)) != 0)
++	{
++	  if (next_event == 0 || difftime(next_event, event) > 0.0)
++	    next_event = event;
++	}
+       
+-      if (next_event == 0 || difftime(next_event, ra_event) > 0.0)
+-	next_event = ra_event;
++      if ((event = periodic_ra(now)) != 0)
++	{
++	  if (next_event == 0 || difftime(next_event, event) > 0.0)
++	    next_event = event;
++	}
+     }
+ #endif
+ 
+-- 
+1.7.2.5
+
