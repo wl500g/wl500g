@@ -518,7 +518,9 @@ rp_fatal(char const *str)
 void
 sysErr(char const *str)
 {
-    rp_fatal(str);
+    char buf[1024];
+    sprintf(buf, "%.256s: %.256s", str, strerror(errno));
+    printErr(buf);
 }
 
 void pppoe_check_options(void)
