@@ -88,7 +88,7 @@ static ssize_t usbip_net_xmit(int sockfd, void *buff, size_t bufflen,
 		if (nbytes <= 0)
 			return -1;
 
-		buff	 = (void *)((intptr_t) buff + nbytes);
+		buff	 = (void *)((uint8_t *) buff + nbytes);
 		bufflen	-= nbytes;
 		total	+= nbytes;
 
