@@ -1178,6 +1178,9 @@ tcpdump-install:
 sysfsutils/Makefile: sysfsutils/Makefile.in
 	cd sysfsutils && CFLAGS="-Os $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr
+	# Create symlink for build of depended apps instead of headers-install
+	-mkdir sysfsutils/sys-include
+	ln -snf ../include sysfsutils/sys-include/sysfs
 
 sysfsutils: sysfsutils/Makefile
 	$(MAKE) -C $@
@@ -1185,6 +1188,23 @@ sysfsutils: sysfsutils/Makefile
 sysfsutils-install:
 	install -D sysfsutils/lib/.libs/libsysfs.so $(INSTALLDIR)/sysfsutils/usr/lib/libsysfs.so
 	$(STRIP) $(INSTALLDIR)/sysfsutils/usr/lib/*.so
+
+USBIPDIR=$(LINUXDIR)/drivers/usb/usbip/userspace
+
+$(USBIPDIR)/Makefile: $(USBIPDIR)/Makefile.in
+	cd $(USBIPDIR) && \
+	CFLAGS="-g -O2 -I$(TOP)/sysfsutils/sys-include $(EXTRACFLAGS)" \
+	CPPFLAGS="-I$(TOP)/sysfsutils/sys-include" \
+	LDFLAGS="-L$(TOP)/sysfsutils/lib/.libs/" \
+	$(CONFIGURE) --prefix=/usr --with-usbids-dir=/opt/share
+
+usbip: sysfsutils $(USBIPDIR)/Makefile
+	$(MAKE) -C $(USBIPDIR)
+
+usbip-install: sysfsutils-install
+	install -D $(USBIPDIR)/libsrc/.libs/libusbip.so.0 $(INSTALLDIR)/usbip/usr/lib/libusbip.so.0
+	$(MAKE) -C $(USBIPDIR)/src install DESTDIR=$(INSTALLDIR)/usbip
+	$(STRIP) $(INSTALLDIR)/usbip/usr/lib/libusbip.so.0 $(INSTALLDIR)/usbip/usr/sbin/*
 
 e2fsprogs/Makefile: e2fsprogs/Makefile.in
 	cd e2fsprogs && CFLAGS="-Os $(EXTRACFLAGS)" \
