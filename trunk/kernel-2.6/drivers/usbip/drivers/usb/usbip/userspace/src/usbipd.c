@@ -21,6 +21,7 @@
 #endif
 
 #include <errno.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <string.h>
@@ -30,6 +31,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <poll.h>
 
 #ifdef HAVE_LIBWRAP
 #include <tcpd.h>
@@ -37,7 +39,6 @@
 
 #define _GNU_SOURCE
 #include <getopt.h>
-#include <glib.h>
 #include <signal.h>
 
 #include "usbip_host_driver.h"
@@ -48,7 +49,7 @@
 #define PROGNAME "usbipd"
 #define MAXSOCKFD 20
 
-GMainLoop *main_loop;
+static bool is_running = true;
 
 static const char usbip_version_string[] = PACKAGE_STRING;
 
@@ -310,30 +311,23 @@ static int do_accept(int listenfd)
 	return connfd;
 }
 
-gboolean process_request(GIOChannel *gio, GIOCondition condition,
-			 gpointer unused_data)
+static void process_request(struct pollfd *pd)
 {
-	int listenfd;
 	int connfd;
 
-	(void) unused_data;
-
-	if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL)) {
+	if (pd->revents & (POLLERR | POLLHUP | POLLNVAL)) {
 		err("unknown condition");
 		BUG();
 	}
 
-	if (condition & G_IO_IN) {
-		listenfd = g_io_channel_unix_get_fd(gio);
-		connfd = do_accept(listenfd);
+	if (pd->revents & POLLIN) {
+		connfd = do_accept(pd->fd);
 		if (connfd < 0)
-			return TRUE;
+			return;
 
 		recv_pdu(connfd);
 		close(connfd);
 	}
-
-	return TRUE;
 }
 
 static void log_addrinfo(struct addrinfo *ai)
@@ -350,37 +344,37 @@ static void log_addrinfo(struct addrinfo *ai)
 	info("listening on %s:%s", hbuf, sbuf);
 }
 
-static int listen_all_addrinfo(struct addrinfo *ai_head, int sockfdlist[])
+static int listen_all_addrinfo(struct addrinfo *ai_head, struct pollfd sockfdlist[])
 {
 	struct addrinfo *ai;
 	int ret, nsockfd = 0;
 
 	for (ai = ai_head; ai && nsockfd < MAXSOCKFD; ai = ai->ai_next) {
-		sockfdlist[nsockfd] = socket(ai->ai_family, ai->ai_socktype,
+		sockfdlist[nsockfd].fd = socket(ai->ai_family, ai->ai_socktype,
 					     ai->ai_protocol);
-		if (sockfdlist[nsockfd] < 0)
+		if (sockfdlist[nsockfd].fd < 0)
 			continue;
 
-		usbip_net_set_reuseaddr(sockfdlist[nsockfd]);
-		usbip_net_set_nodelay(sockfdlist[nsockfd]);
+		usbip_net_set_reuseaddr(sockfdlist[nsockfd].fd);
+		usbip_net_set_nodelay(sockfdlist[nsockfd].fd);
 
-		if (sockfdlist[nsockfd] >= FD_SETSIZE) {
-			close(sockfdlist[nsockfd]);
-			sockfdlist[nsockfd] = -1;
-			continue;
-		}
-
-		ret = bind(sockfdlist[nsockfd], ai->ai_addr, ai->ai_addrlen);
-		if (ret < 0) {
-			close(sockfdlist[nsockfd]);
-			sockfdlist[nsockfd] = -1;
+		if (sockfdlist[nsockfd].fd >= FD_SETSIZE) {
+			close(sockfdlist[nsockfd].fd);
+			sockfdlist[nsockfd].fd = -1;
 			continue;
 		}
 
-		ret = listen(sockfdlist[nsockfd], SOMAXCONN);
+		ret = bind(sockfdlist[nsockfd].fd, ai->ai_addr, ai->ai_addrlen);
 		if (ret < 0) {
-			close(sockfdlist[nsockfd]);
-			sockfdlist[nsockfd] = -1;
+			close(sockfdlist[nsockfd].fd);
+			sockfdlist[nsockfd].fd = -1;
+			continue;
+		}
+
+		ret = listen(sockfdlist[nsockfd].fd, SOMAXCONN);
+		if (ret < 0) {
+			close(sockfdlist[nsockfd].fd);
+			sockfdlist[nsockfd].fd = -1;
 			continue;
 		}
 
@@ -420,8 +414,7 @@ static void signal_handler(int i)
 {
 	dbg("received signal: code %d", i);
 
-	if (main_loop)
-		g_main_loop_quit(main_loop);
+	is_running = false;
 }
 
 static void set_signal(void)
@@ -435,10 +428,10 @@ static void set_signal(void)
 	sigaction(SIGINT, &act, NULL);
 }
 
-static int do_standalone_mode(gboolean daemonize)
+static int do_standalone_mode(bool daemonize)
 {
 	struct addrinfo *ai_head;
-	int sockfdlist[MAXSOCKFD];
+	struct pollfd sockfdlist[MAXSOCKFD];
 	int nsockfd;
 	int i;
 
@@ -473,16 +466,36 @@ static int do_standalone_mode(gboolean daemonize)
 		return -1;
 	}
 
-	for (i = 0; i < nsockfd; i++) {
-		GIOChannel *gio;
+	while (is_running)
+	{
+		int n;
 
-		gio = g_io_channel_unix_new(sockfdlist[i]);
-		g_io_add_watch(gio, (G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL),
-			       process_request, NULL);
+		for (i = 0; i < nsockfd; i++)
+		{
+			sockfdlist[i].events = POLLIN | POLLPRI;
+			sockfdlist[i].revents = 0;
+		}
+
+		n = poll(sockfdlist, nsockfd, 1000);
+		if (n == 0)
+			continue;
+		else if (n < 0)
+		{
+			if (errno != EINTR)
+			{
+				err("poll(2) failed due to: %s", strerror(errno));
+				sleep(1);
+			}
+			continue;
+		}
+
+		for (i = 0; i < nsockfd; i++)
+			if (sockfdlist[i].revents & (POLLIN | POLLERR | POLLHUP | POLLNVAL))
+			{
+				process_request(&sockfdlist[i]);
+			}
+
 	}
-
-	main_loop = g_main_loop_new(FALSE, FALSE);
-	g_main_loop_run(main_loop);
 
 	info("shutting down " PROGNAME);
 
@@ -509,7 +522,7 @@ int main(int argc, char *argv[])
 		cmd_version
 	} cmd;
 
-	gboolean daemonize = FALSE;
+	bool daemonize = false;
 	int opt, rc = -1;
 
 	usbip_use_stderr = 1;
@@ -527,7 +540,7 @@ int main(int argc, char *argv[])
 
 		switch (opt) {
 		case 'D':
-			daemonize = TRUE;
+			daemonize = true;
 			break;
 		case 'd':
 			usbip_use_debug = 1;

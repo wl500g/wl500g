@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.60)
 AC_INIT([usbip-utils], [1.1.1], [linux-usb@vger.kernel.org])
-AC_DEFINE([USBIP_VERSION], [0x00000111], [binary-coded decimal version number])
+AC_DEFINE([USBIP_VERSION], [0x00000106], [binary-coded decimal version number])
 
 CURRENT=0
 REVISION=1
@@ -92,8 +92,6 @@ AC_ARG_WITH([usbids-dir],
 	    [USBIDS_DIR=$withval], [USBIDS_DIR="/usr/share/hwdata/"])
 AC_SUBST([USBIDS_DIR])
 
-GLIB2_REQUIRED=2.6.0
-PKG_CHECK_MODULES([PACKAGE], [glib-2.0 >= $GLIB2_REQUIRED])
 AC_SUBST([PACKAGE_CFLAGS])
 AC_SUBST([PACKAGE_LIBS])
 
