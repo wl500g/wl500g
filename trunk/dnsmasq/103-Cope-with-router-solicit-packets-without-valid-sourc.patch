@@ -1,0 +1,63 @@
+From f632e56793de613ead3cb87e1f77201b416f27f2 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Sat, 12 May 2012 15:05:34 +0100
+Subject: [PATCH 2/3] Cope with router-solicit packets without valid source address.
+
+---
+ CHANGELOG           |    3 +++
+ src/radv-protocol.h |    2 +-
+ src/radv.c          |    5 +++--
+ 3 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/CHANGELOG b/CHANGELOG
+index 3a0a831..e810306 100644
+--- a/CHANGELOG
++++ b/CHANGELOG
+@@ -1,3 +1,8 @@
++version 2.62
++	    Cope with router-solict packets wich don't have a valid 
++	    source address. Thanks to Vladislav Grishenko for the patch.
++
++
+ version 2.61
+ 	    Re-write interface discovery code on *BSD to use
+ 	    getifaddrs. This is more portable, more straightforward,
+diff --git a/src/radv-protocol.h b/src/radv-protocol.h
+index 1f95395..7495e72 100644
+--- a/src/radv-protocol.h
++++ b/src/radv-protocol.h
+@@ -14,7 +14,7 @@
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+ 
+-#define ALL_HOSTS                 "FF02::1"
++#define ALL_NODES                 "FF02::1"
+ #define ALL_ROUTERS               "FF02::2"
+ 
+ struct ping_packet {
+diff --git a/src/radv.c b/src/radv.c
+index 9d68a60..edbef05 100644
+--- a/src/radv.c
++++ b/src/radv.c
+@@ -179,7 +179,8 @@ void icmp6_packet(void)
+ 	}
+          
+       my_syslog(MS_DHCP | LOG_INFO, "RTR-SOLICIT(%s) %s", interface, mac);
+-      send_ra(if_index, interface, &from.sin6_addr);
++      /* source address may not be valid in solicit request. */
++      send_ra(if_index, interface, !IN6_IS_ADDR_UNSPECIFIED(&from.sin6_addr) ? &from.sin6_addr : NULL);
+     }
+ }
+ 
+@@ -317,7 +318,7 @@ static void send_ra(int iface, char *iface_name, struct in6_addr *dest)
+ 	addr.sin6_scope_id = iface;
+     }
+   else
+-    inet_pton(AF_INET6, ALL_HOSTS, &addr.sin6_addr); 
++    inet_pton(AF_INET6, ALL_NODES, &addr.sin6_addr); 
+   
+   send_from(daemon->icmp6fd, 0, daemon->outpacket.iov_base, save_counter(0),
+ 	    (union mysockaddr *)&addr, (struct all_addr *)&parm.link_local, iface); 
+-- 
+1.7.2.5
+
