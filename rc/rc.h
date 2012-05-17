@@ -180,7 +180,7 @@ int stop_service_main();
 int start_httpd(void);
 int start_dhcpd(void);
 int stop_dhcpd(void);
-#ifdef __CONFIG_IPV6__
+#ifdef __CONFIG_RADVD__
 int start_radvd(void);
 int stop_radvd(void);
 #endif
