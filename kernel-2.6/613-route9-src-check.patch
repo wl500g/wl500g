@@ -1,0 +1,81 @@
+From a210d01ae3ee006b59e54e772a7f212486e0f021
+From: Julian Anastasov
+Date: Wed, 1 Oct 2008 07:28:28 -0700
+Subject: [PATCH] ipv4: Loosen source address check on IPv4 output
+
+ip_route_output() contains a check to make sure that no flows with
+non-local source IP addresses are routed. This obviously makes using
+such addresses impossible.
+
+This patch introduces a flowi flag which makes omitting this check
+possible. The new flag provides a way of handling transparent and
+non-transparent connections differently.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ include/net/flow.h |    2 ++
+ net/ipv4/route.c   |   20 +++++++++++++-------
+ 2 files changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/flow.h b/include/net/flow.h
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -47,7 +47,7 @@ struct flowi {
+ 
+ 	__u8	proto;
+ 	__u8	flags;
+-#define FLOWI_FLAG_MULTIPATHOLDROUTE 0x01
++#define FLOWI_FLAG_ANYSRC 0x01
+ 	union {
+ 		struct {
+ 			__be16	sport;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2521,11 +2521,6 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
+ 		    ipv4_is_zeronet(oldflp->fl4_src))
+ 			goto out;
+ 
+-		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
+-		dev_out = ip_dev_find(oldflp->fl4_src);
+-		if (dev_out == NULL)
+-			goto out;
+-
+ 		/* I removed check for oif == dev_out->oif here.
+ 		   It was wrong for two reasons:
+ 		   1. ip_dev_find(saddr) can return wrong iface, if saddr
+@@ -2537,6 +2532,11 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
+ 
+ 		if (oldflp->oif == 0
+ 		    && (MULTICAST(oldflp->fl4_dst) || oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
++			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
++			dev_out = ip_dev_find(oldflp->fl4_src);
++			if (dev_out == NULL)
++				goto out;
++
+ 			/* Special hack: user can direct multicasts
+ 			   and limited broadcast via necessary interface
+ 			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
+@@ -2555,9 +2555,15 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
+ 			fl.oif = dev_out->ifindex;
+ 			goto make_route;
+ 		}
+-		if (dev_out)
++
++		if (!(oldflp->flags & FLOWI_FLAG_ANYSRC)) {
++			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
++			dev_out = ip_dev_find(oldflp->fl4_src);
++			if (dev_out == NULL)
++				goto out;
+ 			dev_put(dev_out);
+-		dev_out = NULL;
++			dev_out = NULL;
++		}
+ 	}
+ 
+ 
+-- 
+1.7.6.5
