@@ -25,7 +25,7 @@
 /* Version Information */
 #define DRIVER_VERSION "1.0"
 #define DRIVER_AUTHOR "Takahiro Hirofuchi"
-#define DRIVER_DESC "Stub Driver for USB/IP"
+#define DRIVER_DESC "USB/IP Host Driver"
 
 /* stub_priv is allocated from stub_priv_cache */
 struct kmem_cache *stub_priv_cache;

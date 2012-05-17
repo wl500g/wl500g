@@ -58,7 +58,7 @@ static struct usb_device_id stub_table[] = {
 MODULE_DEVICE_TABLE(usb, stub_table);
 
 struct usb_driver stub_driver = {
-	.name		= "usbip",
+	.name		= "usbip-host",
 	.probe		= stub_probe,
 	.disconnect	= stub_disconnect,
 	.id_table	= stub_table,
