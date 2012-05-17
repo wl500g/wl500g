@@ -1,0 +1,14 @@
+close session socket if discovery wasn't succesfull
+
+--- rp-pppoe.orig/src/plugin.c	2012-04-27 06:50:15.825759000 +0000
++++ rp-pppoe/src/plugin.c	2012-04-27 06:51:06.135759000 +0000
+@@ -168,7 +168,8 @@ PPPOEConnectDevice(void)
+         discovery(conn);
+ 	if (conn->discoveryState != STATE_SESSION) {
+ 	    error("Unable to complete PPPoE Discovery");
+-	    return -1;
++	    close(conn->sessionSocket);
++	    goto errout;
+ 	}
+     }
+ 
