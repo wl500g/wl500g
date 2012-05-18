@@ -6,7 +6,6 @@ Originally from Tomato-rt commits:
  601ce7d2413edc0fd9f81fff117f2938664b362d
 
 ---
-
  Documentation/power/swsusp.txt           |   21 
  Documentation/usb/dma.txt                |   54 -
  Documentation/usb/persist.txt            |  156 +++
@@ -42,7 +41,7 @@ Originally from Tomato-rt commits:
  drivers/usb/core/hub.c                   |  654 ++++++-------
  drivers/usb/core/message.c               |  121 +-
  drivers/usb/core/quirks.c                |   34 
- drivers/usb/core/sysfs.c                 |  172 +++
+ drivers/usb/core/sysfs.c                 |  161 +++
  drivers/usb/core/urb.c                   |   92 +
  drivers/usb/core/usb.c                   |   12 
  drivers/usb/core/usb.h                   |   14 
@@ -78,7 +77,7 @@ Originally from Tomato-rt commits:
  drivers/usb/host/ehci-pci.c              |    7 
  drivers/usb/host/ehci-ppc-soc.c          |  200 ++++
  drivers/usb/host/ehci-ps3.c              |   86 +
- drivers/usb/host/ehci-q.c                |  111 +-
+ drivers/usb/host/ehci-q.c                |  113 +-
  drivers/usb/host/ehci-sched.c            |  220 ++--
  drivers/usb/host/ehci.h                  |  219 +++-
  drivers/usb/host/isp116x-hcd.c           |  187 +--
@@ -177,7 +176,7 @@ Originally from Tomato-rt commits:
  drivers/usb/storage/unusual_devs.h       |  645 +++++++++++--
  drivers/usb/storage/usb.c                |  136 +-
  drivers/usb/storage/usb.h                |    4 
- drivers/usb/usb-skeleton.c               |  151 ++-
+ drivers/usb/usb-skeleton.c               |  152 ++-
  include/linux/device.h                   |    8 
  include/linux/freezer.h                  |    9 
  include/linux/hid.h                      |   86 +
@@ -189,7 +188,7 @@ Originally from Tomato-rt commits:
  include/linux/usb/serial.h               |    7 
  include/linux/usb_gadget.h               |   48 -
  scripts/mod/file2alias.c                 |    2 
- 182 files changed, 10443 insertions(+), 6030 deletions(-)
+ 182 files changed, 10445 insertions(+), 6020 deletions(-)
 
 diff --git a/Documentation/power/swsusp.txt b/Documentation/power/swsusp.txt
 --- a/Documentation/power/swsusp.txt
@@ -4621,23 +4620,6 @@ diff --git a/drivers/usb/core/quirks.c b/drivers/usb/core/quirks.c
 diff --git a/drivers/usb/core/sysfs.c b/drivers/usb/core/sysfs.c
 --- a/drivers/usb/core/sysfs.c
 +++ b/drivers/usb/core/sysfs.c
-@@ -138,16 +138,6 @@ show_devnum(struct device *dev, struct d
- static DEVICE_ATTR(devnum, S_IRUGO, show_devnum, NULL);
- 
- static ssize_t
--show_devpath(struct device *dev, struct device_attribute *attr, char *buf)
--{
--	struct usb_device *udev;
--
--	udev = to_usb_device(dev);
--	return sprintf(buf, "%s\n", udev->devpath);
--}
--static DEVICE_ATTR(devpath, S_IRUGO, show_devpath, NULL);
--
--static ssize_t
- show_version(struct device *dev, struct device_attribute *attr, char *buf)
- {
- 	struct usb_device *udev;
 @@ -179,6 +169,73 @@ show_quirks(struct device *dev, struct d
  }
  static DEVICE_ATTR(quirks, S_IRUGO, show_quirks, NULL);
@@ -4721,14 +4703,6 @@ diff --git a/drivers/usb/core/sysfs.c b/drivers/usb/core/sysfs.c
  static int add_power_attributes(struct device *dev)
  {
  	int rc = 0;
-@@ -376,7 +432,6 @@ static struct attribute *dev_attrs[] = {
- 	&dev_attr_speed.attr,
- 	&dev_attr_busnum.attr,
- 	&dev_attr_devnum.attr,
--	&dev_attr_devpath.attr,
- 	&dev_attr_version.attr,
- 	&dev_attr_maxchild.attr,
- 	&dev_attr_quirks.attr,
 @@ -386,6 +441,54 @@ static struct attribute_group dev_attr_g
  	.attrs = dev_attrs,
  };
@@ -29275,4 +29249,4 @@ diff -urBp a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
  		return;
  
  	/* Convert numeric bcdDevice range into fnmatch-able pattern(s) */
---
+-- 
