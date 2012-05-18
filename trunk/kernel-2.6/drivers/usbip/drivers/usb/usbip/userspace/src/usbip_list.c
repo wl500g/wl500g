@@ -228,7 +228,7 @@ static int list_devices(bool parsable)
 		if (!idVendor || !idProduct || !bConfValue || !bNumIntfs) {
 			err("problem getting device attributes: %s",
 			    strerror(errno));
-			goto err_out;
+			continue;
 		}
 
 		print_device(dev->bus_id, idVendor->value, idProduct->value,
@@ -239,9 +239,9 @@ static int list_devices(bool parsable)
 				 dev->bus_id, bConfValue->value, i);
 			intf = sysfs_open_device(bus_type, busid);
 			if (!intf) {
-				err("could not open device interface: %s",
-				    strerror(errno));
-				goto err_out;
+				err("could not open device interface '%s': %s",
+				    busid, strerror(errno));
+				continue;
 			}
 			print_interface(busid, intf->driver_name, parsable);
 			sysfs_close_device(intf);
