@@ -187,11 +187,11 @@ obj-y += udpxy
 
 # Exclude targets for non-USB routers
 ifeq ($(filter RT-N10 RT-N12 RT-N12B1 RT-N12C1,$(MODEL)),$(MODEL))
-obj-y := $(filter-out LPRng e2fsprogs libusb10 madwimax p910nd mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd ntfs-3g,$(obj-y))
+obj-y := $(filter-out LPRng e2fsprogs libusb10 madwimax p910nd mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd ntfs-3g usbip,$(obj-y))
 endif
 # Exclude more targets for non-USB routers with small flash-memory
 ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
-obj-y := $(filter-out nfs-utils quagga tcpdump,$(obj-y))
+obj-y := $(filter-out nfs-utils quagga sysfsutils tcpdump,$(obj-y))
 endif
 
 # Kernel modules extension
