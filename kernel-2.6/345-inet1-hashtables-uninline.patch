@@ -1,23 +1,118 @@
 [INET]: Uninline some large hashtables functions
 
  kernel.org commits
+ 230140cffa7feae90ad50bf259db1fa07674f3a7 [INET]: Remove per bucket rwlock in tcp/dccp ehash table.
  152da81deb9a4870aeac352336184b2b14d4b2ba [INET]: Uninline the __inet_hash function.
  77a5ba55dab7b4ece12f37c717022819e3f77b44 [INET]: Uninline the __inet_lookup_established function.
  5ee31fc1ecdcbc234c8c56dcacef87c8e09909d8 [INET]: Consolidate inet(6)_hash_connect.
  5d8c0aa9433b09387d9021358baef7939f9b32c4 [INET]: Fix accidentally broken inet(6)_hash_connect's port offset calculations.
 
 ---
- include/net/inet_hashtables.h |   73 ++++-----------------------
+ include/net/inet_hashtables.h |  137 ++++++++++++++++++++++--------------------
  net/dccp/ipv4.c               |    2 
- net/ipv4/inet_hashtables.c    |  113 +++++++++++++++++++++++++++++++++++++-----
- net/ipv4/tcp_ipv4.c           |    2 
- net/ipv6/inet6_hashtables.c   |   93 ----------------------------------
- 5 files changed, 116 insertions(+), 167 deletions(-)
+ net/dccp/proto.c              |    9 ++
+ net/ipv4/inet_diag.c          |    9 +-
+ net/ipv4/inet_hashtables.c    |  122 ++++++++++++++++++++++++++++++++-----
+ net/ipv4/inet_timewait_sock.c |   13 ++-
+ net/ipv4/tcp.c                |    4 -
+ net/ipv4/tcp_ipv4.c           |   13 ++-
+ net/ipv6/inet6_hashtables.c   |  112 +++-------------------------------
+ 9 files changed, 220 insertions(+), 201 deletions(-)
 
 diff -urBp a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
 --- a/include/net/inet_hashtables.h	2008-02-26 02:59:40.000000000 +0300
-+++ b/include/net/inet_hashtables.h	2010-09-24 12:54:37.000000000 +0400
-@@ -207,37 +207,14 @@ static inline void inet_listen_unlock(st
++++ b/include/net/inet_hashtables.h	2012-05-18 15:24:40.000000000 +0400
+@@ -38,7 +38,6 @@
+  * I'll experiment with dynamic table growth later.
+  */
+ struct inet_ehash_bucket {
+-	rwlock_t	  lock;
+ 	struct hlist_head chain;
+ 	struct hlist_head twchain;
+ };
+@@ -101,6 +100,9 @@ struct inet_hashinfo {
+ 	 * TIME_WAIT sockets use a separate chain (twchain).
+ 	 */
+ 	struct inet_ehash_bucket	*ehash;
++	rwlock_t			*ehash_locks;
++	unsigned int			ehash_size;
++	unsigned int			ehash_locks_mask;
+ 
+ 	/* Ok, let's try this, I give up, we do need a local binding
+ 	 * TCP hash as well as the others for fast bind/connect.
+@@ -108,7 +110,7 @@ struct inet_hashinfo {
+ 	struct inet_bind_hashbucket	*bhash;
+ 
+ 	int				bhash_size;
+-	unsigned int			ehash_size;
++	/* Note : 4 bytes padding on 64 bit arches */
+ 
+ 	/* All sockets in TCP_LISTEN state will be in here.  This is the only
+ 	 * table where wildcard'd TCP sockets can exist.  Hash function here
+@@ -135,6 +137,62 @@ static inline struct inet_ehash_bucket *
+ 	return &hashinfo->ehash[hash & (hashinfo->ehash_size - 1)];
+ }
+ 
++static inline rwlock_t *inet_ehash_lockp(
++	struct inet_hashinfo *hashinfo,
++	unsigned int hash)
++{
++	return &hashinfo->ehash_locks[hash & hashinfo->ehash_locks_mask];
++}
++
++static inline int inet_ehash_locks_alloc(struct inet_hashinfo *hashinfo)
++{
++	unsigned int i, size = 256;
++#if defined(CONFIG_PROVE_LOCKING)
++	unsigned int nr_pcpus = 2;
++#else
++	unsigned int nr_pcpus = num_possible_cpus();
++#endif
++	if (nr_pcpus >= 4)
++		size = 512;
++	if (nr_pcpus >= 8)
++		size = 1024;
++	if (nr_pcpus >= 16)
++		size = 2048;
++	if (nr_pcpus >= 32)
++		size = 4096;
++	if (sizeof(rwlock_t) != 0) {
++#ifdef CONFIG_NUMA
++		if (size * sizeof(rwlock_t) > PAGE_SIZE)
++			hashinfo->ehash_locks = vmalloc(size * sizeof(rwlock_t));
++		else
++#endif
++		hashinfo->ehash_locks =	kmalloc(size * sizeof(rwlock_t),
++						GFP_KERNEL);
++		if (!hashinfo->ehash_locks)
++			return ENOMEM;
++		for (i = 0; i < size; i++)
++			rwlock_init(&hashinfo->ehash_locks[i]);
++	}
++	hashinfo->ehash_locks_mask = size - 1;
++	return 0;
++}
++
++static inline void inet_ehash_locks_free(struct inet_hashinfo *hashinfo)
++{
++	if (hashinfo->ehash_locks) {
++#ifdef CONFIG_NUMA
++		unsigned int size = (hashinfo->ehash_locks_mask + 1) *
++							sizeof(rwlock_t);
++		if (size > PAGE_SIZE)
++			vfree(hashinfo->ehash_locks);
++		else
++#else
++		kfree(hashinfo->ehash_locks);
++#endif
++		hashinfo->ehash_locks = NULL;
++	}
++}
++
+ extern struct inet_bind_bucket *
+ 		    inet_bind_bucket_create(struct kmem_cache *cachep,
+ 					    struct inet_bind_hashbucket *head,
+@@ -207,37 +265,14 @@ static inline void inet_listen_unlock(st
  		wake_up(&hashinfo->lhash_wait);
  }
  
@@ -58,7 +153,16 @@ diff -urBp a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
  		local_bh_enable();
  	}
  }
-@@ -345,42 +322,9 @@ typedef __u64 __bitwise __addrpair;
+@@ -254,7 +289,7 @@ static inline void inet_unhash(struct in
+ 		inet_listen_wlock(hashinfo);
+ 		lock = &hashinfo->lhash_lock;
+ 	} else {
+-		lock = &inet_ehash_bucket(hashinfo, sk->sk_hash)->lock;
++		lock = inet_ehash_lockp(hashinfo, sk->sk_hash);
+ 		write_lock_bh(lock);
+ 	}
+ 
+@@ -345,42 +380,9 @@ typedef __u64 __bitwise __addrpair;
   *
   * Local BH must be disabled here.
   */
@@ -104,7 +208,7 @@ diff -urBp a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
  
  static inline struct sock *
  	inet_lookup_established(struct inet_hashinfo *hashinfo,
-@@ -417,6 +361,11 @@ static inline struct sock *inet_lookup(s
+@@ -417,6 +419,11 @@ static inline struct sock *inet_lookup(s
  	return sk;
  }
  
@@ -128,10 +232,107 @@ diff -urBp a/net/dccp/ipv4.c b/net/dccp/ipv4.c
  	__inet_inherit_port(&dccp_hashinfo, sk, newsk);
  
  	return newsk;
+diff -urBp a/net/dccp/proto.c b/net/dccp/proto.c
+--- a/net/dccp/proto.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/dccp/proto.c	2012-05-18 15:24:40.000000000 +0400
+@@ -1039,11 +1039,13 @@ static int __init dccp_init(void)
+ 	}
+ 
+ 	for (i = 0; i < dccp_hashinfo.ehash_size; i++) {
+-		rwlock_init(&dccp_hashinfo.ehash[i].lock);
+ 		INIT_HLIST_HEAD(&dccp_hashinfo.ehash[i].chain);
+ 		INIT_HLIST_HEAD(&dccp_hashinfo.ehash[i].twchain);
+ 	}
+ 
++	if (inet_ehash_locks_alloc(&dccp_hashinfo))
++			goto out_free_dccp_ehash;
++
+ 	bhash_order = ehash_order;
+ 
+ 	do {
+@@ -1058,7 +1060,7 @@ static int __init dccp_init(void)
+ 
+ 	if (!dccp_hashinfo.bhash) {
+ 		DCCP_CRIT("Failed to allocate DCCP bind hash table");
+-		goto out_free_dccp_ehash;
++		goto out_free_dccp_locks;
+ 	}
+ 
+ 	for (i = 0; i < dccp_hashinfo.bhash_size; i++) {
+@@ -1086,6 +1088,8 @@ out_free_dccp_mib:
+ out_free_dccp_bhash:
+ 	free_pages((unsigned long)dccp_hashinfo.bhash, bhash_order);
+ 	dccp_hashinfo.bhash = NULL;
++out_free_dccp_locks:
++	inet_ehash_locks_free(&dccp_hashinfo);
+ out_free_dccp_ehash:
+ 	free_pages((unsigned long)dccp_hashinfo.ehash, ehash_order);
+ 	dccp_hashinfo.ehash = NULL;
+@@ -1104,6 +1108,7 @@ static void __exit dccp_fini(void)
+ 	free_pages((unsigned long)dccp_hashinfo.ehash,
+ 		   get_order(dccp_hashinfo.ehash_size *
+ 			     sizeof(struct inet_ehash_bucket)));
++	inet_ehash_locks_free(&dccp_hashinfo);
+ 	kmem_cache_destroy(dccp_hashinfo.bind_bucket_cachep);
+ 	dccp_ackvec_exit();
+ 	dccp_sysctl_exit();
+diff -urBp a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+--- a/net/ipv4/inet_diag.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/ipv4/inet_diag.c	2012-05-18 15:24:40.000000000 +0400
+@@ -746,13 +746,14 @@ skip_listen_ht:
+ 
+ 	for (i = s_i; i < hashinfo->ehash_size; i++) {
+ 		struct inet_ehash_bucket *head = &hashinfo->ehash[i];
++		rwlock_t *lock = inet_ehash_lockp(hashinfo, i);
+ 		struct sock *sk;
+ 		struct hlist_node *node;
+ 
+ 		if (i > s_i)
+ 			s_num = 0;
+ 
+-		read_lock_bh(&head->lock);
++		read_lock_bh(lock);
+ 		num = 0;
+ 		sk_for_each(sk, node, &head->chain) {
+ 			struct inet_sock *inet = inet_sk(sk);
+@@ -768,7 +769,7 @@ skip_listen_ht:
+ 			    r->id.idiag_dport)
+ 				goto next_normal;
+ 			if (inet_csk_diag_dump(sk, skb, cb) < 0) {
+-				read_unlock_bh(&head->lock);
++				read_unlock_bh(lock);
+ 				goto done;
+ 			}
+ next_normal:
+@@ -790,14 +791,14 @@ next_normal:
+ 				    r->id.idiag_dport)
+ 					goto next_dying;
+ 				if (inet_twsk_diag_dump(tw, skb, cb) < 0) {
+-					read_unlock_bh(&head->lock);
++					read_unlock_bh(lock);
+ 					goto done;
+ 				}
+ next_dying:
+ 				++num;
+ 			}
+ 		}
+-		read_unlock_bh(&head->lock);
++		read_unlock_bh(lock);
+ 	}
+ 
+ done:
 diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
 --- a/net/ipv4/inet_hashtables.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/net/ipv4/inet_hashtables.c	2010-09-24 12:54:37.000000000 +0400
-@@ -190,6 +190,43 @@ sherry_cache:
++++ b/net/ipv4/inet_hashtables.c	2012-05-18 15:24:40.000000000 +0400
+@@ -96,6 +96,7 @@ EXPORT_SYMBOL(inet_put_port);
+  * exclusive lock release). It should be ifdefed really.
+  */
+ void inet_listen_wlock(struct inet_hashinfo *hashinfo)
++	__acquires(hashinfo->lhash_lock)
+ {
+ 	write_lock(&hashinfo->lhash_lock);
+ 
+@@ -190,6 +191,44 @@ sherry_cache:
  }
  EXPORT_SYMBOL_GPL(__inet_lookup_listener);
  
@@ -149,9 +350,10 @@ diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
 +	 */
 +	unsigned int hash = inet_ehashfn(daddr, hnum, saddr, sport);
 +	struct inet_ehash_bucket *head = inet_ehash_bucket(hashinfo, hash);
++	rwlock_t *lock = inet_ehash_lockp(hashinfo, hash);
 +
 +	prefetch(head->chain.first);
-+	read_lock(&head->lock);
++	read_lock(lock);
 +	sk_for_each(sk, node, &head->chain) {
 +		if (INET_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
 +			goto hit; /* You sunk my battleship! */
@@ -164,7 +366,7 @@ diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
 +	}
 +	sk = NULL;
 +out:
-+	read_unlock(&head->lock);
++	read_unlock(lock);
 +	return sk;
 +hit:
 +	sock_hold(sk);
@@ -175,7 +377,40 @@ diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
  /* called with local bh disabled */
  static int __inet_check_established(struct inet_timewait_death_row *death_row,
  				    struct sock *sk, __u16 lport,
-@@ -266,11 +303,53 @@ static inline u32 inet_sk_port_offset(co
+@@ -204,12 +243,13 @@ static int __inet_check_established(stru
+ 	const __portpair ports = INET_COMBINED_PORTS(inet->dport, lport);
+ 	unsigned int hash = inet_ehashfn(daddr, lport, saddr, inet->dport);
+ 	struct inet_ehash_bucket *head = inet_ehash_bucket(hinfo, hash);
++	rwlock_t *lock = inet_ehash_lockp(hinfo, hash);
+ 	struct sock *sk2;
+ 	const struct hlist_node *node;
+ 	struct inet_timewait_sock *tw;
+ 
+ 	prefetch(head->chain.first);
+-	write_lock(&head->lock);
++	write_lock(lock);
+ 
+ 	/* Check TIME-WAIT sockets first. */
+ 	sk_for_each(sk2, node, &head->twchain) {
+@@ -239,7 +279,7 @@ unique:
+ 	BUG_TRAP(sk_unhashed(sk));
+ 	__sk_add_node(sk, &head->chain);
+ 	sock_prot_inc_use(sk->sk_prot);
+-	write_unlock(&head->lock);
++	write_unlock(lock);
+ 
+ 	if (twp) {
+ 		*twp = tw;
+@@ -255,7 +295,7 @@ unique:
+ 	return 0;
+ 
+ not_unique:
+-	write_unlock(&head->lock);
++	write_unlock(lock);
+ 	return -EADDRNOTAVAIL;
+ }
+ 
+@@ -266,11 +306,53 @@ static inline u32 inet_sk_port_offset(co
  					  inet->dport);
  }
  
@@ -195,7 +430,7 @@ diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
 +	sk->sk_hash = inet_sk_ehashfn(sk);
 +	head = inet_ehash_bucket(hashinfo, sk->sk_hash);
 +	list = &head->chain;
-+	lock = &head->lock;
++	lock = inet_ehash_lockp(hashinfo, sk->sk_hash);
 +
 +	write_lock(lock);
 +	__sk_add_node(sk, list);
@@ -234,7 +469,7 @@ diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
  {
  	struct inet_hashinfo *hinfo = death_row->hashinfo;
  	const unsigned short snum = inet_sk(sk)->num;
-@@ -285,7 +364,7 @@ int inet_hash_connect(struct inet_timewa
+@@ -285,7 +367,7 @@ int inet_hash_connect(struct inet_timewa
  		int i;
  		int port;
  		static u32 hint;
@@ -243,7 +478,7 @@ diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
  		struct hlist_node *node;
  		struct inet_timewait_sock *tw = NULL;
  
-@@ -304,9 +383,8 @@ int inet_hash_connect(struct inet_timewa
+@@ -304,9 +386,8 @@ int inet_hash_connect(struct inet_timewa
  					BUG_TRAP(!hlist_empty(&tb->owners));
  					if (tb->fastreuse >= 0)
  						goto next_port;
@@ -255,7 +490,7 @@ diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
  						goto ok;
  					goto next_port;
  				}
-@@ -334,7 +412,7 @@ ok:
+@@ -334,7 +415,7 @@ ok:
  		inet_bind_hash(sk, tb, port);
  		if (sk_unhashed(sk)) {
  			inet_sk(sk)->sport = htons(port);
@@ -264,7 +499,7 @@ diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
  		}
  		spin_unlock(&head->lock);
  
-@@ -351,17 +429,28 @@ ok:
+@@ -351,17 +432,28 @@ ok:
  	tb  = inet_csk(sk)->icsk_bind_hash;
  	spin_lock_bh(&head->lock);
  	if (sk_head(&tb->owners) == sk && !sk->sk_bind_node.next) {
@@ -295,10 +530,77 @@ diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
 +}
  
  EXPORT_SYMBOL_GPL(inet_hash_connect);
+diff -urBp a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+--- a/net/ipv4/inet_timewait_sock.c	2012-05-18 04:00:00.000000000 +0400
++++ b/net/ipv4/inet_timewait_sock.c	2012-05-18 15:24:40.000000000 +0400
+@@ -19,16 +19,16 @@ void __inet_twsk_kill(struct inet_timewa
+ 	struct inet_bind_hashbucket *bhead;
+ 	struct inet_bind_bucket *tb;
+ 	/* Unlink from established hashes. */
+-	struct inet_ehash_bucket *ehead = inet_ehash_bucket(hashinfo, tw->tw_hash);
++	rwlock_t *lock = inet_ehash_lockp(hashinfo, tw->tw_hash);
+ 
+-	write_lock(&ehead->lock);
++	write_lock(lock);
+ 	if (hlist_unhashed(&tw->tw_node)) {
+-		write_unlock(&ehead->lock);
++		write_unlock(lock);
+ 		return;
+ 	}
+ 	__hlist_del(&tw->tw_node);
+ 	sk_node_init(&tw->tw_node);
+-	write_unlock(&ehead->lock);
++	write_unlock(lock);
+ 
+ 	/* Disassociate with bind bucket. */
+ 	bhead = &hashinfo->bhash[inet_bhashfn(tw->tw_num, hashinfo->bhash_size)];
+@@ -60,6 +60,7 @@ void __inet_twsk_hashdance(struct inet_t
+ 	const struct inet_sock *inet = inet_sk(sk);
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct inet_ehash_bucket *ehead = inet_ehash_bucket(hashinfo, sk->sk_hash);
++	rwlock_t *lock = inet_ehash_lockp(hashinfo, sk->sk_hash);
+ 	struct inet_bind_hashbucket *bhead;
+ 	/* Step 1: Put TW into bind hash. Original socket stays there too.
+ 	   Note, that any socket with inet->num != 0 MUST be bound in
+@@ -72,7 +73,7 @@ void __inet_twsk_hashdance(struct inet_t
+ 	inet_twsk_add_bind_node(tw, &tw->tw_tb->owners);
+ 	spin_unlock(&bhead->lock);
+ 
+-	write_lock(&ehead->lock);
++	write_lock(lock);
+ 
+ 	/* Step 2: Remove SK from established hash. */
+ 	if (__sk_del_node_init(sk))
+@@ -82,7 +83,7 @@ void __inet_twsk_hashdance(struct inet_t
+ 	inet_twsk_add_node(tw, &ehead->twchain);
+ 	atomic_inc(&tw->tw_refcnt);
+ 
+-	write_unlock(&ehead->lock);
++	write_unlock(lock);
+ }
+ 
+ EXPORT_SYMBOL_GPL(__inet_twsk_hashdance);
+diff -urBp a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	2012-05-18 04:00:00.000000000 +0400
++++ b/net/ipv4/tcp.c	2012-05-18 15:24:40.000000000 +0400
+@@ -2688,11 +2688,11 @@ void __init tcp_init(void)
+ 					0);
+ 	tcp_hashinfo.ehash_size = 1 << tcp_hashinfo.ehash_size;
+ 	for (i = 0; i < tcp_hashinfo.ehash_size; i++) {
+-		rwlock_init(&tcp_hashinfo.ehash[i].lock);
+ 		INIT_HLIST_HEAD(&tcp_hashinfo.ehash[i].chain);
+ 		INIT_HLIST_HEAD(&tcp_hashinfo.ehash[i].twchain);
+ 	}
+-
++	if (inet_ehash_locks_alloc(&tcp_hashinfo))
++		panic("TCP: failed to alloc ehash_locks");
+ 	tcp_hashinfo.bhash =
+ 		alloc_large_system_hash("TCP bind",
+ 					sizeof(struct inet_bind_hashbucket),
 diff -urBp a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
---- a/net/ipv4/tcp_ipv4.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/net/ipv4/tcp_ipv4.c	2010-09-24 12:33:27.000000000 +0400
-@@ -1473,7 +1473,7 @@ struct sock *tcp_v4_syn_recv_sock(struct
+--- a/net/ipv4/tcp_ipv4.c	2012-05-18 04:00:00.000000000 +0400
++++ b/net/ipv4/tcp_ipv4.c	2012-05-18 15:24:40.000000000 +0400
+@@ -1469,7 +1469,7 @@ struct sock *tcp_v4_syn_recv_sock(struct
  	}
  #endif
  
@@ -307,10 +609,125 @@ diff -urBp a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
  	__inet_inherit_port(&tcp_hashinfo, sk, newsk);
  
  	return newsk;
+@@ -2039,8 +2039,9 @@ static void *established_get_first(struc
+ 		struct sock *sk;
+ 		struct hlist_node *node;
+ 		struct inet_timewait_sock *tw;
++		rwlock_t *lock = inet_ehash_lockp(&tcp_hashinfo, st->bucket);
+ 
+-		read_lock_bh(&tcp_hashinfo.ehash[st->bucket].lock);
++		read_lock_bh(lock);
+ 		sk_for_each(sk, node, &tcp_hashinfo.ehash[st->bucket].chain) {
+ 			if (sk->sk_family != st->family) {
+ 				continue;
+@@ -2057,7 +2058,7 @@ static void *established_get_first(struc
+ 			rc = tw;
+ 			goto out;
+ 		}
+-		read_unlock_bh(&tcp_hashinfo.ehash[st->bucket].lock);
++		read_unlock_bh(lock);
+ 		st->state = TCP_SEQ_STATE_ESTABLISHED;
+ 	}
+ out:
+@@ -2084,11 +2085,11 @@ get_tw:
+ 			cur = tw;
+ 			goto out;
+ 		}
+-		read_unlock_bh(&tcp_hashinfo.ehash[st->bucket].lock);
++		read_unlock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
+ 		st->state = TCP_SEQ_STATE_ESTABLISHED;
+ 
+ 		if (++st->bucket < tcp_hashinfo.ehash_size) {
+-			read_lock_bh(&tcp_hashinfo.ehash[st->bucket].lock);
++			read_lock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
+ 			sk = sk_head(&tcp_hashinfo.ehash[st->bucket].chain);
+ 		} else {
+ 			cur = NULL;
+@@ -2196,7 +2197,7 @@ static void tcp_seq_stop(struct seq_file
+ 	case TCP_SEQ_STATE_TIME_WAIT:
+ 	case TCP_SEQ_STATE_ESTABLISHED:
+ 		if (v)
+-			read_unlock_bh(&tcp_hashinfo.ehash[st->bucket].lock);
++			read_unlock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
+ 		break;
+ 	}
+ }
 diff -urBp a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
 --- a/net/ipv6/inet6_hashtables.c	2008-02-26 02:59:40.000000000 +0300
-+++ b/net/ipv6/inet6_hashtables.c	2010-09-24 12:54:37.000000000 +0400
-@@ -247,97 +247,8 @@ static inline u32 inet6_sk_port_offset(c
++++ b/net/ipv6/inet6_hashtables.c	2012-05-18 15:27:48.000000000 +0400
+@@ -37,9 +37,8 @@ void __inet6_hash(struct inet_hashinfo *
+ 	} else {
+ 		unsigned int hash;
+ 		sk->sk_hash = hash = inet6_sk_ehashfn(sk);
+-		hash &= (hashinfo->ehash_size - 1);
+-		list = &hashinfo->ehash[hash].chain;
+-		lock = &hashinfo->ehash[hash].lock;
++		list = &inet_ehash_bucket(hashinfo, hash)->chain;
++		lock = inet_ehash_lockp(hashinfo, hash);
+ 		write_lock(lock);
+ 	}
+ 
+@@ -70,9 +69,10 @@ struct sock *__inet6_lookup_established(
+ 	 */
+ 	unsigned int hash = inet6_ehashfn(daddr, hnum, saddr, sport);
+ 	struct inet_ehash_bucket *head = inet_ehash_bucket(hashinfo, hash);
++	rwlock_t *lock = inet_ehash_lockp(hashinfo, hash);
+ 
+ 	prefetch(head->chain.first);
+-	read_lock(&head->lock);
++	read_lock(lock);
+ 	sk_for_each(sk, node, &head->chain) {
+ 		/* For IPV6 do the cheaper port and family tests first. */
+ 		if (INET6_MATCH(sk, hash, saddr, daddr, ports, dif))
+@@ -92,12 +92,12 @@ struct sock *__inet6_lookup_established(
+ 				goto hit;
+ 		}
+ 	}
+-	read_unlock(&head->lock);
++	read_unlock(lock);
+ 	return NULL;
+ 
+ hit:
+ 	sock_hold(sk);
+-	read_unlock(&head->lock);
++	read_unlock(lock);
+ 	return sk;
+ }
+ EXPORT_SYMBOL(__inet6_lookup_established);
+@@ -175,12 +175,13 @@ static int __inet6_check_established(str
+ 	const unsigned int hash = inet6_ehashfn(daddr, lport, saddr,
+ 						inet->dport);
+ 	struct inet_ehash_bucket *head = inet_ehash_bucket(hinfo, hash);
++	rwlock_t *lock = inet_ehash_lockp(hinfo, hash);
+ 	struct sock *sk2;
+ 	const struct hlist_node *node;
+ 	struct inet_timewait_sock *tw;
+ 
+ 	prefetch(head->chain.first);
+-	write_lock(&head->lock);
++	write_lock(lock);
+ 
+ 	/* Check TIME-WAIT sockets first. */
+ 	sk_for_each(sk2, node, &head->twchain) {
+@@ -216,7 +217,7 @@ unique:
+ 	__sk_add_node(sk, &head->chain);
+ 	sk->sk_hash = hash;
+ 	sock_prot_inc_use(sk->sk_prot);
+-	write_unlock(&head->lock);
++	write_unlock(lock);
+ 
+ 	if (twp != NULL) {
+ 		*twp = tw;
+@@ -231,7 +232,7 @@ unique:
+ 	return 0;
+ 
+ not_unique:
+-	write_unlock(&head->lock);
++	write_unlock(lock);
+ 	return -EADDRNOTAVAIL;
+ }
+ 
+@@ -247,97 +248,8 @@ static inline u32 inet6_sk_port_offset(c
  int inet6_hash_connect(struct inet_timewait_death_row *death_row,
  		       struct sock *sk)
  {

@@ -143,7 +143,7 @@ diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
 -		inet_listen_wlock(hashinfo);
 -		lock = &hashinfo->lhash_lock;
 -	} else {
--		lock = &inet_ehash_bucket(hashinfo, sk->sk_hash)->lock;
+-		lock = inet_ehash_lockp(hashinfo, sk->sk_hash);
 -		write_lock_bh(lock);
 -	}
 -
@@ -601,7 +601,7 @@ diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
 +		inet_listen_wlock(hashinfo);
 +		lock = &hashinfo->lhash_lock;
 +	} else {
-+		lock = &inet_ehash_bucket(hashinfo, sk->sk_hash)->lock;
++		lock = inet_ehash_lockp(hashinfo, sk->sk_hash);
 +		write_lock_bh(lock);
 +	}
 +
