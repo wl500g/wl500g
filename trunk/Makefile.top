@@ -105,9 +105,6 @@ SRCMODULESDIR := $(PLATFORMDIR)/modules/lib/modules/*/kernel
 #
 # Configuration
 #
-CONFIG_LINUX_26=y
-export CONFIG_LINUX_26
-
 img-$(if $(CONFIG_RTN16),y,n)	+= RT-N16
 img-$(if $(CONFIG_RTN15U),y,n)	+= RT-N15U
 img-$(if $(CONFIG_RTN12),y,n)	+= RT-N12
@@ -146,17 +143,15 @@ obj-$(CONFIG_MINIUPNPD) += miniupnpd
 obj-$(CONFIG_UTILS) += utils
 obj-$(CONFIG_ETC) += etc
 
-# Added by Joey for ASUS application
+# ASUS applications
 obj-$(CONFIG_ACCEL_PPTP) += accel-pptp
 obj-$(CONFIG_PPPOERELAY) += rp-pppoe
 obj-$(CONFIG_EZIPUPDATE) += ez-ipupdate
-obj-$(CONFIG_LIBJPEG) += jpeg-8b
-obj-$(CONFIG_RCAMD) += mjpg-streamer
 obj-$(CONFIG_LPRNG) += LPRng
 obj-$(CONFIG_OTHERS) += others
 obj-$(CONFIG_BPALOGIN) += bpalogin
 obj-$(CONFIG_EMF) += emf igs
-obj-$(CONFIG_LINUX_26) += udev
+obj-y += udev
 
 # custom firmware
 obj-$(CONFIG_SSHD) += dropbear
@@ -184,6 +179,10 @@ obj-$(CONFIG_TELENET) += lanauth
 obj-$(CONFIG_CONVEX) += authcli
 obj-$(CONFIG_LLTD) += lltd
 obj-$(CONFIG_TCPDUMP) += tcpdump libpcap
+obj-$(CONFIG_LIBJPEG) += jpeg-8b
+obj-$(CONFIG_RCAMD) += mjpg-streamer
+obj-$(CONFIG_USBIP) += usbip
+obj-$(CONFIG_LIBSYSFS) += sysfsutils
 obj-y += udpxy
 
 # Exclude targets for non-USB routers
@@ -196,12 +195,8 @@ obj-y := $(filter-out nfs-utils quagga tcpdump,$(obj-y))
 endif
 
 # Kernel modules extension
-ifeq ($(CONFIG_LINUX_26),y)
 EXTRACFLAGS += -DLINUX26
 ko=.ko
-else
-ko=.o
-endif
 
 # Netfilter modules NOT to include in main FW
 netfilter_external_modules := {xt,ipt}_layer7$(ko) ip_set$(ko) \
@@ -351,13 +346,8 @@ kernel-install: kernel $(PLATFORMDIR)/vmlinuz
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
 
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install modules_install-usb
-ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(ko)
-else
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci$(ko)
-endif
 
 modules_install-WL700g: modules_install-WL500gp
 	install -t $(MODULESDIR) \
@@ -370,22 +360,12 @@ modules_install-RT-N10 modules_install-RT-N12 modules_install-RT-N12B1 modules_i
 	@true
 
 modules_install-RT-N10U modules_install-RT-N15U modules_install-RT-N16: modules_install modules_install-usb
-ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
-else
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(ko)
-endif
 
 modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install modules_install-usb
-ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
-else
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(ko)
-endif
 
 modules_install-WL520gc: modules_install
 	@true
@@ -454,6 +434,12 @@ endif
 ifeq ($(CONFIG_NTFS3G),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/fs/fuse/fuse$(ko)
+endif
+	# USB/IP
+ifeq ($(CONFIG_USBIP),y)
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/usb/usbip/usbip-core$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/usbip/usbip-host$(ko)
 endif
 
 modules_install: .config
@@ -642,7 +628,6 @@ quagga/Makefile: quagga/Makefile.in
 	cd quagga && CFLAGS="-g -Os -std=gnu99 -Wall $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr --localstatedir=/var/run --sysconfdir=/etc/quagga/ \
 	 --disable-bgp-announce --disable-ipv6 --enable-multipath=8 \
-	 $(if $(CONFIG_LINUX_26),,--enable-linux24-tcp-md5) \
 	 --disable-vtysh --disable-bgpd --disable-watchquagga \
 	 --disable-opaque-lsa --disable-ospf-te \
 	 --disable-static --enable-pie=no \
@@ -714,7 +699,6 @@ bpalogin-install:
 
 busybox/.config: .config
 	cp -fp busybox/sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) $@
-	$(call SwitchConfParam,$@,CONFIG_MDEV,$(if $(CONFIG_LINUX_26),y,n))
 	$(call SwitchConfParam,$@,CONFIG_FEATURE_IPV6 CONFIG_PING6 CONFIG_TRACEROUTE6,$(if $(CONFIG_IPV6),y,n))
 	$(call SwitchConfParam,$@,CONFIG_SENDMAIL,$(if $(CONFIG_SENDMAIL),y,n))
 	sed -i 's/CONFIG_EXTRA_CFLAGS=.*/CONFIG_EXTRA_CFLAGS="$(EXTRACFLAGS)"/' $@
@@ -1196,7 +1180,8 @@ $(USBIPDIR)/Makefile: $(USBIPDIR)/Makefile.in
 	CFLAGS="-g -O2 -I$(TOP)/sysfsutils/sys-include $(EXTRACFLAGS)" \
 	CPPFLAGS="-I$(TOP)/sysfsutils/sys-include" \
 	LDFLAGS="-L$(TOP)/sysfsutils/lib/.libs/" \
-	$(CONFIGURE) --prefix=/usr --with-usbids-dir=/opt/share
+	$(CONFIGURE) --prefix=/usr --with-usbids-dir=/opt/share \
+	 --without-tcp-wrappers
 
 usbip: sysfsutils $(USBIPDIR)/Makefile
 	$(MAKE) -C $(USBIPDIR)
@@ -1209,7 +1194,6 @@ usbip-install: sysfsutils-install
 e2fsprogs/Makefile: e2fsprogs/Makefile.in
 	cd e2fsprogs && CFLAGS="-Os $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr --sysconfdir=/etc --enable-elf-shlibs \
-		$(if $(CONFIG_LINUX_26),,--disable-tls) \
 		--disable-rpath --disable-nls \
 		--disable-debugfs --disable-imager --disable-resizer --disable-uuidd
 

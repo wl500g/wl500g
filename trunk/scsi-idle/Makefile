@@ -1,7 +1,5 @@
-CFLAGS=-Wall -Os -I$(LINUXDIR)/include $(EXTRACFLAGS)
-ifeq ($(CONFIG_LINUX_26),y)
+CFLAGS = -Wall -Os -I$(LINUXDIR)/include $(EXTRACFLAGS)
 CFLAGS += -DHAVE_SG_IO
-endif
 
 DESTDIR = /usr/local/sbin
 
