@@ -449,6 +449,13 @@ config CONFIG_NTFS3G
        help
        NTFS-3G support.
 
+config CONFIG_USBIP
+       bool "USB/IP support"
+       depends on CONFIG_LIBSYSFS
+       default n
+       help
+       Include usbipd daemon & kernel modules for sharing usb devices over IP.
+
 menu "Authentication support"
 
 config CONFIG_EAPOL
