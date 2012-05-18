@@ -2,7 +2,7 @@ prevent pppd prematory exit on pppoe plugin recoverable errors
 
 --- rp-pppoe.orig/src/plugin.c	2012-04-27 06:50:15.825759000 +0000
 +++ rp-pppoe/src/plugin.c	2012-04-27 06:51:06.135759000 +0000
-@@ -456,7 +456,7 @@ rp_fatal(char const *str)
+@@ -465,7 +465,7 @@ rp_fatal(char const *str)
  void
  sysErr(char const *str)
  {
