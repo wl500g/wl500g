@@ -278,13 +278,17 @@ int vhci_rx_loop(void *data)
 {
 	struct usbip_device *ud = data;
 
-
 	while (!kthread_should_stop()) {
 		if (usbip_event_happened(ud))
 			break;
 
+		set_current_state(TASK_INTERRUPTIBLE);
 		vhci_rx_pdu(ud);
+
+		if (signal_pending(current))
+			flush_signals(current);
 	}
+	__set_current_state(TASK_RUNNING);
 
 	return 0;
 }

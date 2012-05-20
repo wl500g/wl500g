@@ -615,7 +615,13 @@ int stub_rx_loop(void *data)
 		if (usbip_event_happened(ud))
 			break;
 
+		set_current_state(TASK_INTERRUPTIBLE);
 		stub_rx_pdu(ud);
+
+		if (signal_pending(current))
+			flush_signals(current);
 	}
+	__set_current_state(TASK_RUNNING);
+
 	return 0;
 }
