@@ -224,7 +224,7 @@ static void vhci_rx_pdu(struct usbip_device *ud)
 	memset(&pdu, 0, sizeof(pdu));
 
 	/* 1. receive a pdu header */
-	ret = usbip_xmit(0, ud->tcp_socket, (char *) &pdu, sizeof(pdu), 0);
+	ret = usbip_xmit(ud->tcp_socket, (char *) &pdu, sizeof(pdu));
 	if (ret < 0) {
 		if (ret == -ECONNRESET)
 			usbip_uinfo("connection reset by peer\n");

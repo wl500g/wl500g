@@ -352,9 +352,8 @@ EXPORT_SYMBOL_GPL(usbip_dump_header);
 /*-------------------------------------------------------------------------*/
 /* socket routines */
 
-/*  Send/receive messages over TCP/IP. I refer drivers/block/nbd.c */
-int usbip_xmit(int send, struct socket *sock, char *buf,
-	       int size, int msg_flags)
+/*  Receive messages over TCP/IP. I refer drivers/block/nbd.c */
+int usbip_xmit(struct socket *sock, char *buf, int size)
 {
 	int result;
 	struct msghdr msg;
@@ -373,22 +372,6 @@ int usbip_xmit(int send, struct socket *sock, char *buf,
 		return -EINVAL;
 	}
 
-
-	if (usbip_dbg_flag_xmit) {
-		if (send) {
-			if (!in_interrupt())
-				printk(KERN_DEBUG "%-10s:", current->comm);
-			else
-				printk(KERN_DEBUG "interrupt  :");
-
-			printk(KERN_DEBUG "%s: sending... , sock %p, buf %p, "
-			       "size %d, msg_flags %d\n", __func__,
-			       sock, buf, size, msg_flags);
-			usbip_dump_buffer(buf, size);
-		}
-	}
-
-
 	do {
 		sock->sk->sk_allocation = GFP_NOIO;
 		iov.iov_base    = buf;
@@ -398,19 +381,14 @@ int usbip_xmit(int send, struct socket *sock, char *buf,
 		msg.msg_control = NULL;
 		msg.msg_controllen = 0;
 		msg.msg_namelen    = 0;
-		msg.msg_flags      = msg_flags | MSG_NOSIGNAL;
+		msg.msg_flags      = MSG_NOSIGNAL;
 
-		if (send)
-			result = kernel_sendmsg(sock, &msg, &iov, 1, size);
-		else
-			result = kernel_recvmsg(sock, &msg, &iov, 1, size,
-								MSG_WAITALL);
+		result = kernel_recvmsg(sock, &msg, &iov, 1, size, MSG_WAITALL);
 
 		if (result <= 0) {
-			usbip_udbg("usbip_xmit: %s sock %p buf %p size %u ret "
+			usbip_udbg("usbip_xmit: receive sock %p buf %p size %u ret "
 					"%d total %d\n",
-					send ? "send" : "receive", sock, buf,
-					size, result, total);
+					sock, buf, size, result, total);
 			goto err;
 		}
 
@@ -422,22 +400,16 @@ int usbip_xmit(int send, struct socket *sock, char *buf,
 
 
 	if (usbip_dbg_flag_xmit) {
-		if (!send) {
-			if (!in_interrupt())
-				printk(KERN_DEBUG "%-10s:", current->comm);
-			else
-				printk(KERN_DEBUG "interrupt  :");
+		if (!in_interrupt())
+			printk(KERN_DEBUG "%-10s:", current->comm);
+		else
+			printk(KERN_DEBUG "interrupt  :");
 
-			printk(KERN_DEBUG "usbip_xmit: receiving....\n");
-			usbip_dump_buffer(bp, osize);
-			printk(KERN_DEBUG "usbip_xmit: received, osize %d ret "
-					"%d size %d total %d\n", osize, result,
-					size, total);
-		}
-
-		if (send)
-			printk(KERN_DEBUG "usbip_xmit: send, total %d\n",
-									total);
+		printk(KERN_DEBUG "usbip_xmit: receiving....\n");
+		usbip_dump_buffer(bp, osize);
+		printk(KERN_DEBUG "usbip_xmit: received, osize %d ret "
+				"%d size %d total %d\n", osize, result,
+				size, total);
 	}
 
 	return total;
@@ -746,7 +718,7 @@ int usbip_recv_iso(struct usbip_device *ud, struct urb *urb)
 	if (!buff)
 		return -ENOMEM;
 
-	ret = usbip_xmit(0, ud->tcp_socket, buff, size, 0);
+	ret = usbip_xmit(ud->tcp_socket, buff, size);
 	if (ret != size) {
 		dev_err(&urb->dev->dev, "recv iso_frame_descriptor, %d\n",
 			ret);
@@ -854,8 +826,7 @@ int usbip_recv_xbuff(struct usbip_device *ud, struct urb *urb)
 	if (!(size > 0))
 		return 0;
 
-	ret = usbip_xmit(0, ud->tcp_socket, (char *)urb->transfer_buffer,
-			 size, 0);
+	ret = usbip_xmit(ud->tcp_socket, (char *)urb->transfer_buffer, size);
 	if (ret != size) {
 		dev_err(&urb->dev->dev, "recv xbuf, %d\n", ret);
 		if (ud->side == USBIP_STUB) {
