@@ -54,16 +54,17 @@ struct inet6_ifaddr
 	struct inet6_dev	*idev;
 	struct rt6_info		*rt;
 
-	struct inet6_ifaddr	*lst_next;      /* next addr in addr_lst */
+	struct hlist_node	addr_lst;
 	struct inet6_ifaddr	*if_next;       /* next addr in inet6_dev */
 
 #ifdef CONFIG_IPV6_PRIVACY
-	struct inet6_ifaddr	*tmp_next;	/* next addr in tempaddr_lst */
+	struct list_head	tmp_list;
 	struct inet6_ifaddr	*ifpub;
 	int			regen_count;
 #endif
 
 	int			dead;
+	struct rcu_head		rcu;
 };
 
 struct ip6_sf_socklist
@@ -140,7 +141,6 @@ struct ifacaddr6
 	struct ifacaddr6	*aca_next;
 	int			aca_users;
 	atomic_t		aca_refcnt;
-	spinlock_t		aca_lock;
 	unsigned long		aca_cstamp;
 	unsigned long		aca_tstamp;
 };
@@ -165,11 +165,11 @@ struct inet6_dev
 	struct ifmcaddr6	*mc_list;
 	struct ifmcaddr6	*mc_tomb;
 	rwlock_t		mc_lock;
-	unsigned long		mc_v1_seen;
-	unsigned long		mc_maxdelay;
 	unsigned char		mc_qrv;
 	unsigned char		mc_gq_running;
 	unsigned char		mc_ifc_count;
+	unsigned long		mc_v1_seen;
+	unsigned long		mc_maxdelay;
 	struct timer_list	mc_gq_timer;	/* general query timer */
 	struct timer_list	mc_ifc_timer;	/* interface change timer */
 
@@ -182,7 +182,7 @@ struct inet6_dev
 #ifdef CONFIG_IPV6_PRIVACY
 	u8			rndid[8];
 	struct timer_list	regen_timer;
-	struct inet6_ifaddr	*tempaddr_list;
+	struct list_head	tempaddr_list;
 #endif
 
 	struct neigh_parms	*nd_parms;
