@@ -19,6 +19,7 @@
 #include <sysfs/libsysfs.h>
 
 #include <ctype.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +41,14 @@ static const char usbip_detach_usage_string[] =
 void usbip_detach_usage(void)
 {
 	printf("usage: %s", usbip_detach_usage_string);
+}
+
+static void derecord_connection(int rhport)
+{
+	char path[PATH_MAX+1];
+
+	snprintf(path, PATH_MAX, VHCI_STATE_PATH"/port%d", rhport);
+	unlink(path);
 }
 
 static int detach_port(char *port)
@@ -68,6 +77,7 @@ static int detach_port(char *port)
 		return -1;
 
 	usbip_vhci_driver_close();
+	derecord_connection(portnum);
 
 	return ret;
 }
