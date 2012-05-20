@@ -34,7 +34,7 @@
 /* debug routines */
 
 #ifdef CONFIG_USB_IP_DEBUG_ENABLE
-unsigned long usbip_debug_flag = 0xffffffff;
+unsigned long usbip_debug_flag = 0xfffffffe;
 #else
 unsigned long usbip_debug_flag;
 #endif
