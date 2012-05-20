@@ -270,8 +270,7 @@ struct usbip_header {
 /*-------------------------------------------------------------------------*/
 
 
-int usbip_xmit(int, struct socket *, char *, int, int);
-int usbip_sendmsg(struct socket *, struct msghdr *, int);
+int usbip_xmit(struct socket *, char *, int);
 
 
 static inline int interface_to_busnum(struct usb_interface *interface)
