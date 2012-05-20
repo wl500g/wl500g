@@ -1,0 +1,483 @@
+ipv6: convert addrconf list to hlist
+
+ c2e21293c054817c42eb5fa9c613d2ad51954136 ipv6: convert addrconf list to hlist
+ 5c578aedcb21d79eeb4e9cf04ca5b276ac82614c IPv6: convert addrconf hash list to RCU
+ 3e81c6da39a265e11ef48f52bd15bf7ca0068c75 ipv6: Fix bug in ipv6_chk_same_addr().
+ 4f70ecca9c57731b4acbe5043eb22e4416bd2368 net: rcu fixes
+ eedf042a63ffef050ebc015de19b52dc065e830b ipv6: fix the bug of address check
+
+---
+ include/net/if_inet6.h |    3 
+ net/ipv6/addrconf.c    |  198 +++++++++++++++++++++++--------------------------
+ 2 files changed, 98 insertions(+), 103 deletions(-)
+
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -54,7 +54,7 @@ struct inet6_ifaddr {
+ 	struct inet6_dev	*idev;
+ 	struct rt6_info		*rt;
+ 
+-	struct inet6_ifaddr	*lst_next;      /* next addr in addr_lst */
++	struct hlist_node	addr_lst;
+ 	struct inet6_ifaddr	*if_next;       /* next addr in inet6_dev */
+ 
+ #ifdef CONFIG_IPV6_PRIVACY
+@@ -64,6 +64,7 @@ struct inet6_ifaddr {
+ #endif
+ 
+ 	int			dead;
++	struct rcu_head		rcu;
+ };
+ 
+ struct ip6_sf_socklist {
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -117,8 +117,8 @@ static int ipv6_count_addresses(struct i
+ /*
+  *	Configured unicast address hash table
+  */
+-static struct inet6_ifaddr		*inet6_addr_lst[IN6_ADDR_HSIZE];
+-static DEFINE_RWLOCK(addrconf_hash_lock);
++static struct hlist_head inet6_addr_lst[IN6_ADDR_HSIZE];
++static DEFINE_SPINLOCK(addrconf_hash_lock);
+ 
+ static void addrconf_verify(unsigned long);
+ 
+@@ -140,7 +140,7 @@ static void ipv6_ifa_notify(int event, s
+ 
+ static void inet6_prefix_notify(int event, struct inet6_dev *idev,
+ 				struct prefix_info *pinfo);
+-static int ipv6_chk_same_addr(const struct in6_addr *addr, struct net_device *dev);
++static bool ipv6_chk_same_addr(const struct in6_addr *addr, struct net_device *dev);
+ 
+ static ATOMIC_NOTIFIER_HEAD(inet6addr_chain);
+ 
+@@ -493,12 +493,17 @@ static void addrconf_fixup_forwarding(st
+ }
+ #endif
+ 
+-/* Nobody refers to this ifaddr, destroy it */
++static void inet6_ifa_finish_destroy_rcu(struct rcu_head *head)
++{
++	struct inet6_ifaddr *ifp = container_of(head, struct inet6_ifaddr, rcu);
++	kfree(ifp);
++}
+ 
++/* Nobody refers to this ifaddr, destroy it */
+ void inet6_ifa_finish_destroy(struct inet6_ifaddr *ifp)
+ {
+ 	BUG_TRAP(ifp->if_next==NULL);
+-	BUG_TRAP(ifp->lst_next==NULL);
++	WARN_ON(!hlist_unhashed(&ifp->addr_lst));
+ #ifdef NET_REFCNT_DEBUG
+ 	printk(KERN_DEBUG "inet6_ifa_finish_destroy\n");
+ #endif
+@@ -514,7 +519,7 @@ void inet6_ifa_finish_destroy(struct ine
+ 	}
+ 	dst_release(&ifp->rt->u.dst);
+ 
+-	kfree(ifp);
++	call_rcu(&ifp->rcu, inet6_ifa_finish_destroy_rcu);
+ }
+ 
+ static void
+@@ -566,7 +571,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
+ 		goto out2;
+ 	}
+ 
+-	write_lock(&addrconf_hash_lock);
++	spin_lock(&addrconf_hash_lock);
+ 
+ 	/* Ignore adding duplicate addresses on an interface */
+ 	if (ipv6_chk_same_addr(addr, idev->dev)) {
+@@ -593,6 +598,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
+ 
+ 	spin_lock_init(&ifa->lock);
+ 	init_timer(&ifa->timer);
++	INIT_HLIST_NODE(&ifa->addr_lst);
+ 	ifa->timer.data = (unsigned long) ifa;
+ 	ifa->scope = scope;
+ 	ifa->prefix_len = pfxlen;
+@@ -619,10 +625,9 @@ ipv6_add_addr(struct inet6_dev *idev, co
+ 	/* Add to big hash table */
+ 	hash = ipv6_addr_hash(addr);
+ 
+-	ifa->lst_next = inet6_addr_lst[hash];
+-	inet6_addr_lst[hash] = ifa;
++	hlist_add_head_rcu(&ifa->addr_lst, &inet6_addr_lst[hash]);
+ 	in6_ifa_hold(ifa);
+-	write_unlock(&addrconf_hash_lock);
++	spin_unlock(&addrconf_hash_lock);
+ 
+ 	write_lock(&idev->lock);
+ 	/* Add to inet6_dev unicast addr list. */
+@@ -650,7 +655,7 @@ out2:
+ 
+ 	return ifa;
+ out:
+-	write_unlock(&addrconf_hash_lock);
++	spin_unlock(&addrconf_hash_lock);
+ 	goto out2;
+ }
+ 
+@@ -668,17 +673,10 @@ static void ipv6_del_addr(struct inet6_i
+ 
+ 	ifp->dead = 1;
+ 
+-	write_lock_bh(&addrconf_hash_lock);
+-	for (ifap = &inet6_addr_lst[hash]; (ifa=*ifap) != NULL;
+-	     ifap = &ifa->lst_next) {
+-		if (ifa == ifp) {
+-			*ifap = ifa->lst_next;
+-			__in6_ifa_put(ifp);
+-			ifa->lst_next = NULL;
+-			break;
+-		}
+-	}
+-	write_unlock_bh(&addrconf_hash_lock);
++	spin_lock_bh(&addrconf_hash_lock);
++	hlist_del_init_rcu(&ifp->addr_lst);
++	__in6_ifa_put(ifp);
++	spin_unlock_bh(&addrconf_hash_lock);
+ 
+ 	write_lock_bh(&idev->lock);
+ #ifdef CONFIG_IPV6_PRIVACY
+@@ -1238,47 +1236,52 @@ static int ipv6_count_addresses(struct i
+ 
+ int ipv6_chk_addr(struct in6_addr *addr, struct net_device *dev, int strict)
+ {
+-	struct inet6_ifaddr * ifp;
++	struct inet6_ifaddr *ifp;
++	struct hlist_node *node;
+ 	unsigned int hash = ipv6_addr_hash(addr);
+ 
+-	read_lock_bh(&addrconf_hash_lock);
+-	for(ifp = inet6_addr_lst[hash]; ifp; ifp=ifp->lst_next) {
++	rcu_read_lock_bh();
++	hlist_for_each_entry_rcu(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+ 		if (ipv6_addr_equal(&ifp->addr, addr) &&
+-		    !(ifp->flags&IFA_F_TENTATIVE)) {
+-			if (dev == NULL || ifp->idev->dev == dev ||
+-			    !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))
+-				break;
++		    !(ifp->flags&IFA_F_TENTATIVE) &&
++		    (dev == NULL || ifp->idev->dev == dev ||
++		     !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))) {
++			rcu_read_unlock_bh();
++			return 1;
+ 		}
+ 	}
+-	read_unlock_bh(&addrconf_hash_lock);
+-	return ifp != NULL;
++	rcu_read_unlock_bh();
++
++	return 0;
+ }
+ 
+ EXPORT_SYMBOL(ipv6_chk_addr);
+ 
+-static
+-int ipv6_chk_same_addr(const struct in6_addr *addr, struct net_device *dev)
++static bool ipv6_chk_same_addr(const struct in6_addr *addr,
++			       struct net_device *dev)
+ {
+-	struct inet6_ifaddr * ifp;
+ 	unsigned int hash = ipv6_addr_hash(addr);
++	struct inet6_ifaddr *ifp;
++	struct hlist_node *node;
+ 
+-	for(ifp = inet6_addr_lst[hash]; ifp; ifp=ifp->lst_next) {
++	hlist_for_each_entry(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+ 		if (ipv6_addr_equal(&ifp->addr, addr)) {
+ 			if (dev == NULL || ifp->idev->dev == dev)
+-				break;
++				return true;
+ 		}
+ 	}
+-	return ifp != NULL;
++	return false;
+ }
+ 
+ struct inet6_ifaddr *ipv6_get_ifaddr(const struct in6_addr *addr,
+ 				     struct net_device *dev, int strict)
+ {
+-	struct inet6_ifaddr * ifp;
++	struct inet6_ifaddr *ifp = NULL;
++	struct hlist_node *node;
+ 	unsigned int hash = ipv6_addr_hash(addr);
+ 
+-	read_lock_bh(&addrconf_hash_lock);
+-	for(ifp = inet6_addr_lst[hash]; ifp; ifp=ifp->lst_next) {
++	rcu_read_lock_bh();
++	hlist_for_each_entry_rcu_bh(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+ 		if (ipv6_addr_equal(&ifp->addr, addr)) {
+ 			if (dev == NULL || ifp->idev->dev == dev ||
+ 			    !(ifp->scope&(IFA_LINK|IFA_HOST) || strict)) {
+@@ -1287,7 +1290,7 @@ struct inet6_ifaddr *ipv6_get_ifaddr(con
+ 			}
+ 		}
+ 	}
+-	read_unlock_bh(&addrconf_hash_lock);
++	rcu_read_unlock_bh();
+ 
+ 	return ifp;
+ }
+@@ -2529,8 +2532,7 @@ static struct notifier_block ipv6_dev_no
+ static int addrconf_ifdown(struct net_device *dev, int how)
+ {
+ 	struct inet6_dev *idev;
+-	struct inet6_ifaddr *ifa, **bifa;
+-	int i;
++	struct inet6_ifaddr *ifa;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -2558,24 +2560,6 @@ static int addrconf_ifdown(struct net_de
+ 
+ 	}
+ 
+-	/* Step 2: clear hash table */
+-	for (i=0; i<IN6_ADDR_HSIZE; i++) {
+-		bifa = &inet6_addr_lst[i];
+-
+-		write_lock_bh(&addrconf_hash_lock);
+-		while ((ifa = *bifa) != NULL) {
+-			if (ifa->idev == idev) {
+-				*bifa = ifa->lst_next;
+-				ifa->lst_next = NULL;
+-				addrconf_del_timer(ifa);
+-				in6_ifa_put(ifa);
+-				continue;
+-			}
+-			bifa = &ifa->lst_next;
+-		}
+-		write_unlock_bh(&addrconf_hash_lock);
+-	}
+-
+ 	write_lock_bh(&idev->lock);
+ 
+ 	/* Step 3: clear flags for stateless addrconf */
+@@ -2611,6 +2595,11 @@ static int addrconf_ifdown(struct net_de
+ 		addrconf_del_timer(ifa);
+ 		write_unlock_bh(&idev->lock);
+ 
++		/* clear hash table */
++		spin_lock_bh(&addrconf_hash_lock);
++		hlist_del_init_rcu(&ifa->addr_lst);
++		spin_unlock_bh(&addrconf_hash_lock);
++
+ 		__ipv6_ifa_notify(RTM_DELADDR, ifa);
+ 		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
+ 		in6_ifa_put(ifa);
+@@ -2862,24 +2851,34 @@ static struct inet6_ifaddr *if6_get_firs
+ 	struct if6_iter_state *state = seq->private;
+ 
+ 	for (state->bucket = 0; state->bucket < IN6_ADDR_HSIZE; ++state->bucket) {
+-		ifa = inet6_addr_lst[state->bucket];
+-		if (ifa)
+-			break;
++		struct hlist_node *n;
++		hlist_for_each_entry_rcu_bh(ifa, n, &inet6_addr_lst[state->bucket],
++					 addr_lst)
++			if (ifa)
++				return ifa;
+ 	}
+-	return ifa;
++	return NULL;
+ }
+ 
+-static struct inet6_ifaddr *if6_get_next(struct seq_file *seq, struct inet6_ifaddr *ifa)
++static struct inet6_ifaddr *if6_get_next(struct seq_file *seq,
++					 struct inet6_ifaddr *ifa)
+ {
+ 	struct if6_iter_state *state = seq->private;
++	struct hlist_node *n = &ifa->addr_lst;
+ 
+-	ifa = ifa->lst_next;
+-try_again:
+-	if (!ifa && ++state->bucket < IN6_ADDR_HSIZE) {
+-		ifa = inet6_addr_lst[state->bucket];
+-		goto try_again;
++	hlist_for_each_entry_continue_rcu_bh(ifa, n, addr_lst)
++		if (ifa)
++			return ifa;
++
++	while (++state->bucket < IN6_ADDR_HSIZE) {
++		hlist_for_each_entry_rcu_bh(ifa, n,
++				     &inet6_addr_lst[state->bucket], addr_lst) {
++			if (ifa)
++				return ifa;
++		}
+ 	}
+-	return ifa;
++
++	return NULL;
+ }
+ 
+ static struct inet6_ifaddr *if6_get_idx(struct seq_file *seq, loff_t pos)
+@@ -2893,8 +2892,9 @@ static struct inet6_ifaddr *if6_get_idx(
+ }
+ 
+ static void *if6_seq_start(struct seq_file *seq, loff_t *pos)
++	__acquires(rcu_bh)
+ {
+-	read_lock_bh(&addrconf_hash_lock);
++	rcu_read_lock_bh();
+ 	return if6_get_idx(seq, *pos);
+ }
+ 
+@@ -2908,8 +2908,9 @@ static void *if6_seq_next(struct seq_fil
+ }
+ 
+ static void if6_seq_stop(struct seq_file *seq, void *v)
++	__releases(rcu_bh)
+ {
+-	read_unlock_bh(&addrconf_hash_lock);
++	rcu_read_unlock_bh();
+ }
+ 
+ static int if6_seq_show(struct seq_file *seq, void *v)
+@@ -2965,18 +2966,19 @@ void if6_proc_exit(void)
+ int ipv6_chk_home_addr(struct in6_addr *addr)
+ {
+ 	int ret = 0;
+-	struct inet6_ifaddr * ifp;
++	struct inet6_ifaddr *ifp = NULL;
++	struct hlist_node *n;
+ 	unsigned int hash = ipv6_addr_hash(addr);
+ 
+-	read_lock_bh(&addrconf_hash_lock);
+-	for (ifp = inet6_addr_lst[hash]; ifp; ifp = ifp->lst_next) {
++	rcu_read_lock_bh();
++	hlist_for_each_entry_rcu_bh(ifp, n, &inet6_addr_lst[hash], addr_lst) {
+ 		if (ipv6_addr_cmp(&ifp->addr, addr) == 0 &&
+ 		    (ifp->flags & IFA_F_HOMEADDRESS)) {
+ 			ret = 1;
+ 			break;
+ 		}
+ 	}
+-	read_unlock_bh(&addrconf_hash_lock);
++	rcu_read_unlock_bh();
+ 	return ret;
+ }
+ #endif
+@@ -2988,10 +2990,12 @@ int ipv6_chk_home_addr(struct in6_addr *
+ static void addrconf_verify(unsigned long foo)
+ {
+ 	struct inet6_ifaddr *ifp;
++	struct hlist_node *node;
+ 	unsigned long now, next;
+ 	int i;
+ 
+-	spin_lock_bh(&addrconf_verify_lock);
++	rcu_read_lock_bh();
++	spin_lock(&addrconf_verify_lock);
+ 	now = jiffies;
+ 	next = now + ADDR_CHECK_FREQUENCY;
+ 
+@@ -3000,8 +3004,8 @@ static void addrconf_verify(unsigned lon
+ 	for (i=0; i < IN6_ADDR_HSIZE; i++) {
+ 
+ restart:
+-		read_lock(&addrconf_hash_lock);
+-		for (ifp=inet6_addr_lst[i]; ifp; ifp=ifp->lst_next) {
++		hlist_for_each_entry_rcu_bh(ifp, node,
++					 &inet6_addr_lst[i], addr_lst) {
+ 			unsigned long age;
+ #ifdef CONFIG_IPV6_PRIVACY
+ 			unsigned long regen_advance;
+@@ -3023,7 +3027,6 @@ restart:
+ 			    age >= ifp->valid_lft) {
+ 				spin_unlock(&ifp->lock);
+ 				in6_ifa_hold(ifp);
+-				read_unlock(&addrconf_hash_lock);
+ 				ipv6_del_addr(ifp);
+ 				goto restart;
+ 			} else if (ifp->prefered_lft == INFINITY_LIFE_TIME) {
+@@ -3045,7 +3048,6 @@ restart:
+ 
+ 				if (deprecate) {
+ 					in6_ifa_hold(ifp);
+-					read_unlock(&addrconf_hash_lock);
+ 
+ 					ipv6_ifa_notify(0, ifp);
+ 					in6_ifa_put(ifp);
+@@ -3063,7 +3065,7 @@ restart:
+ 						in6_ifa_hold(ifp);
+ 						in6_ifa_hold(ifpub);
+ 						spin_unlock(&ifp->lock);
+-						read_unlock(&addrconf_hash_lock);
++
+ 						spin_lock(&ifpub->lock);
+ 						ifpub->regen_count = 0;
+ 						spin_unlock(&ifpub->lock);
+@@ -3083,12 +3085,12 @@ restart:
+ 				spin_unlock(&ifp->lock);
+ 			}
+ 		}
+-		read_unlock(&addrconf_hash_lock);
+ 	}
+ 
+ 	addr_chk_timer.expires = time_before(next, jiffies + HZ) ? jiffies + HZ : next;
+ 	add_timer(&addr_chk_timer);
+-	spin_unlock_bh(&addrconf_verify_lock);
++	spin_unlock(&addrconf_verify_lock);
++	rcu_read_unlock_bh();
+ }
+ 
+ static struct in6_addr *extract_addr(struct nlattr *addr, struct nlattr *local)
+@@ -4370,7 +4372,7 @@ EXPORT_SYMBOL(unregister_inet6addr_notif
+ 
+ int __init addrconf_init(void)
+ {
+-	int err = 0;
++	int i, err = 0;
+ 
+ 	/* The addrconf netdev notifier requires that loopback_dev
+ 	 * has it's ipv6 private information allocated and setup
+@@ -4403,6 +4405,9 @@ int __init addrconf_init(void)
+ 	ip6_blk_hole_entry.rt6i_idev = in6_dev_get(&loopback_dev);
+ #endif
+ 
++	for (i = 0; i < IN6_ADDR_HSIZE; i++)
++		INIT_HLIST_HEAD(&inet6_addr_lst[i]);
++
+ 	register_netdevice_notifier(&ipv6_dev_notf);
+ 
+ 	addrconf_verify(0);
+@@ -4436,7 +4441,6 @@ void __exit addrconf_cleanup(void)
+ {
+ 	struct net_device *dev;
+ 	struct inet6_dev *idev;
+-	struct inet6_ifaddr *ifa;
+ 	int i;
+ 
+ 	unregister_netdevice_notifier(&ipv6_dev_notf);
+@@ -4463,20 +4467,10 @@ void __exit addrconf_cleanup(void)
+ 	 *	Check hash table.
+ 	 */
+ 
+-	write_lock_bh(&addrconf_hash_lock);
+-	for (i=0; i < IN6_ADDR_HSIZE; i++) {
+-		for (ifa=inet6_addr_lst[i]; ifa; ) {
+-			struct inet6_ifaddr *bifa;
+-
+-			bifa = ifa;
+-			ifa = ifa->lst_next;
+-			printk(KERN_DEBUG "bug: IPv6 address leakage detected: ifa=%p\n", bifa);
+-			/* Do not free it; something is wrong.
+-			   Now we can investigate it with debugger.
+-			 */
+-		}
+-	}
+-	write_unlock_bh(&addrconf_hash_lock);
++	spin_lock_bh(&addrconf_hash_lock);
++	for (i = 0; i < IN6_ADDR_HSIZE; i++)
++		WARN_ON(!hlist_empty(&inet6_addr_lst[i]));
++	spin_unlock_bh(&addrconf_hash_lock);
+ 
+ 	del_timer(&addr_chk_timer);
+ 
+-- 
