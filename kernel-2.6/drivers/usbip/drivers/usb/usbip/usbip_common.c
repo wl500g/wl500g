@@ -386,7 +386,7 @@ int usbip_xmit(struct socket *sock, char *buf, int size)
 		result = kernel_recvmsg(sock, &msg, &iov, 1, size, MSG_WAITALL);
 
 		if (result <= 0) {
-			usbip_udbg("usbip_xmit: receive sock %p buf %p size %u ret "
+			usbip_udbg("receive sock %p buf %p size %u ret "
 					"%d total %d\n",
 					sock, buf, size, result, total);
 			goto err;
