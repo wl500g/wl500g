@@ -458,7 +458,7 @@ diff --git a/kernel/softlockup.c b/kernel/softlockup.c
  
  	/* do not print during early bootup: */
  	if (unlikely(system_state != SYSTEM_RUNNING)) {
-@@ -92,28 +116,121 @@ void softlockup_tick(void)
+@@ -92,28 +116,120 @@ void softlockup_tick(void)
  
  	now = get_timestamp();
  
@@ -478,6 +478,8 @@ diff --git a/kernel/softlockup.c b/kernel/softlockup.c
 -		spin_lock(&print_lock);
 -		printk(KERN_ERR "BUG: soft lockup detected on CPU#%d!\n",
 -			this_cpu);
+-		dump_stack();
+-		spin_unlock(&print_lock);
 +	/* Warn about unreasonable delays: */
 +	if (time_before_eq(now - softlockup_thresh, touch_timestamp))
 +		return;
@@ -492,9 +494,7 @@ diff --git a/kernel/softlockup.c b/kernel/softlockup.c
 +	print_irqtrace_events(current);
 +	if (regs)
 +		show_regs(regs);
-+	else
- 		dump_stack();
--		spin_unlock(&print_lock);
++	dump_stack();
 +	spin_unlock(&print_lock);
 +}
 +
