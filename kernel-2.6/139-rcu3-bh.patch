@@ -47,7 +47,7 @@ diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
  
  /**
   * rcu_read_lock - mark the beginning of an RCU read-side critical section.
-@@ -243,23 +248,133 @@ extern struct lockdep_map rcu_lock_map;
+@@ -243,23 +248,134 @@ extern struct lockdep_map rcu_lock_map;
  
  #endif
  
@@ -110,7 +110,8 @@ diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
 +#define rcu_dereference_protected(p, c) \
 +	({ \
 +		if (debug_lockdep_rcu_enabled() && !(c)) \
-+			lockdep_rcu_dereference(__FILE__, __LINE__); \
++			lockdep_rcu_suspicious(__FILE__, __LINE__, \
++				"suspicious rcu_dereference_protected() usage"); \
 +		(p); \
 +	})
 +
