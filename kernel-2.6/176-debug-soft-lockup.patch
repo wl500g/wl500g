@@ -17,6 +17,7 @@
  cbaed698f37494b30b2449b51c728ae48630cb2b softlockup: minor cleanup, don't check task->state twice
  baf48f6577e581a9adb8fe849dc80e24b21d171d softlock: fix false panic which can occur if softlockup_thresh is reduced
  8c2eb4805d422bdbf60ba00ff233c794d23c3c00 softlockup: Stop spurious softlockup messages due to overflow
+ cf2592f59c0e8ed4308adbdb2e0a88655379d579 softlockup: ensure the task has been switched out once
 
 ---
  Documentation/oops-tracing.txt  |    2 
@@ -40,13 +41,13 @@
  arch/x86_64/kernel/traps.c      |    1 
  arch/xtensa/kernel/traps.c      |    1 
  include/linux/kernel.h          |    1 
- include/linux/sched.h           |   14 +++
+ include/linux/sched.h           |   14 ++
  kernel/fork.c                   |    5 +
  kernel/panic.c                  |    5 -
  kernel/sched.c                  |    4 
- kernel/softlockup.c             |  181 +++++++++++++++++++++++++++++++++++-----
- kernel/sysctl.c                 |   60 +++++++++++--
- 27 files changed, 267 insertions(+), 31 deletions(-)
+ kernel/softlockup.c             |  188 +++++++++++++++++++++++++++++++++++-----
+ kernel/sysctl.c                 |   56 ++++++++++-
+ 27 files changed, 269 insertions(+), 32 deletions(-)
 
 diff --git a/arch/alpha/kernel/traps.c b/arch/alpha/kernel/traps.c
 --- a/arch/alpha/kernel/traps.c
@@ -458,7 +459,7 @@ diff --git a/kernel/softlockup.c b/kernel/softlockup.c
  
  	/* do not print during early bootup: */
  	if (unlikely(system_state != SYSTEM_RUNNING)) {
-@@ -92,28 +116,120 @@ void softlockup_tick(void)
+@@ -92,28 +116,126 @@ void softlockup_tick(void)
  
  	now = get_timestamp();
  
@@ -519,7 +520,13 @@ diff --git a/kernel/softlockup.c b/kernel/softlockup.c
 +{
 +	unsigned long switch_count = t->nvcsw + t->nivcsw;
 +
-+	if (t->flags & PF_FROZEN)
++	/*
++	 * Ensure the task is not frozen.
++	 * Also, when a freshly created task is scheduled once, changes
++	 * its state to TASK_UNINTERRUPTIBLE without having ever been
++	 * switched out once, it musn't be checked.
++	 */
++	if (unlikely(t->flags & PF_FROZEN || !switch_count))
 +		return;
 +
 +	if (switch_count != t->last_switch_count || !t->last_switch_timestamp) {
