@@ -21,11 +21,23 @@ pre-defined address). But they are not invalid and should not be
 detected as such.
 
 ---
+Subject: [PATCH] netfilter: nf_conntrack_ipv6: fix nf_log_packet message in icmpv6 conntrack
+From 4aa3b2ee1945ed082430ae1fb988d60eef64ca07
+From: Eric Leblond <eric@inl.fr>
+Date: Wed, 18 Feb 2009 15:28:46 +0100
+
+This patch fixes a trivial typo that was adding a new line at end of
+the nf_log_packet() prefix. It also make the logging conditionnal by
+adding a LOG_INVALID test.
+
+Signed-off-by: Eric Leblond <eric@inl.fr>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
 
 diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
 --- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
 +++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-@@ -49,8 +49,19 @@ static bool icmpv6_pkt_to_tuple(const struct sk_buff *skb,
+@@ -49,10 +49,21 @@ static bool icmpv6_pkt_to_tuple(const struct sk_buff *skb,
  static u_int8_t invmap[] = {
  	[ICMPV6_ECHO_REQUEST - 128]	= ICMPV6_ECHO_REPLY + 1,
  	[ICMPV6_ECHO_REPLY - 128]	= ICMPV6_ECHO_REQUEST + 1,
@@ -47,6 +59,8 @@ diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter
 +};
 +
  static int icmpv6_invert_tuple(struct nf_conntrack_tuple *tuple,
+ 			       const struct nf_conntrack_tuple *orig)
+ {
 @@ -178,6 +189,7 @@ icmpv6_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
  	     enum ip_conntrack_info *ctinfo, int pf, unsigned int hooknum)
  {
@@ -55,7 +69,15 @@ diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter
  
  	icmp6h = skb_header_pointer(skb, dataoff, sizeof(_ih), &_ih);
  	if (icmp6h == NULL) {
-@@ -194,6 +206,15 @@ icmpv6_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
+@@ -194,11 +206,21 @@ icmpv6_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
+ 
+ 	if (nf_conntrack_checksum && hooknum == NF_IP6_PRE_ROUTING &&
+ 	    nf_ip6_checksum(skb, hooknum, dataoff, IPPROTO_ICMPV6)) {
+-		nf_log_packet(PF_INET6, 0, skb, NULL, NULL, NULL,
+-			      "nf_ct_icmpv6: ICMPv6 checksum failed\n");
++		if (LOG_INVALID(IPPROTO_ICMPV6))
++			nf_log_packet(PF_INET6, 0, skb, NULL, NULL, NULL,
++				      "nf_ct_icmpv6: ICMPv6 checksum failed ");
  		return -NF_ACCEPT;
  	}
  
@@ -72,4 +94,3 @@ diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter
  	if (icmp6h->icmp6_type >= 128)
  		return NF_ACCEPT;
 -- 
-1.7.1
