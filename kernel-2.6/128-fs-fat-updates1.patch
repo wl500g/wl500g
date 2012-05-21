@@ -8,6 +8,7 @@ fat: set of patches from newer kernel versions
  5f22ca9b13551debea77a407a8d06cd9c6f15238 vfat: fix 'sync' mount deadlock due to BKL->lock_super conversion
  3fbf586cf7f245392142e5407c2a56f1cff979b6 fs/partitions/msdos: add support for large disks
  710d4403a45c4040a9aa86971d50958f5ae6ed40 fat: fat16 support maximum 4GB file/vol size as WinXP or 7.
+ 1adffbae22332bb558c2a29de19d9aca391869f6 fat: Fix corrupt inode flags when remove ATTR_SYS flag
 
 See http://lkml.org/lkml/2008/4/20/170 (patches 1-9)
 
@@ -20,13 +21,13 @@ f6f3cb1b4491f2197c013807edf83d276e33ab70 fat: dirty hack for Samba2, as it was i
  fs/fat/cache.c                     |    2 
  fs/fat/dir.c                       |   85 ++++++++++-------
  fs/fat/fatent.c                    |   16 ++-
- fs/fat/file.c                      |  182 +++++++++++++++++++++----------------
+ fs/fat/file.c                      |  184 +++++++++++++++++++++----------------
  fs/fat/inode.c                     |   85 +++++++++--------
  fs/msdos/namei.c                   |   37 ++++---
- fs/partitions/msdos.c              |   74 +++++++--------
+ fs/partitions/msdos.c              |   74 +++++++-------
  fs/vfat/namei.c                    |   72 +++++++-------
  include/linux/msdos_fs.h           |    6 -
- 11 files changed, 335 insertions(+), 241 deletions(-)
+ 11 files changed, 336 insertions(+), 242 deletions(-)
 
 diff -urBp a/Documentation/filesystems/vfat.txt b/Documentation/filesystems/vfat.txt
 --- a/Documentation/filesystems/vfat.txt
@@ -411,6 +412,15 @@ diff -urBp a/fs/fat/file.c b/fs/fat/file.c
  #include <linux/buffer_head.h>
  #include <linux/writeback.h>
  #include <linux/backing-dev.h>
+@@ -99,7 +99,7 @@ int fat_generic_ioctl(struct inode *inod
+ 			if (attr & ATTR_SYS)
+ 				inode->i_flags |= S_IMMUTABLE;
+ 			else
+-				inode->i_flags &= S_IMMUTABLE;
++				inode->i_flags &= ~S_IMMUTABLE;
+ 		}
+ 
+ 		MSDOS_I(inode)->i_attrs = attr & ATTR_UNUSED;
 @@ -155,76 +154,6 @@ out:
  	return err;
  }
