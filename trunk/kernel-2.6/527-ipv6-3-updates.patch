@@ -9,6 +9,7 @@
  a3c960899e042bc1c2b730a2115fa32da7802039 [IPV6] UDP: Possible dst leak in udpv6_sendmsg.
  36d926b94a9908937593e5669162305a071b9cc3 [IPV6]: inet_sk(sk)->cork.opt leak
  5095d64db1b978bdb31d30fed9e47dbf04f729be ipv6: ip6_route_output() never returns NULL.
+ 32c90254ed4a0c698caa0794ebb4de63fcc69631 ipv6/udp: Use the correct variable to determine non-blocking condition
  2bda8a0c8af5294b869da1efd2c2b9a562f50dcf ipv6: Disable router anycast address for /127 prefixes
 
 ---
@@ -25,8 +26,8 @@
  net/ipv6/mcast.c         |   20 +++----
  net/ipv6/ndisc.c         |   37 +++++++------
  net/ipv6/route.c         |    6 +-
- net/ipv6/udp.c           |    6 +-
- 14 files changed, 140 insertions(+), 137 deletions(-)
+ net/ipv6/udp.c           |    8 ++
+ 14 files changed, 141 insertions(+), 138 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
@@ -716,6 +717,15 @@ diff --git a/net/ipv6/route.c b/net/ipv6/route.c
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c
+@@ -241,7 +241,7 @@ csum_copy_err:
+ 			UDP6_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
+ 	}
+ 
+-	if (flags & MSG_DONTWAIT)
++	if (noblock)
+ 		return -EAGAIN;
+ 	goto try_again;
+ }
 @@ -527,7 +527,9 @@ static void udp_v6_flush_pending_frames(
  {
  	struct udp_sock *up = udp_sk(sk);
