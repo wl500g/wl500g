@@ -398,9 +398,14 @@ static void n_hdlc_send_frames(struct n_hdlc *n_hdlc, struct tty_struct *tty)
 				__FILE__,__LINE__,tbuf,tbuf->count);
 			
 		/* Send the next block of data to device */
-		tty->flags |= (1 << TTY_DO_WRITE_WAKEUP);
+		set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
 		actual = tty->driver->write(tty, tbuf->buf, tbuf->count);
-		    
+
+		/* rollback was possible and has been done */
+		if (actual == -ERESTARTSYS) {
+			n_hdlc->tbuf = tbuf;
+			break;
+		}
 		/* if transmit error, throw frame away by */
 		/* pretending it was accepted by driver */
 		if (actual < 0)
@@ -435,7 +440,7 @@ static void n_hdlc_send_frames(struct n_hdlc *n_hdlc, struct tty_struct *tty)
 	}
 	
 	if (!tbuf)
-		tty->flags  &= ~(1 << TTY_DO_WRITE_WAKEUP);
+		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
 	
 	/* Clear the re-entry flag */
 	spin_lock_irqsave(&n_hdlc->tx_buf_list.spinlock, flags);
@@ -467,7 +472,7 @@ static void n_hdlc_tty_wakeup(struct tty_struct *tty)
 		return;
 
 	if (tty != n_hdlc->tty) {
-		tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
+		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
 		return;
 	}
 
@@ -662,6 +667,10 @@ static ssize_t n_hdlc_tty_write(struct tty_struct *tty, struct file *file,
 	/* Allocate transmit buffer */
 	/* sleep until transmit buffer available */		
 	while (!(tbuf = n_hdlc_buf_get(&n_hdlc->tx_free_buf_list))) {
+		if (file->f_flags & O_NONBLOCK) {
+			error = -EAGAIN;
+			break;
+		}
 		schedule();
 			
 		n_hdlc = tty2n_hdlc (tty);
@@ -907,8 +916,6 @@ static char hdlc_register_ok[] __initdata =
 	KERN_INFO "N_HDLC line discipline registered.\n";
 static char hdlc_register_fail[] __initdata =
 	KERN_ERR "error registering line discipline: %d\n";
-static char hdlc_init_fail[] __initdata =
-	KERN_INFO "N_HDLC: init failure %d\n";
 
 static int __init n_hdlc_init(void)
 {
@@ -928,8 +935,6 @@ static int __init n_hdlc_init(void)
 	else
 		printk(hdlc_register_fail, status);
 
-	if (status)
-		printk(hdlc_init_fail, status);
 	return status;
 	
 }	/* end of init_module() */
