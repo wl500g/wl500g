@@ -4,6 +4,7 @@ ext4: Updates from upstream 3
  a0375156ca1041574b5d47cc7e32f10b891151b0 ext4: Clean up s_dirt handling
  1b8b9750f07cdd6e13f12c06ae7ec853f2abbe6c ext4: do not mark superblock as dirty unnecessarily
  a8e25a83245618e6b0ddf82a9bba79c1b466804d ext4: write superblock only once on unmount
+ c1bb05a657fb3d8c6179a4ef7980261fae4521d7 ext4: avoid deadlock on sync-mounted FS w/o journal
 
 ---
  fs/ext4/balloc.c    |    6 +-----
@@ -17,8 +18,8 @@ ext4: Updates from upstream 3
  fs/ext4/mballoc.c   |    4 ++--
  fs/ext4/resize.c    |    6 ++----
  fs/ext4/super.c     |    7 +++----
- fs/ext4/xattr.c     |    3 +--
- 12 files changed, 42 insertions(+), 23 deletions(-)
+ fs/ext4/xattr.c     |   10 +++++-----
+ 12 files changed, 46 insertions(+), 26 deletions(-)
 
 diff --git a/fs/ext4/balloc.c b/fs/ext4/balloc.c
 --- a/fs/ext4/balloc.c
@@ -255,4 +256,27 @@ diff --git a/fs/ext4/xattr.c b/fs/ext4/xattr.c
  	}
  }
  
+@@ -484,18 +484,19 @@ ext4_xattr_release_block(handle_t *handle, struct inode *inode,
+ 		ext4_free_blocks(handle, inode, bh, 0, 1,
+ 				 EXT4_FREE_BLOCKS_METADATA |
+ 				 EXT4_FREE_BLOCKS_FORGET);
++		unlock_buffer(bh);
+ 	} else {
+ 		le32_add_cpu(&BHDR(bh)->h_refcount, -1);
++		if (ce)
++			mb_cache_entry_release(ce);
++		unlock_buffer(bh);
+ 		error = ext4_handle_dirty_metadata(handle, inode, bh);
+ 		if (IS_SYNC(inode))
+ 			ext4_handle_sync(handle);
+ 		DQUOT_FREE_BLOCK(inode, 1);
+ 		ea_bdebug(bh, "refcount now=%d; releasing",
+ 			  le32_to_cpu(BHDR(bh)->h_refcount));
+-		if (ce)
+-			mb_cache_entry_release(ce);
+ 	}
+-	unlock_buffer(bh);
+ out:
+ 	ext4_std_error(inode->i_sb, error);
+ 	return;
 -- 
