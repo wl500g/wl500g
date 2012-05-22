@@ -1,0 +1,176 @@
+ipv6: Add IPV6_PKTINFO sticky option support to setsockopt()
+
+ 187e38384c4abfbbb1b880fab234d16c2df23a25 [IPV6]: Check outgoing interface even if source address is unspecified.
+ 13601cd8e44aab332cedff1d6dc10786ec890b7b ipv6: Fix the return interface index when get it while no message is received.
+ b24a2516d10751d7ed5afb58420df25370c9dffb ipv6: Add IPV6_PKTINFO sticky option support to setsockopt()
+ f250dcdac111a8369220b8e192eae6c56dc1098a ipv6: fix the return interface index when get it while no message is received
+ 9f690db7ff4cb32493c0b0b13334cc4f5fd49a6b ipv6: fix the outgoing interface selection order in udpv6_sendmsg()
+ 914d11647b6d6fe81bdf0c059612ee36282b8cee ipv6: IPV6_PKTINFO relied userspace providing correct length
+
+---
+ include/linux/ipv6.h     |    1 +
+ net/ipv6/datagram.c      |   43 +++++++++++++++++++++++--------------------
+ net/ipv6/ipv6_sockglue.c |   34 ++++++++++++++++++++++++++++++----
+ net/ipv6/udp.c           |    3 +++
+ 4 files changed, 57 insertions(+), 24 deletions(-)
+
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -278,6 +278,7 @@ struct ipv6_pinfo {
+ 	struct in6_addr 	saddr;
+ 	struct in6_addr 	rcv_saddr;
+ 	struct in6_addr		daddr;
++	struct in6_pktinfo	sticky_pktinfo;
+ 	struct in6_addr		*daddr_cache;
+ #ifdef CONFIG_IPV6_SUBTREES
+ 	struct in6_addr		*saddr_cache;
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -512,7 +512,6 @@ int datagram_send_ctl(struct msghdr *msg
+ 
+ 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+ 		int addr_type;
+-		struct net_device *dev = NULL;
+ 
+ 		if (!CMSG_OK(msg, cmsg)) {
+ 			err = -EINVAL;
+@@ -525,6 +524,9 @@ int datagram_send_ctl(struct msghdr *msg
+ 		switch (cmsg->cmsg_type) {
+ 		case IPV6_PKTINFO:
+ 		case IPV6_2292PKTINFO:
++		    {
++			struct net_device *dev = NULL;
++
+ 			if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct in6_pktinfo))) {
+ 				err = -EINVAL;
+ 				goto exit_f;
+@@ -538,26 +540,24 @@ int datagram_send_ctl(struct msghdr *msg
+ 				fl->oif = src_info->ipi6_ifindex;
+ 			}
+ 
+-			addr_type = ipv6_addr_type(&src_info->ipi6_addr);
+-
+-			if (addr_type == IPV6_ADDR_ANY)
+-				break;
++			addr_type = __ipv6_addr_type(&src_info->ipi6_addr);
+ 
+-			if (addr_type & IPV6_ADDR_LINKLOCAL) {
+-				if (!src_info->ipi6_ifindex)
+-					return -EINVAL;
+-				else {
+-					dev = dev_get_by_index(src_info->ipi6_ifindex);
+-					if (!dev)
+-						return -ENODEV;
+-				}
+-			}
+-			if (!ipv6_chk_addr(&src_info->ipi6_addr, dev, 0)) {
+-				if (dev)
+-					dev_put(dev);
+-				err = -EINVAL;
+-				goto exit_f;
++			if (fl->oif) {
++				dev = dev_get_by_index(fl->oif);
++				if (!dev)
++					return -ENODEV;
++			} else if (addr_type & IPV6_ADDR_LINKLOCAL)
++				return -EINVAL;
++
++			if (addr_type != IPV6_ADDR_ANY) {
++				int strict = __ipv6_addr_src_scope(addr_type) <= IPV6_ADDR_SCOPE_LINKLOCAL;
++				if (!ipv6_chk_addr(&src_info->ipi6_addr,
++						   strict ? dev : NULL, 0))
++					err = -EINVAL;
++				else
++					ipv6_addr_copy(&fl->fl6_src, &src_info->ipi6_addr);
+ 			}
++
+ 			if (dev)
+ 				dev_put(dev);
+ 
+@@ -561,8 +561,11 @@ int datagram_send_ctl(struct msghdr *msg
+ 			if (dev)
+ 				dev_put(dev);
+ 
+-			ipv6_addr_copy(&fl->fl6_src, &src_info->ipi6_addr);
++			if (err)
++				goto exit_f;
++
+ 			break;
++		    }
+ 
+ 		case IPV6_FLOWINFO:
+ 			if (cmsg->cmsg_len < CMSG_LEN(4)) {
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -459,6 +459,28 @@ sticky_done:
+ 		break;
+ 	}
+ 
++	case IPV6_PKTINFO:
++	{
++		struct in6_pktinfo pkt;
++
++		if (optlen == 0)
++			goto e_inval;
++		else if (optlen < sizeof(struct in6_pktinfo) || optval == NULL)
++			goto e_inval;
++
++		if (copy_from_user(&pkt, optval, sizeof(struct in6_pktinfo))) {
++				retv = -EFAULT;
++				break;
++		}
++		if (sk->sk_bound_dev_if && pkt.ipi6_ifindex != sk->sk_bound_dev_if)
++			goto e_inval;
++
++		np->sticky_pktinfo.ipi6_ifindex = pkt.ipi6_ifindex;
++		ipv6_addr_copy(&np->sticky_pktinfo.ipi6_addr, &pkt.ipi6_addr);
++		retv = 0;
++		break;
++	}
++
+ 	case IPV6_2292PKTOPTIONS:
+ 	{
+ 		struct ipv6_txoptions *opt = NULL;
+@@ -900,8 +922,10 @@ static int do_ipv6_getsockopt(struct soc
+ 		} else {
+ 			if (np->rxopt.bits.rxinfo) {
+ 				struct in6_pktinfo src_info;
+-				src_info.ipi6_ifindex = np->mcast_oif;
+-				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
++				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif :
++					np->sticky_pktinfo.ipi6_ifindex;
++				np->mcast_oif? ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr) :
++					ipv6_addr_copy(&src_info.ipi6_addr, &(np->sticky_pktinfo.ipi6_addr));
+ 				put_cmsg(&msg, SOL_IPV6, IPV6_PKTINFO, sizeof(src_info), &src_info);
+ 			}
+ 			if (np->rxopt.bits.rxhlim) {
+@@ -910,8 +934,10 @@ static int do_ipv6_getsockopt(struct soc
+ 			}
+ 			if (np->rxopt.bits.rxoinfo) {
+ 				struct in6_pktinfo src_info;
+-				src_info.ipi6_ifindex = np->mcast_oif;
+-				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
++				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif :
++					np->sticky_pktinfo.ipi6_ifindex;
++				np->mcast_oif? ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr) :
++					ipv6_addr_copy(&src_info.ipi6_addr, &(np->sticky_pktinfo.ipi6_addr));
+ 				put_cmsg(&msg, SOL_IPV6, IPV6_2292PKTINFO, sizeof(src_info), &src_info);
+ 			}
+ 			if (np->rxopt.bits.rxohlim) {
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -731,6 +731,9 @@ do_udp_sendmsg:
+ 	if (!fl.oif)
+ 		fl.oif = sk->sk_bound_dev_if;
+ 
++	if (!fl.oif)
++		fl.oif = np->sticky_pktinfo.ipi6_ifindex;
++
+ 	if (msg->msg_controllen) {
+ 		opt = &opt_space;
+ 		memset(opt, 0, sizeof(struct ipv6_txoptions));
+-- 
