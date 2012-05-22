@@ -18,6 +18,7 @@
  baf48f6577e581a9adb8fe849dc80e24b21d171d softlock: fix false panic which can occur if softlockup_thresh is reduced
  8c2eb4805d422bdbf60ba00ff233c794d23c3c00 softlockup: Stop spurious softlockup messages due to overflow
  cf2592f59c0e8ed4308adbdb2e0a88655379d579 softlockup: ensure the task has been switched out once
+ f9fab10bbd768b0e5254e53a4a8477a94bfc4b96 hung_task: fix false positive during vfork
 
 ---
  Documentation/oops-tracing.txt  |    2 
@@ -45,9 +46,9 @@
  kernel/fork.c                   |    5 +
  kernel/panic.c                  |    5 -
  kernel/sched.c                  |    4 
- kernel/softlockup.c             |  188 +++++++++++++++++++++++++++++++++++-----
+ kernel/softlockup.c             |  194 +++++++++++++++++++++++++++++++++++-----
  kernel/sysctl.c                 |   56 ++++++++++-
- 27 files changed, 269 insertions(+), 32 deletions(-)
+ 27 files changed, 275 insertions(+), 32 deletions(-)
 
 diff --git a/arch/alpha/kernel/traps.c b/arch/alpha/kernel/traps.c
 --- a/arch/alpha/kernel/traps.c
@@ -459,7 +460,7 @@ diff --git a/kernel/softlockup.c b/kernel/softlockup.c
  
  	/* do not print during early bootup: */
  	if (unlikely(system_state != SYSTEM_RUNNING)) {
-@@ -92,28 +116,126 @@ void softlockup_tick(void)
+@@ -92,28 +116,132 @@ void softlockup_tick(void)
  
  	now = get_timestamp();
  
@@ -522,11 +523,17 @@ diff --git a/kernel/softlockup.c b/kernel/softlockup.c
 +
 +	/*
 +	 * Ensure the task is not frozen.
-+	 * Also, when a freshly created task is scheduled once, changes
-+	 * its state to TASK_UNINTERRUPTIBLE without having ever been
-+	 * switched out once, it musn't be checked.
++	 * Also, skip vfork and any other user process that freezer should skip.
 +	 */
-+	if (unlikely(t->flags & PF_FROZEN || !switch_count))
++	if (unlikely(t->flags & (PF_FROZEN | PF_FREEZER_SKIP)))
++	    return;
++
++	/*
++	 * When a freshly created task is scheduled once, changes its state to
++	 * TASK_UNINTERRUPTIBLE without having ever been switched out once, it
++	 * musn't be checked.
++	 */
++	if (unlikely(!switch_count))
 +		return;
 +
 +	if (switch_count != t->last_switch_count || !t->last_switch_timestamp) {
