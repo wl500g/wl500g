@@ -12,13 +12,14 @@ USB: rndis_host/cdc_ether: Updates from upstream
  7e99eeddb35cdaafb820676a57517b5e58685e4c rndis_host: support WM6 devices as modems
  40ac7b62d8c132c73a709bd83858b3419f38ec23 rndis_host: debug info clobbered before it is logged
  03ad032bb78b2732b607ed198e951240e1d21e59 export usbnet_get_ethernet_addr from usbnet and fixed cdc_ether.c
+ 6eddcb4c82883451aec3be1240f17793370fa62f cdc_ether: Ignore bogus union descriptor for RNDIS devices
 
 ---
- drivers/net/usb/cdc_ether.c  |   54 ++++++++-------------------
+ drivers/net/usb/cdc_ether.c  |   66 +++++++++++++---------------------
  drivers/net/usb/rndis_host.c |   83 ++++++++++++++++++++++++++++++++-----------
  drivers/net/usb/usbnet.c     |   31 ++++++++++++++++
  drivers/net/usb/usbnet.h     |    1 
- 4 files changed, 111 insertions(+), 58 deletions(-)
+ 4 files changed, 122 insertions(+), 59 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
 --- a/drivers/net/usb/cdc_ether.c
@@ -50,6 +51,14 @@ diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
  
  #endif
  
+@@ -80,6 +80,7 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	struct cdc_state		*info = (void *) &dev->data;
+ 	int				status;
+ 	int				rndis;
++	bool				android_rndis_quirk = false;
+ 	struct usb_driver		*driver = driver_of(intf);
+ 
+ 
 @@ -111,7 +118,8 @@ int usbnet_generic_cdc_bind(struct usbne
  	 * of cdc-acm, it'll fail RNDIS requests cleanly.
  	 */
@@ -60,7 +69,19 @@ diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
  
  	memset(info, 0, sizeof *info);
  	info->control = intf;
-@@ -228,15 +228,16 @@ next_desc:
+@@ -191,6 +192,11 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 					info->control,
+ 					info->u->bSlaveInterface0,
+ 					info->data);
++				/* fall back to hard-wiring for RNDIS */
++				if (rndis) {
++					android_rndis_quirk = true;
++					goto next_desc;
++				}
+ 				goto bad_desc;
+ 			}
+ 			if (info->control != intf) {
+@@ -228,15 +228,20 @@ next_desc:
  		buf += buf [0];
  	}
  
@@ -69,12 +90,17 @@ diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
 +	/* Microsoft ActiveSync based and some regular RNDIS devices lack the
 +	 * CDC descriptors, so we'll hard-wire the interfaces and not check
 +	 * for descriptors.
++	 *
++	 * Some Android RNDIS devices have a CDC Union descriptor pointing
++	 * to non-existing interfaces.  Ignore that and attempt the same
++	 * hard-wired 0 and 1 interfaces.
  	 */
 -	if (is_activesync(&intf->cur_altsetting->desc) && !info->u) {
-+	if (rndis && !info->u) {
++	if (rndis && (!info->u || android_rndis_quirk)) {
  		info->control = usb_ifnum_to_if(dev->udev, 0);
  		info->data = usb_ifnum_to_if(dev->udev, 1);
- 		if (!info->control || !info->data) {
+-		if (!info->control || !info->data) {
++		if (!info->control || !info->data || info->control != intf) {
  			dev_dbg(&intf->dev,
 -				"activesync: master #0/%p slave #1/%p\n",
 +				"rndis: master #0/%p slave #1/%p\n",
