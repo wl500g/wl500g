@@ -4,6 +4,7 @@ seqlock: Updates from upstream
  3c22cd5709e8143444a6d08682a87f4c57902df3 kernel: optimise seqlock
  5db1256a5131d3b133946fa02ac9770a784e6eb2 seqlock: Don't smp_rmb in seqlock reader spin loop
  c4dbe54ed7296ac3249c415d512dd6d649f66f4b seqlock: Get rid of SEQLOCK_UNLOCKED
+ 2f624278626677bfaf73fef97f86b37981621f5c Fix __read_seqcount_begin() to use ACCESS_ONCE for sequence value read
 
 ---
  arch/x86_64/kernel/vsyscall.c |    2 
@@ -102,7 +103,7 @@ diff --git a/include/linux/seqlock.h b/include/linux/seqlock.h
 +	unsigned ret;
 +
 +repeat:
-+	ret = s->sequence;
++	ret = ACCESS_ONCE(s->sequence);
 +	if (unlikely(ret & 1)) {
 +		cpu_relax();
 +		goto repeat;
