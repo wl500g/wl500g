@@ -676,11 +676,7 @@ static void ndisc_recv_ns(struct sk_buff *skb)
 	 * RFC2461 7.1.1:
 	 * DAD has to be destined for solicited node multicast address.
 	 */
-	if (dad &&
-	    !(daddr->s6_addr32[0] == htonl(0xff020000) &&
-	      daddr->s6_addr32[1] == htonl(0x00000000) &&
-	      daddr->s6_addr32[2] == htonl(0x00000001) &&
-	      daddr->s6_addr [12] == 0xff )) {
+	if (dad && !ipv6_addr_is_solict_mult(daddr)) {
 		ND_PRINTK2(KERN_WARNING
 			   "ICMPv6 NS: bad DAD packet (wrong destination)\n");
 		return;
@@ -878,10 +874,15 @@ static void ndisc_recv_na(struct sk_buff *skb)
 		   is invalid, but ndisc specs say nothing
 		   about it. It could be misconfiguration, or
 		   an smart proxy agent tries to help us :-)
+
+		   We should not print the error if NA has been
+		   received from loopback - it is just our own
+		   unsolicited advertisement.
 		 */
-		ND_PRINTK1(KERN_WARNING
-			   "ICMPv6 NA: someone advertises our address on %s!\n",
-			   ifp->idev->dev->name);
+		if (skb->pkt_type != PACKET_LOOPBACK)
+			ND_PRINTK1(KERN_WARNING
+			   "ICMPv6 NA: someone advertises our address " NIP6_FMT " on %s!\n",
+			   NIP6(ifp->addr), ifp->idev->dev->name);
 		in6_ifa_put(ifp);
 		return;
 	}
@@ -1102,7 +1103,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 		}
 		neigh->flags |= NTF_ROUTER;
 	} else if (rt) {
-		rt->rt6i_flags |= (rt->rt6i_flags & ~RTF_PREF_MASK) | RTF_PREF(pref);
+		rt->rt6i_flags = (rt->rt6i_flags & ~RTF_PREF_MASK) | RTF_PREF(pref);
 	}
 
 	if (rt)
@@ -1343,7 +1344,6 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
 	u8 *opt;
 	int rd_len;
 	int err;
-	int hlen;
 	u8 ha_buf[MAX_ADDR_LEN], *ha = NULL;
 
 	dev = skb->dev;
@@ -1379,13 +1379,10 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
 	if (rt->rt6i_flags & RTF_GATEWAY) {
 		ND_PRINTK2(KERN_WARNING
 			   "ICMPv6 Redirect: destination is not a neighbour.\n");
-		dst_release(dst);
-		return;
+		goto release;
 	}
-	if (!xrlim_allow(dst, 1*HZ)) {
-		dst_release(dst);
-		return;
-	}
+	if (!xrlim_allow(dst, 1*HZ))
+		goto release;
 
 	if (dev->addr_len) {
 		read_lock_bh(&neigh->lock);
@@ -1411,11 +1408,9 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
 		ND_PRINTK0(KERN_ERR
 			   "ICMPv6 Redirect: %s() failed to allocate an skb.\n",
 			   __FUNCTION__);
-		dst_release(dst);
-		return;
+		goto release;
 	}
 
-	hlen = 0;
 
 	skb_reserve(buff, LL_RESERVED_SPACE(dev));
 	ip6_nd_hdr(sk, buff, dev, &saddr_buf, &ipv6_hdr(skb)->saddr,
@@ -1473,6 +1468,10 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
 
 	if (likely(idev != NULL))
 		in6_dev_put(idev);
+	return;
+
+release:
+	dst_release(dst);
 }
 
 static void pndisc_redo(struct sk_buff *skb)
