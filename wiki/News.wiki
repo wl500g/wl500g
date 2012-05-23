@@ -7,14 +7,23 @@
 
 ===RT-N-1.9.2.7-rtn (Current)===
   * kernel
-    * backports from upstream - mm, net(tcp, ipv6, ppp), fs(writeback, bdi, fuse), usb(usbnet)
+    * backports from upstream - MIPS, mm(slub), net(tcp, ipv4, ipv6, ppp), netfilter, fs(writeback, bdi, fuse, fat, ext4, sysfs), vfs, usb(usbnet, cdc_ether), tty, debug(softlockup)
     * netfilter backports, fix for issue 308
+    * Decrease hardcoded limits - max swapfiles 2, max inet protos 64
+    * Disable AIO support
+    * usbip fixes
 
   * rc/www: bugfixes
 
+  * dnsmasq 2.61
+    * enable slaac & dhcpv6, not used yet
+
+  * usbip userspace daemon 1.1.1 (usb.ids should be in /opt/share)
+
   * misc
-    * busybox: bugfixes from upstream (udhcp, hwclock)
+    * busybox: bugfixes from upstream (udhcp, hwclock, busybox, mdev)
     * libusb: bugfixes from upstream
+    * rp-pppoe: upstream patches
 
 ===RT-N-1.9.2.7-rtn-`r4051` (2012-04-02)===
   * ipkg: Switch to new OpenWRT-based repository http://wl500g-repo.googlecode.com , thanks to ryzhov_al at wl500g.info
