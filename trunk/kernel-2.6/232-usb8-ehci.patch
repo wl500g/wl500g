@@ -5,11 +5,12 @@ EHCI: Updates from upstream
  41f05dedeabb0e2cb03734de383db3f0ddecf9e0 ehci: remove the 1st wmb in qh_append_tds
  811c926c538f7e8d3c08b630dd5844efd7e000f6 EHCI: fix HUB TT scheduling issue with iso transfer
  e3420901eba65b1c46bed86d360e3a8685d20734 EHCI: Fix a regression in the ISO scheduler
+ 65b8e5cbdddc86474372bdb48dc233b06710a576  USB: EHCI: improve full-speed isochronous scheduling routine
 
 ---
- drivers/usb/host/ehci-q.c     |    9 ++++-----
- drivers/usb/host/ehci-sched.c |   22 ++++++++++++++--------
- 2 files changed, 18 insertions(+), 13 deletions(-)
+ drivers/usb/host/ehci-q.c     |    9 ++----
+ drivers/usb/host/ehci-sched.c |   62 +++++++++++++++++++++++-------------------
+ 2 files changed, 39 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
 --- a/drivers/usb/host/ehci-q.c
@@ -54,6 +55,62 @@ diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
 diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
 --- a/drivers/usb/host/ehci-sched.c
 +++ b/drivers/usb/host/ehci-sched.c
+@@ -1306,34 +1306,36 @@ sitd_slot_ok (
+ 	if (mask & ~0xffff)
+ 		return 0;
+ 
++	/* check bandwidth */
++	uframe %= period_uframes;
++	frame = uframe >> 3;
++
++#ifdef CONFIG_USB_EHCI_TT_NEWSCHED
++	/* The tt's fullspeed bus bandwidth must be available.
++	 * tt_available scheduling guarantees 10+% for control/bulk.
++	 */
++	uf = uframe & 7;
++	if (!tt_available(ehci, period_uframes >> 3,
++			stream->udev, frame, uf, stream->tt_usecs))
++		return 0;
++#else
++	/* tt must be idle for start(s), any gap, and csplit.
++	 * assume scheduling slop leaves 10+% for control/bulk.
++	 */
++	if (!tt_no_collision(ehci, period_uframes >> 3,
++			stream->udev, frame, mask))
++		return 0;
++#endif
++
+ 	/* this multi-pass logic is simple, but performance may
+ 	 * suffer when the schedule data isn't cached.
+ 	 */
+-
+-	/* check bandwidth */
+-	uframe %= period_uframes;
+ 	do {
+ 		u32		max_used;
+ 
+ 		frame = uframe >> 3;
+ 		uf = uframe & 7;
+ 
+-#ifdef CONFIG_USB_EHCI_TT_NEWSCHED
+-		/* The tt's fullspeed bus bandwidth must be available.
+-		 * tt_available scheduling guarantees 10+% for control/bulk.
+-		 */
+-		if (!tt_available (ehci, period_uframes << 3,
+-				stream->udev, frame, uf, stream->tt_usecs))
+-			return 0;
+-#else
+-		/* tt must be idle for start(s), any gap, and csplit.
+-		 * assume scheduling slop leaves 10+% for control/bulk.
+-		 */
+-		if (!tt_no_collision (ehci, period_uframes << 3,
+-				stream->udev, frame, mask))
+-			return 0;
+-#endif
+-
+ 		/* check starts (OUT uses more than one) */
+ 		max_used = 100 - stream->usecs;
+ 		for (tmp = stream->raw_mask & 0xff; tmp; tmp >>= 1, uf++) {
 @@ -1448,30 +1448,36 @@ iso_stream_schedule (
  	 * jump until after the queue is primed.
  	 */
