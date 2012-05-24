@@ -5420,7 +5420,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/sort.h linux-2.6.22/scripts/squas
 diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts/squashfs/unsquashfs.c
 --- linux-2.6.22.orig/scripts/squashfs/unsquashfs.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux-2.6.22/scripts/squashfs/unsquashfs.c	2008-08-26 07:01:54.000000000 +0000
-@@ -0,0 +1,2719 @@
+@@ -0,0 +1,2726 @@
 +/*
 + * Unsquash a squashfs filesystem.  This is a highly compressed read only filesystem.
 + *
@@ -5443,9 +5443,6 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 + *
 + * unsquash.c
 + */
-+
-+#define CONFIG_SQUASHFS_1_0_COMPATIBILITY
-+#define CONFIG_SQUASHFS_2_0_COMPATIBILITY
 +
 +#define TRUE 1
 +#define FALSE 0
@@ -5613,7 +5610,9 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +struct hash_table_entry *inode_table_hash[65536], *directory_table_hash[65536];
 +int fd;
 +squashfs_fragment_entry *fragment_table;
++#ifdef CONFIG_SQUASHFS_2_0_COMPATIBILITY
 +squashfs_fragment_entry_2 *fragment_table_2;
++#endif
 +unsigned int *uid_table, *guid_table;
 +unsigned int cached_frag = SQUASHFS_INVALID_FRAG;
 +char *fragment_data;
@@ -6312,7 +6311,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +	}
 +}
 +
-+
++#ifdef CONFIG_SQUASHFS_2_0_COMPATIBILITY
 +void read_fragment_table_2()
 +{
 +	int i, indexes = SQUASHFS_FRAGMENT_INDEXES_2(sBlk.fragments);
@@ -6352,6 +6351,16 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +}
 +
 +
++void read_fragment_2(unsigned int fragment, long long *start_block, int *size)
++{
++	TRACE("read_fragment: reading fragment %d\n", fragment);
++
++	squashfs_fragment_entry_2 *fragment_entry = &fragment_table_2[fragment];
++	*start_block = fragment_entry->start_block;
++	*size = fragment_entry->size;
++}
++#endif
++
 +void read_fragment_table_1()
 +{
 +}
@@ -6362,16 +6371,6 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +	TRACE("read_fragment: reading fragment %d\n", fragment);
 +
 +	squashfs_fragment_entry *fragment_entry = &fragment_table[fragment];
-+	*start_block = fragment_entry->start_block;
-+	*size = fragment_entry->size;
-+}
-+
-+
-+void read_fragment_2(unsigned int fragment, long long *start_block, int *size)
-+{
-+	TRACE("read_fragment: reading fragment %d\n", fragment);
-+
-+	squashfs_fragment_entry_2 *fragment_entry = &fragment_table_2[fragment];
 +	*start_block = fragment_entry->start_block;
 +	*size = fragment_entry->size;
 +}
@@ -6748,6 +6747,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +}
 +
 +
++#ifdef CONFIG_SQUASHFS_2_0_COMPATIBILITY
 +struct inode *read_inode_2(unsigned int start_block, unsigned int offset)
 +{
 +	static squashfs_inode_header_2 header;
@@ -6872,8 +6872,10 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +error:
 +	return NULL;
 +}
++#endif
 +
 +
++#ifdef CONFIG_SQUASHFS_1_0_COMPATIBILITY
 +struct inode *read_inode_1(unsigned int start_block, unsigned int offset)
 +{
 +	static squashfs_inode_header_1 header;
@@ -7000,6 +7002,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +error:
 +	return NULL;
 +}
++#endif
 +
 +
 +void uncompress_directory_table(long long start, long long end)
@@ -7128,6 +7131,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +}
 +
 +
++#ifdef CONFIG_SQUASHFS_2_0_COMPATIBILITY
 +struct dir *squashfs_opendir_2(unsigned int block_start, unsigned int offset, struct inode **i)
 +{
 +	squashfs_dir_header_2 dirh;
@@ -7214,6 +7218,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +
 +	return dir;
 +}
++#endif
 +
 +
 +int squashfs_readdir(struct dir *dir, char **name, unsigned int *start_block,
@@ -7598,6 +7603,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +	}
 +
 +	/* Check the MAJOR & MINOR versions */
++#if defined(CONFIG_SQUASHFS_2_0_COMPATIBILITY) || defined(CONFIG_SQUASHFS_1_0_COMPATIBILITY)
 +	if(sBlk.s_major == 1 || sBlk.s_major == 2) {
 +		sBlk.bytes_used = sBlk.bytes_used_2;
 +		sBlk.uid_start = sBlk.uid_start_2;
@@ -7620,15 +7626,16 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +			s_ops.read_block_list = read_block_list;
 +			s_ops.read_inode = read_inode_2;
 +		}
-+	} else if(sBlk.s_major == 3 && sBlk.s_minor <= 1) {
++	} else
++#endif
++	if (sBlk.s_major == 3 && sBlk.s_minor <= 1) {
 +		s_ops.squashfs_opendir = squashfs_opendir;
 +		s_ops.read_fragment = read_fragment;
 +		s_ops.read_fragment_table = read_fragment_table;
 +		s_ops.read_block_list = read_block_list;
 +		s_ops.read_inode = read_inode;
 +	} else {
-+		ERROR("Filesystem on %s is (%d:%d), ", source, sBlk.s_major, sBlk.s_minor);
-+		ERROR("which is a later filesystem version than I support!\n");
++		ERROR("Unsupported filesystem on %s is (%d:%d), ", source, sBlk.s_major, sBlk.s_minor);
 +		goto failed_mount;
 +	}
 +

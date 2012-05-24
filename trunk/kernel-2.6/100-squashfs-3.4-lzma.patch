@@ -1,15 +1,7 @@
 diff -urB linux-2.6.22.orig/include/linux/squashfs_fs.h linux-2.6/include/linux/squashfs_fs.h
 --- linux-2.6.22.orig/include/linux/squashfs_fs.h	2008-08-18 20:01:29.000000000 +0400
 +++ linux-2.6/include/linux/squashfs_fs.h	2009-10-10 12:27:47.000000000 +0400
-@@ -24,15 +24,13 @@
-  * squashfs_fs.h
-  */
- 
--#ifndef CONFIG_SQUASHFS_2_0_COMPATIBILITY
--#define CONFIG_SQUASHFS_2_0_COMPATIBILITY
--#endif
--
- #define SQUASHFS_CACHED_FRAGMENTS	CONFIG_SQUASHFS_FRAGMENT_CACHE_SIZE	
+@@ -24,7 +24,9 @@
  #define SQUASHFS_MAJOR			3
  #define SQUASHFS_MINOR			1
  #define SQUASHFS_MAGIC			0x73717368
@@ -468,17 +460,15 @@ diff -urNBp linux-2.6.22.orig/fs/squashfs/inode.c linux-2.6/fs/squashfs/inode.c
 diff -urNBp linux-2.6.22.orig/fs/squashfs/Makefile linux-2.6/fs/squashfs/Makefile
 --- linux-2.6.22.orig/fs/squashfs/Makefile	2008-08-18 20:01:29.000000000 +0400
 +++ linux-2.6/fs/squashfs/Makefile	2009-10-31 19:30:39.000000000 +0300
-@@ -3,5 +3,12 @@
+@@ -3,4 +3,11 @@
  #
  
  obj-$(CONFIG_SQUASHFS) += squashfs.o
 -squashfs-y += inode.o
--squashfs-y += squashfs2_0.o
 +
 +LZMADIR = ../../../../lzma4xx/C/Compress/Lzma
 +
 +squashfs-objs := inode.o
-+#squashfs-objs += squashfs2_0.o
 +squashfs-objs += uncomp.o
 +squashfs-objs += $(addprefix $(LZMADIR)/, LzmaDecode.o)
 +
