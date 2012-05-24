@@ -33,6 +33,7 @@ usage(int argc, char *argv[], int exitcode)
     fprintf(stderr, "Usage: %s [options]\n", argv[0]);
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "-d level               -- Set debugging to 'level'\n");
+    fprintf(stderr, "-p                     -- Set pid file\n");
     fprintf(stderr, "-f                     -- Do not fork\n");
     fprintf(stderr, "-h                     -- Print usage\n");
     fprintf(stderr, "\nThis program is licensed under the terms of\nthe GNU General Public License, Version 2.\n");
@@ -52,6 +53,45 @@ sighandler(int signum)
     exit(EXIT_FAILURE);
 }
 
+static void
+pidfile_cleanup(void *data)
+{
+    char *fname = (char *) data;
+
+    unlink(fname);
+}
+
+static int
+pidfile_init(char *fname)
+{
+    FILE *fp;
+    pid_t pid;
+
+    fp = fopen(fname, "r");
+    if (fp) {
+	/* Check if the previous server process is still running */
+	if (fscanf(fp, "%d", &pid) == 1 &&
+	    pid && pid != getpid() && kill(pid, 0) == 0) {
+	    l2tp_set_errmsg("pidfile_init: there's already a l2tpd running.");
+	    fclose(fp);
+	    return 0;
+	}
+	fclose(fp);
+	unlink(fname);
+    }
+
+    fp = fopen(fname, "w");
+    if (fp) {
+	fprintf(fp, "%d\n", getpid());
+	fclose(fp);
+	l2tp_register_shutdown_handler(pidfile_cleanup, fname);
+    } else {
+	l2tp_set_errmsg("pidfile_init: can't create pid file '%s'", fname);
+    }
+
+    return 1;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -60,14 +100,18 @@ main(int argc, char *argv[])
     int opt;
     int do_fork = 1;
     int debugmask = 0;
+    char *pidfile = "/var/run/l2tpd.pid";
 
-    while((opt = getopt(argc, argv, "d:fh")) != -1) {
+    while((opt = getopt(argc, argv, "d:p:fh")) != -1) {
 	switch(opt) {
 	case 'h':
 	    usage(argc, argv, EXIT_SUCCESS);
 	    break;
 	case 'f':
 	    do_fork = 0;
+	    break;
+	case 'p':
+	    pidfile = optarg;
 	    break;
 	case 'd':
 	    sscanf(optarg, "%d", &debugmask);
@@ -125,6 +169,10 @@ main(int argc, char *argv[])
 	    dup2(i, 2);
 	    if (i > 2) close(i);
 	}
+    }
+
+    if (!pidfile_init(pidfile)) {
+	l2tp_die();
     }
 
     Event_HandleSignal(es, SIGINT, sighandler);
