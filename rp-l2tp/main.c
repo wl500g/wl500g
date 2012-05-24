@@ -62,7 +62,7 @@ pidfile_cleanup(void *data)
 }
 
 static int
-pidfile_init(char *fname)
+pidfile_check(char const *fname)
 {
     FILE *fp;
     pid_t pid;
@@ -72,24 +72,32 @@ pidfile_init(char *fname)
 	/* Check if the previous server process is still running */
 	if (fscanf(fp, "%d", &pid) == 1 &&
 	    pid && pid != getpid() && kill(pid, 0) == 0) {
-	    l2tp_set_errmsg("pidfile_init: there's already a l2tpd running.");
+	    l2tp_set_errmsg("pidfile_check: there's already a l2tpd running.");
 	    fclose(fp);
-	    return 0;
+	    return -1;
 	}
 	fclose(fp);
-	unlink(fname);
     }
 
+    return 0;
+}
+
+static void
+pidfile_init(char const *fname)
+{
+    FILE *fp;
+
+    unlink(fname);
     fp = fopen(fname, "w");
-    if (fp) {
-	fprintf(fp, "%d\n", getpid());
-	fclose(fp);
-	l2tp_register_shutdown_handler(pidfile_cleanup, fname);
-    } else {
+    if (!fp) {
 	l2tp_set_errmsg("pidfile_init: can't create pid file '%s'", fname);
+	return;
     }
 
-    return 1;
+    fprintf(fp, "%d\n", getpid());
+    fclose(fp);
+
+    l2tp_register_shutdown_handler(pidfile_cleanup, (void *) fname);
 }
 
 int
@@ -126,6 +134,10 @@ main(int argc, char *argv[])
     l2tp_tunnel_init(es);
     l2tp_peer_init();
     l2tp_debug_set_bitmask(debugmask);
+
+    if (pidfile_check(pidfile) < 0) {
+	l2tp_die();
+    }
 
     if (l2tp_parse_config_file(es, SYSCONFDIR"/l2tp/l2tp.conf") < 0) {
 	l2tp_die();
@@ -171,9 +183,7 @@ main(int argc, char *argv[])
 	}
     }
 
-    if (!pidfile_init(pidfile)) {
-	l2tp_die();
-    }
+    pidfile_init(pidfile);
 
     Event_HandleSignal(es, SIGINT, sighandler);
     Event_HandleSignal(es, SIGTERM, sighandler);
