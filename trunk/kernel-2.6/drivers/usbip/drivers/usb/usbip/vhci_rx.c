@@ -17,16 +17,14 @@
  * USA.
  */
 
-#include <linux/slab.h>
 #include <linux/kthread.h>
+#include <linux/slab.h>
 
 #include "usbip_common.h"
 #include "vhci.h"
 
-
 /* get URB from transmitted urb queue. caller must hold vdev->priv_lock */
-struct urb *pickup_urb_and_free_priv(struct vhci_device *vdev,
-					    __u32 seqnum)
+struct urb *pickup_urb_and_free_priv(struct vhci_device *vdev, __u32 seqnum)
 {
 	struct vhci_priv *priv, *tmp;
 	struct urb *urb = NULL;
@@ -38,12 +36,12 @@ struct urb *pickup_urb_and_free_priv(struct vhci_device *vdev,
 			status = urb->status;
 
 			usbip_dbg_vhci_rx("find urb %p vurb %p seqnum %u\n",
-				    urb, priv, seqnum);
+					  urb, priv, seqnum);
 
 			/* TODO: fix logic here to improve indent situtation */
 			if (status != -EINPROGRESS) {
 				if (status == -ENOENT ||
-				     status == -ECONNRESET)
+				    status == -ECONNRESET)
 					dev_info(&urb->dev->dev,
 						 "urb %p was unlinked "
 						 "%ssynchronuously.\n", urb,
@@ -66,7 +64,7 @@ struct urb *pickup_urb_and_free_priv(struct vhci_device *vdev,
 }
 
 static void vhci_recv_ret_submit(struct vhci_device *vdev,
-						struct usbip_header *pdu)
+				 struct usbip_header *pdu)
 {
 	struct usbip_device *ud = &vdev->ud;
 	struct urb *urb;
@@ -79,10 +77,9 @@ static void vhci_recv_ret_submit(struct vhci_device *vdev,
 	spin_unlock(&vdev->priv_lock);
 
 	if (!urb) {
-		usbip_uerr("cannot find a urb of seqnum %u\n",
-							pdu->base.seqnum);
-		usbip_uinfo("max seqnum %d\n",
-					atomic_read(&the_controller->seqnum));
+		pr_err("cannot find a urb of seqnum %u\n", pdu->base.seqnum);
+		pr_info("max seqnum %d\n",
+			atomic_read(&the_controller->seqnum));
 		usbip_event_add(ud, VDEV_EVENT_ERROR_TCP);
 		return;
 	}
@@ -122,19 +119,18 @@ static void vhci_recv_ret_submit(struct vhci_device *vdev,
 	return;
 }
 
-
 static struct vhci_unlink *dequeue_pending_unlink(struct vhci_device *vdev,
-		struct usbip_header *pdu)
+						  struct usbip_header *pdu)
 {
 	struct vhci_unlink *unlink, *tmp;
 
 	spin_lock(&vdev->priv_lock);
 
 	list_for_each_entry_safe(unlink, tmp, &vdev->unlink_rx, list) {
-		usbip_uinfo("unlink->seqnum %lu\n", unlink->seqnum);
+		pr_info("unlink->seqnum %lu\n", unlink->seqnum);
 		if (unlink->seqnum == pdu->base.seqnum) {
 			usbip_dbg_vhci_rx("found pending unlink, %lu\n",
-							unlink->seqnum);
+					  unlink->seqnum);
 			list_del(&unlink->list);
 
 			spin_unlock(&vdev->priv_lock);
@@ -147,9 +143,8 @@ static struct vhci_unlink *dequeue_pending_unlink(struct vhci_device *vdev,
 	return NULL;
 }
 
-
 static void vhci_recv_ret_unlink(struct vhci_device *vdev,
-						struct usbip_header *pdu)
+				 struct usbip_header *pdu)
 {
 	struct vhci_unlink *unlink;
 	struct urb *urb;
@@ -159,8 +154,8 @@ static void vhci_recv_ret_unlink(struct vhci_device *vdev,
 
 	unlink = dequeue_pending_unlink(vdev, pdu);
 	if (!unlink) {
-		usbip_uinfo("cannot find the pending unlink %u\n",
-							pdu->base.seqnum);
+		pr_info("cannot find the pending unlink %u\n",
+			pdu->base.seqnum);
 		return;
 	}
 
@@ -176,26 +171,24 @@ static void vhci_recv_ret_unlink(struct vhci_device *vdev,
 		 * already received the result of its submit result and gave
 		 * back the URB.
 		 */
-		usbip_uinfo("the urb (seqnum %d) was already given backed\n",
-							pdu->base.seqnum);
+		pr_info("the urb (seqnum %d) was already given back\n",
+			pdu->base.seqnum);
 	} else {
 		usbip_dbg_vhci_rx("now giveback urb %p\n", urb);
 
 		/* If unlink is succeed, status is -ECONNRESET */
 		urb->status = pdu->u.ret_unlink.status;
-		usbip_uinfo("%d\n", urb->status);
+		pr_info("urb->status %d\n", urb->status);
 
 		spin_lock_irqsave(&the_controller->lock, flags);
 		usb_hcd_unlink_urb_from_ep(vhci_to_hcd(the_controller), urb);
 		spin_unlock_irqrestore(&the_controller->lock, flags);
 
 		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb,
-								urb->status);
+				     urb->status);
 	}
 
 	kfree(unlink);
-
-	return;
 }
 
 static int vhci_priv_tx_empty(struct vhci_device *vdev)
@@ -224,29 +217,29 @@ static void vhci_rx_pdu(struct usbip_device *ud)
 	memset(&pdu, 0, sizeof(pdu));
 
 	/* 1. receive a pdu header */
-	ret = usbip_xmit(ud->tcp_socket, (char *) &pdu, sizeof(pdu));
+	ret = usbip_recv(ud->tcp_socket, &pdu, sizeof(pdu));
 	if (ret < 0) {
 		if (ret == -ECONNRESET)
-			usbip_uinfo("connection reset by peer\n");
+			pr_info("connection reset by peer\n");
 		else if (ret == -EAGAIN) {
 			/* ignore if connection was idle */
 			if (vhci_priv_tx_empty(vdev))
 				return;
-			usbip_uinfo("connection timed out with pending urbs\n");
+			pr_info("connection timed out with pending urbs\n");
 		} else if (ret != -ERESTARTSYS)
-			usbip_uinfo("xmit failed %d\n", ret);
+			pr_info("xmit failed %d\n", ret);
 
 		usbip_event_add(ud, VDEV_EVENT_ERROR_TCP);
 		return;
 	}
 	if (ret == 0) {
-		usbip_uinfo("connection closed");
+		pr_info("connection closed");
 		usbip_event_add(ud, VDEV_EVENT_DOWN);
 		return;
 	}
 	if (ret != sizeof(pdu)) {
-		usbip_uerr("received pdu size is %d, should be %d\n",
-					ret, (unsigned int)sizeof(pdu));
+		pr_err("received pdu size is %d, should be %d\n", ret,
+		       (unsigned int)sizeof(pdu));
 		usbip_event_add(ud, VDEV_EVENT_ERROR_TCP);
 		return;
 	}
@@ -264,15 +257,13 @@ static void vhci_rx_pdu(struct usbip_device *ud)
 		vhci_recv_ret_unlink(vdev, &pdu);
 		break;
 	default:
-		/* NOTREACHED */
-		usbip_uerr("unknown pdu %u\n", pdu.base.command);
+		/* NOT REACHED */
+		pr_err("unknown pdu %u\n", pdu.base.command);
 		usbip_dump_header(&pdu);
 		usbip_event_add(ud, VDEV_EVENT_ERROR_TCP);
+		break;
 	}
 }
-
-
-/*-------------------------------------------------------------------------*/
 
 int vhci_rx_loop(void *data)
 {
