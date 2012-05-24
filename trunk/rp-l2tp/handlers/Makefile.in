@@ -22,7 +22,7 @@ l2tp-control: cmd-control.o
 	@CC@ -o l2tp-control cmd-control.o
 
 cmd-control.o: cmd-control.c
-	@CC@ -c -o $@ $^
+	@CC@ $(CFLAGS) -c -o $@ $^
 
 %.o: %.c
 	@CC@ $(CFLAGS) -fPIC -c -o $@ $<
