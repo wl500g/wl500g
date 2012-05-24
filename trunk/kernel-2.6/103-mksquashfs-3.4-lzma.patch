@@ -73,7 +73,7 @@ diff -urNBp linux-2.6.22.orig/scripts/squashfs/Makefile linux-2.6/scripts/squash
 +vpath %.c $(Sqlzma) $(LzmaDec)
 +
 +unsquashfs-lzma: unsquashfs.o uncomp.o LzmaDecode.o $(LZMAPATH)/liblzma.a
-+	$(CC) $(LDFLAGS) $^ -lpthread -lm -lz -o $@
++	$(CXX) $(LDFLAGS) $^ -lpthread -lm -lz -o $@
  
  unsquashfs.o: unsquashfs.c read_fs.h global.h
  
