@@ -17,13 +17,15 @@
  * USA.
  */
 
-#include <linux/kernel.h>
+#ifndef __USBIP_STUB_H
+#define __USBIP_STUB_H
+
 #include <linux/list.h>
-#include <linux/spinlock.h>
 #include <linux/slab.h>
-#include <linux/string.h>
-#include <linux/module.h>
-#include <linux/net.h>
+#include <linux/spinlock.h>
+#include <linux/types.h>
+#include <linux/usb.h>
+#include <linux/wait.h>
 
 #define STUB_BUSID_OTHER 0
 #define STUB_BUSID_REMOV 1
@@ -33,7 +35,6 @@
 struct stub_device {
 	struct usb_interface *interface;
 	struct usb_device *udev;
-	struct list_head list;
 
 	struct usbip_device ud;
 	__u32 devid;
@@ -78,7 +79,9 @@ struct stub_unlink {
 	__u32 status;
 };
 
-#define BUSID_SIZE 20
+/* same as SYSFS_BUS_ID_SIZE */
+#define BUSID_SIZE 32
+
 struct bus_id_priv {
 	char name[BUSID_SIZE];
 	char status;
@@ -87,25 +90,24 @@ struct bus_id_priv {
 	char shutdown_busid;
 };
 
+/* stub_priv is allocated from stub_priv_cache */
 extern struct kmem_cache *stub_priv_cache;
-
-
-/*-------------------------------------------------------------------------*/
-/* prototype declarations */
-
-/* stub_tx.c */
-void stub_complete(struct urb *);
-int stub_tx_loop(void *data);
 
 /* stub_dev.c */
 extern struct usb_driver stub_driver;
 
-/* stub_rx.c */
-int stub_rx_loop(void *data);
-void stub_enqueue_ret_unlink(struct stub_device *, __u32, __u32);
-
 /* stub_main.c */
 struct bus_id_priv *get_busid_priv(const char *busid);
 int del_match_busid(char *busid);
-
 void stub_device_cleanup_urbs(struct stub_device *sdev);
+
+/* stub_rx.c */
+int stub_rx_loop(void *data);
+
+/* stub_tx.c */
+void stub_enqueue_ret_unlink(struct stub_device *sdev, __u32 seqnum,
+			     __u32 status);
+void stub_complete(struct urb *urb);
+int stub_tx_loop(void *data);
+
+#endif /* __USBIP_STUB_H */

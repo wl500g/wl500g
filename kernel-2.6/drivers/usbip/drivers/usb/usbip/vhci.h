@@ -6,20 +6,19 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * This is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
- * USA.
  */
 
-#include <linux/platform_device.h>
-#include "../core/hcd.h"
+#ifndef __USBIP_VHCI_H
+#define __USBIP_VHCI_H
 
+#include <linux/device.h>
+#include <linux/list.h>
+#include <linux/spinlock.h>
+#include <linux/sysfs.h>
+#include <linux/types.h>
+#include <linux/usb.h>
+#include "../core/hcd.h"
+#include <linux/wait.h>
 
 struct vhci_device {
 	struct usb_device *udev;
@@ -33,7 +32,7 @@ struct vhci_device {
 	/* speed of a remote device */
 	enum usb_device_speed speed;
 
-	/*  vhci root-hub port to which this device is attached  */
+	/* vhci root-hub port to which this device is attached */
 	__u32 rhport;
 
 	struct usbip_device ud;
@@ -85,12 +84,12 @@ struct vhci_unlink {
 
 /* for usb_bus.hcpriv */
 struct vhci_hcd {
-	spinlock_t	lock;
+	spinlock_t lock;
 
-	u32	port_status[VHCI_NPORTS];
+	u32 port_status[VHCI_NPORTS];
 
-	unsigned	resuming:1;
-	unsigned long	re_timeout;
+	unsigned resuming:1;
+	unsigned long re_timeout;
 
 	atomic_t seqnum;
 
@@ -102,24 +101,20 @@ struct vhci_hcd {
 	struct vhci_device vdev[VHCI_NPORTS];
 };
 
-
 extern struct vhci_hcd *the_controller;
-extern struct attribute_group dev_attr_group;
-
-
-/*-------------------------------------------------------------------------*/
-/* prototype declaration */
+extern const struct attribute_group dev_attr_group;
+#define hardware (&the_controller->pdev.dev)
 
 /* vhci_hcd.c */
 void rh_port_connect(int rhport, enum usb_device_speed speed);
 void rh_port_disconnect(int rhport);
+
+/* vhci_rx.c */
+struct urb *pickup_urb_and_free_priv(struct vhci_device *vdev, __u32 seqnum);
 int vhci_rx_loop(void *data);
+
+/* vhci_tx.c */
 int vhci_tx_loop(void *data);
-
-struct urb *pickup_urb_and_free_priv(struct vhci_device *vdev,
-					    __u32 seqnum);
-
-#define hardware		(&the_controller->pdev.dev)
 
 static inline struct vhci_device *port_to_vdev(__u32 port)
 {
@@ -140,3 +135,5 @@ static inline struct device *vhci_dev(struct vhci_hcd *vhci)
 {
 	return vhci_to_hcd(vhci)->self.controller;
 }
+
+#endif /* __USBIP_VHCI_H */
