@@ -50,8 +50,8 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
 +	return buf;
 +}
  
- #ifdef DEBUG
- /* If you are writing a driver, please use dev_dbg instead */
+ #ifndef pr_fmt
+ #define pr_fmt(fmt) fmt
 diff --git a/lib/hexdump.c b/lib/hexdump.c
 --- a/lib/hexdump.c
 +++ b/lib/hexdump.c

@@ -312,7 +312,7 @@ diff --git a/include/linux/err.h b/include/linux/err.h
 diff --git a/include/linux/kernel.h b/include/linux/kernel.h
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
-@@ -34,6 +34,8 @@ extern const char linux_proc_banner[];
+@@ -34,12 +34,27 @@ extern const char linux_proc_banner[];
  
  #define ALIGN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
  #define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
@@ -320,8 +320,6 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
 +#define IS_ALIGNED(x, a)		(((x) & ((typeof(x))(a) - 1)) == 0)
  
  #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
- 
-@@ -40,7 +40,20 @@ extern const char linux_proc_banner[];
  
  #define FIELD_SIZEOF(t, f) (sizeof(((t*)0)->f))
  #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
@@ -343,7 +341,7 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  
  /**
   * upper_32_bits - return bits 32-63 of a number
-@@ -76,6 +76,13 @@ extern const char linux_proc_banner[];
+@@ -60,6 +75,13 @@ extern const char linux_proc_banner[];
  #define	KERN_INFO	"<6>"	/* informational			*/
  #define	KERN_DEBUG	"<7>"	/* debug-level messages			*/
  
@@ -357,7 +355,7 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  extern int console_printk[];
  
  #define console_loglevel (console_printk[0])
-@@ -107,7 +107,7 @@ extern int cond_resched(void);
+@@ -111,7 +133,7 @@ extern int cond_resched(void);
  extern struct atomic_notifier_head panic_notifier_list;
  extern long (*panic_blink)(long time);
  NORET_TYPE void panic(const char * fmt, ...)
@@ -366,7 +364,7 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  extern void oops_enter(void);
  extern void oops_exit(void);
  extern int oops_may_print(void);
-@@ -157,6 +157,19 @@ asmlinkage int vprintk(const char *fmt, va_list args)
+@@ -161,6 +183,19 @@ asmlinkage int vprintk(const char *fmt, 
  	__attribute__ ((format (printf, 1, 0)));
  asmlinkage int printk(const char * fmt, ...)
  	__attribute__ ((format (printf, 1, 2)));
@@ -386,7 +384,7 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  #else
  static inline int vprintk(const char *s, va_list args)
  	__attribute__ ((format (printf, 1, 0)));
-@@ -164,6 +177,10 @@ static inline int vprintk(const char *s, va_list args) { return 0; }
+@@ -168,6 +203,10 @@ static inline int vprintk(const char *s,
  static inline int printk(const char *s, ...)
  	__attribute__ ((format (printf, 1, 2)));
  static inline int printk(const char *s, ...) { return 0; }
@@ -397,35 +395,60 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  #endif
  
  unsigned long int_sqrt(unsigned long);
-@@ -212,7 +212,7 @@ extern enum system_states {
- #define TAINT_BAD_PAGE			(1<<5)
+@@ -217,7 +256,7 @@ extern enum system_states {
  #define TAINT_USER			(1<<6)
+ #define TAINT_DIE			(1<<7)
  
 -extern void dump_stack(void);
 +extern void dump_stack(void) __cold;
  
  enum {
  	DUMP_PREFIX_NONE,
-@@ -267,6 +267,18 @@
- }
+@@ -234,20 +273,34 @@ extern void print_hex_dump_bytes(const c
+ 			void *buf, size_t len);
+ #define hex_asc(x)	"0123456789abcdef"[x]
+ 
++#ifndef pr_fmt
++#define pr_fmt(fmt) fmt
++#endif
++
++#define pr_emerg(fmt, ...) \
++        printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__)
++#define pr_alert(fmt, ...) \
++        printk(KERN_ALERT pr_fmt(fmt), ##__VA_ARGS__)
++#define pr_crit(fmt, ...) \
++        printk(KERN_CRIT pr_fmt(fmt), ##__VA_ARGS__)
++#define pr_err(fmt, ...) \
++        printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__)
++#define pr_warning(fmt, ...) \
++        printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__)
++#define pr_notice(fmt, ...) \
++        printk(KERN_NOTICE pr_fmt(fmt), ##__VA_ARGS__)
++#define pr_info(fmt, ...) \
++        printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__)
++
+ #ifdef DEBUG
+ /* If you are writing a driver, please use dev_dbg instead */
+-#define pr_debug(fmt,arg...) \
+-	printk(KERN_DEBUG fmt,##arg)
++#define pr_debug(fmt, ...) \
++	printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
+ #else
+-static inline int __attribute__ ((format (printf, 1, 2))) pr_debug(const char * fmt, ...)
+-{
+-	return 0;
+-}
++#define pr_debug(fmt, ...) \
++	({ if (0) printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__); 0; })
  #endif
  
-+#define pr_emerg(fmt,arg...) \
-+        printk(KERN_EMERG fmt, ##arg)
-+#define pr_alert(fmt,arg...) \
-+        printk(KERN_ALERT fmt, ##arg)
-+#define pr_crit(fmt,arg...) \
-+        printk(KERN_CRIT fmt, ##arg)
-+#define pr_err(fmt,arg...) \
-+        printk(KERN_ERR fmt, ##arg)
-+#define pr_warning(fmt,arg...) \
-+        printk(KERN_WARNING fmt, ##arg)
-+#define pr_notice(fmt,arg...) \
-+        printk(KERN_NOTICE fmt, ##arg)
- #define pr_info(fmt,arg...) \
- 	printk(KERN_INFO fmt,##arg)
- 
-@@ -295,6 +295,24 @@ static inline int __attribute__ ((format
+-#define pr_info(fmt,arg...) \
+-	printk(KERN_INFO fmt,##arg)
+-
+ /*
+  *      Display an IP address in readable format.
+  */
+@@ -300,6 +353,24 @@ static inline int __attribute__ ((format
  	(void) (&_x == &_y);		\
  	_x > _y ? _x : _y; })
  
@@ -450,7 +473,7 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  /*
   * ..and if you can't take the strict
   * types, you can specify one yourself.
-@@ -306,6 +324,46 @@ static inline int __attribute__ ((format
+@@ -311,6 +382,46 @@ static inline int __attribute__ ((format
  #define max_t(type,x,y) \
  	({ type __x = (x); type __y = (y); __x > __y ? __x: __y; })
  
