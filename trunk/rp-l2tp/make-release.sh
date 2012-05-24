@@ -15,7 +15,7 @@ fi
 
 test -d libevent || ln -s ../libevent . || exit 1
 
-MANIFEST="README Makefile.in install-sh auth.c configure configure.in debug.c dgram.c l2tp.conf l2tp.h main.c make-release.sh md5.c md5.h network.c options.c peer.c session.c tunnel.c utils.c handlers/Makefile.in handlers/cmd-control.c handlers/cmd.c handlers/dstring.c handlers/dstring.h handlers/pty.c handlers/sync-pppd.c man/l2tpd.8 man/l2tp.conf.5 libevent/Makefile.in libevent/event.c libevent/event.h libevent/event_sig.c libevent/event_tcp.c libevent/event_tcp.h libevent/eventpriv.h libevent/hash.c libevent/hash.h libevent/Doc/flow.fig libevent/Doc/libevent.tex libevent/Doc/style.tex libevent/Doc/libevent.pdf"
+MANIFEST="README Makefile.in install-sh auth.c config.guess config.sub configure configure.in debug.c dgram.c l2tp.conf l2tp.h main.c make-release.sh md5.c md5.h network.c options.c peer.c session.c tunnel.c utils.c handlers/Makefile.in handlers/cmd-control.c handlers/cmd.c handlers/dstring.c handlers/dstring.h handlers/pty.c handlers/sync-pppd.c man/l2tpd.8 man/l2tp.conf.5 libevent/Makefile.in libevent/event.c libevent/event.h libevent/event_sig.c libevent/event_tcp.c libevent/event_tcp.h libevent/eventpriv.h libevent/hash.c libevent/hash.h libevent/Doc/flow.fig libevent/Doc/libevent.tex libevent/Doc/style.tex libevent/Doc/libevent.pdf"
 
 DIR=rp-l2tp-$VERSION
 PWD=`pwd`
