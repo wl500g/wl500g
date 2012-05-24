@@ -143,7 +143,7 @@ main(int argc, char *argv[])
 	l2tp_die();
     }
 
-    if (!l2tp_network_init(es)) {
+    if (l2tp_network_init(es) < 0) {
 	l2tp_die();
     }
 
