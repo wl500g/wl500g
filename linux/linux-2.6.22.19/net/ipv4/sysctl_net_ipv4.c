@@ -18,6 +18,7 @@
 #include <net/route.h>
 #include <net/tcp.h>
 #include <net/cipso_ipv4.h>
+#include <net/inet_frag.h>
 
 /* From af_inet.c */
 extern int sysctl_ip_nonlocal_bind;
@@ -288,7 +289,7 @@ ctl_table ipv4_table[] = {
 	{
 		.ctl_name	= NET_IPV4_IPFRAG_HIGH_THRESH,
 		.procname	= "ipfrag_high_thresh",
-		.data		= &sysctl_ipfrag_high_thresh,
+		.data		= &ip4_frags_ctl.high_thresh,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec
@@ -296,7 +297,7 @@ ctl_table ipv4_table[] = {
 	{
 		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
 		.procname	= "ipfrag_low_thresh",
-		.data		= &sysctl_ipfrag_low_thresh,
+		.data		= &ip4_frags_ctl.low_thresh,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec
@@ -312,7 +313,7 @@ ctl_table ipv4_table[] = {
 	{
 		.ctl_name	= NET_IPV4_IPFRAG_TIME,
 		.procname	= "ipfrag_time",
-		.data		= &sysctl_ipfrag_time,
+		.data		= &ip4_frags_ctl.timeout,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec_jiffies,
@@ -665,7 +666,7 @@ ctl_table ipv4_table[] = {
 	{
 		.ctl_name	= NET_IPV4_IPFRAG_SECRET_INTERVAL,
 		.procname	= "ipfrag_secret_interval",
-		.data		= &sysctl_ipfrag_secret_interval,
+		.data		= &ip4_frags_ctl.secret_interval,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec_jiffies,
