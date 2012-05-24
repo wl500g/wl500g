@@ -8,12 +8,43 @@ ipv6: convert addrconf list to hlist
  372e6c8f1f7b2bb68f9992d2e664925c73552a1d ipv6: convert temporary address list to list macros
  b2db756449f63f98049587f7ede4a8e85e0c79b1 ipv6: Reduce timer events for addrconf_verify().
  b79d1d54cf0672f764402fe4711ef5306f917bd3 ipv6: Fix result generation in ipv6_get_ifaddr().
+ 3a88a81d89c20be312b3b219b185bbdde24b8fb8 ipv6: user better hash for addrconf
 
 ---
+ include/net/addrconf.h |   19 ---
  include/net/if_inet6.h |    7 -
- net/ipv6/addrconf.c    |  260 +++++++++++++++++++++++++------------------------
- 2 files changed, 138 insertions(+), 129 deletions(-)
+ net/ipv6/addrconf.c    |  280 ++++++++++++++++++++++++++-----------------------
+ 3 files changed, 153 insertions(+), 153 deletions(-)
 
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -172,25 +172,6 @@ static inline void in6_ifa_put(struct in
+ 
+ 
+ extern void			addrconf_forwarding_on(void);
+-/*
+- *	Hash function taken from net_alias.c
+- */
+-
+-static __inline__ u8 ipv6_addr_hash(const struct in6_addr *addr)
+-{	
+-	__u32 word;
+-
+-	/* 
+-	 * We perform the hash function over the last 64 bits of the address
+-	 * This will include the IEEE address token on links that support it.
+-	 */
+-
+-	word = (__force u32)(addr->s6_addr32[2] ^ addr->s6_addr32[3]);
+-	word ^= (word >> 16);
+-	word ^= (word >> 8);
+-
+-	return ((word ^ (word >> 4)) & 0x0f);
+-}
+ 
+ /*
+  *	compute link-local solicited-node multicast address
 diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
 --- a/include/net/if_inet6.h
 +++ b/include/net/if_inet6.h
@@ -58,7 +89,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
 +#define ADDRCONF_TIMER_FUZZ_MAX		(HZ)
 +
  #ifdef CONFIG_SYSCTL
- static void addrconf_sysctl_register(struct inet6_dev *idev);
+ static void addrconf_sysctl_register(struct inet6_dev *idev, struct ipv6_devconf *p);
  static void addrconf_sysctl_unregister(struct ipv6_devconf *p);
 @@ -117,8 +121,8 @@ static int ipv6_count_addresses(struct i
  /*
@@ -88,7 +119,23 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	init_timer(&ndev->regen_timer);
  	ndev->regen_timer.function = ipv6_regen_rndid;
  	ndev->regen_timer.data = (unsigned long) ndev;
-@@ -493,12 +498,17 @@ static void addrconf_fixup_forwarding(st
+@@ -451,6 +456,15 @@ static void dev_forward_change(struct in
+ 	}
+ }
+ 
++static u32 ipv6_addr_hash(const struct in6_addr *addr)
++{
++	/*
++	 * We perform the hash function over the last 64 bits of the address
++	 * This will include the IEEE address token on links that support it.
++	 */
++	return jhash_2words(addr->s6_addr32[2],  addr->s6_addr32[3], 0)
++		& (IN6_ADDR_HSIZE - 1);
++}
+ 
+ static void addrconf_forward_change(void)
+ {
+@@ -473,12 +487,17 @@ static void addrconf_forward_change(void
  }
  #endif
  
@@ -109,7 +156,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  #ifdef NET_REFCNT_DEBUG
  	printk(KERN_DEBUG "inet6_ifa_finish_destroy\n");
  #endif
-@@ -514,7 +524,7 @@ void inet6_ifa_finish_destroy(struct ine
+@@ -494,7 +513,7 @@ void inet6_ifa_finish_destroy(struct ine
  	}
  	dst_release(&ifp->rt->u.dst);
  
@@ -118,7 +165,16 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  }
  
  static void
-@@ -566,7 +576,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
+@@ -525,7 +544,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
+ {
+ 	struct inet6_ifaddr *ifa = NULL;
+ 	struct rt6_info *rt;
+-	int hash;
++	unsigned int hash;
+ 	int err = 0;
+ 	int addr_type = ipv6_addr_type(addr);
+ 
+@@ -546,7 +565,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
  		goto out2;
  	}
  
@@ -127,7 +183,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  
  	/* Ignore adding duplicate addresses on an interface */
  	if (ipv6_chk_same_addr(addr, idev->dev)) {
-@@ -593,6 +603,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
+@@ -573,6 +592,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
  
  	spin_lock_init(&ifa->lock);
  	init_timer(&ifa->timer);
@@ -135,7 +191,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	ifa->timer.data = (unsigned long) ifa;
  	ifa->scope = scope;
  	ifa->prefix_len = pfxlen;
-@@ -619,10 +630,9 @@ ipv6_add_addr(struct inet6_dev *idev, co
+@@ -599,10 +619,9 @@ ipv6_add_addr(struct inet6_dev *idev, co
  	/* Add to big hash table */
  	hash = ipv6_addr_hash(addr);
  
@@ -148,7 +204,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  
  	write_lock(&idev->lock);
  	/* Add to inet6_dev unicast addr list. */
-@@ -630,8 +640,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
+@@ -610,8 +629,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
  
  #ifdef CONFIG_IPV6_PRIVACY
  	if (ifa->flags&IFA_F_TEMPORARY) {
@@ -158,7 +214,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  		in6_ifa_hold(ifa);
  	}
  #endif
-@@ -650,7 +659,7 @@ out2:
+@@ -630,7 +648,7 @@ out2:
  
  	return ifa;
  out:
@@ -167,7 +223,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	goto out2;
  }
  
-@@ -668,34 +677,20 @@ static void ipv6_del_addr(struct inet6_i
+@@ -648,34 +666,20 @@ static void ipv6_del_addr(struct inet6_i
  
  	ifp->dead = 1;
  
@@ -211,14 +267,15 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	}
  #endif
  
-@@ -1238,58 +1233,64 @@ static int ipv6_count_addresses(struct i
+@@ -1218,58 +1222,64 @@ static int ipv6_count_addresses(struct i
  
  int ipv6_chk_addr(struct in6_addr *addr, struct net_device *dev, int strict)
  {
 -	struct inet6_ifaddr * ifp;
+-	u8 hash = ipv6_addr_hash(addr);
 +	struct inet6_ifaddr *ifp;
 +	struct hlist_node *node;
- 	unsigned int hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
  
 -	read_lock_bh(&addrconf_hash_lock);
 -	for(ifp = inet6_addr_lst[hash]; ifp; ifp=ifp->lst_next) {
@@ -251,7 +308,8 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
 +			       struct net_device *dev)
  {
 -	struct inet6_ifaddr * ifp;
- 	unsigned int hash = ipv6_addr_hash(addr);
+-	u8 hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
 +	struct inet6_ifaddr *ifp;
 +	struct hlist_node *node;
  
@@ -271,8 +329,9 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  				     struct net_device *dev, int strict)
  {
 -	struct inet6_ifaddr * ifp;
+-	u8 hash = ipv6_addr_hash(addr);
 +	struct inet6_ifaddr *ifp, *result = NULL;
- 	unsigned int hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
 +	struct hlist_node *node;
  
 -	read_lock_bh(&addrconf_hash_lock);
@@ -296,7 +355,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  }
  
  int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
-@@ -1924,7 +1925,7 @@ ok:
+@@ -1901,7 +1911,7 @@ ok:
  #ifdef CONFIG_IPV6_PRIVACY
  			read_lock_bh(&in6_dev->lock);
  			/* update all temporary addresses in the list */
@@ -305,7 +364,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  				/*
  				 * When adjusting the lifetimes of an existing
  				 * temporary address, only lower the lifetimes.
-@@ -2531,8 +2532,7 @@ static struct notifier_block ipv6_dev_no
+@@ -2510,8 +2520,7 @@ static struct notifier_block ipv6_dev_no
  static int addrconf_ifdown(struct net_device *dev, int how)
  {
  	struct inet6_dev *idev;
@@ -315,7 +374,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  
  	ASSERT_RTNL();
  
-@@ -2560,24 +2560,6 @@ static int addrconf_ifdown(struct net_de
+@@ -2539,24 +2548,6 @@ static int addrconf_ifdown(struct net_de
  
  	}
  
@@ -340,7 +399,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	write_lock_bh(&idev->lock);
  
  	/* Step 3: clear flags for stateless addrconf */
-@@ -2590,9 +2572,10 @@ static int addrconf_ifdown(struct net_de
+@@ -2569,9 +2560,10 @@ static int addrconf_ifdown(struct net_de
  		in6_dev_put(idev);
  
  	/* clear tempaddr list */
@@ -354,7 +413,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  		ifa->dead = 1;
  		write_unlock_bh(&idev->lock);
  		spin_lock_bh(&ifa->lock);
-@@ -2613,6 +2596,11 @@ static int addrconf_ifdown(struct net_de
+@@ -2592,6 +2584,11 @@ static int addrconf_ifdown(struct net_de
  		addrconf_del_timer(ifa);
  		write_unlock_bh(&idev->lock);
  
@@ -366,7 +425,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  		__ipv6_ifa_notify(RTM_DELADDR, ifa);
  		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
  		in6_ifa_put(ifa);
-@@ -2864,24 +2852,34 @@ static struct inet6_ifaddr *if6_get_firs
+@@ -2843,24 +2840,34 @@ static struct inet6_ifaddr *if6_get_firs
  	struct if6_iter_state *state = seq->private;
  
  	for (state->bucket = 0; state->bucket < IN6_ADDR_HSIZE; ++state->bucket) {
@@ -389,16 +448,16 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  {
  	struct if6_iter_state *state = seq->private;
 +	struct hlist_node *n = &ifa->addr_lst;
++
++	hlist_for_each_entry_continue_rcu_bh(ifa, n, addr_lst)
++		if (ifa)
++			return ifa;
  
 -	ifa = ifa->lst_next;
 -try_again:
 -	if (!ifa && ++state->bucket < IN6_ADDR_HSIZE) {
 -		ifa = inet6_addr_lst[state->bucket];
 -		goto try_again;
-+	hlist_for_each_entry_continue_rcu_bh(ifa, n, addr_lst)
-+		if (ifa)
-+			return ifa;
-+
 +	while (++state->bucket < IN6_ADDR_HSIZE) {
 +		hlist_for_each_entry_rcu_bh(ifa, n,
 +				     &inet6_addr_lst[state->bucket], addr_lst) {
@@ -412,7 +471,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  }
  
  static struct inet6_ifaddr *if6_get_idx(struct seq_file *seq, loff_t pos)
-@@ -2895,8 +2893,9 @@ static struct inet6_ifaddr *if6_get_idx(
+@@ -2874,8 +2881,9 @@ static struct inet6_ifaddr *if6_get_idx(
  }
  
  static void *if6_seq_start(struct seq_file *seq, loff_t *pos)
@@ -423,7 +482,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	return if6_get_idx(seq, *pos);
  }
  
-@@ -2910,8 +2909,9 @@ static void *if6_seq_next(struct seq_fil
+@@ -2889,8 +2897,9 @@ static void *if6_seq_next(struct seq_fil
  }
  
  static void if6_seq_stop(struct seq_file *seq, void *v)
@@ -434,17 +493,18 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  }
  
  static int if6_seq_show(struct seq_file *seq, void *v)
-@@ -2967,18 +2967,19 @@ void if6_proc_exit(void)
+@@ -2946,17 +2955,19 @@ void if6_proc_exit(void)
  int ipv6_chk_home_addr(struct in6_addr *addr)
  {
  	int ret = 0;
 -	struct inet6_ifaddr * ifp;
-+	struct inet6_ifaddr *ifp = NULL;
-+	struct hlist_node *n;
- 	unsigned int hash = ipv6_addr_hash(addr);
- 
+-	u8 hash = ipv6_addr_hash(addr);
 -	read_lock_bh(&addrconf_hash_lock);
 -	for (ifp = inet6_addr_lst[hash]; ifp; ifp = ifp->lst_next) {
++	struct inet6_ifaddr *ifp = NULL;
++	struct hlist_node *n;
++	unsigned int hash = ipv6_addr_hash(addr);
++
 +	rcu_read_lock_bh();
 +	hlist_for_each_entry_rcu_bh(ifp, n, &inet6_addr_lst[hash], addr_lst) {
  		if (ipv6_addr_cmp(&ifp->addr, addr) == 0 &&
@@ -458,7 +518,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	return ret;
  }
  #endif
-@@ -2989,21 +2990,23 @@ int ipv6_chk_home_addr(struct in6_addr *
+@@ -2967,21 +2978,23 @@ int ipv6_chk_home_addr(struct in6_addr *
  
  static void addrconf_verify(unsigned long foo)
  {
@@ -487,7 +547,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  			unsigned long age;
  #ifdef CONFIG_IPV6_PRIVACY
  			unsigned long regen_advance;
-@@ -3013,7 +3016,8 @@ restart:
+@@ -2991,7 +3004,8 @@ restart:
  				continue;
  
  			spin_lock(&ifp->lock);
@@ -497,7 +557,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  
  #ifdef CONFIG_IPV6_PRIVACY
  			regen_advance = ifp->idev->cnf.regen_max_retry *
-@@ -3025,7 +3029,6 @@ restart:
+@@ -3003,7 +3017,6 @@ restart:
  			    age >= ifp->valid_lft) {
  				spin_unlock(&ifp->lock);
  				in6_ifa_hold(ifp);
@@ -505,7 +565,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  				ipv6_del_addr(ifp);
  				goto restart;
  			} else if (ifp->prefered_lft == INFINITY_LIFE_TIME) {
-@@ -3047,7 +3050,6 @@ restart:
+@@ -3025,7 +3038,6 @@ restart:
  
  				if (deprecate) {
  					in6_ifa_hold(ifp);
@@ -513,7 +573,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  
  					ipv6_ifa_notify(0, ifp);
  					in6_ifa_put(ifp);
-@@ -3065,7 +3067,7 @@ restart:
+@@ -3043,7 +3055,7 @@ restart:
  						in6_ifa_hold(ifp);
  						in6_ifa_hold(ifpub);
  						spin_unlock(&ifp->lock);
@@ -522,7 +582,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  						spin_lock(&ifpub->lock);
  						ifpub->regen_count = 0;
  						spin_unlock(&ifpub->lock);
-@@ -3085,12 +3087,26 @@ restart:
+@@ -3063,12 +3075,26 @@ restart:
  				spin_unlock(&ifp->lock);
  			}
  		}
@@ -552,7 +612,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  }
  
  static struct in6_addr *extract_addr(struct nlattr *addr, struct nlattr *local)
-@@ -4372,7 +4388,7 @@ EXPORT_SYMBOL(unregister_inet6addr_notif
+@@ -4378,7 +4404,7 @@ EXPORT_SYMBOL(unregister_inet6addr_notif
  
  int __init addrconf_init(void)
  {
@@ -561,7 +621,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  
  	/* The addrconf netdev notifier requires that loopback_dev
  	 * has it's ipv6 private information allocated and setup
-@@ -4405,6 +4421,9 @@ int __init addrconf_init(void)
+@@ -4411,6 +4437,9 @@ int __init addrconf_init(void)
  	ip6_blk_hole_entry.rt6i_idev = in6_dev_get(&loopback_dev);
  #endif
  
@@ -571,7 +631,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	register_netdevice_notifier(&ipv6_dev_notf);
  
  	addrconf_verify(0);
-@@ -4438,7 +4457,6 @@ void __exit addrconf_cleanup(void)
+@@ -4443,7 +4472,6 @@ void __exit addrconf_cleanup(void)
  {
  	struct net_device *dev;
  	struct inet6_dev *idev;
@@ -579,7 +639,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	int i;
  
  	unregister_netdevice_notifier(&ipv6_dev_notf);
-@@ -4465,20 +4483,10 @@ void __exit addrconf_cleanup(void)
+@@ -4470,20 +4498,10 @@ void __exit addrconf_cleanup(void)
  	 *	Check hash table.
  	 */
  
