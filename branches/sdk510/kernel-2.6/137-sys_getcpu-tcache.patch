@@ -1,0 +1,62 @@
+From 4307d1e5ada595c87f9a4d16db16ba5edb70dcb1
+From: Ingo Molnar
+Date: Wed, 7 Nov 2007 18:37:48 +0100
+Subject: [PATCH] ignore the sys_getcpu() tcache parameter
+
+dont use the vgetcpu tcache - it's causing problems with tasks
+migrating, they'll see the old cache up to a jiffy after the
+migration, further increasing the costs of the migration.
+
+In the worst case they see a complete bogus information from
+the tcache, when a sys_getcpu() call "invalidated" the cache
+info by incrementing the jiffies _and_ the cpuid info in the
+cache and the following vdso_getcpu() call happens after
+vdso_jiffies have been incremented.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Signed-off-by: Ulrich Drepper <drepper@redhat.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+
+---
+ kernel/sys.c |   20 +-------------------
+ 1 file changed, 1 insertion(+), 19 deletions(-)
+
+diff --git a/kernel/sys.c b/kernel/sys.c
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -1750,7 +1750,7 @@ asmlinkage long sys_prctl(int option, unsigned long arg2, unsigned long arg3,
+ }
+ 
+ asmlinkage long sys_getcpu(unsigned __user *cpup, unsigned __user *nodep,
+-	   		   struct getcpu_cache __user *cache)
++			   struct getcpu_cache __user *unused)
+ {
+ 	int err = 0;
+ 	int cpu = raw_smp_processor_id();
+@@ -1758,24 +1758,6 @@ asmlinkage long sys_getcpu(unsigned __user *cpup, unsigned __user *nodep,
+ 		err |= put_user(cpu, cpup);
+ 	if (nodep)
+ 		err |= put_user(cpu_to_node(cpu), nodep);
+-	if (cache) {
+-		/*
+-		 * The cache is not needed for this implementation,
+-		 * but make sure user programs pass something
+-		 * valid. vsyscall implementations can instead make
+-		 * good use of the cache. Only use t0 and t1 because
+-		 * these are available in both 32bit and 64bit ABI (no
+-		 * need for a compat_getcpu). 32bit has enough
+-		 * padding
+-		 */
+-		unsigned long t0, t1;
+-		get_user(t0, &cache->blob[0]);
+-		get_user(t1, &cache->blob[1]);
+-		t0++;
+-		t1++;
+-		put_user(t0, &cache->blob[0]);
+-		put_user(t1, &cache->blob[1]);
+-	}
+ 	return err ? -EFAULT : 0;
+ }
+ 
+-- 
+1.7.7.6

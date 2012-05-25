@@ -1,0 +1,48 @@
+[PATCH] iptables: fix the very broken handling of redundant addresses
+
+From: Wes Campaigne <westacular>
+Date: Thu, 17 Feb 2011 08:38:11 -0500
+
+ (This has been broken since forever, >10 years; the same bit of
+ never-could-have-worked-right code has been unchanged between the oldest
+ versions I could browse and persists in current git)
+
+---
+ xtables.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/xtables.c b/xtables.c
+--- a/xtables.c
++++ b/xtables.c
+@@ -1167,8 +1167,12 @@ void xtables_ipparse_any(const char *name, struct in_addr **addrpp,
+ 		addrp[j++].s_addr &= maskp->s_addr;
+ 		for (k = 0; k < j - 1; ++k)
+ 			if (addrp[k].s_addr == addrp[j-1].s_addr) {
+-				--*naddrs;
+-				--j;
++				/*
++				 * Nuke the dup by copying an address from the
++				 * tail here, and check the current position
++				 * again (--j).
++				 */
++				memcpy(&addrp[--j], &addrp[--(*naddrs)], sizeof(struct in_addr));
+ 				break;
+ 			}
+ 	}
+@@ -1394,8 +1394,12 @@ void xtables_ip6parse_any(const char *name, struct in6_addr **addrpp,
+ 		++j;
+ 		for (k = 0; k < j - 1; ++k)
+ 			if (IN6_ARE_ADDR_EQUAL(&addrp[k], &addrp[j - 1])) {
+-				--*naddrs;
+-				--j;
++				/*
++				 * Nuke the dup by copying an address from the
++				 * tail here, and check the current position
++				 * again (--j).
++				 */
++				memcpy(&addrp[--j], &addrp[--(*naddrs)], sizeof(struct in6_addr));
+ 				break;
+ 			}
+ 	}
+-- 
+1.6.5.GIT

@@ -1,0 +1,15 @@
+* Add chdir call when chrooting (Closes: #595366).
+
+Index: portmap-6.0.0/portmap.c
+===================================================================
+--- portmap-6.0.0.orig/portmap.c	2011-03-12 16:29:47.000000000 +0100
++++ portmap-6.0.0/portmap.c	2011-03-12 16:30:12.000000000 +0100
+@@ -376,6 +376,8 @@
+ 		if (chroot(chroot_path) < 0) {
+ 			syslog(LOG_ERR, "couldn't do chroot");
+ 			exit(1);
++		} else {
++			chdir(chroot_path);
+ 		}
+ 	}
+ 	check_startup();

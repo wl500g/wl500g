@@ -1,0 +1,38 @@
+From 8db1044ba608a78035bbf89007aab6b6d8ff6f68
+From: Miguel GAIO
+Date: Thu, 19 Apr 2012 00:14:33 +0000
+Subject: [PATCH] libiptc: fix retry path in TC_INIT
+
+There is an issue on TC_INIT retry path:
+In error case, TC_FREE is called and close sockfd.
+The retry does not reopen then always fail.
+
+The proposing patch reopens sockfd in retry patch.
+
+Signed-off-by: Miguel GAIO <miguel.gaio@efixo.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ libiptc/libiptc.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/libiptc/libiptc.c b/libiptc/libiptc.c
+--- a/libiptc/libiptc.c
++++ b/libiptc/libiptc.c
+@@ -1307,6 +1307,7 @@ TC_INIT(const char *tablename)
+ 	socklen_t s;
+ 	int sockfd;
+ 
++retry:
+ 	iptc_fn = TC_INIT;
+ 
+ 	if (strlen(tablename) >= TABLE_MAXNAMELEN) {
+@@ -1324,7 +1325,6 @@ TC_INIT(const char *tablename)
+ 		abort();
+ 	}
+ 
+-retry:
+ 	s = sizeof(info);
+ 
+ 	strcpy(info.name, tablename);
+-- 
+1.7.2.5

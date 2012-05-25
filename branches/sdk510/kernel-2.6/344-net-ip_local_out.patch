@@ -1,0 +1,375 @@
+net: Add ip{6}_local_out
+
+ c439cb2e4b13cf1cb2abcd006b906315a3381323 [IPV4]: Add ip_local_out
+ ef76bc23ef2acf20c8f7f841a542d8ab74c827c6 [IPV6]: Add ip6_local_out
+
+---
+ include/net/ip.h                 |    2 ++
+ include/net/ipip.h               |    5 ++---
+ include/net/ipv6.h               |    3 +++
+ net/ipv4/igmp.c                  |   12 ++----------
+ net/ipv4/ip_output.c             |   39 +++++++++++++++++++++++++--------------
+ net/ipv4/ipvs/ip_vs_xmit.c       |    6 ++----
+ net/ipv4/xfrm4_output.c          |    3 +--
+ net/ipv6/ip6_output.c            |   33 +++++++++++++++++++++++++++------
+ net/ipv6/ip6_tunnel.c            |    4 +---
+ net/ipv6/netfilter/ip6t_REJECT.c |    4 +---
+ net/ipv6/xfrm6_output.c          |    3 +--
+ 11 files changed, 67 insertions(+), 47 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -102,6 +102,8 @@ extern int		ip_mc_output(struct sk_buff 
+ extern int		ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
+ extern int		ip_do_nat(struct sk_buff *skb);
+ extern void		ip_send_check(struct iphdr *ip);
++extern int		__ip_local_out(struct sk_buff *skb);
++extern int		ip_local_out(struct sk_buff *skb);
+ extern int		ip_queue_xmit(struct sk_buff *skb, int ipfragok);
+ extern void		ip_init(void);
+ extern int		ip_append_data(struct sock *sk,
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -509,6 +509,9 @@ extern int			ip6_forward(struct sk_buff *skb);
+ extern int			ip6_input(struct sk_buff *skb);
+ extern int			ip6_mc_input(struct sk_buff *skb);
+ 
++extern int			__ip6_local_out(struct sk_buff *skb);
++extern int			ip6_local_out(struct sk_buff *skb);
++
+ /*
+  *	Extension header (options) processing
+  */
+diff --git a/include/net/ipip.h b/include/net/ipip.h
+--- a/include/net/ipip.h
++++ b/include/net/ipip.h
+@@ -2,6 +2,7 @@
+ #define __NET_IPIP_H 1
+ 
+ #include <linux/if_tunnel.h>
++#include <net/ip.h>
+ 
+ /* Keep error state on tunnel for 30 sec */
+ #define IPTUNNEL_ERR_TIMEO	(30*HZ)
+@@ -44,11 +45,9 @@ struct ip_tunnel
+ 	int pkt_len = skb->len;						\
+ 									\
+ 	skb->ip_summed = CHECKSUM_NONE;					\
+-	iph->tot_len = htons(skb->len);					\
+ 	ip_select_ident(iph, &rt->u.dst, NULL);				\
+-	ip_send_check(iph);						\
+ 									\
+-	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev, dst_output);\
++	err = ip_local_out(skb);					\
+ 	if (net_xmit_eval(err) == 0) {					\
+ 		stats->tx_bytes += pkt_len;				\
+ 		stats->tx_packets++;					\
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -348,17 +348,12 @@ static struct sk_buff *igmpv3_newpack(st
+ 
+ static int igmpv3_sendpack(struct sk_buff *skb)
+ {
+-	struct iphdr *pip = ip_hdr(skb);
+ 	struct igmphdr *pig = igmp_hdr(skb);
+-	const int iplen = skb->tail - skb->network_header;
+ 	const int igmplen = skb->tail - skb->transport_header;
+ 
+-	pip->tot_len = htons(iplen);
+-	ip_send_check(pip);
+ 	pig->csum = ip_compute_csum(igmp_hdr(skb), igmplen);
+ 
+-	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, skb->dev,
+-		       dst_output);
++	return ip_local_out(skb);
+ }
+ 
+ static int grec_size(struct ip_mc_list *pmc, int type, int gdel, int sdel)
+@@ -679,13 +674,11 @@ static int igmp_send_report(struct in_de
+ 	iph->daddr    = dst;
+ 	iph->saddr    = rt->rt_src;
+ 	iph->protocol = IPPROTO_IGMP;
+-	iph->tot_len  = htons(IGMP_SIZE);
+ 	ip_select_ident(iph, &rt->u.dst, NULL);
+ 	((u8*)&iph[1])[0] = IPOPT_RA;
+ 	((u8*)&iph[1])[1] = 4;
+ 	((u8*)&iph[1])[2] = 0;
+ 	((u8*)&iph[1])[3] = 0;
+-	ip_send_check(iph);
+ 
+ 	ih = (struct igmphdr *)skb_put(skb, sizeof(struct igmphdr));
+ 	ih->type=type;
+@@ -694,8 +687,7 @@ static int igmp_send_report(struct in_de
+ 	ih->group=group;
+ 	ih->csum=ip_compute_csum((void *)ih, sizeof(struct igmphdr));
+ 
+-	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
+-		       dst_output);
++	return ip_local_out(skb);
+ }
+ 
+ static void igmp_gq_timer_expire(unsigned long data)
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -92,6 +92,28 @@ __inline__ void ip_send_check(struct iph
+ 	iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+ }
+ 
++int __ip_local_out(struct sk_buff *skb)
++{
++	struct iphdr *iph = ip_hdr(skb);
++
++	iph->tot_len = htons(skb->len);
++	ip_send_check(iph);
++	return nf_hook(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, skb->dst->dev,
++		       dst_output);
++}
++
++int ip_local_out(struct sk_buff *skb)
++{
++	int err;
++
++	err = __ip_local_out(skb);
++	if (likely(err == 1))
++		err = dst_output(skb);
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(ip_local_out);
++
+ /* dev_loopback_xmit for use with netfilter. */
+ static int ip_dev_loopback_xmit(struct sk_buff *newskb)
+ {
+@@ -139,20 +161,17 @@ int ip_build_and_send_pkt(struct sk_buff
+ 	iph->daddr    = rt->rt_dst;
+ 	iph->saddr    = rt->rt_src;
+ 	iph->protocol = sk->sk_protocol;
+-	iph->tot_len  = htons(skb->len);
+ 	ip_select_ident(iph, &rt->u.dst, sk);
+ 
+ 	if (opt && opt->optlen) {
+ 		iph->ihl += opt->optlen>>2;
+ 		ip_options_build(skb, opt, daddr, rt, 0);
+ 	}
+-	ip_send_check(iph);
+ 
+ 	skb->priority = sk->sk_priority;
+ 
+ 	/* Send it out. */
+-	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
+-		       dst_output);
++	return ip_local_out(skb);
+ }
+ 
+ EXPORT_SYMBOL_GPL(ip_build_and_send_pkt);
+@@ -348,7 +367,6 @@ packet_routed:
+ 	skb_reset_network_header(skb);
+ 	iph = ip_hdr(skb);
+ 	*((__be16 *)iph) = htons((4 << 12) | (5 << 8) | (inet->tos & 0xff));
+-	iph->tot_len = htons(skb->len);
+ 	if (ip_dont_fragment(sk, &rt->u.dst) && !ipfragok)
+ 		iph->frag_off = htons(IP_DF);
+ 	else
+@@ -367,13 +385,9 @@ packet_routed:
+ 	ip_select_ident_more(iph, &rt->u.dst, sk,
+ 			     (skb_shinfo(skb)->gso_segs ?: 1) - 1);
+ 
+-	/* Add an IP checksum. */
+-	ip_send_check(iph);
+-
+ 	skb->priority = sk->sk_priority;
+ 
+-	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
+-		       dst_output);
++	return ip_local_out(skb);
+ 
+ no_route:
+ 	IP_INC_STATS(IPSTATS_MIB_OUTNOROUTES);
+@@ -1247,21 +1261,18 @@ int ip_push_pending_frames(struct sock *
+ 		ip_options_build(skb, opt, inet->cork.addr, rt, 0);
+ 	}
+ 	iph->tos = inet->tos;
+-	iph->tot_len = htons(skb->len);
+ 	iph->frag_off = df;
+ 	ip_select_ident(iph, &rt->u.dst, sk);
+ 	iph->ttl = ttl;
+ 	iph->protocol = sk->sk_protocol;
+ 	iph->saddr = rt->rt_src;
+ 	iph->daddr = rt->rt_dst;
+-	ip_send_check(iph);
+ 
+ 	skb->priority = sk->sk_priority;
+ 	skb->dst = dst_clone(&rt->u.dst);
+ 
+ 	/* Netfilter gets whole the not fragmented skb. */
+-	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL,
+-		      skb->dst->dev, dst_output);
++	err = ip_local_out(skb);
+ 	if (err) {
+ 		if (err > 0)
+ 			err = inet->recverr ? net_xmit_errno(err) : 0;
+diff --git a/net/ipv4/ipvs/ip_vs_xmit.c b/net/ipv4/ipvs/ip_vs_xmit.c
+--- a/net/ipv4/ipvs/ip_vs_xmit.c
++++ b/net/ipv4/ipvs/ip_vs_xmit.c
+@@ -16,8 +16,8 @@
+  */
+ 
+ #include <linux/kernel.h>
+-#include <linux/ip.h>
+ #include <linux/tcp.h>                  /* for tcphdr */
++#include <net/ip.h>
+ #include <net/tcp.h>                    /* for csum_tcpudp_magic */
+ #include <net/udp.h>
+ #include <net/icmp.h>                   /* for icmp_send */
+@@ -406,14 +406,12 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, s
+ 	iph->daddr		=	rt->rt_dst;
+ 	iph->saddr		=	rt->rt_src;
+ 	iph->ttl		=	old_iph->ttl;
+-	iph->tot_len		=	htons(skb->len);
+ 	ip_select_ident(iph, &rt->u.dst, NULL);
+-	ip_send_check(iph);
+ 
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
+-	IP_VS_XMIT(skb, rt);
++	ip_local_out(skb);
+ 
+ 	LeaveFunction(10);
+ 
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -105,8 +105,7 @@ static int xfrm4_output_finish2(struct s
+ 	while (likely((err = xfrm4_output_one(skb)) == 0)) {
+ 		nf_reset(skb);
+ 
+-		err = nf_hook(PF_INET, NF_IP_LOCAL_OUT, &skb, NULL,
+-			      skb->dst->dev, dst_output);
++		err = __ip_local_out(skb);
+ 		if (unlikely(err != 1))
+ 			break;
+ 
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -29,7 +29,7 @@
+  */
+ 
+ #include <linux/errno.h>
+-#include <linux/types.h>
++#include <linux/kernel.h>
+ #include <linux/string.h>
+ #include <linux/socket.h>
+ #include <linux/net.h>
+@@ -70,6 +70,31 @@ static __inline__ void ipv6_select_ident(struct sk_buff *skb, struct frag_hdr *f
+ 	spin_unlock_bh(&ip6_id_lock);
+ }
+ 
++int __ip6_local_out(struct sk_buff *skb)
++{
++	int len;
++
++	len = skb->len - sizeof(struct ipv6hdr);
++	if (len > IPV6_MAXPLEN)
++		len = 0;
++	ipv6_hdr(skb)->payload_len = htons(len);
++
++	return nf_hook(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dst->dev,
++		       dst_output);
++}
++
++int ip6_local_out(struct sk_buff *skb)
++{
++	int err;
++
++	err = __ip6_local_out(skb);
++	if (likely(err == 1))
++		err = dst_output(skb);
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(ip6_local_out);
++
+ static inline int ip6_output_finish(struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb->dst;
+@@ -1403,10 +1428,6 @@ int ip6_push_pending_frames(struct sock *sk)
+ 	*(__be32*)hdr = fl->fl6_flowlabel |
+ 		     htonl(0x60000000 | ((int)np->cork.tclass << 20));
+ 
+-	if (skb->len <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN)
+-		hdr->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
+-	else
+-		hdr->payload_len = 0;
+ 	hdr->hop_limit = np->cork.hop_limit;
+ 	hdr->nexthdr = proto;
+ 	ipv6_addr_copy(&hdr->saddr, &fl->fl6_src);
+@@ -1423,7 +1444,7 @@ int ip6_push_pending_frames(struct sock *sk)
+ 
+ 	skb->dst = dst_clone(&rt->u.dst);
+ 	IP6_INC_STATS(rt->rt6i_idev, IPSTATS_MIB_OUTREQUESTS);
+-	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dst->dev, dst_output);
++	err = ip6_local_out(skb);
+ 	if (err) {
+ 		if (err > 0)
+ 			err = np->recverr ? net_xmit_errno(err) : 0;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -910,15 +910,13 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	*(__be32*)ipv6h = fl->fl6_flowlabel | htonl(0x60000000);
+ 	dsfield = INET_ECN_encapsulate(0, dsfield);
+ 	ipv6_change_dsfield(ipv6h, ~INET_ECN_MASK, dsfield);
+-	ipv6h->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
+ 	ipv6h->hop_limit = t->parms.hop_limit;
+ 	ipv6h->nexthdr = proto;
+ 	ipv6_addr_copy(&ipv6h->saddr, &fl->fl6_src);
+ 	ipv6_addr_copy(&ipv6h->daddr, &fl->fl6_dst);
+ 	nf_reset(skb);
+ 	pkt_len = skb->len;
+-	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL,
+-		      skb->dst->dev, dst_output);
++	err = ip6_local_out(skb);
+ 
+ 	if (net_xmit_eval(err) == 0) {
+ 		stats->tx_bytes += pkt_len;
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -121,7 +121,6 @@ static void send_reset(struct sk_buff *oldskb)
+ 	ip6h->version = 6;
+ 	ip6h->hop_limit = dst_metric(dst, RTAX_HOPLIMIT);
+ 	ip6h->nexthdr = IPPROTO_TCP;
+-	ip6h->payload_len = htons(sizeof(struct tcphdr));
+ 	ipv6_addr_copy(&ip6h->saddr, &oip6h->daddr);
+ 	ipv6_addr_copy(&ip6h->daddr, &oip6h->saddr);
+ 
+@@ -159,8 +158,7 @@ static void send_reset(struct sk_buff *oldskb)
+ 
+ 	nf_ct_attach(nskb, oldskb);
+ 
+-	NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, nskb, NULL, nskb->dst->dev,
+-		dst_output);
++	ip6_local_out(nskb);
+ }
+ 
+ static inline void
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -102,8 +98,7 @@ static int xfrm6_output_finish2(struct sk_buff *skb)
+ 	while (likely((err = xfrm6_output_one(skb)) == 0)) {
+ 		nf_reset(skb);
+ 
+-		err = nf_hook(PF_INET6, NF_IP6_LOCAL_OUT, &skb, NULL,
+-			      skb->dst->dev, dst_output);
++		err = __ip6_local_out(skb);
+ 		if (unlikely(err != 1))
+ 			break;
+ 
+-- 

@@ -1,0 +1,775 @@
+net: No more expensive sock_hold()/sock_put() on each tx
+
+ 2b85a34e911bf483c27cfdd124aeb1605145dc80 net: No more expensive sock_hold()/sock_put() on each tx
+ e51a67a9c8a2ea5c563f8c2ba6613fe2100ffe67 net: ip_push_pending_frames() fix
+ c564039fd83ea16a86a96d52632794b24849e507 net: sk_wmem_alloc has initial value of one, not zero
+ 81e2a3d5b75cbf0b42428b9d5a7cc7c85be9e7a7 atm: sk_wmem_alloc initial value is one
+ 31e6d363abcd0d05766c82f1a9c905a4c974a199 net: correct off-by-one write allocations reports
+ d66ee0587c3927aea5178a822976c7c853d815fe net: sk_free() should be allowed right after sk_alloc()
+ d99927f4d93f36553699573b279e0ff98ad7dea6 net: Fix sock_wfree() race
+
+---
+ include/net/sock.h         |   39 ++++++++++++++++++++++++++++++++++++++-
+ net/appletalk/atalk_proc.c |    4 ++--
+ net/appletalk/ddp.c        |    9 +++------
+ net/atm/common.c           |   12 ++++++------
+ net/atm/ioctl.c            |    3 +--
+ net/atm/proc.c             |    4 ++--
+ net/atm/raw.c              |    4 ++--
+ net/ax25/af_ax25.c         |   14 +++++++-------
+ net/core/sock.c            |   39 +++++++++++++++++++++++++++++++++------
+ net/decnet/af_decnet.c     |    2 +-
+ net/econet/af_econet.c     |    6 ++----
+ net/ipv4/inet_diag.c       |    4 ++--
+ net/ipv4/ip_output.c       |    2 --
+ net/ipv4/raw.c             |    7 ++++---
+ net/ipv4/udp.c             |    7 ++++---
+ net/ipv6/ip6_output.c      |    2 --
+ net/ipv6/raw.c             |    7 ++++---
+ net/ipv6/udp.c             |    4 ++--
+ net/ipx/af_ipx.c           |    2 +-
+ net/ipx/ipx_proc.c         |    4 ++--
+ net/irda/af_irda.c         |    3 ++-
+ net/key/af_key.c           |    4 ++--
+ net/llc/llc_proc.c         |    4 ++--
+ net/netlink/af_netlink.c   |    4 ++--
+ net/netrom/af_netrom.c     |    9 ++++-----
+ net/packet/af_packet.c     |    3 ++-
+ net/rose/af_rose.c         |   10 +++++-----
+ net/sched/em_meta.c        |    4 ++--
+ net/sctp/socket.c          |    4 ++--
+ net/unix/af_unix.c         |    2 +-
+ net/x25/af_x25.c           |    7 +++----
+ net/x25/x25_proc.c         |    4 ++--
+ 32 files changed, 145 insertions(+), 88 deletions(-)
+
+diff -urNBp a/include/net/sock.h b/include/net/sock.h
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1106,6 +1106,39 @@ static inline int skb_copy_to_page(struc
+ 	return 0;
+ }
+ 
++/**
++ * sk_wmem_alloc_get - returns write allocations
++ * @sk: socket
++ *
++ * Returns sk_wmem_alloc minus initial offset of one
++ */
++static inline int sk_wmem_alloc_get(const struct sock *sk)
++{
++	return atomic_read(&sk->sk_wmem_alloc) - 1;
++}
++
++/**
++ * sk_rmem_alloc_get - returns read allocations
++ * @sk: socket
++ *
++ * Returns sk_rmem_alloc
++ */
++static inline int sk_rmem_alloc_get(const struct sock *sk)
++{
++	return atomic_read(&sk->sk_rmem_alloc);
++}
++
++/**
++ * sk_has_allocations - check if allocations are outstanding
++ * @sk: socket
++ *
++ * Returns true if socket has write or read allocations
++ */
++static inline int sk_has_allocations(const struct sock *sk)
++{
++	return sk_wmem_alloc_get(sk) || sk_rmem_alloc_get(sk);
++}
++
+ /*
+  * 	Queue a received datagram if it will fit. Stream and sequenced
+  *	protocols can't normally use this as they need to fit buffers in
+@@ -1117,9 +1150,13 @@ static inline int skb_copy_to_page(struc
+ 
+ static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
+ {
+-	sock_hold(sk);
+ 	skb->sk = sk;
+ 	skb->destructor = sock_wfree;
++	/*
++	 * We used to take a refcount on sk, but following operation
++	 * is enough to guarantee sk_free() wont free this sock until
++	 * all in-flight packets are completed
++	 */
+ 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+ }
+ 
+diff -urNBp a/net/appletalk/atalk_proc.c b/net/appletalk/atalk_proc.c
+--- a/net/appletalk/atalk_proc.c
++++ b/net/appletalk/atalk_proc.c
+@@ -197,8 +197,8 @@ static int atalk_seq_socket_show(struct 
+ 			"%02X %d\n",
+ 		   s->sk_type, ntohs(at->src_net), at->src_node, at->src_port,
+ 		   ntohs(at->dest_net), at->dest_node, at->dest_port,
+-		   atomic_read(&s->sk_wmem_alloc),
+-		   atomic_read(&s->sk_rmem_alloc),
++		   sk_wmem_alloc_get(s),
++		   sk_rmem_alloc_get(s),
+ 		   s->sk_state, SOCK_INODE(s->sk_socket)->i_uid);
+ out:
+ 	return 0;
+diff -urNBp a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -162,8 +162,7 @@ static void atalk_destroy_timer(unsigned
+ {
+ 	struct sock *sk = (struct sock *)data;
+ 
+-	if (atomic_read(&sk->sk_wmem_alloc) ||
+-	    atomic_read(&sk->sk_rmem_alloc)) {
++	if (sk_has_allocations(sk)) {
+ 		sk->sk_timer.expires = jiffies + SOCK_DESTROY_TIME;
+ 		add_timer(&sk->sk_timer);
+ 	} else
+@@ -175,8 +174,7 @@ static inline void atalk_destroy_socket(
+ 	atalk_remove_socket(sk);
+ 	skb_queue_purge(&sk->sk_receive_queue);
+ 
+-	if (atomic_read(&sk->sk_wmem_alloc) ||
+-	    atomic_read(&sk->sk_rmem_alloc)) {
++	if (sk_has_allocations(sk)) {
+ 		init_timer(&sk->sk_timer);
+ 		sk->sk_timer.expires	= jiffies + SOCK_DESTROY_TIME;
+ 		sk->sk_timer.function	= atalk_destroy_timer;
+@@ -1747,8 +1745,7 @@ static int atalk_ioctl(struct socket *so
+ 	switch (cmd) {
+ 		/* Protocol layer */
+ 		case TIOCOUTQ: {
+-			long amount = sk->sk_sndbuf -
+-				      atomic_read(&sk->sk_wmem_alloc);
++			long amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+ 
+ 			if (amount < 0)
+ 				amount = 0;
+diff -urNBp a/net/atm/common.c b/net/atm/common.c
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -69,15 +69,15 @@ static struct sk_buff *alloc_tx(struct a
+ 	struct sk_buff *skb;
+ 	struct sock *sk = sk_atm(vcc);
+ 
+-	if (atomic_read(&sk->sk_wmem_alloc) && !atm_may_send(vcc, size)) {
++	if (sk_wmem_alloc_get(sk) && !atm_may_send(vcc, size)) {
+ 		DPRINTK("Sorry: wmem_alloc = %d, size = %d, sndbuf = %d\n",
+-			atomic_read(&sk->sk_wmem_alloc), size,
++			sk_wmem_alloc_get(sk), size,
+ 			sk->sk_sndbuf);
+ 		return NULL;
+ 	}
+-	while (!(skb = alloc_skb(size,GFP_KERNEL))) schedule();
+-	DPRINTK("AlTx %d += %d\n", atomic_read(&sk->sk_wmem_alloc),
+-		skb->truesize);
++	while (!(skb = alloc_skb(size, GFP_KERNEL)))
++		schedule();
++	DPRINTK("AlTx %d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
+ 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+ 	return skb;
+ }
+@@ -152,7 +152,7 @@ int vcc_create(struct socket *sock, int 
+ 	memset(&vcc->local,0,sizeof(struct sockaddr_atmsvc));
+ 	memset(&vcc->remote,0,sizeof(struct sockaddr_atmsvc));
+ 	vcc->qos.txtp.max_sdu = 1 << 16; /* for meta VCs */
+-	atomic_set(&sk->sk_wmem_alloc, 0);
++	atomic_set(&sk->sk_wmem_alloc, 1);
+ 	atomic_set(&sk->sk_rmem_alloc, 0);
+ 	vcc->push = NULL;
+ 	vcc->pop = NULL;
+diff -urNBp a/net/atm/ioctl.c b/net/atm/ioctl.c
+--- a/net/atm/ioctl.c
++++ b/net/atm/ioctl.c
+@@ -62,8 +62,7 @@ int vcc_ioctl(struct socket *sock, unsig
+ 				error =  -EINVAL;
+ 				goto done;
+ 			}
+-			error = put_user(sk->sk_sndbuf -
+-					 atomic_read(&sk->sk_wmem_alloc),
++			error = put_user(sk->sk_sndbuf - sk_wmem_alloc_get(sk),
+ 					 (int __user *) argp) ? -EFAULT : 0;
+ 			goto done;
+ 		case SIOCINQ:
+diff -urNBp a/net/atm/proc.c b/net/atm/proc.c
+--- a/net/atm/proc.c
++++ b/net/atm/proc.c
+@@ -219,8 +219,8 @@ static void vcc_info(struct seq_file *se
+ 			seq_printf(seq, "%3d", sk->sk_family);
+ 	}
+ 	seq_printf(seq, " %04lx  %5d %7d/%7d %7d/%7d [%d]\n", vcc->flags, sk->sk_err,
+-		  atomic_read(&sk->sk_wmem_alloc), sk->sk_sndbuf,
+-		  atomic_read(&sk->sk_rmem_alloc), sk->sk_rcvbuf,
++		  sk_wmem_alloc_get(sk), sk->sk_sndbuf,
++		  sk_rmem_alloc_get(sk), sk->sk_rcvbuf,
+ 		  atomic_read(&sk->sk_refcnt));
+ }
+ 
+diff -urNBp a/net/atm/raw.c b/net/atm/raw.c
+--- a/net/atm/raw.c
++++ b/net/atm/raw.c
+@@ -40,8 +40,8 @@ static void atm_pop_raw(struct atm_vcc *
+ {
+ 	struct sock *sk = sk_atm(vcc);
+ 
+-	DPRINTK("APopR (%d) %d -= %d\n", vcc->vci, sk->sk_wmem_alloc,
+-		skb->truesize);
++	DPRINTK("APopR (%d) %d -= %d\n", vcc->vci,
++		sk_wmem_alloc_get(sk), skb->truesize);
+ 	atomic_sub(skb->truesize, &sk->sk_wmem_alloc);
+ 	dev_kfree_skb_any(skb);
+ 	sk->sk_write_space(sk);
+diff -urNBp a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -311,8 +311,7 @@ void ax25_destroy_socket(ax25_cb *ax25)
+ 	}
+ 
+ 	if (ax25->sk != NULL) {
+-		if (atomic_read(&ax25->sk->sk_wmem_alloc) ||
+-		    atomic_read(&ax25->sk->sk_rmem_alloc)) {
++		if (sk_has_allocations(ax25->sk)) {
+ 			/* Defer: outstanding buffers */
+ 			init_timer(&ax25->dtimer);
+ 			ax25->dtimer.expires  = jiffies + 2 * HZ;
+@@ -1684,7 +1683,8 @@ static int ax25_ioctl(struct socket *soc
+ 	switch (cmd) {
+ 	case TIOCOUTQ: {
+ 		long amount;
+-		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
++
++		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+ 		if (amount < 0)
+ 			amount = 0;
+ 		res = put_user(amount, (int __user *)argp);
+@@ -1774,8 +1774,8 @@ static int ax25_ioctl(struct socket *soc
+ 		ax25_info.idletimer = ax25_display_timer(&ax25->idletimer) / (60 * HZ);
+ 		ax25_info.n2count   = ax25->n2count;
+ 		ax25_info.state     = ax25->state;
+-		ax25_info.rcv_q     = atomic_read(&sk->sk_rmem_alloc);
+-		ax25_info.snd_q     = atomic_read(&sk->sk_wmem_alloc);
++		ax25_info.rcv_q     = sk_wmem_alloc_get(sk);
++		ax25_info.snd_q     = sk_rmem_alloc_get(sk);
+ 		ax25_info.vs        = ax25->vs;
+ 		ax25_info.vr        = ax25->vr;
+ 		ax25_info.va        = ax25->va;
+@@ -1914,8 +1914,8 @@ static int ax25_info_show(struct seq_fil
+ 	if (ax25->sk != NULL) {
+ 		bh_lock_sock(ax25->sk);
+ 		seq_printf(seq," %d %d %ld\n",
+-			   atomic_read(&ax25->sk->sk_wmem_alloc),
+-			   atomic_read(&ax25->sk->sk_rmem_alloc),
++			   sk_wmem_alloc_get(ax25->sk),
++			   sk_rmem_alloc_get(ax25->sk),
+ 			   ax25->sk->sk_socket != NULL ? SOCK_INODE(ax25->sk->sk_socket)->i_ino : 0L);
+ 		bh_unlock_sock(ax25->sk);
+ 	} else {
+diff -urNBp a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -887,6 +887,8 @@ struct sock *sk_alloc(int family, gfp_t 
+ 
+ 		if (!try_module_get(prot->owner))
+ 			goto out_free;
++
++		atomic_set(&sk->sk_wmem_alloc, 1);
+ 	}
+ 	return sk;
+ 
+@@ -898,7 +900,7 @@ out_free:
+ 	return NULL;
+ }
+ 
+-void sk_free(struct sock *sk)
++static void __sk_free(struct sock *sk)
+ {
+ 	struct sk_filter *filter;
+ 	struct module *owner = sk->sk_prot_creator->owner;
+@@ -926,6 +928,17 @@ void sk_free(struct sock *sk)
+ 	module_put(owner);
+ }
+ 
++void sk_free(struct sock *sk)
++{
++	/*
++	 * We substract one from sk_wmem_alloc and can know if
++	 * some packets are still in some tx queue.
++	 * If not null, sock_wfree() will call __sk_free(sk) later
++	 */
++	if (atomic_dec_and_test(&sk->sk_wmem_alloc))
++		__sk_free(sk);
++}
++
+ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
+ {
+ 	struct sock *newsk = sk_alloc(sk->sk_family, priority, sk->sk_prot, 0);
+@@ -942,7 +955,10 @@ struct sock *sk_clone(const struct sock 
+ 		newsk->sk_backlog.head	= newsk->sk_backlog.tail = NULL;
+ 
+ 		atomic_set(&newsk->sk_rmem_alloc, 0);
+-		atomic_set(&newsk->sk_wmem_alloc, 0);
++		/*
++		 * sk_wmem_alloc set to one (see sk_free() and sock_wfree())
++		 */
++		atomic_set(&newsk->sk_wmem_alloc, 1);
+ 		atomic_set(&newsk->sk_omem_alloc, 0);
+ 		skb_queue_head_init(&newsk->sk_receive_queue);
+ 		skb_queue_head_init(&newsk->sk_write_queue);
+@@ -1044,12 +1060,23 @@ void __init sk_init(void)
+ void sock_wfree(struct sk_buff *skb)
+ {
+ 	struct sock *sk = skb->sk;
++	unsigned int len = skb->truesize;
+ 
+-	/* In case it might be waiting for more memory. */
+-	atomic_sub(skb->truesize, &sk->sk_wmem_alloc);
+-	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE))
++	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE)) {
++		/*
++		 * Keep a reference on sk_wmem_alloc, this will be released
++		 * after sk_write_space() call
++		 */
++		atomic_sub(len - 1, &sk->sk_wmem_alloc);
+ 		sk->sk_write_space(sk);
+-	sock_put(sk);
++		len = 1;
++	}
++	/*
++	 * if sk_wmem_alloc reaches 0, we must finish what sk_free()
++	 * could not do because of in-flight packets
++	 */
++	if (atomic_sub_and_test(len, &sk->sk_wmem_alloc))
++		__sk_free(sk);
+ }
+ 
+ /*
+diff -urNBp a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -1234,7 +1234,7 @@ static int dn_ioctl(struct socket *sock,
+ 		return val;
+ 
+ 	case TIOCOUTQ:
+-		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
++		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+ 		if (amount < 0)
+ 			amount = 0;
+ 		err = put_user(amount, (int __user *)arg);
+diff -urNBp a/net/econet/af_econet.c b/net/econet/af_econet.c
+--- a/net/econet/af_econet.c
++++ b/net/econet/af_econet.c
+@@ -540,8 +540,7 @@ static void econet_destroy_timer(unsigne
+ {
+ 	struct sock *sk=(struct sock *)data;
+ 
+-	if (!atomic_read(&sk->sk_wmem_alloc) &&
+-	    !atomic_read(&sk->sk_rmem_alloc)) {
++	if (!sk_has_allocations(sk)) {
+ 		sk_free(sk);
+ 		return;
+ 	}
+@@ -581,8 +580,7 @@ static int econet_release(struct socket 
+ 
+ 	skb_queue_purge(&sk->sk_receive_queue);
+ 
+-	if (atomic_read(&sk->sk_rmem_alloc) ||
+-	    atomic_read(&sk->sk_wmem_alloc)) {
++	if (sk_has_allocations(sk)) {
+ 		sk->sk_timer.data     = (unsigned long)sk;
+ 		sk->sk_timer.expires  = jiffies + HZ;
+ 		sk->sk_timer.function = econet_destroy_timer;
+diff -urNBp a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -136,10 +136,10 @@ static int inet_csk_diag_fill(struct soc
+ 	r->idiag_inode = sock_i_ino(sk);
+ 
+ 	if (minfo) {
+-		minfo->idiag_rmem = atomic_read(&sk->sk_rmem_alloc);
++		minfo->idiag_rmem = sk_rmem_alloc_get(sk);
+ 		minfo->idiag_wmem = sk->sk_wmem_queued;
+ 		minfo->idiag_fmem = sk->sk_forward_alloc;
+-		minfo->idiag_tmem = atomic_read(&sk->sk_wmem_alloc);
++		minfo->idiag_tmem = sk_wmem_alloc_get(sk);
+ 	}
+ 
+ 	handler->idiag_get_info(sk, r, info);
+diff -urNBp a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -479,7 +479,6 @@ int ip_fragment(struct sk_buff *skb, int
+ 
+ 			BUG_ON(frag->sk);
+ 			if (skb->sk) {
+-				sock_hold(skb->sk);
+ 				frag->sk = skb->sk;
+ 				frag->destructor = sock_wfree;
+ 			}
+@@ -1213,7 +1212,6 @@ int ip_push_pending_frames(struct sock *
+ 		skb->len += tmp_skb->len;
+ 		skb->data_len += tmp_skb->len;
+ 		skb->truesize += tmp_skb->truesize;
+-		__sock_put(tmp_skb->sk);
+ 		tmp_skb->destructor = NULL;
+ 		tmp_skb->sk = NULL;
+ 	}
+diff -urNBp a/net/ipv4/raw.c b/net/ipv4/raw.c
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -740,7 +740,8 @@ static int raw_ioctl(struct sock *sk, in
+ {
+ 	switch (cmd) {
+ 		case SIOCOUTQ: {
+-			int amount = atomic_read(&sk->sk_wmem_alloc);
++			int amount = sk_wmem_alloc_get(sk);
++
+ 			return put_user(amount, (int __user *)arg);
+ 		}
+ 		case SIOCINQ: {
+@@ -873,8 +874,8 @@ static __inline__ char *get_raw_sock(str
+ 	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
+ 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p",
+ 		i, src, srcp, dest, destp, sp->sk_state,
+-		atomic_read(&sp->sk_wmem_alloc),
+-		atomic_read(&sp->sk_rmem_alloc),
++		sk_wmem_alloc_get(sp),
++		sk_rmem_alloc_get(sp),
+ 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+ 		atomic_read(&sp->sk_refcnt), sp);
+ 	return tmpbuf;
+diff -urNBp a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -795,7 +795,8 @@ int udp_ioctl(struct sock *sk, int cmd, 
+ 	switch (cmd) {
+ 	case SIOCOUTQ:
+ 	{
+-		int amount = atomic_read(&sk->sk_wmem_alloc);
++		int amount = sk_wmem_alloc_get(sk);
++
+ 		return put_user(amount, (int __user *)arg);
+ 	}
+ 
+@@ -1608,8 +1609,8 @@ static void udp4_format_sock(struct sock
+ 	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
+ 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p",
+ 		bucket, src, srcp, dest, destp, sp->sk_state,
+-		atomic_read(&sp->sk_wmem_alloc),
+-		atomic_read(&sp->sk_rmem_alloc),
++		sk_wmem_alloc_get(sp),
++		sk_rmem_alloc_get(sp),
+ 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+ 		atomic_read(&sp->sk_refcnt), sp);
+ }
+diff -urNBp a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -634,7 +634,6 @@ static int ip6_fragment(struct sk_buff *
+ 
+ 			BUG_ON(frag->sk);
+ 			if (skb->sk) {
+-				sock_hold(skb->sk);
+ 				frag->sk = skb->sk;
+ 				frag->destructor = sock_wfree;
+ 			}
+@@ -1382,7 +1381,6 @@ int ip6_push_pending_frames(struct sock 
+ 		skb->len += tmp_skb->len;
+ 		skb->data_len += tmp_skb->len;
+ 		skb->truesize += tmp_skb->truesize;
+-		__sock_put(tmp_skb->sk);
+ 		tmp_skb->destructor = NULL;
+ 		tmp_skb->sk = NULL;
+ 	}
+diff -urNBp a/net/ipv6/raw.c b/net/ipv6/raw.c
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1072,7 +1072,8 @@ static int rawv6_ioctl(struct sock *sk, 
+ 	switch(cmd) {
+ 		case SIOCOUTQ:
+ 		{
+-			int amount = atomic_read(&sk->sk_wmem_alloc);
++			int amount = sk_wmem_alloc_get(sk);
++
+ 			return put_user(amount, (int __user *)arg);
+ 		}
+ 		case SIOCINQ:
+@@ -1247,8 +1248,8 @@ static void raw6_sock_seq_show(struct se
+ 		   dest->s6_addr32[0], dest->s6_addr32[1],
+ 		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
+ 		   sp->sk_state,
+-		   atomic_read(&sp->sk_wmem_alloc),
+-		   atomic_read(&sp->sk_rmem_alloc),
++		   sk_wmem_alloc_get(sp),
++		   sk_rmem_alloc_get(sp),
+ 		   0, 0L, 0,
+ 		   sock_i_uid(sp), 0,
+ 		   sock_i_ino(sp),
+diff -urNBp a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -942,8 +942,8 @@ static void udp6_sock_seq_show(struct se
+ 		   dest->s6_addr32[0], dest->s6_addr32[1],
+ 		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
+ 		   sp->sk_state,
+-		   atomic_read(&sp->sk_wmem_alloc),
+-		   atomic_read(&sp->sk_rmem_alloc),
++		   sk_wmem_alloc_get(sp),
++		   sk_rmem_alloc_get(sp),
+ 		   0, 0L, 0,
+ 		   sock_i_uid(sp), 0,
+ 		   sock_i_ino(sp),
+diff -urNBp a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -1840,7 +1840,7 @@ static int ipx_ioctl(struct socket *sock
+ 
+ 	switch (cmd) {
+ 	case TIOCOUTQ:
+-		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
++		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+ 		if (amount < 0)
+ 			amount = 0;
+ 		rc = put_user(amount, (int __user *)argp);
+diff -urNBp a/net/ipx/ipx_proc.c b/net/ipx/ipx_proc.c
+--- a/net/ipx/ipx_proc.c
++++ b/net/ipx/ipx_proc.c
+@@ -279,8 +279,8 @@ static int ipx_seq_socket_show(struct se
+ 	}
+ 
+ 	seq_printf(seq, "%08X  %08X  %02X     %03d\n",
+-		   atomic_read(&s->sk_wmem_alloc),
+-		   atomic_read(&s->sk_rmem_alloc),
++		   sk_wmem_alloc_get(s),
++		   sk_rmem_alloc_get(s),
+ 		   s->sk_state, SOCK_INODE(s->sk_socket)->i_uid);
+ out:
+ 	return 0;
+diff -urNBp a/net/irda/af_irda.c b/net/irda/af_irda.c
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -1748,7 +1748,8 @@ static int irda_ioctl(struct socket *soc
+ 	switch (cmd) {
+ 	case TIOCOUTQ: {
+ 		long amount;
+-		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
++
++		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+ 		if (amount < 0)
+ 			amount = 0;
+ 		if (put_user(amount, (unsigned int __user *)arg))
+diff -urNBp a/net/key/af_key.c b/net/key/af_key.c
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -3744,8 +3744,8 @@ static int pfkey_read_proc(char *buffer,
+ 		len += sprintf(buffer+len,"%p %-6d %-6u %-6u %-6u %-6lu",
+ 			       s,
+ 			       atomic_read(&s->sk_refcnt),
+-			       atomic_read(&s->sk_rmem_alloc),
+-			       atomic_read(&s->sk_wmem_alloc),
++			       sk_rmem_alloc_get(s),
++			       sk_wmem_alloc_get(s),
+ 			       sock_i_uid(s),
+ 			       sock_i_ino(s)
+ 			       );
+diff -urNBp a/net/llc/llc_proc.c b/net/llc/llc_proc.c
+--- a/net/llc/llc_proc.c
++++ b/net/llc/llc_proc.c
+@@ -132,8 +132,8 @@ static int llc_seq_socket_show(struct se
+ 	seq_printf(seq, "@%02X ", llc->sap->laddr.lsap);
+ 	llc_ui_format_mac(seq, llc->daddr.mac);
+ 	seq_printf(seq, "@%02X %8d %8d %2d %3d %4d\n", llc->daddr.lsap,
+-		   atomic_read(&sk->sk_wmem_alloc),
+-		   atomic_read(&sk->sk_rmem_alloc) - llc->copied_seq,
++		   sk_wmem_alloc_get(sk),
++		   sk_rmem_alloc_get(sk) - llc->copied_seq,
+ 		   sk->sk_state,
+ 		   sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_uid : -1,
+ 		   llc->link);
+diff -urNBp a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1794,8 +1794,8 @@ static int netlink_seq_show(struct seq_f
+ 			   s->sk_protocol,
+ 			   nlk->pid,
+ 			   nlk->groups ? (u32)nlk->groups[0] : 0,
+-			   atomic_read(&s->sk_rmem_alloc),
+-			   atomic_read(&s->sk_wmem_alloc),
++			   sk_rmem_alloc_get(s),
++			   sk_wmem_alloc_get(s),
+ 			   nlk->cb,
+ 			   atomic_read(&s->sk_refcnt)
+ 			);
+diff -urNBp a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+--- a/net/netrom/af_netrom.c
++++ b/net/netrom/af_netrom.c
+@@ -268,8 +268,7 @@ void nr_destroy_socket(struct sock *sk)
+ 		kfree_skb(skb);
+ 	}
+ 
+-	if (atomic_read(&sk->sk_wmem_alloc) ||
+-	    atomic_read(&sk->sk_rmem_alloc)) {
++	if (sk_has_allocations(sk)) {
+ 		/* Defer: outstanding buffers */
+ 		sk->sk_timer.function = nr_destroy_timer;
+ 		sk->sk_timer.expires  = jiffies + 2 * HZ;
+@@ -1183,7 +1182,7 @@ static int nr_ioctl(struct socket *sock,
+ 		long amount;
+ 
+ 		lock_sock(sk);
+-		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
++		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+ 		if (amount < 0)
+ 			amount = 0;
+ 		release_sock(sk);
+@@ -1319,8 +1318,8 @@ static int nr_info_show(struct seq_file 
+ 			nr->n2count,
+ 			nr->n2,
+ 			nr->window,
+-			atomic_read(&s->sk_wmem_alloc),
+-			atomic_read(&s->sk_rmem_alloc),
++			sk_wmem_alloc_get(s),
++			sk_rmem_alloc_get(s),
+ 			s->sk_socket ? SOCK_INODE(s->sk_socket)->i_ino : 0L);
+ 
+ 		bh_unlock_sock(s);
+diff -urNBp a/net/packet/af_packet.c b/net/packet/af_packet.c
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1517,7 +1517,8 @@ static int packet_ioctl(struct socket *s
+ 	switch(cmd) {
+ 		case SIOCOUTQ:
+ 		{
+-			int amount = atomic_read(&sk->sk_wmem_alloc);
++			int amount = sk_wmem_alloc_get(sk);
++
+ 			return put_user(amount, (int __user *)arg);
+ 		}
+ 		case SIOCINQ:
+diff -urNBp a/net/rose/af_rose.c b/net/rose/af_rose.c
+--- a/net/rose/af_rose.c
++++ b/net/rose/af_rose.c
+@@ -338,8 +338,7 @@ void rose_destroy_socket(struct sock *sk
+ 		kfree_skb(skb);
+ 	}
+ 
+-	if (atomic_read(&sk->sk_wmem_alloc) ||
+-	    atomic_read(&sk->sk_rmem_alloc)) {
++	if (sk_has_allocations(sk)) {
+ 		/* Defer: outstanding buffers */
+ 		init_timer(&sk->sk_timer);
+ 		sk->sk_timer.expires  = jiffies + 10 * HZ;
+@@ -1277,7 +1276,8 @@ static int rose_ioctl(struct socket *soc
+ 	switch (cmd) {
+ 	case TIOCOUTQ: {
+ 		long amount;
+-		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
++
++		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+ 		if (amount < 0)
+ 			amount = 0;
+ 		return put_user(amount, (unsigned int __user *) argp);
+@@ -1446,8 +1446,8 @@ static int rose_info_show(struct seq_fil
+ 			rose->hb / HZ,
+ 			ax25_display_timer(&rose->idletimer) / (60 * HZ),
+ 			rose->idle / (60 * HZ),
+-			atomic_read(&s->sk_wmem_alloc),
+-			atomic_read(&s->sk_rmem_alloc),
++			sk_wmem_alloc_get(s),
++			sk_rmem_alloc_get(s),
+ 			s->sk_socket ? SOCK_INODE(s->sk_socket)->i_ino : 0L);
+ 	}
+ 
+diff -urNBp a/net/sched/em_meta.c b/net/sched/em_meta.c
+--- a/net/sched/em_meta.c
++++ b/net/sched/em_meta.c
+@@ -331,13 +331,13 @@ META_COLLECTOR(int_sk_type)
+ META_COLLECTOR(int_sk_rmem_alloc)
+ {
+ 	SKIP_NONLOCAL(skb);
+-	dst->value = atomic_read(&skb->sk->sk_rmem_alloc);
++	dst->value = sk_rmem_alloc_get(skb->sk);
+ }
+ 
+ META_COLLECTOR(int_sk_wmem_alloc)
+ {
+ 	SKIP_NONLOCAL(skb);
+-	dst->value = atomic_read(&skb->sk->sk_wmem_alloc);
++	dst->value = sk_wmem_alloc_get(skb->sk);
+ }
+ 
+ META_COLLECTOR(int_sk_omem_alloc)
+diff -urNBp a/net/sctp/socket.c b/net/sctp/socket.c
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -120,7 +120,7 @@ static inline int sctp_wspace(struct sct
+ 		amt = sk->sk_sndbuf - asoc->sndbuf_used;
+ 	} else {
+ 		/* do socket level accounting */
+-		amt = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
++		amt = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+ 	}
+ 
+ 	if (amt < 0)
+@@ -5851,7 +5851,7 @@ static int sctp_writeable(struct sock *s
+ {
+ 	int amt = 0;
+ 
+-	amt = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
++	amt = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+ 	if (amt < 0)
+ 		amt = 0;
+ 	return amt;
+diff -urNBp a/net/unix/af_unix.c b/net/unix/af_unix.c
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1926,7 +1926,7 @@ static int unix_ioctl(struct socket *soc
+ 	switch(cmd)
+ 	{
+ 		case SIOCOUTQ:
+-			amount = atomic_read(&sk->sk_wmem_alloc);
++			amount = sk_wmem_alloc_get(sk);
+ 			err = put_user(amount, (int __user *)arg);
+ 			break;
+ 		case SIOCINQ:
+diff -urNBp a/net/x25/af_x25.c b/net/x25/af_x25.c
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -371,8 +371,7 @@ void x25_destroy_socket(struct sock *sk)
+ 		kfree_skb(skb);
+ 	}
+ 
+-	if (atomic_read(&sk->sk_wmem_alloc) ||
+-	    atomic_read(&sk->sk_rmem_alloc)) {
++	if (sk_has_allocations(sk)) {
+ 		/* Defer: outstanding buffers */
+ 		sk->sk_timer.expires  = jiffies + 10 * HZ;
+ 		sk->sk_timer.function = x25_destroy_timer;
+@@ -1253,8 +1252,8 @@ static int x25_ioctl(struct socket *sock
+ 
+ 	switch (cmd) {
+ 		case TIOCOUTQ: {
+-			int amount = sk->sk_sndbuf -
+-				     atomic_read(&sk->sk_wmem_alloc);
++			int amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
++
+ 			if (amount < 0)
+ 				amount = 0;
+ 			rc = put_user(amount, (unsigned int __user *)argp);
+diff -urNBp a/net/x25/x25_proc.c b/net/x25/x25_proc.c
+--- a/net/x25/x25_proc.c
++++ b/net/x25/x25_proc.c
+@@ -158,8 +158,8 @@ static int x25_seq_socket_show(struct se
+ 		   devname, x25->lci & 0x0FFF, x25->state, x25->vs, x25->vr,
+ 		   x25->va, x25_display_timer(s) / HZ, x25->t2  / HZ,
+ 		   x25->t21 / HZ, x25->t22 / HZ, x25->t23 / HZ,
+-		   atomic_read(&s->sk_wmem_alloc),
+-		   atomic_read(&s->sk_rmem_alloc),
++		   sk_wmem_alloc_get(s),
++		   sk_rmem_alloc_get(s),
+ 		   s->sk_socket ? SOCK_INODE(s->sk_socket)->i_ino : 0L);
+ out:
+ 	return 0;
+-- 

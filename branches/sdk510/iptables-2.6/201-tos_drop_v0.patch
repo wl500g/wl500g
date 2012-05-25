@@ -1,0 +1,228 @@
+diff -urBp iptables/extensions/libxt_tos.c iptables.tos/extensions/libxt_tos.c
+--- iptables/extensions/libxt_tos.c	2012-03-09 18:03:22.000000000 +0400
++++ iptables.tos/extensions/libxt_tos.c	2012-03-09 18:02:41.000000000 +0400
+@@ -42,30 +42,6 @@ static void tos_mt_help(void)
+ 	printf("\n");
+ }
+ 
+-static int tos_mt_parse_v0(int c, char **argv, int invert, unsigned int *flags,
+-                           const void *entry, struct xt_entry_match **match)
+-{
+-	struct ipt_tos_info *info = (void *)(*match)->data;
+-	struct tos_value_mask tvm;
+-
+-	switch (c) {
+-	case 't':
+-		xtables_param_act(XTF_ONLY_ONCE, "tos", "--tos", *flags & FLAG_TOS);
+-		if (!tos_parse_symbolic(optarg, &tvm, 0xFF))
+-			xtables_param_act(XTF_BAD_VALUE, "tos", "--tos", optarg);
+-		if (tvm.mask != 0xFF)
+-			xtables_error(PARAMETER_PROBLEM, "tos: Your kernel is "
+-			           "too old to support anything besides /0xFF "
+-				   "as a mask.");
+-		info->tos = tvm.value;
+-		if (invert)
+-			info->invert = true;
+-		*flags |= FLAG_TOS;
+-		return true;
+-	}
+-	return false;
+-}
+-
+ static int tos_mt_parse(int c, char **argv, int invert, unsigned int *flags,
+                         const void *entry, struct xt_entry_match **match)
+ {
+@@ -94,18 +70,6 @@ static void tos_mt_check(unsigned int fl
+ 		           "tos: --tos parameter required");
+ }
+ 
+-static void tos_mt_print_v0(const void *ip, const struct xt_entry_match *match,
+-                            int numeric)
+-{
+-	const struct ipt_tos_info *info = (const void *)match->data;
+-
+-	printf("tos match ");
+-	if (info->invert)
+-		printf("!");
+-	if (numeric || !tos_try_print_symbolic("", info->tos, 0x3F))
+-		printf("0x%02x ", info->tos);
+-}
+-
+ static void tos_mt_print(const void *ip, const struct xt_entry_match *match,
+                          int numeric)
+ {
+@@ -119,15 +83,6 @@ static void tos_mt_print(const void *ip,
+ 		printf("0x%02x/0x%02x ", info->tos_value, info->tos_mask);
+ }
+ 
+-static void tos_mt_save_v0(const void *ip, const struct xt_entry_match *match)
+-{
+-	const struct ipt_tos_info *info = (const void *)match->data;
+-
+-	if (info->invert)
+-		printf("! ");
+-	printf("--tos 0x%02x ", info->tos);
+-}
+-
+ static void tos_mt_save(const void *ip, const struct xt_entry_match *match)
+ {
+ 	const struct xt_tos_match_info *info = (const void *)match->data;
+@@ -137,21 +92,6 @@ static void tos_mt_save(const void *ip,
+ 	printf("--tos 0x%02x/0x%02x ", info->tos_value, info->tos_mask);
+ }
+ 
+-static struct xtables_match tos_mt_reg_v0 = {
+-	.version       = XTABLES_VERSION,
+-	.name          = "tos",
+-	.family        = NFPROTO_IPV4,
+-	.revision      = 0,
+-	.size          = XT_ALIGN(sizeof(struct ipt_tos_info)),
+-	.userspacesize = XT_ALIGN(sizeof(struct ipt_tos_info)),
+-	.help          = tos_mt_help,
+-	.parse         = tos_mt_parse_v0,
+-	.final_check   = tos_mt_check,
+-	.print         = tos_mt_print_v0,
+-	.save          = tos_mt_save_v0,
+-	.extra_opts    = tos_mt_opts,
+-};
+-
+ static struct xtables_match tos_mt_reg = {
+ 	.version       = XTABLES_VERSION,
+ 	.name          = "tos",
+@@ -169,6 +109,5 @@ static struct xtables_match tos_mt_reg =
+ 
+ void _init(void)
+ {
+-	xtables_register_match(&tos_mt_reg_v0);
+ 	xtables_register_match(&tos_mt_reg);
+ }
+diff -urBp iptables/extensions/libxt_TOS.c iptables.tos/extensions/libxt_TOS.c
+--- iptables/extensions/libxt_TOS.c	2012-03-09 18:03:22.000000000 +0400
++++ iptables.tos/extensions/libxt_TOS.c	2012-03-09 18:02:01.000000000 +0400
+@@ -19,11 +19,6 @@ enum {
+ 	FLAG_TOS = 1 << 0,
+ };
+ 
+-static const struct option tos_tg_opts_v0[] = {
+-	{.name = "set-tos", .has_arg = true, .val = '='},
+-	{ .name = NULL }
+-};
+-
+ static const struct option tos_tg_opts[] = {
+ 	{.name = "set-tos", .has_arg = true, .val = '='},
+ 	{.name = "and-tos", .has_arg = true, .val = '&'},
+@@ -32,23 +27,6 @@ static const struct option tos_tg_opts[]
+ 	{ .name = NULL }
+ };
+ 
+-static void tos_tg_help_v0(void)
+-{
+-	const struct tos_symbol_info *symbol;
+-
+-	printf(
+-"TOS target options:\n"
+-"  --set-tos value     Set Type of Service/Priority field to value\n"
+-"  --set-tos symbol    Set TOS field (IPv4 only) by symbol\n"
+-"                      Accepted symbolic names for value are:\n");
+-
+-	for (symbol = tos_symbol_names; symbol->name != NULL; ++symbol)
+-		printf("                        (0x%02x) %2u %s\n",
+-		       symbol->value, symbol->value, symbol->name);
+-
+-	printf("\n");
+-}
+-
+ static void tos_tg_help(void)
+ {
+ 	const struct tos_symbol_info *symbol;
+@@ -74,30 +52,6 @@ XTABLES_VERSION);
+ );
+ }
+ 
+-static int tos_tg_parse_v0(int c, char **argv, int invert, unsigned int *flags,
+-                           const void *entry, struct xt_entry_target **target)
+-{
+-	struct ipt_tos_target_info *info = (void *)(*target)->data;
+-	struct tos_value_mask tvm;
+-
+-	switch (c) {
+-	case '=':
+-		xtables_param_act(XTF_ONLY_ONCE, "TOS", "--set-tos", *flags & FLAG_TOS);
+-		xtables_param_act(XTF_NO_INVERT, "TOS", "--set-tos", invert);
+-		if (!tos_parse_symbolic(optarg, &tvm, 0xFF))
+-			xtables_param_act(XTF_BAD_VALUE, "TOS", "--set-tos", optarg);
+-		if (tvm.mask != 0xFF)
+-			xtables_error(PARAMETER_PROBLEM, "tos match: Your kernel "
+-			           "is too old to support anything besides "
+-				   "/0xFF as a mask.");
+-		info->tos = tvm.value;
+-		*flags |= FLAG_TOS;
+-		return true;
+-	}
+-
+-	return false;
+-}
+-
+ static int tos_tg_parse(int c, char **argv, int invert, unsigned int *flags,
+                          const void *entry, struct xt_entry_target **target)
+ {
+@@ -157,16 +111,6 @@ static void tos_tg_check(unsigned int fl
+ 		           "TOS: The --set-tos parameter is required");
+ }
+ 
+-static void tos_tg_print_v0(const void *ip,
+-                            const struct xt_entry_target *target, int numeric)
+-{
+-	const struct ipt_tos_target_info *info = (const void *)target->data;
+-
+-	printf("TOS set ");
+-	if (numeric || !tos_try_print_symbolic("", info->tos, 0xFF))
+-		printf("0x%02x ", info->tos);
+-}
+-
+ static void tos_tg_print(const void *ip, const struct xt_entry_target *target,
+                          int numeric)
+ {
+@@ -191,13 +135,6 @@ static void tos_tg_print(const void *ip,
+ 		       info->tos_value, info->tos_mask);
+ }
+ 
+-static void tos_tg_save_v0(const void *ip, const struct xt_entry_target *target)
+-{
+-	const struct ipt_tos_target_info *info = (const void *)target->data;
+-
+-	printf("--set-tos 0x%02x ", info->tos);
+-}
+-
+ static void tos_tg_save(const void *ip, const struct xt_entry_target *target)
+ {
+ 	const struct xt_tos_target_info *info = (const void *)target->data;
+@@ -205,21 +142,6 @@ static void tos_tg_save(const void *ip,
+ 	printf("--set-tos 0x%02x/0x%02x ", info->tos_value, info->tos_mask);
+ }
+ 
+-static struct xtables_target tos_tg_reg_v0 = {
+-	.version       = XTABLES_VERSION,
+-	.name          = "TOS",
+-	.revision      = 0,
+-	.family        = NFPROTO_IPV4,
+-	.size          = XT_ALIGN(sizeof(struct xt_tos_target_info)),
+-	.userspacesize = XT_ALIGN(sizeof(struct xt_tos_target_info)),
+-	.help          = tos_tg_help_v0,
+-	.parse         = tos_tg_parse_v0,
+-	.final_check   = tos_tg_check,
+-	.print         = tos_tg_print_v0,
+-	.save          = tos_tg_save_v0,
+-	.extra_opts    = tos_tg_opts_v0,
+-};
+-
+ static struct xtables_target tos_tg_reg = {
+ 	.version       = XTABLES_VERSION,
+ 	.name          = "TOS",
+@@ -237,6 +159,5 @@ static struct xtables_target tos_tg_reg
+ 
+ void _init(void)
+ {
+-	xtables_register_target(&tos_tg_reg_v0);
+ 	xtables_register_target(&tos_tg_reg);
+ }

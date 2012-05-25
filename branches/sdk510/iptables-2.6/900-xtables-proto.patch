@@ -1,0 +1,37 @@
+From: Pablo Neira Ayuso
+Date: Tue, 12 May 2009 07:51:26 +0000 (+0200)
+Subject: xtables: fix segfault if incorrect protocol name is used
+X-Git-Tag: v1.4.4~16
+X-Git-Url: https://git.netfilter.org/cgi-bin/gitweb.cgi?p=iptables.git;a=commitdiff_plain;h=e55cc4aaa6e35448c14370e5261c3387d26b257d
+
+xtables: fix segfault if incorrect protocol name is used
+
+This patch fixes a segfault that can be triggered if you use an
+incorrect protocol, e.g.
+
+# iptables -I PREROUTING -t nat -p lalala --dport 21 -j DNAT --to 192.168.1.2:21
+Segmentation fault
+
+With this patch:
+
+# iptables -I PREROUTING -t nat -p lalala --dport 21 -j DNAT --to 192.168.1.2:21
+iptables v1.4.3.2: unknown protocol `lala' specified
+Try `iptables -h' or 'iptables --help' for more information
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+
+diff --git a/xtables.c b/xtables.c
+index a01d4ea..e018331 100644
+--- a/xtables.c
++++ b/xtables.c
+@@ -1502,6 +1502,9 @@ xtables_parse_protocol(const char *s)
+ 		else {
+ 			unsigned int i;
+ 			for (i = 0; i < ARRAY_SIZE(xtables_chain_protos); ++i) {
++				if (xtables_chain_protos[i].name == NULL)
++					continue;
++
+ 				if (strcmp(s, xtables_chain_protos[i].name) == 0) {
+ 					proto = xtables_chain_protos[i].num;
+ 					break;

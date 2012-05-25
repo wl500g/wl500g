@@ -1,0 +1,887 @@
+fs: new helper: d_obtain_alias()
+
+ 4ea3ada2955e4519befa98ff55dd62d6dfbd1705 new helper: d_obtain_alias
+ 440037287c5ebb07033ab927ca16bb68c291d309 switch all filesystems over to d_obtain_alias
+ 3856d30ded1fe43c6657927ebad402d25cd128f4 ext4: remove unused variable in ext4_get_parent
+ a4f4d6df537368297a84e6b9444f403f99bf59f6 EXPORTFS: handle NULL returns from  fh_to_dentry()/fh_to_parent()
+ adc487204a9373d2b5a535412466326036147a72 EXPORT_SYMBOL(d_obtain_alias) rather than EXPORT_SYMBOL_GPL
+ 9308a6128d9074e348d9f9b5822546fe12a794a9 kill d_alloc_anon
+ 4919c5e45a91b5db5a41695fe0357fbdff0d5767 fix race in d_splice_alias()
+ d891eedbc3b1b0fade8a9ce60cc0eba1cccb59e5 fs/dcache: allow d_obtain_alias() to return unhashed dentries
+
+---
+ fs/dcache.c                   |  114 +++++++++++++++++++++++++-----------------
+ fs/efs/namei.c                |   28 +---------
+ fs/ext2/namei.c               |   13 ----
+ fs/ext3/namei.c               |   14 -----
+ fs/ext4/namei.c               |   12 ----
+ fs/fat/inode.c                |   52 ++++++-------------
+ fs/fuse/inode.c               |   23 ++------
+ fs/gfs2/ops_export.c          |   33 +++---------
+ fs/isofs/export.c             |   31 +----------
+ fs/jfs/namei.c                |   18 ------
+ fs/nfs/getroot.c              |   14 ++---
+ fs/ntfs/namei.c               |   22 --------
+ fs/ocfs2/export.c             |   30 ++---------
+ fs/reiserfs/inode.c           |   13 ----
+ fs/reiserfs/namei.c           |   11 ----
+ fs/xfs/linux-2.6/xfs_export.c |   32 +----------
+ fs/xfs/linux-2.6/xfs_ioctl.c  |    7 +-
+ include/linux/dcache.h        |    2 
+ 18 files changed, 140 insertions(+), 329 deletions(-)
+
+diff --git a/fs/dcache.c b/fs/dcache.c
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -1094,70 +1094,94 @@ static inline struct hlist_head *d_hash(
+ 	return dentry_hashtable + (hash & D_HASHMASK);
+ }
+ 
++static struct dentry * __d_find_any_alias(struct inode *inode)
++{
++	struct dentry *alias;
++
++	if (list_empty(&inode->i_dentry))
++		return NULL;
++	alias = list_first_entry(&inode->i_dentry, struct dentry, d_alias);
++	__dget_locked(alias);
++	return alias;
++}
++
++static struct dentry * d_find_any_alias(struct inode *inode)
++{
++	struct dentry *de;
++
++	spin_lock(&dcache_lock);
++	de = __d_find_any_alias(inode);
++	spin_unlock(&dcache_lock);
++	return de;
++}
++
++
+ /**
+- * d_alloc_anon - allocate an anonymous dentry
++ * d_obtain_alias - find or allocate a dentry for a given inode
+  * @inode: inode to allocate the dentry for
+  *
+- * This is similar to d_alloc_root.  It is used by filesystems when
+- * creating a dentry for a given inode, often in the process of 
+- * mapping a filehandle to a dentry.  The returned dentry may be
+- * anonymous, or may have a full name (if the inode was already
+- * in the cache).  The file system may need to make further
+- * efforts to connect this dentry into the dcache properly.
+- *
+- * When called on a directory inode, we must ensure that
+- * the inode only ever has one dentry.  If a dentry is
+- * found, that is returned instead of allocating a new one.
++ * Obtain a dentry for an inode resulting from NFS filehandle conversion or
++ * similar open by handle operations.  The returned dentry may be anonymous,
++ * or may have a full name (if the inode was already in the cache).
++ *
++ * When called on a directory inode, we must ensure that the inode only ever
++ * has one dentry.  If a dentry is found, that is returned instead of
++ * allocating a new one.
+  *
+  * On successful return, the reference to the inode has been transferred
+- * to the dentry.  If %NULL is returned (indicating kmalloc failure),
+- * the reference on the inode has not been released.
++ * to the dentry.  In case of an error the reference on the inode is released.
++ * To make it easier to use in export operations a %NULL or IS_ERR inode may
++ * be passed in and will be the error will be propagate to the return value,
++ * with a %NULL @inode replaced by ERR_PTR(-ESTALE).
+  */
+-
+-struct dentry * d_alloc_anon(struct inode *inode)
++struct dentry *d_obtain_alias(struct inode *inode)
+ {
+ 	static const struct qstr anonstring = { .name = "" };
+ 	struct dentry *tmp;
+ 	struct dentry *res;
+ 
+-	if ((res = d_find_alias(inode))) {
+-		iput(inode);
+-		return res;
+-	}
++	if (!inode)
++		return ERR_PTR(-ESTALE);
++	if (IS_ERR(inode))
++		return ERR_CAST(inode);
++
++	res = d_find_any_alias(inode);
++	if (res)
++		goto out_iput;
+ 
+ 	tmp = d_alloc(NULL, &anonstring);
+-	if (!tmp)
+-		return NULL;
+-
++	if (!tmp) {
++		res = ERR_PTR(-ENOMEM);
++		goto out_iput;
++	}
+ 	tmp->d_parent = tmp; /* make sure dput doesn't croak */
+-	
+-	spin_lock(&dcache_lock);
+-	res = __d_find_alias(inode, 0);
+-	if (!res) {
+-		/* attach a disconnected dentry */
+-		res = tmp;
+-		tmp = NULL;
+-		spin_lock(&res->d_lock);
+-		res->d_sb = inode->i_sb;
+-		res->d_parent = res;
+-		res->d_inode = inode;
+-		res->d_flags |= DCACHE_DISCONNECTED;
+-		res->d_flags &= ~DCACHE_UNHASHED;
+-		list_add(&res->d_alias, &inode->i_dentry);
+-		hlist_add_head(&res->d_hash, &inode->i_sb->s_anon);
+-		spin_unlock(&res->d_lock);
+ 
+-		inode = NULL; /* don't drop reference */
++	spin_lock(&dcache_lock);
++	res = __d_find_any_alias(inode);
++	if (res) {
++		spin_unlock(&dcache_lock);
++		dput(tmp);
++		goto out_iput;
+ 	}
++
++	/* attach a disconnected dentry */
++	spin_lock(&tmp->d_lock);
++	tmp->d_sb = inode->i_sb;
++	tmp->d_inode = inode;
++	tmp->d_flags |= DCACHE_DISCONNECTED;
++	tmp->d_flags &= ~DCACHE_UNHASHED;
++	list_add(&tmp->d_alias, &inode->i_dentry);
++	hlist_add_head(&tmp->d_hash, &inode->i_sb->s_anon);
++	spin_unlock(&tmp->d_lock);
++
+ 	spin_unlock(&dcache_lock);
++	return tmp;
+ 
+-	if (inode)
+-		iput(inode);
+-	if (tmp)
+-		dput(tmp);
++ out_iput:
++	iput(inode);
+ 	return res;
+ }
+-
++EXPORT_SYMBOL(d_obtain_alias);
+ 
+ /**
+  * d_splice_alias - splice a disconnected dentry into the tree if one exists
+@@ -1187,7 +1211,6 @@ struct dentry *d_splice_alias(struct ino
+ 			fsnotify_d_instantiate(new, inode);
+ 			spin_unlock(&dcache_lock);
+ 			security_d_instantiate(new, inode);
+-			d_rehash(dentry);
+ 			d_move(new, dentry);
+ 			iput(inode);
+ 		} else {
+@@ -2275,7 +2298,6 @@ void __init vfs_caches_init(unsigned lon
+ }
+ 
+ EXPORT_SYMBOL(d_alloc);
+-EXPORT_SYMBOL(d_alloc_anon);
+ EXPORT_SYMBOL(d_alloc_root);
+ EXPORT_SYMBOL(d_delete);
+ EXPORT_SYMBOL(d_find_alias);
+diff --git a/fs/efs/namei.c b/fs/efs/namei.c
+--- a/fs/efs/namei.c
++++ b/fs/efs/namei.c
+@@ -112,34 +112,14 @@ struct dentry *efs_fh_to_parent(struct super_block *sb, struct fid *fid,
+ 
+ struct dentry *efs_get_parent(struct dentry *child)
+ {
+-	struct dentry *parent;
+-	struct inode *inode;
++	struct dentry *parent = ERR_PTR(-ENOENT);
+ 	efs_ino_t ino;
+-	int error;
+ 
+ 	lock_kernel();
+-
+-	error = -ENOENT;
+ 	ino = efs_find_entry(child->d_inode, "..", 2);
+-	if (!ino)
+-		goto fail;
+-
+-	error = -EACCES;
+-	inode = iget(child->d_inode->i_sb, ino);
+-	if (!inode)
+-		goto fail;
+-
+-	error = -ENOMEM;
+-	parent = d_alloc_anon(inode);
+-	if (!parent)
+-		goto fail_iput;
+-
++	if (ino)
++		parent = d_obtain_alias(efs_iget(child->d_inode->i_sb, ino));
+ 	unlock_kernel();
+-	return parent;
+ 
+- fail_iput:
+-	iput(inode);
+- fail:
+-	unlock_kernel();
+-	return ERR_PTR(error);
++	return parent;
+ }
+diff --git a/fs/ext2/namei.c b/fs/ext2/namei.c
+--- a/fs/ext2/namei.c
++++ b/fs/ext2/namei.c
+@@ -73,8 +73,6 @@ static struct dentry *ext2_lookup(struct inode * dir, struct dentry *dentry, str
+ struct dentry *ext2_get_parent(struct dentry *child)
+ {
+ 	unsigned long ino;
+-	struct dentry *parent;
+-	struct inode *inode;
+ 	struct dentry dotdot;
+ 
+ 	dotdot.d_name.name = "..";
+@@ -83,16 +81,7 @@ struct dentry *ext2_get_parent(struct dentry *child)
+ 	ino = ext2_inode_by_name(child->d_inode, &dotdot);
+ 	if (!ino)
+ 		return ERR_PTR(-ENOENT);
+-	inode = iget(child->d_inode->i_sb, ino);
+-
+-	if (!inode)
+-		return ERR_PTR(-EACCES);
+-	parent = d_alloc_anon(inode);
+-	if (!parent) {
+-		iput(inode);
+-		parent = ERR_PTR(-ENOMEM);
+-	}
+-	return parent;
++	return d_obtain_alias(iget(child->d_inode->i_sb, ino));
+ } 
+ 
+ /*
+diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
+--- a/fs/ext3/namei.c
++++ b/fs/ext3/namei.c
+@@ -1057,8 +1057,6 @@ static struct dentry *ext3_lookup(struct inode * dir, struct dentry *dentry, str
+ struct dentry *ext3_get_parent(struct dentry *child)
+ {
+ 	unsigned long ino;
+-	struct dentry *parent;
+-	struct inode *inode;
+ 	struct qstr dotdot = {.name = "..", .len = 2};
+ 	struct ext3_dir_entry_2 * de;
+ 	struct buffer_head *bh;
+@@ -1068,7 +1066,6 @@ struct dentry *ext3_get_parent(struct dentry *child)
+ 	dotdot.d_parent = child; /* confusing, isn't it! */
+ 
+ 	bh = ext3_find_entry(child->d_inode, &dotdot, &de);
+-	inode = NULL;
+ 	if (!bh)
+ 		return ERR_PTR(-ENOENT);
+ 	ino = le32_to_cpu(de->inode);
+@@ -1080,16 +1077,7 @@ struct dentry *ext3_get_parent(struct dentry *child)
+ 		return ERR_PTR(-EIO);
+ 	}
+ 
+-	inode = ext3_iget(child->d_inode->i_sb, ino);
+-	if (IS_ERR(inode))
+-		return ERR_CAST(inode);
+-
+-	parent = d_alloc_anon(inode);
+-	if (!parent) {
+-		iput(inode);
+-		parent = ERR_PTR(-ENOMEM);
+-	}
+-	return parent;
++	return d_obtain_alias(ext3_iget(child->d_inode->i_sb, ino));
+ }
+ 
+ #define S_SHIFT 12
+diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
+--- a/fs/ext4/namei.c
++++ b/fs/ext4/namei.c
+@@ -1061,7 +1061,6 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, stru
+ struct dentry *ext4_get_parent(struct dentry *child)
+ {
+ 	__u32 ino;
+-	struct dentry *parent;
+ 	struct inode *inode;
+ 	static const struct qstr dotdot = {
+ 		.name = "..",
+@@ -1083,16 +1083,7 @@ struct dentry *ext4_get_parent(struct dentry *child)
+ 		return ERR_PTR(-EIO);
+ 	}
+ 
+-	inode = ext4_iget(child->d_inode->i_sb, ino);
+-	if (IS_ERR(inode))
+-		return ERR_CAST(inode);
+-
+-	parent = d_alloc_anon(inode);
+-	if (!parent) {
+-		iput(inode);
+-		parent = ERR_PTR(-ENOMEM);
+-	}
+-	return parent;
++	return d_obtain_alias(ext4_iget(child->d_inode->i_sb, ino));
+ }
+ 
+ #define S_SHIFT 12
+diff --git a/fs/fat/inode.c b/fs/fat/inode.c
+--- a/fs/fat/inode.c
++++ b/fs/fat/inode.c
+@@ -681,33 +681,24 @@ static struct dentry *fat_fh_to_dentry(struct super_block *sb,
+ 			inode = NULL;
+ 		}
+ 	}
+-	if (!inode) {
+-		/* For now, do nothing
+-		 * What we could do is:
+-		 * follow the file starting at fh[4], and record
+-		 * the ".." entry, and the name of the fh[2] entry.
+-		 * The follow the ".." file finding the next step up.
+-		 * This way we build a path to the root of
+-		 * the tree. If this works, we lookup the path and so
+-		 * get this inode into the cache.
+-		 * Finally try the fat_iget lookup again
+-		 * If that fails, then weare totally out of luck
+-		 * But all that is for another day
+-		 */
+-	}
+-	if (!inode)
+-		return ERR_PTR(-ESTALE);
+-
+ 
+-	/* now to find a dentry.
+-	 * If possible, get a well-connected one
++	/*
++	 * For now, do nothing if the inode is not found.
++	 *
++	 * What we could do is:
++	 *
++	 *	- follow the file starting at fh[4], and record the ".." entry,
++	 *	  and the name of the fh[2] entry.
++	 *	- then follow the ".." file finding the next step up.
++	 *
++	 * This way we build a path to the root of the tree. If this works, we
++	 * lookup the path and so get this inode into the cache.  Finally try
++	 * the fat_iget lookup again.  If that fails, then we are totally out
++	 * of luck.  But all that is for another day
+ 	 */
+-	result = d_alloc_anon(inode);
+-	if (result == NULL) {
+-		iput(inode);
+-		return ERR_PTR(-ENOMEM);
+-	}
+-	result->d_op = sb->s_root->d_op;
++	result = d_obtain_alias(inode);
++	if (!IS_ERR(result))
++		result->d_op = sb->s_root->d_op;
+ 	return result;
+ }
+ 
+@@ -754,15 +745,8 @@ static struct dentry *fat_get_parent(struct dentry *child)
+ 	}
+ 	inode = fat_build_inode(sb, de, i_pos);
+ 	brelse(bh);
+-	if (IS_ERR(inode)) {
+-		parent = ERR_PTR(PTR_ERR(inode));
+-		goto out;
+-	}
+-	parent = d_alloc_anon(inode);
+-	if (!parent) {
+-		iput(inode);
+-		parent = ERR_PTR(-ENOMEM);
+-	}
++
++	parent = d_obtain_alias(inode);
+ out:
+ 	unlock_super(sb);
+ 
+diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
+--- a/fs/fuse/inode.c
++++ b/fs/fuse/inode.c
+@@ -596,12 +596,8 @@ static struct dentry *fuse_get_dentry(struct super_block *sb,
+ 	if (inode->i_generation != handle->generation)
+ 		goto out_iput;
+ 
+-	entry = d_alloc_anon(inode);
+-	err = -ENOMEM;
+-	if (!entry)
+-		goto out_iput;
+-
+-	if (get_node_id(inode) != FUSE_ROOT_ID) {
++	entry = d_obtain_alias(inode);
++	if (!IS_ERR(entry) && get_node_id(inode) != FUSE_ROOT_ID) {
+ 		entry->d_op = &fuse_dentry_operations;
+ 		fuse_invalidate_entry_cache(entry);
+ 	}
+@@ -696,17 +692,14 @@ static struct dentry *fuse_get_parent(struct dentry *child)
+ 	name.name = "..";
+ 	err = fuse_lookup_name(child_inode->i_sb, get_node_id(child_inode),
+ 			       &name, &outarg, &inode);
+-	if (err && err != -ENOENT)
++	if (err) {
++		if (err == -ENOENT)
++			return ERR_PTR(-ESTALE);
+ 		return ERR_PTR(err);
+-	if (err || !inode)
+-		return ERR_PTR(-ESTALE);
+-
+-	parent = d_alloc_anon(inode);
+-	if (!parent) {
+-		iput(inode);
+-		return ERR_PTR(-ENOMEM);
+ 	}
+-	if (get_node_id(inode) != FUSE_ROOT_ID) {
++
++	parent = d_obtain_alias(inode);
++	if (!IS_ERR(parent) && get_node_id(inode) != FUSE_ROOT_ID) {
+ 		parent->d_op = &fuse_dentry_operations;
+ 		fuse_invalidate_entry_cache(parent);
+ 	}
+diff --git a/fs/gfs2/ops_export.c b/fs/gfs2/ops_export.c
+--- a/fs/gfs2/ops_export.c
++++ b/fs/gfs2/ops_export.c
+@@ -130,28 +130,17 @@ static int gfs2_get_name(struct dentry *parent, char *name,
+ static struct dentry *gfs2_get_parent(struct dentry *child)
+ {
+ 	struct qstr dotdot;
+-	struct inode *inode;
+ 	struct dentry *dentry;
+ 
+-	gfs2_str2qstr(&dotdot, "..");
+-	inode = gfs2_lookupi(child->d_inode, &dotdot, 1, NULL);
+-
+-	if (!inode)
+-		return ERR_PTR(-ENOENT);
+ 	/*
+-	 * In case of an error, @inode carries the error value, and we
+-	 * have to return that as a(n invalid) pointer to dentry.
++	 * XXX(hch): it would be a good idea to keep this around as a
++	 *	     static variable.
+ 	 */
+-	if (IS_ERR(inode))
+-		return ERR_PTR(PTR_ERR(inode));
+-
+-	dentry = d_alloc_anon(inode);
+-	if (!dentry) {
+-		iput(inode);
+-		return ERR_PTR(-ENOMEM);
+-	}
++	gfs2_str2qstr(&dotdot, "..");
+ 
+-	dentry->d_op = &gfs2_dops;
++	dentry = d_obtain_alias(gfs2_lookupi(child->d_inode, &dotdot, 1));
++	if (!IS_ERR(dentry))
++		dentry->d_op = &gfs2_dops;
+ 	return dentry;
+ }
+ 
+@@ -233,13 +222,9 @@ static struct dentry *gfs2_get_dentry(struct super_block *sb,
+ 	gfs2_glock_dq_uninit(&i_gh);
+ 
+ out_inode:
+-	dentry = d_alloc_anon(inode);
+-	if (!dentry) {
+-		iput(inode);
+-		return ERR_PTR(-ENOMEM);
+-	}
+-
+-	dentry->d_op = &gfs2_dops;
++	dentry = d_obtain_alias(inode);
++	if (!IS_ERR(dentry))
++		dentry->d_op = &gfs2_dops;
+ 	return dentry;
+ 
+ fail_rgd:
+diff --git a/fs/isofs/export.c b/fs/isofs/export.c
+--- a/fs/isofs/export.c
++++ b/fs/isofs/export.c
+@@ -22,7 +22,7 @@ isofs_export_iget(struct super_block *sb,
+ 		  __u32 generation)
+ {
+ 	struct inode *inode;
+-	struct dentry *result;
++
+ 	if (block == 0)
+ 		return ERR_PTR(-ESTALE);
+ 	inode = isofs_iget(sb, block, offset);
+@@ -32,12 +32,7 @@ isofs_export_iget(struct super_block *sb,
+ 		iput(inode);
+ 		return ERR_PTR(-ESTALE);
+ 	}
+-	result = d_alloc_anon(inode);
+-	if (!result) {
+-		iput(inode);
+-		return ERR_PTR(-ENOMEM);
+-	}
+-	return result;
++	return d_obtain_alias(inode);
+ }
+ 
+ /* This function is surprisingly simple.  The trick is understanding
+@@ -51,7 +46,6 @@ static struct dentry *isofs_export_get_parent(struct dentry *child)
+ 	unsigned long parent_offset = 0;
+ 	struct inode *child_inode = child->d_inode;
+ 	struct iso_inode_info *e_child_inode = ISOFS_I(child_inode);
+-	struct inode *parent_inode = NULL;
+ 	struct iso_directory_record *de = NULL;
+ 	struct buffer_head * bh = NULL;
+ 	struct dentry *rv = NULL;
+@@ -104,26 +98,11 @@ static struct dentry *isofs_export_get_parent(struct dentry *child)
+ 	/* Normalize */
+ 	isofs_normalize_block_and_offset(de, &parent_block, &parent_offset);
+ 
+-	/* Get the inode. */
+-	parent_inode = isofs_iget(child_inode->i_sb,
+-				  parent_block,
+-				  parent_offset);
+-	if (parent_inode == NULL) {
+-		rv = ERR_PTR(-EACCES);
+-		goto out;
+-	}
+-
+-	/* Allocate the dentry. */
+-	rv = d_alloc_anon(parent_inode);
+-	if (rv == NULL) {
+-		rv = ERR_PTR(-ENOMEM);
+-		goto out;
+-	}
+-
++	rv = d_obtain_alias(isofs_iget(child_inode->i_sb, parent_block,
++				     parent_offset));
+  out:
+-	if (bh) {
++	if (bh)
+ 		brelse(bh);
+-	}
+ 	return rv;
+ }
+ 
+diff --git a/fs/jfs/namei.c b/fs/jfs/namei.c
+--- a/fs/jfs/namei.c
++++ b/fs/jfs/namei.c
+@@ -1511,28 +1511,12 @@ struct dentry *jfs_fh_to_parent(struct super_block *sb, struct fid *fid,
+ 
+ struct dentry *jfs_get_parent(struct dentry *dentry)
+ {
+-	struct super_block *sb = dentry->d_inode->i_sb;
+-	struct dentry *parent = ERR_PTR(-ENOENT);
+-	struct inode *inode;
+ 	unsigned long parent_ino;
+ 
+ 	parent_ino =
+ 		le32_to_cpu(JFS_IP(dentry->d_inode)->i_dtroot.header.idotdot);
+-	inode = iget(sb, parent_ino);
+-	if (inode) {
+-		if (is_bad_inode(inode)) {
+-			iput(inode);
+-			parent = ERR_PTR(-EACCES);
+-		} else {
+-			parent = d_alloc_anon(inode);
+-			if (!parent) {
+-				parent = ERR_PTR(-ENOMEM);
+-				iput(inode);
+-			}
+-		}
+-	}
+ 
+-	return parent;
++	return d_obtain_alias(jfs_iget(dentry->d_inode->i_sb, parent_ino));
+ }
+ 
+ const struct inode_operations jfs_dir_inode_operations = {
+diff --git a/fs/nfs/getroot.c b/fs/nfs/getroot.c
+--- a/fs/nfs/getroot.c
++++ b/fs/nfs/getroot.c
+@@ -107,11 +107,10 @@ struct dentry *nfs_get_root(struct super_block *sb, struct nfs_fh *mntfh)
+ 	 * if the dentry tree reaches them; however if the dentry already
+ 	 * exists, we'll pick it up at this point and use it as the root
+ 	 */
+-	mntroot = d_alloc_anon(inode);
+-	if (!mntroot) {
+-		iput(inode);
++	mntroot = d_obtain_alias(inode);
++	if (IS_ERR(mntroot)) {
+ 		dprintk("nfs_get_root: get root dentry failed\n");
+-		return ERR_PTR(-ENOMEM);
++		return mntroot;
+ 	}
+ 
+ 	security_d_instantiate(mntroot, inode);
+@@ -277,11 +276,10 @@ struct dentry *nfs4_get_root(struct super_block *sb, struct nfs_fh *mntfh)
+ 	 * if the dentry tree reaches them; however if the dentry already
+ 	 * exists, we'll pick it up at this point and use it as the root
+ 	 */
+-	mntroot = d_alloc_anon(inode);
+-	if (!mntroot) {
+-		iput(inode);
++	mntroot = d_obtain_alias(inode);
++	if (IS_ERR(mntroot)) {
+ 		dprintk("nfs_get_root: get root dentry failed\n");
+-		return ERR_PTR(-ENOMEM);
++		return mntroot;
+ 	}
+ 
+ 	security_d_instantiate(mntroot, inode);
+diff --git a/fs/ntfs/namei.c b/fs/ntfs/namei.c
+--- a/fs/ntfs/namei.c
++++ b/fs/ntfs/namei.c
+@@ -304,8 +304,6 @@ static struct dentry *ntfs_get_parent(struct dentry *child_dent)
+ 	ntfs_attr_search_ctx *ctx;
+ 	ATTR_RECORD *attr;
+ 	FILE_NAME_ATTR *fn;
+-	struct inode *parent_vi;
+-	struct dentry *parent_dent;
+ 	unsigned long parent_ino;
+ 	int err;
+ 
+@@ -345,24 +343,8 @@ try_next:
+ 	/* Release the search context and the mft record of the child. */
+ 	ntfs_attr_put_search_ctx(ctx);
+ 	unmap_mft_record(ni);
+-	/* Get the inode of the parent directory. */
+-	parent_vi = ntfs_iget(vi->i_sb, parent_ino);
+-	if (IS_ERR(parent_vi) || unlikely(is_bad_inode(parent_vi))) {
+-		if (!IS_ERR(parent_vi))
+-			iput(parent_vi);
+-		ntfs_error(vi->i_sb, "Failed to get parent directory inode "
+-				"0x%lx of child inode 0x%lx.", parent_ino,
+-				vi->i_ino);
+-		return ERR_PTR(-EACCES);
+-	}
+-	/* Finally get a dentry for the parent directory and return it. */
+-	parent_dent = d_alloc_anon(parent_vi);
+-	if (unlikely(!parent_dent)) {
+-		iput(parent_vi);
+-		return ERR_PTR(-ENOMEM);
+-	}
+-	ntfs_debug("Done for inode 0x%lx.", vi->i_ino);
+-	return parent_dent;
++
++	return d_obtain_alias(ntfs_iget(vi->i_sb, parent_ino));
+ }
+ 
+ static struct inode *ntfs_nfs_get_inode(struct super_block *sb,
+diff --git a/fs/ocfs2/export.c b/fs/ocfs2/export.c
+--- a/fs/ocfs2/export.c
++++ b/fs/ocfs2/export.c
+@@ -68,14 +68,9 @@ static struct dentry *ocfs2_get_dentry(struct super_block *sb,
+ 		return ERR_PTR(-ESTALE);
+ 	}
+ 
+-	result = d_alloc_anon(inode);
+-
+-	if (!result) {
+-		iput(inode);
+-		mlog_errno(-ENOMEM);
+-		return ERR_PTR(-ENOMEM);
+-	}
+-	result->d_op = &ocfs2_dentry_ops;
++	result = d_obtain_alias(inode);
++	if (!IS_ERR(result))
++		result->d_op = &ocfs2_dentry_ops;
+ 
+ 	mlog_exit_ptr(result);
+ 	return result;
+@@ -86,7 +81,6 @@ static struct dentry *ocfs2_get_parent(struct dentry *child)
+ 	int status;
+ 	u64 blkno;
+ 	struct dentry *parent;
+-	struct inode *inode;
+ 	struct inode *dir = child->d_inode;
+ 
+ 	mlog_entry("(0x%p, '%.*s')\n", child,
+@@ -109,21 +103,9 @@ static struct dentry *ocfs2_get_parent(struct dentry *child)
+ 		goto bail_unlock;
+ 	}
+ 
+-	inode = ocfs2_iget(OCFS2_SB(dir->i_sb), blkno, 0);
+-	if (IS_ERR(inode)) {
+-		mlog(ML_ERROR, "Unable to create inode %llu\n",
+-		     (unsigned long long)blkno);
+-		parent = ERR_PTR(-EACCES);
+-		goto bail_unlock;
+-	}
+-
+-	parent = d_alloc_anon(inode);
+-	if (!parent) {
+-		iput(inode);
+-		parent = ERR_PTR(-ENOMEM);
+-	}
+-
+-	parent->d_op = &ocfs2_dentry_ops;
++	parent = d_obtain_alias(ocfs2_iget(OCFS2_SB(dir->i_sb), blkno, 0, 0));
++	if (!IS_ERR(parent))
++		parent->d_op = &ocfs2_dentry_ops;
+ 
+ bail_unlock:
+ 	ocfs2_inode_unlock(dir, 0);
+diff --git a/fs/reiserfs/inode.c b/fs/reiserfs/inode.c
+--- a/fs/reiserfs/inode.c
++++ b/fs/reiserfs/inode.c
+@@ -1522,7 +1522,6 @@ static struct dentry *reiserfs_get_dentry(struct super_block *sb,
+ {
+ 	__u32 *data = vobjp;
+ 	struct cpu_key key;
+-	struct dentry *result;
+ 	struct inode *inode;
+ 
+ 	key.on_disk_key.k_objectid = objectid;
+@@ -1535,16 +1534,8 @@ static struct dentry *reiserfs_get_dentry(struct super_block *sb,
+ 		inode = NULL;
+ 	}
+ 	reiserfs_write_unlock(sb);
+-	if (!inode)
+-		inode = ERR_PTR(-ESTALE);
+-	if (IS_ERR(inode))
+-		return ERR_PTR(PTR_ERR(inode));
+-	result = d_alloc_anon(inode);
+-	if (!result) {
+-		iput(inode);
+-		return ERR_PTR(-ENOMEM);
+-	}
+-	return result;
++
++	return d_obtain_alias(inode);
+ }
+ 
+ struct dentry *reiserfs_fh_to_dentry(struct super_block *sb, struct fid *fid,
+diff --git a/fs/reiserfs/namei.c b/fs/reiserfs/namei.c
+--- a/fs/reiserfs/namei.c
++++ b/fs/reiserfs/namei.c
+@@ -383,7 +383,6 @@ struct dentry *reiserfs_get_parent(struct dentry *child)
+ 	struct inode *inode = NULL;
+ 	struct reiserfs_dir_entry de;
+ 	INITIALIZE_PATH(path_to_entry);
+-	struct dentry *parent;
+ 	struct inode *dir = child->d_inode;
+ 
+ 	if (dir->i_nlink == 0) {
+@@ -401,15 +400,7 @@ struct dentry *reiserfs_get_parent(struct dentry *child)
+ 	inode = reiserfs_iget(dir->i_sb, (struct cpu_key *)&(de.de_dir_id));
+ 	reiserfs_write_unlock(dir->i_sb);
+ 
+-	if (!inode || IS_ERR(inode)) {
+-		return ERR_PTR(-EACCES);
+-	}
+-	parent = d_alloc_anon(inode);
+-	if (!parent) {
+-		iput(inode);
+-		parent = ERR_PTR(-ENOMEM);
+-	}
+-	return parent;
++	return d_obtain_alias(inode);
+ }
+ 
+ /* add entry to the directory (entry can be hidden). 
+diff --git a/fs/xfs/linux-2.6/xfs_export.c b/fs/xfs/linux-2.6/xfs_export.c
+--- a/fs/xfs/linux-2.6/xfs_export.c
++++ b/fs/xfs/linux-2.6/xfs_export.c
+@@ -148,7 +148,6 @@ xfs_fs_fh_to_dentry(struct super_block *sb, struct fid *fid,
+ {
+ 	struct xfs_fid64	*fid64 = (struct xfs_fid64 *)fid;
+ 	struct inode		*inode = NULL;
+-	struct dentry		*result;
+ 
+ 	if (fh_len < xfs_fileid_length(fileid_type))
+ 		return NULL;
+@@ -164,16 +163,7 @@ xfs_fs_fh_to_dentry(struct super_block *sb, struct fid *fid,
+ 		break;
+ 	}
+ 
+-	if (!inode)
+-		return NULL;
+-	if (IS_ERR(inode))
+-		return ERR_CAST(inode);
+-	result = d_alloc_anon(inode);
+-	if (!result) {
+-		iput(inode);
+-		return ERR_PTR(-ENOMEM);
+-	}
+-	return result;
++	return d_obtain_alias(inode);
+ }
+ 
+ STATIC struct dentry *
+@@ -182,7 +172,6 @@ xfs_fs_fh_to_parent(struct super_block *sb, struct fid *fid,
+ {
+ 	struct xfs_fid64	*fid64 = (struct xfs_fid64 *)fid;
+ 	struct inode		*inode = NULL;
+-	struct dentry		*result;
+ 
+ 	switch (fileid_type) {
+ 	case FILEID_INO32_GEN_PARENT:
+@@ -195,16 +184,7 @@ xfs_fs_fh_to_parent(struct super_block *sb, struct fid *fid,
+ 		break;
+ 	}
+ 
+-	if (!inode)
+-		return NULL;
+-	if (IS_ERR(inode))
+-		return ERR_CAST(inode);
+-	result = d_alloc_anon(inode);
+-	if (!result) {
+-		iput(inode);
+-		return ERR_PTR(-ENOMEM);
+-	}
+-	return result;
++	return d_obtain_alias(inode);
+ }
+ 
+ STATIC struct dentry *
+@@ -213,18 +193,12 @@ xfs_fs_get_parent(
+ {
+ 	int			error;
+ 	struct xfs_inode	*cip;
+-	struct dentry		*parent;
+ 
+ 	error = xfs_lookup(XFS_I(child->d_inode), &xfs_name_dotdot, &cip, NULL);
+ 	if (unlikely(error))
+ 		return ERR_PTR(-error);
+ 
+-	parent = d_alloc_anon(VFS_I(cip));
+-	if (unlikely(!parent)) {
+-		iput(VFS_I(cip));
+-		return ERR_PTR(-ENOMEM);
+-	}
+-	return parent;
++	return d_obtain_alias(VFS_I(cip));
+ }
+ 
+ const struct export_operations xfs_export_operations = {
+diff --git a/fs/xfs/linux-2.6/xfs_ioctl.c b/fs/xfs/linux-2.6/xfs_ioctl.c
+--- a/fs/xfs/linux-2.6/xfs_ioctl.c
++++ b/fs/xfs/linux-2.6/xfs_ioctl.c
+@@ -311,11 +311,10 @@ xfs_open_by_handle(
+ 		return new_fd;
+ 	}
+ 
+-	dentry = d_alloc_anon(inode);
+-	if (dentry == NULL) {
+-		iput(inode);
++	dentry = d_obtain_alias(inode);
++	if (IS_ERR(dentry)) {
+ 		put_unused_fd(new_fd);
+-		return -XFS_ERROR(ENOMEM);
++		return PTR_ERR(dentry);
+ 	}
+ 
+ 	/* Ensure umount returns EBUSY on umounts while this file is open. */
+diff --git a/include/linux/dcache.h b/include/linux/dcache.h
+--- a/include/linux/dcache.h
++++ b/include/linux/dcache.h
+@@ -228,9 +228,9 @@ extern void d_delete(struct dentry *);
+ 
+ /* allocate/de-allocate */
+ extern struct dentry * d_alloc(struct dentry *, const struct qstr *);
+-extern struct dentry * d_alloc_anon(struct inode *);
+ extern struct dentry * d_splice_alias(struct inode *, struct dentry *);
+ extern struct dentry * d_add_ci(struct dentry *, struct inode *, struct qstr *);
++extern struct dentry * d_obtain_alias(struct inode *);
+ extern void shrink_dcache_sb(struct super_block *);
+ extern void shrink_dcache_parent(struct dentry *);
+ extern void shrink_dcache_for_umount(struct super_block *);
+-- 
+1.7.4.4

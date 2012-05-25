@@ -1,0 +1,71 @@
+allow quick leave from plugin PADO/PADS phases
+prevent pppd prematory exit for demand connections
+
+--- rp-pppoe.orig/src/discovery.c	2010-12-02 09:31:08.000000000 +0000
++++ rp-pppoe/src/discovery.c	2012-04-27 06:51:20.395759000 +0000
+@@ -45,6 +45,7 @@ static char const RCSID[] =
+ 
+ /* Supplied by pppd if we're a plugin */
+ extern int persist;
++extern int asked_to_quit;
+ 
+ /**********************************************************************
+ *%FUNCTION: parseForHostUniq
+@@ -368,6 +369,7 @@ waitForPADO(PPPoEConnection *conn, int t
+ 	    while(1) {
+ 		r = select(conn->discoverySocket+1, &readable, NULL, NULL, &tv);
+ 		if (r >= 0 || errno != EINTR) break;
++		if (asked_to_quit) return;
+ 	    }
+ 	    if (r < 0) {
+ 		fatalSys("select (waitForPADO)");
+@@ -574,6 +576,7 @@ waitForPADS(PPPoEConnection *conn, int t
+ 	    while(1) {
+ 		r = select(conn->discoverySocket+1, &readable, NULL, NULL, &tv);
+ 		if (r >= 0 || errno != EINTR) break;
++		if (asked_to_quit) return;
+ 	    }
+ 	    if (r < 0) {
+ 		fatalSys("select (waitForPADS)");
+@@ -663,11 +666,10 @@ discovery(PPPoEConnection *conn)
+ 
+     do {
+ 	padiAttempts++;
+-	if (padiAttempts > MAX_PADI_ATTEMPTS) {
+-	    if (persist) {
+-		padiAttempts = 0;
+-		timeout = conn->discoveryTimeout;
++	if (padiAttempts > MAX_PADI_ATTEMPTS || asked_to_quit) {
++	    if (persist >= 0) {
+ 		printErr("Timeout waiting for PADO packets");
++		return;
+ 	    } else {
+ 		rp_fatal("Timeout waiting for PADO packets");
+ 	    }
+@@ -695,11 +697,10 @@ discovery(PPPoEConnection *conn)
+     timeout = conn->discoveryTimeout;
+     do {
+ 	padrAttempts++;
+-	if (padrAttempts > MAX_PADI_ATTEMPTS) {
+-	    if (persist) {
+-		padrAttempts = 0;
+-		timeout = conn->discoveryTimeout;
++	if (padrAttempts > MAX_PADI_ATTEMPTS || asked_to_quit) {
++	    if (persist >= 0) {
+ 		printErr("Timeout waiting for PADS packets");
++		return;
+ 	    } else {
+ 		rp_fatal("Timeout waiting for PADS packets");
+ 	    }
+--- rp-pppoe.orig/src/pppoe.c	2008-06-30 14:00:43.000000000 +0000
++++ rp-pppoe/src/pppoe.c	2012-04-27 06:51:20.395759000 +0000
+@@ -70,7 +70,8 @@ int optFloodDiscovery    = 0;   /* Flood
+ PPPoEConnection *Connection = NULL; /* Must be global -- used
+ 				       in signal handler */
+ 
+-int persist = 0; 		/* We are not a pppd plugin */
++int persist = -1; 		/* We are not a pppd plugin */
++int asked_to_quit = 0;		/* Ignored at the moment */
+ /***********************************************************************
+ *%FUNCTION: sendSessionPacket
+ *%ARGUMENTS:

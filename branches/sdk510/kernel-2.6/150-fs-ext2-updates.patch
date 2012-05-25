@@ -1,0 +1,66 @@
+From 34b07840565004cfa444e165e88bf77a5cbcdb25
+From: Djalal Harouni
+Date: Mon, 9 Jan 2012 15:58:37 +0100
+Subject: [PATCH] ext2: protect inode changes in the SETVERSION and SETFLAGS ioctls
+
+Unlock mutex after i_flags and i_ctime updates in the EXT2_IOC_SETFLAGS
+ioctl.
+
+Use i_mutex in the EXT2_IOC_SETVERSION ioctl to protect i_ctime and
+i_generation updates and make the ioctl consistent since i_mutex is
+also used in other places to protect timestamps and inode changes.
+
+Cc: Andreas Dilger <adilger.kernel@dilger.ca>
+Cc: Jan Kara <jack@suse.cz>
+Signed-off-by: Djalal Harouni <tixxdz@opendz.org>
+Signed-off-by: Jan Kara <jack@suse.cz>
+
+---
+ fs/ext2/ioctl.c |   15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/fs/ext2/ioctl.c b/fs/ext2/ioctl.c
+--- a/fs/ext2/ioctl.c
++++ b/fs/ext2/ioctl.c
+@@ -77,10 +77,11 @@ long ext2_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 		flags = flags & EXT2_FL_USER_MODIFIABLE;
+ 		flags |= oldflags & ~EXT2_FL_USER_MODIFIABLE;
+ 		ei->i_flags = flags;
+-		mutex_unlock(&inode->i_mutex);
+ 
+ 		ext2_set_inode_flags(inode);
+ 		inode->i_ctime = CURRENT_TIME_SEC;
++		mutex_unlock(&inode->i_mutex);
++
+ 		mark_inode_dirty(inode);
+ 		return 0;
+ 
+@@ -88,16 +89,24 @@ setflags_out:
+ 	}
+ 	case EXT2_IOC_GETVERSION:
+ 		return put_user(inode->i_generation, (int __user *) arg);
+-	case EXT2_IOC_SETVERSION:
++	case EXT2_IOC_SETVERSION: {
++		__u32 generation;
++
+ 		if ((current->fsuid != inode->i_uid) && !capable(CAP_FOWNER))
+ 			return -EPERM;
+ 		if (IS_RDONLY(inode))
+ 			return -EROFS;
+-		if (get_user(inode->i_generation, (int __user *) arg))
++		if (get_user(generation, (int __user *) arg))
+ 			return -EFAULT;	
++
++		mutex_lock(&inode->i_mutex);
+ 		inode->i_ctime = CURRENT_TIME_SEC;
++		inode->i_generation = generation;
++		mutex_unlock(&inode->i_mutex);
++
+ 		mark_inode_dirty(inode);
+ 		return 0;
++	}
+ 	case EXT2_IOC_GETRSVSZ:
+ 		if (test_opt(inode->i_sb, RESERVATION)
+ 			&& S_ISREG(inode->i_mode)
+-- 
+1.7.6.5

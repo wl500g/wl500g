@@ -1,0 +1,106 @@
+arp: RCU changes
+
+ faa9dcf793beba05f7178b63a59eaa3ca5175b6a arp: RCU changes
+ 4b4194c40f4ac8d03a700845f8978cba53246b5a arp: RCU change in arp_solicit()
+ 20e6074eb8e096b3a595c093d1cb222f378cd671 arp: fix rcu lockdep splat in arp_process()
+
+---
+ net/core/neighbour.c |    8 ++++++--
+ net/ipv4/arp.c       |   23 +++++++++++------------
+ 2 files changed, 17 insertions(+), 14 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1319,11 +1319,15 @@ static void neigh_proxy_process(unsigned long arg)
+ 
+ 		if (tdif <= 0) {
+ 			struct net_device *dev = skb->dev;
++
+ 			__skb_unlink(skb, &tbl->proxy_queue);
+-			if (tbl->proxy_redo && netif_running(dev))
++			if (tbl->proxy_redo && netif_running(dev)) {
++				rcu_read_lock();
+ 				tbl->proxy_redo(skb);
+-			else
++				rcu_read_unlock();
++			} else {
+ 				kfree_skb(skb);
++			}
+ 
+ 			dev_put(dev);
+ 		} else if (!sched_next || tdif < sched_next)
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -333,11 +333,14 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 	struct net_device *dev = neigh->dev;
+ 	__be32 target = *(__be32*)neigh->primary_key;
+ 	int probes = atomic_read(&neigh->probes);
+-	struct in_device *in_dev = in_dev_get(dev);
++	struct in_device *in_dev;
+ 
+-	if (!in_dev)
++	rcu_read_lock();
++	in_dev = __in_dev_get_rcu(dev);
++	if (!in_dev) {
++		rcu_read_unlock();
+ 		return;
+-
++	}
+ 	switch (IN_DEV_ARP_ANNOUNCE(in_dev)) {
+ 	default:
+ 	case 0:		/* By default announce any local IP */
+@@ -358,9 +361,8 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 	case 2:		/* Avoid secondary IPs, get a primary/preferred one */
+ 		break;
+ 	}
++	rcu_read_unlock();
+ 
+-	if (in_dev)
+-		in_dev_put(in_dev);
+ 	if (!saddr)
+ 		saddr = inet_select_addr(dev, target, RT_SCOPE_LINK);
+ 
+@@ -545,10 +545,10 @@ static inline int arp_fwd_proxy(struct in_device *in_dev,
+ 
+ 	/* place to check for proxy_arp for routes */
+ 
+-	if ((out_dev = in_dev_get(rt->u.dst.dev)) != NULL) {
++	out_dev = __in_dev_get_rcu(rt->u.dst.dev);
++	if (out_dev)
+ 		omi = IN_DEV_MEDIUM_ID(out_dev);
+-		in_dev_put(out_dev);
+-	}
++
+ 	return (omi != imi && omi != -1);
+ }
+ 
+@@ -741,7 +741,7 @@ void arp_send(int type, int ptype, __be32 dest_ip,
+ static int arp_process(struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb->dev;
+-	struct in_device *in_dev = in_dev_get(dev);
++	struct in_device *in_dev = __in_dev_get_rcu(dev);
+ 	struct arphdr *arp;
+ 	unsigned char *arp_ptr;
+ 	struct rtable *rt;
+@@ -890,7 +890,6 @@ static int arp_process(struct sk_buff *skb)
+ 					arp_send(ARPOP_REPLY,ETH_P_ARP,sip,dev,tip,sha,dev->dev_addr,sha);
+ 				} else {
+ 					pneigh_enqueue(&arp_tbl, in_dev->arp_parms, skb);
+-					in_dev_put(in_dev);
+ 					return 0;
+ 				}
+ 				goto out;
+@@ -936,8 +935,6 @@ static int arp_process(struct sk_buff *skb)
+ 	}
+ 
+ out:
+-	if (in_dev)
+-		in_dev_put(in_dev);
+ 	kfree_skb(skb);
+ 	return 0;
+ }
+-- 
+1.7.6.5

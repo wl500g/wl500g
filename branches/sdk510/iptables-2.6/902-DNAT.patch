@@ -1,0 +1,30 @@
+From: Patrick McHardy
+Date: Fri, 6 Nov 2009 16:15:07 +0000 (+0100)
+Subject: DNAT: fix incorrect check during parsing
+X-Git-Tag: v1.4.6~4
+X-Git-Url: https://git.netfilter.org/cgi-bin/gitweb.cgi?p=iptables.git;a=commitdiff_plain;h=596c69007acb569843391e4c98dc21d6f2336e7b
+
+DNAT: fix incorrect check during parsing
+
+Specifying --random before --to-dest results in:
+
+Multiple --to-destination not supported
+
+Fix the flags check to only test the IPT_DNAT_OPT_DEST bit.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+
+diff --git a/extensions/libipt_DNAT.c b/extensions/libipt_DNAT.c
+index 380294a..57c5888 100644
+--- a/extensions/libipt_DNAT.c
++++ b/extensions/libipt_DNAT.c
+@@ -158,7 +158,7 @@ static int DNAT_parse(int c, char **argv, int invert, unsigned int *flags,
+ 			xtables_error(PARAMETER_PROBLEM,
+ 				   "Unexpected `!' after --to-destination");
+ 
+-		if (*flags) {
++		if (*flags & IPT_DNAT_OPT_DEST) {
+ 			if (!kernel_version)
+ 				get_kernel_version();
+ 			if (kernel_version > LINUX_VERSION(2, 6, 10))

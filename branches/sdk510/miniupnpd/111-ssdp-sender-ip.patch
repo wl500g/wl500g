@@ -1,0 +1,15 @@
+Log IP of unrecognized sender
+
+diff -uBp a/minissdp.c b/minissdp.c
+--- a/minissdp.c
++++ b/minissdp.c
+@@ -471,7 +471,8 @@ ProcessSSDPData(int s, const char *bufr,
+ 				}
+ 				if (lan_addr == NULL)
+ 				{
+-					syslog(LOG_ERR, "Can't find in which sub network the client is");
++					syslog(LOG_ERR, "Can't find in which sub network the client %s is",
++						sender_str);
+ 					return;
+ 				}
+ 				announced_host = lan_addr->str;

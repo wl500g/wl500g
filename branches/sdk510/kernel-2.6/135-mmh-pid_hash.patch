@@ -1,0 +1,134 @@
+mm: also use alloc_large_system_hash() for the PID hash table
+
+ 57413ebc4e0f1e471a3b4db4aff9a85c083d090e tcp: calculate tcp_mem based on low memory instead of all memory
+ 2c85f51d222ccdd8c401d77a36b723a89156810d mm: also use alloc_large_system_hash() for the PID hash table
+
+---
+ include/linux/bootmem.h |    5 ++---
+ kernel/pid.c            |   15 ++++-----------
+ mm/page_alloc.c         |   13 ++++++++++---
+ net/ipv4/tcp.c          |    9 ++++++---
+ 4 files changed, 22 insertions(+), 20 deletions(-)
+
+diff --git a/include/linux/bootmem.h b/include/linux/bootmem.h
+--- a/include/linux/bootmem.h
++++ b/include/linux/bootmem.h
+@@ -132,9 +132,6 @@ static inline void *alloc_remap(int nid, unsigned long size)
+ }
+ #endif /* CONFIG_HAVE_ARCH_ALLOC_REMAP */
+ 
+-extern unsigned long __meminitdata nr_kernel_pages;
+-extern unsigned long __meminitdata nr_all_pages;
+-
+ extern void *alloc_large_system_hash(const char *tablename,
+ 				     unsigned long bucketsize,
+ 				     unsigned long numentries,
+@@ -145,6 +142,8 @@ extern void *alloc_large_system_hash(const char *tablename,
+ 				     unsigned long limit);
+ 
+ #define HASH_EARLY	0x00000001	/* Allocating during early boot? */
++#define HASH_SMALL	0x00000002	/* sub-page allocation allowed, min
++					 * shift passed via *_hash_shift */
+ 
+ /* Only NUMA needs hash distribution.
+  * IA64 and x86_64 have sufficient vmalloc space.
+diff --git a/kernel/pid.c b/kernel/pid.c
+--- a/kernel/pid.c
++++ b/kernel/pid.c
+@@ -40,7 +40,7 @@
+ 
+ #define pid_hashfn(nr) hash_long((unsigned long)nr, pidhash_shift)
+ static struct hlist_head *pid_hash;
+-static int pidhash_shift;
++static unsigned int pidhash_shift = 4;
+ static struct kmem_cache *pid_cachep;
+ struct pid init_struct_pid = INIT_STRUCT_PID;
+ 
+@@ -499,19 +499,12 @@ struct pid *find_ge_pid(int nr, struct pid_namespace *ns)
+ void __init pidhash_init(void)
+ {
+ 	int i, pidhash_size;
+-	unsigned long megabytes = nr_kernel_pages >> (20 - PAGE_SHIFT);
+ 
+-	pidhash_shift = max(4, fls(megabytes * 4));
+-	pidhash_shift = min(12, pidhash_shift);
++	pid_hash = alloc_large_system_hash("PID", sizeof(*pid_hash), 0, 18,
++					   HASH_EARLY | HASH_SMALL,
++					   &pidhash_shift, NULL, 4096);
+ 	pidhash_size = 1 << pidhash_shift;
+ 
+-	printk("PID hash table entries: %d (order: %d, %Zd bytes)\n",
+-		pidhash_size, pidhash_shift,
+-		pidhash_size * sizeof(struct hlist_head));
+-
+-	pid_hash = alloc_bootmem(pidhash_size *	sizeof(*(pid_hash)));
+-	if (!pid_hash)
+-		panic("Could not alloc pidhash!\n");
+ 	for (i = 0; i < pidhash_size; i++)
+ 		INIT_HLIST_HEAD(&pid_hash[i]);
+ }
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -124,8 +124,8 @@ static char * const zone_names[MAX_NR_ZONES] = {
+ 
+ int min_free_kbytes = 1024;
+ 
+-unsigned long __meminitdata nr_kernel_pages;
+-unsigned long __meminitdata nr_all_pages;
++static unsigned long __meminitdata nr_kernel_pages;
++static unsigned long __meminitdata nr_all_pages;
+ static unsigned long __meminitdata dma_reserve;
+ 
+ #ifdef CONFIG_ARCH_POPULATES_NODE_MAP
+@@ -4821,7 +4821,14 @@ void *__init alloc_large_system_hash(const char *tablename,
+ 			numentries <<= (PAGE_SHIFT - scale);
+ 
+ 		/* Make sure we've got at least a 0-order allocation.. */
+-		if (unlikely((numentries * bucketsize) < PAGE_SIZE))
++		if (unlikely(flags & HASH_SMALL)) {
++			/* Makes no sense without HASH_EARLY */
++			WARN_ON(!(flags & HASH_EARLY));
++			if (!(numentries >> *_hash_shift)) {
++				numentries = 1UL << *_hash_shift;
++				BUG_ON(!numentries);
++			}
++		} else if (unlikely((numentries * bucketsize) < PAGE_SIZE))
+ 			numentries = PAGE_SIZE / bucketsize;
+ 	}
+ 	numentries = roundup_pow_of_two(numentries);
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -260,6 +260,8 @@
+ #include <linux/socket.h>
+ #include <linux/random.h>
+ #include <linux/bootmem.h>
++#include <linux/highmem.h>
++#include <linux/swap.h>
+ #include <linux/cache.h>
+ #include <linux/err.h>
+ #include <linux/crypto.h>
+@@ -2620,7 +2622,7 @@ __setup("thash_entries=", set_thash_entries);
+ void __init tcp_init(void)
+ {
+ 	struct sk_buff *skb = NULL;
+-	unsigned long limit;
++	unsigned long nr_pages, limit;
+ 	int order, i, max_share;
+ 
+ 	BUILD_BUG_ON(sizeof(struct tcp_skb_cb) > sizeof(skb->cb));
+@@ -2689,8 +2691,9 @@ void __init tcp_init(void)
+ 	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
+ 	 * memory, with a floor of 128 pages.
+ 	 */
+-	limit = min(nr_all_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
+-	limit = (limit * (nr_all_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
++	nr_pages = totalram_pages - totalhigh_pages;
++	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
++	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
+ 	limit = max(limit, 128UL);
+ 	sysctl_tcp_mem[0] = limit / 4 * 3;
+ 	sysctl_tcp_mem[1] = limit;
+-- 
+1.7.6.5

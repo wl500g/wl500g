@@ -1,0 +1,60 @@
+From f65c5f5c547c48b7766db58d10043a504d953aa1
+From: Denys Vlasenko
+Date: Wed, 07 Sep 2011 18:01:39 +0000
+Subject: awk: next_input_file can return NULL, don't SEGV in this case.
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/editors/awk.c b/editors/awk.c
+index 7685546..0918026 100644
+--- a/editors/awk.c
++++ b/editors/awk.c
+@@ -2627,7 +2627,7 @@ static var *evaluate(node *op, var *res)
+ 				rsm = iF;
+ 			}
+ 
+-			if (!rsm->F) {
++			if (!rsm || !rsm->F) {
+ 				setvar_i(intvar[ERRNO], errno);
+ 				setvar_i(res, -1);
+ 				break;
+@@ -2961,7 +2961,7 @@ static rstream *next_input_file(void)
+ #define rsm          (G.next_input_file__rsm)
+ #define files_happen (G.next_input_file__files_happen)
+ 
+-	FILE *F = NULL;
++	FILE *F;
+ 	const char *fname, *ind;
+ 
+ 	if (rsm.F)
+@@ -2969,19 +2969,21 @@ static rstream *next_input_file(void)
+ 	rsm.F = NULL;
+ 	rsm.pos = rsm.adv = 0;
+ 
+-	do {
++	for (;;) {
+ 		if (getvar_i(intvar[ARGIND])+1 >= getvar_i(intvar[ARGC])) {
+ 			if (files_happen)
+ 				return NULL;
+ 			fname = "-";
+ 			F = stdin;
+-		} else {
+-			ind = getvar_s(incvar(intvar[ARGIND]));
+-			fname = getvar_s(findvar(iamarray(intvar[ARGV]), ind));
+-			if (fname && *fname && !is_assignment(fname))
+-				F = xfopen_stdin(fname);
++			break;
+ 		}
+-	} while (!F);
++		ind = getvar_s(incvar(intvar[ARGIND]));
++		fname = getvar_s(findvar(iamarray(intvar[ARGV]), ind));
++		if (fname && *fname && !is_assignment(fname)) {
++			F = xfopen_stdin(fname);
++			break;
++		}
++	}
+ 
+ 	files_happen = TRUE;
+ 	setvar_s(intvar[FILENAME], fname);
+--
+cgit v0.9.0.1-2-gef13

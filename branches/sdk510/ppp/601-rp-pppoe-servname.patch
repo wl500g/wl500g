@@ -1,0 +1,44 @@
+From cab58617fd9d328029fffabc788020264b4fa91f
+From: Paul Mackerras
+Date: Sun, 7 Mar 2010 16:54:00 +1100
+Subject: [PATCH] rp_pppoe: Copy acName and pppd_pppoe_service after option parsing
+
+At present, the access concentrator name (acName) and service name
+(pppd_pppoe_service) are set by option parsing, but are used at the
+point of PPPOEInitDevice(), which gets called when the ethernet
+device name is seen.  So if the rp_pppoe_service or rp_pppoe_ac
+options appear after the device name, they are ignored.
+
+This fixes it by using acName and pppd_pppoe_service in
+PPPOEConnectDevice, which gets called after all options have been
+parsed.
+
+Signed-off-by: Paul Mackerras <paulus@samba.org>
+---
+ pppd/plugins/rp-pppoe/plugin.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/pppd/plugins/rp-pppoe/plugin.c b/pppd/plugins/rp-pppoe/plugin.c
+index e94494b..9bd6643 100644
+--- a/pppd/plugins/rp-pppoe/plugin.c
++++ b/pppd/plugins/rp-pppoe/plugin.c
+@@ -108,8 +108,6 @@ PPPOEInitDevice(void)
+ 	novm("PPPoE session data");
+     }
+     memset(conn, 0, sizeof(PPPoEConnection));
+-    conn->acName = acName;
+-    conn->serviceName = pppd_pppoe_service;
+     conn->ifName = devnam;
+     conn->discoverySocket = -1;
+     conn->sessionSocket = -1;
+@@ -143,6 +141,8 @@ PPPOEConnectDevice(void)
+ 	return -1;
+     }
+ 
++    conn->acName = acName;
++    conn->serviceName = pppd_pppoe_service;
+     strlcpy(ppp_devnam, devnam, sizeof(ppp_devnam));
+     if (existingSession) {
+ 	unsigned int mac[ETH_ALEN];
+-- 
+1.7.0

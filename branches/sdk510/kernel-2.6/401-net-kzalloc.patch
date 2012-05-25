@@ -1,0 +1,228 @@
+kmalloc + memset conversion to kzalloc
+
+kernel.org commits
+376407039c26caacc3e433437d25516ba8f3adc9 [IPV4] ip_options.c: kmalloc + memset conversion to kzalloc
+4487b2f657a4d204c35a7afaa45fc8569c9069ca [IPV4] raw.c: kmalloc + memset conversion to kzalloc
+88f8349164cf4035e63db9e6f484e0ce9cb17e47 [IPV4] fib_semantics: kmalloc + memset conversion to kzalloc
+3015a347dcd470fcc8becf1f84b0502391a3c0e0 [IPV4] fib_hash: kmalloc + memset conversion to kzalloc
+f1673ca52c04f1b311abe03fd67cd4d650d19435 [INET]: kmalloc+memset -> kzalloc in frag_alloc_queue
+ea72912c888661d1a847f1b1450643d4114097cf [NETLINK]: kzalloc() conversion
+
+---
+ ipv4/fib_hash.c                     |    7 ++-----
+ ipv4/fib_semantics.c                |   10 +++-------
+ ipv4/ip_fragment.c                  |    7 +------
+ ipv4/ip_options.c                   |    7 ++-----
+ ipv4/raw.c                          |    4 ++--
+ ipv6/netfilter/nf_conntrack_reasm.c |    7 +++----
+ netlink/af_netlink.c                |   13 ++++++-------
+ 7 files changed, 19 insertions(+), 36 deletions(-)
+
+diff -urBp a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -101,10 +101,10 @@ static struct hlist_head *fz_hash_alloc(
+ 	unsigned long size = divisor * sizeof(struct hlist_head);
+ 
+ 	if (size <= PAGE_SIZE) {
+-		return kmalloc(size, GFP_KERNEL);
++		return kzalloc(size, GFP_KERNEL);
+ 	} else {
+ 		return (struct hlist_head *)
+-			__get_free_pages(GFP_KERNEL, get_order(size));
++			__get_free_pages(GFP_KERNEL | __GFP_ZERO, get_order(size));
+ 	}
+ }
+ 
+@@ -173,8 +173,6 @@ static void fn_rehash_zone(struct fn_zon
+ 	ht = fz_hash_alloc(new_divisor);
+ 
+ 	if (ht)	{
+-		memset(ht, 0, new_divisor * sizeof(struct hlist_head));
+-
+ 		write_lock_bh(&fib_hash_lock);
+ 		old_ht = fz->fz_hash;
+ 		fz->fz_hash = ht;
+@@ -218,7 +216,6 @@ fn_new_zone(struct fn_hash *table, int z
+ 	if (!fz)
+ 		return NULL;
+ 
+-	memset(fz->fz_hash, 0, fz->fz_divisor * sizeof(struct hlist_head *));
+ 	fz->fz_divisor = z ? EMBEDDED_HASH_SIZE : 1;
+ 	fz->fz_hashmask = fz->fz_divisor - 1;
+ 	fz->fz_hash = fz->fz_embedded_hash;
+diff -urBp a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -606,10 +606,10 @@ static inline unsigned int fib_laddr_has
+ static struct hlist_head *fib_hash_alloc(int bytes)
+ {
+ 	if (bytes <= PAGE_SIZE)
+-		return kmalloc(bytes, GFP_KERNEL);
++		return kzalloc(bytes, GFP_KERNEL);
+ 	else
+ 		return (struct hlist_head *)
+-			__get_free_pages(GFP_KERNEL, get_order(bytes));
++			__get_free_pages(GFP_KERNEL | __GFP_ZERO, get_order(bytes));
+ }
+ 
+ static void fib_hash_free(struct hlist_head *hash, int bytes)
+@@ -720,12 +720,8 @@ struct fib_info *fib_create_info(struct 
+ 		if (!new_info_hash || !new_laddrhash) {
+ 			fib_hash_free(new_info_hash, bytes);
+ 			fib_hash_free(new_laddrhash, bytes);
+-		} else {
+-			memset(new_info_hash, 0, bytes);
+-			memset(new_laddrhash, 0, bytes);
+-
++		} else
+ 			fib_hash_move(new_info_hash, new_laddrhash, new_size);
+-		}
+ 
+ 		if (!fib_hash_size)
+ 			goto failure;
+diff -urBp a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -182,7 +182,7 @@ static __inline__ void frag_free_queue(s
+ 
+ static __inline__ struct ipq *frag_alloc_queue(void)
+ {
+-	struct ipq *qp = kmalloc(sizeof(struct ipq), GFP_ATOMIC);
++	struct ipq *qp = kzalloc(sizeof(struct ipq), GFP_ATOMIC);
+ 
+ 	if (!qp)
+ 		return NULL;
+@@ -357,15 +357,10 @@ static struct ipq *ip_frag_create(struct
+ 		goto out_nomem;
+ 
+ 	qp->protocol = iph->protocol;
+-	qp->last_in = 0;
+ 	qp->id = iph->id;
+ 	qp->saddr = iph->saddr;
+ 	qp->daddr = iph->daddr;
+ 	qp->user = user;
+-	qp->len = 0;
+-	qp->meat = 0;
+-	qp->fragments = NULL;
+-	qp->iif = 0;
+ 	qp->peer = sysctl_ipfrag_max_dist ? inet_getpeer(iph->saddr, 1) : NULL;
+ 
+ 	/* Initialize a timer for this entry. */
+diff -urBp a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -513,11 +513,8 @@ void ip_options_undo(struct ip_options *
+ 
+ static struct ip_options *ip_options_get_alloc(const int optlen)
+ {
+-	struct ip_options *opt = kmalloc(sizeof(*opt) + ((optlen + 3) & ~3),
+-					 GFP_KERNEL);
+-	if (opt)
+-		memset(opt, 0, sizeof(*opt));
+-	return opt;
++	return kzalloc(sizeof(struct ip_options) + ((optlen + 3) & ~3),
++		       GFP_KERNEL);
+ }
+ 
+ static int ip_options_get_finish(struct ip_options **optp,
+diff -urBp a/net/ipv4/raw.c b/net/ipv4/raw.c
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -909,8 +909,9 @@ static int raw_seq_open(struct inode *in
+ {
+ 	struct seq_file *seq;
+ 	int rc = -ENOMEM;
+-	struct raw_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
++	struct raw_iter_state *s;
+ 
++	s = kzalloc(sizeof(*s), GFP_KERNEL);
+ 	if (!s)
+ 		goto out;
+ 	rc = seq_open(file, &raw_seq_ops);
+@@ -919,7 +920,6 @@ static int raw_seq_open(struct inode *in
+ 
+ 	seq = file->private_data;
+ 	seq->private = s;
+-	memset(s, 0, sizeof(*s));
+ out:
+ 	return rc;
+ out_kfree:
+diff -urBp a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -198,9 +198,10 @@ static inline void frag_free_queue(struc
+ 
+ static inline struct nf_ct_frag6_queue *frag_alloc_queue(void)
+ {
+-	struct nf_ct_frag6_queue *fq = kmalloc(sizeof(struct nf_ct_frag6_queue), GFP_ATOMIC);
++	struct nf_ct_frag6_queue *fq;
+ 
+-	if (!fq)
++	fq = kzalloc(sizeof(struct nf_ct_frag6_queue), GFP_ATOMIC);
++	if (fq == NULL)
+ 		return NULL;
+ 	atomic_add(sizeof(struct nf_ct_frag6_queue), &nf_ct_frag6_mem);
+ 	return fq;
+@@ -347,8 +348,6 @@ nf_ct_frag6_create(unsigned int hash, __
+ 		goto oom;
+ 	}
+ 
+-	memset(fq, 0, sizeof(struct nf_ct_frag6_queue));
+-
+ 	fq->id = id;
+ 	ipv6_addr_copy(&fq->saddr, src);
+ 	ipv6_addr_copy(&fq->daddr, dst);
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -237,13 +237,14 @@ found:
+ 	return sk;
+ }
+ 
+-static inline struct hlist_head *nl_pid_hash_alloc(size_t size)
++static inline struct hlist_head *nl_pid_hash_zalloc(size_t size)
+ {
+ 	if (size <= PAGE_SIZE)
+-		return kmalloc(size, GFP_ATOMIC);
++		return kzalloc(size, GFP_ATOMIC);
+ 	else
+ 		return (struct hlist_head *)
+-			__get_free_pages(GFP_ATOMIC, get_order(size));
++			__get_free_pages(GFP_ATOMIC | __GFP_ZERO,
++					 get_order(size));
+ }
+ 
+ static inline void nl_pid_hash_free(struct hlist_head *table, size_t size)
+@@ -272,11 +273,10 @@ static int nl_pid_hash_rehash(struct nl_pid_hash *hash, int grow)
+ 		size *= 2;
+ 	}
+ 
+-	table = nl_pid_hash_alloc(size);
++	table = nl_pid_hash_zalloc(size);
+ 	if (!table)
+ 		return 0;
+ 
+-	memset(table, 0, size);
+ 	otable = hash->table;
+ 	hash->table = table;
+ 	hash->mask = mask;
+@@ -1919,7 +1919,7 @@ static int __init netlink_proto_init(void)
+ 	for (i = 0; i < MAX_LINKS; i++) {
+ 		struct nl_pid_hash *hash = &nl_table[i].hash;
+ 
+-		hash->table = nl_pid_hash_alloc(1 * sizeof(*hash->table));
++		hash->table = nl_pid_hash_zalloc(1 * sizeof(*hash->table));
+ 		if (!hash->table) {
+ 			while (i-- > 0)
+ 				nl_pid_hash_free(nl_table[i].hash.table,
+@@ -1927,7 +1927,6 @@ static int __init netlink_proto_init(void)
+ 			kfree(nl_table);
+ 			goto panic;
+ 		}
+-		memset(hash->table, 0, 1 * sizeof(*hash->table));
+ 		hash->max_shift = order;
+ 		hash->shift = 0;
+ 		hash->mask = 0;
+-- 
+1.7.5.2

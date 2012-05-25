@@ -1,0 +1,12 @@
+diff -urNBp nfs-utils-1.0.9/Makefile.in nfs-utils/Makefile.in
+--- nfs-utils-1.0.9/Makefile.in	2006-07-08 04:06:49.000000000 +0400
++++ nfs-utils/Makefile.in	2010-03-22 20:32:18.000000000 +0300
+@@ -222,7 +222,7 @@ statduser = @statduser@
+ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
+ AUTOMAKE_OPTIONS = foreign
+-SUBDIRS = tools support utils linux-nfs
++SUBDIRS = support utils linux-nfs
+ MAINTAINERCLEANFILES = Makefile.in
+ EXTRA_DIST = \
+ 	autogen.sh \

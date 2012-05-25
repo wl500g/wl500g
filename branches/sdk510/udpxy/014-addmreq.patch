@@ -1,0 +1,450 @@
+diff -urp udpxy.orig/ctx.h udpxy.mreq/ctx.h
+--- udpxy.orig/ctx.h	2011-12-20 13:53:45.000000000 +0400
++++ udpxy.mreq/ctx.h	2012-03-05 11:18:50.000000000 +0400
+@@ -72,8 +72,8 @@ struct server_ctx
+     char        listen_addr[ IPADDR_STR_SIZE ];
+     uint16_t    listen_port;
+     char        mcast_ifc_addr[ IPADDR_STR_SIZE ];
+-    struct in_addr
+-                mcast_inaddr;
++/*    struct in_addr
++                mcast_inaddr;*/
+     char        cmd[ MAX_CMD_LEN + 1 ];
+ 
+     size_t      clfree,
+diff -urp udpxy.orig/netop.c udpxy.mreq/netop.c
+--- udpxy.orig/netop.c	2011-12-20 13:53:45.000000000 +0400
++++ udpxy.mreq/netop.c	2012-03-05 11:18:50.000000000 +0400
+@@ -132,37 +132,19 @@ setup_listener( const char* ipaddr, int
+ /* add or drop membership in a multicast group
+  */
+ int
+-set_multicast( int msockfd, const struct in_addr* mifaddr,
++set_multicast( int msockfd, const struct ip_mreq* mreq,
+                int opname )
+ {
+-    struct sockaddr_in addr;
+-    a_socklen_t len = sizeof(addr);
+-    struct ip_mreq mreq;
+-
+     int rc = 0;
+     const char *opstr =
+         ((IP_DROP_MEMBERSHIP == opname) ? "DROP" :
+          ((IP_ADD_MEMBERSHIP == opname) ? "ADD" : ""));
+     assert( opstr[0] );
+ 
+-    assert( (msockfd > 0) && mifaddr );
+-
+-    (void) memset( &mreq, 0, sizeof(mreq) );
+-    (void) memcpy( &mreq.imr_interface, mifaddr,
+-                sizeof(struct in_addr) );
+-
+-    (void) memset( &addr, 0, sizeof(addr) );
+-    rc = getsockname( msockfd, (struct sockaddr*)&addr, &len );
+-    if( 0 != rc ) {
+-        mperror( g_flog, errno, "%s: getsockname", __func__ );
+-        return -1;
+-    }
+-
+-    (void) memcpy( &mreq.imr_multiaddr, &addr.sin_addr,
+-                sizeof(struct in_addr) );
++    assert( (msockfd > 0) && mreq );
+ 
+     rc = setsockopt( msockfd, IPPROTO_IP, opname,
+-                    &mreq, sizeof(mreq) );
++                    mreq, sizeof(*mreq) );
+     if( 0 != rc ) {
+         mperror( g_flog, errno, "%s: setsockopt MCAST option: %s",
+                     __func__, opstr );
+@@ -180,7 +162,7 @@ set_multicast( int msockfd, const struct
+  */
+ int
+ setup_mcast_listener( struct sockaddr_in*   sa,
+-                      const struct in_addr* mifaddr,
++                      const struct ip_mreq* mreq,
+                       int*                  mcastfd,
+                       int                   sockbuflen )
+ {
+@@ -189,7 +171,7 @@ setup_mcast_listener( struct sockaddr_in
+     int buflen = sockbuflen;
+     size_t rcvbuf_len = 0;
+ 
+-    assert( sa && mifaddr && mcastfd && (sockbuflen >= 0) );
++    assert( sa && mreq && mcastfd && (sockbuflen >= 0) );
+ 
+     TRACE( (void)tmfprintf( g_flog, "Setting up multicast listener\n") );
+     rc = ERR_INTERNAL;
+@@ -229,7 +211,7 @@ setup_mcast_listener( struct sockaddr_in
+             break;
+         }
+ 
+-        rc = set_multicast( sockfd, mifaddr, IP_ADD_MEMBERSHIP );
++        rc = set_multicast( sockfd, mreq, IP_ADD_MEMBERSHIP );
+         if( 0 != rc )
+             break;
+     } while(0);
+@@ -250,13 +232,13 @@ setup_mcast_listener( struct sockaddr_in
+ /* unsubscribe from multicast and close the reader socket
+  */
+ void
+-close_mcast_listener( int msockfd, const struct in_addr* mifaddr )
++close_mcast_listener( int msockfd, const struct ip_mreq* mreq )
+ {
+-    assert( mifaddr );
++    assert( mreq );
+ 
+     if( msockfd <= 0 ) return;
+ 
+-    (void) set_multicast( msockfd, mifaddr, IP_DROP_MEMBERSHIP );
++    (void) set_multicast( msockfd, mreq, IP_DROP_MEMBERSHIP );
+     (void) close( msockfd );
+ 
+     TRACE( (void)tmfprintf( g_flog, "Mcast listener socket=[%d] closed\n",
+@@ -268,14 +250,14 @@ close_mcast_listener( int msockfd, const
+ /* drop from and add into a multicast group
+  */
+ int
+-renew_multicast( int msockfd, const struct in_addr* mifaddr )
++renew_multicast( int msockfd, const struct ip_mreq* mreq )
+ {
+     int rc = 0;
+ 
+-    rc = set_multicast( msockfd, mifaddr, IP_DROP_MEMBERSHIP );
++    rc = set_multicast( msockfd, mreq, IP_DROP_MEMBERSHIP );
+     if( 0 != rc ) return rc;
+ 
+-    rc = set_multicast( msockfd, mifaddr, IP_ADD_MEMBERSHIP );
++    rc = set_multicast( msockfd, mreq, IP_ADD_MEMBERSHIP );
+     return rc;
+ }
+ 
+diff -urp udpxy.orig/netop.h udpxy.mreq/netop.h
+--- udpxy.orig/netop.h	2011-12-20 13:53:45.000000000 +0400
++++ udpxy.mreq/netop.h	2012-03-05 11:18:50.000000000 +0400
+@@ -41,7 +41,7 @@ setup_listener( const char* ipaddr, int
+  */
+ int
+ setup_mcast_listener( struct sockaddr_in*   sa,
+-                      const struct in_addr* mifaddr,
++                      const struct ip_mreq* mreq,
+                       int*                  mcastfd,
+                       int                   sockbuflen );
+ 
+@@ -50,20 +50,20 @@ setup_mcast_listener( struct sockaddr_in
+  *
+  */
+ void
+-close_mcast_listener( int msockfd, const struct in_addr* mifaddr );
++close_mcast_listener( int msockfd, const struct ip_mreq* mreq );
+ 
+ 
+ /* add or drop membership in a multicast group
+  */
+ int
+-set_multicast( int msockfd, const struct in_addr* mifaddr,
++set_multicast( int msockfd, const struct ip_mreq* mreq,
+                int opname );
+ 
+ 
+ /* drop from and add into a multicast group
+  */
+ int
+-renew_multicast( int msockfd, const struct in_addr* mifaddr );
++renew_multicast( int msockfd, const struct ip_mreq* mreq );
+ 
+ 
+ /* set send/receive timeouts on socket(s)
+diff -urp udpxy.orig/udpxrec.c udpxy.mreq/udpxrec.c
+--- udpxy.orig/udpxrec.c	2011-12-20 13:53:45.000000000 +0400
++++ udpxy.mreq/udpxrec.c	2012-03-05 11:21:36.000000000 +0400
+@@ -249,14 +249,14 @@ calc_buf_settings( ssize_t* bufmsgs, siz
+ /* subscribe to the (configured) multicast channel
+  */
+ static int
+-subscribe( int* sockfd, struct in_addr* mcast_inaddr )
++subscribe( int* sockfd, struct ip_mreq* mreq )
+ {
+     struct sockaddr_in sa;
+     const char* ipaddr = g_recopt.rec_channel;
+     size_t rcvbuf_len = 0;
+     int rc = 0;
+ 
+-    assert( sockfd && mcast_inaddr );
++    assert( sockfd && mreq );
+ 
+     if( 1 != inet_aton( ipaddr, &sa.sin_addr ) ) {
+         mperror( g_flog, errno,
+@@ -265,20 +265,29 @@ subscribe( int* sockfd, struct in_addr*
+         return -1;
+     }
+ 
+-    sa.sin_family = AF_INET;
+-    sa.sin_port = htons( (uint16_t)g_recopt.rec_port );
+ 
+-    if( 1 != inet_aton( g_recopt.mcast_addr, mcast_inaddr ) ) {
++    if( 1 != inet_aton( g_recopt.mcast_addr, (struct in_addr*)&mreq->imr_interface.s_addr) ) {
+         mperror( g_flog, errno,
+                 "%s: Invalid multicast interface: [%s]: inet_aton",
+                 __func__, g_recopt.mcast_addr );
+         return -1;
+     }
+ 
++    if( 1 != inet_aton( g_recopt.rec_channel, (struct in_addr*)&mreq->imr_multiaddr.s_addr) ) {
++        mperror( g_flog, errno,
++                "%s: Invalid multicast group address: [%s]: inet_aton",
++                __func__, g_recopt.rec_channel );
++        return -1;
++    }
++
++    sa.sin_family = AF_INET;
++    sa.sin_port = htons( (uint16_t)g_recopt.rec_port );
++    (void) memcpy( &sa.sin_addr, &mreq->imr_multiaddr.s_addr, sizeof(struct in_addr) );
++
+     rc = calc_buf_settings( NULL, &rcvbuf_len );
+     if (0 != rc) return rc;
+ 
+-    return setup_mcast_listener( &sa, mcast_inaddr,
++    return setup_mcast_listener( &sa, mreq,
+             sockfd, (g_recopt.nosync_sbuf ? 0 : rcvbuf_len) );
+ }
+ 
+@@ -289,7 +298,7 @@ static int
+ record()
+ {
+     int rsock = -1, destfd = -1, rc = 0, wtime_sec = 0;
+-    struct in_addr raddr;
++    struct ip_mreq mreq;
+     struct timeval rtv;
+     struct dstream_ctx ds;
+     ssize_t nmsgs = 0;
+@@ -321,7 +330,7 @@ record()
+             break;
+         }
+ 
+-        rc = subscribe( &rsock, &raddr );
++        rc = subscribe( &rsock, &mreq );
+         if( 0 != rc ) break;
+ 
+         rtv.tv_sec = RSOCK_TIMEOUT;
+@@ -436,7 +445,7 @@ record()
+     free_dstream_ctx( &ds );
+     if( data ) free( data );
+ 
+-    close_mcast_listener( rsock, &raddr );
++    close_mcast_listener( rsock, &mreq );
+     if( destfd >= 0 ) (void) close( destfd );
+ 
+     if( quit )
+@@ -452,7 +461,7 @@ record()
+ static int
+ verify_channel()
+ {
+-    struct in_addr mcast_inaddr;
++    struct ip_mreq mreq;
+     int sockfd = -1, rc = -1;
+     char buf[16];
+     ssize_t nrd = -1;
+@@ -460,7 +469,7 @@ verify_channel()
+ 
+     static const time_t MSOCK_TMOUT_SEC = 2;
+ 
+-    rc = subscribe( &sockfd, &mcast_inaddr );
++    rc = subscribe( &sockfd, &mreq );
+     do {
+         if( rc ) break;
+ 
+@@ -493,7 +502,7 @@ verify_channel()
+     } while(0);
+ 
+     if( sockfd >= 0 ) {
+-        close_mcast_listener( sockfd, &mcast_inaddr );
++        close_mcast_listener( sockfd, &mreq );
+     }
+ 
+     return rc;
+diff -urp udpxy.orig/udpxy.c udpxy.mreq/udpxy.c
+--- udpxy.orig/udpxy.c	2011-12-20 13:53:45.000000000 +0400
++++ udpxy.mreq/udpxy.c	2012-03-05 11:21:19.000000000 +0400
+@@ -342,18 +342,18 @@ send_http_response( int sockfd, int code
+  */
+ static void
+ check_mcast_refresh( int msockfd, time_t* last_tm,
+-                     const struct in_addr* mifaddr )
++                     const struct ip_mreq* mreq )
+ {
+     time_t now = 0;
+ 
+     if( NULL != g_uopt.srcfile ) /* reading from file */
+         return;
+ 
+-    assert( (msockfd > 0) && last_tm && mifaddr );
++    assert( (msockfd > 0) && last_tm && mreq );
+     now = time(NULL);
+ 
+     if( difftime( now, *last_tm ) >= (double)g_uopt.mcast_refresh ) {
+-        (void) renew_multicast( msockfd, mifaddr );
++        (void) renew_multicast( msockfd, mreq );
+         *last_tm = now;
+     }
+ 
+@@ -489,7 +489,7 @@ sync_dsockbuf_len( int ssockfd, int dsoc
+  */
+ static int
+ relay_traffic( int ssockfd, int dsockfd, struct server_ctx* ctx,
+-               int dfilefd, const struct in_addr* mifaddr )
++               int dfilefd, const struct ip_mreq* mreq )
+ {
+     volatile sig_atomic_t quit = 0;
+ 
+@@ -513,7 +513,7 @@ relay_traffic( int ssockfd, int dsockfd,
+     static const int SET_PID = 1;
+     struct tps_data tps;
+ 
+-    assert( ctx && mifaddr );
++    assert( ctx && mreq );
+ 
+     (void) sigemptyset (&ubset);
+     sigaddset (&ubset, SIGINT);
+@@ -592,9 +592,8 @@ relay_traffic( int ssockfd, int dsockfd,
+ 
+     while( (0 == rc) && !(quit = must_quit()) ) {
+         if( g_uopt.mcast_refresh > 0 ) {
+-            check_mcast_refresh( ssockfd, &rfr_tm, mifaddr );
++            check_mcast_refresh( ssockfd, &rfr_tm, mreq );
+         }
+-
+         nrcv = read_data( &ds, ssockfd, data, data_len, &ropt );
+         if( -1 == nrcv ) break;
+ 
+@@ -654,10 +653,11 @@ relay_traffic( int ssockfd, int dsockfd,
+  */
+ static int
+ udp_relay( int sockfd, const char* param, size_t plen,
+-           const struct in_addr* mifaddr,
++           /*const struct in_addr* mifaddr,*/
+            struct server_ctx* ctx )
+ {
+     char                mcast_addr[ IPADDR_STR_SIZE ];
++    struct ip_mreq mreq;
+     struct sockaddr_in  addr;
+ 
+     uint16_t    port;
+@@ -679,16 +679,24 @@ udp_relay( int sockfd, const char* param
+                             rc, param );
+             break;
+         }
+-
+-        if( 1 != inet_aton(mcast_addr, &addr.sin_addr) ) {
+-            (void) tmfprintf( g_flog, "Invalid address: [%s]\n", mcast_addr );
++/*
++        TRACE( (void)tmfprintf (g_flog, "%s: mcast_addr=%s\n", __func__, mcast_addr));
++        TRACE( (void)tmfprintf (g_flog, "%s: mcast_ifaddr=%s\n", __func__, ctx->mcast_ifc_addr));
++*/
++        if( 1 != inet_aton(ctx->mcast_ifc_addr, (struct in_addr*)&mreq.imr_interface.s_addr) ) {
++            (void) tmfprintf( g_flog, "Invalid multicast interface: [%s]\n", ctx->mcast_ifc_addr );
++            rc = ERR_INTERNAL;
++            break;
++        }
++        if( 1 != inet_aton(mcast_addr, (struct in_addr*)&mreq.imr_multiaddr.s_addr) ) {
++            (void) tmfprintf( g_flog, "Invalid multicast group address: [%s]\n", mcast_addr );
+             rc = ERR_INTERNAL;
+             break;
+         }
+-
+         addr.sin_family = AF_INET;
+         addr.sin_port = htons( (short)port );
+-
++        (void) memcpy( &addr.sin_addr, &mreq.imr_multiaddr.s_addr,
++                       sizeof(struct in_addr) );
+     } while(0);
+ 
+     if( 0 != rc ) {
+@@ -758,20 +766,22 @@ udp_relay( int sockfd, const char* param
+         else {
+             rc = calc_buf_settings( NULL, &rcvbuf_len );
+             if (0 == rc ) {
+-                rc = setup_mcast_listener( &addr, mifaddr, &msockfd,
+-                    (g_uopt.nosync_sbuf ? 0 : rcvbuf_len) );
++                rc = setup_mcast_listener( &addr,
++                                           &mreq,
++                                           &msockfd,
++                                           (g_uopt.nosync_sbuf ? 0 : rcvbuf_len) );
+                 srcfd = msockfd;
+             }
+         }
+         if( 0 != rc ) break;
+ 
+-        rc = relay_traffic( srcfd, sockfd, ctx, dfilefd, mifaddr );
++        rc = relay_traffic( srcfd, sockfd, ctx, dfilefd, &mreq );
+         if( 0 != rc ) break;
+ 
+     } while(0);
+ 
+     if( msockfd > 0 ) {
+-        close_mcast_listener( msockfd, mifaddr );
++        close_mcast_listener( msockfd, &mreq );
+     }
+     if( sfilefd > 0 ) {
+        (void) close( sfilefd );
+@@ -883,7 +893,7 @@ process_command( int new_sockfd, struct
+         0 == strncmp( ctx->cmd, CMD_RTP, sizeof(ctx->cmd) ) ) {
+         if( ctx->clfree ) {
+             rc = udp_relay( new_sockfd, param, plen,
+-                            &(ctx->mcast_inaddr), ctx );
++                            /*&(ctx->mcast_inaddr), */ctx );
+         }
+         else {
+             send_http_response( new_sockfd, 401, "Bad request" );
+@@ -1133,7 +1143,7 @@ server_loop( const char* ipaddr, int por
+              const char* mcast_addr )
+ {
+     int                 rc, maxfd, err, nrdy, i;
+-    struct in_addr      mcast_inaddr;
++/*    struct in_addr      mcast_inaddr;*/
+     struct server_ctx   srv;
+     fd_set              rset;
+     struct timespec     tmout, *ptmout = NULL;
+@@ -1151,17 +1161,21 @@ server_loop( const char* ipaddr, int por
+         return ERR_INTERNAL;
+     }
+ 
++/*
++    TRACE( (void)tmfprintf (g_flog, "%s: mcast_addr=%s\n", __func__, mcast_addr));
++
+     if( 1 != inet_aton(mcast_addr, &mcast_inaddr) ) {
+         mperror(g_flog, errno, "%s: inet_aton", __func__);
+         return ERR_INTERNAL;
+     }
++*/
+ 
+     init_server_ctx( &srv, g_uopt.max_clients,
+             (ipaddr[0] ? ipaddr : "0.0.0.0") , (uint16_t)port, mcast_addr );
+ 
+     srv.rcv_tmout = (u_short)g_uopt.rcv_tmout;
+     srv.snd_tmout = RLY_SOCK_TIMEOUT;
+-    srv.mcast_inaddr = mcast_inaddr;
++/*    srv.mcast_inaddr = mcast_inaddr;*/
+ 
+     /* NB: server socket is non-blocking! */
+     if( 0 != (rc = setup_listener( ipaddr, port, &srv.lsockfd,
+diff -urp udpxy.orig/util.c udpxy.mreq/util.c
+--- udpxy.orig/util.c	2011-12-20 13:53:45.000000000 +0400
++++ udpxy.mreq/util.c	2012-03-05 11:18:50.000000000 +0400
+@@ -665,7 +665,7 @@ a2time( const char* str, time_t* t, time
+             continue;
+         }
+ 
+-        if( !isdigit( str[n] ) ) return ERR_NONDIGIT;
++        if( !isdigit( (int)str[n] ) ) return ERR_NONDIGIT;
+ 
+         if( new_field ) {
+             new_field = 0;
+@@ -761,7 +761,7 @@ a2double( const char* str, double* pval
+     assert( str );
+ 
+     /* skip to the first */
+-    for( p = str; *p && !isalpha(*p); ++p );
++    for( p = str; *p && !isalpha((int)*p); ++p );
+ 
+     if( '\0' != *p ) {
+         /* there is a modifier, calculate multiplication

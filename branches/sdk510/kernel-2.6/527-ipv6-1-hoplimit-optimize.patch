@@ -1,0 +1,162 @@
+From 6b75d0908185bf853b188afa6f269426f6554c5b
+From: YOSHIFUJI Hideaki
+Date: Mon, 10 Mar 2008 06:00:30 -0400
+Subject: [PATCH] [IPV6]: Optimize hop-limit determination.
+
+Last part of hop-limit determination is always:
+    hoplimit = dst_metric(dst, RTAX_HOPLIMIT);
+    if (hoplimit < 0)
+        hoplimit = ipv6_get_hoplimit(dst->dev).
+
+Let's consolidate it as ip6_dst_hoplimit(dst).
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+---
+ include/net/addrconf.h   |    2 --
+ include/net/ip6_route.h  |    2 ++
+ net/ipv6/icmp.c          |    8 ++------
+ net/ipv6/ip6_output.c    |    4 +---
+ net/ipv6/ipv6_sockglue.c |    4 +---
+ net/ipv6/raw.c           |    4 +---
+ net/ipv6/route.c         |   18 ++++++++++--------
+ net/ipv6/udp.c           |    4 +---
+ 8 files changed, 18 insertions(+), 28 deletions(-)
+
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -123,8 +123,6 @@ extern int ipv6_is_mld(struct sk_buff *skb, int nexthdr);
+ 
+ extern void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len);
+ 
+-extern int ipv6_get_hoplimit(struct net_device *dev);
+-
+ /*
+  *	anycast prototypes (anycast.c)
+  */
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -88,6 +88,8 @@ extern struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 					   const struct in6_addr *addr,
+ 					   int anycast);
+ 
++extern int			ip6_dst_hoplimit(struct dst_entry *dst);
++
+ /*
+  *	support functions for ND
+  *
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -464,9 +464,7 @@ route_done:
+ 	else
+ 		hlimit = np->hop_limit;
+ 	if (hlimit < 0)
+-		hlimit = dst_metric(dst, RTAX_HOPLIMIT);
+-	if (hlimit < 0)
+-		hlimit = ipv6_get_hoplimit(dst->dev);
++		hlimit = ip6_dst_hoplimit(dst);
+ 
+ 	tclass = np->tclass;
+ 	if (tclass < 0)
+@@ -560,9 +558,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	else
+ 		hlimit = np->hop_limit;
+ 	if (hlimit < 0)
+-		hlimit = dst_metric(dst, RTAX_HOPLIMIT);
+-	if (hlimit < 0)
+-		hlimit = ipv6_get_hoplimit(dst->dev);
++		hlimit = ip6_dst_hoplimit(dst);
+ 
+ 	tclass = np->tclass;
+ 	if (tclass < 0)
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -237,9 +237,7 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
+ 	if (np)
+ 		hlimit = np->hop_limit;
+ 	if (hlimit < 0)
+-		hlimit = dst_metric(dst, RTAX_HOPLIMIT);
+-	if (hlimit < 0)
+-		hlimit = ipv6_get_hoplimit(dst->dev);
++		hlimit = ip6_dst_hoplimit(dst);
+ 
+ 	tclass = -1;
+ 	if (np)
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -904,9 +904,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		dst = sk_dst_get(sk);
+ 		if (dst) {
+ 			if (val < 0)
+-				val = dst_metric(dst, RTAX_HOPLIMIT);
+-			if (val < 0)
+-				val = ipv6_get_hoplimit(dst->dev);
++				val = ip6_dst_hoplimit(dst);
+ 			dst_release(dst);
+ 		}
+ 		if (val < 0)
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -885,9 +885,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 		else
+ 			hlimit = np->hop_limit;
+ 		if (hlimit < 0)
+-			hlimit = dst_metric(dst, RTAX_HOPLIMIT);
+-		if (hlimit < 0)
+-			hlimit = ipv6_get_hoplimit(dst->dev);
++			hlimit = ip6_dst_hoplimit(dst);
+ 	}
+ 
+ 	if (tclass < 0) {
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1034,15 +1034,17 @@ static int ipv6_get_mtu(struct net_device *dev)
+ 	return mtu;
+ }
+ 
+-int ipv6_get_hoplimit(struct net_device *dev)
+-{
+-	int hoplimit = ipv6_devconf.hop_limit;
+-	struct inet6_dev *idev;
+-
+-	idev = in6_dev_get(dev);
+-	if (idev) {
+-		hoplimit = idev->cnf.hop_limit;
+-		in6_dev_put(idev);
++int ip6_dst_hoplimit(struct dst_entry *dst)
++{
++	int hoplimit = dst_metric(dst, RTAX_HOPLIMIT);
++	if (hoplimit < 0) {
++		struct net_device *dev = dst->dev;
++		struct inet6_dev *idev = in6_dev_get(dev);
++		if (idev) {
++			hoplimit = idev->cnf.hop_limit;
++			in6_dev_put(idev);
++		} else
++			hoplimit = ipv6_devconf.hop_limit;
+ 	}
+ 	return hoplimit;
+ }
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -792,9 +792,7 @@ do_udp_sendmsg:
+ 		else
+ 			hlimit = np->hop_limit;
+ 		if (hlimit < 0)
+-			hlimit = dst_metric(dst, RTAX_HOPLIMIT);
+-		if (hlimit < 0)
+-			hlimit = ipv6_get_hoplimit(dst->dev);
++			hlimit = ip6_dst_hoplimit(dst);
+ 	}
+ 
+ 	if (tclass < 0) {
+-- 
+1.7.6.2

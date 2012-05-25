@@ -1,0 +1,354 @@
+libxt_connlimit: revision 1
+
+ a3726818e07d47136010f09762637a3e597329e3 libxt_connlimit: initialize v6_mask
+ 8d5e773508b154dcfa8d866f68f64ef1ad773957 libxt_connlimit: reword help text to say prefix length
+ 2cae5334de3a817947742e0b466355e5f5566474 libxt_connlimit: add a --connlimit-upto option
+ 5da9e63f66ca190cb90193ebb9eebf5aa523b4d1 libxt_connlimit: support for dstaddr-supporting revision 1
+
+diff --git iptables/extensions/libxt_connlimit.c iptables.connlimit/extensions/libxt_connlimit.c
+--- iptables/extensions/libxt_connlimit.c
++++ iptables.connlimit/extensions/libxt_connlimit.c
+@@ -8,25 +8,38 @@
+ #include <xtables.h>
+ #include <linux/netfilter/xt_connlimit.h>
+ 
++enum {
++	FL_LIMIT = 1 << 0,
++	FL_MASK  = 1 << 1,
++	FL_ADDR  = 1 << 2,
++};
++
+ static void connlimit_help(void)
+ {
+ 	printf(
+ "connlimit match options:\n"
+-"[!] --connlimit-above n        match if the number of existing "
+-"                               connections is (not) above n\n"
+-"    --connlimit-mask n         group hosts using mask\n");
++"  --connlimit-upto n     match if the number of existing connections is 0..n\n"
++"  --connlimit-above n    match if the number of existing connections is >n\n"
++"  --connlimit-mask n     group hosts using prefix length (default: max len)\n"
++"  --connlimit-saddr      select source address for grouping\n"
++"  --connlimit-daddr      select destination addresses for grouping\n");
+ }
+ 
+ static const struct option connlimit_opts[] = {
++	{"connlimit-upto",  1, NULL, 'U'},
+ 	{"connlimit-above", 1, NULL, 'A'},
+ 	{"connlimit-mask",  1, NULL, 'M'},
++	{"connlimit-saddr", 0, NULL, 's'},
++	{"connlimit-daddr", 0, NULL, 'd'},
+ 	{ .name = NULL }
+ };
+ 
+ static void connlimit_init(struct xt_entry_match *match)
+ {
+ 	struct xt_connlimit_info *info = (void *)match->data;
+-	info->v4_mask = 0xFFFFFFFFUL;
++
++	/* This will also initialize the v4 mask correctly */
++	memset(info->v6_mask, 0xFF, sizeof(info->v6_mask));
+ }
+ 
+ static void prefix_to_netmask(u_int32_t *mask, unsigned int prefix_len)
+@@ -51,28 +64,38 @@ static void prefix_to_netmask(u_int32_t
+ 	mask[3] = htonl(mask[3]);
+ }
+ 
+-static int connlimit_parse(int c, char **argv, int invert, unsigned int *flags,
+-                           struct xt_connlimit_info *info, unsigned int family)
++static int
++connlimit_parse(int c, char **argv, int invert, unsigned int *flags,
++                struct xt_entry_match **match, unsigned int family)
+ {
++	struct xt_connlimit_info *info = (void *)(*match)->data;
++	const unsigned int revision = (*match)->u.user.revision;
+ 	char *err;
+ 	int i;
+ 
+ 	switch (c) {
+-	case 'A':
+-		if (*flags & 0x1)
+-			xtables_error(PARAMETER_PROBLEM,
+-				"--connlimit-above may be given only once");
+-		*flags |= 0x1;
+-		xtables_check_inverse(optarg, &invert, &optind, 0);
+-		info->limit   = strtoul(argv[optind-1], NULL, 0);
+-		info->inverse = invert;
+-		break;
+-	case 'M':
+-		if (*flags & 0x2)
+-			xtables_error(PARAMETER_PROBLEM,
+-				"--connlimit-mask may be given only once");
+-
+-		*flags |= 0x2;
++	case 'A': /* --connlimit-above */
++		xtables_param_act(XTF_ONLY_ONCE, "connlimit",
++			"--connlimit-{upto,above}", *flags & FL_LIMIT);
++		*flags |= FL_LIMIT;
++		if (invert)
++			info->flags |= XT_CONNLIMIT_INVERT;
++		info->limit = strtoul(argv[optind-1], NULL, 0);
++		return 1;
++	case 'U': /* --connlimit-upto */
++		xtables_param_act(XTF_ONLY_ONCE, "connlimit",
++			"--connlimit-{upto,above}", *flags & FL_LIMIT);
++		*flags |= FL_LIMIT;
++		if (!invert)
++			info->flags |= XT_CONNLIMIT_INVERT;
++		info->limit = strtoul(argv[optind-1], NULL, 0);
++		return 1;
++	case 'M': /* --connlimit-mask */
++		xtables_param_act(XTF_NO_INVERT, "connlimit",
++			"--connlimit-mask", invert);
++		xtables_param_act(XTF_ONLY_ONCE, "connlimit",
++			"--connlimit-mask", *flags & FL_MASK);
++		*flags |= FL_MASK;
+ 		i = strtoul(argv[optind-1], &err, 0);
+ 		if (family == NFPROTO_IPV6) {
+ 			if (i > 128 || *err != '\0')
+@@ -90,28 +113,33 @@ static int connlimit_parse(int c, char *
+ 			else
+ 				info->v4_mask = htonl(0xFFFFFFFF << (32 - i));
+ 		}
+-		break;
+-	default:
+-		return 0;
++		return 1;
++	case 's': /* --connlimit-saddr */
++		info->flags &= ~XT_CONNLIMIT_DADDR;
++		return 1;
++	case 'd': /* --connlimit-daddr */
++		if (revision < 1)
++			xtables_error(PARAMETER_PROBLEM,
++				"xt_connlimit.0 does not support "
++				"--connlimit-daddr");
++		info->flags |= XT_CONNLIMIT_DADDR;
++		return 1;
+ 	}
+-
+-	return 1;
++	return 0;
+ }
+ 
+ static int connlimit_parse4(int c, char **argv, int invert,
+                             unsigned int *flags, const void *entry,
+                             struct xt_entry_match **match)
+ {
+-	return connlimit_parse(c, argv, invert, flags,
+-	       (void *)(*match)->data, NFPROTO_IPV4);
++	return connlimit_parse(c, argv, invert, flags, match, NFPROTO_IPV4);
+ }
+ 
+ static int connlimit_parse6(int c, char **argv, int invert,
+                             unsigned int *flags, const void *entry,
+                             struct xt_entry_match **match)
+ {
+-	return connlimit_parse(c, argv, invert, flags,
+-	       (void *)(*match)->data, NFPROTO_IPV6);
++	return connlimit_parse(c, argv, invert, flags, match, NFPROTO_IPV6);
+ }
+ 
+ static void connlimit_check(unsigned int flags)
+@@ -147,38 +175,94 @@ static void connlimit_print4(const void
+ {
+ 	const struct xt_connlimit_info *info = (const void *)match->data;
+ 
+-	printf("#conn/%u %s %u ", count_bits4(info->v4_mask),
+-	       info->inverse ? "<=" : ">", info->limit);
++	printf("#conn %s/%u %s %u ",
++	       (info->flags & XT_CONNLIMIT_DADDR) ? "dst" : "src",
++	       count_bits4(info->v4_mask),
++	       (info->flags & XT_CONNLIMIT_INVERT) ? "<=" : ">", info->limit);
+ }
+ 
+ static void connlimit_print6(const void *ip,
+                              const struct xt_entry_match *match, int numeric)
+ {
+ 	const struct xt_connlimit_info *info = (const void *)match->data;
+-	printf("#conn/%u %s %u ", count_bits6(info->v6_mask),
+-	       info->inverse ? "<=" : ">", info->limit);
++
++	printf("#conn %s/%u %s %u ",
++	       (info->flags & XT_CONNLIMIT_DADDR) ? "dst" : "src",
++	       count_bits6(info->v6_mask),
++	       (info->flags & XT_CONNLIMIT_INVERT) ? "<=" : ">", info->limit);
+ }
+ 
+ static void connlimit_save4(const void *ip, const struct xt_entry_match *match)
+ {
+ 	const struct xt_connlimit_info *info = (const void *)match->data;
++	const int revision = match->u.user.revision;
+ 
+-	printf("%s--connlimit-above %u --connlimit-mask %u ",
+-	       info->inverse ? "! " : "", info->limit,
+-	       count_bits4(info->v4_mask));
++	if (info->flags & XT_CONNLIMIT_INVERT)
++		printf("--connlimit-upto %u ", info->limit);
++	else
++		printf("--connlimit-above %u ", info->limit);
++	printf("--connlimit-mask %u ", count_bits4(info->v4_mask));
++	if (revision >= 1) {
++		if (info->flags & XT_CONNLIMIT_DADDR)
++			printf("--connlimit-daddr ");
++		else
++			printf("--connlimit-saddr ");
++	}
+ }
+ 
+ static void connlimit_save6(const void *ip, const struct xt_entry_match *match)
+ {
+ 	const struct xt_connlimit_info *info = (const void *)match->data;
++	const int revision = match->u.user.revision;
+ 
+-	printf("%s--connlimit-above %u --connlimit-mask %u ",
+-	       info->inverse ? "! " : "", info->limit,
+-	       count_bits6(info->v6_mask));
++	if (info->flags & XT_CONNLIMIT_INVERT)
++		printf("--connlimit-upto %u ", info->limit);
++	else
++		printf("--connlimit-above %u ", info->limit);
++	printf("--connlimit-mask %u ", count_bits6(info->v6_mask));
++	if (revision >= 1) {
++		if (info->flags & XT_CONNLIMIT_DADDR)
++			printf("--connlimit-daddr ");
++		else
++			printf("--connlimit-saddr ");
++	}
+ }
+ 
++static struct xtables_match connlimit_match_v0 = {
++	.name          = "connlimit",
++	.revision      = 0,
++	.family        = NFPROTO_IPV4,
++	.version       = XTABLES_VERSION,
++	.size          = XT_ALIGN(sizeof(struct xt_connlimit_info)),
++	.userspacesize = offsetof(struct xt_connlimit_info, data),
++	.help          = connlimit_help,
++	.init          = connlimit_init,
++	.parse         = connlimit_parse4,
++	.final_check   = connlimit_check,
++	.print         = connlimit_print4,
++	.save          = connlimit_save4,
++	.extra_opts    = connlimit_opts,
++};
++
++static struct xtables_match connlimit_match6_v0 = {
++	.name          = "connlimit",
++	.revision      = 0,
++	.family        = NFPROTO_IPV6,
++	.version       = XTABLES_VERSION,
++	.size          = XT_ALIGN(sizeof(struct xt_connlimit_info)),
++	.userspacesize = offsetof(struct xt_connlimit_info, data),
++	.help          = connlimit_help,
++	.init          = connlimit_init,
++	.parse         = connlimit_parse6,
++	.final_check   = connlimit_check,
++	.print         = connlimit_print6,
++	.save          = connlimit_save6,
++	.extra_opts    = connlimit_opts,
++};
++
+ static struct xtables_match connlimit_match = {
+ 	.name          = "connlimit",
++	.revision      = 1,
+ 	.family        = NFPROTO_IPV4,
+ 	.version       = XTABLES_VERSION,
+ 	.size          = XT_ALIGN(sizeof(struct xt_connlimit_info)),
+@@ -194,6 +278,7 @@ static struct xtables_match connlimit_ma
+ 
+ static struct xtables_match connlimit_match6 = {
+ 	.name          = "connlimit",
++	.revision      = 1,
+ 	.family        = NFPROTO_IPV6,
+ 	.version       = XTABLES_VERSION,
+ 	.size          = XT_ALIGN(sizeof(struct xt_connlimit_info)),
+@@ -209,6 +294,8 @@ static struct xtables_match connlimit_ma
+ 
+ void _init(void)
+ {
++	xtables_register_match(&connlimit_match_v0);
++	xtables_register_match(&connlimit_match6_v0);
+ 	xtables_register_match(&connlimit_match);
+ 	xtables_register_match(&connlimit_match6);
+ }
+diff --git iptables/extensions/libxt_connlimit.man iptables.connlimit/extensions/libxt_connlimit.man
+--- iptables/extensions/libxt_connlimit.man
++++ iptables.connlimit/extensions/libxt_connlimit.man
+@@ -1,23 +1,33 @@
+ Allows you to restrict the number of parallel connections to a server per
+ client IP address (or client address block).
+ .TP
+-[\fB!\fP] \fB\-\-connlimit\-above\fP \fIn\fP
+-Match if the number of existing connections is (not) above \fIn\fR.
++\fB\-\-connlimit\-upto\fP \fIn\fP
++Match if the number of existing connections is below or equal \fIn\fP.
++.TP
++\fB\-\-connlimit\-above\fP \fIn\fP
++Match if the number of existing connections is above \fIn\fP.
+ .TP
+ \fB\-\-connlimit\-mask\fP \fIprefix_length\fP
+ Group hosts using the prefix length. For IPv4, this must be a number between
+-(including) 0 and 32. For IPv6, between 0 and 128.
+-.P
++(including) 0 and 32. For IPv6, between 0 and 128. If not specified, the
++maximum prefix length for the applicable protocol is used.
++.TP
++\fB\-\-connlimit\-saddr\fP
++Apply the limit onto the source group.
++.TP
++\fB\-\-connlimit\-daddr\fP
++Apply the limit onto the destination group.
++.PP
+ Examples:
+ .TP
+ # allow 2 telnet connections per client host
+ iptables \-A INPUT \-p tcp \-\-syn \-\-dport 23 \-m connlimit \-\-connlimit\-above 2 \-j REJECT
+ .TP
+ # you can also match the other way around:
+-iptables \-A INPUT \-p tcp \-\-syn \-\-dport 23 \-m connlimit ! \-\-connlimit\-above 2 \-j ACCEPT
++iptables \-A INPUT \-p tcp \-\-syn \-\-dport 23 \-m connlimit \-\-connlimit\-upto 2 \-j ACCEPT
+ .TP
+ # limit the number of parallel HTTP requests to 16 per class C sized \
+-network (24 bit netmask)
++source network (24 bit netmask)
+ iptables \-p tcp \-\-syn \-\-dport 80 \-m connlimit \-\-connlimit\-above 16
+ \-\-connlimit\-mask 24 \-j REJECT
+ .TP
+@@ -25,3 +35,7 @@ iptables \-p tcp \-\-syn \-\-dport 80 \-
+ (ipv6)
+ ip6tables \-p tcp \-\-syn \-\-dport 80 \-s fe80::/64 \-m connlimit \-\-connlimit\-above
+ 16 \-\-connlimit\-mask 64 \-j REJECT
++.TP
++# Limit the number of connections to a particular host:
++ip6tables \-p tcp \-\-syn \-\-dport 49152:65535 \-d 2001:db8::1 \-m connlimit
++\-\-connlimit-above 100 \-j REJECT
+diff --git iptables/include/linux/netfilter/xt_connlimit.h iptables.connlimit/include/linux/netfilter/xt_connlimit.h
+--- iptables/include/linux/netfilter/xt_connlimit.h
++++ iptables.connlimit/include/linux/netfilter/xt_connlimit.h
+@@ -3,6 +3,11 @@
+ 
+ struct xt_connlimit_data;
+ 
++enum {
++	XT_CONNLIMIT_INVERT = 1 << 0,
++	XT_CONNLIMIT_DADDR  = 1 << 1,
++};
++
+ struct xt_connlimit_info {
+ 	union {
+ 		union nf_inet_addr mask;
+@@ -12,6 +17,13 @@ struct xt_connlimit_info {
+ 		};
+ 	};
+ 	unsigned int limit, inverse;
++	union {
++		/* revision 0 */
++		unsigned int inverse;
++
++		/* revision 1 */
++		__u32 flags;
++	};
+ 
+ 	/* Used internally by the kernel */
+ 	struct xt_connlimit_data *data __attribute__((aligned(8)));

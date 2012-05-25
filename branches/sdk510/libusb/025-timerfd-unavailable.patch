@@ -1,0 +1,50 @@
+From 4630fc22cff8ad3e1afa9b223378c0aabe282b5c
+From: Peter Stuge
+Date: Mon, 13 Feb 2012 16:59:51 +0100
+Subject: [PATCH] Do not call timerfd functions when timerfd is not being used
+
+When libusb was built with timerfd support but used on a system
+without timerfd support the library would hang indefinitely on
+completion of the first transfer, since timerfd functions were
+being called unconditionally and the error returned when timerfd
+was not being used caused a confused internal state.
+
+Many thanks to Ivo Smits for looking into the issue, proposing
+an initial solution, and helping with testing! Fixes #73.
+---
+ libusb/io.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/libusb/io.c b/libusb/io.c
+--- a/libusb/io.c
++++ b/libusb/io.c
+@@ -1439,7 +1439,7 @@ int usbi_handle_transfer_completion(struct usbi_transfer *itransfer,
+ 		USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
+ 	struct libusb_context *ctx = TRANSFER_CTX(transfer);
+ 	uint8_t flags;
+-	int r;
++	int r = 0;
+ 
+ 	/* FIXME: could be more intelligent with the timerfd here. we don't need
+ 	 * to disarm the timerfd if there was no timer running, and we only need
+@@ -1448,12 +1448,13 @@ int usbi_handle_transfer_completion(struct usbi_transfer *itransfer,
+ 
+ 	pthread_mutex_lock(&ctx->flying_transfers_lock);
+ 	list_del(&itransfer->list);
+-	r = arm_timerfd_for_next_timeout(ctx);
++	if (usbi_using_timerfd(ctx))
++		r = arm_timerfd_for_next_timeout(ctx);
+ 	pthread_mutex_unlock(&ctx->flying_transfers_lock);
+ 
+-	if (r < 0) {
+-		return r;
+-	} else if (r == 0) {
++	if (usbi_using_timerfd(ctx)) {
++		if (r < 0)
++			return r;
+ 		r = disarm_timerfd(ctx);
+ 		if (r < 0)
+ 			return r;
+-- 
+1.7.6.1
+

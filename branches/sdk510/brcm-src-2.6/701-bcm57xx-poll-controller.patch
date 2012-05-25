@@ -1,0 +1,14 @@
+--- src/bcm57xx.orig/linux/b57um.c	2010-12-23 11:29:07.000000000 +0000
++++ src/bcm57xx/linux/b57um.c	2011-02-11 22:13:33.386375002 +0000
+@@ -6199,7 +6199,11 @@ poll_bcm5700(struct net_device *dev)
+ #endif
+ 	{
+ 		disable_irq(pUmDevice->pdev->irq);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
++		bcm5700_interrupt(pUmDevice->pdev->irq, dev);
++#else
+ 		bcm5700_interrupt(pUmDevice->pdev->irq, dev, NULL);
++#endif
+ 		enable_irq(pUmDevice->pdev->irq);
+ 	}
+ }

@@ -1,0 +1,13 @@
+https://bugzilla.quagga.net/show_bug.cgi?id=578
+
+--- a/ripd/ripd.c	2009-12-10 21:14:39.000000000 +0500
++++ b/ripd/ripd.c	2010-03-09 15:38:52.000000000 +0500
+@@ -599,7 +599,7 @@
+           || ((same)
+               && (rinfo->metric == rte->metric)
+               && ntohs (rte->tag) != rinfo->tag)
+-          || (rinfo->distance > rip_distance_apply (&rinfotmp))
++          || ((rinfo->metric == rte->metric) && (rinfo->distance > rip_distance_apply (&rinfotmp)))
+           || ((rinfo->distance != rip_distance_apply (rinfo)) && same))
+         {
+           /* - Adopt the route from the datagram.  That is, put the

@@ -1,0 +1,56 @@
+net: workaround socketcall() must return -ENOSYS in case of illegal call number
+
+ Fixes absence of EINVAL => ENOSYS remap in uClibc __socketcall().
+ glibc note:
+
+ /* The kernel returns -EINVAL for unknown socket operations.
+     We need to convert that error to an ENOSYS error.  */
+
+---
+ net/compat.c |    4 ++--
+ net/socket.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/compat.c b/net/compat.c
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -650,7 +650,7 @@ asmlinkage long compat_sys_socketcall(in
+ 	u32 a0, a1;
+ 
+ 	if (call < SYS_SOCKET || call > SYS_ACCEPT4)
+-		return -EINVAL;
++		return -ENOSYS;
+ 	if (copy_from_user(a, args, nas[call]))
+ 		return -EFAULT;
+ 	a0 = a[0];
+@@ -714,7 +714,7 @@ asmlinkage long compat_sys_socketcall(in
+ 		ret = sys_accept4(a0, compat_ptr(a1), compat_ptr(a[2]), a[3]);
+ 		break;
+ 	default:
+-		ret = -EINVAL;
++		ret = -ENOSYS;
+ 		break;
+ 	}
+ 	return ret;
+diff --git a/net/socket.c b/net/socket.c
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2062,7 +2062,7 @@ asmlinkage long sys_socketcall(int call,
+ 	int err;
+ 
+ 	if (call < 1 || call > SYS_ACCEPT4)
+-		return -EINVAL;
++		return -ENOSYS;
+ 
+ 	/* copy_from_user should be SMP safe. */
+ 	if (copy_from_user(a, args, nargs[call]))
+@@ -2142,7 +2142,7 @@ asmlinkage long sys_socketcall(int call,
+ 				  (int __user *)a[2], a[3]);
+ 		break;
+ 	default:
+-		err = -EINVAL;
++		err = -ENOSYS;
+ 		break;
+ 	}
+ 	return err;
+-- 

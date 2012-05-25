@@ -1,0 +1,12 @@
+diff -BurpN squashfs.orig/squashfs-tools/Makefile squashfs/squashfs-tools/Makefile
+--- squashfs.orig/squashfs-tools/Makefile	2011-02-28 20:04:15.000000000 +0000
++++ squashfs/squashfs-tools/Makefile	2012-03-02 07:21:06.918019000 +0000
+@@ -86,7 +86,7 @@ XATTR_SUPPORT = 1
+ #
+ # If unselected, Mksquashfs/Unsquashfs won't store and extract xattrs by
+ # default.  Users can enable xattrs by using the -xattrs option.
+-XATTR_DEFAULT = 1
++#XATTR_DEFAULT = 1
+ 
+ 
+ ###############################################

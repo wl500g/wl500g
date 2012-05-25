@@ -1,0 +1,342 @@
+diff '-x.*' -urNBp a/drivers/usb/class/cdc-acm.c b/drivers/usb/class/cdc-acm.c
+--- a/drivers/usb/class/cdc-acm.c	2010-07-16 21:54:37.000000000 +0400
++++ b/drivers/usb/class/cdc-acm.c	2010-09-04 23:23:15.000000000 +0400
+@@ -1075,6 +1075,10 @@ skip_countries:
+ 	usb_get_intf(control_interface);
+ 	tty_register_device(acm_tty_driver, minor, &control_interface->dev);
+ 
++#ifdef CONFIG_USB_DEVPATH
++	usb_register_devpath(usb_dev, 0, acm_tty_driver->name, minor);
++#endif
++
+ 	acm_table[minor] = acm;
+ 
+ 	return 0;
+diff '-x.*' -urNBp a/drivers/usb/class/usblp.c b/drivers/usb/class/usblp.c
+--- a/drivers/usb/class/usblp.c	2010-09-04 04:00:00.000000000 +0400
++++ b/drivers/usb/class/usblp.c	2010-09-04 23:29:13.000000000 +0400
+@@ -1419,6 +1419,10 @@ outpan:
+ 	// End PaN 
+ #endif // U2EC
+ 
++#ifdef CONFIG_USB_DEVPATH
++		usb_register_devpath(dev, usblp->ifnum, "lp", usblp->minor);
++#endif
++
+ 	return 0;
+ 
+ abort_intfdata:
+diff '-x.*' -urNBp a/drivers/usb/core/devpath.c b/drivers/usb/core/devpath.c
+--- a/drivers/usb/core/devpath.c	1970-01-01 03:00:00.000000000 +0300
++++ b/drivers/usb/core/devpath.c	2010-09-04 23:38:10.000000000 +0400
+@@ -0,0 +1,186 @@
++/*
++ * devpath.c
++ * (C) Copyright 2008 Jiri Engelthaler
++ *
++ * $id$
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ *************************************************************
++ *
++ * 2008-07-25: Jiri Engelthaler (engy@centrum.cz)
++ *
++ * $Id: devpath.c,v 1.3 2000/01/11 13:58:24 tom Exp $
++ */
++
++#include <linux/slab.h>
++#include <linux/fs.h>
++#include <linux/mm.h>
++#include <linux/usb.h>
++#include <linux/usbdevice_fs.h>
++#include <asm/uaccess.h>
++#include <linux/module.h>
++
++LIST_HEAD(usb_devpath_list);
++DEFINE_MUTEX(usb_devpath_list_lock);
++
++struct usb_devpath {
++  struct list_head devpath_list;
++  struct usb_device *dev;
++  short index;
++  char devfs[16];
++};
++
++void usb_register_devpath(struct usb_device *dev, short index, const char *devname, int devnum)
++{
++	struct usb_devpath *newdevpath;
++	
++	mutex_lock(&usb_devpath_list_lock);
++	newdevpath = kmalloc(sizeof(*newdevpath), GFP_KERNEL);
++	newdevpath->dev = dev;
++	newdevpath->index = index;
++	snprintf(newdevpath->devfs, sizeof(newdevpath->devfs), "%s%d", devname, devnum);
++	list_add_tail(&newdevpath->devpath_list, &usb_devpath_list);
++	mutex_unlock(&usb_devpath_list_lock);
++}
++
++void usb_deregister_devpath(struct usb_device *dev)
++{
++	struct list_head *tmp;
++
++	mutex_lock(&usb_devpath_list_lock);
++	for (tmp = usb_devpath_list.next; tmp != &usb_devpath_list; tmp = tmp->next) {
++		struct usb_devpath *devpath = list_entry(tmp, struct usb_devpath, devpath_list);
++		if (devpath->dev == dev)
++		{
++			tmp = tmp->prev;
++			list_del(&devpath->devpath_list);
++			kfree(devpath);
++		}
++	}	
++	mutex_unlock(&usb_devpath_list_lock);
++}
++
++/*****************************************************************/
++
++/*
++ * Dump usb_devpath_list.
++ *
++ * We now walk the list of registered USB device paths.
++ */
++static ssize_t usb_devpath_read(struct file *file, char *buf, size_t nbytes, loff_t *ppos)
++{
++	struct list_head *tmp;
++	char *page, *start, *end;
++	ssize_t ret = 0;
++	loff_t n = *ppos;
++	unsigned int pos = n, len;
++	char  *infobuf;
++	
++	if (pos != n)
++		return -EINVAL;
++	if (nbytes <= 0)
++		return 0;
++	if (!access_ok(VERIFY_WRITE, buf, nbytes))
++		return -EFAULT;
++	if (!(page = (char*) __get_free_page(GFP_KERNEL)))
++		return -ENOMEM;
++	start = page;
++	end = page + (PAGE_SIZE - 100);
++
++	infobuf = kmalloc(128, GFP_KERNEL);
++
++	start += sprintf(start, "Device         : Location : Info\n");
++
++	mutex_lock(&usb_devpath_list_lock);
++
++	for (tmp = usb_devpath_list.next; tmp != &usb_devpath_list; tmp = tmp->next) {
++		struct usb_devpath *devpath = list_entry(tmp, struct usb_devpath, devpath_list);
++
++		start += sprintf(start, "/dev/%s : %s.%d ", devpath->devfs, devpath->dev->devpath, devpath->index);
++
++		if (devpath->dev->descriptor.iManufacturer) {
++			if (usb_string(devpath->dev, devpath->dev->descriptor.iManufacturer, infobuf, 128) > 0)
++				start += sprintf(start, ": Manufacturer=\"%.100s\" ", infobuf);
++		}
++
++		if (devpath->dev->descriptor.iProduct) {
++			if (usb_string(devpath->dev, devpath->dev->descriptor.iProduct, infobuf, 128) > 0)
++				start += sprintf(start, ": Product=\"%.100s\" ", infobuf);
++		}
++#ifdef ALLOW_SERIAL_NUMBER
++		if (devpath->dev->descriptor.iSerialNumber) {
++			if (usb_string(devpath->dev, devpath->dev->descriptor.iSerialNumber, infobuf, 128) > 0)
++				start += sprintf(start, ": SerialNumber=\"%.100s\" ", infobuf);
++		}
++#endif
++		start += sprintf(start, "\n");
++/*		int minor = driver->fops ? driver->minor : -1;
++		if (minor == -1)
++			start += sprintf (start, "         %s\n", driver->name);
++		else
++			start += sprintf (start, "%3d-%3d: %s\n", minor, minor + 15, driver->name);*/
++		if (start > end) {
++			start += sprintf(start, "(truncated)\n");
++			break;
++		}
++	}
++	if (start == page)
++		start += sprintf(start, "(none)\n");
++	len = start - page;
++	if (len > pos) {
++		len -= pos;
++		if (len > nbytes)
++			len = nbytes;
++		ret = len;
++		if (copy_to_user(buf, page + pos, len))
++			ret = -EFAULT;
++		else
++			*ppos = pos + len;
++	}
++	
++	mutex_unlock(&usb_devpath_list_lock);
++	
++	kfree(infobuf);
++	free_page((unsigned long)page);
++	return ret;
++}
++
++static loff_t usb_devpath_lseek(struct file * file, loff_t offset, int orig)
++{
++	switch (orig) {
++	case 0:
++		file->f_pos = offset;
++		return file->f_pos;
++
++	case 1:
++		file->f_pos += offset;
++		return file->f_pos;
++
++	case 2:
++		return -EINVAL;
++
++	default:
++		return -EINVAL;
++	}
++}
++
++struct file_operations usbfs_devpath_fops = {
++	llseek:		usb_devpath_lseek,
++	read:		usb_devpath_read,
++};
++
++EXPORT_SYMBOL(usb_register_devpath);
++EXPORT_SYMBOL(usb_deregister_devpath);
+diff '-x.*' -urNBp a/drivers/usb/core/inode.c b/drivers/usb/core/inode.c
+--- a/drivers/usb/core/inode.c	2010-07-16 21:54:37.000000000 +0400
++++ b/drivers/usb/core/inode.c	2010-09-04 23:39:31.000000000 +0400
+@@ -49,6 +49,9 @@ static int usbfs_mount_count;	/* = 0 */
+ static int ignore_mount = 0;
+ 
+ static struct dentry *devices_usbfs_dentry;
++#ifdef CONFIG_USB_DEVPATH
++static struct dentry *devpath_usbfs_dentry;
++#endif
+ static int num_buses;	/* = 0 */
+ 
+ static uid_t devuid;	/* = 0 */
+@@ -586,6 +589,12 @@ static int create_special_files (void)
+ 		goto error_clean_mounts;
+ 	}
+ 
++#ifdef CONFIG_USB_DEVPATH
++	devpath_usbfs_dentry = fs_create_file ("devpath",
++					       listmode | S_IFREG, parent,
++					       NULL, &usbfs_devpath_fops,
++					       listuid, listgid);
++#endif
+ 	goto exit;
+ 	
+ error_clean_mounts:
+@@ -599,6 +608,11 @@ static void remove_special_files (void)
+ 	if (devices_usbfs_dentry)
+ 		fs_remove_file (devices_usbfs_dentry);
+ 	devices_usbfs_dentry = NULL;
++#ifdef CONFIG_USB_DEVPATH
++	if (devpath_usbfs_dentry)
++		fs_remove_file (devpath_usbfs_dentry);
++	devpath_usbfs_dentry = NULL;
++#endif
+ 	simple_release_fs(&usbfs_mount, &usbfs_mount_count);
+ }
+ 
+@@ -686,6 +700,9 @@ static void usbfs_remove_device(struct u
+ 		fs_remove_file (dev->usbfs_dentry);
+ 		dev->usbfs_dentry = NULL;
+ 	}
++#ifdef CONFIG_USB_DEVPATH
++	usb_deregister_devpath(dev);
++#endif
+ }
+ 
+ static int usbfs_notify(struct notifier_block *self, unsigned long action, void *dev)
+diff '-x.*' -urNBp a/drivers/usb/core/Kconfig b/drivers/usb/core/Kconfig
+--- a/drivers/usb/core/Kconfig	2010-07-16 21:54:37.000000000 +0400
++++ b/drivers/usb/core/Kconfig	2010-09-04 21:41:31.000000000 +0400
+@@ -75,6 +75,11 @@ config USB_DEVICE_CLASS
+ 	    SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", \
+ 	    NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
+ 
++config USB_DEVPATH
++	bool "Add support for /proc/bus/usb/devpath"
++	depends on USB_DEVICEFS
++	default n
++
+ config USB_DYNAMIC_MINORS
+ 	bool "Dynamic USB minor allocation (EXPERIMENTAL)"
+ 	depends on USB && EXPERIMENTAL
+diff '-x.*' -urNBp a/drivers/usb/core/Makefile b/drivers/usb/core/Makefile
+--- a/drivers/usb/core/Makefile	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/usb/core/Makefile	2010-09-04 21:42:23.000000000 +0400
+@@ -13,6 +13,9 @@ endif
+ ifeq ($(CONFIG_USB_DEVICEFS),y)
+ 	usbcore-objs	+= inode.o devices.o
+ endif
++ifeq ($(CONFIG_USB_DEVPATH),y)
++	usbcore-objs	+= devpath.o
++endif
+ 
+ obj-$(CONFIG_USB)	+= usbcore.o
+ 
+diff '-x.*' -urNBp a/drivers/usb/core/usb.h b/drivers/usb/core/usb.h
+--- a/drivers/usb/core/usb.h	2010-09-04 04:00:00.000000000 +0400
++++ b/drivers/usb/core/usb.h	2010-09-04 23:37:06.000000000 +0400
+@@ -149,6 +149,7 @@ extern struct attribute_group *usb_inter
+ extern struct mutex usbfs_mutex;
+ extern struct usb_driver usbfs_driver;
+ extern const struct file_operations usbfs_devices_fops;
++extern const struct file_operations usbfs_devpath_fops;
+ extern const struct file_operations usbdev_file_operations;
+ extern void usbfs_conn_disc_event(void);
+ 
+@@ -161,3 +162,5 @@ extern void usb_notify_remove_device(str
+ extern void usb_notify_add_bus(struct usb_bus *ubus);
+ extern void usb_notify_remove_bus(struct usb_bus *ubus);
+ 
++/* devpath */
++extern struct mutex usb_devpath_list_lock;
+diff '-x.*' -urNBp a/drivers/usb/serial/bus.c b/drivers/usb/serial/bus.c
+--- a/drivers/usb/serial/bus.c	2010-09-04 04:00:00.000000000 +0400
++++ b/drivers/usb/serial/bus.c	2010-09-04 23:22:59.000000000 +0400
+@@ -68,6 +68,14 @@ static int usb_serial_device_probe (stru
+ 		 "%s converter now attached to ttyUSB%d\n",
+ 		 driver->description, minor);
+ 
++#ifdef CONFIG_USB_DEVPATH
++	{
++		int ifnum = port->serial->interface->cur_altsetting->desc.bInterfaceNumber;
++
++		usb_register_devpath(port->serial->dev, ifnum, usb_serial_tty_driver->name, minor);
++	}
++#endif
++
+ exit:
+ 	return retval;
+ }
+diff '-x.*' -urNBp a/include/linux/usb.h b/include/linux/usb.h
+--- a/include/linux/usb.h	2010-07-27 13:55:04.000000000 +0400
++++ b/include/linux/usb.h	2010-09-04 22:12:43.000000000 +0400
+@@ -1479,6 +1479,9 @@ extern int usb_set_interface(struct usb_
+ /* this request isn't really synchronous, but it belongs with the others */
+ extern int usb_driver_set_configuration(struct usb_device *udev, int config);
+ 
++extern void usb_register_devpath(struct usb_device *udev, short index, const char *devname, int devnum);
++extern void usb_deregister_devpath(struct usb_device *udev);
++
+ /*
+  * timeouts, in milliseconds, used for sending/receiving control messages
+  * they typically complete within a few frames (msec) after they're issued

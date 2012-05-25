@@ -1,0 +1,7 @@
+# Huawei ET8282 
+
+TargetClass=0xff
+
+TargetProduct= 0x1d09
+HuaweiMode=1
+

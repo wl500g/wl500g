@@ -1,0 +1,629 @@
+Updates from Broadcom SDK 5.10.140
+
+---
+ arch/mips/Kconfig               |    4 ++
+ arch/mips/mm/cache.c            |   41 ++++++++++++++++++-------
+ arch/mips/mm/init.c             |   64 ++++++++++++++++++++++++++--------------
+ drivers/i2c/busses/i2c-gpio.c   |   24 ++++++++++-----
+ include/asm-mips/hazards.h      |   14 +++++---
+ include/asm-mips/sparsemem.h    |    5 +--
+ include/linux/i2c-id.h          |    1 
+ include/linux/rcupdate.h        |   12 +++++++
+ include/linux/spinlock_api_up.h |   10 ++++++
+ kernel/irq/spurious.c           |    4 --
+ kernel/softirq.c                |    2 +
+ mm/highmem.c                    |   16 ++++++++--
+ mm/page_alloc.c                 |    8 +++--
+ sound/soc/Makefile              |    2 -
+ sound/soc/codecs/Kconfig        |    6 +++
+ sound/soc/codecs/Makefile       |    2 +
+ sound/soc/codecs/wm8750.c       |   19 +++++++++--
+ 17 files changed, 172 insertions(+), 62 deletions(-)
+
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/Kconfig linux-2.6/arch/mips/Kconfig
+--- linux-2.6/arch/mips/Kconfig	2008-12-12 06:25:39.000000000 +0300
++++ linux-2.6/arch/mips/Kconfig	2009-11-26 02:33:34.000000000 +0300
+@@ -701,6 +705,10 @@ config BCMIPDSCP
+ 	int "Memory size (in megabytes)"
+ 	depends on BCM947XX
+ 
++config GENERIC_GPIO
++	bool "Generic GPIO"
++	default n
++
+ endmenu
+ 
+ 
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/mm/cache.c linux-2.6/arch/mips/mm/cache.c
+--- linux-2.6/arch/mips/mm/cache.c	2008-12-12 06:25:49.000000000 +0300
++++ linux-2.6/arch/mips/mm/cache.c	2009-11-26 02:33:43.000000000 +0300
+@@ -56,26 +56,43 @@ EXPORT_SYMBOL(_dma_cache_inv);
+ asmlinkage int sys_cacheflush(unsigned long addr,
+ 	unsigned long bytes, unsigned int cache)
+ {
++	struct vm_area_struct* vma;
++
+ 	if (bytes == 0)
+ 		return 0;
+ 	if (!access_ok(VERIFY_WRITE, (void __user *) addr, bytes))
+ 		return -EFAULT;
+ 
+-	flush_icache_range(addr, addr + bytes);
++	if (cache & DCACHE)
++        {
++                vma = find_vma(current->mm, (unsigned long) addr);
++                if (vma) {
++                        flush_cache_range(vma,(unsigned long)addr,((unsigned long)addr) + bytes);
++                }
++                else {
++                        __flush_cache_all();
++                }
++        }
++        if (cache & ICACHE)
++        {
++                flush_icache_range(addr, addr + bytes);
++        }	
+ 
+ 	return 0;
+ }
+ 
++void *kmap_atomic_page_address(struct page *page);
++
+ void __flush_dcache_page(struct page *page)
+ {
+-	struct address_space *mapping = page_mapping(page);
+ 	unsigned long addr;
+ 
+-	if (PageHighMem(page))
+-		return;
+-	if (mapping && !mapping_mapped(mapping)) {
+-		SetPageDcacheDirty(page);
+-		return;
++	if (PageHighMem(page)) {
++		addr = (unsigned long) kmap_atomic_page_address(page);
++		if (addr) {
++			flush_data_cache_page(addr);
++			return;
++		}
+ 	}
+ 
+ 	/*
+@@ -84,7 +101,8 @@ void __flush_dcache_page(struct page *pa
+ 	 * get faulted into the tlb (and thus flushed) anyways.
+ 	 */
+ 	addr = (unsigned long) page_address(page);
+-	flush_data_cache_page(addr);
++	if (addr)
++		flush_data_cache_page(addr);
+ }
+ 
+ EXPORT_SYMBOL(__flush_dcache_page);
+@@ -113,11 +131,12 @@ void __update_cache(struct vm_area_struc
+ 	if (unlikely(!pfn_valid(pfn)))
+ 		return;
+ 	page = pfn_to_page(pfn);
+-	if (page_mapping(page) && Page_dcache_dirty(page)) {
++	if (page_mapping(page))
++	{
+ 		addr = (unsigned long) page_address(page);
+ 		if (exec || pages_do_alias(addr, address & PAGE_MASK))
+-			flush_data_cache_page(addr);
+-		ClearPageDcacheDirty(page);
++			if (addr)
++				flush_data_cache_page(addr);
+ 	}
+ }
+ 
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/mm/init.c linux-2.6/arch/mips/mm/init.c
+--- linux-2.6/arch/mips/mm/init.c	2008-12-12 06:25:49.000000000 +0300
++++ linux-2.6/arch/mips/mm/init.c	2009-11-26 02:33:43.000000000 +0300
+@@ -216,6 +216,7 @@ void copy_to_user_page(struct vm_area_st
+ 	    page_mapped(page) && !Page_dcache_dirty(page)) {
+ 		void *vto = kmap_coherent(page, vaddr) + (vaddr & ~PAGE_MASK);
+ 		memcpy(vto, src, len);
++		flush_data_cache_page((unsigned long)vto & PAGE_MASK);
+ 		kunmap_coherent();
+ 	} else {
+ 		memcpy(dst, src, len);
+@@ -338,11 +339,12 @@ static int __init page_is_ram(unsigned l
+ 
+ void __init paging_init(void)
+ {
++#ifdef CONFIG_FLATMEM
+ 	unsigned long zones_size[MAX_NR_ZONES] = { 0, };
+-#ifndef CONFIG_FLATMEM
+-	unsigned long zholes_size[MAX_NR_ZONES] = { 0, };
+-	unsigned long i, j, pfn;
+-#endif
++#else /* SPARSEMEM */
++	unsigned long max_zone_pfns[MAX_NR_ZONES];
++	unsigned long lastpfn;
++#endif /* CONFIG_FLATMEM */
+ 
+ 	pagetable_init();
+ 
+@@ -351,6 +353,7 @@ void __init paging_init(void)
+ #endif
+ 	kmap_coherent_init();
+ 
++#ifdef CONFIG_FLATMEM
+ #ifdef CONFIG_ZONE_DMA
+ 	if (min_low_pfn < MAX_DMA_PFN && MAX_DMA_PFN <= max_low_pfn) {
+ 		zones_size[ZONE_DMA] = MAX_DMA_PFN - min_low_pfn;
+@@ -358,9 +361,9 @@ void __init paging_init(void)
+ 	} else if (max_low_pfn < MAX_DMA_PFN)
+ 		zones_size[ZONE_DMA] = max_low_pfn - min_low_pfn;
+ 	else
+-#endif
++#endif /* CONFIG_ZONE_DMA */
+ 	zones_size[ZONE_NORMAL] = max_low_pfn - min_low_pfn;
+-
++	
+ #ifdef CONFIG_HIGHMEM
+ 	zones_size[ZONE_HIGHMEM] = highend_pfn - highstart_pfn;
+ 
+@@ -369,18 +373,37 @@ void __init paging_init(void)
+ 		       " %ldk highmem ignored\n", zones_size[ZONE_HIGHMEM]);
+ 		zones_size[ZONE_HIGHMEM] = 0;
+ 	}
+-#endif
++#endif /* CONFIG_HIGHMEM */
+ 
+-#ifdef CONFIG_FLATMEM
+ 	free_area_init(zones_size);
+-#else
+-	pfn = min_low_pfn;
+-	for (i = 0; i < MAX_NR_ZONES; i++)
+-		for (j = 0; j < zones_size[i]; j++, pfn++)
+-			if (!page_is_ram(pfn))
+-				zholes_size[i]++;
+-	free_area_init_node(0, NODE_DATA(0), zones_size, 0, zholes_size);
+-#endif
++
++#else /* SPARSEMEM */
++
++#ifdef CONFIG_ZONE_DMA
++	max_zone_pfns[ZONE_DMA] = MAX_DMA_PFN;
++#endif /* CONFIG_ZONE_DMA */
++
++#ifdef CONFIG_ZONE_DMA32
++	max_zone_pfns[ZONE_DMA32] = MAX_DMA32_PFN;
++#endif /* CONFIG_ZONE_DMA32 */
++	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
++	lastpfn = max_low_pfn;
++
++#ifdef CONFIG_HIGHMEM
++	max_zone_pfns[ZONE_HIGHMEM] = highend_pfn;
++	lastpfn = highend_pfn;
++
++	if (cpu_has_dc_aliases && max_low_pfn != highend_pfn) {
++		printk(KERN_WARNING "This processor doesn't support highmem."
++			" %ldk highmem ignored\n",
++			(highend_pfn - max_low_pfn) << (PAGE_SHIFT - 10));
++		max_zone_pfns[ZONE_HIGHMEM] = max_low_pfn;
++		lastpfn = max_low_pfn;
++	}
++#endif /* CONFIG_HIGHMEM */
++
++	free_area_init_nodes(max_zone_pfns);
++#endif /* CONFIG_FLATMEM */
+ }
+ 
+ static struct kcore_list kcore_mem, kcore_vmalloc;
+@@ -397,7 +420,7 @@ void __init mem_init(void)
+ #ifdef CONFIG_DISCONTIGMEM
+ #error "CONFIG_HIGHMEM and CONFIG_DISCONTIGMEM dont work together yet"
+ #endif
+-	max_mapnr = highend_pfn;
++	max_mapnr = max(max_low_pfn, highend_pfn);
+ #else
+ 	max_mapnr = max_low_pfn;
+ #endif
+@@ -417,12 +440,12 @@ void __init mem_init(void)
+ 
+ #ifdef CONFIG_HIGHMEM
+ 	for (tmp = highstart_pfn; tmp < highend_pfn; tmp++) {
+-		struct page *page = mem_map + tmp;
++		struct page *page;
+ 
+-		if (!page_is_ram(tmp)) {
+-			SetPageReserved(page);
++		if (!page_is_ram(tmp))
+ 			continue;
+-		}
++
++		page = pfn_to_page(tmp);
+ 		ClearPageReserved(page);
+ 		init_page_count(page);
+ 		__free_page(page);
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/asm-mips/hazards.h linux-2.6/include/asm-mips/hazards.h
+--- linux-2.6/include/asm-mips/hazards.h	2008-12-12 06:33:24.000000000 +0300
++++ linux-2.6/include/asm-mips/hazards.h	2009-11-26 02:40:49.000000000 +0300
+@@ -156,23 +156,25 @@ ASMMACRO(back_to_back_c0_hazard,
+  * instructions on R4000 / R4400.  Other processors only have a single cycle
+  * hazard so this is nice trick to have an optimal code for a range of
+  * processors.
++ * Make it compatible with Mips32r2 processors
+  */
+ ASMMACRO(mtc0_tlbw_hazard,
+-	nop; nop
++	nop; nop; _ehb
+ 	)
+ ASMMACRO(tlbw_use_hazard,
+-	nop; nop; nop
++	nop; nop; nop; _ehb
+ 	)
+ ASMMACRO(tlb_probe_hazard,
+-	 nop; nop; nop
++	nop; nop; nop; _ehb
+ 	)
+ ASMMACRO(irq_enable_hazard,
++	_ehb
+ 	)
+ ASMMACRO(irq_disable_hazard,
+-	nop; nop; nop
++	nop; nop; nop; _ehb
+ 	)
+ ASMMACRO(back_to_back_c0_hazard,
+-	 _ssnop; _ssnop; _ssnop;
++	_ssnop; _ssnop; _ssnop; _ehb
+ 	)
+ #define instruction_hazard() do { } while (0)
+ 
+@@ -203,7 +205,7 @@ ASMMACRO(disable_fpu_hazard,
+ )
+ #else
+ ASMMACRO(enable_fpu_hazard,
+-	 nop; nop; nop; nop
++	 nop; nop; nop; nop; _ehb
+ )
+ ASMMACRO(disable_fpu_hazard,
+ 	 _ehb
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/asm-mips/sparsemem.h linux-2.6/include/asm-mips/sparsemem.h
+--- linux-2.6/include/asm-mips/sparsemem.h	2008-12-12 06:33:26.000000000 +0300
++++ linux-2.6/include/asm-mips/sparsemem.h	2009-11-26 02:40:50.000000000 +0300
+@@ -6,8 +6,7 @@
+  * SECTION_SIZE_BITS		2^N: how big each section will be
+  * MAX_PHYSMEM_BITS		2^N: how much memory we can have in that space
+  */
+-#define SECTION_SIZE_BITS       28
+-#define MAX_PHYSMEM_BITS        35
+-
++#define SECTION_SIZE_BITS       27 /* 128 mb */
++#define MAX_PHYSMEM_BITS        32 /* 4 gb */
+ #endif /* CONFIG_SPARSEMEM */
+ #endif /* _MIPS_SPARSEMEM_H */
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/linux/rcupdate.h linux-2.6/include/linux/rcupdate.h
+--- linux-2.6/include/linux/rcupdate.h	2008-12-12 06:34:19.000000000 +0300
++++ linux-2.6/include/linux/rcupdate.h	2009-11-26 02:41:38.000000000 +0300
+@@ -200,6 +200,7 @@ extern int rcu_needs_cpu(int cpu);
+  * can use just rcu_read_lock().
+  *
+  */
++#ifdef CONFIG_PREEMPT
+ #define rcu_read_lock_bh() \
+ 	do { \
+ 		local_bh_disable(); \
+@@ -216,6 +217,17 @@ extern int rcu_needs_cpu(int cpu);
+ 		__release(RCU_BH); \
+ 		local_bh_enable(); \
+ 	} while(0)
++#else
++#define rcu_read_lock_bh() \
++	do { \
++		local_bh_disable(); \
++	} while(0)
++#define rcu_read_unlock_bh() \
++	do { \
++		local_bh_enable(); \
++	} while(0)
++
++#endif
+ 
+ /**
+  * rcu_dereference - fetch an RCU-protected pointer in an
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/linux/spinlock_api_up.h linux-2.6/include/linux/spinlock_api_up.h
+--- linux-2.6/include/linux/spinlock_api_up.h	2008-12-12 06:34:21.000000000 +0300
++++ linux-2.6/include/linux/spinlock_api_up.h	2009-11-26 02:41:41.000000000 +0300
+@@ -24,8 +24,13 @@
+  * flags straight, to supress compiler warnings of unused lock
+  * variables, and to add the proper checker annotations:
+  */
++#ifdef CONFIG_PREEMPT
+ #define __LOCK(lock) \
+   do { preempt_disable(); __acquire(lock); (void)(lock); } while (0)
++#else /* CONFIG_PREEMPT */
++#define __LOCK(lock) \
++  (void)(lock)
++#endif
+ 
+ #define __LOCK_BH(lock) \
+   do { local_bh_disable(); __LOCK(lock); } while (0)
+@@ -36,8 +41,13 @@
+ #define __LOCK_IRQSAVE(lock, flags) \
+   do { local_irq_save(flags); __LOCK(lock); } while (0)
+ 
++#ifdef  CONFIG_PREEMPT
+ #define __UNLOCK(lock) \
+   do { preempt_enable(); __release(lock); (void)(lock); } while (0)
++#else
++#define __UNLOCK(lock) \
++	do { } while(0)
++#endif
+ 
+ #define __UNLOCK_BH(lock) \
+   do { preempt_enable_no_resched(); local_bh_enable(); __release(lock); (void)(lock); } while (0)
+diff -urNBp a/kernel/irq/spurious.c b/kernel/irq/spurious.c
+--- a/kernel/irq/spurious.c
++++ b/kernel/irq/spurious.c
+@@ -10,7 +10,6 @@
+ #include <linux/module.h>
+ #include <linux/kallsyms.h>
+ #include <linux/interrupt.h>
+-#include <linux/reboot.h>
+ 
+ static int irqfixup __read_mostly;
+ 
+@@ -193,9 +192,6 @@ void note_interrupt(unsigned int irq, struct irq_desc *desc,
+ 		/*
+ 		 * The interrupt is stuck
+ 		 */
+-		/* reboot it */
+-		printk("IRQ error and try to reboot!\n");
+-		machine_restart(NULL);
+ 		__report_bad_irq(irq, desc, action_ret);
+ 		/*
+ 		 * Now kill the IRQ
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/kernel/softirq.c linux-2.6/kernel/softirq.c
+--- linux-2.6/kernel/softirq.c	2008-12-12 06:34:45.000000000 +0300
++++ linux-2.6/kernel/softirq.c	2010-01-21 05:05:47.000000000 +0300
+@@ -118,7 +118,9 @@ EXPORT_SYMBOL_GPL(__local_bh_enable);
+  */
+ void _local_bh_enable(void)
+ {
++#ifdef CONFIG_TRACE_IRQFLAGS
+ 	WARN_ON_ONCE(in_irq());
++#endif
+ 	WARN_ON_ONCE(!irqs_disabled());
+ 
+ 	if (softirq_count() == SOFTIRQ_OFFSET)
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/mm/highmem.c linux-2.6/mm/highmem.c
+--- linux-2.6/mm/highmem.c	2008-12-12 06:34:49.000000000 +0300
++++ linux-2.6/mm/highmem.c	2009-11-26 02:42:07.000000000 +0300
+@@ -122,8 +123,20 @@ start:
+ 			flush_all_zero_pkmaps();
+ 			count = LAST_PKMAP;
+ 		}
+-		if (!pkmap_count[last_pkmap_nr])
+-			break;	/* Found a usable entry */
++		if (!pkmap_count[last_pkmap_nr]) {
++			if (cpu_has_dc_aliases) {
++				unsigned int pfn, map_pfn;
++
++				/* check page color */
++				pfn = page_to_pfn(page);
++				map_pfn = PKMAP_ADDR(last_pkmap_nr) >> PAGE_SHIFT;
++
++				/* Avoide possibility of cache Aliasing */
++				if (!pages_do_alias((map_pfn << PAGE_SHIFT), (pfn << PAGE_SHIFT)))
++					break;      /* Found a usable entry */
++			} else
++				break;	/* Found a usable entry */
++		}
+ 		if (--count)
+ 			continue;
+ 
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/mm/page_alloc.c linux-2.6/mm/page_alloc.c
+--- linux-2.6/mm/page_alloc.c	2008-12-12 06:34:50.000000000 +0300
++++ linux-2.6/mm/page_alloc.c	2009-11-26 02:42:08.000000000 +0300
+@@ -2608,7 +2608,11 @@ static void __meminit free_area_init_cor
+ 		 * is used by this zone for memmap. This affects the watermark
+ 		 * and per-cpu initialisations
+ 		 */
++#ifdef CONFIG_SPARSEMEM
++                memmap_pages = 0;
++#else
+ 		memmap_pages = (size * sizeof(struct page)) >> PAGE_SHIFT;
++#endif
+ 		if (realsize >= memmap_pages) {
+ 			realsize -= memmap_pages;
+ 			printk(KERN_DEBUG
+@@ -2945,7 +2949,7 @@ void __init free_area_init_nodes(unsigne
+ 	}
+ 
+ 	/* Print out the zone ranges */
+-	printk("Zone PFN ranges:\n");
++	printk(KERN_INFO "Zone PFN ranges:\n");
+ 	for (i = 0; i < MAX_NR_ZONES; i++)
+ 		printk("  %-8s %8lu -> %8lu\n",
+ 				zone_names[i],
+@@ -2953,7 +2957,7 @@ void __init free_area_init_nodes(unsigne
+ 				arch_zone_highest_possible_pfn[i]);
+ 
+ 	/* Print out the early_node_map[] */
+-	printk("early_node_map[%d] active PFN ranges\n", nr_nodemap_entries);
++	printk(KERN_INFO "early_node_map[%d] active PFN ranges\n", nr_nodemap_entries);
+ 	for (i = 0; i < nr_nodemap_entries; i++)
+ 		printk("  %3d: %8lu -> %8lu\n", early_node_map[i].nid,
+ 						early_node_map[i].start_pfn,
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/codecs/Kconfig linux-2.6/sound/soc/codecs/Kconfig
+--- linux-2.6/sound/soc/codecs/Kconfig	2008-12-12 06:36:00.000000000 +0300
++++ linux-2.6/sound/soc/codecs/Kconfig	2009-11-26 02:43:16.000000000 +0300
+@@ -7,13 +7,17 @@ config SND_SOC_WM8731
+ 	depends on SND_SOC
+ 
+ config SND_SOC_WM8750
+-	tristate
++	tristate "WM8750"
+ 	depends on SND_SOC
+ 
+ config SND_SOC_WM8753
+ 	tristate
+ 	depends on SND_SOC
+ 
++config SND_SOC_WM8955
++	tristate "WM8955"
++	depends on SND_SOC
++
+ config SND_SOC_WM9712
+ 	tristate
+ 	depends on SND_SOC
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/codecs/Makefile linux-2.6/sound/soc/codecs/Makefile
+--- linux-2.6/sound/soc/codecs/Makefile	2008-12-12 06:36:00.000000000 +0300
++++ linux-2.6/sound/soc/codecs/Makefile	2009-11-26 02:43:16.000000000 +0300
+@@ -2,10 +2,12 @@ snd-soc-ac97-objs := ac97.o
+ snd-soc-wm8731-objs := wm8731.o
+ snd-soc-wm8750-objs := wm8750.o
+ snd-soc-wm8753-objs := wm8753.o
++snd-soc-wm8955-objs := wm8955.o
+ snd-soc-wm9712-objs := wm9712.o
+ 
+ obj-$(CONFIG_SND_SOC_AC97_CODEC)	+= snd-soc-ac97.o
+ obj-$(CONFIG_SND_SOC_WM8731)	+= snd-soc-wm8731.o
+ obj-$(CONFIG_SND_SOC_WM8750)	+= snd-soc-wm8750.o
+ obj-$(CONFIG_SND_SOC_WM8753)	+= snd-soc-wm8753.o
++obj-$(CONFIG_SND_SOC_WM8955)	+= snd-soc-wm8955.o
+ obj-$(CONFIG_SND_SOC_WM9712)	+= snd-soc-wm9712.o
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/codecs/wm8750.c linux-2.6/sound/soc/codecs/wm8750.c
+--- linux-2.6/sound/soc/codecs/wm8750.c	2008-12-12 06:36:00.000000000 +0300
++++ linux-2.6/sound/soc/codecs/wm8750.c	2009-11-26 02:43:16.000000000 +0300
+@@ -694,6 +694,8 @@ static int wm8750_dapm_event(struct snd_
+ 
+ 	switch (event) {
+ 	case SNDRV_CTL_POWER_D0: /* full On */
++		/* Turn On LDAC/RDAC, LOUT2/ROUT2 */
++		wm8750_write(codec, WM8750_PWR2, 0x198);
+ 		/* set vmid to 50k and unmute dac */
+ 		wm8750_write(codec, WM8750_PWR1, pwr_reg | 0x00c0);
+ 		break;
+@@ -708,6 +710,7 @@ static int wm8750_dapm_event(struct snd_
+ 		break;
+ 	case SNDRV_CTL_POWER_D3cold: /* Off, without power */
+ 		wm8750_write(codec, WM8750_PWR1, 0x0001);
++		wm8750_write(codec, WM8750_PWR2, 0x0);
+ 		break;
+ 	}
+ 	codec->dapm_state = event;
+@@ -835,10 +838,18 @@ static int wm8750_init(struct snd_soc_de
+ 	wm8750_write(codec, WM8750_LOUT1V, reg | 0x0100);
+ 	reg = wm8750_read_reg_cache(codec, WM8750_ROUT1V);
+ 	wm8750_write(codec, WM8750_ROUT1V, reg | 0x0100);
+-	reg = wm8750_read_reg_cache(codec, WM8750_LOUT2V);
+-	wm8750_write(codec, WM8750_LOUT2V, reg | 0x0100);
+-	reg = wm8750_read_reg_cache(codec, WM8750_ROUT2V);
+-	wm8750_write(codec, WM8750_ROUT2V, reg | 0x0100);
++	/* Read LOUT2V/ROUT2V and strip volume bits */
++	reg = wm8750_read_reg_cache(codec, WM8750_LOUT2V) & 0x180;
++	wm8750_write(codec, WM8750_LOUT2V, reg | 0x0150);
++	reg = wm8750_read_reg_cache(codec, WM8750_ROUT2V) & 0x180;
++	wm8750_write(codec, WM8750_ROUT2V, reg | 0x0150);
++
++	/* Enable L & R Digital Inputs for the L & R Outputs of the mixer */
++	reg = wm8750_read_reg_cache(codec, WM8750_LOUTM1);
++	wm8750_write(codec, WM8750_LOUTM1, reg | 0x0100);
++	reg = wm8750_read_reg_cache(codec, WM8750_ROUTM1);
++	wm8750_write(codec, WM8750_ROUTM2, reg | 0x0100);
++
+ 	reg = wm8750_read_reg_cache(codec, WM8750_LINVOL);
+ 	wm8750_write(codec, WM8750_LINVOL, reg | 0x0100);
+ 	reg = wm8750_read_reg_cache(codec, WM8750_RINVOL);
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/Makefile linux-2.6/sound/soc/Makefile
+--- linux-2.6/sound/soc/Makefile	2008-12-12 06:36:00.000000000 +0300
++++ linux-2.6/sound/soc/Makefile	2009-11-26 02:43:15.000000000 +0300
+@@ -1,4 +1,4 @@
+ snd-soc-core-objs := soc-core.o soc-dapm.o
+ 
+ obj-$(CONFIG_SND_SOC)	+= snd-soc-core.o
+-obj-$(CONFIG_SND_SOC)	+= codecs/ at91/ pxa/ s3c24xx/
++obj-$(CONFIG_SND_SOC)	+= codecs/ at91/ pxa/ s3c24xx/ bcm947xx/
+diff '-x*.o' '-x*.orig' '-x.*' -urBp linux-2.6/include/linux/i2c-id.h linux-2.6/include/linux/i2c-id.h
+--- linux-2.6/include/linux/i2c-id.h	2008-12-12 06:34:12.000000000 +0300
++++ linux-2.6/include/linux/i2c-id.h	2009-11-26 02:41:32.000000000 +0300
+@@ -118,6 +118,7 @@
+ #define I2C_DRIVERID_WM8731		89	/* Wolfson WM8731 audio codec */
+ #define I2C_DRIVERID_WM8750		90	/* Wolfson WM8750 audio codec */
+ #define I2C_DRIVERID_WM8753		91	/* Wolfson WM8753 audio codec */
++#define I2C_DRIVERID_WM8955		92	/* Wolfson WM8955 audio codec */
+ 
+ #define I2C_DRIVERID_I2CDEV	900
+ #define I2C_DRIVERID_ARP        902    /* SMBus ARP Client              */
+diff '-x*.o' '-x*.orig' '-x.*' -urBp linux-2.6/drivers/i2c/busses/i2c-gpio.c linux-2.6/drivers/i2c/busses/i2c-gpio.c
+--- linux-2.6/drivers/i2c/busses/i2c-gpio.c	2008-12-12 06:27:48.000000000 +0300
++++ linux-2.6/drivers/i2c/busses/i2c-gpio.c	2009-11-26 02:35:32.000000000 +0300
+@@ -63,21 +63,21 @@ static void i2c_gpio_setscl_val(void *da
+ 	gpio_set_value(pdata->scl_pin, state);
+ }
+ 
+-int i2c_gpio_getsda(void *data)
++static int i2c_gpio_getsda(void *data)
+ {
+ 	struct i2c_gpio_platform_data *pdata = data;
+ 
+ 	return gpio_get_value(pdata->sda_pin);
+ }
+ 
+-int i2c_gpio_getscl(void *data)
++static int i2c_gpio_getscl(void *data)
+ {
+ 	struct i2c_gpio_platform_data *pdata = data;
+ 
+ 	return gpio_get_value(pdata->scl_pin);
+ }
+ 
+-static int __init i2c_gpio_probe(struct platform_device *pdev)
++static int __devinit i2c_gpio_probe(struct platform_device *pdev)
+ {
+ 	struct i2c_gpio_platform_data *pdata;
+ 	struct i2c_algo_bit_data *bit_data;
+@@ -140,9 +140,17 @@ static int __init i2c_gpio_probe(struct
+ 	adap->owner = THIS_MODULE;
+ 	snprintf(adap->name, sizeof(adap->name), "i2c-gpio%d", pdev->id);
+ 	adap->algo_data = bit_data;
++	//adap->class = I2C_CLASS_HWMON | I2C_CLASS_SPD;
++	adap->class = I2C_CLASS_HWMON;
+ 	adap->dev.parent = &pdev->dev;
+ 
+-	ret = i2c_bit_add_bus(adap);
++	/*
++	 * If "dev->id" is negative we consider it as zero.
++	 * The reason to do so is to avoid sysfs names that only make
++	 * sense when there are multiple adapters.
++	 */
++	adap->nr = (pdev->id != -1) ? pdev->id : 0;
++	ret = i2c_bit_add_numbered_bus(adap);
+ 	if (ret)
+ 		goto err_add_bus;
+ 
+@@ -167,7 +175,7 @@ err_alloc_adap:
+ 	return ret;
+ }
+ 
+-static int __exit i2c_gpio_remove(struct platform_device *pdev)
++static int __devexit i2c_gpio_remove(struct platform_device *pdev)
+ {
+ 	struct i2c_gpio_platform_data *pdata;
+ 	struct i2c_adapter *adap;
+@@ -189,14 +197,15 @@ static struct platform_driver i2c_gpio_d
+ 		.name	= "i2c-gpio",
+ 		.owner	= THIS_MODULE,
+ 	},
+-	.remove		= __exit_p(i2c_gpio_remove),
++	.probe		= i2c_gpio_probe,
++	.remove		= __devexit_p(i2c_gpio_remove),
+ };
+ 
+ static int __init i2c_gpio_init(void)
+ {
+ 	int ret;
+ 
+-	ret = platform_driver_probe(&i2c_gpio_driver, i2c_gpio_probe);
++	ret = platform_driver_register(&i2c_gpio_driver);
+ 	if (ret)
+ 		printk(KERN_ERR "i2c-gpio: probe failed: %d\n", ret);
+ 
+@@ -213,3 +222,4 @@ module_exit(i2c_gpio_exit);
+ MODULE_AUTHOR("Haavard Skinnemoen <hskinnemoen@atmel.com>");
+ MODULE_DESCRIPTION("Platform-independent bitbanging I2C driver");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:i2c-gpio");
+-- 

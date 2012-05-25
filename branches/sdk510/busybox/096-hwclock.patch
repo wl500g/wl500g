@@ -1,0 +1,21 @@
+From d778e6c6f81b0b1c74602c5c6ddf8d1b235146de
+From: Denys Vlasenko
+Date: Tue, 17 Apr 2012 17:25:13 +0000
+Subject: hwclock: fix wrong comparison of time value (when it will overlow int)
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/util-linux/hwclock.c b/util-linux/hwclock.c
+--- a/util-linux/hwclock.c
++++ b/util-linux/hwclock.c
+@@ -43,7 +43,7 @@ static time_t read_rtc(const char **pp_rtcname, struct timeval *sys_tv, int utc)
+ 		while (1) {
+ 			rtc_read_tm(&tm_time, fd);
+ 			gettimeofday(sys_tv, NULL);
+-			if (before != tm_time.tm_sec)
++			if (before != (int)tm_time.tm_sec)
+ 				break;
+ 		}
+ 	}
+--
+cgit v0.9.0.1-2-gef13

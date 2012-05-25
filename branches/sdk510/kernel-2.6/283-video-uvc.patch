@@ -1,0 +1,32 @@
+UVC driver backport from 2.6.35.4
+
+---
+ drivers/media/video/Kconfig  |    2 ++
+ drivers/media/video/Makefile |    2 ++
+ 2 files changed, 4 insertions(+)
+
+diff -urNBp a/drivers/media/video/Kconfig b/drivers/media/video/Kconfig
+--- a/drivers/media/video/Kconfig	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/media/video/Kconfig	2010-09-13 12:00:56.000000000 +0400
+@@ -784,6 +784,8 @@ config USB_ZR364XX
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called zr364xx.
+ 
++source "drivers/media/video/uvc/Kconfig"
++
+ endif # V4L_USB_DRIVERS
+ 
+ endif # VIDEO_CAPTURE_DRIVERS
+diff -urNBp a/drivers/media/video/Makefile b/drivers/media/video/Makefile
+--- a/drivers/media/video/Makefile	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/media/video/Makefile	2010-09-13 12:35:16.000000000 +0400
+@@ -112,6 +115,8 @@ obj-$(CONFIG_USB_KONICAWC)      += usbvi
+ obj-$(CONFIG_USB_VICAM)         += usbvideo/
+ obj-$(CONFIG_USB_QUICKCAM_MESSENGER)	+= usbvideo/
+ 
++obj-$(CONFIG_USB_VIDEO_CLASS)	+= uvc/
++
+ obj-$(CONFIG_VIDEO_VIVI) += vivi.o
+ 
+ EXTRA_CFLAGS += -Idrivers/media/dvb/dvb-core
+-- 

@@ -1,0 +1,135 @@
+TCP: misc. updates from upstream
+
+ kernel.org commits
+ 1b6d427bb7eb69e6dc4f194a5b0f4a382a16ff82 [TCP]: Reduce sacked_out with reno when purging write_queue
+ 6c37e5de456987f5bc80879afde05aa120784095 TCP: avoid to send keepalive probes if receiving data
+ b9c4595bc4947faa236a849324fe3492e388d949 [TCP]: Don't panic if S+L skb is detected
+
+---
+ include/net/tcp.h     |   10 +++++++++-
+ net/ipv4/tcp.c        |    2 +-
+ net/ipv4/tcp_input.c  |   15 +++++++--------
+ net/ipv4/tcp_output.c |    3 +++
+ net/ipv4/tcp_timer.c  |    4 ++--
+ 5 files changed, 22 insertions(+), 12 deletions(-)
+
+diff -urBp a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h	2010-10-17 11:26:17.000000000 +0400
++++ b/include/net/tcp.h	2010-10-17 11:23:06.000000000 +0400
+@@ -757,7 +757,7 @@ static inline __u32 tcp_current_ssthresh
+ 
+ static inline void tcp_sync_left_out(struct tcp_sock *tp)
+ {
+-	BUG_ON(tp->rx_opt.sack_ok &&
++	WARN_ON(tp->rx_opt.sack_ok &&
+ 	       (tp->sacked_out + tp->lost_out > tp->packets_out));
+ 	tp->left_out = tp->sacked_out + tp->lost_out;
+ }
+@@ -978,6 +980,14 @@ static inline int keepalive_time_when(co
+ 	return tp->keepalive_time ? : sysctl_tcp_keepalive_time;
+ }
+ 
++static inline u32 keepalive_time_elapsed(const struct tcp_sock *tp)
++{
++	const struct inet_connection_sock *icsk = &tp->inet_conn;
++
++	return min_t(u32, tcp_time_stamp - icsk->icsk_ack.lrcvtime,
++			  tcp_time_stamp - tp->rcv_tstamp);
++}
++
+ static inline int tcp_fin_time(const struct sock *sk)
+ {
+ 	int fin_timeout = tcp_sk(sk)->linger2 ? : sysctl_tcp_fin_timeout;
+diff -urBp a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	2010-10-17 11:26:17.000000000 +0400
++++ b/net/ipv4/tcp.c	2010-10-17 11:23:06.000000000 +0400
+@@ -2121,7 +2121,7 @@ static int do_tcp_setsockopt(struct sock
+ 			if (sock_flag(sk, SOCK_KEEPOPEN) &&
+ 			    !((1 << sk->sk_state) &
+ 			      (TCPF_CLOSE | TCPF_LISTEN))) {
+-				__u32 elapsed = tcp_time_stamp - tp->rcv_tstamp;
++				u32 elapsed = keepalive_time_elapsed(tp);
+ 				if (tp->keepalive_time > elapsed)
+ 					elapsed = tp->keepalive_time - elapsed;
+ 				else
+diff -urBp a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c	2010-10-17 11:26:17.000000000 +0400
++++ b/net/ipv4/tcp_input.c	2010-10-17 11:20:23.000000000 +0400
+@@ -2142,7 +2152,7 @@ static void tcp_mtup_probe_success(struc
+  */
+ static void
+ tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
+-		      int prior_packets, int flag)
++		      int pkts_acked, int flag)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -2228,12 +2238,8 @@ tcp_fastretrans_alert(struct sock *sk, u
+ 		if (prior_snd_una == tp->snd_una) {
+ 			if (IsReno(tp) && is_dupack)
+ 				tcp_add_reno_sack(sk);
+-		} else {
+-			int acked = prior_packets - tp->packets_out;
+-			if (IsReno(tp))
+-				tcp_remove_reno_sacks(sk, acked);
+-			do_lost = tcp_try_undo_partial(sk, acked);
+-		}
++		} else
++			do_lost = tcp_try_undo_partial(sk, pkts_acked);
+ 		break;
+ 	case TCP_CA_Loss:
+ 		if (flag&FLAG_DATA_ACKED)
+@@ -2532,6 +2540,9 @@ static int tcp_clean_rtx_queue(struct so
+ 		tcp_ack_update_rtt(sk, acked, seq_rtt);
+ 		tcp_ack_packets_out(sk);
+ 
++		if (IsReno(tp))
++			tcp_remove_reno_sacks(sk, pkts_acked);
++
+ 		/* Is the ACK triggering packet unambiguous? */
+ 		if (acked & FLAG_RETRANS_DATA_ACKED)
+ 			last_ackt = net_invalid_timestamp();
+@@ -2872,7 +2883,7 @@ static int tcp_ack(struct sock *sk, stru
+ 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd &&
+ 		    tcp_may_raise_cwnd(sk, flag))
+ 			tcp_cong_avoid(sk, ack,  seq_rtt, prior_in_flight, 0);
+-		tcp_fastretrans_alert(sk, prior_snd_una, prior_packets, flag);
++		tcp_fastretrans_alert(sk, prior_snd_una, prior_packets - tp->packets_out, flag);
+ 	} else {
+ 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
+ 			tcp_cong_avoid(sk, ack, seq_rtt, prior_in_flight, 1);
+diff -urBp a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c	2010-10-17 11:26:17.000000000 +0400
++++ b/net/ipv4/tcp_output.c	2010-10-17 11:22:23.000000000 +0400
+@@ -41,6 +41,9 @@
+ #include <linux/compiler.h>
+ #include <linux/module.h>
+ 
++#define IsReno(tp) ((tp)->rx_opt.sack_ok == 0)
++#define IsFack(tp) ((tp)->rx_opt.sack_ok & 2)
++
+ /* People can turn this off for buggy TCP's found in printers etc. */
+ int sysctl_tcp_retrans_collapse __read_mostly = 1;
+ 
+diff -urBp a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+--- a/net/ipv4/tcp_timer.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/ipv4/tcp_timer.c	2010-10-17 11:23:06.000000000 +0400
+@@ -446,7 +446,7 @@ static void tcp_keepalive_timer (unsigne
+ 	struct sock *sk = (struct sock *) data;
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+-	__u32 elapsed;
++	u32 elapsed;
+ 
+ 	/* Only process if socket is not in use. */
+ 	bh_lock_sock(sk);
+@@ -483,7 +483,7 @@ static void tcp_keepalive_timer (unsigne
+ 	if (tp->packets_out || tcp_send_head(sk))
+ 		goto resched;
+ 
+-	elapsed = tcp_time_stamp - tp->rcv_tstamp;
++	elapsed = keepalive_time_elapsed(tp);
+ 
+ 	if (elapsed >= keepalive_time_when(tp)) {
+ 		if ((!tp->keepalive_probes && icsk->icsk_probes_out >= sysctl_tcp_keepalive_probes) ||
+-- 

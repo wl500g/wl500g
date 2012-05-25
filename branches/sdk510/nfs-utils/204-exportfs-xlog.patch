@@ -1,0 +1,175 @@
+From 26fd34002585e6a5aa09204b0b01d836fa83dcf3
+From: Chuck Lever
+Date: Tue, 24 Aug 2010 07:19:34 -0400
+Subject: [PATCH] exportfs: Use xlog() for error reporting
+
+exportfs already invokes xlog_open() because libexport.a uses xlog()
+exclusively for error reporting and debugging messages.  If we can
+use xlog() throughout exportfs itself, that enables xlog debugging
+messages everywhere in the code path.
+
+In addition, use xlog() instead of fprintf(stderr) for reporting
+errors in exportfs.c, to be consistent with libexport.a and other
+components of nfs-utils.
+
+Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
+Signed-off-by: Steve Dickson <steved@redhat.com>
+---
+ utils/exportfs/exportfs.c |   56 +++++++++++++++++++++++---------------------
+ 1 files changed, 29 insertions(+), 27 deletions(-)
+
+diff --git a/utils/exportfs/exportfs.c b/utils/exportfs/exportfs.c
+index 93bad32..8496d82 100644
+--- a/utils/exportfs/exportfs.c
++++ b/utils/exportfs/exportfs.c
+@@ -37,7 +37,7 @@ static void	unexportfs(char *arg, int verbose);
+ static void	exports_update(int verbose);
+ static void	dump(int verbose);
+ static void	error(nfs_export *exp, int err);
+-static void	usage(void);
++static void	usage(const char *progname);
+ static void	validate_export(nfs_export *exp);
+ static int	matchhostname(const char *hostname1, const char *hostname2);
+ 
+@@ -45,6 +45,7 @@ int
+ main(int argc, char **argv)
+ {
+ 	char	*options = NULL;
++	char	*progname = NULL;
+ 	int	f_export = 1;
+ 	int	f_all = 0;
+ 	int	f_verbose = 0;
+@@ -54,7 +55,14 @@ main(int argc, char **argv)
+ 	int	new_cache = 0;
+ 	int	force_flush = 0;
+ 
+-	xlog_open("exportfs");
++	if ((progname = strrchr(argv[0], '/')) != NULL)
++		progname++;
++	else
++		progname = argv[0];
++
++	xlog_open(progname);
++	xlog_stderr(1);
++	xlog_syslog(0);
+ 
+ 	export_errno = 0;
+ 
+@@ -83,21 +91,21 @@ main(int argc, char **argv)
+ 			force_flush = 1;
+ 			break;
+ 		default:
+-			usage();
++			usage(progname);
+ 			break;
+ 		}
+ 	}
+ 
+ 	if (optind != argc && f_all) {
+-		fprintf(stderr,"exportfs: extra arguments are not permitted with -a or -r.\n");
++		xlog(L_ERROR, "extra arguments are not permitted with -a or -r");
+ 		return 1;
+ 	}
+ 	if (f_ignore && (f_all || ! f_export)) {
+-		fprintf(stderr,"exportfs: -i not meaningful with -a, -r or -u.\n");
++		xlog(L_ERROR, "-i not meaningful with -a, -r or -u");
+ 		return 1;
+ 	}
+ 	if (f_reexport && ! f_export) {
+-		fprintf(stderr, "exportfs: -r and -u are incompatible.\n");
++		xlog(L_ERROR, "-r and -u are incompatible");
+ 		return 1;
+ 	}
+ 	new_cache = check_new_cache();
+@@ -106,8 +114,10 @@ main(int argc, char **argv)
+ 			if (new_cache)
+ 				cache_flush(1);
+ 			else {
+-				fprintf(stderr, "exportfs: -f: only available with new cache controls: mount /proc/fs/nfsd first\n");
+-				exit(1);
++				xlog(L_ERROR, "-f is available only "
++					"with new cache controls. "
++					"Mount /proc/fs/nfsd first");
++				return 1;
+ 			}
+ 			return 0;
+ 		} else {
+@@ -245,7 +255,7 @@ exportfs(char *arg, char *options, int verbose)
+ 		*path++ = '\0';
+ 
+ 	if (!path || *path != '/') {
+-		fprintf(stderr, "Invalid exporting option: %s\n", arg);
++		xlog(L_ERROR, "Invalid exporting option: %s", arg);
+ 		return;
+ 	}
+ 
+@@ -291,8 +301,7 @@ unexportfs(char *arg, int verbose)
+ 		*path++ = '\0';
+ 
+ 	if (!path || *path != '/') {
+-		fprintf(stderr, "Invalid unexporting option: %s\n",
+-			arg);
++		xlog(L_ERROR, "Invalid unexporting option: %s", arg);
+ 		return;
+ 	}
+ 
+@@ -387,14 +396,12 @@ validate_export(nfs_export *exp)
+ 	int fs_has_fsid = 0;
+ 
+ 	if (stat(path, &stb) < 0) {
+-		fprintf(stderr, "exportfs: Warning: %s does not exist\n",
+-			path);
++		xlog(L_ERROR, "Failed to stat %s: %m \n", path);
+ 		return;
+ 	}
+ 	if (!S_ISDIR(stb.st_mode) && !S_ISREG(stb.st_mode)) {
+-		fprintf(stderr, "exportfs: Warning: %s is neither "
+-			"a directory nor a file.\n"
+-			"     remote access will fail\n", path);
++		xlog(L_ERROR, "%s is neither a directory nor a file. "
++			"Remote access will fail", path);
+ 		return;
+ 	}
+ 	if (!can_test())
+@@ -407,19 +414,14 @@ validate_export(nfs_export *exp)
+ 	if ((exp->m_export.e_flags & NFSEXP_FSID) || exp->m_export.e_uuid ||
+ 	    fs_has_fsid) {
+ 		if ( !test_export(path, 1)) {
+-			fprintf(stderr, "exportfs: Warning: %s does not "
+-				"support NFS export.\n",
+-				path);
++			xlog(L_ERROR, "%s does not support NFS export", path);
+ 			return;
+ 		}
+ 	} else if ( ! test_export(path, 0)) {
+ 		if (test_export(path, 1))
+-			fprintf(stderr, "exportfs: Warning: %s requires fsid= "
+-				"for NFS export\n", path);
++			xlog(L_ERROR, "%s requires fsid= for NFS export", path);
+ 		else
+-			fprintf(stderr, "exportfs: Warning: %s does not "
+-				"support NFS export.\n",
+-				path);
++			xlog(L_ERROR, "%s does not support NFS export", path);
+ 		return;
+ 
+ 	}
+@@ -602,13 +604,13 @@ dump(int verbose)
+ static void
+ error(nfs_export *exp, int err)
+ {
+-	fprintf(stderr, "%s:%s: %s\n", exp->m_client->m_hostname, 
++	xlog(L_ERROR, "%s:%s: %s\n", exp->m_client->m_hostname,
+ 		exp->m_export.e_path, strerror(err));
+ }
+ 
+ static void
+-usage(void)
++usage(const char *progname)
+ {
+-	fprintf(stderr, "usage: exportfs [-aruv] [host:/path]\n");
++	fprintf(stderr, "usage: %s [-aruv] [host:/path]\n", progname);
+ 	exit(1);
+ }
+-- 
+1.7.4.1

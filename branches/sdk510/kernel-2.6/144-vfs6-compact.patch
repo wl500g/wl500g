@@ -1,0 +1,136 @@
+fs: structures compact
+
+ 9fd5746fd3d7838bf6ff991d50f1257057d1156f fs: Remove i_cindex from struct inode
+ 28ad0c118b0ed98b042d362acfe0017591921138 fs: Rearrange inode structure elements to avoid waste due to padding
+
+---
+ drivers/ieee1394/dv1394.c        |    5 +++--
+ drivers/ieee1394/ieee1394_core.h |    6 +++++-
+ fs/char_dev.c                    |   14 +++++++++++++-
+ include/linux/cdev.h             |    2 ++
+ include/linux/fs.h               |    3 +--
+ 5 files changed, 24 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/ieee1394/dv1394.c b/drivers/ieee1394/dv1394.c
+--- a/drivers/ieee1394/dv1394.c
++++ b/drivers/ieee1394/dv1394.c
+@@ -1789,12 +1789,13 @@ static int dv1394_open(struct inode *inode, struct file *file)
+ 	} else {
+ 		/* look up the card by ID */
+ 		unsigned long flags;
++		int idx = ieee1394_file_to_instance(file);
+ 
+ 		spin_lock_irqsave(&dv1394_cards_lock, flags);
+ 		if (!list_empty(&dv1394_cards)) {
+ 			struct video_card *p;
+ 			list_for_each_entry(p, &dv1394_cards, list) {
+-				if ((p->id) == ieee1394_file_to_instance(file)) {
++				if ((p->id) == idx) {
+ 					video = p;
+ 					break;
+ 				}
+@@ -1803,7 +1804,7 @@ static int dv1394_open(struct inode *inode, struct file *file)
+ 		spin_unlock_irqrestore(&dv1394_cards_lock, flags);
+ 
+ 		if (!video) {
+-			debug_printk("dv1394: OHCI card %d not found", ieee1394_file_to_instance(file));
++			debug_printk("dv1394: OHCI card %d not found", idx);
+ 			return -ENODEV;
+ 		}
+ 
+diff --git a/drivers/ieee1394/ieee1394_core.h b/drivers/ieee1394/ieee1394_core.h
+--- a/drivers/ieee1394/ieee1394_core.h
++++ b/drivers/ieee1394/ieee1394_core.h
+@@ -5,6 +5,7 @@
+ #include <linux/fs.h>
+ #include <linux/list.h>
+ #include <linux/types.h>
++#include <linux/cdev.h>
+ #include <asm/atomic.h>
+ 
+ #include "hosts.h"
+@@ -155,7 +156,10 @@ void hpsb_packet_received(struct hpsb_host *host, quadlet_t *data, size_t size,
+  */
+ static inline unsigned char ieee1394_file_to_instance(struct file *file)
+ {
+-	return file->f_path.dentry->d_inode->i_cindex;
++	int idx = cdev_index(file->f_path.dentry->d_inode);
++	if (idx < 0)
++		idx = 0;
++	return idx;
+ }
+ 
+ extern int hpsb_disable_irm;
+diff --git a/fs/char_dev.c b/fs/char_dev.c
+--- a/fs/char_dev.c
++++ b/fs/char_dev.c
+@@ -375,7 +375,6 @@ static int chrdev_open(struct inode *inode, struct file *filp)
+ 		p = inode->i_cdev;
+ 		if (!p) {
+ 			inode->i_cdev = p = new;
+-			inode->i_cindex = idx;
+ 			list_add(&inode->i_devices, &p->list);
+ 			new = NULL;
+ 		} else if (!cdev_get(p))
+@@ -405,6 +404,18 @@ static int chrdev_open(struct inode *inode, struct file *filp)
+ 	return ret;
+ }
+ 
++int cdev_index(struct inode *inode)
++{
++	int idx;
++	struct kobject *kobj;
++
++	kobj = kobj_lookup(cdev_map, inode->i_rdev, &idx);
++	if (!kobj)
++		return -1;
++	kobject_put(kobj);
++	return idx;
++}
++
+ void cd_forget(struct inode *inode)
+ {
+ 	spin_lock(&cdev_lock);
+@@ -557,6 +568,7 @@ EXPORT_SYMBOL(cdev_init);
+ EXPORT_SYMBOL(cdev_alloc);
+ EXPORT_SYMBOL(cdev_del);
+ EXPORT_SYMBOL(cdev_add);
++EXPORT_SYMBOL(cdev_index);
+ EXPORT_SYMBOL(register_chrdev);
+ EXPORT_SYMBOL(unregister_chrdev);
+ EXPORT_SYMBOL(directly_mappable_cdev_bdi);
+diff --git a/include/linux/cdev.h b/include/linux/cdev.h
+--- a/include/linux/cdev.h
++++ b/include/linux/cdev.h
+@@ -28,6 +28,8 @@ int cdev_add(struct cdev *, dev_t, unsigned);
+ 
+ void cdev_del(struct cdev *);
+ 
++int cdev_index(struct inode *inode);
++
+ void cd_forget(struct inode *);
+ 
+ extern struct backing_dev_info directly_mappable_cdev_bdi;
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -729,8 +729,8 @@ struct inode {
+ 	struct timespec		i_atime;
+ 	struct timespec		i_mtime;
+ 	struct timespec		i_ctime;
+-	unsigned int		i_blkbits;
+ 	blkcnt_t		i_blocks;
++	unsigned int		i_blkbits;
+ 	unsigned short          i_bytes;
+ 	umode_t			i_mode;
+ 	spinlock_t		i_lock;	/* i_blocks, i_bytes, maybe i_size */
+@@ -751,7 +751,6 @@ struct inode {
+ 		struct block_device	*i_bdev;
+ 		struct cdev		*i_cdev;
+ 	};
+-	int			i_cindex;
+ 
+ 	__u32			i_generation;
+ 
+-- 
+1.7.7.6

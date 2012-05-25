@@ -1,0 +1,25 @@
+Missing exports
+
+diff --git a/arch/mips/mm/init.c b/arch/mips/mm/init.c
+--- a/arch/mips/mm/init.c	2009-11-26 02:33:43.000000000 +0300
++++ b/arch/mips/mm/init.c	2011-10-05 15:50:00.000000000 +0400
+@@ -71,6 +71,7 @@ DEFINE_PER_CPU(struct mmu_gather, mmu_ga
+  * don't have to care about aliases on other CPUs.
+  */
+ unsigned long empty_zero_page, zero_page_mask;
++EXPORT_SYMBOL_GPL(empty_zero_page);
+ 
+ /*
+  * Not static inline because used by IP27 special magic initialization code
+diff --git a/fs/read_write.c b/fs/read_write.c
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -450,6 +450,7 @@ unsigned long iov_shorten(struct iovec *
+ 	}
+ 	return seg;
+ }
++EXPORT_SYMBOL(iov_shorten);
+ 
+ ssize_t do_sync_readv_writev(struct file *filp, const struct iovec *iov,
+ 		unsigned long nr_segs, size_t len, loff_t *ppos, iov_fn_t fn)
+-- 

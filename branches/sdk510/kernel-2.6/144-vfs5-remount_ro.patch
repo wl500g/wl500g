@@ -1,0 +1,83 @@
+From d208bbdda991b8808d9c033ce4d31cb1bd87dcfc
+From: Nick Piggin
+Date: Mon, 21 Dec 2009 16:28:53 -0800
+Subject: [PATCH] fs: improve remount,ro vs buffercache coherency
+
+Invalidate sb->s_bdev on remount,ro.
+
+Fixes a problem reported by Jorge Boncompte who is seeing corruption
+trying to snapshot a minix filesystem image.  Some filesystems modify
+their metadata via a path other than the bdev buffer cache (eg.  they may
+use a private linear mapping for their metadata, or implement directories
+in pagecache, etc).  Also, file data modifications usually go to the bdev
+via their own mappings.
+
+These updates are not coherent with buffercache IO (eg.  via /dev/bdev)
+and never have been.  However there could be a reasonable expectation that
+after a mount -oremount,ro operation then the buffercache should
+subsequently be coherent with previous filesystem modifications.
+
+So invalidate the bdev mappings on a remount,ro operation to provide a
+coherency point.
+
+The problem was exposed when we switched the old rd to brd because old rd
+didn't really function like a normal block device and updates to rd via
+mappings other than the buffercache would still end up going into its
+buffercache.  But the same problem has always affected other "normal"
+block devices, including loop.
+
+[akpm@linux-foundation.org: repair comment layout]
+Reported-by: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+Tested-by: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+Signed-off-by: Nick Piggin <npiggin@suse.de>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+
+---
+ fs/super.c |   18 +++++++++++++++---
+ 1 files changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/fs/super.c b/fs/super.c
+--- a/fs/super.c
++++ b/fs/super.c
+@@ -568,6 +568,7 @@ out:
+ int do_remount_sb(struct super_block *sb, int flags, void *data, int force)
+ {
+ 	int retval;
++	int remount_ro;
+ 	
+ #ifdef CONFIG_BLOCK
+ 
+@@ -583,9 +583,11 @@ int do_remount_sb(struct super_block *sb, int flags, void *data, int force)
+ 	shrink_dcache_sb(sb);
+ 	sync_filesystem(sb);
+ 
++	remount_ro = (flags & MS_RDONLY) && !(sb->s_flags & MS_RDONLY);
++
+ 	/* If we are remounting RDONLY and current sb is read/write,
+ 	   make sure there are no rw files opened */
+-	if ((flags & MS_RDONLY) && !(sb->s_flags & MS_RDONLY)) {
++	if (remount_ro) {
+ 		if (force)
+ 			mark_files_ro(sb);
+ 		else if (!fs_may_remount_ro(sb))
+@@ -604,6 +606,16 @@ int do_remount_sb(struct super_block *sb, int flags, void *data, int force)
+ 
+ 
+ 	sb->s_flags = (sb->s_flags & ~MS_RMT_MASK) | (flags & MS_RMT_MASK);
++	/*
++	 * Some filesystems modify their metadata via some other path than the
++	 * bdev buffer cache (eg. use a private mapping, or directories in
++	 * pagecache, etc). Also file data modifications go via their own
++	 * mappings. So If we try to mount readonly then copy the filesystem
++	 * from bdev, we could get stale data, so invalidate it to give a best
++	 * effort at coherency.
++	 */
++	if (remount_ro && sb->s_bdev)
++		invalidate_bdev(sb->s_bdev);
+ 	return 0;
+ }
+ 
+-- 
+1.7.6.2

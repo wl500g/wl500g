@@ -1,0 +1,8 @@
+# Onda MW836UP-K
+
+TargetVendor=  0x1ee8
+TargetProduct= 0x003e
+
+MessageContent="555342431234567800000000000010ff000000000000000000000000000000"
+NeedResponse=1
+

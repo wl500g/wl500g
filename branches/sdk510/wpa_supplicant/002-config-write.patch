@@ -1,0 +1,52 @@
+--- wpa_supplicant.orig/wpa_supplicant/config.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/wpa_supplicant/config.c	2011-09-02 12:29:22.242016002 +0000
+@@ -990,6 +990,7 @@ static int wpa_config_parse_eap(const st
+ }
+ 
+ 
++#ifndef NO_CONFIG_WRITE
+ static char * wpa_config_write_eap(const struct parse_data *data,
+ 				   struct wpa_ssid *ssid)
+ {
+@@ -1023,6 +1024,7 @@ static char * wpa_config_write_eap(const
+ 
+ 	return buf;
+ }
++#endif
+ 
+ 
+ static int wpa_config_parse_password(const struct parse_data *data,
+@@ -1089,6 +1091,7 @@ static int wpa_config_parse_password(con
+ }
+ 
+ 
++#ifndef NO_CONFIG_WRITE
+ static char * wpa_config_write_password(const struct parse_data *data,
+ 					struct wpa_ssid *ssid)
+ {
+@@ -1111,6 +1114,7 @@ static char * wpa_config_write_password(
+ 
+ 	return buf;
+ }
++#endif
+ #endif /* IEEE8021X_EAPOL */
+ 
+ 
+--- wpa_supplicant.orig/wpa_supplicant/config_none.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/wpa_supplicant/config_none.c	2011-09-02 13:12:57.392016002 +0000
+@@ -37,6 +37,7 @@ struct wpa_config * wpa_config_read(cons
+ 
+ int wpa_config_write(const char *name, struct wpa_config *config)
+ {
++#ifndef CONFIG_NO_CONFIG_WRITE
+ 	struct wpa_ssid *ssid;
+ 	struct wpa_config_blob *blob;
+ 
+@@ -54,4 +55,7 @@ int wpa_config_write(const char *name, s
+ 	}
+ 
+ 	return 0;
++#else /* CONFIG_NO_CONFIG_WRITE */
++	return -1;
++#endif /* CONFIG_NO_CONFIG_WRITE */
+ }

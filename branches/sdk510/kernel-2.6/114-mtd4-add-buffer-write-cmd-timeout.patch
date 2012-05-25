@@ -1,0 +1,23 @@
+From: George Kashperko <george@znau.edu.ua>
+
+Issue map read after Write Buffer Load command to ensure chip is ready
+to receive data.
+
+ Ref. http://dev.openwrt.org/ticket/6580
+
+Signed-off-by: George Kashperko <george@znau.edu.ua>
+---
+ drivers/mtd/chips/cfi_cmdset_0002.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- linux-2.6.38.6.orig/drivers/mtd/chips/cfi_cmdset_0002.c	2011-06-18 05:27:29.000000000 +0300
++++ linux-2.6.38.6/drivers/mtd/chips/cfi_cmdset_0002.c	2011-06-18 05:30:20.000000000 +0300
+@@ -1413,6 +1413,7 @@ static int __xipram do_write_buffer(stru
+ 
+ 	/* Write Buffer Load */
+ 	map_write(map, CMD(0x25), cmd_adr);
++	(void) map_read(map, cmd_adr);
+ 
+ 	chip->state = FL_WRITING_TO_BUFFER;
+ 
+-- 

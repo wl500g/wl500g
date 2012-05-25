@@ -1,0 +1,25 @@
+
+# HG changeset patch
+# User Matt Johnston <matt@ucc.asn.au>
+# Date 1334239456 -28800
+# Node ID 675bbd630f5d21f9d4b102096fefdd2f01a07a5c
+# Parent  349fb2dda2dd208867407672e65dbf7463563640
+Split listening port argument at the rightmost colon, allows binding to
+specific IPv6 addresses.
+
+From OpenWRT,
+https://dev.openwrt.org/browser/trunk/package/dropbear/patches/300-ipv6_addr_port_split.patch
+
+diff -r 349fb2dda2dd -r 675bbd630f5d svr-runopts.c
+--- a/svr-runopts.c	Thu Apr 12 21:57:30 2012 +0800
++++ b/svr-runopts.c	Thu Apr 12 22:04:16 2012 +0800
+@@ -325,7 +325,7 @@
+ 		myspec = m_strdup(spec);
+ 
+ 		/* search for ':', that separates address and port */
+-		svr_opts.ports[svr_opts.portcount] = strchr(myspec, ':');
++		svr_opts.ports[svr_opts.portcount] = strrchr(myspec, ':');
+ 
+ 		if (svr_opts.ports[svr_opts.portcount] == NULL) {
+ 			/* no ':' -> the whole string specifies just a port */
+

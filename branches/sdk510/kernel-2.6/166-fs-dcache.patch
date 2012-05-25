@@ -1,0 +1,61 @@
+From 37c42524d6090644206ae6d310d7e830bd3ccb47
+From: "Denis V. Lunev"
+Date: Tue, 16 Oct 2007 23:29:53 -0700
+Subject: [PATCH] shrink_dcache_sb speedup
+
+This patch makes shrink_dcache_sb consistent with dentry pruning policy.
+
+On the first pass we iterate over dentry unused list and prepare some
+dentries for removal.
+
+However, since the existing code moves evicted dentries to the beginning of
+the LRU it can happen that fresh dentries from other superblocks will be
+inserted *before* our dentries.
+
+This can result in significant slowdown of shrink_dcache_sb().  Moreover,
+for virtual filesystems like unionfs which can call dput() during dentries
+kill existing code results in O(n^2) complexity.
+
+We observed 2 minutes shrink_dcache_sb() with only 35000 dentries.
+
+To avoid this effects we propose to isolate sb dentries at the end
+of LRU list.
+
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+Signed-off-by: Kirill Korotaev <dev@openvz.org>
+Signed-off-by: Andrey Mirkin <amirkin@openvz.org>
+Cc: Neil Brown <neilb@suse.de>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
+ fs/dcache.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/fs/dcache.c b/fs/dcache.c
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -553,18 +553,18 @@ void shrink_dcache_sb(struct super_block * sb)
+ 	 * superblock to the most recent end of the unused list.
+ 	 */
+ 	spin_lock(&dcache_lock);
+-	list_for_each_safe(tmp, next, &dentry_unused) {
++	list_for_each_prev_safe(tmp, next, &dentry_unused) {
+ 		dentry = list_entry(tmp, struct dentry, d_lru);
+ 		if (dentry->d_sb != sb)
+ 			continue;
+-		list_move(tmp, &dentry_unused);
++		list_move_tail(tmp, &dentry_unused);
+ 	}
+ 
+ 	/*
+ 	 * Pass two ... free the dentries for this superblock.
+ 	 */
+ repeat:
+-	list_for_each_safe(tmp, next, &dentry_unused) {
++	list_for_each_prev_safe(tmp, next, &dentry_unused) {
+ 		dentry = list_entry(tmp, struct dentry, d_lru);
+ 		if (dentry->d_sb != sb)
+ 			continue;
+-- 
+1.7.6.5

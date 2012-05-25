@@ -1,0 +1,93 @@
+MIPS: IP checksums: Updates from upstream
+
+ d86a8123b11a9a40d850f6e88b89c948c2477da3 MIPS: IP checksums: Remove unncessary folding of sum to 16 bit.
+ 60724ca59eda766a30be57aec6b49bc3e2bead91 MIPS: IP checksums: Remove unncessary .set pseudos
+ b65a75b8c91c0f05047399401407371678fe9549 MIPS: IP checksums: Optimize adjust of sum on buffers of odd alignment.
+
+---
+ arch/mips/lib/csum_partial.S |   48 +++++++++++++++++++++----------------------
+ 1 file changed, 24 insertions(+), 24 deletions(-)
+
+diff --git a/arch/mips/lib/csum_partial.S b/arch/mips/lib/csum_partial.S
+--- a/arch/mips/lib/csum_partial.S
++++ b/arch/mips/lib/csum_partial.S
+@@ -59,12 +59,9 @@
+ 	ADD	sum, v1
+ 
+ #define ADDC32(sum,reg)						\
+-	.set	push;						\
+-	.set	noat;						\
+ 	addu	sum, reg;					\
+ 	sltu	v1, sum, reg;					\
+ 	addu	sum, v1;					\
+-	.set	pop
+ 
+ #define CSUM_BIGCHUNK1(src, offset, sum, _t0, _t1, _t2, _t3)	\
+ 	LOAD	_t0, (offset + UNIT(0))(src);			\
+@@ -266,20 +263,22 @@ LEAF(csum_partial)
+ 	dsra32	sum, sum, 0
+ 	addu	sum, v1
+ #endif
+-	sll	v1, sum, 16
+-	addu	sum, v1
+-	sltu	v1, sum, v1
+-	srl	sum, sum, 16
+-	addu	sum, v1
+ 
+ 	/* odd buffer alignment? */
+-	beqz	t7, 1f
+-	 nop
+-	sll	v1, sum, 8
++#ifdef CPU_MIPSR2
++	wsbh	v1, sum
++	movn	sum, v1, t7
++#else
++	beqz	t7, 1f			/* odd buffer alignment? */
++	 lui	v1, 0x00ff
++	addu	v1, 0x00ff
++	and	t0, sum, v1
++	sll	t0, t0, 8
+ 	srl	sum, sum, 8
+-	or	sum, v1
+-	andi	sum, 0xffff
++	and	sum, sum, v1
++	or	sum, sum, t0
+ 1:
++#endif
+ 	.set	reorder
+ 	/* Add the passed partial csum.  */
+ 	ADDC32(sum, a2)
+@@ -651,20 +650,21 @@ EXC(	sb	t0, NBYTES-2(dst), .Ls_exc)
+ 	dsra32	sum, sum, 0
+ 	addu	sum, v1
+ #endif
+-	sll	v1, sum, 16
+-	addu	sum, v1
+-	sltu	v1, sum, v1
+-	srl	sum, sum, 16
+-	addu	sum, v1
+ 
+-	/* odd buffer alignment? */
+-	beqz	odd, 1f
+-	 nop
+-	sll	v1, sum, 8
++#ifdef CPU_MIPSR2
++	wsbh	v1, sum
++	movn	sum, v1, odd
++#else
++	beqz	odd, 1f			/* odd buffer alignment? */
++	 lui	v1, 0x00ff
++	addu	v1, 0x00ff
++	and	t0, sum, v1
++	sll	t0, t0, 8
+ 	srl	sum, sum, 8
+-	or	sum, v1
+-	andi	sum, 0xffff
++	and	sum, sum, v1
++	or	sum, sum, t0
+ 1:
++#endif
+ 	.set reorder
+ 	ADDC32(sum, psum)
+ 	jr	ra
+-- 

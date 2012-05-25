@@ -1,0 +1,51 @@
+From ec5b1157f8e819c72fc93aa6d2d5117c08cdc961
+From: Joe Peterson
+Date: Wed, 6 Feb 2008 01:37:38 -0800
+Subject: [PATCH] tty: enable the echoing of ^C in the N_TTY discipline
+
+Turn on INTR/QUIT/SUSP echoing in the N_TTY line discipline (e.g.  ctrl-C
+will appear as "^C" if stty echoctl is set and ctrl-C is set as INTR).
+
+Linux seems to be the only unix-like OS (recently I've verified this on
+Solaris, BSD, and Mac OS X) that does *not* behave this way, and I really
+miss this as a good visual confirmation of the interrupt of a program in
+the console or xterm.  I remember this fondly from many Unixs I've used
+over the years as well.  Bringing this to Linux also seems like a good way
+to make it yet more compliant with standard unix-like behavior.
+
+[akpm@linux-foundation.org: coding-style fixes]
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
+ drivers/char/n_tty.c |   16 +++++++++++++++-
+ 1 files changed, 15 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/char/n_tty.c b/drivers/char/n_tty.c
+--- a/drivers/char/n_tty.c
++++ b/drivers/char/n_tty.c
+@@ -769,7 +769,20 @@ static inline void n_tty_receive_char(struct tty_struct *tty, unsigned char c)
+ 		signal = SIGTSTP;
+ 		if (c == SUSP_CHAR(tty)) {
+ send_signal:
+-			isig(signal, tty, 0);
++			/*
++			 * Note that we do not use isig() here because we want
++			 * the order to be:
++			 * 1) flush, 2) echo, 3) signal
++			 */
++			if (!L_NOFLSH(tty)) {
++				n_tty_flush_buffer(tty);
++				if (tty->driver->flush_buffer)
++					tty->driver->flush_buffer(tty);
++			}
++			if (L_ECHO(tty))
++				echo_char(c, tty);
++			if (tty->pgrp)
++				kill_pgrp(tty->pgrp, signal, 1);
+ 			return;
+ 		}
+ 	}
+-- 
+1.7.6.5

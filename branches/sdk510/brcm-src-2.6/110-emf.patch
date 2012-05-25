@@ -1,0 +1,70 @@
+diff -BurpN src/emf.orig/emf/emf_linux.h src/emf/emf/emf_linux.h
+--- src/emf.orig/emf/emf_linux.h	2010-01-29 14:43:59.000000000 +0000
++++ src/emf/emf/emf_linux.h	2010-09-11 10:20:43.970000002 +0000
+@@ -57,12 +57,20 @@ typedef struct emf_struct
+ 
+ typedef struct br_port
+ {
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 6)
++	struct net_bridge *br;
++	struct net_device *dev;
++	struct list_head  list;
++	uint8             priority;
++	uint8             state;
++#else
+ 	struct br_port     *next;
+ 	struct net_bridge  *br;
+ 	struct net_device  *dev;
+ 	int32              port_no;
+ 	uint16             port_id;
+ 	int32              state;
++#endif
+ } br_port_t;
+ 
+ static uint32 emf_br_pre_hook(uint32, struct sk_buff **,
+diff -urBp src/emf.orig/emfconf/emfu_linux.c src/emf/emfconf/emfu_linux.c
+--- src/emf.orig/emfconf/emfu_linux.c	2008-12-12 06:23:53.000000000 +0300
++++ src/emf/emfconf/emfu_linux.c	2009-10-24 12:26:10.000000000 +0400
+@@ -21,6 +21,7 @@
+ #include <errno.h>
+ #include <stdlib.h>
+ #include <sys/socket.h>
++#include <linux/types.h>
+ #include <linux/netlink.h>
+ #include <unistd.h>
+ #include <errno.h>
+diff -urBp src/emf.orig/emfconf/Makefile src/emf/emfconf/Makefile
+--- src/emf.orig/emfconf/Makefile	2008-12-12 06:23:53.000000000 +0300
++++ src/emf/emfconf/Makefile	2009-10-23 21:36:26.000000000 +0400
+@@ -9,7 +9,7 @@ STRIP = $(CROSS)strip
+ 
+ ALL_OBJS = emfu.o emfu_linux.o
+ 
+-CCFLAGS = -Os -Wall -I../../../include -I../../shared -I../../../include/emf/emf
++CCFLAGS = -Os -Wall -I$(SRCBASE)/include -I$(TOP)/shared -I$(SRCBASE)/include/emf/emf $(EXTRACFLAGS)
+ 
+ ifneq ($(wildcard ./prebuilt),)
+ all:
+diff -urBp src/emf.orig/igsconf/igsu_linux.c src/emf/igsconf/igsu_linux.c
+--- src/emf.orig/igsconf/igsu_linux.c	2008-12-12 06:23:53.000000000 +0300
++++ src/emf/igsconf/igsu_linux.c	2009-10-24 12:26:36.000000000 +0400
+@@ -21,6 +21,7 @@
+ #include <errno.h>
+ #include <stdlib.h>
+ #include <sys/socket.h>
++#include <linux/types.h>
+ #include <linux/netlink.h>
+ #include <unistd.h>
+ #include <errno.h>
+diff -urBp src/emf.orig/igsconf/Makefile src/emf/igsconf/Makefile
+--- src/emf.orig/igsconf/Makefile	2008-12-12 06:23:53.000000000 +0300
++++ src/emf/igsconf/Makefile	2009-10-23 21:38:22.000000000 +0400
+@@ -9,7 +9,7 @@ STRIP = $(CROSS)strip
+ 
+ ALL_OBJS = igsu.o igsu_linux.o
+ 
+-CCFLAGS = -Os -Wall -I../../../include -I../../shared -I../../../include/emf/igs
++CCFLAGS = -Os -Wall -I$(SRCBASE)/include -I$(TOP)/shared -I$(SRCBASE)/include/emf/igs $(EXTRACFLAGS)
+ 
+ ifneq ($(wildcard ./prebuilt),)
+ all:
