@@ -1,33 +1,38 @@
+[IPV6]: Updates from upstream
 
+ 0b69d4bd263c75b3e2ec94f1c72f338b84be817e [IPV6]: Remove redundant RTM_DELLINK message.
  4953f0fcc06a125f87874743d968c0e185c8b296 [IPv6]: Update setsockopt(IPV6_MULTICAST_IF) to support RFC 3493, try2
  f68635e627f9b21db05102e2d8fcd2894493d6bc [IPV6]: Cleanup the addconf_sysctl_register
  f52295a9c55ccb4d9b3580ce889f958ac740a44b [IPV6]: Unify and cleanup calls to addrconf_sysctl_register
  c8fecf2242a0ab7230210665986b8ef915e1ae9e [IPV6]: Eliminate difference in actions of sysctl and proc handler for conf.all.forwarding
+ 439e23857a21c3a953826eed23c818697a97de1a [IPV6]: Event type in addrconf_ifdown is mis-used.
  9acd9f3ae92d0dc0ca7504fb48c1040e8bbc39fe [IPV6]: Make address arguments const.
  e3ec6cfc260e2322834e200c2fa349cdf104fd13 ipv6: fix run pending DAD when interface becomes ready
  0686caa35ed17cf5b9043f453957e702a7eb588d ndisc: Add missing strategies for per-device retrans timer/reachable time settings.
  a3c960899e042bc1c2b730a2115fa32da7802039 [IPV6] UDP: Possible dst leak in udpv6_sendmsg.
  36d926b94a9908937593e5669162305a071b9cc3 [IPV6]: inet_sk(sk)->cork.opt leak
  5095d64db1b978bdb31d30fed9e47dbf04f729be ipv6: ip6_route_output() never returns NULL.
+ 122e4519cd5c224d4b8e681d368132b643e28f60 IPv6: addrconf dad timer unnecessary bh_disable
  32c90254ed4a0c698caa0794ebb4de63fcc69631 ipv6/udp: Use the correct variable to determine non-blocking condition
  2bda8a0c8af5294b869da1efd2c2b9a562f50dcf ipv6: Disable router anycast address for /127 prefixes
+ 72e843bb09d4533208aa5573861a983c46914019 ipv6: ip6_fragment() should check CHECKSUM_PARTIAL
 
 ---
- include/net/addrconf.h   |   28 +++++-----
- include/net/ip6_route.h  |    6 +-
+ include/net/addrconf.h   |   28 ++++----
+ include/net/ip6_route.h  |    6 -
  include/net/ipv6.h       |    4 -
- include/net/ndisc.h      |   18 ++++--
+ include/net/ndisc.h      |   18 +++--
  include/net/udp.h        |    1 
- net/ipv4/udp.c           |    3 -
- net/ipv6/addrconf.c      |  129 ++++++++++++++++++++---------------------------
- net/ipv6/ip6_output.c    |    2 
- net/ipv6/ip6mr.c         |    4 +
+ net/ipv4/udp.c           |    3 
+ net/ipv6/addrconf.c      |  151 ++++++++++++++++++++---------------------------
+ net/ipv6/ip6_output.c    |    6 +
+ net/ipv6/ip6mr.c         |    4 -
  net/ipv6/ipv6_sockglue.c |   13 ++--
- net/ipv6/mcast.c         |   20 +++----
- net/ipv6/ndisc.c         |   37 +++++++------
- net/ipv6/route.c         |    6 +-
- net/ipv6/udp.c           |    8 ++
- 14 files changed, 141 insertions(+), 138 deletions(-)
+ net/ipv6/mcast.c         |   20 ++----
+ net/ipv6/ndisc.c         |   37 ++++++-----
+ net/ipv6/route.c         |    6 -
+ net/ipv6/udp.c           |    8 +-
+ 14 files changed, 155 insertions(+), 150 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
@@ -223,7 +228,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  #endif
  	/* protected by rtnl_lock */
  	rcu_assign_pointer(dev->ip6_ptr, ndev);
-@@ -480,6 +476,21 @@ static void addrconf_forward_change(void
+@@ -471,6 +467,21 @@ static void addrconf_forward_change(void
  	}
  	read_unlock(&dev_base_lock);
  }
@@ -245,7 +250,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  #endif
  
  /* Nobody refers to this ifaddr, destroy it */
-@@ -902,7 +913,7 @@ struct ipv6_saddr_score {
+@@ -893,7 +904,7 @@ struct ipv6_saddr_score {
  };
  
  struct ipv6_saddr_dst {
@@ -254,7 +259,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	int ifindex;
  	int scope;
  	int label;
-@@ -1058,7 +1069,7 @@ out:
+@@ -1049,7 +1060,7 @@ out:
  }
  
  int ipv6_dev_get_saddr(struct net_device *dst_dev,
@@ -263,7 +268,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  {
  	struct ipv6_saddr_score scores[2],
  				*score = &scores[0], *hiscore = &scores[1];
-@@ -1260,7 +1271,8 @@ int ipv6_chk_same_addr(const struct in6_
+@@ -1251,7 +1262,8 @@ int ipv6_chk_same_addr(const struct in6_
  	return ifp != NULL;
  }
  
@@ -272,8 +277,8 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
 +				     struct net_device *dev, int strict)
  {
  	struct inet6_ifaddr * ifp;
- 	unsigned int hash = ipv6_addr_hash(addr);
-@@ -1379,6 +1391,8 @@ void addrconf_leave_solict(struct inet6_
+ 	u8 hash = ipv6_addr_hash(addr);
+@@ -1370,6 +1382,8 @@ void addrconf_leave_solict(struct inet6_
  static void addrconf_join_anycast(struct inet6_ifaddr *ifp)
  {
  	struct in6_addr addr;
@@ -282,7 +287,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
  	if (ipv6_addr_any(&addr))
  		return;
-@@ -2413,8 +2413,10 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+@@ -2393,8 +2407,10 @@ static int addrconf_notify(struct notifi
  			if (!idev && dev->mtu >= IPV6_MIN_MTU)
  				idev = ipv6_add_dev(dev);
  
@@ -294,7 +299,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  		} else {
  			if (!addrconf_qdisc_ok(dev)) {
  				/* device is still not ready. */
-@@ -2494,11 +2508,7 @@ static int addrconf_notify(struct notifi
+@@ -2485,11 +2501,7 @@ static int addrconf_notify(struct notifi
  #ifdef CONFIG_SYSCTL
  			addrconf_sysctl_unregister(&idev->cnf);
  			neigh_sysctl_unregister(idev->nd_parms);
@@ -307,7 +312,83 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  #endif
  			snmp6_register_dev(idev);
  		}
-@@ -3869,22 +3879,8 @@ int addrconf_sysctl_forward(ctl_table *c
+@@ -2528,7 +2540,7 @@ static int addrconf_ifdown(struct net_de
+ 	/* Step 1: remove reference to ipv6 device from parent device.
+ 		   Do not dev_put!
+ 	 */
+-	if (how == 1) {
++	if (how) {
+ 		idev->dead = 1;
+ 
+ 		/* protected by rtnl_lock */
+@@ -2560,12 +2572,12 @@ static int addrconf_ifdown(struct net_de
+ 	write_lock_bh(&idev->lock);
+ 
+ 	/* Step 3: clear flags for stateless addrconf */
+-	if (how != 1)
++	if (!how)
+ 		idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD|IF_READY);
+ 
+ 	/* Step 4: clear address list */
+ #ifdef CONFIG_IPV6_PRIVACY
+-	if (how == 1 && del_timer(&idev->regen_timer))
++	if (how && del_timer(&idev->regen_timer))
+ 		in6_dev_put(idev);
+ 
+ 	/* clear tempaddr list */
+@@ -2602,18 +2614,16 @@ static int addrconf_ifdown(struct net_de
+ 
+ 	/* Step 5: Discard multicast list */
+ 
+-	if (how == 1)
++	if (how)
+ 		ipv6_mc_destroy_dev(idev);
+ 	else
+ 		ipv6_mc_down(idev);
+ 
+-	/* Step 5: netlink notification of this interface */
+ 	idev->tstamp = jiffies;
+-	inet6_ifinfo_notify(RTM_DELLINK, idev);
+ 
+ 	/* Shot the device (if unregistered) */
+ 
+-	if (how == 1) {
++	if (how) {
+ #ifdef CONFIG_SYSCTL
+ 		addrconf_sysctl_unregister(&idev->cnf);
+ 		neigh_sysctl_unregister(idev->nd_parms);
+@@ -2745,9 +2755,9 @@ static void addrconf_dad_timer(unsigned 
+ 	struct in6_addr unspec;
+ 	struct in6_addr mcaddr;
+ 
+-	read_lock_bh(&idev->lock);
+-	if (idev->dead) {
+-		read_unlock_bh(&idev->lock);
++	read_lock(&idev->lock);
++	if (idev->dead || !(idev->if_flags & IF_READY)) {
++		read_unlock(&idev->lock);
+ 		goto out;
+ 	}
+ 	spin_lock_bh(&ifp->lock);
+@@ -2758,7 +2768,7 @@ static void addrconf_dad_timer(unsigned 
+ 
+ 		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
+ 		spin_unlock_bh(&ifp->lock);
+-		read_unlock_bh(&idev->lock);
++		read_unlock(&idev->lock);
+ 
+ 		addrconf_dad_completed(ifp);
+ 
+@@ -2768,7 +2778,7 @@ static void addrconf_dad_timer(unsigned 
+ 	ifp->probes--;
+ 	addrconf_mod_timer(ifp, AC_DAD, ifp->idev->nd_parms->retrans_time);
+ 	spin_unlock_bh(&ifp->lock);
+-	read_unlock_bh(&idev->lock);
++	read_unlock(&idev->lock);
+ 
+ 	/* send a neighbour solicitation for our addr */
+ 	memset(&unspec, 0, sizeof(unspec));
+@@ -3859,22 +3869,8 @@ int addrconf_sysctl_forward(ctl_table *c
  
  	ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
  
@@ -332,7 +413,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	return ret;
  }
  
-@@ -3895,6 +3891,7 @@ static int addrconf_sysctl_forward_strat
+@@ -3885,6 +3881,7 @@ static int addrconf_sysctl_forward_strat
  					    void __user *newval, size_t newlen)
  {
  	int *valp = table->data;
@@ -340,7 +421,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	int new;
  
  	if (!newval || !newlen)
-@@ -3919,26 +3916,8 @@ static int addrconf_sysctl_forward_strat
+@@ -3909,26 +3906,8 @@ static int addrconf_sysctl_forward_strat
  		}
  	}
  
@@ -369,7 +450,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	return 1;
  }
  
-@@ -4296,27 +4275,20 @@ static struct addrconf_sysctl_table
+@@ -4286,27 +4265,20 @@ static struct addrconf_sysctl_table
  	},
  };
  
@@ -401,7 +482,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  
  	/*
  	 * Make a copy of dev_name, because '.procname' is regarded as const
-@@ -4325,8 +4297,9 @@ static void addrconf_sysctl_register(str
+@@ -4315,8 +4287,9 @@ static void addrconf_sysctl_register(str
  	 */
  	dev_name = kstrdup(dev_name, GFP_KERNEL);
  	if (!dev_name)
@@ -412,7 +493,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	t->addrconf_dev[0].procname = dev_name;
  
  	t->addrconf_dev[0].child = t->addrconf_vars;
-@@ -4337,19 +4310,28 @@ static void addrconf_sysctl_register(str
+@@ -4327,19 +4300,28 @@ static void addrconf_sysctl_register(str
  	t->sysctl_header = register_sysctl_table(t->addrconf_root_dir);
  	if (t->sysctl_header == NULL)
  		goto free_procname;
@@ -447,7 +528,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  static void addrconf_sysctl_unregister(struct ipv6_devconf *p)
  {
  	if (p->sysctl) {
-@@ -4437,9 +4419,10 @@ int __init addrconf_init(void)
+@@ -4427,9 +4409,10 @@ int __init addrconf_init(void)
  	__rtnl_register(PF_INET6, RTM_GETANYCAST, NULL, inet6_dump_ifacaddr);
  
  #ifdef CONFIG_SYSCTL
@@ -488,6 +569,17 @@ diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
  	       int proto, int len)
  {
  	struct ipv6_pinfo *np = inet6_sk(sk);
+@@ -788,6 +788,10 @@ slow_path_clean:
+ 	}
+ 
+ slow_path:
++	if ((skb->ip_summed == CHECKSUM_PARTIAL) &&
++	    skb_checksum_help(skb))
++		goto fail;
++
+ 	left = skb->len - hlen;		/* Space per frame */
+ 	ptr = hlen;			/* Where to start from */
+ 
 diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
 --- a/net/ipv6/ipv6_sockglue.c
 +++ b/net/ipv6/ipv6_sockglue.c
