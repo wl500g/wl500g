@@ -1,0 +1,81 @@
+ 861d04860725dc85944bf9fa815af338d9e56b43 [IPV4]: Uninline netfilter okfns
+ ad643a793bfb933e1b9e37ad4a5edf389ae160ea [IPV6]: Uninline netfilter okfns
+
+---
+ net/ipv4/ip_forward.c |    2 +-
+ net/ipv4/ip_input.c   |    4 ++--
+ net/ipv4/ip_output.c  |    2 +-
+ net/ipv6/ip6_input.c  |    2 +-
+ net/ipv6/ip6_output.c |    2 +-
+ 5 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -40,7 +40,7 @@
+ #include <net/route.h>
+ #include <net/xfrm.h>
+ 
+-static inline int ip_forward_finish(struct sk_buff *skb)
++static int ip_forward_finish(struct sk_buff *skb)
+ {
+ 	struct ip_options * opt	= &(IPCB(skb)->opt);
+ 
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -195,7 +195,7 @@ int ip_call_ra_chain(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-static inline int ip_local_deliver_finish(struct sk_buff *skb)
++static int ip_local_deliver_finish(struct sk_buff *skb)
+ {
+ 	__skb_pull(skb, ip_hdrlen(skb));
+ 
+@@ -324,7 +324,7 @@ drop:
+ 	return -1;
+ }
+ 
+-static inline int ip_rcv_finish(struct sk_buff *skb)
++static int ip_rcv_finish(struct sk_buff *skb)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct rtable *rt;
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -202,7 +202,7 @@ static inline int ip_skb_dst_mtu(struct sk_buff *skb)
+ 	       skb->dst->dev->mtu : dst_mtu(skb->dst);
+ }
+ 
+-static inline int ip_finish_output(struct sk_buff *skb)
++static int ip_finish_output(struct sk_buff *skb)
+ {
+ #if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
+ 	/* Policy lookup after SNAT yielded a new policy */
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -149,7 +149,7 @@ out:
+  */
+ 
+ 
+-static inline int ip6_input_finish(struct sk_buff *skb)
++static int ip6_input_finish(struct sk_buff *skb)
+ {
+ 	struct inet6_protocol *ipprot;
+ 	struct sock *raw_sk;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -70,7 +70,7 @@ static __inline__ void ipv6_select_ident(struct sk_buff *skb, struct frag_hdr *f
+ 	spin_unlock_bh(&ip6_id_lock);
+ }
+ 
+-static inline int ip6_output_finish(struct sk_buff *skb)
++static int ip6_output_finish(struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb->dst;
+ 
+-- 
