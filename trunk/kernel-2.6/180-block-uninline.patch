@@ -1,0 +1,110 @@
+From c07e2b41291853b19fff11ceee3657df252a4e42
+From: Jens Axboe
+Date: Wed, 18 Jul 2007 13:27:58 +0200
+Subject: [PATCH] block: factor our bio_check_eod()
+
+End of device check is done twice in __generic_make_request() and it's
+fully inlined each time.  Factor out bio_check_eod().
+
+Signed-off-by: Tejun Heo <htejun@gmail.com>
+Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
+
+---
+ block/ll_rw_blk.c |   63 +++++++++++++++++++++++++++-------------------------
+ 1 files changed, 33 insertions(+), 30 deletions(-)
+
+diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
+--- a/block/ll_rw_blk.c
++++ b/block/ll_rw_blk.c
+@@ -3120,6 +3120,35 @@ static inline int should_fail_request(struct bio *bio)
+ 
+ #endif /* CONFIG_FAIL_MAKE_REQUEST */
+ 
++/*
++ * Check whether this bio extends beyond the end of the device.
++ */
++static inline int bio_check_eod(struct bio *bio, unsigned int nr_sectors)
++{
++	sector_t maxsector;
++
++	if (!nr_sectors)
++		return 0;
++
++	/* Test device or partition size, when known. */
++	maxsector = bio->bi_bdev->bd_inode->i_size >> 9;
++	if (maxsector) {
++		sector_t sector = bio->bi_sector;
++
++		if (maxsector < nr_sectors || maxsector - nr_sectors < sector) {
++			/*
++			 * This may well happen - the kernel calls bread()
++			 * without checking the size of the device, e.g., when
++			 * mounting a device.
++			 */
++			handle_bad_sector(bio);
++			return 1;
++		}
++	}
++
++	return 0;
++}
++
+ /**
+  * generic_make_request: hand a buffer to its device driver for I/O
+  * @bio:  The bio describing the location in memory and on the device.
+@@ -3147,27 +3176,14 @@ static inline int should_fail_request(struct bio *bio)
+ static inline void __generic_make_request(struct bio *bio)
+ {
+ 	request_queue_t *q;
+-	sector_t maxsector;
+ 	sector_t old_sector;
+ 	int ret, nr_sectors = bio_sectors(bio);
+ 	dev_t old_dev;
+ 
+ 	might_sleep();
+-	/* Test device or partition size, when known. */
+-	maxsector = bio->bi_bdev->bd_inode->i_size >> 9;
+-	if (maxsector) {
+-		sector_t sector = bio->bi_sector;
+ 
+-		if (maxsector < nr_sectors || maxsector - nr_sectors < sector) {
+-			/*
+-			 * This may well happen - the kernel calls bread()
+-			 * without checking the size of the device, e.g., when
+-			 * mounting a device.
+-			 */
+-			handle_bad_sector(bio);
+-			goto end_io;
+-		}
+-	}
++	if (bio_check_eod(bio, nr_sectors))
++		goto end_io;
+ 
+ 	/*
+ 	 * Resolve the mapping until finished. (drivers are
+@@ -3223,21 +3239,8 @@ end_io:
+ 		old_sector = bio->bi_sector;
+ 		old_dev = bio->bi_bdev->bd_dev;
+ 
+-		maxsector = bio->bi_bdev->bd_inode->i_size >> 9;
+-		if (maxsector) {
+-			sector_t sector = bio->bi_sector;
+-
+-			if (maxsector < nr_sectors ||
+-					maxsector - nr_sectors < sector) {
+-				/*
+-				 * This may well happen - partitions are not
+-				 * checked to make sure they are within the size
+-				 * of the whole device.
+-				 */
+-				handle_bad_sector(bio);
+-				goto end_io;
+-			}
+-		}
++		if (bio_check_eod(bio, nr_sectors))
++			goto end_io;
+ 
+ 		ret = q->make_request_fn(q, bio);
+ 	} while (ret);
+-- 
+1.7.7.6
