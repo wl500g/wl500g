@@ -2,22 +2,32 @@ vfs updates from upstream
 
  kernel.org commits
  787d2214c19bcc9b6ac48af0ce098277a801eded fs: introduce some page/buffer invariants
+ dbacefc9c4f6bd365243db379473ab7041656d90 fs/buffer.c: uninline __remove_assoc_queue()
  f4c0a0fdfae708f7aa438c27a380ed4071294e11 vfs: export filemap_fdatawrite_range()
  d3bccb6f4b886060aa0f58976b92b77d951f5434 vfs: Introduce filemap_fdatawait_range
  91803b499cca2fe558abad709ce83dc896b80950 do_generic_file_read: clear page errors when issuing a fresh read of the page
  bdb76ef5a4bc8676a81034a443f1eda450b4babb dio: fix cache invalidation after sync writes
 
 ---
- fs/buffer.c         |   58 ++++++++++++++++++++++++++++++++++------------------
+ fs/buffer.c         |   60 ++++++++++++++++++++++++++++++++++------------------
  include/linux/fs.h  |    4 +++
- mm/filemap.c        |   45 ++++++++++++++++++++++++++++++----------
+ mm/filemap.c        |   45 +++++++++++++++++++++++++++++----------
  mm/page-writeback.c |    1 
  mm/truncate.c       |    2 -
- 5 files changed, 79 insertions(+), 31 deletions(-)
+ 5 files changed, 80 insertions(+), 32 deletions(-)
 
 diff --git a/fs/buffer.c b/fs/buffer.c
 --- a/fs/buffer.c
 +++ b/fs/buffer.c
+@@ -570,7 +570,7 @@ EXPORT_SYMBOL(mark_buffer_async_write);
+ /*
+  * The buffer's backing address_space's private_lock must be held
+  */
+-static inline void __remove_assoc_queue(struct buffer_head *bh)
++static void __remove_assoc_queue(struct buffer_head *bh)
+ {
+ 	list_del_init(&bh->b_assoc_buffers);
+ 	WARN_ON(!bh->b_assoc_map);
 @@ -676,6 +676,41 @@ void mark_buffer_dirty_inode(struct buffer_head *bh, struct inode *inode)
  EXPORT_SYMBOL(mark_buffer_dirty_inode);
  
