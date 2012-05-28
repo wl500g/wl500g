@@ -760,7 +760,7 @@ netconf: iptables
 upnp: netconf nvram shared
 
 miniupnpd/config.h:
-	cd miniupnpd && ./genconfig.sh
+	cd miniupnpd && ./genconfig.sh --leasefile
 
 miniupnpd: iptables netconf miniupnpd/config.h
 	$(MAKE) -C $@ -f Makefile.linux EXTRACFLAGS="$(EXTRACFLAGS)" \
