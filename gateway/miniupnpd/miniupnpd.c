@@ -1390,6 +1390,7 @@ init(int argc, char * * argv, struct runtime_vars * v)
 	}
 
 	set_startup_time(GETFLAG(SYSUPTIMEMASK));
+	syslog(LOG_INFO, "version " MINIUPNPD_VERSION " started");
 
 	/* presentation url */
 	if(presurl)
