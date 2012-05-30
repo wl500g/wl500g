@@ -1,0 +1,137 @@
+From e7d0f1b11f2cbf69afe8f00ef5378f082b110b0d
+From: Leonid Yegoshin
+Date: Fri, 11 May 2012 01:28:22 -0500
+Subject: [PATCH] MIPS: Fix race condition with FPU thread task flag during context switch.
+
+[ralf@linux-mips.org: Cosmetic changes; also fixed up r2300_switch.S and
+octeon_switch.S which needed similar modifications.]
+
+Signed-off-by: Leonid Yegoshin <yegoshin@mips.com>
+Signed-off-by: Steven J. Hill <sjhill@mips.com>
+Cc: linux-mips@linux-mips.org
+Patchwork: https://patchwork.linux-mips.org/patch/3784/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+NB! linux-mips.org 2.6.22 backport slightly incomplete :(
+
+---
+ arch/mips/kernel/r2300_switch.S |   15 +++------------
+ arch/mips/kernel/r4k_switch.S   |   12 +++---------
+ include/asm-mips/system.h       |   17 +++++++++--------
+ 3 files changed, 15 insertions(+), 29 deletions(-)
+
+diff --git a/include/asm-mips/system.h b/include/asm-mips/system.h
+--- a/include/asm-mips/system.h
++++ b/include/asm-mips/system.h
+@@ -27,7 +27,7 @@
+  * switch_to(n) should switch tasks to task nr n, first
+  * checking that n isn't the current task, in which case it does nothing.
+  */
+-extern asmlinkage void *resume(void *last, void *next, void *next_ti);
++extern asmlinkage void *resume(void *last, void *next, void *next_ti, u32 __usedfpu);
+ 
+ struct task_struct;
+ 
+@@ -45,7 +45,7 @@ struct task_struct;
+  * different thread.
+  */
+ 
+-#define switch_to(prev,next,last)					\
++#define __mips_mt_fpaff_switch_to(prev)					\
+ do {									\
+ 	if (cpu_has_fpu &&						\
+ 	    (prev->thread.mflags & MF_FPUBOUND) &&			\
+@@ -53,20 +53,21 @@ do {									\
+ 		prev->thread.mflags &= ~MF_FPUBOUND;			\
+ 		prev->cpus_allowed = prev->thread.user_cpus_allowed;	\
+ 	}								\
+-	if (cpu_has_dsp)						\
+-		__save_dsp(prev);					\
+-	next->thread.emulated_fp = 0;					\
+-	(last) = resume(prev, next, task_thread_info(next));		\
+ } while(0)
+ 
+ #else
++#define __mips_mt_fpaff_switch_to(prev) do { (void) (prev); } while (0)
++#endif
++
+ #define switch_to(prev,next,last)					\
+ do {									\
++	u32 __usedfpu;							\
++	__mips_mt_fpaff_switch_to(prev);				\
+ 	if (cpu_has_dsp)						\
+ 		__save_dsp(prev);					\
+-	(last) = resume(prev, next, task_thread_info(next));		\
++	__usedfpu = test_and_clear_tsk_thread_flag(prev, TIF_USEDFPU);	\
++	(last) = resume(prev, next, task_thread_info(next), __usedfpu);	\
+ } while (0)
+-#endif
+ 
+ #define finish_arch_switch(prev)					\
+ do {									\
+diff --git a/arch/mips/kernel/r2300_switch.S b/arch/mips/kernel/r2300_switch.S
+--- a/arch/mips/kernel/r2300_switch.S
++++ b/arch/mips/kernel/r2300_switch.S
+@@ -43,7 +43,7 @@
+ 
+ /*
+  * task_struct *resume(task_struct *prev, task_struct *next,
+- *                     struct thread_info *next_ti) )
++ *                     struct thread_info *next_ti, int usedfpu)
+  */
+ LEAF(resume)
+ 	mfc0	t1, CP0_STATUS
+@@ -51,18 +51,9 @@ LEAF(resume)
+ 	cpu_save_nonscratch a0
+ 	sw	ra, THREAD_REG31(a0)
+ 
+-	/*
+-	 * check if we need to save FPU registers
+-	 */
+-	lw	t3, TASK_THREAD_INFO(a0)
+-	lw	t0, TI_FLAGS(t3)
+-	li	t1, _TIF_USEDFPU
+-	and	t2, t0, t1
+-	beqz	t2, 1f
+-	nor	t1, zero, t1
++	beqz	a3, 1f
+ 
+-	and	t0, t0, t1
+-	sw	t0, TI_FLAGS(t3)
++	PTR_L	t3, TASK_THREAD_INFO(a0)
+ 
+ 	/*
+ 	 * clear saved user stack CU1 bit
+diff --git a/arch/mips/kernel/r4k_switch.S b/arch/mips/kernel/r4k_switch.S
+--- a/arch/mips/kernel/r4k_switch.S
++++ b/arch/mips/kernel/r4k_switch.S
+@@ -41,7 +41,7 @@
+ 
+ /*
+  * task_struct *resume(task_struct *prev, task_struct *next,
+- *                     struct thread_info *next_ti)
++ *                     struct thread_info *next_ti, int usedfpu)
+  */
+ 	.align	5
+ 	LEAF(resume)
+@@ -53,16 +53,10 @@
+ 	/*
+ 	 * check if we need to save FPU registers
+ 	 */
+-	PTR_L	t3, TASK_THREAD_INFO(a0)
+-	LONG_L	t0, TI_FLAGS(t3)
+-	li	t1, _TIF_USEDFPU
+-	and	t2, t0, t1
+-	beqz	t2, 1f
+-	nor	t1, zero, t1
+ 
+-	and	t0, t0, t1
+-	LONG_S	t0, TI_FLAGS(t3)
++	beqz    a3, 1f
+ 
++	PTR_L	t3, TASK_THREAD_INFO(a0)
+ 	/*
+ 	 * clear saved user stack CU1 bit
+ 	 */
+-- 
+1.7.3.4
