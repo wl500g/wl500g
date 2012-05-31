@@ -31,8 +31,8 @@ Tasks initiated by the rules file:
 
 - loading and binding the "option" driver if the device arrives in modem
   state (not CDC/ACM!) and the device ID is not yet known to the driver.
-  This action will be done for known modems only (at least switched once
-  on this system)
+  This action will be done only for modems known to the system (at least
+  switched once)
 
 
 Explanation about config file names:
@@ -61,10 +61,6 @@ This list is easily extendable if necessary.
 Example:
 <vid>:<pid>:uPr=CDMA_Mo will match iProduct "CDMA Modem" or "MyCDMA_Mordor"
 
-
-If information is missing about ambiguous devices, a ":?" is attached
-to the file/ID in question. Please contact the forum if you need help
-in such a case.
 
 
 Parameters used only in config files:
@@ -100,7 +96,7 @@ Notes about specific devices:
   "ReleaseDelay" will improve ambiguous behaviour on older systems
 
 - Some WiMAX and LTE devices are included since 20101222; for most of these
-  there are no working Linux drivers available yet. Efforts are underway.
+  drivers are work in progress or not available yet. Efforts are underway.
   Stand by or search for "staging drivers".
 
 - 05c6:2000 (unnamed HSDPA modem from "dealextreme"): unusually long switching
@@ -130,4 +126,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2011-07-14, Josua Dietze
+Last revised: 2012-05-29, Josua Dietze
