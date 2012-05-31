@@ -15,11 +15,12 @@ mm: BDI updates from upstream
  dd5656e59ca7b25fb60a22f9079905ed0da5ed0c mm: bdi: export bdi_writeout_inc()
  2c96ce9f2084c1e04d02883e622f74a537a63aea fs: remove bdev->bd_inode_backing_dev_info
  32a88aa1b6dfb901cec64e1898cac78d0f25028a fs: Assign bdi in super_block
+ d7831a0bdf06b9f722b947bb0c205ff7d77cebd8 mm: prevent balance_dirty_pages() from doing too much work
 
 ---
  block/ll_rw_blk.c               |   13 +-
  drivers/base/node.c             |    2 
- drivers/block/rd.c              |   20 +++
+ drivers/block/rd.c              |   20 ++-
  drivers/char/mem.c              |    5 
  fs/block_dev.c                  |    1 
  fs/buffer.c                     |    2 
@@ -40,22 +41,22 @@ mm: BDI updates from upstream
  fs/sysfs/inode.c                |    7 -
  fs/sysfs/mount.c                |    4 
  fs/sysfs/sysfs.h                |    1 
- include/linux/backing-dev.h     |  173 ++++++++++++++++++++++++---
+ include/linux/backing-dev.h     |  173 +++++++++++++++++++++++----
  include/linux/fs.h              |    2 
  include/linux/mmzone.h          |    1 
- include/linux/page-flags.h      |   38 +-----
+ include/linux/page-flags.h      |   38 +----
  include/linux/percpu_counter.h  |   16 ++
  include/linux/writeback.h       |    4 
  kernel/sysctl.c                 |    2 
- mm/backing-dev.c                |   44 ++++---
- mm/page-writeback.c             |  251 +++++++++++++++++++++++++++++++++-------
+ mm/backing-dev.c                |   44 ++++--
+ mm/page-writeback.c             |  254 +++++++++++++++++++++++++++++++++-------
  mm/readahead.c                  |    6 
  mm/shmem.c                      |    8 +
  mm/swap.c                       |    5 
  mm/swap_state.c                 |    2 
  mm/truncate.c                   |    2 
  mm/vmstat.c                     |    1 
- 38 files changed, 587 insertions(+), 127 deletions(-)
+ 38 files changed, 590 insertions(+), 127 deletions(-)
 
 diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
 --- a/block/ll_rw_blk.c
@@ -1298,12 +1299,16 @@ diff --git a/mm/page-writeback.c b/mm/page-writeback.c
  
  		/* Note: nr_reclaimable denotes nr_dirty + nr_unstable.
  		 * Unstable writes are a feature of certain networked
-@@ -237,26 +369,42 @@ static void balance_dirty_pages(struct a
+@@ -237,27 +369,46 @@ static void balance_dirty_pages(struct a
+ 		 * filesystems (i.e. NFS) in which data may have been
  		 * written to the server's write cache, but has not yet
  		 * been flushed to permanent storage.
++		 * Only move pages to writeback if this bdi is over its
++		 * threshold otherwise wait until the disk writes catch
++		 * up.
  		 */
 -		if (nr_reclaimable) {
-+		if (bdi_nr_reclaimable) {
++		if (bdi_nr_reclaimable > bdi_thresh) {
  			writeback_inodes(&wbc);
 -			get_dirty_limits(&background_thresh,
 -					 	&dirty_thresh, mapping);
