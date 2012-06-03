@@ -43,9 +43,14 @@ irq_cpustat_t irq_stat[NR_CPUS] ____cacheline_aligned;
 EXPORT_SYMBOL(irq_stat);
 #endif
 
-static struct softirq_action softirq_vec[32] __cacheline_aligned_in_smp;
+static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
 
 static DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
+
+char *softirq_to_name[NR_SOFTIRQS] = {
+	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK",
+	"TASKLET", "SCHED", "HRTIMER",	"RCU"
+};
 
 /*
  * we cannot loop indefinitely here to avoid userspace starvation,
@@ -96,20 +101,6 @@ void local_bh_disable(void)
 }
 
 EXPORT_SYMBOL(local_bh_disable);
-
-void __local_bh_enable(void)
-{
-	WARN_ON_ONCE(in_irq());
-
-	/*
-	 * softirqs should never be enabled by __local_bh_enable(),
-	 * it always nests inside local_bh_enable() sections:
-	 */
-	WARN_ON_ONCE(softirq_count() == SOFTIRQ_OFFSET);
-
-	sub_preempt_count(SOFTIRQ_OFFSET);
-}
-EXPORT_SYMBOL_GPL(__local_bh_enable);
 
 /*
  * Special-case - softirqs can safely be enabled in
@@ -204,6 +195,7 @@ restart:
 
 	do {
 		if (pending & 1) {
+			kstat_incr_softirqs_this_cpu(h - softirq_vec);
 			h->action(h);
 			rcu_bh_qsctr_inc(cpu);
 		}
@@ -318,9 +310,8 @@ void fastcall raise_softirq(unsigned int nr)
 	local_irq_restore(flags);
 }
 
-void open_softirq(int nr, void (*action)(struct softirq_action*), void *data)
+void open_softirq(int nr, void (*action)(struct softirq_action*))
 {
-	softirq_vec[nr].data = data;
 	softirq_vec[nr].action = action;
 }
 
@@ -458,8 +449,8 @@ EXPORT_SYMBOL(tasklet_kill);
 
 void __init softirq_init(void)
 {
-	open_softirq(TASKLET_SOFTIRQ, tasklet_action, NULL);
-	open_softirq(HI_SOFTIRQ, tasklet_hi_action, NULL);
+	open_softirq(TASKLET_SOFTIRQ, tasklet_action);
+	open_softirq(HI_SOFTIRQ, tasklet_hi_action);
 }
 
 static int ksoftirqd(void * __bind_cpu)

@@ -1338,7 +1338,7 @@ void __init init_timers(void)
 
 	BUG_ON(err == NOTIFY_BAD);
 	register_cpu_notifier(&timers_nb);
-	open_softirq(TIMER_SOFTIRQ, run_timer_softirq, NULL);
+	open_softirq(TIMER_SOFTIRQ, run_timer_softirq);
 }
 
 #ifdef CONFIG_TIME_INTERPOLATION
