@@ -6,17 +6,19 @@ softirq: Updates from upstream
  978b0116cd225682a29e3d1d5010319bf2de32c2 softirq: allocate less vectors
  5d592b44b29a1d73e13d5c9e3426eed843bdc359 tracing: tracepoints for softirq entry/exit - add softirq-to-name array
  899039e8746bb9a09b6487ddb8ab2275ce9d0256 softirq: no need to have SOFTIRQ in softirq name
+ 8b752e3ef6e3f5cde87afc649dd51d92b1e549c1 softirq: remove useless function __local_bh_enable
 
 ---
- block/ll_rw_blk.c         |    2 +-
- include/linux/interrupt.h |   13 +++++++++----
- kernel/hrtimer.c          |    2 +-
- kernel/rcupdate.c         |   25 +++++++++++++++++--------
- kernel/sched.c            |   10 +++++-----
- kernel/softirq.c          |   14 +++++++++-----
- kernel/timer.c            |    2 +-
- net/core/dev.c            |    4 ++--
- 8 files changed, 45 insertions(+), 27 deletions(-)
+ block/ll_rw_blk.c           |    2 +-
+ include/linux/bottom_half.h |    1 -
+ include/linux/interrupt.h   |   13 +++++++++----
+ kernel/hrtimer.c            |    2 +-
+ kernel/rcupdate.c           |   25 +++++++++++++++++--------
+ kernel/sched.c              |   10 +++++-----
+ kernel/softirq.c            |   28 +++++++++-------------------
+ kernel/timer.c              |    2 +-
+ net/core/dev.c              |    4 ++--
+ 9 files changed, 45 insertions(+), 42 deletions(-)
 
 diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
 --- a/block/ll_rw_blk.c
@@ -30,6 +32,17 @@ diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
  	register_hotcpu_notifier(&blk_cpu_notifier);
  
  	blk_max_low_pfn = max_low_pfn - 1;
+diff --git a/include/linux/bottom_half.h b/include/linux/bottom_half.h
+--- a/include/linux/bottom_half.h
++++ b/include/linux/bottom_half.h
+@@ -2,7 +2,6 @@
+ #define _LINUX_BH_H
+ 
+ extern void local_bh_disable(void);
+-extern void __local_bh_enable(void);
+ extern void _local_bh_enable(void);
+ extern void local_bh_enable(void);
+ extern void local_bh_enable_ip(unsigned long ip);
 diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
@@ -223,6 +236,27 @@ diff --git a/kernel/softirq.c b/kernel/softirq.c
  /*
   * we cannot loop indefinitely here to avoid userspace starvation,
   * but we also don't want to introduce a worst case 1/HZ latency
+@@ -102,20 +102,6 @@ void local_bh_disable(void)
+ 
+ EXPORT_SYMBOL(local_bh_disable);
+ 
+-void __local_bh_enable(void)
+-{
+-	WARN_ON_ONCE(in_irq());
+-
+-	/*
+-	 * softirqs should never be enabled by __local_bh_enable(),
+-	 * it always nests inside local_bh_enable() sections:
+-	 */
+-	WARN_ON_ONCE(softirq_count() == SOFTIRQ_OFFSET);
+-
+-	sub_preempt_count(SOFTIRQ_OFFSET);
+-}
+-EXPORT_SYMBOL_GPL(__local_bh_enable);
+-
+ /*
+  * Special-case - softirqs can safely be enabled in
+  * cond_resched_softirq(), or by __do_softirq(),
 @@ -318,9 +323,8 @@ void fastcall raise_softirq(unsigned int
  	local_irq_restore(flags);
  }
