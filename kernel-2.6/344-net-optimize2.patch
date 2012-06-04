@@ -15,6 +15,7 @@
  b0691c8ee7c28a72748ff32e91b165ec12ae4de6 net: Unlock sock before calling sk_free()
  e754834e65220b2b674c55c3b6dfb2fb1a2804d0 icmp: move icmp_err_convert[] to .rodata
  573636cbafeba88f7c88832ae053dafe265bf94b net: remove superfluous call to synchronize_net()
+ cc9b17ad29ecaa20bfe426a8d4dbfb94b13ff1cc net: sock: validate data_len before allocating skb in sock_alloc_send_pskb()
 
 ---
  include/net/dst.h            |    6 +++-
@@ -23,7 +24,7 @@
  net/bluetooth/af_bluetooth.c |    5 +--
  net/core/datagram.c          |    5 +--
  net/core/dev.c               |   56 +++++++++++++++++++++++++++++--------------
- net/core/sock.c              |    4 ++-
+ net/core/sock.c              |   11 ++++++--
  net/ipv4/af_inet.c           |    9 +-----
  net/ipv4/arp.c               |    5 +--
  net/ipv4/icmp.c              |   10 +++----
@@ -47,7 +48,7 @@
  net/sched/sch_netem.c        |    9 ++++++
  net/sctp/socket.c            |    5 +--
  net/unix/af_unix.c           |    5 +--
- 30 files changed, 139 insertions(+), 117 deletions(-)
+ 30 files changed, 144 insertions(+), 119 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
@@ -328,6 +329,33 @@ diff --git a/net/core/sock.c b/net/core/sock.c
  			sk_free(newsk);
  			newsk = NULL;
  			goto out;
+@@ -1236,6 +1236,11 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 	gfp_t gfp_mask;
+ 	long timeo;
+ 	int err;
++	int npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
++
++	err = -EMSGSIZE;
++	if (npages > MAX_SKB_FRAGS)
++		goto failure;
+ 
+ 	gfp_mask = sk->sk_allocation;
+ 	if (gfp_mask & __GFP_WAIT)
+@@ -1250,14 +1255,12 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
+ 			skb = alloc_skb(header_len, gfp_mask);
+ 			if (skb) {
+-				int npages;
+ 				int i;
+ 
+ 				/* No pages, we're done... */
+ 				if (!data_len)
+ 					break;
+ 
+-				npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
+ 				skb->truesize += data_len;
+ 				skb_shinfo(skb)->nr_frags = npages;
+ 				for (i = 0; i < npages; i++) {
 diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
 --- a/net/ipv4/af_inet.c
 +++ b/net/ipv4/af_inet.c
