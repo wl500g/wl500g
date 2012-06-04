@@ -335,4 +335,16 @@ config USB_NET_ZAURUS
 	  some cases CDC MDLM) protocol, not "g_ether".
 
 
+config USB_IPHETH
+	tristate "Apple iPhone USB Ethernet driver"
+	default n
+	---help---
+	  Module used to share Internet connection (tethering) from your
+	  iPhone (Original, 3G and 3GS) to your system.
+	  Note that you need userspace libraries and programs that are needed
+	  to pair your device with your system and that understand the iPhone
+	  protocol.
+
+	  For more information: http://giagio.com/wiki/moin.cgi/iPhoneEthernetDriver
+
 endmenu
