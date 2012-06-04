@@ -1,14 +1,15 @@
 [IPV6] ndisc updates from upstream
 
  22441cfa0c70dcd457f3c081fcf285c3bd155824 IPV6: Fix default gateway criteria wrt. HIGH/LOW preference radv option
+ 421f099bc555c5f1516fdf5060de1d6bb5f51002 [IPV6] net/ipv6/ndisc.c: remove unused variable
  24fc7b86dc0470616803be2f921c8cd5c459175d ipv6: silence log messages for locally generated multicast
  a6fa32866567351503db8a5c3466a676ba08595f ipv6: Log the explicit address that triggered DAD failure
  d73f08011bc30c03a2bcb1ccd880e4be84aea269 ipv6/ndisc: join error paths
 
 ---
  include/linux/icmpv6.h |    6 ++++--
- net/ipv6/ndisc.c       |   29 +++++++++++++++++------------
- 2 files changed, 21 insertions(+), 14 deletions(-)
+ net/ipv6/ndisc.c       |   31 +++++++++++++++++--------------
+ 2 files changed, 21 insertions(+), 16 deletions(-)
 
 diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
 --- a/include/linux/icmpv6.h
@@ -65,6 +66,14 @@ diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
  	}
  
  	if (rt)
+@@ -1360,7 +1360,6 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
+ 	u8 *opt;
+ 	int rd_len;
+ 	int err;
+-	int hlen;
+ 	u8 ha_buf[MAX_ADDR_LEN], *ha = NULL;
+ 
+ 	dev = skb->dev;
 @@ -1394,13 +1399,10 @@ void ndisc_send_redirect(struct sk_buff 
  	if (rt->rt6i_flags & RTF_GATEWAY) {
  		ND_PRINTK2(KERN_WARNING
@@ -82,7 +91,7 @@ diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
  
  	if (dev->addr_len) {
  		read_lock_bh(&neigh->lock);
-@@ -1426,8 +1428,7 @@ void ndisc_send_redirect(struct sk_buff 
+@@ -1426,11 +1428,9 @@ void ndisc_send_redirect(struct sk_buff 
  		ND_PRINTK0(KERN_ERR
  			   "ICMPv6 Redirect: %s() failed to allocate an skb.\n",
  			   __FUNCTION__);
@@ -91,7 +100,10 @@ diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
 +		goto release;
  	}
  
- 	hlen = 0;
+-	hlen = 0;
+ 
+ 	skb_reserve(buff, LL_RESERVED_SPACE(dev));
+ 	ip6_nd_hdr(sk, buff, dev, &saddr_buf, &ipv6_hdr(skb)->saddr,
 @@ -1488,6 +1489,10 @@ void ndisc_send_redirect(struct sk_buff 
  
  	if (likely(idev != NULL))
