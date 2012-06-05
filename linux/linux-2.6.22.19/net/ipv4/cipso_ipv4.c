@@ -1806,7 +1806,6 @@ int cipso_v4_sock_setattr(struct sock *sk,
 	}
 	memcpy(opt->__data, buf, buf_len);
 	opt->optlen = opt_len;
-	opt->is_data = 1;
 	opt->cipso = sizeof(struct iphdr);
 	kfree(buf);
 	buf = NULL;
