@@ -129,8 +129,7 @@ static void mon_submit_error(struct usb_bus *ubus, struct urb *urb, int error)
 
 /*
  */
-static void mon_bus_complete(struct mon_bus *mbus, struct urb *urb,
-		int status)
+static void mon_bus_complete(struct mon_bus *mbus, struct urb *urb, int status)
 {
 	unsigned long flags;
 	struct list_head *pos;
@@ -362,12 +361,11 @@ static int __init mon_init(void)
 	}
 	// MOD_INC_USE_COUNT(which_module?);
 
-	usb_register_notify(&mon_nb);
-
 	mutex_lock(&usb_bus_list_lock);
 	list_for_each_entry (ubus, &usb_bus_list, bus_list) {
 		mon_bus_init(ubus);
 	}
+	usb_register_notify(&mon_nb);
 	mutex_unlock(&usb_bus_list_lock);
 	return 0;
 

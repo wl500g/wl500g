@@ -52,10 +52,11 @@ struct mon_event_text {
 	int type;		/* submit, complete, etc. */
 	unsigned long id;	/* From pointer, most of the time */
 	unsigned int tstamp;
-	int xfertype;
 	int busnum;
-	int devnum;
-	int epnum;
+	char devnum;
+	char epnum;
+	char is_in;
+	char xfertype;
 	int length;		/* Depends on type: xfer length or act length */
 	int status;
 	int interval;
@@ -63,7 +64,6 @@ struct mon_event_text {
 	int error_count;
 	char setup_flag;
 	char data_flag;
-	char is_in;
 	int numdesc;		/* Full number */
 	struct mon_iso_desc isodesc[ISODESC_MAX];
 	unsigned char setup[SETUP_MAX];
@@ -127,10 +127,6 @@ static inline char mon_text_get_setup(struct mon_event_text *ep,
 	if (ep->xfertype != USB_ENDPOINT_XFER_CONTROL || ev_type != 'S')
 		return '-';
 
-	if (urb->dev->bus->uses_dma &&
-	    (urb->transfer_flags & URB_NO_SETUP_DMA_MAP)) {
-		return mon_dmapeek(ep->setup, urb->setup_dma, SETUP_MAX);
-	}
 	if (urb->setup_packet == NULL)
 		return 'Z';	/* '0' would be not as pretty. */
 
@@ -154,20 +150,6 @@ static inline char mon_text_get_data(struct mon_event_text *ep, struct urb *urb,
 			return '>';
 	}
 
-	/*
-	 * The check to see if it's safe to poke at data has an enormous
-	 * number of corner cases, but it seems that the following is
-	 * more or less safe.
-	 *
-	 * We do not even try to look at transfer_buffer, because it can
-	 * contain non-NULL garbage in case the upper level promised to
-	 * set DMA for the HCD.
-	 */
-	if (urb->dev->bus->uses_dma &&
-	    (urb->transfer_flags & URB_NO_TRANSFER_DMA_MAP)) {
-		return mon_dmapeek(ep->data, urb->transfer_dma, len);
-	}
-
 	if (urb->transfer_buffer == NULL)
 		return 'Z';	/* '0' would be not as pretty. */
 
@@ -181,7 +163,7 @@ static inline unsigned int mon_get_timestamp(void)
 	unsigned int stamp;
 
 	do_gettimeofday(&tval);
-	stamp = tval.tv_sec & 0xFFFF;	/* 2^32 = 4294967296. Limit to 4096s. */
+	stamp = tval.tv_sec & 0xFFF;	/* 2^32 = 4294967296. Limit to 4096s. */
 	stamp = stamp * 1000000 + tval.tv_usec;
 	return stamp;
 }
@@ -238,6 +220,9 @@ static void mon_text_event(struct mon_reader_text *rp, struct urb *urb,
 			fp++;
 			dp++;
 		}
+		/* Wasteful, but simple to understand: ISO 'C' is sparse. */
+		if (ev_type == 'C')
+			ep->length = urb->transfer_buffer_length;
 	}
 
 	ep->setup_flag = mon_text_get_setup(ep, urb, ev_type, rp->r.m_bus);
@@ -274,12 +259,12 @@ static void mon_text_error(void *data, struct urb *urb, int error)
 
 	ep->type = 'E';
 	ep->id = (unsigned long) urb;
-	ep->busnum = 0;
+	ep->busnum = urb->dev->bus->busnum;
 	ep->devnum = urb->dev->devnum;
 	ep->epnum = usb_endpoint_num(&urb->ep->desc);
 	ep->xfertype = usb_endpoint_type(&urb->ep->desc);
 	ep->is_in = usb_urb_dir_in(urb);
-	ep->tstamp = 0;
+	ep->tstamp = mon_get_timestamp();
 	ep->length = 0;
 	ep->status = error;
 
@@ -669,6 +654,9 @@ int mon_text_add(struct mon_bus *mbus, const struct usb_bus *ubus)
 	int busnum = ubus? ubus->busnum: 0;
 	int rc;
 
+	if (mon_dir == NULL)
+		return 0;
+
 	if (ubus != NULL) {
 		rc = snprintf(name, NAMESZ, "%dt", busnum);
 		if (rc <= 0 || rc >= NAMESZ)
@@ -739,12 +727,12 @@ int __init mon_text_init(void)
 
 	mondir = debugfs_create_dir("usbmon", NULL);
 	if (IS_ERR(mondir)) {
-		printk(KERN_NOTICE TAG ": debugfs is not available\n");
-		return -ENODEV;
+		/* debugfs not available, but we can use usbmon without it */
+		return 0;
 	}
 	if (mondir == NULL) {
 		printk(KERN_NOTICE TAG ": unable to create usbmon directory\n");
-		return -ENODEV;
+		return -ENOMEM;
 	}
 	mon_dir = mondir;
 	return 0;
