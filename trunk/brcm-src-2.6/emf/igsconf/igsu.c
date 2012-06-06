@@ -261,10 +261,21 @@ igs_cfg_stats_show(char *argv[])
 	}
 
 	fprintf(stdout, "IgmpPkts        IgmpQueries     "
-	        "IgmpReports     IgmpV2Reports   IgmpLeaves\n");
-	fprintf(stdout, "%-15d %-15d %-15d %-15d %d\n",
+	        "IgmpReports     IgmpV2Reports   "
+#ifdef SUPPORT_IGMP_V3
+	        "IgmpV3Reports   "
+#endif
+	        "IgmpLeaves\n");
+	fprintf(stdout, "%-15d %-15d %-15d %-15d "
+#ifdef SUPPORT_IGMP_V3
+	        "%-15d "
+#endif
+	        "%d\n",
 	        igss->igmp_packets, igss->igmp_queries,
 	        igss->igmp_reports, igss->igmp_v2reports,
+#ifdef SUPPORT_IGMP_V3
+	        igss->igmp_v3reports,
+#endif
 	        igss->igmp_leaves);
 	fprintf(stdout, "IgmpNotHandled  McastGroups     "
 	        "McastMembers    MemTimeouts\n");

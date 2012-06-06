@@ -136,10 +136,21 @@ igs_stats_get(char *buf, char **start, off_t offset, int32 size,
 
 	bcm_binit(&b, buf, size);
 	bcm_bprintf(&b, "IgmpPkts        IgmpQueries     "
-	            "IgmpReports     IgmpV2Reports   IgmpLeaves\n");
-	bcm_bprintf(&b, "%-15d %-15d %-15d %-15d %d\n",
+	            "IgmpReports     IgmpV2Reports   "
+#ifdef SUPPORT_IGMP_V3
+	            "IgmpV3Reports   "
+#endif
+	            "IgmpLeaves\n");
+	bcm_bprintf(&b, "%-15d %-15d %-15d %-15d "
+#ifdef SUPPORT_IGMP_V3
+	            "%-15d "
+#endif
+	            "%d\n",
 	            stats->igmp_packets, stats->igmp_queries,
 	            stats->igmp_reports, stats->igmp_v2reports,
+#ifdef SUPPORT_IGMP_V3
+		    stats->igmp_v3reports,
+#endif
 	            stats->igmp_leaves);
 	bcm_bprintf(&b, "IgmpNotHandled  McastGroups     "
 	            "McastMembers    MemTimeouts\n");

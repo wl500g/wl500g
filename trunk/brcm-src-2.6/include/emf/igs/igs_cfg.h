@@ -33,6 +33,8 @@
 #define IGSCFG_STATUS_OPER_UNKNOWN  4
 #define IGSCFG_STATUS_INVALID_IF    5
 
+#define SUPPORT_IGMP_V3
+
 typedef struct igs_cfg_request
 {
 	uint8   inst_id[16];              /* Bridge name as instance id */
@@ -75,6 +77,9 @@ typedef struct igs_stats
 	uint32  igmp_queries;             /* IGMP membership quries received */
 	uint32  igmp_reports;             /* IGMP membership reports */
 	uint32  igmp_v2reports;           /* IGMP v2 membership reports */
+#ifdef SUPPORT_IGMP_V3
+	uint32  igmp_v3reports;           /* IGMP v3 membership reports */
+#endif
 	uint32  igmp_leaves;              /* IGMP membership leaves */
 	uint32  igmp_not_handled;         /* IGMP frames not handled */
 	uint32  igmp_mem_timeouts;        /* IGMP membership timeouts */
