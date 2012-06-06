@@ -27,13 +27,15 @@ From: David S. Miller <davem@davemloft.net>
 263e69cbc9e5a9e7bcf6a24f641ef0717d1ae4df pppoe: Fix socket leak.
 d6301d3dd1c287b32132dda15272a50c11e92a14 net: Increase default NET_SKB_PAD to 32.
 
+617c8c11236716dcbda877e764b7bf37c6fd8063 skb: avoid unnecessary reallocations in __skb_cow
+
 ---
- drivers/net/ppp_generic.c |   14 +--
- drivers/net/pppoe.c       |  121 ++++++++------------
- include/linux/if_pppox.h  |   12 +-
- include/linux/skbuff.h    |   46 ++++++--
- net/bridge/br_netfilter.c |    2 +-
- 5 files changed, 93 insertions(+), 102 deletions(-)
+ drivers/net/ppp_generic.c |   14 +----
+ drivers/net/pppoe.c       |  121 ++++++++++++++++++----------------------------
+ include/linux/if_pppox.h  |   12 ++--
+ include/linux/skbuff.h    |   44 ++++++++++++----
+ net/bridge/br_netfilter.c |    2 
+ 5 files changed, 91 insertions(+), 102 deletions(-)
 
 diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
 --- a/drivers/net/ppp_generic.c
@@ -388,7 +390,7 @@ diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
  #endif
  
  #ifndef NET_SKB_PAD_ALLOC
-@@ -1348,6 +1348,22 @@ static inline int skb_clone_writable(struct sk_buff *skb, int len)
+@@ -1348,6 +1348,20 @@ static inline int skb_clone_writable(struct sk_buff *skb, int len)
  	       skb_headroom(skb) + len <= skb->hdr_len;
  }
  
@@ -397,8 +399,6 @@ diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
 +{
 +	int delta = 0;
 +
-+	if (headroom < NET_SKB_PAD)
-+		headroom = NET_SKB_PAD;
 +	if (headroom > skb_headroom(skb))
 +		delta = headroom - skb_headroom(skb);
 +
@@ -456,5 +456,3 @@ diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
  		return err;
  
 -- 
-1.6.5.GIT
-
