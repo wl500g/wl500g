@@ -297,10 +297,7 @@ igsc_update_leave_member(igsc_info_t *igsc_info, void *ifp, uint32 mcast_ip, uin
 	/* Remove group entry for the host when a leave message is 
 	 * received.
 	 */
-	ret = igsc_sdb_member_del(igsc_info, ifp, IPV4_MCADDR_ALLHOSTS, mh_ip);
-	if (ret == SUCCESS)
-		ret = igsc_sdb_member_del(igsc_info, ifp, mcast_ip, mh_ip);
-
+	ret = igsc_sdb_member_del(igsc_info, ifp, mcast_ip, mh_ip);
 	if (ret != SUCCESS)
 		IGS_WARN("Deleting unknown member with grp %x host %x if %p",
 		         mcast_ip, mh_ip, ifp);
@@ -428,6 +425,10 @@ igsc_input(emfc_snooper_t *s, void *ifp, uint8 *iph, uint8 *igmph, bool from_rp)
 			{
 				src_num = ntoh16(igmpv3g->src_num);
 				mgrp_ip = ntoh32(igmpv3g->mcast_addr);
+
+				if (!IP_ISMULTI(mgrp_ip))
+					IGS_ERROR("IGMPV3 type=%x, mgrp_ip=%x\n", igmpv3g->type, mgrp_ip);
+				else
 				switch (igmpv3g->type) {
 					case IGMPV3_CHANGE_TO_INCLUDE:
 					case IGMPV3_MODE_IS_INCLUDE:
@@ -455,7 +456,7 @@ igsc_input(emfc_snooper_t *s, void *ifp, uint8 *iph, uint8 *igmph, bool from_rp)
 				}
 				offset = sizeof(igmpv3_group_t);
 				offset += src_num * IGMPV3_SRC_ADDR_LEN;
-				offset += ntoh16(igmpv3g->aux_len) * 4;
+				offset += igmpv3g->aux_len * 4;
 				igmpv3g = (igmpv3_group_t*)(((unsigned char *)igmpv3g) + offset);
 			}
 			break;
