@@ -1119,7 +1119,7 @@ dev_nvram_init(void)
 	/* Set the SDRAM NCDL value into NVRAM if not already done */
 	if (getintvar(NULL, "sdram_ncdl") == 0) {
 		unsigned int ncdl;
-		char buf[] = "0x00000000";
+		char buf[sizeof("0x00000000")];
 
 		if ((ncdl = si_memc_get_ncdl(sih))) {
 			sprintf(buf, "0x%08x", ncdl);

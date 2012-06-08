@@ -81,7 +81,7 @@ hash(const char *s)
 static int
 BCMINITFN(nvram_rehash)(struct nvram_header *header)
 {
-	char buf[] = "0xXXXXXXXX", *name, *value, *end, *eq;
+	char buf[sizeof("0xXXXXXXXX")], *name, *value, *end, *eq;
 
 	/* (Re)initialize hash table */
 	nvram_free();
