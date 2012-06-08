@@ -8,11 +8,12 @@ Additionally commits:
  78c1d78488a3c45685d993130c9f17102dc79a54 radix-tree: introduce bit-optimized iterator (2012.03.28)
  cebbd29e1c2f7a969919f19f74583070840163d7 radix-tree: rewrite gang lookup using iterator
  5536805292e64393f57054de66578f17eb1ea994 radix-tree: fix preload vector size
+ fffaee365fded09f9ebf2db19066065fa54323c3 radix-tree: fix contiguous iterator
 
 ---
- include/linux/radix-tree.h |  336 ++++++++++++++-
- lib/radix-tree.c           |  969 ++++++++++++++++++++++++++++++---------------
- 2 files changed, 961 insertions(+), 344 deletions(-)
+ include/linux/radix-tree.h |  339 ++++++++++++++-
+ lib/radix-tree.c           |  972 ++++++++++++++++++++++++++++++---------------
+ 2 files changed, 967 insertions(+), 344 deletions(-)
 
 diff --git a/include/linux/radix-tree.h b/include/linux/radix-tree.h
 --- a/include/linux/radix-tree.h
@@ -238,7 +239,7 @@ diff --git a/include/linux/radix-tree.h b/include/linux/radix-tree.h
  int radix_tree_tagged(struct radix_tree_root *root, unsigned int tag);
  
  static inline void radix_tree_preload_end(void)
-@@ -174,4 +259,199 @@ static inline void radix_tree_preload_en
+@@ -174,4 +259,202 @@ static inline void radix_tree_preload_en
  	preempt_enable();
  }
  
@@ -352,8 +353,11 @@ diff --git a/include/linux/radix-tree.h b/include/linux/radix-tree.h
 +			iter->index++;
 +			if (likely(*slot))
 +				return slot;
-+			if (flags & RADIX_TREE_ITER_CONTIG)
++			if (flags & RADIX_TREE_ITER_CONTIG) {
++				/* forbid switching to the next chunk */
++				iter->next_index = 0;
 +				break;
++			}
 +		}
 +	}
 +	return NULL;
@@ -978,7 +982,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  	height = node->height;
  	if (index > radix_tree_maxindex(height))
-@@ -577,75 +653,332 @@ int radix_tree_tag_get(struct radix_tree
+@@ -577,75 +653,335 @@ int radix_tree_tag_get(struct radix_tree
  			return 0;
  
  		offset = (index >> shift) & RADIX_TREE_MAP_MASK;
@@ -1052,6 +1056,9 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
 +	 * during iterating; it can be zero only at the beginning.
 +	 * And we cannot overflow iter->next_index in a single step,
 +	 * because RADIX_TREE_MAP_SHIFT < BITS_PER_LONG.
++	 *
++	 * This condition also used by radix_tree_next_slot() to stop
++	 * contiguous iterating, and forbid swithing to the next chunk.
 +	 */
 +	index = iter->next_index;
 +	if (!index && iter->index)
