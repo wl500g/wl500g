@@ -776,12 +776,15 @@ void convert_asus_values()
 #endif
 
 #ifdef __CONFIG_EMF__
+#include <emf/igs/igs_cfg.h>
+#ifndef SUPPORT_IGMP_V3
 	/* Force IGMPv2 due EMF limitations */
 	if (nvram_match("emf_enable", "1"))
 	{
 		fputs_ex("/proc/sys/net/ipv4/conf/all/force_igmp_version", "2");
 		fputs_ex("/proc/sys/net/ipv4/conf/default/force_igmp_version", "2");
 	}
+#endif
 #endif
 
 #if defined(LINUX26) && defined(QOS)
