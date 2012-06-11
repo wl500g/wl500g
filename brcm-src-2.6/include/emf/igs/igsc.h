@@ -116,6 +116,8 @@ typedef struct igmpv3_group {
 
 #define IGMPV3_SRC_ADDR_LEN	4
 
+#define IPV4_MCADDR_ALLIGMPV3	(0xe0000016U)
+
 #endif /* SUPPORT_IGMP_V3 */
 
 #endif /* _IGSC_H_ */
