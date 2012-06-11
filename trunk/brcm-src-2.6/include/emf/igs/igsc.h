@@ -86,4 +86,36 @@ typedef struct mc_grp_spl
 	uint32	mask;
 } mc_grp_spl_t;
 
+
+#ifdef SUPPORT_IGMP_V3
+
+#define IGMPV3_HOST_MEMBERSHIP_REPORT	0x22	/* V3 version of 0x11 */
+
+#define IGMPV3_MODE_IS_INCLUDE		1
+#define IGMPV3_MODE_IS_EXCLUDE		2
+#define IGMPV3_CHANGE_TO_INCLUDE	3
+#define IGMPV3_CHANGE_TO_EXCLUDE	4
+#define IGMPV3_ALLOW_NEW_SOURCES	5
+#define IGMPV3_BLOCK_OLD_SOURCES	6
+
+typedef struct igmpv3_report {
+	uint8 type;
+	uint8 reserved1;
+	uint16 checksum;
+	uint16 reserved2;
+	uint16 group_num;
+} igmpv3_report_t;
+
+
+typedef struct igmpv3_group {
+	uint8 type;
+	uint8 aux_len;
+	uint16 src_num;
+	uint32 mcast_addr;
+} igmpv3_group_t;
+
+#define IGMPV3_SRC_ADDR_LEN	4
+
+#endif /* SUPPORT_IGMP_V3 */
+
 #endif /* _IGSC_H_ */
