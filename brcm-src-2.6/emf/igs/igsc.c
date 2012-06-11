@@ -856,7 +856,7 @@ igsc_interface_rtport_del(igsc_info_t *igsc_info, void *ifp)
 		tmp = ptr->next;
 		if (rtl_ptr->ifp == (igsc_rtlist_t *)ifp) 
 		{
-			IGS_DEBUG("Router port entry %p found\n");
+			IGS_DEBUG("Router port entry %p found\n", rtl_ptr->ifp);
 			emfc_rtport_del(igsc_info->emf_handle, rtl_ptr->ifp);
 			clist_delete(ptr);
 			MFREE(igsc_info->osh, rtl_ptr, sizeof(igsc_rtlist_t));

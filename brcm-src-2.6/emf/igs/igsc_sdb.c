@@ -278,7 +278,7 @@ igsc_sdb_member_find(igsc_info_t *igsc_info, uint32 mgrp_ip,
 			          (mgrp_ip >> 24), ((mgrp_ip >> 16) & 0xff),
 			          ((mgrp_ip >> 8) & 0xff), (mgrp_ip & 0xff),
 			          (mh_ip >> 24), ((mh_ip >> 16) & 0xff),
-			          ((mh_ip >> 8) & 0xff), (mh_ip & 0xff), (uint32)ifp);
+			          ((mh_ip >> 8) & 0xff), (mh_ip & 0xff), ifp);
 			return (mh);
 		}
 	}
