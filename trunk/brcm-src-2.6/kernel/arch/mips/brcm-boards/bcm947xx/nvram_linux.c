@@ -41,7 +41,7 @@
 /* In BSS to minimize text size and page aligned so it can be mmap()-ed */
 static char nvram_buf[NVRAM_SPACE] __attribute__((aligned(PAGE_SIZE)));
 
-#define CFE_UPDATE 1 // added by Chen-I for mac/regulation update
+//#define CFE_UPDATE  // added by Chen-I for mac/regulation update
 #ifdef CFE_UPDATE
 //#include <sbextif.h>
 
@@ -70,7 +70,7 @@ static int cfe_commit(void);
 #endif
 
 
-#define WPS	1
+#define WPS	0
 
 #ifdef MODULE
 
@@ -88,213 +88,6 @@ extern spinlock_t bcm947xx_sih_lock;
 #define KB * 1024
 #define MB * 1024 * 1024
 
-//#define NLS_XFR 1              /* added by Jiahao for WL500gP */
-#ifdef NLS_XFR
-
-#include <linux/nls.h>
-
-static char *NLS_NVRAM_U2C="asusnlsu2c";
-static char *NLS_NVRAM_C2U="asusnlsc2u";
-__u16 unibuf[1024];
-char codebuf[1024];
-char tmpbuf[1024];
-
-void
-asusnls_u2c(char *name)
-{
-	char *codepage;
-	char *xfrstr;
-	struct nls_table *nls;
-	int ret, len;
-
-	strcpy(codebuf, name);
-	codepage=codebuf+strlen(NLS_NVRAM_U2C);
-	if((xfrstr=strchr(codepage, '_')))
-	{
-		*xfrstr=NULL;
-		xfrstr++;
-		/* debug message, start */
-/*
-		printk("%s, xfr from utf8 to %s\n", xfrstr, codepage);
-		int j;
-		printk("utf8:    %d, ", strlen(xfrstr));
-		for(j=0;j<strlen(xfrstr);j++)
-			printk("%X ", (unsigned char)xfrstr[j]);
-		printk("\n");
-*/
-		/* debug message, end */
-
-		nls=load_nls(codepage);
-		if(!nls)
-		{
-			printk("NLS table is null!!\n");
-		}
-		else {
-			len = 0;
-			if (ret=utf8_mbstowcs(unibuf, xfrstr, strlen(xfrstr)))
-			{
-				int i;
-				for (i = 0; (i < ret) && unibuf[i]; i++) {
-					int charlen;
-					charlen = nls->uni2char(unibuf[i], &name[len], NLS_MAX_CHARSET_SIZE);
-					if (charlen > 0) {
-						len += charlen;
-					}
-					else {
-						//name[len++] = '?';
-						strcpy(name, "");
-						unload_nls(nls);
-						return;
-					}
-				}
-				name[len] = 0;
-			}
-			unload_nls(nls);
-			/* debug message, start */
-/*
-			int i;
-			printk("unicode: %d, ", ret);
-			for (i=0;i<ret;i++)
-				printk("%X ", unibuf[i]);
-			printk("\n");
-			printk("local:   %d, ", strlen(name));
-			for (i=0;i<strlen(name);i++)
-				printk("%X ", (unsigned char)name[i]);
-			printk("\n");
-			printk("local:   %s\n", name);
-*/
-			/* debug message, end */
-
-			if(!len)
-			{
-				printk("can not xfr from utf8 to %s\n", codepage);
-				strcpy(name, "");
-			}
-		}
-	}
-	else
-	{
-		strcpy(name, "");
-	}
-}
-
-void                                                                                                                         
-asusnls_c2u(char *name)
-{
-	char *codepage;
-	char *xfrstr;
-	struct nls_table *nls;
-	int ret;
-
-	strcpy(codebuf, name);
-	codepage=codebuf+strlen(NLS_NVRAM_C2U);
-	if((xfrstr=strchr(codepage, '_')))
-	{
-		*xfrstr=NULL;
-		xfrstr++;
-
-		/* debug message, start */
-/*
-		printk("%s, xfr from %s to utf8\n", xfrstr, codepage);
-		printk("local:   %d, ", strlen(xfrstr));
-		int j;
-		for (j=0;j<strlen(xfrstr);j++)
-			printk("%X ", (unsigned char)xfrstr[j]);
-		printk("\n");
-		printk("local:   %s\n", xfrstr);
-*/
-		/* debug message, end */
-
-		strcpy(name, "");
-		nls=load_nls(codepage);
-		if(!nls)
-		{
-			printk("NLS table is null!!\n");
-		}
-		else
-		{
-			int charlen;
-			int i;
-			int len = strlen(xfrstr);
-			for (i = 0; len && *xfrstr; i++, xfrstr += charlen, len -= charlen) {   /* string to unicode */
-				charlen = nls->char2uni(xfrstr, len, &unibuf[i]);
-				if (charlen < 1) {
-					//unibuf[i] = 0x003f;     /* a question mark */
-					//charlen = 1;
-					strcpy(name ,"");
-					unload_nls(nls);
-					return;
-				}
-			}
-			unibuf[i] = 0;
-			ret=utf8_wcstombs(name, unibuf, 1024);  /* unicode to utf-8, 1024 is size of array unibuf */
-			name[ret]=0;
-			unload_nls(nls);
-			/* debug message, start */
-/*
-			int k;
-			printk("unicode: %d, ", i);
-			for(k=0;k<i;k++)
-				printk("%X ", unibuf[k]);
-			printk("\n");
-			printk("utf-8:    %s, %d, ", name, strlen(name));
-			for (i=0;i<strlen(name);i++)
-				printk("%X ", (unsigned char)name[i]);
-			printk("\n");
-*/
-			/* debug message, end */
-			if(!ret)
-			{
-				printk("can not xfr from %s to utf8\n", codepage);
-				strcpy(name, "");
-			}
-		}
-	}
-	else
-	{
-		strcpy(name, "");
-	}
-}
-
-/* Jiahao */
-static int
-nvram_xfr(char *buf)
-{
-	char *name = tmpbuf;
-	ssize_t ret=0;
-
-	printk("nvram xfr 1: %s\n", buf);
-	if (copy_from_user(name, buf, strlen(buf)+1)) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	if (strncmp(tmpbuf, NLS_NVRAM_U2C, strlen(NLS_NVRAM_U2C))==0)
-	{
-		asusnls_u2c(tmpbuf);
-	}
-	else if (strncmp(buf, NLS_NVRAM_C2U, strlen(NLS_NVRAM_C2U))==0)
-	{
-		asusnls_c2u(tmpbuf);
-	}
-	else
-	{
-		strcpy(tmpbuf, "");
-		printk("nvram xfr 2: %s\n", tmpbuf);
-	}
-
-	if (copy_to_user(buf, tmpbuf, strlen(tmpbuf)+1))
-	{
-		ret = -EFAULT;
-		goto done;
-	}
-	printk("nvram xfr 3: %s\n", tmpbuf);
-
-done:
-	return ret;
-}
-
-#endif
 
 /* Probe for NVRAM header */
 static int
@@ -515,13 +308,16 @@ nvram_set(const char *name, const char *value)
 	unsigned long flags;
 	int ret;
 	struct nvram_header *header;
+#if WPS
 	char wps_name[32];
 	int wep_len;
+#endif
 
 	spin_lock_irqsave(&nvram_lock, flags);
 
 	//printk("nvram_set: name = %s, value = %s!\n", name, value);
-#ifdef CFE_UPDATE //write back to default sector as well, Chen-I
+#ifdef CFE_UPDATE
+		// write back to default sector as well, Chen-I
         if(strncmp(name, CFE_NVRAM_PREFIX, strlen(CFE_NVRAM_PREFIX))==0)
         {
                 if(strcmp(name, CFE_NVRAM_COMMIT)==0)
@@ -539,7 +335,7 @@ nvram_set(const char *name, const char *value)
                 }
         }
         else
-#endif
+#endif /* CFE_UPDATE */
 
 #if WPS
 	if (strncmp(name, "wlx_", 4) == 0) {
@@ -658,7 +454,7 @@ nvram_set(const char *name, const char *value)
         else
                 _nvram_set("wl_auth_mode", nvram_get("wl0_auth_mode"));
 #endif
-#endif
+#endif /* WPS */
 
 	if ((ret = _nvram_set(name, value))) {
 		/* Consolidate space and try again */
@@ -702,7 +498,8 @@ nvram_unset(const char *name)
 	int ret;
 
 	spin_lock_irqsave(&nvram_lock, flags);
-#ifdef CFE_UPDATE //unset variable in embedded nvram
+#ifdef CFE_UPDATE
+		// unset variable in embedded nvram
         if(strncmp(name, CFE_NVRAM_PREFIX, strlen(CFE_NVRAM_PREFIX))==0)
         {
                 if((ret = cfe_update(name+strlen(CFE_NVRAM_PREFIX), NULL)) == 0)
@@ -1119,7 +916,7 @@ dev_nvram_init(void)
 	/* Set the SDRAM NCDL value into NVRAM if not already done */
 	if (getintvar(NULL, "sdram_ncdl") == 0) {
 		unsigned int ncdl;
-		char buf[sizeof("0x00000000")];
+		char buf[] = "0x00000000";
 
 		if ((ncdl = si_memc_get_ncdl(sih))) {
 			sprintf(buf, "0x%08x", ncdl);
