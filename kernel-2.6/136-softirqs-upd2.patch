@@ -7,18 +7,20 @@ softirq: Updates from upstream
  5d592b44b29a1d73e13d5c9e3426eed843bdc359 tracing: tracepoints for softirq entry/exit - add softirq-to-name array
  899039e8746bb9a09b6487ddb8ab2275ce9d0256 softirq: no need to have SOFTIRQ in softirq name
  8b752e3ef6e3f5cde87afc649dd51d92b1e549c1 softirq: remove useless function __local_bh_enable
+ aa0ce5bbc2dbb1853bd0c6d13f17716fcc38ac5a softirq: introduce statistics for softirq
 
 ---
  block/ll_rw_blk.c           |    2 +-
  include/linux/bottom_half.h |    1 -
  include/linux/interrupt.h   |   13 +++++++++----
+ include/linux/kernel_stat.h |   12 ++++++++++++
  kernel/hrtimer.c            |    2 +-
  kernel/rcupdate.c           |   25 +++++++++++++++++--------
  kernel/sched.c              |   10 +++++-----
- kernel/softirq.c            |   28 +++++++++-------------------
+ kernel/softirq.c            |   29 ++++++++++-------------------
  kernel/timer.c              |    2 +-
  net/core/dev.c              |    4 ++--
- 9 files changed, 45 insertions(+), 42 deletions(-)
+ 10 files changed, 58 insertions(+), 42 deletions(-)
 
 diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
 --- a/block/ll_rw_blk.c
@@ -79,6 +81,42 @@ diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
  extern void softirq_init(void);
  #define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
  extern void FASTCALL(raise_softirq_irqoff(unsigned int nr));
+diff --git a/include/linux/kernel_stat.h b/include/linux/kernel_stat.h
+--- a/include/linux/kernel_stat.h
++++ b/include/linux/kernel_stat.h
+@@ -5,6 +5,7 @@
+ #include <linux/threads.h>
+ #include <linux/percpu.h>
+ #include <linux/cpumask.h>
++#include <linux/interrupt.h>
+ #include <asm/cputime.h>
+ 
+ 
+@@ -31,6 +32,7 @@ struct kernel_stat {
+ struct kernel_stat {
+ 	struct cpu_usage_stat	cpustat;
+ 	unsigned int irqs[NR_IRQS];
++	unsigned int softirqs[NR_SOFTIRQS];
+ };
+ 
+ DECLARE_PER_CPU(struct kernel_stat, kstat);
+@@ -67,6 +69,16 @@ extern unsigned int kstat_irqs_cpu(unsigned int irq, int cpu);
+ 
+ extern unsigned long long nr_context_switches(void);
+ 
++static inline void kstat_incr_softirqs_this_cpu(unsigned int irq)
++{
++	kstat_this_cpu.softirqs[irq]++;
++}
++
++static inline unsigned int kstat_softirqs_cpu(unsigned int irq, int cpu)
++{
++       return kstat_cpu(cpu).softirqs[irq];
++}
++
+ /*
+  * Number of interrupts per specific IRQ source, since bootup
+  */
 diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
 --- a/kernel/hrtimer.c
 +++ b/kernel/hrtimer.c
@@ -236,7 +274,7 @@ diff --git a/kernel/softirq.c b/kernel/softirq.c
  /*
   * we cannot loop indefinitely here to avoid userspace starvation,
   * but we also don't want to introduce a worst case 1/HZ latency
-@@ -102,20 +102,6 @@ void local_bh_disable(void)
+@@ -97,20 +102,6 @@ void local_bh_disable(void)
  
  EXPORT_SYMBOL(local_bh_disable);
  
@@ -257,7 +295,15 @@ diff --git a/kernel/softirq.c b/kernel/softirq.c
  /*
   * Special-case - softirqs can safely be enabled in
   * cond_resched_softirq(), or by __do_softirq(),
-@@ -318,9 +323,8 @@ void fastcall raise_softirq(unsigned int
+@@ -204,6 +195,7 @@ restart:
+ 
+ 	do {
+ 		if (pending & 1) {
++			kstat_incr_softirqs_this_cpu(h - softirq_vec);
+ 			h->action(h);
+ 			rcu_bh_qsctr_inc(cpu);
+ 		}
+@@ -318,9 +310,8 @@ void fastcall raise_softirq(unsigned int
  	local_irq_restore(flags);
  }
  
@@ -268,7 +314,7 @@ diff --git a/kernel/softirq.c b/kernel/softirq.c
  	softirq_vec[nr].action = action;
  }
  
-@@ -458,8 +462,8 @@ EXPORT_SYMBOL(tasklet_kill);
+@@ -458,8 +449,8 @@ EXPORT_SYMBOL(tasklet_kill);
  
  void __init softirq_init(void)
  {
