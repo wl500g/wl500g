@@ -75,8 +75,9 @@ extern uint _varsz;
 static int initvars_srom_si(si_t *sih, osl_t *osh, void *curmap, char **vars, uint *count);
 static void _initvars_srom_pci(uint8 sromrev, uint16 *srom, uint off, varbuf_t *b);
 static int initvars_srom_pci(si_t *sih, void *curmap, char **vars, uint *count);
+#if defined(BCMUSBDEV)
 static int initvars_cis_pcmcia(si_t *sih, osl_t *osh, char **vars, uint *count);
-#if !defined(BCMUSBDEV)
+#else
 static int initvars_flash_si(si_t *sih, char **vars, uint *count);
 #endif 
 #ifdef BCMSPI
@@ -704,9 +705,10 @@ BCMATTACHFN(srom_var_init)(si_t *sih, uint bustype, void *curmap, osl_t *osh,
 
 		return initvars_srom_pci(sih, curmap, vars, count);
 
+#ifdef BCMUSBDEV
 	case PCMCIA_BUS:
 		return initvars_cis_pcmcia(sih, osh, vars, count);
-
+#endif
 
 #ifdef BCMSPI
 	case SPI_BUS:
@@ -1242,8 +1244,10 @@ static const char BCMNMIATTACHDATA(vstr_ag)[] = "ag%d=0x%x";
 static const char BCMNMIATTACHDATA(vstr_cc)[] = "cc=%d";
 static const char BCMNMIATTACHDATA(vstr_opo)[] = "opo=%d";
 static const char BCMNMIATTACHDATA(vstr_pa0b)[][9] = { "pa0b0=%d", "pa0b1=%d", "pa0b2=%d" };
+#ifdef BCMUSBDEV
 static char BCMNMIATTACHDATA(vstr_pa0lob)[][9] = { "pa0b3=%d", "pa0b4=%d", "pa0b5=%d" };
 static char BCMNMIATTACHDATA(vstr_pa0hib)[][9] = { "pa0b6=%d", "pa0b7=%d", "pa0b8=%d" };
+#endif
 static const char BCMNMIATTACHDATA(vstr_pa0itssit)[] = "pa0itssit=%d";
 static const char BCMNMIATTACHDATA(vstr_pa0maxpwr)[] = "pa0maxpwr=%d";
 static const char BCMNMIATTACHDATA(vstr_pa1b)[][9] = { "pa1b0=%d", "pa1b1=%d", "pa1b2=%d" };
@@ -1274,12 +1278,14 @@ static const char BCMNMIATTACHDATA(vstr_rdlsn)[] = "rdlsn=%d";
 static const char BCMNMIATTACHDATA(vstr_rssismf2g)[] = "rssismf2g=%d";
 static const char BCMNMIATTACHDATA(vstr_rssismc2g)[] = "rssismc2g=%d";
 static const char BCMNMIATTACHDATA(vstr_rssisav2g)[] = "rssisav2g=%d";
+#ifdef BCMUSBDEV
 static char BCMNMIATTACHDATA(vstr_rssismf2g_low0)[] = "rssismf2g_low0=%d";
 static char BCMNMIATTACHDATA(vstr_rssismc2g_low1)[] = "rssismc2g_low1=%d";
 static char BCMNMIATTACHDATA(vstr_rssisav2g_low2)[] = "rssisav2g_low2=%d";
 static char BCMNMIATTACHDATA(vstr_rssismf2g_hi0)[] = "rssismf2g_hi0=%d";
 static char BCMNMIATTACHDATA(vstr_rssismc2g_hi1)[] = "rssismc2g_hi1=%d";
 static char BCMNMIATTACHDATA(vstr_rssisav2g_hi2)[] = "rssisav2g_hi2=%d";
+#endif
 static const char BCMNMIATTACHDATA(vstr_bxa2g)[] = "bxa2g=%d";
 static const char BCMNMIATTACHDATA(vstr_rssismf5g)[] = "rssismf5g=%d";
 static const char BCMNMIATTACHDATA(vstr_rssismc5g)[] = "rssismc5g=%d";
@@ -1338,7 +1344,9 @@ static const char BCMNMIATTACHDATA(vstr_bwduppo)[] = "bwduppo=0x%x";
 static const char BCMNMIATTACHDATA(vstr_mcspo)[] = "mcs%dgpo%d=0x%x";
 static const char BCMNMIATTACHDATA(vstr_mcspohl)[] = "mcs%dg%cpo%d=0x%x";
 static const char BCMNMIATTACHDATA(vstr_custom)[] = "customvar%d=0x%x";
+#ifdef BCMUSBDEV
 static char BCMINITDATA(vstr_cckdigfilttype)[] = "cckdigfilttype=%d";
+#endif
 #ifdef BCM_BOOTLOADER
 static const char BCMNMIATTACHDATA(vstr_brmin)[] = "brmin=0x%x";
 static const char BCMNMIATTACHDATA(vstr_brmax)[] = "brmax=0x%x";
@@ -1361,6 +1369,7 @@ uint8 patch_pair = 0;
 #define BCMDONGLECASE(n)
 #endif
 
+#if defined(BCMUSBDEV) || defined(BCMSDIODEV)
 int
 BCMNMIATTACHFN(srom_parsecis)(osl_t *osh, uint8 *pcis[], uint ciscnt, char **vars, uint *count)
 {
@@ -2144,6 +2153,7 @@ BCMNMIATTACHFN(srom_parsecis)(osl_t *osh, uint8 *pcis[], uint ciscnt, char **var
 	MFREE(osh, base, MAXSZ_NVRAM_VARS);
 	return err;
 }
+#endif /* BCMUSBDEV || BCMSDIODEV */
 
 
 /* set PCMCIA sprom command register */
@@ -2922,6 +2932,7 @@ errout:
 	return err;
 }
 
+#ifdef BCMUSBDEV
 /*
  * Read the cis and call parsecis to initialize the vars.
  * Return 0 on success, nonzero on error.
@@ -2955,7 +2966,7 @@ BCMATTACHFN(initvars_cis_pcmcia)(si_t *sih, osl_t *osh, char **vars, uint *count
 
 	return (rc);
 }
-
+#endif /* BCMUSBDEV */
 
 
 #ifdef BCMSPI
