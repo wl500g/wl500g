@@ -5,25 +5,41 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
-===RT-N-1.9.2.7-rtn (Current)===
+===RT-N-1.9.2.7-rtn-`r4330` (2012-06-12)===
+  * Broadcom SDK
+    * emf/igs backports from 5.110
+    * fix igmpv3 snooping
+    * minor cleanups
+
   * kernel
-    * backports from upstream - MIPS, mm(slub), net(tcp, ipv4, ipv6, ppp), netfilter, fs(writeback, bdi, fuse, fat, ext4, sysfs), vfs, usb(usbnet, cdc_ether), tty, debug(softlockup)
+    * backports from upstream - MIPS, mm(slub), softirq, net(tcp, ipv4, ipv6, ppp, netlink), netfilter, fs(writeback, bdi, fuse, fat, ext4, sysfs), vfs, usb(ehci, usbnet, cdc_ether), tty, debug(softlockup)
     * netfilter backports, fix for issue 308
     * Decrease hardcoded limits - max swapfiles 2, max inet protos 64
     * Disable AIO support
     * usbip fixes
+    * fastnat: fix openvpn and other headerless net devices
 
   * rc/www: bugfixes
 
-  * dnsmasq 2.61
+  * 3g/cdma
+    * usb-modeswitch-data 2012-05-31
+
+  * dnsmasq 2.62
     * enable slaac & dhcpv6, not used yet
 
   * usbip userspace daemon 1.1.1 (usb.ids should be in /opt/share)
+
+  * miniupnpd 1.7
+
+  * pppd
+    * preserve linkname pid file on lcp termination
 
   * misc
     * busybox: bugfixes from upstream (udhcp, hwclock, busybox, mdev)
     * libusb: bugfixes from upstream
     * rp-pppoe: upstream patches
+    * rp-l2tp: fixes
+    * pptp/l2tp: peer route improvements
 
 ===RT-N-1.9.2.7-rtn-`r4051` (2012-04-02)===
   * ipkg: Switch to new OpenWRT-based repository http://wl500g-repo.googlecode.com , thanks to ryzhov_al at wl500g.info
