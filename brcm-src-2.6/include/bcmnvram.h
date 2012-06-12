@@ -150,7 +150,7 @@ extern int nvram_getall(char *nvram_buf, int count);
  * returns the crc value of the nvram
  * @param	nvh	nvram header pointer
  */
-uint8 nvram_calc_crc(struct nvram_header * nvh);
+uint8 nvram_calc_crc(const struct nvram_header * nvh);
 
 #endif /* _LANGUAGE_ASSEMBLY */
 
