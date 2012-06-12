@@ -1,0 +1,23 @@
+From cfc212cdfff27c6a7b9d9743f87c4da70f97558c
+From: Etienne Le Sueur <elesueur@vmware.com>
+Date: Sat, 09 Jun 2012 06:37:05 +0000
+Subject: tar: fix 256-bit encoded number decoding
+
+Signed-off-by: Etienne Le Sueur <elesueur@vmware.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/archival/libarchive/get_header_tar.c b/archival/libarchive/get_header_tar.c
+index 80a7091..b168653 100644
+--- a/archival/libarchive/get_header_tar.c
++++ b/archival/libarchive/get_header_tar.c
+@@ -84,7 +84,7 @@ static unsigned long long getOctal(char *str, int len)
+ 		first >>= 1; /* now 7th bit = 6th bit */
+ 		v = first;   /* sign-extend 8 bits to 64 */
+ 		while (--len != 0)
+-			v = (v << 8) + (unsigned char) *str++;
++			v = (v << 8) + (uint8_t) *++str;
+ 	}
+ 	return v;
+ }
+--
+cgit v0.9.0.1-2-gef13
