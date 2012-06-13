@@ -8,10 +8,24 @@ Jean-Christian
 Signed-off-by: Jean-Christian de Rivaz <jc at eclis.ch>
 
 ---
+From e118373cbb58ba5ffa5fb6670957678d5b87cdb9
+From: Khem Raj
+Date: Sun, 10 Jun 2012 16:36:23 +0000
+Subject: eventfd: Implement eventfd2 and fix eventfd
+
+eventfd: evntfd assumes to take two arguments instead it
+should be one evntfd expects two therefore implement both syscalls with
+correct parameters
+
+Thanks Eugene Rudoy for reporting it and also providing the patch
+
+Signed-off-by: Khem Raj <raj.khem@gmail.com>
+---
+
  libc/sysdeps/linux/common/Makefile.in   |    2 -
- libc/sysdeps/linux/common/eventfd.c     |   18 ++++++++++++
+ libc/sysdeps/linux/common/eventfd.c     |   30 ++++++++++++++++++
  libc/sysdeps/linux/common/sys/eventfd.h |   51 ++++++++++++++++++++++++++++++++
- 3 files changed, 70 insertions(+), 1 deletion(-)
+ 3 files changed, 82 insertions(+), 1 deletion(-)
  create mode 100644 libc/sysdeps/linux/common/eventfd.c
  create mode 100644 libc/sysdeps/linux/common/sys/eventfd.h
 
@@ -31,7 +45,7 @@ diff --git a/libc/sysdeps/linux/common/eventfd.c b/libc/sysdeps/linux/common/eve
 new file mode 100644
 --- /dev/null
 +++ b/libc/sysdeps/linux/common/eventfd.c
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,30 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * eventfd() for uClibc
@@ -41,14 +55,26 @@ new file mode 100644
 + * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
 + */
 +
++#include <errno.h>
 +#include <sys/syscall.h>
 +#include <sys/eventfd.h>
 +
 +/*
 + * eventfd()
 + */
-+#ifdef __NR_eventfd
-+_syscall2(int, eventfd, int, count, int, flags)
++#if defined __NR_eventfd || defined __NR_eventfd2
++int eventfd (int count, int flags)
++{
++#if defined __NR_eventfd2
++  return INLINE_SYSCALL (eventfd2, 2, count, flags);
++#elif defined __NR_eventfd
++  if (flags != 0) {
++     __set_errno (EINVAL);
++    return -1;
++  }
++  return INLINE_SYSCALL (eventfd, 1, count);
++#endif
++}
 +#endif
 diff --git a/libc/sysdeps/linux/common/sys/eventfd.h b/libc/sysdeps/linux/common/sys/eventfd.h
 new file mode 100644
