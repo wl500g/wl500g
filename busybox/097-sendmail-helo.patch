@@ -70,15 +70,12 @@ index aa381c6..c426e9d 100644
  	unsigned nheaders = 0;
  	int code;
  
-@@ -222,11 +222,9 @@ int sendmail_main(int argc UNUSED_PARAM, char **argv)
+@@ -222,8 +222,9 @@ int sendmail_main(int argc UNUSED_PARAM, char **argv)
  	}
  
  	// we should start with modern EHLO
--	if (250 != smtp_checkp("EHLO %s", domain, -1)) {
+-	if (250 != smtp_checkp("EHLO %s", domain, -1))
 -		smtp_checkp("HELO %s", domain, 250);
--	}
--	if (ENABLE_FEATURE_CLEAN_UP)
--		free(domain);
 +	if (250 != smtp_checkp("EHLO %s", host, -1))
 +		smtp_checkp("HELO %s", host, 250);
 +	free(host);

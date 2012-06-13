@@ -1,7 +1,7 @@
 diff -urBp a/networking/ntpd.c b/networking/ntpd.c
 --- a/networking/ntpd.c
 +++ b/networking/ntpd.c
-@@ -77,22 +77,22 @@
+@@ -77,25 +77,25 @@
  
  #define RETRY_INTERVAL  5       /* on error, retry in N secs */
  #define RESPONSE_INTERVAL 15    /* wait for reply up to N secs */
@@ -22,7 +22,10 @@ diff -urBp a/networking/ntpd.c b/networking/ntpd.c
  #define BURSTPOLL       0       /* initial poll */
 -#define MINPOLL         5       /* minimum poll interval. std ntpd uses 6 (6: 64 sec) */
 +#define MINPOLL         6       /* minimum poll interval. std ntpd uses 6 (6: 64 sec) */
- #define BIGPOLL         10      /* drop to lower poll at any trouble (10: 17 min) */
+ /* If offset > discipline_jitter * POLLADJ_GATE, and poll interval is >= 2^BIGPOLL,
+  * then it is decreased _at once_. (If < 2^BIGPOLL, it will be decreased _eventually_).
+  */
+ #define BIGPOLL         10      /* 2^10 sec ~= 17 min */
 -#define MAXPOLL         12      /* maximum poll interval (12: 1.1h, 17: 36.4h). std ntpd uses 17 */
 +#define MAXPOLL         16      /* maximum poll interval (12: 1.1h, 17: 36.4h). std ntpd uses 17 */
  /* Actively lower poll when we see such big offsets.
@@ -30,10 +33,10 @@ diff -urBp a/networking/ntpd.c b/networking/ntpd.c
   * if offset increases over 0.03 sec */
 @@ -113,7 +113,7 @@
   * and when it goes below -POLLADJ_LIMIT, we poll_exp--
-  * (bumped from 30 to 36 since otherwise I often see poll_exp going *2* steps down)
+  * (Bumped from 30 to 40 since otherwise I often see poll_exp going *2* steps down)
   */
--#define POLLADJ_LIMIT   36
-+#define POLLADJ_LIMIT   32
- /* If offset < POLLADJ_GATE * discipline_jitter, then we can increase
+-#define POLLADJ_LIMIT   40
++#define POLLADJ_LIMIT   36
+ /* If offset < discipline_jitter * POLLADJ_GATE, then we decide to increase
   * poll interval (we think we can't improve timekeeping
   * by staying at smaller poll).

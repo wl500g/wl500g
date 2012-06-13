@@ -784,7 +784,7 @@ diff -BurpN busybox-1.19.2/include/volume_id.h busybox/include/volume_id.h
  char *get_devname_from_label(const char *spec);
  char *get_devname_from_uuid(const char *spec);
 +char *get_devname_from_device(dev_t dev);
- void display_uuid_cache(void);
+ void display_uuid_cache(int scan_devices);
  
  /* Returns:
 @@ -29,4 +30,4 @@ void display_uuid_cache(void);
@@ -855,9 +855,9 @@ diff -uBp busybox-1.19.2/util-linux/blkid.c busybox/util-linux/blkid.c
  		/* Note: bogus device names don't cause any error messages */
 -		add_to_uuid_cache(*argv);
 +		add_to_uuid_cache(*argv, 0);
+ 		scan_devices = 0;
  	}
  
- 	display_uuid_cache();
 diff -uBp busybox-1.19.2/util-linux/mkfs_ext2.c busybox/util-linux/mkfs_ext2.c
 --- busybox-1.19.2/util-linux/mkfs_ext2.c
 +++ busybox/util-linux/mkfs_ext2.c
@@ -1064,7 +1064,7 @@ diff -BurpN busybox-1.19.2/util-linux/volume_id/get_devname.c busybox/util-linux
  {
  	char *uuid = uuid; /* for compiler */
  	char *label = label;
-@@ -252,44 +214,28 @@ int add_to_uuid_cache(const char *device
+@@ -252,42 +214,28 @@ int add_to_uuid_cache(const char *device
  	/* get_label_uuid() closes fd in all cases (success & failure) */
  	if (get_label_uuid(fd, &label, &uuid, &type) == 0) {
  		/* uuidcache_addentry() takes ownership of all four params */
@@ -1083,8 +1083,7 @@ diff -BurpN busybox-1.19.2/util-linux/volume_id/get_devname.c busybox/util-linux
  {
 -	struct uuidCache_s *uc;
 -
--	uuidcache_init();
--	uc = uuidCache;
+-	uc = uuidcache_init(/*scan_devices:*/ 1);
 -	while (uc) {
 -		if (uc->label[0] && strcmp(spec, uc->label) == 0) {
 -			return xstrdup(uc->device);
@@ -1101,8 +1100,7 @@ diff -BurpN busybox-1.19.2/util-linux/volume_id/get_devname.c busybox/util-linux
 +	return get_spec_by_x(UUID, spec, NULL);
 +}
  
--	uuidcache_init();
--	uc = uuidCache;
+-	uc = uuidcache_init(/*scan_devices:*/ 1);
 -	while (uc) {
 -		/* case of hex numbers doesn't matter */
 -		if (strcasecmp(spec, uc->uc_uuid) == 0) {
