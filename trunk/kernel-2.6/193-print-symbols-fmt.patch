@@ -1,0 +1,87 @@
+Use '%pS' format for symbols printing
+
+ 7daf705f362e349983e92037a198b8821db198af Start using the new '%pS' infrastructure to print symbols
+ 62c70bce8ac236514c610020bb1ae5b8bde965cb mm: convert sprintf_symbol to %pS
+ 2711b793eb62a5873a0ba583a69252040aef176e kallsyms: unify 32- and 64-bit code
+ 3f1712bac586069d6c891a8201457283b27e8abe print_ip_sym(): use %pS
+
+---
+ include/linux/kallsyms.h |   18 +++++-------------
+ mm/slub.c                |   16 ++++++----------
+ 2 files changed, 11 insertions(+), 23 deletions(-)
+
+diff --git a/mm/slub.c b/mm/slub.c
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -403,9 +403,8 @@ static void print_track(const char *s, s
+ 	if (!t->addr)
+ 		return;
+ 
+-	printk(KERN_ERR "%s: ", s);
+-	__print_symbol("%s", (unsigned long)t->addr);
+-	printk(" jiffies_ago=%lu cpu=%u pid=%d\n", jiffies - t->when, t->cpu, t->pid);
++	printk(KERN_ERR "INFO: %s in %pS age=%lu cpu=%u pid=%d\n",
++		s, t->addr, jiffies - t->when, t->cpu, t->pid);
+ }
+ 
+ static void print_trailer(struct kmem_cache *s, u8 *p)
+@@ -3149,7 +3148,7 @@ static int list_locations(struct kmem_ca
+ 		n += sprintf(buf + n, "%7ld ", l->count);
+ 
+ 		if (l->addr)
+-			n += sprint_symbol(buf + n, (unsigned long)l->addr);
++			n += sprintf(buf + n, "%pS", (void *)l->addr);
+ 		else
+ 			n += sprintf(buf + n, "<not-available>");
+ 
+@@ -3363,12 +3362,9 @@ SLAB_ATTR(min_partial);
+ 
+ static ssize_t ctor_show(struct kmem_cache *s, char *buf)
+ {
+-	if (s->ctor) {
+-		int n = sprint_symbol(buf, (unsigned long)s->ctor);
+-
+-		return n + sprintf(buf + n, "\n");
+-	}
+-	return 0;
++	if (!s->ctor)
++		return 0;
++	return sprintf(buf, "%pS\n", s->ctor);
+ }
+ SLAB_ATTR_RO(ctor);
+ 
+diff --git a/include/linux/kallsyms.h b/include/linux/kallsyms.h
+--- a/include/linux/kallsyms.h
++++ b/include/linux/kallsyms.h
+@@ -6,6 +6,7 @@
+ #define _LINUX_KALLSYMS_H
+ 
+ #include <linux/errno.h>
++#include <linux/kernel.h>
+ 
+ #define KSYM_NAME_LEN 128
+ #define KSYM_SYMBOL_LEN (sizeof("%s+%#lx/%#lx [%s]") + (KSYM_NAME_LEN - 1) + \
+@@ -104,18 +105,9 @@ static inline void print_fn_descriptor_s
+ 	print_symbol(fmt, (unsigned long)addr);
+ }
+ 
+-#ifndef CONFIG_64BIT
+-#define print_ip_sym(ip)		\
+-do {					\
+-	printk("[<%08lx>]", ip);	\
+-	print_symbol(" %s\n", ip);	\
+-} while(0)
+-#else
+-#define print_ip_sym(ip)		\
+-do {					\
+-	printk("[<%016lx>]", ip);	\
+-	print_symbol(" %s\n", ip);	\
+-} while(0)
+-#endif
++static inline void print_ip_sym(unsigned long ip)
++{
++	printk("[<%p>] %pS\n", (void *) ip, (void *) ip);
++}
+ 
+ #endif /*_LINUX_KALLSYMS_H*/
+-- 
