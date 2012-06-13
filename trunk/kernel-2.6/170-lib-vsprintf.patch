@@ -7,7 +7,12 @@ lib: vsprintf: optimization backports and add %pM format for printk
  9b706aee7d92d6ac3002547aea12e3eaa0a750ae x86: trivial printk optimizations
  78a8bf69b32980879975f7e31d30386c50bfe851 vsprintf: split out '%p' handling logic
  4d8a743cdd2690c0bc8d1b8cbd02cffb1ead849f vsprintf: add infrastructure support for extended '%p' specifiers
+ 0fe1ef24f7bd0020f29ffe287dfdb9ead33ca0b2 vsprintf: add support for '%pS' pointer format
  dd45c9cf687682c9ce256ab14bd8914db77410bb printk: add %pM format specifier for MAC addresses
+
+---
+ lib/vsprintf.c |  337 +++++++++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 260 insertions(+), 77 deletions(-)
 
 diff --git a/lib/vsprintf.c b/lib/vsprintf.c
 --- a/lib/vsprintf.c
@@ -347,7 +352,7 @@ diff --git a/lib/vsprintf.c b/lib/vsprintf.c
  		if (buf < end)
  			*buf = ' ';
  		++buf;
-@@ -236,6 +390,45 @@ static char * number(char * buf, char * 
+@@ -236,6 +390,61 @@ static char * number(char * buf, char * 
  	return buf;
  }
  
@@ -368,6 +373,17 @@ diff --git a/lib/vsprintf.c b/lib/vsprintf.c
 +	return string(buf, end, mac_addr, field_width, precision, flags & ~SPECIAL);
 +}
 +
++#ifdef CONFIG_KALLSYMS
++static char *symbol_string(char *buf, char *end, void *ptr, int field_width, int precision, int flags)
++{
++	unsigned long value = (unsigned long) ptr;
++	char sym[KSYM_SYMBOL_LEN];
++
++	sprint_symbol(sym, value);
++	return string(buf, end, sym, field_width, precision, flags);
++}
++#endif
++
 +/*
 + * Show a '%p' thing.  A kernel extension is that the '%p' is followed
 + * by an extra set of alphanumeric characters that are extended format
@@ -375,10 +391,15 @@ diff --git a/lib/vsprintf.c b/lib/vsprintf.c
 + *
 + * - 'M' For a 6-byte MAC address, it prints the address in the
 + *       usual colon-separated hex notation
++ * - 'S' For Symbolic direct pointers
 + */
 +static char *pointer(const char *fmt, char *buf, char *end, void *ptr, int field_width, int precision, int flags)
 +{
 +	switch (*fmt) {
++#ifdef CONFIG_KALLSYMS
++	case 'S':
++		return symbol_string(buf, end, ptr, field_width, precision, flags);
++#endif
 +	case 'M':
 +		return mac_address_string(buf, end, ptr, field_width, precision, flags);
 +	}
@@ -393,7 +414,7 @@ diff --git a/lib/vsprintf.c b/lib/vsprintf.c
  /**
   * vsnprintf - Format a string and place it in a buffer
   * @buf: The buffer to place the result into
-@@ -256,11 +449,9 @@ static char * number(char * buf, char * 
+@@ -256,11 +465,9 @@ static char * number(char * buf, char * 
   */
  int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
  {
@@ -406,7 +427,7 @@ diff --git a/lib/vsprintf.c b/lib/vsprintf.c
  
  	int flags;		/* flags to number() */
  
-@@ -276,7 +467,7 @@ int vsnprintf(char *buf, size_t size, co
+@@ -276,7 +483,7 @@ int vsnprintf(char *buf, size_t size, co
  	   used for unknown buffer sizes. */
  	if (unlikely((int) size < 0)) {
  		/* There can be only one.. */
@@ -415,7 +436,7 @@ diff --git a/lib/vsprintf.c b/lib/vsprintf.c
  		WARN_ON(warn);
  		warn = 0;
  		return 0;
-@@ -376,42 +567,18 @@ int vsnprintf(char *buf, size_t size, co
+@@ -376,42 +583,18 @@ int vsnprintf(char *buf, size_t size, co
  				continue;
  
  			case 's':
@@ -465,7 +486,7 @@ diff --git a/lib/vsprintf.c b/lib/vsprintf.c
  			case 'n':
  				/* FIXME:
  				* What does C99 say about the overflow case here? */
-@@ -438,9 +605,9 @@ int vsnprintf(char *buf, size_t size, co
+@@ -438,9 +621,9 @@ int vsnprintf(char *buf, size_t size, co
  				base = 8;
  				break;
  
