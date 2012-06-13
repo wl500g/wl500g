@@ -45,6 +45,7 @@
  c7e78cff6b7518212247fb20b1dc6411540dc9af lockstat: contend with points
  00ef9f7348dfd2fc223ec42aceb30836e86b367f lockdep: change a held lock's class
  f607c6685774811b8112e124f10a053d77015485 lockdep: Introduce lockdep_assert_held()
+ 3cf9b85b474e656a0856b88290c7a289ac5ea247 locking, lockdep: Convert sprintf_symbol to %pS
 
 ---
  Documentation/lockstat.txt       |  135 ++
@@ -57,7 +58,7 @@
  kernel/fork.c                    |    2 
  kernel/lockdep.c                 | 2462 +++++++++++++++++++++++++--------------
  kernel/lockdep_internals.h       |   12 
- kernel/lockdep_proc.c            |  450 ++++++-
+ kernel/lockdep_proc.c            |  446 ++++++-
  kernel/mutex.c                   |   41 
  kernel/rwsem.c                   |    8 
  kernel/sched.c                   |    2 
@@ -65,7 +66,7 @@
  kernel/sysctl.c                  |   22 
  kernel/workqueue.c               |   36 
  lib/Kconfig.debug                |   13 
- 18 files changed, 2500 insertions(+), 962 deletions(-)
+ 18 files changed, 2496 insertions(+), 962 deletions(-)
 
 diff --git a/Documentation/lockstat.txt b/Documentation/lockstat.txt
 --- a/Documentation/lockstat.txt
@@ -4033,7 +4034,7 @@ diff --git a/kernel/lockdep_proc.c b/kernel/lockdep_proc.c
  
  #ifdef CONFIG_TRACE_IRQFLAGS
  	seq_printf(m, " in-hardirq chains:             %11u\n",
-@@ -342,6 +413,311 @@ static const struct file_operations proc
+@@ -342,6 +413,307 @@ static const struct file_operations proc
  	.release	= single_release,
  };
  
@@ -4165,7 +4166,6 @@ diff --git a/kernel/lockdep_proc.c b/kernel/lockdep_proc.c
 +		namelen += 2;
 +
 +	for (i = 0; i < LOCKSTAT_POINTS; i++) {
-+		char sym[KSYM_SYMBOL_LEN];
 +		char ip[32];
 +
 +		if (class->contention_point[i] == 0)
@@ -4174,15 +4174,13 @@ diff --git a/kernel/lockdep_proc.c b/kernel/lockdep_proc.c
 +		if (!i)
 +			seq_line(m, '-', 40-namelen, namelen);
 +
-+		sprint_symbol(sym, class->contention_point[i]);
 +		snprintf(ip, sizeof(ip), "[<%p>]",
 +				(void *)class->contention_point[i]);
-+		seq_printf(m, "%40s %14lu %29s %s\n", name,
-+				stats->contention_point[i],
-+				ip, sym);
++		seq_printf(m, "%40s %14lu %29s %pS\n",
++			   name, stats->contention_point[i],
++			   ip, (void *)class->contention_point[i]);
 +	}
 +	for (i = 0; i < LOCKSTAT_POINTS; i++) {
-+		char sym[KSYM_SYMBOL_LEN];
 +		char ip[32];
 +
 +		if (class->contending_point[i] == 0)
@@ -4191,12 +4189,11 @@ diff --git a/kernel/lockdep_proc.c b/kernel/lockdep_proc.c
 +		if (!i)
 +			seq_line(m, '-', 40-namelen, namelen);
 +
-+		sprint_symbol(sym, class->contending_point[i]);
 +		snprintf(ip, sizeof(ip), "[<%p>]",
 +				(void *)class->contending_point[i]);
-+		seq_printf(m, "%40s %14lu %29s %s\n", name,
-+				stats->contending_point[i],
-+				ip, sym);
++		seq_printf(m, "%40s %14lu %29s %pS\n",
++			   name, stats->contending_point[i],
++			   ip, (void *)class->contending_point[i]);
 +	}
 +	if (i) {
 +		seq_puts(m, "\n");
