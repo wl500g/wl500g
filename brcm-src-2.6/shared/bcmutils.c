@@ -40,7 +40,7 @@
 #endif
 
 #ifdef BCMDRIVER
-#ifdef WLC_LOW
+#if defined(WLC_LOW) && defined(BCMDBG)
 /* nvram vars cache */
 static char *nvram_vars = NULL;
 static int vars_len = -1;
@@ -1166,7 +1166,7 @@ bcmerrorstr(int bcmerror)
 	return bcmerrorstrtable[-bcmerror];
 }
 
-#ifdef WLC_LOW
+#if defined(WLC_LOW) && defined(BCMDBG)
 static void
 BCMINITFN(bcm_nvram_refresh)(char *flash)
 {
