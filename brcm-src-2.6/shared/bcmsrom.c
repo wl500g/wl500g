@@ -379,8 +379,8 @@ static char BCMATTACHDATA(defaultsromvars_4319usb)[] =
 
 /* Enabling file read in external builds of BU4313 twig */
 /* Also used by wl_readconfigdata for vars download */
-static char BCMATTACHDATA(mfgsromvars)[VARS_MAX];
 #if defined(BCMINTERNAL) || defined(WLTEST)
+static char BCMATTACHDATA(mfgsromvars)[VARS_MAX];
 static int BCMATTACHDATA(defvarslen) = 0;
 #endif /* defined(BCMINTERNAL) || defined(WLTEST) */
 
@@ -2920,12 +2920,10 @@ varsdone:
 
 errout:
 /* Enabling file read in external builds of BU4313 twig */	
-/* #if defined(BCMINTERNAL) || defined(WLTEST) */
-	if (base && (base != mfgsromvars))
+#if defined(BCMINTERNAL) || defined(WLTEST)
+	if (base != mfgsromvars)
 /* Enable NVRAM file read for BU4313 twig */
-/* #else */
-	/* if (base) */
-/* #endif  */ /* defined(BCMINTERNAL) || defined(WLTEST) */
+#endif /* defined(BCMINTERNAL) || defined(WLTEST) */
 		MFREE(osh, base, MAXSZ_NVRAM_VARS);
 
 	MFREE(osh, srom, SROM_MAX);
