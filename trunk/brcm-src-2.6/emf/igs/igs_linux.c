@@ -113,7 +113,9 @@ igs_stats_get(char *buf, char **start, off_t offset, int32 size,
 	igs_stats_t *stats;
 	struct bcmstrbuf b;
 
-	cfg = kmalloc(sizeof(igs_cfg_request_t), GFP_KERNEL);
+	ASSERT(igs_info);
+
+	cfg = MALLOC(igs_info->osh, sizeof(igs_cfg_request_t));
 	if (cfg == NULL)
 	{
 		IGS_ERROR("Out of memory allocating igs_cfg_request\n");
@@ -130,7 +132,7 @@ igs_stats_get(char *buf, char **start, off_t offset, int32 size,
 	if (cfg->status != IGSCFG_STATUS_SUCCESS)
 	{
 		IGS_ERROR("Unable to get the IGS stats\n");
-		kfree(cfg);
+		MFREE(igs_info->osh, cfg, sizeof(igs_cfg_request_t));
 		return (FAILURE);
 	}
 
@@ -157,7 +159,7 @@ igs_stats_get(char *buf, char **start, off_t offset, int32 size,
 	bcm_bprintf(&b, "%-15d %-15d %-15d %d\n",
 	            stats->igmp_not_handled, stats->igmp_mcast_groups,
 	            stats->igmp_mcast_members, stats->igmp_mem_timeouts);
-	kfree(cfg);
+	MFREE(igs_info->osh, cfg, sizeof(igs_cfg_request_t));
 
 	if (b.size == 0)
 	{
@@ -178,7 +180,9 @@ igs_sdb_list(char *buf, char **start, off_t offset, int32 size,
 	int32 i;
 	struct bcmstrbuf b;
 
-	cfg = kmalloc(sizeof(igs_cfg_request_t), GFP_KERNEL);
+	ASSERT(igs_info);
+
+	cfg = MALLOC(igs_info->osh, sizeof(igs_cfg_request_t));
 	if (cfg == NULL)
 	{
 		IGS_ERROR("Out of memory allocating igs_cfg_request\n");
@@ -195,7 +199,7 @@ igs_sdb_list(char *buf, char **start, off_t offset, int32 size,
 	if (cfg->status != IGSCFG_STATUS_SUCCESS)
 	{
 		IGS_ERROR("Unable to get the IGSDB list\n");
-		kfree(cfg);
+		MFREE(igs_info->osh, cfg, sizeof(igs_cfg_request_t));
 		return (FAILURE);
 	}
 
@@ -208,7 +212,7 @@ igs_sdb_list(char *buf, char **start, off_t offset, int32 size,
 		bcm_bprintf(&b, "%08x        ", list->sdb_entry[i].mh_ip);
 		bcm_bprintf(&b, "%s\n", list->sdb_entry[i].if_name);
 	}
-	kfree(cfg);
+	MFREE(igs_info->osh, cfg, sizeof(igs_cfg_request_t));
 
 	if (b.size == 0)
 	{
