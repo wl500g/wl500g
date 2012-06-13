@@ -3482,6 +3482,7 @@ BCMATTACHFN(si_sprom_enable)(si_t *sih, bool enable)
 		si_pmu_sprom_enable(sih, si_osh(sih), enable);
 }
 
+#if defined(WLTEST)
 /* Return BCME_NOTFOUND if the card doesn't have CIS format nvram */
 int
 si_cis_source(si_t *sih)
@@ -3539,3 +3540,4 @@ si_cis_source(si_t *sih)
 
 	}
 }
+#endif
