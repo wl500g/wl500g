@@ -407,9 +407,8 @@ static void print_track(const char *s, struct track *t)
 	if (!t->addr)
 		return;
 
-	printk(KERN_ERR "%s: ", s);
-	__print_symbol("%s", (unsigned long)t->addr);
-	printk(" jiffies_ago=%lu cpu=%u pid=%d\n", jiffies - t->when, t->cpu, t->pid);
+	printk(KERN_ERR "INFO: %s in %pS age=%lu cpu=%u pid=%d\n",
+		s, t->addr, jiffies - t->when, t->cpu, t->pid);
 }
 
 static void print_trailer(struct kmem_cache *s, u8 *p)
@@ -3292,7 +3291,7 @@ static int list_locations(struct kmem_cache *s, char *buf,
 		n += sprintf(buf + n, "%7ld ", l->count);
 
 		if (l->addr)
-			n += sprint_symbol(buf + n, (unsigned long)l->addr);
+			n += sprintf(buf + n, "%pS", (void *)l->addr);
 		else
 			n += sprintf(buf + n, "<not-available>");
 
@@ -3515,12 +3514,9 @@ SLAB_ATTR(min_partial);
 
 static ssize_t ctor_show(struct kmem_cache *s, char *buf)
 {
-	if (s->ctor) {
-		int n = sprint_symbol(buf, (unsigned long)s->ctor);
-
-		return n + sprintf(buf + n, "\n");
-	}
-	return 0;
+	if (!s->ctor)
+		return 0;
+	return sprintf(buf, "%pS\n", s->ctor);
 }
 SLAB_ATTR_RO(ctor);
 
