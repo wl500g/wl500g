@@ -16,7 +16,7 @@
 #define _et_linux_h_
 
 /* tunables */
-#define	NTXD		128		/* # tx dma ring descriptors (must be ^2) */
+#define	NTXD		256		/* # tx dma ring descriptors (must be ^2) */
 #define	NRXD		512		/* # rx dma ring descriptors (must be ^2) */
 #define	NRXBUFPOST	320		/* try to keep this # rbufs posted to the chip */
 #define	BUFSZ		2048		/* packet data buffer size */

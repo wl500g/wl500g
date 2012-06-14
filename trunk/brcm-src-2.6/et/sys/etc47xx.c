@@ -750,7 +750,7 @@ static void BCMFASTPATH
 chiptxreclaim(struct bcm4xxx *ch, bool forceall)
 {
 	ET_TRACE(("et%d: chiptxreclaim\n", ch->etc->unit));
-	dma_txreclaim(ch->di, forceall);
+	dma_txreclaim(ch->di, forceall ? HNDDMA_RANGE_ALL : HNDDMA_RANGE_TRANSMITTED);
 	ch->intstatus &= ~I_XI;
 }
 
