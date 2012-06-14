@@ -1204,10 +1204,10 @@ et_dpc(ulong data)
 	if (et->events & INTR_RX)
 		nrx = et_rxevent(osh, et, chops, ch, quota);
 
-	if (et->events & INTR_TX) {
+	if (et->events & INTR_TX)
 		(*chops->txreclaim)(ch, FALSE);
-		(*chops->rxfill)(ch);
-	}
+
+	(*chops->rxfill)(ch);
 
 	/* handle error conditions, if reset required leave interrupts off! */
 	if (et->events & INTR_ERROR) {

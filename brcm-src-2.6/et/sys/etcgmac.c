@@ -1191,7 +1191,7 @@ chiptx(ch_t *ch, void *p0)
 	 * once every few frames transmitted.
 	 */
 	if ((ch->etc->txframes[q] & ch->etc->txrec_thresh) == 1)
-		dma_txreclaim(ch->di[q], false);
+		dma_txreclaim(ch->di[q], HNDDMA_RANGE_TRANSMITTED);
 
 	error = dma_txfast(ch->di[q], p0, TRUE);
 
