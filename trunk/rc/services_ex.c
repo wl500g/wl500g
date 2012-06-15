@@ -963,7 +963,6 @@ stop_usb(void)
 
 	umount("/proc/bus/usb");
 
-	rmmod("ehci-hcd");
 #ifdef LINUX26
 	rmmod("uhci-hcd");
 	rmmod("ohci-hcd");
@@ -971,6 +970,7 @@ stop_usb(void)
 	rmmod("usb-uhci");
 	rmmod("usb-ohci");
 #endif
+	rmmod("ehci-hcd");
 	rmmod("usbcore");
 	return 0;
 }
