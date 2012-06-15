@@ -29,29 +29,13 @@
 struct variable {
 	const char *name;
 	const char *longname;
-	int (*validate)(const char *value, const struct variable *v);
 	const char **argv;
-	int nullok;
-	int event;
-};
-
-struct action
-{
-      const char *name;
-      const char **in_name;
-      const char **in_var;
-      const char **out_name;
-      const char **out_var; 
-      const char **group_tag;
-      int (*callback)(void);
 };
 
 struct svcLink
 {
       const char *serviceId;
-      const char *serviceType;
       const struct variable *variables;
-      const struct action *actions;
 };
 
 #define ARGV(args...) ((const char *[]) { (const char *) args, NULL })
@@ -71,10 +55,7 @@ extern "C" {
 void InitVariables(void);
 int LookupServiceId(const char *serviceId);
 const char *GetServiceId(int sid);
-const struct action *GetActions(int sid);
 const struct variable *GetVariables(int sid);
-const char *GetServiceType(int sid);
-const struct action *CheckActions(int sid, char *name);
 int CheckVariables(int sid, char *name, char *var);
 char *GetVariable(int sid, char *name);
 void SetVariable(int sid, char *name, char *value);
