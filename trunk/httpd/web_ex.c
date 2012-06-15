@@ -53,9 +53,6 @@
 #define sys_commit(sid)		(flashfs_commit(), nvram_commit())
 #define sys_default()		eval("erase", "nvram")
 
-#define UPNP_E_SUCCESS 0
-#define UPNP_E_INVALID_ARGUMENT -1
-
 #define GROUP_FLAG_REFRESH 	0
 #define GROUP_FLAG_DELETE 	1
 #define GROUP_FLAG_ADD 		2
@@ -1468,63 +1465,6 @@ fail:
 }
 
 
-
-#ifdef REMOVE_WL600
-void nvram_add_group_list(webs_t wp, struct variable *v, int count)
-{
-	struct variable *gv;
-	char *value;
-	char name[64];
-	int i;
-
-	if (v->argv[0]==NULL) {
-		return;
-	}
-
-	i = 0;
-	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
-		sprintf(name, "%s_%s_%d", serviceId, gv->name, count+1);
-		if ((value=websGetVar(wp, name, NULL)))	{
-			if (groupItem[i]==0) {
-				groupItem[i]=(char*)malloc(MAX_LINE_SIZE);
-				sprintf(groupItem[i],"%s;",value);
-			} else sprintf(groupItem[i],"%s%s;",groupItem[i], value);
-			/* Don't check validate. Left validate to JavaScript */
-		} else {
-			if (i==0) return;
-			if (groupItem[i]==0) {
-				groupItem[i]=(char*)malloc(MAX_LINE_SIZE);
-				sprintf(groupItem[i],";");
-			}
-			else sprintf(groupItem[i],"%s;",groupItem[i]);
-		}
-		i++;
-	}
-	return;
-}
-
-void nvram_apply_group_list(webs_t wp, struct variable *v)
-{
-	struct variable *gv;
-	int i;
-
-	if (v->argv[0]==NULL) {
-		return;
-	}
-
-	i=0;
-	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
-		if (groupItem[i]!=NULL)	{
-			nvram_set_x(serviceId, gv->name, groupItem[i]);
-			free(groupItem[i]);
-			groupItem[i]=NULL;
-		}
-		i++;
-	}
-	return;
-}
-#endif /* REMOVE_WL600 */
-
 static void nvram_add_group_item(webs_t wp, const struct variable *v, int sid)
 {
 	const struct variable *gv;
@@ -1532,12 +1472,12 @@ static void nvram_add_group_item(webs_t wp, const struct variable *v, int sid)
 	char name[64], cstr[5];
 	int count;
 
-	if (v->argv[0]==NULL) {
+	if (v->argv[0] == NULL) {
 		return;
 	}
 
 	count = atoi(nvram_safe_get_x(serviceId, v->argv[3]));
-	cprintf("count: %d\n", count);
+	dprintf("Grp count: %d\n", count);
 
 	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
 		sprintf(name, "%s_0", gv->name);
@@ -1545,7 +1485,7 @@ static void nvram_add_group_item(webs_t wp, const struct variable *v, int sid)
 		if ((value=websGetVar(wp, name, NULL))) {
 			/*SetGroupVariable(sid, v, gv->name, value, "Add");*/
 			nvram_add_lists_x(serviceId, gv->name, value, count);
-			cprintf("Add: %s %s\n", gv->name, value);
+			dprintf("Grp add: %s %s\n", gv->name, value);
 		} else {
 			/*SetGroupVariable(sid, v, gv->name, "", "Add");  */
 			nvram_add_lists_x(serviceId, gv->name, "", count);             
@@ -1564,7 +1504,7 @@ static void nvram_remove_group_item(webs_t wp, const struct variable *v, int sid
 	char cstr[5];
 	int i, count;
 
-	if (v->argv[0]==NULL) {
+	if (v->argv[0] == NULL) {
 		return;
 	}
 
