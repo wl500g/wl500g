@@ -298,7 +298,7 @@ int start_dhcpc(const char *wan_ifname, int unit)
 		"/sbin/udhcpc",
 		"-i", (char *)wan_ifname,
 		"-p", (snprintf(pid, sizeof(pid), "/var/run/udhcpc%d.pid", unit), pid),
-		"-bN61",
+		"-b",
 		NULL, NULL,	/* -H wan_hostname	*/
 		NULL,		/* -O routes		*/
 		NULL,		/* -O staticroutes	*/
