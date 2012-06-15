@@ -968,7 +968,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +
 +	/* Build UDP header */
 +	inet = inet_sk(sk_tun);
-+	udp_len = hdr_len + 2 + total_len;
++	udp_len = sizeof(struct udphdr) + hdr_len + 2 + total_len;
 +	uh = (struct udphdr *) skb->data;
 +	uh->source = inet->sport;
 +	uh->dest = inet->dport;
@@ -1134,7 +1134,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +	/* Build UDP header */
 +	inet = inet_sk(sk_tun);
 +	udp_len = sizeof(struct udphdr) + hdr_len + 2 + data_len;
-+	__skb_push(skb, sizeof(*uh));
++	__skb_push(skb, sizeof(struct udphdr));
 +	skb_reset_transport_header(skb);
 +	uh = udp_hdr(skb);
 +	uh->source = inet->sport;
