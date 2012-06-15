@@ -440,7 +440,7 @@ get_wsec(wsec_info_t *info, const char *mac, const char *osifname)
 
 			if (get_wds_wsec(unit, i, macaddr, wds_role, wds_crypto, wds_akms, wds_ssid,
 			                 wds_psk) &&
-			    ((ether_atoe(macaddr, ea) && !bcmp(ea, remote, ETHER_ADDR_LEN)) ||
+			    ((ether_atoe(macaddr, ea) && !memcmp(ea, remote, ETHER_ADDR_LEN)) ||
 			     (!strcmp(mac, "*")))) {
 			     /* found wds settings */
 			     wds_wsec = 1;
@@ -542,7 +542,7 @@ get_wsec(wsec_info_t *info, const char *mac, const char *osifname)
 
 		strcpy(buf, "wds_wpa_role");
 		ptr = buf + strlen(buf) + 1;
-		bcopy(info->remote, ptr, ETHER_ADDR_LEN);
+		memcpy(ptr, info->remote, ETHER_ADDR_LEN);
 		ptr[ETHER_ADDR_LEN] = lrole;
 		if (wl_ioctl(os_name, WLC_SET_VAR, buf, sizeof(buf)))
 			return WLIFU_ERR_WL_WPA_ROLE;
