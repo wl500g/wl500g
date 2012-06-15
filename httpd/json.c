@@ -12,7 +12,7 @@ int js0n(unsigned char *js, unsigned int len, unsigned short *out)
 	unsigned char *cur, *end;
 	int depth=0;
 	int utf8_remain=0;
-	static void *gostruct[] = 
+	static const void * const gostruct[] = 
 	{
 		[0 ... 255] = &&l_bad,
 		['\t'] = &&l_loop, [' '] = &&l_loop, ['\r'] = &&l_loop, ['\n'] = &&l_loop,
@@ -23,7 +23,7 @@ int js0n(unsigned char *js, unsigned int len, unsigned short *out)
 		['-'] = &&l_bare, [48 ... 57] = &&l_bare, // 0-9
 		['t'] = &&l_bare, ['f'] = &&l_bare, ['n'] = &&l_bare // true, false, null
 	};
-	static void *gobare[] = 
+	static const void * const gobare[] = 
 	{
 		[0 ... 31] = &&l_bad,
 		[32 ... 126] = &&l_loop, // could be more pedantic/validation-checking
@@ -31,7 +31,7 @@ int js0n(unsigned char *js, unsigned int len, unsigned short *out)
 		[','] = &&l_unbare, [']'] = &&l_unbare, ['}'] = &&l_unbare,
 		[127 ... 255] = &&l_bad
 	};
-	static void *gostring[] = 
+	static const void * const gostring[] = 
 	{
 		[0 ... 31] = &&l_bad, [127] = &&l_bad,
 		[32 ... 126] = &&l_loop,
@@ -42,19 +42,19 @@ int js0n(unsigned char *js, unsigned int len, unsigned short *out)
 		[240 ... 247] = &&l_utf8_4,
 		[248 ... 255] = &&l_bad
 	};
-	static void *goutf8_continue[] =
+	static const void * const goutf8_continue[] =
 	{
 		[0 ... 127] = &&l_bad,
 		[128 ... 191] = &&l_utf_continue,
 		[192 ... 255] = &&l_bad
 	};
-	static void *goesc[] = 
+	static const void * const goesc[] = 
 	{
 		[0 ... 255] = &&l_bad,
 		['"'] = &&l_unesc, ['\\'] = &&l_unesc, ['/'] = &&l_unesc, ['b'] = &&l_unesc,
 		['f'] = &&l_unesc, ['n'] = &&l_unesc, ['r'] = &&l_unesc, ['t'] = &&l_unesc, ['u'] = &&l_unesc
 	};
-	static void **go = gostruct;
+	static const void * const *go = gostruct;
 	
 	for (cur=js,end=js+len; cur<end; cur++)
 	{

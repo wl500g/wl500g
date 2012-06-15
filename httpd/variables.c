@@ -1,5 +1,5 @@
 
-struct variable variables_IPConnection_PortMappingList[] = {
+static const struct variable variables_IPConnection_PortMappingList[] = {
 	{"", "7", validate_choice, ARGV("TCP","UDP",0), FALSE, 0x0},
 	{"", "0", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "0", validate_range, ARGV("0","65535"), FALSE, 0x0},
@@ -10,14 +10,14 @@ struct variable variables_IPConnection_PortMappingList[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_IPConnection_ExposedIPList[] = {
+static const struct variable variables_IPConnection_ExposedIPList[] = {
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "20", validate_string, ARGV("20"), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_IPConnection_VSList[] = {
+static const struct variable variables_IPConnection_VSList[] = {
 	{"vts_sipaddr_x", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"vts_port_x", "12", validate_portrange, NULL, FALSE, 0x0},
 	{"vts_ipaddr_x", "16", validate_ipaddr, NULL, FALSE, 0x0},
@@ -28,7 +28,7 @@ struct variable variables_IPConnection_VSList[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_IPConnection_TriggerList[] = {  
+static const struct variable variables_IPConnection_TriggerList[] = {  
 	{"autofw_outport_x", "12", validate_portrange, NULL, FALSE, 0x0},
 	{"autofw_outproto_x", "7", validate_choice, ARGV("TCP","UDP",0), FALSE, 0x0},
 	{"autofw_inport_x", "12", validate_portrange, NULL, FALSE, 0x0},
@@ -37,7 +37,7 @@ struct variable variables_IPConnection_TriggerList[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_PPPConnection_PPPoERouteList[] = {
+static const struct variable variables_PPPConnection_PPPoERouteList[] = {
 	{"", "7", validate_choice, ARGV("0","1","2",0), FALSE, 0x0},
 	{"", "16", validate_choice, ARGV("Source","Destination",0), FALSE, 0x0},
 	{"", "18", validate_ipaddr, NULL, FALSE, 0x0},
@@ -45,7 +45,7 @@ struct variable variables_PPPConnection_PPPoERouteList[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_FirewallConfig_WLFilterList[] = {
+static const struct variable variables_FirewallConfig_WLFilterList[] = {
 	{"filter_wl_srcip_x", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"filter_wl_srcport_x", "12", validate_portrange, NULL, FALSE, 0x0},
 	{"filter_wl_dstip_x", "16", validate_ipaddr, NULL, FALSE, 0x0},
@@ -54,7 +54,7 @@ struct variable variables_FirewallConfig_WLFilterList[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_FirewallConfig_LWFilterList[] = {
+static const struct variable variables_FirewallConfig_LWFilterList[] = {
 	{"filter_lw_srcip_x", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"filter_lw_srcport_x", "12", validate_portrange, NULL, FALSE, 0x0},
 	{"filter_lw_dstip_x", "16", validate_ipaddr, NULL, FALSE, 0x0},
@@ -63,19 +63,19 @@ struct variable variables_FirewallConfig_LWFilterList[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_FirewallConfig_UrlList[] = {
+static const struct variable variables_FirewallConfig_UrlList[] = {
 	{"url_keyword_x", "36", validate_string, ARGV("32"), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_FirewallConfig_WLocalFilterList[] = {
+static const struct variable variables_FirewallConfig_WLocalFilterList[] = {
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "12", validate_portrange, NULL, FALSE, 0x0},
 	{"", "8", validate_choice, ARGV("TCP","TCP ALL","TCP SYN","TCP ACK","TCP FTN","TCP RST","TCP URG","TCP PSH","UDP",0), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_FirewallConfig_DWFilterList[] = {
+static const struct variable variables_FirewallConfig_DWFilterList[] = {
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "12", validate_portrange, NULL, FALSE, 0x0},
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
@@ -84,7 +84,7 @@ struct variable variables_FirewallConfig_DWFilterList[] = {
 	{0,0,0,0,0}
 };
 
-struct variable variables_FirewallConfig_WDFilterList[] = {
+static const struct variable variables_FirewallConfig_WDFilterList[] = {
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "12", validate_portrange, NULL, FALSE, 0x0},
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
@@ -93,7 +93,7 @@ struct variable variables_FirewallConfig_WDFilterList[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_FirewallConfig_DLFilterList[] = {
+static const struct variable variables_FirewallConfig_DLFilterList[] = {
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "12", validate_portrange, NULL, FALSE, 0x0},
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
@@ -102,7 +102,7 @@ struct variable variables_FirewallConfig_DLFilterList[] = {
 	{0,0,0,0,0}
 };
 
-struct variable variables_FirewallConfig_LDFilterList[] = {
+static const struct variable variables_FirewallConfig_LDFilterList[] = {
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "12", validate_portrange, NULL, FALSE, 0x0},
 	{"", "16", validate_ipaddr, NULL, FALSE, 0x0},
@@ -111,12 +111,12 @@ struct variable variables_FirewallConfig_LDFilterList[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_FirewallConfig_MFList[] = {
+static const struct variable variables_FirewallConfig_MFList[] = {
 	{"macfilter_list_x", "32", validate_hwaddr, NULL, FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_RouterConfig_GWStatic[] = {
+static const struct variable variables_RouterConfig_GWStatic[] = {
 	{"sr_ipaddr_x", "17", validate_ipaddr, NULL, FALSE, 0x0},
 	{"sr_netmask_x", "17", validate_ipaddr, NULL, FALSE, 0x0},
 	{"sr_gateway_x", "17", validate_ipaddr, NULL, FALSE, 0x0},
@@ -125,124 +125,124 @@ struct variable variables_RouterConfig_GWStatic[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_RouterConfig_StaticRoute[] = {
+static const struct variable variables_RouterConfig_StaticRoute[] = {
 	{"dr_staticipaddr_x", "20", validate_ipaddr, NULL, FALSE, 0x0},
 	{"dr_staticnetmask_x", "11", validate_range, ARGV("0", "32", "1"), FALSE , 0x0},
 	{"dr_staticgateway_x", "18", validate_ipaddr, NULL, FALSE, 0x0},
 	{0,0,0,0,0}
 };
 
-struct variable variables_RouterConfig_RipSRoute[] = {
+static const struct variable variables_RouterConfig_RipSRoute[] = {
 	{"", "17", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "7", validate_range, ARGV("0", "32", "1"), FALSE , 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_RouterConfig_RouteFilter[] = {
+static const struct variable variables_RouterConfig_RouteFilter[] = {
 	{"", "9", validate_choice, ARGV("0","1","2","3",0), FALSE, 0x0},
 	{"", "17", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "8", validate_range, ARGV("0", "32", "1"), FALSE , 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_RouterConfig_RipOffset[] = {
+static const struct variable variables_RouterConfig_RipOffset[] = {
 	{"", "7", validate_choice, ARGV("IN","OUT",0), FALSE, 0x0},
 	{"", "17", validate_ipaddr, NULL, FALSE, 0x0},
 	{"", "6", validate_range, ARGV("0", "32", "1"), FALSE , 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_LANHostConfig_ManualDHCPList[] = {
+static const struct variable variables_LANHostConfig_ManualDHCPList[] = {
 	{"dhcp_staticmac_x", "14", validate_hwaddr, NULL, FALSE, 0x0},
 	{"dhcp_staticip_x", "15", validate_ipaddr, NULL, FALSE, 0x0},
 	{"dhcp_staticname_x", "32", validate_string, ARGV("32"), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_LANHostConfig_DmzManualDHCPList[] = {
+static const struct variable variables_LANHostConfig_DmzManualDHCPList[] = {
 	{"", "14", validate_hwaddr, NULL, FALSE, 0x0},
 	{"", "15", validate_ipaddr, NULL, FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_LANHostConfig_ReservedAddressList[] = {
+static const struct variable variables_LANHostConfig_ReservedAddressList[] = {
 	{"", "24", validate_ipaddr, NULL, FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_DeviceSecurity11a_ACLList[] = {
+static const struct variable variables_DeviceSecurity11a_ACLList[] = {
 	{"wl_maclist_x", "20", validate_hwaddr, NULL, FALSE, 0x0},
 	{"wl_macdesc_x", "40", validate_string,  ARGV("80"), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_DeviceSecurity11a_AESList[] = {
+static const struct variable variables_DeviceSecurity11a_AESList[] = {
 	{"", "16", validate_hwaddr, NULL, FALSE, 0x0},
 	{"", "10", validate_choice, ARGV("64bits","128bits","152bits",0), FALSE, 0x0},
 	{"", "32", validate_wlkey, NULL, FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_WLANAuthentication11a_LocalAuthDB[] = {
+static const struct variable variables_WLANAuthentication11a_LocalAuthDB[] = {
 	{"", "18", validate_string, ARGV("16"), FALSE, 0x0},
 	{"", "18", validate_string, ARGV("16"), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_WLANAuthentication11a_LocalCertDB[] = {
+static const struct variable variables_WLANAuthentication11a_LocalCertDB[] = {
 	{"", "8", validate_choice, ARGV("Server","Client",0), FALSE, 0x0},
 	{"", "", validate_string, ARGV("32"), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_WLANConfig11b_RBRList[] = {
+static const struct variable variables_WLANConfig11b_RBRList[] = {
 	{"wl_wdslist_x", "32", validate_hwaddr, NULL, FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_DeviceSecurity11b_ACLList[] = {
+static const struct variable variables_DeviceSecurity11b_ACLList[] = {
 	{"wl_maclist_x", "20", validate_hwaddr, NULL, FALSE, 0x0},
 	{"wl_macdesc_x", "40", validate_string,  ARGV("80"), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_DeviceSecurity11b_AESList[] = {
+static const struct variable variables_DeviceSecurity11b_AESList[] = {
 	{"", "16", validate_hwaddr, NULL, FALSE, 0x0},
 	{"", "10", validate_choice, ARGV("64bits","128bits","152bits",0), FALSE, 0x0},
 	{"", "32", validate_wlkey, NULL, FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_WLANAuthentication11b_LocalAuthDB[] = {
+static const struct variable variables_WLANAuthentication11b_LocalAuthDB[] = {
 	{"", "18", validate_string, ARGV("16"), FALSE, 0x0},
 	{"", "18", validate_string, ARGV("16"), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_WLANAuthentication11b_LocalCertDB[] = {
+static const struct variable variables_WLANAuthentication11b_LocalCertDB[] = {
 	{"", "8", validate_choice, ARGV("Server","Client",0), FALSE, 0x0},
 	{"", "", validate_string, ARGV("32"), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_PrinterStatus_x_FUserList[] = {
+static const struct variable variables_PrinterStatus_x_FUserList[] = {
 	{"usb_ftpusername_x", "18", validate_string, ARGV("16"), FALSE, 0x0},
 	{"usb_ftppasswd_x", "18", validate_string, ARGV("16"), FALSE, 0x0},
 	{"usb_ftprights_x", "16", validate_choice, ARGV("Write Only","Read/Write","Read Only","View Only","Private","Private(WO)",0), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_PrinterStatus_x_FBanIPList[] = {
+static const struct variable variables_PrinterStatus_x_FBanIPList[] = {
 	{"usb_ftpbanip_x", "24", validate_ipaddr, NULL, FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_PrinterStatus_x_ExportsList[] = {
+static const struct variable variables_PrinterStatus_x_ExportsList[] = {
 	{"usb_nfslist_x", "80", validate_string, ARGV("80"), FALSE, 0x0},
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_PrinterStatus_x_SharesList[] = {
+static const struct variable variables_PrinterStatus_x_SharesList[] = {
 	{"usb_smbdir_x", "20", validate_string, ARGV("80"), FALSE, 0x0},
 	{"usb_smbshare_x", "20", validate_string, ARGV("80"), FALSE, 0x0},
 	{"usb_smblevel_x", "14", validate_choice, ARGV("Read Only", "Read/Write", 0), FALSE, 0x0},
@@ -250,7 +250,7 @@ struct variable variables_PrinterStatus_x_SharesList[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_PrinterStatus_x_QRuleList[] = {
+static const struct variable variables_PrinterStatus_x_QRuleList[] = {
 	{"qos_ipaddr_x", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"qos_port_x", "12", validate_range, ARGV("0","4294927695"), FALSE, 0x0},
 	{"qos_maxbw_x", "9", validate_range, ARGV("0","4294927695"), FALSE, 0x0},
@@ -258,7 +258,7 @@ struct variable variables_PrinterStatus_x_QRuleList[] = {
 	{0,0,0,0,0}
 }; 
 
-struct variable variables_PrinterStatus_x_UQRuleList[] = {
+static const struct variable variables_PrinterStatus_x_UQRuleList[] = {
 	{"qos_uport_x", "12", validate_range, ARGV("0","4294927695"), FALSE, 0x0},
 	{"qos_umaxbw_x", "9", validate_range, ARGV("0","4294927695"), FALSE, 0x0},
 	{"qos_uminbw_x", "7", validate_range, ARGV("0","4294927695"), FALSE, 0x0},
@@ -303,7 +303,7 @@ struct variable variables_PrinterStatus_x_UQRuleList[] = {
 * easy to read. But it really work!!!
 */
 
-struct variable variables_General[] = {
+static const struct variable variables_General[] = {
 	{"http_username", "", validate_string, ARGV("32"), FALSE, FALSE},
 	{"http_passwd", "", validate_string, ARGV("32"), FALSE, FALSE},
 	{"x_SystemUpTime", "Status", NULL, ARGV("general.log","UpTime"), FALSE, FALSE},
@@ -314,7 +314,7 @@ struct variable variables_General[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_Layer3Forwarding[] = {
+static const struct variable variables_Layer3Forwarding[] = {
 	{"", "", validate_string, ARGV(""), FALSE, FALSE},
 	{"wan_proto", "", validate_choice, ARGV(
 	"dhcp:Automatic IP",
@@ -351,7 +351,7 @@ struct variable variables_Layer3Forwarding[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_WANCommonInterface[] = {
+static const struct variable variables_WANCommonInterface[] = {
 	{"", "", validate_choice, ARGV("Ethernet",0), FALSE, FALSE},
 	{"", "", validate_range, ARGV("0","4294927695"), FALSE, FALSE},
 	{"", "", validate_range, ARGV("0","4294927695"), FALSE, FALSE},
@@ -369,7 +369,7 @@ struct variable variables_WANCommonInterface[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_IPConnection[] = {
+static const struct variable variables_IPConnection[] = {
 	{"wan_route_x", "", validate_choice, ARGV("Unconfigured","IP_Routed","IP_Bridged",0), FALSE, FALSE},
 	{"", "", validate_choice, ARGV("Unconfigured","IP_Routed","IP_Bridged",0), FALSE, FALSE},
 	{"ConnectionStatus", "Status", NULL, ARGV("wan.log","IPLink"), FALSE, FALSE},
@@ -426,7 +426,7 @@ struct variable variables_IPConnection[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_PPPConnection[] = {
+static const struct variable variables_PPPConnection[] = {
 	{"", "", validate_choice, ARGV("Unconfigured","IP_Routed",0), FALSE, FALSE},
 	{"", "", validate_choice, ARGV("IP_Routed",0), FALSE, FALSE},
 	{"wan_pppoe_username", "", validate_string, ARGV("64"), FALSE, FALSE},
@@ -486,12 +486,12 @@ struct variable variables_PPPConnection[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_EthernetLink[] = {
+static const struct variable variables_EthernetLink[] = {
 	{"", "", validate_choice, ARGV("Up","Down",0), FALSE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_FirewallConfig[] = {
+static const struct variable variables_FirewallConfig[] = {
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
@@ -573,7 +573,7 @@ struct variable variables_FirewallConfig[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_RouterConfig[] = {
+static const struct variable variables_RouterConfig[] = {
 	{"dr_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"mr_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"sr_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
@@ -616,7 +616,7 @@ struct variable variables_RouterConfig[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_LANHostConfig[] = {
+static const struct variable variables_LANHostConfig[] = {
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"lan_proto_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"lan_ipaddr", "", validate_ipaddr, NULL, FALSE, FALSE},
@@ -697,7 +697,7 @@ struct variable variables_LANHostConfig[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_WLANConfig11a[] = {
+static const struct variable variables_WLANConfig11a[] = {
 	{"", "", validate_string, NULL, FALSE, FALSE},
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"", "", validate_string, ARGV("32"), FALSE, FALSE},
@@ -719,7 +719,7 @@ struct variable variables_WLANConfig11a[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_DeviceSecurity11a[] = {
+static const struct variable variables_DeviceSecurity11a[] = {
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"wl_macmode", "", validate_choice, ARGV("disabled:Disable","allow:Accept","deny:Reject",0), FALSE, FALSE},
 	{"wl_macapply_x", "", validate_choice, ARGV("Both","802.11a only","802.11g only",0), FALSE, FALSE},
@@ -731,7 +731,7 @@ struct variable variables_DeviceSecurity11a[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_WLANAuthentication11a[] = {
+static const struct variable variables_WLANAuthentication11a[] = {
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"wl_radius_ipaddr", "", validate_ipaddr, NULL, FALSE, FALSE},
 	{"wl_radius_port", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
@@ -744,7 +744,7 @@ struct variable variables_WLANAuthentication11a[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_WLANConfig11b[] = {
+static const struct variable variables_WLANConfig11b[] = {
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"wl_country_code", "", validate_string, NULL, FALSE, FALSE},
@@ -843,7 +843,7 @@ struct variable variables_WLANConfig11b[] = {
 };
 
 
-struct variable variables_DeviceSecurity11b[] = {
+static const struct variable variables_DeviceSecurity11b[] = {
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"wl_macmode", "", validate_choice, ARGV("disabled:Disable","allow:Accept","deny:Reject",0), FALSE, FALSE},
 	{"wl_macapply_x", "", validate_choice, ARGV("Both","802.11a only","802.11g only",0), FALSE, FALSE},
@@ -855,7 +855,7 @@ struct variable variables_DeviceSecurity11b[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_WLANAuthentication11b[] = {
+static const struct variable variables_WLANAuthentication11b[] = {
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 	{"wl_radius_ipaddr", "", validate_ipaddr, NULL, FALSE, FALSE},
 	{"wl_radius_port", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
@@ -868,7 +868,7 @@ struct variable variables_WLANAuthentication11b[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct variable variables_PrinterStatus[] = {
+static const struct variable variables_PrinterStatus[] = {
 	{"x_PrinterModel", "Status", NULL, ARGV("printer_status.log","printer_model_t"), FALSE, FALSE},
 	{"x_PrinterStatus", "Status", NULL, ARGV("printer_status.log","printer_status_t"), FALSE, FALSE},
 	{"x_PrinterUser", "Status", NULL, ARGV("printer_status.log","printer_user_t"), FALSE, FALSE},
@@ -984,7 +984,7 @@ struct variable variables_PrinterStatus[] = {
 	{ 0, 0, 0, 0, 0, 0}
 };
 
-struct action actions_General[] = {
+static const struct action actions_General[] = {
 
 	{ "x_GetSystemInfo",
 	ARGV(0),
@@ -997,7 +997,7 @@ struct action actions_General[] = {
 	{ 0, 0, 0, 0}
 };
 
-struct action actions_Layer3Forwarding[] = {
+static const struct action actions_Layer3Forwarding[] = {
 	{ "SetDefaultConnectionService",
 	ARGV("NewDefaultConnectionService",0),
 	ARGV("DefaultConnectionService",0),
@@ -1036,7 +1036,7 @@ struct action actions_Layer3Forwarding[] = {
 	{ 0, 0, 0, 0}
 };
 
-struct action actions_WANCommonInterface[] = {
+static const struct action actions_WANCommonInterface[] = {
 	{ "SetEnabledForInternet",
 	ARGV("NewEnabledForInternet",0),
 	ARGV("EnabledForInternet",0),
@@ -1120,7 +1120,7 @@ struct action actions_WANCommonInterface[] = {
 	{ 0, 0, 0, 0}
 };
 
-struct action actions_IPConnection[] = {
+static const struct action actions_IPConnection[] = {
 	{ "SetConnectionType",
 	ARGV("NewConnectionType",0),
 	ARGV("ConnectionType",0),
@@ -1196,7 +1196,7 @@ struct action actions_IPConnection[] = {
 	{ 0, 0, 0, 0}
 };
 
-struct action actions_PPPConnection[] = {
+static const struct action actions_PPPConnection[] = {
 	{ "SetConnectionType",
 	ARGV("NewConnectionType",0),
 	ARGV("ConnectionType",0),
@@ -1389,7 +1389,7 @@ struct action actions_PPPConnection[] = {
 	{ 0, 0, 0, 0}
 };
 
-struct action actions_EthernetLink[] = {
+static const struct action actions_EthernetLink[] = {
 
 	{ "GetEthernetLinkStatus",
 	ARGV(0),
@@ -1402,7 +1402,7 @@ struct action actions_EthernetLink[] = {
 	{ 0, 0, 0, 0}
 };
 
-struct action actions_LANHostConfig[] = {
+static const struct action actions_LANHostConfig[] = {
 
 	{ "SetDHCPServerConfigurable",	
 	ARGV("NewDHCPServerConfigurable",	0),
@@ -1595,7 +1595,7 @@ struct action actions_LANHostConfig[] = {
 	{ 0, 0, 0, 0}
 };
 
-struct variable variables_IPv6Config[] = {
+static const struct variable variables_IPv6Config[] = {
 
 	{"ipv6_proto", "", validate_choice, ARGV(
 	"native:Static",
@@ -1630,7 +1630,7 @@ struct variable variables_IPv6Config[] = {
 };
 
 #ifdef __CONFIG_MADWIMAX__
-struct variable variables_WiMaxConfig[] = {
+static const struct variable variables_WiMaxConfig[] = {
 	{"wan_wimax_ssid", "", validate_string, ARGV("32"), FALSE, FALSE},
 	{"wan_wimax_check", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"wan_wimax_interval", "", validate_range, ARGV("1","10000"), FALSE, FALSE},
@@ -1642,7 +1642,7 @@ struct variable variables_WiMaxConfig[] = {
 #endif
 
 #ifdef __CONFIG_MODEM__
-struct variable variables_3GConfigvariables_3GConfig[] = {
+static const struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_type","", validate_range, ARGV("1", "12", ""), FALSE, FALSE},
 	{"wan_modem_username", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_passwd", "", validate_string, ARGV(""), TRUE, FALSE},
@@ -1672,7 +1672,7 @@ struct variable variables_3GConfigvariables_3GConfig[] = {
 #endif
 
 
-struct svcLink svcLinks[] = {  
+static const struct svcLink svcLinks[] = {  
 	{"General", 	"urn:schemas-upnp-org:service:General:1", variables_General, actions_General},
 	{"LANHostConfig", "urn:schemas-upnp-org:service:Layer3Forwarding:1", variables_LANHostConfig, actions_LANHostConfig},
 	{"Layer3Forwarding", "urn:schemas-upnp-org:service:LANHostConfigManagement:0.8", variables_Layer3Forwarding, actions_Layer3Forwarding},

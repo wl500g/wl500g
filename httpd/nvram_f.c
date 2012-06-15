@@ -27,7 +27,9 @@ permission of Broadcom Corporation.
 #define MAX_LINE_SIZE 512
 #define MAX_FILE_NAME 64
 
-char *workingDir="/etc/linuxigd";
+#ifdef REMOVE_NVRAM
+static const char *workingDir="/etc/linuxigd";
+#endif
 
 
 /*

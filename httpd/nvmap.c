@@ -9,12 +9,12 @@
 
 typedef struct nvmap
 {
-	char *sid;
-	char *fid;
-	char *name;
+	const char *sid;
+	const char *fid;
+	const char *name;
 } nvmap;
 
-struct nvmap maps[] = {
+static const struct nvmap maps[] = {
 	{ "BRIPAddress", "IPRouters", "currentip"},
 	{ "general.log", "ProductID", "productid" },
 	{ "General", "x_Username", "username" },
@@ -101,134 +101,6 @@ struct nvmap maps[] = {
 	{ NULL, NULL, NULL }
 };
 
-char *mac_conv(char *mac_name, int idx, char *buf);
-
-#ifdef REMOVE
-/* This function is used to map nvram value from asus to Broadcom */
-static void readFromNvram()
-{	
-	char tmpstr[32], tmpstr1[32], macbuf[18];
-	char list[2048];
-	int i, num;
-
-	printf("read from nvram\n");
-
-	/* Wireless Section */
-	/* GMODE */
-	strcpy(tmpstr, nvram_get("wl_gmode_x"));
-
-	if (strcmp(tmpstr, "1")==0) {
-		nvram_set("wl0_gmode", XSTR(GMODE_PERFORMANCE));
-	} else if (strcmp(tmpstr, "2")==0) {
-		nvram_set("wl0_gmode", XSTR(GMODE_LRS));
-	} else if (strcmp(tmpstr, "3")==0) {
-		nvram_set("wl0_gmode", XSTR(GMODE_B_DEFERRED));
-	} else {
-		nvram_set("wl0_gmode", XSTR(GMODE_AUTO));
-	}
-
-	if (nvram_match("wl_gmode_protection_x", "0")==0)
-		nvram_set("wl0_gmode_protection", "off");
-	else nvram_set("wl0_gmode_protection", "auto");
-
-	/* Authentication and Encryption */
-	strcpy(tmpstr, nvram_get("wl_authmode_x"));
-	strcpy(tmpstr1, nvram_get("wl_weptype_x"));
-
-	if (strcmp(tmpstr, "1")==0) { /* Shared */
-		nvram_set("wl0_auth", "1");
-		nvram_set("wl0_auth_mode", "disabled");
-		nvram_set("wl0_wep", "wep");
-	} else if (strcmp(tmpstr, "2")==0) { /* WPA-PSK */
-		nvram_set("wl0_auth", "0");
-		nvram_set("wl0_auth_mode", "psk");
-
-		if (strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "aes");
-		else if (strcmp(tmpstr1, "2")==0) nvram_set("wl0_wep", "tkip+aes");
-		else nvram_set("wl0_wep", "tkip");
-	} else if (strcmp(tmpstr, "3")==0) { /* WPA */
-		nvram_set("wl0_auth", "0");
-		nvram_set("wl0_auth_mode", "wpa");
-
-		if (strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "aes");
-		else if (strcmp(tmpstr1, "2")==0) nvram_set("wl0_wep", "tkip+aes");
-		else nvram_set("wl0_wep", "tkip");
-	} else if (strcmp(tmpstr, "4")==0) { /* Radius */
-		nvram_set("wl0_auth", "0");
-		nvram_set("wl0_auth_mode", "radius");
-
-		if (strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "wep");
-		else if (strcmp(tmpstr1, "2")==0) nvram_set("wl0_wep", "wep");
-		else nvram_set("wl0_wep", "");
-	} else { /* Open or Shared */
-		nvram_set("wl0_auth", "0");
-		nvram_set("wl0_auth_mode", "disabled");
-
-		if (strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "wep");
-		else if (strcmp(tmpstr1, "2")==0) nvram_set("wl0_wep", "wep");
-		else nvram_set("wl0_wep", "");
-	}
-
-
-	/* WDS control */
-	if (nvram_match("wl_wds_x", "1")) nvram_set("wl0_mode", "wds");
-	else nvram_set("wl0_mode", "ap");
-
-	if (nvram_match("wl_lazywds", "1")) nvram_set("wl0_lazywds", "1");
-	else nvram_set("wl0_lazywds", "0");
-
-	if (nvram_match("wl_wdsapply_x", "1")) {
-		num = atoi(nvram_get("wl_wdslist_num_x"));
-		list[0]=0;
-
-		for (i=0;i<num;i++) {
-			sprintf(list, "%s %s", list, mac_conv("wl_wdslist_x", i, macbuf));
-		}
-		nvram_set("wl0_maclist", list);
-	}
-
-	/* Mac filter */
-	strcpy(tmpstr, nvram_get("wl_macmode_x"));
-
-	if (strcmp(tmpstr, "Accept")==0) { /* allow */
-		nvram_set("wl0_macmode", "allow");
-	} else if (strcmp(tmpstr, "Deny")==0) { /* deny */
-		nvram_set("wl0_macmode", "deny");
-	}
-
-	if (!strcmp(tmpstr, "Disable")) {
-		num = atoi(nvram_get("wl_maclist_num_x"));
-		list[0]=0;
-
-		for (i=0;i<num;i++) {
-			sprintf(list, "%s;%s", list, mac_conv("wl_maclist_x", i, macbuf));
-		}
-
-		nvram_set("wl0_maclist", list);
-	}
-
-	/* Direct copy value */
-
-	nvram_set("wl0_ssid", nvram_get("wl_ssid"));
-	nvram_set("wl0_channel", nvram_get("wl_channel"));
-	nvram_set("wl0_country", nvram_get("wl_country"));
-	nvram_set("wl0_rate", nvram_get("wl_rate"));
-	nvram_set("wl0_frag", nvram_get("wl_frag"));
-	nvram_set("wl0_rts", nvram_get("wl_rts"));
-	nvram_set("wl0_dtim", nvram_get("wl_dtim"));
-	nvram_set("wl0_bcn", nvram_get("wl_bcn"));
-	nvram_set("wl0_plcphdr", nvram_get("wl_plcphdr"));
-	nvram_set("wl0_key", nvram_get("wl_key"));
-	nvram_set("wl0_key1", nvram_get("wl_key1"));
-	nvram_set("wl0_key2", nvram_get("wl_key2"));
-	nvram_set("wl0_key3", nvram_get("wl_key3"));
-	nvram_set("wl0_key4", nvram_get("wl_key4"));
-
-	/* LAN Section */
-
-	/* Storage Section */
-}
-#endif // REMOVE
 
 void findNVRAMName(const char *serviceId, const char *field, char *name)
 {
@@ -255,7 +127,7 @@ void findNVRAMName(const char *serviceId, const char *field, char *name)
 	}
 }
 
-char *findpattern(char *target, char *pattern)
+static char *findpattern(const char *target, const char *pattern)
 {
 	char *find;
 	int len;
@@ -277,7 +149,7 @@ char *strcat_r(char *dst, char *src, char *tar)
 }
 
 
-char *nvram_get_i(char *name, int idx)
+static char *nvram_get_i(const char *name, int idx)
 {
 	char tmpstr1[64];
 
@@ -291,25 +163,7 @@ char *nvram_get_i(char *name, int idx)
 	return(nvram_get(tmpstr1));
 }
 
-char *mac_conv(char *mac_name, int idx, char *buf)
-{
-	char *mac;
-	int i, j;
-
-	mac = nvram_get_i(mac_name, idx);
-
-	j=0;
-	for (i=0; i<12; i++) {
-		if (i!=0&&i%2==0) buf[j++] = ':';
-		buf[j++] = mac[i];
-	}
-	buf[j] = 0;
-
-	return(buf);
-}
-
-
-int nvram_match_i(char *name, int idx, char *match) {
+static int nvram_match_i(char *name, int idx, char *match) {
 	const char *value = nvram_get_i(name, idx);
 
 	printf("match %s %s\n", value, match);
@@ -317,7 +171,7 @@ int nvram_match_i(char *name, int idx, char *match) {
 }
 
 
-void nvram_set_i(char *name, int idx, char *value)
+static int nvram_set_i(char *name, int idx, char *value)
 {
 	char tmpstr1[64];
 
@@ -328,25 +182,23 @@ void nvram_set_i(char *name, int idx, char *value)
 	}
 	//printf("get : %s %s %s\n", tmpstr2, tmpstr1, name1);
 
-	nvram_set(tmpstr1, value);
+	return nvram_set(tmpstr1, value);
 }
 
-int nvram_cpy(char *name1, char *name2, int idx)
+static int nvram_cpy(char *name1, char *name2, int idx)
 {
-
 	char tmpstr1[128];
 
 	strcpy(tmpstr1, nvram_get_i(name2, idx));
 	return nvram_set(name1, tmpstr1);
 }
 
-void nvram_cpy2(char *name1, char *name2, int idx)
+static int nvram_cpy2(char *name1, char *name2, int idx)
 {
-
 	char tmpstr1[128];
 
 	strcpy(tmpstr1, nvram_get(name2));
-	nvram_set_i(name1, idx, tmpstr1);
+	return nvram_set_i(name1, idx, tmpstr1);
 }
 
 void getSharedEntry(int index)

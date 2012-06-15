@@ -27,34 +27,40 @@
 #endif
 
 struct variable {
-	char *name;
-	char *longname;
-	int (*validate)(char *value, struct variable *v);
-	char **argv;
+	const char *name;
+	const char *longname;
+	int (*validate)(const char *value, const struct variable *v);
+	const char **argv;
 	int nullok;
 	int event;
 };
 
 struct action
 {
-      char *name;
-      char **in_name;
-      char **in_var;
-      char **out_name;
-      char **out_var; 
-      char **group_tag;     
+      const char *name;
+      const char **in_name;
+      const char **in_var;
+      const char **out_name;
+      const char **out_var; 
+      const char **group_tag;
       int (*callback)(void);
 };
 
 struct svcLink
 {
-      char *serviceId;
-      char *serviceType;
-      struct variable *variables;
-      struct action *actions;
+      const char *serviceId;
+      const char *serviceType;
+      const struct variable *variables;
+      const struct action *actions;
 };
 
-#define ARGV(args...) ((char *[]) { (char *) args, NULL })
+#define ARGV(args...) ((const char *[]) { (const char *) args, NULL })
+
+enum {
+	NOTHING,
+	REBOOT,
+	RESTART,
+};
 
 
 #ifdef __cplusplus
@@ -63,17 +69,17 @@ extern "C" {
 
 /* API export for UPnP function */
 void InitVariables(void);
-int LookupServiceId(char *serviceId);
-char *GetServiceId(int sid);
-struct action *GetActions(int sid);
-struct variable *GetVariables(int sid);
-char *GetServiceType(int sid);
-struct action *CheckActions(int sid, char *name);
+int LookupServiceId(const char *serviceId);
+const char *GetServiceId(int sid);
+const struct action *GetActions(int sid);
+const struct variable *GetVariables(int sid);
+const char *GetServiceType(int sid);
+const struct action *CheckActions(int sid, char *name);
 int CheckVariables(int sid, char *name, char *var);
 char *GetVariable(int sid, char *name);
 void SetVariable(int sid, char *name, char *value);
 
-struct variable *LookupGroupVariables(int sid, char *groupName);
+const struct variable *LookupGroupVariables(int sid, char *groupName);
 int CheckGroupVariables(int sid, struct variable *gvs, char *name, char *var);
 void SetGroupVariable(int sid, struct variable *gvs, char *name, char *value, char *action);
 char *GetGroupVariable(int sid, struct variable *gvs, char *name);
