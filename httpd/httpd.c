@@ -169,21 +169,21 @@ initialize_listen_socket( usockaddr* usaP )
 	}
 
 	listen_fd = socket( usaP->sa.sa_family, SOCK_STREAM, 0 );
-	if ( listen_fd < 0 ){
+	if ( listen_fd < 0 ) {
 		perror( "socket" );
 		return -1;
 	}
 	(void) fcntl( listen_fd, F_SETFD, 1 );
 	i = 1;
-	if ( setsockopt( listen_fd, SOL_SOCKET, SO_REUSEADDR, (char*) &i, sizeof(i) ) < 0 ){
+	if ( setsockopt( listen_fd, SOL_SOCKET, SO_REUSEADDR, (char*) &i, sizeof(i) ) < 0 ) {
 		perror( "setsockopt" );
 		return -1;
 	}
-	if ( bind( listen_fd, &usaP->sa, sizeof(usockaddr) ) < 0 ){
+	if ( bind( listen_fd, &usaP->sa, sizeof(usockaddr) ) < 0 ) {
 		perror( "bind" );
 		return -1;
 	}
-	if ( listen( listen_fd, 1024 ) < 0 ){
+	if ( listen( listen_fd, 1024 ) < 0 ) {
 		perror( "listen" );
 		return -1;
 	}
@@ -204,7 +204,7 @@ auth_check( char* dirname, char* authorization )
 		return 1;
 
 	/* Basic authorization info? */
-	if ( !authorization || strncmp( authorization, "Basic ", 6 ) != 0){
+	if ( !authorization || strncmp( authorization, "Basic ", 6 ) != 0) {
 		send_authenticate( dirname );
 		http_logout(&login_ip_tmp);
 		return 0;
@@ -224,12 +224,12 @@ auth_check( char* dirname, char* authorization )
 	*authpass++ = '\0';
 
 	/* Is this the right user and password? */
-	if ( strcmp( auth_userid, authinfo ) == 0 && strcmp( auth_passwd, authpass ) == 0 ){
+	if ( strcmp( auth_userid, authinfo ) == 0 && strcmp( auth_passwd, authpass ) == 0 ) {
 		//fprintf(stderr, "login check : %x %x\n", login_ip, login_try);
 		/* Is this is the first login after logout */
 		if ((login_ip.family == 0) &&
 			(login_try.len && login_try.len == login_ip_tmp.len) &&
-			(memcmp(&login_try.addr, &login_ip_tmp.addr, login_try.len) == 0)){
+			(memcmp(&login_try.addr, &login_ip_tmp.addr, login_try.len) == 0)) {
 				send_authenticate(dirname);
 				memset(&login_try, 0, sizeof(uaddr));
 				return 0;
@@ -330,10 +330,10 @@ b64_decode( const char* str, unsigned char* space, int size )
 
 	space_idx = 0;
 	phase = 0;
-	for ( cp = str; *cp != '\0'; ++cp ){
+	for ( cp = str; *cp != '\0'; ++cp ) {
 		d = b64_decode_table[(int)*cp];
-		if ( d != -1 ){
-			switch ( phase ){
+		if ( d != -1 ) {
+			switch ( phase ) {
 			case 0:
 				++phase;
 				break;
@@ -371,7 +371,7 @@ match( const char* pattern, const char* string )
 {
 	const char* or;
 
-	for (;;){
+	for (;;) {
 		or = strchr( pattern, '|' );
 		if ( or == (char*) 0 )
 			return match_one( pattern, strlen( pattern ), string );
@@ -387,13 +387,13 @@ match_one( const char* pattern, int patternlen, const char* string )
 {
 	const char* p;
 
-	for ( p = pattern; p - pattern < patternlen; ++p, ++string ){
+	for ( p = pattern; p - pattern < patternlen; ++p, ++string ) {
 		if ( *p == '?' && *string != '\0' )
 			continue;
-		if ( *p == '*' ){
+		if ( *p == '*' ) {
 			int i, pl;
 			++p;
-			if ( *p == '*' ){
+			if ( *p == '*' ) {
 				/* Double-wildcard matches anything. */
 				++p;
 				i = strlen( string );
@@ -471,21 +471,21 @@ handle_request(void)
 
 
 	/* Parse the rest of the request headers. */
-	while ( fgets( cur, line + sizeof(line) - cur, conn_fp ) != (char*) 0 ){
-		if ( strcmp( cur, "\n" ) == 0 || strcmp( cur, "\r\n" ) == 0 ){
+	while ( fgets( cur, line + sizeof(line) - cur, conn_fp ) != (char*) 0 ) {
+		if ( strcmp( cur, "\n" ) == 0 || strcmp( cur, "\r\n" ) == 0 ) {
 			break;
-		}else if ( strncasecmp( cur, "Authorization:", 14 ) == 0 ){
+		} else if ( strncasecmp( cur, "Authorization:", 14 ) == 0 ) {
 			cp = &cur[14];
 			cp += strspn( cp, " \t" );
 			authorization = cp;
 			cur = cp + strlen(cp) + 1;
-		}else if (strncasecmp( cur, "Content-Length:", 15 ) == 0) {
+		} else if (strncasecmp( cur, "Content-Length:", 15 ) == 0) {
 			cp = &cur[15];
 			cp += strspn( cp, " \t" );
 			cl = strtoul( cp, NULL, 0 );
-		}else if ((cp = strstr( cur, "boundary=" ))) {
+		} else if ((cp = strstr( cur, "boundary=" ))) {
 			boundary = &cp[9];
-			for( cp = cp + 9; *cp && *cp != '\r' && *cp != '\n'; cp++ );
+			for ( cp = cp + 9; *cp && *cp != '\r' && *cp != '\n'; cp++ );
 			*cp = '\0';
 			cur = ++cp;
 		}
@@ -511,7 +511,7 @@ handle_request(void)
 
 	//printf("File: %s\n", file);
 
-	if (http_port==server_port && !http_login_check()){
+	if (http_port==server_port && !http_login_check()) {
 		inet_ntop(login_ip.family, &login_ip.addr, straddr, sizeof(straddr));
 		sprintf(line, "Please log out user %s first or wait for session timeout(60 seconds).", straddr);
 		printf("resposne: %s \n", line);
@@ -519,18 +519,18 @@ handle_request(void)
 		return;
 	}
 
-	if ( (file[0] == '\0' || file[len-1] == '/')){
-		if (strlen(wan_if)>0 && !is_connected() && !is_firsttime() && http_port==server_port){
+	if ( (file[0] == '\0' || file[len-1] == '/')) {
+		if (strlen(wan_if)>0 && !is_connected() && !is_firsttime() && http_port==server_port) {
 			redirect=1;
 			file="WizardDetect.asp";
-		}else{
+		} else {
 			file = "index.asp";
 		}
 	}	
 
-	for (handler = &mime_handlers[0]; handler->pattern; handler++){
-		if (match(handler->pattern, file)){
-			if (handler->auth){
+	for (handler = &mime_handlers[0]; handler->pattern; handler++) {
+		if (match(handler->pattern, file)) {
+			if (handler->auth) {
 				handler->auth(auth_userid, auth_passwd, auth_realm);
 				if (!auth_check(auth_realm, authorization))
 					return;
@@ -538,11 +538,11 @@ handle_request(void)
 
 			if (!redirect) http_login(&login_ip_tmp);
 
-			if (strcasecmp(method, "post") == 0 && !handler->input){
+			if (strcasecmp(method, "post") == 0 && !handler->input) {
 				send_error(501, "Not Implemented", NULL, "That method is not implemented.");
 				return;
 			}
-			if (handler->input){
+			if (handler->input) {
 				handler->input(file, conn_fp, cl, boundary);
 #if defined(linux)
 				if ((flags = fcntl(fileno(conn_fp), F_GETFL)) != -1 &&
@@ -573,7 +573,7 @@ handle_request(void)
 	if (!handler->pattern) 
 		send_error( 404, "Not Found", (char*) 0, "File not found." );
 
-	if (strcmp(file, "Logout.asp")==0){
+	if (strcmp(file, "Logout.asp")==0) {
 		http_logout(&login_ip_tmp);
 	}	
 }
@@ -651,7 +651,7 @@ static void http_login_timeout(uaddr *ip)
 static void http_logout(uaddr *ip)
 {
 	if ((ip->len == login_ip.len) &&
-		(memcmp(&ip->addr, &login_ip.addr, ip->len) == 0)){
+		(memcmp(&ip->addr, &login_ip.addr, ip->len) == 0)) {
 
 			memcpy(&login_try, &login_ip, sizeof(uaddr));
 			memset(&login_ip, 0, sizeof(uaddr));
@@ -680,7 +680,7 @@ static int is_phyconnected(void)
 
 	strcpy(ifr.ifr_name, wan_if);
 	fd=socket(AF_INET, SOCK_DGRAM, 0);
-	if (fd<0){
+	if (fd<0) {
 		//printf("fd error\n");
 		return 0;
 	}
@@ -688,14 +688,14 @@ static int is_phyconnected(void)
 	ifr.ifr_data = (caddr_t)&ecmd;
 	err=ioctl(fd, SIOCETHTOOL, &ifr);
 	close(fd);
-	if (err==0){
+	if (err==0) {
 		//printf("ecmd: %d\n", ecmd.speed);
-		if (ecmd.speed==0){
+		if (ecmd.speed==0) {
 			nvram_set_x("", "wan_status_t", "Disconnected");
 			nvram_set_x("", "wan_reason_t", "Cable is not attached");
 		}			
 		return(ecmd.speed);
-	}else{
+	} else {
 		//printf("err error\n");
 		return 0;
 	}
@@ -711,9 +711,9 @@ static int is_connected(void)
 	/* if (!is_phyconnected()) return 0; */
 
 	/* check if connection static is CONNECTED */
-	if (strcmp(nvram_get_x("WANIPAddress", "wan_status_t"), "Disconnected")==0){
+	if (strcmp(nvram_get_x("WANIPAddress", "wan_status_t"), "Disconnected")==0) {
 		fp = fopen("/tmp/wanstatus.log", "r");
-		if (fp!=NULL){
+		if (fp!=NULL) {
 			fgets(line, sizeof(line), fp);
 			reason = strchr(line, ',');
 			if (reason!=NULL) nvram_set_x("", "wan_reason_t", reason+1);
@@ -774,7 +774,7 @@ int main(int argc, char **argv)
 		/* Daemonize and log PID */
 		//if (http_port==server_port)
 		//{
-		if (daemon(1, 1) == -1){
+		if (daemon(1, 1) == -1) {
 			perror("daemon");
 			exit(errno);
 		}

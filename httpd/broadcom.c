@@ -696,7 +696,7 @@ ej_nat_table(int eid, webs_t wp, int argc, char_t **argv)
 	if (netconf_get_nat(nat_list, &listlen) == 0 && needlen == listlen)
 	{
 		listlen = needlen/sizeof(netconf_nat_t);
-		for(i = 0; i < listlen; i++)
+		for (i = 0; i < listlen; i++)
 		{
 			//printf("%d %d %d\n", nat_list[i].target,
 		        //		nat_list[i].match.ipproto,
@@ -785,26 +785,26 @@ ej_route_table(int eid, webs_t wp, int argc, char_t **argv)
 
 	if (!(fp = fopen("/proc/net/route", "r"))) return 0;
 
-	while(fgets(buff, sizeof(buff), fp) != NULL ) 
+	while (fgets(buff, sizeof(buff), fp) != NULL ) 
 	{
-		if(nl) 
+		if (nl) 
 		{
 			int ifl = 0;
-			while(buff[ifl]!=' ' && buff[ifl]!='\t' && buff[ifl]!='\0')
+			while (buff[ifl]!=' ' && buff[ifl]!='\t' && buff[ifl]!='\0')
 				ifl++;
 			buff[ifl]=0;    /* interface */
-			if(sscanf(buff+ifl+1, "%lx%lx%d%d%d%d%lx",
+			if (sscanf(buff+ifl+1, "%lx%lx%d%d%d%d%lx",
 			   &d, &g, &flgs, &ref, &use, &metric, &m)!=7) {
 				//error_msg_and_die( "Unsuported kernel route format\n");
 				//continue;
 			}
 
 			ifl = 0;        /* parse flags */
-			if(flgs&1)
+			if (flgs&1)
 				flags[ifl++]='U';
-			if(flgs&2)
+			if (flgs&2)
 				flags[ifl++]='G';
-			if(flgs&4)
+			if (flgs&4)
 				flags[ifl++]='H';
 			flags[ifl]=0;
 			dest.s_addr = d;

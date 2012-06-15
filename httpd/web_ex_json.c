@@ -429,8 +429,8 @@ do_dump_file(char *filename, JData *data)
 	json_answer_add(buf_en, data);
 
 	fp = fopen(filename, "r");
-	if (fp != NULL){
-		while (fgets(buf, MAX_LINE_SIZE, fp) != NULL){
+	if (fp != NULL) {
+		while (fgets(buf, MAX_LINE_SIZE, fp) != NULL) {
 			buf_en[0] = '"';
 			encode_symbols(buf, buf_en + 1, sizeof(buf_en) - 3);
 			len = strlen(buf_en);
