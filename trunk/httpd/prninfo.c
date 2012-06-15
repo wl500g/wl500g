@@ -132,12 +132,12 @@ static void readLpdStatus(void)
     { 
             while ( fgets(buf, sizeof(buf), fp) != NULL )  
             {
-                if(buf[0] == '\n')
+                if (buf[0] == '\n')
                 {
                     continue;
                 }
 
-                if(strncmp(buf , ukeyword , strlen(ukeyword)) == 0)
+                if (strncmp(buf , ukeyword , strlen(ukeyword)) == 0)
                 {
                     token= buf + strlen(ukeyword);
 		    dprintf("User token %s", token);
@@ -145,7 +145,7 @@ static void readLpdStatus(void)
 		    deCR(token);
 		    strcpy(user, token);
                 }
-                else if(strncmp(buf , skeyword, strlen(skeyword)) == 0)
+                else if (strncmp(buf , skeyword, strlen(skeyword)) == 0)
                 {
                     token= buf + strlen(skeyword);
 		    dprintf("Status token %s", token);

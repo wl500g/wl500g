@@ -49,13 +49,13 @@ char *strtrim(char *str)
 
 	i=strlen(str)-1;
 
-	while(i>=0){
-		if (*(str+i)==13 || *(str+i)==10 || *(str+i)==' '){
+	while (i>=0) {
+		if (*(str+i)==13 || *(str+i)==10 || *(str+i)==' ') {
 			*(str+i)=0x0; 	 
-		}else if (*(str+i)=='"'){
+		} else if (*(str+i)=='"') {
 			*(str+i)=0x0;
 			break;
-		}else break;
+		} else break;
 		i--;
 	}
 
@@ -71,8 +71,8 @@ char *strtrim_c(char *str)
 
 	i=strlen(str)-1;
 
-	while(i>0){   
-		if (*(str+i)==';'){
+	while (i>0) {   
+		if (*(str+i)==';') {
 			*(str+i)=0x0;
 			break;
 		}
@@ -207,14 +207,14 @@ int nvram_add_list_x(const char *sid, const char *name, const char *value)
 	if ((flTemp=fopen("/tmp/temp.cfg","w+"))==NULL) return 1;
 
 	found = 0; 
-	while(fgets(buf, MAX_LINE_SIZE, fl)){
+	while (fgets(buf, MAX_LINE_SIZE, fl)) {
 		v = strchr(buf, '=');
 		if (v != NULL && ((sp = strchr(buf, ' ')) == NULL || (sp > v))) {
 			/* change the "name=val" string to "set name val" */
-			if (!strncmp(buf, name, strlen(name)) && buf[strlen(name)]=='='){
+			if (!strncmp(buf, name, strlen(name)) && buf[strlen(name)]=='=') {
 				found++;
-			}else if (found){	
-				if (value!=NULL){
+			} else if (found) {	
+				if (value!=NULL) {
 					sprintf(new_buf, "%s%d=\"%s\"\n", name, found-1, value);
 					fputs(new_buf, flTemp);
 				}
@@ -230,7 +230,7 @@ int nvram_add_list_x(const char *sid, const char *name, const char *value)
 	if ((fl=fopen(filename,"w+"))==NULL) return 1;
 	if ((flTemp=fopen("/tmp/temp.cfg","r+"))==NULL) return 1;
 
-	while(fgets(buf, MAX_LINE_SIZE, flTemp)){
+	while (fgets(buf, MAX_LINE_SIZE, flTemp)) {
 		fputs(buf, fl);
 	}
 	fclose(fl);
@@ -252,7 +252,7 @@ int nvram_add_lists_x(const char *sid, const char *name, const char *value, int 
 
 	findNVRAMName(sid, name, name1);
 
-	if (name[0]!='\0'){
+	if (name[0]!='\0') {
 		sprintf(name2, "%s%d", name1, count);
 		nvram_set(name2, value);
 	}
@@ -278,7 +278,7 @@ int nvram_add_lists_x(const char *sid, const char *name, const char *value, int 
 
 	found = 0;
 
-	while(fgets(buf, MAX_LINE_SIZE, fl)){
+	while (fgets(buf, MAX_LINE_SIZE, fl)) {
 		v = strchr(buf, '=');
 		if (v != NULL && ((sp = strchr(buf, ' ')) == NULL || (sp > v))) {
 			/* change the "name=val" string to "set name val" */
@@ -307,7 +307,7 @@ int nvram_add_lists_x(const char *sid, const char *name, const char *value, int 
 	if ((fl=fopen(filename,"w+"))==NULL) return 1;
 	if ((flTemp=fopen("/tmp/temp.cfg","r+"))==NULL) return 1;
 
-	while(fgets(buf, MAX_LINE_SIZE, flTemp)){
+	while (fgets(buf, MAX_LINE_SIZE, flTemp)) {
 		fputs(buf, fl);
 	}
 	fclose(fl);
@@ -332,11 +332,11 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 
 	findNVRAMName(sid, name, names);
 
-	if (names[0]!='\0'){	
+	if (names[0]!='\0') {	
 		oi=0;
 		ni=0;
 		di=0;
-		while(1){
+		while (1) {
 			sprintf(oname, "%s%d", names, oi);
 			sprintf(nname, "%s%d", names, ni);
 
@@ -346,10 +346,10 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 			if (oval==NULL) break;
 
 			printf("d: %d %d %d %d\n", oi, ni, di, delMap[di]);
-			if (delMap[di]!=-1&&delMap[di]==oi){
+			if (delMap[di]!=-1&&delMap[di]==oi) {
 				oi++;
 				di++;
-			}else{
+			} else {
 				nvram_set(nname, oval);
 				ni++;
 				oi++;
@@ -372,11 +372,11 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 
 	del = 0;
 
-	while(fgets(buf, MAX_LINE_SIZE, fl)){
+	while (fgets(buf, MAX_LINE_SIZE, fl)) {
 		v = strchr(buf, '=');
 		if (v != NULL && ((sp = strchr(buf, ' ')) == NULL || (sp > v))) {
 			/* change the "name=val" string to "set name val" */
-			if (!strncmp(buf, name, strlen(name)) && buf[strlen(name)]!='='){
+			if (!strncmp(buf, name, strlen(name)) && buf[strlen(name)]!='=') {
 				i = strlen(name);
 
 				if (buf[i]>='0' && buf[i]<='9')
@@ -384,7 +384,7 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 				else
 					continue;
 
-				if (buf[i+1]>='0' && buf[i+1]<='9'){
+				if (buf[i+1]>='0' && buf[i+1]<='9') {
 					found = found*10 + buf[i+1] - '0';
 
 					if (buf[i+2]>='0' && buf[i+2]<='9')
@@ -396,7 +396,7 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 
 				/*printf("Del : %d %d %d\n", del, delMap[del], found);	*/
 
-				if ( delMap[del]!=-1 && delMap[del]==found){
+				if ( delMap[del]!=-1 && delMap[del]==found) {
 					del++;
 					continue;
 				}
@@ -410,7 +410,7 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 				fputs(new_buf, flTemp);
 
 				count++;
-			}else{	
+			} else {	
 				fputs(buf,flTemp);
 			}
 		}
@@ -422,7 +422,7 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 	if ((fl=fopen(filename,"w+"))==NULL) return 1;
 	if ((flTemp=fopen("/tmp/temp.cfg","r+"))==NULL) return 1;
 
-	while(fgets(buf, MAX_LINE_SIZE, flTemp)){
+	while (fgets(buf, MAX_LINE_SIZE, flTemp)) {
 		fputs(buf, fl);
 	}
 	fclose(fl);

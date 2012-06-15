@@ -165,7 +165,7 @@ int LookupServiceId(char *serviceId)
 
 	sid = 0;
 
-	while(svcLinks[sid].serviceId!=NULL){      
+	while (svcLinks[sid].serviceId!=NULL) {      
 		if( strcmp(serviceId, svcLinks[sid].serviceId) == 0)
 			break;
 		sid ++;   
@@ -200,8 +200,8 @@ struct action *CheckActions(int sid, char *name)
 {
 	struct action *a;
 
-	for (a = GetActions(sid); a != NULL && a->name != NULL; a++){
-		if (strcmp(a->name, name)==0){
+	for (a = GetActions(sid); a != NULL && a->name != NULL; a++) {
+		if (strcmp(a->name, name)==0) {
 			return(a);
 		}
 	}
@@ -212,10 +212,10 @@ int CheckVariables(int sid, char *name, char *var)
 {
 	struct variable *v;
 
-	for (v = GetVariables(sid); v->name != NULL; v++){
+	for (v = GetVariables(sid); v->name != NULL; v++) {
 		syslog(LOG_INFO, "Check variables: %s %s\n", v->name, name);
-		if (strcmp(v->name, name)==0){
-			if (v->validate!=NULL){ 
+		if (strcmp(v->name, name)==0) {
+			if (v->validate!=NULL) { 
 				if ((v->validate(var, v))==UPNP_E_SUCCESS)
 					return 1;
 				else return 0;
@@ -231,8 +231,8 @@ struct variable *LookupGroupVariables(int sid, char *groupName)
 	struct variable *v;
 
 	/* Find group */
-	for (v = GetVariables(sid); v->name != NULL; v++){
-		if (strcmp(v->name, groupName)==0){
+	for (v = GetVariables(sid); v->name != NULL; v++) {
+		if (strcmp(v->name, groupName)==0) {
 			break;
 		}
 	}
@@ -247,8 +247,8 @@ int CheckGroupVariables(int sid, struct variable *gvs, char *name, char *var)
 	struct variable *gv;
 
 	/* Find member of group */
-	for (gv = (struct variable *)gvs->argv[0]; gv->name!=NULL; gv++){
-		if (strcmp(gv->name, name)==0){
+	for (gv = (struct variable *)gvs->argv[0]; gv->name!=NULL; gv++) {
+		if (strcmp(gv->name, name)==0) {
 			if (gv->validate!=NULL)	{ 
 				if ((gv->validate(var, gv))==UPNP_E_SUCCESS)
 					return 1;
@@ -265,12 +265,12 @@ char *GetVariable(int sid, char *name)
 	struct variable *v;
 	char buf[MAX_LINE_SIZE];
 
-	for (v = GetVariables(sid); v->name != NULL; v++){
-		if (strcmp(v->name, name)==0){
-			if (strcmp(v->longname, "Status")!=0){
+	for (v = GetVariables(sid); v->name != NULL; v++) {
+		if (strcmp(v->name, name)==0) {
+			if (strcmp(v->longname, "Status")!=0) {
 				/* syslog(LOG_INFO, "Get variables: %s %s\n", v->name, name, nvram_safe_get_x(svcLinks[sid].serviceId, name));	*/
 				return(nvram_safe_get_x(svcLinks[sid].serviceId, name));
-			}else{
+			} else {
 				strcpy(buf, nvram_safe_get_f(v->argv[0], v->argv[1]));
 				/*syslog(LOG_INFO, "Get variables from file: %s %s %s\n", v->argv[0], v->argv[1], buf);	      	    */
 				return(buf);
@@ -292,12 +292,12 @@ void SetGroupVariable(int sid, struct variable *gvs, char *name, char *value, ch
 	int i;
 	char buf[MAX_LINE_SIZE];
 
-	if (strcmp(action, "Add")==0){
+	if (strcmp(action, "Add")==0) {
 		nvram_add_list_x(svcLinks[sid].serviceId, name, value);
-	}else if (strcmp(action, "Del")==0){  
-		for (i=0; i< groupCount; i++){
+	} else if (strcmp(action, "Del")==0) {  
+		for (i=0; i< groupCount; i++) {
 			strcpy(buf, nvram_get_list_x(svcLinks[sid].serviceId, name, i+1));      
-			if (strcmp(buf,value)==0){
+			if (strcmp(buf,value)==0) {
 				syslog(LOG_INFO, "Del group variables: %d %d %s %s\n", i, groupCount, buf, value);      	    	      	                   	         	
 				nvram_del_list_x(svcLinks[sid].serviceId, name, i);  
 				break;
@@ -310,12 +310,12 @@ char *GetGroupVariable(int sid, struct variable *gvs, char *name)
 {
 	struct variable *gv;
 
-	for (gv = gvs->argv[0]; gv->name != NULL; gv++){      
-		if (strcmp(gv->name, name)==0){
-			if (strcmp(gv->longname, "Status")!=0){
+	for (gv = gvs->argv[0]; gv->name != NULL; gv++) {      
+		if (strcmp(gv->name, name)==0) {
+			if (strcmp(gv->longname, "Status")!=0) {
 				/*syslog(LOG_INFO, "Get group variables: %s %s\n", gv->name, name);		*/
 				return(nvram_safe_get_x(svcLinks[sid].serviceId, name));
-			}else{
+			} else {
 				/*syslog(LOG_INFO, "Get group variables from file: %s %s\n", gv->argv[0], gv->argv[1]);		*/
 				return(nvram_safe_get_f(gv->argv[0], gv->argv[1]));
 			}

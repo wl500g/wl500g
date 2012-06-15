@@ -117,13 +117,13 @@ static void readFromNvram()
 	/* GMODE */
 	strcpy(tmpstr, nvram_get("wl_gmode_x"));
 
-	if (strcmp(tmpstr, "1")==0){
+	if (strcmp(tmpstr, "1")==0) {
 		nvram_set("wl0_gmode", XSTR(GMODE_PERFORMANCE));
-	}else if (strcmp(tmpstr, "2")==0){
+	} else if (strcmp(tmpstr, "2")==0) {
 		nvram_set("wl0_gmode", XSTR(GMODE_LRS));
-	}else if (strcmp(tmpstr, "3")==0){
+	} else if (strcmp(tmpstr, "3")==0) {
 		nvram_set("wl0_gmode", XSTR(GMODE_B_DEFERRED));
-	}else{
+	} else {
 		nvram_set("wl0_gmode", XSTR(GMODE_AUTO));
 	}
 
@@ -135,36 +135,36 @@ static void readFromNvram()
 	strcpy(tmpstr, nvram_get("wl_authmode_x"));
 	strcpy(tmpstr1, nvram_get("wl_weptype_x"));
 
-	if (strcmp(tmpstr, "1")==0){ /* Shared */
+	if (strcmp(tmpstr, "1")==0) { /* Shared */
 		nvram_set("wl0_auth", "1");
 		nvram_set("wl0_auth_mode", "disabled");
 		nvram_set("wl0_wep", "wep");
-	}else if (strcmp(tmpstr, "2")==0){ /* WPA-PSK */
+	} else if (strcmp(tmpstr, "2")==0) { /* WPA-PSK */
 		nvram_set("wl0_auth", "0");
 		nvram_set("wl0_auth_mode", "psk");
 
-		if(strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "aes");
+		if (strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "aes");
 		else if (strcmp(tmpstr1, "2")==0) nvram_set("wl0_wep", "tkip+aes");
 		else nvram_set("wl0_wep", "tkip");
-	}else if (strcmp(tmpstr, "3")==0){ /* WPA */
+	} else if (strcmp(tmpstr, "3")==0) { /* WPA */
 		nvram_set("wl0_auth", "0");
 		nvram_set("wl0_auth_mode", "wpa");
 
-		if(strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "aes");
+		if (strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "aes");
 		else if (strcmp(tmpstr1, "2")==0) nvram_set("wl0_wep", "tkip+aes");
 		else nvram_set("wl0_wep", "tkip");
-	}else if (strcmp(tmpstr, "4")==0){ /* Radius */
+	} else if (strcmp(tmpstr, "4")==0) { /* Radius */
 		nvram_set("wl0_auth", "0");
 		nvram_set("wl0_auth_mode", "radius");
 
-		if(strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "wep");
+		if (strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "wep");
 		else if (strcmp(tmpstr1, "2")==0) nvram_set("wl0_wep", "wep");
 		else nvram_set("wl0_wep", "");
-	}else{ /* Open or Shared */
+	} else { /* Open or Shared */
 		nvram_set("wl0_auth", "0");
 		nvram_set("wl0_auth_mode", "disabled");
 
-		if(strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "wep");
+		if (strcmp(tmpstr1, "1")==0) nvram_set("wl0_wep", "wep");
 		else if (strcmp(tmpstr1, "2")==0) nvram_set("wl0_wep", "wep");
 		else nvram_set("wl0_wep", "");
 	}
@@ -177,11 +177,11 @@ static void readFromNvram()
 	if (nvram_match("wl_lazywds", "1")) nvram_set("wl0_lazywds", "1");
 	else nvram_set("wl0_lazywds", "0");
 
-	if (nvram_match("wl_wdsapply_x", "1")){
+	if (nvram_match("wl_wdsapply_x", "1")) {
 		num = atoi(nvram_get("wl_wdslist_num_x"));
 		list[0]=0;
 
-		for(i=0;i<num;i++){
+		for (i=0;i<num;i++) {
 			sprintf(list, "%s %s", list, mac_conv("wl_wdslist_x", i, macbuf));
 		}
 		nvram_set("wl0_maclist", list);
@@ -190,17 +190,17 @@ static void readFromNvram()
 	/* Mac filter */
 	strcpy(tmpstr, nvram_get("wl_macmode_x"));
 
-	if (strcmp(tmpstr, "Accept")==0){ /* allow */
+	if (strcmp(tmpstr, "Accept")==0) { /* allow */
 		nvram_set("wl0_macmode", "allow");
-	}else if (strcmp(tmpstr, "Deny")==0){ /* deny */
+	} else if (strcmp(tmpstr, "Deny")==0) { /* deny */
 		nvram_set("wl0_macmode", "deny");
 	}
 
-	if (!strcmp(tmpstr, "Disable")){
+	if (!strcmp(tmpstr, "Disable")) {
 		num = atoi(nvram_get("wl_maclist_num_x"));
 		list[0]=0;
 
-		for(i=0;i<num;i++){
+		for (i=0;i<num;i++) {
 			sprintf(list, "%s;%s", list, mac_conv("wl_maclist_x", i, macbuf));
 		}
 
@@ -238,17 +238,17 @@ void findNVRAMName(const char *serviceId, const char *field, char *name)
 
 	//printf("find : %s %s\n", serviceId, field);
 
-	while(maps[idx].sid!=NULL){
-		if( strcmp(serviceId, maps[idx].sid) == 0){
-			if(strcmp(field, maps[idx].fid) == 0) break;
-			//else if(strstr(field, maps[idx].fid)) break;
+	while (maps[idx].sid!=NULL) {
+		if( strcmp(serviceId, maps[idx].sid) == 0) {
+			if (strcmp(field, maps[idx].fid) == 0) break;
+			//else if (strstr(field, maps[idx].fid)) break;
 		}
 		idx ++;
 	} 
 
-	if (maps[idx].sid==NULL){
+	if (maps[idx].sid==NULL) {
 		strcpy(name, field);
-	}else{	 
+	} else {	 
 		sprintf(name, maps[idx].name);
 
 		//printf("nvram name: %s\n", name);
@@ -261,9 +261,9 @@ char *findpattern(char *target, char *pattern)
 	int len;
 
 	printf("find : %s %s\n", target, pattern);
-	if ((find=strstr(target, pattern))){
+	if ((find=strstr(target, pattern))) {
 		len = strlen(pattern);
-		if (find[len]==';' || find[len]==0){
+		if (find[len]==';' || find[len]==0) {
 			return find;
 		}
 	}
@@ -281,9 +281,9 @@ char *nvram_get_i(char *name, int idx)
 {
 	char tmpstr1[64];
 
-	if (idx!=-1){
+	if (idx!=-1) {
 		sprintf(tmpstr1, "%s%d", name, idx);
-	}else{
+	} else {
 		sprintf(tmpstr1, "%s", name); 
 	}
 	//printf("get : %s %s %s\n", tmpstr2, tmpstr1, name1);
@@ -299,7 +299,7 @@ char *mac_conv(char *mac_name, int idx, char *buf)
 	mac = nvram_get_i(mac_name, idx);
 
 	j=0;
-	for(i=0; i<12; i++){
+	for (i=0; i<12; i++) {
 		if (i!=0&&i%2==0) buf[j++] = ':';
 		buf[j++] = mac[i];
 	}
@@ -321,9 +321,9 @@ void nvram_set_i(char *name, int idx, char *value)
 {
 	char tmpstr1[64];
 
-	if (idx!=-1){
+	if (idx!=-1) {
 		sprintf(tmpstr1, "%s%d", name, idx);
-	}else{
+	} else {
 		sprintf(tmpstr1, "%s", name); 
 	}
 	//printf("get : %s %s %s\n", tmpstr2, tmpstr1, name1);
@@ -376,13 +376,13 @@ void getSharedEntry(int index)
 
 	acc_num = atoi(nvram_get("acc_num"));
 
-	for(i=0; i<acc_num; i++){
+	for (i=0; i<acc_num; i++) {
 		strcpy(username, nvram_get_i("acc_username", i));
 		ruser = findpattern(rright, username);
 		wuser = findpattern(wright, username);
 
-		if (ruser!=NULL || wuser!=NULL){
-			if (j<=6){
+		if (ruser!=NULL || wuser!=NULL) {
+			if (j<=6) {
 				sprintf(idxstr, "%d", i);
 				nvram_set_i("sh_accuser_x", j, idxstr);
 				if (ruser) nvram_set_i("sh_accuser_share_x", j, "on");
@@ -397,7 +397,7 @@ void getSharedEntry(int index)
 	sprintf(idxstr, "%d", j);
 	nvram_set("sh_accuser_x_num", idxstr);
 
-	for(;j<=6;j++)
+	for (;j<=6;j++)
 	{
 		nvram_set_i("sh_accuser_x", j, "99");
 		nvram_set_i("sh_accuser_share_x", j, "");
@@ -424,12 +424,12 @@ void setSharedEntry(int index)
 	memset(rright, 0, 128);
 	memset(wright, 0, 128);
 
-	for(i=0;i<=6;i++){
+	for (i=0;i<=6;i++) {
 		sprintf(idxstr, "%d", i);
 
-		if (i==0){
+		if (i==0) {
 			strcpy(user, "Guest");
-		}else{
+		} else {
 			strcpy(idxstr, nvram_get_i("sh_accuser_x", i));
 			if (strcmp(idxstr, "99") == 0) continue; 
 			strcpy(user, nvram_get(strcat_r("acc_username", idxstr, tmpstr)));
