@@ -37,36 +37,34 @@
 #define UPNP_E_SUCCESS 0
 #define UPNP_E_INVALID_ARGUMENT -1
 
-char *serviceId;
-
 
 static int
-validate_portrange(char *value, struct variable *v)
+validate_portrange(const char *value, const struct variable *v)
 {
 	return UPNP_E_SUCCESS;
 }
 
 static int
-validate_wlchannel(char *value, struct variable *v)
+validate_wlchannel(const char *value, const struct variable *v)
 {
 	return UPNP_E_SUCCESS;
 }
 
 static int
-validate_wlwep(char *value, struct variable *v)
+validate_wlwep(const char *value, const struct variable *v)
 {
 	return UPNP_E_SUCCESS;
 }
 
 static int
-validate_wlkey(char *value, struct variable *v)
+validate_wlkey(const char *value, const struct variable *v)
 {
 	return UPNP_E_SUCCESS;
 }
 
 
 static int
-validate_ipaddr(char *value, struct variable *v)
+validate_ipaddr(const char *value, const struct variable *v)
 {
 	struct in_addr ipaddr;
 
@@ -78,9 +76,9 @@ validate_ipaddr(char *value, struct variable *v)
 }
 
 static int
-validate_choice(char *value, struct variable *v)
+validate_choice(const char *value, const struct variable *v)
 {
-	char **choice;
+	const char **choice;
 
 	for (choice = v->argv; *choice; choice++) {
 		if (!strcmp(value, *choice))
@@ -91,7 +89,7 @@ validate_choice(char *value, struct variable *v)
 }
 
 static int
-validate_range(char *value, struct variable *v)
+validate_range(const char *value, const struct variable *v)
 {
 	int n, start, end;
 
@@ -108,7 +106,7 @@ validate_range(char *value, struct variable *v)
 
 
 static int
-validate_string(char *value, struct variable *v)
+validate_string(const char *value, const struct variable *v)
 {
 	int n, max;
 
@@ -123,13 +121,13 @@ validate_string(char *value, struct variable *v)
 }
 
 static int
-validate_group(char *value, struct variable *v)
+validate_group(const char *value, const struct variable *v)
 {
 	return(UPNP_E_SUCCESS);
 }
 
 static int
-validate_hwaddr(char *value, struct variable *v)
+validate_hwaddr(const char *value, const struct variable *v)
 {
 	unsigned int hwaddr[6];
 
@@ -153,52 +151,54 @@ validate_hwaddr(char *value, struct variable *v)
 
 #include "variables.c"
 
+#ifdef REMOVE_NVRAM
 void InitVariables(void)
 {
 	/*nvram_init("all");*/
 }
+#endif
 
 /* API export for UPnP function */
-int LookupServiceId(char *serviceId)
-{    	
-	int sid;
-
-	sid = 0;
+int LookupServiceId(const char *serviceId)
+{
+	int sid = 0;
 
 	while (svcLinks[sid].serviceId!=NULL) {      
 		if( strcmp(serviceId, svcLinks[sid].serviceId) == 0)
 			break;
-		sid ++;   
+		sid++;
 	} 
 
-	if (svcLinks[sid].serviceId==NULL)
-		return (-1);
-	else return (sid);
+	if (svcLinks[sid].serviceId == NULL)
+		return -1;
+	else
+		return sid;
 }   
 
-char *GetServiceId(int sid)
+const char *GetServiceId(int sid)
 {        
 	return (svcLinks[sid].serviceId);   
 } 
 
-struct variable *GetVariables(int sid)
+const struct variable *GetVariables(int sid)
 {        
 	return (svcLinks[sid].variables);   
 }
 
-struct action *GetActions(int sid)
+const struct action *GetActions(int sid)
 {        
 	return (svcLinks[sid].actions);   
 }
 
-char *GetServiceType(int sid)
+const char *GetServiceType(int sid)
 {
 	return (svcLinks[sid].serviceType);
 }
 
-struct action *CheckActions(int sid, char *name)
+#ifdef REMOVE_CHECK
+const struct action *CheckActions(int sid, char *name)
 {
-	struct action *a;
+	const struct action *a;
 
 	for (a = GetActions(sid); a != NULL && a->name != NULL; a++) {
 		if (strcmp(a->name, name)==0) {
@@ -210,13 +210,13 @@ struct action *CheckActions(int sid, char *name)
 
 int CheckVariables(int sid, char *name, char *var)
 {
-	struct variable *v;
+	const struct variable *v;
 
 	for (v = GetVariables(sid); v->name != NULL; v++) {
-		syslog(LOG_INFO, "Check variables: %s %s\n", v->name, name);
+		dprintf("Check variables: %s %s\n", v->name, name);
 		if (strcmp(v->name, name)==0) {
-			if (v->validate!=NULL) { 
-				if ((v->validate(var, v))==UPNP_E_SUCCESS)
+			if (v->validate != NULL) { 
+				if ((v->validate(var, v)) == UPNP_E_SUCCESS)
 					return 1;
 				else return 0;
 			}      
@@ -226,9 +226,9 @@ int CheckVariables(int sid, char *name, char *var)
 	return 0;
 }
 
-struct variable *LookupGroupVariables(int sid, char *groupName)
+const struct variable *LookupGroupVariables(int sid, char *groupName)
 {
-	struct variable *v;
+	const struct variable *v;
 
 	/* Find group */
 	for (v = GetVariables(sid); v->name != NULL; v++) {
@@ -244,7 +244,7 @@ struct variable *LookupGroupVariables(int sid, char *groupName)
 
 int CheckGroupVariables(int sid, struct variable *gvs, char *name, char *var)
 {  
-	struct variable *gv;
+	const struct variable *gv;
 
 	/* Find member of group */
 	for (gv = (struct variable *)gvs->argv[0]; gv->name!=NULL; gv++) {
@@ -258,11 +258,12 @@ int CheckGroupVariables(int sid, struct variable *gvs, char *name, char *var)
 	}
 	return 0;
 }
+#endif /* REMOVE_CHECK */
 
 #ifdef REMOVE_NVRAM
 char *GetVariable(int sid, char *name)
 {
-	struct variable *v;
+	const struct variable *v;
 	char buf[MAX_LINE_SIZE];
 
 	for (v = GetVariables(sid); v->name != NULL; v++) {
@@ -308,7 +309,7 @@ void SetGroupVariable(int sid, struct variable *gvs, char *name, char *value, ch
 
 char *GetGroupVariable(int sid, struct variable *gvs, char *name)
 {
-	struct variable *gv;
+	const struct variable *gv;
 
 	for (gv = gvs->argv[0]; gv->name != NULL; gv++) {      
 		if (strcmp(gv->name, name)==0) {
@@ -323,4 +324,4 @@ char *GetGroupVariable(int sid, struct variable *gvs, char *name)
 	}
 	return("");
 }
-#endif
+#endif /* REMOVE_NVRAM */

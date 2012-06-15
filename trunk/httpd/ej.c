@@ -65,7 +65,7 @@ call(char *func, FILE *stream)
 	char *args, *end, *next;
 	int argc;
 	char * argv[64];
-	struct ej_handler *handler;
+	const struct ej_handler *handler;
 
 	/* Parse out ( args ) */
 	if (!(args = strchr(func, '(')))
@@ -81,7 +81,7 @@ call(char *func, FILE *stream)
 	}
 
 	/* Call handler */
-	for (handler = &ej_handlers[0]; handler->pattern; handler++) {
+	for (handler = ej_handlers; handler->pattern; handler++) {
 		if (strncmp(handler->pattern, func, strlen(handler->pattern)) == 0)
 			handler->output(0, stream, argc, argv);
 	}

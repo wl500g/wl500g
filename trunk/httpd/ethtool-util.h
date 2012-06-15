@@ -9,4 +9,9 @@ typedef __uint32_t __u32;         /* ditto */
 typedef __uint16_t __u16;         /* ditto */
 typedef __uint8_t __u8;           /* ditto */
 #include <linux/ethtool.h>
+
+#ifndef SIOCETHTOOL
+#define SIOCETHTOOL 0x8946
 #endif
+
+#endif /* ETHTOOL_UTIL_H__ */

@@ -37,46 +37,13 @@
 #include <nvparse.h>
 #include <wlutils.h>
 
-extern char * rfctime(const time_t *timep);
-extern char * reltime(unsigned int seconds);
+extern char *reltime(unsigned int seconds);
 
 #define wan_prefix(unit, prefix)	snprintf(prefix, sizeof(prefix), "wan%d_", unit)
 
-/* For Backup/Restore settings */
-#define BACKUP_SETTING_FILENAME	"s5config.dat"
 
-/*
- * Country names and abbreviations from ISO 3166
- */
-typedef struct {
-	char *name;     /* Long name */
-	char *abbrev;   /* Abbreviation */
-} country_name_t;
-//country_name_t country_names[];     /* At end of this file */
-
-char ibuf2[WLC_IOCTL_MAXLEN];
-
-struct variable {
-	char *name;
-	char *longname;
-	void (*validate)(webs_t wp, char *value, struct variable *v);
-	char **argv;
-	int nullok;
-	int ezc_flags;
-};
-
-//struct variable variables[];
-extern struct nvram_tuple router_defaults[];
-
-#define ARGV(args...) ((char *[]) { args, NULL })
 #define XSTR(s) STR(s)
 #define STR(s) #s
-
-enum {
-	NOTHING,
-	REBOOT,
-	RESTART,
-};
 
 #define EZC_FLAGS_READ		0x0001
 #define EZC_FLAGS_WRITE		0x0002
@@ -540,14 +507,14 @@ int
 ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 {
 	int unit;
-	char tmp[100], prefix[] = "wlXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wlXXXXXXXXXX_")];
 	char *name;
 	struct maclist *auth, *assoc, *authorized;
 	int max_sta_count, maclist_size;
 	int i, j, val;
 	int ret = 0;
 	channel_info_t ci;
-	char chanspec[16] = "chanspec"; /* sizeof("255 + 255") */
+	char chanspec[16]; /* sizeof("255 + 255") */
 
 	if ((unit = atoi(nvram_safe_get("wl_unit"))) < 0)
 		return -1;
@@ -647,14 +614,14 @@ ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 		websWrite(wp, "%s ", ether_etoa((void *)&auth->ea[i], ea));
 
 		for (j = 0; j < assoc->count; j ++) {
-			if (!bcmp((void *)&auth->ea[i], (void *)&assoc->ea[j], ETHER_ADDR_LEN)) {
+			if (!memcmp((void *)&auth->ea[i], (void *)&assoc->ea[j], ETHER_ADDR_LEN)) {
 				websWrite(wp, " associated");
 				break;
 			}
 		}
 
 		for (j = 0; j < authorized->count; j ++) {
-			if (!bcmp((void *)&auth->ea[i], (void *)&authorized->ea[j], ETHER_ADDR_LEN)) {
+			if (!memcmp((void *)&auth->ea[i], (void *)&authorized->ea[j], ETHER_ADDR_LEN)) {
 				websWrite(wp, " authorized");
 				break;
 			}

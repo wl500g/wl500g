@@ -48,10 +48,10 @@ typedef struct json_data JData;
 
 // Available json commands. List at the end of file.
 struct json_command {
-	char *pattern;
+	const char *pattern;
 	void (*command)(char *args, JData *data);
 };
-struct json_command json_commands[];
+static const struct json_command json_commands[];
 
 // Forward declarations
 static void json_data_init(JData *data);
@@ -345,16 +345,16 @@ encode_symbols(char *str, char *res, size_t res_len)
 static void
 do_json_command(char *name, char *val, JData *data)
 {
-	struct json_command *handler;
+	const struct json_command *handler;
 
-	for (handler = &json_commands[0]; handler->pattern; handler++) {
+	for (handler = json_commands; handler->pattern; handler++) {
 		if (strncmp(handler->pattern, name, strlen(handler->pattern)) == 0)
 			handler->command(val, data);
 	}
 }
 
 //!!! temporary variable for data pointer story--------------------------------
-void *json_data_ptr = NULL;
+static void *json_data_ptr = NULL;
 
 // Write json answer to stream
 void
@@ -369,7 +369,7 @@ do_json_get(char *url, FILE *stream)
 // The query is a list of commands and treated by 'do_json_command'
 
 void
-do_json_set(char *url, FILE *stream, int len, char *boundary)
+do_json_set(const char *url, FILE *stream, int len, const char *boundary)
 {
 	unsigned char *buf;
 	size_t l;
@@ -444,6 +444,7 @@ do_dump_file(char *filename, JData *data)
 	strcpy(buf_en, "\"\"]");
 	json_answer_add(buf_en, data);
 }
+
 static void
 json_dump_file(char *params, JData *data)
 {
@@ -451,7 +452,6 @@ json_dump_file(char *params, JData *data)
 
 	sprintf(filename, "/tmp/%s", params);
 	do_dump_file(filename, data);
-	
 }
 
 // Get value of nvram variable
@@ -473,6 +473,7 @@ do_nvram_get(char *index, char *name, JData *data)
 	}
 
 }
+
 static void
 json_nvram_get(char *params, JData *data)
 {
@@ -481,7 +482,7 @@ json_nvram_get(char *params, JData *data)
 #endif
 
 // Json commands list
-struct json_command json_commands[] = {
+static const struct json_command json_commands[] = {
 #ifdef DEBUG
 	{"nvram_get",json_nvram_get},	// sample { "nvram_get" : ["var_name_1","var_name_2"] }
 	{"dump_file",json_dump_file},	// sample { "dump_file" : "../.version" }
@@ -491,4 +492,3 @@ struct json_command json_commands[] = {
 	{"sys_reboot",json_sys_reboot},	// sample { "sys_reboot" : "" } 
 	{ NULL, NULL }
 };
-

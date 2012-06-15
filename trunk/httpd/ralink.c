@@ -14,7 +14,6 @@
 #include <bcmnvram.h>
 #include <shutils.h>
 
-#define	MAXBUF		(8192)
 
 typedef unsigned char	UINT8;
 typedef unsigned short	UINT16;
@@ -120,9 +119,9 @@ int ej_wl_status_nobr(int eid, webs_t wp, int argc, char_t **argv)
 	char		*devname;
 	int		result;
 	int		cmd;
-	UINT8		buf[MAXBUF];
+	UINT8		buf[8192];
 	int unit;
-	char tmp[100], prefix[] = "wlXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wlXXXXXXXXXX_")];
 	char *name;
 	int i, ret = 0;
 	int channel;

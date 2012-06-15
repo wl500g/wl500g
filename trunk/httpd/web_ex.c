@@ -43,16 +43,15 @@
 #include "bcmnvram_f.h"
 #include "common.h"
 
-#define sys_forcereboot() kill(1, SIGABRT)
+#define sys_forcereboot()	kill(1, SIGABRT)
 
 
-#define sys_upgrade(image) eval("write", image, "linux")
-#define sys_upload(image) eval("nvram", "restore", image)
-#define sys_download(file) eval("nvram", "save", file)
-#define sys_restore(sid) eval("nvram_x","get",(sid))
-#define sys_commit(sid) (flashfs_commit(), nvram_commit())
-#define sys_default()   eval("erase", "nvram")
-#define sys_nvram_set(param) eval("nvram", "set", param)
+#define sys_upgrade(image)	eval("write", image, "linux")
+#define sys_upload(image)	eval("nvram", "restore", image)
+#define sys_download(file)	eval("nvram", "save", file)
+#define sys_restore(sid)	eval("nvram_x", "get", (sid))
+#define sys_commit(sid)		(flashfs_commit(), nvram_commit())
+#define sys_default()		eval("erase", "nvram")
 
 #define UPNP_E_SUCCESS 0
 #define UPNP_E_INVALID_ARGUMENT -1
@@ -77,48 +76,48 @@ static int ej_select_country(int eid, webs_t wp, int argc, char_t **argv);
 static int wl_channels_in_country(char *abbrev, int channels[]);
 static int wl_channels_in_country_asus(char *abbrev, int channels[]);
 
-extern char ibuf2[WLC_IOCTL_MAXLEN];
-
 #define ACTION_UPGRADE_OK   0
 #define ACTION_UPGRADE_FAIL 1
 
-int action;
+//static int action;
 
-char *serviceId;
 #define MAX_GROUP_ITEM 10
 #define MAX_GROUP_COUNT 300
 #define MAX_LINE_SIZE 1024
-char *groupItem[MAX_GROUP_ITEM];
-char urlcache[128];
-char *next_host;
-int delMap[MAX_GROUP_COUNT];
-char SystemCmd[128];
-char UserID[32]="";
-char UserPass[32]="";
-char ProductID[32]="";
+
+static char *serviceId;
+#ifdef REMOVE_WL600
+static char *groupItem[MAX_GROUP_ITEM];
+#endif
+static char urlcache[128];
+static char *next_host;
+static int delMap[MAX_GROUP_COUNT];
+static char SystemCmd[128];
+static char UserID[32]="";
+static char UserPass[32]="";
+static char ProductID[32]="";
 
 extern int redirect;
 
 
-char *
+static char *
 rfctime(const time_t *timep)
 {
-	static char s[201];
+	static char s[128];
 	struct tm tm;
 
 	setenv("TZ", nvram_safe_get_x("", "time_zone"), 1);
 	memcpy(&tm, localtime(timep), sizeof(struct tm));
-	strftime(s, 200, "%a, %d %b %Y %H:%M:%S %z", &tm);
+	strftime(s, sizeof(s)-1, "%a, %d %b %Y %H:%M:%S %z", &tm);
 	return s;
 }
 
 char *
 reltime(unsigned int seconds)
 {
-	static char s[] = "XXXXX days, XX hours, XX minutes, XX seconds";
+	static char s[sizeof("XXXXX days, XX hours, XX minutes, XX seconds")];
 	char *c = s;
 
-#if 1 //def SHOWALL
 	if (seconds > 60*60*24) {
 		c += sprintf(c, "%d days, ", seconds / (60*60*24));
 		seconds %= 60*60*24;
@@ -132,9 +131,6 @@ reltime(unsigned int seconds)
 		seconds %= 60;
 	}
 	c += sprintf(c, "%d seconds", seconds);
-#else
-	c += sprintf(c, "%d secs", seconds);
-#endif
 
 	return s;
 }
@@ -144,7 +140,7 @@ reltime(unsigned int seconds)
 *	Redirect the user to another webs page
 */
 
-void websRedirect(webs_t wp, char_t *url)
+static void websRedirect(webs_t wp, char_t *url)
 {
 	//printf("Redirect to : %s\n", url);
 	websWrite(wp, T("<html><head>\r\n"));
@@ -172,7 +168,7 @@ void websRedirect(webs_t wp, char_t *url)
 	websDone(wp, 200);
 }
 
-void sys_script(char *name)
+static void sys_script(char *name)
 {
 	char scmd[64];
 
@@ -246,7 +242,7 @@ void sys_script(char *name)
 *      19+x*4: Maximum Hardware Minor
 *      x= 0~3
 */
-char checkVersion(char *version, unsigned char major, unsigned char minor)
+static char checkVersion(char *version, unsigned char major, unsigned char minor)
 {
 #define VINT(ver) (((((ver)[0])&0xff)<<8)|(((ver)[1])&0xff))        
 	int i;
@@ -273,7 +269,7 @@ char checkVersion(char *version, unsigned char major, unsigned char minor)
 	else return 0;
 }
 
-void websScan(char_t *str)
+static void websScan(const char_t *str)
 {
 	unsigned int i, flag;
 	char_t *v1, *v2, *v3, *sp;
@@ -319,26 +315,24 @@ void websScan(char_t *str)
 }
 
 
-void websApply(webs_t wp, char_t *url)
+static void websApply(webs_t wp, char_t *url)
 {	
 	FILE *fp;
 	char buf[MAX_LINE_SIZE];
 
 	fp = fopen(url, "r");
+	if (fp == NULL) return;
 
-	if (fp==NULL) return;
-
-	while (fgets(buf, sizeof(buf), fp)) {
+	while (fgets(buf, sizeof(buf), fp))
 		websWrite(wp, buf);
-	} 
 
 	websDone(wp, 200);
 	fclose(fp);
 }
 
-int websWriteEscape(webs_t wp, char *buf)
+static int websWriteEscape(webs_t wp, char *buf)
 {
-	static char *escapes = "\"&'<>";
+	static const char *escapes = "\"&'<>";
 	char *c;
 	int ret = 0;
 
@@ -424,9 +418,9 @@ ej_nvram_double_match_x(int eid, webs_t wp, int argc, char_t **argv)
 		return -1;
 	}
 
-	if (nvram_match_x(sid, name, match) && nvram_match_x(sid2, name2, match2)) {
+	if (nvram_match_x(sid, name, match) &&
+	    nvram_match_x(sid2, name2, match2))
 		return websWrite(wp, output);
-	}
 
 	return 0;
 }
@@ -442,16 +436,15 @@ ej_nvram_match_both_x(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *sid, *name, *match, *output, *output_not;
 
-	if (ejArgs(argc, argv, "%s %s %s %s %s", &sid, &name, &match, &output, &output_not) < 5) {
+	if (ejArgs(argc, argv, "%s %s %s %s %s", &sid, &name, &match, &output, &output_not) < 5){
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
 
-	if (nvram_match_x(sid, name, match)) {
+	if (nvram_match_x(sid, name, match))
 		return websWrite(wp, output);
-	} else {
+	else
 		return websWrite(wp, output_not);
-	}
 }
 
 #ifdef REMOVE
@@ -490,15 +483,13 @@ ej_nvram_get_list_x(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *sid, *name;
 	int which;
-	int ret = 0;
 
 	if (ejArgs(argc, argv, "%s %s %d", &sid, &name, &which) < 3) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
 
-	ret += websWrite(wp, nvram_get_list_x(sid, name, which));
-	return ret;
+	return websWrite(wp, nvram_get_list_x(sid, name, which));
 }
 
 /*
@@ -511,15 +502,13 @@ static int
 ej_nvram_get_table_x(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *sid, *name;
-	int ret = 0;
 
 	if (ejArgs(argc, argv, "%s %s", &sid, &name) < 2) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
 
-	ret += nvram_generate_table(wp, sid, name);
-	return ret;
+	return nvram_generate_table(wp, sid, name);
 }
 
 /*
@@ -637,7 +626,6 @@ static int
 ej_uptime(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char buf[MAX_LINE_SIZE];
-	int ret;
 	char *str = file2str("/proc/uptime");
 	time_t tm;
 
@@ -650,8 +638,7 @@ ej_uptime(int eid, webs_t wp, int argc, char_t **argv)
 		sprintf(buf, "%s (%s since boot)", buf, reltime(up));
 	}
 
-	ret = websWrite(wp, buf);  
-	return ret;	    
+	return websWrite(wp, buf);
 }
 
 #ifdef REMOVE
@@ -756,7 +743,7 @@ struct lease_t {
 	char hostname[64];
 };
 
-int
+static int
 websWriteCh(webs_t wp, char *ch, int count)
 {
 	int i, ret;
@@ -906,20 +893,18 @@ static int dump_file(webs_t wp, char *filename)
 	//printf("dump: %s\n", filename);
 
 	fp = fopen(filename, "r");
-
 	if (fp==NULL) {
-		ret+=websWrite(wp, "%s", "");
-		return(ret);
+		ret += websWrite(wp, "%s", "");
+		return ret;
 	}
 
 	while (fgets(buf, MAX_LINE_SIZE, fp)!=NULL) {
 		//printf("Read time: %s\n", buf);
 		ret += websWrite(wp, "%s", buf);
 	}
-
 	fclose(fp);
 
-	return(ret);
+	return ret;
 }
 
 static int
@@ -1026,7 +1011,7 @@ ej_include(int eid, webs_t wp, int argc, char_t **argv)
 static void
 validate_cgi(webs_t wp, int sid, int groupFlag)
 {
-	struct variable *v;
+	const struct variable *v;
 	char *value;
 	char name[64];
 
@@ -1055,13 +1040,7 @@ static const char * const apply_footer =
 "</body>"
 ;
 
-enum {
-	NOTHING,
-	REBOOT,
-	RESTART,
-};
-
-char *svc_pop_list(char *value, char key)
+static char *svc_pop_list(char *value, char key)
 {    
 	char *v, *buf;
 	int i;
@@ -1544,11 +1523,11 @@ void nvram_apply_group_list(webs_t wp, struct variable *v)
 	}
 	return;
 }
-#endif
+#endif /* REMOVE_WL600 */
 
-void nvram_add_group_item(webs_t wp, struct variable *v, int sid)
+static void nvram_add_group_item(webs_t wp, const struct variable *v, int sid)
 {
-	struct variable *gv;
+	const struct variable *gv;
 	char *value;
 	char name[64], cstr[5];
 	int count;
@@ -1576,13 +1555,12 @@ void nvram_add_group_item(webs_t wp, struct variable *v, int sid)
 	count++;
 	sprintf(cstr, "%d", count);
 	nvram_set_x(serviceId, v->argv[3], cstr);
-	return;
 }
 
 
-void nvram_remove_group_item(webs_t wp, struct variable *v, int sid, int *delMap)
+static void nvram_remove_group_item(webs_t wp, const struct variable *v, int sid, int *delMap)
 {
-	struct variable *gv;
+	const struct variable *gv;
 	char cstr[5];
 	int i, count;
 
@@ -1595,13 +1573,12 @@ void nvram_remove_group_item(webs_t wp, struct variable *v, int sid, int *delMap
 		nvram_del_lists_x(serviceId, gv->name, delMap);
 	}
 
-	i=0;
-	while (delMap[i]!=-1) i++;
+	i = 0;
+	while (delMap[i] != -1) i++;
 
-	count-=i;
+	count -= i;
 	sprintf(cstr, "%d\n", count);
 	nvram_set_x(serviceId, v->argv[3], cstr);
-	return;
 }
 
 /* Rule for table: 
@@ -1610,27 +1587,24 @@ void nvram_remove_group_item(webs_t wp, struct variable *v, int sid, int *delMap
 */
 
 static int 
-nvram_add_group_table(webs_t wp, char *serviceId, struct variable *v, int count)
+nvram_add_group_table(webs_t wp, char *serviceId, const struct variable *v, int count)
 {
 	struct variable *gv;
 	char buf[MAX_LINE_SIZE+MAX_LINE_SIZE];
 	char bufs[MAX_LINE_SIZE+MAX_LINE_SIZE];    
 	int i, j, fieldLen, rowLen, fieldCount, value;
+	const char hard_space[] = "&nbsp;";
 
-
-	if (v->argv[0]==NULL) {
+	if (v->argv[0] == NULL)
 		return 0;
-	}
 
 	bufs[0] = 0x0;
 	rowLen = atoi(v->argv[2]);
 
-	if (count==-1) {
-		for (i=0;i<rowLen;i++) {
-			bufs[i] = ' ';
-		}
+	if (count == -1) {
+		memset(bufs, ' ', rowLen);
 		value = -1;
-		bufs[i] = 0x0;
+		bufs[rowLen] = 0x0;
 
 		goto ToHTML;
 	}
@@ -1675,13 +1649,10 @@ ToHTML:
 
 	for (i=0; i<strlen(bufs);i++) {
 		if (bufs[i] == ' ') {
-			buf[j++] = '&';
-			buf[j++] = 'n';
-			buf[j++] = 'b';
-			buf[j++] = 's';
-			buf[j++] = 'p';
-			buf[j++] = ';';
-		} else buf[j++] = bufs[i];
+			memcpy(&buf[j], hard_space, sizeof(hard_space)-1);
+			j += sizeof(hard_space)-1;
+		} else
+			buf[j++] = bufs[i];
 	}
 	buf[j] = 0x0;
 
@@ -1691,7 +1662,7 @@ ToHTML:
 static int
 apply_cgi_group(webs_t wp, int sid, struct variable *var, char *groupName, int flag)
 {
-	struct variable *v;
+	const struct variable *v;
 	int groupCount;
 
 
@@ -1728,7 +1699,7 @@ apply_cgi_group(webs_t wp, int sid, struct variable *var, char *groupName, int f
 static int
 nvram_generate_table(webs_t wp, char *serviceId, char *groupName)
 {	
-	struct variable *v;
+	const struct variable *v;
 	int i, groupCount, ret, r, sid;
 
 
@@ -1813,25 +1784,27 @@ do_apply_cgi(char *url, FILE *stream)
 }
 
 #ifdef HANDLE_POST
-static char post_buf[10000] = { 0 };
+static char post_buf[10000];
 #endif
 
 static void
-do_apply_cgi_post(char *url, FILE *stream, int len, char *boundary)
+do_apply_cgi_post(const char *url, FILE *stream, int len, const char *boundary)
 {
 	//printf("In : %s %s\n", url, boundary);
 #ifdef HANDLE_POST
 	if (!fgets(post_buf, MIN(len+1, sizeof(post_buf)), stream)) return;
 	len -= strlen(post_buf);
 	init_cgi(post_buf);
-	while (len--) (void) fgetc(stream);
+	while (len--)
+		fgetc(stream);
 #endif	
 }
 
 
 #if defined(linux)
-static int do_upload_file(char *upload_file, char *url, FILE *stream, int len,
-			  char *boundary_t, int (*validate)(FILE *fifo, int len));
+static int do_upload_file(const char *upload_file, const char *url,
+			 FILE *stream, int len, const char *boundary_t,
+			 int (*validate)(FILE *fifo, int len));
 
 static void
 do_webcam_cgi(char *url, FILE *stream)
@@ -1891,9 +1864,9 @@ static int chk_fw_image(FILE *fifo, int len)
 #endif
 
 static void
-do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
+do_upgrade_post(const char *url, FILE *stream, int len, const char *boundary)
 {
-	char upload_file[] = "/tmp/linux.trx";
+	const char upload_file[] = "/tmp/linux.trx";
 #ifdef FLASH_DIRECT
 	char *argv[] = {"write", upload_file, "linux", NULL};
 	pid_t pid;
@@ -1959,9 +1932,9 @@ static int chk_profile_hdr(FILE *fifo, int len)
 }
 
 static void
-do_upload_post(char *url, FILE *stream, int len, char *boundary)
+do_upload_post(const char *url, FILE *stream, int len, const char *boundary)
 {
-	char upload_file[]="/tmp/settings_u.prf";
+	const char upload_file[] = "/tmp/settings_u.prf";
 
 	if (do_upload_file(upload_file, url, stream, len, boundary, chk_profile_hdr) == 0)
 		eval("stopservice");
@@ -2000,8 +1973,9 @@ do_prf_file(char *url, FILE *stream)
 
 
 static int
-do_upload_file(	char *upload_file, char *url, FILE *stream, int len,
-		char *boundary_t, int (*validate)(FILE *fifo, int len))
+do_upload_file(const char *upload_file, const char *url, FILE *stream,
+		int len, const char *boundary_t,
+		int (*validate)(FILE *fifo, int len))
 {
 	FILE *fifo = NULL;
 	char buf[1024];
@@ -2064,13 +2038,13 @@ err:
 }
 
 static void
-do_uploadflashfs_post(char *url, FILE *stream, int len, char *boundary)
+do_uploadflashfs_post(const char *url, FILE *stream, int len, const char *boundary)
 {
-	char upload_file[]="/tmp/flash.tar.gz";
+	const char upload_file[] = "/tmp/flash.tar.gz";
 
 	do_upload_file(upload_file, url, stream, len, boundary, NULL);
 
-	if (eval("tar","ztf",upload_file) != 0)
+	if (eval("tar", "ztf", upload_file) != 0)
 		fcntl(fileno(stream), F_SETOWN, -EINVAL);
 }
 
@@ -2107,7 +2081,7 @@ do_flashfs_file(char *url, FILE *stream)
 #elif defined(vxworks)
 
 static void
-do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
+do_upgrade_post(const char *url, FILE *stream, int len, const char *boundary)
 {
 }
 
@@ -2116,9 +2090,9 @@ do_upgrade_cgi(char *url, FILE *stream)
 {
 }
 
-#endif
+#endif /* vxworks */
 
-static char no_cache[] =
+static const char no_cache[] =
 "Cache-Control: no-cache\r\n"
 "Pragma: no-cache\r\n"
 "Expires: 0"
@@ -2176,22 +2150,25 @@ do_cpustat(char *url, FILE *stream)
 static void
 do_fetchif(char *url, FILE *stream)
 {
+	FILE *in;
 	char line[256];
 	int i, llen;
 	char buffer[256];
 	char *path, *query;
-	query = url;
-	if (query == NULL || strlen(query) == 0) return;
-	path = strsep(&query, "?") ? : url;
 	int strbuffer = 0;
 	time_t tm;
 	struct tm tm_time;
+
+	query = url;
+	if (query == NULL || strlen(query) == 0) return;
+	path = strsep(&query, "?") ? : url;
 	time(&tm);
 	memcpy(&tm_time, localtime(&tm), sizeof(tm_time));
-	strftime(buffer, 200, "%a %b %e %H:%M:%S %Z %Y", &tm_time);
+	strftime(buffer, sizeof(buffer)-1, "%a %b %e %H:%M:%S %Z %Y", &tm_time);
 	strbuffer = strlen(buffer);
 	buffer[strbuffer++] = '\n';
-	FILE *in = fopen("/proc/net/dev", "rb");
+
+	in = fopen("/proc/net/dev", "rb");
 	if (in == NULL) return;
 	while (fgets(line, sizeof(line), in) != NULL) {
 		if (!strchr(line, ':'))
@@ -2218,7 +2195,7 @@ do_svgfile(char *url, FILE *stream)
 	do_file(path, stream);
 }
 
-struct mime_handler mime_handlers[] = {
+const struct mime_handler mime_handlers[] = {
 #ifdef USE_JSON
 	{ "**.asp", "text/html", no_cache, NULL, do_ej_ex, do_auth },
 #else
@@ -2252,7 +2229,7 @@ struct mime_handler mime_handlers[] = {
 };
 
 
-struct ej_handler ej_handlers[] = {
+const struct ej_handler ej_handlers[] = {
 #ifdef USE_JSON
 	{ "nvram_get_json", ej_nvram_get_json },
 	{ "nvram_get_n_json", ej_nvram_get_n_json },
@@ -2277,6 +2254,7 @@ struct ej_handler ej_handlers[] = {
 };
 
 
+#ifdef REMOVE
 void websSetVer(void)
 {
 	char productid[13];
@@ -2287,6 +2265,7 @@ void websSetVer(void)
 	nvram_set_f("general.log", "productid", productid);
 	nvram_set_f("general.log", "firmver", fwver);	
 }
+#endif
 
 /*
 * Country names and abbreviations from ISO 3166
@@ -2295,13 +2274,12 @@ typedef struct {
 	char *name;     /* Long name */
 	char *abbrev;   /* Abbreviation */
 } country_name_t;
-country_name_t country_names[];     /* At end of this file */
 
 
 /*
 * Country names and abbreviations from ISO 3166
 */
-country_name_t country_names[] = {
+static const country_name_t country_names[] = {
 
 	{"AFGHANISTAN",		 "AF"},
 	{"ALBANIA",		 "AL"},
@@ -2550,7 +2528,7 @@ static int
 ej_select_country(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *country, *sid;	
-	country_name_t *cntry;
+	const country_name_t *cntry;
 	int ret=0;
 
 	if (ejArgs(argc, argv, "%s", &sid) < 1) {
@@ -2594,23 +2572,23 @@ wl_channels_in_country_asus(char *abbrev, int channels[])
 static int
 wl_channels_in_country(char *abbrev, int channels[])
 {
+	char ibuf2[WLC_IOCTL_MEDLEN];
 	int i, j, unit;
 	wl_channels_in_country_t *cic = (wl_channels_in_country_t *)ibuf2;
-	char tmp[100], prefix[] = "wlXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wlXXXXXXXXXX_")];
 	char *name;
 
 	if ((unit = atoi(nvram_safe_get_x("", "wl_unit"))) < 0)
 		return -1;
 
+	if (strlen(abbrev)==0) return 0;
+
 	snprintf(prefix, sizeof(prefix), "wl%d_", unit);
 	name = nvram_safe_get_x("", strcat_r(prefix, "ifname", tmp));
-
 
 	i = 0;
 	channels[i++] = 0;
 	channels[i] = -1;
-
-	if (strlen(abbrev)==0) return 0;
 
 	cic->buflen = sizeof(ibuf2);
 	strcpy(cic->country_abbrev, abbrev);

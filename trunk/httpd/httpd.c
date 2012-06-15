@@ -65,9 +65,6 @@ extern char *strsep(char **stringp, char *delim);
 // Added by Joey for ethtool
 #include <net/if.h>
 #include "ethtool-util.h"
-#ifndef SIOCETHTOOL
-#define SIOCETHTOOL 0x8946
-#endif
 
 #define SERVER_NAME "httpd"
 #define SERVER_PORT 80
@@ -120,10 +117,10 @@ static char auth_realm[AUTH_MAX];
 
 /* Forwards. */
 static int initialize_listen_socket( usockaddr* usaP );
-static int auth_check( char* dirname, char* authorization );
-static void send_authenticate( char* realm );
+static int auth_check(const char *dirname, char *authorization);
+static void send_authenticate(const char *realm);
 static void send_error( int status, char* title, char* extra_header, char* text );
-static void send_headers( int status, char* title, char* extra_header, char* mime_type );
+static void send_headers(int status, const char *title, const char *extra_header, const char *mime_type);
 static int b64_decode( const char* str, unsigned char* space, int size );
 static int match(const char* pattern, const char* string);
 static int match_one( const char* pattern, int patternlen, const char* string );
@@ -138,15 +135,15 @@ static void http_login_timeout(uaddr *ip);
 
 /* added by Joey */
 int redirect = 1;
-char wan_if[16];
-int http_port = SERVER_PORT;
+static char wan_if[16];
+static int http_port = SERVER_PORT;
 static int server_port = SERVER_PORT; /* Port for SERVER USER interface */
 
 /* Added by Joey for handle one people at the same time */
-uaddr login_ip;
-uaddr login_ip_tmp;
-uaddr login_try;
-time_t login_timestamp = 0;
+static uaddr login_ip;
+static uaddr login_ip_tmp;
+static uaddr login_try;
+static time_t login_timestamp = 0;
 
 static int
 initialize_listen_socket( usockaddr* usaP )
@@ -192,7 +189,7 @@ initialize_listen_socket( usockaddr* usaP )
 
 
 static int
-auth_check( char* dirname, char* authorization )
+auth_check(const char *dirname, char *authorization )
 {
 	char authinfo[500];
 	char* authpass;
@@ -244,12 +241,12 @@ auth_check( char* dirname, char* authorization )
 
 
 static void
-send_authenticate( char* realm )
+send_authenticate(const char *realm)
 {
-	char header[10000];
+	char header[4000];
 
-	(void) snprintf(
-		header, sizeof(header), "WWW-Authenticate: Basic realm=\"%s\"", realm );
+	snprintf(header, sizeof(header),
+		 "WWW-Authenticate: Basic realm=\"%s\"", realm );
 	send_error( 401, "Unauthorized", header, "Authorization required." );
 }
 
@@ -258,15 +255,16 @@ static void
 send_error( int status, char* title, char* extra_header, char* text )
 {
 	send_headers( status, title, extra_header, "text/html" );
-	(void) fprintf( conn_fp, "<HTML><HEAD><TITLE>%d %s</TITLE></HEAD>\n<BODY BGCOLOR=\"#cc9999\"><H4>%d %s</H4>\n", status, title, status, title );
-	(void) fprintf( conn_fp, "%s\n", text );
-	(void) fprintf( conn_fp, "</BODY></HTML>\n" );
-	(void) fflush( conn_fp );
+	fprintf( conn_fp, "<HTML><HEAD><TITLE>%d %s</TITLE></HEAD>\n<BODY BGCOLOR=\"#cc9999\"><H4>%d %s</H4>\n",
+		 status, title, status, title );
+	fprintf( conn_fp, "%s\n", text );
+	fprintf( conn_fp, "</BODY></HTML>\n" );
+	fflush( conn_fp );
 }
 
 
 static void
-send_headers( int status, char* title, char* extra_header, char* mime_type )
+send_headers(int status, const char *title, const char *extra_header, const char *mime_type)
 {
 	time_t now;
 	char timebuf[100];
@@ -296,7 +294,7 @@ send_headers( int status, char* title, char* extra_header, char* mime_type )
 ** Then the 6-bit values are represented using the characters "A-Za-z0-9+/".
 */
 
-static int b64_decode_table[256] = {
+static const int b64_decode_table[256] = {
 	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,  /* 00-0F */
 	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,  /* 10-1F */
 	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,62,-1,-1,-1,63,  /* 20-2F */
@@ -437,7 +435,7 @@ handle_request(void)
 	char *cp;
 	char *file;
 	int len;
-	struct mime_handler *handler;
+	const struct mime_handler *handler;
 	int cl = 0, flags;
 #ifndef __CONFIG_IPV6__
 	char straddr[INET_ADDRSTRLEN+1];
@@ -528,7 +526,7 @@ handle_request(void)
 		}
 	}	
 
-	for (handler = &mime_handlers[0]; handler->pattern; handler++) {
+	for (handler = mime_handlers; handler->pattern; handler++){
 		if (match(handler->pattern, file)) {
 			if (handler->auth) {
 				handler->auth(auth_userid, auth_passwd, auth_realm);

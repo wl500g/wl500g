@@ -20,14 +20,14 @@ extern int is_auth(void);
 
 /* Generic MIME type handler */
 struct mime_handler {
-	char *pattern;
-	char *mime_type;
-	char *extra_header;
-	void (*input)(char *path, FILE *stream, int len, char *boundary);
+	const char *pattern;
+	const char *mime_type;
+	const char *extra_header;
+	void (*input)(const char *path, FILE *stream, int len, const char *boundary);
 	void (*output)(char *path, FILE *stream);
 	void (*auth)(char *userid, char *passwd, char *realm);
 };
-extern struct mime_handler mime_handlers[];
+extern const struct mime_handler mime_handlers[];
 
 /* CGI helper functions */
 extern void init_cgi(char *query);
@@ -94,10 +94,10 @@ extern int ejArgs(int argc, char_t **argv, char_t *fmt, ...);
 /* GoAhead 2.1 Embedded JavaScript compatibility */
 extern void do_ej(char *path, FILE *stream);
 struct ej_handler {
-	char *pattern;
+	const char *pattern;
 	int (*output)(int eid, webs_t wp, int argc, char_t **argv);
 };
-extern struct ej_handler ej_handlers[];
+extern const struct ej_handler ej_handlers[];
 
 extern int ej_lan_leases(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_nat_table(int eid, webs_t wp, int argc, char_t **argv);
@@ -124,7 +124,7 @@ extern int tar_fgetc(FILE *fp);
 #ifdef USE_JSON
 extern int js0n(unsigned char *js, unsigned int len, unsigned short *out);
 extern void do_json_get(char *url, FILE *stream);
-extern void do_json_set(char *url, FILE *stream, int len, char *boundary);
+extern void do_json_set(const char *url, FILE *stream, int len, const char *boundary);
 extern void do_ej_ex(char *path, FILE *stream);
 extern int ej_nvram_get_json(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_nvram_get_n_json(int eid, webs_t wp, int argc, char_t **argv);
