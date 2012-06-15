@@ -15,7 +15,7 @@ CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinu
 CFLAGS	+= -g -O2 $(EXTRACFLAGS)
 LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
 
-OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o prninfo.o
+OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o prninfo.o
 
 ifneq ($(USE_JSON),)
 OBJS += json.o web_ex_json.o

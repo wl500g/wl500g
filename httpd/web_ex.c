@@ -922,12 +922,8 @@ ej_dump(int eid, webs_t wp, int argc, char_t **argv)
 	// run scrip first to update some status
 	if (strcmp(script,"")!=0) sys_script(script); 
 
-	if (strcmp(file, "wlan11b.log")==0) {
-		if (nvram_match_x("", "nobr", "1"))
-			return ej_wl_status_nobr(eid, wp, 0, NULL);
-		else
-			return ej_wl_status(eid, wp, 0, NULL);
-	}
+	if (strcmp(file, "wlan11b.log")==0)
+		return ej_wl_status(eid, wp, 0, NULL);
 	else if (strcmp(file, "leases.log")==0) 
 		return ej_lan_leases(eid, wp, 0, NULL);
 	else if (strcmp(file, "iptable.log")==0) 
