@@ -107,16 +107,6 @@ extern int ej_wl_status(int eid, webs_t wp, int argc, char_t **argv);
 extern int sys_renew(void);
 extern int sys_release(void);
 
-#ifdef vxworks
-#define fopen(path, mode)	tar_fopen((path), (mode))
-#define fclose(fp)		tar_fclose((fp))
-#undef getc
-#define getc(fp)		tar_fgetc((fp))
-extern FILE * tar_fopen(const char *path, const char *mode);
-extern void tar_fclose(FILE *fp);
-extern int tar_fgetc(FILE *fp);
-#endif
-
 #define sys_restart() kill(1, SIGHUP)
 #define sys_reboot() kill(1, SIGTERM)
 

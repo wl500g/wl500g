@@ -60,66 +60,6 @@ char *strtrim(char *str)
 	return (str);
 }
 
-#ifdef REMOVE
-char *strtrim_c(char *str)
-{
-	int i;
-
-	return(str);
-
-	i=strlen(str)-1;
-
-	while (i>0) {   
-		if (*(str+i)==';') {
-			*(str+i)=0x0;
-			break;
-		}
-		i--;
-	}
-	return (str);
-}
-
-int nvram_set_item(EnvRec *env, char *name, char *value)
-{
-	if (env->name) free(env->name);
-	if (env->value) free(env->value);
-
-	env->name = (char*)malloc(strlen(name)+1);
-	if (!env->name) goto err;
-	strcpy(env->name, name);
-	env->value = (char*)malloc(strlen(value)+1);
-	if (!env->value) goto err;
-	strcpy(env->value, value);
-	return (1);
-err:
-	if (env->name) free(env->name);
-	if (env->value) free(env->value);
-	return (0);
-}
-
-int nvram_add_item(EnvRec *env, char *name, char *value)
-{
-	EnvRec *orig;
-
-	if (env->next!=NULL) orig = env->next;
-	else orig = NULL;	
-	env->next = (EnvRec*)malloc(sizeof(EnvRec));
-	if (!env->next) return(0);
-	env->next->name = NULL;
-	env->next->value = NULL;
-	if (nvram_set_item(env->next, name, value)==0) goto err;
-
-	env->next->next = orig;
-
-	return(1);
-
-err:
-	if (env->next) free(env->next);
-	if (orig) env->next = orig;
-	return(0);
-}
-#endif	// REMOVE
-
 extern void findNVRAMName(const char *serviceId, const char *field, char *name);
 
 /*

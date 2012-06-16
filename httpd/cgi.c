@@ -23,15 +23,9 @@
 #define assert(a)
 #endif
 
-#if defined(linux)
 /* Use SVID search */
 #define __USE_GNU
 #include <search.h>
-#elif defined(vxworks)
-/* Use vxsearch */
-#include <vxsearch.h>
-extern char *strsep(char **stringp, char *delim);
-#endif
 
 /* CGI hash table */
 static struct hsearch_data htab;
