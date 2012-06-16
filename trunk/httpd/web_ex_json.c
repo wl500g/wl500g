@@ -104,7 +104,7 @@ ej_nvram_get_json(int eid, webs_t wp, int argc, char_t **argv)
 	
 	json_data_init(&res);
 	for (arg = 1; arg < argc; arg++) {
-		json_answer_add_pair(argv[arg], nvram_safe_get_x(argv[0], argv[arg]), &res);
+		json_answer_add_pair(argv[arg], nvram_safe_get(argv[arg]), &res);
 	}
 	json_answer_write(wp, 0, &res);
 	return 1;
@@ -141,7 +141,7 @@ ej_nvram_get_n_json(int eid, webs_t wp, int argc, char_t **argv)
 		return -1;
 	}
 	strcat(tmp, argv[2]);
-	unit = nvram_safe_get_x(argv[0], tmp);
+	unit = nvram_safe_get(tmp);
 
 	strncpy(tmp, argv[1], sizeof(tmp));
 	if (strlen(tmp) + strlen(unit) > (sizeof(tmp) - 1)) {
@@ -155,7 +155,7 @@ ej_nvram_get_n_json(int eid, webs_t wp, int argc, char_t **argv)
 	json_data_init(&res);
 	for (arg = 3; arg < argc; arg++) {
 		strncpy(cp, argv[arg], sizeof(tmp) - len);
-		json_answer_add_pair(tmp, nvram_safe_get_x(argv[0], tmp), &res);
+		json_answer_add_pair(tmp, nvram_safe_get(tmp), &res);
 	}
 	json_answer_write(wp, 0, &res);
 	return 1;

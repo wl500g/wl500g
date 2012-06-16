@@ -103,7 +103,7 @@ rfctime(const time_t *timep)
 	static char s[128];
 	struct tm tm;
 
-	setenv("TZ", nvram_safe_get_x("", "time_zone"), 1);
+	setenv("TZ", nvram_safe_get("time_zone"), 1);
 	memcpy(&tm, localtime(timep), sizeof(struct tm));
 	strftime(s, sizeof(s)-1, "%a, %d %b %Y %H:%M:%S %z", &tm);
 	return s;
@@ -358,26 +358,7 @@ ej_nvram_get_x(int eid, webs_t wp, int argc, char_t **argv)
 		return -1;
 	}
 
-	return websWriteEscape(wp, nvram_safe_get_x(sid, name));
-}
-
-/*
-* Example: 
-* lan_ipaddr=192.168.1.1
-* <% nvram_get_x("lan_ipaddr"); %> produces "192.168.1.1"
-* <% nvram_get_x("undefined"); %> produces ""
-*/
-static int
-ej_nvram_get_f(int eid, webs_t wp, int argc, char_t **argv)
-{
-	char *file, *field;
-
-	if (ejArgs(argc, argv, "%s %s", &file, &field) < 2) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	return websWriteEscape(wp, nvram_safe_get_f(file, field));
+	return websWriteEscape(wp, nvram_safe_get(name));
 }
 
 /*
@@ -396,7 +377,7 @@ ej_nvram_match_x(int eid, webs_t wp, int argc, char_t **argv)
 		return -1;
 	}
 
-	if (nvram_match_x(sid, name, match))
+	if (nvram_match(name, match))
 	{
 		return websWrite(wp, output);
 	}	
@@ -415,8 +396,8 @@ ej_nvram_double_match_x(int eid, webs_t wp, int argc, char_t **argv)
 		return -1;
 	}
 
-	if (nvram_match_x(sid, name, match) &&
-	    nvram_match_x(sid2, name2, match2))
+	if (nvram_match(name, match) &&
+	    nvram_match(name2, match2))
 		return websWrite(wp, output);
 
 	return 0;
@@ -438,7 +419,7 @@ ej_nvram_match_both_x(int eid, webs_t wp, int argc, char_t **argv)
 		return -1;
 	}
 
-	if (nvram_match_x(sid, name, match))
+	if (nvram_match(name, match))
 		return websWrite(wp, output);
 	else
 		return websWrite(wp, output_not);
@@ -544,10 +525,10 @@ ej_select_channel(int eid, webs_t wp, int argc, char_t **argv)
 		return -1;
 	}
 
-	channel=atoi(nvram_safe_get_x("", "wl_channel"));
+	channel=atoi(nvram_safe_get("wl_channel"));
 
-	if (!wl_channels_in_country(nvram_safe_get_x("", "wl_country_code"), channels)) {
-		wl_channels_in_country_asus(nvram_safe_get_x("", "wl_country_code"), channels);
+	if (!wl_channels_in_country(nvram_safe_get("wl_country_code"), channels)) {
+		wl_channels_in_country_asus(nvram_safe_get("wl_country_code"), channels);
 	}
 
 	i = 0;
@@ -580,8 +561,8 @@ ej_urlcache(int eid, webs_t wp, int argc, char_t **argv)
 
 	dprintf("Url:%s %d\n", urlcache, flag);
 
-	if (strcmp(nvram_safe_get_x("IPConnection","wan_route_x"), "IP_Routed")==0) {
-		if (strcmp(nvram_safe_get_x("IPConnection", "wan_nat_x"), "1")==0) {
+	if (nvram_match("wan_route_x", "IP_Routed")) {
+		if (nvram_match("wan_nat_x", "1")) {
 			/* disable to redirect page */
 			if (redirect) {
 				websWrite(wp, "Basic_GOperation_Content.asp");
@@ -921,7 +902,7 @@ validate_cgi(webs_t wp, int sid, int groupFlag)
 
 		if ((value = websGetVar(wp, name, NULL))) {
 			if (strcmp(v->longname, "Group") != 0)	// Non-group
-				nvram_set_x(NULL, v->name, value);
+				nvram_set(v->name, value);
 		}
 	}
 }
@@ -1082,7 +1063,7 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 		/*action = ACTION_SAVE_RESTART;*/
 		/*websRedirect(wp, "Restarting.asp");*/
 		websApply(wp, "Restarting.asp");
-		nvram_set_f("General", "x_Setting", "1");
+		nvram_set("x_Setting", "1");
 		sys_commit(NULL);
 		//sys_script("bcm_set");
 		//system("/web/script/eject-usb.sh");
@@ -1371,25 +1352,23 @@ static void nvram_add_group_item(webs_t wp, const struct variable *v, int sid)
 		return;
 	}
 
-	count = atoi(nvram_safe_get_x(serviceId, v->argv[3]));
+	count = atoi(nvram_safe_get(v->argv[3]));
 	dprintf("Grp count: %d\n", count);
 
 	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
 		sprintf(name, "%s_0", gv->name);
 
 		if ((value=websGetVar(wp, name, NULL))) {
-			/*SetGroupVariable(sid, v, gv->name, value, "Add");*/
 			nvram_add_lists_x(serviceId, gv->name, value, count);
 			dprintf("Grp add: %s %s\n", gv->name, value);
 		} else {
-			/*SetGroupVariable(sid, v, gv->name, "", "Add");  */
 			nvram_add_lists_x(serviceId, gv->name, "", count);             
 		}
 	}
 
 	count++;
 	sprintf(cstr, "%d", count);
-	nvram_set_x(serviceId, v->argv[3], cstr);
+	nvram_set(v->argv[3], cstr);
 }
 
 
@@ -1403,7 +1382,7 @@ static void nvram_remove_group_item(webs_t wp, const struct variable *v, int sid
 		return;
 	}
 
-	count = atoi(nvram_safe_get_x(serviceId, v->argv[3]));
+	count = atoi(nvram_safe_get(v->argv[3]));
 	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
 		nvram_del_lists_x(serviceId, gv->name, delMap);
 	}
@@ -1413,7 +1392,7 @@ static void nvram_remove_group_item(webs_t wp, const struct variable *v, int sid
 
 	count -= i;
 	sprintf(cstr, "%d\n", count);
-	nvram_set_x(serviceId, v->argv[3], cstr);
+	nvram_set(v->argv[3], cstr);
 }
 
 /* Rule for table: 
@@ -1490,7 +1469,7 @@ apply_cgi_group(webs_t wp, int sid, const char *groupName, int flag)
 	const struct variable *v;
 	int groupCount;
 
-	dprintf("This group '%s' limit is %d %d\n", groupName, flag, sid);
+	dprintf("This group '%s' limit is %d (sid=%d)\n", groupName, flag, sid);
 
 	/* Find group */
 	for (v = GetVariables(sid); v->name != NULL; v++) {
@@ -1533,7 +1512,7 @@ nvram_generate_table(webs_t wp, const char *serviceId, const char *groupName)
 	if (v->name == NULL)
 		return 0;
 
-	groupCount = atoi(nvram_safe_get_x(serviceId, v->argv[3]));
+	groupCount = atoi(nvram_safe_get(v->argv[3]));
 
 	if (groupCount==0)
 		ret = nvram_add_group_table(wp, serviceId, v, -1);
@@ -1559,13 +1538,13 @@ do_auth(char *userid, char *passwd, char *realm)
 	//	time_t tm;
 
 	if (strcmp(ProductID,"")==0) {
-		strncpy(ProductID, nvram_safe_get_x("general.log", "productid"), 32);
+		strncpy(ProductID, nvram_safe_get("productid"), 32);
 	}
 	if (strcmp(UserID,"")==0) {
-		strncpy(UserID, nvram_safe_get_x("General","http_username"), 32);
+		strncpy(UserID, nvram_safe_get("http_username"), 32);
 	}
 	if (strcmp(UserPass,"")==0) {
-		strncpy(UserPass, nvram_safe_get_x("General","http_passwd"), 32);
+		strncpy(UserPass, nvram_safe_get("http_passwd"), 32);
 	}
 	//time(&tm);
 	//printf("do_auth %s\n", rfctime(&tm));
@@ -1636,8 +1615,8 @@ do_webcam_cgi(char *url, FILE *stream)
 	dprintf("WebCam CGI\n");
 	//ret = fcntl(fileno(stream), F_GETOWN, 0);
 	query_idx = atoi(query);
-	last_idx = atoi(nvram_get_f("webcam.log", "WebPic"));
-	//pic = nvram_get_f("webcam.log","WebPic");
+	last_idx = atoi(nvram_safe_get("WebPic"));
+	//pic = nvram_safe_get("WebPic");
 
 	if (query_idx==0) sprintf(pic, "../var/tmp/display.jpg");
 	else sprintf(pic, "../var/tmp/record%d.jpg", (query_idx>last_idx+1) ? (last_idx+1+MAX_RECORD_IMG-query_idx):(last_idx+1-query_idx));
@@ -1663,7 +1642,7 @@ static int chk_fw_image(FILE *fifo, int len)
 	memset(version, 0, MAX_VERSION_LEN);
 	fseek(fifo, -MAX_VERSION_LEN, SEEK_END);
 	fread(version, 1, MAX_VERSION_LEN, fifo);
-	sscanf(nvram_get_x("general.log", "HardwareVer"), "%d.%d", &hwmajor, &hwminor);
+	sscanf(nvram_safe_get("HardwareVer"), "%d.%d", &hwmajor, &hwminor);
 	cprintf("Hardware : %d.%d %s\n", hwmajor, hwminor, version+4);
 
 	if (((strncmp(ProductID, version+4, strlen(ProductID))==0 &&
@@ -2038,7 +2017,6 @@ const struct ej_handler ej_handlers[] = {
 	{ "nvram_get_n_json", ej_nvram_get_n_json },
 #endif
 	{ "nvram_get_x", ej_nvram_get_x },
-	{ "nvram_get_f", ej_nvram_get_f },
 	{ "nvram_get_list_x", ej_nvram_get_list_x },
 	{ "nvram_get_table_x", ej_nvram_get_table_x },
 	{ "nvram_match_x", ej_nvram_match_x },
@@ -2065,8 +2043,8 @@ void websSetVer(void)
 
 	get_fw_ver(productid, fwver);
 
-	nvram_set_f("general.log", "productid", productid);
-	nvram_set_f("general.log", "firmver", fwver);	
+	nvram_set("productid", productid);
+	nvram_set("firmver", fwver);	
 }
 #endif
 
@@ -2339,7 +2317,7 @@ ej_select_country(int eid, webs_t wp, int argc, char_t **argv)
 		return -1;
 	}
 
-	country=nvram_safe_get_x("", "wl_country_code");
+	country=nvram_safe_get("wl_country_code");
 
 	for (cntry = country_names; cntry->name; cntry++) { 
 		if (strcmp(country, cntry->abbrev)!=0)
@@ -2359,11 +2337,11 @@ wl_channels_in_country_asus(char *abbrev, int channels[])
 	i = 0;
 	channels[i++] = 0;
 
-	if (nvram_match_x("", "wl_chan_list", "")) {
+	if (nvram_match("wl_chan_list", "")) {
 		for ( ; i < 15; i++)
 			channels[i] = i;
 	} else {
-		foreach(var, nvram_safe_get_x("", "wl_chan_list"), next) {
+		foreach(var, nvram_safe_get("wl_chan_list"), next) {
 			channels[i++] = atoi(var);
 		}
 	}
@@ -2381,13 +2359,13 @@ wl_channels_in_country(char *abbrev, int channels[])
 	char tmp[100], prefix[sizeof("wlXXXXXXXXXX_")];
 	char *name;
 
-	if ((unit = atoi(nvram_safe_get_x("", "wl_unit"))) < 0)
+	if ((unit = atoi(nvram_safe_get("wl_unit"))) < 0)
 		return -1;
 
 	if (strlen(abbrev)==0) return 0;
 
 	snprintf(prefix, sizeof(prefix), "wl%d_", unit);
-	name = nvram_safe_get_x("", strcat_r(prefix, "ifname", tmp));
+	name = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
 
 	i = 0;
 	channels[i++] = 0;

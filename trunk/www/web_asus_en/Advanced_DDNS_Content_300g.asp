@@ -94,7 +94,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This button allows you to update DDNS database manually. It is available only when automatic DDNS update failed. You can get current status of DDNS update from System Log.', LEFT);" onMouseOut="return nd();">Update Manually:
-           </td><td class="content_input_td"><input type="hidden" maxlength="15" class="content_input_fd_ro" size="12" name="" value="<% nvram_get_f("ddns.log","DDNSStatus"); %>"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('ddnsclient')" size="12" name="LANHostConfig_x_DDNSStatus_button" value="Update"></td>
+           </td><td class="content_input_td"><input type="hidden" maxlength="15" class="content_input_fd_ro" size="12" name="" value="<% nvram_get_x("ddns.log","DDNSStatus"); %>"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('ddnsclient')" size="12" name="LANHostConfig_x_DDNSStatus_button" value="Update"></td>
 </tr>
 </table>
 

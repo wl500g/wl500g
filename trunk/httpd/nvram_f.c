@@ -21,20 +21,6 @@ permission of Broadcom Corporation.
 #include <stdlib.h>
 #include <syslog.h>
 #include <bcmnvram.h>
-#include <sys/mman.h>
-
-
-#define MAX_LINE_SIZE 512
-#define MAX_FILE_NAME 64
-
-
-/*
-* NOTE : The mutex must be initialized in the OS previous to the point at
-*           which multiple entry points to the nvram code are enabled
-*
-*/
-#define MAX_NVRAM_SIZE 4096
-#define EPI_VERSION_STR "2.4.5"
 
 
 /* Remove CR/LF/Space in the end of string 
@@ -63,53 +49,6 @@ char *strtrim(char *str)
 extern void findNVRAMName(const char *serviceId, const char *field, char *name);
 
 /*
-* Set the value of an NVRAM variable
-* @param	name	name of variable to set
-* @param	value	value of variable
-* @return	0 on success and errno on failure
-*/
-int
-nvram_set_x(const char *sid, const char *name, const char *value)
-{
-	return(nvram_set(name, value));
-}
-
-
-/*
-* Get the value of an NVRAM variable
-* @param	name	name of variable to get
-* @return	value of variable or NULL if undefined
-*/
-char*
-nvram_get_x(const char *sid, const char *name)
-{
-	return(nvram_safe_get(name));
-}
-
-
-/*
-* Get the value of an NVRAM variable
-* @param	name	name of variable to get
-* @return	value of variable or NULL if undefined
-*/
-char*
-nvram_get_f(const char *file, const char *field)
-{
-	return(nvram_safe_get(field));
-}
-
-/*
-* Set the value of an NVRAM variable from file
-* @param	name	name of variable to get
-* @return	value of variable or NULL if undefined
-*/
-int
-nvram_set_f(const char *file, const char *field, const char *value)
-{
-	return(nvram_set(field, value));
-}
-
-/*
 * Get the value of an NVRAM variable list 
 * @param	name	name of variable to get
 *              index   index of the list, start from 1
@@ -118,11 +57,11 @@ nvram_set_f(const char *file, const char *field, const char *value)
 
 char *nvram_get_list_x(const char *sid, const char *name, int index)
 {
-	char new_name[MAX_LINE_SIZE];
+	char new_name[128];
 
-	sprintf(new_name, "%s%d", name, index);
+	snprintf(new_name, sizeof(new_name), "%s%d", name, index);
 
-	return(nvram_get_f(sid, new_name));
+	return nvram_safe_get(new_name);
 }
 
 /*
@@ -132,16 +71,16 @@ char *nvram_get_list_x(const char *sid, const char *name, int index)
 */
 int nvram_add_lists_x(const char *sid, const char *name, const char *value, int count)
 {
-	char name1[32], name2[32];
+	char name1[64], name2[64];
 
 	findNVRAMName(sid, name, name1);
 
-	if (name[0]!='\0') {
-		sprintf(name2, "%s%d", name1, count);
+	if (name[0] != '\0') {
+		snprintf(name2, sizeof(name2), "%s%d", name1, count);
 		nvram_set(name2, value);
 	}
 
-	return(0);
+	return 0;
 }
 
 
@@ -154,7 +93,7 @@ int nvram_add_lists_x(const char *sid, const char *name, const char *value, int 
 int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 {
 
-	char names[32], oname[32], nname[32], *oval, *nval;
+	char names[64], oname[64], nname[64], *oval, *nval;
 	int oi, ni, di;
 
 	findNVRAMName(sid, name, names);
@@ -164,8 +103,8 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 		ni=0;
 		di=0;
 		while (1) {
-			sprintf(oname, "%s%d", names, oi);
-			sprintf(nname, "%s%d", names, ni);
+			snprintf(oname, sizeof(oname), "%s%d", names, oi);
+			snprintf(nname, sizeof(nname), "%s%d", names, ni);
 
 			oval = nvram_get(oname);
 			nval = nvram_get(nname);
@@ -173,7 +112,7 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 			if (oval==NULL) break;
 
 			printf("d: %d %d %d %d\n", oi, ni, di, delMap[di]);
-			if (delMap[di]!=-1&&delMap[di]==oi) {
+			if (delMap[di]!=-1 && delMap[di]==oi) {
 				oi++;
 				di++;
 			} else {

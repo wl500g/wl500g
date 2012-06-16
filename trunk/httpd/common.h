@@ -51,20 +51,12 @@ enum {
 extern "C" {
 #endif
 
-/* API export for UPnP function */
-void InitVariables(void);
+/* API export */
 int LookupServiceId(const char *serviceId);
 const char *GetServiceId(int sid);
 const struct variable *GetVariables(int sid);
-int CheckVariables(int sid, char *name, char *var);
-char *GetVariable(int sid, char *name);
-void SetVariable(int sid, char *name, char *value);
 
 const struct variable *LookupGroupVariables(int sid, char *groupName);
-int CheckGroupVariables(int sid, struct variable *gvs, char *name, char *var);
-void SetGroupVariable(int sid, struct variable *gvs, char *name, char *value, char *action);
-char *GetGroupVariable(int sid, struct variable *gvs, char *name);
-
 
 #ifdef __cplusplus
 }

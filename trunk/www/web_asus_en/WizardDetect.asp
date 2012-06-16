@@ -48,13 +48,13 @@ function buttonOut(o) {
 	</tr>
 	<tr>
 	   <td height="30"><font face="Arial" color="#000000">Status:</font></td>
-	   <td><font face="Arial" color="#000000"><input type="text" size="36" name="PPPConnection_x_WANLink" value="<% nvram_get_f("wanstatusshow.log","wan_status_t"); %>" readonly></font></td>
+	   <td><font face="Arial" color="#000000"><input type="text" size="36" name="PPPConnection_x_WANLink" value="<% nvram_get_x("wanstatusshow.log","wan_status_t"); %>" readonly></font></td>
 	</tr>	
 	<tr>
 	   <td height="30"><font face="Arial" color="#000000">Reason</font></td>
 	   <td><font face="Arial" color="#000000">
-	   <input type="text" size="36" name="PPPConnection_x_WANStatus" value="<% nvram_get_f("wanstatusshow.log","wan_reason_t"); %>" readonly>
-	   <input type="hidden" size="36" name="PPPConnection_x_WANStatusCode" value="<% nvram_get_f("wanstatusshow.log","wan_reasoncode_t"); %>" readonly>
+	   <input type="text" size="36" name="PPPConnection_x_WANStatus" value="<% nvram_get_x("wanstatusshow.log","wan_reason_t"); %>" readonly>
+	   <input type="hidden" size="36" name="PPPConnection_x_WANStatusCode" value="<% nvram_get_x("wanstatusshow.log","wan_reasoncode_t"); %>" readonly>
 	   </font></td>	   
 	</tr>	
 	<tr> 

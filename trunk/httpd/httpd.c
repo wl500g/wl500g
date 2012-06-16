@@ -44,6 +44,7 @@
 #include <sys/signal.h>
 #include <sys/ioctl.h>
 
+#include <bcmnvram.h>
 #include "httpd.h"
 #include "bcmnvram_f.h"
 
@@ -633,9 +634,10 @@ static void http_logout(uaddr *ip)
 
 int is_auth(void)
 {
-	if (http_port==server_port ||
-		strcmp(nvram_get_x("PrinterStatus", "usb_webhttpcheck_x"), "1")==0) return 1;
-	else return 0;
+	if (http_port==server_port || nvram_match("usb_webhttpcheck_x", "1"))
+		return 1;
+	else
+		return 0;
 }
 
 #ifdef REMOVE
@@ -663,8 +665,8 @@ static int is_phyconnected(void)
 	if (err==0) {
 		//printf("ecmd: %d\n", ecmd.speed);
 		if (ecmd.speed==0) {
-			nvram_set_x("", "wan_status_t", "Disconnected");
-			nvram_set_x("", "wan_reason_t", "Cable is not attached");
+			nvram_set("wan_status_t", "Disconnected");
+			nvram_set("wan_reason_t", "Cable is not attached");
 		}			
 		return(ecmd.speed);
 	} else {
@@ -683,12 +685,12 @@ static int is_connected(void)
 	/* if (!is_phyconnected()) return 0; */
 
 	/* check if connection static is CONNECTED */
-	if (strcmp(nvram_get_x("WANIPAddress", "wan_status_t"), "Disconnected")==0) {
+	if (nvram_match("wan_status_t", "Disconnected")) {
 		fp = fopen("/tmp/wanstatus.log", "r");
 		if (fp!=NULL) {
 			fgets(line, sizeof(line), fp);
 			reason = strchr(line, ',');
-			if (reason!=NULL) nvram_set_x("", "wan_reason_t", reason+1);
+			if (reason!=NULL) nvram_set("wan_reason_t", reason+1);
 			fclose(fp);
 		}
 
@@ -700,8 +702,10 @@ static int is_connected(void)
 
 static int is_firsttime(void)
 {
-	if (strcmp(nvram_get_x("General", "x_Setting"), "1")==0) return 0;
-	else return 1;
+	if (nvram_match("x_Setting", "1"))
+		return 0;
+	else
+		return 1;
 }
 
 int main(int argc, char **argv)
@@ -713,7 +717,7 @@ int main(int argc, char **argv)
 	fd_set active_rfds;
 	conn_list_t pool;
 
-	server_port = atoi(nvram_get_x("", "http_lanport"));
+	server_port = atoi(nvram_safe_get("http_lanport"));
 	if (server_port)
 		http_port = server_port;
 	else
@@ -728,7 +732,7 @@ int main(int argc, char **argv)
 	//websSetVer();
 
 #ifdef __CONFIG_IPV6__
-	usa.sa.sa_family = (nvram_invmatch_x("", "ipv6_proto", "")) ? AF_INET6 : AF_INET;
+	usa.sa.sa_family = (nvram_invmatch("ipv6_proto", "")) ? AF_INET6 : AF_INET;
 #endif
 
 	/* Ignore broken pipes */
