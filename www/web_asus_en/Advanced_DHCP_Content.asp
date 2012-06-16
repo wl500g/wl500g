@@ -64,7 +64,7 @@
 </tr>
 <tr>
 <td class="content_header_td">DNS Server 2:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd_ro" size="15" name="" value="<% nvram_get_f("LANHostConfig","lan_ipaddr"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd_ro" size="15" name="" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The Windows Internet Naming Service manages interaction of each PC with the Internet. If you use a WINS server, enter IP Address of server here.', LEFT);" onMouseOut="return nd();">WINS Server:

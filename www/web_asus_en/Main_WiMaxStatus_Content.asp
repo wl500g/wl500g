@@ -33,27 +33,27 @@
 </tr>
 <tr>
 <td class="content_header_td_less">Device:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan0_usb_device" value="<% nvram_get_f("wan.log","wan0_usb_device"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan0_usb_device" value="<% nvram_get_x("wan.log","wan0_usb_device"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">IP Address:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_ipaddr_t" value="<% nvram_get_f("wan.log","wan_ipaddr_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_ipaddr_t" value="<% nvram_get_x("wan.log","wan_ipaddr_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Subnet Mask:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_netmask_t" value="<% nvram_get_f("wan.log","wan_netmask_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_netmask_t" value="<% nvram_get_x("wan.log","wan_netmask_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Gateway:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_gateway_t" value="<% nvram_get_f("wan.log","wan_gateway_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_gateway_t" value="<% nvram_get_x("wan.log","wan_gateway_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">DNS Servers:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_dns_t" value="<% nvram_get_f("wan.log","wan_dns_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_dns_t" value="<% nvram_get_x("wan.log","wan_dns_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Ping time (min/avr/max):
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_wimax_ping_t" value="<% nvram_get_f("wan.log","wan_wimax_ping_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_wimax_ping_t" value="<% nvram_get_x("wan.log","wan_wimax_ping_t"); %>" readonly></td>
 </tr>
 </table>
 	

@@ -7,7 +7,7 @@
 <script type="text/javascript" src="general.js"></script>
 <script type="text/javascript">
 
-    var wan_proto="<% nvram_get_f("wan.log","wan_proto"); %>";
+    var wan_proto="<% nvram_get_x("wan.log","wan_proto"); %>";
     var wan_ifname="<% nvram_get_x("IPConnection","wan_ifname"); %>";
     var man_ifname="";
     var ipv6_proto="<% nvram_get_x("wan.log","ipv6_proto"); %>";

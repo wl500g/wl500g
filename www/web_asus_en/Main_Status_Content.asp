@@ -23,19 +23,19 @@
 <td>
 <table width="618" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Elapsed time since system boot');" onMouseOut="return nd();">System Up Time:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("general.log","UpTime"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Elapsed time since system boot');" onMouseOut="return nd();">System Up Time:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("general.log","UpTime"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td">Product ID:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("general.log","ProductID"); %>" readonly></td>
+<td class="content_header_td">Product ID:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("general.log","ProductID"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td">Firmware Version:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("general.log","FirmwareVer"); %>" readonly></td>
+<td class="content_header_td">Firmware Version:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("general.log","FirmwareVer"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td">Hardware Version:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("general.log","HardwareVer"); %>" readonly></td>
+<td class="content_header_td">Hardware Version:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("general.log","HardwareVer"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td">Boot Loader Version:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("general.log","BootloaderVer"); %>" readonly></td>
+<td class="content_header_td">Boot Loader Version:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("general.log","BootloaderVer"); %>" readonly></td>
 </tr>
 </table>
 </td>
@@ -105,10 +105,10 @@
 <td colspan="2">IP Connection</td>
 </tr>
 <tr>
-<td class="content_header_td">WAN Port Link State:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("wan.log","IPLink"); %>" readonly></td>
+<td class="content_header_td">WAN Port Link State:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("wan.log","IPLink"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td">WAN Port Connecting Time:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("wan.log","Uptime"); %>" readonly></td>
+<td class="content_header_td">WAN Port Connecting Time:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("wan.log","Uptime"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('IP address of WAN Interface. If you leave it blank, WL600 will get IP address from DHCP Server automatically');" onMouseOut="return nd();">IP Address:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("IPConnection","ExternalIPAddress"); %>" readonly></td>
@@ -130,7 +130,7 @@
 <td colspan="2">PPP Connection</td>
 </tr>
 <tr>
-<td class="content_header_td">WAN Port Link State:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("wan.log","PPPLink"); %>" readonly></td>
+<td class="content_header_td">WAN Port Link State:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("wan.log","PPPLink"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('IP address of WAN Interface. If you leave it blank, WL600 will get IP address from DHCP Server automatically');" onMouseOut="return nd();">IP Address:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("PPPConnection","ExternalIPAddress"); %>" readonly></td>
@@ -151,10 +151,10 @@
 <td colspan="2">Printer Status</td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Status of currently connected printer');" onMouseOut="return nd();">Connected Printer Status:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("printer.log","Status"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Status of currently connected printer');" onMouseOut="return nd();">Connected Printer Status:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("printer.log","Status"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('User currently use the printer');" onMouseOut="return nd();">User in service:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("printer.log","User"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('User currently use the printer');" onMouseOut="return nd();">User in service:</td><td class="content_input_td"><input type="text" value="<% nvram_get_x("printer.log","User"); %>" readonly></td>
 </tr>
 </table>
 </td>
