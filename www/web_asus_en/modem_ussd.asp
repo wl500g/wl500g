@@ -91,7 +91,7 @@
 				</td>
 				<td class="content_input_td">
 					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_usbloc"
-						value="<% nvram_get_x("LANHostConfig","wan0_modem_usbloc"); %>" onkeypress="return is_string(event, this)"
+						value="<% nvram_get("wan0_modem_usbloc"); %>" onkeypress="return is_string(event, this)"
 						onblur="validate_string(this)">
 				</td>
 			</tr>
@@ -102,7 +102,7 @@
 				</td>
 				<td class="content_input_td">
 					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_pui"
-						value="<% nvram_get_x("3GConfig","wan0_modem_pui"); %>" onkeypress="return is_string(event, this)"
+						value="<% nvram_get("wan0_modem_pui"); %>" onkeypress="return is_string(event, this)"
 						onblur="validate_string(this)">
 				</td>
 			</tr>
@@ -112,7 +112,7 @@
 					USB port:
 				</td>
 				<td class="content_input_td">
-					<input type="text" maxlength="256" class="content_input_fd" name="port" value="<% nvram_get_x("port","wan0_modem_ussd_port"); %>"
+					<input type="text" maxlength="256" class="content_input_fd" name="port" value="<% nvram_get("wan0_modem_ussd_port"); %>"
 						onkeypress="return is_string(event, this)" onblur="validate_string(this)">
 				</td>
 			</tr>	-->
@@ -122,7 +122,7 @@
 					USSD:
 				</td>
 				<td class="content_input_td">
-					<input type="text" maxlength="256" class="content_input_fd" name="ussd" value="<% nvram_get_x("port","ussd_query"); %>"
+					<input type="text" maxlength="256" class="content_input_fd" name="ussd" value="<% nvram_get("ussd_query"); %>"
 						onkeypress="return is_string(event, this)" onblur="validate_string(this)">
 				</td>
 			</tr>

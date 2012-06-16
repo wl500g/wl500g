@@ -15,9 +15,9 @@
 <input type="hidden" name="next_host" value="">
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="sid_list" value="Layer3Forwarding;IPConnection;">
-<input type="hidden" name="wan_proto" value="<% nvram_get_x("Layer3Forwarding","wan_proto"); %>">
-<input type="hidden" name="wan_route_x" value="<% nvram_get_x("IPConnection","wan_route_x"); %>">
-<input type="hidden" name="wan_nat_x" value="<% nvram_get_x("IPConnection","wan_nat_x"); %>">
+<input type="hidden" name="wan_proto" value="<% nvram_get("wan_proto"); %>">
+<input type="hidden" name="wan_route_x" value="<% nvram_get("wan_route_x"); %>">
+<input type="hidden" name="wan_nat_x" value="<% nvram_get("wan_nat_x"); %>">
 <!-- Table for the conntent page -->
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">

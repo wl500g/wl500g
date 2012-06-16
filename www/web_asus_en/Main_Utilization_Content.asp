@@ -7,13 +7,13 @@
 <script type="text/javascript" src="general.js"></script>
 <script type="text/javascript">
 
-    var wan_proto="<% nvram_get_x("wan.log","wan_proto"); %>";
-    var wan_ifname="<% nvram_get_x("IPConnection","wan_ifname"); %>";
+    var wan_proto="<% nvram_get("wan_proto"); %>";
+    var wan_ifname="<% nvram_get("wan_ifname"); %>";
     var man_ifname="";
-    var ipv6_proto="<% nvram_get_x("wan.log","ipv6_proto"); %>";
+    var ipv6_proto="<% nvram_get("ipv6_proto"); %>";
     var ipv6_ifname="";
-    var wlan_ifname="<% nvram_get_x("IPConnection","wl0_ifname"); %>";
-    var lan_ifname="<% nvram_get_x("IPConnection","lan_ifname"); %>";
+    var wlan_ifname="<% nvram_get("wl0_ifname"); %>";
+    var lan_ifname="<% nvram_get("lan_ifname"); %>";
 
     function interval_change(value)
     {
@@ -45,16 +45,16 @@
 
 	if (wan_proto=="l2tp" || wan_proto=="pptp" || wan_proto=="pppoe") {
 	    man_ifname=wan_ifname;
-	    wan_ifname="<% nvram_get_x("IPConnection","wan0_pppoe_ifname"); %>";
+	    wan_ifname="<% nvram_get("wan0_pppoe_ifname"); %>";
 	} else
 	if (wan_proto=="wimax") {
-	    wan_ifname="<% nvram_get_x("IPConnection","wan0_wimax_ifname"); %>";
+	    wan_ifname="<% nvram_get("wan0_wimax_ifname"); %>";
 	} else
 	if (wan_proto=="usbmodem") {
-	    wan_ifname="<% nvram_get_x("IPConnection","wan0_pppoe_ifname"); %>";
+	    wan_ifname="<% nvram_get("wan0_pppoe_ifname"); %>";
 	} else
 	if (wan_proto=="usbnet") {
-	    wan_ifname="<% nvram_get_x("IPConnection","wan0_ifname"); %>";
+	    wan_ifname="<% nvram_get("wan0_ifname"); %>";
 	}
 
 	if (ipv6_proto=="tun6in4" || ipv6_proto=="tun6to4") {

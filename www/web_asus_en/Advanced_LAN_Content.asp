@@ -24,9 +24,9 @@
 		value="">
 	<input type="hidden" name="action_script" value="">
 
-	<input type="hidden" name="dhcp_start" value="<% nvram_get_x("LANHostConfig","dhcp_start"); %>">
-	<input type="hidden" name="dhcp_end" value="<% nvram_get_x("LANHostConfig","dhcp_end"); %>">
-	<input type="hidden" name="wan_ipaddr" value="<% nvram_get_x("IPConnection","wan_ipaddr"); %>">
+	<input type="hidden" name="dhcp_start" value="<% nvram_get("dhcp_start"); %>">
+	<input type="hidden" name="dhcp_end" value="<% nvram_get("dhcp_end"); %>">
+	<input type="hidden" name="wan_ipaddr" value="<% nvram_get("wan_ipaddr"); %>">
 
 	<!-- Table for the conntent page -->
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
@@ -53,7 +53,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname"
-								value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onkeypress="return is_string(event, this)"
+								value="<% nvram_get("lan_hostname"); %>" onkeypress="return is_string(event, this)"
 								onblur="validate_string(this)">
 						</td>
 					</tr>
@@ -64,7 +64,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_ipaddr"
-								value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" onblur="return validate_ipaddr(this, 'lan_ipaddr')"
+								value="<% nvram_get("lan_ipaddr"); %>" onblur="return validate_ipaddr(this, 'lan_ipaddr')"
 								onkeypress="return is_ipaddr(event, this)" onkeyup="change_ipaddr(this)">
 						</td>
 					</tr>
@@ -75,7 +75,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_netmask"
-								value="<% nvram_get_x("LANHostConfig","lan_netmask"); %>" onblur="return validate_ipaddr(this, 'lan_netmask')"
+								value="<% nvram_get("lan_netmask"); %>" onblur="return validate_ipaddr(this, 'lan_netmask')"
 								onkeypress="return is_ipaddr(event, this)" onkeyup="change_ipaddr(this)">
 						</td>
 					</tr>

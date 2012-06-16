@@ -106,7 +106,7 @@
 	<input type="hidden" name="action_mode" value="">
 	<input type="hidden" name="first_time" value="">
 	<input type="hidden" name="action_script" value="">
-	<input type="hidden" name="wan_proto" value="<% nvram_get_x("3GConfig","wan_proto"); %>">
+	<input type="hidden" name="wan_proto" value="<% nvram_get("wan_proto"); %>">
 	<!-- Table for the content page -->
 	<table class="content_table">
 		<tr class="content_header_tr">
@@ -170,7 +170,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_username"
-					value="<% nvram_get_x("3GConfig","wan_modem_username"); %>" onkeypress="return is_string(event, this)"
+					value="<% nvram_get("wan_modem_username"); %>" onkeypress="return is_string(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -180,7 +180,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="password" maxlength="256" class="content_input_fd" size="32" name="wan_modem_passwd"
-					value="<% nvram_get_x("3GConfig","wan_modem_passwd"); %>" onkeypress="return is_string(event, this)"
+					value="<% nvram_get("wan_modem_passwd"); %>" onkeypress="return is_string(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -193,7 +193,7 @@
 				</td>
 				<td class="content_input_td">
 					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_apn"
-						value="<% nvram_get_x("3GConfig","wan_modem_apn"); %>" onkeypress="return is_string(event, this)"
+						value="<% nvram_get("wan_modem_apn"); %>" onkeypress="return is_string(event, this)"
 						onblur="validate_string(this)">
 				</td>
 			</tr>
@@ -207,7 +207,7 @@
 				</td>
 				<td class="content_input_td">
 					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_dialno"
-						value="<% nvram_get_x("3GConfig","wan_modem_dialno"); %>" onkeypress="return is_string(event, this)"
+						value="<% nvram_get("wan_modem_dialno"); %>" onkeypress="return is_string(event, this)"
 						onblur="validate_string(this)">
 				</td>
 			</tr>
@@ -230,7 +230,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_modem_idle"
-					value="<% nvram_get_x("3GConfig","wan_modem_idle"); %>" onkeypress="return is_number(event, this)"
+					value="<% nvram_get("wan_modem_idle"); %>" onkeypress="return is_number(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -241,7 +241,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_modem_mtu"
-					value="<% nvram_get_x("3GConfig","wan_modem_mtu"); %>" onkeypress="return is_number(event, this)"
+					value="<% nvram_get("wan_modem_mtu"); %>" onkeypress="return is_number(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -252,7 +252,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_modem_mru"
-					value="<% nvram_get_x("3GConfig","wan_modem_mru"); %>" onkeypress="return is_number(event, this)"
+					value="<% nvram_get("wan_modem_mru"); %>" onkeypress="return is_number(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -285,7 +285,7 @@
 				onmouseout="return nd()"> USB device location ID: </td>
 		<td class="content_input_td">
 			<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_usbloc"
-				value="<% nvram_get_x("LANHostConfig","wan_modem_usbloc"); %>" onkeypress="return is_string(event, this)"
+				value="<% nvram_get("wan_modem_usbloc"); %>" onkeypress="return is_string(event, this)"
 				onblur="validate_string(this)">
 		</td>
 		</tr>
@@ -297,7 +297,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_pdata"
-					value="<% nvram_get_x("3GConfig","wan_modem_pdata"); %>" onkeypress="return is_string(event, this)"
+					value="<% nvram_get("wan_modem_pdata"); %>" onkeypress="return is_string(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -308,7 +308,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_pui"
-					value="<% nvram_get_x("3GConfig","wan_modem_pui"); %>" onkeypress="return is_string(event, this)"
+					value="<% nvram_get("wan_modem_pui"); %>" onkeypress="return is_string(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -320,7 +320,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_vid"
-					value="<% nvram_get_x("3GConfig","wan_modem_vid"); %>" onkeypress="return is_string(event, this)"
+					value="<% nvram_get("wan_modem_vid"); %>" onkeypress="return is_string(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -331,7 +331,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_pid"
-					value="<% nvram_get_x("3GConfig","wan_modem_pid"); %>" onkeypress="return is_string(event, this)"
+					value="<% nvram_get("wan_modem_pid"); %>" onkeypress="return is_string(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -342,7 +342,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_portspeed"
-					value="<% nvram_get_x("3GConfig","wan_modem_portspeed"); %>" onkeypress="return is_number(event, this)"
+					value="<% nvram_get("wan_modem_portspeed"); %>" onkeypress="return is_number(event, this)"
 					onblur="validate_range(this, 0, 921600)">
 			</td>
 		</tr>
@@ -357,7 +357,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_init_script"
-					value="<% nvram_get_x("3GConfig","wan_modem_init_script"); %>" onkeypress="return is_string(event, this)"
+					value="<% nvram_get("wan_modem_init_script"); %>" onkeypress="return is_string(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -367,7 +367,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_dialup_init"
-					value="<% nvram_get_x("3GConfig","wan_modem_dialup_init"); %>" onkeypress="return is_string(event, this)"
+					value="<% nvram_get("wan_modem_dialup_init"); %>" onkeypress="return is_string(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -378,7 +378,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_options"
-					value="<% nvram_get_x("3GConfig","wan_modem_options"); %>" onkeypress="return is_string(event, this)"
+					value="<% nvram_get("wan_modem_options"); %>" onkeypress="return is_string(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -388,7 +388,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_onfailure"
-					value="<% nvram_get_x("3GConfig","wan_modem_onfailure"); %>" onkeypress="return is_string(event, this)"
+					value="<% nvram_get("wan_modem_onfailure"); %>" onkeypress="return is_string(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -399,7 +399,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="10" class="content_input_fd" size="32" name="wan_modem_maxfail"
-					value="<% nvram_get_x("3GConfig","wan_modem_maxfail"); %>" onkeypress="return is_number(event, this)">
+					value="<% nvram_get("wan_modem_maxfail"); %>" onkeypress="return is_number(event, this)">
 			</td>
 		</tr>
 		<tr>

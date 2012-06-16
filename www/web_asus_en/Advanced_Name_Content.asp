@@ -25,7 +25,7 @@
 		<td class="content_header_td" width="344" colspan="2"></td>
 </tr>
 <tr>
-		<td class="content_header_td" width="34">New Name:</td><td class="content_input_td" width="310"><input type="text" maxlength="16" class="content_input_fd" size="16" name="http_username" value="<% nvram_get_x("", "http_username"); %>"></td>
+		<td class="content_header_td" width="34">New Name:</td><td class="content_input_td" width="310"><input type="text" maxlength="16" class="content_input_fd" size="16" name="http_username" value="<% nvram_get("http_username"); %>"></td>
 </tr>
 <tr>
 		<td class="content_header_td" width="34">Retype New Name:</td><td class="content_input_td" width="310"><input type="text" maxlength="16" class="content_input_fd" size="16" name="v_username"></td>

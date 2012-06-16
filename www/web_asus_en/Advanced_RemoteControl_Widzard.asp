@@ -22,17 +22,17 @@ function browserType()
 
 function loadWidzard()
 {      	    					
-    	R1 = '<% nvram_get_x("PrinterStatus","usb_webremote1_x"); %>'
-	R2 = '<% nvram_get_x("PrinterStatus","usb_webremote2_x"); %>'
-	R3 = '<% nvram_get_x("PrinterStatus","usb_webremote3_x"); %>'
-	R4 = '<% nvram_get_x("PrinterStatus","usb_webremote4_x"); %>'
-	R5 = '<% nvram_get_x("PrinterStatus","usb_webremote5_x"); %>'
-	R6 = '<% nvram_get_x("PrinterStatus","usb_webremote6_x"); %>'
-	NAT = '<% nvram_get_x("IPConnection", "wan_nat_x"); %>'
+    	R1 = '<% nvram_get("usb_webremote1_x"); %>'
+	R2 = '<% nvram_get("usb_webremote2_x"); %>'
+	R3 = '<% nvram_get("usb_webremote3_x"); %>'
+	R4 = '<% nvram_get("usb_webremote4_x"); %>'
+	R5 = '<% nvram_get("usb_webremote5_x"); %>'
+	R6 = '<% nvram_get("usb_webremote6_x"); %>'
+	NAT = '<% nvram_get("wan_nat_x"); %>'
 	
 	aspName = "/ShowWebCam.asp";
 	
-	LANIP = '<% nvram_get_x("lan.log","lan_ipaddr"); %>'
+	LANIP = '<% nvram_get("lan_ipaddr"); %>'
 	//alert('LANIP ' + LANIP);
 	
 	urlstr = location.href;	
@@ -155,12 +155,12 @@ function loadWidzard()
 </head>
 <body onLoad="loadWidzard()" background="graph/sumtextb.jpg" bgcolor="#FFFFFF" text="#000066" link="#3333CC" vlink="#666699" alink="#990099">
 <form method="GET" name="form" action="webcamremote.cgi">  
-<input type="hidden" name="Remote1" value="<% nvram_get_x("PrinterStatus","usb_webremote1_x"); %>">
-<input type="hidden" name="Remote2" value="<% nvram_get_x("PrinterStatus","usb_webremote2_x"); %>">
-<input type="hidden" name="Remote3" value="<% nvram_get_x("PrinterStatus","usb_webremote3_x"); %>">
-<input type="hidden" name="Remote4" value="<% nvram_get_x("PrinterStatus","usb_webremote4_x"); %>">
-<input type="hidden" name="Remote5" value="<% nvram_get_x("PrinterStatus","usb_webremote5_x"); %>">
-<input type="hidden" name="Remote6" value="<% nvram_get_x("PrinterStatus","usb_webremote6_x"); %>">
+<input type="hidden" name="Remote1" value="<% nvram_get("usb_webremote1_x"); %>">
+<input type="hidden" name="Remote2" value="<% nvram_get("usb_webremote2_x"); %>">
+<input type="hidden" name="Remote3" value="<% nvram_get("usb_webremote3_x"); %>">
+<input type="hidden" name="Remote4" value="<% nvram_get("usb_webremote4_x"); %>">
+<input type="hidden" name="Remote5" value="<% nvram_get("usb_webremote5_x"); %>">
+<input type="hidden" name="Remote6" value="<% nvram_get("usb_webremote6_x"); %>">
 </form>
 </body>
 

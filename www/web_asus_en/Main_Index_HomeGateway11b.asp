@@ -15,7 +15,7 @@
 <input type="hidden" name="next_page" value="Basic_GOperation_Content.asp">
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="next_host" value="">
-<input type="hidden" name="first_time" value="<% nvram_get_x("General","x_Setting"); %>">
+<input type="hidden" name="first_time" value="<% nvram_get("x_Setting"); %>">
 
 <table height="22" width="666">
   <tr height="36">

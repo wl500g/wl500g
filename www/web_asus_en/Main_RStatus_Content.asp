@@ -34,27 +34,27 @@
 </tr>
 <tr>
 <td class="content_header_td_less">WAN Type:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_proto_t" value="<% nvram_get_x("wan.log","wan_proto_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_proto_t" value="<% nvram_get("wan_proto_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">IP Address:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_ipaddr_t" value="<% nvram_get_x("wan.log","wan_ipaddr_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_ipaddr_t" value="<% nvram_get("wan_ipaddr_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Subnet Mask:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_netmask_t" value="<% nvram_get_x("wan.log","wan_netmask_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_netmask_t" value="<% nvram_get("wan_netmask_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Gateway:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_gateway_t" value="<% nvram_get_x("wan.log","wan_gateway_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_gateway_t" value="<% nvram_get("wan_gateway_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">DNS Servers:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_dns_t" value="<% nvram_get_x("wan.log","wan_dns_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_dns_t" value="<% nvram_get("wan_dns_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Link Status:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_status_t" value="<% nvram_get_x("wan.log","wan_status_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_status_t" value="<% nvram_get("wan_status_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Action:
@@ -66,15 +66,15 @@
 </tr>
 <tr>
 <td class="content_header_td_less" onMouseOver="return overlib('Model of printer connect to ZVMODELVZ.', LEFT);" onMouseOut="return nd();">Printer Model:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="" value="<% nvram_get_x("printer_status.log","printer_model_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="" value="<% nvram_get("printer_model_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less" onMouseOver="return overlib('Current status of printer', LEFT);" onMouseOut="return nd();">Printer Status:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="" value="<% nvram_get_x("printer_status.log","printer_status_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="" value="<% nvram_get("printer_status_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less" onMouseOver="return overlib('IP address of user using this printer.', LEFT);" onMouseOut="return nd();">User:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="" value="<% nvram_get_x("printer_status.log","printer_user_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="" value="<% nvram_get("printer_user_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Action:
@@ -86,15 +86,15 @@
 </tr>
 <tr>
 <td class="content_header_td_less">IP Address:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_ipaddr_t" value="<% nvram_get_x("lan.log","lan_ipaddr_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_ipaddr_t" value="<% nvram_get("lan_ipaddr_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Subnet Mask:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_netmask_t" value="<% nvram_get_x("lan.log","lan_netmask_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_netmask_t" value="<% nvram_get("lan_netmask_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Default Gateway
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_gateway_t" value="<% nvram_get_x("lan.log","lan_gateway_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_gateway_t" value="<% nvram_get("lan_gateway_t"); %>" readonly></td>
 </tr>
 </table>
 	

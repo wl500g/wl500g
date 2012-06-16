@@ -42,9 +42,9 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the port number used by IPTV proxy. Set to 0 to disable', LEFT);" onMouseOut="return nd();">Multicast to HTTP Proxy Port:</td>
 <td class="content_input_td">
-	<input type="text" maxlength="5" size="5" name="udpxy_enable_x" class="content_input_fd" value="<% nvram_get_x("LANHostConfig", "udpxy_enable_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"> (0 - disabled)</input>
+	<input type="text" maxlength="5" size="5" name="udpxy_enable_x" class="content_input_fd" value="<% nvram_get("udpxy_enable_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"> (0 - disabled)</input>
 	<input type="checkbox" style="margin-left:30" name="udpxy_wan_check" value="" onClick="return change_common_radio(this, 'LANHostConfig', 'udpxy_wan', '1')">Enable access from WAN</input>
-	<input type="hidden" name="udpxy_wan_x" value="<% nvram_get_x("LANHostConfig","udpxy_wan_x"); %>">
+	<input type="hidden" name="udpxy_wan_x" value="<% nvram_get("udpxy_wan_x"); %>">
 </td>
 </tr>
 <tr>
@@ -56,7 +56,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This feature allows you to assign a remote server to record log messages of ZVMODELVZ. If you leave it blank, system will record up to 1024 mesages on ZVMODELVZ only.', LEFT);" onMouseOut="return nd();">Remote Log Server:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="log_ipaddr" value="<% nvram_get_x("LANHostConfig","log_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'log_ipaddr')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="log_ipaddr" value="<% nvram_get("log_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'log_ipaddr')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates time zone where you are locating in.', LEFT);" onMouseOut="return nd();">Time Zone:
@@ -64,16 +64,16 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates time zone where you are locating in.', LEFT);" onMouseOut="return nd();">Time Zone Abbreviation:
-	   </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="time_zone" value="<% nvram_get_x("LANHostConfig","time_zone"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+	   </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="time_zone" value="<% nvram_get("time_zone"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The NTP Server used to synchronize your system time.', LEFT);" onMouseOut="return nd();">NTP Server
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="ntp_server0" value="<% nvram_get_x("LANHostConfig","ntp_server0"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"><a href="javascript:openLink('x_NTPServer1')" class="content_input_link" name="x_NTPServer1_link">NTP Link
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="ntp_server0" value="<% nvram_get("ntp_server0"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"><a href="javascript:openLink('x_NTPServer1')" class="content_input_link" name="x_NTPServer1_link">NTP Link
              </a></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field specifies interval between time synchronization requests.', LEFT);" onMouseOut="return nd();">NTP synchronization interval (hours):
-           </td><td class="content_input_td"><input type="text" maxlength="3" size="3" name="ntp_interval_x" class="content_input_fd" value="<% nvram_get_x("LANHostConfig", "ntp_interval_x"); %>" onBlur="validate_range(this, 1, 144)" onKeyPress="return is_number(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="3" size="3" name="ntp_interval_x" class="content_input_fd" value="<% nvram_get("ntp_interval_x"); %>" onBlur="validate_range(this, 1, 144)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">DDNS Setting
@@ -110,15 +110,15 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field is used as an identity to log in Dynamic-DNS service.', LEFT);" onMouseOut="return nd();">User Name or E-mail Address:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="ddns_username_x" value="<% nvram_get_x("LANHostConfig","ddns_username_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="ddns_username_x" value="<% nvram_get("ddns_username_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field is used as a password to log in Dynamic-DNS service.', LEFT);" onMouseOut="return nd();">Password or DDNS Key:
-           </td><td class="content_input_td"><input type="password" maxlength="64" class="content_input_fd" size="32" name="ddns_passwd_x" value="<% nvram_get_x("LANHostConfig","ddns_passwd_x"); %>" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="password" maxlength="64" class="content_input_fd" size="32" name="ddns_passwd_x" value="<% nvram_get("ddns_passwd_x"); %>" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field represents the Host Name you register to Dynamic-DNS service and expect to export to the world.', LEFT);" onMouseOut="return nd();">Host Name:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="ddns_hostname_x" value="<% nvram_get_x("LANHostConfig","ddns_hostname_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="ddns_hostname_x" value="<% nvram_get("ddns_hostname_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field determines if domain name with wildcard is also redirected to your ip address.', LEFT);" onMouseOut="return nd();">Enable wildcard?
@@ -126,7 +126,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This button allows you to update DDNS database manually. It is available only when automatic DDNS update failed. You can get current status of DDNS update from System Log.', LEFT);" onMouseOut="return nd();">Update Manually:
-           </td><td class="content_input_td"><input type="hidden" maxlength="15" class="content_input_fd_ro" size="12" name="" value="<% nvram_get_x("ddns.log","DDNSStatus"); %>"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('ddnsclient')" size="12" name="LANHostConfig_x_DDNSStatus_button" value="Update"></td>
+           </td><td class="content_input_td"><input type="hidden" maxlength="15" class="content_input_fd_ro" size="12" name="" value="<% nvram_get("DDNSStatus"); %>"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('ddnsclient')" size="12" name="LANHostConfig_x_DDNSStatus_button" value="Update"></td>
 </tr>
 </table>
 

@@ -36,7 +36,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the dates that URL filter will be enabled.', LEFT);" onMouseOut="return nd();">Date to Enable URL Filter:
-           </td><td class="content_input_td"><input type="hidden" maxlength="7" class="content_input_fd" size="7" name="url_date_x" value="<% nvram_get_x("FirewallConfig","url_date_x"); %>">
+           </td><td class="content_input_td"><input type="hidden" maxlength="7" class="content_input_fd" size="7" name="url_date_x" value="<% nvram_get("url_date_x"); %>">
 <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 <input type="checkbox" class="content_input_fd" name="url_date_x_Sun">Sun</input><input type="checkbox" class="content_input_fd" name="url_date_x_Mon">Mon</input><input type="checkbox" class="content_input_fd" name="url_date_x_Tue">Tue</input><input type="checkbox" class="content_input_fd" name="url_date_x_Wed">Wed</input>
 </p>
@@ -44,7 +44,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the time interval that URL filter will be enabled.', LEFT);" onMouseOut="return nd();">Time of Day to Enable URL Filter:
-           </td><td class="content_input_td"><input type="hidden" maxlength="11" class="content_input_fd" size="11" name="url_time_x" value="<% nvram_get_x("FirewallConfig","url_time_x"); %>"><input type="text" maxlength="2" class="content_input_fd" size="2" name="url_time_x_starthour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 0)">:
+           </td><td class="content_input_td"><input type="hidden" maxlength="11" class="content_input_fd" size="11" name="url_time_x" value="<% nvram_get("url_time_x"); %>"><input type="text" maxlength="2" class="content_input_fd" size="2" name="url_time_x_starthour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 0)">:
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="url_time_x_startmin" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 1)">-
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="url_time_x_endhour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 2)">:
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="url_time_x_endmin" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 3)"></td>
@@ -58,7 +58,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="UrlList">URL Keyword List
-         <input type="hidden" name="url_num_x_0" value="<% nvram_get_x("FirewallConfig", "url_num_x"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="url_num_x_0" value="<% nvram_get("url_num_x"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'UrlList', 128, ' Add ');" name="UrlList" value="Add" size="12">
 </div>

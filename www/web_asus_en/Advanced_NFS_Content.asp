@@ -32,7 +32,7 @@
 <!-- 1 --><table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="ACLList">NFS Server Exports
-         <input type="hidden" name="usb_nfsnum_x_0" value="<% nvram_get_x("PrinterStatus", "usb_nfsnum_x"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="usb_nfsnum_x_0" value="<% nvram_get("usb_nfsnum_x"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_ExportsList', 32, ' Add ');" name="x_ExportsList" value="Add" size="12">
 </div>
