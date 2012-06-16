@@ -45,7 +45,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to specify the port used to access Web server from Internet.', LEFT);" onMouseOut="return nd();">Port of Web Access from WAN:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="misc_httpport_x" class="content_input_fd" value="<% nvram_get_x("FirewallConfig", "misc_httpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="misc_httpport_x" class="content_input_fd" value="<% nvram_get("misc_httpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This feature allows you to respond LPR request from Internet.', LEFT);" onMouseOut="return nd();">Respond LPR Request from WAN?
@@ -57,7 +57,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Specifies number of simultaneous connections tracked by router (256-65535).', LEFT);" onMouseOut="return nd();">Number of connections to track:
-           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="misc_conntrack_x" value="<% nvram_get_x("FirewallConfig","misc_conntrack_x"); %>" onKeyPress="return is_number(event, this)" onBlur="validate_range(this, 256, 65535)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="misc_conntrack_x" value="<% nvram_get("misc_conntrack_x"); %>" onKeyPress="return is_number(event, this)" onBlur="validate_range(this, 256, 65535)"></td>
 </tr>
 
 <tr class="content_section_header_tr">
@@ -77,11 +77,11 @@ Remember: all attempts are counted, not only unsuccessful.</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Hitcount.', LEFT);" onMouseOut="return nd();">Hitcount:</td>
-<td class="content_input_td"><input type="text" maxlength="5" size="5" name="recent_hitcount" class="content_input_fd" value="<% nvram_get_x("FirewallConfig", "recent_hitcount"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(event, this)"></td>
+<td class="content_input_td"><input type="text" maxlength="5" size="5" name="recent_hitcount" class="content_input_fd" value="<% nvram_get("recent_hitcount"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Period of time in seconds.', LEFT);" onMouseOut="return nd();">Period, seconds:</td>
-<td class="content_input_td"><input type="text" maxlength="5" size="5" name="recent_seconds" class="content_input_fd" value="<% nvram_get_x("FirewallConfig", "recent_seconds"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(event, this)"></td>
+<td class="content_input_td"><input type="text" maxlength="5" size="5" name="recent_seconds" class="content_input_fd" value="<% nvram_get("recent_seconds"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 </table>
 

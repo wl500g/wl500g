@@ -49,10 +49,10 @@
 </td>
 </tr>
 <tr>
-		<td class="content_header_td" width="30">Product ID:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_get_x("general.log","productid"); %>" readonly></td>
+		<td class="content_header_td" width="30">Product ID:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_get("productid"); %>" readonly></td>
 </tr>
 <tr>
-		<td class="content_header_td" width="30">Firmware Version:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_get_x("general.log","firmver"); %>" readonly></td>
+		<td class="content_header_td" width="30">Firmware Version:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_get("firmver"); %>" readonly></td>
 </tr>
 <tr>
 		<td class="content_header_td" width="30">Firmware Release:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_dump("../.version",""); %>" readonly></td>

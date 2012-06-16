@@ -18,7 +18,7 @@
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="first_time" value="">
 <input type="hidden" name="action_script" value="">
-<input type="hidden" name="usb_webhttpcheck_x" value="<% nvram_get_x("PrinterStatus","usb_webhttpcheck_x"); %>">
+<input type="hidden" name="usb_webhttpcheck_x" value="<% nvram_get("usb_webhttpcheck_x"); %>">
 <!-- Table for the conntent page -->	    
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
@@ -47,23 +47,23 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the image refresh rate per second. The range of value is 1~30.', LEFT);" onMouseOut="return nd();">Frames Per Second:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webfresh_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webfresh_x"); %>" onBlur="validate_range(this, 1, 30)" onKeyPress="return is_number(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webfresh_x" class="content_input_fd" value="<% nvram_get("usb_webfresh_x"); %>" onBlur="validate_range(this, 1, 30)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the JPEG compression quality in percent. The range of value is 1~100.', LEFT);" onMouseOut="return nd();">JPEG compression quality:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webquality_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webquality_x"); %>" onBlur="validate_range(this, 1, 100)" onKeyPress="return is_number(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webquality_x" class="content_input_fd" value="<% nvram_get("usb_webquality_x"); %>" onBlur="validate_range(this, 1, 100)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the port that http server listens on to communicate.', LEFT);" onMouseOut="return nd();">HTTP Port:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webhttpport_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webhttpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(event, this)"><input type="checkbox" style="margin-left:30" name="usb_webhttpport_x_check" value="" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_webhttpport_x', '1')">Password Checking</input></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webhttpport_x" class="content_input_fd" value="<% nvram_get("usb_webhttpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(event, this)"><input type="checkbox" style="margin-left:30" name="usb_webhttpport_x_check" value="" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_webhttpport_x', '1')">Password Checking</input></td>
 </tr>
 <tr>
 <td class="content_header_td">User Name:</td>
-<td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="16" name="usb_webhttp_username" value="<% nvram_get_x("PrinterStatus","usb_webhttp_username"); %>" onkeypress="return is_string(event, this)" onblur="validate_string(this)"></td>
+<td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="16" name="usb_webhttp_username" value="<% nvram_get("usb_webhttp_username"); %>" onkeypress="return is_string(event, this)" onblur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td">Password:</td>
-<td class="content_input_td"><input type="password" maxlength="32" class="content_input_fd" size="16" name="usb_webhttp_passwd" value="<% nvram_get_x("PrinterStatus","usb_webhttp_passwd"); %>" onblur="validate_string(this)"></td>
+<td class="content_input_td"><input type="password" maxlength="32" class="content_input_fd" size="16" name="usb_webhttp_passwd" value="<% nvram_get("usb_webhttp_passwd"); %>" onblur="validate_string(this)"></td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Security Mode Setting
@@ -79,7 +79,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the dates that Security Mode will be enabled.', LEFT);" onMouseOut="return nd();">Date to Enable Security Mode:
-           </td><td class="content_input_td"><input type="hidden" maxlength="7" class="content_input_fd" size="7" name="usb_websecurity_date_x" value="<% nvram_get_x("PrinterStatus","usb_websecurity_date_x"); %>">
+           </td><td class="content_input_td"><input type="hidden" maxlength="7" class="content_input_fd" size="7" name="usb_websecurity_date_x" value="<% nvram_get("usb_websecurity_date_x"); %>">
 <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 <input type="checkbox" class="content_input_fd" name="usb_websecurity_date_x_Sun">Sun</input><input type="checkbox" class="content_input_fd" name="usb_websecurity_date_x_Mon">Mon</input><input type="checkbox" class="content_input_fd" name="usb_websecurity_date_x_Tue">Tue</input><input type="checkbox" class="content_input_fd" name="usb_websecurity_date_x_Wed">Wed</input>
 </p>
@@ -87,22 +87,22 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the time interval that Security Mode will be enabled.', LEFT);" onMouseOut="return nd();">Time to Enable Security Mode:
-           </td><td class="content_input_td"><input type="hidden" maxlength="11" class="content_input_fd" size="11" name="usb_websecurity_time_x" value="<% nvram_get_x("PrinterStatus","usb_websecurity_time_x"); %>"><input type="text" maxlength="2" class="content_input_fd" size="2" name="usb_websecurity_time_x_starthour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 0)">:
+           </td><td class="content_input_td"><input type="hidden" maxlength="11" class="content_input_fd" size="11" name="usb_websecurity_time_x" value="<% nvram_get("usb_websecurity_time_x"); %>"><input type="text" maxlength="2" class="content_input_fd" size="2" name="usb_websecurity_time_x_starthour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 0)">:
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="usb_websecurity_time_x_startmin" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 1)">-
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="usb_websecurity_time_x_endhour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 2)">:
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="usb_websecurity_time_x_endmin" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 3)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the e-mail address you like to send to.', LEFT);" onMouseOut="return nd();">Send to:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_websendto_x" value="<% nvram_get_x("PrinterStatus","usb_websendto_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_websendto_x" value="<% nvram_get("usb_websendto_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the email server where you like to deliver your e-mail to. If you leave this field blank, ZVMODELVZ will find a Mail Exchanger from your e-mail address below.', LEFT);" onMouseOut="return nd();">Email Server:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_webmserver_x" value="<% nvram_get_x("PrinterStatus","usb_webmserver_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_webmserver_x" value="<% nvram_get("usb_webmserver_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to edit subject of e-mail.', LEFT);" onMouseOut="return nd();">Subject:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_websubject_x" value="<% nvram_get_x("PrinterStatus","usb_websubject_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_websubject_x" value="<% nvram_get("usb_websubject_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to attach detected image file into e-mail.', LEFT);" onMouseOut="return nd();">Attach Image File?
@@ -123,27 +123,27 @@
 </tr>
 <tr>
 <td class="content_header_td">Remote Site 1:
-           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote1_x" value="<% nvram_get_x("PrinterStatus","usb_webremote1_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote1_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote1_x" value="<% nvram_get("usb_webremote1_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote1_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td">Remote Site 2:
-           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote2_x" value="<% nvram_get_x("PrinterStatus","usb_webremote2_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote2_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote2_x" value="<% nvram_get("usb_webremote2_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote2_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td">Remote Site 3:
-           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote3_x" value="<% nvram_get_x("PrinterStatus","usb_webremote3_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote3_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote3_x" value="<% nvram_get("usb_webremote3_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote3_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td">Remote Site 4:
-           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote4_x" value="<% nvram_get_x("PrinterStatus","usb_webremote4_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote4_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote4_x" value="<% nvram_get("usb_webremote4_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote4_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td">Remote Site 5:
-           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote5_x" value="<% nvram_get_x("PrinterStatus","usb_webremote5_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote5_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote5_x" value="<% nvram_get("usb_webremote5_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote5_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td">Remote Site 6:
-           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote6_x" value="<% nvram_get_x("PrinterStatus","usb_webremote6_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote6_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote6_x" value="<% nvram_get("usb_webremote6_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote6_x')" onKeyPress="return is_ipaddrport(event, this)" onKeyUp="change_ipaddrport(this)"></td>
 </tr>
 </table>
 

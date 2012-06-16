@@ -18,7 +18,7 @@
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="first_time" value="">
 <input type="hidden" name="action_script" value="">
-<input type="hidden" name="" value="<% nvram_get_x("DeviceSecurity11a",""); %>">
+<input type="hidden" name="" value="<% nvram_get(""); %>">
 <!-- Table for the conntent page -->	    
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
@@ -34,7 +34,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="AESList">AES Access Control List(11a Only)
-         <input type="hidden" name="AESListCount_0" value="<% nvram_get_x("DeviceSecurity11a", "AESListCount"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="AESListCount_0" value="<% nvram_get("AESListCount"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'AESList', 64, ' Add ');" name="AESList" value="Add" size="12">
 </div>

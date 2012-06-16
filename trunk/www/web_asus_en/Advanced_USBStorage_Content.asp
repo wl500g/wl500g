@@ -25,7 +25,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Before removing your USB disk, please press this button to write cached data back to disk and wait for this page shown up again.', LEFT);" onMouseOut="return nd();">Force to Eject USB Disk:
-           </td><td class="content_input_td"><input type="hidden" maxlength="15" class="content_input_fd_ro" size="12" name="" value="<% nvram_get_x("ddns.log","DDNSStatus"); %>"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('eject-usb.sh')" size="12" name="PrinterStatus_x_FEject_button" value="Eject"></td>
+           </td><td class="content_input_td"><input type="hidden" maxlength="15" class="content_input_fd_ro" size="12" name="" value="<% nvram_get("DDNSStatus"); %>"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('eject-usb.sh')" size="12" name="PrinterStatus_x_FEject_button" value="Eject"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Yes builds up a FTP server with your USB disk.', LEFT);" onMouseOut="return nd();">Enable FTP Server:</td>
@@ -37,7 +37,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the port number used by FTP protocol.', LEFT);" onMouseOut="return nd();">FTP Port:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpport_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftpport_x"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpport_x" class="content_input_fd" value="<% nvram_get("usb_ftpport_x"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Yes allows user to connect to your FTP server without any password.', LEFT);" onMouseOut="return nd();">Anonymous Users Access:</td>
@@ -62,23 +62,23 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The minimum port to allocate for PASV style data connections.', LEFT);" onMouseOut="return nd();">PASV minimum port:</td>
-<td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftp_pasvminport_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftp_pasvminport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(event, this)"></td>
+<td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftp_pasvminport_x" class="content_input_fd" value="<% nvram_get("usb_ftp_pasvminport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The maximum port to allocate for PASV style data connections.', LEFT);" onMouseOut="return nd();">PASV maximum port:</td>
-<td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftp_pasvmaxport_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftp_pasvmaxport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(event, this)"></td>
+<td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftp_pasvmaxport_x" class="content_input_fd" value="<% nvram_get("usb_ftp_pasvmaxport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Directories</td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This is a root directory which is used for authenticated users access. You need to create it manually for FTP server to work.', LEFT);" onMouseOut="return nd();">Public Directory: </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_ftppubroot_x" value="<% nvram_get_x("PrinterStatus","usb_ftppubroot_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('This is a root directory which is used for authenticated users access. You need to create it manually for FTP server to work.', LEFT);" onMouseOut="return nd();">Public Directory: </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_ftppubroot_x" value="<% nvram_get("usb_ftppubroot_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This is a root directory which is used for authenticated users access in private mode. You need to create it manually for FTP server to work.', LEFT);" onMouseOut="return nd();">Private Directory: </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_ftppvtroot_x" value="<% nvram_get_x("PrinterStatus","usb_ftppvtroot_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('This is a root directory which is used for authenticated users access in private mode. You need to create it manually for FTP server to work.', LEFT);" onMouseOut="return nd();">Private Directory: </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_ftppvtroot_x" value="<% nvram_get("usb_ftppvtroot_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This is a root directory which is used for anonymous connections. Leave it empty to allow to access to the whole disc.', LEFT);" onMouseOut="return nd();">Anonymous Directory: </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_ftpanonroot_x" value="<% nvram_get_x("PrinterStatus","usb_ftpanonroot_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('This is a root directory which is used for anonymous connections. Leave it empty to allow to access to the whole disc.', LEFT);" onMouseOut="return nd();">Anonymous Directory: </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_ftpanonroot_x" value="<% nvram_get("usb_ftpanonroot_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows to enable or disable directory listings.', LEFT);" onMouseOut="return nd();">Directory Listings:</td>
@@ -93,34 +93,34 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum number of users allowed to log in FTP server at the same time.', LEFT);" onMouseOut="return nd();">Maximum Users Allowed to Log in:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpmax_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftpmax_x"); %>" onBlur="validate_range(this, 0, 12)" onKeyPress="return is_number(event, this)"> (0 - unlimited)</td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpmax_x" class="content_input_fd" value="<% nvram_get("usb_ftpmax_x"); %>" onBlur="validate_range(this, 0, 12)" onKeyPress="return is_number(event, this)"> (0 - unlimited)</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum number of users allowed to log in FTP server at the same time from the same IP.', LEFT);" onMouseOut="return nd();">Maximum Connections from same IP:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpipmax_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftpipmax_x"); %>" onBlur="validate_range(this, 0, 12)" onKeyPress="return is_number(event, this)"> (0 - unlimited)</td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpipmax_x" class="content_input_fd" value="<% nvram_get("usb_ftpipmax_x"); %>" onBlur="validate_range(this, 0, 12)" onKeyPress="return is_number(event, this)"> (0 - unlimited)</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum  data transfer rate permitted for anonymous clients', LEFT);" onMouseOut="return nd();">Maximum Bandwidth for Anonymous Users (KBytes/sec):
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpanonrate_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftpanonrate_x"); %>" onBlur="validate_range(this, 0, 99999)" onKeyPress="return is_number(event, this)"> (0 - unlimited)</td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpanonrate_x" class="content_input_fd" value="<% nvram_get("usb_ftpanonrate_x"); %>" onBlur="validate_range(this, 0, 99999)" onKeyPress="return is_number(event, this)"> (0 - unlimited)</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum  data transfer rate permitted for authenticated clients', LEFT);" onMouseOut="return nd();">Maximum Bandwidth for Authenticated Users (KBytes/sec):
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftprate_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftprate_x"); %>" onBlur="validate_range(this, 0, 99999)" onKeyPress="return is_number(event, this)"> (0 - unlimited)</td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftprate_x" class="content_input_fd" value="<% nvram_get("usb_ftprate_x"); %>" onBlur="validate_range(this, 0, 99999)" onKeyPress="return is_number(event, this)"> (0 - unlimited)</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to terminate user connection after users login but stay idle for a specified period of time.', LEFT);" onMouseOut="return nd();">Idle Timeout in Seconds:
-           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="usb_ftpstaytimeout_x" value="<% nvram_get_x("PrinterStatus","usb_ftpstaytimeout_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"> (0 - no timeout)</td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="usb_ftpstaytimeout_x" value="<% nvram_get("usb_ftpstaytimeout_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"> (0 - no timeout)</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('After inserting USB disk, ZVMODELVZ will look for named initial script in root directory of USB disk and executed it. Leaving it blank will disable this function.', LEFT);" onMouseOut="return nd();">Initial Script:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_ftpscript_x" value="<% nvram_get_x("PrinterStatus","usb_ftpscript_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_ftpscript_x" value="<% nvram_get("usb_ftpscript_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 </table>
 
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="x_FUserList">User Account List
-         <input type="hidden" name="usb_ftpnum_x_0" value="<% nvram_get_x("PrinterStatus", "usb_ftpnum_x"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="usb_ftpnum_x_0" value="<% nvram_get("usb_ftpnum_x"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_FUserList', 32, ' Add ');" name="x_FUserList" value="Add" size="12">
 </div>

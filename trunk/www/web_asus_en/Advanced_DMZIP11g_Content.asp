@@ -18,7 +18,7 @@
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="first_time" value="">
 <input type="hidden" name="action_script" value="">
-<input type="hidden" name="" value="<% nvram_get_x("LANHostConfig",""); %>">
+<input type="hidden" name="" value="<% nvram_get(""); %>">
 <!-- Table for the conntent page -->	      	      
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
@@ -36,11 +36,11 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in this separated wireless local network.', LEFT);" onMouseOut="return nd();">IP Address:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="" value="<% nvram_get_x("FirewallConfig",""); %>" onBlur="return validate_ipaddr(this, '')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="" value="<% nvram_get(""); %>" onBlur="return validate_ipaddr(this, '')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is Subnet Mask of ZVMODELVZ as seen in this separated wireless local network.', LEFT);" onMouseOut="return nd();">Subnet mask:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="" value="<% nvram_get_x("FirewallConfig",""); %>" onBlur="return validate_ipaddr(this, '')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="" value="<% nvram_get(""); %>" onBlur="return validate_ipaddr(this, '')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 </table>
 

@@ -345,15 +345,15 @@ static int websWriteEscape(webs_t wp, char *buf)
 /*
 * Example: 
 * lan_ipaddr=192.168.1.1
-* <% nvram_get_x("lan_ipaddr"); %> produces "192.168.1.1"
-* <% nvram_get_x("undefined"); %> produces ""
+* <% nvram_get("lan_ipaddr"); %> produces "192.168.1.1"
+* <% nvram_get("undefined"); %> produces ""
 */
 static int
-ej_nvram_get_x(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_get(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *sid, *name;
+	const char *name;
 
-	if (ejArgs(argc, argv, "%s %s", &sid, &name) < 2) {
+	if (ejArgs(argc, argv, "%s", &name) < 1) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
@@ -2016,7 +2016,7 @@ const struct ej_handler ej_handlers[] = {
 	{ "nvram_get_json", ej_nvram_get_json },
 	{ "nvram_get_n_json", ej_nvram_get_n_json },
 #endif
-	{ "nvram_get_x", ej_nvram_get_x },
+	{ "nvram_get", ej_nvram_get },
 	{ "nvram_get_list_x", ej_nvram_get_list_x },
 	{ "nvram_get_table_x", ej_nvram_get_table_x },
 	{ "nvram_match_x", ej_nvram_match_x },

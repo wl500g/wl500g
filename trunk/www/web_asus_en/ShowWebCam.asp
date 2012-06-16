@@ -19,8 +19,8 @@ function loadWidzard()
 </head>
 <body onLoad="loadWidzard()" bgcolor="#FFFFFF" text="#000066" link="#3333CC" vlink="#666699" alink="#990099">
 <form method="GET" name="form" action="webcam.cgi">  
-<input type="hidden" name="ImageSize" value="<% nvram_get_x("PrinterStatus","usb_webimage_x"); %>">
-<input type="hidden" name="CameraModel" value="<% nvram_get_x("PrinterStatus","usb_webdriver_x"); %>">
+<input type="hidden" name="ImageSize" value="<% nvram_get("usb_webimage_x"); %>">
+<input type="hidden" name="CameraModel" value="<% nvram_get("usb_webdriver_x"); %>">
 <!--mstheme-->
 <font>
 <table align="center" BORDER=1 CELLSPACING=0 CELLPADDING=0 BGCOLOR=#FFFFCC>
@@ -74,7 +74,7 @@ else
 	height = 120;
 }
 
-var image = 'http://' + '<% nvram_get_x("PrinterStatus","lan_ipaddr"); %>' + ':' + '<% nvram_get_x("PrinterStatus","usb_webhttpport_x"); %>' + '/?action=stream';
+var image = 'http://' + '<% nvram_get("lan_ipaddr"); %>' + ':' + '<% nvram_get("usb_webhttpport_x"); %>' + '/?action=stream';
 
       	document.write('<tr>');
 	document.write('<td align="left" height="48" style="padding-top:2;padding-bottom:2;padding-left:2">');
