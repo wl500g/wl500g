@@ -40,26 +40,11 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-
-#include <httpd.h>
-
-#ifdef vxworks
-static void fcntl(int a, int b, int c) {}
-#include <signal.h>
-#include <ioLib.h>
-#include <sockLib.h>
-extern int snprintf(char *str, size_t count, const char *fmt, ...);
-extern int strcasecmp(const char *s1, const char *s2); 
-extern int strncasecmp(const char *s1, const char *s2, size_t n); 
-extern char *strsep(char **stringp, char *delim);
-#define socklen_t 		int
-#define main			milli
-#else /* !vxvorks */
 #include <error.h>
 #include <sys/signal.h>
 #include <sys/ioctl.h>
-#endif
 
+#include "httpd.h"
 #include "bcmnvram_f.h"
 
 // Added by Joey for ethtool
@@ -542,7 +527,6 @@ handle_request(void)
 			}
 			if (handler->input) {
 				handler->input(file, conn_fp, cl, boundary);
-#if defined(linux)
 				if ((flags = fcntl(fileno(conn_fp), F_GETFL)) != -1 &&
 					fcntl(fileno(conn_fp), F_SETFL, flags | O_NONBLOCK) != -1) {
 						/* Read up to two more characters */
@@ -550,16 +534,6 @@ handle_request(void)
 							(void) fgetc(conn_fp);
 						fcntl(fileno(conn_fp), F_SETFL, flags);
 				}
-#elif defined(vxworks)
-				flags = 1;
-				if (ioctl(fileno(conn_fp), FIONBIO, (int) &flags) != -1) {
-					/* Read up to two more characters */
-					if (fgetc(conn_fp) != EOF)
-						(void) fgetc(conn_fp);
-					flags = 0;
-					ioctl(fileno(conn_fp), FIONBIO, (int) &flags);
-				}
-#endif				
 			}
 			send_headers( 200, "Ok", handler->extra_header, handler->mime_type );
 			if (handler->output)
@@ -766,7 +740,7 @@ int main(int argc, char **argv)
 		exit(errno);
 	}
 
-#if !defined(DEBUG1) && !defined(vxworks)
+#if !defined(DEBUG1)
 	{
 		FILE *pid_fp;
 		/* Daemonize and log PID */
