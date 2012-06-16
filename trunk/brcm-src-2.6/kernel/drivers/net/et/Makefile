@@ -24,7 +24,7 @@ endif
 
 obj-$(CONFIG_ET) := et.o
 
-EXTRA_CFLAGS	+= -DDMA -Werror
+EXTRA_CFLAGS	+= -DDMA
 
 # Search for sources under src/et/sys or objects under src/et/linux
 ifneq ($(wildcard $(src)/$(ETSRCDIR)/sys),)
