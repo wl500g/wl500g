@@ -26,7 +26,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel', LEFT);" onMouseOut="return nd();">Channel:</td><td class="content_input_td"><select name="WLANConfig11b_Channel" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'Channel')">   
-<% select_channel("WLANConfig11b"); %>
+<% select_channel(); %>
                 </select><input type="hidden" maxlength="15" size="15" name="WLANConfig11b_x_RegulatoryDomain" value="<% nvram_get("x_RegulatoryDomain"); %>" readonly></td>
 </tr>
 <tr>

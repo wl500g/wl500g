@@ -388,8 +388,8 @@ ej_nvram_match_x(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_nvram_double_match_x(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *sid, *name, *match, *output;
-	char *sid2, *name2, *match2;
+	const char *sid, *name, *match, *output;
+	const char *sid2, *name2, *match2;
 
 	if (ejArgs(argc, argv, "%s %s %s %s %s %s %s", &sid, &name, &match, &sid2, &name2, &match2, &output) < 7) {
 		websError(wp, 400, "Insufficient args\n");
@@ -412,7 +412,7 @@ ej_nvram_double_match_x(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_nvram_match_both_x(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *sid, *name, *match, *output, *output_not;
+	const char *sid, *name, *match, *output, *output_not;
 
 	if (ejArgs(argc, argv, "%s %s %s %s %s", &sid, &name, &match, &output, &output_not) < 5){
 		websError(wp, 400, "Insufficient args\n");
@@ -435,7 +435,7 @@ ej_nvram_match_both_x(int eid, webs_t wp, int argc, char_t **argv)
 int
 ej_nvram_match_list_both_x(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *sid, *name, *match, *output, *output_ex;
+	const char *sid, *name, *match, *output, *output_ex;
 	int index;
 
 	if (ejArgs(argc, argv, "%s %s %s %s %s %d", &sid, &name, &match, &output, &output_ex, &index) < 6) {
@@ -450,36 +450,10 @@ ej_nvram_match_list_both_x(int eid, webs_t wp, int argc, char_t **argv)
 }	
 #endif // REMOVE
 
-/*
-* Example: 
-* lan_ipaddr=192.168.1.1 192.168.39.248
-* <% nvram_get_list("lan_ipaddr", 0); %> produces "192.168.1.1"
-* <% nvram_get_list("lan_ipaddr", 1); %> produces "192.168.39.248"
-*/
-static int
-ej_nvram_get_list_x(int eid, webs_t wp, int argc, char_t **argv)
-{
-	char *sid, *name;
-	int which;
-
-	if (ejArgs(argc, argv, "%s %s %d", &sid, &name, &which) < 3) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	return websWrite(wp, nvram_get_list_x(sid, name, which));
-}
-
-/*
-* Example: 
-* lan_ipaddr=192.168.1.1 192.168.39.248
-* <% nvram_get_table_x("lan_ipaddr"); %> produces "192.168.1.1"
-* <% nvram_get_table_x("lan_ipaddr"); %> produces "192.168.39.248"
-*/
 static int
 ej_nvram_get_table_x(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *sid, *name;
+	const char *sid, *name;
 
 	if (ejArgs(argc, argv, "%s %s", &sid, &name) < 2) {
 		websError(wp, 400, "Insufficient args\n");
@@ -498,7 +472,7 @@ ej_nvram_get_table_x(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_nvram_match_list_x(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *sid, *name, *match, *output;
+	const char *sid, *name, *match, *output;
 	int which;
 
 	if (ejArgs(argc, argv, "%s %s %s %s %d", &sid, &name, &match, &output, &which) < 5) {
@@ -516,16 +490,11 @@ ej_nvram_match_list_x(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_select_channel(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *sid, chstr[32];
+	char chstr[32];
 	int ret = 0;	
 	int i, channel, channels[32];
 
-	if (ejArgs(argc, argv, "%s", &sid) < 1) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	channel=atoi(nvram_safe_get("wl_channel"));
+	channel=nvram_get_int("wl_channel");
 
 	if (!wl_channels_in_country(nvram_safe_get("wl_country_code"), channels)) {
 		wl_channels_in_country_asus(nvram_safe_get("wl_country_code"), channels);
@@ -534,8 +503,10 @@ ej_select_channel(int eid, webs_t wp, int argc, char_t **argv)
 	i = 0;
 
 	while (channels[i]!=-1) {
-		if (channels[i] == 0) strcpy(chstr, "Auto");
-		else sprintf(chstr, "%d", channels[i]);
+		if (channels[i] == 0)
+			strcpy(chstr, "Auto");
+		else
+			sprintf(chstr, "%d", channels[i]);
 
 		if (channel==channels[i])
 			ret += websWrite(wp, "<option value=\"%d\" selected>%s</option>", channels[i], chstr);
@@ -1352,7 +1323,7 @@ static void nvram_add_group_item(webs_t wp, const struct variable *v, int sid)
 		return;
 	}
 
-	count = atoi(nvram_safe_get(v->argv[3]));
+	count = nvram_get_int(v->argv[3]);
 	dprintf("Grp count: %d\n", count);
 
 	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
@@ -1382,7 +1353,7 @@ static void nvram_remove_group_item(webs_t wp, const struct variable *v, int sid
 		return;
 	}
 
-	count = atoi(nvram_safe_get(v->argv[3]));
+	count = nvram_get_int(v->argv[3]);
 	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
 		nvram_del_lists_x(serviceId, gv->name, delMap);
 	}
@@ -1512,7 +1483,7 @@ nvram_generate_table(webs_t wp, const char *serviceId, const char *groupName)
 	if (v->name == NULL)
 		return 0;
 
-	groupCount = atoi(nvram_safe_get(v->argv[3]));
+	groupCount = nvram_get_int(v->argv[3]);
 
 	if (groupCount==0)
 		ret = nvram_add_group_table(wp, serviceId, v, -1);
@@ -1615,7 +1586,7 @@ do_webcam_cgi(char *url, FILE *stream)
 	dprintf("WebCam CGI\n");
 	//ret = fcntl(fileno(stream), F_GETOWN, 0);
 	query_idx = atoi(query);
-	last_idx = atoi(nvram_safe_get("WebPic"));
+	last_idx = nvram_get_int("WebPic");
 	//pic = nvram_safe_get("WebPic");
 
 	if (query_idx==0) sprintf(pic, "../var/tmp/display.jpg");
@@ -2017,7 +1988,6 @@ const struct ej_handler ej_handlers[] = {
 	{ "nvram_get_n_json", ej_nvram_get_n_json },
 #endif
 	{ "nvram_get", ej_nvram_get },
-	{ "nvram_get_list_x", ej_nvram_get_list_x },
 	{ "nvram_get_table_x", ej_nvram_get_table_x },
 	{ "nvram_match_x", ej_nvram_match_x },
 	{ "nvram_double_match_x", ej_nvram_double_match_x },
@@ -2308,16 +2278,11 @@ static const country_name_t country_names[] = {
 static int
 ej_select_country(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *country, *sid;	
+	const char *country;
 	const country_name_t *cntry;
-	int ret=0;
+	int ret = 0;
 
-	if (ejArgs(argc, argv, "%s", &sid) < 1) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	country=nvram_safe_get("wl_country_code");
+	country = nvram_safe_get("wl_country_code");
 
 	for (cntry = country_names; cntry->name; cntry++) { 
 		if (strcmp(country, cntry->abbrev)!=0)
@@ -2359,7 +2324,7 @@ wl_channels_in_country(char *abbrev, int channels[])
 	char tmp[100], prefix[sizeof("wlXXXXXXXXXX_")];
 	char *name;
 
-	if ((unit = atoi(nvram_safe_get("wl_unit"))) < 0)
+	if ((unit = nvram_get_int("wl_unit")) < 0)
 		return -1;
 
 	if (strlen(abbrev)==0) return 0;
