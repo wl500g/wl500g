@@ -134,7 +134,7 @@ sys_renew(void)
 	int unit;
 	char tmp[100];
 
-	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
+	if ((unit = nvram_get_int("wan_unit")) < 0)
 		unit = 0;
 
 #ifdef REMOVE	
@@ -162,7 +162,7 @@ sys_release(void)
 	int unit;
 	char tmp[100];
 
-	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
+	if ((unit = nvram_get_int("wan_unit")) < 0)
 		unit = 0;
 	
 #ifdef REMOVE
@@ -193,7 +193,7 @@ ej_wan_lease(int eid, webs_t wp, int argc, char_t **argv)
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 
-	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
+	if ((unit = nvram_get_int("wan_unit")) < 0)
 		unit = 0;
 	wan_prefix(unit, prefix);
 	
@@ -231,7 +231,7 @@ ej_wan_iflist(int eid, webs_t wp, int argc, char_t **argv)
 	struct ifreq ifr;
 
 	/* current unit # */
-	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
+	if ((unit = nvram_get_int("wan_unit")) < 0)
 		unit = 0;
 	wan_prefix(unit, prefix);
 	
@@ -297,7 +297,7 @@ ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 	channel_info_t ci;
 	char chanspec[16]; /* sizeof("255 + 255") */
 
-	if ((unit = atoi(nvram_safe_get("wl_unit"))) < 0)
+	if ((unit = nvram_get_int("wl_unit")) < 0)
 		return -1;
 
 	snprintf(prefix, sizeof(prefix), "wl%d_", unit);

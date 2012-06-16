@@ -29,7 +29,7 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows ZVMODELVZ to follow the wireless specification of your country.', LEFT);" onMouseOut="return nd();">Country Code:
            </td><td class="content_input_td"><select name="" class="content_input_fd">   
-<% select_country("WLANConfig11a"); %>
+<% select_country(); %>
                 </select></td>
 </tr>
 <tr class="content_section_header_tr">
@@ -43,7 +43,7 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel. If outdoor channel is checked, you will be allowed to select some special channels.', LEFT);" onMouseOut="return nd();">Channel:
            </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11a', '')">   
-<% select_channel("WLANConfig11a"); %>
+<% select_channel(); %>
                 </select><input type="hidden" maxlength="15" size="15" name="x_RegulatoryDomain" value="<% nvram_get("x_RegulatoryDomain"); %>" readonly><input type="checkbox" style="margin-left:30" name="_check" value="" onClick="return change_common_radio(this, 'WLANConfig11a', '', '1')">Outdoor Channel</input></td>
 </tr>
 <tr>
@@ -102,7 +102,7 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel', LEFT);" onMouseOut="return nd();">Channel:
            </td><td class="content_input_td"><select name="wl_channel" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_channel')">   
-<% select_channel("WLANConfig11b"); %>
+<% select_channel(); %>
                 </select><input type="hidden" maxlength="15" size="15" name="x_RegulatoryDomain" value="<% nvram_get("x_RegulatoryDomain"); %>" readonly></td>
 </tr>
 <tr>

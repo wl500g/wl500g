@@ -45,6 +45,7 @@
 #include <sys/ioctl.h>
 
 #include <bcmnvram.h>
+#include <shutils.h>
 #include "httpd.h"
 #include "bcmnvram_f.h"
 
@@ -717,7 +718,7 @@ int main(int argc, char **argv)
 	fd_set active_rfds;
 	conn_list_t pool;
 
-	server_port = atoi(nvram_safe_get("http_lanport"));
+	server_port = nvram_get_int("http_lanport");
 	if (server_port)
 		http_port = server_port;
 	else
