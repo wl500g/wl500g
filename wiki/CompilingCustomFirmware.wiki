@@ -22,7 +22,7 @@
 {{{
 mkdir -p /opt/brcm
 mkdir -p /whatever-you-want/broadcom/src/linux
-tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.4.6-K26-r3826.tar.bz2
+tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.5.3-K26-r4179.tar.bz2
 ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.4.6-K26 /opt/brcm/hndtools-mipsel-uclibc
 tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.6.22.19.tar.bz2
 ln -sf linux-2.6.22.19 /whatever-you-want/broadcom/src/linux/linux-2.6
@@ -30,10 +30,6 @@ ln -sf linux-2.6.22.19 /whatever-you-want/broadcom/src/linux/linux-2.6
   # Checking out firmware sources
 {{{
 svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/src/1.9.2.7-rtn
-}}}
-  # Add the path to the toolchain (it can be introduced to the personal ~/.profile for convenience)
-{{{
-$ export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
 }}}
 
 == 4. Building ==
