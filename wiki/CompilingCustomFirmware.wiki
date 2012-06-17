@@ -13,7 +13,7 @@
     * subversion
 
 == 2. Download the additional tools/sources ==
-  * Toolchain [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc-4.4.6 hndtools-mipsel-uclibc-4.4.6]
+  * Toolchain [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc-4.5.3 hndtools-mipsel-uclibc-4.5.3]
   * Linux kernel [http://wl500g.googlecode.com/files/linux-2.6.22.19.tar.bz2 linux-2.6.22.19.tar.bz2]
 
 == 3. Unpack the archives and prepare the building tree ==
@@ -23,7 +23,7 @@
 mkdir -p /opt/brcm
 mkdir -p /whatever-you-want/broadcom/src/linux
 tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.5.3-K26-r4179.tar.bz2
-ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.4.6-K26 /opt/brcm/hndtools-mipsel-uclibc
+ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.5.3-K26 /opt/brcm/hndtools-mipsel-uclibc
 tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.6.22.19.tar.bz2
 ln -sf linux-2.6.22.19 /whatever-you-want/broadcom/src/linux/linux-2.6
 }}}
