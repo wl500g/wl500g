@@ -25,8 +25,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <assert.h>
-#include <httpd.h>
-
+#include <fcntl.h>
+#include <net/if.h>
 
 #include <typedefs.h>
 #include <proto/ethernet.h>
@@ -42,9 +42,6 @@ extern char *reltime(unsigned int seconds);
 #define wan_prefix(unit, prefix)	snprintf(prefix, sizeof(prefix), "wan%d_", unit)
 
 
-#define XSTR(s) STR(s)
-#define STR(s) #s
-
 #define EZC_FLAGS_READ		0x0001
 #define EZC_FLAGS_WRITE		0x0002
 #define EZC_FLAGS_CRYPT		0x0004
@@ -57,75 +54,17 @@ extern char *reltime(unsigned int seconds);
 #define EZC_ERR_INVALID_DATA 	3
 
 
-#if defined(linux)
-
-#include <fcntl.h>
-#include <signal.h>
-#include <time.h>
-#include <sys/klog.h>
-#include <sys/wait.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
-
 typedef u_int64_t u64;
 typedef u_int32_t u32;
 typedef u_int16_t u16;
 typedef u_int8_t u8;
+
 #include <linux/types.h>
 #include <linux/ethtool.h>
 #include <linux/sockios.h>
 #include <net/if_arp.h>
 
-
-#define MIN_BUF_SIZE	4096
-
-struct lease_t {
-	unsigned char chaddr[16];
-	u_int32_t yiaddr;
-	u_int32_t expires;
-	char hostname[64];
-};
-
-/* Dump leases in <tr><td>hostname</td><td>MAC</td><td>IP</td><td>expires</td></tr> format */
-int
-ej_lan_leases(int eid, webs_t wp, int argc, char_t **argv)
-{
-	FILE *fp = NULL;
-	struct lease_t lease;
-	int i;
-	struct in_addr addr;
-	unsigned long expires = 0;
-	int ret = 0;
-
-        ret += websWrite(wp, "Host Name       Mac Address       IP Address      Lease\n");
-			                                                  
-	/* Write out leases file */
-	if (!(fp = fopen("/tmp/udhcpd-br0.leases", "r")))
-		return ret;
-
-	while (fread(&lease, sizeof(lease), 1, fp)) {
-		/* Do not display reserved leases */
-		if (ETHER_ISNULLADDR(lease.chaddr))
-			continue;
-
-		//printf("lease: %s %d\n", lease.hostname, strlen(lease.hostname));
-		ret += websWrite(wp, "%-16s", lease.hostname);
-		for (i = 0; i < 6; i++) {
-			ret += websWrite(wp, "%02X", lease.chaddr[i]);
-			if (i != 5) ret += websWrite(wp, ":");
-		}
-		addr.s_addr = lease.yiaddr;
-		ret += websWrite(wp, " %-15s ", inet_ntoa(addr));
-		expires = ntohl(lease.expires);
-
-		if (expires==0xffffffff) ret += websWrite(wp, "Manual\n");
-		else if (!expires) ret += websWrite(wp, "Expired\n");
-		else ret += websWrite(wp, "%s\n", reltime(expires));
-	}
-	fclose(fp);
-
-	return ret;
-}
+#include "httpd.h"
 
 /* Renew lease */
 int
@@ -183,80 +122,6 @@ sys_release(void)
 #endif
 }
 
-#ifdef REMOVE
-/* Display IP Address lease */
-int
-ej_wan_lease(int eid, webs_t wp, int argc, char_t **argv)
-{
-	unsigned long expires = 0;
-	int ret = 0;
-	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-
-	if ((unit = nvram_get_int("wan_unit")) < 0)
-		unit = 0;
-	wan_prefix(unit, prefix);
-	
-	if (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp")) {
-		char *str;
-		time_t now;
-
-		snprintf(tmp, sizeof(tmp), "/tmp/udhcpc%d.expires", unit); 
-		if ((str = file2str(tmp))) {
-			expires = atoi(str);
-			free(str);
-		}
-		time(&now);
-		if (expires <= now)
-			ret += websWrite(wp, "Expired");
-		else
-			ret += websWrite(wp, "%s", reltime(expires - now));
-	} else
-		ret += websWrite(wp, "N/A");
-
-	return ret;
-}
-
-
-/* Return a list of wan interfaces (eth0/eth1/eth2/eth3) */
-static int
-ej_wan_iflist(int eid, webs_t wp, int argc, char_t **argv)
-{
-	char name[IFNAMSIZ], *next;
-	int ret = 0;
-	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	char ea[64];
-	int s;
-	struct ifreq ifr;
-
-	/* current unit # */
-	if ((unit = nvram_get_int("wan_unit")) < 0)
-		unit = 0;
-	wan_prefix(unit, prefix);
-	
-	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
-		return errno;
-	
-	/* build wan interface name list */
-	foreach(name, nvram_safe_get("wan_ifnames"), next) {
-		strncpy(ifr.ifr_name, name, IFNAMSIZ);
-		if (ioctl(s, SIOCGIFHWADDR, &ifr))
-			continue;
-		ret += websWrite(wp, "<option value=\"%s\" %s>%s (%s)</option>", name,
-				 nvram_match(strcat_r(prefix, "ifname", tmp), name) ? "selected" : "",
-				 name, ether_etoa(ifr.ifr_hwaddr.sa_data, ea));
-	}
-
-	close(s);
-
-	return ret;
-}
-#endif // REMOVE
-
-
-#endif // linux
-
 static int
 ej_wl_sta_status(int eid, webs_t wp, char *ifname)
 {
@@ -269,18 +134,18 @@ ej_wl_sta_status(int eid, webs_t wp, char *ifname)
 	if (ret == 0 && memcmp(bssid, "\x00\x00\x00\x00\x00", 6))
 	{
 		uint32 rssi;
-		
-		if (wl_ioctl(ifname, WLC_GET_RSSI, &rssi, sizeof(rssi)))
-			return(websWrite(wp, "Status	: Connected to %s\n"
-				     "AP	: %02x:%02x:%02x:%02x:%02x:%02x\n", 
-				nvram_safe_get("wl0_ssid"), 
-				bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]));
-		else	return(websWrite(wp, "Status	: Connected to %s\n"
-				     "AP	: %02x:%02x:%02x:%02x:%02x:%02x\n"
-				     "Signal	: %d dBm\n",  nvram_safe_get("wl0_ssid"), 
-				bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5], rssi));
+
+		ret = websWrite(wp, "Status	: Connected to %s\n"
+				    "AP	: %02x:%02x:%02x:%02x:%02x:%02x\n",
+				nvram_safe_get("wl0_ssid"),
+				bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
+
+		if (wl_ioctl(ifname, WLC_GET_RSSI, &rssi, sizeof(rssi)) == 0)
+			ret += websWrite(wp, "Signal	: %d dBm\n", rssi);
+
+		return ret;
 	}
-	return(websWrite(wp, "Status	: Connecting to %s\n", nvram_safe_get("wl0_ssid")));
+	return websWrite(wp, "Status	: Connecting to %s\n", nvram_safe_get("wl0_ssid"));
 }
 
 
@@ -446,7 +311,7 @@ ej_nat_table(int eid, webs_t wp, int argc, char_t **argv)
 		listlen = needlen/sizeof(netconf_nat_t);
 		for (i = 0; i < listlen; i++)
 		{
-			//printf("%d %d %d\n", nat_list[i].target,
+			//dprintf("%d %d %d\n", nat_list[i].target,
 		        //		nat_list[i].match.ipproto,
 			//		nat_list[i].match.dst.ipaddr.s_addr);	
 			if (nat_list[i].target == NETCONF_DNAT)

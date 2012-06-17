@@ -99,7 +99,6 @@ struct ej_handler {
 };
 extern const struct ej_handler ej_handlers[];
 
-extern int ej_lan_leases(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_nat_table(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_route_table(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_wl_status(int eid, webs_t wp, int argc, char_t **argv);

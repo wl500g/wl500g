@@ -494,12 +494,12 @@ handle_request(void)
 
 	redirect=0;
 
-	//printf("File: %s\n", file);
+	//dprintf("File: %s\n", file);
 
 	if (http_port==server_port && !http_login_check()) {
 		inet_ntop(login_ip.family, &login_ip.addr, straddr, sizeof(straddr));
 		sprintf(line, "Please log out user %s first or wait for session timeout(60 seconds).", straddr);
-		printf("resposne: %s \n", line);
+		dprintf("resposne: %s \n", line);
 		send_error( 200, "Request is rejected", (char*) 0, line);
 		return;
 	}
@@ -656,7 +656,7 @@ static int is_phyconnected(void)
 	strcpy(ifr.ifr_name, wan_if);
 	fd=socket(AF_INET, SOCK_DGRAM, 0);
 	if (fd<0) {
-		//printf("fd error\n");
+		//dprintf("fd error\n");
 		return 0;
 	}
 	ecmd.cmd=ETHTOOL_GSET;
@@ -664,14 +664,14 @@ static int is_phyconnected(void)
 	err=ioctl(fd, SIOCETHTOOL, &ifr);
 	close(fd);
 	if (err==0) {
-		//printf("ecmd: %d\n", ecmd.speed);
+		//dprintf("ecmd: %d\n", ecmd.speed);
 		if (ecmd.speed==0) {
 			nvram_set("wan_status_t", "Disconnected");
 			nvram_set("wan_reason_t", "Cable is not attached");
 		}			
-		return(ecmd.speed);
+		return (ecmd.speed);
 	} else {
-		//printf("err error\n");
+		//dprintf("err error\n");
 		return 0;
 	}
 }
@@ -697,7 +697,7 @@ static int is_connected(void)
 
 		return 0;
 	}
-	//printf("Connected\n");
+	//dprintf("Connected\n");
 	return 1;
 }
 
@@ -729,8 +729,6 @@ int main(int argc, char **argv)
 	if (argc>2) http_port=atoi(argv[2]);
 	if (argc>1) strcpy(wan_if, argv[1]);
 	else strcpy(wan_if, "");
-
-	//websSetVer();
 
 #ifdef __CONFIG_IPV6__
 	usa.sa.sa_family = (nvram_invmatch("ipv6_proto", "")) ? AF_INET6 : AF_INET;
