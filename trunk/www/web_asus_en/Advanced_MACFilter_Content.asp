@@ -32,7 +32,7 @@
 </tr>
 <tr>
 <td class="content_header_td">MAC Filter Mode:
-           </td><td class="content_input_td"><select name="macfilter_enable_x" class="content_input_fd" onChange="return change_common(this, 'FirewallConfig', 'macfilter_enable_x')"><option class="content_input_fd" value="0" <% nvram_match_x("FirewallConfig","macfilter_enable_x", "0","selected"); %>>Disable</option><option class="content_input_fd" value="1" <% nvram_match_x("FirewallConfig","macfilter_enable_x", "1","selected"); %>>Accept</option><option class="content_input_fd" value="2" <% nvram_match_x("FirewallConfig","macfilter_enable_x", "2","selected"); %>>Reject</option></select></td>
+           </td><td class="content_input_td"><select name="macfilter_enable_x" class="content_input_fd" onChange="return change_common(this, 'FirewallConfig', 'macfilter_enable_x')"><option class="content_input_fd" value="0" <% nvram_match("macfilter_enable_x", "0","selected"); %>>Disable</option><option class="content_input_fd" value="1" <% nvram_match("macfilter_enable_x", "1","selected"); %>>Accept</option><option class="content_input_fd" value="2" <% nvram_match("macfilter_enable_x", "2","selected"); %>>Reject</option></select></td>
 </tr>
 </table>
 </td>

@@ -33,18 +33,18 @@
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the mode of 802.11g interface. Selecting Auto allows 802.11g and 802.11b to connect to your device. Selecting 54g Only maximizes performace, but 802.11b client is not allowed to connect to your device. If 54g Protection is checked, G-Mode protection of 11g traffic is enabled automatically in the presence of 11b traffic.', LEFT);" onMouseOut="return nd();">Wireless Mode:
            </td><td class="content_input_td">
            <select name="wl_gmode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_gmode')">
-           <option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","wl_gmode", "1","selected"); %>>Auto</option>
-           <option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_gmode", "0","selected"); %>>802.11b Only</option>
-           <option class="content_input_fd" value="2" <% nvram_match_x("WLANConfig11b","wl_gmode", "2","selected"); %>>802.11g Only</option>
-           <option class="content_input_fd" value="6" <% nvram_match_x("WLANConfig11b","wl_gmode", "6","selected"); %>>802.11n Only</option>
-           <option class="content_input_fd" value="4" <% nvram_match_x("WLANConfig11b","wl_gmode", "4","selected"); %>>Performance</option>
-           <option class="content_input_fd" value="5" <% nvram_match_x("WLANConfig11b","wl_gmode", "5","selected"); %>>54G LRS</option>
+           <option class="content_input_fd" value="1" <% nvram_match("wl_gmode", "1","selected"); %>>Auto</option>
+           <option class="content_input_fd" value="0" <% nvram_match("wl_gmode", "0","selected"); %>>802.11b Only</option>
+           <option class="content_input_fd" value="2" <% nvram_match("wl_gmode", "2","selected"); %>>802.11g Only</option>
+           <option class="content_input_fd" value="6" <% nvram_match("wl_gmode", "6","selected"); %>>802.11n Only</option>
+           <option class="content_input_fd" value="4" <% nvram_match("wl_gmode", "4","selected"); %>>Performance</option>
+           <option class="content_input_fd" value="5" <% nvram_match("wl_gmode", "5","selected"); %>>54G LRS</option>
            </select>
            <input type="checkbox" style="margin-left:30" name="wl_gmode_check" value="" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_gmode', '1')">54g Protection</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('For 802.11n performance, select 40MHz bandwidth. Channel and data rate options will depend on the bandwidth you select.', LEFT);" onMouseOut="return nd();">Bandwidth:
-           </td><td class="content_input_td"><select name="wl_nbw" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_nbw')"><option class="content_input_fd" value="20" <% nvram_match_x("WLANConfig11b","wl_nbw", "20","selected"); %>>20MHz</option><option class="content_input_fd" value="40" <% nvram_match_x("WLANConfig11b","wl_nbw", "40","selected"); %>>40MHz</option></select></td>
+           </td><td class="content_input_td"><select name="wl_nbw" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_nbw')"><option class="content_input_fd" value="20" <% nvram_match("wl_nbw", "20","selected"); %>>20MHz</option><option class="content_input_fd" value="40" <% nvram_match("wl_nbw", "40","selected"); %>>40MHz</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel', LEFT);" onMouseOut="return nd();">Channel:
@@ -55,29 +55,29 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Select the 40MHz bandwidth subchannel for 802.11n interface.', LEFT);" onMouseOut="return nd();">SubChannel:
            </td><td class="content_input_td"><select name="wl_nctrlsb" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_nctrlsb')">
-<option class="content_input_fd" value="none" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "none","selected"); %>>None</option>
-<option class="content_input_fd" value="lower" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "lower","selected"); %>></option>
-<option class="content_input_fd" value="upper" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "upper","selected"); %>></option>
+<option class="content_input_fd" value="none" <% nvram_match("wl_nctrlsb", "none","selected"); %>>None</option>
+<option class="content_input_fd" value="lower" <% nvram_match("wl_nctrlsb", "lower","selected"); %>></option>
+<option class="content_input_fd" value="upper" <% nvram_match("wl_nctrlsb", "upper","selected"); %>></option>
 </select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the method used to authenticate wireless users. Selecting different Authentication Method, different encryption scheme will be applied.', LEFT);" onMouseOut="return nd();">Authentication Method:</td>
 	<td class="content_input_td">
 		<select name="wl_auth_mode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_auth_mode')">
-			<option class="content_input_fd" value="open" <% nvram_match_x("WLANConfig11b","wl_auth_mode", "open","selected"); %>>Open System</option>
-			<option class="content_input_fd" value="shared" <% nvram_match_x("WLANConfig11b","wl_auth_mode", "shared","selected"); %>>Shared Key</option>
-			<option class="content_input_fd" value="psk" <% nvram_double_match_x("WLANConfig11b", "wl_auth_mode", "psk", "WLANConfig11b", "wl_wpa_mode", "1", "selected"); %>>WPA-Personal</option>
-			<option class="content_input_fd" value="psk" <% nvram_double_match_x("WLANConfig11b", "wl_auth_mode", "psk", "WLANConfig11b", "wl_wpa_mode", "2", "selected"); %>>WPA2-Personal</option>
-			<option class="content_input_fd" value="psk" <% nvram_double_match_x("WLANConfig11b", "wl_auth_mode", "psk", "WLANConfig11b", "wl_wpa_mode", "0", "selected"); %>>WPA-Auto-Personal</option>
-			<option class="content_input_fd" value="wpa" <% nvram_match_x("WLANConfig11b","wl_auth_mode", "wpa","selected"); %>>WPA-Enterprise</option>
-			<option class="content_input_fd" value="wpa2" <% nvram_match_x("WLANConfig11b","wl_auth_mode", "wpa2","selected"); %>>WPA2-Enterprise</option>
-			<option class="content_input_fd" value="radius" <% nvram_match_x("WLANConfig11b","wl_auth_mode", "radius","selected"); %>>Radius with 802.1x</option>
+			<option class="content_input_fd" value="open" <% nvram_match("wl_auth_mode", "open","selected"); %>>Open System</option>
+			<option class="content_input_fd" value="shared" <% nvram_match("wl_auth_mode", "shared","selected"); %>>Shared Key</option>
+			<option class="content_input_fd" value="psk" <% nvram_double_match("wl_auth_mode", "psk", "wl_wpa_mode", "1", "selected"); %>>WPA-Personal</option>
+			<option class="content_input_fd" value="psk" <% nvram_double_match("wl_auth_mode", "psk", "wl_wpa_mode", "2", "selected"); %>>WPA2-Personal</option>
+			<option class="content_input_fd" value="psk" <% nvram_double_match("wl_auth_mode", "psk", "wl_wpa_mode", "0", "selected"); %>>WPA-Auto-Personal</option>
+			<option class="content_input_fd" value="wpa" <% nvram_match("wl_auth_mode", "wpa","selected"); %>>WPA-Enterprise</option>
+			<option class="content_input_fd" value="wpa2" <% nvram_match("wl_auth_mode", "wpa2","selected"); %>>WPA2-Enterprise</option>
+			<option class="content_input_fd" value="radius" <% nvram_match("wl_auth_mode", "radius","selected"); %>>Radius with 802.1x</option>
 		</select>
 	</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the encryption method used to encrypt data while WPA encryption is enabled.', LEFT);" onMouseOut="return nd();">WPA Encryption:
-           </td><td class="content_input_td"><select name="wl_crypto" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_crypto')"><option class="content_input_fd" value="tkip" <% nvram_match_x("WLANConfig11b","wl_crypto", "tkip","selected"); %>>TKIP</option><option class="content_input_fd" value="aes" <% nvram_match_x("WLANConfig11b","wl_crypto", "aes","selected"); %>>AES</option><option class="content_input_fd" value="tkip+aes" <% nvram_match_x("WLANConfig11b","wl_crypto", "tkip+aes","selected"); %>>TKIP+AES</option></select></td>
+           </td><td class="content_input_td"><select name="wl_crypto" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_crypto')"><option class="content_input_fd" value="tkip" <% nvram_match("wl_crypto", "tkip","selected"); %>>TKIP</option><option class="content_input_fd" value="aes" <% nvram_match("wl_crypto", "aes","selected"); %>>AES</option><option class="content_input_fd" value="tkip+aes" <% nvram_match("wl_crypto", "tkip+aes","selected"); %>>TKIP+AES</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Pre-shared key should be more than 7 characters and less than 64 characters!!! If you leave this field blank, system will assign 00000000 as your passphrase.', LEFT);" onMouseOut="return nd();">WPA Pre-Shared Key:
@@ -85,7 +85,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the encryption method used to encrypt data while WEP encryption is enabled.', LEFT);" onMouseOut="return nd();">WEP Encryption:
-           </td><td class="content_input_td"><select name="wl_wep_x" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_wep_x')"><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_wep_x", "0","selected"); %>>None</option><option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","wl_wep_x", "1","selected"); %>>WEP-64bits</option><option class="content_input_fd" value="2" <% nvram_match_x("WLANConfig11b","wl_wep_x", "2","selected"); %>>WEP-128bits</option></select></td>
+           </td><td class="content_input_td"><select name="wl_wep_x" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_wep_x')"><option class="content_input_fd" value="0" <% nvram_match("wl_wep_x", "0","selected"); %>>None</option><option class="content_input_fd" value="1" <% nvram_match("wl_wep_x", "1","selected"); %>>WEP-64bits</option><option class="content_input_fd" value="2" <% nvram_match("wl_wep_x", "2","selected"); %>>WEP-128bits</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting WEP-64bits or WEP-128bits encryption method, this field will be used to generate four WEP keys automatically.', LEFT);" onMouseOut="return nd();">Passphrase:
@@ -109,7 +109,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the default transmit WEP key.', LEFT);" onMouseOut="return nd();">Key Index:
-           </td><td class="content_input_td"><select name="wl_key" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_key')"><option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","wl_key", "1","selected"); %>>Key1</option><option class="content_input_fd" value="2" <% nvram_match_x("WLANConfig11b","wl_key", "2","selected"); %>>Key2</option><option class="content_input_fd" value="3" <% nvram_match_x("WLANConfig11b","wl_key", "3","selected"); %>>Key3</option><option class="content_input_fd" value="4" <% nvram_match_x("WLANConfig11b","wl_key", "4","selected"); %>>Key4</option></select></td>
+           </td><td class="content_input_td"><select name="wl_key" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_key')"><option class="content_input_fd" value="1" <% nvram_match("wl_key", "1","selected"); %>>Key1</option><option class="content_input_fd" value="2" <% nvram_match("wl_key", "2","selected"); %>>Key2</option><option class="content_input_fd" value="3" <% nvram_match("wl_key", "3","selected"); %>>Key3</option><option class="content_input_fd" value="4" <% nvram_match("wl_key", "4","selected"); %>>Key4</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field specifies the time interval, in seconds, that WPA group key is changed. 0 means no periodic key-change is required.', LEFT);" onMouseOut="return nd();">Network Key Rotation Interval:

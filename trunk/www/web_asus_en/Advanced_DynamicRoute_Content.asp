@@ -25,7 +25,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('RouterConfig_GWStaticRIP_itemdesc', LEFT);" onMouseOut="return nd();">Enable Dynamic Route(RIP)?
-           </td><td class="content_input_td"><select name="sr_rip_x" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', 'sr_rip_x')"><option class="content_input_fd" value="0" <% nvram_match_x("RouterConfig","sr_rip_x", "0","selected"); %>>Disabled</option><option class="content_input_fd" value="1" <% nvram_match_x("RouterConfig","sr_rip_x", "1","selected"); %>>LAN</option><option class="content_input_fd" value="2" <% nvram_match_x("RouterConfig","sr_rip_x", "2","selected"); %>>WAN</option><option class="content_input_fd" value="3" <% nvram_match_x("RouterConfig","sr_rip_x", "3","selected"); %>>BOTH</option></select></td>
+           </td><td class="content_input_td"><select name="sr_rip_x" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', 'sr_rip_x')"><option class="content_input_fd" value="0" <% nvram_match("sr_rip_x", "0","selected"); %>>Disabled</option><option class="content_input_fd" value="1" <% nvram_match("sr_rip_x", "1","selected"); %>>LAN</option><option class="content_input_fd" value="2" <% nvram_match("sr_rip_x", "2","selected"); %>>WAN</option><option class="content_input_fd" value="3" <% nvram_match("sr_rip_x", "3","selected"); %>>BOTH</option></select></td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">WAN
@@ -33,19 +33,19 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Both the sending and receiving of RIP packets will be enabled or disabled on the WAN port.', LEFT);" onMouseOut="return nd();">Enable RIP on WAN?
-           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '1')" <% nvram_match_x("RouterConfig","", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '0')" <% nvram_match_x("RouterConfig","", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '1')" <% nvram_match("", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '0')" <% nvram_match("", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field enables the selected interface to send and receive packets with RIP Version 1, RIP Version 2, or both. In the case of both, packets will be both broadcast and multicast.', LEFT);" onMouseOut="return nd();">RIP Version:
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="RIP1" <% nvram_match_x("RouterConfig","", "RIP1","selected"); %>>RIP1</option><option class="content_input_fd" value="RIP2" <% nvram_match_x("RouterConfig","", "RIP2","selected"); %>>RIP2</option><option class="content_input_fd" value="Both" <% nvram_match_x("RouterConfig","", "Both","selected"); %>>Both</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="RIP1" <% nvram_match("", "RIP1","selected"); %>>RIP1</option><option class="content_input_fd" value="RIP2" <% nvram_match("", "RIP2","selected"); %>>RIP2</option><option class="content_input_fd" value="Both" <% nvram_match("", "Both","selected"); %>>Both</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Control if split-horizon routing mechanism is applied on the port.', LEFT);" onMouseOut="return nd();">Enable Split-horizon?
-           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '1')" <% nvram_match_x("RouterConfig","", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '0')" <% nvram_match_x("RouterConfig","", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '1')" <% nvram_match("", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '0')" <% nvram_match("", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Select which authentication mechanism and corresponding key are applied on the port.', LEFT);" onMouseOut="return nd();">Authentication Method:
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="Disable" <% nvram_match_x("RouterConfig","", "Disable","selected"); %>>Disable</option><option class="content_input_fd" value="Text" <% nvram_match_x("RouterConfig","", "Text","selected"); %>>Text</option><option class="content_input_fd" value="MD5" <% nvram_match_x("RouterConfig","", "MD5","selected"); %>>MD5</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="Disable" <% nvram_match("", "Disable","selected"); %>>Disable</option><option class="content_input_fd" value="Text" <% nvram_match("", "Text","selected"); %>>Text</option><option class="content_input_fd" value="MD5" <% nvram_match("", "MD5","selected"); %>>MD5</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td">Authentication Key:
@@ -57,19 +57,19 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Both the sending and receiving of RIP packets will be enabled or disabled on the LAN port.', LEFT);" onMouseOut="return nd();">Enable RIP on LAN?
-           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '1')" <% nvram_match_x("RouterConfig","", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '0')" <% nvram_match_x("RouterConfig","", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '1')" <% nvram_match("", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '0')" <% nvram_match("", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field enables the selected interface to send and receive packets with RIP Version 1, RIP Version 2, or both. In the case of both, packets will be both broadcast and multicast.', LEFT);" onMouseOut="return nd();">RIP Version:
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="RIP1" <% nvram_match_x("RouterConfig","", "RIP1","selected"); %>>RIP1</option><option class="content_input_fd" value="RIP2" <% nvram_match_x("RouterConfig","", "RIP2","selected"); %>>RIP2</option><option class="content_input_fd" value="Both" <% nvram_match_x("RouterConfig","", "Both","selected"); %>>Both</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="RIP1" <% nvram_match("", "RIP1","selected"); %>>RIP1</option><option class="content_input_fd" value="RIP2" <% nvram_match("", "RIP2","selected"); %>>RIP2</option><option class="content_input_fd" value="Both" <% nvram_match("", "Both","selected"); %>>Both</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Control if split-horizon routing mechanism is applied on the port.', LEFT);" onMouseOut="return nd();">Enable Split-horizon?
-           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '1')" <% nvram_match_x("RouterConfig","", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '0')" <% nvram_match_x("RouterConfig","", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '1')" <% nvram_match("", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', '', '0')" <% nvram_match("", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Select which authentication mechanism and corresponding key are applied on the port.', LEFT);" onMouseOut="return nd();">Authentication Method:
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="Disable" <% nvram_match_x("RouterConfig","", "Disable","selected"); %>>Disable</option><option class="content_input_fd" value="Text" <% nvram_match_x("RouterConfig","", "Text","selected"); %>>Text</option><option class="content_input_fd" value="MD5" <% nvram_match_x("RouterConfig","", "MD5","selected"); %>>MD5</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="Disable" <% nvram_match("", "Disable","selected"); %>>Disable</option><option class="content_input_fd" value="Text" <% nvram_match("", "Text","selected"); %>>Text</option><option class="content_input_fd" value="MD5" <% nvram_match("", "MD5","selected"); %>>MD5</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td">Authentication Key:
@@ -101,19 +101,19 @@
 </tr>
 <tr>
 <td class="content_header_td">For type 0 routes, which are received from WAN, only those specified below will be:
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="1" <% nvram_match_x("RouterConfig","", "1","selected"); %>>processed</option><option class="content_input_fd" value="0" <% nvram_match_x("RouterConfig","", "0","selected"); %>>dropped</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="1" <% nvram_match("", "1","selected"); %>>processed</option><option class="content_input_fd" value="0" <% nvram_match("", "0","selected"); %>>dropped</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td">For type 1 routes, which are sent to WAN, only those specified below will be:
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="1" <% nvram_match_x("RouterConfig","", "1","selected"); %>>processed</option><option class="content_input_fd" value="0" <% nvram_match_x("RouterConfig","", "0","selected"); %>>dropped</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="1" <% nvram_match("", "1","selected"); %>>processed</option><option class="content_input_fd" value="0" <% nvram_match("", "0","selected"); %>>dropped</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td">For type 2 routes, which are received from LAN, only those specified below will be:
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="1" <% nvram_match_x("RouterConfig","", "1","selected"); %>>processed</option><option class="content_input_fd" value="0" <% nvram_match_x("RouterConfig","", "0","selected"); %>>dropped</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="1" <% nvram_match("", "1","selected"); %>>processed</option><option class="content_input_fd" value="0" <% nvram_match("", "0","selected"); %>>dropped</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td">For type 3 routes, which are sent to LAN, only those specified below will be:
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="1" <% nvram_match_x("RouterConfig","", "1","selected"); %>>processed</option><option class="content_input_fd" value="0" <% nvram_match_x("RouterConfig","", "0","selected"); %>>dropped</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="1" <% nvram_match("", "1","selected"); %>>processed</option><option class="content_input_fd" value="0" <% nvram_match("", "0","selected"); %>>dropped</option></select></td>
 </tr>
 </table>
 
@@ -149,7 +149,7 @@
            	        </td><td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="0" <% nvram_match_list_x("RouterConfig","", "0","selected", 0); %>>0</option><option value="1" <% nvram_match_list_x("RouterConfig","", "1","selected", 0); %>>1</option><option value="2" <% nvram_match_list_x("RouterConfig","", "2","selected", 0); %>>2</option><option value="3" <% nvram_match_list_x("RouterConfig","", "3","selected", 0); %>>3</option></select></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="5" style="font-family: monospace; font-size: 10pt; width: 100%" size="8" name="_0" onKeyPress="return is_number(event, this)"></td>
+<td></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="0" <% nvram_match_list("", "0","selected", 0); %>>0</option><option value="1" <% nvram_match_list("", "1","selected", 0); %>>1</option><option value="2" <% nvram_match_list("", "2","selected", 0); %>>2</option><option value="3" <% nvram_match_list("", "3","selected", 0); %>>3</option></select></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="5" style="font-family: monospace; font-size: 10pt; width: 100%" size="8" name="_0" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="RouteFilter_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
@@ -181,11 +181,11 @@
 </tr>
 <tr>
 <td class="content_header_td">For incoming routes, add metric offset to
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="0" <% nvram_match_x("RouterConfig","", "0","selected"); %>>none</option><option class="content_input_fd" value="1" <% nvram_match_x("RouterConfig","", "1","selected"); %>>routes specified below</option><option class="content_input_fd" value="2" <% nvram_match_x("RouterConfig","", "2","selected"); %>>routes not specified below</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="0" <% nvram_match("", "0","selected"); %>>none</option><option class="content_input_fd" value="1" <% nvram_match("", "1","selected"); %>>routes specified below</option><option class="content_input_fd" value="2" <% nvram_match("", "2","selected"); %>>routes not specified below</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td">For outgoing routes, set metric offset to
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="0" <% nvram_match_x("RouterConfig","", "0","selected"); %>>none</option><option class="content_input_fd" value="1" <% nvram_match_x("RouterConfig","", "1","selected"); %>>routes specified below</option><option class="content_input_fd" value="2" <% nvram_match_x("RouterConfig","", "2","selected"); %>>routes not specified below</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', '')"><option class="content_input_fd" value="0" <% nvram_match("", "0","selected"); %>>none</option><option class="content_input_fd" value="1" <% nvram_match("", "1","selected"); %>>routes specified below</option><option class="content_input_fd" value="2" <% nvram_match("", "2","selected"); %>>routes not specified below</option></select></td>
 </tr>
 </table>
 
@@ -221,7 +221,7 @@
            	        </td><td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="IN" <% nvram_match_list_x("RouterConfig","", "IN","selected", 0); %>>IN</option><option value="OUT" <% nvram_match_list_x("RouterConfig","", "OUT","selected", 0); %>>OUT</option></select></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="14" name="_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="5" style="font-family: monospace; font-size: 10pt; width: 100%" size="8" name="_0" onKeyPress="return is_number(event, this)"></td>
+<td></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="IN" <% nvram_match_list("", "IN","selected", 0); %>>IN</option><option value="OUT" <% nvram_match_list("", "OUT","selected", 0); %>>OUT</option></select></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="14" name="_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="5" style="font-family: monospace; font-size: 10pt; width: 100%" size="8" name="_0" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="4" name="RipOffset_s" multiple="true" class="content_list_body">

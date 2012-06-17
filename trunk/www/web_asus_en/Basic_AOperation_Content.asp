@@ -68,7 +68,7 @@
 <td class="content_header_td_less">WEP Key 4 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="wl_key4" class="content_input_fd" value="<% nvram_get("wl_key4"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')" onKeyUp="return change_wlkey(this, 'WLANConfig11b')"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">Key Index:</td><td class="content_input_td"><select name="wl_key" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_key')"><option value="1" <% nvram_match_x("WLANConfig11b","wl_key", "1","selected"); %>>1</option><option value="2" <% nvram_match_x("WLANConfig11b","wl_key", "2","selected"); %>>2</option><option value="3" <% nvram_match_x("WLANConfig11b","wl_key", "3","selected"); %>>3</option><option value="4" <% nvram_match_x("WLANConfig11b","wl_key", "Key4","selected"); %>>4</option></select></td>
+<td class="content_header_td_less">Key Index:</td><td class="content_input_td"><select name="wl_key" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_key')"><option value="1" <% nvram_match("wl_key", "1","selected"); %>>1</option><option value="2" <% nvram_match("wl_key", "2","selected"); %>>2</option><option value="3" <% nvram_match("wl_key", "3","selected"); %>>3</option><option value="4" <% nvram_match("wl_key", "Key4","selected"); %>>4</option></select></td>
 </tr>
 </table>
 

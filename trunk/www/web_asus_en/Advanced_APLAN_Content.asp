@@ -28,7 +28,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Get IP Automatically?</td>
-<td class="content_input_td"><input type="radio" value="1" name="lan_proto_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'lan_proto_x', '1')" <% nvram_match_x("LANHostConfig","lan_proto_x", "1", "checked"); %>>Yes<input type="radio" value="0" name="lan_proto_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'lan_proto_x', '0')" <% nvram_match_x("LANHostConfig","lan_proto_x", "0", "checked"); %>>No</td>
+<td class="content_input_td"><input type="radio" value="1" name="lan_proto_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'lan_proto_x', '1')" <% nvram_match("lan_proto_x", "1", "checked"); %>>Yes<input type="radio" value="0" name="lan_proto_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'lan_proto_x', '0')" <% nvram_match("lan_proto_x", "0", "checked"); %>>No</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in your local network. The default value is 192.168.1.1.', LEFT);" onMouseOut="return nd();">IP Address:</td>

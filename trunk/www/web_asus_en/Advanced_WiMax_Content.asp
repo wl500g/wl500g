@@ -42,7 +42,7 @@
 				</td>
 				<td class="content_input_td" nowrap>
 					<input type="checkbox" value="dhcp" name="wan_proto_x" class="content_input_fd"
-				onchange="return change_common_radio(this, 'WiMaxConfig', 'wan_proto', '1')" <% nvram_match_x("WiMaxConfig","wan_proto", "wimax", "checked"); %>>
+				onchange="return change_common_radio(this, 'WiMaxConfig', 'wan_proto', '1')" <% nvram_match("wan_proto", "wimax", "checked"); %>>
 				</td>
 			</tr>
 
@@ -63,8 +63,8 @@
 					Check connection?
 				</td>
 				<td class="content_input_td">
-					<input type="radio" value="1" name="wan_wimax_check" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_check', '1')" <% nvram_match_x("WiMaxConfig", "wan_wimax_check", "1", "checked"); %>>Yes
-					<input type="radio" value="0" name="wan_wimax_check" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_check', '0')" <% nvram_match_x("WiMaxConfig", "wan_wimax_check", "0", "checked"); %>>No
+					<input type="radio" value="1" name="wan_wimax_check" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_check', '1')" <% nvram_match("wan_wimax_check", "1", "checked"); %>>Yes
+					<input type="radio" value="0" name="wan_wimax_check" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_check', '0')" <% nvram_match("wan_wimax_check", "0", "checked"); %>>No
 				</td>
 			</tr>
 			<tr>
@@ -84,8 +84,8 @@
 					Restart dead connection?
 				</td>
 				<td class="content_input_td">
-					<input type="radio" value="1" name="wan_wimax_restart" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_restart', '1')" <% nvram_match_x("WiMaxConfig", "wan_wimax_restart", "1", "checked"); %>>Yes
-					<input type="radio" value="0" name="wan_wimax_restart" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_restart', '0')" <% nvram_match_x("WiMaxConfig", "wan_wimax_restart", "0", "checked"); %>>No
+					<input type="radio" value="1" name="wan_wimax_restart" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_restart', '1')" <% nvram_match("wan_wimax_restart", "1", "checked"); %>>Yes
+					<input type="radio" value="0" name="wan_wimax_restart" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_restart', '0')" <% nvram_match("wan_wimax_restart", "0", "checked"); %>>No
 				</td>
 			</tr>
 		</table>
