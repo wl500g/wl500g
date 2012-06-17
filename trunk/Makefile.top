@@ -75,7 +75,11 @@ else
 CONFIG_IPV6 :=
 endif
 
+# Update PATH, MAKELEVEL could be any
+ifeq ($(findstring $(TOOLCHAIN)/bin,$(PATH)),)
 export PATH := $(TOOLCHAIN)/bin:$(PATH)
+endif
+
 export CC := $(CROSS_COMPILE)gcc
 export AR := $(CROSS_COMPILE)ar
 export AS := $(CROSS_COMPILE)as
