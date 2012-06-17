@@ -360,11 +360,11 @@ ej_nvram_get(int eid, webs_t wp, int argc, char_t **argv)
 * <% nvram_match("wan_proto", "static", "selected"); %> does not produce
 */
 static int
-ej_nvram_match_x(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_match(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *sid, *name, *match, *output;
+	const char *name, *match, *output;
 
-	if (ejArgs(argc, argv, "%s %s %s %s", &sid, &name, &match, &output) < 4) {
+	if (ejArgs(argc, argv, "%s %s %s", &name, &match, &output) < 3) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
@@ -378,35 +378,27 @@ ej_nvram_match_x(int eid, webs_t wp, int argc, char_t **argv)
 }	
 
 static int
-ej_nvram_double_match_x(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_double_match(int eid, webs_t wp, int argc, char_t **argv)
 {
-	const char *sid, *name, *match, *output;
-	const char *sid2, *name2, *match2;
+	const char *name, *match, *name2, *match2, *output;
 
-	if (ejArgs(argc, argv, "%s %s %s %s %s %s %s", &sid, &name, &match, &sid2, &name2, &match2, &output) < 7) {
+	if (ejArgs(argc, argv, "%s %s %s %s %s", &name, &match, &name2, &match2, &output) < 5) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
 
-	if (nvram_match(name, match) &&
-	    nvram_match(name2, match2))
+	if (nvram_match(name, match) && nvram_match(name2, match2))
 		return websWrite(wp, output);
 
 	return 0;
 }
 
-/*
-* Example: 
-* wan_proto=dhcp
-* <% nvram_match("wan_proto", "dhcp", "selected"); %> produces "selected"
-* <% nvram_match("wan_proto", "static", "selected"); %> does not produce
-*/
 static int
-ej_nvram_match_both_x(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_match_both(int eid, webs_t wp, int argc, char_t **argv)
 {
-	const char *sid, *name, *match, *output, *output_not;
+	const char *name, *match, *output, *output_not;
 
-	if (ejArgs(argc, argv, "%s %s %s %s %s", &sid, &name, &match, &output, &output_not) < 5){
+	if (ejArgs(argc, argv, "%s %s %s %s", &name, &match, &output, &output_not) < 4) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
@@ -416,31 +408,6 @@ ej_nvram_match_both_x(int eid, webs_t wp, int argc, char_t **argv)
 	else
 		return websWrite(wp, output_not);
 }
-
-#ifdef REMOVE
-/*
-* Example: 
-* wan_proto=dhcp
-* <% nvram_match_both("wan_proto", "dhcp", "selected", "not"); %> produces "selected"
-* <% nvram_match_both("wan_proto", "static", "selected", "not"); %> produces "not"
-*/
-int
-ej_nvram_match_list_both_x(int eid, webs_t wp, int argc, char_t **argv)
-{
-	const char *sid, *name, *match, *output, *output_ex;
-	int index;
-
-	if (ejArgs(argc, argv, "%s %s %s %s %s %d", &sid, &name, &match, &output, &output_ex, &index) < 6) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	if (nvram_match_list(name, match, index))
-		return websWrite(wp, output);
-	else
-		return websWrite(wp, output_ex);
-}	
-#endif // REMOVE
 
 static int
 ej_nvram_get_table_x(int eid, webs_t wp, int argc, char_t **argv)
@@ -462,12 +429,12 @@ ej_nvram_get_table_x(int eid, webs_t wp, int argc, char_t **argv)
 * <% nvram_match_list("wan_proto", "static", "selected", 1); %> does not produce
 */
 static int
-ej_nvram_match_list_x(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_match_list(int eid, webs_t wp, int argc, char_t **argv)
 {
-	const char *sid, *name, *match, *output;
+	const char *name, *match, *output;
 	int which;
 
-	if (ejArgs(argc, argv, "%s %s %s %s %d", &sid, &name, &match, &output, &which) < 5) {
+	if (ejArgs(argc, argv, "%s %s %s %d", &name, &match, &output, &which) < 4) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
@@ -1967,10 +1934,10 @@ const struct ej_handler ej_handlers[] = {
 #endif
 	{ "nvram_get", ej_nvram_get },
 	{ "nvram_get_table_x", ej_nvram_get_table_x },
-	{ "nvram_match_x", ej_nvram_match_x },
-	{ "nvram_double_match_x", ej_nvram_double_match_x },
-	{ "nvram_match_both_x", ej_nvram_match_both_x },
-	{ "nvram_match_list_x", ej_nvram_match_list_x },
+	{ "nvram_match", ej_nvram_match },
+	{ "nvram_double_match", ej_nvram_double_match },
+	{ "nvram_match_both", ej_nvram_match_both },
+	{ "nvram_match_list", ej_nvram_match_list },
 	{ "select_channel", ej_select_channel },
 	{ "select_country", ej_select_country },
 	{ "urlcache", ej_urlcache },

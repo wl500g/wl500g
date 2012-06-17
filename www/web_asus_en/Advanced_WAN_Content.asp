@@ -49,23 +49,23 @@
 						</td>
 						<td class="content_input_td">
 							<select name="wan_proto" class="content_input_fd" onchange="return change_common(this, 'Layer3Forwarding', 'wan_proto')">
-								<option class="content_input_fd" value="dhcp" <% nvram_match_x("Layer3Forwarding","wan_proto", "dhcp","selected"); %>>
+								<option class="content_input_fd" value="dhcp" <% nvram_match("wan_proto", "dhcp","selected"); %>>
 									Automatic IP</option>
-								<option class="content_input_fd" value="static" <% nvram_match_x("Layer3Forwarding","wan_proto", "static","selected"); %>>
+								<option class="content_input_fd" value="static" <% nvram_match("wan_proto", "static","selected"); %>>
 									Static IP</option>
-								<option class="content_input_fd" value="pppoe" <% nvram_match_x("Layer3Forwarding","wan_proto", "pppoe","selected"); %>>
+								<option class="content_input_fd" value="pppoe" <% nvram_match("wan_proto", "pppoe","selected"); %>>
 									PPPoE</option>
-								<option class="content_input_fd" value="pptp" <% nvram_match_x("Layer3Forwarding","wan_proto", "pptp","selected"); %>>
+								<option class="content_input_fd" value="pptp" <% nvram_match("wan_proto", "pptp","selected"); %>>
 									PPTP</option>
-								<option class="content_input_fd" value="l2tp" <% nvram_match_x("Layer3Forwarding","wan_proto", "l2tp","selected"); %>>
+								<option class="content_input_fd" value="l2tp" <% nvram_match("wan_proto", "l2tp","selected"); %>>
 									L2TP</option>
-								<option class="content_input_fd" value="bigpond" <% nvram_match_x("Layer3Forwarding","wan_proto", "bigpond","selected"); %>>
+								<option class="content_input_fd" value="bigpond" <% nvram_match("wan_proto", "bigpond","selected"); %>>
 									BigPond</option>
-								<option class="content_input_fd" value="wimax" <% nvram_match_x("Layer3Forwarding","wan_proto", "wimax","selected"); %>>
+								<option class="content_input_fd" value="wimax" <% nvram_match("wan_proto", "wimax","selected"); %>>
 									WiMAX</option>
-								<option class="content_input_fd" value="usbmodem" <% nvram_match_x("Layer3Forwarding","wan_proto", "usbmodem","selected"); %>>
+								<option class="content_input_fd" value="usbmodem" <% nvram_match("wan_proto", "usbmodem","selected"); %>>
 									USB Modem</option>
-								<option class="content_input_fd" value="usbnet" <% nvram_match_x("Layer3Forwarding","wan_proto", "usbnet","selected"); %>>
+								<option class="content_input_fd" value="usbnet" <% nvram_match("wan_proto", "usbnet","selected"); %>>
 									Ethernet over USB</option>
 							</select>
 						</td>
@@ -76,15 +76,15 @@
 						</td>
 						<td class="content_input_td">
 							<select name="wan_etherspeed_x" class="content_input_fd" onchange="return change_common(this, 'Layer3Forwarding', 'wan_etherspeed_x')">
-								<option class="content_input_fd" value="auto" <% nvram_match_x("Layer3Forwarding","wan_etherspeed_x", "auto","selected"); %>>
+								<option class="content_input_fd" value="auto" <% nvram_match("wan_etherspeed_x", "auto","selected"); %>>
 									Auto negotiation</option>
-								<option class="content_input_fd" value="10half" <% nvram_match_x("Layer3Forwarding","wan_etherspeed_x", "10half","selected"); %>>
+								<option class="content_input_fd" value="10half" <% nvram_match("wan_etherspeed_x", "10half","selected"); %>>
 									10Mbps half-duplex</option>
-								<option class="content_input_fd" value="10full" <% nvram_match_x("Layer3Forwarding","wan_etherspeed_x", "10full","selected"); %>>
+								<option class="content_input_fd" value="10full" <% nvram_match("wan_etherspeed_x", "10full","selected"); %>>
 									10Mbps full-duplex</option>
-								<option class="content_input_fd" value="100half" <% nvram_match_x("Layer3Forwarding","wan_etherspeed_x", "100half","selected"); %>>
+								<option class="content_input_fd" value="100half" <% nvram_match("wan_etherspeed_x", "100half","selected"); %>>
 									100Mpbs half-duplex</option>
-								<option class="content_input_fd" value="100full" <% nvram_match_x("Layer3Forwarding","wan_etherspeed_x", "100full","selected"); %>>
+								<option class="content_input_fd" value="100full" <% nvram_match("wan_etherspeed_x", "100full","selected"); %>>
 									100Mpbs full-duplex</option>
 							</select>
 						</td>
@@ -96,12 +96,12 @@
 						</td>
 						<td class="content_input_td">
 							<select name="wan_stb_x" class="content_input_fd">
-								<option class="content_input_fd" value="0" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "0","selected"); %>>None</option>
-								<option class="content_input_fd" value="1" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "1","selected"); %>>LAN1</option>
-								<option class="content_input_fd" value="2" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "2","selected"); %>>LAN2</option>
-								<option class="content_input_fd" value="3" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "3","selected"); %>>LAN3</option>
-								<option class="content_input_fd" value="4" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "4","selected"); %>>LAN4</option>
-								<option class="content_input_fd" value="5" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "5","selected"); %>>LAN3 & LAN4</option>
+								<option class="content_input_fd" value="0" <% nvram_match("wan_stb_x", "0","selected"); %>>None</option>
+								<option class="content_input_fd" value="1" <% nvram_match("wan_stb_x", "1","selected"); %>>LAN1</option>
+								<option class="content_input_fd" value="2" <% nvram_match("wan_stb_x", "2","selected"); %>>LAN2</option>
+								<option class="content_input_fd" value="3" <% nvram_match("wan_stb_x", "3","selected"); %>>LAN3</option>
+								<option class="content_input_fd" value="4" <% nvram_match("wan_stb_x", "4","selected"); %>>LAN4</option>
+								<option class="content_input_fd" value="5" <% nvram_match("wan_stb_x", "5","selected"); %>>LAN3 & LAN4</option>
 							</select>
 						</td>
 					</tr>
@@ -169,9 +169,9 @@
 						</td>
 						<td class="content_input_td">
 							<input type="radio" value="1" name="wan_dnsenable_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPConnection', 'wan_dnsenable_x', '1')"
-								<% nvram_match_x("IPConnection","wan_dnsenable_x", "1", "checked"); %>>Yes
+								<% nvram_match("wan_dnsenable_x", "1", "checked"); %>>Yes
 							<input type="radio" value="0" name="wan_dnsenable_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPConnection', 'wan_dnsenable_x', '0')"
-								<% nvram_match_x("IPConnection","wan_dnsenable_x", "0", "checked"); %>>No
+								<% nvram_match("wan_dnsenable_x", "0", "checked"); %>>No
 						</td>
 					</tr>
 					<tr>
@@ -209,10 +209,10 @@
 						</td>
 						<td class="content_input_td">
 							<select name="wan_auth_x" class="content_input_fd" onchange="return change_common(document.form.wan_proto, 'Layer3Forwarding', 'wan_proto')">
-								<option class="content_input_fd" value="" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "","selected"); %>>None</option>
-								<option class="content_input_fd" value="eap-md5" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "eap-md5","selected"); %>>802.1x MD5</option>
-								<option class="content_input_fd" value="telenet" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "telenet","selected"); %>>ISP KabiNET</option>
-								<option class="content_input_fd" value="convex" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "convex","selected"); %>>ISP Convex</option>
+								<option class="content_input_fd" value="" <% nvram_match("wan_auth_x", "","selected"); %>>None</option>
+								<option class="content_input_fd" value="eap-md5" <% nvram_match("wan_auth_x", "eap-md5","selected"); %>>802.1x MD5</option>
+								<option class="content_input_fd" value="telenet" <% nvram_match("wan_auth_x", "telenet","selected"); %>>ISP KabiNET</option>
+								<option class="content_input_fd" value="convex" <% nvram_match("wan_auth_x", "convex","selected"); %>>ISP Convex</option>
 							</select>
 						</td>
 					</tr>
@@ -301,15 +301,15 @@
 						</td>
 						<td class="content_input_td">
 							<select name="wan_pptp_options_x" class="content_input_fd">
-								<option class="content_input_fd" value="" <% nvram_match_x("Layer3Forwarding","wan_pptp_options_x", "","selected"); %>>
+								<option class="content_input_fd" value="" <% nvram_match("wan_pptp_options_x", "","selected"); %>>
 									None</option>
-								<option class="content_input_fd" value="-mppc" <% nvram_match_x("Layer3Forwarding","wan_pptp_options_x", "-mppc","selected"); %>>
+								<option class="content_input_fd" value="-mppc" <% nvram_match("wan_pptp_options_x", "-mppc","selected"); %>>
 									No Encryption</option>
-								<option class="content_input_fd" value="+mppe-40" <% nvram_match_x("Layer3Forwarding","wan_pptp_options_x", "+mppe-40","selected"); %>>
+								<option class="content_input_fd" value="+mppe-40" <% nvram_match("wan_pptp_options_x", "+mppe-40","selected"); %>>
 									MPPE 40</option>
-								<option class="content_input_fd" value="+mppe-56" <% nvram_match_x("Layer3Forwarding","wan_pptp_options_x", "+mppe-56","selected"); %>>
+								<option class="content_input_fd" value="+mppe-56" <% nvram_match("wan_pptp_options_x", "+mppe-56","selected"); %>>
 									MPPE 56</option>
-								<option class="content_input_fd" value="+mppe-128" <% nvram_match_x("Layer3Forwarding","wan_pptp_options_x", "+mppe-128","selected"); %>>
+								<option class="content_input_fd" value="+mppe-128" <% nvram_match("wan_pptp_options_x", "+mppe-128","selected"); %>>
 									MPPE 128</option>
 							</select>
 						</td>
@@ -332,9 +332,9 @@
 						</td>
 						<td class="content_input_td">
 							<input type="radio" value="1" name="wan_pppoe_relay_x" class="content_input_fd" onclick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_relay_x', '1')"
-								<% nvram_match_x("PPPConnection","wan_pppoe_relay_x", "1", "checked"); %>>Yes
+								<% nvram_match("wan_pppoe_relay_x", "1", "checked"); %>>Yes
 							<input type="radio" value="0" name="wan_pppoe_relay_x" class="content_input_fd" onclick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_relay_x', '0')"
-								<% nvram_match_x("PPPConnection","wan_pppoe_relay_x", "0", "checked"); %>>No
+								<% nvram_match("wan_pppoe_relay_x", "0", "checked"); %>>No
 						</td>
 					</tr>
 					<tr class="content_section_header_tr">

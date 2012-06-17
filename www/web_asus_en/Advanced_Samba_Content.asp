@@ -27,19 +27,19 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Select network share mode for your USB disk.', LEFT);" onMouseOut="return nd();">Samba File Shares:</td>
 <td class="content_input_td"><select name="usb_smbenable_x" class="content_input_fd" onChange="return change_common(this, '', 'usb_smbenable_x')">
-<option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_smbenable_x","0","selected"); %>>Disabled</option>
-<option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_smbenable_x","1","selected"); %>>First partition</option>
-<option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_smbenable_x","2","selected"); %>>All partitions</option>
-<option class="content_input_fd" value="3" <% nvram_match_x("PrinterStatus","usb_smbenable_x","3","selected"); %>>Manual share list</option>
+<option class="content_input_fd" value="0" <% nvram_match("usb_smbenable_x","0","selected"); %>>Disabled</option>
+<option class="content_input_fd" value="1" <% nvram_match("usb_smbenable_x","1","selected"); %>>First partition</option>
+<option class="content_input_fd" value="2" <% nvram_match("usb_smbenable_x","2","selected"); %>>All partitions</option>
+<option class="content_input_fd" value="3" <% nvram_match("usb_smbenable_x","3","selected"); %>>Manual share list</option>
 </select></td>
 </tr>
 
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Choose access level to Samba share', LEFT);" onMouseOut="return nd();">Default Access Level:</td>
 <td class="content_input_td"><select name="usb_smbhidden_x" class="content_input_fd" onChange="return change_common(this, '', 'usb_smbhidden_x')">
-<option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_smbhidden_x","0","selected"); %>>Read Only</option>
-<option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_smbhidden_x","2","selected"); %>>Read/Write</option>
-<option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_smbhidden_x","1","selected"); %>>Hidden Read/Write</option>
+<option class="content_input_fd" value="0" <% nvram_match("usb_smbhidden_x","0","selected"); %>>Read Only</option>
+<option class="content_input_fd" value="2" <% nvram_match("usb_smbhidden_x","2","selected"); %>>Read/Write</option>
+<option class="content_input_fd" value="1" <% nvram_match("usb_smbhidden_x","1","selected"); %>>Hidden Read/Write</option>
 </select></td>
 </tr>
 
@@ -55,11 +55,11 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Choose DOS code page (start cmd.exe and type chcp to see current code page)', LEFT);" onMouseOut="return nd();">DOS Codepage:</td>
 <td class="content_input_td"><select name="usb_smbcpage_x" class="content_input_fd" onChange="return change_common(this, '', 'usb_smbcpage_x')">
-<option class="content_input_fd" value="" <% nvram_match_x("PrinterStatus","usb_smbcpage_x","","selected"); %>>Unspecified</option>
-<option class="content_input_fd" value="437" <% nvram_match_x("PrinterStatus","usb_smbcpage_x","437","selected"); %>>437 (United States, Canada)</option>
-<option class="content_input_fd" value="850" <% nvram_match_x("PrinterStatus","usb_smbcpage_x","850","selected"); %>>850 (Western Europe)</option>
-<option class="content_input_fd" value="852" <% nvram_match_x("PrinterStatus","usb_smbcpage_x","852","selected"); %>>852 (Central/Eastern Europe)</option>
-<option class="content_input_fd" value="866" <% nvram_match_x("PrinterStatus","usb_smbcpage_x","866","selected"); %>>866 (Cyrillic/Russian)</option>
+<option class="content_input_fd" value="" <% nvram_match("usb_smbcpage_x","","selected"); %>>Unspecified</option>
+<option class="content_input_fd" value="437" <% nvram_match("usb_smbcpage_x","437","selected"); %>>437 (United States, Canada)</option>
+<option class="content_input_fd" value="850" <% nvram_match("usb_smbcpage_x","850","selected"); %>>850 (Western Europe)</option>
+<option class="content_input_fd" value="852" <% nvram_match("usb_smbcpage_x","852","selected"); %>>852 (Central/Eastern Europe)</option>
+<option class="content_input_fd" value="866" <% nvram_match("usb_smbcpage_x","866","selected"); %>>866 (Cyrillic/Russian)</option>
 </select></td>
 </tr>
 

@@ -25,7 +25,7 @@
 </tr>
 
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Selecting Yes enables SNMP.', LEFT);" onMouseOut="return nd();">Enable SNMP? </td><td class="content_input_td"><input type="radio" value="1" name="snmp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'snmp_enable', '1')" <% nvram_match_x("LANHostConfig","snmp_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="snmp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'snmp_enable', '0')" <% nvram_match_x("LANHostConfig","snmp_enable", "0", "checked"); %>>No</input></td>
+<td class="content_header_td" onMouseOver="return overlib('Selecting Yes enables SNMP.', LEFT);" onMouseOut="return nd();">Enable SNMP? </td><td class="content_input_td"><input type="radio" value="1" name="snmp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'snmp_enable', '1')" <% nvram_match("snmp_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="snmp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'snmp_enable', '0')" <% nvram_match("snmp_enable", "0", "checked"); %>>No</input></td>
 </tr>
 
 <tr>

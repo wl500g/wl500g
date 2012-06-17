@@ -32,7 +32,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Enable Wireless Firewall?
-           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', '', '1')" <% nvram_match_x("FirewallConfig","", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', '', '0')" <% nvram_match_x("FirewallConfig","", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', '', '1')" <% nvram_match("", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', '', '0')" <% nvram_match("", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in this separated wireless local network.', LEFT);" onMouseOut="return nd();">IP Address:

@@ -41,7 +41,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Starcraft(Battle.Net)
-           </td><td class="content_input_td"><input type="radio" value="1" name="sp_battle_ips" class="content_input_fd" onClick="return change_common_radio(this, 'IPConnection', 'sp_battle_ips', '1')" <% nvram_match_x("IPConnection","sp_battle_ips", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="sp_battle_ips" class="content_input_fd" onClick="return change_common_radio(this, 'IPConnection', 'sp_battle_ips', '0')" <% nvram_match_x("IPConnection","sp_battle_ips", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="sp_battle_ips" class="content_input_fd" onClick="return change_common_radio(this, 'IPConnection', 'sp_battle_ips', '1')" <% nvram_match("sp_battle_ips", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="sp_battle_ips" class="content_input_fd" onClick="return change_common_radio(this, 'IPConnection', 'sp_battle_ips', '0')" <% nvram_match("sp_battle_ips", "0", "checked"); %>>No</input></td>
 </tr>
 </table>
 
