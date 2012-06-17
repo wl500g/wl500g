@@ -11,42 +11,17 @@ permission of Broadcom Corporation.
 * This module creates an array of name, value pairs
 * and supports updating the nvram space. 
 *
-* This module requires the following support routines
-*
-*      malloc, free, strcmp, strncmp, strcpy, strtol, strchr, printf and sprintf
 */
 
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
+
 #include <bcmnvram.h>
+#include <shutils.h>
 
-
-/* Remove CR/LF/Space in the end of string 
-* 
-*/
-
-char *strtrim(char *str)
-{
-	int i;
-
-	i=strlen(str)-1;
-
-	while (i>=0) {
-		if (*(str+i)==13 || *(str+i)==10 || *(str+i)==' ') {
-			*(str+i)=0x0; 	 
-		} else if (*(str+i)=='"') {
-			*(str+i)=0x0;
-			break;
-		} else break;
-		i--;
-	}
-
-	return (str);
-}
-
-extern void findNVRAMName(const char *serviceId, const char *field, char *name);
+extern const char *findNVRAMName(const char *field);
 
 /*
 * Get the value of an NVRAM variable list 
@@ -55,7 +30,7 @@ extern void findNVRAMName(const char *serviceId, const char *field, char *name);
 * @return	value of variable or NULL if undefined
 */
 
-char *nvram_get_list_x(const char *sid, const char *name, int index)
+char *nvram_get_list(const char *name, int index)
 {
 	char new_name[128];
 
@@ -69,13 +44,14 @@ char *nvram_get_list_x(const char *sid, const char *name, int index)
 * @param	name	name of variable to get
 * @return	0 on success and errno on failure
 */
-int nvram_add_lists_x(const char *sid, const char *name, const char *value, int count)
+int nvram_add_lists(const char *name, const char *value, int count)
 {
-	char name1[64], name2[64];
+	const char *name1;
+	char name2[64];
 
-	findNVRAMName(sid, name, name1);
+	name1 = findNVRAMName(name);
 
-	if (name[0] != '\0') {
+	if (name1[0] != '\0') {
 		snprintf(name2, sizeof(name2), "%s%d", name1, count);
 		nvram_set(name2, value);
 	}
@@ -90,13 +66,13 @@ int nvram_add_lists_x(const char *sid, const char *name, const char *value, int 
 *              index   index of variable list
 * @return	0 on success and errno on failure
 */
-int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
+int nvram_del_lists(const char *name, int *delMap)
 {
-
-	char names[64], oname[64], nname[64], *oval, *nval;
+	const char *names;
+	char oname[64], nname[64], *oval, *nval;
 	int oi, ni, di;
 
-	findNVRAMName(sid, name, names);
+	names = findNVRAMName(name);
 
 	if (names[0] != '\0') {
 		oi=0;
@@ -111,7 +87,7 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 
 			if (oval==NULL) break;
 
-			printf("d: %d %d %d %d\n", oi, ni, di, delMap[di]);
+			dprintf("d: %d %d %d %d\n", oi, ni, di, delMap[di]);
 			if (delMap[di]!=-1 && delMap[di]==oi) {
 				oi++;
 				di++;
@@ -123,5 +99,5 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 		}
 	}
 
-	return(0);
+	return (0);
 }

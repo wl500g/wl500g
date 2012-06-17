@@ -23,11 +23,11 @@
 <input type="hidden" name="IPConnection_NATEnabled" value="<% nvram_get("NATEnabled"); %>">
 <input type="hidden" name="WLANConfig11a_SSID" value="<% nvram_get("SSID"); %>">
 <input type="hidden" name="WLANConfig11a_WEPType" value="<% nvram_get("WEPType"); %>">
-<input type="hidden" name="WLANConfig11a_WEPKey1" value="<% nvram_get("WEPKey1"); %>">
-<input type="hidden" name="WLANConfig11a_WEPKey2" value="<% nvram_get("WEPKey2"); %>">
-<input type="hidden" name="WLANConfig11a_WEPKey3" value="<% nvram_get("WEPKey3"); %>">
-<input type="hidden" name="WLANConfig11a_WEPKey4" value="<% nvram_get("WEPKey4"); %>">
-<input type="hidden" name="WLANConfig11a_WEPDefaultKey" value="<% nvram_get("WEPDefaultKey"); %>">
+<input type="hidden" name="WLANConfig11a_WEPKey1" value="<% nvram_get("wl_wepkey1"); %>">
+<input type="hidden" name="WLANConfig11a_WEPKey2" value="<% nvram_get("wl_wepkey2"); %>">
+<input type="hidden" name="WLANConfig11a_WEPKey3" value="<% nvram_get("wl_wepkey3"); %>">
+<input type="hidden" name="WLANConfig11a_WEPKey4" value="<% nvram_get("wl_wepkey4"); %>">
+<input type="hidden" name="WLANConfig11a_WEPDefaultKey" value="<% nvram_get("wl_wepkey"); %>">
 <!-- Table for the conntent page -->
 <table width="666" border="0" cellpadding="0" cellspacing="0">
 <tr>
@@ -190,19 +190,19 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <td class="content_header_td_less" onMouseOver="return overlib('Give a magic word to generate the WEP keys automatically or leave this field blank and type in the keys manually.');" onMouseOut="return nd();">Phrase:</td><td class="content_input_td"><script type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="WLANConfig11b_x_Phrase" value="<% nvram_get("x_Phrase"); %>" onKeyUp="return is_wlphrase('WLANConfig11b',this)"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 1 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey1" value="<% nvram_get("WEPKey1"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
+<td class="content_header_td_less">WEP Key 1 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey1" value="<% nvram_get("wl_wepkey1"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 2 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey2" value="<% nvram_get("WEPKey2"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
+<td class="content_header_td_less">WEP Key 2 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey2" value="<% nvram_get("wl_wepkey2"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 3 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey3" value="<% nvram_get("WEPKey3"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
+<td class="content_header_td_less">WEP Key 3 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey3" value="<% nvram_get("wl_wepkey3"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 4 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey4" value="<% nvram_get("WEPKey4"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
+<td class="content_header_td_less">WEP Key 4 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey4" value="<% nvram_get("wl_wepkey4"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">Default Key:</td><td class="content_input_td"><select name="WLANConfig11b_WEPDefaultKey" onChange="return change_common(this, 'WLANConfig11b', 'WEPDefaultKey')"><option value="Key1" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key1","selected"); %>>Key1</option><option value="Key2" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key2","selected"); %>>Key2</option><option value="Key3" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key3","selected"); %>>Key3</option><option value="Key4" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key4","selected"); %>>Key4</option><option value="Key Rotation" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key Rotation","selected"); %>>Key Rotation</option></select></td>
+<td class="content_header_td_less">Default Key:</td><td class="content_input_td"><select name="WLANConfig11b_WEPDefaultKey" onChange="return change_common(this, 'WLANConfig11b', 'WEPDefaultKey')"><option value="Key1" <% nvram_match_x("WLANConfig11b","wl_wepkey", "Key1","selected"); %>>Key1</option><option value="Key2" <% nvram_match_x("WLANConfig11b","wl_wepkey", "Key2","selected"); %>>Key2</option><option value="Key3" <% nvram_match_x("WLANConfig11b","wl_wepkey", "Key3","selected"); %>>Key3</option><option value="Key4" <% nvram_match_x("WLANConfig11b","wl_wepkey", "Key4","selected"); %>>Key4</option><option value="Key Rotation" <% nvram_match_x("WLANConfig11b","wl_wepkey", "Key Rotation","selected"); %>>Key Rotation</option></select></td>
 </tr>
 </table>
 </td>

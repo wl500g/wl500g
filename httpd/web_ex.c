@@ -61,9 +61,6 @@
 #define IMAGE_HEADER 	"HDR0"
 #define PROFILE_HEADER 	"HDR1"
 
-extern void getSharedEntry(int index);
-extern void setSharedEntry(int index);
-
 extern void readPrnID();
 
 static int apply_cgi_group(webs_t wp, int sid, const char *groupName, int flag);
@@ -78,14 +75,9 @@ static int wl_channels_in_country_asus(char *abbrev, int channels[]);
 
 //static int action;
 
-#define MAX_GROUP_ITEM 10
 #define MAX_GROUP_COUNT 300
-#define MAX_LINE_SIZE 1024
 
 static char *serviceId;
-#ifdef REMOVE_WL600
-static char *groupItem[MAX_GROUP_ITEM];
-#endif
 static char urlcache[128];
 static char *next_host;
 static int delMap[MAX_GROUP_COUNT];
@@ -139,7 +131,7 @@ reltime(unsigned int seconds)
 
 static void websRedirect(webs_t wp, char_t *url)
 {
-	//printf("Redirect to : %s\n", url);
+	//dprintf("Redirect to : %s\n", url);
 	websWrite(wp, T("<html><head>\r\n"));
 	if (next_host && *next_host)
 		websWrite(wp, T("<meta http-equiv=\"refresh\" content=\"0; url=http://%s/%s\">\r\n"), next_host, url);
@@ -170,7 +162,7 @@ static void sys_script(char *name)
 	char scmd[64];
 
 	sprintf(scmd, "/tmp/%s", name);
-	//printf("run %s %d %s\n", name, strlen(name), scmd);
+	//dprintf("run %s %d %s\n", name, strlen(name), scmd);
 
 	//handle special scirpt first
 
@@ -249,7 +241,7 @@ static char checkVersion(char *version, unsigned char major, unsigned char minor
 	clist = version+16;
 	ver = major << 8 | minor;
 
-	//printf("ver: %d %d %d\n", major, minor, ver);
+	//dprintf("ver: %d %d %d\n", major, minor, ver);
 	i = 0;
 
 	while (VINT(clist+i) && i<16)
@@ -257,7 +249,7 @@ static char checkVersion(char *version, unsigned char major, unsigned char minor
 		min = VINT(clist+i); 	
 		max = VINT(clist+i+2);
 
-		//printf("List: %x %x %x %x %x %x %x %x\n", i, ver, min, max, clist[i], clist[i+1], clist[i+2], clist[i+3]);
+		//dprintf("List: %x %x %x %x %x %x %x %x\n", i, ver, min, max, clist[i], clist[i+1], clist[i+2], clist[i+3]);
 
 		if (ver>=min && (max==0 || ver<=max)) return 1; 
 		i+=4;	
@@ -292,12 +284,12 @@ static void websScan(const char_t *str)
 
 		strncpy(name, v1+1, v2-v1-1);
 		name[v2-v1-1] = 0;
-		/*printf("Value: %s %s\n", name, value);*/
+		/*dprintf("Value: %s %s\n", name, value);*/
 
 		if (v2 != NULL && ((sp = strchr(v1+1, ' ')) == NULL || (sp > v2))) {
 			if (flag && strncmp(v1+1, groupid, strlen(groupid))==0) {
 				delMap[i] = atoi(value);
-				/*printf("Del Scan : %x\n", delMap[i]);*/
+				//dprintf("Del Scan : %x\n", delMap[i]);
 				if (delMap[i]==-1)  break;
 				i++;
 			} else if (strncmp(v1+1,"group_id", 8)==0) {
@@ -443,7 +435,7 @@ ej_nvram_match_list_both_x(int eid, webs_t wp, int argc, char_t **argv)
 		return -1;
 	}
 
-	if (nvram_match_list_x(sid, name, match, index))
+	if (nvram_match_list(name, match, index))
 		return websWrite(wp, output);
 	else
 		return websWrite(wp, output_ex);
@@ -480,7 +472,7 @@ ej_nvram_match_list_x(int eid, webs_t wp, int argc, char_t **argv)
 		return -1;
 	}
 
-	if (nvram_match_list_x(sid, name, match, which))
+	if (nvram_match_list(name, match, which))
 		return websWrite(wp, output);
 	else
 		return 0;
@@ -606,7 +598,7 @@ websWriteCh(webs_t wp, char *ch, int count)
 	ret = 0;
 	for (i=0; i<count; i++)
 		ret+=websWrite(wp, "%s", ch);
-	return(ret);   
+	return (ret);   
 } 
 
 /* Dump leases in <tr><td>MAC</td><td>IP</td><td>expires</td></tr> format */
@@ -690,7 +682,7 @@ ej_dumpiptable(int eid, webs_t wp, char *iptable_file)
 		s = line;
 		len = strlen(s);
 
-		//printf("Line: %d %s\n", len, line);
+		//dprintf("Line: %d %s\n", len, line);
 
 		while (strsep(&s, " "));
 
@@ -722,7 +714,7 @@ ej_dumpiptable(int eid, webs_t wp, char *iptable_file)
 				prot = &s[7];
 
 			if (strlen(s)!=0) i++;
-			//printf("Token: %d %s\n", i, s);
+			//dprintf("Token: %d %s\n", i, s);
 		}
 
 		ret +=websWrite(wp, "%s", dst);
@@ -745,7 +737,7 @@ static int dump_file(webs_t wp, char *filename)
 	char buf[MAX_LINE_SIZE];
 	int ret = 0;
 
-	//printf("dump: %s\n", filename);
+	//dprintf("dump: %s\n", filename);
 
 	fp = fopen(filename, "r");
 	if (fp==NULL) {
@@ -754,7 +746,7 @@ static int dump_file(webs_t wp, char *filename)
 	}
 
 	while (fgets(buf, MAX_LINE_SIZE, fp)!=NULL) {
-		//printf("Read time: %s\n", buf);
+		//dprintf("Read time: %s\n", buf);
 		ret += websWrite(wp, "%s", buf);
 	}
 	fclose(fp);
@@ -782,8 +774,6 @@ ej_dump(int eid, webs_t wp, int argc, char_t **argv)
 
 	if (strcmp(file, "wlan11b.log")==0)
 		return ej_wl_status(eid, wp, 0, NULL);
-	else if (strcmp(file, "leases.log")==0) 
-		return ej_lan_leases(eid, wp, 0, NULL);
 	else if (strcmp(file, "iptable.log")==0) 
 		return ej_nat_table(eid, wp, 0, NULL);
 	else if (strcmp(file, "route.log")==0)
@@ -868,7 +858,7 @@ validate_cgi(webs_t wp, int sid, int groupFlag)
 
 	/* Validate and set variables in table order */
 	for (v = GetVariables(sid); v->name != NULL; v++) {
-		//printf("Name: %s %d\n", v->name, sid);
+		//dprintf("Name: %s %d\n", v->name, sid);
 		strcpy(name, v->name);
 
 		if ((value = websGetVar(wp, name, NULL))) {
@@ -893,7 +883,7 @@ static char *svc_pop_list(char *value, char key)
 	int i;
 
 	if (value==NULL || *value=='\0')
-		return(NULL);      
+		return (NULL);      
 
 	buf = value;
 	v = strchr(buf, key);
@@ -903,9 +893,9 @@ static char *svc_pop_list(char *value, char key)
 	if (v!=NULL)
 	{
 		*v = '\0';
-		return(buf);
+		return (buf);
 	}    
-	return(NULL);
+	return (NULL);
 }
 
 
@@ -1008,7 +998,7 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 	script = websGetVar(wp, "action_script",""); 
 
 
-	//printf("Script: %s\n", script);
+	//dprintf("Script: %s\n", script);
 	dprintf("Apply: %s %s %s %s\n", value, current_url, next_url, websGetVar(wp, "group_id", ""));
 
 	if ( !strcmp (current_url, "Advanced_Services_Content.asp") &&
@@ -1039,7 +1029,7 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 		//sys_script("bcm_set");
 		//system("/web/script/eject-usb.sh");
 		sys_reboot();
-		return(0);
+		return (0);
 	} else if(!strcmp(value, "Restore")) {
 		/* action = ACTION_RESET_DEFAULT;*/
 		/* websRedirect(wp, "Restarting.asp");*/
@@ -1047,7 +1037,7 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 		//system("/web/script/eject-usb.sh");
 		sys_default();
 		sys_reboot();
-		return(0);
+		return (0);
 	} else if (!strcmp(value, "WlanUpdate ")) {
 		/*action = ACTION_SAVE_RESTART;*/
 		/*websRedirect(wp, "Restarting.asp");*/
@@ -1056,7 +1046,7 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 		}
 		websApply(wp, "Restarting.asp");
 		sys_reboot();
-		return(0);
+		return (0);
 	} else {
 		sid_list = websGetVar(wp, "sid_list", "");
 
@@ -1096,18 +1086,6 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 							}else if (!strncmp(value1, " Refresh ", 9)) {
 								apply_cgi_group(wp, sid, groupName, GROUP_FLAG_REFRESH);
 							}
-							//#ifdef SHARED
-							else if (!strncmp(value1, " Edit ", 6)) {
-								//apply_cgi_group(wp, sid, groupName, GROUP_FLAG_REFRESH);
-								dprintf("edit %d\n", delMap[0]); 
-								if (delMap[0]==-1) websRedirect(wp, current_url);
-								else {
-									getSharedEntry(delMap[0]);
-									websRedirect(wp, "Advanced_StorageUser_Content.asp");
-								}
-								return 0;
-
-							}
 							//#endif
 							sprintf(urlStr, "%s#%s", current_url, groupName);
 
@@ -1119,7 +1097,7 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 			sid_list = sid_list + strlen(serviceId)+1;
 		}
 
-		/* printf("apply????\n"); */
+		/* dprintf("apply????\n"); */
 
 		/* Add for EMI Test page */
 		if (strcmp(script, "")!=0) {
@@ -1330,10 +1308,10 @@ static void nvram_add_group_item(webs_t wp, const struct variable *v, int sid)
 		sprintf(name, "%s_0", gv->name);
 
 		if ((value=websGetVar(wp, name, NULL))) {
-			nvram_add_lists_x(serviceId, gv->name, value, count);
+			nvram_add_lists(gv->name, value, count);
 			dprintf("Grp add: %s %s\n", gv->name, value);
 		} else {
-			nvram_add_lists_x(serviceId, gv->name, "", count);             
+			nvram_add_lists(gv->name, "", count);
 		}
 	}
 
@@ -1355,7 +1333,7 @@ static void nvram_remove_group_item(webs_t wp, const struct variable *v, int sid
 
 	count = nvram_get_int(v->argv[3]);
 	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
-		nvram_del_lists_x(serviceId, gv->name, delMap);
+		nvram_del_lists(gv->name, delMap);
 	}
 
 	i = 0;
@@ -1398,7 +1376,7 @@ nvram_add_group_table(webs_t wp, const char *serviceId, const struct variable *v
 	value = count;
 
 	for (gv = (const struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
-		strcpy(buf, nvram_get_list_x(serviceId, gv->name, count));
+		strcpy(buf, nvram_get_list(gv->name, count));
 		fieldLen = atoi(gv->longname);
 
 		if (fieldLen > 0) {
@@ -1431,7 +1409,7 @@ ToHTML:
 	}
 	buf[j] = 0x0;
 
-	return(websWrite(wp, "<option value=\"%d\">%s</option>", value, buf));
+	return (websWrite(wp, "<option value=\"%d\">%s</option>", value, buf));
 }
 
 static int
@@ -1518,12 +1496,12 @@ do_auth(char *userid, char *passwd, char *realm)
 		strncpy(UserPass, nvram_safe_get("http_passwd"), 32);
 	}
 	//time(&tm);
-	//printf("do_auth %s\n", rfctime(&tm));
-	//printf("User: %s:%s%s\n", ProductID, UserID, UserPass);
+	//dprintf("do_auth %s\n", rfctime(&tm));
+	//dprintf("User: %s:%s%s\n", ProductID, UserID, UserPass);
 	strncpy(userid, UserID, AUTH_MAX);
 
 	if (redirect || !is_auth()) {
-		//printf("Disable password checking!!!\n");
+		//dprintf("Disable password checking!!!\n");
 		strcpy(passwd, "");
 	} else {
 		strncpy(passwd, UserPass, AUTH_MAX);
@@ -1558,7 +1536,7 @@ static char post_buf[10000];
 static void
 do_apply_cgi_post(const char *url, FILE *stream, int len, const char *boundary)
 {
-	//printf("In : %s %s\n", url, boundary);
+	//dprintf("In : %s %s\n", url, boundary);
 #ifdef HANDLE_POST
 	if (!fgets(post_buf, MIN(len+1, sizeof(post_buf)), stream)) return;
 	len -= strlen(post_buf);
@@ -1712,7 +1690,7 @@ do_upload_cgi(char *url, FILE *stream)
 {
 	int ret;
 
-	//printf("Upgrade CGI\n");
+	//dprintf("Upgrade CGI\n");
 
 	ret = fcntl(fileno(stream), F_GETOWN, 0);
 
@@ -1798,7 +1776,7 @@ err:
 	if (fifo)
 		fclose(fifo);
 
-	//printf("Error : %d\n", ret);
+	//dprintf("Error : %d\n", ret);
 	fcntl(fileno(stream), F_SETOWN, -ret);
 
 	return ret;
@@ -1820,7 +1798,7 @@ do_uploadflashfs_cgi(char *url, FILE *stream)
 {
 	int ret;
 
-	//printf("Upgrade CGI\n");
+	//dprintf("Upgrade CGI\n");
 	ret = fcntl(fileno(stream), F_GETOWN, 0);
 	/* Reboot if successful */
 	if (ret == 0) {
@@ -2004,19 +1982,6 @@ const struct ej_handler ej_handlers[] = {
 	{ NULL, NULL }
 };
 
-
-#ifdef REMOVE
-void websSetVer(void)
-{
-	char productid[13];
-	char fwver[12];
-
-	get_fw_ver(productid, fwver);
-
-	nvram_set("productid", productid);
-	nvram_set("firmver", fwver);	
-}
-#endif
 
 /*
 * Country names and abbreviations from ISO 3166

@@ -26,6 +26,8 @@
 #define FALSE 0
 #endif
 
+#define MAX_LINE_SIZE 1024
+
 struct variable {
 	const char *name;
 	const char *longname;

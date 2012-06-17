@@ -28,9 +28,7 @@
 #include "bcmnvram_f.h"
 #include "common.h"
 
-#define MAX_LINE_SIZE 1024
-
-int js0n(unsigned char *js, unsigned int len, unsigned short *out);
+extern int js0n(unsigned char *js, unsigned int len, unsigned short *out);
 
 // Answer list that created by json commands
 struct json_answer_list {
@@ -484,11 +482,11 @@ json_nvram_get(char *params, JData *data)
 // Json commands list
 static const struct json_command json_commands[] = {
 #ifdef DEBUG
-	{"nvram_get",json_nvram_get},	// sample { "nvram_get" : ["var_name_1","var_name_2"] }
-	{"dump_file",json_dump_file},	// sample { "dump_file" : "../.version" }
+	{ "nvram_get",	json_nvram_get },	// sample { "nvram_get" : ["var_name_1","var_name_2"] }
+	{ "dump_file",	json_dump_file },	// sample { "dump_file" : "../.version" }
 #endif
-	{"nvram_set",json_nvram_set},	// sample { "nvram_set" : { "nvram_var_name_1" : "val_1" , "nvram_var_name_2" : "val_2" } }
-	{"nvram_commit",json_nvram_commit},	// sample { "nvram_commit" : "" } 
-	{"sys_reboot",json_sys_reboot},	// sample { "sys_reboot" : "" } 
+	{ "nvram_set",	json_nvram_set },	// sample { "nvram_set" : { "nvram_var_name_1" : "val_1" , "nvram_var_name_2" : "val_2" } }
+	{ "nvram_commit", json_nvram_commit },	// sample { "nvram_commit" : "" } 
+	{ "sys_reboot",	json_sys_reboot },	// sample { "sys_reboot" : "" } 
 	{ NULL, NULL }
 };

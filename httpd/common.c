@@ -16,24 +16,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <time.h>
 #include <syslog.h>
-#include <sys/klog.h>
-#include <sys/wait.h>
-#include <sys/socket.h>
-#include <linux/if.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include <shutils.h>
 #include <bcmconfig.h>
 
 #include "bcmnvram_f.h"
 #include "common.h"
-
-#define MAX_LINE_SIZE 512
 
 #include "variables.c"
 
@@ -42,8 +31,8 @@ int LookupServiceId(const char *serviceId)
 {
 	int sid = 0;
 
-	while (svcLinks[sid].serviceId!=NULL) {      
-		if( strcmp(serviceId, svcLinks[sid].serviceId) == 0)
+	while (svcLinks[sid].serviceId!=NULL) {
+		if (strcmp(serviceId, svcLinks[sid].serviceId) == 0)
 			break;
 		sid++;
 	} 
