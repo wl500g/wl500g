@@ -4,8 +4,15 @@ USB: Updates from upstream
  1e12c910eed82da6971f1c0421a069c680faba2e EHCI: don't rescan interrupt QHs needlessly
  3824c1ddaf744be44b170a335332b9d6afe79254 USB: core: Tolerate protocol stall during hub and port status read
  e04f5f7e423018bcec84c11af2058cdce87816f3 EHCI: fix direction handling for interrupt data toggles
+ b3a3dd074f7053ef824ad077e5331b52220ceba1 USB: fix gathering of interface associations
 
 ---
+ drivers/usb/core/hub.c        |    6 ++++--
+ drivers/usb/core/message.c    |    3 ++-
+ drivers/usb/host/ehci-q.c     |    4 +++-
+ drivers/usb/host/ehci-sched.c |   17 ++++++++++-------
+ drivers/usb/host/ehci.h       |    2 ++
+ 5 files changed, 21 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
 --- a/drivers/usb/core/hub.c
@@ -30,6 +37,26 @@ diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
  		status = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
  			USB_REQ_GET_STATUS, USB_DIR_IN | USB_RT_PORT, 0, port1,
  			data, sizeof(*data), USB_STS_TIMEOUT);
+diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
+--- a/drivers/usb/core/message.c
++++ b/drivers/usb/core/message.c
+@@ -1708,7 +1708,6 @@ free_interfaces:
+ 		intfc = cp->intf_cache[i];
+ 		intf->altsetting = intfc->altsetting;
+ 		intf->num_altsetting = intfc->num_altsetting;
+-		intf->intf_assoc = find_iad(dev, cp, i);
+ 		kref_get(&intfc->ref);
+ 
+ 		alt = usb_altnum_to_altsetting(intf, 0);
+@@ -1721,6 +1720,8 @@ free_interfaces:
+ 		if (!alt)
+ 			alt = &intf->altsetting[0];
+ 
++		intf->intf_assoc =
++			find_iad(dev, cp, alt->desc.bInterfaceNumber);
+ 		intf->cur_altsetting = alt;
+ 		usb_enable_interface(dev, intf);
+ 		intf->dev.parent = &dev->dev;
 diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
 --- a/drivers/usb/host/ehci-q.c
 +++ b/drivers/usb/host/ehci-q.c
@@ -133,4 +160,3 @@ diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
  };
  
 -- 
-1.7.4.4
