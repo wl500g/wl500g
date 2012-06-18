@@ -96,7 +96,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="WLocalFilterList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("FirewallConfig","WLocalFilterList"); %>
+<% nvram_get_table("WLocalFilterList"); %>
 </select></td>
 </tr>
 </table>

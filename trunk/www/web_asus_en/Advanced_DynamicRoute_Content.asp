@@ -153,7 +153,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="RouteFilter_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
-<% nvram_get_table_x("RouterConfig","RouteFilter"); %>
+<% nvram_get_table("RouteFilter"); %>
 </select></td>
 </tr>
 </table>
@@ -225,7 +225,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="4" name="RipOffset_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("RouterConfig","RipOffset"); %>
+<% nvram_get_table("RipOffset"); %>
 </select></td>
 </tr>
 </table>

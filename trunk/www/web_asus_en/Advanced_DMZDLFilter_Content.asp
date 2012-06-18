@@ -91,7 +91,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="DLFilterList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
-<% nvram_get_table_x("FirewallConfig","DLFilterList"); %>
+<% nvram_get_table("DLFilterList"); %>
 </select></td>
 </tr>
 </table>
@@ -142,7 +142,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="LDFilterList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("FirewallConfig","LDFilterList"); %>
+<% nvram_get_table("LDFilterList"); %>
 </select></td>
 </tr>
 </table>

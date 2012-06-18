@@ -84,7 +84,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="16" name="GWStatic_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("RouterConfig","GWStatic"); %>
+<% nvram_get_table("GWStatic"); %>
 </select></td>
 </tr>
 </table>

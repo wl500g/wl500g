@@ -85,7 +85,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="UrlList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("FirewallConfig","UrlList"); %>
+<% nvram_get_table("UrlList"); %>
 </select></td>
 </tr>
 </table>

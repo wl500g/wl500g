@@ -108,7 +108,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="4" name="ManualDHCPList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("LANHostConfig","ManualDHCPList"); %>
+<% nvram_get_table("ManualDHCPList"); %>
 </select></td>
 </tr>
 </table>

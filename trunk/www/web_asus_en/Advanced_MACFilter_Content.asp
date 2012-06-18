@@ -70,7 +70,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="MFList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("FirewallConfig","MFList"); %>
+<% nvram_get_table("MFList"); %>
 </select></td>
 </tr>
 </table>

@@ -140,7 +140,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="4" name="PPPoERouteList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("PPPConnection","PPPoERouteList"); %>
+<% nvram_get_table("PPPoERouteList"); %>
 </select></td>
 </tr>
 </table>

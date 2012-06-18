@@ -63,7 +63,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="AESList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("DeviceSecurity11a","AESList"); %>
+<% nvram_get_table("AESList"); %>
 </select></td>
 </tr>
 </table>

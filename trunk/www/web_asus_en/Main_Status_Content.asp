@@ -26,7 +26,7 @@
 <td class="content_header_td" onMouseOver="return overlib('Elapsed time since system boot');" onMouseOut="return nd();">System Up Time:</td><td class="content_input_td"><input type="text" value="<% nvram_get("UpTime"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td">Product ID:</td><td class="content_input_td"><input type="text" value="<% nvram_get("ProductID"); %>" readonly></td>
+<td class="content_header_td">Product ID:</td><td class="content_input_td"><input type="text" value="<% nvram_get("productid"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td">Firmware Version:</td><td class="content_input_td"><input type="text" value="<% nvram_get("FirmwareVer"); %>" readonly></td>
@@ -47,13 +47,13 @@
 <td colspan="2">11.a Interface</td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN');" onMouseOut="return nd();">SSID:</td><td class="content_input_td"><input type="text" value="<% nvram_get("SSID"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN');" onMouseOut="return nd();">SSID:</td><td class="content_input_td"><input type="text" value="<% nvram_get("wl_ssid"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel');" onMouseOut="return nd();">Channel:</td><td class="content_input_td"><input type="text" value="<% nvram_get("Channel"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel');" onMouseOut="return nd();">Channel:</td><td class="content_input_td"><input type="text" value="<% nvram_get("wl_channel"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Enable WEP to encrypt data which can avoid disclosure to eavesdroppers');" onMouseOut="return nd();">Encryption(WEP):</td><td class="content_input_td"><input type="text" value="<% nvram_get("WEPType"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Enable WEP to encrypt data which can avoid disclosure to eavesdroppers');" onMouseOut="return nd();">Encryption(WEP):</td><td class="content_input_td"><input type="text" value="<% nvram_get("wl_weptype_x"); %>" readonly></td>
 </tr>
 </table>
 </td>
@@ -65,16 +65,16 @@
 <td colspan="2">11.b Interface</td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN');" onMouseOut="return nd();">SSID:</td><td class="content_input_td"><input type="text" value="<% nvram_get("SSID"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN');" onMouseOut="return nd();">SSID:</td><td class="content_input_td"><input type="text" value="<% nvram_get("wl_ssid"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel');" onMouseOut="return nd();">Channel:</td><td class="content_input_td"><input type="text" value="<% nvram_get("Channel"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel');" onMouseOut="return nd();">Channel:</td><td class="content_input_td"><input type="text" value="<% nvram_get("wl_channel"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Select 1,2,5.5,11 Mbps to maximize performace. Use 1,2 Mbps only when the backward compatibility is needed for some old WLAN cards which maximal bit rate is 2 Mbps');" onMouseOut="return nd();">Rate:</td><td class="content_input_td"><input type="text" value="<% nvram_get("DataRate"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Select 1,2,5.5,11 Mbps to maximize performace. Use 1,2 Mbps only when the backward compatibility is needed for some old WLAN cards which maximal bit rate is 2 Mbps');" onMouseOut="return nd();">Rate:</td><td class="content_input_td"><input type="text" value="<% nvram_get("wl_rateset_x"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Enable WEP to encrypt data which can avoid disclosure to eavesdroppers');" onMouseOut="return nd();">Encryption(WEP):</td><td class="content_input_td"><input type="text" value="<% nvram_get("WEPType"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Enable WEP to encrypt data which can avoid disclosure to eavesdroppers');" onMouseOut="return nd();">Encryption(WEP):</td><td class="content_input_td"><input type="text" value="<% nvram_get("wl_weptype_x"); %>" readonly></td>
 </tr>
 </table>
 </td>
@@ -86,10 +86,10 @@
 <td colspan="2">LAN Interface</td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('IP address for the Home Gateway:');" onMouseOut="return nd();">IP Address:</td><td class="content_input_td"><input type="text" value="<% nvram_get("IPRouters"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('IP address for the Home Gateway:');" onMouseOut="return nd();">IP Address:</td><td class="content_input_td"><input type="text" value="<% nvram_get("lan_ipaddr"); %>" readonly></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Subnet mask for the Home Gateway:');" onMouseOut="return nd();">Subnet Mask:</td><td class="content_input_td"><input type="text" value="<% nvram_get("SubnetMask"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Subnet mask for the Home Gateway:');" onMouseOut="return nd();">Subnet Mask:</td><td class="content_input_td"><input type="text" value="<% nvram_get("lan_netmask"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Host name for the Home Gateway:');" onMouseOut="return nd();">Host Name:</td><td class="content_input_td"><input type="text" value="<% nvram_get("x_HostName"); %>" readonly></td>

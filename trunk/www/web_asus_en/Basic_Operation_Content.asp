@@ -21,8 +21,8 @@
 <input type="hidden" name="Layer3Forwarding_x_ConnectionType" value="<% nvram_get("x_ConnectionType"); %>">
 <input type="hidden" name="IPConnection_ConnectionType" value="<% nvram_get("ConnectionType"); %>">
 <input type="hidden" name="IPConnection_NATEnabled" value="<% nvram_get("NATEnabled"); %>">
-<input type="hidden" name="WLANConfig11a_SSID" value="<% nvram_get("SSID"); %>">
-<input type="hidden" name="WLANConfig11a_WEPType" value="<% nvram_get("WEPType"); %>">
+<input type="hidden" name="WLANConfig11a_SSID" value="<% nvram_get("wl_ssid"); %>">
+<input type="hidden" name="WLANConfig11a_WEPType" value="<% nvram_get("wl_weptype_x"); %>">
 <input type="hidden" name="WLANConfig11a_WEPKey1" value="<% nvram_get("wl_wepkey1"); %>">
 <input type="hidden" name="WLANConfig11a_WEPKey2" value="<% nvram_get("wl_wepkey2"); %>">
 <input type="hidden" name="WLANConfig11a_WEPKey3" value="<% nvram_get("wl_wepkey3"); %>">
@@ -181,13 +181,13 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <td class="content_desc_td" colspan="2" height="50">First step for setting your wireless interface is to give it a name, called SSID. In addition, if you like to protect transmitted data, please select WEP protection and assign WEP keys for data transmission. Your wireless setting will be applied into both 802.11a and 802.11b interfaces.</td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN');" onMouseOut="return nd();">SSID:</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_SSID" value="<% nvram_get("SSID"); %>"></td>
+<td class="content_header_td_less" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN');" onMouseOut="return nd();">SSID:</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_SSID" value="<% nvram_get("wl_ssid"); %>"></td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('Enable WEP to encrypt data which can avoid disclosure to eavesdroppers');" onMouseOut="return nd();">WEP:</td><td class="content_input_td"><select name="WLANConfig11b_WEPType" onChange="return change_wlweptype(this, 'WLANConfig11b')"><option value="None" <% nvram_match("WEPType", "None","selected"); %>>None</option><option value="64bits" <% nvram_match("WEPType", "64bits","selected"); %>>64bits</option><option value="128bits" <% nvram_match("WEPType", "128bits","selected"); %>>128bits</option></select></td>
+<td class="content_header_td_less" onMouseOver="return overlib('Enable WEP to encrypt data which can avoid disclosure to eavesdroppers');" onMouseOut="return nd();">WEP:</td><td class="content_input_td"><select name="WLANConfig11b_WEPType" onChange="return change_wlweptype(this, 'WLANConfig11b')"><option value="None" <% nvram_match("wl_weptype_x", "None","selected"); %>>None</option><option value="64bits" <% nvram_match("wl_weptype_x", "64bits","selected"); %>>64bits</option><option value="128bits" <% nvram_match("wl_weptype_x", "128bits","selected"); %>>128bits</option></select></td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('Give a magic word to generate the WEP keys automatically or leave this field blank and type in the keys manually.');" onMouseOut="return nd();">Phrase:</td><td class="content_input_td"><script type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="WLANConfig11b_x_Phrase" value="<% nvram_get("x_Phrase"); %>" onKeyUp="return is_wlphrase('WLANConfig11b',this)"></td>
+<td class="content_header_td_less" onMouseOver="return overlib('Give a magic word to generate the WEP keys automatically or leave this field blank and type in the keys manually.');" onMouseOut="return nd();">Phrase:</td><td class="content_input_td"><script type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="WLANConfig11b_x_Phrase" value="<% nvram_get("wl_wpapsk"); %>" onKeyUp="return is_wlphrase('WLANConfig11b',this)"></td>
 </tr>
 <tr>
 <td class="content_header_td_less">WEP Key 1 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey1" value="<% nvram_get("wl_wepkey1"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
@@ -202,7 +202,7 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <td class="content_header_td_less">WEP Key 4 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey4" value="<% nvram_get("wl_wepkey4"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">Default Key:</td><td class="content_input_td"><select name="WLANConfig11b_WEPDefaultKey" onChange="return change_common(this, 'WLANConfig11b', 'WEPDefaultKey')"><option value="Key1" <% nvram_match("wl_wepkey", "Key1","selected"); %>>Key1</option><option value="Key2" <% nvram_match("wl_wepkey", "Key2","selected"); %>>Key2</option><option value="Key3" <% nvram_match("wl_wepkey", "Key3","selected"); %>>Key3</option><option value="Key4" <% nvram_match("wl_wepkey", "Key4","selected"); %>>Key4</option><option value="Key Rotation" <% nvram_match("wl_wepkey", "Key Rotation","selected"); %>>Key Rotation</option></select></td>
+<td class="content_header_td_less">Default Key:</td><td class="content_input_td"><select name="WLANConfig11b_WEPDefaultKey" onChange="return change_common(this, 'WLANConfig11b', 'wl_wepkey')"><option value="Key1" <% nvram_match("wl_wepkey", "Key1","selected"); %>>Key1</option><option value="Key2" <% nvram_match("wl_wepkey", "Key2","selected"); %>>Key2</option><option value="Key3" <% nvram_match("wl_wepkey", "Key3","selected"); %>>Key3</option><option value="Key4" <% nvram_match("wl_wepkey", "Key4","selected"); %>>Key4</option><option value="Key Rotation" <% nvram_match("wl_wepkey", "Key Rotation","selected"); %>>Key Rotation</option></select></td>
 </tr>
 </table>
 </td>
