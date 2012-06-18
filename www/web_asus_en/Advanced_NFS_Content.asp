@@ -59,7 +59,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="x_ExportsList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("PrinterStatus","x_ExportsList"); %>
+<% nvram_get_table("x_ExportsList"); %>
 </select></td>
 </tr>
 <!-- 3 --></table>

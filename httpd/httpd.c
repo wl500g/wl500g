@@ -53,10 +53,7 @@
 #include <net/if.h>
 #include "ethtool-util.h"
 
-#define SERVER_NAME "httpd"
 #define SERVER_PORT 80
-#define PROTOCOL "HTTP/1.0"
-#define RFC1123FMT "%a, %d %b %Y %H:%M:%S GMT"
 
 #include <bcmconfig.h>
 
@@ -253,20 +250,33 @@ send_error( int status, char* title, char* extra_header, char* text )
 static void
 send_headers(int status, const char *title, const char *extra_header, const char *mime_type)
 {
+	static const char RFC1123FMT[] = "%a, %d %b %Y %H:%M:%S GMT";
 	time_t now;
-	char timebuf[100];
+	char timebuf[80];
 
-	(void) fprintf( conn_fp, "%s %d %s\r\n", PROTOCOL, status, title );
-	(void) fprintf( conn_fp, "Server: %s\r\n", SERVER_NAME );
-	now = time( (time_t*) 0 );
-	(void) strftime( timebuf, sizeof(timebuf), RFC1123FMT, gmtime( &now ) );
-	(void) fprintf( conn_fp, "Date: %s\r\n", timebuf );
-	if ( extra_header != (char*) 0 )
-		(void) fprintf( conn_fp, "%s\r\n", extra_header );
-	if ( mime_type != (char*) 0 )
-		(void) fprintf( conn_fp, "Content-Type: %s\r\n", mime_type );
-	(void) fprintf( conn_fp, "Connection: close\r\n" );
-	(void) fprintf( conn_fp, "\r\n" );
+	now = time(NULL);
+	strftime(timebuf, sizeof(timebuf), RFC1123FMT, gmtime( &now ));
+
+	/* Sample:
+	 *
+	 * HTTP/1.1 200 OK
+	 * Date: Thu, 12 Jun 2010 13:06:28 GMT
+	 * Server: Apache
+	 * Accept-Ranges: bytes
+	 * Connection: close
+	 * Content-Type: text/html
+	 */
+	fprintf(conn_fp, "HTTP/1.0 %d %s\r\n"
+			 "Server: httpd\r\n"
+			 "Date: %s\r\n",
+		 status, title,
+		 timebuf);
+	if (extra_header != NULL)
+		fprintf(conn_fp, "%s\r\n", extra_header);
+	if (mime_type != NULL)
+		fprintf(conn_fp, "Content-Type: %s\r\n", mime_type);
+	fprintf(conn_fp, "Connection: close\r\n"
+			 "\r\n" );
 }
 
 

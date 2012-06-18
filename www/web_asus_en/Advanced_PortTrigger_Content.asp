@@ -71,7 +71,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="TriggerList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("IPConnection","TriggerList"); %>
+<% nvram_get_table("TriggerList"); %>
 </select></td>
 </tr>
 </table>

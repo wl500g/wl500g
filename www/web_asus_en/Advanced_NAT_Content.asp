@@ -63,7 +63,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="PortMappingList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("IPConnection","PortMappingList"); %>
+<% nvram_get_table("PortMappingList"); %>
 </select></td>
 </tr>
 </table>

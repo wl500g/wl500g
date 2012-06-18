@@ -67,7 +67,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="ACLList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("DeviceSecurity11a","ACLList"); %>
+<% nvram_get_table("ACLList"); %>
 </select></td>
 </tr>
 </table>

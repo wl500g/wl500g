@@ -46,7 +46,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="WLANAuthentication11a_LocalCertDB_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("WLANAuthentication11a","LocalCertDB"); %>
+<% nvram_get_table("LocalCertDB"); %>
 </select></td>
 </tr>
 </table>

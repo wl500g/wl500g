@@ -21,8 +21,6 @@ permission of Broadcom Corporation.
 #include <bcmnvram.h>
 #include <shutils.h>
 
-extern const char *findNVRAMName(const char *field);
-
 /*
 * Get the value of an NVRAM variable list 
 * @param	name	name of variable to get
@@ -46,13 +44,10 @@ char *nvram_get_list(const char *name, int index)
 */
 int nvram_add_lists(const char *name, const char *value, int count)
 {
-	const char *name1;
 	char name2[64];
 
-	name1 = findNVRAMName(name);
-
-	if (name1[0] != '\0') {
-		snprintf(name2, sizeof(name2), "%s%d", name1, count);
+	if (name[0] != '\0') {
+		snprintf(name2, sizeof(name2), "%s%d", name, count);
 		nvram_set(name2, value);
 	}
 
@@ -68,19 +63,16 @@ int nvram_add_lists(const char *name, const char *value, int count)
 */
 int nvram_del_lists(const char *name, int *delMap)
 {
-	const char *names;
 	char oname[64], nname[64], *oval, *nval;
 	int oi, ni, di;
 
-	names = findNVRAMName(name);
-
-	if (names[0] != '\0') {
+	if (name[0] != '\0') {
 		oi=0;
 		ni=0;
 		di=0;
 		while (1) {
-			snprintf(oname, sizeof(oname), "%s%d", names, oi);
-			snprintf(nname, sizeof(nname), "%s%d", names, ni);
+			snprintf(oname, sizeof(oname), "%s%d", name, oi);
+			snprintf(nname, sizeof(nname), "%s%d", name, ni);
 
 			oval = nvram_get(oname);
 			nval = nvram_get(nname);

@@ -66,7 +66,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="x_QRuleList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("PrinterStatus","x_QRuleList"); %>
+<% nvram_get_table("x_QRuleList"); %>
 </select></td>
 </tr>
 </table>
@@ -111,7 +111,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="x_UQRuleList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100% ">
-<% nvram_get_table_x("PrinterStatus","x_UQRuleList"); %>
+<% nvram_get_table("x_UQRuleList"); %>
 </select></td>
 </tr>
 </table>

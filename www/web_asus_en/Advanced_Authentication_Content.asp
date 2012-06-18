@@ -57,7 +57,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="4" name="WLANAuthentication11a_ExAuthDB_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
-<% nvram_get_table_x("WLANAuthentication11a","ExAuthDB"); %>
+<% nvram_get_table("ExAuthDB"); %>
 </select></td>
 </tr>
 </table>
@@ -98,7 +98,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="WLANAuthentication11a_LocalAuthDB_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("WLANAuthentication11a","LocalAuthDB"); %>
+<% nvram_get_table("LocalAuthDB"); %>
 </select></td>
 </tr>
 </table>

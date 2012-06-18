@@ -25,14 +25,10 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <httpd.h>
-
 #include <fcntl.h>
 #include <signal.h>
 #include <time.h>
-#include <sys/klog.h>
-#include <sys/wait.h>
-#include <dirent.h>
+
 #include <wlutils.h>
 #include <typedefs.h>
 #include <shutils.h>
@@ -42,15 +38,13 @@
 
 #include "bcmnvram_f.h"
 #include "common.h"
-
-#define sys_forcereboot()	kill(1, SIGABRT)
-
+#include "httpd.h"
 
 #define sys_upgrade(image)	eval("write", image, "linux")
 #define sys_upload(image)	eval("nvram", "restore", image)
 #define sys_download(file)	eval("nvram", "save", file)
-#define sys_restore(sid)	eval("nvram_x", "get", (sid))
-#define sys_commit(sid)		(flashfs_commit(), nvram_commit())
+//#define sys_restore(sid)	eval("nvram_x", "get", (sid))
+#define sys_commit()		(flashfs_commit(), nvram_commit())
 #define sys_default()		eval("erase", "nvram")
 
 #define GROUP_FLAG_REFRESH 	0
@@ -64,7 +58,7 @@
 extern void readPrnID();
 
 static int apply_cgi_group(webs_t wp, int sid, const char *groupName, int flag);
-static int nvram_generate_table(webs_t wp, const char *serviceId, const char *groupName);
+static int nvram_add_group_table(webs_t wp, const struct group_variable *gv, int count);
 
 static int ej_select_country(int eid, webs_t wp, int argc, char_t **argv);
 static int wl_channels_in_country(char *abbrev, int channels[]);
@@ -77,9 +71,8 @@ static int wl_channels_in_country_asus(char *abbrev, int channels[]);
 
 #define MAX_GROUP_COUNT 300
 
-static char *serviceId;
 static char urlcache[128];
-static char *next_host;
+static const char *next_host;
 static int delMap[MAX_GROUP_COUNT];
 static char SystemCmd[128];
 static char UserID[32]="";
@@ -410,16 +403,37 @@ ej_nvram_match_both(int eid, webs_t wp, int argc, char_t **argv)
 }
 
 static int
-ej_nvram_get_table_x(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_get_table(int eid, webs_t wp, int argc, char_t **argv)
 {
-	const char *sid, *name;
+	const char *name;
+	const struct group_variable *gv;
+	int i, groupCount, ret, r;
 
-	if (ejArgs(argc, argv, "%s %s", &sid, &name) < 2) {
+	if (ejArgs(argc, argv, "%s", &name) < 1) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
 
-	return nvram_generate_table(wp, sid, name);
+	gv = LookupGroup(name);
+	if (gv == NULL)
+		return 0;
+
+	groupCount = nvram_get_int(gv->counter_name);
+	if (groupCount==0)
+		ret = nvram_add_group_table(wp, gv, -1);
+	else {
+		ret = 0;
+
+		for (i=0; i<groupCount; i++) {
+			r = nvram_add_group_table(wp, gv, i);
+			if (r != 0)
+				ret += r;
+			else
+				break;
+		}
+	}
+
+	return ret;
 }
 
 /*
@@ -497,33 +511,52 @@ ej_urlcache(int eid, webs_t wp, int argc, char_t **argv)
 			if (redirect) {
 				websWrite(wp, "Basic_GOperation_Content.asp");
 				redirect=0;
-			} else if (flag==2)
-				websWrite(wp, "Basic_GOperation_Content.asp");
-			else if (flag==1)
-				websWrite(wp, "Basic_HomeGateway_SaveRestart.asp");
-			else
-				websWrite(wp, "Main_Index_HomeGateway.asp");
+			} else {
+				switch(flag) {
+				case 2:
+					websWrite(wp, "Basic_GOperation_Content.asp");
+					break;
+				case 1:
+					websWrite(wp, "Basic_HomeGateway_SaveRestart.asp");
+					break;
+				default:
+					websWrite(wp, "Main_Index_HomeGateway.asp");
+					break;
+				}
+			}
 		} else {
 			/* disable to redirect page */
 			if (redirect) {
 				websWrite(wp, "Basic_ROperation_Content.asp");
 				redirect=0;
-			} else if (flag==2)
-				websWrite(wp, "Basic_ROperation_Content.asp");
-			else if (flag==1)
-				websWrite(wp, "Basic_Router_SaveRestart.asp");
-			else
-				websWrite(wp, "Main_Index_Router.asp");
+			} else {
+				switch(flag) {
+				case 2:
+					websWrite(wp, "Basic_ROperation_Content.asp");
+					break;
+				case 1:
+					websWrite(wp, "Basic_Router_SaveRestart.asp");
+					break;
+				default:
+					websWrite(wp, "Main_Index_Router.asp");
+					break;
+				}
+			}
 		}
 	} else {
-		if (flag==2)
+		switch(flag) {
+		case 2:
 			websWrite(wp, "Basic_AOperation_Content.asp");
-		else if (flag==1)
+			break;
+		case 1:
 			websWrite(wp, "Basic_AccessPoint_SaveRestart.asp");
-		else	
+			break;
+		default:
 			websWrite(wp, "Main_Index_AccessPoint.asp");
+			break;
+		}
 	}
-	strcpy(urlcache,"");
+	strcpy(urlcache, "");
 
 	return flag;
 }
@@ -536,185 +569,34 @@ ej_uptime(int eid, webs_t wp, int argc, char_t **argv)
 	char buf[MAX_LINE_SIZE];
 	char *str = file2str("/proc/uptime");
 	time_t tm;
+	int len;
 
 	time(&tm);
-	sprintf(buf, rfctime(&tm));
+	len = sprintf(buf, rfctime(&tm));
 
 	if (str) {
 		unsigned int up = atoi(str);
 		free(str);
-		sprintf(buf, "%s (%s since boot)", buf, reltime(up));
+		sprintf(buf+ len, " (%s since boot)", reltime(up));
 	}
 
 	return websWrite(wp, buf);
 }
 
-#ifdef REMOVE
-struct lease_t {
-	unsigned char chaddr[16];
-	u_int32_t yiaddr;
-	u_int32_t expires;
-	char hostname[64];
-};
-
-static int
-websWriteCh(webs_t wp, char *ch, int count)
-{
-	int i, ret;
-
-	ret = 0;
-	for (i=0; i<count; i++)
-		ret+=websWrite(wp, "%s", ch);
-	return (ret);   
-} 
-
-/* Dump leases in <tr><td>MAC</td><td>IP</td><td>expires</td></tr> format */
-static int
-ej_dumpleases(int eid, webs_t wp, char *lease_file)
-{
-	FILE *fp;
-	struct lease_t lease;
-	int i;
-	struct in_addr addr;
-	unsigned long expires;
-	int ret = 0;
-
-	ret +=websWrite(wp,"Mac Address       IP Address      Lease Time\n");
-
-	/* Parse leases file */
-	if (!(fp = fopen(lease_file, "r"))) {
-		//websWrite(wp, "No leases\n");
-		return -1;
-	}
-
-	while (fread(&lease, sizeof(lease), 1, fp)) {
-		//ret += websWrite(wp, "%s", format);
-		for (i = 0; i < 6; i++) {
-			ret += websWrite(wp, "%02x", lease.chaddr[i]);
-			if (i != 5) ret += websWrite(wp, ":");
-		}
-		addr.s_addr = lease.yiaddr;
-		ret += websWrite(wp, " %s", inet_ntoa(addr));
-		ret += websWriteCh(wp," ", 16-strlen(inet_ntoa(addr)));
-		expires = ntohl(lease.expires);
-
-		if (expires==0xffffffff)
-			ret += websWrite(wp, "manual");
-		else if (!expires)
-			ret += websWrite(wp, "expired");
-		else {
-			if (expires > 60*60*24) {
-				ret += websWrite(wp, "%ld days, ", expires / (60*60*24));
-				expires %= 60*60*24;
-			}
-			if (expires > 60*60) {
-				ret += websWrite(wp, "%ld hours, ", expires / (60*60));
-				expires %= 60*60;
-			}
-			if (expires > 60) {
-				ret += websWrite(wp, "%ld minutes, ", expires / 60);
-				expires %= 60;
-			}
-			ret += websWrite(wp, "%ld seconds", expires);
-		}
-		ret += websWrite(wp, "\n");
-	}
-	fclose(fp);
-
-	return ret;
-}
-
-/* Dump leases in <tr><td>MAC</td><td>IP</td><td>expires</td></tr> format */
-static int
-ej_dumpiptable(int eid, webs_t wp, char *iptable_file)
-{
-	/* Format 											    */
-	/* DNAT       tcp  --  anywhere             0.0.0.0            tcp dpts:6970:32000 to:192.168.122.2 */
-	char buf[MAX_LINE_SIZE], *line, *s;
-	char *dst, *prot, *port, *rdst;
-	int ret, i, len;
-	FILE *fp;
-
-	ret +=websWrite(wp,"Destination     Prot. Port Range  Redirect to\n");	
-
-	/* Parse leases file */
-	if (!(fp = fopen(iptable_file, "r"))) {
-		//websWrite(wp, "No leases\n");
-		return -1;
-	}
-
-	while (fgets(buf, MAX_LINE_SIZE, fp)) {
-		line = buf;
-		/* Parse into tokens */
-		s = line;
-		len = strlen(s);
-
-		//dprintf("Line: %d %s\n", len, line);
-
-		while (strsep(&s, " "));
-
-
-
-		/* Initialize token values */
-		dst = rdst = "n/a";
-		prot = port = "all";
-
-		i = 0;
-		/* Set token values */
-		/* destination protocol:...  proto: */
-		for (s = line; s < &line[len]; s += strlen(s) + 1) {
-			if (i==1) /* Destination */
-				dst = &s[0];
-			else if (!strncmp(s, "tcp", 3)) /* Proto */
-				prot = &s[0];
-			else if (!strncmp(s, "udp", 3)) /* Proto */
-				prot = &s[0];   
-			else if (!strncmp(s, "all", 3)) /* Proto */
-				prot = &s[0];   
-			else if (!strncmp(s, "dpts:", 5))
-				port = &s[5];
-			else if (!strncmp(s, "dpt:", 4))
-				port = &s[4];
-			else if (!strncmp(s, "to:", 3))
-				rdst = &s[3];
-			else if (!strncmp(s, "protox:", 7))
-				prot = &s[7];
-
-			if (strlen(s)!=0) i++;
-			//dprintf("Token: %d %s\n", i, s);
-		}
-
-		ret +=websWrite(wp, "%s", dst);
-		ret +=websWriteCh(wp, " ", 16-strlen(dst));
-		ret +=websWrite(wp, "%s", prot);
-		ret +=websWriteCh(wp, " ", 6-strlen(prot));
-		ret +=websWrite(wp, "%s", port);
-		ret +=websWriteCh(wp, " ", 12-strlen(port));
-		ret +=websWrite(wp, "%s\n", rdst);	    
-	}
-	fclose(fp);
-
-	return ret;
-}
-#endif // REMOVE
-
-static int dump_file(webs_t wp, char *filename)
+static int dump_file(webs_t wp, const char *filename)
 {
 	FILE *fp;
 	char buf[MAX_LINE_SIZE];
 	int ret = 0;
 
 	//dprintf("dump: %s\n", filename);
-
 	fp = fopen(filename, "r");
-	if (fp==NULL) {
-		ret += websWrite(wp, "%s", "");
-		return ret;
-	}
+	if (fp == NULL)
+		return websWrite(wp, "%s", "");
 
-	while (fgets(buf, MAX_LINE_SIZE, fp)!=NULL) {
-		//dprintf("Read time: %s\n", buf);
-		ret += websWrite(wp, "%s", buf);
+	while (fgets(buf, MAX_LINE_SIZE, fp) != NULL) {
+		//dprintf("Read: %s\n", buf);
+		ret += websWriteData(wp, buf, strlen(buf));
 	}
 	fclose(fp);
 
@@ -795,7 +677,7 @@ ej_print_text_file(int eid, webs_t wp, int argc, char_t **argv)
 
 	while ((n = read(fd, buf, (sizeof buf) - 1)) > 0) {
 		buf[n] = '\0';
-		ret = websWrite(wp, buf);
+		ret = websWriteData(wp, buf, n);
 	}
 
 	close(fd);
@@ -829,8 +711,7 @@ validate_cgi(webs_t wp, int sid, int groupFlag)
 		strcpy(name, v->name);
 
 		if ((value = websGetVar(wp, name, NULL))) {
-			if (strcmp(v->longname, "Group") != 0)	// Non-group
-				nvram_set(v->name, value);
+			nvram_set(v->name, value);
 		}
 	}
 }
@@ -844,25 +725,21 @@ static const char * const apply_footer =
 "</body>"
 ;
 
-static char *svc_pop_list(char *value, char key)
-{    
-	char *v, *buf;
-	int i;
+static char *svc_pop_list(char *value)
+{
+	char *v;
 
-	if (value==NULL || *value=='\0')
-		return (NULL);      
+	if (value == NULL || (*value) == '\0')
+		return NULL;
 
-	buf = value;
-	v = strchr(buf, key);
-
-	i = 0;
-
-	if (v!=NULL)
+	v = strchr(value, ';');
+	if (v != NULL)
 	{
 		*v = '\0';
-		return (buf);
-	}    
-	return (NULL);
+		return value;
+	}
+
+	return NULL;
 }
 
 
@@ -940,11 +817,9 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 	char *value; 
 	char *current_url;
 	char *next_url;
-	char *sid_list;
 	char *value1; 
 	char *script;
-	char groupId[64];
-	char urlStr[64];
+	char urlStr[128];
 	char *groupName;
 	//    char *host;
 
@@ -992,7 +867,7 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 		/*websRedirect(wp, "Restarting.asp");*/
 		websApply(wp, "Restarting.asp");
 		nvram_set("x_Setting", "1");
-		sys_commit(NULL);
+		sys_commit();
 		//sys_script("bcm_set");
 		//system("/web/script/eject-usb.sh");
 		sys_reboot();
@@ -1015,53 +890,53 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 		sys_reboot();
 		return (0);
 	} else {
+		char *sid_list;
+		const char *serviceId;
+
 		sid_list = websGetVar(wp, "sid_list", "");
 
-		while ((serviceId = svc_pop_list(sid_list, ';'))) {
+		while ((serviceId = svc_pop_list(sid_list))) {
+			sid_list += strlen(serviceId)+1;
 			sid = LookupServiceId(serviceId);
 			if (sid == -1)
 				continue;
 
-			if (serviceId!=NULL) {
-				if (!strcmp(value, " Restore ")) {
-					//sys_restore(serviceId);
-				} else if(!strcmp(value, "  Save  ") ||
-					  !strcmp(value, " Apply ")) {
-					validate_cgi(wp, sid, TRUE);
-				} else if(!strcmp(value, "Set") ||
-					  !strcmp(value, "Unset") ||
-					  !strcmp(value, "Update") ||
-					  !strcmp(value, "Eject")) {
-					validate_cgi(wp, sid, TRUE);
-				} else if(!strcmp(value," Finish ")) {
-					validate_cgi(wp, sid, TRUE);
-				} else {
-					dprintf("group ?\n");
-					strcpy(groupId,websGetVar(wp, "group_id", ""));
+			if (!strcmp(value, " Restore ")) {
+				//sys_restore(serviceId);
+			} else if(!strcmp(value, "  Save  ") ||
+				  !strcmp(value, " Apply ")) {
+				validate_cgi(wp, sid, TRUE);
+			} else if(!strcmp(value, "Set") ||
+				  !strcmp(value, "Unset") ||
+				  !strcmp(value, "Update") ||
+				  !strcmp(value, "Eject")) {
+				validate_cgi(wp, sid, TRUE);
+			} else if(!strcmp(value," Finish ")) {
+				validate_cgi(wp, sid, TRUE);
+			} else {
+				char groupId[64];
 
-					if ((value1 = websGetVar(wp, "action_mode", NULL))) {
-						groupName = groupId;
+				dprintf("group ?\n");
+				strcpy(groupId, websGetVar(wp, "group_id", ""));
 
-						//if (!strcmp(GetServiceId(sid), groupId))
-						{
-							if (!strncmp(value1, " Delete ", 8)) {
-								apply_cgi_group(wp, sid, groupName, GROUP_FLAG_DELETE);
-							}else if (!strncmp(value1, " Add ", 5)) {
-								apply_cgi_group(wp, sid, groupName, GROUP_FLAG_ADD);  
-							}else if (!strncmp(value1, " Del ", 5)) {
-								apply_cgi_group(wp, sid, groupName, GROUP_FLAG_REMOVE);
-							}else if (!strncmp(value1, " Refresh ", 9)) {
-								apply_cgi_group(wp, sid, groupName, GROUP_FLAG_REFRESH);
-							}
-							//#endif
-							sprintf(urlStr, "%s#%s", current_url, groupName);
+				if ((value1 = websGetVar(wp, "action_mode", NULL))) {
+					groupName = groupId;
 
-							validate_cgi(wp, sid, FALSE);	
-						}
+					if (!strncmp(value1, " Delete ", 8)) {
+						apply_cgi_group(wp, sid, groupName, GROUP_FLAG_DELETE);
+					} else if (!strncmp(value1, " Add ", 5)) {
+						apply_cgi_group(wp, sid, groupName, GROUP_FLAG_ADD);  
+					} else if (!strncmp(value1, " Del ", 5)) {
+						apply_cgi_group(wp, sid, groupName, GROUP_FLAG_REMOVE);
+					} else if (!strncmp(value1, " Refresh ", 9)) {
+						apply_cgi_group(wp, sid, groupName, GROUP_FLAG_REFRESH);
 					}
+					//#endif
+					sprintf(urlStr, "%s#%s", current_url, groupName);
+
+					validate_cgi(wp, sid, FALSE);
 				}
 			}
-			sid_list = sid_list + strlen(serviceId)+1;
 		}
 
 		/* dprintf("apply????\n"); */
@@ -1091,7 +966,7 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 
 
 footer:
-	websWrite(wp, (char_t *) apply_footer);
+	websWriteData(wp, apply_footer, sizeof(apply_footer));
 	websFooter(wp);
 	websDone(wp, 200);
 
@@ -1257,50 +1132,50 @@ fail:
 }
 
 
-static void nvram_add_group_item(webs_t wp, const struct variable *v, int sid)
+static void nvram_add_group_item(webs_t wp, const struct group_variable *gv, int sid)
 {
-	const struct variable *gv;
+	const struct variable *v;
 	char *value;
 	char name[64], cstr[5];
 	int count;
 
-	if (v->argv[0] == NULL) {
+	if (gv->variables == NULL) {
 		return;
 	}
 
-	count = nvram_get_int(v->argv[3]);
+	count = nvram_get_int(gv->counter_name);
 	dprintf("Grp count: %d\n", count);
 
-	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
+	for (v = gv->variables; v->name != NULL; v++) {
 		sprintf(name, "%s_0", gv->name);
 
-		if ((value=websGetVar(wp, name, NULL))) {
-			nvram_add_lists(gv->name, value, count);
-			dprintf("Grp add: %s %s\n", gv->name, value);
+		if ((value = websGetVar(wp, name, NULL))) {
+			nvram_add_lists(v->name, value, count);
+			dprintf("Grp add: %s %s\n", v->name, value);
 		} else {
-			nvram_add_lists(gv->name, "", count);
+			nvram_add_lists(v->name, "", count);
 		}
 	}
 
 	count++;
 	sprintf(cstr, "%d", count);
-	nvram_set(v->argv[3], cstr);
+	nvram_set(gv->counter_name, cstr);
 }
 
 
-static void nvram_remove_group_item(webs_t wp, const struct variable *v, int sid, int *delMap)
+static void nvram_remove_group_item(webs_t wp, const struct group_variable *gv, int *delMap)
 {
-	const struct variable *gv;
-	char cstr[5];
+	const struct variable *v;
+	char cstr[8];
 	int i, count;
 
-	if (v->argv[0] == NULL) {
+	if (gv->variables == NULL) {
 		return;
 	}
 
-	count = nvram_get_int(v->argv[3]);
-	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
-		nvram_del_lists(gv->name, delMap);
+	count = nvram_get_int(gv->counter_name);
+	for (v = gv->variables; v->name != NULL; v++) {
+		nvram_del_lists(v->name, delMap);
 	}
 
 	i = 0;
@@ -1308,7 +1183,7 @@ static void nvram_remove_group_item(webs_t wp, const struct variable *v, int sid
 
 	count -= i;
 	sprintf(cstr, "%d\n", count);
-	nvram_set(v->argv[3], cstr);
+	nvram_set(gv->counter_name, cstr);
 }
 
 /* Rule for table: 
@@ -1317,24 +1192,23 @@ static void nvram_remove_group_item(webs_t wp, const struct variable *v, int sid
 */
 
 static int 
-nvram_add_group_table(webs_t wp, const char *serviceId, const struct variable *v, int count)
+nvram_add_group_table(webs_t wp, const struct group_variable *gv, int count)
 {
-	const struct variable *gv;
+	const struct variable *v;
 	char buf[MAX_LINE_SIZE*2];
 	char bufs[MAX_LINE_SIZE*2];
-	int i, j, fieldLen, rowLen, fieldCount, value;
+	int i, j, fieldLen, fieldCount, value;
 	const char hard_space[] = "&nbsp;";
 
-	if (v->argv[0] == NULL)
+	if (gv->variables == NULL)
 		return 0;
 
 	bufs[0] = 0x0;
-	rowLen = atoi(v->argv[2]);
 
 	if (count == -1) {
-		memset(bufs, ' ', rowLen);
+		memset(bufs, ' ', gv->rowLen);
 		value = -1;
-		bufs[rowLen] = 0x0;
+		bufs[gv->rowLen] = 0x0;
 
 		goto ToHTML;
 	}
@@ -1342,9 +1216,9 @@ nvram_add_group_table(webs_t wp, const char *serviceId, const struct variable *v
 	fieldCount = 0;
 	value = count;
 
-	for (gv = (const struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
-		strcpy(buf, nvram_get_list(gv->name, count));
-		fieldLen = atoi(gv->longname);
+	for (v = gv->variables; v->name != NULL; v++) {
+		strcpy(buf, nvram_get_list(v->name, count));
+		fieldLen = v->fldLen;
 
 		if (fieldLen > 0) {
 			i = strlen(buf);
@@ -1362,8 +1236,8 @@ nvram_add_group_table(webs_t wp, const char *serviceId, const struct variable *v
 		fieldCount++;
 	}
 
-	if (strlen(bufs) > rowLen)
-		bufs[rowLen] = 0x0;
+	if (strlen(bufs) > gv->rowLen)
+		bufs[gv->rowLen] = 0x0;
 
 ToHTML:
 	/* Replace ' ' to &nbsp; */
@@ -1382,71 +1256,27 @@ ToHTML:
 static int
 apply_cgi_group(webs_t wp, int sid, const char *groupName, int flag)
 {
-	const struct variable *v;
-	int groupCount;
+	const struct group_variable *gv;
 
 	dprintf("This group '%s' limit is %d (sid=%d)\n", groupName, flag, sid);
 
-	/* Find group */
-	for (v = GetVariables(sid); v->name != NULL; v++) {
-		if (!strcmp(groupName, v->name))
-			break;
-	}
-	if (v->name == NULL) return 0;
-
-	groupCount = atoi(v->argv[1]);
+	gv = LookupGroup(groupName);
+	if (gv == NULL)
+		return 0;
 
 	if (flag == GROUP_FLAG_ADD)/* if (!strcmp(value, " Refresh ")) || Save condition */
 	{    
-		nvram_add_group_item(wp, v, sid);
+		nvram_add_group_item(wp, gv, sid);
 	} else if (flag == GROUP_FLAG_REMOVE)/* if (!strcmp(value, " Refresh ")) || Save condition */
 	{
 		/*nvram_remove_group_item(wp, v, sid); 	*/
 		/*sprintf(item, "%s_s", websGetVar(wp, "group_id", ""));*/
 		/*value1 = websGetVar(wp, item, NULL);*/
 		/* TO DO : change format from 'x=1&x=2&...' to 'x=1 2 3 ..'*/
-		nvram_remove_group_item(wp, v, sid, delMap);   	
+		nvram_remove_group_item(wp, gv, delMap);
 	}
 	return 1;
 }
-
-static int
-nvram_generate_table(webs_t wp, const char *serviceId, const char *groupName)
-{	
-	const struct variable *v;
-	int i, groupCount, ret, r, sid;
-
-	sid = LookupServiceId(serviceId);
-	if (sid == -1)
-		return 0;
-
-	/* Find group */
-	for (v = GetVariables(sid); v->name != NULL; v++) {
-		if (!strcmp(groupName, v->name))
-			break;
-	}
-	if (v->name == NULL)
-		return 0;
-
-	groupCount = nvram_get_int(v->argv[3]);
-
-	if (groupCount==0)
-		ret = nvram_add_group_table(wp, serviceId, v, -1);
-	else {
-		ret = 0;
-
-		for (i=0; i<groupCount; i++){
-			r = nvram_add_group_table(wp, serviceId, v, i);
-			if (r!=0)
-				ret += r;
-			else
-				break;
-		}
-	}
-
-	return ret;
-}
-
 
 static void
 do_auth(char *userid, char *passwd, char *realm)
@@ -1532,10 +1362,11 @@ do_webcam_cgi(char *url, FILE *stream)
 	//ret = fcntl(fileno(stream), F_GETOWN, 0);
 	query_idx = atoi(query);
 	last_idx = nvram_get_int("WebPic");
-	//pic = nvram_safe_get("WebPic");
 
-	if (query_idx==0) sprintf(pic, "../var/tmp/display.jpg");
-	else sprintf(pic, "../var/tmp/record%d.jpg", (query_idx>last_idx+1) ? (last_idx+1+MAX_RECORD_IMG-query_idx):(last_idx+1-query_idx));
+	if (query_idx==0)
+		sprintf(pic, "../var/tmp/display.jpg");
+	else
+		sprintf(pic, "../var/tmp/record%d.jpg", (query_idx>last_idx+1) ? (last_idx+1+MAX_RECORD_IMG-query_idx):(last_idx+1-query_idx));
 
 	dprintf("\nWebCam: %s\n", pic);
 	do_file(pic, stream);
@@ -1677,7 +1508,7 @@ do_upload_cgi(char *url, FILE *stream)
 static void
 do_prf_file(char *url, FILE *stream)
 {
-	sys_commit(NULL);
+	sys_commit();
 	sys_download("/tmp/settings");
 	do_file("/tmp/settings", stream);
 	//unlink("/tmp/settings");
@@ -1851,44 +1682,48 @@ do_fetchif(char *url, FILE *stream)
 {
 	FILE *in;
 	char line[256];
-	int i, llen;
 	char buffer[256];
 	char *path, *query;
-	int strbuffer = 0;
+	int buflen = 0;
 	time_t tm;
 	struct tm tm_time;
 
 	query = url;
-	if (query == NULL || strlen(query) == 0) return;
+	if (query == NULL || strlen(query) == 0)
+		return;
+
 	path = strsep(&query, "?") ? : url;
 	time(&tm);
 	memcpy(&tm_time, localtime(&tm), sizeof(tm_time));
-	strftime(buffer, sizeof(buffer)-1, "%a %b %e %H:%M:%S %Z %Y", &tm_time);
-	strbuffer = strlen(buffer);
-	buffer[strbuffer++] = '\n';
+	buflen = strftime(buffer, sizeof(buffer)-1, "%a %b %e %H:%M:%S %Z %Y", &tm_time);
+	buffer[buflen++] = '\n';
 
 	in = fopen("/proc/net/dev", "rb");
-	if (in == NULL) return;
+	if (in == NULL)
+		return;
 	while (fgets(line, sizeof(line), in) != NULL) {
 		if (!strchr(line, ':'))
 			continue;
 		if (strstr(line, query)) {
-			llen = strlen(line);
-			for (i = 0; i < llen; i++) {
-				buffer[strbuffer++] = line[i];
+			int llen = strlen(line);
+			if (buflen + llen < sizeof(buffer)) {
+				strcpy(buffer + buflen, line);
+				buflen += llen;
 			}
 			break;
 		}
 	}
-	buffer[strbuffer] = 0;
 	fclose(in);
-	websWrite(stream, "%s", buffer);
+	buffer[buflen] = '\0';
+
+	websWriteData(stream, buffer, buflen);
 }
 
 static void
 do_svgfile(char *url, FILE *stream)
 {
 	char *path, *query;
+
 	query = url;
 	path = strsep(&query, "?") ? : url;
 	do_file(path, stream);
@@ -1933,7 +1768,7 @@ const struct ej_handler ej_handlers[] = {
 	{ "nvram_get_n_json", ej_nvram_get_n_json },
 #endif
 	{ "nvram_get", ej_nvram_get },
-	{ "nvram_get_table_x", ej_nvram_get_table_x },
+	{ "nvram_get_table", ej_nvram_get_table },
 	{ "nvram_match", ej_nvram_match },
 	{ "nvram_double_match", ej_nvram_double_match },
 	{ "nvram_match_both", ej_nvram_match_both },

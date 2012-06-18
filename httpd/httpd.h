@@ -76,18 +76,13 @@ int save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts);
 typedef FILE * webs_t;
 typedef char char_t;
 #define T(s) (s)
-#define __TMPVAR(x) tmpvar ## x
-#define _TMPVAR(x) __TMPVAR(x)
-#define TMPVAR _TMPVAR(__LINE__)
-#define websWrite(wp, fmt, args...) ({ int TMPVAR = fprintf(wp, fmt, ## args); fflush(wp); TMPVAR; })
+#define websWrite(wp, fmt, args...) ({ int ret = fprintf(wp, fmt, ## args); fflush(wp); ret; })
 #define websError(wp, code, msg, args...) fprintf(wp, msg, ## args)
 #define websHeader(wp) fputs("<html lang=\"en\">", wp)
 #define websFooter(wp) fputs("</html>", wp)
 #define websDone(wp, code) fflush(wp)
-#define websGetVar(wp, var, default) (get_cgi(var) ? : default)
-#define websDefaultHandler(wp, urlPrefix, webDir, arg, url, path, query) ({ do_ej(path, wp); fflush(wp); 1; })
-#define websWriteData(wp, buf, nChars) ({ int TMPVAR = fwrite(buf, 1, nChars, wp); fflush(wp); TMPVAR; })
-#define websWriteDataNonBlock websWriteData
+#define websGetVar(wp, var, default) (get_cgi((var)) ? : (default))
+#define websWriteData(wp, buf, nChars) ({ int ret = fwrite(buf, 1, nChars, wp); fflush(wp); ret; })
 
 extern int ejArgs(int argc, char_t **argv, char_t *fmt, ...);
 
@@ -106,8 +101,9 @@ extern int ej_wl_status(int eid, webs_t wp, int argc, char_t **argv);
 extern int sys_renew(void);
 extern int sys_release(void);
 
-#define sys_restart() kill(1, SIGHUP)
-#define sys_reboot() kill(1, SIGTERM)
+#define sys_restart()	kill(1, SIGHUP)
+#define sys_reboot()	kill(1, SIGTERM)
+#define sys_forcereboot()	kill(1, SIGABRT)
 
 #ifdef USE_JSON
 extern int js0n(unsigned char *js, unsigned int len, unsigned short *out);

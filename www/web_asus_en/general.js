@@ -773,7 +773,6 @@ function validate_ipaddr(o, v)
 //		document.form.wan_netmask.value = "255.255.255.0";
 		document.form.wan_netmask.value = mask;
 	}
-//	else if (v=='IPRouters' && document.form.lan_netmask.value === '')
 	else if (v=='lan_ipaddr' && document.form.lan_netmask.value==="" )
 	{
 //		document.form.lan_netmask.value = "255.255.255.0";
@@ -931,7 +930,7 @@ function validate_ipaddrport(o, v)
 	{
 		document.form.wan_netmask.value = "255.255.255.0";
 	}
-	else if (v=='IPRouters' && document.form.lan_netmask.value === '')
+	else if (v=='lan_ipaddr' && document.form.lan_netmask.value === '')
 	{
 		document.form.lan_netmask.value = "255.255.255.0";
 	}
@@ -1067,7 +1066,7 @@ function validate_iprange(o, v)
 	{
 		document.form.wan_netmask.value = "255.255.255.0";
 	}
-	else if (v=='IPRouters' && document.form.lan_netmask.value === '')
+	else if (v=='lan_ipaddr' && document.form.lan_netmask.value === '')
 	{
 		document.form.lan_netmask.value = "255.255.255.0";
 	}
@@ -2559,11 +2558,11 @@ function change_common(o, s, v)
 		{
 			change_wlweptype(o, "WLANConfig11b");
 		}
-		else if (v == "x_Mode11g")
+		else if (v == "wl_gmode_x")
 		{
 //			alert(document.form.wan_dnsenable_x[0].checked);
 //			alert(document.form.wan_dnsenable_x[1].checked);
-			RefreshRateSetList(document.form.WLANConfig11b_x_Mode11g.value, true);
+			RefreshRateSetList(document.form.wl_gmode_x.value, true);
 		}
 		else if (v == "Channel" && document.form.current_page.value == "Advanced_WMode_Content.asp"
 					&& document.form.WLANConfig11b_x_APMode.value != "0" && document.form.WLANConfig11b_Channel.value == "0")

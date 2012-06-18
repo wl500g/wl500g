@@ -91,7 +91,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="DWFilterList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("FirewallConfig","DWFilterList"); %>
+<% nvram_get_table("DWFilterList"); %>
 </select></td>
 </tr>
 </table>
@@ -142,7 +142,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="WDFilterList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
-<% nvram_get_table_x("FirewallConfig","WDFilterList"); %>
+<% nvram_get_table("WDFilterList"); %>
 </select></td>
 </tr>
 </table>

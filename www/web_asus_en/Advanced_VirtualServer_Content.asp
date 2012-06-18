@@ -73,7 +73,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="VSList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("IPConnection","VSList"); %>
+<% nvram_get_table("VSList"); %>
 </select></td>
 </tr>
 </table>

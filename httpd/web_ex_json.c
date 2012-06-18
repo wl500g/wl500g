@@ -269,7 +269,8 @@ json_parse(char *json, void (*func)(char *name, char *val, JData *data), JData *
 	js0n(json, l, res);
 	if (*json == '{') { // list of pairs
 		for (i = 0; res[i]; i += 2) {
-			strncpy(name, json+res[i], ( tmp_len = MIN(res[i+1], sizeof(name) - 1) ));
+			tmp_len = MIN(res[i+1], sizeof(name) - 1);
+			strncpy(name, json+res[i], tmp_len);
 			name[tmp_len] = '\0';
 			if (res[(i += 2)]) {
 				strncpy(val, json+res[i], ( tmp_len = MIN(res[i+1], sizeof(val)-1) ));
@@ -279,7 +280,8 @@ json_parse(char *json, void (*func)(char *name, char *val, JData *data), JData *
 		}
 	} else if (*json == '[') { // list of values
 		for (i = 0, j = 0; res[i]; i += 2, j++) {
-			strncpy(val, json+res[i], ( tmp_len = MIN(res[i+1], sizeof(val) - 1) ));
+			tmp_len = MIN(res[i+1], sizeof(val) - 1);
+			strncpy(val, json+res[i], tmp_len);
 			val[tmp_len] = '\0';
 			sprintf(name, "%d", j);
 			(*func)(name, val, data);
@@ -436,8 +438,8 @@ do_dump_file(char *filename, JData *data)
 			buf_en[len + 1] = '\0';
 			json_answer_add(buf_en, data);
 		}
+		fclose(fp);
 	}
-	fclose(fp);
 
 	strcpy(buf_en, "\"\"]");
 	json_answer_add(buf_en, data);
