@@ -851,6 +851,7 @@ apply_cgi(webs_t wp, const char *url, const char *path, const char *query)
 					sprintf(urlStr, "%s#%s", current_url, groupName);
 
 					validate_cgi(wp, sid, FALSE);
+					break;
 				}
 			}
 		}
@@ -1062,7 +1063,7 @@ static void nvram_add_group_item(webs_t wp, const struct group_variable *gv, int
 	dprintf("Grp count: %d\n", count);
 
 	for (v = gv->variables; v->name != NULL; v++) {
-		sprintf(name, "%s_0", gv->name);
+		sprintf(name, "%s_0", v->name);
 
 		if ((value = websGetVar(wp, name, NULL))) {
 			nvram_add_lists(v->name, value, count);
