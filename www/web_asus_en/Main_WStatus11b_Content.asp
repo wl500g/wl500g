@@ -25,7 +25,7 @@
 </tr>
 <tr class="content_header_tr">
 <td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly>
-<% nvram_dump("wlan11b.log","wlan11b.sh"); %>              
+<% nvram_dump("wlan11a.log",""); %>              
             </textarea></td>
 </tr>
 

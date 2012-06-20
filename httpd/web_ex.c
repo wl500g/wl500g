@@ -60,14 +60,14 @@ extern void readPrnID();
 static int apply_cgi_group(webs_t wp, int sid, const char *groupName, int flag);
 static int nvram_add_group_table(webs_t wp, const struct group_variable *gv, int count);
 
-static int ej_select_country(int eid, webs_t wp, int argc, char_t **argv);
+static int ej_select_country(int eid, webs_t wp, int argc, char **argv);
 static int wl_channels_in_country(char *abbrev, int channels[]);
 static int wl_channels_in_country_asus(char *abbrev, int channels[]);
 
-#define ACTION_UPGRADE_OK   0
-#define ACTION_UPGRADE_FAIL 1
+static int do_upload_file(const char *upload_file, const char *url,
+			 FILE *stream, int len, const char *boundary_t,
+			 int (*validate)(FILE *fifo, int len));
 
-//static int action;
 
 #define MAX_GROUP_COUNT 300
 
@@ -82,39 +82,30 @@ static char ProductID[32]="";
 extern int redirect;
 
 
-static char *
-rfctime(const time_t *timep)
-{
-	static char s[128];
-	struct tm tm;
+#define ROOT_SSH_DIR     "/usr/local/root/.ssh"
+#define SSH_AUTHORIZED_KEYS  ROOT_SSH_DIR"/authorized_keys"
 
-	setenv("TZ", nvram_safe_get("time_zone"), 1);
-	memcpy(&tm, localtime(timep), sizeof(struct tm));
-	strftime(s, sizeof(s)-1, "%a, %d %b %Y %H:%M:%S %z", &tm);
-	return s;
-}
 
-char *
-reltime(unsigned int seconds)
+static int
+reltime(unsigned int seconds, char *buf)
 {
-	static char s[sizeof("XXXXX days, XX hours, XX minutes, XX seconds")];
-	char *c = s;
+	int off = 0;
 
 	if (seconds > 60*60*24) {
-		c += sprintf(c, "%d days, ", seconds / (60*60*24));
+		off += sprintf(buf + off, "%d days, ", seconds / (60*60*24));
 		seconds %= 60*60*24;
 	}
 	if (seconds > 60*60) {
-		c += sprintf(c, "%d hours, ", seconds / (60*60));
+		off += sprintf(buf + off, "%d hours, ", seconds / (60*60));
 		seconds %= 60*60;
 	}
 	if (seconds > 60) {
-		c += sprintf(c, "%d minutes, ", seconds / 60);
+		off += sprintf(buf + off, "%d minutes, ", seconds / 60);
 		seconds %= 60;
 	}
-	c += sprintf(c, "%d seconds", seconds);
+	off += sprintf(buf + off, "%d seconds", seconds);
 
-	return s;
+	return off;
 }
 
 /******************************************************************************/
@@ -122,43 +113,28 @@ reltime(unsigned int seconds)
 *	Redirect the user to another webs page
 */
 
-static void websRedirect(webs_t wp, char_t *url)
+static void websRedirect(webs_t wp, const char *url)
 {
 	//dprintf("Redirect to : %s\n", url);
-	websWrite(wp, T("<html><head>\r\n"));
+	websWrite(wp, "<html><head>\r\n");
 	if (next_host && *next_host)
-		websWrite(wp, T("<meta http-equiv=\"refresh\" content=\"0; url=http://%s/%s\">\r\n"), next_host, url);
+		websWrite(wp, "<meta http-equiv=\"refresh\" content=\"0; url=http://%s/%s\">\r\n", next_host, url);
 	else
-		websWrite(wp, T("<meta http-equiv=\"refresh\" content=\"0; url=%s\">\r\n"), url);
-	websWrite(wp, T("<meta http-equiv=\"Content-Type\" content=\"text/html\">\r\n"));
-	websWrite(wp, T("</head></html>\r\n"));      
+		websWrite(wp, "<meta http-equiv=\"refresh\" content=\"0; url=%s\">\r\n", url);
+	websWrite(wp, "<meta http-equiv=\"Content-Type\" content=\"text/html\">\r\n");
+	websWrite(wp, "</head></html>\r\n");      
 
-#ifdef REMOVE_WL600	
-	websWrite(wp, T("HTTP/1.0 302 Redirect\r\n"));
-	websWrite(wp, T("Server: Asus Server\r\n"));
-	websWrite(wp, T("Pragma: no-cache\r\n"));
-	websWrite(wp, T("Cache-Control: no-cache\r\n"));
-	websWrite(wp, T("Content-Type: text//html\r\n"));
-	websWrite(wp, T("Location: http://%s/%s"), /*websGetVar(wp, T("HTTP_HOST"), "")*/"192.168.123.249", url);			
-
-	websWrite(wp, T("<html><head></head><body>\r\n\
-					This document has moved to a new <a href=\"http://%s/%s\">location</a>.\r\n\
-					Please update your documents to reflect the new location.\r\n\
-					</body></html>\r\n"), /*websGetVar(wp, T("HTTP_HOST"), "")*/"192.168.123.249", url);
-	websWrite(wp, T("HTTP/1.0 200 OK\r\n"));
-#endif
 	websDone(wp, 200);
 }
 
-static void sys_script(char *name)
+static void sys_script(const char *name)
 {
-	char scmd[64];
+	char scmd[64] = "/tmp/";
 
-	sprintf(scmd, "/tmp/%s", name);
-	//dprintf("run %s %d %s\n", name, strlen(name), scmd);
+	strncat(scmd, name, sizeof(scmd)-1);
+	dprintf("run '%s'\n", scmd);
 
-	//handle special scirpt first
-
+	//handle special scripts first
 	if (strcmp(name,"syscmd.sh")==0) {
 		char *Cmd_argv[] = { "/bin/sh", "-c", SystemCmd, NULL };
 
@@ -168,7 +144,7 @@ static void sys_script(char *name)
 		*SystemCmd = 0;
 	} else if (strcmp(name, "syslog.sh")==0) {
 		// to nothing
-	} else if (strcmp(name, "wan.sh")==0 || strcmp(name, "printer.sh")==0) {
+	} else if (strcmp(name, "printer.sh")==0) {
 		readPrnID();
 	} else if (strcmp(name, "lpr_remove")==0) {
 		kill_pidfile_s("/var/run/lpdparent.pid", SIGUSR2);
@@ -181,9 +157,7 @@ static void sys_script(char *name)
 		usleep(100);
 	}
 #endif
-	else if (strcmp(name, "wlan11a.sh")==0 || strcmp(name,"wlan11b.sh")==0) {
-		// do nothing	
-	} else if (strcmp(name,"dnsmasq.sh")==0) {
+	else if (strcmp(name,"dnsmasq.sh")==0) {
 		kill_pidfile_s("/var/run/dnsmasq.pid", SIGALRM);
 		sleep(1);
 	} else if (strcmp(name,"iptable.sh")==0) {
@@ -204,10 +178,11 @@ static void sys_script(char *name)
 		eval("rmstorage");
 	} else if (strcmp(name,"ddnsclient")==0) {
 		eval("start_ddns", "1");
-	} else if (strstr(scmd, " ")==0) // no parameter, run script with eval
-	{
+	} else if (strstr(scmd, " ")==0) {
+		// no parameter, run script with eval
 		eval(scmd);
-	} else system(scmd);  
+	} else
+		system(scmd);
 }
 
 
@@ -224,12 +199,12 @@ static void sys_script(char *name)
 *      19+x*4: Maximum Hardware Minor
 *      x= 0~3
 */
-static char checkVersion(char *version, unsigned char major, unsigned char minor)
+static char checkVersion(const char *version, unsigned char major, unsigned char minor)
 {
 #define VINT(ver) (((((ver)[0])&0xff)<<8)|(((ver)[1])&0xff))        
 	int i;
 	unsigned int ver, min, max;
-	char *clist;
+	const char *clist;
 
 	clist = version+16;
 	ver = major << 8 | minor;
@@ -244,20 +219,23 @@ static char checkVersion(char *version, unsigned char major, unsigned char minor
 
 		//dprintf("List: %x %x %x %x %x %x %x %x\n", i, ver, min, max, clist[i], clist[i+1], clist[i+2], clist[i+3]);
 
-		if (ver>=min && (max==0 || ver<=max)) return 1; 
-		i+=4;	
-	}         
-	if (i==0 || ver==0) return 1;                              	
-	else return 0;
+		if (ver>=min && (max==0 || ver<=max))
+			return 1; 
+		i += 4;
+	}
+	if (i==0 || ver==0)
+		return 1;
+	else
+		return 0;
 }
 
-static void websScan(const char_t *str)
+static void websScan(const char *str)
 {
 	unsigned int i, flag;
-	char_t *v1, *v2, *v3, *sp;
-	char_t groupid[64];
-	char_t value[MAX_LINE_SIZE];
-	char_t name[MAX_LINE_SIZE];
+	char *v1, *v2, *v3, *sp;
+	char groupid[64];
+	char value[MAX_LINE_SIZE];
+	char name[MAX_LINE_SIZE];
 
 	v1 = strchr(str, '?');
 
@@ -296,22 +274,6 @@ static void websScan(const char_t *str)
 	return;
 }
 
-
-static void websApply(webs_t wp, char_t *url)
-{	
-	FILE *fp;
-	char buf[MAX_LINE_SIZE];
-
-	fp = fopen(url, "r");
-	if (fp == NULL) return;
-
-	while (fgets(buf, sizeof(buf), fp))
-		websWrite(wp, buf);
-
-	websDone(wp, 200);
-	fclose(fp);
-}
-
 static int websWriteEscape(webs_t wp, char *buf)
 {
 	static const char *escapes = "\"&'<>";
@@ -334,7 +296,7 @@ static int websWriteEscape(webs_t wp, char *buf)
 * <% nvram_get("undefined"); %> produces ""
 */
 static int
-ej_nvram_get(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_get(int eid, webs_t wp, int argc, char **argv)
 {
 	const char *name;
 
@@ -353,7 +315,7 @@ ej_nvram_get(int eid, webs_t wp, int argc, char_t **argv)
 * <% nvram_match("wan_proto", "static", "selected"); %> does not produce
 */
 static int
-ej_nvram_match(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_match(int eid, webs_t wp, int argc, char **argv)
 {
 	const char *name, *match, *output;
 
@@ -363,15 +325,13 @@ ej_nvram_match(int eid, webs_t wp, int argc, char_t **argv)
 	}
 
 	if (nvram_match(name, match))
-	{
 		return websWrite(wp, output);
-	}	
 
 	return 0;
-}	
+}
 
 static int
-ej_nvram_double_match(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_double_match(int eid, webs_t wp, int argc, char **argv)
 {
 	const char *name, *match, *name2, *match2, *output;
 
@@ -387,7 +347,7 @@ ej_nvram_double_match(int eid, webs_t wp, int argc, char_t **argv)
 }
 
 static int
-ej_nvram_match_both(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_match_both(int eid, webs_t wp, int argc, char **argv)
 {
 	const char *name, *match, *output, *output_not;
 
@@ -403,7 +363,7 @@ ej_nvram_match_both(int eid, webs_t wp, int argc, char_t **argv)
 }
 
 static int
-ej_nvram_get_table(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_get_table(int eid, webs_t wp, int argc, char **argv)
 {
 	const char *name;
 	const struct group_variable *gv;
@@ -443,7 +403,7 @@ ej_nvram_get_table(int eid, webs_t wp, int argc, char_t **argv)
 * <% nvram_match_list("wan_proto", "static", "selected", 1); %> does not produce
 */
 static int
-ej_nvram_match_list(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_match_list(int eid, webs_t wp, int argc, char **argv)
 {
 	const char *name, *match, *output;
 	int which;
@@ -457,11 +417,11 @@ ej_nvram_match_list(int eid, webs_t wp, int argc, char_t **argv)
 		return websWrite(wp, output);
 	else
 		return 0;
-}	
+}
 
 
 static int
-ej_select_channel(int eid, webs_t wp, int argc, char_t **argv)
+ej_select_channel(int eid, webs_t wp, int argc, char **argv)
 {
 	char chstr[32];
 	int ret = 0;	
@@ -492,7 +452,7 @@ ej_select_channel(int eid, webs_t wp, int argc, char_t **argv)
 
 
 static int
-ej_urlcache(int eid, webs_t wp, int argc, char_t **argv)
+ej_urlcache(int eid, webs_t wp, int argc, char **argv)
 {
 	int flag;
 
@@ -564,85 +524,92 @@ ej_urlcache(int eid, webs_t wp, int argc, char_t **argv)
 
 /* Report sys up time */
 static int
-ej_uptime(int eid, webs_t wp, int argc, char_t **argv)
+ej_uptime(int eid, webs_t wp, int argc, char **argv)
 {
 	char buf[MAX_LINE_SIZE];
 	char *str = file2str("/proc/uptime");
 	time_t tm;
+	struct tm tm1;
 	int len;
 
 	time(&tm);
-	len = sprintf(buf, rfctime(&tm));
+	setenv("TZ", nvram_safe_get("time_zone"), 1);
+	memcpy(&tm1, localtime(&tm), sizeof(tm1));
+	len = strftime(buf, sizeof(buf)-1, "%a, %d %b %Y %H:%M:%S %z", &tm1);
 
-	if (str) {
-		unsigned int up = atoi(str);
+	if (str != NULL) {
+		unsigned long up = atol(str);
 		free(str);
-		sprintf(buf+ len, " (%s since boot)", reltime(up));
+
+		strcpy(buf + len, " ("); len += 2;
+		len += reltime(up, buf + len);
+		strcpy(buf + len, " since boot)");
 	}
 
 	return websWrite(wp, buf);
 }
 
-static int dump_file(webs_t wp, const char *filename)
+static int
+dump_file(webs_t wp, const char *filename)
 {
-	FILE *fp;
-	char buf[MAX_LINE_SIZE];
-	int ret = 0;
+	int  fd, n;
+	char buf[2048 + 1];	/* aaa2ppp: imho size must be (n * minimum_io_size + 1) */
+	int  ret = 0;
 
-	//dprintf("dump: %s\n", filename);
-	fp = fopen(filename, "r");
-	if (fp == NULL)
-		return websWrite(wp, "%s", "");
-
-	while (fgets(buf, MAX_LINE_SIZE, fp) != NULL) {
-		//dprintf("Read: %s\n", buf);
-		ret += websWriteData(wp, buf, strlen(buf));
+	fd = open(filename, O_RDONLY);
+	if (fd == -1) {
+		ret = -errno;
+		dprintf("Can't open %s\n", filename);
+		return 0; /* aaa2ppp: or return ret ? */
 	}
-	fclose(fp);
+
+	while ((n = read(fd, buf, (sizeof buf) - 1)) > 0) {
+		ret += websWriteData(wp, buf, n);
+	}
+	close(fd);
+	websDone(wp, 200);
 
 	return ret;
 }
 
 static int
-ej_dump(int eid, webs_t wp, int argc, char_t **argv)
+ej_dump(int eid, webs_t wp, int argc, char **argv)
 {
-	char filename[32];
-	char *file,*script;
+	char filename[64] = "/tmp/";
+	const char *file, *script;
 	int ret;
 
 	if (ejArgs(argc, argv, "%s %s", &file, &script) < 2) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
-
-
 	dprintf("Script : %s, File: %s\n", script, file);
 
 	// run scrip first to update some status
-	if (strcmp(script,"")!=0) sys_script(script); 
+	if (strcmp(script, "") != 0)
+		sys_script(script);
 
-	if (strcmp(file, "wlan11b.log")==0)
+	ret = 0;
+
+	if (strcmp(file, "wlan11a.log")==0)
 		return ej_wl_status(eid, wp, 0, NULL);
 	else if (strcmp(file, "iptable.log")==0) 
 		return ej_nat_table(eid, wp, 0, NULL);
 	else if (strcmp(file, "route.log")==0)
 		return ej_route_table(eid, wp, 0, NULL);
+	else if (strcmp(file, "syslog.log") == 0)
+		ret += dump_file(wp, "/tmp/syslog.log-1");
+	else if (strcmp(file, "ssh_keys.log") == 0)
+		return dump_file(wp, SSH_AUTHORIZED_KEYS);
 
-	ret = 0;
-
-	if (strcmp(file, "syslog.log")==0) {
-		sprintf(filename, "/tmp/%s-1", file);
-		ret += dump_file(wp, filename); 
-	}
-
-	sprintf(filename, "/tmp/%s", file);
+	strncat(filename, file, sizeof(filename)-1);
 	ret += dump_file(wp, filename);
 
 	return ret;
 }
 
 static int
-ej_load(int eid, webs_t wp, int argc, char_t **argv)
+ej_load(int eid, webs_t wp, int argc, char **argv)
 {
 	char *script;
 
@@ -653,39 +620,10 @@ ej_load(int eid, webs_t wp, int argc, char_t **argv)
 
 	sys_script(script);
 	return (websWrite(wp, "%s", ""));
-}	
-
-static int
-ej_print_text_file(int eid, webs_t wp, int argc, char_t **argv)
-{
-	char *file;
-	int  fd, n;
-	char buf[2048 + 1];	/* aaa2ppp: imho size must be (n * minimum_io_size + 1) */
-	int  ret = 0;
-
-	if (ejArgs(argc, argv, "%s", &file) < 1) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	fd = open(file, O_RDONLY);
-	if (fd == -1) {
-		ret = errno;
-		dprintf("ej_print_text_file: Can't open %s\n", file);
-		return 0; /* aaa2ppp: or return ret ? */
-	}
-
-	while ((n = read(fd, buf, (sizeof buf) - 1)) > 0) {
-		buf[n] = '\0';
-		ret = websWriteData(wp, buf, n);
-	}
-
-	close(fd);
-	return ret;
 }
 
 static int
-ej_include(int eid, webs_t wp, int argc, char_t **argv)
+ej_include(int eid, webs_t wp, int argc, char **argv)
 {
 	char *file;
 
@@ -717,14 +655,6 @@ validate_cgi(webs_t wp, int sid, int groupFlag)
 }
 
 
-static const char * const apply_footer =
-"<p>"
-"<input type=\"button\" name=\"action\" value=\"Continue\" OnClick=\"history.go(-1)\">"
-"</form>"
-"<p class=\"label\">&#169;2001 ASUSTeK COMPUTER INC. All rights reserved.</p>"
-"</body>"
-;
-
 static char *svc_pop_list(char *value)
 {
 	char *v;
@@ -743,6 +673,9 @@ static char *svc_pop_list(char *value)
 }
 
 
+/* aaa2ppp: I would like so flashfs_update() to be */
+#define flashfs_update() (nvram_set("flashfs_updated", "1"))
+
 static int
 flashfs_commit(void)
 {
@@ -755,12 +688,6 @@ flashfs_commit(void)
 
 	return 0;
 }
-
-#define ROOT_SSH_DIR     "/usr/local/root/.ssh"
-#define AUTHORIZED_KEYS  ROOT_SSH_DIR"/authorized_keys"
-
-/* aaa2ppp: I would like so flashfs_update() to be */
-#define flashfs_update() (nvram_set("flashfs_updated", "1"))
 
 static int
 update_authorized_keys(webs_t wp)
@@ -788,7 +715,7 @@ update_authorized_keys(webs_t wp)
 
 	/* if keys is empty then delete authorized_keys file */
 	if (*keys == '\0') {
-		if (unlink(AUTHORIZED_KEYS) == 0)
+		if (unlink(SSH_AUTHORIZED_KEYS) == 0)
 			ret = flashfs_update();
 		return ret;
 	}
@@ -801,7 +728,7 @@ update_authorized_keys(webs_t wp)
 	f_flags = STF_CHMOD|STF_TRIM|STF_SKIP_0LINE;
 	f_opts.mode = 0600;
 
-	if ((ret = save_text_to_file(keys, AUTHORIZED_KEYS, f_flags, &f_opts)) == 0)
+	if ((ret = save_text_to_file(keys, SSH_AUTHORIZED_KEYS, f_flags, &f_opts)) == 0)
 		ret = flashfs_update();
 
 	return ret;
@@ -809,18 +736,12 @@ update_authorized_keys(webs_t wp)
 
 
 static int
-apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg, 
-		  char_t *url, char_t *path, char_t *query)
+apply_cgi(webs_t wp, const char *url, const char *path, const char *query)
 {
-
-	int sid;
-	char *value; 
-	char *current_url;
-	char *next_url;
-	char *value1; 
-	char *script;
+	const char *value, *value1; 
+	const char *current_url, *next_url;
+	const char *script, *groupName;
 	char urlStr[128];
-	char *groupName;
 	//    char *host;
 
 	if (!query)
@@ -834,13 +755,11 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 	value = websGetVar(wp, "action_mode","");
 
 	next_host = websGetVar(wp, "next_host", "");   
-	dprintf("host: %s\n", next_host);
 	current_url = websGetVar(wp, "current_page", "");
 	next_url = websGetVar(wp, "next_page", "");
 	script = websGetVar(wp, "action_script",""); 
 
 
-	//dprintf("Script: %s\n", script);
 	dprintf("Apply: %s %s %s %s\n", value, current_url, next_url, websGetVar(wp, "group_id", ""));
 
 	if ( !strcmp (current_url, "Advanced_Services_Content.asp") &&
@@ -865,18 +784,15 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 	} else if (!strcmp(value, "Save&Restart ")) {
 		/*action = ACTION_SAVE_RESTART;*/
 		/*websRedirect(wp, "Restarting.asp");*/
-		websApply(wp, "Restarting.asp");
+		dump_file(wp, "Restarting.asp");
 		nvram_set("x_Setting", "1");
 		sys_commit();
-		//sys_script("bcm_set");
-		//system("/web/script/eject-usb.sh");
 		sys_reboot();
 		return (0);
 	} else if(!strcmp(value, "Restore")) {
 		/* action = ACTION_RESET_DEFAULT;*/
 		/* websRedirect(wp, "Restarting.asp");*/
-		websApply(wp, "Restarting.asp");
-		//system("/web/script/eject-usb.sh");
+		dump_file(wp, "Restarting.asp");
 		sys_default();
 		sys_reboot();
 		return (0);
@@ -886,10 +802,11 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 		if (strcmp(script, "")!=0) {
 			system(script);
 		}
-		websApply(wp, "Restarting.asp");
+		dump_file(wp, "Restarting.asp");
 		sys_reboot();
 		return (0);
 	} else {
+		int sid;
 		char *sid_list;
 		const char *serviceId;
 
@@ -931,7 +848,6 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 					} else if (!strncmp(value1, " Refresh ", 9)) {
 						apply_cgi_group(wp, sid, groupName, GROUP_FLAG_REFRESH);
 					}
-					//#endif
 					sprintf(urlStr, "%s#%s", current_url, groupName);
 
 					validate_cgi(wp, sid, FALSE);
@@ -966,9 +882,8 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 
 
 footer:
-	websWriteData(wp, apply_footer, sizeof(apply_footer));
-	websFooter(wp);
-	websDone(wp, 200);
+	websError(wp, 400, "Bad Request\n");
+	websDone(wp, 400);
 
 #ifndef FLASH_EMULATOR
 	if (action == RESTART)
@@ -985,8 +900,8 @@ save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts)
 {
 	int ret = 0;
 
-	char real_path[PATH_MAX + 1];
-	char temp_file[PATH_MAX + 1];
+	char real_path[PATH_MAX];
+	char temp_file[PATH_MAX];
 
 	int   fd;
 	struct stat sb;
@@ -998,7 +913,7 @@ save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts)
 	size_t len;
 	char *line, *line_end;
 	int i;
-	char *eol = "\n";  
+	const char *eol = "\n";
 
 	/* get real path of file if exists */
 	if (realpath(file, real_path) != NULL)
@@ -1006,17 +921,17 @@ save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts)
 
 	/* Make temp-file in the same directory */
 
-	len = PATH_MAX;
+	len = PATH_MAX-1;
 	temp_file[len] = '\0';    
 	strncpy(temp_file, file, len);
 
-	len = PATH_MAX - strlen(temp_file);
+	len = PATH_MAX-1 - strlen(temp_file);
 	strncat(temp_file, ".XXXXXX", len);
 
 	fd = mkstemp(temp_file);
 	if (fd == -1) {
 		ret = errno;
-		dprintf ("save_text_to_file: Can't make temp file %s\n", temp_file);
+		dprintf ("%s: Can't make temp file %s\n", __func__, temp_file);
 		return ret;
 	}
 
@@ -1042,14 +957,14 @@ save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts)
 	/* chmod */
 	if (/*(flags & STF_CHMOD) &&*/ fchmod(fd, mode) == -1) {
 		ret = errno;
-		dprintf ("save_text_to_file: Can't chmod %04o for %s\n", mode, temp_file);
+		dprintf("%s: Can't chmod %04o for %s\n", __func__, mode, temp_file);
 		goto fail;
 	}
 
 	/* chown/chgrp */
 	if ((flags & STF_CHOWN) && fchown(fd, uid, gid) == -1) {
 		ret = errno;
-		dprintf ("save_text_to_file: Can't chown %d:%d for %s\n", uid, gid, temp_file);
+		dprintf ("%s: Can't chown %d:%d for %s\n", __func__, uid, gid, temp_file);
 		if (ret != EPERM || (flags & STF_CHOWN_PERM_ERROR))
 			goto fail;
 		ret = 0;
@@ -1060,7 +975,7 @@ save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts)
 	fs = fdopen(fd, "w");
 	if (fs == NULL) {
 		ret = errno;
-		dprintf("save_text_to_file: Can't fdopen for %s\n", temp_file);
+		dprintf("%s: Can't fdopen for %s\n", __func__, temp_file);
 		goto fail;
 	}	
 
@@ -1116,7 +1031,7 @@ save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts)
 
 	if (rename(temp_file, file) != 0) {
 		ret = errno;
-		dprintf("save_text_to_file: Can't replace file %s", file);
+		dprintf("%s: Can't replace file %s", __func__, file);
 		goto fail;
 	}
 
@@ -1125,18 +1040,18 @@ save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts)
 fail_write:
 	fclose(fs);        
 fail_close:
-	dprintf("save_text_to_file: Write error to %s\n", temp_file);
+	dprintf("%s: Write error to %s\n", __func__, temp_file);
 fail:
 	unlink(temp_file);
-	return ret;        
+	return ret;
 }
 
 
 static void nvram_add_group_item(webs_t wp, const struct group_variable *gv, int sid)
 {
 	const struct variable *v;
-	char *value;
-	char name[64], cstr[5];
+	const char *value;
+	char name[64];
 	int count;
 
 	if (gv->variables == NULL) {
@@ -1157,16 +1072,13 @@ static void nvram_add_group_item(webs_t wp, const struct group_variable *gv, int
 		}
 	}
 
-	count++;
-	sprintf(cstr, "%d", count);
-	nvram_set(gv->counter_name, cstr);
+	nvram_set_int(gv->counter_name, ++count);
 }
 
 
 static void nvram_remove_group_item(webs_t wp, const struct group_variable *gv, int *delMap)
 {
 	const struct variable *v;
-	char cstr[8];
 	int i, count;
 
 	if (gv->variables == NULL) {
@@ -1179,11 +1091,11 @@ static void nvram_remove_group_item(webs_t wp, const struct group_variable *gv, 
 	}
 
 	i = 0;
-	while (delMap[i] != -1) i++;
-
+	while (delMap[i] != -1)
+		i++;
 	count -= i;
-	sprintf(cstr, "%d\n", count);
-	nvram_set(gv->counter_name, cstr);
+
+	nvram_set_int(gv->counter_name, count);
 }
 
 /* Rule for table: 
@@ -1281,8 +1193,6 @@ apply_cgi_group(webs_t wp, int sid, const char *groupName, int flag)
 static void
 do_auth(char *userid, char *passwd, char *realm)
 {
-	//	time_t tm;
-
 	if (strcmp(ProductID,"")==0) {
 		strncpy(ProductID, nvram_safe_get("productid"), 32);
 	}
@@ -1292,8 +1202,6 @@ do_auth(char *userid, char *passwd, char *realm)
 	if (strcmp(UserPass,"")==0) {
 		strncpy(UserPass, nvram_safe_get("http_passwd"), 32);
 	}
-	//time(&tm);
-	//dprintf("do_auth %s\n", rfctime(&tm));
 	//dprintf("User: %s:%s%s\n", ProductID, UserID, UserPass);
 	strncpy(userid, UserID, AUTH_MAX);
 
@@ -1303,7 +1211,7 @@ do_auth(char *userid, char *passwd, char *realm)
 	} else {
 		strncpy(passwd, UserPass, AUTH_MAX);
 	}
-	strncpy(realm, ProductID, AUTH_MAX);	
+	strncpy(realm, ProductID, AUTH_MAX);
 }
 
 
@@ -1319,34 +1227,29 @@ do_apply_cgi(char *url, FILE *stream)
 	path = strsep(&query, "?") ? : url;
 #ifndef HANDLE_POST
 	init_cgi(query);
-#endif	
-	apply_cgi(stream, NULL, NULL, 0, url, path, query);
+#endif
+	apply_cgi(stream, url, path, query);
 #ifndef HANDLE_POST
 	init_cgi(NULL);
-#endif	
-}
-
-#ifdef HANDLE_POST
-static char post_buf[10000];
 #endif
+}
 
 static void
 do_apply_cgi_post(const char *url, FILE *stream, int len, const char *boundary)
 {
 	//dprintf("In : %s %s\n", url, boundary);
 #ifdef HANDLE_POST
-	if (!fgets(post_buf, MIN(len+1, sizeof(post_buf)), stream)) return;
+	static char post_buf[10000];
+
+	if (!fgets(post_buf, MIN(len+1, sizeof(post_buf)), stream))
+		return;
 	len -= strlen(post_buf);
 	init_cgi(post_buf);
 	while (len--)
 		fgetc(stream);
-#endif	
+#endif
 }
 
-
-static int do_upload_file(const char *upload_file, const char *url,
-			 FILE *stream, int len, const char *boundary_t,
-			 int (*validate)(FILE *fifo, int len));
 
 static void
 do_webcam_cgi(char *url, FILE *stream)
@@ -1396,7 +1299,7 @@ static int chk_fw_image(FILE *fifo, int len)
 		strncmp(version+4, "WL500gx", 7)!=0) || 
 		(strncmp(ProductID, "WL500g.Deluxe", 13)==0 &&
 		strncmp(version+4, "WL500gx", 7)==0))
-		&& checkVersion(version,hwmajor,hwminor))
+		&& checkVersion(version, hwmajor, hwminor))
 	{
 		cprintf("FW image ok\n");
 		return 0;
@@ -1451,13 +1354,13 @@ do_upgrade_cgi(char *url, FILE *stream)
 	/* Reboot if successful */
 	if (ret == 0) {
 #ifndef FLASH_DIRECT
-		websApply(stream, "Updating.asp"); 
+		dump_file(stream, "Updating.asp"); 
 		cprintf("Flashing new FW image\n");
 		sys_upgrade("/tmp/linux.trx");
 #endif
 		sys_forcereboot();
 	} else {
-		websApply(stream, "UpdateError.asp");
+		dump_file(stream, "UpdateError.asp");
 		unlink("/tmp/linux.trx");
 	}
 }
@@ -1494,12 +1397,12 @@ do_upload_cgi(char *url, FILE *stream)
 
 	/* Reboot if successful */
 	if (ret == 0) {
-		websApply(stream, "Uploading.asp"); 
+		dump_file(stream, "Uploading.asp"); 
 		sys_upload("/tmp/settings_u.prf");
 		sys_commit();
 		sys_reboot();
 	} else {
-		websApply(stream, "UploadError.asp");
+		dump_file(stream, "UploadError.asp");
 		//unlink("/tmp/settings_u.prf");
 	}
 }
@@ -1600,12 +1503,12 @@ do_uploadflashfs_cgi(char *url, FILE *stream)
 	ret = fcntl(fileno(stream), F_GETOWN, 0);
 	/* Reboot if successful */
 	if (ret == 0) {
-		websApply(stream, "Uploading.asp"); 
+		dump_file(stream, "Uploading.asp"); 
 		eval("flashfs","commit");
 		eval("flashfs","enable");
 		sys_reboot();
 	} else {
-		websApply(stream, "UploadError.asp");
+		dump_file(stream, "UploadError.asp");
 		//unlink("/tmp/settings_u.prf");
 	}
 
@@ -1717,6 +1620,7 @@ do_fetchif(char *url, FILE *stream)
 	buffer[buflen] = '\0';
 
 	websWriteData(stream, buffer, buflen);
+	websDone(stream, 200);
 }
 
 static void
@@ -1728,6 +1632,7 @@ do_svgfile(char *url, FILE *stream)
 	path = strsep(&query, "?") ? : url;
 	do_file(path, stream);
 }
+
 
 const struct mime_handler mime_handlers[] = {
 #ifdef USE_JSON
@@ -1779,7 +1684,6 @@ const struct ej_handler ej_handlers[] = {
 	{ "uptime", ej_uptime },
 	{ "nvram_dump", ej_dump },
 	{ "load_script", ej_load },
-	{ "print_text_file", ej_print_text_file },
 	{ "include", ej_include },
 	{ NULL, NULL }
 };
@@ -2043,7 +1947,7 @@ static const country_name_t country_names[] = {
 };
 
 static int
-ej_select_country(int eid, webs_t wp, int argc, char_t **argv)
+ej_select_country(int eid, webs_t wp, int argc, char **argv)
 {
 	const char *country;
 	const country_name_t *cntry;

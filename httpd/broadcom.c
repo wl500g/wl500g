@@ -37,8 +37,6 @@
 #include <nvparse.h>
 #include <wlutils.h>
 
-extern char *reltime(unsigned int seconds);
-
 #define wan_prefix(unit, prefix)	snprintf(prefix, sizeof(prefix), "wan%d_", unit)
 
 
@@ -150,7 +148,7 @@ ej_wl_sta_status(int eid, webs_t wp, char *ifname)
 
 
 int
-ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
+ej_wl_status(int eid, webs_t wp, int argc, char **argv)
 {
 	int unit;
 	char tmp[100], prefix[sizeof("wlXXXXXXXXXX_")];
@@ -287,7 +285,7 @@ exit:
 
 /* Dump NAT table <tr><td>destination</td><td>MAC</td><td>IP</td><td>expires</td></tr> format */
 int
-ej_nat_table(int eid, webs_t wp, int argc, char_t **argv)
+ej_nat_table(int eid, webs_t wp, int argc, char **argv)
 {
 	int needlen = 0, listlen, i, ret = 0;
 	netconf_nat_t *nat_list = NULL;
@@ -380,7 +378,7 @@ ej_nat_table(int eid, webs_t wp, int argc, char_t **argv)
 }
 
 int
-ej_route_table(int eid, webs_t wp, int argc, char_t **argv)
+ej_route_table(int eid, webs_t wp, int argc, char **argv)
 {
 	char buff[256];
 	int  nl = 0 ;
