@@ -1,0 +1,87 @@
+ bf146b861083e3170af05016982d50d297e3ace7 wget: correctly handle failure to -c (continue)
+ 6144124aac1d4a30ff81842ba1bb0e28373a71c8 wget: make -c _not_ truncate the file
+ aacd44860129372e5d4ff1494664317f18cbb615 wget: fix wget-supports--P testsuite failure. Closes 4940
+
+---
+ networking/wget.c |   38 ++++++++++++++++++++++++++++++++------
+ 1 file changed, 32 insertions(+), 6 deletions(-)
+
+diff --git a/networking/wget.c b/networking/wget.c
+--- a/networking/wget.c
++++ b/networking/wget.c
+@@ -348,6 +348,15 @@ static char *gethdr(FILE *fp)
+ 	return hdrval;
+ }
+ 
++static void reset_beg_range_to_zero(void)
++{
++	bb_error_msg("restart failed");
++	G.beg_range = 0;
++	xlseek(G.output_fd, 0, SEEK_SET);
++	/* Done at the end instead: */
++	/* ftruncate(G.output_fd, 0); */
++}
++
+ static FILE* prepare_ftp_session(FILE **dfpp, struct host_info *target, len_and_sockaddr *lsa)
+ {
+ 	FILE *sfp;
+@@ -419,6 +428,8 @@ static FILE* prepare_ftp_session(FILE **
+ 		sprintf(G.wget_buf, "REST %"OFF_FMT"u", G.beg_range);
+ 		if (ftpcmd(G.wget_buf, NULL, sfp) == 350)
+ 			G.content_len -= G.beg_range;
++		else
++			reset_beg_range_to_zero();
+ 	}
+ 
+ 	if (ftpcmd("RETR ", target->path, sfp) > 150)
+@@ -542,6 +553,17 @@ static void NOINLINE retrieve_file_data(
+ 		G.got_clen = 1;
+ 	}
+ 
++	/* If -c failed, we restart from the beginning,
++	 * but we do not truncate file then, we do it only now, at the end.
++	 * This lets user to ^C if his 99% complete 10 GB file download
++	 * failed to restart *without* losing the almost complete file.
++	 */
++	{
++		off_t pos = lseek(G.output_fd, 0, SEEK_CUR);
++		if (pos != (off_t)-1)
++			ftruncate(G.output_fd, pos);
++	}
++
+ 	/* Draw full bar and free its resources */
+ 	G.chunked = 0;  /* makes it show 100% even for chunked download */
+ 	G.got_clen = 1; /* makes it show 100% even for download of (formerly) unknown size */
+@@ -597,13 +619,11 @@ static void download_one_url(const char 
+ 		if (G.fname_out[0] == '/' || !G.fname_out[0])
+ 			G.fname_out = (char*)"index.html";
+ 		/* -P DIR is considered only if there was no -O FILE */
++		if (G.dir_prefix)
++			G.fname_out = fname_out_alloc = concat_path_file(G.dir_prefix, G.fname_out);
+ 		else {
+-			if (G.dir_prefix)
+-				G.fname_out = fname_out_alloc = concat_path_file(G.dir_prefix, G.fname_out);
+-			else {
+-				/* redirects may free target.path later, need to make a copy */
+-				G.fname_out = fname_out_alloc = xstrdup(G.fname_out);
+-			}
++			/* redirects may free target.path later, need to make a copy */
++			G.fname_out = fname_out_alloc = xstrdup(G.fname_out);
+ 		}
+ 	}
+ #if ENABLE_FEATURE_WGET_STATUSBAR
+@@ -742,6 +762,12 @@ However, in real world it was observed t
+ (e.g. Boa/0.94.14rc21) simply use code 204 when file size is zero.
+ */
+ 		case 204:
++			if (G.beg_range != 0) {
++				/* "Range:..." was not honored by the server.
++				 * Restart download from the beginning.
++				 */
++				reset_beg_range_to_zero();
++			}
+ 			break;
+ 		case 300:  /* redirection */
+ 		case 301:
+--
+cgit v0.9.0.1-2-gef13
