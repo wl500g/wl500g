@@ -90,7 +90,7 @@ do_ej_ex(char *path, FILE *stream)
 * <% nvram_get_json("sid","undefined"); %> produces "undefined":""
 */
 int
-ej_nvram_get_json(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_get_json(int eid, webs_t wp, int argc, char **argv)
 {
 	JData res;
 	int arg;
@@ -120,7 +120,7 @@ ej_nvram_get_json(int eid, webs_t wp, int argc, char_t **argv)
 * <% nvram_get_n_json("sid","wan","_unit","_undefined"); %> produces "wan0_undefined":""
 */
 int
-ej_nvram_get_n_json(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_get_n_json(int eid, webs_t wp, int argc, char **argv)
 {
 	JData res;
 	int arg;

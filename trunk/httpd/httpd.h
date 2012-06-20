@@ -74,29 +74,25 @@ int save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts);
 
 /* GoAhead 2.1 compatibility */
 typedef FILE * webs_t;
-typedef char char_t;
-#define T(s) (s)
 #define websWrite(wp, fmt, args...) ({ int ret = fprintf(wp, fmt, ## args); fflush(wp); ret; })
 #define websError(wp, code, msg, args...) fprintf(wp, msg, ## args)
-#define websHeader(wp) fputs("<html lang=\"en\">", wp)
-#define websFooter(wp) fputs("</html>", wp)
-#define websDone(wp, code) fflush(wp)
-#define websGetVar(wp, var, default) (get_cgi((var)) ? : (default))
-#define websWriteData(wp, buf, nChars) ({ int ret = fwrite(buf, 1, nChars, wp); fflush(wp); ret; })
+#define websDone(wp, code)		fflush(wp)
+#define websGetVar(wp, var, default)	(get_cgi((var)) ? : (default))
+#define websWriteData(wp, buf, nChars)	fwrite(buf, 1, nChars, wp)
 
-extern int ejArgs(int argc, char_t **argv, char_t *fmt, ...);
+extern int ejArgs(int argc, char **argv, char *fmt, ...);
 
 /* GoAhead 2.1 Embedded JavaScript compatibility */
 extern void do_ej(char *path, FILE *stream);
 struct ej_handler {
 	const char *pattern;
-	int (*output)(int eid, webs_t wp, int argc, char_t **argv);
+	int (*output)(int eid, webs_t wp, int argc, char **argv);
 };
 extern const struct ej_handler ej_handlers[];
 
-extern int ej_nat_table(int eid, webs_t wp, int argc, char_t **argv);
-extern int ej_route_table(int eid, webs_t wp, int argc, char_t **argv);
-extern int ej_wl_status(int eid, webs_t wp, int argc, char_t **argv);
+extern int ej_nat_table(int eid, webs_t wp, int argc, char **argv);
+extern int ej_route_table(int eid, webs_t wp, int argc, char **argv);
+extern int ej_wl_status(int eid, webs_t wp, int argc, char **argv);
 
 extern int sys_renew(void);
 extern int sys_release(void);
@@ -110,8 +106,8 @@ extern int js0n(unsigned char *js, unsigned int len, unsigned short *out);
 extern void do_json_get(char *url, FILE *stream);
 extern void do_json_set(const char *url, FILE *stream, int len, const char *boundary);
 extern void do_ej_ex(char *path, FILE *stream);
-extern int ej_nvram_get_json(int eid, webs_t wp, int argc, char_t **argv);
-extern int ej_nvram_get_n_json(int eid, webs_t wp, int argc, char_t **argv);
+extern int ej_nvram_get_json(int eid, webs_t wp, int argc, char **argv);
+extern int ej_nvram_get_n_json(int eid, webs_t wp, int argc, char **argv);
 #endif
 
 #endif /* _httpd_h_ */
