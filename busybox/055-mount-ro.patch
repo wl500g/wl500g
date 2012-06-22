@@ -4,6 +4,12 @@ Date: Thu, 21 Jun 2012 10:08:56 +0000
 Subject: mount: set up RO loop device if mount -o ro. Closes 4784
 
 Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+
+---
+From a396ade9f83f05a65b0a6df3dcbdeb8cfef0c696
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Fri, 22 Jun 2012 13:06:27 +0000
+Subject: mount: undo recent breakage when mount flags were made unsigned
 ---
 
 diff --git a/util-linux/mount.c b/util-linux/mount.c
@@ -21,15 +27,17 @@ diff --git a/util-linux/mount.c b/util-linux/mount.c
  
  	// Loop through options
  	for (;;) {
-@@ -466,7 +466,7 @@ static long parse_mount_options(char *options, char **unrecognized)
+@@ -466,8 +466,8 @@ static long parse_mount_options(char *options, char **unrecognized)
  		// Find this option in mount_options
  		for (i = 0; i < ARRAY_SIZE(mount_options); i++) {
  			if (strcasecmp(option_str, options) == 0) {
 -				long fl = mount_options[i];
+-				if (fl < 0)
 +				unsigned long fl = mount_options[i];
- 				if (fl < 0)
++				if ((long)fl < 0)
  					flags &= fl;
  				else
+ 					flags |= fl;
 @@ -548,7 +548,7 @@ void delete_block_backed_filesystems(void);
  
  // Perform actual mount of specific filesystem at specific location.
