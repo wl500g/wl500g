@@ -338,10 +338,12 @@ diff --git iptables/include/linux/netfilter/xt_connlimit.h iptables.connlimit/in
  struct xt_connlimit_info {
  	union {
  		union nf_inet_addr mask;
-@@ -12,6 +17,13 @@ struct xt_connlimit_info {
+@@ -12,7 +17,14 @@ struct xt_connlimit_info {
+ 			__be32 v6_mask[4];
  		};
  	};
- 	unsigned int limit, inverse;
+-	unsigned int limit, inverse;
++	unsigned int limit;
 +	union {
 +		/* revision 0 */
 +		unsigned int inverse;
