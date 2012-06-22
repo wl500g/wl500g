@@ -1,0 +1,19 @@
+radvd: DNSSL options are concatenated if specified with trailing .
+
+Refer to: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=634485
+
+commit 77014e02b02e8fc7cfcb9bdb7d19bd72fdba5408 
+
+diff --git a/send.c b/send.c
+--- a/send.c
++++ b/send.c
+@@ -389,7 +389,7 @@ send_ra(struct Interface *iface, struct 
+ 
+ 				if (label[0] == '.')
+ 					label++;
+-				else {
++				if (label[0] == '\0') {
+ 					buff_dest = len;
+ 					send_ra_inc_len(&len, 1);
+ 					buff[buff_dest] = 0;
+-- 
