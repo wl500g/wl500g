@@ -38,6 +38,9 @@ endif
 ifeq ($(PKG_VERSION),4.5.3)
   PKG_MD5SUM:=8e0b5c12212e185f3e4383106bfa9cc6
 endif
+ifeq ($(PKG_VERSION),4.6.3)
+  PKG_MD5SUM:=773092fe5194353b02bb0110052a972e
+endif
 
 PATCH_DIR=../patches/$(PKG_VERSION)
 PKG_SOURCE_URL:=ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-$(PKG_VERSION) \
@@ -85,7 +88,7 @@ GCC_CONFIGURE:= \
 		$(SOFT_FLOAT_CONFIG_OPTION) \
 		$(call qstrip,$(CONFIG_EXTRA_GCC_CONFIG_OPTIONS)) \
 
-ifneq ($(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4)$(CONFIG_GCC_VERSION_4_5),)
+ifneq ($(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4)$(CONFIG_GCC_VERSION_4_5)$(CONFIG_GCC_VERSION_4_6),)
   GCC_BUILD_TARGET_LIBGCC:=y
   GCC_CONFIGURE+= \
 		--with-gmp=$(TOPDIR)/staging_dir/host \
@@ -93,12 +96,12 @@ ifneq ($(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4)$(CONFIG_GCC_VERSION_4_
 		--disable-decimal-float
 endif
 
-ifneq ($(CONFIG_GCC_VERSION_4_5),)
+ifneq ($(CONFIG_GCC_VERSION_4_5)$(CONFIG_GCC_VERSION_4_6),)
   GCC_CONFIGURE+= \
 		--with-mpc=$(TOPDIR)/staging_dir/host 
 endif
 
-ifneq ($(CONFIG_GCC_VERSION_4_4)$(CONFIG_GCC_VERSION_4_5),)
+ifneq ($(CONFIG_GCC_VERSION_4_4)$(CONFIG_GCC_VERSION_4_5)$(CONFIG_GCC_VERSION_4_6),)
   ifneq ($(CONFIG_mips)$(CONFIG_mipsel),)
     GCC_CONFIGURE += --with-mips-plt
   endif
