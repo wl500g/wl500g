@@ -47,6 +47,8 @@ typedef enum
 	HE_DYNDNS,
 	DYNSIP_DEFAULT,
 	DUCKDNS_DEFAULT,
+	ASUS_REGISTER,
+	ASUS_UPDATE,
 	LAST_DNS_SYSTEM = -1
 } DYNDNS_SYSTEM_ID;
 
@@ -180,6 +182,14 @@ typedef enum
 	"Host: %s\r\n"							\
 	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
 
+#define ASUS_PROCESS_MY_IP_REQUEST_FORMAT \
+	"GET %s?" \
+	"hostname=%s&" \
+	"myip=%s " \
+	 "HTTP/1.0\r\n" \
+	"Authorization: Basic %s\r\n" \
+	"Host: %s\r\n" \
+	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
 
 /* Some default configurations */
 #define DYNDNS_DEFAULT_SLEEP			(120) /* sec */

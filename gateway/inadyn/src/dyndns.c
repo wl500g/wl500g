@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <ctype.h>
 
 #include "dyndns.h"
 #include "debug_if.h"
@@ -52,6 +53,7 @@ static int get_req_for_sitelutions_server(DYN_DNS_CLIENT *p_self, int infcnt, in
 static int get_req_for_dnsexit_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
 static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
 static int get_req_for_duckdns_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
+static int get_req_for_asus_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
 
 static RC_TYPE is_dyndns_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
 static RC_TYPE is_freedns_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
@@ -62,6 +64,8 @@ static RC_TYPE is_tzo_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_
 static RC_TYPE is_sitelutions_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
 static RC_TYPE is_dnsexit_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
 static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
+static RC_TYPE is_asus_server_register_rsp_ok( DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
+static RC_TYPE is_asus_server_update_rsp_ok( DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
 
 DYNDNS_SYSTEM_INFO dns_system_table[] =
 {
@@ -163,6 +167,20 @@ DYNDNS_SYSTEM_INFO dns_system_table[] =
 	  (DNS_SYSTEM_REQUEST_FUNC) get_req_for_duckdns_server,
 	  "ipv4.wtfismyip.com", "/text",
 	  "duckdns.org", "/update"}},
+
+	{ASUS_REGISTER,
+	{"register@asus.com",
+	 (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_asus_server_register_rsp_ok,
+	  (DNS_SYSTEM_REQUEST_FUNC) get_req_for_asus_server,
+	  DYNDNS_MY_IP_SERVER, DYNDNS_MY_IP_SERVER_URL,
+	  "ns1.asuscomm.com", "/ddns/register.jsp"}},
+
+	{ASUS_UPDATE,
+	{"update@asus.com",
+	 (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_asus_server_update_rsp_ok,
+	  (DNS_SYSTEM_REQUEST_FUNC) get_req_for_asus_server,
+	  DYNDNS_MY_IP_SERVER, DYNDNS_MY_IP_SERVER_URL,
+	  "ns1.asuscomm.com", "/ddns/update.jsp"}},
 
 	{CUSTOM_HTTP_BASIC_AUTH,
 	 {"custom@http_srv_basic_auth",
@@ -480,6 +498,56 @@ static RC_TYPE do_ip_check_interface(DYN_DNS_CLIENT *p_self)
 	}
 
 	return RC_OK;
+}
+
+static int get_req_for_asus_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt)
+{
+	unsigned char digest[MD5_DIGEST_BYTES];
+	char auth[6*2+1+MD5_DIGEST_BYTES*2+1];
+	char *p_tmp, *p_auth = auth;
+	int i;
+
+	if (p_self == NULL)
+	{
+		/* 0 == "No characters written" */
+		return 0;
+	}
+
+	/* prepare username */
+	p_tmp = p_self->info[infcnt].credentials.my_username;
+	for (i = 0; i < 6*2; i++) {
+		while (*p_tmp && !isxdigit(*p_tmp)) p_tmp++;
+		*p_auth++ = *p_tmp ? toupper(*p_tmp++) : '0';
+	}
+
+	/* split username and password */
+	*p_auth++ = ':';
+
+	/* prepare password, reuse p_req_buffer */
+	sprintf(p_self->p_req_buffer, "%s%s",
+		p_self->info[infcnt].alias_info[alcnt].names.name,
+		p_self->info[infcnt].my_ip_address.name);
+	hmac_md5_buffer(p_self->p_req_buffer, strlen(p_self->p_req_buffer),
+			p_self->info[infcnt].credentials.my_password,
+			strlen(p_self->info[infcnt].credentials.my_password), digest);
+	for (i = 0; i < MD5_DIGEST_BYTES; i++)
+		p_auth += sprintf(p_auth, "%02X", digest[i]);
+
+	/*encode*/
+	if (p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer != NULL)
+		free(p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer);
+	p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer = b64encode(auth);
+	p_self->info[infcnt].credentials.encoded =
+		(p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer != NULL);
+	p_self->info[infcnt].credentials.size =
+		strlen(p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer);
+
+	return sprintf(p_self->p_req_buffer, ASUS_PROCESS_MY_IP_REQUEST_FORMAT,
+		       p_self->info[infcnt].dyndns_server_url,
+		       p_self->info[infcnt].alias_info[alcnt].names.name,
+		       p_self->info[infcnt].my_ip_address.name,
+		       p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer,
+		       p_self->info[infcnt].dyndns_server_name.name);
 }
 
 static int get_req_for_ip_server(DYN_DNS_CLIENT *p_self, int infcnt)
@@ -859,6 +927,87 @@ static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION
 		return RC_OK;
 	else
 		return RC_DYNDNS_RSP_NOTOK;
+}
+
+static RC_TYPE is_asus_server_register_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infnr)
+{	
+	(void)p_self;
+	char *p_rsp = p_tr->p_rsp;
+	(void)infnr;
+	
+	char *p, domain[256] = "";
+	if ((p = strchr(p_rsp, '|')) && (p = strchr(++p, '|')))
+		sscanf(p, "|%255[^|\r\n]", domain);
+
+	int status = p_tr->status;
+	
+	switch (status) {
+		case 200:		/* registration success */
+		case 220:		/* registration same domain success -- unused?? */
+			return RC_OK;
+		case 203:		/* registration failed */
+			logit(LOG_WARNING, MODULE_TAG "Domain already in use, suggested domain '%s'", domain);
+			return RC_DYNDNS_RSP_NOTOK;
+		case 230:		/* registration new domain success -- unused?? */
+			logit(LOG_WARNING, MODULE_TAG "Registration success, previous domain '%s'", domain);
+			return RC_OK;
+		case 233:		/* registration failed */
+			logit(LOG_WARNING, MODULE_TAG "Domain already in use, current domain '%s'", domain);
+			return RC_DYNDNS_RSP_NOTOK;
+	}
+
+	if (status >= 500 && status < 600)
+		return RC_DYNDNS_RSP_RETRY_LATER;
+
+	/* 
+	  Other status codes:
+	    297: invalid hostname
+	    298: invalid domain name
+	    299: invalid ip format
+	    401: authentication failure
+	    407: proxy authentication required
+	*/
+
+	return RC_DYNDNS_RSP_NOTOK;
+}
+
+static RC_TYPE is_asus_server_update_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infnr)
+{
+	(void)p_self;
+	char *p_rsp = p_tr->p_rsp;
+	(void)infnr;
+
+	char *p, domain[256] = "";
+	if ((p = strchr(p_rsp, '|')) && (p = strchr(++p, '|')))
+		sscanf(p, "|%255[^|\r\n]", domain);
+
+	int status = p_tr->status;
+
+	switch (status) {
+		case 200:		/* update success */
+		case 220:		/* update same domain success -- unused?? */
+			return RC_OK;
+		case 203:		/* update failed */
+			logit(LOG_WARNING, MODULE_TAG "Domain already in use, suggested domain '%s'", domain);
+			return RC_DYNDNS_RSP_NOTOK;
+		case 233:		/* update failed */
+			logit(LOG_WARNING, MODULE_TAG "Domain already in use, current domain '%s'", domain);
+			return RC_DYNDNS_RSP_NOTOK;
+	}
+
+	if (status >= 500 && status < 600)
+		return RC_DYNDNS_RSP_RETRY_LATER;
+
+	/* 
+	  Other status codes:
+	    297: invalid hostname
+	    298: invalid domain name
+	    299: invalid ip format
+	    401: authentication failure
+	    407: proxy authentication required
+	*/
+
+	return RC_DYNDNS_RSP_NOTOK;
 }
 
 static RC_TYPE do_update_alias_table(DYN_DNS_CLIENT *p_self)
