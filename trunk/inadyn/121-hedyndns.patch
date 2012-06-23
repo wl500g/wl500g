@@ -25,3 +25,14 @@ diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
  
      {CUSTOM_HTTP_BASIC_AUTH, 
          {"custom@http_svr_basic_auth", NULL,  
+diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
+--- inadyn.orig/src/inadyn_cmd.c	2010-07-14 18:15:52.000000000 +0000
++++ inadyn/src/inadyn_cmd.c	2011-05-01 23:38:06.572944000 +0000
+@@ -120,6 +120,7 @@ static CMD_DESCRIPTION_TYPE cmd_options_
+             "\t\t-For 3322.org: dyndns@3322.org\n"
+             "\t\t-For dnsomatic.com: default@dnsomatic.com\n"
+             "\t\t-For tunnelbroker.net: ipv6tb@he.net\n"
++            "\t\t-For dns.he.net: dyndns@he.net\n"
+ 			"\t\t-For generic: custom@http_svr_basic_auth\n"
+             "\t\tDEFAULT value is intended for default service at dyndns.org (most users): dyndns@dyndns.org"},
+ 
