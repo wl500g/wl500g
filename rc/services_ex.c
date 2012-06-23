@@ -430,7 +430,7 @@ start_ddns(int type)
 	char *wan_ip, *ddns_cache;
 	char *server, *user, *passwd, *host;
 	int  wild;
-	char service[32];
+	char service[64];
 #ifdef __CONFIG_EZIPUPDATE__
 	char *wan_ifname;
 #elif __CONFIG_INADYN__
