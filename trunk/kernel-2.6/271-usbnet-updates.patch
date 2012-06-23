@@ -4,11 +4,12 @@
  5d5440a835710d09f0ef18da5000541ec98b537a usbnet: don't clear urb->dev in tx_complete
  720f3d7cb19eb27f85f72836c8f8004ccb257f39 usbnet: fix leak of transfer buffer of dev->interrupt
  5b6e9bcdeb65634b4ad604eb4536404bbfc62cfa usbnet: fix skb traversing races during unlink(v2)
+ 86a2f415e6cdc5dbb2163b31abf4d36f26f7e3da usbnet: sanitise overlong driver information strings
 
 ---
- drivers/net/usb/usbnet.c |   68 ++++++++++++++++++++++++++++++++++-------------
- drivers/net/usb/usbnet.h |    3 +-
- 2 files changed, 52 insertions(+), 19 deletions(-)
+ drivers/net/usb/usbnet.c |   74 +++++++++++++++++++++++++++++++++--------------
+ drivers/net/usb/usbnet.h |    3 +
+ 2 files changed, 55 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
 --- a/drivers/net/usb/usbnet.c
@@ -180,6 +181,19 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  	}
  	spin_unlock_irqrestore (&q->lock, flags);
  	return count;
+@@ -876,9 +876,9 @@ void usbnet_get_drvinfo (struct net_device *net, struct ethtool_drvinfo *info)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+ 
+-	strncpy (info->driver, dev->driver_name, sizeof info->driver);
+-	strncpy (info->version, DRIVER_VERSION, sizeof info->version);
+-	strncpy (info->fw_version, dev->driver_info->description,
++	strlcpy (info->driver, dev->driver_name, sizeof info->driver);
++	strlcpy (info->version, DRIVER_VERSION, sizeof info->version);
++	strlcpy (info->fw_version, dev->driver_info->description,
+ 		sizeof info->fw_version);
+ 	usb_make_path (dev->udev, info->bus_info, sizeof info->bus_info);
+ }
 @@ -925,9 +960,7 @@ static void tx_complete (struct urb *urb
  		}
  	}
