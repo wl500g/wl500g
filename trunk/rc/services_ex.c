@@ -11,6 +11,8 @@
  */
 
 #ifdef ASUS_EXT
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -431,6 +433,9 @@ start_ddns(int forced)
 	char service[32];
 #ifdef __CONFIG_EZIPUPDATE__
 	char *wan_ifname;
+#elif __CONFIG_INADYN__
+	char *domain = NULL;
+	char word[32], *next;
 #endif
 
 	if (nvram_match("router_disable", "1") ||
@@ -453,7 +458,8 @@ start_ddns(int forced)
         // update
 	// * nvram ddns_cache, the same with /tmp/ddns.cache
 
-	if ((ddns_cache = nvram_get("ddns_cache")) != NULL)
+	if (!forced &&
+	    (ddns_cache = nvram_get("ddns_cache")) != NULL)
 	{
 		if ((fp = fopen("/tmp/ddns.cache", "r")) == NULL &&
 		    (fp = fopen("/tmp/ddns.cache", "w+")) != NULL)
@@ -461,7 +467,8 @@ start_ddns(int forced)
 			fprintf(fp, "%s", ddns_cache);
 			fclose(fp);
 		}
-	}
+	} else
+		unlink("/tmp/ddns.cache");
 
 	server = nvram_safe_get("ddns_server_x");
 	user = nvram_safe_get("ddns_username_x");
@@ -536,6 +543,14 @@ start_ddns(int forced)
 		strcpy(service, "ipv6tb@he.net");
 	else if (strcmp(server, "DNS.HE.NET") == 0)
 		strcpy(service, "dyndns@he.net");
+	else if (strcmp(server, "WWW.ASUS.COM") == 0) {
+		strcpy(service, forced ? "register@asus.com " : "");
+		strcat(service, "update@asus.com");
+		user = nvram_safe_get("et0macaddr");
+		passwd = nvram_safe_get("secret_code");
+		if (strcasestr(host, ".asuscomm.com") == NULL)
+			domain = ".asuscomm.com";
+	}
 	else strcpy(service, "default@dyndns.org");
 #endif /* __CONFIG_INADYN__ */
 
@@ -553,13 +568,16 @@ start_ddns(int forced)
 	    "%s",
 	    service, wan_ifname, user, passwd, host, (wild) ? "wildcard\n" : "");
 #elif __CONFIG_INADYN__
+	foreach (word, service, next)
 	fprintf(fp,
 	    "dyndns_system %s\n"
 	    "username %s\n"
 	    "password %s\n"
-	    "alias %s\n"
+	    "alias %s%s\n"
 	    "%s",
-	    service, user, passwd, host, (wild) ? "wildcard\n" : "");
+	    word, user, passwd,
+	    host, domain ? : "",
+	    wild ? "wildcard\n" : "");
 #endif /* __CONFIG_INADYN__ */
 
 	fappend("/usr/local/etc/ddns.conf", fp);

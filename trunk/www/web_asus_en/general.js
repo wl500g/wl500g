@@ -3509,6 +3509,8 @@ function openLink(s)
 			tourl = "http://www.tunnelbroker.net/register.php";
 		else if (document.form.ddns_server_x.value == 'DNS.HE.NET')
 			tourl = "http://ipv6.he.net/certification/register.php";
+		else if (document.form.ddns_server_x.value == 'WWW.ASUS.COM')
+			tourl = "http://asusddns.appspot.com/setup.jsp";
 		else
 			return;
 
