@@ -424,7 +424,7 @@ ddns_updated_main()
 	
 
 int 
-start_ddns(int forced)
+start_ddns(int type)
 {
 	FILE *fp;
 	char *wan_ip, *ddns_cache;
@@ -443,7 +443,7 @@ start_ddns(int forced)
 
 	if ((wan_ip = nvram_safe_get("wan_ipaddr_t"))==NULL) return -1;
 
-	if (!forced &&
+	if ((type == 0) &&
 	    (nvram_match("ddns_ipaddr", wan_ip) ||
 	    (inet_addr(wan_ip) == inet_addr(nvram_safe_get("ddns_ipaddr")))))
 	{
@@ -458,7 +458,7 @@ start_ddns(int forced)
         // update
 	// * nvram ddns_cache, the same with /tmp/ddns.cache
 
-	if (!forced &&
+	if ((type == 0) &&
 	    (ddns_cache = nvram_get("ddns_cache")) != NULL)
 	{
 		if ((fp = fopen("/tmp/ddns.cache", "r")) == NULL &&
@@ -544,7 +544,7 @@ start_ddns(int forced)
 	else if (strcmp(server, "DNS.HE.NET") == 0)
 		strcpy(service, "dyndns@he.net");
 	else if (strcmp(server, "WWW.ASUS.COM") == 0) {
-		strcpy(service, forced ? "register@asus.com " : "");
+		strcpy(service, (type == 2) ? "register@asus.com " : "");
 		strcat(service, "update@asus.com");
 		user = nvram_safe_get("et0macaddr");
 		passwd = nvram_safe_get("secret_code");
