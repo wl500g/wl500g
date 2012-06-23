@@ -607,11 +607,11 @@ start_ddns(int type)
 		nvram_unset("ddns_ipaddr");
 		nvram_unset("ddns_status");
 #ifdef __CONFIG_EZIPUPDATE__
-		killall_s("ez-ipupdate", SIGQUIT);
+		killall_tk("ez-ipupdate");
 #elif __CONFIG_INADYN__
-		killall("inadyn");
+		killall_tk("inadyn");
 #endif
-		_eval(ddns_argv, NULL, 0, &pid);
+		_eval(ddns_argv, NULL, (type == 0) ? 0 : 10, &pid);
 	}
 	return 0;
 }
