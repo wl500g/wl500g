@@ -2437,6 +2437,13 @@ function onSubmitApply(s)
 		document.form.action_script.value = "portmapping.sh" + " " + action.value + " " + local.value + " " + port.value;
 //		document.form.submit();
 	}
+	else if (document.form.current_page.value == "Advanced_DDNS_Content.asp" &&
+		 s == "ddnsregister" &&
+		 document.form.ddns_server_x.value != "WWW.ASUS.COM")
+	{
+		openLink('x_DDNSServer');
+		return false;
+	}
 	else
 	{
 		document.form.action.value = "Update";
@@ -3494,11 +3501,11 @@ function openLink(s)
 	if (s=='x_DDNSServer')
 	{
 		if (document.form.ddns_server_x.value.indexOf("WWW.DYNDNS.ORG")!=-1)
-			tourl = "https://www.dyndns.com/account/create.html";
+			tourl = "https://account.dyn.com/entrance/";
 		else if (document.form.ddns_server_x.value == 'WWW.TZO.COM')
 			tourl = "http://signup.tzo.com";
 		else if (document.form.ddns_server_x.value == 'WWW.ZONEEDIT.COM')
-			tourl = "https://www.zoneedit.com/signup.html?";
+			tourl = "https://www.zoneedit.com/signUp.html";
 		else if (document.form.ddns_server_x.value == 'WWW.EASYDNS.COM')
 			tourl = "https://web.easydns.com/Open_Account/";
 		else if (document.form.ddns_server_x.value == 'WWW.NO-IP.COM')
