@@ -2624,6 +2624,13 @@ function change_common(o, s, v)
 	{
 		inputCtrl(document.form.upnp_proto, o.value == 0 ? 0 : 1);
 	}
+	else if (s=="LANHostConfig" && v=="ddns_server_x")
+	{
+		opts = document.form.ddns_server_x.options;
+		value = (opts[opts.selectedIndex].value == "WWW.ASUS.COM") ? 0 : 1;
+		inputCtrl(document.form.ddns_username_x, value);
+		inputCtrl(document.form.ddns_passwd_x, value);
+	}
 	else if (v == "usb_webformat_x")
 	{
 		if (o.value == "0") /* MJPEG */
