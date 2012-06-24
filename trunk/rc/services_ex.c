@@ -588,13 +588,13 @@ start_ddns(int type)
 		char *ddns_argv[] = {
 #ifdef __CONFIG_EZIPUPDATE__
 		    "ez-ipupdate",
-		    "-d", "-1",
+		    "-1", "-df",
 		    "-c", "/etc/ddns.conf",
 		    "-e", "/sbin/ddns_updated",
 		    "-b", "/tmp/ddns.cache",
 #elif __CONFIG_INADYN__
 		    "inadyn",
-		    "--background", "--iterations", "1",
+		    "--iterations", "1", "--syslog",
 		    "--input_file", "/etc/ddns.conf",
 		    "--exec", "/sbin/ddns_updated",
 		    "--cache_file", "/tmp/ddns.cache",
