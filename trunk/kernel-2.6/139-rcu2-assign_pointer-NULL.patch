@@ -21,14 +21,23 @@ Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
 ---
- include/linux/rcupdate.h |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
+ include/linux/rcupdate.h |   21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
 
 diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
 --- a/include/linux/rcupdate.h
 +++ b/include/linux/rcupdate.h
-@@ -174,10 +174,13 @@ struct rcu_head {
+@@ -41,6 +41,7 @@
+ #include <linux/cpumask.h>
+ #include <linux/seqlock.h>
+ #include <linux/lockdep.h>
++#include <linux/compiler.h>
+ 
+ /**
+  * struct rcu_head - callback structure for use with RCU
+@@ -174,10 +174,22 @@ struct rcu_head {
   * code.
   */
  
@@ -43,9 +52,16 @@ diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
 +			smp_wmb(); \
 +		(p) = (v); \
 +	})
++
++/**
++ * RCU_INIT_POINTER() - initialize an RCU protected pointer
++ *
++ * Initialize an RCU-protected pointer in such a way to avoid RCU-lockdep
++ * splats.
++ */
++#define RCU_INIT_POINTER(p, v) \
++		p = (typeof(*v) __force __rcu *)(v)
  
  /**
   * synchronize_sched - block until all CPUs have exited any non-preemptive
 -- 
-1.7.4.4
-
