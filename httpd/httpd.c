@@ -129,6 +129,9 @@ static uaddr login_ip_tmp;
 static uaddr login_try;
 static time_t login_timestamp = 0;
 
+/* Const vars */
+const int int_1 = 1;
+
 static int
 initialize_listen_socket( usockaddr* usaP )
 {
@@ -155,8 +158,7 @@ initialize_listen_socket( usockaddr* usaP )
 		return -1;
 	}
 	(void) fcntl( listen_fd, F_SETFD, 1 );
-	i = 1;
-	if ( setsockopt( listen_fd, SOL_SOCKET, SO_REUSEADDR, (char*) &i, sizeof(i) ) < 0 ) {
+	if ( setsockopt( listen_fd, SOL_SOCKET, SO_REUSEADDR, &int_1, sizeof(int_1) ) < 0 ) {
 		perror( "setsockopt" );
 		return -1;
 	}
@@ -814,12 +816,16 @@ int main(int argc, char **argv)
 				perror("malloc");
 				return errno;
 			}
-			while ((item->fd = accept(listen_fd, &item->usa.sa, &sz)) < 0 && item->fd == EINTR)
+			while ((item->fd = accept(listen_fd, &item->usa.sa, &sz)) < 0 && errno == EINTR)
 				continue;
 			if (item->fd < 0) {
 				perror("accept");
-				return errno;
+				free(item);
+				continue;
 			}
+
+			/* Set the KEEPALIVE option to cull dead connections */
+			setsockopt(item->fd, SOL_SOCKET, SO_KEEPALIVE, &int_1, sizeof(int_1));
 
 			/* Add to active connections */
 			FD_SET(item->fd, &active_rfds);
@@ -844,17 +850,26 @@ int main(int argc, char **argv)
 			if (count) {
 				if (!(conn_fp = fdopen(item->fd, "r+"))) {
 					perror("fdopen");
-					return errno;
+					goto skip;
+				} else {
+					/* Will be closed by fclose */
+					item->fd = -1;
 				}
+
 				http_login_cache(&item->usa);
 				handle_request();
+
 				fflush(conn_fp);
 				fclose(conn_fp);
 
+			skip:
 				/* Skip the rest of */
 				if (--count == 0)
 					next = NULL;
-			} else
+			}
+
+			/* Close timed out and/or still alive */
+			if (item->fd >= 0)
 				close(item->fd);
 
 			free(item);
