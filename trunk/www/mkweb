@@ -203,7 +203,7 @@ if [ -n "$1" ]; then
 
 		cp -f ../web_$MODEL/Advanced_OperationMode_Content_300g.asp ../web_$MODEL/Advanced_OperationMode_Content.asp
 
-		cp -f ../web_$MODEL/Advanced_DDNS_Content_300g.asp ../web_$MODEL/Advanced_DDNS_Content.asp
+		#cp -f ../web_$MODEL/Advanced_DDNS_Content_300g.asp ../web_$MODEL/Advanced_DDNS_Content.asp
 		cp -f ../web_$MODEL/Main_WStatus11g_Content.asp ../web_$MODEL/Main_WStatus_Content.asp
 		cp -f ../web_$MODEL/Main_Index_AccessPoint11g_300g.asp ../web_$MODEL/Main_Index_AccessPoint.asp
 		cp -f ../web_$MODEL/Main_Index_HomeGateway11g_300g.asp ../web_$MODEL/Main_Index_HomeGateway.asp

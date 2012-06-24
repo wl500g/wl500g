@@ -1912,13 +1912,17 @@ function load_body()
 	{
 //		if (frm.LANHostConfig_x_DDNSStatus.value != "1")
 //		frm.LANHostConfig_x_DDNSStatus_button.disabled = true;
-		inputCtrl(document.form.upnp_proto, document.form.upnp_enable.value == 0 ? 0 : 1);
+		inputCtrl(frm.upnp_proto, frm.upnp_enable.value == 0 ? 0 : 1);
 		TimeZoneList();
 		if (frm.udpxy_wan_x.value == "1")
 			frm.udpxy_wan_check.checked = true;
 		else
 			frm.udpxy_wan_check.checked = false;
 		
+		opts = frm.ddns_server_x.options;
+		value = (opts[opts.selectedIndex].value == "WWW.ASUS.COM") ? 0 : 1;
+		inputCtrl(frm.ddns_username_x, value);
+		inputCtrl(frm.ddns_passwd_x, value);
 	}
 	else if (frm.current_page.value == "Advanced_APLAN_Content.asp")
 	{
