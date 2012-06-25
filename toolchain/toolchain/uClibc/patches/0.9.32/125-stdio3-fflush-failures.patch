@@ -1,0 +1,16 @@
+fclose and fflush do not report write failures
+
+ http://bugs.busybox.net/show_bug.cgi?id=5156
+
+--- a/libc/stdio/_wcommit.c
++++ b/libc/stdio/_wcommit.c
+@@ -23,6 +23,8 @@ size_t attribute_hidden __stdio_wcommit(
+ 	if ((bufsize = __STDIO_STREAM_BUFFER_WUSED(stream)) != 0) {
+ 		stream->__bufpos = stream->__bufstart;
+ 		__stdio_WRITE(stream, stream->__bufstart, bufsize);
++		if (stream->__modeflags & __FLAG_ERROR)
++			return bufsize;
+ 	}
+ 
+ 	return __STDIO_STREAM_BUFFER_WUSED(stream);
+-- 
