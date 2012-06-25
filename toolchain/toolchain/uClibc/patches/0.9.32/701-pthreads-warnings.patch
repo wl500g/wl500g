@@ -6,9 +6,33 @@ Subject: [future] fix a bunch of build warnings
 Added attribute_noreturn even if it has return at the end of function
 
 Signed-off-by: Peter S. Mazinger <ps.m@gmx.net>
+
 ---
+From 293173f87072bbc0cafc457d5d8a6039f4d1d259
+From: Peter S. Mazinger
+Date: Sun, 20 Mar 2011 01:21:38 +0000
+Subject: pthreadP.h: avoid shadow warnings
+
+Change CANCELLATION_P macro and adapt usage.
+
+Signed-off-by: Peter S. Mazinger <ps.m@gmx.net>
+Signed-off-by: Bernhard Reutner-Fischer <rep.dot.nop@gmail.com>
+
+---
+From 77937735ab0b3cc45c02cce1a4e4b57acbb344cc
+From: Carmelo Amoroso
+Date: Wed, 14 Mar 2012 15:26:13 +0000
+Subject: nptl: fix compiler warning due to missing prototype
+
+libpthread/nptl/sysdeps/pthread/pt-longjmp.c: In function 'longjmp':
+libpthread/nptl/sysdeps/pthread/pt-longjmp.c:27:3: warning: implicit declaration of function '__libc_longjmp' [-Wimplicit-function-declaration]
+libpthread/nptl/sysdeps/pthread/pt-longjmp.c:28:1: warning: 'noreturn' function does return [enabled by default]
+
+Signed-off-by: Carmelo Amoroso <carmelo.amoroso@st.com>
+
+---
+
 diff --git a/libc/inet/resolv.c b/libc/inet/resolv.c
-index bd56500..c03f03a 100644
 --- a/libc/inet/resolv.c
 +++ b/libc/inet/resolv.c
 @@ -2994,7 +2994,7 @@ int res_init(void)
@@ -31,8 +55,18 @@ index bd56500..c03f03a 100644
  }
  #endif
  
+diff --git a/libc/unistd/sleep.c b/libc/unistd/sleep.c
+--- a/libc/unistd/sleep.c
++++ b/libc/unistd/sleep.c
+@@ -99,6 +99,7 @@ unsigned int sleep (unsigned int seconds)
+     /* This is not necessary but some buggy programs depend on this.  */
+     if (seconds == 0) {
+ #  ifdef CANCELLATION_P
++	int cancelhandling;
+ 	CANCELLATION_P (THREAD_SELF);
+ #  endif
+ 	return 0;
 diff --git a/libpthread/nptl/cleanup_routine.c b/libpthread/nptl/cleanup_routine.c
-index cbf2318..54badf0 100644
 --- a/libpthread/nptl/cleanup_routine.c
 +++ b/libpthread/nptl/cleanup_routine.c
 @@ -19,7 +19,7 @@
@@ -45,7 +79,6 @@ index cbf2318..54badf0 100644
  __pthread_cleanup_routine (struct __pthread_cleanup_frame *f)
  {
 diff --git a/libpthread/nptl/pt-cleanup.c b/libpthread/nptl/pt-cleanup.c
-index d7394ae..aa0b9bb 100644
 --- a/libpthread/nptl/pt-cleanup.c
 +++ b/libpthread/nptl/pt-cleanup.c
 @@ -23,7 +23,7 @@
@@ -57,8 +90,19 @@ index d7394ae..aa0b9bb 100644
  __pthread_cleanup_upto (__jmp_buf target, char *targetframe)
  {
    struct pthread *self = THREAD_SELF;
+diff --git a/libpthread/nptl/pthreadP.h b/libpthread/nptl/pthreadP.h
+--- a/libpthread/nptl/pthreadP.h
++++ b/libpthread/nptl/pthreadP.h
+@@ -221,7 +221,7 @@ extern int __pthread_debug attribute_hidden;
+ /* Cancellation test.  */
+ #define CANCELLATION_P(self) \
+   do {									      \
+-    int cancelhandling = THREAD_GETMEM (self, cancelhandling);		      \
++    cancelhandling = THREAD_GETMEM (self, cancelhandling);		      \
+     if (CANCEL_ENABLED_AND_CANCELED (cancelhandling))			      \
+       {									      \
+ 	THREAD_SETMEM (self, result, PTHREAD_CANCELED);			      \
 diff --git a/libpthread/nptl/pthread_create.c b/libpthread/nptl/pthread_create.c
-index e9492df..a2764a0 100644
 --- a/libpthread/nptl/pthread_create.c
 +++ b/libpthread/nptl/pthread_create.c
 @@ -221,7 +221,7 @@ __free_tcb (struct pthread *pd)
@@ -71,7 +115,6 @@ index e9492df..a2764a0 100644
  {
    struct pthread *pd = (struct pthread *) arg;
 diff --git a/libpthread/nptl/pthread_exit.c b/libpthread/nptl/pthread_exit.c
-index 88d3859..98f67f2 100644
 --- a/libpthread/nptl/pthread_exit.c
 +++ b/libpthread/nptl/pthread_exit.c
 @@ -22,7 +22,7 @@
@@ -84,7 +127,6 @@ index 88d3859..98f67f2 100644
  {
    THREAD_SETMEM (THREAD_SELF, result, value);
 diff --git a/libpthread/nptl/pthread_getspecific.c b/libpthread/nptl/pthread_getspecific.c
-index 639a4fd..a00fe0b 100644
 --- a/libpthread/nptl/pthread_getspecific.c
 +++ b/libpthread/nptl/pthread_getspecific.c
 @@ -21,8 +21,8 @@
@@ -97,8 +139,29 @@ index 639a4fd..a00fe0b 100644
  __pthread_getspecific (pthread_key_t key)
  {
    struct pthread_key_data *data;
+diff --git a/libpthread/nptl/pthread_testcancel.c b/libpthread/nptl/pthread_testcancel.c
+--- a/libpthread/nptl/pthread_testcancel.c
++++ b/libpthread/nptl/pthread_testcancel.c
+@@ -24,5 +24,6 @@
+ void
+ pthread_testcancel (void)
+ {
++  int cancelhandling;
+   CANCELLATION_P (THREAD_SELF);
+ }
+diff --git a/libpthread/nptl/sysdeps/pthread/pt-longjmp.c b/libpthread/nptl/sysdeps/pthread/pt-longjmp.c
+--- a/libpthread/nptl/sysdeps/pthread/pt-longjmp.c
++++ b/libpthread/nptl/sysdeps/pthread/pt-longjmp.c
+@@ -21,6 +21,8 @@
+ #include <stdlib.h>
+ #include "pthreadP.h"
+ 
++extern __typeof(longjmp) __libc_longjmp attribute_noreturn;
++
+ void
+ longjmp (jmp_buf env, int val)
+ {
 diff --git a/libpthread/nptl/sysdeps/pthread/pthread.h b/libpthread/nptl/sysdeps/pthread/pthread.h
-index deb7430..e94cabb 100644
 --- a/libpthread/nptl/sysdeps/pthread/pthread.h
 +++ b/libpthread/nptl/sysdeps/pthread/pthread.h
 @@ -581,6 +581,7 @@ class __pthread_cleanup_class
@@ -110,7 +173,6 @@ index deb7430..e94cabb 100644
  __pthread_cleanup_routine (struct __pthread_cleanup_frame *__frame)
  {
 diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/mq_notify.c b/libpthread/nptl/sysdeps/unix/sysv/linux/mq_notify.c
-index 188040e..91d40a3 100644
 --- a/libpthread/nptl/sysdeps/unix/sysv/linux/mq_notify.c
 +++ b/libpthread/nptl/sysdeps/unix/sysv/linux/mq_notify.c
 @@ -111,7 +111,7 @@ notification_function (void *arg)
@@ -123,7 +185,6 @@ index 188040e..91d40a3 100644
  {
    while (1)
 diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/timer_routines.c b/libpthread/nptl/sysdeps/unix/sysv/linux/timer_routines.c
-index 4319d8d..1664af5 100644
 --- a/libpthread/nptl/sysdeps/unix/sysv/linux/timer_routines.c
 +++ b/libpthread/nptl/sysdeps/unix/sysv/linux/timer_routines.c
 @@ -69,7 +69,7 @@ timer_sigev_thread (void *arg)
@@ -136,7 +197,6 @@ index 4319d8d..1664af5 100644
  {
    /* Wait for the SIGTIMER signal, allowing the setXid signal, and
 diff --git a/libpthread/nptl/unwind.c b/libpthread/nptl/unwind.c
-index 671d702..3952885 100644
 --- a/libpthread/nptl/unwind.c
 +++ b/libpthread/nptl/unwind.c
 @@ -99,7 +99,7 @@ unwind_stop (int version, _Unwind_Action actions,
