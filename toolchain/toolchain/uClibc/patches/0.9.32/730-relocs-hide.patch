@@ -1,0 +1,219 @@
+hide relocations
+
+ 2e17280a398d1297103517f456ac114b70cf015a math: avoid jump relocation in libm
+ fbe324024de24d236549179b77c07fa02d9b6926 inet: hide relocations
+ 5a2b42a48342ee59c9ee48d1632f040088609589 unistd: hide relocations
+ dcf56488daa07aea35755532f0461d1921dcd416 resolv: hide relocations
+
+---
+
+diff --git a/libc/sysdeps/linux/common/bits/mathcalls.h b/libc/sysdeps/linux/common/bits/mathcalls.h
+--- a/libc/sysdeps/linux/common/bits/mathcalls.h
++++ b/libc/sysdeps/linux/common/bits/mathcalls.h
+@@ -155,7 +155,7 @@ __BEGIN_NAMESPACE_C99
+ __MATHCALLI (exp2,, (_Mdouble_ __x))
+ 
+ /* Compute base-2 logarithm of X.  */
+-__MATHCALL (log2,, (_Mdouble_ __x))
++__MATHCALLI (log2,, (_Mdouble_ __x))
+ __END_NAMESPACE_C99
+ #endif
+ 
+@@ -223,7 +223,7 @@ __MATHCALL (drem,, (_Mdouble_ __x, _Mdouble_ __y))
+ 
+ 
+ /* Return the fractional part of X after dividing out `ilogb (X)'.  */
+-__MATHCALL (significand,, (_Mdouble_ __x))
++__MATHCALLI (significand,, (_Mdouble_ __x))
+ #endif /* Use misc.  */
+ 
+ #if defined __USE_MISC || defined __USE_ISOC99
+@@ -278,7 +278,7 @@ __END_NAMESPACE_C99
+ 
+ #if defined __USE_MISC || defined __USE_XOPEN
+ /* Obsolete alias for `lgamma'.  */
+-__MATHCALL (gamma,, (_Mdouble_))
++__MATHCALLI (gamma,, (_Mdouble_))
+ #endif
+ 
+ #ifdef __USE_MISC
+@@ -286,6 +286,8 @@ __MATHCALL (gamma,, (_Mdouble_))
+    `signgam'.  The reentrant version instead takes a pointer and stores
+    the value through it.  */
+ __MATHCALL (lgamma,_r, (_Mdouble_, int *__signgamp))
++/* __MATHCALLI does not work here, probably due to ,_r, */
++libm_hidden_proto(lgamma_r)
+ #endif
+ 
+ 
+@@ -376,5 +378,5 @@ __END_NAMESPACE_C99
+ #if (defined __USE_MISC || defined __USE_XOPEN_EXTENDED) \
+ 	&& defined __UCLIBC_SUSV3_LEGACY__
+ /* Return X times (2 to the Nth power).  */
+-__MATHCALL (scalb,, (_Mdouble_ __x, _Mdouble_ __n))
++__MATHCALLI (scalb,, (_Mdouble_ __x, _Mdouble_ __n))
+ #endif
+diff --git a/libm/e_lgamma_r.c b/libm/e_lgamma_r.c
+--- a/libm/e_lgamma_r.c
++++ b/libm/e_lgamma_r.c
+@@ -314,6 +314,7 @@ double lgamma_r(double x, int *signgamp)
+ #else
+ strong_alias(__ieee754_lgamma_r, lgamma_r)
+ #endif
++libm_hidden_def(lgamma_r)
+ 
+ /* __ieee754_lgamma(x)
+  * Return the logarithm of the Gamma function of x.
+@@ -358,6 +359,7 @@ strong_alias(lgamma, gamma)
+ strong_alias(__ieee754_lgamma_r, gamma_r)
+ strong_alias(__ieee754_lgamma, gamma)
+ #endif
++libm_hidden_def(gamma)
+ 
+ 
+ /* double tgamma(double x)
+diff --git a/libm/e_log2.c b/libm/e_log2.c
+--- a/libm/e_log2.c
++++ b/libm/e_log2.c
+@@ -116,3 +116,4 @@ double __ieee754_log2(double x)
+ 	}
+ }
+ strong_alias(__ieee754_log2,log2)
++libm_hidden_def(log2)
+diff --git a/libm/e_scalb.c b/libm/e_scalb.c
+--- a/libm/e_scalb.c
++++ b/libm/e_scalb.c
+@@ -55,5 +55,6 @@ double scalb(double x, double fn)
+ #else
+ strong_alias(__ieee754_scalb, scalb)
+ #endif
++libm_hidden_def(scalb)
+ 
+ #endif /* UCLIBC_SUSV3_LEGACY */
+diff --git a/libm/s_significand.c b/libm/s_significand.c
+--- a/libm/s_significand.c
++++ b/libm/s_significand.c
+@@ -22,3 +22,4 @@ double significand(double x)
+ {
+ 	return __ieee754_scalb(x,(double) -ilogb(x));
+ }
++libm_hidden_def(significand)
+diff --git a/include/ifaddrs.h b/include/ifaddrs.h
+--- a/include/ifaddrs.h
++++ b/include/ifaddrs.h
+@@ -65,9 +65,11 @@ struct ifaddrs
+    The storage returned in *IFAP is allocated dynamically and can
+    only be properly freed by passing it to `freeifaddrs'.  */
+ extern int getifaddrs (struct ifaddrs **__ifap) __THROW;
++libc_hidden_proto(getifaddrs)
+ 
+ /* Reclaim the storage allocated by a previous `getifaddrs' call.  */
+ extern void freeifaddrs (struct ifaddrs *__ifa)  __THROW;
++libc_hidden_proto(freeifaddrs)
+ 
+ __END_DECLS
+ 
+diff --git a/libc/inet/ifaddrs.c b/libc/inet/ifaddrs.c
+--- a/libc/inet/ifaddrs.c
++++ b/libc/inet/ifaddrs.c
+@@ -845,13 +845,14 @@ getifaddrs (struct ifaddrs **ifap)
+ 
+   return result;
+ }
+-
++libc_hidden_def(getifaddrs)
+ 
+ void
+ freeifaddrs (struct ifaddrs *ifa)
+ {
+   free (ifa);
+ }
++libc_hidden_def(freeifaddrs)
+ 
+ #endif /* __UCLIBC_SUPPORT_AI_ADDRCONFIG__ */
+ 
+diff --git a/include/unistd.h b/include/unistd.h
+--- a/include/unistd.h
++++ b/include/unistd.h
+@@ -962,7 +962,9 @@ extern int acct (__const char *__name) __THROW;
+ /* Successive calls return the shells listed in `/etc/shells'.  */
+ extern char *getusershell (void) __THROW;
+ extern void endusershell (void) __THROW; /* Discard cached info.  */
++libc_hidden_proto(endusershell)
+ extern void setusershell (void) __THROW; /* Rewind and re-read the file.  */
++libc_hidden_proto(setusershell)
+ 
+ 
+ /* Put the program in the background, and dissociate from the controlling
+diff --git a/libc/unistd/usershell.c b/libc/unistd/usershell.c
+--- a/libc/unistd/usershell.c
++++ b/libc/unistd/usershell.c
+@@ -40,6 +40,8 @@ void endusershell(void)
+ 	shellb = NULL;
+ 	shells = NULL;
+ }
++libc_hidden_def(endusershell)
++
+ void setusershell(void)
+ {
+ 	endusershell();
+@@ -61,6 +63,8 @@ void setusershell(void)
+ 		shells = (char **)shellb;
+ 	}
+ }
++libc_hidden_def(setusershell)
++
+ char *getusershell(void)
+ {
+ 	char *sh;
+diff --git a/include/arpa/nameser.h b/include/arpa/nameser.h
+--- a/include/arpa/nameser.h
++++ b/include/arpa/nameser.h
+@@ -499,6 +499,7 @@ void		ns_put32 (u_long, u_char *) __THROW;
+ int		ns_initparse (const u_char *, int, ns_msg *) __THROW;
+ int		ns_skiprr (const u_char *, const u_char *, ns_sect, int)
+      __THROW;
++libc_hidden_proto(ns_skiprr)
+ int		ns_parserr (ns_msg *, ns_sect, int, ns_rr *) __THROW;
+ int		ns_sprintrr (const ns_msg *, const ns_rr *,
+ 			     const char *, const char *, char *, size_t)
+@@ -520,12 +521,15 @@ int		ns_name_unpack (const u_char *, const u_char *,
+ libc_hidden_proto(ns_name_unpack)
+ int		ns_name_pack (const u_char *, u_char *, int,
+ 			      const u_char **, const u_char **) __THROW;
++libc_hidden_proto(ns_name_pack)
+ int		ns_name_uncompress (const u_char *, const u_char *,
+ 				    const u_char *, char *, size_t) __THROW;
+ libc_hidden_proto(ns_name_uncompress)
+ int		ns_name_compress (const char *, u_char *, size_t,
+ 				  const u_char **, const u_char **) __THROW;
++libc_hidden_proto(ns_name_compress)
+ int		ns_name_skip (const u_char **, const u_char *) __THROW;
++libc_hidden_proto(ns_name_skip)
+ void		ns_name_rollback (const u_char *, const u_char **,
+ 				  const u_char **) __THROW;
+ int		ns_sign (u_char *, int *, int, int, void *,
+diff --git a/include/resolv.h b/include/resolv.h
+--- a/include/resolv.h
++++ b/include/resolv.h
+@@ -406,6 +407,7 @@ char *		p_secstodate (u_long) __THROW;
+ #endif
+ int		dn_expand (const u_char *, const u_char *, const u_char *,
+ 			   char *, int) __THROW;
++libc_hidden_proto(dn_expand)
+ #if 0
+ u_int		res_randomid (void) __THROW;
+ int		res_nameinquery (const char *, int, int,
+diff --git a/libc/inet/resolv.c b/libc/inet/resolv.c
+--- a/libc/inet/resolv.c
++++ b/libc/inet/resolv.c
+@@ -2663,6 +2663,7 @@ int dn_expand(const u_char *msg, const u_char *eom, const u_char *src,
+ 		dst[0] = '\0';
+ 	return n;
+ }
++libc_hidden_def(dn_expand)
+ #endif /* L_res_comp */
+ 
+ 
+--
+cgit v0.9.0.1-2-gef13
