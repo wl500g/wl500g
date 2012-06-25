@@ -60,8 +60,8 @@ static __inline__ void atomic_add(int i, atomic_t * v)
 		"	sc	%0, %1					\n"
 		"	beqzl	%0, 1b					\n"
 		"	.set	mips0					\n"
-		: "=&r" (temp), "=m" (v->counter)
-		: "Ir" (i), "m" (v->counter));
+		: "=&r" (temp), "+m" (v->counter)
+		: "Ir" (i));
 	} else if (cpu_has_llsc) {
 		int temp;
 
@@ -72,8 +72,8 @@ static __inline__ void atomic_add(int i, atomic_t * v)
 			"	addu	%0, %2				\n"
 			"	sc	%0, %1				\n"
 			"	.set	mips0				\n"
-			: "=&r" (temp), "=m" (v->counter)
-			: "Ir" (i), "m" (v->counter));
+			: "=&r" (temp), "+m" (v->counter)
+			: "Ir" (i));
 		} while (unlikely(!temp));
 	} else {
 		unsigned long flags;
@@ -103,8 +103,8 @@ static __inline__ void atomic_sub(int i, atomic_t * v)
 		"	sc	%0, %1					\n"
 		"	beqzl	%0, 1b					\n"
 		"	.set	mips0					\n"
-		: "=&r" (temp), "=m" (v->counter)
-		: "Ir" (i), "m" (v->counter));
+		: "=&r" (temp), "+m" (v->counter)
+		: "Ir" (i));
 	} else if (cpu_has_llsc) {
 		int temp;
 
@@ -115,8 +115,8 @@ static __inline__ void atomic_sub(int i, atomic_t * v)
 			"	subu	%0, %2				\n"
 			"	sc	%0, %1				\n"
 			"	.set	mips0				\n"
-			: "=&r" (temp), "=m" (v->counter)
-			: "Ir" (i), "m" (v->counter));
+			: "=&r" (temp), "+m" (v->counter)
+			: "Ir" (i));
 		} while (unlikely(!temp));
 	} else {
 		unsigned long flags;
@@ -147,9 +147,8 @@ static __inline__ int atomic_add_return(int i, atomic_t * v)
 		"	beqzl	%0, 1b					\n"
 		"	addu	%0, %1, %3				\n"
 		"	.set	mips0					\n"
-		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
-		: "Ir" (i), "m" (v->counter)
-		: "memory");
+		: "=&r" (result), "=&r" (temp), "+m" (v->counter)
+		: "Ir" (i));
 	} else if (cpu_has_llsc) {
 		int temp;
 
@@ -160,9 +159,8 @@ static __inline__ int atomic_add_return(int i, atomic_t * v)
 			"	addu	%0, %1, %3			\n"
 			"	sc	%0, %2				\n"
 			"	.set	mips0				\n"
-			: "=&r" (result), "=&r" (temp), "=m" (v->counter)
-			: "Ir" (i), "m" (v->counter)
-			: "memory");
+			: "=&r" (result), "=&r" (temp), "+m" (v->counter)
+			: "Ir" (i));
 		} while (unlikely(!result));
 
 		result = temp + i;
@@ -213,9 +211,8 @@ static __inline__ int atomic_sub_return(int i, atomic_t * v)
 			"	subu	%0, %1, %3			\n"
 			"	sc	%0, %2				\n"
 			"	.set	mips0				\n"
-			: "=&r" (result), "=&r" (temp), "=m" (v->counter)
-			: "Ir" (i), "m" (v->counter)
-			: "memory");
+			: "=&r" (result), "=&r" (temp), "+m" (v->counter)
+			: "Ir" (i));
 		} while (unlikely(!result));
 
 		result = temp - i;
@@ -263,7 +260,7 @@ static __inline__ int atomic_sub_if_positive(int i, atomic_t * v)
 		"	.set	reorder					\n"
 		"1:							\n"
 		"	.set	mips0					\n"
-		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
+		: "=&r" (result), "=&r" (temp), "+m" (v->counter)
 		: "Ir" (i), "m" (v->counter)
 		: "memory");
 	} else if (cpu_has_llsc) {
@@ -281,9 +278,8 @@ static __inline__ int atomic_sub_if_positive(int i, atomic_t * v)
 		"	.set	reorder					\n"
 		"1:							\n"
 		"	.set	mips0					\n"
-		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
-		: "Ir" (i), "m" (v->counter)
-		: "memory");
+		: "=&r" (result), "=&r" (temp), "+m" (v->counter)
+		: "Ir" (i));
 	} else {
 		unsigned long flags;
 
@@ -434,8 +430,8 @@ static __inline__ void atomic64_add(long i, atomic64_t * v)
 		"	scd	%0, %1					\n"
 		"	beqzl	%0, 1b					\n"
 		"	.set	mips0					\n"
-		: "=&r" (temp), "=m" (v->counter)
-		: "Ir" (i), "m" (v->counter));
+		: "=&r" (temp), "+m" (v->counter)
+		: "Ir" (i));
 	} else if (cpu_has_llsc) {
 		long temp;
 
@@ -446,8 +442,8 @@ static __inline__ void atomic64_add(long i, atomic64_t * v)
 			"	daddu	%0, %2				\n"
 			"	scd	%0, %1				\n"
 			"	.set	mips0				\n"
-			: "=&r" (temp), "=m" (v->counter)
-			: "Ir" (i), "m" (v->counter));
+			: "=&r" (temp), "+m" (v->counter)
+			: "Ir" (i));
 		} while (unlikely(!temp));
 	} else {
 		unsigned long flags;
@@ -477,8 +473,8 @@ static __inline__ void atomic64_sub(long i, atomic64_t * v)
 		"	scd	%0, %1					\n"
 		"	beqzl	%0, 1b					\n"
 		"	.set	mips0					\n"
-		: "=&r" (temp), "=m" (v->counter)
-		: "Ir" (i), "m" (v->counter));
+		: "=&r" (temp), "+m" (v->counter)
+		: "Ir" (i));
 	} else if (cpu_has_llsc) {
 		long temp;
 
@@ -489,8 +485,8 @@ static __inline__ void atomic64_sub(long i, atomic64_t * v)
 			"	dsubu	%0, %2				\n"
 			"	scd	%0, %1				\n"
 			"	.set	mips0				\n"
-			: "=&r" (temp), "=m" (v->counter)
-			: "Ir" (i), "m" (v->counter));
+			: "=&r" (temp), "+m" (v->counter)
+			: "Ir" (i));
 		} while (unlikely(!temp));
 	} else {
 		unsigned long flags;
@@ -521,9 +517,8 @@ static __inline__ long atomic64_add_return(long i, atomic64_t * v)
 		"	beqzl	%0, 1b					\n"
 		"	daddu	%0, %1, %3				\n"
 		"	.set	mips0					\n"
-		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
-		: "Ir" (i), "m" (v->counter)
-		: "memory");
+		: "=&r" (result), "=&r" (temp), "+m" (v->counter)
+		: "Ir" (i));
 	} else if (cpu_has_llsc) {
 		long temp;
 
@@ -653,9 +648,8 @@ static __inline__ long atomic64_sub_if_positive(long i, atomic64_t * v)
 		"	.set	reorder					\n"
 		"1:							\n"
 		"	.set	mips0					\n"
-		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
-		: "Ir" (i), "m" (v->counter)
-		: "memory");
+		: "=&r" (result), "=&r" (temp), "+m" (v->counter)
+		: "Ir" (i));
 	} else {
 		unsigned long flags;
 
