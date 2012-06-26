@@ -112,6 +112,7 @@ index bf5d634..d0c05c1 100644
  		status = LIBUSB_TRANSFER_COMPLETED;
  		break;
 +	case -ENOENT: /* cancelled */
++		status = LIBUSB_TRANSFER_CANCELLED;
 +		break;
 +	case -ESHUTDOWN:
 +		usbi_dbg("device removed");
