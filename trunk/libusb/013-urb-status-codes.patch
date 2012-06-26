@@ -107,7 +107,7 @@ index bf5d634..d0c05c1 100644
  	}
  
  out:
-@@ -2058,6 +2075,12 @@ static int handle_control_completion(struct usbi_transfer *itransfer,
+@@ -2058,6 +2075,13 @@ static int handle_control_completion(struct usbi_transfer *itransfer,
  		itransfer->transferred = urb->actual_length;
  		status = LIBUSB_TRANSFER_COMPLETED;
  		break;
@@ -123,4 +123,3 @@ index bf5d634..d0c05c1 100644
  		status = LIBUSB_TRANSFER_STALL;
 -- 
 1.7.4.1
-
