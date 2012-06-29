@@ -6,14 +6,16 @@ Fix gcc4 compile-time warnings
  709c4efb68cccd2de9a7d63b1f90276b1617e613 mtd: map.h: add missing bug.h include
  d067aa741589a9783cc43315119e0f431b4e382c kbuild: fix a compile warning
  be2be1d59035a28debb22555f103e676a8f74186 kconfig: scripts/kconfig/zconf.l: add %option noinput
+ 702a945028fd7cbf7a5e55546b3c47a5c984a1ba kconfig: fix set but not used variables
 
 ---
  include/linux/mtd/map.h             |    5 ++
  net/ipv4/inetpeer.c                 |    4 -
  scripts/basic/fixdep.c              |    5 +-
  scripts/kconfig/lex.zconf.c_shipped |   86 ++++++++++++++++++++++++++++++------
+ scripts/kconfig/lxdialog/textbox.c  |    3 -
  scripts/kconfig/zconf.l             |    1 
- 5 files changed, 83 insertions(+), 18 deletions(-)
+ 6 files changed, 84 insertions(+), 20 deletions(-)
 
 diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
 --- a/net/ipv4/inetpeer.c
@@ -270,6 +272,29 @@ diff --git a/scripts/kconfig/lex.zconf.c_shipped b/scripts/kconfig/lex.zconf.c_s
  
  		/* zero only the new slots.*/
  		memset((yy_buffer_stack) + (yy_buffer_stack_max), 0, grow_size * sizeof(struct yy_buffer_state*));
+diff --git a/scripts/kconfig/lxdialog/textbox.c b/scripts/kconfig/lxdialog/textbox.c
+--- a/scripts/kconfig/lxdialog/textbox.c
++++ b/scripts/kconfig/lxdialog/textbox.c
+@@ -320,7 +320,6 @@ static void print_page(WINDOW * win, int height, int width)
+  */
+ static void print_line(WINDOW * win, int row, int width)
+ {
+-	int y, x;
+ 	char *line;
+ 
+ 	line = get_line();
+@@ -329,10 +328,10 @@ static void print_line(WINDOW * win, int row, int width)
+ 	waddch(win, ' ');
+ 	waddnstr(win, line, MIN(strlen(line), width - 2));
+ 
+-	getyx(win, y, x);
+ 	/* Clear 'residue' of previous line */
+ #if OLD_NCURSES
+ 	{
++		int x = getcurx(win);
+ 		int i;
+ 		for (i = 0; i < width - x; i++)
+ 			waddch(win, ' ');
 diff --git a/scripts/kconfig/zconf.l b/scripts/kconfig/zconf.l
 --- a/scripts/kconfig/zconf.l
 +++ b/scripts/kconfig/zconf.l
