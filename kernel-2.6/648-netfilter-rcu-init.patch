@@ -1,0 +1,487 @@
+[NETFILTER] Part of upstream "rcu: convert uses of rcu_assign_pointer(x, NULL) to RCU_INIT_POINTER"
+
+---
+ net/ipv4/netfilter/nf_nat_amanda.c   |    4 +--
+ net/ipv4/netfilter/nf_nat_core.c     |   20 +++++++++----------
+ net/ipv4/netfilter/nf_nat_ftp.c      |    4 +--
+ net/ipv4/netfilter/nf_nat_h323.c     |   36 +++++++++++++++++------------------
+ net/ipv4/netfilter/nf_nat_irc.c      |    4 +--
+ net/ipv4/netfilter/nf_nat_pptp.c     |   16 +++++++--------
+ net/ipv4/netfilter/nf_nat_rtsp.c     |    8 +++----
+ net/ipv4/netfilter/nf_nat_sip.c      |   28 +++++++++++++--------------
+ net/ipv4/netfilter/nf_nat_tftp.c     |    4 +--
+ net/netfilter/nf_conntrack_core.c    |   12 +++++------
+ net/netfilter/nf_conntrack_helper.c  |    2 -
+ net/netfilter/nf_conntrack_netlink.c |    6 ++---
+ net/netfilter/nf_conntrack_proto.c   |   10 ++++-----
+ net/netfilter/nf_log.c               |    6 ++---
+ 14 files changed, 80 insertions(+), 80 deletions(-)
+
+diff --git a/net/ipv4/netfilter/nf_nat_amanda.c b/net/ipv4/netfilter/nf_nat_amanda.c
+--- a/net/ipv4/netfilter/nf_nat_amanda.c
++++ b/net/ipv4/netfilter/nf_nat_amanda.c
+@@ -70,14 +70,14 @@ static unsigned int help(struct sk_buff 
+ 
+ static void __exit nf_nat_amanda_fini(void)
+ {
+-	rcu_assign_pointer(nf_nat_amanda_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_amanda_hook, NULL);
+ 	synchronize_rcu();
+ }
+ 
+ static int __init nf_nat_amanda_init(void)
+ {
+ 	BUG_ON(rcu_dereference(nf_nat_amanda_hook));
+-	rcu_assign_pointer(nf_nat_amanda_hook, help);
++	RCU_INIT_POINTER(nf_nat_amanda_hook, help);
+ 	return 0;
+ }
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -548,7 +548,7 @@ int nf_nat_protocol_register(const struc
+ 		ret = -EBUSY;
+ 		goto out;
+ 	}
+-	rcu_assign_pointer(nf_nat_protos[proto->protonum], proto);
++	RCU_INIT_POINTER(nf_nat_protos[proto->protonum], proto);
+  out:
+ 	write_unlock_bh(&nf_nat_lock);
+ 	return ret;
+@@ -559,7 +559,7 @@ EXPORT_SYMBOL(nf_nat_protocol_register);
+ void nf_nat_protocol_unregister(const struct nf_nat_protocol *proto)
+ {
+ 	write_lock_bh(&nf_nat_lock);
+-	rcu_assign_pointer(nf_nat_protos[proto->protonum],
++	RCU_INIT_POINTER(nf_nat_protos[proto->protonum],
+ 			   &nf_nat_unknown_protocol);
+ 	write_unlock_bh(&nf_nat_lock);
+ 	synchronize_rcu();
+@@ -581,10 +581,10 @@ static int __init nf_nat_init(void)
+ 	/* Sew in builtin protocols. */
+ 	write_lock_bh(&nf_nat_lock);
+ 	for (i = 0; i < MAX_IP_NAT_PROTO; i++)
+-		rcu_assign_pointer(nf_nat_protos[i], &nf_nat_unknown_protocol);
+-	rcu_assign_pointer(nf_nat_protos[IPPROTO_TCP], &nf_nat_protocol_tcp);
+-	rcu_assign_pointer(nf_nat_protos[IPPROTO_UDP], &nf_nat_protocol_udp);
+-	rcu_assign_pointer(nf_nat_protos[IPPROTO_ICMP], &nf_nat_protocol_icmp);
++		RCU_INIT_POINTER(nf_nat_protos[i], &nf_nat_unknown_protocol);
++	RCU_INIT_POINTER(nf_nat_protos[IPPROTO_TCP], &nf_nat_protocol_tcp);
++	RCU_INIT_POINTER(nf_nat_protos[IPPROTO_UDP], &nf_nat_protocol_udp);
++	RCU_INIT_POINTER(nf_nat_protos[IPPROTO_ICMP], &nf_nat_protocol_icmp);
+ 	write_unlock_bh(&nf_nat_lock);
+ 
+ 	for (i = 0; i < nf_nat_htable_size; i++) {
+@@ -593,10 +593,10 @@ static int __init nf_nat_init(void)
+ 
+ 	/* FIXME: Man, this is a hack.  <SIGH> */
+ 	NF_CT_ASSERT(rcu_dereference(nf_conntrack_destroyed) == NULL);
+-	rcu_assign_pointer(nf_conntrack_destroyed, nf_nat_cleanup_conntrack);
++	RCU_INIT_POINTER(nf_conntrack_destroyed, nf_nat_cleanup_conntrack);
+ 
+ 	NF_CT_ASSERT(rcu_dereference(nf_ct_nat_offset) == NULL);
+-	rcu_assign_pointer(nf_ct_nat_offset, nf_nat_get_offset);
++	RCU_INIT_POINTER(nf_ct_nat_offset, nf_nat_get_offset);
+ 
+ 	/* Initialize fake conntrack so that NAT will skip it */
+ 	nf_conntrack_untracked.status |= IPS_NAT_DONE_MASK;
+@@ -620,8 +620,8 @@ static int clean_nat(struct nf_conn *i, 
+ static void __exit nf_nat_cleanup(void)
+ {
+ 	nf_ct_iterate_cleanup(&clean_nat, NULL);
+-	rcu_assign_pointer(nf_conntrack_destroyed, NULL);
+-	rcu_assign_pointer(nf_ct_nat_offset, NULL);
++	RCU_INIT_POINTER(nf_conntrack_destroyed, NULL);
++	RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
+ 	synchronize_rcu();
+ 	vfree(bysource);
+ 	nf_ct_l3proto_put(l3proto);
+diff --git a/net/ipv4/netfilter/nf_nat_ftp.c b/net/ipv4/netfilter/nf_nat_ftp.c
+--- a/net/ipv4/netfilter/nf_nat_ftp.c
++++ b/net/ipv4/netfilter/nf_nat_ftp.c
+@@ -154,14 +154,14 @@ static unsigned int nf_nat_ftp(struct sk
+ 
+ static void __exit nf_nat_ftp_fini(void)
+ {
+-	rcu_assign_pointer(nf_nat_ftp_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_ftp_hook, NULL);
+ 	synchronize_rcu();
+ }
+ 
+ static int __init nf_nat_ftp_init(void)
+ {
+ 	BUG_ON(rcu_dereference(nf_nat_ftp_hook));
+-	rcu_assign_pointer(nf_nat_ftp_hook, nf_nat_ftp);
++	RCU_INIT_POINTER(nf_nat_ftp_hook, nf_nat_ftp);
+ 	return 0;
+ }
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_h323.c b/net/ipv4/netfilter/nf_nat_h323.c
+--- a/net/ipv4/netfilter/nf_nat_h323.c
++++ b/net/ipv4/netfilter/nf_nat_h323.c
+@@ -594,15 +594,15 @@ static int __init init(void)
+ 	BUG_ON(rcu_dereference(nat_callforwarding_hook) != NULL);
+ 	BUG_ON(rcu_dereference(nat_q931_hook) != NULL);
+ 
+-	rcu_assign_pointer(set_h245_addr_hook, set_h245_addr);
+-	rcu_assign_pointer(set_h225_addr_hook, set_h225_addr);
+-	rcu_assign_pointer(set_sig_addr_hook, set_sig_addr);
+-	rcu_assign_pointer(set_ras_addr_hook, set_ras_addr);
+-	rcu_assign_pointer(nat_rtp_rtcp_hook, nat_rtp_rtcp);
+-	rcu_assign_pointer(nat_t120_hook, nat_t120);
+-	rcu_assign_pointer(nat_h245_hook, nat_h245);
+-	rcu_assign_pointer(nat_callforwarding_hook, nat_callforwarding);
+-	rcu_assign_pointer(nat_q931_hook, nat_q931);
++	RCU_INIT_POINTER(set_h245_addr_hook, set_h245_addr);
++	RCU_INIT_POINTER(set_h225_addr_hook, set_h225_addr);
++	RCU_INIT_POINTER(set_sig_addr_hook, set_sig_addr);
++	RCU_INIT_POINTER(set_ras_addr_hook, set_ras_addr);
++	RCU_INIT_POINTER(nat_rtp_rtcp_hook, nat_rtp_rtcp);
++	RCU_INIT_POINTER(nat_t120_hook, nat_t120);
++	RCU_INIT_POINTER(nat_h245_hook, nat_h245);
++	RCU_INIT_POINTER(nat_callforwarding_hook, nat_callforwarding);
++	RCU_INIT_POINTER(nat_q931_hook, nat_q931);
+ 
+ 	DEBUGP("nf_nat_h323: init success\n");
+ 	return 0;
+@@ -611,15 +611,15 @@ static int __init init(void)
+ /****************************************************************************/
+ static void __exit fini(void)
+ {
+-	rcu_assign_pointer(set_h245_addr_hook, NULL);
+-	rcu_assign_pointer(set_h225_addr_hook, NULL);
+-	rcu_assign_pointer(set_sig_addr_hook, NULL);
+-	rcu_assign_pointer(set_ras_addr_hook, NULL);
+-	rcu_assign_pointer(nat_rtp_rtcp_hook, NULL);
+-	rcu_assign_pointer(nat_t120_hook, NULL);
+-	rcu_assign_pointer(nat_h245_hook, NULL);
+-	rcu_assign_pointer(nat_callforwarding_hook, NULL);
+-	rcu_assign_pointer(nat_q931_hook, NULL);
++	RCU_INIT_POINTER(set_h245_addr_hook, NULL);
++	RCU_INIT_POINTER(set_h225_addr_hook, NULL);
++	RCU_INIT_POINTER(set_sig_addr_hook, NULL);
++	RCU_INIT_POINTER(set_ras_addr_hook, NULL);
++	RCU_INIT_POINTER(nat_rtp_rtcp_hook, NULL);
++	RCU_INIT_POINTER(nat_t120_hook, NULL);
++	RCU_INIT_POINTER(nat_h245_hook, NULL);
++	RCU_INIT_POINTER(nat_callforwarding_hook, NULL);
++	RCU_INIT_POINTER(nat_q931_hook, NULL);
+ 	synchronize_rcu();
+ }
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_irc.c b/net/ipv4/netfilter/nf_nat_irc.c
+--- a/net/ipv4/netfilter/nf_nat_irc.c
++++ b/net/ipv4/netfilter/nf_nat_irc.c
+@@ -84,14 +84,14 @@ static unsigned int help(struct sk_buff 
+ 
+ static void __exit nf_nat_irc_fini(void)
+ {
+-	rcu_assign_pointer(nf_nat_irc_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_irc_hook, NULL);
+ 	synchronize_rcu();
+ }
+ 
+ static int __init nf_nat_irc_init(void)
+ {
+ 	BUG_ON(rcu_dereference(nf_nat_irc_hook));
+-	rcu_assign_pointer(nf_nat_irc_hook, help);
++	RCU_INIT_POINTER(nf_nat_irc_hook, help);
+ 	return 0;
+ }
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_pptp.c b/net/ipv4/netfilter/nf_nat_pptp.c
+--- a/net/ipv4/netfilter/nf_nat_pptp.c
++++ b/net/ipv4/netfilter/nf_nat_pptp.c
+@@ -289,25 +289,25 @@ static int __init nf_nat_helper_pptp_ini
+ 	nf_nat_need_gre();
+ 
+ 	BUG_ON(rcu_dereference(nf_nat_pptp_hook_outbound));
+-	rcu_assign_pointer(nf_nat_pptp_hook_outbound, pptp_outbound_pkt);
++	RCU_INIT_POINTER(nf_nat_pptp_hook_outbound, pptp_outbound_pkt);
+ 
+ 	BUG_ON(rcu_dereference(nf_nat_pptp_hook_inbound));
+-	rcu_assign_pointer(nf_nat_pptp_hook_inbound, pptp_inbound_pkt);
++	RCU_INIT_POINTER(nf_nat_pptp_hook_inbound, pptp_inbound_pkt);
+ 
+ 	BUG_ON(rcu_dereference(nf_nat_pptp_hook_exp_gre));
+-	rcu_assign_pointer(nf_nat_pptp_hook_exp_gre, pptp_exp_gre);
++	RCU_INIT_POINTER(nf_nat_pptp_hook_exp_gre, pptp_exp_gre);
+ 
+ 	BUG_ON(rcu_dereference(nf_nat_pptp_hook_expectfn));
+-	rcu_assign_pointer(nf_nat_pptp_hook_expectfn, pptp_nat_expected);
++	RCU_INIT_POINTER(nf_nat_pptp_hook_expectfn, pptp_nat_expected);
+ 	return 0;
+ }
+ 
+ static void __exit nf_nat_helper_pptp_fini(void)
+ {
+-	rcu_assign_pointer(nf_nat_pptp_hook_expectfn, NULL);
+-	rcu_assign_pointer(nf_nat_pptp_hook_exp_gre, NULL);
+-	rcu_assign_pointer(nf_nat_pptp_hook_inbound, NULL);
+-	rcu_assign_pointer(nf_nat_pptp_hook_outbound, NULL);
++	RCU_INIT_POINTER(nf_nat_pptp_hook_expectfn, NULL);
++	RCU_INIT_POINTER(nf_nat_pptp_hook_exp_gre, NULL);
++	RCU_INIT_POINTER(nf_nat_pptp_hook_inbound, NULL);
++	RCU_INIT_POINTER(nf_nat_pptp_hook_outbound, NULL);
+ 	synchronize_rcu();
+ }
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_rtsp.c b/net/ipv4/netfilter/nf_nat_rtsp.c
+--- a/net/ipv4/netfilter/nf_nat_rtsp.c
++++ b/net/ipv4/netfilter/nf_nat_rtsp.c
+@@ -462,8 +462,8 @@ static void expected(struct nf_conn* ct,
+ 
+ static void __exit fini(void)
+ {
+-	rcu_assign_pointer(nf_nat_rtsp_hook, NULL);
+-	rcu_assign_pointer(nf_nat_rtsp_hook_expectfn, NULL);
++	RCU_INIT_POINTER(nf_nat_rtsp_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_rtsp_hook_expectfn, NULL);
+ 	synchronize_rcu();
+ }
+ 
+@@ -486,10 +486,10 @@ static int __init init(void)
+ 	}
+ 
+ 	BUG_ON(rcu_dereference(nf_nat_rtsp_hook));
+-	rcu_assign_pointer(nf_nat_rtsp_hook, help);
++	RCU_INIT_POINTER(nf_nat_rtsp_hook, help);
+ 
+ 	BUG_ON(rcu_dereference(nf_nat_rtsp_hook_expectfn));
+-	rcu_assign_pointer(nf_nat_rtsp_hook_expectfn, expected);
++	RCU_INIT_POINTER(nf_nat_rtsp_hook_expectfn, expected);
+ 
+ 	return 0;
+ }
+diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
+--- a/net/ipv4/netfilter/nf_nat_sip.c
++++ b/net/ipv4/netfilter/nf_nat_sip.c
+@@ -532,13 +532,13 @@ err1:
+ 
+ static void __exit nf_nat_sip_fini(void)
+ {
+-	rcu_assign_pointer(nf_nat_sip_hook, NULL);
+-	rcu_assign_pointer(nf_nat_sip_seq_adjust_hook, NULL);
+-	rcu_assign_pointer(nf_nat_sip_expect_hook, NULL);
+-	rcu_assign_pointer(nf_nat_sdp_addr_hook, NULL);
+-	rcu_assign_pointer(nf_nat_sdp_port_hook, NULL);
+-	rcu_assign_pointer(nf_nat_sdp_session_hook, NULL);
+-	rcu_assign_pointer(nf_nat_sdp_media_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_sip_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_sip_seq_adjust_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_sip_expect_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_sdp_addr_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_sdp_port_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_sdp_session_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_sdp_media_hook, NULL);
+ 	synchronize_rcu();
+ }
+ 
+@@ -551,13 +551,13 @@ static int __init nf_nat_sip_init(void)
+ 	BUG_ON(rcu_dereference(nf_nat_sdp_port_hook));
+ 	BUG_ON(rcu_dereference(nf_nat_sdp_session_hook));
+ 	BUG_ON(rcu_dereference(nf_nat_sdp_media_hook));
+-	rcu_assign_pointer(nf_nat_sip_hook, ip_nat_sip);
+-	rcu_assign_pointer(nf_nat_sip_seq_adjust_hook, ip_nat_sip_seq_adjust);
+-	rcu_assign_pointer(nf_nat_sip_expect_hook, ip_nat_sip_expect);
+-	rcu_assign_pointer(nf_nat_sdp_addr_hook, ip_nat_sdp_addr);
+-	rcu_assign_pointer(nf_nat_sdp_port_hook, ip_nat_sdp_port);
+-	rcu_assign_pointer(nf_nat_sdp_session_hook, ip_nat_sdp_session);
+-	rcu_assign_pointer(nf_nat_sdp_media_hook, ip_nat_sdp_media);
++	RCU_INIT_POINTER(nf_nat_sip_hook, ip_nat_sip);
++	RCU_INIT_POINTER(nf_nat_sip_seq_adjust_hook, ip_nat_sip_seq_adjust);
++	RCU_INIT_POINTER(nf_nat_sip_expect_hook, ip_nat_sip_expect);
++	RCU_INIT_POINTER(nf_nat_sdp_addr_hook, ip_nat_sdp_addr);
++	RCU_INIT_POINTER(nf_nat_sdp_port_hook, ip_nat_sdp_port);
++	RCU_INIT_POINTER(nf_nat_sdp_session_hook, ip_nat_sdp_session);
++	RCU_INIT_POINTER(nf_nat_sdp_media_hook, ip_nat_sdp_media);
+ 	return 0;
+ }
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_tftp.c b/net/ipv4/netfilter/nf_nat_tftp.c
+--- a/net/ipv4/netfilter/nf_nat_tftp.c
++++ b/net/ipv4/netfilter/nf_nat_tftp.c
+@@ -37,14 +37,14 @@ static unsigned int help(struct sk_buff 
+ 
+ static void __exit nf_nat_tftp_fini(void)
+ {
+-	rcu_assign_pointer(nf_nat_tftp_hook, NULL);
++	RCU_INIT_POINTER(nf_nat_tftp_hook, NULL);
+ 	synchronize_rcu();
+ }
+ 
+ static int __init nf_nat_tftp_init(void)
+ {
+ 	BUG_ON(rcu_dereference(nf_nat_tftp_hook));
+-	rcu_assign_pointer(nf_nat_tftp_hook, help);
++	RCU_INIT_POINTER(nf_nat_tftp_hook, help);
+ 	return 0;
+ }
+ 
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -824,7 +824,7 @@ init_conntrack(const struct nf_conntrack
+ 		__set_bit(IPS_EXPECTED_BIT, &conntrack->status);
+ 		conntrack->master = exp->master;
+ 		if (exp->helper)
+-			rcu_assign_pointer(help->helper, exp->helper);
++			RCU_INIT_POINTER(help->helper, exp->helper);
+ #ifdef CONFIG_NF_CONNTRACK_MARK
+ 		conntrack->mark = exp->master->mark;
+ #endif
+@@ -1311,7 +1311,7 @@ void nf_conntrack_cleanup(void)
+ {
+ 	int i;
+ 
+-	rcu_assign_pointer(ip_ct_attach, NULL);
++	RCU_INIT_POINTER(ip_ct_attach, NULL);
+ 
+ 	/* This makes sure all current packets have passed through
+ 	   netfilter framework.  Roll on, two-stage module
+@@ -1329,7 +1329,7 @@ void nf_conntrack_cleanup(void)
+ 	while (atomic_read(&nf_conntrack_untracked.ct_general.use) > 1)
+ 		schedule();
+ 
+-	rcu_assign_pointer(nf_ct_destroy, NULL);
++	RCU_INIT_POINTER(nf_ct_destroy, NULL);
+ 
+ 	for (i = 0; i < NF_CT_F_NUM; i++) {
+ 		if (nf_ct_cache[i].use == 0)
+@@ -1482,11 +1482,11 @@ int __init nf_conntrack_init(void)
+ 		goto out_free_expect_slab;
+ 
+ 	/* For use by REJECT target */
+-	rcu_assign_pointer(ip_ct_attach, __nf_conntrack_attach);
+-	rcu_assign_pointer(nf_ct_destroy, destroy_conntrack);
++	RCU_INIT_POINTER(ip_ct_attach, __nf_conntrack_attach);
++	RCU_INIT_POINTER(nf_ct_destroy, destroy_conntrack);
+ 
+ 	/* Howto get NAT offsets */
+-	rcu_assign_pointer(nf_ct_nat_offset, NULL);
++	RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
+ 
+ 	/* Set up fake conntrack:
+ 	    - to never be deleted, not in any hashes */
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -93,7 +93,7 @@ static inline int unhelp(struct nf_connt
+ 
+ 	if (help && help->helper == me) {
+ 		nf_conntrack_event(IPCT_HELPER, ct);
+-		rcu_assign_pointer(help->helper, NULL);
++		RCU_INIT_POINTER(help->helper, NULL);
+ 	}
+ 	return 0;
+ }
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -842,7 +842,7 @@ ctnetlink_change_helper(struct nf_conn *
+ 		if (help && help->helper) {
+ 			/* we had a helper before ... */
+ 			nf_ct_remove_expectations(ct);
+-			rcu_assign_pointer(help->helper, NULL);
++			RCU_INIT_POINTER(help->helper, NULL);
+ 		}
+ 
+ 		return 0;
+@@ -865,7 +865,7 @@ ctnetlink_change_helper(struct nf_conn *
+ 
+ 	/* need to zero data of old helper */
+ 	memset(&help->help, 0, sizeof(help->help));
+-	rcu_assign_pointer(help->helper, helper);
++	RCU_INIT_POINTER(help->helper, helper);
+ 
+ 	return 0;
+ }
+@@ -983,7 +983,7 @@ ctnetlink_create_conntrack(struct nfattr
+ 	if (help) {
+ 		helper = nf_ct_helper_find_get(rtuple);
+ 		/* not in hash table yet so not strictly necessary */
+-		rcu_assign_pointer(help->helper, helper);
++		RCU_INIT_POINTER(help->helper, helper);
+ 	}
+ 
+ 	add_timer(&ct->timeout);
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -199,7 +199,7 @@ int nf_conntrack_l3proto_register(struct
+ 	if (ret < 0)
+ 		goto out_unlock;
+ 
+-	rcu_assign_pointer(nf_ct_l3protos[proto->l3proto], proto);
++	RCU_INIT_POINTER(nf_ct_l3protos[proto->l3proto], proto);
+ 
+ out_unlock:
+ 	mutex_unlock(&nf_ct_proto_mutex);
+@@ -213,7 +213,7 @@ void nf_conntrack_l3proto_unregister(str
+ 
+ 	mutex_lock(&nf_ct_proto_mutex);
+ 	BUG_ON(nf_ct_l3protos[proto->l3proto] != proto);
+-	rcu_assign_pointer(nf_ct_l3protos[proto->l3proto],
++	RCU_INIT_POINTER(nf_ct_l3protos[proto->l3proto],
+ 			   &nf_conntrack_l3proto_generic);
+ 	nf_ct_l3proto_unregister_sysctl(proto);
+ 	mutex_unlock(&nf_ct_proto_mutex);
+@@ -307,7 +307,7 @@ int nf_conntrack_l4proto_register(struct
+ 	if (ret < 0)
+ 		goto out_unlock;
+ 
+-	rcu_assign_pointer(nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
++	RCU_INIT_POINTER(nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
+ 			   l4proto);
+ 
+ out_unlock:
+@@ -322,7 +322,7 @@ void nf_conntrack_l4proto_unregister(str
+ 
+ 	mutex_lock(&nf_ct_proto_mutex);
+ 	BUG_ON(nf_ct_protos[l4proto->l3proto][l4proto->l4proto] != l4proto);
+-	rcu_assign_pointer(nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
++	RCU_INIT_POINTER(nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
+ 			   &nf_conntrack_l4proto_generic);
+ 	nf_ct_l4proto_unregister_sysctl(l4proto);
+ 	mutex_unlock(&nf_ct_proto_mutex);
+@@ -344,7 +344,7 @@ int nf_conntrack_proto_init(void)
+ 		return err;
+ 
+ 	for (i = 0; i < AF_MAX; i++)
+-		rcu_assign_pointer(nf_ct_l3protos[i],
++		RCU_INIT_POINTER(nf_ct_l3protos[i],
+ 				   &nf_conntrack_l3proto_generic);
+ 	return 0;
+ }
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -33,7 +33,7 @@ int nf_log_register(int pf, const struct
+ 		return ret;
+ 
+ 	if (!nf_loggers[pf])
+-		rcu_assign_pointer(nf_loggers[pf], logger);
++		RCU_INIT_POINTER(nf_loggers[pf], logger);
+ 	else if (nf_loggers[pf] == logger)
+ 		ret = -EEXIST;
+ 	else
+@@ -49,7 +49,7 @@ void nf_log_unregister_pf(int pf)
+ 	if (pf >= ARRAY_SIZE(nf_loggers))
+ 		return;
+ 	mutex_lock(&nf_log_mutex);
+-	rcu_assign_pointer(nf_loggers[pf], NULL);
++	RCU_INIT_POINTER(nf_loggers[pf], NULL);
+ 	mutex_unlock(&nf_log_mutex);
+ 
+ 	/* Give time to concurrent readers. */
+@@ -64,7 +64,7 @@ void nf_log_unregister(const struct nf_l
+ 	mutex_lock(&nf_log_mutex);
+ 	for (i = 0; i < ARRAY_SIZE(nf_loggers); i++) {
+ 		if (nf_loggers[i] == logger)
+-			rcu_assign_pointer(nf_loggers[i], NULL);
++			RCU_INIT_POINTER(nf_loggers[i], NULL);
+ 	}
+ 	mutex_unlock(&nf_log_mutex);
+ 
+-- 
