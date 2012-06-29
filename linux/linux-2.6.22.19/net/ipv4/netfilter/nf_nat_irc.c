@@ -84,14 +84,14 @@ static unsigned int help(struct sk_buff *skb,
 
 static void __exit nf_nat_irc_fini(void)
 {
-	rcu_assign_pointer(nf_nat_irc_hook, NULL);
+	RCU_INIT_POINTER(nf_nat_irc_hook, NULL);
 	synchronize_rcu();
 }
 
 static int __init nf_nat_irc_init(void)
 {
 	BUG_ON(rcu_dereference(nf_nat_irc_hook));
-	rcu_assign_pointer(nf_nat_irc_hook, help);
+	RCU_INIT_POINTER(nf_nat_irc_hook, help);
 	return 0;
 }
 

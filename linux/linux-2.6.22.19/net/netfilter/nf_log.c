@@ -33,7 +33,7 @@ int nf_log_register(int pf, const struct nf_logger *logger)
 		return ret;
 
 	if (!nf_loggers[pf])
-		rcu_assign_pointer(nf_loggers[pf], logger);
+		RCU_INIT_POINTER(nf_loggers[pf], logger);
 	else if (nf_loggers[pf] == logger)
 		ret = -EEXIST;
 	else
@@ -49,7 +49,7 @@ void nf_log_unregister_pf(int pf)
 	if (pf >= ARRAY_SIZE(nf_loggers))
 		return;
 	mutex_lock(&nf_log_mutex);
-	rcu_assign_pointer(nf_loggers[pf], NULL);
+	RCU_INIT_POINTER(nf_loggers[pf], NULL);
 	mutex_unlock(&nf_log_mutex);
 
 	/* Give time to concurrent readers. */
@@ -64,7 +64,7 @@ void nf_log_unregister(const struct nf_logger *logger)
 	mutex_lock(&nf_log_mutex);
 	for (i = 0; i < ARRAY_SIZE(nf_loggers); i++) {
 		if (nf_loggers[i] == logger)
-			rcu_assign_pointer(nf_loggers[i], NULL);
+			RCU_INIT_POINTER(nf_loggers[i], NULL);
 	}
 	mutex_unlock(&nf_log_mutex);
 

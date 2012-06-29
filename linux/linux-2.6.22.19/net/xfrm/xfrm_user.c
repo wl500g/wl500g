@@ -2558,7 +2558,7 @@ static int __init xfrm_user_init(void)
 				     xfrm_netlink_rcv, NULL, THIS_MODULE);
 	if (nlsk == NULL)
 		return -ENOMEM;
-	rcu_assign_pointer(xfrm_nl, nlsk);
+	RCU_INIT_POINTER(xfrm_nl, nlsk);
 
 	xfrm_register_km(&netlink_mgr);
 
@@ -2570,7 +2570,7 @@ static void __exit xfrm_user_exit(void)
 	struct sock *nlsk = xfrm_nl;
 
 	xfrm_unregister_km(&netlink_mgr);
-	rcu_assign_pointer(xfrm_nl, NULL);
+	RCU_INIT_POINTER(xfrm_nl, NULL);
 	synchronize_rcu();
 	sock_release(nlsk->sk_socket);
 }

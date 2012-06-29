@@ -519,7 +519,7 @@ int nf_nat_protocol_register(const struct nf_nat_protocol *proto)
 		ret = -EBUSY;
 		goto out;
 	}
-	rcu_assign_pointer(nf_nat_protos[proto->protonum], proto);
+	RCU_INIT_POINTER(nf_nat_protos[proto->protonum], proto);
  out:
 	write_unlock_bh(&nf_nat_lock);
 	return ret;
@@ -530,7 +530,7 @@ EXPORT_SYMBOL(nf_nat_protocol_register);
 void nf_nat_protocol_unregister(const struct nf_nat_protocol *proto)
 {
 	write_lock_bh(&nf_nat_lock);
-	rcu_assign_pointer(nf_nat_protos[proto->protonum],
+	RCU_INIT_POINTER(nf_nat_protos[proto->protonum],
 			   &nf_nat_unknown_protocol);
 	write_unlock_bh(&nf_nat_lock);
 	synchronize_rcu();
@@ -552,10 +552,10 @@ static int __init nf_nat_init(void)
 	/* Sew in builtin protocols. */
 	write_lock_bh(&nf_nat_lock);
 	for (i = 0; i < MAX_IP_NAT_PROTO; i++)
-		rcu_assign_pointer(nf_nat_protos[i], &nf_nat_unknown_protocol);
-	rcu_assign_pointer(nf_nat_protos[IPPROTO_TCP], &nf_nat_protocol_tcp);
-	rcu_assign_pointer(nf_nat_protos[IPPROTO_UDP], &nf_nat_protocol_udp);
-	rcu_assign_pointer(nf_nat_protos[IPPROTO_ICMP], &nf_nat_protocol_icmp);
+		RCU_INIT_POINTER(nf_nat_protos[i], &nf_nat_unknown_protocol);
+	RCU_INIT_POINTER(nf_nat_protos[IPPROTO_TCP], &nf_nat_protocol_tcp);
+	RCU_INIT_POINTER(nf_nat_protos[IPPROTO_UDP], &nf_nat_protocol_udp);
+	RCU_INIT_POINTER(nf_nat_protos[IPPROTO_ICMP], &nf_nat_protocol_icmp);
 	write_unlock_bh(&nf_nat_lock);
 
 	for (i = 0; i < nf_nat_htable_size; i++) {
@@ -564,10 +564,10 @@ static int __init nf_nat_init(void)
 
 	/* FIXME: Man, this is a hack.  <SIGH> */
 	NF_CT_ASSERT(rcu_dereference(nf_conntrack_destroyed) == NULL);
-	rcu_assign_pointer(nf_conntrack_destroyed, nf_nat_cleanup_conntrack);
+	RCU_INIT_POINTER(nf_conntrack_destroyed, nf_nat_cleanup_conntrack);
 
 	NF_CT_ASSERT(rcu_dereference(nf_ct_nat_offset) == NULL);
-	rcu_assign_pointer(nf_ct_nat_offset, nf_nat_get_offset);
+	RCU_INIT_POINTER(nf_ct_nat_offset, nf_nat_get_offset);
 
 	/* Initialize fake conntrack so that NAT will skip it */
 	nf_conntrack_untracked.status |= IPS_NAT_DONE_MASK;
@@ -591,8 +591,8 @@ static int clean_nat(struct nf_conn *i, void *data)
 static void __exit nf_nat_cleanup(void)
 {
 	nf_ct_iterate_cleanup(&clean_nat, NULL);
-	rcu_assign_pointer(nf_conntrack_destroyed, NULL);
-	rcu_assign_pointer(nf_ct_nat_offset, NULL);
+	RCU_INIT_POINTER(nf_conntrack_destroyed, NULL);
+	RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
 	synchronize_rcu();
 	vfree(bysource);
 	nf_ct_l3proto_put(l3proto);

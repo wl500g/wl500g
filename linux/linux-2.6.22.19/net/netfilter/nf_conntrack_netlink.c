@@ -842,7 +842,7 @@ ctnetlink_change_helper(struct nf_conn *ct, struct nfattr *cda[])
 		if (help && help->helper) {
 			/* we had a helper before ... */
 			nf_ct_remove_expectations(ct);
-			rcu_assign_pointer(help->helper, NULL);
+			RCU_INIT_POINTER(help->helper, NULL);
 		}
 
 		return 0;
@@ -865,7 +865,7 @@ ctnetlink_change_helper(struct nf_conn *ct, struct nfattr *cda[])
 
 	/* need to zero data of old helper */
 	memset(&help->help, 0, sizeof(help->help));
-	rcu_assign_pointer(help->helper, helper);
+	RCU_INIT_POINTER(help->helper, helper);
 
 	return 0;
 }
@@ -983,7 +983,7 @@ ctnetlink_create_conntrack(struct nfattr *cda[],
 	if (help) {
 		helper = nf_ct_helper_find_get(rtuple);
 		/* not in hash table yet so not strictly necessary */
-		rcu_assign_pointer(help->helper, helper);
+		RCU_INIT_POINTER(help->helper, helper);
 	}
 
 	add_timer(&ct->timeout);

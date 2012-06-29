@@ -782,7 +782,7 @@ init_conntrack(const struct nf_conntrack_tuple *tuple,
 		__set_bit(IPS_EXPECTED_BIT, &conntrack->status);
 		conntrack->master = exp->master;
 		if (exp->helper)
-			rcu_assign_pointer(help->helper, exp->helper);
+			RCU_INIT_POINTER(help->helper, exp->helper);
 #ifdef CONFIG_NF_CONNTRACK_MARK
 		conntrack->mark = exp->master->mark;
 #endif
@@ -1200,7 +1200,7 @@ void nf_conntrack_cleanup(void)
 {
 	int i;
 
-	rcu_assign_pointer(ip_ct_attach, NULL);
+	RCU_INIT_POINTER(ip_ct_attach, NULL);
 
 	/* This makes sure all current packets have passed through
 	   netfilter framework.  Roll on, two-stage module
@@ -1218,7 +1218,7 @@ void nf_conntrack_cleanup(void)
 	while (atomic_read(&nf_conntrack_untracked.ct_general.use) > 1)
 		schedule();
 
-	rcu_assign_pointer(nf_ct_destroy, NULL);
+	RCU_INIT_POINTER(nf_ct_destroy, NULL);
 
 	for (i = 0; i < NF_CT_F_NUM; i++) {
 		if (nf_ct_cache[i].use == 0)
@@ -1371,11 +1371,11 @@ int __init nf_conntrack_init(void)
 		goto out_free_expect_slab;
 
 	/* For use by REJECT target */
-	rcu_assign_pointer(ip_ct_attach, __nf_conntrack_attach);
-	rcu_assign_pointer(nf_ct_destroy, destroy_conntrack);
+	RCU_INIT_POINTER(ip_ct_attach, __nf_conntrack_attach);
+	RCU_INIT_POINTER(nf_ct_destroy, destroy_conntrack);
 
 	/* Howto get NAT offsets */
-	rcu_assign_pointer(nf_ct_nat_offset, NULL);
+	RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
 
 	/* Set up fake conntrack:
 	    - to never be deleted, not in any hashes */

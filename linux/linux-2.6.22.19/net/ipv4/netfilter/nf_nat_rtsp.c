@@ -462,8 +462,8 @@ static void expected(struct nf_conn* ct, struct nf_conntrack_expect *exp)
 
 static void __exit fini(void)
 {
-	rcu_assign_pointer(nf_nat_rtsp_hook, NULL);
-	rcu_assign_pointer(nf_nat_rtsp_hook_expectfn, NULL);
+	RCU_INIT_POINTER(nf_nat_rtsp_hook, NULL);
+	RCU_INIT_POINTER(nf_nat_rtsp_hook_expectfn, NULL);
 	synchronize_rcu();
 }
 
@@ -486,10 +486,10 @@ static int __init init(void)
 	}
 
 	BUG_ON(rcu_dereference(nf_nat_rtsp_hook));
-	rcu_assign_pointer(nf_nat_rtsp_hook, help);
+	RCU_INIT_POINTER(nf_nat_rtsp_hook, help);
 
 	BUG_ON(rcu_dereference(nf_nat_rtsp_hook_expectfn));
-	rcu_assign_pointer(nf_nat_rtsp_hook_expectfn, expected);
+	RCU_INIT_POINTER(nf_nat_rtsp_hook_expectfn, expected);
 
 	return 0;
 }
