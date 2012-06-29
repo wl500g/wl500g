@@ -1,0 +1,774 @@
+
+ fef74705ea310acd716c2722bfeb0f796cf23640 [MIPS] Type proof reimplementation of cmpxchg.
+ 068fbad288a2c18b75b0425fb56d241f018a1cb5 Add cmpxchg_local to asm-generic for per cpu atomic operations
+ 3b96a56d395a4dcf4c05c48d8f4e74b1f8bd073d Add cmpxchg64 and cmpxchg64_local to mips
+ c8f30ae54714abf494d79826d90b5e4844fbf355 mips: fix bitops
+ 915ec1e216a5b009ba621b1c5b5be49c85685e53 MIPS: atomic_*(): Change type of intermediate variables.
+
+---
+
+diff --git a/include/asm-generic/cmpxchg-local.h b/include/asm-generic/cmpxchg-local.h
+new file mode 100644
+--- /dev/null
++++ b/include/asm-generic/cmpxchg-local.h
+@@ -0,0 +1,65 @@
++#ifndef __ASM_GENERIC_CMPXCHG_LOCAL_H
++#define __ASM_GENERIC_CMPXCHG_LOCAL_H
++
++#include <linux/types.h>
++
++extern unsigned long wrong_size_cmpxchg(volatile void *ptr);
++
++/*
++ * Generic version of __cmpxchg_local (disables interrupts). Takes an unsigned
++ * long parameter, supporting various types of architectures.
++ */
++static inline unsigned long __cmpxchg_local_generic(volatile void *ptr,
++		unsigned long old, unsigned long new, int size)
++{
++	unsigned long flags, prev;
++
++	/*
++	 * Sanity checking, compile-time.
++	 */
++	if (size == 8 && sizeof(unsigned long) != 8)
++		wrong_size_cmpxchg(ptr);
++
++	local_irq_save(flags);
++	switch (size) {
++	case 1: prev = *(u8 *)ptr;
++		if (prev == old)
++			*(u8 *)ptr = (u8)new;
++		break;
++	case 2: prev = *(u16 *)ptr;
++		if (prev == old)
++			*(u16 *)ptr = (u16)new;
++		break;
++	case 4: prev = *(u32 *)ptr;
++		if (prev == old)
++			*(u32 *)ptr = (u32)new;
++		break;
++	case 8: prev = *(u64 *)ptr;
++		if (prev == old)
++			*(u64 *)ptr = (u64)new;
++		break;
++	default:
++		wrong_size_cmpxchg(ptr);
++	}
++	local_irq_restore(flags);
++	return prev;
++}
++
++/*
++ * Generic version of __cmpxchg64_local. Takes an u64 parameter.
++ */
++static inline u64 __cmpxchg64_local_generic(volatile void *ptr,
++		u64 old, u64 new)
++{
++	u64 prev;
++	unsigned long flags;
++
++	local_irq_save(flags);
++	prev = *(u64 *)ptr;
++	if (prev == old)
++		*(u64 *)ptr = new;
++	local_irq_restore(flags);
++	return prev;
++}
++
++#endif
+diff --git a/include/asm-generic/cmpxchg.h b/include/asm-generic/cmpxchg.h
+new file mode 100644
+--- /dev/null
++++ b/include/asm-generic/cmpxchg.h
+@@ -0,0 +1,22 @@
++#ifndef __ASM_GENERIC_CMPXCHG_H
++#define __ASM_GENERIC_CMPXCHG_H
++
++/*
++ * Generic cmpxchg
++ *
++ * Uses the local cmpxchg. Does not support SMP.
++ */
++#ifdef CONFIG_SMP
++#error "Cannot use generic cmpxchg on SMP"
++#endif
++
++/*
++ * Atomic compare and exchange.
++ *
++ * Do not define __HAVE_ARCH_CMPXCHG because we want to use it to check whether
++ * a cmpxchg primitive faster than repeated local irq save/restore exists.
++ */
++#define cmpxchg(ptr, o, n)	cmpxchg_local((ptr), (o), (n))
++#define cmpxchg64(ptr, o, n)	cmpxchg64_local((ptr), (o), (n))
++
++#endif
+diff --git a/include/asm-mips/atomic.h b/include/asm-mips/atomic.h
+--- a/include/asm-mips/atomic.h
++++ b/include/asm-mips/atomic.h
+@@ -51,7 +51,7 @@ typedef struct { volatile int counter; }
+ static __inline__ void atomic_add(int i, atomic_t * v)
+ {
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		unsigned long temp;
++		int temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -63,7 +63,7 @@ static __inline__ void atomic_add(int i,
+ 		: "=&r" (temp), "=m" (v->counter)
+ 		: "Ir" (i), "m" (v->counter));
+ 	} else if (cpu_has_llsc) {
+-		unsigned long temp;
++		int temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -96,7 +96,7 @@ static __inline__ void atomic_add(int i,
+ static __inline__ void atomic_sub(int i, atomic_t * v)
+ {
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		unsigned long temp;
++		int temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -108,7 +108,7 @@ static __inline__ void atomic_sub(int i,
+ 		: "=&r" (temp), "=m" (v->counter)
+ 		: "Ir" (i), "m" (v->counter));
+ 	} else if (cpu_has_llsc) {
+-		unsigned long temp;
++		int temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -136,12 +136,12 @@ static __inline__ void atomic_sub(int i,
+  */
+ static __inline__ int atomic_add_return(int i, atomic_t * v)
+ {
+-	unsigned long result;
++	int result;
+ 
+ 	smp_mb();
+ 
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		unsigned long temp;
++		int temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -155,7 +155,7 @@ static __inline__ int atomic_add_return(
+ 		: "Ir" (i), "m" (v->counter)
+ 		: "memory");
+ 	} else if (cpu_has_llsc) {
+-		unsigned long temp;
++		int temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -188,12 +188,12 @@ static __inline__ int atomic_add_return(
+ 
+ static __inline__ int atomic_sub_return(int i, atomic_t * v)
+ {
+-	unsigned long result;
++	int result;
+ 
+ 	smp_mb();
+ 
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		unsigned long temp;
++		int temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -207,7 +207,7 @@ static __inline__ int atomic_sub_return(
+ 		: "Ir" (i), "m" (v->counter)
+ 		: "memory");
+ 	} else if (cpu_has_llsc) {
+-		unsigned long temp;
++		int temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -248,12 +248,12 @@ static __inline__ int atomic_sub_return(
+  */
+ static __inline__ int atomic_sub_if_positive(int i, atomic_t * v)
+ {
+-	unsigned long result;
++	int result;
+ 
+ 	smp_mb();
+ 
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		unsigned long temp;
++		int temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -271,7 +271,7 @@ static __inline__ int atomic_sub_if_posi
+ 		: "Ir" (i), "m" (v->counter)
+ 		: "memory");
+ 	} else if (cpu_has_llsc) {
+-		unsigned long temp;
++		int temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -432,7 +432,7 @@ typedef struct { volatile long counter; 
+ static __inline__ void atomic64_add(long i, atomic64_t * v)
+ {
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		unsigned long temp;
++		long temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -444,7 +444,7 @@ static __inline__ void atomic64_add(long
+ 		: "=&r" (temp), "=m" (v->counter)
+ 		: "Ir" (i), "m" (v->counter));
+ 	} else if (cpu_has_llsc) {
+-		unsigned long temp;
++		long temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -477,7 +477,7 @@ static __inline__ void atomic64_add(long
+ static __inline__ void atomic64_sub(long i, atomic64_t * v)
+ {
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		unsigned long temp;
++		long temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -489,7 +489,7 @@ static __inline__ void atomic64_sub(long
+ 		: "=&r" (temp), "=m" (v->counter)
+ 		: "Ir" (i), "m" (v->counter));
+ 	} else if (cpu_has_llsc) {
+-		unsigned long temp;
++		long temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -517,12 +517,12 @@ static __inline__ void atomic64_sub(long
+  */
+ static __inline__ long atomic64_add_return(long i, atomic64_t * v)
+ {
+-	unsigned long result;
++	long result;
+ 
+ 	smp_mb();
+ 
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		unsigned long temp;
++		long temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -536,7 +536,7 @@ static __inline__ long atomic64_add_retu
+ 		: "Ir" (i), "m" (v->counter)
+ 		: "memory");
+ 	} else if (cpu_has_llsc) {
+-		unsigned long temp;
++		long temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -569,12 +569,12 @@ static __inline__ long atomic64_add_retu
+ 
+ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
+ {
+-	unsigned long result;
++	long result;
+ 
+ 	smp_mb();
+ 
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		unsigned long temp;
++		long temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -588,7 +588,7 @@ static __inline__ long atomic64_sub_retu
+ 		: "Ir" (i), "m" (v->counter)
+ 		: "memory");
+ 	} else if (cpu_has_llsc) {
+-		unsigned long temp;
++		long temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -629,12 +629,12 @@ static __inline__ long atomic64_sub_retu
+  */
+ static __inline__ long atomic64_sub_if_positive(long i, atomic64_t * v)
+ {
+-	unsigned long result;
++	long result;
+ 
+ 	smp_mb();
+ 
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		unsigned long temp;
++		long temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+@@ -652,7 +652,7 @@ static __inline__ long atomic64_sub_if_p
+ 		: "Ir" (i), "m" (v->counter)
+ 		: "memory");
+ 	} else if (cpu_has_llsc) {
+-		unsigned long temp;
++		long temp;
+ 
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+diff --git a/include/asm-mips/bitops.h b/include/asm-mips/bitops.h
+--- a/include/asm-mips/bitops.h
++++ b/include/asm-mips/bitops.h
+@@ -240,6 +240,8 @@ static inline int test_and_set_bit(unsigned long nr,
+ 	unsigned short bit = nr & SZLONG_MASK;
+ 	unsigned long res;
+ 
++	smp_mb();
++
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+ 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
+ 		unsigned long temp;
+@@ -308,6 +310,8 @@ static inline int test_and_clear_bit(unsigned long nr,
+ 	unsigned short bit = nr & SZLONG_MASK;
+ 	unsigned long res;
+ 
++	smp_mb();
++
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+ 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
+ 		unsigned long temp;
+@@ -396,6 +400,8 @@ static inline int test_and_change_bit(unsigned long nr,
+ 	unsigned short bit = nr & SZLONG_MASK;
+ 	unsigned long res;
+ 
++	smp_mb();
++
+ 	if (cpu_has_llsc && R10000_LLSC_WAR) {
+ 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
+ 		unsigned long temp;
+diff --git a/include/asm-mips/cmpxchg.h b/include/asm-mips/cmpxchg.h
+new file mode 100644
+--- /dev/null
++++ b/include/asm-mips/cmpxchg.h
+@@ -0,0 +1,124 @@
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ *
++ * Copyright (C) 2003, 06, 07 by Ralf Baechle (ralf@linux-mips.org)
++ */
++#ifndef __ASM_CMPXCHG_H
++#define __ASM_CMPXCHG_H
++
++#include <linux/irqflags.h>
++
++#define __HAVE_ARCH_CMPXCHG 1
++
++#define __cmpxchg_asm(ld, st, m, old, new)				\
++({									\
++	__typeof(*(m)) __ret;						\
++									\
++	if (cpu_has_llsc && R10000_LLSC_WAR) {				\
++		__asm__ __volatile__(					\
++		"	.set	push				\n"	\
++		"	.set	noat				\n"	\
++		"	.set	mips3				\n"	\
++		"1:	" ld "	%0, %2		# __cmpxchg_asm	\n"	\
++		"	bne	%0, %z3, 2f			\n"	\
++		"	.set	mips0				\n"	\
++		"	move	$1, %z4				\n"	\
++		"	.set	mips3				\n"	\
++		"	" st "	$1, %1				\n"	\
++		"	beqzl	$1, 1b				\n"	\
++		"2:						\n"	\
++		"	.set	pop				\n"	\
++		: "=&r" (__ret), "=R" (*m)				\
++		: "R" (*m), "Jr" (old), "Jr" (new)			\
++		: "memory");						\
++	} else if (cpu_has_llsc) {					\
++		__asm__ __volatile__(					\
++		"	.set	push				\n"	\
++		"	.set	noat				\n"	\
++		"	.set	mips3				\n"	\
++		"1:	" ld "	%0, %2		# __cmpxchg_asm	\n"	\
++		"	bne	%0, %z3, 2f			\n"	\
++		"	.set	mips0				\n"	\
++		"	move	$1, %z4				\n"	\
++		"	.set	mips3				\n"	\
++		"	" st "	$1, %1				\n"	\
++		"	beqz	$1, 3f				\n"	\
++		"2:						\n"	\
++		"	.subsection 2				\n"	\
++		"3:	b	1b				\n"	\
++		"	.previous				\n"	\
++		"	.set	pop				\n"	\
++		: "=&r" (__ret), "=R" (*m)				\
++		: "R" (*m), "Jr" (old), "Jr" (new)			\
++		: "memory");						\
++	} else {							\
++		unsigned long __flags;					\
++									\
++		raw_local_irq_save(__flags);				\
++		__ret = *m;						\
++		if (__ret == old)					\
++			*m = new;					\
++		raw_local_irq_restore(__flags);				\
++	}								\
++									\
++	__ret;								\
++})
++
++/*
++ * This function doesn't exist, so you'll get a linker error
++ * if something tries to do an invalid cmpxchg().
++ */
++extern void __cmpxchg_called_with_bad_pointer(void);
++
++#define __cmpxchg(ptr,old,new,barrier)					\
++({									\
++	__typeof__(ptr) __ptr = (ptr);					\
++	__typeof__(*(ptr)) __old = (old);				\
++	__typeof__(*(ptr)) __new = (new);				\
++	__typeof__(*(ptr)) __res = 0;					\
++									\
++	barrier;							\
++									\
++	switch (sizeof(*(__ptr))) {					\
++	case 4:								\
++		__res = __cmpxchg_asm("ll", "sc", __ptr, __old, __new);	\
++		break;							\
++	case 8:								\
++		if (sizeof(long) == 8) {				\
++			__res = __cmpxchg_asm("lld", "scd", __ptr,	\
++					   __old, __new);		\
++			break;						\
++		}							\
++	default:							\
++		__cmpxchg_called_with_bad_pointer();			\
++		break;							\
++	}								\
++									\
++	barrier;							\
++									\
++	__res;								\
++})
++
++#define cmpxchg(ptr, old, new)		__cmpxchg(ptr, old, new, smp_mb())
++#define cmpxchg_local(ptr, old, new)	__cmpxchg(ptr, old, new,)
++
++#define cmpxchg64(ptr, o, n)						\
++  ({									\
++	BUILD_BUG_ON(sizeof(*(ptr)) != 8);				\
++	cmpxchg((ptr), (o), (n));					\
++  })
++
++#ifdef CONFIG_64BIT
++#define cmpxchg64_local(ptr, o, n)					\
++  ({									\
++	BUILD_BUG_ON(sizeof(*(ptr)) != 8);				\
++	cmpxchg_local((ptr), (o), (n));					\
++  })
++#else
++#include <asm-generic/cmpxchg-local.h>
++#define cmpxchg64_local(ptr, o, n) __cmpxchg64_local_generic((ptr), (o), (n))
++#endif
++
++#endif /* __ASM_CMPXCHG_H */
+diff --git a/include/asm-mips/local.h b/include/asm-mips/local.h
+--- a/include/asm-mips/local.h
++++ b/include/asm-mips/local.h
+@@ -4,6 +4,7 @@
+ #include <linux/percpu.h>
+ #include <linux/bitops.h>
+ #include <asm/atomic.h>
++#include <asm/cmpxchg.h>
+ #include <asm/war.h>
+ 
+ typedef struct
+diff --git a/include/asm-mips/system.h b/include/asm-mips/system.h
+--- a/include/asm-mips/system.h
++++ b/include/asm-mips/system.h
+@@ -17,6 +17,7 @@
+ 
+ #include <asm/addrspace.h>
+ #include <asm/barrier.h>
++#include <asm/cmpxchg.h>
+ #include <asm/cpu-features.h>
+ #include <asm/dsp.h>
+ #include <asm/war.h>
+@@ -194,266 +195,6 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int siz
+ 		__xchg((unsigned long)(x), (ptr), sizeof(*(ptr))));	\
+ })
+ 
+-#define __HAVE_ARCH_CMPXCHG 1
+-
+-static inline unsigned long __cmpxchg_u32(volatile int * m, unsigned long old,
+-	unsigned long new)
+-{
+-	__u32 retval;
+-
+-	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		__asm__ __volatile__(
+-		"	.set	push					\n"
+-		"	.set	noat					\n"
+-		"	.set	mips3					\n"
+-		"1:	ll	%0, %2			# __cmpxchg_u32	\n"
+-		"	bne	%0, %z3, 2f				\n"
+-		"	.set	mips0					\n"
+-		"	move	$1, %z4					\n"
+-		"	.set	mips3					\n"
+-		"	sc	$1, %1					\n"
+-		"	beqzl	$1, 1b					\n"
+-		"2:							\n"
+-		"	.set	pop					\n"
+-		: "=&r" (retval), "=R" (*m)
+-		: "R" (*m), "Jr" (old), "Jr" (new)
+-		: "memory");
+-	} else if (cpu_has_llsc) {
+-		__asm__ __volatile__(
+-		"	.set	push					\n"
+-		"	.set	noat					\n"
+-		"	.set	mips3					\n"
+-		"1:	ll	%0, %2			# __cmpxchg_u32	\n"
+-		"	bne	%0, %z3, 2f				\n"
+-		"	.set	mips0					\n"
+-		"	move	$1, %z4					\n"
+-		"	.set	mips3					\n"
+-		"	sc	$1, %1					\n"
+-		"	beqz	$1, 3f					\n"
+-		"2:							\n"
+-		"	.subsection 2					\n"
+-		"3:	b	1b					\n"
+-		"	.previous					\n"
+-		"	.set	pop					\n"
+-		: "=&r" (retval), "=R" (*m)
+-		: "R" (*m), "Jr" (old), "Jr" (new)
+-		: "memory");
+-	} else {
+-		unsigned long flags;
+-
+-		raw_local_irq_save(flags);
+-		retval = *m;
+-		if (retval == old)
+-			*m = new;
+-		raw_local_irq_restore(flags);	/* implies memory barrier  */
+-	}
+-
+-	smp_mb();
+-
+-	return retval;
+-}
+-
+-static inline unsigned long __cmpxchg_u32_local(volatile int * m,
+-	unsigned long old, unsigned long new)
+-{
+-	__u32 retval;
+-
+-	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		__asm__ __volatile__(
+-		"	.set	push					\n"
+-		"	.set	noat					\n"
+-		"	.set	mips3					\n"
+-		"1:	ll	%0, %2			# __cmpxchg_u32	\n"
+-		"	bne	%0, %z3, 2f				\n"
+-		"	.set	mips0					\n"
+-		"	move	$1, %z4					\n"
+-		"	.set	mips3					\n"
+-		"	sc	$1, %1					\n"
+-		"	beqzl	$1, 1b					\n"
+-		"2:							\n"
+-		"	.set	pop					\n"
+-		: "=&r" (retval), "=R" (*m)
+-		: "R" (*m), "Jr" (old), "Jr" (new)
+-		: "memory");
+-	} else if (cpu_has_llsc) {
+-		__asm__ __volatile__(
+-		"	.set	push					\n"
+-		"	.set	noat					\n"
+-		"	.set	mips3					\n"
+-		"1:	ll	%0, %2			# __cmpxchg_u32	\n"
+-		"	bne	%0, %z3, 2f				\n"
+-		"	.set	mips0					\n"
+-		"	move	$1, %z4					\n"
+-		"	.set	mips3					\n"
+-		"	sc	$1, %1					\n"
+-		"	beqz	$1, 1b					\n"
+-		"2:							\n"
+-		"	.set	pop					\n"
+-		: "=&r" (retval), "=R" (*m)
+-		: "R" (*m), "Jr" (old), "Jr" (new)
+-		: "memory");
+-	} else {
+-		unsigned long flags;
+-
+-		local_irq_save(flags);
+-		retval = *m;
+-		if (retval == old)
+-			*m = new;
+-		local_irq_restore(flags);	/* implies memory barrier  */
+-	}
+-
+-	return retval;
+-}
+-
+-#ifdef CONFIG_64BIT
+-static inline unsigned long __cmpxchg_u64(volatile int * m, unsigned long old,
+-	unsigned long new)
+-{
+-	__u64 retval;
+-
+-	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		__asm__ __volatile__(
+-		"	.set	push					\n"
+-		"	.set	noat					\n"
+-		"	.set	mips3					\n"
+-		"1:	lld	%0, %2			# __cmpxchg_u64	\n"
+-		"	bne	%0, %z3, 2f				\n"
+-		"	move	$1, %z4					\n"
+-		"	scd	$1, %1					\n"
+-		"	beqzl	$1, 1b					\n"
+-		"2:							\n"
+-		"	.set	pop					\n"
+-		: "=&r" (retval), "=R" (*m)
+-		: "R" (*m), "Jr" (old), "Jr" (new)
+-		: "memory");
+-	} else if (cpu_has_llsc) {
+-		__asm__ __volatile__(
+-		"	.set	push					\n"
+-		"	.set	noat					\n"
+-		"	.set	mips3					\n"
+-		"1:	lld	%0, %2			# __cmpxchg_u64	\n"
+-		"	bne	%0, %z3, 2f				\n"
+-		"	move	$1, %z4					\n"
+-		"	scd	$1, %1					\n"
+-		"	beqz	$1, 3f					\n"
+-		"2:							\n"
+-		"	.subsection 2					\n"
+-		"3:	b	1b					\n"
+-		"	.previous					\n"
+-		"	.set	pop					\n"
+-		: "=&r" (retval), "=R" (*m)
+-		: "R" (*m), "Jr" (old), "Jr" (new)
+-		: "memory");
+-	} else {
+-		unsigned long flags;
+-
+-		raw_local_irq_save(flags);
+-		retval = *m;
+-		if (retval == old)
+-			*m = new;
+-		raw_local_irq_restore(flags);	/* implies memory barrier  */
+-	}
+-
+-	smp_mb();
+-
+-	return retval;
+-}
+-
+-static inline unsigned long __cmpxchg_u64_local(volatile int * m,
+-	unsigned long old, unsigned long new)
+-{
+-	__u64 retval;
+-
+-	if (cpu_has_llsc && R10000_LLSC_WAR) {
+-		__asm__ __volatile__(
+-		"	.set	push					\n"
+-		"	.set	noat					\n"
+-		"	.set	mips3					\n"
+-		"1:	lld	%0, %2			# __cmpxchg_u64	\n"
+-		"	bne	%0, %z3, 2f				\n"
+-		"	move	$1, %z4					\n"
+-		"	scd	$1, %1					\n"
+-		"	beqzl	$1, 1b					\n"
+-		"2:							\n"
+-		"	.set	pop					\n"
+-		: "=&r" (retval), "=R" (*m)
+-		: "R" (*m), "Jr" (old), "Jr" (new)
+-		: "memory");
+-	} else if (cpu_has_llsc) {
+-		__asm__ __volatile__(
+-		"	.set	push					\n"
+-		"	.set	noat					\n"
+-		"	.set	mips3					\n"
+-		"1:	lld	%0, %2			# __cmpxchg_u64	\n"
+-		"	bne	%0, %z3, 2f				\n"
+-		"	move	$1, %z4					\n"
+-		"	scd	$1, %1					\n"
+-		"	beqz	$1, 1b					\n"
+-		"2:							\n"
+-		"	.set	pop					\n"
+-		: "=&r" (retval), "=R" (*m)
+-		: "R" (*m), "Jr" (old), "Jr" (new)
+-		: "memory");
+-	} else {
+-		unsigned long flags;
+-
+-		local_irq_save(flags);
+-		retval = *m;
+-		if (retval == old)
+-			*m = new;
+-		local_irq_restore(flags);	/* implies memory barrier  */
+-	}
+-
+-	return retval;
+-}
+-
+-#else
+-extern unsigned long __cmpxchg_u64_unsupported_on_32bit_kernels(
+-	volatile int * m, unsigned long old, unsigned long new);
+-#define __cmpxchg_u64 __cmpxchg_u64_unsupported_on_32bit_kernels
+-extern unsigned long __cmpxchg_u64_local_unsupported_on_32bit_kernels(
+-	volatile int * m, unsigned long old, unsigned long new);
+-#define __cmpxchg_u64_local __cmpxchg_u64_local_unsupported_on_32bit_kernels
+-#endif
+-
+-/* This function doesn't exist, so you'll get a linker error
+-   if something tries to do an invalid cmpxchg().  */
+-extern void __cmpxchg_called_with_bad_pointer(void);
+-
+-static inline unsigned long __cmpxchg(volatile void * ptr, unsigned long old,
+-	unsigned long new, int size)
+-{
+-	switch (size) {
+-	case 4:
+-		return __cmpxchg_u32(ptr, old, new);
+-	case 8:
+-		return __cmpxchg_u64(ptr, old, new);
+-	}
+-	__cmpxchg_called_with_bad_pointer();
+-	return old;
+-}
+-
+-static inline unsigned long __cmpxchg_local(volatile void * ptr,
+-	unsigned long old, unsigned long new, int size)
+-{
+-	switch (size) {
+-	case 4:
+-		return __cmpxchg_u32_local(ptr, old, new);
+-	case 8:
+-		return __cmpxchg_u64_local(ptr, old, new);
+-	}
+-	__cmpxchg_called_with_bad_pointer();
+-	return old;
+-}
+-
+-#define cmpxchg(ptr,old,new) \
+-	((__typeof__(*(ptr)))__cmpxchg((ptr), \
+-		(unsigned long)(old), (unsigned long)(new),sizeof(*(ptr))))
+-
+-#define cmpxchg_local(ptr,old,new) \
+-	((__typeof__(*(ptr)))__cmpxchg_local((ptr), \
+-		(unsigned long)(old), (unsigned long)(new),sizeof(*(ptr))))
+-
+ extern void set_handler (unsigned long offset, void *addr, unsigned long len);
+ extern void set_uncached_handler (unsigned long offset, void *addr, unsigned long len);
+ 
+-- 
