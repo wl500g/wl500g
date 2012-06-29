@@ -2,6 +2,9 @@ fclose and fflush do not report write failures
 
  http://bugs.busybox.net/show_bug.cgi?id=5156
 
+Signed-off-by: Leonid Lisovskiy <lly.dev@gmail.com>
+---
+
 --- a/libc/stdio/_wcommit.c
 +++ b/libc/stdio/_wcommit.c
 @@ -23,6 +23,8 @@ size_t attribute_hidden __stdio_wcommit(

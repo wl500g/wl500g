@@ -16,6 +16,15 @@ __syscall_sync_file_range                            112       -    -112
 ------------------------------------------------------------------------------
 (add/remove: 0/5 grow/shrink: 5/0 up/down: 164/-388)         Total: -224 bytes
 
+Signed-off-by: Leonid Lisovskiy <lly.dev@gmail.com>
+---
+ libc/sysdeps/linux/common/fsync.c           |    2 +-
+ libc/sysdeps/linux/common/nanosleep.c       |    2 +-
+ libc/sysdeps/linux/common/poll.c            |    2 +-
+ libc/sysdeps/linux/common/select.c          |    4 ++--
+ libc/sysdeps/linux/common/sync_file_range.c |    2 +-
+ 5 files changed, 6 insertions(+), 6 deletions(-)
+
 diff -uBp a/libc/sysdeps/linux/common/fsync.c b/libc/sysdeps/linux/common/fsync.c
 --- a/libc/sysdeps/linux/common/fsync.c	2011-06-08 23:35:20.000000000 +0400
 +++ b/libc/sysdeps/linux/common/fsync.c	2012-04-14 23:37:44.000000000 +0400
@@ -85,3 +94,4 @@ diff -uBp a/libc/sysdeps/linux/common/sync_file_range.c b/libc/sysdeps/linux/com
  		off_t, offset_hi, off_t, offset_lo,
  		off_t, nbytes_hi, off_t, nbytes_lo, unsigned int, flags)
  int sync_file_range(int fd, off64_t offset, off64_t nbytes, unsigned int flags)
+-- 

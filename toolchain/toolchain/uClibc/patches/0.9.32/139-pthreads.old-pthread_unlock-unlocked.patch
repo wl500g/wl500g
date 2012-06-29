@@ -1,4 +1,7 @@
-Fix segfault when pthread_mutex_unlock() called against unlocked mutex.
+linuxthreads.old: Fix segfault when pthread_mutex_unlock() called against unlocked mutex.
+
+Signed-off-by: Leonid Lisovskiy <lly.dev@gmail.com>
+---
 
 diff -uNBp a/libpthread/linuxthreads.old/mutex.c b/libpthread/linuxthreads.old/mutex.c
 --- a/libpthread/linuxthreads.old/mutex.c	2006-01-27 01:30:50.000000000 +0300
