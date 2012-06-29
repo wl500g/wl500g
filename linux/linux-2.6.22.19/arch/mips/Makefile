@@ -12,8 +12,7 @@
 # for "archclean" cleaning up for this architecture.
 #
 
-cflags-y := -ffunction-sections
-cflags-y += $(call cc-option, -mno-check-zero-division)
+cflags-y := $(call cc-option, -mno-check-zero-division)
 
 #
 # Select the object file format to substitute into the linker script.

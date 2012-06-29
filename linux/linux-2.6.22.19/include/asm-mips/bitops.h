@@ -69,30 +69,26 @@ static inline void set_bit(unsigned long nr, volatile unsigned long *addr)
 		: "ir" (1UL << bit), "m" (*m));
 #ifdef CONFIG_CPU_MIPSR2
 	} else if (__builtin_constant_p(bit)) {
-		__asm__ __volatile__(
-		"1:	" __LL "%0, %1			# set_bit	\n"
-		"	" __INS "%0, %4, %2, 1				\n"
-		"	" __SC "%0, %1					\n"
-		"	beqz	%0, 2f					\n"
-		"	.subsection 2					\n"
-		"2:	b	1b					\n"
-		"	.previous					\n"
-		: "=&r" (temp), "=m" (*m)
-		: "ir" (bit), "m" (*m), "r" (~0));
+		do {
+			__asm__ __volatile__(
+			"	" __LL "%0, %1		# set_bit	\n"
+			"	" __INS "%0, %3, %2, 1			\n"
+			"	" __SC "%0, %1				\n"
+			: "=&r" (temp), "+m" (*m)
+			: "ir" (bit), "r" (~0));
+		} while (unlikely(!temp));
 #endif /* CONFIG_CPU_MIPSR2 */
 	} else if (cpu_has_llsc) {
-		__asm__ __volatile__(
-		"	.set	mips3					\n"
-		"1:	" __LL "%0, %1			# set_bit	\n"
-		"	or	%0, %2					\n"
-		"	" __SC	"%0, %1					\n"
-		"	beqz	%0, 2f					\n"
-		"	.subsection 2					\n"
-		"2:	b	1b					\n"
-		"	.previous					\n"
-		"	.set	mips0					\n"
-		: "=&r" (temp), "=m" (*m)
-		: "ir" (1UL << bit), "m" (*m));
+		do {
+			__asm__ __volatile__(
+			"	.set	mips3				\n"
+			"	" __LL "%0, %1		# set_bit	\n"
+			"	or	%0, %2				\n"
+			"	" __SC	"%0, %1				\n"
+			"	.set	mips0				\n"
+			: "=&r" (temp), "+m" (*m)
+			: "ir" (1UL << bit));
+		} while (unlikely(!temp));
 	} else {
 		volatile unsigned long *a = addr;
 		unsigned long mask;
@@ -130,34 +126,30 @@ static inline void clear_bit(unsigned long nr, volatile unsigned long *addr)
 		"	" __SC "%0, %1					\n"
 		"	beqzl	%0, 1b					\n"
 		"	.set	mips0					\n"
-		: "=&r" (temp), "=m" (*m)
-		: "ir" (~(1UL << bit)), "m" (*m));
+		: "=&r" (temp), "+m" (*m)
+		: "ir" (~(1UL << bit)));
 #ifdef CONFIG_CPU_MIPSR2
 	} else if (__builtin_constant_p(bit)) {
-		__asm__ __volatile__(
-		"1:	" __LL "%0, %1			# clear_bit	\n"
-		"	" __INS "%0, $0, %2, 1				\n"
-		"	" __SC "%0, %1					\n"
-		"	beqz	%0, 2f					\n"
-		"	.subsection 2					\n"
-		"2:	b	1b					\n"
-		"	.previous					\n"
-		: "=&r" (temp), "=m" (*m)
-		: "ir" (bit), "m" (*m));
+		do {
+			__asm__ __volatile__(
+			"	" __LL "%0, %1		# clear_bit	\n"
+			"	" __INS "%0, $0, %2, 1			\n"
+			"	" __SC "%0, %1				\n"
+			: "=&r" (temp), "+m" (*m)
+			: "ir" (bit));
+		} while (unlikely(!temp));
 #endif /* CONFIG_CPU_MIPSR2 */
 	} else if (cpu_has_llsc) {
-		__asm__ __volatile__(
-		"	.set	mips3					\n"
-		"1:	" __LL "%0, %1			# clear_bit	\n"
-		"	and	%0, %2					\n"
-		"	" __SC "%0, %1					\n"
-		"	beqz	%0, 2f					\n"
-		"	.subsection 2					\n"
-		"2:	b	1b					\n"
-		"	.previous					\n"
-		"	.set	mips0					\n"
-		: "=&r" (temp), "=m" (*m)
-		: "ir" (~(1UL << bit)), "m" (*m));
+		do {
+			__asm__ __volatile__(
+			"	.set	mips3				\n"
+			"	" __LL "%0, %1		# clear_bit	\n"
+			"	and	%0, %2				\n"
+			"	" __SC "%0, %1				\n"
+			"	.set	mips0				\n"
+			: "=&r" (temp), "+m" (*m)
+			: "ir" (~(1UL << bit)));
+		} while (unlikely(!temp));
 	} else {
 		volatile unsigned long *a = addr;
 		unsigned long mask;
@@ -195,24 +187,22 @@ static inline void change_bit(unsigned long nr, volatile unsigned long *addr)
 		"	" __SC	"%0, %1				\n"
 		"	beqzl	%0, 1b				\n"
 		"	.set	mips0				\n"
-		: "=&r" (temp), "=m" (*m)
-		: "ir" (1UL << bit), "m" (*m));
+		: "=&r" (temp), "+m" (*m)
+		: "ir" (1UL << bit));
 	} else if (cpu_has_llsc) {
 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
 		unsigned long temp;
 
-		__asm__ __volatile__(
-		"	.set	mips3				\n"
-		"1:	" __LL "%0, %1		# change_bit	\n"
-		"	xor	%0, %2				\n"
-		"	" __SC	"%0, %1				\n"
-		"	beqz	%0, 2f				\n"
-		"	.subsection 2				\n"
-		"2:	b	1b				\n"
-		"	.previous				\n"
-		"	.set	mips0				\n"
-		: "=&r" (temp), "=m" (*m)
-		: "ir" (1UL << bit), "m" (*m));
+		do {
+			__asm__ __volatile__(
+			"	.set	mips3				\n"
+			"	" __LL "%0, %1		# change_bit	\n"
+			"	xor	%0, %2				\n"
+			"	" __SC	"%0, %1				\n"
+			"	.set	mips0				\n"
+			: "=&r" (temp), "+m" (*m)
+			: "ir" (1UL << bit));
+		} while (unlikely(!temp));
 	} else {
 		volatile unsigned long *a = addr;
 		unsigned long mask;
@@ -240,6 +230,8 @@ static inline int test_and_set_bit(unsigned long nr,
 	unsigned short bit = nr & SZLONG_MASK;
 	unsigned long res;
 
+	smp_mb();
+
 	if (cpu_has_llsc && R10000_LLSC_WAR) {
 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
 		unsigned long temp;
@@ -252,30 +244,26 @@ static inline int test_and_set_bit(unsigned long nr,
 		"	beqzl	%2, 1b					\n"
 		"	and	%2, %0, %3				\n"
 		"	.set	mips0					\n"
-		: "=&r" (temp), "=m" (*m), "=&r" (res)
-		: "r" (1UL << bit), "m" (*m)
+		: "=&r" (temp), "+m" (*m), "=&r" (res)
+		: "r" (1UL << bit)
 		: "memory");
 	} else if (cpu_has_llsc) {
 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
 		unsigned long temp;
 
-		__asm__ __volatile__(
-		"	.set	push					\n"
-		"	.set	noreorder				\n"
-		"	.set	mips3					\n"
-		"1:	" __LL "%0, %1		# test_and_set_bit	\n"
-		"	or	%2, %0, %3				\n"
-		"	" __SC	"%2, %1					\n"
-		"	beqz	%2, 2f					\n"
-		"	 and	%2, %0, %3				\n"
-		"	.subsection 2					\n"
-		"2:	b	1b					\n"
-		"	 nop						\n"
-		"	.previous					\n"
-		"	.set	pop					\n"
-		: "=&r" (temp), "=m" (*m), "=&r" (res)
-		: "r" (1UL << bit), "m" (*m)
-		: "memory");
+		do {
+			__asm__ __volatile__(
+			"	.set	mips3				\n"
+			"	" __LL "%0, %1	# test_and_set_bit	\n"
+			"	or	%2, %0, %3			\n"
+			"	" __SC	"%2, %1				\n"
+			"	.set	mips0				\n"
+			: "=&r" (temp), "+m" (*m), "=&r" (res)
+			: "r" (1UL << bit)
+			: "memory");
+		} while (unlikely(!res));
+
+		res = temp & (1UL << bit);
 	} else {
 		volatile unsigned long *a = addr;
 		unsigned long mask;
@@ -308,6 +296,8 @@ static inline int test_and_clear_bit(unsigned long nr,
 	unsigned short bit = nr & SZLONG_MASK;
 	unsigned long res;
 
+	smp_mb();
+
 	if (cpu_has_llsc && R10000_LLSC_WAR) {
 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
 		unsigned long temp;
@@ -321,49 +311,43 @@ static inline int test_and_clear_bit(unsigned long nr,
 		"	beqzl	%2, 1b					\n"
 		"	and	%2, %0, %3				\n"
 		"	.set	mips0					\n"
-		: "=&r" (temp), "=m" (*m), "=&r" (res)
-		: "r" (1UL << bit), "m" (*m)
+		: "=&r" (temp), "+m" (*m), "=&r" (res)
+		: "r" (1UL << bit)
 		: "memory");
 #ifdef CONFIG_CPU_MIPSR2
 	} else if (__builtin_constant_p(nr)) {
 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
 		unsigned long temp;
 
-		__asm__ __volatile__(
-		"1:	" __LL	"%0, %1		# test_and_clear_bit	\n"
-		"	" __EXT "%2, %0, %3, 1				\n"
-		"	" __INS	"%0, $0, %3, 1				\n"
-		"	" __SC 	"%0, %1					\n"
-		"	beqz	%0, 2f					\n"
-		"	.subsection 2					\n"
-		"2:	b	1b					\n"
-		"	.previous					\n"
-		: "=&r" (temp), "=m" (*m), "=&r" (res)
-		: "ri" (bit), "m" (*m)
-		: "memory");
+		do {
+			__asm__ __volatile__(
+			"	" __LL	"%0, %1	# test_and_clear_bit	\n"
+			"	" __EXT "%2, %0, %3, 1			\n"
+			"	" __INS	"%0, $0, %3, 1			\n"
+			"	" __SC 	"%0, %1				\n"
+			: "=&r" (temp), "+m" (*m), "=&r" (res)
+			: "ir" (bit)
+			: "memory");
+		} while (unlikely(!temp));
 #endif
 	} else if (cpu_has_llsc) {
 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
 		unsigned long temp;
 
-		__asm__ __volatile__(
-		"	.set	push					\n"
-		"	.set	noreorder				\n"
-		"	.set	mips3					\n"
-		"1:	" __LL	"%0, %1		# test_and_clear_bit	\n"
-		"	or	%2, %0, %3				\n"
-		"	xor	%2, %3					\n"
-		"	" __SC 	"%2, %1					\n"
-		"	beqz	%2, 2f					\n"
-		"	 and	%2, %0, %3				\n"
-		"	.subsection 2					\n"
-		"2:	b	1b					\n"
-		"	 nop						\n"
-		"	.previous					\n"
-		"	.set	pop					\n"
-		: "=&r" (temp), "=m" (*m), "=&r" (res)
-		: "r" (1UL << bit), "m" (*m)
-		: "memory");
+		do {
+			__asm__ __volatile__(
+			"	.set	mips3				\n"
+			"	" __LL	"%0, %1	# test_and_clear_bit	\n"
+			"	or	%2, %0, %3			\n"
+			"	xor	%2, %3				\n"
+			"	" __SC 	"%2, %1				\n"
+			"	.set	mips0				\n"
+			: "=&r" (temp), "+m" (*m), "=&r" (res)
+			: "r" (1UL << bit)
+			: "memory");
+		} while (unlikely(!res));
+
+		res = temp & (1UL << bit);
 	} else {
 		volatile unsigned long *a = addr;
 		unsigned long mask;
@@ -396,6 +380,8 @@ static inline int test_and_change_bit(unsigned long nr,
 	unsigned short bit = nr & SZLONG_MASK;
 	unsigned long res;
 
+	smp_mb();
+
 	if (cpu_has_llsc && R10000_LLSC_WAR) {
 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
 		unsigned long temp;
@@ -408,30 +394,26 @@ static inline int test_and_change_bit(unsigned long nr,
 		"	beqzl	%2, 1b					\n"
 		"	and	%2, %0, %3				\n"
 		"	.set	mips0					\n"
-		: "=&r" (temp), "=m" (*m), "=&r" (res)
-		: "r" (1UL << bit), "m" (*m)
+		: "=&r" (temp), "+m" (*m), "=&r" (res)
+		: "r" (1UL << bit)
 		: "memory");
 	} else if (cpu_has_llsc) {
 		unsigned long *m = ((unsigned long *) addr) + (nr >> SZLONG_LOG);
 		unsigned long temp;
 
-		__asm__ __volatile__(
-		"	.set	push					\n"
-		"	.set	noreorder				\n"
-		"	.set	mips3					\n"
-		"1:	" __LL	"%0, %1		# test_and_change_bit	\n"
-		"	xor	%2, %0, %3				\n"
-		"	" __SC	"\t%2, %1				\n"
-		"	beqz	%2, 2f					\n"
-		"	 and	%2, %0, %3				\n"
-		"	.subsection 2					\n"
-		"2:	b	1b					\n"
-		"	 nop						\n"
-		"	.previous					\n"
-		"	.set	pop					\n"
-		: "=&r" (temp), "=m" (*m), "=&r" (res)
-		: "r" (1UL << bit), "m" (*m)
-		: "memory");
+		do {
+			__asm__ __volatile__(
+			"	.set	mips3				\n"
+			"	" __LL	"%0, %1	# test_and_change_bit	\n"
+			"	xor	%2, %0, %3			\n"
+			"	" __SC	"\t%2, %1			\n"
+			"	.set	mips0				\n"
+			: "=&r" (temp), "+m" (*m), "=&r" (res)
+			: "r" (1UL << bit)
+			: "memory");
+		} while (unlikely(!res));
+
+		res = temp & (1UL << bit);
 	} else {
 		volatile unsigned long *a = addr;
 		unsigned long mask;
