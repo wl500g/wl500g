@@ -175,6 +175,7 @@ ej_wl_status(int eid, webs_t wp, int argc, char **argv)
 	}
 	
 	/* query wl for chanspec */
+	strncpy(chanspec, "chanspec", sizeof(chanspec));
 	if (wl_ioctl(name, WLC_GET_VAR, &chanspec, sizeof(chanspec)) == 0)
 	{
 		val = *(chanspec_t *) &chanspec;
