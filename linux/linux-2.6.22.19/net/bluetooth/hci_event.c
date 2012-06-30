@@ -132,8 +132,7 @@ static void hci_cc_link_policy(struct hci_dev *hdev, __u16 ocf, struct sk_buff *
 
 		conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(lp->handle));
 		if (conn) {
-			__le16 policy = get_unaligned((__le16 *) (sent + 2));
-			conn->link_policy = __le16_to_cpu(policy);
+			conn->link_policy = get_unaligned_le16(sent + 2);
 		}
 
 		hci_dev_unlock(hdev);
@@ -274,7 +273,7 @@ static void hci_cc_host_ctl(struct hci_dev *hdev, __u16 ocf, struct sk_buff *skb
 			break;
 
 		status = *((__u8 *) skb->data);
-		setting = __le16_to_cpu(get_unaligned((__le16 *) sent));
+		setting = get_unaligned_le16(sent);
 
 		if (!status && hdev->voice_setting != setting) {
 			hdev->voice_setting = setting;
@@ -874,8 +873,8 @@ static inline void hci_num_comp_pkts_evt(struct hci_dev *hdev, struct sk_buff *s
 		struct hci_conn *conn;
 		__u16  handle, count;
 
-		handle = __le16_to_cpu(get_unaligned(ptr++));
-		count  = __le16_to_cpu(get_unaligned(ptr++));
+		handle = get_unaligned_le16(ptr++);
+		count  = get_unaligned_le16(ptr++);
 
 		conn = hci_conn_hash_lookup_handle(hdev, handle);
 		if (conn) {
