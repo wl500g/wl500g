@@ -1,8 +1,10 @@
+ 8f333991ba8479fe8a9d72aea978db415e3c2f2a [SCSI] scsi: use get_unaligned_* helpers
  e4bf25fbcc64a87d7dc1d3318ca56c28382757e2 [SCSI] scsi:hosts.c Fix warning: variable 'rval' set but not used
 
 ---
- drivers/scsi/hosts.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/scsi/hosts.c    |    4 ++--
+ drivers/scsi/libiscsi.c |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/scsi/hosts.c b/drivers/scsi/hosts.c
 --- a/drivers/scsi/hosts.c
@@ -24,5 +26,17 @@ diff --git a/drivers/scsi/hosts.c b/drivers/scsi/hosts.c
 +			shost->host_no, PTR_ERR(shost->ehandler));
  		goto fail_kfree;
  	}
+ 
+diff --git a/drivers/scsi/libiscsi.c b/drivers/scsi/libiscsi.c
+--- a/drivers/scsi/libiscsi.c
++++ b/drivers/scsi/libiscsi.c
+@@ -591,7 +591,7 @@ invalid_datalen:
+ 			goto out;
+ 		}
+ 
+-		senselen = be16_to_cpu(get_unaligned((__be16 *) data));
++		senselen = get_unaligned_be16(data);
+ 		if (datalen < senselen)
+ 			goto invalid_datalen;
  
 -- 
