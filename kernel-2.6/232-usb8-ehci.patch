@@ -1,16 +1,17 @@
 EHCI: Updates from upstream
 
  0412560e18b4330366653819c0c5e73a743ff7e8 ehci: remove wmb in qh_update
+ eb34a90861a290cd271f4b887c0d59070e1b69b0 USB: EHCI: Rearrange EHCI_URB_TRACE code to avoid GCC-4.6 warnings.
  9a971dda8208e0982094f29ef34bd190f2a081bd ehci: only prepare zero packet for out transfer if required
  41f05dedeabb0e2cb03734de383db3f0ddecf9e0 ehci: remove the 1st wmb in qh_append_tds
  811c926c538f7e8d3c08b630dd5844efd7e000f6 EHCI: fix HUB TT scheduling issue with iso transfer
  e3420901eba65b1c46bed86d360e3a8685d20734 EHCI: Fix a regression in the ISO scheduler
- 65b8e5cbdddc86474372bdb48dc233b06710a576  USB: EHCI: improve full-speed isochronous scheduling routine
+ 65b8e5cbdddc86474372bdb48dc233b06710a576 USB: EHCI: improve full-speed isochronous scheduling routine
 
 ---
- drivers/usb/host/ehci-q.c     |    9 ++----
+ drivers/usb/host/ehci-q.c     |   27 +++++++++---------
  drivers/usb/host/ehci-sched.c |   62 +++++++++++++++++++++++-------------------
- 2 files changed, 39 insertions(+), 32 deletions(-)
+ 2 files changed, 49 insertions(+), 40 deletions(-)
 
 diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
 --- a/drivers/usb/host/ehci-q.c
@@ -52,6 +53,39 @@ diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
  			dummy = qh->dummy;
  
  			dma = dummy->qtd_dma;
+@@ -1107,22 +1107,24 @@ submit_async (
+ 	struct list_head	*qtd_list,
+ 	gfp_t			mem_flags
+ ) {
+-	struct ehci_qtd		*qtd;
+ 	int			epnum;
+ 	unsigned long		flags;
+ 	struct ehci_qh		*qh = NULL;
+ 	int			rc;
+ 
+-	qtd = list_entry (qtd_list->next, struct ehci_qtd, qtd_list);
+ 	epnum = urb->ep->desc.bEndpointAddress;
+ 
+ #ifdef EHCI_URB_TRACE
+-	ehci_dbg (ehci,
+-		"%s %s urb %p ep%d%s len %d, qtd %p [qh %p]\n",
+-		__FUNCTION__, urb->dev->devpath, urb,
+-		epnum & 0x0f, (epnum & USB_DIR_IN) ? "in" : "out",
+-		urb->transfer_buffer_length,
+-		qtd, urb->ep->hcpriv);
++	{
++		struct ehci_qtd *qtd;
++		qtd = list_entry(qtd_list->next, struct ehci_qtd, qtd_list);
++		ehci_dbg(ehci,
++			 "%s %s urb %p ep%d%s len %d, qtd %p [qh %p]\n",
++			 __func__, urb->dev->devpath, urb,
++			 epnum & 0x0f, (epnum & USB_DIR_IN) ? "in" : "out",
++			 urb->transfer_buffer_length,
++			 qtd, urb->ep->hcpriv);
++	}
+ #endif
+ 
+ 	spin_lock_irqsave (&ehci->lock, flags);
 diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
 --- a/drivers/usb/host/ehci-sched.c
 +++ b/drivers/usb/host/ehci-sched.c
@@ -157,4 +191,3 @@ diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
  				urb, now, now + mod);
  			status = -ENOSPC;
 -- 
-1.7.6.2
