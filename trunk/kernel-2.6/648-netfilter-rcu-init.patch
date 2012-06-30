@@ -1,22 +1,58 @@
 [NETFILTER] Part of upstream "rcu: convert uses of rcu_assign_pointer(x, NULL) to RCU_INIT_POINTER"
 
 ---
- net/ipv4/netfilter/nf_nat_amanda.c   |    4 +--
- net/ipv4/netfilter/nf_nat_core.c     |   20 +++++++++----------
- net/ipv4/netfilter/nf_nat_ftp.c      |    4 +--
- net/ipv4/netfilter/nf_nat_h323.c     |   36 +++++++++++++++++------------------
- net/ipv4/netfilter/nf_nat_irc.c      |    4 +--
- net/ipv4/netfilter/nf_nat_pptp.c     |   16 +++++++--------
- net/ipv4/netfilter/nf_nat_rtsp.c     |    8 +++----
- net/ipv4/netfilter/nf_nat_sip.c      |   28 +++++++++++++--------------
- net/ipv4/netfilter/nf_nat_tftp.c     |    4 +--
- net/netfilter/nf_conntrack_core.c    |   12 +++++------
- net/netfilter/nf_conntrack_helper.c  |    2 -
- net/netfilter/nf_conntrack_netlink.c |    6 ++---
- net/netfilter/nf_conntrack_proto.c   |   10 ++++-----
- net/netfilter/nf_log.c               |    6 ++---
- 14 files changed, 80 insertions(+), 80 deletions(-)
+ net/bridge/netfilter/ebtable_broute.c |    4 +--
+ net/ipv4/devinet.c                    |    2 -
+ net/ipv4/netfilter/nf_nat_amanda.c    |    4 +--
+ net/ipv4/netfilter/nf_nat_core.c      |   20 +++++++++---------
+ net/ipv4/netfilter/nf_nat_ftp.c       |    4 +--
+ net/ipv4/netfilter/nf_nat_h323.c      |   36 +++++++++++++++++-----------------
+ net/ipv4/netfilter/nf_nat_irc.c       |    4 +--
+ net/ipv4/netfilter/nf_nat_pptp.c      |   16 +++++++--------
+ net/ipv4/netfilter/nf_nat_rtsp.c      |    8 +++----
+ net/ipv4/netfilter/nf_nat_sip.c       |   28 +++++++++++++-------------
+ net/ipv4/netfilter/nf_nat_tftp.c      |    4 +--
+ net/ipv6/addrconf.c                   |    4 +--
+ net/netfilter/nf_conntrack_core.c     |   12 +++++------
+ net/netfilter/nf_conntrack_helper.c   |    2 -
+ net/netfilter/nf_conntrack_netlink.c  |    6 ++---
+ net/netfilter/nf_conntrack_proto.c    |   10 ++++-----
+ net/netfilter/nf_log.c                |    6 ++---
+ net/netlabel/netlabel_domainhash.c    |    4 +--
+ net/xfrm/xfrm_user.c                  |    4 +--
+ 19 files changed, 89 insertions(+), 89 deletions(-)
 
+diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
+--- a/net/bridge/netfilter/ebtable_broute.c
++++ b/net/bridge/netfilter/ebtable_broute.c
+@@ -70,13 +70,13 @@ static int __init ebtable_broute_init(vo
+ 	if (ret < 0)
+ 		return ret;
+ 	/* see br_input.c */
+-	rcu_assign_pointer(br_should_route_hook, ebt_broute);
++	RCU_INIT_POINTER(br_should_route_hook, ebt_broute);
+ 	return ret;
+ }
+ 
+ static void __exit ebtable_broute_fini(void)
+ {
+-	rcu_assign_pointer(br_should_route_hook, NULL);
++	RCU_INIT_POINTER(br_should_route_hook, NULL);
+ 	synchronize_net();
+ 	ebt_unregister_table(&broute_table);
+ }
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -180,7 +180,7 @@ static struct in_device *inetdev_init(st
+ 		ip_mc_up(in_dev);
+ 
+ 	/* we can receive as soon as ip_ptr is set -- do this last */
+-	rcu_assign_pointer(dev->ip_ptr, in_dev);
++	RCU_INIT_POINTER(dev->ip_ptr, in_dev);
+ out:
+ 	return in_dev;
+ out_kfree:
 diff --git a/net/ipv4/netfilter/nf_nat_amanda.c b/net/ipv4/netfilter/nf_nat_amanda.c
 --- a/net/ipv4/netfilter/nf_nat_amanda.c
 +++ b/net/ipv4/netfilter/nf_nat_amanda.c
@@ -319,6 +355,27 @@ diff --git a/net/ipv4/netfilter/nf_nat_tftp.c b/net/ipv4/netfilter/nf_nat_tftp.c
  	return 0;
  }
  
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -399,7 +399,7 @@ static struct inet6_dev * ipv6_add_dev(s
+ 	addrconf_sysctl_register(ndev);
+ #endif
+ 	/* protected by rtnl_lock */
+-	rcu_assign_pointer(dev->ip6_ptr, ndev);
++	RCU_INIT_POINTER(dev->ip6_ptr, ndev);
+ 
+ 	/* Join all-node multicast group */
+ 	ipv6_addr_all_nodes(&maddr);
+@@ -2553,7 +2553,7 @@ static int addrconf_ifdown(struct net_de
+ 		idev->dead = 1;
+ 
+ 		/* protected by rtnl_lock */
+-		rcu_assign_pointer(dev->ip6_ptr, NULL);
++		RCU_INIT_POINTER(dev->ip6_ptr, NULL);
+ 
+ 		/* Step 1.5: remove snmp6 entry */
+ 		snmp6_unregister_dev(idev);
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
@@ -484,4 +541,46 @@ diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
  	}
  	mutex_unlock(&nf_log_mutex);
  
+diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
+--- a/net/netlabel/netlabel_domainhash.c
++++ b/net/netlabel/netlabel_domainhash.c
+@@ -178,7 +178,7 @@ int netlbl_domhsh_init(u32 size)
+ 
+ 	rcu_read_lock();
+ 	spin_lock(&netlbl_domhsh_lock);
+-	rcu_assign_pointer(netlbl_domhsh, hsh_tbl);
++	RCU_INIT_POINTER(netlbl_domhsh, hsh_tbl);
+ 	spin_unlock(&netlbl_domhsh_lock);
+ 	rcu_read_unlock();
+ 
+@@ -340,7 +340,7 @@ int netlbl_domhsh_remove(const char *dom
+ 		spin_lock(&netlbl_domhsh_def_lock);
+ 		if (entry->valid) {
+ 			entry->valid = 0;
+-			rcu_assign_pointer(netlbl_domhsh_def, NULL);
++			RCU_INIT_POINTER(netlbl_domhsh_def, NULL);
+ 		} else
+ 			ret_val = -ENOENT;
+ 		spin_unlock(&netlbl_domhsh_def_lock);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2558,7 +2558,7 @@ static int __init xfrm_user_init(void)
+ 				     xfrm_netlink_rcv, NULL, THIS_MODULE);
+ 	if (nlsk == NULL)
+ 		return -ENOMEM;
+-	rcu_assign_pointer(xfrm_nl, nlsk);
++	RCU_INIT_POINTER(xfrm_nl, nlsk);
+ 
+ 	xfrm_register_km(&netlink_mgr);
+ 
+@@ -2570,7 +2570,7 @@ static void __exit xfrm_user_exit(void)
+ 	struct sock *nlsk = xfrm_nl;
+ 
+ 	xfrm_unregister_km(&netlink_mgr);
+-	rcu_assign_pointer(xfrm_nl, NULL);
++	RCU_INIT_POINTER(xfrm_nl, NULL);
+ 	synchronize_rcu();
+ 	sock_release(nlsk->sk_socket);
+ }
 -- 
