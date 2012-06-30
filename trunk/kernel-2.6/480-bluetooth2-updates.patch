@@ -1,22 +1,30 @@
-From 91f5cca3d1b4341624715f6dd01ee09be9af46c4
-From: Andrew Morton
-Date: Tue, 5 Feb 2008 03:07:58 -0800
-Subject: [PATCH] bluetooth: uninlining
-
-Remove all those inlines which were either a) unneeded or b) increased code
-size.
-
-          text    data     bss     dec     hex filename
-before:   6997      74       8    7079    1ba7 net/bluetooth/hidp/core.o
-after:    6492      74       8    6574    19ae net/bluetooth/hidp/core.o
-
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+ 91f5cca3d1b4341624715f6dd01ee09be9af46c4 bluetooth: uninlining
+ 7452d24cfb91e84f9be61beda5ad68d2a56d0938 Bluetooth: Fix warning: variable 'tty' set but not used
 
 ---
- net/bluetooth/hidp/core.c |   30 +++++++++++++++++++-----------
- 1 files changed, 19 insertions(+), 11 deletions(-)
+ drivers/bluetooth/hci_ldisc.c |    2 --
+ net/bluetooth/hidp/core.c     |   30 +++++++++++++++++++-----------
+ 2 files changed, 19 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/bluetooth/hci_ldisc.c b/drivers/bluetooth/hci_ldisc.c
+--- a/drivers/bluetooth/hci_ldisc.c
++++ b/drivers/bluetooth/hci_ldisc.c
+@@ -210,7 +210,6 @@ static int hci_uart_close(struct hci_dev *hdev)
+ static int hci_uart_send_frame(struct sk_buff *skb)
+ {
+ 	struct hci_dev* hdev = (struct hci_dev *) skb->dev;
+-	struct tty_struct *tty;
+ 	struct hci_uart *hu;
+ 
+ 	if (!hdev) {
+@@ -222,7 +221,6 @@ static int hci_uart_send_frame(struct sk_buff *skb)
+ 		return -EBUSY;
+ 
+ 	hu = (struct hci_uart *) hdev->driver_data;
+-	tty = hu->tty;
+ 
+ 	BT_DBG("%s: type %d len %d", hdev->name, bt_cb(skb)->pkt_type, skb->len);
+ 
 diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
 --- a/net/bluetooth/hidp/core.c
 +++ b/net/bluetooth/hidp/core.c
@@ -121,4 +129,3 @@ diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
  	struct hid_device *hid = session->hid;
  	struct hid_report *report;
 -- 
-1.7.7.6
