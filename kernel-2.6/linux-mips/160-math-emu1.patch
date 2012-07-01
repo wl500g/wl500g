@@ -8,9 +8,22 @@ This also get rid of some sparse warnings.
 
 Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
 ---
- arch/mips/math-emu/cp1emu.c |   19 +++++++++----------
- 1 files changed, 9 insertions(+), 10 deletions(-)
+From 8142294dda12d5fd7615eed7986ad0d276793c03
+From: Richard Knutsson
+Date: Sat, 24 Nov 2007 22:22:19 +0100
+Subject: [PATCH] [MIPS] Compliment va_start() with va_end().
+
+Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ arch/mips/math-emu/cp1emu.c    |   19 +++++++++----------
+ arch/mips/math-emu/ieee754.c   |    2 ++
+ arch/mips/math-emu/ieee754dp.c |    2 ++
+ arch/mips/math-emu/ieee754sp.c |    2 ++
+ 4 files changed, 15 insertions(+), 10 deletions(-)
 
 diff --git a/arch/mips/math-emu/cp1emu.c b/arch/mips/math-emu/cp1emu.c
 --- a/arch/mips/math-emu/cp1emu.c
@@ -78,5 +91,60 @@ diff --git a/arch/mips/math-emu/cp1emu.c b/arch/mips/math-emu/cp1emu.c
  	xcp->cp0_cause &= ~CAUSEF_BD;
  
  	return 0;
+diff --git a/arch/mips/math-emu/ieee754.c b/arch/mips/math-emu/ieee754.c
+--- a/arch/mips/math-emu/ieee754.c
++++ b/arch/mips/math-emu/ieee754.c
+@@ -108,6 +108,7 @@ int ieee754si_xcpt(int r, const char *op, ...)
+ 	ax.rv.si = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.si;
+ }
+ 
+@@ -122,5 +123,6 @@ s64 ieee754di_xcpt(s64 r, const char *op, ...)
+ 	ax.rv.di = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.di;
+ }
+diff --git a/arch/mips/math-emu/ieee754dp.c b/arch/mips/math-emu/ieee754dp.c
+--- a/arch/mips/math-emu/ieee754dp.c
++++ b/arch/mips/math-emu/ieee754dp.c
+@@ -57,6 +57,7 @@ ieee754dp ieee754dp_xcpt(ieee754dp r, const char *op, ...)
+ 	ax.rv.dp = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.dp;
+ }
+ 
+@@ -83,6 +84,7 @@ ieee754dp ieee754dp_nanxcpt(ieee754dp r, const char *op, ...)
+ 	ax.rv.dp = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.dp;
+ }
+ 
+diff --git a/arch/mips/math-emu/ieee754sp.c b/arch/mips/math-emu/ieee754sp.c
+--- a/arch/mips/math-emu/ieee754sp.c
++++ b/arch/mips/math-emu/ieee754sp.c
+@@ -58,6 +58,7 @@ ieee754sp ieee754sp_xcpt(ieee754sp r, const char *op, ...)
+ 	ax.rv.sp = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.sp;
+ }
+ 
+@@ -84,6 +85,7 @@ ieee754sp ieee754sp_nanxcpt(ieee754sp r, const char *op, ...)
+ 	ax.rv.sp = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.sp;
+ }
+ 
 -- 
-1.7.4.4
