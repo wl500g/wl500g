@@ -545,9 +545,7 @@ static int timecheck_item(char *activeDate, char *activeTime)
 
 static int svc_timecheck(void)
 {
-	int activeFlag, activeNow;
-
-	activeFlag = 0;
+	int activeNow;
 
 #ifdef __CONFIG_RCAMD__
 	if (svcStatus[WEBACTIVE] == -1 && 

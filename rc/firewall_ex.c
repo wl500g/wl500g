@@ -241,7 +241,7 @@ static char *iprange_ex_conv(char *ip_name, int idx)
 {
 	char *ip;
 	char itemname_arr[32];
-	char startip[16], endip[16];
+	char startip[16];
 	int i, j, k;
 	int mask;
 	
@@ -258,20 +258,17 @@ static char *iprange_ex_conv(char *ip_name, int idx)
 		if (*(ip+i)=='*') 
 		{
 			startip[j++] = '0';
-			endip[k++] = '0';
 			// 255 is for broadcast
 			mask-=8;
 		}
 		else 
 		{
 			startip[j++] = *(ip+i);
-			endip[k++] = *(ip+i);
 		}
 		i++;
 	}	
 	
 	startip[j++] = 0;
-	endip[k++] = 0;
 
 	if (mask==32)
 		sprintf(g_buf, "%s", startip);
@@ -915,19 +912,17 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	{   		
 		char wanlan_timematch[128];
 		char ptr[32], *icmplist;
-		const char *dtype, *ftype;
+		const char *ftype;
 
 		timematch_conv(wanlan_timematch, "filter_wl_date_x", "filter_wl_time_x");
 		g_buf_init();
 	
 		if (nvram_match("filter_wl_default_x", "DROP"))
 		{
-			dtype = logdrop;
 			ftype = logaccept;
 		}
 		else
 		{
-			dtype = logaccept;
 			ftype = logdrop;
 		}
 			
@@ -1219,7 +1214,9 @@ static int porttrigger_setting(FILE *fp, const char *lan_if)
 {
 	netconf_app_t apptarget, *app;
 	int i;
-	char *out_proto, *in_proto, *out_port, *in_port, *desc;
+	char *out_proto, *in_proto;
+//	char *out_port, *in_port;
+	char *desc;
 	int  out_start, out_end, in_start, in_end;
 
 	if (nvram_invmatch("wan_nat_x", "1") ||
@@ -1231,9 +1228,9 @@ static int porttrigger_setting(FILE *fp, const char *lan_if)
      	foreach_x("autofw_num_x")
      	{	
      		out_proto = proto_conv("autofw_outproto_x", i);
-     		out_port = portrange_ex2_conv("autofw_outport_x", i, &out_start, &out_end);
+     		/*out_port = */portrange_ex2_conv("autofw_outport_x", i, &out_start, &out_end);
      		in_proto = proto_conv("autofw_inproto_x", i);
-		in_port = portrange_ex2_conv("autofw_inport_x", i, &in_start, &in_end);
+		/*in_port = */portrange_ex2_conv("autofw_inport_x", i, &in_start, &in_end);
 		desc = general_conv("autofw_desc_x", i);
 
 		app = &apptarget;
