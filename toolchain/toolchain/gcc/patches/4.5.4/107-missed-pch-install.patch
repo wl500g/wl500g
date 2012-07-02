@@ -36,7 +36,7 @@ diff -uB a/libstdc++-v3/include/Makefile.am b/libstdc++-v3/include/Makefile.am
 +	$(INSTALL_DATA) ${pch2_output_anchor} $(DESTDIR)${host_installdir}
 +
  # By adding these files here, automake will remove them for 'make clean'
- CLEANFILES = ${pch_output} ${pch_output_anchors}
+ CLEANFILES = ${pch_output} ${pch_output_anchors} stamp-host
  
 diff -uB a/libstdc++-v3/include/Makefile.in b/libstdc++-v3/include/Makefile.in
 --- a/libstdc++-v3/include/Makefile.in

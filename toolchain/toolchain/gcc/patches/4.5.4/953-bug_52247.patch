@@ -4,7 +4,10 @@
 
 --- gcc-4_6-branch/gcc/testsuite/ChangeLog	(revision 184243)
 +++ gcc-4_6-branch/gcc/testsuite/ChangeLog	(revision 184244)
-@@ -1,3 +1,10 @@
+@@ -1,6 +1,13 @@
+ 	PR target/53138
+ 	* gcc.c-torture/execute/20120427-1.c: New testcase.
+ 
 +2012-04-04  Jakub Jelinek  <jakub@redhat.com>
 + 	Backported from mainline
 +	2012-02-14  Jakub Jelinek  <jakub@redhat.com>
@@ -38,7 +41,10 @@
 +}
 --- gcc-4_6-branch/gcc/cp/ChangeLog	(revision 184243)
 +++ gcc-4_6-branch/gcc/cp/ChangeLog	(revision 184244)
-@@ -1,3 +1,11 @@
+@@ -1,6 +1,14 @@
+ 
+ 	* GCC 4.5.4 released.
+ 
 +2012-04-04  Jakub Jelinek  <jakub@redhat.com>
 +	Backported from mainline
 +	2012-02-14  Jakub Jelinek  <jakub@redhat.com>

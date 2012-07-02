@@ -5,17 +5,17 @@
 --- gcc-4_6-branch/gcc/testsuite/ChangeLog	(revision 183223)
 +++ gcc-4_6-branch/gcc/testsuite/ChangeLog	(revision 183224)
 @@ -11,6 +11,11 @@
- 	PR rtl-optimization/52139
- 	* gcc.dg/pr52139.c: New test.
+ 
+ 	* g++.dg/torture/pr51344.C: New test.
  
 +2012-01-16  Jason Merrill  <jason@redhat.com>
 +
 +	PR c++/51854
 +	* g++.dg/abi/mangle60.C: New.
 +
- 2012-01-03  Richard Guenther  <rguenther@suse.de>
+ 2012-01-15  Uros Bizjak  <ubizjak@gmail.com>
  
- 	Backport from mainline
+ 	PR rtl-optimization/51821
 --- gcc-4_6-branch/gcc/testsuite/g++.dg/abi/mangle60.C	(revision 0)
 +++ gcc-4_6-branch/gcc/testsuite/g++.dg/abi/mangle60.C	(revision 183224)
 @@ -0,0 +1,21 @@
@@ -43,8 +43,8 @@
 --- gcc-4_6-branch/gcc/cp/ChangeLog	(revision 183223)
 +++ gcc-4_6-branch/gcc/cp/ChangeLog	(revision 183224)
 @@ -1,6 +1,11 @@
- 	* pt.c (tsubst_initializer_list): A pack expansion with no elements
- 	means value-initialization.
+ 	* decl2.c (save_template_attributes): Use merge_attributes
+ 	instead of chaining up via TREE_CHAIN.
  
 +2012-01-16  Jakub Jelinek  <jakub@redhat.com>
 +
