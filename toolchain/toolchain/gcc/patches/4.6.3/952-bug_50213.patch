@@ -1,0 +1,105 @@
+[4.6 Regression] Regression in space-optimized code relative to 4.5.x
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=50213
+
+---
+From 21a41ea517c2e60d3a910aca8012a2c0d57b1005
+From: Peter A. Bigot <pabigot@users.sourceforge.net>
+Date: Thu, 22 Sep 2011 09:22:25 -0500
+Subject: [PATCH] SF 3412886 pre-patch pr50213/tree-optimization
+
+This is a back-port of the following upstream commit.
+
+commit cd22a7968a89e465b934b7b2b9ff685a9652601b
+Author: rguenth <rguenth@138bc75d-0d04-0410-961f-82ee72b054a4>
+Date:   Wed Sep 7 11:28:39 2011 +0000
+
+    2011-09-07  Richard Guenther  <rguenther@suse.de>
+
+        PR tree-optimization/50213
+        * tree-flow.h (simple_iv_increment_p): Declare.
+        * tree-ssa-dom.c (simple_iv_increment_p): Export.  Also handle
+        POINTER_PLUS_EXPR.
+        * tree-ssa-forwprop.c (ssa_forward_propagate_and_combine): Do
+        not propagate simple IV counter increments.
+
+    git-svn-id: svn+ssh://gcc.gnu.org/svn/gcc/trunk@178633 138bc75d-0d04-0410-961f-82ee72b054a4
+
+---
+ gcc/tree-flow.h         |    1 +
+ gcc/tree-ssa-dom.c      |   10 ++++++----
+ gcc/tree-ssa-forwprop.c |   10 ++++++----
+ 3 files changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/gcc/tree-flow.h b/gcc/tree-flow.h
+--- a/gcc/tree-flow.h
++++ b/gcc/tree-flow.h
+@@ -600,6 +600,7 @@ extern void dump_dominator_optimization_stats (FILE *);
+ extern void debug_dominator_optimization_stats (void);
+ int loop_depth_of_name (tree);
+ tree degenerate_phi_result (gimple);
++bool simple_iv_increment_p (gimple);
+ 
+ /* In tree-ssa-copy.c  */
+ extern void propagate_value (use_operand_p, tree);
+diff --git a/gcc/tree-ssa-dom.c b/gcc/tree-ssa-dom.c
+--- a/gcc/tree-ssa-dom.c
++++ b/gcc/tree-ssa-dom.c
+@@ -1397,9 +1397,10 @@ record_equality (tree x, tree y)
+    i_1 = phi (..., i_2)
+    i_2 = i_1 +/- ...  */
+ 
+-static bool
++bool
+ simple_iv_increment_p (gimple stmt)
+ {
++  enum tree_code code;
+   tree lhs, preinc;
+   gimple phi;
+   size_t i;
+@@ -1411,12 +1412,13 @@ simple_iv_increment_p (gimple stmt)
+   if (TREE_CODE (lhs) != SSA_NAME)
+     return false;
+ 
+-  if (gimple_assign_rhs_code (stmt) != PLUS_EXPR
+-      && gimple_assign_rhs_code (stmt) != MINUS_EXPR)
++  code = gimple_assign_rhs_code (stmt);
++  if (code != PLUS_EXPR
++      && code != MINUS_EXPR
++      && code != POINTER_PLUS_EXPR)
+     return false;
+ 
+   preinc = gimple_assign_rhs1 (stmt);
+-
+   if (TREE_CODE (preinc) != SSA_NAME)
+     return false;
+ 
+diff --git a/gcc/tree-ssa-forwprop.c b/gcc/tree-ssa-forwprop.c
+--- a/gcc/tree-ssa-forwprop.c
++++ b/gcc/tree-ssa-forwprop.c
+@@ -1991,10 +1991,12 @@ tree_ssa_forward_propagate_single_use_vars (void)
+ 		  else
+ 		    gsi_next (&gsi);
+ 		}
+-	      else if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
+-		       && can_propagate_from (stmt))
++	      else if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
+ 		{
+-		  if (TREE_CODE (gimple_assign_rhs2 (stmt)) == INTEGER_CST
++		  tree off = gimple_assign_rhs2 (stmt);
++		  if (TREE_CODE (off) == INTEGER_CST
++		      && can_propagate_from (stmt)
++		      && !simple_iv_increment_p (stmt)
+ 		      /* ???  Better adjust the interface to that function
+ 			 instead of building new trees here.  */
+ 		      && forward_propagate_addr_expr
+@@ -2006,7 +2008,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
+ 						 rhs,
+ 						 fold_convert
+ 						   (ptr_type_node,
+-						    gimple_assign_rhs2 (stmt))))))
++						    off)))))
+ 		    {
+ 		      release_defs (stmt);
+ 		      todoflags |= TODO_remove_unused_locals;
+-- 
