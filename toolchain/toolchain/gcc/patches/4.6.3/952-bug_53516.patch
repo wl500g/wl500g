@@ -1,0 +1,149 @@
+[4.6 Regression] Vectorization and memset recognition miscompile bitfield stores
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=53516
+
+--- gcc-4_7-branch/gcc/ChangeLog	2012/05/29 14:43:12	187963
++++ gcc-4_7-branch/gcc/ChangeLog	2012/05/29 14:44:08	187964
+@@ -1,6 +1,13 @@
+ 	* fold-const.c (fold_binary_loc): Make sure to call
+ 	fold_plusminus_mult_expr with the original sign of operands.
+ 
++2012-05-29  Richard Guenther  <rguenther@suse.de>
++
++	PR tree-optimization/53516
++	* tree-data-ref.c (stmt_with_adjacent_zero_store_dr_p): Reject
++	bitfield accesses.
++	* tree-vect-data-refs.c (vect_analyze_data_refs): Likewise.
++
+ 2012-04-28  Joern Rennecke  <joern.rennecke@embecosm.com>
+ 	    Steven Bosscher  <steven@gcc.gnu.org>
+ 	    Maxim Kuvyrkov  <maxim@codesourcery.com>
+--- gcc-4_7-branch/gcc/testsuite/ChangeLog	2012/05/29 14:43:12	187963
++++ gcc-4_7-branch/gcc/testsuite/ChangeLog	2012/05/29 14:44:08	187964
+@@ -1,6 +1,11 @@
+ 	* gcc.dg/torture/pr53501.c: New testcase.
+ 	* c-c++-common/restrict-2.c: Adjust.
+ 
++2012-05-29  Richard Guenther  <rguenther@suse.de>
++
++	PR tree-optimization/53516
++	* gcc.dg/torture/pr53516.c: New testcase.
++
+ 2012-04-03  Jason Merrill  <jason@redhat.com>
+ 
+ 	PR c++/52796
+--- /dev/null
++++ gcc-4_7-branch/gcc/testsuite/gcc.dg/torture/pr53516.c	2012/05/29 14:44:08	187964
+@@ -0,0 +1,32 @@
++/* { dg-do run } */
++/* { dg-options "-ftree-vectorize -ftree-loop-distribute-patterns" } */
++
++extern void abort (void);
++
++struct Foo
++{
++  char a : 1;
++  char b : 7;
++};
++
++struct Foo x[256];
++int y[256];
++
++void __attribute__((noinline,noclone)) bar (int n)
++{
++  int i;
++  for (i = 0; i < n; ++i)
++    {
++      x[i].a = 0;
++      y[i] = 3;
++    }
++}
++
++int main()
++{
++  x[5].b = 7;
++  bar (256);
++  if (x[5].b != 7)
++    abort ();
++  return 0;
++}
+--- gcc-4_7-branch/gcc/tree-data-ref.c	2012/05/29 14:43:12	187963
++++ gcc-4_7-branch/gcc/tree-data-ref.c	2012/05/29 14:44:08	187964
+@@ -5275,26 +5275,33 @@
+ bool
+ stmt_with_adjacent_zero_store_dr_p (gimple stmt)
+ {
+-  tree op0, op1;
++  tree lhs, rhs;
+   bool res;
+   struct data_reference *dr;
+ 
+   if (!stmt
+       || !gimple_vdef (stmt)
+-      || !is_gimple_assign (stmt)
+-      || !gimple_assign_single_p (stmt)
+-      || !(op1 = gimple_assign_rhs1 (stmt))
+-      || !(integer_zerop (op1) || real_zerop (op1)))
++      || !gimple_assign_single_p (stmt))
++    return false;
++
++  lhs = gimple_assign_lhs (stmt);
++  rhs = gimple_assign_rhs1 (stmt);
++
++  /* If this is a bitfield store bail out.  */
++  if (TREE_CODE (lhs) == COMPONENT_REF
++      && DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
++    return false;
++
++  if (!(integer_zerop (rhs) || real_zerop (rhs)))
+     return false;
+ 
+   dr = XCNEW (struct data_reference);
+-  op0 = gimple_assign_lhs (stmt);
+ 
+   DR_STMT (dr) = stmt;
+-  DR_REF (dr) = op0;
++  DR_REF (dr) = lhs;
+ 
+   res = dr_analyze_innermost (dr)
+-    && stride_of_unit_type_p (DR_STEP (dr), TREE_TYPE (op0));
++    && stride_of_unit_type_p (DR_STEP (dr), TREE_TYPE (lhs));
+ 
+   free_data_ref (dr);
+   return res;
+--- gcc-4_7-branch/gcc/tree-vect-data-refs.c	2012/05/29 14:43:12	187963
++++ gcc-4_7-branch/gcc/tree-vect-data-refs.c	2012/05/29 14:44:08	187964
+@@ -2868,10 +2868,6 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
+           return false;
+         }
+ 
+-      base = unshare_expr (DR_BASE_ADDRESS (dr));
+-      offset = unshare_expr (DR_OFFSET (dr));
+-      init = unshare_expr (DR_INIT (dr));
+-
+       if (stmt_can_throw_internal (stmt))
+         {
+           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOCATIONS))
+@@ -2893,6 +2889,22 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
+           return false;
+         }
+ 
++      if (TREE_CODE (DR_REF (dr)) == COMPONENT_REF
++	  && DECL_BIT_FIELD (TREE_OPERAND (DR_REF (dr), 1)))
++	{
++          if (vect_print_dump_info (REPORT_UNVECTORIZED_LOCATIONS))
++            {
++              fprintf (vect_dump, "not vectorized: statement is bitfield "
++                       "access ");
++              print_gimple_stmt (vect_dump, stmt, 0, TDF_SLIM);
++            }
++          return false;
++	}
++
++      base = unshare_expr (DR_BASE_ADDRESS (dr));
++      offset = unshare_expr (DR_OFFSET (dr));
++      init = unshare_expr (DR_INIT (dr));
++
+       if (is_gimple_call (stmt))
+ 	{
+ 	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOCATIONS))
