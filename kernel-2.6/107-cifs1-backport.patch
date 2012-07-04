@@ -12055,6 +12055,15 @@ diff --git a/fs/cifs/cifs_unicode.h b/fs/cifs/cifs_unicode.h
   *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
   *
   *
+@@ -49,7 +49,7 @@ struct UniCaseRange {
+ #endif				/* UNICASERANGE_DEFINED */
+ 
+ #ifndef UNIUPR_NOUPPER
+-extern signed char CifsUniUpperTable[512];
++extern const signed char CifsUniUpperTable[512];
+ extern const struct UniCaseRange CifsUniUpperRange[];
+ #endif				/* UNIUPR_NOUPPER */
+ 
 @@ -64,13 +64,20 @@ int cifs_strtoUCS(__le16 *, const char *
  #endif
  
@@ -12250,6 +12259,15 @@ diff --git a/fs/cifs/cifs_uniupr.h b/fs/cifs/cifs_uniupr.h
   *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
   *
   * uniupr.h - Unicode compressed case ranges
+@@ -23,7 +23,7 @@
+ /*
+  * Latin upper case
+  */
+-signed char CifsUniUpperTable[512] = {
++const signed char CifsUniUpperTable[512] = {
+ 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* 000-00f */
+ 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* 010-01f */
+ 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* 020-02f */
 @@ -53,7 +53,7 @@ signed char CifsUniUpperTable[512] = {
  	0, -1, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 0, -1, 0, 0,	/* 1a0-1af */
  	-1, 0, 0, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, -1, 0, 0,	/* 1b0-1bf */

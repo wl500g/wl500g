@@ -17,13 +17,14 @@ IDE: updates from upstream
  drivers/ide/ide-cd.c          |   38 +----------
  drivers/ide/ide-dma.c         |    2 
  drivers/ide/ide-io.c          |  139 +++++++++++-------------------------------
+ drivers/ide/ide-lib.c         |    4 -
  drivers/ide/ide-probe.c       |    2 
  drivers/ide/ide-taskfile.c    |   18 ++++-
  drivers/ide/mips/au1xxx-ide.c |    2 
  drivers/ide/pci/sgiioc4.c     |    3 
  drivers/ide/ppc/pmac.c        |    2 
  include/linux/ide.h           |    6 -
- 10 files changed, 68 insertions(+), 147 deletions(-)
+ 11 files changed, 70 insertions(+), 149 deletions(-)
 
 diff -urBp a/drivers/ide/cris/ide-cris.c b/drivers/ide/cris/ide-cris.c
 --- a/drivers/ide/cris/ide-cris.c	2008-02-26 02:59:40.000000000 +0300
@@ -318,6 +319,27 @@ diff -urBp a/drivers/ide/ide-io.c b/drivers/ide/ide-io.c
  }
  
  EXPORT_SYMBOL_GPL(ide_init_sg_cmd);
+diff --git a/drivers/ide/ide-lib.c b/drivers/ide/ide-lib.c
+--- a/drivers/ide/ide-lib.c
++++ b/drivers/ide/ide-lib.c
+@@ -154,7 +154,7 @@ EXPORT_SYMBOL_GPL(ide_pio_timings);
+  * Black list. Some drives incorrectly report their maximal PIO mode,
+  * at least in respect to CMD640. Here we keep info on some known drives.
+  */
+-static struct ide_pio_info {
++static const struct ide_pio_info {
+ 	const char	*name;
+ 	int		pio;
+ } ide_pio_blacklist [] = {
+@@ -240,7 +240,7 @@ static struct ide_pio_info {
+ 
+ static int ide_scan_pio_blacklist (char *model)
+ {
+-	struct ide_pio_info *p;
++	const struct ide_pio_info *p;
+ 
+ 	for (p = ide_pio_blacklist; p->name != NULL; p++) {
+ 		if (strncmp(p->name, model, strlen(p->name)) == 0)
 diff -urBp a/drivers/ide/ide-probe.c b/drivers/ide/ide-probe.c
 --- a/drivers/ide/ide-probe.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/drivers/ide/ide-probe.c	2011-03-05 13:51:36.000000000 +0300
