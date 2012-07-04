@@ -89,7 +89,7 @@ gpio_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned lo
 	return 0;
 
 }
-static struct file_operations gpio_fops = {
+static const struct file_operations gpio_fops = {
 	owner:		THIS_MODULE,
 	open:		gpio_open,
 	release:	gpio_release,

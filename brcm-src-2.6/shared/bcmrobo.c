@@ -861,7 +861,7 @@ typedef	struct {
 	uint8 cpu;	/* is this cpu port? */
 } pdesc_t;
 
-static pdesc_t pdesc97[] = {
+static const pdesc_t pdesc97[] = {
 	/* 5395/5397/5398/53115S is 0 ~ 7.  port 8 is IMP port. */
 	/* port 0 */ {1 << 9, 1 << 0, REG_VLAN_PTAG0, 0},
 	/* port 1 */ {1 << 10, 1 << 1, REG_VLAN_PTAG1, 0},
@@ -874,7 +874,7 @@ static pdesc_t pdesc97[] = {
 	/* mii port */ {1 << 17, 1 << 8, REG_VLAN_PTAG8, 1},
 };
 
-static pdesc_t pdesc25[] = {
+static const pdesc_t pdesc25[] = {
 	/* port 0 */ {1 << 6, 1 << 0, REG_VLAN_PTAG0, 0},
 	/* port 1 */ {1 << 7, 1 << 1, REG_VLAN_PTAG1, 0},
 	/* port 2 */ {1 << 8, 1 << 2, REG_VLAN_PTAG2, 0},
@@ -890,7 +890,7 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 	uint8 val8;
 	uint16 val16;
 	uint32 val32;
-	pdesc_t *pdesc;
+	const pdesc_t *pdesc;
 	int pdescsz;
 	uint16 vid;
 	uint8 arl_entry[8] = { 0 }, arl_entry1[8] = { 0 };
@@ -1264,7 +1264,7 @@ robo_dump_regs(robo_info_t *robo, struct bcmstrbuf *b)
 	uint8 val8;
 	uint16 val16;
 	uint32 val32;
-	pdesc_t *pdesc;
+	const pdesc_t *pdesc;
 	int pdescsz;
 	int i;
 
