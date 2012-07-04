@@ -253,7 +253,6 @@ static int proc_sys_fill_cache(struct file *filp, void *dirent,
 	struct qstr qname;
 	ino_t ino = 0;
 	unsigned type = DT_UNKNOWN;
-	int ret;
 
 	qname.name = table->procname;
 	qname.len  = strlen(table->procname);
@@ -268,7 +267,6 @@ static int proc_sys_fill_cache(struct file *filp, void *dirent,
 	 * I should do a dcache lookup first.  But for now
 	 * it is just simpler not to.
 	 */
-	ret = 0;
 	child_table = do_proc_sys_lookup(dir, &qname, &head);
 	sysctl_head_finish(head);
 	if (child_table != table)
