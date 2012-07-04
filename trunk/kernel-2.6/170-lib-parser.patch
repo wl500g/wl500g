@@ -1,0 +1,406 @@
+ a447c0932445f92ce6f4c1bd020f62c5097a7842 vfs: Use const for kernel parser table
+ 5d051decfc27cdf33fbbd2bfca958d0d2c903569 lib/parser: cleanup match_number()
+
+---
+ drivers/infiniband/ulp/srp/ib_srp.c |    2 +-
+ drivers/usb/core/inode.c            |    2 +-
+ fs/adfs/super.c                     |    2 +-
+ fs/affs/super.c                     |    2 +-
+ fs/afs/super.c                      |    2 +-
+ fs/autofs/inode.c                   |    2 +-
+ fs/autofs4/inode.c                  |    2 +-
+ fs/befs/linuxvfs.c                  |    2 +-
+ fs/devpts/inode.c                   |    2 +-
+ fs/ecryptfs/main.c                  |    2 +-
+ fs/ext2/super.c                     |    2 +-
+ fs/ext3/super.c                     |    2 +-
+ fs/ext4/super.c                     |    2 +-
+ fs/fat/inode.c                      |    6 +++---
+ fs/fuse/inode.c                     |    2 +-
+ fs/gfs2/mount.c                     |    2 +-
+ fs/hfs/super.c                      |    2 +-
+ fs/hfsplus/options.c                |    2 +-
+ fs/hpfs/super.c                     |    2 +-
+ fs/isofs/inode.c                    |    2 +-
+ fs/jfs/super.c                      |    2 +-
+ fs/nfs/nfsroot.c                    |    2 +-
+ fs/nfs/super.c                      |    6 +++---
+ fs/ocfs2/super.c                    |    2 +-
+ fs/udf/super.c                      |    2 +-
+ fs/ufs/super.c                      |    2 +-
+ fs/xfs/linux-2.6/xfs_super.c        |    2 +-
+ include/linux/parser.h              |    2 +-
+ lib/parser.c                        |    9 +++++----
+ 29 files changed, 37 insertions(+), 36 deletions(-)
+
+diff --git a/drivers/infiniband/ulp/srp/ib_srp.c b/drivers/infiniband/ulp/srp/ib_srp.c
+--- a/drivers/infiniband/ulp/srp/ib_srp.c
++++ b/drivers/infiniband/ulp/srp/ib_srp.c
+@@ -1683,7 +1683,7 @@ enum {
+ 				   SRP_OPT_SERVICE_ID),
+ };
+ 
+-static match_table_t srp_opt_tokens = {
++static const match_table_t srp_opt_tokens = {
+ 	{ SRP_OPT_ID_EXT,		"id_ext=%s" 		},
+ 	{ SRP_OPT_IOC_GUID,		"ioc_guid=%s" 		},
+ 	{ SRP_OPT_DGID,			"dgid=%s" 		},
+diff --git a/drivers/usb/core/inode.c b/drivers/usb/core/inode.c
+--- a/drivers/usb/core/inode.c
++++ b/drivers/usb/core/inode.c
+@@ -97,7 +97,7 @@ enum {
+ 	Opt_err,
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_devuid, "devuid=%u"},
+ 	{Opt_devgid, "devgid=%u"},
+ 	{Opt_devmode, "devmode=%o"},
+diff --git a/fs/adfs/super.c b/fs/adfs/super.c
+--- a/fs/adfs/super.c
++++ b/fs/adfs/super.c
+@@ -157,7 +157,7 @@ static int adfs_show_options(struct seq_file *seq, struct vfsmount *mnt)
+ 
+ enum {Opt_uid, Opt_gid, Opt_ownmask, Opt_othmask, Opt_err};
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_uid, "uid=%u"},
+ 	{Opt_gid, "gid=%u"},
+ 	{Opt_ownmask, "ownmask=%o"},
+diff --git a/fs/affs/super.c b/fs/affs/super.c
+--- a/fs/affs/super.c
++++ b/fs/affs/super.c
+@@ -135,7 +135,7 @@ enum {
+ 	Opt_verbose, Opt_volume, Opt_ignore, Opt_err,
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_bs, "bs=%u"},
+ 	{Opt_mode, "mode=%o"},
+ 	{Opt_mufs, "mufs"},
+diff --git a/fs/afs/super.c b/fs/afs/super.c
+--- a/fs/afs/super.c
++++ b/fs/afs/super.c
+@@ -64,7 +64,7 @@ enum {
+ 	afs_opt_vol,
+ };
+ 
+-static match_table_t afs_options_list = {
++static const match_table_t afs_options_list = {
+ 	{ afs_opt_cell,		"cell=%s"	},
+ 	{ afs_opt_rwpath,	"rwpath"	},
+ 	{ afs_opt_vol,		"vol=%s"	},
+diff --git a/fs/autofs/inode.c b/fs/autofs/inode.c
+--- a/fs/autofs/inode.c
++++ b/fs/autofs/inode.c
+@@ -59,7 +59,7 @@ static const struct super_operations autofs_sops = {
+ 
+ enum {Opt_err, Opt_fd, Opt_uid, Opt_gid, Opt_pgrp, Opt_minproto, Opt_maxproto};
+ 
+-static match_table_t autofs_tokens = {
++static const match_table_t autofs_tokens = {
+ 	{Opt_fd, "fd=%u"},
+ 	{Opt_uid, "uid=%u"},
+ 	{Opt_gid, "gid=%u"},
+diff --git a/fs/autofs4/inode.c b/fs/autofs4/inode.c
+--- a/fs/autofs4/inode.c
++++ b/fs/autofs4/inode.c
+@@ -213,7 +213,7 @@ static const struct super_operations autofs4_sops = {
+ enum {Opt_err, Opt_fd, Opt_uid, Opt_gid, Opt_pgrp, Opt_minproto, Opt_maxproto,
+ 	Opt_indirect, Opt_direct, Opt_offset};
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_fd, "fd=%u"},
+ 	{Opt_uid, "uid=%u"},
+ 	{Opt_gid, "gid=%u"},
+diff --git a/fs/befs/linuxvfs.c b/fs/befs/linuxvfs.c
+--- a/fs/befs/linuxvfs.c
++++ b/fs/befs/linuxvfs.c
+@@ -650,7 +650,7 @@ enum {
+ 	Opt_uid, Opt_gid, Opt_charset, Opt_debug, Opt_err,
+ };
+ 
+-static match_table_t befs_tokens = {
++static const match_table_t befs_tokens = {
+ 	{Opt_uid, "uid=%d"},
+ 	{Opt_gid, "gid=%d"},
+ 	{Opt_charset, "iocharset=%s"},
+diff --git a/fs/devpts/inode.c b/fs/devpts/inode.c
+--- a/fs/devpts/inode.c
++++ b/fs/devpts/inode.c
+@@ -49,7 +49,7 @@ enum {
+ 	Opt_err
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_uid, "uid=%u"},
+ 	{Opt_gid, "gid=%u"},
+ 	{Opt_mode, "mode=%o"},
+diff --git a/fs/ecryptfs/main.c b/fs/ecryptfs/main.c
+--- a/fs/ecryptfs/main.c
++++ b/fs/ecryptfs/main.c
+@@ -211,7 +211,7 @@ enum { ecryptfs_opt_sig, ecryptfs_opt_ecryptfs_sig,
+        ecryptfs_opt_passthrough, ecryptfs_opt_xattr_metadata,
+        ecryptfs_opt_encrypted_view, ecryptfs_opt_err };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{ecryptfs_opt_sig, "sig=%s"},
+ 	{ecryptfs_opt_ecryptfs_sig, "ecryptfs_sig=%s"},
+ 	{ecryptfs_opt_cipher, "cipher=%s"},
+diff --git a/fs/ext2/super.c b/fs/ext2/super.c
+--- a/fs/ext2/super.c
++++ b/fs/ext2/super.c
+@@ -393,7 +393,7 @@ enum {
+ 	Opt_usrquota, Opt_grpquota, Opt_reservation, Opt_noreservation
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_bsd_df, "bsddf"},
+ 	{Opt_minix_df, "minixdf"},
+ 	{Opt_grpid, "grpid"},
+diff --git a/fs/ext3/super.c b/fs/ext3/super.c
+--- a/fs/ext3/super.c
++++ b/fs/ext3/super.c
+@@ -760,7 +760,7 @@ enum {
+ 	Opt_grpquota
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_bsd_df, "bsddf"},
+ 	{Opt_minix_df, "minixdf"},
+ 	{Opt_grpid, "grpid"},
+diff --git a/fs/ext4/super.c b/fs/ext4/super.c
+--- a/fs/ext4/super.c
++++ b/fs/ext4/super.c
+@@ -919,7 +919,7 @@ enum {
+ 	Opt_inode_readahead_blks
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_bsd_df, "bsddf"},
+ 	{Opt_minix_df, "minixdf"},
+ 	{Opt_grpid, "grpid"},
+diff --git a/fs/fat/inode.c b/fs/fat/inode.c
+--- a/fs/fat/inode.c
++++ b/fs/fat/inode.c
+@@ -855,7 +855,7 @@ enum {
+ 	Opt_obsolate, Opt_flush, Opt_tz_utc, Opt_err,
+ };
+ 
+-static match_table_t fat_tokens = {
++static const match_table_t fat_tokens = {
+ 	{Opt_check_r, "check=relaxed"},
+ 	{Opt_check_s, "check=strict"},
+ 	{Opt_check_n, "check=normal"},
+@@ -890,14 +890,14 @@ static match_table_t fat_tokens = {
+ 	{Opt_tz_utc, "tz=UTC"},
+ 	{Opt_err, NULL},
+ };
+-static match_table_t msdos_tokens = {
++static const match_table_t msdos_tokens = {
+ 	{Opt_nodots, "nodots"},
+ 	{Opt_nodots, "dotsOK=no"},
+ 	{Opt_dots, "dots"},
+ 	{Opt_dots, "dotsOK=yes"},
+ 	{Opt_err, NULL}
+ };
+-static match_table_t vfat_tokens = {
++static const match_table_t vfat_tokens = {
+ 	{Opt_charset, "iocharset=%s"},
+ 	{Opt_shortname_lower, "shortname=lower"},
+ 	{Opt_shortname_win95, "shortname=win95"},
+diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
+--- a/fs/fuse/inode.c
++++ b/fs/fuse/inode.c
+@@ -354,7 +354,7 @@ enum {
+ 	OPT_ERR
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{OPT_FD,			"fd=%u"},
+ 	{OPT_ROOTMODE,			"rootmode=%o"},
+ 	{OPT_USER_ID,			"user_id=%u"},
+diff --git a/fs/gfs2/mount.c b/fs/gfs2/mount.c
+--- a/fs/gfs2/mount.c
++++ b/fs/gfs2/mount.c
+@@ -46,7 +46,7 @@ enum {
+ 	Opt_err,
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_lockproto, "lockproto=%s"},
+ 	{Opt_locktable, "locktable=%s"},
+ 	{Opt_hostdata, "hostdata=%s"},
+diff --git a/fs/hfs/super.c b/fs/hfs/super.c
+--- a/fs/hfs/super.c
++++ b/fs/hfs/super.c
+@@ -173,7 +173,7 @@ enum {
+ 	opt_err
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{ opt_uid, "uid=%u" },
+ 	{ opt_gid, "gid=%u" },
+ 	{ opt_umask, "umask=%o" },
+diff --git a/fs/hfsplus/options.c b/fs/hfsplus/options.c
+--- a/fs/hfsplus/options.c
++++ b/fs/hfsplus/options.c
+@@ -25,7 +25,7 @@ enum {
+ 	opt_force, opt_err
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{ opt_creator, "creator=%s" },
+ 	{ opt_type, "type=%s" },
+ 	{ opt_umask, "umask=%o" },
+diff --git a/fs/hpfs/super.c b/fs/hpfs/super.c
+--- a/fs/hpfs/super.c
++++ b/fs/hpfs/super.c
+@@ -215,7 +215,7 @@ enum {
+ 	Opt_timeshift, Opt_err,
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_help, "help"},
+ 	{Opt_uid, "uid=%u"},
+ 	{Opt_gid, "gid=%u"},
+diff --git a/fs/isofs/inode.c b/fs/isofs/inode.c
+--- a/fs/isofs/inode.c
++++ b/fs/isofs/inode.c
+@@ -310,7 +310,7 @@ enum {
+ 	Opt_nocompress, Opt_hide, Opt_showassoc, Opt_dmode,
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_norock, "norock"},
+ 	{Opt_nojoliet, "nojoliet"},
+ 	{Opt_unhide, "unhide"},
+diff --git a/fs/jfs/super.c b/fs/jfs/super.c
+--- a/fs/jfs/super.c
++++ b/fs/jfs/super.c
+@@ -199,7 +199,7 @@ enum {
+ 	Opt_usrquota, Opt_grpquota, Opt_uid, Opt_gid, Opt_umask
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_integrity, "integrity"},
+ 	{Opt_nointegrity, "nointegrity"},
+ 	{Opt_iocharset, "iocharset=%s"},
+diff --git a/fs/nfs/nfsroot.c b/fs/nfs/nfsroot.c
+--- a/fs/nfs/nfsroot.c
++++ b/fs/nfs/nfsroot.c
+@@ -127,7 +127,7 @@ enum {
+ 	Opt_err
+ };
+ 
+-static match_table_t __initdata tokens = {
++static match_table_t __initconst tokens = {
+ 	{Opt_port, "port=%u"},
+ 	{Opt_rsize, "rsize=%u"},
+ 	{Opt_wsize, "wsize=%u"},
+diff --git a/fs/ocfs2/super.c b/fs/ocfs2/super.c
+--- a/fs/ocfs2/super.c
++++ b/fs/ocfs2/super.c
+@@ -157,7 +157,7 @@ enum {
+ 	Opt_err,
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_barrier, "barrier=%u"},
+ 	{Opt_err_panic, "errors=panic"},
+ 	{Opt_err_ro, "errors=remount-ro"},
+diff --git a/fs/udf/super.c b/fs/udf/super.c
+--- a/fs/udf/super.c
++++ b/fs/udf/super.c
+@@ -369,7 +369,7 @@ enum {
+ 	Opt_err, Opt_uforget, Opt_uignore, Opt_gforget, Opt_gignore
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_novrs,	"novrs"},
+ 	{Opt_nostrict,	"nostrict"},
+ 	{Opt_bs,	"bs=%u"},
+diff --git a/fs/ufs/super.c b/fs/ufs/super.c
+--- a/fs/ufs/super.c
++++ b/fs/ufs/super.c
+@@ -309,7 +309,7 @@ enum {
+        Opt_err
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_type_old, "ufstype=old"},
+ 	{Opt_type_sunx86, "ufstype=sunx86"},
+ 	{Opt_type_sun, "ufstype=sun"},
+diff --git a/fs/xfs/linux-2.6/xfs_super.c b/fs/xfs/linux-2.6/xfs_super.c
+--- a/fs/xfs/linux-2.6/xfs_super.c
++++ b/fs/xfs/linux-2.6/xfs_super.c
+@@ -158,7 +158,7 @@ enum {
+ 	Opt_barrier, Opt_nobarrier, Opt_err
+ };
+ 
+-static match_table_t tokens = {
++static const match_table_t tokens = {
+ 	{Opt_barrier, "barrier"},
+ 	{Opt_nobarrier, "nobarrier"},
+ 	{Opt_err, NULL}
+diff --git a/include/linux/parser.h b/include/linux/parser.h
+--- a/include/linux/parser.h
++++ b/include/linux/parser.h
+@@ -25,7 +25,7 @@ typedef struct {
+ 	char *to;
+ } substring_t;
+ 
+-int match_token(char *, match_table_t table, substring_t args[]);
++int match_token(char *, const match_table_t table, substring_t args[]);
+ int match_int(substring_t *, int *result);
+ int match_octal(substring_t *, int *result);
+ int match_hex(substring_t *, int *result);
+diff --git a/lib/parser.c b/lib/parser.c
+--- a/lib/parser.c
++++ b/lib/parser.c
+@@ -100,7 +100,7 @@ static int match_one(char *s, const char *p, substring_t args[])
+  * format identifiers which will be taken into account when matching the
+  * tokens, and whose locations will be returned in the @args array.
+  */
+-int match_token(char *s, match_table_t table, substring_t args[])
++int match_token(char *s, const match_table_t table, substring_t args[])
+ {
+ 	const struct match_token *p;
+ 
+@@ -128,12 +128,13 @@ static int match_number(substring_t *s, int *result, int base)
+ 	char *endp;
+ 	char *buf;
+ 	int ret;
++	size_t len = s->to - s->from;
+ 
+-	buf = kmalloc(s->to - s->from + 1, GFP_KERNEL);
++	buf = kmalloc(len + 1, GFP_KERNEL);
+ 	if (!buf)
+ 		return -ENOMEM;
+-	memcpy(buf, s->from, s->to - s->from);
+-	buf[s->to - s->from] = '\0';
++	memcpy(buf, s->from, len);
++	buf[len] = '\0';
+ 	*result = simple_strtol(buf, &endp, base);
+ 	ret = 0;
+ 	if (endp == buf)
+-- 
