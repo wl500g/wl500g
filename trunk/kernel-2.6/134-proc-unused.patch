@@ -1,0 +1,85 @@
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -984,14 +984,12 @@ out:
+ static int do_proc_readlink(struct dentry *dentry, struct vfsmount *mnt,
+ 			    char __user *buffer, int buflen)
+ {
+-	struct inode * inode;
+ 	char *tmp = (char*)__get_free_page(GFP_KERNEL), *path;
+ 	int len;
+ 
+ 	if (!tmp)
+ 		return -ENOMEM;
+ 
+-	inode = dentry->d_inode;
+ 	path = d_path(dentry, mnt, tmp, PAGE_SIZE);
+ 	len = PTR_ERR(path);
+ 	if (IS_ERR(path))
+@@ -1426,7 +1424,7 @@ static int proc_readfd_common(struct fil
+ 	struct dentry *dentry = filp->f_path.dentry;
+ 	struct inode *inode = dentry->d_inode;
+ 	struct task_struct *p = get_proc_task(inode);
+-	unsigned int fd, tid, ino;
++	unsigned int fd, ino;
+ 	int retval;
+ 	struct files_struct * files;
+ 	struct fdtable *fdt;
+@@ -1435,7 +1433,6 @@ static int proc_readfd_common(struct fil
+ 	if (!p)
+ 		goto out_no_task;
+ 	retval = 0;
+-	tid = p->pid;
+ 
+ 	fd = filp->f_pos;
+ 	switch (fd) {
+@@ -1626,13 +1623,11 @@ static struct dentry *proc_pident_lookup
+ 					 const struct pid_entry *ents,
+ 					 unsigned int nents)
+ {
+-	struct inode *inode;
+ 	struct dentry *error;
+ 	struct task_struct *task = get_proc_task(dir);
+ 	const struct pid_entry *p, *last;
+ 
+ 	error = ERR_PTR(-ENOENT);
+-	inode = NULL;
+ 
+ 	if (!task)
+ 		goto out_no_task;
+@@ -1670,7 +1665,6 @@ static int proc_pident_readdir(struct fi
+ 		const struct pid_entry *ents, unsigned int nents)
+ {
+ 	int i;
+-	int pid;
+ 	struct dentry *dentry = filp->f_path.dentry;
+ 	struct inode *inode = dentry->d_inode;
+ 	struct task_struct *task = get_proc_task(inode);
+@@ -1683,7 +1677,6 @@ static int proc_pident_readdir(struct fi
+ 		goto out_no_task;
+ 
+ 	ret = 0;
+-	pid = task->pid;
+ 	i = filp->f_pos;
+ 	switch (i) {
+ 	case 0:
+diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
+--- a/fs/proc/proc_sysctl.c
++++ b/fs/proc/proc_sysctl.c
+@@ -253,7 +253,6 @@ static int proc_sys_fill_cache(struct fi
+ 	struct qstr qname;
+ 	ino_t ino = 0;
+ 	unsigned type = DT_UNKNOWN;
+-	int ret;
+ 
+ 	qname.name = table->procname;
+ 	qname.len  = strlen(table->procname);
+@@ -268,7 +267,6 @@ static int proc_sys_fill_cache(struct fi
+ 	 * I should do a dcache lookup first.  But for now
+ 	 * it is just simpler not to.
+ 	 */
+-	ret = 0;
+ 	child_table = do_proc_sys_lookup(dir, &qname, &head);
+ 	sysctl_head_finish(head);
+ 	if (child_table != table)
+-- 
