@@ -253,13 +253,10 @@ static igsc_mh_t *
 igsc_sdb_member_find(igsc_info_t *igsc_info, uint32 mgrp_ip,
                      uint32 mh_ip, void *ifp)
 {
-	uint32 hash;
 	igsc_mgrp_t *mgrp;
 	igsc_mh_t *mh;
 
 	ASSERT(IP_ISMULTI(mgrp_ip));
-
-	hash = IGSDB_MGRP_HASH(mgrp_ip);
 
 	OSL_LOCK(igsc_info->sdb_lock);
 
