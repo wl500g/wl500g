@@ -366,7 +366,7 @@ enum {
 	Opt_fmode, Opt_dmode
 };
 
-static match_table_t tokens = {
+static const match_table_t tokens = {
 	{Opt_novrs,	"novrs"},
 	{Opt_nostrict,	"nostrict"},
 	{Opt_bs,	"bs=%u"},
