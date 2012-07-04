@@ -111,8 +111,8 @@ diff --git a/kernel/module.c b/kernel/module.c
  
  	for (i = 0; i < mod->num_syms; i++)
 -	        if (__find_symbol(mod->syms[i].name, &owner, &crc, 1)) {
-+	        if (!IS_ERR_VALUE(__find_symbol(mod->syms[i].name,
-+	    						&owner, &crc, 1))) {
++		if (!IS_ERR_VALUE(__find_symbol(mod->syms[i].name,
++							&owner, &crc, 1))) {
  			name = mod->syms[i].name;
  			ret = -ENOEXEC;
  			goto dup;
@@ -120,8 +120,8 @@ diff --git a/kernel/module.c b/kernel/module.c
  
  	for (i = 0; i < mod->num_gpl_syms; i++)
 -	        if (__find_symbol(mod->gpl_syms[i].name, &owner, &crc, 1)) {
-+	        if (!IS_ERR_VALUE(__find_symbol(mod->gpl_syms[i].name,
-+	    						&owner, &crc, 1))) {
++		if (!IS_ERR_VALUE(__find_symbol(mod->gpl_syms[i].name,
++							&owner, &crc, 1))) {
  			name = mod->gpl_syms[i].name;
  			ret = -ENOEXEC;
  			goto dup;
