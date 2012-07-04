@@ -1,24 +1,24 @@
-From 43df2a57b773596cd0bdd2316889ff9653121015
-From: Thomas Meyer
-Date: Thu, 10 Nov 2011 19:38:43 +0100
-Subject: [PATCH] ALSA: usb-audio: Use kmemdup rather than duplicating its implementation
-
-Use kmemdup rather than duplicating its implementation
-
-The semantic patch that makes this change is available
-in scripts/coccinelle/api/memdup.cocci.
-
-Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
-Signed-off-by: Takashi Iwai <tiwai@suse.de>
+ 43df2a57b773596cd0bdd2316889ff9653121015 ALSA: usb-audio: Use kmemdup rather than duplicating its implementation
+ 5cd5d7c44990658df6ab49f6253c39617c53b03d ALSA: usb-audio: fix rate_list memory leak
 
 ---
- sound/usb/usbaudio.c |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
+ sound/usb/usbaudio.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/sound/usb/usbaudio.c b/sound/usb/usbaudio.c
 --- a/sound/usb/usbaudio.c
 +++ b/sound/usb/usbaudio.c
-@@ -137,12 +137,12 @@ static int create_fixed_stream_quirk(struct snd_usb_audio *chip,
+@@ -1813,6 +1813,9 @@ static int snd_usb_pcm_check_knot(struct snd_pcm_runtime *runtime,
+ 	int count = 0, needs_knot = 0;
+ 	int err;
+ 
++	kfree(subs->rate_list.list);
++	subs->rate_list.list = NULL;
++
+ 	list_for_each_entry(fp, &subs->fmt_list, list) {
+ 		if (fp->rates & SNDRV_PCM_RATE_CONTINUOUS)
+ 			return 0;
+@@ -2837,12 +2837,12 @@ static int create_fixed_stream_quirk(struct snd_usb_audio *chip,
  		return -ENOMEM;
  	}
  	if (fp->nr_rates > 0) {
@@ -33,7 +33,7 @@ diff --git a/sound/usb/usbaudio.c b/sound/usb/usbaudio.c
  		fp->rate_table = rate_table;
  	}
  
-@@ -224,10 +224,9 @@ static int create_uaxx_quirk(struct snd_usb_audio *chip,
+@@ -2924,10 +2924,9 @@ static int create_uaxx_quirk(struct snd_usb_audio *chip,
  	if (altsd->bNumEndpoints != 1)
  		return -ENXIO;
  
@@ -46,4 +46,3 @@ diff --git a/sound/usb/usbaudio.c b/sound/usb/usbaudio.c
  	fp->iface = altsd->bInterfaceNumber;
  	fp->endpoint = get_endpoint(alts, 0)->bEndpointAddress;
 -- 
-1.7.6.2
