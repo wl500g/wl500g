@@ -1,5 +1,4 @@
 Subject: [PATCH] Minor kernel string library fixes
-From 129684dc1403e7e4a734963e82be643cb9ca4181
 From: Fedor <fedork@ubuntu.(none)>
 Date: Wed, 17 Feb 2010 21:25:57 -0500
 
@@ -10,18 +9,29 @@ kernel.org commits
  84c95c9acf088c99d8793d78036b67faa5d0b851 string: on strstrip(), first remove leading spaces before running over str
  b5f54b07c06f6e438a4fee92c27423e880d8816b parser: remove unnecessary strlen()
  a11d2b64e1f2556953120d516241243ea365f0ae lib/string.c: simplify stricmp()
+ 7707e61c70999a1f9f1fd9ac92e293c198585152 ctype: constify read-only _ctype string
 
 ---
- include/linux/ctype.h  |    1 
+ include/linux/ctype.h  |    3 +-
  include/linux/string.h |    1 
+ lib/ctype.c            |    2 -
  lib/parser.c           |   11 ++++---
  lib/string.c           |   73 +++++++++++++++++++++++++++++--------------------
  lib/vsprintf.c         |    2 -
- 5 files changed, 54 insertions(+), 34 deletions(-)
+ 6 files changed, 56 insertions(+), 36 deletions(-)
 
 diff --git a/include/linux/ctype.h b/include/linux/ctype.h
 --- a/include/linux/ctype.h
 +++ b/include/linux/ctype.h
+@@ -15,7 +15,7 @@
+ #define _X	0x40	/* hex digit */
+ #define _SP	0x80	/* hard space (0x20) */
+ 
+-extern unsigned char _ctype[];
++extern const unsigned char _ctype[];
+ 
+ #define __ismask(x) (_ctype[(int)(unsigned char)(x)])
+ 
 @@ -27,6 +27,7 @@ extern unsigned char _ctype[];
  #define islower(c)	((__ismask(c)&(_L)) != 0)
  #define isprint(c)	((__ismask(c)&(_P|_U|_L|_D|_SP)) != 0)
@@ -41,6 +51,18 @@ diff --git a/include/linux/string.h b/include/linux/string.h
  extern char * strstrip(char *);
  #ifndef __HAVE_ARCH_STRSTR
  extern char * strstr(const char *,const char *);
+diff --git a/lib/ctype.c b/lib/ctype.c
+--- a/lib/ctype.c
++++ b/lib/ctype.c
+@@ -7,7 +7,7 @@
+ #include <linux/ctype.h>
+ #include <linux/module.h>
+ 
+-unsigned char _ctype[] = {
++const unsigned char _ctype[] = {
+ _C,_C,_C,_C,_C,_C,_C,_C,			/* 0-7 */
+ _C,_C|_S,_C|_S,_C|_S,_C|_S,_C|_S,_C,_C,		/* 8-15 */
+ _C,_C,_C,_C,_C,_C,_C,_C,			/* 16-23 */
 diff --git a/lib/parser.c b/lib/parser.c
 --- a/lib/parser.c
 +++ b/lib/parser.c
@@ -206,4 +228,3 @@ diff --git a/lib/vsprintf.c b/lib/vsprintf.c
  			while (!isspace(*str) && *str)
  				str++;
 -- 
-1.6.5.GIT
