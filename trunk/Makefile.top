@@ -59,14 +59,15 @@ export CROSS_COMPILE := mipsel-uclibc-
 export CONFIGURE := ./configure --host=mipsel-linux --build=$(BUILD)
 endif
 
-ifeq ($(TOOLCHAIN),)
-export TOOLCHAINDIR := $(dir $(shell which $(CROSS_COMPILE)gcc))
+ifeq ($(TOOLCHAINDIR),)
+export TOOLCHAIN := $(shell cd $(dir $(shell which $(CROSS_COMPILE)gcc))/.. && pwd -P)
 else
-export TOOLCHAINDIR := $(shell cd $(TOOLCHAIN) && pwd -P)/bin
-# Update PATH, MAKELEVEL could be any
-ifeq ($(findstring $(TOOLCHAINDIR),$(PATH)),)
-export PATH := $(TOOLCHAINDIR):$(PATH)
+export TOOLCHAIN := $(shell cd $(TOOLCHAINDIR) && pwd -P)
 endif
+
+# Update PATH, MAKELEVEL could be any
+ifeq ($(findstring $(TOOLCHAIN)/bin,$(PATH)),)
+export PATH := $(TOOLCHAIN)/bin:$(PATH)
 endif
 
 ifeq ($(CONFIG_BCMWPA2),y)
