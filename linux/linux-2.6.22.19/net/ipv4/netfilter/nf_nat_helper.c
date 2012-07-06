@@ -43,19 +43,14 @@ adjust_tcp_sequence(u32 seq,
 		    struct nf_conn *ct,
 		    enum ip_conntrack_info ctinfo)
 {
-	int dir;
-	struct nf_nat_seq *this_way, *other_way;
+	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 	struct nf_conn_nat *nat = nfct_nat(ct);
+	struct nf_nat_seq *this_way = &nat->info.seq[dir];
 
-	DEBUGP("nf_nat_resize_packet: old_size = %u, new_size = %u\n",
-		(*skb)->len, new_size);
+	pr_debug("adjust_tcp_sequence: seq = %u, sizediff = %d\n",
+		 seq, sizediff);
 
-	dir = CTINFO2DIR(ctinfo);
-
-	this_way = &nat->info.seq[dir];
-	other_way = &nat->info.seq[!dir];
-
-	DEBUGP("nf_nat_resize_packet: Seq_offset before: ");
+	pr_debug("adjust_tcp_sequence: Seq_offset before: ");
 	DUMP_OFFSET(this_way);
 
 	spin_lock_bh(&nf_nat_seqofs_lock);
@@ -66,13 +61,13 @@ adjust_tcp_sequence(u32 seq,
 	 * retransmit */
 	if (this_way->offset_before == this_way->offset_after ||
 	    before(this_way->correction_pos, seq)) {
-		   this_way->correction_pos = seq;
-		   this_way->offset_before = this_way->offset_after;
-		   this_way->offset_after += sizediff;
+		this_way->correction_pos = seq;
+		this_way->offset_before = this_way->offset_after;
+		this_way->offset_after += sizediff;
 	}
 	spin_unlock_bh(&nf_nat_seqofs_lock);
 
-	DEBUGP("nf_nat_resize_packet: Seq_offset after: ");
+	pr_debug("adjust_tcp_sequence: Seq_offset after: ");
 	DUMP_OFFSET(this_way);
 }
 
@@ -259,12 +254,6 @@ nf_nat_mangle_udp_packet(struct sk_buff **pskb,
 	struct iphdr *iph;
 	struct udphdr *udph;
 	int datalen, oldlen;
-
-	/* UDP helpers might accidentally mangle the wrong packet */
-	iph = ip_hdr(*pskb);
-	if ((*pskb)->len < iph->ihl*4 + sizeof(*udph) +
-			       match_offset + match_len)
-		return 0;
 
 	if (!skb_make_writable(pskb, (*pskb)->len))
 		return 0;
