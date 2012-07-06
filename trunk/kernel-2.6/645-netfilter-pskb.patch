@@ -1997,9 +1997,9 @@ diff -urBp a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
  	struct {
  		struct icmphdr icmp;
 @@ -437,24 +437,24 @@ int nf_nat_icmp_reply_translation(struct
+ 
  	} *inside;
- 	struct nf_conntrack_l4proto *l4proto;
- 	struct nf_conntrack_tuple inner, target;
+ 	struct nf_conntrack_tuple target;
 -	int hdrlen = ip_hdrlen(*pskb);
 +	int hdrlen = ip_hdrlen(skb);
  	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
@@ -2027,21 +2027,15 @@ diff -urBp a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
  
  	/* Redirects on non-null nats must be dropped, else they'll
  	   start talking to each other without our translation, and be
-@@ -469,12 +469,12 @@ int nf_nat_icmp_reply_translation(struct
+@@ -469,7 +469,7 @@ int nf_nat_icmp_reply_translation(struct
  	}
  
  	DEBUGP("icmp_reply_translation: translating error %p manp %u dir %s\n",
 -	       *pskb, manip, dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
 +	       skb, manip, dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
  
- 	/* rcu_read_lock()ed by nf_hook_slow */
- 	l4proto = __nf_ct_l4proto_find(PF_INET, inside->ip.protocol);
- 
--	if (!nf_ct_get_tuple(*pskb, hdrlen + sizeof(struct icmphdr),
-+	if (!nf_ct_get_tuple(skb, hdrlen + sizeof(struct icmphdr),
- 			     (hdrlen +
- 			      sizeof(struct icmphdr) + inside->ip.ihl * 4),
- 			     (u_int16_t)AF_INET, inside->ip.protocol,
+ 	/* Change inner back to look like incoming packet.  We do the
+ 	   opposite manip on this hook to normal, because it might not
 @@ -486,17 +486,17 @@ int nf_nat_icmp_reply_translation(struct
  	   pass all hooks (locally-generated ICMP).  Consider incoming
  	   packet: PREROUTING (DST manip), routing produces ICMP, goes
