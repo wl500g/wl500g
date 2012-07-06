@@ -1,3 +1,14 @@
+
+ drivers/scsi/scsi_proc.c       |   10 
+ drivers/usb/class/usblp.c      |  491 ++++++++++++++++++++++++++++++++++++++++-
+ drivers/usb/core/devio.c       |    7 
+ drivers/usb/core/driver.c      |   26 +-
+ drivers/usb/core/message.c     |   14 +
+ drivers/usb/storage/scsiglue.c |    4 
+ fs/fat/file.c                  |   15 +
+ fs/fcntl.c                     |    4 
+ 8 files changed, 558 insertions(+), 13 deletions(-)
+
 diff -urBwNp linux-2.6.22/drivers/scsi/scsi_proc.c linux-2.6/drivers/scsi/scsi_proc.c
 --- linux-2.6.22/drivers/scsi/scsi_proc.c	2007-07-09 03:32:17.000000000 +0400
 +++ linux-2.6/drivers/scsi/scsi_proc.c	2009-02-24 13:16:37.000000000 +0300
@@ -773,3 +784,4 @@ diff -urBwNp linux-2.6.22/fs/fcntl.c linux-2.6/fs/fcntl.c
  	result = __f_setown(filp, pid, type, force);
  	rcu_read_unlock();
  	return result;
+-- 
