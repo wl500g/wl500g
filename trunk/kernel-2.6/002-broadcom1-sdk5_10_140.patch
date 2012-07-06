@@ -1,24 +1,22 @@
 Updates from Broadcom SDK 5.10.140
 
 ---
- arch/mips/Kconfig               |    4 ++
- arch/mips/mm/cache.c            |   41 ++++++++++++++++++-------
- arch/mips/mm/init.c             |   64 ++++++++++++++++++++++++++--------------
- drivers/i2c/busses/i2c-gpio.c   |   24 ++++++++++-----
- include/asm-mips/hazards.h      |   14 +++++---
- include/asm-mips/sparsemem.h    |    5 +--
- include/linux/i2c-id.h          |    1 
- include/linux/rcupdate.h        |   12 +++++++
- include/linux/spinlock_api_up.h |   10 ++++++
- kernel/irq/spurious.c           |    4 --
- kernel/softirq.c                |    2 +
- mm/highmem.c                    |   16 ++++++++--
- mm/page_alloc.c                 |    8 +++--
- sound/soc/Makefile              |    2 -
- sound/soc/codecs/Kconfig        |    6 +++
- sound/soc/codecs/Makefile       |    2 +
- sound/soc/codecs/wm8750.c       |   19 +++++++++--
- 17 files changed, 172 insertions(+), 62 deletions(-)
+ arch/mips/Kconfig             |    4 ++
+ arch/mips/mm/cache.c          |   41 +++++++++++++++++++-------
+ arch/mips/mm/init.c           |   64 ++++++++++++++++++++++++++++--------------
+ drivers/i2c/busses/i2c-gpio.c |   24 +++++++++++----
+ include/asm-mips/hazards.h    |   14 +++++----
+ include/asm-mips/sparsemem.h  |    5 +--
+ include/linux/i2c-id.h        |    1 
+ kernel/irq/spurious.c         |    4 --
+ kernel/softirq.c              |    2 +
+ mm/highmem.c                  |   16 +++++++++-
+ mm/page_alloc.c               |    8 +++--
+ sound/soc/Makefile            |    2 -
+ sound/soc/codecs/Kconfig      |    6 +++
+ sound/soc/codecs/Makefile     |    2 +
+ sound/soc/codecs/wm8750.c     |   19 +++++++++---
+ 15 files changed, 150 insertions(+), 62 deletions(-)
 
 diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/Kconfig linux-2.6/arch/mips/Kconfig
 --- linux-2.6/arch/mips/Kconfig	2008-12-12 06:25:39.000000000 +0300
@@ -293,66 +291,6 @@ diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/asm-mips/sparsemem.h lin
 +#define MAX_PHYSMEM_BITS        32 /* 4 gb */
  #endif /* CONFIG_SPARSEMEM */
  #endif /* _MIPS_SPARSEMEM_H */
-diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/linux/rcupdate.h linux-2.6/include/linux/rcupdate.h
---- linux-2.6/include/linux/rcupdate.h	2008-12-12 06:34:19.000000000 +0300
-+++ linux-2.6/include/linux/rcupdate.h	2009-11-26 02:41:38.000000000 +0300
-@@ -200,6 +200,7 @@ extern int rcu_needs_cpu(int cpu);
-  * can use just rcu_read_lock().
-  *
-  */
-+#ifdef CONFIG_PREEMPT
- #define rcu_read_lock_bh() \
- 	do { \
- 		local_bh_disable(); \
-@@ -216,6 +217,17 @@ extern int rcu_needs_cpu(int cpu);
- 		__release(RCU_BH); \
- 		local_bh_enable(); \
- 	} while(0)
-+#else
-+#define rcu_read_lock_bh() \
-+	do { \
-+		local_bh_disable(); \
-+	} while(0)
-+#define rcu_read_unlock_bh() \
-+	do { \
-+		local_bh_enable(); \
-+	} while(0)
-+
-+#endif
- 
- /**
-  * rcu_dereference - fetch an RCU-protected pointer in an
-diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/linux/spinlock_api_up.h linux-2.6/include/linux/spinlock_api_up.h
---- linux-2.6/include/linux/spinlock_api_up.h	2008-12-12 06:34:21.000000000 +0300
-+++ linux-2.6/include/linux/spinlock_api_up.h	2009-11-26 02:41:41.000000000 +0300
-@@ -24,8 +24,13 @@
-  * flags straight, to supress compiler warnings of unused lock
-  * variables, and to add the proper checker annotations:
-  */
-+#ifdef CONFIG_PREEMPT
- #define __LOCK(lock) \
-   do { preempt_disable(); __acquire(lock); (void)(lock); } while (0)
-+#else /* CONFIG_PREEMPT */
-+#define __LOCK(lock) \
-+  (void)(lock)
-+#endif
- 
- #define __LOCK_BH(lock) \
-   do { local_bh_disable(); __LOCK(lock); } while (0)
-@@ -36,8 +41,13 @@
- #define __LOCK_IRQSAVE(lock, flags) \
-   do { local_irq_save(flags); __LOCK(lock); } while (0)
- 
-+#ifdef  CONFIG_PREEMPT
- #define __UNLOCK(lock) \
-   do { preempt_enable(); __release(lock); (void)(lock); } while (0)
-+#else
-+#define __UNLOCK(lock) \
-+	do { } while(0)
-+#endif
- 
- #define __UNLOCK_BH(lock) \
-   do { preempt_enable_no_resched(); local_bh_enable(); __release(lock); (void)(lock); } while (0)
 diff -urNBp a/kernel/irq/spurious.c b/kernel/irq/spurious.c
 --- a/kernel/irq/spurious.c
 +++ b/kernel/irq/spurious.c
