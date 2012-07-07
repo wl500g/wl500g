@@ -5,6 +5,7 @@ fs: poll/select updates from upstream
  9bf084f70ffde6521d113593b89461a5bd2a303b do_poll: return -EINTR when signalled
  3075d9da0b4ccc88959db30de80ebd11d2dde175 Use ERESTART_RESTARTBLOCK if poll() is interrupted by a signal
  be5dad20a55e054a35dac7f6f5f184dc72b379b4 select: add a poll specific struct to the restart_block union
+ 55d8538498f62ec72b5ba67aa386c7726f630475 Fix performance regression on lmbench select benchmark
  3751f9f29bcbc19bd10e92254a273486f150c245 posix-timers: Cleanup restart_block usage
  df0cc0539b4127bd02f64de2c335b4af1fdb3845 select: add a timespec_add_safe() function
  b773ad40aca5bd755ba886620842f16e8fef6d75 select: add poll_select_set_timeout() and poll_select_copy_remaining() helpers
@@ -22,14 +23,14 @@ fs: poll/select updates from upstream
 ---
  fs/compat.c                 |  188 ++++++---------
  fs/eventpoll.c              |   72 ++++--
- fs/select.c                 |  520 ++++++++++++++++++++++++--------------------
+ fs/select.c                 |  522 ++++++++++++++++++++++++--------------------
  include/linux/poll.h        |    8 
  include/linux/thread_info.h |    8 
  include/linux/time.h        |    4 
  kernel/posix-cpu-timers.c   |   38 +--
  kernel/posix-timers.c       |    2 
  kernel/time.c               |   18 +
- 9 files changed, 471 insertions(+), 387 deletions(-)
+ 9 files changed, 472 insertions(+), 388 deletions(-)
 
 diff --git a/fs/compat.c b/fs/compat.c
 --- a/fs/compat.c
@@ -626,8 +627,19 @@ diff --git a/fs/select.c b/fs/select.c
  
  		set_current_state(TASK_INTERRUPTIBLE);
  
-@@ -264,27 +405,25 @@ int do_select(int n, fd_set_bits *fds, s
+@@ -255,7 +395,6 @@ int do_select(int n, fd_set_bits *fds, s64 *timeout)
+ 						retval++;
+ 					}
+ 				}
+-				cond_resched();
+ 			}
+ 			if (res_in)
+ 				*rinp = res_in;
+@@ -264,29 +405,28 @@ int do_select(int n, fd_set_bits *fds, s
+ 				*routp = res_out;
+ 			if (res_ex)
  				*rexp = res_ex;
++			cond_resched();
  		}
  		wait = NULL;
 -		if (retval || !*timeout || signal_pending(current))
