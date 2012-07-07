@@ -1,0 +1,1873 @@
+rcu classic: Updates from upstream
+
+ 01c1c660f4b8086cad7a62345fd04290f3d82c8f Preempt-RCU: reorganize RCU code into rcuclassic.c and rcupdate.c
+ e0ecfa7917cafe72f4a75f87e8bb5d8d51dc534f Preempt-RCU: fix rcu_barrier for preemptive environment.
+ fbf6bfca76d50abef478ba902b8597ecbadfd390 rcupdate: fix comment
+ 4446a36ff8c74ac3b32feb009b651048e129c6af rcu: add call_rcu_sched()
+ 70f12f848d3e981479b4f6f751e73c14f7c13e5b rcu: add rcu_barrier_sched() and rcu_barrier_bh()
+ 1c50b728c3e734150b8a4a8310ce3e01bc5c70be rcu: add rcu_read_lock_sched() / rcu_read_unlock_sched()
+ 954e100d2275cb2f150f2b18d5cddcdf67b956ac rcu: add rcu_read_*_sched_notrace()
+ 8db559b83009bed92e1b5dd13a651ff273d9ff62 rcu: add memory barriers and comments to rcu_check_callbacks()
+ 199a952876adbfc2b6c13b8b07adabebf4ff54b2 rcu classic: update qlen when cpu offline
+ 3cac97cbb14aed00d83eb33d4613b0fe3aaea863 rcu classic: simplify the next pending batch
+ 5127bed588a2f8f3a1f732de2a8a190b7df5dce3 rcu classic: new algorithm for callbacks-processing(v2)
+ 5f86515158ca86182c1dbecd546f1848121ba135 rcupdate: fix bug of rcu_barrier*()
+ ea7d3fef4222cd98556a0b386598268d4dbf6670 rcu: eliminate synchronize_rcu_xxx macro
+ 135c8aea557cf53abe6c8847e286d01442124193 rcu: Replace the rcu_barrier enum with pointer to call_rcu*() function
+ a682604838763981613e42015cd0e39f2989d6bb rcu: Teach RCU that idle task is not quiscent state at boot
+
+---
+ include/linux/rcuclassic.h |  165 +++++++++++
+ include/linux/rcupdate.h   |  194 ++++++-------
+ init/main.c                |    4 
+ kernel/Makefile            |    2 
+ kernel/rcuclassic.c        |  645 +++++++++++++++++++++++++++++++++++++++++++++
+ kernel/rcupdate.c          |  610 ++++--------------------------------------
+ 6 files changed, 973 insertions(+), 647 deletions(-)
+ create mode 100644 include/linux/rcuclassic.h
+ create mode 100644 kernel/rcuclassic.c
+
+diff --git a/include/linux/rcuclassic.h b/include/linux/rcuclassic.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/rcuclassic.h
+@@ -0,0 +1,165 @@
++/*
++ * Read-Copy Update mechanism for mutual exclusion (classic version)
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ * Copyright IBM Corporation, 2001
++ *
++ * Author: Dipankar Sarma <dipankar@in.ibm.com>
++ *
++ * Based on the original work by Paul McKenney <paulmck@us.ibm.com>
++ * and inputs from Rusty Russell, Andrea Arcangeli and Andi Kleen.
++ * Papers:
++ * http://www.rdrop.com/users/paulmck/paper/rclockpdcsproof.pdf
++ * http://lse.sourceforge.net/locking/rclock_OLS.2001.05.01c.sc.pdf (OLS2001)
++ *
++ * For detailed explanation of Read-Copy Update mechanism see -
++ * 		Documentation/RCU
++ *
++ */
++
++#ifndef __LINUX_RCUCLASSIC_H
++#define __LINUX_RCUCLASSIC_H
++
++#ifdef __KERNEL__
++
++#include <linux/cache.h>
++#include <linux/spinlock.h>
++#include <linux/threads.h>
++#include <linux/percpu.h>
++#include <linux/cpumask.h>
++#include <linux/seqlock.h>
++
++
++/* Global control variables for rcupdate callback mechanism. */
++struct rcu_ctrlblk {
++	long	cur;		/* Current batch number.                      */
++	long	completed;	/* Number of the last completed batch         */
++	long	pending;	/* Number of the last pending batch           */
++
++	int	signaled;
++
++	spinlock_t	lock	____cacheline_internodealigned_in_smp;
++	cpumask_t	cpumask; /* CPUs that need to switch in order    */
++				 /* for current batch to proceed.        */
++} ____cacheline_internodealigned_in_smp;
++
++/* Is batch a before batch b ? */
++static inline int rcu_batch_before(long a, long b)
++{
++	return (a - b) < 0;
++}
++
++/* Is batch a after batch b ? */
++static inline int rcu_batch_after(long a, long b)
++{
++	return (a - b) > 0;
++}
++
++/* Per-CPU data for Read-Copy UPdate. */
++struct rcu_data {
++	/* 1) quiescent state handling : */
++	long		quiescbatch;     /* Batch # for grace period */
++	int		passed_quiesc;	 /* User-mode/idle loop etc. */
++	int		qs_pending;	 /* core waits for quiesc state */
++
++	/* 2) batch handling */
++	/*
++	 * if nxtlist is not NULL, then:
++	 * batch:
++	 *	The batch # for the last entry of nxtlist
++	 * [*nxttail[1], NULL = *nxttail[2]):
++	 *	Entries that batch # <= batch
++	 * [*nxttail[0], *nxttail[1]):
++	 *	Entries that batch # <= batch - 1
++	 * [nxtlist, *nxttail[0]):
++	 *	Entries that batch # <= batch - 2
++	 *	The grace period for these entries has completed, and
++	 *	the other grace-period-completed entries may be moved
++	 *	here temporarily in rcu_process_callbacks().
++	 */
++	long  	       	batch;
++	struct rcu_head *nxtlist;
++	struct rcu_head **nxttail[3];
++	long            qlen; 	 	 /* # of queued callbacks */
++	struct rcu_head *donelist;
++	struct rcu_head **donetail;
++	long		blimit;		 /* Upper limit on a processed batch */
++	int cpu;
++	struct rcu_head barrier;
++};
++
++DECLARE_PER_CPU(struct rcu_data, rcu_data);
++DECLARE_PER_CPU(struct rcu_data, rcu_bh_data);
++
++/*
++ * Increment the quiescent state counter.
++ * The counter is a bit degenerated: We do not need to know
++ * how many quiescent states passed, just if there was at least
++ * one since the start of the grace period. Thus just a flag.
++ */
++static inline void rcu_qsctr_inc(int cpu)
++{
++	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
++	rdp->passed_quiesc = 1;
++}
++static inline void rcu_bh_qsctr_inc(int cpu)
++{
++	struct rcu_data *rdp = &per_cpu(rcu_bh_data, cpu);
++	rdp->passed_quiesc = 1;
++}
++
++#define __rcu_read_lock() \
++	do { \
++		preempt_disable(); \
++		__acquire(RCU); \
++		rcu_read_acquire(); \
++	} while (0)
++#define __rcu_read_unlock() \
++	do { \
++		rcu_read_release(); \
++		__release(RCU); \
++		preempt_enable(); \
++	} while (0)
++#define __rcu_read_lock_bh() \
++	do { \
++		local_bh_disable(); \
++		__acquire(RCU_BH); \
++		rcu_read_acquire(); \
++	} while (0)
++#define __rcu_read_unlock_bh() \
++	do { \
++		rcu_read_release(); \
++		__release(RCU_BH); \
++		local_bh_enable(); \
++	} while (0)
++
++#define __synchronize_sched() synchronize_rcu()
++
++#define call_rcu_sched call_rcu
++
++extern void __rcu_init(void);
++#define rcu_init_sched()	do { } while (0)
++extern void rcu_check_callbacks(int cpu, int user);
++extern void rcu_restart_cpu(int cpu);
++
++/* A context switch is a grace period for rcuclassic. */
++static inline int rcu_blocking_is_gp(void)
++{
++	return num_online_cpus() == 1;
++}
++
++#endif /* __KERNEL__ */
++#endif /* __LINUX_RCUCLASSIC_H */
+diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+--- a/include/linux/rcupdate.h
++++ b/include/linux/rcupdate.h
+@@ -15,7 +15,7 @@
+  * along with this program; if not, write to the Free Software
+  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+  *
+- * Copyright (C) IBM Corporation, 2001
++ * Copyright IBM Corporation, 2001
+  *
+  * Author: Dipankar Sarma <dipankar@in.ibm.com>
+  * 
+@@ -43,6 +43,7 @@
+ #include <linux/seqlock.h>
+ #include <linux/lockdep.h>
+ #include <linux/compiler.h>
++#include <linux/completion.h>
+ 
+ /**
+  * struct rcu_head - callback structure for use with RCU
+@@ -54,6 +55,11 @@ struct rcu_head {
+ 	void (*func)(struct rcu_head *head);
+ };
+ 
++/* Internal to kernel, but needed by rcupreempt.h. */
++extern int rcu_scheduler_active;
++
++#include <linux/rcuclassic.h>
++
+ #define RCU_HEAD_INIT 	{ .next = NULL, .func = NULL }
+ #define RCU_HEAD(head) struct rcu_head head = RCU_HEAD_INIT
+ #define INIT_RCU_HEAD(ptr) do { \
+@@ -67,76 +73,6 @@ struct rcu_head {
+  */
+ extern int rcu_read_lock_bh_held(void);
+ 
+-/* Global control variables for rcupdate callback mechanism. */
+-struct rcu_ctrlblk {
+-	long	cur;		/* Current batch number.                      */
+-	long	completed;	/* Number of the last completed batch         */
+-	int	next_pending;	/* Is the next batch already waiting?         */
+-
+-	int	signaled;
+-
+-	spinlock_t	lock	____cacheline_internodealigned_in_smp;
+-	cpumask_t	cpumask; /* CPUs that need to switch in order    */
+-	                         /* for current batch to proceed.        */
+-} ____cacheline_internodealigned_in_smp;
+-
+-/* Is batch a before batch b ? */
+-static inline int rcu_batch_before(long a, long b)
+-{
+-        return (a - b) < 0;
+-}
+-
+-/* Is batch a after batch b ? */
+-static inline int rcu_batch_after(long a, long b)
+-{
+-        return (a - b) > 0;
+-}
+-
+-/*
+- * Per-CPU data for Read-Copy UPdate.
+- * nxtlist - new callbacks are added here
+- * curlist - current batch for which quiescent cycle started if any
+- */
+-struct rcu_data {
+-	/* 1) quiescent state handling : */
+-	long		quiescbatch;     /* Batch # for grace period */
+-	int		passed_quiesc;	 /* User-mode/idle loop etc. */
+-	int		qs_pending;	 /* core waits for quiesc state */
+-
+-	/* 2) batch handling */
+-	long  	       	batch;           /* Batch # for current RCU batch */
+-	struct rcu_head *nxtlist;
+-	struct rcu_head **nxttail;
+-	long            qlen; 	 	 /* # of queued callbacks */
+-	struct rcu_head *curlist;
+-	struct rcu_head **curtail;
+-	struct rcu_head *donelist;
+-	struct rcu_head **donetail;
+-	long		blimit;		 /* Upper limit on a processed batch */
+-	int cpu;
+-	struct rcu_head barrier;
+-};
+-
+-DECLARE_PER_CPU(struct rcu_data, rcu_data);
+-DECLARE_PER_CPU(struct rcu_data, rcu_bh_data);
+-
+-/*
+- * Increment the quiescent state counter.
+- * The counter is a bit degenerated: We do not need to know
+- * how many quiescent states passed, just if there was at least
+- * one since the start of the grace period. Thus just a flag.
+- */
+-static inline void rcu_qsctr_inc(int cpu)
+-{
+-	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
+-	rdp->passed_quiesc = 1;
+-}
+-static inline void rcu_bh_qsctr_inc(int cpu)
+-{
+-	struct rcu_data *rdp = &per_cpu(rcu_bh_data, cpu);
+-	rdp->passed_quiesc = 1;
+-}
+-
+ extern int rcu_pending(int cpu);
+ extern int rcu_needs_cpu(int cpu);
+ 
+@@ -188,24 +124,13 @@ extern struct lockdep_map rcu_lock_map;
+  *
+  * It is illegal to block while in an RCU read-side critical section.
+  */
+-#define rcu_read_lock() \
+-	do { \
+-		preempt_disable(); \
+-		__acquire(RCU); \
+-		rcu_read_acquire(); \
+-	} while(0)
++#define rcu_read_lock() __rcu_read_lock()
+ 
+ /**
+  * rcu_read_unlock - marks the end of an RCU read-side critical section.
+  *
+  * See rcu_read_lock() for more information.
+  */
+-#define rcu_read_unlock() \
+-	do { \
+-		rcu_read_release(); \
+-		__release(RCU); \
+-		preempt_enable(); \
+-	} while(0)
+ 
+ /*
+  * So where is rcu_write_lock()?  It does not exist, as there is no
+@@ -216,6 +141,7 @@ extern struct lockdep_map rcu_lock_map;
+  * used as well.  RCU does not care how the writers keep out of each
+  * others' way, as long as they do so.
+  */
++#define rcu_read_unlock() __rcu_read_unlock()
+ 
+ /**
+  * rcu_read_lock_bh - mark the beginning of a softirq-only RCU critical section
+@@ -228,24 +154,35 @@ extern struct lockdep_map rcu_lock_map;
+  * can use just rcu_read_lock().
+  *
+  */
+-#define rcu_read_lock_bh() \
+-	do { \
+-		local_bh_disable(); \
+-		__acquire(RCU_BH); \
+-		rcu_read_acquire(); \
+-	} while(0)
++#define rcu_read_lock_bh() __rcu_read_lock_bh()
+ 
+ /*
+  * rcu_read_unlock_bh - marks the end of a softirq-only RCU critical section
+  *
+  * See rcu_read_lock_bh() for more information.
+  */
+-#define rcu_read_unlock_bh() \
+-	do { \
+-		rcu_read_release(); \
+-		__release(RCU_BH); \
+-		local_bh_enable(); \
+-	} while(0)
++#define rcu_read_unlock_bh() __rcu_read_unlock_bh()
++
++/**
++ * rcu_read_lock_sched - mark the beginning of a RCU-classic critical section
++ *
++ * Should be used with either
++ * - synchronize_sched()
++ * or
++ * - call_rcu_sched() and rcu_barrier_sched()
++ * on the write-side to insure proper synchronization.
++ */
++#define rcu_read_lock_sched() preempt_disable()
++#define rcu_read_lock_sched_notrace() preempt_disable_notrace()
++
++/*
++ * rcu_read_unlock_sched - marks the end of a RCU-classic critical section
++ *
++ * See rcu_read_lock_sched for more information.
++ */
++#define rcu_read_unlock_sched() preempt_enable()
++#define rcu_read_unlock_sched_notrace() preempt_enable_notrace()
++
+ 
+ #ifdef CONFIG_PROVE_LOCKING
+ 
+@@ -404,6 +341,15 @@ static inline int rcu_read_lock_held(voi
+ #define RCU_INIT_POINTER(p, v) \
+ 		p = (typeof(*v) __force __rcu *)(v)
+ 
++/* Infrastructure to implement the synchronize_() primitives. */
++
++struct rcu_synchronize {
++	struct rcu_head head;
++	struct completion completion;
++};
++
++extern void wakeme_after_rcu(struct rcu_head  *head);
++
+ /**
+  * synchronize_sched - block until all CPUs have exited any non-preemptive
+  * kernel code sequences.
+@@ -420,22 +366,58 @@ static inline int rcu_read_lock_held(voi
+  * In "classic RCU", these two guarantees happen to be one and
+  * the same, but can differ in realtime RCU implementations.
+  */
+-#define synchronize_sched() synchronize_rcu()
++#define synchronize_sched() __synchronize_sched()
++
++/**
++ * call_rcu - Queue an RCU callback for invocation after a grace period.
++ * @head: structure to be used for queueing the RCU updates.
++ * @func: actual update function to be invoked after the grace period
++ *
++ * The update function will be invoked some time after a full grace
++ * period elapses, in other words after all currently executing RCU
++ * read-side critical sections have completed.  RCU read-side critical
++ * sections are delimited by rcu_read_lock() and rcu_read_unlock(),
++ * and may be nested.
++ */
++extern void call_rcu(struct rcu_head *head,
++			      void (*func)(struct rcu_head *head));
++
++/**
++ * call_rcu_bh - Queue an RCU for invocation after a quicker grace period.
++ * @head: structure to be used for queueing the RCU updates.
++ * @func: actual update function to be invoked after the grace period
++ *
++ * The update function will be invoked some time after a full grace
++ * period elapses, in other words after all currently executing RCU
++ * read-side critical sections have completed. call_rcu_bh() assumes
++ * that the read-side critical sections end on completion of a softirq
++ * handler. This means that read-side critical sections in process
++ * context must not be interrupted by softirqs. This interface is to be
++ * used when most of the read-side critical sections are in softirq context.
++ * RCU read-side critical sections are delimited by :
++ *  - rcu_read_lock() and  rcu_read_unlock(), if in interrupt context.
++ *  OR
++ *  - rcu_read_lock_bh() and rcu_read_unlock_bh(), if in process context.
++ *  These may be nested.
++ */
++extern void call_rcu_bh(struct rcu_head *head,
++			void (*func)(struct rcu_head *head));
++
++/* Exported common interfaces */
++extern void call_rcu_sched(struct rcu_head *head,
++                           void (*func)(struct rcu_head *rcu));
++extern void synchronize_rcu(void);
++extern void rcu_barrier(void);
++extern void rcu_barrier_bh(void);
++extern void rcu_barrier_sched(void);
+ 
++/* Internal to kernel */
+ extern void rcu_init(void);
++extern void rcu_scheduler_starting(void);
+ extern void rcu_check_callbacks(int cpu, int user);
+-extern void rcu_restart_cpu(int cpu);
++
+ extern long rcu_batches_completed(void);
+ extern long rcu_batches_completed_bh(void);
+ 
+-/* Exported interfaces */
+-extern void FASTCALL(call_rcu(struct rcu_head *head, 
+-				void (*func)(struct rcu_head *head)));
+-extern void FASTCALL(call_rcu_bh(struct rcu_head *head,
+-				void (*func)(struct rcu_head *head)));
+-extern void synchronize_rcu(void);
+-void synchronize_idle(void);
+-extern void rcu_barrier(void);
+-
+ #endif /* __KERNEL__ */
+ #endif /* __LINUX_RCUPDATE_H */
+diff --git a/init/main.c b/init/main.c
+--- a/init/main.c
++++ b/init/main.c
+@@ -110,7 +110,7 @@ static inline void mark_rodata_ro(void)
+ extern void tc_init(void);
+ #endif
+ 
+-enum system_states system_state;
++enum system_states system_state __read_mostly;
+ EXPORT_SYMBOL(system_state);
+ 
+ /*
+@@ -448,6 +448,7 @@ static void noinline __init_refok rest_i
+ 	 * The boot idle thread must execute schedule()
+ 	 * at least one to get things moving:
+ 	 */
++	rcu_scheduler_starting();
+ 	preempt_enable_no_resched();
+ 	schedule();
+ 	preempt_disable();
+@@ -728,6 +729,7 @@ static void __init do_initcalls(void)
+  */
+ static void __init do_basic_setup(void)
+ {
++	rcu_init_sched(); /* needed by module_init stage. */
+ 	/* drivers will send hotplug events */
+ 	init_workqueues();
+ 	usermodehelper_init();
+diff --git a/kernel/Makefile b/kernel/Makefile
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -6,7 +6,7 @@ obj-y     = sched.o fork.o exec_domain.o
+ 	    exit.o itimer.o time.o softirq.o resource.o \
+ 	    sysctl.o capability.o ptrace.o timer.o user.o \
+ 	    signal.o sys.o kmod.o workqueue.o pid.o \
+-	    rcupdate.o extable.o params.o posix-timers.o \
++	    rcupdate.o rcuclassic.o extable.o params.o posix-timers.o \
+ 	    kthread.o wait.o kfifo.o sys_ni.o posix-cpu-timers.o mutex.o \
+ 	    hrtimer.o rwsem.o latency.o nsproxy.o srcu.o die_notifier.o
+ 
+diff --git a/kernel/rcuclassic.c b/kernel/rcuclassic.c
+new file mode 100644
+--- /dev/null
++++ b/kernel/rcuclassic.c
+@@ -0,0 +1,645 @@
++/*
++ * Read-Copy Update mechanism for mutual exclusion
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ * Copyright IBM Corporation, 2001
++ *
++ * Authors: Dipankar Sarma <dipankar@in.ibm.com>
++ *	    Manfred Spraul <manfred@colorfullife.com>
++ *
++ * Based on the original work by Paul McKenney <paulmck@us.ibm.com>
++ * and inputs from Rusty Russell, Andrea Arcangeli and Andi Kleen.
++ * Papers:
++ * http://www.rdrop.com/users/paulmck/paper/rclockpdcsproof.pdf
++ * http://lse.sourceforge.net/locking/rclock_OLS.2001.05.01c.sc.pdf (OLS2001)
++ *
++ * For detailed explanation of Read-Copy Update mechanism see -
++ * 		Documentation/RCU
++ *
++ */
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/spinlock.h>
++#include <linux/smp.h>
++#include <linux/rcupdate.h>
++#include <linux/interrupt.h>
++#include <linux/sched.h>
++#include <asm/atomic.h>
++#include <linux/bitops.h>
++#include <linux/module.h>
++#include <linux/completion.h>
++#include <linux/moduleparam.h>
++#include <linux/percpu.h>
++#include <linux/notifier.h>
++/* #include <linux/rcupdate.h> @@@ */
++#include <linux/cpu.h>
++#include <linux/mutex.h>
++
++#ifdef CONFIG_DEBUG_LOCK_ALLOC
++static struct lock_class_key rcu_lock_key;
++struct lockdep_map rcu_lock_map =
++	STATIC_LOCKDEP_MAP_INIT("rcu_read_lock", &rcu_lock_key);
++EXPORT_SYMBOL_GPL(rcu_lock_map);
++
++int debug_lockdep_rcu_enabled(void)
++{
++	return debug_locks && current->lockdep_recursion == 0;
++}
++EXPORT_SYMBOL_GPL(debug_lockdep_rcu_enabled);
++#endif
++
++
++/* Definition for rcupdate control block. */
++static struct rcu_ctrlblk rcu_ctrlblk = {
++	.cur = -300,
++	.completed = -300,
++	.pending = -300,
++	.lock = __SPIN_LOCK_UNLOCKED(&rcu_ctrlblk.lock),
++	.cpumask = CPU_MASK_NONE,
++};
++static struct rcu_ctrlblk rcu_bh_ctrlblk = {
++	.cur = -300,
++	.completed = -300,
++	.pending = -300,
++	.lock = __SPIN_LOCK_UNLOCKED(&rcu_bh_ctrlblk.lock),
++	.cpumask = CPU_MASK_NONE,
++};
++
++DEFINE_PER_CPU(struct rcu_data, rcu_data) = { 0L };
++DEFINE_PER_CPU(struct rcu_data, rcu_bh_data) = { 0L };
++
++static int blimit = 10;
++static int qhimark = 10000;
++static int qlowmark = 100;
++
++#ifdef CONFIG_SMP
++static void force_quiescent_state(struct rcu_data *rdp,
++			struct rcu_ctrlblk *rcp)
++{
++	int cpu;
++	cpumask_t cpumask;
++	set_need_resched();
++	if (unlikely(!rcp->signaled)) {
++		rcp->signaled = 1;
++		/*
++		 * Don't send IPI to itself. With irqs disabled,
++		 * rdp->cpu is the current cpu.
++		 */
++		cpumask = rcp->cpumask;
++		cpu_clear(rdp->cpu, cpumask);
++		for_each_cpu_mask(cpu, cpumask)
++			smp_send_reschedule(cpu);
++	}
++}
++#else
++static inline void force_quiescent_state(struct rcu_data *rdp,
++			struct rcu_ctrlblk *rcp)
++{
++	set_need_resched();
++}
++#endif
++
++static void __call_rcu(struct rcu_head *head, struct rcu_ctrlblk *rcp,
++		struct rcu_data *rdp)
++{
++	long batch;
++	smp_mb(); /* reads the most recently updated value of rcu->cur. */
++
++	/*
++	 * Determine the batch number of this callback.
++	 *
++	 * Using ACCESS_ONCE to avoid the following error when gcc eliminates
++	 * local variable "batch" and emits codes like this:
++	 *	1) rdp->batch = rcp->cur + 1 # gets old value
++	 *	......
++	 *	2)rcu_batch_after(rcp->cur + 1, rdp->batch) # gets new value
++	 * then [*nxttail[0], *nxttail[1]) may contain callbacks
++	 * that batch# = rdp->batch, see the comment of struct rcu_data.
++	 */
++	batch = ACCESS_ONCE(rcp->cur) + 1;
++
++	if (rdp->nxtlist && rcu_batch_after(batch, rdp->batch)) {
++		/* process callbacks */
++		rdp->nxttail[0] = rdp->nxttail[1];
++		rdp->nxttail[1] = rdp->nxttail[2];
++		if (rcu_batch_after(batch - 1, rdp->batch))
++			rdp->nxttail[0] = rdp->nxttail[2];
++	}
++
++	rdp->batch = batch;
++	*rdp->nxttail[2] = head;
++	rdp->nxttail[2] = &head->next;
++
++	if (unlikely(++rdp->qlen > qhimark)) {
++		rdp->blimit = INT_MAX;
++		force_quiescent_state(rdp, &rcu_ctrlblk);
++	}
++}
++
++/**
++ * call_rcu - Queue an RCU callback for invocation after a grace period.
++ * @head: structure to be used for queueing the RCU updates.
++ * @func: actual update function to be invoked after the grace period
++ *
++ * The update function will be invoked some time after a full grace
++ * period elapses, in other words after all currently executing RCU
++ * read-side critical sections have completed.  RCU read-side critical
++ * sections are delimited by rcu_read_lock() and rcu_read_unlock(),
++ * and may be nested.
++ */
++void call_rcu(struct rcu_head *head,
++				void (*func)(struct rcu_head *rcu))
++{
++	unsigned long flags;
++
++	head->func = func;
++	head->next = NULL;
++	local_irq_save(flags);
++	__call_rcu(head, &rcu_ctrlblk, &__get_cpu_var(rcu_data));
++	local_irq_restore(flags);
++}
++EXPORT_SYMBOL_GPL(call_rcu);
++
++/**
++ * call_rcu_bh - Queue an RCU for invocation after a quicker grace period.
++ * @head: structure to be used for queueing the RCU updates.
++ * @func: actual update function to be invoked after the grace period
++ *
++ * The update function will be invoked some time after a full grace
++ * period elapses, in other words after all currently executing RCU
++ * read-side critical sections have completed. call_rcu_bh() assumes
++ * that the read-side critical sections end on completion of a softirq
++ * handler. This means that read-side critical sections in process
++ * context must not be interrupted by softirqs. This interface is to be
++ * used when most of the read-side critical sections are in softirq context.
++ * RCU read-side critical sections are delimited by rcu_read_lock() and
++ * rcu_read_unlock(), * if in interrupt context or rcu_read_lock_bh()
++ * and rcu_read_unlock_bh(), if in process context. These may be nested.
++ */
++void call_rcu_bh(struct rcu_head *head,
++				void (*func)(struct rcu_head *rcu))
++{
++	unsigned long flags;
++
++	head->func = func;
++	head->next = NULL;
++	local_irq_save(flags);
++	__call_rcu(head, &rcu_bh_ctrlblk, &__get_cpu_var(rcu_bh_data));
++	local_irq_restore(flags);
++}
++EXPORT_SYMBOL_GPL(call_rcu_bh);
++
++/*
++ * Return the number of RCU batches processed thus far.  Useful
++ * for debug and statistics.
++ */
++long rcu_batches_completed(void)
++{
++	return rcu_ctrlblk.completed;
++}
++EXPORT_SYMBOL_GPL(rcu_batches_completed);
++
++/*
++ * Return the number of RCU batches processed thus far.  Useful
++ * for debug and statistics.
++ */
++long rcu_batches_completed_bh(void)
++{
++	return rcu_bh_ctrlblk.completed;
++}
++EXPORT_SYMBOL_GPL(rcu_batches_completed_bh);
++
++/* Raises the softirq for processing rcu_callbacks. */
++static inline void raise_rcu_softirq(void)
++{
++	raise_softirq(RCU_SOFTIRQ);
++}
++
++/*
++ * Invoke the completed RCU callbacks. They are expected to be in
++ * a per-cpu list.
++ */
++static void rcu_do_batch(struct rcu_data *rdp)
++{
++	struct rcu_head *next, *list;
++	int count = 0;
++
++	list = rdp->donelist;
++	while (list) {
++		next = list->next;
++		prefetch(next);
++		list->func(list);
++		list = next;
++		if (++count >= rdp->blimit)
++			break;
++	}
++	rdp->donelist = list;
++
++	local_irq_disable();
++	rdp->qlen -= count;
++	local_irq_enable();
++	if (rdp->blimit == INT_MAX && rdp->qlen <= qlowmark)
++		rdp->blimit = blimit;
++
++	if (!rdp->donelist)
++		rdp->donetail = &rdp->donelist;
++	else
++		raise_rcu_softirq();
++}
++
++/*
++ * Grace period handling:
++ * The grace period handling consists out of two steps:
++ * - A new grace period is started.
++ *   This is done by rcu_start_batch. The start is not broadcasted to
++ *   all cpus, they must pick this up by comparing rcp->cur with
++ *   rdp->quiescbatch. All cpus are recorded  in the
++ *   rcu_ctrlblk.cpumask bitmap.
++ * - All cpus must go through a quiescent state.
++ *   Since the start of the grace period is not broadcasted, at least two
++ *   calls to rcu_check_quiescent_state are required:
++ *   The first call just notices that a new grace period is running. The
++ *   following calls check if there was a quiescent state since the beginning
++ *   of the grace period. If so, it updates rcu_ctrlblk.cpumask. If
++ *   the bitmap is empty, then the grace period is completed.
++ *   rcu_check_quiescent_state calls rcu_start_batch(0) to start the next grace
++ *   period (if necessary).
++ */
++/*
++ * Register a new batch of callbacks, and start it up if there is currently no
++ * active batch and the batch to be registered has not already occurred.
++ * Caller must hold rcu_ctrlblk.lock.
++ */
++static void rcu_start_batch(struct rcu_ctrlblk *rcp)
++{
++	if (rcp->cur != rcp->pending &&
++			rcp->completed == rcp->cur) {
++		rcp->cur++;
++
++		/*
++		 * Accessing nohz_cpu_mask before incrementing rcp->cur needs a
++		 * Barrier  Otherwise it can cause tickless idle CPUs to be
++		 * included in rcp->cpumask, which will extend graceperiods
++		 * unnecessarily.
++		 */
++		smp_mb();
++		cpus_andnot(rcp->cpumask, cpu_online_map, nohz_cpu_mask);
++
++		rcp->signaled = 0;
++	}
++}
++
++/*
++ * cpu went through a quiescent state since the beginning of the grace period.
++ * Clear it from the cpu mask and complete the grace period if it was the last
++ * cpu. Start another grace period if someone has further entries pending
++ */
++static void cpu_quiet(int cpu, struct rcu_ctrlblk *rcp)
++{
++	cpu_clear(cpu, rcp->cpumask);
++	if (cpus_empty(rcp->cpumask)) {
++		/* batch completed ! */
++		rcp->completed = rcp->cur;
++		rcu_start_batch(rcp);
++	}
++}
++
++/*
++ * Check if the cpu has gone through a quiescent state (say context
++ * switch). If so and if it already hasn't done so in this RCU
++ * quiescent cycle, then indicate that it has done so.
++ */
++static void rcu_check_quiescent_state(struct rcu_ctrlblk *rcp,
++					struct rcu_data *rdp)
++{
++	if (rdp->quiescbatch != rcp->cur) {
++		/* start new grace period: */
++		rdp->qs_pending = 1;
++		rdp->passed_quiesc = 0;
++		rdp->quiescbatch = rcp->cur;
++		return;
++	}
++
++	/* Grace period already completed for this cpu?
++	 * qs_pending is checked instead of the actual bitmap to avoid
++	 * cacheline trashing.
++	 */
++	if (!rdp->qs_pending)
++		return;
++
++	/*
++	 * Was there a quiescent state since the beginning of the grace
++	 * period? If no, then exit and wait for the next call.
++	 */
++	if (!rdp->passed_quiesc)
++		return;
++	rdp->qs_pending = 0;
++
++	spin_lock(&rcp->lock);
++	/*
++	 * rdp->quiescbatch/rcp->cur and the cpu bitmap can come out of sync
++	 * during cpu startup. Ignore the quiescent state.
++	 */
++	if (likely(rdp->quiescbatch == rcp->cur))
++		cpu_quiet(rdp->cpu, rcp);
++
++	spin_unlock(&rcp->lock);
++}
++
++
++#ifdef CONFIG_HOTPLUG_CPU
++
++/* warning! helper for rcu_offline_cpu. do not use elsewhere without reviewing
++ * locking requirements, the list it's pulling from has to belong to a cpu
++ * which is dead and hence not processing interrupts.
++ */
++static void rcu_move_batch(struct rcu_data *this_rdp, struct rcu_head *list,
++				struct rcu_head **tail, long batch)
++{
++	if (list) {
++		local_irq_disable();
++		this_rdp->batch = batch;
++		*this_rdp->nxttail[2] = list;
++		this_rdp->nxttail[2] = tail;
++		local_irq_enable();
++	}
++}
++
++static void __rcu_offline_cpu(struct rcu_data *this_rdp,
++				struct rcu_ctrlblk *rcp, struct rcu_data *rdp)
++{
++	/* if the cpu going offline owns the grace period
++	 * we can block indefinitely waiting for it, so flush
++	 * it here
++	 */
++	spin_lock_bh(&rcp->lock);
++	if (rcp->cur != rcp->completed)
++		cpu_quiet(rdp->cpu, rcp);
++	spin_unlock_bh(&rcp->lock);
++	/* spin_lock implies smp_mb() */
++	rcu_move_batch(this_rdp, rdp->donelist, rdp->donetail, rcp->cur + 1);
++	rcu_move_batch(this_rdp, rdp->nxtlist, rdp->nxttail[2], rcp->cur + 1);
++
++	local_irq_disable();
++	this_rdp->qlen += rdp->qlen;
++	local_irq_enable();
++}
++
++static void rcu_offline_cpu(int cpu)
++{
++	struct rcu_data *this_rdp = &get_cpu_var(rcu_data);
++	struct rcu_data *this_bh_rdp = &get_cpu_var(rcu_bh_data);
++
++	__rcu_offline_cpu(this_rdp, &rcu_ctrlblk,
++					&per_cpu(rcu_data, cpu));
++	__rcu_offline_cpu(this_bh_rdp, &rcu_bh_ctrlblk,
++					&per_cpu(rcu_bh_data, cpu));
++	put_cpu_var(rcu_data);
++	put_cpu_var(rcu_bh_data);
++}
++
++#else
++
++static void rcu_offline_cpu(int cpu)
++{
++}
++
++#endif
++
++/*
++ * This does the RCU processing work from softirq context.
++ */
++static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp,
++					struct rcu_data *rdp)
++{
++	if (rdp->nxtlist) {
++		local_irq_disable();
++
++		/*
++		 * move the other grace-period-completed entries to
++		 * [rdp->nxtlist, *rdp->nxttail[0]) temporarily
++		 */
++		if (!rcu_batch_before(rcp->completed, rdp->batch))
++			rdp->nxttail[0] = rdp->nxttail[1] = rdp->nxttail[2];
++		else if (!rcu_batch_before(rcp->completed, rdp->batch - 1))
++			rdp->nxttail[0] = rdp->nxttail[1];
++
++		/*
++		 * the grace period for entries in
++		 * [rdp->nxtlist, *rdp->nxttail[0]) has completed and
++		 * move these entries to donelist
++		 */
++		if (rdp->nxttail[0] != &rdp->nxtlist) {
++			*rdp->donetail = rdp->nxtlist;
++			rdp->donetail = rdp->nxttail[0];
++			rdp->nxtlist = *rdp->nxttail[0];
++			*rdp->donetail = NULL;
++
++			if (rdp->nxttail[1] == rdp->nxttail[0])
++				rdp->nxttail[1] = &rdp->nxtlist;
++			if (rdp->nxttail[2] == rdp->nxttail[0])
++				rdp->nxttail[2] = &rdp->nxtlist;
++			rdp->nxttail[0] = &rdp->nxtlist;
++		}
++
++		local_irq_enable();
++
++		if (rcu_batch_after(rdp->batch, rcp->pending)) {
++			/* and start it/schedule start if it's a new batch */
++			spin_lock(&rcp->lock);
++			if (rcu_batch_after(rdp->batch, rcp->pending)) {
++				rcp->pending = rdp->batch;
++				rcu_start_batch(rcp);
++			}
++			spin_unlock(&rcp->lock);
++		}
++	}
++
++	rcu_check_quiescent_state(rcp, rdp);
++	if (rdp->donelist)
++		rcu_do_batch(rdp);
++}
++
++static void rcu_process_callbacks(struct softirq_action *unused)
++{
++	__rcu_process_callbacks(&rcu_ctrlblk, &__get_cpu_var(rcu_data));
++	__rcu_process_callbacks(&rcu_bh_ctrlblk, &__get_cpu_var(rcu_bh_data));
++}
++
++static int __rcu_pending(struct rcu_ctrlblk *rcp, struct rcu_data *rdp)
++{
++	if (rdp->nxtlist) {
++		/*
++		 * This cpu has pending rcu entries and the grace period
++		 * for them has completed.
++		 */
++		if (!rcu_batch_before(rcp->completed, rdp->batch))
++			return 1;
++		if (!rcu_batch_before(rcp->completed, rdp->batch - 1) &&
++				rdp->nxttail[0] != rdp->nxttail[1])
++			return 1;
++		if (rdp->nxttail[0] != &rdp->nxtlist)
++			return 1;
++
++		/*
++		 * This cpu has pending rcu entries and the new batch
++		 * for then hasn't been started nor scheduled start
++		 */
++		if (rcu_batch_after(rdp->batch, rcp->pending))
++			return 1;
++	}
++
++	/* This cpu has finished callbacks to invoke */
++	if (rdp->donelist)
++		return 1;
++
++	/* The rcu core waits for a quiescent state from the cpu */
++	if (rdp->quiescbatch != rcp->cur || rdp->qs_pending)
++		return 1;
++
++	/* nothing to do */
++	return 0;
++}
++
++/*
++ * Check to see if there is any immediate RCU-related work to be done
++ * by the current CPU, returning 1 if so.  This function is part of the
++ * RCU implementation; it is -not- an exported member of the RCU API.
++ */
++int rcu_pending(int cpu)
++{
++	return __rcu_pending(&rcu_ctrlblk, &per_cpu(rcu_data, cpu)) ||
++		__rcu_pending(&rcu_bh_ctrlblk, &per_cpu(rcu_bh_data, cpu));
++}
++
++/*
++ * Check to see if any future RCU-related work will need to be done
++ * by the current CPU, even if none need be done immediately, returning
++ * 1 if so.  This function is part of the RCU implementation; it is -not-
++ * an exported member of the RCU API.
++ */
++int rcu_needs_cpu(int cpu)
++{
++	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
++	struct rcu_data *rdp_bh = &per_cpu(rcu_bh_data, cpu);
++
++	return !!rdp->nxtlist || !!rdp_bh->nxtlist || rcu_pending(cpu);
++}
++
++void rcu_check_callbacks(int cpu, int user)
++{
++	if (user ||
++	    (idle_cpu(cpu) && rcu_scheduler_active &&
++	     !in_softirq() && hardirq_count() <= (1 << HARDIRQ_SHIFT))) {
++
++		/*
++		 * Get here if this CPU took its interrupt from user
++		 * mode or from the idle loop, and if this is not a
++		 * nested interrupt.  In this case, the CPU is in
++		 * a quiescent state, so count it.
++		 *
++		 * Also do a memory barrier.  This is needed to handle
++		 * the case where writes from a preempt-disable section
++		 * of code get reordered into schedule() by this CPU's
++		 * write buffer.  The memory barrier makes sure that
++		 * the rcu_qsctr_inc() and rcu_bh_qsctr_inc() are see
++		 * by other CPUs to happen after any such write.
++		 */
++
++		smp_mb();  /* See above block comment. */
++		rcu_qsctr_inc(cpu);
++		rcu_bh_qsctr_inc(cpu);
++
++	} else if (!in_softirq()) {
++
++		/*
++		 * Get here if this CPU did not take its interrupt from
++		 * softirq, in other words, if it is not interrupting
++		 * a rcu_bh read-side critical section.  This is an _bh
++		 * critical section, so count it.  The memory barrier
++		 * is needed for the same reason as is the above one.
++		 */
++
++		smp_mb();  /* See above block comment. */
++		rcu_bh_qsctr_inc(cpu);
++	}
++	raise_rcu_softirq();
++}
++
++static void rcu_init_percpu_data(int cpu, struct rcu_ctrlblk *rcp,
++						struct rcu_data *rdp)
++{
++	memset(rdp, 0, sizeof(*rdp));
++	rdp->nxttail[0] = rdp->nxttail[1] = rdp->nxttail[2] = &rdp->nxtlist;
++	rdp->donetail = &rdp->donelist;
++	rdp->quiescbatch = rcp->completed;
++	rdp->qs_pending = 0;
++	rdp->cpu = cpu;
++	rdp->blimit = blimit;
++}
++
++static void __cpuinit rcu_online_cpu(int cpu)
++{
++	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
++	struct rcu_data *bh_rdp = &per_cpu(rcu_bh_data, cpu);
++
++	rcu_init_percpu_data(cpu, &rcu_ctrlblk, rdp);
++	rcu_init_percpu_data(cpu, &rcu_bh_ctrlblk, bh_rdp);
++	open_softirq(RCU_SOFTIRQ, rcu_process_callbacks);
++}
++
++static int __cpuinit rcu_cpu_notify(struct notifier_block *self,
++				unsigned long action, void *hcpu)
++{
++	long cpu = (long)hcpu;
++
++	switch (action) {
++	case CPU_UP_PREPARE:
++	case CPU_UP_PREPARE_FROZEN:
++		rcu_online_cpu(cpu);
++		break;
++	case CPU_DEAD:
++	case CPU_DEAD_FROZEN:
++		rcu_offline_cpu(cpu);
++		break;
++	default:
++		break;
++	}
++	return NOTIFY_OK;
++}
++
++static struct notifier_block __cpuinitdata rcu_nb = {
++	.notifier_call	= rcu_cpu_notify,
++};
++
++/*
++ * Initializes rcu mechanism.  Assumed to be called early.
++ * That is before local timer(SMP) or jiffie timer (uniproc) is setup.
++ * Note that rcu_qsctr and friends are implicitly
++ * initialized due to the choice of ``0'' for RCU_CTR_INVALID.
++ */
++void __init __rcu_init(void)
++{
++	rcu_cpu_notify(&rcu_nb, CPU_UP_PREPARE,
++			(void *)(long)smp_processor_id());
++	/* Register notifier for non-boot CPUs */
++	register_cpu_notifier(&rcu_nb);
++}
++
++module_param(blimit, int, 0);
++module_param(qhimark, int, 0);
++module_param(qlowmark, int, 0);
+diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
+--- a/kernel/rcupdate.c
++++ b/kernel/rcupdate.c
+@@ -15,7 +15,7 @@
+  * along with this program; if not, write to the Free Software
+  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+  *
+- * Copyright (C) IBM Corporation, 2001
++ * Copyright IBM Corporation, 2001
+  *
+  * Authors: Dipankar Sarma <dipankar@in.ibm.com>
+  *	    Manfred Spraul <manfred@colorfullife.com>
+@@ -35,20 +35,18 @@
+ #include <linux/init.h>
+ #include <linux/spinlock.h>
+ #include <linux/smp.h>
+-#include <linux/rcupdate.h>
+ #include <linux/interrupt.h>
+ #include <linux/sched.h>
+ #include <asm/atomic.h>
+ #include <linux/bitops.h>
+-#include <linux/module.h>
+-#include <linux/completion.h>
+-#include <linux/moduleparam.h>
+ #include <linux/percpu.h>
+ #include <linux/notifier.h>
+ #include <linux/rcupdate.h>
+ #include <linux/cpu.h>
+ #include <linux/mutex.h>
+ #include <linux/hardirq.h>
++#include <linux/module.h>
++#include <linux/kernel_stat.h>
+ 
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
+ static struct lock_class_key rcu_lock_key;
+@@ -64,124 +62,47 @@ int debug_lockdep_rcu_enabled(void)
+ EXPORT_SYMBOL_GPL(debug_lockdep_rcu_enabled);
+ #endif
+ 
+-/* Definition for rcupdate control block. */
+-static struct rcu_ctrlblk rcu_ctrlblk = {
+-	.cur = -300,
+-	.completed = -300,
+-	.lock = __SPIN_LOCK_UNLOCKED(&rcu_ctrlblk.lock),
+-	.cpumask = CPU_MASK_NONE,
+-};
+-static struct rcu_ctrlblk rcu_bh_ctrlblk = {
+-	.cur = -300,
+-	.completed = -300,
+-	.lock = __SPIN_LOCK_UNLOCKED(&rcu_bh_ctrlblk.lock),
+-	.cpumask = CPU_MASK_NONE,
+-};
+-
+-DEFINE_PER_CPU(struct rcu_data, rcu_data) = { 0L };
+-DEFINE_PER_CPU(struct rcu_data, rcu_bh_data) = { 0L };
+-
+-static int blimit = 10;
+-static int qhimark = 10000;
+-static int qlowmark = 100;
+-
++static DEFINE_PER_CPU(struct rcu_head, rcu_barrier_head) = {NULL};
+ static atomic_t rcu_barrier_cpu_count;
+ static DEFINE_MUTEX(rcu_barrier_mutex);
+ static struct completion rcu_barrier_completion;
++int rcu_scheduler_active __read_mostly;
+ 
+-#ifdef CONFIG_SMP
+-static void force_quiescent_state(struct rcu_data *rdp,
+-			struct rcu_ctrlblk *rcp)
+-{
+-	int cpu;
+-	cpumask_t cpumask;
+-	set_need_resched();
+-	if (unlikely(!rcp->signaled)) {
+-		rcp->signaled = 1;
+-		/*
+-		 * Don't send IPI to itself. With irqs disabled,
+-		 * rdp->cpu is the current cpu.
+-		 */
+-		cpumask = rcp->cpumask;
+-		cpu_clear(rdp->cpu, cpumask);
+-		for_each_cpu_mask(cpu, cpumask)
+-			smp_send_reschedule(cpu);
+-	}
+-}
+-#else
+-static inline void force_quiescent_state(struct rcu_data *rdp,
+-			struct rcu_ctrlblk *rcp)
++/*
++ * Awaken the corresponding synchronize_rcu() instance now that a
++ * grace period has elapsed.
++ */
++void wakeme_after_rcu(struct rcu_head  *head)
+ {
+-	set_need_resched();
++	struct rcu_synchronize *rcu;
++
++	rcu = container_of(head, struct rcu_synchronize, head);
++	complete(&rcu->completion);
+ }
+-#endif
+ 
+ /**
+- * call_rcu - Queue an RCU callback for invocation after a grace period.
+- * @head: structure to be used for queueing the RCU updates.
+- * @func: actual update function to be invoked after the grace period
++ * synchronize_rcu - wait until a grace period has elapsed.
+  *
+- * The update function will be invoked some time after a full grace
+- * period elapses, in other words after all currently executing RCU
++ * Control will return to the caller some time after a full grace
++ * period has elapsed, in other words after all currently executing RCU
+  * read-side critical sections have completed.  RCU read-side critical
+  * sections are delimited by rcu_read_lock() and rcu_read_unlock(),
+  * and may be nested.
+  */
+-void fastcall call_rcu(struct rcu_head *head,
+-				void (*func)(struct rcu_head *rcu))
+-{
+-	unsigned long flags;
+-	struct rcu_data *rdp;
+-
+-	head->func = func;
+-	head->next = NULL;
+-	local_irq_save(flags);
+-	rdp = &__get_cpu_var(rcu_data);
+-	*rdp->nxttail = head;
+-	rdp->nxttail = &head->next;
+-	if (unlikely(++rdp->qlen > qhimark)) {
+-		rdp->blimit = INT_MAX;
+-		force_quiescent_state(rdp, &rcu_ctrlblk);
+-	}
+-	local_irq_restore(flags);
+-}
+-
+-/**
+- * call_rcu_bh - Queue an RCU for invocation after a quicker grace period.
+- * @head: structure to be used for queueing the RCU updates.
+- * @func: actual update function to be invoked after the grace period
+- *
+- * The update function will be invoked some time after a full grace
+- * period elapses, in other words after all currently executing RCU
+- * read-side critical sections have completed. call_rcu_bh() assumes
+- * that the read-side critical sections end on completion of a softirq
+- * handler. This means that read-side critical sections in process
+- * context must not be interrupted by softirqs. This interface is to be
+- * used when most of the read-side critical sections are in softirq context.
+- * RCU read-side critical sections are delimited by rcu_read_lock() and
+- * rcu_read_unlock(), * if in interrupt context or rcu_read_lock_bh()
+- * and rcu_read_unlock_bh(), if in process context. These may be nested.
+- */
+-void fastcall call_rcu_bh(struct rcu_head *head,
+-				void (*func)(struct rcu_head *rcu))
++void synchronize_rcu(void)
+ {
+-	unsigned long flags;
+-	struct rcu_data *rdp;
++	struct rcu_synchronize rcu;
+ 
+-	head->func = func;
+-	head->next = NULL;
+-	local_irq_save(flags);
+-	rdp = &__get_cpu_var(rcu_bh_data);
+-	*rdp->nxttail = head;
+-	rdp->nxttail = &head->next;
+-
+-	if (unlikely(++rdp->qlen > qhimark)) {
+-		rdp->blimit = INT_MAX;
+-		force_quiescent_state(rdp, &rcu_bh_ctrlblk);
+-	}
++	if (rcu_blocking_is_gp())
++		return;
+ 
+-	local_irq_restore(flags);
++	init_completion(&rcu.completion);
++	/* Will wake me after RCU finished. */
++	call_rcu(&rcu.head, wakeme_after_rcu);
++	/* Wait for it. */
++	wait_for_completion(&rcu.completion);
+ }
++EXPORT_SYMBOL_GPL(synchronize_rcu);
+ 
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
+ 
+@@ -207,24 +128,6 @@ EXPORT_SYMBOL_GPL(rcu_read_lock_bh_held)
+ 
+ #endif /* #ifdef CONFIG_DEBUG_LOCK_ALLOC */
+ 
+-/*
+- * Return the number of RCU batches processed thus far.  Useful
+- * for debug and statistics.
+- */
+-long rcu_batches_completed(void)
+-{
+-	return rcu_ctrlblk.completed;
+-}
+-
+-/*
+- * Return the number of RCU batches processed thus far.  Useful
+- * for debug and statistics.
+- */
+-long rcu_batches_completed_bh(void)
+-{
+-	return rcu_bh_ctrlblk.completed;
+-}
+-
+ static void rcu_barrier_callback(struct rcu_head *notused)
+ {
+ 	if (atomic_dec_and_test(&rcu_barrier_cpu_count))
+@@ -234,452 +137,81 @@ static void rcu_barrier_callback(struct
+ /*
+  * Called with preemption disabled, and from cross-cpu IRQ context.
+  */
+-static void rcu_barrier_func(void *notused)
++static void rcu_barrier_func(void *type)
+ {
+ 	int cpu = smp_processor_id();
+-	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
+-	struct rcu_head *head;
++	struct rcu_head *head = &per_cpu(rcu_barrier_head, cpu);
++	void (*call_rcu_func)(struct rcu_head *head,
++			      void (*func)(struct rcu_head *head));
+ 
+-	head = &rdp->barrier;
+ 	atomic_inc(&rcu_barrier_cpu_count);
+-	call_rcu(head, rcu_barrier_callback);
++	call_rcu_func = type;
++	call_rcu_func(head, rcu_barrier_callback);
+ }
+ 
+-/**
+- * rcu_barrier - Wait until all the in-flight RCUs are complete.
++/*
++ * Orchestrate the specified type of RCU barrier, waiting for all
++ * RCU callbacks of the specified type to complete.
+  */
+-void rcu_barrier(void)
++static void _rcu_barrier(void (*call_rcu_func)(struct rcu_head *head,
++					       void (*func)(struct rcu_head *head)))
+ {
+ 	BUG_ON(in_interrupt());
+ 	/* Take cpucontrol mutex to protect against CPU hotplug */
+ 	mutex_lock(&rcu_barrier_mutex);
+ 	init_completion(&rcu_barrier_completion);
+-	atomic_set(&rcu_barrier_cpu_count, 0);
+-	on_each_cpu(rcu_barrier_func, NULL, 0, 1);
+-	wait_for_completion(&rcu_barrier_completion);
+-	mutex_unlock(&rcu_barrier_mutex);
+-}
+-EXPORT_SYMBOL_GPL(rcu_barrier);
+-
+-/* Raises the softirq for processing rcu_callbacks. */
+-static inline void raise_rcu_softirq(void)
+-{
+-	raise_softirq(RCU_SOFTIRQ);
+-	/*
+-	 * The smp_mb() here is required to ensure that this cpu's
+-	 * __rcu_process_callbacks() reads the most recently updated
+-	 * value of rcu->cur.
+-	 */
+-	smp_mb();
+-}
+-
+-/*
+- * Invoke the completed RCU callbacks. They are expected to be in
+- * a per-cpu list.
+- */
+-static void rcu_do_batch(struct rcu_data *rdp)
+-{
+-	struct rcu_head *next, *list;
+-	int count = 0;
+-
+-	list = rdp->donelist;
+-	while (list) {
+-		next = list->next;
+-		prefetch(next);
+-		list->func(list);
+-		list = next;
+-		if (++count >= rdp->blimit)
+-			break;
+-	}
+-	rdp->donelist = list;
+-
+-	local_irq_disable();
+-	rdp->qlen -= count;
+-	local_irq_enable();
+-	if (rdp->blimit == INT_MAX && rdp->qlen <= qlowmark)
+-		rdp->blimit = blimit;
+-
+-	if (!rdp->donelist)
+-		rdp->donetail = &rdp->donelist;
+-	else
+-		raise_rcu_softirq();
+-}
+-
+-/*
+- * Grace period handling:
+- * The grace period handling consists out of two steps:
+- * - A new grace period is started.
+- *   This is done by rcu_start_batch. The start is not broadcasted to
+- *   all cpus, they must pick this up by comparing rcp->cur with
+- *   rdp->quiescbatch. All cpus are recorded  in the
+- *   rcu_ctrlblk.cpumask bitmap.
+- * - All cpus must go through a quiescent state.
+- *   Since the start of the grace period is not broadcasted, at least two
+- *   calls to rcu_check_quiescent_state are required:
+- *   The first call just notices that a new grace period is running. The
+- *   following calls check if there was a quiescent state since the beginning
+- *   of the grace period. If so, it updates rcu_ctrlblk.cpumask. If
+- *   the bitmap is empty, then the grace period is completed.
+- *   rcu_check_quiescent_state calls rcu_start_batch(0) to start the next grace
+- *   period (if necessary).
+- */
+-/*
+- * Register a new batch of callbacks, and start it up if there is currently no
+- * active batch and the batch to be registered has not already occurred.
+- * Caller must hold rcu_ctrlblk.lock.
+- */
+-static void rcu_start_batch(struct rcu_ctrlblk *rcp)
+-{
+-	if (rcp->next_pending &&
+-			rcp->completed == rcp->cur) {
+-		rcp->next_pending = 0;
+-		/*
+-		 * next_pending == 0 must be visible in
+-		 * __rcu_process_callbacks() before it can see new value of cur.
+-		 */
+-		smp_wmb();
+-		rcp->cur++;
+-
+-		/*
+-		 * Accessing nohz_cpu_mask before incrementing rcp->cur needs a
+-		 * Barrier  Otherwise it can cause tickless idle CPUs to be
+-		 * included in rcp->cpumask, which will extend graceperiods
+-		 * unnecessarily.
+-		 */
+-		smp_mb();
+-		cpus_andnot(rcp->cpumask, cpu_online_map, nohz_cpu_mask);
+-
+-		rcp->signaled = 0;
+-	}
+-}
+-
+-/*
+- * cpu went through a quiescent state since the beginning of the grace period.
+- * Clear it from the cpu mask and complete the grace period if it was the last
+- * cpu. Start another grace period if someone has further entries pending
+- */
+-static void cpu_quiet(int cpu, struct rcu_ctrlblk *rcp)
+-{
+-	cpu_clear(cpu, rcp->cpumask);
+-	if (cpus_empty(rcp->cpumask)) {
+-		/* batch completed ! */
+-		rcp->completed = rcp->cur;
+-		rcu_start_batch(rcp);
+-	}
+-}
+-
+-/*
+- * Check if the cpu has gone through a quiescent state (say context
+- * switch). If so and if it already hasn't done so in this RCU
+- * quiescent cycle, then indicate that it has done so.
+- */
+-static void rcu_check_quiescent_state(struct rcu_ctrlblk *rcp,
+-					struct rcu_data *rdp)
+-{
+-	if (rdp->quiescbatch != rcp->cur) {
+-		/* start new grace period: */
+-		rdp->qs_pending = 1;
+-		rdp->passed_quiesc = 0;
+-		rdp->quiescbatch = rcp->cur;
+-		return;
+-	}
+-
+-	/* Grace period already completed for this cpu?
+-	 * qs_pending is checked instead of the actual bitmap to avoid
+-	 * cacheline trashing.
+-	 */
+-	if (!rdp->qs_pending)
+-		return;
+-
+-	/* 
+-	 * Was there a quiescent state since the beginning of the grace
+-	 * period? If no, then exit and wait for the next call.
+-	 */
+-	if (!rdp->passed_quiesc)
+-		return;
+-	rdp->qs_pending = 0;
+-
+-	spin_lock(&rcp->lock);
+ 	/*
+-	 * rdp->quiescbatch/rcp->cur and the cpu bitmap can come out of sync
+-	 * during cpu startup. Ignore the quiescent state.
+-	 */
+-	if (likely(rdp->quiescbatch == rcp->cur))
+-		cpu_quiet(rdp->cpu, rcp);
+-
+-	spin_unlock(&rcp->lock);
+-}
+-
+-
+-#ifdef CONFIG_HOTPLUG_CPU
+-
+-/* warning! helper for rcu_offline_cpu. do not use elsewhere without reviewing
+- * locking requirements, the list it's pulling from has to belong to a cpu
+- * which is dead and hence not processing interrupts.
+- */
+-static void rcu_move_batch(struct rcu_data *this_rdp, struct rcu_head *list,
+-				struct rcu_head **tail)
+-{
+-	local_irq_disable();
+-	*this_rdp->nxttail = list;
+-	if (list)
+-		this_rdp->nxttail = tail;
+-	local_irq_enable();
+-}
+-
+-static void __rcu_offline_cpu(struct rcu_data *this_rdp,
+-				struct rcu_ctrlblk *rcp, struct rcu_data *rdp)
+-{
+-	/* if the cpu going offline owns the grace period
+-	 * we can block indefinitely waiting for it, so flush
+-	 * it here
++	 * Initialize rcu_barrier_cpu_count to 1, then invoke
++	 * rcu_barrier_func() on each CPU, so that each CPU also has
++	 * incremented rcu_barrier_cpu_count.  Only then is it safe to
++	 * decrement rcu_barrier_cpu_count -- otherwise the first CPU
++	 * might complete its grace period before all of the other CPUs
++	 * did their increment, causing this function to return too
++	 * early.
+ 	 */
+-	spin_lock_bh(&rcp->lock);
+-	if (rcp->cur != rcp->completed)
+-		cpu_quiet(rdp->cpu, rcp);
+-	spin_unlock_bh(&rcp->lock);
+-	rcu_move_batch(this_rdp, rdp->curlist, rdp->curtail);
+-	rcu_move_batch(this_rdp, rdp->nxtlist, rdp->nxttail);
+-	rcu_move_batch(this_rdp, rdp->donelist, rdp->donetail);
+-}
+-
+-static void rcu_offline_cpu(int cpu)
+-{
+-	struct rcu_data *this_rdp = &get_cpu_var(rcu_data);
+-	struct rcu_data *this_bh_rdp = &get_cpu_var(rcu_bh_data);
+-
+-	__rcu_offline_cpu(this_rdp, &rcu_ctrlblk,
+-					&per_cpu(rcu_data, cpu));
+-	__rcu_offline_cpu(this_bh_rdp, &rcu_bh_ctrlblk,
+-					&per_cpu(rcu_bh_data, cpu));
+-	put_cpu_var(rcu_data);
+-	put_cpu_var(rcu_bh_data);
+-}
+-
+-#else
+-
+-static void rcu_offline_cpu(int cpu)
+-{
++	atomic_set(&rcu_barrier_cpu_count, 1);
++	on_each_cpu(rcu_barrier_func, (void *)call_rcu_func, 0, 1);
++	if (atomic_dec_and_test(&rcu_barrier_cpu_count))
++		complete(&rcu_barrier_completion);
++	wait_for_completion(&rcu_barrier_completion);
++	mutex_unlock(&rcu_barrier_mutex);
+ }
+ 
+-#endif
+-
+-/*
+- * This does the RCU processing work from softirq context.
++/**
++ * rcu_barrier - Wait until all in-flight call_rcu() callbacks complete.
+  */
+-static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp,
+-					struct rcu_data *rdp)
+-{
+-	if (rdp->curlist && !rcu_batch_before(rcp->completed, rdp->batch)) {
+-		*rdp->donetail = rdp->curlist;
+-		rdp->donetail = rdp->curtail;
+-		rdp->curlist = NULL;
+-		rdp->curtail = &rdp->curlist;
+-	}
+-
+-	if (rdp->nxtlist && !rdp->curlist) {
+-		local_irq_disable();
+-		rdp->curlist = rdp->nxtlist;
+-		rdp->curtail = rdp->nxttail;
+-		rdp->nxtlist = NULL;
+-		rdp->nxttail = &rdp->nxtlist;
+-		local_irq_enable();
+-
+-		/*
+-		 * start the next batch of callbacks
+-		 */
+-
+-		/* determine batch number */
+-		rdp->batch = rcp->cur + 1;
+-		/* see the comment and corresponding wmb() in
+-		 * the rcu_start_batch()
+-		 */
+-		smp_rmb();
+-
+-		if (!rcp->next_pending) {
+-			/* and start it/schedule start if it's a new batch */
+-			spin_lock(&rcp->lock);
+-			rcp->next_pending = 1;
+-			rcu_start_batch(rcp);
+-			spin_unlock(&rcp->lock);
+-		}
+-	}
+-
+-	rcu_check_quiescent_state(rcp, rdp);
+-	if (rdp->donelist)
+-		rcu_do_batch(rdp);
+-}
+-
+-static void rcu_process_callbacks(struct softirq_action *unused)
++void rcu_barrier(void)
+ {
+-	__rcu_process_callbacks(&rcu_ctrlblk, &__get_cpu_var(rcu_data));
+-	__rcu_process_callbacks(&rcu_bh_ctrlblk, &__get_cpu_var(rcu_bh_data));
+-}
+-
+-static int __rcu_pending(struct rcu_ctrlblk *rcp, struct rcu_data *rdp)
+-{
+-	/* This cpu has pending rcu entries and the grace period
+-	 * for them has completed.
+-	 */
+-	if (rdp->curlist && !rcu_batch_before(rcp->completed, rdp->batch))
+-		return 1;
+-
+-	/* This cpu has no pending entries, but there are new entries */
+-	if (!rdp->curlist && rdp->nxtlist)
+-		return 1;
+-
+-	/* This cpu has finished callbacks to invoke */
+-	if (rdp->donelist)
+-		return 1;
+-
+-	/* The rcu core waits for a quiescent state from the cpu */
+-	if (rdp->quiescbatch != rcp->cur || rdp->qs_pending)
+-		return 1;
+-
+-	/* nothing to do */
+-	return 0;
++	_rcu_barrier(call_rcu);
+ }
++EXPORT_SYMBOL_GPL(rcu_barrier);
+ 
+-/*
+- * Check to see if there is any immediate RCU-related work to be done
+- * by the current CPU, returning 1 if so.  This function is part of the
+- * RCU implementation; it is -not- an exported member of the RCU API.
++/**
++ * rcu_barrier_bh - Wait until all in-flight call_rcu_bh() callbacks complete.
+  */
+-int rcu_pending(int cpu)
++void rcu_barrier_bh(void)
+ {
+-	return __rcu_pending(&rcu_ctrlblk, &per_cpu(rcu_data, cpu)) ||
+-		__rcu_pending(&rcu_bh_ctrlblk, &per_cpu(rcu_bh_data, cpu));
++	_rcu_barrier(call_rcu_bh);
+ }
++EXPORT_SYMBOL_GPL(rcu_barrier_bh);
+ 
+-/*
+- * Check to see if any future RCU-related work will need to be done
+- * by the current CPU, even if none need be done immediately, returning
+- * 1 if so.  This function is part of the RCU implementation; it is -not-
+- * an exported member of the RCU API.
++/**
++ * rcu_barrier_sched - Wait for in-flight call_rcu_sched() callbacks.
+  */
+-int rcu_needs_cpu(int cpu)
+-{
+-	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
+-	struct rcu_data *rdp_bh = &per_cpu(rcu_bh_data, cpu);
+-
+-	return (!!rdp->curlist || !!rdp_bh->curlist || rcu_pending(cpu));
+-}
+-
+-void rcu_check_callbacks(int cpu, int user)
+-{
+-	if (user || 
+-	    (idle_cpu(cpu) && !in_softirq() && 
+-				hardirq_count() <= (1 << HARDIRQ_SHIFT))) {
+-		rcu_qsctr_inc(cpu);
+-		rcu_bh_qsctr_inc(cpu);
+-	} else if (!in_softirq())
+-		rcu_bh_qsctr_inc(cpu);
+-	raise_rcu_softirq();
+-}
+-
+-static void rcu_init_percpu_data(int cpu, struct rcu_ctrlblk *rcp,
+-						struct rcu_data *rdp)
++void rcu_barrier_sched(void)
+ {
+-	memset(rdp, 0, sizeof(*rdp));
+-	rdp->curtail = &rdp->curlist;
+-	rdp->nxttail = &rdp->nxtlist;
+-	rdp->donetail = &rdp->donelist;
+-	rdp->quiescbatch = rcp->completed;
+-	rdp->qs_pending = 0;
+-	rdp->cpu = cpu;
+-	rdp->blimit = blimit;
++	_rcu_barrier(call_rcu_sched);
+ }
++EXPORT_SYMBOL_GPL(rcu_barrier_sched);
+ 
+-static void __devinit rcu_online_cpu(int cpu)
+-{
+-	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
+-	struct rcu_data *bh_rdp = &per_cpu(rcu_bh_data, cpu);
+-
+-	rcu_init_percpu_data(cpu, &rcu_ctrlblk, rdp);
+-	rcu_init_percpu_data(cpu, &rcu_bh_ctrlblk, bh_rdp);
+-	open_softirq(RCU_SOFTIRQ, rcu_process_callbacks);
+-}
+-
+-static int __cpuinit rcu_cpu_notify(struct notifier_block *self,
+-				unsigned long action, void *hcpu)
+-{
+-	long cpu = (long)hcpu;
+-	switch (action) {
+-	case CPU_UP_PREPARE:
+-	case CPU_UP_PREPARE_FROZEN:
+-		rcu_online_cpu(cpu);
+-		break;
+-	case CPU_DEAD:
+-	case CPU_DEAD_FROZEN:
+-		rcu_offline_cpu(cpu);
+-		break;
+-	default:
+-		break;
+-	}
+-	return NOTIFY_OK;
+-}
+-
+-static struct notifier_block __cpuinitdata rcu_nb = {
+-	.notifier_call	= rcu_cpu_notify,
+-};
+-
+-/*
+- * Initializes rcu mechanism.  Assumed to be called early.
+- * That is before local timer(SMP) or jiffie timer (uniproc) is setup.
+- * Note that rcu_qsctr and friends are implicitly
+- * initialized due to the choice of ``0'' for RCU_CTR_INVALID.
+- */
+ void __init rcu_init(void)
+ {
+-	rcu_cpu_notify(&rcu_nb, CPU_UP_PREPARE,
+-			(void *)(long)smp_processor_id());
+-	/* Register notifier for non-boot CPUs */
+-	register_cpu_notifier(&rcu_nb);
+-}
+-
+-struct rcu_synchronize {
+-	struct rcu_head head;
+-	struct completion completion;
+-};
+-
+-/* Because of FASTCALL declaration of complete, we use this wrapper */
+-static void wakeme_after_rcu(struct rcu_head  *head)
+-{
+-	struct rcu_synchronize *rcu;
+-
+-	rcu = container_of(head, struct rcu_synchronize, head);
+-	complete(&rcu->completion);
++	__rcu_init();
+ }
+ 
+-/**
+- * synchronize_rcu - wait until a grace period has elapsed.
+- *
+- * Control will return to the caller some time after a full grace
+- * period has elapsed, in other words after all currently executing RCU
+- * read-side critical sections have completed.  RCU read-side critical
+- * sections are delimited by rcu_read_lock() and rcu_read_unlock(),
+- * and may be nested.
+- *
+- * If your read-side code is not protected by rcu_read_lock(), do -not-
+- * use synchronize_rcu().
+- */
+-void synchronize_rcu(void)
++void rcu_scheduler_starting(void)
+ {
+-	struct rcu_synchronize rcu;
+-
+-	init_completion(&rcu.completion);
+-	/* Will wake me after RCU finished */
+-	call_rcu(&rcu.head, wakeme_after_rcu);
+-
+-	/* Wait for it */
+-	wait_for_completion(&rcu.completion);
++	WARN_ON(num_online_cpus() != 1);
++	WARN_ON(nr_context_switches() > 0);
++	rcu_scheduler_active = 1;
+ }
+-
+-module_param(blimit, int, 0);
+-module_param(qhimark, int, 0);
+-module_param(qlowmark, int, 0);
+-EXPORT_SYMBOL_GPL(rcu_batches_completed);
+-EXPORT_SYMBOL_GPL(rcu_batches_completed_bh);
+-EXPORT_SYMBOL_GPL(call_rcu);
+-EXPORT_SYMBOL_GPL(call_rcu_bh);
+-EXPORT_SYMBOL_GPL(synchronize_rcu);
+-- 
