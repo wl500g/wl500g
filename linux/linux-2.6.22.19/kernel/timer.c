@@ -817,8 +817,7 @@ void update_process_times(int user_tick)
 	else
 		account_system_time(p, HARDIRQ_OFFSET, jiffies_to_cputime(1));
 	run_local_timers();
-	if (rcu_pending(cpu))
-		rcu_check_callbacks(cpu, user_tick);
+	rcu_check_callbacks(cpu, user_tick);
 	scheduler_tick();
  	run_posix_cpu_timers(p);
 }
