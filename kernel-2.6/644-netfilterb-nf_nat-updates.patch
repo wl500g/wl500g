@@ -1,19 +1,10 @@
-From 40cfb706cda2bacdecd6e5ab78a21456d28878c7
-From: Patrick McHardy
-Date: Fri, 23 Dec 2011 14:01:03 +0100
-Subject: [PATCH] netfilter: nf_nat: remove obsolete code from nf_nat_icmp_reply_translation()
-
-The inner tuple that is extracted from the packet is unused. The code also
-doesn't have any useful side-effects like verifying the packet does contain
-enough data to extract the inner tuple since conntrack already does the
-same, so remove it.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+ 40cfb706cda2bacdecd6e5ab78a21456d28878c7 netfilter: nf_nat: remove obsolete code from nf_nat_icmp_reply_translation()
+ 0af051baa8444b7453235552911a353fc7b9bee7 netfilter: nf_nat: remove obsolete check in nf_nat_mangle_udp_packet()
 
 ---
- net/ipv4/netfilter/nf_nat_core.c |   14 +-------------
- 1 files changed, 1 insertions(+), 13 deletions(-)
+ net/ipv4/netfilter/nf_nat_core.c   |   14 +-------------
+ net/ipv4/netfilter/nf_nat_helper.c |    6 ------
+ 2 files changed, 1 insertion(+), 19 deletions(-)
 
 diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
 --- a/net/ipv4/netfilter/nf_nat_core.c
@@ -53,4 +44,20 @@ diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
  	/* Change inner back to look like incoming packet.  We do the
  	   opposite manip on this hook to normal, because it might not
  	   pass all hooks (locally-generated ICMP).  Consider incoming
+diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
+--- a/net/ipv4/netfilter/nf_nat_helper.c
++++ b/net/ipv4/netfilter/nf_nat_helper.c
+@@ -253,12 +253,6 @@ nf_nat_mangle_udp_packet(struct sk_buff *skb,
+ 	struct udphdr *udph;
+ 	int datalen, oldlen;
+ 
+-	/* UDP helpers might accidentally mangle the wrong packet */
+-	iph = ip_hdr(*pskb);
+-	if ((*pskb)->len < iph->ihl*4 + sizeof(*udph) +
+-			       match_offset + match_len)
+-		return 0;
+-
+ 	if (!skb_make_writable(pskb, (*pskb)->len))
+ 		return 0;
+ 
 -- 

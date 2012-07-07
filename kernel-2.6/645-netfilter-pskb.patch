@@ -2479,7 +2479,7 @@ diff -urBp a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_help
  			 struct nf_conn *ct,
  			 enum ip_conntrack_info ctinfo,
  			 unsigned int match_offset,
-@@ -255,48 +247,48 @@ nf_nat_mangle_udp_packet(struct sk_buff 
+@@ -255,42 +247,42 @@ nf_nat_mangle_udp_packet(struct sk_buff 
  			 const char *rep_buffer,
  			 unsigned int rep_len)
  {
@@ -2488,14 +2488,6 @@ diff -urBp a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_help
  	struct iphdr *iph;
  	struct udphdr *udph;
  	int datalen, oldlen;
- 
- 	/* UDP helpers might accidentally mangle the wrong packet */
--	iph = ip_hdr(*pskb);
--	if ((*pskb)->len < iph->ihl*4 + sizeof(*udph) +
-+	iph = ip_hdr(skb);
-+	if (skb->len < iph->ihl*4 + sizeof(*udph) +
- 			       match_offset + match_len)
- 		return 0;
  
 -	if (!skb_make_writable(pskb, (*pskb)->len))
 +	if (!skb_make_writable(skb, skb->len))
