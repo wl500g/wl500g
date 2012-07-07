@@ -142,6 +142,10 @@
 #define cpu_has_mips_r1	(cpu_has_mips32r1 | cpu_has_mips64r1)
 #define cpu_has_mips_r2	(cpu_has_mips32r2 | cpu_has_mips64r2)
 
+#ifndef cpu_has_mips_r2_exec_hazard
+#define cpu_has_mips_r2_exec_hazard cpu_has_mips_r2
+#endif
+
 #ifndef cpu_has_dsp
 #define cpu_has_dsp		(cpu_data[0].ases & MIPS_ASE_DSP)
 #endif

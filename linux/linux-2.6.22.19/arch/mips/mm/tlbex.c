@@ -165,6 +165,7 @@ static __cpuinitdata u32 tlb_handler[128];
 static __cpuinitdata struct uasm_label labels[128];
 static __cpuinitdata struct uasm_reloc relocs[128];
 
+# ifndef CONFIG_CPU_MIPS32_R2
 /*
  * The R3000 TLB handler is simple.
  */
@@ -209,6 +210,7 @@ static void __cpuinit build_r3000_tlb_refill_handler(void)
 
 	memcpy((void *)ebase, tlb_handler, 0x80);
 }
+# endif /* !CONFIG_CPU_MIPS32_R2 */
 
 /*
  * The R4000 TLB handler is much more complicated. We have two
@@ -275,6 +277,28 @@ static __cpuinit void build_tlb_write_entry(u32 **p, struct uasm_label **l,
 	switch (wmode) {
 	case tlb_random: tlbw = uasm_i_tlbwr; break;
 	case tlb_indexed: tlbw = uasm_i_tlbwi; break;
+	}
+
+	if (cpu_has_mips_r2) {
+		/*
+		 * The architecture spec says an ehb is required here,
+		 * but a number of cores do not have the hazard and
+		 * using an ehb causes an expensive pipeline stall.
+		 */
+		if (cpu_has_mips_r2_exec_hazard) {
+			switch (current_cpu_type()) {
+//			case CPU_14K:
+			case CPU_74K:
+//			case CPU_1074K:
+				break;
+
+			default:
+				uasm_i_ehb(p);
+				break;
+			}
+		}
+		tlbw(p);
+		return;
 	}
 
 	switch (current_cpu_type()) {
@@ -348,15 +372,6 @@ static __cpuinit void build_tlb_write_entry(u32 **p, struct uasm_label **l,
 		uasm_i_nop(p);
 		uasm_i_nop(p);
 		uasm_i_nop(p);
-		tlbw(p);
-		break;
-
-	case CPU_4KC:
-	case CPU_4KEC:
-	case CPU_24K:
-	case CPU_34K:
-	case CPU_74K:
-		uasm_i_ehb(p);
 		tlbw(p);
 		break;
 
@@ -956,6 +971,7 @@ build_pte_modifiable(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
 /*
  * R3000 style TLB load/store/modify handlers.
  */
+#ifndef CONFIG_CPU_MIPS32_R2
 
 /*
  * This places the pte into ENTRYLO0 and writes it with tlbwi.
@@ -1118,6 +1134,7 @@ static void __cpuinit build_r3000_tlb_modify_handler(void)
 		pr_debug("\t.word 0x%08x\n", handle_tlbm[i]);
 	pr_debug("\t.set pop\n");
 }
+#endif /* !CONFIG_CPU_MIPS32_R2 */
 
 /*
  * R4000 style TLB load/store/modify handlers.
@@ -1297,6 +1314,7 @@ void __cpuinit build_tlb_refill_handler(void)
 	static int run_once = 0;
 
 	switch (current_cpu_type()) {
+#ifndef CONFIG_CPU_MIPS32_R2
 	case CPU_R2000:
 	case CPU_R3000:
 	case CPU_R3000A:
@@ -1322,6 +1340,7 @@ void __cpuinit build_tlb_refill_handler(void)
 		panic("No R8000 TLB refill handler yet");
 		break;
 
+#endif /* !CONFIG_CPU_MIPS32_R2 */
 	default:
 		build_r4000_tlb_refill_handler();
 		if (!run_once) {
