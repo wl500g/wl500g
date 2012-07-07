@@ -1,6 +1,7 @@
 [MIPS] Updates from upstream
 
  603c338bdd455952d768fc24bf2c754dd4229aed [MIPS] TLB: Fix instruction bitmasks
+ 12323cacca2014dcf517d1988fcdb8e44a1f497b [MIPS]: constify function pointer tables
  11327ef77f8b6104bd4a855bbe783cce84416b03 [MIPS] unexport copy_user_highpage()
  715243e6c3e8e74202eb663a8e45880ff6a1dff7 [MIPS] unexport copy_to_user_page()
  e698d66b813bbe38940d2d80a2488214bdaf96b6 [MIPS] unexport copy_from_user_page()
@@ -10,11 +11,12 @@
 
 ---
  arch/mips/kernel/irq.c  |    4 ----
+ arch/mips/kernel/proc.c |    2 +-
  arch/mips/kernel/time.c |    2 --
  arch/mips/mm/highmem.c  |    1 -
  arch/mips/mm/init.c     |    7 -------
  arch/mips/mm/tlbex.c    |    4 ++--
- 5 files changed, 2 insertions(+), 16 deletions(-)
+ 6 files changed, 3 insertions(+), 17 deletions(-)
 
 diff --git a/arch/mips/kernel/irq.c b/arch/mips/kernel/irq.c
 --- a/arch/mips/kernel/irq.c
@@ -37,6 +39,18 @@ diff --git a/arch/mips/kernel/irq.c b/arch/mips/kernel/irq.c
  /*
   * 'what should we do if we get a hw irq event on an illegal vector'.
   * each architecture has to answer this themselves.
+diff --git a/arch/mips/kernel/proc.c b/arch/mips/kernel/proc.c
+--- a/arch/mips/kernel/proc.c
++++ b/arch/mips/kernel/proc.c
+@@ -90,7 +90,7 @@ static void c_stop(struct seq_file *m, void *v)
+ {
+ }
+ 
+-struct seq_operations cpuinfo_op = {
++const struct seq_operations cpuinfo_op = {
+ 	.start	= c_start,
+ 	.next	= c_next,
+ 	.stop	= c_stop,
 diff --git a/arch/mips/kernel/time.c b/arch/mips/kernel/time.c
 --- a/arch/mips/kernel/time.c
 +++ b/arch/mips/kernel/time.c
