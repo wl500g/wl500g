@@ -1390,17 +1390,14 @@ int usbi_handle_transfer_completion(struct usbi_transfer *itransfer,
 
 	pthread_mutex_lock(&ctx->flying_transfers_lock);
 	list_del(&itransfer->list);
-	if (usbi_using_timerfd(ctx))
-		r = arm_timerfd_for_next_timeout(ctx);
-	pthread_mutex_unlock(&ctx->flying_transfers_lock);
-
 	if (usbi_using_timerfd(ctx)) {
-		if (r < 0)
-			return r;
-		r = disarm_timerfd(ctx);
-		if (r < 0)
-			return r;
+		r = arm_timerfd_for_next_timeout(ctx);
+		if (0 == r)
+ 			r = disarm_timerfd(ctx);
 	}
+	pthread_mutex_unlock(&ctx->flying_transfers_lock);
+	if (r < 0)
+		return r;
 
 	if (status == LIBUSB_TRANSFER_COMPLETED
 			&& transfer->flags & LIBUSB_TRANSFER_SHORT_NOT_OK) {
