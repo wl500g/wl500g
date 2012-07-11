@@ -360,7 +360,7 @@ Subject: [PATCH] rtsp conntrack [K26]: silence some debug messages, other helper
  	depends on IP_NF_IPTABLES && NF_CONNTRACK && NF_NAT
 --- /dev/null
 +++ b/net/netfilter/nf_conntrack_rtsp.c
-@@ -0,0 +1,523 @@
+@@ -0,0 +1,521 @@
 +/*
 + * RTSP extension for IP connection tracking
 + * (C) 2003 by Tom Marshall <tmarshall at real.com>
@@ -666,7 +666,6 @@ Subject: [PATCH] rtsp conntrack [K26]: silence some debug messages, other helper
 +		uint    cseqlen = 0;
 +		uint    transoff = 0;
 +		uint    translen = 0;
-+		uint    off;
 +		
 +		if (!rtsp_parse_message(pdata, datalen, &dataoff,
 +					&hdrsoff, &hdrslen,
@@ -678,7 +677,6 @@ Subject: [PATCH] rtsp conntrack [K26]: silence some debug messages, other helper
 +			continue;   /* not a SETUP message */
 +		DEBUGP("found a setup message\n");
 +
-+		off = 0;
 +		if (translen) {
 +			rtsp_parse_transport(pdata+transoff, translen, &expinfo);
 +		}
