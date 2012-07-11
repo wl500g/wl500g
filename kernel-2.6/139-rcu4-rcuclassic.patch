@@ -14,16 +14,18 @@ rcu classic: Updates from upstream
  5f86515158ca86182c1dbecd546f1848121ba135 rcupdate: fix bug of rcu_barrier*()
  ea7d3fef4222cd98556a0b386598268d4dbf6670 rcu: eliminate synchronize_rcu_xxx macro
  135c8aea557cf53abe6c8847e286d01442124193 rcu: Replace the rcu_barrier enum with pointer to call_rcu*() function
+ a157229cabd6dd8cfa82525fc9bf730c94cc9ac2 rcu: Simplify rcu_pending()/rcu_check_callbacks() API
  a682604838763981613e42015cd0e39f2989d6bb rcu: Teach RCU that idle task is not quiscent state at boot
 
 ---
  include/linux/rcuclassic.h |  165 +++++++++++
- include/linux/rcupdate.h   |  194 ++++++-------
+ include/linux/rcupdate.h   |  195 ++++++-------
  init/main.c                |    4 
  kernel/Makefile            |    2 
- kernel/rcuclassic.c        |  645 +++++++++++++++++++++++++++++++++++++++++++++
+ kernel/rcuclassic.c        |  647 +++++++++++++++++++++++++++++++++++++++++++++
  kernel/rcupdate.c          |  610 ++++--------------------------------------
- 6 files changed, 973 insertions(+), 647 deletions(-)
+ kernel/timer.c             |    3 
+ 7 files changed, 976 insertions(+), 650 deletions(-)
  create mode 100644 include/linux/rcuclassic.h
  create mode 100644 kernel/rcuclassic.c
 
@@ -229,7 +231,7 @@ diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
  #define RCU_HEAD_INIT 	{ .next = NULL, .func = NULL }
  #define RCU_HEAD(head) struct rcu_head head = RCU_HEAD_INIT
  #define INIT_RCU_HEAD(ptr) do { \
-@@ -67,76 +73,6 @@ struct rcu_head {
+@@ -67,77 +73,6 @@ struct rcu_head {
   */
  extern int rcu_read_lock_bh_held(void);
  
@@ -303,9 +305,10 @@ diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
 -	rdp->passed_quiesc = 1;
 -}
 -
- extern int rcu_pending(int cpu);
+-extern int rcu_pending(int cpu);
  extern int rcu_needs_cpu(int cpu);
  
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
 @@ -188,24 +124,13 @@ extern struct lockdep_map rcu_lock_map;
   *
   * It is illegal to block while in an RCU read-side critical section.
@@ -518,7 +521,7 @@ diff --git a/kernel/rcuclassic.c b/kernel/rcuclassic.c
 new file mode 100644
 --- /dev/null
 +++ b/kernel/rcuclassic.c
-@@ -0,0 +1,645 @@
+@@ -0,0 +1,647 @@
 +/*
 + * Read-Copy Update mechanism for mutual exclusion
 + *
@@ -1041,7 +1044,7 @@ new file mode 100644
 + * by the current CPU, returning 1 if so.  This function is part of the
 + * RCU implementation; it is -not- an exported member of the RCU API.
 + */
-+int rcu_pending(int cpu)
++static int rcu_pending(int cpu)
 +{
 +	return __rcu_pending(&rcu_ctrlblk, &per_cpu(rcu_data, cpu)) ||
 +		__rcu_pending(&rcu_bh_ctrlblk, &per_cpu(rcu_bh_data, cpu));
@@ -1063,6 +1066,8 @@ new file mode 100644
 +
 +void rcu_check_callbacks(int cpu, int user)
 +{
++	if (!rcu_pending(cpu))
++		return; /* if nothing for RCU to do. */
 +	if (user ||
 +	    (idle_cpu(cpu) && rcu_scheduler_active &&
 +	     !in_softirq() && hardirq_count() <= (1 << HARDIRQ_SHIFT))) {
@@ -1870,4 +1875,17 @@ diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
 -EXPORT_SYMBOL_GPL(call_rcu);
 -EXPORT_SYMBOL_GPL(call_rcu_bh);
 -EXPORT_SYMBOL_GPL(synchronize_rcu);
+diff --git a/kernel/timer.c b/kernel/timer.c
+--- a/kernel/timer.c
++++ b/kernel/timer.c
+@@ -904,8 +904,7 @@ void update_process_times(int user_tick)
+ 	else
+ 		account_system_time(p, HARDIRQ_OFFSET, jiffies_to_cputime(1));
+ 	run_local_timers();
+-	if (rcu_pending(cpu))
+-		rcu_check_callbacks(cpu, user_tick);
++	rcu_check_callbacks(cpu, user_tick);
+ 	scheduler_tick();
+  	run_posix_cpu_timers(p);
+ }
 -- 
