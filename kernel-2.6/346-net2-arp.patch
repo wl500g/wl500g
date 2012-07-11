@@ -4,12 +4,18 @@
  1b1ac759d7c6bba6e5f4731ef6ea720b6636e27c [IPV4]: Cleanup call to __neigh_lookup()
  a79878f00dad97d03a3e62a48b06227d55ae5fe4 [ARP]: Move inet_addr_type call after simple error checks in arp_contructor.
  b4a9811c42ecb70b2f0b375f6d4c77ab34d1f598 [ARP]: Fix arp reply when sender ip 0
+ e0260feddf8a68301c75cdfff9ec251d5851b006 ARP: Remove not used code
  a3e8ee682003685b8b9c98c89340a42e48c3e813 ipv4: ARP neigh procfs buffer overflow
  9bd85e32644d4d3744117b0a196ad4382f8acf35 [IPV4]: Remove extra argument from arp_ignore.
  39a6d06300128d32f361f4f790beba0ca83730eb [NETNS]: Process inet_confirm_addr in the correct namespace.
  6d955180b2f9ccff444df06265160868cabb289a ipv4: allow warming up the ARP cache with request type gratuitous ARP
 
 ---
+ Documentation/networking/ip-sysctl.txt |   15 ++++++++++++---
+ include/linux/inetdevice.h             |    2 +-
+ net/ipv4/arp.c                         |   29 +++++++++++++++--------------
+ net/ipv4/devinet.c                     |   17 ++++++-----------
+ 4 files changed, 34 insertions(+), 29 deletions(-)
 
 diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
 --- a/Documentation/networking/ip-sysctl.txt
@@ -96,6 +102,23 @@ diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
  }
  
  static int arp_filter(__be32 sip, __be32 tip, struct net_device *dev)
+@@ -706,7 +706,7 @@ static int arp_process(struct sk_buff *skb)
+ 	struct arphdr *arp;
+ 	unsigned char *arp_ptr;
+ 	struct rtable *rt;
+-	unsigned char *sha, *tha;
++	unsigned char *sha;
+ 	__be32 sip, tip;
+ 	u16 dev_type = dev->type;
+ 	int addr_type;
+@@ -771,7 +771,6 @@ static int arp_process(struct sk_buff *skb)
+ 	arp_ptr += dev->addr_len;
+ 	memcpy(&sip, arp_ptr, 4);
+ 	arp_ptr += 4;
+-	tha	= arp_ptr;
+ 	arp_ptr += dev->addr_len;
+ 	memcpy(&tip, arp_ptr, 4);
+ /*
 @@ -806,8 +804,9 @@ static int arp_process(struct sk_buff *s
  	if (sip == 0) {
  		if (arp->ar_op == htons(ARPOP_REQUEST) &&
