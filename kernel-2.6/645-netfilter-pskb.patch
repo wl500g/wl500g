@@ -1418,15 +1418,6 @@ diff -urBp a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
  
  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
  	xt_info_rdlock_bh();
-@@ -262,7 +262,7 @@ ipt_do_table(struct sk_buff **pskb,
- 	}
- 
- 	/* Initialization */
--	datalen = (*pskb)->len - ip->ihl * 4;
-+	datalen = skb->len - ip->ihl * 4;
- 	indev = in ? in->name : nulldevname;
- 	outdev = out ? out->name : nulldevname;
- 	/* We handle fragments by dealing with the first fragment as
 @@ -283,7 +283,7 @@ ipt_do_table(struct sk_buff **pskb,
  			struct ipt_entry_target *t;
  
@@ -1445,17 +1436,15 @@ diff -urBp a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
  								     in, out,
  								     hook,
  								     t->u.kernel.target,
-@@ -344,8 +344,8 @@ ipt_do_table(struct sk_buff **pskb,
+@@ -344,7 +344,7 @@ ipt_do_table(struct sk_buff **pskb,
  					= 0x57acc001;
  #endif
  				/* Target might have changed stuff. */
 -				ip = ip_hdr(*pskb);
--				datalen = (*pskb)->len - ip->ihl * 4;
 +				ip = ip_hdr(skb);
-+				datalen = skb->len - ip->ihl * 4;
- 
  				if (verdict == IPT_CONTINUE)
  					e = (void *)e + e->next_offset;
+ 				else
 diff -urBp a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
 --- a/net/ipv4/netfilter/ipt_CLUSTERIP.c	2011-03-15 03:00:00.000000000 +0300
 +++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c	2011-03-14 16:32:13.000000000 +0300
