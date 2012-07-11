@@ -1,5 +1,6 @@
 slub: Updates from upstream
 
+ efe44183f6bab5b8acb6a6182d95274978c8abb1 SLUB: killed the unused "end" variable
  a0e1d1be204612ee83b3afe8aa24c5d27e63d464 SLUB: Move sysfs operations outside of slub_lock
  0c710013200e72b5e0bc680ff4ec6bdac53c5ce8 SLUB: add some more inlines and #ifdef CONFIG_SLUB_DEBUG
  5b95a4acf157eee552e013795b54eaa2ab1ee4a1 SLUB: use list_for_each_entry for loops over all slabs
@@ -7,8 +8,8 @@ slub: Updates from upstream
 
 ---
  include/linux/slub_def.h |    4 ++
- mm/slub.c                |   89 +++++++++++++++++------------------------------
- 2 files changed, 37 insertions(+), 56 deletions(-)
+ mm/slub.c                |   91 +++++++++++++++++------------------------------
+ 2 files changed, 37 insertions(+), 58 deletions(-)
 
 diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
 --- a/include/linux/slub_def.h
@@ -36,6 +37,22 @@ diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
 diff --git a/mm/slub.c b/mm/slub.c
 --- a/mm/slub.c
 +++ b/mm/slub.c
+@@ -1004,7 +1004,6 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
+ 	struct page *page;
+ 	struct kmem_cache_node *n;
+ 	void *start;
+-	void *end;
+ 	void *last;
+ 	void *p;
+ 
+@@ -1026,7 +1025,6 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
+ 		SetSlabDebug(page);
+ 
+ 	start = page_address(page);
+-	end = start + s->objects * s->size;
+ 
+ 	if (unlikely(s->flags & SLAB_POISON))
+ 		memset(start, POISON_INUSE, PAGE_SIZE << s->order);
 @@ -1324,7 +1324,7 @@ static void deactivate_slab(struct kmem_
  	unfreeze_slab(s, page, tail);
  }
