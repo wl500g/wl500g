@@ -9,12 +9,13 @@ ipv6: convert addrconf list to hlist
  b2db756449f63f98049587f7ede4a8e85e0c79b1 ipv6: Reduce timer events for addrconf_verify().
  b79d1d54cf0672f764402fe4711ef5306f917bd3 ipv6: Fix result generation in ipv6_get_ifaddr().
  3a88a81d89c20be312b3b219b185bbdde24b8fb8 ipv6: user better hash for addrconf
+ 96d796a38e9ec9a7c04a6cda3fc15d79efebb008 ipv6: hash is calculated but not used afterwards
 
 ---
  include/net/addrconf.h |   19 ---
  include/net/if_inet6.h |    7 -
- net/ipv6/addrconf.c    |  280 ++++++++++++++++++++++++++-----------------------
- 3 files changed, 153 insertions(+), 153 deletions(-)
+ net/ipv6/addrconf.c    |  283 +++++++++++++++++++++++++------------------------
+ 3 files changed, 153 insertions(+), 156 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
@@ -223,8 +224,16 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	goto out2;
  }
  
-@@ -648,34 +666,20 @@ static void ipv6_del_addr(struct inet6_i
+@@ -648,42 +666,25 @@ static void ipv6_del_addr(struct inet6_i
  
+ 	struct inet6_ifaddr *ifa, **ifap;
+ 	struct inet6_dev *idev = ifp->idev;
+-	int hash;
+ 	int deleted = 0, onlink = 0;
+ 	unsigned long expires = jiffies;
+ 
+-	hash = ipv6_addr_hash(&ifp->addr);
+-
  	ifp->dead = 1;
  
 -	write_lock_bh(&addrconf_hash_lock);
