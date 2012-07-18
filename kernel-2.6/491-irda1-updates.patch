@@ -1,0 +1,36 @@
+From 1627ea35cb10af2f71d38a82de6f6dfb910771ed
+From: "David S. Miller"
+Date: Sun, 17 Apr 2011 16:59:09 -0700
+Subject: [PATCH] irda: irlap_event: Fix set-but-unused variables.
+
+The variable 'ret' is set but unused in irlap_state_sclose().
+
+Just kill it off.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/irda/irlap_event.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
+
+diff --git a/net/irda/irlap_event.c b/net/irda/irlap_event.c
+--- a/net/irda/irlap_event.c
++++ b/net/irda/irlap_event.c
+@@ -2227,8 +2227,6 @@ static int irlap_state_nrm_s(struct irlap_cb *self, IRLAP_EVENT event,
+ static int irlap_state_sclose(struct irlap_cb *self, IRLAP_EVENT event,
+ 			      struct sk_buff *skb, struct irlap_info *info)
+ {
+-	int ret = 0;
+-
+ 	IRDA_DEBUG(1, "%s()\n", __FUNCTION__);
+ 
+ 	IRDA_ASSERT(self != NULL, return -ENODEV;);
+@@ -2289,7 +2287,6 @@ static int irlap_state_sclose(struct irlap_cb *self, IRLAP_EVENT event,
+ 		IRDA_DEBUG(1, "%s(), Unknown event %d, (%s)\n", __func__,
+ 			   event, irlap_event[event]);
+ 
+-		ret = -EINVAL;
+ 		break;
+ 	}
+ 
+-- 
