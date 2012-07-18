@@ -682,10 +682,6 @@ int
 BCMATTACHFN(srom_var_init)(si_t *sih, uint bustype, void *curmap, osl_t *osh,
 	char **vars, uint *count)
 {
-	uint len;
-
-	len = 0;
-
 	ASSERT(bustype == BUSTYPE(bustype));
 	if (vars == NULL || count == NULL)
 		return (0);
@@ -2791,8 +2787,9 @@ BCMATTACHFN(initvars_srom_pci)(si_t *sih, void *curmap, char **vars, uint *count
 	 */
 	if (err) {
 		char *value;
+#if defined(WLTEST)
 		uint32 val;
-		val = 0;
+#endif
 
 		if ((value = si_getdevpathvar(sih, "sromrev"))) {
 			sromrev = (uint8)bcm_strtoul(value, NULL, 0);
