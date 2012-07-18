@@ -1069,12 +1069,10 @@ chipinit(ch_t *ch, uint options)
 {
 	etc_info_t *etc;
 	gmacregs_t *regs;
-	uint idx;
 	uint i;
 
 	regs = ch->regs;
 	etc = ch->etc;
-	idx = 0;
 
 	ET_TRACE(("et%d: chipinit\n", etc->unit));
 
