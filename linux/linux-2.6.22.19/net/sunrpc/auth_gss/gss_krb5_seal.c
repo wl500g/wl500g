@@ -79,7 +79,7 @@ gss_get_mic_kerberos(struct gss_ctx *gss_ctx, struct xdr_buf *text,
 	struct krb5_ctx		*ctx = gss_ctx->internal_ctx_id;
 	char			cksumdata[16];
 	struct xdr_netobj	md5cksum = {.len = 0, .data = cksumdata};
-	unsigned char		*ptr, *krb5_hdr, *msg_start;
+	unsigned char		*ptr, *krb5_hdr;
 	s32			now;
 	u32			seq_send;
 
@@ -97,7 +97,6 @@ gss_get_mic_kerberos(struct gss_ctx *gss_ctx, struct xdr_buf *text,
 
 	/* ptr now at byte 2 of header described in rfc 1964, section 1.2.1: */
 	krb5_hdr = ptr - 2;
-	msg_start = krb5_hdr + 24;
 
 	*(__be16 *)(krb5_hdr + 2) = htons(SGN_ALG_DES_MAC_MD5);
 	memset(krb5_hdr + 4, 0xff, 4);
@@ -117,7 +116,7 @@ gss_get_mic_kerberos(struct gss_ctx *gss_ctx, struct xdr_buf *text,
 	spin_unlock(&krb5_seq_lock);
 
 	if (krb5_make_seq_num(ctx->seq, ctx->initiate ? 0 : 0xff,
-			       ctx->seq_send, krb5_hdr + 16, krb5_hdr + 8))
+			      seq_send, krb5_hdr + 16, krb5_hdr + 8))
 		return GSS_S_FAILURE;
 
 	return (ctx->endtime < now) ? GSS_S_CONTEXT_EXPIRED : GSS_S_COMPLETE;
