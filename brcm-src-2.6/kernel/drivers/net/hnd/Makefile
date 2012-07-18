@@ -13,8 +13,6 @@
 #
 
 SHARED   := ../../../../../shared
-ROUTER   := ../../../../../router
-SRC      := ../../../../../../src
 WLSHARED := wlconfig_lx_shared
 WLCFGDIR := $(src)/../../../../../wl/config
 WLSYSDIR := $(src)/../../../../../wl/sys
@@ -24,23 +22,19 @@ include $(WLCFGDIR)/$(WLSHARED)
 include $(WLCFGDIR)/wl.mk
 endif
 
-hnd-objs := $(addprefix $(SHARED)/, $(sort $(WLFILES:.c=.o)))
-HND_OBJS := $(addprefix $(src)/$(SHARED)/, $(sort $(WLFILES:.c=.o)))
+HND_OBJS := $(sort $(WLFILES:.c=.o))
 
 EXTRA_CFLAGS += $(WLFLAGS) -DBCM5354 -DLINUX_HYBRID_POSTPROCESSING_REMOVAL
 
 ifneq ($(CONFIG_BCM947XX),y)
-HND_OBJS += $(src)/$(SHARED)/nvramstubs.o
-hnd-objs += $(SHARED)/nvramstubs.o
+HND_OBJS += nvramstubs.o
 endif
 
 ifeq ($(CONFIG_ET_47XX),y)
-HND_OBJS += $(src)/$(SHARED)/bcmrobo.o
-hnd-objs += $(SHARED)/bcmrobo.o
+HND_OBJS += bcmrobo.o
 else
 ifeq ($(CONFIG_BCM57XX),y)
-HND_OBJS += $(src)/$(SHARED)/bcmrobo.o
-hnd-objs += $(SHARED)/bcmrobo.o
+HND_OBJS += bcmrobo.o
 endif
 endif
 
@@ -52,76 +46,28 @@ ifeq ($(BCMDBG_MEM),1)
 EXTRA_CFLAGS += -DBCMDBG_MEM
 endif
 
+
+ifdef BCMDBG
+EXP_OBJS := $(HND_OBJS)
+else
+EXP_OBJS := $(filter-out aiutils.o sbutils.o nicpci.o ,$(HND_OBJS))
+endif
+
+# Search for sources under src/shared/
+ifeq ($(wildcard $(src)/$(SHARED)/*.c),)
+PREFIX:=$(SHARED)/linux/
+else
+PREFIX:=$(SHARED)/
+endif
+EXP_OBJS := $(addprefix $(src)/$(PREFIX), $(EXP_OBJS))
+hnd-objs := $(addprefix $(PREFIX), $(HND_OBJS))
+
 obj-$(CONFIG_HND) := hnd.o shared_ksyms.o
 
-clean-files := shared_ksyms.c
-
-#ifdef BCMDBG
-EXP_OBJS := $(HND_OBJS)
-#else
-EXP_OBJS := $(filter-out $(src)/$(SHARED)/aiutils.o $(src)/$(SHARED)/sbutils.o \
- $(src)/$(SHARED)/nicpci.o \
- ,$(HND_OBJS))
-#endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/bcmutils.c),)
-$(src)/$(SHARED)/bcmutils.o: $(src)/$(SHARED)/linux/bcmutils.o
-	cp $< $@
-endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/bcmrobo.c),)
-$(src)/$(SHARED)/bcmrobo.o: $(src)/$(SHARED)/linux/bcmrobo.o
-	cp $< $@
-endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/hnddma.c),)
-$(src)/$(SHARED)/hnddma.o: $(src)/$(SHARED)/linux/hnddma.o
-	cp $< $@
-endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/linux_osl.c),)
-$(src)/$(SHARED)/linux_osl.o: $(src)/$(SHARED)/linux/linux_osl.o
-	cp $< $@
-endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/sbutils.c),)
-$(src)/$(SHARED)/sbutils.o: $(src)/$(SHARED)/linux/sbutils.o
-	cp $< $@
-endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/hndpmu.c),)
-$(src)/$(SHARED)/hndpmu.o: $(src)/$(SHARED)/linux/hndpmu.o
-	cp $< $@
-endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/bcmsrom.c),)
-$(src)/$(SHARED)/bcmsrom.o: $(src)/$(SHARED)/linux/bcmsrom.o
-	cp $< $@
-endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/nvramstubs.c),)
-$(src)/$(SHARED)/nvramstubs.o: $(src)/$(SHARED)/linux/nvramstubs.o
-	cp $< $@
-endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/bcmwpa.c),)
-$(src)/$(SHARED)/bcmwpa.o: $(src)/$(SHARED)/linux/bcmwpa.o
-	cp $< $@
-endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/bcmotp.c),)
-$(src)/$(SHARED)/bcmotp.o: $(src)/$(SHARED)/linux/bcmotp.o
-	cp $< $@
-endif
-
-ifeq ($(wildcard $(src)/$(SHARED)/nicpci.c),)
-$(src)/$(SHARED)/nicpci.o: $(src)/$(SHARED)/linux/nicpci.o
-	cp $< $@
-endif
-
+clean-files := $(hnd-objs) shared_ksyms.c
 
 quiet_cmd_shared_ksyms = GEN     $@
       cmd_shared_ksyms = sh -e $< $(EXP_OBJS) > $@
 
-$(src)/shared_ksyms.c: $(src)/shared_ksyms.sh $(EXP_OBJS)
+$(obj)/shared_ksyms.c: $(src)/shared_ksyms.sh $(EXP_OBJS)
 	$(call cmd,shared_ksyms)
