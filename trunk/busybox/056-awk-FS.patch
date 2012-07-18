@@ -1,0 +1,47 @@
+From df8066a78ccd9b899244145f6be0171957a41a1e
+From: Denys Vlasenko
+Date: Tue, 10 Jul 2012 23:27:15 +0000
+Subject: awk: fix FS assignment behavior. Closes 5108
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/editors/awk.c b/editors/awk.c
+--- a/editors/awk.c
++++ b/editors/awk.c
+@@ -1812,6 +1812,18 @@ static void handle_special(var *v)
+ 		is_f0_split = FALSE;
+ 
+ 	} else if (v == intvar[FS]) {
++		/*
++		 * The POSIX-2008 standard says that changing FS should have no effect on the
++		 * current input line, but only on the next one. The language is:
++		 *
++		 * > Before the first reference to a field in the record is evaluated, the record
++		 * > shall be split into fields, according to the rules in Regular Expressions,
++		 * > using the value of FS that was current at the time the record was read.
++		 *
++		 * So, split up current line before assignment to FS:
++		 */
++		split_f0();
++
+ 		mk_splitter(getvar_s(v), &fsplitter);
+ 
+ 	} else if (v == intvar[RS]) {
+diff --git a/testsuite/awk.tests b/testsuite/awk.tests
+--- a/testsuite/awk.tests
++++ b/testsuite/awk.tests
+@@ -217,4 +217,11 @@ end d
+ testing "awk handles empty ()" \
+ 	"awk 'BEGIN {print()}' 2>&1" "awk: cmd. line:1: Empty sequence\n" "" ""
+ 
++testing "awk FS assignment" "awk '{FS=\":\"; print \$1}'" \
++	"a:b\ne\n" \
++	"" \
++	"a:b c:d\ne:f g:h"
++
++# testing "description" "command" "result" "infile" "stdin"
++
+ exit $FAILCOUNT
+--
+cgit v0.9.0.1-2-gef13
