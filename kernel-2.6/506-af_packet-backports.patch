@@ -9,13 +9,14 @@
  69e3c75f4d541a6eb151b3ef91f34033cb3ad6e1 net: TX_RING and packet mmap
  b5dd884e682cae6b8c037f9d11f3b623b4cf2011 net: Fix 'Re: PACKET_TX_RING: packet size is too long'
  eb70df13ee52dbc0f2c0ffd8ed34a8cd27440baf af_packet: Don't use skb after dev_queue_xmit()
+ e143038f4dda10a51985b9a3f9fb07d73a5eadfa af_packet: struct socket declared/assigned but unused
 
 ---
  Documentation/networking/packet_mmap.txt |  140 ++++-
  include/linux/if_packet.h                |   44 +
  include/linux/skbuff.h                   |    3 
- net/packet/af_packet.c                   |  773 +++++++++++++++++++++++++------
- 4 files changed, 809 insertions(+), 151 deletions(-)
+ net/packet/af_packet.c                   |  770 +++++++++++++++++++++++++------
+ 4 files changed, 806 insertions(+), 151 deletions(-)
 
 diff -urBp a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
 --- a/Documentation/networking/packet_mmap.txt
@@ -655,7 +656,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  		p_end = virt_to_page(h_end);
  		while (p_start <= p_end) {
  			flush_dcache_page(p_start);
-@@ -696,10 +827,254 @@ ring_is_full:
+@@ -696,10 +827,251 @@ ring_is_full:
  	goto drop_n_restore;
  }
  
@@ -781,7 +782,6 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
 +
 +static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
 +{
-+	struct socket *sock;
 +	struct sk_buff *skb;
 +	struct net_device *dev;
 +	__be16 proto;
@@ -792,8 +792,6 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
 +	unsigned char *addr;
 +	int len_sum = 0;
 +	int status = 0;
-+
-+	sock = po->sk.sk_socket;
 +
 +	mutex_lock(&po->pg_vec_lock);
 +
