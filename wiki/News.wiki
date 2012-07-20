@@ -5,7 +5,34 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
+===RT-N-1.9.2.7-rtn (Current)===
+  * Broadcom SDK
+    * Cleanup unused/dead code
+
+  * kernel
+    * backports from upstream - MIPS, softirq(add /proc/softirqs), rcu classic, fs(epoll, nls, fuse), net(skb, ipv4, ipv6, connector), netfilter, usb, md/raid
+    * l2tp fixes; don't queue incoming packets, if not connected.
+
+  * rc/www
+    * httpd cleanup, fixes
+    * rc fixes
+
+  * 3g/cdma: new modems in modems.conf
+
+  * busybox 1.20.1
+    * bugfixes from upstream (sed, wget, mount, awk)
+
+  * udpxy 1.0.23
+
+  * misc
+    * radvd: fixes from upstream
+    * inadyn: add asuscomm.com support
+    * igmpproxy: fix igmpv3 stub
+    * pppd: upstream updates (VJ-comp, crypt, MSCHAP-v2)
+
 ===RT-N-1.9.2.7-rtn-`r4330` (2012-06-12)===
+  * uClibc 0.9.32: Implement tiny /etc/gai.conf - to change default names resolution order to IPv4 first, IPv6 second, create /etc/gai.conf containing single line "precedence ipv4"
+
   * Broadcom SDK
     * emf/igs backports from 5.110
     * fix igmpv3 snooping
