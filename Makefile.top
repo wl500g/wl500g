@@ -156,6 +156,7 @@ obj-$(CONFIG_ACCEL_PPTP) += accel-pptp
 obj-$(CONFIG_PPPOERELAY) += rp-pppoe
 obj-$(CONFIG_EZIPUPDATE) += ez-ipupdate
 obj-$(CONFIG_LPRNG) += LPRng
+obj-$(CONFIG_INFOSRV) += infosrv
 obj-$(CONFIG_OTHERS) += others
 obj-$(CONFIG_BPALOGIN) += bpalogin
 obj-$(CONFIG_EMF) += emf igs
