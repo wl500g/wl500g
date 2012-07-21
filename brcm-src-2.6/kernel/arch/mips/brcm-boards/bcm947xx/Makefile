@@ -24,7 +24,7 @@ EXTRA_CFLAGS += -DLINUX_HYBRID_POSTPROCESSING_REMOVAL
 bcm947xx-objs := setup.o prom.o time.o irq.o perfcntr.o
 
 BCM947XX_OBJS-y := $(addprefix $(SHARED)/, hndmips.o hndchipc.o linux_gpio.o sflash.o)
-BCM947XX_OBJS-y += $(addprefix $(SHARED)/nvram/, nvram.o) nvram_linux.o
+BCM947XX_OBJS-y += $(addprefix $(SHARED)/nvram/, nvram.o)
 
 BCM947XX_OBJS-$(CONFIG_PCI) += $(addprefix $(SHARED)/, hndpci.o) pcibios.o
 BCM947XX_OBJS-$(CONFIG_GENERIC_GPIO) += gen_gpio.o
