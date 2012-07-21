@@ -62,6 +62,7 @@ UDEV=udev-113
 NTFS3G=ntfs-3g_ntfsprogs-2012.1.15AR.1
 SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
+INFOSRV=infosrv
 
 UCLIBC=uClibc-0.9.32
 
@@ -91,7 +92,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	misc netconf nvram others rc mjpg-streamer udev \
 	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
-	sysfsutils e2fsprogs wpa_supplicant lanauth authcli
+	sysfsutils e2fsprogs wpa_supplicant lanauth authcli infosrv
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -684,13 +685,19 @@ $(TOP)/utils:
 utils: $(TOP)/utils
 	@true
 
+$(TOP)/infosrv:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - infosrv | tar -C $(TOP) -xf -
+
+infosrv: $(TOP)/infosrv
+	@true
+
 $(TOP)/cdma:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - cdma | tar -C $(TOP) -xf -
 
 cdma: $(TOP)/cdma
 	@true
-
 
 $(TOP)/misc:
 	[ -d $@ ] || \

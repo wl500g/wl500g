@@ -295,6 +295,10 @@ config CONFIG_LPRNG
 	bool "LPRng daemon"
 	default y
 
+config CONFIG_INFOSRV
+	bool "Info Server"
+	default y
+
 config CONFIG_OTHERS
 	bool "CONFIG_OTHERS"
 	default y
