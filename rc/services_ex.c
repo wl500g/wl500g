@@ -692,8 +692,14 @@ start_misc(void)
 {
 	pid_t pid;
 	char *watchdog_argv[] = {"watchdog", NULL};
+#ifdef __CONFIG_INFOSRV__
+	char *infosrv_argv[] = {"infosrv", nvram_safe_get("lan_ifname"), NULL};
+#endif
 	const char *txpwr;
 
+#ifdef __CONFIG_INFOSRV__
+	_eval(infosrv_argv, NULL, 0, &pid);
+#endif
 	_eval(watchdog_argv, NULL, 0, &pid);
 
 	/* try to adjust wifi tx power */
@@ -716,6 +722,9 @@ stop_misc(void)
 	int ret;
 
 	ret = killall("watchdog");
+#ifdef __CONFIG_INFOSRV__
+	killall("infosrv");
+#endif
 	stop_ntpc();
 	stop_ddns();
 	stop_lltd();
