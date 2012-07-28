@@ -40,7 +40,7 @@
 #include "igmpproxy.h"
 
 // Prototypes...
-void sendGroupSpecificMemberQuery(void *argument);  
+static void sendGroupSpecificMemberQuery(void *argument);  
     
 typedef struct {
     uint32_t      group;
@@ -100,7 +100,7 @@ void acceptGroupReport(uint32_t src, uint32_t group, uint8_t type) {
 	my_log(LOG_INFO, 0, "The group address %s may not be requested from this interface. Ignoring.", inetFmt(group, s1));
     } else {
         // Log the state of the interface the report was recieved on.
-        my_log(LOG_INFO, 0, "Mebership report was recieved on %s. Ignoring.",
+        my_log(LOG_INFO, 0, "Membership report was recieved on %s. Ignoring.",
             sourceVif->state==IF_STATE_UPSTREAM?"the upstream interface":"a disabled interface");
     }
 
@@ -157,7 +157,7 @@ void acceptLeaveMessage(uint32_t src, uint32_t group) {
 *   Sends a group specific member report query until the 
 *   group times out...
 */
-void sendGroupSpecificMemberQuery(void *argument) {
+static void sendGroupSpecificMemberQuery(void *argument) {
     struct  Config  *conf = getCommonConfig();
 
     // Cast argument to correct type...
