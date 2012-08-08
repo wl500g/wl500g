@@ -37,8 +37,6 @@ struct mips_hi16 {
 	Elf_Addr value;
 };
 
-static struct mips_hi16 *mips_hi16_list;
-
 static LIST_HEAD(dbe_list);
 static DEFINE_SPINLOCK(dbe_lock);
 
@@ -154,8 +152,8 @@ static int apply_r_mips_hi16_rel(struct module *me, u32 *location, Elf_Addr v)
 
 	n->addr = (Elf_Addr *)location;
 	n->value = v;
-	n->next = mips_hi16_list;
-	mips_hi16_list = n;
+	n->next = me->arch.r_mips_hi16_list;
+	me->arch.r_mips_hi16_list = n;
 
 	return 0;
 }
@@ -188,8 +186,8 @@ static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
 	/* Sign extend the addend we extract from the lo insn.  */
 	vallo = ((insnlo & 0xffff) ^ 0x8000) - 0x8000;
 
-	if (mips_hi16_list != NULL) {
-		l = mips_hi16_list;
+	if (me->arch.r_mips_hi16_list != NULL) {
+		l = me->arch.r_mips_hi16_list;
 		while (l != NULL) {
 			struct mips_hi16 *next;
 			unsigned long insn;
@@ -224,7 +222,7 @@ static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
 			l = next;
 		}
 
-		mips_hi16_list = NULL;
+		me->arch.r_mips_hi16_list = NULL;
 	}
 
 	/*
@@ -238,7 +236,7 @@ static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
 
 out_danger:
 	free_relocation_chain(l);
-	mips_hi16_list = NULL;
+	me->arch.r_mips_hi16_list = NULL;
 
 	printk(KERN_ERR
 	       "module %s: dangerous R_MIPS_LO16 REL relocation\n", me->name);
@@ -313,6 +311,7 @@ int apply_relocate(Elf_Shdr *sechdrs, const char *strtab,
 	pr_debug("Applying relocate section %u to %u\n", relsec,
 	       sechdrs[relsec].sh_info);
 
+	me->arch.r_mips_hi16_list = NULL;
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
 		/* This is where to make the change */
 		location = (void *)sechdrs[sechdrs[relsec].sh_info].sh_addr
@@ -342,9 +341,9 @@ int apply_relocate(Elf_Shdr *sechdrs, const char *strtab,
 	 * relocations not followed by a R_MIPS_LO16 relocation.  In that
 	 * case, free up the list and return an error.
 	 */
-	if (mips_hi16_list) {
-		free_relocation_chain(mips_hi16_list);
-		mips_hi16_list = NULL;
+	if (me->arch.r_mips_hi16_list) {
+		free_relocation_chain(me->arch.r_mips_hi16_list);
+		me->arch.r_mips_hi16_list = NULL;
 
 		return -ENOEXEC;
 	}
