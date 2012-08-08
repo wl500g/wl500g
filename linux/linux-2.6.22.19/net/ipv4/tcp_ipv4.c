@@ -2155,7 +2155,7 @@ static void get_openreq4(struct sock *sk, struct request_sock *req,
 			 struct seq_file *f, int i, int uid, int *len)
 {
 	const struct inet_request_sock *ireq = inet_rsk(req);
-	int ttd = req->expires - jiffies;
+	long delta = req->expires - jiffies;
 
 	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %u %d %p%n",
@@ -2167,7 +2167,7 @@ static void get_openreq4(struct sock *sk, struct request_sock *req,
 		TCP_SYN_RECV,
 		0, 0, /* could print option size, but that is af dependent. */
 		1,    /* timers active (only the expire timer) */
-		jiffies_to_clock_t(ttd),
+		jiffies_delta_to_clock_t(delta),
 		req->retrans,
 		uid,
 		0,  /* non standard timer */
@@ -2210,7 +2210,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
 		sk->sk_state == TCP_LISTEN ? sk->sk_ack_backlog :
 					     (tp->rcv_nxt - tp->copied_seq),
 		timer_active,
-		jiffies_to_clock_t(timer_expires - jiffies),
+		jiffies_delta_to_clock_t(timer_expires - jiffies),
 		icsk->icsk_retransmits,
 		sock_i_uid(sk),
 		icsk->icsk_probes_out,
@@ -2229,10 +2229,7 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
 {
 	__be32 dest, src;
 	__u16 destp, srcp;
-	int ttd = tw->tw_ttd - jiffies;
-
-	if (ttd < 0)
-		ttd = 0;
+	long delta = tw->tw_ttd - jiffies;
 
 	dest  = tw->tw_daddr;
 	src   = tw->tw_rcv_saddr;
@@ -2242,7 +2239,7 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
 	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %d %d %p%n",
 		i, src, srcp, dest, destp, tw->tw_substate, 0, 0,
-		3, jiffies_to_clock_t(ttd), 0, 0, 0, 0,
+		3, jiffies_delta_to_clock_t(delta), 0, 0, 0, 0,
 		atomic_read(&tw->tw_refcnt), tw, len);
 }
 
