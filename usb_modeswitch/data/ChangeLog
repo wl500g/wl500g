@@ -1,3 +1,11 @@
+20120812:
+    Added devices: ZTE MF60, Vodafone K5006Z, Alcatel OT-X220D,
+    Alcatel OT-X080C, TP-Link MA180, ZTE MF821D, Dymo LabelManager PnP,
+    Onda MDC655, Option GI0643, WeTelecom WM-D300, China TeleCom CBP7.0,
+    Linktop LW272/LW273, Nokia CS-11, ZTE MF190 (yet annother variant),
+    Huawei E535; updated config for C-motech D-50 (16d8:6803); changes
+    in "rules" file (interface number filters) to reflect recent reports;
+    fix config for Novatel MC545 (1410:5059)
 20120531:
     Small but important fix for ZTE Blade phone
 20120529:
