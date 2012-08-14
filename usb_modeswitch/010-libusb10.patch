@@ -211,7 +211,7 @@ diff -uBp usb-modeswitch-1.2.4/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  
 +	libusb_get_device_descriptor(dev, &descriptor);
 +	defaultClass = descriptor.bDeviceClass;
-+	libusb_get_config_descriptor(dev, currentConfig, &config);
++	libusb_get_config_descriptor(dev, 0, &config);
  	if (Interface == -1)
 -		Interface = dev->config[0].interface[0].altsetting[0].bInterfaceNumber;
 +		Interface = config->interface[0].altsetting[0].bInterfaceNumber;
