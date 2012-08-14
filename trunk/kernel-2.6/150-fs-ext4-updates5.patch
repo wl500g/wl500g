@@ -6,6 +6,7 @@ ext4: Updates from upstream 3
  a8e25a83245618e6b0ddf82a9bba79c1b466804d ext4: write superblock only once on unmount
  c1bb05a657fb3d8c6179a4ef7980261fae4521d7 ext4: avoid deadlock on sync-mounted FS w/o journal
  7e936b737211e6b54e34b71a827e56b872e958d8 ext4: disallow hard-linked directory in ext4_lookup
+ 97795d2a5b8d3c8dc4365d4bd3404191840453ba ext4: don't let i_reserved_meta_blocks go negative
 
 ---
  fs/ext4/balloc.c    |    6 +-----
@@ -15,13 +16,13 @@ ext4: Updates from upstream 3
  fs/ext4/extents.c   |    2 ++
  fs/ext4/file.c      |    2 +-
  fs/ext4/ialloc.c    |    4 ++--
- fs/ext4/inode.c     |    4 +---
+ fs/ext4/inode.c     |   13 ++++++++++---
  fs/ext4/mballoc.c   |    4 ++--
  fs/ext4/namei.c     |    7 +++++++
  fs/ext4/resize.c    |    6 ++----
  fs/ext4/super.c     |    7 +++----
  fs/ext4/xattr.c     |   10 +++++-----
- 13 files changed, 53 insertions(+), 26 deletions(-)
+ 13 files changed, 62 insertions(+), 26 deletions(-)
 
 diff --git a/fs/ext4/balloc.c b/fs/ext4/balloc.c
 --- a/fs/ext4/balloc.c
@@ -159,6 +160,22 @@ diff --git a/fs/ext4/ialloc.c b/fs/ext4/ialloc.c
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
+@@ -1119,6 +1119,15 @@ void ext4_da_update_reserve_space(struct inode *inode,
+ 		used = ei->i_reserved_data_blocks;
+ 	}
+ 
++	if (unlikely(ei->i_allocated_meta_blocks > ei->i_reserved_meta_blocks)) {
++		ext4_msg(inode->i_sb, KERN_NOTICE, "%s: ino %lu, allocated %d "
++			 "with only %d reserved metadata blocks\n", __func__,
++			 inode->i_ino, ei->i_allocated_meta_blocks,
++			 ei->i_reserved_meta_blocks);
++		WARN_ON(1);
++		ei->i_allocated_meta_blocks = ei->i_reserved_meta_blocks;
++	}
++
+ 	/* Update per-inode reservations */
+ 	ei->i_reserved_data_blocks -= used;
+ 	ei->i_reserved_meta_blocks -= ei->i_allocated_meta_blocks;
 @@ -5142,10 +5142,8 @@ static int ext4_do_update_inode(handle_t
  			ext4_update_dynamic_rev(sb);
  			EXT4_SET_RO_COMPAT_FEATURE(sb,
