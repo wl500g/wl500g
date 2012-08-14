@@ -1,0 +1,53 @@
+From c5194b408286229ce0d94765f963890057d46ee0
+From: Peter Stuge <peter@stuge.se>
+Date: Tue, 10 Jul 2012 16:54:16 +0200
+Subject: [PATCH] io.c: Avoid timerfd race condition between completion and new submit
+
+An event handler thread working on transfer completion for the last
+flying transfer with a timeout can end up racing with a call to
+libusb_submit_transfer() from a second thread, so that the timerfd
+gets disarmed even though libusb actually again has a transfer with
+a timeout.
+
+By arming or disarming the timerfd during completion strictly
+according to remaining flying transfers while also holding the
+flying_transfers_lock this change ensures that a new transfer can
+not be added to the flying list until the completion code path has
+armed/disarmed the timerfd according to the current flying list.
+
+Hans de Goede describes the race condition situation in
+http://sourceforge.net/mailarchive/message.php?msg_id=29520709
+
+Signed-off-by: Peter Stuge <peter@stuge.se>
+---
+ libusb/io.c |   15 +++++----------
+ 1 files changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/libusb/io.c b/libusb/io.c
+--- a/libusb/io.c
++++ b/libusb/io.c
+@@ -1457,17 +1457,14 @@ int usbi_handle_transfer_completion(struct usbi_transfer *itransfer,
+ 
+ 	pthread_mutex_lock(&ctx->flying_transfers_lock);
+ 	list_del(&itransfer->list);
+-	if (usbi_using_timerfd(ctx))
+-		r = arm_timerfd_for_next_timeout(ctx);
+-	pthread_mutex_unlock(&ctx->flying_transfers_lock);
+-
+ 	if (usbi_using_timerfd(ctx)) {
+-		if (r < 0)
+-			return r;
+-		r = disarm_timerfd(ctx);
+-		if (r < 0)
+-			return r;
++		r = arm_timerfd_for_next_timeout(ctx);
++		if (0 == r)
++ 			r = disarm_timerfd(ctx);
+ 	}
++	pthread_mutex_unlock(&ctx->flying_transfers_lock);
++	if (r < 0)
++		return r;
+ 
+ 	if (status == LIBUSB_TRANSFER_COMPLETED
+ 			&& transfer->flags & LIBUSB_TRANSFER_SHORT_NOT_OK) {
+-- 
