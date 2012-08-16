@@ -1,10 +1,11 @@
  bf146b861083e3170af05016982d50d297e3ace7 wget: correctly handle failure to -c (continue)
  6144124aac1d4a30ff81842ba1bb0e28373a71c8 wget: make -c _not_ truncate the file
  aacd44860129372e5d4ff1494664317f18cbb615 wget: fix wget-supports--P testsuite failure. Closes 4940
+ 9c55143bbf4ce24bef093301e46aab15b4a71d69 wget: try reading after poll timeout - stdio may have buffered data. Closes 5426
 
 ---
- networking/wget.c |   38 ++++++++++++++++++++++++++++++++------
- 1 file changed, 32 insertions(+), 6 deletions(-)
+ networking/wget.c |   59 ++++++++++++++++++++++++++++++++++++++++++------------
+ 1 file changed, 46 insertions(+), 13 deletions(-)
 
 diff --git a/networking/wget.c b/networking/wget.c
 --- a/networking/wget.c
@@ -34,6 +35,55 @@ diff --git a/networking/wget.c b/networking/wget.c
  	}
  
  	if (ftpcmd("RETR ", target->path, sfp) > 150)
+@@ -448,6 +448,9 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
+ # endif
+ 	struct pollfd polldata;
+ 
++# if ENABLE_FEATURE_WGET_TIMEOUT
++	second_cnt = G.timeout_seconds;
++# endif
+ 	polldata.fd = fileno(dfp);
+ 	polldata.events = POLLIN | POLLPRI;
+ #endif
+@@ -483,12 +486,7 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
+ 			}
+ 
+ #if ENABLE_FEATURE_WGET_STATUSBAR || ENABLE_FEATURE_WGET_TIMEOUT
+-# if ENABLE_FEATURE_WGET_TIMEOUT
+-			second_cnt = G.timeout_seconds;
+-# endif
+-			while (1) {
+-				if (safe_poll(&polldata, 1, 1000) != 0)
+-					break; /* error, EOF, or data is available */
++			if (safe_poll(&polldata, 1, 1000) == 0) {
+ # if ENABLE_FEATURE_WGET_TIMEOUT
+ 				if (second_cnt != 0 && --second_cnt == 0) {
+ 					progress_meter(PROGRESS_END);
+@@ -497,6 +495,13 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
+ # endif
+ 				/* Needed for "stalled" indicator */
+ 				progress_meter(PROGRESS_BUMP);
++				/*
++				 * We used to loop back to poll here,
++				 * but in chunked case, we can be here after
++				 * fgets and it could buffer some data in dfp...
++				 * which poll knows nothing about!
++				 * Therefore let's try fread'ing anyway.
++				 */
+ 			}
+ 
+ 			/* fread internally uses read loop, which in our case
+@@ -527,7 +532,9 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
+ 			}
+ 
+ 			xwrite(G.output_fd, G.wget_buf, n);
+-
++#if ENABLE_FEATURE_WGET_TIMEOUT
++			second_cnt = G.timeout_seconds;
++#endif
+ #if ENABLE_FEATURE_WGET_STATUSBAR
+ 			G.transferred += n;
+ 			progress_meter(PROGRESS_BUMP);
 @@ -542,6 +553,17 @@ static void NOINLINE retrieve_file_data(
  		G.got_clen = 1;
  	}
