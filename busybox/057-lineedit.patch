@@ -1,0 +1,26 @@
+From 4919565c152f2ecee760b5419c947764e991ab3e
+From: Cliff Frey <cliff@meraki.com>
+Date: Tue, 07 Aug 2012 15:59:40 +0000
+Subject: lineedit: fix Alt-D when cursor==0
+
+Signed-off-by: Cliff Frey <cliff@meraki.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/libbb/lineedit.c b/libbb/lineedit.c
+--- a/libbb/lineedit.c
++++ b/libbb/lineedit.c
+@@ -2527,9 +2527,9 @@ int FAST_FUNC read_line_input(line_input_t *st, const char *prompt, char *comman
+ 					/* Delete word forward */
+ 					int nc, sc = cursor;
+ 					ctrl_right();
+-					nc = cursor;
+-					input_backward(cursor - sc);
+-					while (--nc >= cursor)
++					nc = cursor - sc;
++					input_backward(nc);
++					while (--nc >= 0)
+ 						input_delete(1);
+ 					break;
+ 				}
+--
+cgit v0.9.0.1-2-gef13
