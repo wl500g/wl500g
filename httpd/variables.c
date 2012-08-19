@@ -403,6 +403,7 @@ static const struct variable variables_WLANConfig11b[] = {
 	{"wl_rts", 0 },
 	{"wl_dtim", 0 },
 	{"wl_bcn", 0 },
+	{"wl_plcphdr", 0 },
 	{"wl_frameburst", 0 },
 	{"wl_mode_ex", 0 },
 	{"wl_radio_x", 0 },
