@@ -225,7 +225,6 @@ stb_set(void)
 		case MDL_WL520GU:
 		case MDL_WL500GP:
 		case MDL_DIR320:
-		case MDL_RTN10U:
 			{
 			/* Set LAN ports */
 			char *vlan0ports[] = {
@@ -243,6 +242,28 @@ stb_set(void)
 					"0 3 5",	// WAN + LAN 3
 					"0 4 5",	// WAN + LAN 4
 					"0 3 4 5"};	// WAN + LAN 3 + LAN4
+			nvram_set("vlan0ports", vlan0ports[stbport]);
+			nvram_set("vlan1ports", vlan1ports[stbport]);
+			break;
+			}
+		case MDL_RTN10U:
+			{
+			/* Set LAN ports */
+			char *vlan0ports[] = {
+					"1 2 3 4 5*",	// Defaults
+					"1 2 3 5*",	// LAN 2 + LAN 3 + LAN 4
+					"1 2 4 5*",	// LAN 1 + LAN 3 + LAN 4
+					"1 3 4 5*",	// LAN 1 + LAN 2 + LAN 4
+					"2 3 4 5*",	// LAN 1 + LAN 2 + LAN 3
+					"3 4 5*"};	// LAN 1 + LAN 2
+			/* Set WAN ports */
+			char *vlan1ports[] = {
+					"0 5",		// Defaults
+					"0 4 5",	// WAN + LAN 1
+					"0 3 5",	// WAN + LAN 2
+					"0 2 5",	// WAN + LAN 3
+					"0 1 5",	// WAN + LAN 4
+					"0 1 2 5"};	// WAN + LAN 3 + LAN4
 			nvram_set("vlan0ports", vlan0ports[stbport]);
 			nvram_set("vlan1ports", vlan1ports[stbport]);
 			break;
