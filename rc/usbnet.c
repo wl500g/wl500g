@@ -70,7 +70,7 @@ void usbnet_if_up(char *prefix, int unit, char *ifname) {
 	ifconfig(ifname, IFUP, NULL, NULL);
 	eval("brctl", "addif", wan_ifname, ifname );
 
-	start_wan_unit(unit);
+	//start_wan_unit(unit);
 
 	dprintf("done\n");
 }
@@ -79,14 +79,16 @@ void usbnet_if_down(char *prefix, int unit, char *ifname) {
 	char tmp[100];
 	char *wan_ifname;
 
-	wan_ifname = nvram_get(strcat_r(prefix, "usb_ifname", tmp));
-	if (wan_ifname)
+	wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
+	if (!wan_ifname)
 		return;
 
-	stop_wan_unit(unit);
+	//stop_wan_unit(unit);
 
-	ifconfig(ifname, 0, NULL, NULL);
-	eval("brctl", "delif", wan_ifname, ifname );
+	// usbnet_if_down() is called only on hotplug net remove event
+	// interface is already removed at this moment
+	//eval("brctl", "delif", wan_ifname, ifname );
+	//ifconfig(ifname, 0, NULL, NULL);
 
 	dprintf("done\n");
 }
@@ -112,11 +114,12 @@ void usbnet_check_and_act(char *ifname, char *action)
 	if (!strcmp(action, "remove")) {
 		for (unit = 0; !found && unit < MAX_NVPARSE; unit++) {
 			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-			tmp_str = nvram_safe_get( strcat_r(prefix, "proto", tmp) );
-			if (!strcmp(tmp_str, "usbdev")) continue;
+			// ???
+			//tmp_str = nvram_safe_get( strcat_r(prefix, "proto", tmp) );
+			//if (!strcmp(tmp_str, "usbdev")) continue;
 
-			tmp_str = nvram_safe_get( strcat_r(prefix, "ifname", tmp) );
-			if (!strcmp(tmp_str, ifname)) continue;
+			tmp_str = nvram_safe_get( strcat_r(prefix, "usb_ifname", tmp) );
+			if (strcmp(tmp_str, ifname)) continue;
 
 			usbnet_if_down(prefix, unit, ifname);
 
@@ -172,12 +175,13 @@ void usbnet_check_and_act(char *ifname, char *action)
 	found = 0; i = 0;
 	for (unit = 0; !found && unit < MAX_NVPARSE; unit ++) {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-		tmp_str = nvram_safe_get( strcat_r(prefix, "proto", tmp) );
-		if (strcmp(tmp_str, "usbdev")) {
+		// ???
+		//tmp_str = nvram_safe_get( strcat_r(prefix, "proto", tmp) );
+		//if (strcmp(tmp_str, "usbdev")) {
 			found++;
 			i = unit;
 			dprintf("wan usbnet %d\n", unit);
-		}
+		//}
 	}
 	unit = -1;
 
