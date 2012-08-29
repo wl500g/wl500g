@@ -837,7 +837,7 @@ diff --git a/net/ipv6/route.c b/net/ipv6/route.c
  				  int (*output)(struct sk_buff *))
  {
  	struct rt6_info *rt;
-@@ -1079,9 +1079,8 @@ out:
+@@ -1079,10 +1079,9 @@ out:
  
  int ndisc_dst_gc(int *more)
  {
