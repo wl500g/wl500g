@@ -117,12 +117,12 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 	/* cache this readonly data; minimize chip reads */
 	ehci->hcs_params = ehci_readl(ehci, &ehci->caps->hcs_params);
 
-	retval = ehci_halt(ehci);
+	/* data structure init */
+	retval = ehci_init(hcd);
 	if (retval)
 		return retval;
 
-	/* data structure init */
-	retval = ehci_init(hcd);
+	retval = ehci_halt(ehci);
 	if (retval)
 		return retval;
 

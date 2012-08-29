@@ -91,7 +91,8 @@ static const char	hcd_name [] = "ehci_hcd";
 #define EHCI_IAA_MSECS		10		/* arbitrary */
 #define EHCI_IO_JIFFIES		(HZ/10)		/* io watchdog > irq_thresh */
 #define EHCI_ASYNC_JIFFIES	(HZ/20)		/* async idle timeout */
-#define EHCI_SHRINK_FRAMES	5		/* async qh unlink delay */
+#define EHCI_SHRINK_JIFFIES	(DIV_ROUND_UP(HZ, 200) + 1)
+						/* 5-ms async qh unlink delay */
 
 /* Initial IRQ latency:  faster than hw default */
 static int log2_irq_thresh = 0;		// 0 to 6
@@ -143,10 +144,7 @@ timer_action(struct ehci_hcd *ehci, enum ehci_timer_action action)
 			break;
 		/* case TIMER_ASYNC_SHRINK: */
 		default:
-			/* add a jiffie since we synch against the
-			 * 8 KHz uframe counter.
-			 */
-			t = DIV_ROUND_UP(EHCI_SHRINK_FRAMES * HZ, 1000) + 1;
+			t = EHCI_SHRINK_JIFFIES;
 			break;
 		}
 		mod_timer(&ehci->watchdog, t + jiffies);
@@ -328,9 +326,6 @@ static void ehci_iaa_watchdog(unsigned long param)
 		 * CMD_IAAD when it sets STS_IAA.)
 		 */
 		cmd = ehci_readl(ehci, &ehci->regs->command);
-		if (cmd & CMD_IAAD)
-			ehci_writel(ehci, cmd & ~CMD_IAAD,
-					&ehci->regs->command);
 
 		/* If IAA is set here it either legitimately triggered
 		 * before we cleared IAAD above (but _way_ late, so we'll
@@ -446,13 +441,20 @@ static void ehci_work (struct ehci_hcd *ehci)
 	 * it reports urb completions.  this flag guards against bogus
 	 * attempts at re-entrant schedule scanning.
 	 */
-	if (ehci->scanning)
+	if (ehci->scanning) {
+		ehci->need_rescan = true;
 		return;
-	ehci->scanning = 1;
+	}
+	ehci->scanning = true;
+
+ rescan:
+	ehci->need_rescan = false;
 	scan_async (ehci);
 	if (ehci->next_uframe != -1)
 		scan_periodic (ehci);
-	ehci->scanning = 0;
+	if (ehci->need_rescan)
+		goto rescan;
+	ehci->scanning = false;
 
 	/* the IO watchdog guards against hardware or driver bugs that
 	 * misplace IRQs, and should let us run completely without IRQs.
@@ -716,8 +718,14 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 		goto dead;
 	}
 
-	masked_status = status & INTR_MASK;
-	if (!masked_status) {		/* irq sharing? */
+	/*
+	 * We don't use STS_FLR, but some controllers don't like it to
+	 * remain on, so mask it out along with the other status bits.
+	 */
+	masked_status = status & (INTR_MASK | STS_FLR);
+
+	/* Shared IRQ? */
+	if (!masked_status) {
 		spin_unlock(&ehci->lock);
 		return IRQ_NONE;
 	}
@@ -746,11 +754,8 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 	/* complete the unlinking of some qh [4.15.2.3] */
 	if (status & STS_IAA) {
 		/* guard against (alleged) silicon errata */
-		if (cmd & CMD_IAAD) {
-			ehci_writel(ehci, cmd & ~CMD_IAAD,
-					&ehci->regs->command);
+		if (cmd & CMD_IAAD)
 			ehci_dbg(ehci, "IAA with IAAD still set?\n");
-		}
 		if (ehci->reclaim) {
 			COUNT(ehci->stats.reclaim);
 			end_unlink_async(ehci);
