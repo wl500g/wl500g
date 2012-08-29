@@ -1,0 +1,38 @@
+From 3b821d0a709c6b5b3094a763bb04e48ed0447050
+From: Peter Stuge <peter@stuge.se>
+Date: Wed, 22 Aug 2012 01:32:10 -0700
+Subject: [PATCH] io.c: Handle >= 1 second transfer timeout in libusb_submit_transfer()
+
+---
+From 2b044abace76ba0095ee5dbc71a7dac75e8c8f05
+From: Pete Batard <pete@akeo.ie>
+Date: Wed, 22 Aug 2012 01:32:10 -0700
+Subject: [PATCH] io.c: Handle >= 1 second transfer timeout in libusb_wait_for_event()
+
+---
+ libusb/io.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/libusb/io.c b/libusb/io.c
+--- a/libusb/io.c
++++ b/libusb/io.c
+@@ -1141,7 +1141,7 @@ static int calculate_timeout(struct usbi_transfer *transfer)
+ 	current_time.tv_sec += timeout / 1000;
+ 	current_time.tv_nsec += (timeout % 1000) * 1000000;
+ 
+-	if (current_time.tv_nsec > 1000000000) {
++	while (current_time.tv_nsec >= 1000000000) {
+ 		current_time.tv_nsec -= 1000000000;
+ 		current_time.tv_sec++;
+ 	}
+@@ -1747,7 +1747,7 @@ int API_EXPORTED libusb_wait_for_event(libusb_context *ctx, struct timeval *tv)
+ 
+ 	timeout.tv_sec += tv->tv_sec;
+ 	timeout.tv_nsec += tv->tv_usec * 1000;
+-	if (timeout.tv_nsec > 1000000000) {
++	while (timeout.tv_nsec >= 1000000000) {
+ 		timeout.tv_nsec -= 1000000000;
+ 		timeout.tv_sec++;
+ 	}
+-- 
+1.7.6.1
