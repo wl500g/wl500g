@@ -858,8 +858,10 @@ int main(int argc, char **argv)
 
 				fflush(conn_fp);
 				shutdown(item->fd, 2);
-				item->fd = -1;
 				fclose(conn_fp);
+
+				/* Already closed */
+				item->fd = -1;
 
 			skip:
 				/* Skip the rest of */
@@ -871,7 +873,7 @@ int main(int argc, char **argv)
 			if (item->fd >= 0) {
 				shutdown(item->fd, 2);
 				close(item->fd);
-				}
+			}
 
 			free(item);
 		}
