@@ -88,7 +88,7 @@ all: prep custom
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
 	ppp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
-	bpalogin bridge ez-ipupdate inadyn httpd libjpeg lib LPRng \
+	bpalogin bridge inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev \
 	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
@@ -442,12 +442,6 @@ $(TOP)/udpxy: udpxy/$(UDPXY).tar.gz
 udpxy: $(TOP)/udpxy
 	@true
 
-$(TOP)/ez-ipupdate:
-	tar -C . $(TAR_EXCL_SVN) -cf - ez-ipupdate | tar -C $(TOP) -xf -
-
-ez-ipupdate: $(TOP)/ez-ipupdate
-	@true
-
 inadyn_Patches := $(call patches_list,inadyn)
 
 $(TOP)/inadyn: inadyn/$(INADYN).tar.bz2
@@ -719,5 +713,5 @@ www: $(TOP)/www
 #	    $(call make_diff,-BurpN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-src www \
-	accel-pptp busybox dropbear ez-ipupdate inadyn httpd iptables others \
+	accel-pptp busybox dropbear inadyn httpd iptables others \
 	rc mjpg-streamer libjpeg config igmpproxy iproute2 lib shared utils

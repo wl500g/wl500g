@@ -154,7 +154,6 @@ obj-$(CONFIG_ETC) += etc
 # ASUS applications
 obj-$(CONFIG_ACCEL_PPTP) += accel-pptp
 obj-$(CONFIG_PPPOERELAY) += rp-pppoe
-obj-$(CONFIG_EZIPUPDATE) += ez-ipupdate
 obj-$(CONFIG_LPRNG) += LPRng
 obj-$(CONFIG_INFOSRV) += infosrv
 obj-$(CONFIG_OTHERS) += others
@@ -670,16 +669,6 @@ bridge: bridge/Makefile
 bridge-install: bridge
 	install -D bridge/brctl/brctl $(INSTALLDIR)/bridge/usr/sbin/brctl
 	$(STRIP) $(INSTALLDIR)/bridge/usr/sbin/brctl
-
-ez-ipupdate/Makefile: ez-ipupdate/Makefile.in ez-ipupdate/config.h.in ez-ipupdate/configure.in
-	cd ez-ipupdate && ac_cv_prog_CC=$(CC) CPP=$(CC) CFLAGS="-g -Os $(EXTRACFLAGS)" \
-	$(CONFIGURE)
-
-ez-ipupdate: ez-ipupdate/Makefile
-
-ez-ipupdate-install:
-	install -D ez-ipupdate/ez-ipupdate $(INSTALLDIR)/ez-ipupdate/usr/sbin/ez-ipupdate
-	$(STRIP) $(INSTALLDIR)/ez-ipupdate/usr/sbin/ez-ipupdate
 
 inadyn/Makefile.in: inadyn/Makefile.am inadyn/configure.ac
 	NOCONFIGURE="yes" inadyn/autogen.sh
