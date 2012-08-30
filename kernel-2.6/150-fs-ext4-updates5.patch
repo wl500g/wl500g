@@ -7,22 +7,23 @@ ext4: Updates from upstream 3
  c1bb05a657fb3d8c6179a4ef7980261fae4521d7 ext4: avoid deadlock on sync-mounted FS w/o journal
  7e936b737211e6b54e34b71a827e56b872e958d8 ext4: disallow hard-linked directory in ext4_lookup
  97795d2a5b8d3c8dc4365d4bd3404191840453ba ext4: don't let i_reserved_meta_blocks go negative
+ 5a0790c2c4a18435759a70e1562450035d778339 ext4: remove initialized but not read variables
 
 ---
  fs/ext4/balloc.c    |    6 +-----
  fs/ext4/ext4.h      |    6 ++++++
  fs/ext4/ext4_jbd2.c |   16 ++++++++++++++++
  fs/ext4/ext4_jbd2.h |    5 +++++
- fs/ext4/extents.c   |    2 ++
+ fs/ext4/extents.c   |   10 ++++------
  fs/ext4/file.c      |    2 +-
  fs/ext4/ialloc.c    |    4 ++--
- fs/ext4/inode.c     |   13 ++++++++++---
- fs/ext4/mballoc.c   |    4 ++--
- fs/ext4/namei.c     |    7 +++++++
- fs/ext4/resize.c    |    6 ++----
+ fs/ext4/inode.c     |   18 ++++++++++--------
+ fs/ext4/mballoc.c   |   16 ++++++----------
+ fs/ext4/namei.c     |    9 +++++++--
+ fs/ext4/resize.c    |    8 ++------
  fs/ext4/super.c     |    7 +++----
  fs/ext4/xattr.c     |   10 +++++-----
- 13 files changed, 62 insertions(+), 26 deletions(-)
+ 13 files changed, 68 insertions(+), 49 deletions(-)
 
 diff --git a/fs/ext4/balloc.c b/fs/ext4/balloc.c
 --- a/fs/ext4/balloc.c
@@ -124,6 +125,51 @@ diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
  	return ext4_data_block_valid(EXT4_SB(inode->i_sb), block, len);
  }
  
+@@ -1063,7 +1065,6 @@ static int ext4_ext_grow_indepth(handle_
+ {
+ 	struct ext4_ext_path *curp = path;
+ 	struct ext4_extent_header *neh;
+-	struct ext4_extent_idx *fidx;
+ 	struct buffer_head *bh;
+ 	ext4_fsblk_t newblock;
+ 	int err = 0;
+@@ -1124,10 +1125,10 @@ static int ext4_ext_grow_indepth(handle_
+ 	ext4_idx_store_pblock(curp->p_idx, newblock);
+ 
+ 	neh = ext_inode_hdr(inode);
+-	fidx = EXT_FIRST_INDEX(neh);
+ 	ext_debug("new root: num %d(%d), lblock %d, ptr %llu\n",
+ 		  le16_to_cpu(neh->eh_entries), le16_to_cpu(neh->eh_max),
+-		  le32_to_cpu(fidx->ei_block), idx_pblock(fidx));
++		  le32_to_cpu(EXT_FIRST_INDEX(neh)->ei_block),
++		  idx_pblock(EXT_FIRST_INDEX(neh)));
+ 
+ 	neh->eh_depth = cpu_to_le16(path->p_depth + 1);
+ 	err = ext4_ext_dirty(handle, inode, curp);
+@@ -2797,7 +2798,6 @@ static int ext4_split_unwritten_extents(
+ 	struct ext4_extent *ex1 = NULL;
+ 	struct ext4_extent *ex2 = NULL;
+ 	struct ext4_extent *ex3 = NULL;
+-	struct ext4_extent_header *eh;
+ 	ext4_lblk_t ee_block, eof_block;
+ 	unsigned int allocated, ee_len, depth;
+ 	ext4_fsblk_t newblock;
+@@ -2814,7 +2814,6 @@ static int ext4_split_unwritten_extents(
+ 		eof_block = iblock + max_blocks;
+ 
+ 	depth = ext_depth(inode);
+-	eh = path[depth].p_hdr;
+ 	ex = path[depth].p_ext;
+ 	ee_block = le32_to_cpu(ex->ee_block);
+ 	ee_len = ext4_ext_get_actual_len(ex);
+@@ -2901,7 +2900,6 @@ static int ext4_split_unwritten_extents(
+ 			err = PTR_ERR(path);
+ 			goto out;
+ 		}
+-		eh = path[depth].p_hdr;
+ 		ex = path[depth].p_ext;
+ 		if (ex2 != &newex)
+ 			ex2 = ex;
 diff --git a/fs/ext4/file.c b/fs/ext4/file.c
 --- a/fs/ext4/file.c
 +++ b/fs/ext4/file.c
@@ -160,7 +206,7 @@ diff --git a/fs/ext4/ialloc.c b/fs/ext4/ialloc.c
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -1119,6 +1119,15 @@ void ext4_da_update_reserve_space(struct inode *inode,
+@@ -1119,6 +1119,15 @@ void ext4_da_update_reserve_space(struct
  		used = ei->i_reserved_data_blocks;
  	}
  
@@ -176,7 +222,21 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  	/* Update per-inode reservations */
  	ei->i_reserved_data_blocks -= used;
  	ei->i_reserved_meta_blocks -= ei->i_allocated_meta_blocks;
-@@ -5142,10 +5142,8 @@ static int ext4_do_update_inode(handle_t
+@@ -3087,13 +3096,10 @@ static int ext4_da_write_begin(struct fi
+ 	int ret, retries = 0;
+ 	struct page *page;
+ 	pgoff_t index;
+-	unsigned from, to;
+ 	struct inode *inode = mapping->host;
+ 	handle_t *handle;
+ 
+ 	index = pos >> PAGE_CACHE_SHIFT;
+-	from = pos & (PAGE_CACHE_SIZE - 1);
+-	to = from + len;
+ 
+ 	if (ext4_nonda_switch(inode->i_sb)) {
+ 		*fsdata = (void *)FALL_BACK_TO_NONDELALLOC;
+@@ -5147,10 +5153,8 @@ static int ext4_do_update_inode(handle_t
  			ext4_update_dynamic_rev(sb);
  			EXT4_SET_RO_COMPAT_FEATURE(sb,
  					EXT4_FEATURE_RO_COMPAT_LARGE_FILE);
@@ -188,10 +248,43 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  		}
  	}
  	raw_inode->i_generation = cpu_to_le32(inode->i_generation);
+@@ -5599,7 +5603,6 @@ static int ext4_expand_extra_isize(struc
+ {
+ 	struct ext4_inode *raw_inode;
+ 	struct ext4_xattr_ibody_header *header;
+-	struct ext4_xattr_entry *entry;
+ 
+ 	if (EXT4_I(inode)->i_extra_isize >= new_extra_isize)
+ 		return 0;
+@@ -5607,7 +5610,6 @@ static int ext4_expand_extra_isize(struc
+ 	raw_inode = ext4_raw_inode(&iloc);
+ 
+ 	header = IHDR(inode, raw_inode);
+-	entry = IFIRST(header);
+ 
+ 	/* No extended attributes present */
+ 	if (!ext4_test_inode_state(inode, EXT4_STATE_XATTR) ||
 diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
 --- a/fs/ext4/mballoc.c
 +++ b/fs/ext4/mballoc.c
-@@ -2865,7 +2865,7 @@ ext4_mb_mark_diskspace_used(struct ext4_
+@@ -2003,7 +2003,6 @@ ext4_mb_regular_allocator(struct ext4_al
+ 	ext4_group_t ngroups, group, i;
+ 	int cr;
+ 	int err = 0;
+-	int bsbits;
+ 	struct ext4_sb_info *sbi;
+ 	struct super_block *sb;
+ 	struct ext4_buddy e4b;
+@@ -2045,8 +2044,6 @@ ext4_mb_regular_allocator(struct ext4_al
+ 			ac->ac_2order = i - 1;
+ 	}
+ 
+-	bsbits = ac->ac_sb->s_blocksize_bits;
+-
+ 	/* if stream allocation is enabled, use global goal */
+ 	if (ac->ac_flags & EXT4_MB_STREAM_ALLOC) {
+ 		/* TBD: may be hot point */
+@@ -2865,7 +2862,7 @@ ext4_mb_mark_diskspace_used(struct ext4_
  	err = ext4_handle_dirty_metadata(handle, NULL, gdp_bh);
  
  out_err:
@@ -200,7 +293,51 @@ diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
  	brelse(bitmap_bh);
  	return err;
  }
-@@ -4722,7 +4722,7 @@ do_more:
+@@ -2903,7 +2900,7 @@ ext4_mb_normalize_request(struct ext4_al
+ 	int bsbits, max;
+ 	ext4_lblk_t end;
+ 	loff_t size, orig_size, start_off;
+-	ext4_lblk_t start, orig_start;
++	ext4_lblk_t start;
+ 	struct ext4_inode_info *ei = EXT4_I(ac->ac_inode);
+ 	struct ext4_prealloc_space *pa;
+ 
+@@ -2934,6 +2931,7 @@ ext4_mb_normalize_request(struct ext4_al
+ 	size = size << bsbits;
+ 	if (size < i_size_read(ac->ac_inode))
+ 		size = i_size_read(ac->ac_inode);
++	orig_size = size;
+ 
+ 	/* max size of free chunks */
+ 	max = 2 << bsbits;
+@@ -2975,8 +2973,8 @@ ext4_mb_normalize_request(struct ext4_al
+ 		start_off = (loff_t)ac->ac_o_ex.fe_logical << bsbits;
+ 		size	  = ac->ac_o_ex.fe_len << bsbits;
+ 	}
+-	orig_size = size = size >> bsbits;
+-	orig_start = start = start_off >> bsbits;
++	size = size >> bsbits;
++	start = start_off >> bsbits;
+ 
+ 	/* don't cover already allocated blocks in selected range */
+ 	if (ar->pleft && start <= ar->lleft) {
+@@ -4536,7 +4534,6 @@ void ext4_free_blocks(handle_t *handle, 
+ 	struct super_block *sb = inode->i_sb;
+ 	struct ext4_allocation_context *ac = NULL;
+ 	struct ext4_group_desc *gdp;
+-	struct ext4_super_block *es;
+ 	unsigned long freed = 0;
+ 	unsigned int overflow;
+ 	ext4_grpblk_t bit;
+@@ -4555,7 +4552,6 @@ void ext4_free_blocks(handle_t *handle, 
+ 	}
+ 
+ 	sbi = EXT4_SB(sb);
+-	es = EXT4_SB(sb)->s_es;
+ 	if (!(flags & EXT4_FREE_BLOCKS_VALIDATED) &&
+ 	    !ext4_data_block_valid(sbi, block, count)) {
+ 		ext4_error(sb, __func__,
+@@ -4722,7 +4718,7 @@ do_more:
  		put_bh(bitmap_bh);
  		goto do_more;
  	}
@@ -212,8 +349,8 @@ diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
 diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
 --- a/fs/ext4/namei.c
 +++ b/fs/ext4/namei.c
-@@ -1330,6 +1330,13 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, stru
- 			EXT4_ERROR_INODE(dir, "bad inode number: %u", ino);
+@@ -1066,6 +1066,13 @@ static struct dentry *ext4_lookup(struct
+ 				   "bad inode number: %u", ino);
  			return ERR_PTR(-EIO);
  		}
 +		if (unlikely(ino == dir->i_ino)) {
@@ -225,8 +362,23 @@ diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
 +		}
  		inode = ext4_iget(dir->i_sb, ino);
  		if (unlikely(IS_ERR(inode))) {
- 			if (inode == ERR_PTR(-ESTALE)) {
- 				EXT4_ERROR_INODE(dir,
+ 			if (PTR_ERR(inode) == -ESTALE) {
+@@ -1085,7 +1092,6 @@ struct dentry *ext4_get_parent(struct dentry *child)
+ {
+ 	__u32 ino;
+ 	struct dentry *parent;
+-	struct inode *inode;
+ 	static const struct qstr dotdot = {
+ 		.name = "..",
+ 		.len = 2,
+@@ -1094,7 +1100,6 @@ struct dentry *ext4_get_parent(struct de
+ 	struct buffer_head *bh;
+ 
+ 	bh = ext4_find_entry(child->d_inode, &dotdot, &de);
+-	inode = NULL;
+ 	if (!bh)
+ 		return ERR_PTR(-ENOENT);
+ 	ino = le32_to_cpu(de->inode);
 diff --git a/fs/ext4/resize.c b/fs/ext4/resize.c
 --- a/fs/ext4/resize.c
 +++ b/fs/ext4/resize.c
@@ -240,7 +392,23 @@ diff --git a/fs/ext4/resize.c b/fs/ext4/resize.c
  
  exit_journal:
  	mutex_unlock(&sbi->s_resize_lock);
-@@ -1071,13 +1070,12 @@ int ext4_group_extend(struct super_block
+@@ -972,7 +971,6 @@ int ext4_group_extend(struct super_block
+ 		      ext4_fsblk_t n_blocks_count)
+ {
+ 	ext4_fsblk_t o_blocks_count;
+-	ext4_group_t o_groups_count;
+ 	ext4_grpblk_t last;
+ 	ext4_grpblk_t add;
+ 	struct buffer_head *bh;
+@@ -984,7 +982,6 @@ int ext4_group_extend(struct super_block
+ 	 * yet: we're going to revalidate es->s_blocks_count after
+ 	 * taking the s_resize_lock below. */
+ 	o_blocks_count = ext4_blocks_count(es);
+-	o_groups_count = EXT4_SB(sb)->s_groups_count;
+ 
+ 	if (test_opt(sb, DEBUG))
+ 		printk(KERN_DEBUG "EXT4-fs: extending last group from %llu uto %llu blocks\n",
+@@ -1071,13 +1068,12 @@ int ext4_group_extend(struct super_block
  		goto exit_put;
  	}
  	ext4_blocks_count_set(es, o_blocks_count + add);

@@ -10,12 +10,12 @@ jbd2 updates from 2.6.32.46
 ---
  fs/jbd2/checkpoint.c         |  123 +++++---
  fs/jbd2/commit.c             |  198 ++++++++-----
- fs/jbd2/journal.c            |  632 ++++++++++++++++---------------------------
- fs/jbd2/recovery.c           |    7 
- fs/jbd2/transaction.c        |  298 +++++++++++---------
+ fs/jbd2/journal.c            |  644 ++++++++++++++++---------------------------
+ fs/jbd2/recovery.c           |   17 -
+ fs/jbd2/transaction.c        |  298 +++++++++++--------
  include/linux/jbd2.h         |  129 ++++++--
  include/linux/journal-head.h |    6 
- 7 files changed, 732 insertions(+), 661 deletions(-)
+ 7 files changed, 734 insertions(+), 681 deletions(-)
 
 diff --git a/fs/jbd2/checkpoint.c b/fs/jbd2/checkpoint.c
 --- a/fs/jbd2/checkpoint.c
@@ -1215,7 +1215,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  	.start  = jbd2_seq_info_start,
  	.next   = jbd2_seq_info_next,
  	.stop   = jbd2_seq_info_stop,
-@@ -894,7 +774,7 @@ static int jbd2_seq_info_release(struct
+@@ -894,7 +774,7 @@ static int jbd2_seq_info_release(struct 
  	return seq_release(inode, file);
  }
  
@@ -1480,7 +1480,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
   * void jbd2_journal_update_superblock() - Update journal sb on disk.
   * @journal: The journal to update.
   * @wait: Set to '0' if you don't want to wait for IO completion.
-@@ -1351,6 +1251,14 @@ static int journal_get_superblock(journal_t *journal)
+@@ -1378,6 +1187,14 @@ static int journal_get_superblock(journa
  		goto out;
  	}
  
@@ -1495,7 +1495,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  	return 0;
  
  out:
-@@ -1448,6 +1257,13 @@ int jbd2_journal_load(journal_t *journal
+@@ -1448,6 +1265,13 @@ int jbd2_journal_load(journal_t *journal
  	if (jbd2_journal_recover(journal))
  		goto recovery_error;
  
@@ -1509,7 +1509,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  	/* OK, we've finished with the dynamic journal bits:
  	 * reinitialise the dynamic contents of the superblock in memory
  	 * and reset them on disk. */
-@@ -1469,9 +1285,12 @@ recovery_error:
+@@ -1469,9 +1293,12 @@ recovery_error:
   *
   * Release a journal_t structure once it is no longer in use by the
   * journaled object.
@@ -1523,7 +1523,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  	/* Wait for the commit thread to wake up and die. */
  	journal_kill_thread(journal);
  
-@@ -1485,7 +1304,9 @@ void jbd2_journal_destroy(journal_t *jou
+@@ -1485,7 +1312,9 @@ void jbd2_journal_destroy(journal_t *jou
  	spin_lock(&journal->j_list_lock);
  	while (journal->j_checkpoint_transactions != NULL) {
  		spin_unlock(&journal->j_list_lock);
@@ -1533,7 +1533,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  		spin_lock(&journal->j_list_lock);
  	}
  
-@@ -1494,11 +1315,16 @@ void jbd2_journal_destroy(journal_t *jou
+@@ -1494,11 +1323,16 @@ void jbd2_journal_destroy(journal_t *jou
  	J_ASSERT(journal->j_checkpoint_transactions == NULL);
  	spin_unlock(&journal->j_list_lock);
  
@@ -1554,7 +1554,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  		brelse(journal->j_sb_buffer);
  	}
  
-@@ -1510,6 +1336,8 @@ void jbd2_journal_destroy(journal_t *jou
+@@ -1510,6 +1344,8 @@ void jbd2_journal_destroy(journal_t *jou
  		jbd2_journal_destroy_revoke(journal);
  	kfree(journal->j_wbuf);
  	kfree(journal);
@@ -1563,7 +1563,21 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  }
  
  
-@@ -1735,10 +1563,16 @@ int jbd2_journal_flush(journal_t *journa
+@@ -1558,13 +1394,9 @@ int jbd2_journal_check_used_features (jo
+ int jbd2_journal_check_available_features (journal_t *journal, unsigned long compat,
+ 				      unsigned long ro, unsigned long incompat)
+ {
+-	journal_superblock_t *sb;
+-
+ 	if (!compat && !ro && !incompat)
+ 		return 1;
+ 
+-	sb = journal->j_superblock;
+-
+ 	/* We can support any known requested features iff the
+ 	 * superblock is in version 2.  Otherwise we fail to support any
+ 	 * extended sb features. */
+@@ -1735,10 +1567,16 @@ int jbd2_journal_flush(journal_t *journa
  	spin_lock(&journal->j_list_lock);
  	while (!err && journal->j_checkpoint_transactions != NULL) {
  		spin_unlock(&journal->j_list_lock);
@@ -1580,7 +1594,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  	jbd2_cleanup_journal_tail(journal);
  
  	/* Finally, mark the journal as really needing no recovery.
-@@ -1760,7 +1594,7 @@ int jbd2_journal_flush(journal_t *journa
+@@ -1760,7 +1598,7 @@ int jbd2_journal_flush(journal_t *journa
  	J_ASSERT(journal->j_head == journal->j_tail);
  	J_ASSERT(journal->j_tail_sequence == journal->j_transaction_sequence);
  	spin_unlock(&journal->j_state_lock);
@@ -1589,7 +1603,24 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  }
  
  /**
-@@ -1804,27 +1638,10 @@ int jbd2_journal_wipe(journal_t *journal
+@@ -1778,7 +1616,6 @@ int jbd2_journal_flush(journal_t *journa
+ 
+ int jbd2_journal_wipe(journal_t *journal, int write)
+ {
+-	journal_superblock_t *sb;
+ 	int err = 0;
+ 
+ 	J_ASSERT (!(journal->j_flags & JBD2_LOADED));
+@@ -1787,8 +1624,6 @@ int jbd2_journal_wipe(journal_t *journal
+ 	if (err)
+ 		return err;
+ 
+-	sb = journal->j_superblock;
+-
+ 	if (!journal->j_tail)
+ 		goto no_recovery;
+ 
+@@ -1804,27 +1639,10 @@ int jbd2_journal_wipe(journal_t *journal
  }
  
  /*
@@ -1618,7 +1649,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
   * itself are here.
   */
  
-@@ -1836,13 +1653,12 @@ static const char *journal_dev_name(jour
+@@ -1836,13 +1654,12 @@ static const char *journal_dev_name(jour
  void __jbd2_journal_abort_hard(journal_t *journal)
  {
  	transaction_t *transaction;
@@ -1633,7 +1664,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  
  	spin_lock(&journal->j_state_lock);
  	journal->j_flags |= JBD2_ABORT;
-@@ -1923,7 +1739,7 @@ void jbd2_journal_abort(journal_t *journ
+@@ -1923,7 +1740,7 @@ void jbd2_journal_abort(journal_t *journ
   * int jbd2_journal_errno () - returns the journal's error state.
   * @journal: journal to examine.
   *
@@ -1642,7 +1673,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
   * time the journal was mounted - if the journal was stopped
   * without calling abort this will be 0.
   *
-@@ -1947,7 +1763,7 @@ int jbd2_journal_errno(journal_t *journa
+@@ -1947,7 +1764,7 @@ int jbd2_journal_errno(journal_t *journa
   * int jbd2_journal_clear_err () - clears the journal's error state
   * @journal: journal to act on.
   *
@@ -1651,7 +1682,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
   * mode.
   */
  int jbd2_journal_clear_err(journal_t *journal)
-@@ -1967,7 +1783,7 @@ int jbd2_journal_clear_err(journal_t *jo
+@@ -1967,7 +1784,7 @@ int jbd2_journal_clear_err(journal_t *jo
   * void jbd2_journal_ack_err() - Ack journal err.
   * @journal: journal to act on.
   *
@@ -1660,7 +1691,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
   * mode.
   */
  void jbd2_journal_ack_err(journal_t *journal)
-@@ -2079,10 +1895,9 @@ static void journal_free_journal_head(st
+@@ -2079,10 +1896,9 @@ static void journal_free_journal_head(st
   * When a buffer has its BH_JBD bit set it is immune from being released by
   * core kernel code, mainly via ->b_count.
   *
@@ -1674,7 +1705,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
   *
   * Various places in the kernel want to attach a journal_head to a buffer_head
   * _before_ attaching the journal_head to a transaction.  To protect the
-@@ -2095,17 +1910,16 @@ static void journal_free_journal_head(st
+@@ -2095,17 +1911,16 @@ static void journal_free_journal_head(st
   *	(Attach a journal_head if needed.  Increments b_jcount)
   *	struct journal_head *jh = jbd2_journal_add_journal_head(bh);
   *	...
@@ -1695,7 +1726,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
   * May sleep.
   */
  struct journal_head *jbd2_journal_add_journal_head(struct buffer_head *bh)
-@@ -2169,61 +1983,29 @@ static void __journal_remove_journal_hea
+@@ -2169,61 +1984,29 @@ static void __journal_remove_journal_hea
  	struct journal_head *jh = bh2jh(bh);
  
  	J_ASSERT_JH(jh, jh->b_jcount >= 0);
@@ -1730,26 +1761,6 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
 -			BUFFER_TRACE(bh, "journal_head was locked");
 -		}
 -	}
--}
--
--/*
-- * jbd2_journal_remove_journal_head(): if the buffer isn't attached to a transaction
-- * and has a zero b_jcount then remove and release its journal_head.   If we did
-- * see that the buffer is not used by any transaction we also "logically"
-- * decrement ->b_count.
-- *
-- * We in fact take an additional increment on ->b_count as a convenience,
-- * because the caller usually wants to do additional things with the bh
-- * after calling here.
-- * The caller of jbd2_journal_remove_journal_head() *must* run __brelse(bh) at some
-- * time.  Once the caller has run __brelse(), the buffer is eligible for
-- * reaping by try_to_free_buffers().
-- */
--void jbd2_journal_remove_journal_head(struct buffer_head *bh)
--{
--	jbd_lock_bh_journal_head(bh);
--	__journal_remove_journal_head(bh);
--	jbd_unlock_bh_journal_head(bh);
 +	J_ASSERT_JH(jh, jh->b_transaction == NULL);
 +	J_ASSERT_JH(jh, jh->b_next_transaction == NULL);
 +	J_ASSERT_JH(jh, jh->b_cp_transaction == NULL);
@@ -1772,12 +1783,32 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  }
  
  /*
+- * jbd2_journal_remove_journal_head(): if the buffer isn't attached to a transaction
+- * and has a zero b_jcount then remove and release its journal_head.   If we did
+- * see that the buffer is not used by any transaction we also "logically"
+- * decrement ->b_count.
+- *
+- * We in fact take an additional increment on ->b_count as a convenience,
+- * because the caller usually wants to do additional things with the bh
+- * after calling here.
+- * The caller of jbd2_journal_remove_journal_head() *must* run __brelse(bh) at some
+- * time.  Once the caller has run __brelse(), the buffer is eligible for
+- * reaping by try_to_free_buffers().
+- */
+-void jbd2_journal_remove_journal_head(struct buffer_head *bh)
+-{
+-	jbd_lock_bh_journal_head(bh);
+-	__journal_remove_journal_head(bh);
+-	jbd_unlock_bh_journal_head(bh);
+-}
+-
+-/*
 - * Drop a reference on the passed journal_head.  If it fell to zero then try to
 + * Drop a reference on the passed journal_head.  If it fell to zero then
   * release the journal_head from the buffer_head.
   */
  void jbd2_journal_put_journal_head(struct journal_head *jh)
-@@ -2233,11 +2015,12 @@ void jbd2_journal_put_journal_head(struc
+@@ -2233,11 +2016,12 @@ void jbd2_journal_put_journal_head(struc
  	jbd_lock_bh_journal_head(bh);
  	J_ASSERT_JH(jh, jh->b_jcount > 0);
  	--jh->b_jcount;
@@ -1793,7 +1824,14 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  }
  
  /*
-@@ -2267,7 +2050,7 @@ void jbd2_journal_release_jbd_inode(jour
+@@ -2260,14 +2044,12 @@ void jbd2_journal_init_jbd_inode(struct 
+ void jbd2_journal_release_jbd_inode(journal_t *journal,
+ 				    struct jbd2_inode *jinode)
+ {
+-	int writeout = 0;
+-
+ 	if (!journal)
+ 		return;
  restart:
  	spin_lock(&journal->j_list_lock);
  	/* Is commit writing out inode - we have to wait */
@@ -1802,7 +1840,17 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  		wait_queue_head_t *wq;
  		DEFINE_WAIT_BIT(wait, &jinode->i_flags, __JI_COMMIT_RUNNING);
  		wq = bit_waitqueue(&jinode->i_flags, __JI_COMMIT_RUNNING);
-@@ -2304,7 +2087,8 @@ static void __init jbd2_create_debugfs_e
+@@ -2278,9 +2060,6 @@ restart:
+ 		goto restart;
+ 	}
+ 
+-	/* Do we need to wait for data writeback? */
+-	if (journal->j_committing_transaction == jinode->i_transaction)
+-		writeout = 1;
+ 	if (jinode->i_transaction) {
+ 		list_del(&jinode->i_list);
+ 		jinode->i_transaction = NULL;
+@@ -2304,7 +2083,8 @@ static void __init jbd2_create_debugfs_e
  {
  	jbd2_debugfs_dir = debugfs_create_dir("jbd2", NULL);
  	if (jbd2_debugfs_dir)
@@ -1812,7 +1860,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  					       jbd2_debugfs_dir,
  					       &jbd2_journal_enable_debug);
  }
-@@ -2423,6 +2207,72 @@ static void __exit journal_exit(void)
+@@ -2423,6 +2203,72 @@ static void __exit journal_exit(void)
  	jbd2_journal_destroy_caches();
  }
  
@@ -1909,6 +1957,41 @@ diff --git a/fs/jbd2/recovery.c b/fs/jbd2/recovery.c
  	return err;
  }
  
+@@ -283,12 +286,10 @@ int jbd2_journal_recover(journal_t *jour
+ int jbd2_journal_skip_recovery(journal_t *journal)
+ {
+ 	int			err;
+-	journal_superblock_t *	sb;
+ 
+ 	struct recovery_info	info;
+ 
+ 	memset (&info, 0, sizeof(info));
+-	sb = journal->j_superblock;
+ 
+ 	err = do_one_pass(journal, &info, PASS_SCAN);
+ 
+@@ -297,7 +298,8 @@ int jbd2_journal_skip_recovery(journal_t
+ 		++journal->j_transaction_sequence;
+ 	} else {
+ #ifdef CONFIG_JBD2_DEBUG
+-		int dropped = info.end_transaction - be32_to_cpu(sb->s_sequence);
++		int dropped = info.end_transaction - 
++			be32_to_cpu(journal->j_superblock->s_sequence);
+ #endif
+ 		jbd_debug(1,
+ 			  "JBD: ignoring %d transaction%s from the journal.\n",
+@@ -363,11 +365,6 @@ static int do_one_pass(journal_t *journa
+ 	int			tag_bytes = journal_tag_bytes(journal);
+ 	__u32			crc32_sum = ~0; /* Transactional Checksums */
+ 
+-	/* Precompute the maximum metadata descriptors in a descriptor block */
+-	int			MAX_BLOCKS_PER_DESC;
+-	MAX_BLOCKS_PER_DESC = ((journal->j_blocksize-sizeof(journal_header_t))
+-			       / tag_bytes);
+-
+ 	/*
+ 	 * First thing is to establish what we expect to find in the log
+ 	 * (in terms of transaction IDs), and where (in terms of log
 diff --git a/fs/jbd2/transaction.c b/fs/jbd2/transaction.c
 --- a/fs/jbd2/transaction.c
 +++ b/fs/jbd2/transaction.c
