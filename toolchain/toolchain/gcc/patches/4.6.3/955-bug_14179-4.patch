@@ -1,0 +1,283 @@
+This patch basically arranges for the allocation size of line_map
+buffers to be as close as possible to a power of two.  This
+*significantly* decreases peak memory consumption as (macro) maps are
+numerous and stay live during all the compilation.
+
+The patch adds a new ggc_round_alloc_size interface to the ggc
+allocator.  In each of the two main allocator implementations ('page'
+and 'zone') the function has been extracted from the main allocation
+function code and returns the actual size of the allocated memory
+region, thus giving a chance to the caller to maximize the amount of
+memory it actually uses from the allocated memory region.  In the
+'none' allocator implementation (that uses xmalloc) the
+ggc_round_alloc_size just returns the requested allocation size.
+
+--- trunk/gcc/ChangeLog	2011/10/17 09:59:52	180085
++++ trunk/gcc/ChangeLog	2011/10/17 10:00:07	180086
+@@ -142,6 +142,22 @@
+ 	* dwarf2out.c (dw_loc_list_node): Add emitted field.
+ 	(output_loc_list): Return immediately if emitted is set, set it.
+ 
++2011-10-15  Tom Tromey  <tromey@redhat.com>
++	    Dodji Seketeli  <dodji@redhat.com>
++
++	* ggc.h (ggc_round_alloc_size): Declare new public entry point.
++	* ggc-none.c (ggc_round_alloc_size): New public stub function.
++	* ggc-page.c (ggc_alloced_size_order_for_request): New static
++	function.  Factorized from ggc_internal_alloc_stat.
++	(ggc_round_alloc_size): New public function.  Uses
++	ggc_alloced_size_order_for_request.
++	(ggc_internal_alloc_stat): Use ggc_alloced_size_order_for_request.
++	* ggc-zone.c (ggc_round_alloc_size): New public function extracted
++	from ggc_internal_alloc_zone_stat.
++	(ggc_internal_alloc_zone_stat): Use ggc_round_alloc_size.
++	* toplev.c (general_init): Initialize
++	line_table->alloced_size_for_request.
++
+ 2011-10-15  Tom Tromey  <tromey@redhat>
+ 	    Dodji Seketeli  <dodji@redhat.com>
+ 
+--- trunk/gcc/ggc-none.c	2011/10/17 09:59:52	180085
++++ trunk/gcc/ggc-none.c	2011/10/17 10:00:07	180086
+@@ -39,6 +39,15 @@
+   return xmalloc (size);
+ }
+ 
++/* For a given size of memory requested for allocation, return the
++   actual size that is going to be allocated.  */
++
++size_t
++ggc_round_alloc_size (size_t requested_size)
++{
++  return requested_size;
++}
++
+ void *
+ ggc_internal_alloc_stat (size_t size MEM_STAT_DECL)
+ {
+--- trunk/gcc/ggc-page.c	2011/10/17 09:59:52	180085
++++ trunk/gcc/ggc-page.c	2011/10/17 10:00:07	180086
+@@ -1054,6 +1054,47 @@
+   9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+ };
+ 
++/* For a given size of memory requested for allocation, return the
++   actual size that is going to be allocated, as well as the size
++   order.  */
++
++static void
++ggc_round_alloc_size_1 (size_t requested_size,
++			size_t *size_order,
++			size_t *alloced_size)
++{
++  size_t order, object_size;
++
++  if (requested_size < NUM_SIZE_LOOKUP)
++    {
++      order = size_lookup[requested_size];
++      object_size = OBJECT_SIZE (order);
++    }
++  else
++    {
++      order = 10;
++      while (requested_size > (object_size = OBJECT_SIZE (order)))
++        order++;
++    }
++
++  if (size_order)
++    *size_order = order;
++  if (alloced_size)
++    *alloced_size = object_size;
++}
++
++/* For a given size of memory requested for allocation, return the
++   actual size that is going to be allocated.  */
++
++size_t
++ggc_round_alloc_size (size_t requested_size)
++{
++  size_t size = 0;
++  
++  ggc_round_alloc_size_1 (requested_size, NULL, &size);
++  return size;
++}
++
+ /* Typed allocation function.  Does nothing special in this collector.  */
+ 
+ void *
+@@ -1072,17 +1113,7 @@
+   struct page_entry *entry;
+   void *result;
+ 
+-  if (size < NUM_SIZE_LOOKUP)
+-    {
+-      order = size_lookup[size];
+-      object_size = OBJECT_SIZE (order);
+-    }
+-  else
+-    {
+-      order = 10;
+-      while (size > (object_size = OBJECT_SIZE (order)))
+-	order++;
+-    }
++  ggc_round_alloc_size_1 (size, &order, &object_size);
+ 
+   /* If there are non-full pages for this size allocation, they are at
+      the head of the list.  */
+--- trunk/gcc/ggc-zone.c	2011/10/17 09:59:52	180085
++++ trunk/gcc/ggc-zone.c	2011/10/17 10:00:07	180086
+@@ -1073,6 +1073,24 @@
+     fprintf (G.debug_file, "Deallocating object, chunk=%p\n", (void *)chunk);
+ }
+ 
++/* For a given size of memory requested for allocation, return the
++   actual size that is going to be allocated.  */
++
++size_t
++ggc_round_alloc_size (size_t requested_size)
++{
++  size_t size;
++
++  /* Make sure that zero-sized allocations get a unique and freeable
++     pointer.  */
++  if (requested_size == 0)
++    size = MAX_ALIGNMENT;
++  else
++    size = (requested_size + MAX_ALIGNMENT - 1) & -MAX_ALIGNMENT;
++
++  return size;
++}
++
+ /* Allocate a chunk of memory of at least ORIG_SIZE bytes, in ZONE.  */
+ 
+ void *
+@@ -1084,14 +1102,7 @@
+   struct small_page_entry *entry;
+   struct alloc_chunk *chunk, **pp;
+   void *result;
+-  size_t size = orig_size;
+-
+-  /* Make sure that zero-sized allocations get a unique and freeable
+-     pointer.  */
+-  if (size == 0)
+-    size = MAX_ALIGNMENT;
+-  else
+-    size = (size + MAX_ALIGNMENT - 1) & -MAX_ALIGNMENT;
++  size_t size = ggc_alloced_size_for_request (orig_size);
+ 
+   /* Try to allocate the object from several different sources.  Each
+      of these cases is responsible for setting RESULT and SIZE to
+--- trunk/gcc/ggc.h	2011/10/17 09:59:52	180085
++++ trunk/gcc/ggc.h	2011/10/17 10:00:07	180086
+@@ -145,6 +145,8 @@
+ /* The internal primitive.  */
+ extern void *ggc_internal_alloc_stat (size_t MEM_STAT_DECL);
+ 
++extern size_t ggc_round_alloc_size (size_t requested_size);
++
+ #define ggc_internal_alloc(s) ggc_internal_alloc_stat (s MEM_STAT_INFO)
+ 
+ /* Allocate an object of the specified type and size.  */
+--- trunk/gcc/toplev.c	2011/10/17 09:59:52	180085
++++ trunk/gcc/toplev.c	2011/10/17 10:00:07	180086
+@@ -1716,6 +1716,7 @@
+   line_table = ggc_alloc_line_maps ();
+   linemap_init (line_table);
+   line_table->reallocator = realloc_for_line_map;
++  line_table->round_alloc_size = ggc_round_alloc_size;
+   init_ttree ();
+ 
+   /* Initialize register usage now so switches may override.  */
+--- trunk/libcpp/ChangeLog	2011/10/17 09:59:52	180085
++++ trunk/libcpp/ChangeLog	2011/10/17 10:00:07	180086
+@@ -1,6 +1,14 @@
+ 
+ 	* GCC 4.6.2 released.
+ 
++2011-10-15  Tom Tromey  <tromey@redhat.com>
++	    Dodji Seketeli  <dodji@redhat.com>
++
++	* include/line-map.h (struct line_maps::alloced_size_for_request):
++	New member.
++	* line-map.c (new_linemap): Use set->alloced_size_for_request to
++	get the actual allocated size of line maps.
++
+ 2011-10-15  Tom Tromey  <tromey@redhat>
+ 	    Dodji Seketeli  <dodji@redhat.com>
+ 
+--- trunk/libcpp/include/line-map.h	2011/10/17 09:59:52	180085
++++ trunk/libcpp/include/line-map.h	2011/10/17 10:00:07	180086
+@@ -53,6 +53,10 @@
+ /* Memory allocation function typedef.  Works like xrealloc.  */
+ typedef void *(*line_map_realloc) (void *, size_t);
+ 
++/* Memory allocator function that returns the actual allocated size,
++   for a given requested allocation.  */
++typedef size_t (*line_map_round_alloc_size_func) (size_t);
++
+ /* An ordinary line map encodes physical source locations. Those
+    physical source locations are called "spelling locations".
+    
+@@ -281,6 +285,10 @@
+   /* If non-null, the allocator to use when resizing 'maps'.  If null,
+      xrealloc is used.  */
+   line_map_realloc reallocator;
++
++  /* The allocators' function used to know the actual size it
++     allocated, for a certain allocation size requested.  */
++  line_map_round_alloc_size_func round_alloc_size;
+ };
+ 
+ /* Returns the pointer to the memory region where information about
+--- trunk/libcpp/line-map.c	2011/10/17 09:59:52	180085
++++ trunk/libcpp/line-map.c	2011/10/17 10:00:07	180086
+@@ -92,16 +92,43 @@
+   if (LINEMAPS_USED (set, macro_map_p) == LINEMAPS_ALLOCATED (set, macro_map_p))
+     {
+       /* We ran out of allocated line maps. Let's allocate more.  */
++      unsigned alloc_size;
+ 
+       line_map_realloc reallocator
+ 	= set->reallocator ? set->reallocator : xrealloc;
++      line_map_round_alloc_size_func round_alloc_size =
++	set->round_alloc_size;
++
++      /* We are going to execute some dance to try to reduce the
++	 overhead of the memory allocator, in case we are using the
++	 ggc-page.c one.
++	 
++	 The actual size of memory we are going to get back from the
++	 allocator is the smallest power of 2 that is greater than the
++	 size we requested.  So let's consider that size then.  */
++
++      alloc_size =
++	(2 * LINEMAPS_ALLOCATED (set, macro_map_p) +  256)
++	* sizeof (struct line_map);
++
++      /* Get the actual size of memory that is going to be allocated
++	 by the allocator.  */
++      alloc_size = round_alloc_size (alloc_size);
++
++      /* Now alloc_size contains the exact memory size we would get if
++	 we have asked for the initial alloc_size amount of memory.
++	 Let's get back to the number of macro map that amounts
++	 to.  */
+       LINEMAPS_ALLOCATED (set, macro_map_p) =
+-	2 * LINEMAPS_ALLOCATED (set, macro_map_p) + 256;
+-      LINEMAPS_MAPS (set, macro_map_p)
+-	= (struct line_map *) (*reallocator) (LINEMAPS_MAPS (set, macro_map_p),
+-					      LINEMAPS_ALLOCATED (set,
+-								  macro_map_p)
+-					      * sizeof (struct line_map));
++	alloc_size / (sizeof (struct line_map));
++
++      /* And now let's really do the re-allocation.  */
++      LINEMAPS_MAPS (set, macro_map_p) =
++	(struct line_map *) (*reallocator)
++	(LINEMAPS_MAPS (set, macro_map_p),
++	 (LINEMAPS_ALLOCATED (set, macro_map_p)
++	  * sizeof (struct line_map)));
++
+       result =
+ 	&LINEMAPS_MAPS (set, macro_map_p)[LINEMAPS_USED (set, macro_map_p)];
+       memset (result, 0,

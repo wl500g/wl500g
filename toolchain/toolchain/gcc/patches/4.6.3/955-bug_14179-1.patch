@@ -1,0 +1,73 @@
+--- trunk/libcpp/ChangeLog	2011/08/15 20:10:51	177767
++++ trunk/libcpp/ChangeLog	2011/08/15 20:35:58	177768
+@@ -1,6 +1,11 @@
+ 
+ 	* GCC 4.6.2 released.
+ 
++2011-08-15  Gabriel Charette  <gchare@google.com>
++
++	* include/line-map.h (LINEMAP_POSITION_FOR_COLUMN): Remove.
++	Update all users to use linemap_position_for_column instead.
++
+ 2011-06-27  Release Manager
+ 
+ 	* GCC 4.6.1 released.
+--- trunk/libcpp/directives-only.c	2011/08/15 20:10:51	177767
++++ trunk/libcpp/directives-only.c	2011/08/15 20:35:58	177768
+@@ -142,7 +142,7 @@
+ 	    flags |= DO_LINE_COMMENT;
+ 	  else if (!(flags & DO_SPECIAL))
+ 	    /* Mark the position for possible error reporting. */
+-	    LINEMAP_POSITION_FOR_COLUMN (loc, pfile->line_table, col);
++	    loc = linemap_position_for_column (pfile->line_table, col);
+ 
+ 	  break;
+ 
+--- trunk/libcpp/include/line-map.h	2011/08/15 20:10:51	177767
++++ trunk/libcpp/include/line-map.h	2011/08/15 20:35:58	177768
+@@ -165,23 +165,6 @@
+ /* Nonzero if the map is at the bottom of the include stack.  */
+ #define MAIN_FILE_P(MAP) ((MAP)->included_from < 0)
+ 
+-/* Set LOC to a source position that is the same line as the most recent
+-   linemap_line_start, but with the specified TO_COLUMN column number.  */
+-
+-#define LINEMAP_POSITION_FOR_COLUMN(LOC, SET, TO_COLUMN) do { \
+-  unsigned int to_column = (TO_COLUMN); \
+-  struct line_maps *set = (SET); \
+-  if (__builtin_expect (to_column >= set->max_column_hint, 0)) \
+-    (LOC) = linemap_position_for_column (set, to_column); \
+-  else { \
+-    source_location r = set->highest_line; \
+-    r = r + to_column; \
+-    if (r >= set->highest_location) \
+-      set->highest_location = r; \
+-    (LOC) = r;			 \
+-  }} while (0)
+-    
+-
+ extern source_location
+ linemap_position_for_column (struct line_maps *set, unsigned int to_column);
+ 
+--- trunk/libcpp/lex.c	2011/08/15 20:10:51	177767
++++ trunk/libcpp/lex.c	2011/08/15 20:35:58	177768
+@@ -924,7 +924,7 @@ lex_raw_string (cpp_reader *pfile, cpp_t
+ 	  note = &pfile->buffer->notes[pfile->buffer->cur_note];
+ 	}
+       else if (c == '\0' && !saw_NUL)
+-	LINEMAP_POSITION_FOR_COLUMN (saw_NUL, pfile->line_table,
++	saw_NUL = linemap_position_for_column(pfile->line_table,
+ 				     CPP_BUF_COLUMN (pfile->buffer, cur));
+     }
+  break_outer_loop:
+@@ -1975,8 +1975,8 @@
+     }
+   c = *buffer->cur++;
+ 
+-  LINEMAP_POSITION_FOR_COLUMN (result->src_loc, pfile->line_table,
+-			       CPP_BUF_COLUMN (buffer, buffer->cur));
++  result->src_loc = linemap_position_for_column (pfile->line_table,
++			                                    CPP_BUF_COLUMN (buffer, buffer->cur));
+ 
+   switch (c)
+     {

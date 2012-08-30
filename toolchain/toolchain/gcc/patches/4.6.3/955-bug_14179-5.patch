@@ -1,0 +1,33 @@
+--- trunk/libcpp/ChangeLog	2011/10/25 08:58:54	180426
++++ trunk/libcpp/ChangeLog	2011/10/25 08:59:07	180427
+@@ -1,6 +1,10 @@
+ 
+ 	* GCC 4.6.2 released.
+ 
++2011-10-24  Dodji Seketeli  <dodji@redhat.com>
++
++	* line-map.c (linemap_macro_map_lookup): Fix logic.
++
+ 2011-10-15  Tom Tromey  <tromey@redhat.com>
+ 	    Dodji Seketeli  <dodji@redhat.com>
+ 
+--- trunk/libcpp/line-map.c	2011/10/25 08:58:54	180426
++++ trunk/libcpp/line-map.c	2011/10/25 08:59:07	180427
+@@ -588,14 +588,14 @@
+       mn = 0;
+     }
+ 
+-  do 
++  while (mn < mx)
+     {
+       md = (mx + mn) / 2;
+       if (MAP_START_LOCATION (LINEMAPS_MACRO_MAP_AT (set, md)) > line)
+-	mn = md;
++	mn = md + 1;
+       else
+ 	mx = md;
+-    } while (mx - mn > 1);
++    }
+ 
+   LINEMAPS_MACRO_CACHE (set) = mx;
+   result = LINEMAPS_MACRO_MAP_AT (set, LINEMAPS_MACRO_CACHE (set));

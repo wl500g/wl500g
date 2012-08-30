@@ -1,0 +1,84 @@
+Fix the use of linemap_add and remove unnecessary kludge
+
+--- trunk/gcc/c-family/c-pch.c	2011/08/28 15:45:47	178145
++++ trunk/gcc/c-family/c-pch.c	2011/08/28 20:14:46	178146
+@@ -446,7 +446,7 @@
+ 
+   line_table->trace_includes = saved_trace_includes;
+   cpp_set_line_map (pfile, line_table);
+-  linemap_add (line_table, LC_RENAME, 0, saved_loc.file, saved_loc.line);
++  linemap_add (line_table, LC_ENTER, 0, saved_loc.file, saved_loc.line);
+ 
+   /* Give the front end a chance to take action after a PCH file has
+      been loaded.  */
+--- trunk/gcc/fortran/scanner.c	2011/08/28 15:45:47	178145
++++ trunk/gcc/fortran/scanner.c	2011/08/28 20:14:46	178146
+@@ -1887,6 +1887,11 @@
+   int len, line_len;
+   bool first_line;
+   const char *filename;
++  /* If realfilename and displayedname are different and non-null then
++     surely realfilename is the preprocessed form of
++     displayedname.  */
++  bool preprocessed_p = (realfilename && displayedname
++			 && strcmp (realfilename, displayedname));
+ 
+   filename = displayedname ? displayedname : realfilename;
+ 
+@@ -1925,9 +1930,24 @@
+ 	}
+     }
+ 
+-  /* Load the file.  */
++  /* Load the file.
+ 
+-  f = get_file (filename, initial ? LC_RENAME : LC_ENTER);
++     A "non-initial" file means a file that is being included.  In
++     that case we are creating an LC_ENTER map.
++
++     An "initial" file means a main file; one that is not included.
++     That file has already got at least one (surely more) line map(s)
++     created by gfc_init.  So the subsequent map created in that case
++     must have LC_RENAME reason.
++
++     This latter case is not true for a preprocessed file.  In that
++     case, although the file is "initial", the line maps created by
++     gfc_init was used during the preprocessing of the file.  Now that
++     the preprocessing is over and we are being fed the result of that
++     preprocessing, we need to create a brand new line map for the
++     preprocessed file, so the reason is going to be LC_ENTER.  */
++
++  f = get_file (filename, (initial && !preprocessed_p) ? LC_RENAME : LC_ENTER);
+   if (!initial)
+     add_file_change (f->filename, f->inclusion_line);
+   current_file = f;
+--- trunk/gcc/lto/lto-lang.c	2011/08/28 15:45:47	178145
++++ trunk/gcc/lto/lto-lang.c	2011/08/28 20:14:46	178146
+@@ -1081,8 +1081,7 @@
+   flag_generate_lto = flag_wpa;
+ 
+   /* Initialize libcpp line maps for gcc_assert to work.  */
+-  linemap_add (line_table, LC_RENAME, 0, NULL, 0);
+-  linemap_add (line_table, LC_RENAME, 0, NULL, 0);
++  linemap_add (line_table, LC_ENTER, 0, NULL, 0);
+ 
+   /* Create the basic integer types.  */
+   build_common_tree_nodes (flag_signed_char, /*short_double=*/false);
+--- trunk/libcpp/line-map.c	2011/08/28 15:45:47	178145
++++ trunk/libcpp/line-map.c	2011/08/28 20:14:46	178146
+@@ -114,11 +114,10 @@
+   if (reason == LC_RENAME_VERBATIM)
+     reason = LC_RENAME;
+ 
+-  /* If we don't keep our line maps consistent, we can easily
+-     segfault.  Don't rely on the client to do it for us.  */
+-  if (set->depth == 0)
+-    reason = LC_ENTER;
+-  else if (reason == LC_LEAVE)
++  if (set->depth == 0 && reason == LC_RENAME)
++    abort ();
++
++  if (reason == LC_LEAVE)
+     {
+       struct line_map *from;
+       bool error;
