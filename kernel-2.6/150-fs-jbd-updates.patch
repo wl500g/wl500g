@@ -10,12 +10,12 @@ jbd: updates from 2.6.32.48
 ---
  fs/jbd/checkpoint.c  |   75 +++++++++++-----
  fs/jbd/commit.c      |  109 +++++++++++++++--------
- fs/jbd/journal.c     |  231 ++++++++++++++++++++++++++-----------------------
- fs/jbd/recovery.c    |   18 +--
+ fs/jbd/journal.c     |  238 ++++++++++++++++++++++++++-------------------------
+ fs/jbd/recovery.c    |   29 ++----
  fs/jbd/revoke.c      |   40 +++++---
- fs/jbd/transaction.c |  236 +++++++++++++++++++++++----------------------------
+ fs/jbd/transaction.c |  236 +++++++++++++++++++++++---------------------------
  include/linux/jbd.h  |   54 ++++++++---
- 7 files changed, 433 insertions(+), 330 deletions(-)
+ 7 files changed, 435 insertions(+), 346 deletions(-)
 
 diff --git a/fs/jbd/checkpoint.c b/fs/jbd/checkpoint.c
 --- a/fs/jbd/checkpoint.c
@@ -842,7 +842,21 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
  	return 0;
  
  out:
-@@ -1344,7 +1392,7 @@ int journal_flush(journal_t *journal)
+@@ -1218,13 +1266,9 @@ int journal_check_used_features (journal
+ int journal_check_available_features (journal_t *journal, unsigned long compat,
+ 				      unsigned long ro, unsigned long incompat)
+ {
+-	journal_superblock_t *sb;
+-
+ 	if (!compat && !ro && !incompat)
+ 		return 1;
+ 
+-	sb = journal->j_superblock;
+-
+ 	/* We can support any known requested features iff the
+ 	 * superblock is in version 2.  Otherwise we fail to support any
+ 	 * extended sb features. */
+@@ -1344,7 +1388,7 @@ int journal_flush(journal_t *journal)
  {
  	int err = 0;
  	transaction_t *transaction = NULL;
@@ -851,7 +865,24 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
  
  	spin_lock(&journal->j_state_lock);
  
-@@ -1708,10 +1756,9 @@ static void journal_free_journal_head(st
+@@ -1418,7 +1462,6 @@ int journal_flush(journal_t *journal)
+ 
+ int journal_wipe(journal_t *journal, int write)
+ {
+-	journal_superblock_t *sb;
+ 	int err = 0;
+ 
+ 	J_ASSERT (!(journal->j_flags & JFS_LOADED));
+@@ -1427,8 +1470,6 @@ int journal_wipe(journal_t *journal, int
+ 	if (err)
+ 		return err;
+ 
+-	sb = journal->j_superblock;
+-
+ 	if (!journal->j_tail)
+ 		goto no_recovery;
+ 
+@@ -1708,10 +1749,9 @@ static void journal_free_journal_head(st
   * When a buffer has its BH_JBD bit set it is immune from being released by
   * core kernel code, mainly via ->b_count.
   *
@@ -865,7 +896,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
   *
   * Various places in the kernel want to attach a journal_head to a buffer_head
   * _before_ attaching the journal_head to a transaction.  To protect the
-@@ -1724,17 +1771,16 @@ static void journal_free_journal_head(st
+@@ -1724,17 +1764,16 @@ static void journal_free_journal_head(st
   *	(Attach a journal_head if needed.  Increments b_jcount)
   *	struct journal_head *jh = journal_add_journal_head(bh);
   *	...
@@ -888,7 +919,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
   * May sleep.
   */
  struct journal_head *journal_add_journal_head(struct buffer_head *bh)
-@@ -1798,61 +1844,29 @@ static void __journal_remove_journal_hea
+@@ -1798,61 +1837,29 @@ static void __journal_remove_journal_hea
  	struct journal_head *jh = bh2jh(bh);
  
  	J_ASSERT_JH(jh, jh->b_jcount >= 0);
@@ -970,7 +1001,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
   * release the journal_head from the buffer_head.
   */
  void journal_put_journal_head(struct journal_head *jh)
-@@ -1862,11 +1876,12 @@ void journal_put_journal_head(struct jou
+@@ -1862,11 +1869,12 @@ void journal_put_journal_head(struct jou
  	jbd_lock_bh_journal_head(bh);
  	J_ASSERT_JH(jh, jh->b_jcount > 0);
  	--jh->b_jcount;
@@ -986,7 +1017,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
  }
  
  /*
-@@ -1884,7 +1899,7 @@ static void __init jbd_create_debugfs_en
+@@ -1884,7 +1892,7 @@ static void __init jbd_create_debugfs_en
  {
  	jbd_debugfs_dir = debugfs_create_dir("jbd", NULL);
  	if (jbd_debugfs_dir)
@@ -1016,7 +1047,30 @@ diff --git a/fs/jbd/recovery.c b/fs/jbd/recovery.c
  	struct buffer_head *bh;
  
  	*bhp = NULL;
-@@ -314,7 +314,7 @@ static int do_one_pass(journal_t *journa
+@@ -284,12 +284,9 @@ int journal_recover(journal_t *journal)
+ int journal_skip_recovery(journal_t *journal)
+ {
+ 	int			err;
+-	journal_superblock_t *	sb;
+-
+ 	struct recovery_info	info;
+ 
+ 	memset (&info, 0, sizeof(info));
+-	sb = journal->j_superblock;
+ 
+ 	err = do_one_pass(journal, &info, PASS_SCAN);
+ 
+@@ -298,7 +295,8 @@ int journal_skip_recovery(journal_t *jou
+ 		++journal->j_transaction_sequence;
+ 	} else {
+ #ifdef CONFIG_JBD_DEBUG
+-		int dropped = info.end_transaction - be32_to_cpu(sb->s_sequence);
++		int dropped = info.end_transaction -
++			      be32_to_cpu(journal->j_superblock->s_sequence);
+ #endif
+ 		jbd_debug(1,
+ 			  "JBD: ignoring %d transaction%s from the journal.\n",
+@@ -314,7 +312,7 @@ static int do_one_pass(journal_t *journa
  			struct recovery_info *info, enum passtype pass)
  {
  	unsigned int		first_commit_ID, next_commit_ID;
@@ -1025,7 +1079,19 @@ diff --git a/fs/jbd/recovery.c b/fs/jbd/recovery.c
  	int			err, success = 0;
  	journal_superblock_t *	sb;
  	journal_header_t *	tmp;
-@@ -367,14 +367,14 @@ static int do_one_pass(journal_t *journa
+@@ -322,11 +320,6 @@ static int do_one_pass(journal_t *journa
+ 	unsigned int		sequence;
+ 	int			blocktype;
+ 
+-	/* Precompute the maximum metadata descriptors in a descriptor block */
+-	int			MAX_BLOCKS_PER_DESC;
+-	MAX_BLOCKS_PER_DESC = ((journal->j_blocksize-sizeof(journal_header_t))
+-			       / sizeof(journal_block_tag_t));
+-
+ 	/*
+ 	 * First thing is to establish what we expect to find in the log
+ 	 * (in terms of transaction IDs), and where (in terms of log
+@@ -367,14 +360,14 @@ static int do_one_pass(journal_t *journa
  			if (tid_geq(next_commit_ID, info->end_transaction))
  				break;
  
@@ -1042,7 +1108,7 @@ diff --git a/fs/jbd/recovery.c b/fs/jbd/recovery.c
  		err = jread(&bh, journal, next_log_block);
  		if (err)
  			goto failed;
-@@ -429,7 +429,7 @@ static int do_one_pass(journal_t *journa
+@@ -429,7 +422,7 @@ static int do_one_pass(journal_t *journa
  			tagp = &bh->b_data[sizeof(journal_header_t)];
  			while ((tagp - bh->b_data +sizeof(journal_block_tag_t))
  			       <= journal->j_blocksize) {
@@ -1051,7 +1117,7 @@ diff --git a/fs/jbd/recovery.c b/fs/jbd/recovery.c
  
  				tag = (journal_block_tag_t *) tagp;
  				flags = be32_to_cpu(tag->t_flags);
-@@ -443,10 +443,10 @@ static int do_one_pass(journal_t *journa
+@@ -443,10 +436,10 @@ static int do_one_pass(journal_t *journa
  					success = err;
  					printk (KERN_ERR
  						"JBD: IO error %d recovering "
@@ -1064,7 +1130,7 @@ diff --git a/fs/jbd/recovery.c b/fs/jbd/recovery.c
  
  					J_ASSERT(obh != NULL);
  					blocknr = be32_to_cpu(tag->t_blocknr);
-@@ -581,7 +581,7 @@ static int scan_revoke_records(journal_t
+@@ -581,7 +574,7 @@ static int scan_revoke_records(journal_t
  	max = be32_to_cpu(header->r_count);
  
  	while (offset < max) {
