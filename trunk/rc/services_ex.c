@@ -633,7 +633,7 @@ start_misc(void)
 	const char *txpwr;
 
 #ifdef __CONFIG_INFOSRV__
-	if (!nvram_match("infosrv_disable", "1")
+	if (!nvram_match("infosrv_disable", "1"))
 		_eval(infosrv_argv, NULL, 0, &pid);
 #endif
 	_eval(watchdog_argv, NULL, 0, &pid);
