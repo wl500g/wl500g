@@ -1,11 +1,11 @@
  include/dyndns.h |  10 +++++
  include/md5.h    |   4 ++
- src/dyndns.c     | 132 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- src/md5.c        |  39 ++++++++++++++++
- 4 files changed, 185 insertions(+)
+ src/dyndns.c     | 131 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/md5.c        |  39 +++++++++++++++++
+ 4 files changed, 184 insertions(+)
 
 diff --git a/include/dyndns.h b/include/dyndns.h
-index 75bfd5c..fdfd73d 100644
+index b8e5601..903251d 100644
 --- a/include/dyndns.h
 +++ b/include/dyndns.h
 @@ -46,6 +46,8 @@ typedef enum
@@ -46,10 +46,18 @@ index ed0f3f0..6b4bdee 100644
 +
  #endif
 diff --git a/src/dyndns.c b/src/dyndns.c
-index 4e0ffb5..8e75dad 100644
+index 644c91b..afac777 100644
 --- a/src/dyndns.c
 +++ b/src/dyndns.c
-@@ -48,6 +48,7 @@ static int get_req_for_tzo_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt)
+@@ -26,6 +26,7 @@
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <time.h>
++#include <ctype.h>
+ 
+ #include "dyndns.h"
+ #include "debug_if.h"
+@@ -48,6 +49,7 @@ static int get_req_for_tzo_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt)
  static int get_req_for_sitelutions_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
  static int get_req_for_dnsexit_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
  static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
@@ -57,7 +65,7 @@ index 4e0ffb5..8e75dad 100644
  
  static RC_TYPE is_dyndns_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
  static RC_TYPE is_freedns_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
-@@ -58,6 +59,8 @@ static RC_TYPE is_tzo_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_
+@@ -58,6 +60,8 @@ static RC_TYPE is_tzo_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_
  static RC_TYPE is_sitelutions_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
  static RC_TYPE is_dnsexit_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
  static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
@@ -66,7 +74,7 @@ index 4e0ffb5..8e75dad 100644
  
  DYNDNS_SYSTEM_INFO dns_system_table[] =
  {
-@@ -153,6 +156,20 @@ DYNDNS_SYSTEM_INFO dns_system_table[] =
+@@ -153,6 +157,20 @@ DYNDNS_SYSTEM_INFO dns_system_table[] =
  	  DYNDNS_MY_IP_SERVER, DYNDNS_MY_IP_SERVER_URL,
  	  "dynsip.org", "/nic/update"}},
  
@@ -87,7 +95,7 @@ index 4e0ffb5..8e75dad 100644
  	{CUSTOM_HTTP_BASIC_AUTH,
  	 {"custom@http_srv_basic_auth",
  	  (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_generic_server_rsp_ok,
-@@ -368,6 +385,56 @@ static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int
+@@ -368,6 +386,56 @@ static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int
  		       p_self->info[infcnt].dyndns_server_name.name);
  }
  
@@ -96,7 +104,7 @@ index 4e0ffb5..8e75dad 100644
 +	unsigned char digest[MD5_DIGEST_BYTES];
 +	char auth[6*2+1+MD5_DIGEST_BYTES*2+1];
 +	char *p_tmp, *p_auth = auth;
-+	int i, size;
++	int i;
 +
 +	if (p_self == NULL)
 +	{
@@ -144,14 +152,14 @@ index 4e0ffb5..8e75dad 100644
  static int get_req_for_ip_server(DYN_DNS_CLIENT *p_self, int infcnt)
  {
  	if (p_self == NULL)
-@@ -747,6 +814,71 @@ static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION
+@@ -747,6 +815,69 @@ static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION
  		return RC_DYNDNS_RSP_NOTOK;
  }
  
 +static RC_TYPE is_asus_server_register_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infnr)
 +{	
 +	(void)p_self;
-+	char *p_rsp = p_tr->p_rsp_body;
++	char *p_rsp = p_tr->p_rsp;
 +	(void)infnr;
 +	
 +	char *p, domain[256] = "";
@@ -162,22 +170,16 @@ index 4e0ffb5..8e75dad 100644
 +	
 +	switch (status) {
 +		case 200:		/* registration success */
-+		case 220:		/* registration same domain success*/
++		case 220:		/* registration same domain success -- unused?? */
 +			return RC_OK;
 +		case 203:		/* registration failed */
-+			logit(LOG_WARNING, MODULE_TAG "Registration failed, suggested domain '%s'", domain);
++			logit(LOG_WARNING, MODULE_TAG "Domain already in use, suggested domain '%s'", domain);
 +			return RC_DYNDNS_RSP_NOTOK;
-+		case 230:		/* registration new domain success */
++		case 230:		/* registration new domain success -- unused?? */
 +			logit(LOG_WARNING, MODULE_TAG "Registration success, previous domain '%s'", domain);
 +			return RC_OK;
 +		case 233:		/* registration failed */
-+			logit(LOG_WARNING, MODULE_TAG "Registration failed, previous domain '%s'", domain);
-+			return RC_DYNDNS_RSP_NOTOK;
-+		case 297:		/* invalid hostname */
-+		case 298:		/* invalid domain name */
-+		case 299:		/* invalid ip format */
-+		case 401:		/* authentication failure */
-+		case 407:		/* proxy authentication required */
++			logit(LOG_WARNING, MODULE_TAG "Domain already in use, current domain '%s'", domain);
 +			return RC_DYNDNS_RSP_NOTOK;
 +	}
 +
@@ -190,20 +192,24 @@ index 4e0ffb5..8e75dad 100644
 +static RC_TYPE is_asus_server_update_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infnr)
 +{
 +	(void)p_self;
-+	char *p_rsp = p_tr->p_rsp_body;
++	char *p_rsp = p_tr->p_rsp;
 +	(void)infnr;
++
++	char *p, domain[256] = "";
++	if ((p = strchr(p_rsp, '|')) && (p = strchr(++p, '|')))
++		sscanf(p, "|%255[^|\r\n]", domain);
 +
 +	int status = p_tr->status;
 +
 +	switch (status) {
 +		case 200:		/* update success */
-+		case 220:		/* update same domain success*/
++		case 220:		/* update same domain success -- unused?? */
 +			return RC_OK;
-+		case 297:		/* invalid hostname */
-+		case 298:		/* invalid domain name */
-+		case 299:		/* invalid ip format */
-+		case 401:		/* authentication failure */
-+		case 407:		/* proxy authentication required */
++		case 203:		/* update failed */
++			logit(LOG_WARNING, MODULE_TAG "Domain already in use, suggested domain '%s'", domain);
++			return RC_DYNDNS_RSP_NOTOK;
++		case 233:		/* update failed */
++			logit(LOG_WARNING, MODULE_TAG "Domain already in use, current domain '%s'", domain);
 +			return RC_DYNDNS_RSP_NOTOK;
 +	}
 +
