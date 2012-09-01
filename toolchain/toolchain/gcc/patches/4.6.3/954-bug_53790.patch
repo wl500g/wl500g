@@ -1,0 +1,63 @@
+[4.6/4.7/4.8 Regression] ICE on dereferencing a extern union in asm statement
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=53790
+
+--- gcc-4_6-branch/gcc/ChangeLog	2012/06/28 11:52:49	189047
++++ gcc-4_6-branch/gcc/ChangeLog	2012/06/28 12:01:16	189048
+@@ -1,6 +1,12 @@
+ 	* ipa-prop.c (compute_known_type_jump_func): Check for a BINFO before
+ 	checking for a dynamic type change.
+ 
++2012-06-28  Richard Guenther  <rguenther@suse.de>
++
++	PR middle-end/53790
++	* expr.c (expand_expr_real_1): Verify if the type is complete
++	before inspecting its size.
++
+ 2012-06-01  Eric Botcazou  <ebotcazou@adacore.com>
+ 
+ 	PR middle-end/53501
+--- gcc-4_6-branch/gcc/expr.c	2012/06/28 11:52:49	189047
++++ gcc-4_6-branch/gcc/expr.c	2012/06/28 12:01:16	189048
+@@ -9184,6 +9184,7 @@
+ 	orig_op0 = op0
+ 	  = expand_expr (tem,
+ 			 (TREE_CODE (TREE_TYPE (tem)) == UNION_TYPE
++			  && COMPLETE_TYPE_P (TREE_TYPE (tem))
+ 			  && (TREE_CODE (TYPE_SIZE (TREE_TYPE (tem)))
+ 			      != INTEGER_CST)
+ 			  && modifier != EXPAND_STACK_PARM
+--- gcc-4_6-branch/gcc/testsuite/ChangeLog	2012/06/28 11:52:49	189047
++++ gcc-4_6-branch/gcc/testsuite/ChangeLog	2012/06/28 12:01:16	189048
+@@ -1,6 +1,11 @@
+ 	PR tree-optimization/53922
+ 	* gcc.dg/torture/pr53922.c: New testcase.
+ 
++2012-06-28  Richard Guenther  <rguenther@suse.de>
++
++	PR middle-end/53790
++	* gcc.dg/torture/pr53790.c: New testcase.
++
+ 2012-05-30  Richard Guenther  <rguenther@suse.de>
+ 
+ 	PR middle-end/53501
+--- /dev/null
++++ gcc-4_6-branch/gcc/testsuite/gcc.dg/torture/pr53790.c	2012/06/28 12:01:16	189048
+@@ -0,0 +1,17 @@
++/* { dg-do compile } */
++
++typedef struct s {
++    int value;
++} s_t;
++
++static inline int 
++read(s_t const *var)
++{
++  return var->value;
++}
++
++int main()
++{
++  extern union u extern_var;
++  return read((s_t *)&extern_var);
++}
