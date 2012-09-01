@@ -1,0 +1,39 @@
+gcc-4.6.2 segfaults on dumping tree information
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=53541
+
+--- gcc-4_6-branch/gcc/ChangeLog	2012/05/31 15:01:03	188065
++++ gcc-4_6-branch/gcc/ChangeLog	2012/05/31 15:03:37	188066
+@@ -1,6 +1,12 @@
+ 	PR middle-end/53501
+ 	* fold-const.c (fold_binary_loc): Refine previous change.
+ 
++2012-05-31  Richard Guenther  <rguenther@suse.de>
++
++	PR middle-end/53541
++	* tree-pretty-print.c (dump_generic_node): Guard against
++	NULL_TREE TREE_TYPE when dumping MEM_REF offset type.
++
+ 2012-05-30  Richard Guenther  <rguenther@suse.de>
+ 
+ 	PR middle-end/53501
+--- gcc-4_6-branch/gcc/tree-pretty-print.c	2012/05/31 15:01:03	188065
++++ gcc-4_6-branch/gcc/tree-pretty-print.c	2012/05/31 15:03:37	188066
+@@ -805,6 +805,8 @@
+ 	       infer them and MEM_ATTR caching will share MEM_REFs
+ 	       with differently-typed op0s.  */
+ 	    && TREE_CODE (TREE_OPERAND (node, 0)) != INTEGER_CST
++	    /* Released SSA_NAMES have no TREE_TYPE.  */
++	    && TREE_TYPE (TREE_OPERAND (node, 0)) != NULL_TREE
+ 	    /* Same pointer types, but ignoring POINTER_TYPE vs.
+ 	       REFERENCE_TYPE.  */
+ 	    && (TREE_TYPE (TREE_TYPE (TREE_OPERAND (node, 0)))
+@@ -1171,6 +1173,8 @@
+ 		     can't infer them and MEM_ATTR caching will share
+ 		     MEM_REFs with differently-typed op0s.  */
+ 		  && TREE_CODE (TREE_OPERAND (op0, 0)) != INTEGER_CST
++		  /* Released SSA_NAMES have no TREE_TYPE.  */
++		  && TREE_TYPE (TREE_OPERAND (op0, 0)) != NULL_TREE
+ 		  /* Same pointer types, but ignoring POINTER_TYPE vs.
+ 		     REFERENCE_TYPE.  */
+ 		  && (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 0)))
