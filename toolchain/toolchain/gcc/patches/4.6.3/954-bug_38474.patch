@@ -1,0 +1,37 @@
+slow compilation at -O0 due to expand's temp slot goo
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38474
+
+--- gcc-4_6-branch/gcc/ChangeLog	2012/07/02 15:43:56	189164
++++ gcc-4_6-branch/gcc/ChangeLog	2012/07/02 15:53:21	189165
+@@ -1,6 +1,12 @@
+ 	remove handling of negative count argument.
+ 	(double_int_rshift): Dispatch to lshift_double.
+ 
++2012-07-02  Martin Jambor  <mjambor@suse.cz>
++
++	PR middle-end/38474
++	* ipa-prop.c (compute_known_type_jump_func): Check for a BINFO before
++	checking for a dynamic type change.
++
+ 2012-06-01  Eric Botcazou  <ebotcazou@adacore.com>
+ 
+ 	PR middle-end/53501
+--- gcc-4_6-branch/gcc/ipa-prop.c	2012/07/02 15:43:56	189164
++++ gcc-4_6-branch/gcc/ipa-prop.c	2012/07/02 15:53:21	189165
+@@ -704,12 +704,11 @@
+       || is_global_var (base))
+     return;
+ 
+-  if (detect_type_change (op, base, call, jfunc, offset))
+-    return;
+-
+   binfo = TYPE_BINFO (TREE_TYPE (base));
+-  if (!binfo)
++  if (!binfo
++      || detect_type_change (op, base, call, jfunc, offset))
+     return;
++
+   binfo = get_binfo_at_offset (binfo, offset, TREE_TYPE (op));
+   if (binfo)
+     {
