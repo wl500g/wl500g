@@ -401,19 +401,19 @@ int
 ddns_updated_main()
 {
 	FILE *fp;
-	char buf[64], *ip;
+	char buf[64];
 
-	if (!(fp = fopen("/tmp/ddns.cache", "r"))) return 0;
+	if (!(fp = fopen("/var/run/inadyn/inadyn.cache", "r")))
+		return 0;
 
 	fgets(buf, sizeof(buf), fp);
 	fclose(fp);
 
-	if (!(ip = strchr(buf, ','))) return 0;
-
-	nvram_set("ddns_cache", buf);
-	nvram_set("ddns_ipaddr", ip+1);
-	nvram_set("ddns_status", "1");
-	nvram_commit();
+	if (!nvram_match("ddns_ipaddr", buf)) {
+		nvram_set("ddns_ipaddr", buf);
+		nvram_set("ddns_status", "1");
+		nvram_commit();
+	}
 
 	logmessage("ddns", "ddns update ok");
 
@@ -427,46 +427,18 @@ int
 start_ddns(int type)
 {
 	FILE *fp;
-	char *wan_ip, *ddns_cache;
 	char *server, *user, *passwd, *host;
 	int  wild;
 	char service[64];
-#ifdef __CONFIG_INADYN__
 	char *domain = NULL;
 	char word[32], *next;
-#endif
 
 	if (nvram_match("router_disable", "1") ||
-	    nvram_invmatch("ddns_enable_x", "1")) return -1;
+	    nvram_invmatch("ddns_enable_x", "1"))
+		return -1;
 
-	if ((wan_ip = nvram_safe_get("wan_ipaddr_t"))==NULL) return -1;
-
-	if ((type == 0) &&
-	    (nvram_match("ddns_ipaddr", wan_ip) ||
-	    (inet_addr(wan_ip) == inet_addr(nvram_safe_get("ddns_ipaddr")))))
-	{
-		logmessage("ddns", "IP address has not changed since the last update");
-		return 0;
-	}
-
-	// TODO : Check /tmp/ddns.cache to see current IP in DDNS
-	// update when,
-	// 	1. if ipaddr!= ipaddr in cache
-	// 	
-        // update
-	// * nvram ddns_cache, the same with /tmp/ddns.cache
-
-	if ((type == 0) &&
-	    (ddns_cache = nvram_get("ddns_cache")) != NULL)
-	{
-		if ((fp = fopen("/tmp/ddns.cache", "r")) == NULL &&
-		    (fp = fopen("/tmp/ddns.cache", "w+")) != NULL)
-		{
-			fprintf(fp, "%s", ddns_cache);
-			fclose(fp);
-		}
-	} else
-		unlink("/tmp/ddns.cache");
+	if (type)
+		unlink("/var/run/inadyn/inadyn.cache");
 
 	server = nvram_safe_get("ddns_server_x");
 	user = nvram_safe_get("ddns_username_x");
@@ -475,30 +447,20 @@ start_ddns(int type)
 	wild = nvram_match("ddns_wildcard_x", "1");
 	strcpy(service, "");
 
-#ifdef __CONFIG_INADYN__
-	if (strcmp(server, "WWW.DYNDNS.ORG") == 0)
-		strcpy(service, "dyndns@dyndns.org");
-	else if (strcmp(server, "WWW.DYNDNS.ORG(CUSTOM)") == 0)
-		strcpy(service, "custom@dyndns.org");
-	else if (strcmp(server, "WWW.DYNDNS.ORG(STATIC)") == 0)
-		strcpy(service, "statdns@dyndns.org");
-	else if (strcmp(server, "WWW.TZO.COM") == 0)
-		strcpy(service, "default@tzo.com");
-	else if (strcmp(server, "WWW.ZONEEDIT.COM") == 0)
-		strcpy(service, "default@zoneedit.com");
-	//else if (strcmp(server, "WWW.JUSTLINUX.COM") == 0)
-	//	strcpy(service, "default@justlinux.com");
-	else if (strcmp(server, "WWW.EASYDNS.COM") == 0)
-		strcpy(service, "default@easydns.com");
-	else if (strcmp(server, "WWW.NO-IP.COM") == 0)
-		strcpy(service, "default@no-ip.com");
-	else if (strcmp(server, "WWW.DNSOMATIC.COM") == 0)
-		strcpy(service, "default@dnsomatic.com");
-	else if (strcmp(server, "WWW.TUNNELBROKER.NET") == 0)
-		strcpy(service, "ipv6tb@he.net");
-	else if (strcmp(server, "DNS.HE.NET") == 0)
-		strcpy(service, "dyndns@he.net");
-	else if (strcmp(server, "WWW.ASUS.COM") == 0) {
+	if (!strcmp(server, "default@dnsexit.com") ||
+		!strcmp(server, "default@dnsomatic.com") ||
+		!strcmp(server, "default@dyndns.org") ||
+		!strcmp(server, "default@dynsip.org") ||
+		!strcmp(server, "default@easydns.com") ||
+		!strcmp(server, "default@freedns.afraid.org") ||
+		!strcmp(server, "ipv6tb@he.net") ||
+		!strcmp(server, "dyndns@he.net") ||
+		!strcmp(server, "default@no-ip.com") ||
+		!strcmp(server, "default@sitelutions.com") ||
+		!strcmp(server, "default@tzo.com") ||
+		!strcmp(server, "default@zoneedit.com"))
+		strcpy(service, server);
+	else if (!strcmp(server, "update@asus.com")) {
 		strcpy(service, (type == 2) ? "register@asus.com " : "");
 		strcat(service, "update@asus.com");
 		user = nvram_safe_get("et0macaddr");
@@ -506,18 +468,17 @@ start_ddns(int type)
 		if (strcasestr(host, ".asuscomm.com") == NULL)
 			domain = ".asuscomm.com";
 	}
-	else strcpy(service, "default@dyndns.org");
-#endif /* __CONFIG_INADYN__ */
+	else
+		strcpy(service, "default@dyndns.org");
 
 	if (!(fp = fopen("/etc/ddns.conf", "w"))) {
 		perror("/etc/ddns.conf");
 		return errno;
 	}
 
-#ifdef __CONFIG_INADYN__
 	foreach (word, service, next)
 	fprintf(fp,
-	    "dyndns_system %s\n"
+	    "system %s\n"
 	    "username %s\n"
 	    "password %s\n"
 	    "alias %s%s\n"
@@ -525,7 +486,6 @@ start_ddns(int type)
 	    word, user, passwd,
 	    host, domain ? : "",
 	    wild ? "wildcard\n" : "");
-#endif /* __CONFIG_INADYN__ */
 
 	fappend("/usr/local/etc/ddns.conf", fp);
 	fclose(fp);
@@ -534,21 +494,17 @@ start_ddns(int type)
 	{
 		char *ddns_argv[] = {
 		    "inadyn",
-		    "--iterations", "1", "--syslog",
-		    "--input_file", "/etc/ddns.conf",
+		    "--background", "--iterations", "1",
+		    "--config", "/etc/ddns.conf",
 		    "--exec", "/sbin/ddns_updated",
-		    "--cache_file", "/tmp/ddns.cache",
 		    NULL };
 		pid_t pid;
 
 		dprintf("ddns update %s %s\n", server, service);
-		nvram_unset("ddns_cache");
 		nvram_unset("ddns_ipaddr");
 		nvram_unset("ddns_status");
-#ifdef __CONFIG_INADYN__
 		killall_tk("inadyn");
-#endif
-		_eval(ddns_argv, NULL, (type == 0) ? 0 : 10, &pid);
+		_eval(ddns_argv, NULL, 0, &pid);
 	}
 	return 0;
 }
@@ -556,9 +512,7 @@ start_ddns(int type)
 int 
 stop_ddns(void)
 {
-#ifdef __CONFIG_INADYN__
 	int ret = killall("inadyn");
-#endif
 
 	dprintf("done\n");
 	return ret;
