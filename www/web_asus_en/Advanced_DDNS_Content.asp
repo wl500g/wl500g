@@ -94,17 +94,19 @@
 <tr>
 <td class="content_header_td">Server:
            </td><td class="content_input_td"><select name="ddns_server_x" class="content_input_fd" onChange="return change_common(this, 'LANHostConfig', 'ddns_server_x')">
-		<option class="content_input_fd" value="WWW.DYNDNS.ORG" <% nvram_match("ddns_server_x", "WWW.DYNDNS.ORG","selected"); %>>WWW.DYNDNS.ORG</option>
-		<option class="content_input_fd" value="WWW.DYNDNS.ORG(CUSTOM)" <% nvram_match("ddns_server_x", "WWW.DYNDNS.ORG(CUSTOM)","selected"); %>>WWW.DYNDNS.ORG(CUSTOM)</option>
-		<option class="content_input_fd" value="WWW.DYNDNS.ORG(STATIC)" <% nvram_match("ddns_server_x", "WWW.DYNDNS.ORG(STATIC)","selected"); %>>WWW.DYNDNS.ORG(STATIC)</option>
-		<option class="content_input_fd" value="WWW.TZO.COM" <% nvram_match("ddns_server_x", "WWW.TZO.COM","selected"); %>>WWW.TZO.COM</option>
-		<option class="content_input_fd" value="WWW.ZONEEDIT.COM" <% nvram_match("ddns_server_x", "WWW.ZONEEDIT.COM","selected"); %>>WWW.ZONEEDIT.COM</option>
-		<option class="content_input_fd" value="WWW.EASYDNS.COM" <% nvram_match("ddns_server_x", "WWW.EASYDNS.COM","selected"); %>>WWW.EASYDNS.COM</option>
-		<option class="content_input_fd" value="WWW.NO-IP.COM" <% nvram_match("ddns_server_x", "WWW.NO-IP.COM","selected"); %>>WWW.NO-IP.COM</option>
-		<option class="content_input_fd" value="WWW.DNSOMATIC.COM" <% nvram_match("ddns_server_x", "WWW.DNSOMATIC.COM","selected"); %>>WWW.DNSOMATIC.COM</option>
-		<option class="content_input_fd" value="WWW.TUNNELBROKER.NET" <% nvram_match("ddns_server_x", "WWW.TUNNELBROKER.NET","selected"); %>>WWW.TUNNELBROKER.NET</option>
-		<option class="content_input_fd" value="DNS.HE.NET" <% nvram_match("ddns_server_x", "DNS.HE.NET","selected"); %>>DNS.HE.NET</option>
-		<option class="content_input_fd" value="WWW.ASUS.COM" <% nvram_match("ddns_server_x", "WWW.ASUS.COM","selected"); %>>WWW.ASUS.COM</option>
+		<option class="content_input_fd" value="update@asus.com" <% nvram_match("ddns_server_x", "update@asus.com","selected"); %>>asus.com</option>
+		<option class="content_input_fd" value="default@dnsexit.com" <% nvram_match("ddns_server_x", "default@dnsexit.com","selected"); %>>dnsexit.com</option>
+		<option class="content_input_fd" value="default@dnsomatic.com" <% nvram_match("ddns_server_x", "default@dnsomatic.com","selected"); %>>dnsomatic.com</option>
+		<option class="content_input_fd" value="default@dyndns.org" <% nvram_match("ddns_server_x", "default@dyndns.org","selected"); %>>dyndns.org</option>
+		<option class="content_input_fd" value="default@dynsip.org" <% nvram_match("ddns_server_x", "default@dynsip.org","selected"); %>>dynsip.org</option>
+		<option class="content_input_fd" value="default@easydns.com" <% nvram_match("ddns_server_x", "default@easydns.com","selected"); %>>easydns.com</option>
+		<option class="content_input_fd" value="default@freedns.afraid.org" <% nvram_match("ddns_server_x", "default@freedns.afraid.org","selected"); %>>freedns.afraid.org</option>
+		<option class="content_input_fd" value="dyndns@he.net" <% nvram_match("ddns_server_x", "dyndns@he.net","selected"); %>>dns.he.net</option>
+		<option class="content_input_fd" value="ipv6tb@he.net" <% nvram_match("ddns_server_x", "ipv6tb@he.net","selected"); %>>tunnelbroker.net</option>
+		<option class="content_input_fd" value="default@no-ip.com" <% nvram_match("ddns_server_x", "default@no-ip.com","selected"); %>>no-ip.com</option>
+		<option class="content_input_fd" value="default@sitelutions.com" <% nvram_match("ddns_server_x", "default@sitelutions.com","selected"); %>>sitelutions.com</option>
+		<option class="content_input_fd" value="default@tzo.com" <% nvram_match("ddns_server_x", "default@tzo.com","selected"); %>>tzo.com</option>
+		<option class="content_input_fd" value="default@zoneedit.com" <% nvram_match("ddns_server_x", "default@zoneedit.com","selected"); %>>zoneedit.com</option>
 		</select>
 		<input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('ddnsregister')" size="12" name="LANHostConfig_x_DDNSSRegister_button" value="Register"></td>
              </a></td>

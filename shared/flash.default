@@ -233,7 +233,7 @@
 
 {"ddns_enable_x", "0", 0},
 {"ddns_realip_x", "0", 0},
-{"ddns_server_x", "", 0},
+{"ddns_server_x", "default@dyndns.org", 0},
 {"ddns_username_x", "", 0},
 {"ddns_passwd_x", "", 0},
 {"ddns_hostname_x", "", 0},
