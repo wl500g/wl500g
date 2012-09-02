@@ -1,8 +1,8 @@
- include/dyndns.h |  10 +++++
+ include/dyndns.h |  10 ++++
  include/md5.h    |   4 ++
- src/dyndns.c     | 131 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- src/md5.c        |  39 +++++++++++++++++
- 4 files changed, 184 insertions(+)
+ src/dyndns.c     | 149 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/md5.c        |  39 +++++++++++++++
+ 4 files changed, 202 insertions(+)
 
 diff --git a/include/dyndns.h b/include/dyndns.h
 index b8e5601..903251d 100644
@@ -46,7 +46,7 @@ index ed0f3f0..6b4bdee 100644
 +
  #endif
 diff --git a/src/dyndns.c b/src/dyndns.c
-index 644c91b..afac777 100644
+index 644c91b..d4af613 100644
 --- a/src/dyndns.c
 +++ b/src/dyndns.c
 @@ -26,6 +26,7 @@
@@ -152,7 +152,7 @@ index 644c91b..afac777 100644
  static int get_req_for_ip_server(DYN_DNS_CLIENT *p_self, int infcnt)
  {
  	if (p_self == NULL)
-@@ -747,6 +815,69 @@ static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION
+@@ -747,6 +815,87 @@ static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION
  		return RC_DYNDNS_RSP_NOTOK;
  }
  
@@ -186,6 +186,15 @@ index 644c91b..afac777 100644
 +	if (status >= 500 && status < 600)
 +		return RC_DYNDNS_RSP_RETRY_LATER;
 +
++	/* 
++	  Other status codes:
++	    297: invalid hostname
++	    298: invalid domain name
++	    299: invalid ip format
++	    401: authentication failure
++	    407: proxy authentication required
++	*/
++
 +	return RC_DYNDNS_RSP_NOTOK;
 +}
 +
@@ -215,6 +224,15 @@ index 644c91b..afac777 100644
 +
 +	if (status >= 500 && status < 600)
 +		return RC_DYNDNS_RSP_RETRY_LATER;
++
++	/* 
++	  Other status codes:
++	    297: invalid hostname
++	    298: invalid domain name
++	    299: invalid ip format
++	    401: authentication failure
++	    407: proxy authentication required
++	*/
 +
 +	return RC_DYNDNS_RSP_NOTOK;
 +}
