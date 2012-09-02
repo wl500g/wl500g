@@ -1,0 +1,161 @@
+[4.6 Regression] g++ crashes (internal compiler error: Segmentation fault) when compiling quickbook
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=51737
+
+--- gcc-4_6-branch/gcc/ChangeLog	2012/03/25 05:48:49	185773
++++ gcc-4_6-branch/gcc/ChangeLog	2012/03/25 09:39:32	185774
+@@ -1,6 +1,17 @@
+ 	benefit speed path.
+ 	(execute_pre): Use flag_tree_partial_pre.
+ 
++2012-03-24  Jan Hubicka  <jh@suse.cz>
++
++	Backport from mainline
++	PR middle-end/51737
++	* cgraph.c (cgraph_remove_node_and_inline_clones): Add FORBIDDEN_NODE
++	parameter.
++	* cgraph.h (cgraph_remove_node_and_inline_clones): Update prototype.
++	* ipa-inline-transform.c (save_inline_function_body): Remove copied clone
++	if needed.
++	* tree-inline.c (delete_unreachable_blocks_update_callgraph): Update.
++
+ 2012-03-16  Jan Hubicka  <jh@suse.cz>
+ 
+ 	Backport from mainline
+--- gcc-4_6-branch/gcc/cgraph.c	2012/03/25 05:48:49	185773
++++ gcc-4_6-branch/gcc/cgraph.c	2012/03/25 09:39:32	185774
+@@ -1700,19 +1700,27 @@
+   free_nodes = node;
+ }
+ 
+-/* Remove the node from cgraph.  */
++/* Remove the node from cgraph and all inline clones inlined into it.
++   Skip however removal of FORBIDDEN_NODE and return true if it needs to be
++   removed.  This allows to call the function from outer loop walking clone
++   tree.  */
+ 
+-void
+-cgraph_remove_node_and_inline_clones (struct cgraph_node *node)
++bool
++cgraph_remove_node_and_inline_clones (struct cgraph_node *node, struct cgraph_node *forbidden_node)
+ {
+   struct cgraph_edge *e, *next;
++  bool found = false;
++
++  if (node == forbidden_node)
++    return true;
+   for (e = node->callees; e; e = next)
+     {
+       next = e->next_callee;
+       if (!e->inline_failed)
+-        cgraph_remove_node_and_inline_clones (e->callee);
++        found |= cgraph_remove_node_and_inline_clones (e->callee, forbidden_node);
+     }
+   cgraph_remove_node (node);
++  return found;
+ }
+ 
+ /* Notify finalize_compilation_unit that given node is reachable.  */
+--- gcc-4_6-branch/gcc/cgraph.h	2012/03/25 05:48:49	185773
++++ gcc-4_6-branch/gcc/cgraph.h	2012/03/25 09:39:32	185774
+@@ -547,7 +547,7 @@
+ void cgraph_insert_node_to_hashtable (struct cgraph_node *node);
+ void cgraph_remove_edge (struct cgraph_edge *);
+ void cgraph_remove_node (struct cgraph_node *);
+-void cgraph_remove_node_and_inline_clones (struct cgraph_node *);
++bool cgraph_remove_node_and_inline_clones (struct cgraph_node *, struct cgraph_node *);
+ void cgraph_release_function_body (struct cgraph_node *);
+ void cgraph_node_remove_callees (struct cgraph_node *node);
+ struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
+--- gcc-4_6-branch/gcc/cgraphunit.c	2012/03/25 05:48:49	185773
++++ gcc-4_6-branch/gcc/cgraphunit.c	2012/03/25 09:39:32	185774
+@@ -2157,8 +2157,19 @@
+             first_clone->ipa_transforms_to_apply);
+   first_clone->ipa_transforms_to_apply = NULL;
+ 
++  /* When doing recursive inlining, the clone may become unnecessary.
++     This is possible i.e. in the case when the recursive function is proved to be
++     non-throwing and the recursion happens only in the EH landing pad.
++     We can not remove the clone until we are done with saving the body.
++     Remove it now.  */
++  if (!first_clone->callers)
++    {
++      cgraph_remove_node_and_inline_clones (first_clone, NULL);
++      first_clone = NULL;
++    }
+ #ifdef ENABLE_CHECKING
+-  verify_cgraph_node (first_clone);
++  else
++    verify_cgraph_node (first_clone);
+ #endif
+   return first_clone;
+ }
+--- gcc-4_6-branch/gcc/testsuite/ChangeLog	2012/03/25 05:48:49	185773
++++ gcc-4_6-branch/gcc/testsuite/ChangeLog	2012/03/25 09:39:32	185774
+@@ -1,6 +1,11 @@
+ 	PR c++/52796
+ 	* g++.dg/cpp0x/variadic-value1.C: New.
+ 
++2012-03-24  Jan Hubicka  <jh@suse.cz>
++
++	PR middle-end/51737
++	* g++.dg/torture/pr51737.C: New testcase
++
+ 2012-03-16  Jan Hubicka  <jh@suse.cz>
+ 
+ 	PR middle-end/48600
+--- /dev/null
++++ gcc-4_6-branch/gcc/testsuite/g++.dg/torture/pr51737.C
+@@ -0,0 +1,30 @@
++// { dg-do compile }
++template<class T> class intrusive_ptr {
++public:
++    ~intrusive_ptr() { intrusive_ptr_release( px ); }
++    T * px;
++};
++template <typename T>     struct intrusive_base     {
++    friend void intrusive_ptr_release(T* ptr) { delete ptr; }
++};
++struct section_info;
++struct file_info : intrusive_base<file_info> {
++    intrusive_ptr<file_info> parent;
++    intrusive_ptr<section_info> switched_section;
++};
++struct section_info : intrusive_base<section_info> {
++    intrusive_ptr<section_info> parent;
++};
++struct id_state {
++    void * start_file(void);
++};
++void * id_state::start_file(void) {
++    intrusive_ptr<file_info> parent;
++}
++struct id_generation_data : intrusive_base<id_generation_data> {
++    void child_length() const {}
++};
++void generate_id(id_generation_data& generation_data)
++{
++  generation_data.child_length();
++}
+--- gcc-4_6-branch/gcc/tree-inline.c	2012/03/25 05:48:49	185773
++++ gcc-4_6-branch/gcc/tree-inline.c	2012/03/25 09:39:32	185774
+@@ -4947,7 +4947,7 @@
+ 	        if ((e = cgraph_edge (id->dst_node, gsi_stmt (bsi))) != NULL)
+ 		  {
+ 		    if (!e->inline_failed)
+-		      cgraph_remove_node_and_inline_clones (e->callee);
++		      cgraph_remove_node_and_inline_clones (e->callee, id->dst_node);
+ 		    else
+ 	              cgraph_remove_edge (e);
+ 		  }
+@@ -4957,8 +4957,8 @@
+ 		    {
+ 	              if ((e = cgraph_edge (node, gsi_stmt (bsi))) != NULL)
+ 			{
+-		          if (!e->inline_failed)
+-		            cgraph_remove_node_and_inline_clones (e->callee);
++		          if (!e->inline_failed && e->callee != id->src_node)
++		            cgraph_remove_node_and_inline_clones (e->callee, id->dst_node);
+ 			  else
+ 	                    cgraph_remove_edge (e);
+ 			}
