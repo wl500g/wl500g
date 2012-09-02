@@ -1,0 +1,35 @@
+combine bug (powerpc testcase)
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=52528
+
+--- gcc-4_6-branch/gcc/ChangeLog	2012/03/15 09:57:29	185424
++++ gcc-4_6-branch/gcc/ChangeLog	2012/03/15 10:04:12	185425
+@@ -1,6 +1,15 @@
+ 	* predict.c (predict_paths_for_bb): Prevent looping.
+ 	(predict_paths_leading_to_edge, predict_paths_leading_to): Update.
+ 
++2012-03-15  Chung-Lin Tang  <cltang@codesourcery.com>
++
++	Backport from mainline
++	2012-03-10  Chung-Lin Tang  <cltang@codesourcery.com>
++
++	PR rtl-optimization/52528
++	* combine.c (can_combine_p): Add setting of subst_low_luid
++	before call to expand_field_assignment().
++
+ 2012-03-01  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	PR tree-optimization/52445
+--- gcc-4_6-branch/gcc/combine.c	2012/03/15 09:57:29	185424
++++ gcc-4_6-branch/gcc/combine.c	2012/03/15 10:04:12	185425
+@@ -1788,6 +1788,10 @@
+   if (set == 0)
+     return 0;
+ 
++  /* The simplification in expand_field_assignment may call back to
++     get_last_value, so set safe guard here.  */
++  subst_low_luid = DF_INSN_LUID (insn);
++
+   set = expand_field_assignment (set);
+   src = SET_SRC (set), dest = SET_DEST (set);
+ 
