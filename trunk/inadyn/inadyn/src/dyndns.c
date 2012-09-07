@@ -804,14 +804,16 @@ static RC_TYPE do_update_alias_table(DYN_DNS_CLIENT *p_self)
 				}
 				else
 				{
-					logit(LOG_WARNING, MODULE_TAG "Checking DDNS server response: %s error",
-						  rc == RC_DYNDNS_RSP_RETRY_LATER ? "temporary" : "permanent");
-					logit(LOG_WARNING, MODULE_TAG "(%d) %s", http_tr.status, http_tr.p_rsp_body);
+					logit(LOG_WARNING, MODULE_TAG "%s error in DDNS server response:",
+						  rc == RC_DYNDNS_RSP_RETRY_LATER ? "Temporary" : "Fatal");
+					logit(LOG_WARNING, MODULE_TAG "[%d %s] %s",
+					      http_tr.status, http_tr.status_desc,
+					      http_tr.p_rsp_body != http_tr.p_rsp ? http_tr.p_rsp_body : "");
 				}
 
 				if (p_self->dbg.level > 2)
 				{
-					logit(LOG_DEBUG, MODULE_TAG "Updating alias table, DDNS server response:");
+					logit(LOG_DEBUG, MODULE_TAG "DDNS server response:");
 					logit(LOG_DEBUG, MODULE_TAG "%s", http_tr.p_rsp);
 				}
 			}
@@ -1241,7 +1243,7 @@ RC_TYPE dyn_dns_update_ip(DYN_DNS_CLIENT *p_self)
 		}
 		if (p_self->dbg.level > 1)
 		{
-			logit(LOG_DEBUG, MODULE_TAG "DDNS server response:");
+			logit(LOG_DEBUG, MODULE_TAG "IP server response:");
 			logit(LOG_DEBUG, MODULE_TAG "%s", p_self->p_work_buffer);
 		}
 
