@@ -1,0 +1,34 @@
+From 00acd06340273ed321b0a86581de759a1970ab75 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Fri, 17 Aug 2012 14:18:50 +0100
+Subject: [PATCH 02/11] Tweak get-version to do the right thing with multiple head tags.
+
+---
+ bld/get-version |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/bld/get-version b/bld/get-version
+index 900d8ac..0ac948a 100755
+--- a/bld/get-version
++++ b/bld/get-version
+@@ -8,6 +8,8 @@
+ # which has a set of references substituted into it by git.
+ # If we can find one which matches $v[0-9].* then we assume it's
+ # a version-number tag, else we just use the whole string.
++# If there is more than one v[0-9].* tag, sort them and use the
++# first. This favours, eg v2.63 over 2.63rc6.
+ 
+ if which git >/dev/null 2>&1 && [ -d $1/.git ]; then
+      cd $1; git describe
+@@ -18,7 +20,7 @@ else
+      vers=`cat $1/VERSION | sed 's/[(), ]/,/ g' | tr ',' '\n' | grep $v[0-9]`
+ 
+      if [ $? -eq 0 ]; then
+-         echo "${vers}" | head -n 1 | sed 's/^v//'
++         echo "${vers}" | sort | head -n 1 | sed 's/^v//'
+      else
+          cat $1/VERSION
+      fi
+-- 
+1.7.2.5
+
