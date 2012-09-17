@@ -291,7 +291,8 @@ typedef struct DYN_DNS_CLIENT
 	int          cmd_check_period; /*time to wait for a command*/
 	int          total_iterations;
 	int          num_iterations;
-	char        *interface;
+	char        *bind_interface;
+	char        *check_interface;
 	BOOL         initialized;
 	BOOL         run_in_background;
 	BOOL         debug_to_syslog;
