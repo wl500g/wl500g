@@ -2,20 +2,21 @@ net: Add ip{6}_local_out
 
  c439cb2e4b13cf1cb2abcd006b906315a3381323 [IPV4]: Add ip_local_out
  ef76bc23ef2acf20c8f7f841a542d8ab74c827c6 [IPV6]: Add ip6_local_out
+ a9915a1b52df52ad87f3b33422da95cf25372f09 ipv4: fix ip header ident selection in __ip_make_skb()
 
 ---
- include/net/ip.h                 |    2 ++
- include/net/ipip.h               |    5 ++---
- include/net/ipv6.h               |    3 +++
- net/ipv4/igmp.c                  |   12 ++----------
- net/ipv4/ip_output.c             |   39 +++++++++++++++++++++++++--------------
- net/ipv4/ipvs/ip_vs_xmit.c       |    6 ++----
- net/ipv4/xfrm4_output.c          |    3 +--
- net/ipv6/ip6_output.c            |   33 +++++++++++++++++++++++++++------
- net/ipv6/ip6_tunnel.c            |    4 +---
- net/ipv6/netfilter/ip6t_REJECT.c |    4 +---
- net/ipv6/xfrm6_output.c          |    3 +--
- 11 files changed, 67 insertions(+), 47 deletions(-)
+ include/net/ip.h                 |    2 +
+ include/net/ipip.h               |    5 +---
+ include/net/ipv6.h               |    3 ++
+ net/ipv4/igmp.c                  |   12 +----------
+ net/ipv4/ip_output.c             |   41 ++++++++++++++++++++++++---------------
+ net/ipv4/ipvs/ip_vs_xmit.c       |    6 +----
+ net/ipv4/xfrm4_output.c          |    3 --
+ net/ipv6/ip6_output.c            |   33 +++++++++++++++++++++++++------
+ net/ipv6/ip6_tunnel.c            |    4 ---
+ net/ipv6/netfilter/ip6t_REJECT.c |    4 ---
+ net/ipv6/xfrm6_output.c          |    3 --
+ 11 files changed, 68 insertions(+), 48 deletions(-)
 
 diff --git a/include/net/ip.h b/include/net/ip.h
 --- a/include/net/ip.h
@@ -195,12 +196,13 @@ diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
  	iph->tos = inet->tos;
 -	iph->tot_len = htons(skb->len);
  	iph->frag_off = df;
- 	ip_select_ident(iph, &rt->u.dst, sk);
+-	ip_select_ident(iph, &rt->u.dst, sk);
  	iph->ttl = ttl;
  	iph->protocol = sk->sk_protocol;
  	iph->saddr = rt->rt_src;
  	iph->daddr = rt->rt_dst;
 -	ip_send_check(iph);
++	ip_select_ident(iph, &rt->u.dst, sk);
  
  	skb->priority = sk->sk_priority;
  	skb->dst = dst_clone(&rt->u.dst);
