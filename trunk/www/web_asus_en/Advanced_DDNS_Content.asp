@@ -88,8 +88,14 @@
            </td><td class="content_input_td"><input type="radio" value="1" name="ddns_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_enable_x', '1')" <% nvram_match("ddns_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="ddns_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_enable_x', '0')" <% nvram_match("ddns_enable_x", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This field determines if dynamic dns service has to autodetect public IP address. Does not work with TZO service.', LEFT);" onMouseOut="return nd();">Autodetect public IP address?
-           </td><td class="content_input_td"><input type="radio" value="1" name="ddns_realip_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_realip_x', '1')" <% nvram_match("ddns_realip_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="ddns_realip_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_realip_x', '0')" <% nvram_match("ddns_realip_x", "0", "checked"); %>>No</input></td>
+<td class="content_header_td" onMouseOver="return overlib('This field determines if dynamic dns service has to autodetect public IP address.', LEFT);" onMouseOut="return nd();">Autodetect public IP address?
+           </td><td class="content_input_td">
+<select name="ddns_realip_x" class="content_input_fd" onchange="return change_common(this, 'LANHostConfig', 'ddns_realip_x')">
+<option class="content_input_fd" value="0" <% nvram_match("ddns_realip_x","0","selected"); %>>Yes</option>
+<option class="content_input_fd" value="1" <% nvram_match("ddns_realip_x","1","selected"); %>>No, report WAN address</option>
+<option class="content_input_fd" value="2" <% nvram_match("ddns_realip_x","2","selected"); %>>No, report MAN address</option>
+</select>
+</td>
 </tr>
 <tr>
 <td class="content_header_td">Server:

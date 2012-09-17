@@ -430,6 +430,7 @@ start_ddns(int type)
 	char *server, *user, *passwd, *host;
 	int  wild;
 	char service[64];
+	char *wan_ifname;
 	char *domain = NULL;
 	char word[32], *next;
 
@@ -471,6 +472,27 @@ start_ddns(int type)
 	else
 		strcpy(service, "default@dyndns.org");
 
+	if (nvram_match("wan_proto", "pppoe") ||
+	    nvram_match("wan_proto", "pptp")  ||
+	    nvram_match("wan_proto", "l2tp")) {
+		if (nvram_match("ddns_realip_x", "2"))
+			wan_ifname = nvram_safe_get("wan0_ifname");
+		else
+			wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
+	}
+	else
+#ifdef __CONFIG_MADWIMAX__
+	if (nvram_match("wan_proto", "wimax"))
+		wan_ifname = nvram_safe_get("wan0_wimax_ifname");
+	else
+#endif
+#ifdef __CONFIG_MODEM__
+	if (nvram_match("wan_proto", "usbmodem"))
+		wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
+	else
+#endif
+		wan_ifname = nvram_safe_get("wan0_ifname");
+
 	if (!(fp = fopen("/etc/ddns.conf", "w"))) {
 		perror("/etc/ddns.conf");
 		return errno;
@@ -486,6 +508,9 @@ start_ddns(int type)
 	    word, user, passwd,
 	    host, domain ? : "",
 	    wild ? "wildcard\n" : "");
+
+	if (nvram_invmatch("ddns_realip_x", "0"))
+		fprintf(fp, "iface %s\n", wan_ifname);
 
 	fappend("/usr/local/etc/ddns.conf", fp);
 	fclose(fp);
