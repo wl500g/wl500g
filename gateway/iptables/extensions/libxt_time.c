@@ -31,6 +31,7 @@ enum { /* getopt "seen" bits */
 	F_MONTHDAYS  = 1 << 4,
 	F_WEEKDAYS   = 1 << 5,
 	F_TIMEZONE   = 1 << 6,
+	F_TIME_CONTIGUOUS = 1 << 7,
 };
 
 static const char *const week_days[] = {
@@ -42,6 +43,7 @@ static const struct option time_opts[] = {
 	{"datestop",  true,  NULL, 'E'},
 	{"timestart", true,  NULL, 'X'},
 	{"timestop",  true,  NULL, 'Y'},
+	{"contiguous", false,NULL, 'C'},
 	{"weekdays",  true,  NULL, 'w'},
 	{"monthdays", true,  NULL, 'm'},
 	{"localtz",   false, NULL, 'l'},
@@ -293,6 +295,10 @@ static int time_parse(int c, char **argv, int invert, unsigned int *flags,
 		info->daytime_stop = time_parse_minutes(optarg);
 		*flags |= F_TIME_STOP;
 		return 1;
+	case 'C':
+		info->flags |= XT_TIME_CONTIGUOUS;
+		*flags |= F_TIME_CONTIGUOUS;
+		return 1;
 	case 'l': /* --localtz */
 		if (*flags & F_TIMEZONE)
 			xtables_error(PARAMETER_PROBLEM,
@@ -437,6 +443,8 @@ static void time_print(const void *ip, const struct xt_entry_match *match,
 	}
 	if (!(info->flags & XT_TIME_LOCAL_TZ))
 		printf("UTC ");
+	if (info->flags & XT_TIME_CONTIGUOUS)
+		printf("contiguous ");
 }
 
 static void time_save(const void *ip, const struct xt_entry_match *match)
@@ -464,6 +472,18 @@ static void time_save(const void *ip, const struct xt_entry_match *match)
 	time_print_date(info->date_stop, "--datestop");
 	if (!(info->flags & XT_TIME_LOCAL_TZ))
 		printf("--utc ");
+	if (info->flags & XT_TIME_CONTIGUOUS)
+		printf("--contiguous ");
+}
+
+static void time_check(struct xt_fcheck_call *cb)
+{
+	const struct xt_time_info *info = (const void *) cb->data;
+
+	if ((cb->xflags & F_TIME_CONTIGUOUS) &&
+	     info->daytime_start < info->daytime_stop)
+		xtables_error(PARAMETER_PROBLEM,
+			"time: --contiguous only makes sense when stoptime is smaller than starttime");
 }
 
 static struct xtables_match time_match = {
@@ -475,6 +495,7 @@ static struct xtables_match time_match = {
 	.help          = time_help,
 	.init          = time_init,
 	.parse         = time_parse,
+	.x6_fcheck     = time_check,
 	.print         = time_print,
 	.save          = time_save,
 	.extra_opts    = time_opts,
