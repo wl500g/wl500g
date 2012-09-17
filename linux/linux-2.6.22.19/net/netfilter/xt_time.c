@@ -43,6 +43,7 @@ static const u_int16_t days_since_leapyear[] = {
  */
 enum {
 	DSE_FIRST = 2039,
+	SECONDS_PER_DAY = 86400,
 };
 static const u_int16_t days_since_epoch[] = {
 	/* 2039 - 2030 */
@@ -80,7 +81,7 @@ static inline unsigned int localtime_1(struct xtm *r, time_t time)
 //	unsigned int w;
 
 	/* Each day has 86400s, so finding the hour/minute is actually easy. */
-	v         = time % 86400;
+	v         = time % SECONDS_PER_DAY;
 #if 0
 	r->second = v % 60;
 	w         = v / 60;
@@ -206,6 +207,18 @@ xt_time_match(const struct sk_buff *skb, struct xt_action_param *par)
 		if (packet_time < info->daytime_start &&
 		    packet_time > info->daytime_stop)
 			return false;
+
+		/** if user asked to ignore 'next day', then e.g.
+		 *  '1 PM Wed, August 1st' should be treated
+		 *  like 'Tue 1 PM July 31st'.
+		 *
+		 * This also causes
+		 * 'Monday, "23:00 to 01:00", to match for 2 hours, starting
+		 * Monday 23:00 to Tuesday 01:00.
+		 */
+		if ((info->flags & XT_TIME_CONTIGUOUS) &&
+		     packet_time <= info->daytime_stop)
+			stamp -= SECONDS_PER_DAY;
 	}
 
 	localtime_2(&current_time, stamp);
@@ -233,6 +246,15 @@ static bool xt_time_check(const struct xt_mtchk_param *par)
 		       "stop time greater than 23:59:59\n");
 		return false;
 	}
+
+	if (info->flags & ~XT_TIME_ALL_FLAGS) {
+		pr_info("unknown flags 0x%x\n", info->flags & ~XT_TIME_ALL_FLAGS);
+		return false;
+	}
+
+	if ((info->flags & XT_TIME_CONTIGUOUS) &&
+	     info->daytime_start < info->daytime_stop)
+		return false;
 
 	return true;
 }
