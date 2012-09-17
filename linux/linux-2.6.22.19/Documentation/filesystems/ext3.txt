@@ -62,14 +62,6 @@ commit=nrsec	(*)	Ext3 can be told to sync all its data and metadata
 barrier=1		This enables/disables barriers.  barrier=0 disables
 			it, barrier=1 enables it.
 
-orlov		(*)	This enables the new Orlov block allocator. It is
-			enabled by default.
-
-oldalloc		This disables the Orlov block allocator and enables
-			the old block allocator.  Orlov should have better
-			performance - we'd like to get some feedback if it's
-			the contrary for you.
-
 user_xattr		Enables Extended User Attributes.  Additionally, you
 			need to have extended attribute support enabled in the
 			kernel configuration (CONFIG_EXT3_FS_XATTR).  See the
