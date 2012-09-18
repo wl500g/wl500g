@@ -1922,7 +1922,8 @@ function load_body()
 			inputRCtrl1(frm.ddns_wildcard_x, 1);
 		else
 			inputRCtrl1(frm.ddns_wildcard_x, 0);
-		value = (frm.ddns_server_x.value == "update@asus.com") ? 0 : 1;
+		value = (frm.ddns_server_x.value == "update@asus.com" ||
+		         frm.ddns_server_x.value == "default@freedns.afraid.org") ? 0 : 1;
 		inputCtrl(frm.ddns_username_x, value);
 		inputCtrl(frm.ddns_passwd_x, value);
 	}
@@ -2636,7 +2637,8 @@ function change_common(o, s, v)
 			inputRCtrl1(document.form.ddns_wildcard_x, 1);
 		else
 			inputRCtrl1(document.form.ddns_wildcard_x, 0);
-		value = (o.value == "update@asus.com") ? 0 : 1;
+		value = (o.value == "update@asus.com" ||
+		         o.value == "default@freedns.afraid.org") ? 0 : 1;
 		inputCtrl(document.form.ddns_username_x, value);
 		inputCtrl(document.form.ddns_passwd_x, value);
 	}
