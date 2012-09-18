@@ -127,7 +127,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field represents the Host Name you register to Dynamic-DNS service and expect to export to the world.', LEFT);" onMouseOut="return nd();">Host Name:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="ddns_hostname_x" value="<% nvram_get("ddns_hostname_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="128" class="content_input_fd" size="32" name="ddns_hostname_x" value="<% nvram_get("ddns_hostname_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field determines if domain name with wildcard is also redirected to your ip address.', LEFT);" onMouseOut="return nd();">Enable wildcard?
