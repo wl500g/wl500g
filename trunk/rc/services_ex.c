@@ -498,16 +498,16 @@ start_ddns(int type)
 		return errno;
 	}
 
-	foreach (word, service, next)
-	fprintf(fp,
-	    "system %s\n"
-	    "username %s\n"
-	    "password %s\n"
-	    "alias %s%s\n"
-	    "%s",
-	    word, user, passwd,
-	    host, domain ? : "",
-	    wild ? "wildcard\n" : "");
+	foreach (word, service, next) {
+		fprintf(fp, "system %s\n", service);
+		if (strlen(user))
+			fprintf(fp, "username %s\n", user);
+		if (strlen(passwd))
+			fprintf(fp, "password %s\n", passwd);
+		fprintf(fp, "alias %s%s\n", host, domain ? : "");
+		if (wild)
+			fprintf(fp, "wildcard\n");
+	}
 
 	if (nvram_invmatch("ddns_realip_x", "0"))
 		fprintf(fp, "iface %s\n", wan_ifname);
@@ -515,22 +515,19 @@ start_ddns(int type)
 	fappend("/usr/local/etc/ddns.conf", fp);
 	fclose(fp);
 
-	if (strlen(service)>0)
-	{
-		char *ddns_argv[] = {
-		    "inadyn",
-		    "--background", "--iterations", "1",
-		    "--config", "/etc/ddns.conf",
-		    "--exec", "/sbin/ddns_updated",
-		    NULL };
-		pid_t pid;
+	char *ddns_argv[] = {
+	    "inadyn",
+	    "--background", "--iterations", "1",
+	    "--config", "/etc/ddns.conf",
+	    "--exec", "/sbin/ddns_updated",
+	    NULL };
+	pid_t pid;
 
-		dprintf("ddns update %s %s\n", server, service);
-		nvram_unset("ddns_ipaddr");
-		nvram_unset("ddns_status");
-		killall_tk("inadyn");
-		_eval(ddns_argv, NULL, 0, &pid);
-	}
+	dprintf("ddns update %s %s\n", server, service);
+	nvram_unset("ddns_ipaddr");
+	nvram_unset("ddns_status");
+	killall_tk("inadyn");
+	_eval(ddns_argv, NULL, 0, &pid);
 	return 0;
 }
 
