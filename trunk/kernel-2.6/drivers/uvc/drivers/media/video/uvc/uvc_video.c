@@ -264,8 +264,6 @@ int uvc_probe_video(struct uvc_streaming *stream,
 	unsigned int i;
 	int ret;
 
-	mutex_lock(&stream->mutex);
-
 	/* Perform probing. The device should adjust the requested values
 	 * according to its capabilities. However, some devices, namely the
 	 * first generation UVC Logitech webcams, don't implement the Video
@@ -317,7 +315,6 @@ int uvc_probe_video(struct uvc_streaming *stream,
 	}
 
 done:
-	mutex_unlock(&stream->mutex);
 	return ret;
 }
 
