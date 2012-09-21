@@ -427,12 +427,19 @@ int
 start_ddns(int type)
 {
 	FILE *fp;
-	char *server, *user, *passwd, *host;
-	int  wild;
-	char service[64];
-	char *wan_ifname;
-	char *domain = NULL;
 	char word[32], *next;
+	char *wan_ifname;
+	char *ddns_argv[] = {
+	    "/usr/sbin/inadyn",
+	    "--background",
+	    "--iterations", "1",
+	    "--config", "/etc/ddns.conf",
+	    "--exec", "/sbin/ddns_updated",
+	    NULL };
+	char service[64];
+	char *server, *user, *passwd, *host;
+	char *domain;
+	int wild;
 
 	if (nvram_match("router_disable", "1") ||
 	    nvram_invmatch("ddns_enable_x", "1"))
@@ -445,89 +452,82 @@ start_ddns(int type)
 	user = nvram_safe_get("ddns_username_x");
 	passwd = nvram_safe_get("ddns_passwd_x");
 	host = nvram_safe_get("ddns_hostname_x");
+	domain = NULL;
 	wild = nvram_match("ddns_wildcard_x", "1");
-	strcpy(service, "");
 
 	if (!strcmp(server, "default@dnsexit.com") ||
-		!strcmp(server, "default@dnsomatic.com") ||
-		!strcmp(server, "default@dyndns.org") ||
-		!strcmp(server, "default@dynsip.org") ||
-		!strcmp(server, "default@easydns.com") ||
-		!strcmp(server, "default@freedns.afraid.org") ||
-		!strcmp(server, "ipv6tb@he.net") ||
-		!strcmp(server, "dyndns@he.net") ||
-		!strcmp(server, "default@no-ip.com") ||
-		!strcmp(server, "default@sitelutions.com") ||
-		!strcmp(server, "default@tzo.com") ||
-		!strcmp(server, "default@zoneedit.com"))
+	    !strcmp(server, "default@dnsomatic.com") ||
+	    !strcmp(server, "default@dyndns.org") ||
+	    !strcmp(server, "default@dynsip.org") ||
+	    !strcmp(server, "default@easydns.com") ||
+	    !strcmp(server, "default@freedns.afraid.org") ||
+	    !strcmp(server, "ipv6tb@he.net") ||
+	    !strcmp(server, "dyndns@he.net") ||
+	    !strcmp(server, "default@no-ip.com") ||
+	    !strcmp(server, "default@sitelutions.com") ||
+	    !strcmp(server, "default@tzo.com") ||
+	    !strcmp(server, "default@zoneedit.com")) {
 		strcpy(service, server);
-	else if (!strcmp(server, "update@asus.com")) {
+	} else
+	if (!strcmp(server, "update@asus.com")) {
 		strcpy(service, (type == 2) ? "register@asus.com " : "");
 		strcat(service, "update@asus.com");
 		user = nvram_safe_get("et0macaddr");
 		passwd = nvram_safe_get("secret_code");
 		if (strcasestr(host, ".asuscomm.com") == NULL)
 			domain = ".asuscomm.com";
-	}
-	else
+	} else
 		strcpy(service, "default@dyndns.org");
 
-	if (nvram_match("wan_proto", "pppoe") ||
-	    nvram_match("wan_proto", "pptp")  ||
-	    nvram_match("wan_proto", "l2tp")) {
-		if (nvram_match("ddns_realip_x", "2"))
-			wan_ifname = nvram_safe_get("wan0_ifname");
-		else
+	wan_ifname = nvram_safe_get("wan0_ifname");
+	switch (_wan_proto("wan0_", word)) {
+	case WAN_PPPOE:
+	case WAN_PPTP:
+	case WAN_L2TP:
+		if (!nvram_match("ddns_realip_x", "2"))
 			wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
-	}
-	else
+		break;
 #ifdef __CONFIG_MADWIMAX__
-	if (nvram_match("wan_proto", "wimax"))
+	case WAN_WIMAX:
 		wan_ifname = nvram_safe_get("wan0_wimax_ifname");
-	else
+		break;
 #endif
 #ifdef __CONFIG_MODEM__
-	if (nvram_match("wan_proto", "usbmodem"))
+	case WAN_USBMODEM:
 		wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
-	else
+		break;
 #endif
-		wan_ifname = nvram_safe_get("wan0_ifname");
+	}
 
 	if (!(fp = fopen("/etc/ddns.conf", "w"))) {
 		perror("/etc/ddns.conf");
 		return errno;
 	}
 
+	if (nvram_invmatch("ddns_realip_x", "0"))
+		fprintf(fp, "iface %s\n", wan_ifname);
+
 	foreach (word, service, next) {
 		fprintf(fp, "system %s\n", service);
-		if (strlen(user))
+		if (*user)
 			fprintf(fp, "username %s\n", user);
-		if (strlen(passwd))
+		if (*passwd)
 			fprintf(fp, "password %s\n", passwd);
 		fprintf(fp, "alias %s%s\n", host, domain ? : "");
 		if (wild)
 			fprintf(fp, "wildcard\n");
 	}
 
-	if (nvram_invmatch("ddns_realip_x", "0"))
-		fprintf(fp, "iface %s\n", wan_ifname);
-
 	fappend("/usr/local/etc/ddns.conf", fp);
 	fclose(fp);
-
-	char *ddns_argv[] = {
-	    "inadyn",
-	    "--background", "--iterations", "1",
-	    "--config", "/etc/ddns.conf",
-	    "--exec", "/sbin/ddns_updated",
-	    NULL };
-	pid_t pid;
 
 	dprintf("ddns update %s %s\n", server, service);
 	nvram_unset("ddns_ipaddr");
 	nvram_unset("ddns_status");
+
 	killall_tk("inadyn");
-	_eval(ddns_argv, NULL, 0, &pid);
+	_eval(ddns_argv, NULL, 0, NULL);
+
 	return 0;
 }
 
