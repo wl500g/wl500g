@@ -26,11 +26,11 @@ diff -urBp a/upnphttp.c b/upnphttp.c
 --- a/upnphttp.c	2009-02-13 22:38:34.000000000 +0300
 +++ b/upnphttp.c	2011-05-19 21:05:47.000000000 +0400
 @@ -431,7 +431,7 @@ ProcessHttpQuery_upnphttp(struct upnphtt
- #endif
- 		else
- 		{
--			syslog(LOG_NOTICE, "%s not found, responding ERROR 404", HttpUrl);
-+			syslog(LOG_INFO, "%s not found, responding ERROR 404", HttpUrl);
- 			Send404(h);
+ 			return;
  		}
+ #endif
+-		syslog(LOG_NOTICE, "%s not found, responding ERROR 404", HttpUrl);
++		syslog(LOG_INFO, "%s not found, responding ERROR 404", HttpUrl);
+ 		Send404(h);
  	}
+ #ifdef ENABLE_EVENTS
