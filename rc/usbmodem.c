@@ -658,10 +658,10 @@ int parse_product_string(const char *product, int *vid, int *pid)
 
 
 /// wait for device appearance in /proc/bus/usb/devices
-int wait_for_dev_appearance(int vid, int pid, const char *device)
+int wait_for_dev_appearance(int vid, int pid, const char *device, const char *driver_list[])
 {
 	FILE *fp = NULL;
-	char *vbuf = NULL, *ptr;
+	char *vbuf = NULL, *ptr, **ptr2;
 	dev_usb_t dev;
 	int result, rep_counter, dev_bus, dev_num;
 
@@ -678,26 +678,44 @@ int wait_for_dev_appearance(int vid, int pid, const char *device)
 		(fp = fopen(MODEM_DEVICES_FILE, "rt")); rep_counter--) {
 
 		memset(&dev, 0, sizeof(dev));
-		while (fgets (vbuf, BUF_LEN, fp) != 0) {
-			if (*vbuf == 'T') {
+		while (fgets (vbuf, BUF_LEN, fp) != 0 && result == 0) {
+			switch (*vbuf) {
+			case 'T':{
 				memset(&dev, 0, sizeof(dev));
 				dev.bus = get_numeric_par(vbuf, "Bus=", 10, &ptr);
 				dev.number = get_int_par(ptr, "Dev#=");
-			} else if (*vbuf == 'P') {
+				break;
+			} 
+			case 'P':{
 				dev.vid = get_numeric_par(vbuf, "Vendor=", 16, &ptr);
 				dev.pid = get_hex_par(ptr, "ProdID=");
 
 				if (dev.vid == vid && dev.pid == pid && 
 					dev.number == dev_num && dev.bus == dev_bus) {
-					result = 1;
-					break;
+					if (!driver_list) result = 1;
 				}
+				break;
+			}
+			case 'I':
+				if (!driver_list || dev.vid != vid || dev.pid != pid ) break;
+
+				if ((ptr = strstr(vbuf, "Driver="))) {
+					ptr += sizeof("Driver=")-1;
+					for (ptr2 = (char**)driver_list; *ptr2; ptr2++) {
+						if (!strncmp(ptr, *ptr2, strlen(*ptr2))) {
+							result = 1;
+							break;
+						}
+					}
+				}
+				break;
 			}
 		}
 		fclose (fp);
 	}
+#ifdef DEBUG
 	dprintf("rep_counter %d\n", max_time*1000/rep_time-rep_counter);
-
+#endif
 	free (vbuf);
 
 	return result;
@@ -705,7 +723,7 @@ int wait_for_dev_appearance(int vid, int pid, const char *device)
 
 int hotplug_check_modem(const char *interface, const char *product, const char *device, const char *prefix)
 {
-	int ret = 0, i;
+	int ret = 0;
 	char *str1, *str2;
 	char tmp[200];
 	char stored_product[40];
@@ -730,7 +748,7 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 
 	sscanf(product, "%x/%x", &hp_vid, &hp_pid);
 
-	if (!wait_for_dev_appearance(hp_vid, hp_pid, device)) {
+	if (!wait_for_dev_appearance(hp_vid, hp_pid, device, NULL)) {
 		dprintf("device not found in /proc/bus/usb/devices\n");
 		return 0;
 	}
@@ -794,15 +812,18 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 	if (ret && found_dev) {
 		nvram_set(strcat_r(prefix, "usb_device_name", tmp), found_dev->prod);
 		if (!exists("/sys/module/usbserial")) insmod("usbserial", NULL);
+#ifndef LINUX26
+		insmod("acm", NULL);
+#else
+		if (!exists("/sys/module/cdc-acm")) insmod("cdc-acm", NULL);
+#endif
+		if (!exists("/sys/module/option")) insmod("option", NULL);
 
-		if (!exists("/sys/module/option")) {
-			sprintf(stored_product, "product=0x%x", found_dev->pid);
-			sprintf(tmp, "vendor=0x%x", found_dev->vid);
-			insmod("option", tmp, stored_product, NULL);
-			dprintf("load option with %s %s\n", tmp, stored_product);
-			for(i=0; i<500 && !exists("/sys/module/option"); i++)
-				usleep(10000);
-		} else {
+		const char *driver_list[] = {"option", "cdc-acm", NULL};
+
+		if (!wait_for_dev_appearance(found_dev->vid, found_dev->pid, device, driver_list)) {
+			dprintf("Found usbmodem %04X:%04X without driver. Loading 'option'\n",
+				found_dev->vid, found_dev->pid);
 			FILE * fnew_id = fopen("/sys/bus/usb-serial/drivers/option1/new_id", "a");
 
 			if (fnew_id) {
@@ -812,11 +833,6 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 				dprintf( "Option file open error: %s\n", strerror(errno) );
 			}
 		}
-#ifndef LINUX26
-		insmod("acm", NULL);
-#else
-		if (!exists("/sys/module/cdc-acm")) insmod("cdc-acm", NULL);
-#endif
 	}
 
 	free_dev_list(list);
