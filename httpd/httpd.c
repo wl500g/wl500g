@@ -421,7 +421,7 @@ do_file(char *path, FILE *stream)
 
 	if (!(fp = fopen(path, "r")))
 		return;
-	while ((c = fread(buf, 1, sizeof(buf), fp)))
+	while ((c = fread(buf, 1, sizeof(buf), fp)) > 0)
 		fwrite(buf, 1, c, stream);
 	fclose(fp);
 }
