@@ -146,7 +146,7 @@ start_dns(void)
 			sprintf(ip, "dhcp_staticip_x%d", i);
 			sprintf(name, "dhcp_staticname_x%d", i);
 
-			if (ip_addr(nvram_safe_get(ip)) != INADDR_ANY && 
+			if (ip_addr(nvram_safe_get(ip)) != INADDR_ANY &&
 				nvram_invmatch(name, "")) 
 			{
 				fprintf(fp, "%s %s\n", nvram_get(ip), nvram_get(name));
