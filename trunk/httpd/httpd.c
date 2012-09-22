@@ -416,12 +416,13 @@ void
 do_file(char *path, FILE *stream)
 {
 	FILE *fp;
+	char buf[0x800];
 	int c;
 
 	if (!(fp = fopen(path, "r")))
 		return;
-	while ((c = getc(fp)) != EOF)
-		fputc(c, stream);
+	while ((c = fread(buf, 1, sizeof(buf), fp)))
+		fwrite(buf, 1, c, stream);
 	fclose(fp);
 }
 
