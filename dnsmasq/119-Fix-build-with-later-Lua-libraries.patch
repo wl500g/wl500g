@@ -1,0 +1,48 @@
+From 289a253569f48ded3b0f72b5f29ddeda8a85224e Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Thu, 20 Sep 2012 15:29:35 +0100
+Subject: [PATCH 19/20] Fix build with later Lua libraries.
+
+---
+ CHANGELOG    |    3 +++
+ src/helper.c |    5 +++++
+ 2 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/CHANGELOG b/CHANGELOG
+index 4bab340..8d8805b 100644
+--- a/CHANGELOG
++++ b/CHANGELOG
+@@ -22,7 +22,10 @@ version 2.64
+ 	    Add SetServersEX method in DBus interface. Thanks to Dan
+ 	    Williams for the patch.
+ 
++	    Fix build with later Lua libraries. Thansk to Cristian
++	    Rodriguez for the patch.
+ 
++	    
+ version 2.63
+             Do duplicate dhcp-host address check in --test mode.
+ 
+diff --git a/src/helper.c b/src/helper.c
+index 5c07f05..bcb315c 100644
+--- a/src/helper.c
++++ b/src/helper.c
+@@ -34,10 +34,15 @@ static void my_setenv(const char *name, const char *value, int *error);
+ static unsigned char *grab_extradata(unsigned char *buf, unsigned char *end,  char *env, int *err);
+ 
+ #ifdef HAVE_LUASCRIPT
++#define LUA_COMPAT_ALL
+ #include <lua.h>  
+ #include <lualib.h>  
+ #include <lauxlib.h>  
+ 
++#ifndef lua_open
++#define lua_open()     luaL_newstate()
++#endif
++
+ lua_State *lua;
+ 
+ static unsigned char *grab_extradata_lua(unsigned char *buf, unsigned char *end, char *field);
+-- 
+1.7.2.5
+
