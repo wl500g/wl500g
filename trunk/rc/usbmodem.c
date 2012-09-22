@@ -390,7 +390,7 @@ static int search_modems_in_list(dev_usb_t *list, int vid, int pid)
 						else
 							dev->ui_port = i->number;
 					} else {
-						if (i->cls == CLASS_MEM && 
+						if (i->cls == CLASS_MEM &&
 							dev->type == TYPE_NO)
 							dev->type = TYPE_MEM;
 					}
@@ -674,31 +674,29 @@ int wait_for_dev_appearance(int vid, int pid, const char *device, const char *dr
 	if (!get_bus_num_from_devstr(device, &dev_bus, &dev_num) ||
 		(vbuf = malloc(BUF_LEN)) == NULL) return result;
 
-	for (;!result && rep_counter && !usleep(rep_time*1000) && 
-		(fp = fopen(MODEM_DEVICES_FILE, "rt")); rep_counter--) {
+	while ((!result && rep_counter && !usleep(rep_time*1000;)) &&
+	       (fp = fopen(MODEM_DEVICES_FILE, "rt") != NULL)) {
 
 		memset(&dev, 0, sizeof(dev));
-		while (fgets (vbuf, BUF_LEN, fp) != 0 && result == 0) {
+		while (fgets(vbuf, BUF_LEN, fp) != NULL && result == 0) {
 			switch (*vbuf) {
-			case 'T':{
+			case 'T':
 				memset(&dev, 0, sizeof(dev));
 				dev.bus = get_numeric_par(vbuf, "Bus=", 10, &ptr);
 				dev.number = get_int_par(ptr, "Dev#=");
 				break;
-			} 
-			case 'P':{
+			case 'P':
 				dev.vid = get_numeric_par(vbuf, "Vendor=", 16, &ptr);
 				dev.pid = get_hex_par(ptr, "ProdID=");
 
-				if (dev.vid == vid && dev.pid == pid && 
+				if (dev.vid == vid && dev.pid == pid &&
 					dev.number == dev_num && dev.bus == dev_bus) {
 					if (!driver_list) result = 1;
 				}
 				break;
-			}
 			case 'I':
-				if (!driver_list || dev.vid != vid || dev.pid != pid ) break;
-
+				if (!driver_list || dev.vid != vid || dev.pid != pid )
+					break;
 				if ((ptr = strstr(vbuf, "Driver="))) {
 					ptr += sizeof("Driver=")-1;
 					for (ptr2 = (char**)driver_list; *ptr2; ptr2++) {
@@ -712,6 +710,7 @@ int wait_for_dev_appearance(int vid, int pid, const char *device, const char *dr
 			}
 		}
 		fclose (fp);
+		rep_counter--
 	}
 #ifdef DEBUG
 	dprintf("rep_counter %d\n", max_time*1000/rep_time-rep_counter);
