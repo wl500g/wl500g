@@ -674,8 +674,8 @@ int wait_for_dev_appearance(int vid, int pid, const char *device, const char *dr
 	if (!get_bus_num_from_devstr(device, &dev_bus, &dev_num) ||
 		(vbuf = malloc(BUF_LEN)) == NULL) return result;
 
-	while ((!result && rep_counter && !usleep(rep_time*1000;)) &&
-	       (fp = fopen(MODEM_DEVICES_FILE, "rt") != NULL)) {
+	while (!result && rep_counter &&
+	       ((fp = fopen(MODEM_DEVICES_FILE, "rt")) != NULL)) {
 
 		memset(&dev, 0, sizeof(dev));
 		while (fgets(vbuf, BUF_LEN, fp) != NULL && result == 0) {
@@ -710,7 +710,9 @@ int wait_for_dev_appearance(int vid, int pid, const char *device, const char *dr
 			}
 		}
 		fclose (fp);
-		rep_counter--
+		if (!result)
+			usleep(rep_time*1000);
+		rep_counter--;
 	}
 #ifdef DEBUG
 	dprintf("rep_counter %d\n", max_time*1000/rep_time-rep_counter);
