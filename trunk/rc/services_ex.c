@@ -421,11 +421,20 @@ ddns_updated_main()
 
 	return 0;
 }
-	
+
+
+const struct {
+	char *sevice;
+	char *alias;
+} ddns_sevices[] = {
+	{ "update@asus.com", "WWW.ASUS.COM" },
+};
 
 int 
 start_ddns(int type)
 {
+	
+
 	FILE *fp;
 	char word[32], *next;
 	char *wan_ifname;

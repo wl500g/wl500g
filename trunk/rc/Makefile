@@ -16,11 +16,13 @@ ifneq ($(MAKECMDGOALS),clean)
 include $(TOP)/.config
 endif
 
-CFLAGS	+= -s -O2 $(GLOBAL_OPTIONS) $(EXTRACFLAGS)
+CFLAGS	+= -Wall -O2 $(GLOBAL_OPTIONS) $(EXTRACFLAGS)
+CFLAGS	+= -ffunction-sections -fdata-sections
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include -Wall
 #CFLAGS	+= -g -DDEBUG
 #CFLAGS	+= -g -DDEBUG -DDEBUG_TO_SYSLOG
-CFLAGS += -DWEBSTRFILTER
+CFLAGS	+= -DWEBSTRFILTER
+LDFLAGS	+= -ffunction-sections -fdata-sections -Wl,--gc-sections
 LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -lpthread -Wl,-rpath /lib
 
 MODEL := $(patsubst -DMODEL_%,%,$(filter -DMODEL_%,$(GLOBAL_OPTIONS)))
@@ -55,6 +57,7 @@ install: all
 	install -d $(INSTALLDIR)/sbin
 	install rc $(INSTALLDIR)/sbin
 	$(STRIP) $(INSTALLDIR)/sbin/rc
+
 	ln -sf rc $(INSTALLDIR)/sbin/init
 	ln -sf rc $(INSTALLDIR)/sbin/erase
 	ln -sf rc $(INSTALLDIR)/sbin/write
@@ -63,8 +66,6 @@ install: all
 	ln -sf rc $(INSTALLDIR)/sbin/halt
 	ln -sf rc $(INSTALLDIR)/sbin/reboot
 	ln -sf rc $(INSTALLDIR)/sbin/poweron
-
-	# Added by ASUS
 	ln -sf rc $(INSTALLDIR)/sbin/stopservice
 	ln -sf rc $(INSTALLDIR)/sbin/ddns_updated
 	ln -sf rc $(INSTALLDIR)/sbin/watchdog
@@ -87,7 +88,6 @@ endif
 ifeq ($(CONFIG_MODEM),y)
 	ln -sf rc $(INSTALLDIR)/sbin/lsmodem
 endif
-
 
 $(STAMP):
 	$(MAKE) clean
