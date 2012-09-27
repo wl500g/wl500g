@@ -68,6 +68,7 @@ TARGET_LANGUAGES:="c$(if $(CONFIG_INSTALL_LIBSTDCPP),$(SEP)c++)$(if $(CONFIG_INS
 
 EXTRA_TARGET=$(if $(CONFIG_EXTRA_TARGET_ARCH),--enable-biarch --enable-targets=$(call qstrip,$(CONFIG_EXTRA_TARGET_ARCH_NAME))-linux-uclibc)
 
+export CONFIG_SITE=NONE
 export libgcc_cv_fixed_point=no
 export glibcxx_cv_c99_math_tr1=no
 
