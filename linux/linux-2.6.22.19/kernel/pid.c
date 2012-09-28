@@ -368,6 +368,11 @@ EXPORT_SYMBOL_GPL(find_get_pid);
 struct pid_namespace *copy_pid_ns(int flags, struct pid_namespace *old_ns)
 {
 	BUG_ON(!old_ns);
+
+	/* CLONE_NEWPID unsupported */
+	if (flags & 0x20000000 /* CLONE_NEWPID */)
+		return ERR_PTR(-EINVAL);
+
 	get_pid_ns(old_ns);
 	return old_ns;
 }
