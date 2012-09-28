@@ -6,6 +6,14 @@ Subject: lineedit: fix Alt-D when cursor==0
 Signed-off-by: Cliff Frey <cliff@meraki.com>
 Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
 ---
+From b2320370be14811459718b9fe418efed75ea3615
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Thu, 27 Sep 2012 14:03:49 +0000
+Subject: lineedit: in !EDITING config, return -1 on fgets error
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
 diff --git a/libbb/lineedit.c b/libbb/lineedit.c
 --- a/libbb/lineedit.c
 +++ b/libbb/lineedit.c
@@ -22,5 +30,15 @@ diff --git a/libbb/lineedit.c b/libbb/lineedit.c
  						input_delete(1);
  					break;
  				}
+@@ -2729,7 +2729,8 @@ int FAST_FUNC read_line_input(const char* prompt, char* command, int maxsize)
+ {
+ 	fputs(prompt, stdout);
+ 	fflush_all();
+-	fgets(command, maxsize, stdin);
++	if (!fgets(command, maxsize, stdin))
++		return -1;
+ 	return strlen(command);
+ }
+ 
 --
 cgit v0.9.0.1-2-gef13
