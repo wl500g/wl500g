@@ -1,0 +1,162 @@
+clone(): return -EINVAL instead of -ENOMEM for unsupported CLONE_NEWPID flag
+
+ Several programs(vsftpd, for example) recognize that clone() not support
+ CLONE_NEWPID flag by return code -EINVAL, as described in documentation.
+ But kernels <2.6.24 returns -ENOMEM, so detection always fail. Fix it.
+
+ Upstream commits:
+ 467e9f4b5086a60a5cb2e032ccaf4a31abadc4c2 fix create_new_namespaces() return value
+ efc63c4fb0f95865907472d1c6bc0cfea9ee156b Fix UTS corruption during clone(CLONE_NEWUTS)
+
+---
+ fs/namespace.c   |    4 ++--
+ kernel/nsproxy.c |   28 +++++++++++++++++++++-------
+ kernel/pid.c     |    5 +++++
+ kernel/utsname.c |   12 ++++++++----
+ 4 files changed, 36 insertions(+), 13 deletions(-)
+
+diff --git a/fs/namespace.c b/fs/namespace.c
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -1451,7 +1451,7 @@ static struct mnt_namespace *dup_mnt_ns(struct mnt_namespace *mnt_ns,
+ 
+ 	new_ns = kmalloc(sizeof(struct mnt_namespace), GFP_KERNEL);
+ 	if (!new_ns)
+-		return NULL;
++		return ERR_PTR(-ENOMEM);
+ 
+ 	atomic_set(&new_ns->count, 1);
+ 	INIT_LIST_HEAD(&new_ns->list);
+@@ -1465,7 +1465,7 @@ static struct mnt_namespace *dup_mnt_ns(struct mnt_namespace *mnt_ns,
+ 	if (!new_ns->root) {
+ 		up_write(&namespace_sem);
+ 		kfree(new_ns);
+-		return NULL;
++		return ERR_PTR(-ENOMEM);;
+ 	}
+ 	spin_lock(&vfsmount_lock);
+ 	list_add_tail(&new_ns->list, &new_ns->root->mnt_list);
+diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
+--- a/kernel/nsproxy.c
++++ b/kernel/nsproxy.c
+@@ -58,26 +58,35 @@ static struct nsproxy *create_new_namespaces(int flags,
+ 			struct fs_struct *new_fs)
+ {
+ 	struct nsproxy *new_nsp;
++	int err;
+ 
+ 	new_nsp = clone_nsproxy(tsk->nsproxy);
+ 	if (!new_nsp)
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	new_nsp->mnt_ns = copy_mnt_ns(flags, tsk->nsproxy->mnt_ns, new_fs);
+-	if (IS_ERR(new_nsp->mnt_ns))
++	if (IS_ERR(new_nsp->mnt_ns)) {
++		err = PTR_ERR(new_nsp->mnt_ns);
+ 		goto out_ns;
++	}
+ 
+ 	new_nsp->uts_ns = copy_utsname(flags, tsk->nsproxy->uts_ns);
+-	if (IS_ERR(new_nsp->uts_ns))
++	if (IS_ERR(new_nsp->uts_ns)) {
++		err = PTR_ERR(new_nsp->uts_ns);
+ 		goto out_uts;
++	}
+ 
+ 	new_nsp->ipc_ns = copy_ipcs(flags, tsk->nsproxy->ipc_ns);
+-	if (IS_ERR(new_nsp->ipc_ns))
++	if (IS_ERR(new_nsp->ipc_ns)) {
++		err = PTR_ERR(new_nsp->ipc_ns);
+ 		goto out_ipc;
++	}
+ 
+ 	new_nsp->pid_ns = copy_pid_ns(flags, tsk->nsproxy->pid_ns);
+-	if (IS_ERR(new_nsp->pid_ns))
++	if (IS_ERR(new_nsp->pid_ns)) {
++		err = PTR_ERR(new_nsp->pid_ns);
+ 		goto out_pid;
++	}
+ 
+ 	return new_nsp;
+ 
+@@ -92,9 +101,10 @@ out_uts:
+ 		put_mnt_ns(new_nsp->mnt_ns);
+ out_ns:
+ 	kfree(new_nsp);
+-	return ERR_PTR(-ENOMEM);
++	return ERR_PTR(err);
+ }
+ 
++#define	CLONE_NEWPID 0x20000000
+ /*
+  * called from clone.  This now handles copy for nsproxy and all
+  * namespaces therein.
+@@ -110,7 +120,7 @@ int copy_namespaces(int flags, struct 
+ 
+ 	get_nsproxy(old_ns);
+ 
+-	if (!(flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC)))
++	if (!(flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWPID )))
+ 		return 0;
+ 
+ 	if (!capable(CAP_SYS_ADMIN)) {
+@@ -152,9 +162,13 @@ int unshare_nsproxy_namespaces(unsigned 
+ {
+ 	int err = 0;
+ 
+-	if (!(unshare_flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC)))
++	if (!(unshare_flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWPID)))
+ 		return 0;
+ 
++	/* proper retcode for unsupported CLONE_NEWPID */
++	if (unshare_flags & CLONE_NEWPID)
++		return -EINVAL;
++
+ #ifndef CONFIG_IPC_NS
+ 	if (unshare_flags & CLONE_NEWIPC)
+ 		return -EINVAL;
+diff --git a/kernel/pid.c b/kernel/pid.c
+--- a/kernel/pid.c
++++ b/kernel/pid.c
+@@ -369,6 +369,11 @@ EXPORT_SYMBOL_GPL(find_get_pid);
+ struct pid_namespace *copy_pid_ns(int flags, struct pid_namespace *old_ns)
+ {
+ 	BUG_ON(!old_ns);
++
++	/* CLONE_NEWPID unsupported */
++	if (flags & 0x20000000 /* CLONE_NEWPID */)
++		return ERR_PTR(-EINVAL);
++
+ 	get_pid_ns(old_ns);
+ 	return old_ns;
+ }
+diff --git a/kernel/utsname.c b/kernel/utsname.c
+--- a/kernel/utsname.c
++++ b/kernel/utsname.c
+@@ -13,6 +13,7 @@
+ #include <linux/uts.h>
+ #include <linux/utsname.h>
+ #include <linux/version.h>
++#include <linux/err.h>
+ 
+ /*
+  * Clone a new ns copying an original utsname, setting refcount to 1
+@@ -24,10 +25,13 @@ static struct uts_namespace *clone_uts_ns(struct uts_namespace *old_ns)
+ 	struct uts_namespace *ns;
+ 
+ 	ns = kmalloc(sizeof(struct uts_namespace), GFP_KERNEL);
+-	if (ns) {
+-		memcpy(&ns->name, &old_ns->name, sizeof(ns->name));
+-		kref_init(&ns->kref);
+-	}
++	if (!ns)
++		return ERR_PTR(-ENOMEM);
++
++	down_read(&uts_sem);
++	memcpy(&ns->name, &old_ns->name, sizeof(ns->name));
++	up_read(&uts_sem);
++	kref_init(&ns->kref);
+ 	return ns;
+ }
+ 
+-- 
