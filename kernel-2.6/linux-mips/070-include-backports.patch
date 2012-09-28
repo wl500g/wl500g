@@ -47,3 +47,19 @@ diff --git a/include/asm-mips/bug.h b/include/asm-mips/bug.h
  
  #define HAVE_ARCH_BUG_ON
  
+diff --git a/include/asm-mips/types.h b/include/asm-mips/types.h
+--- a/include/asm-mips/types.h
++++ b/include/asm-mips/types.h
+@@ -34,9 +34,9 @@ typedef unsigned long __u64;
+ 
+ #else
+ 
+-#if defined(__GNUC__) && !defined(__STRICT_ANSI__)
+-typedef __signed__ long long __s64;
+-typedef unsigned long long __u64;
++#if defined(__GNUC__)
++__extension__ typedef __signed__ long long __s64;
++__extension__ typedef unsigned long long __u64;
+ #endif
+ 
+ #endif
