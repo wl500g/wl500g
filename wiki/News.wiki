@@ -10,25 +10,38 @@
     * Cleanup unused/dead code
 
   * kernel
-    * backports from upstream - MIPS, softirq(add /proc/softirqs), rcu classic, fs(epoll, nls, fuse), net(skb, ipv4, ipv6, connector), netfilter, usb, md/raid
+    * backports from upstream - MIPS, softirq(add /proc/softirqs), rcu classic, fs(epoll, nls, fuse, ext2/3/4, udf), net(skb, ipv4, ipv6, connector, tcp), netfilter, usb(ehci), md/raid, uvcvideo
     * l2tp fixes; don't queue incoming packets, if not connected.
 
   * rc/www
     * httpd cleanup, fixes
     * rc fixes
 
-  * 3g/cdma: new modems in modems.conf
+  * 3g/cdma
+    * new modems in modems.conf
+    * usb-modeswitch-1.2.4 + usb-modeswitch-data-20120815
+    * libusb 1.0 upstream fixes
+    * fix usb_devpath for cdc-acm
+    * rc usbnet fixes, thanks to Vampik
 
-  * busybox 1.20.1
-    * bugfixes from upstream (sed, wget, mount, awk)
+  * busybox 1.20.2
+    * bugfixes from upstream (sed, wget, mount, awk, lineedit, ash)
+
+  * dnsmasq 2.63
+    * upstream patches
 
   * udpxy 1.0.23
 
+  * inadyn 1.99.2 from git://github.com/vampik/inadyn.git
+    * add asuscomm.com support
+
+  * miniupnpd 1.7.20120824
+
   * misc
     * radvd: fixes from upstream
-    * inadyn: add asuscomm.com support
-    * igmpproxy: fix igmpv3 stub
+    * igmpproxy: add igmpv3 clients support
     * pppd: upstream updates (VJ-comp, crypt, MSCHAP-v2)
+    * infosrv: add simple implementation forasus device discovery (set "infosrv_disable=1" nvram variable to turn it off)
 
 ===RT-N-1.9.2.7-rtn-`r4330` (2012-06-12)===
   * uClibc 0.9.32: Implement tiny /etc/gai.conf - to change default names resolution order to IPv4 first, IPv6 second, create /etc/gai.conf containing single line "precedence ipv4"
