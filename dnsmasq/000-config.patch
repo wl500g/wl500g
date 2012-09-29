@@ -1,13 +1,11 @@
 diff -BurpN dnsmasq-2.61/src/config.h dnsmasq/src/config.h
 --- dnsmasq-2.61/src/config.h	2012-05-17 11:50:30.640000002 +0000
 +++ dnsmasq/src/config.h	2012-05-17 12:00:00.450000002 +0000
-@@ -118,10 +118,10 @@ RESOLVFILE
- 
+@@ -118,9 +118,9 @@ RESOLVFILE
  #define HAVE_DHCP
  #define HAVE_DHCP6 
--#define HAVE_TFTP
+ #define HAVE_TFTP
 -#define HAVE_SCRIPT
-+/* #define HAVE_TFTP */
 +/* #define HAVE_SCRIPT */
  /* #define HAVE_LUASCRIPT */
 -/* #define HAVE_BROKEN_RTC */
@@ -15,7 +13,7 @@ diff -BurpN dnsmasq-2.61/src/config.h dnsmasq/src/config.h
  /* #define HAVE_DBUS */
  /* #define HAVE_IDN */
  /* #define HAVE_CONNTRACK */
-@@ -201,10 +201,12 @@ HAVE_SOCKADDR_SA_LEN
+@@ -206,10 +206,12 @@ HAVE_SOCKADDR_SA_LEN
  #if !defined(__ARCH_HAS_MMU__) && !defined(__UCLIBC_HAS_MMU__)
  #  define NO_FORK
  #endif
