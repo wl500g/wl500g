@@ -467,10 +467,14 @@ start_ddns(int type)
 
 	server = nvram_safe_get("ddns_server_x");
 	for (service = &ddns_services[0]; service->name; service++) {
-		if ((strcmp(server, service->name) == 0) ||
-		    (service->alias &&
-		     strncmp(server, service->alias, strlen(service->alias)) == 0))
-		        break;
+		if (strcmp(server, service->name) == 0)
+			break;
+		if (service->alias &&
+		    strncmp(server, service->alias, strlen(service->alias)) == 0) {
+			/* allow easy migration for web ui */
+			nvram_set("ddns_server_x", service->name);
+			break;
+		}
 	}
 	if (service->name == NULL) {
 		logmessage("ddns", "unknown server %s", server);
