@@ -194,7 +194,8 @@ start_dns(void)
 	}
 
 	fprintf(fp, "user=nobody\n"
-		    "resolv-file=/tmp/resolv.conf\nno-poll\n"
+		    "resolv-file=/tmp/resolv.conf\n"
+		    "no-poll\n"
 		    "interface=%s\n", nvram_safe_get("lan_ifname"));
 
 #if 0
@@ -212,15 +213,13 @@ start_dns(void)
 	}
 	
 	fprintf(fp, "no-negcache\n"
-		    "cache-size=512\n");
-	
+		    "cache-size=512\n"
+		    "dhcp-leasefile=/tmp/dnsmasq.log\n");
 	if (nvram_match("lan_proto", "dhcp")) {
 		fprintf(fp,
-			"dhcp-leasefile=/tmp/dnsmasq.log\n"
 			"dhcp-range=lan,%s,%s,%s\n",
 			nvram_safe_get("dhcp_start"), nvram_safe_get("dhcp_end"),
 			nvram_safe_get("dhcp_lease"));
-
 		if (nvram_invmatch("dhcp_dns1_x",""))
 			fprintf(fp, "dhcp-option=lan,6,%s,0.0.0.0\n", nvram_safe_get("dhcp_dns1_x"));
 		if (nvram_invmatch("dhcp_wins_x",""))		
@@ -230,13 +229,28 @@ start_dns(void)
 			fprintf(fp, "dhcp-option=lan,15,%s\n", nvram_safe_get("lan_domain"));
 		if (nvram_invmatch("dhcp_gateway_x",""))
 			fprintf(fp, "dhcp-option=lan,3,%s\n", nvram_safe_get("dhcp_gateway_x"));
-			
 		if (ethers)
 			fprintf(fp, "read-ethers\n");
-			
 		fprintf(fp, "dhcp-authoritative\n");
 	}
-	
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "") &&
+	    nvram_invmatch("ipv6_proto", "dhcp6")) {
+		fprintf(fp, "dhcp-range=::,::,static,0\n"
+			    "dhcp-option=option6:23,");
+		if (nvram_invmatch("ipv6_dns1_x", ""))
+			fprintf(fp, "%s,", nvram_safe_get("ipv6_dns1_x"));
+		//if (nvram_invmatch("ipv6_dns2_x", ""))
+		//	fprintf(fp, "%s,", nvram_safe_get("ipv6_dns2_x"));
+		//if (nvram_invmatch("ipv6_dns3_x", ""))
+		//	fprintf(fp, "%s,", nvram_safe_get("ipv6_dns3_x"));
+		fprintf(fp, "[::]\n");
+		if (nvram_invmatch("lan_domain", ""))
+			fprintf(fp, "dhcp-option=option6:24,%s\n", nvram_safe_get("lan_domain"));
+		fprintf(fp, "dhcp-option=option6:32,600\n");
+	}
+#endif
+
 	fappend("/usr/local/etc/dnsmasq.conf", fp);
 	fclose(fp);
 
@@ -323,6 +337,11 @@ start_radvd(void)
 		"interface %s {"
 		    "IgnoreIfMissing on;"
 		    "AdvSendAdvert on;", nvram_safe_get("lan_ifname"));
+	if (nvram_invmatch("ipv6_proto", "dhcp6"))
+	{
+		fprintf(fp,
+		    "AdvOtherConfigFlag on;");
+	}
 #ifdef BROKEN_IPV6_CONNTRACK
 	/* Advertise tunnel MTU to avoid large packet issue */
 	if (nvram_match("ipv6_proto", "tun6in4") ||
