@@ -5,7 +5,7 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
-===RT-N-1.9.2.7-rtn (Current)===
+===RT-N-1.9.2.7-rtn-`r4645` (2012-09-30)===
   * Broadcom SDK
     * Cleanup unused/dead code
 
@@ -29,6 +29,7 @@
 
   * dnsmasq 2.63
     * upstream patches
+    * DHCPv6 improvements
 
   * udpxy 1.0.23
 
