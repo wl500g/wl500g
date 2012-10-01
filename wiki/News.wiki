@@ -30,6 +30,7 @@
   * dnsmasq 2.63
     * upstream patches
     * DHCPv6 improvements
+    * tftp enabled
 
   * udpxy 1.0.23
 
