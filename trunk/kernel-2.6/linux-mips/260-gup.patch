@@ -32,7 +32,7 @@ Signed-off-by: Hillf Danton <dhillf@gmail.com>
  obj-$(CONFIG_64BIT)		+= pgtable-64.o
 --- /dev/null	Fri Oct 28 21:12:42 2011
 +++ b/arch/mips/mm/gup.c	Fri Oct 28 21:07:06 2011
-@@ -0,0 +1,329 @@
+@@ -0,0 +1,331 @@
 +/*
 + * Lockless get_user_pages_fast for MIPS
 + *
@@ -196,6 +196,8 @@ Signed-off-by: Hillf Danton <dhillf@gmail.com>
 +	do {
 +		VM_BUG_ON(compound_head(page) != head);
 +		pages[*nr] = page;
++		if (PageTail(page))
++			get_huge_page_tail(page);
 +		(*nr)++;
 +		page++;
 +		refs++;
