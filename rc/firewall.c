@@ -108,30 +108,6 @@ start_firewall(void)
 	add_filter(&filter, NETCONF_IN);
 	add_filter(&filter, NETCONF_FORWARD);
 
-#ifdef REMOVE
-	/*
-	 * Forward drops
-	 */
-
-	/* Filter by MAC address */
-	if (!nvram_match("filter_macmode", "disabled")) {
-		memset(&filter, 0, sizeof(filter));
-		strcpy(filter.match.in.name, nvram_safe_get("lan_ifname"));
-		if (nvram_match("filter_macmode", "allow")) {
-			/* Allow new connections from the LAN side only from the specified addresses */
-			filter.target = log_accept;
-			filter.match.state = NETCONF_NEW;
-		} else {
-			/* Drop connections from the specified addresses */
-			filter.target = log_drop;
-		}
-		foreach(var, nvram_safe_get("filter_maclist"), next) {
-			if (ether_atoe(var, filter.match.mac.octet))
-				add_filter(&filter, NETCONF_FORWARD);
-		}
-	}
-#endif
-
 	/* Filter by MAC address */
 	if (!nvram_match("macfilter_enable_x", "0")) 
 	{
