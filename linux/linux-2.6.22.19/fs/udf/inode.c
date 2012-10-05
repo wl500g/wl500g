@@ -38,6 +38,7 @@
 #include <linux/writeback.h>
 #include <linux/slab.h>
 #include <linux/crc-itu-t.h>
+#include <linux/mpage.h>
 
 #include "udf_i.h"
 #include "udf_sb.h"
@@ -96,15 +97,17 @@ no_delete:
  */
 void udf_clear_inode(struct inode *inode)
 {
-	struct udf_inode_info *iinfo;
-	if (!(inode->i_sb->s_flags & MS_RDONLY)) {
-		lock_kernel();
-		udf_truncate_tail_extent(inode);
-		unlock_kernel();
-		write_inode_now(inode, 0);
-		invalidate_inode_buffers(inode);
+	struct udf_inode_info *iinfo = UDF_I(inode);
+
+	if (iinfo->i_alloc_type != ICBTAG_FLAG_AD_IN_ICB &&
+	    inode->i_size != iinfo->i_lenExtents) {
+		printk(KERN_WARNING "UDF-fs (%s): Inode %lu (mode %o) has "
+			"inode size %llu different from extent lenght %llu. "
+			"Filesystem need not be standards compliant.\n",
+			inode->i_sb->s_id, inode->i_ino, inode->i_mode,
+			(unsigned long long)inode->i_size,
+			(unsigned long long)iinfo->i_lenExtents);
 	}
-	iinfo = UDF_I(inode);
 	kfree(iinfo->i_ext.i_data);
 	iinfo->i_ext.i_data = NULL;
 }
@@ -114,9 +117,21 @@ static int udf_writepage(struct page *page, struct writeback_control *wbc)
 	return block_write_full_page(page, udf_get_block, wbc);
 }
 
+static int udf_writepages(struct address_space *mapping,
+			struct writeback_control *wbc)
+{
+	return mpage_writepages(mapping, wbc, udf_get_block);
+}
+
 static int udf_readpage(struct file *file, struct page *page)
 {
-	return block_read_full_page(page, udf_get_block);
+	return mpage_readpage(page, udf_get_block);
+}
+
+static int udf_readpages(struct file *file, struct address_space *mapping,
+			struct list_head *pages, unsigned nr_pages)
+{
+	return mpage_readpages(mapping, pages, nr_pages, udf_get_block);
 }
 
 static int udf_write_begin(struct file *file, struct address_space *mapping,
@@ -135,7 +150,9 @@ static sector_t udf_bmap(struct address_space *mapping, sector_t block)
 
 const struct address_space_operations udf_aops = {
 	.readpage	= udf_readpage,
+	.readpages	= udf_readpages,
 	.writepage	= udf_writepage,
+	.writepages	= udf_writepages,
 	.sync_page	= block_sync_page,
 	.write_begin		= udf_write_begin,
 	.write_end		= generic_write_end,
@@ -197,7 +214,6 @@ struct buffer_head *udf_expand_dir_adinicb(struct inode *inode, int *block,
 	int newblock;
 	struct buffer_head *dbh = NULL;
 	struct kernel_lb_addr eloc;
-	uint32_t elen;
 	uint8_t alloctype;
 	struct extent_position epos;
 
@@ -272,12 +288,11 @@ struct buffer_head *udf_expand_dir_adinicb(struct inode *inode, int *block,
 	eloc.logicalBlockNum = *block;
 	eloc.partitionReferenceNum =
 				iinfo->i_location.partitionReferenceNum;
-	elen = inode->i_sb->s_blocksize;
-	iinfo->i_lenExtents = elen;
+	iinfo->i_lenExtents = inode->i_size;
 	epos.bh = NULL;
 	epos.block = iinfo->i_location;
 	epos.offset = udf_file_entry_alloc_offset(inode);
-	udf_add_aext(inode, &epos, &eloc, elen, 0);
+	udf_add_aext(inode, &epos, &eloc, inode->i_size, 0);
 	/* UniqueID stuff */
 
 	brelse(epos.bh);
@@ -479,6 +494,7 @@ static struct buffer_head *inode_getblk(struct inode *inode, sector_t block,
 	struct udf_inode_info *iinfo = UDF_I(inode);
 	int goal = 0, pgoal = iinfo->i_location.logicalBlockNum;
 	int lastblock = 0;
+	bool isBeyondEOF;
 
 	prev_epos.offset = udf_file_entry_alloc_offset(inode);
 	prev_epos.block = iinfo->i_location;
@@ -557,7 +573,7 @@ static struct buffer_head *inode_getblk(struct inode *inode, sector_t block,
 	/* Are we beyond EOF? */
 	if (etype == -1) {
 		int ret;
-
+		isBeyondEOF = 1;
 		if (count) {
 			if (c)
 				laarr[0] = laarr[1];
@@ -602,6 +618,7 @@ static struct buffer_head *inode_getblk(struct inode *inode, sector_t block,
 		endnum = c + 1;
 		lastblock = 1;
 	} else {
+		isBeyondEOF = 0;
 		endnum = startnum = ((count > 2) ? 2 : count);
 
 		/* if the current extent is in position 0,
@@ -644,10 +661,13 @@ static struct buffer_head *inode_getblk(struct inode *inode, sector_t block,
 				goal, err);
 		if (!newblocknum) {
 			brelse(prev_epos.bh);
+			brelse(cur_epos.bh);
+			brelse(next_epos.bh);
 			*err = -ENOSPC;
 			return NULL;
 		}
-		iinfo->i_lenExtents += inode->i_sb->s_blocksize;
+		if (isBeyondEOF)
+			iinfo->i_lenExtents += inode->i_sb->s_blocksize;
 	}
 
 	/* if the extent the requsted block is located in contains multiple
@@ -674,6 +694,8 @@ static struct buffer_head *inode_getblk(struct inode *inode, sector_t block,
 	udf_update_extents(inode, laarr, startnum, endnum, &prev_epos);
 
 	brelse(prev_epos.bh);
+	brelse(cur_epos.bh);
+	brelse(next_epos.bh);
 
 	newblock = udf_get_pblock(inode->i_sb, newblocknum,
 				iinfo->i_location.partitionReferenceNum, 0);
@@ -1050,13 +1072,22 @@ void udf_truncate(struct inode *inode)
 	unlock_kernel();
 }
 
+/*
+ * Maximum length of linked list formed by ICB hierarchy. The chosen number is
+ * arbitrary - just that we hopefully don't limit any real use of rewritten
+ * inode on write-once media but avoid looping for too long on corrupted media.
+ */
+#define UDF_MAX_ICB_NESTING 1024
+
 static void __udf_read_inode(struct inode *inode)
 {
 	struct buffer_head *bh = NULL;
 	struct fileEntry *fe;
 	uint16_t ident;
 	struct udf_inode_info *iinfo = UDF_I(inode);
+	unsigned int indirections = 0;
 
+reread:
 	/*
 	 * Set defaults, but the inode is still incomplete!
 	 * Note: get_new_inode() sets the following on a new inode:
@@ -1094,28 +1125,26 @@ static void __udf_read_inode(struct inode *inode)
 		ibh = udf_read_ptagged(inode->i_sb, &iinfo->i_location, 1,
 					&ident);
 		if (ident == TAG_IDENT_IE && ibh) {
-			struct buffer_head *nbh = NULL;
 			struct kernel_lb_addr loc;
 			struct indirectEntry *ie;
 
 			ie = (struct indirectEntry *)ibh->b_data;
 			loc = lelb_to_cpu(ie->indirectICB.extLocation);
 
-			if (ie->indirectICB.extLength &&
-				(nbh = udf_read_ptagged(inode->i_sb, &loc, 0,
-							&ident))) {
-				if (ident == TAG_IDENT_FE ||
-					ident == TAG_IDENT_EFE) {
-					memcpy(&iinfo->i_location,
-						&loc,
-						sizeof(struct kernel_lb_addr));
-					brelse(bh);
-					brelse(ibh);
-					brelse(nbh);
-					__udf_read_inode(inode);
+			if (ie->indirectICB.extLength) {
+				brelse(bh);
+				brelse(ibh);
+				memcpy(&iinfo->i_location, &loc,
+				       sizeof(struct kernel_lb_addr));
+				if (++indirections > UDF_MAX_ICB_NESTING) {
+					printk(KERN_ERR "udf:"
+						"too many ICBs in ICB hierarchy"
+						" (max %d supported)\n",
+						UDF_MAX_ICB_NESTING);
+					make_bad_inode(inode);
 					return;
 				}
-				brelse(nbh);
+				goto reread;
 			}
 		}
 		brelse(ibh);
@@ -1448,7 +1477,7 @@ static int udf_update_inode(struct inode *inode, int do_sync)
 		     FE_PERM_U_DELETE | FE_PERM_U_CHATTR));
 	fe->permissions = cpu_to_le32(udfperms);
 
-	if (S_ISDIR(inode->i_mode))
+	if (S_ISDIR(inode->i_mode) && inode->i_nlink > 0)
 		fe->fileLinkCount = cpu_to_le16(inode->i_nlink - 1);
 	else
 		fe->fileLinkCount = cpu_to_le16(inode->i_nlink);
