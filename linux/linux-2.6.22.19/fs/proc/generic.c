@@ -400,7 +400,7 @@ struct dentry *proc_lookup(struct inode * dir, struct dentry *dentry, struct nam
 
 				de_get(de);
 				spin_unlock(&proc_subdir_lock);
-				error = -EINVAL;
+				error = -ENOMEM;
 				inode = proc_get_inode(dir->i_sb, ino, de);
 				spin_lock(&proc_subdir_lock);
 				break;
