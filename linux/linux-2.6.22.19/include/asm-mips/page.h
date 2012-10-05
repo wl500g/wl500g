@@ -13,6 +13,7 @@
 #ifdef __KERNEL__
 
 #include <spaces.h>
+#include <linux/const.h>
 
 /*
  * PAGE_SHIFT determines the page size
@@ -29,7 +30,7 @@
 #ifdef CONFIG_PAGE_SIZE_64KB
 #define PAGE_SHIFT	16
 #endif
-#define PAGE_SIZE	(1UL << PAGE_SHIFT)
+#define PAGE_SIZE	(_AC(1,UL) << PAGE_SHIFT)
 #define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
 
 #ifndef __ASSEMBLY__

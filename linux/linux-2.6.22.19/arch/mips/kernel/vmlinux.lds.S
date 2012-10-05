@@ -1,4 +1,6 @@
 #include <asm/asm-offsets.h>
+#include <asm/page.h>
+#include <asm/thread_info.h>
 #include <asm-generic/vmlinux.lds.h>
 
 #undef mips
@@ -61,7 +63,7 @@ SECTIONS
      * arch/mips/kernel/init_task.c:30: warning: alignment of ‘init_thread_union’
      * is greater than maximum object file alignment.  Using 32768
      */
-    . = ALIGN(_PAGE_SIZE);
+    . = ALIGN(THREAD_SIZE);
     *(.data.init_task)
 
     DATA_DATA
@@ -76,10 +78,10 @@ SECTIONS
      we can shorten the on-disk segment size.  */
   .sdata     : { *(.sdata) }
 
-  . = ALIGN(_PAGE_SIZE);
+  . = ALIGN(PAGE_SIZE);
   __nosave_begin = .;
   .data_nosave : { *(.data.nosave) }
-  . = ALIGN(_PAGE_SIZE);
+  . = ALIGN(PAGE_SIZE);
   __nosave_end = .;
 
   . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
@@ -92,14 +94,17 @@ SECTIONS
   _edata =  .;			/* End of data section */
 
   /* will be freed after init */
-  . = ALIGN(_PAGE_SIZE);		/* Init code and data */
+  . = ALIGN(PAGE_SIZE);		/* Init code and data */
   __init_begin = .;
   .init.text : {
 	_sinittext = .;
-	*(.init.text)
+	INIT_TEXT
 	_einittext = .;
   }
-  .init.data : { *(.init.data) }
+  . = ALIGN(16);
+  .init.data : {
+		INIT_DATA
+  }
   . = ALIGN(16);
   __setup_start = .;
   .init.setup : { *(.init.setup) }
@@ -117,19 +122,23 @@ SECTIONS
   SECURITY_INIT
     /* .exit.text is discarded at runtime, not link time, to deal with
      references from .rodata */
-  .exit.text : { *(.exit.text) }
-  .exit.data : { *(.exit.data) }
+	.exit.text : {
+		EXIT_TEXT
+	}
+	.exit.data : {
+		EXIT_DATA
+	}
 #if defined(CONFIG_BLK_DEV_INITRD)
-  . = ALIGN(_PAGE_SIZE);
+  . = ALIGN(PAGE_SIZE);
   __initramfs_start = .;
   .init.ramfs : { *(.init.ramfs) }
   __initramfs_end = .;
 #endif
-  . = ALIGN(_PAGE_SIZE);
+  . = ALIGN(PAGE_SIZE);
   __per_cpu_start = .;
   .data.percpu  : { *(.data.percpu) }
   __per_cpu_end = .;
-  . = ALIGN(_PAGE_SIZE);
+  . = ALIGN(PAGE_SIZE);
   __init_end = .;
   /* freed after init ends here */
 

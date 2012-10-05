@@ -127,6 +127,12 @@
 		*(__ksymtab_strings)					\
 	}								\
 									\
+	/* __*init sections */						\
+	__init_rodata : AT(ADDR(__init_rodata) - LOAD_OFFSET) {		\
+		*(.init.rodata)					\
+		*(.exit.rodata)					\
+	}								\
+									\
 	/* Built-in module parameters. */				\
 	__param : AT(ADDR(__param) - LOAD_OFFSET) {			\
 		VMLINUX_SYMBOL(__start___param) = .;			\
@@ -176,6 +182,13 @@
 		VMLINUX_SYMBOL(__kprobes_text_start) = .;		\
 		*(.kprobes.text)					\
 		VMLINUX_SYMBOL(__kprobes_text_end) = .;
+
+/* init and exit section handling */
+#define INIT_TEXT *(.init.text)
+#define INIT_DATA *(.init.data)
+#define EXIT_TEXT *(.exit.text)
+#define EXIT_DATA *(.exit.data)
+
 
 		/* DWARF debug sections.
 		Symbols in the DWARF debugging sections are relative to
