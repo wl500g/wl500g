@@ -192,9 +192,12 @@ static void stub_shutdown_connection(struct usbip_device *ud)
 	if (ud->tcp_rx && !task_is_dead(ud->tcp_rx)) {
 		force_sig(SIGKILL, ud->tcp_rx);
 		kthread_stop(ud->tcp_rx);
+		ud->tcp_rx = NULL;
 	}
-	if (ud->tcp_tx && !task_is_dead(ud->tcp_tx))
+	if (ud->tcp_tx && !task_is_dead(ud->tcp_tx)) {
 		kthread_stop(ud->tcp_tx);
+		ud->tcp_tx = NULL;
+	}
 
 	/* 2. close the socket */
 	/*
