@@ -1,8 +1,10 @@
  156bddd8e505b295540f3ca0e27dda68cb0d49aa ext3: Fix fdatasync() for files with only i_size changes
+ e4230108547766f4e105a62c45f3724309106f91 ext3: don't clear orphan list on ro mount with errors
 
 ---
  fs/ext3/inode.c |   17 ++++++++++++++---
- 1 files changed, 14 insertions(+), 3 deletions(-)
+ fs/ext3/super.c |    6 ++++--
+ 2 files changed, 18 insertions(+), 5 deletions(-)
 
 diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
 --- a/fs/ext3/inode.c
@@ -52,4 +54,22 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  out_brelse:
  	brelse (bh);
  	ext3_std_error(inode->i_sb, err);
+diff --git a/fs/ext3/super.c b/fs/ext3/super.c
+--- a/fs/ext3/super.c
++++ b/fs/ext3/super.c
+@@ -1479,10 +1479,12 @@ static void ext3_orphan_cleanup (struct super_block * sb,
+ 	}
+ 
+ 	if (EXT3_SB(sb)->s_mount_state & EXT3_ERROR_FS) {
+-		if (es->s_last_orphan)
++		/* don't clear list on RO mount w/ errors */
++		if (es->s_last_orphan && !(s_flags & MS_RDONLY)) {
+ 			jbd_debug(1, "Errors on filesystem, "
+ 				  "clearing orphan list.\n");
+-		es->s_last_orphan = 0;
++			es->s_last_orphan = 0;
++		}
+ 		jbd_debug(1, "Skipping orphan recovery on fs with errors.\n");
+ 		return;
+ 	}
 -- 
