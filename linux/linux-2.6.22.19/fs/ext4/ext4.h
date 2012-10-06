@@ -830,7 +830,6 @@ struct ext4_inode_info {
 /*
  * Mount flags
  */
-#define EXT4_MOUNT_OLDALLOC		0x00002  /* Don't use the new Orlov allocator */
 #define EXT4_MOUNT_GRPID		0x00004	/* Create files with directory's group */
 #define EXT4_MOUNT_DEBUG		0x00008	/* Some debugging messages */
 #define EXT4_MOUNT_ERRORS_CONT		0x00010	/* Continue on errors */
@@ -1498,9 +1497,12 @@ extern unsigned ext4_init_block_bitmap(struct super_block *sb,
 		ext4_init_block_bitmap(sb, NULL, group, desc)
 
 /* dir.c */
-extern int ext4_check_dir_entry(const char *, struct inode *,
+extern int __ext4_check_dir_entry(const char *, struct inode *,
 				struct ext4_dir_entry_2 *,
 				struct buffer_head *, unsigned int);
+#define ext4_check_dir_entry(dir, de, bh, offset) \
+	unlikely(__ext4_check_dir_entry(__func__, (dir), (de), \
+					(bh), (offset)))
 extern int ext4_htree_store_dirent(struct file *dir_file, __u32 hash,
 				    __u32 minor_hash,
 				    struct ext4_dir_entry_2 *dirent);

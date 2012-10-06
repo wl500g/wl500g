@@ -3593,7 +3593,7 @@ retry:
 						blkbits) >> blkbits))
 			new_size = offset + len;
 		else
-			new_size = (block + ret) << blkbits;
+			new_size = ((loff_t) block + ret) << blkbits;
 
 		ext4_falloc_update_inode(inode, mode, new_size,
 						buffer_new(&map_bh));
