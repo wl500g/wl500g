@@ -1,0 +1,30 @@
+Remove unused vars
+
+diff -uBp a/pppd/auth.c b/pppd/auth.c
+--- a/pppd/auth.c
++++ b/pppd/auth.c
+@@ -553,8 +553,6 @@ link_required(unit)
+ void start_link(unit)
+     int unit;
+ {
+-    char *msg;
+-
+      /* we are called via link_terminated, must be ignored */
+     if (phase == PHASE_DISCONNECT)
+ 	return;
+@@ -563,7 +561,6 @@ void start_link(unit)
+ 
+     hungup = 0;
+     devfd = the_channel->connect();
+-    msg = "Connect script failed";
+     if (devfd < 0)
+ 	goto fail;
+ 
+@@ -576,7 +573,6 @@ void start_link(unit)
+      * gives us.  Thus we don't need the tdb_writelock/tdb_writeunlock.
+      */
+     fd_ppp = the_channel->establish_ppp(devfd);
+-    msg = "ppp establishment failed";
+     if (fd_ppp < 0) {
+ 	status = EXIT_FATAL_ERROR;
+ 	goto disconnect;
