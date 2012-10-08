@@ -5,6 +5,13 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
+===RT-N-1.9.2.7-rtn-`r4667` (2012-10-08)===
+  * kernel
+    * enable LBD (disks > 2Tb)
+    * backports from upstream - MIPS, fs(ext3, ext4, udf), net(ipv4{6} raw), netfilter(xt_limit)
+
+  * pppd MSCHAPv2 fix (issue 355)
+
 ===RT-N-1.9.2.7-rtn-`r4645` (2012-09-30)===
   * Broadcom SDK
     * Cleanup unused/dead code
