@@ -20,6 +20,7 @@ way.
 
 ---
  4752c369789250eafcd7813e11c8fb689235b0d2 maps4: simplify interdependence of maps and smaps
+ 698dd4ba6b12e34e1e432c944c01478c0b2cd773 maps4: move is_swap_pte
 
 ---
  fs/proc/task_mmu.c |   76 +++++++++++++++++++++++++++++++++++------------------
@@ -171,4 +172,35 @@ diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
  }
  
  void clear_refs_smap(struct mm_struct *mm)
+diff --git a/include/linux/swapops.h b/include/linux/swapops.h
+--- a/include/linux/swapops.h
++++ b/include/linux/swapops.h
+@@ -42,6 +42,12 @@ static inline pgoff_t swp_offset(swp_entry_t entry)
+ 	return entry.val & SWP_OFFSET_MASK(entry);
+ }
+ 
++/* check whether a pte points to a swap entry */
++static inline int is_swap_pte(pte_t pte)
++{
++	return !pte_none(pte) && !pte_present(pte) && !pte_file(pte);
++}
++
+ /*
+  * Convert the arch-dependent pte representation of a swp_entry_t into an
+  * arch-independent swp_entry_t.
+diff --git a/mm/migrate.c b/mm/migrate.c
+--- a/mm/migrate.c
++++ b/mm/migrate.c
+@@ -115,11 +115,6 @@ int putback_lru_pages(struct list_head *l)
+ 	return count;
+ }
+ 
+-static inline int is_swap_pte(pte_t pte)
+-{
+-	return !pte_none(pte) && !pte_present(pte) && !pte_file(pte);
+-}
+-
+ /*
+  * Restore a potential migration pte to a working pte entry
+  */
 -- 
