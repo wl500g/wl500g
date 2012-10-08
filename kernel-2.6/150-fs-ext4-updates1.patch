@@ -15795,11 +15795,9 @@ diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
  	ext4_grpblk_t block;
  
  	/* we can't allocate > group size */
-@@ -4400,14 +4070,9 @@ ext4_mb_initialize_context(struct ext4_a
- 	ext4_get_group_no_and_offset(sb, goal, &group, &block);
+@@ -4400,13 +4070,7 @@ ext4_mb_initialize_context(struct ext4_a
  
  	/* set up allocation goals */
-+	memset(ac, 0, sizeof(struct ext4_allocation_context));
  	ac->ac_b_ex.fe_logical = ar->logical;
 -	ac->ac_b_ex.fe_group = 0;
 -	ac->ac_b_ex.fe_start = 0;
@@ -15941,7 +15939,7 @@ diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
  		 */
  		while (ar->len && ext4_claim_free_blocks(sbi, ar->len)) {
  			/* let others to free the space */
-@@ -4674,19 +4336,16 @@ ext4_fsblk_t ext4_mb_new_blocks(handle_t
+@@ -4674,21 +4336,18 @@ ext4_fsblk_t ext4_mb_new_blocks(handle_t
  			return 0;
  		}
  		reserv_blks = ar->len;
@@ -15968,8 +15966,11 @@ diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
 -	if (EXT4_I(ar->inode)->i_delalloc_reserved_flag)
 -		ar->flags |= EXT4_MB_DELALLOC_RESERVED;
  
- 	ac = kmem_cache_alloc(ext4_ac_cachep, GFP_NOFS);
+-	ac = kmem_cache_alloc(ext4_ac_cachep, GFP_NOFS);
++	ac = kmem_cache_zalloc(ext4_ac_cachep, GFP_NOFS);
  	if (!ac) {
+ 		ar->len = 0;
+ 		*errp = -ENOMEM;
 @@ -4695,8 +4354,6 @@ ext4_fsblk_t ext4_mb_new_blocks(handle_t
  		goto out1;
  	}
