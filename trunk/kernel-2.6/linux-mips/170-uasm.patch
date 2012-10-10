@@ -1,3 +1,9 @@
+
+---
+ arch/mips/mm/tlbex.c    |  230 ---------------------------------------------
+ include/asm-mips/uasm.h |  242 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 244 insertions(+), 228 deletions(-)
+
 diff -uBp a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 --- a/arch/mips/mm/tlbex.c
 +++ b/arch/mips/mm/tlbex.c
@@ -505,3 +511,4 @@ diff -uBp /dev/null b/include/asm-mips/uasm.h
 +#define i_ssnop(buf) i_sll(buf, 0, 0, 1)
 +#define i_ehb(buf) i_sll(buf, 0, 0, 3)
 +
+-- 
