@@ -2,12 +2,15 @@
  bc1123239ab950798779ca4e23228afb5443eb5d udf: Add readpages support for udf
  9c2fc0de1a6e638fe58c354a463f544f42a90a09 udf: Fix data corruption for files in ICB
  378b8e1ad18e7c97832aa3771e295153c4cd2a55 udf: add writepages support for udf
+ adee11b2085bee90bd8f4f52123ffb07882d6256 udf: Avoid run away loop when partition table length is corrupted
+ 57b9655d01ef057a523e810d29c37ac09b80eead udf: Improve table length check to avoid possible overflow
 
 ---
  fs/udf/file.c  |   36 ++++++++++++++++++++++++++++++------
  fs/udf/inode.c |   41 ++++++++++++++++++++++++++++-------------
  fs/udf/namei.c |   38 ++++++++++++++++++++++++++++----------
- 3 files changed, 86 insertions(+), 29 deletions(-)
+ fs/udf/super.c |   16 +++++++++++-----
+ 4 files changed, 97 insertions(+), 34 deletions(-)
 
 diff --git a/fs/udf/file.c b/fs/udf/file.c
 --- a/fs/udf/file.c
@@ -262,4 +265,41 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	mark_inode_dirty(inode);
  
  	fi = udf_add_entry(dir, dentry, &fibh, &cfi, &err);
+diff --git a/fs/udf/super.c b/fs/udf/super.c
+--- a/fs/udf/super.c
++++ b/fs/udf/super.c
+@@ -1241,6 +1241,7 @@ static int udf_load_logicalvol(struct su
+ 	struct genericPartitionMap *gpm;
+ 	uint16_t ident;
+ 	struct buffer_head *bh;
++	unsigned int table_len;
+ 	int ret = 0;
+ 
+ 	bh = udf_read_tagged(sb, block, block, &ident);
+@@ -1248,15 +1249,20 @@ static int udf_load_logicalvol(struct su
+ 		return 1;
+ 	BUG_ON(ident != TAG_IDENT_LVD);
+ 	lvd = (struct logicalVolDesc *)bh->b_data;
+-
+-	i = udf_sb_alloc_partition_maps(sb, le32_to_cpu(lvd->numPartitionMaps));
+-	if (i != 0) {
+-		ret = i;
++	table_len = le32_to_cpu(lvd->mapTableLength);
++	if (table_len > sb->s_blocksize - sizeof(*lvd)) {
++		udf_error(sb, __func__, "error loading logical volume descriptor: "
++			"Partition table too long (%u > %lu)\n", table_len,
++			sb->s_blocksize - sizeof(*lvd));
+ 		goto out_bh;
+ 	}
+ 
++	ret = udf_sb_alloc_partition_maps(sb, le32_to_cpu(lvd->numPartitionMaps));
++	if (ret)
++		goto out_bh;
++
+ 	for (i = 0, offset = 0;
+-	     i < sbi->s_partitions && offset < le32_to_cpu(lvd->mapTableLength);
++	     i < sbi->s_partitions && offset < table_len;
+ 	     i++, offset += gpm->partitionMapLength) {
+ 		struct udf_part_map *map = &sbi->s_partmaps[i];
+ 		gpm = (struct genericPartitionMap *)
 -- 
