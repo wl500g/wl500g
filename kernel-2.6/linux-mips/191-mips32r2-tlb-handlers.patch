@@ -1,0 +1,47 @@
+From ff401e52100dcdc85e572d1ad376d3307b3fe28e Mon Sep 17 00:00:00 2001
+From: "Steven J. Hill" <sjhill@mips.com>
+Date: Tue, 28 Aug 2012 23:20:39 -0500
+Subject: [PATCH] MIPS: Optimise TLB handlers for MIPS32/64 R2 cores.
+
+The EXT and INS instructions can be used to decrease code size and
+thus speed up TLB handlers on MIPS32R2 and MIPS64R2 cores.
+
+Signed-off-by: Steven J. Hill <sjhill@mips.com>
+---
+ arch/mips/mm/tlbex.c |   16 ++++++++++++++++
+ 1 files changed, 16 insertions(+), 0 deletions(-)
+
+diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
+--- a/arch/mips/mm/tlbex.c
++++ b/arch/mips/mm/tlbex.c
+@@ -953,6 +953,13 @@ build_get_pgde32(u32 **p, unsigned int tmp, unsigned int ptr)
+ #endif
+ 	i_mfc0(p, tmp, C0_BADVADDR); /* get faulting address */
+ 	i_lw(p, ptr, rel_lo(pgdc), ptr);
++
++	if (cpu_has_mips_r2) {
++		i_ext(p, tmp, tmp, PGDIR_SHIFT, (32 - PGDIR_SHIFT));
++		i_ins(p, ptr, tmp, PGD_T_LOG2, (32 - PGDIR_SHIFT));
++		return;
++	}
++
+ 	i_srl(p, tmp, tmp, PGDIR_SHIFT); /* get pgd only bits */
+ 	i_sll(p, tmp, tmp, PGD_T_LOG2);
+ 	i_addu(p, ptr, ptr, tmp); /* add in pgd offset */
+@@ -988,6 +995,15 @@ static void __cpuinit build_adjust_context(u32 **p, unsigned int ctx)
+ static __cpuinit void build_get_ptep(u32 **p, unsigned int tmp,
+ 	unsigned int ptr)
+ {
++	if (cpu_has_mips_r2) {
++		/* PTE ptr offset is obtained from BadVAddr */
++		i_MFC0(p, tmp, C0_BADVADDR);
++		i_LW(p, ptr, 0, ptr);
++		i_ext(p, tmp, tmp, PAGE_SHIFT+1, PGDIR_SHIFT-PAGE_SHIFT-1);
++		i_ins(p, ptr, tmp, PTE_T_LOG2+1, PGDIR_SHIFT-PAGE_SHIFT-1);
++		return;
++	}
++
+ 	/*
+ 	 * Bug workaround for the Nevada. It seems as if under certain
+ 	 * circumstances the move from cp0_context might produce a
+-- 
