@@ -2497,7 +2497,7 @@ diff -urNBp a/networking/udhcp/common6.h b/networking/udhcp/common6.h
 diff -urNBp a/networking/udhcp/config6.c b/networking/udhcp/config6.c
 --- a/networking/udhcp/config6.c	1970-01-01 03:00:00.000000000 +0300
 +++ b/networking/udhcp/config6.c	2012-10-09 15:52:58.000000000 +0400
-@@ -0,0 +1,1434 @@
+@@ -0,0 +1,1433 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * Copyright (C) 2002 WIDE Project.
@@ -3892,7 +3892,6 @@ diff -urNBp a/networking/udhcp/config6.c b/networking/udhcp/config6.c
 +		if (was_found)
 +			goto restart_scan;
 +
-+log3("FAIL3");
 + scan_fail:
 +		bb_error_msg("%s: can't parse line %u near token '%s'", file, parser->lineno, token[i]);
 +		break;
