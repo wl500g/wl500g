@@ -36,6 +36,8 @@ getifaddr(const char * ifname, char * buf, int len,
 	struct ifreq ifr;
 	int ifrlen;
 	struct sockaddr_in * ifaddr;
+	int ret = -1;
+
 	ifrlen = sizeof(ifr);
 
 	if(!ifname || ifname[0]=='\0')
@@ -50,21 +52,18 @@ getifaddr(const char * ifname, char * buf, int len,
 	if(ioctl(s, SIOCGIFFLAGS, &ifr, &ifrlen) < 0)
 	{
 		syslog(LOG_DEBUG, "ioctl(s, SIOCGIFFLAGS, ...): %m");
-		close(s);
-		return -1;
+		goto err;
 	}
 	if ((ifr.ifr_flags & IFF_UP) == 0)
 	{
 		syslog(LOG_DEBUG, "network interface %s is down", ifname);
-		close(s);
-		return -1;
+		goto err;
 	}
 	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
 	if(ioctl(s, SIOCGIFADDR, &ifr, &ifrlen) < 0)
 	{
 		syslog(LOG_ERR, "ioctl(s, SIOCGIFADDR, ...): %m");
-		close(s);
-		return -1;
+		goto err;
 	}
 	ifaddr = (struct sockaddr_in *)&ifr.ifr_addr;
 	if(addr) *addr = ifaddr->sin_addr;
@@ -73,8 +72,7 @@ getifaddr(const char * ifname, char * buf, int len,
 		if(!inet_ntop(AF_INET, &ifaddr->sin_addr, buf, len))
 		{
 			syslog(LOG_ERR, "inet_ntop(): %m");
-			close(s);
-			return -1;
+			goto err;
 		}
 	}
 	if(mask)
@@ -83,8 +81,7 @@ getifaddr(const char * ifname, char * buf, int len,
 		if(ioctl(s, SIOCGIFNETMASK, &ifr, &ifrlen) < 0)
 		{
 			syslog(LOG_ERR, "ioctl(s, SIOCGIFNETMASK, ...): %m");
-			close(s);
-			return -1;
+			goto err;
 		}
 #ifdef ifr_netmask
 		*mask = ((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr;
@@ -92,7 +89,10 @@ getifaddr(const char * ifname, char * buf, int len,
 		*mask = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
 #endif
 	}
+	ret = 0;
+ err:
 	close(s);
+	return ret;
 #else /* ifndef USE_GETIFADDRS */
 	/* Works for all address families (both ip v4 and ip v6) */
 	struct ifaddrs * ifap;
@@ -133,8 +133,8 @@ getifaddr(const char * ifname, char * buf, int len,
 		}
 	}
 	freeifaddrs(ifap);
-#endif
 	return 0;
+#endif
 }
 
 #ifdef ENABLE_PCP
