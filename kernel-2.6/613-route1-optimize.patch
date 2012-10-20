@@ -143,9 +143,9 @@ diff --git a/net/ipv4/route.c b/net/ipv4/route.c
 +		     rth->fl.oif |
 +		     (rth->fl.fl4_tos ^ tos)) == 0 &&
 +		    rth->fl.mark == skb->mark) {
- 			rth->u.dst.lastuse = jiffies;
- 			dst_hold(&rth->u.dst);
- 			rth->u.dst.__use++;
+ 			dst_use(&rth->u.dst, jiffies);
+ 			RT_CACHE_STAT_INC(in_hit);
+ 			rcu_read_unlock();
 @@ -2187,12 +2186,12 @@ int ip_route_input_lookup(struct sk_buff *skb, u32 daddr, u32 saddr,
  	return ip_route_input_cached(skb, daddr, saddr, tos, dev, lsrc);
  }
