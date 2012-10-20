@@ -35,9 +35,10 @@
 -		return -1;
 +		goto err;
  	}
- 	close(s);
+-	close(s);
 +	ret = 0;
 + err:
++	close(s);
 +	return ret;
  #else /* ifndef USE_GETIFADDRS */
  	/* Works for all address families (both ip v4 and ip v6) */
