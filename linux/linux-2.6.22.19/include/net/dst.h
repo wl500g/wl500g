@@ -51,14 +51,12 @@ struct dst_entry
 	unsigned long		expires;
 
 	unsigned short		header_len;	/* more space at head required */
-	unsigned short		nfheader_len;	/* more non-fragment space at head required */
 	unsigned short		trailer_len;	/* space to reserve at tail */
 
-	u32			metrics[RTAX_MAX];
-	struct dst_entry	*path;
-
+	unsigned int		rate_tokens;
 	unsigned long		rate_last;	/* rate limiting for ICMP */
-	unsigned long		rate_tokens;
+
+	struct dst_entry	*path;
 
 	struct neighbour	*neighbour;
 	struct hh_cache		*hh;
@@ -67,15 +65,22 @@ struct dst_entry
 	int			(*input)(struct sk_buff*);
 	int			(*output)(struct sk_buff*);
 
+
+	struct  dst_ops	        *ops;
+
+	u32			metrics[RTAX_MAX];
+
 #ifdef CONFIG_NET_CLS_ROUTE
 	__u32			tclassid;
 #endif
 
-	struct  dst_ops	        *ops;
-		
-	unsigned long		lastuse;
+	/*
+	 * __refcnt wants to be on a different cache line from
+	 * input/output/ops or performance tanks badly
+	 */
 	atomic_t		__refcnt;	/* client references	*/
 	int			__use;
+	unsigned long		lastuse;
 	union {
 		struct dst_entry *next;
 		struct rtable    *rt_next;
@@ -156,6 +161,13 @@ static inline void dst_hold(struct dst_entry * dst)
 	atomic_inc(&dst->__refcnt);
 }
 
+static inline void dst_use(struct dst_entry *dst, unsigned long time)
+{
+	dst_hold(dst);
+	dst->__use++;
+	dst->lastuse = time;
+}
+
 static inline
 struct dst_entry * dst_clone(struct dst_entry * dst)
 {
@@ -188,6 +200,7 @@ static inline struct dst_entry *dst_pop(struct dst_entry *dst)
 	return child;
 }
 
+extern int dst_discard(struct sk_buff *skb);
 extern void * dst_alloc(struct dst_ops * ops);
 extern void __dst_free(struct dst_entry * dst);
 extern struct dst_entry *dst_destroy(struct dst_entry * dst);

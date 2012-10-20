@@ -1132,7 +1132,8 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
 		inet->cork.length = 0;
 		sk->sk_sndmsg_page = NULL;
 		sk->sk_sndmsg_off = 0;
-		exthdrlen = rt->u.dst.header_len + (opt ? opt->opt_flen : 0);
+		exthdrlen = rt->u.dst.header_len + (opt ? opt->opt_flen : 0) -
+			    rt->nfheader_len;
 		length += exthdrlen;
 		transhdrlen += exthdrlen;
 	} else {
@@ -1147,7 +1148,8 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
 
 	hh_len = LL_RESERVED_SPACE(rt->u.dst.dev);
 
-	fragheaderlen = sizeof(struct ipv6hdr) + rt->u.dst.nfheader_len + (opt ? opt->opt_nflen : 0);
+	fragheaderlen = sizeof(struct ipv6hdr) + rt->nfheader_len +
+			(opt ? opt->opt_nflen : 0);
 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen - sizeof(struct frag_hdr);
 
 	if (mtu <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN) {

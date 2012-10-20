@@ -91,6 +91,7 @@
 #include <linux/jhash.h>
 #include <linux/rcupdate.h>
 #include <linux/times.h>
+#include <net/dst.h>
 #include <net/protocol.h>
 #include <net/ip.h>
 #include <net/route.h>
@@ -960,9 +961,7 @@ restart:
 			 */
 			rcu_assign_pointer(rt_hash_table[hash].chain, rth);
 
-			rth->u.dst.__use++;
-			dst_hold(&rth->u.dst);
-			rth->u.dst.lastuse = now;
+			dst_use(&rth->u.dst, now);
 			spin_unlock_bh(rt_hash_lock_addr(hash));
 
 			rt_drop(rt);
@@ -2101,9 +2100,7 @@ int ip_route_input(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 		    rth->fl.oif == 0 &&
 		    rth->fl.mark == skb->mark &&
 		    rth->fl.fl4_tos == tos) {
-			rth->u.dst.lastuse = jiffies;
-			dst_hold(&rth->u.dst);
-			rth->u.dst.__use++;
+			dst_use(&rth->u.dst, jiffies);
 			RT_CACHE_STAT_INC(in_hit);
 			rcu_read_unlock();
 			skb->dst = (struct dst_entry*)rth;
@@ -2577,9 +2574,7 @@ int __ip_route_output_key(struct rtable **rp, const struct flowi *flp)
 				return 0;
 			}
 
-			rth->u.dst.lastuse = jiffies;
-			dst_hold(&rth->u.dst);
-			rth->u.dst.__use++;
+			dst_use(&rth->u.dst, jiffies);
 			RT_CACHE_STAT_INC(out_hit);
 			rcu_read_unlock_bh();
 			*rp = rth;
@@ -2608,12 +2603,6 @@ static struct dst_ops ipv4_dst_blackhole_ops = {
 };
 
 
-static int ipv4_blackhole_output(struct sk_buff *skb)
-{
-	kfree_skb(skb);
-	return 0;
-}
-
 static int ipv4_dst_blackhole(struct rtable **rp, struct flowi *flp, struct sock *sk)
 {
 	struct rtable *ort = *rp;
@@ -2625,8 +2614,8 @@ static int ipv4_dst_blackhole(struct rtable **rp, struct flowi *flp, struct sock
 
 		atomic_set(&new->__refcnt, 1);
 		new->__use = 1;
-		new->input = ipv4_blackhole_output;
-		new->output = ipv4_blackhole_output;
+		new->input = dst_discard;
+		new->output = dst_discard;
 		memcpy(new->metrics, ort->u.dst.metrics, RTAX_MAX*sizeof(u32));
 
 		new->dev = ort->u.dst.dev;

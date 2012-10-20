@@ -292,9 +292,7 @@ static int dn_insert_route(struct dn_route *rt, unsigned hash, struct dn_route *
 					   dn_rt_hash_table[hash].chain);
 			rcu_assign_pointer(dn_rt_hash_table[hash].chain, rth);
 
-			rth->u.dst.__use++;
-			dst_hold(&rth->u.dst);
-			rth->u.dst.lastuse = now;
+			dst_use(&rth->u.dst, now);
 			spin_unlock_bh(&dn_rt_hash_table[hash].lock);
 
 			dnrt_drop(rt);
@@ -307,9 +305,7 @@ static int dn_insert_route(struct dn_route *rt, unsigned hash, struct dn_route *
 	rcu_assign_pointer(rt->u.dst.dn_next, dn_rt_hash_table[hash].chain);
 	rcu_assign_pointer(dn_rt_hash_table[hash].chain, rt);
 
-	dst_hold(&rt->u.dst);
-	rt->u.dst.__use++;
-	rt->u.dst.lastuse = now;
+	dst_use(&rt->u.dst, now);
 	spin_unlock_bh(&dn_rt_hash_table[hash].lock);
 	*rp = rt;
 	return 0;
@@ -765,17 +761,6 @@ drop:
 }
 
 /*
- * Drop packet. This is used for endnodes and for
- * when we should not be forwarding packets from
- * this dest.
- */
-static int dn_blackhole(struct sk_buff *skb)
-{
-	kfree_skb(skb);
-	return NET_RX_DROP;
-}
-
-/*
  * Used to catch bugs. This should never normally get
  * called.
  */
@@ -1178,9 +1163,7 @@ static int __dn_route_output_key(struct dst_entry **pprt, const struct flowi *fl
 			    (flp->mark == rt->fl.mark) &&
 			    (rt->fl.iif == 0) &&
 			    (rt->fl.oif == flp->oif)) {
-				rt->u.dst.lastuse = jiffies;
-				dst_hold(&rt->u.dst);
-				rt->u.dst.__use++;
+				dst_use(&rt->u.dst, jiffies);
 				rcu_read_unlock_bh();
 				*pprt = &rt->u.dst;
 				return 0;
@@ -1398,7 +1381,7 @@ make_route:
 		default:
 		case RTN_UNREACHABLE:
 		case RTN_BLACKHOLE:
-			rt->u.dst.input = dn_blackhole;
+			rt->u.dst.input = dst_discard;
 	}
 	rt->rt_flags = flags;
 	if (rt->u.dst.dev)
@@ -1452,9 +1435,7 @@ int dn_route_input(struct sk_buff *skb)
 		    (rt->fl.oif == 0) &&
 		    (rt->fl.mark == skb->mark) &&
 		    (rt->fl.iif == cb->iif)) {
-			rt->u.dst.lastuse = jiffies;
-			dst_hold(&rt->u.dst);
-			rt->u.dst.__use++;
+			dst_use(&rt->u.dst, jiffies);
 			rcu_read_unlock();
 			skb->dst = (struct dst_entry *)rt;
 			return 0;
