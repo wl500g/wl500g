@@ -1675,6 +1675,8 @@ static unsigned long layout_symtab(struct module *mod,
 	src = (void *)hdr + symsect->sh_offset;
 	nsrc = symsect->sh_size / sizeof(*src);
 	strtab = (void *)hdr + strsect->sh_offset;
+	/* We start searching core symbols from the second entry. */
+	src++;
 	for (ndst = i = 1; i < nsrc; ++i, ++src)
 		if (is_core_symbol(src, sechdrs, hdr->e_shnum)) {
 			unsigned int j = src->st_name;
@@ -1729,6 +1731,8 @@ static void add_kallsyms(struct module *mod,
 	mod->core_symtab = dst = mod->module_core + symoffs;
 	src = mod->symtab;
 	*dst = *src;
+	/* We start searching core symbols from the second entry. */
+	src++;
 	for (ndst = i = 1; i < mod->num_symtab; ++i, ++src) {
 		if (!is_core_symbol(src, sechdrs, shnum))
 			continue;
