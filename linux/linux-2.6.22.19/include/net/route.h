@@ -128,10 +128,13 @@ extern int		ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb);
 struct in_ifaddr;
 extern void fib_add_ifaddr(struct in_ifaddr *);
 
-static inline void ip_rt_put(struct rtable * rt)
+static inline void ip_rt_put(struct rtable *rt)
 {
-	if (rt)
-		dst_release(&rt->u.dst);
+	/* dst_release() accepts a NULL parameter.
+	 * We rely on dst being first structure in struct rtable
+	 */
+	BUILD_BUG_ON(offsetof(struct rtable, u.dst) != 0);
+	dst_release(&rt->u.dst);
 }
 
 #define IPTOS_RT_MASK	(IPTOS_TOS_MASK & ~3)
