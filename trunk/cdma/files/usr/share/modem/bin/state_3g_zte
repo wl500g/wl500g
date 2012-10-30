@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #  Modem Status script for WCDMA modem ZTE
-#  ver. 1.006 beta 27.02.2011
+#  ver. 1.100 29.10.2012
 #  by dlukanidin
 
 source /usr/share/modem/bin/state_3g_common
@@ -89,7 +89,7 @@ getSysCfgZTE(){
 getBalanceZTE(){
     if [ -z $2 ]; then res="*100#"; else res=$2; fi
     doCommand $1 "AT+CUSD=1,$res,15" 2
-    checkFlow $1 8 "CUSD:"
+    getFlow $1 "CUSD:" 8 "CUSD:"
     ret=$?
     if [ $ret == 0 ]; then
         rep=$(echo -n $answer | cut -f2 -d,)
