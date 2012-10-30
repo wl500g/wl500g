@@ -10,7 +10,7 @@ doCommand() {
 		return 10	# device do not exist
 	fi
 	for i in $(seq  0 1); do
-		chat -t $3 -e ABORT 'ERROR' '' $2 'OK' '' <$1 >$1 2>/tmp/chat.tmp
+		chat -t $3 -e ABORT 'ERROR' ABORT 'COMMAND NOT SUPPORT' '' $2 'OK' '' <$1 >$1 2>/tmp/chat.tmp
 		code=$?
 		if [ "$code" == "0" ] ; then
 			if [ -z "$4" ]; then
@@ -18,6 +18,9 @@ doCommand() {
 			else
 				answer=`grep $4 /tmp/chat.tmp`
 			fi
+			return $code	# chat status
+		elif [ "$code" == "5" ] ; then
+			answer="COMMAND NOT SUPPORT"
 			return $code	# chat status
 		fi
 	done
