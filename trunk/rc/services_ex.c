@@ -222,7 +222,7 @@ start_dns(void)
 			nvram_safe_get("dhcp_lease"));
 		if (nvram_invmatch("dhcp_dns1_x",""))
 			fprintf(fp, "dhcp-option=lan,6,%s,0.0.0.0\n", nvram_safe_get("dhcp_dns1_x"));
-		if (nvram_invmatch("dhcp_wins_x",""))		
+		if (nvram_invmatch("dhcp_wins_x",""))
 			fprintf(fp, "dhcp-option=lan,44,%s\n"
 				    "dhcp-option=lan,46,8\n", nvram_safe_get("dhcp_wins_x"));
 		if (nvram_invmatch("lan_domain", ""))
@@ -236,8 +236,9 @@ start_dns(void)
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", "") &&
 	    nvram_invmatch("ipv6_proto", "dhcp6")) {
-		fprintf(fp, "dhcp-range=::,::,static,0\n"
-			    "dhcp-option=option6:23,");
+		fprintf(fp, "dhcp-range=lan,::,static,%s\n",
+			nvram_safe_get("dhcp_lease"));
+		fprintf(fp, "dhcp-option=lan,option6:23,");
 		if (nvram_invmatch("ipv6_dns1_x", ""))
 			fprintf(fp, "%s,", nvram_safe_get("ipv6_dns1_x"));
 		//if (nvram_invmatch("ipv6_dns2_x", ""))
@@ -246,8 +247,8 @@ start_dns(void)
 		//	fprintf(fp, "%s,", nvram_safe_get("ipv6_dns3_x"));
 		fprintf(fp, "[::]\n");
 		if (nvram_invmatch("lan_domain", ""))
-			fprintf(fp, "dhcp-option=option6:24,%s\n", nvram_safe_get("lan_domain"));
-		fprintf(fp, "dhcp-option=option6:32,600\n");
+			fprintf(fp, "dhcp-option=lan,option6:24,%s\n", nvram_safe_get("lan_domain"));
+		fprintf(fp, "dhcp-option=lan,option6:32,600\n");
 	}
 #endif
 
