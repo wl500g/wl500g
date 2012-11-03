@@ -123,7 +123,7 @@ plugin/libplugin.a: plugin/discovery.o plugin/if.o plugin/common.o plugin/debug.
 	ar -rc $@ $^
 
 plugin/discovery.o: discovery.c
-	@CC@ -DPLUGIN=1 $(CFLAGS) '-DVERSION="$(VERSION)"' -c -o $@ -fPIC $<
+	@CC@ -DPLUGIN=1 $(CFLAGS) -I$(PPPD_INCDIR) -c -o $@ -fPIC $<
 
 plugin/if.o: if.c
 	@CC@ -DPLUGIN=1 $(CFLAGS) '-DVERSION="$(VERSION)"' -c -o $@ -fPIC $<
