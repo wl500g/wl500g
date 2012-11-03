@@ -247,6 +247,8 @@ PPPOEConnectDevice(void)
 
  ERROR:
     close(conn->sessionSocket);
+    /* Send PADT to reset the session unresponsive at buggy nas */
+    sendPADT(conn, NULL);
     if (!existingSession)
 	close(conn->discoverySocket);
     return -1;
@@ -316,6 +318,8 @@ PPPOEDisconnectDevice(void)
 	return;
     }
     close(conn->sessionSocket);
+    /* Send PADT to reset the session unresponsive at buggy nas */
+    sendPADT(conn, NULL);
     if (!existingSession)
 	close(conn->discoverySocket);
 }
