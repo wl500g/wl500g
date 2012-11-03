@@ -1,46 +1,35 @@
 close sockets if discovery wasn't succesfull
 
---- rp-pppoe.orig/src/plugin.c	2012-05-18 08:33:25.000000000 +0000
-+++ rp-pppoe/src/plugin.c	2012-05-18 08:34:29.560000002 +0000
-@@ -168,7 +168,8 @@ PPPOEConnectDevice(void)
+diff -BurpN rp-pppoe-3.11.orig/src/plugin.c rp-pppoe-3.11/src/plugin.c
+--- rp-pppoe-3.11.orig/src/plugin.c	2012-11-03 19:06:09.000000000 +0600
++++ rp-pppoe-3.11/src/plugin.c	2012-11-03 19:26:51.210730292 +0600
+@@ -204,7 +204,7 @@ PPPOEConnectDevice(void)
          discovery(conn);
  	if (conn->discoveryState != STATE_SESSION) {
  	    error("Unable to complete PPPoE Discovery");
 -	    return -1;
-+	    close(conn->sessionSocket);
-+	    goto errout;
++	    goto ERROR;
  	}
      }
  
-@@ -204,10 +205,19 @@ PPPOEConnectDevice(void)
+@@ -240,10 +240,19 @@ PPPOEConnectDevice(void)
      if (connect(conn->sessionSocket, (struct sockaddr *) &sp,
  		sizeof(struct sockaddr_pppox)) < 0) {
  	error("Failed to connect PPPoE socket: %d %m", errno);
 -	return -1;
-+	close(conn->sessionSocket);
-+	goto errout;
++	goto ERROR;
      }
  
      return conn->sessionSocket;
 +
-+ errout:
-+    if (conn->discoverySocket >= 0) {
++ ERROR:
++    close(conn->sessionSocket);
++    if (!existingSession) {
++	/* Send PADT to reset the session unresponsive at buggy nas */
 +	sendPADT(conn, NULL);
 +	close(conn->discoverySocket);
-+	conn->discoverySocket = -1;
 +    }
 +    return -1;
- }
- 
- static void
-@@ -276,8 +286,8 @@ PPPOEDisconnectDevice(void)
-     close(conn->sessionSocket);
-     /* Send PADT to reset the session unresponsive at buggy nas */
-     sendPADT(conn, NULL);
--    close(conn->discoverySocket);
--
-+    if (conn->discoverySocket >= 0)
-+	close(conn->discoverySocket);
  }
  
  static void

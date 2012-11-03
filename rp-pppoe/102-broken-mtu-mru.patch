@@ -1,19 +1,7 @@
-No point harrassing the users in case of broken protocol
-
-diff -BurpN rp-pppoe.orig/src/plugin.c rp-pppoe/src/plugin.c
---- rp-pppoe.orig/src/plugin.c	2009-05-05 19:42:36.000000000 +0000
-+++ rp-pppoe/src/plugin.c	2009-05-05 19:44:56.000000000 +0000
-@@ -65,6 +65,9 @@ char pppd_version[] = VERSION;
- /* From sys-linux.c in pppd -- MUST FIX THIS! */
- extern int new_style_driver;
- 
-+/* Supplied by pppd */
-+extern int debug;
-+
- char *pppd_pppoe_service = NULL;
- static char *acName = NULL;
- static char *existingSession = NULL;
-@@ -217,7 +220,7 @@ PPPOESendConfig(int mtu,
+diff -BurpN rp-pppoe-3.11.orig/src/plugin.c rp-pppoe-3.11/src/plugin.c
+--- rp-pppoe-3.11.orig/src/plugin.c	2012-11-03 19:04:34.000000000 +0600
++++ rp-pppoe-3.11/src/plugin.c	2012-11-03 19:04:58.022727979 +0600
+@@ -256,7 +256,7 @@ PPPOESendConfig(int mtu,
      struct ifreq ifr;
  
      if (mtu > MAX_PPPOE_MTU) {
@@ -22,7 +10,7 @@ diff -BurpN rp-pppoe.orig/src/plugin.c rp-pppoe/src/plugin.c
  	mtu = MAX_PPPOE_MTU;
      }
      sock = socket(AF_INET, SOCK_DGRAM, 0);
-@@ -241,7 +244,7 @@ PPPOERecvConfig(int mru,
+@@ -280,7 +280,7 @@ PPPOERecvConfig(int mru,
  		int pcomp,
  		int accomp)
  {
