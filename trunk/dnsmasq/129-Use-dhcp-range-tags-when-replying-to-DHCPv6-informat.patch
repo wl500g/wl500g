@@ -1,0 +1,30 @@
+From d1e9a582adba5c9602c7fb3a2c75df7fa2eedcaa Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Tue, 23 Oct 2012 17:00:57 +0100
+Subject: [PATCH 09/10] Use dhcp-range tags when replying to DHCPv6 information-request.
+
+---
+ src/rfc3315.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/src/rfc3315.c b/src/rfc3315.c
+index 9297d52..77e0900 100644
+--- a/src/rfc3315.c
++++ b/src/rfc3315.c
+@@ -1010,6 +1010,13 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
+       
+     case DHCP6IREQ:
+       {
++	/* We can't discriminate contexts based on address, as we don't know it.
++	   If there is only one possible context, we can use its tags */
++	if (context && !context->current)
++	  {
++	    context->netid.next = NULL;
++	    context_tags =  &context->netid;
++	  }
+ 	log6_packet("DHCPINFORMATION-REQUEST", clid, clid_len, NULL, xid, iface_name, ignore ? "ignored" : hostname);
+ 	if (ignore)
+ 	  return 0;
+-- 
+1.7.2.5
+
