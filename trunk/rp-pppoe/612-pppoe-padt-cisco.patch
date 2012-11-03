@@ -1,9 +1,9 @@
 Workaround for buggy nas
 
-diff --git a/src/plugin.c b/src/plugin.c
---- a/src/plugin.c
-+++ b/src/plugin.c
-@@ -274,6 +274,8 @@ PPPOEDisconnectDevice(void)
+diff -BurpN rp-pppoe-3.11.orig/src/plugin.c rp-pppoe-3.11/src/plugin.c
+--- rp-pppoe-3.11.orig/src/plugin.c	2012-11-03 19:04:58.000000000 +0600
++++ rp-pppoe-3.11/src/plugin.c	2012-11-03 19:06:09.407723627 +0600
+@@ -310,6 +310,8 @@ PPPOEDisconnectDevice(void)
  	return;
      }
      close(conn->sessionSocket);

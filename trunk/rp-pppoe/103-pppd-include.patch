@@ -1,0 +1,12 @@
+diff -BurpN rp-pppoe-3.11.orig/src/Makefile.in rp-pppoe-3.11/src/Makefile.in
+--- rp-pppoe-3.11.orig/src/Makefile.in	2012-08-18 00:31:25.000000000 +0600
++++ rp-pppoe-3.11/src/Makefile.in	2012-11-03 19:04:04.870731040 +0600
+@@ -123,7 +123,7 @@ plugin/libplugin.a: plugin/discovery.o p
+ 	ar -rc $@ $^
+ 
+ plugin/discovery.o: discovery.c
+-	@CC@ -DPLUGIN=1 $(CFLAGS) '-DVERSION="$(VERSION)"' -c -o $@ -fPIC $<
++	@CC@ -DPLUGIN=1 $(CFLAGS) -I$(PPPD_INCDIR) -c -o $@ -fPIC $<
+ 
+ plugin/if.o: if.c
+ 	@CC@ -DPLUGIN=1 $(CFLAGS) '-DVERSION="$(VERSION)"' -c -o $@ -fPIC $<
