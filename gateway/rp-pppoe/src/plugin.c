@@ -256,7 +256,7 @@ PPPOESendConfig(int mtu,
     struct ifreq ifr;
 
     if (mtu > MAX_PPPOE_MTU) {
-	warn("Couldn't increase MTU to %d", mtu);
+	if (debug) warn("Couldn't increase MTU to %d", mtu);
 	mtu = MAX_PPPOE_MTU;
     }
     sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -280,7 +280,7 @@ PPPOERecvConfig(int mru,
 		int pcomp,
 		int accomp)
 {
-    if (mru > MAX_PPPOE_MTU) {
+    if (mru > MAX_PPPOE_MTU && debug) {
 	warn("Couldn't increase MRU to %d", mru);
     }
 }
