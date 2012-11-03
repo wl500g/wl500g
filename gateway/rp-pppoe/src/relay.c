@@ -1320,7 +1320,6 @@ relayHandlePADS(PPPoEInterface const *iface,
     PPPoETag tag;
     unsigned char *loc;
     int ifIndex;
-    int acIndex;
     PPPoESession *ses = NULL;
     SessionHash *sh;
 
@@ -1337,8 +1336,6 @@ relayHandlePADS(PPPoEInterface const *iface,
 	       iface->name);
 	return;
     }
-
-    acIndex = iface - Interfaces;
 
     /* Source address must be unicast */
     if (NOT_UNICAST(packet->ethHdr.h_source)) {
