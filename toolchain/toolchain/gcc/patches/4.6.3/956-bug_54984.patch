@@ -10,9 +10,9 @@
 +	PR c++/54984
 +	* g++.dg/template/new11.C: New.
 +
- 2012-09-15  Joseph Myers  <joseph@codesourcery.com>
+ 2012-10-08  Jakub Jelinek  <jakub@redhat.com>
  
- 	PR c/54552
+ 	PR c++/54858
 --- gcc-4_7-branch/gcc/testsuite/g++.dg/template/new11.C	(revision 0)
 +++ gcc-4_7-branch/gcc/testsuite/g++.dg/template/new11.C	(revision 192847)
 @@ -0,0 +1,28 @@
@@ -65,6 +65,6 @@
 +	* init.c (build_new): Don't turn a null *init into a pointer to
 +	empty vector orig_init.
 +
- 2012-04-03  Jason Merrill  <jason@redhat.com>
+ 2012-10-08  Jakub Jelinek  <jakub@redhat.com>
  
- 	PR c++/52796
+ 	PR c++/54858
