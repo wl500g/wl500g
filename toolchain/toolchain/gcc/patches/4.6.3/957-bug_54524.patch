@@ -1,0 +1,29 @@
+[4.6/4.7 Regression] Spurious add on sum of bitshifts (forward-propagate issue)
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=54524
+
+--- trunk/gcc/ChangeLog	2012/11/02 23:17:05	193110
++++ trunk/gcc/ChangeLog	2012/11/02 23:32:32	193111
+@@ -1,3 +1,9 @@
++2012-11-02  Andrew Pinski  <apinski@cavium.com>
++
++	PR rtl-opt/54524
++	* simplify-rtx.c (simplify_relational_operation_1): Don't simplify
++	(LTU/GEU (PLUS a 0) 0) into (GEU/LTU a 0) since they are not equivalent.
++
+ 2012-10-19  Marek Polacek  <polacek@redhat.com>
+ 
+ 	Backported from mainline
+--- trunk/gcc/simplify-rtx.c	2012/11/02 23:17:05	193110
++++ trunk/gcc/simplify-rtx.c	2012/11/02 23:32:32	193111
+@@ -4546,7 +4546,9 @@
+       && GET_CODE (op0) == PLUS
+       && CONST_INT_P (XEXP (op0, 1))
+       && (rtx_equal_p (op1, XEXP (op0, 0))
+-	  || rtx_equal_p (op1, XEXP (op0, 1))))
++	  || rtx_equal_p (op1, XEXP (op0, 1)))
++      /* (LTU/GEU (PLUS a 0) 0) is not the same as (GEU/LTU a 0). */
++      && XEXP (op0, 1) != const0_rtx)
+     {
+       rtx new_cmp
+ 	= simplify_gen_unary (NEG, cmp_mode, XEXP (op0, 1), cmp_mode);
