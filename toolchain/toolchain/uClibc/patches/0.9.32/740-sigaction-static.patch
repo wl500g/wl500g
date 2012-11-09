@@ -1,0 +1,671 @@
+Fix sigaction static linking against libpthread
+
+ 83ce0cc4d5e93549f0a9447a9bd6b051f5f1b62f buildsys: fixup sigaction handling
+ 31f48281ed551634b3c2cfcfcde81ca6e208e5f9 *: if !HAS_THREADS strong alias sigaction
+ db19d8d0a9b2ad0cd805944042137de166c4c94d signal.h: provide prototype for __libc_sigaction and remove all others
+ 27fbcf79bc05e63f8687e61ce83fb29c77683b4a signal.h: move prototypes for __syscall_[rt_]sigaction to common place
+ 9c4fce55a245fa921a0699e12361d1ff7fe73efb nptl: remove sigaction, sigprocmask, and sigfillset from libpthread
+
+---
+ include/signal.h                                   |   21 +++++++++++++
+ libc/signal/Makefile.in                            |    2 -
+ libc/signal/sigaction.c                            |   10 +++---
+ libc/sysdeps/linux/alpha/bits/kernel_sigaction.h   |    8 -----
+ libc/sysdeps/linux/arm/Makefile.arch               |    6 ---
+ libc/sysdeps/linux/arm/sigaction.c                 |    7 +++-
+ libc/sysdeps/linux/avr32/sigaction.c               |    9 +++--
+ libc/sysdeps/linux/c6x/sigaction.c                 |    8 +++--
+ libc/sysdeps/linux/common/__syscall_rt_sigaction.c |    7 +---
+ libc/sysdeps/linux/common/__syscall_sigaction.c    |    3 -
+ libc/sysdeps/linux/common/bits/kernel_sigaction.h  |   12 -------
+ libc/sysdeps/linux/hppa/bits/kernel_sigaction.h    |    8 -----
+ libc/sysdeps/linux/i386/Makefile.arch              |    6 ---
+ libc/sysdeps/linux/i386/sigaction.c                |    8 +++--
+ libc/sysdeps/linux/mips/Makefile.arch              |    3 -
+ libc/sysdeps/linux/mips/bits/kernel_sigaction.h    |    8 -----
+ libc/sysdeps/linux/mips/sigaction.c                |    8 +++--
+ libc/sysdeps/linux/sparc/Makefile.arch             |    3 -
+ libc/sysdeps/linux/sparc/sigaction.c               |    7 ++++
+ libc/sysdeps/linux/x86_64/Makefile.arch            |    6 ---
+ libc/sysdeps/linux/x86_64/sigaction.c              |    8 +++--
+ libc/sysdeps/linux/xtensa/sigaction.c              |    7 +++-
+ libpthread/linuxthreads.old/pthread.c              |    2 -
+ libpthread/linuxthreads.old/signals.c              |    3 -
+ libpthread/linuxthreads/pthread.c                  |    3 -
+ libpthread/linuxthreads/signals.c                  |    3 -
+ libpthread/nptl/.gitignore                         |    1 
+ libpthread/nptl/init.c                             |    1 
+ libpthread/nptl/sysdeps/pthread/Makefile.in        |   33 +--------------------
+ libpthread/nptl/sysdeps/pthread/pt-sigaction.c     |   15 +--------
+ 30 files changed, 85 insertions(+), 141 deletions(-)
+
+diff --git a/include/signal.h b/include/signal.h
+--- a/include/signal.h
++++ b/include/signal.h
+@@ -290,7 +290,28 @@ libc_hidden_proto(sigsuspend)
+ /* Get and/or set the action for signal SIG.  */
+ extern int sigaction (int __sig, __const struct sigaction *__restrict __act,
+ 		      struct sigaction *__restrict __oact) __THROW;
++#ifdef _LIBC
++# if 0 /* this is in headers */
++/* In uclibc, userspace struct sigaction is identical to
++ * "new" struct kernel_sigaction (one from the Linux 2.1.68 kernel).
++ * See sigaction.h
++ */
++struct old_kernel_sigaction;
++extern int __syscall_sigaction(int, __const struct old_kernel_sigaction *,
++	struct old_kernel_sigaction *) attribute_hidden;
++# else /* this is how the function is built */
++extern __typeof(sigaction) __syscall_sigaction attribute_hidden;
++# endif
++/* candidate for attribute_hidden, if NPTL would behave */
++extern int __syscall_rt_sigaction(int, __const struct sigaction *,
++	struct sigaction *, size_t)
++# ifndef __UCLIBC_HAS_THREADS_NATIVE__
++		attribute_hidden
++# endif
++	;
++extern __typeof(sigaction) __libc_sigaction;
+ libc_hidden_proto(sigaction)
++#endif
+ 
+ /* Put in SET all signals that are blocked and waiting to be delivered.  */
+ extern int sigpending (sigset_t *__set) __THROW __nonnull ((1));
+diff --git a/libc/signal/Makefile.in b/libc/signal/Makefile.in
+--- a/libc/signal/Makefile.in
++++ b/libc/signal/Makefile.in
+@@ -17,7 +17,7 @@ CSRC-$(UCLIBC_HAS_OBSOLETE_SYSV_SIGNAL) 
+ CSRC-$(UCLIBC_SUSV4_LEGACY) += sigintr.c
+ 
+ ifeq ($(UCLIBC_HAS_THREADS_NATIVE),y)
+-CSRC-y:=$(filter-out raise.c sigaction.c,$(CSRC-y))
++CSRC-y:=$(filter-out raise.c,$(CSRC-y))
+ endif
+ 
+ ifneq ($(strip $(ARCH_OBJS)),)
+diff --git a/libc/signal/sigaction.c b/libc/signal/sigaction.c
+--- a/libc/signal/sigaction.c
++++ b/libc/signal/sigaction.c
+@@ -24,11 +24,6 @@
+ 
+ #include <bits/kernel_sigaction.h>
+ 
+-#ifndef LIBC_SIGACTION
+-extern __typeof(sigaction) __libc_sigaction;
+-#endif
+-
+-
+ #if defined __NR_rt_sigaction
+ 
+ /* If ACT is not NULL, change the action for SIG to *ACT.
+@@ -82,6 +77,11 @@ __libc_sigaction(int sig, const struct s
+ 
+ 
+ #ifndef LIBC_SIGACTION
++# ifndef __UCLIBC_HAS_THREADS__
++strong_alias(__libc_sigaction,sigaction)
++libc_hidden_def(sigaction)
++# else
+ weak_alias(__libc_sigaction,sigaction)
+ libc_hidden_weak(sigaction)
++# endif
+ #endif
+diff --git a/libc/sysdeps/linux/alpha/bits/kernel_sigaction.h b/libc/sysdeps/linux/alpha/bits/kernel_sigaction.h
+--- a/libc/sysdeps/linux/alpha/bits/kernel_sigaction.h
++++ b/libc/sysdeps/linux/alpha/bits/kernel_sigaction.h
+@@ -9,12 +9,4 @@ struct old_kernel_sigaction {
+ 	unsigned int sa_flags;
+ };
+ 
+-/* In uclibc, userspace struct sigaction is identical to
+- * "new" struct kernel_sigaction (one from the Linux 2.1.68 kernel).
+- * See sigaction.h
+- */
+-
+-extern int __syscall_rt_sigaction (int, const struct sigaction *,
+-	struct sigaction *, size_t) attribute_hidden;
+-
+ #endif
+diff --git a/libc/sysdeps/linux/arm/Makefile.arch b/libc/sysdeps/linux/arm/Makefile.arch
+--- a/libc/sysdeps/linux/arm/Makefile.arch
++++ b/libc/sysdeps/linux/arm/Makefile.arch
+@@ -5,11 +5,7 @@
+ # Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
+ #
+ 
+-CSRC := brk.c ioperm.c iopl.c mmap.c __syscall_error.c
+-
+-ifneq ($(UCLIBC_HAS_THREADS_NATIVE),y)
+-CSRC += sigaction.c
+-endif
++CSRC := brk.c ioperm.c iopl.c mmap.c __syscall_error.c sigaction.c
+ 
+ SSRC := \
+ 	__longjmp.S setjmp.S bsd-setjmp.S \
+diff --git a/libc/sysdeps/linux/arm/sigaction.c b/libc/sysdeps/linux/arm/sigaction.c
+--- a/libc/sysdeps/linux/arm/sigaction.c
++++ b/libc/sysdeps/linux/arm/sigaction.c
+@@ -29,8 +29,6 @@
+ extern void __default_sa_restorer(void);
+ extern void __default_rt_sa_restorer(void);
+ 
+-extern __typeof(sigaction) __libc_sigaction;
+-
+ /* When RT signals are in use we need to use a different return stub.  */
+ #ifdef __NR_rt_sigreturn
+ #define choose_restorer(flags)					\
+@@ -96,6 +94,11 @@ int __libc_sigaction(int sig, const stru
+ 
+ 
+ #ifndef LIBC_SIGACTION
++# ifndef __UCLIBC_HAS_THREADS__
++strong_alias(__libc_sigaction,sigaction)
++libc_hidden_def(sigaction)
++# else
+ weak_alias(__libc_sigaction,sigaction)
+ libc_hidden_weak(sigaction)
++# endif
+ #endif
+diff --git a/libc/sysdeps/linux/avr32/sigaction.c b/libc/sysdeps/linux/avr32/sigaction.c
+--- a/libc/sysdeps/linux/avr32/sigaction.c
++++ b/libc/sysdeps/linux/avr32/sigaction.c
+@@ -14,8 +14,6 @@
+ #define SA_RESTORER	0x04000000
+ extern void __default_rt_sa_restorer(void);
+ 
+-extern __typeof(sigaction) __libc_sigaction;
+-
+ /*
+  * If act is not NULL, change the action for sig to *act.
+  * If oact is not NULL, put the old action for sig in *oact.
+@@ -38,6 +36,11 @@ int __libc_sigaction(int sig, const stru
+ }
+ 
+ #ifndef LIBC_SIGACTION
+-weak_alias(__libc_sigaction, sigaction)
++# ifndef __UCLIBC_HAS_THREADS__
++strong_alias(__libc_sigaction,sigaction)
++libc_hidden_def(sigaction)
++# else
++weak_alias(__libc_sigaction,sigaction)
+ libc_hidden_weak(sigaction)
++# endif
+ #endif
+diff --git a/libc/sysdeps/linux/c6x/sigaction.c b/libc/sysdeps/linux/c6x/sigaction.c
+--- a/libc/sysdeps/linux/c6x/sigaction.c
++++ b/libc/sysdeps/linux/c6x/sigaction.c
+@@ -31,8 +31,6 @@
+ 
+ #define SA_RESTORER	0x04000000
+ 
+-extern __typeof(sigaction) __libc_sigaction;
+-
+ extern void restore_rt(void) __asm__ ("__restore_rt") attribute_hidden;
+ extern void restore(void) __asm__ ("__restore") attribute_hidden;
+ 
+@@ -75,10 +73,16 @@ int __libc_sigaction (int sig, const str
+ }
+ 
+ #ifndef LIBC_SIGACTION
++# ifndef __UCLIBC_HAS_THREADS__
++strong_alias(__libc_sigaction,sigaction)
++libc_hidden_def(sigaction)
++# else
+ weak_alias(__libc_sigaction,sigaction)
+ libc_hidden_weak(sigaction)
++# endif
+ #endif
+ 
++
+ /* NOTE: Please think twice before making any changes to the bits of
+    code below.  GDB needs some intimate knowledge about it to
+    recognize them as signal trampolines, and make backtraces through
+diff --git a/libc/sysdeps/linux/common/bits/kernel_sigaction.h b/libc/sysdeps/linux/common/bits/kernel_sigaction.h
+--- a/libc/sysdeps/linux/common/bits/kernel_sigaction.h
++++ b/libc/sysdeps/linux/common/bits/kernel_sigaction.h
+@@ -19,18 +19,6 @@ struct old_kernel_sigaction {
+ 	unsigned long sa_flags;
+ 	void (*sa_restorer)(void);
+ };
+-/* In uclibc, userspace struct sigaction is identical to
+- * "new" struct kernel_sigaction (one from the Linux 2.1.68 kernel).
+- * See sigaction.h
+- */
+-
+-extern int __syscall_sigaction(int, const struct old_kernel_sigaction *,
+-	struct old_kernel_sigaction *);
+-
+ #endif
+ 
+-
+-extern int __syscall_rt_sigaction(int, const struct sigaction *,
+-	struct sigaction *, size_t);
+-
+ #endif /* _BITS_SIGACTION_STRUCT_H */
+diff --git a/libc/sysdeps/linux/common/__syscall_rt_sigaction.c b/libc/sysdeps/linux/common/__syscall_rt_sigaction.c
+--- a/libc/sysdeps/linux/common/__syscall_rt_sigaction.c
++++ b/libc/sysdeps/linux/common/__syscall_rt_sigaction.c
+@@ -12,11 +12,8 @@
+ #ifdef __NR_rt_sigaction
+ #include <signal.h>
+ 
+-int __syscall_rt_sigaction (int __signum, const struct sigaction *__act,
+-							struct sigaction *__oldact, size_t __size);
+-
+ #define __NR___syscall_rt_sigaction __NR_rt_sigaction
+ _syscall4(int, __syscall_rt_sigaction, int, signum,
+-		  const struct sigaction *, act, struct sigaction *, oldact,
+-		  size_t, size)
++	  const struct sigaction *, act, struct sigaction *, oldact,
++	  size_t, size)
+ #endif
+diff --git a/libc/sysdeps/linux/common/__syscall_sigaction.c b/libc/sysdeps/linux/common/__syscall_sigaction.c
+--- a/libc/sysdeps/linux/common/__syscall_sigaction.c
++++ b/libc/sysdeps/linux/common/__syscall_sigaction.c
+@@ -12,8 +12,7 @@
+ #ifndef __NR_rt_sigaction
+ #define __NR___syscall_sigaction __NR_sigaction
+ #include <signal.h>
+-int __syscall_sigaction (int __signum, const struct sigaction *__act, struct sigaction *__oldact) attribute_hidden;
+ _syscall3(int, __syscall_sigaction, int, signum, const struct sigaction *,
+-		  act, struct sigaction *, oldact)
++	  act, struct sigaction *, oldact)
+ #endif
+ 
+diff --git a/libc/sysdeps/linux/hppa/bits/kernel_sigaction.h b/libc/sysdeps/linux/hppa/bits/kernel_sigaction.h
+--- a/libc/sysdeps/linux/hppa/bits/kernel_sigaction.h
++++ b/libc/sysdeps/linux/hppa/bits/kernel_sigaction.h
+@@ -12,12 +12,4 @@ struct old_kernel_sigaction {
+ 	unsigned long sa_flags;
+ };
+ 
+-/* In uclibc, userspace struct sigaction is identical to
+- * "new" struct kernel_sigaction (one from the Linux 2.1.68 kernel).
+- * See sigaction.h
+- */
+-
+-extern int __syscall_rt_sigaction (int, const struct sigaction *,
+-	struct sigaction *, size_t) attribute_hidden;
+-
+ #endif
+diff --git a/libc/sysdeps/linux/i386/Makefile.arch b/libc/sysdeps/linux/i386/Makefile.arch
+--- a/libc/sysdeps/linux/i386/Makefile.arch
++++ b/libc/sysdeps/linux/i386/Makefile.arch
+@@ -5,11 +5,7 @@
+ # Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
+ #
+ 
+-CSRC := brk.c __syscall_error.c
+-
+-ifneq ($(UCLIBC_HAS_THREADS_NATIVE),y)
+-CSRC += sigaction.c
+-endif
++CSRC := brk.c __syscall_error.c sigaction.c
+ 
+ SSRC := \
+ 	__longjmp.S setjmp.S bsd-setjmp.S bsd-_setjmp.S \
+diff --git a/libc/sysdeps/linux/i386/sigaction.c b/libc/sysdeps/linux/i386/sigaction.c
+--- a/libc/sysdeps/linux/i386/sigaction.c
++++ b/libc/sysdeps/linux/i386/sigaction.c
+@@ -27,9 +27,6 @@
+ 
+ #define SA_RESTORER	0x04000000
+ 
+-extern __typeof(sigaction) __libc_sigaction;
+-
+-
+ #if defined __NR_rt_sigaction
+ 
+ extern void restore_rt(void) __asm__ ("__restore_rt") attribute_hidden;
+@@ -95,8 +92,13 @@ int __libc_sigaction(int sig, const stru
+ 
+ 
+ #ifndef LIBC_SIGACTION
++# ifndef __UCLIBC_HAS_THREADS__
++strong_alias(__libc_sigaction,sigaction)
++libc_hidden_def(sigaction)
++# else
+ weak_alias(__libc_sigaction,sigaction)
+ libc_hidden_weak(sigaction)
++# endif
+ #endif
+ 
+ 
+diff --git a/libc/sysdeps/linux/mips/bits/kernel_sigaction.h b/libc/sysdeps/linux/mips/bits/kernel_sigaction.h
+--- a/libc/sysdeps/linux/mips/bits/kernel_sigaction.h
++++ b/libc/sysdeps/linux/mips/bits/kernel_sigaction.h
+@@ -24,12 +24,4 @@ struct old_kernel_sigaction {
+ #endif
+ };
+ 
+-/* In uclibc, userspace struct sigaction is identical to
+- * "new" struct kernel_sigaction (one from the Linux 2.1.68 kernel).
+- * See sigaction.h
+- */
+-
+-extern int __syscall_rt_sigaction (int, const struct sigaction *,
+-	struct sigaction *, size_t) attribute_hidden;
+-
+ #endif
+diff --git a/libc/sysdeps/linux/mips/Makefile.arch b/libc/sysdeps/linux/mips/Makefile.arch
+--- a/libc/sysdeps/linux/mips/Makefile.arch
++++ b/libc/sysdeps/linux/mips/Makefile.arch
+@@ -7,7 +7,7 @@
+ 
+ CSRC := \
+ 	__longjmp.c  brk.c setjmp_aux.c mmap.c \
+-	cacheflush.c pread_write.c sysmips.c _test_and_set.c \
++	cacheflush.c pread_write.c sigaction.c sysmips.c _test_and_set.c \
+ 	readahead.c
+ 
+ SSRC := bsd-_setjmp.S bsd-setjmp.S setjmp.S syscall.S pipe.S syscall_error.S
+@@ -17,7 +17,6 @@ CSRC += posix_fadvise.c posix_fadvise64.
+ endif
+ 
+ ifneq ($(UCLIBC_HAS_THREADS_NATIVE),y)
+-CSRC += sigaction.c
+ SSRC += vfork.S clone.S
+ endif
+ 
+diff --git a/libc/sysdeps/linux/mips/sigaction.c b/libc/sysdeps/linux/mips/sigaction.c
+--- a/libc/sysdeps/linux/mips/sigaction.c
++++ b/libc/sysdeps/linux/mips/sigaction.c
+@@ -27,9 +27,6 @@
+ 
+ #define SA_RESTORER	0x04000000
+ 
+-extern __typeof(sigaction) __libc_sigaction;
+-
+-
+ #ifdef __NR_rt_sigaction
+ 
+ # if _MIPS_SIM != _ABIO32
+@@ -100,8 +97,13 @@ int __libc_sigaction(int sig, const stru
+ 
+ 
+ #ifndef LIBC_SIGACTION
++# ifndef __UCLIBC_HAS_THREADS__
++strong_alias(__libc_sigaction,sigaction)
++libc_hidden_def(sigaction)
++# else
+ weak_alias(__libc_sigaction,sigaction)
+ libc_hidden_weak(sigaction)
++# endif
+ #endif
+ 
+ 
+diff --git a/libc/sysdeps/linux/sparc/Makefile.arch b/libc/sysdeps/linux/sparc/Makefile.arch
+--- a/libc/sysdeps/linux/sparc/Makefile.arch
++++ b/libc/sysdeps/linux/sparc/Makefile.arch
+@@ -5,14 +5,13 @@
+ # Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
+ #
+ 
+-CSRC := brk.c __syscall_error.c
++CSRC := brk.c __syscall_error.c sigaction.c
+ 
+ SSRC := \
+ 	__longjmp.S setjmp.S bsd-setjmp.S bsd-_setjmp.S \
+ 	syscall.S urem.S udiv.S umul.S sdiv.S rem.S pipe.S
+ 
+ ifneq ($(UCLIBC_HAS_THREADS_NATIVE),y)
+-CSRC += sigaction.c
+ SSRC += fork.S vfork.S
+ endif
+ 
+diff --git a/libc/sysdeps/linux/sparc/sigaction.c b/libc/sysdeps/linux/sparc/sigaction.c
+--- a/libc/sysdeps/linux/sparc/sigaction.c
++++ b/libc/sysdeps/linux/sparc/sigaction.c
+@@ -65,11 +65,18 @@ int __libc_sigaction(int sig, const stru
+ 	return ret;
+ }
+ 
++
+ #ifndef LIBC_SIGACTION
++# ifndef __UCLIBC_HAS_THREADS__
++strong_alias(__libc_sigaction,sigaction)
++libc_hidden_def(sigaction)
++# else
+ weak_alias(__libc_sigaction,sigaction)
+ libc_hidden_weak(sigaction)
++# endif
+ #endif
+ 
++
+ static void
+ __rt_sigreturn_stub(void)
+ {
+diff --git a/libc/sysdeps/linux/x86_64/Makefile.arch b/libc/sysdeps/linux/x86_64/Makefile.arch
+--- a/libc/sysdeps/linux/x86_64/Makefile.arch
++++ b/libc/sysdeps/linux/x86_64/Makefile.arch
+@@ -5,11 +5,7 @@
+ # Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
+ #
+ 
+-CSRC := brk.c __syscall_error.c mmap.c
+-
+-ifneq ($(UCLIBC_HAS_THREADS_NATIVE),y)
+-CSRC += sigaction.c
+-endif
++CSRC := brk.c __syscall_error.c sigaction.c mmap.c
+ 
+ SSRC := \
+ 	__longjmp.S setjmp.S syscall.S bsd-setjmp.S bsd-_setjmp.S
+diff --git a/libc/sysdeps/linux/x86_64/sigaction.c b/libc/sysdeps/linux/x86_64/sigaction.c
+--- a/libc/sysdeps/linux/x86_64/sigaction.c
++++ b/libc/sysdeps/linux/x86_64/sigaction.c
+@@ -30,9 +30,6 @@
+ /* We do not globally define the SA_RESTORER flag so do it here.  */
+ #define SA_RESTORER 0x04000000
+ 
+-extern __typeof(sigaction) __libc_sigaction;
+-
+-
+ #ifdef __NR_rt_sigaction
+ 
+ /* Using the hidden attribute here does not change the code but it
+@@ -99,8 +96,13 @@ __libc_sigaction(int sig, const struct s
+ 
+ 
+ #ifndef LIBC_SIGACTION
++# ifndef __UCLIBC_HAS_THREADS__
++strong_alias(__libc_sigaction,sigaction)
++libc_hidden_def(sigaction)
++# else
+ weak_alias(__libc_sigaction,sigaction)
+ libc_hidden_weak(sigaction)
++# endif
+ #endif
+ 
+ 
+diff --git a/libc/sysdeps/linux/xtensa/sigaction.c b/libc/sysdeps/linux/xtensa/sigaction.c
+--- a/libc/sysdeps/linux/xtensa/sigaction.c
++++ b/libc/sysdeps/linux/xtensa/sigaction.c
+@@ -34,6 +34,11 @@ int __libc_sigaction(int sig, const stru
+ }
+ 
+ #ifndef LIBC_SIGACTION
+-weak_alias(__libc_sigaction, sigaction)
++# ifndef __UCLIBC_HAS_THREADS__
++strong_alias(__libc_sigaction,sigaction)
++libc_hidden_def(sigaction)
++# else
++weak_alias(__libc_sigaction,sigaction)
+ libc_hidden_weak(sigaction)
++# endif
+ #endif
+diff --git a/libpthread/linuxthreads/pthread.c b/libpthread/linuxthreads/pthread.c
+--- a/libpthread/linuxthreads/pthread.c
++++ b/libpthread/linuxthreads/pthread.c
+@@ -37,9 +37,6 @@
+ # error "This must not happen"
+ #endif
+ 
+-/* mods for uClibc: __libc_sigaction is not in any standard headers */
+-extern __typeof(sigaction) __libc_sigaction;
+-
+ #if !(USE_TLS && HAVE___THREAD)
+ /* These variables are used by the setup code.  */
+ extern int _errno;
+diff --git a/libpthread/linuxthreads/signals.c b/libpthread/linuxthreads/signals.c
+--- a/libpthread/linuxthreads/signals.c
++++ b/libpthread/linuxthreads/signals.c
+@@ -20,9 +20,6 @@
+ #include "internals.h"
+ #include "spinlock.h"
+ 
+-/* mods for uClibc: __libc_sigaction is not in any standard headers */
+-extern __typeof(sigaction) __libc_sigaction;
+-
+ int pthread_sigmask(int how, const sigset_t * newmask, sigset_t * oldmask)
+ {
+   sigset_t mask;
+diff --git a/libpthread/linuxthreads.old/pthread.c b/libpthread/linuxthreads.old/pthread.c
+--- a/libpthread/linuxthreads.old/pthread.c
++++ b/libpthread/linuxthreads.old/pthread.c
+@@ -38,8 +38,6 @@
+ #include <sys/types.h>
+ #include <sys/syscall.h>
+ 
+-/* mods for uClibc: __libc_sigaction is not in any standard headers */
+-extern __typeof(sigaction) __libc_sigaction;
+ libpthread_hidden_proto(waitpid)
+ libpthread_hidden_proto(raise)
+ 
+diff --git a/libpthread/linuxthreads.old/signals.c b/libpthread/linuxthreads.old/signals.c
+--- a/libpthread/linuxthreads.old/signals.c
++++ b/libpthread/linuxthreads.old/signals.c
+@@ -22,9 +22,6 @@
+ #include "spinlock.h"
+ #include <bits/sigcontextinfo.h>
+ 
+-/* mods for uClibc: __libc_sigaction is not in any standard headers */
+-extern __typeof(sigaction) __libc_sigaction;
+-
+ int pthread_sigmask(int how, const sigset_t * newmask, sigset_t * oldmask)
+ {
+   sigset_t mask;
+diff --git a/libpthread/nptl/.gitignore b/libpthread/nptl/.gitignore
+--- a/libpthread/nptl/.gitignore
++++ b/libpthread/nptl/.gitignore
+@@ -24,6 +24,5 @@ sysdeps/pthread/pt-initfini.s
+ #
+ # symlinks
+ #
+-sysdeps/pthread/pt-sigaction.c
+ sysdeps/pthread/pt-sigfillset.c
+ sysdeps/pthread/pt-sigprocmask.c
+diff --git a/libpthread/nptl/init.c b/libpthread/nptl/init.c
+--- a/libpthread/nptl/init.c
++++ b/libpthread/nptl/init.c
+@@ -35,7 +35,6 @@
+ #include <lowlevellock.h>
+ #include <bits/kernel-features.h>
+ #include <stdio.h>
+-extern __typeof(sigaction) __libc_sigaction;
+ 
+ /* Size and alignment of static TLS block.  */
+ size_t __static_tls_size;
+diff --git a/libpthread/nptl/sysdeps/pthread/Makefile.in b/libpthread/nptl/sysdeps/pthread/Makefile.in
+--- a/libpthread/nptl/sysdeps/pthread/Makefile.in
++++ b/libpthread/nptl/sysdeps/pthread/Makefile.in
+@@ -33,19 +33,12 @@ libpthread_pthread_CSRC = \
+ 	pthread_spin_init.c \
+ 	pthread_spin_unlock.c \
+ 	pt-longjmp.c \
+-	pt-sigaction.c \
+-	pt-sigfillset.c \
+-	pt-sigprocmask.c \
+ 	tpp.c
+ CFLAGS-pthread = $(SSP_ALL_CFLAGS) -DNOT_IN_libc -DIS_IN_libpthread
+ CFLAGS-pthread_barrier_wait.c = -D_GNU_SOURCE
+ CFLAGS-pthread_spin_destroy.c = -D_GNU_SOURCE
+ CFLAGS-pthread_spin_init.c = -D_GNU_SOURCE
+ CFLAGS-pthread_spin_unlock.c = -D_GNU_SOURCE
+-CFLAGS-pt-sigaction.c = -I$(top_srcdir)libc/sysdeps/linux/$(TARGET_ARCH) \
+-			-I$(top_srcdir)libc/signal
+-CFLAGS-pt-sigfillset.c = -I$(top_srcdir)libc/signal
+-CFLAGS-pt-sigprocmask.c = -I$(top_srcdir)libc/sysdeps/linux/common
+ CFLAGS-unwind-forcedunwind.c = -fexceptions -fasynchronous-unwind-tables
+ 
+ CFLAGS-OMIT-librt-cancellation.c = -DIS_IN_libpthread
+@@ -55,12 +48,7 @@ CFLAGS-librt-cancellation.c = -DIS_IN_li
+ CFLAGS-rt-unwind-resume.c = -DIS_IN_librt				\
+ 			    -fexceptions -fasynchronous-unwind-tables
+ 
+-libpthread-so-y += $(patsubst %,$(libpthread_pthread_OUT)/%.oS, \
+-	pt-sigaction pt-sigprocmask unwind-forcedunwind)
+-
+-CFLAGS-OMIT-sigaction.c = $(CFLAGS-pthread)
+-CFLAGS-sigaction.c = -I$(top_srcdir)libc/signal
+-libc-y += $(libpthread_pthread_OUT)/sigaction.o
++libpthread-so-y += $(patsubst %,$(libpthread_pthread_OUT)/%.oS, unwind-forcedunwind)
+ 
+ librt-pt-routines-y = librt-cancellation.c
+ librt-pt-shared-only-routines-y = rt-unwind-resume.c
+@@ -110,26 +98,9 @@ $(libpthread_pthread_OUT)/pt-crtn.S: $(l
+ 		-e '/@TRAILER_BEGINS/,$$p' $< > $@.tmp
+ 	$(Q)mv $@.tmp $@
+ endif
+-# It would have been easier to just add dummy files that include the real
+-# impl, but ok.
+-# Special rules needed since we do objdir->objdir compilation for these 3.
+-# First symlink them, then build them. Rob would freak out on these. Sheesh! ;)
+-pthread-lc-fwd = sigaction sigfillset sigprocmask
+-$(patsubst %,$(libpthread_pthread_OUT)/pt-%.c,$(pthread-lc-fwd)): | $(libpthread_pthread_OUT)
+-	$(do_ln) $(call rel_srcdir)$(patsubst pt-%,$(libpthread_pthread_DIR)/%,$(@F)) $@
+-$(patsubst %,$(libpthread_pthread_OUT)/pt-%.oS,$(pthread-lc-fwd)): $(libpthread_pthread_OUT)/pt-%.oS: $(libpthread_pthread_OUT)/pt-%.c
+-	$(compile.c)
+-$(patsubst %,$(libpthread_pthread_OUT)/pt-%.o,$(pthread-lc-fwd)): $(libpthread_pthread_OUT)/pt-%.o: $(libpthread_pthread_OUT)/pt-%.c
+-	$(compile.c)
+-ifeq ($(DOPIC),y)
+-$(patsubst %,$(libpthread_pthread_OUT)/pt-%.os,$(pthread-lc-fwd)): $(libpthread_pthread_OUT)/pt-%.os: $(libpthread_pthread_OUT)/pt-%.c
+-	$(compile.c)
+-endif
+ 
+ objclean-y += CLEAN_libpthread/nptl/sysdeps/pthread
+ 
+ CLEAN_libpthread/nptl/sysdeps/pthread:
+ 	$(do_rm) $(addprefix $(libpthread_pthread_OUT)/*., o os oS s S) \
+-		$(libpthread_pthread_OUT)/defs.h \
+-		$(addprefix $(libpthread_pthread_DIR)/,pt-sigaction.c \
+-			pt-sigfillset.c pt-sigprocmask.c)
++		$(libpthread_pthread_OUT)/defs.h
+diff --git a/libpthread/nptl/sysdeps/pthread/sigaction.c b/libpthread/nptl/sysdeps/pthread/pt-sigaction.c
+--- a/libpthread/nptl/sysdeps/pthread/sigaction.c
++++ b/libpthread/nptl/sysdeps/pthread/pt-sigaction.c
+@@ -17,20 +17,17 @@
+    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+    02111-1307 USA.  */
+ 
+-#ifndef LIBC_SIGACTION
+-
+ #include <pthreadP.h>
++#include <signal.h>
+ 
+ /* We use the libc implementation but we tell it to not allow
+    SIGCANCEL or SIGTIMER to be handled.  */
+-#define LIBC_SIGACTION	1
+-#include <sigaction.c>
+ 
+-extern __typeof(sigaction) __sigaction;
++extern __typeof(sigaction) __libc_sigaction;
+ int
+ __sigaction (int sig, const struct sigaction *act, struct sigaction *oact)
+ {
+-  if (__builtin_expect (sig == SIGCANCEL || sig == SIGSETXID, 0))
++  if (unlikely (sig == SIGCANCEL || sig == SIGSETXID))
+     {
+       __set_errno (EINVAL);
+       return -1;
+@@ -41,9 +38,3 @@ __sigaction (int sig, const struct sigaction *act, struct sigaction *oact)
+ libc_hidden_proto(sigaction)
+ weak_alias (__sigaction, sigaction)
+ libc_hidden_weak(sigaction)
+-
+-#else
+-
+-# include_next <sigaction.c>
+-
+-#endif /* LIBC_SIGACTION */
+-- 
