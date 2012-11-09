@@ -1,0 +1,65 @@
+[4.6/4.7/4.8 regression] memory explosion on nested conditional expressions
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=55219
+
+--- gcc-4_6-branch/gcc/fold-const.c	(revision 193314)
++++ gcc-4_6-branch/gcc/fold-const.c	(revision 193315)
+@@ -6003,10 +6003,11 @@
+     }
+ 
+   /* This transformation is only worthwhile if we don't have to wrap ARG
+-     in a SAVE_EXPR and the operation can be simplified on at least one
+-     of the branches once its pushed inside the COND_EXPR.  */
++     in a SAVE_EXPR and the operation can be simplified without recursing
++     on at least one of the branches once its pushed inside the COND_EXPR.  */
+   if (!TREE_CONSTANT (arg)
+       && (TREE_SIDE_EFFECTS (arg)
++	  || TREE_CODE (arg) == COND_EXPR || TREE_CODE (arg) == VEC_COND_EXPR
+ 	  || TREE_CONSTANT (true_value) || TREE_CONSTANT (false_value)))
+     return NULL_TREE;
+ 
+Index: gcc/ChangeLog
+===================================================================
+--- gcc-4_6-branch/gcc/ChangeLog	(revision 193314)
++++ gcc-4_6-branch/gcc/ChangeLog	(revision 193315)
+@@ -1,3 +1,9 @@
++2012-11-07  Eric Botcazou  <ebotcazou@adacore.com>
++
++	PR middle-end/55219
++	* fold-const.c (fold_binary_op_with_conditional_arg): Do not fold if
++	the argument is itself a conditional expression.
++
+ 2012-11-02  Andrew Pinski  <apinski@cavium.com>
+ 
+ 	PR rtl-opt/54524
+Index: gcc/testsuite/gcc.c-torture/compile/20121107-1.c
+===================================================================
+--- gcc-4_6-branch/gcc/testsuite/gcc.c-torture/compile/20121107-1.c	(revision 0)
++++ gcc-4_6-branch/gcc/testsuite/gcc.c-torture/compile/20121107-1.c	(revision 193315)
+@@ -0,0 +1,14 @@
++/* PR middle-end/55219 */
++/* Testcase by Markus Trippelsdorf <markus@trippelsdorf.de> */
++
++int x, c, d, e, f, g, h, i;
++double j;
++const int k;
++const enum { B } a;
++void
++fn1 (void)
++{
++  h = (g ? c : g ? f : g ? e : g ? i : g ? f : g ? e : g ? d : x)
++      + (a ? : a ? : a ? : a ? : a ? : a ? : a ? : a ? : a ? : a ? : a
++         ? j : a ? : 0 ? : a ? : a ? : a ? : a ? : a ? : a ? k : a ? : x);
++}
+Index: gcc/testsuite/ChangeLog
+===================================================================
+--- gcc-4_6-branch/gcc/testsuite/ChangeLog	(revision 193314)
++++ gcc-4_6-branch/gcc/testsuite/ChangeLog	(revision 193315)
+@@ -1,3 +1,7 @@
++2012-11-07  Eric Botcazou  <ebotcazou@adacore.com>
++
++	* gcc.c-torture/compile/20121107-1.c: New test.
++
+ 2012-10-26  Paolo Carlini  <paolo.carlini@oracle.com>
+ 
+ 	PR c++/54984
