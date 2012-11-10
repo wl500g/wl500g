@@ -411,8 +411,10 @@ struct socket *sockfd_to_socket(unsigned int sockfd)
 
 	inode = file->f_dentry->d_inode;
 
-	if (!inode || !S_ISSOCK(inode->i_mode))
+	if (!inode || !S_ISSOCK(inode->i_mode)) {
+		fput(file);
 		return NULL;
+	}
 
 	socket = SOCKET_I(inode);
 
