@@ -75,7 +75,15 @@ diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
  
  		/* it looks like index is empty;
  		 * try to find starting block from index itself */
-@@ -2427,6 +2450,7 @@ static int ext4_ext_convert_to_initializ
+@@ -2827,6 +2850,7 @@ static int ext4_split_unwritten_extents(
+ 		ex1 = ex;
+ 		ex1->ee_len = cpu_to_le16(iblock - ee_block);
+ 		ext4_ext_mark_uninitialized(ex1);
++		ext4_ext_dirty(handle, inode, path + depth);
+ 		ex2 = &newex;
+ 	}
+ 	/*
+@@ -2922,6 +2922,7 @@ static int ext4_split_unwritten_extents(
  		ex1 = ex;
  		ex1->ee_len = cpu_to_le16(iblock - ee_block);
  		ext4_ext_mark_uninitialized(ex1);
