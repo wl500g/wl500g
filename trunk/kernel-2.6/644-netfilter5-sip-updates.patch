@@ -27,7 +27,7 @@ diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
  		}
  
 +		olen = *datalen;
- 		if (!map_addr(skb, dataoff, dptr, datalen, matchoff, matchlen,
+ 		if (!map_addr(pskb, dataoff, dptr, datalen, matchoff, matchlen,
  			      &addr, port))
  			return NF_DROP;
  
