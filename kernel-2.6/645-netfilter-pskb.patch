@@ -3016,9 +3016,9 @@ diff -urBp a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
  			return NF_DROP;
  		request = 1;
 @@ -164,7 +164,7 @@ static unsigned int ip_nat_sip(struct sk
- 				goto next;
  		}
  
+ 		olen = *datalen;
 -		if (!map_addr(pskb, dataoff, dptr, datalen, matchoff, matchlen,
 +		if (!map_addr(skb, dataoff, dptr, datalen, matchoff, matchlen,
  			      &addr, port))
