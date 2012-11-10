@@ -1,11 +1,22 @@
 ext4: Updates from upstream 4
 
+ 29ae07b702cb77dbc24b0843f15ee8cf8a642311 ext4: Fix overflow caused by missing cast in ext4_fallocate()
  b71fc079b5d8f42b2a52743c8d2f1d35d655b1c5 ext4: fix fdatasync() for files with only i_size changes
 
 ---
- fs/ext4/inode.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
 
+diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
+--- a/fs/ext4/extents.c
++++ b/fs/ext4/extents.c
+@@ -3594,7 +3594,7 @@ retry:
+ 						blkbits) >> blkbits))
+ 			new_size = offset + len;
+ 		else
+-			new_size = (block + ret) << blkbits;
++			new_size = ((loff_t) block + ret) << blkbits;
+ 
+ 		ext4_falloc_update_inode(inode, mode, new_size,
+ 						buffer_new(&map_bh));
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
