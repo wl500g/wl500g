@@ -924,7 +924,6 @@ static int vhci_start(struct usb_hcd *hcd)
 
 
 	hcd->power_budget = 0; /* no limit */
-	hcd->state  = HC_STATE_RUNNING;
 	hcd->uses_new_polling = 1;
 
 
