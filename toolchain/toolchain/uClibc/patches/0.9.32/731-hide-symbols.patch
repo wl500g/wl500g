@@ -1,0 +1,417 @@
+hide internal symbols
+
+ 6287cacef2feb129050449d79769b5fd907e1062 ldso: mark _start hidden
+ c5bebf9403325633b66f1b69346c40141cac8da2 make __uClibc_fini() hidden
+ b2b5d473e02d02f2888cf5848cbbdc2a46f57951 __uClibc_main.c: make __uClibc_init hidden
+ a5de87e5b525b5f7c8353d98de8d08bcbc6d3486 libdl.c: hide dl_cleanup
+ a9b153b6a8e66f00da69ab0cf2465767695fe86f resolv.c,time.c,_atexit.c: hide 3 locks
+ fee403476315d999633aa064ce6f2c24abb193bf getpagesize.c, unistd.h: hide __pagesize
+ 1ea3c5e6f11b91466546020f4e9ec13d1ab81be3 stdio: hide _stdio_validate_FILE
+ 7431f726e2865028c98abc9ea765069fcfe4bc63 malloc.h: hide internal functions (mainly debug related)
+ bd3c1a2495cbcb51b606f8e4892fcd127f91e645 misc: hide __gen_tempname
+ c79f09a9a3cfa50cd56c53bd2d3d1f57fe52d587 nptl: add missing pt-tempname.c
+---
+
+diff --git a/include/unistd.h b/include/unistd.h
+--- a/include/unistd.h
++++ b/include/unistd.h
+@@ -1230,6 +1230,7 @@ __END_DECLS
+ #endif
+ typedef signed smallint_type smallint;
+ typedef unsigned smallint_type smalluint;
++extern size_t __pagesize attribute_hidden;
+ #endif
+ 
+ 
+diff --git a/libc/sysdeps/linux/common/getpagesize.c b/libc/sysdeps/linux/common/getpagesize.c
+--- a/libc/sysdeps/linux/common/getpagesize.c
++++ b/libc/sysdeps/linux/common/getpagesize.c
+@@ -20,8 +20,6 @@
+ #include <features.h>
+ #include <sys/param.h>
+ 
+-extern size_t __pagesize;
+-
+ /* Return the system page size.  */
+ /* couldn't make __getpagesize hidden, because shm.h uses it in a macro */
+ extern __typeof(getpagesize) __getpagesize;
+diff --git a/ldso/ldso/arm/dl-startup.h b/ldso/ldso/arm/dl-startup.h
+--- a/ldso/ldso/arm/dl-startup.h
++++ b/ldso/ldso/arm/dl-startup.h
+@@ -14,6 +14,7 @@ __asm__(
+     "	.text\n"
+     "	.globl	_start\n"
+     "	.type	_start,%function\n"
++	"	.hidden	_start\n"
+ 	"_start:\n"
+ 	"	@ at start time, all the args are on the stack\n"
+ 	"	mov	r0, sp\n"
+diff --git a/ldso/ldso/avr32/dl-startup.h b/ldso/ldso/avr32/dl-startup.h
+--- a/ldso/ldso/avr32/dl-startup.h
++++ b/ldso/ldso/avr32/dl-startup.h
+@@ -12,6 +12,7 @@
+ __asm__("	.text\n"
+ 	"	.global	_start\n"
+ 	"	.type	_start,@function\n"
++	"	.hidden	_start\n"
+ 	"_start:\n"
+ 	/* All arguments are on the stack initially */
+ 	"	mov	r12, sp\n"
+diff --git a/ldso/ldso/c6x/dl-startup.h b/ldso/ldso/c6x/dl-startup.h
+--- a/ldso/ldso/c6x/dl-startup.h
++++ b/ldso/ldso/c6x/dl-startup.h
+@@ -42,6 +42,7 @@ _dl_start (unsigned placeholder, \
+ 
+ __asm__("	.text\n"
+ 	".globl _start\n"
++	".hidden _start\n"
+ 	"_start:\n"
+ 	"          B .S2		_dl_start\n"
+ 	"          STW .D2T2		B14, *+B14[1]\n"
+diff --git a/ldso/ldso/cris/dl-startup.h b/ldso/ldso/cris/dl-startup.h
+--- a/ldso/ldso/cris/dl-startup.h
++++ b/ldso/ldso/cris/dl-startup.h
+@@ -10,6 +10,7 @@ __asm__(""					\
+ "	.text\n"			\
+ "	.globl _start\n"		\
+ "	.type _start,@function\n"	\
++"	.hidden _start\n"		\
+ "_start:\n"				\
+ "	move.d	$sp,$r10\n"		\
+ "	lapc	_dl_start,$r9\n"	\
+@@ -28,6 +29,7 @@ __asm__(""					\
+ "	.text\n"			\
+ "	.globl _start\n"		\
+ "	.type _start,@function\n"	\
++"	.hidden _start\n"		\
+ "_start:\n"				\
+ "	move.d	$sp,$r10\n"		\
+ "	move.d	$pc,$r9\n"		\
+diff --git a/ldso/ldso/i386/dl-startup.h b/ldso/ldso/i386/dl-startup.h
+--- a/ldso/ldso/i386/dl-startup.h
++++ b/ldso/ldso/i386/dl-startup.h
+@@ -7,6 +7,7 @@ __asm__ (
+     "	.text\n"
+     "	.globl	_start\n"
+     "	.type	_start,@function\n"
++    "	.hidden	_start\n"
+     "_start:\n"
+     "	call _dl_start\n"
+     "	# Save the user entry point address in %edi.\n"
+diff --git a/ldso/ldso/m68k/dl-startup.h b/ldso/ldso/m68k/dl-startup.h
+--- a/ldso/ldso/m68k/dl-startup.h
++++ b/ldso/ldso/m68k/dl-startup.h
+@@ -19,6 +19,7 @@ __asm__ ("\
+ 	.text\n\
+ 	.globl _start\n\
+ 	.type _start,@function\n\
++	.hidden _start\n\
+ _start:\n\
+ 	move.l %sp, -(%sp)\n\
+ 	jbsr _dl_start\n\
+diff --git a/ldso/ldso/mips/dl-startup.h b/ldso/ldso/mips/dl-startup.h
+--- a/ldso/ldso/mips/dl-startup.h
++++ b/ldso/ldso/mips/dl-startup.h
+@@ -12,6 +12,7 @@ __asm__(""
+     "	.globl	_start\n"
+     "	.ent	_start\n"
+     "	.type	_start,@function\n"
++    "	.hidden	_start\n"
+     "_start:\n"
+     "	.set noreorder\n"
+     "	move	$25, $31\n"
+diff --git a/ldso/ldso/powerpc/dl-startup.h b/ldso/ldso/powerpc/dl-startup.h
+--- a/ldso/ldso/powerpc/dl-startup.h
++++ b/ldso/ldso/powerpc/dl-startup.h
+@@ -8,6 +8,7 @@ __asm__(
+     "	.text\n"
+     "	.globl	_start\n"
+     "	.type	_start,@function\n"
++    "	.hidden	_start\n"
+     "_start:\n"
+     "	mr	3,1\n" /* Pass SP to _dl_start in r3 */
+     "	li	0,0\n"
+diff --git a/ldso/ldso/sh/dl-startup.h b/ldso/ldso/sh/dl-startup.h
+--- a/ldso/ldso/sh/dl-startup.h
++++ b/ldso/ldso/sh/dl-startup.h
+@@ -6,6 +6,7 @@ __asm__(
+     "	.text\n"
+     "	.globl	_start\n"
+     "	.type	_start,@function\n"
++    "	.hidden	_start\n"
+     "_start:\n"
+     "	mov	r15, r4\n"
+     "	mov.l   .L_dl_start, r0\n"
+diff --git a/ldso/ldso/sh64/dl-startup.h b/ldso/ldso/sh64/dl-startup.h
+--- a/ldso/ldso/sh64/dl-startup.h
++++ b/ldso/ldso/sh64/dl-startup.h
+@@ -7,6 +7,7 @@ __asm__("" \
+ "	.section .text..SHmedia32,\"ax\"\n"				\
+ "	.globl _start\n"						\
+ "	.type _start, @function\n"					\
++"	.hidden _start\n"						\
+ "	.align 5\n"							\
+ "_start:\n"								\
+ "	! Set r12 to point to GOT\n"					\
+diff --git a/ldso/ldso/sparc/dl-startup.h b/ldso/ldso/sparc/dl-startup.h
+--- a/ldso/ldso/sparc/dl-startup.h
++++ b/ldso/ldso/sparc/dl-startup.h
+@@ -8,6 +8,7 @@ __asm__ ("\
+ 	.text\n\
+ 	.global _start\n\
+ 	.type   _start,%function\n\
++	.hidden _start\n\
+ 	.align 32\n\
+ 	.register %g2, #scratch\n\
+ _start:\n\
+diff --git a/ldso/ldso/x86_64/dl-startup.h b/ldso/ldso/x86_64/dl-startup.h
+--- a/ldso/ldso/x86_64/dl-startup.h
++++ b/ldso/ldso/x86_64/dl-startup.h
+@@ -10,6 +10,7 @@ __asm__ (
+ 	"	.text\n"
+ 	"	.global _start\n"
+ 	"	.type   _start,%function\n"
++	"	.hidden _start\n"
+ 	"_start:\n"
+ 	"	movq %rsp, %rdi\n"
+ 	"	call _dl_start\n"
+diff --git a/ldso/libdl/libdl.c b/ldso/libdl/libdl.c
+--- a/ldso/libdl/libdl.c
++++ b/ldso/libdl/libdl.c
+@@ -269,7 +269,7 @@ remove_slotinfo(size_t idx, struct dtv_slotinfo_list *listp, size_t disp,
+ }
+ #endif
+ 
+-void dl_cleanup(void) __attribute__ ((destructor));
++void dl_cleanup(void) attribute_hidden __attribute__ ((destructor));
+ void dl_cleanup(void)
+ {
+ 	struct dyn_elf *h, *n;
+diff --git a/libc/inet/resolv.c b/libc/inet/resolv.c
+--- a/libc/inet/resolv.c
++++ b/libc/inet/resolv.c
+@@ -405,7 +405,7 @@ typedef union sockaddr46_t {
+ } sockaddr46_t;
+ 
+ 
+-__UCLIBC_MUTEX_EXTERN(__resolv_lock);
++__UCLIBC_MUTEX_EXTERN(__resolv_lock) attribute_hidden;
+ 
+ /* Protected by __resolv_lock */
+ extern void (*__res_sync)(void) attribute_hidden;
+diff --git a/libc/misc/time/time.c b/libc/misc/time/time.c
+--- a/libc/misc/time/time.c
++++ b/libc/misc/time/time.c
+@@ -208,7 +208,7 @@ typedef struct {
+ 	char tzname[TZNAME_MAX+1];
+ } rule_struct;
+ 
+-__UCLIBC_MUTEX_EXTERN(_time_tzlock);
++__UCLIBC_MUTEX_EXTERN(_time_tzlock) attribute_hidden;
+ 
+ extern rule_struct _time_tzinfo[2] attribute_hidden;
+ 
+diff --git a/libc/stdlib/_atexit.c b/libc/stdlib/_atexit.c
+--- a/libc/stdlib/_atexit.c
++++ b/libc/stdlib/_atexit.c
+@@ -44,7 +44,7 @@
+ #include <atomic.h>
+ 
+ #include <bits/uClibc_mutex.h>
+-__UCLIBC_MUTEX_EXTERN(__atexit_lock);
++__UCLIBC_MUTEX_EXTERN(__atexit_lock) attribute_hidden;
+ 
+ 
+ 
+diff --git a/libc/stdlib/malloc-standard/mallinfo.c b/libc/stdlib/malloc-standard/mallinfo.c
+--- a/libc/stdlib/malloc-standard/mallinfo.c
++++ b/libc/stdlib/malloc-standard/mallinfo.c
+@@ -15,6 +15,7 @@
+ */
+ 
+ #include "malloc.h"
++#include <stdio.h>	/* fprintf */
+ 
+ 
+ /* ------------------------------ mallinfo ------------------------------ */
+diff --git a/libc/stdlib/malloc-standard/malloc.h b/libc/stdlib/malloc-standard/malloc.h
+--- a/libc/stdlib/malloc-standard/malloc.h
++++ b/libc/stdlib/malloc-standard/malloc.h
+@@ -26,7 +26,11 @@
+ 
+ 
+ 
+-__UCLIBC_MUTEX_EXTERN(__malloc_lock);
++__UCLIBC_MUTEX_EXTERN(__malloc_lock)
++#if defined __UCLIBC_HAS_THREADS__ && !defined __LINUXTHREADS_OLD__
++	attribute_hidden
++#endif
++	;
+ #define __MALLOC_LOCK		__UCLIBC_MUTEX_LOCK(__malloc_lock)
+ #define __MALLOC_UNLOCK		__UCLIBC_MUTEX_UNLOCK(__malloc_lock)
+ 
+@@ -910,7 +914,7 @@ typedef struct malloc_state *mstate;
+    malloc relies on the property that malloc_state is initialized to
+    all zeroes (as is true of C statics).
+ */
+-extern struct malloc_state __malloc_state;  /* never directly referenced */
++extern struct malloc_state __malloc_state attribute_hidden;  /* never directly referenced */
+ 
+ /*
+    All uses of av_ are via get_malloc_state().
+@@ -947,12 +951,12 @@ void   __malloc_consolidate(mstate) attribute_hidden;
+ #define check_malloced_chunk(P,N)   __do_check_malloced_chunk(P,N)
+ #define check_malloc_state()        __do_check_malloc_state()
+ 
+-extern void __do_check_chunk(mchunkptr p);
+-extern void __do_check_free_chunk(mchunkptr p);
+-extern void __do_check_inuse_chunk(mchunkptr p);
+-extern void __do_check_remalloced_chunk(mchunkptr p, size_t s);
+-extern void __do_check_malloced_chunk(mchunkptr p, size_t s);
+-extern void __do_check_malloc_state(void);
++extern void __do_check_chunk(mchunkptr p) attribute_hidden;
++extern void __do_check_free_chunk(mchunkptr p) attribute_hidden;
++extern void __do_check_inuse_chunk(mchunkptr p) attribute_hidden;
++extern void __do_check_remalloced_chunk(mchunkptr p, size_t s) attribute_hidden;
++extern void __do_check_malloced_chunk(mchunkptr p, size_t s) attribute_hidden;
++extern void __do_check_malloc_state(void) attribute_hidden;
+ 
+ #include <assert.h>
+ 
+diff --git a/libc/stdio/_stdio.c b/libc/stdio/_stdio.c
+--- a/libc/stdio/_stdio.c
++++ b/libc/stdio/_stdio.c
+@@ -283,7 +283,7 @@ void attribute_hidden _stdio_init(void)
+ 
+ #ifndef NDEBUG
+ 
+-void _stdio_validate_FILE(const FILE *stream)
++void attribute_hidden _stdio_validate_FILE(const FILE *stream)
+ {
+ #ifdef __UCLIBC_HAS_THREADS__
+ 	assert(((unsigned int)(stream->__user_locking)) <= 2);
+diff --git a/libc/stdio/_stdio.h b/libc/stdio/_stdio.h
+--- a/libc/stdio/_stdio.h
++++ b/libc/stdio/_stdio.h
+@@ -408,7 +408,7 @@ extern int __stdio_adjust_position(FILE *__restrict stream, __offmax_t *pos) att
+ #ifdef NDEBUG
+ #define __STDIO_STREAM_VALIDATE(S)		((void)0)
+ #else
+-extern void _stdio_validate_FILE(const FILE *stream);
++extern void _stdio_validate_FILE(const FILE *stream) attribute_hidden;
+ #define __STDIO_STREAM_VALIDATE(S)		_stdio_validate_FILE((S))
+ #endif
+ 
+diff --git a/libc/misc/internals/__uClibc_main.c b/libc/misc/internals/__uClibc_main.c
+--- a/libc/misc/internals/__uClibc_main.c
++++ b/libc/misc/internals/__uClibc_main.c
+@@ -218,8 +218,7 @@ static int __check_suid(void)
+  * __uClibc_main.
+  */
+ 
+-extern void __uClibc_init(void);
+-libc_hidden_proto(__uClibc_init)
++extern void __uClibc_init(void) attribute_hidden;
+ void __uClibc_init(void)
+ {
+     /* Don't recurse */
+@@ -272,7 +271,6 @@ void __uClibc_init(void)
+ 	_stdio_init();
+ 
+ }
+-libc_hidden_def(__uClibc_init)
+ 
+ #ifdef __UCLIBC_CTOR_DTOR__
+ void attribute_hidden (*__app_fini)(void) = NULL;
+@@ -280,8 +280,7 @@ void attribute_hidden (*__app_fini)(void) = NULL;
+ 
+ void attribute_hidden (*__rtld_fini)(void) = NULL;
+ 
+-extern void __uClibc_fini(void);
+-libc_hidden_proto(__uClibc_fini)
++extern void __uClibc_fini(void) attribute_hidden;
+ void __uClibc_fini(void)
+ {
+ #ifdef __UCLIBC_CTOR_DTOR__
+@@ -300,7 +299,6 @@ void __uClibc_fini(void)
+     if (__rtld_fini != NULL)
+ 	(__rtld_fini)();
+ }
+-libc_hidden_def(__uClibc_fini)
+ 
+ #ifndef SHARED
+ extern void __nptl_deallocate_tsd (void) __attribute ((weak));
+diff --git a/libc/stdlib/_atexit.c b/libc/stdlib/_atexit.c
+--- a/libc/stdlib/_atexit.c
++++ b/libc/stdlib/_atexit.c
+@@ -318,8 +318,7 @@ extern void weak_function _stdio_term(void) attribute_hidden;
+ attribute_hidden void (*__exit_cleanup)(int) = 0;
+ __UCLIBC_MUTEX_INIT(__atexit_lock, PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP);
+ 
+-extern void __uClibc_fini(void);
+-libc_hidden_proto(__uClibc_fini)
++extern void __uClibc_fini(void) attribute_hidden;
+ 
+ /*
+  * Normal program termination
+diff --git a/libc/misc/internals/tempname.c b/libc/misc/internals/tempname.c
+--- a/libc/misc/internals/tempname.c
++++ b/libc/misc/internals/tempname.c
+@@ -110,7 +110,7 @@ int attribute_hidden ___path_search (char *tmpl, size_t tmpl_len, const char *di
+ 	dlen--;			/* remove trailing slashes */
+ 
+     /* check we have room for "${dir}/${pfx}XXXXXX\0" */
+-    if (tmpl_len < dlen + 1 + plen + 6 + 1)
++    if (tmpl_len < (size_t)dlen + 1 + plen + 6 + 1)
+     {
+ 	__set_errno (EINVAL);
+ 	return -1;
+@@ -178,7 +178,7 @@ static void brain_damaged_fillrand(unsigned char *buf, unsigned int len)
+    __GT_DIR:            create a directory with given mode.
+ 
+ */
+-int __gen_tempname (char *tmpl, int kind, mode_t mode)
++int attribute_hidden __gen_tempname (char *tmpl, int kind, mode_t mode)
+ {
+     char *XXXXXX;
+     unsigned int i;
+@@ -196,7 +196,7 @@ int __gen_tempname (char *tmpl, int kind, mode_t mode)
+     }
+ 
+     for (i = 0; i < TMP_MAX; ++i) {
+-	int j;
++	unsigned char j;
+ 	/* Get some random data.  */
+ 	if (fillrand(randomness, sizeof(randomness)) != sizeof(randomness)) {
+ 	    /* if random device nodes failed us, lets use the braindamaged ver */
+diff --git a/libc/misc/internals/tempname.h b/libc/misc/internals/tempname.h
+--- a/libc/misc/internals/tempname.h
++++ b/libc/misc/internals/tempname.h
+@@ -10,7 +10,7 @@ extern int ___path_search (char *tmpl, size_t tmpl_len, const char *dir,
+ 	        const char *pfx /*, int try_tmpdir */) attribute_hidden;
+ #define __path_search(tmpl, tmpl_len, dir, pfx, try_tmpdir) ___path_search(tmpl, tmpl_len, dir, pfx)
+ 
+-extern int __gen_tempname (char *__tmpl, int __kind, mode_t mode);
++extern int __gen_tempname (char *__tmpl, int __kind, mode_t mode) attribute_hidden;
+ 
+ /* The __kind argument to __gen_tempname may be one of: */
+ #define __GT_FILE     0       /* create a file */
+diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/Makefile.commonarch b/libpthread/nptl/sysdeps/unix/sysv/linux/Makefile.commonarch
+--- a/libpthread/nptl/sysdeps/unix/sysv/linux/Makefile.commonarch
++++ b/libpthread/nptl/sysdeps/unix/sysv/linux/Makefile.commonarch
+@@ -62,7 +62,7 @@ libpthread_linux_CSRC += pthread_attr_getaffinity.c pthread_attr_setaffinity.c \
+ 	pthread_getcpuclockid.c pthread_kill.c			\
+ 	pthread_mutex_cond_lock.c pthread_yield.c		\
+ 	sem_post.c sem_timedwait.c sem_trywait.c sem_wait.c	\
+-	pt-fork.c pt-sleep.c pthread_sigqueue.c			\
++	pt-fork.c pt-sleep.c pthread_sigqueue.c	pt-tempname.c	\
+ 	sigtimedwait.c sigwaitinfo.c sigwait.c			\
+ 	lowlevellock.c lowlevelrobustlock.c
+ 
+diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/pt-tempname.c b/libpthread/nptl/sysdeps/unix/sysv/linux/pt-tempname.c
+new file mode 100644
+--- a/dev/null
++++ b/libpthread/nptl/sysdeps/unix/sysv/linux/pt-tempname.c
+@@ -0,0 +1 @@
++#include <../../../../../../libc/misc/internals/tempname.c>
+-- 
