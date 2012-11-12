@@ -1,0 +1,39 @@
+From 9c373ffdda5fd81d2c0bb9a1a1038a792bf47f23
+From: Peter S. Mazinger <ps.m@gmx.net>
+Date: Mon, 21 Mar 2011 16:09:40 +0000
+Subject: lckpwdf.c: add back lost return
+
+2 earlier (2006 and 2009) commits killed the proper return: -1 for failure, 0 on success
+
+Signed-off-by: Peter S. Mazinger <ps.m@gmx.net>
+Signed-off-by: Bernhard Reutner-Fischer <rep.dot.nop@gmail.com>
+---
+
+diff --git a/libc/pwd_grp/lckpwdf.c b/libc/pwd_grp/lckpwdf.c
+--- a/libc/pwd_grp/lckpwdf.c
++++ b/libc/pwd_grp/lckpwdf.c
+@@ -51,6 +51,7 @@ lckpwdf (void)
+   struct sigaction new_act;		/* New signal action.  */
+   struct flock fl;			/* Information struct for locking.  */
+   int result;
++  int rv = -1;
+ 
+   if (lock_fd != -1)
+     /* Still locked by own process.  */
+@@ -111,11 +112,13 @@ lckpwdf (void)
+   if (result < 0) {
+     close(lock_fd);
+     lock_fd = -1;
++    goto DONE;
+   }
++  rv = 0;
+ 
+ DONE:
+   __UCLIBC_MUTEX_UNLOCK(mylock);
+-  return 0; /* TODO: return result? */
++  return rv;
+ }
+ 
+ 
+--
+cgit v0.9.0.1-2-gef13

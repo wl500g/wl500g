@@ -1,4 +1,4 @@
-Fix sigaction static linking
+Fix sigaction static linking against libpthread
 
  83ce0cc4d5e93549f0a9447a9bd6b051f5f1b62f buildsys: fixup sigaction handling
  31f48281ed551634b3c2cfcfcde81ca6e208e5f9 *: if !HAS_THREADS strong alias sigaction
