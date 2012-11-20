@@ -1,0 +1,11 @@
+diff -urB binutils-2.23.1/configure binutils/configure
+--- binutils-2.23.1/configure
++++ binutils/configure
+@@ -3593,7 +3593,6 @@
+   mips*-*-linux*)
+     ;;
+   mips*-*-*)
+-    noconfigdirs="$noconfigdirs gprof"
+     ;;
+   sh-*-* | sh64-*-*)
+     case "${target}" in
