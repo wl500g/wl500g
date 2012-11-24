@@ -1,0 +1,33 @@
+From 4ba6c5d3ba3d2c7922aff6b5c2e73b8325f1cf17
+From: Jon Tollefson <kniht@linux.vnet.ibm.com>
+Date: Tue, 13 Nov 2012 18:26:53 +0000
+Subject: ash: fix a memory leak
+
+The script which triggers the leak:
+
+while true
+  do
+    while true
+      do
+        break;
+    done</dev/null
+done
+
+Signed-off-by: Jon Tollefson <kniht@linux.vnet.ibm.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/shell/ash.c b/shell/ash.c
+--- a/shell/ash.c
++++ b/shell/ash.c
+@@ -8676,6 +8676,8 @@ expredir(union node *n)
+ #if ENABLE_ASH_BASH_COMPAT
+  store_expfname:
+ #endif
++			if (redir->nfile.expfname)
++				stunalloc(redir->nfile.expfname);
+ 			redir->nfile.expfname = fn.list->text;
+ 			break;
+ 		case NFROMFD:
+--
+cgit v0.9.0.1-2-gef13
