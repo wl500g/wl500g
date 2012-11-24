@@ -44,15 +44,9 @@ enum {
 	WAN_PPTP,
 	WAN_L2TP,
 	WAN_BIGPOND,
-#ifdef __CONFIG_MADWIMAX__
 	WAN_WIMAX,
-#endif
-#ifdef __CONFIG_MODEM__
 	WAN_USBMODEM,
-#endif
-#ifdef __CONFIG_USBNET__
 	WAN_USBNET,
-#endif
 };
 
 /* common */
