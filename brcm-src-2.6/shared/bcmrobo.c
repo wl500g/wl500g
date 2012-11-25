@@ -894,8 +894,8 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 	/* setup each vlan. max. 16 vlans. */
 	/* force vlan id to be equal to vlan number */
 	for (vid = 0; vid < VLAN_NUMVLANS; vid ++) {
-		char vlanports[] = "vlanXXXXports";
-		char port[] = "XXXX", *ports, *next, *cur;
+		char vlanports[sizeof("vlanXXXXports")];
+		char port[sizeof("XXXX")], *ports, *next, *cur;
 		uint32 untag = 0;
 		uint32 member = 0;
 		int pid, len;

@@ -5,6 +5,7 @@ ext4: Updates from upstream 3
  1b8b9750f07cdd6e13f12c06ae7ec853f2abbe6c ext4: do not mark superblock as dirty unnecessarily
  a8e25a83245618e6b0ddf82a9bba79c1b466804d ext4: write superblock only once on unmount
  c1bb05a657fb3d8c6179a4ef7980261fae4521d7 ext4: avoid deadlock on sync-mounted FS w/o journal
+ 7e936b737211e6b54e34b71a827e56b872e958d8 ext4: disallow hard-linked directory in ext4_lookup
 
 ---
  fs/ext4/balloc.c    |    6 +-----
@@ -16,10 +17,11 @@ ext4: Updates from upstream 3
  fs/ext4/ialloc.c    |    4 ++--
  fs/ext4/inode.c     |    4 +---
  fs/ext4/mballoc.c   |    4 ++--
+ fs/ext4/namei.c     |    7 +++++++
  fs/ext4/resize.c    |    6 ++----
  fs/ext4/super.c     |    7 +++----
  fs/ext4/xattr.c     |   10 +++++-----
- 12 files changed, 46 insertions(+), 26 deletions(-)
+ 13 files changed, 53 insertions(+), 26 deletions(-)
 
 diff --git a/fs/ext4/balloc.c b/fs/ext4/balloc.c
 --- a/fs/ext4/balloc.c
@@ -190,6 +192,24 @@ diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
  error_return:
  	if (freed && !(flags & EXT4_FREE_BLOCKS_NO_QUOT_UPDATE))
  		DQUOT_FREE_BLOCK(inode, freed);
+diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
+--- a/fs/ext4/namei.c
++++ b/fs/ext4/namei.c
+@@ -1330,6 +1330,13 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, stru
+ 			EXT4_ERROR_INODE(dir, "bad inode number: %u", ino);
+ 			return ERR_PTR(-EIO);
+ 		}
++		if (unlikely(ino == dir->i_ino)) {
++			ext4_error(dir->i_sb, __func__,
++					 "'%.*s' linked to parent dir",
++					 dentry->d_name.len,
++					 dentry->d_name.name);
++			return ERR_PTR(-EIO);
++		}
+ 		inode = ext4_iget(dir->i_sb, ino);
+ 		if (unlikely(IS_ERR(inode))) {
+ 			if (inode == ERR_PTR(-ESTALE)) {
+ 				EXT4_ERROR_INODE(dir,
 diff --git a/fs/ext4/resize.c b/fs/ext4/resize.c
 --- a/fs/ext4/resize.c
 +++ b/fs/ext4/resize.c

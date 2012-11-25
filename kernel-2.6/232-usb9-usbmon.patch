@@ -1,0 +1,1221 @@
+USB: usbmon: Updates from upstream
+
+ 041509db390cf97b09df0f51024f5d40407938db USB: mon nopage
+ 454459b02ea9c8e850fd0b4e770037daf9a7b758 usbmon: restore mmap
+ 30c7431de3631d6a5482a87b7c2453b937e8aa51 usbmon: Update pipe removal to suit my taste
+ cdd5a8fd24f5be43417a25c6feb8e7ebdce63098 usbmon: Drop DMA mapping for setup packet
+ 518386c7d4cc3eb8e6b815e0b11ed2cec6245907 USB: usbmon: use simple_read_from_buffer()
+ bb4e3b5ac81a9601775e62649038934acafa78e2 usbmon: fix tiny race exposed by the fastboot patches
+ f1c0a2a3aff53698f4855968d576464041d49b39 USB: usbmon: fix read(2)
+ f150fa1afbf69a87f54752579ff2bb769aad88b3 USB: Allow usbmon as a module even if usbcore is builtin
+ 7abce6bedc118eb39fe177c2c26be5d008505c14 USB: usbmon: Implement compat_ioctl
+ 471c604daf73ff549d374ee54f9e6bfd5a54d4e8 USB: usbmon: Add binary API v1
+ b07f4d016ed179bc4fb8046657a84d5dc0e94b42 USB: usbmon: drop Kconfig defaults
+ 4e9e92003529e5c7bb11281f7c2c9b3fe8858403 USB: usbmon: end ugly tricks with DMA peeking
+ fca94748c5136ff390eadc443871b82f1f77dcd6 USB: usbmon: fix bug in mon_buff_area_shrink
+ 2bc0d109326e9f2b25fa1dfcc9de2489e1e00e36 usbmon: add bus number to text API
+ 47cb17089c059d24e5da03f2b44ee3a089075b78 USB: usbmon: mask seconds properly in text API
+ b17ea167c5fb50dcd5dce5b874a467f04eec886d usbmon: correct length for isochronous
+ d25bc4db723a44c097268b466ff74bfba4bcc4f3 USB: usbmon: fix-up docs and text API for sparse ISO
+ 8dec92b24064f1ffbb6537ba97729b633b400c28 USB: mon: Allow to use usbmon without debugfs
+ 236c448cb6e7f82096101e1ace4b77f8b38f82c8 usbmon vs. tcpdump: fix dropped packet count
+
+---
+ Documentation/usb/usbmon.txt |   69 +++-----
+ drivers/usb/core/hcd.c       |    4 
+ drivers/usb/core/hcd.h       |    4 
+ drivers/usb/mon/Kconfig      |   11 -
+ drivers/usb/mon/Makefile     |    5 
+ drivers/usb/mon/mon_bin.c    |  370 ++++++++++++++++++++++++++++---------------
+ drivers/usb/mon/mon_dma.c    |   95 -----------
+ drivers/usb/mon/mon_main.c   |    6 
+ drivers/usb/mon/mon_stat.c   |   14 -
+ drivers/usb/mon/mon_text.c   |   44 +----
+ drivers/usb/mon/usb_mon.h    |   14 -
+ include/linux/usb.h          |   21 +-
+ 12 files changed, 321 insertions(+), 336 deletions(-)
+ delete mode 100644 drivers/usb/mon/mon_dma.c
+
+diff --git a/Documentation/usb/usbmon.txt b/Documentation/usb/usbmon.txt
+--- a/Documentation/usb/usbmon.txt
++++ b/Documentation/usb/usbmon.txt
+@@ -12,6 +12,10 @@ Controller Drivers (HCD). So, if HCD is 
+ usbmon may not correspond to bus transactions precisely. This is the same
+ situation as with tcpdump.
+ 
++Two APIs are currently implemented: "text" and "binary". The binary API
++is available through a character device in /dev namespace and is an ABI.
++The text API is deprecated since 2.6.35, but available for convenience.
++
+ * How to use usbmon to collect raw text traces
+ 
+ Unlike the packet socket, usbmon has an interface which provides traces
+@@ -153,39 +157,11 @@ Here is the list of words, from left to 
+   not machine words, but really just a byte stream split into words to make
+   it easier to read. Thus, the last word may contain from one to four bytes.
+   The length of collected data is limited and can be less than the data length
+-  report in Data Length word.
+-
+-Here is an example of code to read the data stream in a well known programming
+-language:
+-
+-class ParsedLine {
+-	int data_len;		/* Available length of data */
+-	byte data[];
+-
+-	void parseData(StringTokenizer st) {
+-		int availwords = st.countTokens();
+-		data = new byte[availwords * 4];
+-		data_len = 0;
+-		while (st.hasMoreTokens()) {
+-			String data_str = st.nextToken();
+-			int len = data_str.length() / 2;
+-			int i;
+-			int b;	// byte is signed, apparently?! XXX
+-			for (i = 0; i < len; i++) {
+-				// data[data_len] = Byte.parseByte(
+-				//     data_str.substring(i*2, i*2 + 2),
+-				//     16);
+-				b = Integer.parseInt(
+-				     data_str.substring(i*2, i*2 + 2),
+-				     16);
+-				if (b >= 128)
+-					b *= -1;
+-				data[data_len] = (byte) b;
+-				data_len++;
+-			}
+-		}
+-	}
+-}
++  reported in the Data Length word. In the case of an Isochronous input (Zi)
++  completion where the received data is sparse in the buffer, the length of
++  the collected data can be greater than the Data Length value (because Data
++  Length counts only the bytes that were received whereas the Data words
++  contain the entire transfer buffer).
+ 
+ Examples:
+ 
+@@ -220,16 +196,26 @@ struct usbmon_packet {
+ 	int status;		/* 28: */
+ 	unsigned int length;	/* 32: Length of data (submitted or actual) */
+ 	unsigned int len_cap;	/* 36: Delivered length */
+-	unsigned char setup[8];	/* 40: Only for Control 'S' */
+-};				/* 48 bytes total */
++	union {			/* 40: */
++		unsigned char setup[SETUP_LEN];	/* Only for Control S-type */
++		struct iso_rec {		/* Only for ISO */
++			int error_count;
++			int numdesc;
++		} iso;
++	} s;
++	int interval;		/* 48: Only for Interrupt and ISO */
++	int start_frame;	/* 52: For ISO */
++	unsigned int xfer_flags; /* 56: copy of URB's transfer_flags */
++	unsigned int ndesc;	/* 60: Actual number of ISO descriptors */
++};				/* 64 total length */
+ 
+ These events can be received from a character device by reading with read(2),
+-with an ioctl(2), or by accessing the buffer with mmap.
++with an ioctl(2), or by accessing the buffer with mmap. However, read(2)
++only returns first 48 bytes for compatibility reasons.
+ 
+ The character device is usually called /dev/usbmonN, where N is the USB bus
+ number. Number zero (/dev/usbmon0) is special and means "all buses".
+-However, this feature is not implemented yet. Note that specific naming
+-policy is set by your Linux distribution.
++Note that specific naming policy is set by your Linux distribution.
+ 
+ If you create /dev/usbmon0 by hand, make sure that it is owned by root
+ and has mode 0600. Otherwise, unpriviledged users will be able to snoop
+@@ -270,9 +256,10 @@ size is out of [unspecified] bounds for 
+ This call returns the current size of the buffer in bytes.
+ 
+  MON_IOCX_GET, defined as _IOW(MON_IOC_MAGIC, 6, struct mon_get_arg)
++ MON_IOCX_GETX, defined as _IOW(MON_IOC_MAGIC, 10, struct mon_get_arg)
+ 
+-This call waits for events to arrive if none were in the kernel buffer,
+-then returns the first event. Its argument is a pointer to the following
++These calls wait for events to arrive if none were in the kernel buffer,
++then return the first event. The argument is a pointer to the following
+ structure:
+ 
+ struct mon_get_arg {
+@@ -285,6 +272,8 @@ Before the call, hdr, data, and alloc sh
+ pointed by hdr contains the next event structure, and the data buffer contains
+ the data, if any. The event is removed from the kernel buffer.
+ 
++The MON_IOCX_GET copies 48 bytes, MON_IOCX_GETX copies 64 bytes.
++
+  MON_IOCX_MFETCH, defined as _IOWR(MON_IOC_MAGIC, 7, struct mon_mfetch_arg)
+ 
+ This ioctl is primarily used when the application accesses the buffer
+diff --git a/drivers/usb/core/hcd.c b/drivers/usb/core/hcd.c
+--- a/drivers/usb/core/hcd.c
++++ b/drivers/usb/core/hcd.c
+@@ -1979,7 +1979,7 @@ EXPORT_SYMBOL_GPL(usb_hcd_platform_shutd
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+-#if defined(CONFIG_USB_MON)
++#if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
+ 
+ struct usb_mon_operations *mon_ops;
+ 
+@@ -2015,4 +2015,4 @@ void usb_mon_deregister (void)
+ }
+ EXPORT_SYMBOL_GPL (usb_mon_deregister);
+ 
+-#endif /* CONFIG_USB_MON */
++#endif /* CONFIG_USB_MON || CONFIG_USB_MON_MODULE */
+diff --git a/drivers/usb/core/hcd.h b/drivers/usb/core/hcd.h
+--- a/drivers/usb/core/hcd.h
++++ b/drivers/usb/core/hcd.h
+@@ -419,7 +419,7 @@ static inline void usbfs_cleanup(void) {
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+-#if defined(CONFIG_USB_MON)
++#if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
+ 
+ struct usb_mon_operations {
+ 	void (*urb_submit)(struct usb_bus *bus, struct urb *urb);
+@@ -461,7 +461,7 @@ static inline void usbmon_urb_submit_err
+ static inline void usbmon_urb_complete(struct usb_bus *bus, struct urb *urb,
+ 		int status) {}
+ 
+-#endif /* CONFIG_USB_MON */
++#endif /* CONFIG_USB_MON || CONFIG_USB_MON_MODULE */
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+diff --git a/drivers/usb/mon/Kconfig b/drivers/usb/mon/Kconfig
+--- a/drivers/usb/mon/Kconfig
++++ b/drivers/usb/mon/Kconfig
+@@ -3,14 +3,11 @@
+ #
+ 
+ config USB_MON
+-	bool "USB Monitor"
+-	depends on USB!=n
+-	default y
++	tristate "USB Monitor"
++	depends on USB
+ 	help
+-	  If you say Y here, a component which captures the USB traffic
++	  If you select this option, a component which captures the USB traffic
+ 	  between peripheral-specific drivers and HC drivers will be built.
+ 	  For more information, see <file:Documentation/usb/usbmon.txt>.
+ 
+-	  This is somewhat experimental at this time, but it should be safe.
+-
+-	  If unsure, say Y.
++	  If unsure, say Y, if allowed, otherwise M.
+diff --git a/drivers/usb/mon/Makefile b/drivers/usb/mon/Makefile
+--- a/drivers/usb/mon/Makefile
++++ b/drivers/usb/mon/Makefile
+@@ -2,7 +2,6 @@
+ # Makefile for USB Core files and filesystem
+ #
+ 
+-usbmon-objs	:= mon_main.o mon_stat.o mon_text.o mon_bin.o mon_dma.o
++usbmon-objs	:= mon_main.o mon_stat.o mon_text.o mon_bin.o
+ 
+-# This does not use CONFIG_USB_MON because we want this to use a tristate.
+-obj-$(CONFIG_USB)	+= usbmon.o
++obj-$(CONFIG_USB_MON)	+= usbmon.o
+diff --git a/drivers/usb/mon/mon_bin.c b/drivers/usb/mon/mon_bin.c
+--- a/drivers/usb/mon/mon_bin.c
++++ b/drivers/usb/mon/mon_bin.c
+@@ -36,9 +36,13 @@
+ #define MON_IOCX_GET   _IOW(MON_IOC_MAGIC, 6, struct mon_bin_get)
+ #define MON_IOCX_MFETCH _IOWR(MON_IOC_MAGIC, 7, struct mon_bin_mfetch)
+ #define MON_IOCH_MFLUSH _IO(MON_IOC_MAGIC, 8)
++/* #9 was MON_IOCT_SETAPI */
++#define MON_IOCX_GETX   _IOW(MON_IOC_MAGIC, 10, struct mon_bin_get)
++
+ #ifdef CONFIG_COMPAT
+ #define MON_IOCX_GET32 _IOW(MON_IOC_MAGIC, 6, struct mon_bin_get32)
+ #define MON_IOCX_MFETCH32 _IOWR(MON_IOC_MAGIC, 7, struct mon_bin_mfetch32)
++#define MON_IOCX_GETX32   _IOW(MON_IOC_MAGIC, 10, struct mon_bin_get32)
+ #endif
+ 
+ /*
+@@ -90,7 +94,29 @@ struct mon_bin_hdr {
+ 	int status;
+ 	unsigned int len_urb;	/* Length of data (submitted or actual) */
+ 	unsigned int len_cap;	/* Delivered length */
+-	unsigned char setup[SETUP_LEN];	/* Only for Control S-type */
++	union {
++		unsigned char setup[SETUP_LEN];	/* Only for Control S-type */
++		struct iso_rec {
++			int error_count;
++			int numdesc;
++		} iso;
++	} s;
++	int interval;
++	int start_frame;
++	unsigned int xfer_flags;
++	unsigned int ndesc;	/* Actual number of ISO descriptors */
++};
++
++/*
++ * ISO vector, packed into the head of data stream.
++ * This has to take 16 bytes to make sure that the end of buffer
++ * wrap is not happening in the middle of a descriptor.
++ */
++struct mon_bin_isodesc {
++	int          iso_status;
++	unsigned int iso_off;
++	unsigned int iso_len;
++	u32 _pad;
+ };
+ 
+ /* per file statistic */
+@@ -100,7 +126,7 @@ struct mon_bin_stats {
+ };
+ 
+ struct mon_bin_get {
+-	struct mon_bin_hdr __user *hdr;	/* Only 48 bytes, not 64. */
++	struct mon_bin_hdr __user *hdr;	/* Can be 48 bytes or 64. */
+ 	void __user *data;
+ 	size_t alloc;		/* Length of data (can be zero) */
+ };
+@@ -129,6 +155,11 @@ struct mon_bin_mfetch32 {
+ #define PKT_ALIGN   64
+ #define PKT_SIZE    64
+ 
++#define PKT_SZ_API0 48	/* API 0 (2.6.20) size */
++#define PKT_SZ_API1 64	/* API 1 size: extra fields */
++
++#define ISODESC_MAX   128	/* Same number as usbfs allows, 2048 bytes. */
++
+ /* max number of USB bus supported */
+ #define MON_BIN_MAX_MINOR 128
+ 
+@@ -172,6 +203,10 @@ static inline struct mon_bin_hdr *MON_OF
+ 
+ #define MON_RING_EMPTY(rp)	((rp)->b_cnt == 0)
+ 
++static unsigned char xfer_to_pipe[4] = {
++	PIPE_CONTROL, PIPE_ISOCHRONOUS, PIPE_BULK, PIPE_INTERRUPT
++};
++
+ static struct class *mon_bin_class;
+ static dev_t mon_bin_dev0;
+ static struct cdev mon_bin_cdev;
+@@ -184,9 +219,8 @@ static void mon_free_buff(struct mon_pgm
+ 
+ /*
+  * This is a "chunked memcpy". It does not manipulate any counters.
+- * But it returns the new offset for repeated application.
+  */
+-unsigned int mon_copy_to_buff(const struct mon_reader_bin *this,
++static void mon_copy_to_buff(const struct mon_reader_bin *this,
+     unsigned int off, const unsigned char *from, unsigned int length)
+ {
+ 	unsigned int step_len;
+@@ -211,7 +245,6 @@ unsigned int mon_copy_to_buff(const stru
+ 		from += step_len;
+ 		length -= step_len;
+ 	}
+-	return off;
+ }
+ 
+ /*
+@@ -314,12 +347,12 @@ static unsigned int mon_buff_area_alloc_
+ 
+ /*
+  * Return a few (kilo-)bytes to the head of the buffer.
+- * This is used if a DMA fetch fails.
++ * This is used if a data fetch fails.
+  */
+ static void mon_buff_area_shrink(struct mon_reader_bin *rp, unsigned int size)
+ {
+ 
+-	size = (size + PKT_ALIGN-1) & ~(PKT_ALIGN-1);
++	/* size &= ~(PKT_ALIGN-1);  -- we're called with aligned size */
+ 	rp->b_cnt -= size;
+ 	if (rp->b_in < size)
+ 		rp->b_in += rp->b_size;
+@@ -354,16 +387,8 @@ static inline char mon_bin_get_setup(uns
+     const struct urb *urb, char ev_type)
+ {
+ 
+-	if (!usb_endpoint_xfer_control(&urb->ep->desc) || ev_type != 'S')
+-		return '-';
+-
+-	if (urb->dev->bus->uses_dma &&
+-	    (urb->transfer_flags & URB_NO_SETUP_DMA_MAP)) {
+-		return mon_dmapeek(setupb, urb->setup_dma, SETUP_LEN);
+-	}
+ 	if (urb->setup_packet == NULL)
+ 		return 'Z';
+-
+ 	memcpy(setupb, urb->setup_packet, SETUP_LEN);
+ 	return 0;
+ }
+@@ -372,15 +397,8 @@ static char mon_bin_get_data(const struc
+     unsigned int offset, struct urb *urb, unsigned int length)
+ {
+ 
+-	if (urb->dev->bus->uses_dma &&
+-	    (urb->transfer_flags & URB_NO_TRANSFER_DMA_MAP)) {
+-		mon_dmapeek_vec(rp, offset, urb->transfer_dma, length);
+-		return 0;
+-	}
+-
+ 	if (urb->transfer_buffer == NULL)
+ 		return 'Z';
+-
+ 	mon_copy_to_buff(rp, offset, urb->transfer_buffer, length);
+ 	return 0;
+ }
+@@ -385,14 +403,60 @@ static char mon_bin_get_data(const struc
+ 	return 0;
+ }
+ 
++/*
++ * This is the look-ahead pass in case of 'C Zi', when actual_length cannot
++ * be used to determine the length of the whole contiguous buffer.
++ */
++static unsigned int mon_bin_collate_isodesc(const struct mon_reader_bin *rp,
++    struct urb *urb, unsigned int ndesc)
++{
++	struct usb_iso_packet_descriptor *fp;
++	unsigned int length;
++
++	length = 0;
++	fp = urb->iso_frame_desc;
++	while (ndesc-- != 0) {
++		if (fp->actual_length != 0) {
++			if (fp->offset + fp->actual_length > length)
++				length = fp->offset + fp->actual_length;
++		}
++		fp++;
++	}
++	return length;
++}
++
++static void mon_bin_get_isodesc(const struct mon_reader_bin *rp,
++    unsigned int offset, struct urb *urb, char ev_type, unsigned int ndesc)
++{
++	struct mon_bin_isodesc *dp;
++	struct usb_iso_packet_descriptor *fp;
++
++	fp = urb->iso_frame_desc;
++	while (ndesc-- != 0) {
++		dp = (struct mon_bin_isodesc *)
++		    (rp->b_vec[offset / CHUNK_SIZE].ptr + offset % CHUNK_SIZE);
++		dp->iso_status = fp->status;
++		dp->iso_off = fp->offset;
++		dp->iso_len = (ev_type == 'S') ? fp->length : fp->actual_length;
++		dp->_pad = 0;
++		if ((offset += sizeof(struct mon_bin_isodesc)) >= rp->b_size)
++			offset = 0;
++		fp++;
++	}
++}
++
+ static void mon_bin_event(struct mon_reader_bin *rp, struct urb *urb,
+     char ev_type, int status)
+ {
+-	unsigned long flags;
++	const struct usb_endpoint_descriptor *epd = &urb->ep->desc;
+ 	struct timeval ts;
++	unsigned long flags;
+ 	unsigned int urb_length;
+ 	unsigned int offset;
+ 	unsigned int length;
++	unsigned int delta;
++	unsigned int ndesc, lendesc;
++	unsigned char dir;
+ 	struct mon_bin_hdr *ep;
+ 	char data_tag = 0;
+ 
+@@ -407,6 +471,25 @@ static void mon_bin_event(struct mon_rea
+ 	    urb->transfer_buffer_length : urb->actual_length;
+ 	length = urb_length;
+ 
++	if (usb_endpoint_xfer_isoc(epd)) {
++		if (urb->number_of_packets < 0) {
++			ndesc = 0;
++		} else if (urb->number_of_packets >= ISODESC_MAX) {
++			ndesc = ISODESC_MAX;
++		} else {
++			ndesc = urb->number_of_packets;
++		}
++		if (ev_type == 'C' && usb_urb_dir_in(urb))
++			length = mon_bin_collate_isodesc(rp, urb, ndesc);
++	} else {
++		ndesc = 0;
++	}
++	lendesc = ndesc*sizeof(struct mon_bin_isodesc);
++
++	/* not an issue unless there's a subtle bug in a HCD somewhere */
++	if (length >= urb->transfer_buffer_length)
++		length = urb->transfer_buffer_length;
++
+ 	if (length >= rp->b_size/5)
+ 		length = rp->b_size/5;
+ 
+@@ -415,17 +498,22 @@ static void mon_bin_event(struct mon_rea
+ 			length = 0;
+ 			data_tag = '<';
+ 		}
++		/* Cannot rely on endpoint number in case of control ep.0 */
++		dir = USB_DIR_IN;
+ 	} else {
+ 		if (ev_type == 'C') {
+ 			length = 0;
+ 			data_tag = '>';
+ 		}
++		dir = 0;
+ 	}
+ 
+-	if (rp->mmap_active)
+-		offset = mon_buff_area_alloc_contiguous(rp, length + PKT_SIZE);
+-	else
+-		offset = mon_buff_area_alloc(rp, length + PKT_SIZE);
++	if (rp->mmap_active) {
++		offset = mon_buff_area_alloc_contiguous(rp,
++						 length + PKT_SIZE + lendesc);
++	} else {
++		offset = mon_buff_area_alloc(rp, length + PKT_SIZE + lendesc);
++	}
+ 	if (offset == ~0) {
+ 		rp->cnt_lost++;
+ 		spin_unlock_irqrestore(&rp->b_lock, flags);
+@@ -440,21 +528,8 @@ static void mon_bin_event(struct mon_rea
+ 	 */
+ 	memset(ep, 0, PKT_SIZE);
+ 	ep->type = ev_type;
+-	switch (usb_endpoint_type(&urb->ep->desc)) {
+-	case USB_ENDPOINT_XFER_CONTROL:
+-		ep->xfer_type = PIPE_CONTROL;
+-		break;
+-	case USB_ENDPOINT_XFER_BULK:
+-		ep->xfer_type = PIPE_BULK;
+-		break;
+-	case USB_ENDPOINT_XFER_INT:
+-		ep->xfer_type = PIPE_INTERRUPT;
+-		break;
+-	default:
+-		ep->xfer_type = PIPE_ISOCHRONOUS;
+-		break;
+-	}
+-	ep->epnum = urb->ep->desc.bEndpointAddress;
++	ep->xfer_type = xfer_to_pipe[usb_endpoint_type(epd)];
++	ep->epnum = dir | usb_endpoint_num(epd);
+ 	ep->devnum = urb->dev->devnum;
+ 	ep->busnum = urb->dev->bus->busnum;
+ 	ep->id = (unsigned long) urb;
+@@ -462,14 +537,38 @@ static void mon_bin_event(struct mon_rea
+ 	ep->ts_usec = ts.tv_usec;
+ 	ep->status = status;
+ 	ep->len_urb = urb_length;
+-	ep->len_cap = length;
++	ep->len_cap = length + lendesc;
++	ep->xfer_flags = urb->transfer_flags;
++
++	if (usb_endpoint_xfer_int(epd)) {
++		ep->interval = urb->interval;
++	} else if (usb_endpoint_xfer_isoc(epd)) {
++		ep->interval = urb->interval;
++		ep->start_frame = urb->start_frame;
++		ep->s.iso.error_count = urb->error_count;
++		ep->s.iso.numdesc = urb->number_of_packets;
++	}
++
++	if (usb_endpoint_xfer_control(epd) && ev_type == 'S') {
++		ep->flag_setup = mon_bin_get_setup(ep->s.setup, urb, ev_type);
++	} else {
++		ep->flag_setup = '-';
++	}
++
++	if (ndesc != 0) {
++		ep->ndesc = ndesc;
++		mon_bin_get_isodesc(rp, offset, urb, ev_type, ndesc);
++		if ((offset += lendesc) >= rp->b_size)
++			offset -= rp->b_size;
++	}
+ 
+-	ep->flag_setup = mon_bin_get_setup(ep->setup, urb, ev_type);
+ 	if (length != 0) {
+ 		ep->flag_data = mon_bin_get_data(rp, offset, urb, length);
+ 		if (ep->flag_data != 0) {	/* Yes, it's 0x00, not '0' */
+-			ep->len_cap = 0;
+-			mon_buff_area_shrink(rp, length);
++			delta = (ep->len_cap + PKT_ALIGN-1) & ~(PKT_ALIGN-1);
++			ep->len_cap -= length;
++			delta -= (ep->len_cap + PKT_ALIGN-1) & ~(PKT_ALIGN-1);
++			mon_buff_area_shrink(rp, delta);
+ 		}
+ 	} else {
+ 		ep->flag_data = data_tag;
+@@ -495,10 +594,13 @@ static void mon_bin_complete(void *data,
+ static void mon_bin_error(void *data, struct urb *urb, int error)
+ {
+ 	struct mon_reader_bin *rp = data;
++	struct timeval ts;
+ 	unsigned long flags;
+ 	unsigned int offset;
+ 	struct mon_bin_hdr *ep;
+ 
++	do_gettimeofday(&ts);
++
+ 	spin_lock_irqsave(&rp->b_lock, flags);
+ 
+ 	offset = mon_buff_area_alloc(rp, PKT_SIZE);
+@@ -512,24 +614,14 @@ static void mon_bin_error(void *data, st
+ 
+ 	memset(ep, 0, PKT_SIZE);
+ 	ep->type = 'E';
+-	switch (usb_endpoint_type(&urb->ep->desc)) {
+-	case USB_ENDPOINT_XFER_CONTROL:
+-		ep->xfer_type = PIPE_CONTROL;
+-		break;
+-	case USB_ENDPOINT_XFER_BULK:
+-		ep->xfer_type = PIPE_BULK;
+-		break;
+-	case USB_ENDPOINT_XFER_INT:
+-		ep->xfer_type = PIPE_INTERRUPT;
+-		break;
+-	default:
+-		ep->xfer_type = PIPE_ISOCHRONOUS;
+-		break;
+-	}
+-	ep->epnum = urb->ep->desc.bEndpointAddress;
++	ep->xfer_type = xfer_to_pipe[usb_endpoint_type(&urb->ep->desc)];
++	ep->epnum = usb_urb_dir_in(urb) ? USB_DIR_IN : 0;
++	ep->epnum |= usb_endpoint_num(&urb->ep->desc);
+ 	ep->devnum = urb->dev->devnum;
+ 	ep->busnum = urb->dev->bus->busnum;
+ 	ep->id = (unsigned long) urb;
++	ep->ts_sec = ts.tv_sec;
++	ep->ts_usec = ts.tv_usec;
+ 	ep->status = error;
+ 
+ 	ep->flag_setup = '-';
+@@ -605,7 +696,8 @@ err_alloc:
+  * Returns zero or error.
+  */
+ static int mon_bin_get_event(struct file *file, struct mon_reader_bin *rp,
+-    struct mon_bin_hdr __user *hdr, void __user *data, unsigned int nbytes)
++    struct mon_bin_hdr __user *hdr, unsigned int hdrbytes,
++    void __user *data, unsigned int nbytes)
+ {
+ 	unsigned long flags;
+ 	struct mon_bin_hdr *ep;
+@@ -622,7 +714,7 @@ static int mon_bin_get_event(struct file
+ 
+ 	ep = MON_OFF2HDR(rp, rp->b_out);
+ 
+-	if (copy_to_user(hdr, ep, sizeof(struct mon_bin_hdr))) {
++	if (copy_to_user(hdr, ep, hdrbytes)) {
+ 		mutex_unlock(&rp->fetch_lock);
+ 		return -EFAULT;
+ 	}
+@@ -670,6 +762,7 @@ static ssize_t mon_bin_read(struct file 
+     size_t nbytes, loff_t *ppos)
+ {
+ 	struct mon_reader_bin *rp = file->private_data;
++	unsigned int hdrbytes = PKT_SZ_API0;
+ 	unsigned long flags;
+ 	struct mon_bin_hdr *ep;
+ 	unsigned int offset;
+@@ -687,8 +780,8 @@ static ssize_t mon_bin_read(struct file 
+ 
+ 	ep = MON_OFF2HDR(rp, rp->b_out);
+ 
+-	if (rp->b_read < sizeof(struct mon_bin_hdr)) {
+-		step_len = min(nbytes, sizeof(struct mon_bin_hdr) - rp->b_read);
++	if (rp->b_read < hdrbytes) {
++		step_len = min(nbytes, (size_t)(hdrbytes - rp->b_read));
+ 		ptr = ((char *)ep) + rp->b_read;
+ 		if (step_len && copy_to_user(buf, ptr, step_len)) {
+ 			mutex_unlock(&rp->fetch_lock);
+@@ -700,10 +793,13 @@ static ssize_t mon_bin_read(struct file 
+ 		done += step_len;
+ 	}
+ 
+-	if (rp->b_read >= sizeof(struct mon_bin_hdr)) {
+-		step_len = min(nbytes, (size_t)ep->len_cap);
++	if (rp->b_read >= hdrbytes) {
++		step_len = ep->len_cap;
++		step_len -= rp->b_read - hdrbytes;
++		if (step_len > nbytes)
++			step_len = nbytes;
+ 		offset = rp->b_out + PKT_SIZE;
+-		offset += rp->b_read - sizeof(struct mon_bin_hdr);
++		offset += rp->b_read - hdrbytes;
+ 		if (offset >= rp->b_size)
+ 			offset -= rp->b_size;
+ 		if (copy_from_buf(rp, offset, buf, step_len)) {
+@@ -719,7 +815,7 @@ static ssize_t mon_bin_read(struct file 
+ 	/*
+ 	 * Check if whole packet was read, and if so, jump to the next one.
+ 	 */
+-	if (rp->b_read >= sizeof(struct mon_bin_hdr) + ep->len_cap) {
++	if (rp->b_read >= hdrbytes + ep->len_cap) {
+ 		spin_lock_irqsave(&rp->b_lock, flags);
+ 		mon_buff_area_free(rp, PKT_SIZE + ep->len_cap);
+ 		spin_unlock_irqrestore(&rp->b_lock, flags);
+@@ -918,6 +1014,7 @@ static int mon_bin_ioctl(struct inode *i
+ 		break;
+ 
+ 	case MON_IOCX_GET:
++	case MON_IOCX_GETX:
+ 		{
+ 		struct mon_bin_get getb;
+ 
+@@ -927,26 +1024,12 @@ static int mon_bin_ioctl(struct inode *i
+ 
+ 		if (getb.alloc > 0x10000000)	/* Want to cast to u32 */
+ 			return -EINVAL;
+-		ret = mon_bin_get_event(file, rp,
+-			  getb.hdr, getb.data, (unsigned int)getb.alloc);
++		ret = mon_bin_get_event(file, rp, getb.hdr,
++		    (cmd == MON_IOCX_GET)? PKT_SZ_API0: PKT_SZ_API1,
++		    getb.data, (unsigned int)getb.alloc);
+ 		}
+ 		break;
+ 
+-#ifdef CONFIG_COMPAT
+-	case MON_IOCX_GET32: {
+-		struct mon_bin_get32 getb;
+-
+-		if (copy_from_user(&getb, (void __user *)arg,
+-					    sizeof(struct mon_bin_get32)))
+-			return -EFAULT;
+-
+-		ret = mon_bin_get_event(file, rp,
+-		    compat_ptr(getb.hdr32), compat_ptr(getb.data32),
+-		    getb.alloc32);
+-		}
+-		break;
+-#endif
+-
+ 	case MON_IOCX_MFETCH:
+ 		{
+ 		struct mon_bin_mfetch mfetch;
+@@ -973,7 +1056,59 @@ static int mon_bin_ioctl(struct inode *i
+ 		}
+ 		break;
+ 
++	case MON_IOCG_STATS: {
++		struct mon_bin_stats __user *sp;
++		unsigned int nevents;
++		unsigned int ndropped;
++
++		spin_lock_irqsave(&rp->b_lock, flags);
++		ndropped = rp->cnt_lost;
++		rp->cnt_lost = 0;
++		spin_unlock_irqrestore(&rp->b_lock, flags);
++		nevents = mon_bin_queued(rp);
++
++		sp = (struct mon_bin_stats __user *)arg;
++		if (put_user(ndropped, &sp->dropped))
++			return -EFAULT;
++		if (put_user(nevents, &sp->queued))
++			return -EFAULT;
++
++		}
++		break;
++
++	default:
++		return -ENOTTY;
++	}
++
++	return ret;
++}
++
+ #ifdef CONFIG_COMPAT
++static long mon_bin_compat_ioctl(struct file *file,
++    unsigned int cmd, unsigned long arg)
++{
++	struct mon_reader_bin *rp = file->private_data;
++	int ret;
++
++	switch (cmd) {
++
++	case MON_IOCX_GET32:
++	case MON_IOCX_GETX32:
++		{
++		struct mon_bin_get32 getb;
++
++		if (copy_from_user(&getb, (void __user *)arg,
++					    sizeof(struct mon_bin_get32)))
++			return -EFAULT;
++
++		ret = mon_bin_get_event(file, rp, compat_ptr(getb.hdr32),
++		    (cmd == MON_IOCX_GET32)? PKT_SZ_API0: PKT_SZ_API1,
++		    compat_ptr(getb.data32), getb.alloc32);
++		if (ret < 0)
++			return ret;
++		}
++		return 0;
++
+ 	case MON_IOCX_MFETCH32:
+ 		{
+ 		struct mon_bin_mfetch32 mfetch;
+@@ -997,37 +1132,25 @@ static int mon_bin_ioctl(struct inode *i
+ 			return ret;
+ 		if (put_user(ret, &uptr->nfetch32))
+ 			return -EFAULT;
+-		ret = 0;
+ 		}
+-		break;
+-#endif
+-
+-	case MON_IOCG_STATS: {
+-		struct mon_bin_stats __user *sp;
+-		unsigned int nevents;
+-		unsigned int ndropped;
+-
+-		spin_lock_irqsave(&rp->b_lock, flags);
+-		ndropped = rp->cnt_lost;
+-		rp->cnt_lost = 0;
+-		spin_unlock_irqrestore(&rp->b_lock, flags);
+-		nevents = mon_bin_queued(rp);
++		return 0;
+ 
+-		sp = (struct mon_bin_stats __user *)arg;
+-		if (put_user(rp->cnt_lost, &sp->dropped))
+-			return -EFAULT;
+-		if (put_user(nevents, &sp->queued))
+-			return -EFAULT;
++	case MON_IOCG_STATS:
++		return mon_bin_ioctl(NULL, file, cmd,
++					    (unsigned long) compat_ptr(arg));
+ 
+-		}
+-		break;
++	case MON_IOCQ_URB_LEN:
++	case MON_IOCQ_RING_SIZE:
++	case MON_IOCT_RING_SIZE:
++	case MON_IOCH_MFLUSH:
++		return mon_bin_ioctl(NULL, file, cmd, arg);
+ 
+ 	default:
+-		return -ENOTTY;
++		;
+ 	}
+-
+-	return ret;
++	return -ENOTTY;
+ }
++#endif /* CONFIG_COMPAT */
+ 
+ static unsigned int
+ mon_bin_poll(struct file *file, struct poll_table_struct *wait)
+@@ -1065,33 +1188,31 @@ static void mon_bin_vma_close(struct vm_
+ /*
+  * Map ring pages to user space.
+  */
+-struct page *mon_bin_vma_nopage(struct vm_area_struct *vma,
+-                                unsigned long address, int *type)
++static int mon_bin_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+ {
+ 	struct mon_reader_bin *rp = vma->vm_private_data;
+ 	unsigned long offset, chunk_idx;
+ 	struct page *pageptr;
+ 
+-	offset = (address - vma->vm_start) + (vma->vm_pgoff << PAGE_SHIFT);
++	offset = vmf->pgoff << PAGE_SHIFT;
+ 	if (offset >= rp->b_size)
+-		return NOPAGE_SIGBUS;
++		return VM_FAULT_SIGBUS;
+ 	chunk_idx = offset / CHUNK_SIZE;
+ 	pageptr = rp->b_vec[chunk_idx].pg;
+ 	get_page(pageptr);
+-	if (type)
+-		*type = VM_FAULT_MINOR;
+-	return pageptr;
++	vmf->page = pageptr;
++	return 0;
+ }
+ 
+-struct vm_operations_struct mon_bin_vm_ops = {
++static const struct vm_operations_struct mon_bin_vm_ops = {
+ 	.open =     mon_bin_vma_open,
+ 	.close =    mon_bin_vma_close,
+-	.nopage =   mon_bin_vma_nopage,
++	.fault =    mon_bin_vma_fault,
+ };
+ 
+-int mon_bin_mmap(struct file *filp, struct vm_area_struct *vma)
++static int mon_bin_mmap(struct file *filp, struct vm_area_struct *vma)
+ {
+-	/* don't do anything here: "nopage" will set up page table entries */
++	/* don't do anything here: "fault" will set up page table entries */
+ 	vma->vm_ops = &mon_bin_vm_ops;
+ 	vma->vm_flags |= VM_RESERVED;
+ 	vma->vm_private_data = filp->private_data;
+@@ -1107,7 +1228,11 @@ struct file_operations mon_fops_binary =
+ 	/* .write =	mon_text_write, */
+ 	.poll =		mon_bin_poll,
+ 	.ioctl =	mon_bin_ioctl,
++#ifdef CONFIG_COMPAT
++	.compat_ioctl =	mon_bin_compat_ioctl,
++#endif
+ 	.release =	mon_bin_release,
++	.mmap =		mon_bin_mmap,
+ };
+ 
+ static int mon_bin_wait_event(struct file *file, struct mon_reader_bin *rp)
+@@ -1156,7 +1281,7 @@ static int mon_alloc_buff(struct mon_pgm
+ 			return -ENOMEM;
+ 		}
+ 		map[n].ptr = (unsigned char *) vaddr;
+-		map[n].pg = virt_to_page(vaddr);
++		map[n].pg = virt_to_page((void *)vaddr);
+ 	}
+ 	return 0;
+ }
+diff --git a/drivers/usb/mon/mon_dma.c b/drivers/usb/mon/mon_dma.c
+deleted file mode 100644
+--- a/drivers/usb/mon/mon_dma.c
++++ /dev/null
+@@ -1,95 +0,0 @@
+-/*
+- * The USB Monitor, inspired by Dave Harding's USBMon.
+- *
+- * mon_dma.c: Library which snoops on DMA areas.
+- *
+- * Copyright (C) 2005 Pete Zaitcev (zaitcev@redhat.com)
+- */
+-#include <linux/kernel.h>
+-#include <linux/list.h>
+-#include <linux/highmem.h>
+-#include <asm/page.h>
+-
+-#include <linux/usb.h>	/* Only needed for declarations in usb_mon.h */
+-#include "usb_mon.h"
+-
+-/*
+- * PC-compatibles, are, fortunately, sufficiently cache-coherent for this.
+- */
+-#if defined(__i386__) || defined(__x86_64__) /* CONFIG_ARCH_I386 doesn't exit */
+-#define MON_HAS_UNMAP 1
+-
+-#define phys_to_page(phys)	pfn_to_page((phys) >> PAGE_SHIFT)
+-
+-char mon_dmapeek(unsigned char *dst, dma_addr_t dma_addr, int len)
+-{
+-	struct page *pg;
+-	unsigned long flags;
+-	unsigned char *map;
+-	unsigned char *ptr;
+-
+-	/*
+-	 * On i386, a DMA handle is the "physical" address of a page.
+-	 * In other words, the bus address is equal to physical address.
+-	 * There is no IOMMU.
+-	 */
+-	pg = phys_to_page(dma_addr);
+-
+-	/*
+-	 * We are called from hardware IRQs in case of callbacks.
+-	 * But we can be called from softirq or process context in case
+-	 * of submissions. In such case, we need to protect KM_IRQ0.
+-	 */
+-	local_irq_save(flags);
+-	map = kmap_atomic(pg, KM_IRQ0);
+-	ptr = map + (dma_addr & (PAGE_SIZE-1));
+-	memcpy(dst, ptr, len);
+-	kunmap_atomic(map, KM_IRQ0);
+-	local_irq_restore(flags);
+-	return 0;
+-}
+-
+-void mon_dmapeek_vec(const struct mon_reader_bin *rp,
+-    unsigned int offset, dma_addr_t dma_addr, unsigned int length)
+-{
+-	unsigned long flags;
+-	unsigned int step_len;
+-	struct page *pg;
+-	unsigned char *map;
+-	unsigned long page_off, page_len;
+-
+-	local_irq_save(flags);
+-	while (length) {
+-		/* compute number of bytes we are going to copy in this page */
+-		step_len = length;
+-		page_off = dma_addr & (PAGE_SIZE-1);
+-		page_len = PAGE_SIZE - page_off;
+-		if (page_len < step_len)
+-			step_len = page_len;
+-
+-		/* copy data and advance pointers */
+-		pg = phys_to_page(dma_addr);
+-		map = kmap_atomic(pg, KM_IRQ0);
+-		offset = mon_copy_to_buff(rp, offset, map + page_off, step_len);
+-		kunmap_atomic(map, KM_IRQ0);
+-		dma_addr += step_len;
+-		length -= step_len;
+-	}
+-	local_irq_restore(flags);
+-}
+-
+-#endif /* __i386__ */
+-
+-#ifndef MON_HAS_UNMAP
+-char mon_dmapeek(unsigned char *dst, dma_addr_t dma_addr, int len)
+-{
+-	return 'D';
+-}
+-
+-void mon_dmapeek_vec(const struct mon_reader_bin *rp,
+-    unsigned int offset, dma_addr_t dma_addr, unsigned int length)
+-{
+-	;
+-}
+-
+-#endif /* MON_HAS_UNMAP */
+diff --git a/drivers/usb/mon/mon_main.c b/drivers/usb/mon/mon_main.c
+--- a/drivers/usb/mon/mon_main.c
++++ b/drivers/usb/mon/mon_main.c
+@@ -129,8 +129,7 @@ static void mon_submit_error(struct usb_
+ 
+ /*
+  */
+-static void mon_bus_complete(struct mon_bus *mbus, struct urb *urb,
+-		int status)
++static void mon_bus_complete(struct mon_bus *mbus, struct urb *urb, int status)
+ {
+ 	unsigned long flags;
+ 	struct list_head *pos;
+@@ -362,12 +361,11 @@ static int __init mon_init(void)
+ 	}
+ 	// MOD_INC_USE_COUNT(which_module?);
+ 
+-	usb_register_notify(&mon_nb);
+-
+ 	mutex_lock(&usb_bus_list_lock);
+ 	list_for_each_entry (ubus, &usb_bus_list, bus_list) {
+ 		mon_bus_init(ubus);
+ 	}
++	usb_register_notify(&mon_nb);
+ 	mutex_unlock(&usb_bus_list_lock);
+ 	return 0;
+ 
+diff --git a/drivers/usb/mon/mon_stat.c b/drivers/usb/mon/mon_stat.c
+--- a/drivers/usb/mon/mon_stat.c
++++ b/drivers/usb/mon/mon_stat.c
+@@ -9,6 +9,7 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/usb.h>
++#include <linux/fs.h>
+ #include <asm/uaccess.h>
+ 
+ #include "usb_mon.h"
+@@ -42,19 +43,8 @@ static ssize_t mon_stat_read(struct file
+ 				size_t nbytes, loff_t *ppos)
+ {
+ 	struct snap *sp = file->private_data;
+-	loff_t pos = *ppos;
+-	int cnt;
+ 
+-	if (pos < 0 || pos >= sp->slen)
+-		return 0;
+-	if (nbytes == 0)
+-		return 0;
+-	if ((cnt = sp->slen - pos) > nbytes)
+-		cnt = nbytes;
+-	if (copy_to_user(buf, sp->str + pos, cnt))
+-		return -EFAULT;
+-	*ppos = pos + cnt;
+-	return cnt;
++	return simple_read_from_buffer(buf, nbytes, ppos, sp->str, sp->slen);
+ }
+ 
+ static int mon_stat_release(struct inode *inode, struct file *file)
+diff --git a/drivers/usb/mon/mon_text.c b/drivers/usb/mon/mon_text.c
+--- a/drivers/usb/mon/mon_text.c
++++ b/drivers/usb/mon/mon_text.c
+@@ -52,10 +52,11 @@ struct mon_event_text {
+ 	int type;		/* submit, complete, etc. */
+ 	unsigned long id;	/* From pointer, most of the time */
+ 	unsigned int tstamp;
+-	int xfertype;
+ 	int busnum;
+-	int devnum;
+-	int epnum;
++	char devnum;
++	char epnum;
++	char is_in;
++	char xfertype;
+ 	int length;		/* Depends on type: xfer length or act length */
+ 	int status;
+ 	int interval;
+@@ -63,7 +64,6 @@ struct mon_event_text {
+ 	int error_count;
+ 	char setup_flag;
+ 	char data_flag;
+-	char is_in;
+ 	int numdesc;		/* Full number */
+ 	struct mon_iso_desc isodesc[ISODESC_MAX];
+ 	unsigned char setup[SETUP_MAX];
+@@ -127,10 +127,6 @@ static inline char mon_text_get_setup(st
+ 	if (ep->xfertype != USB_ENDPOINT_XFER_CONTROL || ev_type != 'S')
+ 		return '-';
+ 
+-	if (urb->dev->bus->uses_dma &&
+-	    (urb->transfer_flags & URB_NO_SETUP_DMA_MAP)) {
+-		return mon_dmapeek(ep->setup, urb->setup_dma, SETUP_MAX);
+-	}
+ 	if (urb->setup_packet == NULL)
+ 		return 'Z';	/* '0' would be not as pretty. */
+ 
+@@ -154,20 +150,6 @@ static inline char mon_text_get_data(str
+ 			return '>';
+ 	}
+ 
+-	/*
+-	 * The check to see if it's safe to poke at data has an enormous
+-	 * number of corner cases, but it seems that the following is
+-	 * more or less safe.
+-	 *
+-	 * We do not even try to look at transfer_buffer, because it can
+-	 * contain non-NULL garbage in case the upper level promised to
+-	 * set DMA for the HCD.
+-	 */
+-	if (urb->dev->bus->uses_dma &&
+-	    (urb->transfer_flags & URB_NO_TRANSFER_DMA_MAP)) {
+-		return mon_dmapeek(ep->data, urb->transfer_dma, len);
+-	}
+-
+ 	if (urb->transfer_buffer == NULL)
+ 		return 'Z';	/* '0' would be not as pretty. */
+ 
+@@ -181,7 +163,7 @@ static inline unsigned int mon_get_times
+ 	unsigned int stamp;
+ 
+ 	do_gettimeofday(&tval);
+-	stamp = tval.tv_sec & 0xFFFF;	/* 2^32 = 4294967296. Limit to 4096s. */
++	stamp = tval.tv_sec & 0xFFF;	/* 2^32 = 4294967296. Limit to 4096s. */
+ 	stamp = stamp * 1000000 + tval.tv_usec;
+ 	return stamp;
+ }
+@@ -238,6 +220,9 @@ static void mon_text_event(struct mon_re
+ 			fp++;
+ 			dp++;
+ 		}
++		/* Wasteful, but simple to understand: ISO 'C' is sparse. */
++		if (ev_type == 'C')
++			ep->length = urb->transfer_buffer_length;
+ 	}
+ 
+ 	ep->setup_flag = mon_text_get_setup(ep, urb, ev_type, rp->r.m_bus);
+@@ -274,12 +259,12 @@ static void mon_text_error(void *data, s
+ 
+ 	ep->type = 'E';
+ 	ep->id = (unsigned long) urb;
+-	ep->busnum = 0;
++	ep->busnum = urb->dev->bus->busnum;
+ 	ep->devnum = urb->dev->devnum;
+ 	ep->epnum = usb_endpoint_num(&urb->ep->desc);
+ 	ep->xfertype = usb_endpoint_type(&urb->ep->desc);
+ 	ep->is_in = usb_urb_dir_in(urb);
+-	ep->tstamp = 0;
++	ep->tstamp = mon_get_timestamp();
+ 	ep->length = 0;
+ 	ep->status = error;
+ 
+@@ -669,6 +654,9 @@ int mon_text_add(struct mon_bus *mbus, c
+ 	int busnum = ubus? ubus->busnum: 0;
+ 	int rc;
+ 
++	if (mon_dir == NULL)
++		return 0;
++
+ 	if (ubus != NULL) {
+ 		rc = snprintf(name, NAMESZ, "%dt", busnum);
+ 		if (rc <= 0 || rc >= NAMESZ)
+@@ -739,12 +727,12 @@ int __init mon_text_init(void)
+ 
+ 	mondir = debugfs_create_dir("usbmon", NULL);
+ 	if (IS_ERR(mondir)) {
+-		printk(KERN_NOTICE TAG ": debugfs is not available\n");
+-		return -ENODEV;
++		/* debugfs not available, but we can use usbmon without it */
++		return 0;
+ 	}
+ 	if (mondir == NULL) {
+ 		printk(KERN_NOTICE TAG ": unable to create usbmon directory\n");
+-		return -ENODEV;
++		return -ENOMEM;
+ 	}
+ 	mon_dir = mondir;
+ 	return 0;
+diff --git a/drivers/usb/mon/usb_mon.h b/drivers/usb/mon/usb_mon.h
+--- a/drivers/usb/mon/usb_mon.h
++++ b/drivers/usb/mon/usb_mon.h
+@@ -65,20 +65,6 @@ int __init mon_bin_init(void);
+ void mon_bin_exit(void);
+ 
+ /*
+- * DMA interface.
+- *
+- * XXX The vectored side needs a serious re-thinking. Abstracting vectors,
+- * like in Paolo's original patch, produces a double pkmap. We need an idea.
+-*/
+-extern char mon_dmapeek(unsigned char *dst, dma_addr_t dma_addr, int len);
+-
+-struct mon_reader_bin;
+-extern void mon_dmapeek_vec(const struct mon_reader_bin *rp,
+-    unsigned int offset, dma_addr_t dma_addr, unsigned int len);
+-extern unsigned int mon_copy_to_buff(const struct mon_reader_bin *rp,
+-    unsigned int offset, const unsigned char *from, unsigned int len);
+-
+-/*
+  */
+ extern struct mutex mon_lock;
+ 
+diff --git a/include/linux/usb.h b/include/linux/usb.h
+--- a/include/linux/usb.h
++++ b/include/linux/usb.h
+@@ -331,7 +331,7 @@ struct usb_bus {
+ #endif
+ 	struct device *dev;		/* device for this bus */
+ 
+-#if defined(CONFIG_USB_MON)
++#if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
+ 	struct mon_bus *mon_bus;	/* non-null when associated */
+ 	int monitored;			/* non-zero when monitored */
+ #endif
+@@ -1109,9 +1109,10 @@ typedef void (*usb_complete_t)(struct ur
+  * @transfer_flags: A variety of flags may be used to affect how URB
+  *	submission, unlinking, or operation are handled.  Different
+  *	kinds of URB can use different flags.
+- * @transfer_buffer:  This identifies the buffer to (or from) which
+- * 	the I/O request will be performed (unless URB_NO_TRANSFER_DMA_MAP
+- *	is set).  This buffer must be suitable for DMA; allocate it with
++ * @transfer_buffer:  This identifies the buffer to (or from) which the I/O
++ *	request will be performed unless URB_NO_TRANSFER_DMA_MAP is set
++ *	(however, do not leave garbage in transfer_buffer even then).
++ *	This buffer must be suitable for DMA; allocate it with
+  *	kmalloc() or equivalent.  For transfers to "in" endpoints, contents
+  *	of this buffer will be modified.  This buffer is used for the data
+  *	stage of control transfers.
+@@ -1173,9 +1174,15 @@ typedef void (*usb_complete_t)(struct ur
+  * allocate a DMA buffer with usb_buffer_alloc() or call usb_buffer_map().
+  * When these transfer flags are provided, host controller drivers will
+  * attempt to use the dma addresses found in the transfer_dma and/or
+- * setup_dma fields rather than determining a dma address themselves.  (Note
+- * that transfer_buffer and setup_packet must still be set because not all
+- * host controllers use DMA, nor do virtual root hubs).
++ * setup_dma fields rather than determining a dma address themselves.
++ *
++ * Note that transfer_buffer must still be set if the controller
++ * does not support DMA (as indicated by bus.uses_dma) and when talking
++ * to root hub. If you have to trasfer between highmem zone and the device
++ * on such controller, create a bounce buffer or bail out with an error.
++ * If transfer_buffer cannot be set (is in highmem) and the controller is DMA
++ * capable, assign NULL to it, so that usbmon knows not to use the value.
++ * The setup_packet must always be set, so it cannot be located in highmem.
+  *
+  * Initialization:
+  *
+-- 

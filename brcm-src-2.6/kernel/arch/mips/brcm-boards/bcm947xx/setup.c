@@ -270,95 +270,103 @@ static struct mtd_partition bcm947xx_parts[] =
 struct mtd_partition *
 init_mtd_partitions(struct mtd_info *mtd, size_t size)
 {
-	struct minix_super_block *minixsb;
-	struct ext2_super_block *ext2sb;
-	struct romfs_super_block *romfsb;
-	struct cramfs_super *cramfsb;
-	struct squashfs_super_block *squashfsb;
-	struct trx_header *trx;
-	unsigned char buf[512];
+	const int bufsz = BLOCK_SIZE;
+	union {
+		struct minix_super_block *minix;
+		struct ext2_super_block *ext2;
+		struct romfs_super_block *romfs;
+		struct cramfs_super *cramfs;
+		struct squashfs_super_block *squashfs;
+		struct trx_header *trx;
+		unsigned char *buf;
+	} u;
 	int off;
 	size_t len;
 
-	minixsb = (struct minix_super_block *) buf;
-	ext2sb = (struct ext2_super_block *) buf;
-	romfsb = (struct romfs_super_block *) buf;
-	cramfsb = (struct cramfs_super *) buf;
-	squashfsb = (struct squashfs_super_block *) buf;
-	trx = (struct trx_header *) buf;
+	u.buf = kmalloc(bufsz, GFP_KERNEL);
+	if (!u.buf)
+		return NULL;
 
 	/* Look at every 64 KB boundary */
 	for (off = 0; off < size; off += (64 * 1024)) {
-		memset(buf, 0xe5, sizeof(buf));
+		memset(u.buf, 0xe5, bufsz);
 
 		/*
-		 * Read block 0 to test for romfs and cramfs superblock
+		 * Read block 0 to test for superblocks
 		 */
-		if (mtd->read(mtd, off, sizeof(buf), &len, buf) ||
-		    len != sizeof(buf))
+		if (mtd->read(mtd, off, bufsz, &len, u.buf) ||
+		    len != bufsz)
 			continue;
 
 		/* Try looking at TRX header for rootfs offset */
-		if (le32_to_cpu(trx->magic) == TRX_MAGIC) {
+		if (le32_to_cpu(u.trx->magic) == TRX_MAGIC) {
 			bcm947xx_parts[1].offset = off;
-//			if (le32_to_cpu(trx->offsets[1]) > off)
-	                if (le32_to_cpu(trx->offsets[2]) > off)
-	                        off = le32_to_cpu(trx->offsets[2]);
-	                else if (le32_to_cpu(trx->offsets[1]) > off)
-				off = le32_to_cpu(trx->offsets[1]);
+//			if (le32_to_cpu(u.trx->offsets[1]) > off)
+				if (le32_to_cpu(u.trx->offsets[2]) > off)
+					off = le32_to_cpu(u.trx->offsets[2]);
+				else if (le32_to_cpu(u.trx->offsets[1]) > off)
+					off = le32_to_cpu(u.trx->offsets[1]);
 			continue;
 		}
 
+#if defined(CONFIG_ROMFS_FS)
 		/* romfs is at block zero too */
-		if (romfsb->word0 == ROMSB_WORD0 &&
-		    romfsb->word1 == ROMSB_WORD1) {
+		if (u.romfs->word0 == ROMSB_WORD0 &&
+		    u.romfs->word1 == ROMSB_WORD1) {
 			printk(KERN_NOTICE
 			       "%s: romfs filesystem found at block %d\n",
-			       mtd->name, off / BLOCK_SIZE);
+			       mtd->name, off >> BLOCK_SIZE_BITS);
 			goto done;
 		}
+#endif
 
+#if defined(CONFIG_SQUASHFS)
 		/* squashfs is at block zero too */
-                if (squashfsb->s_magic == SQUASHFS_MAGIC
-			|| squashfsb->s_magic == SQUASHFS_MAGIC_LZMA) {
+		if (u.squashfs->s_magic == SQUASHFS_MAGIC
+			|| u.squashfs->s_magic == SQUASHFS_MAGIC_LZMA) {
                         printk(KERN_NOTICE
                                "%s: squashfs filesystem found at block %d\n",
-                               mtd->name, off / BLOCK_SIZE);
+                               mtd->name, off >> BLOCK_SIZE_BITS);
                         goto done;
-                }
+		}
+#endif
 
-
+#if defined(CONFIG_CRAMFS)
 		/* so is cramfs */
-		if (cramfsb->magic == CRAMFS_MAGIC) {
+		if (u.cramfs->magic == CRAMFS_MAGIC) {
 			printk(KERN_NOTICE
 			       "%s: cramfs filesystem found at block %d\n",
-			       mtd->name, off / BLOCK_SIZE);
+			       mtd->name, off >> BLOCK_SIZE_BITS);
 			goto done;
 		}
+#endif
 
 		/*
 		 * Read block 1 to test for minix and ext2 superblock
 		 */
-		if (mtd->read(mtd, off + BLOCK_SIZE, sizeof(buf), &len, buf) ||
-		    len != sizeof(buf))
+		if (mtd->read(mtd, off + BLOCK_SIZE, bufsz, &len, u.buf) ||
+		    len != bufsz)
 			continue;
 
+#if defined(CONFIG_MINIX_FS)
 		/* Try minix */
-		if (minixsb->s_magic == MINIX_SUPER_MAGIC ||
-		    minixsb->s_magic == MINIX_SUPER_MAGIC2) {
+		if (u.minix->s_magic == MINIX_SUPER_MAGIC ||
+		    u.minix->s_magic == MINIX_SUPER_MAGIC2) {
 			printk(KERN_NOTICE
-			       "%s: Minix filesystem found at block %d\n",
-			       mtd->name, off / BLOCK_SIZE);
+			       "%s: minix filesystem found at block %d\n",
+			       mtd->name, off >> BLOCK_SIZE_BITS);
+			goto done;
+		}
+#endif
+
+		/* Try ext2 */
+		if (u.ext2->s_magic == cpu_to_le16(EXT2_SUPER_MAGIC)) {
+			printk(KERN_NOTICE
+			       "%s: ext2 filesystem found at block %d\n",
+			       mtd->name, off >> BLOCK_SIZE_BITS);
 			goto done;
 		}
 
-		/* Try ext2 */
-		if (ext2sb->s_magic == cpu_to_le16(EXT2_SUPER_MAGIC)) {
-			printk(KERN_NOTICE
-			       "%s: ext2 filesystem found at block %d\n",
-			       mtd->name, off / BLOCK_SIZE);
-			goto done;
-		}
 	}
 
 	printk(KERN_NOTICE
@@ -382,6 +390,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	/* Size pmon */
 	bcm947xx_parts[0].size = bcm947xx_parts[1].offset - bcm947xx_parts[0].offset;
 
+	kfree(u.buf);
 	return bcm947xx_parts;
 }
 

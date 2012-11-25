@@ -1,14 +1,13 @@
-diff -urB miniupnpd-1.6/Makefile.linux miniupnpd/Makefile.linux
---- miniupnpd-1.6/Makefile.linux	2012-03-05 23:37:13.000000000 +0300
+diff -urB miniupnpd-1.7/Makefile.linux miniupnpd/Makefile.linux
+--- miniupnpd-1.7/Makefile.linux	2012-03-05 23:37:13.000000000 +0300
 +++ miniupnpd/Makefile.linux	2012-03-06 12:11:57.000000000 +0300
-@@ -17,8 +17,8 @@
- # ./configure them and build them then miniupnpd will build using :
- # $ IPTABLESPATH=/path/to/iptables-1.4.1 make -f Makefile.linux
- #
--CFLAGS = -Wall -O -D_GNU_SOURCE -g -DDEBUG -ansi
--#CFLAGS ?= -Wall -Os -D_GNU_SOURCE -fno-strict-aliasing -Wstrict-prototypes
-+#CFLAGS = -Wall -O -D_GNU_SOURCE -g -DDEBUG -ansi
-+CFLAGS ?= -Wall -Os -D_GNU_SOURCE -fno-strict-aliasing -Wstrict-prototypes $(EXTRACFLAGS)
+@@ -17,7 +17,8 @@
+ CFLAGS += -Wall
+ CFLAGS += -Wextra -Wstrict-prototypes -Wdeclaration-after-statement
+ #CFLAGS += -Wno-missing-field-initializers
+-CFLAGS += -ansi
++#CFLAGS += -ansi
++CFLAGS += $(EXTRACFLAGS)
  CC ?= gcc
  RM = rm -f
  INSTALL = install

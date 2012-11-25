@@ -19,12 +19,26 @@ Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 
 ---
+From 788d908f2879a17e5f80924f3da2e23f1034482d
+From: Julien TINNES
+Date: Thu, 27 Aug 2009 15:26:58 +0200
+Subject: [PATCH] ipv4: make ip_append_data() handle NULL routing table
+
+Add a check in ip_append_data() for NULL *rtp to prevent future bugs in
+callers from being exploitable.
+
+Signed-off-by: Julien Tinnes <julien@cr0.org>
+Signed-off-by: Tavis Ormandy <taviso@sdf.lonestar.org>
+Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
  include/net/ip.h     |    2 +-
- net/ipv4/icmp.c      |    8 ++++----
- net/ipv4/ip_output.c |   11 ++++++++---
+ net/ipv4/icmp.c      |    6 +++---
+ net/ipv4/ip_output.c |   13 ++++++++++---
  net/ipv4/raw.c       |    2 +-
  net/ipv4/udp.c       |    2 +-
- 5 files changed, 15 insertions(+), 10 deletions(-)
+ 5 files changed, 16 insertions(+), 9 deletions(-)
 
 diff --git a/include/net/ip.h b/include/net/ip.h
 --- a/include/net/ip.h
@@ -88,12 +102,14 @@ diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
  
  	if (flags&MSG_PROBE)
  		return 0;
-@@ -812,7 +813,11 @@ int ip_append_data(struct sock *sk,
+@@ -812,7 +813,13 @@ int ip_append_data(struct sock *sk,
  			inet->cork.flags |= IPCORK_OPT;
  			inet->cork.addr = ipc->addr;
  		}
 -		dst_hold(&rt->u.dst);
 +		rt = *rtp;
++		if (unlikely(!rt))
++			return -EFAULT;
 +		/*
 +		 * We steal reference to this route, caller should not release it
 +		 */

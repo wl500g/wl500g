@@ -3,16 +3,8 @@
 @@ -934,6 +934,7 @@ init(int argc, char * * argv, struct run
  	}
  
- 	openlog("miniupnpd", openlog_option, LOG_MINIUPNPD);
+ 	set_startup_time(GETFLAG(SYSUPTIMEMASK));
 +	syslog(LOG_INFO, "version " MINIUPNPD_VERSION " started");
  
- 	if(!debug_flag)
- 	{
-@@ -1080,7 +1081,6 @@ main(int argc, char * * argv)
- 	struct rule_state * rule_list = 0;
- 	struct timeval checktime = {0, 0};
- 	struct lan_addr_s * lan_addr;
--	syslog(LOG_INFO, "SNet version started");
- 
- 	if(init(argc, argv, &v) != 0)
- 		return 1;
+ 	/* presentation url */
+ 	if(presurl)

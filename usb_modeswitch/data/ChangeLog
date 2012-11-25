@@ -1,11 +1,21 @@
+20120531:
+    Small but important fix for ZTE Blade phone
+20120529:
+    Added devices: Telenet 3G dongle (T&W WU160), Nokia CS-21M-02,
+    Telewell TW-3G HSPA+, ZTE MF637, TW-3G HSPA+, Samsung GT-B1110,
+    ZTE MF192 (yet annother variant), MediaTek MT6276M, Tata Photon+,
+    Option Globetrotter (Variant), Option iCon 711, Celot K-300,
+    Hisense E910 EVDO Phone, Yota Router (Quanta 1QDLZZZ0ST2),
+    K5005 Vodafone/Huawei, D-Link DWM-156 (Variant), Huawei E173
+    (Moviestar), Onda MSA 14.4 (TIM Brasil); some target product ID
+    additions; skip driver loading for some devices now supported by
+    dedicated drivers; minor fine tuning and corrections
 20120120:
     Added devices: Air FlexiNet/StrongRising, BandLuxe C339, Celot CT-680,
     Huawei E353, Haier CE682, LG L-02C LTE, LG SD711, LG L-08C, LG L-07A,
     I-O Data WMX2-U, Option GI1515, ZTE A371B, ZTE MF652 (two Variants);
     reduced redundancies in parameters, resulting in smaller files;
     ATTENTION !! Needs program version >= 1.2.1 !!
- C-motech CDU-685a, Qisda H21 "Flying Beetle" (needs
-    program version >= 1.2.0)
 20111023:
     Added devices: C-motech CDU-685a, Qisda H21 "Flying Beetle" (needs
     program version >= 1.2.0)

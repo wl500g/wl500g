@@ -776,6 +776,8 @@ void convert_asus_values()
 #endif
 
 #ifdef __CONFIG_EMF__
+#include <emf/igs/igs_cfg.h>
+#ifndef SUPPORT_IGMP_V3
 	/* Force IGMPv2 due EMF limitations */
 	if (nvram_match("emf_enable", "1"))
 	{
@@ -783,17 +785,12 @@ void convert_asus_values()
 		fputs_ex("/proc/sys/net/ipv4/conf/default/force_igmp_version", "2");
 	}
 #endif
+#endif
 
 #if defined(LINUX26) && defined(QOS)
 	/* Kinda smart fast nat management */
 	fputs_ex("/proc/sys/net/netfilter/nf_conntrack_fastnat",
 	    nvram_match("misc_fastnat_x", "0") || !nvram_match("wan_nat_x", "1") ||
-#ifdef __CONFIG_MADWIMAX__
-	    nvram_match("wan_proto", "wimax") ||
-#endif
-#ifdef __CONFIG_MODEM__
-	    nvram_match("wan_proto", "usbmodem") ||
-#endif
 	    nvram_match("qos_enable_x", "1") ? "0" :
 #ifdef WEBSTRFILTER
 	    nvram_match("url_enable_x", "1") ? "2" :
