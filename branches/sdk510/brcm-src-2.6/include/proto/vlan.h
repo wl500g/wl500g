@@ -1,7 +1,7 @@
 /*
  * 802.1Q VLAN protocol definitions
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2008, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -15,12 +15,13 @@
 #ifndef _vlan_h_
 #define _vlan_h_
 
-#ifndef _TYPEDEFS_H_
-#include <typedefs.h>
+/* enable structure packing */
+#if defined(__GNUC__)
+#define	PACKED	__attribute__((packed))
+#else
+#pragma pack(1)
+#define	PACKED
 #endif
-
-/* This marks the start of a packed structure section. */
-#include <packed_section_start.h>
 
 #define VLAN_VID_MASK		0xfff	/* low 12 bits are vlan id */
 #define	VLAN_CFI_SHIFT		12	/* canonical format indicator bit */
@@ -43,9 +44,10 @@ struct ethervlan_header {
 
 #define	ETHERVLAN_HDR_LEN	(ETHER_HDR_LEN + VLAN_TAG_LEN)
 
-
-/* This marks the end of a packed structure section. */
-#include <packed_section_end.h>
+#undef PACKED
+#if !defined(__GNUC__)
+#pragma pack()
+#endif
 
 #define ETHERVLAN_MOVE_HDR(d, s) \
 do { \

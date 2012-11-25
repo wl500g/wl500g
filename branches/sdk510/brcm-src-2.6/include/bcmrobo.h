@@ -1,7 +1,7 @@
 /*
  * RoboSwitch setup functions
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2008, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmrobo.h,v 13.7.54.3 2010/11/22 09:05:02 Exp $
+ * $Id: bcmrobo.h,v 13.7.54.2 2009/03/13 00:46:21 Exp $
  */
 
 #ifndef _bcm_robo_h_
@@ -33,24 +33,6 @@
 #define	DEVID5397	0x97	/* 5397 */
 #define	DEVID5398	0x98	/* 5398 */
 #define	DEVID53115	0x3115	/* 53115 */
-#define	DEVID53125	0x3125	/* 53125 */
-
-/* Power save duty cycle times */
-#define MAX_NO_PHYS		5
-#define PWRSAVE_SLEEP_TIME	12
-#define PWRSAVE_WAKE_TIME	3
-
-/* Power save modes for the switch */
-#define ROBO_PWRSAVE_NORMAL 		0
-#define ROBO_PWRSAVE_AUTO		1
-#define ROBO_PWRSAVE_MANUAL		2
-#define ROBO_PWRSAVE_AUTO_MANUAL 	3
-#ifdef ET_PWRSAVEWL
-#define ROBO_PWRSAVE_WL_ONLY		4
-#endif
-
-#define ROBO_IS_PWRSAVE_MANUAL(r) ((r)->pwrsave_mode_manual)
-#define ROBO_IS_PWRSAVE_AUTO(r) ((r)->pwrsave_mode_auto)
 
 /* Forward declaration */
 typedef struct robo_info_s robo_info_t;
@@ -87,19 +69,7 @@ struct robo_info_s {
 	/* MII */
 	miird_f	miird;
 	miiwr_f	miiwr;
-
-//	uint16	prev_status;		/* link status of switch ports */
-	uint32	pwrsave_mode_manual; 	/* bitmap of ports in manual power save */
-	uint32	pwrsave_mode_auto; 	/* bitmap of ports in auto power save mode */
-	uint8	pwrsave_phys; 		/* Phys that can be put into power save mode */
-	uint8	pwrsave_mode_phys[MAX_NO_PHYS];         /* Power save mode on the switch */   
 };
-
-/* Power Save mode related functions */
-extern int32 robo_power_save_mode_get(robo_info_t *robo, int32 phy);
-extern int32 robo_power_save_mode_set(robo_info_t *robo, int32 mode, int32 phy);
-extern void robo_power_save_mode_update(robo_info_t *robo);
-extern int robo_power_save_toggle(robo_info_t *robo, int normal);
 
 extern robo_info_t *bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr);
 extern void bcm_robo_detach(robo_info_t *robo);
@@ -107,8 +77,5 @@ extern int bcm_robo_enable_device(robo_info_t *robo);
 extern int bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr);
 extern int bcm_robo_enable_switch(robo_info_t *robo);
 
-#ifdef BCMDBG
-extern void robo_dump_regs(robo_info_t *robo, struct bcmstrbuf *b);
-#endif /* BCMDBG */
 
 #endif /* _bcm_robo_h_ */

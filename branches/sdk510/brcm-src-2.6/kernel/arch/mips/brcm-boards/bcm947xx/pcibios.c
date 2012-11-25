@@ -394,7 +394,7 @@ quirk_sbpci_bridge(struct pci_dev *dev)
 	if (dev->bus->number != 1 || PCI_SLOT(dev->devfn) != 0)
 		return;
 
-	printk("PCI: Fixing up bridge\n");
+	printk(KERN_INFO "PCI: Fixing up bridge\n");
 
 	/* Enable PCI bridge bus mastering and memory space */
 	pci_set_master(dev);

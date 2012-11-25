@@ -1,47 +1,30 @@
 # Helper makefile for building Broadcom wl device driver
 # This file maps wl driver feature flags (import) to WLFLAGS and WLFILES_SRC (export).
 #
-# Copyright (C) 2009, Broadcom Corporation
+# Copyright (C) 2008, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
 # KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-# $Id: wl.mk,v 1.2 2011/01/20 09:43:26  Exp $
+# $Id: wl.mk,v 1.210.2.52.2.2 2009/03/01 16:49:34 Exp $
+
 
 # debug/internal
 ifeq ($(DEBUG),1)
-	WLFLAGS += -DBCMDBG -DWLTEST -DWLTIMER -DRWL_WIFI -DWIFI_ACT_FRAME
+	WLFLAGS += -DBCMDBG -DWLTEST
 else
+	# This is true for mfgtest builds.
 #ifdef WLTEST
-	# mfgtest builds
 	ifeq ($(WLTEST),1)
 		WLFLAGS += -DWLTEST
 	endif
 #endif
 endif
 
-#ifdef WLMFG
-# wl mfg support
-ifeq ($(WLMFG),1)
-	WLFLAGS += -DWLMFG -DWLTEST
-	WLFILES_SRC_HI += src/wl/sys/wlc_mfg.c
-endif
-#endif
 
 
-#ifdef BCMDBG_MEM
-ifeq ($(BCMDBG_MEM),1)
-	WLFLAGS += -DBCMDBG_MEM
-endif
-#endif
-
-#ifdef BCMDBG_PKT
-ifeq ($(BCMDBG_PKT),1)
-	WLFLAGS += -DBCMDBG_PKT
-endif
-#endif
 
 #ifdef WLLMAC
 ifeq ($(WLLMAC),1)
@@ -67,41 +50,9 @@ ifeq ($(WL_LOW),1)
 		WL_SPLIT = 1
 	endif
 endif
-
 ifeq ($(WL_HIGH),1)
 	ifneq ($(WL_LOW),1)
 		WL_SPLIT = 1
-		ifeq ($(RPC_NOCOPY),1)
-			WLFLAGS += -DBCM_RPC_NOCOPY
-		endif
-		ifeq ($(RPC_RXNOCOPY),1)
-			WLFLAGS += -DBCM_RPC_RXNOCOPY
-		endif
-		ifeq ($(RPC_TXNOCOPY),1)
-			WLFLAGS += -DBCM_RPC_TXNOCOPY
-		endif
-		ifeq ($(RPC_ROC),1)
-			WLFLAGS += -DBCM_RPC_ROC
-		endif
-		ifeq ($(RPC_TOC),1)
-			WLFLAGS += -DBCM_RPC_TOC
-		endif
-
-		ifeq ($(BMAC_ENABLE_LINUX_HOST_RPCAGG),1)
-			WLFLAGS += -DBMAC_ENABLE_LINUX_HOST_RPCAGG
-		endif
-		ifeq ($(DBUS_LINUX_RXDPC),1)
-			WLFLAGS += -DDBUS_LINUX_RXDPC
-		endif
-		ifneq ($(BCM_RPC_TP_DBUS_NTXQ),)
-			WLFLAGS += -DBCM_RPC_TP_DBUS_NTXQ=$(BCM_RPC_TP_DBUS_NTXQ)
-		endif
-		ifneq ($(BCM_RPC_TP_DBUS_NRXQ),)
-			WLFLAGS += -DBCM_RPC_TP_DBUS_NRXQ=$(BCM_RPC_TP_DBUS_NRXQ)
-		endif
-		ifeq ($(BCMUSBDEV_EP_FOR_RPCRETURN),1)
-			WLFLAGS += -DBCMUSBDEV_EP_FOR_RPCRETURN
-		endif
 	endif
 endif
 
@@ -113,25 +64,17 @@ ifeq ($(WL_HIGH),1)
 	WLFLAGS += -DWLC_HIGH
 endif
 
-ifeq ($(USBAP),1)
-	WLFLAGS += -DUSBAP
-endif
-
 # split driver infrastructure files
 ifeq ($(WL_SPLIT),1)
 	WLFILES_SRC += src/shared/bcm_xdr.c
 	WLFILES_SRC += src/shared/bcm_rpc.c
-	ifneq ($(USBAP),1)
-		WLFILES_SRC_HI += src/shared/nvramstubs.c
-	endif
+	WLFILES_SRC_HI += src/shared/nvramstubs.c
 	ifeq ($(OSLLX),1)
 		WLFILES_SRC_HI += src/shared/linux_rpc_osl.c
 	endif
-
 	ifeq ($(OSLNDIS),1)
 		WLFILES_SRC_HI += src/shared/ndis_rpc_osl.c
 	endif
-
 	ifeq ($(BCMDBUS),1)
 		WLFILES_SRC_HI += src/shared/bcm_rpc_tp_dbus.c
 	endif
@@ -141,46 +84,27 @@ ifeq ($(WL_SPLIT),1)
 	WLFILES_SRC_LO += src/wl/sys/wlc_high_stubs.c
 
 	ifeq ($(WL_HIGH),1)
-		ifneq ($(BCMSDIO),1)
-			WLFLAGS += -DBCMBUSTYPE=RPC_BUS
-			WLFLAGS += -DOSLREGOPS
-		endif
+		WLFLAGS += -DBCMBUSTYPE=RPC_BUS
+		WLFLAGS += -DOSLREGOPS
 	endif
 endif
 
 #ifdef WL
 ifeq ($(WL),1)
 	WLFILES_SRC += src/shared/bcmwifi.c
-	WLFILES_SRC += src/wl/sys/wlc_alloc.c
 
-	WLFILES_SRC_LO += src/shared/qmath.c
-	WLFILES_SRC_LO += src/wl/sys/d11ucode_le15.c
-	WLFILES_SRC_LO += src/wl/sys/d11ucode_gt15.c
-	WLFILES_SRC_LO += src/wl/sys/d11ucode_ge24.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phy_cmn.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phy_abg.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phy_lp.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phy_ssn.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phy_lcn.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phy_n.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phy_ht.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phytbl_n.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phytbl_ht.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phytbl_lp.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phytbl_ssn.c
-	WLFILES_SRC_LO += src/wl/phy/wlc_phytbl_lcn.c
-	WLFILES_SRC_LO += src/wl/sys/wlc_phy_shim.c
 	WLFILES_SRC_LO += src/wl/sys/wlc_bmac.c
+	WLFILES_SRC_LO += src/wl/sys/d11ucode.c
+	WLFILES_SRC_LO += src/wl/sys/wlc_phy.c
+	WLFILES_SRC_LO += src/shared/qmath.c
+	WLFILES_SRC_LO += src/wl/sys/mimophytbls.c
+	WLFILES_SRC_LO += src/wl/sys/lpphytbls.c
+	WLFILES_SRC_LO += src/wl/sys/sslpnphytbls.c
 
 	WLFILES_SRC_HI += src/wl/sys/wlc.c
-	WLFILES_SRC_HI += src/wl/sys/wlc_assoc.c
 	WLFILES_SRC_HI += src/wl/sys/wlc_rate.c
-	WLFILES_SRC_HI += src/wl/sys/wlc_stf.c
-	ifneq ($(WLWSEC),0)
-		WLFLAGS += -DWLWSEC
-		WLFILES_SRC_HI += src/wl/sys/wlc_security.c
-		WLFILES_SRC_HI += src/wl/sys/wlc_key.c
-	endif
+	WLFILES_SRC_HI += src/wl/sys/wlc_security.c
+	WLFILES_SRC_HI += src/wl/sys/wlc_key.c
 	WLFILES_SRC_HI += src/wl/sys/wlc_scb.c
 	WLFILES_SRC_HI += src/wl/sys/wlc_rate_sel.c
 	WLFILES_SRC_HI += src/wl/sys/wlc_antsel.c
@@ -196,17 +120,12 @@ ifeq ($(WL),1)
 			WLFLAGS += -DWLLMACPROTO
 			WLFILES_SRC += src/wl/sys/wlc_lmac_proto.c
 		endif
-		ifeq ($(WLLMAC_ONLY),1)
-			WLFLAGS += -DWLLMAC_ONLY
-		else
-			WLFILES_SRC_HI += src/wl/sys/wlc_event.c
-			WLFILES_SRC_HI += src/wl/sys/wlc_channel.c
-		endif
 	else
 		WLFILES_SRC_HI += src/wl/sys/wlc_event.c
 		WLFILES_SRC_HI += src/wl/sys/wlc_channel.c
 	endif
-	WLFILES_SRC_HI += src/shared/bcmwpa.c
+	ifneq ($(BCMROMOFFLOAD),1)
+		WLFILES_SRC_HI += src/shared/bcmwpa.c
 #ifndef LINUX_CRYPTO		   
 	ifneq ($(LINUX_CRYPTO),1)
 		WLFILES_SRC_HI += src/bcmcrypto/rc4.c
@@ -214,22 +133,10 @@ ifeq ($(WL),1)
 		WLFILES_SRC_HI += src/bcmcrypto/tkmic.c
 		WLFILES_SRC_HI += src/bcmcrypto/wep.c
 	endif
-#endif /* LINUX_CRYPTO */
-#ifdef WLEXTLOG
-ifeq ($(WLEXTLOG),1)
-	WLFLAGS += -DWLEXTLOG
-	WLFILES_SRC += src/wl/sys/wlc_extlog.c
+#endif
+	endif
 endif
 #endif
-#ifdef WLSCANCACHE
-ifeq ($(WLSCANCACHE),1)
-	WLFLAGS += -DWLSCANCACHE
-	WLFILES_SRC += src/wl/sys/wlc_scandb.c
-endif
-#endif
-
-endif
-#endif /* WL */
 
 #ifdef BCMDBUS
 ifeq ($(BCMDBUS),1)
@@ -238,12 +145,6 @@ ifeq ($(BCMDBUS),1)
 
 	ifeq ($(BCMSDIO),1)
 		WLFILES_SRC += src/shared/dbus_sdio.c
-		ifeq ($(WL_HIGH),1)
-			WLFILES_SRC_HI += src/shared/siutils.c
-			WLFILES_SRC_HI += src/shared/sbutils.c
-			WLFILES_SRC_HI += src/shared/aiutils.c
-			WLFILES_SRC_HI += src/shared/hndpmu.c
-		endif
 	else
 		WLFILES_SRC += src/shared/dbus_usb.c
 	endif
@@ -272,30 +173,6 @@ ifeq ($(BCM_DNGL_EMBEDIMAGE),1)
 endif
 #endif
 
-# For USBAP to select which images to embed
-ifeq ($(EMBED_IMAGE_4319usb),1)
-	WLFLAGS += -DEMBED_IMAGE_4319usb
-endif
-ifeq ($(EMBED_IMAGE_4322),1)
-	WLFLAGS += -DEMBED_IMAGE_4322
-endif
-ifeq ($(EMBED_IMAGE_43236a0),1)
-	WLFLAGS += -DEMBED_IMAGE_43236a0
-endif
-ifeq ($(EMBED_IMAGE_43236b0),1)
-	WLFLAGS += -DEMBED_IMAGE_43236b0
-endif
-
-
-ifeq ($(EMBED_IMAGE_43236a1),1)
-	WLFLAGS += -DEMBED_IMAGE_43236a1
-endif
-
-
-ifeq ($(DNGL_WD_KEEP_ALIVE),1)
-	WLFLAGS += -DDNGL_WD_KEEP_ALIVE
-endif
-
 ## wl OSL
 #ifdef WLVX
 ifeq ($(WLVX),1)
@@ -311,34 +188,19 @@ ifeq ($(WLBSD),1)
 endif
 #endif
 
-#ifdef WLUM
-ifeq ($(WLUM),1)
-	WLFILES_SRC += src/wl/sys/wl_usermode.c
-	WLFLAGS += -DUSER_MODE
-endif
-#endif
-
 #ifdef WLLX
 ifeq ($(WLLX),1)
 	ifneq ($(WL_HIGH),1)
 		WLFILES_SRC_LO += src/wl/sys/wl_linux_bmac.c
 		WLFILES_SRC_LO += src/shared/bcm_rpc_char.c
 	endif
-
-        WLFILES_SRC_HI += src/wl/sys/wl_linux.c
-#ifdef WLUMK
-	ifeq ($(WLUMK),1)
-		WLFILES_SRC_HI += src/wl/sys/wl_cdev.c
-		WLFLAGS += -DWL_UMK
-	endif
-#endif
+	WLFILES_SRC_HI += src/wl/sys/wl_linux.c
 endif
 #endif
 
 #ifdef WLLXIW
 ifeq ($(WLLXIW),1)
 	WLFILES_SRC_HI += src/wl/sys/wl_iw.c
-	WLFLAGS += -DWLLXIW
 endif
 #endif
 
@@ -361,45 +223,21 @@ ifeq ($(BCMECICOEX),1)
 	WLFLAGS += -DBCMECICOEX
 endif
 
-ifeq ($(CCA_STATS),1)
-	WLFLAGS += -DCCA_STATS
-endif
-
-ifeq ($(DNGL_WD_KEEP_ALIVE),1)
-	WLFLAGS += -DDNGL_WD_KEEP_ALIVE
-endif
-
 
 #ifdef NDIS
 # anything Windows/NDIS specific for 2k/xp/vista/windows7
 ifeq ($(WLNDIS),1)
+
 	WLFILES_SRC += src/wl/sys/wl_ndis.c
 
 	ifeq ($(WLNDIS_DHD),)
 		WLFILES_SRC += src/wl/sys/nhd_ndis.c
-		ifeq ($(WL_SPLIT),1)
-			ifdef USEDDK
-				WLFLAGS += -DMEMORY_TAG="'7034'"
-			else
-				WLFLAGS += -DMEMORY_TAG='DWMB'
-			endif
-		else
-			ifdef USEDDK
-				WLFLAGS += -DMEMORY_TAG="'7034'"
-			else
-				WLFLAGS += -DMEMORY_TAG='NWMB'
-			endif
-		endif
 	else
 		WLFILES_SRC += src/dhd/sys/dhd_ndis.c
-		ifdef USEDDK
-			WLFLAGS += -DMEMORY_TAG="'7034'"
-		else
-			WLFLAGS += -DMEMORY_TAG='DWMB'
-		endif
 	endif
-
+	WLFLAGS += -DMEMORY_TAG="'7034'"
 	WLFILES_SRC += src/wl/sys/wl_ndconfig.c
+
 	WLFILES_SRC += src/shared/bcmwifi.c
 	WLFILES_SRC += src/shared/bcmstdlib.c
 
@@ -410,28 +248,22 @@ ifeq ($(WLNDIS),1)
 		endif
 	endif
 
-	ifneq ($(WLVISTA)$(WLWIN7),)
+	ifeq ($(WLVISTA),1)
 		WLFLAGS += -DEXT_STA
+
+		WLFLAGS += -DWLNOEIND
 		WLFLAGS += -DWL_MONITOR
 	        WLFLAGS += -DIBSS_PEER_GROUP_KEY
 	        WLFLAGS += -DIBSS_PEER_DISCOVERY_EVENT
 	        WLFLAGS += -DIBSS_PEER_MGMT
 	endif
-
-	ifeq ($(WLWIN7),1)
-		WLFLAGS += -DAP
-	endif
-
 	ifeq ($(WLXP),1)
 		WLFLAGS += -DWLNOEIND
 	endif
 
-	ifeq ($(WLVIF),1)
-		WLFLAGS += -DWLVIF
-	endif
-
 	# HIGH driver for BMAC ?? any ndis/xp/vista ?
 	ifeq ($(WL_SPLIT),1)
+
 	endif
 
 	# DHD host: ?? to clean up and to support all other DHD OSes
@@ -439,8 +271,7 @@ ifeq ($(WLNDIS),1)
 		WLFLAGS += -DSHOW_EVENTS -DBCMPERFSTATS
 		WLFLAGS += -DBDC -DBCMDONGLEHOST	
 		WLFLAGS += -DBCM4325 
-
-		ifneq ($(BCMSDIO),1)
+		ifeq ($(BCMSDIO),)
 			WLFLAGS += -DBCMDHDUSB
 			WLFLAGS += -DBCM4328 -DBCM4322
 		endif
@@ -448,39 +279,21 @@ ifeq ($(WLNDIS),1)
 		WLFILES_SRC += src/dhd/sys/dhd_cdc.c
 		WLFILES_SRC += src/dhd/sys/dhd_common.c
 
-		BCMPCI = 0
+		BCMPCI=0
 
-		ifneq ($(BCMDBUS),1)
+		ifeq ($(BCMDBUS),)
 			WLFILES_SRC += src/dhd/sys/dhd_usb_ndis.c
-		endif
+		endif	
 
-		ifneq ($(WLVISTA)$(WLWIN7),)
+		ifeq ($(WLVISTA),1)
 			WLFILES_SRC += src/wl/sys/wlc_rate.c
-		endif
-
-		ifeq ($(WLWIN7),1)
-			WLFILES_SRC += src/wl/sys/wlc_ap.c
-			WLFILES_SRC += src/wl/sys/wlc_apps.c
 		endif
 
 		ifeq ($(WLXP),1)
 			WLFLAGS += -DNDIS_DMAWAR 
 			# move these non-wl flag to makefiles
 			WLFLAGS += -DBINARY_COMPATIBLE -DWIN32_LEAN_AND_MEAN=1 
-		endif
-
-#ifdef WLBTAMP
-		ifeq ($(WLBTAMP),1)
-			WLFLAGS += -DWLBTAMP
-			WLFILES_SRC += src/dhd/sys/dhd_bta.c
-#ifdef WLBTWUSB
-			ifeq ($(WLBTWUSB),1)
-				WLFLAGS += -DWLBTWUSB
-				WLFILES_SRC += src/wl/sys/bt_int.c
-			endif
-#endif /* WLBTWUSB */
-		endif
-#endif /* WLBTAMP */
+		endif		
 	endif
 endif
 #endif
@@ -519,20 +332,11 @@ endif
 ifeq ($(AP),1)
 	WLFILES_SRC_HI += src/wl/sys/wlc_ap.c
 	WLFILES_SRC_HI += src/wl/sys/wlc_apps.c
+	WLFILES_SRC_HI += src/wl/sys/wlc_apcs.c
 	WLFLAGS += -DAP
 
 	ifeq ($(MBSS),1)
 		WLFLAGS += -DMBSS
-	endif
-
-	ifeq ($(WDS),1)
-		WLFLAGS += -DWDS
-	endif
-
-	# Channel Select
-	ifeq ($(APCS),1)
-		WLFILES_SRC_HI += wlc_apcs.c
-		WLFLAGS += -DAPCS
 	endif
 
 	# WME_PER_AC_TX_PARAMS
@@ -571,42 +375,10 @@ ifeq ($(WET),1)
 endif
 #endif
 
-#ifdef RXCHAIN_PWRSAVE
-ifeq ($(RXCHAIN_PWRSAVE), 1)
-	WLFLAGS += -DRXCHAIN_PWRSAVE
-endif 
-#endif
-
-#ifdef RADIO_PWRSAVE
-ifeq ($(RADIO_PWRSAVE), 1)
-	WLFLAGS += -DRADIO_PWRSAVE
-endif 
-#endif
-
 #ifdef WMF
 ifeq ($(WMF), 1)
 	WLFILES_SRC_HI += src/wl/sys/wlc_wmf.c
 	WLFLAGS += -DWMF
-endif 
-#endif
-
-#ifdef WLOVERTHRUSTER
-ifeq ($(WLOVERTHRUSTER), 1)
-	WLFLAGS += -DWLOVERTHRUSTER
-endif 
-#endif
-
-#ifdef MCAST_REGEN 
-ifeq ($(MCAST_REGEN), 1)
-	WLFLAGS += -DMCAST_REGEN
-endif 
-#endif
-
-#ifdef ROUTER_COMA
-ifeq ($(ROUTER_COMA), 1)
-	WLFILES_SRC_HI += src/shared/hndmips.c
-	WLFILES_SRC_HI += src/shared/hndchipc.c
-	WLFLAGS += -DROUTER_COMA
 endif 
 #endif
 
@@ -634,18 +406,11 @@ ifeq ($(WLLED),1)
 	WLFILES_SRC_HI += src/wl/sys/wlc_led.c
 endif
 #endif
-
+      
 #ifdef WL_MONITOR
 # MONITOR
 ifeq ($(WL_MONITOR),1)
 	WLFLAGS += -DWL_MONITOR
-endif
-#endif
-
-#ifdef WL_PROMISC
-# PROMISC
-ifeq ($(PROMISC),1)
-	WLFLAGS += -DWL_PROMISC
 endif
 #endif
 
@@ -659,12 +424,19 @@ endif
 # WME
 ifeq ($(WME),1)
 	WLFLAGS += -DWME
-	ifeq ($(WLCAC), 1)
+	ifeq ($(WMMAC), 1)
 		ifeq ($(WL), 1)
 			WLFLAGS += -DWLCAC
 			WLFILES_SRC_HI += src/wl/sys/wlc_cac.c
 		endif
 	endif
+endif
+#endif
+
+#ifdef WMMAC_FLOWCONTROL
+# WMMAC section
+ifeq ($(WMMAC), 1)
+	WLFLAGS += -DWMMAC
 endif
 #endif
 
@@ -726,14 +498,14 @@ ifeq ($(DBAND),1)
 	WLFLAGS += -DDBAND
 endif
 #endif
-
+      
 #ifdef WLRM
 # WLRM
 ifeq ($(WLRM),1)
 	WLFLAGS += -DWLRM
 endif
 #endif
-
+      
 #ifdef WLCQ
 # WLCQ
 ifeq ($(WLCQ),1)
@@ -745,24 +517,6 @@ endif
 # WLCNT
 ifeq ($(WLCNT),1)
 	WLFLAGS += -DWLCNT
-endif
-#endif
-
-#ifdef WLCHANIM
-# WLCHANIM
-ifeq ($(WLCHANIM),1)
-	WLFLAGS += -DWLCHANIM
-endif
-
-ifeq ($(WLCHANIM_SM),1)
-	WLFLAGS += -DWLCHANIM_SM
-endif
-#endif
-
-# WL_AP_TPC
-#ifdef WL_AP_TPC
-ifeq ($(WL_AP_TPC),1)
-	WLFLAGS += -DWL_AP_TPC
 endif
 #endif
 
@@ -803,17 +557,19 @@ endif
 #ifdef BCMSUP_PSK
 # in-driver supplicant
 ifeq ($(BCMSUP_PSK),1)
-	WLFLAGS += -DBCMSUP_PSK -DBCMINTSUP
+	WLFLAGS += -DBCMSUP_PSK
 	WLFILES_SRC_HI += src/wl/sys/wlc_sup.c
-	WLFILES_SRC_HI += src/bcmcrypto/aes.c
-	WLFILES_SRC_HI += src/bcmcrypto/aeskeywrap.c
-	WLFILES_SRC_HI += src/bcmcrypto/hmac.c
-	WLFILES_SRC_HI += src/bcmcrypto/prf.c
-	WLFILES_SRC_HI += src/bcmcrypto/sha1.c
-	# NetBSD 2.0 has MD5 and AES built in
-	ifneq ($(OSLBSD),1)
-		WLFILES_SRC_HI += src/bcmcrypto/md5.c
-		WLFILES_SRC_HI += src/bcmcrypto/rijndael-alg-fst.c
+	ifneq ($(BCMROMOFFLOAD),1)
+		WLFILES_SRC_HI += src/bcmcrypto/aes.c
+		WLFILES_SRC_HI += src/bcmcrypto/aeskeywrap.c
+		WLFILES_SRC_HI += src/bcmcrypto/hmac.c
+		WLFILES_SRC_HI += src/bcmcrypto/prf.c
+		WLFILES_SRC_HI += src/bcmcrypto/sha1.c
+		##NetBSD 2.0 has MD5 and AES built in
+		ifneq ($(OSLBSD),1)
+			WLFILES_SRC_HI += src/bcmcrypto/md5.c
+			WLFILES_SRC_HI += src/bcmcrypto/rijndael-alg-fst.c
+		endif
 	endif
 	WLFILES_SRC_HI += src/bcmcrypto/passhash.c
 endif
@@ -828,56 +584,35 @@ ifeq ($(BCMAUTH_PSK),1)
 endif
 #endif
 
+#ifdef BCMWPA2
+# BCMWPA2
+ifeq ($(BCMWPA2),1)
+	WLFLAGS += -DBCMWPA2
+endif
+#endif
+
 #ifdef BCMCCMP
 # Soft AES CCMP
 ifeq ($(BCMCCMP),1)
 	WLFLAGS += -DBCMCCMP
-	WLFILES_SRC_HI += src/bcmcrypto/aes.c
-	# BSD has AES built in
-	ifneq ($(BSD),1)
-		WLFILES_SRC_HI +=src/bcmcrypto/rijndael-alg-fst.c
+	ifneq ($(BCMROMOFFLOAD),1)
+		WLFILES_SRC_HI += src/bcmcrypto/aes.c
+		##BSD has  AES built in
+		ifneq ($(BSD),1)
+			WLFILES_SRC_HI +=src/bcmcrypto/rijndael-alg-fst.c
+		endif
 	endif
 endif
 #endif
 
 
-#ifdef BCMWAPI_WPI
-ifeq ($(BCMWAPI_WPI),1)
-	WLFILES_SRC_HI += src/bcmcrypto/sms4.c
-	WLFLAGS += -DBCMWAPI_WPI
-	ifeq ($(BCMSMS4_TEST),1)
-		WLFLAGS += -DBCMSMS4_TEST
-	endif
-endif
-#endif
-
-#ifdef WIFI_ACT_FRAME
-# WIFI_ACT_FRAME 
-ifeq ($(WIFI_ACT_FRAME),1)
-	WLFLAGS += -DWIFI_ACT_FRAME 
-endif
-#endif
-
-# BCMDMA32
-ifeq ($(BCMDMA32),1)
-	WLFLAGS += -DBCMDMA32
+# BCMDMA64
+ifeq ($(BCMDMA64),1)
+	WLFLAGS += -DBCMDMA64
 endif
 
 ifeq ($(BCMDMA64OSL),1)
 	WLFLAGS += -DBCMDMA64OSL
-endif
-
-ifeq ($(BCMDMASGLISTOSL),1)
-	WLFLAGS += -DBCMDMASGLISTOSL
-endif
-
-# Early DMA TX Free for LOW driver
-ifeq ($(WL_DMA_TX_FREE),1)
-	ifneq ($(WL_HIGH),1)
-		ifeq ($(PT_GIANT),1)
-			WLFLAGS += -DDMA_TX_FREE
-		endif
-	endif
 endif
 
 ## wl over jtag
@@ -908,12 +643,6 @@ endif
 ifeq ($(WLAMPDU),1)
 	WLFLAGS += -DWLAMPDU
 	WLFILES_SRC_HI += src/wl/sys/wlc_ampdu.c
-	ifeq ($(WLAMPDU_UCODE),1)
-		WLFLAGS += -DWLAMPDU_UCODE -DWLAMPDU_MAC
-	endif
-	ifeq ($(WLAMPDU_HW),1)
-		WLFLAGS += -DWLAMPDU_HW -DWLAMPDU_MAC
-	endif
 endif
 #endif
 
@@ -942,38 +671,12 @@ endif
 #endif
 
 
-#ifdef WLBDD
-ifeq ($(WLBDD),1)
-	WLFLAGS += -DWLBDD
-	WLFILES_SRC_HI += src/wl/sys/wlc_bdd.c
-endif
-#endif
-
-#ifdef WLP2P
-ifeq ($(WLP2P),1)
-	WLFLAGS += -DWLP2P -DWL_BSSCFG_TX_SUPR
-	WLFILES_SRC_HI += src/wl/sys/wlc_p2p.c
-	WLFILES_SRC_LO += src/wl/sys/d11p2pucode.c
-endif
-#endif
-
-
-ifneq ($(WLNDIS_DHD),1)
 #ifdef WLBTAMP
-	ifeq ($(AP)$(STA),11)
-	ifeq ($(WLBTAMP),1)
-		WLFLAGS += -DWLBTAMP
-		WLFILES_SRC_HI += src/wl/sys/wlc_bta.c
-#ifdef WLBTWUSB
-		ifeq ($(WLBTWUSB),1)
-			WLFLAGS += -DWLBTWUSB
-			WLFILES_SRC_HI += src/wl/sys/bt_int.c
-		endif
-#endif /* WLBTWUSB */
-	endif
-	endif
-#endif /* WLBTAMP */
+ifeq ($(WLBTAMP),1)
+	WLFLAGS += -DWLBTAMP
+	WLFILES_SRC_HI += src/wl/sys/wlc_bta.c
 endif
+#endif
 
 #ifdef WLPLT
 ifeq ($(WLPLT),1)
@@ -990,7 +693,7 @@ endif
 #ifdef BCMSIBUS
 ifeq ($(BCMSIBUS),1)
 	WLFLAGS += -DBCMBUSTYPE=SI_BUS
-	BCMPCI = 0
+	BCMPCI=0
 endif
 #endif
 
@@ -1020,43 +723,16 @@ ifeq ($(HNDDMA),1)
 endif
 #endif
 
-#ifdef MSGTRACE
-ifeq ($(MSGTRACE),1)
-	WLFILES_SRC += src/shared/msgtrace.c	
-	WLFLAGS += -DMSGTRACE
-endif
-#endif
-
 #ifdef BCMUTILS
 ifeq ($(BCMUTILS),1)
 	WLFILES_SRC += src/shared/bcmutils.c
 endif
 #endif
 
-#ifdef BCMASSERT_LOG
-ifeq ($(BCMASSERT_LOG),1)
-	WLFLAGS += -DBCMASSERT_LOG
-	WLFILES_SRC_HI += src/shared/bcm_assert_log.c
-endif
-#endif
-
 #ifdef BCMSROM
 ifeq ($(BCMSROM),1)
-	ifeq ($(BCMSDIO),1)
-		ifeq ($(WL_HIGH),1)
-			WLFILES_SRC_HI += src/shared/bcmsrom.c
-			WLFILES_SRC_HI += src/shared/bcmotp.c
-		endif
-	endif
 	WLFILES_SRC_LO += src/shared/bcmsrom.c
 	WLFILES_SRC_LO += src/shared/bcmotp.c
-endif
-#endif
-
-#ifdef BCMOTP
-ifeq ($(BCMOTP),1)
-	WLFILES_SRC_LO += src/shared/bcmotp.c
-	WLFLAGS += -DBCMNVRAMR
 endif
 #endif
 
@@ -1099,14 +775,6 @@ endif
 #endif
 
 ## --- shared OSL
-#ifdef OSLUM
-# linux user mode
-ifeq ($(OSLUM),1)
-	WLFILES_SRC += src/shared/usermode_osl.c
-	WLFLAGS += -DUSER_MODE
-endif
-#endif
-
 #ifdef OSLLX
 # linux osl
 ifeq ($(OSLLX),1)
@@ -1165,7 +833,7 @@ endif
 ifeq ($(NVRAMVX),1)
 	WLFILES_SRC_LO += src/shared/nvram/nvram_rw.c
 endif
-#endif /* LINUX_HYBRID */
+#endif
 
 #ifdef BCMNVRAMR
 ifeq ($(BCMNVRAMR),1)
@@ -1174,12 +842,10 @@ ifeq ($(BCMNVRAMR),1)
 	WLFILES_SRC_LO += src/shared/bcmotp.c
 	WLFLAGS += -DBCMNVRAMR
 endif
-#else /* !BCMNVRAMR */
+#else
 ifneq ($(BCMNVRAMR),1)
 	ifeq ($(WLLXNOMIPSEL),1)
-		ifneq ($(WLUMK),1)
-			WLFILES_SRC += src/shared/nvramstubs.c
-		endif
+		WLFILES_SRC += src/shared/nvramstubs.c
 	else
 		ifeq ($(WLNDIS),1)
 			WLFILES_SRC += src/shared/nvramstubs.c
@@ -1195,14 +861,16 @@ ifneq ($(BCMNVRAMR),1)
 		WLFLAGS += -DBCMNVRAMW
 	endif
 endif
-#endif /* !BCMNVRAMR */
+#endif
 
-# Define one OTP mechanism, or none to support all dynamically
+# Auto-select OTP: BCMAUTOOTP defined
+# IPX OTP: nothing defined
+# HND OTP: BCMHNDOTP defined
+ifeq ($(BCMAUTOOTP),1)
+	WLFLAGS += -DBCMAUTOOTP
+endif
 ifeq ($(BCMHNDOTP),1)
 	WLFLAGS += -DBCMHNDOTP
-endif
-ifeq ($(BCMIPXOTP),1)
-	WLFLAGS += -DBCMIPXOTP
 endif
 
 
@@ -1213,22 +881,15 @@ ifeq ($(WLDIAG),1)
 endif
 #endif
 
-#ifdef BCMDBG
-ifneq ($(BCMDBG),1)
-	ifeq ($(WLTINYDUMP),1)
-		WLFLAGS += -DWLTINYDUMP
-	endif
-endif
-#endif
 
 #ifdef BCMQT
 ifeq ($(BCMQT),1)
-	# Set flag to indicate emulated chip
-	WLFLAGS += -DBCMSLTGT -DBCMQT
-	ifeq ($(WLRTE),1)
-		# Use of RTE implies embedded (CPU emulated)
-		WLFLAGS += -DBCMQT_CPU
-	endif
+  # Set flag to indicate emulated chip
+  WLFLAGS += -DBCMSLTGT -DBCMQT
+  ifeq ($(WLRTE),1)
+    # Use of RTE implies embedded (CPU emulated)
+    WLFLAGS += -DBCMQT_CPU
+  endif
 endif
 #endif
 
@@ -1296,6 +957,7 @@ ifeq ($(ASYNC_TSTAMPED_LOGS),1)
 endif
 #endif
 
+
 # Sort and remove duplicates from WLFILES* 
 ifeq ($(WL_LOW),1)
 	WLFILES_SRC += $(sort $(WLFILES_SRC_LO))
@@ -1303,35 +965,7 @@ endif
 ifeq ($(WL_HIGH),1)
 	WLFILES_SRC += $(sort $(WLFILES_SRC_HI))
 endif
-ifeq ($(SAMPLE_COLLECT),1)
-	WLFLAGS += -DSAMPLE_COLLECT
-endif
 
-# add a flag to indicate the split to linux kernels
-WLFLAGS += -DPHY_HAL
-
-ifeq ($(SMF_STATS),1)
-	WLFLAGS += -DSMF_STATS
-endif
-
-#ifdef PHYMON
-ifeq ($(PHYMON),1)
-	WLFLAGS += -DPHYMON
-endif
-#endif
-
-#ifdef USBSHIM
-ifeq ($(USBSHIM),1)
-	WLFLAGS += -DUSBSHIM
-endif # USBSHIM
-#endif
-
-#ifdef WLNINTENDO2
-#wl monitor_rssi support
-ifeq ($(WLNINTENDO2),1)
-	WLFLAGS += -DWLNINTENDO2
-endif
-#endif
 
 # Legacy WLFILES pathless definition, please use new src relative path
 # in make files. 

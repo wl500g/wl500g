@@ -45,7 +45,7 @@ diff --git a/include/linux/netfilter/xt_connlimit.h b/include/linux/netfilter/xt
 +		};
 +#endif
 +	};
-+	unsigned int limit, inverse;
++	unsigned int limit;
 +	union {
 +		/* revision 0 */
 +		unsigned int inverse;

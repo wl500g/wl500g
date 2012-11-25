@@ -1,7 +1,7 @@
 /*
  * 802.11e protocol header file
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2008, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,22 +9,20 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: 802.11e.h,v 1.5.1 2010/11/22 09:05:02 Exp $
+ * $Id: 802.11e.h,v 1.5 2007/12/20 05:37:33 Exp $
  */
 
 #ifndef _802_11e_H_
 #define _802_11e_H_
 
-#ifndef _TYPEDEFS_H_
-#include <typedefs.h>
+/* enable structure packing */
+#if defined(__GNUC__)
+#define	PACKED	__attribute__((packed))
+#else
+#pragma pack(1)
+#define	PACKED
 #endif
 
-/* This marks the start of a packed structure section. */
-#include <packed_section_start.h>
-
-#ifdef BCMDBG
-extern const char *aci_names[];
-#endif /* BCMDBG */
 
 /* WME Traffic Specification (TSPEC) element */
 #define WME_TSPEC_HDR_LEN           2           /* WME TSPEC header length */
@@ -35,14 +33,14 @@ extern const char *aci_names[];
 #define WME_TOKEN_CODE_OFFSET		2		/* WME Token code offset */
 #define WME_STATUS_CODE_OFFSET		3		/* WME Status code offset */
 
-BWL_PRE_PACKED_STRUCT struct tsinfo {
+struct tsinfo {
 	uint8 octets[3];
-} BWL_POST_PACKED_STRUCT;
+} PACKED;
 
 typedef struct tsinfo tsinfo_t;
 
 /* 802.11e TSPEC IE */
-typedef BWL_PRE_PACKED_STRUCT struct tspec {
+typedef struct tspec {
 	uint8 oui[DOT11_OUI_LEN];	/* WME_OUI */
 	uint8 type;					/* WME_TYPE */
 	uint8 subtype;				/* WME_SUBTYPE_TSPEC */
@@ -63,7 +61,7 @@ typedef BWL_PRE_PACKED_STRUCT struct tspec {
 	uint32 min_phy_rate;		/* Minimum PHY Rate (bps) */
 	uint16 surplus_bw;			/* Surplus Bandwidth Allowance (range 1.0-8.0) */
 	uint16 medium_time;			/* Medium Time (32 us/s periods) */
-} BWL_POST_PACKED_STRUCT tspec_t;
+} PACKED tspec_t;
 
 #define WME_TSPEC_LEN	(sizeof(tspec_t))		/* not including 2-bytes of header */
 
@@ -115,8 +113,9 @@ typedef BWL_PRE_PACKED_STRUCT struct tspec {
 #define DOT11E_STATUS_UNKNOWN_TS			38	/* UNKNOWN TS */
 #define DOT11E_STATUS_QSTA_REQ_TIMEOUT		39	/* STA ADDTS request timeout */
 
-
-/* This marks the end of a packed structure section. */
-#include <packed_section_end.h>
+#undef PACKED
+#if !defined(__GNUC__)
+#pragma pack()
+#endif
 
 #endif /* _802_11e_CAC_H_ */

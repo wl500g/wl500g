@@ -43,9 +43,9 @@ diff -uBp a/et/sys/et_linux.c b/et/sys/et_linux.c
  #include <linux/ip.h>
  
 @@ -860,6 +871,7 @@ et_ioctl(struct net_device *dev, struct
- 	bool get = FALSE, set = TRUE;
- 	const et_var_t *var = (et_var_t *)buf;
- 	void *buffer = NULL;
+ 	char *buf;
+ 	int size, ethtoolcmd;
+ 	bool get, set;
 +	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&ifr->ifr_data;
  
  	ET_TRACE(("et%d: %s: cmd 0x%x\n", et->etc->unit, __func__, cmd));

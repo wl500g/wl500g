@@ -1,7 +1,7 @@
 /*
  * NVRAM variable manipulation
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2008, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmnvram.h,v 13.60.2.2 2010/11/22 09:05:02 Exp $
+ * $Id: bcmnvram.h,v 13.60.2.1 2008/05/02 22:47:26 Exp $
  */
 
 #ifndef _bcmnvram_h_
@@ -33,11 +33,6 @@ struct nvram_tuple {
 	char *value;
 	struct nvram_tuple *next;
 };
-
-/*
- * Get default value for an NVRAM variable
- */
-extern char *nvram_default_get(const char *name);
 
 /*
  * Initialize NVRAM access. May be unnecessary or undefined on certain
@@ -74,6 +69,11 @@ extern char * nvram_get(const char *name);
  * as input
  */
 extern int BCMINITFN(nvram_resetgpio_init)(void *sih);
+
+/*
+ * Get default value for an NVRAM variable
+ */
+extern char *nvram_default_get(const char *name);
 
 /* 
  * Get the value of an NVRAM variable.
