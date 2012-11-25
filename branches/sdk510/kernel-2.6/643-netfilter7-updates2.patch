@@ -9,17 +9,40 @@ Date: Sun, 23 Jan 2011 23:25:24 -0500
  99ad3c53b36a056a472927de9c79eda231ecc6fe netfilter: nf_nat_core: don't check if the tuple is used if there is no other choice
  f31e8d4982653b39fe312f9938be0f49dd9ab5fa netfilter: ctnetlink: fix loop in ctnetlink_get_conntrack()
  b23909695c33f53df5f1d16696b1aa5b874c1904 netfilter: nf_conntrack: fix the hash random initializing race
+ 9dbae7917899d78a094aceeb5062cd76efa89052 [NETFILTER]: Remove unused callbacks in nf_conntrack_l3proto
 
 ---
- net/ipv4/netfilter/nf_nat_core.c       |   39 +++++++++++++++------------------
- net/ipv4/netfilter/nf_nat_proto_gre.c  |    4 +--
- net/ipv4/netfilter/nf_nat_proto_icmp.c |    4 +--
- net/ipv4/netfilter/nf_nat_proto_tcp.c  |    4 +--
- net/ipv4/netfilter/nf_nat_proto_udp.c  |    4 +--
- net/netfilter/nf_conntrack_core.c      |    3 --
- net/netfilter/nf_conntrack_netlink.c   |    3 +-
- 7 files changed, 29 insertions(+), 32 deletions(-)
+ include/net/netfilter/nf_conntrack_l3proto.h |   11 -------
+ net/ipv4/netfilter/nf_nat_core.c             |   39 ++++++++++++---------------
+ net/ipv4/netfilter/nf_nat_proto_gre.c        |    4 +-
+ net/ipv4/netfilter/nf_nat_proto_icmp.c       |    4 +-
+ net/ipv4/netfilter/nf_nat_proto_tcp.c        |    4 +-
+ net/ipv4/netfilter/nf_nat_proto_udp.c        |    4 +-
+ net/netfilter/nf_conntrack_core.c            |    3 --
+ net/netfilter/nf_conntrack_netlink.c         |    3 +-
+ 8 files changed, 29 insertions(+), 43 deletions(-)
 
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -42,17 +42,6 @@ struct nf_conntrack_l3proto
+ 	int (*print_tuple)(struct seq_file *s,
+ 			   const struct nf_conntrack_tuple *);
+ 
+-	/* Returns verdict for packet, or -1 for invalid. */
+-	int (*packet)(struct nf_conn *conntrack,
+-		      const struct sk_buff *skb,
+-		      enum ip_conntrack_info ctinfo);
+-
+-	/*
+-	 * Called when a new connection for this protocol found;
+-	 * returns TRUE if it's OK.  If so, packet() called next.
+-	 */
+-	int (*new)(struct nf_conn *conntrack, const struct sk_buff *skb);
+-
+ 	/*
+ 	 * Called before tracking. 
+ 	 *	*dataoff: offset of protocol header (TCP, UDP,...) in skb
 diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
 --- a/net/ipv4/netfilter/nf_nat_core.c
 +++ b/net/ipv4/netfilter/nf_nat_core.c
@@ -206,4 +229,3 @@ diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_n
  
  static inline int
 -- 
-1.6.5.GIT

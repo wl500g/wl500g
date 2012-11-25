@@ -7,11 +7,13 @@ Additionally commits:
  3fa36acbced23c563345de3179dfe1775f15be5e radix_tree: clean away saw_unset_tag leftovers (2011.10.31)
  78c1d78488a3c45685d993130c9f17102dc79a54 radix-tree: introduce bit-optimized iterator (2012.03.28)
  cebbd29e1c2f7a969919f19f74583070840163d7 radix-tree: rewrite gang lookup using iterator
+ 5536805292e64393f57054de66578f17eb1ea994 radix-tree: fix preload vector size
+ fffaee365fded09f9ebf2db19066065fa54323c3 radix-tree: fix contiguous iterator
 
 ---
- include/linux/radix-tree.h |  336 ++++++++++++++-
- lib/radix-tree.c           |  954 ++++++++++++++++++++++++++++++---------------
- 2 files changed, 947 insertions(+), 343 deletions(-)
+ include/linux/radix-tree.h |  339 ++++++++++++++-
+ lib/radix-tree.c           |  972 ++++++++++++++++++++++++++++++---------------
+ 2 files changed, 967 insertions(+), 344 deletions(-)
 
 diff --git a/include/linux/radix-tree.h b/include/linux/radix-tree.h
 --- a/include/linux/radix-tree.h
@@ -237,7 +239,7 @@ diff --git a/include/linux/radix-tree.h b/include/linux/radix-tree.h
  int radix_tree_tagged(struct radix_tree_root *root, unsigned int tag);
  
  static inline void radix_tree_preload_end(void)
-@@ -174,4 +259,199 @@ static inline void radix_tree_preload_en
+@@ -174,4 +259,202 @@ static inline void radix_tree_preload_en
  	preempt_enable();
  }
  
@@ -351,8 +353,11 @@ diff --git a/include/linux/radix-tree.h b/include/linux/radix-tree.h
 +			iter->index++;
 +			if (likely(*slot))
 +				return slot;
-+			if (flags & RADIX_TREE_ITER_CONTIG)
++			if (flags & RADIX_TREE_ITER_CONTIG) {
++				/* forbid switching to the next chunk */
++				iter->next_index = 0;
 +				break;
++			}
 +		}
 +	}
 +	return NULL;
@@ -476,9 +481,29 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  /*
   * Radix tree node cache.
-@@ -76,13 +81,111 @@ struct radix_tree_preload {
+@@ -70,19 +75,130 @@ static unsigned long height_to_maxindex[
+ static struct kmem_cache *radix_tree_node_cachep;
+ 
+ /*
++ * The radix tree is variable-height, so an insert operation not only has
++ * to build the branch to its corresponding item, it also has to build the
++ * branch to existing items if the size has to be increased (by
++ * radix_tree_extend).
++ *
++ * The worst case is a zero height tree with just a single item at index 0,
++ * and then inserting an item at index ULONG_MAX. This requires 2 new branches
++ * of RADIX_TREE_MAX_PATH size to be created, with only the root node shared.
++ * Hence:
++ */
++#define RADIX_TREE_PRELOAD_SIZE (RADIX_TREE_MAX_PATH * 2 - 1)
++
++/*
+  * Per-cpu pool of preloaded nodes
+  */
+ struct radix_tree_preload {
  	int nr;
- 	struct radix_tree_node *nodes[RADIX_TREE_MAX_PATH];
+-	struct radix_tree_node *nodes[RADIX_TREE_MAX_PATH];
++	struct radix_tree_node *nodes[RADIX_TREE_PRELOAD_SIZE];
  };
 -DEFINE_PER_CPU(struct radix_tree_preload, radix_tree_preloads) = { 0, };
 +static DEFINE_PER_CPU(struct radix_tree_preload, radix_tree_preloads) = { 0, };
@@ -589,7 +614,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  /*
   * This assumes that the caller has performed appropriate preallocation, and
   * that the caller has pinned this thread of control to the current CPU.
-@@ -90,13 +193,17 @@ static inline gfp_t root_gfp_mask(struct
+@@ -90,13 +206,17 @@ static inline gfp_t root_gfp_mask(struct
  static struct radix_tree_node *
  radix_tree_node_alloc(struct radix_tree_root *root)
  {
@@ -610,7 +635,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  		rtp = &__get_cpu_var(radix_tree_preloads);
  		if (rtp->nr) {
  			ret = rtp->nodes[rtp->nr - 1];
-@@ -104,7 +211,10 @@ radix_tree_node_alloc(struct radix_tree_
+@@ -104,7 +224,10 @@ radix_tree_node_alloc(struct radix_tree_
  			rtp->nr--;
  		}
  	}
@@ -622,7 +647,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  	return ret;
  }
  
-@@ -112,6 +222,19 @@ static void radix_tree_node_rcu_free(str
+@@ -112,6 +235,19 @@ static void radix_tree_node_rcu_free(str
  {
  	struct radix_tree_node *node =
  			container_of(head, struct radix_tree_node, rcu_head);
@@ -642,7 +667,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  	kmem_cache_free(radix_tree_node_cachep, node);
  }
  
-@@ -126,6 +249,9 @@ radix_tree_node_free(struct radix_tree_n
+@@ -126,6 +262,9 @@ radix_tree_node_free(struct radix_tree_n
   * ensure that the addition of a single element in the tree cannot fail.  On
   * success, return zero, with preemption disabled.  On error, return -ENOMEM
   * with preemption not disabled.
@@ -652,7 +677,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
   */
  int radix_tree_preload(gfp_t gfp_mask)
  {
-@@ -151,59 +277,7 @@ int radix_tree_preload(gfp_t gfp_mask)
+@@ -151,59 +290,7 @@ int radix_tree_preload(gfp_t gfp_mask)
  out:
  	return ret;
  }
@@ -713,7 +738,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  /*
   *	Return the maximum key which can be store into a
-@@ -239,7 +313,7 @@ static int radix_tree_extend(struct radi
+@@ -239,7 +326,7 @@ static int radix_tree_extend(struct radi
  			return -ENOMEM;
  
  		/* Increase the height.  */
@@ -722,7 +747,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  		/* Propagate the aggregated tag info into the new root */
  		for (tag = 0; tag < RADIX_TREE_MAX_TAGS; tag++) {
-@@ -250,6 +324,7 @@ static int radix_tree_extend(struct radi
+@@ -250,6 +337,7 @@ static int radix_tree_extend(struct radi
  		newheight = root->height+1;
  		node->height = newheight;
  		node->count = 1;
@@ -730,7 +755,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  		rcu_assign_pointer(root->rnode, node);
  		root->height = newheight;
  	} while (height > root->height);
-@@ -273,7 +348,7 @@ int radix_tree_insert(struct radix_tree_
+@@ -273,7 +361,7 @@ int radix_tree_insert(struct radix_tree_
  	int offset;
  	int error;
  
@@ -739,7 +764,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  	/* Make sure the tree is high enough.  */
  	if (index > radix_tree_maxindex(root->height)) {
-@@ -282,7 +357,8 @@ int radix_tree_insert(struct radix_tree_
+@@ -282,7 +370,8 @@ int radix_tree_insert(struct radix_tree_
  			return error;
  	}
  
@@ -749,7 +774,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  	height = root->height;
  	shift = (height-1) * RADIX_TREE_MAP_SHIFT;
  
-@@ -297,7 +373,7 @@ int radix_tree_insert(struct radix_tree_
+@@ -297,7 +386,7 @@ int radix_tree_insert(struct radix_tree_
  				rcu_assign_pointer(node->slots[offset], slot);
  				node->count++;
  			} else
@@ -758,7 +783,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  		}
  
  		/* Go a level down */
-@@ -317,7 +393,7 @@ int radix_tree_insert(struct radix_tree_
+@@ -317,7 +406,7 @@ int radix_tree_insert(struct radix_tree_
  		BUG_ON(tag_get(node, 0, offset));
  		BUG_ON(tag_get(node, 1, offset));
  	} else {
@@ -767,7 +792,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  		BUG_ON(root_tag_get(root, 0));
  		BUG_ON(root_tag_get(root, 1));
  	}
-@@ -326,34 +402,26 @@ int radix_tree_insert(struct radix_tree_
+@@ -326,34 +415,26 @@ int radix_tree_insert(struct radix_tree_
  }
  EXPORT_SYMBOL(radix_tree_insert);
  
@@ -811,7 +836,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  	height = node->height;
  	if (index > radix_tree_maxindex(height))
-@@ -364,7 +432,7 @@ void **radix_tree_lookup_slot(struct rad
+@@ -364,7 +445,7 @@ void **radix_tree_lookup_slot(struct rad
  	do {
  		slot = (struct radix_tree_node **)
  			(node->slots + ((index>>shift) & RADIX_TREE_MAP_MASK));
@@ -820,7 +845,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  		if (node == NULL)
  			return NULL;
  
-@@ -372,7 +440,25 @@ void **radix_tree_lookup_slot(struct rad
+@@ -372,7 +453,25 @@ void **radix_tree_lookup_slot(struct rad
  		height--;
  	} while (height > 0);
  
@@ -847,7 +872,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  }
  EXPORT_SYMBOL(radix_tree_lookup_slot);
  
-@@ -390,37 +476,7 @@ EXPORT_SYMBOL(radix_tree_lookup_slot);
+@@ -390,37 +489,7 @@ EXPORT_SYMBOL(radix_tree_lookup_slot);
   */
  void *radix_tree_lookup(struct radix_tree_root *root, unsigned long index)
  {
@@ -886,7 +911,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  }
  EXPORT_SYMBOL(radix_tree_lookup);
  
-@@ -446,7 +502,7 @@ void *radix_tree_tag_set(struct radix_tr
+@@ -446,7 +515,7 @@ void *radix_tree_tag_set(struct radix_tr
  	height = root->height;
  	BUG_ON(index > radix_tree_maxindex(height));
  
@@ -895,7 +920,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  	shift = (height - 1) * RADIX_TREE_MAP_SHIFT;
  
  	while (height > 0) {
-@@ -486,7 +542,11 @@ EXPORT_SYMBOL(radix_tree_tag_set);
+@@ -486,7 +555,11 @@ EXPORT_SYMBOL(radix_tree_tag_set);
  void *radix_tree_tag_clear(struct radix_tree_root *root,
  			unsigned long index, unsigned int tag)
  {
@@ -908,7 +933,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  	struct radix_tree_node *slot = NULL;
  	unsigned int height, shift;
  
-@@ -496,7 +556,7 @@ void *radix_tree_tag_clear(struct radix_
+@@ -496,7 +569,7 @@ void *radix_tree_tag_clear(struct radix_
  
  	shift = (height - 1) * RADIX_TREE_MAP_SHIFT;
  	pathp->node = NULL;
@@ -917,7 +942,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  	while (height > 0) {
  		int offset;
-@@ -534,7 +594,6 @@ out:
+@@ -534,7 +607,6 @@ out:
  }
  EXPORT_SYMBOL(radix_tree_tag_clear);
  
@@ -925,7 +950,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  /**
   * radix_tree_tag_get - get a tag on a radix tree node
   * @root:		radix tree root
-@@ -545,24 +604,28 @@ EXPORT_SYMBOL(radix_tree_tag_clear);
+@@ -545,24 +617,28 @@ EXPORT_SYMBOL(radix_tree_tag_clear);
   *
   *  0: tag not present or not set
   *  1: tag set
@@ -957,7 +982,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  	height = node->height;
  	if (index > radix_tree_maxindex(height))
-@@ -577,75 +640,332 @@ int radix_tree_tag_get(struct radix_tree
+@@ -577,75 +653,335 @@ int radix_tree_tag_get(struct radix_tree
  			return 0;
  
  		offset = (index >> shift) & RADIX_TREE_MAP_MASK;
@@ -1031,6 +1056,9 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
 +	 * during iterating; it can be zero only at the beginning.
 +	 * And we cannot overflow iter->next_index in a single step,
 +	 * because RADIX_TREE_MAP_SHIFT < BITS_PER_LONG.
++	 *
++	 * This condition also used by radix_tree_next_slot() to stop
++	 * contiguous iterating, and forbid swithing to the next chunk.
 +	 */
 +	index = iter->next_index;
 +	if (!index && iter->index)
@@ -1341,7 +1369,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  /**
   *	radix_tree_gang_lookup - perform multiple lookup on a radix tree
-@@ -670,111 +990,66 @@ unsigned int
+@@ -670,111 +1003,66 @@ unsigned int
  radix_tree_gang_lookup(struct radix_tree_root *root, void **results,
  			unsigned long first_index, unsigned int max_items)
  {
@@ -1374,17 +1402,17 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
 -		unsigned long next_index;	/* Index of next search */
 -
 -		if (cur_index > max_index)
--			break;
--		nr_found = __lookup(node, results + ret, cur_index,
--					max_items - ret, &next_index);
--		ret += nr_found;
--		if (next_index == 0)
 +	radix_tree_for_each_slot(slot, root, &iter, first_index) {
 +		results[ret] = indirect_to_ptr(rcu_dereference_raw(*slot));
 +		if (!results[ret])
 +			continue;
 +		if (++ret == max_items)
  			break;
+-		nr_found = __lookup(node, results + ret, cur_index,
+-					max_items - ret, &next_index);
+-		ret += nr_found;
+-		if (next_index == 0)
+-			break;
 -		cur_index = next_index;
  	}
  
@@ -1423,10 +1451,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  {
 -	unsigned int nr_found = 0;
 -	unsigned int shift, height;
-+	struct radix_tree_iter iter;
-+	void **slot;
-+	unsigned int ret = 0;
- 
+-
 -	height = slot->height;
 -	if (height == 0)
 -		goto out;
@@ -1434,7 +1459,10 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
 -
 -	while (height > 0) {
 -		unsigned long i = (index >> shift) & RADIX_TREE_MAP_MASK ;
--
++	struct radix_tree_iter iter;
++	void **slot;
++	unsigned int ret = 0;
+ 
 -		for (;;) {
 -			if (tag_get(slot, tag, i))
 -				break;
@@ -1496,7 +1524,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  /**
   *	radix_tree_gang_lookup_tag - perform multiple lookup on a radix tree
-@@ -794,47 +1069,60 @@ radix_tree_gang_lookup_tag(struct radix_
+@@ -794,47 +1082,60 @@ radix_tree_gang_lookup_tag(struct radix_
  		unsigned long first_index, unsigned int max_items,
  		unsigned int tag)
  {
@@ -1586,7 +1614,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  /**
   *	radix_tree_shrink    -    shrink height of a radix tree to minimal
-@@ -843,29 +1131,57 @@ EXPORT_SYMBOL(radix_tree_gang_lookup_tag
+@@ -843,29 +1144,57 @@ EXPORT_SYMBOL(radix_tree_gang_lookup_tag
  static inline void radix_tree_shrink(struct radix_tree_root *root)
  {
  	/* try to shrink tree height */
@@ -1657,7 +1685,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  		radix_tree_node_free(to_free);
  	}
  }
-@@ -881,7 +1197,11 @@ static inline void radix_tree_shrink(str
+@@ -881,7 +1210,11 @@ static inline void radix_tree_shrink(str
   */
  void *radix_tree_delete(struct radix_tree_root *root, unsigned long index)
  {
@@ -1670,7 +1698,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  	struct radix_tree_node *slot = NULL;
  	struct radix_tree_node *to_free;
  	unsigned int height, shift;
-@@ -893,12 +1213,12 @@ void *radix_tree_delete(struct radix_tre
+@@ -893,12 +1226,12 @@ void *radix_tree_delete(struct radix_tre
  		goto out;
  
  	slot = root->rnode;
@@ -1685,7 +1713,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  
  	shift = (height - 1) * RADIX_TREE_MAP_SHIFT;
  	pathp->node = NULL;
-@@ -940,7 +1260,7 @@ void *radix_tree_delete(struct radix_tre
+@@ -940,7 +1273,7 @@ void *radix_tree_delete(struct radix_tre
  			radix_tree_node_free(to_free);
  
  		if (pathp->node->count) {
@@ -1694,7 +1722,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  				radix_tree_shrink(root);
  			goto out;
  		}
-@@ -980,12 +1300,14 @@ radix_tree_node_ctor(void *node, struct
+@@ -980,12 +1313,14 @@ radix_tree_node_ctor(void *node, struct 
  
  static __init unsigned long __maxindex(unsigned int height)
  {
@@ -1714,7 +1742,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  }
  
  static __init void radix_tree_init_maxindex(void)
-@@ -1020,7 +1342,9 @@ void __init radix_tree_init(void)
+@@ -1020,7 +1355,9 @@ void __init radix_tree_init(void)
  {
  	radix_tree_node_cachep = kmem_cache_create("radix_tree_node",
  			sizeof(struct radix_tree_node), 0,

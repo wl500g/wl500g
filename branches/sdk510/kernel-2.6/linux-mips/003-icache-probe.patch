@@ -1,0 +1,40 @@
+From 680eab7542becd808f748e4fba18d0ca19a3712f
+From: Douglas Leung
+Date: Mon, 21 May 2012 10:33:32 -0500
+Subject: [PATCH] MIPS: Fix decoding of c0_config1 for MIPSxx caches with 32 ways per set.
+
+This affects certain 4Kc cores.
+
+Signed-off-by: Douglas Leung <douglas@mips.com>
+Signed-off-by: Steven J. Hill <sjhill@mips.com>
+Cc: linux-mips@linux-mips.org
+Patchwork: https://patchwork.linux-mips.org/patch/3855/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ arch/mips/mm/c-r4k.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/mips/mm/c-r4k.c b/arch/mips/mm/c-r4k.c
+--- a/arch/mips/mm/c-r4k.c
++++ b/arch/mips/mm/c-r4k.c
+@@ -977,7 +977,7 @@ static void __cpuinit probe_pcache(void)
+ 			c->icache.linesz = 2 << lsize;
+ 		else
+ 			c->icache.linesz = lsize;
+-		c->icache.sets = 64 << ((config1 >> 22) & 7);
++		c->icache.sets = 32 << (((config1 >> 22) + 1) & 7);
+ 		c->icache.ways = 1 + ((config1 >> 16) & 7);
+ 
+ 		icache_size = c->icache.sets *
+@@ -997,7 +997,7 @@ static void __cpuinit probe_pcache(void)
+ 			c->dcache.linesz = 2 << lsize;
+ 		else
+ 			c->dcache.linesz= lsize;
+-		c->dcache.sets = 64 << ((config1 >> 13) & 7);
++		c->dcache.sets = 32 << (((config1 >> 13) + 1) & 7);
+ 		c->dcache.ways = 1 + ((config1 >> 7) & 7);
+ 
+ 		dcache_size = c->dcache.sets *
+-- 
+1.7.3.4

@@ -1,11 +1,19 @@
 USB: Updates from upstream
 
  fc427a5a4bf3be770d7fbd933474957062049f1f USB: EHCI: Remove dead code from ehci-sched.c
+ 139540170d9d9b7ead3caaf540f161756b356d56 USB: ehci: remove structure packing from ehci_def
  1e12c910eed82da6971f1c0421a069c680faba2e EHCI: don't rescan interrupt QHs needlessly
  3824c1ddaf744be44b170a335332b9d6afe79254 USB: core: Tolerate protocol stall during hub and port status read
  e04f5f7e423018bcec84c11af2058cdce87816f3 EHCI: fix direction handling for interrupt data toggles
+ b3a3dd074f7053ef824ad077e5331b52220ceba1 USB: fix gathering of interface associations
 
 ---
+ drivers/usb/core/hub.c        |    6 ++++--
+ drivers/usb/core/message.c    |    3 ++-
+ drivers/usb/host/ehci-q.c     |    4 +++-
+ drivers/usb/host/ehci-sched.c |   17 ++++++++++-------
+ drivers/usb/host/ehci.h       |    8 +++++---
+ 5 files changed, 24 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
 --- a/drivers/usb/core/hub.c
@@ -30,6 +38,26 @@ diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
  		status = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
  			USB_REQ_GET_STATUS, USB_DIR_IN | USB_RT_PORT, 0, port1,
  			data, sizeof(*data), USB_STS_TIMEOUT);
+diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
+--- a/drivers/usb/core/message.c
++++ b/drivers/usb/core/message.c
+@@ -1708,7 +1708,6 @@ free_interfaces:
+ 		intfc = cp->intf_cache[i];
+ 		intf->altsetting = intfc->altsetting;
+ 		intf->num_altsetting = intfc->num_altsetting;
+-		intf->intf_assoc = find_iad(dev, cp, i);
+ 		kref_get(&intfc->ref);
+ 
+ 		alt = usb_altnum_to_altsetting(intf, 0);
+@@ -1721,6 +1720,8 @@ free_interfaces:
+ 		if (!alt)
+ 			alt = &intf->altsetting[0];
+ 
++		intf->intf_assoc =
++			find_iad(dev, cp, alt->desc.bInterfaceNumber);
+ 		intf->cur_altsetting = alt;
+ 		usb_enable_interface(dev, intf);
+ 		intf->dev.parent = &dev->dev;
 diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
 --- a/drivers/usb/host/ehci-q.c
 +++ b/drivers/usb/host/ehci-q.c
@@ -124,6 +152,33 @@ diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
  	unsigned		random_frame;
  	unsigned long		next_statechange;
  	ktime_t			last_periodic_enable;
+@@ -220,7 +220,7 @@ struct ehci_caps {
+ #define HCC_PGM_FRAMELISTLEN(p) ((p)&(1 << 1))  /* true: periodic_size changes*/
+ #define HCC_64BIT_ADDR(p)       ((p)&(1))       /* true: can use 64-bit addr */
+ 	u8		portroute [8];	 /* nibbles for routing - offset 0xC */
+-} __attribute__ ((packed));
++};
+ 
+ 
+ /* Section 2.3 Host Controller Operational Registers */
+@@ -298,7 +298,7 @@ struct ehci_regs {
+ #define PORT_CSC	(1<<1)		/* connect status change */
+ #define PORT_CONNECT	(1<<0)		/* device connected */
+ #define PORT_RWC_BITS   (PORT_CSC | PORT_PEC | PORT_OCC)
+-} __attribute__ ((packed));
++};
+ 
+ #define USBMODE		0x68		/* USB Device mode */
+ #define USBMODE_SDIS	(1<<3)		/* Stream disable */
+@@ -329,7 +329,7 @@ struct ehci_dbg_port {
+ 	u32	data47;
+ 	u32	address;
+ #define DBGP_EPADDR(dev,ep)	(((dev)<<8)|(ep))
+-} __attribute__ ((packed));
++};
+ 
+ /*-------------------------------------------------------------------------*/
+ 
 @@ -377,6 +377,7 @@ struct ehci_qh {
  
  #define NO_FRAME ((unsigned short)~0)			/* pick new start */
@@ -133,4 +188,3 @@ diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
  };
  
 -- 
-1.7.4.4

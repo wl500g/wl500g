@@ -1,14 +1,34 @@
-scripts: improve checkstack
+scripts: Updates from upstream
 
+ 8998979cc1f90da5a48b2e8a13833217c63f7c4a fix bloat-o-meter for ppc64
+ c50e3f512a5a15a73acd94e6ec8ed63cd512e04f bloat-o-meter: include read-only data section in report
  477116e69dc48aaa70cca47668cd4aa82f39e05c fix a trivial typo in scripts/checkstack.pl
  585e93ae83b80c874bf4eb50a239027cef5db4af find dynamic stack allocations in checkstack.pl
  abddaec56ebb7911bbf0578a4636a74bd7376d92 fix checkstack.pl arch detection
  1f2a144f5ab5e836b5ca8f67bd76b759fa947751 scripts: improve checkstack
 
 ---
+ scripts/bloat-o-meter |    7 +++++--
  scripts/checkstack.pl |   45 ++++++++++++++++++++++++++++++++-------------
- 1 file changed, 32 insertions(+), 13 deletions(-)
+ 2 files changed, 37 insertions(+), 15 deletions(-)
 
+diff --git a/scripts/bloat-o-meter b/scripts/bloat-o-meter
+--- a/scripts/bloat-o-meter
++++ b/scripts/bloat-o-meter
+@@ -17,8 +17,11 @@ def getsizes(file):
+     sym = {}
+     for l in os.popen("nm --size-sort " + file).readlines():
+         size, type, name = l[:-1].split()
+-        if type in "tTdDbB":
+-            if "." in name: name = "static." + name.split(".")[0]
++        if type in "tTdDbBrR":
++            # strip generated symbols
++            if name[:6] == "__mod_": continue
++            # function names begin with '.' on 64-bit powerpc
++            if "." in name[1:]: name = "static." + name.split(".")[0]
+             sym[name] = sym.get(name, 0) + int(size, 16)
+     return sym
+ 
 diff --git a/scripts/checkstack.pl b/scripts/checkstack.pl
 --- a/scripts/checkstack.pl
 +++ b/scripts/checkstack.pl

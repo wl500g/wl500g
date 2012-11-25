@@ -28,13 +28,13 @@ IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.19.3
 DROPBEAR=dropbear-2012.55
-DNSMASQ=dnsmasq-2.61
+DNSMASQ=dnsmasq-2.62
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.95
 SAMBA=samba-2.0.10
 E2FSPROGS=e2fsprogs-1.41.14
 UCDSNMP=ucd-snmp-3.6.2
-MINIUPNPD=miniupnpd-1.6.20120320
+MINIUPNPD=miniupnpd-1.7
 PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.10
 ACCEL-PPTP=accel-pptp-git-20100829

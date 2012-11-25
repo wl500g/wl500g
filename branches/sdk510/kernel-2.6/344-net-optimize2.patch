@@ -1,4 +1,5 @@
 
+ 16751347a060a10c09b11593bb179fd5b0240c04 [TCP]: remove unused argument to cong_avoid op
  ef711cf1d156428d4c2911b8c86c6ce90519dc45 net: speedup dst_release()
  6f11df8355e8f59f7572bf6ac1f63d692483b0c6 [NET]: "wrong timeout value in sk_wait_data()": cleanups
  23aeeec365dcf8bc87fae44c533e50d0bb4f23cc [TCP] FRTO: Plug potential LOST-bit leak
@@ -14,27 +15,40 @@
  b0691c8ee7c28a72748ff32e91b165ec12ae4de6 net: Unlock sock before calling sk_free()
  e754834e65220b2b674c55c3b6dfb2fb1a2804d0 icmp: move icmp_err_convert[] to .rodata
  573636cbafeba88f7c88832ae053dafe265bf94b net: remove superfluous call to synchronize_net()
+ cc9b17ad29ecaa20bfe426a8d4dbfb94b13ff1cc net: sock: validate data_len before allocating skb in sock_alloc_send_pskb()
 
 ---
  include/net/dst.h            |    6 +++-
  include/net/icmp.h           |    2 -
- include/net/tcp.h            |   24 +++++++++++++++---
+ include/net/tcp.h            |   30 ++++++++++++++++-------
  net/bluetooth/af_bluetooth.c |    5 +--
  net/core/datagram.c          |    5 +--
  net/core/dev.c               |   56 +++++++++++++++++++++++++++++--------------
- net/core/sock.c              |    4 ++-
- net/ipv4/af_inet.c           |    7 +----
+ net/core/sock.c              |   11 ++++++--
+ net/ipv4/af_inet.c           |    9 +-----
  net/ipv4/arp.c               |    5 +--
  net/ipv4/icmp.c              |   10 +++----
  net/ipv4/ip_options.c        |   12 ++++-----
  net/ipv4/route.c             |   16 ++++--------
- net/ipv4/tcp_input.c         |   18 ++++++-------
+ net/ipv4/tcp_bic.c           |    2 -
+ net/ipv4/tcp_cong.c          |    3 --
+ net/ipv4/tcp_cubic.c         |    2 -
+ net/ipv4/tcp_highspeed.c     |    2 -
+ net/ipv4/tcp_htcp.c          |    2 -
+ net/ipv4/tcp_hybla.c         |    4 +--
+ net/ipv4/tcp_illinois.c      |    2 -
+ net/ipv4/tcp_input.c         |   26 +++++++++----------
  net/ipv4/tcp_ipv4.c          |    9 ------
+ net/ipv4/tcp_lp.c            |    5 +--
  net/ipv4/tcp_minisocks.c     |    4 +--
+ net/ipv4/tcp_scalable.c      |    2 -
+ net/ipv4/tcp_vegas.c         |    6 ++--
+ net/ipv4/tcp_veno.c          |    6 ++--
+ net/ipv4/tcp_yeah.c          |    2 -
  net/sched/sch_netem.c        |    9 ++++++
  net/sctp/socket.c            |    5 +--
  net/unix/af_unix.c           |    5 +--
- 18 files changed, 115 insertions(+), 87 deletions(-)
+ 30 files changed, 144 insertions(+), 119 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
@@ -68,7 +82,27 @@ diff --git a/include/net/icmp.h b/include/net/icmp.h
 diff --git a/include/net/tcp.h b/include/net/tcp.h
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -997,11 +997,27 @@ static inline int tcp_fin_time(const str
+@@ -667,8 +667,7 @@ struct tcp_congestion_ops {
+ 	/* lower bound for congestion window (optional) */
+ 	u32 (*min_cwnd)(const struct sock *sk);
+ 	/* do new cwnd calculation (required) */
+-	void (*cong_avoid)(struct sock *sk, u32 ack,
+-			   u32 rtt, u32 in_flight, int good_ack);
++	void (*cong_avoid)(struct sock *sk, u32 ack, u32 in_flight, int good_ack);
+ 	/* call before changing ca_state (optional) */
+ 	void (*set_state)(struct sock *sk, u8 new_state);
+ 	/* call when cwnd event occurs (optional) */
+@@ -699,8 +698,7 @@ extern void tcp_slow_start(struct tcp_so
+ 
+ extern struct tcp_congestion_ops tcp_init_congestion_ops;
+ extern u32 tcp_reno_ssthresh(struct sock *sk);
+-extern void tcp_reno_cong_avoid(struct sock *sk, u32 ack,
+-				u32 rtt, u32 in_flight, int flag);
++extern void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight, int flag);
+ extern u32 tcp_reno_min_cwnd(const struct sock *sk);
+ extern struct tcp_congestion_ops tcp_reno;
+ 
+@@ -997,11 +995,27 @@ static inline int tcp_fin_time(const str
  	return fin_timeout;
  }
  
@@ -103,7 +137,7 @@ diff --git a/include/net/tcp.h b/include/net/tcp.h
 diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
 --- a/net/bluetooth/af_bluetooth.c
 +++ b/net/bluetooth/af_bluetooth.c
-@@ -260,13 +260,12 @@ unsigned int bt_sock_poll(struct file * 
+@@ -260,13 +260,12 @@ unsigned int bt_sock_poll(struct file *
  		mask |= POLLERR;
  
  	if (sk->sk_shutdown & RCV_SHUTDOWN)
@@ -122,7 +156,7 @@ diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
 diff --git a/net/core/datagram.c b/net/core/datagram.c
 --- a/net/core/datagram.c
 +++ b/net/core/datagram.c
-@@ -510,13 +510,12 @@ unsigned int datagram_poll(struct file *
+@@ -537,13 +537,12 @@ unsigned int datagram_poll(struct file *
  	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
  		mask |= POLLERR;
  	if (sk->sk_shutdown & RCV_SHUTDOWN)
@@ -141,7 +175,7 @@ diff --git a/net/core/datagram.c b/net/core/datagram.c
 diff --git a/net/core/dev.c b/net/core/dev.c
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -1114,6 +1114,14 @@ static inline void net_timestamp(struct
+@@ -1111,6 +1111,14 @@ static inline void net_timestamp(struct
  		skb->tstamp.tv64 = 0;
  }
  
@@ -156,7 +190,7 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  /*
   *	Support routine. Sends outgoing frames to any network
   *	taps currently in use.
-@@ -1122,8 +1130,8 @@ static inline void net_timestamp(struct
+@@ -1119,8 +1127,8 @@ static inline void net_timestamp(struct
  static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
  {
  	struct packet_type *ptype;
@@ -167,7 +201,7 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  
  	rcu_read_lock();
  	list_for_each_entry_rcu(ptype, &ptype_all, list) {
-@@ -1133,10 +1141,18 @@ static void dev_queue_xmit_nit(struct sk
+@@ -1130,10 +1138,18 @@ static void dev_queue_xmit_nit(struct sk
  		if ((ptype->dev == dev || !ptype->dev) &&
  		    (ptype->af_packet_priv == NULL ||
  		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
@@ -187,7 +221,7 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  			/* skb->nh should be correctly
  			   set by sender, so that the second statement is
  			   just protection against buggy protocols.
-@@ -1154,9 +1170,11 @@ static void dev_queue_xmit_nit(struct sk
+@@ -1151,9 +1167,11 @@ static void dev_queue_xmit_nit(struct sk
  
  			skb2->transport_header = skb2->network_header;
  			skb2->pkt_type = PACKET_OUTGOING;
@@ -200,7 +234,7 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  	rcu_read_unlock();
  }
  
-@@ -1664,7 +1682,6 @@ int netif_rx(struct sk_buff *skb)
+@@ -1657,7 +1675,6 @@ int netif_rx(struct sk_buff *skb)
  	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
  		if (queue->input_pkt_queue.qlen) {
  enqueue:
@@ -208,7 +242,7 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  			__skb_queue_tail(&queue->input_pkt_queue, skb);
  			local_irq_restore(flags);
  			return NET_RX_SUCCESS;
-@@ -1757,14 +1774,6 @@ static void net_tx_action(struct softirq
+@@ -1750,14 +1767,6 @@ static void net_tx_action(struct softirq
  	}
  }
  
@@ -223,7 +257,7 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
  /* These hooks defined here for ATM */
  struct net_bridge;
-@@ -1944,6 +1953,20 @@ out:
+@@ -1937,6 +1946,20 @@ out:
  	return ret;
  }
  
@@ -244,7 +278,7 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  static int process_backlog(struct net_device *backlog_dev, int *budget)
  {
  	int work = 0;
-@@ -1953,7 +1976,6 @@ static int process_backlog(struct net_de
+@@ -1947,7 +1970,6 @@ static int process_backlog(struct net_de
  	backlog_dev->weight = weight_p;
  	for (;;) {
  		struct sk_buff *skb;
@@ -252,7 +286,7 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  
  		local_irq_disable();
  		skb = __skb_dequeue(&queue->input_pkt_queue);
-@@ -1961,12 +1983,8 @@ static int process_backlog(struct net_de
+@@ -1955,12 +1977,8 @@ static int process_backlog(struct net_de
  			goto job_done;
  		local_irq_enable();
  
@@ -264,8 +298,8 @@ diff --git a/net/core/dev.c b/net/core/dev.c
 -
  		work++;
  
- 		if (work >= quota)
-@@ -3358,6 +3376,8 @@ void netdev_run_todo(void)
+ 		if (work >= quota || jiffies - start_time > 1)
+@@ -3364,6 +3382,8 @@ void netdev_run_todo(void)
  
  		dev->reg_state = NETREG_UNREGISTERED;
  
@@ -277,7 +311,7 @@ diff --git a/net/core/dev.c b/net/core/dev.c
 diff --git a/net/core/sock.c b/net/core/sock.c
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -210,7 +210,8 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+@@ -210,7 +210,8 @@ static int sock_set_timeout(long *timeo_
  		return -EDOM;
  
  	if (tv.tv_sec < 0) {
@@ -287,7 +321,7 @@ diff --git a/net/core/sock.c b/net/core/sock.c
  		*timeo_p = 0;
  		if (warned < 10 && net_ratelimit())
  			warned++;
-@@ -1257,6 +1257,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
+@@ -970,6 +971,7 @@ struct sock *sk_clone(const struct sock
  			/* It is still raw copy of parent, so invalidate
  			 * destructor and make plain sk_free() */
  			newsk->sk_destruct = NULL;
@@ -295,6 +329,33 @@ diff --git a/net/core/sock.c b/net/core/sock.c
  			sk_free(newsk);
  			newsk = NULL;
  			goto out;
+@@ -1236,6 +1236,11 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 	gfp_t gfp_mask;
+ 	long timeo;
+ 	int err;
++	int npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
++
++	err = -EMSGSIZE;
++	if (npages > MAX_SKB_FRAGS)
++		goto failure;
+ 
+ 	gfp_mask = sk->sk_allocation;
+ 	if (gfp_mask & __GFP_WAIT)
+@@ -1250,14 +1255,12 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
+ 			skb = alloc_skb(header_len, gfp_mask);
+ 			if (skb) {
+-				int npages;
+ 				int i;
+ 
+ 				/* No pages, we're done... */
+ 				if (!data_len)
+ 					break;
+ 
+-				npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
+ 				skb->truesize += data_len;
+ 				skb_shinfo(skb)->nr_frags = npages;
+ 				for (i = 0; i < npages; i++) {
 diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
 --- a/net/ipv4/af_inet.c
 +++ b/net/ipv4/af_inet.c
@@ -319,7 +380,7 @@ diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
  }
  EXPORT_SYMBOL(build_ehash_secret);
  
-@@ -980,8 +978,6 @@ void inet_register_protosw(struct inet_protosw *p)
+@@ -982,8 +979,6 @@ void inet_register_protosw(struct inet_p
  out:
  	spin_unlock_bh(&inetsw_lock);
  
@@ -346,7 +407,7 @@ diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
 diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
 --- a/net/ipv4/icmp.c
 +++ b/net/ipv4/icmp.c
-@@ -119,7 +119,7 @@ struct icmp_bxm {
+@@ -119,7 +119,7 @@ DEFINE_SNMP_STAT(struct icmp_mib, icmp_s
  /* An array of errno for error messages from dest unreach. */
  /* RFC 1122: 3.2.2.1 States that NET_UNREACH, HOST_UNREACH and SR_FAILED MUST be considered 'transient errs'. */
  
@@ -411,7 +472,7 @@ diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1094,18 +1094,11 @@ restart:
+@@ -1052,18 +1052,11 @@ restart:
  
  void rt_bind_peer(struct rtable *rt, int create)
  {
@@ -431,7 +492,7 @@ diff --git a/net/ipv4/route.c b/net/ipv4/route.c
  		inet_putpeer(peer);
  }
  
-@@ -1406,6 +1399,7 @@ static int ip_error(struct sk_buff *skb)
+@@ -1360,6 +1353,7 @@ static int ip_error(struct sk_buff *skb)
  			break;
  		case ENETUNREACH:
  			code = ICMP_NET_UNREACH;
@@ -439,7 +500,7 @@ diff --git a/net/ipv4/route.c b/net/ipv4/route.c
  			break;
  		case EACCES:
  			code = ICMP_PKT_FILTERED;
-@@ -1791,7 +1785,7 @@ static int __mkroute_input(struct sk_buf
+@@ -1750,7 +1744,7 @@ static inline int __mkroute_input(struct
  	if (err)
  		flags |= RTCF_DIRECTSRC;
  
@@ -448,7 +509,7 @@ diff --git a/net/ipv4/route.c b/net/ipv4/route.c
  	    (IN_DEV_SHARED_MEDIA(out_dev) ||
  	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res))))
  		flags |= RTCF_DOREDIRECT;
-@@ -1801,7 +1795,7 @@ static int __mkroute_input(struct sk_buf
+@@ -1759,7 +1753,7 @@ static inline int __mkroute_input(struct
  		/* Not IP (i.e. ARP). Do not create route, if it is
  		 * invalid for proxy arp. DNAT routes are always valid.
  		 */
@@ -457,7 +518,7 @@ diff --git a/net/ipv4/route.c b/net/ipv4/route.c
  			err = -EINVAL;
  			goto cleanup;
  		}
-@@ -2112,6 +2106,8 @@ no_route:
+@@ -2055,6 +2049,8 @@ no_route:
  	RT_CACHE_STAT_INC(in_no_route);
  	spec_dst = inet_select_addr(dev, 0, RT_SCOPE_UNIVERSE);
  	res.type = RTN_UNREACHABLE;
@@ -466,6 +527,100 @@ diff --git a/net/ipv4/route.c b/net/ipv4/route.c
  	goto local_input;
  
  	/*
+diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
+--- a/net/ipv4/tcp_bic.c
++++ b/net/ipv4/tcp_bic.c
+@@ -137,7 +137,7 @@ static inline void bictcp_update(struct
+ }
+ 
+ static void bictcp_cong_avoid(struct sock *sk, u32 ack,
+-			      u32 seq_rtt, u32 in_flight, int data_acked)
++			      u32 in_flight, int data_acked)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct bictcp *ca = inet_csk_ca(sk);
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -325,8 +325,7 @@ EXPORT_SYMBOL_GPL(tcp_slow_start);
+ /* This is Jacobson's slow start and congestion avoidance.
+  * SIGCOMM '88, p. 328.
+  */
+-void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 rtt, u32 in_flight,
+-			 int flag)
++void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -270,7 +270,7 @@ static inline void measure_delay(struct
+ }
+ 
+ static void bictcp_cong_avoid(struct sock *sk, u32 ack,
+-			      u32 seq_rtt, u32 in_flight, int data_acked)
++			      u32 in_flight, int data_acked)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct bictcp *ca = inet_csk_ca(sk);
+diff --git a/net/ipv4/tcp_highspeed.c b/net/ipv4/tcp_highspeed.c
+--- a/net/ipv4/tcp_highspeed.c
++++ b/net/ipv4/tcp_highspeed.c
+@@ -109,7 +109,7 @@ static void hstcp_init(struct sock *sk)
+ 	tp->snd_cwnd_clamp = min_t(u32, tp->snd_cwnd_clamp, 0xffffffff/128);
+ }
+ 
+-static void hstcp_cong_avoid(struct sock *sk, u32 adk, u32 rtt,
++static void hstcp_cong_avoid(struct sock *sk, u32 adk,
+ 			     u32 in_flight, int data_acked)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+diff --git a/net/ipv4/tcp_htcp.c b/net/ipv4/tcp_htcp.c
+--- a/net/ipv4/tcp_htcp.c
++++ b/net/ipv4/tcp_htcp.c
+@@ -225,7 +225,7 @@ static u32 htcp_recalc_ssthresh(struct s
+ 	return max((tp->snd_cwnd * ca->beta) >> 7, 2U);
+ }
+ 
+-static void htcp_cong_avoid(struct sock *sk, u32 ack, u32 rtt,
++static void htcp_cong_avoid(struct sock *sk, u32 ack, s32 rtt,
+ 			    u32 in_flight, int data_acked)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+diff --git a/net/ipv4/tcp_hybla.c b/net/ipv4/tcp_hybla.c
+--- a/net/ipv4/tcp_hybla.c
++++ b/net/ipv4/tcp_hybla.c
+@@ -85,7 +85,7 @@ static inline u32 hybla_fraction(u32 odd
+  *     o Give cwnd a new value based on the model proposed
+  *     o remember increments <1
+  */
+-static void hybla_cong_avoid(struct sock *sk, u32 ack, u32 rtt,
++static void hybla_cong_avoid(struct sock *sk, u32 ack,
+ 			    u32 in_flight, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -103,7 +103,7 @@ static void hybla_cong_avoid(struct sock
+ 		return;
+ 
+ 	if (!ca->hybla_en)
+-		return tcp_reno_cong_avoid(sk, ack, rtt, in_flight, flag);
++		return tcp_reno_cong_avoid(sk, ack, in_flight, flag);
+ 
+ 	if (ca->rho == 0)
+ 		hybla_recalc_param(sk);
+diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
+--- a/net/ipv4/tcp_illinois.c
++++ b/net/ipv4/tcp_illinois.c
+@@ -258,7 +258,7 @@ static void tcp_illinois_state(struct so
+ /*
+  * Increase window in response to successful acknowledgment.
+  */
+-static void tcp_illinois_cong_avoid(struct sock *sk, u32 ack, u32 rtt,
++static void tcp_illinois_cong_avoid(struct sock *sk, u32 ack,
+ 				    u32 in_flight, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
@@ -486,7 +641,21 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  		}
  		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_ACKED)) {
  
-@@ -2852,6 +2853,7 @@ static int tcp_ack(struct sock *sk, stru
+@@ -2357,11 +2358,11 @@ static inline void tcp_ack_update_rtt(st
+ 		tcp_ack_no_tstamp(sk, seq_rtt, flag);
+ }
+ 
+-static void tcp_cong_avoid(struct sock *sk, u32 ack, u32 rtt,
++static void tcp_cong_avoid(struct sock *sk, u32 ack,
+ 			   u32 in_flight, int good)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+-	icsk->icsk_ca_ops->cong_avoid(sk, ack, rtt, in_flight, good);
++	icsk->icsk_ca_ops->cong_avoid(sk, ack, in_flight, good);
+ 	tcp_sk(sk)->snd_cwnd_stamp = tcp_time_stamp;
+ }
+ 
+@@ -2850,6 +2851,7 @@ static int tcp_ack(struct sock *sk, stru
  	 * log. Something worked...
  	 */
  	sk->sk_err_soft = 0;
@@ -494,7 +663,21 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  	tp->rcv_tstamp = tcp_time_stamp;
  	prior_packets = tp->packets_out;
  	if (!prior_packets)
-@@ -2882,8 +2884,6 @@ static int tcp_ack(struct sock *sk, stru
+@@ -2867,11 +2869,11 @@ static int tcp_ack(struct sock *sk, stru
+ 		/* Advance CWND, if state allows this. */
+ 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd &&
+ 		    tcp_may_raise_cwnd(sk, flag))
+-			tcp_cong_avoid(sk, ack,  seq_rtt, prior_in_flight, 0);
++			tcp_cong_avoid(sk, ack, prior_in_flight, 0);
+ 		tcp_fastretrans_alert(sk, prior_snd_una, prior_packets - tp->packets_out, flag);
+ 	} else {
+ 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
+-			tcp_cong_avoid(sk, ack, seq_rtt, prior_in_flight, 1);
++			tcp_cong_avoid(sk, ack, prior_in_flight, 1);
+ 	}
+ 
+ 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag&FLAG_NOT_DUP))
+@@ -2880,8 +2882,6 @@ static int tcp_ack(struct sock *sk, stru
  	return 1;
  
  no_queue:
@@ -503,7 +686,7 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  	/* If this ack opens up a zero window, clear backoff.  It was
  	 * being used to time the probes, and is probably far higher than
  	 * it needs to be for normal retransmission.
-@@ -3041,8 +3041,7 @@ static inline void tcp_replace_ts_recent
+@@ -3039,8 +3039,7 @@ static inline void tcp_replace_ts_recent
  		 * Not only, also it occurs for expired timestamps.
  		 */
  
@@ -513,7 +696,7 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  			tcp_store_ts_recent(tp);
  	}
  }
-@@ -3093,9 +3092,9 @@ static int tcp_disordered_ack(const stru
+@@ -3091,9 +3090,9 @@ static int tcp_disordered_ack(const stru
  static inline int tcp_paws_discard(const struct sock *sk, const struct sk_buff *skb)
  {
  	const struct tcp_sock *tp = tcp_sk(sk);
@@ -526,7 +709,7 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  }
  
  /* Check segment sequence number for validity.
-@@ -4621,7 +4620,8 @@ discard:
+@@ -4619,7 +4618,8 @@ discard:
  	}
  
  	/* PAWS check. */
@@ -539,7 +722,7 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -1313,15 +1313,6 @@ int tcp_v4_conn_request(struct sock *sk,
+@@ -1314,15 +1314,6 @@ int tcp_v4_conn_request(struct sock *sk,
  		tmp_opt.saw_tstamp = 0;
  	}
  
@@ -555,6 +738,25 @@ diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
  	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
  
  	tcp_openreq_init(req, &tmp_opt, skb);
+diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
+--- a/net/ipv4/tcp_lp.c
++++ b/net/ipv4/tcp_lp.c
+@@ -115,13 +115,12 @@ static void tcp_lp_init(struct sock *sk)
+  * Will only call newReno CA when away from inference.
+  * From TCP-LP's paper, this will be handled in additive increasement.
+  */
+-static void tcp_lp_cong_avoid(struct sock *sk, u32 ack, u32 rtt, u32 in_flight,
+-			      int flag)
++static void tcp_lp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight, int flag)
+ {
+ 	struct lp *lp = inet_csk_ca(sk);
+ 
+ 	if (!(lp->flag & LP_WITHIN_INF))
+-		tcp_reno_cong_avoid(sk, ack, rtt, in_flight, flag);
++		tcp_reno_cong_avoid(sk, ack, in_flight, flag);
+ }
+ 
+ /**
 diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
 --- a/net/ipv4/tcp_minisocks.c
 +++ b/net/ipv4/tcp_minisocks.c
@@ -576,6 +778,105 @@ diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
  		}
  	}
  
+diff --git a/net/ipv4/tcp_scalable.c b/net/ipv4/tcp_scalable.c
+--- a/net/ipv4/tcp_scalable.c
++++ b/net/ipv4/tcp_scalable.c
+@@ -15,7 +15,7 @@
+ #define TCP_SCALABLE_AI_CNT	50U
+ #define TCP_SCALABLE_MD_SCALE	3
+ 
+-static void tcp_scalable_cong_avoid(struct sock *sk, u32 ack, u32 rtt,
++static void tcp_scalable_cong_avoid(struct sock *sk, u32 ack,
+ 				    u32 in_flight, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
+--- a/net/ipv4/tcp_vegas.c
++++ b/net/ipv4/tcp_vegas.c
+@@ -163,13 +163,13 @@ void tcp_vegas_cwnd_event(struct sock *s
+ EXPORT_SYMBOL_GPL(tcp_vegas_cwnd_event);
+ 
+ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack,
+-				 u32 seq_rtt, u32 in_flight, int flag)
++				 u32 in_flight, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct vegas *vegas = inet_csk_ca(sk);
+ 
+ 	if (!vegas->doing_vegas_now)
+-		return tcp_reno_cong_avoid(sk, ack, seq_rtt, in_flight, flag);
++		return tcp_reno_cong_avoid(sk, ack, in_flight, flag);
+ 
+ 	/* The key players are v_beg_snd_una and v_beg_snd_nxt.
+ 	 *
+@@ -228,7 +228,7 @@ static void tcp_vegas_cong_avoid(struct
+ 			/* We don't have enough RTT samples to do the Vegas
+ 			 * calculation, so we'll behave like Reno.
+ 			 */
+-			tcp_reno_cong_avoid(sk, ack, seq_rtt, in_flight, flag);
++			tcp_reno_cong_avoid(sk, ack, in_flight, flag);
+ 		} else {
+ 			u32 rtt, target_cwnd, diff;
+ 
+diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
+--- a/net/ipv4/tcp_veno.c
++++ b/net/ipv4/tcp_veno.c
+@@ -115,13 +115,13 @@ static void tcp_veno_cwnd_event(struct s
+ }
+ 
+ static void tcp_veno_cong_avoid(struct sock *sk, u32 ack,
+-				u32 seq_rtt, u32 in_flight, int flag)
++				u32 in_flight, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct veno *veno = inet_csk_ca(sk);
+ 
+ 	if (!veno->doing_veno_now)
+-		return tcp_reno_cong_avoid(sk, ack, seq_rtt, in_flight, flag);
++		return tcp_reno_cong_avoid(sk, ack, in_flight, flag);
+ 
+ 	/* limited by applications */
+ 	if (!tcp_is_cwnd_limited(sk, in_flight))
+@@ -132,7 +132,7 @@ static void tcp_veno_cong_avoid(struct s
+ 		/* We don't have enough rtt samples to do the Veno
+ 		 * calculation, so we'll behave like Reno.
+ 		 */
+-		tcp_reno_cong_avoid(sk, ack, seq_rtt, in_flight, flag);
++		tcp_reno_cong_avoid(sk, ack, in_flight, flag);
+ 	} else {
+ 		u32 rtt, target_cwnd;
+ 
+diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
+--- a/net/ipv4/tcp_yeah.c
++++ b/net/ipv4/tcp_yeah.c
+@@ -70,7 +70,7 @@ static void tcp_yeah_pkts_acked(struct s
+ }
+ 
+ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack,
+-				u32 seq_rtt, u32 in_flight, int flag)
++				u32 in_flight, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct yeah *yeah = inet_csk_ca(sk);
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -285,6 +285,15 @@ static struct sk_buff *netem_dequeue(str
+ 
+ 		/* if more time remaining? */
+ 		if (cb->time_to_send <= now) {
++
++#ifdef CONFIG_NET_CLS_ACT
++			/*
++			 * If it's at ingress let's pretend the delay is
++			 * from the network (tstamp will be updated).
++			 */
++			if (G_TC_FROM(skb->tc_verd) & AT_INGRESS)
++				skb->tstamp.tv64 = 0;
++#endif
+ 			pr_debug("netem_dequeue: return skb=%p\n", skb);
+ 			sch->q.qlen--;
+ 			return skb;
 diff --git a/net/sctp/socket.c b/net/sctp/socket.c
 --- a/net/sctp/socket.c
 +++ b/net/sctp/socket.c
@@ -595,29 +896,10 @@ diff --git a/net/sctp/socket.c b/net/sctp/socket.c
  		mask |= POLLIN | POLLRDNORM;
  
  	/* The association is either gone or not ready.  */
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -280,6 +280,15 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
- 
- 		/* if more time remaining? */
- 		if (cb->time_to_send <= now) {
-+
-+#ifdef CONFIG_NET_CLS_ACT
-+			/*
-+			 * If it's at ingress let's pretend the delay is
-+			 * from the network (tstamp will be updated).
-+			 */
-+			if (G_TC_FROM(skb->tc_verd) & AT_INGRESS)
-+				skb->tstamp.tv64 = 0;
-+#endif
- 			pr_debug("netem_dequeue: return skb=%p\n", skb);
- 			sch->q.qlen--;
- 			return skb;
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
-@@ -1974,11 +1974,10 @@ static unsigned int unix_poll(struct fil
+@@ -1954,11 +1954,10 @@ static unsigned int unix_poll(struct fil
  	if (sk->sk_shutdown == SHUTDOWN_MASK)
  		mask |= POLLHUP;
  	if (sk->sk_shutdown & RCV_SHUTDOWN)

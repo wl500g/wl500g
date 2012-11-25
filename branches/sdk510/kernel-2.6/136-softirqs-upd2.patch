@@ -1,0 +1,308 @@
+softirq: Updates from upstream
+
+ c2d727aa2ff17a1c8e5ed1e5e231bb8579b27e82 Preempt-RCU: Use softirq instead of tasklets for
+ 4cf5d77a6eefaa7a464bc34e8cb767356f10fd74 sched: fix incorrect irq lock usage in normalize_rt_tasks()
+ 962cf36c5bf6d2840b8d66ee9a606fae2f540bbd Remove argument from open_softirq which is always NULL
+ 978b0116cd225682a29e3d1d5010319bf2de32c2 softirq: allocate less vectors
+ 5d592b44b29a1d73e13d5c9e3426eed843bdc359 tracing: tracepoints for softirq entry/exit - add softirq-to-name array
+ 899039e8746bb9a09b6487ddb8ab2275ce9d0256 softirq: no need to have SOFTIRQ in softirq name
+ 8b752e3ef6e3f5cde87afc649dd51d92b1e549c1 softirq: remove useless function __local_bh_enable
+
+---
+ block/ll_rw_blk.c           |    2 +-
+ include/linux/bottom_half.h |    1 -
+ include/linux/interrupt.h   |   13 +++++++++----
+ kernel/hrtimer.c            |    2 +-
+ kernel/rcupdate.c           |   25 +++++++++++++++++--------
+ kernel/sched.c              |   10 +++++-----
+ kernel/softirq.c            |   28 +++++++++-------------------
+ kernel/timer.c              |    2 +-
+ net/core/dev.c              |    4 ++--
+ 9 files changed, 45 insertions(+), 42 deletions(-)
+
+diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
+--- a/block/ll_rw_blk.c
++++ b/block/ll_rw_blk.c
+@@ -3725,7 +3725,7 @@ int __init blk_dev_init(void)
+ 	for_each_possible_cpu(i)
+ 		INIT_LIST_HEAD(&per_cpu(blk_cpu_done, i));
+ 
+-	open_softirq(BLOCK_SOFTIRQ, blk_done_softirq, NULL);
++	open_softirq(BLOCK_SOFTIRQ, blk_done_softirq);
+ 	register_hotcpu_notifier(&blk_cpu_notifier);
+ 
+ 	blk_max_low_pfn = max_low_pfn - 1;
+diff --git a/include/linux/bottom_half.h b/include/linux/bottom_half.h
+--- a/include/linux/bottom_half.h
++++ b/include/linux/bottom_half.h
+@@ -2,7 +2,6 @@
+ #define _LINUX_BH_H
+ 
+ extern void local_bh_disable(void);
+-extern void __local_bh_enable(void);
+ extern void _local_bh_enable(void);
+ extern void local_bh_enable(void);
+ extern void local_bh_enable_ip(unsigned long ip);
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -266,11 +266,17 @@ enum
+ 	BLOCK_SOFTIRQ,
+ 	TASKLET_SOFTIRQ,
+ 	SCHED_SOFTIRQ,
+-#ifdef CONFIG_HIGH_RES_TIMERS
+ 	HRTIMER_SOFTIRQ,
+-#endif
++	RCU_SOFTIRQ, 	/* Preferable RCU should always be the last softirq */
++
++	NR_SOFTIRQS
+ };
+ 
++/* map softirq index to softirq name. update 'softirq_to_name' in
++ * kernel/softirq.c when adding a new softirq.
++ */
++extern char *softirq_to_name[NR_SOFTIRQS];
++
+ /* softirq mask and active fields moved to irq_cpustat_t in
+  * asm/hardirq.h to get better cache usage.  KAO
+  */
+@@ -278,11 +284,10 @@ enum
+ struct softirq_action
+ {
+ 	void	(*action)(struct softirq_action *);
+-	void	*data;
+ };
+ 
+ asmlinkage void do_softirq(void);
+-extern void open_softirq(int nr, void (*action)(struct softirq_action*), void *data);
++extern void open_softirq(int nr, void (*action)(struct softirq_action*));
+ extern void softirq_init(void);
+ #define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
+ extern void FASTCALL(raise_softirq_irqoff(unsigned int nr));
+diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
+--- a/kernel/hrtimer.c
++++ b/kernel/hrtimer.c
+@@ -1448,7 +1448,7 @@ void __init hrtimers_init(void)
+ 			  (void *)(long)smp_processor_id());
+ 	register_cpu_notifier(&hrtimers_nb);
+ #ifdef CONFIG_HIGH_RES_TIMERS
+-	open_softirq(HRTIMER_SOFTIRQ, run_hrtimer_softirq, NULL);
++	open_softirq(HRTIMER_SOFTIRQ, run_hrtimer_softirq);
+ #endif
+ }
+ 
+diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
+--- a/kernel/rcupdate.c
++++ b/kernel/rcupdate.c
+@@ -66,8 +66,6 @@ static struct rcu_ctrlblk rcu_bh_ctrlblk
+ DEFINE_PER_CPU(struct rcu_data, rcu_data) = { 0L };
+ DEFINE_PER_CPU(struct rcu_data, rcu_bh_data) = { 0L };
+ 
+-/* Fake initialization required by compiler */
+-static DEFINE_PER_CPU(struct tasklet_struct, rcu_tasklet) = {NULL};
+ static int blimit = 10;
+ static int qhimark = 10000;
+ static int qlowmark = 100;
+@@ -224,6 +222,18 @@ void rcu_barrier(void)
+ }
+ EXPORT_SYMBOL_GPL(rcu_barrier);
+ 
++/* Raises the softirq for processing rcu_callbacks. */
++static inline void raise_rcu_softirq(void)
++{
++	raise_softirq(RCU_SOFTIRQ);
++	/*
++	 * The smp_mb() here is required to ensure that this cpu's
++	 * __rcu_process_callbacks() reads the most recently updated
++	 * value of rcu->cur.
++	 */
++	smp_mb();
++}
++
+ /*
+  * Invoke the completed RCU callbacks. They are expected to be in
+  * a per-cpu list.
+@@ -253,7 +263,7 @@ static void rcu_do_batch(struct rcu_data
+ 	if (!rdp->donelist)
+ 		rdp->donetail = &rdp->donelist;
+ 	else
+-		tasklet_schedule(&per_cpu(rcu_tasklet, rdp->cpu));
++		raise_rcu_softirq();
+ }
+ 
+ /*
+@@ -405,7 +415,6 @@ static void rcu_offline_cpu(int cpu)
+ 					&per_cpu(rcu_bh_data, cpu));
+ 	put_cpu_var(rcu_data);
+ 	put_cpu_var(rcu_bh_data);
+-	tasklet_kill_immediate(&per_cpu(rcu_tasklet, cpu), cpu);
+ }
+ 
+ #else
+@@ -417,7 +426,7 @@ static void rcu_offline_cpu(int cpu)
+ #endif
+ 
+ /*
+- * This does the RCU processing work from tasklet context. 
++ * This does the RCU processing work from softirq context.
+  */
+ static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp,
+ 					struct rcu_data *rdp)
+@@ -462,7 +471,7 @@ static void __rcu_process_callbacks(stru
+ 		rcu_do_batch(rdp);
+ }
+ 
+-static void rcu_process_callbacks(unsigned long unused)
++static void rcu_process_callbacks(struct softirq_action *unused)
+ {
+ 	__rcu_process_callbacks(&rcu_ctrlblk, &__get_cpu_var(rcu_data));
+ 	__rcu_process_callbacks(&rcu_bh_ctrlblk, &__get_cpu_var(rcu_bh_data));
+@@ -526,7 +535,7 @@ void rcu_check_callbacks(int cpu, int us
+ 		rcu_bh_qsctr_inc(cpu);
+ 	} else if (!in_softirq())
+ 		rcu_bh_qsctr_inc(cpu);
+-	tasklet_schedule(&per_cpu(rcu_tasklet, cpu));
++	raise_rcu_softirq();
+ }
+ 
+ static void rcu_init_percpu_data(int cpu, struct rcu_ctrlblk *rcp,
+@@ -549,7 +558,7 @@ static void __devinit rcu_online_cpu(int
+ 
+ 	rcu_init_percpu_data(cpu, &rcu_ctrlblk, rdp);
+ 	rcu_init_percpu_data(cpu, &rcu_bh_ctrlblk, bh_rdp);
+-	tasklet_init(&per_cpu(rcu_tasklet, cpu), rcu_process_callbacks, 0UL);
++	open_softirq(RCU_SOFTIRQ, rcu_process_callbacks);
+ }
+ 
+ static int __cpuinit rcu_cpu_notify(struct notifier_block *self,
+diff --git a/kernel/sched.c b/kernel/sched.c
+--- a/kernel/sched.c
++++ b/kernel/sched.c
+@@ -6967,7 +6967,7 @@ void __init sched_init(void)
+ 
+ #ifdef CONFIG_SMP
+ 	nr_cpu_ids = highest_cpu + 1;
+-	open_softirq(SCHED_SOFTIRQ, run_rebalance_domains, NULL);
++	open_softirq(SCHED_SOFTIRQ, run_rebalance_domains);
+ #endif
+ 
+ #ifdef CONFIG_RT_MUTEXES
+@@ -7022,13 +7022,13 @@ void normalize_rt_tasks(void)
+ 	unsigned long flags;
+ 	struct rq *rq;
+ 
+-	read_lock_irq(&tasklist_lock);
++	read_lock_irqsave(&tasklist_lock, flags);
+ 
+ 	do_each_thread(g, p) {
+ 		if (!rt_task(p))
+ 			continue;
+ 
+-		spin_lock_irqsave(&p->pi_lock, flags);
++		spin_lock(&p->pi_lock);
+ 		rq = __task_rq_lock(p);
+ 
+ 		array = p->array;
+@@ -7041,10 +7041,10 @@ void normalize_rt_tasks(void)
+ 		}
+ 
+ 		__task_rq_unlock(rq);
+-		spin_unlock_irqrestore(&p->pi_lock, flags);
++		spin_unlock(&p->pi_lock);
+ 	} while_each_thread(g, p);
+ 
+-	read_unlock_irq(&tasklist_lock);
++	read_unlock_irqrestore(&tasklist_lock, flags);
+ }
+ 
+ #endif /* CONFIG_MAGIC_SYSRQ */
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -43,10 +43,15 @@ irq_cpustat_t irq_stat[NR_CPUS] ____cach
+ EXPORT_SYMBOL(irq_stat);
+ #endif
+ 
+-static struct softirq_action softirq_vec[32] __cacheline_aligned_in_smp;
++static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
+ 
+ static DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
+ 
++char *softirq_to_name[NR_SOFTIRQS] = {
++	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK",
++	"TASKLET", "SCHED", "HRTIMER",	"RCU"
++};
++
+ /*
+  * we cannot loop indefinitely here to avoid userspace starvation,
+  * but we also don't want to introduce a worst case 1/HZ latency
+@@ -102,20 +102,6 @@ void local_bh_disable(void)
+ 
+ EXPORT_SYMBOL(local_bh_disable);
+ 
+-void __local_bh_enable(void)
+-{
+-	WARN_ON_ONCE(in_irq());
+-
+-	/*
+-	 * softirqs should never be enabled by __local_bh_enable(),
+-	 * it always nests inside local_bh_enable() sections:
+-	 */
+-	WARN_ON_ONCE(softirq_count() == SOFTIRQ_OFFSET);
+-
+-	sub_preempt_count(SOFTIRQ_OFFSET);
+-}
+-EXPORT_SYMBOL_GPL(__local_bh_enable);
+-
+ /*
+  * Special-case - softirqs can safely be enabled in
+  * cond_resched_softirq(), or by __do_softirq(),
+@@ -318,9 +323,8 @@ void fastcall raise_softirq(unsigned int
+ 	local_irq_restore(flags);
+ }
+ 
+-void open_softirq(int nr, void (*action)(struct softirq_action*), void *data)
++void open_softirq(int nr, void (*action)(struct softirq_action*))
+ {
+-	softirq_vec[nr].data = data;
+ 	softirq_vec[nr].action = action;
+ }
+ 
+@@ -458,8 +462,8 @@ EXPORT_SYMBOL(tasklet_kill);
+ 
+ void __init softirq_init(void)
+ {
+-	open_softirq(TASKLET_SOFTIRQ, tasklet_action, NULL);
+-	open_softirq(HI_SOFTIRQ, tasklet_hi_action, NULL);
++	open_softirq(TASKLET_SOFTIRQ, tasklet_action);
++	open_softirq(HI_SOFTIRQ, tasklet_hi_action);
+ }
+ 
+ static int ksoftirqd(void * __bind_cpu)
+diff --git a/kernel/timer.c b/kernel/timer.c
+--- a/kernel/timer.c
++++ b/kernel/timer.c
+@@ -1338,7 +1338,7 @@ void __init init_timers(void)
+ 
+ 	BUG_ON(err == NOTIFY_BAD);
+ 	register_cpu_notifier(&timers_nb);
+-	open_softirq(TIMER_SOFTIRQ, run_timer_softirq, NULL);
++	open_softirq(TIMER_SOFTIRQ, run_timer_softirq);
+ }
+ 
+ #ifdef CONFIG_TIME_INTERPOLATION
+diff --git a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3727,8 +3727,8 @@ static int __init net_dev_init(void)
+ 
+ 	dev_boot_phase = 0;
+ 
+-	open_softirq(NET_TX_SOFTIRQ, net_tx_action, NULL);
+-	open_softirq(NET_RX_SOFTIRQ, net_rx_action, NULL);
++	open_softirq(NET_TX_SOFTIRQ, net_tx_action);
++	open_softirq(NET_RX_SOFTIRQ, net_rx_action);
+ 
+ 	hotcpu_notifier(dev_cpu_callback, 0);
+ 	dst_init();
+-- 

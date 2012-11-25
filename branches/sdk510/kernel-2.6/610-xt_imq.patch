@@ -324,7 +324,7 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +	return 0;
 +}
 +
-+static int imq_nf_queue(struct sk_buff *skb, struct nf_info *info, unsigned queue_num, void *data)
++static int imq_nf_queue(struct sk_buff *skb, struct nf_info *info, unsigned queue_num)
 +{
 +	struct net_device *dev;
 +	struct net_device_stats *stats;

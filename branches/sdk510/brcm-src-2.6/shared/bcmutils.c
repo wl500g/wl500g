@@ -834,7 +834,7 @@ findmatch(char *string, char *name)
 uint
 getgpiopin(char *vars, char *pin_name, uint def_pin)
 {
-	char name[] = "gpioXXXX";
+	char name[sizeof("gpioXXXX")];
 	char *val;
 	uint pin;
 

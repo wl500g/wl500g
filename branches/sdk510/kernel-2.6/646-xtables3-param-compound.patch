@@ -9,9 +9,11 @@ netfilter: xtables: move extension arguments into compound structure
  a2df1648ba615dd5908e9a1fa7b2f133fa302487 netfilter: xtables: move extension arguments into compound structure (6/6)
  916a917dfec18535ff9e2afdafba82e6279eb4f4 netfilter: xtables: provide invoked family value to extensions
  92f3b2b1bc968caaabee8cd78bee75ab7c4af74e netfilter: xtables: cut down on static data for family-independent extensions
+ daaf83d2b9277928739f3eb7ea64f49c1254fd62 netfilter 09/09: remove padding from struct xt_match on 64bit builds
+ f5c511c67aaec323c186543856cfddab31bed1d1 netfilter: xtables: reduce holes in struct xt_target
 
 ---
- include/linux/netfilter/x_tables.h        |  135 ++++++++++++++++++------
+ include/linux/netfilter/x_tables.h        |  139 ++++++++++++++++++------
  include/linux/netfilter_bridge/ebtables.h |    4 
  net/bridge/netfilter/ebt_802_3.c          |   13 --
  net/bridge/netfilter/ebt_among.c          |   15 --
@@ -104,9 +106,9 @@ netfilter: xtables: move extension arguments into compound structure
  net/netfilter/xt_tcpudp.c                 |   66 +++--------
  net/netfilter/xt_time.c                   |   15 --
  net/netfilter/xt_u32.c                    |    8 -
- net/netfilter/xt_webstr.c                 |   24 +---
+ net/netfilter/xt_webstr.c                 |   46 +-------
  net/sched/act_ipt.c                       |   32 ++++-
- 95 files changed, 1039 insertions(+), 1767 deletions(-)
+ 95 files changed, 1046 insertions(+), 1786 deletions(-)
 
 diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
 --- a/include/linux/netfilter/x_tables.h
@@ -210,6 +212,14 @@ diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tabl
  struct xt_match
  {
  	struct list_head list;
+@@ -172,6 +270,7 @@ struct xt_match
+ 	struct list_head list;
+ 
+ 	const char name[XT_FUNCTION_MAXNAMELEN-1];
++	u_int8_t revision;
+ 
+ 	/* Return true or false: return FALSE and set *hotdrop = 1 to
+            force immediate packet drop. */
 @@ -185,24 +277,13 @@ struct xt_match
  	   non-linear skb, using skb_header_pointer and
  	   skb_ip_make_writable. */
@@ -238,6 +248,22 @@ diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tabl
  
  	/* Called when userspace align differs from kernel space one */
  	void (*compat_from_user)(void *dst, void *src);
+@@ -210,7 +303,6 @@ struct xt_match
+ 	unsigned short proto;
+ 
+ 	unsigned short family;
+-	u_int8_t revision;
+ };
+ 
+ /* Registration hooks for targets. */
+@@ -219,6 +311,7 @@ struct xt_target {
+ 	struct list_head list;
+ 
+ 	const char name[XT_FUNCTION_MAXNAMELEN-1];
++	u_int8_t revision;
+ 
+ 	/* Returns verdict. Argument order changed since 2.6.9, as this
+ 	   must now handle non-linear skbs, using skb_copy_bits and
 @@ -235,24 +316,16 @@ struct xt_target
  	   must now handle non-linear skbs, using skb_copy_bits and
  	   skb_ip_make_writable. */
@@ -266,6 +292,14 @@ diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tabl
  
  	/* Called when userspace align differs from kernel space one */
  	void (*compat_from_user)(void *dst, void *src);
+@@ -252,7 +344,6 @@ struct xt_target {
+ 	unsigned short proto;
+ 
+ 	unsigned short family;
+-	u_int8_t revision;
+ };
+ 
+ /* Furniture shopping... */
 @@ -325,14 +398,10 @@ extern void xt_unregister_match(struct x
  extern int xt_register_matches(struct xt_match *match, unsigned int n);
  extern void xt_unregister_matches(struct xt_match *match, unsigned int n);
