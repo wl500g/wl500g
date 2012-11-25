@@ -873,6 +873,10 @@ int ip_mroute_setsockopt(struct sock *sk,int optname,char __user *optval,int opt
 	struct vifctl vif;
 	struct mfcctl mfc;
 
+	if (sk->sk_type != SOCK_RAW ||
+	    inet_sk(sk)->num != IPPROTO_IGMP)
+		return -EOPNOTSUPP;
+
 	if (optname != MRT_INIT) {
 		if (sk != mroute_socket && !capable(CAP_NET_ADMIN))
 			return -EACCES;
@@ -880,11 +884,8 @@ int ip_mroute_setsockopt(struct sock *sk,int optname,char __user *optval,int opt
 
 	switch (optname) {
 	case MRT_INIT:
-		if (sk->sk_type != SOCK_RAW ||
-		    inet_sk(sk)->num != IPPROTO_IGMP)
-			return -EOPNOTSUPP;
 		if (optlen!=sizeof(int))
-			return -ENOPROTOOPT;
+			return -EINVAL;
 
 		rtnl_lock();
 		if (mroute_socket) {
@@ -946,18 +947,24 @@ int ip_mroute_setsockopt(struct sock *sk,int optname,char __user *optval,int opt
 	case MRT_ASSERT:
 	{
 		int v;
+		if (optlen != sizeof(v))
+			return -EINVAL;
 		if (get_user(v,(int __user *)optval))
 			return -EFAULT;
-		mroute_do_assert=(v)?1:0;
+		mroute_do_assert = !!v;
 		return 0;
 	}
 #ifdef CONFIG_IP_PIMSM
 	case MRT_PIM:
 	{
-		int v, ret;
+		int v;
+
+		if (optlen != sizeof(v))
+			return -EINVAL;
 		if (get_user(v,(int __user *)optval))
 			return -EFAULT;
-		v = (v)?1:0;
+		v = !!v;
+
 		rtnl_lock();
 		ret = 0;
 		if (v != mroute_do_pim) {
@@ -995,6 +1002,10 @@ int ip_mroute_getsockopt(struct sock *sk,int optname,char __user *optval,int __u
 {
 	int olr;
 	int val;
+
+	if (sk->sk_type != SOCK_RAW ||
+	    inet_sk(sk)->num != IPPROTO_IGMP)
+		return -EOPNOTSUPP;
 
 	if (optname!=MRT_VERSION &&
 #ifdef CONFIG_IP_PIMSM
