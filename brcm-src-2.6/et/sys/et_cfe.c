@@ -2,7 +2,7 @@
  * CFE polled-mode device driver for
  * Broadcom BCM47XX 10/100 Mbps Ethernet Controller
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2008, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: et_cfe.c,v 1.19.96.3 2010/11/22 08:59:20 Exp $
+ * $Id: et_cfe.c,v 1.19.96.2 2008/09/12 04:31:31 Exp $
  */
 
 #include "lib_types.h"
@@ -40,17 +40,25 @@
 #include <bcmgmacrxh.h>
 #include <etc.h>
 
-struct et_info {
+typedef struct et_info {
 	etc_info_t *etc;		/* pointer to common os-independent data */
 	cfe_devctx_t *ctx;		/* backpoint to device */
 	int64_t timer;			/* one second watchdog timer */
 	osl_t *osh;
 	struct et_info *next;		/* pointer to next et_info_t in chain */
-};
+} et_info_t;
 
 static et_info_t *et_list = NULL;
 
-static void et_addcmd(void);
+void et_init(et_info_t *et, uint options);
+void et_reset(et_info_t *et);
+void et_link_up(et_info_t *et);
+void et_link_down(et_info_t *et);
+int et_up(et_info_t *et);
+int et_down(et_info_t *et, int reset);
+void et_dump(et_info_t *et, struct bcmstrbuf *b);
+void et_addcmd(void);
+void et_intrson(et_info_t *et);
 
 void
 et_init(et_info_t *et, uint options)
@@ -98,7 +106,7 @@ et_up(et_info_t *et)
 	return 0;
 }
 
-void
+int
 et_down(et_info_t *et, int reset)
 {
 	ET_TRACE(("et%d: et_down\n", et->etc->unit));
@@ -107,15 +115,18 @@ et_down(et_info_t *et, int reset)
 	TIMER_CLEAR(et->timer);
 
 	etc_down(et->etc, reset);
+
+	return 0;
 }
 
 void
 et_dump(et_info_t *et, struct bcmstrbuf *b)
 {
-#ifdef BCMDBG
-	etc_dump(et->etc, b);
-#endif
 }
+
+et_info_t *et_phyfind(et_info_t *et, uint coreunit);
+uint16 et_phyrd(et_info_t *et, uint phyaddr, uint reg);
+void et_phywr(et_info_t *et, uint reg, uint phyaddr, uint16 val);
 
 /*
  * 47XX-specific shared mdc/mdio contortion:
@@ -129,7 +140,7 @@ et_phyfind(et_info_t *et, uint coreunit)
 
 	/* walk the list et's */
 	for (tmp = et_list; tmp; tmp = tmp->next) {
-		if (tmp->etc == NULL)
+		if (et->etc == NULL)
 			continue;
 		if (tmp->etc->coreunit != coreunit)
 			continue;
@@ -620,7 +631,7 @@ ui_cmd_et(ui_cmdline_t *cmdline, int argc, char *argv[])
 	return etc_ioctl(et->etc, cmd, arg);
 }
 
-static void
+void
 et_addcmd(void)
 {
 	cmd_addcmd("et",

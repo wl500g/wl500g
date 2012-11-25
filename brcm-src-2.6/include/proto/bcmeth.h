@@ -1,7 +1,7 @@
 /*
  * Broadcom Ethernettype  protocol definitions
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2008, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmeth.h,v 9.9.13 2010/11/22 09:05:02 Exp $
+ * $Id: bcmeth.h,v 9.9.12.2 2008/05/02 23:24:25 Exp $
  */
 
 /*
@@ -19,14 +19,15 @@
 #ifndef _BCMETH_H_
 #define _BCMETH_H_
 
-#ifndef _TYPEDEFS_H_
-#include <typedefs.h>
+/* enable structure packing */
+#if defined(__GNUC__)
+#define	PACKED	__attribute__((packed))
+#else
+#pragma pack(1)
+#define	PACKED
 #endif
 
-#ifndef LINUX_POSTMOGRIFY_REMOVAL
-/* This marks the start of a packed structure section. */
-#include <packed_section_start.h>
-
+#ifndef LINUX_HYBRID_POSTMOGRIFY_REMOVAL
 /* ETHER_TYPE_BRCM is defined in ethernet.h */
 
 /*
@@ -82,10 +83,10 @@
 
 #define BCMILCP_BCM_SUBTYPEHDR_MINLENGTH	8
 #define BCMILCP_BCM_SUBTYPEHDR_VERSION		0
-#endif /* LINUX_POSTMOGRIFY_REMOVAL */
+#endif /* LINUX_HYBRID_POSTMOGRIFY_REMOVAL */
 
 /* These fields are stored in network order */
-typedef BWL_PRE_PACKED_STRUCT struct bcmeth_hdr
+typedef  struct bcmeth_hdr
 {
 	uint16	subtype;	/* Vendor specific..32769 */
 	uint16	length;
@@ -93,10 +94,11 @@ typedef BWL_PRE_PACKED_STRUCT struct bcmeth_hdr
 	uint8	oui[3];		/* Broadcom OUI */
 	/* user specific Data */
 	uint16	usr_subtype;
-} BWL_POST_PACKED_STRUCT bcmeth_hdr_t;
+} PACKED bcmeth_hdr_t;
 
-
-/* This marks the end of a packed structure section. */
-#include <packed_section_end.h>
+#undef PACKED
+#if !defined(__GNUC__)
+#pragma pack()
+#endif
 
 #endif	/*  _BCMETH_H_ */

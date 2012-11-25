@@ -1,7 +1,7 @@
 /*
  * Misc useful routines to access NIC local SROM/OTP .
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2008, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmsrom.h,v 13.30.2.9 2010/11/22 09:05:02 Exp $
+ * $Id: bcmsrom.h,v 13.30.2.8 2008/10/05 02:56:01 Exp $
  */
 
 #ifndef	_bcmsrom_h_
@@ -29,7 +29,7 @@ extern int srom_write(si_t *sih, uint bus, void *curmap, osl_t *osh,
                       uint byteoff, uint nbytes, uint16 *buf);
 
 extern int srom_otp_cisrwvar(si_t *sih, osl_t *osh, char *vars, int *count);
-#if defined(WLTEST) || defined(BCMDBG)
+#if defined(WLTEST)
 extern int srom_otp_write_region_crc(si_t *sih, uint nbytes, uint16* buf16, bool write);
 #endif 
 

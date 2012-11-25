@@ -142,8 +142,8 @@ diff -urBp '-x.*' src/et-5.10.56.46/sys/et_linux.c src/et/sys/et_linux.c
 --- src/et-5.10.56.46/sys/et_linux.c	2009-08-27 07:52:07.000000000 +0400
 +++ src/et/sys/et_linux.c	2009-10-10 21:15:19.000000000 +0400
 @@ -1194,6 +1207,26 @@ et_sendup(et_info_t *et, struct sk_buff
- 		return;
- 	#endif /* HNDCTF */
+ 	if (flags)
+ 		goto err;
  
 +	/* check for invalid data on the unit 1, workaround hw bug */
 +	if (etc->chip == BCM4710_CHIP_ID && etc->unit == 1) 
@@ -165,6 +165,6 @@ diff -urBp '-x.*' src/et-5.10.56.46/sys/et_linux.c src/et/sys/et_linux.c
 +		}
 +	}
 +
- 	/* extract priority from payload and store it out-of-band
- 	 * in skb->priority
- 	 */
+ 	/* Extract priority from payload and store it out-of-band in skb->priority */
+ 	if (et->etc->qos)
+ 		pktsetprio(skb, TRUE);

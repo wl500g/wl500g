@@ -7,18 +7,19 @@
  *
  * Copyright (C) 2002 Broadcom Corporation
  *
- * $Id: eapol.h,v 9.20.1 2010/11/22 09:05:02 Exp $
+ * $Id: eapol.h,v 9.20 2008/01/25 19:17:50 Exp $
  */
 
 #ifndef _eapol_h_
 #define _eapol_h_
 
-#ifndef _TYPEDEFS_H_
-#include <typedefs.h>
+/* enable structure packing */
+#if defined(__GNUC__)
+#define	PACKED	__attribute__((packed))
+#else
+#pragma pack(1)
+#define	PACKED
 #endif
-
-/* This marks the start of a packed structure section. */
-#include <packed_section_start.h>
 
 #include <bcmcrypto/aeskeywrap.h>
 
@@ -48,7 +49,9 @@ typedef struct {
 
 /* EAPOL-Key types */
 #define EAPOL_RC4_KEY		1
+#ifdef BCMWPA2
 #define EAPOL_WPA2_KEY		2	/* 802.11i/WPA2 */
+#endif
 #define EAPOL_WPA_KEY		254	/* WPA */
 
 /* RC4 EAPOL-Key header field sizes */
@@ -57,7 +60,7 @@ typedef struct {
 #define EAPOL_KEY_SIG_LEN	16
 
 /* RC4 EAPOL-Key */
-typedef BWL_PRE_PACKED_STRUCT struct {
+typedef struct {
 	unsigned char type;			/* Key Descriptor Type */
 	unsigned short length;			/* Key Length (unaligned) */
 	unsigned char replay[EAPOL_KEY_REPLAY_LEN];	/* Replay Counter */
@@ -65,7 +68,7 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 	unsigned char index;				/* Key Flags & Index */
 	unsigned char signature[EAPOL_KEY_SIG_LEN];	/* Key Signature */
 	unsigned char key[1];				/* Key (optional) */
-} BWL_POST_PACKED_STRUCT eapol_key_header_t;
+} PACKED eapol_key_header_t;
 
 #define EAPOL_KEY_HEADER_LEN 	44
 
@@ -88,7 +91,7 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 #define EAPOL_WPA_MAX_KEY_SIZE		32
 
 /* WPA EAPOL-Key */
-typedef BWL_PRE_PACKED_STRUCT struct {
+typedef struct {
 	unsigned char type;		/* Key Descriptor Type */
 	unsigned short key_info;	/* Key Information (unaligned) */
 	unsigned short key_len;		/* Key Length (unaligned) */
@@ -100,7 +103,7 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 	unsigned char mic[EAPOL_WPA_KEY_MIC_LEN];	/* Key MIC */
 	unsigned short data_len;			/* Key Data Length */
 	unsigned char data[EAPOL_WPA_KEY_DATA_LEN];	/* Key data */
-} BWL_POST_PACKED_STRUCT eapol_wpa_key_header_t;
+} PACKED eapol_wpa_key_header_t;
 
 #define EAPOL_WPA_KEY_LEN 		95
 
@@ -123,17 +126,18 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 #define WPA_KEY_INDEX_MASK	0x30
 #define WPA_KEY_INDEX_SHIFT	0x04
 
+#ifdef BCMWPA2
 /* 802.11i/WPA2-only KEY KEY_INFO bits */
 #define WPA_KEY_ENCRYPTED_DATA	0x1000
 
 /* Key Data encapsulation */
-typedef BWL_PRE_PACKED_STRUCT struct {
+typedef struct {
 	uint8 type;
 	uint8 length;
 	uint8 oui[3];
 	uint8 subtype;
 	uint8 data[1];
-} BWL_POST_PACKED_STRUCT eapol_wpa2_encap_data_t;
+} PACKED eapol_wpa2_encap_data_t;
 
 #define EAPOL_WPA2_ENCAP_DATA_HDR_LEN 	6
 
@@ -143,11 +147,11 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 #define WPA2_KEY_DATA_SUBTYPE_PMKID	4
 
 /* GTK encapsulation */
-typedef BWL_PRE_PACKED_STRUCT struct {
+typedef struct {
 	uint8	flags;
 	uint8	reserved;
 	uint8	gtk[EAPOL_WPA_MAX_KEY_SIZE];
-} BWL_POST_PACKED_STRUCT eapol_wpa2_key_gtk_encap_t;
+} PACKED eapol_wpa2_key_gtk_encap_t;
 
 #define EAPOL_WPA2_KEY_GTK_ENCAP_HDR_LEN 	2
 
@@ -157,16 +161,19 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 #define WPA2_GTK_TRANSMIT	0x04
 
 /* STAKey encapsulation */
-typedef BWL_PRE_PACKED_STRUCT struct {
+typedef struct {
 	uint8	reserved[2];
 	uint8	mac[ETHER_ADDR_LEN];
 	uint8	stakey[EAPOL_WPA_MAX_KEY_SIZE];
-} BWL_POST_PACKED_STRUCT eapol_wpa2_key_stakey_encap_t;
+} PACKED eapol_wpa2_key_stakey_encap_t;
 
 #define WPA2_KEY_DATA_PAD	0xdd
 
+#endif /* BCMWPA2 */
 
-/* This marks the end of a packed structure section. */
-#include <packed_section_end.h>
+#undef PACKED
+#if !defined(__GNUC__)
+#pragma pack()
+#endif
 
 #endif /* _eapol_h_ */

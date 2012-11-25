@@ -102,11 +102,7 @@ endif # partial rebuild
 else # SRCBASE/wl/sys doesn't exist
 
     # Otherwise, assume prebuilt object module(s) in src/wl/linux directory
-ifeq ($(CONFIG_CPU_MIPS32_R2),)
-    prebuilt := wl_$(wl_suffix).R1.o
-else
     prebuilt := wl_$(wl_suffix).o
-endif
     $(TARGET)-objs := $(SRCBASE)/wl/linux/$(prebuilt)
 
 endif

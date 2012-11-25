@@ -1,4 +1,4 @@
-/* $Id: sha1.h,v 1.9 2010/11/22 09:05:02 Exp $ */
+/* $Id: sha1.h,v 1.9 2007/07/27 21:53:01 Exp $ */
 /*FILE-CSTYLED*/
 
 /* From rfc3174.txt */
@@ -108,11 +108,11 @@ typedef struct SHA1Context
  *  Function Prototypes
  */
 
-int BCMROMFN(SHA1Reset)(SHA1Context *);
-int BCMROMFN(SHA1Input)(SHA1Context *,
+int SHA1Reset(  SHA1Context *);
+int SHA1Input(  SHA1Context *,
                 const uint8 *,
                 unsigned int);
-int BCMROMFN(SHA1Result)( SHA1Context *,
+int SHA1Result( SHA1Context *,
                 uint8 Message_Digest[SHA1HashSize]);
 
 #endif
