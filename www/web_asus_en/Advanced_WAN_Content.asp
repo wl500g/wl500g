@@ -23,11 +23,11 @@
 	<input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time"
 		value="">
 	<input type="hidden" name="action_script" value="">
-	<input type="hidden" name="wan_pppoe_txonly_x" value="<% nvram_get_x("PPPConnection","wan_pppoe_txonly_x"); %>">
+	<input type="hidden" name="wan_pppoe_txonly_x" value="<% nvram_get("wan_pppoe_txonly_x"); %>">
 
-	<input type="hidden" name="dhcp_start" value="<% nvram_get_x("LANHostConfig","dhcp_start"); %>">
-	<input type="hidden" name="dhcp_end" value="<% nvram_get_x("LANHostConfig","dhcp_end"); %>">
-	<input type="hidden" name="lan_ipaddr" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>">
+	<input type="hidden" name="dhcp_start" value="<% nvram_get("dhcp_start"); %>">
+	<input type="hidden" name="dhcp_end" value="<% nvram_get("dhcp_end"); %>">
+	<input type="hidden" name="lan_ipaddr" value="<% nvram_get("lan_ipaddr"); %>">
 
 	<!-- Table for the conntent page -->
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
@@ -127,7 +127,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="15" class="content_input_fd" size="15" name="wan_ipaddr"
-								value="<% nvram_get_x("IPConnection","wan_ipaddr"); %>" onblur="return validate_ipaddr(this, 'wan_ipaddr')"
+								value="<% nvram_get("wan_ipaddr"); %>" onblur="return validate_ipaddr(this, 'wan_ipaddr')"
 								onkeypress="return is_ipaddr(event, this)" onkeyup="change_ipaddr(this)">
 						</td>
 					</tr>
@@ -138,7 +138,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="15" class="content_input_fd" size="15" name="wan_netmask"
-								value="<% nvram_get_x("IPConnection","wan_netmask"); %>" onblur="return validate_ipaddr(this, 'wan_netmask')"
+								value="<% nvram_get("wan_netmask"); %>" onblur="return validate_ipaddr(this, 'wan_netmask')"
 								onkeypress="return is_ipaddr(event, this)" onkeyup="change_ipaddr(this)">
 						</td>
 					</tr>
@@ -149,14 +149,14 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="15" class="content_input_fd" size="15" name="wan_gateway"
-								value="<% nvram_get_x("IPConnection","wan_gateway"); %>" onblur="return validate_ipaddr(this, 'wan_gateway')"
+								value="<% nvram_get("wan_gateway"); %>" onblur="return validate_ipaddr(this, 'wan_gateway')"
 								onkeypress="return is_ipaddr(event, this)" onkeyup="change_ipaddr(this)">
 						</td>
 					</tr>
 					<!--<tr>
 <td class="content_header_td" onMouseOver="return overlib('This is the priority of default gateway (1-10).', LEFT);" onMouseOut="return nd();">Priority:</td>
 <td class="content_input_td">
-<input type="text" maxlength="3" class="content_input_fd" size="3" name="wan_priority" value="<% nvram_get_x("IPConnection","wan_priority"); %>" onBlur="return validate_range(this, 1, 10)" onKeyPress="return is_number(event, this)"</td>
+<input type="text" maxlength="3" class="content_input_fd" size="3" name="wan_priority" value="<% nvram_get("wan_priority"); %>" onBlur="return validate_range(this, 1, 10)" onKeyPress="return is_number(event, this)"</td>
 </tr>-->
 					<tr class="content_section_header_tr">
 						<td class="content_section_header_td" colspan="2">
@@ -181,7 +181,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="15" class="content_input_fd" size="15" name="wan_dns1_x"
-								value="<% nvram_get_x("IPConnection","wan_dns1_x"); %>" onblur="return validate_ipaddr(this, 'wan_dns1_x')"
+								value="<% nvram_get("wan_dns1_x"); %>" onblur="return validate_ipaddr(this, 'wan_dns1_x')"
 								onkeypress="return is_ipaddr(event, this)" onkeyup="change_ipaddr(this)">
 						</td>
 					</tr>
@@ -192,7 +192,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="15" class="content_input_fd" size="15" name="wan_dns2_x"
-								value="<% nvram_get_x("IPConnection","wan_dns2_x"); %>" onblur="return validate_ipaddr(this, 'wan_dns2_x')"
+								value="<% nvram_get("wan_dns2_x"); %>" onblur="return validate_ipaddr(this, 'wan_dns2_x')"
 								onkeypress="return is_ipaddr(event, this)" onkeyup="change_ipaddr(this)">
 						</td>
 					</tr>
@@ -223,7 +223,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="64" class="content_input_fd" size="32" name="wan_pppoe_username"
-								value="<% nvram_get_x("PPPConnection","wan_pppoe_username"); %>" onkeypress="return is_string(event, this)"
+								value="<% nvram_get("wan_pppoe_username"); %>" onkeypress="return is_string(event, this)"
 								onblur="validate_string(this)">
 						</td>
 					</tr>
@@ -234,7 +234,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="password" maxlength="64" class="content_input_fd" size="32" name="wan_pppoe_passwd"
-								value="<% nvram_get_x("PPPConnection","wan_pppoe_passwd"); %>" onblur="validate_string(this)">
+								value="<% nvram_get("wan_pppoe_passwd"); %>" onblur="validate_string(this)">
 						</td>
 					</tr>
 					<tr>
@@ -244,7 +244,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="10" class="content_input_fd" size="10" name="wan_pppoe_idletime"
-								value="<% nvram_get_x("PPPConnection","wan_pppoe_idletime"); %>" onblur="validate_range(this, 0, 4294967295)"
+								value="<% nvram_get("wan_pppoe_idletime"); %>" onblur="validate_range(this, 0, 4294967295)"
 								onkeypress="return is_number(event, this)"><input type="checkbox" style="margin-left: 30"
 									name="wan_pppoe_idletime_check" value="" onclick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_idletime', '1')">Tx
 							Only
@@ -257,7 +257,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="5" size="5" name="wan_pppoe_mtu" class="content_input_fd"
-								value="<% nvram_get_x("PPPConnection", "wan_pppoe_mtu"); %>" onblur="validate_range(this, 576, 1492)"
+								value="<% nvram_get("wan_pppoe_mtu"); %>" onblur="validate_range(this, 576, 1492)"
 								onkeypress="return is_number(event, this)">
 						</td>
 					</tr>
@@ -268,7 +268,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="5" size="5" name="wan_pppoe_mru" class="content_input_fd"
-								value="<% nvram_get_x("PPPConnection", "wan_pppoe_mru"); %>" onblur="validate_range(this, 576, 1492)"
+								value="<% nvram_get("wan_pppoe_mru"); %>" onblur="validate_range(this, 576, 1492)"
 								onkeypress="return is_number(event, this)">
 						</td>
 					</tr>
@@ -279,7 +279,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_pppoe_service"
-								value="<% nvram_get_x("PPPConnection","wan_pppoe_service"); %>" onkeypress="return is_string(event, this)"
+								value="<% nvram_get("wan_pppoe_service"); %>" onkeypress="return is_string(event, this)"
 								onblur="validate_string(this)">
 						</td>
 					</tr>
@@ -290,7 +290,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_pppoe_ac"
-								value="<% nvram_get_x("PPPConnection","wan_pppoe_ac"); %>" onkeypress="return is_string(event, this)"
+								value="<% nvram_get("wan_pppoe_ac"); %>" onkeypress="return is_string(event, this)"
 								onblur="validate_string(this)">
 						</td>
 					</tr>
@@ -321,7 +321,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="255" class="content_input_fd" size="32" name="wan_pppoe_options_x"
-								value="<% nvram_get_x("PPPConnection","wan_pppoe_options_x"); %>" onkeypress="return is_string(event, this)"
+								value="<% nvram_get("wan_pppoe_options_x"); %>" onkeypress="return is_string(event, this)"
 								onblur="validate_string(this)">
 						</td>
 					</tr>
@@ -349,7 +349,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_hostname"
-								value="<% nvram_get_x("PPPConnection","wan_hostname"); %>" onkeypress="return is_string(event, this)"
+								value="<% nvram_get("wan_hostname"); %>" onkeypress="return is_string(event, this)"
 								onblur="validate_string(this)">
 						</td>
 					</tr>
@@ -360,7 +360,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="12" class="content_input_fd" size="12" name="wan_hwaddr_x"
-								value="<% nvram_get_x("PPPConnection","wan_hwaddr_x"); %>" onblur="return validate_hwaddr(this)"
+								value="<% nvram_get("wan_hwaddr_x"); %>" onblur="return validate_hwaddr(this)"
 								onkeypress="return is_hwaddr(event, this)">
 						</td>
 					</tr>
@@ -370,7 +370,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_heartbeat_x"
-								value="<% nvram_get_x("PPPConnection","wan_heartbeat_x"); %>" onkeypress="return is_string(event, this)"
+								value="<% nvram_get("wan_heartbeat_x"); %>" onkeypress="return is_string(event, this)"
 								onblur="validate_string(this)">
 						</td>
 					</tr>

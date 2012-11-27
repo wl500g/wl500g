@@ -33,23 +33,23 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the Domain Name to provide to clients that request IP Address from DHCP Server.', LEFT);" onMouseOut="return nd();">Domain Name:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_domain" value="<% nvram_get_x("LANHostConfig","lan_domain"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_domain" value="<% nvram_get("lan_domain"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field specifies the first address in the pool to be assigned by the DHCP server in your local network.', LEFT);" onMouseOut="return nd();">IP Pool Starting Address:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dhcp_start" value="<% nvram_get_x("LANHostConfig","dhcp_start"); %>" onBlur="return validate_ipaddr(this, 'dhcp_start')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dhcp_start" value="<% nvram_get("dhcp_start"); %>" onBlur="return validate_ipaddr(this, 'dhcp_start')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field specifies the last address in the pool to be assigned by the DHCP server in your local network.', LEFT);" onMouseOut="return nd();">IP Pool Ending Address:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dhcp_end" value="<% nvram_get_x("LANHostConfig","dhcp_end"); %>" onBlur="return validate_ipaddr(this, 'dhcp_end')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dhcp_end" value="<% nvram_get("dhcp_end"); %>" onBlur="return validate_ipaddr(this, 'dhcp_end')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field specifies the amount of connection time a network user be allowed with their current dynamic IP address.', LEFT);" onMouseOut="return nd();">Lease Time:
-           </td><td class="content_input_td"><input type="text" maxlength="6" size="6" name="dhcp_lease" class="content_input_fd" value="<% nvram_get_x("LANHostConfig", "dhcp_lease"); %>" onBlur="validate_range_time(this, 1, 604800)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="6" size="6" name="dhcp_lease" class="content_input_fd" value="<% nvram_get("dhcp_lease"); %>" onBlur="validate_range_time(this, 1, 604800)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the IP address of gateway in your LAN. If you leave it blank, the IP address of ZVMODELVZ will be assigned.', LEFT);" onMouseOut="return nd();">Default Gateway:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dhcp_gateway_x" value="<% nvram_get_x("LANHostConfig","dhcp_gateway_x"); %>" onBlur="return validate_ipaddr(this, 'dhcp_gateway_x')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dhcp_gateway_x" value="<% nvram_get("dhcp_gateway_x"); %>" onBlur="return validate_ipaddr(this, 'dhcp_gateway_x')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">DNS and WINS Server Setting
@@ -57,15 +57,15 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the IP address of DNS to provide to clients that request IP Address from DHCP Server. You can leave it blank, then the DNS request will be processed by ZVMODELVZ.', LEFT);" onMouseOut="return nd();">DNS Server 1:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dhcp_dns1_x" value="<% nvram_get_x("LANHostConfig","dhcp_dns1_x"); %>" onBlur="return validate_ipaddr(this, 'dhcp_dns1_x')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dhcp_dns1_x" value="<% nvram_get("dhcp_dns1_x"); %>" onBlur="return validate_ipaddr(this, 'dhcp_dns1_x')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td">DNS Server 2:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd_ro" size="15" name="" value="<% nvram_get_f("LANHostConfig","lan_ipaddr"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd_ro" size="15" name="" value="<% nvram_get("lan_ipaddr"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The Windows Internet Naming Service manages interaction of each PC with the Internet. If you use a WINS server, enter IP Address of server here.', LEFT);" onMouseOut="return nd();">WINS Server:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dhcp_wins_x" value="<% nvram_get_x("LANHostConfig","dhcp_wins_x"); %>" onBlur="return validate_ipaddr(this, 'dhcp_wins_x')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dhcp_wins_x" value="<% nvram_get("dhcp_wins_x"); %>" onBlur="return validate_ipaddr(this, 'dhcp_wins_x')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Assign IP Address Manually
@@ -80,7 +80,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="ManualDHCPList">Manually Assigned IP List
-         <input type="hidden" name="dhcp_staticnum_x_0" value="<% nvram_get_x("LANHostConfig", "dhcp_staticnum_x"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="dhcp_staticnum_x_0" value="<% nvram_get("dhcp_staticnum_x"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'ManualDHCPList', 32, ' Add ');" name="ManualDHCPList" value="Add" size="12">
 </div>

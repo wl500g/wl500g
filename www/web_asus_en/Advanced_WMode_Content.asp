@@ -39,8 +39,8 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel', LEFT);" onMouseOut="return nd();">Channel:
            </td><td class="content_input_td"><select name="wl_channel" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_channel')">   
-<% select_channel("WLANConfig11b"); %>
-                </select><input type="hidden" maxlength="15" size="15" name="x_RegulatoryDomain" value="<% nvram_get_x("Regulatory","x_RegulatoryDomain"); %>" readonly></td>
+<% select_channel(); %>
+                </select><input type="hidden" maxlength="15" size="15" name="x_RegulatoryDomain" value="<% nvram_get("x_RegulatoryDomain"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Yes connects ZVMODELVZ to other APs listed in Remote Bridge List.', LEFT);" onMouseOut="return nd();">Connect to APs in Remote Bridge List?
@@ -55,7 +55,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="RBRList">Remote Bridge List
-         <input type="hidden" name="wl_wdsnum_x_0" value="<% nvram_get_x("WLANConfig11b", "wl_wdsnum_x"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="wl_wdsnum_x_0" value="<% nvram_get("wl_wdsnum_x"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'RBRList', 16, ' Add ');" name="RBRList" value="Add" size="12">
 </div>

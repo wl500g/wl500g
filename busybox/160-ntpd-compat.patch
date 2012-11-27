@@ -18,7 +18,7 @@ diff -urBp a/networking/ntpd.c b/networking/ntpd.c
  //usage:	IF_FEATURE_NTPD_SERVER(
  //usage:     "\n	-l	Run as server on port 123"
  //usage:	)
-@@ -235,9 +235,10 @@ enum {
+@@ -235,7 +235,8 @@ enum {
  	OPT_w = (1 << 4),
  	OPT_p = (1 << 5),
  	OPT_S = (1 << 6),
@@ -26,11 +26,8 @@ diff -urBp a/networking/ntpd.c b/networking/ntpd.c
 +	OPT_t = (1 << 7),
 +	OPT_l = (1 << 8) * ENABLE_FEATURE_NTPD_SERVER,
  	/* We hijack some bits for other purposes */
--	OPT_qq = (1 << 8),
-+	OPT_qq = (1 << 9),
+ 	OPT_qq = (1 << 31),
  };
- 
- struct globals {
 @@ -866,6 +867,9 @@ fit(peer_t *p, double rd)
  		VERB3 bb_error_msg("peer %s unfit for selection: unreachable", p->p_dotted);
  		return 0;

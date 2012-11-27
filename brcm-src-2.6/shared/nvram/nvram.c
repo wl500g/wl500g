@@ -33,7 +33,6 @@ int _nvram_getall(char *buf, int count);
 int _nvram_commit(struct nvram_header *header);
 int _nvram_init(void *sih);
 void _nvram_exit(void);
-uint8 nvram_calc_crc(struct nvram_header *nvh);
 
 static struct nvram_tuple *BCMINITDATA(nvram_hash)[257];
 static struct nvram_tuple *nvram_dead;
@@ -314,7 +313,7 @@ BCMINITFN(_nvram_exit)(void)
 
 /* returns the CRC8 of the nvram */
 uint8
-BCMINITFN(nvram_calc_crc)(struct nvram_header *nvh)
+BCMINITFN(nvram_calc_crc)(const struct nvram_header *nvh)
 {
 	struct nvram_header tmp;
 	uint8 crc;

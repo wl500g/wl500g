@@ -44,7 +44,7 @@ you to perform advanced configuration.</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the port number used by SSH protocol.', LEFT);" onMouseOut="return nd();">SSH Port:</td>
-<td class="content_input_td"><input type="text" maxlength="5" size="5" name="ssh_port" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "ssh_port"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(event, this)"></td>
+<td class="content_input_td"><input type="text" maxlength="5" size="5" name="ssh_port" class="content_input_fd" value="<% nvram_get("ssh_port"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td"

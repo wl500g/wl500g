@@ -23,7 +23,7 @@ function redirect1() {
           <td height="50" width="90%"><b><font size="5" face="Arial" color="#FF0000">Internet Connection Status</font></b></td>
         </tr>
         <tr> 
-          <td width="652" height="60" colspan="2"><font face="Arial"><% nvram_get_f("wan.log","StatusReason"); %></font></td>
+          <td width="652" height="60" colspan="2"><font face="Arial"><% nvram_get("StatusReason"); %></font></td>
         </tr>
         <tr>           
           <td align="center" width="400" height="60" colspan="2">

@@ -45,11 +45,11 @@
 
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a LAN host name for ZVMODELVZ.', LEFT);" onMouseOut="return nd();">Host Name:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get("lan_hostname"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Specifies workgroup name, which will be used by ZVMODELVZ to appear in.', LEFT);" onMouseOut="return nd();">Workgroup Name:</td><td class="content_input_td"><input type="text" maxlength="20" class="content_input_fd" size="32" name="usb_smbwrkgrp_x" value="<% nvram_get_x("PrinterStatus","usb_smbwrkgrp_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('Specifies workgroup name, which will be used by ZVMODELVZ to appear in.', LEFT);" onMouseOut="return nd();">Workgroup Name:</td><td class="content_input_td"><input type="text" maxlength="20" class="content_input_fd" size="32" name="usb_smbwrkgrp_x" value="<% nvram_get("usb_smbwrkgrp_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 
 <tr>
@@ -68,7 +68,7 @@
 <!-- 1 --><table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="ACLList">Manual Network Shares List
-         <input type="hidden" name="usb_smbnum_x_0" value="<% nvram_get_x("PrinterStatus", "usb_smbnum_x"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="usb_smbnum_x_0" value="<% nvram_get("usb_smbnum_x"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_SharesList', 32, ' Add ');" name="x_SharesList" value="Add" size="12">
 </div>

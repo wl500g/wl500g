@@ -18,16 +18,16 @@
 <input type="hidden" name="group_id" value="">
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="modified" value="0">
-<input type="hidden" name="Layer3Forwarding_x_ConnectionType" value="<% nvram_get_x("Layer3Forwarding","x_ConnectionType"); %>">
-<input type="hidden" name="IPConnection_ConnectionType" value="<% nvram_get_x("IPConnection","ConnectionType"); %>">
-<input type="hidden" name="IPConnection_NATEnabled" value="<% nvram_get_x("IPConnection","NATEnabled"); %>">
-<input type="hidden" name="WLANConfig11a_SSID" value="<% nvram_get_x("WLANConfig11a","SSID"); %>">
-<input type="hidden" name="WLANConfig11a_WEPType" value="<% nvram_get_x("WLANConfig11a","WEPType"); %>">
-<input type="hidden" name="WLANConfig11a_WEPKey1" value="<% nvram_get_x("WLANConfig11a","WEPKey1"); %>">
-<input type="hidden" name="WLANConfig11a_WEPKey2" value="<% nvram_get_x("WLANConfig11a","WEPKey2"); %>">
-<input type="hidden" name="WLANConfig11a_WEPKey3" value="<% nvram_get_x("WLANConfig11a","WEPKey3"); %>">
-<input type="hidden" name="WLANConfig11a_WEPKey4" value="<% nvram_get_x("WLANConfig11a","WEPKey4"); %>">
-<input type="hidden" name="WLANConfig11a_WEPDefaultKey" value="<% nvram_get_x("WLANConfig11a","WEPDefaultKey"); %>">
+<input type="hidden" name="Layer3Forwarding_x_ConnectionType" value="<% nvram_get("x_ConnectionType"); %>">
+<input type="hidden" name="IPConnection_ConnectionType" value="<% nvram_get("ConnectionType"); %>">
+<input type="hidden" name="IPConnection_NATEnabled" value="<% nvram_get("NATEnabled"); %>">
+<input type="hidden" name="WLANConfig11a_SSID" value="<% nvram_get("SSID"); %>">
+<input type="hidden" name="WLANConfig11a_WEPType" value="<% nvram_get("WEPType"); %>">
+<input type="hidden" name="WLANConfig11a_WEPKey1" value="<% nvram_get("WEPKey1"); %>">
+<input type="hidden" name="WLANConfig11a_WEPKey2" value="<% nvram_get("WEPKey2"); %>">
+<input type="hidden" name="WLANConfig11a_WEPKey3" value="<% nvram_get("WEPKey3"); %>">
+<input type="hidden" name="WLANConfig11a_WEPKey4" value="<% nvram_get("WEPKey4"); %>">
+<input type="hidden" name="WLANConfig11a_WEPDefaultKey" value="<% nvram_get("WEPDefaultKey"); %>">
 <!-- Table for the conntent page -->
 <table width="666" border="0" cellpadding="0" cellspacing="0">
 <tr>
@@ -74,10 +74,10 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <td class="content_header_td_less">Connect with static IP?</td><td class="content_input_td"><input type="radio" value="1" name="x_ADSLType" onClick="changeADSLType()">Yes</input><input type="radio" value="0" name="x_ADSLType" onClick="changeADSLType()">No</input></td>
 </tr>
 <tr>
-<td class="content_header_td_less">User Name:</td><td class="content_input_td"><input type="text" maxlength="64" size="32" name="PPPConnection_UserName" value="<% nvram_get_x("PPPConnection","UserName"); %>"></td>
+<td class="content_header_td_less">User Name:</td><td class="content_input_td"><input type="text" maxlength="64" size="32" name="PPPConnection_UserName" value="<% nvram_get("UserName"); %>"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">Password:</td><td class="content_input_td"><input type="password" maxlength="64" size="32" name="PPPConnection_Password" value="<% nvram_get_x("PPPConnection","Password"); %>"></td>
+<td class="content_header_td_less">Password:</td><td class="content_input_td"><input type="password" maxlength="64" size="32" name="PPPConnection_Password" value="<% nvram_get("Password"); %>"></td>
 </tr>
 <tr>
 <td class="content_input_td" colspan="2">
@@ -139,22 +139,22 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <td class="content_header_td_less">Get IP automatically?</td><td class="content_input_td"><input type="radio" value="1" name="x_DHCPClient" onClick="changeDHCPClient()">Yes</input><input type="radio" value="0" name="x_DHCPClient" onClick="changeDHCPClient()">No</input></td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('IP address of WAN Interface. If you leave it blank, ZVMODELVZ will get IP address from DHCP Server automatically');" onMouseOut="return nd();">IP Address:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_ExternalIPAddress" value="<% nvram_get_x("IPConnection","ExternalIPAddress"); %>" onBlur="return validate_ipaddr(this, 'ExternalIPAddress')" onKeyPress="return is_ipaddr(event, this)"></td>
+<td class="content_header_td_less" onMouseOver="return overlib('IP address of WAN Interface. If you leave it blank, ZVMODELVZ will get IP address from DHCP Server automatically');" onMouseOut="return nd();">IP Address:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_ExternalIPAddress" value="<% nvram_get("ExternalIPAddress"); %>" onBlur="return validate_ipaddr(this, 'ExternalIPAddress')" onKeyPress="return is_ipaddr(event, this)"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">Subnet Mask:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_ExternalSubnetMask" value="<% nvram_get_x("IPConnection","x_ExternalSubnetMask"); %>" onBlur="return validate_ipaddr(this)" onKeyPress="return is_ipaddr(event, this)"></td>
+<td class="content_header_td_less">Subnet Mask:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_ExternalSubnetMask" value="<% nvram_get("x_ExternalSubnetMask"); %>" onBlur="return validate_ipaddr(this)" onKeyPress="return is_ipaddr(event, this)"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">Gateway:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_ExternalGateway" value="<% nvram_get_x("IPConnection","x_ExternalGateway"); %>" onBlur="return validate_ipaddr(this)" onKeyPress="return is_ipaddr(event, this)"></td>
+<td class="content_header_td_less">Gateway:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_ExternalGateway" value="<% nvram_get("x_ExternalGateway"); %>" onBlur="return validate_ipaddr(this)" onKeyPress="return is_ipaddr(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Get DNS Server automatically?</td><td class="content_input_td"><input type="radio" value="1" name="IPConnection_x_DNSServerEnable" onClick="changeDNSServer()" <% nvram_match_x("IPConnection","x_DNSServerEnable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="IPConnection_x_DNSServerEnable" onClick="changeDNSServer()" <% nvram_match_x("IPConnection","x_DNSServerEnable", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
-<td class="content_header_td_less">DNS Server 1:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_DNSServer1" value="<% nvram_get_x("IPConnection","x_DNSServer1"); %>" onBlur="return validate_ipaddr(this)" onKeyPress="return is_ipaddr(event, this)"></td>
+<td class="content_header_td_less">DNS Server 1:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_DNSServer1" value="<% nvram_get("x_DNSServer1"); %>" onBlur="return validate_ipaddr(this)" onKeyPress="return is_ipaddr(event, this)"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">DNS Server 2:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_DNSServer2" value="<% nvram_get_x("IPConnection","x_DNSServer2"); %>" onBlur="return validate_ipaddr(this)" onKeyPress="return is_ipaddr(event, this)"></td>
+<td class="content_header_td_less">DNS Server 2:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_DNSServer2" value="<% nvram_get("x_DNSServer2"); %>" onBlur="return validate_ipaddr(this)" onKeyPress="return is_ipaddr(event, this)"></td>
 </tr>
 <tr>
 <td class="content_input_td" colspan="2">
@@ -181,25 +181,25 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <td class="content_desc_td" colspan="2" height="50">First step for setting your wireless interface is to give it a name, called SSID. In addition, if you like to protect transmitted data, please select WEP protection and assign WEP keys for data transmission. Your wireless setting will be applied into both 802.11a and 802.11b interfaces.</td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN');" onMouseOut="return nd();">SSID:</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_SSID" value="<% nvram_get_x("WLANConfig11b","SSID"); %>"></td>
+<td class="content_header_td_less" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN');" onMouseOut="return nd();">SSID:</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_SSID" value="<% nvram_get("SSID"); %>"></td>
 </tr>
 <tr>
 <td class="content_header_td_less" onMouseOver="return overlib('Enable WEP to encrypt data which can avoid disclosure to eavesdroppers');" onMouseOut="return nd();">WEP:</td><td class="content_input_td"><select name="WLANConfig11b_WEPType" onChange="return change_wlweptype(this, 'WLANConfig11b')"><option value="None" <% nvram_match_x("WLANConfig11b","WEPType", "None","selected"); %>>None</option><option value="64bits" <% nvram_match_x("WLANConfig11b","WEPType", "64bits","selected"); %>>64bits</option><option value="128bits" <% nvram_match_x("WLANConfig11b","WEPType", "128bits","selected"); %>>128bits</option></select></td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('Give a magic word to generate the WEP keys automatically or leave this field blank and type in the keys manually.');" onMouseOut="return nd();">Phrase:</td><td class="content_input_td"><script type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="WLANConfig11b_x_Phrase" value="<% nvram_get_x("WLANConfig11b","x_Phrase"); %>" onKeyUp="return is_wlphrase('WLANConfig11b',this)"></td>
+<td class="content_header_td_less" onMouseOver="return overlib('Give a magic word to generate the WEP keys automatically or leave this field blank and type in the keys manually.');" onMouseOut="return nd();">Phrase:</td><td class="content_input_td"><script type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="WLANConfig11b_x_Phrase" value="<% nvram_get("x_Phrase"); %>" onKeyUp="return is_wlphrase('WLANConfig11b',this)"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 1 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey1" value="<% nvram_get_x("WLANConfig11b","WEPKey1"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
+<td class="content_header_td_less">WEP Key 1 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey1" value="<% nvram_get("WEPKey1"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 2 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey2" value="<% nvram_get_x("WLANConfig11b","WEPKey2"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
+<td class="content_header_td_less">WEP Key 2 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey2" value="<% nvram_get("WEPKey2"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 3 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey3" value="<% nvram_get_x("WLANConfig11b","WEPKey3"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
+<td class="content_header_td_less">WEP Key 3 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey3" value="<% nvram_get("WEPKey3"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 4 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey4" value="<% nvram_get_x("WLANConfig11b","WEPKey4"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
+<td class="content_header_td_less">WEP Key 4 (10 or 26 hex digits):</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_WEPKey4" value="<% nvram_get("WEPKey4"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(event, this, 'WLANConfig11b')"></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Default Key:</td><td class="content_input_td"><select name="WLANConfig11b_WEPDefaultKey" onChange="return change_common(this, 'WLANConfig11b', 'WEPDefaultKey')"><option value="Key1" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key1","selected"); %>>Key1</option><option value="Key2" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key2","selected"); %>>Key2</option><option value="Key3" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key3","selected"); %>>Key3</option><option value="Key4" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key4","selected"); %>>Key4</option><option value="Key Rotation" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key Rotation","selected"); %>>Key Rotation</option></select></td>

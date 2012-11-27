@@ -23,13 +23,13 @@
 <td colspan="2">WAN IP Setting</td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('IP address of WAN Interface. If you leave it blank, WL600 will get IP address from DHCP Server automatically');" onMouseOut="return nd();">IP Address:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_ExternalIPAddress" value="<% nvram_get_x("IPConnection","ExternalIPAddress"); %>" onBlur="return validate_ipaddr(this, 'ExternalIPAddress')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('IP address of WAN Interface. If you leave it blank, WL600 will get IP address from DHCP Server automatically');" onMouseOut="return nd();">IP Address:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_ExternalIPAddress" value="<% nvram_get("ExternalIPAddress"); %>" onBlur="return validate_ipaddr(this, 'ExternalIPAddress')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
-<td class="content_header_td">Subnet Mask:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_ExternalSubnetMask" value="<% nvram_get_x("IPConnection","x_ExternalSubnetMask"); %>" onBlur="return validate_ipaddr(this, 'x_ExternalSubnetMask')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+<td class="content_header_td">Subnet Mask:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_ExternalSubnetMask" value="<% nvram_get("x_ExternalSubnetMask"); %>" onBlur="return validate_ipaddr(this, 'x_ExternalSubnetMask')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
-<td class="content_header_td">Gateway:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_ExternalGateway" value="<% nvram_get_x("IPConnection","x_ExternalGateway"); %>" onBlur="return validate_ipaddr(this, 'x_ExternalGateway')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
+<td class="content_header_td">Gateway:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="IPConnection_x_ExternalGateway" value="<% nvram_get("x_ExternalGateway"); %>" onBlur="return validate_ipaddr(this, 'x_ExternalGateway')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 </table>
 

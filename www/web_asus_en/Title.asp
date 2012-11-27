@@ -12,9 +12,9 @@
 <body>
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>
 <form method="get" name="form" action="apply.cgi">
-<input type="hidden" name="wan_route_x" value="<% nvram_get_x("IPConnection","wan_route_x"); %>">
-<input type="hidden" name="wan_nat_x" value="<% nvram_get_x("IPConnection","wan_nat_x"); %>">
-<input type="hidden" name="productid" value="<% nvram_get_f("general.log","productid"); %>">
+<input type="hidden" name="wan_route_x" value="<% nvram_get("wan_route_x"); %>">
+<input type="hidden" name="wan_nat_x" value="<% nvram_get("wan_nat_x"); %>">
+<input type="hidden" name="productid" value="<% nvram_get("productid"); %>">
 </form>
 <div style="margin: 0px 0px 0px 0px; border: none">
 <img src="./graph/iBox_title_all.jpg" width="666" height="80" alt="logo">

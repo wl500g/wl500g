@@ -37,7 +37,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines a list of WLAN to LAN ICMP packets type that will be filtered. For example, if you would like to filter Echo(type 8) and Echo Reply(type 0) ICMP packets, you need to enter a string of numbers separated by blank, such as, 0 5.', LEFT);" onMouseOut="return nd();">Filtered ICMP(WLAN to LAN) packet types:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="" value="<% nvram_get_x("FirewallConfig",""); %>" onBlur="return validate_portlist(this, '')" onKeyPress="return is_portlist(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="" value="<% nvram_get(""); %>" onBlur="return validate_portlist(this, '')" onKeyPress="return is_portlist(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines those LAN to WLAN packets which are not specified in LAN to WLAN Filter Table will be accepted or dropped.', LEFT);" onMouseOut="return nd();">Packets(LAN to WLAN) not specified will be:
@@ -45,7 +45,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines a list of LAN to WLAN ICMP packets type that will be filtered. For example, if you would like to filter Echo(type 8) and Echo Reply(type 0) ICMP packets, you need to enter a string of numbers separated by blank, such as, 0 5.', LEFT);" onMouseOut="return nd();">Filtered ICMP(LAN to WLAN) packet types:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="" value="<% nvram_get_x("FirewallConfig",""); %>" onBlur="return validate_portlist(this, '')" onKeyPress="return is_portlist(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="" value="<% nvram_get(""); %>" onBlur="return validate_portlist(this, '')" onKeyPress="return is_portlist(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates what kind of packets between WLAN and LAN will be logged.', LEFT);" onMouseOut="return nd();">Log type between WLAN and LAN:
@@ -56,7 +56,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="DLFilterList">WLAN to LAN Filter Table
-         <input type="hidden" name="DmzLanRuleCount_0" value="<% nvram_get_x("FirewallConfig", "DmzLanRuleCount"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="DmzLanRuleCount_0" value="<% nvram_get("DmzLanRuleCount"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'DLFilterList', 32, ' Add ');" name="DLFilterList" value="Add" size="12">
 </div>
@@ -107,7 +107,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="LDFilterList">LAN to WLAN Filter Table
-         <input type="hidden" name="LanDmzRuleCount_0" value="<% nvram_get_x("FirewallConfig", "LanDmzRuleCount"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="LanDmzRuleCount_0" value="<% nvram_get("LanDmzRuleCount"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'LDFilterList', 32, ' Add ');" name="LDFilterList" value="Add" size="12">
 </div>

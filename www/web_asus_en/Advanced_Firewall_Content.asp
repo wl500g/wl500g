@@ -40,7 +40,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the dates that LAN to WAN filter will be enabled.', LEFT);" onMouseOut="return nd();">Date to Enable LAN to WAN Filter:
-           </td><td class="content_input_td"><input type="hidden" maxlength="7" class="content_input_fd" size="7" name="filter_lw_date_x" value="<% nvram_get_x("FirewallConfig","filter_lw_date_x"); %>">
+           </td><td class="content_input_td"><input type="hidden" maxlength="7" class="content_input_fd" size="7" name="filter_lw_date_x" value="<% nvram_get("filter_lw_date_x"); %>">
 <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 <input type="checkbox" class="content_input_fd" name="filter_lw_date_x_Sun">Sun</input><input type="checkbox" class="content_input_fd" name="filter_lw_date_x_Mon">Mon</input><input type="checkbox" class="content_input_fd" name="filter_lw_date_x_Tue">Tue</input><input type="checkbox" class="content_input_fd" name="filter_lw_date_x_Wed">Wed</input>
 </p>
@@ -48,7 +48,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the time interval that LAN to WAN filter will be enabled.', LEFT);" onMouseOut="return nd();">Time of Day to Enable LAN to WAN Filter:
-           </td><td class="content_input_td"><input type="hidden" maxlength="11" class="content_input_fd" size="11" name="filter_lw_time_x" value="<% nvram_get_x("FirewallConfig","filter_lw_time_x"); %>"><input type="text" maxlength="2" class="content_input_fd" size="2" name="filter_lw_time_x_starthour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 0)">:
+           </td><td class="content_input_td"><input type="hidden" maxlength="11" class="content_input_fd" size="11" name="filter_lw_time_x" value="<% nvram_get("filter_lw_time_x"); %>"><input type="text" maxlength="2" class="content_input_fd" size="2" name="filter_lw_time_x_starthour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 0)">:
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="filter_lw_time_x_startmin" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 1)">-
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="filter_lw_time_x_endhour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 2)">:
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="filter_lw_time_x_endmin" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 3)"></td>
@@ -59,7 +59,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines a list of LAN to WAN ICMP packets type that will be filtered. For example, if you would like to filter Echo(type 8) and Echo Reply(type 0) ICMP packets, you need to enter a string with numbers separated by blank, such as, 0 5.', LEFT);" onMouseOut="return nd();">Filtered ICMP(LAN to WAN) packet types:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="filter_lw_icmp_x" value="<% nvram_get_x("FirewallConfig","filter_lw_icmp_x"); %>" onBlur="return validate_portlist(this, 'filter_lw_icmp_x')" onKeyPress="return is_portlist(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="filter_lw_icmp_x" value="<% nvram_get("filter_lw_icmp_x"); %>" onBlur="return validate_portlist(this, 'filter_lw_icmp_x')" onKeyPress="return is_portlist(event, this)"></td>
 </tr>
 </table>
 </td>
@@ -69,7 +69,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="LWFilterList">LAN to WAN Filter Table
-         <input type="hidden" name="filter_lw_num_x_0" value="<% nvram_get_x("FirewallConfig", "filter_lw_num_x"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="filter_lw_num_x_0" value="<% nvram_get("filter_lw_num_x"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'LWFilterList', 32, ' Add ');" name="LWFilterList" value="Add" size="12">
 </div>
@@ -135,7 +135,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the dates that WAN to LAN filter will be enabled.', LEFT);" onMouseOut="return nd();">Date to Enable WAN to LAN Filter:
-           </td><td class="content_input_td"><input type="hidden" maxlength="7" class="content_input_fd" size="7" name="filter_wl_date_x" value="<% nvram_get_x("FirewallConfig","filter_wl_date_x"); %>">
+           </td><td class="content_input_td"><input type="hidden" maxlength="7" class="content_input_fd" size="7" name="filter_wl_date_x" value="<% nvram_get("filter_wl_date_x"); %>">
 <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 <input type="checkbox" class="content_input_fd" name="filter_wl_date_x_Sun">Sun</input><input type="checkbox" class="content_input_fd" name="filter_wl_date_x_Mon">Mon</input><input type="checkbox" class="content_input_fd" name="filter_wl_date_x_Tue">Tue</input><input type="checkbox" class="content_input_fd" name="filter_wl_date_x_Wed">Wed</input>
 </p>
@@ -143,7 +143,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the time interval that WAN to LAN filter will be enabled.', LEFT);" onMouseOut="return nd();">Time of Day to Enable WAN to LAN Filter:
-           </td><td class="content_input_td"><input type="hidden" maxlength="11" class="content_input_fd" size="11" name="filter_wl_time_x" value="<% nvram_get_x("FirewallConfig","filter_wl_time_x"); %>"><input type="text" maxlength="2" class="content_input_fd" size="2" name="filter_wl_time_x_starthour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 0)">:
+           </td><td class="content_input_td"><input type="hidden" maxlength="11" class="content_input_fd" size="11" name="filter_wl_time_x" value="<% nvram_get("filter_wl_time_x"); %>"><input type="text" maxlength="2" class="content_input_fd" size="2" name="filter_wl_time_x_starthour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 0)">:
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="filter_wl_time_x_startmin" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 1)">-
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="filter_wl_time_x_endhour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 2)">:
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="filter_wl_time_x_endmin" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 3)"></td>
@@ -158,7 +158,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines a list of WAN to LAN ICMP packets type that will be filtered. For example, if you would like to filter Echo(type 8) and Echo Reply(type 0) ICMP packets, you need to enter a string with numbers separated by blank, such as, 0 5.', LEFT);" onMouseOut="return nd();">Filtered ICMP(WAN to LAN) packet types:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="filter_wl_icmp_x" value="<% nvram_get_x("FirewallConfig","filter_wl_icmp_x"); %>" onBlur="return validate_portlist(this, 'filter_wl_icmp_x')" onKeyPress="return is_portlist(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="filter_wl_icmp_x" value="<% nvram_get("filter_wl_icmp_x"); %>" onBlur="return validate_portlist(this, 'filter_wl_icmp_x')" onKeyPress="return is_portlist(event, this)"></td>
 </tr>
 </table>
 </td>
@@ -168,7 +168,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="WLFilterList">WAN to LAN Filter Table
-         <input type="hidden" name="filter_wl_num_x_0" value="<% nvram_get_x("FirewallConfig", "filter_wl_num_x"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="filter_wl_num_x_0" value="<% nvram_get("filter_wl_num_x"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'WLFilterList', 32, ' Add ');" name="WLFilterList" value="Add" size="12">
 </div>
