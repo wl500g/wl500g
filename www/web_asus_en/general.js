@@ -1912,13 +1912,17 @@ function load_body()
 	{
 //		if (frm.LANHostConfig_x_DDNSStatus.value != "1")
 //		frm.LANHostConfig_x_DDNSStatus_button.disabled = true;
-		inputCtrl(document.form.upnp_proto, document.form.upnp_enable.value == 0 ? 0 : 1);
+		inputCtrl(frm.upnp_proto, frm.upnp_enable.value == 0 ? 0 : 1);
 		TimeZoneList();
 		if (frm.udpxy_wan_x.value == "1")
 			frm.udpxy_wan_check.checked = true;
 		else
 			frm.udpxy_wan_check.checked = false;
 		
+		opts = frm.ddns_server_x.options;
+		value = (opts[opts.selectedIndex].value == "WWW.ASUS.COM") ? 0 : 1;
+		inputCtrl(frm.ddns_username_x, value);
+		inputCtrl(frm.ddns_passwd_x, value);
 	}
 	else if (frm.current_page.value == "Advanced_APLAN_Content.asp")
 	{
@@ -2437,6 +2441,13 @@ function onSubmitApply(s)
 		document.form.action_script.value = "portmapping.sh" + " " + action.value + " " + local.value + " " + port.value;
 //		document.form.submit();
 	}
+	else if (document.form.current_page.value == "Advanced_DDNS_Content.asp" &&
+		 s == "ddnsregister" &&
+		 document.form.ddns_server_x.value != "WWW.ASUS.COM")
+	{
+		openLink('x_DDNSServer');
+		return false;
+	}
 	else
 	{
 		document.form.action.value = "Update";
@@ -2616,6 +2627,13 @@ function change_common(o, s, v)
 	else if (s=="LANHostConfig" && v=="upnp_enable")
 	{
 		inputCtrl(document.form.upnp_proto, o.value == 0 ? 0 : 1);
+	}
+	else if (s=="LANHostConfig" && v=="ddns_server_x")
+	{
+		opts = document.form.ddns_server_x.options;
+		value = (opts[opts.selectedIndex].value == "WWW.ASUS.COM") ? 0 : 1;
+		inputCtrl(document.form.ddns_username_x, value);
+		inputCtrl(document.form.ddns_passwd_x, value);
 	}
 	else if (v == "usb_webformat_x")
 	{
@@ -3494,11 +3512,11 @@ function openLink(s)
 	if (s=='x_DDNSServer')
 	{
 		if (document.form.ddns_server_x.value.indexOf("WWW.DYNDNS.ORG")!=-1)
-			tourl = "https://www.dyndns.com/account/create.html";
+			tourl = "https://account.dyn.com/entrance/";
 		else if (document.form.ddns_server_x.value == 'WWW.TZO.COM')
 			tourl = "http://signup.tzo.com";
 		else if (document.form.ddns_server_x.value == 'WWW.ZONEEDIT.COM')
-			tourl = "https://www.zoneedit.com/signup.html?";
+			tourl = "https://www.zoneedit.com/signUp.html";
 		else if (document.form.ddns_server_x.value == 'WWW.EASYDNS.COM')
 			tourl = "https://web.easydns.com/Open_Account/";
 		else if (document.form.ddns_server_x.value == 'WWW.NO-IP.COM')
@@ -3509,6 +3527,8 @@ function openLink(s)
 			tourl = "http://www.tunnelbroker.net/register.php";
 		else if (document.form.ddns_server_x.value == 'DNS.HE.NET')
 			tourl = "http://ipv6.he.net/certification/register.php";
+		else if (document.form.ddns_server_x.value == 'WWW.ASUS.COM')
+			tourl = "http://asusddns.appspot.com/setup.jsp";
 		else
 			return;
 
