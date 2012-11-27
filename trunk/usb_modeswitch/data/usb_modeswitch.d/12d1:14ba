@@ -1,7 +1,8 @@
-# Huawei E173s
+#######################################################
+# Huawei E173u-2, E177
 
 TargetVendor=  0x12d1
-TargetProductList="1c05,1c07,1c08,1c10"
+TargetProduct= 0x14d2
 
 MessageContent="55534243123456780000000000000011062000000100000000000000000000"
 
