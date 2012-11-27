@@ -82,12 +82,6 @@ DriverIDPath=<path to attribute>
 Notes about specific devices:
 =============================
 
-- 16d8:6803 (C-motech D50, CDU-680): two versions popped up; one with
-  ID unchanged, target class 0xff, providing standard serial ports,
-  and one with target product 0x680a, providing an ACM port. There is
-  not enough information how to tell them apart; if you have the second
-  one, we badly need information (usb_modeswitch output with SCSI inquiry)
-
 - 1004:607f (LG KP500): switching message derived from report but untested
 
 - 1266:1000 (Royaltek Q110): switching method very likely but unconfirmed
@@ -126,4 +120,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2012-05-29, Josua Dietze
+Last revised: 2012-08-12, Josua Dietze

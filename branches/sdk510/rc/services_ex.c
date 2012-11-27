@@ -431,9 +431,7 @@ start_ddns(int type)
 	char *server, *user, *passwd, *host;
 	int  wild;
 	char service[64];
-#ifdef __CONFIG_EZIPUPDATE__
-	char *wan_ifname;
-#elif __CONFIG_INADYN__
+#ifdef __CONFIG_INADYN__
 	char *domain = NULL;
 	char word[32], *next;
 #endif
@@ -477,50 +475,7 @@ start_ddns(int type)
 	wild = nvram_match("ddns_wildcard_x", "1");
 	strcpy(service, "");
 
-#ifdef __CONFIG_EZIPUPDATE__
-	if (strcmp(server, "WWW.DYNDNS.ORG") == 0)
-		strcpy(service, "dyndns");
-	else if (strcmp(server, "WWW.DYNDNS.ORG(CUSTOM)") == 0)
-		strcpy(service, "dyndns-custom");
-	else if (strcmp(server, "WWW.DYNDNS.ORG(STATIC)") == 0)
-		strcpy(service, "dyndns-static");
-	else if (strcmp(server, "WWW.TZO.COM") == 0)
-		strcpy(service, "tzo");	
-	else if (strcmp(server, "WWW.ZONEEDIT.COM") == 0)
-		strcpy(service, "zoneedit");
-	else if (strcmp(server, "WWW.JUSTLINUX.COM") == 0)
-		strcpy(service, "justlinux");
-	else if (strcmp(server, "WWW.EASYDNS.COM") == 0)
-		strcpy(service, "easydns");
-	else if (strcmp(server, "WWW.DNSOMATIC.COM") == 0)
-		strcpy(service, "dnsomatic");
-	else if (strcmp(server, "WWW.TUNNELBROKER.NET") == 0)
-		strcpy(service, "heipv6tb");
-	else strcpy(service, "dyndns");
-
-	if (nvram_match("ddns_realip_x", "1"))
-		wan_ifname = "auto";
-	else
-	if (nvram_match("wan_proto", "pppoe") ||
-	    nvram_match("wan_proto", "pptp")  ||
-	    nvram_match("wan_proto", "l2tp"))
-		wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
-	else
-#ifdef __CONFIG_MADWIMAX__
-	if (nvram_match("wan_proto", "wimax"))
-		wan_ifname = nvram_safe_get("wan0_wimax_ifname");
-	else
-#endif
-#ifdef __CONFIG_MODEM__
-	if (nvram_match("wan_proto", "usbmodem"))
-		wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
-	else
-#endif
-		wan_ifname = nvram_safe_get("wan0_ifname");
-
-	dprintf("wan_ifname: %s\n\n\n\n", wan_ifname);
-
-#elif __CONFIG_INADYN__
+#ifdef __CONFIG_INADYN__
 	if (strcmp(server, "WWW.DYNDNS.ORG") == 0)
 		strcpy(service, "dyndns@dyndns.org");
 	else if (strcmp(server, "WWW.DYNDNS.ORG(CUSTOM)") == 0)
@@ -559,15 +514,7 @@ start_ddns(int type)
 		return errno;
 	}
 
-#ifdef __CONFIG_EZIPUPDATE__
-	fprintf(fp,
-	    "service-type=%s\n"
-	    "interface=%s\n"
-	    "user=%s:%s\n"
-	    "host=%s\n"
-	    "%s",
-	    service, wan_ifname, user, passwd, host, (wild) ? "wildcard\n" : "");
-#elif __CONFIG_INADYN__
+#ifdef __CONFIG_INADYN__
 	foreach (word, service, next)
 	fprintf(fp,
 	    "dyndns_system %s\n"
@@ -586,19 +533,11 @@ start_ddns(int type)
 	if (strlen(service)>0)
 	{
 		char *ddns_argv[] = {
-#ifdef __CONFIG_EZIPUPDATE__
-		    "ez-ipupdate",
-		    "-1", "-df",
-		    "-c", "/etc/ddns.conf",
-		    "-e", "/sbin/ddns_updated",
-		    "-b", "/tmp/ddns.cache",
-#elif __CONFIG_INADYN__
 		    "inadyn",
 		    "--iterations", "1", "--syslog",
 		    "--input_file", "/etc/ddns.conf",
 		    "--exec", "/sbin/ddns_updated",
 		    "--cache_file", "/tmp/ddns.cache",
-#endif /* __CONFIG_INADYN__ */
 		    NULL };
 		pid_t pid;
 
@@ -606,9 +545,7 @@ start_ddns(int type)
 		nvram_unset("ddns_cache");
 		nvram_unset("ddns_ipaddr");
 		nvram_unset("ddns_status");
-#ifdef __CONFIG_EZIPUPDATE__
-		killall_tk("ez-ipupdate");
-#elif __CONFIG_INADYN__
+#ifdef __CONFIG_INADYN__
 		killall_tk("inadyn");
 #endif
 		_eval(ddns_argv, NULL, (type == 0) ? 0 : 10, &pid);
@@ -619,9 +556,7 @@ start_ddns(int type)
 int 
 stop_ddns(void)
 {
-#ifdef __CONFIG_EZIPUPDATE__
-	int ret = killall_s("ez-ipupdate", SIGQUIT);
-#elif __CONFIG_INADYN__
+#ifdef __CONFIG_INADYN__
 	int ret = killall("inadyn");
 #endif
 
@@ -692,8 +627,15 @@ start_misc(void)
 {
 	pid_t pid;
 	char *watchdog_argv[] = {"watchdog", NULL};
+#ifdef __CONFIG_INFOSRV__
+	char *infosrv_argv[] = {"infosrv", nvram_safe_get("lan_ifname"), NULL};
+#endif
 	const char *txpwr;
 
+#ifdef __CONFIG_INFOSRV__
+	if (!nvram_match("infosrv_disable", "1"))
+		_eval(infosrv_argv, NULL, 0, &pid);
+#endif
 	_eval(watchdog_argv, NULL, 0, &pid);
 
 	/* try to adjust wifi tx power */
@@ -716,6 +658,9 @@ stop_misc(void)
 	int ret;
 
 	ret = killall("watchdog");
+#ifdef __CONFIG_INFOSRV__
+	killall("infosrv");
+#endif
 	stop_ntpc();
 	stop_ddns();
 	stop_lltd();

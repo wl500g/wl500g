@@ -1,0 +1,424 @@
+USB: EHCI: Updates from upstream
+
+ 5c853013dcdadb60724268bf860d372fba71694c ehci: pci quirk cleanup
+ 6feff1b92bedab133c5835e510d11f62e843b257 EHCI: don't try to clear the IAAD bit
+ 94ae4976e253757e9b03a44d27d41b20f1829d80 USB: EHCI: unlink unused QHs when the controller is stopped
+ 004c19682884d4f40000ce1ded53f4a1d0b18206 USB: EHCI: go back to using the system clock for QH unlinks
+ fcda37cb42cc0aa039a2d1e06ec801e4e9f417f4 usb: ehci: fix comment for EHCI_SHRINK_JIFFIES
+ 2fbe2bf1fd37f9d99950bd8d8093623cf22cf08b EHCI: always clear the STS_FLR status bit
+ 81463c1d707186adbbe534016cd1249edeab0dac EHCI: only power off port if over-current is active
+ 631fe9d9d20e28fffdf750d12dd2cd275bd654e9 USB: EHCI: initialize data before resetting hardware
+
+---
+ drivers/usb/host/ehci-hcd.c   |   26 +++----
+ drivers/usb/host/ehci-hub.c   |    3 
+ drivers/usb/host/ehci-pci.c   |    6 -
+ drivers/usb/host/ehci-q.c     |   87 +++++++++++++------------
+ drivers/usb/host/ehci.h       |    3 
+ drivers/usb/host/pci-quirks.c |  142 +++++++++++++++++++-----------------------
+ 6 files changed, 130 insertions(+), 137 deletions(-)
+
+diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
+--- a/drivers/usb/host/ehci.h
++++ b/drivers/usb/host/ehci.h
+@@ -80,6 +80,7 @@ struct ehci_hcd {			/* one per controlle
+ 	/* async schedule support */
+ 	struct ehci_qh		*async;
+ 	struct ehci_qh		*reclaim;
++	struct ehci_qh		*qh_scan_next;
+ 	unsigned		scanning : 1;
+ 
+ 	/* periodic schedule support */
+@@ -121,7 +122,6 @@ struct ehci_hcd {			/* one per controlle
+ 	struct timer_list	iaa_watchdog;
+ 	struct timer_list	watchdog;
+ 	unsigned long		actions;
+-	unsigned		stamp;
+ 	unsigned		periodic_stamp;
+ 	unsigned		random_frame;
+ 	unsigned long		next_statechange;
+@@ -463,6 +463,7 @@ struct ehci_qh {
+ 	struct ehci_qh		*reclaim;	/* next to reclaim */
+ 
+ 	struct ehci_hcd		*ehci;
++	unsigned long		unlink_time;
+ 
+ 	/*
+ 	 * Do NOT use atomic operations for QH refcounting. On some CPUs
+diff --git a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
+--- a/drivers/usb/host/ehci-hcd.c
++++ b/drivers/usb/host/ehci-hcd.c
+@@ -91,7 +91,8 @@ static const char	hcd_name [] = "ehci_hc
+ #define EHCI_IAA_MSECS		10		/* arbitrary */
+ #define EHCI_IO_JIFFIES		(HZ/10)		/* io watchdog > irq_thresh */
+ #define EHCI_ASYNC_JIFFIES	(HZ/20)		/* async idle timeout */
+-#define EHCI_SHRINK_FRAMES	5		/* async qh unlink delay */
++#define EHCI_SHRINK_JIFFIES	(DIV_ROUND_UP(HZ, 200) + 1)
++						/* 5-ms async qh unlink delay */
+ 
+ /* Initial IRQ latency:  faster than hw default */
+ static int log2_irq_thresh = 0;		// 0 to 6
+@@ -143,10 +144,7 @@ timer_action(struct ehci_hcd *ehci, enum
+ 			break;
+ 		/* case TIMER_ASYNC_SHRINK: */
+ 		default:
+-			/* add a jiffie since we synch against the
+-			 * 8 KHz uframe counter.
+-			 */
+-			t = DIV_ROUND_UP(EHCI_SHRINK_FRAMES * HZ, 1000) + 1;
++			t = EHCI_SHRINK_JIFFIES;
+ 			break;
+ 		}
+ 		mod_timer(&ehci->watchdog, t + jiffies);
+@@ -328,9 +326,6 @@ static void ehci_iaa_watchdog(unsigned l
+ 		 * CMD_IAAD when it sets STS_IAA.)
+ 		 */
+ 		cmd = ehci_readl(ehci, &ehci->regs->command);
+-		if (cmd & CMD_IAAD)
+-			ehci_writel(ehci, cmd & ~CMD_IAAD,
+-					&ehci->regs->command);
+ 
+ 		/* If IAA is set here it either legitimately triggered
+ 		 * before we cleared IAAD above (but _way_ late, so we'll
+@@ -716,8 +711,14 @@ static irqreturn_t ehci_irq (struct usb_
+ 		goto dead;
+ 	}
+ 
+-	masked_status = status & INTR_MASK;
+-	if (!masked_status) {		/* irq sharing? */
++	/*
++	 * We don't use STS_FLR, but some controllers don't like it to
++	 * remain on, so mask it out along with the other status bits.
++	 */
++	masked_status = status & (INTR_MASK | STS_FLR);
++
++	/* Shared IRQ? */
++	if (!masked_status) {
+ 		spin_unlock(&ehci->lock);
+ 		return IRQ_NONE;
+ 	}
+@@ -746,11 +747,8 @@ static irqreturn_t ehci_irq (struct usb_
+ 	/* complete the unlinking of some qh [4.15.2.3] */
+ 	if (status & STS_IAA) {
+ 		/* guard against (alleged) silicon errata */
+-		if (cmd & CMD_IAAD) {
+-			ehci_writel(ehci, cmd & ~CMD_IAAD,
+-					&ehci->regs->command);
++		if (cmd & CMD_IAAD)
+ 			ehci_dbg(ehci, "IAA with IAAD still set?\n");
+-		}
+ 		if (ehci->reclaim) {
+ 			COUNT(ehci->stats.reclaim);
+ 			end_unlink_async(ehci);
+diff --git a/drivers/usb/host/ehci-hub.c b/drivers/usb/host/ehci-hub.c
+--- a/drivers/usb/host/ehci-hub.c
++++ b/drivers/usb/host/ehci-hub.c
+@@ -698,10 +698,11 @@ static int ehci_hub_control (
+ 			 * power switching; they're allowed to just limit the
+ 			 * current.  khubd will turn the power back on.
+ 			 */
+-			if (HCS_PPC (ehci->hcs_params)){
++			if ((temp & PORT_OC) && HCS_PPC(ehci->hcs_params)) {
+ 				ehci_writel(ehci,
+ 					temp & ~(PORT_RWC_BITS | PORT_POWER),
+ 					status_reg);
++				temp = ehci_readl(ehci, status_reg);
+ 			}
+ 		}
+ 
+diff --git a/drivers/usb/host/ehci-pci.c b/drivers/usb/host/ehci-pci.c
+--- a/drivers/usb/host/ehci-pci.c
++++ b/drivers/usb/host/ehci-pci.c
+@@ -117,12 +117,12 @@ static int ehci_pci_setup(struct usb_hcd
+ 	/* cache this readonly data; minimize chip reads */
+ 	ehci->hcs_params = ehci_readl(ehci, &ehci->caps->hcs_params);
+ 
+-	retval = ehci_halt(ehci);
++	/* data structure init */
++	retval = ehci_init(hcd);
+ 	if (retval)
+ 		return retval;
+ 
+-	/* data structure init */
+-	retval = ehci_init(hcd);
++	retval = ehci_halt(ehci);
+ 	if (retval)
+ 		return retval;
+ 
+diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
+--- a/drivers/usb/host/ehci-q.c
++++ b/drivers/usb/host/ehci-q.c
+@@ -1149,6 +1149,8 @@ static void start_unlink_async (struct e
+ 
+ 	prev->hw->hw_next = qh->hw->hw_next;
+ 	prev->qh_next = qh->qh_next;
++	if (ehci->qh_scan_next == qh)
++		ehci->qh_scan_next = qh->qh_next.qh;
+ 	wmb ();
+ 
+ 	/* If the controller isn't running, we don't have to wait for it */
+@@ -1170,54 +1172,53 @@ static void start_unlink_async (struct e
+ 
+ static void scan_async (struct ehci_hcd *ehci)
+ {
++	bool			stopped;
+ 	struct ehci_qh		*qh;
+ 	enum ehci_timer_action	action = TIMER_IO_WATCHDOG;
+ 
+-	ehci->stamp = ehci_readl(ehci, &ehci->regs->frame_index);
+ 	timer_action_done (ehci, TIMER_ASYNC_SHRINK);
+-rescan:
+-	qh = ehci->async->qh_next.qh;
+-	if (likely (qh != NULL)) {
+-		do {
+-			/* clean any finished work for this qh */
+-			if (!list_empty (&qh->qtd_list)
+-					&& qh->stamp != ehci->stamp) {
+-				int temp;
+-
+-				/* unlinks could happen here; completion
+-				 * reporting drops the lock.  rescan using
+-				 * the latest schedule, but don't rescan
+-				 * qhs we already finished (no looping).
+-				 */
+-				qh = qh_get (qh);
+-				qh->stamp = ehci->stamp;
+-				temp = qh_completions (ehci, qh);
+-				if (qh->needs_rescan)
+-					unlink_async(ehci, qh);
+-				qh_put (qh);
+-				if (temp != 0) {
+-					goto rescan;
+-				}
+-			}
+-
+-			/* unlink idle entries, reducing DMA usage as well
+-			 * as HCD schedule-scanning costs.  delay for any qh
+-			 * we just scanned, there's a not-unusual case that it
+-			 * doesn't stay idle for long.
+-			 * (plus, avoids some kind of re-activation race.)
+-			 */
+-			if (list_empty(&qh->qtd_list)
+-					&& qh->qh_state == QH_STATE_LINKED) {
+-				if (!ehci->reclaim
+-					&& ((ehci->stamp - qh->stamp) & 0x1fff)
+-						>= (EHCI_SHRINK_FRAMES * 8))
+-					start_unlink_async(ehci, qh);
+-				else
+-					action = TIMER_ASYNC_SHRINK;
+-			}
++	stopped = !HC_IS_RUNNING(ehci_to_hcd(ehci)->state);
+ 
+-			qh = qh->qh_next.qh;
+-		} while (qh);
++	ehci->qh_scan_next = ehci->async->qh_next.qh;
++	while (ehci->qh_scan_next) {
++		qh = ehci->qh_scan_next;
++		ehci->qh_scan_next = qh->qh_next.qh;
++ rescan:
++		/* clean any finished work for this qh */
++		if (!list_empty(&qh->qtd_list)) {
++			int temp;
++
++			/*
++			 * Unlinks could happen here; completion reporting
++			 * drops the lock.  That's why ehci->qh_scan_next
++			 * always holds the next qh to scan; if the next qh
++			 * gets unlinked then ehci->qh_scan_next is adjusted
++			 * in start_unlink_async().
++			 */
++			qh = qh_get(qh);
++			temp = qh_completions(ehci, qh);
++			if (qh->needs_rescan)
++				unlink_async(ehci, qh);
++			qh->unlink_time = jiffies + EHCI_SHRINK_JIFFIES;
++			qh_put(qh);
++			if (temp != 0)
++				goto rescan;
++		}
++
++		/* unlink idle entries, reducing DMA usage as well
++		 * as HCD schedule-scanning costs.  delay for any qh
++		 * we just scanned, there's a not-unusual case that it
++		 * doesn't stay idle for long.
++		 * (plus, avoids some kind of re-activation race.)
++		 */
++		if (list_empty(&qh->qtd_list)
++				&& qh->qh_state == QH_STATE_LINKED) {
++			if (!ehci->reclaim && (stopped ||
++					time_after_eq(jiffies, qh->unlink_time)))
++				start_unlink_async(ehci, qh);
++			else
++				action = TIMER_ASYNC_SHRINK;
++		}
+ 	}
+ 	if (action == TIMER_ASYNC_SHRINK)
+ 		timer_action (ehci, TIMER_ASYNC_SHRINK);
+diff --git a/drivers/usb/host/pci-quirks.c b/drivers/usb/host/pci-quirks.c
+--- a/drivers/usb/host/pci-quirks.c
++++ b/drivers/usb/host/pci-quirks.c
+@@ -210,14 +210,70 @@ static void __devinit quirk_usb_handoff_
+ 	iounmap(base);
+ }
+ 
++static void __devinit ehci_bios_handoff(struct pci_dev *pdev,
++					void __iomem *op_reg_base,
++					u32 cap, u8 offset)
++{
++	int msec, tried_handoff = 0;
++
++	if (cap & EHCI_USBLEGSUP_BIOS) {
++		dev_dbg(&pdev->dev, "EHCI: BIOS handoff\n");
++
++#if 0
++/* aleksey_gorelov@phoenix.com reports that some systems need SMI forced on,
++ * but that seems dubious in general (the BIOS left it off intentionally)
++ * and is known to prevent some systems from booting.  so we won't do this
++ * unless maybe we can determine when we're on a system that needs SMI forced.
++ */
++		/* BIOS workaround (?): be sure the pre-Linux code
++		 * receives the SMI
++		 */
++		pci_read_config_dword(pdev, offset + EHCI_USBLEGCTLSTS, &val);
++		pci_write_config_dword(pdev, offset + EHCI_USBLEGCTLSTS,
++				       val | EHCI_USBLEGCTLSTS_SOOE);
++#endif
++
++		/* some systems get upset if this semaphore is
++		 * set for any other reason than forcing a BIOS
++		 * handoff..
++		 */
++		pci_write_config_byte(pdev, offset + 3, 1);
++	}
++
++	/* if boot firmware now owns EHCI, spin till it hands it over. */
++	msec = 5000;
++	while ((cap & EHCI_USBLEGSUP_BIOS) && (msec > 0)) {
++		tried_handoff = 1;
++		msleep(10);
++		msec -= 10;
++		pci_read_config_dword(pdev, offset, &cap);
++	}
++
++	if (cap & EHCI_USBLEGSUP_BIOS) {
++		/* well, possibly buggy BIOS... try to shut it down,
++		 * and hope nothing goes too wrong
++		 */
++		dev_warn(&pdev->dev, "EHCI: BIOS handoff failed"
++			 " (BIOS bug?) %08x\n", cap);
++		pci_write_config_byte(pdev, offset + 2, 0);
++	}
++
++	/* just in case, always disable EHCI SMIs */
++	pci_write_config_dword(pdev, offset + EHCI_USBLEGCTLSTS, 0);
++
++	/* If the BIOS ever owned the controller then we can't expect
++	 * any power sessions to remain intact.
++	 */
++	if (tried_handoff)
++		writel(0, op_reg_base + EHCI_CONFIGFLAG);
++}
++
+ static void __devinit quirk_usb_disable_ehci(struct pci_dev *pdev)
+ {
+-	int wait_time, delta;
+ 	void __iomem *base, *op_reg_base;
+-	u32	hcc_params, val;
++	u32	hcc_params, cap, val;
+ 	u8	offset, cap_length;
+-	int	count = 256/4;
+-	int	tried_handoff = 0;
++	int	wait_time, delta, count = 256/4;
+ 
+ 	if (!mmio_resource_enabled(pdev, 0))
+ 		return;
+@@ -236,81 +292,17 @@ static void __devinit quirk_usb_disable_
+ 	hcc_params = readl(base + EHCI_HCC_PARAMS);
+ 	offset = (hcc_params >> 8) & 0xff;
+ 	while (offset && --count) {
+-		u32		cap;
+-		int		msec;
+-
+ 		pci_read_config_dword(pdev, offset, &cap);
+-		switch (cap & 0xff) {
+-		case 1:			/* BIOS/SMM/... handoff support */
+-			if ((cap & EHCI_USBLEGSUP_BIOS)) {
+-				pr_debug("%s %s: BIOS handoff\n",
+-						pdev->dev.bus_id, "EHCI");
+-
+-#if 0
+-/* aleksey_gorelov@phoenix.com reports that some systems need SMI forced on,
+- * but that seems dubious in general (the BIOS left it off intentionally)
+- * and is known to prevent some systems from booting.  so we won't do this
+- * unless maybe we can determine when we're on a system that needs SMI forced.
+- */
+-				/* BIOS workaround (?): be sure the
+-				 * pre-Linux code receives the SMI
+-				 */
+-				pci_read_config_dword(pdev,
+-						offset + EHCI_USBLEGCTLSTS,
+-						&val);
+-				pci_write_config_dword(pdev,
+-						offset + EHCI_USBLEGCTLSTS,
+-						val | EHCI_USBLEGCTLSTS_SOOE);
+-#endif
+-
+-				/* some systems get upset if this semaphore is
+-				 * set for any other reason than forcing a BIOS
+-				 * handoff..
+-				 */
+-				pci_write_config_byte(pdev, offset + 3, 1);
+-			}
+-
+-			/* if boot firmware now owns EHCI, spin till
+-			 * it hands it over.
+-			 */
+-			msec = 5000;
+-			while ((cap & EHCI_USBLEGSUP_BIOS) && (msec > 0)) {
+-				tried_handoff = 1;
+-				msleep(10);
+-				msec -= 10;
+-				pci_read_config_dword(pdev, offset, &cap);
+-			}
+-
+-			if (cap & EHCI_USBLEGSUP_BIOS) {
+-				/* well, possibly buggy BIOS... try to shut
+-				 * it down, and hope nothing goes too wrong
+-				 */
+-				printk(KERN_WARNING "%s %s: BIOS handoff "
+-						"failed (BIOS bug ?) %08x\n",
+-					pdev->dev.bus_id, "EHCI", cap);
+-				pci_write_config_byte(pdev, offset + 2, 0);
+-			}
+ 
+-			/* just in case, always disable EHCI SMIs */
+-			pci_write_config_dword(pdev,
+-					offset + EHCI_USBLEGCTLSTS,
+-					0);
+-
+-			/* If the BIOS ever owned the controller then we
+-			 * can't expect any power sessions to remain intact.
+-			 */
+-			if (tried_handoff)
+-				writel(0, op_reg_base + EHCI_CONFIGFLAG);
++		switch (cap & 0xff) {
++		case 1:
++			ehci_bios_handoff(pdev, op_reg_base, cap, offset);
+ 			break;
+-		case 0:			/* illegal reserved capability */
+-			cap = 0;
+-			/* FALLTHROUGH */
++		case 0: /* Illegal reserved cap, set cap=0 so we exit */
++			cap = 0; /* then fallthrough... */
+ 		default:
+-			printk(KERN_WARNING "%s %s: unrecognized "
+-					"capability %02x\n",
+-					pdev->dev.bus_id, "EHCI",
+-					cap & 0xff);
+-			break;
++			dev_warn(&pdev->dev, "EHCI: unrecognized capability "
++				 "%02x\n", cap & 0xff);
+ 		}
+ 		offset = (cap >> 8) & 0xff;
+ 	}
+-- 

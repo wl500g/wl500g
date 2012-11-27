@@ -19,6 +19,7 @@
  a5f5e3689c8682e06ba155676d69ccf3f4172cb4 ipv6: totlen is declared and assigned but not used
  72e843bb09d4533208aa5573861a983c46914019 ipv6: ip6_fragment() should check CHECKSUM_PARTIAL
  e9476e95d8707d1567d1af60df2c1f19630219a3 ipv6: variable next is never used in this function
+ f0396f60d7c165018c9b203fb9b89fb224835578 ipv6: fix RTPROT_RA markup of RA routes w/nexthops
 
 ---
  include/net/addrconf.h   |   28 ++++----
@@ -836,7 +837,7 @@ diff --git a/net/ipv6/route.c b/net/ipv6/route.c
  				  int (*output)(struct sk_buff *))
  {
  	struct rt6_info *rt;
-@@ -1079,9 +1079,8 @@ out:
+@@ -1079,10 +1079,9 @@ out:
  
  int ndisc_dst_gc(int *more)
  {
@@ -848,6 +849,23 @@ diff --git a/net/ipv6/route.c b/net/ipv6/route.c
  	freed = 0;
  
  	spin_lock_bh(&ndisc_lock);
+@@ -2239,10 +2239,12 @@ static int rt6_fill_node(struct net *net,
+ 	rtm->rtm_protocol = rt->rt6i_protocol;
+ 	if (rt->rt6i_flags&RTF_DYNAMIC)
+ 		rtm->rtm_protocol = RTPROT_REDIRECT;
+-	else if (rt->rt6i_flags & RTF_ADDRCONF)
+-		rtm->rtm_protocol = RTPROT_KERNEL;
+-	else if (rt->rt6i_flags&RTF_DEFAULT)
+-		rtm->rtm_protocol = RTPROT_RA;
++	else if (rt->rt6i_flags & RTF_ADDRCONF) {
++		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ROUTEINFO))
++			rtm->rtm_protocol = RTPROT_RA;
++		else
++			rtm->rtm_protocol = RTPROT_KERNEL;
++	}
+ 
+ 	if (rt->rt6i_flags&RTF_CACHE)
+ 		rtm->rtm_flags |= RTM_F_CLONED;
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c

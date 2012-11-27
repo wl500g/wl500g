@@ -851,16 +851,17 @@ int main(int argc, char **argv)
 				if (!(conn_fp = fdopen(item->fd, "r+"))) {
 					perror("fdopen");
 					goto skip;
-				} else {
-					/* Will be closed by fclose */
-					item->fd = -1;
 				}
 
 				http_login_cache(&item->usa);
 				handle_request();
 
 				fflush(conn_fp);
+				shutdown(item->fd, 2);
 				fclose(conn_fp);
+
+				/* Already closed */
+				item->fd = -1;
 
 			skip:
 				/* Skip the rest of */
@@ -869,8 +870,10 @@ int main(int argc, char **argv)
 			}
 
 			/* Close timed out and/or still alive */
-			if (item->fd >= 0)
+			if (item->fd >= 0) {
+				shutdown(item->fd, 2);
 				close(item->fd);
+			}
 
 			free(item);
 		}

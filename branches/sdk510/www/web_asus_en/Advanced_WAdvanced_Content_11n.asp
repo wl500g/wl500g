@@ -97,6 +97,14 @@
            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="wl_bcn" class="content_input_fd" value="<% nvram_get("wl_bcn"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
+<td class="content_header_td" onMouseOver="return overlib('Selects a preamble type to use.', LEFT);" onMouseOut="return nd();">Preamble Type:
+           </td><td class="content_input_td">
+           <select name="wl_plcphdr" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_plcphdr')">
+           <option class="content_input_fd" value="auto" <% nvram_match("wl_plcphdr", "auto","selected"); %>>Auto</option>
+           <option class="content_input_fd" value="long" <% nvram_match("wl_plcphdr", "long","selected"); %>>Long</option>
+           </select></td>
+</tr>
+<tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Yes enables frame bursting to improve performance.', LEFT);" onMouseOut="return nd();">Enable Frame Bursting?
            </td><td class="content_input_td"><select name="wl_frameburst" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_frameburst')"><option class="content_input_fd" value="off" <% nvram_match("wl_frameburst", "off","selected"); %>>Disabled</option><option class="content_input_fd" value="on" <% nvram_match("wl_frameburst", "on","selected"); %>>Enabled</option></select></td>
 </tr>

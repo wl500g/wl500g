@@ -26,9 +26,9 @@ BRCM-SRC=brcm-src-2.6
 IPROUTE2=iproute2-2.6
 IPTABLES=iptables-2.6
 
-BUSYBOX=busybox-1.20.1
+BUSYBOX=busybox-1.20.2
 DROPBEAR=dropbear-2012.55
-DNSMASQ=dnsmasq-2.62
+DNSMASQ=dnsmasq-2.63
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.95
 SAMBA=samba-2.0.10
@@ -53,7 +53,7 @@ VSFTPD=vsftpd-2.3.5
 UDPXY=udpxy-1.0.23-0
 INADYN=inadyn-1.96.3
 LIBUSB10=libusb-1.0.8
-USBMODESWITCH=usb-modeswitch-1.2.2
+USBMODESWITCH=usb-modeswitch-1.2.4
 MADWIMAX=madwimax-0.1.1
 LLTD=LLTD-PortingKit
 TCPDUMP=tcpdump-4.1.1
@@ -62,6 +62,7 @@ UDEV=udev-113
 NTFS3G=ntfs-3g_ntfsprogs-2012.1.15AR.1
 SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
+INFOSRV=infosrv
 
 UCLIBC=uClibc-0.9.32
 
@@ -87,11 +88,11 @@ all: prep custom
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
 	ppp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
-	bpalogin bridge ez-ipupdate inadyn httpd libjpeg lib LPRng \
+	bpalogin bridge inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev \
 	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
-	sysfsutils e2fsprogs wpa_supplicant lanauth authcli
+	sysfsutils e2fsprogs wpa_supplicant lanauth authcli infosrv
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -441,12 +442,6 @@ $(TOP)/udpxy: udpxy/$(UDPXY).tar.gz
 udpxy: $(TOP)/udpxy
 	@true
 
-$(TOP)/ez-ipupdate:
-	tar -C . $(TAR_EXCL_SVN) -cf - ez-ipupdate | tar -C $(TOP) -xf -
-
-ez-ipupdate: $(TOP)/ez-ipupdate
-	@true
-
 inadyn_Patches := $(call patches_list,inadyn)
 
 $(TOP)/inadyn: inadyn/$(INADYN).tar.bz2
@@ -684,13 +679,19 @@ $(TOP)/utils:
 utils: $(TOP)/utils
 	@true
 
+$(TOP)/infosrv:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - infosrv | tar -C $(TOP) -xf -
+
+infosrv: $(TOP)/infosrv
+	@true
+
 $(TOP)/cdma:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - cdma | tar -C $(TOP) -xf -
 
 cdma: $(TOP)/cdma
 	@true
-
 
 $(TOP)/misc:
 	[ -d $@ ] || \
@@ -712,5 +713,5 @@ www: $(TOP)/www
 #	    $(call make_diff,-BurpN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-src www \
-	accel-pptp busybox dropbear ez-ipupdate inadyn httpd iptables others \
+	accel-pptp busybox dropbear inadyn httpd iptables others \
 	rc mjpg-streamer libjpeg config igmpproxy iproute2 lib shared utils

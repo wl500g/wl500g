@@ -15515,14 +15515,14 @@ diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
 +	unsigned int next;
  	ext4_group_t group;
  	ext4_grpblk_t bit;
-+	unsigned long long grp_blk_start;
++//	unsigned long long grp_blk_start;
  	sector_t start;
  	int err = 0;
  	int free = 0;
  
  	BUG_ON(pa->pa_deleted == 0);
  	ext4_get_group_no_and_offset(sb, pa->pa_pstart, &group, &bit);
-+	grp_blk_start = pa->pa_pstart - bit;
++//	grp_blk_start = pa->pa_pstart - bit;
  	BUG_ON(group != e4b->bd_group && pa->pa_len != 0);
  	end = bit + pa->pa_len;
  

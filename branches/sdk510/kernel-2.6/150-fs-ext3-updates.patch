@@ -8,6 +8,7 @@ ext3: Updates from 2.6.32.48
  f25f624263445785b94f39739a6339ba9ed3275d ext3: Avoid filesystem corruption after a crash under heavy delete load
  5f11e6a44059f728dddd8d0dbe5b4368ea93575b ext3: Fix dirtying of journalled buffers in data=journal mode
  ac1334bfdae33be17ae6ae641bbbd1e6a2f04005 ext3: Update ctime in ext3_splice_branch() only when needed
+ 0411ba7902e09111d6f2041b4697a597d2cf7736 ext3: Fix set but unused variables
 
 ---
  Documentation/filesystems/ext3.txt |   40 +++
@@ -19,14 +20,14 @@ ext3: Updates from 2.6.32.48
  fs/ext3/ialloc.c                   |    7 
  fs/ext3/inode.c                    |  380 ++++++++++++++++++++++++-------------
  fs/ext3/ioctl.c                    |   53 +----
- fs/ext3/namei.c                    |  198 ++++++++++++-------
- fs/ext3/resize.c                   |    2 
+ fs/ext3/namei.c                    |  201 ++++++++++++-------
+ fs/ext3/resize.c                   |    4 
  fs/ext3/super.c                    |  215 ++++++++++----------
  fs/ext3/xattr.c                    |   34 ++-
  include/linux/ext3_fs.h            |   69 +++++-
  include/linux/ext3_fs_i.h          |   10 
  include/linux/ext3_fs_sb.h         |    3 
- 16 files changed, 744 insertions(+), 465 deletions(-)
+ 16 files changed, 745 insertions(+), 469 deletions(-)
 
 diff --git a/Documentation/filesystems/ext3.txt b/Documentation/filesystems/ext3.txt
 --- a/Documentation/filesystems/ext3.txt
@@ -1687,7 +1688,24 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  
  	return add_dirent_to_buf(handle, dentry, inode, de, bh);
  }
-@@ -1511,7 +1527,7 @@ static int ext3_dx_add_entry(handle_t *h
+@@ -1452,7 +1468,6 @@ static int ext3_add_entry (handle_t *han
+ 	struct inode *inode)
+ {
+ 	struct inode *dir = dentry->d_parent->d_inode;
+-	unsigned long offset;
+ 	struct buffer_head * bh;
+ 	struct ext3_dir_entry_2 *de;
+ 	struct super_block * sb;
+@@ -1474,7 +1489,7 @@ static int ext3_add_entry (handle_t *han
+ 		ext3_mark_inode_dirty(handle, dir);
+ 	}
+ 	blocks = dir->i_size >> sb->s_blocksize_bits;
+-	for (block = 0, offset = 0; block < blocks; block++) {
++	for (block = 0; block < blocks; block++) {
+ 		bh = ext3_bread(handle, dir, block, 0, &retval);
+ 		if(!bh)
+ 			return retval;
+@@ -1511,7 +1526,7 @@ static int ext3_dx_add_entry(handle_t *h
  	struct ext3_dir_entry_2 *de;
  	int err;
  
@@ -1696,7 +1714,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  	if (!frame)
  		return err;
  	entries = frame->entries;
-@@ -2064,7 +2080,7 @@ static int ext3_rmdir (struct inode * di
+@@ -2064,7 +2079,7 @@ static int ext3_rmdir (struct inode * di
  		return PTR_ERR(handle);
  
  	retval = -ENOENT;
@@ -1705,7 +1723,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  	if (!bh)
  		goto end_rmdir;
  
-@@ -2126,7 +2142,7 @@ static int ext3_unlink(struct inode * di
+@@ -2126,7 +2141,7 @@ static int ext3_unlink(struct inode * di
  		handle->h_sync = 1;
  
  	retval = -ENOENT;
@@ -1714,7 +1732,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  	if (!bh)
  		goto end_unlink;
  
-@@ -2167,15 +2183,32 @@ static int ext3_symlink (struct inode * 
+@@ -2167,15 +2182,32 @@ static int ext3_symlink (struct inode * 
  	handle_t *handle;
  	struct inode * inode;
  	int l, err, retries = 0;
@@ -1750,7 +1768,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  	if (IS_ERR(handle))
  		return PTR_ERR(handle);
  
-@@ -2187,20 +2220,45 @@ retry:
+@@ -2187,20 +2219,45 @@ retry:
  	if (IS_ERR(inode))
  		goto out_stop;
  
@@ -1803,7 +1821,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  		}
  	} else {
  		inode->i_op = &ext3_fast_symlink_inode_operations;
-@@ -2214,6 +2272,9 @@ out_stop:
+@@ -2214,6 +2271,9 @@ out_stop:
  	if (err == -ENOSPC && ext3_should_retry_alloc(dir->i_sb, &retries))
  		goto retry;
  	return err;
@@ -1813,7 +1831,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  }
  
  static int ext3_link (struct dentry * old_dentry,
-@@ -2266,7 +2327,7 @@ static int ext3_rename (struct inode * o
+@@ -2266,7 +2326,7 @@ static int ext3_rename (struct inode * o
  	struct inode * old_inode, * new_inode;
  	struct buffer_head * old_bh, * new_bh, * dir_bh;
  	struct ext3_dir_entry_2 * old_de, * new_de;
@@ -1822,7 +1840,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  
  	old_bh = new_bh = dir_bh = NULL;
  
-@@ -2283,7 +2344,7 @@ static int ext3_rename (struct inode * o
+@@ -2283,7 +2343,7 @@ static int ext3_rename (struct inode * o
  	if (IS_DIRSYNC(old_dir) || IS_DIRSYNC(new_dir))
  		handle->h_sync = 1;
  
@@ -1831,7 +1849,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  	/*
  	 *  Check for inode number is _not_ due to possible IO errors.
  	 *  We might rmdir the source, keep it as pwd of some process
-@@ -2296,7 +2357,7 @@ static int ext3_rename (struct inode * o
+@@ -2296,7 +2356,7 @@ static int ext3_rename (struct inode * o
  		goto end_rename;
  
  	new_inode = new_dentry->d_inode;
@@ -1840,7 +1858,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  	if (new_bh) {
  		if (!new_inode) {
  			brelse (new_bh);
-@@ -2362,7 +2423,8 @@ static int ext3_rename (struct inode * o
+@@ -2362,7 +2422,8 @@ static int ext3_rename (struct inode * o
  		struct buffer_head *old_bh2;
  		struct ext3_dir_entry_2 *old_de2;
  
@@ -1850,7 +1868,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  		if (old_bh2) {
  			retval = ext3_delete_entry(handle, old_dir,
  						   old_de2, old_bh2);
-@@ -2401,6 +2463,8 @@ static int ext3_rename (struct inode * o
+@@ -2401,6 +2462,8 @@ static int ext3_rename (struct inode * o
  		ext3_mark_inode_dirty(handle, new_inode);
  		if (!new_inode->i_nlink)
  			ext3_orphan_add(handle, new_inode);
@@ -1859,7 +1877,7 @@ diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
  	}
  	retval = 0;
  
-@@ -2409,6 +2473,8 @@ end_rename:
+@@ -2409,6 +2472,8 @@ end_rename:
  	brelse (old_bh);
  	brelse (new_bh);
  	ext3_journal_stop(handle);
@@ -1879,7 +1897,23 @@ diff --git a/fs/ext3/resize.c b/fs/ext3/resize.c
  
  exit_journal:
  	unlock_super(sb);
-@@ -1066,7 +1065,6 @@ int ext3_group_extend(struct super_block
+@@ -964,7 +963,6 @@ int ext3_group_extend(struct super_block
+ 		      ext3_fsblk_t n_blocks_count)
+ {
+ 	ext3_fsblk_t o_blocks_count;
+-	unsigned long o_groups_count;
+ 	ext3_grpblk_t last;
+ 	ext3_grpblk_t add;
+ 	struct buffer_head * bh;
+@@ -976,7 +974,6 @@ int ext3_group_extend(struct super_block
+ 	 * yet: we're going to revalidate es->s_blocks_count after
+ 	 * taking lock_super() below. */
+ 	o_blocks_count = le32_to_cpu(es->s_blocks_count);
+-	o_groups_count = EXT3_SB(sb)->s_groups_count;
+ 
+ 	if (test_opt(sb, DEBUG))
+ 		printk(KERN_DEBUG "EXT3-fs: extending last group from "E3FSBLK" uto "E3FSBLK" blocks\n",
+@@ -1066,7 +1063,6 @@ int ext3_group_extend(struct super_block
  	}
  	es->s_blocks_count = cpu_to_le32(o_blocks_count + add);
  	ext3_journal_dirty_metadata(handle, EXT3_SB(sb)->s_sbh);
