@@ -53,10 +53,7 @@
 #include <net/if.h>
 #include "ethtool-util.h"
 
-#define SERVER_NAME "httpd"
 #define SERVER_PORT 80
-#define PROTOCOL "HTTP/1.0"
-#define RFC1123FMT "%a, %d %b %Y %H:%M:%S GMT"
 
 #include <bcmconfig.h>
 
@@ -253,20 +250,33 @@ send_error( int status, char* title, char* extra_header, char* text )
 static void
 send_headers(int status, const char *title, const char *extra_header, const char *mime_type)
 {
+	static const char RFC1123FMT[] = "%a, %d %b %Y %H:%M:%S GMT";
 	time_t now;
-	char timebuf[100];
+	char timebuf[80];
 
-	(void) fprintf( conn_fp, "%s %d %s\r\n", PROTOCOL, status, title );
-	(void) fprintf( conn_fp, "Server: %s\r\n", SERVER_NAME );
-	now = time( (time_t*) 0 );
-	(void) strftime( timebuf, sizeof(timebuf), RFC1123FMT, gmtime( &now ) );
-	(void) fprintf( conn_fp, "Date: %s\r\n", timebuf );
-	if ( extra_header != (char*) 0 )
-		(void) fprintf( conn_fp, "%s\r\n", extra_header );
-	if ( mime_type != (char*) 0 )
-		(void) fprintf( conn_fp, "Content-Type: %s\r\n", mime_type );
-	(void) fprintf( conn_fp, "Connection: close\r\n" );
-	(void) fprintf( conn_fp, "\r\n" );
+	now = time(NULL);
+	strftime(timebuf, sizeof(timebuf), RFC1123FMT, gmtime( &now ));
+
+	/* Sample:
+	 *
+	 * HTTP/1.1 200 OK
+	 * Date: Thu, 12 Jun 2010 13:06:28 GMT
+	 * Server: Apache
+	 * Accept-Ranges: bytes
+	 * Connection: close
+	 * Content-Type: text/html
+	 */
+	fprintf(conn_fp, "HTTP/1.0 %d %s\r\n"
+			 "Server: httpd\r\n"
+			 "Date: %s\r\n",
+		 status, title,
+		 timebuf);
+	if (extra_header != NULL)
+		fprintf(conn_fp, "%s\r\n", extra_header);
+	if (mime_type != NULL)
+		fprintf(conn_fp, "Content-Type: %s\r\n", mime_type);
+	fprintf(conn_fp, "Connection: close\r\n"
+			 "\r\n" );
 }
 
 
@@ -494,12 +504,12 @@ handle_request(void)
 
 	redirect=0;
 
-	//printf("File: %s\n", file);
+	//dprintf("File: %s\n", file);
 
 	if (http_port==server_port && !http_login_check()) {
 		inet_ntop(login_ip.family, &login_ip.addr, straddr, sizeof(straddr));
 		sprintf(line, "Please log out user %s first or wait for session timeout(60 seconds).", straddr);
-		printf("resposne: %s \n", line);
+		dprintf("resposne: %s \n", line);
 		send_error( 200, "Request is rejected", (char*) 0, line);
 		return;
 	}
@@ -656,7 +666,7 @@ static int is_phyconnected(void)
 	strcpy(ifr.ifr_name, wan_if);
 	fd=socket(AF_INET, SOCK_DGRAM, 0);
 	if (fd<0) {
-		//printf("fd error\n");
+		//dprintf("fd error\n");
 		return 0;
 	}
 	ecmd.cmd=ETHTOOL_GSET;
@@ -664,14 +674,14 @@ static int is_phyconnected(void)
 	err=ioctl(fd, SIOCETHTOOL, &ifr);
 	close(fd);
 	if (err==0) {
-		//printf("ecmd: %d\n", ecmd.speed);
+		//dprintf("ecmd: %d\n", ecmd.speed);
 		if (ecmd.speed==0) {
 			nvram_set("wan_status_t", "Disconnected");
 			nvram_set("wan_reason_t", "Cable is not attached");
 		}			
-		return(ecmd.speed);
+		return (ecmd.speed);
 	} else {
-		//printf("err error\n");
+		//dprintf("err error\n");
 		return 0;
 	}
 }
@@ -697,7 +707,7 @@ static int is_connected(void)
 
 		return 0;
 	}
-	//printf("Connected\n");
+	//dprintf("Connected\n");
 	return 1;
 }
 
@@ -729,8 +739,6 @@ int main(int argc, char **argv)
 	if (argc>2) http_port=atoi(argv[2]);
 	if (argc>1) strcpy(wan_if, argv[1]);
 	else strcpy(wan_if, "");
-
-	//websSetVer();
 
 #ifdef __CONFIG_IPV6__
 	usa.sa.sa_family = (nvram_invmatch("ipv6_proto", "")) ? AF_INET6 : AF_INET;

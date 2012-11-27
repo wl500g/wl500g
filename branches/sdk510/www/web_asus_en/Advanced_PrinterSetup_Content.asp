@@ -21,7 +21,7 @@
 </tr>
 
 <tr>
-		<td class="content_header_td" width="30">Printer Model:</td><td class="content_input_td" width="595"><input type="text" value="<% nvram_get("ProductID"); %>" readonly></td>
+		<td class="content_header_td" width="30">Printer Model:</td><td class="content_input_td" width="595"><input type="text" value="<% nvram_get("productid"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_input_td" colspan="2" width="614">

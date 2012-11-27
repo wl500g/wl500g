@@ -126,7 +126,7 @@
 			</td>
 			<td class="content_input_td" nowrap>
 				<input type="checkbox" value="dhcp" name="wan_proto_x" class="content_input_fd" 
-				onchange="return change_common_radio(this, '3GConfig', 'wan_proto', '1')" <% nvram_match_x("3GConfig","wan_proto", "usbmodem", "checked"); %>>
+				onchange="return change_common_radio(this, '3GConfig', 'wan_proto', '1')" <% nvram_match("wan_proto", "usbmodem", "checked"); %>>
 			</td>
 		</tr>
 		<tr>
@@ -135,11 +135,11 @@
 			</td>
 			<td class="content_input_td">
 				<select name="wan_modem_zerocd_mode" class="content_input_fd" onChange="return change_common(this, '3GConfig', 'wan_modem_zerocd_mode')">
-					<option class="content_input_fd" value="" <%nvram_match_x("3GConfig","wan_modem_zerocd_mode",  "","selected"); %>>
+					<option class="content_input_fd" value="" <%nvram_match("wan_modem_zerocd_mode",  "","selected"); %>>
 						Not set</option>
-					<option class="content_input_fd" value="Auto" <%nvram_match_x("3GConfig","wan_modem_zerocd_mode", "Auto","selected"); %>>
+					<option class="content_input_fd" value="Auto" <%nvram_match("wan_modem_zerocd_mode", "Auto","selected"); %>>
 						Auto</option>
-					<option class="content_input_fd" value="UserDefined" <%nvram_match_x("3GConfig","wan_modem_zerocd_mode", "UserDefined","selected"); %>>
+					<option class="content_input_fd" value="UserDefined" <%nvram_match("wan_modem_zerocd_mode", "UserDefined","selected"); %>>
 						Config at /usr/local/etc/usb_modeswitch.conf</option>
 				</select>
 			</td>
@@ -155,11 +155,11 @@
 			</td>
 			<td class="content_input_td">
 				<select name="wan_modem_type" class="content_input_fd" onchange="changeUSBConnectionType();window.top.pageChanged = 1;disable_autodetect();">
-					<option class="content_input_fd" value="USR" <%nvram_match_x("3GConfig","wan_modem_type", "USR","selected"); %>>
+					<option class="content_input_fd" value="USR" <%nvram_match("wan_modem_type", "USR","selected"); %>>
 						User defined</option>
-					<option class="content_input_fd" value="C" <%nvram_match_x("3GConfig","wan_modem_type",  "C","selected"); %>>
+					<option class="content_input_fd" value="C" <%nvram_match("wan_modem_type",  "C","selected"); %>>
 						CDMA/EVDO</option>
-					<option class="content_input_fd" value="W" <%nvram_match_x("3GConfig","wan_modem_type", "W","selected"); %>>
+					<option class="content_input_fd" value="W" <%nvram_match("wan_modem_type", "W","selected"); %>>
 						GPRS/EDGE/UMTS/HSPDA</option>
 				</select>
 			</td>
@@ -219,8 +219,8 @@
 				Call on Demand
 			</td>
 			<td class="content_input_td">
-				<input type="radio" value="0" name="wan_modem_demand" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_demand', '0')" <% nvram_match_x("3GConfig","wan_modem_demand", "0", "checked"); %>>No
-				<input type="radio" value="1" name="wan_modem_demand" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_demand', '1')" <% nvram_match_x("3GConfig","wan_modem_demand", "1", "checked"); %>>Yes
+				<input type="radio" value="0" name="wan_modem_demand" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_demand', '0')" <% nvram_match("wan_modem_demand", "0", "checked"); %>>No
+				<input type="radio" value="1" name="wan_modem_demand" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_demand', '1')" <% nvram_match("wan_modem_demand", "1", "checked"); %>>Yes
 			</td>
 		</tr>
 		<tr>
@@ -267,8 +267,8 @@
 				Autodetect device
 			</td>
 			<td class="content_input_td" nowrap>
-				<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_autodetect_dev()" <% nvram_match_x("3GConfig","wan_modem_autodetect", "0", "checked"); %> >No
-				<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_autodetect_dev()" <% nvram_match_x("3GConfig","wan_modem_autodetect", "1", "checked"); %> >Yes
+				<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_autodetect_dev()" <% nvram_match("wan_modem_autodetect", "0", "checked"); %> >No
+				<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_autodetect_dev()" <% nvram_match("wan_modem_autodetect", "1", "checked"); %> >Yes
 			</td>
 		</tr>
 

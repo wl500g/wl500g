@@ -88,7 +88,7 @@ you to perform advanced configuration.</td>
 		<td class="content_content_td">
 			<textarea name="ssh_keys" cols=72 rows=8 disabled 
 				onchange="this.form.ssh_keys_changed.value=1;"
-				><% print_text_file("/usr/local/root/.ssh/authorized_keys"); %></textarea></td>
+				><% nvram_dump("ssh_keys.log", ""); %></textarea></td>
 		<td class="content_content_td" valign="top">
 			<input type="button" name="ssh_keys_clear" value="Clear" disabled
 				onclick="this.form.ssh_keys.value='';this.form.ssh_keys_changed.value=1;"

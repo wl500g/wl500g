@@ -29,7 +29,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Please select one Session for your default connection. Session 0 means PPPoE session set in WAN &amp; LAN setting.', LEFT);" onMouseOut="return nd();">Default PPPoE Session:
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'PPPConnection', '')"><option class="content_input_fd" value="0" <% nvram_match_x("PPPConnection","", "0","selected"); %>>PPPoE Session 0</option><option class="content_input_fd" value="1" <% nvram_match_x("PPPConnection","", "1","selected"); %>>PPPoE Session 1</option><option class="content_input_fd" value="2" <% nvram_match_x("PPPConnection","", "2","selected"); %>>PPPoE Session 2</option></select></td>
+           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'PPPConnection', '')"><option class="content_input_fd" value="0" <% nvram_match("", "0","selected"); %>>PPPoE Session 0</option><option class="content_input_fd" value="1" <% nvram_match("", "1","selected"); %>>PPPoE Session 1</option><option class="content_input_fd" value="2" <% nvram_match("", "2","selected"); %>>PPPoE Session 2</option></select></td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">PPPoE Session 1
@@ -37,7 +37,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Enable PPPoE Session 1?
-           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', '', '1')" <% nvram_match_x("PPPConnection","", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', '', '0')" <% nvram_match_x("PPPConnection","", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', '', '1')" <% nvram_match("", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', '', '0')" <% nvram_match("", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field is only available, when you set WAN Connection Type as PPPoE.', LEFT);" onMouseOut="return nd();">User Name:
@@ -74,7 +74,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Enable PPPoE Session 2?
-           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', '', '1')" <% nvram_match_x("PPPConnection","", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', '', '0')" <% nvram_match_x("PPPConnection","", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', '', '1')" <% nvram_match("", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', '', '0')" <% nvram_match("", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field is only available, when you set WAN Connection Type as PPPoE.', LEFT);" onMouseOut="return nd();">User Name:
@@ -136,11 +136,11 @@
            	        </td><td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="0" <% nvram_match_list_x("PPPConnection","", "0","selected", 0); %>>0</option><option value="1" <% nvram_match_list_x("PPPConnection","", "1","selected", 0); %>>1</option><option value="2" <% nvram_match_list_x("PPPConnection","", "2","selected", 0); %>>2</option></select></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="Source" <% nvram_match_list_x("PPPConnection","", "Source","selected", 0); %>>Source</option><option value="Destination" <% nvram_match_list_x("PPPConnection","", "Destination","selected", 0); %>>Destination</option></select></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="14" name="_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="5" style="font-family: monospace; font-size: 10pt; width: 100%;" size="8" name="_0" onKeyPress="return is_number(event, this)"></td>
+<td></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="0" <% nvram_match_list("", "0","selected", 0); %>>0</option><option value="1" <% nvram_match_list("", "1","selected", 0); %>>1</option><option value="2" <% nvram_match_list("", "2","selected", 0); %>>2</option></select></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="Source" <% nvram_match_list("", "Source","selected", 0); %>>Source</option><option value="Destination" <% nvram_match_list("", "Destination","selected", 0); %>>Destination</option></select></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="14" name="_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="5" style="font-family: monospace; font-size: 10pt; width: 100%;" size="8" name="_0" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="4" name="PPPoERouteList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("PPPConnection","PPPoERouteList"); %>
+<% nvram_get_table("PPPoERouteList"); %>
 </select></td>
 </tr>
 </table>

@@ -10,661 +10,639 @@
 */
 
 static const struct variable variables_IPConnection_PortMappingList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_IPConnection_VSList[] = {
-	{"vts_sipaddr_x", "16", NULL },
-	{"vts_port_x", "12", NULL },
-	{"vts_ipaddr_x", "16", NULL },
-	{"vts_lport_x", "7", NULL },
-	{"vts_proto_x", "8", NULL },
-	{"vts_protono_x", "12", NULL },
-	{"vts_desc_x", "20", NULL },
-	{0, 0, 0 }
+	{"vts_sipaddr_x", 16 },
+	{"vts_port_x",    12 },
+	{"vts_ipaddr_x",  16 },
+	{"vts_lport_x",   7 },
+	{"vts_proto_x",   8 },
+	{"vts_protono_x", 12 },
+	{"vts_desc_x",    20 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_IPConnection_TriggerList[] = {  
-	{"autofw_outport_x", "12", NULL },
-	{"autofw_outproto_x", "7", NULL },
-	{"autofw_inport_x", "12", NULL },
-	{"autofw_inproto_x", "7", NULL },
-	{"autofw_desc_x", "18", NULL },
-	{0, 0, 0 }
+	{"autofw_outport_x",  12 },
+	{"autofw_outproto_x", 7 },
+	{"autofw_inport_x",   12 },
+	{"autofw_inproto_x",  7 },
+	{"autofw_desc_x",     18 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_PPPConnection_PPPoERouteList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_FirewallConfig_WLFilterList[] = {
-	{"filter_wl_srcip_x", "16", NULL },
-	{"filter_wl_srcport_x", "12", NULL },
-	{"filter_wl_dstip_x", "16", NULL },
-	{"filter_wl_dstport_x", "12", NULL },
-	{"filter_wl_proto_x", "8", NULL },
-	{0, 0, 0 }
+	{"filter_wl_srcip_x",   16 },
+	{"filter_wl_srcport_x", 12 },
+	{"filter_wl_dstip_x",   16 },
+	{"filter_wl_dstport_x", 12 },
+	{"filter_wl_proto_x",   8 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_FirewallConfig_LWFilterList[] = {
-	{"filter_lw_srcip_x", "16", NULL },
-	{"filter_lw_srcport_x", "12", NULL },
-	{"filter_lw_dstip_x", "16", NULL },
-	{"filter_lw_dstport_x", "12", NULL },
-	{"filter_lw_proto_x", "8", NULL },
-	{0, 0, 0 }
+	{"filter_lw_srcip_x",   16 },
+	{"filter_lw_srcport_x", 12 },
+	{"filter_lw_dstip_x",   16 },
+	{"filter_lw_dstport_x", 12 },
+	{"filter_lw_proto_x",   8 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_FirewallConfig_UrlList[] = {
-	{"url_keyword_x", "36", NULL },
-	{0, 0, 0 }
+	{"url_keyword_x", 36 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_FirewallConfig_WLocalFilterList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_FirewallConfig_DWFilterList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_FirewallConfig_WDFilterList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_FirewallConfig_DLFilterList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_FirewallConfig_LDFilterList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_FirewallConfig_MFList[] = {
-	{"macfilter_list_x", "32", NULL },
-	{0, 0, 0 }
+	{"macfilter_list_x", 32 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_RouterConfig_GWStatic[] = {
-	{"sr_ipaddr_x", "17", NULL },
-	{"sr_netmask_x", "17", NULL },
-	{"sr_gateway_x", "17", NULL },
-	{"sr_matric_x", "5", NULL },
-	{"sr_if_x", "3", NULL },
-	{0, 0, 0 }
+	{"sr_ipaddr_x",  17 },
+	{"sr_netmask_x", 17 },
+	{"sr_gateway_x", 17 },
+	{"sr_matric_x",  5 },
+	{"sr_if_x",      3 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_RouterConfig_StaticRoute[] = {
-	{"dr_staticipaddr_x", "20", NULL },
-	{"dr_staticnetmask_x", "11", NULL },
-	{"dr_staticgateway_x", "18", NULL },
-	{0, 0, 0 }
+	{"dr_staticipaddr_x",  20 },
+	{"dr_staticnetmask_x", 11 },
+	{"dr_staticgateway_x", 18 },
+	{0, 0 }
 };
 
 static const struct variable variables_RouterConfig_RipSRoute[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_RouterConfig_RouteFilter[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_RouterConfig_RipOffset[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_LANHostConfig_ManualDHCPList[] = {
-	{"dhcp_staticmac_x", "14", NULL },
-	{"dhcp_staticip_x", "15", NULL },
-	{"dhcp_staticname_x", "32", NULL },
-	{0, 0, 0 }
+	{"dhcp_staticmac_x",  14 },
+	{"dhcp_staticip_x",   15 },
+	{"dhcp_staticname_x", 32 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_LANHostConfig_DmzManualDHCPList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_LANHostConfig_ReservedAddressList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_DeviceSecurity11a_ACLList[] = {
-	{"wl_maclist_x", "20", NULL },
-	{"wl_macdesc_x", "40", NULL },
-	{0, 0, 0 }
+	{"wl_maclist_x", 20 },
+	{"wl_macdesc_x", 40 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_DeviceSecurity11a_AESList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_WLANAuthentication11a_LocalAuthDB[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_WLANAuthentication11a_LocalCertDB[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_WLANConfig11b_RBRList[] = {
-	{"wl_wdslist_x", "32", NULL },
-	{0, 0, 0 }
-}; 
-
-static const struct variable variables_DeviceSecurity11b_ACLList[] = {
-	{"wl_maclist_x", "20", NULL },
-	{"wl_macdesc_x", "40", NULL },
-	{0, 0, 0 }
-}; 
-
-static const struct variable variables_DeviceSecurity11b_AESList[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
-}; 
-
-static const struct variable variables_WLANAuthentication11b_LocalAuthDB[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
-}; 
-
-static const struct variable variables_WLANAuthentication11b_LocalCertDB[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"wl_wdslist_x", 32 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_PrinterStatus_x_FUserList[] = {
-	{"usb_ftpusername_x", "18", NULL },
-	{"usb_ftppasswd_x", "18", NULL },
-	{"usb_ftprights_x", "16", NULL },
-	{0, 0, 0 }
+	{"usb_ftpusername_x", 18 },
+	{"usb_ftppasswd_x",   18 },
+	{"usb_ftprights_x",   16 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_PrinterStatus_x_FBanIPList[] = {
-	{"usb_ftpbanip_x", "24", NULL },
-	{0, 0, 0 }
+	{"usb_ftpbanip_x", 24 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_PrinterStatus_x_ExportsList[] = {
-	{"usb_nfslist_x", "80", NULL },
-	{0, 0, 0 }
+	{"usb_nfslist_x", 80 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_PrinterStatus_x_SharesList[] = {
-	{"usb_smbdir_x", "20", NULL },
-	{"usb_smbshare_x", "20", NULL },
-	{"usb_smblevel_x", "14", NULL },
-	{"usb_smbdesc_x", "20", NULL },
-	{0, 0, 0 }
+	{"usb_smbdir_x",   20 },
+	{"usb_smbshare_x", 20 },
+	{"usb_smblevel_x", 14 },
+	{"usb_smbdesc_x",  20 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_PrinterStatus_x_QRuleList[] = {
-	{"qos_ipaddr_x", "16", NULL },
-	{"qos_port_x", "12", NULL },
-	{"qos_maxbw_x", "9", NULL },
-	{"qos_minbw_x", "7", NULL },
-	{0, 0, 0 }
+	{"qos_ipaddr_x", 16 },
+	{"qos_port_x",   12 },
+	{"qos_maxbw_x",  9 },
+	{"qos_minbw_x",  7 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_PrinterStatus_x_UQRuleList[] = {
-	{"qos_uport_x", "12", NULL },
-	{"qos_umaxbw_x", "9", NULL },
-	{"qos_uminbw_x", "7", NULL },
-	{0, 0, 0 }
+	{"qos_uport_x",  12 },
+	{"qos_umaxbw_x", 9 },
+	{"qos_uminbw_x", 7 },
+	{0, 0 }
 }; 
 
 static const struct variable variables_General[] = {
-	{"http_username", "", NULL },
-	{"http_passwd", "", NULL },
-	{0, 0, 0 }
+	{"http_username", 0 },
+	{"http_passwd", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_Layer3Forwarding[] = {
-	{"wan_proto", "", NULL },
-	{"wan_mode_x", "", NULL },
-	{"wan_etherspeed_x", "", NULL },
-	{"wan_stb_x", "", NULL },
-	{"wan_auth_x", "", NULL },
-	{0, 0, 0 }
+	{"wan_proto", 0 },
+	{"wan_mode_x", 0 },
+	{"wan_etherspeed_x", 0 },
+	{"wan_stb_x", 0 },
+	{"wan_auth_x", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_IPConnection[] = {
-	{"wan_route_x", "", NULL },
-	{"wan_nat_x", "", NULL },
-	{"wan_ipaddr", "", NULL },
-	{"wan_netmask", "", NULL },
-	{"wan_gateway", "", NULL },
-	{"wan_priority", "", NULL },
-	{"wan_dnsenable_x", "", NULL },
-	{"wan_dns1_x", "", NULL },
-	{"wan_dns2_x", "", NULL },
-	{"wan_nat_x", "", NULL },
-	{"dmz_ip", "", NULL },
-	{"sp_battle_ips", "", NULL },
-	{"vts_enable_x", "", NULL },
-	{"vts_num_x", "", NULL },
-	{"autofw_enable_x", "", NULL },
-	{"autofw_num_x", "", NULL },
-	{"PortMappingList", "Group", ARGV(variables_IPConnection_PortMappingList, "16", "58", "PortMappingNumberOfEntries") },
-	{"VSList", "Group", ARGV(variables_IPConnection_VSList, "24", "91", "vts_num_x") },
-	{"TriggerList", "Group", ARGV(variables_IPConnection_TriggerList, "10", "56", "autofw_num_x") },
-	{0, 0, 0 }
+	{"wan_route_x", 0 },
+	{"wan_nat_x", 0 },
+	{"wan_ipaddr", 0 },
+	{"wan_netmask", 0 },
+	{"wan_gateway", 0 },
+	{"wan_priority", 0 },
+	{"wan_dnsenable_x", 0 },
+	{"wan_dns1_x", 0 },
+	{"wan_dns2_x", 0 },
+	{"wan_nat_x", 0 },
+	{"dmz_ip", 0 },
+	{"sp_battle_ips", 0 },
+	{"vts_enable_x", 0 },
+	{"vts_num_x", 0 },
+	{"autofw_enable_x", 0 },
+	{"autofw_num_x", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_PPPConnection[] = {
-	{"wan_pppoe_username", "", NULL },
-	{"wan_pppoe_passwd", "", NULL },
-	{"wan_pppoe_idletime", "", NULL },
-	{"wan_pppoe_txonly_x", "", NULL },
-	{"wan_pppoe_options_x", "", NULL },
-	{"wan_pptp_options_x", "", NULL },
-	{"wan_pppoe_mtu", "", NULL },
-	{"wan_pppoe_mru", "", NULL },
-	{"wan_pppoe_service", "", NULL },
-	{"wan_pppoe_ac", "", NULL },
-	{"wan_pppoe_relay_x", "", NULL },
-	{"wan_hostname", "", NULL },
-	{"wan_hwaddr_x", "", NULL },
-	{"wan_heartbeat_x", "", NULL },
-	{"PPPoERouteList", "Group", ARGV(variables_PPPConnection_PPPoERouteList, "4", "50", "PPPoERouteCount") },
-	{0, 0, 0 }
+	{"wan_pppoe_username", 0 },
+	{"wan_pppoe_passwd", 0 },
+	{"wan_pppoe_idletime", 0 },
+	{"wan_pppoe_txonly_x", 0 },
+	{"wan_pppoe_options_x", 0 },
+	{"wan_pptp_options_x", 0 },
+	{"wan_pppoe_mtu", 0 },
+	{"wan_pppoe_mru", 0 },
+	{"wan_pppoe_service", 0 },
+	{"wan_pppoe_ac", 0 },
+	{"wan_pppoe_relay_x", 0 },
+	{"wan_hostname", 0 },
+	{"wan_hwaddr_x", 0 },
+	{"wan_heartbeat_x", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_FirewallConfig[] = {
-	{"fw_enable_x", "", NULL },
-	{"fw_dos_x", "", NULL },
-	{"fw_log_x", "", NULL },
-	{"misc_natlog_x", "", NULL },
-	{"misc_http_x", "", NULL },
-	{"misc_httpport_x", "", NULL },
-	{"misc_lpr_x", "", NULL },
-	{"misc_ping_x", "", NULL },
-	{"misc_conntrack_x", "", NULL },
-	{"recent_ssh_enable", "", NULL },
-	{"recent_ftp_enable", "", NULL },
-	{"recent_seconds", "", NULL },
-	{"recent_hitcount", "", NULL },
-	{"fw_wl_enable_x", "", NULL },
-	{"filter_wl_date_x", "", NULL },
-	{"filter_wl_time_x", "", NULL },
-	{"filter_wl_default_x", "", NULL },
-	{"filter_vs_default_x", "", NULL },
-	{"filter_wl_icmp_x", "", NULL },
-	{"fw_lw_enable_x", "", NULL },
-	{"filter_lw_date_x", "", NULL },
-	{"filter_lw_time_x", "", NULL },
-	{"filter_lw_default_x", "", NULL },
-	{"filter_lw_icmp_x", "", NULL },
-	{"url_enable_x", "", NULL },
-	{"url_date_x", "", NULL },
-	{"url_time_x", "", NULL },
-	{"url_num_x", "", NULL },
-	{"filter_wl_num_x", "", NULL },
-	{"filter_lw_num_x", "", NULL },
-	{"macfilter_enable_x", "", NULL },
-	{"macfilter_num_x", "", NULL },
-	{"WLFilterList", "Group", ARGV(variables_FirewallConfig_WLFilterList, "32", "63", "filter_wl_num_x") },
-	{"LWFilterList", "Group", ARGV(variables_FirewallConfig_LWFilterList, "32", "63", "filter_lw_num_x") },
-	{"UrlList", "Group", ARGV(variables_FirewallConfig_UrlList, "128", "36", "url_num_x") },
-	{"WLocalFilterList", "Group", ARGV(variables_FirewallConfig_WLocalFilterList, "32", "36", "WanLocalRuleCount") },
-	{"DWFilterList", "Group", ARGV(variables_FirewallConfig_DWFilterList, "32", "63", "DmzWanRuleCount") },
-	{"WDFilterList", "Group", ARGV(variables_FirewallConfig_WDFilterList, "32", "63", "WanDmzRuleCount") },
-	{"DLFilterList", "Group", ARGV(variables_FirewallConfig_DLFilterList, "32", "63", "DmzLanRuleCount") },
-	{"LDFilterList", "Group", ARGV(variables_FirewallConfig_LDFilterList, "32", "63", "LanDmzRuleCount") },
-	{"MFList", "Group", ARGV(variables_FirewallConfig_MFList, "16", "32", "macfilter_num_x") },
-	{0, 0, 0 }
+	{"fw_enable_x", 0 },
+	{"fw_dos_x", 0 },
+	{"fw_log_x", 0 },
+	{"misc_natlog_x", 0 },
+	{"misc_http_x", 0 },
+	{"misc_httpport_x", 0 },
+	{"misc_lpr_x", 0 },
+	{"misc_ping_x", 0 },
+	{"misc_conntrack_x", 0 },
+	{"recent_ssh_enable", 0 },
+	{"recent_ftp_enable", 0 },
+	{"recent_seconds", 0 },
+	{"recent_hitcount", 0 },
+	{"fw_wl_enable_x", 0 },
+	{"filter_wl_date_x", 0 },
+	{"filter_wl_time_x", 0 },
+	{"filter_wl_default_x", 0 },
+	{"filter_vs_default_x", 0 },
+	{"filter_wl_icmp_x", 0 },
+	{"fw_lw_enable_x", 0 },
+	{"filter_lw_date_x", 0 },
+	{"filter_lw_time_x", 0 },
+	{"filter_lw_default_x", 0 },
+	{"filter_lw_icmp_x", 0 },
+	{"url_enable_x", 0 },
+	{"url_date_x", 0 },
+	{"url_time_x", 0 },
+	{"url_num_x", 0 },
+	{"filter_wl_num_x", 0 },
+	{"filter_lw_num_x", 0 },
+	{"macfilter_enable_x", 0 },
+	{"macfilter_num_x", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_RouterConfig[] = {
-	{"dr_enable_x", "", NULL },
-	{"mr_enable_x", "", NULL },
-	{"sr_enable_x", "", NULL },
-	{"sr_rip_x", "", NULL },
-	{"sr_num_x", "", NULL },
-	{"dr_static_rip_x", "", NULL },
-	{"dr_static_matric_x", "", NULL },
-	{"dr_default_x", "", NULL },
-	{"dr_static_rip_x", "", NULL },
-	{"dr_staticnum_x", "", NULL },
-	{"GWStatic", "Group", ARGV(variables_RouterConfig_GWStatic, "16", "59", "sr_num_x") },
-	{"StaticRoute", "Group", ARGV(variables_RouterConfig_StaticRoute, "16", "46", "dr_staticnum_x") },
-	{"RipSRoute", "Group", ARGV(variables_RouterConfig_RipSRoute, "16", "24", "RipSRouteCount") },
-	{"RouteFilter", "Group", ARGV(variables_RouterConfig_RouteFilter, "16", "33", "RipDRouteCount") },
-	{"RipOffset", "Group", ARGV(variables_RouterConfig_RipOffset, "16", "30", "RipOffsetCount") },
-	{0, 0, 0 }
+	{"dr_enable_x", 0 },
+	{"mr_enable_x", 0 },
+	{"sr_enable_x", 0 },
+	{"sr_rip_x", 0 },
+	{"sr_num_x", 0 },
+	{"dr_static_rip_x", 0 },
+	{"dr_static_matric_x", 0 },
+	{"dr_default_x", 0 },
+	{"dr_static_rip_x", 0 },
+	{"dr_staticnum_x", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_LANHostConfig[] = {
-	{"lan_proto_x", "", NULL },
-	{"lan_ipaddr", "", NULL },
-	{"lan_netmask", "", NULL },
-	{"lan_hostname", "", NULL },
-	{"lan_gateway", "", NULL },
-	{"lan_dns", "", NULL },
-	{"dhcp_enable_x", "", NULL },
-	{"lan_domain", "", NULL },
-	{"dhcp_start", "", NULL },
-	{"dhcp_end", "", NULL },
-	{"dhcp_lease", "", NULL },
-	{"dhcp_gateway_x", "", NULL },
-	{"dhcp_dns1_x", "", NULL },
-	{"dhcp_wins_x", "", NULL },
-	{"dhcp_static_x", "", NULL },
-	{"dhcp_staticnum_x", "", NULL },
-	{"upnp_enable", "", NULL },
-	{"upnp_proto", "", NULL },
-	{"udpxy_enable_x", "", NULL },
-	{"udpxy_wan_x", "", NULL },
-	{"emf_enable", "", NULL },
-	{"log_ipaddr", "", NULL },
-	{"time_zone", "", NULL },
-	{"time_interval", "", NULL },
-	{"ntp_server0", "", NULL },
-	{"ntp_server1", "", NULL },
-	{"ntp_interval_x", "", NULL },
-	{"ddns_enable_x", "", NULL },
-	{"ddns_realip_x", "", NULL },
-	{"ddns_server_x", "", NULL },
-	{"ddns_username_x", "", NULL },
-	{"ddns_passwd_x", "", NULL },
-	{"ddns_hostname_x", "", NULL },
-	{"ddns_wildcard_x", "", NULL },
-	{"snmp_enable", "", NULL },
-	{"snmp_community", "", NULL },
-	{"snmp_contact", "", NULL },
-	{"snmp_location", "", NULL },
-	{"ManualDHCPList", "Group", ARGV(variables_LANHostConfig_ManualDHCPList, "32", "61", "dhcp_staticnum_x") },
-	{"DmzManualDHCPList", "Group", ARGV(variables_LANHostConfig_DmzManualDHCPList, "8", "29", "DmzManualDHCPCount") },
-	{"ReservedAddressList", "Group", ARGV(variables_LANHostConfig_ReservedAddressList, "6", "24", "ReservedAddressListCount") },
-	{0, 0, 0 }
+	{"lan_proto_x", 0 },
+	{"lan_ipaddr", 0 },
+	{"lan_netmask", 0 },
+	{"lan_hostname", 0 },
+	{"lan_gateway", 0 },
+	{"lan_dns", 0 },
+	{"dhcp_enable_x", 0 },
+	{"lan_domain", 0 },
+	{"dhcp_start", 0 },
+	{"dhcp_end", 0 },
+	{"dhcp_lease", 0 },
+	{"dhcp_gateway_x", 0 },
+	{"dhcp_dns1_x", 0 },
+	{"dhcp_wins_x", 0 },
+	{"dhcp_static_x", 0 },
+	{"dhcp_staticnum_x", 0 },
+	{"upnp_enable", 0 },
+	{"upnp_proto", 0 },
+	{"udpxy_enable_x", 0 },
+	{"udpxy_wan_x", 0 },
+	{"emf_enable", 0 },
+	{"log_ipaddr", 0 },
+	{"time_zone", 0 },
+	{"time_interval", 0 },
+	{"ntp_server0", 0 },
+	{"ntp_server1", 0 },
+	{"ntp_interval_x", 0 },
+	{"ddns_enable_x", 0 },
+	{"ddns_realip_x", 0 },
+	{"ddns_server_x", 0 },
+	{"ddns_username_x", 0 },
+	{"ddns_passwd_x", 0 },
+	{"ddns_hostname_x", 0 },
+	{"ddns_wildcard_x", 0 },
+	{"snmp_enable", 0 },
+	{"snmp_community", 0 },
+	{"snmp_contact", 0 },
+	{"snmp_location", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_WLANConfig11a[] = {
-	{"", "", NULL },
-	{0, 0, 0 }
+	{"", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_DeviceSecurity11a[] = {
-	{"wl_macmode", "", NULL },
-	{"wl_macapply_x", "", NULL },
-	{"wl_macnum_x", "", NULL },
-	{"ACLList", "Group", ARGV(variables_DeviceSecurity11a_ACLList, "64", "60", "wl_macnum_x") },
-	{"AESList", "Group", ARGV(variables_DeviceSecurity11a_AESList, "64", "58", "AESListCount") },
-	{0, 0, 0 }
+	{"wl_macmode", 0 },
+	{"wl_macapply_x", 0 },
+	{"wl_macnum_x", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_WLANAuthentication11a[] = {
-	{"wl_radius_ipaddr", "", NULL },
-	{"wl_radius_port", "", NULL },
-	{"wl_radius_key", "", NULL },
-	{"LocalAuthDB", "Group", ARGV(variables_WLANAuthentication11a_LocalAuthDB, "32", "36", "AuthDBNumberOfEntries") },
-	{"LocalCertDB", "Group", ARGV(variables_WLANAuthentication11a_LocalCertDB, "32", "40", "CertDBNumberOfEntries") },
-	{0, 0, 0 }
+	{"wl_radius_ipaddr", 0 },
+	{"wl_radius_port", 0 },
+	{"wl_radius_key", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_WLANConfig11b[] = {
-	{"wl_country_code", "", NULL },
-	{"wl_ssid", "", NULL },
-	{"wl_mode_x", "", NULL },
-	{"wl_channel", "", NULL },
-	{"wl_wdsapply_x", "", NULL },
-	{"wl_lazywds", "", NULL },
-	{"wl_wdsnum_x", "", NULL },
-	{"wl_gmode", "", NULL },
-	{"wl_gmode_protection_x", "", NULL },
-	{"wl_auth_mode", "", NULL },
-	{"wl_wpa_mode", "", NULL },
-	{"wl_crypto", "", NULL },
-	{"wl_wpa_psk", "", NULL },
-	{"wl_wep_x", "", NULL },
-	{"wl_phrase_x", "", NULL },
-	{"wl_key1", "", NULL },
-	{"wl_key2", "", NULL },
-	{"wl_key3", "", NULL },
-	{"wl_key4", "", NULL },
-	{"wl_key", "", NULL },
-	{"wl_wpa_gtk_rekey", "", NULL },
-	{"wl_afterburner", "", NULL },
-	{"wl_closed", "", NULL },
-	{"wl_ap_isolate", "", NULL },
-	{"wl_rate", "", NULL },
-	{"wl_mrate", "", NULL },
-	{"wl_rateset", "", NULL },
-	{"wl_reg_mode", "", NULL },
-	{"wl_frag", "", NULL },
-	{"wl_rts", "", NULL },
-	{"wl_dtim", "", NULL },
-	{"wl_bcn", "", NULL },
-	{"wl_frameburst", "", NULL },
-	{"wl_mode_ex", "", NULL },
-	{"wl_radio_x", "", NULL },
-	{"wl_radio_date_x", "", NULL },
-	{"wl_radio_time_x", "", NULL },
-	{"wl_radio_power_x", "", NULL },
-	{"wl_wme", "", NULL },
-	{"wl_wme_no_ack", "", NULL },
-	{"wl_wme_ap_bk", "", NULL },
-	{"wl_wme_ap_be", "", NULL },
-	{"wl_wme_ap_vi", "", NULL },
-	{"wl_wme_ap_vo", "", NULL },
-	{"wl_wme_sta_bk", "", NULL },
-	{"wl_wme_sta_be", "", NULL },
-	{"wl_wme_sta_vi", "", NULL },
-	{"wl_wme_sta_vo", "", NULL },
-	{"wl_preauth", "", NULL },
-	{"wl_net_reauth", "", NULL },
-	{"wl_nbw", "", NULL },
-	{"wl_nctrlsb", "", NULL },
-	{"wl_nband", "2", NULL },
-	{"wl_nmcsidx", "-1", NULL },
-	{"wl_nmode", "-1", NULL },
-	{"wl_leddc", "0x640000", NULL },
-	{"wl_wme_apsd", "on", NULL },
-	{"wl_sta_retry_time", "5", NULL },
-	{"wl_wmf_bss_enable", "", NULL },
-	{"RBRList", "Group", ARGV(variables_WLANConfig11b_RBRList, "16", "32", "wl_wdsnum_x") },
-	{0, 0, 0 }
+	{"wl_country_code", 0 },
+	{"wl_ssid", 0 },
+	{"wl_mode_x", 0 },
+	{"wl_channel", 0 },
+	{"wl_wdsapply_x", 0 },
+	{"wl_lazywds", 0 },
+	{"wl_wdsnum_x", 0 },
+	{"wl_gmode", 0 },
+	{"wl_gmode_protection_x", 0 },
+	{"wl_auth_mode", 0 },
+	{"wl_wpa_mode", 0 },
+	{"wl_crypto", 0 },
+	{"wl_wpa_psk", 0 },
+	{"wl_wep_x", 0 },
+	{"wl_phrase_x", 0 },
+	{"wl_key1", 0 },
+	{"wl_key2", 0 },
+	{"wl_key3", 0 },
+	{"wl_key4", 0 },
+	{"wl_key", 0 },
+	{"wl_wpa_gtk_rekey", 0 },
+	{"wl_afterburner", 0 },
+	{"wl_closed", 0 },
+	{"wl_ap_isolate", 0 },
+	{"wl_rate", 0 },
+	{"wl_mrate", 0 },
+	{"wl_rateset", 0 },
+	{"wl_reg_mode", 0 },
+	{"wl_frag", 0 },
+	{"wl_rts", 0 },
+	{"wl_dtim", 0 },
+	{"wl_bcn", 0 },
+	{"wl_frameburst", 0 },
+	{"wl_mode_ex", 0 },
+	{"wl_radio_x", 0 },
+	{"wl_radio_date_x", 0 },
+	{"wl_radio_time_x", 0 },
+	{"wl_radio_power_x", 0 },
+	{"wl_wme", 0 },
+	{"wl_wme_no_ack", 0 },
+	{"wl_wme_ap_bk", 0 },
+	{"wl_wme_ap_be", 0 },
+	{"wl_wme_ap_vi", 0 },
+	{"wl_wme_ap_vo", 0 },
+	{"wl_wme_sta_bk", 0 },
+	{"wl_wme_sta_be", 0 },
+	{"wl_wme_sta_vi", 0 },
+	{"wl_wme_sta_vo", 0 },
+	{"wl_preauth", 0 },
+	{"wl_net_reauth", 0 },
+	{"wl_nbw", 0 },
+	{"wl_nctrlsb", 0 },
+	{"wl_nband", 2 },
+	{"wl_nmcsidx", 0 },
+	{"wl_nmode", 0 },
+	{"wl_leddc", 0 },
+	{"wl_wme_apsd", 0 },
+	{"wl_sta_retry_time", 5 },
+	{"wl_wmf_bss_enable", 0 },
+	{0, 0 }
 };
 
 
 static const struct variable variables_DeviceSecurity11b[] = {
-	{"wl_macmode", "", NULL },
-	{"wl_macapply_x", "", NULL },
-	{"wl_macnum_x", "", NULL },
-	{"ACLList", "Group", ARGV(variables_DeviceSecurity11b_ACLList, "64", "60", "wl_macnum_x") },
-	{"AESList", "Group", ARGV(variables_DeviceSecurity11b_AESList, "64", "58", "AESListCount") },
-	{0, 0, 0 }
+	{"wl_macmode", 0 },
+	{"wl_macapply_x", 0 },
+	{"wl_macnum_x", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_WLANAuthentication11b[] = {
-	{"wl_radius_ipaddr", "", NULL },
-	{"wl_radius_port", "", NULL },
-	{"wl_radius_key", "", NULL },
-	{"LocalAuthDB", "Group", ARGV(variables_WLANAuthentication11b_LocalAuthDB, "32", "36", "AuthDBNumberOfEntries") },
-	{"LocalCertDB", "Group", ARGV(variables_WLANAuthentication11b_LocalCertDB, "32", "40", "CertDBNumberOfEntries") },
-	{0, 0, 0 }
+	{"wl_radius_ipaddr", 0 },
+	{"wl_radius_port", 0 },
+	{"wl_radius_key", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_PrinterStatus[] = {
-	{"usb_webenable_x", "", NULL },
-	{"usb_webdriver_x", "", NULL },
-	{"usb_webformat_x", "", NULL },
-	{"usb_webimage_x", "", NULL },
-	{"usb_websense_x", "", NULL },
-	{"usb_webrectime_x", "", NULL },
-	{"usb_webfresh_x", "", NULL },
-	{"usb_webquality_x", "", NULL },
-	{"usb_webhttpport_x", "", NULL },
-	{"usb_webhttpcheck_x", "", NULL },
-	{"usb_webhttp_username", "", NULL },
-	{"usb_webhttp_passwd", "", NULL },
-	{"usb_websecurity_x", "", NULL },
-	{"usb_websecurity_date_x", "", NULL },
-	{"usb_websecurity_time_x", "", NULL },
-	{"usb_websendto_x", "", NULL },
-	{"usb_webmserver_x", "", NULL },
-	{"usb_websubject_x", "", NULL },
-	{"usb_webattach_x", "", NULL },
-	{"usb_webremote_x", "", NULL },
-	{"usb_webremote1_x", "", NULL },
-	{"usb_webremote2_x", "", NULL },
-	{"usb_webremote3_x", "", NULL },
-	{"usb_webremote4_x", "", NULL },
-	{"usb_webremote5_x", "", NULL },
-	{"usb_webremote6_x", "", NULL },
-	{"usb_storage_x", "", NULL },
-	{"usb_smbenable_x", "", NULL },
-	{"usb_smbhidden_x", "", NULL },
-	{"usb_smbwrkgrp_x", "", NULL },
-	{"usb_smbcpage_x", "", NULL },
-	{"x_SharesList", "Group", ARGV(variables_PrinterStatus_x_SharesList, "32", "80", "usb_smbnum_x") },
-	{"usb_ftpenable_x", "", NULL },
-	{"usb_ftp_pasvenable_x", "", NULL },
-	{"usb_ftp_pasvminport_x", "", NULL },
-	{"usb_ftp_pasvmaxport_x", "", NULL },
-	{"usb_ftpanonymous_x", "", NULL },
-	{"usb_ftpsuper_x", "", NULL },
-	{"usb_ftpport_x", "", NULL },
-	{"usb_ftppubroot_x", "", NULL },
-	{"usb_ftppvtroot_x", "", NULL },
-	{"usb_ftpanonroot_x", "", NULL },
-	{"usb_ftpdirlist_x", "", NULL },
-	{"usb_ftpmax_x", "", NULL },
-	{"usb_ftpipmax_x", "", NULL },
-	{"usb_ftptimeout_x", "", NULL },
-	{"usb_ftpstaytimeout_x", "", NULL },
-	{"usb_ftpscript_x", "", NULL },
-	{"usb_ftpscript_x", "", NULL },
-	{"usb_ftprate_x", "", NULL },
-	{"usb_ftpanonrate_x", "", NULL },
-	{"usb_ftpnum_x", "", NULL },
-	{"usb_bannum_x", "", NULL },
-	{"qos_enable_x", "", NULL },
-	{"qos_rulenum_x", "", NULL },
-	{"qos_urulenum_x", "", NULL },
-	{"x_FUserList", "Group", ARGV(variables_PrinterStatus_x_FUserList, "32", "52", "usb_ftpnum_x") },
-	{"x_FBanIPList", "Group", ARGV(variables_PrinterStatus_x_FBanIPList, "16", "24", "usb_bannum_x") },
-	{"usb_nfsenable_x", "", NULL },
-	{"x_ExportsList", "Group", ARGV(variables_PrinterStatus_x_ExportsList, "32", "80", "usb_nfsnum_x") },
-	{"x_QRuleList", "Group", ARGV(variables_PrinterStatus_x_QRuleList, "32", "44", "qos_rulenum_x") },
-	{"x_UQRuleList", "Group", ARGV(variables_PrinterStatus_x_UQRuleList, "32", "28", "qos_urulenum_x") },
-	{"telnet_enable", "", NULL },
-	{"ssh_enable", "", NULL },
-	{"ssh_port", "", NULL },
-	{"ssh_password_logins", "", NULL },
-	{"lpr_enable", "", NULL },
-	{"raw_enable", "", NULL },
-	{"audio_enable", "", NULL },
-	{"usb20_disable_x", "", NULL },
-	{"lltd_enable", "", NULL },
-	{"usb_ntfs3g_enable", "", NULL },
-	{0, 0, 0 }
+	{"usb_webenable_x", 0 },
+	{"usb_webdriver_x", 0 },
+	{"usb_webformat_x", 0 },
+	{"usb_webimage_x", 0 },
+	{"usb_websense_x", 0 },
+	{"usb_webrectime_x", 0 },
+	{"usb_webfresh_x", 0 },
+	{"usb_webquality_x", 0 },
+	{"usb_webhttpport_x", 0 },
+	{"usb_webhttpcheck_x", 0 },
+	{"usb_webhttp_username", 0 },
+	{"usb_webhttp_passwd", 0 },
+	{"usb_websecurity_x", 0 },
+	{"usb_websecurity_date_x", 0 },
+	{"usb_websecurity_time_x", 0 },
+	{"usb_websendto_x", 0 },
+	{"usb_webmserver_x", 0 },
+	{"usb_websubject_x", 0 },
+	{"usb_webattach_x", 0 },
+	{"usb_webremote_x", 0 },
+	{"usb_webremote1_x", 0 },
+	{"usb_webremote2_x", 0 },
+	{"usb_webremote3_x", 0 },
+	{"usb_webremote4_x", 0 },
+	{"usb_webremote5_x", 0 },
+	{"usb_webremote6_x", 0 },
+	{"usb_storage_x", 0 },
+	{"usb_smbenable_x", 0 },
+	{"usb_smbhidden_x", 0 },
+	{"usb_smbwrkgrp_x", 0 },
+	{"usb_smbcpage_x", 0 },
+	{"usb_ftpenable_x", 0 },
+	{"usb_ftp_pasvenable_x", 0 },
+	{"usb_ftp_pasvminport_x", 0 },
+	{"usb_ftp_pasvmaxport_x", 0 },
+	{"usb_ftpanonymous_x", 0 },
+	{"usb_ftpsuper_x", 0 },
+	{"usb_ftpport_x", 0 },
+	{"usb_ftppubroot_x", 0 },
+	{"usb_ftppvtroot_x", 0 },
+	{"usb_ftpanonroot_x", 0 },
+	{"usb_ftpdirlist_x", 0 },
+	{"usb_ftpmax_x", 0 },
+	{"usb_ftpipmax_x", 0 },
+	{"usb_ftptimeout_x", 0 },
+	{"usb_ftpstaytimeout_x", 0 },
+	{"usb_ftpscript_x", 0 },
+	{"usb_ftpscript_x", 0 },
+	{"usb_ftprate_x", 0 },
+	{"usb_ftpanonrate_x", 0 },
+	{"usb_ftpnum_x", 0 },
+	{"usb_bannum_x", 0 },
+	{"qos_enable_x", 0 },
+	{"qos_rulenum_x", 0 },
+	{"qos_urulenum_x", 0 },
+	{"usb_nfsenable_x", 0 },
+	{"telnet_enable", 0 },
+	{"ssh_enable", 0 },
+	{"ssh_port", 0 },
+	{"ssh_password_logins", 0 },
+	{"lpr_enable", 0 },
+	{"raw_enable", 0 },
+	{"audio_enable", 0 },
+	{"usb20_disable_x", 0 },
+	{"lltd_enable", 0 },
+	{"usb_ntfs3g_enable", 0 },
+	{0, 0 }
 };
 
 static const struct variable variables_IPv6Config[] = {
-	{"ipv6_proto", "", NULL },
-	{"ipv6_if_x", "", NULL },
-	{"ipv6_lanauto_x", "", NULL },
-	{"ipv6_lan_addr", "", NULL },
-	{"ipv6_lan_netsize", "", NULL },
-	{"ipv6_wanauto_x", "", NULL },
-	{"ipv6_wan_addr", "", NULL },
-	{"ipv6_wan_netsize", "", NULL },
-	{"ipv6_wan_router", "", NULL },
-	{"ipv6_sit_remote", "", NULL },
-	{"ipv6_sit_relay", "", NULL },
- 	{"ipv6_6rd_router", "", NULL },
- 	{"ipv6_6rd_ip4size", "", NULL },
-	{"ipv6_sit_mtu", "", NULL },
-	{"ipv6_sit_ttl", "", NULL },
-	{"ipv6_dnsenable_x", "", NULL },
-	{"ipv6_dns1_x", "", NULL },
-	{"ipv6_dns2_x", "", NULL },
-	{"ipv6_dns3_x", "", NULL },
-	{"ipv6_radvd_enable", "", NULL },
-//	{"ipv6_radvd_lifetime", "", NULL },
-	{"ipv6_radvd_dns1_x", "", NULL },
-	{ 0, 0, 0 }
+	{"ipv6_proto", 0 },
+	{"ipv6_if_x", 0 },
+	{"ipv6_lanauto_x", 0 },
+	{"ipv6_lan_addr", 0 },
+	{"ipv6_lan_netsize", 0 },
+	{"ipv6_wanauto_x", 0 },
+	{"ipv6_wan_addr", 0 },
+	{"ipv6_wan_netsize", 0 },
+	{"ipv6_wan_router", 0 },
+	{"ipv6_sit_remote", 0 },
+	{"ipv6_sit_relay", 0 },
+ 	{"ipv6_6rd_router", 0 },
+ 	{"ipv6_6rd_ip4size", 0 },
+	{"ipv6_sit_mtu", 0 },
+	{"ipv6_sit_ttl", 0 },
+	{"ipv6_dnsenable_x", 0 },
+	{"ipv6_dns1_x", 0 },
+	{"ipv6_dns2_x", 0 },
+	{"ipv6_dns3_x", 0 },
+	{"ipv6_radvd_enable", 0 },
+//	{"ipv6_radvd_lifetime", 0 },
+	{"ipv6_radvd_dns1_x", 0 },
+	{ 0, 0 }
 };
 
 #ifdef __CONFIG_MADWIMAX__
 static const struct variable variables_WiMaxConfig[] = {
-	{"wan_wimax_ssid", "", NULL },
-	{"wan_wimax_check", "", NULL },
-	{"wan_wimax_interval", "", NULL },
-	{"wan_wimax_restart", "", NULL },
-	{"wan_wimax_syslog", "", NULL },
-	{"wan_proto", "", NULL },
-	{ 0, 0, 0 }
+	{"wan_wimax_ssid", 0 },
+	{"wan_wimax_check", 0 },
+	{"wan_wimax_interval", 0 },
+	{"wan_wimax_restart", 0 },
+	{"wan_wimax_syslog", 0 },
+	{"wan_proto", 0 },
+	{ 0, 0 }
 };
 #endif
 
 #ifdef __CONFIG_MODEM__
 static const struct variable variables_3GConfigvariables_3GConfig[] = {
-	{"wan_modem_type","", NULL },
-	{"wan_modem_username", "", NULL },
-	{"wan_modem_passwd", "", NULL },
-	{"wan_modem_usbloc", "", NULL },
-	{"wan_modem_apn", "", NULL },
-	{"wan_modem_dialno", "", NULL },
-	{"wan_modem_autodetect", "", NULL },
-	{"wan_modem_vid", "", NULL },
-	{"wan_modem_pid", "", NULL },
-	{"wan_modem_portspeed", "", NULL },
-	{"wan_modem_zerocd_mode", "", NULL },
-	{"wan_modem_dialup_init", "", NULL },
-	{"wan_modem_options", "", NULL },
-	{"wan_modem_pdata", "", NULL },
-	{"wan_modem_pui", "", NULL },
-	{"wan_modem_standard", "", NULL },
-	{"wan_modem_demand", "", NULL },
-	{"wan_modem_idle", "", NULL },
-	{"wan_modem_mtu", "", NULL },
-	{"wan_modem_mru", "", NULL },
-	{"wan_modem_onfailure", "", NULL },
-	{"wan_modem_maxfail", "", NULL },
-	{"wan_modem_init_script", "", NULL },
-	{"wan_proto", "", NULL },
-	{0, 0, 0 }
+	{"wan_modem_type", 0 },
+	{"wan_modem_username", 0 },
+	{"wan_modem_passwd", 0 },
+	{"wan_modem_usbloc", 0 },
+	{"wan_modem_apn", 0 },
+	{"wan_modem_dialno", 0 },
+	{"wan_modem_autodetect", 0 },
+	{"wan_modem_vid", 0 },
+	{"wan_modem_pid", 0 },
+	{"wan_modem_portspeed", 0 },
+	{"wan_modem_zerocd_mode", 0 },
+	{"wan_modem_dialup_init", 0 },
+	{"wan_modem_options", 0 },
+	{"wan_modem_pdata", 0 },
+	{"wan_modem_pui", 0 },
+	{"wan_modem_standard", 0 },
+	{"wan_modem_demand", 0 },
+	{"wan_modem_idle", 0 },
+	{"wan_modem_mtu", 0 },
+	{"wan_modem_mru", 0 },
+	{"wan_modem_onfailure", 0 },
+	{"wan_modem_maxfail", 0 },
+	{"wan_modem_init_script", 0 },
+	{"wan_proto", 0 },
+	{0, 0 }
 };
 #endif
 
+static const struct group_variable grpList[] = {
+	{"PortMappingList", variables_IPConnection_PortMappingList, 58, "PortMappingNumberOfEntries" },
+	{"VSList", variables_IPConnection_VSList, 91, "vts_num_x" },
+	{"TriggerList", variables_IPConnection_TriggerList, 56, "autofw_num_x" },
+	{"PPPoERouteList", variables_PPPConnection_PPPoERouteList, 50, "PPPoERouteCount" },
+	{"WLFilterList", variables_FirewallConfig_WLFilterList, 63, "filter_wl_num_x" },
+	{"LWFilterList", variables_FirewallConfig_LWFilterList, 63, "filter_lw_num_x" },
+	{"UrlList", variables_FirewallConfig_UrlList, 36, "url_num_x" },
+	{"WLocalFilterList", variables_FirewallConfig_WLocalFilterList, 36, "WanLocalRuleCount" },
+	{"DWFilterList", variables_FirewallConfig_DWFilterList, 63, "DmzWanRuleCount" },
+	{"WDFilterList", variables_FirewallConfig_WDFilterList, 63, "WanDmzRuleCount" },
+	{"DLFilterList", variables_FirewallConfig_DLFilterList, 63, "DmzLanRuleCount" },
+	{"LDFilterList", variables_FirewallConfig_LDFilterList, 63, "LanDmzRuleCount" },
+	{"MFList", variables_FirewallConfig_MFList, 32, "macfilter_num_x" },
+	{"GWStatic", variables_RouterConfig_GWStatic, 59, "sr_num_x" },
+	{"StaticRoute", variables_RouterConfig_StaticRoute, 46, "dr_staticnum_x" },
+	{"RipSRoute", variables_RouterConfig_RipSRoute, 24, "RipSRouteCount" },
+	{"RouteFilter", variables_RouterConfig_RouteFilter, 33, "RipDRouteCount" },
+	{"RipOffset", variables_RouterConfig_RipOffset, 30, "RipOffsetCount" },
+	{"ManualDHCPList", variables_LANHostConfig_ManualDHCPList, 61, "dhcp_staticnum_x" },
+	{"DmzManualDHCPList", variables_LANHostConfig_DmzManualDHCPList, 29, "DmzManualDHCPCount" },
+	{"ReservedAddressList", variables_LANHostConfig_ReservedAddressList, 24, "ReservedAddressListCount" },
+	{"RBRList", variables_WLANConfig11b_RBRList, 32, "wl_wdsnum_x" },
+	{"ACLList", variables_DeviceSecurity11a_ACLList, 60, "wl_macnum_x" },
+	{"AESList", variables_DeviceSecurity11a_AESList, 58, "AESListCount" },
+	{"LocalAuthDB", variables_WLANAuthentication11a_LocalAuthDB, 36, "AuthDBNumberOfEntries" },
+	{"LocalCertDB", variables_WLANAuthentication11a_LocalCertDB, 40, "CertDBNumberOfEntries" },
+	{"x_SharesList", variables_PrinterStatus_x_SharesList, 80, "usb_smbnum_x" },
+	{"x_FUserList", variables_PrinterStatus_x_FUserList, 52, "usb_ftpnum_x" },
+	{"x_FBanIPList", variables_PrinterStatus_x_FBanIPList, 24, "usb_bannum_x" },
+	{"x_ExportsList", variables_PrinterStatus_x_ExportsList, 80, "usb_nfsnum_x" },
+	{"x_QRuleList", variables_PrinterStatus_x_QRuleList, 44, "qos_rulenum_x" },
+	{"x_UQRuleList", variables_PrinterStatus_x_UQRuleList, 28, "qos_urulenum_x" },
+	{ 0, 0, 0, 0 }
+};
 
-static const struct svcLink svcLinks[] = {  
+static const struct svcLink svcLinks[] = {
 	{"General",		 variables_General },
-	{"LANHostConfig", variables_LANHostConfig },
-	{"Layer3Forwarding", variables_Layer3Forwarding },
+	{"LANHostConfig",	 variables_LANHostConfig },
+	{"Layer3Forwarding",	 variables_Layer3Forwarding },
 	{"IPConnection",	 variables_IPConnection },
 	{"PPPConnection",	 variables_PPPConnection },
 	{"FirewallConfig",	 variables_FirewallConfig },
 	{"RouterConfig",	 variables_RouterConfig },
 	{"WLANConfig11a",	 variables_WLANConfig11a },
-	{"DeviceSecurity11a", variables_DeviceSecurity11a },
+	{"DeviceSecurity11a",	 variables_DeviceSecurity11a },
 	{"WLANAuthentication11a", variables_WLANAuthentication11a },
 	{"WLANConfig11b",	 variables_WLANConfig11b },
-	{"DeviceSecurity11b", variables_DeviceSecurity11b },
+	{"DeviceSecurity11b",	 variables_DeviceSecurity11b },
 	{"WLANAuthentication11b", variables_WLANAuthentication11b },
 	{"PrinterStatus", 	 variables_PrinterStatus },
-	{"IPv6Config",	 variables_IPv6Config },
+	{"IPv6Config",		 variables_IPv6Config },
 #ifdef __CONFIG_MADWIMAX__
-	{"WiMaxConfig",	 variables_WiMaxConfig },
+	{"WiMaxConfig",		 variables_WiMaxConfig },
 #endif
 #ifdef __CONFIG_MODEM__
-	{"3GConfig",	 variables_3GConfigvariables_3GConfig },
+	{"3GConfig",		 variables_3GConfigvariables_3GConfig },
 #endif
 	{0, 0 }
 };

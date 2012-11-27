@@ -16,16 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <time.h>
 #include <syslog.h>
-#include <sys/klog.h>
-#include <sys/wait.h>
-#include <sys/socket.h>
-#include <linux/if.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include <shutils.h>
 #include <bcmconfig.h>
@@ -33,33 +24,35 @@
 #include "bcmnvram_f.h"
 #include "common.h"
 
-#define MAX_LINE_SIZE 512
-
 #include "variables.c"
 
 /* API export for UPnP function */
 int LookupServiceId(const char *serviceId)
 {
-	int sid = 0;
+	int sid;
 
-	while (svcLinks[sid].serviceId!=NULL) {      
-		if( strcmp(serviceId, svcLinks[sid].serviceId) == 0)
-			break;
-		sid++;
-	} 
+	for (sid = 0; svcLinks[sid].serviceId != NULL; sid++) {
+		if (strcmp(serviceId, svcLinks[sid].serviceId) == 0)
+			return sid;
+	}
 
-	if (svcLinks[sid].serviceId == NULL)
-		return -1;
-	else
-		return sid;
-}   
-
-const char *GetServiceId(int sid)
-{        
-	return (svcLinks[sid].serviceId);   
-} 
+	return -1;
+}
 
 const struct variable *GetVariables(int sid)
-{        
-	return (svcLinks[sid].variables);   
+{
+	return svcLinks[sid].variables;
+}
+
+const struct group_variable *LookupGroup(const char *groupName)
+{
+	const struct group_variable *gv;
+
+	/* Find group */
+	for (gv = grpList; gv->name != NULL; gv++) {
+		if (strcmp(groupName, gv->name) == 0)
+			return gv;
+	}
+
+	return NULL;
 }

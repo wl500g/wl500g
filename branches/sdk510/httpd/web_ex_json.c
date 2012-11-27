@@ -28,9 +28,7 @@
 #include "bcmnvram_f.h"
 #include "common.h"
 
-#define MAX_LINE_SIZE 1024
-
-int js0n(unsigned char *js, unsigned int len, unsigned short *out);
+extern int js0n(unsigned char *js, unsigned int len, unsigned short *out);
 
 // Answer list that created by json commands
 struct json_answer_list {
@@ -92,7 +90,7 @@ do_ej_ex(char *path, FILE *stream)
 * <% nvram_get_json("sid","undefined"); %> produces "undefined":""
 */
 int
-ej_nvram_get_json(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_get_json(int eid, webs_t wp, int argc, char **argv)
 {
 	JData res;
 	int arg;
@@ -122,7 +120,7 @@ ej_nvram_get_json(int eid, webs_t wp, int argc, char_t **argv)
 * <% nvram_get_n_json("sid","wan","_unit","_undefined"); %> produces "wan0_undefined":""
 */
 int
-ej_nvram_get_n_json(int eid, webs_t wp, int argc, char_t **argv)
+ej_nvram_get_n_json(int eid, webs_t wp, int argc, char **argv)
 {
 	JData res;
 	int arg;
@@ -271,7 +269,8 @@ json_parse(char *json, void (*func)(char *name, char *val, JData *data), JData *
 	js0n(json, l, res);
 	if (*json == '{') { // list of pairs
 		for (i = 0; res[i]; i += 2) {
-			strncpy(name, json+res[i], ( tmp_len = MIN(res[i+1], sizeof(name) - 1) ));
+			tmp_len = MIN(res[i+1], sizeof(name) - 1);
+			strncpy(name, json+res[i], tmp_len);
 			name[tmp_len] = '\0';
 			if (res[(i += 2)]) {
 				strncpy(val, json+res[i], ( tmp_len = MIN(res[i+1], sizeof(val)-1) ));
@@ -281,7 +280,8 @@ json_parse(char *json, void (*func)(char *name, char *val, JData *data), JData *
 		}
 	} else if (*json == '[') { // list of values
 		for (i = 0, j = 0; res[i]; i += 2, j++) {
-			strncpy(val, json+res[i], ( tmp_len = MIN(res[i+1], sizeof(val) - 1) ));
+			tmp_len = MIN(res[i+1], sizeof(val) - 1);
+			strncpy(val, json+res[i], tmp_len);
 			val[tmp_len] = '\0';
 			sprintf(name, "%d", j);
 			(*func)(name, val, data);
@@ -438,8 +438,8 @@ do_dump_file(char *filename, JData *data)
 			buf_en[len + 1] = '\0';
 			json_answer_add(buf_en, data);
 		}
+		fclose(fp);
 	}
-	fclose(fp);
 
 	strcpy(buf_en, "\"\"]");
 	json_answer_add(buf_en, data);
@@ -484,11 +484,11 @@ json_nvram_get(char *params, JData *data)
 // Json commands list
 static const struct json_command json_commands[] = {
 #ifdef DEBUG
-	{"nvram_get",json_nvram_get},	// sample { "nvram_get" : ["var_name_1","var_name_2"] }
-	{"dump_file",json_dump_file},	// sample { "dump_file" : "../.version" }
+	{ "nvram_get",	json_nvram_get },	// sample { "nvram_get" : ["var_name_1","var_name_2"] }
+	{ "dump_file",	json_dump_file },	// sample { "dump_file" : "../.version" }
 #endif
-	{"nvram_set",json_nvram_set},	// sample { "nvram_set" : { "nvram_var_name_1" : "val_1" , "nvram_var_name_2" : "val_2" } }
-	{"nvram_commit",json_nvram_commit},	// sample { "nvram_commit" : "" } 
-	{"sys_reboot",json_sys_reboot},	// sample { "sys_reboot" : "" } 
+	{ "nvram_set",	json_nvram_set },	// sample { "nvram_set" : { "nvram_var_name_1" : "val_1" , "nvram_var_name_2" : "val_2" } }
+	{ "nvram_commit", json_nvram_commit },	// sample { "nvram_commit" : "" } 
+	{ "sys_reboot",	json_sys_reboot },	// sample { "sys_reboot" : "" } 
 	{ NULL, NULL }
 };

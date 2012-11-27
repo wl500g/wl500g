@@ -25,7 +25,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Redistribute routing information from a static route entries specified in the Static Route List into the RIP table.', LEFT);" onMouseOut="return nd();">Redistribute static routes into RIP?
-           </td><td class="content_input_td"><input type="radio" value="1" name="dr_static_rip_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'dr_static_rip_x', '1')" <% nvram_match_x("RouterConfig","dr_static_rip_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="dr_static_rip_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'dr_static_rip_x', '0')" <% nvram_match_x("RouterConfig","dr_static_rip_x", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="dr_static_rip_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'dr_static_rip_x', '1')" <% nvram_match("dr_static_rip_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="dr_static_rip_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'dr_static_rip_x', '0')" <% nvram_match("dr_static_rip_x", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Set a metric for the matched route when sending announcement. For RIP, valid metric values are from 1 to 16.', LEFT);" onMouseOut="return nd();">Set metric of static route (1-16):
@@ -33,7 +33,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines only those matched destination networks, which are specified in the Static Route Filter table will be distributed or not be distributed.', LEFT);" onMouseOut="return nd();">Only routes specified in route filter will
-           </td><td class="content_input_td"><select name="dr_default_x" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', 'dr_default_x')"><option class="content_input_fd" value="0" <% nvram_match_x("RouterConfig","dr_default_x", "0","selected"); %>>be redistributed</option><option class="content_input_fd" value="1" <% nvram_match_x("RouterConfig","dr_default_x", "1","selected"); %>>not be redistributed</option></select></td>
+           </td><td class="content_input_td"><select name="dr_default_x" class="content_input_fd" onChange="return change_common(this, 'RouterConfig', 'dr_default_x')"><option class="content_input_fd" value="0" <% nvram_match("dr_default_x", "0","selected"); %>>be redistributed</option><option class="content_input_fd" value="1" <% nvram_match("dr_default_x", "1","selected"); %>>not be redistributed</option></select></td>
 </tr>
 </table>
 
@@ -75,7 +75,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="StaticRoute_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
-<% nvram_get_table_x("RouterConfig","StaticRoute"); %>
+<% nvram_get_table("StaticRoute"); %>
 </select></td>
 </tr>
 </table>
@@ -123,7 +123,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="RipSRoute_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
-<% nvram_get_table_x("RouterConfig","RipSRoute"); %>
+<% nvram_get_table("RipSRoute"); %>
 </select></td>
 </tr>
 </table>

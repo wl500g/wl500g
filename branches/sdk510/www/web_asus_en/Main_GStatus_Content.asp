@@ -20,7 +20,7 @@
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="first_time" value="">
 <input type="hidden" name="action_script" value="">
-<input type="hidden" name="load_script" value="<% load_script("wan.sh"); %>">
+<input type="hidden" name="load_script" value="<% load_script("printer.sh"); %>">
 <!-- Table for the conntent page -->
 <table class="content_table">
 <tr>

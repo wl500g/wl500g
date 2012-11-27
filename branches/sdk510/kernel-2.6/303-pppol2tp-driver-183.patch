@@ -1,7 +1,7 @@
 diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol2tp.c
 --- linux-2.6.22.orig/drivers/net/pppol2tp.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux-2.6/drivers/net/pppol2tp.c	2012-06-14 06:41:22.524632439 +0000
-@@ -0,0 +1,2712 @@
+@@ -0,0 +1,2718 @@
 +/*****************************************************************************
 + * Linux PPP over L2TP (PPPoX/PPPoL2TP) Sockets
 + *
@@ -441,6 +441,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +	} else {
 +		PRINTK(session->debug, PPPOL2TP_MSG_DATA, KERN_INFO,
 +		       "%s: socket not bound\n", session->name);
++#ifndef UDP_ENCAP_L2TPINUDP
 +		/* Not bound. Queue it now */
 +		if (sock_queue_rcv_skb(session_sock, skb) < 0) {
 +			session->stats.rx_errors++;
@@ -448,6 +449,11 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +			if (!sock_flag(session_sock, SOCK_DEAD))
 +				session_sock->sk_data_ready(session_sock, 0);
 +		}
++#else
++		/* Not bound. Nothing we can do, so discard. */
++		session->stats.rx_errors++;
++		kfree_skb(skb);
++#endif
 +	}
 +
 +	DPRINTK(session->debug, "calling sock_put; refcnt=%d\n",
