@@ -8,12 +8,12 @@ Fix gcc4 compile-time warnings
  be2be1d59035a28debb22555f103e676a8f74186 kconfig: scripts/kconfig/zconf.l: add %option noinput
 
 ---
- include/linux/mtd/map.h             |    3 +
+ include/linux/mtd/map.h             |    5 ++
  net/ipv4/inetpeer.c                 |    4 -
  scripts/basic/fixdep.c              |    5 +-
  scripts/kconfig/lex.zconf.c_shipped |   86 ++++++++++++++++++++++++++++++------
  scripts/kconfig/zconf.l             |    1 
- 5 files changed, 81 insertions(+), 18 deletions(-)
+ 5 files changed, 83 insertions(+), 18 deletions(-)
 
 diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
 --- a/net/ipv4/inetpeer.c
@@ -47,6 +47,15 @@ diff --git a/include/linux/mtd/map.h b/include/linux/mtd/map.h
  
  #include <linux/mtd/compatmac.h>
  
+@@ -316,6 +316,8 @@ static inline map_word map_word_load(struct map_info *map, const void *ptr)
+ #endif
+ 	else if (map_bankwidth_is_large(map))
+ 		memcpy(r.x, ptr, map->bankwidth);
++	else
++		BUG();
+ 
+ 	return r;
+ }
 @@ -387,6 +387,8 @@ static inline map_word inline_map_read(struct map_info *map, unsigned long ofs)
  #endif
  	else if (map_bankwidth_is_large(map))
@@ -273,4 +282,3 @@ diff --git a/scripts/kconfig/zconf.l b/scripts/kconfig/zconf.l
  /*
 
 -- 
-1.7.3.1

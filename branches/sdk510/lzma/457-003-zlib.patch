@@ -54,7 +54,7 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/makefile lzma/CPP/7zip/Compress
 diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp lzma/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp
 --- lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp	1970-01-01 03:00:00.000000000 +0300
 +++ lzma/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp	2009-11-01 15:36:16.000000000 +0300
-@@ -0,0 +1,304 @@
+@@ -0,0 +1,308 @@
 +/*
 + * lzma zlib simplified wrapper
 + *
@@ -83,6 +83,10 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp lzma/CPP/7zip/Compress
 + */
 +
 +#include <zlib.h>
++
++#ifndef OF /* function prototypes */
++#define OF(args) args
++#endif
 +
 +// default values for encoder/decoder used by wrapper
 +#define ZLIB_LC 3

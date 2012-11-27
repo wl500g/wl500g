@@ -11,6 +11,8 @@
  */
 
 #ifdef ASUS_EXT
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -422,15 +424,18 @@ ddns_updated_main()
 	
 
 int 
-start_ddns(int forced)
+start_ddns(int type)
 {
 	FILE *fp;
 	char *wan_ip, *ddns_cache;
 	char *server, *user, *passwd, *host;
 	int  wild;
-	char service[32];
+	char service[64];
 #ifdef __CONFIG_EZIPUPDATE__
 	char *wan_ifname;
+#elif __CONFIG_INADYN__
+	char *domain = NULL;
+	char word[32], *next;
 #endif
 
 	if (nvram_match("router_disable", "1") ||
@@ -438,7 +443,7 @@ start_ddns(int forced)
 
 	if ((wan_ip = nvram_safe_get("wan_ipaddr_t"))==NULL) return -1;
 
-	if (!forced &&
+	if ((type == 0) &&
 	    (nvram_match("ddns_ipaddr", wan_ip) ||
 	    (inet_addr(wan_ip) == inet_addr(nvram_safe_get("ddns_ipaddr")))))
 	{
@@ -453,7 +458,8 @@ start_ddns(int forced)
         // update
 	// * nvram ddns_cache, the same with /tmp/ddns.cache
 
-	if ((ddns_cache = nvram_get("ddns_cache")) != NULL)
+	if ((type == 0) &&
+	    (ddns_cache = nvram_get("ddns_cache")) != NULL)
 	{
 		if ((fp = fopen("/tmp/ddns.cache", "r")) == NULL &&
 		    (fp = fopen("/tmp/ddns.cache", "w+")) != NULL)
@@ -461,7 +467,8 @@ start_ddns(int forced)
 			fprintf(fp, "%s", ddns_cache);
 			fclose(fp);
 		}
-	}
+	} else
+		unlink("/tmp/ddns.cache");
 
 	server = nvram_safe_get("ddns_server_x");
 	user = nvram_safe_get("ddns_username_x");
@@ -536,6 +543,14 @@ start_ddns(int forced)
 		strcpy(service, "ipv6tb@he.net");
 	else if (strcmp(server, "DNS.HE.NET") == 0)
 		strcpy(service, "dyndns@he.net");
+	else if (strcmp(server, "WWW.ASUS.COM") == 0) {
+		strcpy(service, (type == 2) ? "register@asus.com " : "");
+		strcat(service, "update@asus.com");
+		user = nvram_safe_get("et0macaddr");
+		passwd = nvram_safe_get("secret_code");
+		if (strcasestr(host, ".asuscomm.com") == NULL)
+			domain = ".asuscomm.com";
+	}
 	else strcpy(service, "default@dyndns.org");
 #endif /* __CONFIG_INADYN__ */
 
@@ -553,13 +568,16 @@ start_ddns(int forced)
 	    "%s",
 	    service, wan_ifname, user, passwd, host, (wild) ? "wildcard\n" : "");
 #elif __CONFIG_INADYN__
+	foreach (word, service, next)
 	fprintf(fp,
 	    "dyndns_system %s\n"
 	    "username %s\n"
 	    "password %s\n"
-	    "alias %s\n"
+	    "alias %s%s\n"
 	    "%s",
-	    service, user, passwd, host, (wild) ? "wildcard\n" : "");
+	    word, user, passwd,
+	    host, domain ? : "",
+	    wild ? "wildcard\n" : "");
 #endif /* __CONFIG_INADYN__ */
 
 	fappend("/usr/local/etc/ddns.conf", fp);
@@ -570,13 +588,13 @@ start_ddns(int forced)
 		char *ddns_argv[] = {
 #ifdef __CONFIG_EZIPUPDATE__
 		    "ez-ipupdate",
-		    "-d", "-1",
+		    "-1", "-df",
 		    "-c", "/etc/ddns.conf",
 		    "-e", "/sbin/ddns_updated",
 		    "-b", "/tmp/ddns.cache",
 #elif __CONFIG_INADYN__
 		    "inadyn",
-		    "--background", "--iterations", "1",
+		    "--iterations", "1", "--syslog",
 		    "--input_file", "/etc/ddns.conf",
 		    "--exec", "/sbin/ddns_updated",
 		    "--cache_file", "/tmp/ddns.cache",
@@ -589,11 +607,11 @@ start_ddns(int forced)
 		nvram_unset("ddns_ipaddr");
 		nvram_unset("ddns_status");
 #ifdef __CONFIG_EZIPUPDATE__
-		killall_s("ez-ipupdate", SIGQUIT);
+		killall_tk("ez-ipupdate");
 #elif __CONFIG_INADYN__
-		killall("inadyn");
+		killall_tk("inadyn");
 #endif
-		_eval(ddns_argv, NULL, 0, &pid);
+		_eval(ddns_argv, NULL, (type == 0) ? 0 : 10, &pid);
 	}
 	return 0;
 }

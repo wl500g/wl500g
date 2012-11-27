@@ -178,6 +178,8 @@ static void sys_script(const char *name)
 		eval("rmstorage");
 	} else if (strcmp(name,"ddnsclient")==0) {
 		eval("start_ddns", "1");
+	} else if (strcmp(name,"ddnsregister")==0) {
+		eval("start_ddns", "2");
 	} else if (strstr(scmd, " ")==0) {
 		// no parameter, run script with eval
 		eval(scmd);

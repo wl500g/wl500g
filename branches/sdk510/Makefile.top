@@ -286,7 +286,7 @@ lzma $(LZMADIR)/lzma:
 	$(MAKE) -C $(LZMADIR) -f makefile.gcc
 
 lzma-clean:
-	$(MAKE) -C $(LZMADIR) -f makefile.gcc clean
+	-$(MAKE) -C $(LZMADIR) -f makefile.gcc clean
 
 loader:
 	$(MAKE) -C $@ LZMAPATH=$(LZMA4SDK)/C/Compress/Lzma
@@ -303,9 +303,9 @@ else
 endif
 
 mksquashfs-clean:
-	$(MAKE) -C $(MKSQUASHFSDIR) clean LZMA_DIR=.
+	-$(MAKE) -C $(MKSQUASHFSDIR) clean LZMA_DIR=.
 ifeq ($(SQUASHFS3),y)
-	$(MAKE) -C $(LZMA4LIB) clean
+	-$(MAKE) -C $(LZMA4LIB) clean
 endif
 
 $(PLATFORMDIR):
@@ -334,7 +334,7 @@ kernel: $(LINUXDIR)/.stamp-$(MIPSREV) $(LINUXDIR)/.config
 	$(MAKE) -C $(LINUXDIR) CC=$(CROSS_COMPILE)gcc
 
 kernel-clean:
-	$(MAKE) -C $(LINUXDIR) clean
+	-$(MAKE) -C $(LINUXDIR) clean
 	@-rm -f $(LINUXDIR)/.stamp-*
 
 kernel-install: kernel $(PLATFORMDIR)/vmlinuz
@@ -774,7 +774,7 @@ miniupnpd-install:
 	$(STRIP) $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
 
 miniupnpd-clean:
-	$(MAKE) -C miniupnpd -f Makefile.linux clean
+	-$(MAKE) -C miniupnpd -f Makefile.linux clean
 
 wlconf: nvram shared
 
@@ -801,7 +801,7 @@ rp-pppoe: ppp rp-pppoe/src/Makefile
 	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so
 
 rp-pppoe-clean:
-	$(MAKE) -C rp-pppoe/src clean
+	-$(MAKE) -C rp-pppoe/src clean
 
 rp-pppoe-install:
 	install -D rp-pppoe/src/pppoe-relay $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
@@ -817,7 +817,7 @@ accel-pptp/pppd_plugin/Makefile: accel-pptp/pppd_plugin/Makefile.in $(LINUXDIR)/
 	    $(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/ppp
 
 accel-pptp-clean:
-	$(MAKE) -C accel-pptp/pppd_plugin clean
+	-$(MAKE) -C accel-pptp/pppd_plugin clean
 
 accel-pptp-install: accel-pptp
 	install -D accel-pptp/pppd_plugin/src/.libs/pptp.so $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
@@ -902,7 +902,7 @@ samba-install:
 	$(STRIP) $(INSTALLDIR)/samba/usr/lib/libsmb.so
 
 samba-clean:
-	$(MAKE) -C samba/source clean
+	-$(MAKE) -C samba/source clean
 
 nfs-utils/Makefile: nfs-utils/Makefile.in
 	cd nfs-utils && CPPFLAGS="$(EXTRACFLAGS)" knfsd_cv_bsd_signals=no \
@@ -986,7 +986,7 @@ igmpproxy: igmpproxy/src/Makefile
 	$(MAKE) -C igmpproxy/src
 
 igmpproxy-clean:
-	$(MAKE) -C igmpproxy/src clean
+	-$(MAKE) -C igmpproxy/src clean
 
 igmpproxy-install:
 	install -D igmpproxy/src/igmpproxy $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
@@ -1078,7 +1078,7 @@ wpa_supplicant-install: wpa_supplicant
 	$(STRIP) $(INSTALLDIR)/wpa_supplicant/usr/sbin/*
 
 wpa_supplicant-clean:
-	$(MAKE) -C wpa_supplicant/wpa_supplicant clean
+	-$(MAKE) -C wpa_supplicant/wpa_supplicant clean
 
 udev:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
@@ -1108,7 +1108,7 @@ mjpg-streamer-install:
 	$(STRIP) $(INSTALLDIR)/mjpg-streamer/usr/bin/mjpg_streamer $(INSTALLDIR)/mjpg-streamer/usr/lib/mjpg-streamer/*.so
 
 mjpg-streamer-clean:
-	$(MAKE) -C mjpg-streamer/mjpg-streamer clean
+	-$(MAKE) -C mjpg-streamer/mjpg-streamer clean
 
 jpeg-8b/Makefile: jpeg-8b/Makefile.in
 	cd jpeg-8b && CC=$(CC) CPPFLAGS="-fPIC $(EXTRACFLAGS)" \
@@ -1249,7 +1249,7 @@ images: $(img-y)
 	[ ! -d $* ] || $(MAKE) -C $* GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 %-clean:
-	[ ! -d $* ] || $(MAKE) -C $* clean
+	-[ ! -d $* ] || $(MAKE) -C $* clean
 
 %-install:
 	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*

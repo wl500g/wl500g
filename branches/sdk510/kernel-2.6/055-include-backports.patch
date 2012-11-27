@@ -179,23 +179,29 @@ diff -uBp a/include/linux/compiler-gcc4.h b/include/linux/compiler-gcc4.h
 diff -uBp a/include/linux/compiler.h b/include/linux/compiler.h
 --- a/include/linux/compiler.h
 +++ b/include/linux/compiler.h
-@@ -15,8 +15,9 @@
+@@ -15,8 +15,14 @@
  # define __acquire(x)	__context__(x,1)
  # define __release(x)	__context__(x,-1)
  # define __cond_lock(x,c)	((c) ? ({ __acquire(x); 1; }) : 0)
 -extern void __chk_user_ptr(const void __user *);
 -extern void __chk_io_ptr(const void __iomem *);
 +# define __percpu	__attribute__((noderef, address_space(3)))
++#ifdef CONFIG_SPARSE_RCU_POINTER
++# define __rcu		__attribute__((noderef, address_space(4)))
++#else
++# define __rcu
++#endif
 +extern void __chk_user_ptr(const volatile void __user *);
 +extern void __chk_io_ptr(const volatile void __iomem *);
  #else
  # define __user
  # define __kernel
-@@ -33,6 +33,7 @@ extern void __chk_io_ptr(const volatile
+@@ -33,6 +33,8 @@ extern void __chk_io_ptr(const volatile
  # define __acquire(x) (void)0
  # define __release(x) (void)0
  # define __cond_lock(x,c) (c)
 +# define __percpu
++# define __rcu
  #endif
  
  #ifdef __KERNEL__
