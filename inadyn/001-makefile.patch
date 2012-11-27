@@ -1,0 +1,29 @@
+ Makefile | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 2c8e9af..4878c9e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -18,17 +18,12 @@ sysconfdir   ?= /etc
+ datadir       = $(prefix)/share/doc/inadyn
+ mandir        = $(prefix)/share/man
+ 
+-# This magic trick looks like a comment, but works on BSD PMake
+-#include <config.mk>
+-include config.mk
+-
+-BASE_OBJS     = src/base64utils.o src/md5.o src/dyndns.o src/errorcode.o src/get_cmd.o \
++OBJS     = src/base64utils.o src/md5.o src/dyndns.o src/errorcode.o src/get_cmd.o \
+ 		src/http_client.o src/ip.o src/main.o src/os_unix.o src/os_windows.o   \
+ 		src/os.o src/os_psos.o src/tcp.o src/inadyn_cmd.o
+-OBJS	      = $(BASE_OBJS) $(CFG_OBJ) $(EXTRA_OBJS)
+-CFLAGS        = -Iinclude -DVERSION_STRING=\"$(VERSION)\" $(CFG_INC) $(EXTRA_CFLAGS)
+-CFLAGS       += -O2 -W -Wall
+-LDLIBS       += -lresolv $(EXTRA_LIBS)
++CFLAGS        = -g -Os -W -Wall
++CFLAGS       += -Iinclude -DVERSION_STRING=\"$(VERSION)\" $(EXTRACFLAGS)
++LDLIBS       += -lresolv
+ DISTFILES     = README COPYING LICENSE
+ 
+ # Pattern rules

@@ -689,7 +689,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		":logdrop - [0:0]\n");
 
 	// FILTER from LAN to WAN Source MAC
-	if (nvram_invmatch("macfilter_enable_x", "0") && 
+	if (nvram_invmatch("macfilter_enable_x", "0") &&
 		nvram_invmatch("macfilter_enable_x", "disabled"))
 	{   		
 		int blacklist = nvram_invmatch("macfilter_enable_x", "1");
@@ -1310,7 +1310,7 @@ int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if
 		    strncmp(file->d_name, "..", NAME_MAX) != 0) {
 			sprintf(name, "/proc/sys/net/ipv4/conf/%s/rp_filter", file->d_name);
 			if (!fputs_ex(name,
-				(mcast_ifname && 
+				(mcast_ifname &&
 				 strncmp(file->d_name, mcast_ifname, NAME_MAX) == 0)
 				? "0" : "1"))
 				break;

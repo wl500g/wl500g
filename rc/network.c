@@ -2230,7 +2230,7 @@ int hotplug_net(void)
 #endif
 
 		/* Bridge WDS interfaces */
-		if (!strncmp(lan_ifname, "br", 2) && 
+		if (!strncmp(lan_ifname, "br", 2) &&
 		    eval("brctl", "addif", lan_ifname, interface))
 		    return 0;
 

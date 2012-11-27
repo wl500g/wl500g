@@ -548,7 +548,7 @@ static int svc_timecheck(void)
 	int activeNow;
 
 #ifdef __CONFIG_RCAMD__
-	if (svcStatus[WEBACTIVE] == -1 && 
+	if (svcStatus[WEBACTIVE] == -1 &&
 		nvram_invmatch("usb_webenable_x", "0") &&
 		nvram_invmatch("usb_websecurity_x", "0"))
 	{	
@@ -742,7 +742,7 @@ static void sta_check(void)
 
 	if (stacheck_interval == -1)
 	{
-		if (nvram_invmatch("wl0_mode", "sta") && 
+		if (nvram_invmatch("wl0_mode", "sta") &&
             		nvram_invmatch("wl0_mode", "wet")) return;
 
 		stacheck_interval = STACHECK_PERIOD_DISCONNECT;

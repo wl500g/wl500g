@@ -34,7 +34,7 @@ P910ND=p910nd-0.95
 SAMBA=samba-2.0.10
 E2FSPROGS=e2fsprogs-1.41.14
 UCDSNMP=ucd-snmp-3.6.2
-MINIUPNPD=miniupnpd-1.7
+MINIUPNPD=miniupnpd-1.7.20120824
 PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.10
 ACCEL-PPTP=accel-pptp-git-20100829
@@ -51,7 +51,6 @@ BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.5
 UDPXY=udpxy-1.0.23-0
-INADYN=inadyn-1.96.3
 LIBUSB10=libusb-1.0.8
 USBMODESWITCH=usb-modeswitch-1.2.4
 MADWIMAX=madwimax-0.1.1
@@ -444,12 +443,10 @@ udpxy: $(TOP)/udpxy
 
 inadyn_Patches := $(call patches_list,inadyn)
 
-$(TOP)/inadyn: inadyn/$(INADYN).tar.bz2
-	@rm -rf $(TOP)/$(INADYN) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(INADYN) $(inadyn_Patches)
-	chmod a+x $(TOP)/$(INADYN)/configure
-	mv $(TOP)/$(INADYN) $@ && touch $@
+$(TOP)/inadyn:
+	@rm -rf $@
+	tar -C inadyn $(TAR_EXCL_SVN) -cf - inadyn | tar -C $(TOP) -xf -
+	$(PATCHER) -Z $@ $(inadyn_Patches)
 
 inadyn: $(TOP)/inadyn
 	@true

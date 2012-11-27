@@ -1,12 +1,10 @@
 diff -urB miniupnpd-1.7/Makefile.linux miniupnpd/Makefile.linux
 --- miniupnpd-1.7/Makefile.linux	2012-03-05 23:37:13.000000000 +0300
 +++ miniupnpd/Makefile.linux	2012-03-06 12:11:57.000000000 +0300
-@@ -17,7 +17,8 @@
- CFLAGS += -Wall
+@@ -17,6 +17,7 @@
  CFLAGS += -Wextra -Wstrict-prototypes -Wdeclaration-after-statement
  #CFLAGS += -Wno-missing-field-initializers
--CFLAGS += -ansi
-+#CFLAGS += -ansi
+ #CFLAGS += -ansi	# iptables headers does use typeof which is a gcc extension
 +CFLAGS += $(EXTRACFLAGS)
  CC ?= gcc
  RM = rm -f
@@ -46,3 +44,20 @@ diff -urB miniupnpd-1.7/Makefile.linux miniupnpd/Makefile.linux
  
  testupnpdescgen:	$(TESTUPNPDESCGENOBJS)
  
+diff --git miniupnpd-1.7.20120824/linux/getroute.c miniupnpd/linux/getroute.c
+--- miniupnpd-1.7.20120824/linux/getroute.c
++++ miniupnpd/linux/getroute.c
+@@ -5,6 +5,8 @@
+  * This software is subject to the conditions detailed
+  * in the LICENCE file provided within the distribution */
+ 
++#ifdef UPNP_STRICT
++
+ #include <stdio.h>
+ #include <string.h>
+ #include <unistd.h>
+@@ -160,3 +162,4 @@ error:
+ 	return -1;
+ }
+ 
++#endif /* UPNP_STRICT */

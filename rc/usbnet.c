@@ -11,7 +11,7 @@
 #include <nvparse.h>
 #include "rc.h"
 
-int wait_for_dev_appearance(int vid, int pid, const char *device);
+int wait_for_dev_appearance(int vid, int pid, const char *device, const char *device_list[]);
 
 void usbnet_load_drivers()
 {
@@ -41,7 +41,7 @@ int hotplug_usbnet_check(const char *interface, const char *product, const char 
 
 	sscanf(product, "%x/%x", &hp_vid, &hp_pid);
 
-	if (!wait_for_dev_appearance(hp_vid, hp_pid, device)) {
+	if (!wait_for_dev_appearance(hp_vid, hp_pid, device, NULL)) {
 		dprintf("device not found in /proc/bus/usb/devices\n");
 		return 0;
 	}
