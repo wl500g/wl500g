@@ -7,6 +7,7 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  fd4287dbc07763595c1e74edbb6520092290185c udf: Fix handling of i_blocks
  b2527bfa535956d99663718b9d9aac0b8fe3f017 udf: Fix file entry logicalBlocksRecorded
  853a0c25baf96b028de1654bea1e0c8857eadf3d udf: Mark LVID buffer as uptodate before marking it dirty
+ dc141a402b9dc03a4188cd978a4cf149c397172c UDF: During mount free lvid_bh before rescanning with different blocksize
 
 ---
  Documentation/filesystems/udf.txt |    2 
@@ -12414,7 +12415,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  
  	/* Fill in the rest of the superblock */
  	sb->s_op = &udf_sb_ops;
-@@ -1579,33 +1939,45 @@ static int udf_fill_super(struct super_b
+@@ -1579,33 +1939,47 @@ static int udf_fill_super(struct super_b
  	sb->s_magic = UDF_SUPER_MAGIC;
  	sb->s_time_gran = 1000;
  
@@ -12431,6 +12432,8 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
 +				printk(KERN_NOTICE
 +				       "UDF-fs: Rescanning with blocksize "
 +				       "%d\n", UDF_DEFAULT_BLOCKSIZE);
++			brelse(sbi->s_lvid_bh);
++			sbi->s_lvid_bh = NULL;
 +			uopt.blocksize = UDF_DEFAULT_BLOCKSIZE;
 +			ret = udf_load_vrs(sb, &uopt, silent, &fileset);
 +		}

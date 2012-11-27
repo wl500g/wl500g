@@ -1,0 +1,91 @@
+From 6c06adb3838d03a20af2e2effc145121444c3189
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Wed, 8 Aug 2012 16:59:43 +0200
+Subject: [PATCH] MIPS: Fix race condition in module relocation code.
+
+The relocation code was essentially taken from the 2.4 modutils which
+perform relocation in userspace.  In 2.6 relocation of multiple modules
+may be performed in parallel by the in-kernel loader so the global
+variable mips_hi16_list won't fly anymore.  Fix race by moving it into
+mod_arch_specific.
+
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+---
+
+In commit 6c06adb3838d03a20af2e2effc145121444c3189 (lmo) [MIPS: Fix
+race condition in module relocation code.], mips_hi16_list was
+moved from global to mod_arch_specific to handle parallel module
+loading. While global, it was bss initialized to zero, when moved to
+mod_arch_specific, we have to do the zero initialization manually.
+
+Signed-off-by: Tony Wu <tung7970@gmail.com>
+---
+
+ include/asm-mips/module.h |    1 +
+ arch/mips/kernel/module.c      |   12 +++++-------
+ 2 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/include/asm-mips/module.h b/include/asm-mips/module.h
+--- a/include/asm-mips/module.h
++++ b/include/asm-mips/module.h
+@@ -10,6 +10,7 @@ struct mod_arch_specific {
+ 	struct list_head dbe_list;
+ 	const struct exception_table_entry *dbe_start;
+ 	const struct exception_table_entry *dbe_end;
++	struct mips_hi16 *r_mips_hi16_list;
+ };
+ 
+ typedef uint8_t Elf64_Byte;		/* Type for a 8-bit quantity.  */
+diff --git a/arch/mips/kernel/module.c b/arch/mips/kernel/module.c
+--- a/arch/mips/kernel/module.c
++++ b/arch/mips/kernel/module.c
+@@ -39,8 +39,6 @@ struct mips_hi16 {
+ 	Elf_Addr value;
+ };
+ 
+-static struct mips_hi16 *mips_hi16_list;
+-
+ static LIST_HEAD(dbe_list);
+ static DEFINE_SPINLOCK(dbe_lock);
+ 
+@@ -128,8 +126,8 @@ static int apply_r_mips_hi16_rel(struct module *me, u32 *location, Elf_Addr v)
+ 
+ 	n->addr = (Elf_Addr *)location;
+ 	n->value = v;
+-	n->next = mips_hi16_list;
+-	mips_hi16_list = n;
++	n->next = me->arch.r_mips_hi16_list;
++	me->arch.r_mips_hi16_list = n;
+ 
+ 	return 0;
+ }
+@@ -151,9 +149,9 @@ static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
+ 	/* Sign extend the addend we extract from the lo insn.  */
+ 	vallo = ((insnlo & 0xffff) ^ 0x8000) - 0x8000;
+ 
+-	if (mips_hi16_list != NULL) {
++	if (me->arch.r_mips_hi16_list != NULL) {
+ 
+-		l = mips_hi16_list;
++		l = me->arch.r_mips_hi16_list;
+ 		while (l != NULL) {
+ 			unsigned long insn;
+ 
+@@ -187,7 +185,7 @@ static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
+ 			l = next;
+ 		}
+ 
+-		mips_hi16_list = NULL;
++		me->arch.r_mips_hi16_list = NULL;
+ 	}
+ 
+ 	/*
+@@ -276,6 +276,7 @@ int apply_relocate(Elf_Shdr *sechdrs, const char *strtab,
+ 	pr_debug("Applying relocate section %u to %u\n", relsec,
+ 	       sechdrs[relsec].sh_info);
+ 
++	me->arch.r_mips_hi16_list = NULL;
+ 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
+ 		/* This is where to make the change */
+ 		location = (void *)sechdrs[sechdrs[relsec].sh_info].sh_addr
+-- 

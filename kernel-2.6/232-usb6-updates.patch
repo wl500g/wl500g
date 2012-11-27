@@ -1,5 +1,6 @@
 USB: Updates from upstream
 
+ a8aa401f38cfb5fa26e970b48e93fb851d68fe64 USB: pass mem_flags to dma_alloc_coherent
  fc427a5a4bf3be770d7fbd933474957062049f1f USB: EHCI: Remove dead code from ehci-sched.c
  139540170d9d9b7ead3caaf540f161756b356d56 USB: ehci: remove structure packing from ehci_def
  1e12c910eed82da6971f1c0421a069c680faba2e EHCI: don't rescan interrupt QHs needlessly
@@ -8,13 +9,26 @@ USB: Updates from upstream
  b3a3dd074f7053ef824ad077e5331b52220ceba1 USB: fix gathering of interface associations
 
 ---
+ drivers/usb/core/buffer.c     |    2 +-
  drivers/usb/core/hub.c        |    6 ++++--
  drivers/usb/core/message.c    |    3 ++-
  drivers/usb/host/ehci-q.c     |    4 +++-
  drivers/usb/host/ehci-sched.c |   17 ++++++++++-------
  drivers/usb/host/ehci.h       |    8 +++++---
- 5 files changed, 24 insertions(+), 14 deletions(-)
+ 6 files changed, 25 insertions(+), 15 deletions(-)
 
+diff --git a/drivers/usb/core/buffer.c b/drivers/usb/core/buffer.c
+--- a/drivers/usb/core/buffer.c
++++ b/drivers/usb/core/buffer.c
+@@ -119,7 +119,7 @@ void *hcd_buffer_alloc(
+ 		if (size <= pool_max [i])
+ 			return dma_pool_alloc(hcd->pool [i], mem_flags, dma);
+ 	}
+-	return dma_alloc_coherent(hcd->self.controller, size, dma, 0);
++	return dma_alloc_coherent(hcd->self.controller, size, dma, mem_flags);
+ }
+ 
+ void hcd_buffer_free(
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
 --- a/drivers/usb/core/hub.c
 +++ b/drivers/usb/core/hub.c

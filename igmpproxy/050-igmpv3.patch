@@ -1,0 +1,263 @@
+--- igmpproxy.orig/src/Makefile.am	2009-10-05 16:41:47.000000000 +0000
++++ igmpproxy/src/Makefile.am	2012-07-27 17:27:01.000000000 +0000
+@@ -5,6 +5,7 @@ igmpproxy_SOURCES = \
+ 	confread.c \
+ 	ifvc.c \
+ 	igmp.c \
++	igmpv3.h \
+ 	igmpproxy.c \
+ 	igmpproxy.h \
+ 	kern.c \
+--- igmpproxy.orig/src/Makefile.in	2009-10-05 18:19:42.000000000 +0000
++++ igmpproxy/src/Makefile.in	2012-07-27 17:58:53.000000000 +0000
+@@ -163,6 +163,7 @@ igmpproxy_SOURCES = \
+ 	confread.c \
+ 	ifvc.c \
+ 	igmp.c \
++	igmpv3.h \
+ 	igmpproxy.c \
+ 	igmpproxy.h \
+ 	kern.c \
+--- igmpproxy.orig/src/igmp.c	2012-07-28 09:31:34.499435001 +0000
++++ igmpproxy/src/igmp.c	2011-10-20 15:51:17.000000000 +0000
+@@ -36,10 +36,12 @@
+ */
+ 
+ #include "igmpproxy.h"
++#include "igmpv3.h"
+  
+ // Globals                  
+ uint32_t     allhosts_group;          /* All hosts addr in net order */
+ uint32_t     allrouters_group;          /* All hosts addr in net order */
++uint32_t     alligmp3_group;          /* IGMPv3 addr in net order */
+               
+ extern int MRouterFD;
+ 
+@@ -74,6 +76,7 @@ void initIgmp() {
+ 
+     allhosts_group   = htonl(INADDR_ALLHOSTS_GROUP);
+     allrouters_group = htonl(INADDR_ALLRTRS_GROUP);
++    alligmp3_group   = htonl(INADDR_ALLIGMPV3_GROUP);
+ }
+ 
+ /**
+@@ -86,6 +89,7 @@ char *igmpPacketKind(u_int type, u_int c
+     case IGMP_MEMBERSHIP_QUERY:     return  "Membership query  ";
+     case IGMP_V1_MEMBERSHIP_REPORT:  return "V1 member report  ";
+     case IGMP_V2_MEMBERSHIP_REPORT:  return "V2 member report  ";
++    case IGMP_V3_MEMBERSHIP_REPORT:  return "V3 member report  ";
+     case IGMP_V2_LEAVE_GROUP:        return "Leave message     ";
+     
+     default:
+@@ -103,7 +107,9 @@ void acceptIgmp(int recvlen) {
+     register uint32_t src, dst, group;
+     struct ip *ip;
+     struct igmp *igmp;
+-    int ipdatalen, iphdrlen, igmpdatalen;
++    struct igmpv3_report *igmpv3;
++    struct igmpv3_grec *grec;
++    int ipdatalen, iphdrlen, ngrec, nsrcs;
+ 
+     if (recvlen < sizeof(struct ip)) {
+         my_log(LOG_WARNING, 0,
+@@ -171,10 +177,9 @@ void acceptIgmp(int recvlen) {
+         return;
+     }
+ 
+-    igmp        = (struct igmp *)(recv_buf + iphdrlen);
+-    group       = igmp->igmp_group.s_addr;
+-    igmpdatalen = ipdatalen - IGMP_MINLEN;
+-    if (igmpdatalen < 0) {
++    igmp = (struct igmp *)(recv_buf + iphdrlen);
++    if ((ipdatalen < IGMP_MINLEN) ||
++        (igmp->igmp_type == IGMP_V3_MEMBERSHIP_REPORT && ipdatalen <= IGMPV3_MINLEN)) {
+         my_log(LOG_WARNING, 0,
+             "received IP data field too short (%u bytes) for IGMP, from %s",
+             ipdatalen, inetFmt(src, s1));
+@@ -188,10 +193,46 @@ void acceptIgmp(int recvlen) {
+     switch (igmp->igmp_type) {
+     case IGMP_V1_MEMBERSHIP_REPORT:
+     case IGMP_V2_MEMBERSHIP_REPORT:
++        group = igmp->igmp_group.s_addr;
+         acceptGroupReport(src, group, igmp->igmp_type);
+         return;
+     
++    case IGMP_V3_MEMBERSHIP_REPORT:
++        igmpv3 = (struct igmpv3_report *)(recv_buf + iphdrlen);
++        grec = &igmpv3->igmp_grec[0];
++        ngrec = ntohs(igmpv3->igmp_ngrec);
++        while (ngrec--) {
++            if ((uint8_t *)igmpv3 + ipdatalen < (uint8_t *)grec + sizeof(*grec))
++                break;
++            group = grec->grec_mca.s_addr;
++            nsrcs = ntohs(grec->grec_nsrcs);
++            switch (grec->grec_type) {
++            case IGMPV3_MODE_IS_INCLUDE:
++            case IGMPV3_CHANGE_TO_INCLUDE:
++                if (nsrcs == 0) {
++                    acceptLeaveMessage(src, group);
++                    break;
++                } /* else fall through */
++            case IGMPV3_MODE_IS_EXCLUDE:
++            case IGMPV3_CHANGE_TO_EXCLUDE:
++            case IGMPV3_ALLOW_NEW_SOURCES:
++            case IGMPV3_BLOCK_OLD_SOURCES:
++                acceptGroupReport(src, group, IGMP_V2_MEMBERSHIP_REPORT);
++                break;
++            default:
++                my_log(LOG_INFO, 0,
++                    "ignoring unknown IGMPv3 group record type %x from %s to %s for %s",
++                    grec->grec_type, inetFmt(src, s1), inetFmt(dst, s2),
++                    inetFmt(group, s3));
++                break;
++            }
++            grec = (struct igmpv3_grec *)
++                (&grec->grec_src[nsrcs] + grec->grec_auxwords * 4);
++        }
++        return;
++    
+     case IGMP_V2_LEAVE_GROUP:
++        group = igmp->igmp_group.s_addr;
+         acceptLeaveMessage(src, group);
+         return;
+     
+--- igmpproxy.orig/src/igmpproxy.h	2011-05-27 15:56:41.000000000 +0000
++++ igmpproxy/src/igmpproxy.h	2011-10-20 17:23:18.000000000 +0000
+@@ -208,6 +208,7 @@ struct Config *getCommonConfig();
+ */
+ extern uint32_t allhosts_group;
+ extern uint32_t allrouters_group;
++extern uint32_t alligmp3_group;
+ void initIgmp(void);
+ void acceptIgmp(int);
+ void sendIgmp (uint32_t, uint32_t, int, int, uint32_t,int);
+--- igmpproxy.orig/src/igmpv3.h	1970-01-01 00:00:00.000000000 +0000
++++ igmpproxy/src/igmpv3.h	2012-07-27 16:38:47.000000000 +0000
+@@ -0,0 +1,48 @@
++/*
++**  igmpproxy - IGMP proxy based multicast router 
++**  Copyright (C) 2005 Johnny Egeland <johnny@rlo.org>
++**
++**  This program is free software; you can redistribute it and/or modify
++**  it under the terms of the GNU General Public License as published by
++**  the Free Software Foundation; either version 2 of the License, or
++**  (at your option) any later version.
++**
++**  This program is distributed in the hope that it will be useful,
++**  but WITHOUT ANY WARRANTY; without even the implied warranty of
++**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++**  GNU General Public License for more details.
++**
++**  You should have received a copy of the GNU General Public License
++**  along with this program; if not, write to the Free Software
++**  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++**
++*/
++/**
++*   igmpv3.h - Header file for common IGMPv3 includes.
++*/
++
++struct igmpv3_grec {
++    u_int8_t grec_type;
++    u_int8_t grec_auxwords;
++    u_int16_t grec_nsrcs;
++    struct in_addr grec_mca;
++    struct in_addr grec_src[0];
++};
++
++struct igmpv3_report {
++    u_int8_t igmp_type;
++    u_int8_t igmp_resv1;
++    u_int16_t igmp_cksum;
++    u_int16_t igmp_resv2;
++    u_int16_t igmp_ngrec;
++    struct igmpv3_grec igmp_grec[0];
++};
++
++#define IGMPV3_MODE_IS_INCLUDE   1
++#define IGMPV3_MODE_IS_EXCLUDE   2
++#define IGMPV3_CHANGE_TO_INCLUDE 3
++#define IGMPV3_CHANGE_TO_EXCLUDE 4
++#define IGMPV3_ALLOW_NEW_SOURCES 5
++#define IGMPV3_BLOCK_OLD_SOURCES 6
++
++#define IGMPV3_MINLEN 12
+--- igmpproxy.orig/src/os-dragonfly.h	2009-05-13 19:43:18.000000000 +0000
++++ igmpproxy/src/os-dragonfly.h	2011-10-20 16:17:52.000000000 +0000
+@@ -3,6 +3,10 @@
+ #include <netinet/ip.h>
+ #include <netinet/igmp.h>
+ 
++#define IGMP_V3_MEMBERSHIP_REPORT 0x22
++
++#define INADDR_ALLIGMPV3_GROUP ((in_addr_t) 0xe0000016)
++
+ static inline u_short ip_data_len(const struct ip *ip)
+ {
+ 	return ip->ip_len;
+--- igmpproxy.orig/src/os-freebsd.h	2009-10-05 18:07:06.000000000 +0000
++++ igmpproxy/src/os-freebsd.h	2011-10-20 16:17:55.000000000 +0000
+@@ -11,6 +11,9 @@
+ #define IGMP_V2_MEMBERSHIP_REPORT IGMP_v2_HOST_MEMBERSHIP_REPORT
+ #define IGMP_V2_LEAVE_GROUP IGMP_HOST_LEAVE_MESSAGE
+ #endif
++#define IGMP_V3_MEMBERSHIP_REPORT 0x22
++
++#define INADDR_ALLIGMPV3_GROUP ((in_addr_t) 0xe0000016)
+ 
+ static inline u_short ip_data_len(const struct ip *ip)
+ {
+--- igmpproxy.orig/src/os-linux.h	2009-05-13 19:43:18.000000000 +0000
++++ igmpproxy/src/os-linux.h	2011-10-20 16:17:47.000000000 +0000
+@@ -4,6 +4,10 @@
+ #include <netinet/ip.h>
+ #include <netinet/igmp.h>
+ 
++#define IGMP_V3_MEMBERSHIP_REPORT 0x22
++
++#define INADDR_ALLIGMPV3_GROUP ((in_addr_t) 0xe0000016)
++
+ static inline u_short ip_data_len(const struct ip *ip)
+ {
+ 	return ntohs(ip->ip_len) - (ip->ip_hl << 2);
+--- igmpproxy.orig/src/os-netbsd.h	2009-05-13 19:43:18.000000000 +0000
++++ igmpproxy/src/os-netbsd.h	2011-10-20 17:27:24.000000000 +0000
+@@ -6,8 +6,11 @@
+ #define IGMP_MEMBERSHIP_QUERY IGMP_HOST_MEMBERSHIP_QUERY
+ #define IGMP_V1_MEMBERSHIP_REPORT IGMP_v1_HOST_MEMBERSHIP_REPORT
+ #define IGMP_V2_MEMBERSHIP_REPORT IGMP_v2_HOST_MEMBERSHIP_REPORT
++#define IGMP_V3_MEMBERSHIP_REPORT 0x22
+ #define IGMP_V2_LEAVE_GROUP IGMP_HOST_LEAVE_MESSAGE
+ 
++#define INADDR_ALLIGMPV3_GROUP ((in_addr_t) 0xe0000016)
++
+ static inline u_short ip_data_len(const struct ip *ip)
+ {
+ 	return ip->ip_len;
+--- igmpproxy.orig/src/os-openbsd.h	2009-05-13 19:43:18.000000000 +0000
++++ igmpproxy/src/os-openbsd.h	2011-10-20 17:27:31.000000000 +0000
+@@ -6,9 +6,11 @@
+ #define IGMP_MEMBERSHIP_QUERY IGMP_HOST_MEMBERSHIP_QUERY
+ #define IGMP_V1_MEMBERSHIP_REPORT IGMP_v1_HOST_MEMBERSHIP_REPORT
+ #define IGMP_V2_MEMBERSHIP_REPORT IGMP_v2_HOST_MEMBERSHIP_REPORT
++#define IGMP_V3_MEMBERSHIP_REPORT 0x22
+ #define IGMP_V2_LEAVE_GROUP IGMP_HOST_LEAVE_MESSAGE
+ 
+ #define INADDR_ALLRTRS_GROUP INADDR_ALLROUTERS_GROUP
++#define INADDR_ALLIGMPV3_GROUP ((in_addr_t) 0xe0000016)
+ 
+ static inline u_short ip_data_len(const struct ip *ip)
+ {
+--- igmpproxy.orig/src/rttable.c	2012-02-02 22:55:55.000000000 +0000
++++ igmpproxy/src/rttable.c	2012-02-02 22:55:55.000000000 +0000
+@@ -102,6 +102,10 @@ void initRouteTable() {
+             
+             //k_join(allrouters_group, Dp->InAdr.s_addr);
+             joinMcGroup( getMcGroupSock(), Dp, allrouters_group );
++
++            my_log(LOG_DEBUG, 0, "Joining all igmpv3 multicast routers group %s on vif %s",
++                         inetFmt(alligmp3_group,s1),inetFmt(Dp->InAdr.s_addr,s2));
++            joinMcGroup( getMcGroupSock(), Dp, alligmp3_group );
+         }
+     }
+ }

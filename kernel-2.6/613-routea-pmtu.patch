@@ -1,0 +1,53 @@
+From 9b04f350057863d1fad1ba071e09362a1da3503e
+From: Eric Dumazet <edumazet@google.com>
+Date: Tue, 21 Aug 2012 20:48:29 +0000
+Subject: [PATCH] ipv4: properly update pmtu
+
+Sylvain Munault reported following info :
+
+ - TCP connection get "stuck" with data in send queue when doing
+   "large" transfers ( like typing 'ps ax' on a ssh connection )
+ - Only happens on path where the PMTU is lower than the MTU of
+   the interface
+ - Is not present right after boot, it only appears 10-20min after
+   boot or so. (and that's inside the _same_ TCP connection, it works
+   fine at first and then in the same ssh session, it'll get stuck)
+ - Definitely seems related to fragments somehow since I see a router
+   sending ICMP message saying fragmentation is needed.
+ - Exact same setup works fine with kernel 3.5.1
+
+Problem happens when the 10 minutes (ip_rt_mtu_expires) expiration
+period is over.
+
+ip_rt_update_pmtu() calls dst_set_expires() to rearm a new expiration,
+but dst_set_expires() does nothing because dst.expires is already set.
+
+It seems we want to set the expires field to a new value, regardless
+of prior one.
+
+With help from Julian Anastasov.
+
+Reported-by: Sylvain Munaut <s.munaut@whatever-company.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+CC: Julian Anastasov <ja@ssi.bg>
+Tested-by: Sylvain Munaut <s.munaut@whatever-company.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/ipv4/route.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -956,7 +956,7 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+ 			dst->metrics[RTAX_LOCK-1] |= (1 << RTAX_MTU);
+ 		}
+ 		dst->metrics[RTAX_MTU-1] = mtu;
+-		dst_set_expires(dst, ip_rt_mtu_expires);
++		dst->expires = max(1UL, jiffies + ip_rt_mtu_expires);
+ 		call_netevent_notifiers(NETEVENT_PMTU_UPDATE, dst);
+ 	}
+ }
+-- 
+1.7.7.6

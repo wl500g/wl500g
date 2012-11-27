@@ -747,6 +747,8 @@ void prepare_wan_unit(int unit)
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char wan_ifname[10];
 	int wan_proto;
+	char name[80], *next;
+	int found = 0;
 
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -757,18 +759,24 @@ void prepare_wan_unit(int unit)
 	if (wan_proto != WAN_USBNET)
 		return;
 
-	usbnet_load_drivers();
-
 	snprintf(wan_ifname, sizeof(wan_ifname), "wan%d", unit);
 
 	nvram_set(strcat_r(prefix, "ifname", tmp), wan_ifname);
 	nvram_set(strcat_r(prefix, "ifnames", tmp), wan_ifname);
 
-	sprintf(tmp, "%s %s", nvram_safe_get("wan_ifnames"), wan_ifname );
-	nvram_set("wan_ifnames", tmp);
+	foreach(name, nvram_safe_get("wan_ifnames"), next)
+		if (!strcmp(wan_ifname, name))
+			found = 1;
+
+	if (!found) {
+		sprintf(tmp, "%s %s", nvram_safe_get("wan_ifnames"), wan_ifname );
+		nvram_set("wan_ifnames", tmp);
+	}
 
 	eval("brctl", "addbr", wan_ifname, "stp", "0" );
 	ifconfig(wan_ifname, IFUP, NULL, NULL);
+
+	usbnet_load_drivers();
 
 	dprintf("done\n");
 }
@@ -1110,11 +1118,11 @@ void start_wan_unit(int unit)
 		/* Start previously manually disconnected USB interface */
 		case WAN_USBNET:
 		{
-			char *usb_ifname = nvram_safe_get(strcat_r(prefix, "usb_ifname", tmp));
+			//char *usb_ifname = nvram_safe_get(strcat_r(prefix, "usb_ifname", tmp));
 
-			if (strncmp(usb_ifname, "eth", 3) != 0 &&
-			    strncmp(usb_ifname, "usb", 3) != 0)
-				continue;
+			//if (strncmp(usb_ifname, "eth", 3) != 0 &&
+			//    strncmp(usb_ifname, "usb", 3) != 0)
+			//	continue;
 
 			/* override wan_proto */
 			wan_proto = nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp),

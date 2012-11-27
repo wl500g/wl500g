@@ -35,7 +35,7 @@ diff -urN igmpproxy-0.1.orig/src/rttable.c igmpproxy-0.1/src/rttable.c
      struct RouteTable   *prevroute;     // Pointer to the previous group in line.
      uint32_t              group;          // The group to route
 -    uint32_t              originAddr;     // The origin adress (only set on activated routes)
-+    uint32_t          originAddrs[MAX_ORIGINS]; // The origin adresses (only set on activated routes)
++    uint32_t              originAddrs[MAX_ORIGINS]; // The origin adresses (only set on activated routes)
      uint32_t              vifBits;        // Bits representing recieving VIFs.
  
      // Keeps the upstream membership state...
