@@ -524,9 +524,9 @@ diff -urBwNp linux-2.6.22/arch/mips/Makefile linux-2.6/arch/mips/Makefile
 +#
 +# Broadcom BCM947XX variants
 +#
-+ifdef CONFIG_BCM947XX
 +core-$(CONFIG_BCM947XX) += arch/mips/brcm-boards/generic/ arch/mips/brcm-boards/bcm947xx/
 +load-$(CONFIG_BCM947XX) := 0xffffffff80001000
++ifdef CONFIG_BCM947XX
 +zImage: vmlinux
 +endif
 +

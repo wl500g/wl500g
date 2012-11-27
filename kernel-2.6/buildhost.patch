@@ -4,8 +4,13 @@ kbuild backports from upstream
  94bed2a9c4ae980838003f5d32681eef794ecc28 Add -Werror-implicit-function-declaration
  003086497f07f7f1e67c0c295e261740f822b377 Build with -fno-dwarf2-cfi-asm
  a8735821d198675dd326cc5847e79df79c735119 Kbuild: Disable the -Wformat-security gcc flag
+ 5d7d18f5bc507b60d3d8967e2739d5e6ffdd630f kbuild: make it possible for the linker to discard local symbols from vmlinux
+ 99657c7857fd47d6086682d4cf1194954170755a kernel hacking: move STRIP_ASM_SYMS from General
 
 ---
+ Makefile          |   29 ++++++++++++++++++++++++++---
+ lib/Kconfig.debug |    8 ++++++++
+ 2 files changed, 34 insertions(+), 3 deletions(-)
 
 diff --git a/Makefile b/Makefile
 --- a/Makefile
@@ -35,7 +40,7 @@ diff --git a/Makefile b/Makefile
  	$(Q)mkdir -p include/linux include/config
  	$(Q)$(MAKE) $(build)=scripts/kconfig $@
  
-@@ -535,12 +542,21 @@ CFLAGS          += $(call cc-option, -fn
+@@ -535,12 +542,25 @@ CFLAGS          += $(call cc-option, -fn
  NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
  CHECKFLAGS     += $(NOSTDINC_FLAGS)
  
@@ -54,6 +59,10 @@ diff --git a/Makefile b/Makefile
 +# revert to pre-gcc-4.4 behaviour of .eh_frame
 +CFLAGS	+= $(call cc-option,-fno-dwarf2-cfi-asm)
 +
++ifeq ($(CONFIG_STRIP_ASM_SYMS),y)
++LDFLAGS_vmlinux	+= -X
++endif
++
  # Default kernel image to build when no specific target is given.
  # KBUILD_IMAGE may be overruled on the command line or
  # set in the environment
@@ -69,5 +78,22 @@ diff --git a/Makefile b/Makefile
  	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) \
  	$(build)=$(build-dir)
  %.ko: prepare scripts FORCE
+diff --git a/lib/Kconfig b/lib/Kconfig
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -31,6 +31,14 @@ config MAGIC_SYSRQ
+ 	  keys are documented in <file:Documentation/sysrq.txt>. Don't say Y
+ 	  unless you really know what this hack does.
+ 
++config STRIP_ASM_SYMS
++	bool "Strip assembler-generated symbols during link"
++	default n
++	help
++	  Strip internal assembler-generated symbols during a link (symbols
++	  that look like '.Lxxx') so they don't pollute the output of
++	  get_wchan() and suchlike.
++
+ config UNUSED_SYMBOLS
+ 	bool "Enable unused/obsolete exported symbols"
+ 	default y if X86
 -- 
-1.7.4

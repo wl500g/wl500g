@@ -708,7 +708,7 @@ diff --git a/drivers/char/tty_ioctl.c b/drivers/char/tty_ioctl.c
  
  	if (tty->driver->type == TTY_DRIVER_TYPE_PTY &&
  	    tty->driver->subtype == PTY_TYPE_MASTER)
-@@ -780,166 +801,203 @@ int n_tty_ioctl(struct tty_struct * tty, struct file * file,
+@@ -780,166 +801,196 @@ int n_tty_ioctl(struct tty_struct * tty, struct file * file,
  
  	switch (cmd) {
  #ifdef TIOCGETP
@@ -984,14 +984,7 @@ diff --git a/drivers/char/tty_ioctl.c b/drivers/char/tty_ioctl.c
 +int n_tty_ioctl(struct tty_struct *tty, struct file *file,
 +		       unsigned int cmd, unsigned long arg)
 +{
-+	struct tty_struct *real_tty;
 +	int retval;
-+
-+	if (tty->driver->type == TTY_DRIVER_TYPE_PTY &&
-+	    tty->driver->subtype == PTY_TYPE_MASTER)
-+		real_tty = tty->link;
-+	else
-+		real_tty = tty;
 +
 +	switch (cmd) {
 +	case TCXONC:

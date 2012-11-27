@@ -77,6 +77,14 @@ diff -urNBp linux-2.6.22.orig/scripts/squashfs/Makefile linux-2.6/scripts/squash
  
  unsquashfs.o: unsquashfs.c read_fs.h global.h
  
+@@ -34,4 +34,6 @@ unsquashfs-lzma: unsquashfs.o uncomp.o L
+ unsquashfs.o: unsquashfs.c read_fs.h global.h
+ 
+ clean:
+-	-rm -f *.o mksquashfs unsquashfs
++	-rm -f *.o mksquashfs-lzma unsquashfs-lzma
++
++clean-files += mksquashfs-lzma unsquashfs-lzma
 diff -urNBp linux-2.6.22.orig/scripts/squashfs/mksquashfs.c linux-2.6/scripts/squashfs/mksquashfs.c
 --- linux-2.6.22.orig/scripts/squashfs/mksquashfs.c	2008-08-26 11:01:39.000000000 +0400
 +++ linux-2.6/scripts/squashfs/mksquashfs.c	2009-11-01 11:48:48.000000000 +0300
@@ -578,3 +586,12 @@ diff -urNBp linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6/scripts/sq
  
  	read_uids_guids();
  
+diff --git a/scripts/Makefile b/scripts/Makefile
+--- a/scripts/Makefile
++++ b/scripts/Makefile
+@@ -22,4 +22,4 @@
+ subdir-y                     += mod
+ 
+ # Let clean descend into subdirs
+-subdir-	+= basic kconfig package
++subdir-	+= basic kconfig package squashfs

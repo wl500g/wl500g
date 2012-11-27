@@ -116,7 +116,7 @@ CONFIG_LIBSYSFS=y
 # Environment
 #
 PLATFORM=mipsel
-TOOLCHAIN=/opt/brcm/hndtools-mipsel-uclibc
+TOOLCHAINDIR=/opt/brcm/hndtools-mipsel-uclibc
 LINUXDIR=$(SRCBASE)/linux/linux-2.6
 LIBDIR=$(TOOLCHAIN)/lib
 USRLIBDIR=$(TOOLCHAIN)/usr/lib

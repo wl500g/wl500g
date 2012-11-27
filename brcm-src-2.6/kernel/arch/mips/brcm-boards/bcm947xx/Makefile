@@ -13,30 +13,24 @@
 #
 #
 
-ifeq ($(CONFIG_USB),m)
- EXTRA_CFLAGS += -DNLS_XFR
-endif
-
-
 SHARED := ../../../../../../shared
-
-BCM947XX_OBJS = $(addprefix $(SHARED)/, hndmips.o hndchipc.o linux_gpio.o sflash.o)
-BCM947XX_OBJS += $(addprefix $(SHARED)/nvram/, nvram.o)
-
-EXTRA_CFLAGS += -DLINUX_HYBRID_POSTPROCESSING_REMOVAL
-ifeq ($(CONFIG_PCI),y)
-BCM947XX_OBJS += $(addprefix $(SHARED)/, hndpci.o) pcibios.o
-endif
 
 ifeq ($(CONFIG_WAPI),y)
 EXTRA_CFLAGS += -DBCMWAPI_WAI
 endif
 
-ifeq ($(CONFIG_GENERIC_GPIO),y)
-BCM947XX_OBJS += gen_gpio.o
-endif
+EXTRA_CFLAGS += -DLINUX_HYBRID_POSTPROCESSING_REMOVAL
 
-BCM947XX_OBJS += setup.o prom.o time.o irq.o perfcntr.o
+bcm947xx-objs := setup.o prom.o time.o irq.o perfcntr.o
 
-bcm947xx-objs += $(BCM947XX_OBJS)
+BCM947XX_OBJS-y := $(addprefix $(SHARED)/, hndmips.o hndchipc.o linux_gpio.o sflash.o)
+BCM947XX_OBJS-y += $(addprefix $(SHARED)/nvram/, nvram.o)
+
+BCM947XX_OBJS-$(CONFIG_PCI) += $(addprefix $(SHARED)/, hndpci.o) pcibios.o
+BCM947XX_OBJS-$(CONFIG_GENERIC_GPIO) += gen_gpio.o
+
+bcm947xx-objs += $(BCM947XX_OBJS-y)
+
+clean-files := $(BCM947XX_OBJS-y) $(BCM947XX_OBJS-)
+
 obj-y += bcm947xx.o

@@ -2118,7 +2118,6 @@ si_pci_fixcfg(si_t *sih)
 	uint origidx, pciidx;
 	sbpciregs_t *pciregs = NULL;
 	sbpcieregs_t *pcieregs = NULL;
-	void *regs = NULL;
 	uint16 val16, *reg16 = NULL;
 	uint32 w;
 
@@ -2139,12 +2138,10 @@ si_pci_fixcfg(si_t *sih)
 	/* check 'pi' is correct and fix it if not */
 	if (sii->pub.buscoretype == PCIE_CORE_ID) {
 		pcieregs = (sbpcieregs_t *)si_setcore(&sii->pub, PCIE_CORE_ID, 0);
-		regs = pcieregs;
 		ASSERT(pcieregs != NULL);
 		reg16 = &pcieregs->sprom[SRSH_PI_OFFSET];
 	} else if (sii->pub.buscoretype == PCI_CORE_ID) {
 		pciregs = (sbpciregs_t *)si_setcore(&sii->pub, PCI_CORE_ID, 0);
-		regs = pciregs;
 		ASSERT(pciregs != NULL);
 		reg16 = &pciregs->sprom[SRSH_PI_OFFSET];
 	}

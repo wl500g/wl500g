@@ -6,6 +6,10 @@ nfsd: svc updates from upstream
  15ddb4aec54422ead137b03ea4e9b3f5db3f7cc2 NFSD: don't report compiled-out versions as present
 
 ---
+ fs/nfsd/nfsctl.c |    5 ++++-
+ fs/nfsd/nfssvc.c |    2 +-
+ net/sunrpc/svc.c |   40 ++++++++++++++++++++++++++++++----------
+ 3 files changed, 35 insertions(+), 12 deletions(-)
 
 diff --git a/fs/nfsd/nfsctl.c b/fs/nfsd/nfsctl.c
 --- a/fs/nfsd/nfsctl.c

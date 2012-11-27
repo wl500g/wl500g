@@ -1,3 +1,12 @@
+
+ arch/mips/kernel/genex.S      |    4 +
+ arch/mips/kernel/head.S       |    2 
+ arch/mips/mm/c-r4k.c          |   34 ++++++++++++
+ drivers/serial/8250.c         |    7 ++
+ include/asm-mips/cacheflush.h |    2 
+ include/asm-mips/r4kcache.h   |  119 +++++++++++++++++++++++++++++++++---------
+ 6 files changed, 142 insertions(+), 26 deletions(-)
+
 diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/kernel/genex.S linux-2.6/arch/mips/kernel/genex.S
 --- linux-N12/arch/mips/kernel/genex.S	2009-08-27 07:53:58.000000000 +0400
 +++ linux-2.6/arch/mips/kernel/genex.S	2009-10-03 18:05:51.000000000 +0400
@@ -366,3 +375,4 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/include/asm-mips/r4kcache.h linux-2.6/incl
 +__BUILD_BLAST_CACHE_RANGE(inv_s, scache, Hit_Invalidate_SD,,, )
  
  #endif /* _ASM_R4KCACHE_H */
+-- 

@@ -293,9 +293,9 @@ diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
  
  static inline struct ipt_entry *
 @@ -231,7 +231,7 @@ ipt_do_table(struct sk_buff *skb,
+ 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
  	u_int16_t offset;
  	struct iphdr *ip;
- 	u_int16_t datalen;
 -	int hotdrop = 0;
 +	bool hotdrop = false;
  	/* Initializing verdict to NF_DROP keeps gcc happy. */

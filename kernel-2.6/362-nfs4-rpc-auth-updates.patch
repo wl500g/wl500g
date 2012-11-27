@@ -1,0 +1,117 @@
+ 5743d65c2f77d5145fb4c4262c4dd70c3f078776 gss_krb5: consistently use unsigned for seqnum
+ 720b8f2d6f7de9e16f1217448cc7396e1604e175 rpc: eliminate unused variable in auth_gss upcall code
+
+---
+ include/linux/sunrpc/gss_krb5.h       |    4 ++--
+ net/sunrpc/auth_gss/auth_gss.c        |    4 +---
+ net/sunrpc/auth_gss/gss_krb5_seal.c   |    5 ++---
+ net/sunrpc/auth_gss/gss_krb5_seqnum.c |    4 ++--
+ net/sunrpc/auth_gss/gss_krb5_unseal.c |    2 +-
+ 5 files changed, 8 insertions(+), 11 deletions(-)
+
+diff --git a/include/linux/sunrpc/gss_krb5.h b/include/linux/sunrpc/gss_krb5.h
+--- a/include/linux/sunrpc/gss_krb5.h
++++ b/include/linux/sunrpc/gss_krb5.h
+@@ -148,9 +148,9 @@ gss_decrypt_xdr_buf(struct crypto_blkcipher *tfm, struct xdr_buf *inbuf,
+ s32
+ krb5_make_seq_num(struct crypto_blkcipher *key,
+ 		int direction,
+-		s32 seqnum, unsigned char *cksum, unsigned char *buf);
++		u32 seqnum, unsigned char *cksum, unsigned char *buf);
+ 
+ s32
+ krb5_get_seq_num(struct crypto_blkcipher *key,
+ 	       unsigned char *cksum,
+-	       unsigned char *buf, int *direction, s32 * seqnum);
++	       unsigned char *buf, int *direction, u32 *seqnum);
+diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
+--- a/net/sunrpc/auth_gss/auth_gss.c
++++ b/net/sunrpc/auth_gss/auth_gss.c
+@@ -272,7 +272,7 @@ __gss_find_upcall(struct rpc_inode *rpci, uid_t uid)
+ 	return NULL;
+ }
+ 
+-/* Try to add a upcall to the pipefs queue.
++/* Try to add an upcall to the pipefs queue.
+  * If an upcall owned by our uid already exists, then we return a reference
+  * to that upcall instead of adding the new upcall.
+  */
+@@ -493,7 +493,6 @@ gss_pipe_downcall(struct file *filp, const char __user *src, size_t mlen)
+ {
+ 	const void *p, *end;
+ 	void *buf;
+-	struct rpc_clnt *clnt;
+ 	struct gss_upcall_msg *gss_msg;
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+ 	struct gss_cl_ctx *ctx;
+@@ -507,7 +506,6 @@ gss_pipe_downcall(struct file *filp, const char __user *src, size_t mlen)
+ 	if (!buf)
+ 		goto out;
+ 
+-	clnt = RPC_I(inode)->private;
+ 	err = -EFAULT;
+ 	if (copy_from_user(buf, src, mlen))
+ 		goto err;
+diff --git a/net/sunrpc/auth_gss/gss_krb5_seal.c b/net/sunrpc/auth_gss/gss_krb5_seal.c
+--- a/net/sunrpc/auth_gss/gss_krb5_seal.c
++++ b/net/sunrpc/auth_gss/gss_krb5_seal.c
+@@ -79,7 +79,7 @@ gss_get_mic_kerberos(struct gss_ctx *gss
+ 	struct krb5_ctx		*ctx = gss_ctx->internal_ctx_id;
+ 	char			cksumdata[16];
+ 	struct xdr_netobj	md5cksum = {.len = 0, .data = cksumdata};
+-	unsigned char		*ptr, *krb5_hdr, *msg_start;
++	unsigned char		*ptr, *krb5_hdr;
+ 	s32			now;
+ 	u32			seq_send;
+ 
+@@ -97,7 +97,6 @@ gss_get_mic_kerberos(struct gss_ctx *gss
+ 
+ 	/* ptr now at byte 2 of header described in rfc 1964, section 1.2.1: */
+ 	krb5_hdr = ptr - 2;
+-	msg_start = krb5_hdr + 24;
+ 
+ 	*(__be16 *)(krb5_hdr + 2) = htons(SGN_ALG_DES_MAC_MD5);
+ 	memset(krb5_hdr + 4, 0xff, 4);
+@@ -116,7 +116,7 @@ gss_get_mic_kerberos(struct gss_ctx *gss_ctx, struct xdr_buf *text,
+ 	spin_unlock(&krb5_seq_lock);
+ 
+ 	if (krb5_make_seq_num(ctx->seq, ctx->initiate ? 0 : 0xff,
+-			       ctx->seq_send, krb5_hdr + 16, krb5_hdr + 8))
++			      seq_send, krb5_hdr + 16, krb5_hdr + 8))
+ 		return GSS_S_FAILURE;
+ 
+ 	return (ctx->endtime < now) ? GSS_S_CONTEXT_EXPIRED : GSS_S_COMPLETE;
+diff --git a/net/sunrpc/auth_gss/gss_krb5_seqnum.c b/net/sunrpc/auth_gss/gss_krb5_seqnum.c
+--- a/net/sunrpc/auth_gss/gss_krb5_seqnum.c
++++ b/net/sunrpc/auth_gss/gss_krb5_seqnum.c
+@@ -43,7 +43,7 @@
+ s32
+ krb5_make_seq_num(struct crypto_blkcipher *key,
+ 		int direction,
+-		s32 seqnum,
++		u32 seqnum,
+ 		unsigned char *cksum, unsigned char *buf)
+ {
+ 	unsigned char plain[8];
+@@ -65,7 +65,7 @@ s32
+ krb5_get_seq_num(struct crypto_blkcipher *key,
+ 	       unsigned char *cksum,
+ 	       unsigned char *buf,
+-	       int *direction, s32 * seqnum)
++	       int *direction, u32 *seqnum)
+ {
+ 	s32 code;
+ 	unsigned char plain[8];
+diff --git a/net/sunrpc/auth_gss/gss_krb5_unseal.c b/net/sunrpc/auth_gss/gss_krb5_unseal.c
+--- a/net/sunrpc/auth_gss/gss_krb5_unseal.c
++++ b/net/sunrpc/auth_gss/gss_krb5_unseal.c
+@@ -82,7 +82,7 @@ gss_verify_mic_kerberos(struct gss_ctx *gss_ctx,
+ 	struct xdr_netobj	md5cksum = {.len = 0, .data = cksumdata};
+ 	s32			now;
+ 	int			direction;
+-	s32			seqnum;
++	u32			seqnum;
+ 	unsigned char		*ptr = (unsigned char *)read_token->data;
+ 	int			bodysize;
+ 
+-- 

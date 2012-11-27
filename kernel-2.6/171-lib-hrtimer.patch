@@ -21,22 +21,23 @@ hrtimer: Updates from upstream
  cc584b213f252bf698849cf4be2377cd3ec7501a hrtimer: convert kernel/* to the new hrtimer apis
  654c8e0b1c623b156c5b92f28d914ab38c9c2c90 hrtimer: turn hrtimers into range timers
  d7cfb60c5cf904ecf1e0ae23ec178175b86f0d4a hrtimer: remove hrtimer_clock_base::get_softirq_time()
+ 900cfa46191a7d87cf1891924cb90499287fd235 hrtimer: Remove unused variables in ktime_divns()
 
 ---
  fs/timerfd.c                |    8 
  include/linux/hrtimer.h     |   87 ++++++-
  include/linux/ktime.h       |    2 
- include/linux/thread_info.h |   12 +
- kernel/compat.c             |   85 +++----
+ include/linux/thread_info.h |   12 
+ kernel/compat.c             |   85 +++---
  kernel/futex.c              |    8 
  kernel/futex_compat.c       |    2 
- kernel/hrtimer.c            |  527 +++++++++++++++++++++++++++++---------------
- kernel/posix-timers.c       |   12 -
+ kernel/hrtimer.c            |  535 +++++++++++++++++++++++++++++---------------
+ kernel/posix-timers.c       |   12 
  kernel/rtmutex.c            |    3 
  kernel/time/tick-sched.c    |   27 --
  kernel/time/timer_list.c    |    4 
  kernel/timer.c              |    3 
- 13 files changed, 515 insertions(+), 265 deletions(-)
+ 13 files changed, 518 insertions(+), 270 deletions(-)
 
 diff --git a/fs/timerfd.c b/fs/timerfd.c
 --- a/fs/timerfd.c
@@ -433,6 +434,20 @@ diff --git a/kernel/futex_compat.c b/kernel/futex_compat.c
 diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
 --- a/kernel/hrtimer.c
 +++ b/kernel/hrtimer.c
+@@ -288,11 +288,10 @@ EXPORT_SYMBOL_GPL(ktime_sub_ns);
+  */
+ u64 ktime_divns(const ktime_t kt, s64 div)
+ {
+-	u64 dclc, inc, dns;
++	u64 dclc;
+ 	int sft = 0;
+ 
+-	dclc = dns = ktime_to_ns(kt);
+-	inc = div;
++	dclc = ktime_to_ns(kt);
+ 	/* Make sure the divisor is less than 2^32: */
+ 	while (div >> 32) {
+ 		sft++;
 @@ -305,6 +305,39 @@ u64 ktime_divns(const ktime_t kt, s64 di
  }
  #endif /* BITS_PER_LONG >= 64 */
@@ -689,11 +704,17 @@ diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
  	return ret;
  }
  EXPORT_SYMBOL_GPL(hrtimer_start);
-@@ -911,7 +942,7 @@ ktime_t hrtimer_get_remaining(const stru
+@@ -911,12 +942,11 @@ ktime_t hrtimer_get_remaining(const stru
+  */
+ ktime_t hrtimer_get_remaining(const struct hrtimer *timer)
+ {
+-	struct hrtimer_clock_base *base;
+ 	unsigned long flags;
  	ktime_t rem;
  
- 	base = lock_hrtimer_base(timer, &flags);
+-	base = lock_hrtimer_base(timer, &flags);
 -	rem = ktime_sub(timer->expires, base->get_time());
++	lock_hrtimer_base(timer, &flags);
 +	rem = hrtimer_expires_remaining(timer);
  	unlock_hrtimer_base(timer, &flags);
  

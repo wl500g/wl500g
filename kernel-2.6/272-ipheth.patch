@@ -4,8 +4,8 @@ drivers/net/usb: ipheth driver backport from 3.2
  drivers/net/Makefile     |    1 
  drivers/net/usb/Kconfig  |   12 
  drivers/net/usb/Makefile |    1 
- drivers/net/usb/ipheth.c |  583 +++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 597 insertions(+)
+ drivers/net/usb/ipheth.c |  588 +++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 602 insertions(+)
  create mode 100644 drivers/net/usb/ipheth.c
 
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
@@ -52,7 +52,7 @@ diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/net/usb/ipheth.c
-@@ -0,0 +1,583 @@
+@@ -0,0 +1,588 @@
 +/*
 + * ipheth.c - Apple iPhone USB Ethernet driver
 + *
@@ -114,6 +114,7 @@ new file mode 100644
 +#define USB_PRODUCT_IPHONE_3G   0x1292
 +#define USB_PRODUCT_IPHONE_3GS  0x1294
 +#define USB_PRODUCT_IPHONE_4	0x1297
++#define USB_PRODUCT_IPAD 0x129a
 +#define USB_PRODUCT_IPHONE_4_VZW 0x129c
 +#define USB_PRODUCT_IPHONE_4S	0x12a0
 +
@@ -153,6 +154,10 @@ new file mode 100644
 +		IPHETH_USBINTF_PROTO) },
 +	{ USB_DEVICE_AND_INTERFACE_INFO(
 +		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_4,
++		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
++		IPHETH_USBINTF_PROTO) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(
++		USB_VENDOR_APPLE, USB_PRODUCT_IPAD,
 +		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
 +		IPHETH_USBINTF_PROTO) },
 +	{ USB_DEVICE_AND_INTERFACE_INFO(
@@ -637,4 +642,3 @@ new file mode 100644
 +MODULE_DESCRIPTION("Apple iPhone USB Ethernet driver");
 +MODULE_LICENSE("Dual BSD/GPL");
 -- 
-1.7.6.5

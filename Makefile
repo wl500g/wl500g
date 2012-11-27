@@ -50,7 +50,7 @@ XL2TPD=xl2tpd-1.3.1
 BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.5
-UDPXY=udpxy-1.0.21-2
+UDPXY=udpxy-1.0.23-0
 INADYN=inadyn-1.96.3
 LIBUSB10=libusb-1.0.8
 USBMODESWITCH=usb-modeswitch-1.2.2
@@ -432,7 +432,7 @@ igmpproxy: $(TOP)/igmpproxy
 
 udpxy_Patches := $(call patches_list,udpxy)
 
-$(TOP)/udpxy: udpxy/$(UDPXY).tgz
+$(TOP)/udpxy: udpxy/$(UDPXY).tar.gz
 	@rm -rf $(TOP)/$(UDPXY) $@
 	tar -xzf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(UDPXY) $(udpxy_Patches)

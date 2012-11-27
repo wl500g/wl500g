@@ -1418,15 +1418,6 @@ diff -urBp a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
  
  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
  	xt_info_rdlock_bh();
-@@ -262,7 +262,7 @@ ipt_do_table(struct sk_buff **pskb,
- 	}
- 
- 	/* Initialization */
--	datalen = (*pskb)->len - ip->ihl * 4;
-+	datalen = skb->len - ip->ihl * 4;
- 	indev = in ? in->name : nulldevname;
- 	outdev = out ? out->name : nulldevname;
- 	/* We handle fragments by dealing with the first fragment as
 @@ -283,7 +283,7 @@ ipt_do_table(struct sk_buff **pskb,
  			struct ipt_entry_target *t;
  
@@ -1445,17 +1436,15 @@ diff -urBp a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
  								     in, out,
  								     hook,
  								     t->u.kernel.target,
-@@ -344,8 +344,8 @@ ipt_do_table(struct sk_buff **pskb,
+@@ -344,7 +344,7 @@ ipt_do_table(struct sk_buff **pskb,
  					= 0x57acc001;
  #endif
  				/* Target might have changed stuff. */
 -				ip = ip_hdr(*pskb);
--				datalen = (*pskb)->len - ip->ihl * 4;
 +				ip = ip_hdr(skb);
-+				datalen = skb->len - ip->ihl * 4;
- 
  				if (verdict == IPT_CONTINUE)
  					e = (void *)e + e->next_offset;
+ 				else
 diff -urBp a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
 --- a/net/ipv4/netfilter/ipt_CLUSTERIP.c	2011-03-15 03:00:00.000000000 +0300
 +++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c	2011-03-14 16:32:13.000000000 +0300
@@ -1997,9 +1986,9 @@ diff -urBp a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
  	struct {
  		struct icmphdr icmp;
 @@ -437,24 +437,24 @@ int nf_nat_icmp_reply_translation(struct
+ 
  	} *inside;
- 	struct nf_conntrack_l4proto *l4proto;
- 	struct nf_conntrack_tuple inner, target;
+ 	struct nf_conntrack_tuple target;
 -	int hdrlen = ip_hdrlen(*pskb);
 +	int hdrlen = ip_hdrlen(skb);
  	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
@@ -2027,21 +2016,15 @@ diff -urBp a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
  
  	/* Redirects on non-null nats must be dropped, else they'll
  	   start talking to each other without our translation, and be
-@@ -469,12 +469,12 @@ int nf_nat_icmp_reply_translation(struct
+@@ -469,7 +469,7 @@ int nf_nat_icmp_reply_translation(struct
  	}
  
  	DEBUGP("icmp_reply_translation: translating error %p manp %u dir %s\n",
 -	       *pskb, manip, dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
 +	       skb, manip, dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
  
- 	/* rcu_read_lock()ed by nf_hook_slow */
- 	l4proto = __nf_ct_l4proto_find(PF_INET, inside->ip.protocol);
- 
--	if (!nf_ct_get_tuple(*pskb, hdrlen + sizeof(struct icmphdr),
-+	if (!nf_ct_get_tuple(skb, hdrlen + sizeof(struct icmphdr),
- 			     (hdrlen +
- 			      sizeof(struct icmphdr) + inside->ip.ihl * 4),
- 			     (u_int16_t)AF_INET, inside->ip.protocol,
+ 	/* Change inner back to look like incoming packet.  We do the
+ 	   opposite manip on this hook to normal, because it might not
 @@ -486,17 +486,17 @@ int nf_nat_icmp_reply_translation(struct
  	   pass all hooks (locally-generated ICMP).  Consider incoming
  	   packet: PREROUTING (DST manip), routing produces ICMP, goes
@@ -2485,7 +2468,7 @@ diff -urBp a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_help
  			 struct nf_conn *ct,
  			 enum ip_conntrack_info ctinfo,
  			 unsigned int match_offset,
-@@ -255,48 +247,48 @@ nf_nat_mangle_udp_packet(struct sk_buff 
+@@ -255,42 +247,42 @@ nf_nat_mangle_udp_packet(struct sk_buff 
  			 const char *rep_buffer,
  			 unsigned int rep_len)
  {
@@ -2494,14 +2477,6 @@ diff -urBp a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_help
  	struct iphdr *iph;
  	struct udphdr *udph;
  	int datalen, oldlen;
- 
- 	/* UDP helpers might accidentally mangle the wrong packet */
--	iph = ip_hdr(*pskb);
--	if ((*pskb)->len < iph->ihl*4 + sizeof(*udph) +
-+	iph = ip_hdr(skb);
-+	if (skb->len < iph->ihl*4 + sizeof(*udph) +
- 			       match_offset + match_len)
- 		return 0;
  
 -	if (!skb_make_writable(pskb, (*pskb)->len))
 +	if (!skb_make_writable(skb, skb->len))
@@ -4059,7 +4034,7 @@ diff -urBp a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_
  		if (net_ratelimit())
  			printk("ip6t_hook: happy cracking.\n");
  		return NF_ACCEPT;
-@@ -105,22 +105,22 @@ ip6t_local_hook(unsigned int hook,
+@@ -105,23 +105,23 @@ ip6t_local_hook(unsigned int hook,
  #endif
  
  	/* save source/dest address, mark, hoplimit, flowlabel, priority,  */
@@ -4083,12 +4058,14 @@ diff -urBp a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_
 -		&& (memcmp(&ipv6_hdr(*pskb)->saddr, &saddr, sizeof(saddr))
 -		    || memcmp(&ipv6_hdr(*pskb)->daddr, &daddr, sizeof(daddr))
 -		    || (*pskb)->mark != mark
--		    || ipv6_hdr(*pskb)->hop_limit != hop_limit))
+-		    || ipv6_hdr(*pskb)->hop_limit != hop_limit
+-		    || flowlabel != *((u_int32_t *)ipv6_hdr(*pskb))))
 -		return ip6_route_me_harder(*pskb) == 0 ? ret : NF_DROP;
 +		&& (memcmp(&ipv6_hdr(skb)->saddr, &saddr, sizeof(saddr))
 +		    || memcmp(&ipv6_hdr(skb)->daddr, &daddr, sizeof(daddr))
 +		    || skb->mark != mark
-+		    || ipv6_hdr(skb)->hop_limit != hop_limit))
++		    || ipv6_hdr(skb)->hop_limit != hop_limit
++		    || flowlabel != *((u_int32_t *)ipv6_hdr(skb))))
 +		return ip6_route_me_harder(skb) == 0 ? ret : NF_DROP;
  
  	return ret;
