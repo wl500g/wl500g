@@ -3,11 +3,12 @@ Modules: handle symbols that have a zero value
  kernel.org commits
  88173507e4fc1e7ecd111b0565e8cba0cb7dae6d Modules: handle symbols that have a zero value
  0e66fff883ef1b6e4c5031e8add8827cd0e2a195 MIPS: Fix loading of modules with unresolved weak symbols
+ 35dead4235e2b67da7275b4122fed37099c2f462 modules: don't export section names of empty sections via sysfs
 
 ---
  arch/mips/kernel/module.c |    4 ++--
- kernel/module.c           |   23 ++++++++++++++---------
- 2 files changed, 16 insertions(+), 11 deletions(-)
+ kernel/module.c           |   28 ++++++++++++++++++----------
+ 2 files changed, 20 insertions(+), 12 deletions(-)
 
 diff --git a/arch/mips/kernel/module.c b/arch/mips/kernel/module.c
 --- a/arch/mips/kernel/module.c
@@ -75,6 +76,25 @@ diff --git a/kernel/module.c b/kernel/module.c
  	}
  	return ret;
  }
+@@ -1187,7 +1187,8 @@ static void add_sect_attrs(struct module *mod, unsigned int nsect,
+ 
+ 	/* Count loaded sections and allocate structures */
+ 	for (i = 0; i < nsect; i++)
+-		if (sechdrs[i].sh_flags & SHF_ALLOC)
++		if (sechdrs[i].sh_flags & SHF_ALLOC
++		    && sechdrs[i].sh_size)
+ 			nloaded++;
+ 	size[0] = ALIGN(sizeof(*sect_attrs)
+ 			+ nloaded * sizeof(sect_attrs->attrs[0]),
+@@ -1207,6 +1208,8 @@ static void add_sect_attrs(struct module *mod, unsigned int nsect,
+ 	for (i = 0; i < nsect; i++) {
+ 		if (! (sechdrs[i].sh_flags & SHF_ALLOC))
+ 			continue;
++		if (!sechdrs[i].sh_size)
++			continue;
+ 		sattr->address = sechdrs[i].sh_addr;
+ 		sattr->name = kstrdup(secstrings + sechdrs[i].sh_name,
+ 					GFP_KERNEL);
 @@ -1236,7 +1237,9 @@ void *__symbol_get(const char *symbol)
  
  	spin_lock_irqsave(&modlist_lock, flags);
@@ -115,4 +135,3 @@ diff --git a/kernel/module.c b/kernel/module.c
  			/* Ok if weak.  */
  			if (ELF_ST_BIND(sym[i].st_info) == STB_WEAK)
 -- 
-1.7.4.1
