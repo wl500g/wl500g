@@ -11,11 +11,6 @@ impossible to see which file actually was meant.  So let's get rid of them.
 Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
 ---
- 5d7d18f5bc507b60d3d8967e2739d5e6ffdd630f kbuild: make it possible for the linker to discard local symbols from vmlinux
- 99657c7857fd47d6086682d4cf1194954170755a kernel hacking: move STRIP_ASM_SYMS from General
-
----
- Makefile                        |    4 
  arch/mips/lib/csum_partial.S    |  214 ++++++++++++++++++++--------------------
  arch/mips/lib/memcpy-inatomic.S |  112 ++++++++++----------
  arch/mips/lib/memcpy.S          |  182 +++++++++++++++++-----------------
@@ -23,23 +18,8 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  arch/mips/lib/strlen_user.S     |    6 -
  arch/mips/lib/strncpy_user.S    |   10 -
  arch/mips/lib/strnlen_user.S    |    6 -
- lib/Kconfig.debug               |    8 +
- 9 files changed, 291 insertions(+), 279 deletions(-)
+ 7 files changed, 279 insertions(+), 279 deletions(-)
 
-diff --git a/Makefile b/Makefile
---- a/Makefile
-+++ b/Makefile
-@@ -557,6 +557,10 @@ LDFLAGS_BUILD_ID = $(patsubst -Wl$(comma)%,%,\
- # revert to pre-gcc-4.4 behaviour of .eh_frame
- CFLAGS	+= $(call cc-option,-fno-dwarf2-cfi-asm)
- 
-+ifeq ($(CONFIG_STRIP_ASM_SYMS),y)
-+LDFLAGS_vmlinux	+= -X
-+endif
-+
- # Default kernel image to build when no specific target is given.
- # KBUILD_IMAGE may be overruled on the command line or
- # set in the environment
 diff --git a/arch/mips/lib/csum_partial.S b/arch/mips/lib/csum_partial.S
 --- a/arch/mips/lib/csum_partial.S
 +++ b/arch/mips/lib/csum_partial.S
@@ -1325,22 +1305,4 @@ diff --git a/arch/mips/lib/strnlen_user.S b/arch/mips/lib/strnlen_user.S
 -fault:	move		v0, zero
 +.Lfault:	move		v0, zero
  	jr		ra
-diff --git a/lib/Kconfig b/lib/Kconfig
---- a/lib/Kconfig.debug
-+++ b/lib/Kconfig.debug
-@@ -31,6 +31,14 @@ config MAGIC_SYSRQ
- 	  keys are documented in <file:Documentation/sysrq.txt>. Don't say Y
- 	  unless you really know what this hack does.
- 
-+config STRIP_ASM_SYMS
-+	bool "Strip assembler-generated symbols during link"
-+	default n
-+	help
-+	  Strip internal assembler-generated symbols during a link (symbols
-+	  that look like '.Lxxx') so they don't pollute the output of
-+	  get_wchan() and suchlike.
-+
- config UNUSED_SYMBOLS
- 	bool "Enable unused/obsolete exported symbols"
- 	default y if X86
 -- 

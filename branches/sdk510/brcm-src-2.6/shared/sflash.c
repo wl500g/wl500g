@@ -180,7 +180,6 @@ sflash_read(si_t *sih, chipcregs_t *cc, uint offset, uint len, uchar *buf)
 {
 	uint8 *from, *to;
 	int cnt, i;
-	osl_t *osh;
 
 	ASSERT(sih);
 
@@ -196,8 +195,6 @@ sflash_read(si_t *sih, chipcregs_t *cc, uint offset, uint len, uchar *buf)
 		cnt = 4 - ((uintptr)buf & 3);
 	else
 		cnt = len;
-
-	osh = si_osh(sih);
 
 	if (sih->ccrev == 12)
 		from = (uint8 *)OSL_UNCACHED(SI_FLASH2 + offset);

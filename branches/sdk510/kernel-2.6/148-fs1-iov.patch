@@ -56,6 +56,7 @@ mm: buffered write iterator
  54566b2c1594c2326a645a3551f9d989f7ba3c5e fs: symlink write_begin allocation context fix
  c8236db9cd7aa492dcfcdcca702638e704abed49 mm: mark page accessed before we write_end()
  39be79c16f2b8eb07dd0d4e965cddfe39cc0534a vfs: iov_iter: have iov_iter_advance decrement nr_segs appropriately
+ 627295e492638936e76f3d8fcb1e0a3367b88341 gcc-4.6: pagemap: avoid unused-but-set variable
 
 ---
  Documentation/filesystems/Locking |   17 
@@ -118,13 +119,13 @@ mm: buffered write iterator
  fs/xfs/linux-2.6/xfs_lrw.c        |   35 -
  include/linux/buffer_head.h       |   25 +
  include/linux/fs.h                |   74 +++-
- include/linux/pagemap.h           |   14 
+ include/linux/pagemap.h           |   18 
  mm/filemap.c                      |  519 +++++++++++++++++-----------
  mm/filemap.h                      |  103 -----
  mm/filemap_xip.c                  |   17 
  mm/readahead.c                    |   24 -
  mm/shmem.c                        |   34 +
- 66 files changed, 2373 insertions(+), 1566 deletions(-)
+ 66 files changed, 2376 insertions(+), 1567 deletions(-)
 
 diff --git a/Documentation/filesystems/Locking b/Documentation/filesystems/Locking
 --- a/Documentation/filesystems/Locking
@@ -5692,7 +5693,7 @@ diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
  	/*
  	 * Writing zeroes into userspace here is OK, because we know that if
  	 * the zero gets there, we'll be overwriting it.
-@@ -237,19 +243,23 @@ static inline int fault_in_pages_writeab
+@@ -237,19 +243,25 @@ static inline int fault_in_pages_writeab
  	return ret;
  }
  
@@ -5710,9 +5711,12 @@ diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
  		const char __user *end = uaddr + size - 1;
  
  		if (((unsigned long)uaddr & PAGE_MASK) !=
- 				((unsigned long)end & PAGE_MASK))
+-				((unsigned long)end & PAGE_MASK))
 -		 	__get_user(c, end);
++				((unsigned long)end & PAGE_MASK)) {
 +		 	ret = __get_user(c, end);
++			(void)c;
++		}
  	}
 +	return ret;
  }
@@ -6106,7 +6110,7 @@ diff --git a/mm/filemap.c b/mm/filemap.c
  ssize_t
  generic_file_direct_write(struct kiocb *iocb, const struct iovec *iov,
  		unsigned long *nr_segs, loff_t pos, loff_t *ppos,
-@@ -1860,151 +1965,149 @@ generic_file_direct_write(struct kiocb *
+@@ -1860,151 +1965,147 @@ generic_file_direct_write(struct kiocb *
  }
  EXPORT_SYMBOL(generic_file_direct_write);
  
@@ -6189,16 +6193,15 @@ diff --git a/mm/filemap.c b/mm/filemap.c
 -		unsigned long offset;
 -		size_t copied;
 +		struct page *page;
-+		pgoff_t index;		/* Pagecache index for current page */
 +		unsigned long offset;	/* Offset into pagecache page */
 +		unsigned long bytes;	/* Bytes to write to page */
 +		size_t copied;		/* Bytes copied from user */
 +		void *fsdata;
  
 -		offset = (pos & (PAGE_CACHE_SIZE -1)); /* Within page */
-+		offset = (pos & (PAGE_CACHE_SIZE - 1));
- 		index = pos >> PAGE_CACHE_SHIFT;
+-		index = pos >> PAGE_CACHE_SHIFT;
 -		bytes = PAGE_CACHE_SIZE - offset;
++		offset = (pos & (PAGE_CACHE_SIZE - 1));
 +		bytes = min_t(unsigned long, PAGE_CACHE_SIZE - offset,
 +						iov_iter_count(i));
  

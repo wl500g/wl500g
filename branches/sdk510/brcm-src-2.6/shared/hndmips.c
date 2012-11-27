@@ -383,10 +383,10 @@ BCMINITFN(mips_pmu_setclock)(si_t *sih, uint32 mipsclock, uint32 ddrclock, uint3
 	uint idx, i;
 	uint mainpll_pll0 = PMU4716_MAINPLL_PLL0;
 	bool ret = TRUE;
-	uint32 (*pll_table)[8];
+	const uint32 (*pll_table)[8];
 
 	/* 20MHz table for 4716, 4717, 4718, 47162 */
-	static uint32 BCMINITDATA(pll20mhz_table)[][8] = {
+	static const uint32 BCMINITDATA(pll20mhz_table)[][8] = {
 		/* cpu, ddr, axi, pllctl12,  pllctl13,   pllctl14,   pllctl15,  |pllctl16 */
 		{  66,  66,  66, 0x11100070, 0x00121212, 0x03c00000, 0x20000000, 0 },
 		{  75,  75,  75, 0x11100070, 0x00101010, 0x03c00000, 0x20000000, 0 },
@@ -457,7 +457,7 @@ BCMINITFN(mips_pmu_setclock)(si_t *sih, uint32 mipsclock, uint32 ddrclock, uint3
 	};
 
 	/* 25MHz table for 5356 */
-	static uint32 BCMINITDATA(pll25mhz_table)[][8] = {
+	static const uint32 BCMINITDATA(pll25mhz_table)[][8] = {
 		/* cpu, ddr, axi, pllctl12,  pllctl13,   pllctl14,   pllctl15,  |pllctl16 */
 		{  66,  66,  66, 0x11100070, 0x00121212, 0x03000000, 0x20000000, 0 },
 		{  75,  75,  75, 0x11100070, 0x00101010, 0x03000000, 0x20000000, 0 },
@@ -651,7 +651,7 @@ BCMINITFN(si_mips_setclock)(si_t *sih, uint32 mipsclock, uint32 siclock, uint32 
 		uint16 n;
 		uint32 m2; /* that is the clockcontrol_m2 */
 	} type3_table_t;
-	static type3_table_t type3_table[] = {
+	static const type3_table_t type3_table[] = {
 		/* for 5350, mips clock is always double sb clock */
 		{ 150000000, 0x311, 0x4020005 },
 		{ 200000000, 0x311, 0x4020003 },
@@ -672,7 +672,7 @@ BCMINITFN(si_mips_setclock)(si_t *sih, uint32 mipsclock, uint32 siclock, uint32 
 		uint32 dll_r1;
 		uint32 dll_r2;
 	} n4m_table_t;
-	static n4m_table_t BCMINITDATA(type2_table)[] = {
+	static const n4m_table_t BCMINITDATA(type2_table)[] = {
 		{ 120000000, 60000000, 32000000, 0x0303, 0x01000200, 0x01000600, 0x01000200,
 		0x05000200, 11, 0x0aaa0555, 8 /* ratio  4/8 */, 0x00aa0055 },
 		{ 150000000, 75000000, 33333333, 0x0303, 0x01000100, 0x01000600, 0x01000100,
@@ -758,7 +758,7 @@ BCMINITFN(si_mips_setclock)(si_t *sih, uint32 mipsclock, uint32 siclock, uint32 
 		{ 390000000, 195000000, 32500000, 0x0b03, 0x01000100, 0x00020101, 0x01020100,
 		0x05000100, 0, 0, 8 /* ratio 4/8 */, 0x00aa0055 },
 	};
-	static n4m_table_t BCMINITDATA(type4_table)[] = {
+	static const n4m_table_t BCMINITDATA(type4_table)[] = {
 		{ 120000000, 60000000, 0, 0x0009, 0x11020009, 0x01030203, 0x11020009, 0x04000009,
 		11, 0x0aaa0555 },
 		{ 150000000, 75000000, 0, 0x0009, 0x11050002, 0x01030203, 0x11050002, 0x04000005,
@@ -804,7 +804,7 @@ BCMINITFN(si_mips_setclock)(si_t *sih, uint32 mipsclock, uint32 siclock, uint32 
 		{ 300000000, 150000000, 0, 0x0009, 0x04000005, 0x01030203, 0x04000005, 0x04000002,
 		11, 0x0aaa0555 }
 	};
-	static n4m_table_t BCMINITDATA(type7_table)[] = {
+	static const n4m_table_t BCMINITDATA(type7_table)[] = {
 		{ 183333333, 91666666, 0, 0x0605, 0x04000011, 0x11030011, 0x04000011, 0x04000003,
 		11, 0x0aaa0555 },
 		{ 187500000, 93750000, 0, 0x0a03, 0x04000011, 0x11030011, 0x04000011, 0x04000003,
@@ -923,7 +923,7 @@ BCMINITFN(si_mips_setclock)(si_t *sih, uint32 mipsclock, uint32 siclock, uint32 
 	           (pll_type == PLL_TYPE4) ||
 	           (pll_type == PLL_TYPE6) ||
 	           (pll_type == PLL_TYPE7)) {
-		n4m_table_t *table = NULL, *te;
+		const n4m_table_t *table = NULL, *te;
 		uint tabsz = 0;
 
 		ASSERT(cc);

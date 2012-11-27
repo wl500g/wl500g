@@ -1,24 +1,144 @@
-From 43df2a57b773596cd0bdd2316889ff9653121015
-From: Thomas Meyer
-Date: Thu, 10 Nov 2011 19:38:43 +0100
-Subject: [PATCH] ALSA: usb-audio: Use kmemdup rather than duplicating its implementation
-
-Use kmemdup rather than duplicating its implementation
-
-The semantic patch that makes this change is available
-in scripts/coccinelle/api/memdup.cocci.
-
-Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
-Signed-off-by: Takashi Iwai <tiwai@suse.de>
+ 43df2a57b773596cd0bdd2316889ff9653121015 ALSA: usb-audio: Use kmemdup rather than duplicating its implementation
+ 5cd5d7c44990658df6ab49f6253c39617c53b03d ALSA: usb-audio: fix rate_list memory leak
+ 78fa2c4d2465d014e67d3e12d948425856587251 ALSA: core: remove unused variables.
 
 ---
- sound/usb/usbaudio.c |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
+ sound/core/control.c       |    3 +--
+ sound/core/init.c          |    3 ---
+ sound/core/oss/linear.c    |    3 ---
+ sound/core/pcm_native.c    |    8 --------
+ sound/core/seq/seq_queue.c |    2 --
+ sound/usb/usbaudio.c       |   10 ++++++----
+ 6 files changed, 7 insertions(+), 22 deletions(-)
 
+diff --git a/sound/core/control.c b/sound/core/control.c
+--- a/sound/core/control.c
++++ b/sound/core/control.c
+@@ -704,13 +704,12 @@ static int snd_ctl_elem_list(struct snd_card *card,
+ 	struct snd_ctl_elem_list list;
+ 	struct snd_kcontrol *kctl;
+ 	struct snd_ctl_elem_id *dst, *id;
+-	unsigned int offset, space, first, jidx;
++	unsigned int offset, space, jidx;
+ 	
+ 	if (copy_from_user(&list, _list, sizeof(list)))
+ 		return -EFAULT;
+ 	offset = list.offset;
+ 	space = list.space;
+-	first = 0;
+ 	/* try limit maximum space */
+ 	if (space > 16384)
+ 		return -ENOMEM;
+diff --git a/sound/core/init.c b/sound/core/init.c
+--- a/sound/core/init.c
++++ b/sound/core/init.c
+@@ -342,7 +342,6 @@ static const struct file_operations snd_shutdown_f_ops =
+ int snd_card_disconnect(struct snd_card *card)
+ {
+ 	struct snd_monitor_file *mfile;
+-	struct file *file;
+ 	int err;
+ 
+ 	if (!card)
+@@ -366,8 +365,6 @@ int snd_card_disconnect(struct snd_card *card)
+ 	spin_lock(&card->files_lock);
+ 	mfile = card->files;
+ 	while (mfile) {
+-		file = mfile->file;
+-
+ 		/* it's critical part, use endless loop */
+ 		/* we have no room to fail */
+ 		mfile->disconnected_f_op = mfile->file->f_op;
+diff --git a/sound/core/oss/linear.c b/sound/core/oss/linear.c
+--- a/sound/core/oss/linear.c
++++ b/sound/core/oss/linear.c
+@@ -90,10 +90,7 @@ static snd_pcm_sframes_t linear_transfer(struct snd_pcm_plugin *plugin,
+ 			       struct snd_pcm_plugin_channel *dst_channels,
+ 			       snd_pcm_uframes_t frames)
+ {
+-	struct linear_priv *data;
+-
+ 	snd_assert(plugin != NULL && src_channels != NULL && dst_channels != NULL, return -ENXIO);
+-	data = (struct linear_priv *)plugin->extra_data;
+ 	if (frames == 0)
+ 		return 0;
+ #ifdef CONFIG_SND_DEBUG
+diff --git a/sound/core/pcm_native.c b/sound/core/pcm_native.c
+--- a/sound/core/pcm_native.c
++++ b/sound/core/pcm_native.c
+@@ -2065,7 +2063,6 @@ static int snd_pcm_open_file(struct file *file,
+ {
+ 	struct snd_pcm_file *pcm_file;
+ 	struct snd_pcm_substream *substream;
+-	struct snd_pcm_str *str;
+ 	int err;
+ 
+ 	if (rpcm_file)
+@@ -2082,7 +2079,6 @@ static int snd_pcm_open_file(struct file *file,
+ 	}
+ 	pcm_file->substream = substream;
+ 	if (substream->ref_count == 1) {
+-		str = substream->pstr;
+ 		substream->file = pcm_file;
+ 		substream->pcm_release = pcm_release_private;
+ 	}
+@@ -3024,12 +3020,9 @@ static const struct vm_operations_struct snd_pcm_vm_ops_status =
+ static int snd_pcm_mmap_status(struct snd_pcm_substream *substream, struct file *file,
+ 			       struct vm_area_struct *area)
+ {
+-	struct snd_pcm_runtime *runtime;
+ 	long size;
+ 	if (!(area->vm_flags & VM_READ))
+ 		return -EINVAL;
+-	runtime = substream->runtime;
+-	snd_assert(runtime != NULL, return -EAGAIN);
+ 	size = area->vm_end - area->vm_start;
+ 	if (size != PAGE_ALIGN(sizeof(struct snd_pcm_mmap_status)))
+ 
+@@ -3063,12 +3057,9 @@ static const struct vm_operations_struct snd_pcm_vm_ops_control =
+ static int snd_pcm_mmap_control(struct snd_pcm_substream *substream, struct file *file,
+ 				struct vm_area_struct *area)
+ {
+-	struct snd_pcm_runtime *runtime;
+ 	long size;
+ 	if (!(area->vm_flags & VM_READ))
+ 		return -EINVAL;
+-	runtime = substream->runtime;
+-	snd_assert(runtime != NULL, return -EAGAIN);
+ 	size = area->vm_end - area->vm_start;
+ 	if (size != PAGE_ALIGN(sizeof(struct snd_pcm_mmap_control)))
+ 		return -EINVAL;
+diff --git a/sound/core/seq/seq_queue.c b/sound/core/seq/seq_queue.c
+--- a/sound/core/seq/seq_queue.c
++++ b/sound/core/seq/seq_queue.c
+@@ -467,13 +467,11 @@ int snd_seq_queue_timer_open(int queueid)
+ int snd_seq_queue_timer_close(int queueid)
+ {
+ 	struct snd_seq_queue *queue;
+-	struct snd_seq_timer *tmr;
+ 	int result = 0;
+ 
+ 	queue = queueptr(queueid);
+ 	if (queue == NULL)
+ 		return -EINVAL;
+-	tmr = queue->timer;
+ 	snd_seq_timer_close(queue);
+ 	queuefree(queue);
+ 	return result;
 diff --git a/sound/usb/usbaudio.c b/sound/usb/usbaudio.c
 --- a/sound/usb/usbaudio.c
 +++ b/sound/usb/usbaudio.c
-@@ -137,12 +137,12 @@ static int create_fixed_stream_quirk(struct snd_usb_audio *chip,
+@@ -1813,6 +1813,9 @@ static int snd_usb_pcm_check_knot(struct snd_pcm_runtime *runtime,
+ 	int count = 0, needs_knot = 0;
+ 	int err;
+ 
++	kfree(subs->rate_list.list);
++	subs->rate_list.list = NULL;
++
+ 	list_for_each_entry(fp, &subs->fmt_list, list) {
+ 		if (fp->rates & SNDRV_PCM_RATE_CONTINUOUS)
+ 			return 0;
+@@ -2837,12 +2837,12 @@ static int create_fixed_stream_quirk(struct snd_usb_audio *chip,
  		return -ENOMEM;
  	}
  	if (fp->nr_rates > 0) {
@@ -33,7 +153,7 @@ diff --git a/sound/usb/usbaudio.c b/sound/usb/usbaudio.c
  		fp->rate_table = rate_table;
  	}
  
-@@ -224,10 +224,9 @@ static int create_uaxx_quirk(struct snd_usb_audio *chip,
+@@ -2924,10 +2924,9 @@ static int create_uaxx_quirk(struct snd_usb_audio *chip,
  	if (altsd->bNumEndpoints != 1)
  		return -ENXIO;
  
@@ -46,4 +166,3 @@ diff --git a/sound/usb/usbaudio.c b/sound/usb/usbaudio.c
  	fp->iface = altsd->bInterfaceNumber;
  	fp->endpoint = get_endpoint(alts, 0)->bEndpointAddress;
 -- 
-1.7.6.2

@@ -5,13 +5,15 @@ md: Updates from upstream
  1c830532f6b44d10a1743ccd00e990c6b83396f5 md: fix possible raid1/raid10 deadlock on read error during resync
  a07e6ab41be179cf1ed728a4f41368435508b550 md: the md RAID10 resync thread could cause a md RAID10 array deadlock
  8311c29d40235062a843f4a8e8a70a44af6fe4c9 md: reduce CPU wastage on idle md array with a write-intent bitmap
+ fc448a18ae6219af9a73257b1fbcd009efab4a81 md/raid10: Don't try to recovery unmatched (and unused) chunks.
+ 2d4f4f3384d4ef4f7c571448e803a1ce721113d5 md/raid1: fix use-after-free bug in RAID1 data-check code.
 
 ---
- drivers/md/bitmap.c         |   17 +++++++++-
- drivers/md/raid1.c          |   74 +++++++++++++++++++++++++++++---------------
- drivers/md/raid10.c         |   74 +++++++++++++++++++++++++++++---------------
- include/linux/raid/bitmap.h |    2 +
- 4 files changed, 118 insertions(+), 49 deletions(-)
+ drivers/md/bitmap.c         |   17 +++++++-
+ drivers/md/raid1.c          |   77 +++++++++++++++++++++++++-------------
+ drivers/md/raid10.c         |   89 ++++++++++++++++++++++++++++++--------------
+ include/linux/raid/bitmap.h |    2 
+ 4 files changed, 132 insertions(+), 53 deletions(-)
 
 diff --git a/drivers/md/bitmap.c b/drivers/md/bitmap.c
 --- a/drivers/md/bitmap.c
@@ -209,6 +211,29 @@ diff --git a/drivers/md/raid10.c b/drivers/md/raid10.c
  	if (unplug)
  		unplug_slaves(mddev);
  }
+@@ -1766,10 +1766,19 @@ static sector_t sync_request(struct mddev *mddev, sector_t sector_nr,
+ 			if (conf->mirrors[i].rdev &&
+ 			    !test_bit(In_sync, &conf->mirrors[i].rdev->flags)) {
+ 				int still_degraded = 0;
+-				/* want to reconstruct this device */
+-				r10bio_t *rb2 = r10_bio;
+-				sector_t sect = raid10_find_virt(conf, sector_nr, i);
++				r10bio_t *rb2;
++				sector_t sect;
+ 				int must_sync;
++
++				/* want to reconstruct this device */
++				rb2 = r10_bio;
++				sect = raid10_find_virt(conf, sector_nr, i);
++				if (sect >= mddev->resync_max_sectors) {
++					/* last stripe is not complete - don't
++					 * try to recover this sector.
++					 */
++					continue;
++				}
+ 				/* Unless we are doing a full sync, we only need
+ 				 * to recover the block if it is set in the bitmap
+ 				 */
 @@ -1829,6 +1853,8 @@ static sector_t sync_request(mddev_t *md
  				if (j == conf->copies) {
  					/* Cannot recover, so abort the recovery */
@@ -339,6 +364,18 @@ diff --git a/drivers/md/raid1.c b/drivers/md/raid1.c
  	if (unplug)
  		unplug_slaves(mddev);
  }
+@@ -1892,9 +1892,10 @@ static sector_t sync_request(struct mddev *mddev, sector_t sector_nr, int *skipp
+ 	 */
+ 	if (test_bit(MD_RECOVERY_REQUESTED, &mddev->recovery)) {
+ 		atomic_set(&r1_bio->remaining, read_targets);
+-		for (i=0; i<conf->raid_disks; i++) {
++		for (i = 0; i < conf->raid_disks && read_targets; i++) {
+ 			bio = r1_bio->bios[i];
+ 			if (bio->bi_end_io == end_sync_read) {
++				read_targets--;
+ 				md_sync_acct(bio->bi_bdev, nr_sectors);
+ 				generic_make_request(bio);
+ 			}
 diff --git a/include/linux/raid/bitmap.h b/include/linux/raid/bitmap.h
 --- a/include/linux/raid/bitmap.h
 +++ b/include/linux/raid/bitmap.h

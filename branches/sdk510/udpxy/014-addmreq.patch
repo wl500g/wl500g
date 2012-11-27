@@ -1,3 +1,15 @@
+
+---
+ ctx.h     |    4 ++--
+ netop.c   |   42 ++++++++++++------------------------------
+ netop.h   |    8 ++++----
+ sloop_p.c |    6 ++++--
+ sloop_s.c |    6 ++++--
+ udpxrec.c |   33 +++++++++++++++++++++------------
+ udpxy.c   |   46 ++++++++++++++++++++++++++++------------------
+ util.c    |    4 ++--
+ 8 files changed, 77 insertions(+), 72 deletions(-)
+
 diff -urp udpxy.orig/ctx.h udpxy.mreq/ctx.h
 --- udpxy.orig/ctx.h	2011-12-20 13:53:45.000000000 +0400
 +++ udpxy.mreq/ctx.h	2012-03-05 11:18:50.000000000 +0400
@@ -154,6 +166,72 @@ diff -urp udpxy.orig/netop.h udpxy.mreq/netop.h
  
  
  /* set send/receive timeouts on socket(s)
+diff -uBp udpxy-1.0.23-0/sloop_p.c udpxy/sloop_p.c
+--- udpxy-1.0.23-0/sloop_p.c	2012-07-16 21:20:03.000000000 +0400
++++ udpxy/sloop_p.c	2012-07-18 12:28:33.000000000 +0400
+@@ -58,7 +58,6 @@ srv_loop( const char* ipaddr, int port,
+              const char* mcast_addr )
+ {
+     int                 rc, maxfd, err, nrdy, i;
+-    struct in_addr      mcast_inaddr;
+     fd_set              rset;
+     struct timespec     tmout, *ptmout = NULL;
+     tmfd_t              *asock = NULL;
+@@ -75,17 +74,20 @@ srv_loop( const char* ipaddr, int port,
+         return ERR_INTERNAL;
+     }
+ 
++#if 0
++    TRACE( (void)tmfprintf (g_flog, "%s: mcast_addr=%s\n", __func__, mcast_addr));
++
+     if( 1 != inet_aton(mcast_addr, &mcast_inaddr) ) {
+         mperror(g_flog, errno, "%s: inet_aton", __func__);
+         return ERR_INTERNAL;
+     }
++#endif
+ 
+     init_server_ctx( &g_srv, g_uopt.max_clients,
+             (ipaddr[0] ? ipaddr : "0.0.0.0") , (uint16_t)port, mcast_addr );
+ 
+     g_srv.rcv_tmout = (u_short)g_uopt.rcv_tmout;
+     g_srv.snd_tmout = RLY_SOCK_TIMEOUT;
+-    g_srv.mcast_inaddr = mcast_inaddr;
+ 
+     /* NB: server socket is non-blocking! */
+     if( 0 != (rc = setup_listener( ipaddr, port, &g_srv.lsockfd,
+diff -uBp udpxy-1.0.23-0/sloop_s.c udpxy/sloop_s.c
+--- udpxy-1.0.23-0/sloop_s.c	2012-07-16 21:20:03.000000000 +0400
++++ udpxy/sloop_s.c	2012-07-18 12:29:03.000000000 +0400
+@@ -58,7 +58,6 @@ srv_loop( const char* ipaddr, int port,
+              const char* mcast_addr )
+ {
+     int                 rc, maxfd, err, nrdy, i;
+-    struct in_addr      mcast_inaddr;
+     fd_set              rset;
+     struct timeval      tmout, idle_tmout, *ptmout = NULL;
+     tmfd_t              *asock = NULL;
+@@ -77,17 +76,20 @@ srv_loop( const char* ipaddr, int port,
+         return ERR_INTERNAL;
+     }
+ 
++#if 0
++    TRACE( (void)tmfprintf (g_flog, "%s: mcast_addr=%s\n", __func__, mcast_addr));
++
+     if( 1 != inet_aton(mcast_addr, &mcast_inaddr) ) {
+         mperror(g_flog, errno, "%s: inet_aton", __func__);
+         return ERR_INTERNAL;
+     }
++#endif
+ 
+     init_server_ctx( &g_srv, g_uopt.max_clients,
+             (ipaddr[0] ? ipaddr : "0.0.0.0") , (uint16_t)port, mcast_addr );
+ 
+     g_srv.rcv_tmout = (u_short)g_uopt.rcv_tmout;
+     g_srv.snd_tmout = RLY_SOCK_TIMEOUT;
+-    g_srv.mcast_inaddr = mcast_inaddr;
+ 
+     /* NB: server socket is non-blocking! */
+     if( 0 != (rc = setup_listener( ipaddr, port, &g_srv.lsockfd,
 diff -urp udpxy.orig/udpxrec.c udpxy.mreq/udpxrec.c
 --- udpxy.orig/udpxrec.c	2011-12-20 13:53:45.000000000 +0400
 +++ udpxy.mreq/udpxrec.c	2012-03-05 11:21:36.000000000 +0400
@@ -300,8 +378,8 @@ diff -urp udpxy.orig/udpxy.c udpxy.mreq/udpxy.c
      static const int SET_PID = 1;
      struct tps_data tps;
  
--    assert( ctx && mifaddr );
-+    assert( ctx && mreq );
+-    assert( ctx && mifaddr && MAX_PAUSE_MSEC > 0 );
++    assert( ctx && mreq && MAX_PAUSE_MSEC > 0 );
  
      (void) sigemptyset (&ubset);
      sigaddset (&ubset, SIGINT);
@@ -395,38 +473,6 @@ diff -urp udpxy.orig/udpxy.c udpxy.mreq/udpxy.c
          }
          else {
              send_http_response( new_sockfd, 401, "Bad request" );
-@@ -1133,7 +1143,7 @@ server_loop( const char* ipaddr, int por
-              const char* mcast_addr )
- {
-     int                 rc, maxfd, err, nrdy, i;
--    struct in_addr      mcast_inaddr;
-+/*    struct in_addr      mcast_inaddr;*/
-     struct server_ctx   srv;
-     fd_set              rset;
-     struct timespec     tmout, *ptmout = NULL;
-@@ -1151,17 +1161,21 @@ server_loop( const char* ipaddr, int por
-         return ERR_INTERNAL;
-     }
- 
-+/*
-+    TRACE( (void)tmfprintf (g_flog, "%s: mcast_addr=%s\n", __func__, mcast_addr));
-+
-     if( 1 != inet_aton(mcast_addr, &mcast_inaddr) ) {
-         mperror(g_flog, errno, "%s: inet_aton", __func__);
-         return ERR_INTERNAL;
-     }
-+*/
- 
-     init_server_ctx( &srv, g_uopt.max_clients,
-             (ipaddr[0] ? ipaddr : "0.0.0.0") , (uint16_t)port, mcast_addr );
- 
-     srv.rcv_tmout = (u_short)g_uopt.rcv_tmout;
-     srv.snd_tmout = RLY_SOCK_TIMEOUT;
--    srv.mcast_inaddr = mcast_inaddr;
-+/*    srv.mcast_inaddr = mcast_inaddr;*/
- 
-     /* NB: server socket is non-blocking! */
-     if( 0 != (rc = setup_listener( ipaddr, port, &srv.lsockfd,
 diff -urp udpxy.orig/util.c udpxy.mreq/util.c
 --- udpxy.orig/util.c	2011-12-20 13:53:45.000000000 +0400
 +++ udpxy.mreq/util.c	2012-03-05 11:18:50.000000000 +0400
@@ -448,3 +494,4 @@ diff -urp udpxy.orig/util.c udpxy.mreq/util.c
  
      if( '\0' != *p ) {
          /* there is a modifier, calculate multiplication
+-- 

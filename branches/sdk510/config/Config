@@ -538,7 +538,7 @@ config PLATFORM
        help
        Specify the target architecture.
 
-config TOOLCHAIN
+config TOOLCHAINDIR
        string "Target toolchain"
        default "/opt/brcm/hndtools-mipsel-uclibc"
        help

@@ -556,7 +556,7 @@ diff -urNBp linux-2.6.22.orig/fs/squashfs/sqlzma.h linux-2.6/fs/squashfs/sqlzma.
 diff -urNBp linux-2.6.22.orig/fs/squashfs/uncomp.c linux-2.6/fs/squashfs/uncomp.c
 --- linux-2.6.22.orig/fs/squashfs/uncomp.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/fs/squashfs/uncomp.c	2009-11-01 15:06:41.000000000 +0300
-@@ -0,0 +1,229 @@
+@@ -0,0 +1,233 @@
 +/*
 + * Copyright (C) 2006-2008 Junjiro Okajima
 + * Copyright (C) 2006-2008 Tomas Matejicek, slax.org
@@ -670,7 +670,9 @@ diff -urNBp linux-2.6.22.orig/fs/squashfs/uncomp.c linux-2.6/fs/squashfs/uncomp.
 +	      struct sized_buf *dst)
 +{
 +	int err;
++#ifndef __KERNEL__
 +	short by_lzma = 1;
++#endif
 +
 +	if (un->un_lzma) {
 +		un->un_cmbuf = src->buf;
@@ -683,7 +685,9 @@ diff -urNBp linux-2.6.22.orig/fs/squashfs/uncomp.c linux-2.6/fs/squashfs/uncomp.
 +		goto out;
 +	}
 +
++#ifndef __KERNEL__
 +	by_lzma = 0;
++#endif
 +	err = zlib_inflateReset(&un->un_stream);
 +	if (unlikely(err != Z_OK))
 +		goto out;
@@ -786,3 +790,4 @@ diff -urNBp linux-2.6.22.orig/fs/squashfs/uncomp.c linux-2.6/fs/squashfs/uncomp.
 +		   "Some functions for squashfs to support LZMA and "
 +		   "a tiny wrapper for LzmaDecode.c in LZMA SDK from www.7-zip.org.");
 +#endif
+-- 
