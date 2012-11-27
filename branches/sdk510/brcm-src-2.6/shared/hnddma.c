@@ -948,6 +948,12 @@ _dma_rxfill(dma_info_t *di)
 
 		ASSERT(ISALIGNED(PHYSADDRLO(pa), 4));
 
+#ifdef __mips__
+		/* Do a un-cached write now that DMA_MAP has invalidated the cache
+		 */
+		*(uint32 *)OSL_UNCACHED((PKTDATA(di->osh, p))) = 0;
+#endif /* __mips__ */
+
 		/* save the free packet pointer */
 		ASSERT(di->rxp[rxout] == NULL);
 		di->rxp[rxout] = p;

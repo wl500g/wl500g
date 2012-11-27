@@ -34,15 +34,15 @@
 </tr>
 <tr>
 <td class="content_header_td_less">IP Address:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_ipaddr_t" value="<% nvram_get_f("lan.log","lan_ipaddr_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_ipaddr_t" value="<% nvram_get("lan_ipaddr_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Subnet Mask:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_netmask_t" value="<% nvram_get_f("lan.log","lan_netmask_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_netmask_t" value="<% nvram_get("lan_netmask_t"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Default Gateway
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_gateway_t" value="<% nvram_get_f("lan.log","lan_gateway_t"); %>" readonly></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_gateway_t" value="<% nvram_get("lan_gateway_t"); %>" readonly></td>
 </tr>
 </table>
 	

@@ -63,7 +63,7 @@ endif
     # need -I. to pick up wlconf.h in build directory
     
     EXTRA_CFLAGS += -DDMA $(WL_DFLAGS) -I$(src) -I$(src)/.. -I$(src)/$(SRCBASE)/wl/linux \
-		    -I$(src)/$(SRCBASE)/wl/sys -finline-limit=2048 -Werror
+		    -I$(src)/$(SRCBASE)/wl/sys -finline-limit=2048
     
     # If the PHY_HAL flag is defined we look in directory wl/phy for the
     # phy source files.

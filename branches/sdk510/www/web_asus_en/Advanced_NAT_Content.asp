@@ -32,7 +32,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="PortMappingList">Port Forwarding Rules
-         <input type="hidden" name="PortMappingNumberOfEntries_0" value="<% nvram_get_x("IPConnection", "PortMappingNumberOfEntries"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="PortMappingNumberOfEntries_0" value="<% nvram_get("PortMappingNumberOfEntries"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'PortMappingList', 16, ' Add ');" name="PortMappingList" value="Add" size="12">
 </div>

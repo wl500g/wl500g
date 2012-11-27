@@ -63,8 +63,9 @@ typedef struct varbuf {
 static int initvars_srom_si(si_t *sih, osl_t *osh, void *curmap, char **vars, uint *count);
 static void _initvars_srom_pci(uint8 sromrev, uint16 *srom, uint off, varbuf_t *b);
 static int initvars_srom_pci(si_t *sih, void *curmap, char **vars, uint *count);
+#if defined(BCMUSBDEV)
 static int initvars_cis_pcmcia(si_t *sih, osl_t *osh, char **vars, uint *count);
-#if !defined(BCMUSBDEV)
+#else
 static int initvars_flash_si(si_t *sih, char **vars, uint *count);
 #endif	
 #ifdef BCMSPI
@@ -146,8 +147,8 @@ static char BCMATTACHDATA(defaultsromvars_4322usb)[] =
 
 #if defined(WLTEST)
 /* Also used by wl_readconfigdata for vars download */
-char BCMATTACHDATA(mfgsromvars)[VARS_MAX];
-int BCMATTACHDATA(defvarslen) = 0;
+static char BCMATTACHDATA(mfgsromvars)[VARS_MAX];
+static int BCMATTACHDATA(defvarslen) = 0;
 
 static char BCMATTACHDATA(defaultsromvars_wltest)[] =
 	"macaddr=00:90:4c:f8:00:01\0"
@@ -331,9 +332,10 @@ BCMATTACHFN(srom_var_init)(si_t *sih, uint bustype, void *curmap, osl_t *osh,
 		ASSERT(curmap != NULL);
 		return initvars_srom_pci(sih, curmap, vars, count);
 
+#ifdef BCMUSBDEV
 	case PCMCIA_BUS:
 		return initvars_cis_pcmcia(sih, osh, vars, count);
-
+#endif
 
 #ifdef BCMSPI
 	case SPI_BUS:
@@ -820,109 +822,110 @@ out:
 }
 #endif 
 
-static char BCMNMIATTACHDATA(vstr_manf)[] = "manf=%s";
-static char BCMNMIATTACHDATA(vstr_productname)[] = "productname=%s";
-static char BCMNMIATTACHDATA(vstr_manfid)[] = "manfid=0x%x";
-static char BCMNMIATTACHDATA(vstr_prodid)[] = "prodid=0x%x";
-static char BCMNMIATTACHDATA(vstr_regwindowsz)[] = "regwindowsz=%d";
-static char BCMNMIATTACHDATA(vstr_sromrev)[] = "sromrev=%d";
-static char BCMNMIATTACHDATA(vstr_chiprev)[] = "chiprev=%d";
-static char BCMNMIATTACHDATA(vstr_subvendid)[] = "subvendid=0x%x";
-static char BCMNMIATTACHDATA(vstr_subdevid)[] = "subdevid=0x%x";
-static char BCMNMIATTACHDATA(vstr_boardrev)[] = "boardrev=0x%x";
-static char BCMNMIATTACHDATA(vstr_aa2g)[] = "aa2g=0x%x";
-static char BCMNMIATTACHDATA(vstr_aa5g)[] = "aa5g=0x%x";
-static char BCMNMIATTACHDATA(vstr_ag)[] = "ag%d=0x%x";
-static char BCMNMIATTACHDATA(vstr_cc)[] = "cc=%d";
-static char BCMNMIATTACHDATA(vstr_opo)[] = "opo=%d";
-static char BCMNMIATTACHDATA(vstr_pa0b)[][9] = { "pa0b0=%d", "pa0b1=%d", "pa0b2=%d" };
-static char BCMNMIATTACHDATA(vstr_pa0itssit)[] = "pa0itssit=%d";
-static char BCMNMIATTACHDATA(vstr_pa0maxpwr)[] = "pa0maxpwr=%d";
-static char BCMNMIATTACHDATA(vstr_pa1b)[][9] = { "pa1b0=%d", "pa1b1=%d", "pa1b2=%d" };
-static char BCMNMIATTACHDATA(vstr_pa1lob)[][11] = { "pa1lob0=%d", "pa1lob1=%d", "pa1lob2=%d" };
-static char BCMNMIATTACHDATA(vstr_pa1hib)[][11] = { "pa1hib0=%d", "pa1hib1=%d", "pa1hib2=%d" };
-static char BCMNMIATTACHDATA(vstr_pa1itssit)[] = "pa1itssit=%d";
-static char BCMNMIATTACHDATA(vstr_pa1maxpwr)[] = "pa1maxpwr=%d";
-static char BCMNMIATTACHDATA(vstr_pa1lomaxpwr)[] = "pa1lomaxpwr=%d";
-static char BCMNMIATTACHDATA(vstr_pa1himaxpwr)[] = "pa1himaxpwr=%d";
-static char BCMNMIATTACHDATA(vstr_oem)[] = "oem=%02x%02x%02x%02x%02x%02x%02x%02x";
-static char BCMNMIATTACHDATA(vstr_boardflags)[] = "boardflags=0x%x";
-static char BCMNMIATTACHDATA(vstr_boardflags2)[] = "boardflags2=0x%x";
-static char BCMNMIATTACHDATA(vstr_ledbh)[] = "ledbh%d=0x%x";
-static char BCMNMIATTACHDATA(vstr_noccode)[] = "ccode=0x0";
-static char BCMNMIATTACHDATA(vstr_ccode)[] = "ccode=%c%c";
-static char BCMNMIATTACHDATA(vstr_cctl)[] = "cctl=0x%x";
-static char BCMNMIATTACHDATA(vstr_cckpo)[] = "cckpo=0x%x";
-static char BCMNMIATTACHDATA(vstr_ofdmpo)[] = "ofdmpo=0x%x";
-static char BCMNMIATTACHDATA(vstr_rdlid)[] = "rdlid=0x%x";
-static char BCMNMIATTACHDATA(vstr_rdlrndis)[] = "rdlrndis=%d";
-static char BCMNMIATTACHDATA(vstr_rdlrwu)[] = "rdlrwu=%d";
-static char BCMNMIATTACHDATA(vstr_usbfs)[] = "usbfs=%d";
-static char BCMNMIATTACHDATA(vstr_wpsgpio)[] = "wpsgpio=%d";
-static char BCMNMIATTACHDATA(vstr_rdlsn)[] = "rdlsn=%d";
-static char BCMNMIATTACHDATA(vstr_rssismf2g)[] = "rssismf2g=%d";
-static char BCMNMIATTACHDATA(vstr_rssismc2g)[] = "rssismc2g=%d";
-static char BCMNMIATTACHDATA(vstr_rssisav2g)[] = "rssisav2g=%d";
-static char BCMNMIATTACHDATA(vstr_bxa2g)[] = "bxa2g=%d";
-static char BCMNMIATTACHDATA(vstr_rssismf5g)[] = "rssismf5g=%d";
-static char BCMNMIATTACHDATA(vstr_rssismc5g)[] = "rssismc5g=%d";
-static char BCMNMIATTACHDATA(vstr_rssisav5g)[] = "rssisav5g=%d";
-static char BCMNMIATTACHDATA(vstr_bxa5g)[] = "bxa5g=%d";
-static char BCMNMIATTACHDATA(vstr_tri2g)[] = "tri2g=%d";
-static char BCMNMIATTACHDATA(vstr_tri5gl)[] = "tri5gl=%d";
-static char BCMNMIATTACHDATA(vstr_tri5g)[] = "tri5g=%d";
-static char BCMNMIATTACHDATA(vstr_tri5gh)[] = "tri5gh=%d";
-static char BCMNMIATTACHDATA(vstr_rxpo2g)[] = "rxpo2g=%d";
-static char BCMNMIATTACHDATA(vstr_rxpo5g)[] = "rxpo5g=%d";
-static char BCMNMIATTACHDATA(vstr_boardtype)[] = "boardtype=0x%x";
-static char BCMNMIATTACHDATA(vstr_leddc)[] = "leddc=0x%04x";
-static char BCMNMIATTACHDATA(vstr_vendid)[] = "vendid=0x%x";
-static char BCMNMIATTACHDATA(vstr_devid)[] = "devid=0x%x";
-static char BCMNMIATTACHDATA(vstr_xtalfreq)[] = "xtalfreq=%d";
-static char BCMNMIATTACHDATA(vstr_txchain)[] = "txchain=0x%x";
-static char BCMNMIATTACHDATA(vstr_rxchain)[] = "rxchain=0x%x";
-static char BCMNMIATTACHDATA(vstr_antswitch)[] = "antswitch=0x%x";
-static char BCMNMIATTACHDATA(vstr_regrev)[] = "regrev=0x%x";
-static char BCMNMIATTACHDATA(vstr_antswctl2g)[] = "antswctl2g=0x%x";
-static char BCMNMIATTACHDATA(vstr_triso2g)[] = "triso2g=0x%x";
-static char BCMNMIATTACHDATA(vstr_pdetrange2g)[] = "pdetrange2g=0x%x";
-static char BCMNMIATTACHDATA(vstr_extpagain2g)[] = "extpagain2g=0x%x";
-static char BCMNMIATTACHDATA(vstr_tssipos2g)[] = "tssipos2g=0x%x";
-static char BCMNMIATTACHDATA(vstr_antswctl5g)[] = "antswctl5g=0x%x";
-static char BCMNMIATTACHDATA(vstr_triso5g)[] = "triso5g=0x%x";
-static char BCMNMIATTACHDATA(vstr_pdetrange5g)[] = "pdetrange5g=0x%x";
-static char BCMNMIATTACHDATA(vstr_extpagain5g)[] = "extpagain5g=0x%x";
-static char BCMNMIATTACHDATA(vstr_tssipos5g)[] = "tssipos5g=0x%x";
-static char BCMNMIATTACHDATA(vstr_maxp2ga0)[] = "maxp2ga0=0x%x";
-static char BCMNMIATTACHDATA(vstr_itt2ga0)[] = "itt2ga0=0x%x";
-static char BCMNMIATTACHDATA(vstr_pa)[] = "pa%dgw%da%d=0x%x";
-static char BCMNMIATTACHDATA(vstr_pahl)[] = "pa%dg%cw%da%d=0x%x";
-static char BCMNMIATTACHDATA(vstr_maxp5ga0)[] = "maxp5ga0=0x%x";
-static char BCMNMIATTACHDATA(vstr_itt5ga0)[] = "itt5ga0=0x%x";
-static char BCMNMIATTACHDATA(vstr_maxp5gha0)[] = "maxp5gha0=0x%x";
-static char BCMNMIATTACHDATA(vstr_maxp5gla0)[] = "maxp5gla0=0x%x";
-static char BCMNMIATTACHDATA(vstr_maxp2ga1)[] = "maxp2ga1=0x%x";
-static char BCMNMIATTACHDATA(vstr_itt2ga1)[] = "itt2ga1=0x%x";
-static char BCMNMIATTACHDATA(vstr_maxp5ga1)[] = "maxp5ga1=0x%x";
-static char BCMNMIATTACHDATA(vstr_itt5ga1)[] = "itt5ga1=0x%x";
-static char BCMNMIATTACHDATA(vstr_maxp5gha1)[] = "maxp5gha1=0x%x";
-static char BCMNMIATTACHDATA(vstr_maxp5gla1)[] = "maxp5gla1=0x%x";
-static char BCMNMIATTACHDATA(vstr_cck2gpo)[] = "cck2gpo=0x%x";
-static char BCMNMIATTACHDATA(vstr_ofdm2gpo)[] = "ofdm2gpo=0x%x";
-static char BCMNMIATTACHDATA(vstr_ofdm5gpo)[] = "ofdm5gpo=0x%x";
-static char BCMNMIATTACHDATA(vstr_ofdm5glpo)[] = "ofdm5glpo=0x%x";
-static char BCMNMIATTACHDATA(vstr_ofdm5ghpo)[] = "ofdm5ghpo=0x%x";
-static char BCMNMIATTACHDATA(vstr_mcspo)[] = "mcs%dgpo%d=0x%x";
-static char BCMNMIATTACHDATA(vstr_mcspohl)[] = "mcs%dg%cpo%d=0x%x";
-static char BCMNMIATTACHDATA(vstr_custom)[] = "customvar%d=0x%x";
+static const char BCMNMIATTACHDATA(vstr_manf)[] = "manf=%s";
+static const char BCMNMIATTACHDATA(vstr_productname)[] = "productname=%s";
+static const char BCMNMIATTACHDATA(vstr_manfid)[] = "manfid=0x%x";
+static const char BCMNMIATTACHDATA(vstr_prodid)[] = "prodid=0x%x";
+static const char BCMNMIATTACHDATA(vstr_regwindowsz)[] = "regwindowsz=%d";
+static const char BCMNMIATTACHDATA(vstr_sromrev)[] = "sromrev=%d";
+static const char BCMNMIATTACHDATA(vstr_chiprev)[] = "chiprev=%d";
+static const char BCMNMIATTACHDATA(vstr_subvendid)[] = "subvendid=0x%x";
+static const char BCMNMIATTACHDATA(vstr_subdevid)[] = "subdevid=0x%x";
+static const char BCMNMIATTACHDATA(vstr_boardrev)[] = "boardrev=0x%x";
+static const char BCMNMIATTACHDATA(vstr_aa2g)[] = "aa2g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_aa5g)[] = "aa5g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_ag)[] = "ag%d=0x%x";
+static const char BCMNMIATTACHDATA(vstr_cc)[] = "cc=%d";
+static const char BCMNMIATTACHDATA(vstr_opo)[] = "opo=%d";
+static const char BCMNMIATTACHDATA(vstr_pa0b)[][9] = { "pa0b0=%d", "pa0b1=%d", "pa0b2=%d" };
+static const char BCMNMIATTACHDATA(vstr_pa0itssit)[] = "pa0itssit=%d";
+static const char BCMNMIATTACHDATA(vstr_pa0maxpwr)[] = "pa0maxpwr=%d";
+static const char BCMNMIATTACHDATA(vstr_pa1b)[][9] = { "pa1b0=%d", "pa1b1=%d", "pa1b2=%d" };
+static const char BCMNMIATTACHDATA(vstr_pa1lob)[][11] = { "pa1lob0=%d", "pa1lob1=%d", "pa1lob2=%d" };
+static const char BCMNMIATTACHDATA(vstr_pa1hib)[][11] = { "pa1hib0=%d", "pa1hib1=%d", "pa1hib2=%d" };
+static const char BCMNMIATTACHDATA(vstr_pa1itssit)[] = "pa1itssit=%d";
+static const char BCMNMIATTACHDATA(vstr_pa1maxpwr)[] = "pa1maxpwr=%d";
+static const char BCMNMIATTACHDATA(vstr_pa1lomaxpwr)[] = "pa1lomaxpwr=%d";
+static const char BCMNMIATTACHDATA(vstr_pa1himaxpwr)[] = "pa1himaxpwr=%d";
+static const char BCMNMIATTACHDATA(vstr_oem)[] = "oem=%02x%02x%02x%02x%02x%02x%02x%02x";
+static const char BCMNMIATTACHDATA(vstr_boardflags)[] = "boardflags=0x%x";
+static const char BCMNMIATTACHDATA(vstr_boardflags2)[] = "boardflags2=0x%x";
+static const char BCMNMIATTACHDATA(vstr_ledbh)[] = "ledbh%d=0x%x";
+static const char BCMNMIATTACHDATA(vstr_noccode)[] = "ccode=0x0";
+static const char BCMNMIATTACHDATA(vstr_ccode)[] = "ccode=%c%c";
+static const char BCMNMIATTACHDATA(vstr_cctl)[] = "cctl=0x%x";
+static const char BCMNMIATTACHDATA(vstr_cckpo)[] = "cckpo=0x%x";
+static const char BCMNMIATTACHDATA(vstr_ofdmpo)[] = "ofdmpo=0x%x";
+static const char BCMNMIATTACHDATA(vstr_rdlid)[] = "rdlid=0x%x";
+static const char BCMNMIATTACHDATA(vstr_rdlrndis)[] = "rdlrndis=%d";
+static const char BCMNMIATTACHDATA(vstr_rdlrwu)[] = "rdlrwu=%d";
+static const char BCMNMIATTACHDATA(vstr_usbfs)[] = "usbfs=%d";
+static const char BCMNMIATTACHDATA(vstr_wpsgpio)[] = "wpsgpio=%d";
+static const char BCMNMIATTACHDATA(vstr_rdlsn)[] = "rdlsn=%d";
+static const char BCMNMIATTACHDATA(vstr_rssismf2g)[] = "rssismf2g=%d";
+static const char BCMNMIATTACHDATA(vstr_rssismc2g)[] = "rssismc2g=%d";
+static const char BCMNMIATTACHDATA(vstr_rssisav2g)[] = "rssisav2g=%d";
+static const char BCMNMIATTACHDATA(vstr_bxa2g)[] = "bxa2g=%d";
+static const char BCMNMIATTACHDATA(vstr_rssismf5g)[] = "rssismf5g=%d";
+static const char BCMNMIATTACHDATA(vstr_rssismc5g)[] = "rssismc5g=%d";
+static const char BCMNMIATTACHDATA(vstr_rssisav5g)[] = "rssisav5g=%d";
+static const char BCMNMIATTACHDATA(vstr_bxa5g)[] = "bxa5g=%d";
+static const char BCMNMIATTACHDATA(vstr_tri2g)[] = "tri2g=%d";
+static const char BCMNMIATTACHDATA(vstr_tri5gl)[] = "tri5gl=%d";
+static const char BCMNMIATTACHDATA(vstr_tri5g)[] = "tri5g=%d";
+static const char BCMNMIATTACHDATA(vstr_tri5gh)[] = "tri5gh=%d";
+static const char BCMNMIATTACHDATA(vstr_rxpo2g)[] = "rxpo2g=%d";
+static const char BCMNMIATTACHDATA(vstr_rxpo5g)[] = "rxpo5g=%d";
+static const char BCMNMIATTACHDATA(vstr_boardtype)[] = "boardtype=0x%x";
+static const char BCMNMIATTACHDATA(vstr_leddc)[] = "leddc=0x%04x";
+static const char BCMNMIATTACHDATA(vstr_vendid)[] = "vendid=0x%x";
+static const char BCMNMIATTACHDATA(vstr_devid)[] = "devid=0x%x";
+static const char BCMNMIATTACHDATA(vstr_xtalfreq)[] = "xtalfreq=%d";
+static const char BCMNMIATTACHDATA(vstr_txchain)[] = "txchain=0x%x";
+static const char BCMNMIATTACHDATA(vstr_rxchain)[] = "rxchain=0x%x";
+static const char BCMNMIATTACHDATA(vstr_antswitch)[] = "antswitch=0x%x";
+static const char BCMNMIATTACHDATA(vstr_regrev)[] = "regrev=0x%x";
+static const char BCMNMIATTACHDATA(vstr_antswctl2g)[] = "antswctl2g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_triso2g)[] = "triso2g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_pdetrange2g)[] = "pdetrange2g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_extpagain2g)[] = "extpagain2g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_tssipos2g)[] = "tssipos2g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_antswctl5g)[] = "antswctl5g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_triso5g)[] = "triso5g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_pdetrange5g)[] = "pdetrange5g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_extpagain5g)[] = "extpagain5g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_tssipos5g)[] = "tssipos5g=0x%x";
+static const char BCMNMIATTACHDATA(vstr_maxp2ga0)[] = "maxp2ga0=0x%x";
+static const char BCMNMIATTACHDATA(vstr_itt2ga0)[] = "itt2ga0=0x%x";
+static const char BCMNMIATTACHDATA(vstr_pa)[] = "pa%dgw%da%d=0x%x";
+static const char BCMNMIATTACHDATA(vstr_pahl)[] = "pa%dg%cw%da%d=0x%x";
+static const char BCMNMIATTACHDATA(vstr_maxp5ga0)[] = "maxp5ga0=0x%x";
+static const char BCMNMIATTACHDATA(vstr_itt5ga0)[] = "itt5ga0=0x%x";
+static const char BCMNMIATTACHDATA(vstr_maxp5gha0)[] = "maxp5gha0=0x%x";
+static const char BCMNMIATTACHDATA(vstr_maxp5gla0)[] = "maxp5gla0=0x%x";
+static const char BCMNMIATTACHDATA(vstr_maxp2ga1)[] = "maxp2ga1=0x%x";
+static const char BCMNMIATTACHDATA(vstr_itt2ga1)[] = "itt2ga1=0x%x";
+static const char BCMNMIATTACHDATA(vstr_maxp5ga1)[] = "maxp5ga1=0x%x";
+static const char BCMNMIATTACHDATA(vstr_itt5ga1)[] = "itt5ga1=0x%x";
+static const char BCMNMIATTACHDATA(vstr_maxp5gha1)[] = "maxp5gha1=0x%x";
+static const char BCMNMIATTACHDATA(vstr_maxp5gla1)[] = "maxp5gla1=0x%x";
+static const char BCMNMIATTACHDATA(vstr_cck2gpo)[] = "cck2gpo=0x%x";
+static const char BCMNMIATTACHDATA(vstr_ofdm2gpo)[] = "ofdm2gpo=0x%x";
+static const char BCMNMIATTACHDATA(vstr_ofdm5gpo)[] = "ofdm5gpo=0x%x";
+static const char BCMNMIATTACHDATA(vstr_ofdm5glpo)[] = "ofdm5glpo=0x%x";
+static const char BCMNMIATTACHDATA(vstr_ofdm5ghpo)[] = "ofdm5ghpo=0x%x";
+static const char BCMNMIATTACHDATA(vstr_mcspo)[] = "mcs%dgpo%d=0x%x";
+static const char BCMNMIATTACHDATA(vstr_mcspohl)[] = "mcs%dg%cpo%d=0x%x";
+static const char BCMNMIATTACHDATA(vstr_custom)[] = "customvar%d=0x%x";
 #ifdef USB4322
-static char BCMNMIATTACHDATA(vstr_end)[] = "END\0";
+static const char BCMNMIATTACHDATA(vstr_end)[] = "END\0";
 #endif /* USB4322 */
 
 #define FROMHOST()
-static char BCMINITDATA(vstr_boardnum)[] = "boardnum=%d";
-static char BCMINITDATA(vstr_macaddr)[] = "macaddr=%s";
+static const char BCMINITDATA(vstr_boardnum)[] = "boardnum=%d";
+static const char BCMINITDATA(vstr_macaddr)[] = "macaddr=%s";
 
+#if defined(BCMUSBDEV) || defined(BCMSDIODEV)
 int
 BCMNMIATTACHFN(srom_parsecis)(osl_t *osh, uint8 *pcis[], uint ciscnt, char **vars, uint *count)
 {
@@ -1526,6 +1529,7 @@ BCMNMIATTACHFN(srom_parsecis)(osl_t *osh, uint8 *pcis[], uint ciscnt, char **var
 	MFREE(osh, base, MAXSZ_NVRAM_VARS);
 	return err;
 }
+#endif /* BCMUSBDEV || BCMSDIODEV */
 
 
 /* set PCMCIA sprom command register */
@@ -2215,6 +2219,7 @@ errout:
 	return err;
 }
 
+#ifdef BCMUSBDEV
 /*
  * Read the cis and call parsecis to initialize the vars.
  * Return 0 on success, nonzero on error.
@@ -2248,6 +2253,7 @@ BCMATTACHFN(initvars_cis_pcmcia)(si_t *sih, osl_t *osh, char **vars, uint *count
 
 	return (rc);
 }
+#endif /* BCMUSBDEV */
 
 
 #ifdef USB4322

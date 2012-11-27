@@ -2819,6 +2819,8 @@ si_otp_power(si_t *sih, bool on)
 	OSL_DELAY(1000);
 }
 
+#if defined(WLTEST)
+/* Return BCME_NOTFOUND if the card doesn't have CIS format nvram */
 int
 si_cis_source(si_t *sih)
 {
@@ -2841,6 +2843,7 @@ si_cis_source(si_t *sih)
 
 	}
 }
+#endif
 
 /* 4329 reference card has different spurs. Controlling the xtal
 	drive and core strengths reducing the spurs to acceptable levels.

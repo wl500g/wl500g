@@ -33,7 +33,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the dates that WAN to ZVMODELVZ filter will be enabled.', LEFT);" onMouseOut="return nd();">Date to Enable WAN to ZVMODELVZ Filter:
-           </td><td class="content_input_td"><input type="hidden" maxlength="7" class="content_input_fd" size="7" name="" value="<% nvram_get_x("FirewallConfig",""); %>">
+           </td><td class="content_input_td"><input type="hidden" maxlength="7" class="content_input_fd" size="7" name="" value="<% nvram_get(""); %>">
 <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 <input type="checkbox" class="content_input_fd" name="_Sun">Sun</input><input type="checkbox" class="content_input_fd" name="_Mon">Mon</input><input type="checkbox" class="content_input_fd" name="_Tue">Tue</input><input type="checkbox" class="content_input_fd" name="_Wed">Wed</input>
 </p>
@@ -41,7 +41,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the time interval that WAN to ZVMODELVZ filter will be enabled.', LEFT);" onMouseOut="return nd();">Time of Day to Enable WAN to ZVMODELVZ Filter:
-           </td><td class="content_input_td"><input type="hidden" maxlength="11" class="content_input_fd" size="11" name="" value="<% nvram_get_x("FirewallConfig",""); %>"><input type="text" maxlength="2" class="content_input_fd" size="2" name="_starthour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 0)">:
+           </td><td class="content_input_td"><input type="hidden" maxlength="11" class="content_input_fd" size="11" name="" value="<% nvram_get(""); %>"><input type="text" maxlength="2" class="content_input_fd" size="2" name="_starthour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 0)">:
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="_startmin" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 1)">-
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="_endhour" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 2)">:
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="_endmin" onKeyPress="return is_number(event, this)" onBlur="return validate_timerange(this, 3)"></td>
@@ -52,7 +52,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines a list of WAN to ZVMODELVZ ICMP packets type that will be filtered. For example, if you would like to filter Echo(type 8) and Echo Reply(type 0) ICMP packets, you need to enter a string with numbers separated by blank, such as, 0 5.', LEFT);" onMouseOut="return nd();">Filtered ICMP(WAN to ZVMODELVZ) packet types:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="" value="<% nvram_get_x("FirewallConfig",""); %>" onBlur="return validate_portlist(this, '')" onKeyPress="return is_portlist(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="" value="<% nvram_get(""); %>" onBlur="return validate_portlist(this, '')" onKeyPress="return is_portlist(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates what kind of packets between ZVMODELVZ and WAN will be logged.', LEFT);" onMouseOut="return nd();">Log type between ZVMODELVZ and WAN:
@@ -63,7 +63,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="WLocalFilterList">WAN to ZVMODELVZ Filter Table
-         <input type="hidden" name="WanLocalRuleCount_0" value="<% nvram_get_x("FirewallConfig", "WanLocalRuleCount"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="WanLocalRuleCount_0" value="<% nvram_get("WanLocalRuleCount"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'WLocalFilterList', 32, ' Add ');" name="WLocalFilterList" value="Add" size="12">
 </div>

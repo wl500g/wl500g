@@ -29,7 +29,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Set a metric for the matched route when sending announcement. For RIP, valid metric values are from 1 to 16.', LEFT);" onMouseOut="return nd();">Set metric of static route (1-16):
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="dr_static_matric_x" class="content_input_fd" value="<% nvram_get_x("RouterConfig", "dr_static_matric_x"); %>" onBlur="validate_range(this, 1, 16)" onKeyPress="return is_number(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="dr_static_matric_x" class="content_input_fd" value="<% nvram_get("dr_static_matric_x"); %>" onBlur="validate_range(this, 1, 16)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines only those matched destination networks, which are specified in the Static Route Filter table will be distributed or not be distributed.', LEFT);" onMouseOut="return nd();">Only routes specified in route filter will
@@ -40,7 +40,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="StaticRoute">Static Route List
-         <input type="hidden" name="dr_staticnum_x_0" value="<% nvram_get_x("RouterConfig", "dr_staticnum_x"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="dr_staticnum_x_0" value="<% nvram_get("dr_staticnum_x"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'StaticRoute', 16, ' Add ');" name="StaticRoute" value="Add" size="12">
 </div>
@@ -91,7 +91,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="RipSRoute">Static Route Filter
-         <input type="hidden" name="RipSRouteCount_0" value="<% nvram_get_x("RouterConfig", "RipSRouteCount"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="RipSRouteCount_0" value="<% nvram_get("RipSRouteCount"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'RipSRoute', 16, ' Add ');" name="RipSRoute" value="Add" size="12">
 </div>

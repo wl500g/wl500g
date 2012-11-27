@@ -37,46 +37,13 @@
 #include <nvparse.h>
 #include <wlutils.h>
 
-extern char * rfctime(const time_t *timep);
-extern char * reltime(unsigned int seconds);
+extern char *reltime(unsigned int seconds);
 
 #define wan_prefix(unit, prefix)	snprintf(prefix, sizeof(prefix), "wan%d_", unit)
 
-/* For Backup/Restore settings */
-#define BACKUP_SETTING_FILENAME	"s5config.dat"
 
-/*
- * Country names and abbreviations from ISO 3166
- */
-typedef struct {
-	char *name;     /* Long name */
-	char *abbrev;   /* Abbreviation */
-} country_name_t;
-//country_name_t country_names[];     /* At end of this file */
-
-char ibuf2[WLC_IOCTL_MAXLEN];
-
-struct variable {
-	char *name;
-	char *longname;
-	void (*validate)(webs_t wp, char *value, struct variable *v);
-	char **argv;
-	int nullok;
-	int ezc_flags;
-};
-
-//struct variable variables[];
-extern struct nvram_tuple router_defaults[];
-
-#define ARGV(args...) ((char *[]) { args, NULL })
 #define XSTR(s) STR(s)
 #define STR(s) #s
-
-enum {
-	NOTHING,
-	REBOOT,
-	RESTART,
-};
 
 #define EZC_FLAGS_READ		0x0001
 #define EZC_FLAGS_WRITE		0x0002
@@ -111,93 +78,6 @@ typedef u_int8_t u8;
 
 
 #define MIN_BUF_SIZE	4096
-
-#ifdef REMOVE
-/* Upgrade from remote server or socket stream */
-static int
-sys_upgrade(char *url, FILE *stream, int *total)
-{
-	char upload_fifo[] = "/tmp/uploadXXXXXX";
-	FILE *fifo = NULL;
-	char *write_argv[] = { "write", upload_fifo, "linux", NULL };
-	pid_t pid;
-	char *buf = NULL;
-	int count, ret = 0;
-	long flags = -1;
-	int size = BUFSIZ;
-
-	if (url)
-		return eval("write", url, "linux");
-
-	/* Feed write from a temporary FIFO */
-	if (!mktemp(upload_fifo) ||
-	    mkfifo(upload_fifo, S_IRWXU) < 0||
-	    (ret = _eval(write_argv, NULL, 0, &pid)) ||
-	    !(fifo = fopen(upload_fifo, "w"))) {
-		if (!ret)
-			ret = errno;
-		goto err;
-	}
-
-	/* Set nonblock on the socket so we can timeout */
-	if ((flags = fcntl(fileno(stream), F_GETFL)) < 0 ||
-	    fcntl(fileno(stream), F_SETFL, flags | O_NONBLOCK) < 0) {
-		ret = errno;
-		goto err;
-	}
-
-	/*
-	* The buffer must be at least as big as what the stream file is
-	* using so that it can read all the data that has been buffered 
-	* in the stream file. Otherwise it would be out of sync with fn
-	* select specially at the end of the data stream in which case
-	* the select tells there is no more data available but there in 
-	* fact is data buffered in the stream file's buffer. Since no
-	* one has changed the default stream file's buffer size, let's
-	* use the constant BUFSIZ until someone changes it.
-	*/
-	if (size < MIN_BUF_SIZE)
-		size = MIN_BUF_SIZE;
-	if ((buf = malloc(size)) == NULL) {
-		ret = ENOMEM;
-		goto err;
-	}
-	
-	/* Pipe the rest to the FIFO */
-	cprintf("Upgrading");
-	while (total && *total) {
-		if (waitfor(fileno(stream), 5) <= 0)
-			break;
-		count = safe_fread(buf, 1, size, stream);
-		if (!count && (ferror(stream) || feof(stream)))
-			break;
-		*total -= count;
-		safe_fwrite(buf, 1, count, fifo);
-		cprintf(".");
-	}
-	fclose(fifo);
-	fifo = NULL;
-
-	/* Wait for write to terminate */
-	waitpid(pid, &ret, 0);
-	cprintf("done\n");
-
-	/* Reset nonblock on the socket */
-	if (fcntl(fileno(stream), F_SETFL, flags) < 0) {
-		ret = errno;
-		goto err;
-	}
-
- err:
- 	if (buf)
-		free(buf);
-	if (fifo)
-		fclose(fifo);
-	unlink(upload_fifo);
-	return ret;
-}
-#endif // REMOVE
-
 
 struct lease_t {
 	unsigned char chaddr[16];
@@ -254,7 +134,7 @@ sys_renew(void)
 	int unit;
 	char tmp[100];
 
-	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
+	if ((unit = nvram_get_int("wan_unit")) < 0)
 		unit = 0;
 
 #ifdef REMOVE	
@@ -282,7 +162,7 @@ sys_release(void)
 	int unit;
 	char tmp[100];
 
-	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
+	if ((unit = nvram_get_int("wan_unit")) < 0)
 		unit = 0;
 	
 #ifdef REMOVE
@@ -304,102 +184,6 @@ sys_release(void)
 }
 
 #ifdef REMOVE
-static int
-wan_restore_mac(webs_t wp)
-{
-	char tmp[50], tmp2[50], prefix[] = "wanXXXXXXXXXX_", *t2;
-	int unit, errf = -1;
-	char wan_ea[ETHER_ADDR_LEN];
-
-	unit = atoi(websGetVar(wp, "wan_unit", NULL));
-	if (unit >= 0)
-	{
-		strcpy(tmp2, nvram_safe_get("wan_ifname"));
-		if (!strncmp(tmp2, "eth", 3))
-		{
-			sprintf(tmp, "et%dmacaddr", atoi(tmp2 + 3));
-			t2 = nvram_safe_get(tmp);
-			if (t2 && t2[0] != 0)
-			{
-				ether_atoe(t2, wan_ea);
-				ether_etoa(wan_ea, tmp2);
-				wan_prefix(unit, prefix);
-				nvram_set("wan_hwaddr", tmp2);
-				nvram_set(strcat_r(prefix, "hwaddr", tmp), tmp2);
-				nvram_commit();
-				errf = 0;
-			}
-		}
-	}
-
-	return errf;
-}
-
-#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
-
-/* Return WAN link state */
-int
-ej_wan_link(int eid, webs_t wp, int argc, char_t **argv)
-{
-	char *wan_ifname;
-	int s;
-	struct ifreq ifr;
-	struct ethtool_cmd ecmd;
-	FILE *fp;
-	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-
-	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
-		unit = 0;
-	wan_prefix(unit, prefix);
-
-	/* non-exist and disabled */
-	if (nvram_match(strcat_r(prefix, "proto", tmp), "") ||
-	    nvram_match(strcat_r(prefix, "proto", tmp), "disabled")) {
-		return websWrite(wp, "N/A");
-	}
-	/* PPPoE connection status */
-	else if (nvram_match(strcat_r(prefix, "proto", tmp), "pppoe")) {
-		wan_ifname = nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp));
-		if ((fp = fopen(strcat_r("/tmp/ppp/link.", wan_ifname, tmp), "r"))) {
-			fclose(fp);
-			return websWrite(wp, "Connected");
-		} else
-			return websWrite(wp, "Disconnected");
-	}
-	/* Get real interface name */
-	else
-		wan_ifname = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
-
-	/* Open socket to kernel */
-	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-		return websWrite(wp, "N/A");
-
-	/* Check for hardware link */
-	strncpy(ifr.ifr_name, wan_ifname, IFNAMSIZ);
-	ifr.ifr_data = (void *) &ecmd;
-	ecmd.cmd = ETHTOOL_GSET;
-	if (ioctl(s, SIOCETHTOOL, &ifr) < 0) {
-		close(s);
-		return websWrite(wp, "Unknown");
-	}
-	if (!ecmd.speed) {
-		close(s);
-		return websWrite(wp, "Disconnected");
-	}
-
-	/* Check for valid IP address */
-	strncpy(ifr.ifr_name, wan_ifname, IFNAMSIZ);
-	if (ioctl(s, SIOCGIFADDR, &ifr) < 0) {
-		close(s);
-		return websWrite(wp, "Connecting");
-	}
-
-	/* Otherwise we are probably configured */
-	close(s);
-	return websWrite(wp, "Connected");
-}
-
 /* Display IP Address lease */
 int
 ej_wan_lease(int eid, webs_t wp, int argc, char_t **argv)
@@ -409,7 +193,7 @@ ej_wan_lease(int eid, webs_t wp, int argc, char_t **argv)
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 
-	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
+	if ((unit = nvram_get_int("wan_unit")) < 0)
 		unit = 0;
 	wan_prefix(unit, prefix);
 	
@@ -447,7 +231,7 @@ ej_wan_iflist(int eid, webs_t wp, int argc, char_t **argv)
 	struct ifreq ifr;
 
 	/* current unit # */
-	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
+	if ((unit = nvram_get_int("wan_unit")) < 0)
 		unit = 0;
 	wan_prefix(unit, prefix);
 	
@@ -472,42 +256,6 @@ ej_wan_iflist(int eid, webs_t wp, int argc, char_t **argv)
 
 
 #endif // linux
-
-
-#ifdef REMOVE
-static int
-ej_wl_parse_str(int eid, webs_t wp, int argc, char_t **argv) 
-{
-	char *var, *match, *next;
-	int unit, val = 0;
-	char tmp[100], prefix[] = "wlXXXXXXXXXX_";
-	char *name;
-	char str[100];
-
-	if (ejArgs(argc, argv, "%s %s", &var, &match) < 1) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	if ((unit = atoi(nvram_safe_get("wl_unit"))) < 0)
-		return -1;
-
-	snprintf(prefix, sizeof(prefix), "wl%d_", unit);
-	name = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
-
-	if (wl_get_val(name, var, (void *)tmp, 100))
-		return -1;
-
-	foreach(str, tmp, next) {
-		if (strncmp(str, match, sizeof(str)) == 0) {
-			val = 1;
-			break;
-		}
-	}
-
-	return websWrite(wp, "%u", val);
-}
-#endif // REMOVE
 
 static int
 ej_wl_sta_status(int eid, webs_t wp, char *ifname)
@@ -540,16 +288,16 @@ int
 ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 {
 	int unit;
-	char tmp[100], prefix[] = "wlXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wlXXXXXXXXXX_")];
 	char *name;
 	struct maclist *auth, *assoc, *authorized;
 	int max_sta_count, maclist_size;
 	int i, j, val;
 	int ret = 0;
 	channel_info_t ci;
-	char chanspec[16] = "chanspec"; /* sizeof("255 + 255") */
+	char chanspec[16]; /* sizeof("255 + 255") */
 
-	if ((unit = atoi(nvram_safe_get("wl_unit"))) < 0)
+	if ((unit = nvram_get_int("wl_unit")) < 0)
 		return -1;
 
 	snprintf(prefix, sizeof(prefix), "wl%d_", unit);
@@ -647,14 +395,14 @@ ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 		websWrite(wp, "%s ", ether_etoa((void *)&auth->ea[i], ea));
 
 		for (j = 0; j < assoc->count; j ++) {
-			if (!bcmp((void *)&auth->ea[i], (void *)&assoc->ea[j], ETHER_ADDR_LEN)) {
+			if (!memcmp((void *)&auth->ea[i], (void *)&assoc->ea[j], ETHER_ADDR_LEN)) {
 				websWrite(wp, " associated");
 				break;
 			}
 		}
 
 		for (j = 0; j < authorized->count; j ++) {
-			if (!bcmp((void *)&auth->ea[i], (void *)&authorized->ea[j], ETHER_ADDR_LEN)) {
+			if (!memcmp((void *)&auth->ea[i], (void *)&authorized->ea[j], ETHER_ADDR_LEN)) {
 				websWrite(wp, " authorized");
 				break;
 			}
@@ -696,7 +444,7 @@ ej_nat_table(int eid, webs_t wp, int argc, char_t **argv)
 	if (netconf_get_nat(nat_list, &listlen) == 0 && needlen == listlen)
 	{
 		listlen = needlen/sizeof(netconf_nat_t);
-		for(i = 0; i < listlen; i++)
+		for (i = 0; i < listlen; i++)
 		{
 			//printf("%d %d %d\n", nat_list[i].target,
 		        //		nat_list[i].match.ipproto,
@@ -785,26 +533,26 @@ ej_route_table(int eid, webs_t wp, int argc, char_t **argv)
 
 	if (!(fp = fopen("/proc/net/route", "r"))) return 0;
 
-	while(fgets(buff, sizeof(buff), fp) != NULL ) 
+	while (fgets(buff, sizeof(buff), fp) != NULL ) 
 	{
-		if(nl) 
+		if (nl) 
 		{
 			int ifl = 0;
-			while(buff[ifl]!=' ' && buff[ifl]!='\t' && buff[ifl]!='\0')
+			while (buff[ifl]!=' ' && buff[ifl]!='\t' && buff[ifl]!='\0')
 				ifl++;
 			buff[ifl]=0;    /* interface */
-			if(sscanf(buff+ifl+1, "%lx%lx%d%d%d%d%lx",
+			if (sscanf(buff+ifl+1, "%lx%lx%d%d%d%d%lx",
 			   &d, &g, &flgs, &ref, &use, &metric, &m)!=7) {
 				//error_msg_and_die( "Unsuported kernel route format\n");
 				//continue;
 			}
 
 			ifl = 0;        /* parse flags */
-			if(flgs&1)
+			if (flgs&1)
 				flags[ifl++]='U';
-			if(flgs&2)
+			if (flgs&2)
 				flags[ifl++]='G';
-			if(flgs&4)
+			if (flgs&4)
 				flags[ifl++]='H';
 			flags[ifl]=0;
 			dest.s_addr = d;

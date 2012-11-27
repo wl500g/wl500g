@@ -49,7 +49,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Authentication Key:
-           </td><td class="content_input_td"><input type="text" maxlength="16" class="content_input_fd" size="32" name="" value="<% nvram_get_x("RouterConfig",""); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="16" class="content_input_fd" size="32" name="" value="<% nvram_get(""); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">LAN
@@ -73,7 +73,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Authentication Key:
-           </td><td class="content_input_td"><input type="text" maxlength="16" class="content_input_fd" size="32" name="" value="<% nvram_get_x("RouterConfig",""); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="16" class="content_input_fd" size="32" name="" value="<% nvram_get(""); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Timer
@@ -81,15 +81,15 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Every update timer seconds, the RIP process is awakened to send an unsolicited Response message containing the complete routing table to all neighboring RIP routers.', LEFT);" onMouseOut="return nd();">Update time:
-           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="" value="<% nvram_get_x("RouterConfig",""); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="" value="<% nvram_get(""); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Upon expiration of the timeout, the route is no longer valid; however, it is retained in the routing table for a short time so that neighbors can be notified that the route has been dropped.', LEFT);" onMouseOut="return nd();">Timeout time:
-           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="" value="<% nvram_get_x("RouterConfig",""); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="" value="<% nvram_get(""); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Upon expiration of the garbage-collection timer, the route is finally removed from the routing table.', LEFT);" onMouseOut="return nd();">Garbage-collection time:
-           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="" value="<% nvram_get_x("RouterConfig",""); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="" value="<% nvram_get(""); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Route Distribution Rules
@@ -120,7 +120,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="RouteFilter">Route Distribution Filter
-         <input type="hidden" name="RipDRouteCount_0" value="<% nvram_get_x("RouterConfig", "RipDRouteCount"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="RipDRouteCount_0" value="<% nvram_get("RipDRouteCount"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'RouteFilter', 16, ' Add ');" name="RouteFilter" value="Add" size="12">
 </div>
@@ -177,7 +177,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Route metric offset:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="" class="content_input_fd" value="<% nvram_get_x("RouterConfig", ""); %>" onBlur="validate_range(this, 1, 16)" onKeyPress="return is_number(event, this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="" class="content_input_fd" value="<% nvram_get(""); %>" onBlur="validate_range(this, 1, 16)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td">For incoming routes, add metric offset to
@@ -192,7 +192,7 @@
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="RipOffset">Route Metric Offset
-         <input type="hidden" name="RipOffsetCount_0" value="<% nvram_get_x("RouterConfig", "RipOffsetCount"); %>" readonly></td><td width="10%">
+         <input type="hidden" name="RipOffsetCount_0" value="<% nvram_get("RipOffsetCount"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'RipOffset', 16, ' Add ');" name="RipOffset" value="Add" size="12">
 </div>

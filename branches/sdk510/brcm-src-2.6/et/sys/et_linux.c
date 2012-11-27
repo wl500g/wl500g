@@ -1113,6 +1113,8 @@ et_dpc(ulong data)
 	if (et->events & INTR_TX)
 		(*chops->txreclaim)(ch, FALSE);
 
+	(*chops->rxfill)(ch);
+
 	/* handle error conditions, if reset required leave interrupts off! */
 	if (et->events & INTR_ERROR) {
 		if ((*chops->errors)(ch))

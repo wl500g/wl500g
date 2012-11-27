@@ -1,0 +1,86 @@
+Backport dynamic allocation of vif_table by kmalloc
+
+---
+ include/linux/igmp.h   |    1 -
+ include/linux/mroute.h |    2 +-
+ net/ipv4/af_inet.c     |    3 ++-
+ net/ipv4/ipmr.c        |   13 +++++++++++--
+ 4 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/igmp.h b/include/linux/igmp.h
+--- a/include/linux/igmp.h
++++ b/include/linux/igmp.h
+@@ -232,7 +232,6 @@ extern int ip_mc_msfget(struct sock *sk,
+ extern int ip_mc_gsfget(struct sock *sk, struct group_filter *gsf,
+ 		struct group_filter __user *optval, int __user *optlen);
+ extern int ip_mc_sf_allow(struct sock *sk, __be32 local, __be32 rmt, int dif);
+-extern void ip_mr_init(void);
+ extern void ip_mc_init_dev(struct in_device *);
+ extern void ip_mc_destroy_dev(struct in_device *);
+ extern void ip_mc_up(struct in_device *);
+diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+--- a/include/linux/mroute.h
++++ b/include/linux/mroute.h
+@@ -131,7 +131,7 @@ struct igmpmsg
+ extern int ip_mroute_setsockopt(struct sock *, int, char __user *, int);
+ extern int ip_mroute_getsockopt(struct sock *, int, char __user *, int __user *);
+ extern int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg);
+-extern void ip_mr_init(void);
++extern int ip_mr_init(void);
+ 
+ 
+ struct vif_device
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1414,7 +1414,8 @@ static int __init inet_init(void)
+ 	 *	Initialise the multicast router
+ 	 */
+ #if defined(CONFIG_IP_MROUTE)
+-	ip_mr_init();
++	if (ip_mr_init())
++		printk(KERN_CRIT "inet_init: Cannot init ipv4 mroute\n");
+ #endif
+ 	/*
+ 	 *	Initialise per-cpu ipv4 mibs
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -81,7 +81,7 @@ static DEFINE_RWLOCK(mrt_lock);
+  *	Multicast router control variables
+  */
+ 
+-static struct vif_device vif_table[MAXVIFS];		/* Devices 		*/
++static struct vif_device *vif_table;		/* Devices 		*/
+ static int maxvif;
+ 
+ #define VIF_EXISTS(idx) (vif_table[idx].dev != NULL)
+@@ -1853,12 +1853,20 @@ static struct net_protocol pim_protocol 
+  *	Setup for IP multicast routing
+  */
+ 
+-void __init ip_mr_init(void)
++int __init ip_mr_init(void)
+ {
+ 	mrt_cachep = kmem_cache_create("ip_mrt_cache",
+ 				       sizeof(struct mfc_cache),
+ 				       0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+ 				       NULL, NULL);
++	if (!mrt_cachep)
++		return -ENOMEM;
++	vif_table = kcalloc(MAXVIFS, sizeof(struct vif_device),
++				      GFP_KERNEL);
++	if (!vif_table) {
++		kmem_cache_destroy(mrt_cachep);
++		return -ENOMEM;
++	}
+ 	init_timer(&ipmr_expire_timer);
+ 	ipmr_expire_timer.function=ipmr_expire_process;
+ 	register_netdevice_notifier(&ip_mr_notifier);
+@@ -1866,4 +1874,5 @@ void __init ip_mr_init(void)
+ 	proc_net_fops_create("ip_mr_vif", 0, &ipmr_vif_fops);
+ 	proc_net_fops_create("ip_mr_cache", 0, &ipmr_mfc_fops);
+ #endif
++	return 0;
+ }
+-- 

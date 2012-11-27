@@ -40,34 +40,18 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-
-#include <httpd.h>
-
-#ifdef vxworks
-static void fcntl(int a, int b, int c) {}
-#include <signal.h>
-#include <ioLib.h>
-#include <sockLib.h>
-extern int snprintf(char *str, size_t count, const char *fmt, ...);
-extern int strcasecmp(const char *s1, const char *s2); 
-extern int strncasecmp(const char *s1, const char *s2, size_t n); 
-extern char *strsep(char **stringp, char *delim);
-#define socklen_t 		int
-#define main			milli
-#else /* !vxvorks */
 #include <error.h>
 #include <sys/signal.h>
 #include <sys/ioctl.h>
-#endif
 
+#include <bcmnvram.h>
+#include <shutils.h>
+#include "httpd.h"
 #include "bcmnvram_f.h"
 
 // Added by Joey for ethtool
 #include <net/if.h>
 #include "ethtool-util.h"
-#ifndef SIOCETHTOOL
-#define SIOCETHTOOL 0x8946
-#endif
 
 #define SERVER_NAME "httpd"
 #define SERVER_PORT 80
@@ -120,10 +104,10 @@ static char auth_realm[AUTH_MAX];
 
 /* Forwards. */
 static int initialize_listen_socket( usockaddr* usaP );
-static int auth_check( char* dirname, char* authorization );
-static void send_authenticate( char* realm );
+static int auth_check(const char *dirname, char *authorization);
+static void send_authenticate(const char *realm);
 static void send_error( int status, char* title, char* extra_header, char* text );
-static void send_headers( int status, char* title, char* extra_header, char* mime_type );
+static void send_headers(int status, const char *title, const char *extra_header, const char *mime_type);
 static int b64_decode( const char* str, unsigned char* space, int size );
 static int match(const char* pattern, const char* string);
 static int match_one( const char* pattern, int patternlen, const char* string );
@@ -138,15 +122,15 @@ static void http_login_timeout(uaddr *ip);
 
 /* added by Joey */
 int redirect = 1;
-char wan_if[16];
-int http_port = SERVER_PORT;
+static char wan_if[16];
+static int http_port = SERVER_PORT;
 static int server_port = SERVER_PORT; /* Port for SERVER USER interface */
 
 /* Added by Joey for handle one people at the same time */
-uaddr login_ip;
-uaddr login_ip_tmp;
-uaddr login_try;
-time_t login_timestamp = 0;
+static uaddr login_ip;
+static uaddr login_ip_tmp;
+static uaddr login_try;
+static time_t login_timestamp = 0;
 
 static int
 initialize_listen_socket( usockaddr* usaP )
@@ -169,21 +153,21 @@ initialize_listen_socket( usockaddr* usaP )
 	}
 
 	listen_fd = socket( usaP->sa.sa_family, SOCK_STREAM, 0 );
-	if ( listen_fd < 0 ){
+	if ( listen_fd < 0 ) {
 		perror( "socket" );
 		return -1;
 	}
 	(void) fcntl( listen_fd, F_SETFD, 1 );
 	i = 1;
-	if ( setsockopt( listen_fd, SOL_SOCKET, SO_REUSEADDR, (char*) &i, sizeof(i) ) < 0 ){
+	if ( setsockopt( listen_fd, SOL_SOCKET, SO_REUSEADDR, (char*) &i, sizeof(i) ) < 0 ) {
 		perror( "setsockopt" );
 		return -1;
 	}
-	if ( bind( listen_fd, &usaP->sa, sizeof(usockaddr) ) < 0 ){
+	if ( bind( listen_fd, &usaP->sa, sizeof(usockaddr) ) < 0 ) {
 		perror( "bind" );
 		return -1;
 	}
-	if ( listen( listen_fd, 1024 ) < 0 ){
+	if ( listen( listen_fd, 1024 ) < 0 ) {
 		perror( "listen" );
 		return -1;
 	}
@@ -192,7 +176,7 @@ initialize_listen_socket( usockaddr* usaP )
 
 
 static int
-auth_check( char* dirname, char* authorization )
+auth_check(const char *dirname, char *authorization )
 {
 	char authinfo[500];
 	char* authpass;
@@ -204,7 +188,7 @@ auth_check( char* dirname, char* authorization )
 		return 1;
 
 	/* Basic authorization info? */
-	if ( !authorization || strncmp( authorization, "Basic ", 6 ) != 0){
+	if ( !authorization || strncmp( authorization, "Basic ", 6 ) != 0) {
 		send_authenticate( dirname );
 		http_logout(&login_ip_tmp);
 		return 0;
@@ -224,12 +208,12 @@ auth_check( char* dirname, char* authorization )
 	*authpass++ = '\0';
 
 	/* Is this the right user and password? */
-	if ( strcmp( auth_userid, authinfo ) == 0 && strcmp( auth_passwd, authpass ) == 0 ){
+	if ( strcmp( auth_userid, authinfo ) == 0 && strcmp( auth_passwd, authpass ) == 0 ) {
 		//fprintf(stderr, "login check : %x %x\n", login_ip, login_try);
 		/* Is this is the first login after logout */
 		if ((login_ip.family == 0) &&
 			(login_try.len && login_try.len == login_ip_tmp.len) &&
-			(memcmp(&login_try.addr, &login_ip_tmp.addr, login_try.len) == 0)){
+			(memcmp(&login_try.addr, &login_ip_tmp.addr, login_try.len) == 0)) {
 				send_authenticate(dirname);
 				memset(&login_try, 0, sizeof(uaddr));
 				return 0;
@@ -244,12 +228,12 @@ auth_check( char* dirname, char* authorization )
 
 
 static void
-send_authenticate( char* realm )
+send_authenticate(const char *realm)
 {
-	char header[10000];
+	char header[4000];
 
-	(void) snprintf(
-		header, sizeof(header), "WWW-Authenticate: Basic realm=\"%s\"", realm );
+	snprintf(header, sizeof(header),
+		 "WWW-Authenticate: Basic realm=\"%s\"", realm );
 	send_error( 401, "Unauthorized", header, "Authorization required." );
 }
 
@@ -258,15 +242,16 @@ static void
 send_error( int status, char* title, char* extra_header, char* text )
 {
 	send_headers( status, title, extra_header, "text/html" );
-	(void) fprintf( conn_fp, "<HTML><HEAD><TITLE>%d %s</TITLE></HEAD>\n<BODY BGCOLOR=\"#cc9999\"><H4>%d %s</H4>\n", status, title, status, title );
-	(void) fprintf( conn_fp, "%s\n", text );
-	(void) fprintf( conn_fp, "</BODY></HTML>\n" );
-	(void) fflush( conn_fp );
+	fprintf( conn_fp, "<HTML><HEAD><TITLE>%d %s</TITLE></HEAD>\n<BODY BGCOLOR=\"#cc9999\"><H4>%d %s</H4>\n",
+		 status, title, status, title );
+	fprintf( conn_fp, "%s\n", text );
+	fprintf( conn_fp, "</BODY></HTML>\n" );
+	fflush( conn_fp );
 }
 
 
 static void
-send_headers( int status, char* title, char* extra_header, char* mime_type )
+send_headers(int status, const char *title, const char *extra_header, const char *mime_type)
 {
 	time_t now;
 	char timebuf[100];
@@ -296,7 +281,7 @@ send_headers( int status, char* title, char* extra_header, char* mime_type )
 ** Then the 6-bit values are represented using the characters "A-Za-z0-9+/".
 */
 
-static int b64_decode_table[256] = {
+static const int b64_decode_table[256] = {
 	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,  /* 00-0F */
 	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,  /* 10-1F */
 	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,62,-1,-1,-1,63,  /* 20-2F */
@@ -330,10 +315,10 @@ b64_decode( const char* str, unsigned char* space, int size )
 
 	space_idx = 0;
 	phase = 0;
-	for ( cp = str; *cp != '\0'; ++cp ){
+	for ( cp = str; *cp != '\0'; ++cp ) {
 		d = b64_decode_table[(int)*cp];
-		if ( d != -1 ){
-			switch ( phase ){
+		if ( d != -1 ) {
+			switch ( phase ) {
 			case 0:
 				++phase;
 				break;
@@ -371,7 +356,7 @@ match( const char* pattern, const char* string )
 {
 	const char* or;
 
-	for (;;){
+	for (;;) {
 		or = strchr( pattern, '|' );
 		if ( or == (char*) 0 )
 			return match_one( pattern, strlen( pattern ), string );
@@ -387,13 +372,13 @@ match_one( const char* pattern, int patternlen, const char* string )
 {
 	const char* p;
 
-	for ( p = pattern; p - pattern < patternlen; ++p, ++string ){
+	for ( p = pattern; p - pattern < patternlen; ++p, ++string ) {
 		if ( *p == '?' && *string != '\0' )
 			continue;
-		if ( *p == '*' ){
+		if ( *p == '*' ) {
 			int i, pl;
 			++p;
-			if ( *p == '*' ){
+			if ( *p == '*' ) {
 				/* Double-wildcard matches anything. */
 				++p;
 				i = strlen( string );
@@ -437,7 +422,7 @@ handle_request(void)
 	char *cp;
 	char *file;
 	int len;
-	struct mime_handler *handler;
+	const struct mime_handler *handler;
 	int cl = 0, flags;
 #ifndef __CONFIG_IPV6__
 	char straddr[INET_ADDRSTRLEN+1];
@@ -471,21 +456,21 @@ handle_request(void)
 
 
 	/* Parse the rest of the request headers. */
-	while ( fgets( cur, line + sizeof(line) - cur, conn_fp ) != (char*) 0 ){
-		if ( strcmp( cur, "\n" ) == 0 || strcmp( cur, "\r\n" ) == 0 ){
+	while ( fgets( cur, line + sizeof(line) - cur, conn_fp ) != (char*) 0 ) {
+		if ( strcmp( cur, "\n" ) == 0 || strcmp( cur, "\r\n" ) == 0 ) {
 			break;
-		}else if ( strncasecmp( cur, "Authorization:", 14 ) == 0 ){
+		} else if ( strncasecmp( cur, "Authorization:", 14 ) == 0 ) {
 			cp = &cur[14];
 			cp += strspn( cp, " \t" );
 			authorization = cp;
 			cur = cp + strlen(cp) + 1;
-		}else if (strncasecmp( cur, "Content-Length:", 15 ) == 0) {
+		} else if (strncasecmp( cur, "Content-Length:", 15 ) == 0) {
 			cp = &cur[15];
 			cp += strspn( cp, " \t" );
 			cl = strtoul( cp, NULL, 0 );
-		}else if ((cp = strstr( cur, "boundary=" ))) {
+		} else if ((cp = strstr( cur, "boundary=" ))) {
 			boundary = &cp[9];
-			for( cp = cp + 9; *cp && *cp != '\r' && *cp != '\n'; cp++ );
+			for ( cp = cp + 9; *cp && *cp != '\r' && *cp != '\n'; cp++ );
 			*cp = '\0';
 			cur = ++cp;
 		}
@@ -511,7 +496,7 @@ handle_request(void)
 
 	//printf("File: %s\n", file);
 
-	if (http_port==server_port && !http_login_check()){
+	if (http_port==server_port && !http_login_check()) {
 		inet_ntop(login_ip.family, &login_ip.addr, straddr, sizeof(straddr));
 		sprintf(line, "Please log out user %s first or wait for session timeout(60 seconds).", straddr);
 		printf("resposne: %s \n", line);
@@ -519,18 +504,18 @@ handle_request(void)
 		return;
 	}
 
-	if ( (file[0] == '\0' || file[len-1] == '/')){
-		if (strlen(wan_if)>0 && !is_connected() && !is_firsttime() && http_port==server_port){
+	if ( (file[0] == '\0' || file[len-1] == '/')) {
+		if (strlen(wan_if)>0 && !is_connected() && !is_firsttime() && http_port==server_port) {
 			redirect=1;
 			file="WizardDetect.asp";
-		}else{
+		} else {
 			file = "index.asp";
 		}
 	}	
 
-	for (handler = &mime_handlers[0]; handler->pattern; handler++){
-		if (match(handler->pattern, file)){
-			if (handler->auth){
+	for (handler = mime_handlers; handler->pattern; handler++){
+		if (match(handler->pattern, file)) {
+			if (handler->auth) {
 				handler->auth(auth_userid, auth_passwd, auth_realm);
 				if (!auth_check(auth_realm, authorization))
 					return;
@@ -538,13 +523,12 @@ handle_request(void)
 
 			if (!redirect) http_login(&login_ip_tmp);
 
-			if (strcasecmp(method, "post") == 0 && !handler->input){
+			if (strcasecmp(method, "post") == 0 && !handler->input) {
 				send_error(501, "Not Implemented", NULL, "That method is not implemented.");
 				return;
 			}
-			if (handler->input){
+			if (handler->input) {
 				handler->input(file, conn_fp, cl, boundary);
-#if defined(linux)
 				if ((flags = fcntl(fileno(conn_fp), F_GETFL)) != -1 &&
 					fcntl(fileno(conn_fp), F_SETFL, flags | O_NONBLOCK) != -1) {
 						/* Read up to two more characters */
@@ -552,16 +536,6 @@ handle_request(void)
 							(void) fgetc(conn_fp);
 						fcntl(fileno(conn_fp), F_SETFL, flags);
 				}
-#elif defined(vxworks)
-				flags = 1;
-				if (ioctl(fileno(conn_fp), FIONBIO, (int) &flags) != -1) {
-					/* Read up to two more characters */
-					if (fgetc(conn_fp) != EOF)
-						(void) fgetc(conn_fp);
-					flags = 0;
-					ioctl(fileno(conn_fp), FIONBIO, (int) &flags);
-				}
-#endif				
 			}
 			send_headers( 200, "Ok", handler->extra_header, handler->mime_type );
 			if (handler->output)
@@ -573,7 +547,7 @@ handle_request(void)
 	if (!handler->pattern) 
 		send_error( 404, "Not Found", (char*) 0, "File not found." );
 
-	if (strcmp(file, "Logout.asp")==0){
+	if (strcmp(file, "Logout.asp")==0) {
 		http_logout(&login_ip_tmp);
 	}	
 }
@@ -651,7 +625,7 @@ static void http_login_timeout(uaddr *ip)
 static void http_logout(uaddr *ip)
 {
 	if ((ip->len == login_ip.len) &&
-		(memcmp(&ip->addr, &login_ip.addr, ip->len) == 0)){
+		(memcmp(&ip->addr, &login_ip.addr, ip->len) == 0)) {
 
 			memcpy(&login_try, &login_ip, sizeof(uaddr));
 			memset(&login_ip, 0, sizeof(uaddr));
@@ -661,9 +635,10 @@ static void http_logout(uaddr *ip)
 
 int is_auth(void)
 {
-	if (http_port==server_port ||
-		strcmp(nvram_get_x("PrinterStatus", "usb_webhttpcheck_x"), "1")==0) return 1;
-	else return 0;
+	if (http_port==server_port || nvram_match("usb_webhttpcheck_x", "1"))
+		return 1;
+	else
+		return 0;
 }
 
 #ifdef REMOVE
@@ -680,7 +655,7 @@ static int is_phyconnected(void)
 
 	strcpy(ifr.ifr_name, wan_if);
 	fd=socket(AF_INET, SOCK_DGRAM, 0);
-	if (fd<0){
+	if (fd<0) {
 		//printf("fd error\n");
 		return 0;
 	}
@@ -688,14 +663,14 @@ static int is_phyconnected(void)
 	ifr.ifr_data = (caddr_t)&ecmd;
 	err=ioctl(fd, SIOCETHTOOL, &ifr);
 	close(fd);
-	if (err==0){
+	if (err==0) {
 		//printf("ecmd: %d\n", ecmd.speed);
-		if (ecmd.speed==0){
-			nvram_set_x("", "wan_status_t", "Disconnected");
-			nvram_set_x("", "wan_reason_t", "Cable is not attached");
+		if (ecmd.speed==0) {
+			nvram_set("wan_status_t", "Disconnected");
+			nvram_set("wan_reason_t", "Cable is not attached");
 		}			
 		return(ecmd.speed);
-	}else{
+	} else {
 		//printf("err error\n");
 		return 0;
 	}
@@ -711,12 +686,12 @@ static int is_connected(void)
 	/* if (!is_phyconnected()) return 0; */
 
 	/* check if connection static is CONNECTED */
-	if (strcmp(nvram_get_x("WANIPAddress", "wan_status_t"), "Disconnected")==0){
+	if (nvram_match("wan_status_t", "Disconnected")) {
 		fp = fopen("/tmp/wanstatus.log", "r");
-		if (fp!=NULL){
+		if (fp!=NULL) {
 			fgets(line, sizeof(line), fp);
 			reason = strchr(line, ',');
-			if (reason!=NULL) nvram_set_x("", "wan_reason_t", reason+1);
+			if (reason!=NULL) nvram_set("wan_reason_t", reason+1);
 			fclose(fp);
 		}
 
@@ -728,8 +703,10 @@ static int is_connected(void)
 
 static int is_firsttime(void)
 {
-	if (strcmp(nvram_get_x("General", "x_Setting"), "1")==0) return 0;
-	else return 1;
+	if (nvram_match("x_Setting", "1"))
+		return 0;
+	else
+		return 1;
 }
 
 int main(int argc, char **argv)
@@ -741,7 +718,7 @@ int main(int argc, char **argv)
 	fd_set active_rfds;
 	conn_list_t pool;
 
-	server_port = atoi(nvram_get_x("", "http_lanport"));
+	server_port = nvram_get_int("http_lanport");
 	if (server_port)
 		http_port = server_port;
 	else
@@ -756,7 +733,7 @@ int main(int argc, char **argv)
 	//websSetVer();
 
 #ifdef __CONFIG_IPV6__
-	usa.sa.sa_family = (nvram_invmatch_x("", "ipv6_proto", "")) ? AF_INET6 : AF_INET;
+	usa.sa.sa_family = (nvram_invmatch("ipv6_proto", "")) ? AF_INET6 : AF_INET;
 #endif
 
 	/* Ignore broken pipes */
@@ -768,13 +745,13 @@ int main(int argc, char **argv)
 		exit(errno);
 	}
 
-#if !defined(DEBUG1) && !defined(vxworks)
+#if !defined(DEBUG1)
 	{
 		FILE *pid_fp;
 		/* Daemonize and log PID */
 		//if (http_port==server_port)
 		//{
-		if (daemon(1, 1) == -1){
+		if (daemon(1, 1) == -1) {
 			perror("daemon");
 			exit(errno);
 		}
