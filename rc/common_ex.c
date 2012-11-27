@@ -770,8 +770,16 @@ void convert_asus_values()
 //		insmod("ip6t_TCPMSS", NULL);
 #endif
 	} else {
+		FILE *fp;
+
 		fputs_ex("/proc/sys/net/ipv6/conf/all/disable_ipv6", "1");
 		fputs_ex("/proc/sys/net/ipv6/conf/default/disable_ipv6", "1");
+
+		fp = fopen("/etc/gai.conf", "w");
+		if (fp != NULL) {
+			fputs("precedence ipv4\n", fp);
+			fclose(fp);
+		}
 	}
 #endif
 

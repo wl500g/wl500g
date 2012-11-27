@@ -93,7 +93,7 @@ diff -BurpN linux.orig/net/ipv4/gre.c linux/net/ipv4/gre.c
 +#include <net/gre.h>
  
  struct gre_protocol *gre_proto[GREPROTO_MAX] ____cacheline_aligned_in_smp;
- #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+ static DEFINE_SPINLOCK(gre_proto_lock);
 @@ -181,7 +181,7 @@ static struct net_protocol net_gre_proto
  	.handler	= gre_rcv,
  	.err_handler	= gre_err,
@@ -102,11 +102,13 @@ diff -BurpN linux.orig/net/ipv4/gre.c linux/net/ipv4/gre.c
 +	.netns_ok	= 1,
  #endif
  };
- #endif
+ 
 @@ -188,7 +188,7 @@ static struct net_protocol net_gre_proto
  
  static int __init gre_init(void)
  {
 -	printk(KERN_INFO "GRE over IPv4 demultiplexor driver");
 +	printk(KERN_INFO "GRE over IPv4 demultiplexor driver\n");
+ 
+ 	if (inet_add_protocol(&net_gre_protocol, IPPROTO_GRE) < 0) {
  

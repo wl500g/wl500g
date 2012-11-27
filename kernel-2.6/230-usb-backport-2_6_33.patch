@@ -12,6 +12,7 @@ USB backports from Tomato project + minor corrections
  drivers/block/ub.c                         |   11 
  drivers/char/tty_ioctl.c                   |   19 
  drivers/firewire/fw-sbp2.c                 |    6 
+ drivers/hid/hid-core.c                     |    6 
  drivers/hid/usbhid/hid-core.c              |   11 
  drivers/ieee1394/sbp2.c                    |    6 
  drivers/media/video/pvrusb2/pvrusb2-hdw.c  |    2 
@@ -134,7 +135,7 @@ USB backports from Tomato project + minor corrections
  drivers/usb/storage/usb.c                  |  203 ++++--
  drivers/usb/storage/usb.h                  |   26 
  drivers/usb/usb-skeleton.c                 |    2 
- fs/sysfs/group.c                           |   32 
+ fs/sysfs/group.c                           |   33 
  include/linux/blkdev.h                     |    1 
  include/linux/scatterlist.h                |  106 +++
  include/linux/sysfs.h                      |    2 
@@ -146,7 +147,7 @@ USB backports from Tomato project + minor corrections
  include/scsi/scsi_cmnd.h                   |   23 
  include/scsi/sd.h                          |   19 
  kernel/params.c                            |    2 
- 145 files changed, 7703 insertions(+), 4212 deletions(-)
+ 146 files changed, 7709 insertions(+), 4213 deletions(-)
 
 diff -x'.*' -urNBp a/block/ll_rw_blk.c b/block/ll_rw_blk.c
 --- a/block/ll_rw_blk.c	2008-02-26 02:59:40.000000000 +0300
@@ -535,6 +536,36 @@ diff -x'.*' -urNBp a/drivers/firewire/fw-sbp2.c b/drivers/firewire/fw-sbp2.c
  	if (sd->workarounds & SBP2_WORKAROUND_INQUIRY_36)
  		sdev->inquiry_len = 36;
  	return 0;
+diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
+--- a/drivers/hid/hid-core.c
++++ b/drivers/hid/hid-core.c
+@@ -606,7 +606,7 @@ static u8 *fetch_item(__u8 *start, __u8 *end, struct hid_item *item)
+ 		case 2:
+ 			if ((end - start) < 2)
+ 				return NULL;
+-			item->data.u16 = le16_to_cpu(get_unaligned((__le16*)start));
++			item->data.u16 = get_unaligned_le16(start);
+ 			start = (__u8 *)((__le16 *)start + 1);
+ 			return start;
+ 
+@@ -614,7 +614,7 @@ static u8 *fetch_item(__u8 *start, __u8 *end, struct hid_item *item)
+ 			item->size++;
+ 			if ((end - start) < 4)
+ 				return NULL;
+-			item->data.u32 = le32_to_cpu(get_unaligned((__le32*)start));
++			item->data.u32 = get_unaligned_le32(start);
+ 			start = (__u8 *)((__le32 *)start + 1);
+ 			return start;
+ 	}
+@@ -765,7 +765,7 @@ static __inline__ __u32 extract(__u8 *report, unsigned offset, unsigned n)
+ 
+ 	report += offset >> 3;  /* adjust byte index */
+ 	offset &= 7;            /* now only need bit offset into one byte */
+-	x = le64_to_cpu(get_unaligned((__le64 *) report));
++	x = get_unaligned_le64(report);
+ 	x = (x >> offset) & ((1ULL << n) - 1);  /* extract bit field */
+ 	return (u32) x;
+ }
 diff -x'.*' -urNBp a/drivers/hid/usbhid/hid-core.c b/drivers/hid/usbhid/hid-core.c
 --- a/drivers/hid/usbhid/hid-core.c	2010-07-27 04:00:00.000000000 +0400
 +++ b/drivers/hid/usbhid/hid-core.c	2010-07-16 21:54:37.000000000 +0400

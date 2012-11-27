@@ -1696,7 +1696,6 @@ void wan_up(const char *wan_ifname)
 void wan_down(const char *wan_ifname)
 {
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	char *wan_proto;
 	int unit, metric;
 
 	/* Figure out nvram variable name prefix for this i/f */
@@ -1705,9 +1704,9 @@ void wan_down(const char *wan_ifname)
 	if (unit < 0)
 		return;
 
-	wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
 	metric = nvram_get_int(strcat_r(prefix, "priority", tmp));
-	dprintf("%s unit %d proto %s metric %d\n", wan_ifname, unit, wan_proto, metric);
+	dprintf("%s unit %d proto %s metric %d\n", wan_ifname, unit,
+		nvram_safe_get(strcat_r(prefix, "proto", tmp)), metric);
 
 	/* Stop authenticator */
 	stop_auth(prefix, 1);
