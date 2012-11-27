@@ -29,7 +29,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Enable Bandwidth Management?
-           </td><td class="content_input_td"><input type="radio" value="1" name="qos_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'qos_enable_x', '1')" <% nvram_match_x("PrinterStatus","qos_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="qos_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'qos_enable_x', '0')" <% nvram_match_x("PrinterStatus","qos_enable_x", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="qos_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'qos_enable_x', '1')" <% nvram_match("qos_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="qos_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'qos_enable_x', '0')" <% nvram_match("qos_enable_x", "0", "checked"); %>>No</input></td>
 </tr>
 </table>
 
@@ -66,7 +66,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="x_QRuleList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("PrinterStatus","x_QRuleList"); %>
+<% nvram_get_table("x_QRuleList"); %>
 </select></td>
 </tr>
 </table>
@@ -111,7 +111,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="x_UQRuleList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100% ">
-<% nvram_get_table_x("PrinterStatus","x_UQRuleList"); %>
+<% nvram_get_table("x_UQRuleList"); %>
 </select></td>
 </tr>
 </table>

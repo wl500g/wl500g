@@ -538,6 +538,12 @@ config PLATFORM
        help
        Specify the target architecture.
 
+config TOOLCHAIN
+       string "Target toolchain"
+       default "/opt/brcm/hndtools-mipsel-uclibc"
+       help
+       Specify the location of the target toolchain.
+
 config LINUXDIR
        string "Target Linux kernel"
        default "$(SRCBASE)/linux/linux-2.6"

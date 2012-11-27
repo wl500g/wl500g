@@ -29,11 +29,11 @@
 </tr>
 <tr>
 <td class="content_header_td">MAC Access Mode:
-           </td><td class="content_input_td"><select name="wl_macmode" class="content_input_fd" onChange="return change_common(this, 'DeviceSecurity11a', 'wl_macmode')"><option class="content_input_fd" value="disabled" <% nvram_match_x("DeviceSecurity11a","wl_macmode", "disabled","selected"); %>>Disable</option><option class="content_input_fd" value="allow" <% nvram_match_x("DeviceSecurity11a","wl_macmode", "allow","selected"); %>>Accept</option><option class="content_input_fd" value="deny" <% nvram_match_x("DeviceSecurity11a","wl_macmode", "deny","selected"); %>>Reject</option></select></td>
+           </td><td class="content_input_td"><select name="wl_macmode" class="content_input_fd" onChange="return change_common(this, 'DeviceSecurity11a', 'wl_macmode')"><option class="content_input_fd" value="disabled" <% nvram_match("wl_macmode", "disabled","selected"); %>>Disable</option><option class="content_input_fd" value="allow" <% nvram_match("wl_macmode", "allow","selected"); %>>Accept</option><option class="content_input_fd" value="deny" <% nvram_match("wl_macmode", "deny","selected"); %>>Reject</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates which devices will be under the control of ACL.', LEFT);" onMouseOut="return nd();">Applied Devices:
-           </td><td class="content_input_td"><select name="wl_macapply_x" class="content_input_fd" onChange="return change_common(this, 'DeviceSecurity11a', 'wl_macapply_x')"><option class="content_input_fd" value="Both" <% nvram_match_x("DeviceSecurity11a","wl_macapply_x", "Both","selected"); %>>Both</option><option class="content_input_fd" value="802.11a only" <% nvram_match_x("DeviceSecurity11a","wl_macapply_x", "802.11a only","selected"); %>>802.11a only</option><option class="content_input_fd" value="802.11g only" <% nvram_match_x("DeviceSecurity11a","wl_macapply_x", "802.11g only","selected"); %>>802.11g only</option></select></td>
+           </td><td class="content_input_td"><select name="wl_macapply_x" class="content_input_fd" onChange="return change_common(this, 'DeviceSecurity11a', 'wl_macapply_x')"><option class="content_input_fd" value="Both" <% nvram_match("wl_macapply_x", "Both","selected"); %>>Both</option><option class="content_input_fd" value="802.11a only" <% nvram_match("wl_macapply_x", "802.11a only","selected"); %>>802.11a only</option><option class="content_input_fd" value="802.11g only" <% nvram_match("wl_macapply_x", "802.11g only","selected"); %>>802.11g only</option></select></td>
 </tr>
 </table>
 
@@ -67,7 +67,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="ACLList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("DeviceSecurity11a","ACLList"); %>
+<% nvram_get_table("ACLList"); %>
 </select></td>
 </tr>
 </table>

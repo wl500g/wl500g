@@ -42,11 +42,11 @@
 <td></td><td class="content_list_field_header_td" colspan="">Type</td><td class="content_list_field_header_td" colspan="">Certificate File</td><td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><select name="WLANAuthentication11a_CertDBType_0" class="content_input_list_fd"><option value="Server" <% nvram_match_list_x("WLANAuthentication11a","CertDBType", "Server","selected", 0); %>>Server</option><option value="Client" <% nvram_match_list_x("WLANAuthentication11a","CertDBType", "Client","selected", 0); %>>Client</option></select></td><td class="content_list_input_td" colspan=""><input type="file" maxlength="15" class="content_input_list_fd" size="32" name="WLANAuthentication11a_CertDBFile_0"></td>
+<td></td><td class="content_list_input_td" colspan=""><select name="WLANAuthentication11a_CertDBType_0" class="content_input_list_fd"><option value="Server" <% nvram_match_list("CertDBType", "Server","selected", 0); %>>Server</option><option value="Client" <% nvram_match_list("CertDBType", "Client","selected", 0); %>>Client</option></select></td><td class="content_list_input_td" colspan=""><input type="file" maxlength="15" class="content_input_list_fd" size="32" name="WLANAuthentication11a_CertDBFile_0"></td>
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="WLANAuthentication11a_LocalCertDB_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("WLANAuthentication11a","LocalCertDB"); %>
+<% nvram_get_table("LocalCertDB"); %>
 </select></td>
 </tr>
 </table>

@@ -25,7 +25,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Yes enables NFS Server.', LEFT);" onMouseOut="return nd();">Enable NFS Server?
-           </td><td class="content_input_td"><input type="radio" value="1" name="usb_nfsenable_x" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_nfsenable_x', '1')" <% nvram_match_x("PrinterStatus","usb_nfsenable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="usb_nfsenable_x" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_nfsenable_x', '0')" <% nvram_match_x("PrinterStatus","usb_nfsenable_x", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="usb_nfsenable_x" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_nfsenable_x', '1')" <% nvram_match("usb_nfsenable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="usb_nfsenable_x" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_nfsenable_x', '0')" <% nvram_match("usb_nfsenable_x", "0", "checked"); %>>No</input></td>
 </tr>
 </table>
 
@@ -59,7 +59,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="x_ExportsList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("PrinterStatus","x_ExportsList"); %>
+<% nvram_get_table("x_ExportsList"); %>
 </select></td>
 </tr>
 <!-- 3 --></table>

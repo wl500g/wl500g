@@ -32,7 +32,7 @@ HWH1=2.99
 #
 
 # Source bases
-export PLATFORM LINUXDIR LIBDIR USRLIBDIR
+export PLATFORM TOOLCHAIN LINUXDIR LIBDIR USRLIBDIR
 export TOP := $(shell pwd)
 export SRCBASE := $(shell (cd $(TOP)/.. && pwd -P))
 
@@ -53,13 +53,13 @@ endif
 ifeq ($(PLATFORM),mipsel)
 export CROSS_COMPILE := mipsel-linux-
 export CONFIGURE := ./configure --host=mipsel-linux --build=$(BUILD)
-export TOOLCHAIN := $(shell cd $(dir $(shell which $(CROSS_COMPILE)gcc))/../mipsel-linux && pwd -P)
+export TOOLCHAIN := $(shell cd $(TOOLCHAIN)/mipsel-linux && pwd -P)
 endif
 
 ifeq ($(PLATFORM),mipsel-uclibc)
 export CROSS_COMPILE := mipsel-uclibc-
 export CONFIGURE := ./configure --host=mipsel-linux --build=$(BUILD)
-export TOOLCHAIN := $(shell cd $(dir $(shell which $(CROSS_COMPILE)gcc))/.. && pwd -P)
+export TOOLCHAIN := $(shell cd $(TOOLCHAIN) && pwd -P)
 endif
 
 ifeq ($(CONFIG_BCMWPA2),y)
@@ -73,6 +73,11 @@ ifeq ($(CONFIG_IPV6),y)
 export CONFIG_IPV6 := y
 else
 CONFIG_IPV6 :=
+endif
+
+# Update PATH, MAKELEVEL could be any
+ifeq ($(findstring $(TOOLCHAIN)/bin,$(PATH)),)
+export PATH := $(TOOLCHAIN)/bin:$(PATH)
 endif
 
 export CC := $(CROSS_COMPILE)gcc

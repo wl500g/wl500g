@@ -349,9 +349,9 @@
 						</td>
 						<td class="content_input_td">
 							<input type="radio" value="1" name="wan_dnsenable_x" class="content_input_fd" onclick="changeDNSServer()"
-								<% nvram_match_x("IPConnection","wan_dnsenable_x", "1", "checked"); %>>Yes
+								<% nvram_match("wan_dnsenable_x", "1", "checked"); %>>Yes
 							<input type="radio" value="0" name="wan_dnsenable_x" class="content_input_fd" onclick="changeDNSServer()"
-								<% nvram_match_x("IPConnection","wan_dnsenable_x", "0", "checked"); %>>No
+								<% nvram_match("wan_dnsenable_x", "0", "checked"); %>>No
 						</td>
 					</tr>
 					<tr>
@@ -497,10 +497,10 @@
 						</td>
 						<td class="content_input_td">
 							<select name="wl_key" class="content_input_fd" onchange="return change_common(this, 'WLANConfig11b', 'wl_key')">
-								<option value="1" <% nvram_match_x("WLANConfig11b","wl_key", "1","selected"); %>>1</option>
-								<option value="2" <% nvram_match_x("WLANConfig11b","wl_key", "2","selected"); %>>2</option>
-								<option value="3" <% nvram_match_x("WLANConfig11b","wl_key", "3","selected"); %>>3</option>
-								<option value="4" <% nvram_match_x("WLANConfig11b","wl_key", "4","selected"); %>>4</option>
+								<option value="1" <% nvram_match("wl_key", "1","selected"); %>>1</option>
+								<option value="2" <% nvram_match("wl_key", "2","selected"); %>>2</option>
+								<option value="3" <% nvram_match("wl_key", "3","selected"); %>>3</option>
+								<option value="4" <% nvram_match("wl_key", "4","selected"); %>>4</option>
 							</select>
 						</td>
 					</tr>

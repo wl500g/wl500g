@@ -31,20 +31,20 @@
 <tr>
 <td class="content_header_td">IPv6 Connection Type:
 	    </td><td class="content_input_td"><select name="ipv6_proto" class="content_input_fd" onChange="return change_common(this, 'IPv6Config', 'ipv6_proto')">
-	    <option class="content_input_fd" value="" <% nvram_match_x("IPv6Config","ipv6_proto", "","selected"); %>>Disabled</option>
-	    <option class="content_input_fd" value="native" <% nvram_match_x("IPv6Config","ipv6_proto", "native","selected"); %>>Static</option>
-	    <option class="content_input_fd" value="slaac" <% nvram_match_x("IPv6Config","ipv6_proto", "slaac","selected"); %>>Stateless</option>
-	    <option class="content_input_fd" value="dhcp6" <% nvram_match_x("IPv6Config","ipv6_proto", "dhcp6","selected"); %>>DHCPv6</option>
-	    <option class="content_input_fd" value="tun6in4" <% nvram_match_x("IPv6Config","ipv6_proto", "tun6in4","selected"); %>>Tunnel 6in4</option>
-	    <option class="content_input_fd" value="tun6to4" <% nvram_match_x("IPv6Config","ipv6_proto", "tun6to4","selected"); %>>Tunnel 6to4</option>
-	    <option class="content_input_fd" value="tun6rd" <% nvram_match_x("IPv6Config","ipv6_proto", "tun6rd","selected"); %>>Tunnel 6rd</option>
+	    <option class="content_input_fd" value="" <% nvram_match("ipv6_proto", "","selected"); %>>Disabled</option>
+	    <option class="content_input_fd" value="native" <% nvram_match("ipv6_proto", "native","selected"); %>>Static</option>
+	    <option class="content_input_fd" value="slaac" <% nvram_match("ipv6_proto", "slaac","selected"); %>>Stateless</option>
+	    <option class="content_input_fd" value="dhcp6" <% nvram_match("ipv6_proto", "dhcp6","selected"); %>>DHCPv6</option>
+	    <option class="content_input_fd" value="tun6in4" <% nvram_match("ipv6_proto", "tun6in4","selected"); %>>Tunnel 6in4</option>
+	    <option class="content_input_fd" value="tun6to4" <% nvram_match("ipv6_proto", "tun6to4","selected"); %>>Tunnel 6to4</option>
+	    <option class="content_input_fd" value="tun6rd" <% nvram_match("ipv6_proto", "tun6rd","selected"); %>>Tunnel 6rd</option>
 	    </select></td>
 </tr>
 <tr>
 <td class="content_header_td">IPv6 Interface:
 	    </td><td class="content_input_td"><select name="ipv6_if_x" class="content_input_fd" onChange="return change_common(this, 'IPv6Config', 'ipv6_if_x')">
-	    <option class="content_input_fd" value="0" <% nvram_match_x("IPv6Config","ipv6_if_x", "0","selected"); %>>WAN</option>
-	    <option class="content_input_fd" value="1" <% nvram_match_x("IPv6Config","ipv6_if_x", "1","selected"); %>>MAN</option>
+	    <option class="content_input_fd" value="0" <% nvram_match("ipv6_if_x", "0","selected"); %>>WAN</option>
+	    <option class="content_input_fd" value="1" <% nvram_match("ipv6_if_x", "1","selected"); %>>MAN</option>
 	    </select></td>
 </tr>
 
@@ -56,9 +56,9 @@
 <td class="content_header_td_less">Get IPv6 automatically?
            </td><td class="content_input_td">
 		<input type="radio" value="1" name="ipv6_lanauto_x" class="content_input_fd" onclick="change_ipv6_lanauto_x(1);"
-			<% nvram_match_x("IPv6Config","ipv6_lanauto_x", "1", "checked"); %>>Yes
+			<% nvram_match("ipv6_lanauto_x", "1", "checked"); %>>Yes
 		<input type="radio" value="0" name="ipv6_lanauto_x" class="content_input_fd" onclick="change_ipv6_lanauto_x(1);"
-			<% nvram_match_x("IPv6Config","ipv6_lanauto_x", "0", "checked"); %>>No</td>
+			<% nvram_match("ipv6_lanauto_x", "0", "checked"); %>>No</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IPv6 Address of ZVMODELVZ as seen in your local network. If not specified, only auto-configured addresses will be seen.', LEFT);" onMouseOut="return nd();">IPv6 Address:
@@ -72,9 +72,9 @@
 <td class="content_header_td" onMouseOver="return overlib('Router advertisements allow systems in your LAN to auto-configure them for IPv6-usage', LEFT);" onMouseOut="return nd();">Advertise LAN Prefix?
            </td><td class="content_input_td">
 		<input type="radio" value="1" name="ipv6_radvd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'IPv6Config', 'ipv6_radvd_enable', '1')"
-			<% nvram_match_x("IPv6Config","ipv6_radvd_enable","1", "checked"); %>>Yes
+			<% nvram_match("ipv6_radvd_enable","1", "checked"); %>>Yes
 		<input type="radio" value="0" name="ipv6_radvd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'IPv6Config', 'ipv6_radvd_enable', '0')"
-			<% nvram_match_x("IPv6Config","ipv6_radvd_enable", "0", "checked"); %>>No</td>
+			<% nvram_match("ipv6_radvd_enable", "0", "checked"); %>>No</td>
 </tr>
 <!-- TODO: additinal RDNSS servers
 <tr>
@@ -91,9 +91,9 @@
 <td class="content_header_td_less">Get IPv6 automatically?
            </td><td class="content_input_td">
 		<input type="radio" value="1" name="ipv6_wanauto_x" class="content_input_fd" onclick="change_ipv6_wanauto_x(1);"
-			<% nvram_match_x("IPv6Config","ipv6_lanauto_x", "1", "checked"); %>>Yes
+			<% nvram_match("ipv6_lanauto_x", "1", "checked"); %>>Yes
 		<input type="radio" value="0" name="ipv6_wanauto_x" class="content_input_fd" onclick="change_ipv6_wanauto_x(1);"
-			<% nvram_match_x("IPv6Config","ipv6_lanauto_x", "0", "checked"); %>>No</td>
+			<% nvram_match("ipv6_lanauto_x", "0", "checked"); %>>No</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IPv6 Address of ZVMODELVZ as seen on the WAN-port. If not specified, only auto-configured addresses will be seen.', LEFT);" onMouseOut="return nd();">IPv6 Address:
@@ -116,9 +116,9 @@
 <td class="content_header_td_less">Get DNS Server automatically?
            </td><td class="content_input_td">
 		<input type="radio" value="1" name="ipv6_dnsenable_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_dnsenable_x', '1')"
-			<% nvram_match_x("IPv6Config","ipv6_dnsenable_x", "1", "checked"); %>>Yes
+			<% nvram_match("ipv6_dnsenable_x", "1", "checked"); %>>Yes
 		<input type="radio" value="0" name="ipv6_dnsenable_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_dnsenable_x', '0')"
-			<% nvram_match_x("IPv6Config","ipv6_dnsenable_x", "0", "checked"); %>>No</td>
+			<% nvram_match("ipv6_dnsenable_x", "0", "checked"); %>>No</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that ZVMODELVZ contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNSv6 Server1:

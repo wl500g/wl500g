@@ -34,7 +34,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting AP Only disables Wireless Bridge functionality. Selecting WDS Only disables local wireless station association. Selecting Hybrid enables Wireless bridge functionality and wireless stations will be able to associate to the AP.', LEFT);" onMouseOut="return nd();">AP Mode:
-           </td><td class="content_input_td"><select name="wl_mode_x" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_mode_x')"><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_mode_x", "0","selected"); %>>AP Only</option><option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","wl_mode_x", "1","selected"); %>>WDS Only</option><option class="content_input_fd" value="2" <% nvram_match_x("WLANConfig11b","wl_mode_x", "2","selected"); %>>Hybrid</option></select></td>
+           </td><td class="content_input_td"><select name="wl_mode_x" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_mode_x')"><option class="content_input_fd" value="0" <% nvram_match("wl_mode_x", "0","selected"); %>>AP Only</option><option class="content_input_fd" value="1" <% nvram_match("wl_mode_x", "1","selected"); %>>WDS Only</option><option class="content_input_fd" value="2" <% nvram_match("wl_mode_x", "2","selected"); %>>Hybrid</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel', LEFT);" onMouseOut="return nd();">Channel:
@@ -44,11 +44,11 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Yes connects ZVMODELVZ to other APs listed in Remote Bridge List.', LEFT);" onMouseOut="return nd();">Connect to APs in Remote Bridge List?
-           </td><td class="content_input_td"><input type="radio" value="1" name="wl_wdsapply_x" class="content_input_fd" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_wdsapply_x', '1')" <% nvram_match_x("WLANConfig11b","wl_wdsapply_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="wl_wdsapply_x" class="content_input_fd" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_wdsapply_x', '0')" <% nvram_match_x("WLANConfig11b","wl_wdsapply_x", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="wl_wdsapply_x" class="content_input_fd" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_wdsapply_x', '1')" <% nvram_match("wl_wdsapply_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="wl_wdsapply_x" class="content_input_fd" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_wdsapply_x', '0')" <% nvram_match("wl_wdsapply_x", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Yes disables wireless bridge restriction. Any wireless bridge will be granted access. Selecting No enables wireless bridge restriction. Only those bridges listed in Remote Bridge List will be granted access.', LEFT);" onMouseOut="return nd();">Allow anonymous?
-           </td><td class="content_input_td"><input type="radio" value="1" name="wl_lazywds" class="content_input_fd" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_lazywds', '1')" <% nvram_match_x("WLANConfig11b","wl_lazywds", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="wl_lazywds" class="content_input_fd" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_lazywds', '0')" <% nvram_match_x("WLANConfig11b","wl_lazywds", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="wl_lazywds" class="content_input_fd" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_lazywds', '1')" <% nvram_match("wl_lazywds", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="wl_lazywds" class="content_input_fd" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_lazywds', '0')" <% nvram_match("wl_lazywds", "0", "checked"); %>>No</input></td>
 </tr>
 </table>
 
@@ -82,7 +82,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="RBRList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("WLANConfig11b","RBRList"); %>
+<% nvram_get_table("RBRList"); %>
 </select></td>
 </tr>
 </table>

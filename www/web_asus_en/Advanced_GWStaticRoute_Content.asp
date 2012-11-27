@@ -33,13 +33,13 @@
 <tr>
 <tr>
 <td class="content_header_td">Use DHCP routes?
-           </td><td class="content_input_td"><input type="radio" value="1" name="dr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'dr_enable_x', '1')" <% nvram_match_x("RouterConfig","dr_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="dr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'dr_enable_x', '0')" <% nvram_match_x("RouterConfig","dr_enable_x", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="dr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'dr_enable_x', '1')" <% nvram_match("dr_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="dr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'dr_enable_x', '0')" <% nvram_match("dr_enable_x", "0", "checked"); %>>No</input></td>
 </tr>
 <td class="content_header_td">Enable multicast routing?
-           </td><td class="content_input_td"><input type="radio" value="1" name="mr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'mr_enable_x', '1')" <% nvram_match_x("RouterConfig","mr_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="mr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'mr_enable_x', '0')" <% nvram_match_x("RouterConfig","mr_enable_x", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="mr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'mr_enable_x', '1')" <% nvram_match("mr_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="mr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'mr_enable_x', '0')" <% nvram_match("mr_enable_x", "0", "checked"); %>>No</input></td>
 </tr>
 <td class="content_header_td">Enable static routes?
-           </td><td class="content_input_td"><input type="radio" value="1" name="sr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'sr_enable_x', '1')" <% nvram_match_x("RouterConfig","sr_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="sr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'sr_enable_x', '0')" <% nvram_match_x("RouterConfig","sr_enable_x", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="sr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'sr_enable_x', '1')" <% nvram_match("sr_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="sr_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'RouterConfig', 'sr_enable_x', '0')" <% nvram_match("sr_enable_x", "0", "checked"); %>>No</input></td>
 </tr>
 </table>
 </td>
@@ -80,11 +80,11 @@
            	        </td><td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="sr_ipaddr_x_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="sr_netmask_x_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="sr_gateway_x_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="3" name="sr_matric_x_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><select name="sr_if_x_0" class="content_input_list_fd"><option value="LAN" <% nvram_match_list_x("RouterConfig","sr_if_x", "LAN","selected", 0); %>>LAN</option><option value="MAN" <% nvram_match_list_x("RouterConfig","sr_if_x", "MAN","selected", 0); %>>MAN</option><option value="WAN" <% nvram_match_list_x("RouterConfig","sr_if_x", "WAN","selected", 0); %>>WAN</option></select></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="sr_ipaddr_x_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="sr_netmask_x_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="sr_gateway_x_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="3" name="sr_matric_x_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><select name="sr_if_x_0" class="content_input_list_fd"><option value="LAN" <% nvram_match_list("sr_if_x", "LAN","selected", 0); %>>LAN</option><option value="MAN" <% nvram_match_list("sr_if_x", "MAN","selected", 0); %>>MAN</option><option value="WAN" <% nvram_match_list("sr_if_x", "WAN","selected", 0); %>>WAN</option></select></td>
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="16" name="GWStatic_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("RouterConfig","GWStatic"); %>
+<% nvram_get_table("GWStatic"); %>
 </select></td>
 </tr>
 </table>

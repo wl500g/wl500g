@@ -26,10 +26,18 @@
 #define FALSE 0
 #endif
 
+#define MAX_LINE_SIZE 1024
+
 struct variable {
 	const char *name;
-	const char *longname;
-	const char **argv;
+	short fldLen;
+};
+
+struct group_variable {
+	const char *name;
+	const struct variable *variables;
+	short rowLen;
+	const char *counter_name;
 };
 
 struct svcLink
@@ -38,7 +46,6 @@ struct svcLink
       const struct variable *variables;
 };
 
-#define ARGV(args...) ((const char *[]) { (const char *) args, NULL })
 
 enum {
 	NOTHING,
@@ -53,10 +60,8 @@ extern "C" {
 
 /* API export */
 int LookupServiceId(const char *serviceId);
-const char *GetServiceId(int sid);
 const struct variable *GetVariables(int sid);
-
-const struct variable *LookupGroupVariables(int sid, char *groupName);
+const struct group_variable *LookupGroup(const char *groupName);
 
 #ifdef __cplusplus
 }

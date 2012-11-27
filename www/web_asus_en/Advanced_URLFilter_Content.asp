@@ -32,7 +32,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Enable URL Filter?
-           </td><td class="content_input_td"><input type="radio" value="1" name="url_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'url_enable_x', '1')" <% nvram_match_x("FirewallConfig","url_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="url_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'url_enable_x', '0')" <% nvram_match_x("FirewallConfig","url_enable_x", "0", "checked"); %>>No</input></td>
+           </td><td class="content_input_td"><input type="radio" value="1" name="url_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'url_enable_x', '1')" <% nvram_match("url_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="url_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'url_enable_x', '0')" <% nvram_match("url_enable_x", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines the dates that URL filter will be enabled.', LEFT);" onMouseOut="return nd();">Date to Enable URL Filter:
@@ -85,7 +85,7 @@
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="UrlList_s" multiple="true" class="content_list_body">
-<% nvram_get_table_x("FirewallConfig","UrlList"); %>
+<% nvram_get_table("UrlList"); %>
 </select></td>
 </tr>
 </table>
