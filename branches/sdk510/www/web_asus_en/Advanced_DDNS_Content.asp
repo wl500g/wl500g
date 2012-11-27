@@ -88,23 +88,31 @@
            </td><td class="content_input_td"><input type="radio" value="1" name="ddns_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_enable_x', '1')" <% nvram_match("ddns_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="ddns_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_enable_x', '0')" <% nvram_match("ddns_enable_x", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This field determines if dynamic dns service has to autodetect public IP address. Does not work with TZO service.', LEFT);" onMouseOut="return nd();">Autodetect public IP address?
-           </td><td class="content_input_td"><input type="radio" value="1" name="ddns_realip_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_realip_x', '1')" <% nvram_match("ddns_realip_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="ddns_realip_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_realip_x', '0')" <% nvram_match("ddns_realip_x", "0", "checked"); %>>No</input></td>
+<td class="content_header_td" onMouseOver="return overlib('This field determines if dynamic dns service has to autodetect public IP address.', LEFT);" onMouseOut="return nd();">Autodetect public IP address?
+           </td><td class="content_input_td">
+<select name="ddns_realip_x" class="content_input_fd" onchange="return change_common(this, 'LANHostConfig', 'ddns_realip_x')">
+<option class="content_input_fd" value="0" <% nvram_match("ddns_realip_x","0","selected"); %>>Yes</option>
+<option class="content_input_fd" value="1" <% nvram_match("ddns_realip_x","1","selected"); %>>No, report WAN address</option>
+<option class="content_input_fd" value="2" <% nvram_match("ddns_realip_x","2","selected"); %>>No, report MAN address</option>
+</select>
+</td>
 </tr>
 <tr>
 <td class="content_header_td">Server:
            </td><td class="content_input_td"><select name="ddns_server_x" class="content_input_fd" onChange="return change_common(this, 'LANHostConfig', 'ddns_server_x')">
-		<option class="content_input_fd" value="WWW.DYNDNS.ORG" <% nvram_match("ddns_server_x", "WWW.DYNDNS.ORG","selected"); %>>WWW.DYNDNS.ORG</option>
-		<option class="content_input_fd" value="WWW.DYNDNS.ORG(CUSTOM)" <% nvram_match("ddns_server_x", "WWW.DYNDNS.ORG(CUSTOM)","selected"); %>>WWW.DYNDNS.ORG(CUSTOM)</option>
-		<option class="content_input_fd" value="WWW.DYNDNS.ORG(STATIC)" <% nvram_match("ddns_server_x", "WWW.DYNDNS.ORG(STATIC)","selected"); %>>WWW.DYNDNS.ORG(STATIC)</option>
-		<option class="content_input_fd" value="WWW.TZO.COM" <% nvram_match("ddns_server_x", "WWW.TZO.COM","selected"); %>>WWW.TZO.COM</option>
-		<option class="content_input_fd" value="WWW.ZONEEDIT.COM" <% nvram_match("ddns_server_x", "WWW.ZONEEDIT.COM","selected"); %>>WWW.ZONEEDIT.COM</option>
-		<option class="content_input_fd" value="WWW.EASYDNS.COM" <% nvram_match("ddns_server_x", "WWW.EASYDNS.COM","selected"); %>>WWW.EASYDNS.COM</option>
-		<option class="content_input_fd" value="WWW.NO-IP.COM" <% nvram_match("ddns_server_x", "WWW.NO-IP.COM","selected"); %>>WWW.NO-IP.COM</option>
-		<option class="content_input_fd" value="WWW.DNSOMATIC.COM" <% nvram_match("ddns_server_x", "WWW.DNSOMATIC.COM","selected"); %>>WWW.DNSOMATIC.COM</option>
-		<option class="content_input_fd" value="WWW.TUNNELBROKER.NET" <% nvram_match("ddns_server_x", "WWW.TUNNELBROKER.NET","selected"); %>>WWW.TUNNELBROKER.NET</option>
-		<option class="content_input_fd" value="DNS.HE.NET" <% nvram_match("ddns_server_x", "DNS.HE.NET","selected"); %>>DNS.HE.NET</option>
-		<option class="content_input_fd" value="WWW.ASUS.COM" <% nvram_match("ddns_server_x", "WWW.ASUS.COM","selected"); %>>WWW.ASUS.COM</option>
+		<option class="content_input_fd" value="update@asus.com" <% nvram_match("ddns_server_x", "update@asus.com","selected"); %>>asus.com</option>
+		<option class="content_input_fd" value="default@dnsexit.com" <% nvram_match("ddns_server_x", "default@dnsexit.com","selected"); %>>dnsexit.com</option>
+		<option class="content_input_fd" value="default@dnsomatic.com" <% nvram_match("ddns_server_x", "default@dnsomatic.com","selected"); %>>dnsomatic.com</option>
+		<option class="content_input_fd" value="default@dyndns.org" <% nvram_match("ddns_server_x", "default@dyndns.org","selected"); %>>dyndns.org</option>
+		<option class="content_input_fd" value="default@dynsip.org" <% nvram_match("ddns_server_x", "default@dynsip.org","selected"); %>>dynsip.org</option>
+		<option class="content_input_fd" value="default@easydns.com" <% nvram_match("ddns_server_x", "default@easydns.com","selected"); %>>easydns.com</option>
+		<option class="content_input_fd" value="default@freedns.afraid.org" <% nvram_match("ddns_server_x", "default@freedns.afraid.org","selected"); %>>freedns.afraid.org</option>
+		<option class="content_input_fd" value="dyndns@he.net" <% nvram_match("ddns_server_x", "dyndns@he.net","selected"); %>>dns.he.net</option>
+		<option class="content_input_fd" value="ipv6tb@he.net" <% nvram_match("ddns_server_x", "ipv6tb@he.net","selected"); %>>tunnelbroker.net</option>
+		<option class="content_input_fd" value="default@no-ip.com" <% nvram_match("ddns_server_x", "default@no-ip.com","selected"); %>>no-ip.com</option>
+		<option class="content_input_fd" value="default@sitelutions.com" <% nvram_match("ddns_server_x", "default@sitelutions.com","selected"); %>>sitelutions.com</option>
+		<option class="content_input_fd" value="default@tzo.com" <% nvram_match("ddns_server_x", "default@tzo.com","selected"); %>>tzo.com</option>
+		<option class="content_input_fd" value="default@zoneedit.com" <% nvram_match("ddns_server_x", "default@zoneedit.com","selected"); %>>zoneedit.com</option>
 		</select>
 		<input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('ddnsregister')" size="12" name="LANHostConfig_x_DDNSSRegister_button" value="Register"></td>
              </a></td>
@@ -119,7 +127,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field represents the Host Name you register to Dynamic-DNS service and expect to export to the world.', LEFT);" onMouseOut="return nd();">Host Name:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="ddns_hostname_x" value="<% nvram_get("ddns_hostname_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="128" class="content_input_fd" size="32" name="ddns_hostname_x" value="<% nvram_get("ddns_hostname_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field determines if domain name with wildcard is also redirected to your ip address.', LEFT);" onMouseOut="return nd();">Enable wildcard?

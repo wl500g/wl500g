@@ -1918,9 +1918,12 @@ function load_body()
 			frm.udpxy_wan_check.checked = true;
 		else
 			frm.udpxy_wan_check.checked = false;
-		
-		opts = frm.ddns_server_x.options;
-		value = (opts[opts.selectedIndex].value == "WWW.ASUS.COM") ? 0 : 1;
+		if (frm.ddns_server_x.value == "default@easydns.com")
+			inputRCtrl1(frm.ddns_wildcard_x, 1);
+		else
+			inputRCtrl1(frm.ddns_wildcard_x, 0);
+		value = (frm.ddns_server_x.value == "update@asus.com" ||
+		         frm.ddns_server_x.value == "default@freedns.afraid.org") ? 0 : 1;
 		inputCtrl(frm.ddns_username_x, value);
 		inputCtrl(frm.ddns_passwd_x, value);
 	}
@@ -2443,7 +2446,7 @@ function onSubmitApply(s)
 	}
 	else if (document.form.current_page.value == "Advanced_DDNS_Content.asp" &&
 		 s == "ddnsregister" &&
-		 document.form.ddns_server_x.value != "WWW.ASUS.COM")
+		 document.form.ddns_server_x.value != "update@asus.com")
 	{
 		openLink('x_DDNSServer');
 		return false;
@@ -2630,8 +2633,12 @@ function change_common(o, s, v)
 	}
 	else if (s=="LANHostConfig" && v=="ddns_server_x")
 	{
-		opts = document.form.ddns_server_x.options;
-		value = (opts[opts.selectedIndex].value == "WWW.ASUS.COM") ? 0 : 1;
+		if (o.value == "default@easydns.com")
+			inputRCtrl1(document.form.ddns_wildcard_x, 1);
+		else
+			inputRCtrl1(document.form.ddns_wildcard_x, 0);
+		value = (o.value == "update@asus.com" ||
+		         o.value == "default@freedns.afraid.org") ? 0 : 1;
 		inputCtrl(document.form.ddns_username_x, value);
 		inputCtrl(document.form.ddns_passwd_x, value);
 	}
@@ -3511,23 +3518,31 @@ function openLink(s)
 {
 	if (s=='x_DDNSServer')
 	{
-		if (document.form.ddns_server_x.value.indexOf("WWW.DYNDNS.ORG")!=-1)
-			tourl = "https://account.dyn.com/entrance/";
-		else if (document.form.ddns_server_x.value == 'WWW.TZO.COM')
-			tourl = "http://signup.tzo.com";
-		else if (document.form.ddns_server_x.value == 'WWW.ZONEEDIT.COM')
-			tourl = "https://www.zoneedit.com/signUp.html";
-		else if (document.form.ddns_server_x.value == 'WWW.EASYDNS.COM')
-			tourl = "https://web.easydns.com/Open_Account/";
-		else if (document.form.ddns_server_x.value == 'WWW.NO-IP.COM')
-			tourl = "http://www.no-ip.com/newUser.php";
-		else if (document.form.ddns_server_x.value == 'WWW.DNSOMATIC.COM')
+		if (document.form.ddns_server_x.value == 'default@dnsexit.com')
+			tourl = "https://www.dnsexit.com/Direct.sv?cmd=signup";
+		else if (document.form.ddns_server_x.value == 'default@dnsomatic.com')
 			tourl = "https://www.dnsomatic.com/create/";
-		else if (document.form.ddns_server_x.value == 'WWW.TUNNELBROKER.NET')
-			tourl = "http://www.tunnelbroker.net/register.php";
-		else if (document.form.ddns_server_x.value == 'DNS.HE.NET')
+		else if (document.form.ddns_server_x.value == 'default@dyndns.org')
+			tourl = "https://account.dyn.com/entrance/";
+		else if (document.form.ddns_server_x.value == 'default@dynsip.org')
+			tourl = "http://www.dynsip.org/user/registration.php";
+		else if (document.form.ddns_server_x.value == 'default@easydns.com')
+			tourl = "https://web.easydns.com/Open_Account/";
+		else if (document.form.ddns_server_x.value == 'default@freedns.afraid.org')
+			tourl = "http://freedns.afraid.org/signup/";
+		else if (document.form.ddns_server_x.value == 'dyndns@he.net')
 			tourl = "http://ipv6.he.net/certification/register.php";
-		else if (document.form.ddns_server_x.value == 'WWW.ASUS.COM')
+		else if (document.form.ddns_server_x.value == 'ipv6tb@he.net')
+			tourl = "http://www.tunnelbroker.net/register.php";
+		else if (document.form.ddns_server_x.value == 'default@no-ip.com')
+			tourl = "http://www.no-ip.com/newUser.php";
+		else if (document.form.ddns_server_x.value == 'default@sitelutions.com')
+			tourl = "http://sitelutions.com/signup";
+		else if (document.form.ddns_server_x.value == 'default@tzo.com')
+			tourl = "http://signup.tzo.com";
+		else if (document.form.ddns_server_x.value == 'default@zoneedit.com')
+			tourl = "https://www.zoneedit.com/signUp.html";
+		else if (document.form.ddns_server_x.value == 'update@asus.com')
 			tourl = "http://asusddns.appspot.com/setup.jsp";
 		else
 			return;
@@ -3537,7 +3552,6 @@ function openLink(s)
 	}
 	else if (s=='x_NTPServer1')
 	{
-//		tourl = "http://ntp.isc.org/bin/view/Servers/WebHome";
 		tourl = "http://support.ntp.org/bin/view/Servers/NTPPoolServers";
 
 		link = window.open(tourl, "NTPLink",

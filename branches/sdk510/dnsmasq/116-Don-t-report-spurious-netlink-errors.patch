@@ -1,0 +1,41 @@
+From dfb23b3f7777e63008466906d2247269408ece06 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Tue, 18 Sep 2012 21:44:47 +0100
+Subject: [PATCH 16/20] Don't report spurious netlink errors.
+
+---
+ CHANGELOG     |    3 +++
+ src/netlink.c |    3 ++-
+ 2 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/CHANGELOG b/CHANGELOG
+index 4f8777d..8dbcee9 100644
+--- a/CHANGELOG
++++ b/CHANGELOG
+@@ -13,6 +13,9 @@ version 2.64
+ 	    Fix broken vendor-option processing for BOOTP. Thanks to
+ 	    Hans-Joachim Baader for the bug report.
+ 
++	    Don't report spurious netlink errors, regression in
++	    2.63. Thanks to Vladislav Grishenko for the patch.
++
+ 
+ version 2.63
+             Do duplicate dhcp-host address check in --test mode.
+diff --git a/src/netlink.c b/src/netlink.c
+index 4956fc9..fc9efef 100644
+--- a/src/netlink.c
++++ b/src/netlink.c
+@@ -336,7 +336,8 @@ static int nl_async(struct nlmsghdr *h)
+   if (h->nlmsg_type == NLMSG_ERROR)
+     {
+       struct nlmsgerr *err = NLMSG_DATA(h);
+-      my_syslog(LOG_ERR, _("netlink returns error: %s"), strerror(-(err->error)));
++      if (err->error != 0)
++	my_syslog(LOG_ERR, _("netlink returns error: %s"), strerror(-(err->error)));
+       return 0;
+     }
+   else if (h->nlmsg_pid == 0 && h->nlmsg_type == RTM_NEWROUTE) 
+-- 
+1.7.2.5
+

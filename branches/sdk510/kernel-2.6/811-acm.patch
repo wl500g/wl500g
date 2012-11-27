@@ -636,7 +636,7 @@ diff --git a/drivers/usb/class/cdc-acm.c b/drivers/usb/class/cdc-acm.c
  	dev_info(&intf->dev, "ttyACM%d: USB ACM device\n", minor);
  
  	acm_set_control(acm, acm->ctrlout);
-@@ -1071,22 +1179,19 @@ skip_countries:
+@@ -1071,6 +1179,7 @@ skip_countries:
  	acm_set_line(acm, &acm->line);
  
  	usb_driver_claim_interface(&acm_driver, data_interface, acm);
@@ -644,12 +644,7 @@ diff --git a/drivers/usb/class/cdc-acm.c b/drivers/usb/class/cdc-acm.c
  
  	usb_get_intf(control_interface);
  	tty_register_device(acm_tty_driver, minor, &control_interface->dev);
- 
--#ifdef CONFIG_USB_DEVPATH
--	usb_register_devpath(usb_dev, 0, acm_tty_driver->name, minor);
--#endif
--
- 	acm_table[minor] = acm;
+@@ -1083,10 +1192,10 @@ skip_countries:
  
  	return 0;
  alloc_fail8:

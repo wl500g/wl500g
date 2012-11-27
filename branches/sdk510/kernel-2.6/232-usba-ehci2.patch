@@ -8,27 +8,32 @@ USB: EHCI: Updates from upstream
  2fbe2bf1fd37f9d99950bd8d8093623cf22cf08b EHCI: always clear the STS_FLR status bit
  81463c1d707186adbbe534016cd1249edeab0dac EHCI: only power off port if over-current is active
  631fe9d9d20e28fffdf750d12dd2cd275bd654e9 USB: EHCI: initialize data before resetting hardware
+ 361aabf395e4a23cf554cf4ec0c0c6963b8beb01 USB: EHCI: don't lose events during a scan
+ 3d037774b42ed677f699b1dce7d548d55f4e4c2b EHCI: Update qTD next pointer in QH overlay region during unlink
 
 ---
- drivers/usb/host/ehci-hcd.c   |   26 +++----
+ drivers/usb/host/ehci-hcd.c   |   39 ++++++-----
  drivers/usb/host/ehci-hub.c   |    3 
  drivers/usb/host/ehci-pci.c   |    6 -
- drivers/usb/host/ehci-q.c     |   87 +++++++++++++------------
- drivers/usb/host/ehci.h       |    3 
+ drivers/usb/host/ehci-q.c     |   99 +++++++++++++++--------------
+ drivers/usb/host/ehci.h       |    6 +
  drivers/usb/host/pci-quirks.c |  142 +++++++++++++++++++-----------------------
- 6 files changed, 130 insertions(+), 137 deletions(-)
+ 6 files changed, 152 insertions(+), 143 deletions(-)
 
 diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
 --- a/drivers/usb/host/ehci.h
 +++ b/drivers/usb/host/ehci.h
-@@ -80,6 +80,7 @@ struct ehci_hcd {			/* one per controlle
+@@ -80,7 +80,9 @@ struct ehci_hcd {			/* one per controlle
  	/* async schedule support */
  	struct ehci_qh		*async;
  	struct ehci_qh		*reclaim;
+-	unsigned		scanning : 1;
 +	struct ehci_qh		*qh_scan_next;
- 	unsigned		scanning : 1;
++	bool			scanning:1;
++	bool			need_rescan:1;
  
  	/* periodic schedule support */
+ #define	DEFAULT_I_TDPS		1024		/* some HCs can do less */
 @@ -121,7 +122,6 @@ struct ehci_hcd {			/* one per controlle
  	struct timer_list	iaa_watchdog;
  	struct timer_list	watchdog;
@@ -80,6 +85,30 @@ diff --git a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
  
  		/* If IAA is set here it either legitimately triggered
  		 * before we cleared IAAD above (but _way_ late, so we'll
+@@ -400,13 +400,20 @@ static void ehci_work (struct ehci_hcd *ehci)
+ 	 * it reports urb completions.  this flag guards against bogus
+ 	 * attempts at re-entrant schedule scanning.
+ 	 */
+-	if (ehci->scanning)
++	if (ehci->scanning) {
++		ehci->need_rescan = true;
+ 		return;
+-	ehci->scanning = 1;
++	}
++	ehci->scanning = true;
++
++ rescan:
++	ehci->need_rescan = false;
+ 	scan_async (ehci);
+ 	if (ehci->next_uframe != -1)
+ 		scan_periodic (ehci);
+-	ehci->scanning = 0;
++	if (ehci->need_rescan)
++		goto rescan;
++	ehci->scanning = false;
+ 
+ 	/* the IO watchdog guards against hardware or driver bugs that
+ 	 * misplace IRQs, and should let us run completely without IRQs.
 @@ -716,8 +711,14 @@ static irqreturn_t ehci_irq (struct usb_
  		goto dead;
  	}
@@ -148,6 +177,26 @@ diff --git a/drivers/usb/host/ehci-pci.c b/drivers/usb/host/ehci-pci.c
 diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
 --- a/drivers/usb/host/ehci-q.c
 +++ b/drivers/usb/host/ehci-q.c
+@@ -128,9 +128,17 @@ qh_refresh (struct ehci_hcd *ehci, struct ehci_qh *qh)
+ 	else {
+ 		qtd = list_entry (qh->qtd_list.next,
+ 				struct ehci_qtd, qtd_list);
+-		/* first qtd may already be partially processed */
+-		if (cpu_to_hc32(ehci, qtd->qtd_dma) == qh->hw->hw_current)
++		/*
++		 * first qtd may already be partially processed.
++		 * If we come here during unlink, the QH overlay region
++		 * might have reference to the just unlinked qtd. The
++		 * qtd is updated in qh_completions(). Update the QH
++		 * overlay here.
++		 */
++		if (cpu_to_hc32(ehci, qtd->qtd_dma) == qh->hw->hw_current) {
++			qh->hw->hw_qtd_next = qtd->hw_next;
+ 			qtd = NULL;
++		}
+ 	}
+ 
+ 	if (qtd)
 @@ -1149,6 +1149,8 @@ static void start_unlink_async (struct e
  
  	prev->hw->hw_next = qh->hw->hw_next;

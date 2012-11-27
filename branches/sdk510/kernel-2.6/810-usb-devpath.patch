@@ -20,7 +20,7 @@ diff '-x.*' -urNBp a/drivers/usb/class/usblp.c b/drivers/usb/class/usblp.c
  #endif // U2EC
  
 +#ifdef CONFIG_USB_DEVPATH
-+		usb_register_devpath(dev, usblp->ifnum, "lp", usblp->minor);
++	usb_register_devpath(dev, usblp->ifnum, "lp", usblp->minor);
 +#endif
 +
  	return 0;
@@ -312,14 +312,13 @@ diff '-x.*' -urNBp a/drivers/usb/core/usb.h b/drivers/usb/core/usb.h
 diff '-x.*' -urNBp a/drivers/usb/serial/bus.c b/drivers/usb/serial/bus.c
 --- a/drivers/usb/serial/bus.c	2010-09-04 04:00:00.000000000 +0400
 +++ b/drivers/usb/serial/bus.c	2010-09-04 23:22:59.000000000 +0400
-@@ -68,6 +68,14 @@ static int usb_serial_device_probe (stru
+@@ -68,6 +68,13 @@ static int usb_serial_device_probe (stru
  		 "%s converter now attached to ttyUSB%d\n",
  		 driver->description, minor);
  
 +#ifdef CONFIG_USB_DEVPATH
 +	{
 +		int ifnum = port->serial->interface->cur_altsetting->desc.bInterfaceNumber;
-+
 +		usb_register_devpath(port->serial->dev, ifnum, usb_serial_tty_driver->name, minor);
 +	}
 +#endif
