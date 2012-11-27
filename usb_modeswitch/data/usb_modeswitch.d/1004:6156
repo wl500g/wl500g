@@ -1,9 +1,7 @@
-# Vodafone / ZTE K3770-Z
+# LG LUU-2110TI
 
-TargetVendor=  0x19d2
-TargetProduct= 0x1177
+TargetVendor=  0x1004
+TargetProduct= 0x6157
 
 MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-
 NeedResponse=1
-NoDriverLoading=1

@@ -1,3 +1,15 @@
+20121109:
+    Added devices: Nokia CS-7M-01, LG LUU-2110TI, LG VL600, LG L-03D LTE/3G,
+    Option Beemo/Pantech P4200 LTE, Vodafone/Huawei K3772, Vodafone/Huawei
+    K3773, Huawei E171, Huawei E173s, Huawei E177, Huawei EC156, Huawei
+    E372u-8, Huawei E392u-12, Huawei ET8282, Huawei ET127, ZTE-T A356,
+    ZTE MF192+, ZTE MF190J, Vodafone/ZTE K3770-Z, T-Mobile/ZTE MF591,
+    Aircard 901, ETCOM E300, Archos G9 3G Key, Onda MW833UP, Onda MW836UP-K,
+    Onda MW875UP, Franklin Wireless U600 (Thanks for the contribution of most
+    new devices goes to Nicolas Carrier from the Parrot company);
+    Preparation for future MBIM devices: new "NoMBIMCheck" config parameter,
+    change in modem rules (match devices, not interfaces), best used with
+    usb_modeswitch 1.2.5 and up
 20120815:
     Small target ID addition for Huawei E352
 20120812:
