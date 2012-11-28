@@ -2,10 +2,11 @@
  6144124aac1d4a30ff81842ba1bb0e28373a71c8 wget: make -c _not_ truncate the file
  aacd44860129372e5d4ff1494664317f18cbb615 wget: fix wget-supports--P testsuite failure. Closes 4940
  9c55143bbf4ce24bef093301e46aab15b4a71d69 wget: try reading after poll timeout - stdio may have buffered data. Closes 5426
+ b7812ce0f7ee230330e18de3ac447b700311ab84 wget: reorder fread and poll: poll only if fread returns EAGAIN. Closes 5426
 
 ---
- networking/wget.c |   59 ++++++++++++++++++++++++++++++++++++++++++------------
- 1 file changed, 46 insertions(+), 13 deletions(-)
+ networking/wget.c |  155 ++++++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 100 insertions(+), 55 deletions(-)
 
 diff --git a/networking/wget.c b/networking/wget.c
 --- a/networking/wget.c
@@ -26,7 +27,12 @@ diff --git a/networking/wget.c b/networking/wget.c
  static FILE* prepare_ftp_session(FILE **dfpp, struct host_info *target, len_and_sockaddr *lsa)
  {
  	FILE *sfp;
-@@ -419,6 +428,8 @@ static FILE* prepare_ftp_session(FILE **
+@@ -415,10 +424,12 @@ static FILE* prepare_ftp_session(FILE **
+ 
+ 	*dfpp = open_socket(lsa);
+ 
+-	if (G.beg_range) {
++	if (G.beg_range != 0) {
  		sprintf(G.wget_buf, "REST %"OFF_FMT"u", G.beg_range);
  		if (ftpcmd(G.wget_buf, NULL, sfp) == 350)
  			G.content_len -= G.beg_range;
@@ -35,19 +41,37 @@ diff --git a/networking/wget.c b/networking/wget.c
  	}
  
  	if (ftpcmd("RETR ", target->path, sfp) > 150)
-@@ -448,6 +448,9 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
+@@ -431,7 +442,7 @@ static void NOINLINE retrieve_file_data(
+ {
+ #if ENABLE_FEATURE_WGET_STATUSBAR || ENABLE_FEATURE_WGET_TIMEOUT
+ # if ENABLE_FEATURE_WGET_TIMEOUT
+-	unsigned second_cnt;
++	unsigned second_cnt = G.timeout_seconds;
  # endif
  	struct pollfd polldata;
  
-+# if ENABLE_FEATURE_WGET_TIMEOUT
-+	second_cnt = G.timeout_seconds;
-+# endif
- 	polldata.fd = fileno(dfp);
- 	polldata.events = POLLIN | POLLPRI;
+@@ -452,7 +463,7 @@ static void NOINLINE retrieve_file_data(
+ 		 * which messes up progress bar and/or timeout logic.
+ 		 * Because of nonblocking I/O, we need to dance
+ 		 * very carefully around EAGAIN. See explanation at
+-		 * clearerr() call.
++		 * clearerr() calls.
+ 		 */
+ 		ndelay_on(polldata.fd);
  #endif
-@@ -483,12 +486,7 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
- 			}
+@@ -460,32 +471,7 @@ static void NOINLINE retrieve_file_data(
+ 			int n;
+ 			unsigned rdsz;
  
+-			rdsz = sizeof(G.wget_buf);
+-			if (G.got_clen) {
+-				if (G.content_len < (off_t)sizeof(G.wget_buf)) {
+-					if ((int)G.content_len <= 0)
+-						break;
+-					rdsz = (unsigned)G.content_len;
+-				}
+-			}
+-
  #if ENABLE_FEATURE_WGET_STATUSBAR || ENABLE_FEATURE_WGET_TIMEOUT
 -# if ENABLE_FEATURE_WGET_TIMEOUT
 -			second_cnt = G.timeout_seconds;
@@ -55,39 +79,122 @@ diff --git a/networking/wget.c b/networking/wget.c
 -			while (1) {
 -				if (safe_poll(&polldata, 1, 1000) != 0)
 -					break; /* error, EOF, or data is available */
-+			if (safe_poll(&polldata, 1, 1000) == 0) {
- # if ENABLE_FEATURE_WGET_TIMEOUT
- 				if (second_cnt != 0 && --second_cnt == 0) {
- 					progress_meter(PROGRESS_END);
-@@ -497,6 +495,13 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
- # endif
- 				/* Needed for "stalled" indicator */
- 				progress_meter(PROGRESS_BUMP);
-+				/*
-+				 * We used to loop back to poll here,
-+				 * but in chunked case, we can be here after
-+				 * fgets and it could buffer some data in dfp...
-+				 * which poll knows nothing about!
-+				 * Therefore let's try fread'ing anyway.
-+				 */
- 			}
- 
- 			/* fread internally uses read loop, which in our case
-@@ -527,7 +532,9 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
- 			}
- 
- 			xwrite(G.output_fd, G.wget_buf, n);
+-# if ENABLE_FEATURE_WGET_TIMEOUT
+-				if (second_cnt != 0 && --second_cnt == 0) {
+-					progress_meter(PROGRESS_END);
+-					bb_error_msg_and_die("download timed out");
+-				}
+-# endif
+-				/* Needed for "stalled" indicator */
+-				progress_meter(PROGRESS_BUMP);
+-			}
 -
-+#if ENABLE_FEATURE_WGET_TIMEOUT
-+			second_cnt = G.timeout_seconds;
+ 			/* fread internally uses read loop, which in our case
+ 			 * is usually exited when we get EAGAIN.
+ 			 * In this case, libc sets error marker on the stream.
+@@ -495,36 +481,71 @@ static void NOINLINE retrieve_file_data(
+ 			 * into if (n <= 0) ...
+ 			 */
+ 			clearerr(dfp);
+-			errno = 0;
+ #endif
++			errno = 0;
++			rdsz = sizeof(G.wget_buf);
++			if (G.got_clen) {
++				if (G.content_len < (off_t)sizeof(G.wget_buf)) {
++					if ((int)G.content_len <= 0)
++						break;
++					rdsz = (unsigned)G.content_len;
++				}
++			}
+ 			n = fread(G.wget_buf, 1, rdsz, dfp);
+-			/* man fread:
++
++			if (n > 0) {
++				xwrite(G.output_fd, G.wget_buf, n);
++#if ENABLE_FEATURE_WGET_STATUSBAR
++				G.transferred += n;
 +#endif
- #if ENABLE_FEATURE_WGET_STATUSBAR
- 			G.transferred += n;
- 			progress_meter(PROGRESS_BUMP);
-@@ -542,6 +553,17 @@ static void NOINLINE retrieve_file_data(
- 		G.got_clen = 1;
- 	}
++				if (G.got_clen) {
++					G.content_len -= n;
++					if (G.content_len == 0)
++						break;
++				}
++#if ENABLE_FEATURE_WGET_TIMEOUT
++				second_cnt = G.timeout_seconds;
++#endif
++				continue;
++			}
++
++			/* n <= 0.
++			 * man fread:
+ 			 * If error occurs, or EOF is reached, the return value
+ 			 * is a short item count (or zero).
+ 			 * fread does not distinguish between EOF and error.
+ 			 */
+-			if (n <= 0) {
+-#if ENABLE_FEATURE_WGET_STATUSBAR || ENABLE_FEATURE_WGET_TIMEOUT
+-				if (errno == EAGAIN) /* poll lied, there is no data? */
+-					continue; /* yes */
+-#endif
+-				if (ferror(dfp))
++			if (errno != EAGAIN) {
++				if (ferror(dfp)) {
++					progress_meter(PROGRESS_END);
+ 					bb_perror_msg_and_die(bb_msg_read_error);
++				}
+ 				break; /* EOF, not error */
+ 			}
  
+-			xwrite(G.output_fd, G.wget_buf, n);
+-
+-#if ENABLE_FEATURE_WGET_STATUSBAR
+-			G.transferred += n;
++#if ENABLE_FEATURE_WGET_STATUSBAR || ENABLE_FEATURE_WGET_TIMEOUT
++			/* It was EAGAIN. There is no data. Wait up to one second
++			 * then abort if timed out, or update the bar and try reading again.
++			 */
++			if (safe_poll(&polldata, 1, 1000) == 0) {
++# if ENABLE_FEATURE_WGET_TIMEOUT
++				if (second_cnt != 0 && --second_cnt == 0) {
++					progress_meter(PROGRESS_END);
++					bb_error_msg_and_die("download timed out");
++				}
++# endif
++				/* We used to loop back to poll here,
++				 * but there is no great harm in letting fread
++				 * to try reading anyway.
++				 */
++			}
++			/* Need to do it _every_ second for "stalled" indicator
++			 * to be shown properly.
++			 */
+ 			progress_meter(PROGRESS_BUMP);
+ #endif
+-			if (G.got_clen) {
+-				G.content_len -= n;
+-				if (G.content_len == 0)
+-					break;
+-			}
+-		}
++		} /* while (reading data) */
++
+ #if ENABLE_FEATURE_WGET_STATUSBAR || ENABLE_FEATURE_WGET_TIMEOUT
+ 		clearerr(dfp);
+ 		ndelay_off(polldata.fd); /* else fgets can get very unhappy */
+@@ -540,6 +561,24 @@ static void NOINLINE retrieve_file_data(
+ 		if (G.content_len == 0)
+ 			break; /* all done! */
+ 		G.got_clen = 1;
++		/*
++		 * Note that fgets may result in some data being buffered in dfp.
++		 * We loop back to fread, which will retrieve this data.
++		 * Also note that code has to be arranged so that fread
++		 * is done _before_ one-second poll wait - poll doesn't know
++		 * about stdio buffering and can result in spurious one second waits!
++		 */
++	}
++
 +	/* If -c failed, we restart from the beginning,
 +	 * but we do not truncate file then, we do it only now, at the end.
 +	 * This lets user to ^C if his 99% complete 10 GB file download
@@ -97,12 +204,10 @@ diff --git a/networking/wget.c b/networking/wget.c
 +		off_t pos = lseek(G.output_fd, 0, SEEK_CUR);
 +		if (pos != (off_t)-1)
 +			ftruncate(G.output_fd, pos);
-+	}
-+
+ 	}
+ 
  	/* Draw full bar and free its resources */
- 	G.chunked = 0;  /* makes it show 100% even for chunked download */
- 	G.got_clen = 1; /* makes it show 100% even for download of (formerly) unknown size */
-@@ -597,13 +619,11 @@ static void download_one_url(const char 
+@@ -597,13 +636,11 @@ static void download_one_url(const char 
  		if (G.fname_out[0] == '/' || !G.fname_out[0])
  			G.fname_out = (char*)"index.html";
  		/* -P DIR is considered only if there was no -O FILE */
@@ -120,7 +225,16 @@ diff --git a/networking/wget.c b/networking/wget.c
  		}
  	}
  #if ENABLE_FEATURE_WGET_STATUSBAR
-@@ -742,6 +762,12 @@ However, in real world it was observed t
+@@ -675,7 +712,7 @@ static void download_one_url(const char 
+ 		}
+ #endif
+ 
+-		if (G.beg_range)
++		if (G.beg_range != 0)
+ 			fprintf(sfp, "Range: bytes=%"OFF_FMT"u-\r\n", G.beg_range);
+ 
+ #if ENABLE_FEATURE_WGET_LONG_OPTIONS
+@@ -742,15 +779,23 @@ However, in real world it was observed t
  (e.g. Boa/0.94.14rc21) simply use code 204 when file size is zero.
  */
  		case 204:
@@ -133,5 +247,17 @@ diff --git a/networking/wget.c b/networking/wget.c
  			break;
  		case 300:  /* redirection */
  		case 301:
---
-cgit v0.9.0.1-2-gef13
+ 		case 302:
+ 		case 303:
+ 			break;
+-		case 206:
+-			if (G.beg_range)
++		case 206: /* Partial Content */
++			if (G.beg_range != 0)
++				/* "Range:..." worked. Good. */
+ 				break;
++			/* Partial Content even though we did not ask for it??? */
+ 			/* fall through */
+ 		default:
+ 			bb_error_msg_and_die("server returned error: %s", sanitize_string(G.wget_buf));
+-- 

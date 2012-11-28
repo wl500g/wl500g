@@ -1,0 +1,14 @@
+diff -BurpN dnsmasq.orig/Makefile dnsmasq/Makefile
+--- dnsmasq.orig/Makefile	2012-08-16 19:04:05.000000000 +0600
++++ dnsmasq/Makefile	2012-09-29 18:34:46.823867919 +0600
+@@ -24,8 +24,8 @@ MANDIR        = $(PREFIX)/share/man
+ LOCALEDIR     = $(PREFIX)/share/locale
+ BUILDDIR      = $(SRC)
+ DESTDIR       = 
+-CFLAGS        = -Wall -W -O2
+-LDFLAGS       = 
++CFLAGS        = -Wall -W -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)
++LDFLAGS       = -ffunction-sections -fdata-sections -Wl,--gc-sections
+ COPTS         = 
+ RPM_OPT_FLAGS = 
+ LIBS          = 

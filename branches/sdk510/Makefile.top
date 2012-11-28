@@ -806,7 +806,7 @@ accel-pptp-install: accel-pptp
 	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 
 dnsmasq:
-	$(MAKE) -C $@ CFLAGS="-Os $(EXTRACFLAGS)" COPTS="$(if $(CONFIG_IPV6),-DUSE_IPV6,)"
+	$(MAKE) -C $@ COPTS="$(if $(CONFIG_IPV6),-DUSE_IPV6,)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq

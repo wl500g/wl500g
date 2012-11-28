@@ -1,0 +1,273 @@
+kref: Updates from upstream
+
+ 0d9c25dde878a636ee9a9b53923569171bf9a55b headers: move module_bug_finalize()/module_bug_cleanup() definitions into module.h
+ ecf7ace9a8450303a987aa8364e53860cd50e554 kref: Add a kref_sub function
+ 4af679cd7cbb0a0d8774b5cdb34bffcaa4e86e52 kref: Inline all functions
+ 3c8ed88974472b928489e3943616500ce2ad0cd8 kref: Remove the memory barriers
+ 47dbd7d90ad80edb67822f327241edcab8f3f46f kref: Implement kref_put in terms of kref_sub
+ 6261ddee70174372d6a75601f40719b7a5392f3f kref: fix up the kfree build problems
+ 8ad5db8a8ddbe3bd33078863a027011e28f1f4ee introduce kref_put_mutex()
+
+---
+ include/linux/bug.h    |   12 ------
+ include/linux/kref.h   |   93 ++++++++++++++++++++++++++++++++++++++++++++++---
+ include/linux/module.h |   17 ++++++++
+ lib/Makefile           |    2 -
+ lib/kref.c             |   66 ----------------------------------
+ 5 files changed, 107 insertions(+), 83 deletions(-)
+ delete mode 100644 lib/kref.c
+
+diff --git a/include/linux/bug.h b/include/linux/bug.h
+--- a/include/linux/bug.h
++++ b/include/linux/bug.h
+@@ -1,7 +1,6 @@
+ #ifndef _LINUX_BUG_H
+ #define _LINUX_BUG_H
+ 
+-#include <linux/module.h>
+ #include <asm/bug.h>
+ 
+ enum bug_trap_type {
+@@ -24,10 +23,6 @@ const struct bug_entry *find_bug(unsigned long bugaddr);
+ 
+ enum bug_trap_type report_bug(unsigned long bug_addr);
+ 
+-int  module_bug_finalize(const Elf_Ehdr *, const Elf_Shdr *,
+-			 struct module *);
+-void module_bug_cleanup(struct module *);
+-
+ /* These are defined by the architecture */
+ int is_valid_bugaddr(unsigned long addr);
+ 
+@@ -38,13 +33,6 @@ static inline enum bug_trap_type report_bug(unsigned long bug_addr,
+ {
+ 	return BUG_TRAP_TYPE_BUG;
+ }
+-static inline int  module_bug_finalize(const Elf_Ehdr *hdr,
+-					const Elf_Shdr *sechdrs,
+-					struct module *mod)
+-{
+-	return 0;
+-}
+-static inline void module_bug_cleanup(struct module *mod) {}
+ 
+ #endif	/* CONFIG_GENERIC_BUG */
+ #endif	/* _LINUX_BUG_H */
+diff --git a/include/linux/kref.h b/include/linux/kref.h
+--- a/include/linux/kref.h
++++ b/include/linux/kref.h
+@@ -17,16 +17,101 @@
+ 
+ #ifdef __KERNEL__
+ 
+-#include <linux/types.h>
++#include <linux/bug.h>
+ #include <asm/atomic.h>
++#include <linux/mutex.h>
+ 
+ struct kref {
+ 	atomic_t refcount;
+ };
+ 
+-void kref_init(struct kref *kref);
+-void kref_get(struct kref *kref);
+-int kref_put(struct kref *kref, void (*release) (struct kref *kref));
++/**
++ * kref_init - initialize object.
++ * @kref: object in question.
++ */
++static inline void kref_init(struct kref *kref)
++{
++	atomic_set(&kref->refcount, 1);
++}
++
++/**
++ * kref_get - increment refcount for object.
++ * @kref: object.
++ */
++static inline void kref_get(struct kref *kref)
++{
++	WARN_ON(!atomic_read(&kref->refcount));
++	atomic_inc(&kref->refcount);
++}
++
++/**
++ * kref_sub - subtract a number of refcounts for object.
++ * @kref: object.
++ * @count: Number of recounts to subtract.
++ * @release: pointer to the function that will clean up the object when the
++ *	     last reference to the object is released.
++ *	     This pointer is required, and it is not acceptable to pass kfree
++ *	     in as this function.  If the caller does pass kfree to this
++ *	     function, you will be publicly mocked mercilessly by the kref
++ *	     maintainer, and anyone else who happens to notice it.  You have
++ *	     been warned.
++ *
++ * Subtract @count from the refcount, and if 0, call release().
++ * Return 1 if the object was removed, otherwise return 0.  Beware, if this
++ * function returns 0, you still can not count on the kref from remaining in
++ * memory.  Only use the return value if you want to see if the kref is now
++ * gone, not present.
++ */
++static inline int kref_sub(struct kref *kref, unsigned int count,
++	     void (*release)(struct kref *kref))
++{
++	WARN_ON(release == NULL);
++
++	if (atomic_sub_and_test((int) count, &kref->refcount)) {
++		release(kref);
++		return 1;
++	}
++	return 0;
++}
++
++/**
++ * kref_put - decrement refcount for object.
++ * @kref: object.
++ * @release: pointer to the function that will clean up the object when the
++ *	     last reference to the object is released.
++ *	     This pointer is required, and it is not acceptable to pass kfree
++ *	     in as this function.  If the caller does pass kfree to this
++ *	     function, you will be publicly mocked mercilessly by the kref
++ *	     maintainer, and anyone else who happens to notice it.  You have
++ *	     been warned.
++ *
++ * Decrement the refcount, and if 0, call release().
++ * Return 1 if the object was removed, otherwise return 0.  Beware, if this
++ * function returns 0, you still can not count on the kref from remaining in
++ * memory.  Only use the return value if you want to see if the kref is now
++ * gone, not present.
++ */
++static inline int kref_put(struct kref *kref, void (*release)(struct kref *kref))
++{
++	return kref_sub(kref, 1, release);
++}
++
++static inline int kref_put_mutex(struct kref *kref,
++				 void (*release)(struct kref *kref),
++				 struct mutex *lock)
++{
++	WARN_ON(release == NULL);
++        if (unlikely(!atomic_add_unless(&kref->refcount, -1, 1))) {
++		mutex_lock(lock);
++		if (unlikely(!atomic_dec_and_test(&kref->refcount))) {
++			mutex_unlock(lock);
++			return 0;
++		}
++		release(kref);
++		return 1;
++	}
++	return 0;
++}
+ 
+ #endif /* __KERNEL__ */
+ #endif /* _KREF_H_ */
+diff --git a/include/linux/module.h b/include/linux/module.h
+--- a/include/linux/module.h
++++ b/include/linux/module.h
+@@ -697,4 +697,21 @@ static inline void module_remove_modinfo_attrs(struct module *mod)
+ 
+ #define __MODULE_STRING(x) __stringify(x)
+ 
++
++#ifdef CONFIG_GENERIC_BUG
++int  module_bug_finalize(const Elf_Ehdr *, const Elf_Shdr *,
++			 struct module *);
++void module_bug_cleanup(struct module *);
++
++#else	/* !CONFIG_GENERIC_BUG */
++
++static inline int  module_bug_finalize(const Elf_Ehdr *hdr,
++					const Elf_Shdr *sechdrs,
++					struct module *mod)
++{
++	return 0;
++}
++static inline void module_bug_cleanup(struct module *mod) {}
++#endif	/* CONFIG_GENERIC_BUG */
++
+ #endif /* _LINUX_MODULE_H */
+diff --git a/lib/Makefile b/lib/Makefile
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -17,7 +17,7 @@ lib-y := ctype.o string.o vsprintf.o cmdline.o \
+ lib-$(CONFIG_MMU) += ioremap.o
+ lib-$(CONFIG_SMP) += cpumask.o
+ 
+-lib-y	+= kobject.o kref.o kobject_uevent.o klist.o
++lib-y	+= kobject.o kobject_uevent.o  klist.o
+ 
+ obj-y += div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+ 	 bust_spinlocks.o hexdump.o
+diff --git a/lib/kref.c b/lib/kref.c
+deleted file mode 100644
+--- a/lib/kref.c
++++ /dev/null
+@@ -1,66 +0,0 @@
+-/*
+- * kref.c - library routines for handling generic reference counted objects
+- *
+- * Copyright (C) 2004 Greg Kroah-Hartman <greg@kroah.com>
+- * Copyright (C) 2004 IBM Corp.
+- *
+- * based on lib/kobject.c which was:
+- * Copyright (C) 2002-2003 Patrick Mochel <mochel@osdl.org>
+- *
+- * This file is released under the GPLv2.
+- *
+- */
+-
+-#include <linux/kref.h>
+-#include <linux/module.h>
+-
+-/**
+- * kref_init - initialize object.
+- * @kref: object in question.
+- */
+-void kref_init(struct kref *kref)
+-{
+-	atomic_set(&kref->refcount,1);
+-	smp_mb();
+-}
+-
+-/**
+- * kref_get - increment refcount for object.
+- * @kref: object.
+- */
+-void kref_get(struct kref *kref)
+-{
+-	WARN_ON(!atomic_read(&kref->refcount));
+-	atomic_inc(&kref->refcount);
+-	smp_mb__after_atomic_inc();
+-}
+-
+-/**
+- * kref_put - decrement refcount for object.
+- * @kref: object.
+- * @release: pointer to the function that will clean up the object when the
+- *	     last reference to the object is released.
+- *	     This pointer is required, and it is not acceptable to pass kfree
+- *	     in as this function.
+- *
+- * Decrement the refcount, and if 0, call release().
+- * Return 1 if the object was removed, otherwise return 0.  Beware, if this
+- * function returns 0, you still can not count on the kref from remaining in
+- * memory.  Only use the return value if you want to see if the kref is now
+- * gone, not present.
+- */
+-int kref_put(struct kref *kref, void (*release)(struct kref *kref))
+-{
+-	WARN_ON(release == NULL);
+-	WARN_ON(release == (void (*)(struct kref *))kfree);
+-
+-	if (atomic_dec_and_test(&kref->refcount)) {
+-		release(kref);
+-		return 1;
+-	}
+-	return 0;
+-}
+-
+-EXPORT_SYMBOL(kref_init);
+-EXPORT_SYMBOL(kref_get);
+-EXPORT_SYMBOL(kref_put);
+-- 

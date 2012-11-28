@@ -15,8 +15,6 @@
 #ifndef MM_H
 #define MM_H
 
-#include <linux/config.h>
-
 #if defined(CONFIG_SMP) && !defined(__SMP__)
 #define __SMP__
 #endif

@@ -736,6 +736,7 @@ typedef struct wlc_iov_trx_s {
 
 #define	WLC_IOCTL_MAXLEN	8192		/* max length ioctl buffer required */
 #define	WLC_IOCTL_SMLEN		256		/* "small" length ioctl buffer required */
+#define WLC_IOCTL_MEDLEN		1536    /* "med" length ioctl buffer required */
 #define WLC_SAMPLECOLLECT_MAXLEN	10240	/* Max Sample Collect buffer for two cores */
 
 /* common ioctl definitions */
