@@ -1,0 +1,55 @@
+[4.6 Regression] ICE: SIGSEGV in substitute_and_fold with -O2 -fno-tree-fre
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=55331
+
+--- gcc-4_7-branch/gcc/ChangeLog	2012/11/27 09:20:02	193839
++++ gcc-4_7-branch/gcc/ChangeLog	2012/11/27 09:23:15	193840
+@@ -1,3 +1,9 @@
++2012-11-27  Richard Biener  <rguenther@suse.de>
++
++	PR middle-end/55331
++	* gimple-fold.c (gimplify_and_update_call_from_tree): Replace
++	stmt with a NOP instead of removing it.
++
+ 2012-11-07  Eric Botcazou  <ebotcazou@adacore.com>
+ 
+ 	PR middle-end/55219
+--- gcc-4_7-branch/gcc/gimple-fold.c	2012/11/27 09:20:02	193839
++++ gcc-4_7-branch/gcc/gimple-fold.c	2012/11/27 09:23:15	193840
+@@ -572,7 +572,7 @@
+ 	      unlink_stmt_vdef (stmt);
+ 	      release_defs (stmt);
+ 	    }
+-	  gsi_remove (si_p, true);
++	  gsi_replace (si_p, gimple_build_nop (), true);
+ 	  return;
+ 	}
+     }
+--- gcc-4_7-branch/gcc/testsuite/ChangeLog	2012/11/27 09:20:02	193839
++++ gcc-4_7-branch/gcc/testsuite/ChangeLog	2012/11/27 09:23:15	193840
+@@ -1,3 +1,8 @@
++2012-11-27  Richard Biener  <rguenther@suse.de>
++
++	PR middle-end/55331
++	* g++.dg/opt/pr55331.C: New testcase.
++
+ 2012-11-07  Eric Botcazou  <ebotcazou@adacore.com>
+ 
+ 	* gcc.c-torture/compile/20121107-1.c: New test.
+--- /dev/null
++++ gcc-4_7-branch/gcc/testsuite/g++.dg/opt/pr55331.C	2012/11/27 09:23:15	193840
+@@ -0,0 +1,14 @@
++// PR tree-optimization/55331
++// { dg-do compile }
++// { dg-options "-O2 -fno-tree-fre" }
++
++struct A {};
++
++void
++foo (A *p, bool x)
++{
++  A a;
++  char *e = (char *) (&a + 1);
++  if (x)
++    __builtin_memmove (p, &a, e - (char *) &a);
++}
