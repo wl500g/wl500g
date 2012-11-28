@@ -28,6 +28,7 @@ e12f8e29a8526172b7715881503bae636d60bdd8 netfilter: vmalloc_node cleanup
 42046e2e45c109ba703993c510401a11f716c8df netfilter: x_tables: return -ENOENT for non-existant matches/targets
 e5afbba1869a5d9509c61f8962be9bdebf95f7d3 netfilter: iptables: remove unused datalen variable
 b169f6db40605d0907458d1ff78ceac2b194a44f netfilter: ip6table_mangle: Fix set-but-unused variables.
+82e6bfe2fbc4d48852114c4f979137cd5bf1d1a8 netfilter: xt_limit: have r->cost != 0 case work
 
 ---
  include/linux/netfilter/x_tables.h        |  142 +++++++++++++++++++-
@@ -1710,13 +1711,15 @@ diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
 +
 +	/* For SMP, we only want to use one set of state. */
 +	r->master = priv;
++	/* User avg in seconds * XT_LIMIT_SCALE: convert to jiffies *
++	   128. */
++	priv->prev = jiffies;
++	priv->credit = user2credits(r->avg * r->burst); /* Credits full. */
  	if (r->cost == 0) {
- 		/* User avg in seconds * XT_LIMIT_SCALE: convert to jiffies *
- 		   128. */
+-		/* User avg in seconds * XT_LIMIT_SCALE: convert to jiffies *
+-		   128. */
 -		r->prev = jiffies;
 -		r->credit = user2credits(r->avg * r->burst);	 /* Credits full. */
-+		priv->prev = jiffies;
-+		priv->credit = user2credits(r->avg * r->burst); /* Credits full. */
  		r->credit_cap = user2credits(r->avg * r->burst); /* Credits full. */
  		r->cost = user2credits(r->avg);
  	}

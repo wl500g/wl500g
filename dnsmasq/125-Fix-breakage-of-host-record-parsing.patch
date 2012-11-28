@@ -1,0 +1,46 @@
+From e4807d8bb253dc9fbc377f7102edffe17238de88 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Thu, 27 Sep 2012 21:52:26 +0100
+Subject: [PATCH 25/25]  Fix breakage of --host-record parsing.
+
+---
+ CHANGELOG    |    4 ++++
+ src/option.c |    6 +++---
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/CHANGELOG b/CHANGELOG
+index 32ecb62..bc0869a 100644
+--- a/CHANGELOG
++++ b/CHANGELOG
+@@ -28,6 +28,10 @@ version 2.64
+ 	    Add --max-cache-ttl option. Thanks to Dennis Kaarsemaker
+ 	    for the patch.
+ 
++	    Fix breakage of --host-record parsing, resulting in
++	    infinte loop at startup. Regression in 2.63. Thanks to
++	    Haim Gelfenbeyn for spotting this.
++
+ 	    
+ version 2.63
+             Do duplicate dhcp-host address check in --test mode.
+diff --git a/src/option.c b/src/option.c
+index 91bf59e..8c7bfbf 100644
+--- a/src/option.c
++++ b/src/option.c
+@@ -3164,10 +3164,10 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
+ 		    for (tmp = new->names; tmp->next; tmp = tmp->next);
+ 		    tmp->next = nl;
+ 		  }
+-		
+-		arg = comma;
+-		comma = split(arg);
+ 	      }
++	    
++	    arg = comma;
++	    comma = split(arg);
+ 	  }
+ 
+ 	/* Keep list order */
+-- 
+1.7.2.5
+

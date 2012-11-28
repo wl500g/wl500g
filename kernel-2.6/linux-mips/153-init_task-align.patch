@@ -1,0 +1,130 @@
+MIPS: Properly align the .data..init_task section.
+
+ 99502d94c3649c5c5e6e81e323caf422a2f1591c MIPS: make page.h constants available to assembly.
+ a0b54e256d513ed99e456bea6e4e188ff92e7c46 MIPS: Use PAGE_SIZE in assembly instead of _PAGE_SIZE.
+ 7b1c0d26a8e272787f0f9fcc5f3e8531df3b3409 MIPS: Properly align the .data..init_task section.
+
+---
+ arch/mips/kernel/asm-offsets.c |    3 ---
+ arch/mips/kernel/vmlinux.lds.S |   16 +++++++++-------
+ include/asm-mips/page.h        |    3 ++-
+ include/asm-mips/thread_info.h |    4 ++--
+ 4 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/arch/mips/kernel/asm-offsets.c b/arch/mips/kernel/asm-offsets.c
+--- a/arch/mips/kernel/asm-offsets.c
++++ b/arch/mips/kernel/asm-offsets.c
+@@ -222,9 +222,6 @@ void output_mm_defines(void)
+ 	offset("#define MM_PGD        ", struct mm_struct, pgd);
+ 	offset("#define MM_CONTEXT    ", struct mm_struct, context);
+ 	linefeed;
+-	constant("#define _PAGE_SIZE     ", PAGE_SIZE);
+-	constant("#define _PAGE_SHIFT    ", PAGE_SHIFT);
+-	linefeed;
+ 	constant("#define _PGD_T_SIZE    ", sizeof(pgd_t));
+ 	constant("#define _PMD_T_SIZE    ", sizeof(pmd_t));
+ 	constant("#define _PTE_T_SIZE    ", sizeof(pte_t));
+diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
+--- a/arch/mips/kernel/vmlinux.lds.S
++++ b/arch/mips/kernel/vmlinux.lds.S
+@@ -1,4 +1,6 @@
+ #include <asm/asm-offsets.h>
++#include <asm/page.h>
++#include <asm/thread_info.h>
+ #include <asm-generic/vmlinux.lds.h>
+ 
+ #undef mips
+@@ -69,7 +71,7 @@ SECTIONS
+      * arch/mips/kernel/init_task.c:30: warning: alignment of ‘init_thread_union’
+      * is greater than maximum object file alignment.  Using 32768
+      */
+-    . = ALIGN(_PAGE_SIZE);
++    . = ALIGN(THREAD_SIZE);
+     *(.data.init_task)
+ 
+     DATA_DATA
+@@ -84,10 +86,10 @@ SECTIONS
+      we can shorten the on-disk segment size.  */
+   .sdata     : { *(.sdata) }
+ 
+-  . = ALIGN(_PAGE_SIZE);
++  . = ALIGN(PAGE_SIZE);
+   __nosave_begin = .;
+   .data_nosave : { *(.data.nosave) }
+-  . = ALIGN(_PAGE_SIZE);
++  . = ALIGN(PAGE_SIZE);
+   __nosave_end = .;
+ 
+   . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
+@@ -100,7 +102,7 @@ SECTIONS
+   _edata =  .;			/* End of data section */
+ 
+   /* will be freed after init */
+-  . = ALIGN(_PAGE_SIZE);		/* Init code and data */
++  . = ALIGN(PAGE_SIZE);		/* Init code and data */
+   __init_begin = .;
+   .init.text : {
+ 	_sinittext = .;
+@@ -128,16 +130,16 @@ SECTIONS
+   .exit.text : { *(.exit.text) }
+   .exit.data : { *(.exit.data) }
+ #if defined(CONFIG_BLK_DEV_INITRD)
+-  . = ALIGN(_PAGE_SIZE);
++  . = ALIGN(PAGE_SIZE);
+   __initramfs_start = .;
+   .init.ramfs : { *(.init.ramfs) }
+   __initramfs_end = .;
+ #endif
+-  . = ALIGN(_PAGE_SIZE);
++  . = ALIGN(PAGE_SIZE);
+   __per_cpu_start = .;
+   .data.percpu  : { *(.data.percpu) }
+   __per_cpu_end = .;
+-  . = ALIGN(_PAGE_SIZE);
++  . = ALIGN(PAGE_SIZE);
+   __init_end = .;
+   /* freed after init ends here */
+ 
+diff --git a/include/asm-mips/page.h b/include/asm-mips/page.h
+--- a/include/asm-mips/page.h
++++ b/include/asm-mips/page.h
+@@ -10,6 +10,7 @@
+ #define _ASM_PAGE_H
+ 
+ #include <spaces.h>
++#include <linux/const.h>
+ 
+ /*
+  * PAGE_SHIFT determines the page size
+@@ -29,7 +30,7 @@
+ #ifdef CONFIG_PAGE_SIZE_64KB
+ #define PAGE_SHIFT	16
+ #endif
+-#define PAGE_SIZE	(1UL << PAGE_SHIFT)
++#define PAGE_SIZE	(_AC(1,UL) << PAGE_SHIFT)
+ #define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
+ 
+ #ifndef __ASSEMBLY__
+ 
+diff --git a/include/asm-mips/thread_info.h b/include/asm-mips/thread_info.h
+--- a/include/asm-mips/thread_info.h
++++ b/include/asm-mips/thread_info.h
+@@ -60,6 +60,8 @@ struct thread_info {
+ register struct thread_info *__current_thread_info __asm__("$28");
+ #define current_thread_info()  __current_thread_info
+ 
++#endif /* !__ASSEMBLY__ */
++
+ /* thread information allocation */
+ #if defined(CONFIG_PAGE_SIZE_4KB) && defined(CONFIG_32BIT)
+ #define THREAD_SIZE_ORDER (1)
+@@ -95,8 +97,6 @@ register struct thread_info *__current_thread_info __asm__("$28");
+ 
+ #define free_thread_info(info) kfree(info)
+ 
+-#endif /* !__ASSEMBLY__ */
+-
+ #define PREEMPT_ACTIVE		0x10000000
+ 
+ /*
+-- 

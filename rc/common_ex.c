@@ -520,10 +520,6 @@ void convert_asus_values()
 		nvram_set("wan0_pppoe_ac", nvram_safe_get("wan_pppoe_ac"));
 		nvram_set("wan0_pppoe_options_x", nvram_safe_get("wan_pppoe_options_x"));
 		nvram_set("wan0_pptp_options_x", nvram_safe_get("wan_pptp_options_x"));
-#ifdef REMOVE
-		nvram_set("wan0_pppoe_demand", "1");
-		nvram_set("wan0_pppoe_keepalive", "1");
-#endif
 		nvram_set("wan0_pppoe_ipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_pppoe_netmask", 
 			ip_addr(nvram_safe_get("wan_ipaddr")) &&

@@ -93,45 +93,6 @@ static char *protoflag_conv(char *proto_name, int idx, int isFlag)
 	return (g_buf_alloc(g_buf));
 }
 
-#ifdef REMOVE
-char *portrange_ex_conv(char *port_name, int idx)
-{
-	char *port, *strptr;
-	char itemname_arr[32];
-	
-	sprintf(itemname_arr,"%s%d", port_name, idx);
-	port=nvram_get(itemname_arr);
-
-	strcpy(g_buf, "");
-	
-	if (!strncmp(port, ">", 1)) {
-		sprintf(g_buf, "%d-65535", atoi(port+1) + 1);
-	}
-	else if (!strncmp(port, "=", 1)) {
-		sprintf(g_buf, "%d-%d", atoi(port+1), atoi(port+1));
-	}
-	else if (!strncmp(port, "<", 1)) {
-		sprintf(g_buf, "1-%d", atoi(port+1) - 1);
-	}
-	else if ((strptr=strchr(port, ':')) != NULL)
-	{		
-		strcpy(itemname_arr, port);
-		strptr = strchr(itemname_arr, ':');
-		sprintf(g_buf, "%d-%d", atoi(itemname_arr), atoi(strptr+1));		
-	}
-	else if (*port)
-	{
-		sprintf(g_buf, "%d-%d", atoi(port), atoi(port));
-	}
-	else
-	{
-		g_buf[0] = 0;
-	}
-	
-	return(g_buf_alloc(g_buf));
-}
-#endif
-
 static char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 {
 	char *port, *strptr;
@@ -192,50 +153,6 @@ static char *portrange_conv(char *port_name, int idx)
 	
 	return(g_buf_alloc(g_buf));
 }
-
-#ifdef REMOVE
-char *iprange_conv(char *ip_name, int idx)
-{
-	char *ip;
-	char itemname_arr[32];
-	char startip[16], endip[16];
-	int i, j, k;
-	
-	sprintf(itemname_arr,"%s%d", ip_name, idx);
-	ip=nvram_safe_get(itemname_arr);
-	strcpy(g_buf, "");
-	
-	// scan all ip string
-	i=j=k=0;
-	
-	while (*(ip+i))
-	{
-		if (*(ip+i)=='*') 
-		{
-			startip[j++] = '1';
-			endip[k++] = '2';
-			endip[k++] = '5';
-			endip[k++] = '4';
-			// 255 is for broadcast
-		}
-		else 
-		{
-			startip[j++] = *(ip+i);
-			endip[k++] = *(ip+i);
-		}
-		i++;
-	}	
-	
-	startip[j++] = 0;
-	endip[k++] = 0;
-
-	if (strcmp(startip, endip)==0)
-		sprintf(g_buf, "%s", startip);
-	else
-		sprintf(g_buf, "%s-%s", startip, endip);
-	return(g_buf_alloc(g_buf));
-}
-#endif
 
 static char *iprange_ex_conv(char *ip_name, int idx)
 {
@@ -1352,41 +1269,6 @@ int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if
 
 	return 0;
 }
-
-#ifdef REMOVE
-portmapping_main(int argc, char *argv[])
-{	
-	char actionname[32], portname[32], ipname[32];
-	// Check wan interface
-	// argv[1] = Set or Unset	
-	// argv[2] = Port
-	// argv[3] = IP
-	// argv[4] = Item
-	sprintf(actionname, "4_MappedAction_%S", argv[4]);
-	sprintf(ipname, "4_MappedIP_%s", argv[4]);
-	sprintf(portname, "4_MappedInPort_%s", argv[4]); 
-	
-	if (strcmp(argv[1], "Set")==0)
-	{		
-		nvram_set(actionname, argv[1]);
-		nvram_set(portname, argv[2]);
-		nvram_set(ipname, argv[3]);
-	}
-	else
-	{
-		nvram_set(actionname, argv[1]);
-	}
-	
-	if (nvram_match("wan_proto", "pppoe"))
-	{
-		start_firewall_ex("ppp0", "", "br0", "");
-	}	
-	else
-	{
-		start_firewall_ex("eth0", "", "br0", "");
-	}		
-}
-#endif	
 
 void convert_routes(int unit)
 {
