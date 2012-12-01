@@ -9,11 +9,12 @@ netfilter: nf_conntrack_tcp: Updates from upstream
  c4832c7bbc3f7a4813347e871d7238651bf437d3 netfilter: nf_ct_tcp: improve out-of-sync situation in TCP tracking
  4a5cc84ae7e19fb7a72a30332ba67af43e0ad1ad netfilter: nf_ct_tcp: fix incorrect handling of invalid TCP option
  bb9fc37358ffa9de1cc2b2b6f1a559b926ef50d9 netfilter: nf_ct_tcp: wrong multiplication of TCPOLEN_TSTAMP_ALIGNED in tcp_sack skips fastpath
+ 4a70bbfaef0361d27272629d1a250a937edcafe4 netfilter: Validate the sequence number of dataless ACK packets as well
 
 ---
  include/linux/netfilter/nf_conntrack_tcp.h |   13 +
- net/netfilter/nf_conntrack_proto_tcp.c     |  269 ++++++++++++++++++-----------
- 2 files changed, 187 insertions(+), 95 deletions(-)
+ net/netfilter/nf_conntrack_proto_tcp.c     |  279 ++++++++++++++++++-----------
+ 2 files changed, 189 insertions(+), 103 deletions(-)
 
 diff -urBp a/include/linux/netfilter/nf_conntrack_tcp.h b/include/linux/netfilter/nf_conntrack_tcp.h
 --- a/include/linux/netfilter/nf_conntrack_tcp.h	2008-02-26 02:59:40.000000000 +0300
@@ -371,6 +372,24 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		} else {
  			/*
  			 * We are in the middle of a connection,
+@@ -625,15 +625,9 @@ static bool tcp_in_window(const struct nf_conn *ct,
+ 		ack = sack = receiver->td_end;
+ 	}
+ 
+-	if (seq == end
+-	    && (!tcph->rst
+-		|| (seq == 0 && state->state == TCP_CONNTRACK_SYN_SENT)))
++	if (tcph->rst && seq == 0 && state->state == TCP_CONNTRACK_SYN_SENT)
+ 		/*
+-		 * Packets contains no data: we assume it is valid
+-		 * and check the ack value only.
+-		 * However RST segments are always validated by their
+-		 * SEQ number, except when seq == 0 (reset sent answering
+-		 * SYN.
++		 * RST sent answering SYN.
+ 		 */
+ 		seq = end = sender->td_end;
+ 
 @@ -670,8 +678,18 @@ static int tcp_in_window(struct nf_conn 
  		swin = win + (sack - ack);
  		if (sender->td_maxwin < swin)
