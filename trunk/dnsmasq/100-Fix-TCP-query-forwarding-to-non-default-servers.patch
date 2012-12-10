@@ -1,0 +1,40 @@
+From ee86ce68fc6ba371c3368c31aa548c635757270e Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Fri, 7 Dec 2012 11:54:46 +0000
+Subject: [PATCH] Fix TCP query forwarding to non-default servers.
+
+---
+ CHANGELOG     |    5 +++++
+ src/forward.c |    3 ++-
+ 2 files changed, 7 insertions(+), 1 deletions(-)
+
+diff --git a/CHANGELOG b/CHANGELOG
+index b98bc3b..2a2c6c1 100644
+--- a/CHANGELOG
++++ b/CHANGELOG
+@@ -1,3 +1,8 @@
++version 2.65
++	    Fix regression which broke forwarding of queries sent via
++	    TCP which are not for A and AAAA and which were directed to
++	    non-default servers. Thanks to Niax for the bug report.
++
+ version 2.64
+             Handle DHCP FQDN options with all flag bits zero and
+             --dhcp-client-update set. Thanks to Bernd Krumbroeck for
+diff --git a/src/forward.c b/src/forward.c
+index 5fc9595..e93aada 100644
+--- a/src/forward.c
++++ b/src/forward.c
+@@ -849,7 +849,8 @@ unsigned char *tcp_request(int confd, time_t now,
+   int norebind = 0;
+   int checking_disabled;
+   size_t m;
+-  unsigned short qtype, gotname;
++  unsigned short qtype;
++  unsigned int gotname;
+   unsigned char c1, c2;
+   /* Max TCP packet + slop */
+   unsigned char *packet = whine_malloc(65536 + MAXDNAME + RRFIXEDSZ);
+-- 
+1.7.2.5
+
