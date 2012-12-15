@@ -103,7 +103,7 @@ typedef struct di_fcn_s {
  */
 /* export structure */
 struct hnddma_pub {
-	di_fcn_t	di_fn;		/* DMA function pointers */
+	const di_fcn_t	*di_fn;		/* DMA function pointers */
 	uint		txavail;	/* # free tx descriptors */
 	uint		dmactrlflags;	/* dma control flags */
 

@@ -427,8 +427,7 @@ chipdetach(ch_t *ch)
 	ch->sih = NULL;
 
 	/* free vars */
-	if (ch->vars)
-		MFREE(ch->osh, ch->vars, ch->vars_size);
+	MFREE(ch->osh, ch->vars, ch->vars_size);
 
 	/* free chip private state */
 	MFREE(ch->osh, ch, sizeof(ch_t));

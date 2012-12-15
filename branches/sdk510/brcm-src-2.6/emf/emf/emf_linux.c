@@ -29,6 +29,8 @@
 #include <emf/emf/emfc_export.h>
 #include "emf_linux.h"
 
+MODULE_LICENSE("Proprietary");
+
 static struct nf_hook_ops emf_nf_ops[] =
 {
 	{

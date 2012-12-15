@@ -398,15 +398,15 @@ et_free(et_info_t *et)
 	if (et->dev && et->dev->irq)
 		free_irq(et->dev->irq, et);
 
-	if (et->dev) {
+	if (et->dev && et->dev->reg_state != NETREG_UNINITIALIZED) {
 		unregister_netdev(et->dev);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 		free_netdev(et->dev);
 #else
 		MFREE(et->osh, et->dev, sizeof(struct net_device));
 #endif
-		et->dev = NULL;
 	}
+	et->dev = NULL;
 
 	/* free common resources */
 	if (et->etc) {
