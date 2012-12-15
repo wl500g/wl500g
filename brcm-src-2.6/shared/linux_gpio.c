@@ -29,11 +29,7 @@ static si_t *gpio_sih;
 
 /* major number assigned to the device and device handles */
 static int gpio_major;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 static struct class *gpiodev_class = NULL;
-#else
-devfs_handle_t gpiodev_handle;
-#endif
 
 static int
 gpio_open(struct inode *inode, struct file * file)
@@ -102,13 +98,8 @@ gpio_init(void)
 	if (!(gpio_sih = si_kattach(SI_OSH)))
 		return -ENODEV;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 	if ((gpio_major = register_chrdev(0, "gpio", &gpio_fops)) < 0)
-#else
-	if ((gpio_major = devfs_register_chrdev(0, "gpio", &gpio_fops)) < 0)
-#endif
 		return gpio_major;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 	gpiodev_class = class_create(THIS_MODULE, "gpio");
 	if (IS_ERR(gpiodev_class)) {
 		printk("Error creating gpio class\n");
@@ -117,11 +108,6 @@ gpio_init(void)
 
 	/* Add the device gpio0 */
 	class_device_create(gpiodev_class, NULL, MKDEV(gpio_major, 0), NULL, "gpio");
-#else
-	gpiodev_handle = devfs_register(NULL, "gpio", DEVFS_FL_DEFAULT,
-	                                gpio_major, 0, S_IFCHR | S_IRUGO | S_IWUGO,
-	                                &gpio_fops, NULL);
-#endif
 
 	return 0;
 }
@@ -129,7 +115,6 @@ gpio_init(void)
 static void __exit
 gpio_exit(void)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 	if (gpiodev_class != NULL) {
 		class_device_destroy(gpiodev_class, MKDEV(gpio_major, 0));
 		class_destroy(gpiodev_class);
@@ -138,12 +123,6 @@ gpio_exit(void)
 	gpiodev_class = NULL;
 	if (gpio_major >= 0)
 		unregister_chrdev(gpio_major, "gpio");
-#else
-	if (gpiodev_handle != NULL)
-		devfs_unregister(gpiodev_handle);
-	gpiodev_handle = NULL;
-	devfs_unregister_chrdev(gpio_major, "gpio");
-#endif
 	si_detach(gpio_sih);
 }
 

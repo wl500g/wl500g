@@ -1114,6 +1114,13 @@ vlan_setup:
 			 (3 << 14));	/* Pri 7 mapped to TXQ 3 */
 		robo->ops->write_reg(robo, 0x30, 0x62, &val16, sizeof(val16));
 
+		/* Drop reserved bit, if any */
+		robo->ops->read_reg(robo, PAGE_CTRL, 0x2f, &val8, sizeof(val8));
+		if (val8 & (1 << 1)) {
+			val8 &= ~(1 << 1);
+			robo->ops->write_reg(robo, PAGE_CTRL, 0x2f, &val8, sizeof(val8));
+		}
+
 		/* Jumbo Frame control refister (Page 0x40, Address 0x01 */
 		if (nvram_match("jumbo_frame_enable", "1")) {
 			val16 = (( 1 << 0) |

@@ -10,6 +10,6 @@ diff --git src/et.orig/sys/et_linux.c src/et/sys/et_linux.c
 +
 +	SET_MODULE_OWNER(dev);
 +	SET_NETDEV_DEV(dev, &pdev->dev);
- #else
- 	if (!(dev = (struct net_device *) MALLOC(osh, sizeof(struct net_device)))) {
- 		ET_ERROR(("%s: out of memory, malloced %d bytes\n", __func__,
+ 
+ 	/* allocate private info */
+ 	if ((et = (et_info_t *)MALLOC(osh, sizeof(et_info_t))) == NULL) {
