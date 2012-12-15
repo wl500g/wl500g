@@ -1,12 +1,15 @@
 diff '-x.*' -urNBp a/drivers/usb/class/cdc-acm.c b/drivers/usb/class/cdc-acm.c
 --- a/drivers/usb/class/cdc-acm.c	2010-07-16 21:54:37.000000000 +0400
-+++ b/drivers/usb/class/cdc-acm.c	2010-09-04 23:23:15.000000000 +0400
-@@ -1075,6 +1075,10 @@ skip_countries:
++++ b/drivers/usb/class/cdc-acm.c	2012-11-30 21:10:00.000000000 +0400
+@@ -1075,6 +1075,13 @@ skip_countries:
  	usb_get_intf(control_interface);
  	tty_register_device(acm_tty_driver, minor, &control_interface->dev);
  
 +#ifdef CONFIG_USB_DEVPATH
-+	usb_register_devpath(usb_dev, 0, acm_tty_driver->name, minor);
++	{
++		int ifnum = control_interface->cur_altsetting->desc.bInterfaceNumber;
++		usb_register_devpath(usb_dev, ifnum, acm_tty_driver->name, minor);
++	}
 +#endif
 +
  	acm_table[minor] = acm;

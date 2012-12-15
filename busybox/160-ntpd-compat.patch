@@ -56,7 +56,7 @@ diff -urBp a/networking/ntpd.c b/networking/ntpd.c
  	opts = getopt32(argv,
  			"nqNx" /* compat */
 -			"wp:S:"IF_FEATURE_NTPD_SERVER("l") /* NOT compat */
-+			"wtp:S:"IF_FEATURE_NTPD_SERVER("l") /* NOT compat */
++			"wp:S:t"IF_FEATURE_NTPD_SERVER("l") /* NOT compat */
  			"d" /* compat */
  			"46aAbgL", /* compat, ignored */
  			&peers, &G.script_name, &G.verbose);

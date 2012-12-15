@@ -177,7 +177,8 @@ maxfail $maxfail
 nodetach
 persist
 unit $iface
-novj nobsdcomp novjccomp nopcomp noaccomp" > "${peers_path}${wan_pref}pppd"
+novj nobsdcomp novjccomp" > "${peers_path}${wan_pref}pppd"
+# nopcomp noaccomp
 
 	[ -z "$user" ] || echo "user '$user'" >> "${peers_path}${wan_pref}pppd"
 	[ -z "$pass" ] || echo "password '$pass'" >> "${peers_path}${wan_pref}pppd"

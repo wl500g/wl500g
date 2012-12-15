@@ -9,11 +9,13 @@ netfilter: nf_conntrack_tcp: Updates from upstream
  c4832c7bbc3f7a4813347e871d7238651bf437d3 netfilter: nf_ct_tcp: improve out-of-sync situation in TCP tracking
  4a5cc84ae7e19fb7a72a30332ba67af43e0ad1ad netfilter: nf_ct_tcp: fix incorrect handling of invalid TCP option
  bb9fc37358ffa9de1cc2b2b6f1a559b926ef50d9 netfilter: nf_ct_tcp: wrong multiplication of TCPOLEN_TSTAMP_ALIGNED in tcp_sack skips fastpath
+ 4a70bbfaef0361d27272629d1a250a937edcafe4 netfilter: Validate the sequence number of dataless ACK packets as well
+ 64f509ce71b08d037998e93dd51180c19b2f464c netfilter: Mark SYN/ACK packets as invalid from original direction
 
 ---
  include/linux/netfilter/nf_conntrack_tcp.h |   13 +
- net/netfilter/nf_conntrack_proto_tcp.c     |  269 ++++++++++++++++++-----------
- 2 files changed, 187 insertions(+), 95 deletions(-)
+ net/netfilter/nf_conntrack_proto_tcp.c     |  276 ++++++++++++++++++-----------
+ 2 files changed, 186 insertions(+), 103 deletions(-)
 
 diff -urBp a/include/linux/netfilter/nf_conntrack_tcp.h b/include/linux/netfilter/nf_conntrack_tcp.h
 --- a/include/linux/netfilter/nf_conntrack_tcp.h	2008-02-26 02:59:40.000000000 +0300
@@ -61,7 +63,7 @@ diff -urBp a/include/linux/netfilter/nf_conntrack_tcp.h b/include/linux/netfilte
  #endif /* __KERNEL__ */
 diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
 --- a/net/netfilter/nf_conntrack_proto_tcp.c	2011-03-14 15:46:34.000000000 +0300
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c	2011-10-18 16:47:45.000000000 +0400
++++ b/net/netfilter/nf_conntrack_proto_tcp.c	2012-12-01 15:00:55.000000000 +0400
 @@ -16,6 +16,7 @@
  #include <linux/skbuff.h>
  #include <linux/ipv6.h>
@@ -70,7 +72,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  
  #include <net/tcp.h>
  
-@@ -67,7 +68,7 @@ static const char *tcp_conntrack_names[]
+@@ -63,7 +64,7 @@ static const char *tcp_conntrack_names[]
  	"LAST_ACK",
  	"TIME_WAIT",
  	"CLOSE",
@@ -79,7 +81,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  };
  
  #define SECS * HZ
-@@ -75,32 +76,23 @@ static const char *tcp_conntrack_names[]
+@@ -71,32 +72,23 @@ static const char *tcp_conntrack_names[]
  #define HOURS * 60 MINS
  #define DAYS * 24 HOURS
  
@@ -125,7 +127,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  
  #define sNO TCP_CONNTRACK_NONE
  #define sSS TCP_CONNTRACK_SYN_SENT
-@@ -111,7 +103,7 @@ static unsigned int * tcp_timeouts[] = {
+@@ -107,7 +99,7 @@ static unsigned int * tcp_timeouts[] = {
  #define sLA TCP_CONNTRACK_LAST_ACK
  #define sTW TCP_CONNTRACK_TIME_WAIT
  #define sCL TCP_CONNTRACK_CLOSE
@@ -134,7 +136,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  #define sIV TCP_CONNTRACK_MAX
  #define sIG TCP_CONNTRACK_IGNORE
  
-@@ -141,6 +133,7 @@ enum tcp_bit_set {
+@@ -137,6 +129,7 @@ enum tcp_bit_set {
   *
   * NONE:	initial state
   * SYN_SENT:	SYN-only packet seen
@@ -142,7 +144,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
   * SYN_RECV:	SYN-ACK packet seen
   * ESTABLISHED:	ACK packet seen
   * FIN_WAIT:	FIN packet seen
-@@ -149,26 +142,24 @@ enum tcp_bit_set {
+@@ -145,26 +138,24 @@ enum tcp_bit_set {
   * TIME_WAIT:	last ACK seen
   * CLOSE:	closed connection (RST)
   *
@@ -174,14 +176,14 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
   *	sES -> sIG	Error: SYNs in window outside the SYN_SENT state
   *			are errors. Receiver will reply with RST
   *			and close the connection.
-@@ -179,22 +170,30 @@ static enum tcp_conntrack tcp_conntracks
+@@ -175,22 +166,27 @@ static enum tcp_conntrack tcp_conntracks
   *	sTW -> sSS	Reopened connection (RFC 1122).
   *	sCL -> sSS
   */
 -/* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sLI	*/
 -/*synack*/ { sIV, sIV, sIV, sIV, sIV, sIV, sIV, sIV, sIV, sIV },
 +/* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sS2	*/
-+/*synack*/ { sIV, sIV, sIG, sIG, sIG, sIG, sIG, sIG, sIG, sSR },
++/*synack*/ { sIV, sIV, sSR, sIV, sIV, sIV, sIV, sIV, sIV, sSR },
  /*
 - * A SYN/ACK from the client is always invalid:
 - *	- either it tries to set up a simultaneous open, which is
@@ -192,16 +194,13 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
 + *	sNO -> sIV	Too late and no reason to do anything
 + *	sSS -> sIV	Client can't send SYN and then SYN/ACK
 + *	sS2 -> sSR	SYN/ACK sent to SYN2 in simultaneous open
-+ *	sSR -> sIG
-+ *	sES -> sIG	Error: SYNs in window outside the SYN_SENT state
-+ *			are errors. Receiver will reply with RST
-+ *			and close the connection.
-+ *			Or we are not in sync and hold a dead connection.
-+ *	sFW -> sIG
-+ *	sCW -> sIG
-+ *	sLA -> sIG
-+ *	sTW -> sIG
-+ *	sCL -> sIG
++ *	sSR -> sSR	Late retransmitted SYN/ACK in simultaneous open
++ *	sES -> sIV	Invalid SYN/ACK packets sent by the client
++ *	sFW -> sIV
++ *	sCW -> sIV
++ *	sLA -> sIV
++ *	sTW -> sIV
++ *	sCL -> sIV
   */
 -/* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sLI	*/
 +/* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sS2	*/
@@ -214,7 +213,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
   *	sSR -> sFW	Close started.
   *	sES -> sFW
   *	sFW -> sLA	FIN seen in both directions, waiting for
-@@ -205,11 +204,12 @@ static enum tcp_conntrack tcp_conntracks
+@@ -201,11 +197,12 @@ static enum tcp_conntrack tcp_conntracks
   *	sTW -> sTW
   *	sCL -> sCL
   */
@@ -228,7 +227,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
   *	sSR -> sES	Established state is reached.
   *	sES -> sES	:-)
   *	sFW -> sCW	Normal close request answered by ACK.
-@@ -218,29 +218,31 @@ static enum tcp_conntrack tcp_conntracks
+@@ -214,29 +211,31 @@ static enum tcp_conntrack tcp_conntracks
   *	sTW -> sTW	Retransmitted last ACK. Remain in the same state.
   *	sCL -> sCL
   */
@@ -269,7 +268,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
   *	sSR -> sSR	Retransmitted SYN/ACK.
   *	sES -> sIG	Late retransmitted SYN/ACK?
   *	sFW -> sIG	Might be SYN/ACK answering ignored SYN
-@@ -249,10 +251,11 @@ static enum tcp_conntrack tcp_conntracks
+@@ -245,10 +244,11 @@ static enum tcp_conntrack tcp_conntracks
   *	sTW -> sIG
   *	sCL -> sIG
   */
@@ -282,7 +281,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
   *	sSR -> sFW	Close started.
   *	sES -> sFW
   *	sFW -> sLA	FIN seen in both directions.
-@@ -261,10 +264,11 @@ static enum tcp_conntrack tcp_conntracks
+@@ -257,10 +257,11 @@ static enum tcp_conntrack tcp_conntracks
   *	sTW -> sTW
   *	sCL -> sCL
   */
@@ -296,7 +295,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
   *	sSR -> sSR	Might answer late resent SYN.
   *	sES -> sES	:-)
   *	sFW -> sCW	Normal close request answered by ACK.
-@@ -273,8 +277,8 @@ static enum tcp_conntrack tcp_conntracks
+@@ -269,8 +270,8 @@ static enum tcp_conntrack tcp_conntracks
   *	sTW -> sTW	Retransmitted last ACK.
   *	sCL -> sCL
   */
@@ -307,7 +306,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  /*none*/   { sIV, sIV, sIV, sIV, sIV, sIV, sIV, sIV, sIV, sIV }
  	}
  };
-@@ -418,7 +422,7 @@ static void tcp_options(const struct sk_
+@@ -414,7 +415,7 @@ static void tcp_options(const struct sk_
  			if (opsize < 2) /* "silly options" */
  				return;
  			if (opsize > length)
@@ -316,7 +315,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  
  			if (opcode == TCPOPT_SACK_PERM
  			    && opsize == TCPOLEN_SACK_PERM)
-@@ -456,7 +460,7 @@ static void tcp_sack(const struct sk_buf
+@@ -452,7 +453,7 @@ static void tcp_sack(const struct sk_buf
  	BUG_ON(ptr == NULL);
  
  	/* Fast path for timestamp-only option */
@@ -325,7 +324,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  	    && *(__be32 *)ptr == htonl((TCPOPT_NOP << 24)
  				       | (TCPOPT_NOP << 16)
  				       | (TCPOPT_TIMESTAMP << 8)
-@@ -478,7 +482,7 @@ static void tcp_sack(const struct sk_buf
+@@ -474,7 +475,7 @@ static void tcp_sack(const struct sk_buf
  			if (opsize < 2) /* "silly options" */
  				return;
  			if (opsize > length)
@@ -334,7 +333,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  
  			if (opcode == TCPOPT_SACK
  			    && opsize >= (TCPOLEN_SACK_BASE
-@@ -488,7 +492,7 @@ static void tcp_sack(const struct sk_buf
+@@ -484,7 +485,7 @@ static void tcp_sack(const struct sk_buf
  				for (i = 0;
  				     i < (opsize - TCPOLEN_SACK_BASE);
  				     i += TCPOLEN_SACK_PERBLOCK) {
@@ -343,7 +342,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  
  					if (after(tmp, *sack))
  						*sack = tmp;
-@@ -560,13 +564,14 @@ static int tcp_in_window(struct nf_conn 
+@@ -556,13 +557,14 @@ static int tcp_in_window(struct nf_conn
  		receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
  		receiver->td_scale);
  
@@ -361,7 +360,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  			 */
  			sender->td_end =
  			sender->td_maxend = end;
-@@ -582,6 +587,9 @@ static int tcp_in_window(struct nf_conn 
+@@ -578,6 +580,9 @@ static int tcp_in_window(struct nf_conn
  			      && receiver->flags & IP_CT_TCP_FLAG_WINDOW_SCALE))
  				sender->td_scale =
  				receiver->td_scale = 0;
@@ -371,7 +370,25 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		} else {
  			/*
  			 * We are in the middle of a connection,
-@@ -670,8 +678,18 @@ static int tcp_in_window(struct nf_conn 
+@@ -620,15 +625,9 @@ static int tcp_in_window(struct nf_conn
+ 		ack = sack = receiver->td_end;
+ 	}
+ 
+-	if (seq == end
+-	    && (!tcph->rst
+-		|| (seq == 0 && state->state == TCP_CONNTRACK_SYN_SENT)))
++	if (tcph->rst && seq == 0 && state->state == TCP_CONNTRACK_SYN_SENT)
+ 		/*
+-		 * Packets contains no data: we assume it is valid
+-		 * and check the ack value only.
+-		 * However RST segments are always validated by their
+-		 * SEQ number, except when seq == 0 (reset sent answering
+-		 * SYN.
++		 * RST sent answering SYN.
+ 		 */
+ 		seq = end = sender->td_end;
+ 
+@@ -666,8 +665,18 @@ static int tcp_in_window(struct nf_conn
  		swin = win + (sack - ack);
  		if (sender->td_maxwin < swin)
  			sender->td_maxwin = swin;
@@ -391,7 +408,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		/*
  		 * Update receiver data.
  		 */
-@@ -682,6 +700,8 @@ static int tcp_in_window(struct nf_conn 
+@@ -678,6 +687,8 @@ static int tcp_in_window(struct nf_conn
  			if (win == 0)
  				receiver->td_maxend++;
  		}
@@ -400,7 +417,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  
  		/*
  		 * Check retransmissions.
-@@ -893,25 +913,54 @@ static int tcp_packet(struct nf_conn *co
+@@ -889,25 +900,54 @@ static int tcp_packet(struct nf_conn *co
  			/* b) This SYN/ACK acknowledges a SYN that we earlier
  			 * ignored as invalid. This means that the client and
  			 * the server are both in sync, while the firewall is
@@ -466,7 +483,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		write_unlock_bh(&tcp_lock);
  		if (LOG_INVALID(IPPROTO_TCP))
  			nf_log_packet(pf, 0, skb, NULL, NULL, NULL,
-@@ -929,6 +978,16 @@ static int tcp_packet(struct nf_conn *co
+@@ -925,6 +965,16 @@ static int tcp_packet(struct nf_conn *co
  		return -NF_ACCEPT;
  	case TCP_CONNTRACK_CLOSE:
  		if (index == TCP_RST_SET
@@ -483,7 +500,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		    && ((test_bit(IPS_SEEN_REPLY_BIT, &conntrack->status)
  			 && conntrack->proto.tcp.last_index == TCP_SYN_SET)
  			|| (!test_bit(IPS_ASSURED_BIT, &conntrack->status)
-@@ -973,9 +1032,16 @@ static int tcp_packet(struct nf_conn *co
+@@ -969,9 +1019,16 @@ static int tcp_packet(struct nf_conn *co
  	if (old_state != new_state
  	    && new_state == TCP_CONNTRACK_FIN_WAIT)
  		conntrack->proto.tcp.seen[dir].flags |= IP_CT_TCP_FLAG_CLOSE_INIT;
@@ -503,7 +520,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  	write_unlock_bh(&tcp_lock);
  
  	nf_conntrack_event_cache(IPCT_PROTOINFO_VOLATILE, skb);
-@@ -1076,7 +1142,7 @@ static int tcp_new(struct nf_conn *connt
+@@ -1072,7 +1129,7 @@ static int tcp_new(struct nf_conn *connt
  
  	conntrack->proto.tcp.seen[1].td_end = 0;
  	conntrack->proto.tcp.seen[1].td_maxend = 0;
@@ -512,7 +529,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  	conntrack->proto.tcp.seen[1].td_scale = 0;
  
  	/* tcp_packet will set them */
-@@ -1198,7 +1264,15 @@ static struct ctl_table tcp_sysctl_table
+@@ -1194,7 +1251,15 @@ static struct ctl_table tcp_sysctl_table
  	{
  		.ctl_name	= NET_NF_CONNTRACK_TCP_TIMEOUT_SYN_SENT,
  		.procname	= "nf_conntrack_tcp_timeout_syn_sent",
@@ -529,7 +546,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1206,7 +1280,7 @@ static struct ctl_table tcp_sysctl_table
+@@ -1202,7 +1267,7 @@ static struct ctl_table tcp_sysctl_table
  	{
  		.ctl_name	= NET_NF_CONNTRACK_TCP_TIMEOUT_SYN_RECV,
  		.procname	= "nf_conntrack_tcp_timeout_syn_recv",
@@ -538,7 +555,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1214,7 +1288,7 @@ static struct ctl_table tcp_sysctl_table
+@@ -1210,7 +1275,7 @@ static struct ctl_table tcp_sysctl_table
  	{
  		.ctl_name	= NET_NF_CONNTRACK_TCP_TIMEOUT_ESTABLISHED,
  		.procname	= "nf_conntrack_tcp_timeout_established",
@@ -547,7 +564,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1222,7 +1296,7 @@ static struct ctl_table tcp_sysctl_table
+@@ -1218,7 +1283,7 @@ static struct ctl_table tcp_sysctl_table
  	{
  		.ctl_name	= NET_NF_CONNTRACK_TCP_TIMEOUT_FIN_WAIT,
  		.procname	= "nf_conntrack_tcp_timeout_fin_wait",
@@ -556,7 +573,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1230,7 +1304,7 @@ static struct ctl_table tcp_sysctl_table
+@@ -1226,7 +1291,7 @@ static struct ctl_table tcp_sysctl_table
  	{
  		.ctl_name	= NET_NF_CONNTRACK_TCP_TIMEOUT_CLOSE_WAIT,
  		.procname	= "nf_conntrack_tcp_timeout_close_wait",
@@ -565,7 +582,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1238,7 +1312,7 @@ static struct ctl_table tcp_sysctl_table
+@@ -1234,7 +1299,7 @@ static struct ctl_table tcp_sysctl_table
  	{
  		.ctl_name	= NET_NF_CONNTRACK_TCP_TIMEOUT_LAST_ACK,
  		.procname	= "nf_conntrack_tcp_timeout_last_ack",
@@ -574,7 +591,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1246,7 +1320,7 @@ static struct ctl_table tcp_sysctl_table
+@@ -1242,7 +1307,7 @@ static struct ctl_table tcp_sysctl_table
  	{
  		.ctl_name	= NET_NF_CONNTRACK_TCP_TIMEOUT_TIME_WAIT,
  		.procname	= "nf_conntrack_tcp_timeout_time_wait",
@@ -583,7 +600,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1254,7 +1328,7 @@ static struct ctl_table tcp_sysctl_table
+@@ -1250,7 +1315,7 @@ static struct ctl_table tcp_sysctl_table
  	{
  		.ctl_name	= NET_NF_CONNTRACK_TCP_TIMEOUT_CLOSE,
  		.procname	= "nf_conntrack_tcp_timeout_close",
@@ -592,7 +609,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1268,6 +1342,13 @@ static struct ctl_table tcp_sysctl_table
+@@ -1264,6 +1329,13 @@ static struct ctl_table tcp_sysctl_table
  		.proc_handler	= &proc_dointvec_jiffies,
  	},
  	{
@@ -606,7 +623,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.ctl_name	= NET_NF_CONNTRACK_TCP_LOOSE,
  		.procname	= "nf_conntrack_tcp_loose",
  		.data		= &nf_ct_tcp_loose,
-@@ -1301,7 +1382,7 @@ static struct ctl_table tcp_compat_sysct
+@@ -1297,7 +1369,7 @@ static struct ctl_table tcp_compat_sysct
  	{
  		.ctl_name	= NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_SYN_SENT,
  		.procname	= "ip_conntrack_tcp_timeout_syn_sent",
@@ -615,7 +632,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1309,7 +1390,7 @@ static struct ctl_table tcp_compat_sysct
+@@ -1305,7 +1377,7 @@ static struct ctl_table tcp_compat_sysct
  	{
  		.ctl_name	= NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_SYN_RECV,
  		.procname	= "ip_conntrack_tcp_timeout_syn_recv",
@@ -624,7 +641,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1317,7 +1398,7 @@ static struct ctl_table tcp_compat_sysct
+@@ -1313,7 +1385,7 @@ static struct ctl_table tcp_compat_sysct
  	{
  		.ctl_name	= NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_ESTABLISHED,
  		.procname	= "ip_conntrack_tcp_timeout_established",
@@ -633,7 +650,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1325,7 +1406,7 @@ static struct ctl_table tcp_compat_sysct
+@@ -1321,7 +1393,7 @@ static struct ctl_table tcp_compat_sysct
  	{
  		.ctl_name	= NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_FIN_WAIT,
  		.procname	= "ip_conntrack_tcp_timeout_fin_wait",
@@ -642,7 +659,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1333,7 +1414,7 @@ static struct ctl_table tcp_compat_sysct
+@@ -1329,7 +1401,7 @@ static struct ctl_table tcp_compat_sysct
  	{
  		.ctl_name	= NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_CLOSE_WAIT,
  		.procname	= "ip_conntrack_tcp_timeout_close_wait",
@@ -651,7 +668,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1341,7 +1422,7 @@ static struct ctl_table tcp_compat_sysct
+@@ -1337,7 +1409,7 @@ static struct ctl_table tcp_compat_sysct
  	{
  		.ctl_name	= NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_LAST_ACK,
  		.procname	= "ip_conntrack_tcp_timeout_last_ack",
@@ -660,7 +677,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1349,7 +1430,7 @@ static struct ctl_table tcp_compat_sysct
+@@ -1345,7 +1417,7 @@ static struct ctl_table tcp_compat_sysct
  	{
  		.ctl_name	= NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_TIME_WAIT,
  		.procname	= "ip_conntrack_tcp_timeout_time_wait",
@@ -669,7 +686,7 @@ diff -urBp a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec_jiffies,
-@@ -1357,7 +1438,7 @@ static struct ctl_table tcp_compat_sysct
+@@ -1353,7 +1425,7 @@ static struct ctl_table tcp_compat_sysct
  	{
  		.ctl_name	= NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_CLOSE,
  		.procname	= "ip_conntrack_tcp_timeout_close",

@@ -961,9 +961,9 @@ diff --git a/net/ipv4/route.c b/net/ipv4/route.c
 -		    rth->fl.mark == skb->mark) {
 +		    rth->fl.mark == skb->mark &&
 +		    rth->rt_genid == atomic_read(&rt_genid)) {
- 			rth->u.dst.lastuse = jiffies;
- 			dst_hold(&rth->u.dst);
- 			rth->u.dst.__use++;
+ 			dst_use(&rth->u.dst, jiffies);
+ 			RT_CACHE_STAT_INC(in_hit);
+ 			rcu_read_unlock();
 @@ -2159,6 +2237,7 @@ ip_route_input_cached(struct sk_buff *sk
  		RT_CACHE_STAT_INC(in_hlist_search);
  	}

@@ -19,7 +19,7 @@
  echo " * using command line options $* */" >> ${CONFIGFILE}
  echo "#ifndef $CONFIGMACRO" >> ${CONFIGFILE}
  echo "#define $CONFIGMACRO" >> ${CONFIGFILE}
-@@ -187,6 +192,13 @@ case $OS_NAME in
+@@ -187,6 +192,14 @@ case $OS_NAME in
  		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
  		FW=netfilter
  		;;
@@ -27,7 +27,8 @@
 +		OS_VERSION=`cat ../Makefile | awk -F= '/RELEASE=/{print $2}'`
 +		[ -f ../.svnrev ] && OS_VERSION="${OS_VERSION}-$(cat ../.svnrev)"
 +		OS_URL=http://wl500g.googlecode.com/
-+		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
++		echo "" >> ${CONFIGFILE}
++		echo "#define USE_GETIFADDRS 1" >> ${CONFIGFILE}
 +		FW=netfilter
 +		;;
  	Darwin)

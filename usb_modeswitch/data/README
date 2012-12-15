@@ -12,9 +12,10 @@ This is a data package to complement the full release package of
 USB_ModeSwitch, a tool to switch multi-mode USB devices.
 It is used since usb-modeswitch version 1.0.3.
 
-Recommended version of usb-modeswitch package is 1.1.4 and above. Some
-devices contained here may not be switched with older versions, even if
-they will not cause any error.
+Recommended version of usb-modeswitch package is 1.2.5 and above. From
+this version on, the rules file does not check for the class of inter-
+face 0 anymore, the check was moved to the dispatcher.
+The changes were necessary for future MBIM device support.
 
 
 Tasks initiated by the rules file:
@@ -24,15 +25,15 @@ Tasks initiated by the rules file:
   (starting from version 1.1.4 at boot time too)
 
 - adding symlink "gsmmodem" to appropriate connection port (out of 2-5
-  ports provided by some devices); this is only a help for handling and
-  NOT needed for switching to work.
-  This action will be done for known modems only (at least switched once
-  on this system)
+  ports provided by some devices); this is only a convenience feature and
+  NOT needed for switching or later port operation.
+  This action will be triggered for known modems only (at least switched
+  once on this system)
 
 - loading and binding the "option" driver if the device arrives in modem
-  state (not CDC/ACM!) and the device ID is not yet known to the driver.
-  This action will be done only for modems known to the system (at least
-  switched once)
+  state (not CDC/ACM) and the device ID is not yet known to the driver.
+  This action will be trigered only for modems known to the system (at
+  least switched once)
 
 
 Explanation about config file names:
@@ -86,15 +87,12 @@ Notes about specific devices:
 
 - 1266:1000 (Royaltek Q110): switching method very likely but unconfirmed
 
-- 1a8d:1000 (BandLuxe): now just one config for all devices; the new parameter
-  "ReleaseDelay" will improve ambiguous behaviour on older systems
-
-- Some WiMAX and LTE devices are included since 20101222; for most of these
+- Some WiMAX and LTE devices are included since 20101222; for some of these
   drivers are work in progress or not available yet. Efforts are underway.
   Stand by or search for "staging drivers".
 
 - 05c6:2000 (unnamed HSDPA modem from "dealextreme"): unusually long switching
-  time, even with MS Windoze - 30 to 40 seconds. Don't be alarmed.
+  time reported, even with MS Windoze - 30 to 40 seconds. Don't be alarmed.
 
 - 0471:1210 (Philips chipset): had to be split after variants with different
   targets and behaviour appeared. This is not properly tested yet, please
@@ -120,4 +118,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2012-08-12, Josua Dietze
+Last revised: 2012-11-09, Josua Dietze

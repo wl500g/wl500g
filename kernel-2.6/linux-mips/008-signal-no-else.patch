@@ -1,0 +1,49 @@
+From 68883c18c6d9e0f6e024b30f2c7f02e2382e0e83
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Tue, 6 Nov 2012 14:27:19 +0100
+Subject: [PATCH] MIPS: Fix harmlessly missing else statement.
+
+The actual bug is a missing else statement - but really this should be
+expressed using a switch() statement.
+
+Found by Al Viro who writes "the funny thing is, it *does* work only
+because r2 is syscall number and syscall number around 512 => return
+value being ENOSYS and not one of ERESTART...  so we really can't hit
+the first if and emerge from it with ERESTART_RESTARTBLOCK.  still
+wrong to write it that way..."
+
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+---
+ arch/mips/kernel/signal.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/arch/mips/kernel/signal.c b/arch/mips/kernel/signal.c
+--- a/arch/mips/kernel/signal.c
++++ b/arch/mips/kernel/signal.c
+@@ -616,17 +616,20 @@ static void do_signal(struct pt_regs *regs)
+ 	}
+ 
+ 	if (regs->regs[0]) {
+-		if (regs->regs[2] == ERESTARTNOHAND ||
+-		    regs->regs[2] == ERESTARTSYS ||
+-		    regs->regs[2] == ERESTARTNOINTR) {
++		switch (regs->regs[2]) {
++		case ERESTARTNOHAND:
++		case ERESTARTSYS:
++		case ERESTARTNOINTR:
+ 			regs->regs[2] = regs->regs[0];
+ 			regs->regs[7] = regs->regs[26];
+ 			regs->cp0_epc -= 4;
+-		}
+-		if (regs->regs[2] == ERESTART_RESTARTBLOCK) {
++			break;
++
++		case ERESTART_RESTARTBLOCK:
+ 			regs->regs[2] = current->thread.abi->restart;
+ 			regs->regs[7] = regs->regs[26];
+ 			regs->cp0_epc -= 4;
++			break;
+ 		}
+ 		regs->regs[0] = 0;	/* Don't deal with this again.  */
+ 	}
+-- 

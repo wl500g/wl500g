@@ -14,12 +14,15 @@ netfilter: nf_nat: better error handling of nf_ct_expect_related() in helpers
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
+3f509c689a07a4aa989b426893d8491a7ffcc410 netfilter: nf_nat_sip: fix incorrect handling of EBUSY for RTCP expectation
+
+---
  net/ipv4/netfilter/nf_nat_amanda.c |    9 +++++-
  net/ipv4/netfilter/nf_nat_ftp.c    |    9 +++++-
  net/ipv4/netfilter/nf_nat_h323.c   |   53 ++++++++++++++++++++++++++++++++-----
  net/ipv4/netfilter/nf_nat_irc.c    |    9 +++++-
- net/ipv4/netfilter/nf_nat_sip.c    |   27 ++++++++++++++++--
- 5 files changed, 93 insertions(+), 14 deletions(-)
+ net/ipv4/netfilter/nf_nat_sip.c    |   30 ++++++++++++++++++--
+ 5 files changed, 96 insertions(+), 14 deletions(-)
 
 diff --git a/net/ipv4/netfilter/nf_nat_amanda.c b/net/ipv4/netfilter/nf_nat_amanda.c
 --- a/net/ipv4/netfilter/nf_nat_amanda.c
@@ -208,7 +211,7 @@ diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
  	}
  
  	if (port == 0)
-@@ -480,13 +487,25 @@ static unsigned int ip_nat_sdp_media(struct sk_buff *skb, unsigned int dataoff,
+@@ -480,13 +487,28 @@ static unsigned int ip_nat_sdp_media(struct sk_buff *skb, unsigned int dataoff,
  	/* Try to get same pair of ports: if not, try to change them. */
  	for (port = ntohs(rtp_exp->tuple.dst.u.udp.port);
  	     port != 0; port += 2) {
@@ -229,7 +232,10 @@ diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
 +		if (ret == 0)
  			break;
 -		nf_conntrack_unexpect_related(rtp_exp);
-+		else if (ret != -EBUSY) {
++		else if (ret == -EBUSY) {
++			nf_conntrack_unexpect_related(rtp_exp);
++			continue;
++		} else if (ret < 0) {
 +			nf_conntrack_unexpect_related(rtp_exp);
 +			port = 0;
 +			break;

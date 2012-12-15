@@ -1,6 +1,6 @@
-diff -BurpN rp-pppoe.orig/src/plugin.c rp-pppoe/src/plugin.c
---- rp-pppoe.orig/src/plugin.c	2008-06-30 14:00:43.000000000 +0000
-+++ rp-pppoe/src/plugin.c	2009-05-05 19:32:19.000000000 +0000
+diff -BurpN rp-pppoe-3.11.orig/src/plugin.c rp-pppoe-3.11/src/plugin.c
+--- rp-pppoe-3.11.orig/src/plugin.c	2012-08-18 00:31:25.000000000 +0600
++++ rp-pppoe-3.11/src/plugin.c	2012-11-03 19:04:34.078752509 +0600
 @@ -58,7 +58,7 @@ static char const RCSID[] =
  #define _ROOT_PATH ""
  #endif

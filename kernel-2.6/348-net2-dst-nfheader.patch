@@ -1,0 +1,510 @@
+[NET]: Make helper to get dst entry and "use" it
+
+ 03f49f345749abc08bc84b835433c94eea6e972b [NET]: Make helper to get dst entry and "use" it
+ 0148894223740da4818d7f4e6f92cbb5481a25b8 [IPV6]: Only set nfheader_len for top xfrm dst
+ a47ed4cd8cb0709723392f5b841e9015f765d0a6 [IPV6] XFRM: Fix connected socket to use transformation.
+ b4ce92775c2e7ff9cf79cca4e0a19c8c5fd6287b [IPV6]: Move nfheader_len into rt6_info
+ 352e512c32b634768303a43768245a0363cebbe7 [NET]: Eliminate duplicate copies of dst_discard
+
+---
+ include/net/dst.h                |    9 ++++++++-
+ include/net/ip6_fib.h            |   13 +++++++++++--
+ net/core/dst.c                   |    3 ++-
+ net/decnet/dn_route.c            |   29 +++++------------------------
+ net/ipv4/route.c                 |   23 ++++++-----------------
+ net/ipv4/xfrm4_policy.c          |    1 -
+ net/ipv6/exthdrs.c               |   15 ++-------------
+ net/ipv6/inet6_connection_sock.c |   39 +++++++++++++++++++++++++++++++++++++--
+ net/ipv6/ip6_output.c            |    6 ++++--
+ net/ipv6/route.c                 |   27 +++++----------------------
+ net/ipv6/xfrm6_policy.c          |   27 +++++----------------------
+ 11 files changed, 85 insertions(+), 107 deletions(-)
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -51,7 +51,6 @@ struct dst_entry
+ 	unsigned long		expires;
+ 
+ 	unsigned short		header_len;	/* more space at head required */
+-	unsigned short		nfheader_len;	/* more non-fragment space at head required */
+ 	unsigned short		trailer_len;	/* space to reserve at tail */
+ 
+ 	u32			metrics[RTAX_MAX];
+@@ -156,6 +155,13 @@ static inline void dst_hold(struct dst_e
+ 	atomic_inc(&dst->__refcnt);
+ }
+ 
++static inline void dst_use(struct dst_entry *dst, unsigned long time)
++{
++	dst_hold(dst);
++	dst->__use++;
++	dst->lastuse = time;
++}
++
+ static inline
+ struct dst_entry * dst_clone(struct dst_entry * dst)
+ {
+@@ -188,6 +194,7 @@ static inline struct dst_entry *dst_pop(
+ 	return child;
+ }
+ 
++extern int dst_discard(struct sk_buff *skb);
+ extern void * dst_alloc(struct dst_ops * ops);
+ extern void __dst_free(struct dst_entry * dst);
+ extern struct dst_entry *dst_destroy(struct dst_entry * dst);
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -99,12 +99,21 @@ struct rt6_info
+ 	u32				rt6i_flags;
+ 	u32				rt6i_metric;
+ 	atomic_t			rt6i_ref;
++
++	/* more non-fragment space at head required */
++	unsigned short			nfheader_len;
++
++	u8				rt6i_protocol;
++
+ 	struct fib6_table		*rt6i_table;
+ 
+ 	struct rt6key			rt6i_dst;
+-	struct rt6key			rt6i_src;
+ 
+-	u8				rt6i_protocol;
++#ifdef CONFIG_XFRM
++	u32				rt6i_flow_cache_genid;
++#endif
++
++	struct rt6key			rt6i_src;
+ };
+ 
+ static inline struct inet6_dev *ip6_dst_idev(struct dst_entry *dst)
+diff --git a/net/core/dst.c b/net/core/dst.c
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -154,11 +154,12 @@ loop:
+ #endif
+ }
+ 
+-static int dst_discard(struct sk_buff *skb)
++int dst_discard(struct sk_buff *skb)
+ {
+ 	kfree_skb(skb);
+ 	return 0;
+ }
++EXPORT_SYMBOL(dst_discard);
+ 
+ void * dst_alloc(struct dst_ops * ops)
+ {
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -292,9 +292,7 @@ static int dn_insert_route(struct dn_rou
+ 					   dn_rt_hash_table[hash].chain);
+ 			rcu_assign_pointer(dn_rt_hash_table[hash].chain, rth);
+ 
+-			rth->u.dst.__use++;
+-			dst_hold(&rth->u.dst);
+-			rth->u.dst.lastuse = now;
++			dst_use(&rth->u.dst, now);
+ 			spin_unlock_bh(&dn_rt_hash_table[hash].lock);
+ 
+ 			dnrt_drop(rt);
+@@ -307,9 +305,7 @@ static int dn_insert_route(struct dn_rou
+ 	rcu_assign_pointer(rt->u.dst.dn_next, dn_rt_hash_table[hash].chain);
+ 	rcu_assign_pointer(dn_rt_hash_table[hash].chain, rt);
+ 
+-	dst_hold(&rt->u.dst);
+-	rt->u.dst.__use++;
+-	rt->u.dst.lastuse = now;
++	dst_use(&rt->u.dst, now);
+ 	spin_unlock_bh(&dn_rt_hash_table[hash].lock);
+ 	*rp = rt;
+ 	return 0;
+@@ -765,17 +761,6 @@ drop:
+ }
+ 
+ /*
+- * Drop packet. This is used for endnodes and for
+- * when we should not be forwarding packets from
+- * this dest.
+- */
+-static int dn_blackhole(struct sk_buff *skb)
+-{
+-	kfree_skb(skb);
+-	return NET_RX_DROP;
+-}
+-
+-/*
+  * Used to catch bugs. This should never normally get
+  * called.
+  */
+@@ -1178,9 +1163,7 @@ static int __dn_route_output_key(struct
+ 			    (flp->mark == rt->fl.mark) &&
+ 			    (rt->fl.iif == 0) &&
+ 			    (rt->fl.oif == flp->oif)) {
+-				rt->u.dst.lastuse = jiffies;
+-				dst_hold(&rt->u.dst);
+-				rt->u.dst.__use++;
++				dst_use(&rt->u.dst, jiffies);
+ 				rcu_read_unlock_bh();
+ 				*pprt = &rt->u.dst;
+ 				return 0;
+@@ -1398,7 +1381,7 @@ make_route:
+ 		default:
+ 		case RTN_UNREACHABLE:
+ 		case RTN_BLACKHOLE:
+-			rt->u.dst.input = dn_blackhole;
++			rt->u.dst.input = dst_discard;
+ 	}
+ 	rt->rt_flags = flags;
+ 	if (rt->u.dst.dev)
+@@ -1452,9 +1435,7 @@ int dn_route_input(struct sk_buff *skb)
+ 		    (rt->fl.oif == 0) &&
+ 		    (rt->fl.mark == skb->mark) &&
+ 		    (rt->fl.iif == cb->iif)) {
+-			rt->u.dst.lastuse = jiffies;
+-			dst_hold(&rt->u.dst);
+-			rt->u.dst.__use++;
++			dst_use(&rt->u.dst, jiffies);
+ 			rcu_read_unlock();
+ 			skb->dst = (struct dst_entry *)rt;
+ 			return 0;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -91,6 +91,7 @@
+ #include <linux/jhash.h>
+ #include <linux/rcupdate.h>
+ #include <linux/times.h>
++#include <net/dst.h>
+ #include <net/protocol.h>
+ #include <net/ip.h>
+ #include <net/route.h>
+@@ -960,9 +961,7 @@ restart:
+ 			 */
+ 			rcu_assign_pointer(rt_hash_table[hash].chain, rth);
+ 
+-			rth->u.dst.__use++;
+-			dst_hold(&rth->u.dst);
+-			rth->u.dst.lastuse = now;
++			dst_use(&rth->u.dst, now);
+ 			spin_unlock_bh(rt_hash_lock_addr(hash));
+ 
+ 			rt_drop(rt);
+@@ -2101,9 +2100,7 @@ int ip_route_input(struct sk_buff *skb,
+ 		    rth->fl.oif == 0 &&
+ 		    rth->fl.mark == skb->mark &&
+ 		    rth->fl.fl4_tos == tos) {
+-			rth->u.dst.lastuse = jiffies;
+-			dst_hold(&rth->u.dst);
+-			rth->u.dst.__use++;
++			dst_use(&rth->u.dst, jiffies);
+ 			RT_CACHE_STAT_INC(in_hit);
+ 			rcu_read_unlock();
+ 			skb->dst = (struct dst_entry*)rth;
+@@ -2577,9 +2574,7 @@ int __ip_route_output_key(struct rtable
+ 				return 0;
+ 			}
+ 
+-			rth->u.dst.lastuse = jiffies;
+-			dst_hold(&rth->u.dst);
+-			rth->u.dst.__use++;
++			dst_use(&rth->u.dst, jiffies);
+ 			RT_CACHE_STAT_INC(out_hit);
+ 			rcu_read_unlock_bh();
+ 			*rp = rth;
+@@ -2608,12 +2603,6 @@ static struct dst_ops ipv4_dst_blackhole
+ };
+ 
+ 
+-static int ipv4_blackhole_output(struct sk_buff *skb)
+-{
+-	kfree_skb(skb);
+-	return 0;
+-}
+-
+ static int ipv4_dst_blackhole(struct rtable **rp, struct flowi *flp, struct sock *sk)
+ {
+ 	struct rtable *ort = *rp;
+@@ -2625,8 +2614,8 @@ static int ipv4_dst_blackhole(struct rta
+ 
+ 		atomic_set(&new->__refcnt, 1);
+ 		new->__use = 1;
+-		new->input = ipv4_blackhole_output;
+-		new->output = ipv4_blackhole_output;
++		new->input = dst_discard;
++		new->output = dst_discard;
+ 		memcpy(new->metrics, ort->u.dst.metrics, RTAX_MAX*sizeof(u32));
+ 
+ 		new->dev = ort->u.dst.dev;
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -162,7 +162,6 @@ __xfrm4_bundle_create(struct xfrm_policy
+ 		dst_prev->flags	       |= DST_HOST;
+ 		dst_prev->lastuse	= jiffies;
+ 		dst_prev->header_len	= header_len;
+-		dst_prev->nfheader_len	= 0;
+ 		dst_prev->trailer_len	= trailer_len;
+ 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
+ 
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -32,6 +32,7 @@
+ #include <linux/in6.h>
+ #include <linux/icmpv6.h>
+ 
++#include <net/dst.h>
+ #include <net/sock.h>
+ #include <net/snmp.h>
+ 
+@@ -332,20 +333,8 @@ void __init ipv6_destopt_init(void)
+ 		printk(KERN_ERR "ipv6_destopt_init: Could not register protocol\n");
+ }
+ 
+-/********************************
+-  NONE header. No data in packet.
+- ********************************/
+-
+-static int ipv6_nodata_rcv(struct sk_buff **skbp)
+-{
+-	struct sk_buff *skb = *skbp;
+-
+-	kfree_skb(skb);
+-	return 0;
+-}
+-
+ static struct inet6_protocol nodata_protocol = {
+-	.handler	=	ipv6_nodata_rcv,
++	.handler	=	dst_discard,
+ 	.flags		=	INET6_PROTO_NOPOLICY,
+ };
+ 
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -139,6 +139,41 @@ void inet6_csk_addr2sockaddr(struct sock
+ 
+ EXPORT_SYMBOL_GPL(inet6_csk_addr2sockaddr);
+ 
++static inline
++void __inet6_csk_dst_store(struct sock *sk, struct dst_entry *dst,
++			   struct in6_addr *daddr, struct in6_addr *saddr)
++{
++	__ip6_dst_store(sk, dst, daddr, saddr);
++
++#ifdef CONFIG_XFRM
++	if (dst) {
++		struct rt6_info *rt = (struct rt6_info  *)dst;
++		rt->rt6i_flow_cache_genid = atomic_read(&flow_cache_genid);
++	}
++#endif
++}
++
++static inline
++struct dst_entry *__inet6_csk_dst_check(struct sock *sk, u32 cookie)
++{
++	struct dst_entry *dst;
++
++	dst = __sk_dst_check(sk, cookie);
++
++#ifdef CONFIG_XFRM
++	if (dst) {
++		struct rt6_info *rt = (struct rt6_info *)dst;
++		if (rt->rt6i_flow_cache_genid != atomic_read(&flow_cache_genid)) {
++			sk->sk_dst_cache = NULL;
++			dst_release(dst);
++			dst = NULL;
++		}
++	}
++#endif
++
++	return dst;
++}
++
+ int inet6_csk_xmit(struct sk_buff *skb, int ipfragok)
+ {
+ 	struct sock *sk = skb->sk;
+@@ -166,7 +201,7 @@ int inet6_csk_xmit(struct sk_buff *skb,
+ 		final_p = &final;
+ 	}
+ 
+-	dst = __sk_dst_check(sk, np->dst_cookie);
++	dst = __inet6_csk_dst_check(sk, np->dst_cookie);
+ 
+ 	if (dst == NULL) {
+ 		int err = ip6_dst_lookup(sk, &dst, &fl);
+@@ -186,7 +221,7 @@ int inet6_csk_xmit(struct sk_buff *skb,
+ 			return err;
+ 		}
+ 
+-		__ip6_dst_store(sk, dst, NULL, NULL);
++		__inet6_csk_dst_store(sk, dst, NULL, NULL);
+ 	}
+ 
+ 	skb->dst = dst_clone(dst);
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1133,7 +1133,8 @@ int ip6_append_data(struct sock *sk, int
+ 		inet->cork.length = 0;
+ 		sk->sk_sndmsg_page = NULL;
+ 		sk->sk_sndmsg_off = 0;
+-		exthdrlen = rt->u.dst.header_len + (opt ? opt->opt_flen : 0);
++		exthdrlen = rt->u.dst.header_len + (opt ? opt->opt_flen : 0) -
++			    rt->nfheader_len;
+ 		length += exthdrlen;
+ 		transhdrlen += exthdrlen;
+ 	} else {
+@@ -1148,7 +1149,8 @@ int ip6_append_data(struct sock *sk, int
+ 
+ 	hh_len = LL_RESERVED_SPACE(rt->u.dst.dev);
+ 
+-	fragheaderlen = sizeof(struct ipv6hdr) + rt->u.dst.nfheader_len + (opt ? opt->opt_nflen : 0);
++	fragheaderlen = sizeof(struct ipv6hdr) + rt->nfheader_len +
++			(opt ? opt->opt_nflen : 0);
+ 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen - sizeof(struct frag_hdr);
+ 
+ 	if (mtu <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN) {
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -157,7 +157,6 @@ struct rt6_info ip6_null_entry = {
+ 
+ static int ip6_pkt_prohibit(struct sk_buff *skb);
+ static int ip6_pkt_prohibit_out(struct sk_buff *skb);
+-static int ip6_pkt_blk_hole(struct sk_buff *skb);
+ 
+ struct rt6_info ip6_prohibit_entry = {
+ 	.u = {
+@@ -189,8 +188,8 @@ struct rt6_info ip6_blk_hole_entry = {
+ 			.obsolete	= -1,
+ 			.error		= -EINVAL,
+ 			.metrics	= { [RTAX_HOPLIMIT - 1] = 255, },
+-			.input		= ip6_pkt_blk_hole,
+-			.output		= ip6_pkt_blk_hole,
++			.input		= dst_discard,
++			.output		= dst_discard,
+ 			.ops		= &ip6_dst_ops,
+ 			.path		= (struct dst_entry*)&ip6_blk_hole_entry,
+ 		}
+@@ -558,12 +557,8 @@ restart:
+ 	rt = rt6_device_match(rt, fl->oif, flags);
+ 	BACKTRACK(&fl->fl6_src);
+ out:
+-	dst_hold(&rt->u.dst);
++	dst_use(&rt->u.dst, jiffies);
+ 	read_unlock_bh(&table->tb6_lock);
+-
+-	rt->u.dst.lastuse = jiffies;
+-	rt->u.dst.__use++;
+-
+ 	return rt;
+ 
+ }
+@@ -854,12 +849,6 @@ struct dst_entry * ip6_route_output(stru
+ 
+ EXPORT_SYMBOL(ip6_route_output);
+ 
+-static int ip6_blackhole_output(struct sk_buff *skb)
+-{
+-	kfree_skb(skb);
+-	return 0;
+-}
+-
+ int ip6_dst_blackhole(struct sock *sk, struct dst_entry **dstp, struct flowi *fl)
+ {
+ 	struct rt6_info *ort = (struct rt6_info *) *dstp;
+@@ -872,8 +861,8 @@ int ip6_dst_blackhole(struct sock *sk, s
+ 
+ 		atomic_set(&new->__refcnt, 1);
+ 		new->__use = 1;
+-		new->input = ip6_blackhole_output;
+-		new->output = ip6_blackhole_output;
++		new->input = dst_discard;
++		new->output = dst_discard;
+ 
+ 		memcpy(new->metrics, ort->u.dst.metrics, RTAX_MAX*sizeof(u32));
+ 		new->dev = ort->u.dst.dev;
+@@ -1885,12 +1874,6 @@ static int ip6_pkt_prohibit_out(struct s
+ 	return ip6_pkt_drop(skb, ICMPV6_ADM_PROHIBITED, IPSTATS_MIB_OUTNOROUTES);
+ }
+ 
+-static int ip6_pkt_blk_hole(struct sk_buff *skb)
+-{
+-	kfree_skb(skb);
+-	return 0;
+-}
+-
+ #endif
+ 
+ /*
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -102,24 +102,6 @@ __xfrm6_bundle_addr_local(struct xfrm_st
+ 		(struct in6_addr*)&x->props.saddr;
+ }
+ 
+-static inline void
+-__xfrm6_bundle_len_inc(int *len, int *nflen, struct xfrm_state *x)
+-{
+-	if (x->type->flags & XFRM_TYPE_NON_FRAGMENT)
+-		*nflen += x->props.header_len;
+-	else
+-		*len += x->props.header_len;
+-}
+-
+-static inline void
+-__xfrm6_bundle_len_dec(int *len, int *nflen, struct xfrm_state *x)
+-{
+-	if (x->type->flags & XFRM_TYPE_NON_FRAGMENT)
+-		*nflen -= x->props.header_len;
+-	else
+-		*len -= x->props.header_len;
+-}
+-
+ /* Allocate chain of dst_entry's, attach known xfrm's, calculate
+  * all the metrics... Shortly, bundle a bundle.
+  */
+@@ -142,7 +124,6 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 	int i;
+ 	int err = 0;
+ 	int header_len = 0;
+-	int nfheader_len = 0;
+ 	int trailer_len = 0;
+ 
+ 	dst = dst_prev = NULL;
+@@ -175,7 +156,10 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 		dst1->next = dst_prev;
+ 		dst_prev = dst1;
+ 
+-		__xfrm6_bundle_len_inc(&header_len, &nfheader_len, xfrm[i]);
++		if (xfrm[i]->type->flags & XFRM_TYPE_NON_FRAGMENT)
++			((struct rt6_info *)dst)->nfheader_len +=
++				xfrm[i]->props.header_len;
++		header_len += xfrm[i]->props.header_len;
+ 		trailer_len += xfrm[i]->props.trailer_len;
+ 
+ 		if (xfrm[i]->props.mode == XFRM_MODE_TUNNEL ||
+@@ -225,7 +209,6 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 		dst_prev->flags	       |= DST_HOST;
+ 		dst_prev->lastuse	= jiffies;
+ 		dst_prev->header_len	= header_len;
+-		dst_prev->nfheader_len	= nfheader_len;
+ 		dst_prev->trailer_len	= trailer_len;
+ 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
+ 
+@@ -255,7 +238,7 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 		x->u.rt6.rt6i_src      = rt0->rt6i_src;
+ 		x->u.rt6.rt6i_idev     = rt0->rt6i_idev;
+ 		in6_dev_hold(rt0->rt6i_idev);
+-		__xfrm6_bundle_len_dec(&header_len, &nfheader_len, x->u.dst.xfrm);
++		header_len -= x->u.dst.xfrm->props.header_len;
+ 		trailer_len -= x->u.dst.xfrm->props.trailer_len;
+ 	}
+ 
+-- 

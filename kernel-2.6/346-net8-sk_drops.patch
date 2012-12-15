@@ -129,7 +129,7 @@ diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
  			       "  sl  local_address rem_address   st tx_queue "
  			       "rx_queue tr tm->when retrnsmt   uid  timeout "
 -			       "inode");
-+			       "inode ref pointer drops\n");
++			       "inode ref pointer drops");
  	else {
  		struct raw_iter_state *state = raw_seq_private(seq);
  
