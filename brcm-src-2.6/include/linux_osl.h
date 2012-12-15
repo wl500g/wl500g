@@ -408,7 +408,7 @@ osl_pkt_tonative(osl_pubinfo_t *osh, void *pkt)
 
 #define	PKTLINK(skb)			(((struct sk_buff*)(skb))->prev)
 #define	PKTSETLINK(skb, x)		(((struct sk_buff*)(skb))->prev = (struct sk_buff*)(x))
-#define	PKTPRIO(skb)			(((struct sk_buff*)(skb))->priority)
+#define	PKTPRIO(skb)			(((struct sk_buff*)(skb))->priority & 7)
 #define	PKTSETPRIO(skb, x)		(((struct sk_buff*)(skb))->priority = (x))
 #define PKTSUMNEEDED(skb)		(((struct sk_buff*)(skb))->ip_summed == CHECKSUM_HW)
 #define PKTSETSUMGOOD(skb, x)		(((struct sk_buff*)(skb))->ip_summed = \

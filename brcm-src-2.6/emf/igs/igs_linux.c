@@ -26,6 +26,8 @@
 #include <emf/igs/igsc_export.h>
 #include "igs_linux.h"
 
+MODULE_LICENSE("Proprietary");
+
 static igs_struct_t igs;
 
 /*
