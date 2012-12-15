@@ -66,7 +66,9 @@ export TOOLCHAIN := $(shell cd $(TOOLCHAINDIR) && pwd -P)
 endif
 
 # Update PATH, MAKELEVEL could be any
-ifeq ($(findstring $(TOOLCHAIN)/bin,$(PATH)),)
+ifeq ($(TOOLCHAIN),)
+$(error Can't find toolchain $(TOOLCHAINDIR))
+else ifeq ($(findstring =$(TOOLCHAIN)/bin:,=$(PATH)),)
 export PATH := $(TOOLCHAIN)/bin:$(PATH)
 endif
 
