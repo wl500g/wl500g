@@ -188,8 +188,8 @@ inst=`pwd -P`
 mkdir $inst/broadcom/src/linux -p
 mkdir /opt/brcm -p
 svn checkout http://wl500g.googlecode.com/svn/trunk/ $inst/broadcom/src/1.9.2.7-rtn
-tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.5.3-K26-r4179.tar.bz2
-ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.5.3-K26 /opt/brcm/hndtools-mipsel-uclibc
+tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.6.3-K26-r4755.tar.bz2
+ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.6.3-K26 /opt/brcm/hndtools-mipsel-uclibc
 rm -rf $inst/broadcom/src/linux/linux-2.6
 tar -C $inst/broadcom/src/linux -jxvf linux-2.6.22.19.tar.bz2
 ln -sf linux-2.6.22.19 $inst/broadcom/src/linux/linux-2.6
