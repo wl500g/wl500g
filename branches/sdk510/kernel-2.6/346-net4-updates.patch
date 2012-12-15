@@ -6,16 +6,18 @@
  40d44446cf10d9d118e8f0132c94e1f25ea3be97 unix: remove some pointless conditionals before kfree_skb()
  acb5d75b9bcff73d32d3471a9b3e9a4189223e48 packet: remove some pointless conditionals before kfree_skb()
  f3fbbe0f6f6cbac4c2aa3d71d95e49cf148286d6 core: remove some pointless conditionals before kfree_skb()
+ 0c9f79be295c99ac7e4b569ca493d75fdcc19e4e ipv4: avoid undefined behavior in do_ip_setsockopt()
 
 ---
  include/net/sock.h       |    2 +-
  net/core/neighbour.c     |    3 +--
  net/core/skbuff.c        |    3 +--
+ net/ipv4/ip_sockglue.c   |   25 ++++++++++++++++---------
  net/ipv6/ipv6_sockglue.c |    3 +--
  net/ipv6/tcp_ipv6.c      |    8 +++-----
  net/packet/af_packet.c   |    3 +--
  net/unix/af_unix.c       |    3 +--
- 7 files changed, 9 insertions(+), 16 deletions(-)
+ 8 files changed, 25 insertions(+), 25 deletions(-)
 
 diff --git a/include/net/sock.h b/include/net/sock.h
 --- a/include/net/sock.h
@@ -55,6 +57,41 @@ diff --git a/net/core/skbuff.c b/net/core/skbuff.c
  					return NULL;
  				}
  				break;
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -430,15 +430,22 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	int val=0,err;
+ 
+-	if (((1<<optname) & ((1<<IP_PKTINFO) | (1<<IP_RECVTTL) |
+-			     (1<<IP_RECVOPTS) | (1<<IP_RECVTOS) |
+-			     (1<<IP_RETOPTS) | (1<<IP_TOS) |
+-			     (1<<IP_TTL) | (1<<IP_HDRINCL) |
+-			     (1<<IP_MTU_DISCOVER) | (1<<IP_RECVERR) |
+-			     (1<<IP_ROUTER_ALERT) | (1<<IP_FREEBIND) |
+-			     (1<<IP_PASSSEC))) ||
+-	    optname == IP_MULTICAST_TTL ||
+-	    optname == IP_MULTICAST_LOOP) {
++	switch (optname) {
++	case IP_PKTINFO:
++	case IP_RECVTTL:
++	case IP_RECVOPTS:
++	case IP_RECVTOS:
++	case IP_RETOPTS:
++	case IP_TOS:
++	case IP_TTL:
++	case IP_HDRINCL:
++	case IP_MTU_DISCOVER:
++	case IP_RECVERR:
++	case IP_ROUTER_ALERT:
++	case IP_FREEBIND:
++	case IP_PASSSEC:
++	case IP_MULTICAST_TTL:
++	case IP_MULTICAST_LOOP:
+ 		if (optlen >= sizeof(int)) {
+ 			if (get_user(val, (int __user *) optval))
+ 				return -EFAULT;
 diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
 --- a/net/ipv6/ipv6_sockglue.c
 +++ b/net/ipv6/ipv6_sockglue.c

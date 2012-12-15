@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #  Modem Status script common functions
-#  ver. 1.009 beta 27.02.2011
+#  ver. 1.200 29.10.2012
 #  by dlukanidin
 
 doCommand() {
@@ -9,8 +9,8 @@ doCommand() {
 	if [ ! -e $1 ] ; then   
 		return 10	# device do not exist
 	fi
-	for i in $(seq  0 4); do
-		chat -t $3 -e ABORT 'ERROR' '' $2 'OK' '' <$1 >$1 2>/tmp/chat.tmp
+	for i in $(seq  0 1); do
+		chat -t $3 -e ABORT 'ERROR' ABORT 'COMMAND NOT SUPPORT' '' $2 'OK' '' <$1 >$1 2>/tmp/chat.tmp
 		code=$?
 		if [ "$code" == "0" ] ; then
 			if [ -z "$4" ]; then
@@ -18,6 +18,9 @@ doCommand() {
 			else
 				answer=`grep $4 /tmp/chat.tmp`
 			fi
+			return $code	# chat status
+		elif [ "$code" == "5" ] ; then
+			answer="COMMAND NOT SUPPORT"
 			return $code	# chat status
 		fi
 	done
@@ -40,29 +43,12 @@ getFlow(){
 		return 10
 	fi
 	for i in $(seq  0 4); do
-		chat -t $3 -e $2 '' '^' '' <$1 >$1 2>/tmp/chat.tmp
+		chat -t $3 -e $2 '' '\n' '' <$1 >$1 2>>/tmp/chat.tmp
 		code=$?
 		if [ "$code" == "0" ] ; then
 			answer=`grep $4 /tmp/chat.tmp | cut -f2 -d:`
 			return $code
 		fi
-	done
-	return $code
-}
-
-checkFlow(){
-	answer="no answer"
-	if [ ! -e $1 ] ; then   
-		return 10
-	fi
-	for i in $(seq  0 $2); do
-		chat -t 1 -e '\r' '' <$1 >$1 2>/tmp/chat.tmp
-		answer=`grep $3 /tmp/chat.tmp`
-		if [ ! -z "$answer" ]; then
-			answer=$(echo -n "$answer" | cut -f2 -d:)
-			return $code
-		fi
-		sleep 1
 	done
 	return $code
 }
@@ -226,6 +212,7 @@ getOps(){
 		  3) sys2="3G/HSDPA" ;;
 		  4) sys2="3G/HSUPA" ;;
 		  5) sys2="3G/HSDPA+HSUPA" ;;
+		  7) sys2="4G/LTE" ;;
 		  *) sys2="other access" ;;
 		esac
 		res=$sys1"("$sys2")"

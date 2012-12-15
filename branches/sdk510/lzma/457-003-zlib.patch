@@ -243,7 +243,7 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp lzma/CPP/7zip/Compress
 +	UInt64 m_offset;
 +};
 +
-+ZEXTERN int ZEXPORT compress2 OF((Bytef *dest,   uLongf *destLen,
++extern "C" int ZEXPORT compress_lzma OF((Bytef *dest,   uLongf *destLen,
 +                                  const Bytef *source, uLong sourceLen,
 +                                  int level))
 +{
@@ -320,7 +320,7 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp lzma/CPP/7zip/Compress
 +	return Z_OK;
 +}
 +
-+ZEXTERN int ZEXPORT uncompress OF((Bytef *dest,   uLongf *destLen,
++extern "C" int ZEXPORT uncompress_lzma OF((Bytef *dest,   uLongf *destLen,
 +                                   const Bytef *source, uLong sourceLen))
 +{
 +	CInMemoryStream *inStreamSpec = new CInMemoryStream(source, sourceLen);

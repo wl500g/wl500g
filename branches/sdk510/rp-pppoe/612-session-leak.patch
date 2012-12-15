@@ -1,0 +1,43 @@
+close sockets if discovery wasn't succesfull
+
+diff -BurpN rp-pppoe-3.11.orig/src/plugin.c rp-pppoe-3.11/src/plugin.c
+--- rp-pppoe-3.11.orig/src/plugin.c	2012-11-03 22:38:07.031729337 +0600
++++ rp-pppoe-3.11/src/plugin.c	2012-11-03 22:46:27.950728696 +0600
+@@ -204,7 +204,7 @@ PPPOEConnectDevice(void)
+         discovery(conn);
+ 	if (conn->discoveryState != STATE_SESSION) {
+ 	    error("Unable to complete PPPoE Discovery");
+-	    return -1;
++	    goto ERROR;
+ 	}
+     }
+ 
+@@ -240,10 +240,16 @@ PPPOEConnectDevice(void)
+     if (connect(conn->sessionSocket, (struct sockaddr *) &sp,
+ 		sizeof(struct sockaddr_pppox)) < 0) {
+ 	error("Failed to connect PPPoE socket: %d %m", errno);
+-	return -1;
++	goto ERROR;
+     }
+ 
+     return conn->sessionSocket;
++
++ ERROR:
++    close(conn->sessionSocket);
++    if (!existingSession)
++	close(conn->discoverySocket);
++    return -1;
+ }
+ 
+ static void
+@@ -310,8 +316,8 @@ PPPOEDisconnectDevice(void)
+ 	return;
+     }
+     close(conn->sessionSocket);
+-    close(conn->discoverySocket);
+-
++    if (!existingSession)
++	close(conn->discoverySocket);
+ }
+ 
+ static void

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #  Modem Status script for WCDMA modem HUAWEI
-#  ver. 1.007 beta 27.02.2011
+#  ver. 1.100 29.10.2012
 #  by dlukanidin
 
 source /usr/share/modem/bin/state_3g_common
@@ -91,8 +91,9 @@ getSysInfoHuawei(){
 		  4) sys5="WCDMA" ;;
 		  5) sys5="HSDPA" ;;
 		  6) sys5="HSUPA" ;;
-		  7) sys5="HSPA" ;;
-		  8) sys5="HSPA+" ;;
+		  7) sys5="HSDPA+HSUPA" ;;
+		  8) sys5="HSPA" ;;
+		  9) sys5="HSPA+" ;;
 		  *) sys5="other mode" ;;
 		esac
 		res=$sys4"("$sys5") : "$sys2" : "$sys1" : "$sys3
@@ -121,7 +122,33 @@ getSysCfgHuawei(){
 		esac
 		res=$sys1"("$sys2")"
 	else
-		res="unknown"
+		doCommand $port "AT\^SYSCFGEX?" 2 "SYSCFGEX:"
+		ret=$?
+		if [ $ret == 0 ]; then
+			answer=$(echo -n $answer | cut -f2 -d:)
+			pref=$(echo -n $answer | cut -f1 -d,)
+			strlen=${#pref}
+			let "strlen -= 2"
+			pref=${pref:1:$strlen}
+			case $pref in
+			  00) sys1="Auto" ;;
+			  01) sys1="GPRS/EDGE only" ;;
+			  02) sys1="WCDMA only" ;;
+			  03) sys1="LTE only" ;;
+			  01??*) sys1="GPRS/EDGE prefered" ;;
+			  02??*) sys1="WCDMA prefered" ;;
+			  03??*) sys1="LTE prefered" ;;
+			  *) sys1=$pref ;;
+			esac
+			case $(echo -n $answer | cut -f3 -d,) in
+			  0) sys2="Roaming Not Supported" ;;
+			  1) sys2="Roaming Supported" ;;
+			  *) sys2="Roaming unknown" ;;
+			esac
+			res=$sys1"("$sys2")"
+		else
+			res="unknown"
+		fi
 	fi
 	return $ret
 }
@@ -129,7 +156,7 @@ getSysCfgHuawei(){
 getBalanceHuawei(){
 	if [ -z $2 ]; then encodePDU "*100#"; else encodePDU $2; fi
 	doCommand $port "AT+CUSD=1,$res,15" 2
-	getFlow $1 "CUSD" 8 "CUSD:"
+	getFlow $1 "CUSD:" 8 "CUSD:"
 	ret=$?
 	if [ $ret == 0 ]; then
 		rep=$(echo -n $answer | cut -f2 -d,)

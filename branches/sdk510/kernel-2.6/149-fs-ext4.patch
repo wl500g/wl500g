@@ -2,7 +2,7 @@ ext4 backport from 2.6.27.59
 
 ---
  Documentation/filesystems/ext4.txt |  166 -
- fs/Kconfig                         |   61 
+ fs/Kconfig                         |   70 
  fs/Makefile                        |    2 
  fs/ext4/Makefile                   |   12 
  fs/ext4/acl.c                      |  194 -
@@ -29,7 +29,7 @@ ext4 backport from 2.6.27.59
  fs/ext4/migrate.c                  |  622 ++++
  fs/ext4/namei.c                    |  391 +-
  fs/ext4/resize.c                   |  302 +-
- fs/ext4/super.c                    | 1370 +++++++---
+ fs/ext4/super.c                    | 1361 +++++++--
  fs/ext4/symlink.c                  |    6 
  fs/ext4/xattr.c                    |  344 ++
  fs/ext4/xattr.h                    |   32 
@@ -40,7 +40,7 @@ ext4 backport from 2.6.27.59
  fs/jbd2/commit.c                   |  535 ++-
  fs/jbd2/journal.c                  |  693 +++--
  fs/jbd2/recovery.c                 |  163 +
- fs/jbd2/revoke.c                   |  199 -
+ fs/jbd2/revoke.c                   |  202 -
  fs/jbd2/transaction.c              |  464 +--
  include/linux/ext4_fs.h            | 1001 -------
  include/linux/ext4_fs_extents.h    |  199 -
@@ -48,7 +48,8 @@ ext4 backport from 2.6.27.59
  include/linux/ext4_fs_sb.h         |   94 
  include/linux/ext4_jbd2.h          |  231 -
  include/linux/jbd2.h               |  272 +
- 47 files changed, 16897 insertions(+), 4826 deletions(-)
+ include/linux/poison.h             |    3 
+ 48 files changed, 16900 insertions(+), 4829 deletions(-)
 
 diff --git a/Documentation/filesystems/ext4.txt b/Documentation/filesystems/ext4.txt
 --- a/Documentation/filesystems/ext4.txt
@@ -29023,4 +29024,17 @@ diff --git a/include/linux/jbd2.h b/include/linux/jbd2.h
  
 -#endif	/* _LINUX_JBD_H */
 +#endif	/* _LINUX_JBD2_H */
+diff --git a/include/linux/poison.h b/include/linux/poison.h
+--- a/include/linux/poison.h
++++ b/include/linux/poison.h
+@@ -36,7 +67,8 @@
+  */
+ 
+ /********** fs/jbd/journal.c **********/
+-#define JBD_POISON_FREE	0x5b
++#define JBD_POISON_FREE		0x5b
++#define JBD2_POISON_FREE	0x5c
+ 
+ /********** drivers/base/dmapool.c **********/
+ #define	POOL_POISON_FREED	0xa7	/* !inuse */
 -- 

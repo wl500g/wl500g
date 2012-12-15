@@ -6,6 +6,7 @@
  d5dd9175bc12015ea4d2c1a9b6b15dfa645a3db9 tcp: use tcp_write_xmit also in tcp_push_one
  def87cf42069a6d4fd42a2ede8f19c620a292568 tcp: Slightly optimize tcp_sendmsg
  ccc2d97cb7c798e785c9f198de243e2b59f7073b ipv4: udp: fix short packet and bad checksum logging
+ 7b5e56f9d635643ad54f2f42e69ad16b80a2cff1 udp: Fix UDP short packet false positive
  9c6d5e5537e3997c47b65925a235392c1968fb51 TCP: Fix setting of snd_ssthresh in tcp_mtu_probe_success
  44f5324b5d13ef2187729d949eca442689627f39 TCP: fix a bug that triggers large number of TCP RST by mistake
  761965eab38d2cbc59c36e355c59609e3a04705a tcp: tcp_sendmsg() page recycling
@@ -17,8 +18,8 @@
  net/ipv4/tcp.c        |   31 +++++++++++++++++----------
  net/ipv4/tcp_input.c  |   17 ++++++++------
  net/ipv4/tcp_output.c |   57 ++++++++++++++++----------------------------------
- net/ipv4/udp.c        |    6 +++--
- 4 files changed, 53 insertions(+), 58 deletions(-)
+ net/ipv4/udp.c        |    9 +++++--
+ 4 files changed, 55 insertions(+), 59 deletions(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c
@@ -299,8 +300,12 @@ diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
-@@ -1139,8 +1139,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
- 	struct udphdr *uh = udp_hdr(skb);
+@@ -1139,11 +1139,10 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
+ 		   int proto)
+ {
+ 	struct sock *sk;
+-	struct udphdr *uh = udp_hdr(skb);
++	struct udphdr *uh;
  	unsigned short ulen;
  	struct rtable *rt = (struct rtable*)skb->dst;
 -	__be32 saddr = ip_hdr(skb)->saddr;
@@ -309,9 +314,11 @@ diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
  
  	/*
  	 *  Validate the packet.
-@@ -1147,6 +1147,9 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+@@ -1147,7 +1147,11 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	if (!pskb_may_pull(skb, sizeof(struct udphdr)))
+ 		goto drop;		/* No space for header. */
  
- 	uh   = udp_hdr(skb);
++	uh   = udp_hdr(skb);
  	ulen = ntohs(uh->len);
 +	saddr = ip_hdr(skb)->saddr;
 +	daddr = ip_hdr(skb)->daddr;

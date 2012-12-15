@@ -1,5 +1,5 @@
 PROG        = usb-modeswitch-data
-VERS        = 201200815
+VERS        = 20121109
 RM          = /bin/rm -f
 PREFIX      = $(DESTDIR)/usr
 ETCDIR      = $(DESTDIR)/etc

@@ -3,10 +3,10 @@ Backport of Debian patch
 address. Thanks to Stephane Louise <luigi@nerim.net> for detection
 and the patch. Closes: #293811
 
-diff -BurpN rp-pppoe-3.10/src/discovery.c rp-pppoe/src/discovery.c
---- rp-pppoe-3.10/src/discovery.c	2008-06-30 14:00:42.000000000 +0000
-+++ rp-pppoe/src/discovery.c	2010-12-02 09:31:08.730916002 +0000
-@@ -404,8 +404,8 @@ waitForPADO(PPPoEConnection *conn, int t
+diff -BurpN rp-pppoe-3.11.orig/src/discovery.c rp-pppoe-3.11/src/discovery.c
+--- rp-pppoe-3.11.orig/src/discovery.c	2012-08-18 00:31:25.000000000 +0600
++++ rp-pppoe-3.11/src/discovery.c	2012-11-03 19:05:25.046730517 +0600
+@@ -465,8 +465,8 @@ waitForPADO(PPPoEConnection *conn, int t
  	if (!packetIsForMe(conn, &packet)) continue;
  
  	if (packet.code == CODE_PADO) {
@@ -16,4 +16,19 @@ diff -BurpN rp-pppoe-3.10/src/discovery.c rp-pppoe/src/discovery.c
 +		printErr("Ignoring PADO packet from broadcast MAC address");
  		continue;
  	    }
- 	    parsePacket(&packet, parsePADOTags, &pc);
+ #ifdef PLUGIN
+diff -BurpN rp-pppoe-3.11.orig/src/relay.c rp-pppoe-3.11/src/relay.c
+--- rp-pppoe-3.11.orig/src/relay.c	2012-08-18 00:31:25.000000000 +0600
++++ rp-pppoe-3.11/src/relay.c	2012-11-03 19:05:25.046730517 +0600
+@@ -1107,9 +1107,9 @@ relayHandlePADO(PPPoEInterface const *if
+     acIndex = iface - Interfaces;
+ 
+     /* Source address must be unicast */
+-    if (NOT_UNICAST(packet->ethHdr.h_source)) {
++    if (BROADCAST(packet->ethHdr.h_source)) {
+ 	syslog(LOG_ERR,
+-	       "PADO packet from %02x:%02x:%02x:%02x:%02x:%02x on interface %s not from a unicast address",
++	       "PADO packet from %02x:%02x:%02x:%02x:%02x:%02x on interface %s from broadcast address",
+ 	       packet->ethHdr.h_source[0],
+ 	       packet->ethHdr.h_source[1],
+ 	       packet->ethHdr.h_source[2],

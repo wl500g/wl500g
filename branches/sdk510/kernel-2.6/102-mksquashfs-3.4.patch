@@ -4,7 +4,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/Makefile linux-2.6.22/scripts/squ
 @@ -0,0 +1,22 @@
 +INCLUDEDIR = $(SRCBASE)/linux/linux-2.6/include/linux
 +
-+CFLAGS := -I. -idirafter$(INCLUDEDIR) -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -O2
++CFLAGS := -Wall -Wno-unused-variable -I. -idirafter$(INCLUDEDIR) -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -O2
 +
 +all: mksquashfs unsquashfs
 +
@@ -105,7 +105,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/global.h linux-2.6.22/scripts/squ
 diff -BurpN linux-2.6.22.orig/scripts/squashfs/mksquashfs.c linux-2.6.22/scripts/squashfs/mksquashfs.c
 --- linux-2.6.22.orig/scripts/squashfs/mksquashfs.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux-2.6.22/scripts/squashfs/mksquashfs.c	2008-08-26 07:01:39.000000000 +0000
-@@ -0,0 +1,4223 @@
+@@ -0,0 +1,4224 @@
 +/*
 + * Create a squashfs filesystem.  This is a highly compressed read only filesystem.
 + *
@@ -1646,6 +1646,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/mksquashfs.c linux-2.6.22/scripts
 +	pthread_mutex_lock(&fragment_mutex);
 +	insert_fragment_list(&frag_locked_list, entry);
 +	pthread_mutex_unlock(&fragment_mutex);
++	return TRUE;
 +}
 +
 +
@@ -5420,7 +5421,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/sort.h linux-2.6.22/scripts/squas
 diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts/squashfs/unsquashfs.c
 --- linux-2.6.22.orig/scripts/squashfs/unsquashfs.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux-2.6.22/scripts/squashfs/unsquashfs.c	2008-08-26 07:01:54.000000000 +0000
-@@ -0,0 +1,2726 @@
+@@ -0,0 +1,2727 @@
 +/*
 + * Unsquash a squashfs filesystem.  This is a highly compressed read only filesystem.
 + *
@@ -5474,6 +5475,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6.22/scripts
 +#define __LITTLE_ENDIAN LITTLE_ENDIAN
 +#else
 +#include <endian.h>
++#include <sys/sysinfo.h>
 +#endif
 +
 +#include "squashfs_fs.h"

@@ -154,7 +154,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/mksquashfs.c linux-2.6.22/scripts
 +	struct dir_ent *dir_ent;
 +	struct pseudo_entry *pseudo_ent;
 +	struct stat buf;
-+	static pseudo_ino = 1;
++	static ino_t pseudo_ino = 1;
 +	
 +	if(dir == NULL && (dir = scan1_opendir("")) == NULL)
 +		return NULL;
