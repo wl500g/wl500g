@@ -53,11 +53,13 @@ endif
 ifeq ($(PLATFORM),mipsel)
 export CROSS_COMPILE := mipsel-linux-
 export CONFIGURE := ./configure --host=mipsel-linux --build=$(BUILD)
-endif
-ifeq ($(PLATFORM),mipsel-uclibc)
+else ifeq ($(PLATFORM),mipsel-uclibc)
 export CROSS_COMPILE := mipsel-uclibc-
 export CONFIGURE := ./configure --host=mipsel-linux --build=$(BUILD)
+else
+$(error Unsupported platform $(PLATFORM))
 endif
+export CONFIGURE := CONFIG_SITE=no-such-file $(CONFIGURE)
 
 ifeq ($(TOOLCHAINDIR),)
 export TOOLCHAIN := $(shell cd $(dir $(shell which $(CROSS_COMPILE)gcc))/.. && pwd -P)
