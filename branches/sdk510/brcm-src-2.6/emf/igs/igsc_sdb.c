@@ -668,8 +668,13 @@ igsc_sdb_interface_del(igsc_info_t *igsc_info, void *ifp)
 			{
 				mh = clist_entry(ptr2, igsc_mh_t, mh_list);
 
+				if (mh->mh_mi->mi_ifp != ifp) {
+					tmp2  = ptr2->next;
+					continue;
+				}
+
 				/* Delete the interface entry if no stream is going on it */
-				if (mh->mh_mi->mi_ifp == ifp)
+				if (--mh->mh_mi->mi_ref == 0)
 				{
 					IGS_IGSDB("Deleting interface entry %p\n", mh->mh_mi);
 

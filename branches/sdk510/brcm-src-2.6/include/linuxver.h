@@ -17,18 +17,10 @@
 #define _linuxver_h_
 
 #include <linux/version.h>
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0))
-#include <linux/config.h>
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 19))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 19))
 #include <linux/autoconf.h>
 #endif
 #include <linux/module.h>
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 5, 0)
-#define module_param(_name_, _type_, _perm_)	MODULE_PARM(_name_, "i")
-#define module_param_string(_name_, _string_, _size_, _perm_) \
-		MODULE_PARM(_string_, "c" __MODULE_STRING(_size_))
-#endif
 
 /* linux/malloc.h is deprecated, use linux/slab.h instead. */
 #include <linux/slab.h>

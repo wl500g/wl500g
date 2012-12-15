@@ -596,7 +596,7 @@ emfc_mfdb_mhif_add(emfc_info_t *emfc, void *ifp)
 	}
 
 	/* Add new entry */
-	mhif = MALLOC(emfc->osh, sizeof(emfc_mgrp_t));
+	mhif = MALLOC(emfc->osh, sizeof(emfc_mhif_t));
 	if (mhif == NULL)
 	{
 		OSL_UNLOCK(emfc->fdb_lock);
