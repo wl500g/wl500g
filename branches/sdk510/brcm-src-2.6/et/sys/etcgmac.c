@@ -170,7 +170,7 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	ET_TRACE(("et%d: chipattach: regsva 0x%lx\n", etc->unit, (ulong)regsva));
 
 	if ((ch = (ch_t *)MALLOC(osh, sizeof(ch_t))) == NULL) {
-		ET_ERROR(("et%d: chipattach: out of memory, malloced %d bytes\n", etc->unit,
+		ET_ERROR(("%s: out of memory, malloced %d bytes\n", __func__,
 		          MALLOCED(osh)));
 		return (NULL);
 	}
@@ -861,7 +861,8 @@ gmac_mf_add(ch_t *ch, struct ether_addr *mcaddr)
 	/* allocate memory for list entry */
 	entry = MALLOC(ch->osh, sizeof(mflist_t));
 	if (entry == NULL) {
-		ET_ERROR(("et%d: out of memory allocating mcast filter entry\n", ch->etc->unit));
+		ET_ERROR(("%s: out of memory, malloced %d bytes\n", __func__,
+					MALLOCED(ch->osh)));
 		return (FAILURE);
 	}
 
