@@ -335,7 +335,7 @@ osl_mfree(osl_t *osh, void *addr, uint size)
 {
 	if (osh) {
 		ASSERT(osh->magic == OS_HANDLE_MAGIC);
-		if (!unlikely(ZERO_OR_NULL_PTR(addr)))
+		if (likely(!ZERO_OR_NULL_PTR(addr)))
 			osh->malloced -= size;
 	}
 	kfree(addr);

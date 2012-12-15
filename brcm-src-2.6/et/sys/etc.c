@@ -23,9 +23,9 @@
 #include <bcmenetmib.h>
 #include <bcmenetrxh.h>
 #include <bcmenetphy.h>
-#include <et_dbg.h>
-#include <etc.h>
-#include <et_export.h>
+#include "et_dbg.h"
+#include "etc.h"
+#include "et_export.h"
 #include <bcmutils.h>
 
 #ifdef ETROBO
@@ -97,7 +97,7 @@ etc_attach(void *et, uint vendor, uint device, uint unit, void *osh, void *regsv
 
 	/* allocate etc_info_t state structure */
 	if ((etc = (etc_info_t*) MALLOC(osh, sizeof(etc_info_t))) == NULL) {
-		ET_ERROR(("et%d: etc_attach: out of memory, malloced %d bytes\n", unit,
+		ET_ERROR(("%s: out of memory, malloced %d bytes\n", __func__,
 		          MALLOCED(osh)));
 		return (NULL);
 	}
@@ -296,7 +296,7 @@ etc_ioctl(etc_info_t *etc, int cmd, void *arg)
 		} else if (val == ET_AUTO)
 			;
 		else
-			goto err;
+			return -EINVAL;
 
 		etc->forcespeed = val;
 
@@ -376,8 +376,8 @@ etc_ioctl(etc_info_t *etc, int cmd, void *arg)
 
 
 	default:
-	err:
-		error = -1;
+		error = -ENOENT;
+		break;
 	}
 
 	return (error);

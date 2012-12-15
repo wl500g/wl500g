@@ -40,25 +40,17 @@
 #include <bcmgmacrxh.h>
 #include <etc.h>
 
-typedef struct et_info {
+struct et_info {
 	etc_info_t *etc;		/* pointer to common os-independent data */
 	cfe_devctx_t *ctx;		/* backpoint to device */
 	int64_t timer;			/* one second watchdog timer */
 	osl_t *osh;
 	struct et_info *next;		/* pointer to next et_info_t in chain */
-} et_info_t;
+};
 
 static et_info_t *et_list = NULL;
 
-void et_init(et_info_t *et, uint options);
-void et_reset(et_info_t *et);
-void et_link_up(et_info_t *et);
-void et_link_down(et_info_t *et);
-int et_up(et_info_t *et);
-int et_down(et_info_t *et, int reset);
-void et_dump(et_info_t *et, struct bcmstrbuf *b);
-void et_addcmd(void);
-void et_intrson(et_info_t *et);
+static void et_addcmd(void);
 
 void
 et_init(et_info_t *et, uint options)
@@ -106,7 +98,7 @@ et_up(et_info_t *et)
 	return 0;
 }
 
-int
+void
 et_down(et_info_t *et, int reset)
 {
 	ET_TRACE(("et%d: et_down\n", et->etc->unit));
@@ -115,18 +107,12 @@ et_down(et_info_t *et, int reset)
 	TIMER_CLEAR(et->timer);
 
 	etc_down(et->etc, reset);
-
-	return 0;
 }
 
 void
 et_dump(et_info_t *et, struct bcmstrbuf *b)
 {
 }
-
-et_info_t *et_phyfind(et_info_t *et, uint coreunit);
-uint16 et_phyrd(et_info_t *et, uint phyaddr, uint reg);
-void et_phywr(et_info_t *et, uint reg, uint phyaddr, uint16 val);
 
 /*
  * 47XX-specific shared mdc/mdio contortion:
@@ -140,7 +126,7 @@ et_phyfind(et_info_t *et, uint coreunit)
 
 	/* walk the list et's */
 	for (tmp = et_list; tmp; tmp = tmp->next) {
-		if (et->etc == NULL)
+		if (tmp->etc == NULL)
 			continue;
 		if (tmp->etc->coreunit != coreunit)
 			continue;
@@ -631,7 +617,7 @@ ui_cmd_et(ui_cmdline_t *cmdline, int argc, char *argv[])
 	return etc_ioctl(et->etc, cmd, arg);
 }
 
-void
+static void
 et_addcmd(void)
 {
 	cmd_addcmd("et",
