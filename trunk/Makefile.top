@@ -56,7 +56,7 @@ export CONFIGURE := ./configure --host=mipsel-linux --build=$(BUILD)
 else ifeq ($(PLATFORM),mipsel-uclibc)
 export CROSS_COMPILE := mipsel-uclibc-
 export CONFIGURE := ./configure --host=mipsel-linux --build=$(BUILD)
-else
+else ifneq ($(MAKECMDGOALS),.config)
 $(error Unsupported platform $(PLATFORM))
 endif
 export CONFIGURE := CONFIG_SITE=no-such-file $(CONFIGURE)
@@ -67,11 +67,13 @@ else
 export TOOLCHAIN := $(shell cd $(TOOLCHAINDIR) && pwd -P)
 endif
 
+ifneq ($(TOOLCHAIN),)
 # Update PATH, MAKELEVEL could be any
-ifeq ($(TOOLCHAIN),)
-$(error Can't find toolchain $(TOOLCHAINDIR))
-else ifeq ($(findstring =$(TOOLCHAIN)/bin:,=$(PATH)),)
+ifeq ($(findstring =$(TOOLCHAIN)/bin:,=$(PATH)),)
 export PATH := $(TOOLCHAIN)/bin:$(PATH)
+endif
+else ifneq ($(MAKECMDGOALS),.config)
+$(error Can't find toolchain $(TOOLCHAINDIR))
 endif
 
 ifeq ($(CONFIG_BCMWPA2),y)
