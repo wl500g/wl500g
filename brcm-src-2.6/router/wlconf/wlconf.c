@@ -1803,6 +1803,8 @@ wlconf(char *name)
 		} else if (!strcmp(nvram_str, "off")) {
 			WL_IOVAR_SETINT(name, "stbc_tx", OFF);
 		}
+		val = atoi(nvram_safe_get(strcat_r(prefix, "stbc_rx", tmp)));
+		WL_IOVAR_SETINT(name, "stbc_rx", val);
 	}
 
 	/* Set RIFS mode based on framebursting */
@@ -1956,6 +1958,7 @@ wlconf(char *name)
 		}
 
 		WL_IOCTL(name, WLC_SET_CS_SCAN_TIMER, &val, sizeof(val));
+		WL_IOVAR_SETINT(name, "chanim_mode", CHANIM_ACT);
 	}
 
 #endif /* EXT_ACS */
