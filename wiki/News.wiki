@@ -5,12 +5,12 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
-===RT-N-1.9.2.7-rtn (Current)===
+===RT-N-1.9.2.7-rtn-`r4772` (2012-12-23)===
   * kernel
     * backports from upstream - MIPS, fs(ext4, udf), net(udp, raw), netfilter(rtcp, ACK), usb(usbip)
     * cdc-acm: fix info for /proc/bus/usb/devpath
 
-  * dnsmasq 2.64
+  * dnsmasq 2.65
     * upstream patches
 
   * 3g/cdma
@@ -20,7 +20,7 @@
     * dial scripts update (excluded options: nopcomp, noaccomp due to ZTE MF195 support)
 
   * busybox
-    * bugfixes (ash, ntpd)
+    * bugfixes (ntpd)
 
   * misc
     * miniupnpd: fix memory & socket leaks
