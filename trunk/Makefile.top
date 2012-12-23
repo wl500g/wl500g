@@ -22,8 +22,7 @@ RELEASE=1.9.2.7-rtn
 # asus trx trailer
 #
 
-KERNEL_VER=1.9
-FS_VER=2.7
+TRX_VER=1.9.2.7
 HWL1=0.02
 HWH1=2.99
 
@@ -513,16 +512,16 @@ endif
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
 ifeq ($(CONFIG_LOADER),y)
-	$(SRCBASE)/asustrx/asustrx -p $* -v $(KERNEL_VER).$(FS_VER) -m $(call FlashMaxSize,$*) \
+	$(SRCBASE)/asustrx/asustrx -p $* -v $(TRX_VER) -m $(call FlashMaxSize,$*) \
 		-o $(PLATFORMDIR)/$*-$(RELEASE).trx \
 		loader/loader.gz $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 else
-	$(SRCBASE)/asustrx/asustrx -p $* -v $(KERNEL_VER).$(FS_VER) -m $(call FlashMaxSize,$*) \
+	$(SRCBASE)/asustrx/asustrx -p $* -v $(TRX_VER) -m $(call FlashMaxSize,$*) \
 		-o $(PLATFORMDIR)/$*-$(RELEASE).trx \
 		$(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 endif
 	@echo
-	@echo "Finished building $* firmware version $(KERNEL_VER).$(FS_VER) ($(RELEASE))"
+	@echo "Finished building $* firmware version $(TRX_VER) ($(RELEASE))"
 	@echo
 
 MANPAGES-y := busybox/docs/BusyBox.1 \
