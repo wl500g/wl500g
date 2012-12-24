@@ -36,6 +36,7 @@ install: all
 	install -m 755 linuxrc.sh $(INSTALLDIR)/linuxrc
 	install -m 755 flashfs.sh $(INSTALLDIR)/sbin/flashfs
 	install -m 755 wshaper.sh $(INSTALLDIR)/sbin/wshaper
+	install -m 755 sysinfo.sh $(INSTALLDIR)/usr/sbin/sysinfo
 	install -m 755 ipkg.sh $(INSTALLDIR)/usr/bin/ipkg.sh
 ifeq ($(CONFIG_SSHD),y)
 	install -m 755 dropbearstart.sh $(INSTALLDIR)/usr/sbin/dropbearstart
