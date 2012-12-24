@@ -15,11 +15,12 @@ kernel.org commits:
  86234d4975ce084d14711283a3bfc69305f97602 USB: option.c: OLIVETTI OLICARD100 support
  4901b2c34ecb6fc45909228ad269c8126efe4401 USB: suspend/resume support for option driver
 linux 3.0 backports
+ 1b95bee5630766448f40eecaa08b722f256335ea USB: option: never bind to a usb-storage interface
 
 ---
- drivers/usb/serial/option.c        | 1007 ++++++++++++++++++++++++++++++-------
+ drivers/usb/serial/option.c        | 1013 ++++++++++++++++++++++++++++++-------
  drivers/usb/storage/unusual_devs.h |   25 
- 2 files changed, 849 insertions(+), 183 deletions(-)
+ 2 files changed, 855 insertions(+), 183 deletions(-)
 
 diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 --- a/drivers/usb/serial/option.c
@@ -920,17 +921,15 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	unsigned long out_busy;		/* Bit vector of URBs in use */
  
  	/* Settings for the port */
-@@ -635,6 +1149,56 @@ static void __exit option_exit(void)
+@@ -635,6 +1149,54 @@ static void __exit option_exit(void)
  module_init(option_init);
  module_exit(option_exit);
  
 +static int option_probe(struct usb_serial *serial,
 +			const struct usb_device_id *id)
 +{
-+	/* D-Link DWM 652 still exposes CD-Rom emulation interface in modem mode */
-+	if (serial->dev->descriptor.idVendor == DLINK_VENDOR_ID &&
-+		serial->dev->descriptor.idProduct == DLINK_PRODUCT_DWM_652 &&
-+		serial->interface->cur_altsetting->desc.bInterfaceClass == 0x8)
++	/* Never bind to the CD-Rom emulation interface	*/
++	if (serial->interface->cur_altsetting->desc.bInterfaceClass == 0x8)
 +		return -ENODEV;
 +
 +	/* Bandrich modem and AT command interface is 0xff */
