@@ -1819,10 +1819,20 @@ static inline void do_generic_file_read(struct file * filp, loff_t *ppos,
 }
 
 #ifdef CONFIG_BLOCK
+#ifdef CONFIG_DIRECT_IO
 ssize_t __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 	struct block_device *bdev, const struct iovec *iov, loff_t offset,
 	unsigned long nr_segs, get_block_t get_block, dio_iodone_t end_io,
 	int lock_type);
+#else
+static inline ssize_t __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
+	struct block_device *bdev, const struct iovec *iov, loff_t offset,
+	unsigned long nr_segs, get_block_t get_block, dio_iodone_t end_io,
+	int lock_type)
+{
+	return -EOPNOTSUPP;
+}
+#endif
 
 enum {
 	DIO_LOCKING = 1, /* need locking between buffered and direct access */

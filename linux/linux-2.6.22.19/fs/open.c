@@ -710,9 +710,12 @@ static struct file *__dentry_open(struct dentry *dentry, struct vfsmount *mnt,
 
 	/* NB: we're sure to have correct a_ops only after f_op->open */
 	if (f->f_flags & O_DIRECT) {
+#ifdef CONFIG_DIRECT_IO
 		if (!f->f_mapping->a_ops ||
 		    ((!f->f_mapping->a_ops->direct_IO) &&
-		    (!f->f_mapping->a_ops->get_xip_page))) {
+		    (!f->f_mapping->a_ops->get_xip_page)))
+#endif
+		{
 			fput(f);
 			f = ERR_PTR(-EINVAL);
 		}
