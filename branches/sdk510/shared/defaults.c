@@ -243,7 +243,6 @@ struct nvram_tuple router_defaults[] = {
 	/* Default AMPDU regular rate retry limit per-tid setting */
 	{ "wl_ampdu_rr_rtylimit_tid", "3 3 3 3 3 3 3 3", 0 },
 	{ "wl_amsdu", "auto", 0 },		/* Default AMSDU setting */
-	{ "wl_obss_coex", "1", 0 },
 #endif
 
 	/* WPA parameters */
