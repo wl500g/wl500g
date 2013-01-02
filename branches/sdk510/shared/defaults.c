@@ -200,7 +200,8 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_key4", "", 0 },			/* 5/13 char ASCII or 10/26 char hex */
 	{ "wl_maclist", "", 0 },		/* xx:xx:xx:xx:xx:xx ... */
 	{ "wl_macmode", "disabled", 0 },	/* "allow" only, "deny" only, or "disabled" (allow all) */
-	{ "wl_channel", "11", 0 },		/* Channel number */
+	{ "wl_channel", "0", 0 },		/* Channel number */
+	{ "wl_reg_mode", "off", 0 },		/* Regulatory: 802.11H(h)/802.11D(d)/off(off) */
 	{ "wl_dfs_preism", "60", 0 },		/* 802.11H pre network CAC time */
 	{ "wl_dfs_postism", "60", 0 },		/* 802.11H In Service Monitoring CAC time */
 	/* Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40 */
@@ -234,13 +235,15 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_txstreams", "0", 0},              /* 802.11n Tx Streams 0, 0 is invalid, WLCONF will
 						 * change it to a radio appropriate default
 						 */
-	{ "wl_stbc_tx", "auto", 0 },	/* Default STBC TX setting */
+	{ "wl_stbc_tx", "auto", 0 },		/* Default STBC TX setting */
+	{ "wl_stbc_rx", "1", 0 },		/* Default STBC RX setting */
 	{ "wl_ampdu", "auto", 0 },		/* Default AMPDU setting */
 	/* Default AMPDU retry limit per-tid setting */
-	{ "wl_ampdu_rtylimit_tid", "5 5 5 5 5 5 5 5", 0 },
+	{ "wl_ampdu_rtylimit_tid", "7 7 7 7 7 7 7 7", 0 },
 	/* Default AMPDU regular rate retry limit per-tid setting */
-	{ "wl_ampdu_rr_rtylimit_tid", "2 2 2 2 2 2 2 2", 0 },
+	{ "wl_ampdu_rr_rtylimit_tid", "3 3 3 3 3 3 3 3", 0 },
 	{ "wl_amsdu", "auto", 0 },		/* Default AMSDU setting */
+	{ "wl_obss_coex", "1", 0 },
 #endif
 
 	/* WPA parameters */
@@ -258,6 +261,7 @@ struct nvram_tuple router_defaults[] = {
 	/* WME parameters */
 	{ "wl_wme", "on", 0 },		/* WME mode (off|on|auto) */
 	{ "wl_wme_no_ack", "off", 0},		/* WME No-Acknowledgmen mode */
+	{ "wl_wme_apsd", "on", 0 },		/* WME APSD mode */
 
 	/* EDCA parameters for STA */
 #ifdef __CONFIG_BCMWL5__
@@ -294,7 +298,6 @@ struct nvram_tuple router_defaults[] = {
 #endif
 
 	{ "wl_wme_bss_disable", "0", 0 },	/* WME BSS disable advertising (off|on) */
-	{ "wl_wme_apsd","on",0},		/* WME APSD mode */
 
 	{ "wl_maxassoc", "128", 0},		/* Max associations driver could support */
 	{ "wl_bss_maxassoc", "128", 0},		/* Max associations driver could support */
