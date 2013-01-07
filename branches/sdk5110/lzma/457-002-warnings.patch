@@ -1,0 +1,31 @@
+diff -uBp lzma.orig/CPP/7zip/Compress/LZMA/LZMAEncoder.cpp lzma/CPP/7zip/Compress/LZMA/LZMAEncoder.cpp
+--- lzma.orig/CPP/7zip/Compress/LZMA/LZMAEncoder.cpp	2007-09-12 16:17:51.000000000 +0400
++++ lzma/CPP/7zip/Compress/LZMA/LZMAEncoder.cpp	2011-07-06 22:28:40.000000000 +0400
+@@ -1181,9 +1181,9 @@ UInt32 CEncoder::GetOptimumFast(UInt32 &
+ 
+   if (repLens[repMaxIndex] >= 2)
+   {
+-    if (repLens[repMaxIndex] + 1 >= lenMain || 
+-        repLens[repMaxIndex] + 2 >= lenMain && (backMain > (1 << 9)) ||
+-        repLens[repMaxIndex] + 3 >= lenMain && (backMain > (1 << 15)))
++    if ((repLens[repMaxIndex] + 1 >= lenMain) || 
++        (repLens[repMaxIndex] + 2 >= lenMain && (backMain > (1 << 9))) ||
++        (repLens[repMaxIndex] + 3 >= lenMain && (backMain > (1 << 15))))
+     {
+       backRes = repMaxIndex;
+       UInt32 lenRes = repLens[repMaxIndex];
+@@ -1199,10 +1199,10 @@ UInt32 CEncoder::GetOptimumFast(UInt32 &
+     if (_longestMatchLength >= 2)
+     {
+       UInt32 newDistance = matchDistances[_numDistancePairs - 1];
+-      if (_longestMatchLength >= lenMain && newDistance < backMain || 
+-          _longestMatchLength == lenMain + 1 && !ChangePair(backMain, newDistance) ||
+-          _longestMatchLength > lenMain + 1 ||
+-          _longestMatchLength + 1 >= lenMain && lenMain >= 3 && ChangePair(newDistance, backMain))
++      if ((_longestMatchLength >= lenMain && newDistance < backMain) || 
++          (_longestMatchLength == lenMain + 1 && !ChangePair(backMain, newDistance)) ||
++          (_longestMatchLength > lenMain + 1) ||
++          (_longestMatchLength + 1 >= lenMain && lenMain >= 3 && ChangePair(newDistance, backMain)))
+       {
+         _longestMatchWasFound = true;
+         backRes = UInt32(-1);

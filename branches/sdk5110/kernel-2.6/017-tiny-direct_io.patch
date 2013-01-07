@@ -1,0 +1,81 @@
+Configurable Direct IO support
+
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -1033,6 +1033,11 @@
+ 	  Both sysfs and configfs can and should exist together on the
+ 	  same system. One is not a replacement for the other.
+ 
++config DIRECT_IO
++	bool "Enable O_DIRECT support"
++	depends on BLOCK && EXPERIMENTAL
++	default y
++
+ endmenu
+ 
+ menu "Layered filesystems"
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -14,7 +14,8 @@
+ 		stack.o
+ 
+ ifeq ($(CONFIG_BLOCK),y)
+-obj-y +=	buffer.o bio.o block_dev.o direct-io.o mpage.o ioprio.o
++obj-y +=	buffer.o bio.o block_dev.o mpage.o ioprio.o
++obj-$(CONFIG_DIRECT_IO) += direct-io.o
+ else
+ obj-y +=	no-block.o
+ endif
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -1838,10 +1838,20 @@ static inline void do_generic_file_read(
+ }
+ 
+ #ifdef CONFIG_BLOCK
++#ifdef CONFIG_DIRECT_IO
+ ssize_t __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
+ 	struct block_device *bdev, const struct iovec *iov, loff_t offset,
+ 	unsigned long nr_segs, get_block_t get_block, dio_iodone_t end_io,
+ 	int lock_type);
++#else
++static inline ssize_t __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
++	struct block_device *bdev, const struct iovec *iov, loff_t offset,
++	unsigned long nr_segs, get_block_t get_block, dio_iodone_t end_io,
++	int lock_type)
++{
++	return -EOPNOTSUPP;
++}
++#endif
+ 
+ enum {
+ 	DIO_LOCKING = 1, /* need locking between buffered and direct access */
+--- a/fs/fcntl.c
++++ b/fs/fcntl.c
+@@ -169,8 +169,10 @@ static int setfl(int fd, struct file * f
+ 		   arg |= O_NONBLOCK;
+ 
+ 	if (arg & O_DIRECT) {
++#ifdef CONFIG_DIRECT_IO
+ 		if (!filp->f_mapping || !filp->f_mapping->a_ops ||
+ 			!filp->f_mapping->a_ops->direct_IO)
++#endif
+ 				return -EINVAL;
+ 	}
+ 
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -771,9 +771,12 @@ static struct file *__dentry_open(struct
+ 
+ 	/* NB: we're sure to have correct a_ops only after f_op->open */
+ 	if (f->f_flags & O_DIRECT) {
++#ifdef CONFIG_DIRECT_IO
+ 		if (!f->f_mapping->a_ops ||
+ 		    ((!f->f_mapping->a_ops->direct_IO) &&
+-		    (!f->f_mapping->a_ops->get_xip_page))) {
++		    (!f->f_mapping->a_ops->get_xip_page)))
++#endif
++		{
+ 			fput(f);
+ 			f = ERR_PTR(-EINVAL);
+ 		}
+-- 

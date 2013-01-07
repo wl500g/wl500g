@@ -1,0 +1,71 @@
+mm: swap/pdflush updates from upstream
+
+ 32a4330d4156e55a4888a201f484dbafed9504ed mm: prevent kswapd from freeing excessive amounts of lowmem
+ 5aecd559871d23a3cc297e544c9d63f0b8441cf4 mm/pdflush.c: merge the same code in two path
+ 2b4bc46052ea8cd7c370b67ca0b9c26586f1439a pdflush: use time_after() instead of open-coding it
+
+---
+ mm/pdflush.c |    8 ++++----
+ mm/vmscan.c  |    8 +++++++-
+ 2 files changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/mm/pdflush.c b/mm/pdflush.c
+--- a/mm/pdflush.c
++++ b/mm/pdflush.c
+@@ -130,7 +130,7 @@ static int __pdflush(struct pdflush_work *my_work)
+ 		 * Thread creation: For how long have there been zero
+ 		 * available threads?
+ 		 */
+-		if (jiffies - last_empty_jifs > 1 * HZ) {
++		if (time_after(jiffies, last_empty_jifs + 1 * HZ)) {
+ 			/* unlocked list_empty() test is OK here */
+ 			if (list_empty(&pdflush_list)) {
+ 				/* unlocked test is OK here */
+@@ -151,7 +151,7 @@ static int __pdflush(struct pdflush_work *my_work)
+ 		if (nr_pdflush_threads <= MIN_PDFLUSH_THREADS)
+ 			continue;
+ 		pdf = list_entry(pdflush_list.prev, struct pdflush_work, list);
+-		if (jiffies - pdf->when_i_went_to_sleep > 1 * HZ) {
++		if (time_after(jiffies, pdf->when_i_went_to_sleep + 1 * HZ)) {
+ 			/* Limit exit rate */
+ 			pdf->when_i_went_to_sleep = jiffies;
+ 			break;					/* exeunt */
+@@ -207,7 +207,6 @@ int pdflush_operation(void (*fn)(unsigned long), unsigned long arg0)
+ 
+ 	spin_lock_irqsave(&pdflush_lock, flags);
+ 	if (list_empty(&pdflush_list)) {
+-		spin_unlock_irqrestore(&pdflush_lock, flags);
+ 		ret = -1;
+ 	} else {
+ 		struct pdflush_work *pdf;
+@@ -219,8 +218,9 @@ int pdflush_operation(void (*fn)(unsigned long), unsigned long arg0)
+ 		pdf->fn = fn;
+ 		pdf->arg0 = arg0;
+ 		wake_up_process(pdf->who);
+-		spin_unlock_irqrestore(&pdflush_lock, flags);
+ 	}
++	spin_unlock_irqrestore(&pdflush_lock, flags);
++
+ 	return ret;
+ }
+ 
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -1211,7 +1211,13 @@ loop_again:
+ 			temp_priority[i] = priority;
+ 			sc.nr_scanned = 0;
+ 			note_zone_scanning_priority(zone, priority);
+-			nr_reclaimed += shrink_zone(priority, zone, &sc);
++			/*
++			 * We put equal pressure on every zone, unless one
++			 * zone has way too many pages free already.
++			 */
++			if (!zone_watermark_ok(zone, order, 8*zone->pages_high,
++						end_zone, 0))
++				nr_reclaimed += shrink_zone(priority, zone, &sc);
+ 			reclaim_state->reclaimed_slab = 0;
+ 			nr_slab = shrink_slab(sc.nr_scanned, GFP_KERNEL,
+ 						lru_pages);
+-- 
+1.7.6.5

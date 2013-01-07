@@ -1,0 +1,130 @@
+MIPS: MIPS32R2 optimisations for pipeline stalls and code size.
+
+ http://patchwork.linux-mips.org/patch/3589/
+
+If the CPU type is selected as MIPS32R2, then we can surround
+some code with #ifdef's to reduce the binary size. Detect when
+to use 'ehb' instruction to avoid pipeline stalls.
+
+Signed-off-by: Steven J. Hill <sjhill@mips.com>
+
+ Additional kernel.org commits:
+ 161548bf3529d53398adb3451cdc781cc324fc1d [MIPS] tlbex: Cleanup handling of R2 hazards in TLB handlers.
+ 41f0e4d041aa30507a34998c29d0b7ac0bede277 MIPS: Allow R2 CPUs to turn off generation of 'ehb' instructions.
+
+---
+ arch/mips/mm/tlbex.c            |   37 ++++++++++++++++++++++++++++---------
+ include/asm-mips/cpu-features.h |    4 ++++
+ 2 files changed, 32 insertions(+), 9 deletions(-)
+
+diff --git a/include/asm-mips/cpu-features.h b/include/asm-mips/cpu-features.h
+--- a/include/asm-mips/cpu-features.h
++++ b/include/asm-mips/cpu-features.h
+@@ -142,6 +142,10 @@
+ #define cpu_has_mips_r1	(cpu_has_mips32r1 | cpu_has_mips64r1)
+ #define cpu_has_mips_r2	(cpu_has_mips32r2 | cpu_has_mips64r2)
+ 
++#ifndef cpu_has_mips_r2_exec_hazard
++#define cpu_has_mips_r2_exec_hazard cpu_has_mips_r2
++#endif
++
+ #ifndef cpu_has_dsp
+ #define cpu_has_dsp		(cpu_data[0].ases & MIPS_ASE_DSP)
+ #endif
+diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
+--- a/arch/mips/mm/tlbex.c
++++ b/arch/mips/mm/tlbex.c
+@@ -540,6 +540,7 @@ static __cpuinitdata u32 tlb_handler[128
+ static __cpuinitdata struct label labels[128];
+ static __cpuinitdata struct reloc relocs[128];
+ 
++# ifndef CONFIG_CPU_MIPS32_R2
+ /*
+  * The R3000 TLB handler is simple.
+  */
+@@ -584,6 +585,7 @@ static void __cpuinit build_r3000_tlb_re
+ 
+ 	memcpy((void *)ebase, tlb_handler, 0x80);
+ }
++# endif /* !CONFIG_CPU_MIPS32_R2 */
+ 
+ /*
+  * The R4000 TLB handler is much more complicated. We have two
+@@ -652,6 +654,28 @@ static __cpuinit void build_tlb_write_en
+ 	case tlb_indexed: tlbw = i_tlbwi; break;
+ 	}
+ 
++	if (cpu_has_mips_r2) {
++		/*
++		 * The architecture spec says an ehb is required here,
++		 * but a number of cores do not have the hazard and
++		 * using an ehb causes an expensive pipeline stall.
++		 */
++		if (cpu_has_mips_r2_exec_hazard) {
++			switch (current_cpu_data.cputype) {
++//			case CPU_14K:
++			case CPU_74K:
++//			case CPU_1074K:
++				break;
++
++			default:
++				i_ehb(p);
++				break;
++			}
++		}
++		tlbw(p);
++		return;
++	}
++
+ 	switch (current_cpu_data.cputype) {
+ 	case CPU_R4000PC:
+ 	case CPU_R4000SC:
+@@ -725,15 +749,6 @@ static __cpuinit void build_tlb_write_en
+ 		tlbw(p);
+ 		break;
+ 
+-	case CPU_4KC:
+-	case CPU_4KEC:
+-	case CPU_24K:
+-	case CPU_34K:
+-	case CPU_74K:
+-		i_ehb(p);
+-		tlbw(p);
+-		break;
+-
+ 	case CPU_RM9000:
+ 		/*
+ 		 * When the JTLB is updated by tlbwi or tlbwr, a subsequent
+@@ -1330,6 +1345,7 @@ build_pte_modifiable(u32 **p, struct lab
+ /*
+  * R3000 style TLB load/store/modify handlers.
+  */
++#ifndef CONFIG_CPU_MIPS32_R2
+ 
+ /*
+  * This places the pte into ENTRYLO0 and writes it with tlbwi.
+@@ -1492,6 +1508,7 @@ static void __cpuinit build_r3000_tlb_mo
+ 		pr_debug("\t.word 0x%08x\n", handle_tlbm[i]);
+ 	pr_debug("\t.set pop\n");
+ }
++#endif /* !CONFIG_CPU_MIPS32_R2 */
+ 
+ /*
+  * R4000 style TLB load/store/modify handlers.
+@@ -1671,6 +1688,7 @@ void __cpuinit build_tlb_refill_handler(
+ 	static int run_once = 0;
+ 
+ 	switch (current_cpu_data.cputype) {
++#ifndef CONFIG_CPU_MIPS32_R2
+ 	case CPU_R2000:
+ 	case CPU_R3000:
+ 	case CPU_R3000A:
+@@ -1696,6 +1714,7 @@ void __cpuinit build_tlb_refill_handler(
+ 		panic("No R8000 TLB refill handler yet");
+ 		break;
+ 
++#endif /* !CONFIG_CPU_MIPS32_R2 */
+ 	default:
+ 		build_r4000_tlb_refill_handler();
+ 		if (!run_once) {
+-- 

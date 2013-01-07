@@ -1,0 +1,250 @@
+dcache: Add case-insensitive support d_add_ci() routine
+
+ 9403540c0653122ca34884a180439ddbfcbcb524 dcache: Add case-insensitive support d_ci_add() routine
+ e45b590b976465c258f3e2a6cc84573fc19e16d3 change d_add_ci argument ordering
+ 2690421743b03c9be05d8e44c3b827986d1329a7 ntfs: use d_add_ci
+
+---
+ fs/dcache.c            |  102 +++++++++++++++++++++++++++++++++++++++++++++++++
+ fs/ntfs/namei.c        |   89 ------------------------------------------
+ include/linux/dcache.h |    1 
+ 3 files changed, 105 insertions(+), 87 deletions(-)
+
+diff --git a/fs/dcache.c b/fs/dcache.c
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -1239,6 +1239,107 @@ struct dentry *d_splice_alias(struct ino
+ 	return new;
+ }
+ 
++/**
++ * d_add_ci - lookup or allocate new dentry with case-exact name
++ * @inode:  the inode case-insensitive lookup has found
++ * @dentry: the negative dentry that was passed to the parent's lookup func
++ * @name:   the case-exact name to be associated with the returned dentry
++ *
++ * This is to avoid filling the dcache with case-insensitive names to the
++ * same inode, only the actual correct case is stored in the dcache for
++ * case-insensitive filesystems.
++ *
++ * For a case-insensitive lookup match and if the the case-exact dentry
++ * already exists in in the dcache, use it and return it.
++ *
++ * If no entry exists with the exact case name, allocate new dentry with
++ * the exact case, and return the spliced entry.
++ */
++struct dentry *d_add_ci(struct dentry *dentry, struct inode *inode,
++			struct qstr *name)
++{
++	int error;
++	struct dentry *found;
++	struct dentry *new;
++
++	/* Does a dentry matching the name exist already? */
++	found = d_hash_and_lookup(dentry->d_parent, name);
++	/* If not, create it now and return */
++	if (!found) {
++		new = d_alloc(dentry->d_parent, name);
++		if (!new) {
++			error = -ENOMEM;
++			goto err_out;
++		}
++		found = d_splice_alias(inode, new);
++		if (found) {
++			dput(new);
++			return found;
++		}
++		return new;
++	}
++	/* Matching dentry exists, check if it is negative. */
++	if (found->d_inode) {
++		if (unlikely(found->d_inode != inode)) {
++			/* This can't happen because bad inodes are unhashed. */
++			BUG_ON(!is_bad_inode(inode));
++			BUG_ON(!is_bad_inode(found->d_inode));
++		}
++		/*
++		 * Already have the inode and the dentry attached, decrement
++		 * the reference count to balance the iget() done
++		 * earlier on.  We found the dentry using d_lookup() so it
++		 * cannot be disconnected and thus we do not need to worry
++		 * about any NFS/disconnectedness issues here.
++		 */
++		iput(inode);
++		return found;
++	}
++	/*
++	 * Negative dentry: instantiate it unless the inode is a directory and
++	 * has a 'disconnected' dentry (i.e. IS_ROOT and DCACHE_DISCONNECTED),
++	 * in which case d_move() that in place of the found dentry.
++	 */
++	if (!S_ISDIR(inode->i_mode)) {
++		/* Not a directory; everything is easy. */
++		d_instantiate(found, inode);
++		return found;
++	}
++	spin_lock(&dcache_lock);
++	if (list_empty(&inode->i_dentry)) {
++		/*
++		 * Directory without a 'disconnected' dentry; we need to do
++		 * d_instantiate() by hand because it takes dcache_lock which
++		 * we already hold.
++		 */
++		list_add(&found->d_alias, &inode->i_dentry);
++		found->d_inode = inode;
++		spin_unlock(&dcache_lock);
++		security_d_instantiate(found, inode);
++		return found;
++	}
++	/*
++	 * Directory with a 'disconnected' dentry; get a reference to the
++	 * 'disconnected' dentry.
++	 */
++	new = list_entry(inode->i_dentry.next, struct dentry, d_alias);
++	dget_locked(new);
++	spin_unlock(&dcache_lock);
++	/* Do security vodoo. */
++	security_d_instantiate(found, inode);
++	/* Move new in place of found. */
++	d_move(new, found);
++	/* Balance the iget() we did above. */
++	iput(inode);
++	/* Throw away found. */
++	dput(found);
++	/* Use new as the actual dentry. */
++	return new;
++
++err_out:
++	iput(inode);
++	return ERR_PTR(error);
++}
+ 
+ /**
+  * d_lookup - search for a dentry
+@@ -2222,6 +2323,7 @@ EXPORT_SYMBOL(d_path);
+ EXPORT_SYMBOL(d_prune_aliases);
+ EXPORT_SYMBOL(d_rehash);
+ EXPORT_SYMBOL(d_splice_alias);
++EXPORT_SYMBOL(d_add_ci);
+ EXPORT_SYMBOL(d_validate);
+ EXPORT_SYMBOL(dget_locked);
+ EXPORT_SYMBOL(dput);
+diff --git a/fs/ntfs/namei.c b/fs/ntfs/namei.c
+--- a/fs/ntfs/namei.c
++++ b/fs/ntfs/namei.c
+@@ -174,7 +174,6 @@ static struct dentry *ntfs_lookup(struct inode *dir_ino, struct dentry *dent,
+ 	// TODO: Consider moving this lot to a separate function! (AIA)
+ handle_name:
+    {
+-	struct dentry *real_dent, *new_dent;
+ 	MFT_RECORD *m;
+ 	ntfs_attr_search_ctx *ctx;
+ 	ntfs_inode *ni = NTFS_I(dent_inode);
+@@ -255,93 +254,9 @@ handle_name:
+ 	}
+ 	nls_name.hash = full_name_hash(nls_name.name, nls_name.len);
+ 
+-	/*
+-	 * Note: No need for dent->d_lock lock as i_mutex is held on the
+-	 * parent inode.
+-	 */
+-
+-	/* Does a dentry matching the nls_name exist already? */
+-	real_dent = d_lookup(dent->d_parent, &nls_name);
+-	/* If not, create it now. */
+-	if (!real_dent) {
+-		real_dent = d_alloc(dent->d_parent, &nls_name);
+-		kfree(nls_name.name);
+-		if (!real_dent) {
+-			err = -ENOMEM;
+-			goto err_out;
+-		}
+-		new_dent = d_splice_alias(dent_inode, real_dent);
+-		if (new_dent)
+-			dput(real_dent);
+-		else
+-			new_dent = real_dent;
+-		ntfs_debug("Done.  (Created new dentry.)");
+-		return new_dent;
+-	}
++	dent = d_add_ci(dent, dent_inode, &nls_name);
+ 	kfree(nls_name.name);
+-	/* Matching dentry exists, check if it is negative. */
+-	if (real_dent->d_inode) {
+-		if (unlikely(real_dent->d_inode != dent_inode)) {
+-			/* This can happen because bad inodes are unhashed. */
+-			BUG_ON(!is_bad_inode(dent_inode));
+-			BUG_ON(!is_bad_inode(real_dent->d_inode));
+-		}
+-		/*
+-		 * Already have the inode and the dentry attached, decrement
+-		 * the reference count to balance the ntfs_iget() we did
+-		 * earlier on.  We found the dentry using d_lookup() so it
+-		 * cannot be disconnected and thus we do not need to worry
+-		 * about any NFS/disconnectedness issues here.
+-		 */
+-		iput(dent_inode);
+-		ntfs_debug("Done.  (Already had inode and dentry.)");
+-		return real_dent;
+-	}
+-	/*
+-	 * Negative dentry: instantiate it unless the inode is a directory and
+-	 * has a 'disconnected' dentry (i.e. IS_ROOT and DCACHE_DISCONNECTED),
+-	 * in which case d_move() that in place of the found dentry.
+-	 */
+-	if (!S_ISDIR(dent_inode->i_mode)) {
+-		/* Not a directory; everything is easy. */
+-		d_instantiate(real_dent, dent_inode);
+-		ntfs_debug("Done.  (Already had negative file dentry.)");
+-		return real_dent;
+-	}
+-	spin_lock(&dcache_lock);
+-	if (list_empty(&dent_inode->i_dentry)) {
+-		/*
+-		 * Directory without a 'disconnected' dentry; we need to do
+-		 * d_instantiate() by hand because it takes dcache_lock which
+-		 * we already hold.
+-		 */
+-		list_add(&real_dent->d_alias, &dent_inode->i_dentry);
+-		real_dent->d_inode = dent_inode;
+-		spin_unlock(&dcache_lock);
+-		security_d_instantiate(real_dent, dent_inode);
+-		ntfs_debug("Done.  (Already had negative directory dentry.)");
+-		return real_dent;
+-	}
+-	/*
+-	 * Directory with a 'disconnected' dentry; get a reference to the
+-	 * 'disconnected' dentry.
+-	 */
+-	new_dent = list_entry(dent_inode->i_dentry.next, struct dentry,
+-			d_alias);
+-	dget_locked(new_dent);
+-	spin_unlock(&dcache_lock);
+-	/* Do security vodoo. */
+-	security_d_instantiate(real_dent, dent_inode);
+-	/* Move new_dent in place of real_dent. */
+-	d_move(new_dent, real_dent);
+-	/* Balance the ntfs_iget() we did above. */
+-	iput(dent_inode);
+-	/* Throw away real_dent. */
+-	dput(real_dent);
+-	/* Use new_dent as the actual dentry. */
+-	ntfs_debug("Done.  (Already had negative, disconnected directory "
+-			"dentry.)");
+-	return new_dent;
++	return dent;
+ 
+ eio_err_out:
+ 	ntfs_error(vol->sb, "Illegal file name attribute. Run chkdsk.");
+diff --git a/include/linux/dcache.h b/include/linux/dcache.h
+--- a/include/linux/dcache.h
++++ b/include/linux/dcache.h
+@@ -230,6 +230,7 @@ extern struct dentry * d_alloc(struct de
+ extern struct dentry * d_alloc(struct dentry *, const struct qstr *);
+ extern struct dentry * d_alloc_anon(struct inode *);
+ extern struct dentry * d_splice_alias(struct inode *, struct dentry *);
++extern struct dentry * d_add_ci(struct dentry *, struct inode *, struct qstr *);
+ extern void shrink_dcache_sb(struct super_block *);
+ extern void shrink_dcache_parent(struct dentry *);
+ extern void shrink_dcache_for_umount(struct super_block *);
+-- 

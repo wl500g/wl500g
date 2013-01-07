@@ -1,0 +1,250 @@
+ipv6: almost identical frag hashing funcs combined
+
+ 93c8b90f01f0dc73891da4e84b26524b61d29d66 ipv6: almost identical frag hashing funcs combined
+ 82a39eb6b3829a02e235656feddb4542517fcabc ipv6: Prepare the tree for un-inlined jhash.
+
+---
+ include/net/ipv6.h                      |    4 ++
+ net/ipv6/inet6_connection_sock.c        |   18 ++++------
+ net/ipv6/netfilter/nf_conntrack_reasm.c |   40 +++-------------------
+ net/ipv6/reassembly.c                   |   56 ++++++++++++++------------------
+ 4 files changed, 44 insertions(+), 74 deletions(-)
+
+diff -urBp a/include/net/ipv6.h b/include/net/ipv6.h
+--- a/include/net/ipv6.h	2011-03-15 15:10:02.000000000 +0300
++++ b/include/net/ipv6.h	2011-03-16 22:14:40.000000000 +0300
+@@ -259,6 +259,8 @@ extern atomic_t ip6_frag_mem;
+ 
+ #define IPV6_FRAG_TIMEOUT	(60*HZ)		/* 60 seconds */
+ 
++#define INETFRAGS_HASHSZ	64
++
+ /*
+  *	Function prototype for build_xmit
+  */
+@@ -588,6 +584,8 @@ extern int ip6_mc_msfilter(struct sock *
+ extern int ip6_mc_msfget(struct sock *sk, struct group_filter *gsf,
+ 			 struct group_filter __user *optval,
+ 			 int __user *optlen);
++extern unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
++				    const struct in6_addr *daddr, u32 rnd);
+ 
+ #ifdef CONFIG_PROC_FS
+ extern int  ac6_proc_init(void);
+diff -urBp a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+--- a/net/ipv6/inet6_connection_sock.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/ipv6/inet6_connection_sock.c	2011-03-16 22:12:43.000000000 +0300
+@@ -55,18 +55,16 @@ EXPORT_SYMBOL_GPL(inet6_csk_bind_conflic
+ static u32 inet6_synq_hash(const struct in6_addr *raddr, const __be16 rport,
+ 			   const u32 rnd, const u16 synq_hsize)
+ {
+-	u32 a = (__force u32)raddr->s6_addr32[0];
+-	u32 b = (__force u32)raddr->s6_addr32[1];
+-	u32 c = (__force u32)raddr->s6_addr32[2];
++	u32 c;
+ 
+-	a += JHASH_GOLDEN_RATIO;
+-	b += JHASH_GOLDEN_RATIO;
+-	c += rnd;
+-	__jhash_mix(a, b, c);
++	c = jhash_3words((__force u32)raddr->s6_addr32[0],
++			 (__force u32)raddr->s6_addr32[1],
++			 (__force u32)raddr->s6_addr32[2],
++			 rnd);
+ 
+-	a += (__force u32)raddr->s6_addr32[3];
+-	b += (__force u32)rport;
+-	__jhash_mix(a, b, c);
++	c = jhash_2words((__force u32)raddr->s6_addr32[3],
++			 (__force u32)rport,
++			 c);
+ 
+ 	return c & (synq_hsize - 1);
+ }
+diff -urBp a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c	2011-03-16 22:23:12.000000000 +0300
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c	2011-03-16 22:16:14.000000000 +0300
+@@ -27,7 +27,6 @@
+ #include <linux/ipv6.h>
+ #include <linux/icmpv6.h>
+ #include <linux/random.h>
+-#include <linux/jhash.h>
+ 
+ #include <net/sock.h>
+ #include <net/snmp.h>
+@@ -93,9 +92,7 @@ struct nf_ct_frag6_queue
+ 
+ /* Hash table. */
+ 
+-#define FRAG6Q_HASHSZ	64
+-
+-static struct hlist_head nf_ct_frag6_hash[FRAG6Q_HASHSZ];
++static struct hlist_head nf_ct_frag6_hash[INETFRAGS_HASHSZ];
+ static DEFINE_RWLOCK(nf_ct_frag6_lock);
+ static u32 nf_ct_frag6_hash_rnd;
+ static LIST_HEAD(nf_ct_frag6_lru_list);
+@@ -115,32 +112,6 @@ static __inline__ void fq_unlink(struct
+ 	write_unlock(&nf_ct_frag6_lock);
+ }
+ 
+-static unsigned int ip6qhashfn(__be32 id, struct in6_addr *saddr,
+-			       struct in6_addr *daddr)
+-{
+-	u32 a, b, c;
+-
+-	a = (__force u32)saddr->s6_addr32[0];
+-	b = (__force u32)saddr->s6_addr32[1];
+-	c = (__force u32)saddr->s6_addr32[2];
+-
+-	a += JHASH_GOLDEN_RATIO;
+-	b += JHASH_GOLDEN_RATIO;
+-	c += nf_ct_frag6_hash_rnd;
+-	__jhash_mix(a, b, c);
+-
+-	a += (__force u32)saddr->s6_addr32[3];
+-	b += (__force u32)daddr->s6_addr32[0];
+-	c += (__force u32)daddr->s6_addr32[1];
+-	__jhash_mix(a, b, c);
+-
+-	a += (__force u32)daddr->s6_addr32[2];
+-	b += (__force u32)daddr->s6_addr32[3];
+-	c += (__force u32)id;
+-	__jhash_mix(a, b, c);
+-
+-	return c & (FRAG6Q_HASHSZ - 1);
+-}
+ 
+ static struct timer_list nf_ct_frag6_secret_timer;
+ int nf_ct_frag6_secret_interval = 10 * 60 * HZ;
+@@ -152,14 +123,15 @@ static void nf_ct_frag6_secret_rebuild(u
+ 
+ 	write_lock(&nf_ct_frag6_lock);
+ 	get_random_bytes(&nf_ct_frag6_hash_rnd, sizeof(u32));
+-	for (i = 0; i < FRAG6Q_HASHSZ; i++) {
++	for (i = 0; i < INETFRAGS_HASHSZ; i++) {
+ 		struct nf_ct_frag6_queue *q;
+ 		struct hlist_node *p, *n;
+ 
+ 		hlist_for_each_entry_safe(q, p, n, &nf_ct_frag6_hash[i], list) {
+-			unsigned int hval = ip6qhashfn(q->id,
++			unsigned int hval = inet6_hash_frag(q->id,
+ 						       &q->saddr,
+-						       &q->daddr);
++						       &q->daddr,
++						       nf_ct_frag6_hash_rnd);
+ 			if (hval != i) {
+ 				hlist_del(&q->list);
+ 				/* Relink to new hash chain. */
+@@ -367,7 +339,7 @@ fq_find(__be32 id, struct in6_addr *src,
+ {
+ 	struct nf_ct_frag6_queue *fq;
+ 	struct hlist_node *n;
+-	unsigned int hash = ip6qhashfn(id, src, dst);
++	unsigned int hash = inet6_hash_frag(id, src, dst, nf_ct_frag6_hash_rnd);
+ 
+ 	read_lock(&nf_ct_frag6_lock);
+ 	hlist_for_each_entry(fq, n, &nf_ct_frag6_hash[hash], list) {
+diff -urBp a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+--- a/net/ipv6/reassembly.c	2011-03-15 15:10:02.000000000 +0300
++++ b/net/ipv6/reassembly.c	2011-03-16 22:18:38.000000000 +0300
+@@ -100,9 +100,7 @@ struct frag_queue
+ 
+ /* Hash table. */
+ 
+-#define IP6Q_HASHSZ	64
+-
+-static struct hlist_head ip6_frag_hash[IP6Q_HASHSZ];
++static struct hlist_head ip6_frag_hash[INETFRAGS_HASHSZ];
+ static DEFINE_RWLOCK(ip6_frag_lock);
+ static u32 ip6_frag_hash_rnd;
+ static LIST_HEAD(ip6_frag_lru_list);
+@@ -129,32 +127,29 @@ static __inline__ void fq_unlink(struct
+  * callers should be careful not to use the hash value outside the ipfrag_lock
+  * as doing so could race with ipfrag_hash_rnd being recalculated.
+  */
+-static unsigned int ip6qhashfn(__be32 id, struct in6_addr *saddr,
+-			       struct in6_addr *daddr)
++unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
++			       const struct in6_addr *daddr, u32 rnd)
+ {
+-	u32 a, b, c;
++	u32 c;
++
++	c = jhash_3words((__force u32)saddr->s6_addr32[0],
++			 (__force u32)saddr->s6_addr32[1],
++			 (__force u32)saddr->s6_addr32[2],
++			 rnd);
++
++	c = jhash_3words((__force u32)saddr->s6_addr32[3],
++			 (__force u32)daddr->s6_addr32[0],
++			 (__force u32)daddr->s6_addr32[1],
++			 c);
+ 
+-	a = (__force u32)saddr->s6_addr32[0];
+-	b = (__force u32)saddr->s6_addr32[1];
+-	c = (__force u32)saddr->s6_addr32[2];
+-
+-	a += JHASH_GOLDEN_RATIO;
+-	b += JHASH_GOLDEN_RATIO;
+-	c += ip6_frag_hash_rnd;
+-	__jhash_mix(a, b, c);
+-
+-	a += (__force u32)saddr->s6_addr32[3];
+-	b += (__force u32)daddr->s6_addr32[0];
+-	c += (__force u32)daddr->s6_addr32[1];
+-	__jhash_mix(a, b, c);
+-
+-	a += (__force u32)daddr->s6_addr32[2];
+-	b += (__force u32)daddr->s6_addr32[3];
+-	c += (__force u32)id;
+-	__jhash_mix(a, b, c);
++	c =  jhash_3words((__force u32)daddr->s6_addr32[2],
++			  (__force u32)daddr->s6_addr32[3],
++			  (__force u32)id,
++			  c);
+ 
+-	return c & (IP6Q_HASHSZ - 1);
++	return c & (INETFRAGS_HASHSZ - 1);
+ }
++EXPORT_SYMBOL_GPL(inet6_hash_frag);
+ 
+ static struct timer_list ip6_frag_secret_timer;
+ int sysctl_ip6frag_secret_interval __read_mostly = 10 * 60 * HZ;
+@@ -166,14 +161,15 @@ static void ip6_frag_secret_rebuild(unsi
+ 
+ 	write_lock(&ip6_frag_lock);
+ 	get_random_bytes(&ip6_frag_hash_rnd, sizeof(u32));
+-	for (i = 0; i < IP6Q_HASHSZ; i++) {
++	for (i = 0; i < INETFRAGS_HASHSZ; i++) {
+ 		struct frag_queue *q;
+ 		struct hlist_node *p, *n;
+ 
+ 		hlist_for_each_entry_safe(q, p, n, &ip6_frag_hash[i], list) {
+-			unsigned int hval = ip6qhashfn(q->id,
++			unsigned int hval = inet6_hash_frag(q->id,
+ 						       &q->saddr,
+-						       &q->daddr);
++						       &q->daddr,
++						       ip6_frag_hash_rnd);
+ 
+ 			if (hval != i) {
+ 				hlist_del(&q->list);
+@@ -344,7 +340,7 @@ static struct frag_queue *ip6_frag_inter
+ #endif
+ 
+ 	write_lock(&ip6_frag_lock);
+-	hash = ip6qhashfn(fq_in->id, &fq_in->saddr, &fq_in->daddr);
++	hash = inet6_hash_frag(fq_in->id, &fq_in->saddr, &fq_in->daddr, ip6_frag_hash_rnd);
+ #ifdef CONFIG_SMP
+ 	hlist_for_each_entry(fq, n, &ip6_frag_hash[hash], list) {
+ 		if (fq->id == fq_in->id &&
+@@ -408,7 +404,7 @@ fq_find(__be32 id, struct in6_addr *src,
+ 	unsigned int hash;
+ 
+ 	read_lock(&ip6_frag_lock);
+-	hash = ip6qhashfn(id, src, dst);
++	hash = inet6_hash_frag(id, src, dst, ip6_frag_hash_rnd);
+ 	hlist_for_each_entry(fq, n, &ip6_frag_hash[hash], list) {
+ 		if (fq->id == id &&
+ 		    ipv6_addr_equal(src, &fq->saddr) &&
+-- 

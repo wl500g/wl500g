@@ -1,0 +1,44 @@
+From cb999dfdaf25d5a774d2ee84cb99355438d57c93
+From: Florian Westphal
+Date: Thu, 10 May 2012 05:42:47 +0000
+Subject: [PATCH] ip(6)tables-restore: make sure argv is NULL terminated
+
+Else, argv[argc] may point to free'd memory.
+
+Some extensions, e.g. rateest, may fail to parse valid input
+because argv[optind] (with optind == argc) is not NULL.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+---
+ ip6tables-restore.c |    2 +-
+ iptables-restore.c  |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/ip6tables-restore.c b/ip6tables-restore.c
+--- a/ip6tables-restore.c
++++ b/ip6tables-restore.c
+@@ -98,7 +98,7 @@ static int add_argv(char *what) {
+ 	DEBUGP("add_argv: %s\n", what);
+ 	if (what && ((newargc + 1) < sizeof(newargv)/sizeof(char *))) {
+ 		newargv[newargc] = strdup(what);
+-		newargc++;
++		newargv[++newargc] = NULL;
+ 		return 1;
+ 	} else
+ 		return 0;
+diff --git a/iptables-restore.c b/iptables-restore.c
+--- a/iptables-restore.c
++++ b/iptables-restore.c
+@@ -97,7 +97,7 @@ static int add_argv(char *what) {
+ 	DEBUGP("add_argv: %s\n", what);
+ 	if (what && ((newargc + 1) < sizeof(newargv)/sizeof(char *))) {
+ 		newargv[newargc] = strdup(what);
+-		newargc++;
++		newargv[++newargc] = NULL;
+ 		return 1;
+ 	} else 
+ 		return 0;
+-- 
+1.7.2.5

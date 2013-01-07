@@ -1,0 +1,432 @@
+unaligned.h backport from 2.6.32.33
+
+---
+ asm-generic/unaligned.h        |  155 +++++++++++++++++++++++------------------
+ linux/unaligned/be_byteshift.h |   68 +++++++++++++++++
+ linux/unaligned/be_struct.h    |   34 ++++++++
+ linux/unaligned/le_byteshift.h |   68 +++++++++++++++++
+ linux/unaligned/le_struct.h    |   34 ++++++++
+ 5 files changed, 292 insertions(+), 67 deletions(-)
+
+diff --git a/include/asm-generic/unaligned.h b/include/asm-generic/unaligned.h
+--- a/include/asm-generic/unaligned.h
++++ b/include/asm-generic/unaligned.h
+@@ -12,43 +12,27 @@
+ 
+ #include <linux/types.h>
+ 
+-/* 
+- * The main single-value unaligned transfer routines.
+- */
+-#define get_unaligned(ptr) \
+-	__get_unaligned((ptr), sizeof(*(ptr)))
+-#define put_unaligned(x,ptr) \
+-	__put_unaligned((__u64)(x), (ptr), sizeof(*(ptr)))
+-
+-/*
+- * This function doesn't actually exist.  The idea is that when
+- * someone uses the macros below with an unsupported size (datatype),
+- * the linker will alert us to the problem via an unresolved reference
+- * error.
+- */
+-extern void bad_unaligned_access_length(void) __attribute__((noreturn));
+-
+-struct __una_u64 { __u64 x __attribute__((packed)); };
+-struct __una_u32 { __u32 x __attribute__((packed)); };
+-struct __una_u16 { __u16 x __attribute__((packed)); };
++struct __una_u64 { __u64 x; } __attribute__((packed));
++struct __una_u32 { __u32 x; } __attribute__((packed));
++struct __una_u16 { __u16 x; } __attribute__((packed));
+ 
+ /*
+  * Elemental unaligned loads 
+  */
+ 
+-static inline __u64 __uldq(const __u64 *addr)
++static inline __u64 __get_unaligned_cpu64(const void *addr)
+ {
+ 	const struct __una_u64 *ptr = (const struct __una_u64 *) addr;
+ 	return ptr->x;
+ }
+ 
+-static inline __u32 __uldl(const __u32 *addr)
++static inline __u32 __get_unaligned_cpu32(const void *addr)
+ {
+ 	const struct __una_u32 *ptr = (const struct __una_u32 *) addr;
+ 	return ptr->x;
+ }
+ 
+-static inline __u16 __uldw(const __u16 *addr)
++static inline __u16 __get_unaligned_cpu16(const void *addr)
+ {
+ 	const struct __una_u16 *ptr = (const struct __una_u16 *) addr;
+ 	return ptr->x;
+@@ -58,65 +42,102 @@ static inline __u16 __uldw(const __u16 *
+  * Elemental unaligned stores 
+  */
+ 
+-static inline void __ustq(__u64 val, __u64 *addr)
++static inline void __put_unaligned_cpu64(__u64 val, void *addr)
+ {
+ 	struct __una_u64 *ptr = (struct __una_u64 *) addr;
+ 	ptr->x = val;
+ }
+ 
+-static inline void __ustl(__u32 val, __u32 *addr)
++static inline void __put_unaligned_cpu32(__u32 val, void *addr)
+ {
+ 	struct __una_u32 *ptr = (struct __una_u32 *) addr;
+ 	ptr->x = val;
+ }
+ 
+-static inline void __ustw(__u16 val, __u16 *addr)
++static inline void __put_unaligned_cpu16(__u16 val, void *addr)
+ {
+ 	struct __una_u16 *ptr = (struct __una_u16 *) addr;
+ 	ptr->x = val;
+ }
+ 
+-#define __get_unaligned(ptr, size) ({		\
+-	const void *__gu_p = ptr;		\
+-	__u64 val;				\
+-	switch (size) {				\
+-	case 1:					\
+-		val = *(const __u8 *)__gu_p;	\
+-		break;				\
+-	case 2:					\
+-		val = __uldw(__gu_p);		\
+-		break;				\
+-	case 4:					\
+-		val = __uldl(__gu_p);		\
+-		break;				\
+-	case 8:					\
+-		val = __uldq(__gu_p);		\
+-		break;				\
+-	default:				\
+-		bad_unaligned_access_length();	\
+-	};					\
+-	(__typeof__(*(ptr)))val;		\
+-})
+-
+-#define __put_unaligned(val, ptr, size)		\
+-do {						\
+-	void *__gu_p = ptr;			\
+-	switch (size) {				\
+-	case 1:					\
+-		*(__u8 *)__gu_p = val;		\
+-	        break;				\
+-	case 2:					\
+-		__ustw(val, __gu_p);		\
+-		break;				\
+-	case 4:					\
+-		__ustl(val, __gu_p);		\
+-		break;				\
+-	case 8:					\
+-		__ustq(val, __gu_p);		\
+-		break;				\
+-	default:				\
+-	    	bad_unaligned_access_length();	\
+-	};					\
+-} while(0)
++#include <asm/byteorder.h>
++
++#if defined(__LITTLE_ENDIAN)
++# include <linux/unaligned/le_struct.h>
++# include <linux/unaligned/be_byteshift.h>
++# define get_unaligned  __get_unaligned_le
++# define put_unaligned  __put_unaligned_le
++#elif defined(__BIG_ENDIAN)
++# include <linux/unaligned/be_struct.h>
++# include <linux/unaligned/le_byteshift.h>
++# define get_unaligned  __get_unaligned_be
++# define put_unaligned  __put_unaligned_be
++#else
++# error need to define endianess
++#endif
++
++/*
++ * Cause a link-time error if we try an unaligned access other than
++ * 1,2,4 or 8 bytes long
++ */
++extern void __bad_unaligned_access_size(void);
++
++#define __get_unaligned_le(ptr) ((__force typeof(*(ptr)))({			\
++	__builtin_choose_expr(sizeof(*(ptr)) == 1, *(ptr),			\
++	__builtin_choose_expr(sizeof(*(ptr)) == 2, get_unaligned_le16((ptr)),	\
++	__builtin_choose_expr(sizeof(*(ptr)) == 4, get_unaligned_le32((ptr)),	\
++	__builtin_choose_expr(sizeof(*(ptr)) == 8, get_unaligned_le64((ptr)),	\
++	__bad_unaligned_access_size()))));					\
++	}))
++
++#define __get_unaligned_be(ptr) ((__force typeof(*(ptr)))({			\
++	__builtin_choose_expr(sizeof(*(ptr)) == 1, *(ptr),			\
++	__builtin_choose_expr(sizeof(*(ptr)) == 2, get_unaligned_be16((ptr)),	\
++	__builtin_choose_expr(sizeof(*(ptr)) == 4, get_unaligned_be32((ptr)),	\
++	__builtin_choose_expr(sizeof(*(ptr)) == 8, get_unaligned_be64((ptr)),	\
++	__bad_unaligned_access_size()))));					\
++	}))
++
++#define __put_unaligned_le(val, ptr) ({					\
++	void *__gu_p = (ptr);						\
++	switch (sizeof(*(ptr))) {					\
++	case 1:								\
++		*(u8 *)__gu_p = (__force u8)(val);			\
++		break;							\
++	case 2:								\
++		put_unaligned_le16((__force u16)(val), __gu_p);		\
++		break;							\
++	case 4:								\
++		put_unaligned_le32((__force u32)(val), __gu_p);		\
++		break;							\
++	case 8:								\
++		put_unaligned_le64((__force u64)(val), __gu_p);		\
++		break;							\
++	default:							\
++		__bad_unaligned_access_size();				\
++		break;							\
++	}								\
++	(void)0; })
++
++#define __put_unaligned_be(val, ptr) ({					\
++	void *__gu_p = (ptr);						\
++	switch (sizeof(*(ptr))) {					\
++	case 1:								\
++		*(u8 *)__gu_p = (__force u8)(val);			\
++		break;							\
++	case 2:								\
++		put_unaligned_be16((__force u16)(val), __gu_p);		\
++		break;							\
++	case 4:								\
++		put_unaligned_be32((__force u32)(val), __gu_p);		\
++		break;							\
++	case 8:								\
++		put_unaligned_be64((__force u64)(val), __gu_p);		\
++		break;							\
++	default:							\
++		__bad_unaligned_access_size();				\
++		break;							\
++	}								\
++	(void)0; })
+ 
+ #endif /* _ASM_GENERIC_UNALIGNED_H */
+diff --git a/include/linux/unaligned/be_byteshift.h b/include/linux/unaligned/be_byteshift.h
+--- a/include/linux/unaligned/be_byteshift.h	1970-01-01 03:00:00.000000000 +0300
++++ b/include/linux/unaligned/be_byteshift.h	2011-03-19 11:53:10.000000000 +0300
+@@ -0,0 +1,68 @@
++#ifndef _LINUX_UNALIGNED_BE_BYTESHIFT_H
++#define _LINUX_UNALIGNED_BE_BYTESHIFT_H
++
++static inline u16 __get_unaligned_be16(const u8 *p)
++{
++	return p[0] << 8 | p[1];
++}
++
++static inline u32 __get_unaligned_be32(const u8 *p)
++{
++	return p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
++}
++
++static inline u64 __get_unaligned_be64(const u8 *p)
++{
++	return (u64)__get_unaligned_be32(p) << 32 |
++	       __get_unaligned_be32(p + 4);
++}
++
++static inline void __put_unaligned_be16(u16 val, u8 *p)
++{
++	*p++ = val >> 8;
++	*p++ = val;
++}
++
++static inline void __put_unaligned_be32(u32 val, u8 *p)
++{
++	__put_unaligned_be16(val >> 16, p);
++	__put_unaligned_be16(val, p + 2);
++}
++
++static inline void __put_unaligned_be64(u64 val, u8 *p)
++{
++	__put_unaligned_be32(val >> 32, p);
++	__put_unaligned_be32(val, p + 4);
++}
++
++static inline u16 get_unaligned_be16(const void *p)
++{
++	return __get_unaligned_be16((const u8 *)p);
++}
++
++static inline u32 get_unaligned_be32(const void *p)
++{
++	return __get_unaligned_be32((const u8 *)p);
++}
++
++static inline u64 get_unaligned_be64(const void *p)
++{
++	return __get_unaligned_be64((const u8 *)p);
++}
++
++static inline void put_unaligned_be16(u16 val, void *p)
++{
++	__put_unaligned_be16(val, p);
++}
++
++static inline void put_unaligned_be32(u32 val, void *p)
++{
++	__put_unaligned_be32(val, p);
++}
++
++static inline void put_unaligned_be64(u64 val, void *p)
++{
++	__put_unaligned_be64(val, p);
++}
++
++#endif /* _LINUX_UNALIGNED_BE_BYTESHIFT_H */
+diff --git a/include/linux/unaligned/be_struct.h b/include/linux/unaligned/be_struct.h
+--- a/include/linux/unaligned/be_struct.h	1970-01-01 03:00:00.000000000 +0300
++++ b/include/linux/unaligned/be_struct.h	2011-03-19 11:52:58.000000000 +0300
+@@ -0,0 +1,34 @@
++#ifndef _LINUX_UNALIGNED_BE_STRUCT_H
++#define _LINUX_UNALIGNED_BE_STRUCT_H
++
++static inline u16 get_unaligned_be16(const void *p)
++{
++	return __get_unaligned_cpu16((const u8 *)p);
++}
++
++static inline u32 get_unaligned_be32(const void *p)
++{
++	return __get_unaligned_cpu32((const u8 *)p);
++}
++
++static inline u64 get_unaligned_be64(const void *p)
++{
++	return __get_unaligned_cpu64((const u8 *)p);
++}
++
++static inline void put_unaligned_be16(u16 val, void *p)
++{
++	__put_unaligned_cpu16(val, p);
++}
++
++static inline void put_unaligned_be32(u32 val, void *p)
++{
++	__put_unaligned_cpu32(val, p);
++}
++
++static inline void put_unaligned_be64(u64 val, void *p)
++{
++	__put_unaligned_cpu64(val, p);
++}
++
++#endif /* _LINUX_UNALIGNED_BE_STRUCT_H */
+diff --git a/include/linux/unaligned/le_byteshift.h b/include/linux/unaligned/le_byteshift.h
+--- a/include/linux/unaligned/le_byteshift.h	1970-01-01 03:00:00.000000000 +0300
++++ b/include/linux/unaligned/le_byteshift.h	2011-03-19 11:53:15.000000000 +0300
+@@ -0,0 +1,68 @@
++#ifndef _LINUX_UNALIGNED_LE_BYTESHIFT_H
++#define _LINUX_UNALIGNED_LE_BYTESHIFT_H
++
++static inline u16 __get_unaligned_le16(const u8 *p)
++{
++	return p[0] | p[1] << 8;
++}
++
++static inline u32 __get_unaligned_le32(const u8 *p)
++{
++	return p[0] | p[1] << 8 | p[2] << 16 | p[3] << 24;
++}
++
++static inline u64 __get_unaligned_le64(const u8 *p)
++{
++	return (u64)__get_unaligned_le32(p + 4) << 32 |
++	       __get_unaligned_le32(p);
++}
++
++static inline void __put_unaligned_le16(u16 val, u8 *p)
++{
++	*p++ = val;
++	*p++ = val >> 8;
++}
++
++static inline void __put_unaligned_le32(u32 val, u8 *p)
++{
++	__put_unaligned_le16(val >> 16, p + 2);
++	__put_unaligned_le16(val, p);
++}
++
++static inline void __put_unaligned_le64(u64 val, u8 *p)
++{
++	__put_unaligned_le32(val >> 32, p + 4);
++	__put_unaligned_le32(val, p);
++}
++
++static inline u16 get_unaligned_le16(const void *p)
++{
++	return __get_unaligned_le16((const u8 *)p);
++}
++
++static inline u32 get_unaligned_le32(const void *p)
++{
++	return __get_unaligned_le32((const u8 *)p);
++}
++
++static inline u64 get_unaligned_le64(const void *p)
++{
++	return __get_unaligned_le64((const u8 *)p);
++}
++
++static inline void put_unaligned_le16(u16 val, void *p)
++{
++	__put_unaligned_le16(val, p);
++}
++
++static inline void put_unaligned_le32(u32 val, void *p)
++{
++	__put_unaligned_le32(val, p);
++}
++
++static inline void put_unaligned_le64(u64 val, void *p)
++{
++	__put_unaligned_le64(val, p);
++}
++
++#endif /* _LINUX_UNALIGNED_LE_BYTESHIFT_H */
+diff --git a/include/linux/unaligned/le_struct.h b/include/linux/unaligned/le_struct.h
+--- a/include/linux/unaligned/le_struct.h	1970-01-01 03:00:00.000000000 +0300
++++ b/include/linux/unaligned/le_struct.h	2011-03-19 11:53:03.000000000 +0300
+@@ -0,0 +1,34 @@
++#ifndef _LINUX_UNALIGNED_LE_STRUCT_H
++#define _LINUX_UNALIGNED_LE_STRUCT_H
++
++static inline u16 get_unaligned_le16(const void *p)
++{
++	return __get_unaligned_cpu16((const u8 *)p);
++}
++
++static inline u32 get_unaligned_le32(const void *p)
++{
++	return __get_unaligned_cpu32((const u8 *)p);
++}
++
++static inline u64 get_unaligned_le64(const void *p)
++{
++	return __get_unaligned_cpu64((const u8 *)p);
++}
++
++static inline void put_unaligned_le16(u16 val, void *p)
++{
++	__put_unaligned_cpu16(val, p);
++}
++
++static inline void put_unaligned_le32(u32 val, void *p)
++{
++	__put_unaligned_cpu32(val, p);
++}
++
++static inline void put_unaligned_le64(u64 val, void *p)
++{
++	__put_unaligned_cpu64(val, p);
++}
++
++#endif /* _LINUX_UNALIGNED_LE_STRUCT_H */
+-- 

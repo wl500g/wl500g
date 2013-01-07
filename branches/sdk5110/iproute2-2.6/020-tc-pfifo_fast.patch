@@ -1,0 +1,14 @@
+Changeset from OpenWRT trunk #17296:
+  allow pfifo_fast qdiscs to have filters and filter actions - useful for
+  controlling packet classification into wme classes
+
+diff -urBp iproute2.orig/tc/q_fifo.c iproute2/tc/q_fifo.c
+--- iproute2.orig/tc/q_fifo.c	2000-04-16 21:42:54.000000000 +0400
++++ iproute2/tc/q_fifo.c	2009-08-17 21:42:00.000000000 +0400
+@@ -99,5 +99,6 @@
+ extern int prio_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
+ struct qdisc_util pfifo_fast_qdisc_util = {
+ 	.id = "pfifo_fast",
++	.parse_qopt = fifo_parse_opt,
+	.print_qopt = prio_print_opt,
+ };

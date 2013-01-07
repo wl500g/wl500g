@@ -1,0 +1,23 @@
+[PATCH] iptables: bug fix: was calloc'ing n^2*size when only needed n*size for lookup responses
+
+From: Wes Campaigne <westacular>
+Date: Thu, 17 Feb 2011 08:07:56 -0500
+
+---
+ xtables.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/xtables.c b/xtables.c
+--- a/xtables.c
++++ b/xtables.c
+@@ -618,7 +618,7 @@ host_to_addr(const char *name, unsigned int *naddr)
+ 
+ 		while (host->h_addr_list[*naddr] != NULL)
+ 			++*naddr;
+-		addr = xtables_calloc(*naddr, sizeof(struct in_addr) * *naddr);
++		addr = xtables_calloc(*naddr, sizeof(struct in_addr));
+ 		for (i = 0; i < *naddr; i++)
+ 			memcpy(&addr[i], host->h_addr_list[i],
+ 			       sizeof(struct in_addr));
+-- 
+1.6.5.GIT

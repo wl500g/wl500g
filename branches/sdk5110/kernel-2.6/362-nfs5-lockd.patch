@@ -1,0 +1,34 @@
+From c5aa1e554a20fb3542c62688ae46049c9225a965
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Wed, 29 Aug 2012 09:00:01 -0400
+Subject: [PATCH] close the race in nlmsvc_free_block()
+
+we need to grab mutex before the reference counter reaches 0
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+
+---
+ fs/lockd/svclock.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/fs/lockd/svclock.c b/fs/lockd/svclock.c
+--- a/fs/lockd/svclock.c
++++ b/fs/lockd/svclock.c
+@@ -289,7 +289,6 @@ static void nlmsvc_free_block(struct kref *kref)
+ 	dprintk("lockd: freeing block %p...\n", block);
+ 
+ 	/* Remove block from file's list of blocks */
+-	mutex_lock(&file->f_mutex);
+ 	list_del_init(&block->b_flist);
+ 	mutex_unlock(&file->f_mutex);
+ 
+@@ -303,7 +302,7 @@ static void nlmsvc_free_block(struct kref *kref)
+ static void nlmsvc_release_block(struct nlm_block *block)
+ {
+ 	if (block != NULL)
+-		kref_put(&block->b_count, nlmsvc_free_block);
++		kref_put_mutex(&block->b_count, nlmsvc_free_block, &block->b_file->f_mutex);
+ }
+ 
+ /*
+-- 

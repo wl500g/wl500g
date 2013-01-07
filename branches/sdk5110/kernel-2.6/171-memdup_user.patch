@@ -1,0 +1,708 @@
+memdup_user() backport
+
+ kernel.org commits:
+ 610a77e04a8d9fe8764dc484e2182fa251ce1cc2 memdup_user(): introduce
+ ef44a1ec6eeef189998f84e7230e1d3535b01074 ALSA: sound/core: use memdup_user()
+ 336500f0305dc1552e8d01a60b409a7db781ca28 sound/pci: use memdup_user()
+ 3939fcde24473dc09ce16e922c88df9b3bee45d9 xattr: use memdup_user()
+ 0e639bdeef26faf287db77a15530f3f295a4ae04 xfs: use memdup_user()
+ a9482ebcdedbc5872ed34a266e6a45c35116f264 ncpfs: use memdup_user()
+ df1f1d1cb43b4ffdef5ba5f0623e2f73e94ce030 drivers/mtd: Use memdup_user
+ 9b71ca2005a93ad813b95d92578131ab899ccc5d drivers/char/vt.c: use memdup_user
+ b23d00e9212d04eb894dd29422c7a53b36b8e32d drivers/net: Use memdup_user
+ 7d543d8468348c44010c7b4e6fdd23a398779668 drivers/ide: Use memdup_user
+ 90d7404558fbe6f369d5e27b5ea3ef1e57562d3d mm: use memdup_user
+ be8a058b50a90282d32aa638720195e1c327c569 USB: gadget: Use memdup_user
+ 4dfcc271d587465f0d181c7636453ba4d0ec8acc Input: uinput - use memdup_user() and friends
+
+---
+
+diff --git a/drivers/char/vt.c b/drivers/char/vt.c
+--- a/drivers/char/vt.c
++++ b/drivers/char/vt.c
+@@ -3967,13 +3967,9 @@ static int con_font_set(struct vc_data *vc, struct console_font_op *op)
+ 	font.charcount = op->charcount;
+ 	font.height = op->height;
+ 	font.width = op->width;
+-	font.data = kmalloc(size, GFP_KERNEL);
+-	if (!font.data)
+-		return -ENOMEM;
+-	if (copy_from_user(font.data, op->data, size)) {
+-		kfree(font.data);
+-		return -EFAULT;
+-	}
++	font.data = memdup_user(op->data, size);
++	if (IS_ERR(font.data))
++		return PTR_ERR(font.data);
+ 	acquire_console_sem();
+ 	if (vc->vc_sw->con_font_set)
+ 		rc = vc->vc_sw->con_font_set(vc, &font, op->flags);
+diff --git a/drivers/ide/ide-taskfile.c b/drivers/ide/ide-taskfile.c
+--- a/drivers/ide/ide-taskfile.c
++++ b/drivers/ide/ide-taskfile.c
+@@ -480,12 +480,9 @@ int ide_taskfile_ioctl(ide_drive_t *drive, unsigned long arg)
+ 
+ //	printk("IDE Taskfile ...\n");
+ 
+-	req_task = kzalloc(tasksize, GFP_KERNEL);
+-	if (req_task == NULL) return -ENOMEM;
+-	if (copy_from_user(req_task, buf, tasksize)) {
+-		kfree(req_task);
+-		return -EFAULT;
+-	}
++	req_task = memdup_user(buf, tasksize);
++	if (IS_ERR(req_task))
++		return PTR_ERR(req_task);
+ 
+ 	taskout = req_task->out_size;
+ 	taskin  = req_task->in_size;
+diff --git a/drivers/input/misc/uinput.c b/drivers/input/misc/uinput.c
+--- a/drivers/input/misc/uinput.c
++++ b/drivers/input/misc/uinput.c
+@@ -361,14 +361,9 @@ static int uinput_setup_device(struct uinput_device *udev, const char __user *bu
+ 
+ 	dev = udev->dev;
+ 
+-	user_dev = kmalloc(sizeof(struct uinput_user_dev), GFP_KERNEL);
+-	if (!user_dev)
+-		return -ENOMEM;
+-
+-	if (copy_from_user(user_dev, buffer, sizeof(struct uinput_user_dev))) {
+-		retval = -EFAULT;
+-		goto exit;
+-	}
++	user_dev = memdup_user(buffer, sizeof(struct uinput_user_dev));
++	if (!IS_ERR(user_dev))
++		return PTR_ERR(user_dev);
+ 
+ 	udev->ff_effects_max = user_dev->ff_effects_max;
+ 
+@@ -621,7 +616,6 @@ static long uinput_ioctl_handler(struct file *file, unsigned int cmd,
+ 	struct uinput_ff_upload ff_up;
+ 	struct uinput_ff_erase  ff_erase;
+ 	struct uinput_request   *req;
+-	int                     length;
+ 	char			*phys;
+ 
+ 	retval = mutex_lock_interruptible(&udev->mutex);
+@@ -688,24 +682,15 @@ static long uinput_ioctl_handler(struct file *file, unsigned int cmd,
+ 				retval = -EINVAL;
+ 				goto out;
+ 			}
+-			length = strnlen_user(p, 1024);
+-			if (length <= 0) {
+-				retval = -EFAULT;
+-				break;
++
++			phys = strndup_user(p, 1024);
++			if (IS_ERR(phys)) {
++				retval = PTR_ERR(phys);
++				goto out;
+ 			}
++
+ 			kfree(udev->dev->phys);
+-			udev->dev->phys = phys = kmalloc(length, GFP_KERNEL);
+-			if (!phys) {
+-				retval = -ENOMEM;
+-				break;
+-			}
+-			if (copy_from_user(phys, p, length)) {
+-				udev->dev->phys = NULL;
+-				kfree(phys);
+-				retval = -EFAULT;
+-				break;
+-			}
+-			phys[length - 1] = '\0';
++			udev->dev->phys = phys;
+ 			break;
+ 
+ 		case UI_BEGIN_FF_UPLOAD:
+diff --git a/drivers/mtd/mtdchar.c b/drivers/mtd/mtdchar.c
+--- a/drivers/mtd/mtdchar.c
++++ b/drivers/mtd/mtdchar.c
+@@ -504,14 +504,9 @@ static int mtd_ioctl(struct inode *inode
+ 		if (ops.ooboffs && ops.ooblen > (mtd->oobsize - ops.ooboffs))
+ 			return -EINVAL;
+ 
+-		ops.oobbuf = kmalloc(buf.length, GFP_KERNEL);
+-		if (!ops.oobbuf)
+-			return -ENOMEM;
+-
+-		if (copy_from_user(ops.oobbuf, buf.ptr, buf.length)) {
+-			kfree(ops.oobbuf);
+-			return -EFAULT;
+-		}
++		ops.oobbuf = memdup_user(buf.ptr, buf.length);
++		if (IS_ERR(ops.oobbuf))
++			return PTR_ERR(ops.oobbuf);
+ 
+ 		buf.start &= ~(mtd->oobsize - 1);
+ 		ret = mtd->write_oob(mtd, buf.start, &ops);
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -538,14 +538,9 @@ static int get_filter(void __user *arg, struct sock_filter **p)
+ 	}
+ 
+ 	len = uprog.len * sizeof(struct sock_filter);
+-	code = kmalloc(len, GFP_KERNEL);
+-	if (code == NULL)
+-		return -ENOMEM;
+-
+-	if (copy_from_user(code, uprog.filter, len)) {
+-		kfree(code);
+-		return -EFAULT;
+-	}
++	code = memdup_user(uprog.filter, len);
++	if (IS_ERR(code))
++		return PTR_ERR(code);
+ 
+ 	err = sk_chk_filter(code, uprog.len);
+ 	if (err) {
+diff --git a/drivers/usb/gadget/inode.c b/drivers/usb/gadget/inode.c
+--- a/drivers/usb/gadget/inode.c
++++ b/drivers/usb/gadget/inode.c
+@@ -1867,13 +1867,9 @@ dev_config (struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
+ 	buf += 4;
+ 	length -= 4;
+ 
+-	kbuf = kmalloc (length, GFP_KERNEL);
+-	if (!kbuf)
+-		return -ENOMEM;
+-	if (copy_from_user (kbuf, buf, length)) {
+-		kfree (kbuf);
+-		return -EFAULT;
+-	}
++	kbuf = memdup_user(buf, length);
++	if (IS_ERR(kbuf))
++		return PTR_ERR(kbuf);
+ 
+ 	spin_lock_irq (&dev->lock);
+ 	value = -EINVAL;
+diff --git a/fs/ncpfs/ioctl.c b/fs/ncpfs/ioctl.c
+--- a/fs/ncpfs/ioctl.c
++++ b/fs/ncpfs/ioctl.c
+@@ -660,13 +660,10 @@ outrel:
+ 			if (user.object_name_len > NCP_OBJECT_NAME_MAX_LEN)
+ 				return -ENOMEM;
+ 			if (user.object_name_len) {
+-				newname = kmalloc(user.object_name_len, GFP_USER);
+-				if (!newname)
+-					return -ENOMEM;
+-				if (copy_from_user(newname, user.object_name, user.object_name_len)) {
+-					kfree(newname);
+-					return -EFAULT;
+-				}
++				newname = memdup_user(user.object_name,
++						      user.object_name_len);
++				if (IS_ERR(newname))
++					return PTR_ERR(newname);
+ 			} else {
+ 				newname = NULL;
+ 			}
+@@ -760,13 +757,9 @@ outrel:
+ 			if (user.len > NCP_PRIVATE_DATA_MAX_LEN)
+ 				return -ENOMEM;
+ 			if (user.len) {
+-				new = kmalloc(user.len, GFP_USER);
+-				if (!new)
+-					return -ENOMEM;
+-				if (copy_from_user(new, user.data, user.len)) {
+-					kfree(new);
+-					return -EFAULT;
+-				}
++				new = memdup_user(user.data, user.len);
++				if (IS_ERR(new))
++					return PTR_ERR(new);
+ 			} else {
+ 				new = NULL;
+ 			}
+diff --git a/fs/xattr.c b/fs/xattr.c
+--- a/fs/xattr.c
++++ b/fs/xattr.c
+@@ -237,13 +237,9 @@ setxattr(struct dentry *d, const char __user *name, const void __user *value,
+ 	if (size) {
+ 		if (size > XATTR_SIZE_MAX)
+ 			return -E2BIG;
+-		kvalue = kmalloc(size, GFP_KERNEL);
+-		if (!kvalue)
+-			return -ENOMEM;
+-		if (copy_from_user(kvalue, value, size)) {
+-			kfree(kvalue);
+-			return -EFAULT;
+-		}
++		kvalue = memdup_user(value, size);
++		if (IS_ERR(kvalue))
++			return PTR_ERR(kvalue);
+ 	}
+ 
+ 	error = vfs_setxattr(d, kname, kvalue, size, flags);
+diff --git a/fs/xfs/linux-2.6/xfs_ioctl.c b/fs/xfs/linux-2.6/xfs_ioctl.c
+--- a/fs/xfs/linux-2.6/xfs_ioctl.c
++++ b/fs/xfs/linux-2.6/xfs_ioctl.c
+@@ -533,17 +533,12 @@ xfs_attrmulti_attr_set(
+ 	if (len > XATTR_SIZE_MAX)
+ 		return EINVAL;
+ 
+-	kbuf = kmalloc(len, GFP_KERNEL);
+-	if (!kbuf)
+-		return ENOMEM;
+-
+-	if (copy_from_user(kbuf, ubuf, len))
+-		goto out_kfree;
++	kbuf = memdup_user(ubuf, len);
++	if (IS_ERR(kbuf))
++		return PTR_ERR(kbuf);
+ 
+ 	error = xfs_attr_set(XFS_I(inode), name, kbuf, len, flags);
+ 
+- out_kfree:
+-	kfree(kbuf);
+ 	return error;
+ }
+ 
+@@ -589,13 +584,11 @@ xfs_attrmulti_by_handle(
+ 		goto out_vn_rele;
+ 
+ 	error = ENOMEM;
+-	ops = kmalloc(size, GFP_KERNEL);
+-	if (!ops)
+-		goto out_vn_rele;
+-
+-	error = EFAULT;
+-	if (copy_from_user(ops, am_hreq.ops, size))
++	ops = memdup_user(am_hreq.ops, size);
++	if (IS_ERR(ops)) {
++		error = PTR_ERR(ops);
+ 		goto out_kfree_ops;
++	}
+ 
+ 	attr_name = kmalloc(MAXNAMELEN, GFP_KERNEL);
+ 	if (!attr_name)
+diff --git a/include/linux/string.h b/include/linux/string.h
+--- a/include/linux/string.h
++++ b/include/linux/string.h
+@@ -12,6 +12,7 @@
+ #endif
+ 
+ extern char *strndup_user(const char __user *, long);
++extern void *memdup_user(const void __user *, size_t);
+ 
+ /*
+  * Include machine specific inline routines
+diff --git a/mm/util.c b/mm/util.c
+--- a/mm/util.c
++++ b/mm/util.c
+@@ -70,6 +70,36 @@ void *kmemdup(const void *src, size_t len, gfp_t gfp)
+ EXPORT_SYMBOL(kmemdup);
+ 
+ /**
++ * memdup_user - duplicate memory region from user space
++ *
++ * @src: source address in user space
++ * @len: number of bytes to copy
++ *
++ * Returns an ERR_PTR() on failure.
++ */
++void *memdup_user(const void __user *src, size_t len)
++{
++	void *p;
++
++	/*
++	 * Always use GFP_KERNEL, since copy_from_user() can sleep and
++	 * cause pagefault, which makes it pointless to use GFP_NOFS
++	 * or GFP_ATOMIC.
++	 */
++	p = kmalloc_track_caller(len, GFP_KERNEL);
++	if (!p)
++		return ERR_PTR(-ENOMEM);
++
++	if (copy_from_user(p, src, len)) {
++		kfree(p);
++		return ERR_PTR(-EFAULT);
++	}
++
++	return p;
++}
++EXPORT_SYMBOL(memdup_user);
++
++/**
+  * krealloc - reallocate memory. The contents will remain unchanged.
+  * @p: object to reallocate memory for.
+  * @new_size: how many bytes of memory are required.
+@@ -225,15 +225,10 @@ char *strndup_user(const char __user *s, long n)
+ 	if (length > n)
+ 		return ERR_PTR(-EINVAL);
+ 
+-	p = kmalloc(length, GFP_KERNEL);
++	p = memdup_user(s, length);
+ 
+-	if (!p)
+-		return ERR_PTR(-ENOMEM);
+-
+-	if (copy_from_user(p, s, length)) {
+-		kfree(p);
+-		return ERR_PTR(-EFAULT);
+-	}
++	if (IS_ERR(p))
++		return p;
+ 
+ 	p[length - 1] = '\0';
+ 
+diff --git a/sound/core/control.c b/sound/core/control.c
+--- a/sound/core/control.c
++++ b/sound/core/control.c
+@@ -723,14 +723,11 @@ static int snd_ctl_elem_read_user(struct snd_card *card,
+ {
+ 	struct snd_ctl_elem_value *control;
+ 	int result;
+-	
+-	control = kmalloc(sizeof(*control), GFP_KERNEL);
+-	if (control == NULL)
+-		return -ENOMEM;	
+-	if (copy_from_user(control, _control, sizeof(*control))) {
+-		kfree(control);
+-		return -EFAULT;
+-	}
++
++	control = memdup_user(_control, sizeof(*control));
++	if (IS_ERR(control))
++		return PTR_ERR(control);
++
+ 	snd_power_lock(card);
+ 	result = snd_power_wait(card, SNDRV_CTL_POWER_D0);
+ 	if (result >= 0)
+@@ -784,13 +781,10 @@ static int snd_ctl_elem_write_user(struct snd_ctl_file *file,
+ 	struct snd_card *card;
+ 	int result;
+ 
+-	control = kmalloc(sizeof(*control), GFP_KERNEL);
+-	if (control == NULL)
+-		return -ENOMEM;	
+-	if (copy_from_user(control, _control, sizeof(*control))) {
+-		kfree(control);
+-		return -EFAULT;
+-	}
++	control = memdup_user(_control, sizeof(*control));
++	if (IS_ERR(control))
++		return PTR_ERR(control);
++
+ 	card = file->card;
+ 	snd_power_lock(card);
+ 	result = snd_power_wait(card, SNDRV_CTL_POWER_D0);
+@@ -916,13 +910,10 @@ static int snd_ctl_elem_user_tlv(struct snd_kcontrol *kcontrol,
+ 	if (op_flag > 0) {
+ 		if (size > 1024 * 128)	/* sane value */
+ 			return -EINVAL;
+-		new_data = kmalloc(size, GFP_KERNEL);
+-		if (new_data == NULL)
+-			return -ENOMEM;
+-		if (copy_from_user(new_data, tlv, size)) {
+-			kfree(new_data);
+-			return -EFAULT;
+-		}
++
++		new_data = memdup_user(tlv, size);
++		if (IS_ERR(new_data))
++			return PTR_ERR(new_data);
+ 		change = ue->tlv_data_size != size;
+ 		if (!change)
+ 			change = memcmp(ue->tlv_data, new_data, size);
+diff --git a/sound/core/pcm_compat.c b/sound/core/pcm_compat.c
+--- a/sound/core/pcm_compat.c
++++ b/sound/core/pcm_compat.c
+@@ -232,14 +232,11 @@ static int snd_pcm_ioctl_hw_params_compat(struct snd_pcm_substream *substream,
+ 	if (! (runtime = substream->runtime))
+ 		return -ENOTTY;
+ 
+-	data = kmalloc(sizeof(*data), GFP_KERNEL);
+-	if (data == NULL)
+-		return -ENOMEM;
+ 	/* only fifo_size is different, so just copy all */
+-	if (copy_from_user(data, data32, sizeof(*data32))) {
+-		err = -EFAULT;
+-		goto error;
+-	}
++	data = memdup_user(data32, sizeof(*data32));
++	if (IS_ERR(data))
++		return PTR_ERR(data);
++
+ 	if (refine)
+ 		err = snd_pcm_hw_refine(substream, data);
+ 	else
+diff --git a/sound/core/pcm_native.c b/sound/core/pcm_native.c
+--- a/sound/core/pcm_native.c
++++ b/sound/core/pcm_native.c
+@@ -327,21 +327,16 @@ static int snd_pcm_hw_refine_user(struct snd_pcm_substream *substream,
+ 	struct snd_pcm_hw_params *params;
+ 	int err;
+ 
+-	params = kmalloc(sizeof(*params), GFP_KERNEL);
+-	if (!params) {
+-		err = -ENOMEM;
+-		goto out;
+-	}
+-	if (copy_from_user(params, _params, sizeof(*params))) {
+-		err = -EFAULT;
+-		goto out;
+-	}
++	params = memdup_user(_params, sizeof(*params));
++	if (IS_ERR(params))
++		return PTR_ERR(params);
++
+ 	err = snd_pcm_hw_refine(substream, params);
+ 	if (copy_to_user(_params, params, sizeof(*params))) {
+ 		if (!err)
+ 			err = -EFAULT;
+ 	}
+-out:
++
+ 	kfree(params);
+ 	return err;
+ }
+@@ -465,21 +460,16 @@ static int snd_pcm_hw_params_user(struct snd_pcm_substream *substream,
+ 	struct snd_pcm_hw_params *params;
+ 	int err;
+ 
+-	params = kmalloc(sizeof(*params), GFP_KERNEL);
+-	if (!params) {
+-		err = -ENOMEM;
+-		goto out;
+-	}
+-	if (copy_from_user(params, _params, sizeof(*params))) {
+-		err = -EFAULT;
+-		goto out;
+-	}
++	params = memdup_user(_params, sizeof(*params));
++	if (IS_ERR(params))
++		return PTR_ERR(params);
++
+ 	err = snd_pcm_hw_params(substream, params);
+ 	if (copy_to_user(_params, params, sizeof(*params))) {
+ 		if (!err)
+ 			err = -EFAULT;
+ 	}
+-out:
++
+ 	kfree(params);
+ 	return err;
+ }
+@@ -2593,13 +2583,11 @@ static int snd_pcm_playback_ioctl1(struct file *file,
+ 			return -EFAULT;
+ 		if (copy_from_user(&xfern, _xfern, sizeof(xfern)))
+ 			return -EFAULT;
+-		bufs = kmalloc(sizeof(void *) * runtime->channels, GFP_KERNEL);
+-		if (bufs == NULL)
+-			return -ENOMEM;
+-		if (copy_from_user(bufs, xfern.bufs, sizeof(void *) * runtime->channels)) {
+-			kfree(bufs);
+-			return -EFAULT;
+-		}
++
++		bufs = memdup_user(xfern.bufs,
++				   sizeof(void *) * runtime->channels);
++		if (IS_ERR(bufs))
++			return PTR_ERR(bufs);
+ 		result = snd_pcm_lib_writev(substream, bufs, xfern.frames);
+ 		kfree(bufs);
+ 		__put_user(result, &_xfern->result);
+@@ -2675,13 +2663,11 @@ static int snd_pcm_capture_ioctl1(struct file *file,
+ 			return -EFAULT;
+ 		if (copy_from_user(&xfern, _xfern, sizeof(xfern)))
+ 			return -EFAULT;
+-		bufs = kmalloc(sizeof(void *) * runtime->channels, GFP_KERNEL);
+-		if (bufs == NULL)
+-			return -ENOMEM;
+-		if (copy_from_user(bufs, xfern.bufs, sizeof(void *) * runtime->channels)) {
+-			kfree(bufs);
+-			return -EFAULT;
+-		}
++
++		bufs = memdup_user(xfern.bufs,
++				   sizeof(void *) * runtime->channels);
++		if (IS_ERR(bufs))
++			return PTR_ERR(bufs);
+ 		result = snd_pcm_lib_readv(substream, bufs, xfern.frames);
+ 		kfree(bufs);
+ 		__put_user(result, &_xfern->result);
+@@ -3312,18 +3298,12 @@ static int snd_pcm_hw_refine_old_user(struct snd_pcm_substream *substream,
+ 	int err;
+ 
+ 	params = kmalloc(sizeof(*params), GFP_KERNEL);
+-	if (!params) {
+-		err = -ENOMEM;
+-		goto out;
+-	}
+-	oparams = kmalloc(sizeof(*oparams), GFP_KERNEL);
+-	if (!oparams) {
+-		err = -ENOMEM;
+-		goto out;
+-	}
++	if (!params)
++		return -ENOMEM;
+ 
+-	if (copy_from_user(oparams, _oparams, sizeof(*oparams))) {
+-		err = -EFAULT;
++	oparams = memdup_user(_oparams, sizeof(*oparams));
++	if (IS_ERR(oparams)) {
++		err = PTR_ERR(oparams);
+ 		goto out;
+ 	}
+ 	snd_pcm_hw_convert_from_old_params(params, oparams);
+@@ -3333,9 +3313,10 @@ static int snd_pcm_hw_refine_old_user(struct snd_pcm_substream *substream,
+ 		if (!err)
+ 			err = -EFAULT;
+ 	}
++
++	kfree(oparams);
+ out:
+ 	kfree(params);
+-	kfree(oparams);
+ 	return err;
+ }
+ 
+@@ -3347,17 +3328,12 @@ static int snd_pcm_hw_params_old_user(struct snd_pcm_substream *substream,
+ 	int err;
+ 
+ 	params = kmalloc(sizeof(*params), GFP_KERNEL);
+-	if (!params) {
+-		err = -ENOMEM;
+-		goto out;
+-	}
+-	oparams = kmalloc(sizeof(*oparams), GFP_KERNEL);
+-	if (!oparams) {
+-		err = -ENOMEM;
+-		goto out;
+-	}
+-	if (copy_from_user(oparams, _oparams, sizeof(*oparams))) {
+-		err = -EFAULT;
++	if (!params)
++		return -ENOMEM;
++
++	oparams = memdup_user(_oparams, sizeof(*oparams));
++	if (IS_ERR(oparams)) {
++		err = PTR_ERR(oparams);
+ 		goto out;
+ 	}
+ 	snd_pcm_hw_convert_from_old_params(params, oparams);
+@@ -3367,9 +3343,10 @@ static int snd_pcm_hw_params_old_user(struct snd_pcm_substream *substream,
+ 		if (!err)
+ 			err = -EFAULT;
+ 	}
++
++	kfree(oparams);
+ out:
+ 	kfree(params);
+-	kfree(oparams);
+ 	return err;
+ }
+ #endif /* CONFIG_SND_SUPPORT_OLD_API */
+diff --git a/sound/core/seq/seq_compat.c b/sound/core/seq/seq_compat.c
+--- a/sound/core/seq/seq_compat.c
++++ b/sound/core/seq/seq_compat.c
+@@ -48,12 +48,11 @@ static int snd_seq_call_port_info_ioctl(struct snd_seq_client *client, unsigned
+ 	struct snd_seq_port_info *data;
+ 	mm_segment_t fs;
+ 
+-	data = kmalloc(sizeof(*data), GFP_KERNEL);
+-	if (! data)
+-		return -ENOMEM;
++	data = memdup_user(data32, sizeof(*data32));
++	if (IS_ERR(data))
++		return PTR_ERR(data);
+ 
+-	if (copy_from_user(data, data32, sizeof(*data32)) ||
+-	    get_user(data->flags, &data32->flags) ||
++	if (get_user(data->flags, &data32->flags) ||
+ 	    get_user(data->time_queue, &data32->time_queue))
+ 		goto error;
+ 	data->kernel = NULL;
+diff --git a/sound/core/timer.c b/sound/core/timer.c
+--- a/sound/core/timer.c
++++ b/sound/core/timer.c
+@@ -1395,13 +1395,10 @@ static int snd_timer_user_ginfo(struct file *file,
+ 	struct list_head *p;
+ 	int err = 0;
+ 
+-	ginfo = kmalloc(sizeof(*ginfo), GFP_KERNEL);
+-	if (! ginfo)
+-		return -ENOMEM;
+-	if (copy_from_user(ginfo, _ginfo, sizeof(*ginfo))) {
+-		kfree(ginfo);
+-		return -EFAULT;
+-	}
++	ginfo = memdup_user(_ginfo, sizeof(*ginfo));
++	if (IS_ERR(ginfo))
++		return PTR_ERR(ginfo);
++
+ 	tid = ginfo->tid;
+ 	memset(ginfo, 0, sizeof(*ginfo));
+ 	ginfo->tid = tid;
+diff --git a/sound/pci/emu10k1/emufx.c b/sound/pci/emu10k1/emufx.c
+--- a/sound/pci/emu10k1/emufx.c
++++ b/sound/pci/emu10k1/emufx.c
+@@ -2493,24 +2493,17 @@ static int snd_emu10k1_fx8010_ioctl(struct snd_hwdep * hw, struct file *file, un
+ 	case SNDRV_EMU10K1_IOCTL_CODE_POKE:
+ 		if (!capable(CAP_SYS_ADMIN))
+ 			return -EPERM;
+-		icode = kmalloc(sizeof(*icode), GFP_KERNEL);
+-		if (icode == NULL)
+-			return -ENOMEM;
+-		if (copy_from_user(icode, argp, sizeof(*icode))) {
+-			kfree(icode);
+-			return -EFAULT;
+-		}
++
++		icode = memdup_user(argp, sizeof(*icode));
++		if (IS_ERR(icode))
++			return PTR_ERR(icode);
+ 		res = snd_emu10k1_icode_poke(emu, icode);
+ 		kfree(icode);
+ 		return res;
+ 	case SNDRV_EMU10K1_IOCTL_CODE_PEEK:
+-		icode = kmalloc(sizeof(*icode), GFP_KERNEL);
+-		if (icode == NULL)
+-			return -ENOMEM;
+-		if (copy_from_user(icode, argp, sizeof(*icode))) {
+-			kfree(icode);
+-			return -EFAULT;
+-		}
++		icode = memdup_user(argp, sizeof(*icode));
++		if (IS_ERR(icode))
++			return PTR_ERR(icode);
+ 		res = snd_emu10k1_icode_peek(emu, icode);
+ 		if (res == 0 && copy_to_user(argp, icode, sizeof(*icode))) {
+ 			kfree(icode);
+@@ -2519,24 +2512,16 @@ static int snd_emu10k1_fx8010_ioctl(struct snd_hwdep * hw, struct file *file, un
+ 		kfree(icode);
+ 		return res;
+ 	case SNDRV_EMU10K1_IOCTL_PCM_POKE:
+-		ipcm = kmalloc(sizeof(*ipcm), GFP_KERNEL);
+-		if (ipcm == NULL)
+-			return -ENOMEM;
+-		if (copy_from_user(ipcm, argp, sizeof(*ipcm))) {
+-			kfree(ipcm);
+-			return -EFAULT;
+-		}
++		ipcm = memdup_user(argp, sizeof(*ipcm));
++		if (IS_ERR(ipcm))
++			return PTR_ERR(ipcm);
+ 		res = snd_emu10k1_ipcm_poke(emu, ipcm);
+ 		kfree(ipcm);
+ 		return res;
+ 	case SNDRV_EMU10K1_IOCTL_PCM_PEEK:
+-		ipcm = kzalloc(sizeof(*ipcm), GFP_KERNEL);
+-		if (ipcm == NULL)
+-			return -ENOMEM;
+-		if (copy_from_user(ipcm, argp, sizeof(*ipcm))) {
+-			kfree(ipcm);
+-			return -EFAULT;
+-		}
++		ipcm = memdup_user(argp, sizeof(*ipcm));
++		if (IS_ERR(ipcm))
++			return PTR_ERR(ipcm);
+ 		res = snd_emu10k1_ipcm_peek(emu, ipcm);
+ 		if (res == 0 && copy_to_user(argp, ipcm, sizeof(*ipcm))) {
+ 			kfree(ipcm);
+-- 
+1.7.4.4

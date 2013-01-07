@@ -1,0 +1,55 @@
+From 24abb62ee737f98b4b5a7afc8b817cdb6eb53a46
+From: Florian Westphal
+Date: Fri, 7 May 2010 11:31:02 +0000
+Subject: [PATCH] iproute2: fix addrlabel interface names handling
+
+ip addrlabel outputs if%d names due to missing init call:
+$ ip addrlabel s
+prefix a::42/128 dev if4 label 1000
+
+Also, ip did not accept "if%d" interfaces on input.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+
+---
+ ip/ipaddrlabel.c |    2 ++
+ lib/ll_map.c     |    6 +++++-
+ 2 files changed, 7 insertions(+), 1 deletions(-)
+
+diff --git a/ip/ipaddrlabel.c b/ip/ipaddrlabel.c
+--- a/ip/ipaddrlabel.c
++++ b/ip/ipaddrlabel.c
+@@ -252,6 +252,8 @@ static int ipaddrlabel_flush(int argc, char **argv)
+ 
+ int do_ipaddrlabel(int argc, char **argv)
+ {
++	ll_init_map(&rth);
++
+ 	if (argc < 1) {
+ 		return ipaddrlabel_list(0, NULL);
+ 	} else if (matches(argv[0], "list") == 0 ||
+diff --git a/lib/ll_map.c b/lib/ll_map.c
+--- a/lib/ll_map.c
++++ b/lib/ll_map.c
+@@ -161,6 +161,7 @@ unsigned ll_name_to_index(const char *name)
+ 	static int icache;
+ 	struct idxmap *im;
+ 	int i;
++	unsigned idx;
+ 
+ 	if (name == NULL)
+ 		return 0;
+@@ -176,7 +177,10 @@ unsigned ll_name_to_index(const char *name)
+ 		}
+ 	}
+ 
+-	return if_nametoindex(name);
++	idx = if_nametoindex(name);
++	if (idx == 0)
++		sscanf(name, "if%u", &idx);
++	return idx;
+ }
+ 
+ int ll_init_map(struct rtnl_handle *rth)
+-- 
+1.7.6.2

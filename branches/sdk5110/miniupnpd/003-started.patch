@@ -1,0 +1,10 @@
+--- a/miniupnpd.c
++++ b/miniupnpd.c
+@@ -934,6 +934,7 @@ init(int argc, char * * argv, struct run
+ 	}
+ 
+ 	set_startup_time(GETFLAG(SYSUPTIMEMASK));
++	syslog(LOG_INFO, "version " MINIUPNPD_VERSION " started");
+ 
+ 	/* presentation url */
+ 	if(presurl)

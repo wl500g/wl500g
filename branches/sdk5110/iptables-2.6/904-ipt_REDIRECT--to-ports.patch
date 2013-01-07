@@ -1,0 +1,82 @@
+From: Dmitry V. Levin
+Date: Fri, 14 May 2010 11:24:51 +0000 (+0200)
+Subject: extensions: REDIRECT: fix --to-ports parser
+X-Git-Tag: v1.4.8~6
+X-Git-Url: https://git.netfilter.org/cgi-bin/gitweb.cgi?p=iptables.git;a=commitdiff_plain;h=84d758b3bc3121a5603261699c474f64672ef9f6
+
+extensions: REDIRECT: fix --to-ports parser
+
+Rewrite port range validator to use xtables_strtoui() and
+xtables_param_act().  Original check failed to recognize
+several types of port range errors, including:
+"-1", "-1a", "-1-a", "a-1", "1a-2", "1-2a", etc.
+Also, original parser erroneously denied using port 0,
+which is now allowed.
+
+Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+
+diff --git a/extensions/libipt_REDIRECT.c b/extensions/libipt_REDIRECT.c
+index d39f0bd..3dfcadf 100644
+--- a/extensions/libipt_REDIRECT.c
++++ b/extensions/libipt_REDIRECT.c
+@@ -39,40 +39,36 @@ static void REDIRECT_init(struct xt_entry_target *t)
+ static void
+ parse_ports(const char *arg, struct nf_nat_multi_range *mr)
+ {
+-	const char *dash;
+-	int port;
++	char *end;
++	unsigned int port, maxport;
+ 
+ 	mr->range[0].flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
+ 
+-	if (strchr(arg, '.'))
+-		xtables_error(PARAMETER_PROBLEM, "IP address not permitted\n");
++	if (!xtables_strtoui(arg, &end, &port, 0, UINT16_MAX) &&
++	    (port = xtables_service_to_port(arg, NULL)) == (unsigned)-1)
++		xtables_param_act(XTF_BAD_VALUE, "REDIRECT", "--to-ports", arg);
+ 
+-	port = atoi(arg);
+-	if (port == 0)
+-		port = xtables_service_to_port(arg, NULL);
+-
+-	if (port == 0 || port > 65535)
+-		xtables_error(PARAMETER_PROBLEM, "Port \"%s\" not valid\n", arg);
+-
+-	dash = strchr(arg, '-');
+-	if (!dash) {
++	switch (*end) {
++	case '\0':
+ 		mr->range[0].min.tcp.port
+ 			= mr->range[0].max.tcp.port
+ 			= htons(port);
+-	} else {
+-		int maxport;
++		return;
++	case '-':
++		if (!xtables_strtoui(end + 1, NULL, &maxport, 0, UINT16_MAX) &&
++		    (maxport = xtables_service_to_port(end + 1, NULL)) == (unsigned)-1)
++			break;
+ 
+-		maxport = atoi(dash + 1);
+-		if (maxport == 0 || maxport > 65535)
+-			xtables_error(PARAMETER_PROBLEM,
+-				   "Port `%s' not valid\n", dash+1);
+ 		if (maxport < port)
+-			/* People are stupid. */
+-			xtables_error(PARAMETER_PROBLEM,
+-				   "Port range `%s' funky\n", arg);
++			break;
++
+ 		mr->range[0].min.tcp.port = htons(port);
+ 		mr->range[0].max.tcp.port = htons(maxport);
++		return;
++	default:
++		break;
+ 	}
++	xtables_param_act(XTF_BAD_VALUE, "REDIRECT", "--to-ports", arg);
+ }
+ 
+ static int REDIRECT_parse(int c, char **argv, int invert, unsigned int *flags,

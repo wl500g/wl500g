@@ -1,0 +1,105 @@
+diff -uBp iptables.orig/extensions/libxt_connmark.c iptables/extensions/libxt_connmark.c
+--- iptables.orig/extensions/libxt_connmark.c
++++ iptables/extensions/libxt_connmark.c
+@@ -73,36 +73,6 @@ connmark_mt_parse(int c, char **argv, in
+ 	return false;
+ }
+ 
+-static int
+-connmark_parse(int c, char **argv, int invert, unsigned int *flags,
+-               const void *entry, struct xt_entry_match **match)
+-{
+-	struct xt_connmark_info *markinfo = (struct xt_connmark_info *)(*match)->data;
+-
+-	switch (c) {
+-		char *end;
+-	case '1':
+-		xtables_check_inverse(optarg, &invert, &optind, 0);
+-
+-		markinfo->mark = strtoul(optarg, &end, 0);
+-		markinfo->mask = 0xffffffffUL;
+-		
+-		if (*end == '/')
+-			markinfo->mask = strtoul(end+1, &end, 0);
+-
+-		if (*end != '\0' || end == optarg)
+-			xtables_error(PARAMETER_PROBLEM, "Bad MARK value \"%s\"", optarg);
+-		if (invert)
+-			markinfo->invert = 1;
+-		*flags = 1;
+-		break;
+-
+-	default:
+-		return 0;
+-	}
+-	return 1;
+-}
+-
+ static void print_mark(unsigned int mark, unsigned int mask)
+ {
+ 	if (mask != 0xffffffffU)
+@@ -119,17 +89,6 @@ static void connmark_mt_check(unsigned i
+ }
+ 
+ static void
+-connmark_print(const void *ip, const struct xt_entry_match *match, int numeric)
+-{
+-	struct xt_connmark_info *info = (struct xt_connmark_info *)match->data;
+-
+-	printf("CONNMARK match ");
+-	if (info->invert)
+-		printf("!");
+-	print_mark(info->mark, info->mask);
+-}
+-
+-static void
+ connmark_mt_print(const void *ip, const struct xt_entry_match *match, int numeric)
+ {
+ 	const struct xt_connmark_mtinfo1 *info = (const void *)match->data;
+@@ -140,17 +99,6 @@ connmark_mt_print(const void *ip, const
+ 	print_mark(info->mark, info->mask);
+ }
+ 
+-static void connmark_save(const void *ip, const struct xt_entry_match *match)
+-{
+-	struct xt_connmark_info *info = (struct xt_connmark_info *)match->data;
+-
+-	if (info->invert)
+-		printf("! ");
+-
+-	printf("--mark ");
+-	print_mark(info->mark, info->mask);
+-}
+-
+ static void
+ connmark_mt_save(const void *ip, const struct xt_entry_match *match)
+ {
+@@ -163,21 +111,6 @@ connmark_mt_save(const void *ip, const s
+ 	print_mark(info->mark, info->mask);
+ }
+ 
+-static struct xtables_match connmark_mt_reg_v0 = {
+-	.family		= NFPROTO_UNSPEC,
+-	.name		= "connmark",
+-	.revision	= 0,
+-	.version	= XTABLES_VERSION,
+-	.size		= XT_ALIGN(sizeof(struct xt_connmark_info)),
+-	.userspacesize	= XT_ALIGN(sizeof(struct xt_connmark_info)),
+-	.help		= connmark_mt_help,
+-	.parse		= connmark_parse,
+-	.final_check	= connmark_mt_check,
+-	.print		= connmark_print,
+-	.save		= connmark_save,
+-	.extra_opts	= connmark_mt_opts,
+-};
+-
+ static struct xtables_match connmark_mt_reg = {
+ 	.version        = XTABLES_VERSION,
+ 	.name           = "connmark",
+@@ -195,6 +128,5 @@ static struct xtables_match connmark_mt_
+ 
+ void _init(void)
+ {
+-	xtables_register_match(&connmark_mt_reg_v0);
+ 	xtables_register_match(&connmark_mt_reg);
+ }

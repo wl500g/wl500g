@@ -1,0 +1,172 @@
+Shrink struct task_struct
+
+ 57c521ce6125e15e99e56c902cb8da96bee7b36d ifdef struct task_struct::security
+ 3befe7ceb8d39a56a9ea55dd2da8b4bd9ddcdd36 Shrink struct task_struct::oomkilladj
+ 18796aa00243a594a2bd6733f1360aa38c3cd8f4 task_struct: move ->fpu_counter and ->oomkilladj
+ 6212e3a388fdda3f19fa660ef5a30edf54d1dcfd Remove struct task_struct::io_wait
+ 93278814d3590eba0ee360b8d69a35c7f2203ea8 mm: fix division by 0 in percpu_pagelist_fraction()
+
+---
+ fs/aio.c              |   16 ++--------------
+ include/linux/aio.h   |   12 ------------
+ include/linux/sched.h |   30 ++++++++++++------------------
+ kernel/fork.c         |    3 ++-
+ mm/page_alloc.c       |    4 ++--
+ 5 files changed, 18 insertions(+), 47 deletions(-)
+
+diff --git a/fs/aio.c b/fs/aio.c
+--- a/fs/aio.c
++++ b/fs/aio.c
+@@ -710,18 +710,9 @@ static ssize_t aio_run_iocb(struct kiocb *iocb)
+ 
+ 	/*
+ 	 * Now we are all set to call the retry method in async
+-	 * context. By setting this thread's io_wait context
+-	 * to point to the wait queue entry inside the currently
+-	 * running iocb for the duration of the retry, we ensure
+-	 * that async notification wakeups are queued by the
+-	 * operation instead of blocking waits, and when notified,
+-	 * cause the iocb to be kicked for continuation (through
+-	 * the aio_wake_function callback).
++	 * context.
+ 	 */
+-	BUG_ON(current->io_wait != NULL);
+-	current->io_wait = &iocb->ki_wait;
+ 	ret = retry(iocb);
+-	current->io_wait = NULL;
+ 
+ 	if (ret != -EIOCBRETRY && ret != -EIOCBQUEUED) {
+ 		BUG_ON(!list_empty(&iocb->ki_wait.task_list));
+@@ -1508,10 +1499,7 @@ static ssize_t aio_setup_iocb(struct kiocb *kiocb)
+  * 	Simply triggers a retry of the operation via kick_iocb.
+  *
+  * 	This callback is specified in the wait queue entry in
+- *	a kiocb	(current->io_wait points to this wait queue
+- *	entry when an aio operation executes; it is used
+- * 	instead of a synchronous wait when an i/o blocking
+- *	condition is encountered during aio).
++ *	a kiocb.
+  *
+  * Note:
+  * This routine is executed with the wait queue lock held.
+diff --git a/include/linux/aio.h b/include/linux/aio.h
+--- a/include/linux/aio.h
++++ b/include/linux/aio.h
+@@ -232,18 +232,6 @@ int FASTCALL(io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
+ 		__put_ioctx(kioctx);					\
+ } while (0)
+ 
+-#define in_aio() (unlikely(!is_sync_wait(current->io_wait)))
+-
+-/* may be used for debugging */
+-#define warn_if_async()							\
+-do {									\
+-	if (in_aio()) {							\
+-		printk(KERN_ERR "%s(%s:%d) called in async context!\n",	\
+-			__FUNCTION__, __FILE__, __LINE__);		\
+-		dump_stack();						\
+-	}								\
+-} while (0)
+-
+ #define io_wait_to_kiocb(wait) container_of(wait, struct kiocb, ki_wait)
+ 
+ #include <linux/aio_abi.h>
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -869,6 +869,16 @@ struct task_struct {
+ 	struct prio_array *array;
+ 
+ 	unsigned short ioprio;
++	/*
++	 * fpu_counter contains the number of consecutive context switches
++	 * that the FPU is used. If this is over a threshold, the lazy fpu
++	 * saving becomes unlazy to save the trap. This is an unsigned char
++	 * so that after 256 times the counter wraps and the behavior turns
++	 * lazy again; this to deal with bursty apps that only use FPU for
++	 * a short time
++	 */
++	unsigned char fpu_counter;
++	s8 oomkilladj; /* OOM kill score adjustment (bit shift). */
+ #ifdef CONFIG_BLK_DEV_IO_TRACE
+ 	unsigned int btrace_seq;
+ #endif
+@@ -955,16 +965,6 @@ struct task_struct {
+ 	struct key *thread_keyring;	/* keyring private to this thread */
+ 	unsigned char jit_keyring;	/* default keyring to attach requested keys to */
+ #endif
+-	/*
+-	 * fpu_counter contains the number of consecutive context switches
+-	 * that the FPU is used. If this is over a threshold, the lazy fpu
+-	 * saving becomes unlazy to save the trap. This is an unsigned char
+-	 * so that after 256 times the counter wraps and the behavior turns
+-	 * lazy again; this to deal with bursty apps that only use FPU for
+-	 * a short time
+-	 */
+-	unsigned char fpu_counter;
+-	int oomkilladj; /* OOM kill score adjustment (bit shift). */
+ 	char comm[TASK_COMM_LEN]; /* executable name excluding path
+ 				     - access with [gs]et_task_comm (which lock
+ 				       it with task_lock())
+@@ -1001,8 +1001,9 @@ struct task_struct {
+ 	int (*notifier)(void *priv);
+ 	void *notifier_data;
+ 	sigset_t *notifier_mask;
+-	
++#ifdef CONFIG_SECURITY
+ 	void *security;
++#endif
+ 	struct audit_context *audit_context;
+ 	seccomp_t seccomp;
+ 
+@@ -1064,13 +1065,6 @@ struct task_struct {
+ 
+ 	unsigned long ptrace_message;
+ 	siginfo_t *last_siginfo; /* For ptrace use.  */
+-/*
+- * current io wait handle: wait queue entry to use for io waits
+- * If this thread is processing aio, this points at the waitqueue
+- * inside the currently handled kiocb. It may be NULL (i.e. default
+- * to a stack based synchronous wait) if its doing sync IO.
+- */
+-	wait_queue_t *io_wait;
+ #ifdef CONFIG_TASK_XACCT
+ /* i/o counters(bytes read/written, #syscalls */
+ 	u64 rchar, wchar, syscr, syscw;
+diff --git a/kernel/fork.c b/kernel/fork.c
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -911,9 +911,10 @@ static struct task_struct *copy_process(
+ 
+ 	p->lock_depth = -1;		/* -1 = no lock */
+ 	do_posix_clock_monotonic_gettime(&p->start_time);
++#ifdef CONFIG_SECURITY
+ 	p->security = NULL;
++#endif
+ 	p->io_context = NULL;
+-	p->io_wait = NULL;
+ 	p->audit_context = NULL;
+ 	cpuset_fork(p);
+ #ifdef CONFIG_NUMA
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -105,7 +105,7 @@ unsigned long totalreserve_pages __read_mostly;
+ unsigned long totalram_pages __read_mostly;
+ unsigned long totalreserve_pages __read_mostly;
+ long nr_swap_pages;
+-int percpu_pagelist_fraction;
++int percpu_pagelist_fraction = 8;
+ 
+ static void __free_pages_ok(struct page *page, unsigned int order);
+ 
+@@ -3203,7 +3203,7 @@ int percpu_pagelist_fraction_sysctl_handler(ctl_table *table, int write,
+ 	int ret;
+ 
+ 	ret = proc_dointvec_minmax(table, write, file, buffer, length, ppos);
+-	if (!write || (ret == -EINVAL))
++	if (!write || (ret < 0))
+ 		return ret;
+ 	for_each_zone(zone) {
+ 		for_each_online_cpu(cpu) {
+-- 

@@ -1,0 +1,151 @@
+ip: Router Alert RCU conversion
+
+ 66018506e15bea62de4eefc3298f170b4bfcf5ef ip: Router Alert RCU conversion
+ 592fcb9dfafaa02dd0edc207bf5d3a0ee7a1f8df ip: ip_ra_control() rcu fix
+
+---
+ include/net/ip.h       |    7 +++++--
+ net/ipv4/ip_input.c    |   11 +++--------
+ net/ipv4/ip_sockglue.c |   36 ++++++++++++++++++++++++++----------
+ 3 files changed, 34 insertions(+), 20 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -62,11 +62,14 @@ struct ip_ra_chain
+ {
+ 	struct ip_ra_chain	*next;
+ 	struct sock		*sk;
+-	void			(*destructor)(struct sock *);
++	union {
++		void			(*destructor)(struct sock *);
++		struct sock		*saved_sk;
++	};
++	struct rcu_head		rcu;
+ };
+ 
+ extern struct ip_ra_chain *ip_ra_chain;
+-extern rwlock_t ip_ra_lock;
+ 
+ /* IP flags. */
+ #define IP_CE		0x8000		/* Flag: "Congestion"		*/
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -146,7 +146,7 @@
+ #include <linux/netlink.h>
+ 
+ /*
+- *	Process Router Attention IP option
++ *	Process Router Attention IP option (RFC 2113)
+  */
+ int ip_call_ra_chain(struct sk_buff *skb)
+ {
+@@ -155,8 +155,7 @@ int ip_call_ra_chain(struct sk_buff *skb)
+ 	struct sock *last = NULL;
+ 	struct net_device *dev = skb->dev;
+ 
+-	read_lock(&ip_ra_lock);
+-	for (ra = ip_ra_chain; ra; ra = ra->next) {
++	for (ra = rcu_dereference(ip_ra_chain); ra; ra = rcu_dereference(ra->next)) {
+ 		struct sock *sk = ra->sk;
+ 
+ 		/* If socket is bound to an interface, only report
+@@ -167,10 +166,8 @@ int ip_call_ra_chain(struct sk_buff *skb)
+ 		     sk->sk_bound_dev_if == dev->ifindex) &&
+ 		    net_eq(sock_net(sk), dev_net(dev))) {
+ 			if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-				if (ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN)) {
+-					read_unlock(&ip_ra_lock);
++				if (ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN))
+ 					return 1;
+-				}
+ 			}
+ 			if (last) {
+ 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+@@ -183,10 +180,8 @@ int ip_call_ra_chain(struct sk_buff *skb)
+ 
+ 	if (last) {
+ 		raw_rcv(last, skb);
+-		read_unlock(&ip_ra_lock);
+ 		return 1;
+ 	}
+-	read_unlock(&ip_ra_lock);
+ 	return 0;
+ }
+ 
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -209,7 +209,16 @@ int ip_cmsg_send(struct msghdr *msg, str
+    sent to multicast group to reach destination designated router.
+  */
+ struct ip_ra_chain *ip_ra_chain;
+-DEFINE_RWLOCK(ip_ra_lock);
++static DEFINE_SPINLOCK(ip_ra_lock);
++
++
++static void ip_ra_destroy_rcu(struct rcu_head *head)
++{
++	struct ip_ra_chain *ra = container_of(head, struct ip_ra_chain, rcu);
++
++	sock_put(ra->saved_sk);
++	kfree(ra);
++}
+ 
+ int ip_ra_control(struct sock *sk, unsigned char on, void (*destructor)(struct sock *))
+ {
+@@ -220,35 +229,42 @@ int ip_ra_control(struct sock *sk, unsig
+ 
+ 	new_ra = on ? kmalloc(sizeof(*new_ra), GFP_KERNEL) : NULL;
+ 
+-	write_lock_bh(&ip_ra_lock);
++	spin_lock_bh(&ip_ra_lock);
+ 	for (rap = &ip_ra_chain; (ra=*rap) != NULL; rap = &ra->next) {
+ 		if (ra->sk == sk) {
+ 			if (on) {
+-				write_unlock_bh(&ip_ra_lock);
++				spin_unlock_bh(&ip_ra_lock);
+ 				kfree(new_ra);
+ 				return -EADDRINUSE;
+ 			}
+-			*rap = ra->next;
+-			write_unlock_bh(&ip_ra_lock);
++			/* dont let ip_call_ra_chain() use sk again */
++			ra->sk = NULL;
++			rcu_assign_pointer(*rap, ra->next);
++			spin_unlock_bh(&ip_ra_lock);
+ 
+ 			if (ra->destructor)
+ 				ra->destructor(sk);
+-			sock_put(sk);
+-			kfree(ra);
++			/*
++			 * Delay sock_put(sk) and kfree(ra) after one rcu grace
++			 * period. This guarantee ip_call_ra_chain() dont need
++			 * to mess with socket refcounts.
++			 */
++			ra->saved_sk = sk;
++			call_rcu(&ra->rcu, ip_ra_destroy_rcu);
+ 			return 0;
+ 		}
+ 	}
+ 	if (new_ra == NULL) {
+-		write_unlock_bh(&ip_ra_lock);
++		spin_unlock_bh(&ip_ra_lock);
+ 		return -ENOBUFS;
+ 	}
+ 	new_ra->sk = sk;
+ 	new_ra->destructor = destructor;
+ 
+ 	new_ra->next = ra;
+-	*rap = new_ra;
++	rcu_assign_pointer(*rap, new_ra);
+ 	sock_hold(sk);
+-	write_unlock_bh(&ip_ra_lock);
++	spin_unlock_bh(&ip_ra_lock);
+ 
+ 	return 0;
+ }
+-- 
+1.7.6.2

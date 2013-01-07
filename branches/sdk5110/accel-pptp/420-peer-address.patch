@@ -1,0 +1,11 @@
+--- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-10-03 09:09:55.000000000 +0000
++++ accel-pptp/pppd_plugin/src/pptp.c	2010-10-08 14:32:16.820000002 +0000
+@@ -210,7 +210,7 @@ static int pptp_start_client(void)
+ 		return -1;
+ 	}
+ 
+-	sprintf(ppp_devnam,"pptp (%s)",pptp_server);
++	sprintf(ppp_devnam,"pptp (%s)", inet_ntoa(dst_addr.sa_addr.pptp.sin_addr));
+ 
+ 	return pptp_fd;
+ }

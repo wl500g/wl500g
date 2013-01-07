@@ -1,0 +1,182 @@
+--- accel-pptp.orig/pppd_plugin/src/inststr.c	1970-01-01 00:00:00.000000000 +0000
++++ accel-pptp/pppd_plugin/src/inststr.c	2011-07-21 15:15:44.757301000 +0000
+@@ -0,0 +1,74 @@
++/* inststr.c ... stolen from bdupdate.c, which stole it from perl 4.
++ *               Theft by C. Scott Ananian <cananian@alumni.princeton.edu>
++ *               Modified similarly to perl 5.8.3's alignment-checking code
++8                by Paul Howarth <paul@city-fan.org>
++ *
++ * $Id: inststr.c,v 1.3 2004/06/08 23:40:14 quozl Exp $
++ */
++
++#include <string.h>
++
++#define PTRSIZE sizeof(void *)
++typedef unsigned long UL;
++
++void
++inststr(int argc, char **argv, char **environ, char *src)
++{
++    if (strlen(src) <= strlen(argv[0]))
++    {
++        char *ptr;
++
++        for (ptr = argv[0]; *ptr; *(ptr++) = '\0');
++
++        strcpy(argv[0], src);
++    } else
++    {
++        /* Stolen from the source to perl 4.036 (assigning to $0) */
++        /* Modified to allow for aligned array members, assuming  */
++        /* no system has something bizarre like the argv[]        */
++        /* interleaved with some other data. Also allow for argv  */
++        /* array having higher numbered elements lower in memory  */
++        /* than lower numbered elements.                          */
++        char *ptr, *ptr2;
++        int count;
++        UL mask = ~(UL)(PTRSIZE == 4 ? 3 : PTRSIZE == 8 ? 7 : PTRSIZE == 16 ? 15 : 0);
++        int aligned = (mask < ~(UL)0) && (((UL)(argv[0]) & mask) == (UL)(argv[0]));
++        ptr = argv[0] + strlen(argv[0]);
++        if (argv[argc - 1] >= argv[1]) {
++            /* argv pointers in ascending memory order */
++            for (count = 1; count < argc; count++) {
++                if (argv[count] == ptr + 1
++                    ||
++                    (aligned && argv[count] > ptr && argv[count] <= (char *)((UL)(ptr + PTRSIZE) & mask))
++                   ) {
++                    ptr = argv[count] + strlen(argv[count]);
++                }
++            }
++        } else
++        {
++            /* sometimes the argv pointers go down in memory rather than up */
++            for (count = argc - 1; count > 0; count--) {
++                if (argv[count] == ptr + 1
++                    ||
++                    (aligned && argv[count] > ptr && argv[count] <= (char *)((UL)(ptr + PTRSIZE) & mask))
++                   ) {
++                    ptr = argv[count] + strlen(argv[count]);
++                }
++            }
++        }
++        for (count = 0; environ[count]; count++) {
++            if (environ[count] == ptr + 1
++                ||
++                (aligned && environ[count] > ptr && environ[count] <= (char *)((UL)(ptr + PTRSIZE) & mask))
++               ) {
++                   ptr = environ[count] + strlen(environ[count]);
++            }
++        }
++        count = 0;
++        for (ptr2 = argv[0]; ptr2 <= ptr; ptr2++) {
++            *ptr2 = '\0';
++            count++;
++        }
++        strncpy(argv[0], src, count);
++    }
++}
+--- accel-pptp.orig/pppd_plugin/src/inststr.h	1970-01-01 00:00:00.000000000 +0000
++++ accel-pptp/pppd_plugin/src/inststr.h	2011-07-21 15:15:44.757301000 +0000
+@@ -0,0 +1,6 @@
++/* inststr.h ..... change argv[0].
++ *
++ * $Id: inststr.h,v 1.1.1.1 2000/12/23 08:19:51 scott Exp $
++ */
++
++void inststr(int argc, char **argv, char **envp, char *src);
+--- accel-pptp.orig/pppd_plugin/src/Makefile.am	2009-08-16 08:36:25.000000000 +0000
++++ accel-pptp/pppd_plugin/src/Makefile.am	2011-07-21 15:15:44.757301000 +0000
+@@ -6,8 +6,8 @@ INCLUDES = $(all_includes)
+ lib_LTLIBRARIES = pptp.la
+ pptp_la_LDFLAGS = -module -avoid-version
+ pptp_la_SOURCES = pptp.c pptp_callmgr.c pptp_ctrl.c util.c vector.c \
+-	dirutil.c pptp_quirks.c orckit_quirks.c
++	dirutil.c pptp_quirks.c orckit_quirks.c inststr.c
+ noinst_HEADERS = pptp_callmgr.h pptp_ctrl.h util.h vector.h pptp_options.h \
+-		dirutil.h pptp_quirks.h orckit_quirks.h if_pppox.h
++		dirutil.h pptp_quirks.h orckit_quirks.h if_pppox.h inststr.h
+ AM_CFLAGS = -Wall
+ man_MANS = pppd-pptp.8
+--- accel-pptp.orig/pppd_plugin/src/Makefile.in	2009-08-16 09:41:25.000000000 +0000
++++ accel-pptp/pppd_plugin/src/Makefile.in	2011-07-21 15:15:44.757301000 +0000
+@@ -58,7 +58,7 @@ libLTLIBRARIES_INSTALL = $(INSTALL)
+ LTLIBRARIES = $(lib_LTLIBRARIES)
+ pptp_la_LIBADD =
+ am_pptp_la_OBJECTS = pptp.lo pptp_callmgr.lo pptp_ctrl.lo util.lo \
+-	vector.lo dirutil.lo pptp_quirks.lo orckit_quirks.lo
++	vector.lo dirutil.lo pptp_quirks.lo orckit_quirks.lo inststr.lo
+ pptp_la_OBJECTS = $(am_pptp_la_OBJECTS)
+ DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
+ depcomp = $(SHELL) $(top_srcdir)/depcomp
+@@ -190,10 +190,10 @@ INCLUDES = $(all_includes)
+ lib_LTLIBRARIES = pptp.la
+ pptp_la_LDFLAGS = -module -avoid-version
+ pptp_la_SOURCES = pptp.c pptp_callmgr.c pptp_ctrl.c util.c vector.c \
+-	dirutil.c pptp_quirks.c orckit_quirks.c
++	dirutil.c pptp_quirks.c orckit_quirks.c inststr.c
+ 
+ noinst_HEADERS = pptp_callmgr.h pptp_ctrl.h util.h vector.h pptp_options.h \
+-		dirutil.h pptp_quirks.h orckit_quirks.h if_pppox.h
++		dirutil.h pptp_quirks.h orckit_quirks.h if_pppox.h inststr.h
+ 
+ AM_CFLAGS = -Wall
+ man_MANS = pppd-pptp.8
+@@ -267,6 +267,7 @@ distclean-compile:
+ 	-rm -f *.tab.c
+ 
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dirutil.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inststr.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/orckit_quirks.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pptp.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pptp_callmgr.Plo@am__quote@
+--- accel-pptp.orig/pppd_plugin/src/pptp.c	2011-07-21 15:14:16.000000000 +0000
++++ accel-pptp/pppd_plugin/src/pptp.c	2011-07-21 15:15:44.757301000 +0000
+@@ -49,6 +49,7 @@
+ #include <net/if.h>
+ #include <net/ethernet.h>
+ #include "if_pppox.h"
++#include "inststr.h"
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -303,17 +304,30 @@ static int open_callmgr(int call_id,stru
+ }
+ 
+ /*** call the call manager main ***********************************************/
+-static void launch_callmgr(int call_id,struct in_addr inetaddr, char *phonenr,int window)
++static void launch_callmgr(int call_id, struct in_addr inetaddr, char *phonenr, int window)
+ {
+-			char win[10];
+-			char call[10];
+-      char *my_argv[9] = { "pptp", inet_ntoa(inetaddr), "--call_id",call,"--phone",phonenr,"--window",win,NULL };
+-      char buf[128];
+-      sprintf(win,"%u",window);
+-      sprintf(call,"%u",call_id);
+-      snprintf(buf, sizeof(buf), "pptp: call manager for %s", my_argv[1]);
+-      //inststr(argc, argv, envp, buf);
+-      exit(callmgr_main(8, my_argv, environ));
++	char win[10];
++	char call[10];
++	char *my_argv[9] = { "pptp", inet_ntoa(inetaddr), "--call_id", call, "--phone", phonenr, "--window", win, NULL };
++	char buf[128];
++	int argc = 0;
++	char **argv = environ;
++
++	sprintf(win, "%u", window);
++	sprintf(call, "%u", call_id);
++	snprintf(buf, sizeof(buf), "pptp: call manager for %s", my_argv[1]);
++
++	if (argv && *argv)
++		argv--;
++	if (argv && *argv == NULL && progname)
++	do {
++		argv--;
++		argc++;
++	} while (argv && *argv && *argv > progname);
++	if (argv && *argv == progname)
++		inststr(argc, argv, environ, buf);
++
++	exit(callmgr_main(8, my_argv, environ));
+ }
+ 
+ /*** exchange data with the call manager  *************************************/

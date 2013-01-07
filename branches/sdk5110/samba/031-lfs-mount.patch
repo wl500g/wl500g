@@ -1,0 +1,59 @@
+From a003a5f052a9ef7ad14f6f79157669d1bbd37f96
+From: Alexander Bokovoy
+Date: Tue, 8 Apr 2003 15:38:09 +0000
+Subject: [PATCH] Update smbmount to include unicode and lfs capabilities options -- smbfs supports this already
+
+---
+ source/client/smbmount.c |   25 ++++++++++++++++---------
+ 1 files changed, 16 insertions(+), 9 deletions(-)
+
+diff --git a/source/client/smbmount.c b/source/client/smbmount.c
+index 9830248..1ee7dbc 100644
+--- a/source/client/smbmount.c
++++ b/source/client/smbmount.c
+@@ -51,6 +51,9 @@ static unsigned mount_dmask;
+ static int mount_ro;
+ static unsigned mount_fmask;
+ static unsigned mount_dmask;
++
++static BOOL smbfs_has_unicode = False;
++static BOOL smbfs_has_lfs = False;
+ 
+ static void usage(void);
+ 
+@@ -201,8 +203,11 @@ static struct cli_state *do_connection(char *the_service)
+ 
+ 	/* This should be right for current smbfs. Future versions will support
+ 	   large files as well as unicode and oplocks. */
+-	c->capabilities &= ~(CAP_UNICODE | CAP_LARGE_FILES | CAP_NT_SMBS |
+-			     CAP_NT_FIND | CAP_STATUS32 | CAP_LEVEL_II_OPLOCKS);
++  	c->capabilities &= ~(CAP_NT_SMBS | CAP_NT_FIND | CAP_STATUS32 | CAP_LEVEL_II_OPLOCKS);
++  	if (!smbfs_has_lfs)
++  		c->capabilities &= ~CAP_LARGE_FILES;
++  	if (!smbfs_has_unicode)
++  		c->capabilities &= ~CAP_UNICODE;
+ 	if (!cli_session_setup(c, username, 
+ 			       password, strlen(password),
+ 			       password, strlen(password),
+@@ -683,6 +684,8 @@ static void usage(void)
+       scope=<arg>                     NetBIOS scope\n\
+       iocharset=<arg>                 Linux charset (iso8859-1, utf8)\n\
+       codepage=<arg>                  server codepage (cp850)\n\
++      unicode                         use unicode when communicating with server\n\
++      lfs                             large file system support\n\
+       ttl=<arg>                       dircache time to live\n\
+       guest                           don't prompt for a password\n\
+       ro                              mount read-only\n\
+@@ -828,6 +831,10 @@ static void parse_mount_smb(int argc, char **argv)
+ 				mount_ro = 0;
+ 			} else if(!strcmp(opts, "ro")) {
+ 				mount_ro = 1;
++			} else if(!strcmp(opts, "unicode")) {
++				smbfs_has_unicode = True;
++			} else if(!strcmp(opts, "lfs")) {
++				smbfs_has_lfs = True;
+ 			} else {
+ 				strncpy(p, opts, sizeof(pstring) - (p - options) - 1);
+ 				p += strlen(opts);
+-- 
+1.7.0.4

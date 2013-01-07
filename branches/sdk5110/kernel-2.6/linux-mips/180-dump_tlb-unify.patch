@@ -1,0 +1,1348 @@
+[MIPS] Remove unused parts of arch/mips/lib-{32,64}
+
+ kernel.org commits
+ 4becef1d85a48ea4294c962c2cbacb6074f0dd58 [MIPS] Unify dump_tlb
+ b63e804459b9b550c1ab21a43e6bac2272e32612 [MIPS] Remove unused watchpoint support and arch/mips/lib-{32,64}
+ 
+---
+ arch/mips/Makefile              |    2 
+ arch/mips/kernel/proc.c         |    1 
+ arch/mips/kernel/traps.c        |    1 
+ arch/mips/lib-32/Makefile       |   23 ---
+ arch/mips/lib-32/dump_tlb.c     |  242 ---------------------------------------
+ arch/mips/lib-32/r3k_dump_tlb.c |  182 -----------------------------
+ arch/mips/lib-32/watch.S        |   60 ---------
+ arch/mips/lib-64/Makefile       |   23 ---
+ arch/mips/lib-64/dump_tlb.c     |  216 -----------------------------------
+ arch/mips/lib-64/watch.S        |   57 ---------
+ arch/mips/lib/Makefile          |   18 ++
+ arch/mips/lib/dump_tlb.c        |  243 ++++++++++++++++++++++++++++++++++++++++
+ arch/mips/lib/r3k_dump_tlb.c    |  182 +++++++++++++++++++++++++++++
+ 13 files changed, 443 insertions(+), 807 deletions(-)
+
+diff -urNBp a/arch/mips/kernel/proc.c b/arch/mips/kernel/proc.c
+--- a/arch/mips/kernel/proc.c	2008-12-12 06:25:46.000000000 +0300
++++ b/arch/mips/kernel/proc.c	2011-02-22 14:48:04.000000000 +0300
+@@ -14,7 +14,6 @@
+ #include <asm/cpu-features.h>
+ #include <asm/mipsregs.h>
+ #include <asm/processor.h>
+-#include <asm/watch.h>
+ 
+ unsigned int vced_count, vcei_count;
+ 
+diff -urNBp a/arch/mips/kernel/traps.c b/arch/mips/kernel/traps.c
+--- a/arch/mips/kernel/traps.c	2011-02-22 03:00:00.000000000 +0300
++++ b/arch/mips/kernel/traps.c	2011-02-22 14:48:04.000000000 +0300
+@@ -41,7 +41,6 @@
+ #include <asm/traps.h>
+ #include <asm/uaccess.h>
+ #include <asm/mmu_context.h>
+-#include <asm/watch.h>
+ #include <asm/types.h>
+ #include <asm/stacktrace.h>
+ 
+diff -urNBp a/arch/mips/lib/dump_tlb.c b/arch/mips/lib/dump_tlb.c
+--- a/arch/mips/lib/dump_tlb.c	1970-01-01 03:00:00.000000000 +0300
++++ b/arch/mips/lib/dump_tlb.c	2011-02-22 14:45:59.000000000 +0300
+@@ -0,0 +1,243 @@
++/*
++ * Dump R4x00 TLB for debugging purposes.
++ *
++ * Copyright (C) 1994, 1995 by Waldorf Electronics, written by Ralf Baechle.
++ * Copyright (C) 1999 by Silicon Graphics, Inc.
++ */
++#include <linux/kernel.h>
++#include <linux/mm.h>
++#include <linux/sched.h>
++#include <linux/string.h>
++
++#include <asm/bootinfo.h>
++#include <asm/cachectl.h>
++#include <asm/cpu.h>
++#include <asm/mipsregs.h>
++#include <asm/page.h>
++#include <asm/pgtable.h>
++
++static inline const char *msk2str(unsigned int mask)
++{
++	switch (mask) {
++	case PM_4K:	return "4kb";
++	case PM_16K:	return "16kb";
++	case PM_64K:	return "64kb";
++	case PM_256K:	return "256kb";
++#ifndef CONFIG_CPU_VR41XX
++	case PM_1M:	return "1Mb";
++	case PM_4M:	return "4Mb";
++	case PM_16M:	return "16Mb";
++	case PM_64M:	return "64Mb";
++	case PM_256M:	return "256Mb";
++#endif
++	}
++
++	return "";
++}
++
++#define BARRIER()					\
++	__asm__ __volatile__(				\
++		".set\tnoreorder\n\t"			\
++		"nop;nop;nop;nop;nop;nop;nop\n\t"	\
++		".set\treorder");
++
++void dump_tlb(int first, int last)
++{
++	unsigned long s_entryhi, entryhi, asid;
++	unsigned long long entrylo0, entrylo1;
++	unsigned int s_index, pagemask, c0, c1, i;
++
++	s_entryhi = read_c0_entryhi();
++	s_index = read_c0_index();
++	asid = s_entryhi & 0xff;
++
++	for (i = first; i <= last; i++) {
++		write_c0_index(i);
++		BARRIER();
++		tlb_read();
++		BARRIER();
++		pagemask = read_c0_pagemask();
++		entryhi  = read_c0_entryhi();
++		entrylo0 = read_c0_entrylo0();
++		entrylo1 = read_c0_entrylo1();
++
++		/* Unused entries have a virtual address of CKSEG0.  */
++		if ((entryhi & ~0x1ffffUL) != CKSEG0
++		    && (entryhi & 0xff) == asid) {
++#ifdef CONFIG_32BIT
++			int width = 8;
++#else
++			int width = 11;
++#endif
++			/*
++			 * Only print entries in use
++			 */
++			printk("Index: %2d pgmask=%s ", i, msk2str(pagemask));
++
++			c0 = (entrylo0 >> 3) & 7;
++			c1 = (entrylo1 >> 3) & 7;
++
++			printk("va=%0*lx asid=%02lx\n",
++			       width, (entryhi & ~0x1fffUL),
++			       entryhi & 0xff);
++			printk("\t[pa=%0*llx c=%d d=%d v=%d g=%d] ",
++			       width,
++			       (entrylo0 << 6) & PAGE_MASK, c0,
++			       (entrylo0 & 4) ? 1 : 0,
++			       (entrylo0 & 2) ? 1 : 0,
++			       (entrylo0 & 1) ? 1 : 0);
++			printk("[pa=%0*llx c=%d d=%d v=%d g=%d]\n",
++			       width,
++			       (entrylo1 << 6) & PAGE_MASK, c1,
++			       (entrylo1 & 4) ? 1 : 0,
++			       (entrylo1 & 2) ? 1 : 0,
++			       (entrylo1 & 1) ? 1 : 0);
++		}
++	}
++	printk("\n");
++
++	write_c0_entryhi(s_entryhi);
++	write_c0_index(s_index);
++}
++
++void dump_tlb_all(void)
++{
++	dump_tlb(0, current_cpu_data.tlbsize - 1);
++}
++
++void dump_tlb_wired(void)
++{
++	int	wired;
++
++	wired = read_c0_wired();
++	printk("Wired: %d", wired);
++	dump_tlb(0, read_c0_wired());
++}
++
++void dump_tlb_addr(unsigned long addr)
++{
++	unsigned int flags, oldpid;
++	int index;
++
++	local_irq_save(flags);
++	oldpid = read_c0_entryhi() & 0xff;
++	BARRIER();
++	write_c0_entryhi((addr & PAGE_MASK) | oldpid);
++	BARRIER();
++	tlb_probe();
++	BARRIER();
++	index = read_c0_index();
++	write_c0_entryhi(oldpid);
++	local_irq_restore(flags);
++
++	if (index < 0) {
++		printk("No entry for address 0x%08lx in TLB\n", addr);
++		return;
++	}
++
++	printk("Entry %d maps address 0x%08lx\n", index, addr);
++	dump_tlb(index, index);
++}
++
++void dump_tlb_nonwired(void)
++{
++	dump_tlb(read_c0_wired(), current_cpu_data.tlbsize - 1);
++}
++
++void dump_list_process(struct task_struct *t, void *address)
++{
++	pgd_t	*page_dir, *pgd;
++	pud_t	*pud;
++	pmd_t	*pmd;
++	pte_t	*pte, page;
++	unsigned long addr, val;
++	int width = sizeof(long) * 2;
++
++	addr = (unsigned long) address;
++
++	printk("Addr                 == %08lx\n", addr);
++#ifdef CONFIG_64BIT
++	printk("tasks->mm.pgd        == %08lx\n", (unsigned long) t->mm->pgd);
++#endif
++
++#ifdef CONFIG_64BIT
++	page_dir = pgd_offset(t->mm, 0UL);
++	pgd = pgd_offset(t->mm, addr);
++#else
++	if (addr > KSEG0) {
++		page_dir = pgd_offset_k(0);
++		pgd = pgd_offset_k(addr);
++	} else if (t->mm) {
++		page_dir = pgd_offset(t->mm, 0);
++		pgd = pgd_offset(t->mm, addr);
++	} else {
++		printk("Current thread has no mm\n");
++		return;
++	}
++#endif
++	printk("page_dir == %0*lx\n", width, (unsigned long) page_dir);
++	printk("pgd == %0*lx\n", width, (unsigned long) pgd);
++
++	pud = pud_offset(pgd, addr);
++	printk("pud == %0*lx\n", width, (unsigned long) pud);
++
++	pmd = pmd_offset(pud, addr);
++	printk("pmd == %0*lx\n", width, (unsigned long) pmd);
++
++	pte = pte_offset(pmd, addr);
++	printk("pte == %0*lx\n", width, (unsigned long) pte);
++
++	page = *pte;
++#ifdef CONFIG_64BIT_PHYS_ADDR
++	printk("page == %08Lx\n", pte_val(page));
++#else
++	printk("page == %0*lx\n", width, pte_val(page));
++#endif
++
++	val = pte_val(page);
++	if (val & _PAGE_PRESENT) printk("present ");
++	if (val & _PAGE_READ) printk("read ");
++	if (val & _PAGE_WRITE) printk("write ");
++	if (val & _PAGE_ACCESSED) printk("accessed ");
++	if (val & _PAGE_MODIFIED) printk("modified ");
++	if (val & _PAGE_R4KBUG) printk("r4kbug ");
++	if (val & _PAGE_GLOBAL) printk("global ");
++	if (val & _PAGE_VALID) printk("valid ");
++	printk("\n");
++}
++
++void dump_list_current(void *address)
++{
++	dump_list_process(current, address);
++}
++
++unsigned long vtop(void *address)
++{
++	pgd_t	*pgd;
++	pud_t	*pud;
++	pmd_t	*pmd;
++	pte_t	*pte;
++	unsigned long addr, paddr;
++
++	addr = (unsigned long) address;
++	pgd = pgd_offset(current->mm, addr);
++	pud = pud_offset(pgd, addr);
++	pmd = pmd_offset(pud, addr);
++	pte = pte_offset(pmd, addr);
++	paddr = (CKSEG1 | (unsigned int) pte_val(*pte)) & PAGE_MASK;
++	paddr |= (addr & ~PAGE_MASK);
++
++	return paddr;
++}
++
++void dump16(unsigned long *p)
++{
++	int i;
++
++	for (i = 0; i < 8; i++) {
++		printk("*%08lx == %08lx, ", (unsigned long)p, *p);
++		p++;
++		printk("*%08lx == %08lx\n", (unsigned long)p, *p);
++		p++;
++	}
++}
+diff -urNBp a/arch/mips/lib/Makefile b/arch/mips/lib/Makefile
+--- a/arch/mips/lib/Makefile	2010-11-09 06:40:23.000000000 +0300
++++ b/arch/mips/lib/Makefile	2011-02-22 14:45:59.000000000 +0300
+@@ -8,5 +8,23 @@ lib-y	+= csum_partial.o delay.o memcpy.o
+ obj-y			+= iomap.o
+ obj-$(CONFIG_PCI)	+= iomap-pci.o
+ 
++obj-$(CONFIG_CPU_MIPS32)	+= dump_tlb.o
++obj-$(CONFIG_CPU_MIPS64)	+= dump_tlb.o
++obj-$(CONFIG_CPU_NEVADA)	+= dump_tlb.o
++obj-$(CONFIG_CPU_R10000)	+= dump_tlb.o
++obj-$(CONFIG_CPU_R3000)		+= r3k_dump_tlb.o
++obj-$(CONFIG_CPU_R4300)		+= dump_tlb.o
++obj-$(CONFIG_CPU_R4X00)		+= dump_tlb.o
++obj-$(CONFIG_CPU_R5000)		+= dump_tlb.o
++obj-$(CONFIG_CPU_R5432)		+= dump_tlb.o
++obj-$(CONFIG_CPU_R6000)		+=
++obj-$(CONFIG_CPU_R8000)		+=
++obj-$(CONFIG_CPU_RM7000)	+= dump_tlb.o
++obj-$(CONFIG_CPU_RM9000)	+= dump_tlb.o
++obj-$(CONFIG_CPU_SB1)		+= dump_tlb.o
++obj-$(CONFIG_CPU_TX39XX)	+= r3k_dump_tlb.o
++obj-$(CONFIG_CPU_TX49XX)	+= dump_tlb.o
++obj-$(CONFIG_CPU_VR41XX)	+= dump_tlb.o
++
+ # libgcc-style stuff needed in the kernel
+ obj-y += ashldi3.o ashrdi3.o lshrdi3.o ucmpdi2.o
+diff -urNBp a/arch/mips/lib/r3k_dump_tlb.c b/arch/mips/lib/r3k_dump_tlb.c
+--- a/arch/mips/lib/r3k_dump_tlb.c	1970-01-01 03:00:00.000000000 +0300
++++ b/arch/mips/lib/r3k_dump_tlb.c	2008-02-26 02:59:40.000000000 +0300
+@@ -0,0 +1,182 @@
++/*
++ * Dump R3000 TLB for debugging purposes.
++ *
++ * Copyright (C) 1994, 1995 by Waldorf Electronics, written by Ralf Baechle.
++ * Copyright (C) 1999 by Silicon Graphics, Inc.
++ * Copyright (C) 1999 by Harald Koerfgen
++ */
++#include <linux/kernel.h>
++#include <linux/mm.h>
++#include <linux/sched.h>
++#include <linux/string.h>
++
++#include <asm/bootinfo.h>
++#include <asm/cachectl.h>
++#include <asm/cpu.h>
++#include <asm/mipsregs.h>
++#include <asm/page.h>
++#include <asm/pgtable.h>
++
++extern int r3k_have_wired_reg;	/* defined in tlb-r3k.c */
++
++void dump_tlb(int first, int last)
++{
++	int	i;
++	unsigned int asid;
++	unsigned long entryhi, entrylo0;
++
++	asid = read_c0_entryhi() & 0xfc0;
++
++	for (i = first; i <= last; i++) {
++		write_c0_index(i<<8);
++		__asm__ __volatile__(
++			".set\tnoreorder\n\t"
++			"tlbr\n\t"
++			"nop\n\t"
++			".set\treorder");
++		entryhi  = read_c0_entryhi();
++		entrylo0 = read_c0_entrylo0();
++
++		/* Unused entries have a virtual address of KSEG0.  */
++		if ((entryhi & 0xffffe000) != 0x80000000
++		    && (entryhi & 0xfc0) == asid) {
++			/*
++			 * Only print entries in use
++			 */
++			printk("Index: %2d ", i);
++
++			printk("va=%08lx asid=%08lx"
++			       "  [pa=%06lx n=%d d=%d v=%d g=%d]",
++			       (entryhi & 0xffffe000),
++			       entryhi & 0xfc0,
++			       entrylo0 & PAGE_MASK,
++			       (entrylo0 & (1 << 11)) ? 1 : 0,
++			       (entrylo0 & (1 << 10)) ? 1 : 0,
++			       (entrylo0 & (1 << 9)) ? 1 : 0,
++			       (entrylo0 & (1 << 8)) ? 1 : 0);
++		}
++	}
++	printk("\n");
++
++	write_c0_entryhi(asid);
++}
++
++void dump_tlb_all(void)
++{
++	dump_tlb(0, current_cpu_data.tlbsize - 1);
++}
++
++void dump_tlb_wired(void)
++{
++	int wired = r3k_have_wired_reg ? read_c0_wired() : 8;
++
++	printk("Wired: %d", wired);
++	dump_tlb(0, wired - 1);
++}
++
++void dump_tlb_addr(unsigned long addr)
++{
++	unsigned long flags, oldpid;
++	int index;
++
++	local_irq_save(flags);
++	oldpid = read_c0_entryhi() & 0xff;
++	write_c0_entryhi((addr & PAGE_MASK) | oldpid);
++	tlb_probe();
++	index = read_c0_index();
++	write_c0_entryhi(oldpid);
++	local_irq_restore(flags);
++
++	if (index < 0) {
++		printk("No entry for address 0x%08lx in TLB\n", addr);
++		return;
++	}
++
++	printk("Entry %d maps address 0x%08lx\n", index, addr);
++	dump_tlb(index, index);
++}
++
++void dump_tlb_nonwired(void)
++{
++	int wired = r3k_have_wired_reg ? read_c0_wired() : 8;
++	dump_tlb(wired, current_cpu_data.tlbsize - 1);
++}
++
++void dump_list_process(struct task_struct *t, void *address)
++{
++	pgd_t	*page_dir, *pgd;
++	pud_t	*pud;
++	pmd_t	*pmd;
++	pte_t	*pte, page;
++	unsigned int addr;
++	unsigned long val;
++
++	addr = (unsigned int) address;
++
++	printk("Addr                 == %08x\n", addr);
++	printk("tasks->mm.pgd        == %08x\n", (unsigned int) t->mm->pgd);
++
++	page_dir = pgd_offset(t->mm, 0);
++	printk("page_dir == %08x\n", (unsigned int) page_dir);
++
++	pgd = pgd_offset(t->mm, addr);
++	printk("pgd == %08x, ", (unsigned int) pgd);
++
++	pud = pud_offset(pgd, addr);
++	printk("pud == %08x, ", (unsigned int) pud);
++
++	pmd = pmd_offset(pud, addr);
++	printk("pmd == %08x, ", (unsigned int) pmd);
++
++	pte = pte_offset(pmd, addr);
++	printk("pte == %08x, ", (unsigned int) pte);
++
++	page = *pte;
++	printk("page == %08x\n", (unsigned int) pte_val(page));
++
++	val = pte_val(page);
++	if (val & _PAGE_PRESENT) printk("present ");
++	if (val & _PAGE_READ) printk("read ");
++	if (val & _PAGE_WRITE) printk("write ");
++	if (val & _PAGE_ACCESSED) printk("accessed ");
++	if (val & _PAGE_MODIFIED) printk("modified ");
++	if (val & _PAGE_GLOBAL) printk("global ");
++	if (val & _PAGE_VALID) printk("valid ");
++	printk("\n");
++}
++
++void dump_list_current(void *address)
++{
++	dump_list_process(current, address);
++}
++
++unsigned int vtop(void *address)
++{
++	pgd_t	*pgd;
++	pud_t	*pud;
++	pmd_t	*pmd;
++	pte_t	*pte;
++	unsigned int addr, paddr;
++
++	addr = (unsigned long) address;
++	pgd = pgd_offset(current->mm, addr);
++	pud = pud_offset(pgd, addr);
++	pmd = pmd_offset(pud, addr);
++	pte = pte_offset(pmd, addr);
++	paddr = (KSEG1 | (unsigned int) pte_val(*pte)) & PAGE_MASK;
++	paddr |= (addr & ~PAGE_MASK);
++
++	return paddr;
++}
++
++void dump16(unsigned long *p)
++{
++	int i;
++
++	for (i = 0; i < 8; i++) {
++		printk("*%08lx == %08lx, ", (unsigned long)p, *p);
++		p++;
++		printk("*%08lx == %08lx\n", (unsigned long)p, *p);
++		p++;
++	}
++}
+diff -urNBp a/arch/mips/lib-32/dump_tlb.c b/arch/mips/lib-32/dump_tlb.c
+--- a/arch/mips/lib-32/dump_tlb.c	2008-02-26 12:54:25.000000000 +0300
++++ b/arch/mips/lib-32/dump_tlb.c	1970-01-01 03:00:00.000000000 +0300
+@@ -1,242 +0,0 @@
+-/*
+- * Dump R4x00 TLB for debugging purposes.
+- *
+- * Copyright (C) 1994, 1995 by Waldorf Electronics, written by Ralf Baechle.
+- * Copyright (C) 1999 by Silicon Graphics, Inc.
+- */
+-#include <linux/kernel.h>
+-#include <linux/mm.h>
+-#include <linux/sched.h>
+-#include <linux/string.h>
+-
+-#include <asm/bootinfo.h>
+-#include <asm/cachectl.h>
+-#include <asm/cpu.h>
+-#include <asm/mipsregs.h>
+-#include <asm/page.h>
+-#include <asm/pgtable.h>
+-
+-static inline const char *msk2str(unsigned int mask)
+-{
+-	switch (mask) {
+-	case PM_4K:
+-		return "4kb";
+-	case PM_16K:
+-		return "16kb";
+-	case PM_64K:
+-		return "64kb";
+-	case PM_256K:
+-		return "256kb";
+-#ifndef CONFIG_CPU_VR41XX
+-	case PM_1M:
+-		return "1Mb";
+-	case PM_4M:
+-		return "4Mb";
+-	case PM_16M:
+-		return "16Mb";
+-	case PM_64M:
+-		return "64Mb";
+-	case PM_256M:
+-		return "256Mb";
+-#endif
+-	}
+-
+-	return "";
+-}
+-
+-#define BARRIER()					\
+-	__asm__ __volatile__(				\
+-		".set\tnoreorder\n\t"			\
+-		"nop;nop;nop;nop;nop;nop;nop\n\t"	\
+-		".set\treorder");
+-
+-void dump_tlb(int first, int last)
+-{
+-	unsigned int pagemask, c0, c1, asid;
+-	unsigned long long entrylo0, entrylo1;
+-	unsigned long entryhi;
+-	int i;
+-
+-	asid = read_c0_entryhi() & 0xff;
+-
+-	printk("\n");
+-	for (i = first; i <= last; i++) {
+-		write_c0_index(i);
+-		BARRIER();
+-		tlb_read();
+-		BARRIER();
+-		pagemask = read_c0_pagemask();
+-		entryhi = read_c0_entryhi();
+-		entrylo0 = read_c0_entrylo0();
+-		entrylo1 = read_c0_entrylo1();
+-
+-		/* Unused entries have a virtual address in KSEG0.  */
+-		if ((entryhi & 0xf0000000) != 0x80000000
+-		    && (entryhi & 0xff) == asid) {
+-			/*
+-			 * Only print entries in use
+-			 */
+-			printk("Index: %2d pgmask=%s ", i, msk2str(pagemask));
+-
+-			c0 = (entrylo0 >> 3) & 7;
+-			c1 = (entrylo1 >> 3) & 7;
+-
+-			printk("va=%08lx asid=%02lx\n",
+-			       (entryhi & 0xffffe000), (entryhi & 0xff));
+-			printk("\t\t\t[pa=%08Lx c=%d d=%d v=%d g=%Ld]\n",
+-			       (entrylo0 << 6) & PAGE_MASK, c0,
+-			       (entrylo0 & 4) ? 1 : 0,
+-			       (entrylo0 & 2) ? 1 : 0, (entrylo0 & 1));
+-			printk("\t\t\t[pa=%08Lx c=%d d=%d v=%d g=%Ld]\n",
+-			       (entrylo1 << 6) & PAGE_MASK, c1,
+-			       (entrylo1 & 4) ? 1 : 0,
+-			       (entrylo1 & 2) ? 1 : 0, (entrylo1 & 1));
+-			printk("\n");
+-		}
+-	}
+-
+-	write_c0_entryhi(asid);
+-}
+-
+-void dump_tlb_all(void)
+-{
+-	dump_tlb(0, current_cpu_data.tlbsize - 1);
+-}
+-
+-void dump_tlb_wired(void)
+-{
+-	int wired;
+-
+-	wired = read_c0_wired();
+-	printk("Wired: %d", wired);
+-	dump_tlb(0, read_c0_wired());
+-}
+-
+-void dump_tlb_addr(unsigned long addr)
+-{
+-	unsigned int flags, oldpid;
+-	int index;
+-
+-	local_irq_save(flags);
+-	oldpid = read_c0_entryhi() & 0xff;
+-	BARRIER();
+-	write_c0_entryhi((addr & PAGE_MASK) | oldpid);
+-	BARRIER();
+-	tlb_probe();
+-	BARRIER();
+-	index = read_c0_index();
+-	write_c0_entryhi(oldpid);
+-	local_irq_restore(flags);
+-
+-	if (index < 0) {
+-		printk("No entry for address 0x%08lx in TLB\n", addr);
+-		return;
+-	}
+-
+-	printk("Entry %d maps address 0x%08lx\n", index, addr);
+-	dump_tlb(index, index);
+-}
+-
+-void dump_tlb_nonwired(void)
+-{
+-	dump_tlb(read_c0_wired(), current_cpu_data.tlbsize - 1);
+-}
+-
+-void dump_list_process(struct task_struct *t, void *address)
+-{
+-	pgd_t *page_dir, *pgd;
+-	pud_t *pud;
+-	pmd_t *pmd;
+-	pte_t *pte, page;
+-	unsigned long addr, val;
+-
+-	addr = (unsigned long) address;
+-
+-	printk("Addr                 == %08lx\n", addr);
+-	printk("task                 == %8p\n", t);
+-	printk("task->mm             == %8p\n", t->mm);
+-	//printk("tasks->mm.pgd        == %08x\n", (unsigned int) t->mm->pgd);
+-
+-	if (addr > KSEG0) {
+-		page_dir = pgd_offset_k(0);
+-		pgd = pgd_offset_k(addr);
+-	} else if (t->mm) {
+-		page_dir = pgd_offset(t->mm, 0);
+-		pgd = pgd_offset(t->mm, addr);
+-	} else {
+-		printk("Current thread has no mm\n");
+-		return;
+-	}
+-	printk("page_dir == %08x\n", (unsigned int) page_dir);
+-	printk("pgd == %08x, ", (unsigned int) pgd);
+-	pud = pud_offset(pgd, addr);
+-	printk("pud == %08x, ", (unsigned int) pud);
+-
+-	pmd = pmd_offset(pud, addr);
+-	printk("pmd == %08x, ", (unsigned int) pmd);
+-
+-	pte = pte_offset(pmd, addr);
+-	printk("pte == %08x, ", (unsigned int) pte);
+-
+-	page = *pte;
+-#ifdef CONFIG_64BIT_PHYS_ADDR
+-	printk("page == %08Lx\n", pte_val(page));
+-#else
+-	printk("page == %08lx\n", pte_val(page));
+-#endif
+-
+-	val = pte_val(page);
+-	if (val & _PAGE_PRESENT)
+-		printk("present ");
+-	if (val & _PAGE_READ)
+-		printk("read ");
+-	if (val & _PAGE_WRITE)
+-		printk("write ");
+-	if (val & _PAGE_ACCESSED)
+-		printk("accessed ");
+-	if (val & _PAGE_MODIFIED)
+-		printk("modified ");
+-	if (val & _PAGE_R4KBUG)
+-		printk("r4kbug ");
+-	if (val & _PAGE_GLOBAL)
+-		printk("global ");
+-	if (val & _PAGE_VALID)
+-		printk("valid ");
+-	printk("\n");
+-}
+-
+-void dump_list_current(void *address)
+-{
+-	dump_list_process(current, address);
+-}
+-
+-unsigned int vtop(void *address)
+-{
+-	pgd_t *pgd;
+-	pud_t *pud;
+-	pmd_t *pmd;
+-	pte_t *pte;
+-	unsigned int addr, paddr;
+-
+-	addr = (unsigned long) address;
+-	pgd = pgd_offset(current->mm, addr);
+-	pud = pud_offset(pgd, addr);
+-	pmd = pmd_offset(pud, addr);
+-	pte = pte_offset(pmd, addr);
+-	paddr = (KSEG1 | (unsigned int) pte_val(*pte)) & PAGE_MASK;
+-	paddr |= (addr & ~PAGE_MASK);
+-
+-	return paddr;
+-}
+-
+-void dump16(unsigned long *p)
+-{
+-	int i;
+-
+-	for (i = 0; i < 8; i++) {
+-		printk("*%08lx == %08lx, ", (unsigned long) p, *p);
+-		p++;
+-		printk("*%08lx == %08lx\n", (unsigned long) p, *p);
+-		p++;
+-	}
+-}
+diff -urNBp a/arch/mips/lib-32/Makefile b/arch/mips/lib-32/Makefile
+--- a/arch/mips/lib-32/Makefile	2008-02-26 02:59:40.000000000 +0300
++++ b/arch/mips/lib-32/Makefile	1970-01-01 03:00:00.000000000 +0300
+@@ -1,23 +0,0 @@
+-#
+-# Makefile for MIPS-specific library files..
+-#
+-
+-lib-y	+= watch.o
+-
+-obj-$(CONFIG_CPU_MIPS32)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_MIPS64)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_NEVADA)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_R10000)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_R3000)		+= r3k_dump_tlb.o
+-obj-$(CONFIG_CPU_R4300)		+= dump_tlb.o
+-obj-$(CONFIG_CPU_R4X00)		+= dump_tlb.o
+-obj-$(CONFIG_CPU_R5000)		+= dump_tlb.o
+-obj-$(CONFIG_CPU_R5432)		+= dump_tlb.o
+-obj-$(CONFIG_CPU_R6000)		+=
+-obj-$(CONFIG_CPU_R8000)		+=
+-obj-$(CONFIG_CPU_RM7000)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_RM9000)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_SB1)		+= dump_tlb.o
+-obj-$(CONFIG_CPU_TX39XX)	+= r3k_dump_tlb.o
+-obj-$(CONFIG_CPU_TX49XX)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_VR41XX)	+= dump_tlb.o
+diff -urNBp a/arch/mips/lib-32/r3k_dump_tlb.c b/arch/mips/lib-32/r3k_dump_tlb.c
+--- a/arch/mips/lib-32/r3k_dump_tlb.c	2008-02-26 02:59:40.000000000 +0300
++++ b/arch/mips/lib-32/r3k_dump_tlb.c	1970-01-01 03:00:00.000000000 +0300
+@@ -1,182 +0,0 @@
+-/*
+- * Dump R3000 TLB for debugging purposes.
+- *
+- * Copyright (C) 1994, 1995 by Waldorf Electronics, written by Ralf Baechle.
+- * Copyright (C) 1999 by Silicon Graphics, Inc.
+- * Copyright (C) 1999 by Harald Koerfgen
+- */
+-#include <linux/kernel.h>
+-#include <linux/mm.h>
+-#include <linux/sched.h>
+-#include <linux/string.h>
+-
+-#include <asm/bootinfo.h>
+-#include <asm/cachectl.h>
+-#include <asm/cpu.h>
+-#include <asm/mipsregs.h>
+-#include <asm/page.h>
+-#include <asm/pgtable.h>
+-
+-extern int r3k_have_wired_reg;	/* defined in tlb-r3k.c */
+-
+-void dump_tlb(int first, int last)
+-{
+-	int	i;
+-	unsigned int asid;
+-	unsigned long entryhi, entrylo0;
+-
+-	asid = read_c0_entryhi() & 0xfc0;
+-
+-	for (i = first; i <= last; i++) {
+-		write_c0_index(i<<8);
+-		__asm__ __volatile__(
+-			".set\tnoreorder\n\t"
+-			"tlbr\n\t"
+-			"nop\n\t"
+-			".set\treorder");
+-		entryhi  = read_c0_entryhi();
+-		entrylo0 = read_c0_entrylo0();
+-
+-		/* Unused entries have a virtual address of KSEG0.  */
+-		if ((entryhi & 0xffffe000) != 0x80000000
+-		    && (entryhi & 0xfc0) == asid) {
+-			/*
+-			 * Only print entries in use
+-			 */
+-			printk("Index: %2d ", i);
+-
+-			printk("va=%08lx asid=%08lx"
+-			       "  [pa=%06lx n=%d d=%d v=%d g=%d]",
+-			       (entryhi & 0xffffe000),
+-			       entryhi & 0xfc0,
+-			       entrylo0 & PAGE_MASK,
+-			       (entrylo0 & (1 << 11)) ? 1 : 0,
+-			       (entrylo0 & (1 << 10)) ? 1 : 0,
+-			       (entrylo0 & (1 << 9)) ? 1 : 0,
+-			       (entrylo0 & (1 << 8)) ? 1 : 0);
+-		}
+-	}
+-	printk("\n");
+-
+-	write_c0_entryhi(asid);
+-}
+-
+-void dump_tlb_all(void)
+-{
+-	dump_tlb(0, current_cpu_data.tlbsize - 1);
+-}
+-
+-void dump_tlb_wired(void)
+-{
+-	int wired = r3k_have_wired_reg ? read_c0_wired() : 8;
+-
+-	printk("Wired: %d", wired);
+-	dump_tlb(0, wired - 1);
+-}
+-
+-void dump_tlb_addr(unsigned long addr)
+-{
+-	unsigned long flags, oldpid;
+-	int index;
+-
+-	local_irq_save(flags);
+-	oldpid = read_c0_entryhi() & 0xff;
+-	write_c0_entryhi((addr & PAGE_MASK) | oldpid);
+-	tlb_probe();
+-	index = read_c0_index();
+-	write_c0_entryhi(oldpid);
+-	local_irq_restore(flags);
+-
+-	if (index < 0) {
+-		printk("No entry for address 0x%08lx in TLB\n", addr);
+-		return;
+-	}
+-
+-	printk("Entry %d maps address 0x%08lx\n", index, addr);
+-	dump_tlb(index, index);
+-}
+-
+-void dump_tlb_nonwired(void)
+-{
+-	int wired = r3k_have_wired_reg ? read_c0_wired() : 8;
+-	dump_tlb(wired, current_cpu_data.tlbsize - 1);
+-}
+-
+-void dump_list_process(struct task_struct *t, void *address)
+-{
+-	pgd_t	*page_dir, *pgd;
+-	pud_t	*pud;
+-	pmd_t	*pmd;
+-	pte_t	*pte, page;
+-	unsigned int addr;
+-	unsigned long val;
+-
+-	addr = (unsigned int) address;
+-
+-	printk("Addr                 == %08x\n", addr);
+-	printk("tasks->mm.pgd        == %08x\n", (unsigned int) t->mm->pgd);
+-
+-	page_dir = pgd_offset(t->mm, 0);
+-	printk("page_dir == %08x\n", (unsigned int) page_dir);
+-
+-	pgd = pgd_offset(t->mm, addr);
+-	printk("pgd == %08x, ", (unsigned int) pgd);
+-
+-	pud = pud_offset(pgd, addr);
+-	printk("pud == %08x, ", (unsigned int) pud);
+-
+-	pmd = pmd_offset(pud, addr);
+-	printk("pmd == %08x, ", (unsigned int) pmd);
+-
+-	pte = pte_offset(pmd, addr);
+-	printk("pte == %08x, ", (unsigned int) pte);
+-
+-	page = *pte;
+-	printk("page == %08x\n", (unsigned int) pte_val(page));
+-
+-	val = pte_val(page);
+-	if (val & _PAGE_PRESENT) printk("present ");
+-	if (val & _PAGE_READ) printk("read ");
+-	if (val & _PAGE_WRITE) printk("write ");
+-	if (val & _PAGE_ACCESSED) printk("accessed ");
+-	if (val & _PAGE_MODIFIED) printk("modified ");
+-	if (val & _PAGE_GLOBAL) printk("global ");
+-	if (val & _PAGE_VALID) printk("valid ");
+-	printk("\n");
+-}
+-
+-void dump_list_current(void *address)
+-{
+-	dump_list_process(current, address);
+-}
+-
+-unsigned int vtop(void *address)
+-{
+-	pgd_t	*pgd;
+-	pud_t	*pud;
+-	pmd_t	*pmd;
+-	pte_t	*pte;
+-	unsigned int addr, paddr;
+-
+-	addr = (unsigned long) address;
+-	pgd = pgd_offset(current->mm, addr);
+-	pud = pud_offset(pgd, addr);
+-	pmd = pmd_offset(pud, addr);
+-	pte = pte_offset(pmd, addr);
+-	paddr = (KSEG1 | (unsigned int) pte_val(*pte)) & PAGE_MASK;
+-	paddr |= (addr & ~PAGE_MASK);
+-
+-	return paddr;
+-}
+-
+-void dump16(unsigned long *p)
+-{
+-	int i;
+-
+-	for (i = 0; i < 8; i++) {
+-		printk("*%08lx == %08lx, ", (unsigned long)p, *p);
+-		p++;
+-		printk("*%08lx == %08lx\n", (unsigned long)p, *p);
+-		p++;
+-	}
+-}
+diff -urNBp a/arch/mips/lib-32/watch.S b/arch/mips/lib-32/watch.S
+--- a/arch/mips/lib-32/watch.S	2008-02-26 02:59:40.000000000 +0300
++++ b/arch/mips/lib-32/watch.S	1970-01-01 03:00:00.000000000 +0300
+@@ -1,60 +0,0 @@
+-/*
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+- *
+- * Kernel debug stuff to use the Watch registers.
+- * Useful to find stack overflows, dangling pointers etc.
+- *
+- * Copyright (C) 1995, 1996, 1999 by Ralf Baechle
+- */
+-#include <asm/asm.h>
+-#include <asm/mipsregs.h>
+-#include <asm/regdef.h>
+-
+-		.set	noreorder
+-/*
+- * Parameter: a0 - logic address to watch
+- *                 Currently only KSEG0 addresses are allowed!
+- *            a1 - set bit #1 to trap on load references
+- *                     bit #0 to trap on store references
+- * Results  : none
+- */
+-		LEAF(__watch_set)
+-		li	t0, 0x80000000
+-		subu	a0, t0
+-		ori	a0, 7
+-		xori	a0, 7
+-		or	a0, a1
+-		mtc0	a0, CP0_WATCHLO
+-		sw	a0, watch_savelo
+-
+-		jr	ra
+-		 mtc0	zero, CP0_WATCHHI
+-		END(__watch_set)
+-
+-/*
+- * Parameter: none
+- * Results  : none
+- */
+-		LEAF(__watch_clear)
+-		jr	ra
+-		 mtc0	zero, CP0_WATCHLO
+-		END(__watch_clear)
+-
+-/*
+- * Parameter: none
+- * Results  : none
+- */
+-		LEAF(__watch_reenable)
+-		lw	t0, watch_savelo
+-		jr	ra
+-		 mtc0	t0, CP0_WATCHLO
+-		END(__watch_reenable)
+-
+-/*
+- * Saved value of the c0_watchlo register for watch_reenable()
+- */
+-		.data
+-watch_savelo:	.word	0
+-		.text
+diff -urNBp a/arch/mips/lib-64/dump_tlb.c b/arch/mips/lib-64/dump_tlb.c
+--- a/arch/mips/lib-64/dump_tlb.c	2008-02-26 12:54:25.000000000 +0300
++++ b/arch/mips/lib-64/dump_tlb.c	1970-01-01 03:00:00.000000000 +0300
+@@ -1,216 +0,0 @@
+-/*
+- * Dump R4x00 TLB for debugging purposes.
+- *
+- * Copyright (C) 1994, 1995 by Waldorf Electronics, written by Ralf Baechle.
+- * Copyright (C) 1999 by Silicon Graphics, Inc.
+- */
+-#include <linux/kernel.h>
+-#include <linux/mm.h>
+-#include <linux/sched.h>
+-#include <linux/string.h>
+-
+-#include <asm/bootinfo.h>
+-#include <asm/cachectl.h>
+-#include <asm/cpu.h>
+-#include <asm/mipsregs.h>
+-#include <asm/page.h>
+-#include <asm/pgtable.h>
+-
+-static inline const char *msk2str(unsigned int mask)
+-{
+-	switch (mask) {
+-	case PM_4K:	return "4kb";
+-	case PM_16K:	return "16kb";
+-	case PM_64K:	return "64kb";
+-	case PM_256K:	return "256kb";
+-#ifndef CONFIG_CPU_VR41XX
+-	case PM_1M:	return "1Mb";
+-	case PM_4M:	return "4Mb";
+-	case PM_16M:	return "16Mb";
+-	case PM_64M:	return "64Mb";
+-	case PM_256M:	return "256Mb";
+-#endif
+-	}
+-
+-	return "";
+-}
+-
+-#define BARRIER()					\
+-	__asm__ __volatile__(				\
+-		".set\tnoreorder\n\t"			\
+-		"nop;nop;nop;nop;nop;nop;nop\n\t"	\
+-		".set\treorder");
+-
+-void dump_tlb(int first, int last)
+-{
+-	unsigned long s_entryhi, entryhi, entrylo0, entrylo1, asid;
+-	unsigned int s_index, pagemask, c0, c1, i;
+-
+-	s_entryhi = read_c0_entryhi();
+-	s_index = read_c0_index();
+-	asid = s_entryhi & 0xff;
+-
+-	for (i = first; i <= last; i++) {
+-		write_c0_index(i);
+-		BARRIER();
+-		tlb_read();
+-		BARRIER();
+-		pagemask = read_c0_pagemask();
+-		entryhi  = read_c0_entryhi();
+-		entrylo0 = read_c0_entrylo0();
+-		entrylo1 = read_c0_entrylo1();
+-
+-		/* Unused entries have a virtual address of CKSEG0.  */
+-		if ((entryhi & ~0x1ffffUL) != CKSEG0
+-		    && (entryhi & 0xff) == asid) {
+-			/*
+-			 * Only print entries in use
+-			 */
+-			printk("Index: %2d pgmask=%s ", i, msk2str(pagemask));
+-
+-			c0 = (entrylo0 >> 3) & 7;
+-			c1 = (entrylo1 >> 3) & 7;
+-
+-			printk("va=%011lx asid=%02lx\n",
+-			       (entryhi & ~0x1fffUL),
+-			       entryhi & 0xff);
+-			printk("\t[pa=%011lx c=%d d=%d v=%d g=%ld] ",
+-			       (entrylo0 << 6) & PAGE_MASK, c0,
+-			       (entrylo0 & 4) ? 1 : 0,
+-			       (entrylo0 & 2) ? 1 : 0,
+-			       (entrylo0 & 1));
+-			printk("[pa=%011lx c=%d d=%d v=%d g=%ld]\n",
+-			       (entrylo1 << 6) & PAGE_MASK, c1,
+-			       (entrylo1 & 4) ? 1 : 0,
+-			       (entrylo1 & 2) ? 1 : 0,
+-			       (entrylo1 & 1));
+-		}
+-	}
+-	printk("\n");
+-
+-	write_c0_entryhi(s_entryhi);
+-	write_c0_index(s_index);
+-}
+-
+-void dump_tlb_all(void)
+-{
+-	dump_tlb(0, current_cpu_data.tlbsize - 1);
+-}
+-
+-void dump_tlb_wired(void)
+-{
+-	int	wired;
+-
+-	wired = read_c0_wired();
+-	printk("Wired: %d", wired);
+-	dump_tlb(0, read_c0_wired());
+-}
+-
+-void dump_tlb_addr(unsigned long addr)
+-{
+-	unsigned int flags, oldpid;
+-	int index;
+-
+-	local_irq_save(flags);
+-	oldpid = read_c0_entryhi() & 0xff;
+-	BARRIER();
+-	write_c0_entryhi((addr & PAGE_MASK) | oldpid);
+-	BARRIER();
+-	tlb_probe();
+-	BARRIER();
+-	index = read_c0_index();
+-	write_c0_entryhi(oldpid);
+-	local_irq_restore(flags);
+-
+-	if (index < 0) {
+-		printk("No entry for address 0x%08lx in TLB\n", addr);
+-		return;
+-	}
+-
+-	printk("Entry %d maps address 0x%08lx\n", index, addr);
+-	dump_tlb(index, index);
+-}
+-
+-void dump_tlb_nonwired(void)
+-{
+-	dump_tlb(read_c0_wired(), current_cpu_data.tlbsize - 1);
+-}
+-
+-void dump_list_process(struct task_struct *t, void *address)
+-{
+-	pgd_t	*page_dir, *pgd;
+-	pud_t	*pud;
+-	pmd_t	*pmd;
+-	pte_t	*pte, page;
+-	unsigned long addr, val;
+-
+-	addr = (unsigned long) address;
+-
+-	printk("Addr                 == %08lx\n", addr);
+-	printk("tasks->mm.pgd        == %08lx\n", (unsigned long) t->mm->pgd);
+-
+-	page_dir = pgd_offset(t->mm, 0UL);
+-	printk("page_dir == %016lx\n", (unsigned long) page_dir);
+-
+-	pgd = pgd_offset(t->mm, addr);
+-	printk("pgd == %016lx\n", (unsigned long) pgd);
+-
+-	pud = pud_offset(pgd, addr);
+-	printk("pud == %016lx\n", (unsigned long) pud);
+-
+-	pmd = pmd_offset(pud, addr);
+-	printk("pmd == %016lx\n", (unsigned long) pmd);
+-
+-	pte = pte_offset(pmd, addr);
+-	printk("pte == %016lx\n", (unsigned long) pte);
+-
+-	page = *pte;
+-	printk("page == %08lx\n", pte_val(page));
+-
+-	val = pte_val(page);
+-	if (val & _PAGE_PRESENT) printk("present ");
+-	if (val & _PAGE_READ) printk("read ");
+-	if (val & _PAGE_WRITE) printk("write ");
+-	if (val & _PAGE_ACCESSED) printk("accessed ");
+-	if (val & _PAGE_MODIFIED) printk("modified ");
+-	if (val & _PAGE_R4KBUG) printk("r4kbug ");
+-	if (val & _PAGE_GLOBAL) printk("global ");
+-	if (val & _PAGE_VALID) printk("valid ");
+-	printk("\n");
+-}
+-
+-void dump_list_current(void *address)
+-{
+-	dump_list_process(current, address);
+-}
+-
+-unsigned long vtop(void *address)
+-{
+-	pgd_t	*pgd;
+-	pud_t	*pud;
+-	pmd_t	*pmd;
+-	pte_t	*pte;
+-	unsigned long addr, paddr;
+-
+-	addr = (unsigned long) address;
+-	pgd = pgd_offset(current->mm, addr);
+-	pud = pud_offset(pgd, addr);
+-	pmd = pmd_offset(pud, addr);
+-	pte = pte_offset(pmd, addr);
+-	paddr = (CKSEG1 | (unsigned int) pte_val(*pte)) & PAGE_MASK;
+-	paddr |= (addr & ~PAGE_MASK);
+-
+-	return paddr;
+-}
+-
+-void dump16(unsigned long *p)
+-{
+-	int i;
+-
+-	for (i = 0; i < 8; i++) {
+-		printk("*%08lx == %08lx, ", (unsigned long)p, *p);
+-		p++;
+-		printk("*%08lx == %08lx\n", (unsigned long)p, *p);
+-		p++;
+-	}
+-}
+diff -urNBp a/arch/mips/lib-64/Makefile b/arch/mips/lib-64/Makefile
+--- a/arch/mips/lib-64/Makefile	2008-02-26 02:59:40.000000000 +0300
++++ b/arch/mips/lib-64/Makefile	1970-01-01 03:00:00.000000000 +0300
+@@ -1,23 +0,0 @@
+-#
+-# Makefile for MIPS-specific library files..
+-#
+-
+-lib-y	+= watch.o
+-
+-obj-$(CONFIG_CPU_MIPS32)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_MIPS64)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_NEVADA)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_R10000)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_R3000)		+= r3k_dump_tlb.o
+-obj-$(CONFIG_CPU_R4300)		+= dump_tlb.o
+-obj-$(CONFIG_CPU_R4X00)		+= dump_tlb.o
+-obj-$(CONFIG_CPU_R5000)		+= dump_tlb.o
+-obj-$(CONFIG_CPU_R5432)		+= dump_tlb.o
+-obj-$(CONFIG_CPU_R6000)		+=
+-obj-$(CONFIG_CPU_R8000)		+=
+-obj-$(CONFIG_CPU_RM7000)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_RM9000)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_SB1)		+= dump_tlb.o
+-obj-$(CONFIG_CPU_TX39XX)	+= r3k_dump_tlb.o
+-obj-$(CONFIG_CPU_TX49XX)	+= dump_tlb.o
+-obj-$(CONFIG_CPU_VR41XX)	+= dump_tlb.o
+diff -urNBp a/arch/mips/lib-64/watch.S b/arch/mips/lib-64/watch.S
+--- a/arch/mips/lib-64/watch.S	2008-02-26 02:59:40.000000000 +0300
++++ b/arch/mips/lib-64/watch.S	1970-01-01 03:00:00.000000000 +0300
+@@ -1,57 +0,0 @@
+-/*
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+- *
+- * Kernel debug stuff to use the Watch registers.
+- * Useful to find stack overflows, dangling pointers etc.
+- *
+- * Copyright (C) 1995, 1996, 1999, 2001 by Ralf Baechle
+- */
+-#include <asm/asm.h>
+-#include <asm/mipsregs.h>
+-#include <asm/regdef.h>
+-
+-		.set	noreorder
+-/*
+- * Parameter: a0 - physical address to watch
+- *            a1 - set bit #1 to trap on load references
+- *                     bit #0 to trap on store references
+- * Results  : none
+- */
+-		LEAF(__watch_set)
+-		ori	a0, 7
+-		xori	a0, 7
+-		or	a0, a1
+-		mtc0	a0, CP0_WATCHLO
+-		sd	a0, watch_savelo
+-		dsrl32	a0, a0, 0
+-
+-		jr	ra
+-		 mtc0	zero, CP0_WATCHHI
+-		END(__watch_set)
+-
+-/*
+- * Parameter: none
+- * Results  : none
+- */
+-		LEAF(__watch_clear)
+-		jr	ra
+-		 mtc0	zero, CP0_WATCHLO
+-		END(__watch_clear)
+-
+-/*
+- * Parameter: none
+- * Results  : none
+- */
+-		LEAF(__watch_reenable)
+-		ld	t0, watch_savelo
+-		jr	ra
+-		 mtc0	t0, CP0_WATCHLO
+-		END(__watch_reenable)
+-
+-/*
+- * Saved value of the c0_watchlo register for watch_reenable()
+- */
+-		.local	watch_savelo
+-		.comm	watch_savelo, 8, 8
+diff -urNBp a/arch/mips/Makefile b/arch/mips/Makefile
+--- a/arch/mips/Makefile	2008-12-12 06:25:39.000000000 +0300
++++ b/arch/mips/Makefile	2011-02-22 14:48:04.000000000 +0300
+@@ -655,8 +656,6 @@ CPPFLAGS_vmlinux.lds := \
+ head-y := arch/mips/kernel/head.o arch/mips/kernel/init_task.o
+ 
+ libs-y			+= arch/mips/lib/
+-libs-$(CONFIG_32BIT)	+= arch/mips/lib-32/
+-libs-$(CONFIG_64BIT)	+= arch/mips/lib-64/
+ 
+ core-y			+= arch/mips/kernel/ arch/mips/mm/ arch/mips/math-emu/
+ 
+-- 

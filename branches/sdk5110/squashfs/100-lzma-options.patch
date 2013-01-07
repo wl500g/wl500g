@@ -1,0 +1,104 @@
+Add lzma1 options support
+http://wl500g.googlecode.com/ 2012
+
+--- squashfs.orig/squashfs-tools/lzma_wrapper.c	2011-02-11 15:49:24.000000000 +0000
++++ squashfs/squashfs-tools/lzma_wrapper.c	2012-03-03 11:40:08.948019000 +0000
+@@ -22,6 +22,10 @@
+  * development, other versions may work) http://www.7-zip.org/sdk.html
+  */
+ 
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++
+ #include <LzmaLib.h>
+ 
+ #include "squashfs_fs.h"
+@@ -29,6 +33,11 @@
+ 
+ #define LZMA_HEADER_SIZE	(LZMA_PROPS_SIZE + 8)
+ 
++static int fb = 32;
++static int lc = 3;
++static int lp = 0;
++static int pb = 2;
++
+ static int lzma_compress(void *strm, void *dest, void *src, int size, int block_size,
+ 		int *error)
+ {
+@@ -38,7 +47,7 @@ static int lzma_compress(void *strm, voi
+ 	int res;
+ 
+ 	res = LzmaCompress(dest + LZMA_HEADER_SIZE, &outlen, src, size, dest,
+-		&props_size, 5, block_size, 3, 0, 2, 32, 1);
++		&props_size, 5, block_size, lc, lp, pb, fb, 1);
+ 	
+ 	if(res == SZ_ERROR_OUTPUT_EOF) {
+ 		/*
+@@ -99,12 +108,64 @@ static int lzma_uncompress(void *dest, v
+ }
+ 
+ 
++static int lzma_options(char *argv[], int argc)
++{
++	int arg;
++	char *end = NULL;
++
++	if (argc < 2) {
++		fprintf(stderr, "lzma: %s missing value\n", argv[0]);
++		return -2;
++	}
++
++	arg = strtoul(argv[1], &end, 10);
++	if (end && *end)
++		goto error;
++
++	if (strcmp(argv[0], "-Xfb") == 0) {
++		if (arg < 5 || arg > 273)
++			goto error;
++		fb = arg;
++	} else if (strcmp(argv[0], "-Xlc") == 0) {
++		if (arg < 0 || arg > 8)
++			goto error;
++		lc = arg;
++	} else if (strcmp(argv[0], "-Xlp") == 0) {
++		if (arg < 0 || arg > 4)
++			goto error;
++		lp = arg;
++	} else if (strcmp(argv[0], "-Xpb") == 0) {
++		if (arg < 0 || arg > 4)
++			goto error;
++		pb = arg;
++	} else
++		return -1;
++
++	return 1;
++
++error:
++	fprintf(stderr, "lzma: %s invalid value\n", argv[0]);
++	return -2;
++}
++
++
++void lzma_usage()
++{
++	fprintf(stderr,
++		"\t  -fb{N}: set number of fast bytes - [5, 273], default: %d\n"
++		"\t  -Xlc<N>: set number of literal context bits - [0, 8], default: %d\n"
++		"\t  -Xlp<N>: set number of literal pos bits - [0, 4], default: %d\n"
++		"\t  -Xpb<N>: set number of pos bits - [0, 4], default: %d\n",
++		fb, lc, lp, pb);
++}
++
++
+ struct compressor lzma_comp_ops = {
+ 	.init = NULL,
+ 	.compress = lzma_compress,
+ 	.uncompress = lzma_uncompress,
+-	.options = NULL,
+-	.usage = NULL,
++	.options = lzma_options,
++	.usage = lzma_usage,
+ 	.id = LZMA_COMPRESSION,
+ 	.name = "lzma",
+ 	.supported = 1

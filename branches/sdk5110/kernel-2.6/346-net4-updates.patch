@@ -1,0 +1,166 @@
+[NET] Updates from upstream
+
+ 9d3e44425e3498eb33f25d94392b4fd0d56a5176 [SOCK]: Adds a rcu_dereference() in sk_filter
+ 53b125779fb0b29e5b316bf3dc7d199e6dcea567 tcpv6: fix option space offsets with md5
+ 800d55f146098c5ffd1914d7eef2fd4a6d558b1d ipv6: Remove some pointless conditionals before kfree_skb()
+ 40d44446cf10d9d118e8f0132c94e1f25ea3be97 unix: remove some pointless conditionals before kfree_skb()
+ acb5d75b9bcff73d32d3471a9b3e9a4189223e48 packet: remove some pointless conditionals before kfree_skb()
+ f3fbbe0f6f6cbac4c2aa3d71d95e49cf148286d6 core: remove some pointless conditionals before kfree_skb()
+ 0c9f79be295c99ac7e4b569ca493d75fdcc19e4e ipv4: avoid undefined behavior in do_ip_setsockopt()
+
+---
+ include/net/sock.h       |    2 +-
+ net/core/neighbour.c     |    3 +--
+ net/core/skbuff.c        |    3 +--
+ net/ipv4/ip_sockglue.c   |   25 ++++++++++++++++---------
+ net/ipv6/ipv6_sockglue.c |    3 +--
+ net/ipv6/tcp_ipv6.c      |    8 +++-----
+ net/packet/af_packet.c   |    3 +--
+ net/unix/af_unix.c       |    3 +--
+ 8 files changed, 25 insertions(+), 25 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -944,7 +944,7 @@ static inline int sk_filter(struct sock *sk, struct sk_buff *skb)
+ 		return err;
+ 	
+ 	rcu_read_lock_bh();
+-	filter = sk->sk_filter;
++	filter = rcu_dereference(sk->sk_filter);
+ 	if (filter) {
+ 		unsigned int pkt_len = sk_run_filter(skb, filter->insns,
+ 				filter->len);
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -908,8 +907,7 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
+ 			neigh->updated = jiffies;
+ 			write_unlock_bh(&neigh->lock);
+ 
+-			if (skb)
+-				kfree_skb(skb);
++			kfree_skb(skb);
+ 			return 1;
+ 		}
+ 	} else if (neigh->nud_state & NUD_STALE) {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1208,8 +1208,7 @@ unsigned char *__pskb_pull_tail(struct sk_buff *skb, int delta)
+ 					insp = list;
+ 				}
+ 				if (!pskb_pull(list, eat)) {
+-					if (clone)
+-						kfree_skb(clone);
++					kfree_skb(clone);
+ 					return NULL;
+ 				}
+ 				break;
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -430,15 +430,22 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	int val=0,err;
+ 
+-	if (((1<<optname) & ((1<<IP_PKTINFO) | (1<<IP_RECVTTL) |
+-			     (1<<IP_RECVOPTS) | (1<<IP_RECVTOS) |
+-			     (1<<IP_RETOPTS) | (1<<IP_TOS) |
+-			     (1<<IP_TTL) | (1<<IP_HDRINCL) |
+-			     (1<<IP_MTU_DISCOVER) | (1<<IP_RECVERR) |
+-			     (1<<IP_ROUTER_ALERT) | (1<<IP_FREEBIND) |
+-			     (1<<IP_PASSSEC))) ||
+-	    optname == IP_MULTICAST_TTL ||
+-	    optname == IP_MULTICAST_LOOP) {
++	switch (optname) {
++	case IP_PKTINFO:
++	case IP_RECVTTL:
++	case IP_RECVOPTS:
++	case IP_RECVTOS:
++	case IP_RETOPTS:
++	case IP_TOS:
++	case IP_TTL:
++	case IP_HDRINCL:
++	case IP_MTU_DISCOVER:
++	case IP_RECVERR:
++	case IP_ROUTER_ALERT:
++	case IP_FREEBIND:
++	case IP_PASSSEC:
++	case IP_MULTICAST_TTL:
++	case IP_MULTICAST_LOOP:
+ 		if (optlen >= sizeof(int)) {
+ 			if (get_user(val, (int __user *) optval))
+ 				return -EFAULT;
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -218,8 +218,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 			if (opt)
+ 				sock_kfree_s(sk, opt, opt->tot_len);
+ 			pktopt = xchg(&np->pktoptions, NULL);
+-			if (pktopt)
+-				kfree_skb(pktopt);
++			kfree_skb(pktopt);
+ 
+ 			sk->sk_destruct = inet_sock_destruct;
+ 			/*
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -533,8 +533,7 @@ static inline void syn_flood_warning(struct sk_buff *skb)
+ 
+ static void tcp_v6_reqsk_destructor(struct request_sock *req)
+ {
+-	if (inet6_rsk(req)->pktopts)
+-		kfree_skb(inet6_rsk(req)->pktopts);
++	kfree_skb(inet6_rsk(req)->pktopts);
+ }
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+@@ -1088,7 +1088,7 @@ static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack, u32 win, u32
+ 		*topt++ = htonl((TCPOPT_NOP << 24) | (TCPOPT_NOP << 16) |
+ 				(TCPOPT_TIMESTAMP << 8) | TCPOLEN_TIMESTAMP);
+ 		*topt++ = htonl(tcp_time_stamp);
+-		*topt = htonl(ts);
++		*topt++ = htonl(ts);
+ 	}
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+@@ -1611,8 +1610,7 @@ ipv6_pktoptions:
+ 		}
+ 	}
+ 
+-	if (opt_skb)
+-		kfree_skb(opt_skb);
++	kfree_skb(opt_skb);
+ 	return 0;
+ }
+ 
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -756,8 +756,7 @@ ring_is_full:
+ 	spin_unlock(&sk->sk_receive_queue.lock);
+ 
+ 	sk->sk_data_ready(sk, 0);
+-	if (copy_skb)
+-		kfree_skb(copy_skb);
++	kfree_skb(copy_skb);
+ 	goto drop_n_restore;
+ }
+ 
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1178,8 +1178,7 @@ out_unlock:
+ 		unix_state_unlock(other);
+ 
+ out:
+-	if (skb)
+-		kfree_skb(skb);
++	kfree_skb(skb);
+ 	if (newsk)
+ 		unix_release_sock(newsk, 0);
+ 	if (other)
+-- 

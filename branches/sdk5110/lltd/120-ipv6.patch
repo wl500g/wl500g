@@ -1,0 +1,78 @@
+diff -BurpN lltd.orig/src/globals.h lltd/src/globals.h
+--- lltd.orig/src/globals.h	2006-08-03 04:47:48.000000000 +0000
++++ lltd/src/globals.h	2011-03-22 20:41:01.099739002 +0000
+@@ -127,6 +127,9 @@ GLOBAL	uint		g_opcode;		/* opcode from b
+     /* then we don't need a global to keep the stream open all the time...*/
+ #else
+ GLOBAL FILE            *g_procnetdev;
++#ifdef USE_IPV6
++GLOBAL FILE            *g_procnetinet6;
++#endif
+ #endif
+ 
+     /* Current Transmit Credit (CTC), and needs for this event's response */
+diff -BurpN lltd.orig/src/main.c lltd/src/main.c
+--- lltd.orig/src/main.c	2006-08-03 04:47:48.000000000 +0000
++++ lltd/src/main.c	2011-03-22 20:41:01.099739002 +0000
+@@ -255,6 +255,9 @@ main(int argc, char **argv)
+     g_procnetdev = fopen("/proc/net/dev","r");
+     if (g_procnetdev<0)
+         die("fopen of /proc/net/dev failed\n");
++#ifdef USE_IPV6
++    g_procnetinet6 = fopen("/proc/net/if_inet6","r");
++#endif
+ #endif
+ 
+     /* Initialize the timers (inactivity timers are init'd when session is created) */
+diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
+--- lltd.orig/src/osl-linux.c	2006-09-14 06:55:38.000000000 +0000
++++ lltd/src/osl-linux.c	2011-03-22 20:41:01.099739002 +0000
+@@ -725,7 +725,48 @@ get_ipv6addr(void *data)
+ {
+ /*    TLVDEF( ipv6addr_t,       ipv6addr,            ,   8,  Access_unset ) */
+ 
++#ifdef USE_IPV6
+     ipv6addr_t* ipv6addr = (ipv6addr_t*) data;
++    char	dflt_if[] = {"br0"};
++    char       *interface = g_interface;
++    FILE *netinet6;
++    char addr6[40], devname[20];
++    int plen, scope, dad_status, if_idx;
++    char addr6p[8][5];
++    int found = 0;
++
++#if CAN_FOPEN_IN_SELECT_LOOP
++    netinet6 = fopen("/proc/net/if_inet6", "r");
++#else
++    netinet6 = g_procnetinet6;
++#endif
++    if (netinet6 <= 0)
++	return TLV_GET_FAILED;
++
++    if (interface == NULL) interface = dflt_if;
++    while (fscanf(netinet6, "%4s%4s%4s%4s%4s%4s%4s%4s %08x %02x %02x %02x %20s\n",
++	addr6p[0], addr6p[1], addr6p[2], addr6p[3], addr6p[4],
++	addr6p[5], addr6p[6], addr6p[7], &if_idx, &plen, &scope,
++	&dad_status, devname) != EOF)
++    {
++	scope = scope & 0x00f0;
++	if (strcmp(devname, interface) != 0 || scope != 0x20)
++	    continue;
++	sprintf(addr6, "%s:%s:%s:%s:%s:%s:%s:%s",
++	    addr6p[0], addr6p[1], addr6p[2], addr6p[3],
++	    addr6p[4], addr6p[5], addr6p[6], addr6p[7]);
++	inet_pton(AF_INET6, addr6, (struct sockaddr *) ipv6addr);
++	found = 1;
++	break;
++    }
++
++#if CAN_FOPEN_IN_SELECT_LOOP
++    fclose(netinet6);
++#endif
++
++    if (found)
++	return TLV_GET_SUCCEEDED;
++#endif
+ 
+     return TLV_GET_FAILED;
+ }

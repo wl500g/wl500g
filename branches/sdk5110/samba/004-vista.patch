@@ -1,0 +1,33 @@
+--- samba/source/smbd/nttrans.c.orig	2008-01-01 22:40:17.000000000 +0300
++++ samba/source/smbd/nttrans.c	2008-01-01 22:41:57.000000000 +0300
+@@ -433,7 +433,7 @@
+ 	if(desired_access == WRITE_DAC_ACCESS || desired_access == READ_CONTROL_ACCESS)
+ 		*pstat_open_only = True;
+ 
+-    if(desired_access & (DELETE_ACCESS|WRITE_DAC_ACCESS|WRITE_OWNER_ACCESS|
++    if(desired_access & (DELETE_ACCESS|WRITE_DAC_ACCESS|WRITE_OWNER_ACCESS|SYNCHRONIZE_ACCESS|
+                               FILE_EXECUTE|FILE_READ_ATTRIBUTES|
+                               FILE_READ_EA|FILE_WRITE_EA|SYSTEM_SECURITY_ACCESS|
+                               FILE_WRITE_ATTRIBUTES|READ_CONTROL_ACCESS))
+--- samba/source/rpc_server/srv_pipe.c.orig	2008-01-02 20:41:34.937979393 +0300
++++ samba/source/rpc_server/srv_pipe.c	2008-01-02 20:41:41.798197609 +0300
+@@ -816,7 +816,7 @@
+ 	if (p->ntlmssp_auth_requested)
+ 		assoc_gid = 0x7a77;
+ 	else
+-		assoc_gid = hdr_rb.bba.assoc_gid;
++		assoc_gid = hdr_rb.bba.assoc_gid ? hdr_rb.bba.assoc_gid : 0x53f0;
+ 
+ 	/*
+ 	 * Create the bind response struct.
+--- samba/source/smbd/process.c.orig	2008-01-02 19:03:20.076752061 +0300
++++ samba/source/smbd/process.c	2008-01-02 20:42:17.131171098 +0300
+@@ -387,7 +387,7 @@
+    /* LANMAN2.0 PROTOCOL FOLLOWS */
+    {SMBfindnclose, "SMBfindnclose", reply_findnclose, AS_USER},
+    {SMBfindclose, "SMBfindclose", reply_findclose,AS_USER},
+-   {SMBtrans2, "SMBtrans2", reply_trans2, AS_USER | QUEUE_IN_OPLOCK },
++   {SMBtrans2, "SMBtrans2", reply_trans2, AS_USER | CAN_IPC },
+    {SMBtranss2, "SMBtranss2", reply_transs2, AS_USER},
+ 
+    /* NT PROTOCOL FOLLOWS */

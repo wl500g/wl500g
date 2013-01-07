@@ -1,0 +1,30 @@
+# Broadcom 802.11abg Networking Device Driver Configuration file
+#
+# $Copyright Open Broadcom Corporation$
+#
+# $Id: wlconfig_lx_router_ap,v 1.1.1.1 2010/11/22 08:55:27  Exp $
+#
+# Linux Kernel wl driver config file
+
+# get common 
+include $(WLCFGDIR)/wl_default
+
+# tunables
+WLTUNEFILE=wltunable_lx_router.h
+
+# features
+include $(WLCFGDIR)/wlconfig_apdef
+WMF=1
+BTC2WIRE=0
+RXCHAIN_PWRSAVE=1
+RADIO_PWRSAVE=1
+BCMECICOEX=0
+#ifdef BCMINTERNAL
+SAMPLE_COLLECT=1
+#endif
+ROUTER_COMA=1
+WL_AP_TPC=1
+WLCHANIM=1
+SMF_STATS=1
+PHYMON=1
+BCM_DCS=1

@@ -1,0 +1,65 @@
+diff -urBp a/source/configure.in b/source/configure.in
+--- a/source/configure.in	2001-04-18 03:00:52.000000000 +0400
++++ b/source/configure.in	2011-10-26 13:51:32.000000000 +0400
+@@ -151,7 +151,14 @@ exit(1);
+ # Tests needed for glibc 2.1 large file support.
+ # 
+ 	*linux*)
+-		AC_MSG_RESULT([disabling large file support for glibc2.1 on Linux])     
++        AC_MSG_CHECKING([enabling LFS support])
++        if test x$samba_cv_LINUX_LFS_SUPPORT = xyes ; then
++          GLIBC_LFS_SUPPORT=yes
++          CPPFLAGS="-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE $CPPFLAGS"
++        else
++          GLIBC_LFS_SUPPORT=no
++        fi
++        AC_MSG_RESULT([$GLIBC_LFS_SUPPORT])
+ 		;;
+     *hurd*)
+         AC_MSG_CHECKING([for LFS support])
+@@ -1808,7 +1815,7 @@ fi
+ # If we don't have all of these then disable large
+ # file support.
+ #
+-echo "checking if large file support can be enabled"
++AC_MSG_CHECKING([if large file support can be enabled])
+ AC_TRY_COMPILE([
+ #if defined(HAVE_LONGLONG) && (defined(HAVE_OFF64_T) || (defined(SIZEOF_OFF_T) && (SIZEOF_OFF_T == 8)))
+ #include <sys/types.h>
+diff -urBp a/source/configure b/source/configure
+--- a/source/configure	2001-04-18 03:00:52.000000000 +0400
++++ b/source/configure	2011-10-26 14:45:16.000000000 +0400
+@@ -1380,7 +1380,15 @@ fi
+ # Tests needed for glibc 2.1 large file support.
+ # 
+ 	*linux*)
+-		echo "$ac_t""disabling large file support for glibc2.1 on Linux" 1>&6     
++		echo $ac_n "checking for LFS support""... $ac_c" 1>&6
++echo "configure:1380: checking for LFS support" >&5
++		if test x$samba_cv_LINUX_LFS_SUPPORT = xyes ; then
++          GLIBC_LFS_SUPPORT=yes
++          CPPFLAGS="-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE $CPPFLAGS"
++        else
++          GLIBC_LFS_SUPPORT=no
++		fi
++      echo "$ac_t""$GLIBC_LFS_SUPPORT" 1>&6
+ 		;;
+     *hurd*)
+         echo $ac_n "checking for LFS support""... $ac_c" 1>&6
+@@ -8678,6 +8686,7 @@ echo $ac_n "checking for test routines""
+ echo "configure:8679: checking for test routines" >&5
+ if test "$cross_compiling" = yes; then
+   echo "configure: warning: cannot run when cross-compiling" 1>&2
++  echo "$ac_t""no" 1>&6
+ else
+   cat > conftest.$ac_ext <<EOF
+ #line 8684 "configure"
+@@ -10668,7 +10677,7 @@ fi
+ # If we don't have all of these then disable large
+ # file support.
+ #
+-echo "checking if large file support can be enabled"
++echo $ac_n "checking if large file support can be enabled""... $ac_c"
+ cat > conftest.$ac_ext <<EOF
+ #line 10674 "configure"
+ #include "confdefs.h"

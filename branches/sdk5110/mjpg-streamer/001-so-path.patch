@@ -1,0 +1,113 @@
+diff -urBp mjpg-streamer.orig/mjpg-streamer/Makefile mjpg-streamer/mjpg-streamer/Makefile
+--- mjpg-streamer.orig/mjpg-streamer/Makefile	2010-09-15 12:36:47.000000000 +0400
++++ mjpg-streamer/mjpg-streamer/Makefile	2010-09-15 13:00:25.000000000 +0400
+@@ -12,6 +12,8 @@
+ # $ sudo make DESTDIR=/some/path install
+ DESTDIR = /usr
+ 
++PLUGIN_LIB_DIR = $(DESTDIR)/lib/mjpg-streamer
++
+ # set the compiler to use
+ #CC = gcc
+ 
+@@ -74,7 +76,7 @@ $(APP_BINARY): $(OBJECTS)
+ 	$(CC) -o $@ $(CFLAGS) $(LFLAGS) $(OBJECTS)
+ 
+ .c.o:
+-	$(CC) -c -o $@ $(CFLAGS) $<
++	$(CC) -c -o $@ $(CFLAGS) -DPLUGIN_LIB_DIR=\"$(PLUGIN_LIB_DIR)\" $<
+ 
+ # cleanup
+ clean:
+diff -urBp mjpg-streamer.orig/mjpg-streamer/mjpg_streamer.c mjpg-streamer/mjpg-streamer/mjpg_streamer.c
+--- mjpg-streamer.orig/mjpg-streamer/mjpg_streamer.c	2010-07-11 18:18:18.000000000 +0400
++++ mjpg-streamer/mjpg-streamer/mjpg_streamer.c	2010-09-15 13:38:49.000000000 +0400
+@@ -44,6 +44,11 @@
+ /* globals */
+ static globals global;
+ 
++#ifndef PLUGIN_LIB_DIR
++#define PLUGIN_LIB_DIR "/usr/local/lib/mjpg-streamer"
++#endif
++char *lib_dir = PLUGIN_LIB_DIR;
++
+ /******************************************************************************
+ Description.: Display a help message
+ Input Value.: argv[0] is the program name and the parameter progname
+@@ -155,6 +160,28 @@ int control(int command, char *details) 
+   return 0;
+ }
+ 
++void *plugin_load(char *argv, char**plug_name)
++{
++  char path[1024];
++  void *handle;
++  size_t tmp = 0;
++
++  tmp = (size_t )(strchr(argv, ' ') - argv);
++  (*plug_name) = (tmp > 0) ? strndup(argv, tmp) : strdup(argv);
++  if (strchr((*plug_name), '/') != NULL)
++	strncpy(path, (*plug_name), sizeof(path));
++  else
++	sprintf(path, "%s/%s", lib_dir, (*plug_name));
++  handle = dlopen(path, RTLD_LAZY);
++  if ( !handle ) {
++    LOG("ERROR: could not load plugin '%s'\n"
++	"       Perhaps you have to provide full path to plugin\n"
++	"       dlopen: %s\n", path, dlerror() );
++    closelog();
++    exit(EXIT_FAILURE);
++  }
++  return handle;
++}
+ 
+ /******************************************************************************
+ Description.:
+@@ -166,7 +193,6 @@ int main(int argc, char *argv[])
+   char *input  = "input_uvc.so --resolution 640x480 --fps 5 --device /dev/video0";
+   char *output[MAX_OUTPUT_PLUGINS];
+   int daemon=0, i;
+-  size_t tmp=0;
+ 
+   output[0] = "output_http.so --port 8080";
+   global.outcnt = 0;
+@@ -291,17 +317,8 @@ int main(int argc, char *argv[])
+   }
+ 
+   /* open input plugin */
+-  tmp = (size_t)(strchr(input, ' ')-input);
+-  global.in.plugin = (tmp > 0)?strndup(input, tmp):strdup(input);
+-  global.in.handle = dlopen(global.in.plugin, RTLD_LAZY);
+-  if ( !global.in.handle ) {
+-    LOG("ERROR: could not find input plugin\n");
+-    LOG("       Perhaps you want to adjust the search path with:\n");
+-    LOG("       # export LD_LIBRARY_PATH=/path/to/plugin/folder\n");
+-    LOG("       dlopen: %s\n", dlerror() );
+-    closelog();
+-    exit(EXIT_FAILURE);
+-  }
++  global.in.handle = plugin_load(input, &global.in.plugin);
++
+   global.in.init = dlsym(global.in.handle, "input_init");
+   if ( global.in.init == NULL ) {
+     LOG("%s\n", dlerror());
+@@ -332,17 +349,8 @@ int main(int argc, char *argv[])
+ 
+   /* open output plugin */
+   for (i=0; i<global.outcnt; i++) {
+-    tmp = (size_t)(strchr(output[i], ' ')-output[i]);
+-    global.out[i].plugin = (tmp > 0)?strndup(output[i], tmp):strdup(output[i]);
+-    global.out[i].handle = dlopen(global.out[i].plugin, RTLD_LAZY);
+-    if ( !global.out[i].handle ) {
+-      LOG("ERROR: could not find output plugin %s\n", global.out[i].plugin);
+-      LOG("       Perhaps you want to adjust the search path with:\n");
+-      LOG("       # export LD_LIBRARY_PATH=/path/to/plugin/folder\n");
+-      LOG("       dlopen: %s\n", dlerror() );
+-      closelog();
+-      exit(EXIT_FAILURE);
+-    }
++    global.out[i].handle = plugin_load(output[i], &global.out[i].plugin);
++
+     global.out[i].init = dlsym(global.out[i].handle, "output_init");
+     if ( global.out[i].init == NULL ) {
+       LOG("%s\n", dlerror());

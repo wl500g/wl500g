@@ -1,0 +1,55 @@
+From 737ba04ea40f19564b445fbb489907529e75edc9
+From: Pete Batard
+Date: Thu, 16 Jun 2011 10:49:13 +0100
+Subject: [PATCH] Linux: Fix #81 URB double free race condition on device disconnect
+
+A submitted transfer that has just been failed by the kernel could be
+picked up by an event handler to be cleaned up, where freeing of URB
+memory would race with the submit function doing it's own cleanup and
+freeing as a result of the submit failing.
+
+libusb_submit_transfer() always holds itransfer->lock, so the race can
+be avoided by taking that lock also in the cleanup path and checking
+that the URB memory has not already been freed before freeing it there.
+
+As http://libusb.org/ticket/81#comment:14 notes there is still another
+possible, but unlikely, race condition between libusb_submit_transfer()
+and an event handling thread. That will require more work to solve.
+
+[stuge: Add check in cleanup path that URBs have not already been freed]
+---
+ libusb/os/linux_usbfs.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/libusb/os/linux_usbfs.c b/libusb/os/linux_usbfs.c
+index c84e805..2b81189 100644
+--- a/libusb/os/linux_usbfs.c
++++ b/libusb/os/linux_usbfs.c
+@@ -1860,15 +1860,22 @@ static void op_clear_transfer_priv(struct usbi_transfer *itransfer)
+ 		USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
+ 	struct linux_transfer_priv *tpriv = usbi_transfer_get_os_priv(itransfer);
+ 
++	/* urbs can be freed also in submit_transfer so lock mutex first */
+ 	switch (transfer->type) {
+ 	case LIBUSB_TRANSFER_TYPE_CONTROL:
+ 	case LIBUSB_TRANSFER_TYPE_BULK:
+ 	case LIBUSB_TRANSFER_TYPE_INTERRUPT:
+-		free(tpriv->urbs);
++		pthread_mutex_lock(&itransfer->lock);
++		if (tpriv->urbs)
++			free(tpriv->urbs);
+ 		tpriv->urbs = NULL;
++		pthread_mutex_unlock(&itransfer->lock);
+ 		break;
+ 	case LIBUSB_TRANSFER_TYPE_ISOCHRONOUS:
+-		free_iso_urbs(tpriv);
++		pthread_mutex_lock(&itransfer->lock);
++		if (tpriv->iso_urbs)
++			free_iso_urbs(tpriv);
++		pthread_mutex_unlock(&itransfer->lock);
+ 		break;
+ 	default:
+ 		usbi_err(TRANSFER_CTX(transfer),
+-- 
+1.7.6.1
+

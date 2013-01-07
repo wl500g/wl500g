@@ -1,0 +1,32 @@
+From d92fcf0552a15891b25c343cee340d295e24109c
+From: Oleg Nesterov
+Date: Wed, 25 May 2011 19:22:27 +0200
+Subject: [PATCH] signal: sys_pause() should check signal_pending()
+
+ERESTART* is always wrong without TIF_SIGPENDING. Teach sys_pause()
+to handle the spurious wakeup correctly.
+
+Signed-off-by: Oleg Nesterov <oleg@redhat.com>
+
+---
+ kernel/signal.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/signal.c b/kernel/signal.c
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -2517,8 +2517,10 @@
+ asmlinkage long
+ sys_pause(void)
+ {
+-	current->state = TASK_INTERRUPTIBLE;
+-	schedule();
++	while (!signal_pending(current)) {
++		current->state = TASK_INTERRUPTIBLE;
++		schedule();
++	}
+ 	return -ERESTARTNOHAND;
+ }
+ 
+-- 
+1.7.5.2

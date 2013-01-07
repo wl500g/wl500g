@@ -1,0 +1,101 @@
+allow quick leave from plugin PADO/PADS phases
+prevent pppd prematory exit for demand connections
+
+diff -BurpN rp-pppoe-3.11.orig/src/discovery.c rp-pppoe-3.11/src/discovery.c
+--- rp-pppoe-3.11.orig/src/discovery.c	2012-11-03 19:05:25.000000000 +0600
++++ rp-pppoe-3.11/src/discovery.c	2012-11-03 23:14:00.000000000 +0600
+@@ -48,6 +48,8 @@ static char const RCSID[] =
+ #include "pppd/pppd.h"
+ #include "pppd/fsm.h"
+ #include "pppd/lcp.h"
++extern int got_sigterm;
++extern int got_sighup;
+ #else
+ int persist = 0;
+ #endif
+@@ -403,6 +405,9 @@ waitForPADO(PPPoEConnection *conn, int t
+     expire_at.tv_sec += timeout;
+ 
+     do {
++#ifdef PLUGIN
++	if (got_sigterm || got_sighup) return;
++#endif
+ 	if (BPF_BUFFER_IS_EMPTY) {
+ 	    if (gettimeofday(&now, NULL) < 0) {
+ 		fatalSys("gettimeofday (waitForPADO)");
+@@ -429,6 +434,9 @@ waitForPADO(PPPoEConnection *conn, int t
+ 	    while(1) {
+ 		r = select(conn->discoverySocket+1, &readable, NULL, NULL, &tv);
+ 		if (r >= 0 || errno != EINTR) break;
++#ifdef PLUGIN
++		if (got_sigterm || got_sighup) return;
++#endif
+ 	    }
+ 	    if (r < 0) {
+ 		fatalSys("select (waitForPADO)");
+@@ -641,6 +649,9 @@ waitForPADS(PPPoEConnection *conn, int t
+     expire_at.tv_sec += timeout;
+ 
+     do {
++#ifdef PLUGIN
++	if (got_sigterm || got_sighup) return;
++#endif
+ 	if (BPF_BUFFER_IS_EMPTY) {
+ 	    if (gettimeofday(&now, NULL) < 0) {
+ 		fatalSys("gettimeofday (waitForPADS)");
+@@ -667,6 +678,9 @@ waitForPADS(PPPoEConnection *conn, int t
+ 	    while(1) {
+ 		r = select(conn->discoverySocket+1, &readable, NULL, NULL, &tv);
+ 		if (r >= 0 || errno != EINTR) break;
++#ifdef PLUGIN
++		if (got_sigterm || got_sighup) return;
++#endif
+ 	    }
+ 	    if (r < 0) {
+ 		fatalSys("select (waitForPADS)");
+@@ -757,6 +771,9 @@ discovery(PPPoEConnection *conn)
+   SEND_PADI:
+     padiAttempts = 0;
+     do {
++#ifdef PLUGIN
++	if (got_sigterm || got_sighup) return;
++#endif
+ 	padiAttempts++;
+ 	if (padiAttempts > MAX_PADI_ATTEMPTS) {
+ 	    if (persist) {
+@@ -764,7 +781,12 @@ discovery(PPPoEConnection *conn)
+ 		timeout = conn->discoveryTimeout;
+ 		printErr("Timeout waiting for PADO packets");
+ 	    } else {
++#ifdef PLUGIN
++		printErr("Timeout waiting for PADO packets");
++		return;
++#else
+ 		rp_fatal("Timeout waiting for PADO packets");
++#endif
+ 	    }
+ 	}
+ 	sendPADI(conn);
+@@ -790,6 +812,9 @@ discovery(PPPoEConnection *conn)
+     timeout = conn->discoveryTimeout;
+     padrAttempts = 0;
+     do {
++#ifdef PLUGIN
++	if (got_sigterm || got_sighup) return;
++#endif
+ 	padrAttempts++;
+ 	if (padrAttempts > MAX_PADI_ATTEMPTS) {
+ 	    if (persist) {
+@@ -799,7 +824,12 @@ discovery(PPPoEConnection *conn)
+ 		/* Go back to sending PADI again */
+ 		goto SEND_PADI;
+ 	    } else {
++#ifdef PLUGIN
++		printErr("Timeout waiting for PADS packets");
++		return;
++#else
+ 		rp_fatal("Timeout waiting for PADS packets");
++#endif
+ 	    }
+ 	}
+ 	sendPADR(conn);

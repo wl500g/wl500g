@@ -1,0 +1,50 @@
+From 3971e1a917548977cff71418a7c3575ffbc9571f
+From: Alex Nixon
+Date: Tue, 29 Jul 2008 22:33:03 -0700
+Subject: [PATCH] VFS: increase pseudo-filesystem block size to PAGE_SIZE
+
+This commit:
+
+    commit ba52de123d454b57369f291348266d86f4b35070
+    Author: Theodore Ts'o <tytso@mit.edu>
+    Date:   Wed Sep 27 01:50:49 2006 -0700
+
+        [PATCH] inode-diet: Eliminate i_blksize from the inode structure
+
+caused the block size used by pseudo-filesystems to decrease from
+PAGE_SIZE to 1024 leading to a doubling of the number of context switches
+during a kernbench run.
+
+Signed-off-by: Alex Nixon <Alex.Nixon@citrix.com>
+Cc: Andi Kleen <andi@firstfloor.org>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Cc: "Theodore Ts'o" <tytso@mit.edu>
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>
+Cc: Hugh Dickins <hugh@veritas.com>
+Cc: Jens Axboe <jens.axboe@oracle.com>
+Cc: <stable@kernel.org>		[2.6.25.x, 2.6.26.x]
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/libfs.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/libfs.c b/fs/libfs.c
+--- a/fs/libfs.c
++++ b/fs/libfs.c
+@@ -216,8 +216,8 @@ int get_sb_pseudo(struct file_system_type *fs_type, char *name,
+ 
+ 	s->s_flags = MS_NOUSER;
+ 	s->s_maxbytes = ~0ULL;
+-	s->s_blocksize = 1024;
+-	s->s_blocksize_bits = 10;
++	s->s_blocksize = PAGE_SIZE;
++	s->s_blocksize_bits = PAGE_SHIFT;
+ 	s->s_magic = magic;
+ 	s->s_op = ops ? ops : &simple_super_operations;
+ 	s->s_time_gran = 1;
+-- 
+1.7.6.5

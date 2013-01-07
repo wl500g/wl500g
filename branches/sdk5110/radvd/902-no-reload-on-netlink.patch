@@ -1,0 +1,23 @@
+--- radvd-1.8/netlink.c
++++ radvd/netlink.c
+@@ -65,7 +65,8 @@ void process_netlink_msg(int sock)
+                 else {
+                         dlog(LOG_DEBUG, 3, "%s, ifindex %d, flags is *NOT* running", ifname, ifinfo->ifi_index);
+                 }
+-		reload_config();
++		config_interface();
++		kickoff_adverts();
+ 	}
+ }
+ 
+--- a/radvd.h
++++ b/radvd.h
+@@ -188,6 +188,8 @@ int yylex(void);
+ int check_ip6_forwarding(void);
+ void reload_config(void);
+ void reset_prefix_lifetimes(void);
++void config_interface(void);
++void kickoff_adverts(void);
+ 
+ /* timer.c */
+ struct timeval next_timeval(double next);

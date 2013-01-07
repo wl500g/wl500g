@@ -1,0 +1,12 @@
+diff -urBp a/networking/udhcp/dhcpc.c b/networking/udhcp/dhcpc.c
+--- a/networking/udhcp/dhcpc.c
++++ b/networking/udhcp/dhcpc.c
+@@ -1196,8 +1135,6 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 		IF_UDHCP_VERBOSE(, &dhcp_verbose)
+ 	);
+ 	if (opt & (OPT_h|OPT_H)) {
+-		//msg added 2011-11
+-		bb_error_msg("option -h NAME is deprecated, use -x hostname:NAME");
+ 		client_config.hostname = alloc_dhcp_option(DHCP_HOST_NAME, str_h, 0);
+ 	}
+ 	if (opt & OPT_F) {

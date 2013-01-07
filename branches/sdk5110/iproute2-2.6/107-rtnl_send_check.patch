@@ -1,0 +1,27 @@
+From 2d8240f8d95dfdc276dcf447623129fb5ccedcd6
+From: Stephen Hemminger
+Date: Mon, 13 Jul 2009 10:15:23 -0700
+Subject: [PATCH] Fix flushing of large number of entries
+
+Checking for errors would cause some responses to be lost.
+
+---
+ lib/libnetlink.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -121,8 +121,8 @@ int rtnl_send_check(struct rtnl_handle *rth, const char *buf, int len)
+ 	if (status < 0)
+ 		return status;
+ 
+-	/* Check for errors */
+-	status = recv(rth->fd, resp, sizeof(resp), MSG_DONTWAIT);
++	/* Check for immediate errors */
++	status = recv(rth->fd, resp, sizeof(resp), MSG_DONTWAIT|MSG_PEEK);
+ 	if (status < 0) {
+ 		if (errno == EAGAIN)
+ 			return 0;
+-- 
+1.7.6.2

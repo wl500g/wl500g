@@ -1,0 +1,78 @@
+ALSA: Fixes from upstream
+
+ kernel.org commits
+ 6c4cc3a8ed15aacc06a5fd369639fef633cee2bc [ALSA] Add more fallbacks to OSS PHONEOUT mixer map
+ 838c364ff05c143fd1810e8ad1469935d6c23a7a ALSA: OSS mixer emulation - fix locking
+
+---
+ sound/core/oss/mixer_oss.c |   14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/sound/core/oss/mixer_oss.c b/sound/core/oss/mixer_oss.c
+--- a/sound/core/oss/mixer_oss.c
++++ b/sound/core/oss/mixer_oss.c
+@@ -610,8 +610,10 @@ static void snd_mixer_oss_put_volume1_vo
+ 	if (numid == ID_UNKNOWN)
+ 		return;
+ 	down_read(&card->controls_rwsem);
+-	if ((kctl = snd_ctl_find_numid(card, numid)) == NULL)
++	if ((kctl = snd_ctl_find_numid(card, numid)) == NULL) {
++		up_read(&card->controls_rwsem);
+ 		return;
++	}
+ 	uinfo = kzalloc(sizeof(*uinfo), GFP_KERNEL);
+ 	uctl = kzalloc(sizeof(*uctl), GFP_KERNEL);
+ 	if (uinfo == NULL || uctl == NULL)
+@@ -650,7 +652,7 @@ static void snd_mixer_oss_put_volume1_sw
+ 		return;
+ 	down_read(&card->controls_rwsem);
+ 	if ((kctl = snd_ctl_find_numid(card, numid)) == NULL) {
+-		up_read(&fmixer->card->controls_rwsem);
++		up_read(&card->controls_rwsem);
+ 		return;
+ 	}
+ 	uinfo = kzalloc(sizeof(*uinfo), GFP_KERNEL);
+@@ -778,7 +780,7 @@ static int snd_mixer_oss_get_recsrc2(str
+ 	uctl = kzalloc(sizeof(*uctl), GFP_KERNEL);
+ 	if (uinfo == NULL || uctl == NULL) {
+ 		err = -ENOMEM;
+-		goto __unlock;
++		goto __free_only;
+ 	}
+ 	down_read(&card->controls_rwsem);
+ 	kctl = snd_mixer_oss_test_id(mixer, "Capture Source", 0);
+@@ -807,6 +809,7 @@ static int snd_mixer_oss_get_recsrc2(str
+ 	err = 0;
+       __unlock:
+      	up_read(&card->controls_rwsem);
++      __free_only:
+       	kfree(uctl);
+       	kfree(uinfo);
+       	return err;
+@@ -828,7 +831,7 @@ static int snd_mixer_oss_put_recsrc2(str
+ 	uctl = kzalloc(sizeof(*uctl), GFP_KERNEL);
+ 	if (uinfo == NULL || uctl == NULL) {
+ 		err = -ENOMEM;
+-		goto __unlock;
++		goto __free_only;
+ 	}
+ 	down_read(&card->controls_rwsem);
+ 	kctl = snd_mixer_oss_test_id(mixer, "Capture Source", 0);
+@@ -861,6 +864,7 @@ static int snd_mixer_oss_put_recsrc2(str
+ 	err = 0;
+       __unlock:
+ 	up_read(&card->controls_rwsem);
++      __free_only:
+ 	kfree(uctl);
+ 	kfree(uinfo);
+ 	return err;
+@@ -1233,6 +1237,8 @@ static void snd_mixer_oss_build(struct s
+ 		{ SOUND_MIXER_DIGITAL3,	"Digital",		2 },
+ 		{ SOUND_MIXER_PHONEIN,	"Phone",		0 },
+ 		{ SOUND_MIXER_PHONEOUT,	"Master Mono",		0 },
++		{ SOUND_MIXER_PHONEOUT,	"Speaker",		0 }, /*fallback*/
++		{ SOUND_MIXER_PHONEOUT,	"Mono",			0 }, /*fallback*/
+ 		{ SOUND_MIXER_PHONEOUT,	"Phone",		0 }, /* fallback */
+ 		{ SOUND_MIXER_VIDEO,	"Video",		0 },
+ 		{ SOUND_MIXER_RADIO,	"Radio",		0 },
+-- 

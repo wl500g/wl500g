@@ -1,0 +1,84 @@
+From f9d8928f8340ab8e76f1da4799cb19a6ff58b83d
+From: Patrick McHardy
+Date: Wed, 5 Dec 2007 01:24:30 -0800
+Subject: [PATCH] [NETFILTER]: nf_queue: remove unused data pointer
+
+Remove the data pointer from struct nf_queue_handler. It has never been used
+and is useless for the only handler that really matters, nfnetlink_queue,
+since the handler is shared between all instances.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ include/linux/netfilter.h       |    3 +--
+ net/ipv4/netfilter/ip_queue.c   |    2 +-
+ net/ipv6/netfilter/ip6_queue.c  |    2 +-
+ net/netfilter/nf_queue.c        |    2 +-
+ net/netfilter/nfnetlink_queue.c |    2 +-
+ 5 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -277,8 +277,7 @@ int compat_nf_getsockopt(struct sock *sk, int pf, int optval,
+ /* Packet queuing */
+ struct nf_queue_handler {
+ 	int (*outfn)(struct sk_buff *skb, struct nf_info *info,
+-		     unsigned int queuenum, void *data);
+-	void *data;
++		     unsigned int queuenum);
+ 	char *name;
+ };
+ extern int nf_register_queue_handler(int pf,
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -272,7 +272,7 @@ nlmsg_failure:
+ 
+ static int
+ ipq_enqueue_packet(struct sk_buff *skb, struct nf_info *info,
+-		   unsigned int queuenum, void *data)
++		   unsigned int queuenum)
+ {
+ 	int status = -EINVAL;
+ 	struct sk_buff *nskb;
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -269,7 +269,7 @@ nlmsg_failure:
+ 
+ static int
+ ipq_enqueue_packet(struct sk_buff *skb, struct nf_info *info,
+-		   unsigned int queuenum, void *data)
++		   unsigned int queuenum)
+ {
+ 	int status = -EINVAL;
+ 	struct sk_buff *nskb;
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -153,8 +153,7 @@ static int __nf_queue(struct sk_buff *skb,
+ 	}
+ #endif
+ 	afinfo->saveroute(skb, info);
+-	status = queue_handler[pf]->outfn(skb, info, queuenum,
+-					  queue_handler[pf]->data);
++	status = queue_handler[pf]->outfn(skb, info, queuenum);
+ 
+ 	rcu_read_unlock();
+ 
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -534,7 +534,7 @@ nla_put_failure:
+ 
+ static int
+ nfqnl_enqueue_packet(struct sk_buff *skb, struct nf_info *info,
+-		     unsigned int queuenum, void *data)
++		     unsigned int queuenum)
+ {
+ 	int status = -EINVAL;
+ 	struct sk_buff *nskb;
+-- 
+1.7.6.5

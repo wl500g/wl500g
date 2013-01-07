@@ -1,0 +1,129 @@
+Configurable AIO support
+
+---
+ fs/aio.c        |   53 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ init/Kconfig    |    8 ++++++++
+ kernel/sys_ni.c |    5 +++++
+ kernel/sysctl.c |    2 ++
+ 4 files changed, 68 insertions(+)
+
+diff -uBp a/fs/aio.c b/fs/aio.c
+--- a/fs/aio.c	2007-07-09 01:32:17.000000000 +0200
++++ b/fs/aio.c	2007-10-08 23:52:27.000000000 +0200
+@@ -36,6 +36,8 @@
+ #include <asm/uaccess.h>
+ #include <asm/mmu_context.h>
+ 
++#ifdef CONFIG_AIO
++
+ #if DEBUG > 1
+ #define dprintk		printk
+ #else
+@@ -1787,3 +1789,54 @@
+ EXPORT_SYMBOL(aio_complete);
+ EXPORT_SYMBOL(aio_put_req);
+ EXPORT_SYMBOL(wait_on_sync_kiocb);
++
++#else
++
++ssize_t fastcall wait_on_sync_kiocb(struct kiocb *iocb)
++{
++	return 0;
++}
++
++void fastcall exit_aio(struct mm_struct *mm)
++{
++}
++
++void fastcall __put_ioctx(struct kioctx *ctx)
++{
++}
++
++int fastcall aio_put_req(struct kiocb *req)
++{
++	return 0;
++}
++
++struct kioctx *lookup_ioctx(unsigned long ctx_id)
++{
++	return 0;
++}
++
++void fastcall kick_iocb(struct kiocb *iocb)
++{
++}
++
++int fastcall aio_complete(struct kiocb *iocb, long res, long res2)
++{
++	return 0;
++}
++
++int fastcall io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
++			 struct iocb *iocb)
++{
++	return -EINVAL;
++}
++
++struct kiocb *lookup_kiocb(struct kioctx *ctx, struct iocb *iocb, u32 key)
++{
++	return 0;
++}
++
++EXPORT_SYMBOL(aio_complete);
++EXPORT_SYMBOL(aio_put_req);
++EXPORT_SYMBOL(wait_on_sync_kiocb);
++
++#endif
+diff -uBp a/init/Kconfig b/init/Kconfig
+--- a/init/Kconfig	2007-10-08 23:52:27.000000000 +0200
++++ b/init/Kconfig	2007-10-09 00:30:08.000000000 +0200
+@@ -342,6 +342,14 @@
+ 
+ 	  If unsure, say Y.
+ 
++config AIO
++	default y
++	bool "Enable AIO support" if EMBEDDED
++	help
++	  This option enables POSIX async IO which may be used by
++	  some high performance threaded applications. Disabling
++	  this option saves about 5k.
++
+ config EPOLL
+ 	bool "Enable eventpoll support" if EMBEDDED
+ 	default y
+diff -uBp a/kernel/sys_ni.c b/kernel/sys_ni.c
+--- a/kernel/sys_ni.c	2007-10-08 23:51:25.000000000 +0200
++++ b/kernel/sys_ni.c	2007-10-09 00:30:08.000000000 +0200
+@@ -113,6 +113,11 @@
+ cond_syscall(sys_vm86);
+ cond_syscall(compat_sys_ipc);
+ cond_syscall(compat_sys_sysctl);
++cond_syscall(sys_io_setup);
++cond_syscall(sys_io_destroy);
++cond_syscall(sys_io_submit);
++cond_syscall(sys_io_cancel);
++cond_syscall(sys_io_getevents);
+ 
+ /* arch-specific weak syscall entries */
+ cond_syscall(sys_pciconfig_read);
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -1056,6 +1056,7 @@ static ctl_table fs_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec,
+ 	},
++#ifdef CONFIG_AIO
+ 	{
+ 		.ctl_name	= FS_AIO_NR,
+ 		.procname	= "aio-nr",
+@@ -1072,6 +1073,7 @@ static ctl_table fs_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_doulongvec_minmax,
+ 	},
++#endif
+ #ifdef CONFIG_INOTIFY_USER
+ 	{
+ 		.ctl_name	= FS_INOTIFY,
+-- 

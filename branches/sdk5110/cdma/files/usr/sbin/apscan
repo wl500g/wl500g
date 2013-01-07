@@ -1,0 +1,12 @@
+#!/bin/sh
+mode=`wl ap`
+
+wl ap 0
+wl scan
+sleep 3
+wl scanresults>/tmp/ap.log
+wl ap $mode
+wl radio on
+wl bss 1
+sleep 1
+cat /tmp/ap.log

@@ -1,0 +1,138 @@
+--- wpa_supplicant.orig/wpa_supplicant/eapol_test.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/wpa_supplicant/eapol_test.c	2011-09-06 05:28:58.533295003 +0000
+@@ -1180,6 +1180,7 @@ int main(int argc, char *argv[])
+ 	eloop_register_timeout(0, 0, send_eap_request_identity, &wpa_s, NULL);
+ 	eloop_register_signal_terminate(eapol_test_terminate, NULL);
+ 	eloop_register_signal_reconfig(eapol_test_terminate, NULL);
++	eloop_register_signal_reassociate(eapol_test_terminate, NULL);
+ 	eloop_run();
+ 
+ 	eloop_cancel_timeout(eapol_test_timeout, &eapol_test, NULL);
+--- wpa_supplicant.orig/src/utils/eloop.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/src/utils/eloop.c	2011-09-06 05:26:49.833295003 +0000
+@@ -442,6 +442,17 @@ int eloop_register_signal_reconfig(eloop
+ }
+ 
+ 
++int eloop_register_signal_reassociate(eloop_signal_handler handler,
++				      void *user_data)
++{
++#ifdef CONFIG_NATIVE_WINDOWS
++	return 0;
++#else /* CONFIG_NATIVE_WINDOWS */
++	return eloop_register_signal(SIGUSR2, handler, user_data);
++#endif /* CONFIG_NATIVE_WINDOWS */
++}
++
++
+ void eloop_run(void)
+ {
+ 	fd_set *rfds, *wfds, *efds;
+--- wpa_supplicant.orig/src/utils/eloop.h	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/src/utils/eloop.h	2011-09-06 05:26:32.283295003 +0000
+@@ -288,6 +288,24 @@ int eloop_register_signal_reconfig(eloop
+ 				   void *user_data);
+ 
+ /**
++ * eloop_register_signal_reassociate - Register handler for reassociate signals
++ * @handler: Callback function to be called when the signal is received
++ * @user_data: Callback context data (signal_ctx)
++ * Returns: 0 on success, -1 on failure
++ *
++ * Signals are 'global' events and there is no local eloop_data pointer like
++ * with other handlers. The global user_data pointer registered with
++ * eloop_init() will be used as eloop_ctx for signal handlers.
++ *
++ * This function is a more portable version of eloop_register_signal() since
++ * the knowledge of exact details of the signals is hidden in eloop
++ * implementation. In case of operating systems using signal(), this function
++ * registers a handler for SIGUSR2.
++ */
++int eloop_register_signal_reassociate(eloop_signal_handler handler,
++				      void *user_data);
++
++/**
+  * eloop_run - Start the event loop
+  *
+  * Start the event loop and continue running as long as there are any
+--- wpa_supplicant.orig/src/utils/eloop_none.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/src/utils/eloop_none.c	2011-09-06 05:27:47.163295003 +0000
+@@ -311,6 +311,18 @@ int eloop_register_signal_reconfig(void
+ }
+ 
+ 
++int eloop_register_signal_reassociate(void (*handler)(int sig, void *eloop_ctx,
++						      void *signal_ctx)
++				      void *user_data)
++{
++#if 0
++	/* TODO: for example */
++	return eloop_register_signal(SIGUSR2, handler, user_data);
++#endif
++	return 0;
++}
++
++
+ void eloop_run(void)
+ {
+ 	int i;
+--- wpa_supplicant.orig/src/utils/eloop_win.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/src/utils/eloop_win.c	2011-09-06 05:28:17.333295003 +0000
+@@ -454,6 +454,14 @@ int eloop_register_signal_reconfig(eloop
+ }
+ 
+ 
++int eloop_register_signal_reassociate(eloop_signal_handler handler,
++				      void *user_data)
++{
++	/* TODO */
++	return 0;
++}
++
++
+ void eloop_run(void)
+ {
+ 	struct os_time tv, now;
+--- wpa_supplicant.orig/wpa_supplicant/preauth_test.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/wpa_supplicant/preauth_test.c	2011-09-06 05:28:47.773295003 +0000
+@@ -354,6 +354,7 @@ int main(int argc, char *argv[])
+ 	eloop_register_timeout(0, 100000, eapol_test_poll, &wpa_s, NULL);
+ 	eloop_register_signal_terminate(eapol_test_terminate, NULL);
+ 	eloop_register_signal_reconfig(eapol_test_terminate, NULL);
++	eloop_register_signal_reassociate(eapol_test_terminate, NULL);
+ 	eloop_run();
+ 
+ 	if (preauth_test.auth_timed_out)
+--- wpa_supplicant.orig/wpa_supplicant/wpa_supplicant.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/wpa_supplicant/wpa_supplicant.c	2011-09-06 06:08:27.683897002 +0000
+@@ -611,6 +611,22 @@ static void wpa_supplicant_reconfig(int
+ }
+ 
+ 
++static void wpa_supplicant_reassociate(int sig, void *eloop_ctx,
++				       void *signal_ctx)
++{
++	struct wpa_global *global = eloop_ctx;
++	struct wpa_supplicant *wpa_s;
++	wpa_printf(MSG_DEBUG, "Signal %d received - reassociating", sig);
++	for (wpa_s = global->ifaces; wpa_s; wpa_s = wpa_s->next) {
++		wpa_s->disconnected = 0;
++		wpa_s->reassociate = 1;
++		wpa_s->scan_runs = 0;
++		wpa_supplicant_req_scan(wpa_s, 0, 0);
++		wpa_msg(wpa_s, MSG_DEBUG, "Reassociation completed");
++	}
++}
++
++
+ static wpa_cipher cipher_suite2driver(int cipher)
+ {
+ 	switch (cipher) {
+@@ -2150,6 +2166,7 @@ int wpa_supplicant_run(struct wpa_global
+ 
+ 	eloop_register_signal_terminate(wpa_supplicant_terminate, NULL);
+ 	eloop_register_signal_reconfig(wpa_supplicant_reconfig, NULL);
++	eloop_register_signal_reassociate(wpa_supplicant_reassociate, NULL);
+ 
+ 	eloop_run();
+ 

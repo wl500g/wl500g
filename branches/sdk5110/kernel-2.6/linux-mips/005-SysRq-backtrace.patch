@@ -1,0 +1,34 @@
+From 11ed2dc489c82da193faae0a394caace9b8f749c
+From: Vincent Wen
+Date: Fri, 16 Mar 2012 17:54:53 -0700
+Subject: [PATCH] MIPS: Fix Magic SysRq L kernel crash.
+
+show_backtrace() was passed a NULL pointer which caused paging
+request fail. Set to current task as other architectures (ARM,
+etc) do when passed a NULL task pointer.
+
+Signed-off-by: Vincent Wen <vincentwenlinux@gmail.com>
+Cc: linux-mips@linux-mips.org
+Cc: cernekee@gmail.com
+Patchwork: https://patchwork.linux-mips.org/patch/3524/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+(cherry picked from commit 60bea18b35ecda7a1f5fa9eaa9a52588794b535a)
+---
+ arch/mips/kernel/traps.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/arch/mips/kernel/traps.c b/arch/mips/kernel/traps.c
+--- a/arch/mips/kernel/traps.c
++++ b/arch/mips/kernel/traps.c
+@@ -116,6 +116,9 @@ static void show_backtrace(struct task_struct *task, struct pt_regs *regs)
+ 	unsigned long ra = regs->regs[31];
+ 	unsigned long pc = regs->cp0_epc;
+ 
++	if (!task)
++		task = current;
++
+ 	if (raw_show_trace || !__kernel_text_address(pc)) {
+ 		show_raw_backtrace(sp);
+ 		return;
+-- 
+1.7.3.4

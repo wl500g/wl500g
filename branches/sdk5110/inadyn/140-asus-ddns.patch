@@ -1,0 +1,289 @@
+ include/dyndns.h |  10 ++++
+ include/md5.h    |   4 ++
+ src/dyndns.c     | 149 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/md5.c        |  39 +++++++++++++++
+ 4 files changed, 202 insertions(+)
+
+diff --git a/include/dyndns.h b/include/dyndns.h
+index b8e5601..903251d 100644
+--- a/include/dyndns.h
++++ b/include/dyndns.h
+@@ -46,6 +46,8 @@ typedef enum
+ 	HE_IPV6TB,
+ 	HE_DYNDNS,
+ 	DYNSIP_DEFAULT,
++	ASUS_REGISTER,
++	ASUS_UPDATE,
+ 	LAST_DNS_SYSTEM = -1
+ } DYNDNS_SYSTEM_ID;
+ 
+@@ -169,6 +171,14 @@ typedef enum
+ 	"Host: %s\r\n"							\
+ 	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
+ 
++#define ASUS_PROCESS_MY_IP_REQUEST_FORMAT \
++	"GET %s?" \
++	"hostname=%s&" \
++	"myip=%s " \
++	 "HTTP/1.0\r\n" \
++	"Authorization: Basic %s\r\n" \
++	"Host: %s\r\n" \
++	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
+ 
+ /* Some default configurations */
+ #define DYNDNS_DEFAULT_SLEEP			(120) /* sec */
+diff --git a/include/md5.h b/include/md5.h
+index ed0f3f0..6b4bdee 100644
+--- a/include/md5.h
++++ b/include/md5.h
+@@ -136,4 +136,8 @@ extern int md5_stream PARAMS ((FILE *stream, void *resblock));
+ extern void *md5_buffer PARAMS ((const char *buffer, size_t len,
+ 				 void *resblock));
+ 
++extern void *hmac_md5_buffer PARAMS ((const void *buffer, size_t len,
++				      const void *key, size_t key_len,
++				      void *resblock));
++
+ #endif
+diff --git a/src/dyndns.c b/src/dyndns.c
+index 644c91b..d4af613 100644
+--- a/src/dyndns.c
++++ b/src/dyndns.c
+@@ -26,6 +26,7 @@
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <time.h>
++#include <ctype.h>
+ 
+ #include "dyndns.h"
+ #include "debug_if.h"
+@@ -48,6 +49,7 @@ static int get_req_for_tzo_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt)
+ static int get_req_for_sitelutions_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
+ static int get_req_for_dnsexit_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
+ static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
++static int get_req_for_asus_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
+ 
+ static RC_TYPE is_dyndns_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
+ static RC_TYPE is_freedns_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
+@@ -58,6 +60,8 @@ static RC_TYPE is_tzo_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_
+ static RC_TYPE is_sitelutions_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
+ static RC_TYPE is_dnsexit_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
+ static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
++static RC_TYPE is_asus_server_register_rsp_ok( DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
++static RC_TYPE is_asus_server_update_rsp_ok( DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
+ 
+ DYNDNS_SYSTEM_INFO dns_system_table[] =
+ {
+@@ -153,6 +157,20 @@ DYNDNS_SYSTEM_INFO dns_system_table[] =
+ 	  DYNDNS_MY_IP_SERVER, DYNDNS_MY_IP_SERVER_URL,
+ 	  "dynsip.org", "/nic/update"}},
+ 
++	{ASUS_REGISTER,
++	{"register@asus.com",
++	 (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_asus_server_register_rsp_ok,
++	  (DNS_SYSTEM_REQUEST_FUNC) get_req_for_asus_server,
++	  DYNDNS_MY_IP_SERVER, DYNDNS_MY_IP_SERVER_URL,
++	  "ns1.asuscomm.com", "/ddns/register.jsp"}},
++
++	{ASUS_UPDATE,
++	{"update@asus.com",
++	 (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_asus_server_update_rsp_ok,
++	  (DNS_SYSTEM_REQUEST_FUNC) get_req_for_asus_server,
++	  DYNDNS_MY_IP_SERVER, DYNDNS_MY_IP_SERVER_URL,
++	  "ns1.asuscomm.com", "/ddns/update.jsp"}},
++
+ 	{CUSTOM_HTTP_BASIC_AUTH,
+ 	 {"custom@http_srv_basic_auth",
+ 	  (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_generic_server_rsp_ok,
+@@ -368,6 +386,56 @@ static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int
+ 		       p_self->info[infcnt].dyndns_server_name.name);
+ }
+ 
++static int get_req_for_asus_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt)
++{
++	unsigned char digest[MD5_DIGEST_BYTES];
++	char auth[6*2+1+MD5_DIGEST_BYTES*2+1];
++	char *p_tmp, *p_auth = auth;
++	int i;
++
++	if (p_self == NULL)
++	{
++		/* 0 == "No characters written" */
++		return 0;
++	}
++
++	/* prepare username */
++	p_tmp = p_self->info[infcnt].credentials.my_username;
++	for (i = 0; i < 6*2; i++) {
++		while (*p_tmp && !isxdigit(*p_tmp)) p_tmp++;
++		*p_auth++ = *p_tmp ? toupper(*p_tmp++) : '0';
++	}
++
++	/* split username and password */
++	*p_auth++ = ':';
++
++	/* prepare password, reuse p_req_buffer */
++	sprintf(p_self->p_req_buffer, "%s%s",
++		p_self->info[infcnt].alias_info[alcnt].names.name,
++		p_self->info[infcnt].my_ip_address.name);
++	hmac_md5_buffer(p_self->p_req_buffer, strlen(p_self->p_req_buffer),
++			p_self->info[infcnt].credentials.my_password,
++			strlen(p_self->info[infcnt].credentials.my_password), digest);
++	for (i = 0; i < MD5_DIGEST_BYTES; i++)
++		p_auth += sprintf(p_auth, "%02X", digest[i]);
++
++	/*encode*/
++	if (p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer != NULL)
++		free(p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer);
++	p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer = b64encode(auth);
++	p_self->info[infcnt].credentials.encoded =
++		(p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer != NULL);
++	p_self->info[infcnt].credentials.size =
++		strlen(p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer);
++
++	return sprintf(p_self->p_req_buffer, ASUS_PROCESS_MY_IP_REQUEST_FORMAT,
++		       p_self->info[infcnt].dyndns_server_url,
++		       p_self->info[infcnt].alias_info[alcnt].names.name,
++		       p_self->info[infcnt].my_ip_address.name,
++		       p_self->info[infcnt].credentials.p_enc_usr_passwd_buffer,
++		       p_self->info[infcnt].dyndns_server_name.name);
++}
++
+ static int get_req_for_ip_server(DYN_DNS_CLIENT *p_self, int infcnt)
+ {
+ 	if (p_self == NULL)
+@@ -747,6 +815,87 @@ static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION
+ 		return RC_DYNDNS_RSP_NOTOK;
+ }
+ 
++static RC_TYPE is_asus_server_register_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infnr)
++{	
++	(void)p_self;
++	char *p_rsp = p_tr->p_rsp;
++	(void)infnr;
++	
++	char *p, domain[256] = "";
++	if ((p = strchr(p_rsp, '|')) && (p = strchr(++p, '|')))
++		sscanf(p, "|%255[^|\r\n]", domain);
++
++	int status = p_tr->status;
++	
++	switch (status) {
++		case 200:		/* registration success */
++		case 220:		/* registration same domain success -- unused?? */
++			return RC_OK;
++		case 203:		/* registration failed */
++			logit(LOG_WARNING, MODULE_TAG "Domain already in use, suggested domain '%s'", domain);
++			return RC_DYNDNS_RSP_NOTOK;
++		case 230:		/* registration new domain success -- unused?? */
++			logit(LOG_WARNING, MODULE_TAG "Registration success, previous domain '%s'", domain);
++			return RC_OK;
++		case 233:		/* registration failed */
++			logit(LOG_WARNING, MODULE_TAG "Domain already in use, current domain '%s'", domain);
++			return RC_DYNDNS_RSP_NOTOK;
++	}
++
++	if (status >= 500 && status < 600)
++		return RC_DYNDNS_RSP_RETRY_LATER;
++
++	/* 
++	  Other status codes:
++	    297: invalid hostname
++	    298: invalid domain name
++	    299: invalid ip format
++	    401: authentication failure
++	    407: proxy authentication required
++	*/
++
++	return RC_DYNDNS_RSP_NOTOK;
++}
++
++static RC_TYPE is_asus_server_update_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infnr)
++{
++	(void)p_self;
++	char *p_rsp = p_tr->p_rsp;
++	(void)infnr;
++
++	char *p, domain[256] = "";
++	if ((p = strchr(p_rsp, '|')) && (p = strchr(++p, '|')))
++		sscanf(p, "|%255[^|\r\n]", domain);
++
++	int status = p_tr->status;
++
++	switch (status) {
++		case 200:		/* update success */
++		case 220:		/* update same domain success -- unused?? */
++			return RC_OK;
++		case 203:		/* update failed */
++			logit(LOG_WARNING, MODULE_TAG "Domain already in use, suggested domain '%s'", domain);
++			return RC_DYNDNS_RSP_NOTOK;
++		case 233:		/* update failed */
++			logit(LOG_WARNING, MODULE_TAG "Domain already in use, current domain '%s'", domain);
++			return RC_DYNDNS_RSP_NOTOK;
++	}
++
++	if (status >= 500 && status < 600)
++		return RC_DYNDNS_RSP_RETRY_LATER;
++
++	/* 
++	  Other status codes:
++	    297: invalid hostname
++	    298: invalid domain name
++	    299: invalid ip format
++	    401: authentication failure
++	    407: proxy authentication required
++	*/
++
++	return RC_DYNDNS_RSP_NOTOK;
++}
++
+ static RC_TYPE do_update_alias_table(DYN_DNS_CLIENT *p_self)
+ {
+ 	int i, j;
+diff --git a/src/md5.c b/src/md5.c
+index 6ce83ac..456268b 100644
+--- a/src/md5.c
++++ b/src/md5.c
+@@ -389,3 +389,42 @@ md5_process_block (const void *buffer, size_t len, struct md5_ctx *ctx)
+   ctx->C = C;
+   ctx->D = D;
+ }
++
++void *
++hmac_md5_buffer (const void *buffer, size_t len, const void *key, size_t key_len, void *resblock)
++{
++	struct md5_ctx ctx;
++	unsigned char k_ipad[65];
++	unsigned char k_opad[65];
++	unsigned char tk[16];
++	int i;
++
++	/* if key is longer than 64 bytes reset it to key=MD5(key) */
++	if (key_len > 64) {
++		md5_buffer(key, key_len, tk);
++		key = tk;
++		key_len = 16;
++	}
++	/* start out by storing key in pads */
++	memset(k_ipad, 0, sizeof(k_ipad));
++	memset(k_opad, 0, sizeof(k_opad));
++	memcpy(k_ipad, key, key_len);
++	memcpy(k_opad, key, key_len);
++	/*xor key with ipad and opad values */
++	for (i = 0; i < 64; i++) {
++		k_ipad[i] ^= 0x36;
++		k_opad[i] ^= 0x5c;
++	}
++	/* inner MD5 */
++	md5_init_ctx (&ctx);
++	md5_process_bytes(k_ipad, 64, &ctx);
++	md5_process_bytes(buffer, len, &ctx);
++	md5_finish_ctx (&ctx, resblock);
++	/* outter MD5 */
++	md5_init_ctx (&ctx);
++	md5_process_bytes(k_opad, 64, &ctx);
++	md5_process_bytes(resblock, 16, &ctx);
++	md5_finish_ctx (&ctx, resblock);
++
++	return resblock;
++}

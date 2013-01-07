@@ -1,0 +1,93 @@
+diff -BurpN xl2tpd.orig/avp.c xl2tpd/avp.c
+--- xl2tpd.orig/avp.c	2011-10-06 19:22:05.000000000 +0000
++++ xl2tpd/avp.c	2012-07-19 12:02:52.880575002 +0000
+@@ -18,8 +18,6 @@
+ #include <netinet/in.h>
+ #include "l2tp.h"
+ 
+-#define AVP_MAX 39
+-
+ struct avp avps[] = {
+ 
+     {0, 1, &message_type_avp, "Message Type"},
+@@ -29,12 +27,12 @@ struct avp avps[] = {
+     {4, 1, &bearer_caps_avp, "Bearer Capabilities"},
+     {5, 0, NULL, "Tie Breaker"},
+     {6, 0, &firmware_rev_avp, "Firmware Revision"},
+-    {7, 0, &hostname_avp, "Host Name"},
+-    {8, 1, &vendor_avp, "Vendor Name"},
++    {7, 1, &hostname_avp, "Host Name"},
++    {8, 0, &vendor_avp, "Vendor Name"},
+     {9, 1, &assigned_tunnel_avp, "Assigned Tunnel ID"},
+     {10, 1, &receive_window_size_avp, "Receive Window Size"},
+     {11, 1, &challenge_avp, "Challenge"},
+-    {12, 0, NULL, "Q.931 Cause Code"},
++    {12, 1, NULL, "Q.931 Cause Code"},
+     {13, 1, &chalresp_avp, "Challenge Response"},
+     {14, 1, &assigned_call_avp, "Assigned Call ID"},
+     {15, 1, &call_serno_avp, "Call Serial Number"},
+@@ -47,19 +45,19 @@ struct avp avps[] = {
+     {22, 1, &dialing_number_avp, "Dialing Number"},
+     {23, 1, &sub_address_avp, "Sub-Address"},
+     {24, 1, &tx_speed_avp, "Transmit Connect Speed"},
+-    {25, 1, &call_physchan_avp, "Physical channel ID"},
++    {25, 0, &call_physchan_avp, "Physical channel ID"},
+     {26, 0, NULL, "Initial Received LCP Confreq"},
+     {27, 0, NULL, "Last Sent LCP Confreq"},
+     {28, 0, NULL, "Last Received LCP Confreq"},
+-    {29, 1, &ignore_avp, "Proxy Authen Type"},
++    {29, 0, &ignore_avp, "Proxy Authen Type"},
+     {30, 0, &ignore_avp, "Proxy Authen Name"},
+     {31, 0, &ignore_avp, "Proxy Authen Challenge"},
+     {32, 0, &ignore_avp, "Proxy Authen ID"},
+-    {33, 1, &ignore_avp, "Proxy Authen Response"},
++    {33, 0, &ignore_avp, "Proxy Authen Response"},
+     {34, 1, NULL, "Call Errors"},
+     {35, 1, &ignore_avp, "ACCM"},
+     {36, 1, &rand_vector_avp, "Random Vector"},
+-    {37, 1, NULL, "Private Group ID"},
++    {37, 0, NULL, "Private Group ID"},
+     {38, 0, &rx_speed_avp, "Receive Connect Speed"},
+     {39, 1, &seq_reqd_avp, "Sequencing Required"}
+ };
+diff -BurpN xl2tpd.orig/avp.h xl2tpd/avp.h
+--- xl2tpd.orig/avp.h	2011-10-06 19:22:05.000000000 +0000
++++ xl2tpd/avp.h	2012-07-19 11:59:05.400575002 +0000
+@@ -35,6 +35,10 @@ struct avp
+     char *description;          /* A name, for debugging */
+ };
+ 
++#define AVP_MAX 39
++
++extern struct avp avps[];
++
+ extern int handle_avps (struct buffer *buf, struct tunnel *t, struct call *c);
+ 
+ extern char *msgtypes[];
+diff -BurpN xl2tpd.orig/avpsend.c xl2tpd/avpsend.c
+--- xl2tpd.orig/avpsend.c	2011-10-06 19:22:05.000000000 +0000
++++ xl2tpd/avpsend.c	2012-07-19 12:00:11.900575002 +0000
+@@ -27,7 +27,9 @@ struct half_words {
+ 
+ void add_header(struct buffer *buf, _u8 length, _u16 type) {
+ 	struct avp_hdr *avp = (struct avp_hdr *) (buf->start + buf->len);
+-	avp->length = htons (length | MBIT);
++	if (type <= AVP_MAX && avps[type].m == 0)
++		avp->length = htons (length & ~MBIT);
++	else	avp->length = htons (length | MBIT);
+ 	avp->vendorid = htons (VENDOR_ID);
+ 	avp->attr = htons (type);
+ }
+diff -BurpN xl2tpd.orig/control.c xl2tpd/control.c
+--- xl2tpd.orig/control.c	2011-10-06 19:22:05.000000000 +0000
++++ xl2tpd/control.c	2012-07-19 11:56:38.740575002 +0000
+@@ -811,7 +811,8 @@ int control_finish (struct tunnel *t, st
+         /* FIXME: Packet Processing Delay */
+         /* We don't need any kind of proxy PPP stuff */
+         /* Can we proxy authenticate ourselves??? */
+-        add_rxspeed_avp (buf, t->rxspeed);
++        if (t->txspeed != t->rxspeed)
++            add_rxspeed_avp (buf, t->rxspeed);
+ /* add_seqreqd_avp (buf); *//* We don't have sequencing code, so
+  * don't ask for sequencing */
+         add_control_hdr (t, c, buf);

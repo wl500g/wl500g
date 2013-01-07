@@ -1,0 +1,228 @@
+inet_hashtables: Add inet_lookup_skb helpers
+
+ kernel.org commits
+ 9a1f27c48065ce713eb47f2fd475b717e63ef239 inet_hashtables: Add inet_lookup_skb helpers
+ 607c4aaf03041c8bd81555a0218050c0f895088e inet: Add udplib_lookup_skb() helpers
+ 23542618deb77cfed312842fe8c41ed19fb16470 inet: Don't lookup the socket if there's a socket attached to the skb
+
+---
+
+diff -urBp linux-2.6.22.19/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
+--- linux-2.6.22.19/include/net/inet6_hashtables.h	2008-02-26 02:59:40.000000000 +0300
++++ b/include/net/inet6_hashtables.h	2010-09-24 17:01:42.000000000 +0400
+@@ -84,6 +84,21 @@ static inline struct sock *__inet6_looku
+ 	return inet6_lookup_listener(hashinfo, daddr, hnum, dif);
+ }
+ 
++static inline struct sock *__inet6_lookup_skb(struct inet_hashinfo *hashinfo,
++					      struct sk_buff *skb,
++					      const __be16 sport,
++					      const __be16 dport)
++{
++	struct sock *sk;
++
++	if (unlikely(sk = skb_steal_sock(skb)))
++		return sk;
++	else return __inet6_lookup(hashinfo,
++				   &ipv6_hdr(skb)->saddr, sport,
++				   &ipv6_hdr(skb)->daddr, ntohs(dport),
++				   inet6_iif(skb));
++}
++
+ extern struct sock *inet6_lookup(struct inet_hashinfo *hashinfo,
+ 				 const struct in6_addr *saddr, const __be16 sport,
+ 				 const struct in6_addr *daddr, const __be16 dport,
+diff -urBp linux-2.6.22.19/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+--- linux-2.6.22.19/include/net/inet_hashtables.h	2010-09-24 12:54:37.000000000 +0400
++++ b/include/net/inet_hashtables.h	2010-09-24 17:01:42.000000000 +0400
+@@ -16,6 +16,7 @@
+ 
+ 
+ #include <linux/interrupt.h>
++#include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/list.h>
+ #include <linux/slab.h>
+@@ -28,6 +29,7 @@
+ #include <net/inet_sock.h>
+ #include <net/route.h>
+ #include <net/sock.h>
++#include <net/route.h>
+ #include <net/tcp_states.h>
+ 
+ #include <asm/atomic.h>
+@@ -361,6 +363,22 @@ static inline struct sock *inet_lookup(s
+ 	return sk;
+ }
+ 
++static inline struct sock *__inet_lookup_skb(struct inet_hashinfo *hashinfo,
++					     struct sk_buff *skb,
++					     const __be16 sport,
++					     const __be16 dport)
++{
++	struct sock *sk;
++	const struct iphdr *iph = ip_hdr(skb);
++
++	if (unlikely(sk = skb_steal_sock(skb)))
++		return sk;
++	else
++		return __inet_lookup(hashinfo,
++				     iph->saddr, sport,
++				     iph->daddr, dport, inet_iif(skb));
++}
++
+ extern int __inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 		struct sock *sk, u32 port_offset,
+ 		int (*check_established)(struct inet_timewait_death_row *,
+diff -urBp linux-2.6.22.19/include/net/sock.h b/include/net/sock.h
+--- linux-2.6.22.19/include/net/sock.h	2010-09-24 04:00:00.000000000 +0400
++++ b/include/net/sock.h	2010-09-24 17:01:42.000000000 +0400
+@@ -1317,6 +1317,18 @@ static inline void sk_eat_skb(struct soc
+ }
+ #endif
+ 
++static inline struct sock *skb_steal_sock(struct sk_buff *skb)
++{
++	if (unlikely(skb->sk)) {
++		struct sock *sk = skb->sk;
++
++		skb->destructor = NULL;
++		skb->sk = NULL;
++		return sk;
++	}
++	return NULL;
++}
++
+ extern void sock_enable_timestamp(struct sock *sk);
+ extern int sock_get_timestamp(struct sock *, struct timeval __user *);
+ extern int sock_get_timestampns(struct sock *, struct timespec __user *);
+diff -urBp linux-2.6.22.19/net/dccp/ipv4.c b/net/dccp/ipv4.c
+--- linux-2.6.22.19/net/dccp/ipv4.c	2010-09-24 12:33:27.000000000 +0400
++++ b/net/dccp/ipv4.c	2010-09-24 16:43:36.000000000 +0400
+@@ -850,9 +850,8 @@ static int dccp_v4_rcv(struct sk_buff *s
+ 
+ 	/* Step 2:
+ 	 *	Look up flow ID in table and get corresponding socket */
+-	sk = __inet_lookup(&dccp_hashinfo,
+-			   iph->saddr, dh->dccph_sport,
+-			   iph->daddr, dh->dccph_dport, inet_iif(skb));
++	sk = __inet_lookup_skb(&dccp_hashinfo, skb,
++			       dh->dccph_sport, dh->dccph_dport);
+ 	/*
+ 	 * Step 2:
+ 	 *	If no socket ...
+diff -urBp linux-2.6.22.19/net/dccp/ipv6.c b/net/dccp/ipv6.c
+--- linux-2.6.22.19/net/dccp/ipv6.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/dccp/ipv6.c	2010-09-24 16:43:36.000000000 +0400
+@@ -846,10 +846,8 @@ static int dccp_v6_rcv(struct sk_buff **
+ 
+ 	/* Step 2:
+ 	 *	Look up flow ID in table and get corresponding socket */
+-	sk = __inet6_lookup(&dccp_hashinfo, &ipv6_hdr(skb)->saddr,
+-			    dh->dccph_sport,
+-			    &ipv6_hdr(skb)->daddr, ntohs(dh->dccph_dport),
+-			    inet6_iif(skb));
++	sk = __inet6_lookup_skb(&dccp_hashinfo, skb,
++			        dh->dccph_sport, dh->dccph_dport);
+ 	/*
+ 	 * Step 2:
+ 	 *	If no socket ...
+diff -urBp linux-2.6.22.19/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+--- linux-2.6.22.19/net/ipv4/tcp_ipv4.c	2010-09-24 12:33:27.000000000 +0400
++++ b/net/ipv4/tcp_ipv4.c	2010-09-24 16:43:36.000000000 +0400
+@@ -1656,8 +1656,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	TCP_SKB_CB(skb)->flags	 = iph->tos;
+ 	TCP_SKB_CB(skb)->sacked	 = 0;
+ 
+-	sk = __inet_lookup(&tcp_hashinfo, iph->saddr, th->source,
+-			   iph->daddr, th->dest, inet_iif(skb));
++	sk = __inet_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest);
+ 	if (!sk)
+ 		goto no_tcp_socket;
+ 
+diff -urBp linux-2.6.22.19/net/ipv4/udp.c b/net/ipv4/udp.c
+--- linux-2.6.22.19/net/ipv4/udp.c	2010-09-24 04:00:00.000000000 +0400
++++ b/net/ipv4/udp.c	2010-09-24 17:01:42.000000000 +0400
+@@ -293,6 +293,21 @@ static struct sock *__udp4_lib_lookup(__
+ 	return result;
+ }
+ 
++static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
++						 __be16 sport, __be16 dport,
++						 struct hlist_head udptable[])
++{
++	struct sock *sk;
++	const struct iphdr *iph = ip_hdr(skb);
++
++	if (unlikely(sk = skb_steal_sock(skb)))
++		return sk;
++	else
++		return __udp4_lib_lookup(iph->saddr, sport,
++					 iph->daddr, dport, skb->dev->ifindex,
++					 udptable);
++}
++
+ static inline struct sock *udp_v4_mcast_next(struct sock *sk,
+ 					     __be16 loc_port, __be32 loc_addr,
+ 					     __be16 rmt_port, __be32 rmt_addr,
+@@ -1149,8 +1164,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, 
+ 	if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
+ 		return __udp4_lib_mcast_deliver(skb, uh, saddr, daddr, udptable);
+ 
+-	sk = __udp4_lib_lookup(saddr, uh->source, daddr, uh->dest,
+-			       skb->dev->ifindex, udptable        );
++	sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 
+ 	if (sk != NULL) {
+ 		int ret = udp_queue_rcv_skb(sk, skb);
+diff -urBp linux-2.6.22.19/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+--- linux-2.6.22.19/net/ipv6/tcp_ipv6.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/ipv6/tcp_ipv6.c	2010-09-24 16:43:36.000000000 +0400
+@@ -1726,10 +1726,7 @@ static int tcp_v6_rcv(struct sk_buff **p
+ 	TCP_SKB_CB(skb)->flags = ipv6_get_dsfield(ipv6_hdr(skb));
+ 	TCP_SKB_CB(skb)->sacked = 0;
+ 
+-	sk = __inet6_lookup(&tcp_hashinfo, &ipv6_hdr(skb)->saddr, th->source,
+-			    &ipv6_hdr(skb)->daddr, ntohs(th->dest),
+-			    inet6_iif(skb));
+-
++	sk = __inet6_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest);
+ 	if (!sk)
+ 		goto no_tcp_socket;
+ 
+diff -urBp linux-2.6.22.19/net/ipv6/udp.c b/net/ipv6/udp.c
+--- linux-2.6.22.19/net/ipv6/udp.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/ipv6/udp.c	2010-09-24 17:01:42.000000000 +0400
+@@ -108,6 +108,21 @@ static struct sock *__udp6_lib_lookup(st
+ 	return result;
+ }
+ 
++static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
++					  __be16 sport, __be16 dport,
++					  struct hlist_head udptable[])
++{
++	struct sock *sk;
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++
++	if (unlikely(sk = skb_steal_sock(skb)))
++		return sk;
++	else
++		return __udp6_lib_lookup(&iph->saddr, sport,
++					 &iph->daddr, dport, inet6_iif(skb),
++					 udptable);
++}
++
+ /*
+  * 	This should be easy, if there is something there we
+  * 	return it, otherwise we block.
+@@ -460,8 +475,7 @@ int __udp6_lib_rcv(struct sk_buff **pskb
+ 	 * check socket cache ... must talk to Alan about his plans
+ 	 * for sock caches... i'll skip this for now.
+ 	 */
+-	sk = __udp6_lib_lookup(saddr, uh->source,
+-			       daddr, uh->dest, inet6_iif(skb), udptable);
++	sk = __udp6_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 
+ 	if (sk == NULL) {
+ 		if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+-- 

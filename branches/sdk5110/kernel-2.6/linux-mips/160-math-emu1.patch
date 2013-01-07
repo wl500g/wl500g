@@ -1,0 +1,150 @@
+From e70dfc10b99ebffa1f464b1b9290df2589284f70
+From: Atsushi Nemoto
+Date: Fri, 13 Jul 2007 23:02:29 +0900
+Subject: [PATCH] [MIPS] math-emu minor cleanup
+
+Declaring emulpc and contpc as "unsigned long" can get rid of some casts.
+This also get rid of some sparse warnings.
+
+Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+From 8142294dda12d5fd7615eed7986ad0d276793c03
+From: Richard Knutsson
+Date: Sat, 24 Nov 2007 22:22:19 +0100
+Subject: [PATCH] [MIPS] Compliment va_start() with va_end().
+
+Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ arch/mips/math-emu/cp1emu.c    |   19 +++++++++----------
+ arch/mips/math-emu/ieee754.c   |    2 ++
+ arch/mips/math-emu/ieee754dp.c |    2 ++
+ arch/mips/math-emu/ieee754sp.c |    2 ++
+ 4 files changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/arch/mips/math-emu/cp1emu.c b/arch/mips/math-emu/cp1emu.c
+--- a/arch/mips/math-emu/cp1emu.c
++++ b/arch/mips/math-emu/cp1emu.c
+@@ -205,7 +205,7 @@ static int isBranchInstr(mips_instruction * i)
+ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx)
+ {
+ 	mips_instruction ir;
+-	void * emulpc, *contpc;
++	unsigned long emulpc, contpc;
+ 	unsigned int cond;
+ 
+ 	if (get_user(ir, (mips_instruction __user *) xcp->cp0_epc)) {
+@@ -230,7 +230,7 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx)
+ 		 * Linux MIPS branch emulator operates on context, updating the
+ 		 * cp0_epc.
+ 		 */
+-		emulpc = (void *) (xcp->cp0_epc + 4);	/* Snapshot emulation target */
++		emulpc = xcp->cp0_epc + 4;	/* Snapshot emulation target */
+ 
+ 		if (__compute_return_epc(xcp)) {
+ #ifdef CP1DBG
+@@ -244,12 +244,12 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx)
+ 			return SIGBUS;
+ 		}
+ 		/* __compute_return_epc() will have updated cp0_epc */
+-		contpc = (void *)  xcp->cp0_epc;
++		contpc = xcp->cp0_epc;
+ 		/* In order not to confuse ptrace() et al, tweak context */
+-		xcp->cp0_epc = (unsigned long) emulpc - 4;
++		xcp->cp0_epc = emulpc - 4;
+ 	} else {
+-		emulpc = (void *)  xcp->cp0_epc;
+-		contpc = (void *) (xcp->cp0_epc + 4);
++		emulpc = xcp->cp0_epc;
++		contpc = xcp->cp0_epc + 4;
+ 	}
+ 
+       emul:
+@@ -427,8 +427,7 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx)
+ 				 * instruction
+ 				 */
+ 				xcp->cp0_epc += 4;
+-				contpc = (void *)
+-					(xcp->cp0_epc +
++				contpc = (xcp->cp0_epc +
+ 					(MIPSInst_SIMM(ir) << 2));
+ 
+ 				if (get_user(ir,
+@@ -462,7 +461,7 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx)
+ 				 * Single step the non-cp1
+ 				 * instruction in the dslot
+ 				 */
+-				return mips_dsemul(xcp, ir, (unsigned long) contpc);
++				return mips_dsemul(xcp, ir, contpc);
+ 			}
+ 			else {
+ 				/* branch not taken */
+@@ -521,7 +520,7 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx)
+ 	}
+ 
+ 	/* we did it !! */
+-	xcp->cp0_epc = (unsigned long) contpc;
++	xcp->cp0_epc = contpc;
+ 	xcp->cp0_cause &= ~CAUSEF_BD;
+ 
+ 	return 0;
+diff --git a/arch/mips/math-emu/ieee754.c b/arch/mips/math-emu/ieee754.c
+--- a/arch/mips/math-emu/ieee754.c
++++ b/arch/mips/math-emu/ieee754.c
+@@ -108,6 +108,7 @@ int ieee754si_xcpt(int r, const char *op, ...)
+ 	ax.rv.si = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.si;
+ }
+ 
+@@ -122,5 +123,6 @@ s64 ieee754di_xcpt(s64 r, const char *op, ...)
+ 	ax.rv.di = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.di;
+ }
+diff --git a/arch/mips/math-emu/ieee754dp.c b/arch/mips/math-emu/ieee754dp.c
+--- a/arch/mips/math-emu/ieee754dp.c
++++ b/arch/mips/math-emu/ieee754dp.c
+@@ -57,6 +57,7 @@ ieee754dp ieee754dp_xcpt(ieee754dp r, const char *op, ...)
+ 	ax.rv.dp = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.dp;
+ }
+ 
+@@ -83,6 +84,7 @@ ieee754dp ieee754dp_nanxcpt(ieee754dp r, const char *op, ...)
+ 	ax.rv.dp = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.dp;
+ }
+ 
+diff --git a/arch/mips/math-emu/ieee754sp.c b/arch/mips/math-emu/ieee754sp.c
+--- a/arch/mips/math-emu/ieee754sp.c
++++ b/arch/mips/math-emu/ieee754sp.c
+@@ -58,6 +58,7 @@ ieee754sp ieee754sp_xcpt(ieee754sp r, const char *op, ...)
+ 	ax.rv.sp = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.sp;
+ }
+ 
+@@ -84,6 +85,7 @@ ieee754sp ieee754sp_nanxcpt(ieee754sp r, const char *op, ...)
+ 	ax.rv.sp = r;
+ 	va_start(ax.ap, op);
+ 	ieee754_xcpt(&ax);
++	va_end(ax.ap);
+ 	return ax.rv.sp;
+ }
+ 
+-- 

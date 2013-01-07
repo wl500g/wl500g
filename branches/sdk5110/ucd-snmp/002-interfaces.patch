@@ -1,0 +1,146 @@
+diff -ur ucdsnmp/agent/mibgroup/mibII/interfaces.c ucdsnmp.interfaces/agent/mibgroup/mibII/interfaces.c
+--- ucdsnmp/agent/mibgroup/mibII/interfaces.c	1999-06-05 16:47:18.000000000 +0400
++++ ucdsnmp.interfaces/agent/mibgroup/mibII/interfaces.c	2005-05-28 20:28:20.962721912 +0400
+@@ -1233,16 +1233,14 @@
+ Interface_Scan_Init (void)
+ {
+ #ifdef linux
+-    char line [256], fullname [64], ifname_buf [64], *ifname, *ptr;
++    char line [256], ifname_buf [64], *ifname, *ptr;
+     struct ifreq ifrq;
+     struct ifnet **ifnetaddr_ptr;
+     FILE *devin;
+-    int a, b, c, d, e, i, fd;
++    int i, fd;
++    u_long ibytes, iqdrops, ipackets, ierrors, obytes, oqdrops, opackets, oerrors, collisions;
+     extern conf_if_list *if_list;
+     conf_if_list *if_ptr;
+-    char *scan_line_2_2="%[^:]: %*d %d %d %*d %*d %*d %*d %*d %*d %d %d %*d %*d %d";
+-    char *scan_line_2_0="%[^:]: %d %d %*d %*d %*d %d %d %*d %*d %d";
+-    char *scan_line_to_use;
+     
+ #endif  
+ 
+@@ -1256,6 +1254,7 @@
+ 	struct ifnet *old = ifnetaddr_list;
+ 	ifnetaddr_list = ifnetaddr_list->if_next;
+ 	free (old->if_name);
++	free (old->if_unit);
+ 	free (old);
+       }
+ 
+@@ -1288,21 +1287,13 @@
+        much work for today.  -- Wes */
+     fgets(line, sizeof(line), devin);
+     fgets(line, sizeof(line), devin);
+-    if (strstr(line, "compressed")) {
+-      scan_line_to_use = scan_line_2_2;
+-      DEBUGMSGTL(("mibII/interfaces", "using linux 2.2 kernel /proc/net/dev\n"));
+-    } else {
+-      scan_line_to_use = scan_line_2_0;
+-      DEBUGMSGTL(("mibII/interfaces", "using linux 2.0 kernel /proc/net/dev\n"));
+-    }
+-    
+       
+     while (fgets (line, sizeof(line), devin))
+       {
+ 	struct ifnet *nnew;
+ 
+-	if (6 != sscanf (line, scan_line_to_use,
+-			 ifname_buf, &a, &b, &c, &d, &e))
++	if (10 != sscanf (line, "%[^:]: %lu %lu %lu %lu %*lu %*lu %*lu %*lu %lu %lu %lu %lu %*lu %lu",
++		ifname_buf, &ibytes, &ipackets, &ierrors, &iqdrops, &obytes, &opackets, &oerrors, &oqdrops, &collisions))
+ 	  continue;
+ 	
+ 	nnew = (struct ifnet *) malloc (sizeof (struct ifnet));	    
+@@ -1313,12 +1304,9 @@
+ 	ifnetaddr_ptr = &nnew->if_next;
+ 	i++;
+ 	
+-	/* linux previous to 1.3.~13 may miss transmitted loopback pkts: */
+-	if (! strcmp (ifname_buf, "lo") && a > 0 && ! c)
+-	  c = a;
+-
+-	nnew->if_ipackets = a, nnew->if_ierrors = b, nnew->if_opackets = c,
+-	nnew->if_oerrors = d, nnew->if_collisions = e;
++	nnew->if_ibytes = ibytes, nnew->if_ipackets = ipackets, nnew->if_ierrors = ierrors, 
++	nnew->if_obytes = obytes, nnew->if_opackets = opackets, nnew->if_oerrors = oerrors, 
++	nnew->if_iqdrops = iqdrops, nnew->if_snd.ifq_drops = oqdrops, nnew->if_collisions = collisions;
+ 	
+ 	/* ifnames are given as ``   eth0'': split in ``eth'' and ``0'': */
+ 	for (ifname = ifname_buf; *ifname && *ifname == ' '; ifname++) ;
+@@ -1327,11 +1315,9 @@
+ 	nnew->if_name = (char *) strdup (ifname);
+ 	for (ptr = nnew->if_name; *ptr && (*ptr < '0' || *ptr > '9'); 
+ 	     ptr++) ;
+-	nnew->if_unit = (*ptr) ? atoi (ptr) : 0;
++	nnew->if_unit = strdup(*ptr ? ptr : "");
+ 	*ptr = 0;
+ 
+-	sprintf (fullname, "%s%d", nnew->if_name, nnew->if_unit);
+-
+ 	strcpy (ifrq.ifr_name, ifname);
+ 	if (ioctl (fd, SIOCGIFADDR, &ifrq) < 0)
+ 	  memset ((char *) &nnew->if_addr, 0, sizeof (nnew->if_addr));
+@@ -1369,7 +1355,7 @@
+ 			  ? 0 : ifrq.ifr_mtu;
+ 
+ 	for (if_ptr = if_list; if_ptr; if_ptr = if_ptr->next)
+-	    if (! strcmp (if_ptr->name, fullname))
++	    if (! strcmp (if_ptr->name, ifname))
+ 	      break;
+ 
+ 	if (if_ptr) {
+@@ -1438,7 +1424,12 @@
+ 
+  	    saveName[sizeof (saveName)-1] = '\0';
+ 	    cp = (char *) strchr(saveName, '\0');
++#ifdef linux
++	    strncat (cp, ifnet.if_unit, sizeof(saveName)-strlen(saveName)-1);
++	    saveName[sizeof (saveName)-1] = '\0';
++#else
+ 	    string_append_int (cp, ifnet.if_unit);
++#endif
+ 	    if (1 || strcmp(saveName,"lo0") != 0) {  /* XXX */
+ 
+ 		if (Index)
+diff -ur ucdsnmp/agent/mibgroup/mibII/interfaces.h ucdsnmp.interfaces/agent/mibgroup/mibII/interfaces.h
+--- ucdsnmp/agent/mibgroup/mibII/interfaces.h	1999-02-09 10:18:00.000000000 +0300
++++ ucdsnmp.interfaces/agent/mibgroup/mibII/interfaces.h	2005-05-28 16:37:42.000000000 +0400
+@@ -54,14 +54,14 @@
+ 
+ struct ifnet {
+ 	char	*if_name;		/* name, e.g. ``en'' or ``lo'' */
+-	short	if_unit;		/* sub-unit for lower level driver */
++	char	*if_unit;		/* sub-unit for lower level driver */
+ 	short	if_mtu;			/* maximum transmission unit */
+ 	short	if_flags;		/* up/down, broadcast, etc. */
+ 	int	if_metric;		/* routing metric (external only) */
+ 	char    if_hwaddr [6];		/* ethernet address */
+ 	int	if_type;		/* interface type: 1=generic,
+ 					   28=slip, ether=6, loopback=24 */
+-	int	if_speed;		/* interface speed: in bits/sec */
++	u_long	if_speed;		/* interface speed: in bits/sec */
+ 
+ 	struct sockaddr if_addr;	/* interface's address */
+ 	struct sockaddr ifu_broadaddr;	/* broadcast address */
+@@ -71,11 +71,14 @@
+ 		int	ifq_len;
+ 		int	ifq_drops;
+ 	} if_snd;			/* output queue */
+-	int	if_ipackets;		/* packets received on interface */
+-	int	if_ierrors;		/* input errors on interface */
+-	int	if_opackets;		/* packets sent on interface */
+-	int	if_oerrors;		/* output errors on interface */
+-	int	if_collisions;		/* collisions on csma interfaces */
++	u_long	if_ibytes;		/* octets received on interface */
++	u_long	if_iqdrops;		/* input queue overruns */
++	u_long	if_ipackets;		/* packets received on interface */
++	u_long	if_ierrors;		/* input errors on interface */
++	u_long	if_obytes;		/* octets sent on interface */
++	u_long	if_opackets;		/* packets sent on interface */
++	u_long	if_oerrors;		/* output errors on interface */
++	u_long	if_collisions;		/* collisions on csma interfaces */
+ /* end statistics */
+ 	struct	ifnet *if_next;
+ };

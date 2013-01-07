@@ -1,0 +1,72 @@
+fs: splice: Fixes from upstream
+
+ cc56f7de7f00d188c7c4da1e9861581853b9e92f sendfile(): check f_op.splice_write() rather than f_op.sendpage()
+ 2cb4b05e7647891b46b91c07c9a60304803d1688 splice: direct_splice_actor() should not use pos in sd
+
+---
+ fs/read_write.c |    2 --
+ fs/splice.c     |   17 +++++++++++------
+ 2 files changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/fs/read_write.c b/fs/read_write.c
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -826,8 +826,6 @@ static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
+ 	if (!(out_file->f_mode & FMODE_WRITE))
+ 		goto fput_out;
+ 	retval = -EINVAL;
+-	if (!out_file->f_op || !out_file->f_op->sendpage)
+-		goto fput_out;
+ 	out_inode = out_file->f_path.dentry->d_inode;
+ 	retval = rw_verify_area(WRITE, out_file, &out_file->f_pos, count);
+ 
+diff --git a/fs/splice.c b/fs/splice.c
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -648,9 +648,11 @@ static int pipe_to_sendpage(struct pipe_inode_info *pipe,
+ 	ret = buf->ops->confirm(pipe, buf);
+ 	if (!ret) {
+ 		more = (sd->flags & SPLICE_F_MORE) || sd->len < sd->total_len;
+-
+-		ret = file->f_op->sendpage(file, buf->page, buf->offset,
+-					   sd->len, &pos, more);
++		if (file->f_op && file->f_op->sendpage)
++			ret = file->f_op->sendpage(file, buf->page, buf->offset,
++						   sd->len, &pos, more);
++		else
++			ret = -EINVAL;
+ 	}
+ 
+ 	return ret;
+@@ -1282,7 +1282,8 @@ static int direct_splice_actor(struct pipe_inode_info *pipe,
+ {
+ 	struct file *file = sd->u.file;
+ 
+-	return do_splice_from(pipe, file, &sd->pos, sd->total_len, sd->flags);
++	return do_splice_from(pipe, file, &file->f_pos, sd->total_len,
++			      sd->flags);
+ }
+ 
+ /**
+@@ -1316,7 +1320,8 @@ static long do_splice(struct file *in, loff_t __user *off_in,
+ 		if (off_in)
+ 			return -ESPIPE;
+ 		if (off_out) {
+-			if (out->f_op->llseek == no_llseek)
++			if (!out->f_op || !out->f_op->llseek ||
++			    out->f_op->llseek == no_llseek)
+ 				return -EINVAL;
+ 			if (copy_from_user(&offset, off_out, sizeof(loff_t)))
+ 				return -EFAULT;
+@@ -1336,7 +1341,8 @@ static long do_splice(struct file *in, loff_t __user *off_in,
+ 		if (off_out)
+ 			return -ESPIPE;
+ 		if (off_in) {
+-			if (in->f_op->llseek == no_llseek)
++			if (!in->f_op || !in->f_op->llseek ||
++			    in->f_op->llseek == no_llseek)
+ 				return -EINVAL;
+ 			if (copy_from_user(&offset, off_in, sizeof(loff_t)))
+ 				return -EFAULT;
+-- 
+1.7.6.2

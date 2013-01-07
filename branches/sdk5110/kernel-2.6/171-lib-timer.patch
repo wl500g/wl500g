@@ -1,0 +1,495 @@
+timer: Updates from upstream
+
+ kernel.org commits
+ 9c133c469d38043d5aadaa03f2fb840d88d1cf4f Add round_jiffies_up and related routines
+ 4841158b26e28e1476eed84c7347c18f11317750 timer: Avoid reading uninitialized data
+ 97fd9ed48ce2b807edc363bef3e817aeeb5cd5e6 timers: Cache __next_timer_interrupt result
+ 5e7f5a178bba45c5aca3448fddecabd4e28f1f6b timer: Added usleep_range timer
+ 0fcb80818bc3ade5befd409051089f710adcf7b0 Documentation: Add timers/timers-howto.txt
+ 5cba6d22e35a05adb28fdea191b232501518c455 ndelay(): switch to C function to avoid 64-bit division
+ 26cff4e2aa4d666dc6a120ea34336b5057e3e187 timers: Fix endless looping between cascade() and internal_add_timer()
+
+---
+ Documentation/timers/timers-howto.txt |  105 +++++++++++++++++++
+ include/linux/delay.h                 |    9 +
+ include/linux/timer.h                 |    5 
+ kernel/timer.c                        |  187 +++++++++++++++++++++++++++-------
+ 4 files changed, 269 insertions(+), 37 deletions(-)
+
+diff --git a/Documentation/timers/timers-howto.txt b/Documentation/timers/timers-howto.txt
+new file mode 100644
+--- /dev/null
++++ b/Documentation/timers/timers-howto.txt
+@@ -0,0 +1,105 @@
++delays - Information on the various kernel delay / sleep mechanisms
++-------------------------------------------------------------------
++
++This document seeks to answer the common question: "What is the
++RightWay (TM) to insert a delay?"
++
++This question is most often faced by driver writers who have to
++deal with hardware delays and who may not be the most intimately
++familiar with the inner workings of the Linux Kernel.
++
++
++Inserting Delays
++----------------
++
++The first, and most important, question you need to ask is "Is my
++code in an atomic context?"  This should be followed closely by "Does
++it really need to delay in atomic context?" If so...
++
++ATOMIC CONTEXT:
++	You must use the *delay family of functions. These
++	functions use the jiffie estimation of clock speed
++	and will busy wait for enough loop cycles to achieve
++	the desired delay:
++
++	ndelay(unsigned long nsecs)
++	udelay(unsigned long usecs)
++	mdelay(unsgined long msecs)
++
++	udelay is the generally preferred API; ndelay-level
++	precision may not actually exist on many non-PC devices.
++
++	mdelay is macro wrapper around udelay, to account for
++	possible overflow when passing large arguments to udelay.
++	In general, use of mdelay is discouraged and code should
++	be refactored to allow for the use of msleep.
++
++NON-ATOMIC CONTEXT:
++	You should use the *sleep[_range] family of functions.
++	There are a few more options here, while any of them may
++	work correctly, using the "right" sleep function will
++	help the scheduler, power management, and just make your
++	driver better :)
++
++	-- Backed by busy-wait loop:
++		udelay(unsigned long usecs)
++	-- Backed by hrtimers:
++		usleep_range(unsigned long min, unsigned long max)
++	-- Backed by jiffies / legacy_timers
++		msleep(unsigned long msecs)
++		msleep_interruptible(unsigned long msecs)
++
++	Unlike the *delay family, the underlying mechanism
++	driving each of these calls varies, thus there are
++	quirks you should be aware of.
++
++
++	SLEEPING FOR "A FEW" USECS ( < ~10us? ):
++		* Use udelay
++
++		- Why not usleep?
++			On slower systems, (embedded, OR perhaps a speed-
++			stepped PC!) the overhead of setting up the hrtimers
++			for usleep *may* not be worth it. Such an evaluation
++			will obviously depend on your specific situation, but
++			it is something to be aware of.
++
++	SLEEPING FOR ~USECS OR SMALL MSECS ( 10us - 20ms):
++		* Use usleep_range
++
++		- Why not msleep for (1ms - 20ms)?
++			Explained originally here:
++				http://lkml.org/lkml/2007/8/3/250
++			msleep(1~20) may not do what the caller intends, and
++			will often sleep longer (~20 ms actual sleep for any
++			value given in the 1~20ms range). In many cases this
++			is not the desired behavior.
++
++		- Why is there no "usleep" / What is a good range?
++			Since usleep_range is built on top of hrtimers, the
++			wakeup will be very precise (ish), thus a simple
++			usleep function would likely introduce a large number
++			of undesired interrupts.
++
++			With the introduction of a range, the scheduler is
++			free to coalesce your wakeup with any other wakeup
++			that may have happened for other reasons, or at the
++			worst case, fire an interrupt for your upper bound.
++
++			The larger a range you supply, the greater a chance
++			that you will not trigger an interrupt; this should
++			be balanced with what is an acceptable upper bound on
++			delay / performance for your specific code path. Exact
++			tolerances here are very situation specific, thus it
++			is left to the caller to determine a reasonable range.
++
++	SLEEPING FOR LARGER MSECS ( 10ms+ )
++		* Use msleep or possibly msleep_interruptible
++
++		- What's the difference?
++			msleep sets the current task to TASK_UNINTERRUPTIBLE
++			whereas msleep_interruptible sets the current task to
++			TASK_INTERRUPTIBLE before scheduling the sleep. In
++			short, the difference is whether the sleep can be ended
++			early by a signal. In general, just use msleep unless
++			you know you have a need for the interruptible variant.
+diff --git a/include/linux/delay.h b/include/linux/delay.h
+--- a/include/linux/delay.h
++++ b/include/linux/delay.h
+@@ -7,6 +7,8 @@
+  * Delay routines, using a pre-computed "loops_per_jiffy" value.
+  */
+ 
++#include <linux/kernel.h>
++
+ extern unsigned long loops_per_jiffy;
+ 
+ #include <asm/delay.h>
+@@ -32,12 +34,17 @@ extern unsigned long loops_per_jiffy;
+ #endif
+ 
+ #ifndef ndelay
+-#define ndelay(x)	udelay(((x)+999)/1000)
++static inline void ndelay(unsigned long x)
++{
++	udelay(DIV_ROUND_UP(x, 1000));
++}
++#define ndelay(x) ndelay(x)
+ #endif
+ 
+ void calibrate_delay(void);
+ void msleep(unsigned int msecs);
+ unsigned long msleep_interruptible(unsigned int msecs);
++void usleep_range(unsigned long min, unsigned long max);
+ 
+ static inline void ssleep(unsigned int seconds)
+ {
+diff --git a/include/linux/timer.h b/include/linux/timer.h
+--- a/include/linux/timer.h
++++ b/include/linux/timer.h
+@@ -186,4 +186,9 @@ unsigned long __round_jiffies_relative(unsigned long j, int cpu);
+ unsigned long round_jiffies(unsigned long j);
+ unsigned long round_jiffies_relative(unsigned long j);
+ 
++unsigned long __round_jiffies_up(unsigned long j, int cpu);
++unsigned long __round_jiffies_up_relative(unsigned long j, int cpu);
++unsigned long round_jiffies_up(unsigned long j);
++unsigned long round_jiffies_up_relative(unsigned long j);
++
+ #endif
+diff --git a/kernel/timer.c b/kernel/timer.c
+--- a/kernel/timer.c
++++ b/kernel/timer.c
+@@ -56,6 +56,7 @@ EXPORT_SYMBOL(jiffies_64);
+ #define TVR_SIZE (1 << TVR_BITS)
+ #define TVN_MASK (TVN_SIZE - 1)
+ #define TVR_MASK (TVR_SIZE - 1)
++#define MAX_TVAL ((unsigned long)((1ULL << (TVR_BITS + 4*TVN_BITS)) - 1))
+ 
+ typedef struct tvec_s {
+ 	struct list_head vec[TVN_SIZE];
+@@ -72,6 +72,7 @@ struct tvec_base {
+ 	spinlock_t lock;
+ 	struct timer_list *running_timer;
+ 	unsigned long timer_jiffies;
++	unsigned long next_timer;
+ 	tvec_root_t tv1;
+ 	tvec_t tv2;
+ 	tvec_t tv3;
+@@ -112,27 +112,8 @@ timer_set_base(struct timer_list *timer, struct tvec_base *new_base)
+ 				      tbase_get_deferrable(timer->base));
+ }
+ 
+-/**
+- * __round_jiffies - function to round jiffies to a full second
+- * @j: the time in (absolute) jiffies that should be rounded
+- * @cpu: the processor number on which the timeout will happen
+- *
+- * __round_jiffies() rounds an absolute time in the future (in jiffies)
+- * up or down to (approximately) full seconds. This is useful for timers
+- * for which the exact time they fire does not matter too much, as long as
+- * they fire approximately every X seconds.
+- *
+- * By rounding these timers to whole seconds, all such timers will fire
+- * at the same time, rather than at various times spread out. The goal
+- * of this is to have the CPU wake up less, which saves power.
+- *
+- * The exact rounding is skewed for each processor to avoid all
+- * processors firing at the exact same time, which could lead
+- * to lock contention or spurious cache line bouncing.
+- *
+- * The return value is the rounded version of the @j parameter.
+- */
+-unsigned long __round_jiffies(unsigned long j, int cpu)
++static unsigned long round_jiffies_common(unsigned long j, int cpu,
++		bool force_up)
+ {
+ 	int rem;
+ 	unsigned long original = j;
+@@ -154,8 +135,9 @@ unsigned long __round_jiffies(unsigned long j, int cpu)
+ 	 * due to delays of the timer irq, long irq off times etc etc) then
+ 	 * we should round down to the whole second, not up. Use 1/4th second
+ 	 * as cutoff for this rounding as an extreme upper bound for this.
++	 * But never round down if @force_up is set.
+ 	 */
+-	if (rem < HZ/4) /* round down */
++	if (rem < HZ/4 && !force_up) /* round down */
+ 		j = j - rem;
+ 	else /* round up */
+ 		j = j - rem + HZ;
+@@ -167,6 +149,31 @@ unsigned long __round_jiffies(unsigned long j, int cpu)
+ 		return original;
+ 	return j;
+ }
++
++/**
++ * __round_jiffies - function to round jiffies to a full second
++ * @j: the time in (absolute) jiffies that should be rounded
++ * @cpu: the processor number on which the timeout will happen
++ *
++ * __round_jiffies() rounds an absolute time in the future (in jiffies)
++ * up or down to (approximately) full seconds. This is useful for timers
++ * for which the exact time they fire does not matter too much, as long as
++ * they fire approximately every X seconds.
++ *
++ * By rounding these timers to whole seconds, all such timers will fire
++ * at the same time, rather than at various times spread out. The goal
++ * of this is to have the CPU wake up less, which saves power.
++ *
++ * The exact rounding is skewed for each processor to avoid all
++ * processors firing at the exact same time, which could lead
++ * to lock contention or spurious cache line bouncing.
++ *
++ * The return value is the rounded version of the @j parameter.
++ */
++unsigned long __round_jiffies(unsigned long j, int cpu)
++{
++	return round_jiffies_common(j, cpu, false);
++}
+ EXPORT_SYMBOL_GPL(__round_jiffies);
+ 
+ /**
+@@ -191,13 +198,10 @@ EXPORT_SYMBOL_GPL(__round_jiffies);
+  */
+ unsigned long __round_jiffies_relative(unsigned long j, int cpu)
+ {
+-	/*
+-	 * In theory the following code can skip a jiffy in case jiffies
+-	 * increments right between the addition and the later subtraction.
+-	 * However since the entire point of this function is to use approximate
+-	 * timeouts, it's entirely ok to not handle that.
+-	 */
+-	return  __round_jiffies(j + jiffies, cpu) - jiffies;
++	unsigned long j0 = jiffies;
++
++	/* Use j0 because jiffies might change while we run */
++	return round_jiffies_common(j + j0, cpu, false) - j0;
+ }
+ EXPORT_SYMBOL_GPL(__round_jiffies_relative);
+ 
+@@ -218,7 +222,7 @@ EXPORT_SYMBOL_GPL(__round_jiffies_relative);
+  */
+ unsigned long round_jiffies(unsigned long j)
+ {
+-	return __round_jiffies(j, raw_smp_processor_id());
++	return round_jiffies_common(j, raw_smp_processor_id(), false);
+ }
+ EXPORT_SYMBOL_GPL(round_jiffies);
+ 
+@@ -243,6 +247,71 @@ unsigned long round_jiffies_relative(unsigned long j)
+ }
+ EXPORT_SYMBOL_GPL(round_jiffies_relative);
+ 
++/**
++ * __round_jiffies_up - function to round jiffies up to a full second
++ * @j: the time in (absolute) jiffies that should be rounded
++ * @cpu: the processor number on which the timeout will happen
++ *
++ * This is the same as __round_jiffies() except that it will never
++ * round down.  This is useful for timeouts for which the exact time
++ * of firing does not matter too much, as long as they don't fire too
++ * early.
++ */
++unsigned long __round_jiffies_up(unsigned long j, int cpu)
++{
++	return round_jiffies_common(j, cpu, true);
++}
++EXPORT_SYMBOL_GPL(__round_jiffies_up);
++
++/**
++ * __round_jiffies_up_relative - function to round jiffies up to a full second
++ * @j: the time in (relative) jiffies that should be rounded
++ * @cpu: the processor number on which the timeout will happen
++ *
++ * This is the same as __round_jiffies_relative() except that it will never
++ * round down.  This is useful for timeouts for which the exact time
++ * of firing does not matter too much, as long as they don't fire too
++ * early.
++ */
++unsigned long __round_jiffies_up_relative(unsigned long j, int cpu)
++{
++	unsigned long j0 = jiffies;
++
++	/* Use j0 because jiffies might change while we run */
++	return round_jiffies_common(j + j0, cpu, true) - j0;
++}
++EXPORT_SYMBOL_GPL(__round_jiffies_up_relative);
++
++/**
++ * round_jiffies_up - function to round jiffies up to a full second
++ * @j: the time in (absolute) jiffies that should be rounded
++ *
++ * This is the same as round_jiffies() except that it will never
++ * round down.  This is useful for timeouts for which the exact time
++ * of firing does not matter too much, as long as they don't fire too
++ * early.
++ */
++unsigned long round_jiffies_up(unsigned long j)
++{
++	return round_jiffies_common(j, raw_smp_processor_id(), true);
++}
++EXPORT_SYMBOL_GPL(round_jiffies_up);
++
++/**
++ * round_jiffies_up_relative - function to round jiffies up to a full second
++ * @j: the time in (relative) jiffies that should be rounded
++ *
++ * This is the same as round_jiffies_relative() except that it will never
++ * round down.  This is useful for timeouts for which the exact time
++ * of firing does not matter too much, as long as they don't fire too
++ * early.
++ */
++unsigned long round_jiffies_up_relative(unsigned long j)
++{
++	return __round_jiffies_up_relative(j, raw_smp_processor_id());
++}
++EXPORT_SYMBOL_GPL(round_jiffies_up_relative);
++
+ 
+ static inline void set_running_timer(struct tvec_base *base,
+ 					struct timer_list *timer)
+@@ -349,11 +350,12 @@ __internal_add_timer(struct tvec_base *base, struct timer_list *timer)
+ 		vec = base->tv1.vec + (base->timer_jiffies & TVR_MASK);
+ 	} else {
+ 		int i;
+-		/* If the timeout is larger than 0xffffffff on 64-bit
+-		 * architectures then we use the maximum timeout:
++		/* If the timeout is larger than MAX_TVAL (on 64-bit
++		 * architectures or with CONFIG_BASE_SMALL=1) then we
++		 * use the maximum timeout.
+ 		 */
+-		if (idx > 0xffffffffUL) {
+-			idx = 0xffffffffUL;
++		if (idx > MAX_TVAL) {
++			idx = MAX_TVAL;
+ 			expires = idx + base->timer_jiffies;
+ 		}
+ 		i = (expires >> (TVR_BITS + 3 * TVN_BITS)) & TVN_MASK;
+@@ -402,6 +473,9 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
+ 
+ 	if (timer_pending(timer)) {
+ 		detach_timer(timer, 0);
++		if (timer->expires == base->next_timer &&
++		    !tbase_get_deferrable(timer->base))
++			base->next_timer = base->timer_jiffies;
+ 		ret = 1;
+ 	} else {
+ 		if (pending_only)
+@@ -433,6 +507,9 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
+ 	}
+ 
+ 	timer->expires = expires;
++	if (time_before(timer->expires, base->next_timer) &&
++	    !tbase_get_deferrable(timer->base))
++		base->next_timer = timer->expires;
+ 	internal_add_timer(base, timer);
+ 
+ out_unlock:
+@@ -441,6 +518,9 @@ void add_timer_on(struct timer_list *timer, int cpu)
+ 
+ 	spin_lock_irqsave(&base->lock, flags);
+ 	timer_set_base(timer, base);
++	if (time_before(timer->expires, base->next_timer) &&
++	    !tbase_get_deferrable(timer->base))
++		base->next_timer = timer->expires;
+ 	internal_add_timer(base, timer);
+ 	spin_unlock_irqrestore(&base->lock, flags);
+ 	/*
+@@ -474,7 +544,7 @@ int mod_timer(struct timer_list *timer, unsigned long expires)
+ 	 * networking code - if the timer is re-modified
+ 	 * to be the same thing then just return:
+ 	 */
+-	if (timer->expires == expires && timer_pending(timer))
++	if (timer_pending(timer) && timer->expires == expires)
+ 		return 1;
+ 
+ 	return __mod_timer(timer, expires, false, TIMER_NOT_PINNED);
+@@ -507,6 +587,9 @@ int del_timer(struct timer_list *timer)
+ 		base = lock_timer_base(timer, &flags);
+ 		if (timer_pending(timer)) {
+ 			detach_timer(timer, 1);
++			if (timer->expires == base->next_timer &&
++			    !tbase_get_deferrable(timer->base))
++				base->next_timer = base->timer_jiffies;
+ 			ret = 1;
+ 		}
+ 		spin_unlock_irqrestore(&base->lock, flags);
+@@ -540,6 +623,9 @@ int try_to_del_timer_sync(struct timer_list *timer)
+ 	ret = 0;
+ 	if (timer_pending(timer)) {
+ 		detach_timer(timer, 1);
++		if (timer->expires == base->next_timer &&
++		    !tbase_get_deferrable(timer->base))
++			base->next_timer = base->timer_jiffies;
+ 		ret = 1;
+ 	}
+ out:
+@@ -794,7 +870,9 @@ unsigned long get_next_timer_interrupt(unsigned long now)
+ 	unsigned long expires;
+ 
+ 	spin_lock(&base->lock);
+-	expires = __next_timer_interrupt(base);
++	if (time_before_eq(base->next_timer, base->timer_jiffies))
++		base->next_timer = __next_timer_interrupt(base);
++	expires = base->next_timer;
+ 	spin_unlock(&base->lock);
+ 
+ 	if (time_before_eq(expires, now))
+@@ -1253,6 +1341,7 @@ static int __cpuinit init_timers_cpu(int cpu)
+ 		INIT_LIST_HEAD(base->tv1.vec + j);
+ 
+ 	base->timer_jiffies = jiffies;
++	base->next_timer = base->timer_jiffies;
+ 	return 0;
+ }
+ 
+@@ -1265,6 +1354,9 @@ static void migrate_timer_list(struct tvec_base *new_base, struct list_head *hea
+ 		timer = list_first_entry(head, struct timer_list, entry);
+ 		detach_timer(timer, 0);
+ 		timer_set_base(timer, new_base);
++		if (time_before(timer->expires, new_base->next_timer) &&
++		    !tbase_get_deferrable(timer->base))
++			new_base->next_timer = timer->expires;
+ 		internal_add_timer(new_base, timer);
+ 	}
+ }
+@@ -1635,3 +1635,25 @@ unsigned long msleep_interruptible(unsigned int msecs)
+ }
+ 
+ EXPORT_SYMBOL(msleep_interruptible);
++
++static int __sched do_usleep_range(unsigned long min, unsigned long max)
++{
++	ktime_t kmin;
++	unsigned long delta;
++
++	kmin = ktime_set(0, min * NSEC_PER_USEC);
++	delta = (max - min) * NSEC_PER_USEC;
++	return schedule_hrtimeout_range(&kmin, delta, HRTIMER_MODE_REL);
++}
++
++/**
++ * usleep_range - Drop in replacement for udelay where wakeup is flexible
++ * @min: Minimum time in usecs to sleep
++ * @max: Maximum time in usecs to sleep
++ */
++void usleep_range(unsigned long min, unsigned long max)
++{
++	__set_current_state(TASK_UNINTERRUPTIBLE);
++	do_usleep_range(min, max);
++}
++EXPORT_SYMBOL(usleep_range);
+-- 

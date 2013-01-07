@@ -1,0 +1,160 @@
+oom: Fixes from upstream
+
+ kernel.org commits
+ 7213f5066fc8a17c78389fe245de522b5cf0648a oom: suppress extraneous stack and memory dump
+ e91a810e884850781a1cada2ea81b8016881d244 oom_kill bug
+ a12888f772dab4bf5e6f73668dc4f5f6026a7014 oom_kill: don't call for int_sqrt(0)
+ 81236810226f71bd9ff77321c8e8276dae7efc61 oom: only oom kill exiting tasks with attached memory
+ 4358997ae38a1901498d128d6508119d9f318b36 oom: avoid sending exiting tasks a SIGKILL
+ b52279406e77be711c068f9a8e970ea6471e089c oom: PF_EXITING check should take mm into account
+ c027a474a68065391c8773f6e83ed5412657e369 oom: task->mm == NULL doesn't mean the memory was freed
+
+---
+ mm/oom_kill.c |   55 +++++++++++++++++++++++++++----------------------------
+ 1 file changed, 27 insertions(+), 28 deletions(-)
+
+diff --git a/mm/oom_kill.c b/mm/oom_kill.c
+--- a/mm/oom_kill.c	2010-08-19 21:54:56.000000000 +0400
++++ b/mm/oom_kill.c	2011-09-08 13:41:18.000000000 +0400
+@@ -50,7 +50,7 @@ int sysctl_oom_kill_allocating_task;
+ 
+ unsigned long badness(struct task_struct *p, unsigned long uptime)
+ {
+-	unsigned long points, cpu_time, run_time, s;
++	unsigned long points, cpu_time, run_time;
+ 	struct mm_struct *mm;
+ 	struct task_struct *child;
+ 
+@@ -105,12 +105,10 @@ unsigned long badness(struct task_struct
+ 	else
+ 		run_time = 0;
+ 
+-	s = int_sqrt(cpu_time);
+-	if (s)
+-		points /= s;
+-	s = int_sqrt(int_sqrt(run_time));
+-	if (s)
+-		points /= s;
++	if (cpu_time)
++		points /= int_sqrt(cpu_time);
++	if (run_time)
++		points /= int_sqrt(int_sqrt(run_time));
+ 
+ 	/*
+ 	 * Niced processes are most likely less important, so double
+@@ -220,7 +218,7 @@ static struct task_struct *select_bad_pr
+ 		 * skip kernel threads and tasks which have already released
+ 		 * their mm.
+ 		 */
+-		if (!p->mm)
++		if (p->exit_state)
+ 			continue;
+ 		/* skip the init task */
+ 		if (is_init(p))
+@@ -237,6 +235,8 @@ static struct task_struct *select_bad_pr
+ 		 */
+ 		if (test_tsk_thread_flag(p, TIF_MEMDIE))
+ 			return ERR_PTR(-1UL);
++		if (!p->mm)
++			continue;
+ 
+ 		/*
+ 		 * This is in the process of releasing memory so wait for it
+@@ -248,7 +248,7 @@ static struct task_struct *select_bad_pr
+ 		 * the process of exiting and releasing its resources.
+ 		 * Otherwise we could get an easy OOM deadlock.
+ 		 */
+-		if (p->flags & PF_EXITING) {
++		if ((p->flags & PF_EXITING) && p->mm) {
+ 			if (p != current)
+ 				return ERR_PTR(-1UL);
+ 
+@@ -282,11 +282,8 @@ static void __oom_kill_task(struct task_
+ 		return;
+ 	}
+ 
+-	if (!p->mm) {
+-		WARN_ON(1);
+-		printk(KERN_WARNING "tried to kill an mm-less task!\n");
++	if (!p->mm)
+ 		return;
+-	}
+ 
+ 	if (verbose)
+ 		printk(KERN_ERR "Killed process %d (%s)\n", p->pid, p->comm);
+@@ -344,18 +341,27 @@ static int oom_kill_task(struct task_str
+ 	return 0;
+ }
+ 
+-static int oom_kill_process(struct task_struct *p, unsigned long points,
+-		const char *message)
++static int oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
++			    unsigned long points, const char *message)
+ {
+ 	struct task_struct *c;
+ 	struct list_head *tsk;
+ 
++	if (printk_ratelimit()) {
++		printk(KERN_WARNING "%s invoked oom-killer: "
++			"gfp_mask=0x%x, order=%d, oomkilladj=%d\n",
++			current->comm, gfp_mask, order, current->oomkilladj);
++		dump_stack();
++		show_mem();
++	}
++
+ 	/*
+ 	 * If the task is already exiting, don't alarm the sysadmin or kill
+ 	 * its children or threads, just set TIF_MEMDIE so it can die quickly
++	 * if its mm is still attached.
+ 	 */
+-	if (p->flags & PF_EXITING) {
+-		__oom_kill_task(p, 0);
++	if (p->mm && (p->flags & PF_EXITING)) {
++		set_tsk_thread_flag(p, TIF_MEMDIE);
+ 		return 0;
+ 	}
+ 
+@@ -407,14 +413,6 @@ void out_of_memory(struct zonelist *zone
+ 		/* Got some memory back in the last second. */
+ 		return;
+ 
+-	if (printk_ratelimit()) {
+-		printk(KERN_WARNING "%s invoked oom-killer: "
+-			"gfp_mask=0x%x, order=%d, oomkilladj=%d\n",
+-			current->comm, gfp_mask, order, current->oomkilladj);
+-		dump_stack();
+-		show_mem();
+-	}
+-
+ 	if (sysctl_panic_on_oom == 2)
+ 		panic("out of memory. Compulsory panic_on_oom is selected.\n");
+ 
+@@ -428,7 +426,7 @@ void out_of_memory(struct zonelist *zone
+ 
+ 	switch (constraint) {
+ 	case CONSTRAINT_MEMORY_POLICY:
+-		oom_kill_process(current, points,
++		oom_kill_process(current, gfp_mask, order, points,
+ 				"No available memory (MPOL_BIND)");
+ 		break;
+ 
+@@ -438,7 +436,7 @@ void out_of_memory(struct zonelist *zone
+ 		/* Fall-through */
+ 	case CONSTRAINT_CPUSET:
+ 		if (sysctl_oom_kill_allocating_task) {
+-			oom_kill_process(current, points,
++			oom_kill_process(current, gfp_mask, order, points,
+ 					"Out of memory (oom_kill_allocating_task)");
+ 			break;
+ 		}
+@@ -459,7 +457,8 @@ retry:
+ 			panic("Out of memory and no killable processes...\n");
+ 		}
+ 
+-		if (oom_kill_process(p, points, "Out of memory"))
++		if (oom_kill_process(p, gfp_mask, order, points,
++				     "Out of memory"))
+ 			goto retry;
+ 
+ 		break;
+-- 

@@ -1,0 +1,56 @@
+From 1117f72ea0217ba0cc19f05adbbd8b9a397f5ab7
+From: Linus Torvalds
+Date: Sat, 6 Aug 2011 11:51:33 -0700
+Subject: [PATCH] vfs: show O_CLOEXE bit properly in /proc/<pid>/fdinfo/<fd> files
+
+The CLOEXE bit is magical, and for performance (and semantic) reasons we
+don't actually maintain it in the file descriptor itself, but in a
+separate bit array.  Which means that when we show f_flags, the CLOEXE
+status is shown incorrectly: we show the status not as it is now, but as
+it was when the file was opened.
+
+Fix that by looking up the bit properly in the 'fdt->close_on_exec' bit
+array.
+
+Uli needs this in order to re-implement the pfiles program:
+
+  "For normal file descriptors (not sockets) this was the last piece of
+   information which wasn't available.  This is all part of my 'give
+   Solaris users no reason to not switch' effort.  I intend to offer the
+   code to the util-linux-ng maintainers."
+
+Requested-by: Ulrich Drepper <drepper@akkadia.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/proc/base.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
+
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -1919,6 +1919,14 @@ static int proc_fd_info(struct inode *inode, struct path *path, char *info)
+ 		spin_lock(&files->file_lock);
+ 		file = fcheck_files(files, fd);
+ 		if (file) {
++			unsigned int f_flags;
++			struct fdtable *fdt;
++
++			fdt = files_fdtable(files);
++			f_flags = file->f_flags & ~O_CLOEXEC;
++			if (FD_ISSET(fd, fdt->close_on_exec))
++				f_flags |= O_CLOEXEC;
++
+ 			if (mnt)
+ 				*mnt = mntget(file->f_path.mnt);
+ 			if (dentry)
+@@ -1928,7 +1936,7 @@ static int proc_fd_info(struct inode *inode, struct path *path, char *info)
+ 					 "pos:\t%lli\n"
+ 					 "flags:\t0%o\n",
+ 					 (long long) file->f_pos,
+-					 file->f_flags);
++					 f_flags);
+ 			spin_unlock(&files->file_lock);
+ 			put_files_struct(files);
+ 			return 0;
+-- 
+1.7.4.4

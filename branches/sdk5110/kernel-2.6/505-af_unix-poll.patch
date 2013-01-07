@@ -1,0 +1,67 @@
+AF_UNIX: Fix poll blocking problem when reading from a stream socket
+
+ 0884d7aa24e15e72b3c07f7da910a13bb7df3592 AF_UNIX: Fix poll blocking problem when reading from a stream socket
+ 6f01fd6e6f6809061b56e78f1e8d143099716d70 af_unix: fix EPOLLET regression for stream sockets
+
+---
+ net/unix/af_unix.c |   14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1780,7 +1780,7 @@ static int unix_stream_recvmsg(struct ki
+ 		struct sk_buff *skb;
+ 
+ 		unix_state_lock(sk);
+-		skb = skb_dequeue(&sk->sk_receive_queue);
++		skb = skb_peek(&sk->sk_receive_queue);
+ 		if (skb==NULL)
+ 		{
+ 			if (copied >= target)
+@@ -1818,10 +1818,8 @@ static int unix_stream_recvmsg(struct ki
+ 
+ 		if (check_creds) {
+ 			/* Never glue messages from different writers */
+-			if (memcmp(UNIXCREDS(skb), &siocb->scm->creds, sizeof(siocb->scm->creds)) != 0) {
+-				skb_queue_head(&sk->sk_receive_queue, skb);
++			if (memcmp(UNIXCREDS(skb), &siocb->scm->creds, sizeof(siocb->scm->creds)) != 0)
+ 				break;
+-			}
+ 		} else {
+ 			/* Copy credentials */
+ 			siocb->scm->creds = *UNIXCREDS(skb);
+@@ -1837,7 +1835,6 @@ static int unix_stream_recvmsg(struct ki
+ 
+ 		chunk = min_t(unsigned int, skb->len, size);
+ 		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
+-			skb_queue_head(&sk->sk_receive_queue, skb);
+ 			if (copied == 0)
+ 				copied = -EFAULT;
+ 			break;
+@@ -1853,13 +1850,10 @@ static int unix_stream_recvmsg(struct ki
+ 			if (UNIXCB(skb).fp)
+ 				unix_detach_fds(siocb->scm, skb);
+ 
+-			/* put the skb back if we didn't use it up.. */
+ 			if (skb->len)
+-			{
+-				skb_queue_head(&sk->sk_receive_queue, skb);
+ 				break;
+-			}
+ 
++			skb_unlink(skb, &sk->sk_receive_queue);
+ 			kfree_skb(skb);
+ 
+ 			if (siocb->scm->fp)
+@@ -1872,8 +1866,6 @@ static int unix_stream_recvmsg(struct ki
+ 			if (UNIXCB(skb).fp)
+ 				siocb->scm->fp = scm_fp_dup(UNIXCB(skb).fp);
+ 
+-			/* put message back and return */
+-			skb_queue_head(&sk->sk_receive_queue, skb);
+ 			break;
+ 		}
+ 	} while (size);
+-- 
+1.7.6.2

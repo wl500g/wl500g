@@ -1,0 +1,247 @@
+Fixes from upstream
+
+From 1f7190db3920f76cca7fdcd1bb318c6cfa4a3266
+From: Brandon Philips
+Date: Wed, 23 Mar 2011 12:03:49 -0700
+Subject: [PATCH] ip: fix memory leak in ipmaddr.c
+
+From 21a85d3becf45e02985c466764ae19433d907c40
+From: Stephen Hemminger
+Date: Mon, 11 Jul 2011 10:38:10 -0700
+Subject: [PATCH] Fix test for EOF on continuation line
+
+From 6d5ee98a7c47644308ccb167faa93e07bb702fd8
+From: Thomas Jarosch
+Date: Mon, 3 Oct 2011 05:22:56 +0000
+Subject: [PATCH] Fix wrong comparison in cmp_print_eopt()
+
+From 1a6543c56bead259a44d5d1f288392503eaec292
+From: Thomas Jarosch
+Date: Mon, 3 Oct 2011 05:23:30 +0000
+Subject: [PATCH] Fix memory leak of lname variable in get_target_name()
+
+From 2bcc3c16293fc049e29989a2ddeffe71a1cf3910
+From: Thomas Jarosch
+Date: Mon, 3 Oct 2011 05:22:27 +0000
+Subject: [PATCH] Fix pipe I/O stream descriptor leak in init_service_resolver()
+
+From 97c13582f98377c9e1a72ed40fb2b80225c4c0f9
+From: Thomas Jarosch
+Date: Mon, 3 Oct 2011 05:22:42 +0000
+Subject: [PATCH] Fix file descriptor leak on error in rtnl_hash_initialize()
+
+From 25352af7c2ee7291ac54a00a77b7e1de20676fe6
+From: Thomas Jarosch
+Date: Mon, 3 Oct 2011 05:23:53 +0000
+Subject: [PATCH] Fix file descriptor leak on error in iproute_flush_cache()
+
+From 67ef60a29333784d09245762e8270727cc758945
+From: Thomas Jarosch
+Date: Mon, 3 Oct 2011 05:24:08 +0000
+Subject: [PATCH] Fix file descriptor leak on error in read_viftable()
+
+From e588a7db167df75e659f99bd3b024eedafed62cc
+From: Thomas Jarosch
+Date: Mon, 3 Oct 2011 05:24:18 +0000
+Subject: [PATCH] Fix file descriptor leak on error in read_mroute_list()
+
+From 297452a1c24f1fbbdc41e220422aa1fb7b4dccf0
+From: Thomas Jarosch
+Date: Mon, 3 Oct 2011 05:24:32 +0000
+Subject: [PATCH] Fix file descriptor leak in do_tunnels_list()
+
+From 19bcc05beade576878abc04c53f17d4a5a620610
+From: Thomas Jarosch
+Date: Mon, 3 Oct 2011 05:24:44 +0000
+Subject: [PATCH] Fix file descriptor leak on error in read_igmp()
+
+---
+ ip/ipmaddr.c   |    7 +++++--
+ ip/ipmroute.c  |   11 ++++++++---
+ ip/iproute.c   |    1 +
+ ip/iptunnel.c  |   10 ++++++++--
+ lib/rt_names.c |    2 ++
+ lib/utils.c    |    2 +-
+ misc/ss.c      |    1 +
+ tc/em_cmp.c    |    2 +-
+ tc/m_ipt.c     |    3 +++
+ 9 files changed, 30 insertions(+), 9 deletions(-)
+
+diff -urBp a/ip/ipmaddr.c b/ip/ipmaddr.c
+--- a/ip/ipmaddr.c	2008-04-17 21:12:54.000000000 +0400
++++ b/ip/ipmaddr.c	2011-12-16 11:58:44.000000000 +0300
+@@ -128,14 +128,17 @@ void read_igmp(struct ma_info **result_p
+ 	if (!fp)
+ 		return;
+ 	memset(&m, 0, sizeof(m));
+-	fgets(buf, sizeof(buf), fp);
++	if (!fgets(buf, sizeof(buf), fp)) {
++		fclose(fp);
++		return;
++	}
+ 
+ 	m.addr.family = AF_INET;
+ 	m.addr.bitlen = 32;
+ 	m.addr.bytelen = 4;
+ 
+ 	while (fgets(buf, sizeof(buf), fp)) {
+-		struct ma_info *ma = malloc(sizeof(m));
++		struct ma_info *ma;
+ 
+ 		if (buf[0] != '\t') {
+ 			sscanf(buf, "%d%s", &m.index, m.name);
+diff -urBp a/ip/ipmroute.c b/ip/ipmroute.c
+--- a/ip/ipmroute.c	2008-04-17 21:12:54.000000000 +0400
++++ b/ip/ipmroute.c	2011-12-16 11:57:51.000000000 +0300
+@@ -58,8 +58,10 @@ static void read_viftable(void)
+ 	if (!fp)
+ 		return;
+ 
+-	fgets(buf, sizeof(buf), fp);
+-
++	if (!fgets(buf, sizeof(buf), fp)) {
++		fclose(fp);
++ 		return;
++	}
+ 	while (fgets(buf, sizeof(buf), fp)) {
+ 		int vifi;
+ 		char dev[256];
+@@ -83,7 +85,10 @@ static void read_mroute_list(FILE *ofp)
+ 	if (!fp)
+ 		return;
+ 
+-	fgets(buf, sizeof(buf), fp);
++	if (!fgets(buf, sizeof(buf), fp)) {
++		fclose(fp);
++		return;
++	}
+ 
+ 	while (fgets(buf, sizeof(buf), fp)) {
+ 		inet_prefix maddr, msrc;
+diff -urBp a/ip/iproute.c b/ip/iproute.c
+--- a/ip/iproute.c	2011-11-17 03:00:00.000000000 +0300
++++ b/ip/iproute.c	2011-12-16 11:55:50.000000000 +0300
+@@ -1037,6 +1037,7 @@ static int iproute_flush_cache(void)
+ 
+ 	if ((write (flush_fd, (void *)buffer, len)) < len) {
+ 		fprintf (stderr, "Cannot flush routing cache\n");
++		close(flush_fd);
+ 		return -1;
+ 	}
+ 	close(flush_fd);
+diff -urBp a/ip/iptunnel.c b/ip/iptunnel.c
+--- a/ip/iptunnel.c	2011-02-21 20:16:46.000000000 +0300
++++ b/ip/iptunnel.c	2011-12-16 12:01:39.000000000 +0300
+@@ -404,8 +404,12 @@ static int do_tunnels_list(struct ip_tun
+ 		return -1;
+ 	}
+ 
+-	fgets(buf, sizeof(buf), fp);
+-	fgets(buf, sizeof(buf), fp);
++ 	if (!fgets(buf, sizeof(buf), fp) ||
++ 	    !fgets(buf, sizeof(buf), fp)) {
++ 		fprintf(stderr, "/proc/net/dev read error\n");
++		fclose(fp);
++ 		return -1;
++ 	}
+ 
+ 	while (fgets(buf, sizeof(buf), fp) != NULL) {
+ 		char *ptr;
+@@ -413,6 +417,7 @@ static int do_tunnels_list(struct ip_tun
+ 		if ((ptr = strchr(buf, ':')) == NULL ||
+ 		    (*ptr++ = 0, sscanf(buf, "%s", name) != 1)) {
+ 			fprintf(stderr, "Wrong format of /proc/net/dev. Sorry.\n");
++			fclose(fp);
+ 			return -1;
+ 		}
+ 		if (sscanf(ptr, "%ld%ld%ld%ld%ld%ld%ld%*d%ld%ld%ld%ld%ld%ld%ld",
+@@ -451,6 +456,7 @@ static int do_tunnels_list(struct ip_tun
+ 		}
+ 		printf("\n");
+ 	}
++	fclose(fp);
+ 	return 0;
+ }
+ 
+diff -urBp a/lib/rt_names.c b/lib/rt_names.c
+--- a/lib/rt_names.c	2008-04-17 21:12:54.000000000 +0400
++++ b/lib/rt_names.c	2011-12-16 11:55:29.000000000 +0300
+@@ -54,6 +54,7 @@ rtnl_hash_initialize(char *file, struct 
+ 		    sscanf(p, "%d %s #", &id, namebuf) != 2) {
+ 			fprintf(stderr, "Database %s is corrupted at %s\n",
+ 				file, p);
++			fclose(fp);
+ 			return;
+ 		}
+ 
+@@ -91,6 +92,7 @@ static void rtnl_tab_initialize(char *fi
+ 		    sscanf(p, "%d %s #", &id, namebuf) != 2) {
+ 			fprintf(stderr, "Database %s is corrupted at %s\n",
+ 				file, p);
++			fclose(fp);
+ 			return;
+ 		}
+ 
+diff -urBp a/lib/utils.c b/lib/utils.c
+--- a/lib/utils.c	2011-11-17 03:00:00.000000000 +0300
++++ b/lib/utils.c	2011-12-16 11:55:50.000000000 +0300
+@@ -696,7 +696,7 @@ ssize_t getcmdline(char **linep, size_t 
+ 	while ((cp = strstr(*linep, "\\\n")) != NULL) {
+ 		char *line1 = NULL;
+ 		size_t len1 = 0;
+-		size_t cc1;
++		ssize_t cc1;
+ 
+ 		if ((cc1 = getline(&line1, &len1, in)) < 0) {
+ 			fprintf(stderr, "Missing continuation line\n");
+diff -urBp a/misc/ss.c b/misc/ss.c
+--- a/misc/ss.c	2008-04-17 21:12:54.000000000 +0400
++++ b/misc/ss.c	2011-12-16 11:58:07.000000000 +0300
+@@ -461,6 +461,7 @@ void init_service_resolver(void)
+ 				}
+ 			}
+ 		}
++		pclose(fp);
+ 	}
+ }
+ 
+diff -urBp a/tc/em_cmp.c b/tc/em_cmp.c
+--- a/tc/em_cmp.c	2008-04-17 21:12:54.000000000 +0400
++++ b/tc/em_cmp.c	2011-12-16 11:33:29.000000000 +0300
+@@ -156,7 +156,7 @@ static int cmp_print_eopt(FILE *fd, stru
+ 		fprintf(fd, "u8 ");
+ 	else if (cmp->align == TCF_EM_ALIGN_U16)
+ 		fprintf(fd, "u16 ");
+-	else if (cmp->align == TCF_EM_ALIGN_U16)
++	else if (cmp->align == TCF_EM_ALIGN_U32)
+ 		fprintf(fd, "u32 ");
+ 
+ 	fprintf(fd, "at %d layer %d ", cmp->off, cmp->layer);
+diff -urBp a/tc/m_ipt.c b/tc/m_ipt.c
+--- a/tc/m_ipt.c	2011-12-16 11:32:19.000000000 +0300
++++ b/tc/m_ipt.c	2011-12-16 11:55:22.000000000 +0300
+@@ -278,6 +278,7 @@ get_target_name(const char *name)
+ 			fputs(dlerror(), stderr);
+ 			printf("\n");
+ 			free(new_name);
++			free(lname);
+ 			return NULL;
+ 		}
+ 	}
+@@ -294,6 +295,7 @@ get_target_name(const char *name)
+ 					fprintf(stderr, "\n");
+ 					dlclose(handle);
+ 					free(new_name);
++					free(lname);
+ 					return NULL;
+ 				}
+ 			}
+@@ -301,6 +303,7 @@ get_target_name(const char *name)
+ 	}
+ 
+ 	free(new_name);
++	free(lname);
+ 	return m;
+ }
+ 
+-- 
