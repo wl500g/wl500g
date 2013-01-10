@@ -1,18 +1,68 @@
-diff -uBp a/udpxy.c b/udpxy.c
---- a/udpxy.c	2011-11-25 22:12:21.000000000 +0300
-+++ b/udpxy.c	2011-11-28 11:36:59.000000000 +0300
-@@ -18,10 +18,12 @@
+
+---
+ Makefile |    7 +++++--
+ mkpg.c   |    4 ++--
+ udpxy.c  |    3 +++
+ 3 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -29,7 +29,7 @@ GZIP  := /bin/gzip
+ MKDEPOPT := -MM
+ DEBUG_ON := -g
+ 
+-ALL_FLAGS = -W -Wall -Werror --pedantic $(CFLAGS)
++ALL_CFLAGS = -W -Wall -Werror --pedantic $(CFLAGS)
+ 
+ SYSTEM=$(shell uname 2>/dev/null)
+ ifeq ($(SYSTEM), FreeBSD)
+@@ -61,6 +61,10 @@ INSTALLROOT := $(DESTDIR)$(PREFIX)
+ ARCDIR = ..
+ ARCFILE := $(ARCDIR)/$(EXEC).$(VERSION).$(BUILDNO)-$(PATCHNO)-$(BTYPE).tar.gz
+ 
++ifneq (yes,$(NO_UDPXREC))
++	COPT += -DUDPXREC_MOD
++endif
++
+ DEBUG_OPT  := $(COPT) $(DEBUG_ON) -DTRACE_MODULE
+ PROD_OPT   := $(COPT) -DNDEBUG -DTRACE_MODULE
+ LEAN_OPT   := $(COPT) -DNDEBUG
+@@ -88,7 +92,6 @@ SRC := udpxy.c sloop.c rparse.c util.c prbuf.c ifaddr.c ctx.c mkpg.c \
+ 
+ ifneq (yes,$(NO_UDPXREC))
+ 	SRC   += udpxrec.c
+-	CDEFS += -DUDPXREC_MOD
+ endif
+ 
+ OBJ := ${SRC:.c=.o}
+diff --git a/mkpg.c b/mkpg.c
+--- a/mkpg.c
++++ b/mkpg.c
+@@ -66,8 +66,8 @@ mk_client_entries( const struct server_ctx* ctx,
+ {
+     prbuf_t pb = NULL;
+     int n = -1;
+-    size_t i = 0, total = 0;
+-    ssize_t max_cli_mem = 0, max_cli_tail = 0;
++    size_t i = 0, total = 0, max_cli_tail = 0;
++    ssize_t max_cli_mem = 0;
+     char tpinfo[ 32 ];
+ 
+     assert( ctx && buf && len );
+diff --git a/udpxy.c b/udpxy.c
+--- a/udpxy.c
++++ b/udpxy.c
+@@ -18,6 +18,9 @@
   *  along with udpxy.  If not, see <http://www.gnu.org/licenses/>.
   */
  
-+#define _XOPEN_SOURCE	600
++#define _XOPEN_SOURCE 600
 +#define _BSD_SOURCE
-+#include <sys/types.h>
 +
  #include "osdef.h"  /* os-specific definitions */
  
--#include <sys/types.h>
--#include <sys/socket.h>
- #include <arpa/inet.h>
- #include <net/if.h>
- #include <sys/wait.h>
+ #include <sys/types.h>
+-- 
+1.7.2.5
+
