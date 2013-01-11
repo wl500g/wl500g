@@ -1044,38 +1044,13 @@ void start_wan_unit(int unit)
 			start_firewall_ex(nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)),
 				"0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 
-		 	/* launch dhcp client and wait for lease forawhile */
-		 	if (ipaddr && ip_addr(ipaddr) == INADDR_ANY)
-		 	{
+			/* launch dhcp client and wait for lease forawhile */
+			if (ipaddr && ip_addr(ipaddr) == INADDR_ANY) {
 				/* Start dhcp daemon */
 				start_dhcpc(wan_ifname, unit);
-		 	} else {
-		 		char *gateway = nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp));
-
-			 	/* setup static wan routes via physical device */
-				add_routes(prefix, "mroute", wan_ifname);
-
-				/* and set default route if specified with metric 1 */
-				if (ip_addr(gateway) != INADDR_ANY &&
-				    !nvram_match("wan_heartbeat_x", ""))
-				{
-					in_addr_t mask = netmask ? inet_addr(netmask) : 0;
-					if ((inet_addr(gateway) & mask) !=
-					    (inet_addr(ipaddr) & mask))
-					{
-						/* the gateway is out of the local network */
-						dprintf("=> ");
-						route_add(wan_ifname, 2, gateway, NULL, "255.255.255.255");
-					}
-
-					/* default route via default gateway */
-					dprintf("=> ");
-					route_add(wan_ifname, 2, "0.0.0.0", gateway, "0.0.0.0");
-				}
-
-				/* start multicast router */
-				if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
-					start_igmpproxy(wan_ifname);
+			} else {
+				/* We are done configuration */
+				wan_up(wan_ifname);
 			}
 
 			/* launch pppoe client daemon */
@@ -1085,8 +1060,7 @@ void start_wan_unit(int unit)
 			wan_ifname = nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp));
 			
 			/* Pretend that the WAN interface is up */
-			if (demand) 
-			{
+			if (demand) {
 				if (!wait_for_ifup(prefix, wan_ifname, &ifr)) continue;
 			}
 #ifdef ASUS_EXT
@@ -1212,6 +1186,10 @@ void start_wan_unit(int unit)
 		/* Configure static IP connection. */
 		case WAN_STATIC:
 		{
+#ifdef __CONFIG_IPV6__
+			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
+				wan6_up(wan_ifname, -1);
+#endif
 			/* Assign static IP address to i/f */
 			ifconfig(wan_ifname, IFUP,
 				 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
@@ -1220,10 +1198,6 @@ void start_wan_unit(int unit)
 			start_auth(prefix, 0);
 			/* We are done configuration */
 			wan_up(wan_ifname);
-#ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
-				wan6_up(wan_ifname, -1);
-#endif
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
 #endif
@@ -1520,8 +1494,8 @@ void wan_up(const char *wan_ifname)
 {
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char xprefix[sizeof("wanXXXXXXXXXX_")];
-	char *wan_proto, *gateway;
-	int unit, metric;
+	char *gateway;
+	int unit, metric, wan_proto;
 
 	/* Figure out nvram variable name prefix for this i/f */
 	unit = wans_prefix(wan_ifname, prefix, xprefix);
@@ -1529,11 +1503,11 @@ void wan_up(const char *wan_ifname)
 	if (unit < 0)
 		return;
 
-	wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
+	wan_proto = _wan_proto(prefix, tmp);
 	metric = nvram_get_int(strcat_r(prefix, "priority", tmp));
-	dprintf("%s unit %d proto %s metric %d\n", wan_ifname, unit, wan_proto, metric);
+	dprintf("%s unit %d proto %d metric %d\n", wan_ifname, unit, wan_proto, metric);
 
-	/* Called for DHCP+PPP, there should be no wanN_xifname */
+	/* Called for Static/DHCP+PPP, there should be no wanN_xifname */
 	if (!nvram_get(strcat_r(xprefix, "ifname", tmp)))
 	{
 		/* re-start firewall with old ppp address or 0.0.0.0 */
@@ -1542,14 +1516,12 @@ void wan_up(const char *wan_ifname)
 			nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
 			"br0", nvram_safe_get("lan_ipaddr"));
 
-	 	/* setup static wan routes via physical device */
+		/* setup static wan routes via physical device */
 		add_routes(prefix, "mroute", wan_ifname);
 		/* and one supplied via DHCP */
 		add_wanx_routes(xprefix, wan_ifname, 0); /* why not 2 ? */
 
-		gateway = nvram_safe_get("wan_gateway");
-		if (ip_addr(gateway) == INADDR_ANY)
-			gateway = nvram_safe_get(strcat_r(xprefix, "gateway", tmp));
+		gateway = nvram_safe_get(strcat_r(xprefix, "gateway", tmp));
 
 		/* and default route with metric 1 */
 		if (ip_addr(gateway) != INADDR_ANY)
@@ -1591,34 +1563,43 @@ void wan_up(const char *wan_ifname)
 		return;
 	}
 
-	/* Set default route to gateway if specified */
-	if (nvram_match(strcat_r(prefix, "primary", tmp), "1")) 
-	{
-		char *gateway = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
+	gateway = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
+	if (ip_addr(gateway) == INADDR_ANY)
+		gateway = NULL;
 
-		if (strcmp(wan_proto, "dhcp") == 0 ||
-		    strcmp(wan_proto, "static") == 0
+	/* Set default route to gateway if specified */
+	if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
+	{
+
+		switch (wan_proto) {
+		case WAN_DHCP:
+		case WAN_BIGPOND:
+		case WAN_STATIC:
 #ifdef __CONFIG_MADWIMAX__
-		 || strcmp(wan_proto, "wimax") == 0
+		case WAN_WIMAX:
 #endif
 #ifdef __CONFIG_USBNET__
-		 || strcmp(wan_proto, "usbnet") == 0
+		case WAN_USBNET:
 #endif
-
-		) {
 			/* the gateway is in the local network */
+			if (gateway == NULL)
+				break;
 			dprintf("=> ");
 			route_add(wan_ifname, 0, gateway, NULL, "255.255.255.255");
+			/* fall through */
+		default:
+			/* default route via default gateway */
+			dprintf("=> ");
+			route_add(wan_ifname, metric, "0.0.0.0", gateway, "0.0.0.0");
 		}
 
-		/* default route via default gateway */
-		dprintf("=> ");
-		route_add(wan_ifname, metric, "0.0.0.0", gateway, "0.0.0.0");
-
 		/* hack: avoid routing cycles, when both peer and server has the same IP */
-		if (strcmp(wan_proto, "pptp") == 0 ||
-		    strcmp(wan_proto, "l2tp") == 0) {
+		switch (wan_proto) {
+		case WAN_PPTP:
+		case WAN_L2TP:
 			/* delete gateway route as it's no longer needed */
+			if (gateway == NULL)
+				break;
 			dprintf("=> ");
 			route_del(wan_ifname, 0, gateway, "0.0.0.0", "255.255.255.255");
 		}
@@ -1627,33 +1608,34 @@ void wan_up(const char *wan_ifname)
 	/* Install interface dependent static routes */
 	add_wan_routes(wan_ifname);
 
- 	/* setup static wan routes via physical device */
-	if (    strcmp(wan_proto, "dhcp") == 0 
-	     || strcmp(wan_proto, "static") == 0 
+	/* Setup static wan routes via physical device */
+	switch (wan_proto) {
+	case WAN_DHCP:
+	case WAN_BIGPOND:
+	case WAN_STATIC:
 #ifdef __CONFIG_MADWIMAX__
-	     || strcmp(wan_proto, "wimax") == 0 
+	case WAN_WIMAX:
 #endif
 #ifdef __CONFIG_USBNET__
-	     || strcmp(wan_proto, "usbnet") == 0
+	case WAN_USBNET:
 #endif
-	) {
-		char *gateway = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
-		nvram_set(strcat_r(prefix, "xgateway", tmp), gateway);
+		nvram_set(strcat_r(prefix, "xgateway", tmp), gateway ? : "0.0.0.0");
 		add_routes(prefix, "mroute", wan_ifname);
 	}
 
-	/* and one supplied via DHCP */
-	if (    strcmp(wan_proto, "dhcp") == 0 
+	/* Setup routes supplied via DHCP */
+	switch (wan_proto) {
+	case WAN_DHCP:
+	case WAN_BIGPOND:
 #ifdef __CONFIG_MADWIMAX__
-	    || strcmp(wan_proto, "wimax") == 0 
+	case WAN_WIMAX:
 #endif
 #ifdef __CONFIG_USBNET__
-	    || strcmp(wan_proto, "usbnet") == 0
+	case WAN_USBNET:
 #endif
-
-	) {
 		add_wanx_routes(prefix, wan_ifname, 0);
 	}
+
 
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", "native") && nvram_invmatch("ipv6_proto", "dhcp6"))
@@ -1683,18 +1665,19 @@ void wan_up(const char *wan_ifname)
 	start_qos(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
 #endif
 
-	/* start multicast router */
-	if (nvram_match(strcat_r(prefix, "primary", tmp), "1") &&
-	      (strcmp(wan_proto, "dhcp") == 0
-	    || strcmp(wan_proto, "bigpond") == 0
-	    || strcmp(wan_proto, "static") == 0
+	/* Start multicast router */
+	switch (wan_proto) {
+	case WAN_DHCP:
+	case WAN_BIGPOND:
+	case WAN_STATIC:
 #ifdef __CONFIG_MADWIMAX__
-	    || strcmp(wan_proto, "wimax") == 0
+	case WAN_WIMAX:
 #endif
 #ifdef __CONFIG_USBNET__
-	    || strcmp(wan_proto, "usbnet") == 0
+	case WAN_USBNET:
 #endif
-	)) {
+		if (!nvram_match(strcat_r(prefix, "primary", tmp), "1"))
+			break;
 		start_igmpproxy(wan_ifname);
 	}
 
@@ -1704,17 +1687,17 @@ void wan_up(const char *wan_ifname)
 void wan_down(const char *wan_ifname)
 {
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	int unit, metric;
+	int unit, metric, wan_proto;
 
 	/* Figure out nvram variable name prefix for this i/f */
 	unit = wan_prefix(wan_ifname, prefix);
-	dprintf("%s unit %d prefix %s\n", wan_ifname, unit, prefix);
+	dprintf("%s unit %d prefix %s %s\n", wan_ifname, unit, prefix, xprefix);
 	if (unit < 0)
 		return;
 
+	wan_proto = _wan_proto(prefix, tmp);
 	metric = nvram_get_int(strcat_r(prefix, "priority", tmp));
-	dprintf("%s unit %d proto %s metric %d\n", wan_ifname, unit,
-		nvram_safe_get(strcat_r(prefix, "proto", tmp)), metric);
+	dprintf("%s unit %d proto %d metric %d\n", wan_ifname, unit, wan_proto, metric);
 
 	/* Stop authenticator */
 	stop_auth(prefix, 1);
@@ -1726,10 +1709,12 @@ void wan_down(const char *wan_ifname)
 
 	/* Remove default route to gateway if specified */
 	if (nvram_match(strcat_r(prefix, "primary", tmp), "1")) {
+		char *gateway = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
+
+		if (ip_addr(gateway) == INADDR_ANY)
+			gateway = NULL;
 		dprintf("=> ");
-		route_del(wan_ifname, metric, "0.0.0.0",
-			nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
-			"0.0.0.0");
+		route_del(wan_ifname, metric, "0.0.0.0", gateway, "0.0.0.0");
 	}
 
 	/* Remove interface dependent static routes */
