@@ -484,6 +484,13 @@ void convert_asus_values()
 	nvram_set("wan0_netmask", nvram_safe_get("wan_netmask"));
 	nvram_set("wan0_gateway", nvram_safe_get("wan_gateway"));
 
+	nvram_set("wan0_xipaddr", nvram_safe_get("wan_ipaddr"));
+	nvram_set("wan0_xnetmask",
+		ip_addr(nvram_safe_get("wan_ipaddr")) &&
+		ip_addr(nvram_safe_get("wan_netmask")) ?
+			nvram_get("wan_netmask") : NULL);
+	nvram_set("wan0_xgateway", nvram_get("wan_gateway"));
+
 	nvram_set("wan_ipaddr_t", "");
 	nvram_set("wan_netmask_t", "");
 	nvram_set("wan_gateway_t", "");
@@ -526,9 +533,6 @@ void convert_asus_values()
 			ip_addr(nvram_safe_get("wan_netmask")) ?
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_pppoe_gateway", nvram_get("wan_gateway"));
-		
-		/* current interface address (dhcp + firewall) */
-		nvram_set("wan0_xipaddr", nvram_safe_get("wan_ipaddr"));
 
 		/* load kernel modules, if any */
 		insmod("pppox", NULL);
@@ -554,9 +558,6 @@ void convert_asus_values()
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_wimax_gateway", nvram_get("wan_gateway"));
 		nvram_set("wan0_wimax_ssid", nvram_safe_get("wan_wimax_ssid"));
-
-		/* current interface address (dhcp + firewall) */
-		nvram_set("wan0_xipaddr", nvram_safe_get("wan_ipaddr"));
 	}
 #endif
 #ifdef __CONFIG_MODEM__
@@ -572,8 +573,6 @@ void convert_asus_values()
 			ip_addr(nvram_safe_get("wan_netmask")) ?
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_modem_gateway", nvram_get("wan_gateway"));
-		/* current interface address (dhcp + firewall) */
-		nvram_set("wan0_xipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_dial_enabled", "1");
 
 		nvram_set("wan0_modem_type", nvram_safe_get("wan_modem_type"));
