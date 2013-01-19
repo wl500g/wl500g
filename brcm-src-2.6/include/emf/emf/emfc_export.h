@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -7,7 +7,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: emfc_export.h,v 1.3 2008/08/13 02:51:52 Exp $
+ * $Id: emfc_export.h,v 1.3 2008-08-13 02:51:52 Exp $
  */
 
 #ifndef _EMFC_EXPORT_H_
@@ -24,6 +24,7 @@
 #define EMF_TAKEN                   2
 #define EMF_FLOOD                   10
 #define EMF_SENDUP                  11
+#define EMF_CONVERT_QUERY           12
 
 #ifdef EMFDBG
 

@@ -11,7 +11,7 @@
 /* History:                                                                   */
 /******************************************************************************/
 
-/* $Id: tigon3.c,v 1.15 2008/02/22 22:46:19 Exp $ */
+/* $Id: tigon3.c,v 1.15 2008-02-22 22:46:19 Exp $ */
 
 #include "mm.h"
 #include "bcmdevs.h"
@@ -3457,7 +3457,7 @@ PLM_DEVICE_BLOCK pDevice)
      * In the case of the BCM4785, access to external EEPROM is
      * avoided, so these calls are skipped.
      */
-    if (!(pDevice->Flags & SB_CORE_FLAG)) {
+    if (!pDevice->Flags & SB_CORE_FLAG) {
 	    LM_ReadVPD(pDevice);
 	    LM_ReadBootCodeVersion(pDevice);
 	    LM_ReadIPMICodeVersion(pDevice);
@@ -5832,7 +5832,7 @@ LM_ResetChip(PLM_DEVICE_BLOCK pDevice)
     MM_Wait(40);
 
     /* BCM4785: Don't use any firmware, so don't wait */
-    if (!(pDevice->Flags & SB_CORE_FLAG)) {
+    if (!pDevice->Flags & SB_CORE_FLAG) {
 	    /* Wait for the firmware to finish initialization. */
 	    for(j = 0; j < 100000; j++) {
 		    MM_Wait(10);

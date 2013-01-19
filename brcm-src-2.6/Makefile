@@ -28,7 +28,7 @@ wl:
 brcm_Patches := $(call patches_list,.)
 
 brcm-shared:
-	tar -C . $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx et | tar -C $(ROOT) --recursive-unlink -xf -
+	tar -C . $(TAR_EXCL_SVN) -cf - include shared emf bcm57xx et | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 brcm-kernel:

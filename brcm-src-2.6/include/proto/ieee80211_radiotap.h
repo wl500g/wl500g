@@ -1,5 +1,6 @@
 /* $FreeBSD: src/sys/net80211/ieee80211_radiotap.h,v 1.11 2007/12/13 01:23:40 sam Exp $ */
 /* $NetBSD: ieee80211_radiotap.h,v 1.16 2007/01/06 05:51:15 dyoung Exp $ */
+/* FILE-CSTYLED */
 
 /*
  * Copyright (c) 2003, 2004 David Young.  All rights reserved.
@@ -126,6 +127,12 @@ struct ieee80211_radiotap_header {
  *      RF noise power at the antenna, decibel difference from an
  *      arbitrary, fixed reference point.
  *
+ * IEEE80211_RADIOTAP_TXFLAGS           uint16_t        txflags
+ *      Properties of Transmitted frames
+ *
+ * IEEE80211_RADIOTAP_RETRIES           uint8_t         retries
+ *      Number of retries
+ *
  * IEEE80211_RADIOTAP_LOCK_QUALITY      uint16_t        unitless
  *
  *      Quality of Barker code lock. Unitless. Monotonically
@@ -172,6 +179,12 @@ struct ieee80211_radiotap_header {
  *      finally the maximum regulatory transmit power cap in .5 dBm
  *      units.  This property supersedes IEEE80211_RADIOTAP_CHANNEL
  *      and only one of the two should be present.
+ *
+ * IEEE80211_RADIOTAP_MCS       u8, u8, u8              unitless
+ *
+ *     Contains a bitmap of known fields/flags, the flags, and
+ *     the MCS index.
+ *
  */
 enum ieee80211_radiotap_type {
 	IEEE80211_RADIOTAP_TSFT = 0,
@@ -189,7 +202,12 @@ enum ieee80211_radiotap_type {
 	IEEE80211_RADIOTAP_DB_ANTSIGNAL = 12,
 	IEEE80211_RADIOTAP_DB_ANTNOISE = 13,
 	/* NB: gap for netbsd definitions */
+	IEEE80211_RADIOTAP_TXFLAGS = 15,
+	IEEE80211_RADIOTAP_RETRIES = 17,
 	IEEE80211_RADIOTAP_XCHANNEL = 18,
+	IEEE80211_RADIOTAP_MCS = 19,
+	IEEE80211_RADIOTAP_RADIOTAP_NAMESPACE = 29,
+	IEEE80211_RADIOTAP_VENDOR_NAMESPACE = 30,
 	IEEE80211_RADIOTAP_EXT = 31,
 	};
 
@@ -207,6 +225,9 @@ enum ieee80211_radiotap_type {
 #define	IEEE80211_CHAN_STURBO	0x00002000 /* 11a static turbo channel only */
 #define	IEEE80211_CHAN_HALF	0x00004000 /* Half rate channel */
 #define	IEEE80211_CHAN_QUARTER	0x00008000 /* Quarter rate channel */
+#define	IEEE80211_CHAN_HT20	0x00010000 /* HT 20 channel */
+#define	IEEE80211_CHAN_HT40U	0x00020000 /* HT 40 channel w/ ext above */
+#define	IEEE80211_CHAN_HT40D	0x00040000 /* HT 40 channel w/ ext below */
 #endif /* !_KERNEL */
 
 /* For IEEE80211_RADIOTAP_FLAGS */
@@ -229,6 +250,28 @@ enum ieee80211_radiotap_type {
 						 * (to 32-bit boundary)
 						 */
 #define	IEEE80211_RADIOTAP_F_BADFCS	0x40	/* does not pass FCS check */
-#define	IEEE80211_RADIOTAP_F_SHORTGI	0x80	/* HT short GI */
+
+/* For IEEE80211_RADIOTAP_MCS */
+#define IEEE80211_RADIOTAP_MCS_HAVE_BW          0x01
+#define IEEE80211_RADIOTAP_MCS_HAVE_MCS         0x02
+#define IEEE80211_RADIOTAP_MCS_HAVE_GI          0x04
+#define IEEE80211_RADIOTAP_MCS_HAVE_FMT         0x08
+#define IEEE80211_RADIOTAP_MCS_HAVE_FEC         0x10
+
+#define IEEE80211_RADIOTAP_MCS_BW_MASK          0x03
+#define IEEE80211_RADIOTAP_MCS_BW_20		0
+#define IEEE80211_RADIOTAP_MCS_BW_40		1
+#define IEEE80211_RADIOTAP_MCS_BW_20L		2
+#define IEEE80211_RADIOTAP_MCS_BW_20U		3
+#define IEEE80211_RADIOTAP_MCS_SGI              0x04
+#define IEEE80211_RADIOTAP_MCS_FMT_GF           0x08
+#define IEEE80211_RADIOTAP_MCS_FEC_LDPC         0x10
+
+/* For IEEE80211_RADIOTAP_TXFLAGS */
+#define IEEE80211_RADIOTAP_TXF_FAIL	0x0001	/* TX failed due to excessive retries */
+#define IEEE80211_RADIOTAP_TXF_CTS	0x0002	/* TX used CTS-to-self protection */
+#define IEEE80211_RADIOTAP_TXF_RTSCTS	0x0004	/* TX used RTS/CTS */
+#define IEEE80211_RADIOTAP_TXF_NOACK	0x0008	/* For injected TX: don't expect ACK */
+#define IEEE80211_RADIOTAP_TXF_SEQOVR	0x0010	/* For injected TX: use pre-configured seq */
 
 #endif /* !_NET80211_IEEE80211_RADIOTAP_H_ */

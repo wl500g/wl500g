@@ -2,15 +2,21 @@
  * Broadcom SDIO/PCMCIA
  * Software-specific definitions shared between device and host side
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmsdpcm.h,v 1.1.1.1 2010/11/22 09:05:01 Exp $
+ * $Id: bcmsdpcm.h,v 13.4.100.1 2010-08-05 23:00:00 Exp $
  */
 
 #ifndef	_bcmsdpcm_h_
@@ -59,10 +65,11 @@
 #define HMB_MASK	0x0000000f	/* To Host Mailbox Mask */
 
 /* tohostmailboxdata */
-#define HMB_DATA_NAKHANDLED	1	/* we're ready to retransmit NAK'd frame to host */
-#define HMB_DATA_DEVREADY	2	/* we're ready to to talk to host after enable */
-#define HMB_DATA_FC		4	/* per prio flowcontrol update flag to host */
-#define HMB_DATA_FWREADY	8	/* firmware is ready for protocol activity */
+#define HMB_DATA_NAKHANDLED	0x01	/* we're ready to retransmit NAK'd frame to host */
+#define HMB_DATA_DEVREADY	0x02	/* we're ready to to talk to host after enable */
+#define HMB_DATA_FC		0x04	/* per prio flowcontrol update flag to host */
+#define HMB_DATA_FWREADY	0x08	/* firmware is ready for protocol activity */
+#define HMB_DATA_FWHALT		0x10	/* firmware has halted operation */
 
 #define HMB_DATA_FCDATA_MASK	0xff000000	/* per prio flowcontrol data */
 #define HMB_DATA_FCDATA_SHIFT	24		/* per prio flowcontrol data */
@@ -250,5 +257,8 @@ typedef struct {
 } sdpcm_shared_t;
 
 extern sdpcm_shared_t sdpcm_shared;
+
+/* Function can be used to notify host of FW halt */
+extern void sdpcmd_fwhalt(void);
 
 #endif	/* _bcmsdpcm_h_ */

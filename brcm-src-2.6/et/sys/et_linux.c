@@ -2,7 +2,7 @@
  * Linux device driver for
  * Broadcom BCM47XX 10/100/1000 Mbps Ethernet Controller
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: et_linux.c,v 1.113.14.2 2010/11/22 08:59:20 Exp $
+ * $Id: et_linux.c,v 1.131.8.9 2010-12-20 04:28:38 Exp $
  */
 
 #define __UNDEF_NO_VERSION__
@@ -37,6 +37,7 @@
 #include <linux/ethtool.h>
 #endif /* SIOCETHTOOL */
 #include <linux/ip.h>
+#include <linux/if_vlan.h>
 
 #include <asm/system.h>
 #include <asm/io.h>
@@ -66,7 +67,45 @@
 #include <ctf/hndctf.h>
 #endif /* HNDCTF */
 
+#ifdef ET_ALL_PASSIVE_ON
+/* When ET_ALL_PASSIVE_ON, ET_ALL_PASSIVE must be true */
+#define ET_ALL_PASSIVE_ENAB(et)	1
+#else
+#ifdef ET_ALL_PASSIVE
+#define ET_ALL_PASSIVE_ENAB(et)	(!(et)->all_dispatch_mode)
+#else /* ET_ALL_PASSIVE */
+#define ET_ALL_PASSIVE_ENAB(et)	0
+#endif /* ET_ALL_PASSIVE */
+#endif	/* ET_ALL_PASSIVE_ON */
+
+#ifdef ET_ALL_PASSIVE
+#define ET_LIMIT_TXQ
+#endif
+
 MODULE_LICENSE("Proprietary");
+
+#ifdef PLC
+typedef struct et_plc {
+	bool	hw;			/* plc hardware present */
+	int32	txvid;			/* vlan used to send to plc */
+	int32	rxvid1;			/* frames rx'd on this will be sent to br */
+	int32	rxvid2;			/* frames rx'd on this will be sent to wds */
+	int32	rxvid3;			/* frames rx'd on this will be sent to plc */
+	struct net_device *txdev;	/* plc device (vid 3) for tx */ 
+	struct net_device *rxdev1;	/* plc device (vid 4) for rx */ 
+	struct net_device *rxdev2;	/* plc device (vid 5) for tx & rx */ 
+	struct net_device *rxdev3;	/* plc device (vid 6) for tx & rx */ 
+} et_plc_t;
+#endif /* PLC */
+
+/* In 2.6.20 kernels work functions get passed a pointer to the 
+ * struct work, so things will continue to work as long as the work
+ * structure is the first component of the task structure.
+ */
+typedef struct et_task {
+	struct work_struct work;
+	void *context;
+} et_task_t;
 
 struct et_info {
 	etc_info_t	*etc;		/* pointer to common os-independent data */
@@ -76,7 +115,9 @@ struct et_info {
 #ifdef HNDCTF
 	ctf_t		*cih;		/* ctf instance handle */
 #endif /* HNDCTF */
+	struct semaphore sem;		/* use semaphore to allow sleep */
 	spinlock_t	lock;		/* per-device perimeter lock */
+	spinlock_t	txq_lock;	/* lock for txq protection */
 	struct sk_buff_head txq[NUMTXQ];	/* send queue */
 	void *regsva;			/* opaque chip registers virtual address */
 	struct timer_list timer;	/* one second watchdog timer */
@@ -86,19 +127,43 @@ struct et_info {
 #ifndef NAPI_POLL
 	struct tasklet_struct tasklet;	/* dpc tasklet */
 #endif /* NAPI_POLL */
+#ifdef ET_ALL_PASSIVE
+	et_task_t	dpc_task;	/* work queue for rx dpc */
+	et_task_t	txq_task;	/* work queue for tx frames */
+	bool		all_dispatch_mode;	/* dispatch mode: tasklets or passive */
+#endif /* ET_ALL_PASSIVE */
 	bool resched;			/* dpc was rescheduled */
+#ifdef PLC
+	et_plc_t	plc;		/* plc interface info */
+#endif /* PLC */
 };
 
 static int et_found = 0;
 static et_info_t *et_list = NULL;
 
 /* defines */
-#define	DATAHIWAT	50		/* data msg txq hiwat mark */
+#define	DATAHIWAT	200		/* data msg txq hiwat mark */
 
 #define	ET_INFO(dev)	(et_info_t *)((dev)->priv)
 
-#define ET_LOCK(et)	spin_lock_bh(&(et)->lock)
-#define ET_UNLOCK(et)	spin_unlock_bh(&(et)->lock)
+#define ET_LOCK(et) \
+do { \
+	if (ET_ALL_PASSIVE_ENAB(et)) \
+		down(&(et)->sem); \
+	else \
+		spin_lock_bh(&(et)->lock); \
+} while (0)
+
+#define ET_UNLOCK(et) \
+do { \
+	if (ET_ALL_PASSIVE_ENAB(et)) \
+		up(&(et)->sem); \
+	else \
+		spin_unlock_bh(&(et)->lock); \
+} while (0)
+
+#define ET_TXQ_LOCK(et)		spin_lock_bh(&(et)->txq_lock)
+#define ET_TXQ_UNLOCK(et)	spin_unlock_bh(&(et)->txq_lock)
 
 #define INT_LOCK(flags)		local_irq_save(flags)
 #define INT_UNLOCK(flags)	local_irq_restore(flags)
@@ -112,7 +177,11 @@ static void et_sendnext(et_info_t *et);
 static struct net_device_stats *et_get_stats(struct net_device *dev);
 static int et_set_mac_address(struct net_device *dev, void *addr);
 static void et_set_multicast_list(struct net_device *dev);
+static void _et_watchdog(struct net_device *data);
 static void et_watchdog(ulong data);
+#ifdef ET_ALL_PASSIVE
+static void et_watchdog_task(et_task_t *task);
+#endif /* ET_ALL_PASSIVE */
 static int et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
 static irqreturn_t et_isr(int irq, void *dev_id);
@@ -124,6 +193,11 @@ static int et_poll(struct net_device *dev, int *budget);
 #else /* NAPI_POLL */
 static void et_dpc(ulong data);
 #endif /* NAPI_POLL */
+#ifdef ET_ALL_PASSIVE
+static void et_dpc_work(struct et_task *task);
+static void et_txq_work(struct et_task *task);
+static int et_schedule_task(et_info_t *et, void (*fn)(struct et_task *task), void *context);
+#endif /* ET_ALL_PASSIVE */
 static void et_sendup(et_info_t *et, struct sk_buff *skb);
 #ifdef BCMDBG
 static void et_dumpet(et_info_t *et, struct bcmstrbuf *b);
@@ -156,6 +230,17 @@ static uint32 msglevel = 0xdeadbeef;
 module_param(msglevel, uint, 0644);
 #endif /* defined(BCMDBG) */
 
+#ifdef ET_ALL_PASSIVE
+/* passive mode: 1: enable, 0: disable */
+static int passivemode = 0;
+module_param(passivemode, int, 0);
+#endif /* ET_ALL_PASSIVE */
+#ifdef ET_LIMIT_TXQ
+#define ET_TXQ_THRESH	0
+static int et_txq_thresh = ET_TXQ_THRESH;
+module_param(et_txq_thresh, int, 0);
+#endif /* ET_LIMIT_TXQ */
+
 #ifdef HNDCTF
 static void
 et_ctf_detach(ctf_t *ci, void *arg)
@@ -173,6 +258,111 @@ et_ctf_detach(ctf_t *ci, void *arg)
 }
 #endif /* HNDCTF */
 
+#ifdef PLC
+#define PLC_VIDTODEV(et, vid)	\
+	(((vid) == (et)->plc.rxvid2) ? (et)->plc.rxdev2 : \
+	 ((vid) == (et)->plc.rxvid1) ? (et)->plc.rxdev1 : \
+	 ((vid) == (et)->plc.rxvid3) ? (et)->plc.rxdev3 : \
+	 ((vid) == (et)->plc.txvid)  ? (et)->plc.txdev : NULL)
+static int
+et_plc_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	struct net_device *real_dev, *vl_dev;
+	et_info_t *et;
+	uint16 vid;
+
+	/* we are only interested in plc vifs */
+	vl_dev = (struct net_device *)ptr;
+	if ((vl_dev->priv_flags & IFF_802_1Q_VLAN) == 0)
+		return NOTIFY_DONE;
+
+	/* get the pointer to real device */
+	real_dev = VLAN_DEV_INFO(vl_dev)->real_dev;
+	vid = VLAN_DEV_INFO(vl_dev)->vlan_id;
+
+	et = ET_INFO(real_dev);
+	if (et == NULL) {
+		ET_ERROR(("%s: not an ethernet vlan\n", __FUNCTION__));
+		return NOTIFY_DONE;
+	}
+
+	ET_TRACE(("et%d: %s: event %ld for %s\n", et->etc->unit, __FUNCTION__,
+	          event, vl_dev->name));
+
+	if (event == NETDEV_REGISTER) {
+		/* save the netdev pointers of plc vifs when corresponding
+		 * interface register event is received.
+		 */
+		if (vid == et->plc.txvid)
+			et->plc.txdev = vl_dev;
+		else if (vid == et->plc.rxvid1)
+			et->plc.rxdev1 = vl_dev;
+		else if (vid == et->plc.rxvid2)
+			et->plc.rxdev2 = vl_dev;
+		else if (vid == et->plc.rxvid3)
+			et->plc.rxdev3 = vl_dev;
+		else
+			;
+	} else if (event == NETDEV_UNREGISTER) {
+		/* clear the netdev pointers of plc vifs when corresponding
+		 * interface unregister event is received.
+		 */
+		if (vid == et->plc.txvid)
+			et->plc.txdev = NULL;
+		else if (vid == et->plc.rxvid1)
+			et->plc.rxdev1 = NULL;
+		else if (vid == et->plc.rxvid2)
+			et->plc.rxdev2 = NULL;
+		else if (vid == et->plc.rxvid3)
+			et->plc.rxdev3 = NULL;
+		else
+			;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block et_plc_netdev_notifier = {
+	.notifier_call = et_plc_netdev_event
+};
+
+static inline int32
+et_plc_recv(et_info_t *et, struct sk_buff *skb)
+{
+	struct net_device *plc_dev;
+	struct ethervlan_header *evh;
+
+	evh = (struct ethervlan_header *)PKTDATA(et->osh, skb);
+
+	/* all incoming frames from plc are vlan tagged */
+	if (evh->vlan_type != HTON16(ETHER_TYPE_8021Q))
+		return -1;
+
+	ASSERT((NTOH16(evh->vlan_tag) & VLAN_VID_MASK) != 3);
+
+	plc_dev = PLC_VIDTODEV(et, NTOH16(evh->vlan_tag) & VLAN_VID_MASK);
+	if (plc_dev == NULL)
+		return -1;
+
+	/* call the master hook function to route frames to appropriate
+	 * transmit interface.
+	 */
+	if (plc_dev->master_hook != NULL) {
+		PKTSETPRIO(skb, (NTOH16(evh->vlan_tag) & VLAN_PRI_MASK) >> VLAN_PRI_SHIFT);
+		if (plc_dev->master_hook(skb, plc_dev, plc_dev->master_hook_arg) == 0) {
+			struct net_device_stats *stats;
+			stats = vlan_dev_get_stats(plc_dev);
+			stats->rx_packets++;
+			stats->rx_bytes += skb->len;
+			return 0;
+		}
+		skb->dev = plc_dev->master;
+	}
+
+	return -1;
+}
+#endif /* PLC */
+
 static int __devinit
 et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
@@ -181,6 +371,9 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	osl_t *osh;
 	char name[128];
 	int i, unit = et_found, err;
+#ifdef PLC
+	int8 *var;
+#endif /* PLC */
 
 	ET_TRACE(("et%d: et_probe: bus %d slot %d func %d irq %d\n", unit,
 	          pdev->bus->number, PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn), pdev->irq));
@@ -243,7 +436,9 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto fail;
 	}
 
+	init_MUTEX(&et->sem);
 	spin_lock_init(&et->lock);
+	spin_lock_init(&et->txq_lock);
 
 	for (i = 0; i < NUMTXQ; i++)
 		skb_queue_head_init(&et->txq[i]);
@@ -286,6 +481,16 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	tasklet_init(&et->tasklet, et_dpc, (ulong)et);
 #endif /* NAPI_POLL */
 
+#ifdef ET_ALL_PASSIVE
+	if (ET_ALL_PASSIVE_ENAB(et)) {
+		MY_INIT_WORK(&et->dpc_task.work, (work_func_t)et_dpc_work);
+		et->dpc_task.context = et;
+		MY_INIT_WORK(&et->txq_task.work, (work_func_t)et_txq_work);
+		et->txq_task.context = et;
+	}
+	et->all_dispatch_mode = (passivemode == 0) ? TRUE : FALSE;
+#endif  /* ET_ALL_PASSIVE */
+
 	/* register our interrupt handler */
 	if (request_irq(pdev->irq, et_isr, IRQF_SHARED, dev->name, et)) {
 		ET_ERROR(("et%d: request_irq() failed\n", unit));
@@ -320,6 +525,29 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	/* print hello string */
 	(*et->etc->chops->longname)(et->etc->ch, name, sizeof(name));
 	printf("%s: %s %s\n", dev->name, name, EPI_VERSION_STR);
+
+#ifdef PLC
+	/* read plc_vifs to initialize the vids to use for receiving
+	 * and forwarding the frames.
+	 */
+	var = getvar(NULL, "plc_vifs");
+
+	if (var == NULL) {
+		ET_ERROR(("et%d: %s: PLC vifs not configured\n", unit, __FUNCTION__));
+		return (0);
+	}
+
+	et->plc.hw = TRUE;
+
+	/* initialize the vids to use for plc rx and tx */
+	sscanf(var, "vlan%d vlan%d vlan%d vlan%d",
+	       &et->plc.txvid, &et->plc.rxvid1, &et->plc.rxvid2, &et->plc.rxvid3);
+
+	ET_ERROR(("et%d: %s: PLC vifs %s\n", unit, __FUNCTION__, var));
+
+	/* register a callback to be called on plc dev create event */
+	register_netdevice_notifier(&et_plc_netdev_notifier);
+#endif /* PLC */
 
 	return (0);
 
@@ -403,6 +631,23 @@ et_module_init(void)
 
 	printf("%s: msglevel set to 0x%x\n", __FUNCTION__, et_msg_level);
 #endif /* defined(BCMDBG) */
+
+#ifdef ET_ALL_PASSIVE
+	{
+		char *var = getvar(NULL, "et_dispatch_mode");
+		if (var)
+			passivemode = bcm_strtoul(var, NULL, 0);
+		printf("%s: passivemode set to 0x%x\n", __FUNCTION__, passivemode);
+	}
+#endif /* ET_ALL_PASSIVE */
+#ifdef ET_LIMIT_TXQ
+	{
+		char *var = getvar(NULL, "et_txq_thresh");
+		if (var)
+			et_txq_thresh = bcm_strtoul(var, NULL, 0);
+		printf("%s: et_txq_thresh set to 0x%x\n", __FUNCTION__, et_txq_thresh);
+	}
+#endif /* ET_LIMIT_TXQ */
 
 	return pci_module_init(&et_pci_driver);
 }
@@ -530,6 +775,46 @@ et_close(struct net_device *dev)
 	return (0);
 }
 
+#ifdef ET_ALL_PASSIVE
+/* Schedule a completion handler to run at safe time */
+static int BCMFASTPATH
+et_schedule_task(et_info_t *et, void (*fn)(struct et_task *task), void *context)
+{
+	et_task_t *task;
+
+	ET_TRACE(("et%d: et_schedule_task\n", et->etc->unit));
+
+	if (!(task = MALLOC(et->osh, sizeof(et_task_t)))) {
+		ET_ERROR(("et%d: et_schedule_task: out of memory, malloced %d bytes\n",
+		          et->etc->unit, MALLOCED(et->osh)));
+		return -ENOMEM;
+	}
+
+	MY_INIT_WORK(&task->work, (work_func_t)fn);
+	task->context = context;
+
+	if (!schedule_work(&task->work)) {
+		ET_ERROR(("et%d: schedule_work() failed\n", et->etc->unit));
+		MFREE(et->osh, task, sizeof(et_task_t));
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+static void BCMFASTPATH
+et_txq_work(struct et_task *task)
+{
+	et_info_t *et = (et_info_t *)task->context;
+
+	ET_LOCK(et);
+	et_sendnext(et);
+	ET_UNLOCK(et);
+
+	return;
+}
+#endif /* ET_ALL_PASSIVE */
+
 /*
  * Yeah, queueing the packets on a tx queue instead of throwing them
  * directly into the descriptor ring in the case of dma is kinda lame,
@@ -541,6 +826,9 @@ et_start(struct sk_buff *skb, struct net_device *dev)
 {
 	et_info_t *et;
 	uint32 q = 0;
+#ifdef ET_LIMIT_TXQ
+	int qlen;
+#endif /* ET_LIMIT_TXQ */
 
 	et = ET_INFO(dev);
 
@@ -550,14 +838,31 @@ et_start(struct sk_buff *skb, struct net_device *dev)
 	ET_TRACE(("et%d: et_start: len %d\n", et->etc->unit, skb->len));
 	ET_LOG("et%d: et_start: len %d", et->etc->unit, skb->len);
 
-	ET_LOCK(et);
+#ifdef ET_LIMIT_TXQ
+	ET_TXQ_LOCK(et);
+	qlen = skb_queue_len(&et->txq[q]);
+	ET_TXQ_UNLOCK(et);
+	if (et_txq_thresh && (qlen >= et_txq_thresh)) {
+		dev_kfree_skb(skb);
+		return 0;
+	}
+#endif /* ET_LIMIT_TXQ */
 
 	/* put it on the tx queue and call sendnext */
+	ET_TXQ_LOCK(et);
 	__skb_queue_tail(&et->txq[q], skb);
 	et->etc->txq_state |= (1 << q);
-	et_sendnext(et);
+	ET_TXQ_UNLOCK(et);
 
-	ET_UNLOCK(et);
+	if (!ET_ALL_PASSIVE_ENAB(et)) {
+		ET_LOCK(et);
+		et_sendnext(et);
+		ET_UNLOCK(et);
+	}
+#ifdef ET_ALL_PASSIVE
+	else
+		schedule_work(&et->txq_task.work);
+#endif /* ET_ALL_PASSIVE */
 
 	ET_LOG("et%d: et_start ret\n", et->etc->unit, 0);
 
@@ -578,13 +883,21 @@ et_sendnext(et_info_t *et)
 	ET_LOG("et%d: et_sendnext", etc->unit, 0);
 
 	/* dequeue packets from highest priority queue and send */
-	priq = etc_priq(etc->txq_state);
-	ET_TRACE(("et%d: txq_state %x priq %d txavail %d\n",
-	          etc->unit, etc->txq_state, priq, *(uint *)etc->txavail[priq]));
-	while (etc->txq_state != 0) {
+	while (1) {
+		ET_TXQ_LOCK(et);
+
+		if (etc->txq_state == 0)
+			break;
+
+		priq = etc_priq(etc->txq_state);
+
+		ET_TRACE(("et%d: txq_state %x priq %d txavail %d\n",
+		          etc->unit, etc->txq_state, priq,
+		          *(uint *)etc->txavail[priq]));
+
 		if (skb_peek(&et->txq[priq]) == NULL) {
 			etc->txq_state &= ~(1 << priq);
-			priq = etc_priq(etc->txq_state);
+			ET_TXQ_UNLOCK(et);
 			continue;
 		}
 
@@ -598,6 +911,7 @@ et_sendnext(et_info_t *et)
 
 		skb = __skb_dequeue(&et->txq[priq]);
 
+		ET_TXQ_UNLOCK(et);
 		ET_PRHDR("tx", (struct ether_header *)skb->data, skb->len, etc->unit);
 		ET_PRPKT("txpkt", skb->data, skb->len, etc->unit);
 
@@ -621,7 +935,18 @@ et_sendnext(et_info_t *et)
 		else if (netif_queue_stopped(et->dev) &&
 		         (skb_queue_len(&et->txq[TX_Q0]) < (DATAHIWAT/2)))
 			netif_wake_queue(et->dev);
+	} else {
+		/* drop the frame if corresponding prec txq len exceeds hiwat
+		 * when qos is enabled.
+		 */
+		if ((priq != TC_NONE) && (skb_queue_len(&et->txq[priq]) > DATAHIWAT)) {
+			skb = __skb_dequeue_tail(&et->txq[priq]);
+			PKTFREE(et->osh, skb, TRUE);
+			etc->txnobuf++;
+		}
 	}
+
+	ET_TXQ_UNLOCK(et);
 }
 
 void
@@ -718,11 +1043,11 @@ et_intrson(et_info_t *et)
 }
 
 static void
-et_watchdog(ulong data)
+_et_watchdog(struct net_device *dev)
 {
 	et_info_t *et;
 
-	et = ET_INFO((struct net_device *)data);
+	et = ET_INFO(dev);
 
 	ET_LOCK(et);
 
@@ -732,12 +1057,39 @@ et_watchdog(ulong data)
 	et->timer.expires = jiffies + HZ;
 	add_timer(&et->timer);
 
-	ET_UNLOCK(et);
 #ifdef CTFPOOL
 	/* allocate and add a new skb to the pkt pool */
 	if (CTF_ENAB(et->cih))
 		osl_ctfpool_replenish(et->osh, CTFPOOL_REFILL_THRESH);
 #endif /* CTFPOOL */
+	ET_UNLOCK(et);
+}
+
+#ifdef ET_ALL_PASSIVE
+static void
+et_watchdog_task(et_task_t *task)
+{
+	et_info_t *et = ET_INFO((struct net_device *)task->context);
+
+	_et_watchdog((struct net_device *)task->context);
+	MFREE(et->osh, task, sizeof(et_task_t));
+}
+#endif /* ET_ALL_PASSIVE */
+
+static void
+et_watchdog(ulong data)
+{
+	struct net_device *dev = (struct net_device *)data;
+#ifdef ET_ALL_PASSIVE
+	et_info_t *et = ET_INFO(dev);
+#endif /* ET_ALL_PASSIVE */
+
+	if (!ET_ALL_PASSIVE_ENAB(et))
+		_et_watchdog(dev);
+#ifdef ET_ALL_PASSIVE
+	else
+		et_schedule_task(et, et_watchdog_task, dev);
+#endif /* ET_ALL_PASSIVE */
 }
 
 
@@ -1110,6 +1462,11 @@ et_isr(int irq, void *dev_id, struct pt_regs *ptregs)
 	}
 #else /* NAPI_POLL */
 	/* schedule dpc */
+#ifdef ET_ALL_PASSIVE
+	if (ET_ALL_PASSIVE_ENAB(et)) {
+		schedule_work(&et->dpc_task.work);
+	} else
+#endif /* ET_ALL_PASSIVE */
 	tasklet_schedule(&et->tasklet);
 #endif /* NAPI_POLL */
 
@@ -1232,12 +1589,23 @@ et_dpc(ulong data)
 	}
 
 #ifndef NAPI_POLL
+#ifdef ET_ALL_PASSIVE
+	if (et->resched) {
+		if (!ET_ALL_PASSIVE_ENAB(et))
+			tasklet_schedule(&et->tasklet);
+		else
+			schedule_work(&et->dpc_task.work);
+	}
+	else
+		(*chops->intrson)(ch);
+#else /* ET_ALL_PASSIVE */
 	/* there may be frames left, reschedule et_dpc() */
 	if (et->resched)
 		tasklet_schedule(&et->tasklet);
 	/* re-enable interrupts */
 	else
 		(*chops->intrson)(ch);
+#endif /* ET_ALL_PASSIVE */
 #endif /* NAPI_POLL */
 
 done:
@@ -1271,6 +1639,16 @@ done:
 	return;
 #endif /* NAPI_POLL */
 }
+
+#ifdef ET_ALL_PASSIVE
+static void BCMFASTPATH
+et_dpc_work(struct et_task *task)
+{
+	et_info_t *et = (et_info_t *)task->context;
+	et_dpc((unsigned long)et);
+	return;
+}
+#endif /* ET_ALL_PASSIVE */
 
 static void
 et_error(et_info_t *et, struct sk_buff *skb, void *rxh)
@@ -1308,7 +1686,7 @@ et_ctf_forward(et_info_t *et, struct sk_buff *skb)
 		return (BCME_ERROR);
 
 	/* try cut thru first */
-	if (ctf_forward(et->cih, skb) != BCME_ERROR)
+	if (ctf_forward(et->cih, skb, skb->dev) != BCME_ERROR)
 		return (BCME_OK);
 
 	/* clear skipct flag before sending up */
@@ -1372,6 +1750,11 @@ et_sendup(et_info_t *et, struct sk_buff *skb)
 		goto err;
 	skb->dev = et->dev;
 
+#ifdef PLC
+	if (et->plc.hw && (et_plc_recv(et, skb) == 0))
+		return;
+#endif /* PLC */
+
 #ifdef HNDCTF
 	/* try cut thru' before sending up */
 	if (et_ctf_forward(et, skb) != BCME_ERROR)
@@ -1384,7 +1767,7 @@ et_sendup(et_info_t *et, struct sk_buff *skb)
 	if (et->etc->qos)
 		pktsetprio(skb, TRUE);
 
-	skb->protocol = eth_type_trans(skb, et->dev);
+	skb->protocol = eth_type_trans(skb, skb->dev);
 
 	/* send it up */
 #ifdef NAPI_POLL

@@ -1,7 +1,7 @@
 /*
  * Wireless Network Adapter Configuration Utility
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: wlconf.c,v 1.187.3 2010/11/22 08:57:44 Exp $
+ * $Id: wlconf.c,v 1.187.2.40 2011-02-11 22:07:17 Exp $
  */
 
 #include <typedefs.h>
@@ -17,6 +17,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <bcmnvram.h>
 #include <bcmutils.h>
 #include <bcmparams.h>
@@ -256,6 +258,12 @@ wlconf_akm_options(char *prefix)
 		if (!strcmp(akm, "brcm_psk"))
 			akm_ret_val |= BRCM_AUTH_PSK;
 #endif /* BCMWPA2 */
+#ifdef BCMWAPI_WAI
+		if (!strcmp(akm, "wapi"))
+			akm_ret_val |= WAPI_AUTH_UNSPECIFIED;
+		if (!strcmp(akm, "wapi_psk"))
+			akm_ret_val |= WAPI_AUTH_PSK;
+#endif /* BCMWAPI_WAI */
 	}
 	return akm_ret_val;
 }
@@ -278,6 +286,10 @@ wlconf_set_wsec(char *ifname, char *prefix, int bsscfg_idx)
 			val = AES_ENABLED;
 		else if (nvram_match(strcat_r(prefix, "crypto", tmp), "tkip+aes"))
 			val = TKIP_ENABLED | AES_ENABLED;
+#ifdef BCMWAPI_WAI
+		else if (nvram_match(strcat_r(prefix, "crypto", tmp), "sms4"))
+			val = SMS4_ENABLED;
+#endif /* BCMWAPI_WAI */
 	}
 	if (nvram_match(strcat_r(prefix, "wep", tmp), "enabled"))
 		val |= WEP_ENABLED;
@@ -575,15 +587,13 @@ wlconf_set_wme(char *name, char *prefix)
 	return;
 }
 
-#if defined(linux)
+#if defined(linux) || defined(__NetBSD__)
 #include <unistd.h>
 static void
 sleep_ms(const unsigned int ms)
 {
 	usleep(1000*ms);
 }
-#elif defined(_HNDRTE_)
-#define sleep_ms(ms) hndrte_delay(ms*1000)
 #elif defined(__ECOS)
 static void
 sleep_ms(const unsigned int ms)
@@ -740,12 +750,68 @@ wlconf_get_bsscfgs(char* ifname, char* prefix)
 }
 
 static void
-wlconf_security_options(char *name, char *prefix, int bsscfg_idx, bool id_supp)
+wlconf_config_join_pref(char *name, int auth_val)
+{
+	int ret = 0, i = 0;
+
+	if ((auth_val & (WPA_AUTH_UNSPECIFIED | WPA2_AUTH_UNSPECIFIED)) || CHECK_PSK(auth_val)) {
+		uchar pref[] = {
+			/* WPA pref, 14 tuples */
+			0x02, 0xaa, 0x00, 0x0e,
+			/* WPA2                 AES  (unicast)          AES (multicast) */
+			0x00, 0x0f, 0xac, 0x01, 0x00, 0x0f, 0xac, 0x04, 0x00, 0x0f, 0xac, 0x04,
+			/* WPA                  AES  (unicast)          AES (multicast) */
+			0x00, 0x50, 0xf2, 0x01, 0x00, 0x50, 0xf2, 0x04, 0x00, 0x50, 0xf2, 0x04,
+			/* WPA2                 AES  (unicast)          TKIP (multicast) */
+			0x00, 0x0f, 0xac, 0x01, 0x00, 0x0f, 0xac, 0x04, 0x00, 0x0f, 0xac, 0x02,
+			/* WPA                  AES  (unicast)          TKIP (multicast) */
+			0x00, 0x50, 0xf2, 0x01, 0x00, 0x50, 0xf2, 0x04, 0x00, 0x50, 0xf2, 0x02,
+			/* WPA2                 AES  (unicast)          WEP-40 (multicast) */
+			0x00, 0x0f, 0xac, 0x01, 0x00, 0x0f, 0xac, 0x04, 0x00, 0x0f, 0xac, 0x01,
+			/* WPA                  AES  (unicast)          WEP-40 (multicast) */
+			0x00, 0x50, 0xf2, 0x01, 0x00, 0x50, 0xf2, 0x04, 0x00, 0x50, 0xf2, 0x01,
+			/* WPA2                 AES  (unicast)          WEP-128 (multicast) */
+			0x00, 0x0f, 0xac, 0x01, 0x00, 0x0f, 0xac, 0x04, 0x00, 0x0f, 0xac, 0x05,
+			/* WPA                  AES  (unicast)          WEP-128 (multicast) */
+			0x00, 0x50, 0xf2, 0x01, 0x00, 0x50, 0xf2, 0x04, 0x00, 0x50, 0xf2, 0x05,
+			/* WPA2                 TKIP (unicast)          TKIP (multicast) */
+			0x00, 0x0f, 0xac, 0x01, 0x00, 0x0f, 0xac, 0x02, 0x00, 0x0f, 0xac, 0x02,
+			/* WPA                  TKIP (unicast)          TKIP (multicast) */
+			0x00, 0x50, 0xf2, 0x01, 0x00, 0x50, 0xf2, 0x02, 0x00, 0x50, 0xf2, 0x02,
+			/* WPA2                 TKIP (unicast)          WEP-40 (multicast) */
+			0x00, 0x0f, 0xac, 0x01, 0x00, 0x0f, 0xac, 0x02, 0x00, 0x0f, 0xac, 0x01,
+			/* WPA                  TKIP (unicast)          WEP-40 (multicast) */
+			0x00, 0x50, 0xf2, 0x01, 0x00, 0x50, 0xf2, 0x02, 0x00, 0x50, 0xf2, 0x01,
+			/* WPA2                 TKIP (unicast)          WEP-128 (multicast) */
+			0x00, 0x0f, 0xac, 0x01, 0x00, 0x0f, 0xac, 0x02, 0x00, 0x0f, 0xac, 0x05,
+			/* WPA                  TKIP (unicast)          WEP-128 (multicast) */
+			0x00, 0x50, 0xf2, 0x01, 0x00, 0x50, 0xf2, 0x02, 0x00, 0x50, 0xf2, 0x05,
+			/* RSSI pref */
+			0x01, 0x02, 0x00, 0x00,
+		};
+
+		if (CHECK_PSK(auth_val)) {
+			for (i = 0; i < pref[3]; i ++)
+				pref[7 + i * 12] = 0x02;
+		}
+
+		WL_IOVAR_SET(name, "join_pref", pref, sizeof(pref));
+	}
+
+}
+
+static void
+wlconf_security_options(char *name, char *prefix, int bsscfg_idx, bool id_supp,
+	bool check_join_pref)
 {
 	int i;
 	int val;
 	int ret;
 	char tmp[100];
+	bool need_id_supp = FALSE;
+	bool need_join_pref = FALSE;
+
+#define AUTOWPA(cfg) ((cfg) == (WPA_AUTH_PSK | WPA2_AUTH_PSK))
 
 	/* Set WSEC */
 	/*
@@ -764,8 +830,16 @@ wlconf_security_options(char *name, char *prefix, int bsscfg_idx, bool id_supp)
 	}
 
 	val = wlconf_akm_options(prefix);
+	if (bsscfg_idx == 0) {
+		need_join_pref = ((check_join_pref || id_supp) && AUTOWPA(val));
+		need_id_supp = (id_supp || need_join_pref);
+	}
+
+	if (need_join_pref)
+		wlconf_config_join_pref(name, val);
+
 	/* enable in-driver wpa supplicant? */
-	if (id_supp && (CHECK_PSK(val))) {
+	if (need_id_supp && (CHECK_PSK(val))) {
 		wsec_pmk_t psk;
 		char *key;
 
@@ -778,9 +852,16 @@ wlconf_security_options(char *name, char *prefix, int bsscfg_idx, bool id_supp)
 		}
 		wl_iovar_setint(name, "sup_wpa", 1);
 	}
-	WL_BSSIOVAR_SETINT(name, "wpa_auth", bsscfg_idx, val);
+
+	if (!need_join_pref)
+		WL_BSSIOVAR_SETINT(name, "wpa_auth", bsscfg_idx, val);
 
 	/* EAP Restrict if we have an AKM or radius authentication */
+#ifdef BCMWAPI_WAI
+	WL_BSSIOVAR_SETINT(name, "wai_restrict", bsscfg_idx,
+		(val & (WAPI_AUTH_UNSPECIFIED | WAPI_AUTH_PSK)));
+	val &= ~ (WAPI_AUTH_UNSPECIFIED | WAPI_AUTH_PSK);
+#endif
 	val = ((val != 0) || (nvram_match(strcat_r(prefix, "auth_mode", tmp), "radius")));
 	WL_BSSIOVAR_SETINT(name, "eap_restrict", bsscfg_idx, val);
 
@@ -923,6 +1004,119 @@ wlconf_aburn_ampdu_amsdu_set(char *name, char prefix[PREFIX_LEN], int nmode, int
 	return wme_option_val;
 }
 
+/* WLMEDIA_IPTV::WLMEDIA_IPTV_WET_TUNNEL */
+static int
+wlconf_del_wet_tunnel_vndr_ie(char *name, int bsscfg_idx, uchar *oui)
+{
+	int iebuf_len = 0;
+	vndr_ie_setbuf_t *ie_setbuf;
+	int iecount, i;
+
+	char getbuf[2048] = {0};
+	vndr_ie_buf_t *iebuf;
+	vndr_ie_info_t *ieinfo;
+	char *bufaddr;
+	int buflen = 0;
+	int found = 0;
+	uint32 pktflag;
+	uint32 frametype;
+	int ret = 0;
+
+	frametype = VNDR_IE_BEACON_FLAG;
+
+	WL_BSSIOVAR_GET(name, "vndr_ie", bsscfg_idx, getbuf, 2048);
+	iebuf = (vndr_ie_buf_t *)getbuf;
+
+	bufaddr = (char*)iebuf->vndr_ie_list;
+
+	for (i = 0; i < iebuf->iecount; i++) {
+		ieinfo = (vndr_ie_info_t *)bufaddr;
+		bcopy((char*)&ieinfo->pktflag, (char*)&pktflag, (int)sizeof(uint32));
+		if (pktflag == frametype) {
+			if (!memcmp(ieinfo->vndr_ie_data.oui, oui, DOT11_OUI_LEN)) {
+				found = 1;
+				bufaddr = (char*) &ieinfo->vndr_ie_data;
+				buflen = (int)ieinfo->vndr_ie_data.len + VNDR_IE_HDR_LEN;
+				break;
+			}
+		}
+		bufaddr = (char *)ieinfo->vndr_ie_data.oui + ieinfo->vndr_ie_data.len;
+	}
+
+	if (!found)
+		return -1;
+
+	iebuf_len = buflen + sizeof(vndr_ie_setbuf_t) - sizeof(vndr_ie_t);
+	ie_setbuf = (vndr_ie_setbuf_t *)malloc(iebuf_len);
+	if (!ie_setbuf) {
+		printf("memory alloc failure\n");
+		return -1;
+	}
+
+	/* Copy the vndr_ie SET command ("add"/"del") to the buffer */
+	strcpy(ie_setbuf->cmd, "del");
+
+	/* Buffer contains only 1 IE */
+	iecount = 1;
+	memcpy(&ie_setbuf->vndr_ie_buffer.iecount, &iecount, sizeof(int));
+
+	memcpy(&ie_setbuf->vndr_ie_buffer.vndr_ie_list[0].pktflag, &frametype, sizeof(uint32));
+
+	memcpy(&ie_setbuf->vndr_ie_buffer.vndr_ie_list[0].vndr_ie_data, bufaddr, buflen);
+
+	WL_BSSIOVAR_SET(name, "vndr_ie", bsscfg_idx, ie_setbuf, iebuf_len);
+
+	free(ie_setbuf);
+
+	return 0;
+}
+
+/* WLMEDIA_IPTV::WLMEDIA_IPTV_WET_TUNNEL */
+static int
+wlconf_set_wet_tunnel_vndr_ie(char *name, int bsscfg_idx, uchar *oui, uchar *data, int datalen)
+{
+	vndr_ie_setbuf_t *ie_setbuf;
+	unsigned int pktflag;
+	int buflen, iecount;
+	int ret = 0;
+
+	pktflag = VNDR_IE_BEACON_FLAG;
+
+	buflen = sizeof(vndr_ie_setbuf_t) + datalen - 1;
+	ie_setbuf = (vndr_ie_setbuf_t *)malloc(buflen);
+	if (!ie_setbuf) {
+		printf("memory alloc failure\n");
+		return -1;
+	}
+
+	/* Copy the vndr_ie SET command ("add"/"del") to the buffer */
+	strcpy(ie_setbuf->cmd, "add");
+
+	/* Buffer contains only 1 IE */
+	iecount = 1;
+	memcpy(&ie_setbuf->vndr_ie_buffer.iecount, &iecount, sizeof(int));
+
+	/* 
+	 * The packet flag bit field indicates the packets that will
+	 * contain this IE
+	 */
+	memcpy(&ie_setbuf->vndr_ie_buffer.vndr_ie_list[0].pktflag, &pktflag, sizeof(uint32));
+
+	/* Now, add the IE to the buffer, +1: one byte OUI_TYPE */
+	ie_setbuf->vndr_ie_buffer.vndr_ie_list[0].vndr_ie_data.len = DOT11_OUI_LEN + datalen;
+
+	memcpy(&ie_setbuf->vndr_ie_buffer.vndr_ie_list[0].vndr_ie_data.oui[0], oui, DOT11_OUI_LEN);
+	if (datalen > 0)
+		memcpy(&ie_setbuf->vndr_ie_buffer.vndr_ie_list[0].vndr_ie_data.data[0], data,
+		       datalen);
+
+	wlconf_del_wet_tunnel_vndr_ie(name, bsscfg_idx, oui);
+	WL_BSSIOVAR_SET(name, "vndr_ie", (int)bsscfg_idx, ie_setbuf, buflen);
+	free(ie_setbuf);
+
+	return (ret);
+}
+
 #define VIFNAME_LEN 16
 
 /* configure the specified wireless interface */
@@ -937,7 +1131,7 @@ wlconf(char *name)
 	char tmp[100], prefix[PREFIX_LEN];
 	char var[80], *next, *str, *addr = NULL;
 	/* Pay attention to buffer length requirements when using this */
-	char buf[WLC_IOCTL_MAXLEN];
+	char buf[WLC_IOCTL_MAXLEN]  __attribute__ ((aligned(4)));
 	char *country;
 	wlc_rev_info_t rev;
 	channel_info_t ci;
@@ -1007,6 +1201,8 @@ wlconf(char *name)
 			wl_ap_build = 1;
 		} else if (!strcmp(cap, "mbss16"))
 			max_no_vifs = 16;
+		else if (!strcmp(cap, "mbss8"))
+			max_no_vifs = 8;
 		else if (!strcmp(cap, "mbss4"))
 			max_no_vifs = 4;
 		else if (!strcmp(cap, "wmf"))
@@ -1063,10 +1259,11 @@ wlconf(char *name)
 			if (bcmerr == BCME_RANGE)
 				break;
 		}
-		if (ret)
+		if (ret) {
 			WLCONF_DBG("%d:(%s): setting bsscfg #%d iovar \"bss\" to 0"
 			           " (down) failed, ret = %d, bcmerr = %d\n",
 			           __LINE__, name, i, ret, bcmerr);
+		}
 	}
 
 	/* Get the list of BSS Configs */
@@ -1089,7 +1286,7 @@ wlconf(char *name)
 	/* create a wlX.Y_ifname nvram setting */
 	for (i = 1; i < bclist->count; i++) {
 		bsscfg = &bclist->bsscfgs[i];
-#if defined(linux) || defined(__ECOS)
+#if defined(linux) || defined(__ECOS) || defined(__NetBSD__)
 		strcpy(var, bsscfg->ifname);
 #endif
 		nvram_set(strcat_r(bsscfg->prefix, "ifname", tmp), var);
@@ -1204,7 +1401,7 @@ wlconf(char *name)
 	WL_IOCTL(name, WLC_SET_INFRA, &val, sizeof(val));
 
 	/* Set The AP MAX Associations Limit */
-	if (ap | apsta) {
+	if (ap || apsta) {
 		max_assoc = val = atoi(nvram_safe_get(strcat_r(prefix, "maxassoc", tmp)));
 		if (val > 0) {
 			WL_IOVAR_SETINT(name, "maxassoc", val);
@@ -1212,6 +1409,8 @@ wlconf(char *name)
 			WL_IOVAR_GETINT(name, "maxassoc", &max_assoc);
 		}
 	}
+	if (!wet && !sta)
+		WL_IOVAR_SETINT(name, "mpc", OFF);
 
 	for (i = 0; i < bclist->count; i++) {
 		char *subprefix;
@@ -1237,6 +1436,21 @@ wlconf(char *name)
 			wlconf_set_preauth(name, bsscfg->idx, set_preauth);
 		}
 #endif /* BCMWPA2 */
+
+		/* WLMEDIA_IPTV::WLMEDIA_IPTV_WET_TUNNEL */
+		/* Add BRCM proprietary IE for wet tunnel capability */
+		if (ap) {
+			if (atoi(nvram_safe_get("wet_tunnel")) == 1) {
+				brcm_prop_ie_t wet_tunnel_ie;
+				wet_tunnel_ie.type = WET_TUNNEL_IE_TYPE;
+				wet_tunnel_ie.cap = htons(1);
+				wlconf_set_wet_tunnel_vndr_ie(name,
+				        bsscfg->idx, (uchar *)BRCM_PROP_OUI,
+					(uchar *)&(wet_tunnel_ie.type),
+					sizeof(wet_tunnel_ie.type)+sizeof(wet_tunnel_ie.cap));
+				WL_IOVAR_SETINT(name, "ap_tunneling", 1);
+			}
+		}
 
 		subprefix = apsta ? prefix : bsscfg->prefix;
 
@@ -1281,6 +1495,11 @@ wlconf(char *name)
 
 		val = atoi(nvram_safe_get(strcat_r(prefix, "rxchain_pwrsave_pps", tmp)));
 		WL_BSSIOVAR_SETINT(name, "rxchain_pwrsave_pps", bsscfg->idx, val);
+
+		val = atoi(nvram_safe_get(strcat_r(bsscfg->prefix,
+			"rxchain_pwrsave_stas_assoc_check", tmp)));
+		WL_BSSIOVAR_SETINT(name, "rxchain_pwrsave_stas_assoc_check", bsscfg->idx,
+			val);
 	}
 
 	if (radio_pwrsave) {
@@ -1295,6 +1514,11 @@ wlconf(char *name)
 
 		val = atoi(nvram_safe_get(strcat_r(prefix, "radio_pwrsave_level", tmp)));
 		WL_BSSIOVAR_SETINT(name, "radio_pwrsave_level", bsscfg->idx, val);
+
+		val = atoi(nvram_safe_get(strcat_r(bsscfg->prefix,
+			"radio_pwrsave_stas_assoc_check", tmp)));
+		WL_BSSIOVAR_SETINT(name, "radio_pwrsave_stas_assoc_check", bsscfg->idx,
+			val);
 	}
 
 	/* Set up the country code */
@@ -1377,7 +1601,9 @@ wlconf(char *name)
 	nvram_set(strcat_r(prefix, "corerev", tmp), buf);
 
 	if ((rev.chipnum == BCM4716_CHIP_ID) || (rev.chipnum == BCM47162_CHIP_ID) ||
-		(rev.chipnum == BCM4748_CHIP_ID) || (rev.chipnum == BCM4331_CHIP_ID)) {
+		(rev.chipnum == BCM4748_CHIP_ID) || (rev.chipnum == BCM4331_CHIP_ID) ||
+		(rev.chipnum == BCM43431_CHIP_ID) || (rev.chipnum == BCM5357_CHIP_ID) ||
+		(rev.chipnum == BCM53572_CHIP_ID) || (rev.chipnum == BCM43236_CHIP_ID)) {
 		int pam_mode = WLC_N_PREAMBLE_GF_BRCM; /* default GF-BRCM */
 
 		strcat_r(prefix, "mimo_preamble", tmp);
@@ -1388,6 +1614,18 @@ wlconf(char *name)
 		else if (nvram_match(tmp, "auto"))
 			pam_mode = -1;
 		WL_IOVAR_SETINT(name, "mimo_preamble", pam_mode);
+	}
+
+	if ((rev.chipnum == BCM5357_CHIP_ID) || (rev.chipnum == BCM53572_CHIP_ID)) {
+		val = atoi(nvram_safe_get("coma_sleep"));
+		if (val > 0) {
+			struct {int sleep; int delay;} setbuf;
+			nvram_unset("coma_sleep");
+			nvram_commit();
+			setbuf.sleep = val;
+			setbuf.delay = 1;
+			WL_IOVAR_SET(name, "coma", &setbuf, sizeof(setbuf));
+		}
 	}
 
 	/* Get current phy type */
@@ -1415,11 +1653,17 @@ wlconf(char *name)
 			val = 2;
 		WL_IOCTL(name, WLC_SET_SPECT_MANAGMENT, &val, sizeof(val));
 
-		/* Set the CAC parameters */
-		val = atoi(nvram_safe_get(strcat_r(prefix, "dfs_preism", tmp)));
-		wl_iovar_setint(name, "dfs_preism", val);
-		val = atoi(nvram_safe_get(strcat_r(prefix, "dfs_postism", tmp)));
-		wl_iovar_setint(name, "dfs_postism", val);
+		/* Set the CAC parameters, if they exist in nvram */
+		str = nvram_get(strcat_r(prefix, "dfs_preism", tmp));
+		if (str) {
+			val = atoi(str);
+			wl_iovar_setint(name, "dfs_preism", val);
+		}
+		str = nvram_get(strcat_r(prefix, "dfs_postism", tmp));
+		if (str) {
+			val = atoi(str);
+			wl_iovar_setint(name, "dfs_postism", val);
+		}
 		val = atoi(nvram_safe_get(strcat_r(prefix, "tpc_db", tmp)));
 		WL_IOCTL(name, WLC_SEND_PWR_CONSTRAINT, &val, sizeof(val));
 
@@ -1574,9 +1818,8 @@ wlconf(char *name)
 		int control = WLC_PROTECTION_CTL_OFF;
 
 		/* Set n protection override and control algorithm */
-		strcat_r(prefix, "nmode_protection", tmp);
-
-		if (nvram_match(tmp, "auto")) {
+		str = nvram_get(strcat_r(prefix, "nmode_protection", tmp));
+		if (!str || !strcmp(str, "auto")) {
 			override = WLC_PROTECTION_AUTO;
 			control = WLC_PROTECTION_CTL_OVERLAP;
 		}
@@ -1792,8 +2035,12 @@ wlconf(char *name)
 		val = nvram_match(strcat_r(prefix, "frameburst", tmp), "on");
 	WL_IOCTL(name, WLC_SET_FAKEFRAG, &val, sizeof(val));
 
-	/* Set the STBC tx mode */
-	if (phytype == PHY_TYPE_N) {
+	/* Enable or disable PLC failover */
+	val = atoi(nvram_safe_get(strcat_r(prefix, "plc", tmp)));
+	WL_IOVAR_SETINT(name, "plc", val);
+
+	/* Set STBC tx and rx mode */
+	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_HT) {
 		char *nvram_str = nvram_safe_get(strcat_r(prefix, "stbc_tx", tmp));
 
 		if (!strcmp(nvram_str, "auto")) {
@@ -1890,6 +2137,10 @@ wlconf(char *name)
 			 */
 			obss_coex = 0;
 		}
+#ifdef WLTEST
+		/* force coex off for msgtest build */
+		obss_coex = 0;
+#endif
 		WL_IOVAR_SETINT(name, "obss_coex", obss_coex);
 	}
 
@@ -1907,6 +2158,13 @@ wlconf(char *name)
 #ifdef EXT_ACS
 		char tmp[100];
 		char *ptr;
+		char * val;
+
+		val = nvram_safe_get("acs_mode");
+
+		if (!strcmp(val, "legacy") || (rev.chipnum == BCM4331_CHIP_ID) ||
+			(rev.chipnum == BCM43431_CHIP_ID))
+			goto legacy_mode;
 
 		snprintf(tmp, sizeof(tmp), "acs_ifnames");
 		ptr = nvram_get(tmp);
@@ -1915,9 +2173,10 @@ wlconf(char *name)
 		else
 			strncpy(buf, name, sizeof(buf));
 		nvram_set(tmp, buf);
+		goto legacy_end;
 
-	}
-#else
+legacy_mode:
+#endif /* EXT_ACS */
 		if (obss_coex || channel == 0) {
 			if (WLCONF_PHYTYPE_11N(phytype)) {
 				chanspec_t chanspec = 0;
@@ -1959,14 +2218,17 @@ wlconf(char *name)
 
 		WL_IOCTL(name, WLC_SET_CS_SCAN_TIMER, &val, sizeof(val));
 		WL_IOVAR_SETINT(name, "chanim_mode", CHANIM_ACT);
+#ifdef EXT_ACS
+legacy_end:
+		;
+#endif
 	}
-
-#endif /* EXT_ACS */
 
 	/* Security settings for each BSS Configuration */
 	for (i = 0; i < bclist->count; i++) {
 		bsscfg = &bclist->bsscfgs[i];
-		wlconf_security_options(name, bsscfg->prefix, bsscfg->idx, mac_spoof);
+		wlconf_security_options(name, bsscfg->prefix, bsscfg->idx, mac_spoof,
+			(wet || sta || apsta));
 	}
 
 	/*

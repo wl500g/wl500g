@@ -1,15 +1,21 @@
 /*
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  * Fundamental types and constants relating to 802.11
  *
- * $Id: 802.11.h,v 9.222.3 2010/11/22 09:05:02 Exp $
+ * $Id: 802.11.h,v 9.260.12.12 2010-11-13 00:41:30 Exp $
  */
 
 #ifndef _802_11_H_
@@ -160,8 +166,8 @@ BWL_PRE_PACKED_STRUCT struct dot11_action_wifi_vendor_specific {
 	uint8	type;
 	uint8	subtype;
 	uint8	data[1040];
-	struct dot11_action_wifi_vendor_specific* next_node;
 } BWL_POST_PACKED_STRUCT;
+typedef struct dot11_action_wifi_vendor_specific dot11_action_wifi_vendor_specific_t;
 
 /* generic vender specific action frame with variable length */
 BWL_PRE_PACKED_STRUCT struct dot11_action_vs_frmhdr {
@@ -179,7 +185,6 @@ typedef struct dot11_action_vs_frmhdr dot11_action_vs_frmhdr_t;
 #define BCM_ACTION_OUI_BYTE1	0x90
 #define BCM_ACTION_OUI_BYTE2	0x4c
 
-typedef struct dot11_action_wifi_vendor_specific dot11_action_wifi_vendor_specific_t;
 /* BA/BAR Control parameters */
 #define DOT11_BA_CTL_POLICY_NORMAL	0x0000	/* normal ack */
 #define DOT11_BA_CTL_POLICY_NOACK	0x0001	/* no ack */
@@ -286,6 +291,12 @@ BWL_PRE_PACKED_STRUCT struct dot11_action_ht_mimops {
 	uint8	category;
 	uint8	action;
 	uint8	control;
+} BWL_POST_PACKED_STRUCT;
+
+BWL_PRE_PACKED_STRUCT struct dot11_action_sa_query {
+	uint8	category;
+	uint8	action;
+	uint16	id;
 } BWL_POST_PACKED_STRUCT;
 
 #define SM_PWRSAVE_ENABLE	1
@@ -433,10 +444,14 @@ typedef struct dot11_obss_chanlist dot11_obss_chanlist_t;
 BWL_PRE_PACKED_STRUCT struct dot11_extcap_ie {
 	uint8 id;
 	uint8 len;
-	uint8 cap;
+	uint8 cap[1];
 } BWL_POST_PACKED_STRUCT;
 typedef struct dot11_extcap_ie dot11_extcap_ie_t;
-#define DOT11_EXTCAP_LEN	1
+
+#define DOT11_EXTCAP_LEN_MAX	5
+#define DOT11_EXTCAP_LEN_COEX	1
+#define DOT11_EXTCAP_LEN_BT	4
+#define DOT11_EXTCAP_LEN_IW	4
 
 /* 802.11h/802.11k Measurement Request/Report IEs */
 /* Measurement Type field */
@@ -542,11 +557,13 @@ typedef struct dot11_ibss_dfs dot11_ibss_dfs_t;
 
 /* WME Elements */
 #define WME_OUI			"\x00\x50\xf2"	/* WME OUI */
-#define WME_VER			1	/* WME version */
-#define WME_TYPE		2	/* WME type */
+#define WME_OUI_LEN		3
+#define WME_OUI_TYPE		2	/* WME type */
+#define WME_TYPE		2	/* WME type, deprecated */
 #define WME_SUBTYPE_IE		0	/* Information Element */
 #define WME_SUBTYPE_PARAM_IE	1	/* Parameter Element */
 #define WME_SUBTYPE_TSPEC	2	/* Traffic Specification */
+#define WME_VER			1	/* WME version */
 
 /* WME Access Category Indices (ACIs) */
 #define AC_BE			0	/* Best Effort */
@@ -728,7 +745,8 @@ BWL_PRE_PACKED_STRUCT struct dot11_management_notification {
 /* Authentication frame payload constants */
 #define DOT11_OPEN_SYSTEM	0	/* d11 open authentication */
 #define DOT11_SHARED_KEY	1	/* d11 shared authentication */
-#define DOT11_OPEN_SHARED	2	/* try open first, then shared if open failed */
+#define DOT11_FAST_BSS		2	/* d11 fast bss authentication */
+#define DOT11_OPEN_SHARED	3	/* try open first, then shared if open failed */
 #define DOT11_CHALLENGE_LEN	128	/* d11 challenge text length */
 
 /* Frame control macros */
@@ -1013,9 +1031,21 @@ BWL_PRE_PACKED_STRUCT struct dot11_management_notification {
 						 * station not supporting the DSS-OFDM
 						 * option
 						 */
+#define DOT11_SC_ASSOC_R0KH_UNREACHABLE	28	/* Association denied due to AP
+						 * being unable to reach the R0 Key Holder
+						 */
+#define DOT11_SC_ASSOC_TRY_LATER	30	/* Association denied temporarily, try again later
+						 */
+#define DOT11_SC_ASSOC_MFP_VIOLATION	31	/* Association denied due to Robust Management
+						 * frame policy violation
+						 */
 
 #define	DOT11_SC_DECLINED		37	/* request declined */
 #define	DOT11_SC_INVALID_PARAMS		38	/* One or more params have invalid values */
+#define	DOT11_SC_INVALID_AKMP		43	/* Association denied due to invalid AKMP */
+#define	DOT11_SC_INVALID_PMKID		53	/* Association denied due to invalid PMKID */
+#define	DOT11_SC_INVALID_MDID		54	/* Association denied due to invalid MDID */
+#define	DOT11_SC_INVALID_FTIE		55	/* Association denied due to invalid FTIE */
 
 /* Info Elts, length of INFORMATION portion of Info Elts */
 #define DOT11_MNG_DS_PARAM_LEN			1	/* d11 management DS parameter length */
@@ -1068,19 +1098,38 @@ BWL_PRE_PACKED_STRUCT struct dot11_management_notification {
 #define DOT11_MNG_NONERP_ID			47	/* d11 management NON-ERP id */
 #define DOT11_MNG_RSN_ID			48	/* d11 management RSN id */
 #define DOT11_MNG_EXT_RATES_ID			50	/* d11 management ext. rates id */
-#define DOT11_MNG_AP_CHREP_ID		51	/* 11K AP Channel report id */
-#define DOT11_MNG_NBR_REP_ID		52	/* 11K Neighbor report id */
+#define DOT11_MNG_AP_CHREP_ID		51	/* 11k AP Channel report id */
+#define DOT11_MNG_NBR_REP_ID		52	/* 11k Neighbor report id */
+#define DOT11_MNG_MDIE_ID		54	/* 11r Mobility domain id */
+#define DOT11_MNG_FTIE_ID		55	/* 11r Fast Bss Transition id */
+#define DOT11_MNG_FT_TI_ID		56	/* 11r Timeout Interval id */
 #define	DOT11_MNG_REGCLASS_ID			59	/* d11 management regulatory class id */
 #define DOT11_MNG_EXT_CSA_ID			60	/* d11 Extended CSA */
 #define	DOT11_MNG_HT_ADD			61	/* d11 mgmt additional HT info */
 #define	DOT11_MNG_EXT_CHANNEL_OFFSET		62	/* d11 mgmt ext channel offset */
 
+#ifdef BCMWAPI_WAI
+#define DOT11_MNG_WAPI_ID			68	/* d11 management WAPI id */
+#endif
 
-#define DOT11_MNG_RRM_CAP_ID		70	/* 11K radio measurement enabled capability */
+#define DOT11_MNG_TIME_ADVERTISE_ID	69	/* 11p time advertisement */
+#define DOT11_MNG_RRM_CAP_ID		70	/* 11k radio measurement capability */
 #define	DOT11_MNG_HT_BSS_COEXINFO_ID		72	/* d11 mgmt OBSS Coexistence INFO */
 #define	DOT11_MNG_HT_BSS_CHANNEL_REPORT_ID	73	/* d11 mgmt OBSS Intolerant Channel list */
 #define	DOT11_MNG_HT_OBSS_ID			74	/* d11 mgmt OBSS HT info */
-#define	DOT11_MNG_EXT_CAP			127	/* d11 mgmt ext capability */
+#define DOT11_MNG_TIME_ZONE_ID			98	/* 11v time zone */
+#define DOT11_MNG_LINK_IDENTIFIER_ID	101	/* 11z TDLS Link Identifier IE */
+#define DOT11_MNG_WAKEUP_SCHEDULE_ID	102 /* 11z TDLS Wakeup Schedule IE */
+#define DOT11_MNG_CHANNEL_SWITCH_TIMING_ID	104 /* 11z TDLS Channel Switch Timing IE */
+#define DOT11_MNG_PTI_CONTROL_ID		105	/* 11z TDLS PTI Control IE */
+#define DOT11_MNG_PU_BUFFER_STATUS_ID	106	/* 11z TDLS PU Buffer Status IE */
+#define DOT11_MNG_INTERWORKING_ID		107	/* 11u interworking */
+#define DOT11_MNG_ADVERTISEMENT_ID		108	/* 11u advertisement protocol */
+#define DOT11_MNG_EXP_BW_REQ_ID			109	/* 11u expedited bandwith request */
+#define DOT11_MNG_QOS_MAP_ID			110	/* 11u QoS map set */
+#define DOT11_MNG_ROAM_CONSORT_ID		111	/* 11u roaming consortium */
+#define DOT11_MNG_EMERGCY_ALERT_ID		112	/* 11u emergency alert identifier */
+#define	DOT11_MNG_EXT_CAP_ID		127	/* d11 mgmt ext capability */
 #define DOT11_MNG_WPA_ID			221	/* d11 management WPA id */
 #define DOT11_MNG_PROPR_ID			221	/* d11 management proprietary id */
 /* should start using this one instead of above two */
@@ -1116,16 +1165,23 @@ BWL_PRE_PACKED_STRUCT struct dot11_management_notification {
 #define DOT11_CAP_AGILITY			0x0080	/* d11 cap. agility */
 #define DOT11_CAP_SPECTRUM			0x0100	/* d11 cap. spectrum */
 #define DOT11_CAP_SHORTSLOT			0x0400	/* d11 cap. shortslot */
-#define DOT11_CAP_RM			0x1000	/* d11 cap. radio measurement */
+#define DOT11_CAP_RRM			0x1000	/* d11 cap. 11k radio measurement */
 #define DOT11_CAP_CCK_OFDM			0x2000	/* d11 cap. CCK/OFDM */
 
-/* Extended Capability Information Field */
-#define DOT11_OBSS_COEX_MNG_SUPPORT	0x01	/* 20/40 BSS Coexistence Management support */
+/* Extended capabilities IE bitfields */
+/* 20/40 BSS Coexistence Management support bit position */
+#define DOT11_EXT_CAP_OBSS_COEX_MGMT		0
+/* BSS Transition Management support bit position */
+#define DOT11_EXT_CAP_BSS_TRANSITION_MGMT	19
+/* Interworking support bit position */
+#define DOT11_EXT_CAP_IW						31
 
 /*
  * Action Frame Constants
  */
 #define DOT11_ACTION_HDR_LEN		2	/* action frame category + action field */
+#define DOT11_ACTION_CAT_OFF		0	/* category offset */
+#define DOT11_ACTION_ACT_OFF		1	/* action offset */
 
 /* Action Category field (sec 7.3.1.11) */
 #define DOT11_ACTION_CAT_ERR_MASK	0x80	/* category error mask */
@@ -1135,8 +1191,16 @@ BWL_PRE_PACKED_STRUCT struct dot11_management_notification {
 #define DOT11_ACTION_CAT_DLS		2	/* category DLS */
 #define DOT11_ACTION_CAT_BLOCKACK	3	/* category block ack */
 #define DOT11_ACTION_CAT_PUBLIC		4	/* category public */
-#define DOT11_ACTION_CAT_RM		5	/* category radio measurements */
+#define DOT11_ACTION_CAT_RRM		5	/* category radio measurements */
+#define DOT11_ACTION_CAT_FBT	6	/* category fast bss transition */
 #define DOT11_ACTION_CAT_HT		7	/* category for HT */
+#if defined(MFP) || defined(WLFBT) || defined(WLWNM)
+#define	DOT11_ACTION_CAT_SA_QUERY	8	/* security association query */
+#define	DOT11_ACTION_CAT_PDPA		9	/* protected dual of public action */
+#define DOT11_ACTION_CAT_BSSMGMT	10	/* category for BSS transition management */
+#define DOT11_ACTION_NOTIFICATION	17
+#define DOT11_ACTION_CAT_VSP		126	/* protected vendor specific */
+#endif /* MFP || WLFBT */
 #define DOT11_ACTION_NOTIFICATION	17
 #define DOT11_ACTION_CAT_VS		127	/* category Vendor Specific */
 
@@ -1172,6 +1236,123 @@ BWL_PRE_PACKED_STRUCT struct dot11_management_notification {
 
 #define DOT11_ADDBA_POLICY_DELAYED	0	/* delayed BA policy */
 #define DOT11_ADDBA_POLICY_IMMEDIATE	1	/* immediate BA policy */
+
+/* Fast Transition action types */
+#define DOT11_FT_ACTION_FT_RESERVED		0
+#define DOT11_FT_ACTION_FT_REQ			1	/* FBT request - for over-the-DS FBT */
+#define DOT11_FT_ACTION_FT_RES			2	/* FBT response - for over-the-DS FBT */
+#define DOT11_FT_ACTION_FT_CON			3	/* FBT confirm - for OTDS with RRP */
+#define DOT11_FT_ACTION_FT_ACK			4	/* FBT ack */
+
+
+/* Wireless Network Management (WNM) action types */
+#define DOT11_WNM_ACTION_EVENT_REQ			0
+#define DOT11_WNM_ACTION_EVENT_REP			1
+#define DOT11_WNM_ACTION_DIAG_REQ			2
+#define DOT11_WNM_ACTION_DIAG_REP			3
+#define DOT11_WNM_ACTION_LOC_CFG_REQ		4
+#define DOT11_WNM_ACTION_LOC_RFG_RESP		5
+#define DOT11_WNM_ACTION_BSS_TRANS_QURY		6
+#define DOT11_WNM_ACTION_BSS_TRANS_REQ		7
+#define DOT11_WNM_ACTION_BSS_TRANS_RESP		8
+#define DOT11_WNM_ACTION_FMS_REQ			9
+#define DOT11_WNM_ACTION_FMS_RESP			10
+#define DOT11_WNM_ACTION_COL_INTRFRNCE_REQ	11
+#define DOT11_WNM_ACTION_COL_INTRFRNCE_REP	12
+#define DOT11_WNM_ACTION_TFS_REQ			13
+#define DOT11_WNM_ACTION_TFS_RESP			14
+#define DOT11_WNM_ACTION_TFS_NOTIFY			15
+#define DOT11_WNM_ACTION_WNM_SLEEP_REQ		16
+#define DOT11_WNM_ACTION_WNM_SLEEP_RESP		17
+#define DOT11_WNM_ACTION_TIM_BCAST_REQ		18
+#define DOT11_WNM_ACTION_TIM_BCAST_RESP		19
+#define DOT11_WNM_ACTION_QOS_TRFC_CAP_UPD	20
+#define DOT11_WNM_ACTION_CHAN_USAGE_REQ		21
+#define DOT11_WNM_ACTION_CHAN_USAGE_RESP	22
+#define DOT11_WNM_ACTION_DMS_REQ			23
+#define DOT11_WNM_ACTION_DMS_RESP			24
+#define DOT11_WNM_ACTION_TMNG_MEASUR_REQ	25
+#define DOT11_WNM_ACTION_NOTFCTN_REQ		26
+#define DOT11_WNM_ACTION_NOTFCTN_RES		27
+
+
+/* BSS Management Transition Query frame header */
+BWL_PRE_PACKED_STRUCT struct dot11_bss_trans_query {
+	uint8 category;				/* category of action frame (10) */
+	uint8 action;				/* WNM action: trans_query (6) */
+	uint8 token;				/* dialog token */
+	uint8 reason;				/* transition query reason */
+	uint8 data[1];				/* Elements */
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_bss_trans_query dot11_bss_trans_query_t;
+#define DOT11_BSS_TRANS_QUERY_LEN 4	/* Fixed length */
+
+/* BSS Management Transition Request frame header */
+BWL_PRE_PACKED_STRUCT struct dot11_bss_trans_req {
+	uint8 category;				/* category of action frame (10) */
+	uint8 action;				/* WNM action: trans_req (7) */
+	uint8 token;				/* dialog token */
+	uint8 reqmode;				/* transition request mode */
+	uint16 disassoc_tmr;		/* disassociation timer */
+	uint8 validity_intrvl;		/* validity interval */
+	uint8 data[1];				/* optional: BSS term duration, ... */
+								/* ...session info URL, list */
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_bss_trans_req dot11_bss_trans_req_t;
+#define DOT11_BSS_TRANS_REQ_LEN 7	/* Fixed length */
+
+#define DOT11_BSS_TERM_DUR_LEN 12	/* Fixed length if present */
+
+
+/* BSS Mgmt Transition Request Mode Field - 802.11v */
+#define DOT11_BSS_TRNS_REQMODE_PREF_LIST_INCL		0x01
+#define DOT11_BSS_TRNS_REQMODE_ABRIDGED				0x02
+#define DOT11_BSS_TRNS_REQMODE_DISASSOC_IMMINENT	0x04
+#define DOT11_BSS_TRNS_REQMODE_BSS_TERM_INCL		0x08
+#define DOT11_BSS_TRNS_REQMODE_ESS_DISASSOC_IMNT	0x10
+
+
+/* BSS Management transition response frame header */
+BWL_PRE_PACKED_STRUCT struct dot11_bss_trans_res {
+	uint8 category;				/* category of action frame (10) */
+	uint8 action;				/* WNM action: trans_res (8) */
+	uint8 token;				/* dialog token */
+	uint8 status;				/* transition status */
+	uint8 term_delay;			/* validity interval */
+	uint8 data[1];				/* optional: BSS term duration, ... */
+								/* ...session info URL, list */
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_bss_trans_res dot11_bss_trans_res_t;
+#define DOT11_BSS_TRANS_RES_LEN 5	/* Fixed length */
+
+/* BSS Mgmt Transition Response Status Field */
+#define DOT11_BSS_TRNS_RES_STATUS_ACCEPT				0
+#define DOT11_BSS_TRNS_RES_STATUS_REJECT				1
+#define DOT11_BSS_TRNS_RES_STATUS_REJ_INSUFF_BCN		2
+#define DOT11_BSS_TRNS_RES_STATUS_REJ_INSUFF_CAP		3
+#define DOT11_BSS_TRNS_RES_STATUS_REJ_TERM_UNDESIRED	4
+#define DOT11_BSS_TRNS_RES_STATUS_REJ_TERM_DELAY_REQ	5
+#define DOT11_BSS_TRNS_RES_STATUS_REJ_BSS_LIST_PROVIDED	6
+#define DOT11_BSS_TRNS_RES_STATUS_REJ_NO_SUITABLE_BSS	7
+#define DOT11_BSS_TRNS_RES_STATUS_REJ_LEAVING_ESS		8
+
+
+/* Neighbor Report BSSID Information Field */
+#define DOT11_NBR_RPRT_BSSID_INFO_REACHABILTY		0x0003
+#define DOT11_NBR_RPRT_BSSID_INFO_SEC				0x0004
+#define DOT11_NBR_RPRT_BSSID_INFO_KEY_SCOPE			0x0008
+#define DOT11_NBR_RPRT_BSSID_INFO_CAP				0x03f0
+
+#define DOT11_NBR_RPRT_BSSID_INFO_CAP_SPEC_MGMT		0x0010
+#define DOT11_NBR_RPRT_BSSID_INFO_CAP_QOS			0x0020
+#define DOT11_NBR_RPRT_BSSID_INFO_CAP_APSD			0x0040
+#define DOT11_NBR_RPRT_BSSID_INFO_CAP_RDIO_MSMT		0x0080
+#define DOT11_NBR_RPRT_BSSID_INFO_CAP_DEL_BA		0x0100
+#define DOT11_NBR_RPRT_BSSID_INFO_CAP_IMM_BA		0x0200
+
+/* Neighbor Report Subelements */
+#define DOT11_NBR_RPRT_SUBELEM_BSS_CANDDT_PREF_ID	3
+
 
 BWL_PRE_PACKED_STRUCT struct dot11_addba_req {
 	uint8 category;				/* category of action frame (3) */
@@ -1210,6 +1391,36 @@ BWL_PRE_PACKED_STRUCT struct dot11_delba {
 typedef struct dot11_delba dot11_delba_t;
 #define DOT11_DELBA_LEN			6	/* length of delba frame */
 
+/* SA Query action field value */
+#define SA_QUERY_REQUEST		0
+#define SA_QUERY_RESPONSE		1
+
+/* ************* 802.11r related definitions. ************* */
+
+/* Over-the-DS Fast Transition Request frame header */
+BWL_PRE_PACKED_STRUCT struct dot11_ft_req {
+	uint8 category;			/* category of action frame (6) */
+	uint8 action;			/* action: ft req */
+	uint8 sta_addr[ETHER_ADDR_LEN];
+	uint8 tgt_ap_addr[ETHER_ADDR_LEN];
+	uint8 data[1];			/* Elements */
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_ft_req dot11_ft_req_t;
+#define DOT11_FT_REQ_FIXED_LEN 14
+
+/* Over-the-DS Fast Transition Response frame header */
+BWL_PRE_PACKED_STRUCT struct dot11_ft_res {
+	uint8 category;			/* category of action frame (6) */
+	uint8 action;			/* action: ft resp */
+	uint8 sta_addr[ETHER_ADDR_LEN];
+	uint8 tgt_ap_addr[ETHER_ADDR_LEN];
+	uint16 status;			/* status code */
+	uint8 data[1];			/* Elements */
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_ft_res dot11_ft_res_t;
+#define DOT11_FT_RES_FIXED_LEN 16
+
+
 /* ************* 802.11k related definitions. ************* */
 
 /* Radio measurements enabled capability ie */
@@ -1229,6 +1440,12 @@ typedef struct dot11_rrm_cap_ie dot11_rrm_cap_ie_t;
 #define DOT11_RRM_CAP_BCN_ACTIVE	5
 #define DOT11_RRM_CAP_BCN_TABLE		6
 #define DOT11_RRM_CAP_BCN_REP_COND	7
+#define DOT11_RRM_CAP_AP_CHANREP	16
+
+
+/* Operating Class (formerly "Regulatory Class") definitions */
+#define DOT11_OP_CLASS_NONE			255
+
 
 /* Radio Measurements action ids */
 #define DOT11_RM_ACTION_RM_REQ		0	/* Radio measurement request */
@@ -1267,6 +1484,18 @@ BWL_PRE_PACKED_STRUCT struct dot11_rm_ie {
 typedef struct dot11_rm_ie dot11_rm_ie_t;
 #define DOT11_RM_IE_LEN	5
 
+/* Definitions for "mode" bits in rm req */
+#define DOT11_RMREQ_MODE_PARALLEL	1
+#define DOT11_RMREQ_MODE_ENABLE		2
+#define DOT11_RMREQ_MODE_REQUEST	4
+#define DOT11_RMREQ_MODE_REPORT		8
+#define DOT11_RMREQ_MODE_DURMAND	0x10	/* Duration Mandatory */
+
+/* Definitions for "mode" bits in rm rep */
+#define DOT11_RMREP_MODE_LATE		1
+#define DOT11_RMREP_MODE_INCAPABLE	2
+#define DOT11_RMREP_MODE_REFUSED	4
+
 BWL_PRE_PACKED_STRUCT struct dot11_rmreq_bcn {
 	uint8 id;
 	uint8 len;
@@ -1301,7 +1530,7 @@ typedef struct dot11_rmrep_bcn dot11_rmrep_bcn_t;
 /* Beacon request measurement mode */
 #define DOT11_RMREQ_BCN_PASSIVE	0
 #define DOT11_RMREQ_BCN_ACTIVE	1
-#define DOT11_RMREQ_BCN_BCNTABLE	2
+#define DOT11_RMREQ_BCN_TABLE	2
 
 /* Sub-element IDs for Beacon Request */
 #define DOT11_RMREQ_BCN_SSID_ID	0
@@ -1310,15 +1539,22 @@ typedef struct dot11_rmrep_bcn dot11_rmrep_bcn_t;
 #define DOT11_RMREQ_BCN_REQUEST_ID	10
 #define DOT11_RMREQ_BCN_APCHREP_ID	51
 
+/* Reporting Detail element definition */
+#define DOT11_RMREQ_BCN_REPDET_FIXED	0	/* Fixed length fields only */
+#define DOT11_RMREQ_BCN_REPDET_REQUEST	1	/* + requested information elems */
+#define DOT11_RMREQ_BCN_REPDET_ALL	2	/* All fields */
+
 /* Sub-element IDs for Beacon Report */
 #define DOT11_RMREP_BCN_FRM_BODY	1
 
+/* Neighbor measurement report */
 BWL_PRE_PACKED_STRUCT struct dot11_rmrep_nbr {
 	struct ether_addr	bssid;
 	uint32	bssid_info;
 	uint8 reg;
 	uint8 channel;
 	uint8 phytype;
+	uchar sub_elements[1]; 	/* Variable size data */
 } BWL_POST_PACKED_STRUCT;
 typedef struct dot11_rmrep_nbr dot11_rmrep_nbr_t;
 #define DOT11_RMREP_NBR_LEN	13
@@ -1329,6 +1565,30 @@ typedef struct dot11_rmrep_nbr dot11_rmrep_nbr_t;
 #define DOT11_BSSTYPE_ANY			2	/* d11 any BSS type */
 #define DOT11_SCANTYPE_ACTIVE			0	/* d11 scan active */
 #define DOT11_SCANTYPE_PASSIVE			1	/* d11 scan passive */
+
+/* Link Measurement */
+BWL_PRE_PACKED_STRUCT struct dot11_lmreq {
+	uint8 category;				/* category of action frame (5) */
+	uint8 action;				/* radio measurement action */
+	uint8 token;				/* dialog token */
+	uint8 txpwr;				/* Transmit Power Used */
+	uint8 maxtxpwr;				/* Max Transmit Power */
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_lmreq dot11_lmreq_t;
+#define DOT11_LMREQ_LEN	5
+
+BWL_PRE_PACKED_STRUCT struct dot11_lmrep {
+	uint8 category;				/* category of action frame (5) */
+	uint8 action;				/* radio measurement action */
+	uint8 token;				/* dialog token */
+	dot11_tpc_rep_t tpc;			/* TPC element */
+	uint8 rxant;				/* Receive Antenna ID */
+	uint8 txant;				/* Transmit Antenna ID */
+	uint8 rcpi;				/* RCPI */
+	uint8 rsni;				/* RSNI */
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_lmrep dot11_lmrep_t;
+#define DOT11_LMREP_LEN	11
 
 /* 802.11 BRCM "Compromise" Pre N constants */
 #define PREN_PREAMBLE		24	/* green field preamble time */
@@ -1410,7 +1670,9 @@ typedef struct brcm_prop_ie_s brcm_prop_ie_t;
 #define BRCM_PROP_IE_LEN	6	/* len of fixed part of brcm_prop ie */
 
 #define DPT_IE_TYPE		2
+#define WET_TUNNEL_IE_TYPE	3
 #endif /* LINUX_POSTMOGRIFY_REMOVAL */
+
 
 /* BRCM OUI: Used in the proprietary(221) IE in all broadcom devices */
 #define BRCM_OUI		"\x00\x10\x18"	/* Broadcom OUI */
@@ -1446,6 +1708,7 @@ typedef	struct brcm_ie brcm_ie_t;
 #define BRF1_WMEPS		0x4	/* AP is capable of handling WME + PS w/o APSD */
 #define BRF1_PSOFIX		0x8	/* AP has fixed PS mode out-of-order packets */
 #define	BRF1_RX_LARGE_AGG	0x10	/* device can rx large aggregates */
+#define BRF1_RFAWARE_DCS	0x20    /* RFAWARE dynamic channel selection (DCS) */
 
 #ifdef WLAFTERBURNER
 #define AB_WDS_TIMEOUT_MAX	15	/* AB wds Max count indicating not locally capable */
@@ -1659,27 +1922,38 @@ typedef struct dot11_obss_ie dot11_obss_ie_t;
 
 
 /* ************* WPA definitions. ************* */
-#define WPA_VERSION		1	/* WPA version */
 #define WPA_OUI			"\x00\x50\xF2"	/* WPA OUI */
-
-#define WPA2_VERSION		1	/* WPA2 version */
-#define WPA2_VERSION_LEN	2	/* WAP2 version length */
+#define WPA_OUI_LEN		3		/* WPA OUI length */
+#define WPA_OUI_TYPE		1
+#define WPA_VERSION		1		/* WPA version */
 #define WPA2_OUI		"\x00\x0F\xAC"	/* WPA2 OUI */
+#define WPA2_OUI_LEN		3		/* WPA2 OUI length */
+#define WPA2_VERSION		1		/* WPA2 version */
+#define WPA2_VERSION_LEN	2		/* WAP2 version length */
 
-#define WPA_OUI_LEN	3	/* WPA OUI length */
+/* ************* WPS definitions. ************* */
+#define WPS_OUI			"\x00\x50\xF2"	/* WPS OUI */
+#define WPS_OUI_LEN		3		/* WPS OUI length */
+#define WPS_OUI_TYPE		4
 
 /* ************* WFA definitions. ************* */
-#define WFA_OUI			"\x00\x50\xF2"	/* WFA OUI */
-#define WFA_OUI_LEN	3	/* WFA OUI length */
-
-#define WFA_OUI_TYPE_WPA	1
-#define WFA_OUI_TYPE_WPS	4
+#if defined(MACOSX) && !defined(WLP2P_NEW_WFA_OUI)
+#define WFA_OUI			WPS_OUI		/* WFA OUI */
+#else
+#define WFA_OUI			"\x50\x6F\x9A"	/* WFA OUI */
+#endif /* MACOSX && !WLP2P_NEW_WFA_OUI */
+#define WFA_OUI_LEN		3		/* WFA OUI length */
+#define WFA_OUI_TYPE_TPC	8
 #define WFA_OUI_TYPE_P2P	9
 
 /* RSN authenticated key managment suite */
 #define RSN_AKM_NONE		0	/* None (IBSS) */
 #define RSN_AKM_UNSPECIFIED	1	/* Over 802.1x */
 #define RSN_AKM_PSK		2	/* Pre-shared Key */
+#define RSN_AKM_FBT_1X		3	/* Fast Bss transition using 802.1X */
+#define RSN_AKM_FBT_PSK		4	/* Fast Bss transition using Pre-shared Key */
+#define RSN_AKM_MFP_1X		5	/* SHA256 key derivation, using 802.1X */
+#define RSN_AKM_MFP_PSK		6	/* SHA256 key derivation, using Pre-shared Key */
 
 /* Key related defines */
 #define DOT11_MAX_DEFAULT_KEYS	4	/* number of default keys */
@@ -1702,6 +1976,7 @@ typedef struct dot11_obss_ie dot11_obss_ie_t;
 #define TKIP_MIC_SUP_TX		TKIP_MIC_AUTH_RX	/* offset to Supplicant MIC TX key */
 #define AES_KEY_SIZE		16	/* size of AES key */
 #define AES_MIC_SIZE		8	/* size of AES MIC */
+#define BIP_KEY_SIZE		16	/* size of BIP key */
 
 /* WCN */
 #define WCN_OUI			"\x00\x50\xf2"	/* WCN OUI */
@@ -1712,6 +1987,60 @@ typedef struct dot11_obss_ie dot11_obss_ie_t;
 #define SMS4_WPI_CBC_MAC_LEN	16
 #endif
 
+/* 802.11r protocol definitions */
+
+/* Mobility Domain IE */
+BWL_PRE_PACKED_STRUCT struct dot11_mdid_ie {
+	uint8 id;
+	uint8 len;
+	uint16 mdid;		/* Mobility Domain Id */
+	uint8 cap;
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_mdid_ie dot11_mdid_ie_t;
+
+#define FBT_MDID_CAP_OVERDS	0x01	/* Fast Bss transition over the DS support */
+#define FBT_MDID_CAP_RRP	0x02	/* Resource request protocol support */
+
+/* Fast Bss Transition IE */
+BWL_PRE_PACKED_STRUCT struct dot11_ft_ie {
+	uint8 id;
+	uint8 len;
+	uint16 mic_control;		/* Mic Control */
+	uint8 mic[16];
+	uint8 anonce[32];
+	uint8 snonce[32];
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_ft_ie dot11_ft_ie_t;
+
+#define TIE_TYPE_RESERVED		0
+#define TIE_TYPE_REASSOC_DEADLINE	1
+#define TIE_TYPE_KEY_LIEFTIME		2
+#define TIE_TYPE_ASSOC_COMEBACK		3
+BWL_PRE_PACKED_STRUCT struct dot11_timeout_ie {
+	uint8 id;
+	uint8 len;
+	uint8 type;		/* timeout interval type */
+	uint32 value;		/* timeout interval value */
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_timeout_ie dot11_timeout_ie_t;
+
+/* GTK ie */
+BWL_PRE_PACKED_STRUCT struct dot11_gtk_ie {
+	uint8 id;
+	uint8 len;
+	uint16 key_info;
+	uint8 key_len;
+	uint8 rsc[8];
+	uint8 data[1];
+} BWL_POST_PACKED_STRUCT;
+typedef struct dot11_gtk_ie dot11_gtk_ie_t;
+#ifdef BCMWAPI_WAI
+#define WAPI_IE_MIN_LEN 	20	/* WAPI IE min length */
+#define WAPI_VERSION		1	/* WAPI version */
+#define WAPI_VERSION_LEN	2	/* WAPI version length */
+#define WAPI_OUI		"\x00\x14\x72"	/* WAPI OUI */
+#define WAPI_OUI_LEN		DOT11_OUI_LEN	/* WAPI OUI length */
+#endif /* BCMWAPI_WAI */
 
 /* This marks the end of a packed structure section. */
 #include <packed_section_end.h>

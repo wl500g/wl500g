@@ -1,27 +1,15 @@
 diff -BurpN src/emf.orig/emf/emf_linux.h src/emf/emf/emf_linux.h
 --- src/emf.orig/emf/emf_linux.h	2010-01-29 14:43:59.000000000 +0000
 +++ src/emf/emf/emf_linux.h	2010-09-11 10:20:43.970000002 +0000
-@@ -57,12 +57,20 @@ typedef struct emf_struct
+@@ -57,7 +57,7 @@ typedef struct emf_struct
  
  typedef struct br_port
  {
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
 +#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 6)
-+	struct net_bridge *br;
-+	struct net_device *dev;
-+	struct list_head  list;
-+	uint8             priority;
-+	uint8             state;
-+#else
- 	struct br_port     *next;
- 	struct net_bridge  *br;
- 	struct net_device  *dev;
- 	int32              port_no;
- 	uint16             port_id;
- 	int32              state;
-+#endif
- } br_port_t;
- 
- static uint32 emf_br_pre_hook(uint32, struct sk_buff **,
+ 	struct net_bridge	*br;
+ 	struct net_device	*dev;
+ 	struct list_head	list;
 diff -urBp src/emf.orig/emfconf/emfu_linux.c src/emf/emfconf/emfu_linux.c
 --- src/emf.orig/emfconf/emfu_linux.c	2008-12-12 06:23:53.000000000 +0300
 +++ src/emf/emfconf/emfu_linux.c	2009-10-24 12:26:10.000000000 +0400

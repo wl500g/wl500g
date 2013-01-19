@@ -2,15 +2,21 @@
  * Linux-specific abstractions to gain some independence from linux kernel versions.
  * Pave over some 2.4 versus 2.6 kernel differences.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: linuxver.h,v 13.40.2.5 2010/11/22 09:05:01 Exp $
+ * $Id: linuxver.h,v 13.53.12.4 2010-10-12 23:10:02 Exp $
  */
 
 #ifndef _linuxver_h_
@@ -19,9 +25,12 @@
 #include <linux/version.h>
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0))
 #include <linux/config.h>
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 19))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 33))
 #include <linux/autoconf.h>
+#else
+#include <generated/autoconf.h>
 #endif
+#endif /* >= 2.6.0 */
 #include <linux/module.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 5, 0)
@@ -63,7 +72,7 @@
 #endif
 #endif	/* LINUX_VERSION_CODE > KERNEL_VERSION(2, 5, 41) */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 19)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
 #define	MY_INIT_WORK(_work, _func)	INIT_WORK(_work, _func)
 #else
 #define	MY_INIT_WORK(_work, _func)	INIT_WORK(_work, _func, _work)
@@ -98,6 +107,10 @@ typedef irqreturn_t(*FN_ISR) (int irq, void *dev_id, struct pt_regs *ptregs);
 #define MOD_DEC_USE_COUNT
 #endif /* not SANDGATE2G */
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 5, 67) */
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
+#include <linux/sched.h>
+#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
 #include <net/lib80211.h>
@@ -170,14 +183,22 @@ typedef	struct pcmcia_device dev_link_t;
 #undef WL_USE_NETDEV_OPS
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 31)) && defined(CONFIG_RFKILL_INPUT)
-#define WL_CONFIG_RFKILL_INPUT
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 31)) && defined(CONFIG_RFKILL)
+#define WL_CONFIG_RFKILL
 #else
-#undef WL_CONFIG_RFKILL_INPUT
+#undef WL_CONFIG_RFKILL
 #endif
 
 /* SoftNet */
 #define netif_down(dev)
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 22))
+#define	skb_reset_mac_header(skb)	(skb)->mac.raw = (skb)->data
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2, 4, 3) */
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 9))
+#define	eth_hdr(skb)	((struct ethhdr *)((skb)->mac.raw))
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 9) */
 
 /* Power management related macro & routines */
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 9)
@@ -301,5 +322,10 @@ do {									\
 #define WL_ISR(i, d, p)         wl_isr((i), (d), (p))
 #endif  /* < 2.6.20 */
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
+#define NETDEV_PRIV(dev)          (netdev_priv(dev))
+#else
+#define NETDEV_PRIV(dev)          ((dev)->priv)
+#endif
 
 #endif /* _linuxver_h_ */

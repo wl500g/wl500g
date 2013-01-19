@@ -1,14 +1,20 @@
 /*
  * BCM44XX Ethernet Windows device driver custom OID definitions.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
- * $Id: etioctl.h,v 13.14.2.2 2010/11/22 09:05:02 Exp $
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * $Id: etioctl.h,v 13.17.86.2 2010-12-21 02:38:54 Exp $
  */
 
 #ifndef _etioctl_h_
@@ -47,6 +53,7 @@
  */
 #define IOV_ET_POWER_SAVE_MODE 1
 #define IOV_ET_CLEAR_DUMP      2
+#define IOV_ET_ROBO_DEVID      3
 
 #if defined(linux) || defined(__ECOS)
 #define SIOCSETCUP		(SIOCDEVPRIVATE + ETCUP)
@@ -83,6 +90,33 @@ struct txg {
 };
 #endif /* linux */
 
+
+#if defined(__NetBSD__)
+#define SIOCSETCUP		 _IOW('e',  0, struct ifreq)
+#define SIOCSETCDOWN		 _IOW('e',  1, struct ifreq)
+#define SIOCSETCLOOP		 _IOW('e',  2, struct ifreq)
+#define SIOCGETCDUMP		_IOWR('e',  3, struct ifreq)
+#define SIOCSETCSETMSGLEVEL	 _IOW('e',  4, struct ifreq)
+#define SIOCSETCPROMISC		 _IOW('e',  5, struct ifreq)
+#define SIOCSETCTXDOWN		 _IOW('e',  6, struct ifreq)	/* obsolete */
+#define SIOCSETCSPEED		 _IOW('e',  7, struct ifreq)
+#define SIOCTXGEN		 _IOW('e',  8, struct ifreq)
+#define SIOCGETCPHYRD		_IOWR('e',  9, struct ifreq)
+#define SIOCSETCPHYWR		 _IOW('e', 10, struct ifreq)
+#define SIOCSETCQOS		 _IOW('e', 11, struct ifreq)
+#define SIOCGETCPHYRD2		_IOWR('e', 12, struct ifreq)
+#define SIOCSETCPHYWR2		 _IOW('e', 13, struct ifreq)
+#define SIOCGETCROBORD		_IOWR('e', 14, struct ifreq)
+#define SIOCSETCROBOWR		 _IOW('e', 15, struct ifreq)
+
+/* arg to SIOCTXGEN */
+struct txg {
+	uint32 num;		/* number of frames to send */
+	uint32 delay;		/* delay in microseconds between sending each */
+	uint32 size;		/* size of ether frame to send */
+	uchar buf[1514];	/* starting ether frame data */
+};
+#endif	/* __NetBSD__ */
 
 /*
  * custom OID support
