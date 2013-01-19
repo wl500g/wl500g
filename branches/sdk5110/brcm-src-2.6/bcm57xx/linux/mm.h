@@ -10,10 +10,14 @@
 /*                                                                            */
 /******************************************************************************/
 
-/* $Id: mm.h,v 1.9 2008/03/04 22:02:31 Exp $ */
+/* $Id: mm.h,v 1.10 2009-10-20 01:17:52 Exp $ */
 
 #ifndef MM_H
 #define MM_H
+
+#ifdef HNDCTF
+#include <ctf/hndctf.h>
+#endif /* HNDCTF */
 
 #if defined(CONFIG_SMP) && !defined(__SMP__)
 #define __SMP__
@@ -423,6 +427,10 @@ typedef struct _UM_DEVICE_BLOCK {
 	unsigned long	boardflags;
 	void		*robo;
 	int		qos;
+#ifdef HNDCTF
+	ctf_t		*cih;
+	void		*osh;
+#endif /* HNDCTF */
 } UM_DEVICE_BLOCK, *PUM_DEVICE_BLOCK;
 
 typedef struct _UM_PACKET {

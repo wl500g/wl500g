@@ -2,15 +2,21 @@
  * Misc utility routines for accessing chip-specific features
  * of the SiliconBackplane-based Broadcom chips.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: aiutils.c,v 1.3.3 2010/11/22 08:56:46 Exp $
+ * $Id: aiutils.c,v 1.27.2.5 2011-01-26 18:24:11 Exp $
  */
 
 #include <typedefs.h>
@@ -26,11 +32,12 @@
 
 #include <bcmdevs.h>
 
-#define BCM47162_DMP() ((sih->chip == BCM47162_CHIP_ID) && \
-	    (sih->chiprev == 0) && \
+#define BCM47162_DMP() ((CHIPID(sih->chip) == BCM47162_CHIP_ID) && \
+	    (CHIPREV(sih->chiprev) == 0) && \
 	    (sii->coreid[sii->curidx] == MIPS74K_CORE_ID))
 
-#define BCM5357_DMP() ((sih->chip == BCM5357_CHIP_ID) && \
+#define BCM5357_DMP() (((CHIPID(sih->chip) == BCM5357_CHIP_ID) || \
+		(CHIPID(sih->chip) == BCM4749_CHIP_ID)) && \
 	    (sih->chippkg == BCM5357_PKG_ID) && \
 	    (sii->coreid[sii->curidx] == USB20H_CORE_ID))
 
@@ -106,9 +113,117 @@ get_asd(si_t *sih, uint32 **eromptr, uint sp, uint ad, uint st, uint32 *addrl, u
 	return asd;
 }
 
+static void
+ai_hwfixup(si_info_t *sii)
+{
+#ifdef	_CFE_
+	/* Fixup the interrupts in 4716 for i2s core so that ai_flag
+	 * works without having to look at the core sinking the
+	 * interrupt. We should have done this as the hardware default.
+	 *
+	 * Future chips should allocate interrupt lines in order (meaning
+	 * no line should be skipped), without regard for core index.
+	 */
+	if (BUSTYPE(sii->pub.bustype) == SI_BUS &&
+	    ((CHIPID(sii->pub.chip) == BCM4716_CHIP_ID) ||
+	     (CHIPID(sii->pub.chip) == BCM4748_CHIP_ID))) {
+		aidmp_t *i2s, *pcie, *cpu;
+
+		ASSERT(sii->coreid[3] == MIPS74K_CORE_ID);
+		cpu = REG_MAP(sii->wrapba[3], SI_CORE_SIZE);
+		ASSERT(sii->coreid[5] == PCIE_CORE_ID);
+		pcie = REG_MAP(sii->wrapba[5], SI_CORE_SIZE);
+		ASSERT(sii->coreid[8] == I2S_CORE_ID);
+		i2s = REG_MAP(sii->wrapba[8], SI_CORE_SIZE);
+		if ((R_REG(sii->osh, &cpu->oobselina74) != 0x08060504) ||
+		    (R_REG(sii->osh, &pcie->oobselina74) != 0x08060504) ||
+		    (R_REG(sii->osh, &i2s->oobselouta30) != 0x88)) {
+			SI_VMSG(("Unexpected oob values, not fixing i2s interrupt\n"));
+		} else {
+			/* Move i2s interrupt to oob line 7 instead of 8 */
+			W_REG(sii->osh, &cpu->oobselina74, 0x07060504);
+			W_REG(sii->osh, &pcie->oobselina74, 0x07060504);
+			W_REG(sii->osh, &i2s->oobselouta30, 0x87);
+			SI_VMSG(("Changed i2s interrupt to use oob line 7 instead of 8\n"));
+		}
+	}
+#endif	/* _CFE_ */
+}
+
+struct _corerev_entry {
+	uint corerev;
+	uint corerev_alias;
+};
+static struct _corerev_entry bcm4706_corerev_cc[] = {
+	{ 0x1f, CC_4706B0_CORE_REV },
+	{ 0, 0 }
+};
+static struct _corerev_entry bcm4706_corerev_socsram[] = {
+	{ 0x05, SOCRAM_4706B0_CORE_REV },
+	{ 0, 0 }
+};
+static struct _corerev_entry bcm4706_corerev_gmac[] = {
+	{ 0x00, GMAC_4706B0_CORE_REV },
+	{ 0, 0 }
+};
+
+struct _coreid_entry {
+	uint coreid;
+	uint coreid_alias;
+};
+static struct _coreid_entry bcm4706_coreid_table[] = {
+	{	CC_4706_CORE_ID, CC_CORE_ID },
+	{	SOCRAM_4706_CORE_ID, SOCRAM_CORE_ID },
+	{	GMAC_4706_CORE_ID, GMAC_CORE_ID },
+	{ 0, 0 }
+};
+
+static uint
+remap_coreid(si_t *sih, uint coreid)
+{
+	struct _coreid_entry *coreid_table = NULL;
+
+	if (CHIPID(sih->chip) == BCM4706_CHIP_ID)
+		coreid_table = &bcm4706_coreid_table[0];
+
+	if (coreid_table != NULL) {
+		uint i;
+
+		for (i = 0; coreid_table[i].coreid; i++)
+			if (coreid_table[i].coreid == coreid)
+				return coreid_table[i].coreid_alias;
+	}
+
+	return coreid;
+}
+
+static uint
+remap_corerev(si_t *sih, uint corerev)
+{
+	if (CHIPID(sih->chip) == BCM4706_CHIP_ID) {
+		si_info_t *sii = SI_INFO(sih);
+		uint i, coreid = sii->coreid[sii->curidx];
+		struct _corerev_entry *corerev_table = NULL;
+
+		if (coreid == CC_CORE_ID)
+			corerev_table = bcm4706_corerev_cc;
+		else if (coreid == GMAC_CORE_ID)
+			corerev_table = bcm4706_corerev_gmac;
+		else if (coreid == SOCRAM_CORE_ID)
+			corerev_table = bcm4706_corerev_socsram;
+		if (corerev_table != NULL) {
+			for (i = 0; corerev_table[i].corerev_alias; i++)
+				if (corerev_table[i].corerev == corerev)
+					return corerev_table[i].corerev_alias;
+		}
+	}
+
+	return corerev;
+}
+
 /* parse the enumeration rom to identify all cores */
 void
-ai_scan(si_t *sih, void *regs, uint devid)
+BCMATTACHFN(ai_scan)(si_t *sih, void *regs, uint devid)
 {
 	si_info_t *sii = SI_INFO(sih);
 	chipcregs_t *cc = (chipcregs_t *)regs;
@@ -132,9 +247,9 @@ ai_scan(si_t *sih, void *regs, uint devid)
 
 #ifdef BCMJTAG
 	case JTAG_BUS:
-#endif	/* BCMJTAG */
 		eromptr = (uint32 *)(uintptr)erombase;
 		break;
+#endif	/* BCMJTAG */
 
 	case PCMCIA_BUS:
 	default:
@@ -159,6 +274,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		cia = get_erom_ent(sih, &eromptr, ER_TAG, ER_CI);
 		if (cia == (ER_END | ER_VALID)) {
 			SI_VMSG(("Found END of erom after %d cores\n", sii->numcores));
+			ai_hwfixup(sii);
 			return;
 		}
 		base = eromptr - 1;
@@ -192,14 +308,15 @@ ai_scan(si_t *sih, void *regs, uint devid)
 					sii->oob_router = addrl;
 				}
 			}
-			continue;
+			if (cid != GMAC_COMMON_4706_CORE_ID)
+				continue;
 		}
 
 		idx = sii->numcores;
 /*		sii->eromptr[idx] = base; */
 		sii->cia[idx] = cia;
 		sii->cib[idx] = cib;
-		sii->coreid[idx] = cid;
+		sii->coreid[idx] = remap_coreid(sih, cid);
 
 		for (i = 0; i < nmp; i++) {
 			mpd = get_erom_ent(sih, &eromptr, ER_VALID, ER_VALID);
@@ -236,9 +353,10 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		do {
 			asd = get_asd(sih, &eromptr, 0, j, AD_ST_SLAVE, &addrl, &addrh,
 			              &sizel, &sizeh);
-			if ((asd != 0) && (j == 1) && (sizel == SI_CORE_SIZE))
+			if ((asd != 0) && (j == 1) && (sizel == SI_CORE_SIZE)) {
 				sii->coresba2[idx] = addrl;
 				sii->coresba2_size[idx] = sizel;
+			}
 			j++;
 		} while (asd != 0);
 
@@ -246,9 +364,13 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		for (i = 1; i < nsp; i++) {
 			j = 0;
 			do {
-				asd = get_asd(sih, &eromptr, i, j++, AD_ST_SLAVE, &addrl, &addrh,
+				asd = get_asd(sih, &eromptr, i, j, AD_ST_SLAVE, &addrl, &addrh,
 				              &sizel, &sizeh);
-			} while (asd != 0);
+
+				if (asd == 0)
+					break;
+				j++;
+			} while (1);
 			if (j == 0) {
 				SI_ERROR((" SP %d has no address descriptors\n", i));
 				goto error;
@@ -348,10 +470,10 @@ ai_setcoreidx(si_t *sih, uint coreidx)
 
 #ifdef BCMJTAG
 	case JTAG_BUS:
-#endif	/* BCMJTAG */
 		sii->curmap = regs = (void *)((uintptr)addr);
 		sii->curwrap = (void *)((uintptr)wrap);
 		break;
+#endif	/* BCMJTAG */
 
 	case PCMCIA_BUS:
 	default:
@@ -364,6 +486,91 @@ ai_setcoreidx(si_t *sih, uint coreidx)
 	sii->curidx = coreidx;
 
 	return regs;
+}
+
+void
+ai_coreaddrspaceX(si_t *sih, uint asidx, uint32 *addr, uint32 *size)
+{
+	si_info_t *sii = SI_INFO(sih);
+	chipcregs_t *cc = NULL;
+	uint32 erombase, *eromptr, *eromlim;
+	uint i, j, cidx;
+	uint32 cia, cib, nmp, nsp;
+	uint32 asd, addrl, addrh, sizel, sizeh;
+
+	for (i = 0; i < sii->numcores; i++) {
+		if (sii->coreid[i] == CC_CORE_ID) {
+			cc = (chipcregs_t *)sii->regs[i];
+			break;
+		}
+	}
+	if (cc == NULL)
+		goto error;
+
+	erombase = R_REG(sii->osh, &cc->eromptr);
+	eromptr = (uint32 *)REG_MAP(erombase, SI_CORE_SIZE);
+	eromlim = eromptr + (ER_REMAPCONTROL / sizeof(uint32));
+
+	cidx = sii->curidx;
+	cia = sii->cia[cidx];
+	cib = sii->cib[cidx];
+
+	nmp = (cib & CIB_NMP_MASK) >> CIB_NMP_SHIFT;
+	nsp = (cib & CIB_NSP_MASK) >> CIB_NSP_SHIFT;
+
+	/* scan for cores */
+	while (eromptr < eromlim) {
+		if ((get_erom_ent(sih, &eromptr, ER_TAG, ER_CI) == cia) &&
+			(get_erom_ent(sih, &eromptr, 0, 0) == cib)) {
+			break;
+		}
+	}
+
+	/* skip master ports */
+	for (i = 0; i < nmp; i++)
+		get_erom_ent(sih, &eromptr, ER_VALID, ER_VALID);
+
+	/* Skip ASDs in port 0 */
+	asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE, &addrl, &addrh, &sizel, &sizeh);
+	if (asd == 0) {
+		/* Try again to see if it is a bridge */
+		asd = get_asd(sih, &eromptr, 0, 0, AD_ST_BRIDGE, &addrl, &addrh,
+		              &sizel, &sizeh);
+	}
+
+	j = 1;
+	do {
+		asd = get_asd(sih, &eromptr, 0, j, AD_ST_SLAVE, &addrl, &addrh,
+		              &sizel, &sizeh);
+		j++;
+	} while (asd != 0);
+
+	/* Go through the ASDs for other slave ports */
+	for (i = 1; i < nsp; i++) {
+		j = 0;
+		do {
+			asd = get_asd(sih, &eromptr, i, j, AD_ST_SLAVE, &addrl, &addrh,
+				&sizel, &sizeh);
+			if (asd == 0)
+				break;
+
+			if (!asidx--) {
+				*addr = addrl;
+				*size = sizel;
+				return;
+			}
+			j++;
+		} while (1);
+
+		if (j == 0) {
+			SI_ERROR((" SP %d has no address descriptors\n", i));
+			break;
+		}
+	}
+
+error:
+	*size = 0;
+	return;
 }
 
 /* Return the number of address spaces in current core */
@@ -427,7 +634,7 @@ ai_flag(si_t *sih)
 		return sii->curidx;
 	}
 	if (BCM5357_DMP()) {
-		SI_ERROR(("%s: Attempting to read USB20H DMP registers on 5357\n", __FUNCTION__));
+		SI_ERROR(("%s: Attempting to read USB20H DMP registers on 5357b0\n", __FUNCTION__));
 		return sii->curidx;
 	}
 	ai = sii->curwrap;
@@ -438,6 +645,15 @@ ai_flag(si_t *sih)
 void
 ai_setint(si_t *sih, int siflag)
 {
+}
+
+void
+ai_write_wrap_reg(si_t *sih, uint32 offset, uint32 val)
+{
+	si_info_t *sii = SI_INFO(sih);
+	uint32 *w = (uint32 *) sii->curwrap;
+	W_REG(sii->osh, w+(offset/4), val);
+	return;
 }
 
 uint
@@ -459,7 +675,7 @@ ai_corerev(si_t *sih)
 
 	sii = SI_INFO(sih);
 	cib = sii->cib[sii->curidx];
-	return ((cib & CIB_REV_MASK) >> CIB_REV_SHIFT);
+	return remap_corerev(sih, (cib & CIB_REV_MASK) >> CIB_REV_SHIFT);
 }
 
 bool
@@ -479,7 +695,7 @@ ai_iscoreup(si_t *sih)
  * Switch to 'coreidx', issue a single arbitrary 32bit register mask&set operation,
  * switch back to the original core, and return the new value.
  *
- * When using the silicon backplane, no fidleing with interrupts or core switches are needed.
+ * When using the silicon backplane, no fiddling with interrupts or core switches is needed.
  *
  * Also, when using pci/pcie, we can optimize away the core switching for pci registers
  * and (on newer pci cores) chipcommon registers.
@@ -499,6 +715,9 @@ ai_corereg(si_t *sih, uint coreidx, uint regoff, uint mask, uint val)
 	ASSERT(GOODIDX(coreidx));
 	ASSERT(regoff < SI_CORE_SIZE);
 	ASSERT((val & ~mask) == 0);
+
+	if (coreidx >= SI_MAXCORES)
+		return 0;
 
 	if (BUSTYPE(sih->bustype) == SI_BUS) {
 		/* If internal bus, we can always get at everything */
@@ -586,6 +805,7 @@ ai_core_disable(si_t *sih, uint32 bits)
 	OSL_DELAY(10);
 
 	W_REG(sii->osh, &ai->resetctrl, AIRC_RESET);
+	dummy = R_REG(sii->osh, &ai->resetctrl);
 	OSL_DELAY(1);
 }
 
@@ -775,6 +995,40 @@ ai_dumpregs(si_t *sih, struct bcmstrbuf *b)
 			    R_REG(osh, &ai->intstatus),
 			    R_REG(osh, &ai->config),
 			    R_REG(osh, &ai->itcr));
+		if ((sih->chip == BCM4331_CHIP_ID) && (sii->coreid[i] == PCIE_CORE_ID)) {
+			/* point bar0 2nd 4KB window */
+			OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN2, 4, 0x18103000);
+			bcm_bprintf(b, "ioctrlset 0x%x ioctrlclear 0x%x ioctrl 0x%x iostatus 0x%x"
+				    "ioctrlwidth 0x%x iostatuswidth 0x%x\n"
+				    "resetctrl 0x%x resetstatus 0x%x resetreadid 0x%x"
+				    " resetwriteid 0x%x\n"
+				    "errlogctrl 0x%x errlogdone 0x%x errlogstatus 0x%x"
+				    "errlogaddrlo 0x%x errlogaddrhi 0x%x\n"
+				    "errlogid 0x%x errloguser 0x%x errlogflags 0x%x\n"
+				    "intstatus 0x%x config 0x%x itcr 0x%x\n",
+				    R_REG(osh, &ai->ioctrlset),
+				    R_REG(osh, &ai->ioctrlclear),
+				    R_REG(osh, &ai->ioctrl),
+				    R_REG(osh, &ai->iostatus),
+				    R_REG(osh, &ai->ioctrlwidth),
+				    R_REG(osh, &ai->iostatuswidth),
+				    R_REG(osh, &ai->resetctrl),
+				    R_REG(osh, &ai->resetstatus),
+				    R_REG(osh, &ai->resetreadid),
+				    R_REG(osh, &ai->resetwriteid),
+				    R_REG(osh, &ai->errlogctrl),
+				    R_REG(osh, &ai->errlogdone),
+				    R_REG(osh, &ai->errlogstatus),
+				    R_REG(osh, &ai->errlogaddrlo),
+				    R_REG(osh, &ai->errlogaddrhi),
+				    R_REG(osh, &ai->errlogid),
+				    R_REG(osh, &ai->errloguser),
+				    R_REG(osh, &ai->errlogflags),
+				    R_REG(osh, &ai->intstatus),
+				    R_REG(osh, &ai->config),
+				    R_REG(osh, &ai->itcr));
+			/* bar0 2nd 4KB window will be fixed in the next setcore */
+		}
 	}
 }
 #endif	/* BCMDBG || BCMDBG_DUMP */

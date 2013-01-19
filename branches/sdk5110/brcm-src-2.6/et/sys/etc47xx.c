@@ -4,7 +4,7 @@
  * This file implements the chip-specific routines
  * for Broadcom HNBU Sonics SiliconBackplane enet cores.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;

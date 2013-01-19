@@ -1,15 +1,21 @@
 /*
  * RoboSwitch setup functions
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmrobo.h,v 13.7.54.3 2010/11/22 09:05:02 Exp $
+ * $Id: bcmrobo.h,v 13.13 2009-08-14 02:45:34 Exp $
  */
 
 #ifndef _bcm_robo_h_
@@ -45,9 +51,6 @@
 #define ROBO_PWRSAVE_AUTO		1
 #define ROBO_PWRSAVE_MANUAL		2
 #define ROBO_PWRSAVE_AUTO_MANUAL 	3
-#ifdef ET_PWRSAVEWL
-#define ROBO_PWRSAVE_WL_ONLY		4
-#endif
 
 #define ROBO_IS_PWRSAVE_MANUAL(r) ((r)->pwrsave_mode_manual)
 #define ROBO_IS_PWRSAVE_AUTO(r) ((r)->pwrsave_mode_auto)
@@ -93,6 +96,10 @@ struct robo_info_s {
 	uint32	pwrsave_mode_auto; 	/* bitmap of ports in auto power save mode */
 	uint8	pwrsave_phys; 		/* Phys that can be put into power save mode */
 	uint8	pwrsave_mode_phys[MAX_NO_PHYS];         /* Power save mode on the switch */   
+#ifdef PLC
+	/* PLC */
+	bool	plc_hw;			/* PLC chip */
+#endif /* PLC */
 };
 
 /* Power Save mode related functions */
@@ -110,5 +117,9 @@ extern int bcm_robo_enable_switch(robo_info_t *robo);
 #ifdef BCMDBG
 extern void robo_dump_regs(robo_info_t *robo, struct bcmstrbuf *b);
 #endif /* BCMDBG */
+
+#ifdef PLC
+extern void robo_plc_hw_init(robo_info_t *robo);
+#endif /* PLC */
 
 #endif /* _bcm_robo_h_ */

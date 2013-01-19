@@ -6,7 +6,7 @@
  * updated by IGMP Snooping layer to do the optimal forwarding. This file
  * contains the common code routines of EMFL.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -14,7 +14,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: emfc.c,v 1.3.1 2010/11/22 09:05:02 Exp $
+ * $Id: emfc.c 241182 2011-02-17 21:50:03Z gmo $
  */
 #include <typedefs.h>
 #include <bcmdefs.h>
@@ -584,13 +584,10 @@ emfc_mfdb_mhif_add(emfc_info_t *emfc, void *ifp)
 {
 	emfc_mhif_t *ptr, *mhif;
 
-	OSL_LOCK(emfc->fdb_lock);
-
 	for (ptr = emfc->mhif_head; ptr != NULL; ptr = ptr->next)
 	{
 		if (ptr->mhif_ifp == ifp)
 		{
-			OSL_UNLOCK(emfc->fdb_lock);
 			return (ptr);
 		}
 	}
@@ -599,7 +596,6 @@ emfc_mfdb_mhif_add(emfc_info_t *emfc, void *ifp)
 	mhif = MALLOC(emfc->osh, sizeof(emfc_mhif_t));
 	if (mhif == NULL)
 	{
-		OSL_UNLOCK(emfc->fdb_lock);
 		EMF_ERROR("Failed to alloc mem size %d for mhif entry\n",
 		          sizeof(emfc_mhif_t));
 		return (NULL);
@@ -609,8 +605,6 @@ emfc_mfdb_mhif_add(emfc_info_t *emfc, void *ifp)
 	mhif->mhif_data_fwd = 0;
 	mhif->next = emfc->mhif_head;
 	emfc->mhif_head = mhif;
-
-	OSL_UNLOCK(emfc->fdb_lock);
 
 	return (mhif);
 }

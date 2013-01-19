@@ -3,7 +3,7 @@
  * sms4.h
  * SMS-4 block cipher
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -11,7 +11,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: sms4.h,v 1.1.1.1 2010/11/22 09:05:02 Exp $
+ * $Id: sms4.h,v 1.16 2009-10-22 00:10:59 Exp $
  */
 
 #ifndef _SMS4_H_
@@ -57,12 +57,6 @@ void sms4_dec(uint32 *Y, uint32 *X, uint32 *RK);
 
 void sms4_key_exp(uint32 *MK, uint32 *RK);
 
-int sms4_cbc_mac(const uint8 *ick,
-	const uint8 *pn,
-	const size_t data_len,
-	uint8 *ptxt,
-	uint8 *mac);
-
 int sms4_wpi_cbc_mac(const uint8 *ick,
 	const uint8 *iv,
 	const size_t aad_len,
@@ -101,6 +95,7 @@ INLINE void sxor_128bit_block(const uint8 *src1, const uint8 *src2, uint8 *dst);
 int sms4_test_enc_dec(void);
 int sms4_test_cbc_mac(void);
 int sms4_test_ofb_crypt(void);
+int sms4_test_wpi_pkt_encrypt_decrypt_timing(int *t);
 int sms4_test_wpi_pkt_encrypt(void);
 int sms4_test_wpi_pkt_decrypt(void);
 int sms4_test_wpi_pkt_micfail(void);

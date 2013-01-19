@@ -1,7 +1,7 @@
 /*
  * et driver ioctl swiss army knife command.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: et.c,v 1.9.131 2011/01/26 08:41:52 Exp $
+ * $Id: et.c,v 1.13.18.1 2010-07-01 23:24:02 Exp $
  */
 
 #include <stdio.h>
@@ -238,11 +238,7 @@ main(int ac, char *av[])
 
 				vecarg[0] = strtoul(av[optind + 1], NULL, 0);
 				vecarg[1] = strtoul(av[optind + 2], NULL, 0);
-#ifdef ET_PWRSAVEWL
-				if (vecarg[1] > 4)
-#else
 				if (vecarg[1] > 3)
-#endif
 					usage(av[0]);
 
 				var.set = 1;

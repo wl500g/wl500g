@@ -12,17 +12,16 @@ diff -urB src/include.orig/bcmenetphy.h src/include/bcmenetphy.h
 diff -urB src/include.orig/linux_osl.h src/include/linux_osl.h
 --- src/include.orig/linux_osl.h	2009-08-27 07:52:23.000000000 +0400
 +++ src/include/linux_osl.h	2009-10-10 20:49:25.000000000 +0400
-@@ -159,7 +159,10 @@
- #ifndef BINOSL
+@@ -159,7 +159,9 @@
+ #include <linux/string.h>	/* for mem*, str* */
  
  #define OSL_SYSUPTIME()		((uint32)jiffies * (1000 / HZ))
 +#ifndef printf
  #define	printf(fmt, args...)	printk(fmt , ## args)
 +#endif
-+
- #include <linux/kernel.h>	/* for vsn/printf's */
- #include <linux/string.h>	/* for mem*, str* */
+ 
  /* bcopy's: Linux kernel doesn't provide these (anymore) */
+ #define	bcopy(src, dst, len)	memcpy((dst), (src), (len))
 diff -urB src/include.orig/trxhdr.h src/include/trxhdr.h
 --- src/include.orig/trxhdr.h	2009-08-27 07:52:28.000000000 +0400
 +++ src/include/trxhdr.h	2009-11-01 20:38:49.000000000 +0300

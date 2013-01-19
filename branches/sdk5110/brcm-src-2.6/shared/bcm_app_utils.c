@@ -3,14 +3,20 @@
  * Contents are wifi-specific, used by any kernel or app-level
  * software that might want wifi things as it grows.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
- * $Id: bcm_app_utils.c,v 1.1.1.1 2010/11/22 08:56:46 Exp $
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * $Id: bcm_app_utils.c,v 1.5 2009-12-03 23:24:26 Exp $
  */
 
 #include <typedefs.h>
@@ -194,13 +200,15 @@ cca_analyze(cca_congest_channel_req_t *input[], int num_chans, uint flags, chans
 		return CCA_ERRNO_PREF_CHAN;
 
 	/* Toss high interference interference */
-	for (i = 0; i < num_chans; i++) {
-		if (input[i]->secs[0].interference > CCA_THRESH_INTERFERE)
-			clrbit(bitmap, i);
+	if (!(flags & CCA_FLAG_IGNORE_INTERFER)) {
+		for (i = 0; i < num_chans; i++) {
+			if (input[i]->secs[0].interference > CCA_THRESH_INTERFERE)
+				clrbit(bitmap, i);
+		}
+		cca_info(bitmap, num_chans, &left, &i);
+		if (!left)
+			return CCA_ERRNO_INTERFER;
 	}
-	cca_info(bitmap, num_chans, &left, &i);
-	if (!left)
-		return CCA_ERRNO_INTERFER;
 
 	/* Now find lowest obss */
 	winner = 0;

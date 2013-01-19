@@ -5,7 +5,7 @@
  * update the multicast forwarding database. This file contains the
  * common code routines of IGS module.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -13,7 +13,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: igsc.c,v 1.4 2008/11/19 01:36:25 Exp $
+ * $Id: igsc.c 247842 2011-03-22 02:10:23Z jihuac $
  */
 
 #include <typedefs.h>
@@ -337,6 +337,13 @@ igsc_input(emfc_snooper_t *s, void *ifp, uint8 *iph, uint8 *igmph, bool from_rp)
 	{
 		IGS_DEBUG("Ignoring IGMP frame from router port\n");
 		IGSC_STATS_INCR(igsc_info, igmp_not_handled);
+#ifdef SUPPORT_IGMP_V3
+                /* Convert Query to Unicast */
+                if (igmph[IGMPV2_TYPE_OFFSET]==IGMPV2_HOST_MEMBERSHIP_QUERY){
+                        return (EMF_CONVERT_QUERY);
+                }
+                else
+#endif
 		return (EMF_FLOOD);
 	}
 

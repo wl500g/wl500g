@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -7,7 +7,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: emf_linux.h,v 1.2 2007/04/05 23:10:03 Exp $
+ * $Id: emf_linux.h 241182 2011-02-17 21:50:03Z gmo $
  */
 
 #ifndef _EMF_LINUX_H_
@@ -62,12 +62,21 @@ typedef struct emf_struct
 
 typedef struct br_port
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
+	struct net_bridge	*br;
+	struct net_device	*dev;
+	struct list_head	list;
+	/* STP */
+	u8			priority;
+	u8			state;
+#else /* LINUX_VERSION_CODE >= 2.6.0 */
 	struct br_port     *next;
 	struct net_bridge  *br;
 	struct net_device  *dev;
 	int32              port_no;
 	uint16             port_id;
 	int32              state;
+#endif /* LINUX_VERSION_CODE >= 2.6.0 */
 } br_port_t;
 
 static uint32 emf_br_pre_hook(uint32, struct sk_buff **,

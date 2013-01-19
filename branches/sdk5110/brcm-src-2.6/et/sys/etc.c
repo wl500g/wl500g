@@ -3,14 +3,14 @@
  * Broadcom Home Networking Division 10/100 Mbit/s Ethernet
  * Device Driver.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
  * the contents of this file may not be disclosed to third parties, copied
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
- * $Id: etc.c,v 1.105.2.3 2010/11/22 08:59:20 Exp $
+ * $Id: etc.c,v 1.119.2.2 2010-07-01 23:25:01 Exp $
  */
 
 #include <typedefs.h>
@@ -221,15 +221,15 @@ int
 etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg)
 {
 	int error = 0;
-#ifdef ETROBO
+#if defined(ETROBO) && !defined(_CFE_)
 	uint *vecarg;
 	robo_info_t *robo = etc->robo;
-#endif
+#endif /* ETROBO && _CFE_ */
 
 	ET_TRACE(("et%d: %s: cmd 0x%x\n", etc->unit, __func__, cmd));
 
 	switch (cmd) {
-#ifdef ETROBO
+#if defined(ETROBO) && !defined(_CFE_)
 		case IOV_ET_POWER_SAVE_MODE:
 			vecarg = (uint *)arg;
 			if (set) {
@@ -251,7 +251,17 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg)
 				}
 			}
 			break;
-#endif /* ETROBO */
+
+		case IOV_ET_ROBO_DEVID:
+			vecarg = (uint *)arg;
+			error = -1;
+
+			if (robo != NULL) {
+				*vecarg = robo->devid;
+				error = 0;
+			}
+			break;
+#endif /* ETROBO && !_CFE_ */
 #ifdef BCMDBG
 		case IOV_ET_CLEAR_DUMP:
 			if (set) {
@@ -467,14 +477,14 @@ etc_watchdog(etc_info_t *etc)
 {
 	uint16 status;
 	uint16 lpa;
-#ifdef ETROBO
+#if defined(ETROBO) && !defined(_CFE_)
 	robo_info_t *robo = (robo_info_t *)etc->robo;
 	static uint32 sleep_timer = PWRSAVE_SLEEP_TIME, wake_timer;
-#endif
+#endif /* ETROBO && !_CFE_ */
 
 	etc->now++;
 
-#ifdef ETROBO
+#if defined(ETROBO) && !defined(_CFE_)
 	/* Every PWRSAVE_WAKE_TIME sec the phys that are in manual mode 
 	 * is taken out of that mode and link status is checked after
 	 * PWRSAVE_SLEEP_TIME sec to see if any of the links is up
@@ -496,9 +506,7 @@ etc_watchdog(etc_info_t *etc)
 			robo_power_save_mode_update(robo);
 		}
 	}
-
-
-#endif /* ETROBO */
+#endif /* ETROBO && !_CFE_ */
 
 	/* no local phy registers */
 	if (etc->phyaddr == EPHY_NOREG) {

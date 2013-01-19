@@ -16,7 +16,7 @@
  		rate = rate / 2;
 --- src/shared/hndmips.c.orig	2007-04-17 00:00:33.073453456 +0400
 +++ src/shared/hndmips.c	2007-04-17 00:04:15.790595304 +0400
-@@ -234,10 +234,12 @@
+@@ -234,10 +234,12 @@ BCMATTACHFN(si_mips_init)(si_t *sih, uint shirqmap)
  	tmp = CEIL(10, ns) << FW_W3_SHIFT;	/* W3 = 10nS */
  	tmp |= CEIL(10, ns) << FW_W1_SHIFT;	/* W1 = 10nS */
  	tmp |= CEIL(120, ns);			/* W0 = 120nS */
@@ -26,7 +26,7 @@
  		W_REG(osh, &cc->flash_waitcount, tmp);
  
  	if ((sih->ccrev < 9) ||
-+	    (sih->chip == BCM5365_CHIP_ID) ||
- 	    ((sih->chip == BCM5350_CHIP_ID) && sih->chiprev == 0)) {
++	    (CHIPID(sih->chip) == BCM5365_CHIP_ID) ||
+ 	    ((CHIPID(sih->chip) == BCM5350_CHIP_ID) && CHIPREV(sih->chiprev) == 0)) {
  		W_REG(osh, &cc->pcmcia_memwait, tmp);
  	}
