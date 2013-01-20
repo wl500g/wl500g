@@ -125,6 +125,38 @@ diff -uBp a/include/asm-generic/bug.h b/include/asm-generic/bug.h
  #ifdef CONFIG_SMP
  # define WARN_ON_SMP(x)			WARN_ON(x)
  #else
+diff --git a/include/linux/bitops.h b/include/linux/bitops.h
+--- a/include/linux/bitops.h
++++ b/include/linux/bitops.h
+@@ -16,6 +16,28 @@
+  */
+ #include <asm/bitops.h>
+ 
++#define for_each_set_bit(bit, addr, size) \
++	for ((bit) = find_first_bit((addr), (size));		\
++	     (bit) < (size);					\
++	     (bit) = find_next_bit((addr), (size), (bit) + 1))
++
++/* same as for_each_set_bit() but use bit as value to start with */
++#define for_each_set_bit_from(bit, addr, size) \
++	for ((bit) = find_next_bit((addr), (size), (bit));	\
++	     (bit) < (size);					\
++	     (bit) = find_next_bit((addr), (size), (bit) + 1))
++
++#define for_each_clear_bit(bit, addr, size) \
++	for ((bit) = find_first_zero_bit((addr), (size));	\
++	     (bit) < (size);					\
++	     (bit) = find_next_zero_bit((addr), (size), (bit) + 1))
++
++/* same as for_each_clear_bit() but use bit as value to start with */
++#define for_each_clear_bit_from(bit, addr, size) \
++	for ((bit) = find_next_zero_bit((addr), (size), (bit));	\
++	     (bit) < (size);					\
++	     (bit) = find_next_zero_bit((addr), (size), (bit) + 1))
++
+ static __inline__ int get_bitmask_order(unsigned int count)
+ {
+ 	int order;
 diff -uBp a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
 --- a/include/linux/compiler-gcc.h
 +++ b/include/linux/compiler-gcc.h
