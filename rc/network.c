@@ -1691,7 +1691,7 @@ void wan_down(const char *wan_ifname)
 
 	/* Figure out nvram variable name prefix for this i/f */
 	unit = wan_prefix(wan_ifname, prefix);
-	dprintf("%s unit %d prefix %s %s\n", wan_ifname, unit, prefix, xprefix);
+	dprintf("%s unit %d prefix %s\n", wan_ifname, unit, prefix);
 	if (unit < 0)
 		return;
 
