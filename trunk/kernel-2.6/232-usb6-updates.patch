@@ -7,6 +7,7 @@ USB: Updates from upstream
  3824c1ddaf744be44b170a335332b9d6afe79254 USB: core: Tolerate protocol stall during hub and port status read
  e04f5f7e423018bcec84c11af2058cdce87816f3 EHCI: fix direction handling for interrupt data toggles
  b3a3dd074f7053ef824ad077e5331b52220ceba1 USB: fix gathering of interface associations
+ d81a5d1956731c453b85c141458d4ff5d6cc5366 USB: add USB_VENDOR_AND_INTERFACE_INFO() macro
 
 ---
  drivers/usb/core/buffer.c     |    2 +-
@@ -15,7 +16,8 @@ USB: Updates from upstream
  drivers/usb/host/ehci-q.c     |    4 +++-
  drivers/usb/host/ehci-sched.c |   17 ++++++++++-------
  drivers/usb/host/ehci.h       |    8 +++++---
- 6 files changed, 25 insertions(+), 15 deletions(-)
+ include/linux/usb.h           |   21 +++++++++++++++++++++
+ 7 files changed, 46 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/usb/core/buffer.c b/drivers/usb/core/buffer.c
 --- a/drivers/usb/core/buffer.c
@@ -201,4 +203,35 @@ diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
  	unsigned		clearing_tt:1;	/* Clear-TT-Buf in progress */
  };
  
+diff --git a/include/linux/usb.h b/include/linux/usb.h
+--- a/include/linux/usb.h
++++ b/include/linux/usb.h
+@@ -861,6 +861,27 @@ static inline int usb_make_path(struct usb_device *dev, char *buf, size_t size)
+ 	.bInterfaceClass = (cl), \
+ 	.bInterfaceSubClass = (sc), .bInterfaceProtocol = (pr)
+ 
++/**
++ * USB_VENDOR_AND_INTERFACE_INFO - describe a specific usb vendor with a class of usb interfaces
++ * @vend: the 16 bit USB Vendor ID
++ * @cl: bInterfaceClass value
++ * @sc: bInterfaceSubClass value
++ * @pr: bInterfaceProtocol value
++ *
++ * This macro is used to create a struct usb_device_id that matches a
++ * specific vendor with a specific class of interfaces.
++ *
++ * This is especially useful when explicitly matching devices that have
++ * vendor specific bDeviceClass values, but standards-compliant interfaces.
++ */
++#define USB_VENDOR_AND_INTERFACE_INFO(vend, cl, sc, pr) \
++	.match_flags = USB_DEVICE_ID_MATCH_INT_INFO \
++		| USB_DEVICE_ID_MATCH_VENDOR, \
++	.idVendor = (vend), \
++	.bInterfaceClass = (cl), \
++	.bInterfaceSubClass = (sc), \
++	.bInterfaceProtocol = (pr)
++
+ /* ----------------------------------------------------------------------- */
+ 
+ /* Stuff for dynamic usb ids */
 -- 
