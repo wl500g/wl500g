@@ -5,11 +5,12 @@
  720f3d7cb19eb27f85f72836c8f8004ccb257f39 usbnet: fix leak of transfer buffer of dev->interrupt
  5b6e9bcdeb65634b4ad604eb4536404bbfc62cfa usbnet: fix skb traversing races during unlink(v2)
  86a2f415e6cdc5dbb2163b31abf4d36f26f7e3da usbnet: sanitise overlong driver information strings
+ 072c0559e26bc35700b3a70dffc230f00d9262b8 usbnet: don't initialize transfer buffer before submit status URB
 
 ---
- drivers/net/usb/usbnet.c |   74 +++++++++++++++++++++++++++++++++--------------
+ drivers/net/usb/usbnet.c |   75 +++++++++++++++++++++++++++++++++--------------
  drivers/net/usb/usbnet.h |    3 +
- 2 files changed, 55 insertions(+), 22 deletions(-)
+ 2 files changed, 55 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
 --- a/drivers/net/usb/usbnet.c
@@ -133,6 +134,14 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  			rx_submit (dev, urb, GFP_ATOMIC);
  			return;
  		}
+@@ -519,7 +549,6 @@ static void intr_complete (struct urb *urb)
+ 	if (!netif_running (dev->net))
+ 		return;
+ 
+-	memset(urb->transfer_buffer, 0, urb->transfer_buffer_length);
+ 	status = usb_submit_urb (urb, GFP_ATOMIC);
+ 	if (status != 0 && netif_msg_timer (dev))
+ 		deverr(dev, "intr resubmit --> %d", status);
 @@ -538,19 +556,34 @@ static void intr_complete (struct urb *u
  static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q)
  {
