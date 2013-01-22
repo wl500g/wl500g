@@ -16569,7 +16569,7 @@ diff --git a/fs/ext4/migrate.c b/fs/ext4/migrate.c
 diff --git a/fs/ext4/move_extent.c b/fs/ext4/move_extent.c
 --- a/fs/ext4/move_extent.c
 +++ b/fs/ext4/move_extent.c
-@@ -0,0 +1,1424 @@
+@@ -0,0 +1,1423 @@
 +/*
 + * Copyright (c) 2008,2009 NEC Software Tohoku, Ltd.
 + * Written by Takashi Sato <t-sato@yk.jp.nec.com>
@@ -17447,8 +17447,7 @@ diff --git a/fs/ext4/move_extent.c b/fs/ext4/move_extent.c
 +	 * It needs to call wait_on_page_writeback() to wait for the
 +	 * writeback of the page.
 +	 */
-+	if (PageWriteback(page))
-+		wait_on_page_writeback(page);
++	wait_on_page_writeback(page);
 +
 +	/* Release old bh and drop refs */
 +	try_to_release_page(page, 0);

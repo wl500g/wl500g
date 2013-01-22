@@ -129,7 +129,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
   * This is a special get_blocks_t callback which is used by
   * ext4_da_write_begin().  It will either return mapped block or
   * reserve space for a single block.
-@@ -2844,6 +2735,188 @@ static int ext4_da_writepages_trans_bloc
+@@ -2844,6 +2735,186 @@ static int ext4_da_writepages_trans_bloc
  	return ext4_chunk_trans_blocks(inode, max_blocks);
  }
  
@@ -198,9 +198,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 +				continue;
 +			}
 +
-+			if (PageWriteback(page))
-+				wait_on_page_writeback(page);
-+
++			wait_on_page_writeback(page);
 +			BUG_ON(PageWriteback(page));
 +			if (!clear_page_dirty_for_io(page))
 +				goto continue_unlock;
