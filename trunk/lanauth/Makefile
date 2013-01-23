@@ -2,15 +2,14 @@
 CC ?= $(CROSS)gcc
 STRIP ?= $(CROSS)strip
 
-CCFLAGS+=-Os -Wall -I. $(EXTRACFLAGS)
-LDFLAGS+=-s
-LIBS=md5.o rmd160.o
+CFLAGS += -Os -Wall -I. -ffunction-sections -fdata-sections $(EXTRACFLAGS)
+LDFLAGS += -s -Wl,--gc-sections
 
-lanauth: lanauth.o $(LIBS)
-	$(CC) $(CCFLAGS) $(LDFLAGS) lanauth.o -o lanauth $(LIBS)
+lanauth: lanauth.o md5.o rmd160.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 %.o: %.c
-	$(CC) $(CCFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<
 
 clean:
 	rm *.o lanauth

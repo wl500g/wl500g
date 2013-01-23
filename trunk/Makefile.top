@@ -938,7 +938,8 @@ ucd-snmp/Makefile: ucd-snmp/Makefile.in
 	cd ucd-snmp && \
 	    ac_cv_CAN_USE_SYSCTL=no ac_cv_struct_ifnet_has_if_obytes=yes \
 	    ac_cv_struct_ifnet_has_if_ibytes=yes ac_cv_struct_ifnet_has_if_ibytes=yes \
-	 $(CONFIGURE) --with-cflags="-g -O2 $(EXTRACFLAGS)" \
+	 $(CONFIGURE) --with-cflags="-g -O2 -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    --with-ldflags="-Wl,--gc-sections" \
 	    --disable-debugging --without-opaque-special-types \
 	    --with-out-mib-modules="v2party" --with-sys-location=Unknown --with-sys-contact=Administrator \
 	    --with-logfile=/var/log/snmpd.log
@@ -1069,7 +1070,9 @@ lltd-install: lltd
 	    install -D -m 0644 lltd/icons/$(MODEL).ico $(INSTALLDIR)/lltd/usr/share/lld2d/icon.ico
 
 wpa_supplicant:
-	$(MAKE) -C $@/wpa_supplicant EXTRACFLAGS="-Os $(EXTRACFLAGS)"
+	$(MAKE) -C $@/wpa_supplicant \
+	EXTRACFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections"
 
 wpa_supplicant-install: wpa_supplicant
 	install -D wpa_supplicant/wpa_supplicant/wpa_supplicant $(INSTALLDIR)/wpa_supplicant/usr/sbin/wpa_supplicant
