@@ -1,0 +1,209 @@
+driver core: check bus->match without holding device lock
+
+ 9f3f776bd9e3d52f0204db1df0914b50d6a2372e sysdev: use mutex instead of semaphore
+ 6cd49586090187a2a145bb6570fb2392f121aa22 device model: Do a quickcheck for driver binding before doing an expensive check
+ 49b420a13ff95b449947181190b08367348e3e1b driver core: check bus->match without holding device lock
+ 5247aecfe62266ffdedf2fc9e4243638554455b6 driver core: fix driver_match_device
+
+---
+ drivers/base/base.h |    5 +++++
+ drivers/base/bus.c  |    2 +-
+ drivers/base/dd.c   |   20 +++++++++-----------
+ drivers/base/sys.c  |   24 ++++++++++++------------
+ 4 files changed, 27 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/base/base.h b/drivers/base/base.h
+--- a/drivers/base/base.h
++++ b/drivers/base/base.h
+@@ -26,6 +26,11 @@ extern void bus_remove_driver(struct device_driver *drv);
+ 
+ extern void driver_detach(struct device_driver * drv);
+ extern int driver_probe_device(struct device_driver *, struct device *);
++static inline int driver_match_device(struct device_driver *drv,
++				      struct device *dev)
++{
++	return drv->bus->match ? drv->bus->match(dev, drv) : 1;
++}
+ 
+ extern void sysdev_shutdown(void);
+ extern int sysdev_suspend(pm_message_t state);
+diff --git a/drivers/base/bus.c b/drivers/base/bus.c
+--- a/drivers/base/bus.c
++++ b/drivers/base/bus.c
+@@ -198,7 +198,7 @@ static ssize_t driver_bind(struct device_driver *drv,
+ 	int err = -ENODEV;
+ 
+ 	dev = bus_find_device(bus, NULL, (void *)buf, driver_helper);
+-	if (dev && dev->driver == NULL) {
++	if (dev && dev->driver == NULL && driver_match_device(drv, dev)) {
+ 		if (dev->parent)	/* Needed for USB */
+ 			down(&dev->parent->sem);
+ 		down(&dev->sem);
+diff --git a/drivers/base/dd.c b/drivers/base/dd.c
+--- a/drivers/base/dd.c
++++ b/drivers/base/dd.c
+@@ -189,14 +189,8 @@ int wait_for_device_probe(void)
+  * @drv: driver to bind a device to
+  * @dev: device to try to bind to the driver
+  *
+- * First, we call the bus's match function, if one present, which should
+- * compare the device IDs the driver supports with the device IDs of the
+- * device. Note we don't do this ourselves because we don't know the
+- * format of the ID structures, nor what is to be considered a match and
+- * what is not.
+- *
+- * This function returns 1 if a match is found, -ENODEV if the device is
+- * not registered, and 0 otherwise.
++ * This function returns -ENODEV if the device is not registered,
++ * 1 if the device is bound sucessfully and 0 otherwise.
+  *
+  * This function must be called with @dev->sem held.  When called for a
+  * USB interface, @dev->parent->sem must be held as well.
+@@ -207,21 +201,22 @@ int driver_probe_device(struct device_driver *drv, struct device *dev)
+ 
+ 	if (!device_is_registered(dev))
+ 		return -ENODEV;
+-	if (drv->bus->match && !drv->bus->match(dev, drv))
+-		goto done;
+ 
+ 	pr_debug("%s: Matched Device %s with Driver %s\n",
+ 		 drv->bus->name, dev->bus_id, drv->name);
+ 
+ 	ret = really_probe(dev, drv);
+ 
+-done:
+ 	return ret;
+ }
+ 
+ static int __device_attach(struct device_driver * drv, void * data)
+ {
+ 	struct device * dev = data;
++
++	if (!driver_match_device(drv, dev))
++		return 0;
++
+ 	return driver_probe_device(drv, dev);
+ }
+ 
+@@ -257,6 +257,9 @@ static int __driver_attach(struct device *dev, void *data)
+ 	 * is an error.
+ 	 */
+ 
++	if (!driver_match_device(drv, dev))
++		return 0;
++
+ 	if (dev->parent)	/* Needed for USB */
+ 		down(&dev->parent->sem);
+ 	down(&dev->sem);
+diff --git a/drivers/base/sys.c b/drivers/base/sys.c
+--- a/drivers/base/sys.c
++++ b/drivers/base/sys.c
+@@ -21,7 +21,7 @@
+ #include <linux/string.h>
+ #include <linux/pm.h>
+ #include <linux/device.h>
+-#include <asm/semaphore.h>
++#include <linux/mutex.h>
+ 
+ #include "base.h"
+ 
+@@ -155,7 +155,7 @@ EXPORT_SYMBOL_GPL(sysdev_class_unregister);
+ 
+ 
+ static LIST_HEAD(sysdev_drivers);
+-static DECLARE_MUTEX(sysdev_drivers_lock);
++static DEFINE_MUTEX(sysdev_drivers_lock);
+ 
+ /**
+  *	sysdev_driver_register - Register auxillary driver
+@@ -172,7 +172,7 @@ static DECLARE_MUTEX(sysdev_drivers_lock);
+ int sysdev_driver_register(struct sysdev_class * cls,
+ 			   struct sysdev_driver * drv)
+ {
+-	down(&sysdev_drivers_lock);
++	mutex_lock(&sysdev_drivers_lock);
+ 	if (cls && kset_get(&cls->kset)) {
+ 		list_add_tail(&drv->entry, &cls->drivers);
+ 
+@@ -184,7 +184,7 @@ int sysdev_driver_register(struct sysdev_class * cls,
+ 		}
+ 	} else
+ 		list_add_tail(&drv->entry, &sysdev_drivers);
+-	up(&sysdev_drivers_lock);
++	mutex_unlock(&sysdev_drivers_lock);
+ 	return 0;
+ }
+ 
+@@ -197,7 +197,7 @@ int sysdev_driver_register(struct sysdev_class * cls,
+ void sysdev_driver_unregister(struct sysdev_class * cls,
+ 			      struct sysdev_driver * drv)
+ {
+-	down(&sysdev_drivers_lock);
++	mutex_lock(&sysdev_drivers_lock);
+ 	list_del_init(&drv->entry);
+ 	if (cls) {
+ 		if (drv->remove) {
+@@ -207,7 +207,7 @@ void sysdev_driver_unregister(struct sysdev_class * cls,
+ 		}
+ 		kset_put(&cls->kset);
+ 	}
+-	up(&sysdev_drivers_lock);
++	mutex_unlock(&sysdev_drivers_lock);
+ }
+ 
+ EXPORT_SYMBOL_GPL(sysdev_driver_register);
+@@ -246,7 +246,7 @@ int sysdev_register(struct sys_device * sysdev)
+ 	if (!error) {
+ 		struct sysdev_driver * drv;
+ 
+-		down(&sysdev_drivers_lock);
++		mutex_lock(&sysdev_drivers_lock);
+ 		/* Generic notification is implicit, because it's that
+ 		 * code that should have called us.
+ 		 */
+@@ -262,7 +262,7 @@ int sysdev_register(struct sys_device * sysdev)
+ 			if (drv->add)
+ 				drv->add(sysdev);
+ 		}
+-		up(&sysdev_drivers_lock);
++		mutex_unlock(&sysdev_drivers_lock);
+ 	}
+ 	return error;
+ }
+@@ -271,7 +271,7 @@ void sysdev_unregister(struct sys_device * sysdev)
+ {
+ 	struct sysdev_driver * drv;
+ 
+-	down(&sysdev_drivers_lock);
++	mutex_lock(&sysdev_drivers_lock);
+ 	list_for_each_entry(drv, &sysdev_drivers, entry) {
+ 		if (drv->remove)
+ 			drv->remove(sysdev);
+@@ -281,7 +281,7 @@ void sysdev_unregister(struct sys_device * sysdev)
+ 		if (drv->remove)
+ 			drv->remove(sysdev);
+ 	}
+-	up(&sysdev_drivers_lock);
++	mutex_unlock(&sysdev_drivers_lock);
+ 
+ 	kobject_unregister(&sysdev->kobj);
+ }
+@@ -308,7 +308,7 @@ void sysdev_shutdown(void)
+ 
+ 	pr_debug("Shutting Down System Devices\n");
+ 
+-	down(&sysdev_drivers_lock);
++	mutex_lock(&sysdev_drivers_lock);
+ 	list_for_each_entry_reverse(cls, &system_subsys.list,
+ 				    kset.kobj.entry) {
+ 		struct sys_device * sysdev;
+@@ -337,7 +337,7 @@ void sysdev_shutdown(void)
+ 				cls->shutdown(sysdev);
+ 		}
+ 	}
+-	up(&sysdev_drivers_lock);
++	mutex_unlock(&sysdev_drivers_lock);
+ }
+ 
+ static void __sysdev_resume(struct sys_device *dev)
+-- 
