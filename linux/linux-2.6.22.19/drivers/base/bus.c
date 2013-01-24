@@ -192,7 +192,7 @@ static ssize_t driver_bind(struct device_driver *drv,
 	int err = -ENODEV;
 
 	dev = bus_find_device(bus, NULL, (void *)buf, driver_helper);
-	if (dev && dev->driver == NULL) {
+	if (dev && dev->driver == NULL && driver_match_device(drv, dev)) {
 		if (dev->parent)	/* Needed for USB */
 			down(&dev->parent->sem);
 		down(&dev->sem);
