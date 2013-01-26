@@ -10,27 +10,18 @@
 #include <netconf.h>
 #include <nvparse.h>
 #include "rc.h"
+#include "usbmodem.h"
 
 
 #define MODEM_DEVICES_FILE	"/proc/bus/usb/devices"
-#define MODEM_CONFIG_FILE	"/usr/share/modem/modems.conf"
 #define MODEM_DIAL_SCRIPT	"/usr/ppp/dial"
 #define MODEM_DIAL_PIDFILE	"/var/run/dial%s.pid"
 
-#define TYPE_NO		'N'
-#define TYPE_CDMA	'C'
-#define TYPE_WCDMA	'W'
-#define TYPE_HUB	'H'
-#define TYPE_MEM	'M'
-#define TYPE_ZEROCD	'Z'
-
 // see http://www.usb.org/developers/defined_class
-#define CLASS_ICLS	0x00
-#define CLASS_ACM	0x02
-#define CLASS_MEM	0x08
-#define CLASS_HUB	0x09
-#define CLASS_MISC	0xEF
-#define CLASS_MOD	0xFF
+#define USB_CLASS_PER_INTERFACE		0
+#define USB_CLASS_COMM			2
+#define USB_CLASS_MISC			0xef
+#define USB_CLASS_VENDOR_SPEC		0xff
 
 #define BUF_LEN		512
 #define MODEM_MAX_LOCATION_LEN	32
@@ -118,23 +109,14 @@ void hotplug_release_zerocd_processed(const char *product, const char *device)
 #define hotplug_release_zerocd_processed(product,device)
 #endif /* RC_SEMAPHORE_ENABLED */
 
-/// Modems config file element
-struct dev_conf {
-	int vid;	///< vendor id
-	int pid;	///< product id
-	char type;	///< modem type - 'C' for CDMA or 'W' for WCDMA/HSPA/HSDPA/HSUPA/GSM
-	int data_port;	///< main port for data communication number
-	int ui_port;	///< user interface port for modem controlling, status sms, ussd and so on
-	struct dev_conf *next;
-};
-typedef struct dev_conf dev_conf_t;
-
 /// USB interface list element
 struct ifs_usb_elem {
 	int number;	///< interface number (used for data and ui ports)
 	int endpoints;	///< number of endpoints (used for data port definition if no config exist)
 	int cls;	///< interface class (used if device class == 0)
-	int subclass;	///< interface subclass
+	int sub;	///< interface subclass
+	int prot;	///< protocol type
+	char *driver; ///< driver
 	struct ifs_usb_elem *next;
 };
 typedef struct ifs_usb_elem ifs_usb_elem_t;
@@ -156,7 +138,7 @@ struct dev_usb {
 	ifs_usb_elem_t *ifs;	///< list of interfaces
 	int data_port;	///< main data communication port number
 	int ui_port;	///< user interface port for modem controlling, status sms, ussd and so on
-	char type;	///< modem type - 'C' for CDMA or 'W' for WCDMA/HSPA/HSDPA/HSUPA/GSM
+	char type;	///< modem type - 'C' for CDMA, 'W' for GPRS/UMTS/LTE, 'T' (unused) for TD-SCDMA
 	char loc[MODEM_MAX_LOCATION_LEN];	///< device location string as 1.2.4
 	struct dev_usb *next;
 	struct dev_usb *prev;
@@ -256,7 +238,7 @@ static dev_usb_t *get_usb_list(const char *fn_dev)
 					goto out;
 				}
 
-				dev->type = TYPE_NO;
+				dev->type = TYPE_NONE;
 				dev->bus = get_int_par(vbuf, "Bus=");
 				dev->parent = get_int_par(vbuf, "Prnt=");
 				dev->port = get_int_par(vbuf, "Port=");
@@ -300,7 +282,9 @@ static dev_usb_t *get_usb_list(const char *fn_dev)
 				i->number = get_int_par(vbuf, "If#=");
 				i->endpoints = get_int_par(vbuf, "#EPs=");
 				i->cls = get_hex_par(vbuf, "Cls=");
-				i->subclass = get_hex_par(vbuf, "Sub=");
+				i->sub = get_hex_par(vbuf, "Sub=");
+				i->prot = get_hex_par(vbuf, "Prot=");
+				i->driver = get_str_par(vbuf, "Driver=");
 				i->next = NULL;
 				if (dev->ifs == NULL) {
 					dev->ifs = i;
@@ -350,13 +334,7 @@ static int search_modems_in_list(dev_usb_t *list, int vid, int pid)
 			dev->vid,dev->pid,dev->prod, dev->loc, dev->cls, dev->sub, dev->prot);
 		// get type
 		switch (dev->cls) {
-			case CLASS_HUB:
-				dev->type = TYPE_HUB;
-				break;
-			case CLASS_MEM:
-				dev->type = TYPE_MEM;
-				break;
-			case CLASS_ACM:
+			case USB_CLASS_COMM:
 				dev->type = TYPE_WCDMA;
 				if (vid || pid) {
 					if (dev->vid == vid && dev->pid == pid)
@@ -365,14 +343,14 @@ static int search_modems_in_list(dev_usb_t *list, int vid, int pid)
 					count++;
 				}
 				break;
-			case CLASS_MISC:
+			case USB_CLASS_MISC:
 				// checking for Interface Association Descriptor ECN
 				if (!(dev->sub == 0x02 && dev->prot == 0x01))
 					break;
-			case CLASS_ICLS:
+			case USB_CLASS_PER_INTERFACE:
 				// class in IFACE
 				for (i = dev->ifs; i; i = i->next) {
-					if (i->cls == CLASS_MOD || i->cls == CLASS_ACM) {
+					if (i->cls == USB_CLASS_VENDOR_SPEC || i->cls == USB_CLASS_COMM) {
 						dev->type = TYPE_WCDMA;
 						if (vid || pid) {
 							if (dev->vid == vid && dev->pid == pid)
@@ -389,10 +367,6 @@ static int search_modems_in_list(dev_usb_t *list, int vid, int pid)
 							dev->data_port = i->number;
 						else
 							dev->ui_port = i->number;
-					} else {
-						if (i->cls == CLASS_MEM &&
-							dev->type == TYPE_NO)
-							dev->type = TYPE_MEM;
 					}
 				}
 		}
@@ -401,60 +375,61 @@ static int search_modems_in_list(dev_usb_t *list, int vid, int pid)
 	return count;
 }
 
-/// read info from config file
-static dev_conf_t *get_config_list(const char *fn_conf) 
-{
-	char *ptr;
-	char *vbuf = NULL;
-	dev_conf_t *conf, *lconf = NULL, *conf_list = NULL;
-	FILE *fp;
-
-	if ((vbuf = malloc(BUF_LEN)) == NULL)
-		return NULL;
-
-	fp = fopen(fn_conf, "rt");
-	if (fp) {
-		while (fgets(vbuf, BUF_LEN, fp) != 0) {
-			ptr = vbuf;
-			while (*ptr == ' ' || *ptr == '\t')
-				ptr++;
-
-			if (*ptr == '#' || *ptr == '\n' || *ptr == '\r' || *ptr == '\0')
-				continue;
-
-			if ((conf = malloc(sizeof(dev_conf_t))) == NULL)
-				return NULL;
-			sscanf(ptr, "%04x:%04x:%c:%d:%d",
-				&conf->vid, &conf->pid, &conf->type, &conf->data_port, &conf->ui_port);
-			conf->next = NULL;
-			if (conf_list == NULL) {
-				conf_list = conf;
-			} else {
-				if (lconf) {
-					lconf->next = conf;
-				}
-			}
-			lconf = conf;
-		}
-		fclose(fp);
-	}
-	free(vbuf);
-	return conf_list;
-}
-
 /// check info in config file
-static int check_config(dev_usb_t *dev, dev_conf_t *conf_list)
+static int check_config(dev_usb_t *dev)
 {
-	dev_conf_t *conf = conf_list;
-
-	while (conf) {
-		if (conf->vid == dev->vid && conf->pid == dev->pid) {
+	const dev_conf_t *conf;
+	int i;
+	for (i = 0; i < ARRAY_SIZE(modem_ids); i++) {
+		conf = &modem_ids[i];
+		// empty VID or type are not allowed
+		if (!(conf->vid > 0 && conf->type > 0))
+			continue;
+		// VID (and PID if available) must match
+		if (!(conf->vid == dev->vid && (conf->pid == -1 || conf->pid == dev->pid)))
+			continue;
+		// if we don't need to check interface info...
+		if (conf->data_cls == -1 && conf->data_sub == -1 && conf->data_prot == -1 && conf->ui_cls == -1 && conf->ui_sub == -1 && conf->ui_prot == -1) {
+			// ...check if least one port is specified...
+			if (conf->data_port == -1 && conf->ui_port == -1)
+				continue;
+			// ...and accept the match
 			dev->type = conf->type;
-			dev->data_port = conf->data_port;
-			dev->ui_port = conf->ui_port;
+			if (conf->data_port != -1)
+				dev->data_port = conf->data_port;
+			if (conf->ui_port != -1)
+				dev->ui_port = conf->ui_port;
 			return 1;
 		}
-		conf = conf->next;
+		// at least one class, subclass or protocol specified -- check
+		else {
+			ifs_usb_elem_t *i;
+			int count = 0;
+			// iterate over interfaces
+			for (i = dev->ifs; i; i = i->next) {
+				// check data interface
+				if (conf->data_cls != -1 || conf->data_sub != -1 || conf->data_prot != -1) {
+					if ((conf->data_cls == -1 || conf->data_cls == i->cls) && (conf->data_sub == -1 || conf->data_sub == i->sub) && (conf->data_prot == -1 || conf->data_prot == i->prot)
+					&& (conf->data_port == -1 || conf->data_port == i->number)) {
+						dev->type = conf->type;
+						dev->data_port = i->number;
+						count++;
+					}
+				}
+				// check ui interface
+				if (conf->ui_cls != -1 || conf->ui_sub != -1 || conf->ui_prot != -1) {
+					if ((conf->ui_cls == -1 || conf->ui_cls == i->cls) && (conf->ui_sub == -1 || conf->ui_sub == i->sub) && (conf->ui_prot == -1 || conf->ui_prot == i->prot)
+					&& (conf->ui_port == -1 || conf->ui_port == i->number)) {
+						dev->type = conf->type;
+						dev->ui_port = i->number;
+						count++;
+					}
+				}
+			}
+			// at least one interface found
+			if (count)
+				return 1;
+		}
 	}
 	return 0;
 }
@@ -490,19 +465,6 @@ static void print_modem_info(int format, dev_usb_t *dev_list)
 	if (format == FORMAT_JSON) puts("]");
 }
 
-/// free memory from conf_list
-void free_conf_list(dev_conf_t *conf_list)
-{
-	dev_conf_t *tconf,
-		 *conf = conf_list;
-
-	while (conf) {
-		tconf = conf->next;
-		free(conf);
-		conf = tconf;
-	}
-}
-
 /// free memory from dev_usb_t list
 void free_dev_list(dev_usb_t *list)
 {
@@ -514,6 +476,7 @@ void free_dev_list(dev_usb_t *list)
 		free(dev->prod);
 		while (dev->ifs) {
 			t = dev->ifs->next;
+			free(dev->ifs->driver);
 			free(dev->ifs);
 			dev->ifs = t;
 		}
@@ -730,7 +693,6 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 	char stored_product[40];
 	int vid, pid, hp_vid, hp_pid;
 	dev_usb_t *list, *found_dev;
-	dev_conf_t *conf_list;
 
 	int autodetect = nvram_match(strcat_r(prefix, "modem_autodetect", tmp), "1");
 	//int autodetect = nvram_match("wan_modem_autodetect", "1");
@@ -773,12 +735,9 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 		}
 	} else {
 		if (search_modems_in_list(list, 0, 0) > 0) {
-			dprintf("get_config_list\n");
-			conf_list = get_config_list(MODEM_CONFIG_FILE);
 			for (found_dev = list; found_dev; found_dev = found_dev->next) {
-				check_config(found_dev, conf_list);
+				check_config(found_dev);
 			}
-			free_conf_list(conf_list);
 
 			if ((found_dev = get_usb_by_location_env(device, list))) {
 				sprintf(stored_product, "0x%04x", found_dev->vid);
@@ -813,11 +772,7 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 	if (ret && found_dev) {
 		nvram_set(strcat_r(prefix, "usb_device_name", tmp), found_dev->prod);
 		if (!exists("/sys/module/usbserial")) insmod("usbserial", NULL);
-#ifndef LINUX26
-		insmod("acm", NULL);
-#else
 		if (!exists("/sys/module/cdc-acm")) insmod("cdc-acm", NULL);
-#endif
 		if (!exists("/sys/module/option")) insmod("option", NULL);
 
 		const char *driver_list[] = {"option", "cdc-acm", NULL};
@@ -1035,9 +990,8 @@ int usb_modem_check(const char *prefix)
 }
 
 /// list modems ( see format in usbmodem.h )
-/// usage: lsmodem [-s] [-c config]
+/// usage: lsmodem [-s|-j]
 ///   -s  short form listing ( : location : manufacturer : product : )
-///   -c  custom configuration file ( see format in MODEM_CONFIG_FILE )
 ///
 /// modem description string
 ///  0:xxxx:xxxx:C:0:0:0.1.2:manufacturer:product
@@ -1053,11 +1007,9 @@ int usb_modem_check(const char *prefix)
 ///   `connection enable flag ( 0 - disable, 1 - enable ) (char[1])
 int lsmodem_main(int argc, char **argv)
 {
-	char *fcon = NULL;
 	int format = 0;
 	int i;
 	dev_usb_t *dev, *list;
-	dev_conf_t *conf_list;
 
 	if (argc > 1) {
 		for (i = 1; i < argc; i++) {
@@ -1065,24 +1017,18 @@ int lsmodem_main(int argc, char **argv)
 				format = FORMAT_SHORT;
 			} else if (strcmp(argv[i], "-j") == 0) {
 				format = FORMAT_JSON;
-			} else if (strcmp(argv[i], "-c") == 0 && (argc - i > 1)) {
-				i++;
-				fcon = argv[i];
 			} else {
-				fprintf(stderr,"Usage: lsmodem [-s|j] [-c config]\n");
+				fprintf(stderr,"Usage: lsmodem [-s|-j]\n");
 				return 1;
 			}
 		}
 	}
-	if (!fcon) fcon = MODEM_CONFIG_FILE;
 
 	list = get_usb_list(MODEM_DEVICES_FILE);
 	if (search_modems_in_list(list, 0, 0) > 0 && format != FORMAT_SHORT) {
-		conf_list = get_config_list(fcon);
 		for (dev = list; dev; dev = dev->next) {
-			check_config(dev, conf_list);
+			check_config(dev);
 		}
-		free_conf_list(conf_list);
 	}
 	print_modem_info(format, list);
 	free_dev_list(list);

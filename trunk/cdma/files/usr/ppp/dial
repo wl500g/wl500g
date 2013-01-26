@@ -14,12 +14,8 @@ user_script_name='/usr/local/dial/dial'
 def_failure_script="/usr/local/sbin/post-3g-failure"
 
 load_drivers(){
-	if [ "$(lsmod | grep $acm_int_name)" = "" ]; then
-		if [ "$kernel" = "2.4" ]; then
-			insmod $acm_module $maxpacket_size
-		else
-			insmod $acm_module
-		fi
+	if [ "$(lsmod | grep 'cdc_acm')" = "" ]; then
+		insmod cdc-acm
 	fi
 	if [ "$(lsmod | grep 'usbserial')" = "" ]; then
 		insmod usbserial
@@ -33,20 +29,8 @@ load_drivers(){
 }
 
 init_global() {
-	kernel="$(uname -r)"
-	kernel=${kernel:0:3}
-
-	if [ "$kernel" = "2.4" ]; then
-		tts_port_path="/dev/usb/tts/"
-		acm_port_path="/dev/usb/acm/"
-		acm_module="acm"
-		acm_int_name=$acm_module
-	else
-		tts_port_path="/dev/ttyUSB"
-		acm_port_path="/dev/ttyACM"
-		acm_module="cdc-acm"
-		acm_int_name="cdc_acm"
-	fi
+	tts_port_path="/dev/ttyUSB"
+	acm_port_path="/dev/ttyACM"
 
 	maxpacket_size=$(nvram get ${set_pref}packetsize)
 	maxpacket_size=${maxpacket_size:-0}
@@ -119,7 +103,7 @@ check_usb_config(){
 	done
 
 	if [ -z "$usbdev" ]; then
-		usbdev=/dev/ttyUSB
+		usbdev="${tts_port_path}0"
 	fi
 }
 
@@ -135,7 +119,7 @@ ABORT 'NO ANSWER'
 ABORT 'DELAYED'
 REPORT 'CONNECT'
 '' 'ATZ'
-SAY 'Calling CDMA/EVDO'
+SAY 'Calling CDMA'
 'OK' '$dialupinit'
 '' 'ATDT#777'
 'CONNECT' 'ATO'
@@ -149,7 +133,7 @@ ABORT 'NO CARRIER'
 ABORT 'ERROR'
 REPORT 'CONNECT'
 '' 'ATZ'
-SAY 'Calling WCDMA/UMTS/GPRS'
+SAY 'Calling GPRS/UMTS/LTE'
 'OK' '$dialupinit'
 '' 'AT+CGDCONT=1,\"IP\",\"$apn\"'
 'OK' 'ATD$dialnumber'
