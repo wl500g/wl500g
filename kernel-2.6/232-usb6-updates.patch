@@ -8,16 +8,17 @@ USB: Updates from upstream
  e04f5f7e423018bcec84c11af2058cdce87816f3 EHCI: fix direction handling for interrupt data toggles
  b3a3dd074f7053ef824ad077e5331b52220ceba1 USB: fix gathering of interface associations
  d81a5d1956731c453b85c141458d4ff5d6cc5366 USB: add USB_VENDOR_AND_INTERFACE_INFO() macro
+ 3e619d04159be54b3daa0b7036b0ce9e067f4b5d USB: EHCI: fix bug in scheduling periodic split transfers
 
 ---
  drivers/usb/core/buffer.c     |    2 +-
  drivers/usb/core/hub.c        |    6 ++++--
  drivers/usb/core/message.c    |    3 ++-
  drivers/usb/host/ehci-q.c     |    4 +++-
- drivers/usb/host/ehci-sched.c |   17 ++++++++++-------
+ drivers/usb/host/ehci-sched.c |   19 +++++++++++--------
  drivers/usb/host/ehci.h       |    8 +++++---
- include/linux/usb.h           |   21 +++++++++++++++++++++
- 7 files changed, 46 insertions(+), 15 deletions(-)
+ include/linux/usb.h           |   37 +++++++++++++++++++++++++++++++++++++
+ 7 files changed, 63 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/usb/core/buffer.c b/drivers/usb/core/buffer.c
 --- a/drivers/usb/core/buffer.c
@@ -105,6 +106,15 @@ diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
 diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
 --- a/drivers/usb/host/ehci-sched.c
 +++ b/drivers/usb/host/ehci-sched.c
+@@ -185,7 +190,7 @@ static inline unsigned char tt_start_ufr
+ }
+ 
+ static const unsigned char
+-max_tt_usecs[] = { 125, 125, 125, 125, 125, 125, 30, 0 };
++max_tt_usecs[] = { 125, 125, 125, 125, 125, 125, 125, 25 };
+ 
+ /* carryover low/fullspeed bandwidth that crosses uframe boundries */
+ static inline void carryover_tt_bandwidth(unsigned short tt_usecs[8])
 @@ -1048,8 +1048,6 @@ iso_stream_put(struct ehci_hcd *ehci, struct ehci_iso_stream *stream)
  	 * not like a QH -- no persistent state (toggle, halt)
  	 */
