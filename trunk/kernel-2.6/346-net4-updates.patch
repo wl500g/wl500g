@@ -7,17 +7,22 @@
  acb5d75b9bcff73d32d3471a9b3e9a4189223e48 packet: remove some pointless conditionals before kfree_skb()
  f3fbbe0f6f6cbac4c2aa3d71d95e49cf148286d6 core: remove some pointless conditionals before kfree_skb()
  0c9f79be295c99ac7e4b569ca493d75fdcc19e4e ipv4: avoid undefined behavior in do_ip_setsockopt()
+ 3d5b99ae82f8742e3bb1f8634fd11ac36ea19ee1 TCP: update initial windows according to RFC 5681
+ 0705c6f0e2d39333645bf77cf1efb94526ff1f82 tcp: update also tcp_output with regard to RFC 5681
 
 ---
  include/net/sock.h       |    2 +-
+ include/net/tcp.h        |    9 +++++++++
  net/core/neighbour.c     |    3 +--
  net/core/skbuff.c        |    3 +--
  net/ipv4/ip_sockglue.c   |   25 ++++++++++++++++---------
+ net/ipv4/tcp_input.c     |    9 ++-------
+ net/ipv4/tcp_output.c    |   12 +++---------
  net/ipv6/ipv6_sockglue.c |    3 +--
  net/ipv6/tcp_ipv6.c      |    8 +++-----
  net/packet/af_packet.c   |    3 +--
  net/unix/af_unix.c       |    3 +--
- 8 files changed, 25 insertions(+), 25 deletions(-)
+ 11 files changed, 39 insertions(+), 41 deletions(-)
 
 diff --git a/include/net/sock.h b/include/net/sock.h
 --- a/include/net/sock.h
@@ -31,6 +36,25 @@ diff --git a/include/net/sock.h b/include/net/sock.h
  	if (filter) {
  		unsigned int pkt_len = sk_run_filter(skb, filter->insns,
  				filter->len);
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -785,6 +785,15 @@ static inline void tcp_sync_left_out(str
+ 	tp->left_out = tp->sacked_out + tp->lost_out;
+ }
+ 
++/*
++ * Convert RFC 3390 larger initial window into an equivalent number of packets.
++ * This is based on the numbers specified in RFC 5681, 3.1.
++ */
++static inline u32 rfc3390_bytes_to_packets(const u32 smss)
++{
++	return smss <= 1095 ? 4 : (smss > 2190 ? 2 : 3);
++}
++
+ extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+ extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
+ 
 diff --git a/net/core/neighbour.c b/net/core/neighbour.c
 --- a/net/core/neighbour.c
 +++ b/net/core/neighbour.c
@@ -92,6 +116,52 @@ diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
  		if (optlen >= sizeof(int)) {
  			if (get_user(val, (int __user *) optval))
  				return -EFAULT;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -755,17 +755,12 @@ void tcp_update_metrics(struct sock *sk)
+ 	}
+ }
+ 
+-/* Numbers are taken from RFC2414.  */
+ __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
+ {
+ 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
+ 
+-	if (!cwnd) {
+-		if (tp->mss_cache > 1460)
+-			cwnd = 2;
+-		else
+-			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
+-	}
++	if (!cwnd)
++		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
+ 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
+ }
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -211,16 +211,10 @@ void tcp_select_initial_window(int __space, __u32 mss,
+ 		}
+ 	}
+ 
+-	/* Set initial window to value enough for senders,
+-	 * following RFC2414. Senders, not following this RFC,
+-	 * will be satisfied with 2.
+-	 */
++	/* Set initial window to value enough for senders, following RFC5681. */
+ 	if (mss > (1<<*rcv_wscale)) {
+-		int init_cwnd = 4;
+-		if (mss > 1460*3)
+-			init_cwnd = 2;
+-		else if (mss > 1460)
+-			init_cwnd = 3;
++		int init_cwnd = rfc3390_bytes_to_packets(mss);
++
+ 		if (*rcv_wnd > init_cwnd*mss)
+ 			*rcv_wnd = init_cwnd*mss;
+ 
 diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
 --- a/net/ipv6/ipv6_sockglue.c
 +++ b/net/ipv6/ipv6_sockglue.c
