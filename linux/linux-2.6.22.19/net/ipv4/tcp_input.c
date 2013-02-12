@@ -1255,7 +1255,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
 		}
 	}
 
-	tp->left_out = tp->sacked_out + tp->lost_out;
+	tcp_verify_left_out(tp);
 
 	if ((reord < tp->fackets_out) && icsk->icsk_ca_state != TCP_CA_Loss &&
 	    (!tp->frto_highmark || after(tp->snd_una, tp->frto_highmark)))
@@ -1363,7 +1363,7 @@ void tcp_enter_frto(struct sock *sk)
 		TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_RETRANS;
 		tp->retrans_out -= tcp_skb_pcount(skb);
 	}
-	tcp_sync_left_out(tp);
+	tcp_verify_left_out(tp);
 
 	/* Earlier loss recovery underway (see RFC4138; Appendix B).
 	 * The last condition is necessary at least in tp->frto_counter case.
@@ -1428,7 +1428,7 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
 			tp->fackets_out = cnt;
 		}
 	}
-	tcp_sync_left_out(tp);
+	tcp_verify_left_out(tp);
 
 	tp->snd_cwnd = tcp_packets_in_flight(tp) + allowed_segments;
 	tp->snd_cwnd_cnt = 0;
@@ -1447,7 +1447,6 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
 
 void tcp_clear_retrans(struct tcp_sock *tp)
 {
-	tp->left_out = 0;
 	tp->retrans_out = 0;
 
 	tp->fackets_out = 0;
@@ -1504,7 +1503,7 @@ void tcp_enter_loss(struct sock *sk, int how)
 			tp->fackets_out = cnt;
 		}
 	}
-	tcp_sync_left_out(tp);
+	tcp_verify_left_out(tp);
 
 	tp->reordering = min_t(unsigned int, tp->reordering,
 					     sysctl_tcp_reordering);
@@ -1717,7 +1716,7 @@ static void tcp_add_reno_sack(struct sock *sk)
 	struct tcp_sock *tp = tcp_sk(sk);
 	tp->sacked_out++;
 	tcp_check_reno_reordering(sk, 0);
-	tcp_sync_left_out(tp);
+	tcp_verify_left_out(tp);
 }
 
 /* Account for ACK, ACKing some data in Reno Recovery phase. */
@@ -1734,13 +1733,12 @@ static void tcp_remove_reno_sacks(struct sock *sk, int acked)
 			tp->sacked_out -= acked-1;
 	}
 	tcp_check_reno_reordering(sk, acked);
-	tcp_sync_left_out(tp);
+	tcp_verify_left_out(tp);
 }
 
 static inline void tcp_reset_reno_sack(struct tcp_sock *tp)
 {
 	tp->sacked_out = 0;
-	tp->left_out = tp->lost_out;
 }
 
 /* Mark head of queue up as lost. */
@@ -1806,7 +1804,7 @@ static void tcp_mark_head_lost(struct sock *sk,
 
 		}
 	}
-	tcp_sync_left_out(tp);
+	tcp_verify_left_out(tp);
 }
 
 /* Account newly detected lost packet(s) */
@@ -1856,7 +1854,7 @@ static void tcp_update_scoreboard(struct sock *sk)
 
 		tp->scoreboard_skb_hint = skb;
 
-		tcp_sync_left_out(tp);
+		tcp_verify_left_out(tp);
 	}
 }
 
@@ -1920,7 +1918,7 @@ static void DBGUNDO(struct sock *sk, const char *msg)
 	printk(KERN_DEBUG "Undo %s %u.%u.%u.%u/%u c%u l%u ss%u/%u p%u\n",
 	       msg,
 	       NIPQUAD(inet->daddr), ntohs(inet->dport),
-	       tp->snd_cwnd, tp->left_out,
+	       tp->snd_cwnd, tcp_left_out(tp),
 	       tp->snd_ssthresh, tp->prior_ssthresh,
 	       tp->packets_out);
 }
@@ -2049,7 +2047,6 @@ static int tcp_try_undo_loss(struct sock *sk)
 
 		DBGUNDO(sk, "partial loss");
 		tp->lost_out = 0;
-		tp->left_out = tp->sacked_out;
 		tcp_undo_cwr(sk, 1);
 		NET_INC_STATS_BH(LINUX_MIB_TCPLOSSUNDO);
 		inet_csk(sk)->icsk_retransmits = 0;
@@ -2069,11 +2066,25 @@ static inline void tcp_complete_cwr(struct sock *sk)
 	tcp_ca_event(sk, CA_EVENT_COMPLETE_CWR);
 }
 
+static void tcp_try_keep_open(struct sock *sk)
+{
+	struct tcp_sock *tp = tcp_sk(sk);
+	int state = TCP_CA_Open;
+
+	if (tcp_left_out(tp) || tp->retrans_out || tp->undo_marker)
+		state = TCP_CA_Disorder;
+
+	if (inet_csk(sk)->icsk_ca_state != state) {
+		tcp_set_ca_state(sk, state);
+		tp->high_seq = tp->snd_nxt;
+	}
+}
+
 static void tcp_try_to_open(struct sock *sk, int flag)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 
-	tcp_sync_left_out(tp);
+	tcp_verify_left_out(tp);
 
 	if (tp->retrans_out == 0)
 		tp->retrans_stamp = 0;
@@ -2082,16 +2093,9 @@ static void tcp_try_to_open(struct sock *sk, int flag)
 		tcp_enter_cwr(sk, 1);
 
 	if (inet_csk(sk)->icsk_ca_state != TCP_CA_CWR) {
-		int state = TCP_CA_Open;
-
-		if (tp->left_out || tp->retrans_out || tp->undo_marker)
-			state = TCP_CA_Disorder;
-
-		if (inet_csk(sk)->icsk_ca_state != state) {
-			tcp_set_ca_state(sk, state);
-			tp->high_seq = tp->snd_nxt;
-		}
-		tcp_moderate_cwnd(tp);
+		tcp_try_keep_open(sk);
+		if (inet_csk(sk)->icsk_ca_state != TCP_CA_Open)
+			tcp_moderate_cwnd(tp);
 	} else {
 		tcp_cwnd_down(sk, flag);
 	}
@@ -2172,8 +2176,8 @@ tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
 		NET_INC_STATS_BH(LINUX_MIB_TCPLOSS);
 	}
 
-	/* D. Synchronize left_out to current state. */
-	tcp_sync_left_out(tp);
+	/* D. Check consistency of the current state. */
+	tcp_verify_left_out(tp);
 
 	/* E. Check state exit conditions. State can be terminated
 	 *    when high_seq is ACKed. */
@@ -2706,7 +2710,7 @@ static int tcp_process_frto(struct sock *sk, u32 prior_snd_una, int flag)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 
-	tcp_sync_left_out(tp);
+	tcp_verify_left_out(tp);
 
 	/* Duplicate the behavior from Loss state (fastretrans_alert) */
 	if (flag&FLAG_DATA_ACKED)
@@ -2795,14 +2799,17 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
 	int prior_packets;
 	int frto_cwnd = 0;
 
-	/* If the ack is newer than sent or older than previous acks
+	/* If the ack is older than previous acks
 	 * then we can probably ignore it.
 	 */
-	if (after(ack, tp->snd_nxt))
-		goto uninteresting_ack;
-
 	if (before(ack, prior_snd_una))
 		goto old_ack;
+
+	/* If the ack includes data we haven't sent yet, discard
+	 * this segment (RFC793 Section 3.9).
+	 */
+	if (after(ack, tp->snd_nxt))
+		goto invalid_ack;
 
 	if (after(ack, prior_snd_una))
 		flag |= FLAG_SND_UNA_ADVANCED;
@@ -2887,12 +2894,18 @@ no_queue:
 		tcp_ack_probe(sk);
 	return 1;
 
-old_ack:
-	if (TCP_SKB_CB(skb)->sacked)
-		tcp_sacktag_write_queue(sk, skb, prior_snd_una);
+invalid_ack:
+	SOCK_DEBUG(sk, "Ack %u after %u:%u\n", ack, tp->snd_una, tp->snd_nxt);
+	return -1;
 
-uninteresting_ack:
-	SOCK_DEBUG(sk, "Ack %u out of %u:%u\n", ack, tp->snd_una, tp->snd_nxt);
+old_ack:
+	if (TCP_SKB_CB(skb)->sacked) {
+		tcp_sacktag_write_queue(sk, skb, prior_snd_una);
+		if (icsk->icsk_ca_state == TCP_CA_Open)
+			tcp_try_keep_open(sk);
+	}
+
+	SOCK_DEBUG(sk, "Ack %u before %u:%u\n", ack, tp->snd_una, tp->snd_nxt);
 	return 0;
 }
 
@@ -4256,7 +4269,8 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 	 */
 
 	if ((tcp_flag_word(th) & TCP_HP_BITS) == tp->pred_flags &&
-		TCP_SKB_CB(skb)->seq == tp->rcv_nxt) {
+	    TCP_SKB_CB(skb)->seq == tp->rcv_nxt &&
+	    !after(TCP_SKB_CB(skb)->ack_seq, tp->snd_nxt)) {
 		int tcp_header_len = tp->tcp_header_len;
 
 		/* Timestamp header prediction: tcp_header_len
@@ -4320,7 +4334,9 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 			if (tp->copied_seq == tp->rcv_nxt &&
 			    len - tcp_header_len <= tp->ucopy.len) {
 #ifdef CONFIG_NET_DMA
-				if (tcp_dma_try_early_copy(sk, skb, tcp_header_len)) {
+				if (tp->ucopy.task == current &&
+				    sock_owned_by_user(sk) &&
+				    tcp_dma_try_early_copy(sk, skb, tcp_header_len)) {
 					copied_early = 1;
 					eaten = 1;
 				}
@@ -4355,6 +4371,9 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 				if (tcp_checksum_complete_user(sk, skb))
 					goto csum_error;
 
+				if ((int)skb->truesize > sk->sk_forward_alloc)
+					goto step5;
+
 				/* Predicted packet is in window by definition.
 				 * seq == rcv_nxt and rcv_wup <= rcv_nxt.
 				 * Hence, check seq<=rcv_wup reduces to:
@@ -4365,9 +4384,6 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 					tcp_store_ts_recent(tp);
 
 				tcp_rcv_rtt_measure_ts(sk, skb);
-
-				if ((int)skb->truesize > sk->sk_forward_alloc)
-					goto step5;
 
 				NET_INC_STATS_BH(LINUX_MIB_TCPHPHITS);
 
@@ -4455,8 +4471,8 @@ slow_path:
 	}
 
 step5:
-	if (th->ack)
-		tcp_ack(sk, skb, FLAG_SLOWPATH);
+	if (th->ack && tcp_ack(sk, skb, FLAG_SLOWPATH) < 0)
+		goto discard;
 
 	tcp_rcv_rtt_measure_ts(sk, skb);
 
@@ -4827,7 +4843,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 
 	/* step 5: check the ACK field */
 	if (th->ack) {
-		int acceptable = tcp_ack(sk, skb, FLAG_SLOWPATH);
+		int acceptable = tcp_ack(sk, skb, FLAG_SLOWPATH) > 0;
 
 		switch (sk->sk_state) {
 		case TCP_SYN_RECV:

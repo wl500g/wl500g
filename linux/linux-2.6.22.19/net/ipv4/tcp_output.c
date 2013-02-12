@@ -678,10 +678,8 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
 		if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS)
 			tp->retrans_out -= diff;
 
-		if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST) {
+		if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
 			tp->lost_out -= diff;
-			tp->left_out -= diff;
-		}
 
 		if (diff > 0) {
 			/* Adjust Reno SACK estimate. */
@@ -689,7 +687,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
 				tp->sacked_out -= diff;
 				if ((int)tp->sacked_out < 0)
 					tp->sacked_out = 0;
-				tcp_sync_left_out(tp);
+				tcp_verify_left_out(tp);
 			}
 
 			tp->fackets_out -= diff;
@@ -713,6 +711,13 @@ static void __pskb_trim_head(struct sk_buff *skb, int len)
 {
 	int i, k, eat;
 
+	eat = min_t(int, len, skb_headlen(skb));
+	if (eat) {
+		__skb_pull(skb, eat);
+		len -= eat;
+		if (!len)
+			return;
+	}
 	eat = len;
 	k = 0;
 	for (i=0; i<skb_shinfo(skb)->nr_frags; i++) {
@@ -742,11 +747,7 @@ int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
 	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
 		return -ENOMEM;
 
-	/* If len == headlen, we avoid __skb_pull to preserve alignment. */
-	if (unlikely(len < skb_headlen(skb)))
-		__skb_pull(skb, len);
-	else
-		__pskb_trim_head(skb, len - skb_headlen(skb));
+	__pskb_trim_head(skb, len);
 
 	TCP_SKB_CB(skb)->seq += len;
 	skb->ip_summed = CHECKSUM_PARTIAL;
@@ -1618,7 +1619,7 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *skb, int m
 		 * the data in the second, or the total combined payload
 		 * would exceed the MSS.
 		 */
-		if ((next_skb_size > skb_tailroom(skb)) ||
+		if ((next_skb_size > skb_availroom(skb)) ||
 		    ((skb_size + next_skb_size) > mss_now))
 			return;
 
@@ -1654,15 +1655,11 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *skb, int m
 		TCP_SKB_CB(skb)->sacked |= TCP_SKB_CB(next_skb)->sacked&(TCPCB_EVER_RETRANS|TCPCB_AT_TAIL);
 		if (TCP_SKB_CB(next_skb)->sacked&TCPCB_SACKED_RETRANS)
 			tp->retrans_out -= tcp_skb_pcount(next_skb);
-		if (TCP_SKB_CB(next_skb)->sacked&TCPCB_LOST) {
+		if (TCP_SKB_CB(next_skb)->sacked&TCPCB_LOST)
 			tp->lost_out -= tcp_skb_pcount(next_skb);
-			tp->left_out -= tcp_skb_pcount(next_skb);
-		}
 		/* Reno case is special. Sigh... */
-		if (!tp->rx_opt.sack_ok && tp->sacked_out) {
+		if (!tp->rx_opt.sack_ok && tp->sacked_out)
 			tcp_dec_pcount_approx(&tp->sacked_out, next_skb);
-			tp->left_out -= tcp_skb_pcount(next_skb);
-		}
 
 		/* Not quite right: it can be > snd.fack, but
 		 * it is better to underestimate fackets.
@@ -1707,7 +1704,7 @@ void tcp_simple_retransmit(struct sock *sk)
 	if (!lost)
 		return;
 
-	tcp_sync_left_out(tp);
+	tcp_verify_left_out(tp);
 
 	/* Don't muck with the congestion window here.
 	 * Reason is that we do not increase amount of _data_

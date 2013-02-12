@@ -291,10 +291,9 @@ struct tcp_sock {
 	u32	rcv_ssthresh;	/* Current window clamp			*/
 
 	u32	frto_highmark;	/* snd_nxt when RTO occurred */
-	u8	reordering;	/* Packet reordering metric.		*/
+	u16	advmss;		/* Advertised MSS			*/
 	u8	frto_counter;	/* Number of new acks after RTO */
 	u8	nonagle;	/* Disable Nagle algorithm?             */
-	u8	keepalive_probes; /* num of allowed keep alive probes	*/
 
 /* RTT measurement */
 	u32	srtt;		/* smoothed round trip time << 3	*/
@@ -304,8 +303,11 @@ struct tcp_sock {
 	u32	rtt_seq;	/* sequence number to update rttvar	*/
 
 	u32	packets_out;	/* Packets which are "in flight"	*/
-	u32	left_out;	/* Packets which leaved network	*/
 	u32	retrans_out;	/* Retransmitted packets out		*/
+
+	u16	urg_data;	/* Saved octet of OOB data and control flags */
+	u8	urg_mode;	/* In urgent mode		*/
+	u8	ecn_flags;	/* ECN status bits.			*/
 /*
  *      Options received (usually on last packet, some only on SYN packets).
  */
@@ -321,36 +323,38 @@ struct tcp_sock {
 	u32	snd_cwnd_used;
 	u32	snd_cwnd_stamp;
 
-	struct sk_buff_head	out_of_order_queue; /* Out of order segments go here */
-
  	u32	rcv_wnd;	/* Current receiver window		*/
 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
 	u32	pushed_seq;	/* Last pushed seq, required to talk to windows */
-
-/*	SACKs data	*/
-	struct tcp_sack_block duplicate_sack[1]; /* D-SACK block */
-	struct tcp_sack_block selective_acks[4]; /* The SACKS themselves*/
-
-	struct tcp_sack_block_wire recv_sack_cache[4];
+	u32	lost_out;	/* Lost packets			*/
+	u32	sacked_out;	/* SACK'd packets			*/
+	u32	fackets_out;	/* FACK'd packets			*/
+	u32	tso_deferred;
+	u32	bytes_acked;	/* Appropriate Byte Counting - RFC3465 */
 
 	/* from STCP, retrans queue hinting */
 	struct sk_buff* lost_skb_hint;
-
 	struct sk_buff *scoreboard_skb_hint;
 	struct sk_buff *retransmit_skb_hint;
 	struct sk_buff *forward_skb_hint;
 	struct sk_buff *fastpath_skb_hint;
+
+	struct sk_buff_head	out_of_order_queue; /* Out of order segments go here */
+
+	/* SACKs data, these 2 need to be together (see tcp_build_and_update_options) */
+	struct tcp_sack_block duplicate_sack[1]; /* D-SACK block */
+	struct tcp_sack_block selective_acks[4]; /* The SACKS themselves*/
+
+	struct tcp_sack_block_wire recv_sack_cache[4];
 
 	int     fastpath_cnt_hint;
 	int     lost_cnt_hint;
 	int     retransmit_cnt_hint;
 	int     forward_cnt_hint;
 
-	u16	advmss;		/* Advertised MSS			*/
-	u16	prior_ssthresh; /* ssthresh saved at recovery start	*/
-	u32	lost_out;	/* Lost packets			*/
-	u32	sacked_out;	/* SACK'd packets			*/
-	u32	fackets_out;	/* FACK'd packets			*/
+	u8	reordering;	/* Packet reordering metric.		*/
+	u8	keepalive_probes; /* num of allowed keep alive probes	*/
+	u32	prior_ssthresh; /* ssthresh saved at recovery start	*/
 	u32	high_seq;	/* snd_nxt at onset of congestion	*/
 
 	u32	retrans_stamp;	/* Timestamp of the last retransmit,
@@ -358,22 +362,15 @@ struct tcp_sock {
 				 * the first SYN. */
 	u32	undo_marker;	/* tracking retrans started here. */
 	int	undo_retrans;	/* number of undoable retransmissions. */
-	u32	urg_seq;	/* Seq of received urgent pointer */
-	u16	urg_data;	/* Saved octet of OOB data and control flags */
-	u8	urg_mode;	/* In urgent mode		*/
-	u8	ecn_flags;	/* ECN status bits.			*/
-	u32	snd_up;		/* Urgent pointer		*/
-
 	u32	total_retrans;	/* Total retransmits for entire connection */
-	u32	bytes_acked;	/* Appropriate Byte Counting - RFC3465 */
+
+	u32	urg_seq;	/* Seq of received urgent pointer */
+	u32	snd_up;		/* Urgent pointer		*/
 
 	unsigned int		keepalive_time;	  /* time before keep alive takes place */
 	unsigned int		keepalive_intvl;  /* time interval between keep alive probes */
-	int			linger2;
 
 	unsigned long last_synq_overflow; 
-
-	u32	tso_deferred;
 
 /* Receiver side RTT estimation */
 	struct {
@@ -402,6 +399,8 @@ struct tcp_sock {
 /* TCP MD5 Signagure Option information */
 	struct tcp_md5sig_info	*md5sig_info;
 #endif
+
+	int			linger2;
 };
 
 static inline struct tcp_sock *tcp_sk(const struct sock *sk)
