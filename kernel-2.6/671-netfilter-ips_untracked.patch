@@ -1,0 +1,272 @@
+From 5bfddbd46a95c978f4d3c992339cbdf4f4b790a3
+From: Eric Dumazet
+Date: Tue, 8 Jun 2010 16:09:52 +0200
+Subject: [PATCH] netfilter: nf_conntrack: IPS_UNTRACKED bit
+
+NOTRACK makes all cpus share a cache line on nf_conntrack_untracked
+twice per packet. This is bad for performance.
+__read_mostly annotation is also a bad choice.
+
+This patch introduces IPS_UNTRACKED bit so that we can use later a
+per_cpu untrack structure more easily.
+
+A new helper, nf_ct_untracked_get() returns a pointer to
+nf_conntrack_untracked.
+
+Another one, nf_ct_untracked_status_or() is used by nf_nat_init() to add
+IPS_NAT_DONE_MASK bits to untracked status.
+
+nf_ct_is_untracked() prototype is changed to work on a nf_conn pointer.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+ include/linux/netfilter/nf_conntrack_common.h  |    4 ++++
+ include/net/netfilter/nf_conntrack.h           |   12 +++++++++---
+ include/net/netfilter/nf_conntrack_core.h      |    2 +-
+ net/ipv4/netfilter/nf_nat_core.c               |    2 +-
+ net/ipv4/netfilter/nf_nat_standalone.c         |    2 +-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    2 +-
+ net/netfilter/nf_conntrack_core.c              |   11 ++++++++---
+ net/netfilter/nf_conntrack_netlink.c           |    2 +-
+ net/netfilter/xt_CT.c                          |    4 ++--
+ net/netfilter/xt_NOTRACK.c                     |    2 +-
+ net/netfilter/xt_TEE.c                         |    4 ++--
+ net/netfilter/xt_cluster.c                     |    2 +-
+ net/netfilter/xt_conntrack.c                   |   11 ++++++-----
+ net/netfilter/xt_socket.c                      |    2 +-
+ net/netfilter/xt_state.c                       |   14 ++++++++------
+ 15 files changed, 47 insertions(+), 29 deletions(-)
+
+diff --git a/include/linux/netfilter/nf_conntrack_common.h b/include/linux/netfilter/nf_conntrack_common.h
+--- a/include/linux/netfilter/nf_conntrack_common.h
++++ b/include/linux/netfilter/nf_conntrack_common.h
+@@ -76,6 +76,10 @@ enum ip_conntrack_status {
+ 	/* Connection has fixed timeout. */
+ 	IPS_FIXED_TIMEOUT_BIT = 10,
+ 	IPS_FIXED_TIMEOUT = (1 << IPS_FIXED_TIMEOUT_BIT),
++
++	/* Conntrack is a fake untracked entry */
++	IPS_UNTRACKED_BIT = 12,
++	IPS_UNTRACKED = (1 << IPS_UNTRACKED_BIT),
+ };
+ 
+ /* Connection tracking event types */
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -261,7 +261,13 @@ extern s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
+ 			       u32 seq);
+ 
+ /* Fake conntrack entry for untracked connections */
+-extern struct nf_conn nf_conntrack_untracked;
++static inline struct nf_conn *nf_ct_untracked_get(void)
++{
++	extern struct nf_conn nf_conntrack_untracked;
++
++	return &nf_conntrack_untracked;
++}
++extern void nf_ct_untracked_status_or(unsigned long bits);
+ 
+ extern int nf_ct_no_defrag;
+ 
+@@ -289,9 +295,9 @@ static inline int nf_ct_is_dying(struct nf_conn *ct)
+ 	return test_bit(IPS_DYING_BIT, &ct->status);
+ }
+ 
+-static inline int nf_ct_is_untracked(const struct sk_buff *skb)
++static inline int nf_ct_is_untracked(const struct nf_conn *ct)
+ {
+-	return (skb->nfct == &nf_conntrack_untracked.ct_general);
++	return test_bit(IPS_UNTRACKED_BIT, &ct->status);
+ }
+ 
+ extern int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -60,7 +60,7 @@ static inline int nf_conntrack_confirm(struct sk_buff *skb)
+ 	struct nf_conn *ct = (struct nf_conn *)skb->nfct;
+ 	int ret = NF_ACCEPT;
+ 
+-	if (ct && ct != &nf_conntrack_untracked) {
++	if (ct && !nf_ct_is_untracked(ct)) {
+ 		if (!nf_ct_is_confirmed(ct))
+ 			ret = __nf_conntrack_confirm(skb);
+ 		if (likely(ret == NF_ACCEPT))
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -742,7 +742,7 @@ static int __init nf_nat_init(void)
+ 	spin_unlock_bh(&nf_nat_lock);
+ 
+ 	/* Initialize fake conntrack so that NAT will skip it */
+-	nf_conntrack_untracked.status |= IPS_NAT_DONE_MASK;
++	nf_ct_untracked_status_or(IPS_NAT_DONE_MASK);
+ 
+ 	l3proto = nf_ct_l3proto_find_get((u_int16_t)AF_INET);
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_standalone.c b/net/ipv4/netfilter/nf_nat_standalone.c
+--- a/net/ipv4/netfilter/nf_nat_standalone.c
++++ b/net/ipv4/netfilter/nf_nat_standalone.c
+@@ -98,7 +98,7 @@ nf_nat_fn(unsigned int hooknum,
+ 		return NF_ACCEPT;
+ 
+ 	/* Don't try to NAT if this packet is not conntracked */
+-	if (ct == &nf_conntrack_untracked)
++	if (nf_ct_is_untracked(ct))
+ 		return NF_ACCEPT;
+ 
+ 	nat = nfct_nat(ct);
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -208,7 +208,7 @@ icmpv6_error(struct net *net, struct nf_conn *tmpl,
+ 	type = icmp6h->icmp6_type - 130;
+ 	if (type >= 0 && type < sizeof(noct_valid_new) &&
+ 	    noct_valid_new[type]) {
+-		skb->nfct = &nf_conntrack_untracked.ct_general;
++		skb->nfct = &nf_ct_untracked_get()->ct_general;
+ 		skb->nfctinfo = IP_CT_NEW;
+ 		nf_conntrack_get(skb->nfct);
+ 		return NF_ACCEPT;
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -62,7 +62,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
+ struct hlist_head *nf_conntrack_hash __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_conntrack_hash);
+ 
+-struct nf_conn nf_conntrack_untracked __read_mostly;
++struct nf_conn nf_conntrack_untracked;
+ EXPORT_SYMBOL_GPL(nf_conntrack_untracked);
+ 
+ static int nf_conntrack_hash_rnd_initted;
+@@ -1321,6 +1321,12 @@ EXPORT_SYMBOL_GPL(nf_conntrack_set_hashsize);
+ 			u32 seq);
+ EXPORT_SYMBOL_GPL(nf_ct_nat_offset);
+ 
++void nf_ct_untracked_status_or(unsigned long bits)
++{
++	nf_conntrack_untracked.status |= bits;
++}
++EXPORT_SYMBOL_GPL(nf_ct_untracked_status_or);
++
+ int __init nf_conntrack_init(void)
+ {
+ 	int max_factor = 8;
+@@ -1368,7 +1374,7 @@ static int nf_conntrack_init_init_net(void)
+ #endif
+ 	atomic_set(&nf_conntrack_untracked.ct_general.use, 1);
+ 	/*  - and look it like as a confirmed connection */
+-	set_bit(IPS_CONFIRMED_BIT, &nf_conntrack_untracked.status);
++	nf_ct_untracked_status_or(IPS_CONFIRMED | IPS_UNTRACKED);
+ 
+ 	return ret;
+ 
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -480,7 +480,7 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
+ 	int err;
+ 
+ 	/* ignore our fake conntrack entry */
+-	if (ct == &nf_conntrack_untracked)
++	if (nf_ct_is_untracked(ct))
+ 		return NOTIFY_DONE;
+ 
+ 	if (events & IPCT_DESTROY) {
+diff --git a/net/netfilter/xt_NOTRACK.c b/net/netfilter/xt_NOTRACK.c
+--- a/net/netfilter/xt_NOTRACK.c
++++ b/net/netfilter/xt_NOTRACK.c
+@@ -23,7 +23,7 @@ notrack_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ 	   If there is a real ct entry correspondig to this packet,
+ 	   it'll hang aroun till timing out. We don't deal with it
+ 	   for performance reasons. JK */
+-	skb->nfct = &nf_conntrack_untracked.ct_general;
++	skb->nfct = &nf_ct_untracked_get()->ct_general;
+ 	skb->nfctinfo = IP_CT_NEW;
+ 	nf_conntrack_get(skb->nfct);
+ 
+diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
+--- a/net/netfilter/xt_TEE.c
++++ b/net/netfilter/xt_TEE.c
+@@ -104,7 +104,7 @@ tee_tg4(struct sk_buff *skb, const struct xt_action_param *par)
+ #ifdef WITH_CONNTRACK
+ 	/* Avoid counting cloned packets towards the original connection. */
+ 	nf_conntrack_put(skb->nfct);
+-	skb->nfct     = &nf_conntrack_untracked.ct_general;
++	skb->nfct     = &nf_ct_untracked_get()->ct_general;
+ 	skb->nfctinfo = IP_CT_NEW;
+ 	nf_conntrack_get(skb->nfct);
+ #endif
+@@ -177,7 +177,7 @@ tee_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ 
+ #ifdef WITH_CONNTRACK
+ 	nf_conntrack_put(skb->nfct);
+-	skb->nfct     = &nf_conntrack_untracked.ct_general;
++	skb->nfct     = &nf_ct_untracked_get()->ct_general;
+ 	skb->nfctinfo = IP_CT_NEW;
+ 	nf_conntrack_get(skb->nfct);
+ #endif
+diff --git a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
+--- a/net/netfilter/xt_conntrack.c
++++ b/net/netfilter/xt_conntrack.c
+@@ -123,11 +123,12 @@ conntrack_mt(const struct sk_buff *skb, struct xt_action_param *par,
+ 
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 
+-	if (ct == &nf_conntrack_untracked)
+-		statebit = XT_CONNTRACK_STATE_UNTRACKED;
+-	else if (ct != NULL)
+-		statebit = XT_CONNTRACK_STATE_BIT(ctinfo);
+-	else
++	if (ct) {
++		if (nf_ct_is_untracked(ct))
++			statebit = XT_CONNTRACK_STATE_UNTRACKED;
++		else
++			statebit = XT_CONNTRACK_STATE_BIT(ctinfo);
++	} else
+ 		statebit = XT_CONNTRACK_STATE_INVALID;
+ 
+ 	if (info->match_flags & XT_CONNTRACK_STATE) {
+diff --git a/net/netfilter/xt_state.c b/net/netfilter/xt_state.c
+--- a/net/netfilter/xt_state.c
++++ b/net/netfilter/xt_state.c
+@@ -26,14 +26,16 @@ state_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	const struct xt_state_info *sinfo = par->matchinfo;
+ 	enum ip_conntrack_info ctinfo;
+ 	unsigned int statebit;
++	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 
+-	if (nf_ct_is_untracked(skb))
+-		statebit = XT_STATE_UNTRACKED;
+-	else if (!nf_ct_get(skb, &ctinfo))
++	if (!ct)
+ 		statebit = XT_STATE_INVALID;
+-	else
+-		statebit = XT_STATE_BIT(ctinfo);
+-
++	else {
++		if (nf_ct_is_untracked(ct))
++			statebit = XT_STATE_UNTRACKED;
++		else
++			statebit = XT_STATE_BIT(ctinfo);
++	}
+ 	return (sinfo->statemask & statebit);
+ }
+ 
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -188,7 +188,7 @@ static unsigned sfq_hash(struct sfq_sche
+ 	info.ctreplsrc = info.dst;
+ 	info.ctrepldst = info.src;
+ 	/* collect conntrack info */
+-	if (ct && ct != &nf_conntrack_untracked) {
++	if (ct && !nf_ct_is_untracked(ct)) {
+ 		if (skb->protocol == __constant_htons(ETH_P_IP)) {
+ 			info.ctorigsrc =
+ 			    ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip;
+-- 
