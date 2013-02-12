@@ -1,0 +1,39 @@
+From b5fc51198bf451885e6411bae9b25890a5b6fbe2
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Thu, 07 Feb 2013 15:06:54 +0000
+Subject: vasprintf: do not use xmalloc, it will deadlock on OOM
+
+---
+From 272d85cc8554299502d802b3db7317a7381e8bd7
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Sun, 10 Feb 2013 22:03:38 +0000
+Subject: vasprintf: return -1 on strdup failure
+
+---
+
+diff --git a/libbb/platform.c b/libbb/platform.c
+--- a/libbb/platform.c
++++ b/libbb/platform.c
+@@ -28,14 +28,16 @@ int FAST_FUNC vasprintf(char **string_ptr, const char *format, va_list p)
+ 	r = vsnprintf(buf, 128, format, p);
+ 	va_end(p);
+ 
++	/* Note: can't use xstrdup/xmalloc, they call vasprintf (us) on failure! */
++
+ 	if (r < 128) {
+ 		va_end(p2);
+-		*string_ptr = xstrdup(buf);
+-		return r;
++		*string_ptr = strdup(buf);
++		return (*string_ptr ? r : -1);
+ 	}
+ 
+-	*string_ptr = xmalloc(r+1);
+-	r = vsnprintf(*string_ptr, r+1, format, p2);
++	*string_ptr = malloc(r+1);
++	r = (*string_ptr ? vsnprintf(*string_ptr, r+1, format, p2) : -1);
+ 	va_end(p2);
+ 
+ 	return r;
+--
+cgit v0.9.1
