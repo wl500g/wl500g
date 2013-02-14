@@ -2,18 +2,15 @@ USB: CDC NCM host driver backport from 3.6.11
 
  Additionally:
  b4d562e3c3553ac58c7120555c4e4aefbb090a2a NET: usb: Adding URB_ZERO_PACKET flag to usbnet.c
- 073285fd392f6dc901da7c698d46e1e2a7e26436 usbnet: changes for upcoming cdc_ncm driver
  bbc8d9228ea8e37ce29fa96150d10b85a2c7be60 net: cdc_ncm: add Huawei devices
 
 ---
- drivers/net/usb/Kconfig     |   19 
+ drivers/net/usb/Kconfig     |   18 
  drivers/net/usb/Makefile    |    1 
- drivers/net/usb/cdc_ncm.c   | 1258 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/usb/usbnet.c    |   57 +
- drivers/net/usb/usbnet.h    |    8 
- include/linux/usb/cdc.h     |  201 ++++++-
+ drivers/net/usb/cdc_ncm.c   | 1266 ++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/usb/cdc.h     |  201 ++++++
  include/linux/usb/cdc_ncm.h |  134 ++++
- 7 files changed, 1658 insertions(+), 20 deletions(-)
+ 5 files changed, 1619 insertions(+), 1 deletion(-)
  create mode 100644 drivers/net/usb/cdc_ncm.c
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
@@ -1326,143 +1323,6 @@ diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
  obj-$(CONFIG_USB_IPHETH)	+= ipheth.o
  
  ifeq ($(CONFIG_USB_DEBUG),y)
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -419,15 +419,20 @@ static inline void rx_process (struct us
- 		goto error;
- 	// else network stack removes extra byte if we forced a short packet
- 
--	if (skb->len)
--		usbnet_skb_return (dev, skb);
--	else {
--		if (netif_msg_rx_err (dev))
--			devdbg (dev, "drop");
--error:
--		dev->stats.rx_errors++;
--		skb_queue_tail (&dev->done, skb);
-+	if (skb->len) {
-+		/* all data was already cloned from skb inside the driver */
-+		if (dev->driver_info->flags & FLAG_MULTI_PACKET)
-+			dev_kfree_skb_any(skb);
-+		else
-+			usbnet_skb_return(dev, skb);
-+		return;
- 	}
-+
-+	if (netif_msg_rx_err (dev))
-+		devdbg (dev, "drop");
-+error:
-+	dev->stats.rx_errors++;
-+	skb_queue_tail(&dev->done, skb);
- }
- 
- /*-------------------------------------------------------------------------*/
-@@ -928,7 +933,8 @@ static void tx_complete (struct urb *urb
- 	struct usbnet		*dev = entry->dev;
- 
- 	if (urb->status == 0) {
--		dev->stats.tx_packets++;
-+		if (!(dev->driver_info->flags & FLAG_MULTI_PACKET))
-+			dev->stats.tx_packets++;
- 		dev->stats.tx_bytes += entry->length;
- 	} else {
- 		dev->stats.tx_errors++;
-@@ -981,7 +987,7 @@ static void usbnet_tx_timeout (struct ne
- 
- /*-------------------------------------------------------------------------*/
- 
--static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
-+int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
- {
- 	struct usbnet		*dev = netdev_priv(net);
- 	int			length;
-@@ -999,9 +1005,13 @@ static int usbnet_start_xmit (struct sk_
- 	if (info->tx_fixup) {
- 		skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
- 		if (!skb) {
--			if (netif_msg_tx_err (dev))
-+			if (netif_msg_tx_err(dev)) {
- 				devdbg (dev, "can't tx_fixup skb");
--			goto drop;
-+				goto drop;
-+			} else {
-+				/* cdc_ncm collected packet; waits for more */
-+				goto not_drop;
-+			}
- 		}
- 	}
- 	length = skb->len;
-@@ -1023,13 +1033,21 @@ static int usbnet_start_xmit (struct sk_
- 	/* don't assume the hardware handles USB_ZERO_PACKET
- 	 * NOTE:  strictly conforming cdc-ether devices should expect
- 	 * the ZLP here, but ignore the one-byte packet.
-+	 * NOTE2: CDC NCM specification is different from CDC ECM when
-+	 * handling ZLP/short packets, so cdc_ncm driver will make short
-+	 * packet itself if needed.
- 	 */
--	if ((length % dev->maxpacket) == 0) {
--		urb->transfer_buffer_length++;
--		if (skb_tailroom(skb)) {
--			skb->data[skb->len] = 0;
--			__skb_put(skb, 1);
--		}
-+	if (length % dev->maxpacket == 0) {
-+		if (!(info->flags & FLAG_SEND_ZLP)) {
-+			if (!(info->flags & FLAG_MULTI_PACKET)) {
-+				urb->transfer_buffer_length++;
-+				if (skb_tailroom(skb)) {
-+					skb->data[skb->len] = 0;
-+					__skb_put(skb, 1);
-+				}
-+			}
-+		} else
-+			urb->transfer_flags |= URB_ZERO_PACKET;
- 	}
- 
- 	spin_lock_irqsave (&dev->txq.lock, flags);
-@@ -1057,6 +1075,7 @@ static int usbnet_start_xmit (struct sk_
- drop:
- 		retval = NET_XMIT_SUCCESS;
- 		dev->stats.tx_dropped++;
-+not_drop:
- 		if (skb)
- 			dev_kfree_skb_any (skb);
- 		usb_free_urb (urb);
-@@ -1066,7 +1085,7 @@ drop:
- 	}
- 	return retval;
- }
--
-+EXPORT_SYMBOL_GPL(usbnet_start_xmit);
- 
- /*-------------------------------------------------------------------------*/
- 
-diff --git a/drivers/net/usb/usbnet.h b/drivers/net/usb/usbnet.h
---- a/drivers/net/usb/usbnet.h
-+++ b/drivers/net/usb/usbnet.h
-@@ -86,6 +86,13 @@ struct driver_info {
- #define FLAG_ETHER	0x0020		/* maybe use "eth%d" names */
- 
- #define FLAG_FRAMING_AX 0x0040          /* AX88772/178 packets */
-+#define FLAG_SEND_ZLP	0x0200		/* hw requires ZLPs are sent */
-+
-+/*
-+ * Indicates to usbnet, that USB driver accumulates multiple IP packets.
-+ * Affects statistic (counters) and short packet handling.
-+ */
-+#define FLAG_MULTI_PACKET	0x1000
- 
- 	/* init device ... can sleep, or cause probe() failure */
- 	int	(*bind)(struct usbnet *, struct usb_interface *);
-@@ -166,6 +173,7 @@ struct skb_data {	/* skb->cb is one of t
- 	size_t			length;
- };
- 
-+extern int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net);
- 
- extern int usbnet_get_endpoints(struct usbnet *, struct usb_interface *);
- extern int usbnet_get_ethernet_addr(struct usbnet *, int);
 diff --git a/include/linux/usb/cdc.h b/include/linux/usb/cdc.h
 --- a/include/linux/usb/cdc.h
 +++ b/include/linux/usb/cdc.h
