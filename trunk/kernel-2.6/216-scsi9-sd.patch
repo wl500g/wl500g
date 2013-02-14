@@ -3,10 +3,11 @@
  kernel.org commits
  8f76d151b010980d137bfdc736d1d8f64b489165 [SCSI] fix sign extension with 1.5TB usb-storage LBD=y
  f27bac2761cab5a2e212dea602d22457a9aa6943 [SCSI] sd: update index allocation and use ida instead of idr
+ 4034cc68157bfa0b6622efe368488d3d3e20f4e6 [SCSI] sd: revive sd_index_lock
 
 ---
- sd.c |   50 ++++++++++++++++++++------------------------------
- 1 file changed, 20 insertions(+), 30 deletions(-)
+ drivers/scsi/sd.c |   51 ++++++++++++++++++++++++---------------------------
+ 1 file changed, 24 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
 --- a/drivers/scsi/sd.c
@@ -19,17 +20,17 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
  
  #include <scsi/scsi.h>
  #include <scsi/scsi_cmnd.h>
-@@ -102,8 +103,7 @@ static void scsi_disk_release(struct cla
+@@ -102,8 +103,8 @@ static void scsi_disk_release(struct cla
  static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
  static void sd_print_result(struct scsi_disk *, int);
  
 -static DEFINE_IDR(sd_index_idr);
--static DEFINE_SPINLOCK(sd_index_lock);
+ static DEFINE_SPINLOCK(sd_index_lock);
 +static DEFINE_IDA(sd_index_ida);
  
  /* This semaphore is used to mediate the 0->1 reference get in the
   * face of object destruction (i.e. we can't allow a get on an
-@@ -1227,8 +1227,7 @@ repeat:
+@@ -1227,8 +1228,7 @@ repeat:
  	}	
  	
  	if (!longrc) {
@@ -39,7 +40,7 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
  		if (buffer[0] == 0xff && buffer[1] == 0xff &&
  		    buffer[2] == 0xff && buffer[3] == 0xff) {
  			if(sizeof(sdkp->capacity) > 4) {
-@@ -1243,22 +1242,11 @@ repeat:
+@@ -1243,22 +1243,11 @@ repeat:
  			sdkp->capacity = 0;
  			goto got_data;
  		}
@@ -66,7 +67,7 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
  	}	
  
  	/* Some devices are known to return the total number of blocks,
-@@ -1639,18 +1627,20 @@ static int sd_probe(struct device *dev)
+@@ -1639,18 +1628,22 @@ static int sd_probe(struct device *dev)
  	if (!gd)
  		goto out_free;
  
@@ -79,7 +80,9 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
 -	spin_lock(&sd_index_lock);
 -	error = idr_get_new(&sd_index_idr, NULL, &index);
 -	spin_unlock(&sd_index_lock);
++		spin_lock(&sd_index_lock);
 +		error = ida_get_new(&sd_index_ida, &index);
++		spin_unlock(&sd_index_lock);
 +	} while (error == -EAGAIN);
  
 -	if (index >= SD_MAX_DISKS)
@@ -94,7 +97,7 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
  	sdkp->device = sdp;
  	sdkp->driver = &sd_template;
  	sdkp->disk = gd;
-@@ -1670,7 +1660,7 @@ static int sd_probe(struct device *dev)
+@@ -1670,7 +1663,7 @@ static int sd_probe(struct device *dev)
  	strncpy(sdkp->cdev.class_id, sdp->sdev_gendev.bus_id, BUS_ID_SIZE);
  
  	if (class_device_add(&sdkp->cdev))
@@ -103,25 +106,24 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
  
  	get_device(&sdp->sdev_gendev);
  
-@@ -1719,6 +1709,8 @@ static int sd_probe(struct device *dev)
+@@ -1719,6 +1712,10 @@ static int sd_probe(struct device *dev)
  
  	return 0;
  
 + out_free_index:
++	spin_lock(&sd_index_lock);
 +	ida_remove(&sd_index_ida, index);
++	spin_unlock(&sd_index_lock);
   out_put:
  	put_disk(gd);
   out_free:
-@@ -1768,9 +1760,7 @@ static void scsi_disk_release(struct cla
- 	struct scsi_disk *sdkp = to_scsi_disk(cdev);
+@@ -1769,7 +1766,7 @@ static void scsi_disk_release(struct cla
  	struct gendisk *disk = sdkp->disk;
  	
--	spin_lock(&sd_index_lock);
+ 	spin_lock(&sd_index_lock);
 -	idr_remove(&sd_index_idr, sdkp->index);
--	spin_unlock(&sd_index_lock);
 +	ida_remove(&sd_index_ida, sdkp->index);
+ 	spin_unlock(&sd_index_lock);
  
  	disk->private_data = NULL;
- 	put_disk(disk);
 -- 
-1.7.4.1
