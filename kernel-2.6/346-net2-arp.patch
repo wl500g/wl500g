@@ -9,13 +9,14 @@
  9bd85e32644d4d3744117b0a196ad4382f8acf35 [IPV4]: Remove extra argument from arp_ignore.
  39a6d06300128d32f361f4f790beba0ca83730eb [NETNS]: Process inet_confirm_addr in the correct namespace.
  6d955180b2f9ccff444df06265160868cabb289a ipv4: allow warming up the ARP cache with request type gratuitous ARP
+ 044453b3efdc90bdd5feffe74b99d95dec70ac43 arp: fix possible crash in arp_rcv()
 
 ---
- Documentation/networking/ip-sysctl.txt |   15 ++++++++++++---
- include/linux/inetdevice.h             |    2 +-
- net/ipv4/arp.c                         |   29 +++++++++++++++--------------
- net/ipv4/devinet.c                     |   17 ++++++-----------
- 4 files changed, 34 insertions(+), 29 deletions(-)
+ Documentation/networking/ip-sysctl.txt |   15 ++++++++--
+ include/linux/inetdevice.h             |    2 -
+ net/ipv4/arp.c                         |   49 +++++++++++++++++----------------
+ net/ipv4/devinet.c                     |   17 ++++-------
+ 4 files changed, 45 insertions(+), 38 deletions(-)
 
 diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
 --- a/Documentation/networking/ip-sysctl.txt
@@ -153,6 +154,43 @@ diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
  	}
  
  	if (n) {
+@@ -908,25 +908,27 @@ static void parp_redo(struct sk_buff *skb)
+ static int arp_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		   struct packet_type *pt, struct net_device *orig_dev)
+ {
+-	struct arphdr *arp;
++	const struct arphdr *arp;
++
++	if (dev->flags & IFF_NOARP ||
++	    skb->pkt_type == PACKET_OTHERHOST ||
++	    skb->pkt_type == PACKET_LOOPBACK)
++		goto freeskb;
++
++	skb = skb_share_check(skb, GFP_ATOMIC);
++	if (!skb)
++		goto out_of_mem;
+ 
+ 	/* ARP header, plus 2 device addresses, plus 2 IP addresses.  */
+ 	if (!pskb_may_pull(skb, (sizeof(struct arphdr) +
+ 				 (2 * dev->addr_len) +
+ 				 (2 * sizeof(u32)))))
+ 		goto freeskb;
+ 
+ 	arp = arp_hdr(skb);
+-	if (arp->ar_hln != dev->addr_len ||
+-	    dev->flags & IFF_NOARP ||
+-	    skb->pkt_type == PACKET_OTHERHOST ||
+-	    skb->pkt_type == PACKET_LOOPBACK ||
+-	    arp->ar_pln != 4)
++	if (arp->ar_hln != dev->addr_len || arp->ar_pln != 4)
+ 		goto freeskb;
+ 
+-	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+-		goto out_of_mem;
+-
+ 	memset(NEIGH_CB(skb), 0, sizeof(struct neighbour_cb));
+ 
+ 	return NF_HOOK(NF_ARP, NF_ARP_IN, skb, dev, NULL, arp_process);
 @@ -1291,7 +1291,9 @@ static void arp_format_neigh_entry(struc
  		hbuffer[k++] = hexbuf[n->ha[j] & 15];
  		hbuffer[k++] = ':';
