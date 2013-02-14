@@ -3,8 +3,8 @@ USB: qmi_wwan driver backport from 3.6.11
 ---
  drivers/net/usb/Kconfig    |   22 +
  drivers/net/usb/Makefile   |    1 
- drivers/net/usb/qmi_wwan.c |  561 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 584 insertions(+)
+ drivers/net/usb/qmi_wwan.c |  577 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 600 insertions(+)
  create mode 100644 drivers/net/usb/qmi_wwan.c
 
 diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
@@ -54,7 +54,7 @@ diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/net/usb/qmi_wwan.c
-@@ -0,0 +1,561 @@
+@@ -0,0 +1,577 @@
 +/*
 + * Copyright (c) 2012  Bjørn Mork <bjorn@mork.no>
 + *
@@ -409,6 +409,10 @@ new file mode 100644
 +		USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_VENDOR_SPEC, 1, 57),
 +		.driver_info        = (unsigned long)&qmi_wwan_info,
 +	},
++	{	/* HUAWEI_INTERFACE_NDIS_CONTROL_QUALCOMM */
++		USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_VENDOR_SPEC, 0x01, 0x69),
++		.driver_info        = (unsigned long)&qmi_wwan_info,
++	},
 +
 +	/* 2. Combined interface devices matching on class+protocol */
 +	{	/* Huawei E367 and possibly others in "Windows mode" */
@@ -417,6 +421,14 @@ new file mode 100644
 +	},
 +	{	/* Huawei E392, E398 and possibly others in "Windows mode" */
 +		USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_VENDOR_SPEC, 1, 17),
++		.driver_info        = (unsigned long)&qmi_wwan_info,
++	},
++	{	/* HUAWEI_NDIS_SINGLE_INTERFACE_VDF */
++		USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_VENDOR_SPEC, 0x01, 0x37),
++		.driver_info        = (unsigned long)&qmi_wwan_info,
++	},
++	{	/* HUAWEI_INTERFACE_NDIS_HW_QUALCOMM */
++		USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_VENDOR_SPEC, 0x01, 0x67),
 +		.driver_info        = (unsigned long)&qmi_wwan_info,
 +	},
 +	{	/* Pantech UML290, P4200 and more */
@@ -457,6 +469,7 @@ new file mode 100644
 +	},
 +
 +	/* 3. Combined interface devices matching on interface number */
++	{QMI_FIXED_INTF(0x0408, 0xea42, 4)},	/* Yota / Megafon M100-1 */
 +	{QMI_FIXED_INTF(0x12d1, 0x140c, 1)},	/* Huawei E173 */
 +	{QMI_FIXED_INTF(0x19d2, 0x0002, 1)},
 +	{QMI_FIXED_INTF(0x19d2, 0x0012, 1)},
@@ -491,6 +504,7 @@ new file mode 100644
 +	{QMI_FIXED_INTF(0x19d2, 0x0199, 1)},	/* ZTE MF820S */
 +	{QMI_FIXED_INTF(0x19d2, 0x0200, 1)},
 +	{QMI_FIXED_INTF(0x19d2, 0x0257, 3)},	/* ZTE MF821 */
++	{QMI_FIXED_INTF(0x19d2, 0x0265, 4)},	/* ONDA MT8205 4G LTE */
 +	{QMI_FIXED_INTF(0x19d2, 0x0284, 4)},	/* ZTE MF880 */
 +	{QMI_FIXED_INTF(0x19d2, 0x0326, 4)},	/* ZTE MF821D */
 +	{QMI_FIXED_INTF(0x19d2, 0x1008, 4)},	/* ZTE (Vodafone) K3570-Z */
@@ -517,6 +531,8 @@ new file mode 100644
 +	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QMI mode */
 +	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
 +	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Alcatel One Touch L100V LTE) */
++	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
++	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
 +
 +	/* 4. Gobi 1000 devices */
 +	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
