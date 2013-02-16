@@ -80,7 +80,7 @@ diff --git a/libc/sysdeps/linux/common/sys/eventfd.h b/libc/sysdeps/linux/common
 new file mode 100644
 --- /dev/null
 +++ b/libc/sysdeps/linux/common/sys/eventfd.h
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,52 @@
 +/* Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
 +   This file is part of the GNU C Library.
 +
@@ -104,9 +104,6 @@ new file mode 100644
 +
 +#include <stdint.h>
 +
-+/* For O_CLOEXEC and O_NONBLOCK */
-+#include <linux/fcntl.h>
-+
 +
 +/* Type for event counter.  */
 +typedef uint64_t eventfd_t;
@@ -116,9 +113,13 @@ new file mode 100644
 +  {
 +    EFD_SEMAPHORE = 1,
 +#define EFD_SEMAPHORE EFD_SEMAPHORE
-+    EFD_CLOEXEC = O_CLOEXEC,
++    EFD_CLOEXEC = 02000000,
 +#define EFD_CLOEXEC EFD_CLOEXEC
-+    EFD_NONBLOCK = O_NONBLOCK
++#if defined __mips__
++    EFD_NONBLOCK = 00000200
++#else
++    EFD_NONBLOCK = 00004000
++#endif
 +#define EFD_NONBLOCK EFD_NONBLOCK
 +  };
 +
@@ -133,4 +134,3 @@ new file mode 100644
 +
 +#endif /* sys/eventfd.h */
 -- 
-1.7.2.5
