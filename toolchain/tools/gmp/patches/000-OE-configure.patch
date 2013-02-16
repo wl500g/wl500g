@@ -109,9 +109,9 @@ diff -rdup gmp-5.0.4.orig/acinclude.m4 gmp-5.0.4/acinclude.m4
  ])
  
  
-diff -rdup gmp-5.0.1.oorig/configure.in gmp-5.0.1/configure.in
---- gmp-5.1.0.oorig/configure.in
-+++ gmp-5.1.0/configure.in
+diff -rdup gmp-5.1.1.oorig/configure.in gmp-5.1.1/configure.ac
+--- gmp-5.1.1.orig/configure.ac
++++ gmp-5.1.1/configure.ac
 @@ -29,13 +29,6 @@ AC_REVISION($Revision$)
  AC_PREREQ(2.59)
  AC_INIT(GNU MP, GMP_VERSION, [gmp-bugs@gmplib.org, see http://gmplib.org/manual/Reporting-Bugs.html], gmp)
