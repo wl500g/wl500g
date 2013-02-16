@@ -11,17 +11,17 @@ USB: CDC NCM host driver backport from 3.6.11
 ---
  drivers/net/usb/Kconfig     |   18 
  drivers/net/usb/Makefile    |    1 
- drivers/net/usb/cdc_ncm.c   | 1297 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/usb/cdc_ncm.c   | 1302 ++++++++++++++++++++++++++++++++++++++++++++
  include/linux/usb/cdc.h     |  201 ++++++
  include/linux/usb/cdc_ncm.h |  134 ++++
- 5 files changed, 1650 insertions(+), 1 deletion(-)
+ 5 files changed, 1655 insertions(+), 1 deletion(-)
  create mode 100644 drivers/net/usb/cdc_ncm.c
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -0,0 +1,1297 @@
+@@ -0,0 +1,1302 @@
 +/*
 + * cdc_ncm.c
 + *
@@ -626,9 +626,14 @@ new file mode 100644
 +	if ((intf->num_altsetting == 2) &&
 +	    !usb_set_interface(dev->udev,
 +			       intf->cur_altsetting->desc.bInterfaceNumber,
-+			       CDC_NCM_COMM_ALTSETTING_MBIM) &&
-+	    cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
-+		return -ENODEV;
++			       CDC_NCM_COMM_ALTSETTING_MBIM)) {
++		if (cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
++			return -ENODEV;
++		else
++			usb_set_interface(dev->udev,
++					  intf->cur_altsetting->desc.bInterfaceNumber,
++					  CDC_NCM_COMM_ALTSETTING_NCM);
++	}
 +#endif
 +
 +	/* NCM data altsetting is always 1 */
