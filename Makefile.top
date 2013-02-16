@@ -826,8 +826,8 @@ dnsmasq-install:
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 
 dropbear/config.h: dropbear/config.h.in
-	cd dropbear && CPPFLAGS="-DARGTYPE=3 $(EXTRACFLAGS)" \
-	    LDFLAGS="-Wl,-rpath /lib" \
+	cd dropbear && CPPFLAGS="-DARGTYPE=3 -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    LDFLAGS="-Wl,-rpath /lib -Wl,--gc-sections" \
 	    $(CONFIGURE) --disable-zlib --disable-shadow \
 	    --disable-lastlog --disable-utmp --disable-utmpx \
 	    --disable-wtmp --disable-wtmpx \
