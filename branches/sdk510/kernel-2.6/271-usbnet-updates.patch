@@ -1,3 +1,4 @@
+ a11a6544c0bf6c0871f2379ad0c5ad0210691e73 support for USB autosuspend in the asix driver
  83bfba5fca16d040bb78a24148da844db3de6a76 usbnet: Use skb_queue_walk_safe() instead of by-hand implementation.
  4231d47e6fe69f061f96c98c30eaf9fb4c14b96d net/usbnet: avoid recursive locking in usbnet_stop()
  0956a8c20b23d429e79ff86d4325583fc06f9eb4 usbnet: increase URB reference count before usb_unlink_urb
@@ -5,12 +6,30 @@
  720f3d7cb19eb27f85f72836c8f8004ccb257f39 usbnet: fix leak of transfer buffer of dev->interrupt
  5b6e9bcdeb65634b4ad604eb4536404bbfc62cfa usbnet: fix skb traversing races during unlink(v2)
  86a2f415e6cdc5dbb2163b31abf4d36f26f7e3da usbnet: sanitise overlong driver information strings
+ 8a78335442cea429afb2b964318b6e257448ea00 usbnet: consider device busy at each recieved packet
+ 072c0559e26bc35700b3a70dffc230f00d9262b8 usbnet: don't initialize transfer buffer before submit status URB
+ 073285fd392f6dc901da7c698d46e1e2a7e26436 usbnet: changes for upcoming cdc_ncm driver
+ 9532021da6da48351ce48a079c673df8e3930b4a usbnet: ratelimit kevent may have been dropped warnings
+ 6509141f9c2ba74df6cc72ec35cd1865276ae3a4 usbnet: add new flag FLAG_NOARP for usb net devices
+ bf414b369f158bb527f9f29174ada815f961b44c usbnet: fix tx_dropped statistics
 
 ---
- drivers/net/usb/usbnet.c |   74 +++++++++++++++++++++++++++++++++--------------
- drivers/net/usb/usbnet.h |    3 +
- 2 files changed, 55 insertions(+), 22 deletions(-)
+ drivers/net/usb/asix.c   |    1 
+ drivers/net/usb/usbnet.c |  175 +++++++++++++++++++++++++++++++++--------------
+ drivers/net/usb/usbnet.h |   14 +++
+ 3 files changed, 139 insertions(+), 51 deletions(-)
 
+diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
+--- a/drivers/net/usb/asix.c
++++ b/drivers/net/usb/asix.c
+@@ -1474,6 +1474,7 @@ static struct usb_driver asix_driver = {
+ 	.suspend =	usbnet_suspend,
+ 	.resume =	usbnet_resume,
+ 	.disconnect =	usbnet_disconnect,
++	.supports_autosuspend = 1,
+ };
+ 
+ static int __init asix_init(void)
 diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
 --- a/drivers/net/usb/usbnet.c
 +++ b/drivers/net/usb/usbnet.c
@@ -64,6 +83,22 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  }
  
  /* some work can't be done in tasklets, so we use keventd
+@@ -319,10 +339,12 @@ static enum skb_state defer_bh(struct usbnet *dev, struct sk_buff *skb,
+ void usbnet_defer_kevent (struct usbnet *dev, int work)
+ {
+ 	set_bit (work, &dev->flags);
+-	if (!schedule_work (&dev->kevent))
+-		deverr (dev, "kevent %d may have been dropped", work);
+-	else
++	if (!schedule_work (&dev->kevent)) {
++		if (net_ratelimit())
++			deverr (dev, "kevent %d may have been dropped", work);
++	} else {
+ 		devdbg (dev, "kevent %d scheduled", work);
++	}
+ }
+ EXPORT_SYMBOL_GPL(usbnet_defer_kevent);
+ 
 @@ -346,7 +363,6 @@ static void rx_submit (struct usbnet *de
  	entry = (struct skb_data *) skb->cb;
  	entry->urb = urb;
@@ -81,6 +116,35 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  		}
  	} else {
  		if (netif_msg_ifdown (dev))
+@@ -419,15 +419,20 @@ static inline void rx_process (struct us
+ 		goto error;
+ 	// else network stack removes extra byte if we forced a short packet
+ 
+-	if (skb->len)
+-		usbnet_skb_return (dev, skb);
+-	else {
+-		if (netif_msg_rx_err (dev))
+-			devdbg (dev, "drop");
+-error:
+-		dev->stats.rx_errors++;
+-		skb_queue_tail (&dev->done, skb);
++	if (skb->len) {
++		/* all data was already cloned from skb inside the driver */
++		if (dev->driver_info->flags & FLAG_MULTI_PACKET)
++			dev_kfree_skb_any(skb);
++		else
++			usbnet_skb_return(dev, skb);
++		return;
+ 	}
++
++	if (netif_msg_rx_err (dev))
++		devdbg (dev, "drop");
++error:
++	dev->stats.rx_errors++;
++	skb_queue_tail(&dev->done, skb);
+ }
+ 
+ /*-------------------------------------------------------------------------*/
 @@ -418,16 +434,17 @@ static void rx_complete (struct urb *urb
  	struct skb_data		*entry = (struct skb_data *) skb->cb;
  	struct usbnet		*dev = entry->dev;
@@ -110,7 +174,7 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  		entry->urb = urb;
  		urb = NULL;
  		break;
-@@ -475,18 +492,19 @@ block:
+@@ -475,19 +492,21 @@ block:
  		// FALLTHROUGH
  
  	    default:
@@ -131,8 +195,18 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
 +		    && !test_bit (EVENT_RX_HALT, &dev->flags) &&
 +		    state != unlink_start) {
  			rx_submit (dev, urb, GFP_ATOMIC);
++			usb_mark_last_busy(dev->udev);
  			return;
  		}
+ 		usb_free_urb (urb);
+@@ -519,7 +549,6 @@ static void intr_complete (struct urb *urb)
+ 	if (!netif_running (dev->net))
+ 		return;
+ 
+-	memset(urb->transfer_buffer, 0, urb->transfer_buffer_length);
+ 	status = usb_submit_urb (urb, GFP_ATOMIC);
+ 	if (status != 0 && netif_msg_timer (dev))
+ 		deverr(dev, "intr resubmit --> %d", status);
 @@ -538,19 +556,34 @@ static void intr_complete (struct urb *u
  static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q)
  {
@@ -181,6 +255,46 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  	}
  	spin_unlock_irqrestore (&q->lock, flags);
  	return count;
+@@ -658,6 +658,7 @@ static int usbnet_stop (struct net_device *net)
+ 	dev->flags = 0;
+ 	del_timer_sync (&dev->delay);
+ 	tasklet_kill (&dev->bh);
++	usb_autopm_put_interface(dev->intf);
+ 
+ 	return 0;
+ }
+@@ -671,9 +672,19 @@ static int usbnet_stop (struct net_device *net)
+ static int usbnet_open (struct net_device *net)
+ {
+ 	struct usbnet		*dev = netdev_priv(net);
+-	int			retval = 0;
++	int			retval;
+ 	struct driver_info	*info = dev->driver_info;
+ 
++	if ((retval = usb_autopm_get_interface(dev->intf)) < 0) {
++		if (netif_msg_ifup (dev))
++			devinfo (dev,
++				"resumption fail (%d) usbnet usb-%s-%s, %s",
++				retval,
++				dev->udev->bus->bus_name, dev->udev->devpath,
++			info->description);
++		goto done_nopm;
++	}
++
+ 	// put into "known safe" state
+ 	if (info->reset && (retval = info->reset (dev)) < 0) {
+ 		if (netif_msg_ifup (dev))
+@@ -727,7 +738,10 @@ static int usbnet_open (struct net_device *net)
+ 
+ 	// delay posting reads until we're fully open
+ 	tasklet_schedule (&dev->bh);
++	return retval;
+ done:
++	usb_autopm_put_interface(dev->intf);
++done_nopm:
+ 	return retval;
+ }
+ 
 @@ -876,9 +876,9 @@ void usbnet_get_drvinfo (struct net_device *net, struct ethtool_drvinfo *info)
  {
  	struct usbnet *dev = netdev_priv(net);
@@ -194,6 +308,16 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  		sizeof info->fw_version);
  	usb_make_path (dev->udev, info->bus_info, sizeof info->bus_info);
  }
+@@ -928,7 +933,8 @@ static void tx_complete (struct urb *urb
+ 	struct usbnet		*dev = entry->dev;
+ 
+ 	if (urb->status == 0) {
+-		dev->stats.tx_packets++;
++		if (!(dev->driver_info->flags & FLAG_MULTI_PACKET))
++			dev->stats.tx_packets++;
+ 		dev->stats.tx_bytes += entry->length;
+ 	} else {
+ 		dev->stats.tx_errors++;
 @@ -925,9 +960,7 @@ static void tx_complete (struct urb *urb
  		}
  	}
@@ -205,7 +329,31 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  }
  
  /*-------------------------------------------------------------------------*/
-@@ -975,7 +1008,6 @@ static int usbnet_start_xmit (struct sk_
+@@ -941,7 +987,7 @@ static void usbnet_tx_timeout (struct ne
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+-static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
++int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
+ {
+ 	struct usbnet		*dev = netdev_priv(net);
+ 	int			length;
+@@ -959,9 +1005,11 @@ static int usbnet_start_xmit (struct sk_
+ 	if (info->tx_fixup) {
+ 		skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
+ 		if (!skb) {
+-			if (netif_msg_tx_err (dev))
+-				devdbg (dev, "can't tx_fixup skb");
+-			goto drop;
++			/* packet collected; minidriver waiting for more */
++			if (info->flags & FLAG_MULTI_PACKET)
++				goto not_drop;
++			devdbg(dev, "can't tx_fixup skb");
++			goto drop;
+ 		}
+ 	}
+ 	length = skb->len;
+@@ -975,7 +1023,6 @@ static int usbnet_start_xmit (struct sk_
  	entry = (struct skb_data *) skb->cb;
  	entry->urb = urb;
  	entry->dev = dev;
@@ -213,7 +361,35 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  	entry->length = length;
  
  	usb_fill_bulk_urb (urb, dev->udev, dev->out,
-@@ -1006,7 +1038,7 @@ static int usbnet_start_xmit (struct sk_
+@@ -1008,13 +1033,21 @@ static int usbnet_start_xmit (struct sk_
+ 	/* don't assume the hardware handles USB_ZERO_PACKET
+ 	 * NOTE:  strictly conforming cdc-ether devices should expect
+ 	 * the ZLP here, but ignore the one-byte packet.
++	 * NOTE2: CDC NCM specification is different from CDC ECM when
++	 * handling ZLP/short packets, so cdc_ncm driver will make short
++	 * packet itself if needed.
+ 	 */
+-	if ((length % dev->maxpacket) == 0) {
+-		urb->transfer_buffer_length++;
+-		if (skb_tailroom(skb)) {
+-			skb->data[skb->len] = 0;
+-			__skb_put(skb, 1);
+-		}
++	if (length % dev->maxpacket == 0) {
++		if (!(info->flags & FLAG_SEND_ZLP)) {
++			if (!(info->flags & FLAG_MULTI_PACKET)) {
++				urb->transfer_buffer_length++;
++				if (skb_tailroom(skb)) {
++					skb->data[skb->len] = 0;
++					__skb_put(skb, 1);
++				}
++			}
++		} else
++			urb->transfer_flags |= URB_ZERO_PACKET;
+ 	}
+ 
+ 	spin_lock_irqsave (&dev->txq.lock, flags);
+@@ -1016,7 +1048,7 @@ static int usbnet_start_xmit (struct sk_
  		break;
  	case 0:
  		net->trans_start = jiffies;
@@ -222,10 +398,103 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  		if (dev->txq.qlen >= TX_QLEN (dev))
  			netif_stop_queue (net);
  	}
+@@ -1057,6 +1075,7 @@ static int usbnet_start_xmit (struct sk_
+ drop:
+ 		retval = NET_XMIT_SUCCESS;
+ 		dev->stats.tx_dropped++;
++not_drop:
+ 		if (skb)
+ 			dev_kfree_skb_any (skb);
+ 		usb_free_urb (urb);
+@@ -1066,7 +1085,7 @@ drop:
+ 	}
+ 	return retval;
+ }
+-
++EXPORT_SYMBOL_GPL(usbnet_start_xmit);
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+@@ -1223,6 +1237,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 
+ 	dev = netdev_priv(net);
+ 	dev->udev = xdev;
++	dev->intf = udev;
+ 	dev->driver_info = info;
+ 	dev->driver_name = name;
+ 	dev->msg_enable = netif_msg_init (msg_level, NETIF_MSG_DRV
+@@ -1248,6 +1248,10 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 
+ 			strcpy (net->name, "eth%d");
+ 
++		/* devices that cannot do ARP */
++		if ((dev->driver_info->flags & FLAG_NOARP) != 0)
++			net->flags |= IFF_NOARP;
++
+ 		/* maybe the remote can't receive an Ethernet MTU */
+ 		if (net->mtu > (dev->hard_mtu - net->hard_header_len))
+ 			net->mtu = dev->hard_mtu - net->hard_header_len;
+@@ -1347,12 +1362,18 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
+ 	struct usbnet		*dev = usb_get_intfdata(intf);
+ 
+ 	if (!dev->suspend_count++) {
+-		/* accelerate emptying of the rx and queues, to avoid
++		/*
++		 * accelerate emptying of the rx and queues, to avoid
+ 		 * having everything error out.
+ 		 */
+ 		netif_device_detach (dev->net);
+ 		(void) unlink_urbs (dev, &dev->rxq);
+ 		(void) unlink_urbs (dev, &dev->txq);
++		/*
++		 * reattach so runtime management can use and
++		 * wake the device
++		 */
++		netif_device_attach (dev->net);
+ 	}
+ 	return 0;
+ }
+@@ -1362,10 +1383,9 @@ int usbnet_resume (struct usb_interface *intf)
+ {
+ 	struct usbnet		*dev = usb_get_intfdata(intf);
+ 
+-	if (!--dev->suspend_count) {
+-		netif_device_attach (dev->net);
++	if (!--dev->suspend_count)
+ 		tasklet_schedule (&dev->bh);
+-	}
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(usbnet_resume);
 diff --git a/drivers/net/usb/usbnet.h b/drivers/net/usb/usbnet.h
 --- a/drivers/net/usb/usbnet.h
 +++ b/drivers/net/usb/usbnet.h
-@@ -191,7 +191,8 @@ extern void usbnet_cdc_status(struct usbnet *, struct urb *);
+@@ -28,6 +28,7 @@
+ struct usbnet {
+ 	/* housekeeping */
+ 	struct usb_device	*udev;
++	struct usb_interface	*intf;
+ 	struct driver_info	*driver_info;
+ 	const char		*driver_name;
+ 	wait_queue_head_t	*wait;
+@@ -86,6 +86,15 @@ struct driver_info {
+ #define FLAG_ETHER	0x0020		/* maybe use "eth%d" names */
+ 
+ #define FLAG_FRAMING_AX 0x0040          /* AX88772/178 packets */
++#define FLAG_SEND_ZLP	0x0200		/* hw requires ZLPs are sent */
++
++/*
++ * Indicates to usbnet, that USB driver accumulates multiple IP packets.
++ * Affects statistic (counters) and short packet handling.
++ */
++#define FLAG_MULTI_PACKET	0x2000
++//#define FLAG_RX_ASSEMBLE	0x4000	/* rx packets may span >1 frames */
++#define FLAG_NOARP		0x8000	/* device can't do ARP */
+ 
+ 	/* init device ... can sleep, or cause probe() failure */
+ 	int	(*bind)(struct usbnet *, struct usb_interface *);
+@@ -151,7 +171,8 @@ extern void usbnet_cdc_status(struct usbnet *, struct urb *);
  enum skb_state {
  	illegal = 0,
  	tx_start, tx_done,
@@ -235,4 +504,12 @@ diff --git a/drivers/net/usb/usbnet.h b/drivers/net/usb/usbnet.h
  };
  
  struct skb_data {	/* skb->cb is one of these */
+@@ -166,6 +183,7 @@ struct skb_data {	/* skb->cb is one of t
+ 	size_t			length;
+ };
+ 
++extern int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net);
+ 
+ extern int usbnet_get_endpoints(struct usbnet *, struct usb_interface *);
+ extern int usbnet_get_ethernet_addr(struct usbnet *, int);
 -- 

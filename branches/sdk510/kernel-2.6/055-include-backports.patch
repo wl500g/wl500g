@@ -125,6 +125,38 @@ diff -uBp a/include/asm-generic/bug.h b/include/asm-generic/bug.h
  #ifdef CONFIG_SMP
  # define WARN_ON_SMP(x)			WARN_ON(x)
  #else
+diff --git a/include/linux/bitops.h b/include/linux/bitops.h
+--- a/include/linux/bitops.h
++++ b/include/linux/bitops.h
+@@ -16,6 +16,28 @@
+  */
+ #include <asm/bitops.h>
+ 
++#define for_each_set_bit(bit, addr, size) \
++	for ((bit) = find_first_bit((addr), (size));		\
++	     (bit) < (size);					\
++	     (bit) = find_next_bit((addr), (size), (bit) + 1))
++
++/* same as for_each_set_bit() but use bit as value to start with */
++#define for_each_set_bit_from(bit, addr, size) \
++	for ((bit) = find_next_bit((addr), (size), (bit));	\
++	     (bit) < (size);					\
++	     (bit) = find_next_bit((addr), (size), (bit) + 1))
++
++#define for_each_clear_bit(bit, addr, size) \
++	for ((bit) = find_first_zero_bit((addr), (size));	\
++	     (bit) < (size);					\
++	     (bit) = find_next_zero_bit((addr), (size), (bit) + 1))
++
++/* same as for_each_clear_bit() but use bit as value to start with */
++#define for_each_clear_bit_from(bit, addr, size) \
++	for ((bit) = find_next_zero_bit((addr), (size), (bit));	\
++	     (bit) < (size);					\
++	     (bit) = find_next_zero_bit((addr), (size), (bit) + 1))
++
+ static __inline__ int get_bitmask_order(unsigned int count)
+ {
+ 	int order;
 diff -uBp a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
 --- a/include/linux/compiler-gcc.h
 +++ b/include/linux/compiler-gcc.h
@@ -328,7 +360,7 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  #define INT_MAX		((int)(~0U>>1))
  #define INT_MIN		(-INT_MAX - 1)
  #define UINT_MAX	(~0U)
-@@ -34,12 +34,27 @@ extern const char linux_proc_banner[];
+@@ -34,12 +34,37 @@ extern const char linux_proc_banner[];
  
  #define ALIGN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
  #define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
@@ -337,6 +369,16 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  
  #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
  
++/*
++ * This looks more complex than it should be. But we need to
++ * get the type for the ~ right in round_down (it needs to be
++ * as wide as the result!), and we want to evaluate the macro
++ * arguments just once each.
++ */
++#define __round_mask(x, y) ((__typeof__(x))((y)-1))
++#define round_up(x, y) ((((x)-1) | __round_mask(x, y))+1)
++#define round_down(x, y) ((x) & ~__round_mask(x, y))
++
  #define FIELD_SIZEOF(t, f) (sizeof(((t*)0)->f))
  #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 -#define roundup(x, y) ((((x) + ((y) - 1)) / (y)) * (y))

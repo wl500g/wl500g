@@ -25,11 +25,11 @@ diff -urBp iproute2-2.6.25/Makefile iproute2/Makefile
  HOSTCC = gcc
 -CCOPTS = -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall
 -CFLAGS = $(CCOPTS) -I../include $(DEFINES)
-+CCOPTS = -D_GNU_SOURCE -Wstrict-prototypes -Wall
++CCOPTS = -D_GNU_SOURCE -Wstrict-prototypes -Wall -ffunction-sections -fdata-sections
 +CFLAGS = $(CCOPTS) -I../include -isystem$(KERNEL_INCLUDE) $(DEFINES) $(EXTRACFLAGS)
  YACCFLAGS = -d -t -v
  
-+LDFLAGS += $(EXTRA_LDFLAGS)
++LDFLAGS += -Wl,--gc-sections $(EXTRA_LDFLAGS)
  LDLIBS += -L../lib -lnetlink -lutil
  
  SUBDIRS=lib ip tc misc netem genl

@@ -1,16 +1,64 @@
-From 41c051094c86aa870820e366051c4ce8f9c66822 Mon Sep 17 00:00:00 2001
 From: Fedor <fedork@ubuntu.(none)>
 Date: Wed, 27 Oct 2010 02:21:15 -0400
 Subject: [PATCH] Kernel 2.6 USB: backport of USB driver: a few missed and recent commits from upstream
 
 ---
- drivers/usb/core/devices.c  |    2 +-
- drivers/usb/core/driver.c   |    4 ++--
- drivers/usb/core/endpoint.c |    2 +-
- drivers/usb/core/hub.c      |    9 ++++++---
- drivers/usb/core/message.c  |   25 +++++++++++++------------
- 5 files changed, 23 insertions(+), 19 deletions(-)
+ Documentation/ABI/testing/sysfs-bus-usb |   41 ++++++++++++++++++++++++++++++++
+ drivers/usb/core/devices.c              |    2 -
+ drivers/usb/core/driver.c               |   12 +++++++--
+ drivers/usb/core/endpoint.c             |    2 -
+ drivers/usb/core/hub.c                  |    9 ++++---
+ drivers/usb/core/message.c              |   25 ++++++++++---------
+ 6 files changed, 71 insertions(+), 20 deletions(-)
 
+diff --git a/Documentation/ABI/testing/sysfs-bus-usb b/Documentation/ABI/testing/sysfs-bus-usb
+--- a/Documentation/ABI/testing/sysfs-bus-usb
++++ b/Documentation/ABI/testing/sysfs-bus-usb
+@@ -39,3 +39,44 @@ Description:
+ 		If you want to suspend a device immediately but leave it
+ 		free to wake up in response to I/O requests, you should
+ 		write "0" to power/autosuspend.
++
++What:		/sys/bus/usb/devices/.../power/autosuspend
++Date:		March 2007
++KernelVersion:	2.6.21
++Contact:	Alan Stern <stern@rowland.harvard.edu>
++Description:
++		Each USB device directory will contain a file named
++		power/autosuspend.  This file holds the time (in seconds)
++		the device must be idle before it will be autosuspended.
++		0 means the device will be autosuspended as soon as
++		possible.  Negative values will prevent the device from
++		being autosuspended at all, and writing a negative value
++		will resume the device if it is already suspended.
++
++		The autosuspend delay for newly-created devices is set to
++		the value of the usbcore.autosuspend module parameter.
++
++What:		/sys/bus/usb/drivers/.../new_id
++Date:		October 2011
++Contact:	linux-usb@vger.kernel.org
++Description:
++		Writing a device ID to this file will attempt to
++		dynamically add a new device ID to a USB device driver.
++		This may allow the driver to support more hardware than
++		was included in the driver's static device ID support
++		table at compile time. The format for the device ID is:
++		idVendor idProduct bInterfaceClass.
++		The vendor ID and device ID fields are required, the
++		interface class is optional.
++		Upon successfully adding an ID, the driver will probe
++		for the device and attempt to bind to it.  For example:
++		# echo "8086 10f5" > /sys/bus/usb/drivers/foo/new_id
++
++What:		/sys/bus/usb-serial/drivers/.../new_id
++Date:		October 2011
++Contact:	linux-usb@vger.kernel.org
++Description:
++		For serial USB drivers, this attribute appears under the
++		extra bus folder "usb-serial" in sysfs; apart from that
++		difference, all descriptions from the entry
++		"/sys/bus/usb/drivers/.../new_id" apply.
 diff --git a/drivers/usb/core/devices.c b/drivers/usb/core/devices.c
 --- a/drivers/usb/core/devices.c
 +++ b/drivers/usb/core/devices.c
@@ -26,6 +74,31 @@ diff --git a/drivers/usb/core/devices.c b/drivers/usb/core/devices.c
 diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
 --- a/drivers/usb/core/driver.c
 +++ b/drivers/usb/core/driver.c
+@@ -45,10 +45,12 @@ ssize_t usb_store_new_id(struct usb_dynids *dynids,
+ 	struct usb_dynid *dynid;
+ 	u32 idVendor = 0;
+ 	u32 idProduct = 0;
++	unsigned int bInterfaceClass = 0;
+ 	int fields = 0;
+ 	int retval = 0;
+ 
+-	fields = sscanf(buf, "%x %x", &idVendor, &idProduct);
++	fields = sscanf(buf, "%x %x %x", &idVendor, &idProduct,
++					&bInterfaceClass);
+ 	if (fields < 2)
+ 		return -EINVAL;
+ 
+@@ -60,6 +62,10 @@ ssize_t usb_store_new_id(struct usb_dynids *dynids,
+ 	dynid->id.idVendor = idVendor;
+ 	dynid->id.idProduct = idProduct;
+ 	dynid->id.match_flags = USB_DEVICE_ID_MATCH_DEVICE;
++	if (fields == 3) {
++		dynid->id.bInterfaceClass = (u8)bInterfaceClass;
++		dynid->id.match_flags |= USB_DEVICE_ID_MATCH_INT_CLASS;
++	}
+ 
+ 	spin_lock(&dynids->lock);
+ 	list_add_tail(&dynid->node, &dynids->list);
 @@ -1679,8 +1679,8 @@ static int usb_resume(struct device *dev)
  	/* Avoid PM error messages for devices disconnected while suspended
  	 * as we'll display regular disconnect messages just a bit later.
@@ -153,4 +226,3 @@ diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
  				dev_err(&dev->dev, "Out of memory\n");
  				ret = -ENOMEM;
 -- 
-1.6.5.GIT

@@ -22,8 +22,7 @@ RELEASE=rtn-sdk510
 # asus trx trailer
 #
 
-KERNEL_VER=1.9
-FS_VER=2.7
+TRX_VER=1.9.2.7
 HWL1=0.02
 HWH1=2.99
 
@@ -509,16 +508,16 @@ endif
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
 ifeq ($(CONFIG_LOADER),y)
-	$(SRCBASE)/asustrx/asustrx -p $* -v $(KERNEL_VER).$(FS_VER) -m $(call FlashMaxSize,$*) \
+	$(SRCBASE)/asustrx/asustrx -p $* -v $(TRX_VER) -m $(call FlashMaxSize,$*) \
 		-o $(PLATFORMDIR)/$*-$(RELEASE).trx \
 		loader/loader.gz $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 else
-	$(SRCBASE)/asustrx/asustrx -p $* -v $(KERNEL_VER).$(FS_VER) -m $(call FlashMaxSize,$*) \
+	$(SRCBASE)/asustrx/asustrx -p $* -v $(TRX_VER) -m $(call FlashMaxSize,$*) \
 		-o $(PLATFORMDIR)/$*-$(RELEASE).trx \
 		$(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 endif
 	@echo
-	@echo "Finished building $* firmware version $(KERNEL_VER).$(FS_VER) ($(RELEASE))"
+	@echo "Finished building $* firmware version $(TRX_VER) ($(RELEASE))"
 	@echo
 
 MANPAGES-y := busybox/docs/BusyBox.1 \
@@ -635,7 +634,9 @@ radvd-install:
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
 
 quagga/Makefile: quagga/Makefile.in
-	cd quagga && CFLAGS="-g -Os -std=gnu99 -Wall $(EXTRACFLAGS)" \
+	cd quagga && \
+	CFLAGS="-g -Os -std=gnu99 -ffunction-sections -fdata-sections -Wall $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --localstatedir=/var/run --sysconfdir=/etc/quagga/ \
 	 --disable-bgp-announce --disable-ipv6 --enable-multipath=8 \
 	 --disable-vtysh --disable-bgpd --disable-watchquagga \
@@ -707,7 +708,9 @@ cdma-install:
 	$(MAKE) -C cdma install
 
 iptables/Makefile: iptables/Makefile.in
-	cd iptables && CFLAGS="-Os $(EXTRACFLAGS)" \
+	cd iptables && \
+	CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --with-pic --with-kernel=$(LINUXDIR) \
 	 $(if $(CONFIG_IPV6),,--disable-ipv6) \
 	 blacklist_modules="dscp DSCP rateest RATEEST realm SECMARK socket sctp TRACE state"
@@ -819,8 +822,8 @@ dnsmasq-install:
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 
 dropbear/config.h: dropbear/config.h.in
-	cd dropbear && CPPFLAGS="-DARGTYPE=3 $(EXTRACFLAGS)" \
-	    LDFLAGS="-Wl,-rpath /lib" \
+	cd dropbear && CPPFLAGS="-DARGTYPE=3 -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    LDFLAGS="-Wl,-rpath /lib -Wl,--gc-sections" \
 	    $(CONFIGURE) --disable-zlib --disable-shadow \
 	    --disable-lastlog --disable-utmp --disable-utmpx \
 	    --disable-wtmp --disable-wtmpx \
@@ -849,7 +852,8 @@ p910nd-install:
 samba/source/Makefile: samba/source/Makefile.in
 	cd samba/source && \
 	    CPPFLAGS="-DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" \
-	    CFLAGS="-Os $(EXTRACFLAGS)" \
+	    CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    LDFLAGS="-Wl,--gc-sections" \
 	    ac_cv_sizeof_int=4 ac_cv_sizeof_long=4 ac_cv_sizeof_short=2 \
 	    samba_cv_have_longlong=yes ac_cv_func_memcmp_clean=yes \
 	    fu_cv_sys_stat_statvfs64=yes \
@@ -930,7 +934,8 @@ ucd-snmp/Makefile: ucd-snmp/Makefile.in
 	cd ucd-snmp && \
 	    ac_cv_CAN_USE_SYSCTL=no ac_cv_struct_ifnet_has_if_obytes=yes \
 	    ac_cv_struct_ifnet_has_if_ibytes=yes ac_cv_struct_ifnet_has_if_ibytes=yes \
-	 $(CONFIGURE) --with-cflags="-g -O2 $(EXTRACFLAGS)" \
+	 $(CONFIGURE) --with-cflags="-g -O2 -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    --with-ldflags="-Wl,--gc-sections" \
 	    --disable-debugging --without-opaque-special-types \
 	    --with-out-mib-modules="v2party" --with-sys-location=Unknown --with-sys-contact=Administrator \
 	    --with-logfile=/var/log/snmpd.log
@@ -988,7 +993,10 @@ vsftpd-install:
 	$(STRIP) $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 
 ntfs-3g/Makefile: ntfs-3g/Makefile.in
-	cd ntfs-3g && $(CONFIGURE) --enable-shared=no --enable-static=no \
+	cd ntfs-3g && \
+	CFLAGS="-g -O2 -Wall -ffunction-sections -fdata-sections" \
+	LDFLAGS="-Wl,--gc-sections" \
+	$(CONFIGURE) --enable-shared=no --enable-static=no \
 	--disable-library --disable-ldconfig --disable-mount-helper \
 	--with-fuse=internal
 
@@ -1058,7 +1066,9 @@ lltd-install: lltd
 	    install -D -m 0644 lltd/icons/$(MODEL).ico $(INSTALLDIR)/lltd/usr/share/lld2d/icon.ico
 
 wpa_supplicant:
-	$(MAKE) -C $@/wpa_supplicant EXTRACFLAGS="-Os $(EXTRACFLAGS)"
+	$(MAKE) -C $@/wpa_supplicant \
+	EXTRACFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections"
 
 wpa_supplicant-install: wpa_supplicant
 	install -D wpa_supplicant/wpa_supplicant/wpa_supplicant $(INSTALLDIR)/wpa_supplicant/usr/sbin/wpa_supplicant
@@ -1124,7 +1134,8 @@ LPRng-install:
 
 
 libpcap/Makefile: libpcap/Makefile.in
-	cd libpcap && CFLAGS="-g -Os -isystem$(LINUXDIR)/include $(EXTRACFLAGS)" \
+	cd libpcap && \
+	CFLAGS="-g -Os -ffunction-sections -fdata-sections -isystem$(LINUXDIR)/include $(EXTRACFLAGS)" \
 	$(CONFIGURE) --disable-shared --enable-static --disable-yydebug \
 	    --with-pcap=linux --without-septel --without-dag \
 	    $(if $(CONFIG_IPV6),--enable-ipv6,) ac_cv_linux_vers=2
@@ -1136,7 +1147,9 @@ libpcap-install:
 	@true
 
 tcpdump/Makefile: tcpdump/Makefile.in
-	cd tcpdump && CFLAGS="-g -Os $(EXTRACFLAGS) -DTCPDUMP_MINI" \
+	cd tcpdump && \
+	CFLAGS="-g -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS) -DTCPDUMP_MINI" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --without-crypto \
 	    $(if $(CONFIG_IPV6),--enable-ipv6,) \
 	    ac_cv_linux_vers=2 td_cv_buggygetaddrinfo=no
@@ -1181,7 +1194,9 @@ usbip-install: sysfsutils-install
 	$(STRIP) $(INSTALLDIR)/usbip/usr/lib/libusbip.so.0 $(INSTALLDIR)/usbip/usr/sbin/*
 
 e2fsprogs/Makefile: e2fsprogs/Makefile.in
-	cd e2fsprogs && CFLAGS="-Os $(EXTRACFLAGS)" \
+	cd e2fsprogs && \
+	CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --sysconfdir=/etc --enable-elf-shlibs \
 		--disable-rpath --disable-nls \
 		--disable-debugfs --disable-imager --disable-resizer --disable-uuidd

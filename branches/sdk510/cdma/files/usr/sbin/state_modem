@@ -4,27 +4,16 @@
 #  ver. 1.005 beta 27.02.2011
 #  by dlukanidin, rss
 
-getKernel() {
-	kernel="$(uname -r)"
-	kernel=${kernel:0:3}
-	if [ "$kernel" = "2.4" ]; then
-		acm_mod="acm"
-	else
-		acm_mod="cdc-acm"
-	fi
-}
-
 isDriversLoaded() {
-	[ -z "$acm_mod" ] && getKernel
-	usbserial="$(lsmod | grep usbserial)"
-	acm="$(lsmod | grep $acm_mod)"
+	usbserial="$(lsmod | grep 'usbserial')"
+	acm="$(lsmod | grep 'cdc_acm')"
 	[ -z "$usbserial" ] && [ -z "$acm" ] && return 1
 	return 0
 }
 
 printHelp() {
 	echo
-	echo "Can't recive status information."
+	echo "Can't receive status information."
 	echo "--------------------------------"
 	echo "Need user defined script in $userFile"
 	echo "This script is called with next parameters:"
@@ -49,10 +38,9 @@ fi
 
 devpath_name='/proc/bus/usb/devpath'
 tmp_name='/tmp/stat.tmp'
-modem_conf_name='/usr/share/modem/modems.conf'
 loc=$1
 port=$(grep ": $loc :" "$devpath_name" | awk -F':' '{print $1}')
-lsmodem -c $modem_conf_name > $tmp_name
+lsmodem > $tmp_name
 loc=${loc%.*}
 type=$(grep ":$loc:" "$tmp_name" | cut -d: -f4)
 rm $tmp_name
@@ -74,7 +62,7 @@ echo "<html><head>
 if [ -e $userFile ]; then
 	$userFile $port $2 $3
 else
-	if [ "$type" == "W" ]; then		#WCDMA modems
+	if [ "$type" == "W" ]; then		# GPRS/UMTS/LTE modems
 		if [ ! -z "$(cat /proc/bus/usb/devpath | grep $1 | grep HUAWEI)" ]; then
 			$huaweiFile $port $2 $3
 		elif [ ! -z "$(cat /proc/bus/usb/devpath | grep $1 | grep ZTE)" ]; then
