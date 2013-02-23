@@ -3,12 +3,13 @@ IDR updates from 2.6.35.4
  066a9be6c0124edc9527088231f03c6236be375d idr: fix idr_pre_get() locking description
  94bfa3b6692c7a3f6f119596724204ec975d3ef0 idr: fix RCU lockdep splat in idr_get_next()
  083d929d312cc52d2854d578a34a0ae41102b8e1 idr: make idr_get_next() good for rcu_read_lock()
+ 47b68419174bf9be69bdbc8e2283591dda8d0cdf idr: fix a subtle bug in idr_get_next()
 
 ---
  include/linux/idr.h |   66 +++++
  init/main.c         |    2 
- lib/idr.c           |  661 ++++++++++++++++++++++++++++++++++++++++++++--------
- 3 files changed, 634 insertions(+), 95 deletions(-)
+ lib/idr.c           |  668 ++++++++++++++++++++++++++++++++++++++++++++--------
+ 3 files changed, 641 insertions(+), 95 deletions(-)
 
 diff --git a/include/linux/idr.h b/include/linux/idr.h
 --- a/include/linux/idr.h
@@ -638,7 +639,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  		kmem_cache_free(idr_layer_cache, p);
  	}
  }
-@@ -379,31 +501,140 @@ EXPORT_SYMBOL(idr_destroy);
+@@ -379,31 +501,147 @@ EXPORT_SYMBOL(idr_destroy);
   * return indicates that @id is not valid or you passed %NULL in
   * idr_get_new().
   *
@@ -768,7 +769,14 @@ diff --git a/lib/idr.c b/lib/idr.c
 +			return p;
 +		}
 +
-+		id += 1 << n;
++		/*
++		 * Proceed to the next layer at the current level.  Unlike
++		 * idr_for_each(), @id isn't guaranteed to be aligned to
++		 * layer boundary at this point and adding 1 << n may
++		 * incorrectly skip IDs.  Make sure we jump to the
++		 * beginning of the next layer using round_up().
++		 */
++		id = round_up(id + 1, 1 << n);
 +		while (n < fls(id)) {
 +			n += IDR_BITS;
 +			p = *--paa;
