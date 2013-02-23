@@ -10537,15 +10537,6 @@ diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
  	if (!smask) {
  		ehci_err(ehci, "invalid empty smask!\n");
  		/* uframe 7 can't have bw so this will indicate failure */
-@@ -185,7 +190,7 @@ static inline unsigned char tt_start_ufr
- }
- 
- static const unsigned char
--max_tt_usecs[] = { 125, 125, 125, 125, 125, 125, 30, 0 };
-+max_tt_usecs[] = { 125, 125, 125, 125, 125, 125, 58, 0 };
- 
- /* carryover low/fullspeed bandwidth that crosses uframe boundries */
- static inline void carryover_tt_bandwidth(unsigned short tt_usecs[8])
 @@ -217,14 +222,14 @@ periodic_tt_usecs (
  	unsigned short tt_usecs[8]
  )

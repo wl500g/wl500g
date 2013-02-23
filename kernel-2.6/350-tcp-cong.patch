@@ -4,11 +4,12 @@
  e7d0c88586a66cf03e70750a8119d984fdedf2aa [TCP]: cubic - eliminate use of receive time stamp
  c3a05c6050a339c92e49fae0ba77dbba0d41fd99 [TCP]: Cong.ctrl modules: remove unused good_ack from cong_avoid
  6b3d626321c1d4ce9138a86b047dfafc6a403016 [TCP]: TCP cubic v2.2
+ 9dc274151a548ffd215caecec5a8872db8799447 tcp: fix ABC in tcp_slow_start()
 
 ---
  include/net/tcp.h        |    6 +--
  net/ipv4/tcp_bic.c       |    5 +-
- net/ipv4/tcp_cong.c      |    2 -
+ net/ipv4/tcp_cong.c      |    7 ++-
  net/ipv4/tcp_cubic.c     |   86 +++++++++++++++--------------------------------
  net/ipv4/tcp_highspeed.c |    3 -
  net/ipv4/tcp_htcp.c      |    5 +-
@@ -22,7 +23,7 @@
  net/ipv4/tcp_veno.c      |   13 +++----
  net/ipv4/tcp_westwood.c  |    7 ++-
  net/ipv4/tcp_yeah.c      |    7 +--
- 16 files changed, 89 insertions(+), 119 deletions(-)
+ 16 files changed, 92 insertions(+), 121 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
 --- a/include/net/tcp.h
@@ -79,6 +80,26 @@ diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
 diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
 --- a/net/ipv4/tcp_cong.c
 +++ b/net/ipv4/tcp_cong.c
+@@ -287,6 +287,7 @@ EXPORT_SYMBOL_GPL(tcp_is_cwnd_limited);
+ void tcp_slow_start(struct tcp_sock *tp)
+ {
+ 	int cnt; /* increase in packets */
++	unsigned int delta = 0;
+ 
+ 	/* RFC3465: ABC Slow start
+ 	 * Increase only after a full MSS of bytes is acked
+@@ -313,9 +314,9 @@ void tcp_slow_start(struct tcp_sock *tp)
+ 	tp->snd_cwnd_cnt += cnt;
+ 	while (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
+ 		tp->snd_cwnd_cnt -= tp->snd_cwnd;
+-		if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+-			tp->snd_cwnd++;
++		delta++;
+ 	}
++	tp->snd_cwnd = min(tp->snd_cwnd + delta, tp->snd_cwnd_clamp);
+ }
+ EXPORT_SYMBOL_GPL(tcp_slow_start);
+ 
 @@ -325,7 +325,7 @@ EXPORT_SYMBOL_GPL(tcp_slow_start);
  /* This is Jacobson's slow start and congestion avoidance.
   * SIGCOMM '88, p. 328.

@@ -6,13 +6,14 @@ ext4: Updates from upstream
  7ad8e4e6ae2a7c95445ee1715b1714106fb95037 ext4: Fix fs corruption when make_indexed_dir() fails
  177353670085c14e1d358db8bf812bd72a9268c7 ext4: fix BUG_ON() in ext4_ext_insert_extent()
  72b8ab9dde211ea518ff27e631b2046ef90c29a2 ext4: don't use quota reservation for speculative metadata
+ 66bea92c69477a75a5d37b9bfed5773c92a3c4b4 ext4: init pagevec in ext4_da_block_invalidatepages
 
 ---
  fs/ext4/balloc.c  |    5 +--
- fs/ext4/extents.c |   30 +++++++++++++++++--
- fs/ext4/inode.c   |   83 +++++++++++++++++++++++++-----------------------------
- fs/ext4/namei.c   |   14 +++++++--
- 4 files changed, 81 insertions(+), 51 deletions(-)
+ fs/ext4/extents.c |   31 +++++++++++++++++--
+ fs/ext4/inode.c   |   85 ++++++++++++++++++++++++++----------------------------
+ fs/ext4/namei.c   |   14 +++++++-
+ 4 files changed, 84 insertions(+), 51 deletions(-)
 
 diff --git a/fs/ext4/balloc.c b/fs/ext4/balloc.c
 --- a/fs/ext4/balloc.c
@@ -228,7 +229,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  {
  	int nr_pages, i;
  	pgoff_t index, end;
-@@ -2139,9 +2152,8 @@ static void ext4_da_block_invalidatepage
+@@ -2139,9 +2152,10 @@ static void ext4_da_block_invalidatepage
  	struct inode *inode = mpd->inode;
  	struct address_space *mapping = inode->i_mapping;
  
@@ -237,6 +238,8 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 -				(PAGE_CACHE_SHIFT - inode->i_blkbits);
 +	index = mpd->first_page;
 +	end   = mpd->next_page - 1;
++
++	pagevec_init(&pvec, 0);
  	while (index <= end) {
  		nr_pages = pagevec_lookup(&pvec, mapping, index, PAGEVEC_SIZE);
  		if (nr_pages == 0)

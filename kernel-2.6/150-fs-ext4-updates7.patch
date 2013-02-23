@@ -3,11 +3,13 @@ ext4: Updates from upstream 4
  29ae07b702cb77dbc24b0843f15ee8cf8a642311 ext4: Fix overflow caused by missing cast in ext4_fallocate()
  0e499890c1fd9e0a1bed02002161c4c7873d7489 ext4: wait for writeback to complete while making pages writable
  b71fc079b5d8f42b2a52743c8d2f1d35d655b1c5 ext4: fix fdatasync() for files with only i_size changes
+ 76495ec1d47e1c0fe0673faf9179bda6bc8ab5c2 ext4: fix undefined bit shift result in ext4_fill_flex_info
 
 ---
  fs/ext4/extents.c |    2 +-
  fs/ext4/inode.c   |   32 +++++++++++++++++++++++++-------
- 2 files changed, 26 insertions(+), 8 deletions(-)
+ fs/ext4/super.c   |    2 +-
+ 3 files changed, 27 insertions(+), 9 deletions(-)
 
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
 --- a/fs/ext4/extents.c
@@ -104,4 +106,16 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  out_unlock:
  	if (ret)
  		ret = VM_FAULT_SIGBUS;
+diff --git a/fs/ext4/super.c b/fs/ext4/super.c
+--- a/fs/ext4/super.c
++++ b/fs/ext4/super.c
+@@ -1650,7 +1650,7 @@ static int ext4_fill_flex_info(struct super_block *sb)
+ 		sbi->s_log_groups_per_flex = 0;
+ 		return 1;
+ 	}
+-	groups_per_flex = 1 << sbi->s_log_groups_per_flex;
++	groups_per_flex = 1U << sbi->s_log_groups_per_flex;
+ 
+ 	/* We allocate both existing and potentially added groups */
+ 	flex_group_count = ((sbi->s_groups_count + groups_per_flex - 1) +
 -- 

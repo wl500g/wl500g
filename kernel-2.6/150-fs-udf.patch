@@ -6,13 +6,15 @@
  57b9655d01ef057a523e810d29c37ac09b80eead udf: Improve table length check to avoid possible overflow
  1df2ae31c724e57be9d7ac00d78db8a5dabdd050 udf: Fortify loading of sparing table
  68766a2edcd5cd744262a70a2f67a320ac944760 udf: fix retun value on error path in udf_load_logicalvol
+ 2fb7d99d0de3fd8ae869f35ab682581d8455887a udf: fix memory leak while allocating blocks during write
+ fb719c59bdb4fca86ee1fd1f42ab3735ca12b6b2 udf: don't increment lenExtents while writing to a hole
 
 ---
  fs/udf/file.c  |   36 ++++++++++++++++---
- fs/udf/inode.c |   41 +++++++++++++++-------
+ fs/udf/inode.c |   52 ++++++++++++++++++++--------
  fs/udf/namei.c |   38 +++++++++++++++-----
  fs/udf/super.c |  105 ++++++++++++++++++++++++++++++++++++---------------------
- 4 files changed, 153 insertions(+), 67 deletions(-)
+ 4 files changed, 162 insertions(+), 69 deletions(-)
 
 diff --git a/fs/udf/file.c b/fs/udf/file.c
 --- a/fs/udf/file.c
@@ -184,6 +186,55 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	/* UniqueID stuff */
  
  	brelse(epos.bh);
+@@ -479,6 +494,7 @@ static struct buffer_head *inode_getblk(
+ 	struct udf_inode_info *iinfo = UDF_I(inode);
+ 	int goal = 0, pgoal = iinfo->i_location.logicalBlockNum;
+ 	int lastblock = 0;
++	bool isBeyondEOF;
+ 
+ 	prev_epos.offset = udf_file_entry_alloc_offset(inode);
+ 	prev_epos.block = iinfo->i_location;
+@@ -557,7 +573,7 @@ static struct buffer_head *inode_getblk(
+ 	/* Are we beyond EOF? */
+ 	if (etype == -1) {
+ 		int ret;
+-
++		isBeyondEOF = 1;
+ 		if (count) {
+ 			if (c)
+ 				laarr[0] = laarr[1];
+@@ -602,6 +618,7 @@ static struct buffer_head *inode_getblk(
+ 		endnum = c + 1;
+ 		lastblock = 1;
+ 	} else {
++		isBeyondEOF = 0;
+ 		endnum = startnum = ((count > 2) ? 2 : count);
+ 
+ 		/* if the current extent is in position 0,
+@@ -644,10 +661,13 @@ static struct buffer_head *inode_getblk(
+ 				goal, err);
+ 		if (!newblocknum) {
+ 			brelse(prev_epos.bh);
++			brelse(cur_epos.bh);
++			brelse(next_epos.bh);
+ 			*err = -ENOSPC;
+ 			return NULL;
+ 		}
+-		iinfo->i_lenExtents += inode->i_sb->s_blocksize;
++		if (isBeyondEOF)
++			iinfo->i_lenExtents += inode->i_sb->s_blocksize;
+ 	}
+ 
+ 	/* if the extent the requsted block is located in contains multiple
+@@ -674,6 +694,8 @@ static struct buffer_head *inode_getblk(
+ 	udf_update_extents(inode, laarr, startnum, endnum, &prev_epos);
+ 
+ 	brelse(prev_epos.bh);
++	brelse(cur_epos.bh);
++	brelse(next_epos.bh);
+ 
+ 	newblock = udf_get_pblock(inode->i_sb, newblocknum,
+ 				iinfo->i_location.partitionReferenceNum, 0);
 diff --git a/fs/udf/namei.c b/fs/udf/namei.c
 --- a/fs/udf/namei.c
 +++ b/fs/udf/namei.c

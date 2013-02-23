@@ -1,7 +1,13 @@
-diff -urN a/dpkt.c b/dpkt.c
---- a/dpkt.c	2011-12-20 11:14:09.000000000 +0400
-+++ b/dpkt.c	2012-02-27 13:05:12.000000000 +0400
-@@ -656,12 +656,15 @@
+
+---
+ dpkt.c  |    5 ++++-
+ udpxy.c |   32 +++++++++++++++++++++++++-------
+ 2 files changed, 29 insertions(+), 8 deletions(-)
+
+diff --git a/dpkt.c b/dpkt.c
+--- a/dpkt.c
++++ b/dpkt.c
+@@ -617,12 +617,15 @@ read_packet( struct dstream_ctx* spc, int fd, char* buf, size_t len )
      if( (spc->stype == UPXDT_RTP_TS) || (spc->flags & F_CHECK_FMT) )
          chunk_len = (len > spc->mtu) ? spc->mtu : len;
  
@@ -18,17 +24,17 @@ diff -urN a/dpkt.c b/dpkt.c
          assert( !buf_overrun(buf, len, 0, chunk_len, g_flog) );
          n = read_buf( fd, buf, chunk_len, g_flog );
          if( n <= 0 ) return n;
-diff -urN a/udpxy.c b/udpxy.c
---- a/udpxy.c	2012-02-24 13:43:35.000000000 +0400
-+++ b/udpxy.c	2012-02-27 13:10:48.000000000 +0400
-@@ -490,13 +490,19 @@
+diff --git a/udpxy.c b/udpxy.c
+--- a/udpxy.c
++++ b/udpxy.c
+@@ -499,13 +499,19 @@ sync_dsockbuf_len( int ssockfd, int dsockfd )
   */
  static int
  relay_traffic( int ssockfd, int dsockfd, struct server_ctx* ctx,
 -               int dfilefd, const struct ip_mreq* mreq )
-+             #ifdef UDPXY_FILEIO
++#ifdef UDPXY_FILEIO
 +               int dfilefd,
-+             #endif
++#endif /* UDPXY_FILEIO */
 +               const struct ip_mreq* mreq )
  {
      volatile sig_atomic_t quit = 0;
@@ -37,13 +43,13 @@ diff -urN a/udpxy.c b/udpxy.c
      ssize_t nmsgs = -1;
 -    ssize_t nrcv = 0, nsent = 0, nwr = 0,
 +    ssize_t nrcv = 0, nsent = 0,
-+         #ifdef UDPXY_FILEIO
++#ifdef UDPXY_FILEIO
 +            nwr = 0,
-+         #endif
++#endif /* UDPXY_FILEIO */
              lrcv = 0, lsent = 0;
      char*  data = NULL;
      size_t data_len = g_uopt.rbuf_len;
-@@ -616,6 +622,7 @@
+@@ -628,6 +634,7 @@ relay_traffic( int ssockfd, int dsockfd, struct server_ctx* ctx,
              lsent = nsent;
          }
  
@@ -51,7 +57,7 @@ diff -urN a/udpxy.c b/udpxy.c
          if( (dfilefd > 0) && (nrcv > 0) ) {
              nwr = write_data( &ds, data, nrcv, dfilefd );
              if( -1 == nwr )
-@@ -624,6 +631,7 @@
+@@ -636,6 +643,7 @@ relay_traffic( int ssockfd, int dsockfd, struct server_ctx* ctx,
                      nrcv, lsent, nwr, t_delta, g_flog ) );
              lsent = nwr;
          }
@@ -59,7 +65,7 @@ diff -urN a/udpxy.c b/udpxy.c
  
          if( ds.flags & F_SCATTERED ) reset_pkt_registry( &ds );
  
-@@ -664,9 +672,11 @@
+@@ -674,9 +682,11 @@ udp_relay( int sockfd, struct server_ctx* ctx )
      uint16_t    port;
      pid_t       new_pid;
      int         rc = 0, flags; 
@@ -72,26 +78,16 @@ diff -urN a/udpxy.c b/udpxy.c
 +#endif /* UDPXY_FILEIO */
      size_t      rcvbuf_len = 0;
  
-     assert( (sockfd > 0) && param && plen && ctx );
-@@ -741,6 +751,8 @@
+     assert( (sockfd > 0) && ctx );
+@@ -749,6 +759,7 @@ udp_relay( int sockfd, struct server_ctx* ctx )
              break;
          }
  
 +#ifdef UDPXY_FILEIO
-+        dfilefd = -1;
          if( NULL != g_uopt.dstfile ) {
              (void) snprintf( dfile_name, MAXPATHLEN - 1,
                      "%s.%d", g_uopt.dstfile, getpid() );
-@@ -755,7 +767,7 @@
-                         "Dest file [%s] opened as fd=[%d]\n",
-                         dfile_name, dfilefd ) );
-         }
--        else dfilefd = -1;
-+/*        else dfilefd = -1;*/
- 
-         if( NULL != g_uopt.srcfile ) {
-             sfilefd = open( g_uopt.srcfile, O_RDONLY | O_NOCTTY );
-@@ -769,7 +781,9 @@
+@@ -777,7 +788,9 @@ udp_relay( int sockfd, struct server_ctx* ctx )
                  srcfd = sfilefd;
              }
          }
@@ -101,21 +97,21 @@ diff -urN a/udpxy.c b/udpxy.c
 +        {
              rc = calc_buf_settings( NULL, &rcvbuf_len );
              if (0 == rc ) {
-                 rc = setup_mcast_listener( &addr,
-@@ -781,7 +795,11 @@
+                 rc = setup_mcast_listener( &addr, &mreq, &msockfd,
+@@ -787,7 +800,11 @@ udp_relay( int sockfd, struct server_ctx* ctx )
          }
          if( 0 != rc ) break;
  
 -        rc = relay_traffic( srcfd, sockfd, ctx, dfilefd, &mreq );
 +        rc = relay_traffic( srcfd, sockfd, ctx,
-+                          #ifdef UDPXY_FILEIO
++#ifdef UDPXY_FILEIO
 +                            dfilefd,
-+                          #endif
++#endif /* UDPXY_FILEIO */
 +                            &mreq );
          if( 0 != rc ) break;
  
      } while(0);
-@@ -789,6 +807,7 @@
+@@ -795,6 +812,7 @@ udp_relay( int sockfd, struct server_ctx* ctx )
      if( msockfd > 0 ) {
          close_mcast_listener( msockfd, &mreq );
      }
@@ -123,7 +119,7 @@ diff -urN a/udpxy.c b/udpxy.c
      if( sfilefd > 0 ) {
         (void) close( sfilefd );
         TRACE( (void) tmfprintf( g_flog, "Source file [%s] closed\n",
-@@ -799,7 +818,7 @@
+@@ -805,7 +823,7 @@ udp_relay( int sockfd, struct server_ctx* ctx )
         TRACE( (void) tmfprintf( g_flog, "Dest file [%s] closed\n",
                              dfile_name ) );
      }
@@ -132,3 +128,6 @@ diff -urN a/udpxy.c b/udpxy.c
      if( 0 != rc ) {
          (void) send_http_response( sockfd, 500, "Service error" );
      }
+-- 
+1.7.2.5
+

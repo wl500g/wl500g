@@ -43,4 +43,13 @@ diff -urNBp a/arch/mips/Makefile b/arch/mips/Makefile
  
  #
  # Select the object file format to substitute into the linker script.
+@@ -147,6 +147,8 @@
+ cflags-$(CONFIG_CPU_R10000)	+= $(call cc-option,-march=r10000,-march=r8000) \
+ 			-Wa,--trap
+ 
++cflags-$(CONFIG_CPU_MIPS32)	+= -mno-branch-likely
++
+ ifdef CONFIG_CPU_SB1
+ ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
+ MODFLAGS	+= -msb1-pass1-workarounds
 -- 
