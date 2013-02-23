@@ -1,0 +1,251 @@
+ipv6: optimize inet6_hash_frag()
+
+ ddbe503203855939946430e39bae58de11b70b69 ipv6: add ipv6_addr_hash() helper
+ 279e9f2ff7351a7908f964332e778049712cbd5b ipv6: optimize inet6_hash_frag()
+
+---
+ include/net/addrconf.h    |    3 ++-
+ include/net/ipv6.h        |   13 +++++++++++++
+ net/ipv6/addrconf.c       |   20 ++++++++------------
+ net/ipv6/ip6_tunnel.c     |   20 ++++++++++++--------
+ net/ipv6/reassembly.c     |   16 ++--------------
+ net/sunrpc/svcauth_unix.c |   22 ++++------------------
+ 6 files changed, 41 insertions(+), 53 deletions(-)
+
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -46,7 +46,8 @@ struct prefix_info {
+ #include <net/if_inet6.h>
+ #include <net/ipv6.h>
+ 
+-#define IN6_ADDR_HSIZE		16
++#define IN6_ADDR_HSIZE_SHIFT	4
++#define IN6_ADDR_HSIZE		(1 << IN6_ADDR_HSIZE_SHIFT)
+ 
+ extern int			addrconf_init(void);
+ extern void			addrconf_cleanup(void);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -419,6 +419,19 @@ static inline bool ipv6_addr_any(const struct in6_addr *a)
+ #endif
+ }
+ 
++static inline u32 ipv6_addr_hash(const struct in6_addr *a)
++{
++#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
++	const unsigned long *ul = (const unsigned long *)a;
++	unsigned long x = ul[0] ^ ul[1];
++
++	return (u32)(x ^ (x >> 32));
++#else
++	return (__force u32)(a->s6_addr32[0] ^ a->s6_addr32[1] ^
++			     a->s6_addr32[2] ^ a->s6_addr32[3]);
++#endif
++}
++
+ static inline int ipv6_addr_loopback(const struct in6_addr *a)
+ {
+ 	return (a->s6_addr32[0] | a->s6_addr32[1] |
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -63,6 +63,7 @@
+ #include <linux/delay.h>
+ #include <linux/notifier.h>
+ #include <linux/string.h>
++#include <linux/hash.h>
+ 
+ #include <net/sock.h>
+ 
+@@ -579,14 +580,9 @@ ipv6_link_dev_addr(struct inet6_dev *idev, struct inet6_ifaddr *ifp)
+ 	list_add_tail(&ifp->if_list, p);
+ }
+ 
+-static u32 ipv6_addr_hash(const struct in6_addr *addr)
++static u32 inet6_addr_hash(const struct in6_addr *addr)
+ {
+-	/*
+-	 * We perform the hash function over the last 64 bits of the address
+-	 * This will include the IEEE address token on links that support it.
+-	 */
+-	return jhash_2words(addr->s6_addr32[2],  addr->s6_addr32[3], 0)
+-		& (IN6_ADDR_HSIZE - 1);
++	return hash_32(ipv6_addr_hash(addr), IN6_ADDR_HSIZE_SHIFT);
+ }
+ 
+ /* On success it returns ifp with increased reference count */
+@@ -662,7 +657,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
+ 	in6_ifa_hold(ifa);
+ 
+ 	/* Add to big hash table */
+-	hash = ipv6_addr_hash(addr);
++	hash = inet6_addr_hash(addr);
+ 
+ 	hlist_add_head_rcu(&ifa->addr_lst, &inet6_addr_lst[hash]);
+ 	spin_unlock(&addrconf_hash_lock);
+@@ -1270,7 +1265,7 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+ {
+ 	struct inet6_ifaddr *ifp;
+ 	struct hlist_node *node;
+-	unsigned int hash = ipv6_addr_hash(addr);
++	unsigned int hash = inet6_addr_hash(addr);
+ 
+ 	rcu_read_lock_bh();
+ 	hlist_for_each_entry_rcu(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+@@ -1293,7 +1288,7 @@ EXPORT_SYMBOL(ipv6_chk_addr);
+ static bool ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
+ 			       struct net_device *dev)
+ {
+-	unsigned int hash = ipv6_addr_hash(addr);
++	unsigned int hash = inet6_addr_hash(addr);
+ 	struct inet6_ifaddr *ifp;
+ 	struct hlist_node *node;
+ 
+@@ -1336,7 +1331,7 @@ struct inet6_ifaddr *ipv6_get_ifaddr(struct net *net, const struct in6_addr *add
+ 				     struct net_device *dev, int strict)
+ {
+ 	struct inet6_ifaddr *ifp, *result = NULL;
+-	unsigned int hash = ipv6_addr_hash(addr);
++	unsigned int hash = inet6_addr_hash(addr);
+ 	struct hlist_node *node;
+ 
+ 	rcu_read_lock_bh();
+@@ -3223,7 +3218,7 @@ int ipv6_chk_home_addr(struct net *net, const struct in6_addr *addr)
+ 	int ret = 0;
+ 	struct inet6_ifaddr *ifp = NULL;
+ 	struct hlist_node *n;
+-	unsigned int hash = ipv6_addr_hash(addr);
++	unsigned int hash = inet6_addr_hash(addr);
+ 
+ 	rcu_read_lock_bh();
+ 	hlist_for_each_entry_rcu_bh(ifp, n, &inet6_addr_lst[hash], addr_lst) {
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -40,6 +40,7 @@
+ 
+ #include <linux/rtnetlink.h>
+ #include <linux/netfilter_ipv6.h>
++#include <linux/hash.h>
+ 
+ #include <asm/uaccess.h>
+ #include <linux/atomic.h>
+@@ -70,11 +71,15 @@ MODULE_ALIAS_NETDEV("ip6tnl0");
+ #define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
+ #define IPV6_TCLASS_SHIFT 20
+ 
+-#define HASH_SIZE  32
++#define HASH_SIZE_SHIFT  5
++#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
+ 
+-#define HASH(addr) ((__force u32)((addr)->s6_addr32[0] ^ (addr)->s6_addr32[1] ^ \
+-		     (addr)->s6_addr32[2] ^ (addr)->s6_addr32[3]) & \
+-		    (HASH_SIZE - 1))
++static u32 HASH(const struct in6_addr *addr1, const struct in6_addr *addr2)
++{
++	u32 hash = ipv6_addr_hash(addr1) ^ ipv6_addr_hash(addr2);
++
++	return hash_32(hash, HASH_SIZE_SHIFT);
++}
+ 
+ static int ip6_fb_tnl_dev_init(struct net_device *dev);
+ static int ip6_tnl_dev_init(struct net_device *dev);
+@@ -166,11 +171,10 @@ static inline void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
+ static struct ip6_tnl *
+ ip6_tnl_lookup(struct in6_addr *remote, struct in6_addr *local)
+ {
+-	unsigned h0 = HASH(remote);
+-	unsigned h1 = HASH(local);
++	unsigned int hash = HASH(remote, local);
+ 	struct ip6_tnl *t;
+ 
+-	for (t = tnls_r_l[h0 ^ h1]; t; t = t->next) {
++	for (t = tnls_r_l[hash]; t; t = t->next) {
+ 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
+ 		    ipv6_addr_equal(remote, &t->parms.raddr) &&
+ 		    (t->dev->flags & IFF_UP))
+@@ -205,7 +209,7 @@ ip6_tnl_bucket(struct ip6_tnl_net *ip6n, const struct ip6_tnl_parm *p)
+ 
+ 	if (!ipv6_addr_any(remote) || !ipv6_addr_any(local)) {
+ 		prio = 1;
+-		h = HASH(remote) ^ HASH(local);
++		h = HASH(remote, local);
+ 	}
+ 	return &tnls[prio][h];
+ }
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -79,20 +79,8 @@ unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
+ {
+ 	u32 c;
+ 
+-	c = jhash_3words((__force u32)saddr->s6_addr32[0],
+-			 (__force u32)saddr->s6_addr32[1],
+-			 (__force u32)saddr->s6_addr32[2],
+-			 rnd);
+-
+-	c = jhash_3words((__force u32)saddr->s6_addr32[3],
+-			 (__force u32)daddr->s6_addr32[0],
+-			 (__force u32)daddr->s6_addr32[1],
+-			 c);
+-
+-	c =  jhash_3words((__force u32)daddr->s6_addr32[2],
+-			  (__force u32)daddr->s6_addr32[3],
+-			  (__force u32)id,
+-			  c);
++	c = jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
++			 (__force u32)id, rnd);
+ 
+ 	return c & (INETFRAGS_HASHSZ - 1);
+ }
+diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
+--- a/net/sunrpc/svcauth_unix.c
++++ b/net/sunrpc/svcauth_unix.c
+@@ -104,23 +104,9 @@ static void ip_map_put(struct kref *kref)
+ 	kfree(im);
+ }
+ 
+-#if IP_HASHBITS == 8
+-/* hash_long on a 64 bit machine is currently REALLY BAD for
+- * IP addresses in reverse-endian (i.e. on a little-endian machine).
+- * So use a trivial but reliable hash instead
+- */
+-static inline int hash_ip(__be32 ip)
+-{
+-	int hash = (__force u32)ip ^ ((__force u32)ip>>16);
+-	return (hash ^ (hash>>8)) & 0xff;
+-}
+-#endif
+-static inline int hash_ip6(struct in6_addr ip)
++static inline int hash_ip6(const struct in6_addr *ip)
+ {
+-	return (hash_ip(ip.s6_addr32[0]) ^
+-		hash_ip(ip.s6_addr32[1]) ^
+-		hash_ip(ip.s6_addr32[2]) ^
+-		hash_ip(ip.s6_addr32[3]));
++	return hash_32(ipv6_addr_hash(ip), IP_HASHBITS);
+ }
+ static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
+ {
+@@ -301,7 +287,7 @@ static struct ip_map *__ip_map_lookup(struct cache_detail *cd, char *class,
+ 	ipv6_addr_copy(&ip.m_addr, addr);
+ 	ch = sunrpc_cache_lookup(&ip_map_cache, &ip.h,
+ 				 hash_str(class, IP_HASHBITS) ^
+-				 hash_ip6(*addr));
++				 hash_ip6(addr));
+ 
+ 	if (ch)
+ 		return container_of(ch, struct ip_map, h);
+@@ -331,7 +317,7 @@ static int __ip_map_update(struct cache_detail *cd, struct ip_map *ipm,
+ 	ch = sunrpc_cache_update(&ip_map_cache,
+ 				 &ip.h, &ipm->h,
+ 				 hash_str(ipm->m_class, IP_HASHBITS) ^
+-				 hash_ip6(ipm->m_addr));
++				 hash_ip6(&ipm->m_addr));
+ 	if (!ch)
+ 		return -ENOMEM;
+ 	cache_put(ch, &ip_map_cache);
+-- 
