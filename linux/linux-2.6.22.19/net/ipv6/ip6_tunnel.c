@@ -39,6 +39,7 @@
 #include <linux/route.h>
 #include <linux/rtnetlink.h>
 #include <linux/netfilter_ipv6.h>
+#include <linux/hash.h>
 
 #include <asm/uaccess.h>
 #include <asm/atomic.h>
@@ -68,11 +69,15 @@ MODULE_LICENSE("GPL");
 #define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
 #define IPV6_TCLASS_SHIFT 20
 
-#define HASH_SIZE  32
+#define HASH_SIZE_SHIFT  5
+#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
 
-#define HASH(addr) ((__force u32)((addr)->s6_addr32[0] ^ (addr)->s6_addr32[1] ^ \
-		     (addr)->s6_addr32[2] ^ (addr)->s6_addr32[3]) & \
-		    (HASH_SIZE - 1))
+static u32 HASH(const struct in6_addr *addr1, const struct in6_addr *addr2)
+{
+	u32 hash = ipv6_addr_hash(addr1) ^ ipv6_addr_hash(addr2);
+
+	return hash_32(hash, HASH_SIZE_SHIFT);
+}
 
 static int ip6_fb_tnl_dev_init(struct net_device *dev);
 static int ip6_tnl_dev_init(struct net_device *dev);
@@ -132,11 +137,10 @@ static inline void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
 static struct ip6_tnl *
 ip6_tnl_lookup(struct in6_addr *remote, struct in6_addr *local)
 {
-	unsigned h0 = HASH(remote);
-	unsigned h1 = HASH(local);
+	unsigned int hash = HASH(remote, local);
 	struct ip6_tnl *t;
 
-	for (t = tnls_r_l[h0 ^ h1]; t; t = t->next) {
+	for (t = tnls_r_l[hash]; t; t = t->next) {
 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
 		    ipv6_addr_equal(remote, &t->parms.raddr) &&
 		    (t->dev->flags & IFF_UP))
@@ -169,7 +173,7 @@ ip6_tnl_bucket(struct ip6_tnl_parm *p)
 
 	if (!ipv6_addr_any(remote) || !ipv6_addr_any(local)) {
 		prio = 1;
-		h = HASH(remote) ^ HASH(local);
+		h = HASH(remote, local);
 	}
 	return &tnls[prio][h];
 }
