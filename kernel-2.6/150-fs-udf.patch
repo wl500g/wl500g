@@ -8,13 +8,15 @@
  68766a2edcd5cd744262a70a2f67a320ac944760 udf: fix retun value on error path in udf_load_logicalvol
  2fb7d99d0de3fd8ae869f35ab682581d8455887a udf: fix memory leak while allocating blocks during write
  fb719c59bdb4fca86ee1fd1f42ab3735ca12b6b2 udf: don't increment lenExtents while writing to a hole
+ 89b1f39eb4189de745fae554b0d614d87c8d5c63 udf: Fix bitmap overflow on large filesystems with small block size
 
 ---
- fs/udf/file.c  |   36 ++++++++++++++++---
- fs/udf/inode.c |   52 ++++++++++++++++++++--------
- fs/udf/namei.c |   38 +++++++++++++++-----
- fs/udf/super.c |  105 ++++++++++++++++++++++++++++++++++++---------------------
- 4 files changed, 162 insertions(+), 69 deletions(-)
+ fs/udf/file.c   |   36 ++++++++++++++++---
+ fs/udf/inode.c  |   52 +++++++++++++++++++--------
+ fs/udf/namei.c  |   38 ++++++++++++++------
+ fs/udf/super.c  |  105 +++++++++++++++++++++++++++++++++++---------------------
+ fs/udf/udf_sb.h |    2 -
+ 5 files changed, 163 insertions(+), 70 deletions(-)
 
 diff --git a/fs/udf/file.c b/fs/udf/file.c
 --- a/fs/udf/file.c
@@ -467,4 +469,16 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  			} else if (!strncmp(upm2->partIdent.ident,
  						UDF_ID_METADATA,
  						strlen(UDF_ID_METADATA))) {
+diff --git a/fs/udf/udf_sb.h b/fs/udf/udf_sb.h
+--- a/fs/udf/udf_sb.h
++++ b/fs/udf/udf_sb.h
+@@ -82,7 +82,7 @@ struct udf_virtual_data {
+ struct udf_bitmap {
+ 	__u32			s_extLength;
+ 	__u32			s_extPosition;
+-	__u16			s_nr_groups;
++	int			s_nr_groups;
+ 	struct buffer_head 	**s_block_bitmap;
+ };
+ 
 -- 
