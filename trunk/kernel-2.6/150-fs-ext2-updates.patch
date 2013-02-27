@@ -1,24 +1,43 @@
-From 34b07840565004cfa444e165e88bf77a5cbcdb25
-From: Djalal Harouni
-Date: Mon, 9 Jan 2012 15:58:37 +0100
-Subject: [PATCH] ext2: protect inode changes in the SETVERSION and SETFLAGS ioctls
-
-Unlock mutex after i_flags and i_ctime updates in the EXT2_IOC_SETFLAGS
-ioctl.
-
-Use i_mutex in the EXT2_IOC_SETVERSION ioctl to protect i_ctime and
-i_generation updates and make the ioctl consistent since i_mutex is
-also used in other places to protect timestamps and inode changes.
-
-Cc: Andreas Dilger <adilger.kernel@dilger.ca>
-Cc: Jan Kara <jack@suse.cz>
-Signed-off-by: Djalal Harouni <tixxdz@opendz.org>
-Signed-off-by: Jan Kara <jack@suse.cz>
+ 34b07840565004cfa444e165e88bf77a5cbcdb25 ext2: protect inode changes in the SETVERSION and SETFLAGS ioctls
+ 8d8759eb488f9e88fa5f976c4fd7ed205661c872 Ext2: free memory allocated and forget buffer head when io error happens
+ 2b0542a4a0d9b8cb98e64fc87c5e31d130029a92 Ext2: use unlikely to improve the efficiency of the kernel
 
 ---
+ fs/ext2/inode.c |   12 ++++++++++++
  fs/ext2/ioctl.c |   15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+ fs/ext2/super.c |    2 +-
+ fs/ext2/xattr.c |    2 +-
+ 4 files changed, 26 insertions(+), 5 deletions(-)
 
+diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
+--- a/fs/ext2/inode.c
++++ b/fs/ext2/inode.c
+@@ -495,6 +495,10 @@ static int ext2_alloc_branch(struct inode *inode,
+ 		 * parent to disk.
+ 		 */
+ 		bh = sb_getblk(inode->i_sb, new_blocks[n-1]);
++		if (unlikely(!bh)) {
++			err = -ENOMEM;
++			goto failed;
++		}
+ 		branch[n].bh = bh;
+ 		lock_buffer(bh);
+ 		memset(bh->b_data, 0, blocksize);
+@@ -523,6 +527,14 @@ static int ext2_alloc_branch(struct inode *inode,
+ 	}
+ 	*blks = num;
+ 	return err;
++
++failed:
++	for (i = 1; i < n; i++)
++		bforget(branch[i].bh);
++	for (i = 0; i < indirect_blks; i++)
++		ext2_free_blocks(inode, new_blocks[i], 1);
++	ext2_free_blocks(inode, new_blocks[i], num);
++	return err;
+ }
+ 
+ /**
 diff --git a/fs/ext2/ioctl.c b/fs/ext2/ioctl.c
 --- a/fs/ext2/ioctl.c
 +++ b/fs/ext2/ioctl.c
@@ -62,5 +81,28 @@ diff --git a/fs/ext2/ioctl.c b/fs/ext2/ioctl.c
  	case EXT2_IOC_GETRSVSZ:
  		if (test_opt(inode->i_sb, RESERVATION)
  			&& S_ISREG(inode->i_mode)
+diff --git a/fs/ext2/super.c b/fs/ext2/super.c
+--- a/fs/ext2/super.c
++++ b/fs/ext2/super.c
+@@ -1500,7 +1500,7 @@ static ssize_t ext2_quota_write(struct super_block *sb, int type,
+ 			bh = sb_bread(sb, tmp_bh.b_blocknr);
+ 		else
+ 			bh = sb_getblk(sb, tmp_bh.b_blocknr);
+-		if (!bh) {
++		if (unlikely(!bh)) {
+ 			err = -EIO;
+ 			goto out;
+ 		}
+diff --git a/fs/ext2/xattr.c b/fs/ext2/xattr.c
+--- a/fs/ext2/xattr.c
++++ b/fs/ext2/xattr.c
+@@ -662,7 +662,7 @@ ext2_xattr_set2(struct inode *inode, struct buffer_head *old_bh,
+ 			ea_idebug(inode, "creating block %d", block);
+ 
+ 			new_bh = sb_getblk(sb, block);
+-			if (!new_bh) {
++			if (unlikely(!new_bh)) {
+ 				ext2_free_blocks(inode, block, 1);
+ 				error = -EIO;
+ 
 -- 
-1.7.6.5
