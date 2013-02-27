@@ -1,0 +1,22 @@
+From e3e321682cd1e9861ba7680e61ab6dadaf1e2e32
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Wed, 27 Feb 2013 14:49:38 +0000
+Subject: Fix move_to_unaligned16
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/include/platform.h b/include/platform.h
+--- a/include/platform.h
++++ b/include/platform.h
+@@ -228,7 +228,7 @@ typedef uint32_t bb__aliased_uint32_t FIX_ALIASING;
+ # define move_from_unaligned32(v, u32p) (memcpy(&(v), (u32p), 4))
+ # define move_to_unaligned16(u16p, v) do { \
+ 	uint16_t __t = (v); \
+-	memcpy((u16p), &__t, 4); \
++	memcpy((u16p), &__t, 2); \
+ } while (0)
+ # define move_to_unaligned32(u32p, v) do { \
+ 	uint32_t __t = (v); \
+--
+cgit v0.9.1
