@@ -1,14 +1,65 @@
  156bddd8e505b295540f3ca0e27dda68cb0d49aa ext3: Fix fdatasync() for files with only i_size changes
  e4230108547766f4e105a62c45f3724309106f91 ext3: don't clear orphan list on ro mount with errors
+ 61f43e6880dee5983999fe40bf96c1cf43740b4c Ext3: add necessary check in case IO error happens
+ 1b7d76e9b1106f2be062f915b05d47658dd4fc63 Ext3: use unlikely to improve the efficiency of the kernel
 
 ---
- fs/ext3/inode.c |   17 ++++++++++++++---
- fs/ext3/super.c |    6 ++++--
- 2 files changed, 18 insertions(+), 5 deletions(-)
+ fs/ext3/inode.c  |   29 ++++++++++++++++++++++-------
+ fs/ext3/resize.c |    6 +++---
+ fs/ext3/super.c  |    6 ++++--
+ fs/ext3/xattr.c  |    2 +-
+ 4 files changed, 30 insertions(+), 13 deletions(-)
 
 diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
 --- a/fs/ext3/inode.c
 +++ b/fs/ext3/inode.c
+@@ -628,6 +628,10 @@ static int ext3_alloc_branch(handle_t *handle, struct inode *inode,
+ 		 * parent to disk.
+ 		 */
+ 		bh = sb_getblk(inode->i_sb, new_blocks[n-1]);
++		if (unlikely(!bh)) {
++			err = -ENOMEM;
++			goto failed;
++		}
+ 		branch[n].bh = bh;
+ 		lock_buffer(bh);
+ 		BUFFER_TRACE(bh, "call get_create_access");
+@@ -669,7 +673,7 @@ failed:
+ 		BUFFER_TRACE(branch[i].bh, "call journal_forget");
+ 		ext3_journal_forget(handle, branch[i].bh);
+ 	}
+-	for (i = 0; i <indirect_blks; i++)
++	for (i = 0; i < indirect_blks; i++)
+ 		ext3_free_blocks(handle, inode, new_blocks[i], 1);
+ 
+ 	ext3_free_blocks(handle, inode, new_blocks[i], num);
+@@ -1025,7 +1025,7 @@ struct buffer_head *ext3_getblk(handle_t *handle, struct inode *inode,
+ 	if (!err && buffer_mapped(&dummy)) {
+ 		struct buffer_head *bh;
+ 		bh = sb_getblk(inode->i_sb, dummy.b_blocknr);
+-		if (!bh) {
++		if (unlikely(!bh)) {
+ 			*errp = -EIO;
+ 			goto err;
+ 		}
+@@ -2633,7 +2633,7 @@ static int __ext3_get_inode_loc(struct inode *inode,
+ 		return -EIO;
+ 
+ 	bh = sb_getblk(inode->i_sb, block);
+-	if (!bh) {
++	if (unlikely(!bh)) {
+ 		ext3_error (inode->i_sb, "ext3_get_inode_loc",
+ 				"unable to read inode block - "
+ 				"inode=%lu, block="E3FSBLK,
+@@ -2687,7 +2687,7 @@ static int __ext3_get_inode_loc(struct inode *inode,
+ 
+ 			bitmap_bh = sb_getblk(inode->i_sb,
+ 					le32_to_cpu(desc->bg_inode_bitmap));
+-			if (!bitmap_bh)
++			if (unlikely(!bitmap_bh))
+ 				goto make_io;
+ 
+ 			/*
 @@ -2962,6 +2962,8 @@ static int ext3_do_update_inode(handle_t *handle,
  	struct ext3_inode_info *ei = EXT3_I(inode);
  	struct buffer_head *bh = iloc->bh;
@@ -54,6 +105,36 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  out_brelse:
  	brelse (bh);
  	ext3_std_error(inode->i_sb, err);
+diff --git a/fs/ext3/resize.c b/fs/ext3/resize.c
+--- a/fs/ext3/resize.c
++++ b/fs/ext3/resize.c
+@@ -116,7 +116,7 @@ static struct buffer_head *bclean(handle_t *handle, struct super_block *sb,
+ 	int err;
+ 
+ 	bh = sb_getblk(sb, blk);
+-	if (!bh)
++	if (unlikely(!bh))
+ 		return ERR_PTR(-EIO);
+ 	if ((err = ext3_journal_get_write_access(handle, bh))) {
+ 		brelse(bh);
+@@ -234,7 +234,7 @@ static int setup_new_group_blocks(struct super_block *sb,
+ 			goto exit_bh;
+ 
+ 		gdb = sb_getblk(sb, block);
+-		if (!gdb) {
++		if (unlikely(!gdb)) {
+ 			err = -EIO;
+ 			goto exit_bh;
+ 		}
+@@ -722,7 +722,7 @@ static void update_backups(struct super_block *sb,
+ 			break;
+ 
+ 		bh = sb_getblk(sb, group * bpg + blk_off);
+-		if (!bh) {
++		if (unlikely(!bh)) {
+ 			err = -EIO;
+ 			break;
+ 		}
 diff --git a/fs/ext3/super.c b/fs/ext3/super.c
 --- a/fs/ext3/super.c
 +++ b/fs/ext3/super.c
@@ -72,4 +153,16 @@ diff --git a/fs/ext3/super.c b/fs/ext3/super.c
  		jbd_debug(1, "Skipping orphan recovery on fs with errors.\n");
  		return;
  	}
+diff --git a/fs/ext3/xattr.c b/fs/ext3/xattr.c
+--- a/fs/ext3/xattr.c
++++ b/fs/ext3/xattr.c
+@@ -813,7 +813,7 @@ inserted:
+ 			ea_idebug(inode, "creating block %d", block);
+ 
+ 			new_bh = sb_getblk(sb, block);
+-			if (!new_bh) {
++			if (unlikely(!new_bh)) {
+ getblk_failed:
+ 				ext3_free_blocks(handle, inode, block, 1);
+ 				error = -EIO;
 -- 
