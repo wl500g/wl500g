@@ -1,5 +1,6 @@
 ext4: Updates from upstream 4
 
+ 09e0834fb0ce1ea2a63885177015bd5d7d2bc22d ext4: fix deadlock in ext4_ordered_write_end()
  29ae07b702cb77dbc24b0843f15ee8cf8a642311 ext4: Fix overflow caused by missing cast in ext4_fallocate()
  0e499890c1fd9e0a1bed02002161c4c7873d7489 ext4: wait for writeback to complete while making pages writable
  b71fc079b5d8f42b2a52743c8d2f1d35d655b1c5 ext4: fix fdatasync() for files with only i_size changes
@@ -7,9 +8,9 @@ ext4: Updates from upstream 4
 
 ---
  fs/ext4/extents.c |    2 +-
- fs/ext4/inode.c   |   32 +++++++++++++++++++++++++-------
+ fs/ext4/inode.c   |   36 +++++++++++++++++++++++++++++-------
  fs/ext4/super.c   |    2 +-
- 3 files changed, 27 insertions(+), 9 deletions(-)
+ 3 files changed, 31 insertions(+), 9 deletions(-)
 
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
 --- a/fs/ext4/extents.c
@@ -26,6 +27,18 @@ diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
+@@ -1769,7 +1769,11 @@ static int ext4_ordered_write_end(struct file *file,
+ 			ext4_orphan_add(handle, inode);
+ 		if (ret2 < 0)
+ 			ret = ret2;
++	} else {
++		unlock_page(page);
++		page_cache_release(page);
+ 	}
++
+ 	ret2 = ext4_journal_stop(handle);
+ 	if (!ret)
+ 		ret = ret2;
 @@ -5054,6 +5054,7 @@ static int ext4_do_update_inode(handle_t *handle,
  	struct ext4_inode_info *ei = EXT4_I(inode);
  	struct buffer_head *bh = iloc->bh;
