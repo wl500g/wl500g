@@ -187,6 +187,7 @@ obj-$(CONFIG_SCSIIDLE) += scsi-idle
 obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 obj-$(CONFIG_MADWIMAX) += madwimax
 obj-$(CONFIG_MODEM) += cdma
+obj-$(CONFIG_USBNET) += uqmi
 obj-$(CONFIG_EAPOL) += wpa_supplicant
 obj-$(CONFIG_TELENET) += lanauth
 obj-$(CONFIG_CONVEX) += authcli
@@ -715,6 +716,17 @@ cdma:
 cdma-install:
 	install -d $(INSTALLDIR)/cdma
 	$(MAKE) -C cdma install
+
+uqmi: uqmi/libubox/libubox.a uqmi/uqmi
+	$(MAKE) -C $@ all
+
+uqmi/libubox/libubox.a: uqmi/libubox
+	$(MAKE) -C $< all
+
+uqmi-install:
+	install -d $(INSTALLDIR)/uqmi
+	$(MAKE) -C uqmi INSTALL=install INSTALLDIR="$(INSTALLDIR)/uqmi" install
+	$(STRIP) $(INSTALLDIR)/uqmi/usr/sbin/uqmi
 
 iptables/Makefile: iptables/Makefile.in
 	cd iptables && \

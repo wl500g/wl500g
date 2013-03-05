@@ -91,7 +91,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	bpalogin bridge inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev \
-	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
+	scsi-idle libusb usb_modeswitch wimax uqmi lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
 	sysfsutils e2fsprogs wpa_supplicant lanauth authcli infosrv
 	@echo
@@ -701,6 +701,13 @@ $(TOP)/cdma:
 		tar -C . $(TAR_EXCL_SVN) -cf - cdma | tar -C $(TOP) -xf -
 
 cdma: $(TOP)/cdma
+	@true
+
+$(TOP)/uqmi:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - uqmi | tar -C $(TOP) -xf -
+
+uqmi: $(TOP)/uqmi
 	@true
 
 $(TOP)/misc:
