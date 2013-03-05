@@ -177,7 +177,7 @@ void init_event_queue(int n)
 	g_granularity = tv.it_interval.tv_usec;
 }
 
-
+#ifdef REMOVE
 int clock_gettime(
 	clockid_t         clock_id, /* clock ID (always CLOCK_REALTIME) */
 	struct timespec * tp        /* where to store current time */
@@ -192,7 +192,7 @@ int clock_gettime(
 
 	return n;
 }
-
+#endif /* REMOVE */
 
 int timer_create(
 	clockid_t         clock_id, /* clock ID (always CLOCK_REALTIME) */
