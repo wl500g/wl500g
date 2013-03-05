@@ -61,6 +61,7 @@ UDEV=udev-113
 NTFS3G=ntfs-3g_ntfsprogs-2013.1.13AR.1
 SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
+IPSET=ipset-4.5
 INFOSRV=infosrv
 
 UCLIBC=uClibc-0.9.32
@@ -84,7 +85,8 @@ endef
 all: prep custom
 	@true
 
-custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
+custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba \
+	iproute2 iptables ipset \
 	ppp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	bpalogin bridge inadyn httpd libjpeg lib LPRng \
@@ -296,6 +298,17 @@ samba: $(TOP)/samba
 
 iptables:
 	$(MAKE) -C $(IPTABLES) $@
+
+ipset_Patches := $(call patches_list,ipset)
+
+$(TOP)/ipset: ipset/$(IPSET).tar.bz2
+	@rm -rf $(TOP)/$(IPSET) $@
+	tar -xjf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(IPSET) $(ipset_Patches)
+	mv $(TOP)/$(IPSET) $@
+
+ipset: $(TOP)/ipset
+	@true
 
 nfs-utils_Patches := $(call patches_list,nfs-utils)
 

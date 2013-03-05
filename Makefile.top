@@ -172,6 +172,7 @@ obj-$(CONFIG_SAMBA) += samba
 obj-$(CONFIG_NFSD) += nfs-utils
 obj-$(CONFIG_NFSD) += portmap
 obj-$(CONFIG_IPROUTE2) += iproute2
+obj-$(CONFIG_IPSET) += ipset
 obj-$(CONFIG_LOADER) += loader
 obj-$(CONFIG_RADVD) += radvd
 obj-$(CONFIG_SNMP) += ucd-snmp
@@ -203,7 +204,7 @@ obj-y := $(filter-out LPRng e2fsprogs libusb10 madwimax p910nd mjpg-streamer sam
 endif
 # Exclude more targets for non-USB routers with small flash-memory
 ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
-obj-y := $(filter-out nfs-utils quagga sysfsutils tcpdump,$(obj-y))
+obj-y := $(filter-out ipset nfs-utils quagga sysfsutils tcpdump,$(obj-y))
 endif
 
 # Kernel modules extension
@@ -211,12 +212,15 @@ EXTRACFLAGS += -DLINUX26
 ko=.ko
 
 # Netfilter modules NOT to include in main FW
-netfilter_external_modules := {xt,ipt}_layer7$(ko) ip_set$(ko) \
+netfilter_external_modules := {xt,ipt}_layer7$(ko)
+ifneq ($(CONFIG_IPSET),y)
+netfilter_external_modules += ip_set$(ko) \
  ip_set_ipmap$(ko) ip_set_iptree$(ko) ip_set_iptreemap$(ko) \
  ip_set_macipmap$(ko) ip_set_nethash$(ko) ip_set_iphash$(ko) \
  ip_set_portmap$(ko) ip_set_ipporthash$(ko) ip_set_ipportiphash$(ko) \
  ip_set_ipportnethash$(ko) ip_set_setlist$(ko) \
  ipt_SET$(ko) ipt_set$(ko)
+endif
 
 obj-clean := $(foreach obj,$(obj-y) $(obj-n),$(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
@@ -934,6 +938,17 @@ iproute2-install:
 	install -D iproute2/tc/tc $(INSTALLDIR)/iproute2/usr/sbin/tc
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/ip
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/tc
+
+ipset_make_Opts=KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os -Wall $(EXTRACFLAGS)" NO_EXTRA_WARN_FLAGS=1 
+
+ipset: $(LINUXDIR)/include/linux/version.h
+	$(MAKE) -C $@ $(ipset_make_Opts) binaries
+
+ipset-install:
+	$(MAKE) -C ipset $(ipset_make_Opts) DESTDIR=$(INSTALLDIR)/ipset \
+	  binaries_install
+	$(STRIP) $(INSTALLDIR)/ipset/usr/sbin/ipset
+	$(STRIP) $(INSTALLDIR)/ipset/usr/lib/ipset/*.so
 
 ucd-snmp/Makefile: ucd-snmp/Makefile.in
 	cd ucd-snmp && \
