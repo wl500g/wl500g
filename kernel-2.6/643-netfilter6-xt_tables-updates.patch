@@ -40,21 +40,21 @@ b169f6db40605d0907458d1ff78ceac2b194a44f netfilter: ip6table_mangle: Fix set-but
  include/linux/netfilter_ipv6/ip6_tables.h |   36 -----
  net/ipv4/netfilter/arp_tables.c           |  212 ++++++++++++++++--------------
  net/ipv4/netfilter/arptable_filter.c      |    2 
- net/ipv4/netfilter/ip_tables.c            |  124 +++++------------
+ net/ipv4/netfilter/ip_tables.c            |  129 ++++++------------
  net/ipv4/netfilter/iptable_filter.c       |    1 
  net/ipv4/netfilter/iptable_mangle.c       |    1 
  net/ipv4/netfilter/iptable_raw.c          |    1 
  net/ipv4/netfilter/nf_nat_rule.c          |    1 
- net/ipv6/netfilter/ip6_tables.c           |  111 +++++++--------
+ net/ipv6/netfilter/ip6_tables.c           |  116 ++++++++--------
  net/ipv6/netfilter/ip6table_filter.c      |    1 
  net/ipv6/netfilter/ip6table_mangle.c      |    4 
  net/ipv6/netfilter/ip6table_raw.c         |    1 
  net/netfilter/x_tables.c                  |   42 ++++-
- net/netfilter/xt_limit.c                  |   42 ++++-
+ net/netfilter/xt_limit.c                  |   46 ++++--
  net/netfilter/xt_physdev.c                |   19 --
  net/netfilter/xt_quota.c                  |   33 +++-
  net/netfilter/xt_statistic.c              |   31 +++-
- 23 files changed, 497 insertions(+), 400 deletions(-)
+ 23 files changed, 509 insertions(+), 402 deletions(-)
 
 diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
 --- a/include/linux/netfilter/x_tables.h
@@ -956,7 +956,7 @@ diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
  	indev = in ? in->name : nulldevname;
  	outdev = out ? out->name : nulldevname;
  	/* We handle fragments by dealing with the first fragment as
-@@ -344,8 +342,6 @@ ipt_do_table(struct sk_buff *skb,
+@@ -344,10 +342,13 @@ ipt_do_table(struct sk_buff *skb,
  #endif
  				/* Target might have changed stuff. */
  				ip = ip_hdr(*pskb);
@@ -964,7 +964,14 @@ diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
 -
  				if (verdict == IPT_CONTINUE)
  					e = (void *)e + e->next_offset;
++				else if (verdict == IPT_RETURN) {		// added -- tomato
++					e = back;
++					back = get_entry(table_base, back->comefrom);
++					continue;
++				}
  				else
+ 					/* Verdict */
+ 					break;
 @@ -397,8 +379,7 @@ ipt_do_table(struct sk_buff **pskb,
  			e = (void *)e + e->next_offset;
  		}
@@ -1299,6 +1306,18 @@ diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
  	e = get_entry(table_base, private->hook_entry[hook]);
  
  	/* For return from builtin chain */
+@@ -334,6 +344,11 @@ ip6t_do_table(struct sk_buff **pskb,
+ #endif
+ 				if (verdict == IP6T_CONTINUE)
+ 					e = (void *)e + e->next_offset;
++				else if (verdict == IP6T_RETURN) {		// added -- Wes Campaigne
++					e = back;
++					back = get_entry(table_base, back->comefrom);
++					continue;
++				}
+ 				else
+ 					/* Verdict */
+ 					break;
 @@ -366,7 +358,7 @@ ip6t_do_table(struct sk_buff **pskb,
  #ifdef CONFIG_NETFILTER_DEBUG
  	((struct ip6t_entry *)table_base)->comefrom = NETFILTER_LINK_POISON;
