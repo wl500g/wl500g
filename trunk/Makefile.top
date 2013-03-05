@@ -628,7 +628,9 @@ www-%:
 	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www
 
 radvd/Makefile: radvd/Makefile.in
-	cd radvd && CFLAGS="-g -Os" CPPFLAGS="$(EXTRACFLAGS)" \
+	cd radvd && CFLAGS="-g -Os" \
+	CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=""
 
 radvd: radvd/Makefile
@@ -976,7 +978,8 @@ xl2tpd-install:
 	$(STRIP) $(INSTALLDIR)/xl2tpd/usr/sbin/xl2tpd
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
-	cd igmpproxy && CPPFLAGS="$(EXTRACFLAGS)" \
+	cd igmpproxy && CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr
 
 igmpproxy: igmpproxy/src/Makefile
