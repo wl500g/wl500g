@@ -13,7 +13,6 @@ CONFIG_BUSYBOX_CONFIG=dongle
 # CONFIG_BRIDGE is not set
 # CONFIG_VLAN is not set
 # CONFIG_IPTABLES is not set
-# CONFIG_LIBIPT is not set
 # CONFIG_GLIBC is not set
 CONFIG_UCLIBC=y
 CONFIG_LIBOPT=y
@@ -28,7 +27,6 @@ CONFIG_VENDOR=broadcom
 # CONFIG_NTP is not set
 # CONFIG_UTILS is not set
 CONFIG_ETC=y
-CONFIG_RCS=rcS
 CONFIG_BCMWPA2=y
 
 #
