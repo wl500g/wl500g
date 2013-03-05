@@ -8,10 +8,10 @@ xt_TEE is firstly included in Linux 2.6.35.
 Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
 ---
- extensions/libxt_TEE.c           |  202 ++++++++++++++++++++++++++++++++++++++
- extensions/libxt_TEE.man         |   12 +++
- include/linux/netfilter/xt_TEE.h |    9 ++
- 3 files changed, 223 insertions(+), 0 deletions(-)
+ extensions/libxt_TEE.c           |  202 +++++++++++++++++++++++++++++++++++++++
+ extensions/libxt_TEE.man         |   12 ++
+ include/linux/netfilter/xt_TEE.h |   12 ++
+ 3 files changed, 226 insertions(+)
  create mode 100644 extensions/libxt_TEE.c
  create mode 100644 extensions/libxt_TEE.man
  create mode 100644 include/linux/netfilter/xt_TEE.h
@@ -244,13 +244,16 @@ diff --git a/include/linux/netfilter/xt_TEE.h b/include/linux/netfilter/xt_TEE.h
 new file mode 100644
 --- /dev/null
 +++ b/include/linux/netfilter/xt_TEE.h
-@@ -0,0 +1,9 @@
+@@ -0,0 +1,12 @@
 +#ifndef _XT_TEE_TARGET_H
 +#define _XT_TEE_TARGET_H
 +
 +struct xt_tee_tginfo {
 +	union nf_inet_addr gw;
 +	char oif[16];
++
++	/* used internally by the kernel */
++	struct xt_tee_priv *priv __attribute__((aligned(8)));
 +};
 +
 +#endif /* _XT_TEE_TARGET_H */
