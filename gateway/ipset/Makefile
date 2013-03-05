@@ -22,7 +22,7 @@ endif
 
 IPSET_VERSION:=4.5
 
-PREFIX:=/usr/local
+PREFIX:=/usr
 LIBDIR:=$(PREFIX)/lib
 BINDIR:=$(PREFIX)/sbin
 MANDIR:=$(PREFIX)/man
@@ -75,7 +75,8 @@ SETTYPES+=setlist
 
 PROGRAMS=ipset
 SHARED_LIBS=$(foreach T, $(SETTYPES),libipset_$(T).so)
-INSTALL=$(DESTDIR)$(BINDIR)/ipset $(DESTDIR)$(MANDIR)/man8/ipset.8
+INSTALL=$(DESTDIR)$(BINDIR)/ipset
+#INSTALL+=$(DESTDIR)$(MANDIR)/man8/ipset.8
 INSTALL+=$(foreach T, $(SETTYPES), $(DESTDIR)$(LIBDIR)/ipset/libipset_$(T).so)
 
 all: binaries modules
@@ -106,7 +107,7 @@ install: binaries_install modules_install
 
 clean: $(EXTRA_CLEANS)
 	rm -rf $(PROGRAMS) $(SHARED_LIBS) *.o *~ tests/*~
-	[ -f $(KERNEL_DIR)/net/ipv4/netfilter/Config.in ] || (cd kernel; make -C $(KERNEL_DIR) M=`pwd` clean)
+#	[ -f $(KERNEL_DIR)/net/ipv4/netfilter/Config.in ] || (cd kernel; make -C $(KERNEL_DIR) M=`pwd` clean)
 
 release: clean
 	cp -a . /tmp/ipset-$(IPSET_VERSION)
