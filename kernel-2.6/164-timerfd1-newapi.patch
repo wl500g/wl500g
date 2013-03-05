@@ -730,9 +730,9 @@ diff --git a/include/linux/compat.h b/include/linux/compat.h
 +				   struct compat_itimerspec __user *otmr);
 +asmlinkage long compat_sys_timerfd_gettime(int ufd,
 +				   struct compat_itimerspec __user *otmr);
- 
- #endif /* CONFIG_COMPAT */
- #endif /* _LINUX_COMPAT_H */
+ asmlinkage long compat_sys_futex(u32 __user *uaddr, int op, u32 val,
+ 		struct compat_timespec __user *utime, u32 __user *uaddr2,
+ 		u32 val3);
 diff --git a/include/linux/hrtimer.h b/include/linux/hrtimer.h
 --- a/include/linux/hrtimer.h
 +++ b/include/linux/hrtimer.h

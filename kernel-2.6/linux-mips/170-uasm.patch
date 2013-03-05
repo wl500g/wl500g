@@ -180,8 +180,8 @@ diff -uBp a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 -#endif
 -	label_vmalloc,
 -	label_vmalloc_done,
--	label_tlbw_hazard,
--	label_split,
+-	label_tlbw_hazard_0,
+-	label_split = label_tlbw_hazard_0 + 8,
 -	label_nopage_tlbl,
 -	label_nopage_tlbs,
 -	label_nopage_tlbm,
@@ -215,7 +215,7 @@ diff -uBp a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 -#endif
 -L_LA(_vmalloc)
 -L_LA(_vmalloc_done)
--L_LA(_tlbw_hazard)
+-/* _tlbw_hazard_x is handled differently.  */
 -L_LA(_split)
 -L_LA(_nopage_tlbl)
 -L_LA(_nopage_tlbs)
@@ -429,8 +429,8 @@ diff -uBp /dev/null b/include/asm-mips/uasm.h
 +#endif
 +	label_vmalloc,
 +	label_vmalloc_done,
-+	label_tlbw_hazard,
-+	label_split,
++	label_tlbw_hazard_0,
++	label_split = label_tlbw_hazard_0 + 8,
 +	label_nopage_tlbl,
 +	label_nopage_tlbs,
 +	label_nopage_tlbm,
@@ -464,7 +464,7 @@ diff -uBp /dev/null b/include/asm-mips/uasm.h
 +#endif
 +L_LA(_vmalloc)
 +L_LA(_vmalloc_done)
-+L_LA(_tlbw_hazard)
++/* _tlbw_hazard_x is handled differently.  */
 +L_LA(_split)
 +L_LA(_nopage_tlbl)
 +L_LA(_nopage_tlbs)
