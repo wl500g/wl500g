@@ -1,0 +1,28 @@
+ a6fa7047cf5cb20353178e9b31c3105f13461b54 net: amend the fix for SO_BSDCOMPAT gsopt infoleak
+ 3e10986d1d698140747fcfc2761ec9cb64c1d582 net: guard tcp_set_keepalive() to tcp sockets
+
+---
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -539,7 +540,8 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
+ 
+ 	case SO_KEEPALIVE:
+ #ifdef CONFIG_INET
+-		if (sk->sk_protocol == IPPROTO_TCP)
++		if (sk->sk_protocol == IPPROTO_TCP &&
++		    sk->sk_type == SOCK_STREAM)
+ 			tcp_set_keepalive(sk, valbool);
+ #endif
+ 		sock_valbool_flag(sk, SOCK_KEEPOPEN, valbool);
+@@ -674,6 +674,8 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 	if (len < 0)
+ 		return -EINVAL;
+ 
++	memset(&v, 0, sizeof(v));
++
+ 	switch(optname) {
+ 	case SO_DEBUG:
+ 		v.val = sock_flag(sk, SOCK_DBG);
+-- 
