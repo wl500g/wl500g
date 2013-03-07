@@ -34,7 +34,7 @@ static void dccp_rcv_close(struct sock *sk, struct sk_buff *skb)
 	dccp_send_reset(sk, DCCP_RESET_CODE_CLOSED);
 	dccp_fin(sk, skb);
 	dccp_set_state(sk, DCCP_CLOSED);
-	sk_wake_async(sk, 1, POLL_HUP);
+	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_HUP);
 }
 
 static void dccp_rcv_closereq(struct sock *sk, struct sk_buff *skb)
@@ -353,7 +353,7 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
 
 		if (!sock_flag(sk, SOCK_DEAD)) {
 			sk->sk_state_change(sk);
-			sk_wake_async(sk, 0, POLL_OUT);
+			sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
 		}
 
 		if (sk->sk_write_pending || icsk->icsk_ack.pingpong ||
@@ -572,7 +572,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 		switch (old_state) {
 		case DCCP_PARTOPEN:
 			sk->sk_state_change(sk);
-			sk_wake_async(sk, 0, POLL_OUT);
+			sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
 			break;
 		}
 	}
