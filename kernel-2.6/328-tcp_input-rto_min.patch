@@ -1,49 +1,14 @@
-From 0c266898b42fe4e4e2f9edfc9d3474c10f93aa6a
-From: Satoru SATOH
-Date: Mon, 4 May 2009 11:11:01 -0700
-Subject: [PATCH] tcp: Fix tcp_prequeue() to get correct rto_min value
+ 05bb1fad1cde025a864a90cfeb98dcbefe78a44a [TCP]: Allow minimum RTO to be configurable via routing metrics.
+ 5c127c58ae9bf196d787815b1bd6b0aec5aee816 [TCP]: 'dst' can be NULL in tcp_rto_min()
+ 488faa2ae32c2f8b1ffda5c7fae5eb7c979acc15 [IPV4]: Make tcp_input_metrics() get minimum RTO via tcp_rto_min()
+ 0c266898b42fe4e4e2f9edfc9d3474c10f93aa6a tcp: Fix tcp_prequeue() to get correct rto_min value
 
-tcp_prequeue() refers to the constant value (TCP_RTO_MIN) regardless of
-the actual value might be tuned. The following patches fix this and make
-tcp_prequeue get the actual value returns from tcp_rto_min().
-
-Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
-
-From 488faa2ae32c2f8b1ffda5c7fae5eb7c979acc15
-From: Satoru SATOH
-Date: Sun, 16 Dec 2007 14:00:19 -0800
-Subject: [PATCH] [IPV4]: Make tcp_input_metrics() get minimum RTO via tcp_rto_min()
-
-tcp_input_metrics() refers to the built-time constant TCP_RTO_MIN
-regardless of configured minimum RTO with iproute2.
-
-Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
-
-From 5c127c58ae9bf196d787815b1bd6b0aec5aee816
-From: David S. Miller
-Date: Fri, 31 Aug 2007 14:39:44 -0700
-Subject: [PATCH] [TCP]: 'dst' can be NULL in tcp_rto_min()
-
-Reported by Rick Jones.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
-
-From 05bb1fad1cde025a864a90cfeb98dcbefe78a44a
-From: David S. Miller
-Date: Thu, 30 Aug 2007 22:10:28 -0700
-Subject: [PATCH] [TCP]: Allow minimum RTO to be configurable via routing metrics.
-
-Cell phone networks do link layer retransmissions and other
-things that cause unnecessary timeout retransmits.  So allow
-the minimum RTO to be inflated per-route to deal with this.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
+ include/linux/rtnetlink.h |    2 ++
+ include/net/dst.h         |   12 ++++++++++++
+ include/net/tcp.h         |   14 +++++++++++++-
+ net/ipv4/tcp_input.c      |    6 +++---
+ 4 files changed, 30 insertions(+), 4 deletions(-)
 
 diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
 --- a/include/linux/rtnetlink.h
@@ -108,13 +73,13 @@ diff --git a/include/net/tcp.h b/include/net/tcp.h
  /* Compute the actual receive window we are currently advertising.
   * Rcv_nxt can be after the window if our peer push more data
   * than the offered window.
-@@ -895,7 +907,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
- 			wake_up_interruptible(sk->sk_sleep);
- 			if (!inet_csk_ack_scheduled(sk))
- 				inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
--						          (3 * TCP_RTO_MIN) / 4,
-+						          (3 * tcp_rto_min(sk)) / 4,
- 							  TCP_RTO_MAX);
+@@ -915,7 +927,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+ 		wake_up_interruptible(sk->sk_sleep);
+ 		if (!inet_csk_ack_scheduled(sk))
+ 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+-						  (3 * TCP_RTO_MIN) / 4,
++						  (3 * tcp_rto_min(sk)) / 4,
+ 						  TCP_RTO_MAX);
  		}
  		return 1;
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
@@ -146,4 +111,3 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  	tcp_set_rto(sk);
  	tcp_bound_rto(sk);
 -- 
-1.7.1
