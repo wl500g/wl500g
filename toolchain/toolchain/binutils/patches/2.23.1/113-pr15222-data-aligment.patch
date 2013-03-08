@@ -1,0 +1,34 @@
+Alignment of load address of data sections containing aligned data
+
+ http://sourceware.org/bugzilla/show_bug.cgi?id=15222
+
+diff -u -r1.2470.2.15 -r1.2470.2.16
+--- src/ld/ChangeLog	2013/01/21 13:48:47	1.2470.2.15
++++ src/ld/ChangeLog	2013/03/05 03:11:30	1.2470.2.16
+@@ -1,3 +1,9 @@
++2013-03-05  Alan Modra  <amodra@gmail.com>
++
++	PR ld/15222
++	* ldlang.c (lang_size_sections_1): When given an lma_region align
++	LMA as per VMA only if lma_region is the same as region.
++
+ 2012-11-05  Alan Modra  <amodra@gmail.com>
+ 
+ 	* configure.in: Apply 2012-09-10 change to config.in here.
+diff -u -r1.397.2.4 -r1.397.2.5
+--- src/ld/ldlang.c	2013/01/21 13:48:48	1.397.2.4
++++ src/ld/ldlang.c	2013/03/05 03:11:30	1.397.2.5
+@@ -4961,6 +4961,13 @@
+ 	      {
+ 		bfd_vma lma = os->lma_region->current;
+ 
++		/* When LMA_REGION is the same as REGION, align the LMA
++		   as we did for the VMA, possibly including alignment
++		   from the bfd section.  If a different region, then
++		   only align according to the value in the output
++		   statement.  */
++		if (os->lma_region != os->region)
++		  section_alignment = os->section_alignment;
+ 		if (section_alignment > 0)
+ 		  lma = align_power (lma, section_alignment);
+ 		os->bfd_section->lma = lma;
