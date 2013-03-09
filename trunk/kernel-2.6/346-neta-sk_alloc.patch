@@ -1,5 +1,6 @@
 [NET]: sk_alloc optimizations from upstream
 
+ ad8bb78083ff58f5dff3ef8cf8ac3e0336f8ae36 [INET_TIMEWAIT_SOCK]: Reorganize struct inet_timewait_sock to save some bytes
  c308c1b20e2eb7b13f200a7c18b3f23561318367 [NET]: Cleanup the allocation/freeing of the sock object
  3f0666ee3039443fa7b7cf436dd16ce0dd8e3f95 [NET]: Auto-zero the allocated sock object
  2e4afe7b35458beedba418a6e2aaf0b0ac82cc18 [NET]: Move some core sock setup into sk_prot_alloc
@@ -9,43 +10,45 @@
  5309fbcc475084e6c1566084f770cef927937b7b Remove documentation of non-existent sk_alloc arg
  f15fbcd7d857ca2ea20b57ba6dfe63aab89d0b8b ipv4: Delete redundant sk_family assignment
  99709372736a216f99eb32b76fba835a2bfc93a8 net: don't use in_atomic() in gfp_any()
+ b178bb3dfc30d9555bdd2401e95af98e23e83e10 net: reorder struct sock fields
 
 ---
- drivers/net/pppoe.c         |    2 -
- drivers/net/pppol2tp.c      |    2 -
- drivers/net/pptp.c          |    2 -
- include/net/sock.h          |    4 +-
- net/appletalk/ddp.c         |    2 -
- net/atm/common.c            |    2 -
- net/ax25/af_ax25.c          |    6 ++-
- net/bluetooth/bnep/sock.c   |    2 -
- net/bluetooth/cmtp/sock.c   |    2 -
- net/bluetooth/hci_sock.c    |    2 -
- net/bluetooth/hidp/sock.c   |    2 -
- net/bluetooth/l2cap.c       |    2 -
- net/bluetooth/rfcomm/sock.c |    2 -
- net/bluetooth/sco.c         |    2 -
- net/core/sock.c             |   86 +++++++++++++++++++++++++++-----------------
- net/decnet/af_decnet.c      |    2 -
- net/econet/af_econet.c      |    2 -
- net/ipv4/af_inet.c          |    3 -
- net/ipv6/af_inet6.c         |    2 -
- net/ipx/af_ipx.c            |    2 -
- net/irda/af_irda.c          |    2 -
- net/iucv/af_iucv.c          |    2 -
- net/key/af_key.c            |    2 -
- net/llc/llc_conn.c          |    2 -
- net/netlink/af_netlink.c    |    2 -
- net/netrom/af_netrom.c      |    6 ++-
- net/packet/af_packet.c      |    2 -
- net/rose/af_rose.c          |    6 ++-
- net/rxrpc/af_rxrpc.c        |    2 -
- net/sctp/ipv6.c             |    2 -
- net/sctp/protocol.c         |    2 -
- net/tipc/socket.c           |    2 -
- net/unix/af_unix.c          |    2 -
- net/x25/af_x25.c            |    2 -
- 34 files changed, 97 insertions(+), 70 deletions(-)
+ drivers/net/pppoe.c              |    2 
+ drivers/net/pppol2tp.c           |    2 
+ drivers/net/pptp.c               |    2 
+ include/net/inet_timewait_sock.h |    2 
+ include/net/sock.h               |   41 +++++++++++-------
+ net/appletalk/ddp.c              |    2 
+ net/atm/common.c                 |    2 
+ net/ax25/af_ax25.c               |    6 +-
+ net/bluetooth/bnep/sock.c        |    2 
+ net/bluetooth/cmtp/sock.c        |    2 
+ net/bluetooth/hci_sock.c         |    2 
+ net/bluetooth/hidp/sock.c        |    2 
+ net/bluetooth/l2cap.c            |    2 
+ net/bluetooth/rfcomm/sock.c      |    2 
+ net/bluetooth/sco.c              |    2 
+ net/core/sock.c                  |   86 ++++++++++++++++++++++++---------------
+ net/decnet/af_decnet.c           |    2 
+ net/econet/af_econet.c           |    2 
+ net/ipv4/af_inet.c               |    3 -
+ net/ipv6/af_inet6.c              |    2 
+ net/ipx/af_ipx.c                 |    2 
+ net/irda/af_irda.c               |    2 
+ net/iucv/af_iucv.c               |    2 
+ net/key/af_key.c                 |    2 
+ net/llc/llc_conn.c               |    2 
+ net/netlink/af_netlink.c         |    2 
+ net/netrom/af_netrom.c           |    6 +-
+ net/packet/af_packet.c           |    2 
+ net/rose/af_rose.c               |    6 +-
+ net/rxrpc/af_rxrpc.c             |    2 
+ net/sctp/ipv6.c                  |    2 
+ net/sctp/protocol.c              |    2 
+ net/tipc/socket.c                |    2 
+ net/unix/af_unix.c               |    2 
+ net/x25/af_x25.c                 |    2 
+ 35 files changed, 121 insertions(+), 85 deletions(-)
 
 diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
 --- a/drivers/net/pppoe.c
@@ -86,6 +89,84 @@ diff --git a/drivers/net/pptp.c b/drivers/net/pptp.c
 diff --git a/include/net/sock.h b/include/net/sock.h
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
+@@ -199,54 +199,63 @@ struct sock {
+ #define sk_refcnt		__sk_common.skc_refcnt
+ #define sk_hash			__sk_common.skc_hash
+ #define sk_prot			__sk_common.skc_prot
+-	unsigned char		sk_shutdown : 2,
+-				sk_no_check : 2,
+-				sk_userlocks : 4;
+-	unsigned char		sk_protocol;
+-	unsigned short		sk_type;
+-	int			sk_rcvbuf;
+ 	socket_lock_t		sk_lock;
++	struct sk_buff_head	sk_receive_queue;
+ 	/*
+ 	 * The backlog queue is special, it is always used with
+ 	 * the per-socket spinlock held and requires low latency
+ 	 * access. Therefore we special case it's implementation.
++	 * Note : rmem_alloc is in this structure to fill a hole
++	 * on 64bit arches, not because its logically part of
++	 * backlog.
+ 	 */
+ 	struct {
++		atomic_t	rmem_alloc;
+ 		struct sk_buff *head;
+ 		struct sk_buff *tail;
+ 	} sk_backlog;
++#define sk_rmem_alloc sk_backlog.rmem_alloc
++	int			sk_forward_alloc;
++	atomic_t		sk_drops;
++	int			sk_rcvbuf;
++
++	struct sk_filter      	*sk_filter;
++
+ 	wait_queue_head_t	*sk_sleep;
+-	struct dst_entry	*sk_dst_cache;
++	struct sk_buff_head	sk_async_wait_queue;
++
++#ifdef CONFIG_XFRM
+ 	struct xfrm_policy	*sk_policy[2];
++#endif
++	unsigned long 		sk_flags;
++	struct dst_entry	*sk_dst_cache;
+ 	rwlock_t		sk_dst_lock;
+-	atomic_t		sk_rmem_alloc;
+ 	atomic_t		sk_wmem_alloc;
+ 	atomic_t		sk_omem_alloc;
+ 	int			sk_sndbuf;
+-	struct sk_buff_head	sk_receive_queue;
+ 	struct sk_buff_head	sk_write_queue;
+-	struct sk_buff_head	sk_async_wait_queue;
++	unsigned int		sk_shutdown  : 2,
++				sk_no_check  : 2,
++				sk_userlocks : 4,
++				sk_protocol  : 8,
++				sk_type      : 16;
+ 	int			sk_wmem_queued;
+-	int			sk_forward_alloc;
+ 	gfp_t			sk_allocation;
+ 	int			sk_route_caps;
+ 	int			sk_gso_type;
+ 	int			sk_rcvlowat;
+-	unsigned long 		sk_flags;
+ 	unsigned long	        sk_lingertime;
+ 	struct sk_buff_head	sk_error_queue;
+ 	struct proto		*sk_prot_creator;
+ 	rwlock_t		sk_callback_lock;
+ 	int			sk_err,
+ 				sk_err_soft;
+-	atomic_t		sk_drops;
+ 	unsigned short		sk_ack_backlog;
+ 	unsigned short		sk_max_ack_backlog;
+ 	__u32			sk_priority;
+ 	struct ucred		sk_peercred;
+ 	long			sk_rcvtimeo;
+ 	long			sk_sndtimeo;
+-	struct sk_filter      	*sk_filter;
+ 	void			*sk_protinfo;
+ 	struct timer_list	sk_timer;
+ 	ktime_t			sk_stamp;
 @@ -779,7 +779,7 @@ extern void FASTCALL(release_sock(struct sock *sk));
  
  extern struct sock		*sk_alloc(struct net *net, int family,
@@ -104,6 +185,25 @@ diff --git a/include/net/sock.h b/include/net/sock.h
  }
  
  static inline long sock_rcvtimeo(const struct sock *sk, int noblock)
+diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -116,6 +116,7 @@ struct inet_timewait_sock {
+ 
+ #define tw_hash			__tw_common.skc_hash
+ #define tw_prot			__tw_common.skc_prot
++	int			tw_timeout;
+ 	volatile unsigned char	tw_substate;
+ 	/* 3 bits hole, try to pack */
+ 	unsigned char		tw_rcv_wscale;
+@@ -130,7 +131,6 @@ struct inet_timewait_sock {
+ 	__u8			tw_ipv6only:1;
+ 	/* 15 bits hole, try to pack */
+ 	__u16			tw_ipv6_offset;
+-	int			tw_timeout;
+ 	unsigned long		tw_ttd;
+ 	struct inet_bind_bucket	*tw_tb;
+ 	struct hlist_node	tw_death_node;
 diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
 --- a/net/appletalk/ddp.c
 +++ b/net/appletalk/ddp.c
@@ -635,4 +735,3 @@ diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
  	if (!sk)
  		goto out;
 -- 
-1.7.6.5
