@@ -6,7 +6,6 @@
 
 # Path
 devpath_name='/proc/bus/usb/devpath'
-modem_conf_name='/usr/share/modem/modems.conf'
 tmp_name='/tmp/dial.tmp'
 peers_path='/tmp/ppp/peers/'
 log_name='/tmp/chat.log'
@@ -47,7 +46,7 @@ init_global() {
 
 get_usb_structure(){
 	number_of_modems=0
-	lsmodem -c $modem_conf_name > $tmp_name
+	lsmodem > $tmp_name
 	while read line; do
 		let "number_of_modems += 1"
 		name=modem_$number_of_modems
