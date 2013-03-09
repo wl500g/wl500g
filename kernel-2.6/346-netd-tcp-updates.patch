@@ -1,14 +1,29 @@
  64022d0b4e93ea432e95db55a72b8a1c5775f3c0 tcp: fix crashes in do_tcp_sendpages()
  aab2b4bf224ef8358d262f95b568b8ad0cecf0a0 tcp: fix double-counted receiver RTT when leaving receiver fast path
+ a3374c42aa5f7237e87ff3b0622018636b0c847e tcp: fix FIONREAD/SIOCINQ
 
 ---
- net/ipv4/tcp.c       |   15 ++++++---------
+ net/ipv4/tcp.c       |   22 +++++++++-------------
  net/ipv4/tcp_input.c |    6 +++---
- 2 files changed, 9 insertions(+), 12 deletions(-)
+ 2 files changed, 12 insertions(+), 16 deletions(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
+@@ -479,10 +479,9 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 
+ 			answ = tp->rcv_nxt - tp->copied_seq;
+ 
+-			/* Subtract 1, if FIN is in queue. */
+-			if (answ && !skb_queue_empty(&sk->sk_receive_queue))
+-				answ -=
+-		       tcp_hdr((struct sk_buff *)sk->sk_receive_queue.prev)->fin;
++			/* Subtract 1, if FIN was received */
++			if (answ && sock_flag(sk, SOCK_DONE))
++				answ--;
+ 		} else
+ 			answ = tp->urg_seq - tp->copied_seq;
+ 		release_sock(sk);
 @@ -830,8 +830,8 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
  	return mss_now;
  }
