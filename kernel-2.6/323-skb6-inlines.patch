@@ -216,7 +216,7 @@ diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
  /**
   *	__skb_dequeue - remove from the head of the queue
   *	@list: list to dequeue from
-@@ -728,65 +845,13 @@ static inline void __skb_queue_tail(stru
+@@ -728,64 +845,13 @@ static inline void __skb_queue_tail(stru
  extern struct sk_buff *skb_dequeue(struct sk_buff_head *list);
  static inline struct sk_buff *__skb_dequeue(struct sk_buff_head *list)
  {
@@ -263,7 +263,6 @@ diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
 -{
 -	__skb_insert(newsk, old, old->next, list);
 -}
--
 -
 -/*
 - * remove sk_buff from list. _Must_ be called atomically, and with
