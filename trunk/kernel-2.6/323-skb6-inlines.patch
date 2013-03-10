@@ -7,10 +7,11 @@ skbuff: inlines backport from 2.6.32.21
  7de6c033367ab86f39c7723392caf73325cbf286 [SKB]: __skb_append = __skb_queue_after
 
 ---
- include/linux/skbuff.h |  214 ++++++++++++++++++++++++++++++++-----------------
+ include/linux/skbuff.h |  213 ++++++++++++++++++++++++++++++++-----------------
+ include/net/tcp.h      |    2 
  net/core/skbuff.c      |    2 
  net/ipv4/tcp_input.c   |    2 
- 3 files changed, 143 insertions(+), 75 deletions(-)
+ 4 files changed, 144 insertions(+), 75 deletions(-)
 
 diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
 --- a/include/linux/skbuff.h
@@ -285,6 +286,18 @@ diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
  /* XXX: more streamlined implementation */
  
  /**
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1317,7 +1317,7 @@ static inline void tcp_insert_write_queue_after(struct sk_buff *skb,
+ 						struct sk_buff *buff,
+ 						struct sock *sk)
+ {
+-	__skb_append(skb, buff, &sk->sk_write_queue);
++	__skb_queue_after(&sk->sk_write_queue, skb, buff);
+ }
+ 
+ /* Insert skb between prev and next on the write queue of sk.  */
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
