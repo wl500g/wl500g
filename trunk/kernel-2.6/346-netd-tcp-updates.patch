@@ -1,11 +1,12 @@
+ 374e7b59498ce0785b3727794b351221528a5159 tcp: fix a size_t < 0 comparison in tcp_read_sock
  64022d0b4e93ea432e95db55a72b8a1c5775f3c0 tcp: fix crashes in do_tcp_sendpages()
  aab2b4bf224ef8358d262f95b568b8ad0cecf0a0 tcp: fix double-counted receiver RTT when leaving receiver fast path
  a3374c42aa5f7237e87ff3b0622018636b0c847e tcp: fix FIONREAD/SIOCINQ
 
 ---
- net/ipv4/tcp.c       |   22 +++++++++-------------
+ net/ipv4/tcp.c       |   25 +++++++++++--------------
  net/ipv4/tcp_input.c |    6 +++---
- 2 files changed, 12 insertions(+), 16 deletions(-)
+ 2 files changed, 14 insertions(+), 17 deletions(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c
@@ -69,6 +70,16 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  	TCP_CHECK_TIMER(sk);
  	release_sock(sk);
  	return res;
+@@ -1266,7 +1266,8 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+ 		return -ENOTCONN;
+ 	while ((skb = tcp_recv_skb(sk, seq, &offset)) != NULL) {
+ 		if (offset < skb->len) {
+-			size_t used, len;
++			int used;
++			size_t len;
+ 
+ 			len = skb->len - offset;
+ 			/* Stop reading if we hit a patch of urgent data */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
