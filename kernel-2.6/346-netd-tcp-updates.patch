@@ -1,18 +1,104 @@
  374e7b59498ce0785b3727794b351221528a5159 tcp: fix a size_t < 0 comparison in tcp_read_sock
+ b5860bbac7be1381626f3dc8a0cb970a60fcefb4 [TCP]: Tighten tcp_sock's belt, drop left_out
+ 83ae40885f33e406c87c86b0bd4b6fd31a741f12 [TCP]: Add tcp_left_out(tp) "back" to get cleaner looking lines
+ 005903bc3a0e8473fef809e8775db52dcd3cde63 [TCP]: Left out sync->verify (the new meaning of it) & definify
+ 86426c22d24e0c904012711a14cb5021f4a167dc [TCP]: Restore over-zealous tcp_sync_left_out-like removals
+ d02596e32925edaeccee0af8eb6c229b5615de42 [TCP]: Keep state in Disorder also if only lost_out > 0
+ 7adc3830f90df04a13366914d80a3ed407db5381 [TCP]: Improve ipv4 established hash function.
+ 4b749440445ebcb6fad402fc762bc35af871f689 tcp: Make prior_ssthresh a u32
+ 8aca6cb1179ed9bef9351028c8d8af852903eae2 tcp: Fix inconsistency source (CA_Open only when !tcp_left_out(tp))
  64022d0b4e93ea432e95db55a72b8a1c5775f3c0 tcp: fix crashes in do_tcp_sendpages()
  aab2b4bf224ef8358d262f95b568b8ad0cecf0a0 tcp: fix double-counted receiver RTT when leaving receiver fast path
  a3374c42aa5f7237e87ff3b0622018636b0c847e tcp: fix FIONREAD/SIOCINQ
 
 ---
- net/ipv4/tcp.c       |   25 +++++++++++--------------
- net/ipv4/tcp_input.c |    6 +++---
- 2 files changed, 14 insertions(+), 17 deletions(-)
+ include/linux/tcp.h      |    3 --
+ include/net/inet_sock.h  |    3 +-
+ include/net/tcp.h        |   16 ++++++-----
+ net/ipv4/tcp.c           |   25 ++++++++----------
+ net/ipv4/tcp_input.c     |   64 +++++++++++++++++++++++++----------------------
+ net/ipv4/tcp_minisocks.c |    1 
+ net/ipv4/tcp_output.c    |   16 +++--------
+ 7 files changed, 63 insertions(+), 65 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -479,10 +479,9 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+diff -urBp a/include/linux/tcp.h b/include/linux/tcp.h
+--- a/include/linux/tcp.h	2008-02-26 02:59:40.000000000 +0300
++++ b/include/linux/tcp.h	2013-03-11 14:52:03.000000000 +0300
+@@ -304,7 +304,6 @@ struct tcp_sock {
+ 	u32	rtt_seq;	/* sequence number to update rttvar	*/
  
+ 	u32	packets_out;	/* Packets which are "in flight"	*/
+-	u32	left_out;	/* Packets which leaved network	*/
+ 	u32	retrans_out;	/* Retransmitted packets out		*/
+ /*
+  *      Options received (usually on last packet, some only on SYN packets).
+@@ -355,7 +355,7 @@ struct tcp_sock {
+ 	u32	lost_retrans_low;	/* Sent seq after any rxmit (lowest) */
+ 
+ 	u16	advmss;		/* Advertised MSS			*/
+-	u16	prior_ssthresh; /* ssthresh saved at recovery start	*/
++	u32	prior_ssthresh; /* ssthresh saved at recovery start	*/
+ 	u32	lost_out;	/* Lost packets			*/
+ 	u32	sacked_out;	/* SACK'd packets			*/
+ 	u32	fackets_out;	/* FACK'd packets			*/
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -175,7 +175,8 @@ extern void build_ehash_secret(void);
+ static inline unsigned int inet_ehashfn(const __be32 laddr, const __u16 lport,
+ 					const __be32 faddr, const __be16 fport)
+ {
+-	return jhash_2words((__force __u32) laddr ^ (__force __u32) faddr,
++	return jhash_3words((__force __u32) laddr,
++			    (__force __u32) faddr,
+ 			    ((__u32) lport) << 16 | (__force __u32)fport,
+ 			    inet_ehash_secret);
+ }
+diff -urBp a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h	2013-03-11 03:00:00.000000000 +0300
++++ b/include/net/tcp.h	2013-03-11 14:52:17.000000000 +0300
+@@ -721,6 +721,11 @@ static inline void tcp_ca_event(struct s
+ 		icsk->icsk_ca_ops->cwnd_event(sk, event);
+ }
+ 
++static inline unsigned int tcp_left_out(const struct tcp_sock *tp)
++{
++	return tp->sacked_out + tp->lost_out;
++}
++
+ /* This determines how many packets are "in the network" to the best
+  * of our knowledge.  In many cases it is conservative, but where
+  * detailed information is available from the receiver (via SACK
+@@ -737,7 +742,7 @@ static inline void tcp_ca_event(struct s
+  */
+ static inline unsigned int tcp_packets_in_flight(const struct tcp_sock *tp)
+ {
+-	return (tp->packets_out - tp->left_out + tp->retrans_out);
++	return tp->packets_out - tcp_left_out(tp) + tp->retrans_out;
+ }
+ 
+ /* If cwnd > ssthresh, we may raise ssthresh to be half-way to cwnd.
+@@ -755,12 +760,9 @@ static inline __u32 tcp_current_ssthresh
+ 			    (tp->snd_cwnd >> 2)));
+ }
+ 
+-static inline void tcp_sync_left_out(struct tcp_sock *tp)
+-{
+-	WARN_ON(tp->rx_opt.sack_ok &&
+-	       (tp->sacked_out + tp->lost_out > tp->packets_out));
+-	tp->left_out = tp->sacked_out + tp->lost_out;
+-}
++/* Use define here intentionally to get BUG_ON location shown at the caller */
++#define tcp_verify_left_out(tp) \
++	WARN_ON(tp->rx_opt.sack_ok && (tcp_left_out(tp) > tp->packets_out))
+ 
+ /*
+  * Convert RFC 3390 larger initial window into an equivalent number of packets.
+diff -urBp a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	2013-03-11 03:00:00.000000000 +0300
++++ b/net/ipv4/tcp.c	2013-03-11 14:51:22.000000000 +0300
+@@ -479,10 +479,9 @@ int tcp_ioctl(struct sock *sk, int cmd, 
+ 			 !before(tp->urg_seq, tp->rcv_nxt)) {
  			answ = tp->rcv_nxt - tp->copied_seq;
  
 -			/* Subtract 1, if FIN is in queue. */
@@ -25,8 +111,8 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  		} else
  			answ = tp->urg_seq - tp->copied_seq;
  		release_sock(sk);
-@@ -830,8 +830,8 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
- 	return mss_now;
+@@ -705,8 +704,8 @@ struct sk_buff *sk_stream_alloc_skb(stru
+ 	return NULL;
  }
  
 -static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffset,
@@ -36,7 +122,7 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  {
  	struct tcp_sock *tp = tcp_sk(sk);
  	int mss_now, size_goal;
-@@ -858,12 +858,9 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffse
+@@ -729,12 +728,9 @@ static ssize_t do_tcp_sendpages(struct s
  	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
  		goto do_error;
  
@@ -49,9 +135,9 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 -		int size = min_t(size_t, psize, PAGE_SIZE - offset);
  
  		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0) {
- 
-@@ -912,8 +909,8 @@ new_segment:
- 			TCP_SKB_CB(skb)->tcp_flags &= ~TCPHDR_PSH;
+ new_segment:
+@@ -782,8 +778,8 @@ new_segment:
+ 			TCP_SKB_CB(skb)->flags &= ~TCPCB_FLAG_PSH;
  
  		copied += copy;
 -		poffset += copy;
@@ -61,7 +147,7 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  			goto out;
  
  		if (skb->len < size_goal || (flags & MSG_OOB))
-@@ -960,7 +957,7 @@ int tcp_sendpage(struct sock *sk, struct page *page, int offset,
+@@ -833,7 +829,7 @@ ssize_t tcp_sendpage(struct socket *sock
  
  	lock_sock(sk);
  	TCP_CHECK_TIMER(sk);
@@ -70,7 +156,7 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  	TCP_CHECK_TIMER(sk);
  	release_sock(sk);
  	return res;
-@@ -1266,7 +1266,8 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+@@ -1271,7 +1267,8 @@ int tcp_read_sock(struct sock *sk, read_
  		return -ENOTCONN;
  	while ((skb = tcp_recv_skb(sk, seq, &offset)) != NULL) {
  		if (offset < skb->len) {
@@ -80,10 +166,190 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  
  			len = skb->len - offset;
  			/* Stop reading if we hit a patch of urgent data */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4485,6 +4485,9 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+diff -urBp a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c	2013-03-11 03:00:00.000000000 +0300
++++ b/net/ipv4/tcp_input.c	2013-03-11 14:52:34.000000000 +0300
+@@ -1255,7 +1255,7 @@ tcp_sacktag_write_queue(struct sock *sk,
+ 		}
+ 	}
+ 
+-	tp->left_out = tp->sacked_out + tp->lost_out;
++	tcp_verify_left_out(tp);
+ 
+ 	if ((reord < tp->fackets_out) && icsk->icsk_ca_state != TCP_CA_Loss &&
+ 	    (!tp->frto_highmark || after(tp->snd_una, tp->frto_highmark)))
+@@ -1363,7 +1363,7 @@ void tcp_enter_frto(struct sock *sk)
+ 		TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_RETRANS;
+ 		tp->retrans_out -= tcp_skb_pcount(skb);
+ 	}
+-	tcp_sync_left_out(tp);
++	tcp_verify_left_out(tp);
+ 
+ 	/* Earlier loss recovery underway (see RFC4138; Appendix B).
+ 	 * The last condition is necessary at least in tp->frto_counter case.
+@@ -1428,7 +1428,7 @@ static void tcp_enter_frto_loss(struct s
+ 			tp->fackets_out = cnt;
+ 		}
+ 	}
+-	tcp_sync_left_out(tp);
++	tcp_verify_left_out(tp);
+ 
+ 	tp->snd_cwnd = tcp_packets_in_flight(tp) + allowed_segments;
+ 	tp->snd_cwnd_cnt = 0;
+@@ -1447,7 +1447,6 @@ static void tcp_enter_frto_loss(struct s
+ 
+ void tcp_clear_retrans(struct tcp_sock *tp)
+ {
+-	tp->left_out = 0;
+ 	tp->retrans_out = 0;
+ 
+ 	tp->fackets_out = 0;
+@@ -1504,7 +1503,7 @@ void tcp_enter_loss(struct sock *sk, int
+ 			tp->fackets_out = cnt;
+ 		}
+ 	}
+-	tcp_sync_left_out(tp);
++	tcp_verify_left_out(tp);
+ 
+ 	tp->reordering = min_t(unsigned int, tp->reordering,
+ 					     sysctl_tcp_reordering);
+@@ -1717,7 +1716,7 @@ static void tcp_add_reno_sack(struct soc
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	tp->sacked_out++;
+ 	tcp_check_reno_reordering(sk, 0);
+-	tcp_sync_left_out(tp);
++	tcp_verify_left_out(tp);
+ }
+ 
+ /* Account for ACK, ACKing some data in Reno Recovery phase. */
+@@ -1734,13 +1733,12 @@ static void tcp_remove_reno_sacks(struct
+ 			tp->sacked_out -= acked-1;
+ 	}
+ 	tcp_check_reno_reordering(sk, acked);
+-	tcp_sync_left_out(tp);
++	tcp_verify_left_out(tp);
+ }
+ 
+ static inline void tcp_reset_reno_sack(struct tcp_sock *tp)
+ {
+ 	tp->sacked_out = 0;
+-	tp->left_out = tp->lost_out;
+ }
+ 
+ /* Mark head of queue up as lost. */
+@@ -1806,7 +1804,7 @@ static void tcp_mark_head_lost(struct so
+ 
+ 		}
+ 	}
+-	tcp_sync_left_out(tp);
++	tcp_verify_left_out(tp);
+ }
+ 
+ /* Account newly detected lost packet(s) */
+@@ -1856,7 +1854,7 @@ static void tcp_update_scoreboard(struct
+ 
+ 		tp->scoreboard_skb_hint = skb;
+ 
+-		tcp_sync_left_out(tp);
++		tcp_verify_left_out(tp);
+ 	}
+ }
+ 
+@@ -1920,7 +1918,7 @@ static void DBGUNDO(struct sock *sk, con
+ 	printk(KERN_DEBUG "Undo %s %u.%u.%u.%u/%u c%u l%u ss%u/%u p%u\n",
+ 	       msg,
+ 	       NIPQUAD(inet->daddr), ntohs(inet->dport),
+-	       tp->snd_cwnd, tp->left_out,
++	       tp->snd_cwnd, tcp_left_out(tp),
+ 	       tp->snd_ssthresh, tp->prior_ssthresh,
+ 	       tp->packets_out);
+ }
+@@ -2049,7 +2047,6 @@ static int tcp_try_undo_loss(struct sock
+ 
+ 		DBGUNDO(sk, "partial loss");
+ 		tp->lost_out = 0;
+-		tp->left_out = tp->sacked_out;
+ 		tcp_undo_cwr(sk, 1);
+ 		NET_INC_STATS_BH(LINUX_MIB_TCPLOSSUNDO);
+ 		inet_csk(sk)->icsk_retransmits = 0;
+@@ -2069,11 +2066,25 @@ static inline void tcp_complete_cwr(stru
+ 	tcp_ca_event(sk, CA_EVENT_COMPLETE_CWR);
+ }
+ 
++static void tcp_try_keep_open(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	int state = TCP_CA_Open;
++
++	if (tcp_left_out(tp) || tp->retrans_out || tp->undo_marker)
++		state = TCP_CA_Disorder;
++
++	if (inet_csk(sk)->icsk_ca_state != state) {
++		tcp_set_ca_state(sk, state);
++		tp->high_seq = tp->snd_nxt;
++	}
++}
++
+ static void tcp_try_to_open(struct sock *sk, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+-	tcp_sync_left_out(tp);
++	tcp_verify_left_out(tp);
+ 
+ 	if (tp->retrans_out == 0)
+ 		tp->retrans_stamp = 0;
+@@ -2082,15 +2093,7 @@ static void tcp_try_to_open(struct sock 
+ 		tcp_enter_cwr(sk, 1);
+ 
+ 	if (inet_csk(sk)->icsk_ca_state != TCP_CA_CWR) {
+-		int state = TCP_CA_Open;
+-
+-		if (tp->left_out || tp->retrans_out || tp->undo_marker)
+-			state = TCP_CA_Disorder;
+-
+-		if (inet_csk(sk)->icsk_ca_state != state) {
+-			tcp_set_ca_state(sk, state);
+-			tp->high_seq = tp->snd_nxt;
+-		}
++		tcp_try_keep_open(sk);
+ 		tcp_moderate_cwnd(tp);
+ 	} else {
+ 		tcp_cwnd_down(sk, flag);
+@@ -2172,8 +2175,8 @@ tcp_fastretrans_alert(struct sock *sk, u
+ 		NET_INC_STATS_BH(LINUX_MIB_TCPLOSS);
+ 	}
+ 
+-	/* D. Synchronize left_out to current state. */
+-	tcp_sync_left_out(tp);
++	/* D. Check consistency of the current state. */
++	tcp_verify_left_out(tp);
+ 
+ 	/* E. Check state exit conditions. State can be terminated
+ 	 *    when high_seq is ACKed. */
+@@ -2706,7 +2709,7 @@ static int tcp_process_frto(struct sock 
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+-	tcp_sync_left_out(tp);
++	tcp_verify_left_out(tp);
+ 
+ 	/* Duplicate the behavior from Loss state (fastretrans_alert) */
+ 	if (flag&FLAG_DATA_ACKED)
+@@ -2888,8 +2891,11 @@ no_queue:
+ 	return 1;
+ 
+ old_ack:
+-	if (TCP_SKB_CB(skb)->sacked)
++	if (TCP_SKB_CB(skb)->sacked) {
+ 		tcp_sacktag_write_queue(sk, skb, prior_snd_una);
++		if (icsk->icsk_ca_state == TCP_CA_Open)
++			tcp_try_keep_open(sk);
++	}
+ 
+ uninteresting_ack:
+ 	SOCK_DEBUG(sk, "Ack %u out of %u:%u\n", ack, tp->snd_una, tp->snd_nxt);
+@@ -4355,6 +4361,9 @@ int tcp_rcv_established(struct sock *sk,
  				if (tcp_checksum_complete_user(sk, skb))
  					goto csum_error;
  
@@ -93,7 +359,7 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  				/* Predicted packet is in window by definition.
  				 * seq == rcv_nxt and rcv_wup <= rcv_nxt.
  				 * Hence, check seq<=rcv_wup reduces to:
-@@ -4496,9 +4499,6 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+@@ -4366,9 +4375,6 @@ int tcp_rcv_established(struct sock *sk,
  
  				tcp_rcv_rtt_measure_ts(sk, skb);
  
@@ -103,4 +369,66 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  				NET_INC_STATS_BH(LINUX_MIB_TCPHPHITS);
  
  				/* Bulk data transfer: receiver */
+diff -urBp a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+--- a/net/ipv4/tcp_minisocks.c	2013-03-11 03:00:00.000000000 +0300
++++ b/net/ipv4/tcp_minisocks.c	2013-03-11 14:52:03.000000000 +0300
+@@ -399,7 +399,6 @@ struct sock *tcp_create_openreq_child(st
+ 		newicsk->icsk_rto = TCP_TIMEOUT_INIT;
+ 
+ 		newtp->packets_out = 0;
+-		newtp->left_out = 0;
+ 		newtp->retrans_out = 0;
+ 		newtp->sacked_out = 0;
+ 		newtp->fackets_out = 0;
+diff -urBp a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c	2013-03-11 03:00:00.000000000 +0300
++++ b/net/ipv4/tcp_output.c	2013-03-11 14:52:17.000000000 +0300
+@@ -678,10 +678,8 @@ int tcp_fragment(struct sock *sk, struct
+ 		if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS)
+ 			tp->retrans_out -= diff;
+ 
+-		if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST) {
++		if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
+ 			tp->lost_out -= diff;
+-			tp->left_out -= diff;
+-		}
+ 
+ 		if (diff > 0) {
+ 			/* Adjust Reno SACK estimate. */
+@@ -689,7 +687,7 @@ int tcp_fragment(struct sock *sk, struct
+ 				tp->sacked_out -= diff;
+ 				if ((int)tp->sacked_out < 0)
+ 					tp->sacked_out = 0;
+-				tcp_sync_left_out(tp);
++				tcp_verify_left_out(tp);
+ 			}
+ 
+ 			tp->fackets_out -= diff;
+@@ -1651,15 +1649,11 @@ static void tcp_retrans_try_collapse(str
+ 		TCP_SKB_CB(skb)->sacked |= TCP_SKB_CB(next_skb)->sacked&(TCPCB_EVER_RETRANS|TCPCB_AT_TAIL);
+ 		if (TCP_SKB_CB(next_skb)->sacked&TCPCB_SACKED_RETRANS)
+ 			tp->retrans_out -= tcp_skb_pcount(next_skb);
+-		if (TCP_SKB_CB(next_skb)->sacked&TCPCB_LOST) {
++		if (TCP_SKB_CB(next_skb)->sacked&TCPCB_LOST)
+ 			tp->lost_out -= tcp_skb_pcount(next_skb);
+-			tp->left_out -= tcp_skb_pcount(next_skb);
+-		}
+ 		/* Reno case is special. Sigh... */
+-		if (!tp->rx_opt.sack_ok && tp->sacked_out) {
++		if (!tp->rx_opt.sack_ok && tp->sacked_out)
+ 			tcp_dec_pcount_approx(&tp->sacked_out, next_skb);
+-			tp->left_out -= tcp_skb_pcount(next_skb);
+-		}
+ 
+ 		/* Not quite right: it can be > snd.fack, but
+ 		 * it is better to underestimate fackets.
+@@ -1704,7 +1698,7 @@ void tcp_simple_retransmit(struct sock *
+ 	if (!lost)
+ 		return;
+ 
+-	tcp_sync_left_out(tp);
++	tcp_verify_left_out(tp);
+ 
+ 	/* Don't muck with the congestion window here.
+ 	 * Reason is that we do not increase amount of _data_
 -- 
