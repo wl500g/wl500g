@@ -29,12 +29,28 @@
 void synchronize_irq(unsigned int irq)
 {
 	struct irq_desc *desc = irq_desc + irq;
+	unsigned int status;
 
 	if (irq >= NR_IRQS)
 		return;
 
-	while (desc->status & IRQ_INPROGRESS)
-		cpu_relax();
+	do {
+		unsigned long flags;
+
+		/*
+		 * Wait until we're out of the critical section.  This might
+		 * give the wrong answer due to the lack of memory barriers.
+		 */
+		while (desc->status & IRQ_INPROGRESS)
+			cpu_relax();
+
+		/* Ok, that indicated we're done: double-check carefully. */
+		spin_lock_irqsave(&desc->lock, flags);
+		status = desc->status;
+		spin_unlock_irqrestore(&desc->lock, flags);
+
+		/* Oops, that failed? */
+	} while (status & IRQ_INPROGRESS);
 }
 EXPORT_SYMBOL(synchronize_irq);
 
@@ -133,6 +149,26 @@ void disable_irq(unsigned int irq)
 }
 EXPORT_SYMBOL(disable_irq);
 
+static void __enable_irq(struct irq_desc *desc, unsigned int irq)
+{
+	switch (desc->depth) {
+	case 0:
+		printk(KERN_WARNING "Unbalanced enable for IRQ %d\n", irq);
+		WARN_ON(1);
+		break;
+	case 1: {
+		unsigned int status = desc->status & ~IRQ_DISABLED;
+
+		/* Prevent probing on this irq: */
+		desc->status = status | IRQ_NOPROBE;
+		check_irq_resend(desc, irq);
+		/* fall-through */
+	}
+	default:
+		desc->depth--;
+	}
+}
+
 /**
  *	enable_irq - enable handling of an irq
  *	@irq: Interrupt to enable
@@ -152,22 +188,7 @@ void enable_irq(unsigned int irq)
 		return;
 
 	spin_lock_irqsave(&desc->lock, flags);
-	switch (desc->depth) {
-	case 0:
-		printk(KERN_WARNING "Unbalanced enable for IRQ %d\n", irq);
-		WARN_ON(1);
-		break;
-	case 1: {
-		unsigned int status = desc->status & ~IRQ_DISABLED;
-
-		/* Prevent probing on this irq: */
-		desc->status = status | IRQ_NOPROBE;
-		check_irq_resend(desc, irq);
-		/* fall-through */
-	}
-	default:
-		desc->depth--;
-	}
+	__enable_irq(desc, irq);
 	spin_unlock_irqrestore(&desc->lock, flags);
 }
 EXPORT_SYMBOL(enable_irq);
@@ -348,7 +369,7 @@ int setup_irq(unsigned int irq, struct irqaction *new)
 			compat_irq_chip_set_default_handler(desc);
 
 		desc->status &= ~(IRQ_AUTODETECT | IRQ_WAITING |
-				  IRQ_INPROGRESS);
+				  IRQ_INPROGRESS | IRQ_SPURIOUS_DISABLED);
 
 		if (!(desc->status & IRQ_NOAUTOEN)) {
 			desc->depth = 0;
@@ -364,6 +385,16 @@ int setup_irq(unsigned int irq, struct irqaction *new)
 	/* Reset broken irq detection when installing new handler */
 	desc->irq_count = 0;
 	desc->irqs_unhandled = 0;
+
+	/*
+	 * Check whether we disabled the irq via the spurious handler
+	 * before. Reenable it and give it another chance.
+	 */
+	if (shared && (desc->status & IRQ_SPURIOUS_DISABLED)) {
+		desc->status &= ~IRQ_SPURIOUS_DISABLED;
+		__enable_irq(desc, irq);
+	}
+
 	spin_unlock_irqrestore(&desc->lock, flags);
 
 	new->irq = irq;
@@ -405,7 +436,6 @@ void free_irq(unsigned int irq, void *dev_id)
 	struct irq_desc *desc;
 	struct irqaction **p;
 	unsigned long flags;
-	irqreturn_t (*handler)(int, void *) = NULL;
 
 	WARN_ON(in_interrupt());
 	if (irq >= NR_IRQS)
@@ -445,8 +475,21 @@ void free_irq(unsigned int irq, void *dev_id)
 
 			/* Make sure it's not being used on another CPU */
 			synchronize_irq(irq);
-			if (action->flags & IRQF_SHARED)
-				handler = action->handler;
+#ifdef CONFIG_DEBUG_SHIRQ
+			/*
+			 * It's a shared IRQ -- the driver ought to be
+			 * prepared for it to happen even now it's
+			 * being freed, so let's make sure....  We do
+			 * this after actually deregistering it, to
+			 * make sure that a 'real' IRQ doesn't run in
+			 * parallel with our fake
+			 */
+			if (action->flags & IRQF_SHARED) {
+				local_irq_save(flags);
+				action->handler(irq, dev_id);
+				local_irq_restore(flags);
+			}
+#endif
 			kfree(action);
 			return;
 		}
@@ -454,17 +497,6 @@ void free_irq(unsigned int irq, void *dev_id)
 		spin_unlock_irqrestore(&desc->lock, flags);
 		return;
 	}
-#ifdef CONFIG_DEBUG_SHIRQ
-	if (handler) {
-		/*
-		 * It's a shared IRQ -- the driver ought to be prepared for it
-		 * to happen even now it's being freed, so let's make sure....
-		 * We do this after actually deregistering it, to make sure that
-		 * a 'real' IRQ doesn't run in parallel with our fake
-		 */
-		handler(irq, dev_id);
-	}
-#endif
 }
 EXPORT_SYMBOL(free_irq);
 
@@ -524,42 +556,40 @@ int request_irq(unsigned int irq, irq_handler_t handler,
 	if (!handler)
 		return -EINVAL;
 
-	action = kmalloc(sizeof(struct irqaction), GFP_ATOMIC);
+	action = kzalloc(sizeof(struct irqaction), GFP_KERNEL);
 	if (!action)
 		return -ENOMEM;
 
 	action->handler = handler;
 	action->flags = irqflags;
-	cpus_clear(action->mask);
 	action->name = devname;
-	action->next = NULL;
 	action->dev_id = dev_id;
 
 	select_smp_affinity(irq);
+
+	retval = setup_irq(irq, action);
+	if (retval)
+		kfree(action);
 
 #ifdef CONFIG_DEBUG_SHIRQ
 	if (irqflags & IRQF_SHARED) {
 		/*
 		 * It's a shared IRQ -- the driver ought to be prepared for it
 		 * to happen immediately, so let's make sure....
-		 * We do this before actually registering it, to make sure that
-		 * a 'real' IRQ doesn't run in parallel with our fake
+		 * We disable the irq to make sure that a 'real' IRQ doesn't
+		 * run in parallel with our fake.
 		 */
-		if (irqflags & IRQF_DISABLED) {
-			unsigned long flags;
+		unsigned long flags;
 
-			local_irq_save(flags);
-			handler(irq, dev_id);
-			local_irq_restore(flags);
-		} else
-			handler(irq, dev_id);
+		disable_irq(irq);
+		local_irq_save(flags);
+
+		handler(irq, dev_id);
+
+		local_irq_restore(flags);
+		enable_irq(irq);
 	}
 #endif
-
-	retval = setup_irq(irq, action);
-	if (retval)
-		kfree(action);
-
 	return retval;
 }
 EXPORT_SYMBOL(request_irq);
