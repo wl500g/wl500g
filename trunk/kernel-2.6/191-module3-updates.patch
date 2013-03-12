@@ -1,6 +1,7 @@
 module: Updates from upstream
 
  24da1cbff9cfce50868c2dfdcda82a68ac5cb707 modules: remove modlist_lock
+ 256e2fdf033f5c8b5093cd817d44cea3a11a4e6f Fix Off-by-one in /sys/module/*/refcnt
  c9a3ba55bb5da03fc7d707709a7fe078fe1aa0a0 module: wait for dependent modules doing init.
  bb9d3d56e792d2619cc0903df4ac01d86ac1261d module: better OOPS and lockdep coverage for loading modules
  6c5db22d280302c33dafb309c25bf2841fb99c37 modules: fix module waiting for dependent modules' init
@@ -22,8 +23,8 @@ module: Updates from upstream
 ---
  include/linux/module.h |   77 ++---
  init/Kconfig           |    4 
- kernel/module.c        |  697 ++++++++++++++++++++++++++++++++-----------------
- 3 files changed, 492 insertions(+), 286 deletions(-)
+ kernel/module.c        |  700 +++++++++++++++++++++++++++++++------------------
+ 3 files changed, 493 insertions(+), 288 deletions(-)
 
 diff --git a/include/linux/module.h b/include/linux/module.h
 --- a/include/linux/module.h
@@ -621,6 +622,16 @@ diff --git a/kernel/module.c b/kernel/module.c
  }
  EXPORT_SYMBOL(__symbol_put);
  
+@@ -800,8 +860,7 @@ EXPORT_SYMBOL_GPL(symbol_put_addr);
+ static ssize_t show_refcnt(struct module_attribute *mattr,
+ 			   struct module *mod, char *buffer)
+ {
+-	/* sysfs holds a reference */
+-	return sprintf(buffer, "%u\n", module_refcount(mod)-1);
++	return sprintf(buffer, "%u\n", module_refcount(mod));
+ }
+ 
+ static struct module_attribute refcnt = {
 @@ -835,7 +895,7 @@ static inline void module_unload_free(st
  
  static inline int use_module(struct module *a, struct module *b)
