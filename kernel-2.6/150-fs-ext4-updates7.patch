@@ -3,7 +3,6 @@ ext4: Updates from upstream 4
  cad3f00763dcf9dfc62cbddf4bd714ab5a71a0eb ext4: optimize ext4_check_dir_entry() with unlikely() annotations
  09e0834fb0ce1ea2a63885177015bd5d7d2bc22d ext4: fix deadlock in ext4_ordered_write_end()
  29ae07b702cb77dbc24b0843f15ee8cf8a642311 ext4: Fix overflow caused by missing cast in ext4_fallocate()
- 0e499890c1fd9e0a1bed02002161c4c7873d7489 ext4: wait for writeback to complete while making pages writable
  b71fc079b5d8f42b2a52743c8d2f1d35d655b1c5 ext4: fix fdatasync() for files with only i_size changes
  76495ec1d47e1c0fe0673faf9179bda6bc8ab5c2 ext4: fix undefined bit shift result in ext4_fill_flex_info
 
@@ -11,10 +10,10 @@ ext4: Updates from upstream 4
  fs/ext4/dir.c     |   44 +++++++++++++++++++++++++-------------------
  fs/ext4/ext4.h    |    5 ++++-
  fs/ext4/extents.c |    2 +-
- fs/ext4/inode.c   |   36 +++++++++++++++++++++++++++++-------
+ fs/ext4/inode.c   |   12 ++++++++++--
  fs/ext4/namei.c   |   12 +++++-------
  fs/ext4/super.c   |    2 +-
- 6 files changed, 65 insertions(+), 36 deletions(-)
+ 6 files changed, 46 insertions(+), 31 deletions(-)
 
 diff --git a/fs/ext4/dir.c b/fs/ext4/dir.c
 --- a/fs/ext4/dir.c
@@ -163,57 +162,6 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  out_brelse:
  	brelse(bh);
  	ext4_std_error(inode->i_sb, err);
-@@ -5879,15 +5879,19 @@ int ext4_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf)
- 		goto out_unlock;
- 	}
- 	ret = 0;
--	if (PageMappedToDisk(page))
--		goto out_unlock;
-+
-+	lock_page(page);
-+	wait_on_page_writeback(page);
-+	if (PageMappedToDisk(page)) {
-+		up_read(&inode->i_alloc_sem);
-+		return VM_FAULT_LOCKED;
-+	}
- 
- 	if (page->index == size >> PAGE_CACHE_SHIFT)
- 		len = size & ~PAGE_CACHE_MASK;
- 	else
- 		len = PAGE_CACHE_SIZE;
- 
--	lock_page(page);
- 	/*
- 	 * return if we have all the buffers mapped. This avoid
- 	 * the need to call write_begin/write_end which does a
-@@ -5897,8 +5901,8 @@ int ext4_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf)
- 	if (page_has_buffers(page)) {
- 		if (!walk_page_buffers(NULL, page_buffers(page), 0, len, NULL,
- 					ext4_bh_unmapped)) {
--			unlock_page(page);
--			goto out_unlock;
-+			up_read(&inode->i_alloc_sem);
-+			return VM_FAULT_LOCKED;
- 		}
- 	}
- 	unlock_page(page);
-@@ -5918,6 +5922,16 @@ int ext4_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf)
- 	if (ret < 0)
- 		goto out_unlock;
- 	ret = 0;
-+
-+	/*
-+	 * write_begin/end might have created a dirty page and someone
-+	 * could wander in and start the IO.  Make sure that hasn't
-+	 * happened.
-+	 */
-+	lock_page(page);
-+	wait_on_page_writeback(page);
-+	up_read(&inode->i_alloc_sem);
-+	return VM_FAULT_LOCKED;
- out_unlock:
- 	if (ret)
- 		ret = VM_FAULT_SIGBUS;
 diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
 --- a/fs/ext4/namei.c
 +++ b/fs/ext4/namei.c
