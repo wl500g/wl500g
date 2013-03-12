@@ -32,14 +32,14 @@ diff --git a/include/linux/tcp.h b/include/linux/tcp.h
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
 @@ -371,8 +371,6 @@ struct tcp_sock {
+ 	unsigned int		keepalive_time;	  /* time before keep alive takes place */
  	unsigned int		keepalive_intvl;  /* time interval between keep alive probes */
- 	int			linger2;
  
 -	unsigned long last_synq_overflow; 
 -
- 	u32	tso_deferred;
- 
  /* Receiver side RTT estimation */
+ 	struct {
+ 		u32	rtt;
 diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
 --- a/include/net/inet_sock.h
 +++ b/include/net/inet_sock.h

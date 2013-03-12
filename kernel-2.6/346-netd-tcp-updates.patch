@@ -1,4 +1,5 @@
  374e7b59498ce0785b3727794b351221528a5159 tcp: fix a size_t < 0 comparison in tcp_read_sock
+ b79eeeb9e48457579cb742cd02e162fcd673c4a3 tcp: Reorganize tcp_sock to fill 64-bit holes & improve locality
  b5860bbac7be1381626f3dc8a0cb970a60fcefb4 [TCP]: Tighten tcp_sock's belt, drop left_out
  83ae40885f33e406c87c86b0bd4b6fd31a741f12 [TCP]: Add tcp_left_out(tp) "back" to get cleaner looking lines
  005903bc3a0e8473fef809e8775db52dcd3cde63 [TCP]: Left out sync->verify (the new meaning of it) & definify
@@ -12,35 +13,135 @@
  a3374c42aa5f7237e87ff3b0622018636b0c847e tcp: fix FIONREAD/SIOCINQ
 
 ---
- include/linux/tcp.h      |    3 --
+ include/linux/tcp.h      |   55 +++++++++++++++++++---------------------
  include/net/inet_sock.h  |    3 +-
  include/net/tcp.h        |   16 ++++++-----
  net/ipv4/tcp.c           |   25 ++++++++----------
  net/ipv4/tcp_input.c     |   64 +++++++++++++++++++++++++----------------------
  net/ipv4/tcp_minisocks.c |    1 
  net/ipv4/tcp_output.c    |   16 +++--------
- 7 files changed, 63 insertions(+), 65 deletions(-)
+ 7 files changed, 89 insertions(+), 91 deletions(-)
 
-diff -urBp a/include/linux/tcp.h b/include/linux/tcp.h
---- a/include/linux/tcp.h	2008-02-26 02:59:40.000000000 +0300
-+++ b/include/linux/tcp.h	2013-03-11 14:52:03.000000000 +0300
-@@ -304,7 +304,6 @@ struct tcp_sock {
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -296,10 +296,9 @@ struct tcp_sock {
+ 	u32	rcv_ssthresh;	/* Current window clamp			*/
+ 
+ 	u32	frto_highmark;	/* snd_nxt when RTO occurred */
+-	u8	reordering;	/* Packet reordering metric.		*/
++	u16	advmss;		/* Advertised MSS			*/
+ 	u8	frto_counter;	/* Number of new acks after RTO */
+ 	u8	nonagle;	/* Disable Nagle algorithm?             */
+-	u8	keepalive_probes; /* num of allowed keep alive probes	*/
+ 
+ /* RTT measurement */
+ 	u32	srtt;		/* smoothed round trip time << 3	*/
+@@ -310,8 +309,11 @@ struct tcp_sock {
  	u32	rtt_seq;	/* sequence number to update rttvar	*/
  
  	u32	packets_out;	/* Packets which are "in flight"	*/
 -	u32	left_out;	/* Packets which leaved network	*/
  	u32	retrans_out;	/* Retransmitted packets out		*/
++
++	u16	urg_data;	/* Saved octet of OOB data and control flags */
++	u8	urg_mode;	/* In urgent mode		*/
++	u8	ecn_flags;	/* ECN status bits.			*/
  /*
   *      Options received (usually on last packet, some only on SYN packets).
-@@ -355,7 +355,7 @@ struct tcp_sock {
- 	u32	lost_retrans_low;	/* Sent seq after any rxmit (lowest) */
+  */
+@@ -325,13 +328,25 @@ struct tcp_sock {
+ 	u32	snd_cwnd_used;
+ 	u32	snd_cwnd_stamp;
  
- 	u16	advmss;		/* Advertised MSS			*/
+-	struct sk_buff_head	out_of_order_queue; /* Out of order segments go here */
+-
+  	u32	rcv_wnd;	/* Current receiver window		*/
+ 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
+ 	u32	pushed_seq;	/* Last pushed seq, required to talk to windows */
++	u32	lost_out;	/* Lost packets			*/
++	u32	sacked_out;	/* SACK'd packets			*/
++	u32	fackets_out;	/* FACK'd packets			*/
++	u32	tso_deferred;
++	u32	bytes_acked;	/* Appropriate Byte Counting - RFC3465 */
+ 
+-/*	SACKs data	*/
++	/* from STCP, retrans queue hinting */
++	struct sk_buff* lost_skb_hint;
++	struct sk_buff *scoreboard_skb_hint;
++	struct sk_buff *retransmit_skb_hint;
++	struct sk_buff *forward_skb_hint;
++	struct sk_buff *fastpath_skb_hint;
++
++	struct sk_buff_head	out_of_order_queue; /* Out of order segments go here */
++
++	/* SACKs data, these 2 need to be together (see tcp_build_and_update_options) */
+ 	struct tcp_sack_block duplicate_sack[1]; /* D-SACK block */
+ 	struct tcp_sack_block selective_acks[4]; /* The SACKS themselves*/
+ 
+@@ -342,24 +356,14 @@ struct tcp_sock {
+ 
+ 	struct tcp_sack_block_wire recv_sack_cache[4];
+ 
+-	/* from STCP, retrans queue hinting */
+-	struct sk_buff* lost_skb_hint;
+-
+-	struct sk_buff *scoreboard_skb_hint;
+-	struct sk_buff *retransmit_skb_hint;
+-	struct sk_buff *forward_skb_hint;
+-	struct sk_buff *fastpath_skb_hint;
+-
+ 	int     fastpath_cnt_hint;
+ 	int     lost_cnt_hint;
+ 	int     retransmit_cnt_hint;
+ 	int     forward_cnt_hint;
+ 
+-	u16	advmss;		/* Advertised MSS			*/
 -	u16	prior_ssthresh; /* ssthresh saved at recovery start	*/
+-	u32	lost_out;	/* Lost packets			*/
+-	u32	sacked_out;	/* SACK'd packets			*/
+-	u32	fackets_out;	/* FACK'd packets			*/
++	u8	reordering;	/* Packet reordering metric.		*/
++	u8	keepalive_probes; /* num of allowed keep alive probes	*/
 +	u32	prior_ssthresh; /* ssthresh saved at recovery start	*/
- 	u32	lost_out;	/* Lost packets			*/
- 	u32	sacked_out;	/* SACK'd packets			*/
- 	u32	fackets_out;	/* FACK'd packets			*/
+ 	u32	high_seq;	/* snd_nxt at onset of congestion	*/
+ 
+ 	u32	retrans_stamp;	/* Timestamp of the last retransmit,
+@@ -366,23 +371,16 @@ struct tcp_sock {
+ 				 * the first SYN. */
+ 	u32	undo_marker;	/* tracking retrans started here. */
+ 	int	undo_retrans;	/* number of undoable retransmissions. */
++	u32	total_retrans;	/* Total retransmits for entire connection */
++
+ 	u32	urg_seq;	/* Seq of received urgent pointer */
+-	u16	urg_data;	/* Saved octet of OOB data and control flags */
+-	u8	urg_mode;	/* In urgent mode		*/
+-	u8	ecn_flags;	/* ECN status bits.			*/
+ 	u32	snd_up;		/* Urgent pointer		*/
+ 
+-	u32	total_retrans;	/* Total retransmits for entire connection */
+-	u32	bytes_acked;	/* Appropriate Byte Counting - RFC3465 */
+-
+ 	unsigned int		keepalive_time;	  /* time before keep alive takes place */
+ 	unsigned int		keepalive_intvl;  /* time interval between keep alive probes */
+-	int			linger2;
+ 
+ 	unsigned long last_synq_overflow; 
+ 
+-	u32	tso_deferred;
+-
+ /* Receiver side RTT estimation */
+ 	struct {
+ 		u32	rtt;
+@@ -412,6 +410,8 @@ struct tcp_sock {
+ /* TCP MD5 Signagure Option information */
+ 	struct tcp_md5sig_info	*md5sig_info;
+ #endif
++
++	int			linger2;
+ };
+ 
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
 diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
 --- a/include/net/inet_sock.h
 +++ b/include/net/inet_sock.h
@@ -54,9 +155,9 @@ diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
  			    ((__u32) lport) << 16 | (__force __u32)fport,
  			    inet_ehash_secret);
  }
-diff -urBp a/include/net/tcp.h b/include/net/tcp.h
---- a/include/net/tcp.h	2013-03-11 03:00:00.000000000 +0300
-+++ b/include/net/tcp.h	2013-03-11 14:52:17.000000000 +0300
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
 @@ -721,6 +721,11 @@ static inline void tcp_ca_event(struct s
  		icsk->icsk_ca_ops->cwnd_event(sk, event);
  }
@@ -94,9 +195,9 @@ diff -urBp a/include/net/tcp.h b/include/net/tcp.h
  
  /*
   * Convert RFC 3390 larger initial window into an equivalent number of packets.
-diff -urBp a/net/ipv4/tcp.c b/net/ipv4/tcp.c
---- a/net/ipv4/tcp.c	2013-03-11 03:00:00.000000000 +0300
-+++ b/net/ipv4/tcp.c	2013-03-11 14:51:22.000000000 +0300
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
 @@ -479,10 +479,9 @@ int tcp_ioctl(struct sock *sk, int cmd, 
  			 !before(tp->urg_seq, tp->rcv_nxt)) {
  			answ = tp->rcv_nxt - tp->copied_seq;
@@ -166,9 +267,9 @@ diff -urBp a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  
  			len = skb->len - offset;
  			/* Stop reading if we hit a patch of urgent data */
-diff -urBp a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
---- a/net/ipv4/tcp_input.c	2013-03-11 03:00:00.000000000 +0300
-+++ b/net/ipv4/tcp_input.c	2013-03-11 14:52:34.000000000 +0300
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
 @@ -1255,7 +1255,7 @@ tcp_sacktag_write_queue(struct sock *sk,
  		}
  	}
@@ -369,9 +470,9 @@ diff -urBp a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  				NET_INC_STATS_BH(LINUX_MIB_TCPHPHITS);
  
  				/* Bulk data transfer: receiver */
-diff -urBp a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
---- a/net/ipv4/tcp_minisocks.c	2013-03-11 03:00:00.000000000 +0300
-+++ b/net/ipv4/tcp_minisocks.c	2013-03-11 14:52:03.000000000 +0300
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
 @@ -399,7 +399,6 @@ struct sock *tcp_create_openreq_child(st
  		newicsk->icsk_rto = TCP_TIMEOUT_INIT;
  
@@ -380,9 +481,9 @@ diff -urBp a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
  		newtp->retrans_out = 0;
  		newtp->sacked_out = 0;
  		newtp->fackets_out = 0;
-diff -urBp a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
---- a/net/ipv4/tcp_output.c	2013-03-11 03:00:00.000000000 +0300
-+++ b/net/ipv4/tcp_output.c	2013-03-11 14:52:17.000000000 +0300
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
 @@ -678,10 +678,8 @@ int tcp_fragment(struct sock *sk, struct
  		if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS)
  			tp->retrans_out -= diff;
