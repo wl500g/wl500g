@@ -1,0 +1,48 @@
+ 014483bcccc5edbf861d89dc1a6f7cdc02f9f4c0 mm: mark mm-inline functions as __always_inline
+
+---
+ include/linux/mm_inline.h |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
+--- a/include/linux/mm_inline.h
++++ b/include/linux/mm_inline.h
+@@ -1,32 +1,32 @@
+-static inline void
++static __always_inline void
+ add_page_to_active_list(struct zone *zone, struct page *page)
+ {
+ 	list_add(&page->lru, &zone->active_list);
+ 	__inc_zone_state(zone, NR_ACTIVE);
+ }
+ 
+-static inline void
++static __always_inline void
+ add_page_to_inactive_list(struct zone *zone, struct page *page)
+ {
+ 	list_add(&page->lru, &zone->inactive_list);
+ 	__inc_zone_state(zone, NR_INACTIVE);
+ }
+ 
+-static inline void
++static __always_inline void
+ del_page_from_active_list(struct zone *zone, struct page *page)
+ {
+ 	list_del(&page->lru);
+ 	__dec_zone_state(zone, NR_ACTIVE);
+ }
+ 
+-static inline void
++static __always_inline void
+ del_page_from_inactive_list(struct zone *zone, struct page *page)
+ {
+ 	list_del(&page->lru);
+ 	__dec_zone_state(zone, NR_INACTIVE);
+ }
+ 
+-static inline void
++static __always_inline void
+ del_page_from_lru(struct zone *zone, struct page *page)
+ {
+ 	list_del(&page->lru);
+-- 
