@@ -35,7 +35,7 @@
 #ifdef RC_SEMAPHORE_ENABLED
 int hotplug_check_prev_zerocd_processed(const char *product, const char *device)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char str_devusb[100];
 	int found = 0, unit;
 	char *dev_vidpid;
@@ -78,7 +78,7 @@ int hotplug_check_prev_zerocd_processed(const char *product, const char *device)
 
 void hotplug_release_zerocd_processed(const char *product, const char *device)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char str_devusb[100];
 	int unit;
 	char *dev_vidpid;
@@ -620,6 +620,13 @@ int parse_product_string(const char *product, int *vid, int *pid)
 }
 
 
+static void modem_load_drivers()
+{
+	if (!exists("/sys/module/usbserial")) insmod("usbserial", NULL);
+	if (!exists("/sys/module/cdc-acm")) insmod("cdc-acm", NULL);
+	if (!exists("/sys/module/option")) insmod("option", NULL);
+}
+
 /// wait for device appearance in /proc/bus/usb/devices
 int wait_for_dev_appearance(int vid, int pid, const char *device, const char *driver_list[])
 {
@@ -771,9 +778,7 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 
 	if (ret && found_dev) {
 		nvram_set(strcat_r(prefix, "usb_device_name", tmp), found_dev->prod);
-		if (!exists("/sys/module/usbserial")) insmod("usbserial", NULL);
-		if (!exists("/sys/module/cdc-acm")) insmod("cdc-acm", NULL);
-		if (!exists("/sys/module/option")) insmod("option", NULL);
+		modem_load_drivers();
 
 		const char *driver_list[] = {"option", "cdc-acm", NULL};
 

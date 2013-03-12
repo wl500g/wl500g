@@ -630,7 +630,7 @@ static void
 set_wan0_vars(void)
 {
 	int unit;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	
 	/* check if there are any connections configured */
 	for (unit = 0; unit < MAX_NVPARSE; unit ++) {
@@ -1003,21 +1003,15 @@ main(int argc, char **argv)
 	/* hotplug [event] */
 	else if (!strcmp(base, "hotplug")) {
 		if (argc >= 2) {
-		#ifdef LINUX26
 			eval("/sbin/mdev");
 		#if defined(__CONFIG_MODEM__) && defined(RC_SEMAPHORE_ENABLED)
 			if (!strcmp(argv[1], "usb-serial"))
 				return usb_communication_device_processcheck(1);
 		#endif
-		#endif
 			if (!strcmp(argv[1], "net"))
 				return hotplug_net();
 #ifdef ASUS_EXT
-		#ifdef LUNUX26
 			else if (!strcmp(argv[1], "usb"))
-		#else
-			else if (!strcmp(argv[1], "usb") || !strcmp(argv[1], "block"))
-		#endif
 				return hotplug_usb();
 #endif
 		} else {

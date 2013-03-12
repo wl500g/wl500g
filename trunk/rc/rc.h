@@ -49,6 +49,8 @@ enum {
 	WAN_USBNET,
 };
 
+#define WAN_PREFIX_SZ	sizeof("wanXXXXXXXXXX_")
+
 /* common */
 in_addr_t ip_addr(const char *cp);
 void ip2class(const char *lan_ip, const char *netmask, char *buf);

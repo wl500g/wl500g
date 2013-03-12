@@ -738,10 +738,8 @@ static int start_nfsd(void)
 	/* create directories/files */
 	mkdir("/var/lib", 0755);
 	mkdir("/var/lib/nfs", 0755);
-# ifdef LINUX26
 	mkdir("/var/lib/nfs/v4recovery", 0755);
 	mount("nfsd", "/proc/fs/nfsd", "nfsd", MS_MGC_VAL, NULL);
-# endif
 	close(creat("/var/lib/nfs/etab", 0644));
 	close(creat("/var/lib/nfs/xtab", 0644));
 	close(creat("/var/lib/nfs/rmtab", 0644));
@@ -795,9 +793,7 @@ static int stop_nfsd(void)
 	killall("statd");
 	killall("portmap");
 
-#ifdef LINUX26
 	umount("/proc/fs/nfsd");
-#endif
 
 	return 0;
 }
@@ -812,23 +808,14 @@ start_usb(void)
 	}
 	if (nvram_invmatch("usb20_disable_x", "2"))
 	{
-#ifdef LINUX26
 		insmod("ohci-hcd", NULL);
 		insmod("uhci-hcd", NULL);
-#else
-		insmod("usb-ohci", NULL);
-		insmod("usb-uhci", NULL);
-#endif
 	}
 
 	/* mount usbfs */
 	mount("usbfs", "/proc/bus/usb", "usbfs", MS_MGC_VAL, NULL);
 
-# ifdef LINUX26
 	insmod("usblp", NULL);
-# else
-	insmod("printer", NULL);
-# endif
 	if (!nvram_invmatch("lpr_enable", "1"))
 	{
 		char *lpd_argv[]={"lpd", NULL};
@@ -876,9 +863,7 @@ start_usb(void)
 	{	
 		insmod("sunrpc", NULL);
 		insmod("lockd", NULL);
-#ifdef LINUX26
 		insmod("exportfs", NULL);
-#endif
 		insmod("nfsd", NULL);
 		
 		start_nfsd();
@@ -894,9 +879,7 @@ stop_usb(void)
 		stop_nfsd();
 
 		rmmod("nfsd");
-#ifdef LINUX26
 		rmmod("exportfs");
-#endif
 		rmmod("lockd");
 		rmmod("sunrpc");
 	}
@@ -935,21 +918,12 @@ stop_usb(void)
 	rmmod("soundcore");
 	killall("lpd");
 	killall("p910nd");
-#ifdef LINUX26
         rmmod("usblp");
-#else
-	rmmod("printer");
-#endif
 
 	umount("/proc/bus/usb");
 
-#ifdef LINUX26
 	rmmod("uhci-hcd");
 	rmmod("ohci-hcd");
-#else
-	rmmod("usb-uhci");
-	rmmod("usb-ohci");
-#endif
 	rmmod("ehci-hcd");
 	rmmod("usbcore");
 	return 0;
@@ -1988,7 +1962,7 @@ int service_handle(void)
 	    		start_wan();
 	    		sleep(2);
 		} else {
-			char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+			char tmp[100], prefix[WAN_PREFIX_SZ];
 			char *ping_argv[] = { "ping", "-c2", "140.113.1.1", NULL};
 			char *str;
 			pid_t pid;

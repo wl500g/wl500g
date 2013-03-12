@@ -201,7 +201,7 @@ start_firewall2(char *wan_ifname)
 	netconf_nat_t nat;
 	netconf_filter_t filter;
 	int log_level, log_accept;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	int i;
 
 	/* Optionally log connections */

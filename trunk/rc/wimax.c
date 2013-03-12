@@ -215,7 +215,7 @@ int madwimax_check(const char *prefix)
 static int madwimax_create(const char *ifname, int unit)
 {
 	//char tmp[100];
-	char prefix[sizeof("wanXXXXXXXXXX_")];
+	char prefix[WAN_PREFIX_SZ];
 
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -243,7 +243,7 @@ static int madwimax_create(const char *ifname, int unit)
 //if-release
 static int madwimax_release(const char *ifname, int unit)
 {
-	//char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	//char tmp[100], prefix[WAN_PREFIX_SZ];
 
 	//snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -265,7 +265,7 @@ static int madwimax_release(const char *ifname, int unit)
 //if-up
 static int madwimax_up(const char *ifname, int unit)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 

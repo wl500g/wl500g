@@ -76,7 +76,7 @@ static int start_wpa_supplicant(const char *prefix, int restart)
 
 int wpacli_main(int argc, char **argv)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	int unit;
 
 	if (!argv[1] || (unit = wan_prefix(argv[1], prefix)) < 0)

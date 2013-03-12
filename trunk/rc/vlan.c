@@ -102,7 +102,7 @@ vlan_configure(void)
     char *wan_hwaddr = nvram_safe_get("wan0_hwaddr"); /* BUG */
     char *wan_ifname = NULL;
 	char *wan_proto;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
     char *restore_lan_ifname = nvram_safe_get("restore_lan_ifname");
     char *restore_lan_ifnames = nvram_safe_get("restore_lan_ifnames");
     char *restore_wan_ifname = nvram_safe_get("restore_wan_ifname");
@@ -543,7 +543,7 @@ vlan_deconfigure(void)
     char *restore_wan_hwaddr = nvram_safe_get("restore_wan_hwaddr");
     char *wan_ifname = NULL;
 	char *wan_proto;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
     char buf[80];
     char name[80], *next;
     uint  board_index = 0;
