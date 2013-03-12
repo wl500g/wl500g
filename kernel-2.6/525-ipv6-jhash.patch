@@ -2,13 +2,14 @@ ipv6: almost identical frag hashing funcs combined
 
  93c8b90f01f0dc73891da4e84b26524b61d29d66 ipv6: almost identical frag hashing funcs combined
  82a39eb6b3829a02e235656feddb4542517fcabc ipv6: Prepare the tree for un-inlined jhash.
+ c16a98ed91597b40b22b540c6517103497ef8e74 ipv6: tcp: fix panic in SYN processing
 
 ---
  include/net/ipv6.h                      |    4 ++
- net/ipv6/inet6_connection_sock.c        |   18 ++++------
+ net/ipv6/inet6_connection_sock.c        |   20 +++++------
  net/ipv6/netfilter/nf_conntrack_reasm.c |   40 +++-------------------
  net/ipv6/reassembly.c                   |   56 ++++++++++++++------------------
- 4 files changed, 44 insertions(+), 74 deletions(-)
+ 4 files changed, 45 insertions(+), 75 deletions(-)
 
 diff -urBp a/include/net/ipv6.h b/include/net/ipv6.h
 --- a/include/net/ipv6.h	2011-03-15 15:10:02.000000000 +0300
@@ -34,9 +35,12 @@ diff -urBp a/include/net/ipv6.h b/include/net/ipv6.h
 diff -urBp a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
 --- a/net/ipv6/inet6_connection_sock.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/net/ipv6/inet6_connection_sock.c	2011-03-16 22:12:43.000000000 +0300
-@@ -55,18 +55,16 @@ EXPORT_SYMBOL_GPL(inet6_csk_bind_conflic
+@@ -55,20 +55,18 @@ EXPORT_SYMBOL_GPL(inet6_csk_bind_conflic
+  * request_sock (formerly open request) hash tables.
+  */
  static u32 inet6_synq_hash(const struct in6_addr *raddr, const __be16 rport,
- 			   const u32 rnd, const u16 synq_hsize)
+-			   const u32 rnd, const u16 synq_hsize)
++			   const u32 rnd, const u32 synq_hsize)
  {
 -	u32 a = (__force u32)raddr->s6_addr32[0];
 -	u32 b = (__force u32)raddr->s6_addr32[1];
