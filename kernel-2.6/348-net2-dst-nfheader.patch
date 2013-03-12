@@ -4,10 +4,11 @@
  0148894223740da4818d7f4e6f92cbb5481a25b8 [IPV6]: Only set nfheader_len for top xfrm dst
  a47ed4cd8cb0709723392f5b841e9015f765d0a6 [IPV6] XFRM: Fix connected socket to use transformation.
  b4ce92775c2e7ff9cf79cca4e0a19c8c5fd6287b [IPV6]: Move nfheader_len into rt6_info
+ f1dd9c379cac7d5a76259e7dffcd5f8edc697d17 [NET]: Fix tbench regression in 2.6.25-rc1
  352e512c32b634768303a43768245a0363cebbe7 [NET]: Eliminate duplicate copies of dst_discard
 
 ---
- include/net/dst.h                |    9 ++++++++-
+ include/net/dst.h                |   35 ++++++++++++++++++++++++-----------
  include/net/ip6_fib.h            |   13 +++++++++++--
  net/core/dst.c                   |    3 ++-
  net/decnet/dn_route.c            |   29 +++++------------------------
@@ -18,19 +19,59 @@
  net/ipv6/ip6_output.c            |    6 ++++--
  net/ipv6/route.c                 |   27 +++++----------------------
  net/ipv6/xfrm6_policy.c          |   27 +++++----------------------
- 11 files changed, 85 insertions(+), 107 deletions(-)
+ 11 files changed, 101 insertions(+), 117 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
 +++ b/include/net/dst.h
-@@ -51,7 +51,6 @@ struct dst_entry
+@@ -50,31 +51,36 @@ struct dst_entry
  	unsigned long		expires;
  
  	unsigned short		header_len;	/* more space at head required */
 -	unsigned short		nfheader_len;	/* more non-fragment space at head required */
  	unsigned short		trailer_len;	/* space to reserve at tail */
  
- 	u32			metrics[RTAX_MAX];
+-	u32			metrics[RTAX_MAX];
+-	struct dst_entry	*path;
+-
+-	unsigned long		rate_last;	/* rate limiting for ICMP */
+-	unsigned long		rate_tokens;
++	unsigned int		rate_tokens;
++	unsigned long		rate_last;	/* rate limiting for ICMP */
+ 
++	struct dst_entry	*path;
++
+ 	struct neighbour	*neighbour;
+ 	struct hh_cache		*hh;
+ 	struct xfrm_state	*xfrm;
+ 
+ 	int			(*input)(struct sk_buff*);
+ 	int			(*output)(struct sk_buff*);
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
+-	__u32			tclassid;
+-#endif
+ 
+ 	struct  dst_ops	        *ops;
+-		
+-	unsigned long		lastuse;
++
++	u32			metrics[RTAX_MAX];
++
++#ifdef CONFIG_NET_CLS_ROUTE
++	__u32			tclassid;
++#endif
++
++	/*
++	 * __refcnt wants to be on a different cache line from
++	 * input/output/ops or performance tanks badly
++	 */
+ 	atomic_t		__refcnt;	/* client references	*/
+ 	int			__use;
++	unsigned long		lastuse;
+ 	union {
+ 		struct dst_entry *next;
+ 		struct rtable    *rt_next;
 @@ -156,6 +155,13 @@ static inline void dst_hold(struct dst_e
  	atomic_inc(&dst->__refcnt);
  }
