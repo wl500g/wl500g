@@ -955,7 +955,7 @@ iproute2-install:
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/ip
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/tc
 
-ipset_make_Opts=KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os -Wall $(EXTRACFLAGS)" NO_EXTRA_WARN_FLAGS=1 
+ipset_make_Opts=KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os -Wall -ffunction-sections -fdata-sections $(EXTRACFLAGS)" NO_EXTRA_WARN_FLAGS=1 LDFLAGS="-Wl,--gc-sections"
 
 ipset: $(LINUXDIR)/include/linux/version.h
 	$(MAKE) -C $@ $(ipset_make_Opts) binaries
