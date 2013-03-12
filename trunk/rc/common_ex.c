@@ -73,21 +73,48 @@ char *mac_conv(const char *mac_name, int idx, char *buf)
 	return(buf);
 }
 
-/* load kernel module, trailing NULL in arguments list required! */
-int insmod(const char *module, ...)
+static int __insmod(const char *module, va_list ap)
 {
 	char *insmod_argv[8] = { "insmod", (char *)module, NULL };
 	int i = 2;
-	va_list ap;
 
-	va_start(ap, module);
 	while (i < ARRAY_SIZE(insmod_argv) - 1
 			&& (insmod_argv[i] = va_arg(ap, char *)) != NULL) {
 		++i;
 	}
-	va_end(ap);
 	insmod_argv[i] = NULL;
         return _eval(insmod_argv, NULL, 0, NULL);
+}
+
+/* load kernel module, trailing NULL in arguments list required! */
+int insmod(const char *module, ...)
+{
+	int r;
+	va_list ap;
+
+	va_start(ap, module);
+	r = __insmod(module, ap);
+	va_end(ap);
+	return r;
+}
+
+/* load kernel module in case of it not in memory yet */
+int insmod_cond(const char *module, ...)
+{
+#define SYSMODBASE	"/sys/module/"
+	int r = 0;
+	va_list ap;
+	char sysmodpath[sizeof(SYSMODBASE)+32] = SYSMODBASE;
+
+	strncpy(sysmodpath + sizeof(SYSMODBASE) - 1, module,
+		sizeof(sysmodpath) - sizeof(SYSMODBASE));
+	if (!exists(sysmodpath)) {
+		va_start(ap, module);
+		r = __insmod(module, ap);
+		va_end(ap);
+	}
+	return r;
+#undef SYSMODBASE
 }
 
 int rmmod(const char *module)
