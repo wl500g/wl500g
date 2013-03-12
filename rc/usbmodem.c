@@ -622,9 +622,9 @@ int parse_product_string(const char *product, int *vid, int *pid)
 
 static void modem_load_drivers()
 {
-	if (!exists("/sys/module/usbserial")) insmod("usbserial", NULL);
-	if (!exists("/sys/module/cdc-acm")) insmod("cdc-acm", NULL);
-	if (!exists("/sys/module/option")) insmod("option", NULL);
+	insmod_cond("usbserial", NULL);
+	insmod_cond("cdc-acm", NULL);
+	insmod_cond("option", NULL);
 }
 
 /// wait for device appearance in /proc/bus/usb/devices
