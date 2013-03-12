@@ -28,11 +28,7 @@
 #include <nvparse.h>
 #include "rc.h"
 
-#ifdef LINUX26
- #define GPIOCTL
-#else
- #undef GPIOCTL
-#endif
+#define GPIOCTL
 
 #include "mtd.h"
 
@@ -625,7 +621,7 @@ static int http_processcheck(void)
 int usb_communication_device_processcheck(int wait_flag)
 {
 	const char *wan_ifname, *wan_proto;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	int unit, enable;
 
 	hotplug_sem_open();
@@ -788,7 +784,7 @@ static void link_check(void)
 
 	if (status)
 	{
-		char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+		char tmp[100], prefix[WAN_PREFIX_SZ];
 		const char *wan_proto;
 
 		sprintf(prefix, "wan%d_", unit);

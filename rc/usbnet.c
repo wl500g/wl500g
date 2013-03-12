@@ -97,7 +97,7 @@ void usbnet_check_and_act(char *ifname, char *action)
 {
 	FILE *fusb_descr;
 	int unit, found = 0, i;
-	char prefix[sizeof("wanXXXXXXXXXX_")];
+	char prefix[WAN_PREFIX_SZ];
 	char	tmp[100], tmp2[200],
 		product[50], device[50], product_descr[50], serial[50], 
 		*devpath;
