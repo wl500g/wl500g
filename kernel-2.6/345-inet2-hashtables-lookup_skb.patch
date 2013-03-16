@@ -1,14 +1,26 @@
 inet_hashtables: Add inet_lookup_skb helpers
 
  kernel.org commits
+ fee9dee730a40f671c1972a324ed54f0d68523e1 [UDP]: Make use of inet_iif() when doing socket lookups.
  9a1f27c48065ce713eb47f2fd475b717e63ef239 inet_hashtables: Add inet_lookup_skb helpers
  607c4aaf03041c8bd81555a0218050c0f895088e inet: Add udplib_lookup_skb() helpers
  23542618deb77cfed312842fe8c41ed19fb16470 inet: Don't lookup the socket if there's a socket attached to the skb
 
 ---
+ include/net/inet6_hashtables.h |   15 +++++++++++++++
+ include/net/inet_hashtables.h  |   23 +++++++++++++++++------
+ include/net/inet_sock.h        |    7 +++++++
+ include/net/sock.h             |   12 ++++++++++++
+ net/dccp/ipv4.c                |    5 ++---
+ net/dccp/ipv6.c                |    6 ++----
+ net/ipv4/tcp_ipv4.c            |    3 +--
+ net/ipv4/udp.c                 |   18 ++++++++++++++++--
+ net/ipv6/tcp_ipv6.c            |    5 +----
+ net/ipv6/udp.c                 |   18 ++++++++++++++++--
+ 10 files changed, 89 insertions(+), 23 deletions(-)
 
-diff -urBp linux-2.6.22.19/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
---- linux-2.6.22.19/include/net/inet6_hashtables.h	2008-02-26 02:59:40.000000000 +0300
+diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
+--- a/include/net/inet6_hashtables.h	2008-02-26 02:59:40.000000000 +0300
 +++ b/include/net/inet6_hashtables.h	2010-09-24 17:01:42.000000000 +0400
 @@ -84,6 +84,21 @@ static inline struct sock *__inet6_looku
  	return inet6_lookup_listener(hashinfo, daddr, hnum, dif);
@@ -32,8 +44,8 @@ diff -urBp linux-2.6.22.19/include/net/inet6_hashtables.h b/include/net/inet6_ha
  extern struct sock *inet6_lookup(struct inet_hashinfo *hashinfo,
  				 const struct in6_addr *saddr, const __be16 sport,
  				 const struct in6_addr *daddr, const __be16 dport,
-diff -urBp linux-2.6.22.19/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
---- linux-2.6.22.19/include/net/inet_hashtables.h	2010-09-24 12:54:37.000000000 +0400
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+--- a/include/net/inet_hashtables.h	2010-09-24 12:54:37.000000000 +0400
 +++ b/include/net/inet_hashtables.h	2010-09-24 17:01:42.000000000 +0400
 @@ -16,6 +16,7 @@
  
@@ -43,14 +55,26 @@ diff -urBp linux-2.6.22.19/include/net/inet_hashtables.h b/include/net/inet_hash
  #include <linux/ipv6.h>
  #include <linux/list.h>
  #include <linux/slab.h>
-@@ -28,6 +29,7 @@
+@@ -28,7 +29,6 @@
+ 
+ #include <net/inet_connection_sock.h>
  #include <net/inet_sock.h>
- #include <net/route.h>
+-#include <net/route.h>
  #include <net/sock.h>
-+#include <net/route.h>
  #include <net/tcp_states.h>
  
- #include <asm/atomic.h>
+@@ -266,11 +265,6 @@ out:
+ extern void inet_hash(struct sock *sk);
+ extern void inet_unhash(struct sock *sk);
+ 
+-static inline int inet_iif(const struct sk_buff *skb)
+-{
+-	return ((struct rtable *)skb->dst)->rt_iif;
+-}
+-
+ extern struct sock *__inet_lookup_listener(struct inet_hashinfo *hashinfo,
+ 					   const __be32 daddr,
+ 					   const unsigned short hnum,
 @@ -361,6 +363,22 @@ static inline struct sock *inet_lookup(s
  	return sk;
  }
@@ -74,8 +98,30 @@ diff -urBp linux-2.6.22.19/include/net/inet_hashtables.h b/include/net/inet_hash
  extern int __inet_hash_connect(struct inet_timewait_death_row *death_row,
  		struct sock *sk, u32 port_offset,
  		int (*check_established)(struct inet_timewait_death_row *,
-diff -urBp linux-2.6.22.19/include/net/sock.h b/include/net/sock.h
---- linux-2.6.22.19/include/net/sock.h	2010-09-24 04:00:00.000000000 +0400
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -24,6 +24,7 @@
+ #include <net/flow.h>
+ #include <net/sock.h>
+ #include <net/request_sock.h>
++#include <net/route.h>
+ 
+ /** struct ip_options - IP Options
+  *
+@@ -190,4 +191,10 @@ static inline int inet_sk_ehashfn(const struct sock *sk)
+ 	return inet_ehashfn(laddr, lport, faddr, fport);
+ }
+ 
++
++static inline int inet_iif(const struct sk_buff *skb)
++{
++	return ((struct rtable *)skb->dst)->rt_iif;
++}
++
+ #endif	/* _INET_SOCK_H */
+diff --git a/include/net/sock.h b/include/net/sock.h
+--- a/include/net/sock.h	2010-09-24 04:00:00.000000000 +0400
 +++ b/include/net/sock.h	2010-09-24 17:01:42.000000000 +0400
 @@ -1317,6 +1317,18 @@ static inline void sk_eat_skb(struct soc
  }
@@ -96,8 +142,8 @@ diff -urBp linux-2.6.22.19/include/net/sock.h b/include/net/sock.h
  extern void sock_enable_timestamp(struct sock *sk);
  extern int sock_get_timestamp(struct sock *, struct timeval __user *);
  extern int sock_get_timestampns(struct sock *, struct timespec __user *);
-diff -urBp linux-2.6.22.19/net/dccp/ipv4.c b/net/dccp/ipv4.c
---- linux-2.6.22.19/net/dccp/ipv4.c	2010-09-24 12:33:27.000000000 +0400
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+--- a/net/dccp/ipv4.c	2010-09-24 12:33:27.000000000 +0400
 +++ b/net/dccp/ipv4.c	2010-09-24 16:43:36.000000000 +0400
 @@ -850,9 +850,8 @@ static int dccp_v4_rcv(struct sk_buff *s
  
@@ -111,8 +157,8 @@ diff -urBp linux-2.6.22.19/net/dccp/ipv4.c b/net/dccp/ipv4.c
  	/*
  	 * Step 2:
  	 *	If no socket ...
-diff -urBp linux-2.6.22.19/net/dccp/ipv6.c b/net/dccp/ipv6.c
---- linux-2.6.22.19/net/dccp/ipv6.c	2008-02-26 02:59:40.000000000 +0300
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+--- a/net/dccp/ipv6.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/net/dccp/ipv6.c	2010-09-24 16:43:36.000000000 +0400
 @@ -846,10 +846,8 @@ static int dccp_v6_rcv(struct sk_buff **
  
@@ -127,8 +173,8 @@ diff -urBp linux-2.6.22.19/net/dccp/ipv6.c b/net/dccp/ipv6.c
  	/*
  	 * Step 2:
  	 *	If no socket ...
-diff -urBp linux-2.6.22.19/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
---- linux-2.6.22.19/net/ipv4/tcp_ipv4.c	2010-09-24 12:33:27.000000000 +0400
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c	2010-09-24 12:33:27.000000000 +0400
 +++ b/net/ipv4/tcp_ipv4.c	2010-09-24 16:43:36.000000000 +0400
 @@ -1656,8 +1656,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
  	TCP_SKB_CB(skb)->flags	 = iph->tos;
@@ -140,8 +186,8 @@ diff -urBp linux-2.6.22.19/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
  	if (!sk)
  		goto no_tcp_socket;
  
-diff -urBp linux-2.6.22.19/net/ipv4/udp.c b/net/ipv4/udp.c
---- linux-2.6.22.19/net/ipv4/udp.c	2010-09-24 04:00:00.000000000 +0400
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c	2010-09-24 04:00:00.000000000 +0400
 +++ b/net/ipv4/udp.c	2010-09-24 17:01:42.000000000 +0400
 @@ -293,6 +293,21 @@ static struct sock *__udp4_lib_lookup(__
  	return result;
@@ -158,7 +204,7 @@ diff -urBp linux-2.6.22.19/net/ipv4/udp.c b/net/ipv4/udp.c
 +		return sk;
 +	else
 +		return __udp4_lib_lookup(iph->saddr, sport,
-+					 iph->daddr, dport, skb->dev->ifindex,
++					 iph->daddr, dport, inet_iif(skb),
 +					 udptable);
 +}
 +
@@ -175,8 +221,8 @@ diff -urBp linux-2.6.22.19/net/ipv4/udp.c b/net/ipv4/udp.c
  
  	if (sk != NULL) {
  		int ret = udp_queue_rcv_skb(sk, skb);
-diff -urBp linux-2.6.22.19/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
---- linux-2.6.22.19/net/ipv6/tcp_ipv6.c	2008-02-26 02:59:40.000000000 +0300
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+--- a/net/ipv6/tcp_ipv6.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/net/ipv6/tcp_ipv6.c	2010-09-24 16:43:36.000000000 +0400
 @@ -1726,10 +1726,7 @@ static int tcp_v6_rcv(struct sk_buff **p
  	TCP_SKB_CB(skb)->flags = ipv6_get_dsfield(ipv6_hdr(skb));
@@ -190,8 +236,8 @@ diff -urBp linux-2.6.22.19/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
  	if (!sk)
  		goto no_tcp_socket;
  
-diff -urBp linux-2.6.22.19/net/ipv6/udp.c b/net/ipv6/udp.c
---- linux-2.6.22.19/net/ipv6/udp.c	2008-02-26 02:59:40.000000000 +0300
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/net/ipv6/udp.c	2010-09-24 17:01:42.000000000 +0400
 @@ -108,6 +108,21 @@ static struct sock *__udp6_lib_lookup(st
  	return result;
