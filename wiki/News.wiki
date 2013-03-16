@@ -5,19 +5,22 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
-===RT-N-1.9.2.7-rtn (Current)===
+===RT-N-1.9.2.7-rtn-`r4923` (2013-03-16)===
   * kernel
-    * backports from upstream - core(idr), fs(ext4, udf), net(tcp, arp, ipv6), netfilter(nf_conntrack, xt_TEE), usb(EHCI, usb-storage, usbnet, usb-serial, usbip), scsi/sd
+    * backports from upstream - MIPS, core(idr, softirq, genirq, wait, lockdep), fs(writeback, splice, ext2, ext3, ext4, udf, isofs), tty, net(sock, tcp, arp, ipv6), netfilter(nf_conntrack, xt_TEE, xt_CONNMARK), usb(EHCI, usb-storage, usbnet, usb-serial, usbip), scsi/sd
     * cdc_ncm, cdc_wdm, qmi_wwan drivers backport (EXPERIMENTAL)
 
   * 3g/cdma
     * new ZTE, HUAWEI modems in modems.conf
+    * uqmi - utility to manage QMI speaking modems from OpenWRT
 
   * ntfs-3g 2013.1.13AR.1
 
   * miniupnpd 1.8.20130207
 
   * udpxy 1.0.23-7
+
+  * ipset 4.5
 
   * bugfixes
     * busybox (ntpd, mdev, libbb)
