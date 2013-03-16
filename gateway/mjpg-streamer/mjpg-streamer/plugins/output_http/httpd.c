@@ -37,7 +37,9 @@
 #include <errno.h>
 #include <limits.h>
 #include <linux/videodev.h>
+#ifdef USE_LIBV4L2
 #include <libv4l2.h>
+#endif
 #include <linux/version.h>
 #include "../../mjpg_streamer.h"
 #include "../../utils.h"

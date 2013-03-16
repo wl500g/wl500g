@@ -7,13 +7,17 @@
 #
 ###############################################################
 
-CC = gcc
 
 OTHER_HEADERS = ../../mjpg_streamer.h ../../utils.h ../output.h ../input.h
 
-CFLAGS += -O1 -DLINUX -D_GNU_SOURCE -Wall -shared -fPIC -g
+CFLAGS += -shared -fPIC -g
 #CFLAGS += -DDEBUG
 LFLAGS += -lpthread -ldl
+
+ifeq ($(USE_LIBV4L2),true)
+#LFLAGS += -lv4l2
+CFLAGS += -DUSE_LIBV4L2
+endif
 
 all: output_http.so
 
