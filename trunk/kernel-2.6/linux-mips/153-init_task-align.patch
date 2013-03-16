@@ -3,13 +3,14 @@ MIPS: Properly align the .data..init_task section.
  99502d94c3649c5c5e6e81e323caf422a2f1591c MIPS: make page.h constants available to assembly.
  a0b54e256d513ed99e456bea6e4e188ff92e7c46 MIPS: Use PAGE_SIZE in assembly instead of _PAGE_SIZE.
  7b1c0d26a8e272787f0f9fcc5f3e8531df3b3409 MIPS: Properly align the .data..init_task section.
+ c17a6554782ad531f4713b33fd6339ba67ef6391 MIPS: page.h: Provide more readable definition for PAGE_MASK.
 
 ---
  arch/mips/kernel/asm-offsets.c |    3 ---
  arch/mips/kernel/vmlinux.lds.S |   16 +++++++++-------
- include/asm-mips/page.h        |    3 ++-
+ include/asm-mips/page.h        |    5 +++--
  include/asm-mips/thread_info.h |    4 ++--
- 4 files changed, 13 insertions(+), 13 deletions(-)
+ 4 files changed, 14 insertions(+), 14 deletions(-)
 
 diff --git a/arch/mips/kernel/asm-offsets.c b/arch/mips/kernel/asm-offsets.c
 --- a/arch/mips/kernel/asm-offsets.c
@@ -96,13 +97,14 @@ diff --git a/include/asm-mips/page.h b/include/asm-mips/page.h
  
  /*
   * PAGE_SHIFT determines the page size
-@@ -29,7 +30,7 @@
+@@ -29,8 +30,8 @@
  #ifdef CONFIG_PAGE_SIZE_64KB
  #define PAGE_SHIFT	16
  #endif
 -#define PAGE_SIZE	(1UL << PAGE_SHIFT)
+-#define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
 +#define PAGE_SIZE	(_AC(1,UL) << PAGE_SHIFT)
- #define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
++#define PAGE_MASK       (~(PAGE_SIZE - 1))
  
  #ifndef __ASSEMBLY__
  
