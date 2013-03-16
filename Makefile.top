@@ -678,7 +678,9 @@ quagga-install:
 	 $(INSTALLDIR)/quagga/usr/lib/libzebra.so.0.0.0
 
 bridge/Makefile: bridge/Makefile.in
-	cd bridge && CFLAGS="-g -Os $(EXTRACFLAGS)" \
+	cd bridge && \
+	CFLAGS="-g -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix="/usr" --with-linux-headers=$(LINUXDIR)/include
 
 bridge: bridge/Makefile
@@ -687,12 +689,17 @@ bridge-install: bridge
 	install -D bridge/brctl/brctl $(INSTALLDIR)/bridge/usr/sbin/brctl
 	$(STRIP) $(INSTALLDIR)/bridge/usr/sbin/brctl
 
+inadyn:
+	$(MAKE) -C $@ EXTRACFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" LDFLAGS="-Wl,--gc-sections"
+
 inadyn-install:
 	install -D inadyn/src/inadyn $(INSTALLDIR)/inadyn/usr/sbin/inadyn
 	$(STRIP) $(INSTALLDIR)/inadyn/usr/sbin/inadyn
 
 bpalogin/Makefile: bpalogin/Makefile.in
-	cd bpalogin && CC=$(CC) CFLAGS="-g -Os $(EXTRACFLAGS)" \
+	cd bpalogin && CC=$(CC) \
+	CFLAGS="-g -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr
 
 bpalogin: bpalogin/Makefile
@@ -780,7 +787,8 @@ miniupnpd/config.h:
 	cd miniupnpd && ./genconfig.sh --leasefile
 
 miniupnpd: iptables netconf miniupnpd/config.h
-	$(MAKE) -C $@ -f Makefile.linux EXTRACFLAGS="$(EXTRACFLAGS)" \
+	$(MAKE) -C $@ -f Makefile.linux \
+	    EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    IPTABLESPATH=$(TOP)/iptables ARCH=$(PLATFORM) \
 	    $(if $(CONFIG_NETCONF),LDFLAGS="-L$(TOP)/netconf -lnetconf",LDFLAGS="-liptc") \
 	    miniupnpd
@@ -922,7 +930,9 @@ samba-clean:
 	-$(MAKE) -C samba/source clean
 
 nfs-utils/Makefile: nfs-utils/Makefile.in
-	cd nfs-utils && CPPFLAGS="$(EXTRACFLAGS)" knfsd_cv_bsd_signals=no \
+	cd nfs-utils && CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
+	knfsd_cv_bsd_signals=no \
 	$(CONFIGURE) --enable-nfsv3 --disable-nfsv4 --disable-ipv6 \
 	    --disable-uuid --disable-gss --disable-mount \
 		--without-tcp-wrappers
@@ -1048,7 +1058,9 @@ ntfs-3g-install:
 	ln -sf ../usr/sbin/ntfs-3g $(INSTALLDIR)/ntfs-3g/sbin/mount.ntfs-3g
 
 udpxy:
-	$(MAKE) -C $@ release CDEFS="-O2 $(EXTRACFLAGS)"
+	$(MAKE) -C $@ release \
+	CDEFS="-O2 -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections"
 
 udpxy-install:
 	install -D udpxy/udpxy $(INSTALLDIR)/udpxy/usr/sbin/udpxy
@@ -1070,8 +1082,10 @@ libusb10-install:
 	$(STRIP) $(INSTALLDIR)/libusb10/usr/lib/*.so
 
 usb_modeswitch: libusb10
-	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Wall -Os $(EXTRACFLAGS) \
-	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0"
+	$(MAKE) -C $@ CC=$(CC) \
+	CFLAGS="-Wall -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS) \
+	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0" \
+	LDFLAGS="-Wl,--gc-sections"
 
 usb_modeswitch-install:
 	install -D usb_modeswitch/usb_modeswitch $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
@@ -1080,7 +1094,9 @@ usb_modeswitch-install:
 	install -D -m 0644 usb_modeswitch/data/usb_modeswitch.d/* $(INSTALLDIR)/usb_modeswitch/usr/share/usb_modeswitch.d/
 
 madwimax/Makefile: madwimax/Makefile.in
-	cd madwimax && CPPFLAGS="$(EXTRACFLAGS)" PKG_CONFIG=/bin/true \
+	cd madwimax && CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    LDFLAGS="-Wl,--gc-sections" \
+	    PKG_CONFIG=/bin/true \
 	    libusb1_CFLAGS="-I$(TOP)/libusb10/libusb" \
 	    libusb1_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0" \
 	$(CONFIGURE) --prefix=/usr --without-man-pages --with-script=wl500g --sysconfdir=/etc
@@ -1093,7 +1109,8 @@ madwimax-install:
 	$(STRIP) $(INSTALLDIR)/madwimax/usr/sbin/madwimax
 
 lltd: nvram shared
-	$(MAKE) -C $@ EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C $@ EXTRACFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    EXTRALDFLAGS="-Wl,--gc-sections -Wl,-rpath /lib"
 
 lltd-install: lltd
 	install -D lltd/lld2d $(INSTALLDIR)/lltd/usr/sbin/lld2d
@@ -1136,7 +1153,10 @@ igs-install:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
 mjpg-streamer: jpeg-8b
-	$(MAKE) -C mjpg-streamer/mjpg-streamer CC=$(CC) EXTRACFLAGS="-I$(LINUXDIR)/include -I$(TOP)/jpeg-8b $(EXTRACFLAGS)" LIBS=$(TOP)/jpeg-8b/.libs/libjpeg.a
+	$(MAKE) -C mjpg-streamer/mjpg-streamer CC=$(CC) \
+	EXTRACFLAGS="-I$(LINUXDIR)/include -I$(TOP)/jpeg-8b -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	EXTRALDFLAGS="-Wl,--gc-sections" \
+	LIBS=$(TOP)/jpeg-8b/.libs/libjpeg.a
 
 mjpg-streamer-install:
 	$(MAKE) -C mjpg-streamer/mjpg-streamer DESTDIR=$(INSTALLDIR)/mjpg-streamer/usr install
@@ -1146,7 +1166,9 @@ mjpg-streamer-clean:
 	-$(MAKE) -C mjpg-streamer/mjpg-streamer clean
 
 jpeg-8b/Makefile: jpeg-8b/Makefile.in
-	cd jpeg-8b && CC=$(CC) CPPFLAGS="-fPIC $(EXTRACFLAGS)" \
+	cd jpeg-8b && CC=$(CC) \
+	CPPFLAGS="-fPIC -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --disable-shared
 
 jpeg-8b: jpeg-8b/Makefile
@@ -1156,7 +1178,9 @@ jpeg-8b-install:
 	@true
 
 LPRng/Makefile: LPRng/Makefile.in
-	cd LPRng && CC=$(CC) CPPFLAGS="$(EXTRACFLAGS) -DWINDOW_1 -DTEST_WRITE -DNODEBUG -DLPR_with_ASUS" \
+	cd LPRng && CC=$(CC) \
+	CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS) -DWINDOW_1 -DTEST_WRITE -DNODEBUG -DLPR_with_ASUS" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --includedir=$(LINUXDIR)/include --disable-werror \
 	--disable-kerberos --disable-ssl --disable-mit_kerberos4 \
 	--with-userid=root --with-groupid=root --disable-setuid --disable-nls \
@@ -1217,8 +1241,8 @@ USBIPDIR=$(LINUXDIR)/drivers/usb/usbip/userspace
 $(USBIPDIR)/Makefile: $(USBIPDIR)/Makefile.in
 	cd $(USBIPDIR) && \
 	CFLAGS="-g -O2 -I$(TOP)/sysfsutils/sys-include $(EXTRACFLAGS)" \
-	CPPFLAGS="-I$(TOP)/sysfsutils/sys-include" \
-	LDFLAGS="-L$(TOP)/sysfsutils/lib/.libs/" \
+	CPPFLAGS="-I$(TOP)/sysfsutils/sys-include -ffunction-sections -fdata-sections" \
+	LDFLAGS="-L$(TOP)/sysfsutils/lib/.libs/ -Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --with-usbids-dir=/opt/share \
 	 --without-tcp-wrappers
 
