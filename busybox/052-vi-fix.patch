@@ -1,0 +1,26 @@
+From cb5aa725df472a7ab84c7c513a8dda98b9b3a6bc
+From: Ron Yorston <rmy@tigress.co.uk>
+Date: Thu, 07 Mar 2013 20:37:23 +0000
+Subject: vi: fix adjustment of buffer on partial file read
+
+The second argument to text_hole_delete was incorrect: it should
+be a pointer to the end of the hole.
+
+Signed-off-by: Ron Yorston <rmy@tigress.co.uk>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/editors/vi.c b/editors/vi.c
+--- a/editors/vi.c
++++ b/editors/vi.c
+@@ -2530,7 +2530,7 @@ static int file_insert(const char *fn, char *p, int update_ro_status)
+ 		p = text_hole_delete(p, p + size - 1);	// un-do buffer insert
+ 	} else if (cnt < size) {
+ 		// There was a partial read, shrink unused space text[]
+-		p = text_hole_delete(p + cnt, p + (size - cnt) - 1);	// un-do buffer insert
++		p = text_hole_delete(p + cnt, p + size - 1);	// un-do buffer insert
+ 		status_line_bold("can't read all of file \"%s\"", fn);
+ 	}
+ 	if (cnt >= size)
+--
+cgit v0.9.1
