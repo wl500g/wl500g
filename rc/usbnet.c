@@ -15,9 +15,10 @@ int wait_for_dev_appearance(int vid, int pid, const char *device, const char *de
 
 void usbnet_load_drivers()
 {
-	if (!exists("/sys/module/usbnet")) insmod("usbnet", NULL);
-	if (!exists("/sys/module/cdc_ether")) insmod("cdc_ether", NULL);
-	if (!exists("/sys/module/rndis_host")) insmod("rndis_host", NULL);
+	insmod_cond("usbnet", NULL);
+	insmod_cond("cdc_ether", NULL);
+	insmod_cond("rndis_host", NULL);
+// TODO: cdc-wdm, qmi_wwan
 };
 
 int hotplug_usbnet_check(const char *interface, const char *product, const char *device, const char *prefix)
@@ -97,7 +98,7 @@ void usbnet_check_and_act(char *ifname, char *action)
 {
 	FILE *fusb_descr;
 	int unit, found = 0, i;
-	char prefix[sizeof("wanXXXXXXXXXX_")];
+	char prefix[WAN_PREFIX_SZ];
 	char	tmp[100], tmp2[200],
 		product[50], device[50], product_descr[50], serial[50], 
 		*devpath;

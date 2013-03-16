@@ -4,11 +4,13 @@ Accept RA and send RS while configured as router
  65e9b62d4503849b10bedfc29bff0473760cc597 ipv6: add special mode accept_ra=2 to accept RA while configured as router
  c3bccac2fa76f1619dfe4fb7b9bee69de7f066d8 ipv6: add special mode forwarding=2 to send RS while configured as router
  9f56220fad0d13f8b0ebe7592f41fdb49874d143 ipv6: Do not use routes from locally generated RAs
+ 3e8b0ac3e41e3c882222a5522d5df7212438ab51 ipv6: Don't purge default router if accept_ra=2
 
 ---
  net/ipv6/addrconf.c |    3 ++-
  net/ipv6/ndisc.c    |   26 ++++++++++++++++++++++----
- 2 files changed, 24 insertions(+), 5 deletions(-)
+ net/ipv6/route.c    |    3 ++-
+ 3 files changed, 26 insertions(+), 6 deletions(-)
 
 diff -BurpN linux.orig/net/ipv6/addrconf.c linux/net/ipv6/addrconf.c
 --- linux.orig/net/ipv6/addrconf.c	2010-11-18 00:00:00.000000000 +0000
@@ -90,4 +92,17 @@ diff -BurpN linux.orig/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
  #endif
  
  	if (in6_dev->cnf.accept_ra_pinfo && ndopts.nd_opts_pi) {
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1815,7 +1815,8 @@ void rt6_purge_dflt_routers(struct net *net)
+ restart:
+ 	read_lock_bh(&table->tb6_lock);
+ 	for (rt = table->tb6_root.leaf; rt; rt = rt->u.dst.rt6_next) {
+-		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) {
++		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
++		    (!rt->rt6i_idev || rt->rt6i_idev->cnf.accept_ra != 2)) {
+ 			dst_hold(&rt->u.dst);
+ 			read_unlock_bh(&table->tb6_lock);
+ 			ip6_del_rt(rt);
 -- 

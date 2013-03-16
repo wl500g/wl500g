@@ -901,17 +901,13 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 
 	/* logaccept chain */
 	fprintf(fp, "-A logaccept -m conntrack --ctstate NEW -j LOG --log-prefix \"ACCEPT \" "
-#ifdef LINUX26
 		  " --log-macdecode "
-#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logaccept -j ACCEPT\n");
 
 	/* logdrop chain */
 	fprintf(fp,"-A logdrop -m conntrack --ctstate NEW -j LOG --log-prefix \"DROP \" "
-#ifdef LINUX26
 		  " --log-macdecode "
-#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
 	
@@ -1100,9 +1096,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 #else
 	fprintf(fp, "-A logaccept -j LOG --log-prefix \"ACCEPT \" "
 #endif
-#ifdef LINUX26
 		  " --log-macdecode "
-#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logaccept -j ACCEPT\n");
 
@@ -1112,9 +1106,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 #else
 	fprintf(fp,"-A logdrop -j LOG --log-prefix \"DROP \" "
 #endif
-#ifdef LINUX26
 		  " --log-macdecode "
-#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
 
@@ -1275,7 +1267,7 @@ void convert_routes(int unit)
 	int i;
 	char *ip, *netmask, *gateway, *matric, *interface;
 	char wroutes[1024], lroutes[1024], mroutes[1024];
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 
 	wroutes[0] = 0;
 	lroutes[0] = 0;

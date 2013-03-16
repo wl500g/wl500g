@@ -38,27 +38,34 @@ writeback: Updates from upstream
  d87815cb2090e07b0b0b2d73dc9740706e92c80c writeback: limit write_cache_pages integrity scanning to current EOF
  0b5649278e39a068aaf91399941bab1b4a4a3cc2 writeback: pay attention to wbc->nr_to_write in write_cache_pages
  546a1924224078c6f582e68f890b05b387b42653 writeback: write_cache_pages doesn't terminate at nr_to_write <= 0
-
+ 84a892456046921a40646114deed65e2df93a1bc writeback: skip new or to-be-freed inodes
+ ae1b7f7d4b9ea587fda95c38301f4e72e8146634 writeback: cleanup writeback_single_inode()
+ b3af9468aebf5fcb573d0a116b31d2be1d43c0e9 writeback: don't delay inodes redirtied by a fast dirtier
+ 58a9d3d8db06ca2ec31f64ec49ab0aeb89971b85 fs-writeback: check sync bit earlier in inode_wait_for_writeback
+ 4ea879b96d437693485d21f4b7e1eb72f7615fc2 writeback: fix queue_io() ordering
+ 23539afc71937dbaca7de2229669f4475ff4ea7b writeback: don't redirty tail an inode with dirty pages
+ a50aeb40144982eb766053309b6fc33e14ca46f0 writeback: merge for_kupdate and !for_kupdate cases
+ 
 ---
  fs/afs/write.c              |    1 
  fs/dquot.c                  |   10 
  fs/drop_caches.c            |   18 +
- fs/fs-writeback.c           |  479 +++++++++++++++++++++++++++-----------------
+ fs/fs-writeback.c           |  495 ++++++++++++++++++++++++++------------------
  fs/hugetlbfs/inode.c        |    2 
- fs/inode.c                  |   34 ++-
+ fs/inode.c                  |   34 +--
  fs/inotify.c                |   16 -
  fs/jfs/jfs_txnmgr.c         |    9 
  fs/nfs/write.c              |    1 
  fs/ntfs/super.c             |    4 
  fs/super.c                  |    1 
  include/linux/backing-dev.h |    2 
- include/linux/fs.h          |   77 ++++++-
+ include/linux/fs.h          |   77 +++++-
  include/linux/mm.h          |    2 
  include/linux/writeback.h   |   17 -
  kernel/sysctl.c             |    2 
  mm/page-writeback.c         |   80 ++++---
  mm/truncate.c               |   38 ++-
- 18 files changed, 510 insertions(+), 283 deletions(-)
+ 18 files changed, 511 insertions(+), 298 deletions(-)
 
 diff --git a/fs/afs/write.c b/fs/afs/write.c
 --- a/fs/afs/write.c
@@ -217,7 +224,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  		 * reposition it (that would break s_dirty time-ordering).
  		 */
  		if (!was_dirty) {
-@@ -140,7 +179,117 @@ static int write_inode(struct inode *ino
+@@ -140,7 +179,125 @@ static int write_inode(struct inode *ino
  }
  
  /*
@@ -296,11 +303,19 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
 +
 +/*
 + * Queue all expired dirty inodes for io, eldest first.
++ * Before
++ *         newly dirtied     b_dirty    b_io    b_more_io
++ *         =============>    gf         edc     BA
++ * After
++ *         newly dirtied     b_dirty    b_io    b_more_io
++ *         =============>    g          fBAedc
++ *                                           |
++ *                                           +--> dequeue for IO
 + */
 +static void queue_io(struct super_block *sb,
 +				unsigned long *older_than_this)
 +{
-+	list_splice_init(&sb->s_more_io, sb->s_io.prev);
++	list_splice_init(&sb->s_more_io, &sb->s_io);
 +	move_expired_inodes(&sb->s_dirty, &sb->s_io, older_than_this);
 +}
 +
@@ -321,11 +336,11 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
 +	wait_queue_head_t *wqh;
 +
 +	wqh = bit_waitqueue(&inode->i_state, __I_SYNC);
-+	do {
++	 while (inode->i_state & I_SYNC) {
 +		spin_unlock(&inode_lock);
 +		__wait_on_bit(wqh, &wq, inode_wait, TASK_UNINTERRUPTIBLE);
 +		spin_lock(&inode_lock);
-+	} while (inode->i_state & I_SYNC);
++	}
 +}
 +
 +/*
@@ -336,7 +351,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
   * If `wait' is set, wait on the writeout.
   *
   * The whole writeout design is quite complex and fragile.  We want to avoid
-@@ -150,19 +299,44 @@ static int write_inode(struct inode *ino
+@@ -150,19 +307,44 @@ static int write_inode(struct inode *ino
   * Called under inode_lock.
   */
  static int
@@ -369,7 +384,8 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
 +			requeue_io(inode);
 +			return 0;
 +		}
-+
+ 
+-	/* Set I_LOCK, reset I_DIRTY */
 +		/*
 +		 * It's a data-integrity sync.  We must wait.
 +		 */
@@ -378,8 +394,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
 +
 +	BUG_ON(inode->i_state & I_SYNC);
 +	WARN_ON(inode->i_state & I_NEW);
- 
--	/* Set I_LOCK, reset I_DIRTY */
++
 +	/* Set I_SYNC, reset I_DIRTY */
  	dirty = inode->i_state & I_DIRTY;
 -	inode->i_state |= I_LOCK;
@@ -387,76 +402,70 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  	inode->i_state &= ~I_DIRTY;
  
  	spin_unlock(&inode_lock);
-@@ -183,24 +357,43 @@ __sync_single_inode(struct inode *inode,
+@@ -183,42 +365,38 @@ __sync_single_inode(struct inode *inode,
  	}
  
  	spin_lock(&inode_lock);
 -	inode->i_state &= ~I_LOCK;
+-	if (!(inode->i_state & I_FREEING)) {
+-		if (!(inode->i_state & I_DIRTY) &&
+-		    mapping_tagged(mapping, PAGECACHE_TAG_DIRTY)) {
 +	WARN_ON(inode->i_state & I_NEW);
 +	inode->i_state &= ~I_SYNC;
- 	if (!(inode->i_state & I_FREEING)) {
- 		if (!(inode->i_state & I_DIRTY) &&
- 		    mapping_tagged(mapping, PAGECACHE_TAG_DIRTY)) {
++	if (!(inode->i_state & (I_FREEING | I_CLEAR))) {
++		if (mapping_tagged(mapping, PAGECACHE_TAG_DIRTY)) {
  			/*
  			 * We didn't write back all the pages.  nfs_writepages()
- 			 * sometimes bales out without doing anything. Redirty
+-			 * sometimes bales out without doing anything. Redirty
 -			 * the inode.  It is still on sb->s_io.
-+			 * the inode; Move it from s_io onto s_more_io/s_dirty.
-+			 */
-+			/*
-+			 * akpm: if the caller was the kupdate function we put
-+			 * this inode at the head of s_dirty so it gets first
-+			 * consideration.  Otherwise, move it to the tail, for
-+			 * the reasons described there.  I'm not really sure
-+			 * how much sense this makes.  Presumably I had a good
-+			 * reasons for doing it this way, and I'd rather not
-+			 * muck with it at present.
++			 * sometimes bales out without doing anything.
  			 */
- 			if (wbc->for_kupdate) {
+-			if (wbc->for_kupdate) {
++			inode->i_state |= I_DIRTY_PAGES;
++			if (wbc->nr_to_write <= 0) {
  				/*
 -				 * For the kupdate function we leave the inode
 -				 * at the head of sb_dirty so it will get more
 -				 * writeout as soon as the queue becomes
 -				 * uncongested.
-+				 * For the kupdate function we move the inode
-+				 * to s_more_io so it will get more writeout as
-+				 * soon as the queue becomes uncongested.
++				 * slice used up: queue for next turn
  				 */
- 				inode->i_state |= I_DIRTY_PAGES;
+-				inode->i_state |= I_DIRTY_PAGES;
 -				list_move_tail(&inode->i_list, &sb->s_dirty);
-+				if (wbc->nr_to_write <= 0) {
-+					/*
-+					 * slice used up: queue for next turn
-+					 */
-+					requeue_io(inode);
-+				} else {
-+					/*
-+					 * somehow blocked: retry later
-+					 */
-+					redirty_tail(inode);
-+				}
++				requeue_io(inode);
  			} else {
  				/*
- 				 * Otherwise fully redirty the inode so that
-@@ -210,15 +403,14 @@ __sync_single_inode(struct inode *inode,
- 				 * all the other files.
+-				 * Otherwise fully redirty the inode so that
+-				 * other inodes on this superblock will get some
+-				 * writeout.  Otherwise heavy writing to one
+-				 * file would indefinitely suspend writeout of
+-				 * all the other files.
++				 * Writeback blocked by something other than
++				 * congestion. Delay the inode for some time to
++				 * avoid spinning on the CPU (100% iowait)
++				 * retrying writeback of the dirty page/inode
++				 * that cannot be performed immediately.
  				 */
- 				inode->i_state |= I_DIRTY_PAGES;
+-				inode->i_state |= I_DIRTY_PAGES;
 -				inode->dirtied_when = jiffies;
 -				list_move(&inode->i_list, &sb->s_dirty);
 +				redirty_tail(inode);
  			}
  		} else if (inode->i_state & I_DIRTY) {
  			/*
- 			 * Someone redirtied the inode while were writing back
- 			 * the pages.
+-			 * Someone redirtied the inode while were writing back
+-			 * the pages.
++			 * Filesystems can dirty the inode during writeback
++			 * operations, such as delayed allocation during
++			 * submission or metadata updates after data IO
++			 * completion.
  			 */
 -			list_move(&inode->i_list, &sb->s_dirty);
 +			redirty_tail(inode);
  		} else if (atomic_read(&inode->i_count)) {
  			/*
  			 * The inode is clean, inuse
-@@ -231,59 +423,11 @@ __sync_single_inode(struct inode *inode,
+@@ -231,59 +409,11 @@ __sync_single_inode(struct inode *inode,
  			list_move(&inode->i_list, &inode_unused);
  		}
  	}
@@ -517,7 +526,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
   * Write out a superblock's list of dirty inodes.  A wait will be performed
   * upon no inodes, all inodes or the final one, depending upon sync_mode.
   *
-@@ -293,11 +437,6 @@ __writeback_single_inode(struct inode *i
+@@ -293,11 +423,6 @@ __writeback_single_inode(struct inode *i
   * If we're a pdlfush thread, then implement pdflush collision avoidance
   * against the entire list.
   *
@@ -529,7 +538,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
   * If `bdi' is non-zero then we're being asked to writeback a specific queue.
   * This function assumes that the blockdev superblock's inodes are backed by
   * a variety of queues, so all inodes are searched.  For other superblocks,
-@@ -311,15 +450,17 @@ __writeback_single_inode(struct inode *i
+@@ -311,15 +436,17 @@ __writeback_single_inode(struct inode *i
   * The inodes to be written are parked on sb->s_io.  They are moved back onto
   * sb->s_dirty as they are selected for writing.  This way, none can be missed
   * on the writer throttling path, and we get decent balancing between many
@@ -549,7 +558,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  
  	while (!list_empty(&sb->s_io)) {
  		struct inode *inode = list_entry(sb->s_io.prev,
-@@ -329,7 +470,7 @@ sync_sb_inodes(struct super_block *sb, s
+@@ -329,7 +456,7 @@ sync_sb_inodes(struct super_block *sb, s
  		long pages_skipped;
  
  		if (!bdi_cap_writeback_dirty(bdi)) {
@@ -558,11 +567,11 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  			if (sb_is_blkdev_sb(sb)) {
  				/*
  				 * Dirty memory-backed blockdev: the ramdisk
-@@ -345,28 +486,31 @@ sync_sb_inodes(struct super_block *sb, s
+@@ -345,42 +472,41 @@ sync_sb_inodes(struct super_block *sb, s
  			break;
  		}
  
-+		if (inode->i_state & I_NEW) {
++		if (inode->i_state & (I_NEW | I_WILL_FREE)) {
 +			requeue_io(inode);
 +			continue;
 +		}
@@ -599,8 +608,11 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  			break;
  
  		/* Is another pdflush already flushing this queue? */
-@@ -376,11 +520,7 @@ sync_sb_inodes(struct super_block *sb, s
- 		BUG_ON(inode->i_state & I_FREEING);
+ 		if (current_is_pdflush() && !writeback_acquire(bdi))
+ 			break;
+ 
+-		BUG_ON(inode->i_state & I_FREEING);
++		BUG_ON(inode->i_state & (I_FREEING | I_CLEAR));
  		__iget(inode);
  		pages_skipped = wbc->pages_skipped;
 -		__writeback_single_inode(inode, wbc);
@@ -612,7 +624,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  		if (current_is_pdflush())
  			writeback_release(bdi);
  		if (wbc->pages_skipped != pages_skipped) {
-@@ -388,15 +528,63 @@ sync_sb_inodes(struct super_block *sb, s
+@@ -388,15 +514,63 @@ sync_sb_inodes(struct super_block *sb, s
  			 * writeback is not making progress due to locked
  			 * buffers.  Skip this inode for now.
  			 */
@@ -678,7 +690,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  	return;		/* Leave any unwritten inodes on s_io */
  }
  
-@@ -406,7 +594,7 @@ sync_sb_inodes(struct super_block *sb, s
+@@ -406,7 +580,7 @@ sync_sb_inodes(struct super_block *sb, s
   * Note:
   * We don't need to grab a reference to superblock here. If it has non-empty
   * ->s_dirty it's hadn't been killed yet and kill_super() won't proceed
@@ -687,7 +699,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
   * empty. Since __sync_single_inode() regains inode_lock before it finally moves
   * inode from superblock lists we are OK.
   *
-@@ -427,9 +615,8 @@ writeback_inodes(struct writeback_contro
+@@ -427,9 +601,8 @@ writeback_inodes(struct writeback_contro
  	might_sleep();
  	spin_lock(&sb_lock);
  restart:
@@ -699,7 +711,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  			/* we're making our own get_super here */
  			sb->s_count++;
  			spin_unlock(&sb_lock);
-@@ -439,11 +626,8 @@ restart:
+@@ -439,11 +612,8 @@ restart:
  			 * be unmounted by the time it is released.
  			 */
  			if (down_read_trylock(&sb->s_umount)) {
@@ -712,7 +724,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  				up_read(&sb->s_umount);
  			}
  			spin_lock(&sb_lock);
-@@ -458,8 +642,7 @@ restart:
+@@ -458,8 +628,7 @@ restart:
  
  /*
   * writeback and wait upon the filesystem's dirty inodes.  The caller will
@@ -722,7 +734,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
   *
   * A finite limit is set on the number of pages which will be written.
   * To prevent infinite livelock of sys_sync().
-@@ -470,34 +653,21 @@ restart:
+@@ -470,34 +639,21 @@ restart:
  void sync_inodes_sb(struct super_block *sb, int wait)
  {
  	struct writeback_control wbc = {
@@ -767,7 +779,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  }
  
  /**
-@@ -526,9 +696,6 @@ static void __sync_inodes(int wait)
+@@ -526,9 +682,6 @@ static void __sync_inodes(int wait)
  	spin_lock(&sb_lock);
  restart:
  	list_for_each_entry(sb, &super_blocks, s_list) {
@@ -777,7 +789,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  		sb->s_count++;
  		spin_unlock(&sb_lock);
  		down_read(&sb->s_umount);
-@@ -546,13 +713,10 @@ restart:
+@@ -546,13 +699,10 @@ restart:
  
  void sync_inodes(int wait)
  {
@@ -792,7 +804,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  }
  
  /**
-@@ -570,7 +734,7 @@ int write_inode_now(struct inode *inode,
+@@ -570,7 +720,7 @@ int write_inode_now(struct inode *inode,
  	int ret;
  	struct writeback_control wbc = {
  		.nr_to_write = LONG_MAX,
@@ -801,7 +813,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  		.range_start = 0,
  		.range_end = LLONG_MAX,
  	};
-@@ -580,10 +744,10 @@ int write_inode_now(struct inode *inode,
+@@ -580,10 +730,10 @@ int write_inode_now(struct inode *inode,
  
  	might_sleep();
  	spin_lock(&inode_lock);
@@ -814,7 +826,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  	return ret;
  }
  EXPORT_SYMBOL(write_inode_now);
-@@ -604,7 +768,7 @@ int sync_inode(struct inode *inode, stru
+@@ -604,7 +754,7 @@ int sync_inode(struct inode *inode, stru
  	int ret;
  
  	spin_lock(&inode_lock);
@@ -823,7 +835,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  	spin_unlock(&inode_lock);
  	return ret;
  }
-@@ -658,7 +822,7 @@ int generic_osync_inode(struct inode *in
+@@ -658,7 +808,7 @@ int generic_osync_inode(struct inode *in
  			err = err2;
  	}
  	else
@@ -832,7 +844,7 @@ diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
  
  	return err;
  }
-@@ -662,43 +826,4 @@ int generic_osync_inode(struct inode *in
+@@ -662,43 +812,4 @@ int generic_osync_inode(struct inode *in
  
  	return err;
  }

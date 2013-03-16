@@ -1,5 +1,6 @@
 ppp: Updates from upstream
 
+ 5e41fb83216d370d158fe17675af82d12c6c72c9 synchronous tty: convert dead_sem to completion
  c8019bf3aff653cceb64f66489fc299ee5957b57 netdevice ppp: Convert directly reference of netdev->priv
  739840d529eb7505d3cbfe9d468bf1440c9a8e27 ppp: fix segfaults introduced by netdev_priv changes
  1d2f8c950745f47f2937742eb886cffee439b754 ppp: remove some pointless conditionals before kfree_skb()
@@ -9,8 +10,8 @@ ppp: Updates from upstream
  drivers/net/ppp_async.c   |   16 +++++--------
  drivers/net/ppp_deflate.c |    9 +++----
  drivers/net/ppp_generic.c |   55 +++++++++++++++++++---------------------------
- drivers/net/ppp_synctty.c |    6 ++---
- 4 files changed, 37 insertions(+), 49 deletions(-)
+ drivers/net/ppp_synctty.c |   16 ++++++-------
+ 4 files changed, 42 insertions(+), 54 deletions(-)
 
 diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
 --- a/drivers/net/ppp_async.c
@@ -279,15 +280,52 @@ diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
 diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
 --- a/drivers/net/ppp_synctty.c
 +++ b/drivers/net/ppp_synctty.c
-@@ -43,6 +43,7 @@
+@@ -43,9 +43,10 @@
+ #include <linux/if_ppp.h>
  #include <linux/ppp_channel.h>
  #include <linux/spinlock.h>
++#include <linux/completion.h>
  #include <linux/init.h>
 +#include <asm/unaligned.h>
  #include <asm/uaccess.h>
- #include <asm/semaphore.h>
+-#include <asm/semaphore.h>
  
-@@ -281,8 +282,7 @@ ppp_sync_close(struct tty_struct *tty)
+ #define PPP_VERSION	"2.4.2"
+ 
+@@ -70,7 +70,7 @@ struct syncppp {
+ 	struct tasklet_struct tsk;
+ 
+ 	atomic_t	refcnt;
+-	struct semaphore dead_sem;
++	struct completion dead_cmp;
+ 	struct ppp_channel chan;	/* interface to generic ppp layer */
+ };
+ 
+@@ -195,7 +195,7 @@ static struct syncppp *sp_get(struct tty_struct *tty)
+ static void sp_put(struct syncppp *ap)
+ {
+ 	if (atomic_dec_and_test(&ap->refcnt))
+-		up(&ap->dead_sem);
++		complete(&ap->dead_cmp);
+ }
+ 
+ /*
+@@ -225,7 +225,7 @@ ppp_sync_open(struct tty_struct *tty)
+ 	tasklet_init(&ap->tsk, ppp_sync_process, (unsigned long) ap);
+ 
+ 	atomic_set(&ap->refcnt, 1);
+-	init_MUTEX_LOCKED(&ap->dead_sem);
++	init_completion(&ap->dead_cmp);
+ 
+ 	ap->chan.private = ap;
+ 	ap->chan.ops = &sync_ops;
+@@ -273,13 +273,12 @@ ppp_sync_close(struct tty_struct *tty)
+ 	 * by the time it returns.
+ 	 */
+ 	if (!atomic_dec_and_test(&ap->refcnt))
+-		down(&ap->dead_sem);
++		wait_for_completion(&ap->dead_cmp);
+ 	tasklet_kill(&ap->tsk);
  
  	ppp_unregister_channel(&ap->chan);
  	skb_queue_purge(&ap->rqueue);

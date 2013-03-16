@@ -1,25 +1,189 @@
-From 3069083cc8def2ffad8520f0f24c6f95f140aac5
-From: Namjae Jeon
-Date: Wed, 2 Nov 2011 13:38:00 -0700
-Subject: [PATCH] isofs: add readpages support
+isofs: Updates from upstream
 
-Use mpage_readpages() instead of multiple calls to isofs_readpage() to
-reduce the CPU utilization and make performance higher.
-
-Signed-off-by: Namjae Jeon <linkinjeon@gmail.com>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Jan Kara <jack@suse.cz>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+ f17e121fd055ba60d57a992702e59ae495faba76 remove useless tolower in isofs
+ 817794e0df5fea495396c18878804044436832be isofs: mounting to regular file may succeed
+ a36a151e79be1562d6fea3ec4698f23e7102a26f zisofs use mutex instead of semaphore
+ 9b7880e7bb30e641037550888b5c22d94c77f254 isofs: implement dmode option
+ 08ca0db8aa2db4ddcf487d46d85dc8ffb22162cc zisofs: fix readpage() outside i_size
+ 58d485d481013b47f50b7cd2cf9eab7795a0fcbd isofs: use get/put_unaligned_* helpers
+ 2deb1acc653cbd5384b107d050d2deba089db2bd isofs: fix access to unallocated memory when reading corrupted filesystem
+ c0a1633b6201ef79e31b7da464d44fdf5953054d isofs: fix minor filesystem corruption
+ 52b680c81238ea14693ab893d5d32a4d1c0a987d isofs: let mode and dmode mount options override rock ridge mode setting
+ 5c4a656b7e51503c2b5e7e7310ec326ee38a8389 isofs: fix setting of uid and gid to 0
+ 5404ac8e4418ab3d254950ee4f9bcafc1da20b4a isofs: cleanup mount option processing
+ 8711c67bee675b4f7a378c71ad5a59c981ec3df0 isofs: fix Joliet regression
+ 2430c4daf9e6cc6b144906a41f7f28c3f6ae5a2c fs/isofs: return f_fsid for statfs(2)
+ 66a362a2aa8ffa72670259fa15e2a77a01cc2217 isofs: Fix lseek() to position beyond 4 GB
+ fde214d414218fb6cace35708730986bcc94fb53 isofs: Fix isofs_get_blocks for 8TB files
+ 3069083cc8def2ffad8520f0f24c6f95f140aac5 isofs: add readpages support
+ fe685aabf7c8c9f138e5ea900954d295bf229175 isofs: avoid info leak on export
 
 ---
- fs/isofs/inode.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+ Documentation/filesystems/isofs.txt |    8 +
+ fs/isofs/compress.c                 |   36 +++----
+ fs/isofs/dir.c                      |   13 +-
+ fs/isofs/export.c                   |    1 
+ fs/isofs/inode.c                    |  185 +++++++++++++++++++++++-------------
+ fs/isofs/isofs.h                    |   42 ++++----
+ fs/isofs/namei.c                    |   11 +-
+ fs/isofs/rock.c                     |   22 +++-
+ 8 files changed, 206 insertions(+), 112 deletions(-)
 
+diff --git a/Documentation/filesystems/isofs.txt b/Documentation/filesystems/isofs.txt
+--- a/Documentation/filesystems/isofs.txt
++++ b/Documentation/filesystems/isofs.txt
+@@ -23,7 +23,13 @@ Mount options unique to the isofs filesy
+   map=off       Do not map non-Rock Ridge filenames to lower case
+   map=normal    Map non-Rock Ridge filenames to lower case
+   map=acorn     As map=normal but also apply Acorn extensions if present
+-  mode=xxx      Sets the permissions on files to xxx
++  mode=xxx      Sets the permissions on files to xxx unless Rock Ridge
++		extensions set the permissions otherwise
++  dmode=xxx     Sets the permissions on directories to xxx unless Rock Ridge
++		extensions set the permissions otherwise
++  overriderockperm Set permissions on files and directories according to
++		'mode' and 'dmode' even though Rock Ridge extensions are
++		present.
+   nojoliet      Ignore Joliet extensions if they are present.
+   norock        Ignore Rock Ridge extensions if they are present.
+   hide		Completely strip hidden files from the file system.
+diff --git a/fs/isofs/compress.c b/fs/isofs/compress.c
+--- a/fs/isofs/compress.c
++++ b/fs/isofs/compress.c
+@@ -33,7 +33,7 @@ static char zisofs_sink_page[PAGE_CACHE_
+  * allocation; this avoids failures at block-decompression time.
+  */
+ static void *zisofs_zlib_workspace;
+-static struct semaphore zisofs_zlib_semaphore;
++static DEFINE_MUTEX(zisofs_zlib_lock);
+ 
+ /*
+  * When decompressing, we typically obtain more than one page
+@@ -72,6 +72,17 @@ static int zisofs_readpage(struct file *
+ 	offset = index & ~zisofs_block_page_mask;
+ 	blockindex = offset >> zisofs_block_page_shift;
+ 	maxpage = (inode->i_size + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
++
++	/*
++	 * If this page is wholly outside i_size we just return zero;
++	 * do_generic_file_read() will handle this for us
++	 */
++	if (page->index >= maxpage) {
++		SetPageUptodate(page);
++		unlock_page(page);
++		return 0;
++	}
++
+ 	maxpage = min(zisofs_block_pages, maxpage-offset);
+ 
+ 	for ( i = 0 ; i < maxpage ; i++, offset++ ) {
+@@ -180,9 +191,9 @@ static int zisofs_readpage(struct file *
+ 
+ 		/* First block is special since it may be fractional.
+ 		   We also wait for it before grabbing the zlib
+-		   semaphore; odds are that the subsequent blocks are
++		   mutex; odds are that the subsequent blocks are
+ 		   going to come in in short order so we don't hold
+-		   the zlib semaphore longer than necessary. */
++		   the zlib mutex longer than necessary. */
+ 
+ 		if ( !bh || (wait_on_buffer(bh), !buffer_uptodate(bh)) ) {
+ 			printk(KERN_DEBUG "zisofs: Hit null buffer, fpage = %d, xpage = %d, csize = %ld\n",
+@@ -194,7 +205,7 @@ static int zisofs_readpage(struct file *
+ 		csize -= stream.avail_in;
+ 
+ 		stream.workspace = zisofs_zlib_workspace;
+-		down(&zisofs_zlib_semaphore);
++		mutex_lock(&zisofs_zlib_lock);
+ 		
+ 		zerr = zlib_inflateInit(&stream);
+ 		if ( zerr != Z_OK ) {
+@@ -281,7 +292,7 @@ static int zisofs_readpage(struct file *
+ 		zlib_inflateEnd(&stream);
+ 
+ 	z_eio:
+-		up(&zisofs_zlib_semaphore);
++		mutex_unlock(&zisofs_zlib_lock);
+ 
+ 	b_eio:
+ 		for ( i = 0 ; i < haveblocks ; i++ ) {
+@@ -317,31 +328,16 @@ const struct address_space_operations zi
+ 	/* No bmap operation supported */
+ };
+ 
+-static int initialized;
+-
+ int __init zisofs_init(void)
+ {
+-	if ( initialized ) {
+-		printk("zisofs_init: called more than once\n");
+-		return 0;
+-	}
+-
+ 	zisofs_zlib_workspace = vmalloc(zlib_inflate_workspacesize());
+ 	if ( !zisofs_zlib_workspace )
+ 		return -ENOMEM;
+-	init_MUTEX(&zisofs_zlib_semaphore);
+ 
+-	initialized = 1;
+ 	return 0;
+ }
+ 
+ void zisofs_cleanup(void)
+ {
+-	if ( !initialized ) {
+-		printk("zisofs_cleanup: called without initialization\n");
+-		return;
+-	}
+-
+ 	vfree(zisofs_zlib_workspace);
+-	initialized = 0;
+ }
+diff --git a/fs/isofs/dir.c b/fs/isofs/dir.c
+--- a/fs/isofs/dir.c
++++ b/fs/isofs/dir.c
+@@ -154,6 +154,14 @@ static int do_isofs_readdir(struct inode
+ 			}
+ 			de = tmpde;
+ 		}
++		/* Basic sanity check, whether name doesn't exceed dir entry */
++		if (de_len < de->name_len[0] +
++					sizeof(struct iso_directory_record)) {
++			printk(KERN_NOTICE "iso9660: Corrupted directory entry"
++			       " in block %lu of inode %lu\n", block,
++			       inode->i_ino);
++			return -EIO;
++		}
+ 
+ 		if (first_de) {
+ 			isofs_normalize_block_and_offset(de,
+@@ -197,9 +205,8 @@ static int do_isofs_readdir(struct inode
+ 		 * Do not report hidden files if so instructed, or associated
+ 		 * files unless instructed to do so
+ 		 */
+-		if ((sbi->s_hide == 'y' &&
+-				(de->flags[-sbi->s_high_sierra] & 1)) ||
+-		      (sbi->s_showassoc =='n' &&
++		if ((sbi->s_hide && (de->flags[-sbi->s_high_sierra] & 1)) ||
++		    (!sbi->s_showassoc &&
+ 				(de->flags[-sbi->s_high_sierra] & 4))) {
+ 			filp->f_pos += de_len;
+ 			continue;
+diff --git a/fs/isofs/export.c b/fs/isofs/export.c
+--- a/fs/isofs/export.c
++++ b/fs/isofs/export.c
+@@ -164,6 +164,7 @@ isofs_export_encode_fh(struct dentry *de
+ 	len = 3;
+ 	fh32[0] = ei->i_iget5_block;
+  	fh16[2] = (__u16)ei->i_iget5_offset;  /* fh16 [sic] */
++	fh16[3] = 0;  /* avoid leaking uninitialized data */
+ 	fh32[2] = inode->i_generation;
+ 	if (connectable && !S_ISDIR(inode->i_mode)) {
+ 		struct inode *parent;
 diff --git a/fs/isofs/inode.c b/fs/isofs/inode.c
 --- a/fs/isofs/inode.c
 +++ b/fs/isofs/inode.c
-@@ -20,6 +20,7 @@
+@@ -21,6 +21,7 @@
  #include <linux/statfs.h>
  #include <linux/cdrom.h>
  #include <linux/parser.h>
@@ -27,7 +191,318 @@ diff --git a/fs/isofs/inode.c b/fs/isofs/inode.c
  
  #include "isofs.h"
  #include "zisofs.h"
-@@ -1148,7 +1149,13 @@ struct buffer_head *isofs_bread(struct inode *inode, sector_t block)
+@@ -136,20 +137,24 @@ static struct dentry_operations isofs_de
+ };
+ 
+ struct iso9660_options{
+-	char map;
+-	char rock;
+-	char joliet;
+-	char cruft;
+-	char hide;
+-	char showassoc;
+-	char nocompress;
++	unsigned int rock:1;
++	unsigned int joliet:1;
++	unsigned int cruft:1;
++	unsigned int hide:1;
++	unsigned int showassoc:1;
++	unsigned int nocompress:1;
++	unsigned int overriderockperm:1;
++	unsigned int uid_set:1;
++	unsigned int gid_set:1;
++	unsigned int utf8:1;
++	unsigned char map;
+ 	unsigned char check;
+ 	unsigned int blocksize;
+-	mode_t mode;
++	mode_t fmode;
++	mode_t dmode;
+ 	gid_t gid;
+ 	uid_t uid;
+ 	char *iocharset;
+-	unsigned char utf8;
+         /* LVE */
+         s32 session;
+         s32 sbsector;
+@@ -197,7 +202,7 @@ isofs_hashi_common(struct dentry *dentry
+ 	hash = init_name_hash();
+ 	while (len--) {
+ 		c = tolower(*name++);
+-		hash = partial_name_hash(tolower(c), hash);
++		hash = partial_name_hash(c, hash);
+ 	}
+ 	qstr->hash = end_name_hash(hash);
+ 
+@@ -306,7 +311,7 @@ enum {
+ 	Opt_block, Opt_check_r, Opt_check_s, Opt_cruft, Opt_gid, Opt_ignore,
+ 	Opt_iocharset, Opt_map_a, Opt_map_n, Opt_map_o, Opt_mode, Opt_nojoliet,
+ 	Opt_norock, Opt_sb, Opt_session, Opt_uid, Opt_unhide, Opt_utf8, Opt_err,
+-	Opt_nocompress, Opt_hide, Opt_showassoc,
++	Opt_nocompress, Opt_hide, Opt_showassoc, Opt_dmode, Opt_overriderockperm,
+ };
+ 
+ static match_table_t tokens = {
+@@ -333,6 +338,8 @@ static match_table_t tokens = {
+ 	{Opt_uid, "uid=%u"},
+ 	{Opt_gid, "gid=%u"},
+ 	{Opt_mode, "mode=%u"},
++	{Opt_dmode, "dmode=%u"},
++	{Opt_overriderockperm, "overriderockperm"},
+ 	{Opt_block, "block=%u"},
+ 	{Opt_ignore, "conv=binary"},
+ 	{Opt_ignore, "conv=b"},
+@@ -352,22 +359,22 @@ static int parse_options(char *options, 
+ 	int option;
+ 
+ 	popt->map = 'n';
+-	popt->rock = 'y';
+-	popt->joliet = 'y';
+-	popt->cruft = 'n';
+-	popt->hide = 'n';
+-	popt->showassoc = 'n';
++	popt->rock = 1;
++	popt->joliet = 1;
++	popt->cruft = 0;
++	popt->hide = 0;
++	popt->showassoc = 0;
+ 	popt->check = 'u';		/* unset */
+ 	popt->nocompress = 0;
+ 	popt->blocksize = 1024;
+-	popt->mode = S_IRUGO | S_IXUGO; /* r-x for all.  The disc could
+-					   be shared with DOS machines so
+-					   virtually anything could be
+-					   a valid executable. */
++	popt->fmode = popt->dmode = ISOFS_INVALID_MODE;
++	popt->uid_set = 0;
++	popt->gid_set = 0;
+ 	popt->gid = 0;
+ 	popt->uid = 0;
+ 	popt->iocharset = NULL;
+ 	popt->utf8 = 0;
++	popt->overriderockperm = 0;
+ 	popt->session=-1;
+ 	popt->sbsector=-1;
+ 	if (!options)
+@@ -384,20 +391,20 @@ static int parse_options(char *options, 
+ 		token = match_token(p, tokens, args);
+ 		switch (token) {
+ 		case Opt_norock:
+-			popt->rock = 'n';
++			popt->rock = 0;
+ 			break;
+ 		case Opt_nojoliet:
+-			popt->joliet = 'n';
++			popt->joliet = 0;
+ 			break;
+ 		case Opt_hide:
+-			popt->hide = 'y';
++			popt->hide = 1;
+ 			break;
+ 		case Opt_unhide:
+ 		case Opt_showassoc:
+-			popt->showassoc = 'y';
++			popt->showassoc = 1;
+ 			break;
+ 		case Opt_cruft:
+-			popt->cruft = 'y';
++			popt->cruft = 1;
+ 			break;
+ 		case Opt_utf8:
+ 			popt->utf8 = 1;
+@@ -441,16 +448,26 @@ static int parse_options(char *options, 
+ 			if (match_int(&args[0], &option))
+ 				return 0;
+ 			popt->uid = option;
++			popt->uid_set = 1;
+ 			break;
+ 		case Opt_gid:
+ 			if (match_int(&args[0], &option))
+ 				return 0;
+ 			popt->gid = option;
++			popt->gid_set = 1;
+ 			break;
+ 		case Opt_mode:
+ 			if (match_int(&args[0], &option))
+ 				return 0;
+-			popt->mode = option;
++			popt->fmode = option;
++			break;
++		case Opt_dmode:
++			if (match_int(&args[0], &option))
++				return 0;
++			popt->dmode = option;
++			break;
++		case Opt_overriderockperm:
++			popt->overriderockperm = 1;
+ 			break;
+ 		case Opt_block:
+ 			if (match_int(&args[0], &option))
+@@ -609,7 +626,7 @@ static int isofs_fill_super(struct super
+ 		else if (isonum_711 (vdp->type) == ISO_VD_SUPPLEMENTARY) {
+ 		    sec = (struct iso_supplementary_descriptor *)vdp;
+ 		    if (sec->escape[0] == 0x25 && sec->escape[1] == 0x2f) {
+-			if (opt.joliet == 'y') {
++			if (opt.joliet) {
+ 			    if (sec->escape[2] == 0x40) {
+ 				joliet_level = 1;
+ 			    } else if (sec->escape[2] == 0x43) {
+@@ -633,7 +650,7 @@ static int isofs_fill_super(struct super
+ 		        goto out_freebh;
+ 		
+ 		    sbi->s_high_sierra = 1;
+-		    opt.rock = 'n';
++		    opt.rock = 0;
+ 		    h_pri = (struct hs_primary_descriptor *)vdp;
+ 		    goto root_found;
+ 		}
+@@ -656,7 +673,7 @@ static int isofs_fill_super(struct super
+ 
+ root_found:
+ 
+-	if (joliet_level && (pri == NULL || opt.rock == 'n')) {
++	if (joliet_level && (pri == NULL || !opt.rock)) {
+ 	    /* This is the case of Joliet with the norock mount flag.
+ 	     * A disc with both Joliet and Rock Ridge is handled later
+ 	     */
+@@ -701,7 +718,12 @@ root_found:
+ 	  }
+ 
+ 	s->s_magic = ISOFS_SUPER_MAGIC;
+-	s->s_maxbytes = 0xffffffff; /* We can handle files up to 4 GB */
++
++	/*
++	 * With multi-extent files, file size is only limited by the maximum
++	 * size of a file system, which is 8 TB.
++	 */
++	s->s_maxbytes = 0x80000000000LL;
+ 
+ 	/* The CDROM is read-only, has no nodes (devices) on it, and since
+ 	   all of the files appear to be owned by root, we really do not want
+@@ -784,21 +806,31 @@ root_found:
+ 	s->s_op = &isofs_sops;
+ 	s->s_export_op = &isofs_export_ops;
+ 	sbi->s_mapping = opt.map;
+-	sbi->s_rock = (opt.rock == 'y' ? 2 : 0);
++	sbi->s_rock = (opt.rock ? 2 : 0);
+ 	sbi->s_rock_offset = -1; /* initial offset, will guess until SP is found*/
+ 	sbi->s_cruft = opt.cruft;
+ 	sbi->s_hide = opt.hide;
+ 	sbi->s_showassoc = opt.showassoc;
+ 	sbi->s_uid = opt.uid;
+ 	sbi->s_gid = opt.gid;
++	sbi->s_uid_set = opt.uid_set;
++	sbi->s_gid_set = opt.gid_set;
+ 	sbi->s_utf8 = opt.utf8;
+ 	sbi->s_nocompress = opt.nocompress;
++	sbi->s_overriderockperm = opt.overriderockperm;
+ 	/*
+ 	 * It would be incredibly stupid to allow people to mark every file
+ 	 * on the disk as suid, so we merely allow them to set the default
+ 	 * permissions.
+ 	 */
+-	sbi->s_mode = opt.mode & 0777;
++	if (opt.fmode != ISOFS_INVALID_MODE)
++		sbi->s_fmode = opt.fmode & 0777;
++	else
++		sbi->s_fmode = ISOFS_INVALID_MODE;
++	if (opt.dmode != ISOFS_INVALID_MODE)
++		sbi->s_dmode = opt.dmode & 0777;
++	else
++		sbi->s_dmode = ISOFS_INVALID_MODE;
+ 
+ 	/*
+ 	 * Read the root inode, which _may_ result in changing
+@@ -840,6 +872,15 @@ root_found:
+ 		goto out_no_root;
+ 	if (!inode->i_op)
+ 		goto out_bad_root;
++
++	/* Make sure the root inode is a directory */
++	if (!S_ISDIR(inode->i_mode)) {
++		printk(KERN_WARNING
++			"isofs_fill_super: root inode is not a directory. "
++			"Corrupted media?\n");
++		goto out_iput;
++	}
++
+ 	/* get the root dentry */
+ 	s->s_root = d_alloc_root(inode);
+ 	if (!(s->s_root))
+@@ -898,6 +939,7 @@ out_freesbi:
+ static int isofs_statfs (struct dentry *dentry, struct kstatfs *buf)
+ {
+ 	struct super_block *sb = dentry->d_sb;
++	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
+ 
+ 	buf->f_type = ISOFS_SUPER_MAGIC;
+ 	buf->f_bsize = sb->s_blocksize;
+@@ -907,6 +949,8 @@ static int isofs_statfs (struct dentry *
+ 	buf->f_bavail = 0;
+ 	buf->f_files = ISOFS_SB(sb)->s_ninodes;
+ 	buf->f_ffree = 0;
++	buf->f_fsid.val[0] = (u32)id;
++	buf->f_fsid.val[1] = (u32)(id >> 32);
+ 	buf->f_namelen = NAME_MAX;
+ 	return 0;
+ }
+@@ -916,26 +960,24 @@ static int isofs_statfs (struct dentry *
+  * or getblk() if they are not.  Returns the number of blocks inserted
+  * (0 == error.)
+  */
+-int isofs_get_blocks(struct inode *inode, sector_t iblock_s,
++int isofs_get_blocks(struct inode *inode, sector_t iblock,
+ 		     struct buffer_head **bh, unsigned long nblocks)
+ {
+-	unsigned long b_off;
++	unsigned long b_off = iblock;
+ 	unsigned offset, sect_size;
+ 	unsigned int firstext;
+ 	unsigned long nextblk, nextoff;
+-	long iblock = (long)iblock_s;
+ 	int section, rv;
+ 	struct iso_inode_info *ei = ISOFS_I(inode);
+ 
+ 	lock_kernel();
+ 
+ 	rv = 0;
+-	if (iblock < 0 || iblock != iblock_s) {
+-		printk("isofs_get_blocks: block number too large\n");
++	if (iblock != b_off) {
++		printk(KERN_DEBUG "%s: block number too large\n", __func__);
+ 		goto abort;
+ 	}
+ 
+-	b_off = iblock;
+ 	
+ 	offset    = 0;
+ 	firstext  = ei->i_first_extent;
+@@ -953,8 +995,9 @@ int isofs_get_blocks(struct inode *inode
+ 		 * I/O errors.
+ 		 */
+ 		if (b_off > ((inode->i_size + PAGE_CACHE_SIZE - 1) >> ISOFS_BUFFER_BITS(inode))) {
+-			printk("isofs_get_blocks: block >= EOF (%ld, %ld)\n",
+-			       iblock, (unsigned long) inode->i_size);
++			printk(KERN_DEBUG "%s: block >= EOF (%lu, %llu)\n",
++				__func__, b_off,
++				(unsigned long long)inode->i_size);
+ 			goto abort;
+ 		}
+ 		
+@@ -977,9 +1020,9 @@ int isofs_get_blocks(struct inode *inode
+ 
+ 			if (++section > 100) {
+ 				printk("isofs_get_blocks: More than 100 file sections ?!?, aborting...\n");
+-				printk("isofs_get_blocks: block=%ld firstext=%u sect_size=%u "
+-				       "nextblk=%lu nextoff=%lu\n",
+-				       iblock, firstext, (unsigned) sect_size,
++				printk(KERN_DEBUG "%s: block=%lu firstext=%u sect_size=%u "
++					"nextblk=%lu nextoff=%lu\n", __func__,
++					b_off, firstext, (unsigned) sect_size,
+ 				       nextblk, nextoff);
+ 				goto abort;
+ 			}
+@@ -1040,7 +1083,13 @@ struct buffer_head *isofs_bread(struct i
  
  static int isofs_readpage(struct file *file, struct page *page)
  {
@@ -42,7 +517,7 @@ diff --git a/fs/isofs/inode.c b/fs/isofs/inode.c
  }
  
  static sector_t _isofs_bmap(struct address_space *mapping, sector_t block)
-@@ -1158,6 +1165,7 @@ static sector_t _isofs_bmap(struct address_space *mapping, sector_t block)
+@@ -1050,22 +1099,11 @@ static sector_t _isofs_bmap(struct addre
  
  static const struct address_space_operations isofs_aops = {
  	.readpage = isofs_readpage,
@@ -50,5 +525,251 @@ diff --git a/fs/isofs/inode.c b/fs/isofs/inode.c
  	.sync_page = block_sync_page,
  	.bmap = _isofs_bmap
  };
+ 
+-static inline void test_and_set_uid(uid_t *p, uid_t value)
+-{
+-	if (value)
+-		*p = value;
+-}
+-
+-static inline void test_and_set_gid(gid_t *p, gid_t value)
+-{
+-        if (value)
+-                *p = value;
+-}
+-
+ static int isofs_read_level3_size(struct inode *inode)
+ {
+ 	unsigned long bufsize = ISOFS_BUFFER_SIZE(inode);
+@@ -1219,17 +1257,27 @@ static void isofs_read_inode(struct inod
+ 	ei->i_file_format = isofs_file_normal;
+ 
+ 	if (de->flags[-high_sierra] & 2) {
+-		inode->i_mode = S_IRUGO | S_IXUGO | S_IFDIR;
++		if (sbi->s_dmode != ISOFS_INVALID_MODE)
++			inode->i_mode = S_IFDIR | sbi->s_dmode;
++		else
++			inode->i_mode = S_IFDIR | S_IRUGO | S_IXUGO;
+ 		inode->i_nlink = 1; /* Set to 1.  We know there are 2, but
+ 				       the find utility tries to optimize
+ 				       if it is 2, and it screws up.  It is
+ 				       easier to give 1 which tells find to
+ 				       do it the hard way. */
+ 	} else {
+- 		/* Everybody gets to read the file. */
+-		inode->i_mode = sbi->s_mode;
++		if (sbi->s_fmode != ISOFS_INVALID_MODE) {
++			inode->i_mode = S_IFREG | sbi->s_fmode;
++		} else {
++			/*
++			 * Set default permissions: r-x for all.  The disc
++			 * could be shared with DOS machines so virtually
++			 * anything could be a valid executable.
++			 */
++			inode->i_mode = S_IFREG | S_IRUGO | S_IXUGO;
++		}
+ 		inode->i_nlink = 1;
+-	        inode->i_mode |= S_IFREG;
+ 	}
+ 	inode->i_uid = sbi->s_uid;
+ 	inode->i_gid = sbi->s_gid;
+@@ -1254,7 +1302,7 @@ static void isofs_read_inode(struct inod
+ 	 * this CDROM was mounted with the cruft option.
+ 	 */
+ 
+-	if (sbi->s_cruft == 'y')
++	if (sbi->s_cruft)
+ 		inode->i_size &= 0x00ffffff;
+ 
+ 	if (de->interleave[0]) {
+@@ -1299,9 +1347,18 @@ static void isofs_read_inode(struct inod
+ 	if (!high_sierra) {
+ 		parse_rock_ridge_inode(de, inode);
+ 		/* if we want uid/gid set, override the rock ridge setting */
+-		test_and_set_uid(&inode->i_uid, sbi->s_uid);
+-		test_and_set_gid(&inode->i_gid, sbi->s_gid);
+-	}
++		if (sbi->s_uid_set)
++			inode->i_uid = sbi->s_uid;
++		if (sbi->s_gid_set)
++			inode->i_gid = sbi->s_gid;
++	}
++	/* Now set final access rights if overriding rock ridge setting */
++	if (S_ISDIR(inode->i_mode) && sbi->s_overriderockperm &&
++	    sbi->s_dmode != ISOFS_INVALID_MODE)
++		inode->i_mode = S_IFDIR | sbi->s_dmode;
++	if (S_ISREG(inode->i_mode) && sbi->s_overriderockperm &&
++	    sbi->s_fmode != ISOFS_INVALID_MODE)
++		inode->i_mode = S_IFREG | sbi->s_fmode;
+ 
+ 	/* Install the inode operations vector */
+ 	if (S_ISREG(inode->i_mode)) {
+diff --git a/fs/isofs/isofs.h b/fs/isofs/isofs.h
+--- a/fs/isofs/isofs.h
++++ b/fs/isofs/isofs.h
+@@ -34,28 +34,30 @@ struct isofs_sb_info {
+ 	unsigned long s_log_zone_size;
+ 	unsigned long s_max_size;
+ 	
+-	unsigned char s_high_sierra; /* A simple flag */
+-	unsigned char s_mapping;
+ 	int           s_rock_offset; /* offset of SUSP fields within SU area */
+-	unsigned char s_rock;
+ 	unsigned char s_joliet_level;
+-	unsigned char s_utf8;
+-	unsigned char s_cruft; /* Broken disks with high
+-				  byte of length containing
+-				  junk */
+-	unsigned char s_unhide;
+-	unsigned char s_nosuid;
+-	unsigned char s_nodev;
+-	unsigned char s_nocompress;
+-	unsigned char s_hide;
+-	unsigned char s_showassoc;
++	unsigned char s_mapping;
++	unsigned int  s_high_sierra:1;
++	unsigned int  s_rock:2;
++	unsigned int  s_utf8:1;
++	unsigned int  s_cruft:1; /* Broken disks with high byte of length
++				  * containing junk */
++	unsigned int  s_nocompress:1;
++	unsigned int  s_hide:1;
++	unsigned int  s_showassoc:1;
++	unsigned int  s_overriderockperm:1;
++	unsigned int  s_uid_set:1;
++	unsigned int  s_gid_set:1;
+ 
+-	mode_t s_mode;
++	mode_t s_fmode;
++	mode_t s_dmode;
+ 	gid_t s_gid;
+ 	uid_t s_uid;
+ 	struct nls_table *s_nls_iocharset; /* Native language support table */
+ };
+ 
++#define ISOFS_INVALID_MODE ((mode_t) -1)
++
+ static inline struct isofs_sb_info *ISOFS_SB(struct super_block *sb)
+ {
+ 	return sb->s_fs_info;
+@@ -76,29 +78,29 @@ static inline int isonum_712(char *p)
+ }
+ static inline unsigned int isonum_721(char *p)
+ {
+-	return le16_to_cpu(get_unaligned((__le16 *)p));
++	return get_unaligned_le16(p);
+ }
+ static inline unsigned int isonum_722(char *p)
+ {
+-	return be16_to_cpu(get_unaligned((__le16 *)p));
++	return get_unaligned_be16(p);
+ }
+ static inline unsigned int isonum_723(char *p)
+ {
+ 	/* Ignore bigendian datum due to broken mastering programs */
+-	return le16_to_cpu(get_unaligned((__le16 *)p));
++	return get_unaligned_le16(p);
+ }
+ static inline unsigned int isonum_731(char *p)
+ {
+-	return le32_to_cpu(get_unaligned((__le32 *)p));
++	return get_unaligned_le32(p);
+ }
+ static inline unsigned int isonum_732(char *p)
+ {
+-	return be32_to_cpu(get_unaligned((__le32 *)p));
++	return get_unaligned_be32(p);
+ }
+ static inline unsigned int isonum_733(char *p)
+ {
+ 	/* Ignore bigendian datum due to broken mastering programs */
+-	return le32_to_cpu(get_unaligned((__le32 *)p));
++	return get_unaligned_le32(p);
+ }
+ extern int iso_date(char *, int);
+ 
+diff --git a/fs/isofs/namei.c b/fs/isofs/namei.c
+--- a/fs/isofs/namei.c
++++ b/fs/isofs/namei.c
+@@ -111,6 +111,13 @@ isofs_find_entry(struct inode *dir, stru
+ 
+ 		dlen = de->name_len[0];
+ 		dpnt = de->name;
++		/* Basic sanity check, whether name doesn't exceed dir entry */
++		if (de_len < dlen + sizeof(struct iso_directory_record)) {
++			printk(KERN_NOTICE "iso9660: Corrupted directory entry"
++			       " in block %lu of inode %lu\n", block,
++			       dir->i_ino);
++			return 0;
++		}
+ 
+ 		if (sbi->s_rock &&
+ 		    ((i = get_rock_ridge_filename(de, tmpname, dir)))) {
+@@ -135,9 +142,9 @@ isofs_find_entry(struct inode *dir, stru
+ 		 */
+ 		match = 0;
+ 		if (dlen > 0 &&
+-			(sbi->s_hide =='n' ||
++			(!sbi->s_hide ||
+ 				(!(de->flags[-sbi->s_high_sierra] & 1))) &&
+-			(sbi->s_showassoc =='y' ||
++			(sbi->s_showassoc ||
+ 				(!(de->flags[-sbi->s_high_sierra] & 4)))) {
+ 			match = (isofs_cmp(dentry, dpnt, dlen) == 0);
+ 		}
+diff --git a/fs/isofs/rock.c b/fs/isofs/rock.c
+--- a/fs/isofs/rock.c
++++ b/fs/isofs/rock.c
+@@ -209,6 +209,11 @@ repeat:
+ 
+ 	while (rs.len > 2) { /* There may be one byte for padding somewhere */
+ 		rr = (struct rock_ridge *)rs.chr;
++		/*
++		 * Ignore rock ridge info if rr->len is out of range, but
++		 * don't return -EIO because that would make the file
++		 * invisible.
++		 */
+ 		if (rr->len < 3)
+ 			goto out;	/* Something got screwed up here */
+ 		sig = isonum_721(rs.chr);
+@@ -216,8 +221,12 @@ repeat:
+ 			goto eio;
+ 		rs.chr += rr->len;
+ 		rs.len -= rr->len;
++		/*
++		 * As above, just ignore the rock ridge info if rr->len
++		 * is bogus.
++		 */
+ 		if (rs.len < 0)
+-			goto eio;	/* corrupted isofs */
++			goto out;	/* Something got screwed up here */
+ 
+ 		switch (sig) {
+ 		case SIG('R', 'R'):
+@@ -307,6 +316,11 @@ parse_rock_ridge_inode_internal(struct i
+ repeat:
+ 	while (rs.len > 2) { /* There may be one byte for padding somewhere */
+ 		rr = (struct rock_ridge *)rs.chr;
++		/*
++		 * Ignore rock ridge info if rr->len is out of range, but
++		 * don't return -EIO because that would make the file
++		 * invisible.
++		 */
+ 		if (rr->len < 3)
+ 			goto out;	/* Something got screwed up here */
+ 		sig = isonum_721(rs.chr);
+@@ -314,8 +328,12 @@ repeat:
+ 			goto eio;
+ 		rs.chr += rr->len;
+ 		rs.len -= rr->len;
++		/*
++		 * As above, just ignore the rock ridge info if rr->len
++		 * is bogus.
++		 */
+ 		if (rs.len < 0)
+-			goto eio;	/* corrupted isofs */
++			goto out;	/* Something got screwed up here */
+ 
+ 		switch (sig) {
+ #ifndef CONFIG_ZISOFS		/* No flag for SF or ZF */
 -- 
-1.7.6.2

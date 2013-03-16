@@ -80,14 +80,6 @@ extern int waitfor(int fd, int timeout);
 extern int _eval(char *const argv[], const char *path, int timeout, pid_t *ppid);
 
 /* 
- * Concatenates NULL-terminated list of arguments into a single
- * commmand and executes it
- * @param	argv	argument list
- * @return	stdout of executed command or NULL if an error occurred
- */
-extern char * _backtick(char *const argv[]);
-
-/* 
  * Kills process whose PID is stored in plaintext in pidfile
  * @param	pidfile	PID file
  * @return	0 on success and errno on failure
@@ -278,12 +270,6 @@ extern int osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 	while ((c > (s)) && (*c == '\n' || *c == '\r')) \
 		*c-- = '\0'; \
 	s; \
-})
-
-/* Simple version of _backtick() */
-#define backtick(cmd, args...) ({ \
-	const char * const argv[] = { cmd, ## args, NULL }; \
-	_backtick((char * const *)argv); \
 })
 
 /* Simple version of _eval() (no timeout and wait for child termination) */

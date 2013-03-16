@@ -283,7 +283,6 @@ void sysinit(void)
 	/* /proc */
 	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
 
-#ifdef LINUX26
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
 	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, "size=100K");
 
@@ -304,7 +303,6 @@ void sysinit(void)
 	symlink("/proc/self/fd/0", "/dev/stdin");
 	symlink("/proc/self/fd/1", "/dev/stdout");
 	symlink("/proc/self/fd/2", "/dev/stderr");
-#endif
 
 	totalram = router_totalram();
 
@@ -353,9 +351,6 @@ void sysinit(void)
 		modules = nvram_get("kernel_mods") ? : 
 #if defined(MODEL_WL700G)
 		"ide-core aec62xx "
-# ifndef LINUX26
-		"ide-detect "
-# endif
 		"ide-disk "
 #endif
 #if defined(__CONFIG_EMF__)

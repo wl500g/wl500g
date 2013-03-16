@@ -1,0 +1,381 @@
+MIPS: Optimize spinlocks
+
+ 2a31b03335e570dce5fdd082e0d71d48b2cb4290 MIPS: Rewrite spinlocks to ticket locks.
+ 9b8f3863d958eaf8747d9daf89998b558bcd6e33 MIPS: Fix wrong branch target in new spin_lock code.
+ 0e6826c73c9aa785ec58b52613df7699fb31af9a MIPS: __raw_spin_lock() may spin forever on ticket wrap.
+ 500c2e1fdbcc2b273bd4c695a9b8ac8196f61614 MIPS: Optimize spinlocks.
+ 756cca61a7faddcafa582d683b46f32280eda948 MIPS: Microoptimize ram_{read,write}_lock
+
+---
+ include/asm-mips/barrier.h        |    3 
+ include/asm-mips/spinlock.h       |  249 +++++++++++++++++++++++++-------------
+ include/asm-mips/spinlock_types.h |   23 +++
+ 3 files changed, 187 insertions(+), 88 deletions(-)
+
+diff --git a/include/asm-mips/barrier.h b/include/asm-mips/barrier.h
+--- a/include/asm-mips/barrier.h
++++ b/include/asm-mips/barrier.h
+@@ -129,4 +129,7 @@
+ #define set_mb(var, value) \
+ 	do { var = value; smp_mb(); } while (0)
+ 
++#define smp_mb__before_llsc() smp_llsc_mb()
++#define nudge_writes() mb()
++
+ #endif /* __ASM_BARRIER_H */
+diff --git a/include/asm-mips/spinlock.h b/include/asm-mips/spinlock.h
+--- a/include/asm-mips/spinlock.h
++++ b/include/asm-mips/spinlock.h
+@@ -9,62 +9,124 @@
+ #ifndef _ASM_SPINLOCK_H
+ #define _ASM_SPINLOCK_H
+ 
++#include <linux/compiler.h>
++
+ #include <asm/barrier.h>
+ #include <asm/war.h>
+ 
+ /*
+  * Your basic SMP spinlocks, allowing only a single CPU anywhere
++ *
++ * Simple spin lock operations.  There are two variants, one clears IRQ's
++ * on the local processor, one does not.
++ *
++ * These are fair FIFO ticket locks
++ *
++ * (the type definitions are in asm/spinlock_types.h)
+  */
+ 
+-#define __raw_spin_is_locked(x)       ((x)->lock != 0)
+-#define __raw_spin_lock_flags(lock, flags) __raw_spin_lock(lock)
+-#define __raw_spin_unlock_wait(x) \
+-	do { cpu_relax(); } while ((x)->lock)
+ 
+ /*
+- * Simple spin lock operations.  There are two variants, one clears IRQ's
+- * on the local processor, one does not.
+- *
+- * We make no fairness assumptions.  They have a cost.
++ * Ticket locks are conceptually two parts, one indicating the current head of
++ * the queue, and the other indicating the current tail. The lock is acquired
++ * by atomically noting the tail and incrementing it by one (thus adding
++ * ourself to the queue and noting our position), then waiting until the head
++ * becomes equal to the the initial value of the tail.
+  */
+ 
++static inline int __raw_spin_is_locked(raw_spinlock_t *lock)
++{
++	u32 counters = ACCESS_ONCE(lock->lock);
++
++	return ((counters >> 16) ^ counters) & 0xffff;
++}
++
++#define __raw_spin_lock_flags(lock, flags) __raw_spin_lock(lock)
++#define __raw_spin_unlock_wait(x) \
++	while (__raw_spin_is_locked(x)) { cpu_relax(); }
++
++static inline int __raw_spin_is_contended(raw_spinlock_t *lock)
++{
++	u32 counters = ACCESS_ONCE(lock->lock);
++
++	return (((counters >> 16) - counters) & 0xffff) > 1;
++}
++
+ static inline void __raw_spin_lock(raw_spinlock_t *lock)
+ {
+-	unsigned int tmp;
++	int my_ticket;
++	int tmp;
++	int inc = 0x10000;
+ 
+ 	if (R10000_LLSC_WAR) {
+-		__asm__ __volatile__(
+-		"	.set	noreorder	# __raw_spin_lock	\n"
+-		"1:	ll	%1, %2					\n"
+-		"	bnez	%1, 1b					\n"
+-		"	 li	%1, 1					\n"
+-		"	sc	%1, %0					\n"
+-		"	beqzl	%1, 1b					\n"
+-		"	 nop						\n"
+-		"	.set	reorder					\n"
+-		: "=m" (lock->lock), "=&r" (tmp)
+-		: "m" (lock->lock)
+-		: "memory");
++		__asm__ __volatile__ (
++		"	.set push		# __raw_spin_lock	\n"
++		"	.set noreorder					\n"
++		"							\n"
++		"1:	ll	%[ticket], %[ticket_ptr]		\n"
++		"	addu	%[my_ticket], %[ticket], %[inc]		\n"
++		"	sc	%[my_ticket], %[ticket_ptr]		\n"
++		"	beqzl	%[my_ticket], 1b			\n"
++		"	 nop						\n"
++		"	srl	%[my_ticket], %[ticket], 16		\n"
++		"	andi	%[ticket], %[ticket], 0xffff		\n"
++		"	andi	%[my_ticket], %[my_ticket], 0xffff	\n"
++		"	bne	%[ticket], %[my_ticket], 4f		\n"
++		"	 subu	%[ticket], %[my_ticket], %[ticket]	\n"
++		"2:							\n"
++		"	.subsection 2					\n"
++		"4:	andi	%[ticket], %[ticket], 0xffff		\n"
++		"	sll	%[ticket], 5				\n"
++		"							\n"
++		"6:	bnez	%[ticket], 6b				\n"
++		"	 subu	%[ticket], 1				\n"
++		"							\n"
++		"	lhu	%[ticket], %[serving_now_ptr]		\n"
++		"	beq	%[ticket], %[my_ticket], 2b		\n"
++		"	 subu	%[ticket], %[my_ticket], %[ticket]	\n"
++		"	b	4b					\n"
++		"	 subu	%[ticket], %[ticket], 1			\n"
++		"	.previous					\n"
++		"	.set pop					\n"
++		: [ticket_ptr] "+m" (lock->lock),
++		  [serving_now_ptr] "+m" (lock->h.serving_now),
++		  [ticket] "=&r" (tmp),
++		  [my_ticket] "=&r" (my_ticket)
++		: [inc] "r" (inc));
+ 	} else {
+-		__asm__ __volatile__(
+-		"	.set	noreorder	# __raw_spin_lock	\n"
+-		"1:	ll	%1, %2					\n"
+-		"	bnez	%1, 2f					\n"
+-		"	 li	%1, 1					\n"
+-		"	sc	%1, %0					\n"
+-		"	beqz	%1, 2f					\n"
+-		"	 nop						\n"
++		__asm__ __volatile__ (
++		"	.set push		# __raw_spin_lock	\n"
++		"	.set noreorder					\n"
++		"							\n"
++		"1:	ll	%[ticket], %[ticket_ptr]		\n"
++		"	addu	%[my_ticket], %[ticket], %[inc]		\n"
++		"	sc	%[my_ticket], %[ticket_ptr]		\n"
++		"	beqz	%[my_ticket], 1b			\n"
++		"	 srl	%[my_ticket], %[ticket], 16		\n"
++		"	andi	%[ticket], %[ticket], 0xffff		\n"
++		"	andi	%[my_ticket], %[my_ticket], 0xffff	\n"
++		"	bne	%[ticket], %[my_ticket], 4f		\n"
++		"	 subu	%[ticket], %[my_ticket], %[ticket]	\n"
++		"2:							\n"
+ 		"	.subsection 2					\n"
+-		"2:	ll	%1, %2					\n"
+-		"	bnez	%1, 2b					\n"
+-		"	 li	%1, 1					\n"
+-		"	b	1b					\n"
+-		"	 nop						\n"
++		"4:	andi	%[ticket], %[ticket], 0x1fff		\n"
++		"	sll	%[ticket], 5				\n"
++		"							\n"
++		"6:	bnez	%[ticket], 6b				\n"
++		"	 subu	%[ticket], 1				\n"
++		"							\n"
++		"	lhu	%[ticket], %[serving_now_ptr]		\n"
++		"	beq	%[ticket], %[my_ticket], 2b		\n"
++		"	 subu	%[ticket], %[my_ticket], %[ticket]	\n"
++		"	b	4b					\n"
++		"	 subu	%[ticket], %[ticket], 1			\n"
+ 		"	.previous					\n"
+-		"	.set	reorder					\n"
+-		: "=m" (lock->lock), "=&r" (tmp)
+-		: "m" (lock->lock)
+-		: "memory");
++		"	.set pop					\n"
++		: [ticket_ptr] "+m" (lock->lock),
++		  [serving_now_ptr] "+m" (lock->h.serving_now),
++		  [ticket] "=&r" (tmp),
++		  [my_ticket] "=&r" (my_ticket)
++		: [inc] "r" (inc));
+ 	}
+ 
+ 	smp_mb();
+@@ -72,55 +134,72 @@ static inline void __raw_spin_lock(raw_s
+ 
+ static inline void __raw_spin_unlock(raw_spinlock_t *lock)
+ {
+-	smp_mb();
+-
+-	__asm__ __volatile__(
+-	"	.set	noreorder	# __raw_spin_unlock	\n"
+-	"	sw	$0, %0					\n"
+-	"	.set\treorder					\n"
+-	: "=m" (lock->lock)
+-	: "m" (lock->lock)
+-	: "memory");
++	unsigned int serving_now = lock->h.serving_now + 1;
++	wmb();
++	lock->h.serving_now = (u16)serving_now;
++	nudge_writes();
+ }
+ 
+ static inline unsigned int __raw_spin_trylock(raw_spinlock_t *lock)
+ {
+-	unsigned int temp, res;
++	int tmp, tmp2, tmp3;
++	int inc = 0x10000;
+ 
+ 	if (R10000_LLSC_WAR) {
+-		__asm__ __volatile__(
+-		"	.set	noreorder	# __raw_spin_trylock	\n"
+-		"1:	ll	%0, %3					\n"
+-		"	ori	%2, %0, 1				\n"
+-		"	sc	%2, %1					\n"
+-		"	beqzl	%2, 1b					\n"
+-		"	 nop						\n"
+-		"	andi	%2, %0, 1				\n"
+-		"	.set	reorder"
+-		: "=&r" (temp), "=m" (lock->lock), "=&r" (res)
+-		: "m" (lock->lock)
+-		: "memory");
++		__asm__ __volatile__ (
++		"	.set push		# __raw_spin_trylock	\n"
++		"	.set noreorder					\n"
++		"							\n"
++		"1:	ll	%[ticket], %[ticket_ptr]		\n"
++		"	srl	%[my_ticket], %[ticket], 16		\n"
++		"	andi	%[my_ticket], %[my_ticket], 0xffff	\n"
++		"	andi	%[now_serving], %[ticket], 0xffff	\n"
++		"	bne	%[my_ticket], %[now_serving], 3f	\n"
++		"	 addu	%[ticket], %[ticket], %[inc]		\n"
++		"	sc	%[ticket], %[ticket_ptr]		\n"
++		"	beqzl	%[ticket], 1b				\n"
++		"	 li	%[ticket], 1				\n"
++		"2:							\n"
++		"	.subsection 2					\n"
++		"3:	b	2b					\n"
++		"	 li	%[ticket], 0				\n"
++		"	.previous					\n"
++		"	.set pop					\n"
++		: [ticket_ptr] "+m" (lock->lock),
++		  [ticket] "=&r" (tmp),
++		  [my_ticket] "=&r" (tmp2),
++		  [now_serving] "=&r" (tmp3)
++		: [inc] "r" (inc));
+ 	} else {
+-		__asm__ __volatile__(
+-		"	.set	noreorder	# __raw_spin_trylock	\n"
+-		"1:	ll	%0, %3					\n"
+-		"	ori	%2, %0, 1				\n"
+-		"	sc	%2, %1					\n"
+-		"	beqz	%2, 2f					\n"
+-		"	 andi	%2, %0, 1				\n"
++		__asm__ __volatile__ (
++		"	.set push		# __raw_spin_trylock	\n"
++		"	.set noreorder					\n"
++		"							\n"
++		"1:	ll	%[ticket], %[ticket_ptr]		\n"
++		"	srl	%[my_ticket], %[ticket], 16		\n"
++		"	andi	%[my_ticket], %[my_ticket], 0xffff	\n"
++		"	andi	%[now_serving], %[ticket], 0xffff	\n"
++		"	bne	%[my_ticket], %[now_serving], 3f	\n"
++		"	 addu	%[ticket], %[ticket], %[inc]		\n"
++		"	sc	%[ticket], %[ticket_ptr]		\n"
++		"	beqz	%[ticket], 1b				\n"
++		"	 li	%[ticket], 1				\n"
++		"2:							\n"
+ 		"	.subsection 2					\n"
+-		"2:	b	1b					\n"
+-		"	 nop						\n"
++		"3:	b	2b					\n"
++		"	 li	%[ticket], 0				\n"
+ 		"	.previous					\n"
+-		"	.set	reorder"
+-		: "=&r" (temp), "=m" (lock->lock), "=&r" (res)
+-		: "m" (lock->lock)
+-		: "memory");
++		"	.set pop					\n"
++		: [ticket_ptr] "+m" (lock->lock),
++		  [ticket] "=&r" (tmp),
++		  [my_ticket] "=&r" (tmp2),
++		  [now_serving] "=&r" (tmp3)
++		: [inc] "r" (inc));
+ 	}
+ 
+ 	smp_mb();
+ 
+-	return res == 0;
++	return tmp;
+ }
+ 
+ /*
+@@ -165,16 +244,16 @@ static inline void __raw_read_lock(raw_r
+ 		__asm__ __volatile__(
+ 		"	.set	noreorder	# __raw_read_lock	\n"
+ 		"1:	ll	%1, %2					\n"
+-		"	bltz	%1, 2f					\n"
++		"	bltz	%1, 3f					\n"
+ 		"	 addu	%1, 1					\n"
+-		"	sc	%1, %0					\n"
++		"2:	sc	%1, %0					\n"
+ 		"	beqz	%1, 1b					\n"
+ 		"	 nop						\n"
+ 		"	.subsection 2					\n"
+-		"2:	ll	%1, %2					\n"
+-		"	bltz	%1, 2b					\n"
++		"3:	ll	%1, %2					\n"
++		"	bltz	%1, 3b					\n"
+ 		"	 addu	%1, 1					\n"
+-		"	b	1b					\n"
++		"	b	2b					\n"
+ 		"	 nop						\n"
+ 		"	.previous					\n"
+ 		"	.set	reorder					\n"
+@@ -244,16 +323,16 @@ static inline void __raw_write_lock(raw_
+ 		__asm__ __volatile__(
+ 		"	.set	noreorder	# __raw_write_lock	\n"
+ 		"1:	ll	%1, %2					\n"
+-		"	bnez	%1, 2f					\n"
++		"	bnez	%1, 3f					\n"
+ 		"	 lui	%1, 0x8000				\n"
+-		"	sc	%1, %0					\n"
+-		"	beqz	%1, 2f					\n"
++		"2:	sc	%1, %0					\n"
++		"	beqz	%1, 3f					\n"
+ 		"	 nop						\n"
+ 		"	.subsection 2					\n"
+-		"2:	ll	%1, %2					\n"
+-		"	bnez	%1, 2b					\n"
++		"3:	ll	%1, %2					\n"
++		"	bnez	%1, 3b					\n"
+ 		"	 lui	%1, 0x8000				\n"
+-		"	b	1b					\n"
++		"	b	2b					\n"
+ 		"	 nop						\n"
+ 		"	.previous					\n"
+ 		"	.set	reorder					\n"
+diff --git a/include/asm-mips/spinlock_types.h b/include/asm-mips/spinlock_types.h
+--- a/include/asm-mips/spinlock_types.h
++++ b/include/asm-mips/spinlock_types.h
+@@ -5,11 +5,28 @@
+ # error "please don't include this file directly"
+ #endif
+ 
+-typedef struct {
+-	volatile unsigned int lock;
++#include <linux/types.h>
++
++#include <asm/byteorder.h>
++
++typedef union {
++	/*
++	 * bits  0..15 : serving_now
++	 * bits 16..31 : ticket
++	 */
++	u32 lock;
++	struct {
++#ifdef __BIG_ENDIAN
++		u16 ticket;
++		u16 serving_now;
++#else
++		u16 serving_now;
++		u16 ticket;
++#endif
++	} h;
+ } raw_spinlock_t;
+ 
+-#define __RAW_SPIN_LOCK_UNLOCKED	{ 0 }
++#define __RAW_SPIN_LOCK_UNLOCKED	{ .lock = 0 }
+ 
+ typedef struct {
+ 	volatile unsigned int lock;
+-- 

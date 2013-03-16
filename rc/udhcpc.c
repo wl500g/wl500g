@@ -36,7 +36,7 @@ static int expires(const char *wan_ifname, unsigned int in)
 {
 	time_t now;
 	FILE *fp;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	int unit;
 
 	if ((unit = wan_prefix(wan_ifname, prefix)) < 0)
@@ -61,8 +61,8 @@ static int expires(const char *wan_ifname, unsigned int in)
 static int deconfig(const char *wan_ifname, int zcip)
 {
 	const char *client = zcip ? "zcip client" : "dhcp client";
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	char wanprefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char wanprefix[WAN_PREFIX_SZ];
 
 	if (wans_prefix(wan_ifname, wanprefix, prefix) < 0)
 		return EINVAL;
@@ -94,8 +94,8 @@ static int deconfig(const char *wan_ifname, int zcip)
 static int bound(const char *wan_ifname)
 {
 	char *value;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	char wanprefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char wanprefix[WAN_PREFIX_SZ];
 	char route[sizeof("255.255.255.255/255")];
 	int changed = 0;
 	int gateway = 0;
@@ -196,8 +196,8 @@ static int bound(const char *wan_ifname)
 static int renew(const char *wan_ifname)
 {
 	char *value;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	char wanprefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char wanprefix[WAN_PREFIX_SZ];
 	int metric;
 	int changed = 0;
 
@@ -253,7 +253,7 @@ static int renew(const char *wan_ifname)
 
 static int leasefail(const char *wan_ifname)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 
 	if (wanx_prefix(wan_ifname, prefix) < 0)
 		return EINVAL;
@@ -291,7 +291,7 @@ int udhcpc_main(int argc, char **argv)
 
 int start_dhcpc(const char *wan_ifname, int unit)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char pid[sizeof("/var/run/udhcpcXXXXXXXXXX.pid")];
 	char *wan_hostname;
 	char *dhcp_argv[] = {
@@ -345,8 +345,8 @@ int start_dhcpc(const char *wan_ifname, int unit)
 static int config(const char *wan_ifname)
 {
 	char *value;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	char wanprefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char wanprefix[WAN_PREFIX_SZ];
 	int changed = 0;
 
 	if (wans_prefix(wan_ifname, wanprefix, prefix) < 0)

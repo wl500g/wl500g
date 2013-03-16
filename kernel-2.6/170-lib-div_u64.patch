@@ -11,7 +11,6 @@ lib: introduce explicit signed/unsigned 64bit divide
  include/asm-generic/div64.h  |    7 --
  include/asm-i386/div64.h     |    1 
  include/asm-m68k/div64.h     |    1 
- include/asm-mips/div64.h     |    5 -
  include/asm-um/div64.h       |    1 
  include/linux/kernel.h       |    5 +
  include/linux/math64.h       |  117 +++++++++++++++++++++++++++++++++++++++++++
@@ -19,7 +18,7 @@ lib: introduce explicit signed/unsigned 64bit divide
  lib/div64.c                  |   91 +++++++++++++++++++++++++++------
  net/ipv4/tcp_cubic.c         |    4 -
  net/netfilter/xt_connbytes.c |    4 -
- 12 files changed, 204 insertions(+), 45 deletions(-)
+ 11 files changed, 204 insertions(+), 40 deletions(-)
  create mode 100644 include/linux/math64.h
 
 diff --git a/include/asm-arm/div64.h b/include/asm-arm/div64.h
@@ -74,21 +73,6 @@ diff --git a/include/asm-m68k/div64.h b/include/asm-m68k/div64.h
  
 -extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
  #endif /* _M68K_DIV64_H */
-diff --git a/include/asm-mips/div64.h b/include/asm-mips/div64.h
---- a/include/asm-mips/div64.h
-+++ b/include/asm-mips/div64.h
-@@ -106,11 +105,6 @@ extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
- 	__mod;
- })
- 
--static inline uint64_t div64_64(uint64_t dividend, uint64_t divisor)
--{
--	return dividend / divisor;
--}
--
- #endif /* BITS_PER_LONG == 64 */
- 
- #endif /* __ASM_DIV64_H */
 diff --git a/include/asm-um/div64.h b/include/asm-um/div64.h
 --- a/include/asm-um/div64.h
 +++ b/include/asm-um/div64.h
@@ -425,4 +409,3 @@ diff --git a/net/netfilter/xt_connbytes.c b/net/netfilter/xt_connbytes.c
  	}
  
 -- 
-1.7.6.2

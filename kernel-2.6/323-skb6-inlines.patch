@@ -4,6 +4,15 @@ skbuff: inlines backport from 2.6.32.21
  __skb_queue_before
  skb_queue_splice*
 
+ 7de6c033367ab86f39c7723392caf73325cbf286 [SKB]: __skb_append = __skb_queue_after
+
+---
+ include/linux/skbuff.h |  213 ++++++++++++++++++++++++++++++++-----------------
+ include/net/tcp.h      |    2 
+ net/core/skbuff.c      |    2 
+ net/ipv4/tcp_input.c   |    2 
+ 4 files changed, 144 insertions(+), 75 deletions(-)
+
 diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
@@ -138,7 +147,7 @@ diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
   *	Insert an sk_buff at the start of a list.
   *
   *	The "__skb_xxxx()" functions are the non-atomic ones that
-@@ -666,13 +772,7 @@ static inline void __skb_queue_after(str
+@@ -666,15 +772,12 @@ static inline void __skb_queue_after(str
  				     struct sk_buff *prev,
  				     struct sk_buff *newsk)
  {
@@ -152,7 +161,12 @@ diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
 +	__skb_insert(newsk, prev, prev->next, list);
  }
  
++extern void skb_append(struct sk_buff *old, struct sk_buff *newsk,
++		       struct sk_buff_head *list);
++
  /**
+  *	__skb_queue_head - queue a buffer at the list head
+  *	@list: list to use
 @@ -692,6 +792,13 @@ static inline void __skb_queue_head(stru
  	__skb_queue_after(list, (struct sk_buff *)list, newsk);
  }
@@ -203,7 +217,7 @@ diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
  /**
   *	__skb_dequeue - remove from the head of the queue
   *	@list: list to dequeue from
-@@ -728,38 +845,14 @@ static inline void __skb_queue_tail(stru
+@@ -728,64 +845,13 @@ static inline void __skb_queue_tail(stru
  extern struct sk_buff *skb_dequeue(struct sk_buff_head *list);
  static inline struct sk_buff *__skb_dequeue(struct sk_buff_head *list)
  {
@@ -228,7 +242,7 @@ diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
  }
  
  
- /*
+-/*
 - *	Insert a packet on a list.
 - */
 -extern void        skb_insert(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list);
@@ -243,13 +257,14 @@ diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
 -}
 -
 -/*
-  *	Place a packet after a given packet in a list.
-  */
- extern void	   skb_append(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list);
-@@ -768,23 +861,6 @@ static inline void __skb_append(struct s
- 	__skb_insert(newsk, old, old->next, list);
- }
- 
+- *	Place a packet after a given packet in a list.
+- */
+-extern void	   skb_append(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list);
+-static inline void __skb_append(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list)
+-{
+-	__skb_insert(newsk, old, old->next, list);
+-}
+-
 -/*
 - * remove sk_buff from list. _Must_ be called atomically, and with
 - * the list known..
@@ -267,7 +282,44 @@ diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
 -	prev->next = next;
 -}
 -
- 
+-
  /* XXX: more streamlined implementation */
  
+ /**
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1317,7 +1317,7 @@ static inline void tcp_insert_write_queue_after(struct sk_buff *skb,
+ 						struct sk_buff *buff,
+ 						struct sock *sk)
+ {
+-	__skb_append(skb, buff, &sk->sk_write_queue);
++	__skb_queue_after(&sk->sk_write_queue, skb, buff);
+ }
+ 
+ /* Insert skb between prev and next on the write queue of sk.  */
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1860,7 +1860,7 @@ void skb_append(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&list->lock, flags);
+-	__skb_append(old, newsk, list);
++	__skb_queue_after(list, old, newsk);
+ 	spin_unlock_irqrestore(&list->lock, flags);
+ }
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3968,7 +3968,7 @@ drop:
+ 		u32 end_seq = TCP_SKB_CB(skb)->end_seq;
+ 
+ 		if (seq == TCP_SKB_CB(skb1)->end_seq) {
+-			__skb_append(skb1, skb, &tp->out_of_order_queue);
++			__skb_queue_after(&tp->out_of_order_queue, skb1, skb);
+ 
+ 			if (!tp->rx_opt.num_sacks ||
+ 			    tp->selective_acks[0].end_seq != seq)
 -- 

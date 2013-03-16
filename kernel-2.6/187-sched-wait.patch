@@ -1,0 +1,234 @@
+ 777c6c5f1f6e757ae49ecca2ed72d6b1f523c007 wait: prevent exclusive waiter starvation
+ 4ede816ac36e027db5fe0051ad9c73f76db63772 epoll keyed wakeups: add __wake_up_locked_key() and __wake_up_sync_key()
+ c0da37753695e010776ccf2200a5731e0f88a9f3 epoll keyed wakeups: introduce new *_poll() wakeup macros
+ 78ddb08feb7d4fbe3c0a9931804c51ee58be4023 wait: don't use __wake_up_common()
+ 231d0aefd88e94129cb8fb84794f9bb788c6366e wait: using uninitialized member of wait queue
+
+---
+ include/linux/wait.h |   26 +++++++++++++++++++---
+ kernel/sched.c       |   25 +++++++++++++++++----
+ kernel/wait.c        |   59 ++++++++++++++++++++++++++++++++++++++++++++-------
+ 3 files changed, 94 insertions(+), 16 deletions(-)
+
+diff --git a/include/linux/wait.h b/include/linux/wait.h
+--- a/include/linux/wait.h
++++ b/include/linux/wait.h
+@@ -142,8 +142,11 @@ static inline void __remove_wait_queue(w
+ }
+ 
+ void FASTCALL(__wake_up(wait_queue_head_t *q, unsigned int mode, int nr, void *key));
+-extern void FASTCALL(__wake_up_locked(wait_queue_head_t *q, unsigned int mode));
+-extern void FASTCALL(__wake_up_sync(wait_queue_head_t *q, unsigned int mode, int nr));
++void __wake_up_locked_key(wait_queue_head_t *q, unsigned int mode, void *key);
++void __wake_up_sync_key(wait_queue_head_t *q, unsigned int mode, int nr,
++			void *key);
++void __wake_up_locked(wait_queue_head_t *q, unsigned int mode);
++void __wake_up_sync(wait_queue_head_t *q, unsigned int mode, int nr);
+ void FASTCALL(__wake_up_bit(wait_queue_head_t *, void *, int));
+ int FASTCALL(__wait_on_bit(wait_queue_head_t *, struct wait_bit_queue *, int (*)(void *), unsigned));
+ int FASTCALL(__wait_on_bit_lock(wait_queue_head_t *, struct wait_bit_queue *, int (*)(void *), unsigned));
+@@ -161,6 +164,15 @@ wait_queue_head_t *FASTCALL(bit_waitqueu
+ #define	wake_up_locked(x)		__wake_up_locked((x), TASK_UNINTERRUPTIBLE | TASK_INTERRUPTIBLE)
+ #define wake_up_interruptible_sync(x)   __wake_up_sync((x),TASK_INTERRUPTIBLE, 1)
+ 
++#define wake_up_poll(x, m)				\
++	__wake_up(x, TASK_NORMAL, 1, (void *) (m))
++#define wake_up_locked_poll(x, m)				\
++	__wake_up_locked_key((x), TASK_NORMAL, (void *) (m))
++#define wake_up_interruptible_poll(x, m)			\
++	__wake_up(x, TASK_INTERRUPTIBLE, 1, (void *) (m))
++#define wake_up_interruptible_sync_poll(x, m)				\
++	__wake_up_sync_key((x), TASK_INTERRUPTIBLE, 1, (void *) (m))
++
+ #define __wait_event(wq, condition) 					\
+ do {									\
+ 	DEFINE_WAIT(__wait);						\
+@@ -325,16 +337,19 @@ do {									\
+ 	for (;;) {							\
+ 		prepare_to_wait_exclusive(&wq, &__wait,			\
+ 					TASK_INTERRUPTIBLE);		\
+-		if (condition)						\
++		if (condition) {					\
++			finish_wait(&wq, &__wait);			\
+ 			break;						\
++		}							\
+ 		if (!signal_pending(current)) {				\
+ 			schedule();					\
+ 			continue;					\
+ 		}							\
+ 		ret = -ERESTARTSYS;					\
++		abort_exclusive_wait(&wq, &__wait, 			\
++				TASK_INTERRUPTIBLE, NULL);		\
+ 		break;							\
+ 	}								\
+-	finish_wait(&wq, &__wait);					\
+ } while (0)
+ 
+ #define wait_event_interruptible_exclusive(wq, condition)		\
+@@ -384,6 +399,8 @@ void FASTCALL(prepare_to_wait(wait_queue
+ void FASTCALL(prepare_to_wait_exclusive(wait_queue_head_t *q,
+ 				wait_queue_t *wait, int state));
+ void FASTCALL(finish_wait(wait_queue_head_t *q, wait_queue_t *wait));
++void abort_exclusive_wait(wait_queue_head_t *q, wait_queue_t *wait,
++			unsigned int mode, void *key);
+ int autoremove_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
+ int wake_bit_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
+ 
+@@ -410,6 +427,7 @@ int wake_bit_function(wait_queue_t *wait
+ 		(wait)->private = current;				\
+ 		(wait)->func = autoremove_wake_function;		\
+ 		INIT_LIST_HEAD(&(wait)->task_list);			\
++		(wait)->flags = 0;					\
+ 	} while (0)
+ 
+ /**
+diff --git a/kernel/sched.c b/kernel/sched.c
+--- a/kernel/sched.c
++++ b/kernel/sched.c
+@@ -3741,7 +3741,7 @@ EXPORT_SYMBOL(default_wake_function);
+  * zero in this (rare) case, and we handle it by continuing to scan the queue.
+  */
+ static void __wake_up_common(wait_queue_head_t *q, unsigned int mode,
+-			     int nr_exclusive, int sync, void *key)
++			int nr_exclusive, int sync, void *key)
+ {
+ 	struct list_head *tmp, *next;
+ 
+@@ -3781,11 +3781,17 @@ void fastcall __wake_up_locked(wait_queu
+ 	__wake_up_common(q, mode, 1, 0, NULL);
+ }
+ 
++void __wake_up_locked_key(wait_queue_head_t *q, unsigned int mode, void *key)
++{
++	__wake_up_common(q, mode, 1, 0, key);
++}
++
+ /**
+- * __wake_up_sync - wake up threads blocked on a waitqueue.
++ * __wake_up_sync_key - wake up threads blocked on a waitqueue.
+  * @q: the waitqueue
+  * @mode: which threads
+  * @nr_exclusive: how many wake-one or wake-many threads to wake up
++ * @key: opaque value to be passed to wakeup targets
+  *
+  * The sync wakeup differs that the waker knows that it will schedule
+  * away soon, so while the target thread will be woken up, it will not
+@@ -3794,8 +3800,8 @@ void fastcall __wake_up_locked(wait_queu
+  *
+  * On UP it can prevent extra preemption.
+  */
+-void fastcall
+-__wake_up_sync(wait_queue_head_t *q, unsigned int mode, int nr_exclusive)
++void __wake_up_sync_key(wait_queue_head_t *q, unsigned int mode,
++			int nr_exclusive, void *key)
+ {
+ 	unsigned long flags;
+ 	int sync = 1;
+@@ -3807,9 +3813,18 @@ __wake_up_sync(wait_queue_head_t *q, uns
+ 		sync = 0;
+ 
+ 	spin_lock_irqsave(&q->lock, flags);
+-	__wake_up_common(q, mode, nr_exclusive, sync, NULL);
++	__wake_up_common(q, mode, nr_exclusive, sync, key);
+ 	spin_unlock_irqrestore(&q->lock, flags);
+ }
++EXPORT_SYMBOL_GPL(__wake_up_sync_key);
++
++/*
++ * __wake_up_sync - see __wake_up_sync_key()
++ */
++void __wake_up_sync(wait_queue_head_t *q, unsigned int mode, int nr_exclusive)
++{
++	__wake_up_sync_key(q, mode, nr_exclusive, NULL);
++}
+ EXPORT_SYMBOL_GPL(__wake_up_sync);	/* For internal use only */
+ 
+ void fastcall complete(struct completion *x)
+diff --git a/kernel/wait.c b/kernel/wait.c
+--- a/kernel/wait.c
++++ b/kernel/wait.c
+@@ -101,6 +101,15 @@ prepare_to_wait_exclusive(wait_queue_hea
+ }
+ EXPORT_SYMBOL(prepare_to_wait_exclusive);
+ 
++/*
++ * finish_wait - clean up after waiting in a queue
++ * @q: waitqueue waited on
++ * @wait: wait descriptor
++ *
++ * Sets current thread back to running state and removes
++ * the wait descriptor from the given waitqueue if still
++ * queued.
++ */
+ void fastcall finish_wait(wait_queue_head_t *q, wait_queue_t *wait)
+ {
+ 	unsigned long flags;
+@@ -127,6 +136,39 @@ void fastcall finish_wait(wait_queue_hea
+ }
+ EXPORT_SYMBOL(finish_wait);
+ 
++/*
++ * abort_exclusive_wait - abort exclusive waiting in a queue
++ * @q: waitqueue waited on
++ * @wait: wait descriptor
++ * @state: runstate of the waiter to be woken
++ * @key: key to identify a wait bit queue or %NULL
++ *
++ * Sets current thread back to running state and removes
++ * the wait descriptor from the given waitqueue if still
++ * queued.
++ *
++ * Wakes up the next waiter if the caller is concurrently
++ * woken up through the queue.
++ *
++ * This prevents waiter starvation where an exclusive waiter
++ * aborts and is woken up concurrently and noone wakes up
++ * the next waiter.
++ */
++void abort_exclusive_wait(wait_queue_head_t *q, wait_queue_t *wait,
++			unsigned int mode, void *key)
++{
++	unsigned long flags;
++
++	__set_current_state(TASK_RUNNING);
++	spin_lock_irqsave(&q->lock, flags);
++	if (!list_empty(&wait->task_list))
++		list_del_init(&wait->task_list);
++	else if (waitqueue_active(q))
++		__wake_up_locked_key(q, mode, key);
++	spin_unlock_irqrestore(&q->lock, flags);
++}
++EXPORT_SYMBOL(abort_exclusive_wait);
++
+ int autoremove_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key)
+ {
+ 	int ret = default_wake_function(wait, mode, sync, key);
+@@ -187,17 +229,20 @@ int __sched fastcall
+ __wait_on_bit_lock(wait_queue_head_t *wq, struct wait_bit_queue *q,
+ 			int (*action)(void *), unsigned mode)
+ {
+-	int ret = 0;
+-
+ 	do {
++		int ret;
++
+ 		prepare_to_wait_exclusive(wq, &q->wait, mode);
+-		if (test_bit(q->key.bit_nr, q->key.flags)) {
+-			if ((ret = (*action)(q->key.flags)))
+-				break;
+-		}
++		if (!test_bit(q->key.bit_nr, q->key.flags))
++			continue;
++		ret = action(q->key.flags);
++		if (!ret)
++			continue;
++		abort_exclusive_wait(wq, &q->wait, mode, &q->key);
++		return ret;
+ 	} while (test_and_set_bit(q->key.bit_nr, q->key.flags));
+ 	finish_wait(wq, &q->wait);
+-	return ret;
++	return 0;
+ }
+ EXPORT_SYMBOL(__wait_on_bit_lock);
+ 
+-- 

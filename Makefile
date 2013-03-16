@@ -61,6 +61,7 @@ UDEV=udev-113
 NTFS3G=ntfs-3g_ntfsprogs-2013.1.13AR.1
 SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
+IPSET=ipset-4.5
 INFOSRV=infosrv
 
 UCLIBC=uClibc-0.9.32
@@ -84,12 +85,13 @@ endef
 all: prep custom
 	@true
 
-custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
+custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba \
+	iproute2 iptables ipset \
 	ppp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	bpalogin bridge inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev \
-	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
+	scsi-idle libusb usb_modeswitch wimax uqmi lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
 	sysfsutils e2fsprogs wpa_supplicant lanauth authcli infosrv
 	@echo
@@ -296,6 +298,17 @@ samba: $(TOP)/samba
 
 iptables:
 	$(MAKE) -C $(IPTABLES) $@
+
+ipset_Patches := $(call patches_list,ipset)
+
+$(TOP)/ipset: ipset/$(IPSET).tar.bz2
+	@rm -rf $(TOP)/$(IPSET) $@
+	tar -xjf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(IPSET) $(ipset_Patches)
+	mv $(TOP)/$(IPSET) $@
+
+ipset: $(TOP)/ipset
+	@true
 
 nfs-utils_Patches := $(call patches_list,nfs-utils)
 
@@ -688,6 +701,13 @@ $(TOP)/cdma:
 		tar -C . $(TAR_EXCL_SVN) -cf - cdma | tar -C $(TOP) -xf -
 
 cdma: $(TOP)/cdma
+	@true
+
+$(TOP)/uqmi:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - uqmi | tar -C $(TOP) -xf -
+
+uqmi: $(TOP)/uqmi
 	@true
 
 $(TOP)/misc:

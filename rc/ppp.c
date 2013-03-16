@@ -68,7 +68,7 @@ ipup_main(int argc, char **argv)
 	char *wan_ifname;
 	char *value;
 	char buf[256];
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 
 	if (ppp_prefix(&wan_ifname, prefix) < 0)
 		return -1;
@@ -117,7 +117,7 @@ int
 ipdown_main(int argc, char **argv)
 {
 	char *wan_ifname;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 
 	if (ppp_prefix(&wan_ifname, prefix) < 0)
 		return -1;
@@ -143,7 +143,7 @@ ip6up_main(int argc, char **argv)
 	char *wan_ifname;
 	//char *value;
 	int unit;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 
 	if ((unit = ppp_prefix(&wan_ifname, prefix)) < 0)
 		return -1;
@@ -166,7 +166,7 @@ ip6down_main(int argc, char **argv)
 {
 	char *wan_ifname;
 	int unit;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 
 	if ((unit = ppp_prefix(&wan_ifname, prefix)) < 0)
 		return -1;
@@ -190,7 +190,7 @@ ip6down_main(int argc, char **argv)
 int authup_main(int argc, char **argv)
 {
 	const char *wan_ifname = argv[1];
-	char prefix[sizeof("wanXXXXXXXXXX_")];
+	char prefix[WAN_PREFIX_SZ];
 
 	if (wan_ifname == NULL ||
 	    wan_prefix(wan_ifname, prefix) < 0)
@@ -205,7 +205,7 @@ int authup_main(int argc, char **argv)
 int authdown_main(int argc, char **argv)
 {
 	const char *wan_ifname = argv[1];
-	char prefix[sizeof("wanXXXXXXXXXX_")];
+	char prefix[WAN_PREFIX_SZ];
 
 	if (wan_ifname == NULL ||
 	    wan_prefix(wan_ifname, prefix) < 0)
