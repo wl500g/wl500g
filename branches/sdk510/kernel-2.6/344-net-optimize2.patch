@@ -1,4 +1,5 @@
 
+ 04f258ce7f085dd69422fa01d41c8f0194a0e270 net: some optimizations in af_inet/af_inet6
  16751347a060a10c09b11593bb179fd5b0240c04 [TCP]: remove unused argument to cong_avoid op
  ef711cf1d156428d4c2911b8c86c6ce90519dc45 net: speedup dst_release()
  6f11df8355e8f59f7572bf6ac1f63d692483b0c6 [NET]: "wrong timeout value in sk_wait_data()": cleanups
@@ -25,7 +26,7 @@
  net/core/datagram.c          |    5 +--
  net/core/dev.c               |   56 +++++++++++++++++++++++++++++--------------
  net/core/sock.c              |   11 ++++++--
- net/ipv4/af_inet.c           |    9 +-----
+ net/ipv4/af_inet.c           |   16 +++---------
  net/ipv4/arp.c               |    5 +--
  net/ipv4/icmp.c              |   10 +++----
  net/ipv4/ip_options.c        |   12 ++++-----
@@ -45,10 +46,11 @@
  net/ipv4/tcp_vegas.c         |    6 ++--
  net/ipv4/tcp_veno.c          |    6 ++--
  net/ipv4/tcp_yeah.c          |    2 -
+ net/ipv6/af_inet6.c          |    7 ++---
  net/sched/sch_netem.c        |    9 ++++++
  net/sctp/socket.c            |    5 +--
  net/unix/af_unix.c           |    5 +--
- 30 files changed, 144 insertions(+), 119 deletions(-)
+ 31 files changed, 150 insertions(+), 127 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
@@ -379,6 +381,20 @@ diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
 +	cmpxchg(&inet_ehash_secret, 0, rnd);
  }
  EXPORT_SYMBOL(build_ehash_secret);
+ 
+@@ -255,10 +255,9 @@ static int inet_create(struct socket *sock, int protocol)
+ 	int try_loading_module = 0;
+ 	int err;
+ 
+-	if (sock->type != SOCK_RAW &&
+-	    sock->type != SOCK_DGRAM &&
+-	    !inet_ehash_secret)
+-		build_ehash_secret();
++	if (unlikely(!inet_ehash_secret))
++		if (sock->type != SOCK_RAW && sock->type != SOCK_DGRAM)
++			build_ehash_secret();
+ 
+ 	sock->state = SS_UNCONNECTED;
  
 @@ -982,8 +979,6 @@ void inet_register_protosw(struct inet_p
  out:
@@ -858,6 +874,23 @@ diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
  {
  	struct tcp_sock *tp = tcp_sk(sk);
  	struct yeah *yeah = inet_csk_ca(sk);
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -116,10 +116,9 @@ static int inet6_create(struct socket *s
+ 	int try_loading_module = 0;
+ 	int err;
+ 
+-	if (sock->type != SOCK_RAW &&
+-	    sock->type != SOCK_DGRAM &&
+-	    !inet_ehash_secret)
+-		build_ehash_secret();
++	if (unlikely(!inet_ehash_secret))
++		if (sock->type != SOCK_RAW && sock->type != SOCK_DGRAM)
++			build_ehash_secret();
+ 
+ 	/* Look for the requested type/protocol pair. */
+ 	answer = NULL;
 diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
 --- a/net/sched/sch_netem.c
 +++ b/net/sched/sch_netem.c

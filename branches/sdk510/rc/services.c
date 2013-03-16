@@ -269,7 +269,7 @@ int start_upnp(void)
 {
 	const char *wan_ifname;
 	int ret;
-	char var[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char var[100], prefix[WAN_PREFIX_SZ];
 #ifdef __CONFIG_MINIUPNPD__
 	FILE *fp;
 	const char *lan_addr, *lan_mask, *lan_url;

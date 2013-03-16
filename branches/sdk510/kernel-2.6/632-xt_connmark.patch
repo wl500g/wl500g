@@ -1,23 +1,26 @@
 [NETFILTER]: xt_connmark match v1, merge xt_CONNMARK into xt_connmark
 
+[netfilter] xt_CONNMARK: add 'set-return' target
+
  96e3227265852ffad332f911887c9cf26c85e40a [NETFILTER]: xt_connmark match, revision 1
  84899a2b9adaf6c2e20d198d7c24562ce6b391d8 netfilter: xtables: remove xt_connmark v0
  b8f00ba27e4acc4a2224360ce3aa8a22354434c5 netfilter: xtables: merge xt_CONNMARK into xt_connmark
 
 ---
- include/linux/netfilter/xt_CONNMARK.h |   26 ----
- include/linux/netfilter/xt_connmark.h |   15 ++
- net/netfilter/Kconfig                 |   35 +++--
- net/netfilter/Makefile                |    3 
- net/netfilter/xt_CONNMARK.c           |  184 ------------------------------
- net/netfilter/xt_connmark.c           |  203 +++++++++++++++++++++-------------
- 6 files changed, 164 insertions(+), 302 deletions(-)
+ include/linux/netfilter/xt_CONNMARK.h       |   21 --
+ include/linux/netfilter/xt_connmark.h       |   16 +-
+ include/linux/netfilter_ipv4/ipt_CONNMARK.h |    1 
+ net/netfilter/Kconfig                       |   35 ++--
+ net/netfilter/Makefile                      |    3 
+ net/netfilter/xt_CONNMARK.c                 |  184 -----------------------
+ net/netfilter/xt_connmark.c                 |  215 ++++++++++++++++++----------
+ 7 files changed, 176 insertions(+), 299 deletions(-)
  delete mode 100644 net/netfilter/xt_CONNMARK.c
 
 diff --git a/include/linux/netfilter/xt_connmark.h b/include/linux/netfilter/xt_connmark.h
 --- a/include/linux/netfilter/xt_connmark.h
 +++ b/include/linux/netfilter/xt_connmark.h
-@@ -10,8 +10,19 @@
+@@ -10,8 +10,20 @@
   * (at your option) any later version.
   */
  
@@ -26,7 +29,8 @@ diff --git a/include/linux/netfilter/xt_connmark.h b/include/linux/netfilter/xt_
 +enum {
 +	XT_CONNMARK_SET = 0,
 +	XT_CONNMARK_SAVE,
-+	XT_CONNMARK_RESTORE
++	XT_CONNMARK_RESTORE,
++	XT_CONNMARK_SET_RETURN
 +};
 +
 +struct xt_connmark_tginfo1 {
@@ -69,6 +73,17 @@ diff --git a/include/linux/netfilter/xt_CONNMARK.h b/include/linux/netfilter/xt_
 +#include <linux/netfilter/xt_connmark.h>
  
  #endif /*_XT_CONNMARK_H_target*/
+diff --git a/include/linux/netfilter_ipv4/ipt_CONNMARK.h b/include/linux/netfilter_ipv4/ipt_CONNMARK.h
+--- a/include/linux/netfilter_ipv4/ipt_CONNMARK.h
++++ b/include/linux/netfilter_ipv4/ipt_CONNMARK.h
+@@ -13,6 +13,7 @@
+ #define IPT_CONNMARK_SET	XT_CONNMARK_SET
+ #define IPT_CONNMARK_SAVE	XT_CONNMARK_SAVE
+ #define	IPT_CONNMARK_RESTORE	XT_CONNMARK_RESTORE
++#define IPT_CONNMARK_SET_RETURN	XT_CONNMARK_SET_RETURN
+ 
+ #define ipt_connmark_target_info xt_connmark_target_info
+ 
 diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
 --- a/net/netfilter/Kconfig	2012-03-11
 +++ b/net/netfilter/Kconfig	2012-03-11
@@ -360,7 +375,7 @@ diff --git a/net/netfilter/xt_connmark.c b/net/netfilter/xt_connmark.c
   *
   * This program is free software; you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
-@@ -22,16 +24,78 @@
+@@ -22,16 +24,86 @@
  #include <linux/module.h>
  #include <linux/skbuff.h>
  #include <net/netfilter/nf_conntrack.h>
@@ -400,6 +415,14 @@ diff --git a/net/netfilter/xt_connmark.c b/net/netfilter/xt_connmark.c
 +			nf_conntrack_event_cache(IPCT_MARK, skb);
 +		}
 +		break;
++	case XT_CONNMARK_SET_RETURN:
++		// Set connmark and mark, apply mask to mark, do XT_RETURN	- tomato
++		newmark = ct->mark = info->ctmark;
++		newmark &= info->ctmask;
++		if (newmark != skb->mark) {
++			skb->mark = newmark;
++		}
++		return XT_RETURN;
 +	case XT_CONNMARK_SAVE:
 +		newmark = (ct->mark & ~info->ctmask) ^
 +		          (skb->mark & info->nfmask);

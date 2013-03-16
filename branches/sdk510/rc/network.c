@@ -467,7 +467,7 @@ void start_lan(void)
 		ifconfig(lan_ifname, IFUP, NULL, NULL);
 		/* config wireless i/f */
 		if (eval("wlconf", lan_ifname, "up") == 0) {
-			char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+			char tmp[100], prefix[WAN_PREFIX_SZ];
 			int unit;
 
 			/* get the instance number of the wl i/f */
@@ -488,11 +488,9 @@ void start_lan(void)
 		close(s);
 	}
 
-#ifdef LINUX26 // TODO: Make et version specific?
 	/* set the packet size */
 	if (nvram_match("jumbo_frame_enable", "1"))
 		eval("et", "robowr", "0x40", "0x05", nvram_safe_get("jumbo_frame_size"));
-#endif
 
 #ifdef WPA2_WMM
 	/* Set QoS mode */
@@ -744,7 +742,7 @@ int wan_proto(const char *prefix)
 #if defined(__CONFIG_USBNET__)
 void prepare_wan_unit(int unit)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char wan_ifname[10];
 	int wan_proto;
 	char name[80], *next;
@@ -863,7 +861,7 @@ int wans_prefix(const char *wan_ifname, char *prefix, char *xprefix)
 
 static int add_wan_routes(const char *wan_ifname)
 {
-	char prefix[sizeof("wanXXXXXXXXXX_")];
+	char prefix[WAN_PREFIX_SZ];
 
 	/* Figure out nvram variable name prefix for this i/f */
 	if (wan_prefix(wan_ifname, prefix) < 0)
@@ -874,7 +872,7 @@ static int add_wan_routes(const char *wan_ifname)
 
 static int del_wan_routes(const char *wan_ifname)
 {
-	char prefix[sizeof("wanXXXXXXXXXX_")];
+	char prefix[WAN_PREFIX_SZ];
 
 	/* Figure out nvram variable name prefix for this i/f */
 	if (wan_prefix(wan_ifname, prefix) < 0)
@@ -902,7 +900,7 @@ void start_wan_unit(int unit)
 {
 	char *wan_ifname;
 	int wan_proto;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char eabuf[32];
 	int s;
 	struct ifreq ifr;
@@ -1282,7 +1280,7 @@ void stop_wan_unit(int unit)
 {
 	char *wan_ifname;
 	char *wan_proto;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	int dynamic_ip = 0;
 
 	do {
@@ -1442,7 +1440,7 @@ int update_resolvconf(const char *ifname, int metric, int up)
 {
 	FILE *fp;
 	char word[100], *next;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	int unit;
 
 	/* Figure out nvram variable name prefix for this i/f */
@@ -1492,8 +1490,8 @@ int update_resolvconf(const char *ifname, int metric, int up)
 
 void wan_up(const char *wan_ifname)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	char xprefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char xprefix[WAN_PREFIX_SZ];
 	char *gateway;
 	int unit, metric, wan_proto;
 
@@ -1686,8 +1684,8 @@ void wan_up(const char *wan_ifname)
 
 void wan_down(const char *wan_ifname)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
-	int unit, metric, wan_proto;
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	int unit, metric;
 
 	/* Figure out nvram variable name prefix for this i/f */
 	unit = wan_prefix(wan_ifname, prefix);
@@ -1695,9 +1693,8 @@ void wan_down(const char *wan_ifname)
 	if (unit < 0)
 		return;
 
-	wan_proto = _wan_proto(prefix, tmp);
 	metric = nvram_get_int(strcat_r(prefix, "priority", tmp));
-	dprintf("%s unit %d proto %d metric %d\n", wan_ifname, unit, wan_proto, metric);
+	dprintf("%s unit %d proto %d metric %d\n", wan_ifname, unit, _wan_proto(prefix, tmp), metric);
 
 	/* Stop authenticator */
 	stop_auth(prefix, 1);
@@ -1735,7 +1732,7 @@ void wan_down(const char *wan_ifname)
 #ifdef __CONFIG_IPV6__
 void wan6_up(const char *wan_ifname, int unit)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	const char *wan6_ifname = "six0";
 	char *wan6_ipaddr;
 	struct in6_addr addr;
@@ -1768,7 +1765,6 @@ void wan6_up(const char *wan_ifname, int unit)
 		/* Chage local address if any */
 		eval("ip", "tunnel", "change", wan6_ifname, "mode", "sit",
 			"local", inet_ntoa(addr4));
-#ifdef LINUX26
 		if (nvram_match("ipv6_proto", "tun6rd"))
 		{
 			char netstr[sizeof("255.255.255.255/32")] = "0.0.0.0/0";
@@ -1791,7 +1787,6 @@ void wan6_up(const char *wan_ifname, int unit)
 				"6rd-prefix", addrstr,
 				"6rd-relay_prefix", netstr);
 		}
-#endif /* LINUX26 */
 		/* Set MTU value and enable tunnel */
 		eval("ip", "link", "set", "mtu", nvram_safe_get("ipv6_sit_mtu"), "dev", wan6_ifname, "up");
 	} else
@@ -1904,7 +1899,7 @@ void wan6_up(const char *wan_ifname, int unit)
 
 void wan6_down(const char *wan_ifname, int unit)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	const char *wan6_ifname = "six0";
 	char *wan6_ipaddr;
 
@@ -2089,7 +2084,7 @@ static int notify_nas(const char *type, const char *ifname, const char *action)
 			NULL};
 	char *str = NULL;
 	int retries = 10;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	int unit;
 	char remote[ETHER_ADDR_LEN];
 	char ssid[48], pass[80], auth[16], crypto[16], role[8];
@@ -2197,11 +2192,7 @@ int hotplug_net(void)
 	if (strncmp(interface, "wds", 3))
 		return 0;
 
-#ifdef LINUX26
 	if (!strcmp(action, "add")) {
-#else
-	if (!strcmp(action, "register")) {
-#endif
 		/* Bring up the interface and add to the bridge */
 		ifconfig(interface, IFUP, NULL, NULL);
 
@@ -2227,7 +2218,7 @@ int hotplug_net(void)
 
 int preset_wan_routes(const char *wan_ifname)
 {
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 
 	/* Figure out nvram variable name prefix for this i/f */
 	if (wan_prefix(wan_ifname, prefix) < 0)
@@ -2250,7 +2241,7 @@ int wan_primary_ifunit(void)
 	int unit;
 	
 	for (unit = 0; unit < MAX_NVPARSE; unit ++) {
-		char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+		char tmp[100], prefix[WAN_PREFIX_SZ];
 
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 		if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
@@ -2311,7 +2302,7 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 	char *dev_vidpid;
 	int unit;
 	int found = 0;
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char str_devusb[100];
 
 	dprintf( "%s %s %s\n", interface, action, product );

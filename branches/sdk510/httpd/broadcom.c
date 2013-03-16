@@ -146,38 +146,34 @@ ej_wl_sta_status(int eid, webs_t wp, char *ifname)
 	return websWrite(wp, "Status	: Connecting to %s\n", nvram_safe_get("wl0_ssid"));
 }
 
-
 int
 ej_wl_status(int eid, webs_t wp, int argc, char **argv)
 {
 	int unit;
 	char tmp[100], prefix[sizeof("wlXXXXXXXXXX_")];
 	char *name;
-	struct maclist *auth, *assoc, *authorized;
+	struct maclist *auth;
 	int max_sta_count, maclist_size;
-	int i, j, val;
+	int i, val;
 	int ret = 0;
 	channel_info_t ci;
 	char chanspec[16]; /* sizeof("255 + 255") */
+	sta_info_t *sta;
 
 	if ((unit = nvram_get_int("wl_unit")) < 0)
 		return -1;
 
 	snprintf(prefix, sizeof(prefix), "wl%d_", unit);
 	name = nvram_safe_get(strcat_r(prefix, "ifname", tmp));		
-	
 	wl_ioctl(name, WLC_GET_RADIO, &val, sizeof(val));
-
-	if (val==1) 
-	{
-		ret+=websWrite(wp, "Radio is disabled\n");
+	if (val == 1) {
+		ret += websWrite(wp, "Radio is disabled\n");
 		return 0;
 	}
 	
 	/* query wl for chanspec */
 	strncpy(chanspec, "chanspec", sizeof(chanspec));
-	if (wl_ioctl(name, WLC_GET_VAR, &chanspec, sizeof(chanspec)) == 0)
-	{
+	if (wl_ioctl(name, WLC_GET_VAR, &chanspec, sizeof(chanspec)) == 0) {
 		val = *(chanspec_t *) &chanspec;
 		snprintf(chanspec, sizeof(chanspec),
 		    CHSPEC_IS40(val) ? "%d + %d" : "%d",
@@ -190,45 +186,35 @@ ej_wl_status(int eid, webs_t wp, int argc, char **argv)
 		snprintf(chanspec, sizeof(chanspec), "%d", ci.target_channel);
 	}
 
-	if (nvram_match(strcat_r(prefix, "mode", tmp), "ap"))
-	{
+	if (nvram_match(strcat_r(prefix, "mode", tmp), "ap")) {
 		if (nvram_match("wl_lazywds", "1") ||
-			nvram_match("wl_wdsapply_x", "1"))
-			ret+=websWrite(wp, "Mode	: Hybrid\n");
-		else    ret+=websWrite(wp, "Mode	: AP Only\n");
+		    nvram_match("wl_wdsapply_x", "1"))
+			ret += websWrite(wp, "Mode	: Hybrid\n");
+		else    ret += websWrite(wp, "Mode	: AP Only\n");
+		ret += websWrite(wp, "Channel	: %s\n", chanspec);
 
-		ret+=websWrite(wp, "Channel	: %s\n", chanspec);
-
-	}
-	else if (nvram_match(strcat_r(prefix, "mode", tmp), "wds"))
-	{
-		ret+=websWrite(wp, "Mode	: WDS Only\n");
-		ret+=websWrite(wp, "Channel	: %s\n", chanspec);
-	}
-	else if (nvram_match(strcat_r(prefix, "mode", tmp), "sta"))
-	{
-		ret+=websWrite(wp, "Mode	: Station\n");
-		ret+=websWrite(wp, "Channel	: %s\n", chanspec);
-		ret+=ej_wl_sta_status(eid, wp, name);
+	} else if (nvram_match(strcat_r(prefix, "mode", tmp), "wds")) {
+		ret += websWrite(wp, "Mode	: WDS Only\n");
+		ret += websWrite(wp, "Channel	: %s\n", chanspec);
+	} else if (nvram_match(strcat_r(prefix, "mode", tmp), "sta")) {
+		ret += websWrite(wp, "Mode	: Station\n");
+		ret += websWrite(wp, "Channel	: %s\n", chanspec);
+		ret += ej_wl_sta_status(eid, wp, name);
+		return ret;
+	} else if (nvram_match(strcat_r(prefix, "mode", tmp), "wet")) {
+		ret += websWrite(wp, "Mode	: Ethernet Bridge\n");
+		ret += websWrite(wp, "Channel	: %s\n", chanspec);
+		ret += ej_wl_sta_status(eid, wp, name);
 		return ret;
 	}
-	else if (nvram_match(strcat_r(prefix, "mode", tmp), "wet"))
-	{
-		ret+=websWrite(wp, "Mode	: Ethernet Bridge\n");
-		ret+=websWrite(wp, "Channel	: %s\n", chanspec);
-		ret+=ej_wl_sta_status(eid, wp, name);
-		return ret;
-	}	
 
 	/* buffers and length */
 	max_sta_count = 256;
 	maclist_size = sizeof(auth->count) + max_sta_count * sizeof(struct ether_addr);
 
 	auth = malloc(maclist_size);
-	assoc = malloc(maclist_size);
-	authorized = malloc(maclist_size);
-
-	if (!auth || !assoc || !authorized)
+	sta = malloc(sizeof(sta_info_t));
+	if (!auth || !sta)
 		goto exit;
 
 	/* query wl for authenticated sta list */
@@ -236,50 +222,44 @@ ej_wl_status(int eid, webs_t wp, int argc, char **argv)
 	if (wl_ioctl(name, WLC_GET_VAR, auth, maclist_size))
 		goto exit;
 
-	/* query wl for associated sta list */
-	assoc->count = max_sta_count;
-	if (wl_ioctl(name, WLC_GET_ASSOCLIST, assoc, maclist_size))
-		goto exit;
-
-	/* query wl for authorized sta list */
-	strcpy((char*)authorized, "autho_sta_list");
-	if (wl_ioctl(name, WLC_GET_VAR, authorized, maclist_size))
-		goto exit;
-
-
 	websWrite(wp, "\n");
-	websWrite(wp, "Stations List                           \n");
-	websWrite(wp, "----------------------------------------\n");
-	//             00:00:00:00:00:00 associated authorized
+	websWrite(wp, "Stations List                           Mode       Joined      Idle    TX    RX\n");
+	websWrite(wp, "-------------------------------------------------------------------------------\n");
+	//             00:00:00:00:00:00 associated authorized 802.11n 000:00:00 000:00:00 000.0 000.0
 
 	/* build authenticated/associated/authorized sta list */
-	for (i = 0; i < auth->count; i ++) {
+	for (i = 0; i < auth->count; i++) {
 		char ea[ETHER_ADDR_STR_LEN];
 
-		websWrite(wp, "%s ", ether_etoa((void *)&auth->ea[i], ea));
+		websWrite(wp, "%s", ether_etoa((void *)&auth->ea[i], ea));
 
-		for (j = 0; j < assoc->count; j ++) {
-			if (!memcmp((void *)&auth->ea[i], (void *)&assoc->ea[j], ETHER_ADDR_LEN)) {
-				websWrite(wp, " associated");
-				break;
-			}
-		}
+		strcpy((char*)sta, "sta_info");
+		memcpy((char*)sta + sizeof("sta_info"), (void *)&auth->ea[i], ETHER_ADDR_LEN);
+		if (wl_ioctl(name, WLC_GET_VAR, sta, sizeof(sta_info_t)))
+			goto next;
+		
+		websWrite(wp, " %10s", (sta->flags & WL_STA_ASSOC) ? "associated" : "");
+		websWrite(wp, " %10s", (sta->flags & WL_STA_AUTHO) ? "authorized" : "");
+		websWrite(wp, " %7s", (sta->flags & WL_STA_N_CAP) ? "802.11n" : "legacy");
+		websWrite(wp, " %3d:%02d:%02d",
+		    sta->in / 3600, (sta->in % 3600) / 60, sta->in % 60);
+		websWrite(wp, " %3d:%02d:%02d",
+		    sta->idle / 3600, (sta->idle % 3600) / 60, sta->idle % 60);
 
-		for (j = 0; j < authorized->count; j ++) {
-			if (!memcmp((void *)&auth->ea[i], (void *)&authorized->ea[j], ETHER_ADDR_LEN)) {
-				websWrite(wp, " authorized");
-				break;
-			}
+		if ((sta->len >= sizeof(sta_info_t)) &&
+		    (sta->flags & WL_STA_SCBSTATS)) {
+			websWrite(wp, " %5.1f", sta->tx_rate/1000.0);
+			websWrite(wp, " %5.1f", sta->rx_rate/1000.0);
 		}
+	next:
 		websWrite(wp, "\n");
 	}
 
 	/* error/exit */
 exit:
 	if (auth) free(auth);
-	if (assoc) free(assoc);
-	if (authorized) free(authorized);
-	
+	if (sta) free(sta);
+
 	return 0;
 }
 

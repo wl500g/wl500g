@@ -49,6 +49,8 @@ enum {
 	WAN_USBNET,
 };
 
+#define WAN_PREFIX_SZ	sizeof("wanXXXXXXXXXX_")
+
 /* common */
 in_addr_t ip_addr(const char *cp);
 void ip2class(const char *lan_ip, const char *netmask, char *buf);
@@ -72,6 +74,7 @@ char *mac_conv(const char *mac_name, int idx, char *buf);
 int fputs_ex(const char *name, const char *value);
 int fgets_ex(const char *name, char *value, int size);
 int insmod(const char *module, ...);
+int insmod_cond(const char *module, ...);
 int rmmod(const char *module);
 int killall_w(const char *program, unsigned sig, int timeout);
 int killall_s(const char *program, unsigned sig);

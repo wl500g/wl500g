@@ -1,7 +1,7 @@
 diff -uBp iptables.orig/extensions/libxt_CONNMARK.c iptables/extensions/libxt_CONNMARK.c
 --- iptables.orig/extensions/libxt_CONNMARK.c
 +++ iptables/extensions/libxt_CONNMARK.c
-@@ -33,15 +33,6 @@ enum {
+@@ -33,23 +33,6 @@ enum {
  	F_SR_MARK = 1 << 1,
  };
  
@@ -14,10 +14,18 @@ diff -uBp iptables.orig/extensions/libxt_CONNMARK.c iptables/extensions/libxt_CO
 -"  --restore-mark [--mask mask]  Restore saved nfmark value\n");
 -}
 -
- static const struct option CONNMARK_opts[] = {
- 	{ "set-mark", 1, NULL, '1' },
- 	{ "save-mark", 0, NULL, '2' },
-@@ -94,59 +85,6 @@ static void connmark_tg_init(struct xt_e
+-static const struct option CONNMARK_opts[] = {
+-	{ "set-mark", 1, NULL, '1' },
+-	{ "save-mark", 0, NULL, '2' },
+-	{ "restore-mark", 0, NULL, '3' },
+-	{ "mask", 1, NULL, '4' },
+-	{ .name = NULL }
+-};
+-
+ static const struct option connmark_tg_opts[] = {
+ 	{.name = "set-xmark",     .has_arg = true,  .val = '='},
+ 	{.name = "set-mark",      .has_arg = true,  .val = '-'},
+@@ -94,59 +77,6 @@ static void connmark_tg_init(struct xt_e
  	info->nfmask = UINT32_MAX;
  }
  
@@ -77,7 +85,7 @@ diff -uBp iptables.orig/extensions/libxt_CONNMARK.c iptables/extensions/libxt_CO
  static int connmark_tg_parse(int c, char **argv, int invert,
                               unsigned int *flags, const void *entry,
                               struct xt_entry_target **target)
-@@ -258,46 +196,6 @@ static void connmark_tg_check(unsigned i
+@@ -258,46 +188,6 @@ static void connmark_tg_check(unsigned i
  }
  
  static void
@@ -124,7 +132,7 @@ diff -uBp iptables.orig/extensions/libxt_CONNMARK.c iptables/extensions/libxt_CO
  connmark_tg_print(const void *ip, const struct xt_entry_target *target,
                    int numeric)
  {
-@@ -341,40 +239,6 @@ connmark_tg_print(const void *ip, const
+@@ -341,40 +231,6 @@ connmark_tg_print(const void *ip, const 
  	}
  }
  
@@ -165,7 +173,7 @@ diff -uBp iptables.orig/extensions/libxt_CONNMARK.c iptables/extensions/libxt_CO
  static void
  connmark_tg_save(const void *ip, const struct xt_entry_target *target)
  {
-@@ -398,22 +262,6 @@ connmark_tg_save(const void *ip, const s
+@@ -398,22 +254,6 @@ connmark_tg_save(const void *ip, const s
  	}
  }
  
@@ -188,7 +196,7 @@ diff -uBp iptables.orig/extensions/libxt_CONNMARK.c iptables/extensions/libxt_CO
  static struct xtables_target connmark_tg_reg = {
  	.version        = XTABLES_VERSION,
  	.name           = "CONNMARK",
-@@ -432,6 +280,5 @@ static struct xtables_target connmark_tg
+@@ -432,6 +272,5 @@ static struct xtables_target connmark_tg
  
  void _init(void)
  {

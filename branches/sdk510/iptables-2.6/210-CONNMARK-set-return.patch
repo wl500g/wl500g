@@ -1,0 +1,72 @@
+diff --git a/include/linux/netfilter/xt_CONNMARK.h b/include/linux/netfilter/xt_CONNMARK.h
+--- a/include/linux/netfilter/xt_CONNMARK.h
++++ b/include/linux/netfilter/xt_CONNMARK.h
+@@ -13,7 +13,8 @@
+ enum {
+ 	XT_CONNMARK_SET = 0,
+ 	XT_CONNMARK_SAVE,
+-	XT_CONNMARK_RESTORE
++	XT_CONNMARK_RESTORE,
++	XT_CONNMARK_SET_RETURN
+ };
+ 
+ struct xt_connmark_target_info {
+diff --git a/extensions/libxt_CONNMARK.c b/extensions/libxt_CONNMARK.c
+--- a/extensions/libxt_CONNMARK.c
++++ b/extensions/libxt_CONNMARK.c
+@@ -36,6 +36,7 @@ enum {
+ static const struct option connmark_tg_opts[] = {
+ 	{.name = "set-xmark",     .has_arg = true,  .val = '='},
+ 	{.name = "set-mark",      .has_arg = true,  .val = '-'},
++	{.name = "set-return",    .has_arg = true,  .val = 's'},
+ 	{.name = "and-mark",      .has_arg = true,  .val = '&'},
+ 	{.name = "or-mark",       .has_arg = true,  .val = '|'},
+ 	{.name = "xor-mark",      .has_arg = true,  .val = '^'},
+@@ -57,6 +58,7 @@ static void connmark_tg_help(void)
+ "  --restore-mark [--ctmask mask] [--nfmask mask]\n"
+ "                                Copy nfmark to ctmark using masks\n"
+ "  --set-mark value[/mask]       Set conntrack mark value\n"
++"  --set-return [--mask mask]    Set conntrack mark & nfmark, RETURN\n"
+ "  --save-mark [--mask mask]     Save the packet nfmark in the connection\n"
+ "  --restore-mark [--mask mask]  Restore saved nfmark value\n"
+ "  --and-mark value              Binary AND the ctmark with bits\n"
+@@ -88,6 +90,7 @@ static int connmark_tg_parse(int c, char
+ 	switch (c) {
+ 	case '=': /* --set-xmark */
+ 	case '-': /* --set-mark */
++	case 's': /* --set-return */
+ 		xtables_param_act(XTF_ONE_ACTION, "CONNMARK", *flags & F_MARK);
+ 		if (!xtables_strtoui(optarg, &end, &value, 0, UINT32_MAX))
+ 			xtables_param_act(XTF_BAD_VALUE, "CONNMARK", "--set-xmark/--set-mark", optarg);
+@@ -96,7 +99,10 @@ static int connmark_tg_parse(int c, char
+ 				xtables_param_act(XTF_BAD_VALUE, "CONNMARK", "--set-xmark/--set-mark", optarg);
+ 		if (*end != '\0')
+ 			xtables_param_act(XTF_BAD_VALUE, "CONNMARK", "--set-xmark/--set-mark", optarg);
+-		info->mode   = XT_CONNMARK_SET;
++		if (c == 's')
++			info->mode   = XT_CONNMARK_SET_RETURN;
++		else
++			info->mode   = XT_CONNMARK_SET;
+ 		info->ctmark = value;
+ 		info->ctmask = mask;
+ 		if (c == '-')
+@@ -206,6 +212,9 @@ connmark_tg_print(const void *ip, const 
+ 			printf("CONNMARK xset 0x%x/0x%x ",
+ 			       info->ctmark, info->ctmask);
+ 		break;
++	case XT_CONNMARK_SET_RETURN:
++		printf("CONNMARK set-return 0x%x ", info->ctmark);
++		break;
+ 	case XT_CONNMARK_SAVE:
+ 		if (info->nfmask == UINT32_MAX && info->ctmask == UINT32_MAX)
+ 			printf("CONNMARK save ");
+@@ -240,6 +249,9 @@ connmark_tg_save(const void *ip, const s
+ 	case XT_CONNMARK_SET:
+ 		printf("--set-xmark 0x%x/0x%x ", info->ctmark, info->ctmask);
+ 		break;
++	case XT_CONNMARK_SET_RETURN:
++		printf("--set-return 0x%x ", info->ctmark);
++		break;
+ 	case XT_CONNMARK_SAVE:
+ 		printf("--save-mark --nfmask 0x%x --ctmask 0x%x ",
+ 		       info->nfmask, info->ctmask);

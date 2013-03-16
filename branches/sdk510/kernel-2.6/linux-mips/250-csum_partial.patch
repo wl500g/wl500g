@@ -3,6 +3,7 @@ MIPS: IP checksums: Updates from upstream
  d86a8123b11a9a40d850f6e88b89c948c2477da3 MIPS: IP checksums: Remove unncessary folding of sum to 16 bit.
  60724ca59eda766a30be57aec6b49bc3e2bead91 MIPS: IP checksums: Remove unncessary .set pseudos
  b65a75b8c91c0f05047399401407371678fe9549 MIPS: IP checksums: Optimize adjust of sum on buffers of odd alignment.
+ 8124ca0d820f36c7d7e395dc89b5b184df36385a MIPS: Use CONFIG_CPU_MIPSR2 in csum_partial.S
 
 ---
  arch/mips/lib/csum_partial.S |   48 +++++++++++++++++++++----------------------
@@ -38,7 +39,7 @@ diff --git a/arch/mips/lib/csum_partial.S b/arch/mips/lib/csum_partial.S
 -	beqz	t7, 1f
 -	 nop
 -	sll	v1, sum, 8
-+#ifdef CPU_MIPSR2
++#ifdef CONFIG_CPU_MIPSR2
 +	wsbh	v1, sum
 +	movn	sum, v1, t7
 +#else
@@ -71,7 +72,7 @@ diff --git a/arch/mips/lib/csum_partial.S b/arch/mips/lib/csum_partial.S
 -	beqz	odd, 1f
 -	 nop
 -	sll	v1, sum, 8
-+#ifdef CPU_MIPSR2
++#ifdef CONFIG_CPU_MIPSR2
 +	wsbh	v1, sum
 +	movn	sum, v1, odd
 +#else

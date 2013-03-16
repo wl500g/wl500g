@@ -1,0 +1,51 @@
+From af9e70b8cba23b17c554533c3cdab0b66e7015e8
+From: Mike Frysinger <vapier@gentoo.org>
+Date: Tue, 12 Mar 2013 15:14:24 +0000
+Subject: readlink: uClibc supports automatic allocation too now
+
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+
+diff --git a/include/platform.h b/include/platform.h
+--- a/include/platform.h
++++ b/include/platform.h
+@@ -263,6 +263,12 @@ typedef unsigned smalluint;
+ 
+ #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+ 
++#ifdef __UCLIBC__
++# define UCLIBC_VERSION KERNEL_VERSION(__UCLIBC_MAJOR__, __UCLIBC_MINOR__, __UCLIBC_SUBLEVEL__)
++#else
++# define UCLIBC_VERSION 0
++#endif
++
+ 
+ /* ---- Miscellaneous --------------------------------------- */
+ 
+@@ -305,8 +311,9 @@ typedef unsigned smalluint;
+  * for a mmu-less system.
+  */
+ #if ENABLE_NOMMU || \
+-    (defined __UCLIBC__ && __UCLIBC_MAJOR__ >= 0 && __UCLIBC_MINOR__ >= 9 && \
+-    __UCLIBC_SUBLEVEL__ > 28 && !defined __ARCH_USE_MMU__)
++    (defined __UCLIBC__ && \
++     UCLIBC_VERSION > KERNEL_VERSION(0, 9, 28) && \
++     !defined __ARCH_USE_MMU__)
+ # define BB_MMU 0
+ # define USE_FOR_NOMMU(...) __VA_ARGS__
+ # define USE_FOR_MMU(...)
+diff --git a/libbb/xreadlink.c b/libbb/xreadlink.c
+--- a/libbb/xreadlink.c
++++ b/libbb/xreadlink.c
+@@ -102,7 +102,8 @@ char* FAST_FUNC xmalloc_readlink_or_warn(const char *path)
+ 
+ char* FAST_FUNC xmalloc_realpath(const char *path)
+ {
+-#if defined(__GLIBC__) && !defined(__UCLIBC__)
++#if defined(__GLIBC__) || \
++    (defined(__UCLIBC__) && UCLIBC_VERSION >= KERNEL_VERSION(0, 9, 31))
+ 	/* glibc provides a non-standard extension */
+ 	/* new: POSIX.1-2008 specifies this behavior as well */
+ 	return realpath(path, NULL);
+--
+cgit v0.9.1

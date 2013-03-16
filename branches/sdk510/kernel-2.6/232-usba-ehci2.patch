@@ -10,15 +10,16 @@ USB: EHCI: Updates from upstream
  631fe9d9d20e28fffdf750d12dd2cd275bd654e9 USB: EHCI: initialize data before resetting hardware
  361aabf395e4a23cf554cf4ec0c0c6963b8beb01 USB: EHCI: don't lose events during a scan
  3d037774b42ed677f699b1dce7d548d55f4e4c2b EHCI: Update qTD next pointer in QH overlay region during unlink
+ feca7746d5d9e84b105a613b7f3b6ad00d327372 USB: EHCI: don't check DMA values in QH overlays
 
 ---
  drivers/usb/host/ehci-hcd.c   |   39 ++++++-----
  drivers/usb/host/ehci-hub.c   |    3 
  drivers/usb/host/ehci-pci.c   |    6 -
- drivers/usb/host/ehci-q.c     |   99 +++++++++++++++--------------
+ drivers/usb/host/ehci-q.c     |  116 +++++++++++++++++++---------------
  drivers/usb/host/ehci.h       |    6 +
  drivers/usb/host/pci-quirks.c |  142 +++++++++++++++++++-----------------------
- 6 files changed, 152 insertions(+), 143 deletions(-)
+ 6 files changed, 165 insertions(+), 147 deletions(-)
 
 diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
 --- a/drivers/usb/host/ehci.h
@@ -190,13 +191,38 @@ diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
 +		 * qtd is updated in qh_completions(). Update the QH
 +		 * overlay here.
 +		 */
-+		if (cpu_to_hc32(ehci, qtd->qtd_dma) == qh->hw->hw_current) {
++		if (qh->hw->hw_token & ACTIVE_BIT(ehci)) {
 +			qh->hw->hw_qtd_next = qtd->hw_next;
  			qtd = NULL;
 +		}
  	}
  
  	if (qtd)
+@@ -409,11 +417,20 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh)
+ 			else if (last_status == -EINPROGRESS && !urb->unlinked)
+ 				continue;
+ 
+-			/* qh unlinked; token in overlay may be most current */
+-			if (state == QH_STATE_IDLE
+-					&& cpu_to_hc32(ehci, qtd->qtd_dma)
+-						== hw->hw_current)
++			/*
++			 * If this was the active qtd when the qh was unlinked
++			 * and the overlay's token is active, then the overlay
++			 * hasn't been written back to the qtd yet so use its
++			 * token instead of the qtd's.  After the qtd is
++			 * processed and removed, the overlay won't be valid
++			 * any more.
++			 */
++			if (state == QH_STATE_IDLE &&
++					qh->qtd_list.next == &qtd->qtd_list &&
++					(hw->hw_token & ACTIVE_BIT(ehci))) {
+ 				token = hc32_to_cpu(ehci, hw->hw_token);
++				hw->hw_token &= ~ACTIVE_BIT(ehci);
++			}
+ 		}
+ 
+ 		/* unless we already know the urb's status, collect qtd status
 @@ -1149,6 +1149,8 @@ static void start_unlink_async (struct e
  
  	prev->hw->hw_next = qh->hw->hw_next;

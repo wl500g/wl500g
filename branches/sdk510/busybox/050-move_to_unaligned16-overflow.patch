@@ -1,0 +1,36 @@
+From e3e321682cd1e9861ba7680e61ab6dadaf1e2e32
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Wed, 27 Feb 2013 14:49:38 +0000
+Subject: Fix move_to_unaligned16
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/include/platform.h b/include/platform.h
+--- a/include/platform.h
++++ b/include/platform.h
+@@ -228,7 +228,7 @@ typedef uint32_t bb__aliased_uint32_t FIX_ALIASING;
+ # define move_from_unaligned32(v, u32p) (memcpy(&(v), (u32p), 4))
+ # define move_to_unaligned16(u16p, v) do { \
+ 	uint16_t __t = (v); \
+-	memcpy((u16p), &__t, 4); \
++	memcpy((u16p), &__t, 2); \
+ } while (0)
+ # define move_to_unaligned32(u32p, v) do { \
+ 	uint32_t __t = (v); \
+diff --git a/archival/libarchive/decompress_unxz.c b/archival/libarchive/decompress_unxz.c
+--- a/archival/libarchive/decompress_unxz.c
++++ b/archival/libarchive/decompress_unxz.c
+@@ -30,8 +30,8 @@ static uint32_t xz_crc32(const uint8_t *
+ /* We use arch-optimized unaligned accessors */
+ #define get_unaligned_le32(buf) ({ uint32_t v; move_from_unaligned32(v, buf); SWAP_LE32(v); })
+ #define get_unaligned_be32(buf) ({ uint32_t v; move_from_unaligned32(v, buf); SWAP_BE32(v); })
+-#define put_unaligned_le32(val, buf) move_to_unaligned16(buf, SWAP_LE32(val))
+-#define put_unaligned_be32(val, buf) move_to_unaligned16(buf, SWAP_BE32(val))
++#define put_unaligned_le32(val, buf) move_to_unaligned32(buf, SWAP_LE32(val))
++#define put_unaligned_be32(val, buf) move_to_unaligned32(buf, SWAP_BE32(val))
+ 
+ #include "unxz/xz_dec_bcj.c"
+ #include "unxz/xz_dec_lzma2.c"
+--
+cgit v0.9.1

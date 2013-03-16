@@ -1,27 +1,62 @@
-From ec5b1157f8e819c72fc93aa6d2d5117c08cdc961
-From: Joe Peterson
-Date: Wed, 6 Feb 2008 01:37:38 -0800
-Subject: [PATCH] tty: enable the echoing of ^C in the N_TTY discipline
-
-Turn on INTR/QUIT/SUSP echoing in the N_TTY line discipline (e.g.  ctrl-C
-will appear as "^C" if stty echoctl is set and ctrl-C is set as INTR).
-
-Linux seems to be the only unix-like OS (recently I've verified this on
-Solaris, BSD, and Mac OS X) that does *not* behave this way, and I really
-miss this as a good visual confirmation of the interrupt of a program in
-the console or xterm.  I remember this fondly from many Unixs I've used
-over the years as well.  Bringing this to Linux also seems like a good way
-to make it yet more compliant with standard unix-like behavior.
-
-[akpm@linux-foundation.org: coding-style fixes]
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+ b0fed3140f57c435d2783b698c5090f325c22bad Char: n_hdlc, allow RESTARTSYS retval of tty write
+ c72f527c104cae8e767e714574238b5550879e0c n_hdlc: honor O_NONBLOCK on write
+ ec5b1157f8e819c72fc93aa6d2d5117c08cdc961 tty: enable the echoing of ^C in the N_TTY discipline
+ 7962fce9a052f34390b6dab9f11df1d2e48c138d tty: n_hdlc not atomic use tty->flags.
 
 ---
- drivers/char/n_tty.c |   16 +++++++++++++++-
- 1 files changed, 15 insertions(+), 1 deletions(-)
+ drivers/char/n_hdlc.c |   17 +++++++++++++----
+ drivers/char/n_tty.c  |   15 ++++++++++++++-
+ 2 files changed, 27 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/char/n_hdlc.c b/drivers/char/n_hdlc.c
+--- a/drivers/char/n_hdlc.c
++++ b/drivers/char/n_hdlc.c
+@@ -398,9 +398,14 @@ static void n_hdlc_send_frames(struct n_
+ 				__FILE__,__LINE__,tbuf,tbuf->count);
+ 			
+ 		/* Send the next block of data to device */
+-		tty->flags |= (1 << TTY_DO_WRITE_WAKEUP);
++		set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+ 		actual = tty->driver->write(tty, tbuf->buf, tbuf->count);
+-		    
++
++		/* rollback was possible and has been done */
++		if (actual == -ERESTARTSYS) {
++			n_hdlc->tbuf = tbuf;
++			break;
++		}
+ 		/* if transmit error, throw frame away by */
+ 		/* pretending it was accepted by driver */
+ 		if (actual < 0)
+@@ -435,7 +440,7 @@ static void n_hdlc_send_frames(struct n_
+ 	}
+ 	
+ 	if (!tbuf)
+-		tty->flags  &= ~(1 << TTY_DO_WRITE_WAKEUP);
++		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+ 	
+ 	/* Clear the re-entry flag */
+ 	spin_lock_irqsave(&n_hdlc->tx_buf_list.spinlock, flags);
+@@ -467,7 +472,7 @@ static void n_hdlc_tty_wakeup(struct tty
+ 		return;
+ 
+ 	if (tty != n_hdlc->tty) {
+-		tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
++		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+ 		return;
+ 	}
+ 
+@@ -662,6 +667,10 @@ static ssize_t n_hdlc_tty_write(struct t
+ 	/* Allocate transmit buffer */
+ 	/* sleep until transmit buffer available */		
+ 	while (!(tbuf = n_hdlc_buf_get(&n_hdlc->tx_free_buf_list))) {
++		if (file->f_flags & O_NONBLOCK) {
++			error = -EAGAIN;
++			break;
++		}
+ 		schedule();
+ 			
+ 		n_hdlc = tty2n_hdlc (tty);
 diff --git a/drivers/char/n_tty.c b/drivers/char/n_tty.c
 --- a/drivers/char/n_tty.c
 +++ b/drivers/char/n_tty.c
@@ -48,4 +83,3 @@ diff --git a/drivers/char/n_tty.c b/drivers/char/n_tty.c
  		}
  	}
 -- 
-1.7.6.5

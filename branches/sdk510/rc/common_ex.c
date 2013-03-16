@@ -73,21 +73,48 @@ char *mac_conv(const char *mac_name, int idx, char *buf)
 	return(buf);
 }
 
-/* load kernel module, trailing NULL in arguments list required! */
-int insmod(const char *module, ...)
+static int __insmod(const char *module, va_list ap)
 {
 	char *insmod_argv[8] = { "insmod", (char *)module, NULL };
 	int i = 2;
-	va_list ap;
 
-	va_start(ap, module);
 	while (i < ARRAY_SIZE(insmod_argv) - 1
 			&& (insmod_argv[i] = va_arg(ap, char *)) != NULL) {
 		++i;
 	}
-	va_end(ap);
 	insmod_argv[i] = NULL;
         return _eval(insmod_argv, NULL, 0, NULL);
+}
+
+/* load kernel module, trailing NULL in arguments list required! */
+int insmod(const char *module, ...)
+{
+	int r;
+	va_list ap;
+
+	va_start(ap, module);
+	r = __insmod(module, ap);
+	va_end(ap);
+	return r;
+}
+
+/* load kernel module in case of it not in memory yet */
+int insmod_cond(const char *module, ...)
+{
+#define SYSMODBASE	"/sys/module/"
+	int r = 0;
+	va_list ap;
+	char sysmodpath[sizeof(SYSMODBASE)+32] = SYSMODBASE;
+
+	strncpy(sysmodpath + sizeof(SYSMODBASE) - 1, module,
+		sizeof(sysmodpath) - sizeof(SYSMODBASE));
+	if (!exists(sysmodpath)) {
+		va_start(ap, module);
+		r = __insmod(module, ap);
+		va_end(ap);
+	}
+	return r;
+#undef SYSMODBASE
 }
 
 int rmmod(const char *module)
@@ -498,7 +525,7 @@ void convert_asus_values()
 	nvram_set("wan_status_t", "Disconnected");
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__) || defined (__CONFIG_USBNET__)
-	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	int unit;
 	for (unit = 0; unit < MAX_NVPARSE; unit ++) 
 	{
@@ -683,11 +710,7 @@ void convert_asus_values()
 
 #ifdef WEBSTRFILTER
 	if (nvram_match("url_enable_x", "1")) {
-		#ifdef LINUX26
 		insmod("xt_webstr", NULL);
-		#else
-		insmod("ipt_webstr", NULL);
-		#endif
 	}
 #endif
 
@@ -705,33 +728,19 @@ void convert_asus_values()
                 char ports[32];
 
                 sprintf(ports, "ports=21,%d", atoi(nvram_get("usb_ftpport_x")));
-		#ifdef LINUX26
                 insmod("nf_conntrack_ftp", ports, NULL);
                 insmod("nf_nat_ftp", ports, NULL);
-		#else
-                insmod("ip_conntrack_ftp", ports, NULL);
-                insmod("ip_nat_ftp", ports, NULL);
-		#endif
         }
         else
         {
-		#ifdef LINUX26
                 insmod("nf_conntrack_ftp", NULL);
                 insmod("nf_nat_ftp", NULL);
-		#else
-                insmod("ip_conntrack_ftp", NULL);
-                insmod("ip_nat_ftp", NULL);
-		#endif
         }
 
 	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
 	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0")))
 	{
-#if defined(LINUX26)
 		insmod("xt_recent", NULL);
-#else
-		insmod("ipt_recent", NULL);
-#endif
 	}
 
 #ifdef __CONFIG_IPV6__
@@ -759,11 +768,6 @@ void convert_asus_values()
 		    nvram_safe_get("ipv6_sit_relay"));
 		nvram_set("wan0_ipv6_ip4size", nvram_safe_get("ipv6_6rd_ip4size"));
 
-#if !defined(BROKEN_IPV6_CONNTRACK) && !defined(LINUX26)
-		insmod("ip6_conntrack", NULL);
-//		insmod("ip6t_state", NULL);
-//		insmod("ip6t_TCPMSS", NULL);
-#endif
 	} else {
 		FILE *fp;
 
@@ -790,7 +794,7 @@ void convert_asus_values()
 #endif
 #endif
 
-#if defined(LINUX26) && defined(QOS)
+#if defined(QOS)
 	/* Kinda smart fast nat management */
 	fputs_ex("/proc/sys/net/netfilter/nf_conntrack_fastnat",
 	    nvram_match("misc_fastnat_x", "0") || !nvram_match("wan_nat_x", "1") ||
@@ -799,7 +803,7 @@ void convert_asus_values()
 	    nvram_match("url_enable_x", "1") ? "2" :
 #endif
 	    "1");
-#endif
+#endif // QOS
 
 	update_lan_status(1);
 

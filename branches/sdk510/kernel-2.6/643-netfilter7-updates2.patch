@@ -3,6 +3,7 @@ From: Fedor <fedork@ubuntu.(none)>
 Date: Sun, 23 Jan 2011 23:25:24 -0500
 
  kernel.org commits
+ ffaa9c100bd75c81744a2b7800a45daba53db0eb [NETFILTER]: nf_conntrack: reorder struct nf_conntrack_l4proto
  794dbc1d712e181a9eb8d1ae799ed7c526963a7c netfilter: nf_nat: use local variable hdrlen
  2452a99dc0496a90abd0090c280671370c0f3e1c netfilter: nf_nat: don't check if the tuple is unique when there isn't any other choice
  c36952e524b2b898a3c9e9b137f64d72d43cd393 netfilter: nf_nat_core: merge the same lines
@@ -13,6 +14,7 @@ Date: Sun, 23 Jan 2011 23:25:24 -0500
 
 ---
  include/net/netfilter/nf_conntrack_l3proto.h |   11 -------
+ include/net/netfilter/nf_conntrack_l4proto.h |   19 ++++++-------
  net/ipv4/netfilter/nf_nat_core.c             |   39 ++++++++++++---------------
  net/ipv4/netfilter/nf_nat_proto_gre.c        |    4 +-
  net/ipv4/netfilter/nf_nat_proto_icmp.c       |    4 +-
@@ -20,7 +22,7 @@ Date: Sun, 23 Jan 2011 23:25:24 -0500
  net/ipv4/netfilter/nf_nat_proto_udp.c        |    4 +-
  net/netfilter/nf_conntrack_core.c            |    3 --
  net/netfilter/nf_conntrack_netlink.c         |    3 +-
- 8 files changed, 29 insertions(+), 43 deletions(-)
+ 9 files changed, 38 insertions(+), 53 deletions(-)
 
 diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
 --- a/include/net/netfilter/nf_conntrack_l3proto.h
@@ -43,6 +45,56 @@ diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilte
  	/*
  	 * Called before tracking. 
  	 *	*dataoff: offset of protocol header (TCP, UDP,...) in skb
+diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+--- a/include/net/netfilter/nf_conntrack_l4proto.h
++++ b/include/net/netfilter/nf_conntrack_l4proto.h
+@@ -23,9 +23,6 @@ struct nf_conntrack_l4proto
+ 	/* L4 Protocol number. */
+ 	u_int8_t l4proto;
+ 
+-	/* Protocol name */
+-	const char *name;
+-
+ 	/* Try to fill in the third arg: dataoff is offset past network protocol
+            hdr.  Return true if possible. */
+ 	int (*pkt_to_tuple)(const struct sk_buff *skb,
+@@ -38,13 +35,6 @@ struct nf_conntrack_l4proto
+ 	int (*invert_tuple)(struct nf_conntrack_tuple *inverse,
+ 			    const struct nf_conntrack_tuple *orig);
+ 
+-	/* Print out the per-protocol part of the tuple. Return like seq_* */
+-	int (*print_tuple)(struct seq_file *s,
+-			   const struct nf_conntrack_tuple *);
+-
+-	/* Print out the private part of the conntrack. */
+-	int (*print_conntrack)(struct seq_file *s, const struct nf_conn *);
+-
+ 	/* Returns verdict for packet, or -1 for invalid. */
+ 	int (*packet)(struct nf_conn *conntrack,
+ 		      const struct sk_buff *skb,
+@@ -65,6 +55,13 @@ struct nf_conntrack_l4proto
+ 		     enum ip_conntrack_info *ctinfo,
+ 		     int pf, unsigned int hooknum);
+ 
++	/* Print out the per-protocol part of the tuple. Return like seq_* */
++	int (*print_tuple)(struct seq_file *s,
++			   const struct nf_conntrack_tuple *);
++
++	/* Print out the private part of the conntrack. */
++	int (*print_conntrack)(struct seq_file *s, const struct nf_conn *);
++
+ 	/* convert protoinfo to nfnetink attributes */
+ 	int (*to_nfattr)(struct sk_buff *skb, struct nfattr *nfa,
+ 			 const struct nf_conn *ct);
+@@ -87,6 +84,8 @@ struct nf_conntrack_l4proto
+ 	struct ctl_table	*ctl_compat_table;
+ #endif
+ #endif
++	/* Protocol name */
++	const char *name;
+ 
+ 	/* Module (if any) which this is connected to. */
+ 	struct module *me;
 diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
 --- a/net/ipv4/netfilter/nf_nat_core.c
 +++ b/net/ipv4/netfilter/nf_nat_core.c
