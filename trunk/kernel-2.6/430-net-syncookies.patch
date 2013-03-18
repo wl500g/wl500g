@@ -12,6 +12,8 @@ NB! Full TCP syncookies support still incomplete & requires backports of TCPCT
  a0f82f64e26929776c58a5c93c2ecb38e3d82815 syncookies: remove last_synq_overflow from struct tcp_sock
  af9b4738574b46025de7ccbe75c7b24fd8914379 syncookies: avoid unneeded tcp header flag double check
  fdf5af0daf8019cec2396cdef8fb042d80fe71fa tcp: drop SYN+FIN messages
+ 2bbdf389a9432270147c8e8e35b021ad61772f65 ipv6: syncookies: do not skip ->iif initialization
+ 4d0fe50c75a547088e4304e5eb5f521514dfae46 ipv6: tcp: fix tcp_v6_conn_request()
 
 ---
  include/linux/tcp.h             |    2 
@@ -25,8 +27,8 @@ NB! Full TCP syncookies support still incomplete & requires backports of TCPCT
  net/ipv4/tcp_minisocks.c        |    2 
  net/ipv4/tcp_output.c           |    9 ++-
  net/ipv6/Makefile               |    1 
- net/ipv6/tcp_ipv6.c             |   86 +++++++++++++++++++++---------
- 12 files changed, 201 insertions(+), 52 deletions(-)
+ net/ipv6/tcp_ipv6.c             |   78 ++++++++++++++++++++--------
+ 12 files changed, 198 insertions(+), 47 deletions(-)
 
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
 --- a/include/linux/tcp.h
@@ -478,7 +480,7 @@ diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -476,7 +476,7 @@ static int tcp_v6_send_synack(struct sock *sk, struct request_sock *req)
+@@ -478,7 +478,7 @@ static int tcp_v6_send_synack(struct soc
  	fl.fl6_flowlabel = 0;
  	fl.oif = treq->iif;
  	fl.fl_ip_dport = inet_rsk(req)->rmt_port;
@@ -486,8 +488,8 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
 +	fl.fl_ip_sport = inet_rsk(req)->loc_port;
  	security_req_classify_flow(req, &fl);
  
- 	opt = np->opt;
-@@ -529,6 +529,20 @@ done:
+ 	if (dst == NULL) {
+@@ -530,6 +530,20 @@ done:
  	return err;
  }
  
@@ -507,8 +509,8 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
 +
  static void tcp_v6_reqsk_destructor(struct request_sock *req)
  {
- 	if (inet6_rsk(req)->pktopts)
-@@ -927,7 +941,7 @@ done_opts:
+ 	kfree_skb(inet6_rsk(req)->pktopts);
+@@ -855,7 +869,7 @@ static int tcp_v6_inbound_md5_hash (stru
  }
  #endif
  
@@ -517,7 +519,7 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
  	.family		=	AF_INET6,
  	.obj_size	=	sizeof(struct tcp6_request_sock),
  	.rtx_syn_ack	=	tcp_v6_send_synack,
-@@ -1226,9 +1240,9 @@ static struct sock *tcp_v6_hnd_req(struc
+@@ -1078,9 +1092,9 @@ static struct sock *tcp_v6_hnd_req(struc
  		return NULL;
  	}
  
@@ -530,7 +532,7 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
  #endif
  	return sk;
  }
-@@ -1244,6 +1258,11 @@ static int tcp_v6_conn_request(struct so
+@@ -1096,6 +1110,11 @@ static int tcp_v6_conn_request(struct so
  	struct tcp_sock *tp = tcp_sk(sk);
  	struct request_sock *req = NULL;
  	__u32 isn = TCP_SKB_CB(skb)->when;
@@ -542,7 +544,7 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
  
  	if (skb->protocol == htons(ETH_P_IP))
  		return tcp_v4_conn_request(sk, skb);
-@@ -1251,12 +1270,14 @@ static int tcp_v6_conn_request(struct so
+@@ -1103,12 +1122,14 @@ static int tcp_v6_conn_request(struct so
  	if (!ipv6_unicast_destination(skb))
  		goto drop;
  
@@ -561,7 +563,7 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
  		goto drop;
  	}
  
-@@ -1277,29 +1298,38 @@ static int tcp_v6_conn_request(struct so
+@@ -1129,20 +1150,19 @@ static int tcp_v6_conn_request(struct so
  
  	tcp_parse_options(skb, &tmp_opt, 0);
  
@@ -582,39 +584,36 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
 -		atomic_inc(&skb->users);
 -		treq->pktopts = skb;
 -	}
--	treq->iif = sk->sk_bound_dev_if;
--
--	/* So that link locals have meaning */
--	if (!sk->sk_bound_dev_if &&
--	    ipv6_addr_type(&treq->rmt_addr) & IPV6_ADDR_LINKLOCAL)
--		treq->iif = inet6_iif(skb);
 +	if (!want_cookie)
 +		TCP_ECN_create_request(req, tcp_hdr(skb));
 +
-+	if (want_cookie) {
-+		isn = cookie_v6_init_sequence(sk, skb, &req->mss);
-+		req->cookie_ts = tmp_opt.tstamp_ok;
-+	} else if (!isn) {
+ 	treq->iif = sk->sk_bound_dev_if;
+ 
+ 	/* So that link locals have meaning */
+@@ -1150,8 +1170,20 @@ static int tcp_v6_conn_request(struct so
+ 	    ipv6_addr_type(&treq->rmt_addr) & IPV6_ADDR_LINKLOCAL)
+ 		treq->iif = inet6_iif(skb);
+ 
+-	if (isn == 0)
+-		isn = tcp_v6_init_sequence(skb);
++	if (!isn) {
 +		if (ipv6_opt_accepted(sk, skb) ||
 +		    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
 +		    np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim) {
 +			atomic_inc(&skb->users);
 +			treq->pktopts = skb;
 +		}
-+		treq->iif = sk->sk_bound_dev_if;
-+
-+		/* So that link locals have meaning */
-+		if (!sk->sk_bound_dev_if &&
-+		    ipv6_addr_type(&treq->rmt_addr) & IPV6_ADDR_LINKLOCAL)
-+			treq->iif = inet6_iif(skb);
- 
--	if (isn == 0)
- 		isn = tcp_v6_init_sequence(skb);
++		if (!want_cookie) {
++			isn = tcp_v6_init_sequence(skb);
++		} else {
++			isn = cookie_v6_init_sequence(sk, skb, &req->mss);
++			req->cookie_ts = tmp_opt.tstamp_ok;
++		}
 +	}
  
  	tcp_rsk(req)->snt_isn = isn;
  
-@@ -1308,8 +1338,10 @@ static int tcp_v6_conn_request(struct so
+@@ -1160,8 +1192,10 @@ static int tcp_v6_conn_request(struct so
  	if (tcp_v6_send_synack(sk, req, NULL))
  		goto drop;
  
@@ -627,7 +626,7 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
  
  drop:
  	if (req)
-@@ -1319,7 +1359,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+@@ -1266,7 +1300,7 @@ static struct sock * tcp_v6_syn_recv_soc
  		ipv6_addr_copy(&fl.fl6_src, &treq->loc_addr);
  		fl.oif = sk->sk_bound_dev_if;
  		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
@@ -636,7 +635,7 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
  		security_req_classify_flow(req, &fl);
  
  		if (ip6_dst_lookup(sk, &dst, &fl))
-@@ -1815,7 +1865,7 @@ static void get_openreq6(struct seq_file *seq,
+@@ -1818,7 +1852,7 @@ static void get_openreq6(struct seq_file
  		   i,
  		   src->s6_addr32[0], src->s6_addr32[1],
  		   src->s6_addr32[2], src->s6_addr32[3],
