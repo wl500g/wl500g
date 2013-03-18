@@ -11,10 +11,9 @@ include $(TOP)/.config
 endif
 
 CFLAGS	+= -Wall -O2 $(GLOBAL_OPTIONS) $(EXTRACFLAGS)
-CFLAGS	+= -ffunction-sections -fdata-sections
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux
 #CFLAGS	+= -g -DDEBUG -DDEBUG_TO_SYSLOG
-LDFLAGS	+= -ffunction-sections -fdata-sections -Wl,--gc-sections
+LDFLAGS	+= -Wl,--gc-sections
 LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
 
 OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o broadcom.o prninfo.o

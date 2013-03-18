@@ -25,7 +25,7 @@ diff -urBp iproute2-2.6.25/Makefile iproute2/Makefile
  HOSTCC = gcc
 -CCOPTS = -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall
 -CFLAGS = $(CCOPTS) -I../include $(DEFINES)
-+CCOPTS = -D_GNU_SOURCE -Wstrict-prototypes -Wall -ffunction-sections -fdata-sections
++CCOPTS = -D_GNU_SOURCE -Wstrict-prototypes -Wall
 +CFLAGS = $(CCOPTS) -I../include -isystem$(KERNEL_INCLUDE) $(DEFINES) $(EXTRACFLAGS)
  YACCFLAGS = -d -t -v
  
