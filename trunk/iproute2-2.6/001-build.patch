@@ -29,7 +29,7 @@ diff -urBp iproute2-2.6.25/Makefile iproute2/Makefile
 +CFLAGS = $(CCOPTS) -I../include -isystem$(KERNEL_INCLUDE) $(DEFINES) $(EXTRACFLAGS)
  YACCFLAGS = -d -t -v
  
-+LDFLAGS += -Wl,--gc-sections $(EXTRA_LDFLAGS)
++LDFLAGS += $(EXTRA_LDFLAGS)
  LDLIBS += -L../lib -lnetlink -lutil
  
  SUBDIRS=lib ip tc misc netem genl

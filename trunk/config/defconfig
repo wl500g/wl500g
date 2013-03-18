@@ -124,3 +124,4 @@ LINUXDIR=$(SRCBASE)/linux/linux-2.6
 LIBDIR=$(TOOLCHAIN)/lib
 USRLIBDIR=$(TOOLCHAIN)/usr/lib
 EXTRACFLAGS=-mips32 -mtune=mips32 -Wno-pointer-sign -mno-branch-likely -ffunction-sections -fdata-sections 
+EXTRALDFLAGS=-Wl,--gc-sections

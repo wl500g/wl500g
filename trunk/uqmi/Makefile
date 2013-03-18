@@ -5,7 +5,7 @@ LD ?= $(CROSS)ld
 CFLAGS  := --std=gnu99 -g -Os -I. $(EXTRACFLAGS)
 CFLAGS  += -Wall -Werror -Wmissing-declarations
 #CFLAGS += -DDEBUG_PACKET -DDEBUG -g3
-LDFLAGS += -Wl,--gc-sections -Llibubox -Wl,-Bstatic -lubox -Wl,-Bdynamic
+LDFLAGS += -Llibubox -Wl,-Bstatic -lubox -Wl,-Bdynamic $(EXTRALDFLAGS)
 
 TARGET = uqmi
 SOURCES = main.c dev.c commands.c qmi-message.c

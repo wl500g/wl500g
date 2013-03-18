@@ -559,4 +559,10 @@ config EXTRACFLAGS
        help
        Specify the extra C compiler flags (if necessary).
 
+config EXTRALDFLAGS
+       string "Extra linker flags"
+       default ""
+       help
+       Specify the extra linker(ld) flags (if necessary).
+
 endmenu

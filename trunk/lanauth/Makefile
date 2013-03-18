@@ -3,7 +3,7 @@ CC ?= $(CROSS)gcc
 STRIP ?= $(CROSS)strip
 
 CFLAGS += -Os -Wall -I. $(EXTRACFLAGS)
-LDFLAGS += -s -Wl,--gc-sections
+LDFLAGS += -s $(EXTRALDFLAGS)
 
 lanauth: lanauth.o md5.o rmd160.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
