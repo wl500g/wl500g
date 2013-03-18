@@ -4,7 +4,6 @@ LD ?= $(CROSS)ld
 
 CFLAGS  := --std=gnu99 -g -Os -I. $(EXTRACFLAGS)
 CFLAGS  += -Wall -Werror -Wmissing-declarations
-CFLAGS  += -ffunction-sections -fdata-sections
 #CFLAGS += -DDEBUG_PACKET -DDEBUG -g3
 LDFLAGS += -Wl,--gc-sections -Llibubox -Wl,-Bstatic -lubox -Wl,-Bdynamic
 

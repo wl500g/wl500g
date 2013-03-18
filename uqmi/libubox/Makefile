@@ -6,7 +6,6 @@ RANLIB ?= $(CROSS)ranlib
 
 CFLAGS  := --std=gnu99 -g -Os $(EXTRACFLAGS)
 CFLAGS  += -Wall -Werror -Wmissing-declarations
-CFLAGS  += -ffunction-sections -fdata-sections
 LDFLAGS += -Wl,--gc-sections
 
 TARGET = libubox.a
