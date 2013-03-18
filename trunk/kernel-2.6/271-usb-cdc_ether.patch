@@ -1,0 +1,70 @@
+cdc_ether: Updates from upstream
+
+ b3c914aa84f4e4bbb3efc8f41c359d96e5e932d2 usbnet: add support for some Huawei modems with cdc-ether ports
+ f8295ec22cb0f1ee6849b862addbfa3ea9320755 qmi_wwan/cdc_ether: move Novatel 551 and E362 to qmi_wwan
+ 0370acd4d4d2595a11b0b0a793acb506e19b9d4c qmi_wwan/cdc_ether: add Dell Wireless 5800 (Novatel E362) USB IDs
+
+---
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -433,6 +433,9 @@ static const struct driver_info	cdc_info
+ 
+ /*-------------------------------------------------------------------------*/
+ 
++#define HUAWEI_VENDOR_ID	0x12D1
++#define NOVATEL_VENDOR_ID	0x1410
++#define DELL_VENDOR_ID		0x413C
+ 
+ static const struct usb_device_id	products [] = {
+ /*
+@@ -524,6 +527,34 @@ static const struct usb_device_id	produc
+ 	.driver_info		= 0,
+ },
+ 
++/* Novatel USB551L and MC551 - handled by qmi_wwan */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(NOVATEL_VENDOR_ID, 0xB001, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++
++/* Novatel E362 - handled by qmi_wwan */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(NOVATEL_VENDOR_ID, 0x9010, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++
++/* Dell Wireless 5800 (Novatel E362) - handled by qmi_wwan */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(DELL_VENDOR_ID, 0x8195, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++
++/* Dell Wireless 5800 (Novatel E362) - handled by qmi_wwan */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(DELL_VENDOR_ID, 0x8196, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++
+ /*
+  * WHITELIST!!!
+  *
+@@ -539,6 +570,12 @@ static const struct usb_device_id	produc
+ 	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ETHERNET,
+ 			USB_CDC_PROTO_NONE),
+ 	.driver_info = (unsigned long) &cdc_info,
++
++}, {
++	/* Various Huawei modems with a network port like the UMG1831 */
++	USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_COMM,
++				USB_CDC_SUBCLASS_ETHERNET, 255),
++	.driver_info = (unsigned long) &cdc_info,
+ },
+ 	{ },		// END
+ };
+-- 
