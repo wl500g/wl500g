@@ -1,0 +1,133 @@
+Eliminate use of second raw socket. This eliminate stale unprocessed data on it:
+
+ $ netstat -awn
+ Active Internet connections (servers and established)
+ Proto Recv-Q Send-Q Local Address           Foreign Address         State
+ raw   110560      0 0.0.0.0:2               0.0.0.0:*               2
+
+
+NB! Untested under FreeBSD
+
+diff -urBp a/src/igmpproxy.h b/src/igmpproxy.h
+--- a/src/igmpproxy.h	2012-06-04 21:27:01.000000000 +0400
++++ b/src/igmpproxy.h	2013-03-17 12:49:07.000000000 +0400
+@@ -232,10 +232,6 @@ void k_join(uint32_t grp, uint32_t ifa);
+ void k_leave(uint32_t grp, uint32_t ifa);
+ */
+ 
+-/* udpsock.c
+- */
+-int openUdpSocket( uint32_t PeerInAdr, uint16_t PeerPort );
+-
+ /* mcgroup.c
+  */
+ int joinMcGroup( int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr );
+diff -urBp a/src/Makefile.am b/src/Makefile.am
+--- a/src/Makefile.am	2012-07-27 21:27:01.000000000 +0400
++++ b/src/Makefile.am	2013-03-17 12:39:34.000000000 +0400
+@@ -19,5 +19,4 @@ igmpproxy_SOURCES = \
+ 	os-openbsd.h \
+ 	request.c \
+ 	rttable.c \
+-	syslog.c \
+-	udpsock.c
++	syslog.c
+diff -urBp a/src/Makefile.in b/src/Makefile.in
+--- a/src/Makefile.in	2012-07-27 21:58:53.000000000 +0400
++++ b/src/Makefile.in	2013-03-17 12:49:25.000000000 +0400
+@@ -51,7 +51,7 @@ am_igmpproxy_OBJECTS = callout.$(OBJEXT)
+ 	confread.$(OBJEXT) ifvc.$(OBJEXT) igmp.$(OBJEXT) \
+ 	igmpproxy.$(OBJEXT) kern.$(OBJEXT) lib.$(OBJEXT) \
+ 	mcgroup.$(OBJEXT) mroute-api.$(OBJEXT) request.$(OBJEXT) \
+-	rttable.$(OBJEXT) syslog.$(OBJEXT) udpsock.$(OBJEXT)
++	rttable.$(OBJEXT) syslog.$(OBJEXT)
+ igmpproxy_OBJECTS = $(am_igmpproxy_OBJECTS)
+ igmpproxy_LDADD = $(LDADD)
+ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
+@@ -177,8 +177,7 @@ igmpproxy_SOURCES = \
+ 	os-openbsd.h \
+ 	request.c \
+ 	rttable.c \
+-	syslog.c \
+-	udpsock.c
++	syslog.c
+ 
+ all: all-am
+ 
+@@ -274,7 +273,6 @@ distclean-compile:
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/request.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rttable.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslog.Po@am__quote@
+-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/udpsock.Po@am__quote@
+ 
+ .c.o:
+ @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+diff -urBp a/src/mroute-api.c b/src/mroute-api.c
+--- a/src/mroute-api.c	2009-05-13 23:43:18.000000000 +0400
++++ b/src/mroute-api.c	2013-03-17 12:55:48.000000000 +0400
+@@ -46,7 +46,7 @@
+      
+ // need an IGMP socket as interface for the mrouted API
+ // - receives the IGMP messages
+-int         MRouterFD;        /* socket for all network I/O  */
++int         MRouterFD = -1;      /* socket for all network I/O  */
+ char        *recv_buf;           /* input packet buffer         */
+ char        *send_buf;           /* output packet buffer        */
+ 
+diff -urBp a/src/rttable.c b/src/rttable.c
+--- a/src/rttable.c	2013-03-17 12:42:23.000000000 +0400
++++ b/src/rttable.c	2013-03-17 12:48:31.000000000 +0400
+@@ -70,21 +70,8 @@ static int  internAgeRoute(struct RouteT
+ static int  internAgeRoute(struct RouteTable*  croute);
+ static int internUpdateKernelRoute(struct RouteTable *route, int activate);
+ 
+-// Socket for sending join or leave requests.
+-static int mcGroupSock = 0;
+-
+ 
+ /**
+-*   Function for retrieving the Multicast Group socket.
+-*/
+-static int getMcGroupSock() {
+-    if( ! mcGroupSock ) {
+-        mcGroupSock = openUdpSocket( INADDR_ANY, 0 );;
+-    }
+-    return mcGroupSock;
+-}
+- 
+-/**
+ *   Initializes the routing table.
+ */
+ void initRouteTable() {
+@@ -101,11 +91,11 @@ void initRouteTable() {
+                          inetFmt(allrouters_group,s1),inetFmt(Dp->InAdr.s_addr,s2));
+             
+             //k_join(allrouters_group, Dp->InAdr.s_addr);
+-            joinMcGroup( getMcGroupSock(), Dp, allrouters_group );
++            joinMcGroup( MRouterFD, Dp, allrouters_group );
+ 
+             my_log(LOG_DEBUG, 0, "Joining all igmpv3 multicast routers group %s on vif %s",
+                          inetFmt(alligmp3_group,s1),inetFmt(Dp->InAdr.s_addr,s2));
+-            joinMcGroup( getMcGroupSock(), Dp, alligmp3_group );
++            joinMcGroup( MRouterFD, Dp, alligmp3_group );
+         }
+     }
+ }
+@@ -150,7 +140,7 @@ static void sendJoinLeaveUpstream(struct
+                          inetFmt(upstrIf->InAdr.s_addr, s2));
+ 
+             //k_join(route->group, upstrIf->InAdr.s_addr);
+-            joinMcGroup( getMcGroupSock(), upstrIf, route->group );
++            joinMcGroup( MRouterFD, upstrIf, route->group );
+ 
+             route->upstrState = ROUTESTATE_JOINED;
+         } else {
+@@ -166,7 +156,7 @@ static void sendJoinLeaveUpstream(struct
+                          inetFmt(upstrIf->InAdr.s_addr, s2));
+             
+             //k_leave(route->group, upstrIf->InAdr.s_addr);
+-            leaveMcGroup( getMcGroupSock(), upstrIf, route->group );
++            leaveMcGroup( MRouterFD, upstrIf, route->group );
+ 
+             route->upstrState = ROUTESTATE_NOTJOINED;
+         }
