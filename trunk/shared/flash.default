@@ -40,6 +40,8 @@
 
 {"vts_protono_x", "", 0},
 
+{"vts_sipaddr_x", "", 0},
+
 {"vts_desc_x", "", 0},
 
 {"autofw_outport_x", "", 0},
