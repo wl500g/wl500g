@@ -8625,17 +8625,13 @@ diff -urNBp LPRng-3.8.22/src/include/linelist.h LPRng/src/include/linelist.h
 diff -urNBp LPRng-3.8.22/src/include/lp_asus.h LPRng/src/include/lp_asus.h
 --- LPRng-3.8.22/src/include/lp_asus.h	1970-01-01 03:00:00.000000000 +0300
 +++ LPRng/src/include/lp_asus.h	2011-06-09 00:46:28.000000000 +0400
-@@ -0,0 +1,153 @@
+@@ -0,0 +1,149 @@
 +/* For ASUS Space-Link by Neo Shih */
 +
 +#ifndef _ASUS_LP_H
 +#define _ASUS_LP_H 1
 +
-+#ifdef LINUX26
-+ #define        LP_DEV(arg)            "/dev/lp"#arg
-+#else
-+ #define        LP_DEV(arg)            "/dev/usb/lp"#arg
-+#endif
++#define        LP_DEV(arg)            "/dev/lp"#arg
 +
 +/*
 + * usr/include/linux/lp.h c.1991-1992 James Wiegand

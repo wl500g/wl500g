@@ -28,25 +28,16 @@
 #define ETH_ALEN ETHER_ADDR_LEN
 #include <linux/netfilter_ipv4/ipt_mac.h>
 #include <linux/netfilter_ipv4/ipt_state.h>
-#ifdef LINUX26
-# include <linux/netfilter/xt_time.h>
-# define ipt_time_info xt_time_info
-# include <linux/netfilter/xt_conntrack.h>
-# define ipt_conntrack_info xt_conntrack_mtinfo2
-#else
-# include <linux/netfilter_ipv4/ipt_time.h>
-# include <linux/netfilter_ipv4/ipt_conntrack.h>
-#endif
+#include <linux/netfilter/xt_time.h>
+#define ipt_time_info xt_time_info
+#include <linux/netfilter/xt_conntrack.h>
+#define ipt_conntrack_info xt_conntrack_mtinfo2
 #include <linux/netfilter_ipv4/ipt_TCPMSS.h>
 #include <linux/netfilter_ipv4/ipt_LOG.h>
 #include <linux/netfilter_ipv4/ip_autofw.h>
 #ifdef WEBSTRFILTER
-# ifdef LINUX26
-#  include <linux/netfilter/xt_webstr.h>
-#  define ipt_webstr_info xt_webstr_info
-# else
-#  include <linux/netfilter_ipv4/ipt_webstr.h>
-# endif
+# include <linux/netfilter/xt_webstr.h>
+# define ipt_webstr_info xt_webstr_info
 #endif
 
 /* ipt_entry alignment attribute */
