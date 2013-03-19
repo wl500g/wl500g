@@ -952,21 +952,6 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		    ":SECURITY - [0:0]\n"
 		    ":logaccept - [0:0]\n:logdrop - [0:0]\n");
 
-	/* SECURITY chain */
-
-#ifndef LINUX26		// xtables!
-	// sync-flood protection
-	fprintf(fp, "-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n");
-	// furtive port scanner
-	fprintf(fp, "-A SECURITY -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j RETURN\n");
-	// udp flooding
-	fprintf(fp, "-A SECURITY -p udp -m limit --limit 5/s -j RETURN\n");
-	// ping of death
-	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
-	// drop attacks!!!
-	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
-#endif //LINUX26
-
 	/* INPUT chain */
 
 	// Disable RH0 to block ping-pong of packets.

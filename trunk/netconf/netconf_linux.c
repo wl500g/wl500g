@@ -1019,12 +1019,10 @@ netconf_add_fw(netconf_fw_t *fw)
 		time->weekdays_match = fw->match.days;
 		time->daytime_start = fw->match.secs[0];
 		time->daytime_stop = fw->match.secs[1];
-#ifdef LINUX26
 		time->flags |= XT_TIME_LOCAL_TZ;
 		time->monthdays_match = XT_TIME_ALL_MONTHDAYS;
 		time->date_start = 0;
 		time->date_stop  = INT_MAX;
-#endif
 	}
 
 #ifdef WEBSTRFILTER

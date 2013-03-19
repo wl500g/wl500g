@@ -60,11 +60,8 @@
 #define GPIO22 0x00400000
 #define GPIO23 0x00800000
 
-#ifdef LINUX26
 #define GPIOCTL
-#else
-#undef GPIOCTL
-#endif
+
 
 #ifdef GPIOCTL
 #include <sys/ioctl.h>

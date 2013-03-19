@@ -209,7 +209,6 @@ obj-y := $(filter-out ipset nfs-utils quagga sysfsutils tcpdump,$(obj-y))
 endif
 
 # Kernel modules extension
-EXTRACFLAGS += -DLINUX26
 ko=.ko
 
 # Netfilter modules NOT to include in main FW
