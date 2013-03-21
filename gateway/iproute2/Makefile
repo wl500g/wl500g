@@ -5,12 +5,12 @@ DOCDIR=/usr/share/doc/iproute2
 MANDIR=/usr/share/man
 
 # Path to db_185.h include
-DBM_INCLUDE:=/usr/include
+#DBM_INCLUDE:=/usr/include
 
 DEFINES= -DRESOLVE_HOSTNAMES
 
 #options if you have a bind>=4.9.4 libresolv (or, maybe, glibc)
-LDLIBS=-lresolv
+#LDLIBS=-lresolv
 ADDLIB=
 
 #options for decnet
@@ -19,12 +19,13 @@ ADDLIB+=dnet_ntop.o dnet_pton.o
 #options for ipx
 ADDLIB+=ipx_ntop.o ipx_pton.o
 
-CC = gcc
+#CC = gcc
 HOSTCC = gcc
-CCOPTS = -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall
-CFLAGS = $(CCOPTS) -I../include $(DEFINES)
+CCOPTS = -D_GNU_SOURCE -Wstrict-prototypes -Wall -ffunction-sections -fdata-sections
+CFLAGS = $(CCOPTS) -I../include -isystem$(KERNEL_INCLUDE) $(DEFINES) $(EXTRACFLAGS)
 YACCFLAGS = -d -t -v
 
+LDFLAGS += -Wl,--gc-sections $(EXTRA_LDFLAGS)
 LDLIBS += -L../lib -lnetlink -lutil
 
 SUBDIRS=lib ip tc misc netem genl
