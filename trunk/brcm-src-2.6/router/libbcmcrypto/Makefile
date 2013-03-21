@@ -16,7 +16,7 @@ include $(TOP)/.config
 
 CFLAGS	+= -fPIC -Wsign-compare -I. -I../httpd -I$(SRCBASE)/include -Wall
 #CFLAGS	+= -g -DDEBUG
-CFLAGS	+= -s -O2
+CFLAGS	+= -s -O2 $(EXTRACFLAGS)
 LDFLAGS += -L.
 
 vpath %.c $(SRCBASE)/bcmcrypto

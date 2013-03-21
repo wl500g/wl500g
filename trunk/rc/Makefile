@@ -17,11 +17,12 @@ include $(TOP)/.config
 endif
 
 CFLAGS	+= -Wall -O2 $(GLOBAL_OPTIONS) $(EXTRACFLAGS)
+CFLAGS	+= -ffunction-sections -fdata-sections
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include -Wall
 #CFLAGS	+= -g -DDEBUG
 #CFLAGS	+= -g -DDEBUG -DDEBUG_TO_SYSLOG
 CFLAGS	+= -DWEBSTRFILTER
-LDFLAGS	+= $(EXTRALDFLAGS)
+LDFLAGS	+= -ffunction-sections -fdata-sections -Wl,--gc-sections
 LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -lpthread -Wl,-rpath /lib
 
 MODEL := $(patsubst -DMODEL_%,%,$(filter -DMODEL_%,$(GLOBAL_OPTIONS)))

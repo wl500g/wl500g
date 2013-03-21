@@ -8,7 +8,7 @@ STRIP ?= $(CROSS)strip
 CCFLAGS += -g -O2 -Wall -I. -Wno-pointer-sign -fomit-frame-pointer
 CCFLAGS += -I$(TOP)/shared -I$(SRCBASE)/include $(EXTRACFLAGS)
 LDFLAGS += -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
-LDFLAGS += $(EXTRALDFLAGS)
+LDFLAGS += -Wl,--gc-sections
 LIBS=
 
 PACKAGE=infosrv

@@ -4,8 +4,9 @@ LD ?= $(CROSS)ld
 
 CFLAGS  := --std=gnu99 -g -Os -I. $(EXTRACFLAGS)
 CFLAGS  += -Wall -Werror -Wmissing-declarations
+CFLAGS  += -ffunction-sections -fdata-sections
 #CFLAGS += -DDEBUG_PACKET -DDEBUG -g3
-LDFLAGS += -Llibubox -Wl,-Bstatic -lubox -Wl,-Bdynamic $(EXTRALDFLAGS)
+LDFLAGS += -Wl,--gc-sections -Llibubox -Wl,-Bstatic -lubox -Wl,-Bdynamic
 
 TARGET = uqmi
 SOURCES = main.c dev.c commands.c qmi-message.c

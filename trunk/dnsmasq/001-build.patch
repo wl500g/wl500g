@@ -7,8 +7,8 @@ diff -BurpN dnsmasq.orig/Makefile dnsmasq/Makefile
  DESTDIR       = 
 -CFLAGS        = -Wall -W -O2
 -LDFLAGS       = 
-+CFLAGS        = -Wall -W -Os $(EXTRACFLAGS)
-+LDFLAGS       = $(EXTRALDFLAGS)
++CFLAGS        = -Wall -W -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)
++LDFLAGS       = -ffunction-sections -fdata-sections -Wl,--gc-sections
  COPTS         = 
  RPM_OPT_FLAGS = 
  LIBS          = 
