@@ -228,7 +228,6 @@ obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 # defaults
 export LANGUAGE := "EN"
 GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM -DASUS_EXT
-export EXTRACFLAGS EXTRALDFLAGS
 
 LZMASDK=$(SRCBASE)/lzma
 LZMADIR=$(LZMASDK)/CPP/7zip/Bundles/LzmaCon
@@ -627,18 +626,18 @@ $(LINUXDIR)/.config: .config
 httpd: netconf shared nvram $(EXTRA_LIBS)
 
 rc: $(if $(CONFIG_UPNP),netconf,) shared nvram $(EXTRA_LIBS)
-	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')"
+	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 rc-install:
-	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')"
+	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 www-%:
 	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www
 
 radvd/Makefile: radvd/Makefile.in
 	cd radvd && CFLAGS="-g -Os" \
-	CPPFLAGS="$(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=""
 
 radvd: radvd/Makefile
@@ -649,8 +648,8 @@ radvd-install:
 
 quagga/Makefile: quagga/Makefile.in
 	cd quagga && \
-	CFLAGS="-g -Os -std=gnu99 -Wall $(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	CFLAGS="-g -Os -std=gnu99 -ffunction-sections -fdata-sections -Wall $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --localstatedir=/var/run --sysconfdir=/etc/quagga/ \
 	 --disable-bgp-announce --disable-ipv6 --enable-multipath=8 \
 	 --disable-vtysh --disable-bgpd --disable-watchquagga \
@@ -679,8 +678,8 @@ quagga-install:
 
 bridge/Makefile: bridge/Makefile.in
 	cd bridge && \
-	CFLAGS="-g -Os $(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	CFLAGS="-g -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix="/usr" --with-linux-headers=$(LINUXDIR)/include
 
 bridge: bridge/Makefile
@@ -690,7 +689,7 @@ bridge-install: bridge
 	$(STRIP) $(INSTALLDIR)/bridge/usr/sbin/brctl
 
 inadyn:
-	$(MAKE) -C $@ LDFLAGS="$(EXTRALDFLAGS)"
+	$(MAKE) -C $@ EXTRACFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" LDFLAGS="-Wl,--gc-sections"
 
 inadyn-install:
 	install -D inadyn/src/inadyn $(INSTALLDIR)/inadyn/usr/sbin/inadyn
@@ -698,8 +697,8 @@ inadyn-install:
 
 bpalogin/Makefile: bpalogin/Makefile.in
 	cd bpalogin && CC=$(CC) \
-	CFLAGS="-g -Os $(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	CFLAGS="-g -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr
 
 bpalogin: bpalogin/Makefile
@@ -741,8 +740,8 @@ uqmi-install:
 
 iptables/Makefile: iptables/Makefile.in
 	cd iptables && \
-	CFLAGS="-Os $(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --with-pic --with-kernel=$(LINUXDIR) \
 	 $(if $(CONFIG_IPV6),,--disable-ipv6) \
 	 blacklist_modules="dscp DSCP rateest RATEEST realm SECMARK socket sctp TRACE state"
@@ -788,6 +787,7 @@ miniupnpd/config.h:
 
 miniupnpd: iptables netconf miniupnpd/config.h
 	$(MAKE) -C $@ -f Makefile.linux \
+	    EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    IPTABLESPATH=$(TOP)/iptables ARCH=$(PLATFORM) \
 	    $(if $(CONFIG_NETCONF),LDFLAGS="-L$(TOP)/netconf -lnetconf",LDFLAGS="-liptc") \
 	    miniupnpd
@@ -847,15 +847,15 @@ accel-pptp-install: accel-pptp
 	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 
 dnsmasq:
-	$(MAKE) -C $@ COPTS="$(if $(CONFIG_IPV6),-DUSE_IPV6,)"
+	$(MAKE) -C $@ COPTS="$(if $(CONFIG_IPV6),-DUSE_IPV6,)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 
 dropbear/config.h: dropbear/config.h.in
-	cd dropbear && CPPFLAGS="-DARGTYPE=3 $(EXTRACFLAGS)" \
-	    LDFLAGS="-Wl,-rpath /lib $(EXTRALDFLAGS)" \
+	cd dropbear && CPPFLAGS="-DARGTYPE=3 -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    LDFLAGS="-Wl,-rpath /lib -Wl,--gc-sections" \
 	    $(CONFIGURE) --disable-zlib --disable-shadow \
 	    --disable-lastlog --disable-utmp --disable-utmpx \
 	    --disable-wtmp --disable-wtmpx \
@@ -884,8 +884,8 @@ p910nd-install:
 samba/source/Makefile: samba/source/Makefile.in
 	cd samba/source && \
 	    CPPFLAGS="-DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" \
-	    CFLAGS="-Os $(EXTRACFLAGS)" \
-	    LDFLAGS="$(EXTRALDFLAGS)" \
+	    CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    LDFLAGS="-Wl,--gc-sections" \
 	    ac_cv_sizeof_int=4 ac_cv_sizeof_long=4 ac_cv_sizeof_short=2 \
 	    samba_cv_have_longlong=yes ac_cv_func_memcmp_clean=yes \
 	    fu_cv_sys_stat_statvfs64=yes \
@@ -929,8 +929,8 @@ samba-clean:
 	-$(MAKE) -C samba/source clean
 
 nfs-utils/Makefile: nfs-utils/Makefile.in
-	cd nfs-utils && CPPFLAGS="$(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	cd nfs-utils && CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	knfsd_cv_bsd_signals=no \
 	$(CONFIGURE) --enable-nfsv3 --disable-nfsv4 --disable-ipv6 \
 	    --disable-uuid --disable-gss --disable-mount \
@@ -949,14 +949,14 @@ nfs-utils-install:
 	$(STRIP) $(INSTALLDIR)/nfs-utils/usr/sbin/* $(INSTALLDIR)/nfs-utils/usr/lib/libnfs.so
 
 portmap: portmap/Makefile
-	$(MAKE) -C $@ NO_TCP_WRAPPER=y RPCUSER=rpc
+	$(MAKE) -C $@  EXTRACFLAGS="$(EXTRACFLAGS)" NO_TCP_WRAPPER=y RPCUSER=rpc
 
 portmap-install:
 	install -D portmap/portmap $(INSTALLDIR)/portmap/usr/sbin/portmap
 	$(STRIP) $(INSTALLDIR)/portmap/usr/sbin/portmap
 
 iproute2: $(LINUXDIR)/include/linux/version.h
-	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="-Os $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib $(EXTRALDFLAGS)"
+	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="-Os $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 iproute2-install:
 	install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip
@@ -964,7 +964,7 @@ iproute2-install:
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/ip
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/tc
 
-ipset_make_Opts=KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os -Wall $(EXTRACFLAGS)" NO_EXTRA_WARN_FLAGS=1 LDFLAGS="$(EXTRALDFLAGS)"
+ipset_make_Opts=KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os -Wall -ffunction-sections -fdata-sections $(EXTRACFLAGS)" NO_EXTRA_WARN_FLAGS=1 LDFLAGS="-Wl,--gc-sections"
 
 ipset: $(LINUXDIR)/include/linux/version.h
 	$(MAKE) -C $@ $(ipset_make_Opts) binaries
@@ -979,8 +979,8 @@ ucd-snmp/Makefile: ucd-snmp/Makefile.in
 	cd ucd-snmp && \
 	    ac_cv_CAN_USE_SYSCTL=no ac_cv_struct_ifnet_has_if_obytes=yes \
 	    ac_cv_struct_ifnet_has_if_ibytes=yes ac_cv_struct_ifnet_has_if_ibytes=yes \
-	 $(CONFIGURE) --with-cflags="-g -O2 $(EXTRACFLAGS)" \
-	    --with-ldflags="$(EXTRALDFLAGS)" \
+	 $(CONFIGURE) --with-cflags="-g -O2 -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    --with-ldflags="-Wl,--gc-sections" \
 	    --disable-debugging --without-opaque-special-types \
 	    --with-out-mib-modules="v2party" --with-sys-location=Unknown --with-sys-contact=Administrator \
 	    --with-logfile=/var/log/snmpd.log
@@ -1017,8 +1017,8 @@ xl2tpd-install:
 	$(STRIP) $(INSTALLDIR)/xl2tpd/usr/sbin/xl2tpd
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
-	cd igmpproxy && CPPFLAGS="$(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	cd igmpproxy && CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr
 
 igmpproxy: igmpproxy/src/Makefile
@@ -1041,7 +1041,7 @@ vsftpd-install:
 ntfs-3g/Makefile: ntfs-3g/Makefile.in
 	cd ntfs-3g && \
 	CFLAGS="-g -O2 -Wall -ffunction-sections -fdata-sections" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --enable-shared=no --enable-static=no \
 	--disable-library --disable-ldconfig --disable-mount-helper \
 	--with-fuse=internal
@@ -1058,8 +1058,8 @@ ntfs-3g-install:
 
 udpxy:
 	$(MAKE) -C $@ release \
-	CDEFS="-O2 $(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)"
+	CDEFS="-O2 -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections"
 
 udpxy-install:
 	install -D udpxy/udpxy $(INSTALLDIR)/udpxy/usr/sbin/udpxy
@@ -1082,9 +1082,9 @@ libusb10-install:
 
 usb_modeswitch: libusb10
 	$(MAKE) -C $@ CC=$(CC) \
-	CFLAGS="-Wall -Os $(EXTRACFLAGS) \
+	CFLAGS="-Wall -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS) \
 	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0" \
-	LDFLAGS="$(EXTRALDFLAGS)"
+	LDFLAGS="-Wl,--gc-sections"
 
 usb_modeswitch-install:
 	install -D usb_modeswitch/usb_modeswitch $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
@@ -1093,8 +1093,8 @@ usb_modeswitch-install:
 	install -D -m 0644 usb_modeswitch/data/usb_modeswitch.d/* $(INSTALLDIR)/usb_modeswitch/usr/share/usb_modeswitch.d/
 
 madwimax/Makefile: madwimax/Makefile.in
-	cd madwimax && CPPFLAGS="$(EXTRACFLAGS)" \
-	    LDFLAGS="$(EXTRALDFLAGS)" \
+	cd madwimax && CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    LDFLAGS="-Wl,--gc-sections" \
 	    PKG_CONFIG=/bin/true \
 	    libusb1_CFLAGS="-I$(TOP)/libusb10/libusb" \
 	    libusb1_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0" \
@@ -1108,7 +1108,8 @@ madwimax-install:
 	$(STRIP) $(INSTALLDIR)/madwimax/usr/sbin/madwimax
 
 lltd: nvram shared
-	$(MAKE) -C $@ EXTRALDFLAGS="$(EXTRALDFLAGS) -Wl,-rpath /lib"
+	$(MAKE) -C $@ EXTRACFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    EXTRALDFLAGS="-Wl,--gc-sections -Wl,-rpath /lib"
 
 lltd-install: lltd
 	install -D lltd/lld2d $(INSTALLDIR)/lltd/usr/sbin/lld2d
@@ -1119,8 +1120,8 @@ lltd-install: lltd
 
 wpa_supplicant:
 	$(MAKE) -C $@/wpa_supplicant \
-	EXTRACFLAGS="-Os $(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)"
+	EXTRACFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections"
 
 wpa_supplicant-install: wpa_supplicant
 	install -D wpa_supplicant/wpa_supplicant/wpa_supplicant $(INSTALLDIR)/wpa_supplicant/usr/sbin/wpa_supplicant
@@ -1131,7 +1132,7 @@ wpa_supplicant-clean:
 	-$(MAKE) -C wpa_supplicant/wpa_supplicant clean
 
 udev:
-	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) \
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    PROGRAMS=udevtrigger LIBUDEV="" udevtrigger
 
 udev-install:
@@ -1139,20 +1140,21 @@ udev-install:
 	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev install-udevtrigger
 
 emf:
-	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE)
+	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
 emf-install:
 	$(MAKE) -C $(SRCBASE)/emf/emfconf INSTALLDIR=$(INSTALLDIR) install
 
 igs:
-	$(MAKE) -C $(SRCBASE)/emf/igsconf CROSS=$(CROSS_COMPILE)
+	$(MAKE) -C $(SRCBASE)/emf/igsconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
 igs-install:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
 mjpg-streamer: jpeg-8b
 	$(MAKE) -C mjpg-streamer/mjpg-streamer CC=$(CC) \
-	EXTRACFLAGS="-I$(LINUXDIR)/include -I$(TOP)/jpeg-8b $(EXTRACFLAGS)" \
+	EXTRACFLAGS="-I$(LINUXDIR)/include -I$(TOP)/jpeg-8b -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	EXTRALDFLAGS="-Wl,--gc-sections" \
 	LIBS=$(TOP)/jpeg-8b/.libs/libjpeg.a
 
 mjpg-streamer-install:
@@ -1164,8 +1166,8 @@ mjpg-streamer-clean:
 
 jpeg-8b/Makefile: jpeg-8b/Makefile.in
 	cd jpeg-8b && CC=$(CC) \
-	CPPFLAGS="-fPIC $(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	CPPFLAGS="-fPIC -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --disable-shared
 
 jpeg-8b: jpeg-8b/Makefile
@@ -1176,8 +1178,8 @@ jpeg-8b-install:
 
 LPRng/Makefile: LPRng/Makefile.in
 	cd LPRng && CC=$(CC) \
-	CPPFLAGS="$(EXTRACFLAGS) -DWINDOW_1 -DTEST_WRITE -DNODEBUG -DLPR_with_ASUS" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS) -DWINDOW_1 -DTEST_WRITE -DNODEBUG -DLPR_with_ASUS" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --includedir=$(LINUXDIR)/include --disable-werror \
 	--disable-kerberos --disable-ssl --disable-mit_kerberos4 \
 	--with-userid=root --with-groupid=root --disable-setuid --disable-nls \
@@ -1193,7 +1195,7 @@ LPRng-install:
 
 libpcap/Makefile: libpcap/Makefile.in
 	cd libpcap && \
-	CFLAGS="-g -Os -isystem$(LINUXDIR)/include $(EXTRACFLAGS)" \
+	CFLAGS="-g -Os -ffunction-sections -fdata-sections -isystem$(LINUXDIR)/include $(EXTRACFLAGS)" \
 	$(CONFIGURE) --disable-shared --enable-static --disable-yydebug \
 	    --with-pcap=linux --without-septel --without-dag \
 	    $(if $(CONFIG_IPV6),--enable-ipv6,) ac_cv_linux_vers=2
@@ -1206,8 +1208,8 @@ libpcap-install:
 
 tcpdump/Makefile: tcpdump/Makefile.in
 	cd tcpdump && \
-	CFLAGS="-g -Os $(EXTRACFLAGS) -DTCPDUMP_MINI" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	CFLAGS="-g -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS) -DTCPDUMP_MINI" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --without-crypto \
 	    $(if $(CONFIG_IPV6),--enable-ipv6,) \
 	    ac_cv_linux_vers=2 td_cv_buggygetaddrinfo=no
@@ -1238,8 +1240,8 @@ USBIPDIR=$(LINUXDIR)/drivers/usb/usbip/userspace
 $(USBIPDIR)/Makefile: $(USBIPDIR)/Makefile.in
 	cd $(USBIPDIR) && \
 	CFLAGS="-g -O2 -I$(TOP)/sysfsutils/sys-include $(EXTRACFLAGS)" \
-	CPPFLAGS="-I$(TOP)/sysfsutils/sys-include" \
-	LDFLAGS="-L$(TOP)/sysfsutils/lib/.libs/ $(EXTRALDFLAGS)" \
+	CPPFLAGS="-I$(TOP)/sysfsutils/sys-include -ffunction-sections -fdata-sections" \
+	LDFLAGS="-L$(TOP)/sysfsutils/lib/.libs/ -Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --with-usbids-dir=/opt/share \
 	 --without-tcp-wrappers
 
@@ -1253,8 +1255,8 @@ usbip-install: sysfsutils-install
 
 e2fsprogs/Makefile: e2fsprogs/Makefile.in
 	cd e2fsprogs && \
-	CFLAGS="-Os $(EXTRACFLAGS)" \
-	LDFLAGS="$(EXTRALDFLAGS)" \
+	CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --sysconfdir=/etc --enable-elf-shlibs \
 		--disable-rpath --disable-nls \
 		--disable-debugfs --disable-imager --disable-resizer --disable-uuidd
@@ -1307,7 +1309,7 @@ images: $(img-y)
 #
 
 %:
-	[ ! -d $* ] || $(MAKE) -C $* GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)"
+	[ ! -d $* ] || $(MAKE) -C $* GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 %-clean:
 	-[ ! -d $* ] || $(MAKE) -C $* clean

@@ -3,7 +3,7 @@ CC ?= $(CROSS)gcc
 STRIP ?= $(CROSS)strip
 
 CCFLAGS=-Os -Wall -I. $(EXTRACFLAGS)
-LDFLAGS=-s
+LDFLAGS=-s $(EXTRALDFLAGS)
 LIBS=globals.o sha1.o
 
 

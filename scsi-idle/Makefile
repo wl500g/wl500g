@@ -1,5 +1,6 @@
 CFLAGS = -Wall -Os -I$(LINUXDIR)/include $(EXTRACFLAGS)
 CFLAGS += -DHAVE_SG_IO
+LDFLAGS+= $(EXTRALDFLAGS)
 
 DESTDIR = /usr/local/sbin
 
