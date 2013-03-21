@@ -968,6 +968,8 @@ int dev_open(struct net_device *dev)
  */
 int dev_close(struct net_device *dev)
 {
+	might_sleep();
+
 	if (!(dev->flags & IFF_UP))
 		return 0;
 
@@ -976,8 +978,6 @@ int dev_close(struct net_device *dev)
 	 *	prepare to death, when device is still operating.
 	 */
 	raw_notifier_call_chain(&netdev_chain, NETDEV_GOING_DOWN, dev);
-
-	dev_deactivate(dev);
 
 	clear_bit(__LINK_STATE_START, &dev->state);
 
@@ -992,6 +992,8 @@ int dev_close(struct net_device *dev)
 		/* No hurry. */
 		msleep(1);
 	}
+
+	dev_deactivate(dev);
 
 	/*
 	 *	Call the device specific close. This cannot fail.
@@ -1987,7 +1989,7 @@ job_done:
 static void net_rx_action(struct softirq_action *h)
 {
 	struct softnet_data *queue = &__get_cpu_var(softnet_data);
-	unsigned long start_time = jiffies;
+	unsigned long time_limit = jiffies + 2;
 	int budget = netdev_budget;
 	void *have;
 
@@ -1996,7 +1998,11 @@ static void net_rx_action(struct softirq_action *h)
 	while (!list_empty(&queue->poll_list)) {
 		struct net_device *dev;
 
-		if (budget <= 0 || jiffies - start_time > 1)
+		/* If softirq window is exhuasted then punt.
+		 * Allow this to run for 2 jiffies since which will allow
+		 * an average latency of 1.5/HZ.
+		 */
+		if (unlikely(budget <= 0 || time_after(jiffies, time_limit)))
 			goto softnet_break;
 
 		local_irq_enable();
@@ -2493,11 +2499,10 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
 
 	slave->master = master;
 
-	synchronize_net();
-
-	if (old)
+	if (old) {
+		synchronize_net();
 		dev_put(old);
-
+	}
 	if (master)
 		slave->flags |= IFF_SLAVE;
 	else
@@ -3131,7 +3136,7 @@ int register_netdevice(struct net_device *dev)
 
 	if (!dev_valid_name(dev->name)) {
 		ret = -EINVAL;
-		goto out;
+		goto err_uninit;
 	}
 
 	dev->ifindex = dev_new_index();
@@ -3145,7 +3150,7 @@ int register_netdevice(struct net_device *dev)
 			= hlist_entry(p, struct net_device, name_hlist);
 		if (!strncmp(d->name, dev->name, IFNAMSIZ)) {
 			ret = -EEXIST;
-			goto out;
+			goto err_uninit;
 		}
 	}
 
@@ -3189,7 +3194,7 @@ int register_netdevice(struct net_device *dev)
 
 	ret = netdev_register_sysfs(dev);
 	if (ret)
-		goto out;
+		goto err_uninit;
 	dev->reg_state = NETREG_REGISTERED;
 
 	/*
@@ -3214,6 +3219,11 @@ int register_netdevice(struct net_device *dev)
 
 out:
 	return ret;
+
+err_uninit:
+	if (dev->uninit)
+		dev->uninit(dev);
+	goto out;
 }
 
 /**
@@ -3493,8 +3503,7 @@ void unregister_netdevice(struct net_device *dev)
 	BUG_ON(dev->reg_state != NETREG_REGISTERED);
 
 	/* If device is running, close it first. */
-	if (dev->flags & IFF_UP)
-		dev_close(dev);
+	dev_close(dev);
 
 	/* And unlink it from device chain. */
 	write_lock_bh(&dev_base_lock);
