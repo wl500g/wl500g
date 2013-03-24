@@ -858,5 +858,13 @@ config NETFILTER_XT_MATCH_HASHLIMIT
 	  destination address' or `500pps from any given source address'
 	  with a single rule.
 
+config NETFILTER_XT_MATCH_IFACE
+	tristate '"iface" match support'
+	depends on NETFILTER_XTABLES
+	help
+	  This option adds a `iface' match.
+
+	  Allows you to check interface states.
+
 endmenu
 
