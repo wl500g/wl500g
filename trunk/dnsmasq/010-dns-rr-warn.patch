@@ -1,6 +1,7 @@
---- dnsmasq.orig/src/option.c	2012-12-03 20:05:59.000000000 +0600
-+++ dnsmasq/src/option.c	2012-12-06 15:53:02.000000000 +0600
-@@ -3002,7 +3002,7 @@ static int one_opt(int option, char *arg
+diff -BurpN dnsmasq.orig/src/option.c dnsmasq/src/option.c
+--- dnsmasq.orig/src/option.c	2013-03-22 15:11:53.000000000 +0000
++++ dnsmasq/src/option.c	2013-03-24 11:21:31.431101050 +0000
+@@ -3278,7 +3278,7 @@ static int one_opt(int option, char *arg
      case LOPT_RR: /* dns-rr */
        {
         	struct txt_record *new;
@@ -9,7 +10,7 @@
  	char *data;
  	int val;
  
-@@ -3019,12 +3019,11 @@ static int one_opt(int option, char *arg
+@@ -3295,12 +3295,11 @@ static int one_opt(int option, char *arg
  	  ret_err(_("bad RR record"));
  	   	
  	new->class = val;
