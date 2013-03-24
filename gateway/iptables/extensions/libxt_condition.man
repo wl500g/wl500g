@@ -1,0 +1,4 @@
+This matches if a specific condition variable is (un)set.
+.TP
+[\fB!\fP] \fB\-\-condition\fP \fIname\fP
+Match on boolean value stored in /proc/net/nf_condition/\fIname\fP.
