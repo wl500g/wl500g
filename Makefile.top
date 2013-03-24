@@ -420,6 +420,7 @@ ifeq ($(CONFIG_USBNET),y)
 		$(SRCMODULESDIR)/drivers/net/usb/usbnet$(ko) \
 		$(SRCMODULESDIR)/drivers/net/usb/cdc_ether$(ko) \
 		$(SRCMODULESDIR)/drivers/net/usb/rndis_host$(ko) \
+		$(SRCMODULESDIR)/drivers/net/usb/cdc_ncm$(ko) \
 		$(SRCMODULESDIR)/drivers/net/usb/qmi_wwan$(ko)
 endif
 	# usb webcams
