@@ -866,5 +866,14 @@ config NETFILTER_XT_MATCH_IFACE
 
 	  Allows you to check interface states.
 
+config NETFILTER_XT_MATCH_CONDITION
+	tristate '"condition" match support'
+	depends on NETFILTER_XTABLES && PROC_FS
+	help
+	  This option adds a `condition' match.
+
+	  Allows firewall rules to match using condition variables
+	  available through procfs.
+
 endmenu
 
