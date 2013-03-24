@@ -1,0 +1,299 @@
+netfilter: xt_condition match
+
+ xt_condition match from xtables-addons project
+
+---
+ include/linux/netfilter/Kbuild         |    1 
+ include/linux/netfilter/xt_condition.h |   16 ++
+ net/netfilter/Kconfig                  |    9 +
+ net/netfilter/Makefile                 |    1 
+ net/netfilter/xt_condition.c           |  221 +++++++++++++++++++++++++++++++++
+ 5 files changed, 248 insertions(+)
+ create mode 100644 include/linux/netfilter/xt_condition.h
+ create mode 100644 net/netfilter/xt_condition.c
+
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -6,6 +6,7 @@ header-y += nfnetlink_queue.h
+ header-y += xt_CLASSIFY.h
+ header-y += xt_addrtype.h
+ header-y += xt_comment.h
++header-y += xt_condition.h
+ header-y += xt_connbytes.h
+ header-y += xt_connmark.h
+ header-y += xt_CONNMARK.h
+diff --git a/include/linux/netfilter/xt_condition.h b/include/linux/netfilter/xt_condition.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/netfilter/xt_condition.h
+@@ -0,0 +1,16 @@
++#ifndef _XT_CONDITION_H
++#define _XT_CONDITION_H
++
++enum {
++	CONDITION_NAME_LEN = 31,
++};
++
++struct xt_condition_mtinfo {
++	char name[CONDITION_NAME_LEN];
++	__u8 invert;
++
++	/* Used internally by the kernel */
++	void *condvar __attribute__((aligned(8)));
++};
++
++#endif /* _XT_CONDITION_H */
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -866,5 +866,14 @@
+ 
+ 	  Allows you to check interface states.
+ 
++config NETFILTER_XT_MATCH_CONDITION
++	tristate '"condition" match support'
++	depends on NETFILTER_XTABLES && PROC_FS
++	help
++	  This option adds a `condition' match.
++
++	  Allows firewall rules to match using condition variables
++	  available through procfs.
++
+ endmenu
+ 
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -90,3 +90,4 @@
+ obj-$(CONFIG_NETFILTER_XT_MATCH_U32) += xt_u32.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_IFACE) += xt_iface.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_CONDITION) += xt_condition.o
+diff --git a/net/netfilter/xt_condition.c b/net/netfilter/xt_condition.c
+new file mode 100644
+--- /dev/null
++++ b/net/netfilter/xt_condition.c
+@@ -0,0 +1,221 @@
++/*
++ *	"condition" match extension for Xtables
++ *
++ *	Description: This module allows firewall rules to match using
++ *	condition variables available through procfs.
++ *
++ *	Authors:
++ *	Stephane Ouellette <ouellettes [at] videotron ca>, 2002-10-22
++ *	Massimiliano Hofer <max [at] nucleus it>, 2006-05-15
++ *
++ *	This program is free software; you can redistribute it and/or modify it
++ *	under the terms of the GNU General Public License; either version 2
++ *	or 3 of the License, as published by the Free Software Foundation.
++ */
++#include <linux/kernel.h>
++#include <linux/list.h>
++#include <linux/module.h>
++#include <linux/proc_fs.h>
++#include <linux/spinlock.h>
++#include <linux/string.h>
++#include <linux/version.h>
++#include <linux/netfilter/x_tables.h>
++#include <asm/uaccess.h>
++#include <linux/netfilter/xt_condition.h>
++
++#ifndef CONFIG_PROC_FS
++#	error "proc file system support is required for this module"
++#endif
++
++/* Defaults, these can be overridden on the module command-line. */
++static unsigned int condition_list_perms = S_IRUGO | S_IWUSR;
++static unsigned int condition_uid_perms = 0;
++static unsigned int condition_gid_perms = 0;
++
++MODULE_AUTHOR("Stephane Ouellette <ouellettes@videotron.ca>");
++MODULE_AUTHOR("Massimiliano Hofer <max@nucleus.it>");
++MODULE_AUTHOR("Jan Engelhardt <jengelh@medozas.de>");
++MODULE_DESCRIPTION("Allows rules to match against condition variables");
++MODULE_LICENSE("GPL");
++module_param(condition_list_perms, uint, S_IRUSR | S_IWUSR);
++MODULE_PARM_DESC(condition_list_perms, "permissions on /proc/net/nf_condition/* files");
++module_param(condition_uid_perms, uint, S_IRUSR | S_IWUSR);
++MODULE_PARM_DESC(condition_uid_perms, "user owner of /proc/net/nf_condition/* files");
++module_param(condition_gid_perms, uint, S_IRUSR | S_IWUSR);
++MODULE_PARM_DESC(condition_gid_perms, "group owner of /proc/net/nf_condition/* files");
++MODULE_ALIAS("ipt_condition");
++MODULE_ALIAS("ip6t_condition");
++
++struct condition_variable {
++	struct list_head list;
++	struct proc_dir_entry *status_proc;
++	unsigned int refcount;
++	bool enabled;
++};
++
++/* proc_lock is a user context only semaphore used for write access */
++/*           to the conditions' list.                               */
++static DEFINE_MUTEX(proc_lock);
++
++static LIST_HEAD(conditions_list);
++static struct proc_dir_entry *proc_net_condition;
++
++static int condition_proc_read(char __user *buffer, char **start, off_t offset,
++                               int length, int *eof, void *data)
++{
++	const struct condition_variable *var = data;
++
++	buffer[0] = var->enabled ? '1' : '0';
++	buffer[1] = '\n';
++	if (length >= 2)
++		*eof = true;
++	return 2;
++}
++
++static int condition_proc_write(struct file *file, const char __user *buffer,
++                                unsigned long length, void *data)
++{
++	struct condition_variable *var = data;
++	char newval;
++
++	if (length > 0) {
++		if (get_user(newval, buffer) != 0)
++			return -EFAULT;
++		/* Match only on the first character */
++		switch (newval) {
++		case '0':
++			var->enabled = false;
++			break;
++		case '1':
++			var->enabled = true;
++			break;
++		}
++	}
++	return length;
++}
++
++static bool
++condition_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++{
++	const struct xt_condition_mtinfo *info = par->matchinfo;
++	const struct condition_variable *var   = info->condvar;
++
++	return var->enabled ^ info->invert;
++}
++
++static bool condition_mt_check(const struct xt_mtchk_param *par)
++{
++	struct xt_condition_mtinfo *info = par->matchinfo;
++	struct condition_variable *var;
++
++	/* Forbid certain names */
++	if (*info->name == '\0' || *info->name == '.' ||
++	    info->name[sizeof(info->name)-1] != '\0' ||
++	    memchr(info->name, '/', sizeof(info->name)) != NULL) {
++		printk(KERN_INFO KBUILD_MODNAME ": name not allowed or too "
++		       "long: \"%.*s\"\n", (unsigned int)sizeof(info->name),
++		       info->name);
++		return false;
++	}
++	/*
++	 * Let's acquire the lock, check for the condition and add it
++	 * or increase the reference counter.
++	 */
++	mutex_lock(&proc_lock);
++	list_for_each_entry(var, &conditions_list, list) {
++		if (strcmp(info->name, var->status_proc->name) == 0) {
++			var->refcount++;
++			mutex_unlock(&proc_lock);
++			info->condvar = var;
++			return true;
++		}
++	}
++
++	/* At this point, we need to allocate a new condition variable. */
++	var = kmalloc(sizeof(struct condition_variable), GFP_KERNEL);
++	if (var == NULL) {
++		mutex_unlock(&proc_lock);
++		return false;
++	}
++
++	/* Create the condition variable's proc file entry. */
++	var->status_proc = create_proc_entry(info->name, condition_list_perms,
++	                   proc_net_condition);
++	if (var->status_proc == NULL) {
++		kfree(var);
++		mutex_unlock(&proc_lock);
++		return false;
++	}
++
++	var->refcount = 1;
++	var->enabled  = false;
++#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 29)
++	var->status_proc->owner = THIS_MODULE;
++#endif
++	var->status_proc->data  = var;
++	wmb();
++	var->status_proc->read_proc  = condition_proc_read;
++	var->status_proc->write_proc = condition_proc_write;
++	list_add(&var->list, &conditions_list);
++	var->status_proc->uid = condition_uid_perms;
++	var->status_proc->gid = condition_gid_perms;
++	mutex_unlock(&proc_lock);
++	info->condvar = var;
++	return true;
++}
++
++static void condition_mt_destroy(const struct xt_mtdtor_param *par)
++{
++	const struct xt_condition_mtinfo *info = par->matchinfo;
++	struct condition_variable *var = info->condvar;
++
++	mutex_lock(&proc_lock);
++	if (--var->refcount == 0) {
++		list_del(&var->list);
++		remove_proc_entry(var->status_proc->name, proc_net_condition);
++		mutex_unlock(&proc_lock);
++		kfree(var);
++		return;
++	}
++	mutex_unlock(&proc_lock);
++}
++
++static struct xt_match condition_mt_reg __read_mostly = {
++	.name       = "condition",
++	.revision   = 1,
++	.family     = NFPROTO_UNSPEC,
++	.matchsize  = sizeof(struct xt_condition_mtinfo),
++	.match      = condition_mt,
++	.checkentry = condition_mt_check,
++	.destroy    = condition_mt_destroy,
++	.me         = THIS_MODULE,
++};
++
++static const char *const dir_name = "nf_condition";
++
++static int __init condition_mt_init(void)
++{
++	int ret;
++
++	mutex_init(&proc_lock);
++	proc_net_condition = proc_mkdir(dir_name, proc_net);
++	if (proc_net_condition == NULL)
++		return -EACCES;
++
++	ret = xt_register_match(&condition_mt_reg);
++	if (ret < 0) {
++		remove_proc_entry(dir_name, proc_net);
++		return ret;
++	}
++
++	return 0;
++}
++
++static void __exit condition_mt_exit(void)
++{
++	xt_unregister_match(&condition_mt_reg);
++	remove_proc_entry(dir_name, proc_net);
++}
++
++module_init(condition_mt_init);
++module_exit(condition_mt_exit);
+-- 

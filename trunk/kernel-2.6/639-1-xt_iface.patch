@@ -1,0 +1,189 @@
+netfilter: xt_iface match
+
+ xt_iface match from xtables-addons project
+
+---
+ include/linux/netfilter/Kbuild     |    1 
+ include/linux/netfilter/xt_iface.h |   26 +++++++++
+ net/netfilter/Kconfig              |    8 ++
+ net/netfilter/Makefile             |    1 
+ net/netfilter/xt_iface.c           |  102 +++++++++++++++++++++++++++++++++++++
+ 5 files changed, 138 insertions(+)
+ create mode 100644 include/linux/netfilter/xt_iface.h
+ create mode 100644 net/netfilter/xt_iface.c
+
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -17,6 +17,7 @@ header-y += xt_ecn.h
+ header-y += xt_esp.h
+ header-y += xt_helper.h
+ header-y += xt_hashlimit.h
++header-y += xt_iface.h
+ header-y += xt_iprange.h
+ header-y += xt_length.h
+ header-y += xt_limit.h
+diff --git a/include/linux/netfilter/xt_iface.h b/include/linux/netfilter/xt_iface.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/netfilter/xt_iface.h
+@@ -0,0 +1,26 @@
++#ifndef _LINUX_NETFILTER_XT_IFACE_H
++#define _LINUX_NETFILTER_XT_IFACE_H 1
++
++enum {
++	XT_IFACE_UP          = 1 << 0,
++	XT_IFACE_BROADCAST   = 1 << 1,
++	XT_IFACE_LOOPBACK    = 1 << 2,
++	XT_IFACE_POINTOPOINT = 1 << 3,
++	XT_IFACE_RUNNING     = 1 << 4,
++	XT_IFACE_NOARP       = 1 << 5,
++	XT_IFACE_PROMISC     = 1 << 6,
++	XT_IFACE_MULTICAST   = 1 << 7,
++	XT_IFACE_DYNAMIC     = 1 << 8,
++	XT_IFACE_LOWER_UP    = 1 << 9,
++	XT_IFACE_DORMANT     = 1 << 10,
++	XT_IFACE_DEV_IN      = 1 << 11,
++	XT_IFACE_DEV_OUT     = 1 << 12,
++};
++
++struct xt_iface_mtinfo {
++	char ifname[IFNAMSIZ];
++	__u16 flags;
++	__u16 invflags;
++};
++
++#endif
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -858,5 +858,13 @@
+ 	  destination address' or `500pps from any given source address'
+ 	  with a single rule.
+ 
++config NETFILTER_XT_MATCH_IFACE
++	tristate '"iface" match support'
++	depends on NETFILTER_XTABLES
++	help
++	  This option adds a `iface' match.
++
++	  Allows you to check interface states.
++
+ endmenu
+ 
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -89,3 +89,4 @@
+ obj-$(CONFIG_NETFILTER_XT_MATCH_PHYSDEV) += xt_physdev.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_U32) += xt_u32.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_IFACE) += xt_iface.o
+diff --git a/net/netfilter/xt_iface.c b/net/netfilter/xt_iface.c
+new file mode 100644
+--- /dev/null
++++ b/net/netfilter/xt_iface.c
+@@ -0,0 +1,102 @@
++/*
++ *	xt_iface - kernel module to match interface state flags
++ *
++ *	Original author: Gáspár Lajos <gaspar.lajos@glsys.eu>
++ */
++
++#include <linux/if.h>
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++#include <linux/version.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_iface.h>
++
++struct xt_iface_flag_pairs {
++	uint16_t iface_flag;
++	uint32_t iff_flag;
++};
++
++MODULE_AUTHOR("Gaspar Lajos <gaspar.lajos@glsys.eu>");
++MODULE_DESCRIPTION("Xtables: iface match module");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("ipt_iface");
++MODULE_ALIAS("ip6t_iface");
++//MODULE_ALIAS("arpt_iface");
++
++static const struct xt_iface_flag_pairs xt_iface_lookup[] =
++{
++	{.iface_flag = XT_IFACE_UP,		.iff_flag = IFF_UP},
++	{.iface_flag = XT_IFACE_BROADCAST,	.iff_flag = IFF_BROADCAST},
++	{.iface_flag = XT_IFACE_LOOPBACK,	.iff_flag = IFF_LOOPBACK},
++	{.iface_flag = XT_IFACE_POINTOPOINT,	.iff_flag = IFF_POINTOPOINT},
++	{.iface_flag = XT_IFACE_RUNNING,	.iff_flag = IFF_RUNNING},
++	{.iface_flag = XT_IFACE_NOARP,		.iff_flag = IFF_NOARP},
++	{.iface_flag = XT_IFACE_PROMISC,	.iff_flag = IFF_PROMISC},
++	{.iface_flag = XT_IFACE_MULTICAST,	.iff_flag = IFF_MULTICAST},
++	{.iface_flag = XT_IFACE_DYNAMIC,	.iff_flag = IFF_DYNAMIC},
++	{.iface_flag = XT_IFACE_LOWER_UP,	.iff_flag = IFF_LOWER_UP},
++	{.iface_flag = XT_IFACE_DORMANT,	.iff_flag = IFF_DORMANT},
++};
++
++static const struct net_device *iface_get(const struct xt_iface_mtinfo *info,
++    const struct xt_match_param *par, struct net_device **put)
++{
++	if (info->flags & XT_IFACE_DEV_IN)
++		return par->in;
++	else if (info->flags & XT_IFACE_DEV_OUT)
++		return par->out;
++	return *put = dev_get_by_name(info->ifname);
++}
++
++static bool iface_flagtest(unsigned int devflags, unsigned int flags,
++    unsigned int invflags)
++{
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(xt_iface_lookup); ++i)
++		if ((flags & xt_iface_lookup[i].iface_flag) &&
++		    !!(devflags & xt_iface_lookup[i].iff_flag) ^
++		    !(invflags & xt_iface_lookup[i].iface_flag))
++			return false;
++	return true;
++}
++
++static bool xt_iface_mt(const struct sk_buff *skb,
++    const struct xt_match_param *par)
++{
++	const struct xt_iface_mtinfo *info = par->matchinfo;
++	struct net_device *put = NULL;
++	const struct net_device *dev = iface_get(info, par, &put);
++	bool retval;
++
++	if (dev == NULL)
++		return false;
++	retval = iface_flagtest(dev->flags, info->flags, info->invflags);
++	if (put != NULL)
++		dev_put(put);
++	return retval;
++}
++
++static struct xt_match xt_iface_mt_reg __read_mostly = {
++	.name       = "iface",
++	.revision   = 0,
++	.family     = NFPROTO_UNSPEC,
++	.matchsize  = sizeof(struct xt_iface_mtinfo),
++	.match      = xt_iface_mt,
++	.me         = THIS_MODULE,
++};
++
++static int __init xt_iface_match_init(void)
++{
++	return xt_register_match(&xt_iface_mt_reg);
++}
++
++static void __exit xt_iface_match_exit(void)
++{
++	xt_unregister_match(&xt_iface_mt_reg);
++}
++
++module_init(xt_iface_match_init);
++module_exit(xt_iface_match_exit);
+-- 
