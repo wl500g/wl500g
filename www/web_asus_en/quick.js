@@ -411,8 +411,8 @@ function saveQuick(o)
 		inputCtrl1(document.form.wan_gateway, 1);    	         
 	}             
 
-	o.value = '  Save  ';   
-	document.form.action_mode.value = '  Save  ';
+	o.value = ' Save ';   
+	document.form.action_mode.value = ' Save ';
 	return true;
 }
 
@@ -760,8 +760,8 @@ function saveMode(o)
 			document.form.wan_proto.value = 'pppoe';
 		}
 	}
-	o.value = "  Save  ";	
-	document.form.action_mode.value = "  Save  ";
+	o.value = " Save ";	
+	document.form.action_mode.value = " Save ";
 	document.form.submit();                       	
 }
 
