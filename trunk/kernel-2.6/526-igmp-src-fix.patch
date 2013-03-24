@@ -1,10 +1,11 @@
  685f94e6db8496399c881218018166515445a914 ipv4 : igmp : fix error handle in ip_mc_add_src()
  e05c4ad3ed874ee4f5e2c969e55d318ec654332c mcast: Fix source address selection for multicast listener report
+ 78d50217baf36093ab320f95bae0d6452daec85c ipv6: fix array index in ip6_mc_add_src()
 
 ---
  net/ipv4/igmp.c  |    5 +++--
- net/ipv6/mcast.c |    2 +-
- 2 files changed, 4 insertions(+), 3 deletions(-)
+ net/ipv6/mcast.c |    4 ++--
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
 --- a/net/ipv4/igmp.c
@@ -40,4 +41,13 @@ diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
  			    pmc->mca_sfcount[MCAST_EXCLUDE] !=
  			    psf->sf_count[MCAST_EXCLUDE])
  				continue;
+@@ -2074,7 +2074,7 @@ static int ip6_mc_add_src(struct inet6_dev *idev, const struct in6_addr *pmca,
+ 		if (!delta)
+ 			pmc->mca_sfcount[sfmode]--;
+ 		for (j=0; j<i; j++)
+-			(void) ip6_mc_del1_src(pmc, sfmode, &psfsrc[i]);
++			ip6_mc_del1_src(pmc, sfmode, &psfsrc[j]);
+ 	} else if (isexclude != (pmc->mca_sfcount[MCAST_EXCLUDE] != 0)) {
+ 		struct inet6_dev *idev = pmc->idev;
+ 		struct ip6_sf_list *psf;
 -- 
