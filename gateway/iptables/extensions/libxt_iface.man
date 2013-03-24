@@ -1,0 +1,50 @@
+Allows you to check interface states. First, an interface needs to be selected
+for comparison. Exactly one option of the following three must be specified:
+.TP
+\fB\-\-iface\fP \fIname\fP
+Check the states on the given interface.
+.TP
+\fB\-\-dev\-in\fP
+Check the states on the interface on which the packet came in. If the input
+device is not set, because for example you are using \-m iface in the OUTPUT
+chain, this submatch returns false.
+.TP
+\fB\-\-dev\-out\fP
+Check the states on the interface on which the packet will go out. If the
+output device is not set, because for example you are using \-m iface in the
+INPUT chain, this submatch returns false.
+.PP
+Following that, one can select the interface properties to check for:
+.TP
+[\fB!\fP] \fB\-\-up\fP, [\fB!\fP] \fB\-\-down\fP
+Check the UP flag.
+.TP
+[\fB!\fP] \fB\-\-broadcast\fP
+Check the BROADCAST flag.
+.TP
+[\fB!\fP] \fB\-\-loopback\fP
+Check the LOOPBACK flag.
+.TP
+[\fB!\fP] \fB\-\-pointtopoint\fP
+Check the POINTTOPOINT flag.
+.TP
+[\fB!\fP] \fB\-\-running\fP
+Check the RUNNING flag. Do NOT rely on it!
+.TP
+[\fB!\fP] \fB\-\-noarp\fP, [\fB!\fP] \fB\-\-arp\fP
+Check the NOARP flag.
+.TP
+[\fB!\fP] \fB\-\-promisc\fP
+Check the PROMISC flag.
+.TP
+[\fB!\fP] \fB\-\-multicast\fP
+Check the MULTICAST flag.
+.TP
+[\fB!\fP] \fB\-\-dynamic\fP
+Check the DYNAMIC flag.
+.TP
+[\fB!\fP] \fB\-\-lower\-up\fP
+Check the LOWER_UP flag.
+.TP
+[\fB!\fP] \fB\-\-dormant\fP
+Check the DORMANT flag.
