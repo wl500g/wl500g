@@ -822,7 +822,7 @@ apply_cgi(webs_t wp, const char *url, const char *path, const char *query)
 
 			if (!strcmp(value, " Restore ")) {
 				//sys_restore(serviceId);
-			} else if(!strcmp(value, "  Save  ") ||
+			} else if(!strcmp(value, " Save ") ||
 				  !strcmp(value, " Apply ")) {
 				validate_cgi(wp, sid, TRUE);
 			} else if(!strcmp(value, "Set") ||
@@ -865,7 +865,7 @@ apply_cgi(webs_t wp, const char *url, const char *path, const char *query)
 			sys_script(script);
 		}   
 
-		if (!strcmp(value, "  Save  ")) {
+		if (!strcmp(value, " Save ")) {
 			strcpy(urlcache, next_url);
 			websRedirect(wp, next_url);
 		} else if (!strcmp(value, " Apply ")) {
@@ -880,7 +880,7 @@ apply_cgi(webs_t wp, const char *url, const char *path, const char *query)
 
 		dprintf("apply ok\n");
 		return 0;
-	}  
+	}
 
 
 
