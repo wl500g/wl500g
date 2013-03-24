@@ -24,7 +24,6 @@
 #include <errno.h>
 #include <error.h>
 #include <sys/ioctl.h>
-#include <sys/sysinfo.h>
 
 #include <linux/compiler.h>
 #include <mtd/mtd-user.h>
@@ -44,26 +43,20 @@
 static int mtd_open(const char *mtd, int flags)
 {
 	FILE *fp;
-	char dev[PATH_MAX];
-	char *tok, *context;
-	int i, m;
+	char buf[PATH_MAX];
+	char part[256];
+	int i;
 
 	/* Check for mtd partition */
 	if ((fp = fopen("/proc/mtd", "r"))) {
-		while (fgets(dev, sizeof(dev), fp)) {
-			/* Match by device name & alias only (fields 1, 4) */
-			tok = strtok_r(dev, " \t", &context);
-			if (sscanf(tok, "mtd%d:", &m) < 1)
+		while (fgets(buf, sizeof(buf), fp)) {
+			/* Match partition name */
+			if (sscanf(buf, "mtd%d: %*x %*x \"%255[^\"]\"", &i, part) < 2)
 				continue;
-			for (i=1; tok && i<=4; i++, tok = strtok_r(NULL, " \t", &context)) {
-				if (i >1 && i < 4)
-					continue;
-				if (strstr(tok, mtd))
-				{
-					snprintf(dev, sizeof(dev), MTD_DEV(%d), m);
-					fclose(fp);
-					return open(dev, flags);
-				}
+			if (!strcmp(part, mtd)) {
+				snprintf(buf, sizeof(buf), MTD_DEV(%d), i);
+				fclose(fp);
+				return open(buf, flags);
 			}
 		}
 		fclose(fp);
@@ -129,7 +122,7 @@ int mtd_flash(const char *path, const char *mtd)
 	FILE *fp = NULL;
 	struct stat stats;
 	char *buf = NULL;
-	long count, len;
+	long len;
 	int ret = -1;
 
 	if (stat(path, &stats) || !(fp = fopen(path, "r"))) 
@@ -161,22 +154,21 @@ int mtd_flash(const char *path, const char *mtd)
 	}
 
 	/* Write file to MTD device */
-	for (erase_info.start = 0; erase_info.start < stats.st_size; erase_info.start += count) {
+	for (erase_info.start = 0; erase_info.start < stats.st_size; erase_info.start += len) {
 		len = MIN(erase_info.length, stats.st_size - erase_info.start);
-		count = safe_fread(buf, 1, len, fp);
 
-		if (count < len) {
-			fprintf(stderr, "%s: Truncated file (actual %ld expect %ld)\n", path,
-				count, len);
+		if (safe_fread(buf, 1, len, fp) != len) {
+			fprintf(stderr, "%s: Truncated file\n", path);
 			goto fail;
 		}
 
 		/* Do it */
 		(void) ioctl(mtd_fd, MEMUNLOCK, &erase_info);
+
 		if (write(1, "-", 1) != 1 ||
 		    ioctl(mtd_fd, MEMERASE, &erase_info) != 0 ||
 		    write(1, "\b+", 2) != 2 ||
-		    write(mtd_fd, buf, count) != count) {
+		    write(mtd_fd, buf, len) != len) {
 			perror(mtd);
 			goto fail;
 		}
@@ -204,7 +196,7 @@ int mtd_flash(const char *path, const char *mtd)
 
 /*
  * Write a file to an MTD device
- * @param	path	file to write or a URL
+ * @param	path	file to write
  * @param	mtd	path to or partition name of MTD device 
  * @return	0 on success and errno on failure
  */
@@ -214,22 +206,25 @@ int mtd_write(const char *path, const char *mtd)
 	mtd_info_t mtd_info;
 	erase_info_t erase_info;
 
-	struct sysinfo info;
 	struct trx_header trx;
 	unsigned long crc;
 
 	FILE *fp;
+	struct stat stats;
 	char *buf = NULL;
-	long count, len, off;
+	long len, pos;
 	int ret = -1;
 
+	if (stat(path, &stats) || !(fp = fopen(path, "r"))) 
+	{
+		perror(path);
+		goto fail;
+	}
+
 	/* Examine TRX header */
-	if ((fp = fopen(path, "r")))
-		count = safe_fread(&trx, 1, sizeof(struct trx_header), fp);
-	else
-		count = http_get(path, (char *) &trx, sizeof(struct trx_header), 0);
-	if (count < sizeof(struct trx_header)) {
-		fprintf(stderr, "%s: File is too small (%ld bytes)\n", path, count);
+	len = safe_fread(&trx, 1, sizeof(struct trx_header), fp);
+	if (len < sizeof(struct trx_header)) {
+		fprintf(stderr, "%s: File is too small (%ld bytes)\n", path, len);
 		goto fail;
 	}
 
@@ -241,21 +236,22 @@ int mtd_write(const char *path, const char *mtd)
 		goto fail;
 	}
 
+	if (stats.st_size > mtd_info.size) {
+		fprintf(stderr, "%s: File is too big (%ld, max %d)\n", path,
+				stats.st_size, mtd_info.size);
+		goto fail;
+	}
+
 	if (trx.magic != TRX_MAGIC ||
-	    trx.len > mtd_info.size ||
+	    trx.len != stats.st_size ||
 	    trx.len < sizeof(struct trx_header)) {
 		fprintf(stderr, "%s: Bad trx header\n", path);
 		goto fail;
 	}
 
-	/* See if we have enough memory to store the whole file */
-	sysinfo(&info);
-	if ((info.freeram + info.bufferram) >= trx.len)
-		erase_info.length = ROUNDUP(trx.len, mtd_info.erasesize);
-	else
-		erase_info.length = mtd_info.erasesize;
-
 	/* Allocate temporary buffer */
+	erase_info.length = mtd_info.erasesize;
+
 	if (!(buf = malloc(erase_info.length))) {
 		perror("malloc");
 		goto fail;
@@ -266,48 +262,49 @@ int mtd_write(const char *path, const char *mtd)
 		    sizeof(struct trx_header) - OFFSETOF(struct trx_header, flag_version),
 		    CRC32_INIT_VALUE);
 
-	if (trx.flag_version & TRX_NO_HEADER)
-		trx.len -= sizeof(struct trx_header);
+	/* Calculate CRC before writing */
+	for (pos = sizeof(struct trx_header); pos < trx.len; pos += len) {
+		len = MIN(erase_info.length, trx.len - pos);
+		if (safe_fread(buf, 1, len, fp) != len)
+			goto fail;
+		/* Update CRC */
+		crc = crc32((uint8 *)buf, len, crc);
+	}
 
-	/* Write file or URL to MTD device */
-	for (erase_info.start = 0; erase_info.start < trx.len; erase_info.start += count) {
+	/* Check CRC before writing */
+	if (crc != trx.crc32) {
+		fprintf(stderr, "%s: Bad CRC\n", path);
+		goto fail;
+	}
+	
+	printf("%s: CRC OK\n", path);
+	
+	if (trx.flag_version & TRX_NO_HEADER) {
+		(void) fseek(fp, sizeof(struct trx_header), SEEK_SET);
+		trx.len -= sizeof(struct trx_header);
+	}
+	else
+		rewind(fp);
+
+	/* Write file to MTD device */
+	for (erase_info.start = 0; erase_info.start < trx.len; erase_info.start += len) {
 		len = MIN(erase_info.length, trx.len - erase_info.start);
-		if ((trx.flag_version & TRX_NO_HEADER) || erase_info.start)
-			count = off = 0;
-		else {
-			count = off = sizeof(struct trx_header);
-			memcpy(buf, &trx, sizeof(struct trx_header));
-		}
-		if (fp)
-			count += safe_fread(&buf[off], 1, len - off, fp);
-		else
-			count += http_get(path, &buf[off], len - off, erase_info.start + off);
-		if (count < len) {
-			fprintf(stderr, "%s: Truncated file (actual %ld expect %ld)\n", path,
-				count - off, len - off);
+
+		if (safe_fread(buf, 1, len, fp) != len) {
+			fprintf(stderr, "%s: Truncated file\n", path);
 			goto fail;
 		}
-		/* Update CRC */
-		crc = crc32((uint8 *)&buf[off], count - off, crc);
-		/* Check CRC before writing if possible */
-		if (count == trx.len) {
-			if (crc != trx.crc32) {
-				fprintf(stderr, "%s: Bad CRC\n", path);
-				goto fail;
-			}
-		}
+
 		/* Do it */
 		(void) ioctl(mtd_fd, MEMUNLOCK, &erase_info);
 
-		if (
-		    ioctl(mtd_fd, MEMERASE, &erase_info) != 0 ||
-		    write(mtd_fd, buf, count) != count) {
+		if (ioctl(mtd_fd, MEMERASE, &erase_info) != 0 ||
+		    write(mtd_fd, buf, len) != len) {
 			perror(mtd);
 			goto fail;
 		}
 	}
 
-	printf("%s: CRC OK\n", mtd);
 	ret = 0;
 
  fail:

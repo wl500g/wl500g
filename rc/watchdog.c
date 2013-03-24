@@ -594,15 +594,11 @@ static int svc_timecheck(void)
 /* Sometimes, httpd becomes inaccessible, try to re-run it */
 static int http_processcheck(void)
 {
-//	char http_cmd[32];
-//	char buf[256];
 	const char *httpd_pid = "/var/run/httpd.pid";
 
 	//printf("http check\n");
 
 	/* just check httpd process existance */
-	//sprintf(http_cmd, "http://127.0.0.1:%s/", nvram_safe_get("http_lanport"));
-	//if (!http_check(http_cmd, buf, sizeof(buf), 0))
 	if (!proc_check_pid(httpd_pid))
 	{
 		dprintf("http rerun\n");
