@@ -82,7 +82,7 @@ int killall(const char *program);
 int killall_tk(const char *program);
 void setenv_tz();
 time_t update_tztime(int is_resettm);
-
+int proc_check_pid(const char *pidfile);
 int wsrom_main(const char *devname, unsigned int pos, unsigned short val);
 int rsrom_main(const char *devname, unsigned int pos, int pflag);
 
@@ -107,13 +107,6 @@ int ip6up_main(int argc, char **argv);
 int ip6down_main(int argc, char **argv);
 #endif
 int ppp_ifunit(const char *ifname);
-
-/* http functions */
-int http_get(const char *server, char *buf, size_t count, off_t offset);
-int http_post(const char *server, char *buf, size_t count);
-int http_stats(const char *url);
-int http_check(const char *server, char *buf, size_t count, off_t offset);
-int proc_check_pid(const char *pidfile);
 
 /* init */
 pid_t run_shell(int timeout, int nowait);
