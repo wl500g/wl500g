@@ -15,7 +15,7 @@ CFLAGS	+= -ffunction-sections -fdata-sections
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux
 #CFLAGS	+= -g -DDEBUG -DDEBUG_TO_SYSLOG
 LDFLAGS	+= -ffunction-sections -fdata-sections -Wl,--gc-sections
-LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
+LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -L$(TOP)/netconf -lnetconf
 
 OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o broadcom.o prninfo.o
 
@@ -39,4 +39,4 @@ common.o: common.c variables.c common.h
 web_ex.o: web_ex.c common.h
 
 httpd: $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -lnvram -lshared -lnetconf
+	$(CC) $(LDFLAGS) -o $@ $^
