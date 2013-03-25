@@ -1377,22 +1377,24 @@ diff --git a/include/linux/usb/cdc.h b/include/linux/usb/cdc.h
  
  #define USB_CDC_SUBCLASS_ACM			0x02
  #define USB_CDC_SUBCLASS_ETHERNET		0x06
-@@ -12,6 +16,8 @@
+@@ -12,6 +16,9 @@
  #define USB_CDC_SUBCLASS_DMM			0x09
  #define USB_CDC_SUBCLASS_MDLM			0x0a
  #define USB_CDC_SUBCLASS_OBEX			0x0b
 +#define USB_CDC_SUBCLASS_EEM			0x0c
 +#define USB_CDC_SUBCLASS_NCM			0x0d
++#define USB_CDC_SUBCLASS_MBIM			0x0e
  
  #define USB_CDC_PROTO_NONE			0
  
-@@ -23,6 +29,10 @@
+@@ -23,6 +29,11 @@
  #define USB_CDC_ACM_PROTO_AT_CDMA		6
  #define USB_CDC_ACM_PROTO_VENDOR		0xff
  
 +#define USB_CDC_PROTO_EEM			7
 +
 +#define USB_CDC_NCM_PROTO_NTB			1
++#define USB_CDC_MBIM_PROTO_NTB			2
 +
  /*-------------------------------------------------------------------------*/
  
