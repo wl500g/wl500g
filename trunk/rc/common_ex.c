@@ -31,6 +31,8 @@
 #include "rc.h"
 #include "mtd.h"
 
+extern int router_model;
+
 #define XSTR(s) STR(s)
 #define STR(s) #s
 
@@ -176,11 +178,7 @@ void getsyspara(void)
 
 	get_fw_ver(productid, fwver);
 
-	// its a ugle solution for Product ID
-	if (strstr(productid, "WL500gx"))
-		nvram_set("productid", "WL500g.Deluxe");
-	else
-		nvram_set("productid", trim_r(productid));
+	nvram_set("productid", trim_r(productid));
 	nvram_set("firmver", trim_r(fwver));
 }
 
@@ -692,10 +690,10 @@ void convert_asus_values()
 
 	// clean some temp variables
 	nvram_set("usb_ftp_device", "");
-#if defined(MODEL_WL700G)
-	/* force mounting (boot_local and wl-hdd) */
-	nvram_set("usb_storage_device", "ide");
-#endif
+	if (router_model == MDL_WL700G) {
+		/* force mounting (boot_local and wl-hdd) */
+		nvram_set("usb_storage_device", "ide");
+	}
 	nvram_set("usb_web_device", "");
 	nvram_set("usb_audio_device", "");
 	nvram_set("usb_webdriver_x", "");

@@ -410,7 +410,8 @@ early_defaults(void)
 		nvram_set("sb/1/ledbh0", "8");
 
 	/* wl550ge -- missing wl0gpio values */
-	if (router_model == MDL_WL550GE && !nvram_get("wl0gpio0"))
+	if ((router_model == MDL_WL320GE || router_model == MDL_WL550GE) &&
+	    !nvram_get("wl0gpio0"))
 	{
 		nvram_set("wl0gpio0", "2");
 		nvram_set("wl0gpio1", "0");
@@ -589,9 +590,6 @@ canned_config:
 		else
 			linux_overrides = generic;
 	}
-
-	if (router_model == MDL_WL500GX)
-		linux_overrides = vlan;
 	
 	/* Restore defaults */
 	for (t = router_defaults; t->name; t++) {
@@ -760,8 +758,7 @@ main_loop(void)
 		run_shell(1, 0);
 
 	/* Add vlan */
-	boardflags = (router_model == MDL_WL500GX) ? BFL_ENETVLAN :
-		strtoul(nvram_safe_get("boardflags"), NULL, 0);
+	boardflags = strtoul(nvram_safe_get("boardflags"), NULL, 0);
 
 	/* Add loopback */
 	config_loopback();
@@ -831,7 +828,6 @@ main_loop(void)
 			eval("/usr/local/sbin/post-boot");
 #ifdef ASUS_EXT
 			sleep(1);
-			diag_PaN();
 #endif
 			/* Fall through */
 		case TIMER:
@@ -932,7 +928,7 @@ main(int argc, char **argv)
 		return madwimax_main(argc, argv);
 #endif
 #ifdef __CONFIG_MODEM__
-	/* lsmodem [-s|-j] [-c config] */
+	/* lsmodem [-s|-j]*/
 	else if ( !strcmp(base, "lsmodem" ) )
 		return lsmodem_main(argc, argv);
 #endif

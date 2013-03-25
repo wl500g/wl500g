@@ -209,16 +209,7 @@ void gpio_init(void)
 {
 	// overrides based on nvram
 	switch (router_model) {
-		case MDL_MN700:
-			reset_mask = GPIO7, reset_value = 0;
-			ready_mask = GPIO6, ready_value = GPIO6;
-			break;
-		case MDL_WL500GX:
-			reset_mask = GPIO6, reset_value = GPIO6;
-			ready_mask = GPIO0, ready_value = 0;
-			setup_mask = 0, setup_value = 0;
-			break;
-//		case MDL_WL320GE:
+		case MDL_WL320GE:
 //		case MDL_WL320GP:
 		case MDL_WL550GE:
 			reset_mask = GPIO1, reset_value = GPIO1;
@@ -352,10 +343,10 @@ void btn_check(void)
 		} else {
 			switch ((pressed - RESET_WAIT_COUNT) / RESET_STATE_COUNT) {
 			case 0: /* power off indication */
-#if defined(MODEL_WL700G)
-				LED_CONTROL(LED_READY, LED_READY_OFF);
-				break;
-#endif
+				if (router_model == MDL_WL700G) {
+					LED_CONTROL(LED_READY, LED_READY_OFF);
+					break;
+				}
 			case 1:	/* restore to defaults indication */
 				LED_CONTROL(LED_READY, (pressed & 1) ? LED_READY_OFF : LED_READY_ON);
 				break;
@@ -376,11 +367,11 @@ void btn_check(void)
 		} else {
 			switch ((pressed - RESET_WAIT_COUNT) / RESET_STATE_COUNT) {
 			case 0: /* power off */
-#if defined(MODEL_WL700G)
-				alarmtimer(0, 0);
-				kill(1, SIGQUIT);
-				break;
-#endif
+				if (router_model == MDL_WL700G) {
+					alarmtimer(0, 0);
+					kill(1, SIGQUIT);
+					break;
+				}
 			case 1:	/* restore to defaults */
 				alarmtimer(0, 0);
 				eval("erase", "nvram");
@@ -804,11 +795,11 @@ static void link_check(void)
 	logmessage("WAN port", "cable %s", status ? "connected" : "disconnected");
 }
 
-/* wathchdog is runned in NORMAL_PERIOD, 1 seconds
+/* watchdog is runned in NORMAL_PERIOD, 1 seconds
  * check in each NORMAL_PERIOD
  *	1. button
  *
- * check in each NORAML_PERIOD*5
+ * check in each NORMAL_PERIOD*5
  *
  *      1. ntptime, 
  *      2. time-dependent service

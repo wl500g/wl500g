@@ -1,134 +1,58 @@
-#! /bin/bash
+#!/bin/bash
 
-### CHUPA REVISION 1 29-10-2004 01:56
-### CHUPA REVISION 2 22-11-2004 23:35
-#+remove some unused files from www/graph and www/
-#+changed /web_asus_en/index.asp to support SystemLog in AP mode
-#+changed behaviour of menu, some things were selected wrongly in the previous revision
-#
-# In the following directories, files of WL300g/WL500g/WL600/WL600g will be different
-# /init/
-# /web
-# /web/script
-
-echo Make $1 Web Page
+echo "Preparing web interface..."
 
 if [ -n "$1" ]; then
 
-	MODEL=$1
+	TMPDIR=$1
 
-	if [ -n "$2" ]; then
-		if [ "$2" = "EN" ]; then
-			MODEL_STR="$MODEL"
-			MODELID="$MODEL"
-			rm -rf ./web
-			cp -rf ./web_asus_en ./web
-		elif [ "$2" = "KR" ]; then
-			MODEL_STR="$MODEL"
-			MODELID="$MODEL"
-			rm -rf ./web
-			cp -rf ./web_asus_kr ./web
-		elif [ "$2" = "JP" ]; then
-			MODEL_STR="$MODEL"
-			MODELID="$MODEL"
-			rm -rf ./web
-			cp -rf ./web_asus_jp ./web
-		elif [ "$2" = "TW" ]; then
-			MODEL_STR="$MODEL"
-			MODELID="$MODEL"
-			rm -rf ./web
-			cp -rf ./web_asus_tw ./web
-		elif [ "$2" = "CN" ]; then
-			MODEL_STR="$MODEL"
-			MODELID="$MODEL"
-			rm -rf ./web
-			cp -rf ./web_asus_cn ./web
-		else
-			MODEL_STR="$2"
-			MODELID="$3"	
-			rm -rf ./web
-			cp -rf ./web_$MODELID ./web
-		fi
-	else
-		MODEL_STR="$MODEL"
-		MODELID="$MODEL"
-		rm -rf ./web
-		cp -rf ./web_asus_en ./web
-	fi
+	cp -af web web_$TMPDIR
 
-	if [ "$MODELID" = "WL500gx" ]; then
-		MODEL_STR="WL500g.Deluxe"
-	fi
-	if [ "$MODELID" = "WL500gp" ]; then
-		MODEL_STR="WL500g.Premium"
-	fi
-	if [ "$MODELID" = "WL500gpv2" ]; then
-		MODEL_STR="WL500g.PremiumV2"
-	fi
-	echo $MODEL_STR
-
-	### 1. copy all files to tempdir ###
-	cp -rf ./web/. ./web_$MODEL
-	rm -rf ./web_$MODEL/*.{asp,inc}
-	cd ./web
-
-	### 2. Replace ProductID in *.asp, *.inc and *.js ###
-
-	LIST=`ls *.{asp,inc,js}`
-	PATTERN="s/ZVMODELVZ/$MODEL_STR/g"
-
-	echo $PATTERN
-
-	# Embed Module ID
-	for i in $LIST; do
-		cat $i | sed "$PATTERN" > ../web_$MODEL/$i
-	done
-
-	### 3. Removing IPV6 & WiMAX pages
+	### 2. Removing IPV6 & WiMAX pages
 	if [ "$CONFIG_IPV6" != "y" ]; then
 		echo "Removing IPV6 pages..."
-		rm -rf ../web_$MODEL/*IPV6*.asp
-		sed -ri '/IPV6/d' ../web_$MODEL/index.js
+		rm -rf web_$TMPDIR/*IPV6*.asp
+		sed -ri '/IPV6/d' web_$TMPDIR/index.js
 	fi
 
 	if [ "$CONFIG_LLTD" != "y" ]; then
-		sed -ri '/LLTD responder/d' ../web_$MODEL/Advanced_Services_Content.asp
+		sed -ri '/LLTD responder/d' web_$TMPDIR/Advanced_Services_Content.asp
 	fi
 
 	if [ "$CONFIG_MADWIMAX" != "y" ]; then
 		echo "Removing WiMax pages..."
-		rm -rf ../web_$MODEL/*WiMax*.asp
-		sed -ri '/WiMAX/d' ../web_$MODEL/index.js
-		sed -ri '/WiMAX/d' ../web_$MODEL/Advanced_LANWAN_Content.asp
+		rm -rf web_$TMPDIR/*WiMax*.asp
+		sed -ri '/WiMAX/d' web_$TMPDIR/index.js
+		sed -ri '/WiMAX/d' web_$TMPDIR/Advanced_LANWAN_Content.asp
 	fi
 
 	if [ "$CONFIG_MODEM" != "y" ]; then
 		echo "Removing 3G/cdma pages..."
-		rm -f ../web_$MODEL/Main_ChatStatus_Content.asp
-		rm -f ../web_$MODEL/Advanced_ConnectionMode_Content.asp
-		rm -f ../web_$MODEL/Main_SysInfo_Content.asp
-		sed -ri '/3G\/CDMA Modem/d;/Main_SysInfo_Content/d' ../web_$MODEL/index.js
-		sed -ri '/usbmodem/d' ../web_$MODEL/Advanced_LANWAN_Content.asp
+		rm -f web_$TMPDIR/Main_ChatStatus_Content.asp
+		rm -f web_$TMPDIR/Advanced_ConnectionMode_Content.asp
+		rm -f web_$TMPDIR/Main_SysInfo_Content.asp
+		sed -ri '/3G\/CDMA Modem/d;/Main_SysInfo_Content/d' web_$TMPDIR/index.js
+		sed -ri '/usbmodem/d' web_$TMPDIR/Advanced_LANWAN_Content.asp
 	fi
 
 	if [ "$CONFIG_MADWIMAX" != "y" ] && [ "$CONFIG_MODEM" != "y" ]; then
 		echo "Removing USB Modem submenu..."
-		sed -ri '/USB Network Devices/d;/USBNetworkDevicesMenu_tmpl\.Asp/d' ../web_$MODEL/index.js
+		sed -ri '/USB Network Devices/d;/USBNetworkDevicesMenu_tmpl\.Asp/d' web_$TMPDIR/index.js
 	elif [ "$CONFIG_MADWIMAX" = "y" ] && [ "$CONFIG_MODEM" != "y" ]; then
-		sed -i 's/USBNetworkDevicesMenu_tmpl\.Asp/Advanced_WiMax_Content.asp/g' ../web_$MODEL/index.js
+		sed -i 's/USBNetworkDevicesMenu_tmpl\.Asp/Advanced_WiMax_Content.asp/g' web_$TMPDIR/index.js
 	elif [ "$CONFIG_MODEM" = "y" ]; then
-		sed -i 's/USBNetworkDevicesMenu_tmpl\.Asp/Advanced_ConnectionMode_Content.asp/g' ../web_$MODEL/index.js
+		sed -i 's/USBNetworkDevicesMenu_tmpl\.Asp/Advanced_ConnectionMode_Content.asp/g' web_$TMPDIR/index.js
 	fi
 
 	if [ "$CONFIG_NTFS3G" != "y" ]; then
-		sed -ri '/ntfs/d' ../web_$MODEL/Advanced_Services_Content.asp
+		sed -ri '/ntfs/d' web_$TMPDIR/Advanced_Services_Content.asp
 	fi
 
-	### 4. Strip *.asp, *.inc, *.css and *.js ###
+	### 3. Strip *.asp, *.inc, *.css and *.js ###
 	echo "Stripping web interface..."
 
 	# Strip c++ style (//...) full line comments from js, asp and inc
-	LIST=$(ls ../web_$MODEL/*.{js,asp,inc})
+	LIST=$(ls web_$TMPDIR/*.{js,asp,inc})
 	PATTERN="s|^[ \t]*//.*$||"
 	echo "sed $PATTERN"
 	for i in $LIST; do
@@ -136,7 +60,7 @@ if [ -n "$1" ]; then
 	done
 
 	# Strip the rest of c++ style (//...) comments from js only, however, preserve urls like http://
-	LIST=$(ls ../web_$MODEL/*.js)
+	LIST=$(ls web_$TMPDIR/*.js)
 	PATTERN="s|[ \t]*[^:]//.*$||"
 	echo "sed $PATTERN"
 	for i in $LIST; do
@@ -144,14 +68,14 @@ if [ -n "$1" ]; then
 	done
 
 	# Strip single and multilne /*...*/ comments
-	LIST=$(ls ../web_$MODEL/*.{js,asp,inc,css})
+	LIST=$(ls web_$TMPDIR/*.{js,asp,inc,css})
 	echo "Stripping JS comments..."
 	for i in $LIST; do
 		../remccoms2.sh $i
 	done
 
 	# Remove \r, trim each line from both sides, delete empty lines from asp, inc, css, js
-	LIST=$(ls ../web_$MODEL/*.{asp,inc,css,js})
+	LIST=$(ls web_$TMPDIR/*.{asp,inc,css,js})
 #	PATTERN="s/\x0D//g;s/[ \t]+/ /g;s/^[ \t]+//;s/[ \t]+$//;/^$/d"
 	PATTERN="s/^[ \t]+//;s/[ \t\x0d]+$//;/^$/d"
 	echo "sed $PATTERN"
@@ -159,7 +83,7 @@ if [ -n "$1" ]; then
 		sed -ri "$PATTERN" $i
 	done
 
-	LIST=$(ls ../web_$MODEL/*.{asp,inc})
+	LIST=$(ls web_$TMPDIR/*.{asp,inc})
 	echo "Performing final processing of HTML..."
 	for i in $LIST; do
 # Remove single line HTML comments
@@ -180,52 +104,39 @@ if [ -n "$1" ]; then
 		sed -ri ':c;$!N;s/\n</</;tc' $i
 	done
 
-    ### 5. Replace ProductID in *.xml ###
-
-#	PATTERN="s/WL600/$MODEL/g"
-# CHUPA	cat igdevicedesc.xml | sed "$PATTERN" > ../web_$MODEL/igdevicedesc.xml
-
-	### 6. Copy different files for different Model ###
+	### 4. Copy different files for different Model ###
 	
 	if [ "$MODEL" = "WL330gE" ] || [ "$MODEL" = "WL320gE" ] \
 		|| [ "$MODEL" = "WL320gP" ]; then
-		### 6.1 default value ###
-		
-		#cat ../web_$MODEL/flash.default \
-		#| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
-		#| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_300g
-		#cp -f ../web_$MODEL/flash.default_300g ../target/ramfs/etc/linuxigd/flash.default
-		
-		### 6.2 web page ###	
-		cp -f ../web_$MODEL/Advanced_Wireless11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
-    		cp -f ../web_$MODEL/Advanced_ACL11g_Content.asp ../web_$MODEL/Advanced_ACL_Content.asp		
-		cp -f ../web_$MODEL/Advanced_DMZIP11g_Content.asp ../web_$MODEL/Advanced_DMZIP_Content.asp
+		cp -f web_$TMPDIR/Advanced_Wireless11g_Content.asp web_$TMPDIR/Advanced_Wireless_Content.asp
+    		cp -f web_$TMPDIR/Advanced_ACL11g_Content.asp web_$TMPDIR/Advanced_ACL_Content.asp		
+		cp -f web_$TMPDIR/Advanced_DMZIP11g_Content.asp web_$TMPDIR/Advanced_DMZIP_Content.asp
 
-		cp -f ../web_$MODEL/Advanced_OperationMode_Content_300g.asp ../web_$MODEL/Advanced_OperationMode_Content.asp
+		cp -f web_$TMPDIR/Advanced_OperationMode_Content_300g.asp web_$TMPDIR/Advanced_OperationMode_Content.asp
 
-		#cp -f ../web_$MODEL/Advanced_DDNS_Content_300g.asp ../web_$MODEL/Advanced_DDNS_Content.asp
-		cp -f ../web_$MODEL/Main_WStatus11g_Content.asp ../web_$MODEL/Main_WStatus_Content.asp
-		cp -f ../web_$MODEL/Main_Index_AccessPoint11g_300g.asp ../web_$MODEL/Main_Index_AccessPoint.asp
-		cp -f ../web_$MODEL/Main_Index_HomeGateway11g_300g.asp ../web_$MODEL/Main_Index_HomeGateway.asp
-		cp -f ../web_$MODEL/Main_Index_Router11g_300g.asp ../web_$MODEL/Main_Index_Router.asp
-		cp -f ../web_$MODEL/Main_AStatus11g_Content.asp ../web_$MODEL/Main_AStatus_Content.asp
-		cp -f ../web_$MODEL/Main_GStatus11g_Content.asp ../web_$MODEL/Main_GStatus_Content.asp
-		cp -f ../web_$MODEL/Main_RStatus11g_Content.asp ../web_$MODEL/Main_RStatus_Content.asp		
-		cp -f ../web_$MODEL/Advanced_Exposed_Content_SP.asp ../web_$MODEL/Advanced_Exposed_Content.asp
+		#cp -f web_$TMPDIR/Advanced_DDNS_Content_300g.asp web_$TMPDIR/Advanced_DDNS_Content.asp
+		cp -f web_$TMPDIR/Main_WStatus11g_Content.asp web_$TMPDIR/Main_WStatus_Content.asp
+		cp -f web_$TMPDIR/Main_Index_AccessPoint11g_300g.asp web_$TMPDIR/Main_Index_AccessPoint.asp
+		cp -f web_$TMPDIR/Main_Index_HomeGateway11g_300g.asp web_$TMPDIR/Main_Index_HomeGateway.asp
+		cp -f web_$TMPDIR/Main_Index_Router11g_300g.asp web_$TMPDIR/Main_Index_Router.asp
+		cp -f web_$TMPDIR/Main_AStatus11g_Content.asp web_$TMPDIR/Main_AStatus_Content.asp
+		cp -f web_$TMPDIR/Main_GStatus11g_Content.asp web_$TMPDIR/Main_GStatus_Content.asp
+		cp -f web_$TMPDIR/Main_RStatus11g_Content.asp web_$TMPDIR/Main_RStatus_Content.asp		
+		cp -f web_$TMPDIR/Advanced_Exposed_Content_SP.asp web_$TMPDIR/Advanced_Exposed_Content.asp
 		
-		### 6.3 web graph ###		
-		cp -f ../web_$MODEL/graph/internet_all_300.gif ../web_$MODEL/graph/internet_all.gif
-		cp -f ../web_$MODEL/graph/internet_none_300.gif ../web_$MODEL/graph/internet_none.gif
-		cp -f ../web_$MODEL/graph/internet_some_300.gif ../web_$MODEL/graph/internet_some.gif			
-		cp -f ../web_$MODEL/graph/wds_ap_300.gif ../web_$MODEL/graph/wds_ap.gif	
-		cp -f ../web_$MODEL/graph/wds_mixed_connect_300.gif ../web_$MODEL/graph/wds_mixed_connect.gif
-		cp -f ../web_$MODEL/graph/wds_mixed_anony_300.gif ../web_$MODEL/graph/wds_mixed_anony.gif
-		cp -f ../web_$MODEL/graph/wds_mixed_both_300.gif ../web_$MODEL/graph/wds_mixed_both.gif
-		cp -f ../web_$MODEL/graph/wds_wds_connect_300.gif ../web_$MODEL/graph/wds_wds_connect.gif
-		cp -f ../web_$MODEL/graph/wds_wds_anony_300.gif ../web_$MODEL/graph/wds_wds_anony.gif
-		cp -f ../web_$MODEL/graph/wds_wds_both_300.gif ../web_$MODEL/graph/wds_wds_both.gif			
-		cp -f ../web_$MODEL/graph/wf_g_300.gif ../web_$MODEL/graph/wf_g.gif	
-		cp -f ../web_$MODEL/graph/wf_none_300.gif ../web_$MODEL/graph/wf_none.gif	
+		### 4.2 web graph ###		
+		cp -f web_$TMPDIR/graph/internet_all_300.gif web_$TMPDIR/graph/internet_all.gif
+		cp -f web_$TMPDIR/graph/internet_none_300.gif web_$TMPDIR/graph/internet_none.gif
+		cp -f web_$TMPDIR/graph/internet_some_300.gif web_$TMPDIR/graph/internet_some.gif			
+		cp -f web_$TMPDIR/graph/wds_ap_300.gif web_$TMPDIR/graph/wds_ap.gif	
+		cp -f web_$TMPDIR/graph/wds_mixed_connect_300.gif web_$TMPDIR/graph/wds_mixed_connect.gif
+		cp -f web_$TMPDIR/graph/wds_mixed_anony_300.gif web_$TMPDIR/graph/wds_mixed_anony.gif
+		cp -f web_$TMPDIR/graph/wds_mixed_both_300.gif web_$TMPDIR/graph/wds_mixed_both.gif
+		cp -f web_$TMPDIR/graph/wds_wds_connect_300.gif web_$TMPDIR/graph/wds_wds_connect.gif
+		cp -f web_$TMPDIR/graph/wds_wds_anony_300.gif web_$TMPDIR/graph/wds_wds_anony.gif
+		cp -f web_$TMPDIR/graph/wds_wds_both_300.gif web_$TMPDIR/graph/wds_wds_both.gif			
+		cp -f web_$TMPDIR/graph/wf_g_300.gif web_$TMPDIR/graph/wf_g.gif	
+		cp -f web_$TMPDIR/graph/wf_none_300.gif web_$TMPDIR/graph/wf_none.gif	
 		
 	elif [ "$MODEL" = "WL500gx" ] || [ "$MODEL" = "WL500gp" ] \
 		|| [ "$MODEL" = "WL500gpv2" ] || [ "$MODEL" = "WL700g" ] \
@@ -233,166 +144,126 @@ if [ -n "$1" ]; then
 		|| [ "$MODEL" = "RT-N15U" ] \
 		|| [ "$MODEL" = "RT-N12" ] || [ "$MODEL" = "RT-N12B1" ] || [ "$MODEL" = "RT-N12C1" ] \
 		|| [ "$MODEL" = "RT-N10" ] || [ "$MODEL" = "RT-N10U" ] \
-		|| [ "$MODEL" = "WL550gE" ] || [ "$MODEL" = "WL520gu" ]; then
-		### 6.1 default value ###
-		#cat ../web_$MODEL/flash.default \
-		#| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
-		#| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_500g
-		#cp -f ../web_$MODEL/flash.default_500g ../target/ramfs/etc/linuxigd/flash.default
-				
-		### 6.2 web page ###							
+		|| [ "$MODEL" = "WL550gE" ] || [ "$MODEL" = "WL520gu" ]; then						
 		if [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "RT-N16" ] \
 		    || [ "$MODEL" = "RT-N15U" ] \
 		    || [ "$MODEL" = "RT-N12" ] || [ "$MODEL" = "RT-N12B1" ] || [ "$MODEL" = "RT-N12C1" ] \
 		    || [ "$MODEL" = "RT-N10" ] || [ "$MODEL" = "RT-N10U" ]; then
-			cp -f ../web_$MODEL/Advanced_Wireless11n_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
-			cp -f ../web_$MODEL/Advanced_WAdvanced_Content_11n.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
+			cp -f web_$TMPDIR/Advanced_Wireless11n_Content.asp web_$TMPDIR/Advanced_Wireless_Content.asp
+			cp -f web_$TMPDIR/Advanced_WAdvanced_Content_11n.asp web_$TMPDIR/Advanced_WAdvanced_Content.asp
 		else
-			cp -f ../web_$MODEL/Advanced_Wireless11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
+			cp -f web_$TMPDIR/Advanced_Wireless11g_Content.asp web_$TMPDIR/Advanced_Wireless_Content.asp
 		fi
-    		cp -f ../web_$MODEL/Advanced_ACL11g_Content.asp ../web_$MODEL/Advanced_ACL_Content.asp
-		cp -f ../web_$MODEL/Advanced_DMZIP11g_Content.asp ../web_$MODEL/Advanced_DMZIP_Content.asp
-		cp -f ../web_$MODEL/Main_WStatus11g_Content.asp ../web_$MODEL/Main_WStatus_Content.asp	
-		cp -f ../web_$MODEL/Main_Index_AccessPoint11g.asp ../web_$MODEL/Main_Index_AccessPoint.asp
-		cp -f ../web_$MODEL/Main_Index_HomeGateway11g.asp ../web_$MODEL/Main_Index_HomeGateway.asp
-		cp -f ../web_$MODEL/Main_Index_Router11g.asp ../web_$MODEL/Main_Index_Router.asp
-		### 6.3 web graph ###
-		cp -f ../web_$MODEL/Advanced_Exposed_Content_SP.asp ../web_$MODEL/Advanced_Exposed_Content.asp
+    		cp -f web_$TMPDIR/Advanced_ACL11g_Content.asp web_$TMPDIR/Advanced_ACL_Content.asp
+		cp -f web_$TMPDIR/Advanced_DMZIP11g_Content.asp web_$TMPDIR/Advanced_DMZIP_Content.asp
+		cp -f web_$TMPDIR/Main_WStatus11g_Content.asp web_$TMPDIR/Main_WStatus_Content.asp	
+		cp -f web_$TMPDIR/Main_Index_AccessPoint11g.asp web_$TMPDIR/Main_Index_AccessPoint.asp
+		cp -f web_$TMPDIR/Main_Index_HomeGateway11g.asp web_$TMPDIR/Main_Index_HomeGateway.asp
+		cp -f web_$TMPDIR/Main_Index_Router11g.asp web_$TMPDIR/Main_Index_Router.asp
+		### 4.2 web graph ###
+		cp -f web_$TMPDIR/Advanced_Exposed_Content_SP.asp web_$TMPDIR/Advanced_Exposed_Content.asp
 
-		cp -f ../web_$MODEL/graph/internet_all_500.gif ./../web_$MODEL/graph/internet_all.gif
-		cp -f ../web_$MODEL/graph/internet_none_500.gif ./../web_$MODEL/graph/internet_none.gif
-		cp -f ../web_$MODEL/graph/internet_some_500.gif ./../web_$MODEL/graph/internet_some.gif			
-		cp -f ../web_$MODEL/graph/wds_ap_500.gif ./../web_$MODEL/graph/wds_ap.gif	
-		cp -f ../web_$MODEL/graph/wds_mixed_connect_500.gif ./../web_$MODEL/graph/wds_mixed_connect.gif
-		cp -f ../web_$MODEL/graph/wds_mixed_anony_500.gif ./../web_$MODEL/graph/wds_mixed_anony.gif
-		cp -f ../web_$MODEL/graph/wds_mixed_both_500.gif ./../web_$MODEL/graph/wds_mixed_both.gif
-		cp -f ../web_$MODEL/graph/wds_wds_connect_500.gif ./../web_$MODEL/graph/wds_wds_connect.gif
-		cp -f ../web_$MODEL/graph/wds_wds_anony_500.gif ./../web_$MODEL/graph/wds_wds_anony.gif
-		cp -f ../web_$MODEL/graph/wds_wds_both_500.gif ./../web_$MODEL/graph/wds_wds_both.gif			
-		cp -f ../web_$MODEL/graph/wf_g_300.gif ../web_$MODEL/graph/wf_g.gif	
-		cp -f ../web_$MODEL/graph/wf_none_300.gif ../web_$MODEL/graph/wf_none.gif		
-		
-	elif [ "$MODEL" = "WL600" ]; then
-		### 6.1 default value ###
-		#cp -f ../web_$MODEL/flash.default ../target/ramfs/etc/linuxigd/flash.default
-		
-		### 6.2 web page ###	
-		cp -f ../web_$MODEL/Advanced_WirelessDual11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
-		
-		### 6.3 web graph ###
-		cp -f ../web_$MODEL/graph/internet_all_600.gif ./../web_$MODEL/graph/internet_all.gif
-		cp -f ../web_$MODEL/graph/internet_none_600.gif ./../web_$MODEL/graph/internet_none.gif
-		cp -f ../web_$MODEL/graph/internet_some_600.gif ./../web_$MODEL/graph/internet_some.gif			
-		cp -f ../web_$MODEL/graph/wf_g_600.gif ./../web_$MODEL/graph/wf_g.gif	
-		cp -f ../web_$MODEL/graph/wf_none_600.gif ./../web_$MODEL/graph/wf_none.gif	
-		cp -f ../web_$MODEL/graph/wf_a_600.gif ./../web_$MODEL/graph/wf_a.gif	
-		cp -f ../web_$MODEL/graph/wf_both_600.gif ./../web_$MODEL/graph/wf_both.gif	
-		
-		### 6.4 Script and module ###
-		cp -f ../target/init/functions_600g ../target/init/functions
-		cp -f ../target/init/firewall.refresh_600g ../target/init/firewall.refresh
-		cp -f ../target/init/rc.prnsvr_600g ../target/init/rc.prnsvr
-		cp -f ../target/web/script/route.sh_600g ../target/web/script/route.sh
-		cp -f ../target/web/script/portmapping.sh_600g ../target/web/script/portmapping.sh
-
-		cp -f ../target/web/script/wlan11b.sh_600g ../target/web/script/wlan11b.sh
-
-		cp -f ../target/lib/modules/2.4.5/splink_led.o_600g ../target/lib/modules/2.4.5/splink_led.o
-		cp -f ../target/lib/modules/2.4.5/parport/lp.o_600g ../target/lib/modules/2.4.5/parport/lp.o
-		cp -f ../target/usr/sbin/upnp_600g ../target/usr/sbin/upnp
-		cp -f ../target/sbin/lpd_600g ../target/sbin/lpd
+		cp -f web_$TMPDIR/graph/internet_all_500.gif ./web_$TMPDIR/graph/internet_all.gif
+		cp -f web_$TMPDIR/graph/internet_none_500.gif ./web_$TMPDIR/graph/internet_none.gif
+		cp -f web_$TMPDIR/graph/internet_some_500.gif ./web_$TMPDIR/graph/internet_some.gif			
+		cp -f web_$TMPDIR/graph/wds_ap_500.gif ./web_$TMPDIR/graph/wds_ap.gif	
+		cp -f web_$TMPDIR/graph/wds_mixed_connect_500.gif ./web_$TMPDIR/graph/wds_mixed_connect.gif
+		cp -f web_$TMPDIR/graph/wds_mixed_anony_500.gif ./web_$TMPDIR/graph/wds_mixed_anony.gif
+		cp -f web_$TMPDIR/graph/wds_mixed_both_500.gif ./web_$TMPDIR/graph/wds_mixed_both.gif
+		cp -f web_$TMPDIR/graph/wds_wds_connect_500.gif ./web_$TMPDIR/graph/wds_wds_connect.gif
+		cp -f web_$TMPDIR/graph/wds_wds_anony_500.gif ./web_$TMPDIR/graph/wds_wds_anony.gif
+		cp -f web_$TMPDIR/graph/wds_wds_both_500.gif ./web_$TMPDIR/graph/wds_wds_both.gif			
+		cp -f web_$TMPDIR/graph/wf_g_300.gif web_$TMPDIR/graph/wf_g.gif	
+		cp -f web_$TMPDIR/graph/wf_none_300.gif web_$TMPDIR/graph/wf_none.gif
 
 	fi
 
-	### 7. Remove useless files in ./target/web/* ###
-	rm -rf ../web_$MODEL/flash.default*
-	rm -rf ../web_$MODEL/*11n*.asp
-	rm -rf ../web_$MODEL/*11g*.asp
-	rm -rf ../web_$MODEL/*11b*.asp
-	rm -rf ../web_$MODEL/*_300g.asp	
-	rm -rf ../web_$MODEL/*_SP.asp
+	### 5. Remove useless files in ./target/web/* ###
+	rm -rf web_$TMPDIR/flash.default*
+	rm -rf web_$TMPDIR/*11n*.asp
+	rm -rf web_$TMPDIR/*11g*.asp
+	rm -rf web_$TMPDIR/*11b*.asp
+	rm -rf web_$TMPDIR/*_300g.asp	
+	rm -rf web_$TMPDIR/*_SP.asp
 
-	rm -rf ../web_$MODEL/*Certificate*.asp
-	rm -rf ../web_$MODEL/*UniqueKey*.asp
+	rm -rf web_$TMPDIR/*Certificate*.asp
+	rm -rf web_$TMPDIR/*UniqueKey*.asp
 	
-	rm -rf ../web_$MODEL/graph/*_300.*
-	rm -rf ../web_$MODEL/graph/*_500.*
-	rm -rf ../web_$MODEL/graph/*_600.*
-	rm -rf ../web_$MODEL/graph/*_500g.*
-	rm -rf ../web_$MODEL/graph/*_500b.*
-	rm -rf ../web_$MODEL/graph/*_300g.*
-	rm -rf ../web_$MODEL/graph/*_500gx.*	
-	rm -rf ../web_$MODEL/graph/*_520g.*
+	rm -rf web_$TMPDIR/graph/*_300.*
+	rm -rf web_$TMPDIR/graph/*_500.*
+	rm -rf web_$TMPDIR/graph/*_600.*
+	rm -rf web_$TMPDIR/graph/*_500g.*
+	rm -rf web_$TMPDIR/graph/*_500b.*
+	rm -rf web_$TMPDIR/graph/*_300g.*
+	rm -rf web_$TMPDIR/graph/*_500gx.*	
+	rm -rf web_$TMPDIR/graph/*_520g.*
 # CHUPA
-	rm -rf ../web_$MODEL/graph/*_HDD.*
-	rm -rf ../web_$MODEL/graph/*_550g.*
-	rm -rf ../web_$MODEL/graph/*_500gp.*	
-	rm -rf ../web_$MODEL/graph/!.gif
-	rm -rf ../web_$MODEL/graph/AP.gif
-	rm -rf ../web_$MODEL/graph/Connecting.gif
-	rm -rf ../web_$MODEL/graph/Corner.gif
-	rm -rf ../web_$MODEL/graph/Disconnect.gif
-	rm -rf ../web_$MODEL/graph/Firewall.gif
-	rm -rf ../web_$MODEL/graph/List_backgroup.gif
-	rm -rf ../web_$MODEL/graph/Notebook.gif
-	rm -rf ../web_$MODEL/graph/PC.gif
-	rm -rf ../web_$MODEL/graph/V.gif
-	rm -rf ../web_$MODEL/graph/apicon.gif
-	rm -rf ../web_$MODEL/graph/apply.gif
-	rm -rf ../web_$MODEL/graph/asusLogo.jpg
-	rm -rf ../web_$MODEL/graph/delthisentry.gif
-	rm -rf ../web_$MODEL/graph/iBox.gif
-	rm -rf ../web_$MODEL/graph/internet.gif
-	rm -rf ../web_$MODEL/graph/restore.gif
-	rm -rf ../web_$MODEL/graph/sArrow.gif
-	rm -rf ../web_$MODEL/graph/save.gif
-	rm -rf ../web_$MODEL/graph/showroutingtable.gif
-	rm -rf ../web_$MODEL/graph/start.gif
-	rm -rf ../web_$MODEL/graph/sumhorsd.gif
-	rm -rf ../web_$MODEL/graph/sumtextb.jpg
-	rm -rf ../web_$MODEL/graph/x.gif
+	rm -rf web_$TMPDIR/graph/*_HDD.*
+	rm -rf web_$TMPDIR/graph/*_550g.*
+	rm -rf web_$TMPDIR/graph/*_500gp.*	
+	rm -rf web_$TMPDIR/graph/!.gif
+	rm -rf web_$TMPDIR/graph/AP.gif
+	rm -rf web_$TMPDIR/graph/Connecting.gif
+	rm -rf web_$TMPDIR/graph/Corner.gif
+	rm -rf web_$TMPDIR/graph/Disconnect.gif
+	rm -rf web_$TMPDIR/graph/Firewall.gif
+	rm -rf web_$TMPDIR/graph/List_backgroup.gif
+	rm -rf web_$TMPDIR/graph/Notebook.gif
+	rm -rf web_$TMPDIR/graph/PC.gif
+	rm -rf web_$TMPDIR/graph/V.gif
+	rm -rf web_$TMPDIR/graph/apicon.gif
+	rm -rf web_$TMPDIR/graph/apply.gif
+	rm -rf web_$TMPDIR/graph/asusLogo.jpg
+	rm -rf web_$TMPDIR/graph/delthisentry.gif
+	rm -rf web_$TMPDIR/graph/iBox.gif
+	rm -rf web_$TMPDIR/graph/internet.gif
+	rm -rf web_$TMPDIR/graph/restore.gif
+	rm -rf web_$TMPDIR/graph/sArrow.gif
+	rm -rf web_$TMPDIR/graph/save.gif
+	rm -rf web_$TMPDIR/graph/showroutingtable.gif
+	rm -rf web_$TMPDIR/graph/start.gif
+	rm -rf web_$TMPDIR/graph/sumhorsd.gif
+	rm -rf web_$TMPDIR/graph/sumtextb.jpg
+	rm -rf web_$TMPDIR/graph/x.gif
 
-	rm -f ../web_$MODEL/graph/internet_*.gif
-	rm -f ../web_$MODEL/graph/wf_both.gif
-	rm -f ../web_$MODEL/graph/wf_none.gif
-	rm -f ../web_$MODEL/graph/wf_[ag].gif
+	rm -f web_$TMPDIR/graph/internet_*.gif
+	rm -f web_$TMPDIR/graph/wf_both.gif
+	rm -f web_$TMPDIR/graph/wf_none.gif
+	rm -f web_$TMPDIR/graph/wf_[ag].gif
 	
-	rm -f ../web_$MODEL/graph/wds_*.gif 
+	rm -f web_$TMPDIR/graph/wds_*.gif 
 
-	rm -f ../web_$MODEL/graph/many.gif
+	rm -f web_$TMPDIR/graph/many.gif
 	
-	rm -f ../web_$MODEL/Advanced_Authentication_Content.asp
-	rm -f ../web_$MODEL/Advanced_DMZDHCP_Content.asp
-	rm -f ../web_$MODEL/Advanced_DMZDLFilter_Content.asp
-	rm -f ../web_$MODEL/Advanced_DMZDWFilter_Content.asp
-	rm -f ../web_$MODEL/Advanced_DMZIP_Content.asp
-	rm -f ../web_$MODEL/Advanced_DynamicRoute_Content.asp
-	rm -f ../web_$MODEL/Advanced_FilterHelp_Widzard.asp
-	rm -f ../web_$MODEL/Advanced_GRouterHelp_Widzard.asp
-	rm -f ../web_$MODEL/Advanced_Help_Widzard.asp
-	rm -f ../web_$MODEL/Advanced_LFirewall_Content.asp
-	rm -f ../web_$MODEL/Advanced_MultiPPPoE_Content.asp
-	rm -f ../web_$MODEL/Advanced_PortForwarding_Widzard.asp
-	rm -f ../web_$MODEL/Advanced_PortMapping_Content.asp
-	rm -f ../web_$MODEL/Advanced_PrinterSetup_Content.asp
-	rm -f ../web_$MODEL/Advanced_PrinterSetup_Widzard.asp
-	rm -f ../web_$MODEL/Advanced_RDHCP_Content.asp
-	rm -f ../web_$MODEL/Advanced_RouterHelp_Widzard.asp
-	rm -f ../web_$MODEL/Advanced_VirtualServer_Widzard.asp
-	rm -f ../web_$MODEL/Advanced_WMMADV_Content.asp
-	rm -f ../web_$MODEL/Basic_AOperation_Content.asp
-	rm -f ../web_$MODEL/Basic_Operation_Content.asp
-	rm -f ../web_$MODEL/Main_Content.asp
-	rm -f ../web_$MODEL/Main_Index_Content.asp
-	rm -f ../web_$MODEL/Main_Password_Content.asp
-	rm -f ../web_$MODEL/Main_Status_Content.asp
+	rm -f web_$TMPDIR/Advanced_Authentication_Content.asp
+	rm -f web_$TMPDIR/Advanced_DMZDHCP_Content.asp
+	rm -f web_$TMPDIR/Advanced_DMZDLFilter_Content.asp
+	rm -f web_$TMPDIR/Advanced_DMZDWFilter_Content.asp
+	rm -f web_$TMPDIR/Advanced_DMZIP_Content.asp
+	rm -f web_$TMPDIR/Advanced_DynamicRoute_Content.asp
+	rm -f web_$TMPDIR/Advanced_FilterHelp_Widzard.asp
+	rm -f web_$TMPDIR/Advanced_GRouterHelp_Widzard.asp
+	rm -f web_$TMPDIR/Advanced_Help_Widzard.asp
+	rm -f web_$TMPDIR/Advanced_LFirewall_Content.asp
+	rm -f web_$TMPDIR/Advanced_MultiPPPoE_Content.asp
+	rm -f web_$TMPDIR/Advanced_PortForwarding_Widzard.asp
+	rm -f web_$TMPDIR/Advanced_PortMapping_Content.asp
+	rm -f web_$TMPDIR/Advanced_PrinterSetup_Content.asp
+	rm -f web_$TMPDIR/Advanced_PrinterSetup_Widzard.asp
+	rm -f web_$TMPDIR/Advanced_RDHCP_Content.asp
+	rm -f web_$TMPDIR/Advanced_RouterHelp_Widzard.asp
+	rm -f web_$TMPDIR/Advanced_VirtualServer_Widzard.asp
+	rm -f web_$TMPDIR/Advanced_WMMADV_Content.asp
+	rm -f web_$TMPDIR/Basic_AOperation_Content.asp
+	rm -f web_$TMPDIR/Basic_Operation_Content.asp
+	rm -f web_$TMPDIR/Main_Content.asp
+	rm -f web_$TMPDIR/Main_Index_Content.asp
+	rm -f web_$TMPDIR/Main_Password_Content.asp
+	rm -f web_$TMPDIR/Main_Status_Content.asp
 			
 # /CHUPA
 
-	### 8. Remove tempdir ###		
-	#rm -rf ../web_$MODEL
-
 else
-	echo Usage: [Model]
+	echo Usage: $0 tmpdir
 fi
 

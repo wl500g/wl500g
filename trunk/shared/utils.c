@@ -50,13 +50,12 @@ int get_model(void)
 {
 	char *hwver = nvram_safe_get("hardware_version");
 
-	if (nvram_match("boardnum", "mn700"))
-		return MDL_MN700;
-	else if (nvram_match("boardtype", "bcm95365r"))
-		return MDL_WL500GX;
-	else if (nvram_match("boardtype", "0x467") &&
-		 nvram_match("boardnum", "45"))
+	if (nvram_match("boardtype", "0x467") &&
+		 nvram_match("boardnum", "45")) {
+		if (strncmp(hwver, "WL320G", 6) == 0)
+			return MDL_WL320GE;
 		return MDL_WL550GE;
+	}
 	else if (nvram_match("boardtype", "0x042f") &&
 		 nvram_match("boardnum", "44"))
 		return MDL_WL700G;
@@ -68,11 +67,11 @@ int get_model(void)
 		return MDL_WL500W;
 	else if (nvram_match("boardtype", "0x48E") &&
 		 nvram_match("boardnum", "45")) {
-		if (strncmp(hwver, "WL520GU", 7) == 0)
-			return MDL_WL520GU;
+		if (strncmp(hwver, "WL500GPV2", 9) == 0)
+			return MDL_WL500GPV2;
 		if (strncmp(hwver, "WL330GE", 7) == 0)
 			return MDL_WL330GE;
-		return MDL_WL500GPV2;
+		return MDL_WL520GU;
 	}
 	else if (nvram_match("boardtype", "0x048e") &&
 		 !nvram_match("boardnum", "45"))
@@ -104,6 +103,59 @@ int get_model(void)
 		return MDL_WNR3500L;
 
 	return MDL_UNKNOWN;
+}
+
+product_t products[] = {
+	{MDL_WL700G,	"ASUS",		"WL-700g",		"WL700g"},
+	{MDL_WL550GE,	"ASUS",		"WL-550gE",		"WL550gE"},
+	{MDL_WL320GE,	"ASUS",		"WL-320gE",		"WL320gE"},
+	{MDL_WL330GE,	"ASUS",		"WL-330gE",		"WL330gE"},
+	{MDL_WL500GP,	"ASUS",		"WL-500gP",		"WL500gp"},
+	{MDL_WL500GPV2,	"ASUS",		"WL-500gPV2",	"WL500gpv2"},
+	{MDL_WL500W,	"ASUS",		"WL-500W",		"WL500W"},
+	{MDL_WL520GU,	"ASUS",		"WL-520gU",		"WL520gu"},
+	{MDL_DIR320,	"D-Link",	"DIR-320",		"DIR320"},
+	{MDL_RTN66U,	"ASUS",		"RT-N66U",		"RT-N66U"},
+	{MDL_RTN53,		"ASUS",		"RT-N53",		"RT-N53"},
+	{MDL_RTN16,		"ASUS",		"RT-N16",		"RT-N16"},
+	{MDL_RTN15U,	"ASUS",		"RT-N15U",		"RT-N15U"},
+	{MDL_RTN12,		"ASUS",		"RT-N12",		"RT-N12"},
+	{MDL_RTN12B1,	"ASUS",		"RT-N12B1",		"RT-N12B1"},
+	{MDL_RTN12C1,	"ASUS",		"RT-N12C1",		"RT-N12C1"},
+	{MDL_RTN10,		"ASUS",		"RT-N10",		"RT-N10"},
+	{MDL_RTN10U,	"ASUS",		"RT-N10U",		"RT-N10U"},
+	{MDL_WNR3500L,	"Netgear",	"WNR3500Lv1",	"WNR3500L"},
+	{-1,			NULL,		NULL,			NULL},
+};
+
+void get_model_t(char *name, size_t len, int flag) {
+	switch(flag) {
+		case GET_MODEL_PRODID:
+			snprintf(name, len, "UNKNOWN");
+			break;
+		default:
+			snprintf(name, len, "Unknown");
+			break;
+	}
+	int i, model = get_model();
+	for (i = 0; products[i].name; i++) {
+		if (products[i].model == model) {
+			switch(flag) {
+				case GET_MODEL_PRODID:
+					snprintf(name, len, "%s", products[i].prodid);
+					break;
+				case GET_MODEL_FULL:
+					snprintf(name, len, "%s %s", products[i].mfr, products[i].name);
+					break;
+				case GET_MODEL_MFR:
+					snprintf(name, len, "%s", products[i].mfr);
+					break;
+				default:
+					snprintf(name, len, "%s", products[i].name);
+					break;
+			}
+		}
+	}
 }
 
 int nvram_get_int(const char *key)
