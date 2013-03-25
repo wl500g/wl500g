@@ -489,7 +489,10 @@ install: package-$(MODEL)
 	@true
 
 package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs
-	$(MAKE) www-pages-$*
+	# TO DO: implement config.js and remove this
+	$(MAKE) www-clean
+	$(MAKE) www
+	$(MAKE) www-install
 	# Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
 	echo $(RELEASE) > $(TARGETDIR)/.version
@@ -627,10 +630,10 @@ $(LINUXDIR)/.config: .config
 httpd: netconf shared nvram $(EXTRA_LIBS)
 
 rc: $(if $(CONFIG_UPNP),netconf,) shared nvram $(EXTRA_LIBS)
-	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')" EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 rc-install:
-	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')" EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 www-%:
 	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www
@@ -1290,15 +1293,10 @@ e2fsprogs-install:
 	install -D -m 0644 e2fsprogs/e2fsck/e2fsck.conf $(INSTALLDIR)/e2fsprogs/usr/etc/e2fsck.conf
 
 image-%:
-	$(MAKE) rc MODEL="$*"
 	$(MAKE) package-$* MODEL="$*"
 
 images-%:
-	$(MAKE) image-$* LANGUAGE="EN"
-#	$(MAKE) image-$* LANGUAGE="KR"
-#	$(MAKE) image-$* LANGUAGE="TW"
-#	$(MAKE) image-$* LANGUAGE="CN"
-#	$(MAKE) image-$* LANGUAGE="JP"
+	$(MAKE) image-$*
 
 $(img-y) $(img-n): dummy
 	$(MAKE) images-$@

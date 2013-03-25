@@ -12,69 +12,26 @@
 # $Id: Makefile,v 1.10 2003/05/30 01:30:42 mhuang Exp $
 #
 
-PAGES := *
-PAGES_DIR := graph/*
-MODEL := WL500gp
-LANGUAGE := EN
-
 ifneq ($(MAKECMDGOALS),clean)
 include $(TOP)/.config
 export CONFIG_IPV6 CONFIG_MADWIMAX CONFIG_MODEM CONFIG_LLTD CONFIG_NTFS3G
 endif
 
-all: pages.mk
+all: web_tmp
 
-pages.mk:
-	echo "PAGES := $(PAGES)" > $@
+web_tmp:
+	./mkweb tmp
 
 install:
-	./mkweb $(MODEL) "$(LANGUAGE)"
 	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
-	install -m 644 web_$(MODEL)/*.asp $(INSTALLDIR)/www
-	install -m 644 web_$(MODEL)/*.inc $(INSTALLDIR)/www
-	install -m 644 web_$(MODEL)/*.js $(INSTALLDIR)/www
-	install -m 644 web_$(MODEL)/*.css $(INSTALLDIR)/www
-	install -m 644 web_$(MODEL)/*.svg $(INSTALLDIR)/www
-	install -m 644 web_$(MODEL)/*.ico $(INSTALLDIR)/www
+	install -m 644 web_tmp/*.asp $(INSTALLDIR)/www
+	install -m 644 web_tmp/*.inc $(INSTALLDIR)/www
+	install -m 644 web_tmp/*.js $(INSTALLDIR)/www
+	install -m 644 web_tmp/*.css $(INSTALLDIR)/www
+	install -m 644 web_tmp/*.svg $(INSTALLDIR)/www
+	install -m 644 web_tmp/*.ico $(INSTALLDIR)/www
 	install -d $(INSTALLDIR)/www/graph
-	install -m 644 web_$(MODEL)/$(PAGES_DIR) $(INSTALLDIR)/www/graph
-	rm -rf web
-	rm -rf web_$(MODEL)
-
-install-%:
-	./mkweb $* "$(LANGUAGE)"
-	rm -rf www_$*	
-	install -d www_$*
-	install -m 644 web_$*/*.asp www_$*
-	install -m 644 web_$*/*.inc www_$*
-	install -m 644 web_$*/*.js www_$*
-	install -m 644 web_$*/*.css www_$*
-	install -m 644 web_$*/*.svg www_$*
-	install -m 644 web_$*/*.ico www_$*
-	install -d www_$*/graph
-	install -m 644 web_$*/$(PAGES_DIR) www_$*/graph
-
-	ln -sf /var/tmp/display.jpg www_$*/display.jpg
-
-	rm -rf web
-	rm -rf web_$*
-
-pages-%:
-	./mkweb $* "$(LANGUAGE)"
-	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
-	install -m 644 web_$*/*.asp $(INSTALLDIR)/www
-	install -m 644 web_$*/*.inc $(INSTALLDIR)/www
-	install -m 644 web_$*/*.js $(INSTALLDIR)/www
-	install -m 644 web_$*/*.css $(INSTALLDIR)/www
-	install -m 644 web_$*/*.svg $(INSTALLDIR)/www
-	install -m 644 web_$*/*.ico $(INSTALLDIR)/www
-	install -d $(INSTALLDIR)/www/graph
-	install -m 644 web_$*/$(PAGES_DIR) $(INSTALLDIR)/www/graph
-
-	ln -sf /var/tmp/display.jpg $(INSTALLDIR)/www/display.jpg
-
-	rm -rf web
-	rm -rf web_$*
+	install -m 644 web_tmp/graph/* $(INSTALLDIR)/www/graph
 
 clean:
-	rm -f pages.mk
+	rm -rf web_tmp

@@ -25,9 +25,6 @@ CFLAGS	+= -DWEBSTRFILTER
 LDFLAGS	+= -ffunction-sections -fdata-sections -Wl,--gc-sections
 LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -lpthread -Wl,-rpath /lib
 
-MODEL := $(patsubst -DMODEL_%,%,$(filter -DMODEL_%,$(GLOBAL_OPTIONS)))
-STAMP := .stamp-$(MODEL)
-
 OBJS-y := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
     crc.o mtd.o common_ex.o network_ex.o firewall.o services_ex.o \
     manu_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
@@ -51,7 +48,7 @@ vpath %.c $(SRCBASE)/rts/src
 all: rc
 
 clean:
-	rm -f *.o rc .stamp-*
+	rm -f *.o rc
 
 install: all
 	install -d $(INSTALLDIR)/sbin
@@ -88,12 +85,6 @@ endif
 ifeq ($(CONFIG_MODEM),y)
 	ln -sf rc $(INSTALLDIR)/sbin/lsmodem
 endif
-
-$(STAMP):
-	$(MAKE) clean
-	touch $(STAMP)
-
-$(OBJS-y): $(STAMP)
 
 rc: $(OBJS-y)
 	$(CC) -o $@ $^ $(LDFLAGS)

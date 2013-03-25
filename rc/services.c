@@ -22,6 +22,8 @@
 
 #include "rc.h"
 
+extern int router_model;
+
 #ifndef ASUS_EXT
 int
 start_dhcpd(void)
@@ -275,6 +277,7 @@ int start_upnp(void)
 	const char *lan_addr, *lan_mask, *lan_url;
 	char lan_class[32];
 	uint8_t lan_mac[16];
+	char name[32], friendly_name[64];
 #endif
 
 	if (!nvram_invmatch("upnp_enable", "0") || nvram_match("router_disable", "1"))
@@ -318,6 +321,9 @@ int start_upnp(void)
 			lan_url = var;
 		}
 
+		get_model_t(friendly_name, sizeof(friendly_name), GET_MODEL_FULL);
+		get_model_t(name, sizeof(name), GET_MODEL_NAME);
+
 		/* Touch leases file */
 		if (!(fp = fopen("/tmp/upnp.leases", "a"))) {
 			perror("/tmp/upnp.leases");
@@ -334,8 +340,9 @@ int start_upnp(void)
 		/* General settings */
 		fprintf(fp, "# automagically generated\n"
 			"uuid=%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x00000000\n"
-                        "model_number=%s\n"
-                        "presentation_url=http://%s/\n"
+			"friendly_name=%s\n"
+			"model_number=%s\n"
+			"presentation_url=http://%s/\n"
 			"ext_ifname=%s\n"
 			"listening_ip=%s/%s\n"
 			"listening_ip=127.0.0.1/8\n"
@@ -346,7 +353,8 @@ int start_upnp(void)
 			"system_uptime=yes\n",
 			lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5],
 			lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5],
-			nvram_safe_get("productid"),
+			friendly_name,
+			name,
 			lan_url,
 			wan_ifname,
 			lan_addr, lan_mask,

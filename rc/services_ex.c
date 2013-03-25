@@ -46,11 +46,6 @@ static int umount_all_part(const char *product, int scsi_host_no);
 static struct mntent *findmntent(const char *file);
 static int stop_lltd(void);
 
-void diag_PaN(void)
-{
-   fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
-}
-
 static size_t fappend(const char *name, FILE *f)
 {
 	size_t size = 0, count;
@@ -918,7 +913,7 @@ stop_usb(void)
 	rmmod("soundcore");
 	killall("lpd");
 	killall("p910nd");
-        rmmod("usblp");
+	rmmod("usblp");
 
 	umount("/proc/bus/usb");
 
@@ -1736,7 +1731,7 @@ hotplug_usb(void)
 		// see http://www.usb.org/developers/defined_class
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 		/* communication device */
-		if (strncmp(interface, "255/" ,4) == 0 || // Vendor specific
+		if (strncmp(interface, "255/", 4) == 0 || // Vendor specific
 			strncmp(interface, "2/", 2) == 0) // Communications and CDC Control
 		{
 			hotplug_network_device( interface, action, product, device );
