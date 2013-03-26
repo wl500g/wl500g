@@ -20,13 +20,12 @@ Signed-off-by: Hillf Danton <dhillf@gmail.com>
 
 --- a/arch/mips/mm/Makefile	Fri Oct 28 21:10:01 2011
 +++ b/arch/mips/mm/Makefile	Fri Oct 28 21:09:19 2011
-@@ -4,7 +4,8 @@
- 
+@@ -4,7 +4,7 @@
  
  obj-y				+= cache.o dma-default.o extable.o fault.o \
--				   init.o pgtable.o tlbex.o tlbex-fault.o
-+				   init.o pgtable.o tlbex.o tlbex-fault.o \
-+				   gup.o
+ 				   init.o pgtable.o tlbex.o tlbex-fault.o \
+-				   uasm.o
++				   uasm.o gup.o
  
  obj-$(CONFIG_32BIT)		+= ioremap.o pgtable-32.o
  obj-$(CONFIG_64BIT)		+= pgtable-64.o
