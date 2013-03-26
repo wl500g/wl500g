@@ -4,9 +4,32 @@ hide relocations
  fbe324024de24d236549179b77c07fa02d9b6926 inet: hide relocations
  5a2b42a48342ee59c9ee48d1632f040088609589 unistd: hide relocations
  dcf56488daa07aea35755532f0461d1921dcd416 resolv: hide relocations
+ a716f8ad2c4ba124073ef517f0b4d2f49d3b4bb4 getpwnam: hide relocation
 
 ---
 
+diff --git a/include/pwd.h b/include/pwd.h
+--- a/include/pwd.h
++++ b/include/pwd.h
+@@ -114,6 +114,7 @@ extern struct passwd *getpwuid (__uid_t __uid);
+    This function is a possible cancellation point and therefore not
+    marked with __THROW.  */
+ extern struct passwd *getpwnam (__const char *__name);
++libc_hidden_proto(getpwnam)
+ 
+ #if defined __USE_POSIX || defined __USE_MISC
+ 
+diff --git a/libc/pwd_grp/pwd_grp.c b/libc/pwd_grp/pwd_grp.c
+--- a/libc/pwd_grp/pwd_grp.c
++++ b/libc/pwd_grp/pwd_grp.c
+@@ -354,6 +354,7 @@ struct passwd *getpwnam(const char *name)
+ 	getpwnam_r(name, &resultbuf, buffer, sizeof(buffer), &result);
+ 	return result;
+ }
++libc_hidden_def(getpwnam)
+ 
+ #endif
+ /**********************************************************************/
 diff --git a/libc/sysdeps/linux/common/bits/mathcalls.h b/libc/sysdeps/linux/common/bits/mathcalls.h
 --- a/libc/sysdeps/linux/common/bits/mathcalls.h
 +++ b/libc/sysdeps/linux/common/bits/mathcalls.h
