@@ -1,11 +1,9 @@
-From ecbc2e5ab7860a959c35404d36ddb09f56bdf2b1
-From: Fedor Kozhevnikov <fedork@ubuntu.(none)>
-Date: Fri, 8 Apr 2011 02:22:52 -0400
-Subject: [PATCH] kernel: kallsyms/module: updates from upstream
+[PATCH] kernel: kallsyms/module: updates from upstream
 
 kernel.org commits
 a3b81113fb6658629f4ebaabf8dd3067cd341020 remove support for un-needed _extratext section
 9281acea6a3687ff0f262e0be31eac34895b95d7 kallsyms: make KSYM_NAME_LEN include space for trailing '\0'
+aab34ac8582303ef57b792710fc5dd5991477475 kbuild: filter away debug symbols from kernel symbols
 cb2a52052cebe4716e83b9d2e53682ba00f67de6 modules: de-mutex more symbol lookup paths in the module code
 6dd06c9fbe025f542bce4cdb91790c0f91962722 module: make module_address_lookup safe
 2fc9c4e18f94431e7eb77d97edb2a995b46fba55 kallsyms: fix potential overflow in binary search
@@ -28,8 +26,9 @@ ffb4ba76a25ab6c9deeec33e4f58395586ca747c [module] Don't let gcc inline load_modu
  kernel/time/timer_stats.c      |    2 -
  mm/slab.c                      |    2 -
  mm/slub.c                      |    2 -
- scripts/kallsyms.c             |   28 ++++++++----------
- 14 files changed, 100 insertions(+), 97 deletions(-)
+ scripts/kallsyms.c             |   31 ++++++++++----------
+ scripts/mksysmap               |    3 +-
+ 15 files changed, 105 insertions(+), 98 deletions(-)
 
 diff --git a/arch/parisc/kernel/unwind.c b/arch/parisc/kernel/unwind.c
 --- a/arch/parisc/kernel/unwind.c
@@ -553,6 +552,16 @@ diff --git a/scripts/kallsyms.c b/scripts/kallsyms.c
  	else if (toupper(stype) == 'A')
  	{
  		/* Keep these useful absolute symbols */
+@@ -117,6 +117,9 @@ static int read_symbol(FILE *in, struct sym_entry *s)
+ 	/* exclude also MIPS ELF local symbols ($L123 instead of .L123) */
+ 	else if (str[0] == '$')
+ 		return -1;
++	/* exclude debugging symbols */
++	else if (stype == 'N')
++		return -1;
+ 
+ 	/* include the type field in the symbol name, so that it gets
+ 	 * compressed together */
 @@ -167,18 +163,18 @@ static int symbol_valid(struct sym_entry *s)
  	 * and inittext sections are discarded */
  	if (!all_symbols) {
@@ -590,5 +599,22 @@ diff --git a/scripts/kallsyms.c b/scripts/kallsyms.c
  
  	printf("#include <asm/types.h>\n");
  	printf("#if BITS_PER_LONG == 64\n");
+diff --git a/scripts/mksysmap b/scripts/mksysmap
+--- a/scripts/mksysmap
++++ b/scripts/mksysmap
+@@ -32,6 +32,7 @@
+ # For System.map filter away:
+ #   a - local absolute symbols
+ #   U - undefined global symbols
++#   N - debugging symbols
+ #   w - local weak symbols
+ 
+ # readprofile starts reading symbols when _stext is found, and
+@@ -40,5 +41,5 @@
+ # so we just ignore them to let readprofile continue to work.
+ # (At least sparc64 has __crc_ in the middle).
+ 
+-$NM -n $1 | grep -v '\( [aUw] \)\|\(__crc_\)\|\( \$[adt]\)' > $2
++$NM -n $1 | grep -v '\( [aNUw] \)\|\(__crc_\)\|\( \$[adt]\)' > $2
+ 
 -- 
-1.6.5.GIT
