@@ -1,6 +1,6 @@
-diff -urBp dropbear-0.53/options.h dropbear/options.h
---- dropbear-0.53/options.h	2011-02-24 17:21:44.000000000 +0300
-+++ dropbear/options.h	2011-03-03 11:49:03.000000000 +0300
+diff -urBp dropbear-0.56/options.h dropbear/options.h
+--- dropbear-0.56/options.h	2013-03-21 18:29:35.000000000 +0300
++++ dropbear/options.h	2013-03-26 17:17:29.000000000 +0300
 @@ -21,10 +21,10 @@
  
  /* Default hostkey paths - these can be specified on the command line */
@@ -23,16 +23,20 @@ diff -urBp dropbear-0.53/options.h dropbear/options.h
  
  /* Setting this disables the fast exptmod bignum code. It saves ~5kB, but is
   * perhaps 20% slower for pubkey operations (it is probably worth experimenting
-@@ -78,7 +78,7 @@ much traffic. */
+@@ -78,10 +78,10 @@
  
  /* Enable "Netcat mode" option. This will forward standard input/output
   * to a remote TCP-forwarded connection */
 -#define ENABLE_CLI_NETCAT
 +/*#define ENABLE_CLI_NETCAT*/
  
+ /* Whether to support "-c" and "-m" flags to choose ciphers/MACs at runtime */
+-#define ENABLE_USER_ALGO_LIST
++/*#define ENABLE_USER_ALGO_LIST*/
+ 
  /* Encryption - at least one required.
   * Protocol RFC requires 3DES and recommends AES128 for interoperability.
-@@ -148,11 +148,11 @@ much traffic. */
+@@ -153,11 +153,11 @@
  #endif
  
  /* Whether to do reverse DNS lookups. */
@@ -46,7 +50,7 @@ diff -urBp dropbear-0.53/options.h dropbear/options.h
  
  /* The MOTD file path */
  #ifndef MOTD_FILENAME
-@@ -240,19 +240,19 @@ much traffic. */
+@@ -240,19 +240,19 @@
  /* The command to invoke for xauth when using X11 forwarding.
   * "-q" for quiet */
  #ifndef XAUTH_COMMAND

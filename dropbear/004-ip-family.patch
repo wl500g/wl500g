@@ -15,9 +15,9 @@ diff -urBp dropbear.orig/cli-runopts.c dropbear/cli-runopts.c
 --- dropbear.orig/cli-runopts.c	2011-02-24 17:21:43.000000000 +0300
 +++ dropbear/cli-runopts.c	2011-02-25 10:28:27.000000000 +0300
 @@ -56,6 +56,9 @@ static void printhelp() {
+ #else
  					"Usage: %s [options] [user@]host[/port] [command]\n"
  #endif
- 					"Options are:\n"
 +#if defined AF_INET6 && AF_INET6 < AF_MAX
 +					"-4,-6 Explicitly force IPv4 or IPv6 usage\n"
 +#endif
@@ -25,8 +25,8 @@ diff -urBp dropbear.orig/cli-runopts.c dropbear/cli-runopts.c
  					"-l <username>\n"
  					"-t    Allocate a pty\n"
 @@ -148,10 +151,7 @@ void cli_getopts(int argc, char ** argv)
- #ifndef DISABLE_ZLIB
- 	opts.enable_compress = 1;
+ 	opts.cipher_list = NULL;
+ 	opts.mac_list = NULL;
  #endif
 -	/* not yet
 -	opts.ipv4 = 1;
