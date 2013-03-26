@@ -35,8 +35,8 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 --- a/arch/mips/mm/tlbex.c
 +++ b/arch/mips/mm/tlbex.c
 @@ -540,6 +540,7 @@ static __cpuinitdata u32 tlb_handler[128
- static __cpuinitdata struct label labels[128];
- static __cpuinitdata struct reloc relocs[128];
+ static __cpuinitdata struct uasm_label labels[128];
+ static __cpuinitdata struct uasm_reloc relocs[128];
  
 +# ifndef CONFIG_CPU_MIPS32_R2
  /*
@@ -50,7 +50,7 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
  
  /*
   * The R4000 TLB handler is much more complicated. We have two
-@@ -652,6 +654,28 @@ static __cpuinit void build_tlb_write_en
+@@ -652,6 +654,28 @@ static __cpuinit void build_tlb_write_entry(
  	case tlb_indexed: tlbw = i_tlbwi; break;
  	}
  
@@ -68,7 +68,7 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 +				break;
 +
 +			default:
-+				i_ehb(p);
++				uasm_i_ehb(p);
 +				break;
 +			}
 +		}
@@ -79,7 +79,7 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
  	switch (current_cpu_data.cputype) {
  	case CPU_R4000PC:
  	case CPU_R4000SC:
-@@ -725,15 +749,6 @@ static __cpuinit void build_tlb_write_en
+@@ -725,15 +749,6 @@ static __cpuinit void build_tlb_write_entry(
  		tlbw(p);
  		break;
  
@@ -88,7 +88,7 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 -	case CPU_24K:
 -	case CPU_34K:
 -	case CPU_74K:
--		i_ehb(p);
+-		uasm_i_ehb(p);
 -		tlbw(p);
 -		break;
 -
