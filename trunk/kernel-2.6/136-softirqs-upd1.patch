@@ -1,41 +1,11 @@
-From 0f476b6d91a1395bda6464e653ce66ea9bea7167
-From: Johannes Berg
-Date: Wed, 18 Jun 2008 09:29:37 +0200
-Subject: [PATCH] softirq: remove irqs_disabled warning from local_bh_enable
 
-There's no need to use local_irq_save() over local_irq_disable() in the
-local_bh_enable code since it is a bug to call it with irqs disabled and
-do_softirq will enable irqs if there is any pending work.
+ 23bdd703a585a869f2eb32fb9f66749d0476d71e [PATCH] sched: do not set softirqs to nice +19
+ 0f476b6d91a1395bda6464e653ce66ea9bea7167 softirq: remove irqs_disabled warning from local_bh_enable
+ 64ca5ab913f1594ef316556e65f5eae63ff50cee rcu: increment quiescent state counter in ksoftirqd()
 
-Consolidate the code from local_bh_enable and ..._ip to avoid having a
-disconnect between them in the warnings they trigger that is currently
-there.
-
-Also always trigger the warning on in_irq(), not just in the
-trace-irqflags case.
-
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-Cc: Michael Buesch <mb@bu3sch.de>
-Cc: David Ellingsworth <david@identd.dyndns.org>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
 ---
-
-From 23bdd703a585a869f2eb32fb9f66749d0476d71e
-From: Ingo Molnar
-Date: Mon, 9 Jul 2007 18:52:00 +0200
-Subject: [PATCH] sched: do not set softirqs to nice +19
-
-do not set softirqs to nice +19. _If_ for whatever reason
-we missed to process some high-prio softirq and woke up
-ksoftirqd, we should give it a fair chance to actually
-get some work done, even if the system is under load.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
-
- kernel/softirq.c |   49 +++++++++++--------------------------------------
- 1 file changed, 11 insertions(+), 38 deletions(-)
+ kernel/softirq.c |   50 ++++++++++++--------------------------------------
+ 1 file changed, 12 insertions(+), 38 deletions(-)
 
 diff --git a/kernel/softirq.c b/kernel/softirq.c
 --- a/kernel/softirq.c
@@ -124,5 +94,12 @@ diff --git a/kernel/softirq.c b/kernel/softirq.c
  	current->flags |= PF_NOFREEZE;
  
  	set_current_state(TASK_INTERRUPTIBLE);
+@@ -626,6 +626,7 @@ static int ksoftirqd(void * __bind_cpu)
+ 			preempt_enable_no_resched();
+ 			cond_resched();
+ 			preempt_disable();
++			rcu_qsctr_inc((long)__bind_cpu);
+ 		}
+ 		preempt_enable();
+ 		set_current_state(TASK_INTERRUPTIBLE);
 -- 
-1.7.3.5
