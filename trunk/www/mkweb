@@ -71,7 +71,7 @@ if [ -n "$1" ]; then
 	LIST=$(ls web_$TMPDIR/*.{js,asp,inc,css})
 	echo "Stripping JS comments..."
 	for i in $LIST; do
-		../remccoms2.sh $i
+		./remccoms2.sh $i
 	done
 
 	# Remove \r, trim each line from both sides, delete empty lines from asp, inc, css, js

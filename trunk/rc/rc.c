@@ -302,20 +302,6 @@ early_defaults(void)
 	}
 	else { /* router mode, use vlans */
 
-		/* fix Sentry5 config */
-		if (router_model == MDL_WL500GX && !nvram_get("vlan0ports"))
-		{
-			nvram_set("lan_ifname", "br0");
-			nvram_set("lan_ifnames", "vlan0 eth1");
-			nvram_set("wan_ifname", "vlan1");
-			nvram_set("wan_ifnames", "vlan1");
-		
-			nvram_set("vlan0hwname", "et0");
-			nvram_set("vlan0ports", "1 2 3 4 5*");
-			nvram_set("vlan1hwname", "et0");
-			nvram_set("vlan1ports", "0 5");
-		}
-
 		/* bcm95350rg -- use vlans (wl550ge, wl500gp, wl700ge) vs wl320g - no vlans */
 		if (nvram_match("wandevs", "et0") && 	/* ... wl500gpv2 */
 		    (nvram_match("vlan1ports", "0 5u") || nvram_match("vlan1ports", "4 5u")) &&
