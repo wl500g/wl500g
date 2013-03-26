@@ -1,10 +1,10 @@
-USB: cdc_mbim MBIM driver backport from 3.8.1
+USB: cdc_mbim MBIM driver backport from 3.8.4
 
 ---
  drivers/net/usb/Kconfig    |   18 +
  drivers/net/usb/Makefile   |    1 
- drivers/net/usb/cdc_mbim.c |  444 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 463 insertions(+)
+ drivers/net/usb/cdc_mbim.c |  435 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 454 insertions(+)
  create mode 100644 drivers/net/usb/cdc_mbim.c
 
 diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
@@ -50,7 +50,7 @@ diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/net/usb/cdc_mbim.c
-@@ -0,0 +1,444 @@
+@@ -0,0 +1,435 @@
 +/*
 + * Copyright (c) 2012  Smith Micro Software, Inc.
 + * Copyright (c) 2012  Bjørn Mork <bjorn@mork.no>
@@ -122,17 +122,8 @@ new file mode 100644
 +	struct cdc_ncm_ctx *ctx;
 +	struct usb_driver *subdriver = ERR_PTR(-ENODEV);
 +	int ret = -ENODEV;
-+	u8 data_altsetting = CDC_NCM_DATA_ALTSETTING_NCM;
++	u8 data_altsetting = cdc_ncm_select_altsetting(dev, intf);
 +	struct cdc_mbim_state *info = (void *)&dev->data;
-+
-+	/* see if interface supports MBIM alternate setting */
-+	if (intf->num_altsetting == 2) {
-+		if (!cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
-+			usb_set_interface(dev->udev,
-+					  intf->cur_altsetting->desc.bInterfaceNumber,
-+					  CDC_NCM_COMM_ALTSETTING_MBIM);
-+		data_altsetting = CDC_NCM_DATA_ALTSETTING_MBIM;
-+	}
 +
 +	/* Probably NCM, defer for cdc_ncm_bind */
 +	if (!cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
