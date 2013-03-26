@@ -1,6 +1,6 @@
 <html>
 <head>
-<title>ASUS SpaceLink Web Manager</title>
+<title><% model(2); %></title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta http-equiv="Expires" content="Fri, Jun 12 1981 00:00:00 GMT">
 <meta http-equiv="Cache-control" content="no-cache,must-revalidate">
