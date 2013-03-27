@@ -9,9 +9,6 @@ choice
 	config GCC_VERSION_3_4_6
 		bool "gcc 3.4.6"
 
-	config GCC_VERSION_4_2_4
-		bool "gcc 4.2.4"
-
 	config GCC_VERSION_4_3_6
 		bool "gcc 4.3.6"
 

@@ -2,7 +2,7 @@
 
 choice
 	prompt "Binutils Version"
-	default BINUTILS_VERSION_2_19_1
+	default BINUTILS_VERSION_2_23_1
 	help
 	  Select the version of binutils you wish to use.
 
@@ -11,9 +11,6 @@ choice
 
 	config BINUTILS_VERSION_2_19_1
 		bool "binutils 2.19.1"
-
-	config BINUTILS_VERSION_2_20_1
-		bool "binutils 2.20.1"
 
 	config BINUTILS_VERSION_2_21_1
 		bool "binutils 2.21.1"
@@ -34,7 +31,6 @@ config BINUTILS_VERSION
 	string
 	default "2.17"            if BINUTILS_VERSION_2_17
 	default "2.19.1"          if BINUTILS_VERSION_2_19_1
-	default "2.20.1"          if BINUTILS_VERSION_2_20_1
 	default "2.21.1"          if BINUTILS_VERSION_2_21_1
 	default "2.23.1"          if BINUTILS_VERSION_2_23_1
-	default "2.21.1"
+	default "2.23.1"

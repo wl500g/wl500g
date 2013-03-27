@@ -21,9 +21,6 @@ PATCH_DIR:=./patches/$(PKG_VERSION)
 STAGING_DIR_HOST:=$(TOOLCHAIN_DIR)
 BUILD_DIR_HOST:=$(BUILD_DIR_TOOLCHAIN)
 
-ifeq ($(PKG_VERSION),2.20.1)
-  PKG_SOURCE:=binutils-2.20.1a.tar.bz2
-endif
 ifeq ($(PKG_VERSION),2.21.1)
   PKG_SOURCE:=binutils-2.21.1a.tar.bz2
 endif

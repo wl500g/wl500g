@@ -26,9 +26,6 @@ PKG_VERSION:=$(strip $(subst ",, $(CONFIG_GCC_VERSION)))#"))
 ifeq ($(PKG_VERSION),3.4.6)
   PKG_MD5SUM:=4a21ac777d4b5617283ce488b808da7b
 endif
-ifeq ($(PKG_VERSION),4.2.4)
-  PKG_MD5SUM:=d79f553e7916ea21c556329eacfeaa16
-endif
 ifeq ($(PKG_VERSION),4.3.6)
   PKG_MD5SUM:=55ddf934bc9f8d1eaff7a77e7d598a85
 endif
