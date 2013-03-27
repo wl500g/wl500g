@@ -654,7 +654,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  
 -	n = idp->layers * IDR_BITS;
 -	p = idp->top;
-+	p = rcu_dereference(idp->top);
++	p = rcu_dereference_raw(idp->top);
 +	if (!p)
 +		return NULL;
 +	n = (p->layer+1) * IDR_BITS;
@@ -670,7 +670,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  		n -= IDR_BITS;
 -		p = p->ary[(id >> n) & IDR_MASK];
 +		BUG_ON(n != p->layer*IDR_BITS);
-+		p = rcu_dereference(p->ary[(id >> n) & IDR_MASK]);
++		p = rcu_dereference_raw(p->ary[(id >> n) & IDR_MASK]);
  	}
  	return((void *)p);
  }
@@ -703,7 +703,7 @@ diff --git a/lib/idr.c b/lib/idr.c
 +	struct idr_layer **paa = &pa[0];
 +
 +	n = idp->layers * IDR_BITS;
-+	p = rcu_dereference(idp->top);
++	p = rcu_dereference_raw(idp->top);
 +	max = 1 << n;
 +
 +	id = 0;
@@ -711,7 +711,7 @@ diff --git a/lib/idr.c b/lib/idr.c
 +		while (n > 0 && p) {
 +			n -= IDR_BITS;
 +			*paa++ = p;
-+			p = rcu_dereference(p->ary[(id >> n) & IDR_MASK]);
++			p = rcu_dereference_raw(p->ary[(id >> n) & IDR_MASK]);
 +		}
 +
 +		if (p) {
