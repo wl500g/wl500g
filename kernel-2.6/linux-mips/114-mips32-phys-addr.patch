@@ -1,0 +1,124 @@
+From 962f480e0f9024ecdcfe2ba1d216c038ee328ced
+From: Chris Dearman <chris@mips.com>
+Date: Tue, 18 Sep 2007 23:46:32 +0000
+Subject: [MIPS] All MIPS32 processors support64-bit physical addresses.
+
+Still, only the 4K may actually implement it.
+
+Signed-off-by: Chris Dearman <chris@mips.com>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ arch/mips/mm/init.c             |    2 +-
+ arch/mips/mm/tlb-r4k.c          |    2 +-
+ include/asm-mips/pgtable-32.h   |    4 ++--
+ include/asm-mips/pgtable-bits.h |    6 +++---
+ include/asm-mips/pgtable.h      |    6 +++---
+ 5 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/arch/mips/mm/init.c b/arch/mips/mm/init.c
+--- a/arch/mips/mm/init.c
++++ b/arch/mips/mm/init.c
+@@ -142,7 +142,7 @@ void *kmap_coherent(struct page *page, unsigned long addr)
+ #endif
+ 	vaddr = __fix_to_virt(FIX_CMAP_END - idx);
+ 	pte = mk_pte(page, PAGE_KERNEL);
+-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
++#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+ 	entrylo = pte.pte_high;
+ #else
+ 	entrylo = pte_val(pte) >> 6;
+diff --git a/arch/mips/mm/tlb-r4k.c b/arch/mips/mm/tlb-r4k.c
+--- a/arch/mips/mm/tlb-r4k.c
++++ b/arch/mips/mm/tlb-r4k.c
+@@ -299,7 +299,7 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
+ 	idx = read_c0_index();
+ 	ptep = pte_offset_map(pmdp, address);
+ 
+-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
++#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+ 	write_c0_entrylo0(ptep->pte_high);
+ 	ptep++;
+ 	write_c0_entrylo1(ptep->pte_high);
+diff --git a/include/asm-mips/pgtable-32.h b/include/asm-mips/pgtable-32.h
+--- a/include/asm-mips/pgtable-32.h
++++ b/include/asm-mips/pgtable-32.h
+@@ -107,7 +107,7 @@ static inline void pmd_clear(pmd_t *pmdp)
+ 	pmd_val(*pmdp) = ((unsigned long) invalid_pte_table);
+ }
+ 
+-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
++#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+ #define pte_page(x)		pfn_to_page(pte_pfn(x))
+ #define pte_pfn(x)		((unsigned long)((x).pte_high >> 6))
+ static inline pte_t
+@@ -130,7 +130,7 @@ pfn_pte(unsigned long pfn, pgprot_t prot)
+ #define pte_pfn(x)		((unsigned long)((x).pte >> PAGE_SHIFT))
+ #define pfn_pte(pfn, prot)	__pte(((unsigned long long)(pfn) << PAGE_SHIFT) | pgprot_val(prot))
+ #endif
+-#endif /* defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1) */
++#endif /* defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32) */
+ 
+ #define __pgd_offset(address)	pgd_index(address)
+ #define __pud_offset(address)	(((address) >> PUD_SHIFT) & (PTRS_PER_PUD-1))
+diff --git a/include/asm-mips/pgtable-bits.h b/include/asm-mips/pgtable-bits.h
+--- a/include/asm-mips/pgtable-bits.h
++++ b/include/asm-mips/pgtable-bits.h
+@@ -32,7 +32,7 @@
+  * unpredictable things.  The code (when it is written) to deal with
+  * this problem will be in the update_mmu_cache() code for the r4k.
+  */
+-#if defined(CONFIG_CPU_MIPS32_R1) && defined(CONFIG_64BIT_PHYS_ADDR)
++#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+ 
+ #define _PAGE_PRESENT               (1<<6)  /* implemented in software */
+ #define _PAGE_READ                  (1<<7)  /* implemented in software */
+@@ -122,7 +122,7 @@
+ 
+ #endif
+ #endif
+-#endif /* defined(CONFIG_CPU_MIPS32_R1) && defined(CONFIG_64BIT_PHYS_ADDR) */
++#endif /* defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32) */
+ 
+ #define __READABLE	(_PAGE_READ | _PAGE_SILENT_READ | _PAGE_ACCESSED)
+ #define __WRITEABLE	(_PAGE_WRITE | _PAGE_SILENT_WRITE | _PAGE_MODIFIED)
+@@ -139,7 +139,7 @@
+ #define PAGE_CACHABLE_DEFAULT	_CACHE_CACHABLE_COW
+ #endif
+ 
+-#if defined(CONFIG_CPU_MIPS32_R1) && defined(CONFIG_64BIT_PHYS_ADDR)
++#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+ #define CONF_CM_DEFAULT		(PAGE_CACHABLE_DEFAULT >> 3)
+ #else
+ #define CONF_CM_DEFAULT		(PAGE_CACHABLE_DEFAULT >> 9)
+diff --git a/include/asm-mips/pgtable.h b/include/asm-mips/pgtable.h
+--- a/include/asm-mips/pgtable.h
++++ b/include/asm-mips/pgtable.h
+@@ -79,7 +79,7 @@ extern void paging_init(void);
+ #define pmd_page(pmd)		(pfn_to_page(pmd_phys(pmd) >> PAGE_SHIFT))
+ #define pmd_page_vaddr(pmd)	pmd_val(pmd)
+ 
+-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
++#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+ 
+ #define pte_none(pte)		(!(((pte).pte_low | (pte).pte_high) & ~_PAGE_GLOBAL))
+ #define pte_present(pte)	((pte).pte_low & _PAGE_PRESENT)
+@@ -182,7 +182,7 @@ extern pgd_t swapper_pg_dir[];
+  * Undefined behaviour if not..
+  */
+ static inline int pte_user(pte_t pte)	{ BUG(); return 0; }
+-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
++#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+ static inline int pte_read(pte_t pte)	{ return pte.pte_low & _PAGE_READ; }
+ static inline int pte_write(pte_t pte)	{ return pte.pte_low & _PAGE_WRITE; }
+ static inline int pte_dirty(pte_t pte)	{ return pte.pte_low & _PAGE_MODIFIED; }
+@@ -309,7 +309,7 @@ static inline pgprot_t pgprot_noncached(pgprot_t _prot)
+  */
+ #define mk_pte(page, pgprot)	pfn_pte(page_to_pfn(page), (pgprot))
+ 
+-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
++#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+ static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
+ {
+ 	pte.pte_low  &= _PAGE_CHG_MASK;
+-- 
