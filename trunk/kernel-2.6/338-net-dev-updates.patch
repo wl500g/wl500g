@@ -1,10 +1,11 @@
  9d5010db7ecfd6ec00119d3b185c4c0cd3265167 [NET]: Add a might_sleep() to dev_close().
  7ce1b0edcb11f90f6fc5e0ceecff467f329889a0 [NET]: Call uninit if necessary in register_netdevice
  283f2fe87e980d8af5ad8aa63751e7e3258ee05a net: speedup netdev_set_master()
+ 24f8b2385e03a4f4c8dac513d03b5eaa475822b9 net: increase receive packet quantum
 
 ---
- net/core/dev.c |   20 +++++++++++++-------
- 1 file changed, 13 insertions(+), 7 deletions(-)
+ net/core/dev.c |   28 +++++++++++++++++++---------
+ 1 file changed, 19 insertions(+), 9 deletions(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
 --- a/net/core/dev.c
@@ -18,6 +19,28 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  	if (!(dev->flags & IFF_UP))
  		return 0;
  
+@@ -2013,7 +2013,7 @@ EXPORT_SYMBOL(__napi_schedule);
+ static void net_rx_action(struct softirq_action *h)
+ {
+ 	struct softnet_data *queue = &__get_cpu_var(softnet_data);
+-	unsigned long start_time = jiffies;
++	unsigned long time_limit = jiffies + 2;
+ 	int budget = netdev_budget;
+ 	void *have;
+ 
+@@ -2024,7 +2024,11 @@ static void net_rx_action(struct softirq_action *h)
+ 	while (!list_empty(&queue->poll_list)) {
+ 		struct net_device *dev;
+ 
++		/* If softirq window is exhuasted then punt.
++		 * Allow this to run for 2 jiffies since which will allow
++		 * an average latency of 1.5/HZ.
++		 */
+-		if (budget <= 0 || jiffies - start_time > 1)
++		if (unlikely(budget <= 0 || time_after(jiffies, time_limit)))
+ 			goto softnet_break;
+ 
+ 		local_irq_enable();
 @@ -2527,11 +2527,10 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
  
  	slave->master = master;
