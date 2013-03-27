@@ -1541,6 +1541,10 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 -	i_tlbwi(p); /* cp0 delay */
 -	i_jr(p, tmp);
 -	i_rfe(p); /* branch delay */
+-	l_r3000_write_probe_fail(l, *p);
+-	i_tlbwr(p); /* cp0 delay */
+-	i_jr(p, tmp);
+-	i_rfe(p); /* branch delay */
 +	uasm_i_mfc0(p, tmp, C0_INDEX);
 +	uasm_i_mtc0(p, pte, C0_ENTRYLO0); /* cp0 delay */
 +	uasm_il_bltz(p, r, tmp, label_r3000_write_probe_fail); /* cp0 delay */
@@ -1548,10 +1552,7 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 +	uasm_i_tlbwi(p); /* cp0 delay */
 +	uasm_i_jr(p, tmp);
 +	uasm_i_rfe(p); /* branch delay */
- 	l_r3000_write_probe_fail(l, *p);
--	i_tlbwr(p); /* cp0 delay */
--	i_jr(p, tmp);
--	i_rfe(p); /* branch delay */
++	uasm_l_r3000_write_probe_fail(l, *p);
 +	uasm_i_tlbwr(p); /* cp0 delay */
 +	uasm_i_jr(p, tmp);
 +	uasm_i_rfe(p); /* branch delay */
