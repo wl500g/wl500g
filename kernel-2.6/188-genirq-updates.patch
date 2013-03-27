@@ -7,12 +7,18 @@ genirq: Updates from upstream
  f84dbb912f344270f31d5cce974f12908a47798d genirq: enable polling for disabled screaming irqs
  0e43785c57fee50fbc00ea0378e941efb61fa0c2 irq: use GFP_KERNEL for action allocation in request_irq()
  4553573277906901f62f73c0432b332c53de5e2c genirq: use kzalloc instead of explicit zero initialization
+ c36ba80ea01d0aecb652c26799a912e760ce8981 irq: Remove superfluous NULL pointer check in check_irq_resend()
+ 8b7f07155f8ee1536da2f9590f1aa9383afefb6b free_irq(): fix DEBUG_SHIRQ handling
+ 59845b1ffd9121e5ef474ea5f27405fd7a83c85b request_irq: fix DEBUG_SHIRQ handling
+ 1d99493b3a68e40e56459ea3565d4402fb6e5f3a Fix CONFIG_DEBUG_SHIRQ trigger on free_irq()
+ 377bf1e4ac2d894791733270604594c7c851ef83 genirq: fix irq_desc->depth handling with DEBUG_SHIRQ
 
 ---
  include/linux/irq.h   |    2 
- kernel/irq/manage.c   |   73 +++++++++++++++-------
+ kernel/irq/manage.c   |  130 ++++++++++++++++++++++++---------------
+ kernel/irq/resend.c   |    3 
  kernel/irq/spurious.c |  163 ++++++++++++++++++++++++++++++++------------------
- 3 files changed, 158 insertions(+), 80 deletions(-)
+ 4 files changed, 188 insertions(+), 110 deletions(-)
 
 diff --git a/include/linux/irq.h b/include/linux/irq.h
 --- a/include/linux/irq.h
@@ -144,7 +150,57 @@ diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
  	spin_unlock_irqrestore(&desc->lock, flags);
  
  	new->irq = irq;
-@@ -524,15 +555,13 @@ int request_irq(unsigned int irq, irq_ha
+@@ -405,7 +436,6 @@ void free_irq(unsigned int irq, void *de
+ 	struct irq_desc *desc;
+ 	struct irqaction **p;
+ 	unsigned long flags;
+-	irqreturn_t (*handler)(int, void *) = NULL;
+ 
+ 	WARN_ON(in_interrupt());
+ 	if (irq >= NR_IRQS)
+@@ -445,8 +475,21 @@ void free_irq(unsigned int irq, void *de
+ 
+ 			/* Make sure it's not being used on another CPU */
+ 			synchronize_irq(irq);
+-			if (action->flags & IRQF_SHARED)
+-				handler = action->handler;
++#ifdef CONFIG_DEBUG_SHIRQ
++			/*
++			 * It's a shared IRQ -- the driver ought to be
++			 * prepared for it to happen even now it's
++			 * being freed, so let's make sure....  We do
++			 * this after actually deregistering it, to
++			 * make sure that a 'real' IRQ doesn't run in
++			 * parallel with our fake
++			 */
++			if (action->flags & IRQF_SHARED) {
++				local_irq_save(flags);
++				action->handler(irq, dev_id);
++				local_irq_restore(flags);
++			}
++#endif
+ 			kfree(action);
+ 			return;
+ 		}
+@@ -454,17 +497,6 @@ void free_irq(unsigned int irq, void *de
+ 		spin_unlock_irqrestore(&desc->lock, flags);
+ 		return;
+ 	}
+-#ifdef CONFIG_DEBUG_SHIRQ
+-	if (handler) {
+-		/*
+-		 * It's a shared IRQ -- the driver ought to be prepared for it
+-		 * to happen even now it's being freed, so let's make sure....
+-		 * We do this after actually deregistering it, to make sure that
+-		 * a 'real' IRQ doesn't run in parallel with our fake
+-		 */
+-		handler(irq, dev_id);
+-	}
+-#endif
+ }
+ EXPORT_SYMBOL(free_irq);
+ 
+@@ -524,42 +556,40 @@ int request_irq(unsigned int irq, irq_ha
  	if (!handler)
  		return -EINVAL;
  
@@ -161,6 +217,60 @@ diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
  	action->dev_id = dev_id;
  
  	select_smp_affinity(irq);
+ 
++	retval = setup_irq(irq, action);
++	if (retval)
++		kfree(action);
++
+ #ifdef CONFIG_DEBUG_SHIRQ
+ 	if (irqflags & IRQF_SHARED) {
+ 		/*
+ 		 * It's a shared IRQ -- the driver ought to be prepared for it
+ 		 * to happen immediately, so let's make sure....
+-		 * We do this before actually registering it, to make sure that
+-		 * a 'real' IRQ doesn't run in parallel with our fake
++		 * We disable the irq to make sure that a 'real' IRQ doesn't
++		 * run in parallel with our fake.
+ 		 */
+-		if (irqflags & IRQF_DISABLED) {
+-			unsigned long flags;
++		unsigned long flags;
+ 
+-			local_irq_save(flags);
+-			handler(irq, dev_id);
+-			local_irq_restore(flags);
+-		} else
+-			handler(irq, dev_id);
+-	}
+-#endif
++		disable_irq(irq);
++		local_irq_save(flags);
+ 
+-	retval = setup_irq(irq, action);
+-	if (retval)
+-		kfree(action);
++		handler(irq, dev_id);
+ 
++		local_irq_restore(flags);
++		enable_irq(irq);
++	}
++#endif
+ 	return retval;
+ }
+ EXPORT_SYMBOL(request_irq);
+diff --git a/kernel/irq/resend.c b/kernel/irq/resend.c
+--- a/kernel/irq/resend.c
++++ b/kernel/irq/resend.c
+@@ -70,8 +70,7 @@ void check_irq_resend(struct irq_desc *desc, unsigned int irq)
+ 	if ((status & (IRQ_LEVEL | IRQ_PENDING | IRQ_REPLAY)) == IRQ_PENDING) {
+ 		desc->status = (status & ~IRQ_PENDING) | IRQ_REPLAY;
+ 
+-		if (!desc->chip || !desc->chip->retrigger ||
+-					!desc->chip->retrigger(irq)) {
++		if (!desc->chip->retrigger || !desc->chip->retrigger(irq)) {
+ #ifdef CONFIG_HARDIRQS_SW_RESEND
+ 			/* Set it pending and activate the softirq: */
+ 			set_bit(irq, irqs_resend);
 diff --git a/kernel/irq/spurious.c b/kernel/irq/spurious.c
 --- a/kernel/irq/spurious.c
 +++ b/kernel/irq/spurious.c
