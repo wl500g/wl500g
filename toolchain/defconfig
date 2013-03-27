@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# toolchain version: (r4726)
-# Sun Nov 25 11:09:56 2012
+# toolchain version: (r4982)
+# Wed Mar 27 21:22:56 2013
 #
 CONFIG_HAVE_DOT_CONFIG=y
 # CONFIG_LINUX_2_4 is not set
@@ -26,6 +26,7 @@ CONFIG_BINUTILS_VERSION="2.23.1"
 # CONFIG_GCC_VERSION_4_4_7 is not set
 # CONFIG_GCC_VERSION_4_5_4 is not set
 CONFIG_GCC_VERSION_4_6_3=y
+# CONFIG_GCC_VERSION_4_7_3 is not set
 CONFIG_EXTRA_GCC_CONFIG_OPTIONS=""
 CONFIG_SSP_SUPPORT=y
 CONFIG_TLS_SUPPORT=y
