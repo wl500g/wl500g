@@ -4225,7 +4225,7 @@ diff -urNBp a/networking/udhcp/Config.src b/networking/udhcp/Config.src
 diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 --- a/networking/udhcp/dhcp6c.c	1970-01-01 03:00:00.000000000 +0300
 +++ b/networking/udhcp/dhcp6c.c	2011-10-31 16:11:35.000000000 +0300
-@@ -0,0 +1,1261 @@
+@@ -0,0 +1,1258 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * DHCPv6 client
@@ -5081,23 +5081,20 @@ diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 +	 */
 +	TAILQ_FOREACH(evd, &ev->data_list, link) {
 +		uint16_t stcode;
-+		const char *stcodestr;
 +
 +		switch (evd->type) {
 +		case DH6OPT_IA_PD:
 +			stcode = DH6OPT_STCODE_NOPREFIXAVAIL;
-+			stcodestr = "NoPrefixAvail";
 +			break;
 +		case DH6OPT_IA_NA:
 +			stcode = DH6OPT_STCODE_NOADDRSAVAIL;
-+			stcodestr = "NoAddrsAvail";
 +			break;
 +		default:
 +			continue;
 +		}
 +		if (dhcp6_find_listval(&optinfo->stcode_list,
 +		    DHCP6_LISTVAL_NUM16, &stcode, 0)) {
-+			bb_error_msg("advertise contains %s status", stcodestr);
++			bb_error_msg("advertise contains %s status", dhcp6stcodestr(stcode));
 +			return -1;
 +		}
 +	}
