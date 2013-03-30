@@ -579,7 +579,7 @@ static struct file_system_type ecryptfs_fs_type = {
  * Initializes the ecryptfs_inode_info_cache when it is created
  */
 static void
-inode_info_init_once(void *vptr, struct kmem_cache *cachep, unsigned long flags)
+inode_info_init_once(void *vptr)
 {
 	struct ecryptfs_inode_info *ei = (struct ecryptfs_inode_info *)vptr;
 
@@ -590,7 +590,7 @@ static struct ecryptfs_cache_info {
 	struct kmem_cache **cache;
 	const char *name;
 	size_t size;
-	void (*ctor)(void*, struct kmem_cache *, unsigned long);
+	void (*ctor)(void *obj);
 } ecryptfs_cache_infos[] = {
 	{
 		.cache = &ecryptfs_auth_tok_list_item_cache,
@@ -677,7 +677,7 @@ static int ecryptfs_init_kmem_caches(void)
 
 		info = &ecryptfs_cache_infos[i];
 		*(info->cache) = kmem_cache_create(info->name, info->size,
-				0, SLAB_HWCACHE_ALIGN, info->ctor, NULL);
+				0, SLAB_HWCACHE_ALIGN, info->ctor);
 		if (!*(info->cache)) {
 			ecryptfs_free_kmem_caches();
 			ecryptfs_printk(KERN_WARNING, "%s: "

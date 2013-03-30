@@ -180,8 +180,7 @@ int nf_conntrack_register_cache(u_int32_t features, const char *name,
 		goto out_free_name;
 	}
 
-	cachep = kmem_cache_create(cache_name, size, 0, 0,
-				   NULL, NULL);
+	cachep = kmem_cache_create(cache_name, size, 0, 0, NULL);
 	if (!cachep) {
 		printk("nf_conntrack_register_cache: Can't create slab cache "
 		       "for the features = 0x%x\n", features);
@@ -1258,7 +1257,7 @@ int __init nf_conntrack_init(void)
 
 	nf_conntrack_expect_cachep = kmem_cache_create("nf_conntrack_expect",
 					sizeof(struct nf_conntrack_expect),
-					0, 0, NULL, NULL);
+					0, 0, NULL);
 	if (!nf_conntrack_expect_cachep) {
 		printk(KERN_ERR "Unable to create nf_expect slab cache\n");
 		goto err_free_conntrack_slab;

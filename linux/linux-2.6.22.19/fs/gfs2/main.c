@@ -24,7 +24,7 @@
 #include "util.h"
 #include "glock.h"
 
-static void gfs2_init_inode_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
+static void gfs2_init_inode_once(void *foo)
 {
 	struct gfs2_inode *ip = foo;
 
@@ -34,7 +34,7 @@ static void gfs2_init_inode_once(void *foo, struct kmem_cache *cachep, unsigned 
 	memset(ip->i_cache, 0, sizeof(ip->i_cache));
 }
 
-static void gfs2_init_glock_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
+static void gfs2_init_glock_once(void *foo)
 {
 	struct gfs2_glock *gl = foo;
 
@@ -72,7 +72,7 @@ static int __init init_gfs2_fs(void)
 	gfs2_glock_cachep = kmem_cache_create("gfs2_glock",
 					      sizeof(struct gfs2_glock),
 					      0, 0,
-					      gfs2_init_glock_once, NULL);
+					      gfs2_init_glock_once);
 	if (!gfs2_glock_cachep)
 		goto fail;
 
@@ -80,13 +80,13 @@ static int __init init_gfs2_fs(void)
 					      sizeof(struct gfs2_inode),
 					      0,  SLAB_RECLAIM_ACCOUNT|
 					          SLAB_MEM_SPREAD,
-					      gfs2_init_inode_once, NULL);
+					      gfs2_init_inode_once);
 	if (!gfs2_inode_cachep)
 		goto fail;
 
 	gfs2_bufdata_cachep = kmem_cache_create("gfs2_bufdata",
 						sizeof(struct gfs2_bufdata),
-					        0, 0, NULL, NULL);
+					        0, 0, NULL);
 	if (!gfs2_bufdata_cachep)
 		goto fail;
 

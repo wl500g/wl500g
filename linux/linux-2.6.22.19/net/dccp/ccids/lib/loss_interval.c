@@ -33,8 +33,7 @@ struct dccp_li_hist *dccp_li_hist_new(const char *name)
 	sprintf(slab_name, dccp_li_hist_mask, name);
 	hist->dccplih_slab = kmem_cache_create(slab_name,
 					     sizeof(struct dccp_li_hist_entry),
-					       0, SLAB_HWCACHE_ALIGN,
-					       NULL, NULL);
+					       0, SLAB_HWCACHE_ALIGN, NULL);
 	if (hist->dccplih_slab == NULL)
 		goto out_free_slab_name;
 out:

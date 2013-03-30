@@ -935,8 +935,7 @@ write_error:
  * @cache: the lock tree entry slab cache
  * @flags: constructor flags
  */
-static void ltree_entry_ctor(void *obj, struct kmem_cache *cache,
-			     unsigned long flags)
+static void ltree_entry_ctor(struct kmem_cache *cache, void *obj)
 {
 	struct ltree_entry *le = obj;
 
@@ -1147,7 +1146,7 @@ int ubi_eba_init_scan(struct ubi_device *ubi, struct ubi_scan_info *si)
 	if (ubi_devices_cnt == 0) {
 		ltree_slab = kmem_cache_create("ubi_ltree_slab",
 					       sizeof(struct ltree_entry), 0,
-					       0, &ltree_entry_ctor, NULL);
+					       0, &ltree_entry_ctor);
 		if (!ltree_slab)
 			return -ENOMEM;
 	}

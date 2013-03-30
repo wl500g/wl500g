@@ -824,7 +824,7 @@ static struct file_system_type rpc_pipe_fs_type = {
 };
 
 static void
-init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
+init_once(void *foo)
 {
 	struct rpc_inode *rpci = (struct rpc_inode *) foo;
 
@@ -849,7 +849,7 @@ int register_rpc_pipefs(void)
 				sizeof(struct rpc_inode),
 				0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
 						SLAB_MEM_SPREAD),
-				init_once, NULL);
+				init_once);
 	if (!rpc_inode_cachep)
 		return -ENOMEM;
 	err = register_filesystem(&rpc_pipe_fs_type);

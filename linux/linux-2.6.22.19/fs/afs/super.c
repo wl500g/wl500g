@@ -27,8 +27,7 @@
 
 #define AFS_FS_MAGIC 0x6B414653 /* 'kAFS' */
 
-static void afs_i_init_once(void *foo, struct kmem_cache *cachep,
-			    unsigned long flags);
+static void afs_i_init_once(void *foo);
 static int afs_get_sb(struct file_system_type *fs_type,
 		      int flags, const char *dev_name,
 		      void *data, struct vfsmount *mnt);
@@ -89,8 +88,7 @@ int __init afs_fs_init(void)
 					     sizeof(struct afs_vnode),
 					     0,
 					     SLAB_HWCACHE_ALIGN,
-					     afs_i_init_once,
-					     NULL);
+					     afs_i_init_once);
 	if (!afs_inode_cachep) {
 		printk(KERN_NOTICE "kAFS: Failed to allocate inode cache\n");
 		return ret;
@@ -447,8 +445,7 @@ static void afs_put_super(struct super_block *sb)
 /*
  * initialise an inode cache slab element prior to any use
  */
-static void afs_i_init_once(void *_vnode, struct kmem_cache *cachep,
-			    unsigned long flags)
+static void afs_i_init_once(void *_vnode)
 {
 	struct afs_vnode *vnode = _vnode;
 

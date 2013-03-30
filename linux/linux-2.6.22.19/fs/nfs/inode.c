@@ -1160,7 +1160,7 @@ static inline void nfs4_init_once(struct nfs_inode *nfsi)
 #endif
 }
 
-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
+static void init_once(void *foo)
 {
 	struct nfs_inode *nfsi = (struct nfs_inode *) foo;
 
@@ -1178,14 +1178,14 @@ static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flag
 	nfsi->npages = 0;
 	nfs4_init_once(nfsi);
 }
- 
+
 static int __init nfs_init_inodecache(void)
 {
 	nfs_inode_cachep = kmem_cache_create("nfs_inode_cache",
 					     sizeof(struct nfs_inode),
 					     0, (SLAB_RECLAIM_ACCOUNT|
 						SLAB_MEM_SPREAD),
-					     init_once, NULL);
+					     init_once);
 	if (nfs_inode_cachep == NULL)
 		return -ENOMEM;
 

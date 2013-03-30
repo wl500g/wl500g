@@ -207,7 +207,7 @@ void inode_init_once(struct inode *inode)
 
 EXPORT_SYMBOL(inode_init_once);
 
-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
+static void init_once(void *foo)
 {
 	struct inode * inode = (struct inode *) foo;
 
@@ -1381,8 +1381,7 @@ void __init inode_init(unsigned long mempages)
 					 0,
 					 (SLAB_RECLAIM_ACCOUNT|SLAB_PANIC|
 					 SLAB_MEM_SPREAD),
-					 init_once,
-					 NULL);
+					 init_once);
 	set_shrinker(DEFAULT_SEEKS, shrink_icache_memory);
 
 	/* Hash may have been set up in inode_init_early */

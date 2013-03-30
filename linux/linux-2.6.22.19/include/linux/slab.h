@@ -14,8 +14,6 @@
 #include <linux/gfp.h>
 #include <linux/types.h>
 
-typedef struct kmem_cache kmem_cache_t __deprecated;
-
 /*
  * Flags to pass to kmem_cache_create().
  * The ones marked DEBUG are only valid if CONFIG_SLAB_DEBUG is set.
@@ -53,8 +51,7 @@ int slab_is_available(void);
 
 struct kmem_cache *kmem_cache_create(const char *, size_t, size_t,
 			unsigned long,
-			void (*)(void *, struct kmem_cache *, unsigned long),
-			void (*)(void *, struct kmem_cache *, unsigned long));
+			void (*)(void *));
 void kmem_cache_destroy(struct kmem_cache *);
 int kmem_cache_shrink(struct kmem_cache *);
 void kmem_cache_free(struct kmem_cache *, void *);
@@ -73,7 +70,7 @@ int kmem_ptr_validate(struct kmem_cache *cachep, const void *ptr);
  */
 #define KMEM_CACHE(__struct, __flags) kmem_cache_create(#__struct,\
 		sizeof(struct __struct), __alignof__(struct __struct),\
-		(__flags), NULL, NULL)
+		(__flags), NULL)
 
 /*
  * The largest kmalloc size supported by the slab allocators is

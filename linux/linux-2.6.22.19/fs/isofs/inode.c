@@ -73,7 +73,7 @@ static void isofs_destroy_inode(struct inode *inode)
 	kmem_cache_free(isofs_inode_cachep, ISOFS_I(inode));
 }
 
-static void init_once(void *foo, struct kmem_cache * cachep, unsigned long flags)
+static void init_once(void *foo)
 {
 	struct iso_inode_info *ei = foo;
 
@@ -86,7 +86,7 @@ static int init_inodecache(void)
 					     sizeof(struct iso_inode_info),
 					     0, (SLAB_RECLAIM_ACCOUNT|
 						SLAB_MEM_SPREAD),
-					     init_once, NULL);
+					     init_once);
 	if (isofs_inode_cachep == NULL)
 		return -ENOMEM;
 	return 0;

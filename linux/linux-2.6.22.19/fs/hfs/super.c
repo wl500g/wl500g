@@ -430,7 +430,7 @@ static struct file_system_type hfs_fs_type = {
 	.fs_flags	= FS_REQUIRES_DEV,
 };
 
-static void hfs_init_once(void *p, struct kmem_cache *cachep, unsigned long flags)
+static void hfs_init_once(void *p)
 {
 	struct hfs_inode_info *i = p;
 
@@ -443,7 +443,7 @@ static int __init init_hfs_fs(void)
 
 	hfs_inode_cachep = kmem_cache_create("hfs_inode_cache",
 		sizeof(struct hfs_inode_info), 0, SLAB_HWCACHE_ALIGN,
-		hfs_init_once, NULL);
+		hfs_init_once);
 	if (!hfs_inode_cachep)
 		return -ENOMEM;
 	err = register_filesystem(&hfs_fs_type);

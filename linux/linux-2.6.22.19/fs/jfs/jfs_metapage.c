@@ -180,7 +180,7 @@ static inline void remove_metapage(struct page *page, struct metapage *mp)
 
 #endif
 
-static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
+static void init_once(void *foo)
 {
 	struct metapage *mp = (struct metapage *)foo;
 
@@ -213,7 +213,7 @@ int __init metapage_init(void)
 	 * Allocate the metapage structures
 	 */
 	metapage_cache = kmem_cache_create("jfs_mp", sizeof(struct metapage),
-					   0, 0, init_once, NULL);
+					   0, 0, init_once);
 	if (metapage_cache == NULL)
 		return -ENOMEM;
 

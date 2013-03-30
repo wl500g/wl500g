@@ -552,7 +552,7 @@ static const struct address_space_operations hugetlbfs_aops = {
 };
 
 
-static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
+static void init_once(void *foo)
 {
 	struct hugetlbfs_inode_info *ei = (struct hugetlbfs_inode_info *)foo;
 
@@ -808,7 +808,7 @@ static int __init init_hugetlbfs_fs(void)
 
 	hugetlbfs_inode_cachep = kmem_cache_create("hugetlbfs_inode_cache",
 					sizeof(struct hugetlbfs_inode_info),
-					0, 0, init_once, NULL);
+					0, 0, init_once);
 	if (hugetlbfs_inode_cachep == NULL)
 		goto out2;
 

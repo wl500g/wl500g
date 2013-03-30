@@ -137,8 +137,7 @@ void anon_vma_unlink(struct vm_area_struct *vma)
 		anon_vma_free(anon_vma);
 }
 
-static void anon_vma_ctor(void *data, struct kmem_cache *cachep,
-			  unsigned long flags)
+static void anon_vma_ctor(void *data)
 {
 	struct anon_vma *anon_vma = data;
 
@@ -149,7 +148,7 @@ static void anon_vma_ctor(void *data, struct kmem_cache *cachep,
 void __init anon_vma_init(void)
 {
 	anon_vma_cachep = kmem_cache_create("anon_vma", sizeof(struct anon_vma),
-			0, SLAB_DESTROY_BY_RCU|SLAB_PANIC, anon_vma_ctor, NULL);
+			0, SLAB_DESTROY_BY_RCU|SLAB_PANIC, anon_vma_ctor);
 }
 
 /*

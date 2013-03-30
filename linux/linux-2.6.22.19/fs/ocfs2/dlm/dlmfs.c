@@ -255,9 +255,7 @@ static ssize_t dlmfs_file_write(struct file *filp,
 	return writelen;
 }
 
-static void dlmfs_init_once(void *foo,
-			    struct kmem_cache *cachep,
-			    unsigned long flags)
+static void dlmfs_init_once(void *foo)
 {
 	struct dlmfs_inode_private *ip =
 		(struct dlmfs_inode_private *) foo;
@@ -596,7 +594,7 @@ static int __init init_dlmfs_fs(void)
 				sizeof(struct dlmfs_inode_private),
 				0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
 					SLAB_MEM_SPREAD),
-				dlmfs_init_once, NULL);
+				dlmfs_init_once);
 	if (!dlmfs_inode_cache)
 		goto bail;
 	cleanup_inode = 1;

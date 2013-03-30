@@ -415,7 +415,7 @@ static struct file_system_type openprom_fs_type = {
 	.kill_sb	= kill_anon_super,
 };
 
-static void op_inode_init_once(void *data, struct kmem_cache * cachep, unsigned long flags)
+static void op_inode_init_once(void *data)
 {
 	struct op_inode_info *oi = (struct op_inode_info *) data;
 
@@ -431,7 +431,7 @@ static int __init init_openprom_fs(void)
 					    0,
 					    (SLAB_RECLAIM_ACCOUNT |
 					     SLAB_MEM_SPREAD),
-					    op_inode_init_once, NULL);
+					    op_inode_init_once);
 	if (!op_inode_cachep)
 		return -ENOMEM;
 

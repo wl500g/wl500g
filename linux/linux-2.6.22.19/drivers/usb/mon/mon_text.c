@@ -84,7 +84,7 @@ struct mon_reader_text {
 
 static struct dentry *mon_dir;		/* Usually /sys/kernel/debug/usbmon */
 
-static void mon_text_ctor(void *, struct kmem_cache *, unsigned long);
+static void mon_text_ctor(void *);
 
 struct mon_text_ptr {
 	int cnt, limit;
@@ -340,7 +340,7 @@ static int mon_text_open(struct inode *inode, struct file *file)
 	snprintf(rp->slab_name, SLAB_NAME_SZ, "mon_text_%p", rp);
 	rp->e_slab = kmem_cache_create(rp->slab_name,
 	    sizeof(struct mon_event_text), sizeof(long), 0,
-	    mon_text_ctor, NULL);
+	    mon_text_ctor);
 	if (rp->e_slab == NULL) {
 		rc = -ENOMEM;
 		goto err_slab;
@@ -711,7 +711,7 @@ void mon_text_del(struct mon_bus *mbus)
 /*
  * Slab interface: constructor.
  */
-static void mon_text_ctor(void *mem, struct kmem_cache *slab, unsigned long sflags)
+static void mon_text_ctor(void *mem)
 {
 	/*
 	 * Nothing to initialize. No, really!

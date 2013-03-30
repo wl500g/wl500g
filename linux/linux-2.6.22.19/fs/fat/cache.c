@@ -36,7 +36,7 @@ static inline int fat_max_cache(struct inode *inode)
 
 static struct kmem_cache *fat_cache_cachep;
 
-static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
+static void init_once(void *foo)
 {
 	struct fat_cache *cache = (struct fat_cache *)foo;
 
@@ -48,7 +48,7 @@ int __init fat_cache_init(void)
 	fat_cache_cachep = kmem_cache_create("fat_cache",
 				sizeof(struct fat_cache),
 				0, SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD,
-				init_once, NULL);
+				init_once);
 	if (fat_cache_cachep == NULL)
 		return -ENOMEM;
 	return 0;

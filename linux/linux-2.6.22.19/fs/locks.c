@@ -199,7 +199,7 @@ EXPORT_SYMBOL(locks_init_lock);
  * Initialises the fields of the file lock which are invariant for
  * free file_locks.
  */
-static void init_once(void *foo, struct kmem_cache *cache, unsigned long flags)
+static void init_once(void *foo)
 {
 	struct file_lock *lock = (struct file_lock *) foo;
 
@@ -2255,7 +2255,7 @@ static int __init filelock_init(void)
 {
 	filelock_cache = kmem_cache_create("file_lock_cache",
 			sizeof(struct file_lock), 0, SLAB_PANIC,
-			init_once, NULL);
+			init_once);
 	return 0;
 }
 

@@ -541,13 +541,11 @@ struct kmem_cache {
 	unsigned int size, align;
 	unsigned long flags;
 	const char *name;
-	void (*ctor)(void *, struct kmem_cache *, unsigned long);
+	void (*ctor)(void *);
 };
 
 struct kmem_cache *kmem_cache_create(const char *name, size_t size,
-	size_t align, unsigned long flags,
-	void (*ctor)(void*, struct kmem_cache *, unsigned long),
-	void (*dtor)(void*, struct kmem_cache *, unsigned long))
+	size_t align, unsigned long flags, void (*ctor)(void *))
 {
 	struct kmem_cache *c;
 
@@ -594,7 +592,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 		b = slob_new_pages(flags, get_order(c->size), node);
 
 	if (c->ctor)
-		c->ctor(b, c, 0);
+		c->ctor(b);
 
 	return b;
 }
