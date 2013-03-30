@@ -2108,7 +2108,7 @@ new file mode 100644
 +			break;
 +		}
 +
-+	if (!ip)
++	if (!ip /*|| (opc == insn_daddiu && r4k_daddiu_bug())*/)
 +		panic("Unsupported Micro-assembler instruction %d", opc);
 +
 +	op = ip->match;
