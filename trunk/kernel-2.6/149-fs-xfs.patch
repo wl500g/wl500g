@@ -8574,7 +8574,7 @@ diff --git a/fs/xfs/linux-2.6/xfs_super.c b/fs/xfs/linux-2.6/xfs_super.c
  	if (xfs_readonly_buftarg(mp->m_ddev_targp)) {
  		xfs_fs_cmn_err(CE_NOTE, mp,
  		  "Disabling barriers, underlying device is readonly");
-@@ -335,68 +675,218 @@ xfs_blkdev_issue_flush(
+@@ -335,68 +675,216 @@ xfs_blkdev_issue_flush(
  	blkdev_issue_flush(buftarg->bt_bdev, NULL);
  }
  
@@ -8828,9 +8828,7 @@ diff --git a/fs/xfs/linux-2.6/xfs_super.c b/fs/xfs/linux-2.6/xfs_super.c
 +
 +STATIC void
 +xfs_fs_inode_init_once(
-+	void			*vnode,
-+	kmem_zone_t		*zonep,
-+	unsigned long		flags)
++	void			*vnode)
 +{
 +	inode_init_once((struct inode *)vnode);
  }
