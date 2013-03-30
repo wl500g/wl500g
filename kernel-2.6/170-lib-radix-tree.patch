@@ -1722,6 +1722,15 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  				radix_tree_shrink(root);
  			goto out;
  		}
+@@ -973,7 +1305,7 @@ int radix_tree_tagged(struct radix_tree_root *root, unsigned int tag)
+ EXPORT_SYMBOL(radix_tree_tagged);
+ 
+ static void
+-radix_tree_node_ctor(void *node, struct kmem_cache *cachep, unsigned long flags)
++radix_tree_node_ctor(void *node)
+ {
+ 	memset(node, 0, sizeof(struct radix_tree_node));
+ }
 @@ -980,12 +1313,14 @@ radix_tree_node_ctor(void *node, struct 
  
  static __init unsigned long __maxindex(unsigned int height)
@@ -1748,7 +1757,7 @@ diff --git a/lib/radix-tree.c b/lib/radix-tree.c
  			sizeof(struct radix_tree_node), 0,
 -			SLAB_PANIC, radix_tree_node_ctor, NULL);
 +			SLAB_PANIC | SLAB_RECLAIM_ACCOUNT,
-+			radix_tree_node_ctor, NULL);
++			radix_tree_node_ctor);
 +
  	radix_tree_init_maxindex();
  	hotcpu_notifier(radix_tree_callback, 0);

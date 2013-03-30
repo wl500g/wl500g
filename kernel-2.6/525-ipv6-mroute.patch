@@ -1536,7 +1536,7 @@ new file mode 100644
 +	mrt_cachep = kmem_cache_create("ip6_mrt_cache",
 +				       sizeof(struct mfc6_cache),
 +				       0, SLAB_HWCACHE_ALIGN,
-+				       NULL, NULL);
++				       NULL);
 +	if (!mrt_cachep)
 +		panic("cannot allocate ip6_mrt_cache");
 +

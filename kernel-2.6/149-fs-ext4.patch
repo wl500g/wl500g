@@ -15459,14 +15459,14 @@ diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
 +	ext4_pspace_cachep =
 +		kmem_cache_create("ext4_prealloc_space",
 +				     sizeof(struct ext4_prealloc_space),
-+				     0, SLAB_RECLAIM_ACCOUNT, NULL, NULL);
++				     0, SLAB_RECLAIM_ACCOUNT, NULL);
 +	if (ext4_pspace_cachep == NULL)
 +		return -ENOMEM;
 +
 +	ext4_ac_cachep =
 +		kmem_cache_create("ext4_alloc_context",
 +				     sizeof(struct ext4_allocation_context),
-+				     0, SLAB_RECLAIM_ACCOUNT, NULL, NULL);
++				     0, SLAB_RECLAIM_ACCOUNT, NULL);
 +	if (ext4_ac_cachep == NULL) {
 +		kmem_cache_destroy(ext4_pspace_cachep);
 +		return -ENOMEM;
@@ -15475,7 +15475,7 @@ diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
 +	ext4_free_ext_cachep =
 +		kmem_cache_create("ext4_free_block_extents",
 +				     sizeof(struct ext4_free_data),
-+				     0, SLAB_RECLAIM_ACCOUNT, NULL, NULL);
++				     0, SLAB_RECLAIM_ACCOUNT, NULL);
 +	if (ext4_free_ext_cachep == NULL) {
 +		kmem_cache_destroy(ext4_pspace_cachep);
 +		kmem_cache_destroy(ext4_ac_cachep);
@@ -20588,7 +20588,7 @@ diff --git a/fs/ext4/super.c b/fs/ext4/super.c
  }
  
 -static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
-+static void init_once(void *foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
  {
  	struct ext4_inode_info *ei = (struct ext4_inode_info *) foo;
  
@@ -20602,6 +20602,15 @@ diff --git a/fs/ext4/super.c b/fs/ext4/super.c
  	inode_init_once(&ei->vfs_inode);
  }
  
+@@ -531,7 +601,7 @@ static int init_inodecache(void)
+ 					     sizeof(struct ext4_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (ext4_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
 @@ -546,7 +628,7 @@ static void destroy_inodecache(void)
  static void ext4_clear_inode(struct inode *inode)
  {
@@ -25106,7 +25115,7 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  static atomic_t nr_journal_heads = ATOMIC_INIT(0);
  #endif
  
-@@ -1717,15 +2006,15 @@ static int journal_init_jbd2_journal_hea
+@@ -1717,15 +2006,14 @@ static int journal_init_jbd2_journal_hea
  {
  	int retval;
  
@@ -25117,9 +25126,9 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  				0,		/* offset */
 -				0,		/* flags */
 +				0,	/* flags */
- 				NULL,		/* ctor */
+-				NULL,		/* ctor */
 -				NULL);		/* dtor */
-+				NULL);
++				NULL);		/* ctor */
  	retval = 0;
 -	if (jbd2_journal_head_cache == 0) {
 +	if (!jbd2_journal_head_cache) {
@@ -25341,15 +25350,15 @@ diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
  
  #endif
  
-@@ -2018,9 +2356,9 @@ static int __init journal_init_handle_ca
+@@ -2018,9 +2356,8 @@ static int __init journal_init_handle_ca
  	jbd2_handle_cache = kmem_cache_create("jbd2_journal_handle",
  				sizeof(handle_t),
  				0,		/* offset */
 -				0,		/* flags */
 +				0,	/* flags */
- 				NULL,		/* ctor */
+-				NULL,		/* ctor */
 -				NULL);		/* dtor */
-+				NULL);
++				NULL);		/* ctor */
  	if (jbd2_handle_cache == NULL) {
  		printk(KERN_EMERG "JBD: failed to create handle cache\n");
  		return -ENOMEM;
@@ -25712,18 +25721,19 @@ diff --git a/fs/jbd2/revoke.c b/fs/jbd2/revoke.c
 -		return -ENOMEM;
 +					   0,
 +					   SLAB_HWCACHE_ALIGN,
-+					   NULL, NULL);
++					   NULL);
 +	if (!jbd2_revoke_record_cache)
 +		goto record_cache_failure;
  
  	jbd2_revoke_table_cache = kmem_cache_create("jbd2_revoke_table",
  					   sizeof(struct jbd2_revoke_table_s),
- 					   0, 0, NULL, NULL);
+-					   0, 0, NULL, NULL);
 -	if (jbd2_revoke_table_cache == 0) {
 -		kmem_cache_destroy(jbd2_revoke_record_cache);
 -		jbd2_revoke_record_cache = NULL;
 -		return -ENOMEM;
 -	}
++					   0, 0, NULL);
 +	if (!jbd2_revoke_table_cache)
 +		goto table_cache_failure;
  	return 0;
