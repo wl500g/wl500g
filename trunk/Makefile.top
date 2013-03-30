@@ -482,6 +482,9 @@ modules_install: .config
 	# other
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/lib/libcrc32c$(ko)
+	[ ! -f $(SRCMODULESDIR)/drivers/net/netconsole.ko ] || \
+	    install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/net/netconsole.ko
 	# extra strip modules without params
 	$(STRIP) --strip-unneeded $(MODULESDIR)/wl$(ko)
 
