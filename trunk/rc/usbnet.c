@@ -313,7 +313,8 @@ void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 	usbnet_get_wdm_by_ifusb(ptr, tmp, sizeof(tmp));
 	snprintf(s_wdm, sizeof(s_wdm), "--device=%s", tmp);
 
-	strncpy(s_APN, nvram_safe_get(strcat_r(prefix, "modem_apn", tmp)), sizeof(s_APN));
+	strncpy(s_APN, nvram_safe_get(strcat_r(prefix, "modem_apn", tmp)), sizeof(s_APN)-1);
+	s_APN[sizeof(s_APN)-1] = 0;
 
 	_eval(argv_uqmi, NULL, 0, NULL);
 	dprintf("done\n");
@@ -331,7 +332,8 @@ void usbnet_at_connect(const char *prefix, int unit, const char *ifname)
 	if (nvram_match(strcat_r(prefix, "usbnet_subtype", tmp), "user")) {
 		strncpy(data_str,
 			nvram_safe_get(strcat_r(prefix, "modem_at_connect", tmp)),
-			sizeof(data_str));
+			sizeof(data_str)-1);
+		data_str[sizeof(data_str)-1] = 0;
 	} else { // ncm, mbim
 
 		// AT^NDISDUP=1,1,"apn"[,<"username">,<"password">,<auth_type>]
@@ -355,7 +357,8 @@ void usbnet_at_disconnect(const char *prefix, int unit, const char *ifname)
 	if (nvram_match(strcat_r(prefix, "usbnet_subtype", tmp), "user")) {
 		strncpy(data_str,
 			nvram_safe_get(strcat_r(prefix, "modem_at_connect", tmp)),
-			sizeof(data_str));
+			sizeof(data_str)-1);
+		data_str[sizeof(data_str)-1] = 0;
 	} else { // ncm, mbim
 		strcpy( data_str, "AT^NDISDUP=1,0");
 	}

@@ -820,6 +820,7 @@ hotplug_exec_user_modem_init_script(const char *sVid, const char *sPid, const ch
 	const char *delim = " ";
 	int i;
 	char tmp[256];
+	tmp[sizeof(tmp)-1] = 0;
 
 	tok = nvram_get("wan_modem_init_script");
 	if (tok && *tok) {
@@ -918,6 +919,7 @@ void hotplug_usb_modeswitch(const char *interface, const char *action, const cha
 							"Manufacturer=",
 							"Product="};
 						char sManufacturer[0xFF];
+						sManufacturer[sizeof(sManufacturer)-1] = 0;
 
 						while (!feof(file)) {
 							fgets(str, sizeof(str)-1, file);
