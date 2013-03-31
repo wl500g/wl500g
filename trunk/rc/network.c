@@ -774,7 +774,7 @@ void prepare_wan_unit(int unit)
 	eval("brctl", "addbr", wan_ifname, "stp", "0" );
 	ifconfig(wan_ifname, IFUP, NULL, NULL);
 
-	usbnet_load_drivers();
+	usbnet_load_drivers(prefix);
 
 	dprintf("done\n");
 }
@@ -1100,6 +1100,9 @@ void start_wan_unit(int unit)
 			wan_proto = nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp),
 				"0.0.0.0") ? WAN_DHCP : WAN_STATIC;
 			/* fall through to dhcp/static, firewall2 */
+
+			usbnet_connect(prefix, unit, wan_ifname);
+
 			break;
 		}
 #endif // __CONFIG_USBNET__
@@ -1328,6 +1331,7 @@ void stop_wan_unit(int unit)
 		/* Stop Ethernet over USB */
 		if (strcmp(wan_proto, "usbnet") == 0 ) {
 			dynamic_ip = nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0");
+			usbnet_disconnect(prefix, unit, wan_ifname);
 		}
 		else
 #endif
@@ -1721,6 +1725,7 @@ void wan_down(const char *wan_ifname)
 	if (*nvram_safe_get(strcat_r(prefix, "xdns", tmp)))
 		nvram_unset(strcat_r(prefix, "dns", tmp));
 	update_resolvconf(wan_ifname, metric, 0);
+
 
 #ifdef ASUS_EXT
 	update_wan_status(0);

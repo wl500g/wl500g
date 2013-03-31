@@ -583,6 +583,9 @@ static const struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_maxfail", 0 },
 	{"wan_modem_init_script", 0 },
 	{"wan_proto", 0 },
+	{"wan_usbnet_subtype", 0 },
+	{"wan_modem_at_connect", 0 },
+	{"wan_modem_at_disconnect", 0 },
 	{0, 0 }
 };
 #endif

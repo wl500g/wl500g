@@ -16,6 +16,7 @@
 #define MODEM_DEVICES_FILE	"/proc/bus/usb/devices"
 #define MODEM_DIAL_SCRIPT	"/usr/ppp/dial"
 #define MODEM_DIAL_PIDFILE	"/var/run/dial%s.pid"
+#define MODEM_DEVPATH_INFO	"/proc/bus/usb/devpath"
 
 // see http://www.usb.org/developers/defined_class
 #define USB_CLASS_PER_INTERFACE		0
@@ -619,8 +620,7 @@ int parse_product_string(const char *product, int *vid, int *pid)
 	return res;
 }
 
-
-static void modem_load_drivers()
+void modem_load_drivers()
 {
 	insmod_cond("usbserial", NULL);
 	insmod_cond("cdc-acm", NULL);
@@ -628,7 +628,9 @@ static void modem_load_drivers()
 }
 
 /// wait for device appearance in /proc/bus/usb/devices
-int wait_for_dev_appearance(int vid, int pid, const char *device, const char *driver_list[])
+
+int wait_for_dev_with_drv(int vid, int pid, const char *device,
+	const char *driver_list[], char **found_driver)
 {
 	FILE *fp = NULL;
 	char *vbuf = NULL, *ptr, **ptr2;
@@ -671,6 +673,7 @@ int wait_for_dev_appearance(int vid, int pid, const char *device, const char *dr
 					ptr += sizeof("Driver=")-1;
 					for (ptr2 = (char**)driver_list; *ptr2; ptr2++) {
 						if (!strncmp(ptr, *ptr2, strlen(*ptr2))) {
+							if (found_driver) *found_driver = *ptr2;
 							result = 1;
 							break;
 						}
@@ -692,6 +695,11 @@ int wait_for_dev_appearance(int vid, int pid, const char *device, const char *dr
 	return result;
 }
 
+int wait_for_dev_appearance(int vid, int pid, const char *device, const char *driver_list[])
+{
+   return wait_for_dev_with_drv(vid, pid, device, driver_list, NULL);
+}
+
 int hotplug_check_modem(const char *interface, const char *product, const char *device, const char *prefix)
 {
 	int ret = 0;
@@ -705,7 +713,8 @@ int hotplug_check_modem(const char *interface, const char *product, const char *
 	//int autodetect = nvram_match("wan_modem_autodetect", "1");
 
 	// if device was already found for this wan, do nothing
-	if (nvram_get(strcat_r(prefix, "usb_device", tmp))) return 0;
+	if (nvram_get(strcat_r(prefix, "usb_device", tmp)) &&
+		strcmp(interface,"usbnet") ) return 0;
 
 	str1 = nvram_prefix_get("modem_vid");
 	//str1 = nvram_safe_get("wan_modem_vid");
@@ -992,6 +1001,63 @@ int usb_modem_check(const char *prefix)
 			ret = start_modem_dial(prefix);
 	}
 	return ret;
+}
+
+/// port_type: 0 - data, 1 - ui
+int usb_modem_send_to(  const char *prefix, int unit, const char *ifname,
+			const char *data, int port_type)
+{
+	int result = 0;
+	char tmp[100], str[100];
+	char *ptr;
+	FILE *fp, *fp2;
+	int vid, pid;
+
+	const char *driver_list[] = {"option", "cdc-acm", NULL};
+
+	ptr = nvram_prefix_get("modem_vid");
+	sscanf(ptr, "%x", &vid);
+	ptr = nvram_prefix_get("modem_pid");
+	sscanf(ptr, "%x", &pid);
+
+	if (wait_for_dev_appearance(vid, pid,
+		nvram_prefix_get("usb_device"), driver_list)) {
+
+		ptr = (port_type == 0 ? "modem_pdata" : "modem_pui");
+
+		snprintf(str, sizeof(str), ": %s.%s :",
+			nvram_prefix_get("modem_usbloc"),
+			nvram_prefix_get(ptr));
+
+		dprintf("Searching: %s. port: %s", str, ptr);
+
+		if ((fp = fopen(MODEM_DEVPATH_INFO, "rt")) == NULL) {
+			dprintf("Error: Not found %s file.\n", MODEM_DEVPATH_INFO);
+			return result;
+		}
+
+		while (fgets(tmp, sizeof(tmp), fp) != 0) {
+			dprintf("Read: %s", tmp);
+			if ((ptr = strstr(tmp, str))){
+				*ptr = 0;
+				if((ptr = strchr(tmp, ' ')))
+					*ptr = 0;
+
+				// open ttyUSB port and send connect message
+				if ((fp2 = fopen(tmp, "wb")) == NULL) {
+					dprintf("Error: Not found %s file.\n", tmp);
+				} else {
+					dprintf("sending data: %s in port: %s", data, tmp);
+					result = fwrite(data, 1, strlen(data), fp2);
+					fclose(fp2);
+				}
+				break;
+			}
+		}
+		fclose(fp);
+	}
+	dprintf("done\n");
+	return result;
 }
 
 /// list modems ( see format in usbmodem.h )

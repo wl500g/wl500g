@@ -190,6 +190,7 @@ function generateTree() {
 
 	aux1 = appendChild(foldersTree, leafNode("USB Network Devices"));
 	appendChild(aux1, generateDocEntry(0, "3G/CDMA Modem", "Advanced_ConnectionMode_Content.asp", ""));
+	appendChild(aux1, generateDocEntry(0, "Ethernet over USB", "Advanced_USBNet_Content.asp", ""));
 	appendChild(aux1, generateDocEntry(0, "WiMAX", "Advanced_WiMax_Content.asp", ""));
 
 	aux1 = appendChild(foldersTree, leafNode("System Setup"));
