@@ -626,8 +626,23 @@ void convert_asus_values()
 #ifdef __CONFIG_USBNET__
 	else if (nvram_match("wan_proto", "usbnet")) {
 		nvram_set("wan0_pppoe_ipaddr", nvram_safe_get("wan_ipaddr"));
+		nvram_set("wan0_usbnet_subtype", nvram_safe_get("wan_usbnet_subtype"));
 		nvram_set("wan0_ifname", "wan0");
 		nvram_unset("wan0_usb_ifname");
+
+		nvram_set("wan0_modem_username", nvram_safe_get("wan_modem_username"));
+		nvram_set("wan0_modem_passwd", nvram_safe_get("wan_modem_passwd"));
+		nvram_set("wan0_modem_usbloc", nvram_safe_get("wan_modem_usbloc"));
+		nvram_set("wan0_modem_apn", nvram_safe_get("wan_modem_apn"));
+		nvram_set("wan0_modem_autodetect", nvram_safe_get("wan_modem_autodetect"));
+		nvram_set("wan0_modem_vid", nvram_safe_get("wan_modem_vid"));
+		nvram_set("wan0_modem_pid", nvram_safe_get("wan_modem_pid"));
+		nvram_set("wan0_modem_pdata", nvram_safe_get("wan_modem_pdata"));
+		nvram_set("wan0_modem_pui", nvram_safe_get("wan_modem_pui"));
+		nvram_set("wan0_modem_mtu", nvram_safe_get("wan_modem_mtu"));
+		nvram_set("wan0_modem_mru", nvram_safe_get("wan_modem_mru"));
+		nvram_set("wan0_modem_at_connect", nvram_safe_get("wan_modem_at_connect"));
+		nvram_set("wan0_modem_at_disconnect", nvram_safe_get("wan_modem_at_disconnect"));
 	}
 #endif
 
