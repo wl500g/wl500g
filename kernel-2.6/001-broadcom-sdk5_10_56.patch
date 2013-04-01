@@ -508,15 +508,6 @@ diff -urBwNp linux-2.6.22/arch/mips/Makefile linux-2.6/arch/mips/Makefile
  
  cflags-y += -ffreestanding
  
-@@ -147,6 +153,8 @@ MODFLAGS	+= -msb1-pass1-workarounds
- endif
- endif
- 
-+cflags-y += $(call check_gcc, -m4710a0kern, )
-+
- #
- # Firmware support
- #
 @@ -592,6 +600,15 @@ load-$(CONFIG_TOSHIBA_RBTX4938) += 0xfff
  cflags-y			+= -Iinclude/asm-mips/mach-generic
  drivers-$(CONFIG_PCI)		+= arch/mips/pci/
