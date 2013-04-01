@@ -8,6 +8,7 @@ USB: CDC NCM host driver backport from 3.6.11
  56a666dcfcb46e998a1bd969fb201bf51de3c412 net: cdc_ncm: use IAD provided by the USB core
  96316c595697ae9a2a90badd6f00035f2f384773 net: cdc_ncm: add another Huawei vendor specific device
  1e8bbe6cd02fc300c88bd48244ce61ad9c7d1776 net: cdc_ncm, cdc_mbim: allow user to prefer NCM for backwards compatibility
+ 8f0923c17d34ac838b7f57709f87fe33f76ee219 cdc_ncm: return -ENOMEM if kzalloc fails
 
 ---
  drivers/net/usb/Kconfig     |   18 
@@ -23,7 +24,7 @@ diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -0,0 +1,1317 @@
+@@ -0,0 +1,1323 @@
 +/*
 + * cdc_ncm.c
 + *
@@ -414,8 +415,8 @@ new file mode 100644
 +	u8 iface_no;
 +
 +	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-+	if (ctx == NULL)
-+		return -ENODEV;
++	if (!ctx)
++		return -ENOMEM;
 +
 +	hrtimer_init(&ctx->tx_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 +	ctx->tx_timer.function = &cdc_ncm_tx_timer_cb;
@@ -1164,6 +1165,12 @@ new file mode 100644
 +			netif_carrier_off(dev->net);
 +			ctx->tx_speed = ctx->rx_speed = 0;
 +		}
++		break;
++
++	case USB_CDC_NOTIFY_RESPONSE_AVAILABLE:
++		dev_info(&dev->udev->dev, "NCM: response Value=%d, Index=%d Len=%d payloadLen=%d\n",
++			le16_to_cpu(event->wValue), le16_to_cpu(event->wIndex),
++			le16_to_cpu(event->wLength), urb->actual_length - sizeof(*event));
 +		break;
 +
 +	case USB_CDC_NOTIFY_SPEED_CHANGE:
