@@ -1204,7 +1204,7 @@ libpcap/Makefile: libpcap/Makefile.in
 	cd libpcap && \
 	CFLAGS="-g -Os -ffunction-sections -fdata-sections -isystem$(LINUXDIR)/include $(EXTRACFLAGS)" \
 	$(CONFIGURE) --disable-shared --enable-static --disable-yydebug \
-	    --with-pcap=linux --without-septel --without-dag \
+	    --with-pcap=linux --without-septel --without-dag --without-libnl \
 	    $(if $(CONFIG_IPV6),--enable-ipv6,) ac_cv_linux_vers=2
 
 libpcap: libpcap/Makefile
@@ -1219,7 +1219,9 @@ tcpdump/Makefile: tcpdump/Makefile.in
 	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --without-crypto \
 	    $(if $(CONFIG_IPV6),--enable-ipv6,) \
-	    ac_cv_linux_vers=2 td_cv_buggygetaddrinfo=no
+	    ac_cv_linux_vers=2 td_cv_buggygetaddrinfo=no \
+	    ac_cv_header_rpc_rpcent_h=no ac_cv_lib_rpc_main=no \
+	    ac_cv_path_PCAP_CONFIG=""
 
 tcpdump: libpcap tcpdump/Makefile
 	$(MAKE) -C $@ TCPDUMP_MINI=1
