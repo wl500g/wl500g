@@ -5,9 +5,9 @@
  	int	promisc;
  	int	rfmon;
 +	int proto;	/* protocol for packet socket (linux) */
+ 	int	tstamp_type;
  };
  
- /*
 --- a/pcap-linux.c
 +++ b/pcap-linux.c
 @@ -273,7 +273,7 @@ static int	iface_get_id(int fd, const ch
@@ -96,11 +96,12 @@
  			 "socket: %s", pcap_strerror(errno));
 --- a/pcap.c
 +++ b/pcap.c
-@@ -152,6 +152,8 @@ pcap_create_common(const char *source, c
+@@ -152,7 +152,9 @@ pcap_create_common(const char *source, c
  	pcap_set_snaplen(p, 65535);	/* max packet size */
  	p->opt.promisc = 0;
  	p->opt.buffer_size = 0;
 +	p->opt.proto = -1;
+ 	p->opt.tstamp_type = -1;	/* default to not setting time stamp type */
 +
  	return (p);
  }
@@ -132,10 +133,10 @@
  /*
   * Compatibility for systems that have a bpf.h that
 @@ -263,6 +264,7 @@ int	pcap_can_set_rfmon(pcap_t *);
- int	pcap_set_rfmon(pcap_t *, int);
  int	pcap_set_timeout(pcap_t *, int);
+ int	pcap_set_tstamp_type(pcap_t *, int);
  int	pcap_set_buffer_size(pcap_t *, int);
 +int	pcap_set_protocol(pcap_t *, unsigned short);
  int	pcap_activate(pcap_t *);
  
- pcap_t	*pcap_open_live(const char *, int, int, int, char *);
+ int	pcap_list_tstamp_types(pcap_t *, int **);
