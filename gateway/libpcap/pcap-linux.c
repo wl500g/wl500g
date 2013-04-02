@@ -359,7 +359,7 @@ static int	iface_get_id(int fd, const char *device, char *ebuf);
 static int	iface_get_mtu(int fd, const char *device, char *ebuf);
 static int 	iface_get_arptype(int fd, const char *device, char *ebuf);
 #ifdef HAVE_PF_PACKET_SOCKETS
-static int 	iface_bind(int fd, int ifindex, char *ebuf);
+static int 	iface_bind(int fd, int ifindex, char *ebuf, unsigned short proto);
 #ifdef IW_MODE_MONITOR
 static int	has_wext(int sock_fd, const char *device, char *ebuf);
 #endif /* IW_MODE_MONITOR */
@@ -969,7 +969,7 @@ pcap_can_set_rfmon_linux(pcap_t *handle)
 	 * (We assume that if we have Wireless Extensions support
 	 * we also have PF_PACKET support.)
 	 */
-	sock_fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	sock_fd = socket(PF_PACKET, SOCK_RAW, p->opt.proto);
 	if (sock_fd == -1) {
 		(void)snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
 		    "socket: %s", pcap_strerror(errno));
@@ -1254,6 +1254,9 @@ pcap_activate_linux(pcap_t *handle)
 	handle->cleanup_op = pcap_cleanup_linux;
 	handle->read_op = pcap_read_linux;
 	handle->stats_op = pcap_stats_linux;
+
+	if (handle->opt.proto < 0)
+		handle->opt.proto = (int) htons(ETH_P_ALL);
 
 	/*
 	 * The "any" device is a special device which causes us not
@@ -2881,8 +2884,8 @@ activate_new(pcap_t *handle)
 	 * try a SOCK_RAW socket for the raw interface.
 	 */
 	sock_fd = is_any_device ?
-		socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL)) :
-		socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+		socket(PF_PACKET, SOCK_DGRAM, handle->opt.proto) :
+		socket(PF_PACKET, SOCK_RAW, handle->opt.proto);
 
 	if (sock_fd == -1) {
 		if (errno == EINVAL || errno == EAFNOSUPPORT) {
@@ -2999,7 +3002,7 @@ activate_new(pcap_t *handle)
 				return PCAP_ERROR;
 			}
 			sock_fd = socket(PF_PACKET, SOCK_DGRAM,
-			    htons(ETH_P_ALL));
+			    handle->opt.proto);
 			if (sock_fd == -1) {
 				snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
 				    "socket: %s", pcap_strerror(errno));
@@ -3062,7 +3065,7 @@ activate_new(pcap_t *handle)
 		}
 
 		if ((err = iface_bind(sock_fd, handle->md.ifindex,
-		    handle->errbuf)) != 1) {
+		    handle->errbuf, handle->opt.proto)) != 1) {
 		    	close(sock_fd);
 			if (err < 0)
 				return err;
@@ -4133,7 +4136,7 @@ iface_get_id(int fd, const char *device, char *ebuf)
  *  or a PCAP_ERROR_ value on a hard error.
  */
 static int
-iface_bind(int fd, int ifindex, char *ebuf)
+iface_bind(int fd, int ifindex, char *ebuf, unsigned short proto)
 {
 	struct sockaddr_ll	sll;
 	int			err;
@@ -4142,7 +4145,7 @@ iface_bind(int fd, int ifindex, char *ebuf)
 	memset(&sll, 0, sizeof(sll));
 	sll.sll_family		= AF_PACKET;
 	sll.sll_ifindex		= ifindex;
-	sll.sll_protocol	= htons(ETH_P_ALL);
+	sll.sll_protocol	= proto;
 
 	if (bind(fd, (struct sockaddr *) &sll, sizeof(sll)) == -1) {
 		if (errno == ENETDOWN) {
@@ -5024,7 +5027,7 @@ activate_old(pcap_t *handle)
 
 	/* Open the socket */
 
-	handle->fd = socket(PF_INET, SOCK_PACKET, htons(ETH_P_ALL));
+	handle->fd = socket(PF_INET, SOCK_PACKET, handle->opt.proto);
 	if (handle->fd == -1) {
 		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
 			 "socket: %s", pcap_strerror(errno));

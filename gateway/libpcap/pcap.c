@@ -309,7 +309,9 @@ pcap_create_common(const char *source, char *ebuf)
 	pcap_set_snaplen(p, 65535);	/* max packet size */
 	p->opt.promisc = 0;
 	p->opt.buffer_size = 0;
+	p->opt.proto = -1;
 	p->opt.tstamp_type = -1;	/* default to not setting time stamp type */
+
 	return (p);
 }
 
@@ -402,6 +404,15 @@ pcap_set_buffer_size(pcap_t *p, int buffer_size)
 		return (PCAP_ERROR_ACTIVATED);
 	p->opt.buffer_size = buffer_size;
 	return (0);
+}
+
+int
+pcap_set_protocol(pcap_t *p, unsigned short proto)
+{
+	if (pcap_check_activated(p))
+		return PCAP_ERROR_ACTIVATED;
+	p->opt.proto = proto;
+	return 0;
 }
 
 int

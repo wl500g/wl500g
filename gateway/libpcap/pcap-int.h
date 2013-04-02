@@ -209,6 +209,7 @@ struct pcap_opt {
 	char	*source;
 	int	promisc;
 	int	rfmon;
+	int proto;	/* protocol for packet socket (linux) */
 	int	tstamp_type;
 };
 
