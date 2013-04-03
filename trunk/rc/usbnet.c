@@ -375,8 +375,8 @@ void usbnet_connect(const char *prefix, int unit, const char *ifname)
 #ifdef __CONFIG_MODEM__
 	char tmp[100], *subtype, *ptr;
 
-	// don`t connect from init-proc
-//	if (getpid() == 1) return;
+	// don`t connect from boot. Allow connection from rc_service.
+	if (getpid() == 1 && nvram_get("rc_service") == NULL) return;
 
 	if (nvram_match(strcat_r(prefix, "modem_autodetect", tmp), "1")) {
 		int vid, pid;
@@ -405,6 +405,9 @@ void usbnet_connect(const char *prefix, int unit, const char *ifname)
 	}
 
 	if ((subtype = nvram_safe_get(strcat_r(prefix, "usbnet_subtype", tmp)))) {
+
+		if ( getpid() != 1 ) sleep(5); // awaiting device from hotplug
+
 		dprintf("modem subtype: %s\n", subtype);
 		if (!strcmp(subtype, "ncm") || !strcmp(subtype, "mbim") ||
 		    !strcmp(subtype, "user"))
