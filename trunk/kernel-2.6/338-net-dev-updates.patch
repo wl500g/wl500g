@@ -1,11 +1,13 @@
  9d5010db7ecfd6ec00119d3b185c4c0cd3265167 [NET]: Add a might_sleep() to dev_close().
+ 9b7726523523472ead660b1d45df29dcaf6cc5c0 [NET]: Remove double dev->flags checking when calling dev_close()
  7ce1b0edcb11f90f6fc5e0ceecff467f329889a0 [NET]: Call uninit if necessary in register_netdevice
+ d8b2a4d21e0b37b9669b202867bfef19f68f786a [NET]: Fix race in dev_close(). (Bug 9750)
  283f2fe87e980d8af5ad8aa63751e7e3258ee05a net: speedup netdev_set_master()
  24f8b2385e03a4f4c8dac513d03b5eaa475822b9 net: increase receive packet quantum
 
 ---
- net/core/dev.c |   28 +++++++++++++++++++---------
- 1 file changed, 19 insertions(+), 9 deletions(-)
+ net/core/dev.c |   35 ++++++++++++++++++++++-------------
+ 1 file changed, 22 insertions(+), 13 deletions(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
 --- a/net/core/dev.c
@@ -19,6 +21,24 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  	if (!(dev->flags & IFF_UP))
  		return 0;
  
+@@ -991,8 +991,6 @@ int dev_close(struct net_device *dev)
+ 	 */
+ 	raw_notifier_call_chain(&netdev_chain, NETDEV_GOING_DOWN, dev);
+ 
+-	dev_deactivate(dev);
+-
+ 	clear_bit(__LINK_STATE_START, &dev->state);
+ 
+ 	/* Synchronize to scheduled poll. We cannot touch poll list,
+@@ -1003,6 +1001,8 @@ int dev_close(struct net_device *dev)
+ 		msleep(1);
+ 	}
+ 
++	dev_deactivate(dev);
++
+ 	/*
+ 	 *	Call the device specific close. This cannot fail.
+ 	 *	Only if device is UP
 @@ -2013,7 +2013,7 @@ EXPORT_SYMBOL(__napi_schedule);
  static void net_rx_action(struct softirq_action *h)
  {
@@ -95,4 +115,14 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  }
  
  /**
+@@ -3523,8 +3523,7 @@ void unregister_netdevice(struct net_device *dev)
+ 	BUG_ON(dev->reg_state != NETREG_REGISTERED);
+ 
+ 	/* If device is running, close it first. */
+-	if (dev->flags & IFF_UP)
+-		dev_close(dev);
++	dev_close(dev);
+ 
+ 	/* And unlink it from device chain. */
+ 	write_lock_bh(&dev_base_lock);
 -- 
