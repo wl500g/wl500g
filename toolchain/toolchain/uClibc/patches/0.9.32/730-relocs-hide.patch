@@ -5,6 +5,7 @@ hide relocations
  5a2b42a48342ee59c9ee48d1632f040088609589 unistd: hide relocations
  dcf56488daa07aea35755532f0461d1921dcd416 resolv: hide relocations
  a716f8ad2c4ba124073ef517f0b4d2f49d3b4bb4 getpwnam: hide relocation
+ 2be3edacc1f7279ac57b98e49ba3a189ae40b1fd stdlib: avoid relocation
 
 ---
 
@@ -238,5 +239,50 @@ diff --git a/libc/inet/resolv.c b/libc/inet/resolv.c
  #endif /* L_res_comp */
  
  
---
-cgit v0.9.0.1-2-gef13
+diff --git a/include/malloc.h b/include/malloc.h
+--- a/include/malloc.h
++++ b/include/malloc.h
+@@ -123,6 +123,7 @@ extern void free __MALLOC_P ((__malloc_ptr_t __ptr));
+ 
+ /* Allocate SIZE bytes allocated to ALIGNMENT bytes.  */
+ extern __malloc_ptr_t memalign __MALLOC_P ((size_t __alignment, size_t __size));
++libc_hidden_proto(memalign)
+ 
+ /* Allocate SIZE bytes on a page boundary.  */
+ extern __malloc_ptr_t valloc __MALLOC_P ((size_t __size)) __attribute_malloc__;
+diff --git a/libc/stdlib/malloc-simple/alloc.c b/libc/stdlib/malloc-simple/alloc.c
+--- a/libc/stdlib/malloc-simple/alloc.c
++++ b/libc/stdlib/malloc-simple/alloc.c
+@@ -182,4 +182,5 @@ DONE:
+ 
+ 	return result;
+ }
++libc_hidden_def(memalign)
+ #endif
+diff --git a/libc/stdlib/malloc-standard/memalign.c b/libc/stdlib/malloc-standard/memalign.c
+--- a/libc/stdlib/malloc-standard/memalign.c
++++ b/libc/stdlib/malloc-standard/memalign.c
+@@ -127,4 +127,4 @@ void* memalign(size_t alignment, size_t bytes)
+     __MALLOC_UNLOCK;
+ 	return retval;
+ }
+-
++libc_hidden_def(memalign)
+diff --git a/libc/stdlib/malloc/memalign.c b/libc/stdlib/malloc/memalign.c
+--- a/libc/stdlib/malloc/memalign.c
++++ b/libc/stdlib/malloc/memalign.c
+@@ -29,6 +29,8 @@
+ */
+ 
+ void *memalign (size_t alignment, size_t size);
++/* XXX shadow outer malloc.h */
++libc_hidden_proto(memalign)
+ void *
+ memalign (size_t alignment, size_t size)
+ {
+@@ -91,3 +93,4 @@ memalign (size_t alignment, size_t size)
+ 
+   return MALLOC_SETUP (base, end_addr - (unsigned long)base);
+ }
++libc_hidden_def(memalign)
+-- 
