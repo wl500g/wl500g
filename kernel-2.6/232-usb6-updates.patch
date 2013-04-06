@@ -13,16 +13,16 @@ USB: Updates from upstream
  2656a9abcf1ec8dd5fee6a75d6997a0f2fa0094e USB: EHCI: bugfix: urb->hcpriv should not be NULL
 
 ---
- Documentation/usb/error-codes.txt |    2 ++
- drivers/usb/core/buffer.c         |    2 +-
- drivers/usb/core/hub.c            |    6 ++++--
- drivers/usb/core/message.c        |    3 ++-
- drivers/usb/core/urb.c            |    7 ++++++-
- drivers/usb/host/ehci-q.c         |   14 ++++++--------
- drivers/usb/host/ehci-sched.c     |   23 +++++++++++++----------
- drivers/usb/host/ehci.h           |    8 +++++---
- include/linux/usb.h               |   37 +++++++++++++++++++++++++++++++++++++
- 9 files changed, 76 insertions(+), 26 deletions(-)
+ Documentation/usb/error-codes.txt |    2 +
+ drivers/usb/core/buffer.c         |    2 -
+ drivers/usb/core/hub.c            |    6 ++--
+ drivers/usb/core/message.c        |    3 +-
+ drivers/usb/core/urb.c            |    7 ++++-
+ drivers/usb/host/ehci-q.c         |   14 ++++------
+ drivers/usb/host/ehci-sched.c     |   23 +++++++++-------
+ drivers/usb/host/ehci.h           |    8 +++--
+ include/linux/usb.h               |   53 ++++++++++++++++++++++++++++++++++++++
+ 9 files changed, 92 insertions(+), 26 deletions(-)
 
 diff --git a/Documentation/usb/error-codes.txt b/Documentation/usb/error-codes.txt
 --- a/Documentation/usb/error-codes.txt
@@ -287,6 +287,29 @@ diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
 diff --git a/include/linux/usb.h b/include/linux/usb.h
 --- a/include/linux/usb.h
 +++ b/include/linux/usb.h
+@@ -786,6 +786,22 @@
+ 	.bcdDevice_lo = (lo), .bcdDevice_hi = (hi)
+ 
+ /**
++ * USB_DEVICE_INTERFACE_CLASS - describe a usb device with a specific interface class
++ * @vend: the 16 bit USB Vendor ID
++ * @prod: the 16 bit USB Product ID
++ * @cl: bInterfaceClass value
++ *
++ * This macro is used to create a struct usb_device_id that matches a
++ * specific interface class of devices.
++ */
++#define USB_DEVICE_INTERFACE_CLASS(vend, prod, cl) \
++	.match_flags = USB_DEVICE_ID_MATCH_DEVICE | \
++		       USB_DEVICE_ID_MATCH_INT_CLASS, \
++	.idVendor = (vend), \
++	.idProduct = (prod), \
++	.bInterfaceClass = (cl)
++
++/**
+  * USB_DEVICE_INTERFACE_PROTOCOL - macro used to describe a usb
+  *		device with a specific interface protocol
+  * @vend: the 16 bit USB Vendor ID
 @@ -861,6 +861,27 @@ static inline int usb_make_path(struct usb_device *dev, char *buf, size_t size)
  	.bInterfaceClass = (cl), \
  	.bInterfaceSubClass = (sc), .bInterfaceProtocol = (pr)
