@@ -1,5 +1,7 @@
 Add workaround for IPV6_RECVPKTINFO in recv_from_to()
 
+ Also return ipi6_ifindex in sin6_scope_id field
+
 diff -BurpN busybox-1.17.1/libbb/udp_io.c busybox/libbb/udp_io.c
 --- busybox-1.17.1/libbb/udp_io.c	2010-07-06 02:25:54.000000000 +0000
 +++ busybox/libbb/udp_io.c	2010-07-25 19:18:28.000000000 +0000
@@ -18,7 +20,7 @@ diff -BurpN busybox-1.17.1/libbb/udp_io.c busybox/libbb/udp_io.c
  #endif
  }
  
-@@ -162,8 +162,11 @@ recv_from_to(int fd, void *buf, size_t l
+@@ -162,14 +162,19 @@ recv_from_to(int fd, void *buf, size_t l
  		}
  # if ENABLE_FEATURE_IPV6 && defined(IPV6_PKTINFO)
  		if (cmsgptr->cmsg_level == IPPROTO_IPV6
@@ -30,8 +32,16 @@ diff -BurpN busybox-1.17.1/libbb/udp_io.c busybox/libbb/udp_io.c
 +#endif
 +		)) {
  			const int IPI6_ADDR_OFF = offsetof(struct in6_pktinfo, ipi6_addr);
++			const int IPI6_IFINDEX_OFF = offsetof(struct in6_pktinfo, ipi6_ifindex);
  			to->sa_family = AF_INET6;
  			/*#  define pktinfo(cmsgptr) ( (struct in6_pktinfo*)(CMSG_DATA(cmsgptr)) )*/
+ 			/*to6->sin6_addr = pktinfo(cmsgptr)->ipi6_addr; - may be unaligned */
+ 			memcpy(&to6->sin6_addr, (char*)(CMSG_DATA(cmsgptr)) + IPI6_ADDR_OFF, sizeof(to6->sin6_addr));
+ 			/*to6->sin6_port = 123; */
++			move_from_unaligned_int(to6->sin6_scope_id, (char*)(CMSG_DATA(cmsgptr)) + IPI6_IFINDEX_OFF);
+ 			break;
+ 		}
+ # endif
 --- b/networking/traceroute.c
 +++ a/networking/traceroute.c
 @@ -891,15 +891,7 @@ common_traceroute_main(int op, char **ar
