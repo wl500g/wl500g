@@ -145,8 +145,8 @@ diff -urNBp busybox/networking/udhcp/common6.c busybox.full/networking/udhcp/com
 +	TAILQ_INIT(&optinfo->prefix_list);
 +#endif
  
- 	optinfo->authproto = DHCP6_AUTHPROTO_UNDEF;
- 	optinfo->authalgorithm = DHCP6_AUTHALG_UNDEF;
+ 	optinfo->authproto = -1;
+ 	optinfo->authalgorithm = -1;
 @@ -749,6 +840,9 @@ void dhcp6_clear_options(struct dhcp6_op
  	dhcp6_clear_list(&optinfo->reqopt_list);
  	dhcp6_clear_list(&optinfo->stcode_list);
@@ -182,7 +182,7 @@ diff -urNBp busybox/networking/udhcp/common6.c busybox.full/networking/udhcp/com
  
 -#if ENABLE_FEATURE_DHCP6_AUTH
 +#if ENABLE_FEATURE_DHCP6_AUTH || ENABLE_DHCP6RELAY
- 		case DH6OPT_AUTH:
+ 		case D6_OPT_AUTH:
  			/*
  			 * Any DHCP message that includes more than one
 @@ -1028,7 +1126,7 @@ int dhcp6_get_options(struct dhcp6opt *p
@@ -192,12 +192,12 @@ diff -urNBp busybox/networking/udhcp/common6.c busybox.full/networking/udhcp/com
 -#endif /* ENABLE_FEATURE_DHCP6_AUTH */
 +#endif /* ENABLE_FEATURE_DHCP6_AUTH || ENABLE_DHCP6RELAY */
  
- 		case DH6OPT_RAPID_COMMIT:
+ 		case D6_OPT_RAPID_COMMIT:
  			if (optlen != 0)
 @@ -1047,7 +1145,7 @@ int dhcp6_get_options(struct dhcp6opt *p
- 		case DH6OPT_NIS_DOMAIN:
- 		case DH6OPT_NISP_DOMAIN:
- 		case DH6OPT_BCMCS_SERVER_D:
+ 		case D6_OPT_NIS_DOMAIN:
+ 		case D6_OPT_NISP_DOMAIN:
+ 		case D6_OPT_BCMCS_SERVER_D:
 -#if ENABLE_FEATURE_UDHCP_RFC3397
 +#if ENABLE_FEATURE_UDHCP_RFC3397 || ENABLE_DHCP6RELAY
  			if (dhcp6_get_domain(optlen, cp, opt, &optinfo->ad_list) == -1)
@@ -208,56 +208,56 @@ diff -urNBp busybox/networking/udhcp/common6.c busybox.full/networking/udhcp/com
  	}
  
 +#if /* ENABLE_DHCP6S ||*/ ENABLE_DHCP6RELAY
-+	if (dhcp6_set_domain(DH6OPT_SIP_SERVER_D, &optinfo->ad_list,
++	if (dhcp6_set_domain(D6_OPT_SIP_SERVER_D, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_addr(DH6OPT_SIP_SERVER_A, &optinfo->ad_list,
++	if (dhcp6_set_addr(D6_OPT_SIP_SERVER_A, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_addr(DH6OPT_DNS, &optinfo->ad_list,
++	if (dhcp6_set_addr(D6_OPT_DNS, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_domain(DH6OPT_DNSNAME, &optinfo->ad_list,
++	if (dhcp6_set_domain(D6_OPT_DNSNAME, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_addr(DH6OPT_NIS_SERVERS, &optinfo->ad_list,
++	if (dhcp6_set_addr(D6_OPT_NIS_SERVERS, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_addr(DH6OPT_NISP_SERVERS, &optinfo->ad_list,
++	if (dhcp6_set_addr(D6_OPT_NISP_SERVERS, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_domain(DH6OPT_NIS_DOMAIN, &optinfo->ad_list,
++	if (dhcp6_set_domain(D6_OPT_NIS_DOMAIN, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_domain(DH6OPT_NISP_DOMAIN, &optinfo->ad_list,
++	if (dhcp6_set_domain(D6_OPT_NISP_DOMAIN, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_addr(DH6OPT_SNTP_SERVERS, &optinfo->ad_list,
++	if (dhcp6_set_addr(D6_OPT_SNTP_SERVERS, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_addr(DH6OPT_NTP_SERVER, &optinfo->ad_list,
++	if (dhcp6_set_addr(D6_OPT_NTP_SERVER, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_domain(DH6OPT_BCMCS_SERVER_D, &optinfo->ad_list,
++	if (dhcp6_set_domain(D6_OPT_BCMCS_SERVER_D, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +
-+	if (dhcp6_set_addr(DH6OPT_BCMCS_SERVER_A, &optinfo->ad_list,
++	if (dhcp6_set_addr(D6_OPT_BCMCS_SERVER_A, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
 +#endif /* ENABLE_DHCP6S || ENABLE_DHCP6RELAY */
 +
- 	if (dhcp6_set_iaoptions(DH6OPT_IA_NA, &optinfo->ia_list, &p, optep, &len) < 0)
+ 	if (dhcp6_set_iaoptions(D6_OPT_IA_NA, &optinfo->ia_list, &p, optep, &len) < 0)
  		goto fail;
  
 @@ -1569,12 +1717,12 @@ int dhcp6_set_options(int type, struct d
@@ -266,7 +266,7 @@ diff -urNBp busybox/networking/udhcp/common6.c busybox.full/networking/udhcp/com
  
 -#if ENABLE_FEATURE_DHCP6_AUTH
 +#if ENABLE_FEATURE_DHCP6_AUTH || ENABLE_DHCP6RELAY
- 	if (optinfo->authproto != DHCP6_AUTHPROTO_UNDEF) {
+ 	if (optinfo->authproto != -1) {
  		if (copyout_auth(optinfo, &p, optbp, optep, &len) != 0)
  			goto fail;
  	}
@@ -275,7 +275,7 @@ diff -urNBp busybox/networking/udhcp/common6.c busybox.full/networking/udhcp/com
  
  	return len;
  
-@@ -1751,7 +1899,7 @@ ssize_t FAST_FUNC recv_from6(int fd, voi
+@@ -1751,7 +1899,7 @@
  	return len;
  }
  
@@ -500,7 +500,7 @@ diff -urNBp busybox/networking/udhcp/dhcp6.h busybox.full/networking/udhcp/dhcp6
 diff -urNBp busybox/networking/udhcp/dhcp6relay.c busybox.full/networking/udhcp/dhcp6relay.c
 --- busybox/networking/udhcp/dhcp6relay.c	1970-01-01 03:00:00.000000000 +0300
 +++ busybox.full/networking/udhcp/dhcp6relay.c	2011-06-14 20:37:33.000000000 +0400
-@@ -0,0 +1,837 @@
+@@ -0,0 +1,829 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * DHCPv6 relay
@@ -720,16 +720,7 @@ diff -urNBp busybox/networking/udhcp/dhcp6relay.c busybox.full/networking/udhcp/
 +	/*
 +	 * Setup a socket to communicate with clients.
 +	 */
-+	memset(&hints, 0, sizeof(hints));
-+	hints.ai_family = PF_INET6;
-+	hints.ai_socktype = SOCK_DGRAM;
-+	hints.ai_protocol = IPPROTO_UDP;
-+	hints.ai_flags = AI_PASSIVE;
-+	error = getaddrinfo(NULL, xstr(DH6PORT_UPSTREAM), &hints, &res);
-+	if (error) {
-+		bb_error_msg_and_die("getaddrinfo: %s", gai_strerror(error));
-+	}
-+	csock = sock6_init(res);
++	csock = sock6_init(NULL, xstr(DH6PORT_UPSTREAM));
 +
 +	maddr = xhost_and_af2sockaddr(DH6ADDR_ALLAGENT, 0, AF_INET6);
 +	memset(&mreq6, 0, sizeof(mreq6));
@@ -774,7 +765,7 @@ diff -urNBp busybox/networking/udhcp/dhcp6relay.c busybox.full/networking/udhcp/
 +		bb_error_msg_and_die("getaddrinfo: %s", gai_strerror(error));
 +	}
 +	memcpy(&G.sa6_client, res->ai_addr, sizeof(G.sa6_client));
-+	ssock = sock6_init(res);
++	ssock = sock6_init(G.boundaddr, xstr(DH6PORT_DOWNSTREAM));
 +
 +	bb_signals(0 + (1 << SIGTERM), record_signo);
 +}
@@ -815,19 +806,20 @@ diff -urNBp busybox/networking/udhcp/dhcp6relay.c busybox.full/networking/udhcp/
 +static void relay6_recv(int s, int fromclient)
 +{
 +	ssize_t len;
-+	struct sockaddr_in6 from;
++	struct sockaddr_in6 from, to;
 +	unsigned int ifid;
 +	struct dhcp6 *dh6 = (struct dhcp6 *)G.rdatabuf;
 +	struct ifid_list *ifd;
 +	char ifname[IF_NAMESIZE];
 +	char *a;
 +
-+	if ((len = recv_from6(s, G.rdatabuf, sizeof(G.rdatabuf), &from, &ifid)) < 0) {
++	if ((len = recv_from_to(s, G.rdatabuf, sizeof(G.rdatabuf),
++		&from, &to, sizeof(struct sockaddr_in6))) < sizeof(struct dhcp6)) {
 +		return;
 +	}
 +
 +	TAILQ_FOREACH(ifd, &G.ifids_list, ilink) {
-+		if (ifid == ifd->ifid)
++		if (to.sin6_scope_id == ifd->ifid)
 +			break;
 +	}
 +	/*
@@ -835,10 +827,10 @@ diff -urNBp busybox/networking/udhcp/dhcp6relay.c busybox.full/networking/udhcp/
 +	 * interface, when a DHCPv6 server is running on that interface.
 +	 * This check prevents such reception.
 +	 */
-+	if (ifd == NULL && ifid != G.relayifid)
++	if (ifd == NULL && to.sin6_scope_id != G.relayifid)
 +		return;
-+	if (if_indextoname(ifid, ifname) == NULL) {
-+		bb_perror_msg("if_indextoname(%u)", ifid);
++	if (if_indextoname(to.sin6_scope_id, ifname) == NULL) {
++		bb_perror_msg("if_indextoname(%u)", to.sin6_scope_id);
 +		return;
 +	}
 +
