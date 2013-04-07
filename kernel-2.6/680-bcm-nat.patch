@@ -76,7 +76,7 @@
  	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
  
  	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,
---- a/net/ipv4/netfilter/bcm_nat.c	1970-01-01 05:00:00.000000000 +0500
+--- a/net/ipv4/netfilter/bcm_nat.c
 +++ b/net/ipv4/netfilter/bcm_nat.c
 @@ -0,0 +1,212 @@
 +/*
