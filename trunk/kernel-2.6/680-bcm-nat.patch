@@ -1,5 +1,5 @@
---- a/include/linux/netfilter.h	2011-07-12 08:14:14.988095000 +0000
-+++ b/include/linux/netfilter.h	2011-03-14 12:49:47.000000000 +0000
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
 @@ -21,7 +21,12 @@
  #define NF_STOLEN 2
  #define NF_QUEUE 3
@@ -13,8 +13,8 @@
  #define NF_MAX_VERDICT NF_STOP
  
  /* we overload the higher bits for encoding auxiliary data such as the queue
---- a/include/linux/sysctl.h	2011-07-12 08:14:14.998095000 +0000
-+++ b/include/linux/sysctl.h	2011-03-14 12:49:09.000000000 +0000
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
 @@ -341,6 +341,7 @@ enum
  	NET_NF_CONNTRACK_FRAG6_LOW_THRESH=30,
  	NET_NF_CONNTRACK_FRAG6_HIGH_THRESH=31,
@@ -25,19 +25,24 @@
  /* /proc/sys/net/ipv4 */
 --- a/include/net/netfilter/nf_conntrack.h
 +++ b/include/net/netfilter/nf_conntrack.h
-@@ -289,6 +289,10 @@ extern int nf_conntrack_checksum;
+@@ -296,6 +296,15 @@ extern int nf_conntrack_checksum;
  extern atomic_t nf_conntrack_count;
  extern int nf_conntrack_max;
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++#define BCM_FASTNAT_DENY 1
++#define BCM_FASTNAT_HTTP 2
 +extern int nf_conntrack_fastnat;
++#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
++extern atomic_t nf_conntrack_fastnat_http;
++#endif
 +#endif
 +
  DECLARE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
  #define NF_CT_STAT_INC(count) (__get_cpu_var(nf_conntrack_stat).count++)
  #define NF_CT_STAT_INC_ATOMIC(count)			\
---- a/include/net/netfilter/nf_nat.h	2011-07-12 08:14:15.018095000 +0000
-+++ b/include/net/netfilter/nf_nat.h	2011-03-14 14:07:25.000000000 +0000
+--- a/include/net/netfilter/nf_nat.h
++++ b/include/net/netfilter/nf_nat.h
 @@ -56,6 +56,9 @@ struct nf_nat_multi_range_compat
  struct nf_nat_info
  {
@@ -48,8 +53,8 @@
  	struct nf_nat_seq seq[IP_CT_DIR_MAX];
  };
  
---- a/net/ipv4/ip_input.c	2011-07-11 17:06:59.598095000 +0000
-+++ b/net/ipv4/ip_input.c	2011-07-11 19:47:06.438095000 +0000
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
 @@ -146,6 +146,10 @@
  #include <linux/mroute.h>
  #include <linux/netlink.h>
@@ -61,7 +66,7 @@
  /*
   *	SNMP management statistics
   */
-@@ -437,6 +441,9 @@ int ip_rcv(struct sk_buff *skb, struct n
+@@ -428,6 +432,9 @@ int ip_rcv(struct sk_buff *skb, struct n
  	}
  
  	/* Remove any debris in the socket control block */
@@ -71,9 +76,9 @@
  	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
  
  	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,
---- a/net/ipv4/netfilter/bcm_nat.c	1970-01-01 00:00:00.000000000 +0000
-+++ b/net/ipv4/netfilter/bcm_nat.c	2012-06-10 03:15:27.662879000 -0000
-@@ -0,0 +1,204 @@
+--- a/net/ipv4/netfilter/bcm_nat.c	1970-01-01 05:00:00.000000000 +0500
++++ b/net/ipv4/netfilter/bcm_nat.c
+@@ -0,0 +1,212 @@
 +/*
 + * Packet matching code.
 + *
@@ -112,6 +117,7 @@
 +
 +extern bcmNatHitHook bcm_nat_hit_hook;
 +extern bcmNatBindHook bcm_nat_bind_hook;
++extern int nf_conntrack_fastnat;
 +
 +static inline int
 +bcm_nat_hit_hook_func(bcmNatHitHook hook_func) {
@@ -180,12 +186,16 @@
 +}
 +
 +static inline int
-+ip_skb_dst_mtu(struct sk_buff *skb)
++bcm_skb_dst_mtu(struct sk_buff *skb)
 +{
++#ifdef IP_PMTUDISC_PROBE
 +	struct inet_sock *inet = skb->sk ? inet_sk(skb->sk) : NULL;
 +
 +	return (inet && inet->pmtudisc == IP_PMTUDISC_PROBE) ?
 +	       skb->dst->dev->mtu : dst_mtu(skb->dst);
++#else
++	return dst_mtu(skb->dst);
++#endif
 +}
 +
 +static int
@@ -204,7 +214,7 @@
 +		skb->dev = skb->dst->dev;
 +	}
 +
-+	if (skb->len > ip_skb_dst_mtu(skb) && !skb_is_gso(skb))
++	if (skb->len > bcm_skb_dst_mtu(skb) && !skb_is_gso(skb))
 +		return ip_fragment(skb, bcm_fast_path_output);
 +	else
 +		return bcm_fast_path_output(skb);
@@ -265,12 +275,15 @@
 +{
 +	bcm_nat_hit_hook_func(bcm_fast_path);
 +	bcm_nat_bind_hook_func(bcm_do_bindings);
++	if (!nf_conntrack_fastnat)
++		nf_conntrack_fastnat = 1;
 +	printk("BCM fast NAT: INIT\n");
 +	return 0;
 +}
 +
 +static void __exit bcm_nat_fini(void)
 +{
++	nf_conntrack_fastnat = 0;
 +	bcm_nat_hit_hook_func(NULL);
 +	bcm_nat_bind_hook_func(NULL);
 +}
@@ -278,9 +291,9 @@
 +module_init(bcm_nat_init);
 +module_exit(bcm_nat_fini);
 +MODULE_LICENSE("Proprietary");
---- a/net/ipv4/netfilter/Kconfig	2011-07-12 08:14:15.018095000 +0000
-+++ b/net/ipv4/netfilter/Kconfig	2011-03-14 12:43:42.000000000 +0000
-@@ -174,6 +174,14 @@ config NF_NAT_NEEDED
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -128,6 +128,14 @@ config NF_NAT_NEEDED
  	depends on NF_NAT
  	default y
  
@@ -295,8 +308,8 @@
  config IP_NF_TARGET_MASQUERADE
  	tristate "MASQUERADE target support"
  	depends on NF_NAT
---- a/net/ipv4/netfilter/Makefile	2011-07-12 08:14:15.018095000 +0000
-+++ b/net/ipv4/netfilter/Makefile	2011-03-14 12:58:38.000000000 +0000
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
 @@ -18,6 +18,9 @@ obj-$(CONFIG_NF_CONNTRACK_IPV4) += nf_co
  
  obj-$(CONFIG_NF_NAT) += nf_nat.o
@@ -307,9 +320,9 @@
  # NAT helpers (nf_conntrack)
  obj-$(CONFIG_NF_NAT_AMANDA) += nf_nat_amanda.o
  obj-$(CONFIG_NF_NAT_FTP) += nf_nat_ftp.o
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c	2011-07-12 08:14:15.028095000 +0000
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c	2011-07-11 19:45:04.548095000 +0000
-@@ -63,7 +68,10 @@ static int ipv4_print_tuple(struct seq_f
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -63,7 +63,10 @@ static int ipv4_print_tuple(struct seq_f
  }
  
  /* Returns new sk_buff, or NULL */
@@ -321,10 +334,10 @@
  {
  	int err;
  
---- a/net/ipv4/netfilter/nf_nat_core.c	2011-07-12 08:14:15.028095000 +0000
-+++ b/net/ipv4/netfilter/nf_nat_core.c	2011-07-11 19:41:27.758095000 +0000
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
 @@ -392,6 +392,23 @@ manip_pkt(u_int16_t proto,
- 	return 1;
+ 	return true;
  }
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
@@ -347,8 +360,8 @@
  /* Do packet manipulations according to nf_nat_setup_info. */
  unsigned int nf_nat_packet(struct nf_conn *ct,
  			   enum ip_conntrack_info ctinfo,
---- a/net/netfilter/core.c	2011-07-12 08:14:15.028095000 +0000
-+++ b/net/netfilter/core.c	2011-03-14 12:48:17.000000000 +0000
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
 @@ -23,6 +23,11 @@
  
  #include "nf_internals.h"
@@ -360,7 +373,7 @@
 +
  static DEFINE_MUTEX(afinfo_mutex);
  
- struct nf_afinfo *nf_afinfo[NPROTO] __read_mostly;
+ const struct nf_afinfo *nf_afinfo[NFPROTO_NUMPROTO] __read_mostly;
 @@ -133,6 +138,13 @@ unsigned int nf_iterate(struct list_head
  	list_for_each_continue_rcu(*i, head) {
  		struct nf_hook_ops *elem = (struct nf_hook_ops *)*i;
@@ -388,25 +401,25 @@
  		if (verdict != NF_ACCEPT) {
  #ifdef CONFIG_NETFILTER_DEBUG
  			if (unlikely((verdict & NF_VERDICT_MASK)
-@@ -189,6 +207,16 @@ next_hook:
- 			      verdict >> NF_VERDICT_BITS))
- 			goto next_hook;
- 	}
+@@ -177,6 +195,16 @@ int nf_hook_slow(int pf, unsigned int ho
+ next_hook:
+ 	verdict = nf_iterate(&nf_hooks[pf][hook], skb, hook, indev,
+ 			     outdev, &elem, okfn, hook_thresh);
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+	else if (verdict == NF_FAST_NAT) {
++	if (verdict == NF_FAST_NAT) {
 +		if (bcm_nat_hit_hook)
 +			ret = bcm_nat_hit_hook(skb);
 +		else {
 +			kfree_skb(skb);
 +			ret = -EPERM;
 +		}
-+	}
++	} else
 +#endif
- unlock:
- 	rcu_read_unlock();
- 	return ret;
---- a/net/netfilter/nf_conntrack_core.c	2011-07-12 08:14:15.028095000 +0000
-+++ b/net/netfilter/nf_conntrack_core.c	2011-07-11 19:52:44.668095000 +0000
+ 	if (verdict == NF_ACCEPT || verdict == NF_STOP) {
+ 		ret = 1;
+ 		goto unlock;
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
 @@ -30,6 +30,11 @@
  #include <linux/socket.h>
  #include <linux/mm.h>
@@ -419,13 +432,15 @@
  #include <net/netfilter/nf_conntrack.h>
  #include <net/netfilter/nf_conntrack_l3proto.h>
  #include <net/netfilter/nf_conntrack_l4proto.h>
-@@ -76,6 +81,26 @@ static unsigned int nf_conntrack_next_id
+@@ -75,6 +80,31 @@ static int nf_conntrack_vmalloc __read_m
  DEFINE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
  EXPORT_PER_CPU_SYMBOL(nf_conntrack_stat);
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+#define BCM_FASTNAT_DENY 1
-+int nf_conntrack_fastnat __read_mostly = 1;
++int nf_conntrack_fastnat __read_mostly = 0;
++#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
++atomic_t nf_conntrack_fastnat_http __read_mostly = ATOMIC_INIT(0);
++#endif
 +
 +typedef int (*bcmNatHitHook)(struct sk_buff *skb);
 +typedef int (*bcmNatBindHook)(struct nf_conn *ct,
@@ -440,13 +455,16 @@
 +EXPORT_SYMBOL(bcm_nat_hit_hook);
 +EXPORT_SYMBOL(bcm_nat_bind_hook);
 +#endif
-+EXPORT_SYMBOL_GPL(nf_conntrack_fastnat);
++EXPORT_SYMBOL(nf_conntrack_fastnat);
++#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
++EXPORT_SYMBOL(nf_conntrack_fastnat_http);
++#endif
 +#endif
 +
  /*
   * This scheme offers various size of "struct nf_conn" dependent on
   * features(helper, nat, ...)
-@@ -287,6 +311,22 @@ nf_ct_invert_tuple(struct nf_conntrack_t
+@@ -315,6 +345,22 @@ nf_ct_invert_tuple(struct nf_conntrack_t
  }
  EXPORT_SYMBOL_GPL(nf_ct_invert_tuple);
  
@@ -469,18 +487,19 @@
  static void
  clean_from_lists(struct nf_conn *ct)
  {
-@@ -837,6 +878,10 @@ resolve_normal_ct(struct sk_buff *skb,
+@@ -872,6 +918,11 @@ resolve_normal_ct(struct sk_buff *skb,
  	return ct;
  }
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+extern int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user);
++extern int
++nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user);
 +#endif
 +
  unsigned int
  nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
  {
-@@ -848,6 +894,9 @@ nf_conntrack_in(int pf, unsigned int hoo
+@@ -883,6 +934,9 @@ nf_conntrack_in(int pf, unsigned int hoo
  	u_int8_t protonum;
  	int set_reply = 0;
  	int ret;
@@ -490,7 +509,7 @@
  
  	/* Previously seen (loopback or untracked)?  Ignore. */
  	if (skb->nfct) {
-@@ -863,6 +912,19 @@ nf_conntrack_in(int pf, unsigned int hoo
+@@ -901,6 +955,19 @@ nf_conntrack_in(int pf, unsigned int hoo
  		return -ret;
  	}
  
@@ -510,7 +529,7 @@
  	l4proto = __nf_ct_l4proto_find((u_int16_t)pf, protonum);
  
  	/* It may be an special packet, error, unclean...
-@@ -902,8 +964,57 @@ nf_conntrack_in(int pf, unsigned int hoo
+@@ -940,8 +1007,61 @@ nf_conntrack_in(int pf, unsigned int hoo
  		return -ret;
  	}
  
@@ -530,17 +549,21 @@
 +			goto pass;
 +
 +#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
-+		if (nf_conntrack_fastnat > 1 && protonum == IPPROTO_TCP ) {
++		if (atomic_read(&nf_conntrack_fastnat_http) && protonum == IPPROTO_TCP &&
++		    CTINFO2DIR(ctinfo) == IP_CT_DIR_ORIGINAL) {
 +			struct tcphdr _tcph, *tcph;
-+			unsigned char _data[2], *data;
++			unsigned char _data[5], *data;
++
++			if (nat->info.nat_type & BCM_FASTNAT_HTTP)
++				goto pass;
 +
 +			/* For URL filter; RFC-HTTP: GET, POST, HEAD */
 +			if ((tcph = skb_header_pointer(skb, dataoff, sizeof(_tcph), &_tcph)) &&
 +			    (data = skb_header_pointer(skb, dataoff + tcph->doff*4, sizeof(_data), &_data)) &&
-+			    ((data[0] == 'G' && data[1] == 'E') ||
-+			     (data[0] == 'P' && data[1] == 'O') ||
-+			     (data[0] == 'H' && data[1] == 'E'))) {
-+				nat->info.nat_type |= BCM_FASTNAT_DENY;
++			    (memcmp(data, "GET ", sizeof("GET ")-1) == 0 ||
++			     memcmp(data, "POST ", sizeof("POST ")-1) == 0 ||
++			     memcmp(data, "HEAD ", sizeof("HEAD ")-1) == 0)) {
++				nat->info.nat_type |= BCM_FASTNAT_HTTP;
 +				goto pass;
 +			}
 +		}
@@ -568,9 +591,9 @@
  
  	return ret;
  }
---- a/net/netfilter/nf_conntrack_proto_tcp.c	2011-07-12 08:14:15.038095000 +0000
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c	2011-03-14 12:46:34.000000000 +0000
-@@ -776,6 +780,11 @@ static int tcp_error(struct sk_buff *skb
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -787,6 +787,11 @@ static int tcp_error(struct sk_buff *skb
  		return -NF_ACCEPT;
  	}
  
@@ -582,9 +605,9 @@
  	/* Checksum invalid? Ignore.
  	 * We skip checking packets on the outgoing path
  	 * because the checksum is assumed to be correct.
---- a/net/netfilter/nf_conntrack_proto_udp.c	2011-07-12 08:14:15.038095000 +0000
-+++ b/net/netfilter/nf_conntrack_proto_udp.c	2011-03-14 12:45:59.000000000 +0000
-@@ -114,6 +118,11 @@ static int udp_error(struct sk_buff *skb
+--- a/net/netfilter/nf_conntrack_proto_udp.c
++++ b/net/netfilter/nf_conntrack_proto_udp.c
+@@ -116,6 +116,11 @@ static int udp_error(struct sk_buff *skb
  		return -NF_ACCEPT;
  	}
  
@@ -598,7 +621,7 @@
  		return NF_ACCEPT;
 --- a/net/netfilter/nf_conntrack_standalone.c
 +++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -358,6 +358,16 @@ static ctl_table nf_ct_sysctl_table[] =
+@@ -359,6 +359,26 @@ static ctl_table nf_ct_sysctl_table[] =
  		.extra1		= &log_invalid_proto_min,
  		.extra2		= &log_invalid_proto_max,
  	},
@@ -611,7 +634,116 @@
 +		.mode		= 0644,
 +		.proc_handler	= &proc_dointvec,
 +	},
++#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
++	{
++		.ctl_name	= NET_NF_CONNTRACK_FASTNAT,
++		.procname	= "nf_conntrack_fastnat_http",
++		.data		= &nf_conntrack_fastnat_http,
++		.maxlen		= sizeof(int),
++		.mode		= 0444,
++		.proc_handler	= &proc_dointvec,
++	},
++#endif
 +#endif
  
  	{ .ctl_name = 0 }
  };
+--- a/net/netfilter/xt_connmark.c
++++ b/net/netfilter/xt_connmark.c
+@@ -43,6 +43,9 @@ connmark_tg(struct sk_buff *skb, const s
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn *ct;
+ 	u_int32_t newmark;
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++	struct nf_conn_nat *nat;
++#endif
+ 
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 	if (ct == NULL)
+@@ -53,6 +56,10 @@ connmark_tg(struct sk_buff *skb, const s
+ 		newmark = (ct->mark & ~info->ctmask) ^ info->ctmark;
+ 		if (ct->mark != newmark) {
+ 			ct->mark = newmark;
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++			if ((nat = nfct_nat(ct)) != NULL)
++				nat->info.nat_type |= BCM_FASTNAT_DENY;
++#endif
+ 			nf_conntrack_event_cache(IPCT_MARK, skb);
+ 		}
+ 		break;
+--- a/net/netfilter/xt_mark.c
++++ b/net/netfilter/xt_mark.c
+@@ -16,6 +16,10 @@
+ #include <linux/netfilter/xt_mark.h>
+ #include <linux/netfilter/x_tables.h>
+ 
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++#include <net/netfilter/nf_conntrack.h>
++#endif
++
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
+ MODULE_DESCRIPTION("Xtables: packet mark operations");
+@@ -28,8 +32,18 @@ static unsigned int
+ mark_tg(struct sk_buff *skb, const struct xt_target_param *par)
+ {
+ 	const struct xt_mark_tginfo2 *info = par->targinfo;
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++	struct nf_conn *ct;
++	struct nf_conn_nat *nat;
++	enum ip_conntrack_info ctinfo;
++#endif
+ 
+ 	skb->mark = (skb->mark & ~info->mask) ^ info->mark;
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++	if ((ct = nf_ct_get(skb, &ctinfo)) != NULL &&
++	    (nat = nfct_nat(ct)) != NULL)
++		nat->info.nat_type |= BCM_FASTNAT_DENY;
++#endif
+ 	return XT_CONTINUE;
+ }
+ 
+--- a/net/netfilter/xt_webstr.c
++++ b/net/netfilter/xt_webstr.c
+@@ -45,6 +45,10 @@
+ #include <net/sock.h>
+ #include <net/ipv6.h>
+ 
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++#include <net/netfilter/nf_conntrack.h>
++#endif
++
+ typedef char *(*proc_xt_search_t) (char *, char *, int, int);
+ 
+ static proc_xt_search_t search;
+@@ -418,15 +422,30 @@ static bool checkentry(const struct xt_m
+ 	/* pattern length */
+ 	if (info->len < 1)
+ 		return false;
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++	if (par->family == NFPROTO_IPV4)
++		atomic_inc(&nf_conntrack_fastnat_http);
++#endif
+ 
+        return true;
+ }
+ 
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++static void destroy(const struct xt_mtdtor_param *par)
++{
++	if (par->family == NFPROTO_IPV4)
++		atomic_dec(&nf_conntrack_fastnat_http);
++}
++#endif
++
+ static struct xt_match xt_webstr_match = {
+ 	.name		= "webstr",
+ 	.family		= NFPROTO_UNSPEC,
+ 	.match		= webstr_mt,
+ 	.checkentry	= checkentry,
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++	.destroy	= destroy,
++#endif
+ 	.matchsize	= sizeof(struct xt_webstr_info),
+ 	.proto		= IPPROTO_TCP,
+ 	.me		= THIS_MODULE
