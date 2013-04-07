@@ -762,7 +762,9 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 #ifdef __CONFIG_MODEM__
 	 || nvram_match("wan_proto", "usbmodem")
 #endif
- 
+#ifdef __CONFIG_USBNET__
+	 || nvram_match("wan_proto", "usbnet")
+#endif
         ) {
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 	}

@@ -639,8 +639,7 @@ void convert_asus_values()
 		nvram_set("wan0_modem_pid", nvram_safe_get("wan_modem_pid"));
 		nvram_set("wan0_modem_pdata", nvram_safe_get("wan_modem_pdata"));
 		nvram_set("wan0_modem_pui", nvram_safe_get("wan_modem_pui"));
-		nvram_set("wan0_modem_mtu", nvram_safe_get("wan_modem_mtu"));
-		nvram_set("wan0_modem_mru", nvram_safe_get("wan_modem_mru"));
+		nvram_set("wan0_usbnet_mtu", nvram_safe_get("wan_usbnet_mtu"));
 		nvram_set("wan0_modem_at_connect", nvram_safe_get("wan_modem_at_connect"));
 		nvram_set("wan0_modem_at_disconnect", nvram_safe_get("wan_modem_at_disconnect"));
 	}

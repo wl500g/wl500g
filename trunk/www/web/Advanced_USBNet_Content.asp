@@ -174,25 +174,25 @@
 					onblur="validate_string(this)">
 			</td>
 		</tr>
-		<tr style="display:none">
-			<td class="content_header_td" onmouseover="return overlib('That is Maximum Transmission Unit(MTU) of PPP packet.', LEFT);"
+		<tr>
+			<td class="content_header_td" onmouseover="return overlib('That is Maximum Transmission Unit(MTU).', LEFT);"
 				onmouseout="return nd()">
 				MTU
 			</td>
 			<td class="content_input_td">
-				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_modem_mtu"
-					value="<% nvram_get("wan_modem_mtu"); %>" onkeypress="return is_number(event, this)"
+				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_usbnet_mtu"
+					value="<% nvram_get("wan_usbnet_mtu"); %>" onkeypress="return is_number(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
 		<tr style="display:none">
-			<td class="content_header_td" onmouseover="return overlib('That is Maximum Receive Unit(MRU) of PPP packet.', LEFT);"
+			<td class="content_header_td" onmouseover="return overlib('That is Maximum Receive Unit(MRU).', LEFT);"
 				onmouseout="return nd();">
 				MRU
 			</td>
 			<td class="content_input_td">
-				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_modem_mru"
-					value="<% nvram_get("wan_modem_mru"); %>" onkeypress="return is_number(event, this)"
+				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_usbnnet_mru"
+					value="<% nvram_get("wan_usbnet_mru"); %>" onkeypress="return is_number(event, this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
