@@ -47,7 +47,7 @@ diff -urBp a/Makefile.in b/Makefile.in
 + 	print-l2tp.c print-lldp.c print-llc.c \
 + 	print-nfs.c print-ntp.c print-null.c print-olsr.c print-ospf.c \
 + 	print-ppp.c print-pppoe.c print-pptp.c print-radius.c print-raw.c \
-+ 	print-rsvp.c print-sip.c print-snmp.c print-stp.c \
++ 	print-rsvp.c print-sip.c print-sll.c print-snmp.c print-stp.c \
 + 	print-sunrpc.c print-syslog.c print-tcp.c print-telnet.c print-tftp.c \
 + 	print-udp.c \
 + 	signature.c setsignal.c tcpdump.c util.c
@@ -86,7 +86,7 @@ diff -urBp a/Makefile.in b/Makefile.in
 -	print-timed.c print-token.c print-udld.c print-udp.c print-usb.c \
 +	print-nfs.c print-pgm.c print-pim.c print-ppi.c \
 +	print-rip.c print-rpki-rtr.c print-rrcp.c \
-+	print-rx.c print-sctp.c print-sflow.c print-sl.c print-sll.c \
++	print-rx.c print-sctp.c print-sflow.c print-sl.c \
 +	print-slow.c print-sunatm.c print-symantec.c \
 +	print-timed.c print-token.c print-udld.c print-usb.c \
  	print-vjc.c print-vqp.c print-vrrp.c print-vtp.c print-forces.c \
@@ -753,7 +753,7 @@ diff -urBp a/tcpdump.c b/tcpdump.c
  	{ atm_if_print,		DLT_ATM_RFC1483 },
  #ifdef DLT_C_HDLC
  	{ chdlc_if_print,	DLT_C_HDLC },
-@@ -189,15 +194,19 @@ static struct printer printers[] = {
+@@ -189,15 +194,17 @@ static struct printer printers[] = {
  #ifdef DLT_PPP_SERIAL
  	{ ppp_hdlc_if_print,	DLT_PPP_SERIAL },
  #endif
@@ -761,11 +761,9 @@ diff -urBp a/tcpdump.c b/tcpdump.c
  #ifdef DLT_PPP_ETHER
  	{ pppoe_if_print,	DLT_PPP_ETHER },
  #endif
-+#ifndef TCPDUMP_MINI
  #ifdef DLT_LINUX_SLL
  	{ sll_if_print,		DLT_LINUX_SLL },
  #endif
-+#endif /* TCPDUMP_MINI */
  #ifdef DLT_IEEE802_11
  	{ ieee802_11_if_print,	DLT_IEEE802_11},
  #endif
