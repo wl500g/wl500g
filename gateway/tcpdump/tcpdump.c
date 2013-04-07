@@ -148,6 +148,7 @@ struct ndo_printer {
 
 
 static struct printer printers[] = {
+#ifndef TCPDUMP_MINI
 	{ arcnet_if_print,	DLT_ARCNET },
 #ifdef DLT_ARCNET_LINUX
 	{ arcnet_linux_if_print, DLT_ARCNET_LINUX },
@@ -166,19 +167,23 @@ static struct printer printers[] = {
 #ifdef DLT_SLIP_BSDOS
 	{ sl_bsdos_if_print,	DLT_SLIP_BSDOS },
 #endif
+#endif /* TCPDUMP_MINI */
 	{ ppp_if_print,		DLT_PPP },
 #ifdef DLT_PPP_WITHDIRECTION
 	{ ppp_if_print,		DLT_PPP_WITHDIRECTION },
 #endif
+#ifndef TCPDUMP_MINI
 #ifdef DLT_PPP_BSDOS
 	{ ppp_bsdos_if_print,	DLT_PPP_BSDOS },
 #endif
 	{ fddi_if_print,	DLT_FDDI },
+#endif /* TCPDUMP_MINI */
 	{ null_if_print,	DLT_NULL },
 #ifdef DLT_LOOP
 	{ null_if_print,	DLT_LOOP },
 #endif
 	{ raw_if_print,		DLT_RAW },
+#ifndef TCPDUMP_MINI
 	{ atm_if_print,		DLT_ATM_RFC1483 },
 #ifdef DLT_C_HDLC
 	{ chdlc_if_print,	DLT_C_HDLC },
@@ -189,6 +194,7 @@ static struct printer printers[] = {
 #ifdef DLT_PPP_SERIAL
 	{ ppp_hdlc_if_print,	DLT_PPP_SERIAL },
 #endif
+#endif /* TCPDUMP_MINI */
 #ifdef DLT_PPP_ETHER
 	{ pppoe_if_print,	DLT_PPP_ETHER },
 #endif
@@ -198,6 +204,7 @@ static struct printer printers[] = {
 #ifdef DLT_IEEE802_11
 	{ ieee802_11_if_print,	DLT_IEEE802_11},
 #endif
+#ifndef TCPDUMP_MINI
 #ifdef DLT_LTALK
 	{ ltalk_if_print,	DLT_LTALK },
 #endif
@@ -219,9 +226,11 @@ static struct printer printers[] = {
 #ifdef DLT_PRISM_HEADER
 	{ prism_if_print,	DLT_PRISM_HEADER },
 #endif
+#endif /* TCPDUMP_MINI */
 #ifdef DLT_IEEE802_11_RADIO
 	{ ieee802_11_radio_if_print,	DLT_IEEE802_11_RADIO },
 #endif
+#ifndef TCPDUMP_MINI
 #ifdef DLT_ENC
 	{ enc_if_print,		DLT_ENC },
 #endif
@@ -231,9 +240,11 @@ static struct printer printers[] = {
 #ifdef DLT_APPLE_IP_OVER_IEEE1394
 	{ ap1394_if_print,	DLT_APPLE_IP_OVER_IEEE1394 },
 #endif
+#endif /* TCPDUMP_MINI */
 #ifdef DLT_IEEE802_11_RADIO_AVS
 	{ ieee802_11_radio_avs_if_print,	DLT_IEEE802_11_RADIO_AVS },
 #endif
+#ifndef TCPDUMP_MINI
 #ifdef DLT_JUNIPER_ATM1
 	{ juniper_atm1_print,	DLT_JUNIPER_ATM1 },
 #endif
@@ -293,6 +304,7 @@ static struct printer printers[] = {
 	{ usb_linux_64_byte_print, DLT_USB_LINUX_MMAPPED},
 #endif /* DLT_USB_LINUX_MMAPPED */
 #endif /* HAVE_PCAP_USB_H */
+#endif /* TCPDUMP_MINI */
 #ifdef DLT_IPV4
 	{ raw_if_print,		DLT_IPV4 },
 #endif
@@ -304,6 +316,7 @@ static struct printer printers[] = {
 
 static struct ndo_printer ndo_printers[] = {
 	{ ether_if_print,	DLT_EN10MB },
+#ifndef TCPDUMP_MINI
 #ifdef DLT_IPNET
 	{ ipnet_if_print,	DLT_IPNET },
 #endif
@@ -316,6 +329,7 @@ static struct ndo_printer ndo_printers[] = {
 #ifdef DLT_PPI
 	{ ppi_if_print,		DLT_PPI },
 #endif
+#endif /* TCPDUMP_MINI */
 #ifdef DLT_NETANALYZER
 	{ netanalyzer_if_print, DLT_NETANALYZER },
 #endif

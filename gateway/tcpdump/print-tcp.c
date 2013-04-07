@@ -652,8 +652,10 @@ tcp_print(register const u_char *bp, register u_int length,
 	else if (sport == SMB_PORT || dport == SMB_PORT)
 		smb_tcp_print(bp, length);
 #endif
+#ifndef TCPDUMP_MINI
         else if (sport == BEEP_PORT || dport == BEEP_PORT)
                 beep_print(bp, length);
+#endif
         else if (length > 2 &&
                  (sport == NAMESERVER_PORT || dport == NAMESERVER_PORT ||
                   sport == MULTICASTDNS_PORT || dport == MULTICASTDNS_PORT)) {
@@ -662,6 +664,7 @@ tcp_print(register const u_char *bp, register u_int length,
                  * XXX packet could be unaligned, it can go strange
                  */
                 ns_print(bp + 2, length - 2, 0);
+#ifndef TCPDUMP_MINI
         } else if (sport == MSDP_PORT || dport == MSDP_PORT) {
                 msdp_print(bp, length);
         } else if (sport == RPKI_RTR_PORT || dport == RPKI_RTR_PORT) {
@@ -669,6 +672,7 @@ tcp_print(register const u_char *bp, register u_int length,
         }
         else if (length > 0 && (sport == LDP_PORT || dport == LDP_PORT)) {
                 ldp_print(bp, length);
+#endif
         }
 
         return;

@@ -213,6 +213,7 @@ gre_print_0(const u_char *bp, u_int length)
 		ip6_print(gndo, bp, len);
 		break;
 #endif
+#ifndef TCPDUMP_MINI
 	case ETHERTYPE_MPLS:
 		mpls_print(bp, len);
 		break;
@@ -228,6 +229,7 @@ gre_print_0(const u_char *bp, u_int length)
 	case ETHERTYPE_TEB:
 		ether_print(gndo, bp, len, len, NULL, NULL);
 		break;
+#endif
 	default:
 		printf("gre-proto-0x%x", prot);
 	}

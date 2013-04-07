@@ -418,11 +418,12 @@ udp_print(register const u_char *bp, u_int length,
 			vat_print((void *)(up + 1), up);
 			break;
 
+#ifndef TCPDUMP_MINI
 		case PT_WB:
 			udpipaddr_print(ip, sport, dport);
 			wb_print((void *)(up + 1), length);
 			break;
-
+#endif
 		case PT_RPC:
 			rp = (struct sunrpc_msg *)(up + 1);
 			direction = (enum sunrpc_msg_type)EXTRACT_32BITS(&rp->rm_direction);
@@ -450,16 +451,18 @@ udp_print(register const u_char *bp, u_int length,
 			snmp_print((const u_char *)(up + 1), length);
 			break;
 
+#ifndef TCPDUMP_MINI
 		case PT_CNFP:
 			udpipaddr_print(ip, sport, dport);
 			cnfp_print(cp, (const u_char *)ip);
 			break;
-
+#endif
 		case PT_TFTP:
 			udpipaddr_print(ip, sport, dport);
 			tftp_print(cp, length);
 			break;
 
+#ifndef TCPDUMP_MINI
 		case PT_AODV:
 			udpipaddr_print(ip, sport, dport);
 			aodv_print((const u_char *)(up + 1), length,
@@ -469,6 +472,7 @@ udp_print(register const u_char *bp, u_int length,
 			    0);
 #endif
 			break;
+#endif /* TCPDUMP_MINI */
 		}
 		return;
 	}
@@ -497,6 +501,7 @@ udp_print(register const u_char *bp, u_int length,
 			}
 #endif
 		}
+#ifndef TCPDUMP_MINI
 		if (TTEST(((struct LAP *)cp)->type) &&
 		    ((struct LAP *)cp)->type == lapDDP &&
 		    (atalk_port(sport) || atalk_port(dport))) {
@@ -505,6 +510,7 @@ udp_print(register const u_char *bp, u_int length,
 			llap_print(cp, length);
 			return;
 		}
+#endif
 	}
 	udpipaddr_print(ip, sport, dport);
 
@@ -555,12 +561,15 @@ udp_print(register const u_char *bp, u_int length,
 			ns_print((const u_char *)(up + 1), length, 0);
 		else if (ISPORT(MULTICASTDNS_PORT))
 			ns_print((const u_char *)(up + 1), length, 1);
+#ifndef TCPDUMP_MINI
 		else if (ISPORT(TIMED_PORT))
 			timed_print((const u_char *)(up + 1));
+#endif
 		else if (ISPORT(TFTP_PORT))
 			tftp_print((const u_char *)(up + 1), length);
 		else if (ISPORT(IPPORT_BOOTPC) || ISPORT(IPPORT_BOOTPS))
 			bootp_print((const u_char *)(up + 1), length);
+#ifndef TCPDUMP_MINI
 		else if (ISPORT(RIP_PORT))
 			rip_print((const u_char *)(up + 1), length);
 		else if (ISPORT(AODV_PORT))
@@ -578,12 +587,15 @@ udp_print(register const u_char *bp, u_int length,
    	        else if (ISPORT(ISAKMP_PORT_USER1) || ISPORT(ISAKMP_PORT_USER2))
 			isakmp_print(gndo, (const u_char *)(up + 1), length, bp2);
 #endif
+#endif /* TCPDUMP_MINI */
 		else if (ISPORT(SNMP_PORT) || ISPORT(SNMPTRAP_PORT))
 			snmp_print((const u_char *)(up + 1), length);
 		else if (ISPORT(NTP_PORT))
 			ntp_print((const u_char *)(up + 1), length);
+#ifndef TCPDUMP_MINI
 		else if (ISPORT(KERBEROS_PORT) || ISPORT(KERBEROS_SEC_PORT))
 			krb_print((const void *)(up + 1));
+#endif
 		else if (ISPORT(L2TP_PORT))
 			l2tp_print((const u_char *)(up + 1), length);
 #ifdef TCPDUMP_DO_SMB
@@ -594,6 +606,7 @@ udp_print(register const u_char *bp, u_int length,
 #endif
 		else if (dport == 3456)
 			vat_print((const void *)(up + 1), up);
+#ifndef TCPDUMP_MINI
 		else if (ISPORT(ZEPHYR_SRV_PORT) || ISPORT(ZEPHYR_CLT_PORT))
 			zephyr_print((const void *)(up + 1), length);
 		/*
@@ -604,32 +617,39 @@ udp_print(register const u_char *bp, u_int length,
 			 (dport >= RX_PORT_LOW && dport <= RX_PORT_HIGH))
 			rx_print((const void *)(up + 1), length, sport, dport,
 				 (u_char *) ip);
+#endif
 #ifdef INET6
 		else if (ISPORT(RIPNG_PORT))
 			ripng_print((const u_char *)(up + 1), length);
 		else if (ISPORT(DHCP6_SERV_PORT) || ISPORT(DHCP6_CLI_PORT))
 			dhcp6_print((const u_char *)(up + 1), length);
+#ifndef TCPDUMP_MINI
 		else if (ISPORT(BABEL_PORT) || ISPORT(BABEL_PORT_OLD))
 			babel_print((const u_char *)(up + 1), length);
+#endif
 #endif /*INET6*/
 		/*
 		 * Kludge in test for whiteboard packets.
 		 */
+#ifndef TCPDUMP_MINI
 		else if (dport == 4567)
 			wb_print((const void *)(up + 1), length);
 		else if (ISPORT(CISCO_AUTORP_PORT))
 			cisco_autorp_print((const void *)(up + 1), length);
+#endif
 		else if (ISPORT(RADIUS_PORT) ||
 			 ISPORT(RADIUS_NEW_PORT) ||
 			 ISPORT(RADIUS_ACCOUNTING_PORT) ||
 			 ISPORT(RADIUS_NEW_ACCOUNTING_PORT) )
 			radius_print((const u_char *)(up+1), length);
+#ifndef TCPDUMP_MINI
 		else if (dport == HSRP_PORT)
 			hsrp_print((const u_char *)(up + 1), length);
 		else if (ISPORT(LWRES_PORT))
 			lwres_print((const u_char *)(up + 1), length);
 		else if (ISPORT(LDP_PORT))
 			ldp_print((const u_char *)(up + 1), length);
+#endif
 		else if (ISPORT(OLSR_PORT))
 			olsr_print((const u_char *)(up + 1), length,
 #if INET6
@@ -637,6 +657,7 @@ udp_print(register const u_char *bp, u_int length,
 #else
 					0);
 #endif
+#ifndef TCPDUMP_MINI
 		else if (ISPORT(MPLS_LSP_PING_PORT))
 			lspping_print((const u_char *)(up + 1), length);
 		else if (dport == BFD_CONTROL_PORT ||
@@ -654,6 +675,7 @@ udp_print(register const u_char *bp, u_int length,
                         lwapp_control_print((const u_char *)(up + 1), length, 0);
                 else if (ISPORT(LWAPP_DATA_PORT))
                         lwapp_data_print((const u_char *)(up + 1), length);
+#endif
                 else if (ISPORT(SIP_PORT))
 			sip_print((const u_char *)(up + 1), length);
                 else if (ISPORT(SYSLOG_PORT))

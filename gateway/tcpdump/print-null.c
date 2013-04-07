@@ -128,7 +128,7 @@ null_if_print(const struct pcap_pkthdr *h, const u_char *p)
 		ip6_print(gndo, p, length);
 		break;
 #endif
-
+#ifndef TCPDUMP_MINI
 	case BSD_AFNUM_ISO:
 		isoclns_print(p, length, caplen);
 		break;
@@ -140,7 +140,7 @@ null_if_print(const struct pcap_pkthdr *h, const u_char *p)
 	case BSD_AFNUM_IPX:
 		ipx_print(p, length);
 		break;
-
+#endif
 	default:
 		/* unknown AF_ value */
 		if (!eflag)

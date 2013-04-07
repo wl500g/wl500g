@@ -1262,7 +1262,7 @@ trunc:
 	return 0;
 }
 
-
+#ifndef TCPDUMP_MINI
 static void
 ppp_hdlc(const u_char *p, int length)
 {
@@ -1327,17 +1327,19 @@ cleanup:
 	free(b);
         return;
 }
+#endif
 
 
 /* PPP */
 static void
 handle_ppp(u_int proto, const u_char *p, int length)
 {
+#ifndef TCPDUMP_MINI
         if ((proto & 0xff00) == 0x7e00) {/* is this an escape code ? */
             ppp_hdlc(p-1, length);
             return;
         }
-
+#endif
 	switch (proto) {
 	case PPP_LCP: /* fall through */
 	case PPP_IPCP:
@@ -1371,6 +1373,7 @@ handle_ppp(u_int proto, const u_char *p, int length)
 		ip6_print(gndo, p, length);
 		break;
 #endif
+#ifndef TCPDUMP_MINI
 	case ETHERTYPE_IPX:	/*XXX*/
 	case PPP_IPX:
 		ipx_print(p, length);
@@ -1382,6 +1385,7 @@ handle_ppp(u_int proto, const u_char *p, int length)
 	case PPP_MPLS_MCAST:
 		mpls_print(p, length);
 		break;
+#endif
 	case PPP_COMP:
 		printf("compressed PPP data");
 		break;
@@ -1520,6 +1524,7 @@ ppp_if_print(const struct pcap_pkthdr *h, register const u_char *p)
 	return (0);
 }
 
+#ifndef TCPDUMP_MINI
 /*
  * PPP I/F printer to use if we know that RFC 1662-style PPP in HDLC-like
  * framing, or Cisco PPP with HDLC framing as per section 4.3.1 of RFC 1547,
@@ -1747,7 +1752,7 @@ printx:
 #endif /* __bsdi__ */
 	return (hdrlength);
 }
-
+#endif
 
 /*
  * Local Variables:

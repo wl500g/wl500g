@@ -69,37 +69,54 @@ RANLIB = @RANLIB@
 	$(CC) $(FULL_CFLAGS) -c $(srcdir)/$*.c
 
 CSRC =	addrtoname.c af.c checksum.c cpack.c gmpls.c oui.c gmt2local.c ipproto.c \
-        nlpid.c l2vpn.c machdep.c parsenfsfh.c in_cksum.c \
-	print-802_11.c print-802_15_4.c print-ap1394.c print-ah.c \
-	print-arcnet.c print-aodv.c print-arp.c print-ascii.c print-atalk.c \
-	print-atm.c print-beep.c print-bfd.c print-bgp.c \
-	print-bootp.c print-bt.c print-carp.c print-cdp.c print-cfm.c \
+ 	nlpid.c l2vpn.c machdep.c parsenfsfh.c in_cksum.c \
+ 	print-802_11.c print-arp.c print-ascii.c \
+ 	print-bgp.c print-bootp.c print-cdp.c print-domain.c print-eap.c \
+ 	print-ether.c print-gre.c print-icmp.c print-igmp.c print-ip.c \
+ 	print-l2tp.c print-lldp.c print-llc.c \
+ 	print-nfs.c print-ntp.c print-null.c print-olsr.c print-ospf.c \
+ 	print-ppp.c print-pppoe.c print-pptp.c print-radius.c print-raw.c \
+ 	print-rsvp.c print-sip.c print-sll.c print-snmp.c print-stp.c \
+ 	print-sunrpc.c print-syslog.c print-tcp.c print-telnet.c print-tftp.c \
+ 	print-udp.c \
+ 	signature.c setsignal.c tcpdump.c util.c
+
+
+ifndef TCPDUMP_MINI
+
+CSRC += \
+	print-802_15_4.c print-ap1394.c print-ah.c \
+	print-aodv.c print-arcnet.c print-atalk.c \
+	print-atm.c print-beep.c print-bfd.c \
+	print-bt.c print-carp.c print-cfm.c \
 	print-chdlc.c print-cip.c print-cnfp.c print-dccp.c print-decnet.c \
-	print-domain.c print-dtp.c print-dvmrp.c print-enc.c print-egp.c \
-	print-eap.c print-eigrp.c\
-	print-esp.c print-ether.c print-fddi.c print-fr.c \
-	print-gre.c print-hsrp.c print-icmp.c print-igmp.c \
-	print-igrp.c print-ip.c print-ipcomp.c print-ipfc.c print-ipnet.c \
+	print-dtp.c print-dvmrp.c print-enc.c print-egp.c \
+	print-eigrp.c print-esp.c print-fddi.c print-fr.c \
+	print-hsrp.c \
+	print-igrp.c print-ipcomp.c print-ipfc.c print-ipnet.c \
 	print-ipx.c print-isoclns.c print-juniper.c print-krb.c \
-	print-l2tp.c print-lane.c print-ldp.c print-lldp.c print-llc.c \
-        print-lmp.c print-lspping.c print-lwapp.c \
+	print-lane.c print-ldp.c \
+	print-lmp.c print-lspping.c print-lwapp.c \
 	print-lwres.c print-mobile.c print-mpcp.c print-mpls.c print-msdp.c \
-	print-nfs.c print-ntp.c print-null.c print-olsr.c print-ospf.c \
-	print-pgm.c print-pim.c \
-	print-ppi.c print-ppp.c print-pppoe.c print-pptp.c \
-	print-radius.c print-raw.c print-rip.c print-rpki-rtr.c print-rrcp.c print-rsvp.c \
-	print-rx.c print-sctp.c print-sflow.c print-sip.c print-sl.c print-sll.c \
-	print-slow.c print-snmp.c print-stp.c print-sunatm.c print-sunrpc.c \
-	print-symantec.c print-syslog.c print-tcp.c print-telnet.c print-tftp.c \
-	print-timed.c print-token.c print-udld.c print-udp.c print-usb.c \
+	print-nfs.c print-pgm.c print-pim.c print-ppi.c \
+	print-rip.c print-rpki-rtr.c print-rrcp.c \
+	print-rx.c print-sctp.c print-sflow.c print-sl.c \
+	print-slow.c print-sunatm.c print-symantec.c \
+	print-timed.c print-token.c print-udld.c print-usb.c \
 	print-vjc.c print-vqp.c print-vrrp.c print-vtp.c print-forces.c \
-	print-wb.c print-zephyr.c signature.c setsignal.c tcpdump.c util.c
+	print-wb.c print-zephyr.c
 
 LIBNETDISSECT_SRC=print-isakmp.c
 LIBNETDISSECT_OBJ=$(LIBNETDISSECT_SRC:.c=.o)
 LIBNETDISSECT=libnetdissect.a
 
+endif ##TCPDUMP_MINI
+
+ifdef TCPDUMP_MINI
+LOCALSRC = $(filter-out print-babel.c print-mobility.c,@LOCALSRC@)
+else
 LOCALSRC = @LOCALSRC@
+endif ##TCPDUMP_MINI
 GENSRC = version.c
 LIBOBJS = @LIBOBJS@
 
@@ -361,10 +378,12 @@ $(PROG): $(OBJ) @V_PCAPDEP@
 	@rm -f $@
 	$(CC) $(FULL_CFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(LIBS)
 
+ifndef TCPDUMP_MINI
 $(LIBNETDISSECT): $(LIBNETDISSECT_OBJ)
 	@rm -f $@
 	$(AR) cr $@ $(LIBNETDISSECT_OBJ) 
 	$(RANLIB) $@
+endif
 
 datalinks.o: $(srcdir)/missing/datalinks.c
 	$(CC) $(FULL_CFLAGS) -o $@ -c $(srcdir)/missing/datalinks.c

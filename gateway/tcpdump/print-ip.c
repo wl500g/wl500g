@@ -328,6 +328,7 @@ ip_print_demux(netdissect_options *ndo,
 again:
 	switch (ipds->nh) {
 
+#ifndef TCPDUMP_MINI
 	case IPPROTO_AH:
 		ipds->nh = *ipds->cp;
 		ipds->advance = ah_print(ipds->cp);
@@ -370,6 +371,7 @@ again:
 	case IPPROTO_DCCP:
 		dccp_print(ipds->cp, (const u_char *)ipds->ip, ipds->len);
 		break;
+#endif
 		
 	case IPPROTO_TCP:
 		/* pass on the MF bit plus the offset to detect fragments */
@@ -389,6 +391,7 @@ again:
 			   ipds->off & (IP_MF|IP_OFFMASK));
 		break;
 		
+#ifndef TCPDUMP_MINI
 	case IPPROTO_PIGP:
 		/*
 		 * XXX - the current IANA protocol number assignments
@@ -409,15 +412,16 @@ again:
 	case IPPROTO_EIGRP:
 		eigrp_print(ipds->cp, ipds->len);
 		break;
-		
+#endif
 	case IPPROTO_ND:
 		ND_PRINT((ndo, " nd %d", ipds->len));
 		break;
 
+#ifndef TCPDUMP_MINI
 	case IPPROTO_EGP:
 		egp_print(ipds->cp, ipds->len);
 		break;
-
+#endif
 	case IPPROTO_OSPF:
 		ospf_print(ipds->cp, ipds->len, (const u_char *)ipds->ip);
 		break;
@@ -451,6 +455,7 @@ again:
 		gre_print(ipds->cp, ipds->len);
 		break;
 
+#ifndef TCPDUMP_MINI
 	case IPPROTO_MOBILE:
 		mobile_print(ipds->cp, ipds->len);
 		break;
@@ -480,7 +485,7 @@ again:
 	case IPPROTO_PGM:
 		pgm_print(ipds->cp, ipds->len, (const u_char *)ipds->ip);
 		break;
-
+#endif
 	default:
 		if ((proto = getprotobynumber(ipds->nh)) != NULL)
 			ND_PRINT((ndo, " %s", proto->p_name));

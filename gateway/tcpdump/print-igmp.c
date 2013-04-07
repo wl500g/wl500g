@@ -305,6 +305,7 @@ igmp_print(register const u_char *bp, register u_int len)
         TCHECK2(bp[4], 4);
         (void)printf("igmp leave %s", ipaddr_string(&bp[4]));
         break;
+#ifndef TCPDUMP_MINI
     case 0x13:
         (void)printf("igmp dvmrp");
         if (len < 8)
@@ -316,6 +317,7 @@ igmp_print(register const u_char *bp, register u_int len)
         (void)printf("igmp pimv1");
         pimv1_print(bp, len);
         break;
+#endif
     case 0x1e:
         print_mresp(bp, len);
         break;

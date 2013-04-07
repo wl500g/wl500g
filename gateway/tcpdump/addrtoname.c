@@ -548,8 +548,10 @@ linkaddr_string(const u_char *ep, const unsigned int type, const unsigned int le
 	if (type == LINKADDR_ETHER && len == ETHER_ADDR_LEN)
 		return (etheraddr_string(ep));
 
+#ifndef TCPDUMP_MINI
 	if (type == LINKADDR_FRELAY)
 		return (q922_string(ep));
+#endif
 
 	tp = lookup_bytestring(ep, len);
 	if (tp->e_name)
@@ -1150,6 +1152,7 @@ init_addrtoname(u_int32_t localnet, u_int32_t mask)
 	init_ipxsaparray();
 }
 
+#ifndef TCPDUMP_MINI
 const char *
 dnaddr_string(u_short dnaddr)
 {
@@ -1169,6 +1172,7 @@ dnaddr_string(u_short dnaddr)
 
 	return(tp->name);
 }
+#endif
 
 /* Return a zero'ed hnamemem struct and cuts down on calloc() overhead */
 struct hnamemem *
