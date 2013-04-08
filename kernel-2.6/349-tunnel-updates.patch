@@ -5,15 +5,16 @@ tunnel: Updates from upstream
  ee686ca919193d7c1f87f907e732df5e2f942523 gre: fix ToS/DiffServ inherit bug
  a43912ab1925788765208da5cd664b6f8e011d08 tunnel: eliminate recursion field
  f2b3ee9e4200b32d113b1bd3c93f9a836c97357c ipv4: Fix ip_gre lockless xmits.
+ 23ca0c989e46924393f1d54bec84801d035dd28e ipip: Fix handling of DF packets when pmtudisc is OFF
 
 ---
- include/net/ip6_tunnel.h |    2 --
- include/net/ipip.h       |    1 -
- net/ipv4/ip_gre.c        |   47 ++++++++++++++++++-----------------------------
- net/ipv4/ipip.c          |   34 +++++++++++-----------------------
- net/ipv6/ip6_tunnel.c    |   37 +++++++++++++++----------------------
- net/ipv6/sit.c           |   33 +++++++++++----------------------
- 6 files changed, 55 insertions(+), 99 deletions(-)
+ include/net/ip6_tunnel.h |    2 -
+ include/net/ipip.h       |    1 
+ net/ipv4/ip_gre.c        |   47 ++++++++++++---------------------
+ net/ipv4/ipip.c          |   66 +++++++++++++++++++----------------------------
+ net/ipv6/ip6_tunnel.c    |   37 ++++++++++----------------
+ net/ipv6/sit.c           |   33 +++++++----------------
+ 6 files changed, 72 insertions(+), 114 deletions(-)
 
 diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
 --- a/include/net/ip6_tunnel.h
@@ -156,7 +157,7 @@ diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
 diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
 --- a/net/ipv4/ipip.c
 +++ b/net/ipv4/ipip.c
-@@ -221,36 +221,32 @@ static struct ip_tunnel * ipip_tunnel_locate
+@@ -221,36 +221,32 @@ static struct ip_tunnel * ipip_tunnel_lo
  
  	if (parms->name[0])
  		strlcpy(name, parms->name, IFNAMSIZ);
@@ -216,7 +217,50 @@ diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
  	if (skb->protocol != htons(ETH_P_IP))
  		goto tx_error;
  
-@@ -602,7 +593,6 @@ static int ipip_tunnel_xmit(struct sk_bu
+@@ -561,25 +552,27 @@ static int ipip_tunnel_xmit(struct sk_bu
+ 		goto tx_error;
+ 	}
+ 
+-	if (tiph->frag_off)
++	df |= old_iph->frag_off & htons(IP_DF);
++
++	if (df) {
+ 		mtu = dst_mtu(&rt->u.dst) - sizeof(struct iphdr);
+-	else
+-		mtu = skb->dst ? dst_mtu(skb->dst) : dev->mtu;
+ 
+-	if (mtu < 68) {
+-		tunnel->stat.collisions++;
+-		ip_rt_put(rt);
+-		goto tx_error;
+-	}
+-	if (skb->dst)
+-		skb->dst->ops->update_pmtu(skb->dst, mtu);
++		if (mtu < 68) {
++			tunnel->stat.collisions++;
++			ip_rt_put(rt);
++			goto tx_error;
++		}
+ 
+-	df |= (old_iph->frag_off&htons(IP_DF));
++		if (skb->dst)
++			skb->dst->ops->update_pmtu(skb->dst, mtu);
+ 
+-	if ((old_iph->frag_off&htons(IP_DF)) && mtu < ntohs(old_iph->tot_len)) {
+-		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
+-		ip_rt_put(rt);
+-		goto tx_error;
++		if ((old_iph->frag_off & htons(IP_DF)) &&
++		    mtu < ntohs(old_iph->tot_len)) {
++			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
++				  htonl(mtu));
++			ip_rt_put(rt);
++			goto tx_error;
++		}
+ 	}
+ 
+ 	if (tunnel->err_count > 0) {
+@@ -602,7 +595,6 @@ static int ipip_tunnel_xmit(struct sk_bu
  			ip_rt_put(rt);
  			stats->tx_dropped++;
  			dev_kfree_skb(skb);
@@ -224,7 +268,7 @@ diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
  			return 0;
  		}
  		if (skb->sk)
-@@ -640,7 +630,6 @@ static int ipip_tunnel_xmit(struct sk_bu
+@@ -640,7 +632,6 @@ static int ipip_tunnel_xmit(struct sk_bu
  	nf_reset(skb);
  
  	IPTUNNEL_XMIT();
@@ -232,7 +276,7 @@ diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
  	return 0;
  
  tx_error_icmp:
-@@ -648,7 +637,6 @@ tx_error_icmp:
+@@ -648,7 +639,6 @@ tx_error_icmp:
  tx_error:
  	stats->tx_errors++;
  	dev_kfree_skb(skb);
