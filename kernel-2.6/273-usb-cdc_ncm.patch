@@ -1168,9 +1168,9 @@ new file mode 100644
 +		break;
 +
 +	case USB_CDC_NOTIFY_RESPONSE_AVAILABLE:
-+		dev_info(&dev->udev->dev, "NCM: response Value=%d, Index=%d Len=%d payloadLen=%d\n",
-+			le16_to_cpu(event->wValue), le16_to_cpu(event->wIndex),
-+			le16_to_cpu(event->wLength), urb->actual_length - sizeof(*event));
++		/* Not implemented yet */
++		dev_dbg(&dev->udev->dev, "NCM: ResponseAvailable - Value=%d, Index=%d\n",
++			le16_to_cpu(event->wValue), le16_to_cpu(event->wIndex));
 +		break;
 +
 +	case USB_CDC_NOTIFY_SPEED_CHANGE:
