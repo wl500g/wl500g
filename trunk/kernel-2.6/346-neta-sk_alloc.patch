@@ -8,6 +8,7 @@
  154adbc8469ff21fbf5c958446ee92dbaab01be1 [NET]: Remove bogus zero_it argument from sk_alloc
  6257ff2177ff02d7f260a7a501876aa41cb9a9f6 [NET]: Forget the zero_it argument of sk_alloc()
  5309fbcc475084e6c1566084f770cef927937b7b Remove documentation of non-existent sk_alloc arg
+ f37f0afb2916ccf287428983026261db78c7661a [SOCK] sk_stamp: should be initialized to ktime_set(-1L, 0)
  f15fbcd7d857ca2ea20b57ba6dfe63aab89d0b8b ipv4: Delete redundant sk_family assignment
  99709372736a216f99eb32b76fba835a2bfc93a8 net: don't use in_atomic() in gfp_any()
  b178bb3dfc30d9555bdd2401e95af98e23e83e10 net: reorder struct sock fields
@@ -476,6 +477,15 @@ diff --git a/net/core/sock.c b/net/core/sock.c
  	if (newsk != NULL) {
  		struct sk_filter *filter;
  
+@@ -1725,7 +1725,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
+ 	sk->sk_rcvtimeo		=	MAX_SCHEDULE_TIMEOUT;
+ 	sk->sk_sndtimeo		=	MAX_SCHEDULE_TIMEOUT;
+ 
+-	sk->sk_stamp = ktime_set(-1L, -1L);
++	sk->sk_stamp = ktime_set(-1L, 0);
+ 
+ 	atomic_set(&sk->sk_refcnt, 1);
+ 	atomic_set(&sk->sk_drops, 0);
 diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
 --- a/net/decnet/af_decnet.c
 +++ b/net/decnet/af_decnet.c
