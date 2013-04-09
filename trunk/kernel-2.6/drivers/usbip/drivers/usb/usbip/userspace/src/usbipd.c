@@ -435,8 +435,10 @@ static int do_standalone_mode(bool daemonize)
 	int nsockfd;
 	int i;
 
-	if (usbip_names_init(USBIDS_FILE))
-		err("failed to open %s", USBIDS_FILE);
+	if (usbip_use_debug) {
+		if (usbip_names_init(USBIDS_FILE))
+			err("failed to open %s", USBIDS_FILE);
+	}
 
 	if (usbip_host_driver_open()) {
 		err("please load " USBIP_CORE_MOD_NAME ".ko and "
