@@ -5,6 +5,31 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
+===RT-N-1.9.2.7-rtn (Current)===
+  * kernel
+    * backports from upstream - MIPS, mm(Slab API change), irq(genirq, softirq), net(ipv4, ipv6, udp, tcp), netfilter, usb(cdc_wdm, cdc_ether, cdc_ncm, qmi_wwan, usbip)
+    * fastnat: fix throughput degradation when url filter enabled
+    * option: Updates from 3.8 & blacklist fixes, thanks to Vampik
+
+  * 3g/cdma
+    * CDC NCM, QMI modems support (EXPERIMENTAL)
+    * add ZTE MF190J
+
+  * dnsmasq 2.66rc4
+
+  * dropbear 2013.56
+
+  * misc
+    * igmpproxy: eliminate use of second raw socket
+    * netfilter/iptables: Add xt_iface & xt_condition matches from xtables-addons project
+    * tcpdump 4.2.1
+
+  * bugfixes
+    * web-UI fixes, thanks to Vampik
+    * busybox (vi)
+    * iptables (ipset)
+    * iproute2(ip)
+
 ===RT-N-1.9.2.7-rtn-`r4923` (2013-03-16)===
   * kernel
     * backports from upstream - MIPS, core(idr, softirq, genirq, wait, lockdep), fs(writeback, splice, ext2, ext3, ext4, udf, isofs), tty, net(sock, tcp, arp, ipv6), netfilter(nf_conntrack, xt_TEE, xt_CONNMARK), usb(EHCI, usb-storage, usbnet, usb-serial, usbip), scsi/sd
