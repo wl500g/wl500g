@@ -4,7 +4,10 @@
 
 --- trunk/gcc/ChangeLog	2012/07/13 11:12:33	189460
 +++ trunk/gcc/ChangeLog	2012/07/13 11:21:39	189461
-@@ -1,3 +1,16 @@
+@@ -1,6 +1,19 @@
+ 	* df-problems.c	(can_move_insns_across): When doing
+ 	memory-reference book-keeping, handle call insns.
+ 
 +2012-07-13  Richard Guenther  <rguenther@suse.de>
 +
 +	PR tree-optimization/53922
@@ -23,15 +26,18 @@
  	Backport from mainline
 --- trunk/gcc/testsuite/ChangeLog	2012/07/13 11:12:33	189460
 +++ trunk/gcc/testsuite/ChangeLog	2012/07/13 11:21:39	189461
-@@ -1,3 +1,8 @@
+@@ -1,6 +1,11 @@
+ 	PR fortran/51758
+ 	* gfortran.dg/optional_absent_2.f90: New.
+ 
 +2012-07-13  Richard Guenther  <rguenther@suse.de>
 +
 +	PR tree-optimization/53922
 +	* gcc.dg/torture/pr53922.c: New testcase.
 +
- 2012-05-30  Richard Guenther  <rguenther@suse.de>
+ 2012-07-03  Michael Hope  <michael.hope@linaro.org>
  
- 	PR middle-end/53501
+ 	PR c++/53814
 --- /dev/null
 +++ trunk/gcc/testsuite/gcc.dg/torture/pr53922.c
 @@ -0,0 +1,22 @@

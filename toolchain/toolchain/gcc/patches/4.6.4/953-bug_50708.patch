@@ -4,7 +4,10 @@ Infinite loop between rshift_double and lshift_double if count is LONG_MIN
 
 --- gcc-4_7-branch/gcc/ChangeLog	2012/07/06 09:21:36	189313
 +++ gcc-4_7-branch/gcc/ChangeLog	2012/07/06 09:25:46	189314
-@@ -1,3 +1,22 @@
+@@ -1,6 +1,25 @@
+ 	* df-problems.c	(can_move_insns_across): When doing
+ 	memory-reference book-keeping, handle call insns.
+ 
 +2012-07-06  Richard Guenther  <rguenther@suse.de>
 +
 +	Backport from mainline
@@ -24,9 +27,9 @@ Infinite loop between rshift_double and lshift_double if count is LONG_MIN
 +	remove handling of negative count argument.
 +	(double_int_rshift): Dispatch to lshift_double.
 +
- 2012-06-01  Eric Botcazou  <ebotcazou@adacore.com>
+ 2012-07-06  Nick Clifton  <nickc@redhat.com>
  
- 	PR middle-end/53501
+ 	* config/mn10300/mn10300.c (mn10300_encode_section_info): Call
 --- gcc-4_7-branch/gcc/double-int.c	2012/07/06 09:21:36	189313
 +++ gcc-4_7-branch/gcc/double-int.c	2012/07/06 09:25:46	189314
 @@ -186,24 +186,22 @@

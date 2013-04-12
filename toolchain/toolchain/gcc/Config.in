@@ -2,7 +2,7 @@
 
 choice
 	prompt "GCC compiler Version"
-	default GCC_VERSION_4_6_3
+	default GCC_VERSION_4_6_4
 	help
 	  Select the version of gcc you wish to use.
 
@@ -18,8 +18,8 @@ choice
 	config GCC_VERSION_4_5_4
 		bool "gcc 4.5.4"
 
-	config GCC_VERSION_4_6_3
-		bool "gcc 4.6.3"
+	config GCC_VERSION_4_6_4
+		bool "gcc 4.6.4"
 
 	config GCC_VERSION_4_7_3
 		bool "gcc 4.7.3"
@@ -63,10 +63,3 @@ config INSTALL_LIBSTDCPP
 	default y
 	help
 	    Build/install c++ compiler and libstdc++?
-
-config INSTALL_LIBGCJ
-	bool
-	prompt "Build/install java compiler and GNU classpath ?"
-	default n
-	help
-	    Build/install java compiler and GNU classpath ?

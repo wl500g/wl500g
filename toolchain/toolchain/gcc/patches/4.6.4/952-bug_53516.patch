@@ -15,9 +15,9 @@
 +	bitfield accesses.
 +	* tree-vect-data-refs.c (vect_analyze_data_refs): Likewise.
 +
- 2012-04-28  Joern Rennecke  <joern.rennecke@embecosm.com>
- 	    Steven Bosscher  <steven@gcc.gnu.org>
- 	    Maxim Kuvyrkov  <maxim@codesourcery.com>
+ 2012-05-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+ 
+ 	Backport from mainline
 --- gcc-4_7-branch/gcc/testsuite/ChangeLog	2012/05/29 14:43:12	187963
 +++ gcc-4_7-branch/gcc/testsuite/ChangeLog	2012/05/29 14:44:08	187964
 @@ -1,6 +1,11 @@
@@ -29,7 +29,7 @@
 +	PR tree-optimization/53516
 +	* gcc.dg/torture/pr53516.c: New testcase.
 +
- 2012-04-03  Jason Merrill  <jason@redhat.com>
+ 2012-05-23  Michael Hope  <michael.hope@linaro.org>
  
  	PR c++/52796
 --- /dev/null
