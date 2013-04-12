@@ -1,0 +1,79 @@
+[4.6 Regression] gcc 4.6 ICE on noreturn function at -Os and above
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=56501
+
+--- gcc-4_7-branch/gcc/ChangeLog	(revision 197404)
++++ gcc-4_7-branch/gcc/ChangeLog	(revision 197405)
+@@ -1,6 +1,12 @@
+ 	* predict.c (predict_loops): If max is 0, don't call compare_tree_int.
+ 	If nitercst is 0, don't predict the exit edge.
+ 
++2013-04-03  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/56501
++	* tree-switch-conversion.c (check_process_case): Properly
++	handle !single_succ_p case.
++
+ 2013-04-03  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backported from mainline
+--- gcc-4_7-branch/gcc/testsuite/gcc.dg/torture/pr56501.c	(revision 0)
++++ gcc-4_7-branch/gcc/testsuite/gcc.dg/torture/pr56501.c	(revision 197405)
+@@ -0,0 +1,27 @@
++/* { dg-do compile } */
++/* { dg-options "-Os -w" } */
++
++int a;
++void try_help () __attribute__ ((__noreturn__));
++void try_help ()
++{
++}
++
++int main ()
++{
++  switch (a)
++    {
++      case '1':
++      case '2':
++      case '3':
++      case '4':
++      case '5':
++      case '6':
++      case '7':
++      case '8':
++      case '9':
++	  break;
++      default:
++	  try_help ();
++    }
++}
+--- gcc-4_7-branch/gcc/testsuite/ChangeLog	(revision 197404)
++++ gcc-4_7-branch/gcc/testsuite/ChangeLog	(revision 197405)
+@@ -1,6 +1,11 @@
+ 	PR fortran/56735
+ 	* gfortran.dg/namelist_80.f90: New.
+ 
++2013-04-03  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/56501
++	* gcc.dg/torture/pr56501.c: New testcase.
++
+ 2013-04-03  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backport from mainline:
+--- gcc-4_7-branch/gcc/tree-switch-conversion.c	(revision 197404)
++++ gcc-4_7-branch/gcc/tree-switch-conversion.c	(revision 197405)
+@@ -283,7 +283,12 @@
+ 	  return false;
+ 	}
+ 
+-      e = single_succ_edge (label_bb);
++      if (!single_succ_p (label_bb))
++	{
++	  info.reason
++	    = "  Bad case - a non-final BB without a single successor\n";
++	  return false;
++	}
+       following_bb = single_succ (label_bb);
+     }
+ 
