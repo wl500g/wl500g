@@ -10,15 +10,16 @@
  072c0559e26bc35700b3a70dffc230f00d9262b8 usbnet: don't initialize transfer buffer before submit status URB
  073285fd392f6dc901da7c698d46e1e2a7e26436 usbnet: changes for upcoming cdc_ncm driver
  9532021da6da48351ce48a079c673df8e3930b4a usbnet: ratelimit kevent may have been dropped warnings
+ 05ffb3e287dfa8ad9fdf29089837b54bc6473303 usbnet: make usbnet_get_link() fall back to ethtool_op_get_link()
  dacb397511289154a68dea1f4bd674c660161c23 usbnet: rx_submit() should return an error code.
  6509141f9c2ba74df6cc72ec35cd1865276ae3a4 usbnet: add new flag FLAG_NOARP for usb net devices
  bf414b369f158bb527f9f29174ada815f961b44c usbnet: fix tx_dropped statistics
 
 ---
  drivers/net/usb/asix.c   |    1 
- drivers/net/usb/usbnet.c |  195 +++++++++++++++++++++++++++++++++--------------
+ drivers/net/usb/usbnet.c |  199 +++++++++++++++++++++++++++++++++--------------
  drivers/net/usb/usbnet.h |   14 +++
- 3 files changed, 154 insertions(+), 56 deletions(-)
+ 3 files changed, 156 insertions(+), 58 deletions(-)
 
 diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
 --- a/drivers/net/usb/asix.c
@@ -329,6 +330,17 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
 +done_nopm:
  	return retval;
  }
+ 
+@@ -743,8 +803,8 @@ u32 usbnet_get_link (struct net_device *net)
+ 	if (dev->mii.mdio_read)
+ 		return mii_link_ok(&dev->mii);
+ 
+-	/* Otherwise, say we're up (to avoid breaking scripts) */
+-	return 1;
++	/* Otherwise, dtrt for drivers calling netif_carrier_{on,off} */
++	return ethtool_op_get_link(net);
+ }
+ EXPORT_SYMBOL_GPL(usbnet_get_link);
  
 @@ -765,9 +825,9 @@ void usbnet_get_drvinfo (struct net_devi
  {
