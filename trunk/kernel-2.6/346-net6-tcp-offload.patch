@@ -9,6 +9,7 @@ tcp: TSO/GSO updates from upstream
  be9164e769d57aa10b2bbe15d103edc041b9e7de [IPv4] UFO: prevent generation of chained skb destined to UFO device
  26cde9f7e2747b6d254b704594eed87ab959afa5 udp: Fix bogus UFO packet generation
  5a2ef92023506d4e9cd13617b5a46b4d0f1b6747 inet: Remove unused sk_sndmsg_* from UFO
+ c146066ab80267c3305de5dda6a4083f06df9265 ipv4: Don't use ufo handling on later transformed packets
  f4541d60a449afd40448b06496dcd510f505928e tcp: preserve ACK clocking in TSO
 
 ---
@@ -133,7 +134,7 @@ diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
 -
 +	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
 +	    (sk->sk_protocol == IPPROTO_UDP) &&
-+	    (rt->u.dst.dev->features & NETIF_F_UFO)) {
++	    (rt->u.dst.dev->features & NETIF_F_UFO) && !rt->u.dst.header_len) {
  		err = ip_ufo_append_data(sk, getfrag, from, length, hh_len,
  					 fragheaderlen, transhdrlen, mtu,
  					 flags);
