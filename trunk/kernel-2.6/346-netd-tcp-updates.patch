@@ -12,17 +12,57 @@
  64022d0b4e93ea432e95db55a72b8a1c5775f3c0 tcp: fix crashes in do_tcp_sendpages()
  aab2b4bf224ef8358d262f95b568b8ad0cecf0a0 tcp: fix double-counted receiver RTT when leaving receiver fast path
  a3374c42aa5f7237e87ff3b0622018636b0c847e tcp: fix FIONREAD/SIOCINQ
+ 2f53384424251c06038ae612e56231b96ab610ee tcp: allow splice() to build full TSO packets
+ 35f9c09fe9c72eb8ca2b8e89a593e1c151f28fc2 tcp: tcp_sendpages() should call tcp_push() once
+ bad115cfe5b509043b684d3a007ab54b80090aa1 tcp: do_tcp_sendpages() must try to push data out on oom conditions
 
 ---
+ fs/splice.c              |    5 ++
+ include/linux/socket.h   |    2 -
  include/linux/tcp.h      |   55 +++++++++++++---------------
  include/net/inet_sock.h  |    3 +
  include/net/tcp.h        |   16 ++++----
- net/ipv4/tcp.c           |   25 +++++-------
+ net/ipv4/tcp.c           |   30 ++++++---------
  net/ipv4/tcp_input.c     |   91 ++++++++++++++++++++++++++---------------------
  net/ipv4/tcp_minisocks.c |    1 
  net/ipv4/tcp_output.c    |   16 ++------
- 7 files changed, 106 insertions(+), 101 deletions(-)
+ net/socket.c             |    6 +--
+ 10 files changed, 116 insertions(+), 109 deletions(-)
 
+diff --git a/fs/splice.c b/fs/splice.c
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -30,6 +30,7 @@
+ 
+ #include <linux/uio.h>
+ #include <linux/security.h>
++#include <linux/socket.h>
+ 
+ /*
+  * Attempt to steal a page from a pipe buffer. This should perhaps go into
+@@ -690,7 +691,9 @@ static int pipe_to_sendpage(struct pipe_inode_info *pipe,
+ 
+ 	ret = buf->ops->confirm(pipe, buf);
+ 	if (!ret) {
+-		more = (sd->flags & SPLICE_F_MORE) || sd->len < sd->total_len;
++		more = (sd->flags & SPLICE_F_MORE) ? MSG_MORE : 0;
++		if (sd->len < sd->total_len)
++			more |= MSG_SENDPAGE_NOTLAST;
+ 		if (file->f_op && file->f_op->sendpage)
+ 			ret = file->f_op->sendpage(file, buf->page, buf->offset,
+ 						   sd->len, &pos, more);
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -265,7 +265,7 @@ struct ucred {
+ 
+ #define MSG_NOSIGNAL	0x4000	/* Do not generate SIGPIPE */
+ #define MSG_MORE	0x8000	/* Sender will send more */
+-
++#define MSG_SENDPAGE_NOTLAST 0x20000 /* sendpage() internal : not the last page */
+ #define MSG_EOF         MSG_FIN
+ 
+ #define MSG_CMSG_CLOEXEC 0x40000000	/* Set close_on_exit for file
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
@@ -249,6 +289,25 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  			goto out;
  
  		if (skb->len < size_goal || (flags & MSG_OOB))
+@@ -796,8 +796,7 @@ new_segment:
+ wait_for_sndbuf:
+ 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+ wait_for_memory:
+-		if (copied)
+-			tcp_push(sk, flags & ~MSG_MORE, mss_now, TCP_NAGLE_PUSH);
++		tcp_push(sk, flags & ~MSG_MORE, mss_now, TCP_NAGLE_PUSH);
+ 
+ 		if ((err = sk_stream_wait_memory(sk, &timeo)) != 0)
+ 			goto do_error;
+@@ -806,7 +806,7 @@ wait_for_memory:
+ 	}
+ 
+ out:
+-	if (copied)
++	if (copied && !(flags & MSG_SENDPAGE_NOTLAST))
+ 		tcp_push(sk, flags, mss_now, tp->nonagle);
+ 	return copied;
+ 
 @@ -833,7 +829,7 @@ ssize_t tcp_sendpage(struct socket *sock
  
  	lock_sock(sk);
@@ -595,4 +654,20 @@ diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
  
  	/* Don't muck with the congestion window here.
  	 * Reason is that we do not increase amount of _data_
+diff --git a/net/socket.c b/net/socket.c
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -811,9 +811,9 @@ static ssize_t sock_sendpage(struct file *file, struct page *page,
+ 
+ 	sock = file->private_data;
+ 
+-	flags = !(file->f_flags & O_NONBLOCK) ? 0 : MSG_DONTWAIT;
+-	if (more)
+-		flags |= MSG_MORE;
++	flags = (file->f_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
++	/* more is a combination of MSG_MORE and MSG_SENDPAGE_NOTLAST */
++	flags |= more;
+ 
+ 	return kernel_sendpage(sock, page, offset, size, flags);
+ }
 -- 
