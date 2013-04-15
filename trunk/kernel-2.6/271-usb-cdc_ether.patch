@@ -3,12 +3,71 @@ cdc_ether: Updates from upstream
  b3c914aa84f4e4bbb3efc8f41c359d96e5e932d2 usbnet: add support for some Huawei modems with cdc-ether ports
  f8295ec22cb0f1ee6849b862addbfa3ea9320755 qmi_wwan/cdc_ether: move Novatel 551 and E362 to qmi_wwan
  0370acd4d4d2595a11b0b0a793acb506e19b9d4c qmi_wwan/cdc_ether: add Dell Wireless 5800 (Novatel E362) USB IDs
+ 21851264120b0bd1f953328cb131abcfa9305bc3 cdc_ether: Identify MBM devices by GUID in MDLM descriptor
 
 ---
+ drivers/net/usb/cdc_ether.c |   75 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 75 insertions(+)
 
 diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
 --- a/drivers/net/usb/cdc_ether.c
 +++ b/drivers/net/usb/cdc_ether.c
+@@ -64,6 +64,11 @@ static int is_wireless_rndis(struct usb_interface_descriptor *desc)
+ 
+ #endif
+ 
++static const u8 mbm_guid[16] = {
++	0xa3, 0x17, 0xa8, 0x8b, 0x04, 0x5e, 0x4f, 0x01,
++	0xa6, 0x07, 0xc0, 0xff, 0xcb, 0x7e, 0x39, 0x2a,
++};
++
+ /*
+  * probes control interface, claims data interface, collects the bulk
+  * endpoints, activates data interface (if needed), maybe sets MTU.
+@@ -79,6 +84,8 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	int				rndis;
+ 	bool				android_rndis_quirk = false;
+ 	struct usb_driver		*driver = driver_of(intf);
++	struct usb_cdc_mdlm_desc	*desc = NULL;
++	struct usb_cdc_mdlm_detail_desc *detail = NULL;
+ 
+ 	if (sizeof dev->data < sizeof *info)
+ 		return -EDOM;
+@@ -229,6 +236,34 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 			 * side link address we were given.
+ 			 */
+ 			break;
++		case USB_CDC_MDLM_TYPE:
++			if (desc) {
++				dev_dbg(&intf->dev, "extra MDLM descriptor\n");
++				goto bad_desc;
++			}
++
++			desc = (void *)buf;
++
++			if (desc->bLength != sizeof(*desc))
++				goto bad_desc;
++
++			if (memcmp(&desc->bGUID, mbm_guid, 16))
++				goto bad_desc;
++			break;
++		case USB_CDC_MDLM_DETAIL_TYPE:
++			if (detail) {
++				dev_dbg(&intf->dev, "extra MDLM detail descriptor\n");
++				goto bad_desc;
++			}
++
++			detail = (void *)buf;
++
++			if (detail->bGuidDescriptorType == 0) {
++				if (detail->bLength < (sizeof(*detail) + 1))
++					goto bad_desc;
++			} else
++				goto bad_desc;
++			break;
+ 		}
+ next_desc:
+ 		len -= buf [0];	/* bLength */
 @@ -433,6 +433,9 @@ static const struct driver_info	cdc_info
  
  /*-------------------------------------------------------------------------*/
@@ -54,11 +113,14 @@ diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
  /*
   * WHITELIST!!!
   *
-@@ -539,6 +570,12 @@ static const struct usb_device_id	produc
+@@ -539,6 +570,15 @@ static const struct usb_device_id	produc
  	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ETHERNET,
  			USB_CDC_PROTO_NONE),
  	.driver_info = (unsigned long) &cdc_info,
-+
++}, {
++	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_MDLM,
++			USB_CDC_PROTO_NONE),
++	.driver_info = (unsigned long) &cdc_info,
 +}, {
 +	/* Various Huawei modems with a network port like the UMG1831 */
 +	USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_COMM,
