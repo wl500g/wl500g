@@ -866,7 +866,7 @@ dropbear/config.h: dropbear/config.h.in
 	    $(CONFIGURE) --disable-zlib --disable-shadow \
 	    --disable-lastlog --disable-utmp --disable-utmpx \
 	    --disable-wtmp --disable-wtmpx \
-	    --disable-libutil --disable-loginfunc --disable-pututline \
+	    --disable-loginfunc --disable-pututline \
 	    --disable-pututxline --enable-bundled-libtom
 
 dropbear: dropbear/config.h
