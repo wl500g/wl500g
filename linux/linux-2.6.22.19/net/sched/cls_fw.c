@@ -179,7 +179,6 @@ fw_change_attrs(struct tcf_proto *tp, struct fw_filter *f,
 	if (err < 0)
 		return err;
 
-	err = -EINVAL;
 	if (tb[TCA_FW_CLASSID-1]) {
 		if (RTA_PAYLOAD(tb[TCA_FW_CLASSID-1]) != sizeof(u32))
 			goto errout;
@@ -195,6 +194,7 @@ fw_change_attrs(struct tcf_proto *tp, struct fw_filter *f,
 	}
 #endif /* CONFIG_NET_CLS_IND */
 
+	err = -EINVAL;
 	if (tb[TCA_FW_MASK-1]) {
 		if (RTA_PAYLOAD(tb[TCA_FW_MASK-1]) != sizeof(u32))
 			goto errout;
