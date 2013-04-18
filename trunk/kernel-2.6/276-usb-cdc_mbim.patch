@@ -1,5 +1,7 @@
 USB: cdc_mbim MBIM driver backport from 3.8.4
 
+ 32b161aa88aa40a83888a995c6e2ef81140219b1 net: cdc_mbim: remove bogus sizeof()
+
 ---
  drivers/net/usb/Kconfig    |   18 +
  drivers/net/usb/Makefile   |    1 
@@ -188,7 +190,7 @@ new file mode 100644
 +		goto error;
 +
 +	if (skb) {
-+		if (skb->len <= sizeof(ETH_HLEN))
++		if (skb->len <= ETH_HLEN)
 +			goto error;
 +
 +		/* mapping VLANs to MBIM sessions:
