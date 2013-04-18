@@ -367,7 +367,7 @@ static int sysfs_get_active_config(struct libusb_device *dev, int *config)
 			"read bConfigurationValue failed ret=%d errno=%d", r, errno);
 		return LIBUSB_ERROR_IO;
 	} else if (r == 0) {
-		usbi_err(DEVICE_CTX(dev), "device unconfigured");
+		usbi_dbg("device unconfigured");
 		*config = -1;
 		return 0;
 	}
@@ -1091,8 +1091,13 @@ static int op_get_configuration(struct libusb_device_handle *handle,
 		return LIBUSB_ERROR_NOT_SUPPORTED;
 
 	r = sysfs_get_active_config(handle->dev, config);
-	if (*config == -1)
+	if (r < 0)
+		return r;
+
+	if (*config == -1) {
+		usbi_err(HANDLE_CTX(handle), "device unconfigured");
 		*config = 0;
+	}
 
 	return 0;
 }
