@@ -68,16 +68,3 @@ diff -urBp dropbear-0.56/options.h dropbear/options.h
  
  /* Whether to log commands executed by a client. This only logs the 
   * (single) command sent to the server, not what a user did in a 
-diff -uBp dropbear-2013.57/common-kex.c dropbear/common-kex.c
---- dropbear-2013.57/common-kex.c	2013-04-15 18:01:57.000000000 +0400
-+++ dropbear/common-kex.c	2013-04-16 12:24:10.000000000 +0400
-@@ -84,6 +84,9 @@ static void gen_new_keys();
- #ifndef DISABLE_ZLIB
- static void gen_new_zstream_recv();
- static void gen_new_zstream_trans();
-+#else
-+# define gen_new_zstream_recv()
-+# define gen_new_zstream_trans()
- #endif
- static void read_kex_algos();
- /* helper function for gen_new_keys */
