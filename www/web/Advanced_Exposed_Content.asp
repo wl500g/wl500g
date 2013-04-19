@@ -31,6 +31,18 @@
 <td class="content_header_td">IP Address of Exposed Station:
            </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="dmz_ip" value="<% nvram_get("dmz_ip"); %>" onBlur="return validate_ipaddr(this, 'dmz_ip')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
+<tr class="content_section_header_tr">
+<td class="content_section_header_td" colspan="2">Special Applications
+            </td>
+</tr>
+<tr>
+<td class="content_desc_td" colspan="2">Some applications require special handler against NAT. Please fill parameters to enable it. These special handlers are disabled in default.
+         </td>
+</tr>
+<tr>
+<td class="content_header_td">Starcraft(Battle.Net)
+           </td><td class="content_input_td"><input type="radio" value="1" name="sp_battle_ips" class="content_input_fd" onClick="return change_common_radio(this, 'IPConnection', 'sp_battle_ips', '1')" <% nvram_match("sp_battle_ips", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="sp_battle_ips" class="content_input_fd" onClick="return change_common_radio(this, 'IPConnection', 'sp_battle_ips', '0')" <% nvram_match("sp_battle_ips", "0", "checked"); %>>No</input></td>
+</tr>
 </table>
 
 <% include("footer_buttons.inc"); %>

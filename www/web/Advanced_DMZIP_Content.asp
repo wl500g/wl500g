@@ -19,8 +19,7 @@
 <input type="hidden" name="first_time" value="">
 <input type="hidden" name="action_script" value="">
 <input type="hidden" name="" value="<% nvram_get(""); %>">
-<!--<input type="hidden" name="" value="<% nvram_get(""); %>">--> <!-- why double? -->
-<!-- Table for the conntent page -->	    
+<!-- Table for the conntent page -->	      	      
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td class="content_header_td_title" colspan="2">Wireless Firewall - Basic Config</td>
@@ -34,10 +33,6 @@
 <tr>
 <td class="content_header_td">Enable Wireless Firewall?
            </td><td class="content_input_td"><input type="radio" value="1" name="" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', '', '1')" <% nvram_match("", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', '', '0')" <% nvram_match("", "0", "checked"); %>>No</input></td>
-</tr>
-<tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates which devices will be under the control of Wireless Firewall.', LEFT);" onMouseOut="return nd();">Applied Devices:
-           </td><td class="content_input_td"><select name="" class="content_input_fd" onChange="return change_common(this, 'FirewallConfig', '')"><option class="content_input_fd" value="Both" <% nvram_match("", "Both","selected"); %>>Both</option><option class="content_input_fd" value="802.11a only" <% nvram_match("", "802.11a only","selected"); %>>802.11a only</option><option class="content_input_fd" value="802.11g only" <% nvram_match("", "802.11g only","selected"); %>>802.11g only</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IP Address of the router as seen in this separated wireless local network.', LEFT);" onMouseOut="return nd();">IP Address:
