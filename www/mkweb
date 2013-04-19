@@ -107,14 +107,10 @@ if [ -n "$1" ]; then
 	    || [ "$MODEL" = "RT-N10" ] || [ "$MODEL" = "RT-N10U" ]; then
 		cp -f web_$TMPDIR/Advanced_Wireless11n_Content.asp web_$TMPDIR/Advanced_Wireless_Content.asp
 		cp -f web_$TMPDIR/Advanced_WAdvanced_Content_11n.asp web_$TMPDIR/Advanced_WAdvanced_Content.asp
-	else
-		cp -f web_$TMPDIR/Advanced_Wireless11g_Content.asp web_$TMPDIR/Advanced_Wireless_Content.asp
 	fi
 
 	### 5. Remove useless files in ./target/web/* ###
 	rm -rf web_$TMPDIR/*11n*.asp
-	rm -rf web_$TMPDIR/*11g*.asp
-	rm -rf web_$TMPDIR/*_300g.asp
 
 # CHUPA
 	rm -f web_$TMPDIR/graph/!.gif

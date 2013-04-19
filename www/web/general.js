@@ -1990,8 +1990,7 @@ function load_body()
 		}
 
 	}
-	else if (frm.current_page.value == "Advanced_DMZIP11g_Content.asp" ||
-			frm.current_page.value == "Advanced_DMZIP_Content.asp")
+	else if (frm.current_page.value == "Advanced_DMZIP_Content.asp")
 	{
 		change_wireless_firewall();
 	}
