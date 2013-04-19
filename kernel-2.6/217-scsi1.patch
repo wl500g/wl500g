@@ -5,16 +5,184 @@
  7c07d613d22680f1caf2bd9ee49838ec7730b9da [SCSI] sg: use idr to replace static arrays
  53474c042c0e1be39557474c945ad4a8e653ad46 [SCSI] sg: fix /proc/scsi/sg/devices when no SCSI devices
  a24484f281dda11e4fc0041a51907d3564da3d7f [SCSI] sg: set class_data after success
+ d07e03610ca1f4be373f32ad5b25ac00dbdb867d [SCSI] sg: handle class_device_create failure properly
+ a3d2c2e8f5e01e185013d8f944c0a26fdc558ad8 [SCSI] ch: handle class_device_create failure properly
+ da707c54c3424b4b50d4352c2103867284ba6724 [SCSI] ch: fix device minor number management bug
  8f333991ba8479fe8a9d72aea978db415e3c2f2a [SCSI] scsi: use get_unaligned_* helpers
  e4bf25fbcc64a87d7dc1d3318ca56c28382757e2 [SCSI] scsi:hosts.c Fix warning: variable 'rval' set but not used
 
 ---
+ drivers/scsi/ch.c         |   87 +++++++++------
  drivers/scsi/hosts.c      |    4 
  drivers/scsi/libiscsi.c   |    2 
  drivers/scsi/scsi_sysfs.c |  139 +++++++++---------------
- drivers/scsi/sg.c         |  256 ++++++++++++++++++++--------------------------
- 4 files changed, 171 insertions(+), 230 deletions(-)
+ drivers/scsi/sg.c         |  265 ++++++++++++++++++++--------------------------
+ 5 files changed, 229 insertions(+), 268 deletions(-)
 
+diff --git a/drivers/scsi/ch.c b/drivers/scsi/ch.c
+--- a/drivers/scsi/ch.c
++++ b/drivers/scsi/ch.c
+@@ -21,6 +21,7 @@
+ #include <linux/compat.h>
+ #include <linux/chio.h>			/* here are all the ioctls */
+ #include <linux/mutex.h>
++#include <linux/idr.h>
+ 
+ #include <scsi/scsi.h>
+ #include <scsi/scsi_cmnd.h>
+@@ -33,6 +34,7 @@
+ 
+ #define CH_DT_MAX       16
+ #define CH_TYPES        8
++#define CH_MAX_DEVS     128
+ 
+ MODULE_DESCRIPTION("device driver for scsi media changer devices");
+ MODULE_AUTHOR("Gerd Knorr <kraxel@bytesex.org>");
+@@ -113,9 +115,8 @@ typedef struct {
+ 	struct mutex	    lock;
+ } scsi_changer;
+ 
+-static LIST_HEAD(ch_devlist);
+-static DEFINE_SPINLOCK(ch_devlist_lock);
+-static int ch_devcount;
++static DEFINE_IDR(ch_index_idr);
++static DEFINE_SPINLOCK(ch_index_lock);
+ 
+ static struct scsi_driver ch_template =
+ {
+@@ -598,20 +599,17 @@ ch_release(struct inode *inode, struct file *file)
+ static int
+ ch_open(struct inode *inode, struct file *file)
+ {
+-	scsi_changer *tmp, *ch;
++	scsi_changer *ch;
+ 	int minor = iminor(inode);
+ 
+-	spin_lock(&ch_devlist_lock);
+-	ch = NULL;
+-	list_for_each_entry(tmp,&ch_devlist,list) {
+-		if (tmp->minor == minor)
+-			ch = tmp;
+-	}
++	spin_lock(&ch_index_lock);
++	ch = idr_find(&ch_index_idr, minor);
++
+ 	if (NULL == ch || scsi_device_get(ch->device)) {
+-		spin_unlock(&ch_devlist_lock);
++		spin_unlock(&ch_index_lock);
+ 		return -ENXIO;
+ 	}
+-	spin_unlock(&ch_devlist_lock);
++	spin_unlock(&ch_index_lock);
+ 
+ 	file->private_data = ch;
+ 	return 0;
+@@ -914,8 +912,10 @@ static int ch_probe(struct device *dev)
+ static int ch_probe(struct device *dev)
+ {
+ 	struct scsi_device *sd = to_scsi_device(dev);
++	struct class_device *class_dev;
++	int minor, ret = -ENOMEM;
+ 	scsi_changer *ch;
+-	
++
+ 	if (sd->type != TYPE_MEDIUM_CHANGER)
+ 		return -ENODEV;
+ 
+@@ -923,47 +922,63 @@ static int ch_probe(struct device *dev)
+ 	if (NULL == ch)
+ 		return -ENOMEM;
+ 
+-	ch->minor = ch_devcount;
++	if (!idr_pre_get(&ch_index_idr, GFP_KERNEL))
++		goto free_ch;
++
++	spin_lock(&ch_index_lock);
++	ret = idr_get_new(&ch_index_idr, ch, &minor);
++	spin_unlock(&ch_index_lock);
++
++	if (ret)
++		goto free_ch;
++
++	if (minor > CH_MAX_DEVS) {
++		ret = -ENODEV;
++		goto remove_idr;
++	}
++
++	ch->minor = minor;
+ 	sprintf(ch->name,"ch%d",ch->minor);
++
++	class_dev = class_device_create(ch_sysfs_class, NULL,
++					MKDEV(SCSI_CHANGER_MAJOR, ch->minor),
++					dev, "s%s", ch->name);
++	if (IS_ERR(class_dev)) {
++		printk(KERN_WARNING "ch%d: class_device_create failed\n",
++		       ch->minor);
++		ret = PTR_ERR(class_dev);
++		goto remove_idr;
++	}
++
+ 	mutex_init(&ch->lock);
+ 	ch->device = sd;
+ 	ch_readconfig(ch);
+ 	if (init)
+ 		ch_init_elem(ch);
+ 
+-	class_device_create(ch_sysfs_class, NULL,
+-			    MKDEV(SCSI_CHANGER_MAJOR,ch->minor),
+-			    dev, "s%s", ch->name);
+-
++	dev_set_drvdata(dev, ch);
+ 	sdev_printk(KERN_INFO, sd, "Attached scsi changer %s\n", ch->name);
+-	
++
+-	spin_lock(&ch_devlist_lock);
+-	list_add_tail(&ch->list,&ch_devlist);
+-	ch_devcount++;
+-	spin_unlock(&ch_devlist_lock);
+ 	return 0;
++remove_idr:
++	idr_remove(&ch_index_idr, minor);
++free_ch:
++	kfree(ch);
++	return ret;
+ }
+ 
+ static int ch_remove(struct device *dev)
+ {
+-	struct scsi_device *sd = to_scsi_device(dev);
+-	scsi_changer *tmp, *ch;
++	scsi_changer *ch = dev_get_drvdata(dev);
+ 
+-	spin_lock(&ch_devlist_lock);
+-	ch = NULL;
+-	list_for_each_entry(tmp,&ch_devlist,list) {
+-		if (tmp->device == sd)
+-			ch = tmp;
+-	}
+-	BUG_ON(NULL == ch);
+-	list_del(&ch->list);
+-	spin_unlock(&ch_devlist_lock);
++	spin_lock(&ch_index_lock);
++	idr_remove(&ch_index_idr, ch->minor);
++	spin_unlock(&ch_index_lock);
+ 
+ 	class_device_destroy(ch_sysfs_class,
+ 			     MKDEV(SCSI_CHANGER_MAJOR,ch->minor));
+ 	kfree(ch->dt);
+ 	kfree(ch);
+-	ch_devcount--;
+ 	return 0;
+ }
+ 
+@@ -1007,6 +1015,7 @@ static void __exit exit_ch_module(void)
+ 	scsi_unregister_driver(&ch_template.gendrv);
+ 	unregister_chrdev(SCSI_CHANGER_MAJOR, "ch");
+ 	class_destroy(ch_sysfs_class);
++	idr_destroy(&ch_index_idr);
+ }
+ 
+ module_init(init_ch_module);
 diff --git a/drivers/scsi/hosts.c b/drivers/scsi/hosts.c
 --- a/drivers/scsi/hosts.c
 +++ b/drivers/scsi/hosts.c
@@ -220,7 +388,7 @@ diff --git a/drivers/scsi/sg.c b/drivers/scsi/sg.c
  	if (error)
  		goto cdev_add_err;
  
-@@ -1444,8 +1428,8 @@ sg_add(struct class_device *cl_dev, struct class_interface *cl_intf)
+@@ -1444,32 +1428,37 @@ sg_add(struct class_device *cl_dev, struct class_interface *cl_intf)
  		struct class_device * sg_class_member;
  
  		sg_class_member = class_device_create(sg_sysfs_class, NULL,
@@ -229,9 +397,17 @@ diff --git a/drivers/scsi/sg.c b/drivers/scsi/sg.c
 +				MKDEV(SCSI_GENERIC_MAJOR, sdp->index),
 +				cl_dev->dev, "%s",
  				disk->disk_name);
- 		if (IS_ERR(sg_class_member))
- 			printk(KERN_WARNING "sg_add: "
-@@ -1455,21 +1439,23 @@ sg_add(struct class_device *cl_dev, struct class_interface *cl_intf)
+-		if (IS_ERR(sg_class_member))
+-			printk(KERN_WARNING "sg_add: "
+-				"class_device_create failed\n");
++		if (IS_ERR(sg_class_member)) {
++			printk(KERN_ERR "sg_add: "
++			       "class_device_create failed\n");
++			error = PTR_ERR(sg_class_member);
++			goto cdev_add_err;
++		}
+ 		class_set_devdata(sg_class_member, sdp);
+ 		error = sysfs_create_link(&scsidp->sdev_gendev.kobj, 
  					  &sg_class_member->kobj, "generic");
  		if (error)
  			printk(KERN_ERR "sg_add: unable to make symlink "
