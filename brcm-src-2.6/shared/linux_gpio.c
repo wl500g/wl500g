@@ -116,7 +116,7 @@ gpio_init(void)
 	}
 
 	/* Add the device gpio0 */
-	class_device_create(gpiodev_class, NULL, MKDEV(gpio_major, 0), NULL, "gpio");
+	device_create(gpiodev_class, NULL, MKDEV(gpio_major, 0), "%s", "gpio");
 #else
 	gpiodev_handle = devfs_register(NULL, "gpio", DEVFS_FL_DEFAULT,
 	                                gpio_major, 0, S_IFCHR | S_IRUGO | S_IWUGO,
@@ -131,7 +131,7 @@ gpio_exit(void)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 	if (gpiodev_class != NULL) {
-		class_device_destroy(gpiodev_class, MKDEV(gpio_major, 0));
+		device_destroy(gpiodev_class, MKDEV(gpio_major, 0));
 		class_destroy(gpiodev_class);
 	}
 
