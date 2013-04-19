@@ -9,12 +9,13 @@
 <script type="text/javascript" src="general.js"></script>
 </head>
 
-<body bgcolor="#FFFFFF" onLoad="load_body()">
+<body bgcolor="#FFFFFF" onLoad="load_body(); load_wizard();">
 <form method="GET" name="form" action="apply.cgi">
 <input type="hidden" name="current_page" value="Main_Index_HomeGateway.asp">
 <input type="hidden" name="next_page" value="Basic_GOperation_Content.asp">
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="next_host" value="">
+<input type="hidden" name="first_time" value="<% nvram_get("x_Setting"); %>">
 
 <table height="22" width="666">
   <tr height="36">
@@ -29,16 +30,14 @@
       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>
       <ul>
         <li><b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
-        <li><b><a href="javascript:top.openBranch('Wireless')">Dual Band</a></b> supports 802.11a and 802.11g simultaneously.</li>  
-        <li><b><a href="javascript:top.openBranch('Wireless Firewall')">Wireless Firewall</a></b> protect LAN environment from wireless access.</li> 
-        <li><b><a href="javascript:top.openBranch('Web Camera')">Web Camera</a></b> real-time monitor with an add-on Web Camera.</li>  
-        <li><b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a></b> all computers share the same printer.</li> 
+        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                  
+        <li><b><a href="javascript:top.openBranch('USB Application')">USB Application</a></b> Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>        
         <li><b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
         <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protects LAN or Wireless environment through flexible filter rule setting.</li>    
         <li><b><a href="javascript:top.openBranch('Status &amp; Log')">Status &amp; Log</a></b> log status of system in details.</li>
-		</ul>
+        </ul>
 		<p align="center">
-        <font face="Arial" style="color: #000000; font-size: 10pt;"><b>Click NEXT to start Quick Setup</b>&nbsp;</font><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver=buttonOver(this) type="submit" value="NEXT" name="action">     
+        <font face="Arial" style="color: #000000; font-size: 10pt;"><b>Click NEXT to start Quick Setup</b>&nbsp;</font><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver=buttonOver(this) type="submit" onClick="onSubmitCtrl(this, 'NEXT')" value="Next" name="action">      
         </p>
         <p></p>
     </td>

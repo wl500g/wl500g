@@ -494,7 +494,7 @@ install: package-$(MODEL)
 package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs
 	# TO DO: implement config.js and remove this
 	$(MAKE) www-clean
-	$(MAKE) www
+	$(MAKE) www MODEL=$(MODEL)
 	$(MAKE) www-install
 	# Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
@@ -639,7 +639,7 @@ rc-install:
 	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 www-%:
-	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www
+	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www MODEL=$(MODEL)
 
 radvd/Makefile: radvd/Makefile.in
 	cd radvd && CFLAGS="-g -Os" \

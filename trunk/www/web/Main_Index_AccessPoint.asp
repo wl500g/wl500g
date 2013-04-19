@@ -26,15 +26,14 @@
   <table width="568" cellspacing="0" cellpadding="0" bordercolor="#C0C0C0" border="0">
   <tr bgcolor="#FFFF00"> 
     <td class="content_desc_td_home"> 
-      <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Dual Band Access Point</b>
+      <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
       <ul>
         <li><b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
-        <li><b><a href="javascript:top.openBranch('Wireless')">Dual Band</a></b> supports 802.11a and 802.11g simultaneously.</li>  
-        <li><b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a></b> all computers share the same printer.</li> 
+        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
         <li><b><a href="javascript:top.openBranch('Status &amp; Log')">Status &amp; Log</a></b> log status of system in details.</li>
 		</ul>
 		<p align="center">
-        <font face="Arial" style="color: #000000; font-size: 10pt;"><b>Click NEXT to start Quick Setup</b>&nbsp;</font><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver=buttonOver(this) type="submit" value="NEXT" name="action">
+        <font face="Arial" style="color: #000000; font-size: 10pt;"><b>Click NEXT to start Quick Setup</b>&nbsp;</font><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver=buttonOver(this) type="submit" onClick="onSubmitCtrl(this, 'NEXT')" value="Next" name="action">
         </p>
         <p></p>
     </td>
