@@ -1,0 +1,3380 @@
+Convert struct class_device to struct device
+
+ 49dce689ad4ef0fd1f970ef762168e4bd46f69a3 spi doesn't need class_device
+ a98894ab02bc9a3e2dc8cccab55d7ed200d3b05f mtd: Convert from class_device to device for MTD/mtdchar
+ 6013c12be8313b3205b41912d965b03f3b06147d pktcdvd: Convert from class_device to device for block/pktcdvd
+ 655bfd7aebb12481ab9275284d9500bee5ba3e70 backlight: Convert from struct class_device to struct device
+ 9657d75c5f0f7d0a9cb507521d3ad1436aea28c9 Input: convert from class devices to standard devices
+ ef39592f786b6d56d9faf988a3f18786eeb050b3 [ATM]: Convert struct class_device to struct device
+ fd04897bb20be29d60f7e426a053545aebeaa61a Driver Core: add class iteration api
+ c3b19ff06e0808555403491d61e8f0cbbb53e933 driver core: remove no longer used "struct class_device"
+
+---
+
+diff --git a/drivers/base/base.h b/drivers/base/base.h
+--- a/drivers/base/base.h
++++ b/drivers/base/base.h
+@@ -36,17 +36,6 @@ extern void sysdev_shutdown(void);
+ extern int sysdev_suspend(pm_message_t state);
+ extern int sysdev_resume(void);
+ 
+-static inline struct class_device *to_class_dev(struct kobject *obj)
+-{
+-	return container_of(obj, struct class_device, kobj);
+-}
+-
+-static inline
+-struct class_device_attribute *to_class_dev_attr(struct attribute *_attr)
+-{
+-	return container_of(_attr, struct class_device_attribute, attr);
+-}
+-
+ extern char *make_class_name(const char *name, struct kobject *kobj);
+ 
+ extern void devres_release_all(struct device *dev);
+diff --git a/drivers/base/class.c b/drivers/base/class.c
+--- a/drivers/base/class.c
++++ b/drivers/base/class.c
+@@ -172,29 +172,13 @@ static void class_create_release(struct 
+ 	kfree(cls);
+ }
+ 
+-static void class_device_create_release(struct class_device *class_dev)
+-{
+-	pr_debug("%s called for %s\n", __FUNCTION__, class_dev->class_id);
+-	kfree(class_dev);
+-}
+-
+-/* needed to allow these devices to have parent class devices */
+-static int class_device_create_uevent(struct class_device *class_dev,
+-				       char **envp, int num_envp,
+-				       char *buffer, int buffer_size)
+-{
+-	pr_debug("%s called for %s\n", __FUNCTION__, class_dev->class_id);
+-	return 0;
+-}
+-
+ /**
+  * class_create - create a struct class structure
+  * @owner: pointer to the module that is to "own" this struct class
+  * @name: pointer to a string for the name of this class.
+- * @key: the lock_class_key for this class; used by mutex lock debugging
+  *
+  * This is used to create a struct class pointer that can then be used
+- * in calls to class_device_create().
++ * in calls to device_create().
+  *
+  * Note, the pointer created here is to be destroyed when finished by
+  * making a call to class_destroy().
+@@ -213,7 +197,6 @@ struct class *class_create(struct module
+ 	cls->name = name;
+ 	cls->owner = owner;
+ 	cls->class_release = class_create_release;
+-	cls->release = class_device_create_release;
+ 
+ 	retval = class_register(cls);
+ 	if (retval)
+@@ -241,117 +224,6 @@ void class_destroy(struct class *cls)
+ 	class_unregister(cls);
+ }
+ 
+-/* Class Device Stuff */
+-
+-int class_device_create_file(struct class_device * class_dev,
+-			     const struct class_device_attribute * attr)
+-{
+-	int error = -EINVAL;
+-	if (class_dev)
+-		error = sysfs_create_file(&class_dev->kobj, &attr->attr);
+-	return error;
+-}
+-
+-void class_device_remove_file(struct class_device * class_dev,
+-			      const struct class_device_attribute * attr)
+-{
+-	if (class_dev)
+-		sysfs_remove_file(&class_dev->kobj, &attr->attr);
+-}
+-
+-int class_device_create_bin_file(struct class_device *class_dev,
+-				 struct bin_attribute *attr)
+-{
+-	int error = -EINVAL;
+-	if (class_dev)
+-		error = sysfs_create_bin_file(&class_dev->kobj, attr);
+-	return error;
+-}
+-
+-void class_device_remove_bin_file(struct class_device *class_dev,
+-				  struct bin_attribute *attr)
+-{
+-	if (class_dev)
+-		sysfs_remove_bin_file(&class_dev->kobj, attr);
+-}
+-
+-static ssize_t
+-class_device_attr_show(struct kobject * kobj, struct attribute * attr,
+-		       char * buf)
+-{
+-	struct class_device_attribute * class_dev_attr = to_class_dev_attr(attr);
+-	struct class_device * cd = to_class_dev(kobj);
+-	ssize_t ret = 0;
+-
+-	if (class_dev_attr->show)
+-		ret = class_dev_attr->show(cd, buf);
+-	return ret;
+-}
+-
+-static ssize_t
+-class_device_attr_store(struct kobject * kobj, struct attribute * attr,
+-			const char * buf, size_t count)
+-{
+-	struct class_device_attribute * class_dev_attr = to_class_dev_attr(attr);
+-	struct class_device * cd = to_class_dev(kobj);
+-	ssize_t ret = 0;
+-
+-	if (class_dev_attr->store)
+-		ret = class_dev_attr->store(cd, buf, count);
+-	return ret;
+-}
+-
+-static struct sysfs_ops class_dev_sysfs_ops = {
+-	.show	= class_device_attr_show,
+-	.store	= class_device_attr_store,
+-};
+-
+-static void class_dev_release(struct kobject * kobj)
+-{
+-	struct class_device *cd = to_class_dev(kobj);
+-	struct class * cls = cd->class;
+-
+-	pr_debug("device class '%s': release.\n", cd->class_id);
+-
+-	kfree(cd->devt_attr);
+-	cd->devt_attr = NULL;
+-
+-	if (cd->release)
+-		cd->release(cd);
+-	else if (cls->release)
+-		cls->release(cd);
+-	else {
+-		printk(KERN_ERR "Class Device '%s' does not have a release() function, "
+-			"it is broken and must be fixed.\n",
+-			cd->class_id);
+-		WARN_ON(1);
+-	}
+-}
+-
+-static struct kobj_type ktype_class_device = {
+-	.sysfs_ops	= &class_dev_sysfs_ops,
+-	.release	= class_dev_release,
+-};
+-
+-static int class_uevent_filter(struct kset *kset, struct kobject *kobj)
+-{
+-	struct kobj_type *ktype = get_ktype(kobj);
+-
+-	if (ktype == &ktype_class_device) {
+-		struct class_device *class_dev = to_class_dev(kobj);
+-		if (class_dev->class)
+-			return 1;
+-	}
+-	return 0;
+-}
+-
+-static const char *class_uevent_name(struct kset *kset, struct kobject *kobj)
+-{
+-	struct class_device *class_dev = to_class_dev(kobj);
+-
+-	return class_dev->class->name;
+-}
+-
+ #ifdef CONFIG_SYSFS_DEPRECATED
+ char *make_class_name(const char *name, struct kobject *kobj)
+ {
+@@ -369,477 +241,99 @@ char *make_class_name(const char *name, 
+ 	strcat(class_name, kobject_name(kobj));
+ 	return class_name;
+ }
+-
+-static int make_deprecated_class_device_links(struct class_device *class_dev)
+-{
+-	char *class_name;
+-	int error;
+-
+-	if (!class_dev->dev)
+-		return 0;
+-
+-	class_name = make_class_name(class_dev->class->name, &class_dev->kobj);
+-	if (class_name)
+-		error = sysfs_create_link(&class_dev->dev->kobj,
+-					  &class_dev->kobj, class_name);
+-	else
+-		error = -ENOMEM;
+-	kfree(class_name);
+-	return error;
+-}
+-
+-static void remove_deprecated_class_device_links(struct class_device *class_dev)
+-{
+-	char *class_name;
+-
+-	if (!class_dev->dev)
+-		return;
+-
+-	class_name = make_class_name(class_dev->class->name, &class_dev->kobj);
+-	if (class_name)
+-		sysfs_remove_link(&class_dev->dev->kobj, class_name);
+-	kfree(class_name);
+-}
+-#else
+-static inline int make_deprecated_class_device_links(struct class_device *cd)
+-{ return 0; }
+-static void remove_deprecated_class_device_links(struct class_device *cd)
+-{ }
+ #endif
+ 
+-static int class_uevent(struct kset *kset, struct kobject *kobj, char **envp,
+-			 int num_envp, char *buffer, int buffer_size)
+-{
+-	struct class_device *class_dev = to_class_dev(kobj);
+-	struct device *dev = class_dev->dev;
+-	int i = 0;
+-	int length = 0;
+-	int retval = 0;
+-
+-	pr_debug("%s - name = %s\n", __FUNCTION__, class_dev->class_id);
+-
+-	if (MAJOR(class_dev->devt)) {
+-		add_uevent_var(envp, num_envp, &i,
+-			       buffer, buffer_size, &length,
+-			       "MAJOR=%u", MAJOR(class_dev->devt));
+-
+-		add_uevent_var(envp, num_envp, &i,
+-			       buffer, buffer_size, &length,
+-			       "MINOR=%u", MINOR(class_dev->devt));
+-	}
+-
+-	if (dev) {
+-		const char *path = kobject_get_path(&dev->kobj, GFP_KERNEL);
+-		if (path) {
+-			add_uevent_var(envp, num_envp, &i,
+-				       buffer, buffer_size, &length,
+-				       "PHYSDEVPATH=%s", path);
+-			kfree(path);
+-		}
+-
+-		if (dev->bus)
+-			add_uevent_var(envp, num_envp, &i,
+-				       buffer, buffer_size, &length,
+-				       "PHYSDEVBUS=%s", dev->bus->name);
+-
+-		if (dev->driver)
+-			add_uevent_var(envp, num_envp, &i,
+-				       buffer, buffer_size, &length,
+-				       "PHYSDEVDRIVER=%s", dev->driver->name);
+-	}
+-
+-	/* terminate, set to next free slot, shrink available space */
+-	envp[i] = NULL;
+-	envp = &envp[i];
+-	num_envp -= i;
+-	buffer = &buffer[length];
+-	buffer_size -= length;
+-
+-	if (class_dev->uevent) {
+-		/* have the class device specific function add its stuff */
+-		retval = class_dev->uevent(class_dev, envp, num_envp,
+-					    buffer, buffer_size);
+-		if (retval)
+-			pr_debug("class_dev->uevent() returned %d\n", retval);
+-	} else if (class_dev->class->uevent) {
+-		/* have the class specific function add its stuff */
+-		retval = class_dev->class->uevent(class_dev, envp, num_envp,
+-						   buffer, buffer_size);
+-		if (retval)
+-			pr_debug("class->uevent() returned %d\n", retval);
+-	}
+-
+-	return retval;
+-}
+-
+-static struct kset_uevent_ops class_uevent_ops = {
+-	.filter =	class_uevent_filter,
+-	.name =		class_uevent_name,
+-	.uevent =	class_uevent,
+-};
+-
+-static decl_subsys(class_obj, &ktype_class_device, &class_uevent_ops);
+-
+-
+-static int class_device_add_attrs(struct class_device * cd)
+-{
+-	int i;
+-	int error = 0;
+-	struct class * cls = cd->class;
+-
+-	if (cls->class_dev_attrs) {
+-		for (i = 0; attr_name(cls->class_dev_attrs[i]); i++) {
+-			error = class_device_create_file(cd,
+-							 &cls->class_dev_attrs[i]);
+-			if (error)
+-				goto Err;
+-		}
+-	}
+- Done:
+-	return error;
+- Err:
+-	while (--i >= 0)
+-		class_device_remove_file(cd,&cls->class_dev_attrs[i]);
+-	goto Done;
+-}
+-
+-static void class_device_remove_attrs(struct class_device * cd)
+-{
+-	int i;
+-	struct class * cls = cd->class;
+-
+-	if (cls->class_dev_attrs) {
+-		for (i = 0; attr_name(cls->class_dev_attrs[i]); i++)
+-			class_device_remove_file(cd,&cls->class_dev_attrs[i]);
+-	}
+-}
+-
+-static int class_device_add_groups(struct class_device * cd)
++/**
++ * class_for_each_device - device iterator
++ * @class: the class we're iterating
++ * @data: data for the callback
++ * @fn: function to be called for each device
++ *
++ * Iterate over @class's list of devices, and call @fn for each,
++ * passing it @data.
++ *
++ * We check the return of @fn each time. If it returns anything
++ * other than 0, we break out and return that value.
++ *
++ * Note, we hold class->sem in this function, so it can not be
++ * re-acquired in @fn, otherwise it will self-deadlocking. For
++ * example, calls to add or remove class members would be verboten.
++ */
++int class_for_each_device(struct class *class, void *data,
++			   int (*fn)(struct device *, void *))
+ {
+-	int i;
++	struct device *dev;
+ 	int error = 0;
+ 
+-	if (cd->groups) {
+-		for (i = 0; cd->groups[i]; i++) {
+-			error = sysfs_create_group(&cd->kobj, cd->groups[i]);
+-			if (error) {
+-				while (--i >= 0)
+-					sysfs_remove_group(&cd->kobj, cd->groups[i]);
+-				goto out;
+-			}
+-		}
+-	}
+-out:
+-	return error;
+-}
+-
+-static void class_device_remove_groups(struct class_device * cd)
+-{
+-	int i;
+-	if (cd->groups) {
+-		for (i = 0; cd->groups[i]; i++) {
+-			sysfs_remove_group(&cd->kobj, cd->groups[i]);
+-		}
+-	}
+-}
+-
+-static ssize_t show_dev(struct class_device *class_dev, char *buf)
+-{
+-	return print_dev_t(buf, class_dev->devt);
+-}
+-
+-static ssize_t store_uevent(struct class_device *class_dev,
+-			    const char *buf, size_t count)
+-{
+-	kobject_uevent(&class_dev->kobj, KOBJ_ADD);
+-	return count;
+-}
+-
+-void class_device_initialize(struct class_device *class_dev)
+-{
+-	kobj_set_kset_s(class_dev, class_obj_subsys);
+-	kobject_init(&class_dev->kobj);
+-	INIT_LIST_HEAD(&class_dev->node);
+-}
+-
+-int class_device_add(struct class_device *class_dev)
+-{
+-	struct class *parent_class = NULL;
+-	struct class_device *parent_class_dev = NULL;
+-	struct class_interface *class_intf;
+-	int error = -EINVAL;
+-
+-	class_dev = class_device_get(class_dev);
+-	if (!class_dev)
++	if (!class)
+ 		return -EINVAL;
+-
+-	if (!strlen(class_dev->class_id))
+-		goto out1;
+-
+-	parent_class = class_get(class_dev->class);
+-	if (!parent_class)
+-		goto out1;
+-
+-	parent_class_dev = class_device_get(class_dev->parent);
+-
+-	pr_debug("CLASS: registering class device: ID = '%s'\n",
+-		 class_dev->class_id);
+-
+-	/* first, register with generic layer. */
+-	error = kobject_set_name(&class_dev->kobj, "%s", class_dev->class_id);
+-	if (error)
+-		goto out2;
+-
+-	if (parent_class_dev)
+-		class_dev->kobj.parent = &parent_class_dev->kobj;
+-	else
+-		class_dev->kobj.parent = &parent_class->subsys.kobj;
+-
+-	error = kobject_add(&class_dev->kobj);
+-	if (error)
+-		goto out2;
+-
+-	/* add the needed attributes to this device */
+-	error = sysfs_create_link(&class_dev->kobj,
+-				  &parent_class->subsys.kobj, "subsystem");
+-	if (error)
+-		goto out3;
+-	class_dev->uevent_attr.attr.name = "uevent";
+-	class_dev->uevent_attr.attr.mode = S_IWUSR;
+-	class_dev->uevent_attr.attr.owner = parent_class->owner;
+-	class_dev->uevent_attr.store = store_uevent;
+-	error = class_device_create_file(class_dev, &class_dev->uevent_attr);
+-	if (error)
+-		goto out3;
+-
+-	if (MAJOR(class_dev->devt)) {
+-		struct class_device_attribute *attr;
+-		attr = kzalloc(sizeof(*attr), GFP_KERNEL);
+-		if (!attr) {
+-			error = -ENOMEM;
+-			goto out4;
+-		}
+-		attr->attr.name = "dev";
+-		attr->attr.mode = S_IRUGO;
+-		attr->attr.owner = parent_class->owner;
+-		attr->show = show_dev;
+-		error = class_device_create_file(class_dev, attr);
+-		if (error) {
+-			kfree(attr);
+-			goto out4;
+-		}
+-
+-		class_dev->devt_attr = attr;
+-	}
+-
+-	error = class_device_add_attrs(class_dev);
+-	if (error)
+-		goto out5;
+-
+-	if (class_dev->dev) {
+-		error = sysfs_create_link(&class_dev->kobj,
+-					  &class_dev->dev->kobj, "device");
++	down(&class->sem);
++	list_for_each_entry(dev, &class->devices, node) {
++		dev = get_device(dev);
++		if (dev) {
++			error = fn(dev, data);
++			put_device(dev);
++		} else
++			error = -ENODEV;
+ 		if (error)
+-			goto out6;
+-	}
+-
+-	error = class_device_add_groups(class_dev);
+-	if (error)
+-		goto out7;
+-
+-	error = make_deprecated_class_device_links(class_dev);
+-	if (error)
+-		goto out8;
+-
+-	kobject_uevent(&class_dev->kobj, KOBJ_ADD);
+-
+-	/* notify any interfaces this device is now here */
+-	down(&parent_class->sem);
+-	list_add_tail(&class_dev->node, &parent_class->children);
+-	list_for_each_entry(class_intf, &parent_class->interfaces, node) {
+-		if (class_intf->add)
+-			class_intf->add(class_dev, class_intf);
++			break;
+ 	}
+-	up(&parent_class->sem);
++	up(&class->sem);
+ 
+-	goto out1;
+-
+- out8:
+-	class_device_remove_groups(class_dev);
+- out7:
+-	if (class_dev->dev)
+-		sysfs_remove_link(&class_dev->kobj, "device");
+- out6:
+-	class_device_remove_attrs(class_dev);
+- out5:
+-	if (class_dev->devt_attr)
+-		class_device_remove_file(class_dev, class_dev->devt_attr);
+- out4:
+-	class_device_remove_file(class_dev, &class_dev->uevent_attr);
+- out3:
+-	kobject_del(&class_dev->kobj);
+- out2:
+-	if(parent_class_dev)
+-		class_device_put(parent_class_dev);
+-	class_put(parent_class);
+- out1:
+-	class_device_put(class_dev);
+ 	return error;
+ }
+-
+-int class_device_register(struct class_device *class_dev)
+-{
+-	class_device_initialize(class_dev);
+-	return class_device_add(class_dev);
+-}
++EXPORT_SYMBOL_GPL(class_for_each_device);
+ 
+ /**
+- * class_device_create - creates a class device and registers it with sysfs
+- * @cls: pointer to the struct class that this device should be registered to.
+- * @parent: pointer to the parent struct class_device of this new device, if any.
+- * @devt: the dev_t for the char device to be added.
+- * @device: a pointer to a struct device that is assiociated with this class device.
+- * @fmt: string for the class device's name
+- *
+- * This function can be used by char device classes.  A struct
+- * class_device will be created in sysfs, registered to the specified
+- * class.
+- * A "dev" file will be created, showing the dev_t for the device, if
+- * the dev_t is not 0,0.
+- * If a pointer to a parent struct class_device is passed in, the newly
+- * created struct class_device will be a child of that device in sysfs.
+- * The pointer to the struct class_device will be returned from the
+- * call.  Any further sysfs files that might be required can be created
+- * using this pointer.
+- *
+- * Note: the struct class passed to this function must have previously
+- * been created with a call to class_create().
++ * class_find_device - device iterator for locating a particular device
++ * @class: the class we're iterating
++ * @data: data for the match function
++ * @match: function to check device
++ *
++ * This is similar to the class_for_each_dev() function above, but it
++ * returns a reference to a device that is 'found' for later use, as
++ * determined by the @match callback.
++ *
++ * The callback should return 0 if the device doesn't match and non-zero
++ * if it does.  If the callback returns non-zero, this function will
++ * return to the caller and not iterate over any more devices.
++
++ * Note, you will need to drop the reference with put_device() after use.
++ *
++ * We hold class->sem in this function, so it can not be
++ * re-acquired in @match, otherwise it will self-deadlocking. For
++ * example, calls to add or remove class members would be verboten.
+  */
+-struct class_device *class_device_create(struct class *cls,
+-					 struct class_device *parent,
+-					 dev_t devt,
+-					 struct device *device,
+-					 const char *fmt, ...)
++struct device *class_find_device(struct class *class, void *data,
++				   int (*match)(struct device *, void *))
+ {
+-	va_list args;
+-	struct class_device *class_dev = NULL;
+-	int retval = -ENODEV;
+-
+-	if (cls == NULL || IS_ERR(cls))
+-		goto error;
+-
+-	class_dev = kzalloc(sizeof(*class_dev), GFP_KERNEL);
+-	if (!class_dev) {
+-		retval = -ENOMEM;
+-		goto error;
+-	}
+-
+-	class_dev->devt = devt;
+-	class_dev->dev = device;
+-	class_dev->class = cls;
+-	class_dev->parent = parent;
+-	class_dev->release = class_device_create_release;
+-	class_dev->uevent = class_device_create_uevent;
+-
+-	va_start(args, fmt);
+-	vsnprintf(class_dev->class_id, BUS_ID_SIZE, fmt, args);
+-	va_end(args);
+-	retval = class_device_register(class_dev);
+-	if (retval)
+-		goto error;
+-
+-	return class_dev;
+-
+-error:
+-	kfree(class_dev);
+-	return ERR_PTR(retval);
+-}
+-
+-void class_device_del(struct class_device *class_dev)
+-{
+-	struct class *parent_class = class_dev->class;
+-	struct class_device *parent_device = class_dev->parent;
+-	struct class_interface *class_intf;
+-
+-	if (parent_class) {
+-		down(&parent_class->sem);
+-		list_del_init(&class_dev->node);
+-		list_for_each_entry(class_intf, &parent_class->interfaces, node)
+-			if (class_intf->remove)
+-				class_intf->remove(class_dev, class_intf);
+-		up(&parent_class->sem);
+-	}
+-
+-	if (class_dev->dev) {
+-		remove_deprecated_class_device_links(class_dev);
+-		sysfs_remove_link(&class_dev->kobj, "device");
+-	}
+-	sysfs_remove_link(&class_dev->kobj, "subsystem");
+-	class_device_remove_file(class_dev, &class_dev->uevent_attr);
+-	if (class_dev->devt_attr)
+-		class_device_remove_file(class_dev, class_dev->devt_attr);
+-	class_device_remove_attrs(class_dev);
+-	class_device_remove_groups(class_dev);
+-
+-	kobject_uevent(&class_dev->kobj, KOBJ_REMOVE);
+-	kobject_del(&class_dev->kobj);
+-
+-	class_device_put(parent_device);
+-	class_put(parent_class);
+-}
+-
+-void class_device_unregister(struct class_device *class_dev)
+-{
+-	pr_debug("CLASS: Unregistering class device. ID = '%s'\n",
+-		 class_dev->class_id);
+-	class_device_del(class_dev);
+-	class_device_put(class_dev);
+-}
++	struct device *dev;
++	int found = 0;
+ 
+-/**
+- * class_device_destroy - removes a class device that was created with class_device_create()
+- * @cls: the pointer to the struct class that this device was registered * with.
+- * @devt: the dev_t of the device that was previously registered.
+- *
+- * This call unregisters and cleans up a class device that was created with a
+- * call to class_device_create()
+- */
+-void class_device_destroy(struct class *cls, dev_t devt)
+-{
+-	struct class_device *class_dev = NULL;
+-	struct class_device *class_dev_tmp;
++	if (!class)
++		return NULL;
+ 
+-	down(&cls->sem);
+-	list_for_each_entry(class_dev_tmp, &cls->children, node) {
+-		if (class_dev_tmp->devt == devt) {
+-			class_dev = class_dev_tmp;
++	down(&class->sem);
++	list_for_each_entry(dev, &class->devices, node) {
++		dev = get_device(dev);
++		if (dev) {
++			if (match(dev, data)) {
++				found = 1;
++				break;
++			} else
++				put_device(dev);
++		} else
+ 			break;
+-		}
+ 	}
+-	up(&cls->sem);
++	up(&class->sem);
+ 
+-	if (class_dev)
+-		class_device_unregister(class_dev);
++	return found ? dev : NULL;
+ }
+-
+-struct class_device * class_device_get(struct class_device *class_dev)
+-{
+-	if (class_dev)
+-		return to_class_dev(kobject_get(&class_dev->kobj));
+-	return NULL;
+-}
+-
+-void class_device_put(struct class_device *class_dev)
+-{
+-	if (class_dev)
+-		kobject_put(&class_dev->kobj);
+-}
+-
++EXPORT_SYMBOL_GPL(class_find_device);
+ 
+ int class_interface_register(struct class_interface *class_intf)
+ {
+ 	struct class *parent;
+-	struct class_device *class_dev;
+ 	struct device *dev;
+ 
+ 	if (!class_intf || !class_intf->class)
+@@ -851,10 +345,6 @@ int class_interface_register(struct clas
+ 
+ 	down(&parent->sem);
+ 	list_add_tail(&class_intf->node, &parent->interfaces);
+-	if (class_intf->add) {
+-		list_for_each_entry(class_dev, &parent->children, node)
+-			class_intf->add(class_dev, class_intf);
+-	}
+ 	if (class_intf->add_dev) {
+ 		list_for_each_entry(dev, &parent->devices, node)
+ 			class_intf->add_dev(dev, class_intf);
+@@ -867,7 +357,6 @@ int class_interface_register(struct clas
+ void class_interface_unregister(struct class_interface *class_intf)
+ {
+ 	struct class * parent = class_intf->class;
+-	struct class_device *class_dev;
+ 	struct device *dev;
+ 
+ 	if (!parent)
+@@ -875,10 +364,6 @@ void class_interface_unregister(struct c
+ 
+ 	down(&parent->sem);
+ 	list_del_init(&class_intf->node);
+-	if (class_intf->remove) {
+-		list_for_each_entry(class_dev, &parent->children, node)
+-			class_intf->remove(class_dev, class_intf);
+-	}
+ 	if (class_intf->remove_dev) {
+ 		list_for_each_entry(dev, &parent->devices, node)
+ 			class_intf->remove_dev(dev, class_intf);
+@@ -896,11 +381,6 @@ int __init classes_init(void)
+ 	if (retval)
+ 		return retval;
+ 
+-	/* ick, this is ugly, the things we go through to keep from showing up
+-	 * in sysfs... */
+-	subsystem_init(&class_obj_subsys);
+-	if (!class_obj_subsys.kobj.parent)
+-		class_obj_subsys.kobj.parent = &class_obj_subsys.kobj;
+ 	return 0;
+ }
+ 
+@@ -911,19 +391,5 @@ EXPORT_SYMBOL_GPL(class_unregister);
+ EXPORT_SYMBOL_GPL(class_create);
+ EXPORT_SYMBOL_GPL(class_destroy);
+ 
+-EXPORT_SYMBOL_GPL(class_device_register);
+-EXPORT_SYMBOL_GPL(class_device_unregister);
+-EXPORT_SYMBOL_GPL(class_device_initialize);
+-EXPORT_SYMBOL_GPL(class_device_add);
+-EXPORT_SYMBOL_GPL(class_device_del);
+-EXPORT_SYMBOL_GPL(class_device_get);
+-EXPORT_SYMBOL_GPL(class_device_put);
+-EXPORT_SYMBOL_GPL(class_device_create);
+-EXPORT_SYMBOL_GPL(class_device_destroy);
+-EXPORT_SYMBOL_GPL(class_device_create_file);
+-EXPORT_SYMBOL_GPL(class_device_remove_file);
+-EXPORT_SYMBOL_GPL(class_device_create_bin_file);
+-EXPORT_SYMBOL_GPL(class_device_remove_bin_file);
+-
+ EXPORT_SYMBOL_GPL(class_interface_register);
+ EXPORT_SYMBOL_GPL(class_interface_unregister);
+diff --git a/include/linux/device.h b/include/linux/device.h
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -33,7 +33,6 @@
+ struct device;
+ struct device_driver;
+ struct class;
+-struct class_device;
+ struct bus_type;
+ 
+ struct bus_attribute {
+@@ -183,18 +182,13 @@ struct class {
+ 	struct list_head	devices;
+ 	struct list_head	interfaces;
+ 	struct kset		class_dirs;
+-	struct semaphore	sem;	/* locks both the children and interfaces lists */
+-
++	struct semaphore	sem; /* locks children, devices, interfaces */
+ 	struct class_attribute		* class_attrs;
+-	struct class_device_attribute	* class_dev_attrs;
+ 	struct device_attribute		* dev_attrs;
+ 
+-	int	(*uevent)(struct class_device *dev, char **envp,
+-			   int num_envp, char *buffer, int buffer_size);
+ 	int	(*dev_uevent)(struct device *dev, char **envp, int num_envp,
+ 				char *buffer, int buffer_size);
+ 
+-	void	(*release)(struct class_device *dev);
+ 	void	(*class_release)(struct class *class);
+ 	void	(*dev_release)(struct device *dev);
+ 
+@@ -204,7 +198,10 @@ struct class {
+ 
+ extern int __must_check class_register(struct class *);
+ extern void class_unregister(struct class *);
+-
++extern int class_for_each_device(struct class *class, void *data,
++				 int (*fn)(struct device *dev, void *data));
++extern struct device *class_find_device(struct class *class, void *data,
++					int (*match)(struct device *, void *));
+ 
+ struct class_attribute {
+ 	struct attribute	attr;
+@@ -219,98 +216,10 @@ extern int __must_check class_create_fil
+ 					const struct class_attribute *);
+ extern void class_remove_file(struct class *, const struct class_attribute *);
+ 
+-struct class_device_attribute {
+-	struct attribute	attr;
+-	ssize_t (*show)(struct class_device *, char * buf);
+-	ssize_t (*store)(struct class_device *, const char * buf, size_t count);
+-};
+-
+-#define CLASS_DEVICE_ATTR(_name,_mode,_show,_store)		\
+-struct class_device_attribute class_device_attr_##_name = 	\
+-	__ATTR(_name,_mode,_show,_store)
+-
+-extern int __must_check class_device_create_file(struct class_device *,
+-				    const struct class_device_attribute *);
+-
+-/**
+- * struct class_device - class devices
+- * @class: pointer to the parent class for this class device.  This is required.
+- * @devt: for internal use by the driver core only.
+- * @node: for internal use by the driver core only.
+- * @kobj: for internal use by the driver core only.
+- * @devt_attr: for internal use by the driver core only.
+- * @groups: optional additional groups to be created
+- * @dev: if set, a symlink to the struct device is created in the sysfs
+- * directory for this struct class device.
+- * @class_data: pointer to whatever you want to store here for this struct
+- * class_device.  Use class_get_devdata() and class_set_devdata() to get and
+- * set this pointer.
+- * @parent: pointer to a struct class_device that is the parent of this struct
+- * class_device.  If NULL, this class_device will show up at the root of the
+- * struct class in sysfs (which is probably what you want to have happen.)
+- * @release: pointer to a release function for this struct class_device.  If
+- * set, this will be called instead of the class specific release function.
+- * Only use this if you want to override the default release function, like
+- * when you are nesting class_device structures.
+- * @uevent: pointer to a uevent function for this struct class_device.  If
+- * set, this will be called instead of the class specific uevent function.
+- * Only use this if you want to override the default uevent function, like
+- * when you are nesting class_device structures.
+- */
+-struct class_device {
+-	struct list_head	node;
+-
+-	struct kobject		kobj;
+-	struct class		* class;	/* required */
+-	dev_t			devt;		/* dev_t, creates the sysfs "dev" */
+-	struct class_device_attribute *devt_attr;
+-	struct class_device_attribute uevent_attr;
+-	struct device		* dev;		/* not necessary, but nice to have */
+-	void			* class_data;	/* class-specific data */
+-	struct class_device	*parent;	/* parent of this child device, if there is one */
+-	struct attribute_group  ** groups;	/* optional groups */
+-
+-	void	(*release)(struct class_device *dev);
+-	int	(*uevent)(struct class_device *dev, char **envp,
+-			   int num_envp, char *buffer, int buffer_size);
+-	char	class_id[BUS_ID_SIZE];	/* unique to this class */
+-};
+-
+-static inline void *
+-class_get_devdata (struct class_device *dev)
+-{
+-	return dev->class_data;
+-}
+-
+-static inline void
+-class_set_devdata (struct class_device *dev, void *data)
+-{
+-	dev->class_data = data;
+-}
+-
+-
+-extern int __must_check class_device_register(struct class_device *);
+-extern void class_device_unregister(struct class_device *);
+-extern void class_device_initialize(struct class_device *);
+-extern int __must_check class_device_add(struct class_device *);
+-extern void class_device_del(struct class_device *);
+-
+-extern struct class_device * class_device_get(struct class_device *);
+-extern void class_device_put(struct class_device *);
+-
+-extern void class_device_remove_file(struct class_device *, 
+-				     const struct class_device_attribute *);
+-extern int __must_check class_device_create_bin_file(struct class_device *,
+-					struct bin_attribute *);
+-extern void class_device_remove_bin_file(struct class_device *,
+-					 struct bin_attribute *);
+-
+ struct class_interface {
+ 	struct list_head	node;
+ 	struct class		*class;
+ 
+-	int (*add)	(struct class_device *, struct class_interface *);
+-	void (*remove)	(struct class_device *, struct class_interface *);
+ 	int (*add_dev)		(struct device *, struct class_interface *);
+ 	void (*remove_dev)	(struct device *, struct class_interface *);
+ };
+@@ -320,13 +229,6 @@ extern void class_interface_unregister(s
+ 
+ extern struct class *class_create(struct module *owner, const char *name);
+ extern void class_destroy(struct class *cls);
+-extern struct class_device *class_device_create(struct class *cls,
+-						struct class_device *parent,
+-						dev_t devt,
+-						struct device *device,
+-						const char *fmt, ...)
+-					__attribute__((format(printf,5,6)));
+-extern void class_device_destroy(struct class *cls, dev_t devt);
+ 
+ /*
+  * The type of device, "struct device" is embedded in. A class
+@@ -454,7 +356,6 @@ struct device {
+ 	spinlock_t		devres_lock;
+ 	struct list_head	devres_head;
+ 
+-	/* class_device migration path */
+ 	struct list_head	node;
+ 	struct class		*class;
+ 	dev_t			devt;		/* dev_t, creates the sysfs "dev" */
+diff --git a/Documentation/spi/spi-summary b/Documentation/spi/spi-summary
+--- a/Documentation/spi/spi-summary
++++ b/Documentation/spi/spi-summary
+@@ -156,21 +156,29 @@ using the driver model to connect controller and protocol drivers using
+ device tables provided by board specific initialization code.  SPI
+ shows up in sysfs in several locations:
+ 
++   /sys/devices/.../CTLR ... physical node for a given SPI controller
++
+    /sys/devices/.../CTLR/spiB.C ... spi_device on bus "B",
+ 	chipselect C, accessed through CTLR.
+ 
++   /sys/bus/spi/devices/spiB.C ... symlink to that physical
++   	.../CTLR/spiB.C device
++
+    /sys/devices/.../CTLR/spiB.C/modalias ... identifies the driver
+ 	that should be used with this device (for hotplug/coldplug)
+ 
+-   /sys/bus/spi/devices/spiB.C ... symlink to the physical
+-   	spiB.C device
+-
+    /sys/bus/spi/drivers/D ... driver for one or more spi*.* devices
+ 
+-   /sys/class/spi_master/spiB ... class device for the controller
+-	managing bus "B".  All the spiB.* devices share the same
++   /sys/class/spi_master/spiB ... symlink (or actual device node) to
++	a logical node which could hold class related state for the
++	controller managing bus "B".  All spiB.* devices share one
+ 	physical SPI bus segment, with SCLK, MOSI, and MISO.
+ 
++Note that the actual location of the controller's class state depends
++on whether you enabled CONFIG_SYSFS_DEPRECATED or not.  At this time,
++the only class-specific state is the bus number ("B" in "spiB"), so
++those /sys/class entries are only useful to quickly identify busses.
++
+ 
+ How does board-specific init code declare SPI devices?
+ ------------------------------------------------------
+@@ -337,7 +345,8 @@ SPI protocol drivers somewhat resemble platform device drivers:
+ 
+ The driver core will autmatically attempt to bind this driver to any SPI
+ device whose board_info gave a modalias of "CHIP".  Your probe() code
+-might look like this unless you're creating a class_device:
++might look like this unless you're creating a device which is managing
++a bus (appearing under /sys/class/spi_master).
+ 
+ 	static int __devinit CHIP_probe(struct spi_device *spi)
+ 	{
+@@ -442,7 +451,7 @@ An SPI controller will probably be registered on the platform_bus; write
+ a driver to bind to the device, whichever bus is involved.
+ 
+ The main task of this type of driver is to provide an "spi_master".
+-Use spi_alloc_master() to allocate the master, and class_get_devdata()
++Use spi_alloc_master() to allocate the master, and spi_master_get_devdata()
+ to get the driver-private data allocated for that device.
+ 
+ 	struct spi_master	*master;
+@@ -452,7 +461,7 @@ to get the driver-private data allocated for that device.
+ 	if (!master)
+ 		return -ENODEV;
+ 
+-	c = class_get_devdata(&master->cdev);
++	c = spi_master_get_devdata(master);
+ 
+ The driver will initialize the fields of that spi_master, including the
+ bus number (maybe the same as the platform device ID) and three methods
+diff --git a/drivers/spi/atmel_spi.c b/drivers/spi/atmel_spi.c
+--- a/drivers/spi/atmel_spi.c
++++ b/drivers/spi/atmel_spi.c
+@@ -266,10 +266,10 @@ static void atmel_spi_dma_unmap_xfer(struct spi_master *master,
+ 				     struct spi_transfer *xfer)
+ {
+ 	if (xfer->tx_dma != INVALID_DMA_ADDRESS)
+-		dma_unmap_single(master->cdev.dev, xfer->tx_dma,
++		dma_unmap_single(master->dev.parent, xfer->tx_dma,
+ 				 xfer->len, DMA_TO_DEVICE);
+ 	if (xfer->rx_dma != INVALID_DMA_ADDRESS)
+-		dma_unmap_single(master->cdev.dev, xfer->rx_dma,
++		dma_unmap_single(master->dev.parent, xfer->rx_dma,
+ 				 xfer->len, DMA_FROM_DEVICE);
+ }
+ 
+@@ -285,7 +285,7 @@ atmel_spi_msg_done(struct spi_master *master, struct atmel_spi *as,
+ 	list_del(&msg->queue);
+ 	msg->status = status;
+ 
+-	dev_dbg(master->cdev.dev,
++	dev_dbg(master->dev.parent,
+ 		"xfer complete: %u bytes transferred\n",
+ 		msg->actual_length);
+ 
+@@ -348,7 +348,7 @@ atmel_spi_interrupt(int irq, void *dev_id)
+ 		if (xfer->delay_usecs)
+ 			udelay(xfer->delay_usecs);
+ 
+-		dev_warn(master->cdev.dev, "fifo overrun (%u/%u remaining)\n",
++		dev_warn(master->dev.parent, "fifo overrun (%u/%u remaining)\n",
+ 			 spi_readl(as, TCR), spi_readl(as, RCR));
+ 
+ 		/*
+@@ -363,7 +363,7 @@ atmel_spi_interrupt(int irq, void *dev_id)
+ 			if (spi_readl(as, SR) & SPI_BIT(TXEMPTY))
+ 				break;
+ 		if (!timeout)
+-			dev_warn(master->cdev.dev,
++			dev_warn(master->dev.parent,
+ 				 "timeout waiting for TXEMPTY");
+ 		while (spi_readl(as, SR) & SPI_BIT(RDRF))
+ 			spi_readl(as, RDR);
+@@ -526,7 +526,7 @@ static int atmel_spi_transfer(struct spi_device *spi, struct spi_message *msg)
+ 	struct atmel_spi	*as;
+ 	struct spi_transfer	*xfer;
+ 	unsigned long		flags;
+-	struct device		*controller = spi->master->cdev.dev;
++	struct device		*controller = spi->master->dev.parent;
+ 
+ 	as = spi_master_get_devdata(spi->master);
+ 
+diff --git a/drivers/spi/mpc52xx_psc_spi.c b/drivers/spi/mpc52xx_psc_spi.c
+--- a/drivers/spi/mpc52xx_psc_spi.c
++++ b/drivers/spi/mpc52xx_psc_spi.c
+@@ -503,7 +503,7 @@ static int __init mpc52xx_psc_spi_do_probe(struct device *dev, u32 regaddr,
+ 	INIT_LIST_HEAD(&mps->queue);
+ 
+ 	mps->workqueue = create_singlethread_workqueue(
+-		master->cdev.dev->bus_id);
++		master->dev.parent->bus_id);
+ 	if (mps->workqueue == NULL) {
+ 		ret = -EBUSY;
+ 		goto free_irq;
+diff --git a/drivers/spi/pxa2xx_spi.c b/drivers/spi/pxa2xx_spi.c
+--- a/drivers/spi/pxa2xx_spi.c
++++ b/drivers/spi/pxa2xx_spi.c
+@@ -1242,7 +1242,7 @@ static int __init init_queue(struct driver_data *drv_data)
+ 
+ 	INIT_WORK(&drv_data->pump_messages, pump_messages);
+ 	drv_data->workqueue = create_singlethread_workqueue(
+-					drv_data->master->cdev.dev->bus_id);
++					drv_data->master->dev.parent->bus_id);
+ 	if (drv_data->workqueue == NULL)
+ 		return -EBUSY;
+ 
+diff --git a/drivers/spi/spi.c b/drivers/spi/spi.c
+--- a/drivers/spi/spi.c
++++ b/drivers/spi/spi.c
+@@ -204,7 +204,7 @@ struct spi_device *spi_new_device(struct spi_master *master,
+ 				  struct spi_board_info *chip)
+ {
+ 	struct spi_device	*proxy;
+-	struct device		*dev = master->cdev.dev;
++	struct device		*dev = master->dev.parent;
+ 	int			status;
+ 
+ 	/* NOTE:  caller did any chip->bus_num checks necessary.
+@@ -239,7 +239,7 @@ struct spi_device *spi_new_device(struct spi_master *master,
+ 	proxy->modalias = chip->modalias;
+ 
+ 	snprintf(proxy->dev.bus_id, sizeof proxy->dev.bus_id,
+-			"%s.%u", master->cdev.class_id,
++			"%s.%u", master->dev.bus_id,
+ 			chip->chip_select);
+ 	proxy->dev.parent = dev;
+ 	proxy->dev.bus = &spi_bus_type;
+@@ -338,18 +338,18 @@ static void scan_boardinfo(struct spi_master *master)
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+-static void spi_master_release(struct class_device *cdev)
++static void spi_master_release(struct device *dev)
+ {
+ 	struct spi_master *master;
+ 
+-	master = container_of(cdev, struct spi_master, cdev);
++	master = container_of(dev, struct spi_master, dev);
+ 	kfree(master);
+ }
+ 
+ static struct class spi_master_class = {
+ 	.name		= "spi_master",
+ 	.owner		= THIS_MODULE,
+-	.release	= spi_master_release,
++	.dev_release	= spi_master_release,
+ };
+ 
+ 
+@@ -357,7 +357,7 @@ static struct class spi_master_class = {
+  * spi_alloc_master - allocate SPI master controller
+  * @dev: the controller, possibly using the platform_bus
+  * @size: how much zeroed driver-private data to allocate; the pointer to this
+- *	memory is in the class_data field of the returned class_device,
++ *	memory is in the driver_data field of the returned device,
+  *	accessible with spi_master_get_devdata().
+  * Context: can sleep
+  *
+@@ -383,9 +383,9 @@ struct spi_master *spi_alloc_master(struct device *dev, unsigned size)
+ 	if (!master)
+ 		return NULL;
+ 
+-	class_device_initialize(&master->cdev);
+-	master->cdev.class = &spi_master_class;
+-	master->cdev.dev = get_device(dev);
++	device_initialize(&master->dev);
++	master->dev.class = &spi_master_class;
++	master->dev.parent = get_device(dev);
+ 	spi_master_set_devdata(master, &master[1]);
+ 
+ 	return master;
+@@ -415,7 +415,7 @@ EXPORT_SYMBOL_GPL(spi_alloc_master);
+ int spi_register_master(struct spi_master *master)
+ {
+ 	static atomic_t		dyn_bus_id = ATOMIC_INIT((1<<15) - 1);
+-	struct device		*dev = master->cdev.dev;
++	struct device		*dev = master->dev.parent;
+ 	int			status = -ENODEV;
+ 	int			dynamic = 0;
+ 
+@@ -440,12 +440,12 @@ int spi_register_master(struct spi_master *master)
+ 	/* register the device, then userspace will see it.
+ 	 * registration fails if the bus ID is in use.
+ 	 */
+-	snprintf(master->cdev.class_id, sizeof master->cdev.class_id,
++	snprintf(master->dev.bus_id, sizeof master->dev.bus_id,
+ 		"spi%u", master->bus_num);
+-	status = class_device_add(&master->cdev);
++	status = device_add(&master->dev);
+ 	if (status < 0)
+ 		goto done;
+-	dev_dbg(dev, "registered master %s%s\n", master->cdev.class_id,
++	dev_dbg(dev, "registered master %s%s\n", master->dev.bus_id,
+ 			dynamic ? " (dynamic)" : "");
+ 
+ 	/* populate children from any spi device tables */
+@@ -478,8 +478,8 @@ void spi_unregister_master(struct spi_master *master)
+ {
+ 	int dummy;
+ 
+-	dummy = device_for_each_child(master->cdev.dev, NULL, __unregister);
+-	class_device_unregister(&master->cdev);
++	dummy = device_for_each_child(master->dev.parent, NULL, __unregister);
++	device_unregister(&master->dev);
+ }
+ EXPORT_SYMBOL_GPL(spi_unregister_master);
+ 
+@@ -495,13 +495,13 @@ EXPORT_SYMBOL_GPL(spi_unregister_master);
+  */
+ struct spi_master *spi_busnum_to_master(u16 bus_num)
+ {
+-	struct class_device	*cdev;
++	struct device		*dev;
+ 	struct spi_master	*master = NULL;
+ 	struct spi_master	*m;
+ 
+ 	down(&spi_master_class.sem);
+-	list_for_each_entry(cdev, &spi_master_class.children, node) {
+-		m = container_of(cdev, struct spi_master, cdev);
++	list_for_each_entry(dev, &spi_master_class.children, node) {
++		m = container_of(dev, struct spi_master, dev);
+ 		if (m->bus_num == bus_num) {
+ 			master = spi_master_get(m);
+ 			break;
+diff --git a/drivers/spi/spi_bfin5xx.c b/drivers/spi/spi_bfin5xx.c
+--- a/drivers/spi/spi_bfin5xx.c
++++ b/drivers/spi/spi_bfin5xx.c
+@@ -1106,7 +1106,7 @@ static inline int init_queue(struct driver_data *drv_data)
+ 	/* init messages workqueue */
+ 	INIT_WORK(&drv_data->pump_messages, pump_messages);
+ 	drv_data->workqueue =
+-	    create_singlethread_workqueue(drv_data->master->cdev.dev->bus_id);
++	    create_singlethread_workqueue(drv_data->master->dev.parent->bus_id);
+ 	if (drv_data->workqueue == NULL)
+ 		return -EBUSY;
+ 
+diff --git a/drivers/spi/spi_bitbang.c b/drivers/spi/spi_bitbang.c
+--- a/drivers/spi/spi_bitbang.c
++++ b/drivers/spi/spi_bitbang.c
+@@ -472,7 +472,7 @@ int spi_bitbang_start(struct spi_bitbang *bitbang)
+ 	/* this task is the only thing to touch the SPI bits */
+ 	bitbang->busy = 0;
+ 	bitbang->workqueue = create_singlethread_workqueue(
+-			bitbang->master->cdev.dev->bus_id);
++			bitbang->master->dev.parent->bus_id);
+ 	if (bitbang->workqueue == NULL) {
+ 		status = -EBUSY;
+ 		goto err1;
+diff --git a/drivers/spi/spi_imx.c b/drivers/spi/spi_imx.c
+--- a/drivers/spi/spi_imx.c
++++ b/drivers/spi/spi_imx.c
+@@ -1374,7 +1374,7 @@ static int __init init_queue(struct driver_data *drv_data)
+ 
+ 	INIT_WORK(&drv_data->work, pump_messages);
+ 	drv_data->workqueue = create_singlethread_workqueue(
+-					drv_data->master->cdev.dev->bus_id);
++					drv_data->master->dev.parent->bus_id);
+ 	if (drv_data->workqueue == NULL)
+ 		return -EBUSY;
+ 
+diff --git a/include/linux/spi/spi.h b/include/linux/spi/spi.h
+--- a/include/linux/spi/spi.h
++++ b/include/linux/spi/spi.h
+@@ -195,7 +195,7 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
+ 
+ /**
+  * struct spi_master - interface to SPI master controller
+- * @cdev: class interface to this driver
++ * @dev: device interface to this driver
+  * @bus_num: board-specific (and often SOC-specific) identifier for a
+  *	given SPI controller.
+  * @num_chipselect: chipselects are used to distinguish individual
+@@ -222,7 +222,7 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
+  * message's completion function when the transaction completes.
+  */
+ struct spi_master {
+-	struct class_device	cdev;
++	struct device	dev;
+ 
+ 	/* other than negative (== assign one dynamically), bus_num is fully
+ 	 * board-specific.  usually that simplifies to being SOC-specific.
+@@ -268,17 +268,17 @@ struct spi_master {
+ 
+ static inline void *spi_master_get_devdata(struct spi_master *master)
+ {
+-	return class_get_devdata(&master->cdev);
++	return dev_get_drvdata(&master->dev);
+ }
+ 
+ static inline void spi_master_set_devdata(struct spi_master *master, void *data)
+ {
+-	class_set_devdata(&master->cdev, data);
++	dev_set_drvdata(&master->dev, data);
+ }
+ 
+ static inline struct spi_master *spi_master_get(struct spi_master *master)
+ {
+-	if (!master || !class_device_get(&master->cdev))
++	if (!master || !get_device(&master->dev))
+ 		return NULL;
+ 	return master;
+ }
+@@ -286,7 +286,7 @@ static inline struct spi_master *spi_master_get(struct spi_master *master)
+ static inline void spi_master_put(struct spi_master *master)
+ {
+ 	if (master)
+-		class_device_put(&master->cdev);
++		put_device(&master->dev);
+ }
+ 
+ 
+diff --git a/drivers/mtd/mtdchar.c b/drivers/mtd/mtdchar.c
+--- a/drivers/mtd/mtdchar.c
++++ b/drivers/mtd/mtdchar.c
+@@ -27,12 +27,10 @@ static void mtd_notify_add(struct mtd_info* mtd)
+ 	if (!mtd)
+ 		return;
+ 
+-	class_device_create(mtd_class, NULL, MKDEV(MTD_CHAR_MAJOR, mtd->index*2),
+-			    NULL, "mtd%d", mtd->index);
++	device_create(mtd_class, NULL, MKDEV(MTD_CHAR_MAJOR, mtd->index*2), "mtd%d", mtd->index);
+ 
+-	class_device_create(mtd_class, NULL,
+-			    MKDEV(MTD_CHAR_MAJOR, mtd->index*2+1),
+-			    NULL, "mtd%dro", mtd->index);
++	device_create(mtd_class, NULL,
++		      MKDEV(MTD_CHAR_MAJOR, mtd->index*2+1), "mtd%dro", mtd->index);
+ }
+ 
+ static void mtd_notify_remove(struct mtd_info* mtd)
+@@ -40,8 +38,8 @@ static void mtd_notify_remove(struct mtd_info* mtd)
+ 	if (!mtd)
+ 		return;
+ 
+-	class_device_destroy(mtd_class, MKDEV(MTD_CHAR_MAJOR, mtd->index*2));
+-	class_device_destroy(mtd_class, MKDEV(MTD_CHAR_MAJOR, mtd->index*2+1));
++	device_destroy(mtd_class, MKDEV(MTD_CHAR_MAJOR, mtd->index*2));
++	device_destroy(mtd_class, MKDEV(MTD_CHAR_MAJOR, mtd->index*2+1));
+ }
+ 
+ static struct mtd_notifier notifier = {
+diff --git a/drivers/block/pktcdvd.c b/drivers/block/pktcdvd.c
+--- a/drivers/block/pktcdvd.c
++++ b/drivers/block/pktcdvd.c
+@@ -301,18 +301,16 @@ static struct kobj_type kobj_pkt_type_wqueue = {
+ static void pkt_sysfs_dev_new(struct pktcdvd_device *pd)
+ {
+ 	if (class_pktcdvd) {
+-		pd->clsdev = class_device_create(class_pktcdvd,
+-					NULL, pd->pkt_dev,
+-					NULL, "%s", pd->name);
+-		if (IS_ERR(pd->clsdev))
+-			pd->clsdev = NULL;
++		pd->dev = device_create(class_pktcdvd, NULL, pd->pkt_dev, "%s", pd->name);
++		if (IS_ERR(pd->dev))
++			pd->dev = NULL;
+ 	}
+-	if (pd->clsdev) {
++	if (pd->dev) {
+ 		pd->kobj_stat = pkt_kobj_create(pd, "stat",
+-					&pd->clsdev->kobj,
++					&pd->dev->kobj,
+ 					&kobj_pkt_type_stat);
+ 		pd->kobj_wqueue = pkt_kobj_create(pd, "write_queue",
+-					&pd->clsdev->kobj,
++					&pd->dev->kobj,
+ 					&kobj_pkt_type_wqueue);
+ 	}
+ }
+@@ -322,7 +320,7 @@ static void pkt_sysfs_dev_remove(struct pktcdvd_device *pd)
+ 	pkt_kobj_remove(pd->kobj_stat);
+ 	pkt_kobj_remove(pd->kobj_wqueue);
+ 	if (class_pktcdvd)
+-		class_device_destroy(class_pktcdvd, pd->pkt_dev);
++		device_destroy(class_pktcdvd, pd->pkt_dev);
+ }
+ 
+ 
+diff --git a/include/linux/pktcdvd.h b/include/linux/pktcdvd.h
+--- a/include/linux/pktcdvd.h
++++ b/include/linux/pktcdvd.h
+@@ -290,7 +290,7 @@ struct pktcdvd_device
+ 	int			write_congestion_off;
+ 	int			write_congestion_on;
+ 
+-	struct class_device	*clsdev;	/* sysfs pktcdvd[0-7] class dev */
++	struct device		*dev;		/* sysfs pktcdvd[0-7] dev */
+ 	struct pktcdvd_kobj	*kobj_stat;	/* sysfs pktcdvd[0-7]/stat/     */
+ 	struct pktcdvd_kobj	*kobj_wqueue;	/* sysfs pktcdvd[0-7]/write_queue/ */
+ 
+diff --git a/drivers/input/evdev.c b/drivers/input/evdev.c
+--- a/drivers/input/evdev.c
++++ b/drivers/input/evdev.c
+@@ -30,6 +30,7 @@ struct evdev {
+ 	wait_queue_head_t wait;
+ 	struct evdev_client *grab;
+ 	struct list_head client_list;
++	struct device dev;
+ };
+ 
+ struct evdev_client {
+@@ -94,8 +95,10 @@ static int evdev_flush(struct file *file, fl_owner_t id)
+ 	return input_flush_device(&evdev->handle, file);
+ }
+ 
+-static void evdev_free(struct evdev *evdev)
++static void evdev_free(struct device *dev)
+ {
++	struct evdev *evdev = container_of(dev, struct evdev, dev);
++
+ 	evdev_table[evdev->minor] = NULL;
+ 	kfree(evdev);
+ }
+@@ -114,12 +117,10 @@ static int evdev_release(struct inode *inode, struct file *file)
+ 	list_del(&client->node);
+ 	kfree(client);
+ 
+-	if (!--evdev->open) {
+-		if (evdev->exist)
+-			input_close_device(&evdev->handle);
+-		else
+-			evdev_free(evdev);
+-	}
++	if (!--evdev->open && evdev->exist)
++		input_close_device(&evdev->handle);
++
++	put_device(&evdev->dev);
+ 
+ 	return 0;
+ }
+@@ -139,24 +140,32 @@ static int evdev_open(struct inode *inode, struct file *file)
+ 	if (!evdev || !evdev->exist)
+ 		return -ENODEV;
+ 
++	get_device(&evdev->dev);
++
+ 	client = kzalloc(sizeof(struct evdev_client), GFP_KERNEL);
+-	if (!client)
+-		return -ENOMEM;
++	if (!client) {
++		error = -ENOMEM;
++		goto err_put_evdev;
++	}
+ 
+ 	client->evdev = evdev;
+ 	list_add_tail(&client->node, &evdev->client_list);
+ 
+ 	if (!evdev->open++ && evdev->exist) {
+ 		error = input_open_device(&evdev->handle);
+-		if (error) {
+-			list_del(&client->node);
+-			kfree(client);
+-			return error;
+-		}
++		if (error)
++			goto err_free_client;
+ 	}
+ 
+ 	file->private_data = client;
+ 	return 0;
++
++ err_free_client:
++	list_del(&client->node);
++	kfree(client);
++ err_put_evdev:
++	put_device(&evdev->dev);
++	return error;
+ }
+ 
+ #ifdef CONFIG_COMPAT
+@@ -625,8 +634,6 @@ static int evdev_connect(struct input_handler *handler, struct input_dev *dev,
+ 			 const struct input_device_id *id)
+ {
+ 	struct evdev *evdev;
+-	struct class_device *cdev;
+-	dev_t devt;
+ 	int minor;
+ 	int error;
+ 
+@@ -649,38 +656,32 @@ static int evdev_connect(struct input_handler *handler, struct input_dev *dev,
+ 	evdev->handle.name = evdev->name;
+ 	evdev->handle.handler = handler;
+ 	evdev->handle.private = evdev;
+-	sprintf(evdev->name, "event%d", minor);
+-
+-	evdev_table[minor] = evdev;
++	snprintf(evdev->name, sizeof(evdev->name), "event%d", minor);
+ 
+-	devt = MKDEV(INPUT_MAJOR, EVDEV_MINOR_BASE + minor),
++	snprintf(evdev->dev.bus_id, sizeof(evdev->dev.bus_id),
++		 "event%d", minor);
++	evdev->dev.class = &input_class;
++	evdev->dev.parent = &dev->dev;
++	evdev->dev.devt = MKDEV(INPUT_MAJOR, EVDEV_MINOR_BASE + minor);
++	evdev->dev.release = evdev_free;
++	device_initialize(&evdev->dev);
+ 
+-	cdev = class_device_create(&input_class, &dev->cdev, devt,
+-				   dev->cdev.dev, evdev->name);
+-	if (IS_ERR(cdev)) {
+-		error = PTR_ERR(cdev);
+-		goto err_free_evdev;
+-	}
++	evdev_table[minor] = evdev;
+ 
+-	/* temporary symlink to keep userspace happy */
+-	error = sysfs_create_link(&input_class.subsys.kobj,
+-				  &cdev->kobj, evdev->name);
++	error = device_add(&evdev->dev);
+ 	if (error)
+-		goto err_cdev_destroy;
++		goto err_free_evdev;
+ 
+ 	error = input_register_handle(&evdev->handle);
+ 	if (error)
+-		goto err_remove_link;
++		goto err_delete_evdev;
+ 
+ 	return 0;
+ 
+- err_remove_link:
+-	sysfs_remove_link(&input_class.subsys.kobj, evdev->name);
+- err_cdev_destroy:
+-	class_device_destroy(&input_class, devt);
++ err_delete_evdev:
++	device_del(&evdev->dev);
+  err_free_evdev:
+-	kfree(evdev);
+-	evdev_table[minor] = NULL;
++	put_device(&evdev->dev);
+ 	return error;
+ }
+ 
+@@ -690,10 +691,8 @@ static void evdev_disconnect(struct input_handle *handle)
+ 	struct evdev_client *client;
+ 
+ 	input_unregister_handle(handle);
++	device_del(&evdev->dev);
+ 
+-	sysfs_remove_link(&input_class.subsys.kobj, evdev->name);
+-	class_device_destroy(&input_class,
+-			MKDEV(INPUT_MAJOR, EVDEV_MINOR_BASE + evdev->minor));
+ 	evdev->exist = 0;
+ 
+ 	if (evdev->open) {
+@@ -702,8 +701,9 @@ static void evdev_disconnect(struct input_handle *handle)
+ 		list_for_each_entry(client, &evdev->client_list, node)
+ 			kill_fasync(&client->fasync, SIGIO, POLL_HUP);
+ 		wake_up_interruptible(&evdev->wait);
+-	} else
+-		evdev_free(evdev);
++	}
++
++	put_device(&evdev->dev);
+ }
+ 
+ static const struct input_device_id evdev_ids[] = {
+diff --git a/drivers/input/input.c b/drivers/input/input.c
+--- a/drivers/input/input.c
++++ b/drivers/input/input.c
+@@ -442,7 +442,7 @@ static int input_attach_handler(struct input_dev *dev, struct input_handler *han
+ 		printk(KERN_ERR
+ 			"input: failed to attach handler %s to device %s, "
+ 			"error: %d\n",
+-			handler->name, kobject_name(&dev->cdev.kobj), error);
++			handler->name, kobject_name(&dev->dev.kobj), error);
+ 
+ 	return error;
+ }
+@@ -527,7 +527,7 @@ static void input_seq_print_bitmap(struct seq_file *seq, const char *name,
+ static int input_devices_seq_show(struct seq_file *seq, void *v)
+ {
+ 	struct input_dev *dev = container_of(v, struct input_dev, node);
+-	const char *path = kobject_get_path(&dev->cdev.kobj, GFP_KERNEL);
++	const char *path = kobject_get_path(&dev->dev.kobj, GFP_KERNEL);
+ 	struct input_handle *handle;
+ 
+ 	seq_printf(seq, "I: Bus=%04x Vendor=%04x Product=%04x Version=%04x\n",
+@@ -682,15 +682,17 @@ static inline int input_proc_init(void) { return 0; }
+ static inline void input_proc_exit(void) { }
+ #endif
+ 
+-#define INPUT_DEV_STRING_ATTR_SHOW(name)					\
+-static ssize_t input_dev_show_##name(struct class_device *dev, char *buf)	\
+-{										\
+-	struct input_dev *input_dev = to_input_dev(dev);			\
+-										\
+-	return scnprintf(buf, PAGE_SIZE, "%s\n",				\
+-			 input_dev->name ? input_dev->name : "");		\
+-}										\
+-static CLASS_DEVICE_ATTR(name, S_IRUGO, input_dev_show_##name, NULL);
++#define INPUT_DEV_STRING_ATTR_SHOW(name)				\
++static ssize_t input_dev_show_##name(struct device *dev,		\
++				     struct device_attribute *attr,	\
++				     char *buf)				\
++{									\
++	struct input_dev *input_dev = to_input_dev(dev);		\
++									\
++	return scnprintf(buf, PAGE_SIZE, "%s\n",			\
++			 input_dev->name ? input_dev->name : "");	\
++}									\
++static DEVICE_ATTR(name, S_IRUGO, input_dev_show_##name, NULL)
+ 
+ INPUT_DEV_STRING_ATTR_SHOW(name);
+ INPUT_DEV_STRING_ATTR_SHOW(phys);
+@@ -744,7 +746,9 @@ static int input_print_modalias(char *buf, int size, struct input_dev *id,
+ 	return len;
+ }
+ 
+-static ssize_t input_dev_show_modalias(struct class_device *dev, char *buf)
++static ssize_t input_dev_show_modalias(struct device *dev,
++				       struct device_attribute *attr,
++				       char *buf)
+ {
+ 	struct input_dev *id = to_input_dev(dev);
+ 	ssize_t len;
+@@ -753,13 +757,13 @@ static ssize_t input_dev_show_modalias(struct class_device *dev, char *buf)
+ 
+ 	return min_t(int, len, PAGE_SIZE);
+ }
+-static CLASS_DEVICE_ATTR(modalias, S_IRUGO, input_dev_show_modalias, NULL);
++static DEVICE_ATTR(modalias, S_IRUGO, input_dev_show_modalias, NULL);
+ 
+ static struct attribute *input_dev_attrs[] = {
+-	&class_device_attr_name.attr,
+-	&class_device_attr_phys.attr,
+-	&class_device_attr_uniq.attr,
+-	&class_device_attr_modalias.attr,
++	&dev_attr_name.attr,
++	&dev_attr_phys.attr,
++	&dev_attr_uniq.attr,
++	&dev_attr_modalias.attr,
+ 	NULL
+ };
+ 
+@@ -767,13 +771,15 @@ static struct attribute_group input_dev_attr_group = {
+ 	.attrs	= input_dev_attrs,
+ };
+ 
+-#define INPUT_DEV_ID_ATTR(name)							\
+-static ssize_t input_dev_show_id_##name(struct class_device *dev, char *buf)	\
+-{										\
+-	struct input_dev *input_dev = to_input_dev(dev);			\
+-	return scnprintf(buf, PAGE_SIZE, "%04x\n", input_dev->id.name);		\
+-}										\
+-static CLASS_DEVICE_ATTR(name, S_IRUGO, input_dev_show_id_##name, NULL);
++#define INPUT_DEV_ID_ATTR(name)						\
++static ssize_t input_dev_show_id_##name(struct device *dev,		\
++					struct device_attribute *attr,	\
++					char *buf)			\
++{									\
++	struct input_dev *input_dev = to_input_dev(dev);		\
++	return scnprintf(buf, PAGE_SIZE, "%04x\n", input_dev->id.name);	\
++}									\
++static DEVICE_ATTR(name, S_IRUGO, input_dev_show_id_##name, NULL)
+ 
+ INPUT_DEV_ID_ATTR(bustype);
+ INPUT_DEV_ID_ATTR(vendor);
+@@ -781,10 +787,10 @@ INPUT_DEV_ID_ATTR(product);
+ INPUT_DEV_ID_ATTR(version);
+ 
+ static struct attribute *input_dev_id_attrs[] = {
+-	&class_device_attr_bustype.attr,
+-	&class_device_attr_vendor.attr,
+-	&class_device_attr_product.attr,
+-	&class_device_attr_version.attr,
++	&dev_attr_bustype.attr,
++	&dev_attr_vendor.attr,
++	&dev_attr_product.attr,
++	&dev_attr_version.attr,
+ 	NULL
+ };
+ 
+@@ -813,15 +819,17 @@ static int input_print_bitmap(char *buf, int buf_size, unsigned long *bitmap,
+ 	return len;
+ }
+ 
+-#define INPUT_DEV_CAP_ATTR(ev, bm)						\
+-static ssize_t input_dev_show_cap_##bm(struct class_device *dev, char *buf)	\
+-{										\
+-	struct input_dev *input_dev = to_input_dev(dev);			\
+-	int len = input_print_bitmap(buf, PAGE_SIZE,				\
+-				     input_dev->bm##bit, ev##_MAX, 1);		\
+-	return min_t(int, len, PAGE_SIZE);					\
+-}										\
+-static CLASS_DEVICE_ATTR(bm, S_IRUGO, input_dev_show_cap_##bm, NULL);
++#define INPUT_DEV_CAP_ATTR(ev, bm)					\
++static ssize_t input_dev_show_cap_##bm(struct device *dev,		\
++				       struct device_attribute *attr,	\
++				       char *buf)			\
++{									\
++	struct input_dev *input_dev = to_input_dev(dev);		\
++	int len = input_print_bitmap(buf, PAGE_SIZE,			\
++				     input_dev->bm##bit, ev##_MAX, 1);	\
++	return min_t(int, len, PAGE_SIZE);				\
++}									\
++static DEVICE_ATTR(bm, S_IRUGO, input_dev_show_cap_##bm, NULL)
+ 
+ INPUT_DEV_CAP_ATTR(EV, ev);
+ INPUT_DEV_CAP_ATTR(KEY, key);
+@@ -834,15 +842,15 @@ INPUT_DEV_CAP_ATTR(FF, ff);
+ INPUT_DEV_CAP_ATTR(SW, sw);
+ 
+ static struct attribute *input_dev_caps_attrs[] = {
+-	&class_device_attr_ev.attr,
+-	&class_device_attr_key.attr,
+-	&class_device_attr_rel.attr,
+-	&class_device_attr_abs.attr,
+-	&class_device_attr_msc.attr,
+-	&class_device_attr_led.attr,
+-	&class_device_attr_snd.attr,
+-	&class_device_attr_ff.attr,
+-	&class_device_attr_sw.attr,
++	&dev_attr_ev.attr,
++	&dev_attr_key.attr,
++	&dev_attr_rel.attr,
++	&dev_attr_abs.attr,
++	&dev_attr_msc.attr,
++	&dev_attr_led.attr,
++	&dev_attr_snd.attr,
++	&dev_attr_ff.attr,
++	&dev_attr_sw.attr,
+ 	NULL
+ };
+ 
+@@ -858,9 +866,9 @@ static struct attribute_group *input_dev_attr_groups[] = {
+ 	NULL
+ };
+ 
+-static void input_dev_release(struct class_device *class_dev)
++static void input_dev_release(struct device *device)
+ {
+-	struct input_dev *dev = to_input_dev(class_dev);
++	struct input_dev *dev = to_input_dev(device);
+ 
+ 	input_ff_destroy(dev);
+ 	kfree(dev);
+@@ -947,10 +955,10 @@ static int input_add_uevent_modalias_var(char **envp, int num_envp, int *cur_ind
+ 			return err;					\
+ 	} while (0)
+ 
+-static int input_dev_uevent(struct class_device *cdev, char **envp,
++static int input_dev_uevent(struct device *device, char **envp,
+ 			    int num_envp, char *buffer, int buffer_size)
+ {
+-	struct input_dev *dev = to_input_dev(cdev);
++	struct input_dev *dev = to_input_dev(device);
+ 	int i = 0;
+ 	int len = 0;
+ 
+@@ -988,10 +996,14 @@ static int input_dev_uevent(struct class_device *cdev, char **envp,
+ 	return 0;
+ }
+ 
++static struct device_type input_dev_type = {
++	.groups		= input_dev_attr_groups,
++	.release	= input_dev_release,
++	.uevent		= input_dev_uevent,
++};
++
+ struct class input_class = {
+-	.name			= "input",
+-	.release		= input_dev_release,
+-	.uevent			= input_dev_uevent,
++	.name		= "input",
+ };
+ EXPORT_SYMBOL_GPL(input_class);
+ 
+@@ -1010,9 +1022,9 @@ struct input_dev *input_allocate_device(void)
+ 
+ 	dev = kzalloc(sizeof(struct input_dev), GFP_KERNEL);
+ 	if (dev) {
+-		dev->cdev.class = &input_class;
+-		dev->cdev.groups = input_dev_attr_groups;
+-		class_device_initialize(&dev->cdev);
++		dev->dev.type = &input_dev_type;
++		dev->dev.class = &input_class;
++		device_initialize(&dev->dev);
+ 		mutex_init(&dev->mutex);
+ 		INIT_LIST_HEAD(&dev->h_list);
+ 		INIT_LIST_HEAD(&dev->node);
+@@ -1131,17 +1143,17 @@ int input_register_device(struct input_dev *dev)
+ 
+ 	list_add_tail(&dev->node, &input_dev_list);
+ 
+-	snprintf(dev->cdev.class_id, sizeof(dev->cdev.class_id),
++	snprintf(dev->dev.bus_id, sizeof(dev->dev.bus_id),
+ 		 "input%ld", (unsigned long) atomic_inc_return(&input_no) - 1);
+ 
+-	if (!dev->cdev.dev)
+-		dev->cdev.dev = dev->dev.parent;
++	if (dev->cdev.dev)
++		dev->dev.parent = dev->cdev.dev;
+ 
+-	error = class_device_add(&dev->cdev);
++	error = device_add(&dev->dev);
+ 	if (error)
+ 		return error;
+ 
+-	path = kobject_get_path(&dev->cdev.kobj, GFP_KERNEL);
++	path = kobject_get_path(&dev->dev.kobj, GFP_KERNEL);
+ 	printk(KERN_INFO "input: %s as %s\n",
+ 		dev->name ? dev->name : "Unspecified device", path ? path : "N/A");
+ 	kfree(path);
+@@ -1173,7 +1185,7 @@ void input_unregister_device(struct input_dev *dev)
+ 
+ 	list_del_init(&dev->node);
+ 
+-	class_device_unregister(&dev->cdev);
++	device_unregister(&dev->dev);
+ 
+ 	input_wakeup_procfs_readers();
+ }
+diff --git a/drivers/input/joydev.c b/drivers/input/joydev.c
+--- a/drivers/input/joydev.c
++++ b/drivers/input/joydev.c
+@@ -43,6 +43,8 @@ struct joydev {
+ 	struct input_handle handle;
+ 	wait_queue_head_t wait;
+ 	struct list_head client_list;
++	struct device dev;
++
+ 	struct js_corr corr[ABS_MAX + 1];
+ 	struct JS_DATA_SAVE_TYPE glue;
+ 	int nabs;
+@@ -138,8 +140,10 @@ static int joydev_fasync(int fd, struct file *file, int on)
+ 	return retval < 0 ? retval : 0;
+ }
+ 
+-static void joydev_free(struct joydev *joydev)
++static void joydev_free(struct device *dev)
+ {
++	struct joydev *joydev = container_of(dev, struct joydev, dev);
++
+ 	joydev_table[joydev->minor] = NULL;
+ 	kfree(joydev);
+ }
+@@ -154,12 +158,10 @@ static int joydev_release(struct inode *inode, struct file *file)
+ 	list_del(&client->node);
+ 	kfree(client);
+ 
+-	if (!--joydev->open) {
+-		if (joydev->exist)
+-			input_close_device(&joydev->handle);
+-		else
+-			joydev_free(joydev);
+-	}
++	if (!--joydev->open && joydev->exist)
++		input_close_device(&joydev->handle);
++
++	put_device(&joydev->dev);
+ 
+ 	return 0;
+ }
+@@ -178,24 +180,32 @@ static int joydev_open(struct inode *inode, struct file *file)
+ 	if (!joydev || !joydev->exist)
+ 		return -ENODEV;
+ 
++	get_device(&joydev->dev);
++
+ 	client = kzalloc(sizeof(struct joydev_client), GFP_KERNEL);
+-	if (!client)
+-		return -ENOMEM;
++	if (!client) {
++		error = -ENOMEM;
++		goto err_put_joydev;
++	}
+ 
+ 	client->joydev = joydev;
+ 	list_add_tail(&client->node, &joydev->client_list);
+ 
+ 	if (!joydev->open++ && joydev->exist) {
+ 		error = input_open_device(&joydev->handle);
+-		if (error) {
+-			list_del(&client->node);
+-			kfree(client);
+-			return error;
+-		}
++		if (error)
++			goto err_free_client;
+ 	}
+ 
+ 	file->private_data = client;
+ 	return 0;
++
++ err_free_client:
++	list_del(&client->node);
++	kfree(client);
++ err_put_joydev:
++	put_device(&joydev->dev);
++	return error;
+ }
+ 
+ static ssize_t joydev_write(struct file *file, const char __user *buffer, size_t count, loff_t *ppos)
+@@ -481,8 +491,6 @@ static int joydev_connect(struct input_handler *handler, struct input_dev *dev,
+ 			  const struct input_device_id *id)
+ {
+ 	struct joydev *joydev;
+-	struct class_device *cdev;
+-	dev_t devt;
+ 	int i, j, t, minor;
+ 	int error;
+ 
+@@ -505,7 +513,7 @@ static int joydev_connect(struct input_handler *handler, struct input_dev *dev,
+ 	joydev->handle.name = joydev->name;
+ 	joydev->handle.handler = handler;
+ 	joydev->handle.private = joydev;
+-	sprintf(joydev->name, "js%d", minor);
++	snprintf(joydev->name, sizeof(joydev->name), "js%d", minor);
+ 
+ 	for (i = 0; i < ABS_MAX + 1; i++)
+ 		if (test_bit(i, dev->absbit)) {
+@@ -547,36 +555,30 @@ static int joydev_connect(struct input_handler *handler, struct input_dev *dev,
+ 		joydev->abs[i] = joydev_correct(dev->abs[j], joydev->corr + i);
+ 	}
+ 
+-	joydev_table[minor] = joydev;
+-
+-	devt = MKDEV(INPUT_MAJOR, JOYDEV_MINOR_BASE + minor),
++	snprintf(joydev->dev.bus_id, sizeof(joydev->dev.bus_id),
++		 "js%d", minor);
++	joydev->dev.class = &input_class;
++	joydev->dev.parent = &dev->dev;
++	joydev->dev.devt = MKDEV(INPUT_MAJOR, JOYDEV_MINOR_BASE + minor);
++	joydev->dev.release = joydev_free;
++	device_initialize(&joydev->dev);
+ 
+-	cdev = class_device_create(&input_class, &dev->cdev, devt,
+-				   dev->cdev.dev, joydev->name);
+-	if (IS_ERR(cdev)) {
+-		error = PTR_ERR(cdev);
+-		goto err_free_joydev;
+-	}
++	joydev_table[minor] = joydev;
+ 
+-	/* temporary symlink to keep userspace happy */
+-	error = sysfs_create_link(&input_class.subsys.kobj,
+-				  &cdev->kobj, joydev->name);
++	error = device_add(&joydev->dev);
+ 	if (error)
+-		goto err_cdev_destroy;
++		goto err_free_joydev;
+ 
+ 	error = input_register_handle(&joydev->handle);
+ 	if (error)
+-		goto err_remove_link;
++		goto err_delete_joydev;
+ 
+ 	return 0;
+ 
+- err_remove_link:
+-	sysfs_remove_link(&input_class.subsys.kobj, joydev->name);
+- err_cdev_destroy:
+-	class_device_destroy(&input_class, devt);
++ err_delete_joydev:
++	device_del(&joydev->dev);
+  err_free_joydev:
+-	joydev_table[minor] = NULL;
+-	kfree(joydev);
++	put_device(&joydev->dev);
+ 	return error;
+ }
+ 
+@@ -587,9 +589,8 @@ static void joydev_disconnect(struct input_handle *handle)
+ 	struct joydev_client *client;
+ 
+ 	input_unregister_handle(handle);
++	device_del(&joydev->dev);
+ 
+-	sysfs_remove_link(&input_class.subsys.kobj, joydev->name);
+-	class_device_destroy(&input_class, MKDEV(INPUT_MAJOR, JOYDEV_MINOR_BASE + joydev->minor));
+ 	joydev->exist = 0;
+ 
+ 	if (joydev->open) {
+@@ -597,8 +598,9 @@ static void joydev_disconnect(struct input_handle *handle)
+ 		list_for_each_entry(client, &joydev->client_list, node)
+ 			kill_fasync(&client->fasync, SIGIO, POLL_HUP);
+ 		wake_up_interruptible(&joydev->wait);
+-	} else
+-		joydev_free(joydev);
++	}
++
++	put_device(&joydev->dev);
+ }
+ 
+ static const struct input_device_id joydev_blacklist[] = {
+diff --git a/drivers/input/mousedev.c b/drivers/input/mousedev.c
+--- a/drivers/input/mousedev.c
++++ b/drivers/input/mousedev.c
+@@ -64,6 +64,7 @@ struct mousedev {
+ 	wait_queue_head_t wait;
+ 	struct list_head client_list;
+ 	struct input_handle handle;
++	struct device dev;
+ 
+ 	struct list_head mixdev_node;
+ 	int mixdev_open;
+@@ -112,7 +113,7 @@ static unsigned char mousedev_imex_seq[] = { 0xf3, 200, 0xf3, 200, 0xf3, 80 };
+ static struct input_handler mousedev_handler;
+ 
+ static struct mousedev *mousedev_table[MOUSEDEV_MINORS];
+-static struct mousedev mousedev_mix;
++static struct mousedev *mousedev_mix;
+ static LIST_HEAD(mousedev_mix_list);
+ 
+ #define fx(i)  (mousedev->old_x[(mousedev->pkt_count - (i)) & 03])
+@@ -218,10 +219,10 @@ static void mousedev_key_event(struct mousedev *mousedev, unsigned int code, int
+ 
+ 	if (value) {
+ 		set_bit(index, &mousedev->packet.buttons);
+-		set_bit(index, &mousedev_mix.packet.buttons);
++		set_bit(index, &mousedev_mix->packet.buttons);
+ 	} else {
+ 		clear_bit(index, &mousedev->packet.buttons);
+-		clear_bit(index, &mousedev_mix.packet.buttons);
++		clear_bit(index, &mousedev_mix->packet.buttons);
+ 	}
+ }
+ 
+@@ -287,11 +288,11 @@ static void mousedev_touchpad_touch(struct mousedev *mousedev, int value)
+ 			 * motion packet so we won't mess current position.
+ 			 */
+ 			set_bit(0, &mousedev->packet.buttons);
+-			set_bit(0, &mousedev_mix.packet.buttons);
+-			mousedev_notify_readers(mousedev, &mousedev_mix.packet);
+-			mousedev_notify_readers(&mousedev_mix, &mousedev_mix.packet);
++			set_bit(0, &mousedev_mix->packet.buttons);
++			mousedev_notify_readers(mousedev, &mousedev_mix->packet);
++			mousedev_notify_readers(mousedev_mix, &mousedev_mix->packet);
+ 			clear_bit(0, &mousedev->packet.buttons);
+-			clear_bit(0, &mousedev_mix.packet.buttons);
++			clear_bit(0, &mousedev_mix->packet.buttons);
+ 		}
+ 		mousedev->touch = mousedev->pkt_count = 0;
+ 		mousedev->frac_dx = 0;
+@@ -343,7 +344,7 @@ static void mousedev_event(struct input_handle *handle, unsigned int type, unsig
+ 				}
+ 
+ 				mousedev_notify_readers(mousedev, &mousedev->packet);
+-				mousedev_notify_readers(&mousedev_mix, &mousedev->packet);
++				mousedev_notify_readers(mousedev_mix, &mousedev->packet);
+ 
+ 				mousedev->packet.dx = mousedev->packet.dy = mousedev->packet.dz = 0;
+ 				mousedev->packet.abs_event = 0;
+@@ -362,8 +363,10 @@ static int mousedev_fasync(int fd, struct file *file, int on)
+ 	return retval < 0 ? retval : 0;
+ }
+ 
+-static void mousedev_free(struct mousedev *mousedev)
++static void mousedev_free(struct device *dev)
+ {
++	struct mousedev *mousedev = container_of(dev, struct mousedev, dev);
++
+ 	mousedev_table[mousedev->minor] = NULL;
+ 	kfree(mousedev);
+ }
+@@ -372,15 +375,16 @@ static int mixdev_add_device(struct mousedev *mousedev)
+ {
+ 	int error;
+ 
+-	if (mousedev_mix.open) {
++	if (mousedev_mix->open) {
+ 		error = input_open_device(&mousedev->handle);
+ 		if (error)
+ 			return error;
+ 
+ 		mousedev->open++;
+-		mousedev->mixdev_open++;
++		mousedev->mixdev_open = 1;
+ 	}
+ 
++	get_device(&mousedev->dev);
+ 	list_add_tail(&mousedev->mixdev_node, &mousedev_mix_list);
+ 
+ 	return 0;
+@@ -395,36 +399,40 @@ static void mixdev_remove_device(struct mousedev *mousedev)
+ 	}
+ 
+ 	list_del_init(&mousedev->mixdev_node);
++	put_device(&mousedev->dev);
+ }
+ 
+ static void mixdev_open_devices(void)
+ {
+ 	struct mousedev *mousedev;
+ 
++	if (mousedev_mix->open++)
++		return;
++
+ 	list_for_each_entry(mousedev, &mousedev_mix_list, mixdev_node) {
+-		if (mousedev->exist && !mousedev->open) {
+-			if (input_open_device(&mousedev->handle))
+-				continue;
++		if (!mousedev->mixdev_open) {
++			if (!mousedev->open && mousedev->exist)
++				if (input_open_device(&mousedev->handle))
++					continue;
+ 
+ 			mousedev->open++;
+-			mousedev->mixdev_open++;
++			mousedev->mixdev_open = 1;
+ 		}
+ 	}
+ }
+ 
+ static void mixdev_close_devices(void)
+ {
+-	struct mousedev *mousedev, *next;
++	struct mousedev *mousedev;
+ 
+-	list_for_each_entry_safe(mousedev, next, &mousedev_mix_list, mixdev_node) {
++	if (--mousedev_mix->open)
++		return;
++
++	list_for_each_entry(mousedev, &mousedev_mix_list, mixdev_node) {
+ 		if (mousedev->mixdev_open) {
+ 			mousedev->mixdev_open = 0;
+-			if (!--mousedev->open) {
+-				if (mousedev->exist)
+-					input_close_device(&mousedev->handle);
+-				else
+-					mousedev_free(mousedev);
+-			}
++			if (!--mousedev->open && mousedev->exist)
++				input_close_device(&mousedev->handle);
+ 		}
+ 	}
+ }
+@@ -439,14 +447,12 @@ static int mousedev_release(struct inode *inode, struct file *file)
+ 	list_del(&client->node);
+ 	kfree(client);
+ 
+-	if (!--mousedev->open) {
+-		if (mousedev->minor == MOUSEDEV_MIX)
+-			mixdev_close_devices();
+-		else if (mousedev->exist)
+-			input_close_device(&mousedev->handle);
+-		else
+-			mousedev_free(mousedev);
+-	}
++	if (mousedev->minor == MOUSEDEV_MIX)
++		mixdev_close_devices();
++	else if (!--mousedev->open && mousedev->exist)
++		input_close_device(&mousedev->handle);
++
++	put_device(&mousedev->dev);
+ 
+ 	return 0;
+ }
+@@ -473,9 +479,13 @@ static int mousedev_open(struct inode *inode, struct file *file)
+ 	if (!mousedev)
+ 		return -ENODEV;
+ 
++	get_device(&mousedev->dev);
++
+ 	client = kzalloc(sizeof(struct mousedev_client), GFP_KERNEL);
+-	if (!client)
+-		return -ENOMEM;
++	if (!client) {
++		error = -ENOMEM;
++		goto err_put_mousedev;
++	}
+ 
+ 	spin_lock_init(&client->packet_lock);
+ 	client->pos_x = xres / 2;
+@@ -483,21 +493,23 @@ static int mousedev_open(struct inode *inode, struct file *file)
+ 	client->mousedev = mousedev;
+ 	list_add_tail(&client->node, &mousedev->client_list);
+ 
+-	if (!mousedev->open++) {
+-		if (mousedev->minor == MOUSEDEV_MIX)
+-			mixdev_open_devices();
+-		else if (mousedev->exist) {
+-			error = input_open_device(&mousedev->handle);
+-			if (error) {
+-				list_del(&client->node);
+-				kfree(client);
+-				return error;
+-			}
+-		}
++	if (mousedev->minor == MOUSEDEV_MIX)
++		mixdev_open_devices();
++	else if (!mousedev->open++ && mousedev->exist) {
++		error = input_open_device(&mousedev->handle);
++		if (error)
++			goto err_free_client;
+ 	}
+ 
+ 	file->private_data = client;
+ 	return 0;
++
++ err_free_client:
++	list_del(&client->node);
++	kfree(client);
++ err_put_mousedev:
++	put_device(&mousedev->dev);
++	return error;
+ }
+ 
+ static inline int mousedev_limit_delta(int delta, int limit)
+@@ -680,57 +692,96 @@ static const struct file_operations mousedev_fops = {
+ 	.fasync =	mousedev_fasync,
+ };
+ 
+-static int mousedev_connect(struct input_handler *handler, struct input_dev *dev,
+-			    const struct input_device_id *id)
++static struct mousedev *mousedev_create(struct input_dev *dev,
++					struct input_handler *handler,
++					int minor)
+ {
+ 	struct mousedev *mousedev;
+-	struct class_device *cdev;
+-	dev_t devt;
+-	int minor;
+ 	int error;
+ 
+-	for (minor = 0; minor < MOUSEDEV_MINORS && mousedev_table[minor]; minor++);
+-	if (minor == MOUSEDEV_MINORS) {
+-		printk(KERN_ERR "mousedev: no more free mousedev devices\n");
+-		return -ENFILE;
+-	}
+-
+ 	mousedev = kzalloc(sizeof(struct mousedev), GFP_KERNEL);
+-	if (!mousedev)
+-		return -ENOMEM;
++	if (!mousedev) {
++		error = -ENOMEM;
++		goto err_out;
++	}
+ 
+ 	INIT_LIST_HEAD(&mousedev->client_list);
+ 	INIT_LIST_HEAD(&mousedev->mixdev_node);
+ 	init_waitqueue_head(&mousedev->wait);
+ 
++	if (minor == MOUSEDEV_MIX)
++		strlcpy(mousedev->name, "mice", sizeof(mousedev->name));
++	else
++		snprintf(mousedev->name, sizeof(mousedev->name),
++			 "mouse%d", minor);
++
+ 	mousedev->minor = minor;
+ 	mousedev->exist = 1;
+ 	mousedev->handle.dev = dev;
+ 	mousedev->handle.name = mousedev->name;
+ 	mousedev->handle.handler = handler;
+ 	mousedev->handle.private = mousedev;
+-	sprintf(mousedev->name, "mouse%d", minor);
+ 
+-	mousedev_table[minor] = mousedev;
++	strlcpy(mousedev->dev.bus_id, mousedev->name,
++		sizeof(mousedev->dev.bus_id));
++	mousedev->dev.class = &input_class;
++	if (dev)
++		mousedev->dev.parent = &dev->dev;
++	mousedev->dev.devt = MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + minor);
++	mousedev->dev.release = mousedev_free;
++	device_initialize(&mousedev->dev);
+ 
+-	devt = MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + minor),
++	mousedev_table[minor] = mousedev;
+ 
+-	cdev = class_device_create(&input_class, &dev->cdev, devt,
+-				   dev->cdev.dev, mousedev->name);
+-	if (IS_ERR(cdev)) {
+-		error = PTR_ERR(cdev);
++	error = device_add(&mousedev->dev);
++	if (error)
+ 		goto err_free_mousedev;
++
++	return mousedev;
++
++ err_free_mousedev:
++	put_device(&mousedev->dev);
++ err_out:
++	return ERR_PTR(error);
++}
++
++static void mousedev_destroy(struct mousedev *mousedev)
++{
++	struct mousedev_client *client;
++
++	device_del(&mousedev->dev);
++	mousedev->exist = 0;
++
++	if (mousedev->open) {
++		input_close_device(&mousedev->handle);
++		list_for_each_entry(client, &mousedev->client_list, node)
++			kill_fasync(&client->fasync, SIGIO, POLL_HUP);
++		wake_up_interruptible(&mousedev->wait);
+ 	}
+ 
+-	/* temporary symlink to keep userspace happy */
+-	error = sysfs_create_link(&input_class.subsys.kobj,
+-				  &cdev->kobj, mousedev->name);
+-	if (error)
+-		goto err_cdev_destroy;
++	put_device(&mousedev->dev);
++}
++
++static int mousedev_connect(struct input_handler *handler, struct input_dev *dev,
++			    const struct input_device_id *id)
++{
++	struct mousedev *mousedev;
++	int minor;
++	int error;
++
++	for (minor = 0; minor < MOUSEDEV_MINORS && mousedev_table[minor]; minor++);
++	if (minor == MOUSEDEV_MINORS) {
++		printk(KERN_ERR "mousedev: no more free mousedev devices\n");
++		return -ENFILE;
++	}
++
++	mousedev = mousedev_create(dev, handler, minor);
++	if (IS_ERR(mousedev))
++		return PTR_ERR(mousedev);
+ 
+ 	error = input_register_handle(&mousedev->handle);
+ 	if (error)
+-		goto err_remove_link;
++		goto err_delete_mousedev;
+ 
+ 	error = mixdev_add_device(mousedev);
+ 	if (error)
+@@ -740,37 +791,18 @@ static int mousedev_connect(struct input_handler *handler, struct input_dev *dev
+ 
+  err_unregister_handle:
+ 	input_unregister_handle(&mousedev->handle);
+- err_remove_link:
+-	sysfs_remove_link(&input_class.subsys.kobj, mousedev->name);
+- err_cdev_destroy:
+-	class_device_destroy(&input_class, devt);
+- err_free_mousedev:
+-	mousedev_table[minor] = NULL;
+-	kfree(mousedev);
++ err_delete_mousedev:
++	device_unregister(&mousedev->dev);
+ 	return error;
+ }
+ 
+ static void mousedev_disconnect(struct input_handle *handle)
+ {
+ 	struct mousedev *mousedev = handle->private;
+-	struct mousedev_client *client;
+-
+-	input_unregister_handle(handle);
+-
+-	sysfs_remove_link(&input_class.subsys.kobj, mousedev->name);
+-	class_device_destroy(&input_class,
+-			MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + mousedev->minor));
+-	mousedev->exist = 0;
+ 
+ 	mixdev_remove_device(mousedev);
+-
+-	if (mousedev->open) {
+-		input_close_device(handle);
+-		list_for_each_entry(client, &mousedev->client_list, node)
+-			kill_fasync(&client->fasync, SIGIO, POLL_HUP);
+-		wake_up_interruptible(&mousedev->wait);
+-	} else
+-		mousedev_free(mousedev);
++	input_unregister_handle(handle);
++	mousedev_destroy(mousedev);
+ }
+ 
+ static const struct input_device_id mousedev_ids[] = {
+@@ -822,25 +854,16 @@ static int psaux_registered;
+ 
+ static int __init mousedev_init(void)
+ {
+-	struct class_device *cdev;
+ 	int error;
+ 
++	mousedev_mix = mousedev_create(NULL, &mousedev_handler, MOUSEDEV_MIX);
++	if (IS_ERR(mousedev_mix))
++		return PTR_ERR(mousedev_mix);
++
+ 	error = input_register_handler(&mousedev_handler);
+-	if (error)
++	if (error) {
++		mousedev_destroy(mousedev_mix);
+ 		return error;
+-
+-	memset(&mousedev_mix, 0, sizeof(struct mousedev));
+-	INIT_LIST_HEAD(&mousedev_mix.client_list);
+-	init_waitqueue_head(&mousedev_mix.wait);
+-	mousedev_table[MOUSEDEV_MIX] = &mousedev_mix;
+-	mousedev_mix.exist = 1;
+-	mousedev_mix.minor = MOUSEDEV_MIX;
+-
+-	cdev = class_device_create(&input_class, NULL,
+-			MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + MOUSEDEV_MIX), NULL, "mice");
+-	if (IS_ERR(cdev)) {
+-		input_unregister_handler(&mousedev_handler);
+-		return PTR_ERR(cdev);
+ 	}
+ 
+ #ifdef CONFIG_INPUT_MOUSEDEV_PSAUX
+@@ -863,9 +886,8 @@ static void __exit mousedev_exit(void)
+ 	if (psaux_registered)
+ 		misc_deregister(&psaux_mouse);
+ #endif
+-	class_device_destroy(&input_class,
+-			MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + MOUSEDEV_MIX));
+ 	input_unregister_handler(&mousedev_handler);
++	mousedev_destroy(mousedev_mix);
+ }
+ 
+ module_init(mousedev_init);
+diff --git a/drivers/input/tsdev.c b/drivers/input/tsdev.c
+--- a/drivers/input/tsdev.c
++++ b/drivers/input/tsdev.c
+@@ -109,9 +109,11 @@ struct tsdev {
+ 	int open;
+ 	int minor;
+ 	char name[8];
++	struct input_handle handle;
+ 	wait_queue_head_t wait;
+ 	struct list_head client_list;
+-	struct input_handle handle;
++	struct device dev;
++
+ 	int x, y, pressure;
+ 	struct ts_calibration cal;
+ };
+@@ -163,9 +165,13 @@ static int tsdev_open(struct inode *inode, struct file *file)
+ 	if (!tsdev || !tsdev->exist)
+ 		return -ENODEV;
+ 
++	get_device(&tsdev->dev);
++
+ 	client = kzalloc(sizeof(struct tsdev_client), GFP_KERNEL);
+-	if (!client)
+-		return -ENOMEM;
++	if (!client) {
++		error = -ENOMEM;
++		goto err_put_tsdev;
++	}
+ 
+ 	client->tsdev = tsdev;
+ 	client->raw = (i >= TSDEV_MINORS / 2) ? 1 : 0;
+@@ -173,19 +179,25 @@ static int tsdev_open(struct inode *inode, struct file *file)
+ 
+ 	if (!tsdev->open++ && tsdev->exist) {
+ 		error = input_open_device(&tsdev->handle);
+-		if (error) {
+-			list_del(&client->node);
+-			kfree(client);
+-			return error;
+-		}
++		if (error)
++			goto err_free_client;
+ 	}
+ 
+ 	file->private_data = client;
+ 	return 0;
++
++ err_free_client:
++	list_del(&client->node);
++	kfree(client);
++ err_put_tsdev:
++	put_device(&tsdev->dev);
++	return error;
+ }
+ 
+-static void tsdev_free(struct tsdev *tsdev)
++static void tsdev_free(struct device *dev)
+ {
++	struct tsdev *tsdev = container_of(dev, struct tsdev, dev);
++
+ 	tsdev_table[tsdev->minor] = NULL;
+ 	kfree(tsdev);
+ }
+@@ -200,12 +212,10 @@ static int tsdev_release(struct inode *inode, struct file *file)
+ 	list_del(&client->node);
+ 	kfree(client);
+ 
+-	if (!--tsdev->open) {
+-		if (tsdev->exist)
+-			input_close_device(&tsdev->handle);
+-		else
+-			tsdev_free(tsdev);
+-	}
++	if (!--tsdev->open && tsdev->exist)
++		input_close_device(&tsdev->handle);
++
++	put_device(&tsdev->dev);
+ 
+ 	return 0;
+ }
+@@ -388,8 +398,6 @@ static int tsdev_connect(struct input_handler *handler, struct input_dev *dev,
+ 			 const struct input_device_id *id)
+ {
+ 	struct tsdev *tsdev;
+-	struct class_device *cdev;
+-	dev_t devt;
+ 	int minor, delta;
+ 	int error;
+ 
+@@ -407,14 +415,13 @@ static int tsdev_connect(struct input_handler *handler, struct input_dev *dev,
+ 	INIT_LIST_HEAD(&tsdev->client_list);
+ 	init_waitqueue_head(&tsdev->wait);
+ 
+-	sprintf(tsdev->name, "ts%d", minor);
+-
+ 	tsdev->exist = 1;
+ 	tsdev->minor = minor;
+ 	tsdev->handle.dev = dev;
+ 	tsdev->handle.name = tsdev->name;
+ 	tsdev->handle.handler = handler;
+ 	tsdev->handle.private = tsdev;
++	snprintf(tsdev->name, sizeof(tsdev->name), "ts%d", minor);
+ 
+ 	/* Precompute the rough calibration matrix */
+ 	delta = dev->absmax [ABS_X] - dev->absmin [ABS_X] + 1;
+@@ -429,36 +436,30 @@ static int tsdev_connect(struct input_handler *handler, struct input_dev *dev,
+ 	tsdev->cal.yscale = (yres << 8) / delta;
+ 	tsdev->cal.ytrans = - ((dev->absmin [ABS_Y] * tsdev->cal.yscale) >> 8);
+ 
+-	tsdev_table[minor] = tsdev;
+-
+-	devt = MKDEV(INPUT_MAJOR, TSDEV_MINOR_BASE + minor),
++	snprintf(tsdev->dev.bus_id, sizeof(tsdev->dev.bus_id),
++		 "ts%d", minor);
++	tsdev->dev.class = &input_class;
++	tsdev->dev.parent = &dev->dev;
++	tsdev->dev.devt = MKDEV(INPUT_MAJOR, TSDEV_MINOR_BASE + minor);
++	tsdev->dev.release = tsdev_free;
++	device_initialize(&tsdev->dev);
+ 
+-	cdev = class_device_create(&input_class, &dev->cdev, devt,
+-				   dev->cdev.dev, tsdev->name);
+-	if (IS_ERR(cdev)) {
+-		error = PTR_ERR(cdev);
+-		goto err_free_tsdev;
+-	}
++	tsdev_table[minor] = tsdev;
+ 
+-	/* temporary symlink to keep userspace happy */
+-	error = sysfs_create_link(&input_class.subsys.kobj,
+-				  &cdev->kobj, tsdev->name);
++	error = device_add(&tsdev->dev);
+ 	if (error)
+-		goto err_cdev_destroy;
++		goto err_free_tsdev;
+ 
+ 	error = input_register_handle(&tsdev->handle);
+ 	if (error)
+-		goto err_remove_link;
++		goto err_delete_tsdev;
+ 
+ 	return 0;
+ 
+- err_remove_link:
+-	sysfs_remove_link(&input_class.subsys.kobj, tsdev->name);
+- err_cdev_destroy:
+-	class_device_destroy(&input_class, devt);
++ err_delete_tsdev:
++	device_del(&tsdev->dev);
+  err_free_tsdev:
+-	tsdev_table[minor] = NULL;
+-	kfree(tsdev);
++	put_device(&tsdev->dev);
+ 	return error;
+ }
+ 
+@@ -468,10 +469,8 @@ static void tsdev_disconnect(struct input_handle *handle)
+ 	struct tsdev_client *client;
+ 
+ 	input_unregister_handle(handle);
++	device_del(&tsdev->dev);
+ 
+-	sysfs_remove_link(&input_class.subsys.kobj, tsdev->name);
+-	class_device_destroy(&input_class,
+-			MKDEV(INPUT_MAJOR, TSDEV_MINOR_BASE + tsdev->minor));
+ 	tsdev->exist = 0;
+ 
+ 	if (tsdev->open) {
+@@ -479,8 +478,9 @@ static void tsdev_disconnect(struct input_handle *handle)
+ 		list_for_each_entry(client, &tsdev->client_list, node)
+ 			kill_fasync(&client->fasync, SIGIO, POLL_HUP);
+ 		wake_up_interruptible(&tsdev->wait);
+-	} else
+-		tsdev_free(tsdev);
++	}
++
++	put_device(&tsdev->dev);
+ }
+ 
+ static const struct input_device_id tsdev_ids[] = {
+diff --git a/include/linux/input.h b/include/linux/input.h
+--- a/include/linux/input.h
++++ b/include/linux/input.h
+@@ -981,15 +981,15 @@ struct input_dev {
+ 	struct mutex mutex;	/* serializes open and close operations */
+ 	unsigned int users;
+ 
+-	struct class_device cdev;
++	struct device dev;
+ 	union {			/* temporarily so while we switching to struct device */
+-		struct device *parent;
+-	} dev;
++		struct device *dev;
++	} cdev;
+ 
+ 	struct list_head	h_list;
+ 	struct list_head	node;
+ };
+-#define to_input_dev(d) container_of(d, struct input_dev, cdev)
++#define to_input_dev(d) container_of(d, struct input_dev, dev)
+ 
+ /*
+  * Verify that we are in sync with input_device_id mod_devicetable.h #defines
+@@ -1096,22 +1096,22 @@ struct input_handle {
+ 	struct list_head	h_node;
+ };
+ 
+-#define to_dev(n) container_of(n,struct input_dev,node)
+-#define to_handler(n) container_of(n,struct input_handler,node)
+-#define to_handle(n) container_of(n,struct input_handle,d_node)
+-#define to_handle_h(n) container_of(n,struct input_handle,h_node)
++#define to_dev(n) container_of(n, struct input_dev, node)
++#define to_handler(n) container_of(n, struct input_handler, node)
++#define to_handle(n) container_of(n, struct input_handle, d_node)
++#define to_handle_h(n) container_of(n, struct input_handle, h_node)
+ 
+ struct input_dev *input_allocate_device(void);
+ void input_free_device(struct input_dev *dev);
+ 
+ static inline struct input_dev *input_get_device(struct input_dev *dev)
+ {
+-	return to_input_dev(class_device_get(&dev->cdev));
++	return to_input_dev(get_device(&dev->dev));
+ }
+ 
+ static inline void input_put_device(struct input_dev *dev)
+ {
+-	class_device_put(&dev->cdev);
++	put_device(&dev->dev);
+ }
+ 
+ static inline void *input_get_drvdata(struct input_dev *dev)
+diff --git a/include/linux/atmdev.h b/include/linux/atmdev.h
+--- a/include/linux/atmdev.h
++++ b/include/linux/atmdev.h
+@@ -359,7 +359,7 @@ struct atm_dev {
+ 	struct proc_dir_entry *proc_entry; /* proc entry */
+ 	char *proc_name;		/* proc entry name */
+ #endif
+-	struct class_device class_dev;	/* sysfs class device */
++	struct device class_dev;	/* sysfs device */
+ 	struct list_head dev_list;	/* linkage */
+ };
+ 
+@@ -461,7 +461,7 @@ static inline void atm_dev_put(struct atm_dev *dev)
+ 		BUG_ON(!test_bit(ATM_DF_REMOVED, &dev->flags));
+ 		if (dev->ops->dev_close)
+ 			dev->ops->dev_close(dev);
+-		class_device_put(&dev->class_dev);
++		put_device(&dev->class_dev);
+ 	}
+ }
+ 
+diff --git a/net/atm/atm_sysfs.c b/net/atm/atm_sysfs.c
+--- a/net/atm/atm_sysfs.c
++++ b/net/atm/atm_sysfs.c
+@@ -9,13 +9,15 @@
+ 
+ #define to_atm_dev(cldev) container_of(cldev, struct atm_dev, class_dev)
+ 
+-static ssize_t show_type(struct class_device *cdev, char *buf)
++static ssize_t show_type(struct device *cdev,
++			 struct device_attribute *attr, char *buf)
+ {
+ 	struct atm_dev *adev = to_atm_dev(cdev);
+ 	return sprintf(buf, "%s\n", adev->type);
+ }
+ 
+-static ssize_t show_address(struct class_device *cdev, char *buf)
++static ssize_t show_address(struct device *cdev,
++			    struct device_attribute *attr, char *buf)
+ {
+ 	char *pos = buf;
+ 	struct atm_dev *adev = to_atm_dev(cdev);
+@@ -28,7 +30,8 @@ static ssize_t show_address(struct class_device *cdev, char *buf)
+ 	return pos - buf;
+ }
+ 
+-static ssize_t show_atmaddress(struct class_device *cdev, char *buf)
++static ssize_t show_atmaddress(struct device *cdev,
++			       struct device_attribute *attr, char *buf)
+ {
+ 	unsigned long flags;
+ 	char *pos = buf;
+@@ -54,7 +57,8 @@ static ssize_t show_atmaddress(struct class_device *cdev, char *buf)
+ 	return pos - buf;
+ }
+ 
+-static ssize_t show_carrier(struct class_device *cdev, char *buf)
++static ssize_t show_carrier(struct device *cdev,
++			    struct device_attribute *attr, char *buf)
+ {
+ 	char *pos = buf;
+ 	struct atm_dev *adev = to_atm_dev(cdev);
+@@ -65,7 +69,8 @@ static ssize_t show_carrier(struct class_device *cdev, char *buf)
+ 	return pos - buf;
+ }
+ 
+-static ssize_t show_link_rate(struct class_device *cdev, char *buf)
++static ssize_t show_link_rate(struct device *cdev,
++			      struct device_attribute *attr, char *buf)
+ {
+ 	char *pos = buf;
+ 	struct atm_dev *adev = to_atm_dev(cdev);
+@@ -90,22 +95,23 @@ static ssize_t show_link_rate(struct class_device *cdev, char *buf)
+ 	return pos - buf;
+ }
+ 
+-static CLASS_DEVICE_ATTR(address, S_IRUGO, show_address, NULL);
+-static CLASS_DEVICE_ATTR(atmaddress, S_IRUGO, show_atmaddress, NULL);
+-static CLASS_DEVICE_ATTR(carrier, S_IRUGO, show_carrier, NULL);
+-static CLASS_DEVICE_ATTR(type, S_IRUGO, show_type, NULL);
+-static CLASS_DEVICE_ATTR(link_rate, S_IRUGO, show_link_rate, NULL);
+-
+-static struct class_device_attribute *atm_attrs[] = {
+-	&class_device_attr_atmaddress,
+-	&class_device_attr_address,
+-	&class_device_attr_carrier,
+-	&class_device_attr_type,
+-	&class_device_attr_link_rate,
++static DEVICE_ATTR(address, S_IRUGO, show_address, NULL);
++static DEVICE_ATTR(atmaddress, S_IRUGO, show_atmaddress, NULL);
++static DEVICE_ATTR(carrier, S_IRUGO, show_carrier, NULL);
++static DEVICE_ATTR(type, S_IRUGO, show_type, NULL);
++static DEVICE_ATTR(link_rate, S_IRUGO, show_link_rate, NULL);
++
++static struct device_attribute *atm_attrs[] = {
++	&dev_attr_atmaddress,
++	&dev_attr_address,
++	&dev_attr_carrier,
++	&dev_attr_type,
++	&dev_attr_link_rate,
+ 	NULL
+ };
+ 
+-static int atm_uevent(struct class_device *cdev, char **envp, int num_envp, char *buf, int size)
++
++static int atm_uevent(struct device *cdev, char **envp, int num_envp, char *buf, int size)
+ {
+ 	struct atm_dev *adev;
+ 
+@@ -122,7 +128,7 @@ static int atm_uevent(struct class_device *cdev, struct kobj_uevent_env *env)
+ 	return 0;
+ }
+ 
+-static void atm_release(struct class_device *cdev)
++static void atm_release(struct device *cdev)
+ {
+ 	struct atm_dev *adev = to_atm_dev(cdev);
+ 
+@@ -131,25 +137,25 @@ static void atm_release(struct class_device *cdev)
+ 
+ static struct class atm_class = {
+ 	.name		= "atm",
+-	.release	= atm_release,
+-	.uevent		= atm_uevent,
++	.dev_release	= atm_release,
++	.dev_uevent		= atm_uevent,
+ };
+ 
+ int atm_register_sysfs(struct atm_dev *adev)
+ {
+-	struct class_device *cdev = &adev->class_dev;
++	struct device *cdev = &adev->class_dev;
+ 	int i, j, err;
+ 
+ 	cdev->class = &atm_class;
+-	class_set_devdata(cdev, adev);
++	dev_set_drvdata(cdev, adev);
+ 
+-	snprintf(cdev->class_id, BUS_ID_SIZE, "%s%d", adev->type, adev->number);
+-	err = class_device_register(cdev);
++	snprintf(cdev->bus_id, BUS_ID_SIZE, "%s%d", adev->type, adev->number);
++	err = device_register(cdev);
+ 	if (err < 0)
+ 		return err;
+ 
+ 	for (i = 0; atm_attrs[i]; i++) {
+-		err = class_device_create_file(cdev, atm_attrs[i]);
++		err = device_create_file(cdev, atm_attrs[i]);
+ 		if (err)
+ 			goto err_out;
+ 	}
+@@ -158,16 +164,16 @@ int atm_register_sysfs(struct atm_dev *adev)
+ 
+ err_out:
+ 	for (j = 0; j < i; j++)
+-		class_device_remove_file(cdev, atm_attrs[j]);
+-	class_device_del(cdev);
++		device_remove_file(cdev, atm_attrs[j]);
++	device_del(cdev);
+ 	return err;
+ }
+ 
+ void atm_unregister_sysfs(struct atm_dev *adev)
+ {
+-	struct class_device *cdev = &adev->class_dev;
++	struct device *cdev = &adev->class_dev;
+ 
+-	class_device_del(cdev);
++	device_del(cdev);
+ }
+ 
+ int __init atm_sysfs_init(void)
+diff --git a/drivers/acpi/video.c b/drivers/acpi/video.c
+--- a/drivers/acpi/video.c
++++ b/drivers/acpi/video.c
+@@ -278,7 +278,7 @@ static int acpi_video_get_brightness(struct backlight_device *bd)
+ {
+ 	unsigned long cur_level;
+ 	struct acpi_video_device *vd =
+-		(struct acpi_video_device *)class_get_devdata(&bd->class_dev);
++		(struct acpi_video_device *)bl_get_data(bd);
+ 	acpi_video_device_lcd_get_level_current(vd, &cur_level);
+ 	return (int) cur_level;
+ }
+@@ -287,7 +287,7 @@ static int acpi_video_set_brightness(struct backlight_device *bd)
+ {
+ 	int request_level = bd->props.brightness;
+ 	struct acpi_video_device *vd =
+-		(struct acpi_video_device *)class_get_devdata(&bd->class_dev);
++		(struct acpi_video_device *)bl_get_data(bd);
+ 	acpi_video_device_lcd_set_level(vd, request_level);
+ 	return 0;
+ }
+diff --git a/drivers/video/backlight/backlight.c b/drivers/video/backlight/backlight.c
+--- a/drivers/video/backlight/backlight.c
++++ b/drivers/video/backlight/backlight.c
+@@ -69,18 +69,20 @@ static inline void backlight_unregister_fb(struct backlight_device *bd)
+ }
+ #endif /* CONFIG_FB */
+ 
+-static ssize_t backlight_show_power(struct class_device *cdev, char *buf)
++static ssize_t backlight_show_power(struct device *dev,
++		struct device_attribute *attr,char *buf)
+ {
+-	struct backlight_device *bd = to_backlight_device(cdev);
++	struct backlight_device *bd = to_backlight_device(dev);
+ 
+ 	return sprintf(buf, "%d\n", bd->props.power);
+ }
+ 
+-static ssize_t backlight_store_power(struct class_device *cdev, const char *buf, size_t count)
++static ssize_t backlight_store_power(struct device *dev,
++		struct device_attribute *attr, const char *buf, size_t count)
+ {
+ 	int rc = -ENXIO;
+ 	char *endp;
+-	struct backlight_device *bd = to_backlight_device(cdev);
++	struct backlight_device *bd = to_backlight_device(dev);
+ 	int power = simple_strtoul(buf, &endp, 0);
+ 	size_t size = endp - buf;
+ 
+@@ -101,18 +103,20 @@ static ssize_t backlight_store_power(struct class_device *cdev, const char *buf,
+ 	return rc;
+ }
+ 
+-static ssize_t backlight_show_brightness(struct class_device *cdev, char *buf)
++static ssize_t backlight_show_brightness(struct device *dev,
++		struct device_attribute *attr, char *buf)
+ {
+-	struct backlight_device *bd = to_backlight_device(cdev);
++	struct backlight_device *bd = to_backlight_device(dev);
+ 
+ 	return sprintf(buf, "%d\n", bd->props.brightness);
+ }
+ 
+-static ssize_t backlight_store_brightness(struct class_device *cdev, const char *buf, size_t count)
++static ssize_t backlight_store_brightness(struct device *dev,
++		struct device_attribute *attr, const char *buf, size_t count)
+ {
+ 	int rc = -ENXIO;
+ 	char *endp;
+-	struct backlight_device *bd = to_backlight_device(cdev);
++	struct backlight_device *bd = to_backlight_device(dev);
+ 	int brightness = simple_strtoul(buf, &endp, 0);
+ 	size_t size = endp - buf;
+ 
+@@ -138,18 +142,19 @@ static ssize_t backlight_store_brightness(struct class_device *cdev, const char
+ 	return rc;
+ }
+ 
+-static ssize_t backlight_show_max_brightness(struct class_device *cdev, char *buf)
++static ssize_t backlight_show_max_brightness(struct device *dev,
++		struct device_attribute *attr, char *buf)
+ {
+-	struct backlight_device *bd = to_backlight_device(cdev);
++	struct backlight_device *bd = to_backlight_device(dev);
+ 
+ 	return sprintf(buf, "%d\n", bd->props.max_brightness);
+ }
+ 
+-static ssize_t backlight_show_actual_brightness(struct class_device *cdev,
+-						char *buf)
++static ssize_t backlight_show_actual_brightness(struct device *dev,
++		struct device_attribute *attr, char *buf)
+ {
+ 	int rc = -ENXIO;
+-	struct backlight_device *bd = to_backlight_device(cdev);
++	struct backlight_device *bd = to_backlight_device(dev);
+ 
+ 	mutex_lock(&bd->ops_lock);
+ 	if (bd->ops && bd->ops->get_brightness)
+@@ -159,31 +164,22 @@ static ssize_t backlight_show_actual_brightness(struct class_device *cdev,
+ 	return rc;
+ }
+ 
+-static void backlight_class_release(struct class_device *dev)
++struct class *backlight_class;
++
++static void bl_device_release(struct device *dev)
+ {
+ 	struct backlight_device *bd = to_backlight_device(dev);
+ 	kfree(bd);
+ }
+ 
+-static struct class backlight_class = {
+-	.name = "backlight",
+-	.release = backlight_class_release,
+-};
+-
+-#define DECLARE_ATTR(_name,_mode,_show,_store)			\
+-{							 	\
+-	.attr	= { .name = __stringify(_name), .mode = _mode, .owner = THIS_MODULE },	\
+-	.show	= _show,					\
+-	.store	= _store,					\
+-}
+-
+-static const struct class_device_attribute bl_class_device_attributes[] = {
+-	DECLARE_ATTR(power, 0644, backlight_show_power, backlight_store_power),
+-	DECLARE_ATTR(brightness, 0644, backlight_show_brightness,
++static struct device_attribute bl_device_attributes[] = {
++	__ATTR(bl_power, 0644, backlight_show_power, backlight_store_power),
++	__ATTR(brightness, 0644, backlight_show_brightness,
+ 		     backlight_store_brightness),
+-	DECLARE_ATTR(actual_brightness, 0444, backlight_show_actual_brightness,
++	__ATTR(actual_brightness, 0444, backlight_show_actual_brightness,
+ 		     NULL),
+-	DECLARE_ATTR(max_brightness, 0444, backlight_show_max_brightness, NULL),
++	__ATTR(max_brightness, 0444, backlight_show_max_brightness, NULL),
++	__ATTR_NULL,
+ };
+ 
+ /**
+@@ -191,22 +187,20 @@ static const struct class_device_attribute bl_class_device_attributes[] = {
+  *   backlight_device class.
+  * @name: the name of the new object(must be the same as the name of the
+  *   respective framebuffer device).
+- * @devdata: an optional pointer to be stored in the class_device. The
+- *   methods may retrieve it by using class_get_devdata(&bd->class_dev).
++ * @devdata: an optional pointer to be stored for private driver use. The
++ *   methods may retrieve it by using bl_get_data(bd).
+  * @ops: the backlight operations structure.
+  *
+- * Creates and registers new backlight class_device. Returns either an
++ * Creates and registers new backlight device. Returns either an
+  * ERR_PTR() or a pointer to the newly allocated device.
+  */
+ struct backlight_device *backlight_device_register(const char *name,
+-	struct device *dev,
+-	void *devdata,
+-	struct backlight_ops *ops)
++		struct device *parent, void *devdata, struct backlight_ops *ops)
+ {
+-	int i, rc;
+ 	struct backlight_device *new_bd;
++	int rc;
+ 
+-	pr_debug("backlight_device_alloc: name=%s\n", name);
++	pr_debug("backlight_device_register: name=%s\n", name);
+ 
+ 	new_bd = kzalloc(sizeof(struct backlight_device), GFP_KERNEL);
+ 	if (!new_bd)
+@@ -214,13 +208,14 @@ struct backlight_device *backlight_device_register(const char *name,
+ 
+ 	mutex_init(&new_bd->update_lock);
+ 	mutex_init(&new_bd->ops_lock);
+-	new_bd->ops = ops;
+-	new_bd->class_dev.class = &backlight_class;
+-	new_bd->class_dev.dev = dev;
+-	strlcpy(new_bd->class_dev.class_id, name, KOBJ_NAME_LEN);
+-	class_set_devdata(&new_bd->class_dev, devdata);
+ 
+-	rc = class_device_register(&new_bd->class_dev);
++	new_bd->dev.class = backlight_class;
++	new_bd->dev.parent = parent;
++	new_bd->dev.release = bl_device_release;
++	strlcpy(new_bd->dev.bus_id, name, BUS_ID_SIZE);
++	dev_set_drvdata(&new_bd->dev, devdata);
++
++	rc = device_register(&new_bd->dev);
+ 	if (rc) {
+ 		kfree(new_bd);
+ 		return ERR_PTR(rc);
+@@ -228,23 +223,11 @@ struct backlight_device *backlight_device_register(const char *name,
+ 
+ 	rc = backlight_register_fb(new_bd);
+ 	if (rc) {
+-		class_device_unregister(&new_bd->class_dev);
++		device_unregister(&new_bd->dev);
+ 		return ERR_PTR(rc);
+ 	}
+ 
+-
+-	for (i = 0; i < ARRAY_SIZE(bl_class_device_attributes); i++) {
+-		rc = class_device_create_file(&new_bd->class_dev,
+-					      &bl_class_device_attributes[i]);
+-		if (rc) {
+-			while (--i >= 0)
+-				class_device_remove_file(&new_bd->class_dev,
+-							 &bl_class_device_attributes[i]);
+-			class_device_unregister(&new_bd->class_dev);
+-			/* No need to kfree(new_bd) since release() method was called */
+-			return ERR_PTR(rc);
+-		}
+-	}
++	new_bd->ops = ops;
+ 
+ #ifdef CONFIG_PMAC_BACKLIGHT
+ 	mutex_lock(&pmac_backlight_mutex);
+@@ -265,42 +248,40 @@ EXPORT_SYMBOL(backlight_device_register);
+  */
+ void backlight_device_unregister(struct backlight_device *bd)
+ {
+-	int i;
+-
+ 	if (!bd)
+ 		return;
+ 
+-	pr_debug("backlight_device_unregister: name=%s\n", bd->class_dev.class_id);
+-
+ #ifdef CONFIG_PMAC_BACKLIGHT
+ 	mutex_lock(&pmac_backlight_mutex);
+ 	if (pmac_backlight == bd)
+ 		pmac_backlight = NULL;
+ 	mutex_unlock(&pmac_backlight_mutex);
+ #endif
+-
+-	for (i = 0; i < ARRAY_SIZE(bl_class_device_attributes); i++)
+-		class_device_remove_file(&bd->class_dev,
+-					 &bl_class_device_attributes[i]);
+-
+ 	mutex_lock(&bd->ops_lock);
+ 	bd->ops = NULL;
+ 	mutex_unlock(&bd->ops_lock);
+ 
+ 	backlight_unregister_fb(bd);
+-
+-	class_device_unregister(&bd->class_dev);
++	device_unregister(&bd->dev);
+ }
+ EXPORT_SYMBOL(backlight_device_unregister);
+ 
+ static void __exit backlight_class_exit(void)
+ {
+-	class_unregister(&backlight_class);
++	class_destroy(backlight_class);
+ }
+ 
+ static int __init backlight_class_init(void)
+ {
+-	return class_register(&backlight_class);
++	backlight_class = class_create(THIS_MODULE, "backlight");
++	if (IS_ERR(backlight_class)) {
++		printk(KERN_WARNING "Unable to create backlight class; errno = %ld\n",
++				PTR_ERR(backlight_class));
++		return PTR_ERR(backlight_class);
++	}
++
++	backlight_class->dev_attrs = bl_device_attributes;
++	return 0;
+ }
+ 
+ /*
+diff --git a/drivers/video/backlight/cr_bllcd.c b/drivers/video/backlight/cr_bllcd.c
+--- a/drivers/video/backlight/cr_bllcd.c
++++ b/drivers/video/backlight/cr_bllcd.c
+@@ -202,7 +202,7 @@ static int cr_backlight_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	crp->cr_lcd_device = lcd_device_register("cr-lcd",
+-							&pdev->dev,
++							&pdev->dev, NULL
+ 							&cr_lcd_ops);
+ 
+ 	if (IS_ERR(crp->cr_lcd_device)) {
+diff --git a/drivers/video/backlight/lcd.c b/drivers/video/backlight/lcd.c
+--- a/drivers/video/backlight/lcd.c
++++ b/drivers/video/backlight/lcd.c
+@@ -61,10 +61,11 @@ static inline void lcd_unregister_fb(struct lcd_device *ld)
+ }
+ #endif /* CONFIG_FB */
+ 
+-static ssize_t lcd_show_power(struct class_device *cdev, char *buf)
++static ssize_t lcd_show_power(struct device *dev, struct device_attribute *attr,
++		char *buf)
+ {
+ 	int rc;
+-	struct lcd_device *ld = to_lcd_device(cdev);
++	struct lcd_device *ld = to_lcd_device(dev);
+ 
+ 	mutex_lock(&ld->ops_lock);
+ 	if (ld->ops && ld->ops->get_power)
+@@ -76,11 +77,12 @@ static ssize_t lcd_show_power(struct class_device *cdev, char *buf)
+ 	return rc;
+ }
+ 
+-static ssize_t lcd_store_power(struct class_device *cdev, const char *buf, size_t count)
++static ssize_t lcd_store_power(struct device *dev,
++		struct device_attribute *attr, const char *buf, size_t count)
+ {
+ 	int rc = -ENXIO;
+ 	char *endp;
+-	struct lcd_device *ld = to_lcd_device(cdev);
++	struct lcd_device *ld = to_lcd_device(dev);
+ 	int power = simple_strtoul(buf, &endp, 0);
+ 	size_t size = endp - buf;
+ 
+@@ -100,10 +102,11 @@ static ssize_t lcd_store_power(struct class_device *cdev, const char *buf, size_
+ 	return rc;
+ }
+ 
+-static ssize_t lcd_show_contrast(struct class_device *cdev, char *buf)
++static ssize_t lcd_show_contrast(struct device *dev,
++		struct device_attribute *attr, char *buf)
+ {
+ 	int rc = -ENXIO;
+-	struct lcd_device *ld = to_lcd_device(cdev);
++	struct lcd_device *ld = to_lcd_device(dev);
+ 
+ 	mutex_lock(&ld->ops_lock);
+ 	if (ld->ops && ld->ops->get_contrast)
+@@ -113,11 +116,12 @@ static ssize_t lcd_show_contrast(struct class_device *cdev, char *buf)
+ 	return rc;
+ }
+ 
+-static ssize_t lcd_store_contrast(struct class_device *cdev, const char *buf, size_t count)
++static ssize_t lcd_store_contrast(struct device *dev,
++		struct device_attribute *attr, const char *buf, size_t count)
+ {
+ 	int rc = -ENXIO;
+ 	char *endp;
+-	struct lcd_device *ld = to_lcd_device(cdev);
++	struct lcd_device *ld = to_lcd_device(dev);
+ 	int contrast = simple_strtoul(buf, &endp, 0);
+ 	size_t size = endp - buf;
+ 
+@@ -137,53 +141,45 @@ static ssize_t lcd_store_contrast(struct class_device *cdev, const char *buf, si
+ 	return rc;
+ }
+ 
+-static ssize_t lcd_show_max_contrast(struct class_device *cdev, char *buf)
++static ssize_t lcd_show_max_contrast(struct device *dev,
++		struct device_attribute *attr, char *buf)
+ {
+-	struct lcd_device *ld = to_lcd_device(cdev);
++	struct lcd_device *ld = to_lcd_device(dev);
+ 
+ 	return sprintf(buf, "%d\n", ld->props.max_contrast);
+ }
+ 
+-static void lcd_class_release(struct class_device *dev)
++struct class *lcd_class;
++
++static void lcd_device_release(struct device *dev)
+ {
+ 	struct lcd_device *ld = to_lcd_device(dev);
+ 	kfree(ld);
+ }
+ 
+-static struct class lcd_class = {
+-	.name = "lcd",
+-	.release = lcd_class_release,
+-};
+-
+-#define DECLARE_ATTR(_name,_mode,_show,_store)			\
+-{							 	\
+-	.attr	= { .name = __stringify(_name), .mode = _mode, .owner = THIS_MODULE },	\
+-	.show	= _show,					\
+-	.store	= _store,					\
+-}
+-
+-static const struct class_device_attribute lcd_class_device_attributes[] = {
+-	DECLARE_ATTR(power, 0644, lcd_show_power, lcd_store_power),
+-	DECLARE_ATTR(contrast, 0644, lcd_show_contrast, lcd_store_contrast),
+-	DECLARE_ATTR(max_contrast, 0444, lcd_show_max_contrast, NULL),
++static struct device_attribute lcd_device_attributes[] = {
++	__ATTR(lcd_power, 0644, lcd_show_power, lcd_store_power),
++	__ATTR(contrast, 0644, lcd_show_contrast, lcd_store_contrast),
++	__ATTR(max_contrast, 0444, lcd_show_max_contrast, NULL),
++	__ATTR_NULL,
+ };
+ 
+ /**
+  * lcd_device_register - register a new object of lcd_device class.
+  * @name: the name of the new object(must be the same as the name of the
+  *   respective framebuffer device).
+- * @devdata: an optional pointer to be stored in the class_device. The
+- *   methods may retrieve it by using class_get_devdata(ld->class_dev).
++ * @devdata: an optional pointer to be stored in the device. The
++ *   methods may retrieve it by using lcd_get_data(ld).
+  * @ops: the lcd operations structure.
+  *
+- * Creates and registers a new lcd class_device. Returns either an ERR_PTR()
++ * Creates and registers a new lcd device. Returns either an ERR_PTR()
+  * or a pointer to the newly allocated device.
+  */
+-struct lcd_device *lcd_device_register(const char *name, void *devdata,
+-				       struct lcd_ops *ops)
++struct lcd_device *lcd_device_register(const char *name, struct device *parent,
++		void *devdata, struct lcd_ops *ops)
+ {
+-	int i, rc;
+ 	struct lcd_device *new_ld;
++	int rc;
+ 
+ 	pr_debug("lcd_device_register: name=%s\n", name);
+ 
+@@ -193,12 +189,14 @@ struct lcd_device *lcd_device_register(const char *name, void *devdata,
+ 
+ 	mutex_init(&new_ld->ops_lock);
+ 	mutex_init(&new_ld->update_lock);
+-	new_ld->ops = ops;
+-	new_ld->class_dev.class = &lcd_class;
+-	strlcpy(new_ld->class_dev.class_id, name, KOBJ_NAME_LEN);
+-	class_set_devdata(&new_ld->class_dev, devdata);
+ 
+-	rc = class_device_register(&new_ld->class_dev);
++	new_ld->dev.class = lcd_class;
++	new_ld->dev.parent = parent;
++	new_ld->dev.release = lcd_device_release;
++	strlcpy(new_ld->dev.bus_id, name, BUS_ID_SIZE);
++	dev_set_drvdata(&new_ld->dev, devdata);
++
++	rc = device_register(&new_ld->dev);
+ 	if (rc) {
+ 		kfree(new_ld);
+ 		return ERR_PTR(rc);
+@@ -206,22 +204,11 @@ struct lcd_device *lcd_device_register(const char *name, void *devdata,
+ 
+ 	rc = lcd_register_fb(new_ld);
+ 	if (rc) {
+-		class_device_unregister(&new_ld->class_dev);
++		device_unregister(&new_ld->dev);
+ 		return ERR_PTR(rc);
+ 	}
+ 
+-	for (i = 0; i < ARRAY_SIZE(lcd_class_device_attributes); i++) {
+-		rc = class_device_create_file(&new_ld->class_dev,
+-					      &lcd_class_device_attributes[i]);
+-		if (rc) {
+-			while (--i >= 0)
+-				class_device_remove_file(&new_ld->class_dev,
+-							 &lcd_class_device_attributes[i]);
+-			class_device_unregister(&new_ld->class_dev);
+-			/* No need to kfree(new_ld) since release() method was called */
+-			return ERR_PTR(rc);
+-		}
+-	}
++	new_ld->ops = ops;
+ 
+ 	return new_ld;
+ }
+@@ -235,33 +222,34 @@ EXPORT_SYMBOL(lcd_device_register);
+  */
+ void lcd_device_unregister(struct lcd_device *ld)
+ {
+-	int i;
+-
+ 	if (!ld)
+ 		return;
+ 
+-	pr_debug("lcd_device_unregister: name=%s\n", ld->class_dev.class_id);
+-
+-	for (i = 0; i < ARRAY_SIZE(lcd_class_device_attributes); i++)
+-		class_device_remove_file(&ld->class_dev,
+-					 &lcd_class_device_attributes[i]);
+-
+ 	mutex_lock(&ld->ops_lock);
+ 	ld->ops = NULL;
+ 	mutex_unlock(&ld->ops_lock);
+ 	lcd_unregister_fb(ld);
+-	class_device_unregister(&ld->class_dev);
++
++	device_unregister(&ld->dev);
+ }
+ EXPORT_SYMBOL(lcd_device_unregister);
+ 
+ static void __exit lcd_class_exit(void)
+ {
+-	class_unregister(&lcd_class);
++	class_destroy(lcd_class);
+ }
+ 
+ static int __init lcd_class_init(void)
+ {
+-	return class_register(&lcd_class);
++	lcd_class = class_create(THIS_MODULE, "lcd");
++	if (IS_ERR(lcd_class)) {
++		printk(KERN_WARNING "Unable to create backlight class; errno = %ld\n",
++				PTR_ERR(lcd_class));
++		return PTR_ERR(lcd_class);
++	}
++
++	lcd_class->dev_attrs = lcd_device_attributes;
++	return 0;
+ }
+ 
+ /*
+diff --git a/include/linux/backlight.h b/include/linux/backlight.h
+--- a/include/linux/backlight.h
++++ b/include/linux/backlight.h
+@@ -69,8 +69,8 @@ struct backlight_device {
+ 
+ 	/* The framebuffer notifier block */
+ 	struct notifier_block fb_notif;
+-	/* The class device structure */
+-	struct class_device class_dev;
++
++	struct device dev;
+ };
+ 
+ static inline void backlight_update_status(struct backlight_device *bd)
+@@ -85,6 +85,11 @@ extern struct backlight_device *backlight_device_register(const char *name,
+ 	struct device *dev, void *devdata, struct backlight_ops *ops);
+ extern void backlight_device_unregister(struct backlight_device *bd);
+ 
+-#define to_backlight_device(obj) container_of(obj, struct backlight_device, class_dev)
++#define to_backlight_device(obj) container_of(obj, struct backlight_device, dev)
++
++static inline void * bl_get_data(struct backlight_device *bl_dev)
++{
++	return dev_get_drvdata(&bl_dev->dev);
++}
+ 
+ #endif
+diff --git a/include/linux/lcd.h b/include/linux/lcd.h
+--- a/include/linux/lcd.h
++++ b/include/linux/lcd.h
+@@ -62,8 +62,8 @@ struct lcd_device {
+ 	struct mutex update_lock;
+ 	/* The framebuffer notifier block */
+ 	struct notifier_block fb_notif;
+-	/* The class device structure */
+-	struct class_device class_dev;
++
++	struct device dev;
+ };
+ 
+ static inline void lcd_set_power(struct lcd_device *ld, int power)
+@@ -75,9 +75,15 @@ static inline void lcd_set_power(struct lcd_device *ld, int power)
+ }
+ 
+ extern struct lcd_device *lcd_device_register(const char *name,
+-	void *devdata, struct lcd_ops *ops);
++	struct device *parent, void *devdata, struct lcd_ops *ops);
+ extern void lcd_device_unregister(struct lcd_device *ld);
+ 
+-#define to_lcd_device(obj) container_of(obj, struct lcd_device, class_dev)
++#define to_lcd_device(obj) container_of(obj, struct lcd_device, dev)
++
++static inline void * lcd_get_data(struct lcd_device *ld_dev)
++{
++	return dev_get_drvdata(&ld_dev->dev);
++}
++
+ 
+ #endif
+-- 
