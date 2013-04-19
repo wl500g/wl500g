@@ -17,7 +17,7 @@ SCSI: convert struct class_device to struct device
  drivers/scsi/scsi_transport_iscsi.c |   93 ++++++------
  drivers/scsi/scsi_transport_sas.c   |  155 +++++++++++---------
  drivers/scsi/scsi_transport_spi.c   |  108 +++++++------
- drivers/scsi/sd.c                   |   78 +++++-----
+ drivers/scsi/sd.c                   |   76 +++++----
  drivers/scsi/sg.c                   |   36 ++--
  drivers/scsi/st.c                   |   71 ++++-----
  include/linux/attribute_container.h |   28 +--
@@ -28,7 +28,7 @@ SCSI: convert struct class_device to struct device
  include/scsi/scsi_transport.h       |    2 
  include/scsi/scsi_transport_fc.h    |    6 
  include/scsi/scsi_transport_sas.h   |   12 -
- include/scsi/sd.h                   |    4 
+ include/scsi/sd.h                   |    6 
  24 files changed, 725 insertions(+), 639 deletions(-)
 
 diff --git a/drivers/base/attribute_container.c b/drivers/base/attribute_container.c
@@ -2863,15 +2863,6 @@ diff --git a/drivers/scsi/scsi_transport_spi.c b/drivers/scsi/scsi_transport_spi
 diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
 --- a/drivers/scsi/sd.c
 +++ b/drivers/scsi/sd.c
-@@ -99,7 +99,7 @@ static int  sd_init_command(struct scsi_
- static int  sd_issue_flush(struct device *, sector_t *);
- static void sd_prepare_flush(request_queue_t *, struct request *);
- static void sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer);
--static void scsi_disk_release(struct class_device *cdev);
-+static void scsi_disk_release(struct device *cdev);
- static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
- static void sd_print_result(struct scsi_disk *, int);
- 
 @@ -116,11 +116,12 @@ static const char *sd_cache_types[] = {
  	"write back, no read (daft)"
  };
@@ -3560,12 +3551,21 @@ diff --git a/include/scsi/sd.h b/include/scsi/sd.h
  	unsigned int	openers;	/* protected by BKL for now, yuck */
  	sector_t	capacity;	/* size in 512-byte sectors */
 @@ -46,7 +46,7 @@ struct scsi_disk {
- 	unsigned	RCD : 1;	/* state of disk RCD bit, unused */
  	unsigned	DPOFUA : 1;	/* state of disk DPOFUA bit */
+ 	unsigned	first_scan : 1;
  };
 -#define to_scsi_disk(obj) container_of(obj,struct scsi_disk,cdev)
 +#define to_scsi_disk(obj) container_of(obj,struct scsi_disk,dev)
  
- #define sd_printk(prefix, sdsk, fmt, a...)				\
-         (sdsk)->disk ?							\
+ static int  sd_revalidate_disk(struct gendisk *disk);
+ static void sd_rw_intr(struct scsi_cmnd * SCpnt);
+@@ -69,7 +69,7 @@ static int  sd_init_command(struct scsi_
+ static int  sd_issue_flush(struct device *, sector_t *);
+ static void sd_prepare_flush(request_queue_t *, struct request *);
+ static void sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer);
+-static void scsi_disk_release(struct class_device *cdev);
++static void scsi_disk_release(struct device *cdev);
+ static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
+ static void sd_print_result(struct scsi_disk *, int);
+ 
 -- 
