@@ -26,12 +26,10 @@ static void mtd_notify_add(struct mtd_info* mtd)
 	if (!mtd)
 		return;
 
-	class_device_create(mtd_class, NULL, MKDEV(MTD_CHAR_MAJOR, mtd->index*2),
-			    NULL, "mtd%d", mtd->index);
+	device_create(mtd_class, NULL, MKDEV(MTD_CHAR_MAJOR, mtd->index*2), "mtd%d", mtd->index);
 
-	class_device_create(mtd_class, NULL,
-			    MKDEV(MTD_CHAR_MAJOR, mtd->index*2+1),
-			    NULL, "mtd%dro", mtd->index);
+	device_create(mtd_class, NULL,
+		      MKDEV(MTD_CHAR_MAJOR, mtd->index*2+1), "mtd%dro", mtd->index);
 }
 
 static void mtd_notify_remove(struct mtd_info* mtd)
@@ -39,8 +37,8 @@ static void mtd_notify_remove(struct mtd_info* mtd)
 	if (!mtd)
 		return;
 
-	class_device_destroy(mtd_class, MKDEV(MTD_CHAR_MAJOR, mtd->index*2));
-	class_device_destroy(mtd_class, MKDEV(MTD_CHAR_MAJOR, mtd->index*2+1));
+	device_destroy(mtd_class, MKDEV(MTD_CHAR_MAJOR, mtd->index*2));
+	device_destroy(mtd_class, MKDEV(MTD_CHAR_MAJOR, mtd->index*2+1));
 }
 
 static struct mtd_notifier notifier = {
