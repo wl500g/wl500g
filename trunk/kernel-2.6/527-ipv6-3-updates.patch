@@ -7,6 +7,7 @@
  c8fecf2242a0ab7230210665986b8ef915e1ae9e [IPV6]: Eliminate difference in actions of sysctl and proc handler for conf.all.forwarding
  439e23857a21c3a953826eed23c818697a97de1a [IPV6]: Event type in addrconf_ifdown is mis-used.
  9acd9f3ae92d0dc0ca7504fb48c1040e8bbc39fe [IPV6]: Make address arguments const.
+ 4725474584d6aa2f07b3d47442dfbc4f6544f65e [IPV6]: Convert cork.hop_limit and cork.tclass into u8 instead of int.
  e3ec6cfc260e2322834e200c2fa349cdf104fd13 ipv6: fix run pending DAD when interface becomes ready
  0686caa35ed17cf5b9043f453957e702a7eb588d ndisc: Add missing strategies for per-device retrans timer/reachable time settings.
  0b0588d42b2774734b51525fe6550d77f8ea9bc0 ipv6: local dev is actually unused in ip6_fragment
@@ -24,7 +25,7 @@
  f4e53e292ad0626a9d4f80cbdb6adae867d8b2bc ipv6: Don't send packet to big messages to self
 
 ---
- include/linux/ipv6.h     |    1 
+ include/linux/ipv6.h     |    5 -
  include/net/addrconf.h   |   28 ++++----
  include/net/ip6_route.h  |    6 -
  include/net/ipv6.h       |    4 -
@@ -39,7 +40,7 @@
  net/ipv6/ndisc.c         |   37 ++++++-----
  net/ipv6/route.c         |   19 +++--
  net/ipv6/udp.c           |    8 +-
- 15 files changed, 167 insertions(+), 165 deletions(-)
+ 15 files changed, 169 insertions(+), 167 deletions(-)
 
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
 --- a/include/linux/ipv6.h
@@ -52,6 +53,17 @@ diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
  };
  
  #define IP6CB(skb)	((struct inet6_skb_parm*)((skb)->cb))
+@@ -351,8 +351,8 @@ struct ipv6_pinfo {
+ 	struct {
+ 		struct ipv6_txoptions *opt;
+ 		struct rt6_info	*rt;
+-		int hop_limit;
+-		int tclass;
++		u8 hop_limit;
++		u8 tclass;
+ 	} cork;
+ };
+ 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
 +++ b/include/net/addrconf.h
