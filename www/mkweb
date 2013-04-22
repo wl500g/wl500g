@@ -105,7 +105,7 @@ if [ -n "$1" ]; then
 	    || [ "$MODEL" = "RT-N15U" ] \
 	    || [ "$MODEL" = "RT-N12" ] || [ "$MODEL" = "RT-N12B1" ] || [ "$MODEL" = "RT-N12C1" ] \
 	    || [ "$MODEL" = "RT-N10" ] || [ "$MODEL" = "RT-N10U" ]; then
-		cp -f web_$TMPDIR/Advanced_Wireless11n_Content.asp web_$TMPDIR/Advanced_Wireless_Content.asp
+		cp -f web_$TMPDIR/Advanced_Wireless_Content_11n.asp web_$TMPDIR/Advanced_Wireless_Content.asp
 		cp -f web_$TMPDIR/Advanced_WAdvanced_Content_11n.asp web_$TMPDIR/Advanced_WAdvanced_Content.asp
 	fi
 
@@ -114,35 +114,10 @@ if [ -n "$1" ]; then
 
 # CHUPA
 	rm -f web_$TMPDIR/graph/!.gif
-	rm -f web_$TMPDIR/graph/AP.gif
-	rm -f web_$TMPDIR/graph/Connecting.gif
-	rm -f web_$TMPDIR/graph/Corner.gif
-	rm -f web_$TMPDIR/graph/Disconnect.gif
-	rm -f web_$TMPDIR/graph/Firewall.gif
-	rm -f web_$TMPDIR/graph/List_backgroup.gif
-	rm -f web_$TMPDIR/graph/Notebook.gif
-	rm -f web_$TMPDIR/graph/PC.gif
 	rm -f web_$TMPDIR/graph/V.gif
-	rm -f web_$TMPDIR/graph/apicon.gif
-	rm -f web_$TMPDIR/graph/apply.gif
-	rm -f web_$TMPDIR/graph/asusLogo.jpg
-	rm -f web_$TMPDIR/graph/delthisentry.gif
-	rm -f web_$TMPDIR/graph/iBox.gif
-	rm -f web_$TMPDIR/graph/many.gif
-	rm -f web_$TMPDIR/graph/restore.gif
-	rm -f web_$TMPDIR/graph/sArrow.gif
-	rm -f web_$TMPDIR/graph/save.gif
-	rm -f web_$TMPDIR/graph/showroutingtable.gif
-	rm -f web_$TMPDIR/graph/start.gif
-	rm -f web_$TMPDIR/graph/sumhorsd.gif
-	rm -f web_$TMPDIR/graph/sumtextb.jpg
 	rm -f web_$TMPDIR/graph/x.gif
-
-	rm -f web_$TMPDIR/graph/internet_*.gif
-	rm -f web_$TMPDIR/graph/wf_both.gif
-	rm -f web_$TMPDIR/graph/wf_none.gif
-	rm -f web_$TMPDIR/graph/wf_[ag].gif
-	rm -f web_$TMPDIR/graph/wds_*.gif 
+	rm -f web_$TMPDIR/graph/Corner.gif
+	rm -f web_$TMPDIR/graph/asusLogo.jpg
 
 	rm -f web_$TMPDIR/Advanced_Authentication_Content.asp
 	rm -f web_$TMPDIR/Advanced_WCertificate_Content.asp
