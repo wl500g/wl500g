@@ -17,9 +17,9 @@
 
 ---
  drivers/net/usb/asix.c   |    1 
- drivers/net/usb/usbnet.c |  199 +++++++++++++++++++++++++++++++++--------------
- drivers/net/usb/usbnet.h |   14 +++
- 3 files changed, 156 insertions(+), 58 deletions(-)
+ drivers/net/usb/usbnet.c |  211 +++++++++++++++++++++++++++++++++--------------
+ drivers/net/usb/usbnet.h |   18 +++-
+ 3 files changed, 168 insertions(+), 62 deletions(-)
 
 diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
 --- a/drivers/net/usb/asix.c
@@ -43,6 +43,23 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  			dev_dbg(&intf->dev,
  				"status ep%din, %d bytes period %d\n",
  				usb_pipeendpoint(pipe), maxp, period);
+@@ -256,7 +256,7 @@ EXPORT_SYMBOL_GPL(usbnet_skb_return);
+  *
+  *-------------------------------------------------------------------------*/
+ 
+-static int usbnet_change_mtu (struct net_device *net, int new_mtu)
++int usbnet_change_mtu (struct net_device *net, int new_mtu)
+ {
+ 	struct usbnet	*dev = netdev_priv(net);
+ 	int		ll_mtu = new_mtu + net->hard_header_len;
+@@ -279,6 +279,7 @@ static int usbnet_change_mtu (struct net
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(usbnet_change_mtu);
+ 
+ /*-------------------------------------------------------------------------*/
+ 
 @@ -287,17 +288,32 @@ static struct net_device_stats *usbnet_g
  	return &dev->stats;
  }
@@ -291,7 +308,16 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  	}
  	spin_unlock_irqrestore (&q->lock, flags);
  	return count;
-@@ -619,6 +665,7 @@ static int usbnet_stop (struct net_devic
+@@ -586,7 +626,7 @@ void usbnet_unlink_rx_urbs(struct usbnet *d
+ 
+ // precondition: never called in_interrupt
+ 
+-static int usbnet_stop (struct net_device *net)
++int usbnet_stop (struct net_device *net)
+ {
+ 	struct usbnet		*dev = netdev_priv(net);
+ 	int			temp;
+@@ -619,9 +665,11 @@ static int usbnet_stop (struct net_devic
  	dev->flags = 0;
  	del_timer_sync (&dev->delay);
  	tasklet_kill (&dev->bh);
@@ -299,8 +325,16 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  
  	return 0;
  }
-@@ -632,9 +679,19 @@ static int usbnet_stop (struct net_devic
- static int usbnet_open (struct net_device *net)
++EXPORT_SYMBOL_GPL(usbnet_stop);
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+@@ -632,12 +679,22 @@ static int usbnet_stop (struct net_devic
+ 
+ // precondition: never called in_interrupt
+ 
+-static int usbnet_open (struct net_device *net)
++int usbnet_open (struct net_device *net)
  {
  	struct usbnet		*dev = netdev_priv(net);
 -	int			retval = 0;
@@ -320,7 +354,7 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  	// put into "known safe" state
  	if (info->reset && (retval = info->reset (dev)) < 0) {
  		if (netif_msg_ifup (dev))
-@@ -688,7 +745,10 @@ static int usbnet_open (struct net_devic
+@@ -688,9 +745,13 @@ static int usbnet_open (struct net_devic
  
  	// delay posting reads until we're fully open
  	tasklet_schedule (&dev->bh);
@@ -330,6 +364,9 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
 +done_nopm:
  	return retval;
  }
++EXPORT_SYMBOL_GPL(usbnet_open);
+ 
+ /*-------------------------------------------------------------------------*/
  
 @@ -743,8 +803,8 @@ u32 usbnet_get_link (struct net_device *net)
  	if (dev->mii.mdio_read)
@@ -386,7 +423,7 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  		dev->stats.tx_bytes += entry->length;
  	} else {
  		dev->stats.tx_errors++;
-@@ -925,9 +989,7 @@ static void tx_complete (struct urb *urb
+@@ -925,14 +989,12 @@ static void tx_complete (struct urb *urb
  		}
  	}
  
@@ -397,7 +434,17 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  }
  
  /*-------------------------------------------------------------------------*/
-@@ -944,7 +1006,7 @@ static void usbnet_tx_timeout (struct ne
+ 
+-static void usbnet_tx_timeout (struct net_device *net)
++void usbnet_tx_timeout (struct net_device *net)
+ {
+ 	struct usbnet		*dev = netdev_priv(net);
+ 
+@@ -944,10 +1006,11 @@ static void usbnet_tx_timeout (struct ne
+ 
+ 	// FIXME: device recovery -- reset?
+ }
++EXPORT_SYMBOL_GPL(usbnet_tx_timeout);
  
  /*-------------------------------------------------------------------------*/
  
@@ -584,11 +631,15 @@ diff --git a/drivers/net/usb/usbnet.h b/drivers/net/usb/usbnet.h
  };
  
  struct skb_data {	/* skb->cb is one of these */
-@@ -166,6 +183,7 @@ struct skb_data {	/* skb->cb is one of t
+@@ -166,6 +183,11 @@ struct skb_data {	/* skb->cb is one of t
  	size_t			length;
  };
  
++extern int usbnet_open (struct net_device *net);
++extern int usbnet_stop (struct net_device *net);
 +extern int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net);
++extern void usbnet_tx_timeout (struct net_device *net);
++extern int usbnet_change_mtu (struct net_device *net, int new_mtu);
  
  extern int usbnet_get_endpoints(struct usbnet *, struct usb_interface *);
  extern int usbnet_get_ethernet_addr(struct usbnet *, int);
