@@ -1627,7 +1627,7 @@ function load_body()
 		}
 
 		masq_wepkey();
-		if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isCard()=='ralink')
+		if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP")
 		{
 			wl_auth_mode_reconf();
 		}
@@ -1655,29 +1655,15 @@ function load_body()
 	}
 	else if (frm.current_page.value == "Advanced_WMode_Content.asp")
 	{
-		if (window.top.isCard()=='ralink')
-		{
-//			no wds only mode
-			frm.wl_mode_x.options[1].value = null;
-			frm.wl_mode_x.options[1] = null;
-
-			change_wireless_bridge2(frm.wl_mode_x.value,
-					rcheck(frm.wl_wdsapply_x),
-					1, 0);
-		}
-		else
-		{
-			change_wireless_bridge(frm.wl_mode_x.value,
+		change_wireless_bridge(frm.wl_mode_x.value,
 					rcheck(frm.wl_wdsapply_x),
 					rcheck(frm.wl_lazywds), 0);
-		}
 	}
 	else if (frm.current_page.value == "Advanced_WAdvanced_Content.asp")
 	{
-		if (window.top.isCard()!='ralink')
-			wl_rate_change();
+		wl_rate_change();
 
-		if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP" && window.top.isCard()!='ralink')
+		if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP")
 		{
 			if (window.top.isBand() == 'b') inputCtrl(frm.wl_frameburst, 0);
 
@@ -2559,13 +2545,7 @@ function change_common(o, s, v)
 		}
 		else if (v == "wl_mode_x")
 		{
-			if (window.top.isCard()=='ralink')
-			{
-			change_wireless_bridge2(document.form.wl_mode_x.value,
-					rcheck(document.form.wl_wdsapply_x),
-					1, 1);
-			}
-			else change_wireless_bridge(o.value, rcheck(document.form.wl_wdsapply_x), rcheck(document.form.wl_lazywds), 1);
+			change_wireless_bridge(o.value, rcheck(document.form.wl_wdsapply_x), rcheck(document.form.wl_lazywds), 1);
 		}
 		else if (v == "wl_wep_x") /* Handle AuthenticationMethod Change */
 		{
@@ -2664,13 +2644,7 @@ function change_common_radio(o, s, v, r)
 
 	if (v=='wl_wdsapply_x')
 	{
-		if (window.top.isCard()=='ralink')
-		{
-			change_wireless_bridge2(frm.wl_mode_x.value,
-					rcheck(frm.wl_wdsapply_x),
-					1, 0);
-		}
-		else change_wireless_bridge(frm.wl_mode_x.value, r, rcheck(frm.wl_lazywds), 0);
+		change_wireless_bridge(frm.wl_mode_x.value, r, rcheck(frm.wl_lazywds), 0);
 	}
 	else if (v=='wl_lazywds')
 	{
@@ -3839,7 +3813,7 @@ function wl_wep_change()
 	var mode = document.form.wl_auth_mode.value;
 	var wep = document.form.wl_wep_x.value;
 
-	if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isCard()=="ralink")
+	if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP")
 	{
 		if (mode == "wpa" || mode == "wpa2" || mode == "psk" || mode == "radius")
 		{
