@@ -49,15 +49,6 @@ function isBand() {
 	return band;
 }
 
-function isCard() {
-	card = 'broadcom';
-	pid = parent.titleFrame.document.form.productid.value;
-
-	if (pid.indexOf("WL500bv2") != -1)
-		card = 'ralink';
-	return card;
-}
-
 function isFlash() {
 	flash = '4MB';
 	pid = parent.titleFrame.document.form.productid.value;
@@ -114,12 +105,6 @@ function generateTree() {
 		// appendChild(aux1, generateDocEntry(0, "Bridge", "Advanced_WMode_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Access Control", "Advanced_ACL_Content.asp", ""));
 		// appendChild(aux1, generateDocEntry(0, "RADIUS Setting", "Advanced_WSecurity_Content.asp", ""))
-		appendChild(aux1, generateDocEntry(0, "Advanced", "Advanced_WAdvanced_Content.asp", ""));
-	} else if (window.top.isCard() == 'ralink') {
-		appendChild(aux1, generateDocEntry(0, "Interface", "Advanced_Wireless_Content.asp", ""));
-		// appendChild(aux1, generateDocEntry(0, "Certificate", "Advanced_WCertificate_Content.asp", ""));
-		appendChild(aux1, generateDocEntry(0, "Bridge", "Advanced_WMode_Content.asp", ""));
-		appendChild(aux1, generateDocEntry(0, "Access Control", "Advanced_ACL_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Advanced", "Advanced_WAdvanced_Content.asp", ""));
 	} else {
 		appendChild(aux1, generateDocEntry(0, "Interface", "Advanced_Wireless_Content.asp", ""));
