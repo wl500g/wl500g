@@ -1297,6 +1297,8 @@ Optional Features:
   --enable-optimizer-dbg  build optimizer debugging code
   --enable-yydebug        build parser debugging code
   --disable-universal     don't build universal on OS X
+  --enable-usb            enable USB support [default=yes, if support
+                          available]
   --enable-bluetooth      enable Bluetooth support [default=yes, if support
                           available]
   --enable-can            enable CAN support [default=yes, if support
@@ -10667,9 +10669,18 @@ ln -s ${srcdir}/bpf/net net
 
 
 
-{ echo "$as_me:$LINENO: checking for USB sniffing support" >&5
+# Check whether --enable-usb was given.
+if test "${enable_usb+set}" = set; then
+  enableval=$enable_usb;
+else
+  enable_usb=yes
+fi
+
+
+if test "x$enable_usb" != "xno" ; then
+    { echo "$as_me:$LINENO: checking for USB sniffing support" >&5
 echo $ECHO_N "checking for USB sniffing support... $ECHO_C" >&6; }
-case "$host_os" in
+  case "$host_os" in
 linux*)
 
 cat >>confdefs.h <<\_ACEOF
@@ -11116,9 +11127,10 @@ _ACEOF
 	{ echo "$as_me:$LINENO: result: no" >&5
 echo "${ECHO_T}no" >&6; }
 	;;
-esac
+  esac
 
 
+fi
 
 { echo "$as_me:$LINENO: checking whether the platform could support netfilter sniffing" >&5
 echo $ECHO_N "checking whether the platform could support netfilter sniffing... $ECHO_C" >&6; }
