@@ -1205,7 +1205,9 @@ libpcap/Makefile: libpcap/Makefile.in
 	CFLAGS="-g -Os -ffunction-sections -fdata-sections -isystem$(LINUXDIR)/include $(EXTRACFLAGS)" \
 	$(CONFIGURE) --disable-shared --enable-static --disable-yydebug \
 	    --with-pcap=linux --without-septel --without-dag --without-libnl \
-	    $(if $(CONFIG_IPV6),--enable-ipv6,) ac_cv_linux_vers=2
+	    --disable-can --disable-bluetooth --disable-usb \
+	    $(if $(CONFIG_IPV6),--enable-ipv6,) \
+	    ac_cv_linux_vers=2 ac_cv_netfilter_can_compile=no
 
 libpcap: libpcap/Makefile
 	$(MAKE) -C $@
