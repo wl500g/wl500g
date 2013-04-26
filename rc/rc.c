@@ -891,10 +891,14 @@ main(int argc, char **argv)
 	else if (!strcmp(base, "ipv6-down"))
 		return ip6down_main(argc, argv);
 #endif
+#ifdef PPPD_AUTH_UNUSED
 	else if (!strcmp(base, "auth-up"))
 		return authup_main(argc, argv);
 	else if (!strcmp(base, "auth-down"))
 		return authdown_main(argc, argv);
+	else if (!strcmp(base, "auth-fail"))
+		return authfail_main(argc, argv);
+#endif
 	/* udhcpc.script [ deconfig bound renew ] */
 	else if (!strcmp(base, "udhcpc.script"))
 		return udhcpc_main(argc, argv);

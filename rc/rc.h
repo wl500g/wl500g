@@ -98,8 +98,11 @@ void stop_dhcp6c(void);
 #endif
 
 /* ppp scripts */
+#ifdef PPPD_AUTH_UNUSED
 int authup_main(int argc, char **argv);
 int authdown_main(int argc, char **argv);
+int authfail_main(int argc, char **argv);
+#endif
 int ipup_main(int argc, char **argv);
 int ipdown_main(int argc, char **argv);
 #ifdef __CONFIG_IPV6__
