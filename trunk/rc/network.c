@@ -1238,8 +1238,11 @@ void start_wan(void)
 
 	/* Create links */
 	mkdir("/tmp/ppp", 0777);
+#ifdef PPPD_AUTH_UNUSED
 	symlink("/sbin/rc", "/tmp/ppp/auth-up");
 	symlink("/sbin/rc", "/tmp/ppp/auth-down");
+	symlink("/sbin/rc", "/tmp/ppp/auth-fail");
+#endif
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
 	symlink("/sbin/rc", "/tmp/ppp/ip-down");
 #ifdef __CONFIG_IPV6__
@@ -1395,8 +1398,11 @@ void stop_wan(void)
 	int unit;
 
 	/* Shutdown and kill all possible tasks */
+#ifdef PPPD_AUTH_UNUSED
 	killall("auth-up");
 	killall("auth-down");
+	killall("auth-fail");
+#endif
 	killall("ip-up");
 	killall("ip-down");
 #ifdef __CONFIG_IPV6__
@@ -1432,8 +1438,11 @@ void stop_wan(void)
 #endif
 	unlink("/tmp/ppp/ip-up");
 	unlink("/tmp/ppp/ip-down");
+#ifdef PPPD_AUTH_UNUSED
 	unlink("/tmp/ppp/auth-up");
 	unlink("/tmp/ppp/auth-down");
+	unlink("/tmp/ppp/auth-fail");
+#endif
 	rmdir("/tmp/ppp");
 
 	dprintf("done\n");
