@@ -49,6 +49,15 @@ function isBand() {
 	return band;
 }
 
+function isCard() {
+	card = 'broadcom';
+	pid = parent.titleFrame.document.form.productid.value;
+
+	if (pid.indexOf("WL500bv2") != -1)
+		card = 'ralink';
+	return card;
+}
+
 function isFlash() {
 	flash = '4MB';
 	pid = parent.titleFrame.document.form.productid.value;
@@ -106,6 +115,12 @@ function generateTree() {
 		appendChild(aux1, generateDocEntry(0, "Access Control", "Advanced_ACL_Content.asp", ""));
 		// appendChild(aux1, generateDocEntry(0, "RADIUS Setting", "Advanced_WSecurity_Content.asp", ""))
 		appendChild(aux1, generateDocEntry(0, "Advanced", "Advanced_WAdvanced_Content.asp", ""));
+	} else if (window.top.isCard() == 'ralink') {
+		appendChild(aux1, generateDocEntry(0, "Interface", "Advanced_Wireless_Content.asp", ""));
+		// appendChild(aux1, generateDocEntry(0, "Certificate", "Advanced_WCertificate_Content.asp", ""));
+		appendChild(aux1, generateDocEntry(0, "Bridge", "Advanced_WMode_Content.asp", ""));
+		appendChild(aux1, generateDocEntry(0, "Access Control", "Advanced_ACL_Content.asp", ""));
+		appendChild(aux1, generateDocEntry(0, "Advanced", "Advanced_WAdvanced_Content.asp", ""));
 	} else {
 		appendChild(aux1, generateDocEntry(0, "Interface", "Advanced_Wireless_Content.asp", ""));
 		// appendChild(aux1, generateDocEntry(0, "Certificate",
@@ -137,11 +152,6 @@ function generateTree() {
 
 		if (mode == 'Gateway') {
 			aux1 = appendChild(foldersTree, leafNode("NAT Setting"));
-			// if (isModel() == 'WL300')
-			// appendChild(aux1, generateDocEntry(0, "Port Trigger",
-			// "Advanced_PortMapping_Content.asp", ""))
-			// else
-
 			appendChild(aux1, generateDocEntry(0, "Port Trigger", "Advanced_PortTrigger_Content.asp", ""));
 			appendChild(aux1, generateDocEntry(0, "Virtual Server", "Advanced_VirtualServer_Content.asp", ""));
 			appendChild(aux1, generateDocEntry(0, "Virtual DMZ", "Advanced_Exposed_Content.asp", ""));
@@ -271,9 +281,6 @@ function clickOnFolderLink(folderName) {
 	} else if (folderName == "Router") {
 		top.folderFrame.location = "Advanced_StaticRoute_Content.asp";
 	} else if (folderName == "NAT Setting") {
-		// if (isModel() == 'WL300')
-		// top.folderFrame.location="Advanced_PortMapping_Content.asp"
-		// else
 		top.folderFrame.location = "Advanced_PortTrigger_Content.asp";
 	} else if (folderName == "System Setup") {
 		if (isModel() == 'WL520' || isModel() == 'SnapAP')
@@ -546,12 +553,7 @@ function clickOnFolderRec(foldersNode, folderName) {
 //called when the user clicks on a folder
 function openBranch(branchName) {
 	clickOnFolderRec(foldersTree, branchName);
-	if (branchName == "WL600 Setting" && foldersTree[0] === 0) {
-		top.folderFrame.location = "Main_Index_Content.asp";
-	}
-
 	timeOutId = setTimeout("redrawTree()", 100);
-
 }
 
 //called after this html file is loaded

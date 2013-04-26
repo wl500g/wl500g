@@ -1627,7 +1627,7 @@ function load_body()
 		}
 
 		masq_wepkey();
-		if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP")
+		if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isCard()=='ralink')
 		{
 			wl_auth_mode_reconf();
 		}
@@ -1655,15 +1655,29 @@ function load_body()
 	}
 	else if (frm.current_page.value == "Advanced_WMode_Content.asp")
 	{
-		change_wireless_bridge(frm.wl_mode_x.value,
+		if (window.top.isCard()=='ralink')
+		{
+//			no wds only mode
+			frm.wl_mode_x.options[1].value = null;
+			frm.wl_mode_x.options[1] = null;
+
+			change_wireless_bridge2(frm.wl_mode_x.value,
+					rcheck(frm.wl_wdsapply_x),
+					1, 0);
+		}
+		else
+		{
+			change_wireless_bridge(frm.wl_mode_x.value,
 					rcheck(frm.wl_wdsapply_x),
 					rcheck(frm.wl_lazywds), 0);
+		}
 	}
 	else if (frm.current_page.value == "Advanced_WAdvanced_Content.asp")
 	{
-		wl_rate_change();
+		if (window.top.isCard()!='ralink')
+			wl_rate_change();
 
-		if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP")
+		if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP" && window.top.isCard()!='ralink')
 		{
 			if (window.top.isBand() == 'b') inputCtrl(frm.wl_frameburst, 0);
 
@@ -1889,11 +1903,6 @@ function load_body()
 		frm.url_time_x_endhour.value = getTimeRange(frm.url_time_x.value, 2);
 		frm.url_time_x_endmin.value = getTimeRange(frm.url_time_x.value, 3);
 	}
-//	else if (frm.current_page.value == "Advanced_DHCP_Content.asp" ||
-//	frm.current_page.value == "Advanced_RDHCP_Content.asp")
-//	{
-//	checkSubnet();
-//	}
 	else if (frm.current_page.value.indexOf("Advanced_DDNS_Content")!=-1)
 	{
 //		if (frm.LANHostConfig_x_DDNSStatus.value != "1")
@@ -2365,71 +2374,7 @@ function onSubmitApply(s)
 	window.top.pageChanged = 0;
 	window.top.pageChangedCount = 0;
 
-	if (document.form.current_page.value == "Advanced_PortMapping_Content.asp")
-	{
-		if (s == "0")
-		{
-			action = document.form.IPConnection_MappedAction_0;
-			local = document.form.IPConnection_MappedIP_0;
-			port = document.form.IPConnection_MappedInPort_0;
-			desc = document.form.IPConnection_MappedDescript_0;
-		}
-		else if (s == "1")
-		{
-			action = document.form.IPConnection_MappedAction_1;
-			local = document.form.IPConnection_MappedIP_1;
-			port = document.form.IPConnection_MappedInPort_1;
-			desc = document.form.IPConnection_MappedDescript_1;
-		}
-		else if (s == "2")
-		{
-			action = document.form.IPConnection_MappedAction_2;
-			local = document.form.IPConnection_MappedIP_2;
-			port = document.form.IPConnection_MappedInPort_2;
-			desc = document.form.IPConnection_MappedDescript_2;
-		}
-		else if (s == "3")
-		{
-			action = document.form.IPConnection_MappedAction_3;
-			local = document.form.IPConnection_MappedIP_3;
-			port = document.form.IPConnection_MappedInPort_3;
-			desc = document.form.IPConnection_MappedDescript_3;
-		}
-		else if (s == "4")
-		{
-			action = document.form.IPConnection_MappedAction_4;
-			local = document.form.IPConnection_MappedIP_4;
-			port = document.form.IPConnection_MappedInPort_4;
-			desc = document.form.IPConnection_MappedDescript_4;
-		}
-		else if (s == "5")
-		{
-			action = document.form.IPConnection_MappedAction_5;
-			local = document.form.IPConnection_MappedIP_5;
-			port = document.form.IPConnection_MappedInPort_5;
-			desc = document.form.IPConnection_MappedDescript_5;
-		}
-
-		if (action.value == "Set")
-		{
-			if (!validate_ipaddr(local, "") ||
-					!validate_portrange(port, ""))
-			{
-				return false;
-			}
-			else if (local.value==="" || port.value === "")
-			{
-				alert("As you leave IP or subnet mask fields blank, connection type will be set as Automatic IP!1");
-				return false;
-			}
-		}
-
-		document.form.action.value = action.value;
-		document.form.action_mode.value = action.value;
-		document.form.action_script.value = "portmapping.sh" + " " + action.value + " " + local.value + " " + port.value;
-//		document.form.submit();
-	}
-	else if (document.form.current_page.value == "Advanced_DDNS_Content.asp" &&
+	if (document.form.current_page.value == "Advanced_DDNS_Content.asp" &&
 		 s == "ddnsregister" &&
 		 document.form.ddns_server_x.value != "update@asus.com")
 	{
@@ -2545,7 +2490,13 @@ function change_common(o, s, v)
 		}
 		else if (v == "wl_mode_x")
 		{
-			change_wireless_bridge(o.value, rcheck(document.form.wl_wdsapply_x), rcheck(document.form.wl_lazywds), 1);
+			if (window.top.isCard()=='ralink')
+			{
+			change_wireless_bridge2(document.form.wl_mode_x.value,
+					rcheck(document.form.wl_wdsapply_x),
+					1, 1);
+			}
+			else change_wireless_bridge(o.value, rcheck(document.form.wl_wdsapply_x), rcheck(document.form.wl_lazywds), 1);
 		}
 		else if (v == "wl_wep_x") /* Handle AuthenticationMethod Change */
 		{
@@ -2644,7 +2595,13 @@ function change_common_radio(o, s, v, r)
 
 	if (v=='wl_wdsapply_x')
 	{
-		change_wireless_bridge(frm.wl_mode_x.value, r, rcheck(frm.wl_lazywds), 0);
+		if (window.top.isCard()=='ralink')
+		{
+			change_wireless_bridge2(frm.wl_mode_x.value,
+					rcheck(frm.wl_wdsapply_x),
+					1, 0);
+		}
+		else change_wireless_bridge(frm.wl_mode_x.value, r, rcheck(frm.wl_lazywds), 0);
 	}
 	else if (v=='wl_lazywds')
 	{
@@ -3813,7 +3770,7 @@ function wl_wep_change()
 	var mode = document.form.wl_auth_mode.value;
 	var wep = document.form.wl_wep_x.value;
 
-	if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP")
+	if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isCard()=="ralink")
 	{
 		if (mode == "wpa" || mode == "wpa2" || mode == "psk" || mode == "radius")
 		{
