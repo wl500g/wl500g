@@ -133,19 +133,13 @@ if [ -n "$1" ]; then
 	rm -f web_$TMPDIR/Advanced_LFirewall_Content.asp
 	rm -f web_$TMPDIR/Advanced_MultiPPPoE_Content.asp
 	rm -f web_$TMPDIR/Advanced_PortForwarding_Widzard.asp
-	rm -f web_$TMPDIR/Advanced_PortMapping_Content.asp
 	rm -f web_$TMPDIR/Advanced_PrinterSetup_Content.asp
 	rm -f web_$TMPDIR/Advanced_PrinterSetup_Widzard.asp
-	rm -f web_$TMPDIR/Advanced_RDHCP_Content.asp
 	rm -f web_$TMPDIR/Advanced_RouterHelp_Widzard.asp
 	rm -f web_$TMPDIR/Advanced_VirtualServer_Widzard.asp
-	rm -f web_$TMPDIR/Advanced_WMMADV_Content.asp
+
 	rm -f web_$TMPDIR/Basic_AOperation_Content.asp
 	rm -f web_$TMPDIR/Basic_Operation_Content.asp
-	rm -f web_$TMPDIR/Main_Content.asp
-	rm -f web_$TMPDIR/Main_Index_Content.asp
-	rm -f web_$TMPDIR/Main_Password_Content.asp
-	rm -f web_$TMPDIR/Main_Status_Content.asp
 # /CHUPA
 
 else
