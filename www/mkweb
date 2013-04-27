@@ -113,9 +113,6 @@ if [ -n "$1" ]; then
 	rm -rf web_$TMPDIR/*11n*.asp
 
 # CHUPA
-	rm -f web_$TMPDIR/graph/!.gif
-	rm -f web_$TMPDIR/graph/V.gif
-	rm -f web_$TMPDIR/graph/x.gif
 	rm -f web_$TMPDIR/graph/Corner.gif
 	rm -f web_$TMPDIR/graph/asusLogo.jpg
 
