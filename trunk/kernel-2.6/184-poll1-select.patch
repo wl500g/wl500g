@@ -19,19 +19,34 @@ fs: poll/select updates from upstream
  95aac7b1cd224f568fb83937044cd303ff11b029 epoll: make epoll_wait() use the hrtimer range feature
  0781b909b5586f4db720b5d1838b78f9d8e42f14 epoll: epoll_wait() should not use timespec_add_ns()
  f4d93ad74c18143abd3067ca3c8ffba7d00addf4 epoll: fix compiler warning and optimize the non-blocking path
+ 5f820f648c92a5ecc771a96b3c29aa6e90013bba poll: allow f_op->poll to sleep
+ 4938d7e0233a455f04507bac81d0886c71529537 poll: avoid extra wakeups in select/poll
 
 ---
- fs/compat.c                 |  188 ++++++---------
- fs/eventpoll.c              |   72 ++++--
- fs/select.c                 |  522 ++++++++++++++++++++++++--------------------
- include/linux/poll.h        |    8 
- include/linux/thread_info.h |    8 
- include/linux/time.h        |    4 
- kernel/posix-cpu-timers.c   |   38 +--
- kernel/posix-timers.c       |    2 
- kernel/time.c               |   18 +
- 9 files changed, 472 insertions(+), 388 deletions(-)
+ Documentation/filesystems/Locking |    2 
+ fs/compat.c                       |  188 ++++-------
+ fs/eventpoll.c                    |   72 +++-
+ fs/select.c                       |  631 +++++++++++++++++++++++---------------
+ include/linux/poll.h              |   26 +
+ include/linux/thread_info.h       |    8 
+ include/linux/time.h              |    4 
+ kernel/posix-cpu-timers.c         |   38 --
+ kernel/posix-timers.c             |    2 
+ kernel/time.c                     |   18 +
+ 10 files changed, 583 insertions(+), 406 deletions(-)
 
+diff --git a/Documentation/filesystems/Locking b/Documentation/filesystems/Locking
+--- a/Documentation/filesystems/Locking
++++ b/Documentation/filesystems/Locking
+@@ -397,7 +397,7 @@ prototypes:
+ };
+ 
+ locking rules:
+-	All except ->poll() may block.
++	All may block.
+ 			BKL
+ llseek:			no	(see below)
+ read:			no
 diff --git a/fs/compat.c b/fs/compat.c
 --- a/fs/compat.c
 +++ b/fs/compat.c
@@ -511,10 +526,122 @@ diff --git a/fs/select.c b/fs/select.c
  struct poll_table_page {
  	struct poll_table_page * next;
  	struct poll_table_entry * entry;
-@@ -131,6 +192,79 @@ static void __pollwait(struct file *filp
+@@ -55,6 +116,7 @@ static void __pollwait(struct file *filp
+ void poll_initwait(struct poll_wqueues *pwq)
+ {
+ 	init_poll_funcptr(&pwq->pt, __pollwait);
++	pwq->polling_task = current;
+ 	pwq->error = 0;
+ 	pwq->table = NULL;
+ 	pwq->inline_index = 0;
+@@ -88,12 +149,10 @@ void poll_freewait(struct poll_wqueues *
+ 		free_page((unsigned long) old);
+ 	}
+ }
+-
+ EXPORT_SYMBOL(poll_freewait);
+ 
+-static struct poll_table_entry *poll_get_entry(poll_table *_p)
++static struct poll_table_entry *poll_get_entry(struct poll_wqueues *p)
+ {
+-	struct poll_wqueues *p = container_of(_p, struct poll_wqueues, pt);
+ 	struct poll_table_page *table = p->table;
+ 
+ 	if (p->inline_index < N_INLINE_POLL_ENTRIES)
+@@ -105,7 +164,6 @@ static struct poll_table_entry *poll_get
+ 		new_table = (struct poll_table_page *) __get_free_page(GFP_KERNEL);
+ 		if (!new_table) {
+ 			p->error = -ENOMEM;
+-			__set_current_state(TASK_RUNNING);
+ 			return NULL;
+ 		}
+ 		new_table->entry = new_table->entries;
+@@ -117,20 +175,159 @@ static struct poll_table_entry *poll_get
+ 	return table->entry++;
+ }
+ 
++static int __pollwake(wait_queue_t *wait, unsigned mode, int sync, void *key)
++{
++	struct poll_wqueues *pwq = wait->private;
++	DECLARE_WAITQUEUE(dummy_wait, pwq->polling_task);
++
++	/*
++	 * Although this function is called under waitqueue lock, LOCK
++	 * doesn't imply write barrier and the users expect write
++	 * barrier semantics on wakeup functions.  The following
++	 * smp_wmb() is equivalent to smp_wmb() in try_to_wake_up()
++	 * and is paired with set_mb() in poll_schedule_timeout.
++	 */
++	smp_wmb();
++	pwq->triggered = 1;
++
++	/*
++	 * Perform the default wake up operation using a dummy
++	 * waitqueue.
++	 *
++	 * TODO: This is hacky but there currently is no interface to
++	 * pass in @sync.  @sync is scheduled to be removed and once
++	 * that happens, wake_up_process() can be used directly.
++	 */
++	return default_wake_function(&dummy_wait, mode, sync, key);
++}
++
++static int pollwake(wait_queue_t *wait, unsigned mode, int sync, void *key)
++{
++	struct poll_table_entry *entry;
++
++	entry = container_of(wait, struct poll_table_entry, wait);
++	if (key && !((unsigned long)key & entry->key))
++		return 0;
++	return __pollwake(wait, mode, sync, key);
++}
++
+ /* Add a new entry */
+ static void __pollwait(struct file *filp, wait_queue_head_t *wait_address,
+ 				poll_table *p)
+ {
+-	struct poll_table_entry *entry = poll_get_entry(p);
++	struct poll_wqueues *pwq = container_of(p, struct poll_wqueues, pt);
++	struct poll_table_entry *entry = poll_get_entry(pwq);
+ 	if (!entry)
+ 		return;
+ 	get_file(filp);
+ 	entry->filp = filp;
+ 	entry->wait_address = wait_address;
+-	init_waitqueue_entry(&entry->wait, current);
++	entry->key = p->key;
++	init_waitqueue_func_entry(&entry->wait, pollwake);
++	entry->wait.private = pwq;
  	add_wait_queue(wait_address, &entry->wait);
  }
  
++int poll_schedule_timeout(struct poll_wqueues *pwq, int state,
++			  ktime_t *expires, unsigned long slack)
++{
++	int rc = -EINTR;
++
++	set_current_state(state);
++	if (!pwq->triggered)
++		rc = schedule_hrtimeout_range(expires, slack, HRTIMER_MODE_ABS);
++	__set_current_state(TASK_RUNNING);
++
++	/*
++	 * Prepare for the next iteration.
++	 *
++	 * The following set_mb() serves two purposes.  First, it's
++	 * the counterpart rmb of the wmb in pollwake() such that data
++	 * written before wake up is always visible after wake up.
++	 * Second, the full barrier guarantees that triggered clearing
++	 * doesn't pass event check of the next iteration.  Note that
++	 * this problem doesn't exist for the first iteration as
++	 * add_wait_queue() has full barrier semantics.
++	 */
++	set_mb(pwq->triggered, 0);
++
++	return rc;
++}
++EXPORT_SYMBOL(poll_schedule_timeout);
++
 +/**
 + * poll_select_set_timeout - helper function to setup the timeout value
 + * @to:		pointer to timespec variable for the final timeout
@@ -591,11 +718,23 @@ diff --git a/fs/select.c b/fs/select.c
  #define FDS_IN(fds, n)		(fds->in + n)
  #define FDS_OUT(fds, n)		(fds->out + n)
  #define FDS_EX(fds, n)		(fds->ex + n)
-@@ -187,11 +321,13 @@ get_max:
+@@ -187,11 +384,25 @@ get_max:
  #define POLLOUT_SET (POLLWRBAND | POLLWRNORM | POLLOUT | POLLERR)
  #define POLLEX_SET (POLLPRI)
  
 -int do_select(int n, fd_set_bits *fds, s64 *timeout)
++static inline void wait_key_set(poll_table *wait, unsigned long in,
++				unsigned long out, unsigned long bit)
++{
++	if (wait) {
++		wait->key = POLLEX_SET;
++		if (in & bit)
++			wait->key |= POLLIN_SET;
++		if (out & bit)
++			wait->key |= POLLOUT_SET;
++	}
++}
++
 +int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
  {
 +	ktime_t expire, *to = NULL;
@@ -607,7 +746,7 @@ diff --git a/fs/select.c b/fs/select.c
  
  	rcu_read_lock();
  	retval = max_select_fd(n, fds);
-@@ -203,12 +339,17 @@ int do_select(int n, fd_set_bits *fds, s
+@@ -203,14 +414,17 @@ int do_select(int n, fd_set_bits *fds, s
  
  	poll_initwait(&table);
  	wait = &table.pt;
@@ -624,18 +763,43 @@ diff --git a/fs/select.c b/fs/select.c
  	for (;;) {
  		unsigned long *rinp, *routp, *rexp, *inp, *outp, *exp;
 -		long __timeout;
+-
+-		set_current_state(TASK_INTERRUPTIBLE);
  
- 		set_current_state(TASK_INTERRUPTIBLE);
- 
-@@ -255,7 +395,6 @@ int do_select(int n, fd_set_bits *fds, s64 *timeout)
+ 		inp = fds->in; outp = fds->out; exp = fds->ex;
+ 		rinp = fds->res_in; routp = fds->res_out; rexp = fds->res_ex;
+@@ -238,23 +452,27 @@ int do_select(int n, fd_set_bits *fds, s
+ 				if (file) {
+ 					f_op = file->f_op;
+ 					mask = DEFAULT_POLLMASK;
+-					if (f_op && f_op->poll)
+-						mask = (*f_op->poll)(file, retval ? NULL : wait);
++					if (f_op && f_op->poll) {
++						wait_key_set(wait, in, out, bit);
++						mask = (*f_op->poll)(file, wait);
++					}
+ 					fput_light(file, fput_needed);
+ 					if ((mask & POLLIN_SET) && (in & bit)) {
+ 						res_in |= bit;
  						retval++;
++						wait = NULL;
+ 					}
+ 					if ((mask & POLLOUT_SET) && (out & bit)) {
+ 						res_out |= bit;
+ 						retval++;
++						wait = NULL;
+ 					}
+ 					if ((mask & POLLEX_SET) && (ex & bit)) {
+ 						res_ex |= bit;
+ 						retval++;
++						wait = NULL;
  					}
  				}
 -				cond_resched();
  			}
  			if (res_in)
  				*rinp = res_in;
-@@ -264,29 +405,28 @@ int do_select(int n, fd_set_bits *fds, s
+@@ -262,31 +480,30 @@ int do_select(int n, fd_set_bits *fds, s
  				*routp = res_out;
  			if (res_ex)
  				*rexp = res_ex;
@@ -674,12 +838,15 @@ diff --git a/fs/select.c b/fs/select.c
 +			to = &expire;
 +		}
 +
-+		if (!schedule_hrtimeout_range(to, slack, HRTIMER_MODE_ABS))
++		if (!poll_schedule_timeout(&table, TASK_INTERRUPTIBLE,
++					   to, slack))
 +			timed_out = 1;
  	}
- 	__set_current_state(TASK_RUNNING);
+-	__set_current_state(TASK_RUNNING);
  
-@@ -305,7 +444,7 @@ int do_select(int n, fd_set_bits *fds, s
+ 	poll_freewait(&table);
+ 
+@@ -305,7 +522,7 @@ int do_select(int n, fd_set_bits *fds, s
  	((unsigned long) (MAX_SCHEDULE_TIMEOUT / HZ)-1)
  
  static int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
@@ -688,7 +855,7 @@ diff --git a/fs/select.c b/fs/select.c
  {
  	fd_set_bits fds;
  	void *bits;
-@@ -356,7 +495,7 @@ static int core_sys_select(int n, fd_set
+@@ -356,7 +573,7 @@ static int core_sys_select(int n, fd_set
  	zero_fd_set(n, fds.res_out);
  	zero_fd_set(n, fds.res_ex);
  
@@ -697,7 +864,7 @@ diff --git a/fs/select.c b/fs/select.c
  
  	if (ret < 0)
  		goto out;
-@@ -382,7 +521,7 @@ out_nofds:
+@@ -382,7 +599,7 @@ out_nofds:
  asmlinkage long sys_select(int n, fd_set __user *inp, fd_set __user *outp,
  			fd_set __user *exp, struct timeval __user *tvp)
  {
@@ -706,7 +873,7 @@ diff --git a/fs/select.c b/fs/select.c
  	struct timeval tv;
  	int ret;
  
-@@ -390,43 +529,15 @@ asmlinkage long sys_select(int n, fd_set
+@@ -390,43 +607,15 @@ asmlinkage long sys_select(int n, fd_set
  		if (copy_from_user(&tv, tvp, sizeof(tv)))
  			return -EFAULT;
  
@@ -756,7 +923,7 @@ diff --git a/fs/select.c b/fs/select.c
  
  	return ret;
  }
-@@ -436,25 +547,17 @@ asmlinkage long sys_pselect7(int n, fd_s
+@@ -436,25 +625,17 @@ asmlinkage long sys_pselect7(int n, fd_s
  		fd_set __user *exp, struct timespec __user *tsp,
  		const sigset_t __user *sigmask, size_t sigsetsize)
  {
@@ -785,7 +952,7 @@ diff --git a/fs/select.c b/fs/select.c
  	}
  
  	if (sigmask) {
-@@ -468,32 +571,8 @@ asmlinkage long sys_pselect7(int n, fd_s
+@@ -468,32 +649,8 @@ asmlinkage long sys_pselect7(int n, fd_s
  		sigprocmask(SIG_SETMASK, &ksigmask, &sigsaved);
  	}
  
@@ -820,7 +987,21 @@ diff --git a/fs/select.c b/fs/select.c
  
  	if (ret == -ERESTARTNOHAND) {
  		/*
-@@ -579,18 +658,24 @@ static inline unsigned int do_pollfd(str
+@@ -566,8 +723,12 @@ static inline unsigned int do_pollfd(str
+ 		mask = POLLNVAL;
+ 		if (file != NULL) {
+ 			mask = DEFAULT_POLLMASK;
+-			if (file->f_op && file->f_op->poll)
++			if (file->f_op && file->f_op->poll) {
++				if (pwait)
++					pwait->key = pollfd->events |
++							POLLERR | POLLHUP;
+ 				mask = file->f_op->poll(file, pwait);
++			}
+ 			/* Mask out unneeded events. */
+ 			mask &= pollfd->events | POLLERR | POLLHUP;
+ 			fput_light(file, fput_needed);
+@@ -579,20 +740,25 @@ static inline unsigned int do_pollfd(str
  }
  
  static int do_poll(unsigned int nfds,  struct poll_list *list,
@@ -848,9 +1029,11 @@ diff --git a/fs/select.c b/fs/select.c
  		struct poll_list *walk;
 -		long __timeout;
  
- 		set_current_state(TASK_INTERRUPTIBLE);
+-		set_current_state(TASK_INTERRUPTIBLE);
  		for (walk = list; walk != NULL; walk = walk->next) {
-@@ -617,30 +702,26 @@ static int do_poll(unsigned int nfds,  s
+ 			struct pollfd * pfd, * pfd_end;
+ 
+@@ -617,143 +783,152 @@ static int do_poll(unsigned int nfds,  s
  		 * a poll_table to them on the next loop iteration.
  		 */
  		pt = NULL;
@@ -894,12 +1077,13 @@ diff --git a/fs/select.c b/fs/select.c
 +			to = &expire;
 +		}
 +
-+		if (!schedule_hrtimeout_range(to, slack, HRTIMER_MODE_ABS))
++		if (!poll_schedule_timeout(wait, TASK_INTERRUPTIBLE, to, slack))
 +			timed_out = 1;
  	}
- 	__set_current_state(TASK_RUNNING);
+-	__set_current_state(TASK_RUNNING);
  	return count;
-@@ -649,111 +730,125 @@ static int do_poll(unsigned int nfds,  s
+ }
+ 
  #define N_STACK_PPS ((sizeof(stack_pps) - sizeof(struct poll_list))  / \
  			sizeof(struct pollfd))
  
@@ -1097,7 +1281,7 @@ diff --git a/fs/select.c b/fs/select.c
  }
  
  #ifdef TIF_RESTORE_SIGMASK
-@@ -762,21 +857,16 @@ asmlinkage long sys_ppoll(struct pollfd
+@@ -762,21 +937,16 @@ asmlinkage long sys_ppoll(struct pollfd 
  	size_t sigsetsize)
  {
  	sigset_t ksigmask, sigsaved;
@@ -1123,7 +1307,7 @@ diff --git a/fs/select.c b/fs/select.c
  	}
  
  	if (sigmask) {
-@@ -790,7 +880,7 @@ asmlinkage long sys_ppoll(struct pollfd
+@@ -790,7 +960,7 @@ asmlinkage long sys_ppoll(struct pollfd 
  		sigprocmask(SIG_SETMASK, &ksigmask, &sigsaved);
  	}
  
@@ -1132,7 +1316,7 @@ diff --git a/fs/select.c b/fs/select.c
  
  	/* We can restart this syscall, usually */
  	if (ret == -EINTR) {
-@@ -808,31 +898,7 @@ asmlinkage long sys_ppoll(struct pollfd
+@@ -808,31 +978,7 @@ asmlinkage long sys_ppoll(struct pollfd 
  	} else if (sigmask)
  		sigprocmask(SIG_SETMASK, &sigsaved, NULL);
  
@@ -1168,16 +1352,59 @@ diff --git a/fs/select.c b/fs/select.c
 diff --git a/include/linux/poll.h b/include/linux/poll.h
 --- a/include/linux/poll.h
 +++ b/include/linux/poll.h
-@@ -62,6 +62,8 @@ struct poll_wqueues {
+@@ -30,6 +30,7 @@ typedef void (*poll_queue_proc)(struct f
+ 
+ typedef struct poll_table_struct {
+ 	poll_queue_proc qproc;
++	unsigned long key;
+ } poll_table;
+ 
+ static inline void poll_wait(struct file * filp, wait_queue_head_t * wait_address, poll_table *p)
+@@ -41,12 +42,14 @@ static inline void poll_wait(struct file
+ static inline void init_poll_funcptr(poll_table *pt, poll_queue_proc qproc)
+ {
+ 	pt->qproc = qproc;
++	pt->key   = ~0UL; /* all events enabled */
+ }
+ 
+ struct poll_table_entry {
+-	struct file * filp;
++	struct file *filp;
++	unsigned long key;
+ 	wait_queue_t wait;
+-	wait_queue_head_t * wait_address;
++	wait_queue_head_t *wait_address;
+ };
+ 
+ /*
+@@ -54,7 +57,9 @@ struct poll_table_entry {
+  */
+ struct poll_wqueues {
+ 	poll_table pt;
+-	struct poll_table_page * table;
++	struct poll_table_page *table;
++	struct task_struct *polling_task;
++	int triggered;
+ 	int error;
+ 	int inline_index;
+ 	struct poll_table_entry inline_entries[N_INLINE_POLL_ENTRIES];
+@@ -62,6 +67,15 @@ struct poll_wqueues {
  
  extern void poll_initwait(struct poll_wqueues *pwq);
  extern void poll_freewait(struct poll_wqueues *pwq);
++extern int poll_schedule_timeout(struct poll_wqueues *pwq, int state,
++				 ktime_t *expires, unsigned long slack);
++
++static inline int poll_schedule(struct poll_wqueues *pwq, int state)
++{
++	return poll_schedule_timeout(pwq, state, NULL, 0);
++}
 +extern long select_estimate_accuracy(struct timespec *tv);
 +
  
  /*
   * Scaleable version of the fd_set.
-@@ -112,9 +114,11 @@ void zero_fd_set(unsigned long nr, unsig
+@@ -112,9 +126,11 @@ void zero_fd_set(unsigned long nr, unsig
  
  #define MAX_INT64_SECONDS (((s64)(~((u64)0)>>1)/HZ)-1)
  
