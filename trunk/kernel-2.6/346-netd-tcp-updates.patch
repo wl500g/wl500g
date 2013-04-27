@@ -15,19 +15,24 @@
  2f53384424251c06038ae612e56231b96ab610ee tcp: allow splice() to build full TSO packets
  35f9c09fe9c72eb8ca2b8e89a593e1c151f28fc2 tcp: tcp_sendpages() should call tcp_push() once
  bad115cfe5b509043b684d3a007ab54b80090aa1 tcp: do_tcp_sendpages() must try to push data out on oom conditions
+ 4fa48bf3c75069d636fc8830743c929a062e80dc tcp: fix tcp_trim_head()
+ a21d45726acacc963d8baddf74607d9b74e2b723 tcp: avoid order-1 allocations on wifi and tx path
+ 22b4a4f22da4b39c6f7f679fd35f3d35c91bf851 tcp: fix retransmit of partially acked frames
+ 16fad69cfe4adbbfa813de516757b87bcae36d93 tcp: fix skb_availroom()
 
 ---
  fs/splice.c              |    5 ++
+ include/linux/skbuff.h   |   20 +++++++++-
  include/linux/socket.h   |    2 -
  include/linux/tcp.h      |   55 +++++++++++++---------------
  include/net/inet_sock.h  |    3 +
  include/net/tcp.h        |   16 ++++----
- net/ipv4/tcp.c           |   30 ++++++---------
+ net/ipv4/tcp.c           |   38 ++++++++-----------
  net/ipv4/tcp_input.c     |   91 ++++++++++++++++++++++++++---------------------
  net/ipv4/tcp_minisocks.c |    1 
- net/ipv4/tcp_output.c    |   16 ++------
+ net/ipv4/tcp_output.c    |   31 +++++++---------
  net/socket.c             |    6 +--
- 10 files changed, 116 insertions(+), 109 deletions(-)
+ 11 files changed, 148 insertions(+), 120 deletions(-)
 
 diff --git a/fs/splice.c b/fs/splice.c
 --- a/fs/splice.c
@@ -51,6 +56,43 @@ diff --git a/fs/splice.c b/fs/splice.c
  		if (file->f_op && file->f_op->sendpage)
  			ret = file->f_op->sendpage(file, buf->page, buf->offset,
  						   sd->len, &pos, more);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -306,7 +306,10 @@ struct sk_buff {
+ 	__u32			secmark;
+ #endif
+ 
+-	__u32			mark;
++	union {
++		__u32		mark;
++		__u32		reserved_tailroom;
++	};
+ 
+ 	sk_buff_data_t		transport_header;
+ 	sk_buff_data_t		network_header;
+@@ -1066,6 +1069,21 @@ static inline int skb_tailroom(const str
+ }
+ 
+ /**
++ *	skb_availroom - bytes at buffer end
++ *	@skb: buffer to check
++ *
++ *	Return the number of bytes of free space at the tail of an sk_buff
++ *	allocated by sk_stream_alloc()
++ */
++static inline int skb_availroom(const struct sk_buff *skb)
++{
++	if (skb_is_nonlinear(skb))
++		return 0;
++
++	return skb->end - skb->tail - skb->reserved_tailroom;
++}
++
++/**
+  *	skb_reserve - adjust headroom
+  *	@skb: buffer to alter
+  *	@len: bytes to move
 diff --git a/include/linux/socket.h b/include/linux/socket.h
 --- a/include/linux/socket.h
 +++ b/include/linux/socket.h
@@ -253,7 +295,21 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  		} else
  			answ = tp->urg_seq - tp->copied_seq;
  		release_sock(sk);
-@@ -705,8 +704,8 @@ struct sk_buff *sk_stream_alloc_skb(stru
+@@ -690,11 +689,12 @@ struct sk_buff *sk_stream_alloc_skb(stru
+ 	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
+ 	if (skb) {
+ 		if (sk_stream_wmem_schedule(sk, skb->truesize)) {
++			skb_reserve(skb, sk->sk_prot->max_header);
+ 			/*
+ 			 * Make sure that we have exactly size bytes
+ 			 * available to the caller, no more, no less.
+ 			 */
+-			skb_reserve(skb, skb_tailroom(skb) - size);
++			skb->reserved_tailroom = skb->end - skb->tail - size;
+ 			return skb;
+ 		}
+ 		__kfree_skb(skb);
+@@ -705,8 +705,8 @@ struct sk_buff *sk_stream_alloc_skb(stru
  	return NULL;
  }
  
@@ -264,7 +320,7 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  {
  	struct tcp_sock *tp = tcp_sk(sk);
  	int mss_now, size_goal;
-@@ -729,12 +728,9 @@ static ssize_t do_tcp_sendpages(struct s
+@@ -729,12 +729,9 @@ static ssize_t do_tcp_sendpages(struct s
  	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
  		goto do_error;
  
@@ -278,7 +334,7 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  
  		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0) {
  new_segment:
-@@ -782,8 +778,8 @@ new_segment:
+@@ -782,8 +779,8 @@ new_segment:
  			TCP_SKB_CB(skb)->flags &= ~TCPCB_FLAG_PSH;
  
  		copied += copy;
@@ -289,7 +345,7 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  			goto out;
  
  		if (skb->len < size_goal || (flags & MSG_OOB))
-@@ -796,8 +796,7 @@ new_segment:
+@@ -799,8 +796,7 @@ new_segment:
  wait_for_sndbuf:
  		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
  wait_for_memory:
@@ -299,7 +355,7 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  
  		if ((err = sk_stream_wait_memory(sk, &timeo)) != 0)
  			goto do_error;
-@@ -806,7 +806,7 @@ wait_for_memory:
+@@ -810,7 +806,7 @@ wait_for_memory:
  	}
  
  out:
@@ -317,7 +373,20 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  	TCP_CHECK_TIMER(sk);
  	release_sock(sk);
  	return res;
-@@ -1271,7 +1267,8 @@ int tcp_read_sock(struct sock *sk, read_
+@@ -952,10 +948,9 @@ new_segment:
+ 				copy = seglen;
+ 
+ 			/* Where to copy to? */
+-			if (skb_tailroom(skb) > 0) {
++			if (skb_availroom(skb) > 0) {
+ 				/* We have some space in skb head. Superb! */
+-				if (copy > skb_tailroom(skb))
+-					copy = skb_tailroom(skb);
++				copy = min_t(int, copy, skb_availroom(skb));
+ 				if ((err = skb_add_data(skb, from, copy)) != 0)
+ 					goto do_fault;
+ 			} else {
+@@ -1271,7 +1266,8 @@ int tcp_read_sock(struct sock *sk, read_
  		return -ENOTCONN;
  	while ((skb = tcp_recv_skb(sk, seq, &offset)) != NULL) {
  		if (offset < skb->len) {
@@ -627,7 +696,43 @@ diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
  			}
  
  			tp->fackets_out -= diff;
-@@ -1651,15 +1649,11 @@ static void tcp_retrans_try_collapse(str
+@@ -713,6 +711,13 @@ static void __pskb_trim_head(struct sk_b
+ {
+ 	int i, k, eat;
+ 
++	eat = min_t(int, len, skb_headlen(skb));
++	if (eat) {
++		__skb_pull(skb, eat);
++		len -= eat;
++		if (!len)
++			return;
++	}
+ 	eat = len;
+ 	k = 0;
+ 	for (i=0; i<skb_shinfo(skb)->nr_frags; i++) {
+@@ -742,11 +747,7 @@ int tcp_trim_head(struct sock *sk, struc
+ 	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
+ 		return -ENOMEM;
+ 
+-	/* If len == headlen, we avoid __skb_pull to preserve alignment. */
+-	if (unlikely(len < skb_headlen(skb)))
+-		__skb_pull(skb, len);
+-	else
+-		__pskb_trim_head(skb, len - skb_headlen(skb));
++	__pskb_trim_head(skb, len);
+ 
+ 	TCP_SKB_CB(skb)->seq += len;
+ 	skb->ip_summed = CHECKSUM_PARTIAL;
+@@ -1618,7 +1619,7 @@ static void tcp_retrans_try_collapse(str
+ 		 * the data in the second, or the total combined payload
+ 		 * would exceed the MSS.
+ 		 */
+-		if ((next_skb_size > skb_tailroom(skb)) ||
++		if ((next_skb_size > skb_availroom(skb)) ||
+ 		    ((skb_size + next_skb_size) > mss_now))
+ 			return;
+ 
+@@ -1654,15 +1655,11 @@ static void tcp_retrans_try_collapse(str
  		TCP_SKB_CB(skb)->sacked |= TCP_SKB_CB(next_skb)->sacked&(TCPCB_EVER_RETRANS|TCPCB_AT_TAIL);
  		if (TCP_SKB_CB(next_skb)->sacked&TCPCB_SACKED_RETRANS)
  			tp->retrans_out -= tcp_skb_pcount(next_skb);
@@ -645,7 +750,7 @@ diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
  
  		/* Not quite right: it can be > snd.fack, but
  		 * it is better to underestimate fackets.
-@@ -1704,7 +1698,7 @@ void tcp_simple_retransmit(struct sock *
+@@ -1707,7 +1704,7 @@ void tcp_simple_retransmit(struct sock *
  	if (!lost)
  		return;
  
