@@ -1,0 +1,20 @@
+Linux: Consume all events on a fd in one go 
+
+ This fixes libusb_handle_events_timeout() only handling one event
+
+Signed-off-by: Hans de Goede
+
+diff --git a/libusb/os/linux_usbfs.c b/libusb/os/linux_usbfs.c
+--- a/libusb/os/linux_usbfs.c
++++ b/libusb/os/linux_usbfs.c
+@@ -2152,7 +2152,9 @@
+ 			continue;
+ 		}
+ 
+-		r = reap_for_handle(handle);
++		do {
++			r = reap_for_handle(handle);
++		} while (r == 0);
+ 		if (r == 1 || r == LIBUSB_ERROR_NO_DEVICE)
+ 			continue;
+ 		else if (r < 0)
