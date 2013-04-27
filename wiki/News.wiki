@@ -5,24 +5,29 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
-===RT-N-1.9.2.7-rtn (Current)===
+===RT-N-1.9.2.7-rtn-`r5066` (2013-04-27)===
   * kernel
-    * backports from upstream - MIPS, mm(Slab API change), irq(genirq, softirq), net(ipv4, ipv6, udp, tcp), netfilter, usb(cdc_wdm, cdc_ether, cdc_ncm, qmi_wwan, usbip)
+    * backports from upstream - MIPS, mm(Slab API change), irq(genirq, softirq), sched(workqueues), fs(epoll), net(ipv4, ipv6, udp, tcp), netfilter, usb(usbnet, cdc_wdm, cdc_ether, cdc_ncm, qmi_wwan, usbip, serial)
     * fastnat: fix throughput degradation when url filter enabled
     * option: Updates from 3.8 & blacklist fixes, thanks to Vampik
+    * Driver core: convert "struct class_device" to "struct device"
 
   * 3g/cdma
     * CDC NCM, QMI modems support (EXPERIMENTAL)
     * add ZTE MF190J
 
-  * dnsmasq 2.66rc4
+  * dnsmasq 2.66
 
-  * dropbear 2013.56
+  * dropbear 2013.58
 
   * misc
     * igmpproxy: eliminate use of second raw socket
     * netfilter/iptables: Add xt_iface & xt_condition matches from xtables-addons project
     * tcpdump 4.2.1
+
+  * pppd
+    * revert auth-down call to gentoo's auth-fail
+    * request/suggest mschapv2 first, also fix unsynced bitmasks/defs
 
   * bugfixes
     * web-UI fixes, thanks to Vampik
