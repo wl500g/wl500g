@@ -1,5 +1,12 @@
 ipc: Updates from upstream
 
+ cf7b708c8d1d7a27736771bcf4c457b332b0f818 Make access to task's nsproxy lighter
+ 9edff4ab1f8d82675277a04e359d0ed8bf14a7b7 ipc: sysvsem: implement sys_unshare(CLONE_SYSVSEM)
+ 4daa28f6d8f5cda8ea0f55048e3c8811c384cbdd ipc/sem.c: convert undo structures to struct list_head
+ 2c0c29d414087f3b021059673c20a7088f5f1fff ipc/sem.c: remove unused entries from struct sem_queue
+ a1193f8ec091cd8fd309cc2982abe4499f6f2b4d ipc/sem.c: convert sem_array.sem_pending to struct list_head
+ 380af1b33b3ff92df5cda96329b58f5d1b6b5a53 ipc/sem.c: rewrite undo list locking
+ 6d97e2345a03bcf15471fc7e93560fc71e0c11d8 ipc/sem.c: make free_un() static
  7ca7e564e049d8b350ec9d958ff25eaa24226352 ipc: store ipcs into IDRs
  7748dbfaa010b12d5fb9ddf80199534c565c6bce ipc: unify the syscalls code
  637c36634029e4e7c81112796dafc32d56355b4a ipc: remove the ipc_get() routine
@@ -33,18 +40,140 @@ ipc: Updates from upstream
  00c2bf85d8febfcfddde63822043462b026134ff ipc: get rid of ipc_lock_down()
 
 ---
- include/linux/ipc.h |   17 +
- include/linux/msg.h |    1 
- include/linux/sem.h |    1 
- include/linux/shm.h |    1 
- ipc/mqueue.c        |    6 
- ipc/msg.c           |  389 ++++++++++++++------------------
- ipc/sem.c           |  468 ++++++++++++++++-----------------------
- ipc/shm.c           |  450 +++++++++++++++++--------------------
- ipc/util.c          |  618 +++++++++++++++++++++++++++++++++-------------------
- ipc/util.h          |  116 ++++++---
- 10 files changed, 1068 insertions(+), 999 deletions(-)
+ fs/proc/base.c          |   27 +
+ include/linux/ipc.h     |   17 -
+ include/linux/msg.h     |    1 
+ include/linux/nsproxy.h |   43 ++
+ include/linux/sem.h     |   31 -
+ include/linux/shm.h     |    1 
+ ipc/mqueue.c            |    6 
+ ipc/msg.c               |  389 ++++++++++--------------
+ ipc/sem.c               |  769 ++++++++++++++++++++++--------------------------
+ ipc/shm.c               |  450 ++++++++++++----------------
+ ipc/util.c              |  618 ++++++++++++++++++++++++--------------
+ ipc/util.h              |  116 ++++---
+ kernel/exit.c           |    7 
+ kernel/fork.c           |   40 --
+ kernel/nsproxy.c        |   40 +-
+ 15 files changed, 1346 insertions(+), 1209 deletions(-)
 
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -350,18 +350,21 @@ struct proc_mounts {
+ static int mounts_open(struct inode *inode, struct file *file)
+ {
+ 	struct task_struct *task = get_proc_task(inode);
++	struct nsproxy *nsp;
+ 	struct mnt_namespace *ns = NULL;
+ 	struct proc_mounts *p;
+ 	int ret = -EINVAL;
+ 
+ 	if (task) {
+-		task_lock(task);
+-		if (task->nsproxy) {
+-			ns = task->nsproxy->mnt_ns;
++		rcu_read_lock();
++		nsp = task_nsproxy(task);
++		if (nsp) {
++			ns = nsp->mnt_ns;
+ 			if (ns)
+ 				get_mnt_ns(ns);
+ 		}
+-		task_unlock(task);
++		rcu_read_unlock();
++
+ 		put_task_struct(task);
+ 	}
+ 
+@@ -424,16 +427,20 @@ static int mountstats_open(struct inode *inode, struct file *file)
+ 
+ 	if (!ret) {
+ 		struct seq_file *m = file->private_data;
++		struct nsproxy *nsp;
+ 		struct mnt_namespace *mnt_ns = NULL;
+ 		struct task_struct *task = get_proc_task(inode);
+ 
+ 		if (task) {
+-			task_lock(task);
+-			if (task->nsproxy)
+-				mnt_ns = task->nsproxy->mnt_ns;
+-			if (mnt_ns)
+-				get_mnt_ns(mnt_ns);
+-			task_unlock(task);
++			rcu_read_lock();
++			nsp = task_nsproxy(task);
++			if (nsp) {
++				mnt_ns = nsp->mnt_ns;
++				if (mnt_ns)
++					get_mnt_ns(mnt_ns);
++			}
++			rcu_read_unlock();
++
+ 			put_task_struct(task);
+ 		}
+ 
+diff --git a/include/linux/nsproxy.h b/include/linux/nsproxy.h
+--- a/include/linux/nsproxy.h
++++ b/include/linux/nsproxy.h
+@@ -32,8 +32,39 @@ struct nsproxy {
+ };
+ extern struct nsproxy init_nsproxy;
+ 
++/*
++ * the namespaces access rules are:
++ *
++ *  1. only current task is allowed to change tsk->nsproxy pointer or
++ *     any pointer on the nsproxy itself
++ *
++ *  2. when accessing (i.e. reading) current task's namespaces - no
++ *     precautions should be taken - just dereference the pointers
++ *
++ *  3. the access to other task namespaces is performed like this
++ *     rcu_read_lock();
++ *     nsproxy = task_nsproxy(tsk);
++ *     if (nsproxy != NULL) {
++ *             / *
++ *               * work with the namespaces here
++ *               * e.g. get the reference on one of them
++ *               * /
++ *     } / *
++ *         * NULL task_nsproxy() means that this task is
++ *         * almost dead (zombie)
++ *         * /
++ *     rcu_read_unlock();
++ *
++ */
++
++static inline struct nsproxy *task_nsproxy(struct task_struct *tsk)
++{
++	return rcu_dereference(tsk->nsproxy);
++}
++
+ int copy_namespaces(int flags, struct task_struct *tsk);
+-void get_task_namespaces(struct task_struct *tsk);
++void exit_task_namespaces(struct task_struct *tsk);
++void switch_task_namespaces(struct task_struct *tsk, struct nsproxy *new);
+ void free_nsproxy(struct nsproxy *ns);
+ int unshare_nsproxy_namespaces(unsigned long, struct nsproxy **,
+ 	struct fs_struct *);
+@@ -45,14 +76,8 @@ static inline void put_nsproxy(struct nsproxy *ns)
+ 	}
+ }
+ 
+-static inline void exit_task_namespaces(struct task_struct *p)
++static inline void get_nsproxy(struct nsproxy *ns)
+ {
+-	struct nsproxy *ns = p->nsproxy;
+-	if (ns) {
+-		task_lock(p);
+-		p->nsproxy = NULL;
+-		task_unlock(p);
+-		put_nsproxy(ns);
+-	}
++	atomic_inc(&ns->count);
+ }
+ #endif
 diff --git a/include/linux/ipc.h b/include/linux/ipc.h
 --- a/include/linux/ipc.h
 +++ b/include/linux/ipc.h
@@ -109,7 +238,15 @@ diff --git a/include/linux/msg.h b/include/linux/msg.h
 diff --git a/include/linux/sem.h b/include/linux/sem.h
 --- a/include/linux/sem.h
 +++ b/include/linux/sem.h
-@@ -90,7 +90,6 @@ struct sem {
+@@ -78,6 +78,7 @@ struct  seminfo {
+ 
+ #ifdef __KERNEL__
+ #include <asm/atomic.h>
++#include <linux/rcupdate.h>
+ 
+ struct task_struct;
+ 
+@@ -90,27 +91,22 @@ struct sem {
  /* One sem_array data structure for each set of semaphores in the system. */
  struct sem_array {
  	struct kern_ipc_perm	sem_perm;	/* permissions .. see ipc.h */
@@ -117,6 +254,59 @@ diff --git a/include/linux/sem.h b/include/linux/sem.h
  	time_t			sem_otime;	/* last semop time */
  	time_t			sem_ctime;	/* last change time */
  	struct sem		*sem_base;	/* ptr to first semaphore in array */
+-	struct sem_queue	*sem_pending;	/* pending operations to be processed */
+-	struct sem_queue	**sem_pending_last; /* last pending operation */
+-	struct sem_undo		*undo;		/* undo requests on this array */
++	struct list_head	sem_pending;	/* pending operations to be processed */
++	struct list_head	list_id;	/* undo requests on this array */
+ 	unsigned long		sem_nsems;	/* no. of semaphores in array */
+ };
+ 
+ /* One queue for each sleeping process in the system. */
+ struct sem_queue {
+-	struct sem_queue *	next;	 /* next entry in the queue */
+-	struct sem_queue **	prev;	 /* previous entry in the queue, *(q->prev) == q */
+-	struct task_struct*	sleeper; /* this process */
+-	struct sem_undo *	undo;	 /* undo structure */
++	struct list_head	list;	 /* queue of pending operations */
++	struct task_struct	*sleeper; /* this process */
++	struct sem_undo		*undo;	 /* undo structure */
+ 	int    			pid;	 /* process id of requesting process */
+ 	int    			status;	 /* completion status of operation */
+-	struct sem_array *	sma;	 /* semaphore array for operations */
+-	int			id;	 /* internal sem id */
+-	struct sembuf *		sops;	 /* array of pending operations */
++	struct sembuf		*sops;	 /* array of pending operations */
+ 	int			nsops;	 /* number of operations */
+ 	int			alter;   /* does the operation alter the array? */
+ };
+@@ -119,8 +115,11 @@ struct sem_queue {
+  * when the process exits.
+  */
+ struct sem_undo {
+-	struct sem_undo *	proc_next;	/* next entry on this process */
+-	struct sem_undo *	id_next;	/* next entry on this semaphore set */
++	struct list_head	list_proc;	/* per-process list: all undos from one process. */
++						/* rcu protected */
++	struct rcu_head		rcu;		/* rcu struct for sem_undo() */
++	struct sem_undo_list	*ulp;		/* sem_undo_list for the process */
++	struct list_head	list_id;	/* per semaphore array list: all undos for one array */
+ 	int			semid;		/* semaphore set identifier */
+ 	short *			semadj;		/* array of adjustments, one per semaphore */
+ };
+@@ -129,9 +128,9 @@ struct sem_undo {
+  * that may be shared among all a CLONE_SYSVSEM task group.
+  */ 
+ struct sem_undo_list {
+-	atomic_t	refcnt;
+-	spinlock_t	lock;
+-	struct sem_undo	*proc_list;
++	atomic_t		refcnt;
++	spinlock_t		lock;
++	struct list_head	list_proc;
+ };
+ 
+ struct sysv_sem {
 diff --git a/include/linux/shm.h b/include/linux/shm.h
 --- a/include/linux/shm.h
 +++ b/include/linux/shm.h
@@ -897,7 +1087,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  
  	if (!nsems)
  		return -EINVAL;
-@@ -238,14 +263,13 @@ static int newary (struct ipc_namespace 
+@@ -238,96 +263,70 @@ static int newary (struct ipc_namespace 
  	}
  
  	id = ipc_addid(&sem_ids(ns), &sma->sem_perm, ns->sc_semmni);
@@ -912,55 +1102,34 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  
 -	sma->sem_id = sem_buildid(ns, id, sma->sem_perm.seq);
  	sma->sem_base = (struct sem *) &sma[1];
- 	/* sma->sem_pending = NULL; */
- 	sma->sem_pending_last = &sma->sem_pending;
-@@ -254,48 +278,56 @@ static int newary (struct ipc_namespace 
+-	/* sma->sem_pending = NULL; */
+-	sma->sem_pending_last = &sma->sem_pending;
+-	/* sma->undo = NULL; */
++	INIT_LIST_HEAD(&sma->sem_pending);
++	INIT_LIST_HEAD(&sma->list_id);
+ 	sma->sem_nsems = nsems;
  	sma->sem_ctime = get_seconds();
  	sem_unlock(sma);
  
 -	return sma->sem_id;
 +	return sma->sem_perm.id;
-+}
-+
+ }
+ 
+-asmlinkage long sys_semget (key_t key, int nsems, int semflg)
 +
 +/*
 + * Called with sem_ids.rw_mutex and ipcp locked.
 + */
 +static inline int sem_security(struct kern_ipc_perm *ipcp, int semflg)
-+{
-+	struct sem_array *sma;
-+
-+	sma = container_of(ipcp, struct sem_array, sem_perm);
-+	return security_sem_associate(sma, semflg);
- }
- 
--asmlinkage long sys_semget (key_t key, int nsems, int semflg)
-+/*
-+ * Called with sem_ids.rw_mutex and ipcp locked.
-+ */
-+static inline int sem_more_checks(struct kern_ipc_perm *ipcp,
-+				struct ipc_params *params)
  {
 -	int id, err = -EINVAL;
  	struct sem_array *sma;
-+
-+	sma = container_of(ipcp, struct sem_array, sem_perm);
-+	if (params->u.nsems > sma->sem_nsems)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
-+asmlinkage long sys_semget(key_t key, int nsems, int semflg)
-+{
- 	struct ipc_namespace *ns;
-+	struct ipc_ops sem_ops;
-+	struct ipc_params sem_params;
+-	struct ipc_namespace *ns;
+-
+-	ns = current->nsproxy->ipc_ns;
  
- 	ns = current->nsproxy->ipc_ns;
- 
- 	if (nsems < 0 || nsems > ns->sc_semmsl)
- 		return -EINVAL;
+-	if (nsems < 0 || nsems > ns->sc_semmsl)
+-		return -EINVAL;
 -	mutex_lock(&sem_ids(ns).mutex);
 -	
 -	if (key == IPC_PRIVATE) {
@@ -987,9 +1156,63 @@ diff --git a/ipc/sem.c b/ipc/sem.c
 -		}
 -		sem_unlock(sma);
 -	}
- 
+-
 -	mutex_unlock(&sem_ids(ns).mutex);
 -	return err;
++	sma = container_of(ipcp, struct sem_array, sem_perm);
++	return security_sem_associate(sma, semflg);
+ }
+ 
+-/* Manage the doubly linked list sma->sem_pending as a FIFO:
+- * insert new queue elements at the tail sma->sem_pending_last.
++/*
++ * Called with sem_ids.rw_mutex and ipcp locked.
+  */
+-static inline void append_to_queue (struct sem_array * sma,
+-				    struct sem_queue * q)
++static inline int sem_more_checks(struct kern_ipc_perm *ipcp,
++				struct ipc_params *params)
+ {
+-	*(q->prev = sma->sem_pending_last) = q;
+-	*(sma->sem_pending_last = &q->next) = NULL;
+-}
++	struct sem_array *sma;
+ 
+-static inline void prepend_to_queue (struct sem_array * sma,
+-				     struct sem_queue * q)
+-{
+-	q->next = sma->sem_pending;
+-	*(q->prev = &sma->sem_pending) = q;
+-	if (q->next)
+-		q->next->prev = &q->next;
+-	else /* sma->sem_pending_last == &sma->sem_pending */
+-		sma->sem_pending_last = &q->next;
++	sma = container_of(ipcp, struct sem_array, sem_perm);
++	if (params->u.nsems > sma->sem_nsems)
++		return -EINVAL;
++
++	return 0;
+ }
+ 
+-static inline void remove_from_queue (struct sem_array * sma,
+-				      struct sem_queue * q)
++asmlinkage long sys_semget(key_t key, int nsems, int semflg)
+ {
+-	*(q->prev) = q->next;
+-	if (q->next)
+-		q->next->prev = q->prev;
+-	else /* sma->sem_pending_last == &q->next */
+-		sma->sem_pending_last = q->prev;
+-	q->prev = NULL; /* mark as removed */
++	struct ipc_namespace *ns;
++	struct ipc_ops sem_ops;
++	struct ipc_params sem_params;
++
++	ns = current->nsproxy->ipc_ns;
++
++	if (nsems < 0 || nsems > ns->sc_semmsl)
++		return -EINVAL;
++
 +	sem_ops.getnew = newary;
 +	sem_ops.associate = sem_security;
 +	sem_ops.more_checks = sem_more_checks;
@@ -1001,30 +1224,144 @@ diff --git a/ipc/sem.c b/ipc/sem.c
 +	return ipcget(ns, &sem_ids(ns), &sem_ops, &sem_params);
  }
  
- /* Manage the doubly linked list sma->sem_pending as a FIFO:
-@@ -489,15 +521,15 @@ static int count_semzcnt (struct sem_arr
+ /*
+@@ -405,16 +404,15 @@ static void update_queue (struct sem_arr
+ 	int error;
+ 	struct sem_queue * q;
+ 
+-	q = sma->sem_pending;
+-	while(q) {
++	q = list_entry(sma->sem_pending.next, struct sem_queue, list);
++	while (&q->list != &sma->sem_pending) {
+ 		error = try_atomic_semop(sma, q->sops, q->nsops,
+ 					 q->undo, q->pid);
+ 
+ 		/* Does q->sleeper still need to sleep? */
+ 		if (error <= 0) {
+ 			struct sem_queue *n;
+-			remove_from_queue(sma,q);
+-			q->status = IN_WAKEUP;
++
+ 			/*
+ 			 * Continue scanning. The next operation
+ 			 * that must be checked depends on the type of the
+@@ -425,11 +423,26 @@ static void update_queue (struct sem_arr
+ 			 *   for semaphore values to become 0.
+ 			 * - if the operation didn't modify the array,
+ 			 *   then just continue.
++			 * The order of list_del() and reading ->next
++			 * is crucial: In the former case, the list_del()
++			 * must be done first [because we might be the
++			 * first entry in ->sem_pending], in the latter
++			 * case the list_del() must be done last
++			 * [because the list is invalid after the list_del()]
+ 			 */
+-			if (q->alter)
+-				n = sma->sem_pending;
+-			else
+-				n = q->next;
++			if (q->alter) {
++				list_del(&q->list);
++				n = list_entry(sma->sem_pending.next,
++						struct sem_queue, list);
++			} else {
++				n = list_entry(q->list.next, struct sem_queue,
++						list);
++				list_del(&q->list);
++			}
++
++			/* wake up the waiting thread */
++			q->status = IN_WAKEUP;
++
+ 			wake_up_process(q->sleeper);
+ 			/* hands-off: q will disappear immediately after
+ 			 * writing q->status.
+@@ -438,7 +451,7 @@ static void update_queue (struct sem_arr
+ 			q->status = error;
+ 			q = n;
+ 		} else {
+-			q = q->next;
++			q = list_entry(q->list.next, struct sem_queue, list);
+ 		}
+ 	}
+ }
+@@ -458,7 +471,7 @@ static int count_semncnt (struct sem_arr
+ 	struct sem_queue * q;
+ 
+ 	semncnt = 0;
+-	for (q = sma->sem_pending; q; q = q->next) {
++	list_for_each_entry(q, &sma->sem_pending, list) {
+ 		struct sembuf * sops = q->sops;
+ 		int nsops = q->nsops;
+ 		int i;
+@@ -476,7 +490,7 @@ static int count_semzcnt (struct sem_arr
+ 	struct sem_queue * q;
+ 
+ 	semzcnt = 0;
+-	for (q = sma->sem_pending; q; q = q->next) {
++	list_for_each_entry(q, &sma->sem_pending, list) {
+ 		struct sembuf * sops = q->sops;
+ 		int nsops = q->nsops;
+ 		int i;
+@@ -489,43 +503,48 @@ static int count_semzcnt (struct sem_arr
  	return semzcnt;
  }
  
 -/* Free a semaphore set. freeary() is called with sem_ids.mutex locked and
 - * the spinlock for this semaphore set hold. sem_ids.mutex remains locked
 - * on exit.
+- */
+-static void freeary (struct ipc_namespace *ns, struct sem_array *sma, int id)
++static void free_un(struct rcu_head *head)
+ {
+-	struct sem_undo *un;
+-	struct sem_queue *q;
+-	int size;
++	struct sem_undo *un = container_of(head, struct sem_undo, rcu);
++	kfree(un);
++}
+ 
+-	/* Invalidate the existing undo structures for this semaphore set.
+-	 * (They will be freed without any further action in exit_sem()
+-	 * or during the next semop.)
+-	 */
+-	for (un = sma->undo; un; un = un->id_next)
 +/* Free a semaphore set. freeary() is called with sem_ids.rw_mutex locked
 + * as a writer and the spinlock for this semaphore set hold. sem_ids.rw_mutex
 + * remains locked on exit.
-  */
--static void freeary (struct ipc_namespace *ns, struct sem_array *sma, int id)
++ */
 +static void freeary(struct ipc_namespace *ns, struct kern_ipc_perm *ipcp)
- {
- 	struct sem_undo *un;
- 	struct sem_queue *q;
--	int size;
++{
++	struct sem_undo *un, *tu;
++	struct sem_queue *q, *tq;
 +	struct sem_array *sma = container_of(ipcp, struct sem_array, sem_perm);
++
++	/* Free the existing undo structures for this semaphore set.  */
++	assert_spin_locked(&sma->sem_perm.lock);
++	list_for_each_entry_safe(un, tu, &sma->list_id, list_id) {
++		list_del(&un->list_id);
++		spin_lock(&un->ulp->lock);
+ 		un->semid = -1;
++		list_del_rcu(&un->list_proc);
++		spin_unlock(&un->ulp->lock);
++		call_rcu(&un->rcu, free_un);
++	}
  
- 	/* Invalidate the existing undo structures for this semaphore set.
- 	 * (They will be freed without any further action in exit_sem()
-@@ -520,12 +552,11 @@ static void freeary (struct ipc_namespac
- 		q = n;
+ 	/* Wake up all pending processes and let them fail with EIDRM. */
+-	q = sma->sem_pending;
+-	while(q) {
+-		struct sem_queue *n;
+-		/* lazy remove_from_queue: we are killing the whole queue */
+-		q->prev = NULL;
+-		n = q->next;
++	list_for_each_entry_safe(q, tq, &sma->sem_pending, list) {
++		list_del(&q->list);
++
+ 		q->status = IN_WAKEUP;
+ 		wake_up_process(q->sleeper); /* doesn't sleep */
+ 		smp_wmb();
+ 		q->status = -EIDRM;	/* hands-off q */
+-		q = n;
  	}
  
 -	/* Remove the semaphore set from the ID array*/
@@ -1038,7 +1375,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  	security_sem_free(sma);
  	ipc_rcu_putref(sma);
  }
-@@ -552,8 +583,8 @@ static unsigned long copy_semid_to_user(
+@@ -552,8 +571,8 @@ static unsigned long copy_semid_to_user(
  	}
  }
  
@@ -1049,7 +1386,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  {
  	int err = -EINVAL;
  	struct sem_array *sma;
-@@ -578,7 +609,7 @@ static int semctl_nolock(struct ipc_name
+@@ -578,7 +597,7 @@ static int semctl_nolock(struct ipc_name
  		seminfo.semmnu = SEMMNU;
  		seminfo.semmap = SEMMAP;
  		seminfo.semume = SEMUME;
@@ -1058,7 +1395,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  		if (cmd == SEM_INFO) {
  			seminfo.semusz = sem_ids(ns).in_use;
  			seminfo.semaem = ns->used_sems;
-@@ -586,25 +617,29 @@ static int semctl_nolock(struct ipc_name
+@@ -586,25 +605,29 @@ static int semctl_nolock(struct ipc_name
  			seminfo.semusz = SEMUSZ;
  			seminfo.semaem = SEMAEM;
  		}
@@ -1098,7 +1435,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  
  		err = -EACCES;
  		if (ipcperms (&sma->sem_perm, S_IRUGO))
-@@ -614,7 +649,7 @@ static int semctl_nolock(struct ipc_name
+@@ -614,7 +637,7 @@ static int semctl_nolock(struct ipc_name
  		if (err)
  			goto out_unlock;
  
@@ -1107,7 +1444,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  
  		kernel_to_ipc64_perm(&sma->sem_perm, &tbuf.sem_perm);
  		tbuf.sem_otime  = sma->sem_otime;
-@@ -644,16 +679,12 @@ static int semctl_main(struct ipc_namesp
+@@ -644,16 +667,12 @@ static int semctl_main(struct ipc_namesp
  	ushort* sem_io = fast_sem_io;
  	int nsems;
  
@@ -1127,7 +1464,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  	err = -EACCES;
  	if (ipcperms (&sma->sem_perm, (cmd==SETVAL||cmd==SETALL)?S_IWUGO:S_IRUGO))
  		goto out_unlock;
-@@ -670,19 +701,15 @@ static int semctl_main(struct ipc_namesp
+@@ -670,19 +689,15 @@ static int semctl_main(struct ipc_namesp
  		int i;
  
  		if(nsems > SEMMSL_FAST) {
@@ -1150,7 +1487,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  			if (sma->sem_perm.deleted) {
  				sem_unlock(sma);
  				err = -EIDRM;
-@@ -703,38 +730,30 @@ static int semctl_main(struct ipc_namesp
+@@ -703,38 +718,30 @@ static int semctl_main(struct ipc_namesp
  		int i;
  		struct sem_undo *un;
  
@@ -1194,7 +1531,20 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  		if (sma->sem_perm.deleted) {
  			sem_unlock(sma);
  			err = -EIDRM;
-@@ -752,19 +771,6 @@ static int semctl_main(struct ipc_namesp
+@@ -743,28 +750,18 @@ static int semctl_main(struct ipc_namesp
+ 
+ 		for (i = 0; i < nsems; i++)
+ 			sma->sem_base[i].semval = sem_io[i];
+-		for (un = sma->undo; un; un = un->id_next)
++
++		assert_spin_locked(&sma->sem_perm.lock);
++		list_for_each_entry(un, &sma->list_id, list_id) {
+ 			for (i = 0; i < nsems; i++)
+ 				un->semadj[i] = 0;
++		}
+ 		sma->sem_ctime = get_seconds();
+ 		/* maybe some queued-up processes were waiting for this */
+ 		update_queue(sma);
  		err = 0;
  		goto out_unlock;
  	}
@@ -1214,7 +1564,19 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  	/* GETVAL, GETPID, GETNCTN, GETZCNT, SETVAL: fall-through */
  	}
  	err = -EINVAL;
-@@ -813,28 +819,14 @@ out_free:
+@@ -794,8 +792,10 @@ static int semctl_main(struct ipc_namesp
+ 		if (val > SEMVMX || val < 0)
+ 			goto out_unlock;
+ 
+-		for (un = sma->undo; un; un = un->id_next)
++		assert_spin_locked(&sma->sem_perm.lock);
++		list_for_each_entry(un, &sma->list_id, list_id)
+ 			un->semadj[semnum] = 0;
++
+ 		curr->semval = val;
+ 		curr->sempid = current->tgid;
+ 		sma->sem_ctime = get_seconds();
+@@ -813,28 +813,14 @@ out_free:
  	return err;
  }
  
@@ -1246,7 +1608,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  	case IPC_OLD:
  	    {
  		struct semid_ds tbuf_old;
-@@ -842,9 +834,9 @@ static inline unsigned long copy_semid_f
+@@ -842,9 +828,9 @@ static inline unsigned long copy_semid_f
  		if(copy_from_user(&tbuf_old, buf, sizeof(tbuf_old)))
  			return -EFAULT;
  
@@ -1259,7 +1621,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  
  		return 0;
  	    }
-@@ -853,42 +845,29 @@ static inline unsigned long copy_semid_f
+@@ -853,42 +839,29 @@ static inline unsigned long copy_semid_f
  	}
  }
  
@@ -1315,7 +1677,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  
  	err = security_sem_semctl(sma, cmd);
  	if (err)
-@@ -896,27 +875,20 @@ static int semctl_down(struct ipc_namesp
+@@ -896,27 +869,20 @@ static int semctl_down(struct ipc_namesp
  
  	switch(cmd){
  	case IPC_RMID:
@@ -1348,7 +1710,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  	return err;
  }
  
-@@ -935,60 +907,28 @@ asmlinkage long sys_semctl (int semid, i
+@@ -935,60 +901,28 @@ asmlinkage long sys_semctl (int semid, i
  	switch(cmd) {
  	case IPC_INFO:
  	case SEM_INFO:
@@ -1412,17 +1774,71 @@ diff --git a/ipc/sem.c b/ipc/sem.c
  /* If the task doesn't already have a undo_list, then allocate one
   * here.  We guarantee there is only one thread using this undo list,
   * and current is THE ONE
-@@ -1049,51 +989,40 @@ static struct sem_undo *find_undo(struct
+@@ -1011,6 +945,8 @@ static inline int get_undo_list(struct s
+ 			return -ENOMEM;
+ 		spin_lock_init(&undo_list->lock);
+ 		atomic_set(&undo_list->refcnt, 1);
++		INIT_LIST_HEAD(&undo_list->list_proc);
++
+ 		current->sysvsem.undo_list = undo_list;
+ 	}
+ 	*undo_listp = undo_list;
+@@ -1019,25 +955,27 @@ static inline int get_undo_list(struct s
+ 
+ static struct sem_undo *lookup_undo(struct sem_undo_list *ulp, int semid)
+ {
+-	struct sem_undo **last, *un;
++	struct sem_undo *walk;
+ 
+-	last = &ulp->proc_list;
+-	un = *last;
+-	while(un != NULL) {
+-		if(un->semid==semid)
+-			break;
+-		if(un->semid==-1) {
+-			*last=un->proc_next;
+-			kfree(un);
+-		} else {
+-			last=&un->proc_next;
+-		}
+-		un=*last;
++	list_for_each_entry_rcu(walk, &ulp->list_proc, list_proc) {
++		if (walk->semid == semid)
++			return walk;
+ 	}
+-	return un;
++	return NULL;
+ }
+ 
+-static struct sem_undo *find_undo(struct ipc_namespace *ns, int semid)
++/**
++ * find_alloc_undo - Lookup (and if not present create) undo array
++ * @ns: namespace
++ * @semid: semaphore array id
++ *
++ * The function looks up (and if not present creates) the undo structure.
++ * The size of the undo structure depends on the size of the semaphore
++ * array, thus the alloc path is not that straightforward.
++ * Lifetime-rules: sem_undo is rcu-protected, on success, the function
++ * performs a rcu_read_lock().
++ */
++static struct sem_undo *find_alloc_undo(struct ipc_namespace *ns, int semid)
+ {
+ 	struct sem_array *sma;
+ 	struct sem_undo_list *ulp;
+@@ -1049,62 +987,62 @@ static struct sem_undo *find_undo(struct
  	if (error)
  		return ERR_PTR(error);
  
 -	lock_semundo();
++	rcu_read_lock();
 +	spin_lock(&ulp->lock);
  	un = lookup_undo(ulp, semid);
 -	unlock_semundo();
 +	spin_unlock(&ulp->lock);
  	if (likely(un!=NULL))
  		goto out;
++	rcu_read_unlock();
  
  	/* no undo structure around - allocate one. */
 -	sma = sem_lock(ns, semid);
@@ -1434,6 +1850,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
 -		sem_unlock(sma);
 -		goto out;
 -	}
++	/* step 1: figure out the size of the semaphore array */
 +	sma = sem_lock_check(ns, semid);
 +	if (IS_ERR(sma))
 +		return ERR_PTR(PTR_ERR(sma));
@@ -1443,6 +1860,7 @@ diff --git a/ipc/sem.c b/ipc/sem.c
 -	sem_unlock(sma);
 +	sem_getref_and_unlock(sma);
  
++	/* step 2: allocate new undo structure */
  	new = kzalloc(sizeof(struct sem_undo) + sizeof(short)*nsems, GFP_KERNEL);
  	if (!new) {
 -		ipc_lock_by_ptr(&sma->sem_perm);
@@ -1451,42 +1869,75 @@ diff --git a/ipc/sem.c b/ipc/sem.c
 +		sem_putref(sma);
  		return ERR_PTR(-ENOMEM);
  	}
- 	new->semadj = (short *) &new[1];
- 	new->semid = semid;
+-	new->semadj = (short *) &new[1];
+-	new->semid = semid;
  
 -	lock_semundo();
-+	spin_lock(&ulp->lock);
- 	un = lookup_undo(ulp, semid);
- 	if (un) {
+-	un = lookup_undo(ulp, semid);
+-	if (un) {
 -		unlock_semundo();
-+		spin_unlock(&ulp->lock);
- 		kfree(new);
+-		kfree(new);
 -		ipc_lock_by_ptr(&sma->sem_perm);
 -		ipc_rcu_putref(sma);
 -		sem_unlock(sma);
-+		sem_putref(sma);
- 		goto out;
- 	}
+-		goto out;
+-	}
 -	ipc_lock_by_ptr(&sma->sem_perm);
 -	ipc_rcu_putref(sma);
++	/* step 3: Acquire the lock on semaphore array */
 +	sem_lock_and_putref(sma);
  	if (sma->sem_perm.deleted) {
  		sem_unlock(sma);
 -		unlock_semundo();
-+		spin_unlock(&ulp->lock);
  		kfree(new);
  		un = ERR_PTR(-EIDRM);
  		goto out;
-@@ -1104,7 +1033,7 @@ static struct sem_undo *find_undo(struct
- 	sma->undo = new;
- 	sem_unlock(sma);
+ 	}
+-	new->proc_next = ulp->proc_list;
+-	ulp->proc_list = new;
+-	new->id_next = sma->undo;
+-	sma->undo = new;
+-	sem_unlock(sma);
++	spin_lock(&ulp->lock);
++
++	/*
++	 * step 4: check for races: did someone else allocate the undo struct?
++	 */
++	un = lookup_undo(ulp, semid);
++	if (un) {
++		kfree(new);
++		goto success;
++	}
++	/* step 5: initialize & link new undo structure */
++	new->semadj = (short *) &new[1];
++	new->ulp = ulp;
++	new->semid = semid;
++	assert_spin_locked(&ulp->lock);
++	list_add_rcu(&new->list_proc, &ulp->list_proc);
++	assert_spin_locked(&sma->sem_perm.lock);
++	list_add(&new->list_id, &sma->list_id);
  	un = new;
 -	unlock_semundo();
++
++success:
 +	spin_unlock(&ulp->lock);
++	rcu_read_lock();
++	sem_unlock(sma);
  out:
  	return un;
  }
-@@ -1170,15 +1099,14 @@ retry_undos:
+@@ -1160,9 +1098,8 @@ asmlinkage long sys_semtimedop(int semid
+ 			alter = 1;
+ 	}
+ 
+-retry_undos:
+ 	if (undos) {
+-		un = find_undo(ns, semid);
++		un = find_alloc_undo(ns, semid);
+ 		if (IS_ERR(un)) {
+ 			error = PTR_ERR(un);
+ 			goto out_free;
+@@ -1170,22 +1107,39 @@ retry_undos:
  	} else
  		un = NULL;
  
@@ -1495,6 +1946,8 @@ diff --git a/ipc/sem.c b/ipc/sem.c
 -	if(sma==NULL)
 +	sma = sem_lock_check(ns, semid);
 +	if (IS_ERR(sma)) {
++		if (un)
++			rcu_read_unlock();
 +		error = PTR_ERR(sma);
  		goto out_free;
 -	error = -EIDRM;
@@ -1504,20 +1957,77 @@ diff --git a/ipc/sem.c b/ipc/sem.c
 +
  	/*
 -	 * semid identifies are not unique - find_undo may have
-+	 * semid identifiers are not unique - find_undo may have
++	 * semid identifiers are not unique - find_alloc_undo may have
  	 * allocated an undo structure, it was invalidated by an RMID
- 	 * and now a new array with received the same id. Check and retry.
+-	 * and now a new array with received the same id. Check and retry.
++	 * and now a new array with received the same id. Check and fail.
++	 * This case can be detected checking un->semid. The existance of
++	 * "un" itself is guaranteed by rcu.
  	 */
-@@ -1244,7 +1172,7 @@ retry_undos:
+-	if (un && un->semid == -1) {
+-		sem_unlock(sma);
+-		goto retry_undos;
++	error = -EIDRM;
++	if (un) {
++		if (un->semid == -1) {
++			rcu_read_unlock();
++			goto out_unlock_free;
++		} else {
++			/*
++			 * rcu lock can be released, "un" cannot disappear:
++			 * - sem_lock is acquired, thus IPC_RMID is
++			 *   impossible.
++			 * - exit_sem is impossible, it always operates on
++			 *   current (or a dead task).
++			 */
++
++			rcu_read_unlock();
++		}
+ 	}
++
+ 	error = -EFBIG;
+ 	if (max >= sma->sem_nsems)
+ 		goto out_unlock_free;
+@@ -1209,17 +1163,15 @@ retry_undos:
+ 	 * task into the pending queue and go to sleep.
+ 	 */
+ 		
+-	queue.sma = sma;
+ 	queue.sops = sops;
+ 	queue.nsops = nsops;
+ 	queue.undo = un;
+ 	queue.pid = current->tgid;
+-	queue.id = semid;
+ 	queue.alter = alter;
+ 	if (alter)
+-		append_to_queue(sma ,&queue);
++		list_add_tail(&queue.list, &sma->sem_pending);
+ 	else
+-		prepend_to_queue(sma ,&queue);
++		list_add(&queue.list, &sma->sem_pending);
+ 
+ 	queue.status = -EINTR;
+ 	queue.sleeper = current;
+@@ -1244,8 +1196,7 @@ retry_undos:
  	}
  
  	sma = sem_lock(ns, semid);
 -	if(sma==NULL) {
+-		BUG_ON(queue.prev != NULL);
 +	if (IS_ERR(sma)) {
- 		BUG_ON(queue.prev != NULL);
  		error = -EIDRM;
  		goto out_free;
-@@ -1281,10 +1209,6 @@ asmlinkage long sys_semop (int semid, st
+ 	}
+@@ -1263,7 +1214,7 @@ retry_undos:
+ 	 */
+ 	if (timeout && jiffies_left == 0)
+ 		error = -EAGAIN;
+-	remove_from_queue(sma,&queue);
++	list_del(&queue.list);
+ 	goto out_unlock_free;
+ 
+ out_unlock_free:
+@@ -1281,10 +1232,6 @@ asmlinkage long sys_semop (int semid, st
  
  /* If CLONE_SYSVSEM is set, establish sharing of SEM_UNDO state between
   * parent and child tasks.
@@ -1528,23 +2038,120 @@ diff --git a/ipc/sem.c b/ipc/sem.c
   */
  
  int copy_semundo(unsigned long clone_flags, struct task_struct *tsk)
-@@ -1344,13 +1268,13 @@ void exit_sem(struct task_struct *tsk)
- 		if(semid == -1)
- 			continue;
- 		sma = sem_lock(ns, semid);
--		if (sma == NULL)
-+		if (IS_ERR(sma))
- 			continue;
+@@ -1318,55 +1265,62 @@ int copy_semundo(unsigned long clone_fla
+  */
+ void exit_sem(struct task_struct *tsk)
+ {
+-	struct sem_undo_list *undo_list;
+-	struct sem_undo *u, **up;
+-	struct ipc_namespace *ns;
++	struct sem_undo_list *ulp;
  
- 		if (u->semid == -1)
- 			goto next_entry;
+-	undo_list = tsk->sysvsem.undo_list;
+-	if (!undo_list)
++	ulp = tsk->sysvsem.undo_list;
++	if (!ulp)
+ 		return;
++	tsk->sysvsem.undo_list = NULL;
+ 
+-	if (!atomic_dec_and_test(&undo_list->refcnt))
++	if (!atomic_dec_and_test(&ulp->refcnt))
+ 		return;
+ 
+-	ns = tsk->nsproxy->ipc_ns;
+-	/* There's no need to hold the semundo list lock, as current
+-         * is the last task exiting for this undo list.
+-	 */
+-	for (up = &undo_list->proc_list; (u = *up); *up = u->proc_next, kfree(u)) {
++	for (;;) {
+ 		struct sem_array *sma;
+-		int nsems, i;
+-		struct sem_undo *un, **unp;
++		struct sem_undo *un;
+ 		int semid;
+-	       
+-		semid = u->semid;
++		int i;
+ 
+-		if(semid == -1)
+-			continue;
+-		sma = sem_lock(ns, semid);
+-		if (sma == NULL)
+-			continue;
++		rcu_read_lock();
++		un = list_entry(rcu_dereference(ulp->list_proc.next),
++					struct sem_undo, list_proc);
++		if (&un->list_proc == &ulp->list_proc)
++			semid = -1;
++		 else
++			semid = un->semid;
++		rcu_read_unlock();
+ 
+-		if (u->semid == -1)
+-			goto next_entry;
++		if (semid == -1)
++			break;
++
++		sma = sem_lock_check(tsk->nsproxy->ipc_ns, un->semid);
  
 -		BUG_ON(sem_checkid(ns,sma,u->semid));
-+		BUG_ON(sem_checkid(sma, u->semid));
++		/* exit_sem raced with IPC_RMID, nothing to do */
++		if (IS_ERR(sma))
++			continue;
  
- 		/* remove u from the sma->undo list */
- 		for (unp = &sma->undo; (un = *unp); unp = &un->id_next) {
-@@ -1404,7 +1328,7 @@ static int sysvipc_sem_proc_show(struct 
+-		/* remove u from the sma->undo list */
+-		for (unp = &sma->undo; (un = *unp); unp = &un->id_next) {
+-			if (u == un)
+-				goto found;
++		un = lookup_undo(ulp, semid);
++		if (un == NULL) {
++			/* exit_sem raced with IPC_RMID+semget() that created
++			 * exactly the same semid. Nothing to do.
++			 */
++			sem_unlock(sma);
++			continue;
+ 		}
+-		printk ("exit_sem undo list error id=%d\n", u->semid);
+-		goto next_entry;
+-found:
+-		*unp = un->id_next;
+-		/* perform adjustments registered in u */
+-		nsems = sma->sem_nsems;
+-		for (i = 0; i < nsems; i++) {
++
++		/* remove un from the linked lists */
++		assert_spin_locked(&sma->sem_perm.lock);
++		list_del(&un->list_id);
++
++		spin_lock(&ulp->lock);
++		list_del_rcu(&un->list_proc);
++		spin_unlock(&ulp->lock);
++
++		/* perform adjustments registered in un */
++		for (i = 0; i < sma->sem_nsems; i++) {
+ 			struct sem * semaphore = &sma->sem_base[i];
+-			if (u->semadj[i]) {
+-				semaphore->semval += u->semadj[i];
++			if (un->semadj[i]) {
++				semaphore->semval += un->semadj[i];
+ 				/*
+ 				 * Range checks of the new semaphore value,
+ 				 * not defined by sus:
+@@ -1390,10 +1344,11 @@ found:
+ 		sma->sem_otime = get_seconds();
+ 		/* maybe some queued-up processes were waiting for this */
+ 		update_queue(sma);
+-next_entry:
+ 		sem_unlock(sma);
++
++		call_rcu(&un->rcu, free_un);
+ 	}
+-	kfree(undo_list);
++	kfree(ulp);
+ }
+ 
+ #ifdef CONFIG_PROC_FS
+@@ -1404,7 +1359,7 @@ static int sysvipc_sem_proc_show(struct 
  	return seq_printf(s,
  			  "%10d %10d  %4o %10lu %5u %5u %5u %5u %10lu %10lu\n",
  			  sma->sem_perm.key,
@@ -3298,4 +3905,163 @@ diff --git a/ipc/util.h b/ipc/util.h
 +			struct ipc_ops *ops, struct ipc_params *params);
 +
  #endif
+diff --git a/kernel/exit.c b/kernel/exit.c
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -400,9 +400,10 @@ void daemonize(const char *name, ...)
+ 	current->fs = fs;
+ 	atomic_inc(&fs->count);
+ 
+-	exit_task_namespaces(current);
+-	current->nsproxy = init_task.nsproxy;
+-	get_task_namespaces(current);
++	if (current->nsproxy != init_task.nsproxy) {
++		get_nsproxy(init_task.nsproxy);
++		switch_task_namespaces(current, init_task.nsproxy);
++	}
+ 
+  	exit_files(current);
+ 	current->files = init_task.files;
+diff --git a/kernel/fork.c b/kernel/fork.c
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1420,18 +1420,6 @@ static int unshare_fd(unsigned long unsh
+ }
+ 
+ /*
+- * Unsharing of semundo for tasks created with CLONE_SYSVSEM is not
+- * supported yet
+- */
+-static int unshare_semundo(unsigned long unshare_flags, struct sem_undo_list **new_ulistp)
+-{
+-	if (unshare_flags & CLONE_SYSVSEM)
+-		return -EINVAL;
+-
+-	return 0;
+-}
+-
+-/*
+  * unshare allows a process to 'unshare' part of the process
+  * context which was originally shared using clone.  copy_*
+  * functions used by do_fork() cannot be used here directly
+@@ -1446,8 +1434,8 @@ asmlinkage long sys_unshare(unsigned lon
+ 	struct sighand_struct *new_sigh = NULL;
+ 	struct mm_struct *mm, *new_mm = NULL, *active_mm = NULL;
+ 	struct files_struct *fd, *new_fd = NULL;
+-	struct sem_undo_list *new_ulist = NULL;
+-	struct nsproxy *new_nsproxy = NULL, *old_nsproxy = NULL;
++	struct nsproxy *new_nsproxy = NULL;
++	int do_sysvsem = 0;
+ 
+ 	check_unshare_flags(&unshare_flags);
+ 
+@@ -1458,6 +1446,8 @@ asmlinkage long sys_unshare(unsigned lon
+ 				CLONE_NEWUTS|CLONE_NEWIPC))
+ 		goto bad_unshare_out;
+ 
++	if (unshare_flags & CLONE_SYSVSEM)
++		do_sysvsem = 1;
+ 	if ((err = unshare_thread(unshare_flags)))
+ 		goto bad_unshare_out;
+ 	if ((err = unshare_fs(unshare_flags, &new_fs)))
+@@ -1468,22 +1458,25 @@ asmlinkage long sys_unshare(unsigned lon
+ 		goto bad_unshare_cleanup_sigh;
+ 	if ((err = unshare_fd(unshare_flags, &new_fd)))
+ 		goto bad_unshare_cleanup_vm;
+-	if ((err = unshare_semundo(unshare_flags, &new_ulist)))
+-		goto bad_unshare_cleanup_fd;
+ 	if ((err = unshare_nsproxy_namespaces(unshare_flags, &new_nsproxy,
+ 			new_fs)))
+-		goto bad_unshare_cleanup_semundo;
+-
+-	if (new_fs ||  new_mm || new_fd || new_ulist || new_nsproxy) {
++		goto bad_unshare_cleanup_fd;
+ 
+-		task_lock(current);
++	if (new_fs ||  new_mm || new_fd || do_sysvsem || new_nsproxy) {
++		if (do_sysvsem) {
++			/*
++			 * CLONE_SYSVSEM is equivalent to sys_exit().
++			 */
++			exit_sem(current);
++		}
+ 
+ 		if (new_nsproxy) {
+-			old_nsproxy = current->nsproxy;
+-			current->nsproxy = new_nsproxy;
+-			new_nsproxy = old_nsproxy;
++			switch_task_namespaces(current, new_nsproxy);
++			new_nsproxy = NULL;
+ 		}
+ 
++		task_lock(current);
++
+ 		if (new_fs) {
+ 			fs = current->fs;
+ 			current->fs = new_fs;
+@@ -1511,7 +1504,6 @@ asmlinkage long sys_unshare(unsigned lon
+ 	if (new_nsproxy)
+ 		put_nsproxy(new_nsproxy);
+ 
+-bad_unshare_cleanup_semundo:
+ bad_unshare_cleanup_fd:
+ 	if (new_fd)
+ 		put_files_struct(new_fd);
+diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
+--- a/kernel/nsproxy.c
++++ b/kernel/nsproxy.c
+@@ -26,19 +26,6 @@ static struct kmem_cache *nsproxy_cachep;
+ 
+ struct nsproxy init_nsproxy = INIT_NSPROXY(init_nsproxy);
+ 
+-static inline void get_nsproxy(struct nsproxy *ns)
+-{
+-	atomic_inc(&ns->count);
+-}
+-
+-void get_task_namespaces(struct task_struct *tsk)
+-{
+-	struct nsproxy *ns = tsk->nsproxy;
+-	if (ns) {
+-		get_nsproxy(ns);
+-	}
+-}
+-
+ /*
+  * creates a copy of "orig" with refcount 1.
+  */
+@@ -216,6 +203,33 @@ out:
+ 	return err;
+ }
+ 
++void switch_task_namespaces(struct task_struct *p, struct nsproxy *new)
++{
++	struct nsproxy *ns;
++
++	might_sleep();
++
++	ns = p->nsproxy;
++
++	rcu_assign_pointer(p->nsproxy, new);
++
++	if (ns && atomic_dec_and_test(&ns->count)) {
++		/*
++		 * wait for others to get what they want from this nsproxy.
++		 *
++		 * cannot release this nsproxy via the call_rcu() since
++		 * put_mnt_ns() will want to sleep
++		 */
++		synchronize_rcu();
++		free_nsproxy(ns);
++	}
++}
++
++void exit_task_namespaces(struct task_struct *p)
++{
++	switch_task_namespaces(p, NULL);
++}
++
+ void free_nsproxy(struct nsproxy *ns)
+ {
+ 
 -- 
