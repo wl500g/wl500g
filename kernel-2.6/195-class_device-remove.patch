@@ -8,8 +8,39 @@ Convert struct class_device to struct device
  ef39592f786b6d56d9faf988a3f18786eeb050b3 [ATM]: Convert struct class_device to struct device
  fd04897bb20be29d60f7e426a053545aebeaa61a Driver Core: add class iteration api
  c3b19ff06e0808555403491d61e8f0cbbb53e933 driver core: remove no longer used "struct class_device"
+ 0a3ad00ca09632c6d0675f606276e92bdf1b306c Driver core: struct class remove children list
 
 ---
+ Documentation/spi/spi-summary       |   25 -
+ drivers/acpi/video.c                |    4 
+ drivers/base/base.h                 |   11 
+ drivers/base/class.c                |  673 +++---------------------------------
+ drivers/block/pktcdvd.c             |   16 
+ drivers/input/evdev.c               |   84 ++--
+ drivers/input/input.c               |  136 +++----
+ drivers/input/joydev.c              |   84 ++--
+ drivers/input/mousedev.c            |  242 +++++++-----
+ drivers/input/tsdev.c               |   88 ++--
+ drivers/mtd/mtdchar.c               |   12 
+ drivers/spi/atmel_spi.c             |   12 
+ drivers/spi/mpc52xx_psc_spi.c       |    2 
+ drivers/spi/pxa2xx_spi.c            |    2 
+ drivers/spi/spi.c                   |   36 -
+ drivers/spi/spi_bfin5xx.c           |    2 
+ drivers/spi/spi_bitbang.c           |    2 
+ drivers/spi/spi_imx.c               |    2 
+ drivers/video/backlight/backlight.c |  125 ++----
+ drivers/video/backlight/cr_bllcd.c  |    2 
+ drivers/video/backlight/lcd.c       |  112 ++---
+ include/linux/atmdev.h              |    4 
+ include/linux/backlight.h           |   11 
+ include/linux/device.h              |  110 -----
+ include/linux/input.h               |   20 -
+ include/linux/lcd.h                 |   14 
+ include/linux/pktcdvd.h             |    2 
+ include/linux/spi/spi.h             |   12 
+ net/atm/atm_sysfs.c                 |   66 +--
+ 29 files changed, 646 insertions(+), 1265 deletions(-)
 
 diff --git a/drivers/base/base.h b/drivers/base/base.h
 --- a/drivers/base/base.h
@@ -35,6 +66,14 @@ diff --git a/drivers/base/base.h b/drivers/base/base.h
 diff --git a/drivers/base/class.c b/drivers/base/class.c
 --- a/drivers/base/class.c
 +++ b/drivers/base/class.c
+@@ -140,7 +140,6 @@ int class_register(struct class *cls)
+ 
+ 	pr_debug("device class '%s': registering\n", cls->name);
+ 
+-	INIT_LIST_HEAD(&cls->children);
+ 	INIT_LIST_HEAD(&cls->devices);
+ 	INIT_LIST_HEAD(&cls->interfaces);
+ 	kset_init(&cls->class_dirs);
 @@ -172,29 +172,13 @@ static void class_create_release(struct 
  	kfree(cls);
  }
@@ -811,7 +850,11 @@ diff --git a/include/linux/device.h b/include/linux/device.h
  struct bus_type;
  
  struct bus_attribute {
-@@ -183,18 +182,13 @@ struct class {
+@@ -183,22 +182,16 @@ struct class {
+ 	struct module		* owner;
+ 
+ 	struct kset		subsys;
+-	struct list_head	children;
  	struct list_head	devices;
  	struct list_head	interfaces;
  	struct kset		class_dirs;
