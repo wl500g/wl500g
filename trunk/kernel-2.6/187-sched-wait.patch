@@ -1,15 +1,47 @@
  777c6c5f1f6e757ae49ecca2ed72d6b1f523c007 wait: prevent exclusive waiter starvation
  4ede816ac36e027db5fe0051ad9c73f76db63772 epoll keyed wakeups: add __wake_up_locked_key() and __wake_up_sync_key()
  c0da37753695e010776ccf2200a5731e0f88a9f3 epoll keyed wakeups: introduce new *_poll() wakeup macros
+ 395108880efff4a4ffa1ffa554477f7f5ba6a031 epoll keyed wakeups: make eventfd use keyed wakeups
  78ddb08feb7d4fbe3c0a9931804c51ee58be4023 wait: don't use __wake_up_common()
  231d0aefd88e94129cb8fb84794f9bb788c6366e wait: using uninitialized member of wait queue
 
 ---
+ fs/eventfd.c         |    6 ++---
  include/linux/wait.h |   26 +++++++++++++++++++---
  kernel/sched.c       |   25 +++++++++++++++++----
  kernel/wait.c        |   59 ++++++++++++++++++++++++++++++++++++++++++++-------
- 3 files changed, 94 insertions(+), 16 deletions(-)
+ 4 files changed, 97 insertions(+), 19 deletions(-)
 
+diff --git a/fs/eventfd.c b/fs/eventfd.c
+--- a/fs/eventfd.c
++++ b/fs/eventfd.c
+@@ -51,7 +51,7 @@ int eventfd_signal(struct file *file, int n)
+ 		n = (int) (ULLONG_MAX - ctx->count);
+ 	ctx->count += n;
+ 	if (waitqueue_active(&ctx->wqh))
+-		wake_up_locked(&ctx->wqh);
++		wake_up_locked_poll(&ctx->wqh, POLLIN);
+ 	spin_unlock_irqrestore(&ctx->wqh.lock, flags);
+ 
+ 	return n;
+@@ -120,7 +120,7 @@ static ssize_t eventfd_read(struct file *file, char __user *buf, size_t count,
+ 		ucnt = (ctx->flags & EFD_SEMAPHORE) ? 1 : ctx->count;
+ 		ctx->count -= ucnt;
+ 		if (waitqueue_active(&ctx->wqh))
+-			wake_up_locked(&ctx->wqh);
++			wake_up_locked_poll(&ctx->wqh, POLLOUT);
+ 	}
+ 	spin_unlock_irq(&ctx->wqh.lock);
+ 	if (res > 0 && put_user(ucnt, (__u64 __user *) buf))
+@@ -169,7 +169,7 @@ static ssize_t eventfd_write(struct file *file, const char __user *buf, size_t c
+ 	if (likely(res > 0)) {
+ 		ctx->count += ucnt;
+ 		if (waitqueue_active(&ctx->wqh))
+-			wake_up_locked(&ctx->wqh);
++			wake_up_locked_poll(&ctx->wqh, POLLIN);
+ 	}
+ 	spin_unlock_irq(&ctx->wqh.lock);
+ 
 diff --git a/include/linux/wait.h b/include/linux/wait.h
 --- a/include/linux/wait.h
 +++ b/include/linux/wait.h
