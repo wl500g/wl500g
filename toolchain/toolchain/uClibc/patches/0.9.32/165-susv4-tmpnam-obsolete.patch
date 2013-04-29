@@ -1,0 +1,362 @@
+From 7c721d31e4b7a0bdf6f803b8e7c38996bf60b59f
+From: Bernhard Reutner-Fischer
+Date: Sun, 29 Jan 2012 16:48:54 +0000
+Subject: tmpnam, tempnam are obsolete in SUSV4
+
+Signed-off-by: Bernhard Reutner-Fischer <rep.dot.nop@gmail.com>
+
+---
+
+diff --git a/include/stdio.h b/include/stdio.h
+--- a/include/stdio.h
++++ b/include/stdio.h
+@@ -114,7 +114,7 @@ typedef __STDIO_fpos64_t fpos64_t;
+ 
+ 
+ #if defined __USE_SVID || defined __USE_XOPEN
+-/* Default path prefix for `tempnam' and `tmpnam'.  */
++/* Default path prefix for `mkstemp'.  */
+ # define P_tmpdir	"/tmp"
+ #endif
+ 
+@@ -173,18 +173,20 @@ extern FILE *__REDIRECT (tmpfile, (void), tmpfile64) __wur;
+ extern FILE *tmpfile64 (void) __wur;
+ #endif
+ 
++#ifdef __UCLIBC_SUSV4_LEGACY__
+ /* Generate a temporary filename.  */
+ extern char *tmpnam (char *__s) __THROW __wur;
++#endif
+ __END_NAMESPACE_STD
+ 
+-#ifdef __USE_MISC
++#if defined __USE_MISC && defined __UCLIBC_SUSV4_LEGACY__
+ /* This is the reentrant variant of `tmpnam'.  The only difference is
+    that it does not allow S to be NULL.  */
+ extern char *tmpnam_r (char *__s) __THROW __wur;
+ #endif
+ 
+ 
+-#if defined __USE_SVID || defined __USE_XOPEN
++#if (defined __USE_SVID || defined __USE_XOPEN) && defined __UCLIBC_SUSV4_LEGACY__
+ /* Generate a unique temporary filename using up to five characters of PFX
+    if it is not NULL.  The directory to put this file in is searched for
+    as follows: First the environment variable "TMPDIR" is checked.
+diff --git a/libc/stdio/Makefile.in b/libc/stdio/Makefile.in
+--- a/libc/stdio/Makefile.in
++++ b/libc/stdio/Makefile.in
+@@ -18,11 +18,14 @@ CSRC := \
+ 	setlinebuf.c setvbuf.c ungetc.c \
+ 	printf.c vprintf.c vsprintf.c fprintf.c snprintf.c dprintf.c \
+ 	asprintf.c sprintf.c vasprintf.c vdprintf.c vsnprintf.c \
+-	tmpfile.c tmpnam.c tmpnam_r.c popen.c tempnam.c ctermid.c
++	tmpfile.c popen.c ctermid.c
+ 
+ ifeq ($(UCLIBC_HAS_LFS),y)
+ CSRC += fgetpos64.c fopen64.c freopen64.c fseeko64.c fsetpos64.c ftello64.c
+ endif
++ifeq ($(UCLIBC_SUSV4_LEGACY),y)
++CSRC += tmpnam.c tmpnam_r.c tempnam.c
++endif
+ 
+ # getc -> alias for fgetc
+ # putc -> alias for fputc
+diff --git a/libc/stdio/tempnam.c b/libc/stdio/tempnam.c
+--- a/libc/stdio/tempnam.c
++++ b/libc/stdio/tempnam.c
+@@ -42,3 +42,4 @@ tempnam (const char *dir, const char *pfx)
+   return strdup (buf);
+ }
+ 
++link_warning (tempnam, "the use of OBSOLESCENT `tempnam' is discouraged, use `mkstemp'")
+diff --git a/libc/stdio/tmpnam.c b/libc/stdio/tmpnam.c
+--- a/libc/stdio/tmpnam.c
++++ b/libc/stdio/tmpnam.c
+@@ -50,5 +50,4 @@ tmpnam (char *s)
+   return s;
+ }
+ 
+-link_warning (tmpnam,
+-	      "the use of `tmpnam' is dangerous, better use `mkstemp'")
++link_warning (tmpnam, "the use of `tmpnam' is dangerous, better use `mkstemp'")
+diff --git a/libc/stdio/tmpnam_r.c b/libc/stdio/tmpnam_r.c
+--- a/libc/stdio/tmpnam_r.c
++++ b/libc/stdio/tmpnam_r.c
+@@ -33,3 +33,4 @@ char * tmpnam_r (char *s)
+ 
+     return s;
+ }
++link_warning (tmpnam_r, "the use of OBSOLESCENT `tmpnam_r' is discouraged, use `mkstemp'")
+diff --git a/libc/sysdeps/linux/arm/aeabi_lcsts.c b/libc/sysdeps/linux/arm/aeabi_lcsts.c
+--- a/libc/sysdeps/linux/arm/aeabi_lcsts.c
++++ b/libc/sysdeps/linux/arm/aeabi_lcsts.c
+@@ -79,7 +79,9 @@ eabi_constant (BUFSIZ);
+ eabi_constant (FOPEN_MAX);
+ eabi_constant (TMP_MAX);
+ eabi_constant (FILENAME_MAX);
++#ifdef __UCLIBC_SUSV4_LEGACY__
+ eabi_constant (L_tmpnam);
++#endif
+ 
+ FILE *__aeabi_stdin attribute_hidden;
+ FILE *__aeabi_stdout attribute_hidden;
+diff --git a/libc/sysdeps/linux/common/bits/stdio_lim.h b/libc/sysdeps/linux/common/bits/stdio_lim.h
+--- a/libc/sysdeps/linux/common/bits/stdio_lim.h
++++ b/libc/sysdeps/linux/common/bits/stdio_lim.h
+@@ -21,7 +21,9 @@
+ #endif
+ 
+ #ifdef _STDIO_H
+-# define L_tmpnam 20
++# ifdef __UCLIBC_SUSV4_LEGACY__
++#  define L_tmpnam 20
++# endif
+ # define TMP_MAX 238328
+ # define FILENAME_MAX 4095
+ 
+diff --git a/test/misc/bug-glob1.c b/test/misc/bug-glob1.c
+index aec84ad..276983a 100644
+--- a/test/misc/bug-glob1.c
++++ b/test/misc/bug-glob1.c
+@@ -32,9 +32,7 @@ prepare (int argc, char *argv[])
+  again:
+   strcpy (stpcpy (fname, argv[1]), ext);
+ 
+-/*
+-  fname = mktemp (fname);
+-*/
++/* fname = mktemp (fname); */
+   close(mkstemp(fname));
+   unlink(fname);
+ 
+diff --git a/test/nptl/tst-cancel4.c b/test/nptl/tst-cancel4.c
+--- a/test/nptl/tst-cancel4.c
++++ b/test/nptl/tst-cancel4.c
+@@ -978,6 +978,7 @@ tf_pause (void *arg)
+ static void *
+ tf_accept (void *arg)
+ {
++  int tfd;
+   struct sockaddr_un sun;
+   /* To test a non-blocking accept call we make the call file by using
+      a datagrame socket.  */
+@@ -999,12 +1000,13 @@ tf_accept (void *arg)
+ 	}
+ 
+       strcpy (sun.sun_path, "/tmp/tst-cancel4-socket-1-XXXXXX");
+-      if (mktemp (sun.sun_path) == NULL)
++      tfd = mkstemp(sun.sun_path);
++      if (tfd < 0)
+ 	{
+ 	  printf ("%s: cannot generate temp file name\n", __FUNCTION__);
+ 	  exit (1);
+ 	}
+-
++      close(tfd);
+       sun.sun_family = AF_UNIX;
+     }
+   while (bind (tempfd, (struct sockaddr *) &sun,
+@@ -1049,6 +1051,7 @@ tf_accept (void *arg)
+ static void *
+ tf_send (void *arg)
+ {
++  int tfd;
+   struct sockaddr_un sun;
+ 
+   tempfd = socket (AF_UNIX, SOCK_STREAM, 0);
+@@ -1067,12 +1070,13 @@ tf_send (void *arg)
+ 	}
+ 
+       strcpy (sun.sun_path, "/tmp/tst-cancel4-socket-2-XXXXXX");
+-      if (mktemp (sun.sun_path) == NULL)
++      tfd = mkstemp(sun.sun_path);
++      if (tfd < 0)
+ 	{
+ 	  printf ("%s: cannot generate temp file name\n", __FUNCTION__);
+ 	  exit (1);
+ 	}
+-
++      close(tfd);
+       sun.sun_family = AF_UNIX;
+     }
+   while (bind (tempfd, (struct sockaddr *) &sun,
+@@ -1131,6 +1135,7 @@ tf_send (void *arg)
+ static void *
+ tf_recv (void *arg)
+ {
++  int tfd;
+   struct sockaddr_un sun;
+ 
+   tempfd = socket (AF_UNIX, SOCK_STREAM, 0);
+@@ -1149,12 +1154,13 @@ tf_recv (void *arg)
+ 	}
+ 
+       strcpy (sun.sun_path, "/tmp/tst-cancel4-socket-3-XXXXXX");
+-      if (mktemp (sun.sun_path) == NULL)
++      tfd = mkstemp(sun.sun_path);
++      if (tfd < 0)
+ 	{
+ 	  printf ("%s: cannot generate temp file name\n", __FUNCTION__);
+ 	  exit (1);
+ 	}
+-
++      close(tfd);
+       sun.sun_family = AF_UNIX;
+     }
+   while (bind (tempfd, (struct sockaddr *) &sun,
+@@ -1212,6 +1218,7 @@ tf_recv (void *arg)
+ static void *
+ tf_recvfrom (void *arg)
+ {
++  int tfd;
+   struct sockaddr_un sun;
+ 
+   tempfd = socket (AF_UNIX, SOCK_DGRAM, 0);
+@@ -1230,12 +1237,13 @@ tf_recvfrom (void *arg)
+ 	}
+ 
+       strcpy (sun.sun_path, "/tmp/tst-cancel4-socket-4-XXXXXX");
+-      if (mktemp (sun.sun_path) == NULL)
++      tfd = mkstemp(sun.sun_path);
++      if (tfd < 0)
+ 	{
+ 	  printf ("%s: cannot generate temp file name\n", __FUNCTION__);
+ 	  exit (1);
+ 	}
+-
++      close(tfd);
+       sun.sun_family = AF_UNIX;
+     }
+   while (bind (tempfd, (struct sockaddr *) &sun,
+@@ -1287,6 +1295,7 @@ tf_recvfrom (void *arg)
+ static void *
+ tf_recvmsg (void *arg)
+ {
++  int tfd;
+   struct sockaddr_un sun;
+ 
+   tempfd = socket (AF_UNIX, SOCK_DGRAM, 0);
+@@ -1305,12 +1314,13 @@ tf_recvmsg (void *arg)
+ 	}
+ 
+       strcpy (sun.sun_path, "/tmp/tst-cancel4-socket-5-XXXXXX");
+-      if (mktemp (sun.sun_path) == NULL)
++      tfd = mkstemp(sun.sun_path);
++      if (tfd < 0)
+ 	{
+ 	  printf ("%s: cannot generate temp file name\n", __FUNCTION__);
+ 	  exit (1);
+ 	}
+-
++      close(tfd);
+       sun.sun_family = AF_UNIX;
+     }
+   while (bind (tempfd, (struct sockaddr *) &sun,
+@@ -1663,6 +1673,7 @@ tf_msync (void *arg)
+ static void *
+ tf_sendto (void *arg)
+ {
++  int tfd;
+   if (arg == NULL)
+     // XXX If somebody can provide a portable test case in which sendto()
+     // blocks we can enable this test to run in both rounds.
+@@ -1686,12 +1697,13 @@ tf_sendto (void *arg)
+ 	}
+ 
+       strcpy (sun.sun_path, "/tmp/tst-cancel4-socket-6-XXXXXX");
+-      if (mktemp (sun.sun_path) == NULL)
++      tfd = mkstemp(sun.sun_path);
++      if (tfd < 0)
+ 	{
+ 	  printf ("%s: cannot generate temp file name\n", __FUNCTION__);
+ 	  exit (1);
+ 	}
+-
++      close(tfd);
+       sun.sun_family = AF_UNIX;
+     }
+   while (bind (tempfd, (struct sockaddr *) &sun,
+@@ -1739,6 +1751,7 @@ tf_sendto (void *arg)
+ static void *
+ tf_sendmsg (void *arg)
+ {
++  int tfd;
+   if (arg == NULL)
+     // XXX If somebody can provide a portable test case in which sendmsg()
+     // blocks we can enable this test to run in both rounds.
+@@ -1762,12 +1775,13 @@ tf_sendmsg (void *arg)
+ 	}
+ 
+       strcpy (sun.sun_path, "/tmp/tst-cancel4-socket-7-XXXXXX");
+-      if (mktemp (sun.sun_path) == NULL)
++      tfd = mkstemp(sun.sun_path);
++      if (tfd < 0)
+ 	{
+ 	  printf ("%s: cannot generate temp file name\n", __FUNCTION__);
+ 	  exit (1);
+ 	}
+-
++      close(tfd);
+       sun.sun_family = AF_UNIX;
+     }
+   while (bind (tempfd, (struct sockaddr *) &sun,
+@@ -1859,6 +1873,7 @@ tf_creat (void *arg)
+ static void *
+ tf_connect (void *arg)
+ {
++  int tfd;
+   if (arg == NULL)
+     // XXX If somebody can provide a portable test case in which connect()
+     // blocks we can enable this test to run in both rounds.
+@@ -1882,12 +1897,13 @@ tf_connect (void *arg)
+ 	}
+ 
+       strcpy (sun.sun_path, "/tmp/tst-cancel4-socket-2-XXXXXX");
+-      if (mktemp (sun.sun_path) == NULL)
++      tfd = mkstemp(sun.sun_path);
++      if (tfd < 0)
+ 	{
+ 	  printf ("%s: cannot generate temp file name\n", __FUNCTION__);
+ 	  exit (1);
+ 	}
+-
++      close(tfd);
+       sun.sun_family = AF_UNIX;
+     }
+   while (bind (tempfd, (struct sockaddr *) &sun,
+diff --git a/test/stdlib/test-canon2.c b/test/stdlib/test-canon2.c
+--- a/test/stdlib/test-canon2.c
++++ b/test/stdlib/test-canon2.c
+@@ -40,6 +40,7 @@ void
+ do_prepare (int argc, char *argv[])
+ {
+   size_t test_dir_len;
++  int tfd;
+ 
+   test_dir_len = strlen (test_dir);
+ 
+@@ -48,9 +49,20 @@ do_prepare (int argc, char *argv[])
+   mempcpy (mempcpy (name1, test_dir, test_dir_len),
+ 	   "/canonXXXXXX", sizeof ("/canonXXXXXX"));
+   name2 = strdup (name1);
+-
+-  add_temp_file (mktemp (name1));
+-  add_temp_file (mktemp (name2));
++  tfd = mkstemp(name1);
++  if (tfd < 0) {
++	  printf("%s: cannot generate temp file name\n", __FUNCTION__);
++	  exit(1);
++  }
++  close(tfd);
++  add_temp_file (name1);
++  tfd = mkstemp(name2);
++  if (tfd < 0) {
++	  printf("%s: cannot generate temp file name\n", __FUNCTION__);
++	  exit(1);
++  }
++  close(tfd);
++  add_temp_file (name2);
+ }
+ 
+ 
+-- 
