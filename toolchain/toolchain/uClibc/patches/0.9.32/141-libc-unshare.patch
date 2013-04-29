@@ -42,11 +42,25 @@ diff --git a/libc/sysdeps/linux/common/bits/sched.h b/libc/sysdeps/linux/common/
  #endif
  
  __END_DECLS
+diff --git a/libc/sysdeps/linux/common/stubs.c b/libc/sysdeps/linux/common/stubs.c
+--- a/libc/sysdeps/linux/common/stubs.c
++++ b/libc/sysdeps/linux/common/stubs.c
+@@ -278,6 +278,10 @@ make_stub(umount)
+ make_stub(umount2)
+ #endif
+ 
++#if !defined(__NR_unshare) && defined(__UCLIBC_LINUX_SPECIFIC__)
++make_stub(unshare)
++#endif
++
+ #ifndef __NR_utimensat
+ make_stub(futimens)
+ make_stub(utimensat)
 diff --git a/libc/sysdeps/linux/common/unshare.c b/libc/sysdeps/linux/common/unshare.c
 new file mode 100644
 --- /dev/null
 +++ b/libc/sysdeps/linux/common/unshare.c
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,14 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * unshare() for uClibc
@@ -58,5 +72,7 @@ new file mode 100644
 +
 +#include <sys/syscall.h>
 +#include <sched.h>
++#ifdef __NR_unshare /* Old kernels don't have unshare */
 +_syscall1(int, unshare, int, flags)
++#endif
 -- 
