@@ -1,0 +1,816 @@
+bonding, net: Move last_rx update into bonding recv logic
+
+ 6cf3f41e6c08bca6641a695449791c38a25f35ff bonding, net: Move last_rx update into bonding recv logic
+ babcda74e9d96bb58fd9c6c5112dbdbff169e695 drivers/net: Kill now superfluous ->last_rx stores.
+ d2ad3ca88da02baeccd5216780f1fe983c6953ba net/: Kill now superfluous ->last_rx stores.
+
+---
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4564,6 +4564,8 @@ static int bond_init(struct net_device *bond_dev, struct bond_params *params)
+ 	bond_dev->tx_queue_len = 0;
+ 	bond_dev->flags |= IFF_MASTER|IFF_MULTICAST;
+ 	bond_dev->priv_flags |= IFF_BONDING;
++	if (bond->params.arp_interval)
++		bond_dev->priv_flags |= IFF_MASTER_ARPMON;
+ 
+ 	/* At first, we block adding VLANs. That's the only way to
+ 	 * prevent problems that occur when adding VLANs over an
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -620,6 +620,8 @@ static ssize_t bonding_store_arp_interval(struct device *d,
+ 	       ": %s: Setting ARP monitoring interval to %d.\n",
+ 	       bond->dev->name, new_value);
+ 	bond->params.arp_interval = new_value;
++	if (bond->params.arp_interval)
++		bond->dev->priv_flags |= IFF_MASTER_ARPMON;
+ 	if (bond->params.miimon) {
+ 		printk(KERN_INFO DRV_NAME
+ 		       ": %s: ARP monitoring cannot be used with MII monitoring. "
+@@ -1039,6 +1041,7 @@ static ssize_t bonding_store_miimon(struct device *d,
+ 			       "ARP monitoring. Disabling ARP monitoring...\n",
+ 			       bond->dev->name);
+ 			bond->params.arp_interval = 0;
++			bond->dev->priv_flags &= ~IFF_MASTER_ARPMON;
+ 			if (bond->params.arp_validate) {
+ 				bond_unregister_arp(bond);
+ 				bond->params.arp_validate =
+diff --git a/drivers/net/appletalk/cops.c b/drivers/net/appletalk/cops.c
+--- a/drivers/net/appletalk/cops.c
++++ b/drivers/net/appletalk/cops.c
+@@ -851,7 +851,6 @@ static void cops_rx(struct net_device *dev)
+ 
+         /* Send packet to a higher place. */
+         netif_rx(skb);
+-	dev->last_rx = jiffies;
+ }
+ 
+ static void cops_timeout(struct net_device *dev)
+diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+--- a/drivers/net/au1000_eth.c
++++ b/drivers/net/au1000_eth.c
+@@ -1240,7 +1240,6 @@ static int au1000_rx(struct net_device *dev)
+ 		/* next descriptor */
+ 		prxd = aup->rx_dma_ring[aup->rx_head];
+ 		buff_stat = prxd->buff_stat;
+-		dev->last_rx = jiffies;
+ 	}
+ 	return 0;
+ }
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -829,7 +829,6 @@ static int b44_rx(struct b44 *bp, int budget)
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 		skb->protocol = eth_type_trans(skb, bp->dev);
+ 		netif_receive_skb(skb);
+-		bp->dev->last_rx = jiffies;
+ 		received++;
+ 		budget--;
+ 	next_pkt:
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -3000,7 +3000,6 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
+ #endif
+ 			netif_receive_skb(skb);
+ 
+-		bp->dev->last_rx = jiffies;
+ 		rx_pkt++;
+ 
+ next_rx:
+diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+--- a/drivers/net/cs89x0.c
++++ b/drivers/net/cs89x0.c
+@@ -1024,7 +1024,6 @@ skip_this_frame:
+ 	}
+         skb->protocol=eth_type_trans(skb,dev);
+ 	netif_rx(skb);
+-	dev->last_rx = jiffies;
+ 	lp->stats.rx_packets++;
+ 	lp->stats.rx_bytes += length;
+ }
+@@ -1718,7 +1717,6 @@ net_rx(struct net_device *dev)
+ 
+         skb->protocol=eth_type_trans(skb,dev);
+ 	netif_rx(skb);
+-	dev->last_rx = jiffies;
+ 	lp->stats.rx_packets++;
+ 	lp->stats.rx_bytes += length;
+ }
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -373,7 +373,6 @@ static void sp_bump(struct sixpack *sp, char cmd)
+ 	memcpy(ptr, sp->cooked_buf + 1, count);
+ 	skb->protocol = ax25_type_trans(skb, sp->dev);
+ 	netif_rx(skb);
+-	sp->dev->last_rx = jiffies;
+ 	sp->stats.rx_packets++;
+ 
+ 	return;
+diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
+--- a/drivers/net/hamradio/baycom_epp.c
++++ b/drivers/net/hamradio/baycom_epp.c
+@@ -555,7 +555,6 @@ static void do_rxpacket(struct net_device *dev)
+ 	memcpy(cp, bc->hdlcrx.buf, pktlen - 1);
+ 	skb->protocol = ax25_type_trans(skb, dev);
+ 	netif_rx(skb);
+-	dev->last_rx = jiffies;
+ 	bc->stats.rx_packets++;
+ }
+ 
+diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
+--- a/drivers/net/hamradio/bpqether.c
++++ b/drivers/net/hamradio/bpqether.c
+@@ -230,7 +230,6 @@ static int bpq_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_ty
+ 
+ 	skb->protocol = ax25_type_trans(skb, dev);
+ 	netif_rx(skb);
+-	dev->last_rx = jiffies;
+ unlock:
+ 
+ 	rcu_read_unlock();
+diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
+--- a/drivers/net/hamradio/dmascc.c
++++ b/drivers/net/hamradio/dmascc.c
+@@ -1283,7 +1283,6 @@ static void rx_bh(struct work_struct *ugli_api)
+ 			memcpy(&data[1], priv->rx_buf[i], cb);
+ 			skb->protocol = ax25_type_trans(skb, priv->dev);
+ 			netif_rx(skb);
+-			priv->dev->last_rx = jiffies;
+ 			priv->stats.rx_packets++;
+ 			priv->stats.rx_bytes += cb;
+ 		}
+diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
+--- a/drivers/net/hamradio/hdlcdrv.c
++++ b/drivers/net/hamradio/hdlcdrv.c
+@@ -162,7 +162,6 @@ static void hdlc_rx_flag(struct net_device *dev, struct hdlcdrv_state *s)
+ 	memcpy(cp, s->hdlcrx.buffer, pkt_len - 1);
+ 	skb->protocol = ax25_type_trans(skb, dev);
+ 	netif_rx(skb);
+-	dev->last_rx = jiffies;
+ 	s->stats.rx_packets++;
+ }
+ 
+diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
+--- a/drivers/net/hamradio/mkiss.c
++++ b/drivers/net/hamradio/mkiss.c
+@@ -303,7 +303,6 @@ static void ax_bump(struct mkiss *ax)
+ 	memcpy(skb_put(skb,count), ax->rbuff, count);
+ 	skb->protocol = ax25_type_trans(skb, ax->dev);
+ 	netif_rx(skb);
+-	ax->dev->last_rx = jiffies;
+ 	ax->stats.rx_packets++;
+ 	ax->stats.rx_bytes += count;
+ 	spin_unlock_bh(&ax->buflock);
+diff --git a/drivers/net/hamradio/scc.c b/drivers/net/hamradio/scc.c
+--- a/drivers/net/hamradio/scc.c
++++ b/drivers/net/hamradio/scc.c
+@@ -1627,7 +1627,6 @@ static void scc_net_rx(struct scc_channel *scc, struct sk_buff *skb)
+ 	skb->protocol = ax25_type_trans(skb, scc->dev);
+ 	
+ 	netif_rx(skb);
+-	scc->dev->last_rx = jiffies;
+ 	return;
+ }
+ 
+diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
+--- a/drivers/net/hamradio/yam.c
++++ b/drivers/net/hamradio/yam.c
+@@ -515,7 +515,6 @@ static inline void yam_rx_flag(struct net_device *dev, struct yam_port *yp)
+ 				memcpy(cp, yp->rx_buf, pkt_len - 1);
+ 				skb->protocol = ax25_type_trans(skb, dev);
+ 				netif_rx(skb);
+-				dev->last_rx = jiffies;
+ 				++yp->stats.rx_packets;
+ 			}
+ 		}
+diff --git a/drivers/net/irda/ali-ircc.c b/drivers/net/irda/ali-ircc.c
+--- a/drivers/net/irda/ali-ircc.c
++++ b/drivers/net/irda/ali-ircc.c
+@@ -1931,7 +1931,6 @@ static int  ali_ircc_dma_receive_complete(struct ali_ircc_cb *self)
+ 			skb_reset_mac_header(skb);
+ 			skb->protocol = htons(ETH_P_IRDA);
+ 			netif_rx(skb);
+-			self->netdev->last_rx = jiffies;
+ 		}
+ 	}
+ 	
+diff --git a/drivers/net/irda/au1k_ir.c b/drivers/net/irda/au1k_ir.c
+--- a/drivers/net/irda/au1k_ir.c
++++ b/drivers/net/irda/au1k_ir.c
+@@ -620,7 +620,6 @@ static int au1k_irda_rx(struct net_device *dev)
+ 		/* next descriptor */
+ 		prxd = aup->rx_ring[aup->rx_head];
+ 		flags = prxd->flags;
+-		dev->last_rx = jiffies;
+ 
+ 	}
+ 	return 0;
+diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
+--- a/drivers/net/irda/irda-usb.c
++++ b/drivers/net/irda/irda-usb.c
+@@ -929,7 +929,6 @@ static void irda_usb_receive(struct urb *urb)
+ 	/* Keep stats up to date */
+ 	self->stats.rx_bytes += len;
+ 	self->stats.rx_packets++;
+-	self->netdev->last_rx = jiffies;
+ 
+ done:
+ 	/* Note : at this point, the URB we've just received (urb)
+diff --git a/drivers/net/irda/kingsun-sir.c b/drivers/net/irda/kingsun-sir.c
+--- a/drivers/net/irda/kingsun-sir.c
++++ b/drivers/net/irda/kingsun-sir.c
+@@ -235,7 +235,6 @@ static void kingsun_rcv_irq(struct urb *urb)
+ 						  &kingsun->stats,
+ 						  &kingsun->rx_buff, bytes[i]);
+ 			}
+-			kingsun->netdev->last_rx = jiffies;
+ 			do_gettimeofday(&kingsun->rx_time);
+ 			kingsun->receiving =
+ 				(kingsun->rx_buff.state != OUTSIDE_FRAME)
+diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
+--- a/drivers/net/irda/mcs7780.c
++++ b/drivers/net/irda/mcs7780.c
+@@ -806,7 +806,6 @@ static void mcs_receive_irq(struct urb *urb)
+ 			mcs_unwrap_fir(mcs, urb->transfer_buffer,
+ 				urb->actual_length);
+ 		}
+-		mcs->netdev->last_rx = jiffies;
+ 		do_gettimeofday(&mcs->rx_time);
+ 	}
+ 
+diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
+--- a/drivers/net/irda/nsc-ircc.c
++++ b/drivers/net/irda/nsc-ircc.c
+@@ -1896,7 +1896,6 @@ static int nsc_ircc_dma_receive_complete(struct nsc_ircc_cb *self, int iobase)
+ 			skb_reset_mac_header(skb);
+ 			skb->protocol = htons(ETH_P_IRDA);
+ 			netif_rx(skb);
+-			self->netdev->last_rx = jiffies;
+ 		}
+ 	}
+ 	/* Restore bank register */
+diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
+--- a/drivers/net/irda/pxaficp_ir.c
++++ b/drivers/net/irda/pxaficp_ir.c
+@@ -225,7 +225,6 @@ static irqreturn_t pxa_irda_sir_irq(int irq, void *dev_id)
+ 			}
+ 			lsr = STLSR;
+ 		}
+-		dev->last_rx = jiffies;
+ 		si->last_oscr = OSCR;
+ 		break;
+ 
+@@ -237,7 +236,6 @@ static irqreturn_t pxa_irda_sir_irq(int irq, void *dev_id)
+ 		    si->stats.rx_bytes++;
+ 	            async_unwrap_char(dev, &si->stats, &si->rx_buff, STRBR);
+ 	  	} while (STLSR & LSR_DR);
+-	  	dev->last_rx = jiffies;
+ 		si->last_oscr = OSCR;
+ 	  	break;
+ 
+@@ -397,8 +395,6 @@ static void pxa_irda_fir_irq_eif(struct pxa_irda *si, struct net_device *dev, in
+ 
+ 		si->stats.rx_packets++;
+ 		si->stats.rx_bytes += len;
+-
+-		dev->last_rx = jiffies;
+ 	}
+ }
+ 
+diff --git a/drivers/net/irda/sa1100_ir.c b/drivers/net/irda/sa1100_ir.c
+--- a/drivers/net/irda/sa1100_ir.c
++++ b/drivers/net/irda/sa1100_ir.c
+@@ -410,7 +410,6 @@ static void sa1100_irda_hpsir_irq(struct net_device *dev)
+ 					  Ser2UTDR);
+ 		} while (Ser2UTSR1 & UTSR1_RNE);
+ 
+-		dev->last_rx = jiffies;
+ 	}
+ 
+ 	if (status & UTSR0_TFS && si->tx_buff.len) {
+@@ -515,7 +514,6 @@ static void sa1100_irda_fir_error(struct sa1100_irda *si, struct net_device *dev
+ 		sa1100_irda_rx_alloc(si);
+ 
+ 		netif_rx(skb);
+-		dev->last_rx = jiffies;
+ 	} else {
+ 		/*
+ 		 * Remap the buffer.
+diff --git a/drivers/net/irda/stir4200.c b/drivers/net/irda/stir4200.c
+--- a/drivers/net/irda/stir4200.c
++++ b/drivers/net/irda/stir4200.c
+@@ -824,7 +824,6 @@ static void stir_rcv_irq(struct urb *urb)
+ 		unwrap_chars(stir, urb->transfer_buffer,
+ 			     urb->actual_length);
+ 		
+-		stir->netdev->last_rx = jiffies;
+ 		do_gettimeofday(&stir->rx_time);
+ 	}
+ 
+diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
+--- a/drivers/net/irda/vlsi_ir.c
++++ b/drivers/net/irda/vlsi_ir.c
+@@ -600,7 +600,6 @@ static int vlsi_process_rx(struct vlsi_ring *r, struct ring_descr *rd)
+ 		netif_rx(skb);
+ 	else
+ 		netif_rx_ni(skb);
+-	ndev->last_rx = jiffies;
+ 
+ done:
+ 	rd_set_status(rd, 0);
+diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
+--- a/drivers/net/irda/w83977af_ir.c
++++ b/drivers/net/irda/w83977af_ir.c
+@@ -923,7 +923,6 @@ int w83977af_dma_receive_complete(struct w83977af_ir *self)
+ 			skb_reset_mac_header(skb);
+ 			skb->protocol = htons(ETH_P_IRDA);
+ 			netif_rx(skb);
+-			self->netdev->last_rx = jiffies;
+ 		}
+ 	}
+ 	/* Restore set register */
+diff --git a/drivers/net/isa-skeleton.c b/drivers/net/isa-skeleton.c
+--- a/drivers/net/isa-skeleton.c
++++ b/drivers/net/isa-skeleton.c
+@@ -583,7 +583,6 @@ net_rx(struct net_device *dev)
+ 			insw(ioaddr, skb->data, (pkt_len + 1) >> 1);
+ 
+ 			netif_rx(skb);
+-			dev->last_rx = jiffies;
+ 			lp->stats.rx_packets++;
+ 			lp->stats.rx_bytes += pkt_len;
+ 		}
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -76,8 +76,6 @@ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return 0;
+ 	}
+ #endif
+-	dev->last_rx = jiffies;
+-
+ 	/* it's OK to use __get_cpu_var() because BHs are off */
+ 	lb_stats = &__get_cpu_var(pcpu_lstats);
+ 	lb_stats->bytes += skb->len;
+diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
+--- a/drivers/net/natsemi.c
++++ b/drivers/net/natsemi.c
+@@ -2361,7 +2361,6 @@ static void netdev_rx(struct net_device *dev, int *work_done, int work_to_do)
+ 			}
+ 			skb->protocol = eth_type_trans(skb, dev);
+ 			netif_receive_skb(skb);
+-			dev->last_rx = jiffies;
+ 			np->stats.rx_packets++;
+ 			np->stats.rx_bytes += pkt_len;
+ 		}
+diff --git a/drivers/net/netx-eth.c b/drivers/net/netx-eth.c
+--- a/drivers/net/netx-eth.c
++++ b/drivers/net/netx-eth.c
+@@ -165,7 +165,6 @@ static void netx_eth_receive(struct net_device *ndev)
+ 	pfifo_push(EMPTY_PTR_FIFO(priv->id),
+ 		FIFO_PTR_SEGMENT(seg) | FIFO_PTR_FRAMENO(frameno));
+ 
+-	ndev->last_rx = jiffies;
+ 	skb->protocol = eth_type_trans(skb, ndev);
+ 	netif_rx(skb);
+ 	ndev->stats.rx_packets++;
+diff --git a/drivers/net/pci-skeleton.c b/drivers/net/pci-skeleton.c
+--- a/drivers/net/pci-skeleton.c
++++ b/drivers/net/pci-skeleton.c
+@@ -1565,7 +1565,6 @@ static void netdrv_rx_interrupt (struct net_device *dev,
+ 
+ 			skb->protocol = eth_type_trans (skb, dev);
+ 			netif_rx (skb);
+-			dev->last_rx = jiffies;
+ 			tp->stats.rx_bytes += pkt_size;
+ 			tp->stats.rx_packets++;
+ 		} else {
+diff --git a/drivers/net/plip.c b/drivers/net/plip.c
+--- a/drivers/net/plip.c
++++ b/drivers/net/plip.c
+@@ -664,7 +664,6 @@ plip_receive_packet(struct net_device *dev, struct net_local *nl,
+ 		/* Inform the upper layer for the arrival of a packet. */
+ 		rcv->skb->protocol=plip_type_trans(rcv->skb, dev);
+ 		netif_rx(rcv->skb);
+-		dev->last_rx = jiffies;
+ 		nl->enet_stats.rx_bytes += rcv->length.h;
+ 		nl->enet_stats.rx_packets++;
+ 		rcv->skb = NULL;
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -1684,7 +1684,6 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
+ 			skb->protocol = htons(npindex_to_ethertype[npi]);
+ 			skb_reset_mac_header(skb);
+ 			netif_rx(skb);
+-			ppp->dev->last_rx = jiffies;
+ 		}
+ 	}
+ 	return;
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -7544,7 +7544,6 @@ static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t * rxdp)
+ send_up:
+ 		queue_rx_frame(skb);
+ 	}
+-	dev->last_rx = jiffies;
+ aggregate:
+ 	atomic_dec(&sp->rx_bufs_left[ring_no]);
+ 	return SUCCESS;
+diff --git a/drivers/net/sb1000.c b/drivers/net/sb1000.c
+--- a/drivers/net/sb1000.c
++++ b/drivers/net/sb1000.c
+@@ -869,7 +869,6 @@ printk("cm0: IP identification: %02x%02x  fragment offset: %02x%02x\n", buffer[3
+ 	/* datagram completed: send to upper level */
+ 	skb_trim(skb, dlen);
+ 	netif_rx(skb);
+-	dev->last_rx = jiffies;
+ 	stats->rx_bytes+=dlen;
+ 	stats->rx_packets++;
+ 	lp->rx_skb[ns] = NULL;
+diff --git a/drivers/net/sc92031.c b/drivers/net/sc92031.c
+--- a/drivers/net/sc92031.c
++++ b/drivers/net/sc92031.c
+@@ -816,7 +816,6 @@ static void _sc92031_rx_tasklet(struct net_device *dev)
+ 		}
+ 
+ 		skb->protocol = eth_type_trans(skb, dev);
+-		dev->last_rx = jiffies;
+ 		netif_rx(skb);
+ 
+ 		dev->stats.rx_bytes += pkt_size;
+diff --git a/drivers/net/skfp/skfddi.c b/drivers/net/skfp/skfddi.c
+--- a/drivers/net/skfp/skfddi.c
++++ b/drivers/net/skfp/skfddi.c
+@@ -1680,7 +1680,6 @@ void mac_drv_rx_complete(struct s_smc *smc, volatile struct s_smt_fp_rxd *rxd,
+ 	skb->protocol = fddi_type_trans(skb, bp->dev);
+ 
+ 	netif_rx(skb);
+-	bp->dev->last_rx = jiffies;
+ 
+ 	HWM_RX_CHECK(smc, RX_LOW_WATERMARK);
+ 	return;
+@@ -1939,7 +1938,6 @@ int mac_drv_rx_init(struct s_smc *smc, int len, int fc,
+ 
+ 	// deliver frame to system
+ 	skb->protocol = fddi_type_trans(skb, smc->os.dev);
+-	skb->dev->last_rx = jiffies;
+ 	netif_rx(skb);
+ 
+ 	return (0);
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -3186,7 +3186,6 @@ static int skge_poll(struct napi_struct *napi, int to_do)
+ 
+ 		skb = skge_rx_get(dev, e, control, rd->status, rd->csum2);
+ 		if (likely(skb)) {
+-			dev->last_rx = jiffies;
+ 			netif_receive_skb(skb);
+ 
+ 			++work_done;
+diff --git a/drivers/net/slip.c b/drivers/net/slip.c
+--- a/drivers/net/slip.c
++++ b/drivers/net/slip.c
+@@ -365,7 +365,6 @@ static void sl_bump(struct slip *sl)
+ 	skb_reset_mac_header(skb);
+ 	skb->protocol=htons(ETH_P_IP);
+ 	netif_rx(skb);
+-	sl->dev->last_rx = jiffies;
+ 	sl->rx_packets++;
+ }
+ 
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -4288,7 +4288,6 @@ static int tg3_rx(struct tg3 *tp, int budget)
+ #endif
+ 			netif_receive_skb(skb);
+ 
+-		tp->dev->last_rx = jiffies;
+ 		received++;
+ 		budget--;
+ 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -529,7 +529,6 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv,
+ 	}
+ 
+ 	netif_rx_ni(skb);
+-	tun->dev->last_rx = jiffies;
+ 
+ 	tun->stats.rx_packets++;
+ 	tun->stats.rx_bytes += len;
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3502,8 +3502,6 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
+ 			netif_receive_skb(skb);
+ 		}
+ 
+-		ugeth->dev->last_rx = jiffies;
+-
+ 		skb = get_new_skb(ugeth, bd);
+ 		if (!skb) {
+ 			if (netif_msg_rx_err(ugeth))
+diff --git a/drivers/net/usb/catc.c b/drivers/net/usb/catc.c
+--- a/drivers/net/usb/catc.c
++++ b/drivers/net/usb/catc.c
+@@ -271,8 +271,6 @@ static void catc_rx_done(struct urb *urb)
+ 
+ 	} while (pkt_start - (u8 *) urb->transfer_buffer < urb->actual_length);
+ 
+-	catc->netdev->last_rx = jiffies;
+-
+ 	if (catc->is_f5u011) {
+ 		if (atomic_read(&catc->recq_sz)) {
+ 			int status;
+diff --git a/drivers/net/wan/cycx_x25.c b/drivers/net/wan/cycx_x25.c
+--- a/drivers/net/wan/cycx_x25.c
++++ b/drivers/net/wan/cycx_x25.c
+@@ -843,7 +843,6 @@ static void cycx_x25_irq_rx(struct cycx_device *card, struct cycx_x25_cmd *cmd)
+ 
+ 	skb_reset_mac_header(skb);
+ 	netif_rx(skb);
+-	dev->last_rx = jiffies;		/* timestamp */
+ }
+ 
+ /* Connect interrupt handler. */
+@@ -1494,7 +1493,6 @@ static void cycx_x25_chan_send_event(struct net_device *dev, u8 event)
+ 
+ 	skb->protocol = x25_type_trans(skb, dev);
+ 	netif_rx(skb);
+-	dev->last_rx = jiffies;		/* timestamp */
+ }
+ 
+ /* Convert line speed in bps to a number used by cyclom 2x code. */
+diff --git a/drivers/net/wan/dlci.c b/drivers/net/wan/dlci.c
+--- a/drivers/net/wan/dlci.c
++++ b/drivers/net/wan/dlci.c
+@@ -181,7 +181,6 @@ static void dlci_receive(struct sk_buff *skb, struct net_device *dev)
+ 		dlp->stats.rx_bytes += skb->len;
+ 		netif_rx(skb);
+ 		dlp->stats.rx_packets++;
+-		dev->last_rx = jiffies;
+ 	}
+ 	else
+ 		dev_kfree_skb(skb);
+diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+--- a/drivers/net/wan/dscc4.c
++++ b/drivers/net/wan/dscc4.c
+@@ -659,7 +659,6 @@ static inline void dscc4_rx_skb(struct dscc4_dev_priv *dpriv,
+ 		skb_put(skb, pkt_len);
+ 		if (netif_running(dev))
+ 			skb->protocol = hdlc_type_trans(skb, dev);
+-		skb->dev->last_rx = jiffies;
+ 		netif_rx(skb);
+ 	} else {
+ 		if (skb->data[pkt_len] & FrameRdo)
+diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
+--- a/drivers/net/wan/farsync.c
++++ b/drivers/net/wan/farsync.c
+@@ -896,7 +896,6 @@ fst_rx_dma_complete(struct fst_card_info *card, struct fst_port_info *port,
+ 	fst_process_rx_status(rx_status, port_to_dev(port)->name);
+ 	if (rx_status == NET_RX_DROP)
+ 		stats->rx_dropped++;
+-	dev->last_rx = jiffies;
+ }
+ 
+ /*
+@@ -1322,7 +1321,6 @@ fst_intr_rx(struct fst_card_info *card, struct fst_port_info *port)
+ 		if (rx_status == NET_RX_DROP)
+ 			stats->rx_dropped++;
+ 		}
+-		dev->last_rx = jiffies;
+ 	} else {
+ 		card->dma_skb_rx = skb;
+ 		card->dma_port_rx = port;
+diff --git a/drivers/net/wan/sealevel.c b/drivers/net/wan/sealevel.c
+--- a/drivers/net/wan/sealevel.c
++++ b/drivers/net/wan/sealevel.c
+@@ -68,7 +68,6 @@ static void sealevel_input(struct z8530_channel *c, struct sk_buff *skb)
+ 	skb_reset_mac_header(skb);
+ 	skb->dev = c->netdevice;
+ 	netif_rx(skb);
+-	c->netdevice->last_rx = jiffies;
+ }
+ 
+ /*
+diff --git a/drivers/net/wan/syncppp.c b/drivers/net/wan/syncppp.c
+--- a/drivers/net/wan/syncppp.c
++++ b/drivers/net/wan/syncppp.c
+@@ -284,7 +284,6 @@ static void sppp_input (struct net_device *dev, struct sk_buff *skb)
+ 					printk(KERN_DEBUG "Yow an IP frame.\n");
+ 				skb->protocol=htons(ETH_P_IP);
+ 				netif_rx(skb);
+-				dev->last_rx = jiffies;
+ 				goto done;
+ 			}
+ 			break;
+@@ -294,7 +293,6 @@ static void sppp_input (struct net_device *dev, struct sk_buff *skb)
+ 			if (sp->lcp.state == LCP_STATE_OPENED) {
+ 				skb->protocol=htons(ETH_P_IPX);
+ 				netif_rx(skb);
+-				dev->last_rx = jiffies;
+ 				goto done;
+ 			}
+ 			break;
+@@ -321,14 +319,12 @@ static void sppp_input (struct net_device *dev, struct sk_buff *skb)
+ 		case ETH_P_IP:
+ 			skb->protocol=htons(ETH_P_IP);
+ 			netif_rx(skb);
+-			dev->last_rx = jiffies;
+ 			goto done;
+ #endif
+ #ifdef CONFIG_IPX
+ 		case ETH_P_IPX:
+ 			skb->protocol=htons(ETH_P_IPX);
+ 			netif_rx(skb);
+-			dev->last_rx = jiffies;
+ 			goto done;
+ #endif
+ 		}
+diff --git a/drivers/net/wan/wanxl.c b/drivers/net/wan/wanxl.c
+--- a/drivers/net/wan/wanxl.c
++++ b/drivers/net/wan/wanxl.c
+@@ -220,7 +220,6 @@ static inline void wanxl_rx_intr(card_t *card)
+ #endif
+ 				stats->rx_packets++;
+ 				stats->rx_bytes += skb->len;
+-				dev->last_rx = jiffies;
+ 				skb->protocol = hdlc_type_trans(skb, dev);
+ 				netif_rx(skb);
+ 				skb = NULL;
+diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+--- a/drivers/net/wan/x25_asy.c
++++ b/drivers/net/wan/x25_asy.c
+@@ -211,7 +211,6 @@ static void x25_asy_bump(struct x25_asy *sl)
+ 		printk(KERN_DEBUG "x25_asy: data received err - %d\n", err);
+ 	} else {
+ 		netif_rx(skb);
+-		sl->dev->last_rx = jiffies;
+ 		sl->stats.rx_packets++;
+ 	}
+ }
+@@ -361,7 +360,6 @@ static int x25_asy_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ static int x25_asy_data_indication(struct net_device *dev, struct sk_buff *skb)
+ {
+-	skb->dev->last_rx = jiffies;
+ 	return netif_rx(skb);
+ }
+ 
+@@ -413,7 +411,6 @@ static void x25_asy_connected(struct net_device *dev, int reason)
+ 
+ 	skb->protocol = x25_type_trans(skb, sl->dev);
+ 	netif_rx(skb);
+-	sl->dev->last_rx = jiffies;
+ }
+ 
+ static void x25_asy_disconnected(struct net_device *dev, int reason)
+@@ -433,7 +430,6 @@ static void x25_asy_disconnected(struct net_device *dev, int reason)
+ 
+ 	skb->protocol = x25_type_trans(skb, sl->dev);
+ 	netif_rx(skb);
+-	sl->dev->last_rx = jiffies;
+ }
+ 
+ static struct lapb_register_struct x25_asy_callbacks = {
+diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
+--- a/drivers/net/wireless/atmel.c
++++ b/drivers/net/wireless/atmel.c
+@@ -919,7 +919,6 @@ static void fast_rx_path(struct atmel_private *priv,
+ 	else
+ 		memcpy(&skbp[6], header->addr2, 6); /* source address */
+ 
+-	priv->dev->last_rx = jiffies;
+ 	skb->protocol = eth_type_trans(skb, priv->dev);
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 	netif_rx(skb);
+@@ -1026,7 +1025,6 @@ static void frag_rx_path(struct atmel_private *priv,
+ 				memcpy(skb_put(skb, priv->frag_len + 12),
+ 				       priv->rx_buf,
+ 				       priv->frag_len + 12);
+-				priv->dev->last_rx = jiffies;
+ 				skb->protocol = eth_type_trans(skb, priv->dev);
+ 				skb->ip_summed = CHECKSUM_NONE;
+ 				netif_rx(skb);
+diff --git a/drivers/net/wireless/hostap/hostap_80211_rx.c b/drivers/net/wireless/hostap/hostap_80211_rx.c
+--- a/drivers/net/wireless/hostap/hostap_80211_rx.c
++++ b/drivers/net/wireless/hostap/hostap_80211_rx.c
+@@ -67,7 +67,6 @@ int prism2_rx_80211(struct net_device *dev, struct sk_buff *skb,
+ 
+ 	iface = netdev_priv(dev);
+ 	local = iface->local;
+-	dev->last_rx = jiffies;
+ 
+ 	if (dev->type == ARPHRD_IEEE80211_PRISM) {
+ 		if (local->monitor_type == PRISM2_MONITOR_PRISM) {
+@@ -883,8 +882,6 @@ void hostap_80211_rx(struct net_device *dev, struct sk_buff *skb,
+ 		from_assoc_ap = 1;
+ 	}
+ 
+-	dev->last_rx = jiffies;
+-
+ 	if ((local->iw_mode == IW_MODE_MASTER ||
+ 	     local->iw_mode == IW_MODE_REPEAT) &&
+ 	    !from_assoc_ap) {
+diff --git a/include/linux/if.h b/include/linux/if.h
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -65,6 +65,7 @@
+ 
+ #define IFF_BONDING	0x20		/* bonding master or slave	*/
+ #define IFF_SLAVE_NEEDARP 0x40		/* need ARPs for validation	*/
++#define IFF_MASTER_ARPMON 0x100		/* bonding master, ARP mon in use */
+ 
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1742,22 +1742,26 @@ static inline int skb_bond_should_drop(struct sk_buff *skb)
+ 	struct net_device *dev = skb->dev;
+ 	struct net_device *master = dev->master;
+ 
+-	if (master &&
+-	    (dev->priv_flags & IFF_SLAVE_INACTIVE)) {
+-		if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
+-		    skb->protocol == __constant_htons(ETH_P_ARP))
+-			return 0;
+-
+-		if (master->priv_flags & IFF_MASTER_ALB) {
+-			if (skb->pkt_type != PACKET_BROADCAST &&
+-			    skb->pkt_type != PACKET_MULTICAST)
++	if (master) {
++		if (master->priv_flags & IFF_MASTER_ARPMON)
++			dev->last_rx = jiffies;
++
++		if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
++			if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
++			    skb->protocol == __constant_htons(ETH_P_ARP))
+ 				return 0;
+-		}
+-		if (master->priv_flags & IFF_MASTER_8023AD &&
+-		    skb->protocol == __constant_htons(ETH_P_SLOW))
+-			return 0;
+ 
+-		return 1;
++			if (master->priv_flags & IFF_MASTER_ALB) {
++				if (skb->pkt_type != PACKET_BROADCAST &&
++				    skb->pkt_type != PACKET_MULTICAST)
++					return 0;
++			}
++			if (master->priv_flags & IFF_MASTER_8023AD &&
++			    skb->protocol == __constant_htons(ETH_P_SLOW))
++				return 0;
++
++			return 1;
++		}
+ 	}
+ 	return 0;
+ }
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -163,8 +163,6 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 		goto err_unlock;
+ 	}
+ 
+-	skb->dev->last_rx = jiffies;
+-
+ 	/* Bump the rx counters for the VLAN device. */
+ 	stats = vlan_dev_get_stats(skb->dev);
+ 	stats->rx_packets++;
+diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+--- a/net/bluetooth/bnep/core.c
++++ b/net/bluetooth/bnep/core.c
+@@ -311,7 +311,6 @@ static inline int bnep_rx_frame(struct bnep_session *s, struct sk_buff *skb)
+ 	struct sk_buff *nskb;
+ 	u8 type;
+ 
+-	dev->last_rx = jiffies;
+ 	s->stats.rx_bytes += skb->len;
+ 
+ 	type = *(u8 *) skb->data; skb_pull(skb, 1);
+diff --git a/net/ieee80211/ieee80211_rx.c b/net/ieee80211/ieee80211_rx.c
+--- a/net/ieee80211/ieee80211_rx.c
++++ b/net/ieee80211/ieee80211_rx.c
+@@ -533,8 +533,6 @@ int ieee80211_rx(struct ieee80211_device *ieee, struct sk_buff *skb,
+ 	}
+ #endif
+ 
+-	dev->last_rx = jiffies;
+-
+ #ifdef NOT_YET
+ 	if ((ieee->iw_mode == IW_MODE_MASTER ||
+ 	     ieee->iw_mode == IW_MODE_REPEAT) && !from_assoc_ap) {
+-- 

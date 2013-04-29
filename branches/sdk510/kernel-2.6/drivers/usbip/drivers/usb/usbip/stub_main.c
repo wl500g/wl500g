@@ -252,7 +252,7 @@ static int __init usbip_host_init(void)
 
 	stub_priv_cache = kmem_cache_create("usbip_priv",
 					    sizeof(struct stub_priv), 0,
-					    SLAB_HWCACHE_ALIGN, NULL, NULL);
+					    SLAB_HWCACHE_ALIGN, NULL);
 
 	if (!stub_priv_cache) {
 		pr_err("kmem_cache_create failed\n");

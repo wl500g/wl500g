@@ -205,7 +205,6 @@ obj-y := $(filter-out ipset nfs-utils quagga sysfsutils tcpdump,$(obj-y))
 endif
 
 # Kernel modules extension
-EXTRACFLAGS += -DLINUX26
 ko=.ko
 
 # Netfilter modules NOT to include in main FW
@@ -417,6 +416,7 @@ ifeq ($(CONFIG_USBNET),y)
 		$(SRCMODULESDIR)/drivers/net/usb/usbnet$(ko) \
 		$(SRCMODULESDIR)/drivers/net/usb/cdc_ether$(ko) \
 		$(SRCMODULESDIR)/drivers/net/usb/rndis_host$(ko) \
+		$(SRCMODULESDIR)/drivers/net/usb/cdc_ncm$(ko) \
 		$(SRCMODULESDIR)/drivers/net/usb/qmi_wwan$(ko)
 endif
 	# usb webcams
@@ -478,6 +478,9 @@ modules_install: .config
 	# other
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/lib/libcrc32c$(ko)
+	[ ! -f $(SRCMODULESDIR)/drivers/net/netconsole.ko ] || \
+	    install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/net/netconsole.ko
 	# extra strip modules without params
 	$(STRIP) --strip-unneeded $(MODULESDIR)/wl$(ko)
 
@@ -485,7 +488,10 @@ install: package-$(MODEL)
 	@true
 
 package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs
-	$(MAKE) www-pages-$*
+	# TO DO: implement config.js and remove this
+	$(MAKE) www-clean
+	$(MAKE) www MODEL=$(MODEL)
+	$(MAKE) www-install
 	# Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
 	echo $(RELEASE) > $(TARGETDIR)/.version
@@ -623,13 +629,13 @@ $(LINUXDIR)/.config: .config
 httpd: netconf shared nvram $(EXTRA_LIBS)
 
 rc: $(if $(CONFIG_UPNP),netconf,) shared nvram $(EXTRA_LIBS)
-	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')" EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 rc-install:
-	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')" EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 www-%:
-	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www
+	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www MODEL=$(MODEL)
 
 radvd/Makefile: radvd/Makefile.in
 	cd radvd && CFLAGS="-g -Os" \
@@ -856,7 +862,7 @@ dropbear/config.h: dropbear/config.h.in
 	    $(CONFIGURE) --disable-zlib --disable-shadow \
 	    --disable-lastlog --disable-utmp --disable-utmpx \
 	    --disable-wtmp --disable-wtmpx \
-	    --disable-libutil --disable-loginfunc --disable-pututline \
+	    --disable-loginfunc --disable-pututline \
 	    --disable-pututxline --enable-bundled-libtom
 
 dropbear: dropbear/config.h
@@ -1194,8 +1200,10 @@ libpcap/Makefile: libpcap/Makefile.in
 	cd libpcap && \
 	CFLAGS="-g -Os -ffunction-sections -fdata-sections -isystem$(LINUXDIR)/include $(EXTRACFLAGS)" \
 	$(CONFIGURE) --disable-shared --enable-static --disable-yydebug \
-	    --with-pcap=linux --without-septel --without-dag \
-	    $(if $(CONFIG_IPV6),--enable-ipv6,) ac_cv_linux_vers=2
+	    --with-pcap=linux --without-septel --without-dag --without-libnl \
+	    --disable-can --disable-bluetooth --disable-usb \
+	    $(if $(CONFIG_IPV6),--enable-ipv6,) \
+	    ac_cv_linux_vers=2 ac_cv_netfilter_can_compile=no
 
 libpcap: libpcap/Makefile
 	$(MAKE) -C $@
@@ -1209,7 +1217,9 @@ tcpdump/Makefile: tcpdump/Makefile.in
 	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --without-crypto \
 	    $(if $(CONFIG_IPV6),--enable-ipv6,) \
-	    ac_cv_linux_vers=2 td_cv_buggygetaddrinfo=no
+	    ac_cv_linux_vers=2 td_cv_buggygetaddrinfo=no \
+	    ac_cv_header_rpc_rpcent_h=no ac_cv_lib_rpc_main=no \
+	    ac_cv_path_PCAP_CONFIG=""
 
 tcpdump: libpcap tcpdump/Makefile
 	$(MAKE) -C $@ TCPDUMP_MINI=1
@@ -1286,15 +1296,10 @@ e2fsprogs-install:
 	install -D -m 0644 e2fsprogs/e2fsck/e2fsck.conf $(INSTALLDIR)/e2fsprogs/usr/etc/e2fsck.conf
 
 image-%:
-	$(MAKE) rc MODEL="$*"
 	$(MAKE) package-$* MODEL="$*"
 
 images-%:
-	$(MAKE) image-$* LANGUAGE="EN"
-#	$(MAKE) image-$* LANGUAGE="KR"
-#	$(MAKE) image-$* LANGUAGE="TW"
-#	$(MAKE) image-$* LANGUAGE="CN"
-#	$(MAKE) image-$* LANGUAGE="JP"
+	$(MAKE) image-$*
 
 $(img-y) $(img-n): dummy
 	$(MAKE) images-$@

@@ -180,6 +180,7 @@ ip6down_main(int argc, char **argv)
 }
 #endif
 
+#ifdef PPPD_AUTH_UNUSED
 /*
  * Called after the remote/local system successfully authenticates itself.
  * It is executed with the parameters:
@@ -213,3 +214,19 @@ int authdown_main(int argc, char **argv)
 
 	return 0;
 }
+
+/*
+ * Called when authentication is required, but failed
+ */
+int authfail_main(int argc, char **argv)
+{
+	const char *wan_ifname = argv[1];
+	char prefix[WAN_PREFIX_SZ];
+
+	if (wan_ifname == NULL ||
+	    wan_prefix(wan_ifname, prefix) < 0)
+		return EINVAL;
+
+	return 0;
+}
+#endif

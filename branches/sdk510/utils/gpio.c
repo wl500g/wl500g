@@ -60,11 +60,8 @@
 #define GPIO22 0x00400000
 #define GPIO23 0x00800000
 
-#ifdef LINUX26
 #define GPIOCTL
-#else
-#undef GPIOCTL
-#endif
+
 
 #ifdef GPIOCTL
 #include <sys/ioctl.h>
@@ -92,7 +89,6 @@ enum {
 #ifndef HAVE_GETMODEL
 enum {
 	MDL_UNKNOWN,
-	MDL_MN700,
 	MDL_WL700G,
 	MDL_WL500,
 	MDL_WL500GX,
@@ -183,8 +179,8 @@ static platform_t platforms[] = {
 	{MDL_WL330GE,	"ASUS WL-330gE",		{_PWR(GPIO0, 0)}},
 #ifndef HAVE_GETMODEL
 	{MDL_WL500,	"ASUS WL-500g",			{_PWR(GPIO0, 0)}},
-#endif
 	{MDL_WL500GX,	"ASUS WL-500g Deluxe",		{_PWR(GPIO0, 0)}},
+#endif
 	{MDL_WL500GP,	"ASUS WL-500g Premium",  	{_PWR(GPIO1, 0)}},
 	{MDL_WL500GPV2,	"ASUS WL-500g PremiumV2",	{_PWR(GPIO0, 0)}},
 	{MDL_WL500W,	"ASUS WL-500W",			{_PWR(GPIO5, 0)}},
@@ -203,8 +199,6 @@ static platform_t platforms[] = {
 	{MDL_RTN10U,	"ASUS RT-N10U",			{_PWR(GPIO6, 0), _WLN(GPIO5, 1), _WPS(GPIO7, 1), _USB(GPIO8, 1)}},
 	/* D-Link */
 	{MDL_DIR320,	"D-Link DIR-320",		{_PWR(GPIO0, GPIO0)}},
-	/* Microsoft */
-	{MDL_MN700,	"Microsoft MN-700",		{_PWR(GPIO6, GPIO6)}},
 	/* Netgear */
 	{MDL_WNR3500L,	"Netgear WNR3500L",		{_PWR(GPIO3, GPIO3)}},
 	{-1,		NULL},

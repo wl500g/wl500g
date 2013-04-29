@@ -435,8 +435,10 @@ static int do_standalone_mode(bool daemonize)
 	int nsockfd;
 	int i;
 
-	if (usbip_names_init(USBIDS_FILE))
-		err("failed to open %s", USBIDS_FILE);
+	if (usbip_use_debug) {
+		if (usbip_names_init(USBIDS_FILE))
+			err("failed to open %s", USBIDS_FILE);
+	}
 
 	if (usbip_host_driver_open()) {
 		err("please load " USBIP_CORE_MOD_NAME ".ko and "
@@ -447,6 +449,7 @@ static int do_standalone_mode(bool daemonize)
 	if (daemonize) {
 		if (daemon(0,0) < 0) {
 			err("daemonizing failed: %s", strerror(errno));
+			usbip_host_driver_close();
 			return -1;
 		}
 
@@ -455,14 +458,18 @@ static int do_standalone_mode(bool daemonize)
 	set_signal();
 
 	ai_head = do_getaddrinfo(NULL, PF_UNSPEC);
-	if (!ai_head)
+	if (!ai_head) {
+		usbip_host_driver_close();
 		return -1;
+	}
 
 	info("starting " PROGNAME " (%s)", usbip_version_string);
 
 	nsockfd = listen_all_addrinfo(ai_head, sockfdlist);
 	if (nsockfd <= 0) {
 		err("failed to open a listening socket");
+		freeaddrinfo(ai_head);
+		usbip_host_driver_close();
 		return -1;
 	}
 

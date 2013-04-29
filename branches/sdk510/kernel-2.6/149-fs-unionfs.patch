@@ -6104,7 +6104,7 @@ new file mode 100644
 +	unionfs_dentry_cachep =
 +		kmem_cache_create("unionfs_dentry",
 +				  sizeof(struct unionfs_dentry_info),
-+				  0, SLAB_RECLAIM_ACCOUNT, NULL, NULL);
++				  0, SLAB_RECLAIM_ACCOUNT, NULL);
 +
 +	return (unionfs_dentry_cachep ? 0 : -ENOMEM);
 +}
@@ -7503,7 +7503,7 @@ new file mode 100644
 +	unionfs_filldir_cachep =
 +		kmem_cache_create("unionfs_filldir",
 +				  sizeof(struct filldir_node), 0,
-+				  SLAB_RECLAIM_ACCOUNT, NULL, NULL);
++				  SLAB_RECLAIM_ACCOUNT, NULL);
 +
 +	return (unionfs_filldir_cachep ? 0 : -ENOMEM);
 +}
@@ -9478,7 +9478,7 @@ new file mode 100644
 +}
 +
 +/* unionfs inode cache constructor */
-+static void init_once(void *v, struct kmem_cache *cachep, unsigned long flags)
++static void init_once(void *v)
 +{
 +	struct unionfs_inode_info *i = v;
 +
@@ -9492,7 +9492,7 @@ new file mode 100644
 +	unionfs_inode_cachep =
 +		kmem_cache_create("unionfs_inode_cache",
 +				  sizeof(struct unionfs_inode_info), 0,
-+				  SLAB_RECLAIM_ACCOUNT, init_once, NULL);
++				  SLAB_RECLAIM_ACCOUNT, init_once);
 +	if (unlikely(!unionfs_inode_cachep))
 +		err = -ENOMEM;
 +	return err;

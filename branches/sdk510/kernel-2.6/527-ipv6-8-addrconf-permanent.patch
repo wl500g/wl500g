@@ -1,17 +1,18 @@
 IPv6: keep permanent addresses on admin down
 
+ eb867579311a9c1e998d6911af056772c400122a [IPV6]: inet6_dev on loopback should be kept until namespace stop.
  dc2b99f71ef477a31020511876ab4403fb7c4420 IPv6: keep permanent addresses on admin down
  84e8b803f1e16f3a2b8b80f80a63fa2f2f8a9be6 IPv6: addrconf notify when address is unavailable
  8f37ada5b5f6bfb4d251a7f510f249cb855b77b3 IPv6: fix race between cleanup and add/delete address
 
 ---
- net/ipv6/addrconf.c |   36 ++++++++++++++++++++++++++++++++++--
- 1 file changed, 34 insertions(+), 2 deletions(-)
+ net/ipv6/addrconf.c |   38 +++++++++++++++++++++++++++++++++++---
+ 1 file changed, 35 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -2532,7 +2532,7 @@ static struct notifier_block ipv6_dev_no
+@@ -2532,11 +2532,11 @@ static struct notifier_block ipv6_dev_no
  static int addrconf_ifdown(struct net_device *dev, int how)
  {
  	struct inet6_dev *idev;
@@ -20,6 +21,11 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  
  	ASSERT_RTNL();
  
+-	if (dev == &loopback_dev && how == 1)
++	if ((dev->flags & IFF_LOOPBACK) && how == 1)
+ 		how = 0;
+ 
+ 	rt6_ifdown(dev);
 @@ -2589,11 +2589,40 @@ static int addrconf_ifdown(struct net_de
  		write_lock_bh(&idev->lock);
  	}

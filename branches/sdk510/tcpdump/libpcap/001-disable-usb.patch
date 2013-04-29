@@ -1,0 +1,80 @@
+diff -uB a/configure.in b/configure.in
+--- a/configure.in
++++ b/configure.in
+@@ -1264,9 +1264,14 @@
+ AC_SUBST(MAN_FILE_FORMATS)
+ AC_SUBST(MAN_MISC_INFO)
+ 
+-dnl check for USB sniffing support
+-AC_MSG_CHECKING(for USB sniffing support)
+-case "$host_os" in
++AC_ARG_ENABLE([usb],
++[AC_HELP_STRING([--enable-usb],[enable USB support @<:@default=yes, if support available@:>@])],
++,enable_usb=yes)
++
++if test "x$enable_usb" != "xno" ; then
++  dnl check for USB sniffing support
++  AC_MSG_CHECKING(for USB sniffing support)
++  case "$host_os" in
+ linux*)
+ 	AC_DEFINE(PCAP_SUPPORT_USB, 1, [target host supports USB sniffing])
+ 	USB_SRC=pcap-usb-linux.c
+@@ -1321,9 +1326,10 @@
+ *)
+ 	AC_MSG_RESULT(no)
+ 	;;
+-esac
+-AC_SUBST(PCAP_SUPPORT_USB)
+-AC_SUBST(USB_SRC)
++  esac
++  AC_SUBST(PCAP_SUPPORT_USB)
++  AC_SUBST(USB_SRC)
++fi
+ 
+ dnl check for netfilter sniffing support
+ AC_MSG_CHECKING(whether the platform could support netfilter sniffing)
+diff -uB a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -1297,6 +1297,8 @@
+   --enable-optimizer-dbg  build optimizer debugging code
+   --enable-yydebug        build parser debugging code
+   --disable-universal     don't build universal on OS X
++  --enable-usb            enable USB support [default=yes, if support
++                          available]
+   --enable-bluetooth      enable Bluetooth support [default=yes, if support
+                           available]
+   --enable-can            enable CAN support [default=yes, if support
+@@ -10667,9 +10669,18 @@
+ 
+ 
+ 
+-{ echo "$as_me:$LINENO: checking for USB sniffing support" >&5
++# Check whether --enable-usb was given.
++if test "${enable_usb+set}" = set; then
++  enableval=$enable_usb;
++else
++  enable_usb=yes
++fi
++
++
++if test "x$enable_usb" != "xno" ; then
++    { echo "$as_me:$LINENO: checking for USB sniffing support" >&5
+ echo $ECHO_N "checking for USB sniffing support... $ECHO_C" >&6; }
+-case "$host_os" in
++  case "$host_os" in
+ linux*)
+ 
+ cat >>confdefs.h <<\_ACEOF
+@@ -11116,9 +11127,10 @@
+ 	{ echo "$as_me:$LINENO: result: no" >&5
+ echo "${ECHO_T}no" >&6; }
+ 	;;
+-esac
++  esac
+ 
+ 
++fi
+ 
+ { echo "$as_me:$LINENO: checking whether the platform could support netfilter sniffing" >&5
+ echo $ECHO_N "checking whether the platform could support netfilter sniffing... $ECHO_C" >&6; }

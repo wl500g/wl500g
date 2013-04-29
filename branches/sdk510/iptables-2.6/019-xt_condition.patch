@@ -1,0 +1,146 @@
+xt_condition match from xtables-addons project
+
+---
+ extensions/libxt_condition.c           |   99 +++++++++++++++++++++++++++++++++
+ extensions/libxt_condition.man         |    4 +
+ include/linux/netfilter/xt_condition.h |   16 +++++
+ 3 files changed, 119 insertions(+)
+ create mode 100644 extensions/libxt_condition.c
+ create mode 100644 extensions/libxt_condition.man
+ create mode 100644 include/linux/netfilter/xt_condition.h
+
+diff --git a/include/linux/netfilter/xt_condition.h b/include/linux/netfilter/xt_condition.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/netfilter/xt_condition.h
+@@ -0,0 +1,16 @@
++#ifndef _XT_CONDITION_H
++#define _XT_CONDITION_H
++
++enum {
++	CONDITION_NAME_LEN = 31,
++};
++
++struct xt_condition_mtinfo {
++	char name[CONDITION_NAME_LEN];
++	__u8 invert;
++
++	/* Used internally by the kernel */
++	void *condvar __attribute__((aligned(8)));
++};
++
++#endif /* _XT_CONDITION_H */
+diff --git a/extensions/libxt_condition.c b/extensions/libxt_condition.c
+new file mode 100644
+--- /dev/null
++++ b/extensions/libxt_condition.c
+@@ -0,0 +1,99 @@
++/*
++ *	"condition" match extension for iptables
++ *	Stephane Ouellette <ouellettes [at] videotron ca>, 2002-10-22
++ *	Massimiliano Hofer <max [at] nucleus it>, 2006-05-15
++ *	Jan Engelhardt <jengelh [at] medozas de>, 2008
++ *
++ *	This program is free software; you can redistribute it and/or modify it
++ *	under the terms of the GNU General Public License; either version 2
++ *	or 3 of the License, as published by the Free Software Foundation.
++ */
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <getopt.h>
++
++#include <xtables.h>
++#include <linux/netfilter/xt_condition.h>
++
++static void condition_help(void)
++{
++	printf(
++"condition match options:\n"
++"[!] --condition name    Match on boolean value stored in procfs file\n"
++);
++}
++
++static const struct option condition_opts[] = {
++	{.name = "condition", .has_arg = true, .val = 'X'},
++	{NULL},
++};
++
++static int condition_parse(int c, char **argv, int invert, unsigned int *flags,
++                           const void *entry, struct xt_entry_match **match)
++{
++	struct xt_condition_mtinfo *info = (void *)(*match)->data;
++
++	if (c == 'X') {
++		if (*flags)
++			xtables_error(PARAMETER_PROBLEM,
++				   "Can't specify multiple conditions");
++
++		if (strlen(optarg) < sizeof(info->name))
++			strcpy(info->name, optarg);
++		else
++			xtables_error(PARAMETER_PROBLEM,
++				   "File name too long");
++
++		info->invert = invert;
++		*flags = 1;
++		return true;
++	}
++
++	return false;
++}
++
++static void condition_check(unsigned int flags)
++{
++	if (flags == 0)
++		xtables_error(PARAMETER_PROBLEM,
++			   "Condition match: must specify --condition");
++}
++
++static void condition_print(const void *ip, const struct xt_entry_match *match,
++                            int numeric)
++{
++	const struct xt_condition_mtinfo *info = (const void *)match->data;
++
++	printf(" condition %s%s ", (info->invert) ? "!" : "", info->name);
++}
++
++
++static void condition_save(const void *ip, const struct xt_entry_match *match)
++{
++	const struct xt_condition_mtinfo *info = (const void *)match->data;
++
++	printf("%s --condition \"%s\" ", info->invert ? " !" : "", info->name);
++}
++
++static struct xtables_match condition_mt_reg = {
++	.name 		= "condition",
++	.revision	= 1,
++	.family		= NFPROTO_UNSPEC,
++	.version 	= XTABLES_VERSION,
++	.size 		= XT_ALIGN(sizeof(struct xt_condition_mtinfo)),
++	.userspacesize 	= XT_ALIGN(sizeof(struct xt_condition_mtinfo)),
++	.help 		= condition_help,
++	.parse 		= condition_parse,
++	.final_check	= condition_check,
++	.print 		= condition_print,
++	.save 		= condition_save,
++	.extra_opts 	= condition_opts,
++};
++
++void _init(void)
++{
++	xtables_register_match(&condition_mt_reg);
++}
+diff --git a/extensions/libxt_condition.man b/extensions/libxt_condition.man
+--- /dev/null
++++ b/extensions/libxt_condition.man
+new file mode 100644
+@@ -0,0 +1,4 @@
++This matches if a specific condition variable is (un)set.
++.TP
++[\fB!\fP] \fB\-\-condition\fP \fIname\fP
++Match on boolean value stored in /proc/net/nf_condition/\fIname\fP.
+-- 

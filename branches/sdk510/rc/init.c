@@ -36,6 +36,8 @@
 
 #include "rc.h"
 
+extern int router_model;
+
 #define loop_forever() do { sleep(1); } while (1)
 #define SHELL "/bin/sh"
 
@@ -348,11 +350,13 @@ void sysinit(void)
 	if (exists("/proc/modules") && exists(buf)) {
 		char module[80], *modules, *next;
 
+		if (router_model == MDL_WL700G && !nvram_get("kernel_mods")) {
+			modules = "ide-core aec62xx ide-disk";
+			foreach(module, modules, next)
+				insmod(module, NULL);
+		}
+
 		modules = nvram_get("kernel_mods") ? : 
-#if defined(MODEL_WL700G)
-		"ide-core aec62xx "
-		"ide-disk "
-#endif
 #if defined(__CONFIG_EMF__)
 		"emf igs "
 #endif
@@ -363,10 +367,10 @@ void sysinit(void)
 
 	update_tztime(1);
 
-#if defined(MODEL_WL700G)
-	insmod("gpiortc", "sda_mask=0x04", "scl_mask=0x20", NULL);
-	usleep(100000);
-#endif
+	if (router_model == MDL_WL700G) {
+		insmod("gpiortc", "sda_mask=0x04", "scl_mask=0x20", NULL);
+		usleep(100000);
+	}
 
 	if (exists(DEV_RTC))
 		eval("/sbin/hwclock", "-s");

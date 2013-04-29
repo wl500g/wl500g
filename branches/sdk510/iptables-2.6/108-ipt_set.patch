@@ -1,0 +1,255 @@
+From 2d280014e281b520280b1a11662aea0da2ffc59c
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Date: Thu, 11 Jun 2009 10:27:09 +0000
+Subject: Updated set/SET match and target to support multiple ipset protocols.
+
+By checking the protocol version of the kernel part, the sockopt type
+of ipset protocols are all supported. Forward compatibility with the
+netlink based protocol is missing.
+
+The --set option of the set match is replaced by --match-set to avoid
+clashing with the recent match, but the old option is also kept.
+
+Manpages are updated, references to bindings removed.
+---
+
+diff --git a/extensions/libipt_SET.c b/extensions/libipt_SET.c
+--- a/extensions/libipt_SET.c
++++ b/extensions/libipt_SET.c
+@@ -28,13 +28,13 @@ static void SET_help(void)
+ 	       " --del-set name flags\n"
+ 	       "		add/del src/dst IP/port from/to named sets,\n"
+ 	       "		where flags are the comma separated list of\n"
+-	       "		'src' and 'dst'.\n");
++	       "		'src' and 'dst' specifications.\n");
+ }
+ 
+ static const struct option SET_opts[] = {
+-	{"add-set",   1, NULL, '1'},
+-	{"del-set",   1, NULL, '2'},
+-	{ }
++	{ .name = "add-set", .has_arg = true, .val = '1'},
++	{ .name = "del-set", .has_arg = true, .val = '2'},
++	{ .name = NULL }
+ };
+ 
+ static void SET_init(struct xt_entry_target *target)
+diff --git a/extensions/libipt_SET.man b/extensions/libipt_SET.man
+--- a/extensions/libipt_SET.man
++++ b/extensions/libipt_SET.man
+@@ -5,12 +5,10 @@ by ipset(8).
+ add the address(es)/port(s) of the packet to the sets
+ .TP
+ \fB\-\-del\-set\fP \fIsetname\fP \fIflag\fP[\fB,\fP\fIflag\fP...]
+-delete the address(es)/port(s) of the packet from the sets,
++delete the address(es)/port(s) of the packet from the sets
++.IP
+ where flags are
+ .BR "src"
+ and/or
+ .BR "dst"
+-and there can be no more than six of them.
+-.PP
+-The bindings to follow must previously be defined in order to use 
+-multilevel adding/deleting by the SET target.
++specifications and there can be no more than six of them.
+diff --git a/extensions/libipt_set.c b/extensions/libipt_set.c
+--- a/extensions/libipt_set.c
++++ b/extensions/libipt_set.c
+@@ -24,15 +24,16 @@
+ static void set_help(void)
+ {
+ 	printf("set match options:\n"
+-	       " [!] --set     name flags\n"
+-	       "		'name' is the set name from to match,\n" 
+-	       "		'flags' are the comma separated list of\n"
+-	       "		'src' and 'dst'.\n");
++	       " [!] --match-set name flags\n"
++	       "		 'name' is the set name from to match,\n" 
++	       "		 'flags' are the comma separated list of\n"
++	       "		 'src' and 'dst' specifications.\n");
+ }
+ 
+ static const struct option set_opts[] = {
+-	{"set", 1, NULL, '1'},
+-	{ }
++	{ .name = "match-set", .has_arg = true, .val = '1'},
++	{ .name = "set",       .has_arg = true, .val = '2'},
++	{ .name = NULL }
+ };
+ 
+ static void set_init(struct xt_entry_match *match)
+@@ -53,10 +54,15 @@ static int set_parse(int c, char **argv, int invert, unsigned int *flags,
+ 	struct ipt_set_info *info = &myinfo->match_set;
+ 
+ 	switch (c) {
+-	case '1':		/* --set <set> <flag>[,<flag> */
++	case '2':
++#if 0
++		fprintf(stderr,
++			"--set option deprecated, please use --match-set\n");
++#endif
++	case '1':		/* --match-set <set> <flag>[,<flag> */
+ 		if (info->flags[0])
+ 			xtables_error(PARAMETER_PROBLEM,
+-				   "--set can be specified only once");
++				   "--match-set can be specified only once");
+ 
+ 		xtables_check_inverse(optarg, &invert, &optind, 0);
+ 		if (invert)
+@@ -66,7 +72,7 @@ static int set_parse(int c, char **argv, int invert, unsigned int *flags,
+ 		    || argv[optind][0] == '-'
+ 		    || argv[optind][0] == '!')
+ 			xtables_error(PARAMETER_PROBLEM,
+-				   "--set requires two args.");
++				   "--match-set requires two args.");
+ 
+ 		if (strlen(argv[optind-1]) > IP_SET_MAXNAMELEN - 1)
+ 			xtables_error(PARAMETER_PROBLEM,
+@@ -92,7 +98,7 @@ static void set_check(unsigned int flags)
+ {
+ 	if (!flags)
+ 		xtables_error(PARAMETER_PROBLEM,
+-			   "You must specify `--set' with proper arguments");
++			   "You must specify `--match-set' with proper arguments");
+ 	DEBUGP("final check OK\n");
+ }
+ 
+@@ -121,18 +127,16 @@ static void set_print(const void *ip, const struct xt_entry_match *match,
+ static void set_print(const void *ip, const struct xt_entry_match *match,
+                       int numeric)
+ {
+-	struct ipt_set_info_match *info = 
+-		(struct ipt_set_info_match *) match->data;
++	const struct ipt_set_info_match *info = (const void *)match->data;
+ 
+-	print_match("set", &info->match_set);
++	print_match("match-set", &info->match_set);
+ }
+ 
+ static void set_save(const void *ip, const struct xt_entry_match *match)
+ {
+-	struct ipt_set_info_match *info = 
+-		(struct ipt_set_info_match *) match->data;
++	const struct ipt_set_info_match *info = (const void *)match->data;
+ 
+-	print_match("--set", &info->match_set);
++	print_match("--match-set", &info->match_set);
+ }
+ 
+ static struct xtables_match set_mt_reg = {
+diff --git a/extensions/libipt_set.h b/extensions/libipt_set.h
+--- a/extensions/libipt_set.h
++++ b/extensions/libipt_set.h
+@@ -1,6 +1,7 @@
+ #ifndef _LIBIPT_SET_H
+ #define _LIBIPT_SET_H
+ 
++#include <unistd.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <errno.h>
+@@ -37,28 +38,40 @@ parse_bindings(const char *opt_arg, struct ipt_set_info *info)
+ 	free(saved);
+ }
+ 
+-static int get_set_getsockopt(void *data, socklen_t * size)
++static int get_version(unsigned *version)
+ {
+-	int sockfd = -1;
+-	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
++	int res, sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
++	struct ip_set_req_version req_version;
++	socklen_t size = sizeof(req_version);
++	
+ 	if (sockfd < 0)
+ 		xtables_error(OTHER_PROBLEM,
+ 			   "Can't open socket to ipset.\n");
+-	/* Send! */
+-	return getsockopt(sockfd, SOL_IP, SO_IP_SET, data, size);
++
++	req_version.op = IP_SET_OP_VERSION;
++	res = getsockopt(sockfd, SOL_IP, SO_IP_SET, &req_version, &size);
++	if (res != 0)
++		xtables_error(OTHER_PROBLEM,
++			   "Kernel module ip_set is not loaded in.\n");
++
++	*version = req_version.version;
++	
++	return sockfd;
+ }
+ 
+ static void get_set_byname(const char *setname, struct ipt_set_info *info)
+ {
+ 	struct ip_set_req_get_set req;
+ 	socklen_t size = sizeof(struct ip_set_req_get_set);
+-	int res;
++	int res, sockfd;
+ 
++	sockfd = get_version(&req.version);
+ 	req.op = IP_SET_OP_GET_BYNAME;
+-	req.version = IP_SET_PROTOCOL_VERSION;
+ 	strncpy(req.set.name, setname, IP_SET_MAXNAMELEN);
+ 	req.set.name[IP_SET_MAXNAMELEN - 1] = '\0';
+-	res = get_set_getsockopt(&req, &size);
++	res = getsockopt(sockfd, SOL_IP, SO_IP_SET, &req, &size);
++	close(sockfd);
++
+ 	if (res != 0)
+ 		xtables_error(OTHER_PROBLEM,
+ 			   "Problem when communicating with ipset, errno=%d.\n",
+@@ -79,12 +92,14 @@ static void get_set_byid(char * setname, ip_set_id_t idx)
+ {
+ 	struct ip_set_req_get_set req;
+ 	socklen_t size = sizeof(struct ip_set_req_get_set);
+-	int res;
++	int res, sockfd;
+ 
++	sockfd = get_version(&req.version);
+ 	req.op = IP_SET_OP_GET_BYINDEX;
+-	req.version = IP_SET_PROTOCOL_VERSION;
+ 	req.set.index = idx;
+-	res = get_set_getsockopt(&req, &size);
++	res = getsockopt(sockfd, SOL_IP, SO_IP_SET, &req, &size);
++	close(sockfd);
++
+ 	if (res != 0)
+ 		xtables_error(OTHER_PROBLEM,
+ 			   "Problem when communicating with ipset, errno=%d.\n",
+diff --git a/extensions/libipt_set.man b/extensions/libipt_set.man
+--- a/extensions/libipt_set.man
++++ b/extensions/libipt_set.man
+@@ -1,17 +1,19 @@
+ This modules macthes IP sets which can be defined by ipset(8).
+ .TP
+-[\fB!\fP] \fB\-\-set\fP \fIsetname\fP \fIflag\fP[\fB,\fP\fIflag\fP]...
+-where flags are
++[\fB!\fP] \fB\-\-match\-set\fP \fIsetname\fP \fIflag\fP[\fB,\fP\fIflag\fP]...
++where flags are the comma separated list of
+ .BR "src"
+ and/or
+ .BR "dst" 
+-and there can be no more than six of them. Hence the command
+-.nf
+- iptables \-A FORWARD \-m set \-\-set test src,dst
+-.fi
+-will match packets, for which (depending on the type of the set) the source
+-address or port number of the packet can be found in the specified set. If 
+-there is a binding belonging to the mached set element or there is a default 
+-binding for the given set, then the rule will match the packet only if 
+-additionally (depending on the type of the set) the destination address or 
+-port number of the packet can be found in the set according to the binding.
++specifications and there can be no more than six of them. Hence the command
++.IP
++ iptables \-A FORWARD \-m set \-\-match\-set test src,dst
++.IP
++will match packets, for which (if the set type is ipportmap) the source
++address and destination port pair can be found in the specified set. If
++the set type of the specified set is single dimension (for example ipmap),
++then the command will match packets for which the source address can be
++found in the specified set. 
++.PP
++The option \fB\-\-match\-set\fR can be replaced by \fB\-\-set\fR if that does 
++not clash with an option of other extensions.
+--
+cgit v0.9.1

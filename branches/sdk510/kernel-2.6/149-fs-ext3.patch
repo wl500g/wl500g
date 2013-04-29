@@ -2662,7 +2662,7 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
   * Journal_head storage management
   */
  static struct kmem_cache *journal_head_cache;
-@@ -1706,7 +1635,7 @@ static int journal_init_journal_head_cac
+@@ -1706,15 +1635,14 @@ static int journal_init_journal_head_cac
  {
  	int retval;
  
@@ -2671,9 +2671,10 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
  	journal_head_cache = kmem_cache_create("journal_head",
  				sizeof(struct journal_head),
  				0,		/* offset */
-@@ -1714,7 +1643,7 @@ static int journal_init_journal_head_cac
- 				NULL,		/* ctor */
- 				NULL);		/* dtor */
+ 				0,		/* flags */
+-				NULL,		/* ctor */
+-				NULL);		/* dtor */
++				NULL);		/* ctor */
  	retval = 0;
 -	if (journal_head_cache == 0) {
 +	if (!journal_head_cache) {
@@ -2814,6 +2815,16 @@ diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
  #endif
  
  struct kmem_cache *jbd_handle_cache;
+@@ -2028,8 +1937,7 @@ static int __init journal_init_handle_cache(void)
+ 				sizeof(handle_t),
+ 				0,		/* offset */
+ 				0,		/* flags */
+-				NULL,		/* ctor */
+-				NULL);		/* dtor */
++				NULL);		/* ctor */
+ 	if (jbd_handle_cache == NULL) {
+ 		printk(KERN_EMERG "JBD: failed to create handle cache\n");
+ 		return -ENOMEM;
 @@ -2044,7 +1951,6 @@ static void journal_destroy_caches(void)
  	journal_destroy_revoke_caches();
  	journal_destroy_journal_head_cache();
@@ -2942,18 +2953,19 @@ diff --git a/fs/jbd/revoke.c b/fs/jbd/revoke.c
 -	if (revoke_record_cache == 0)
 -		return -ENOMEM;
 +					   0,
-+					   SLAB_HWCACHE_ALIGN, NULL, NULL);
++					   SLAB_HWCACHE_ALIGN, NULL);
 +	if (!revoke_record_cache)
 +		goto record_cache_failure;
  
  	revoke_table_cache = kmem_cache_create("revoke_table",
  					   sizeof(struct jbd_revoke_table_s),
- 					   0, 0, NULL, NULL);
+-					   0, 0, NULL, NULL);
 -	if (revoke_table_cache == 0) {
 -		kmem_cache_destroy(revoke_record_cache);
 -		revoke_record_cache = NULL;
 -		return -ENOMEM;
 -	}
++					   0, 0, NULL);
 +	if (!revoke_table_cache)
 +		goto table_cache_failure;
 +

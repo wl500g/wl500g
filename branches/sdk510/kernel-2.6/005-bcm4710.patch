@@ -1,11 +1,11 @@
 
  arch/mips/kernel/genex.S      |    4 +
  arch/mips/kernel/head.S       |    2 
- arch/mips/mm/c-r4k.c          |   34 ++++++++++++
+ arch/mips/mm/c-r4k.c          |   38 +++++++++++++
  drivers/serial/8250.c         |    7 ++
  include/asm-mips/cacheflush.h |    2 
  include/asm-mips/r4kcache.h   |  119 +++++++++++++++++++++++++++++++++---------
- 6 files changed, 142 insertions(+), 26 deletions(-)
+ 6 files changed, 146 insertions(+), 26 deletions(-)
 
 diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/kernel/genex.S linux-2.6/arch/mips/kernel/genex.S
 --- linux-N12/arch/mips/kernel/genex.S	2009-08-27 07:53:58.000000000 +0400
@@ -14,7 +14,7 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/kernel/genex.S linux-2.6/arch/mi
  NESTED(except_vec3_generic, 0, sp)
  	.set	push
  	.set	noat
-+#ifdef CONFIG_BCM47XX
++#if defined(CONFIG_BCM47XX) && !defined(CONFIG_CPU_MIPSR2)
 +	nop
 +	nop
 +#endif
@@ -36,12 +36,16 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/kernel/head.S linux-2.6/arch/mip
 diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/mm/c-r4k.c
 --- linux-N12/arch/mips/mm/c-r4k.c	2009-08-27 07:53:52.000000000 +0400
 +++ linux-2.6/arch/mips/mm/c-r4k.c	2009-10-03 18:09:21.000000000 +0400
-@@ -29,6 +29,9 @@
+@@ -29,6 +29,13 @@
  #include <asm/cacheflush.h> /* for run_uncached() */
  
  
 +/* For enabling BCM4710 cache workarounds */
-+int bcm4710 = 0;
++#if defined(CONFIG_BCM47XX) && !defined(CONFIG_CPU_MIPSR2)
++static int war_bcm4710 __read_mostly = 0;
++#else
++#define war_bcm4710	0
++#endif
 +
  /*
   * Special Variant of smp_call_function for use by cache functions:
@@ -50,7 +54,7 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/m
  {
  	unsigned long  dc_lsize = cpu_dcache_line_size();
  
-+	if (bcm4710)
++	if (unlikely(war_bcm4710))
 +		r4k_blast_dcache_page = blast_dcache_page;
 +	else
  	if (dc_lsize == 0)
@@ -60,7 +64,7 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/m
  {
  	unsigned long dc_lsize = cpu_dcache_line_size();
  
-+	if (bcm4710)
++	if (unlikely(war_bcm4710))
 +		r4k_blast_dcache_page_indexed = blast_dcache_page_indexed;
 +	else
  	if (dc_lsize == 0)
@@ -70,7 +74,7 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/m
  {
  	unsigned long dc_lsize = cpu_dcache_line_size();
  
-+	if (bcm4710)
++	if (unlikely(war_bcm4710))
 +		r4k_blast_dcache = blast_dcache;
 +	else
  	if (dc_lsize == 0)
@@ -108,13 +112,13 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/m
  	set_uncached_handler (0x100, &except_vec2_generic, 0x80);
  
 +	/* Check if special workarounds are required */
-+#ifdef CONFIG_BCM47XX
++#if defined(CONFIG_BCM47XX) && !defined(CONFIG_CPU_MIPSR2)
 +	if (current_cpu_data.cputype == CPU_BCM4710 && (current_cpu_data.processor_id & 0xff) == 0) {
-+		printk("Enabling BCM4710A0 cache workarounds.\n");
-+		bcm4710 = 1;
++		printk(KERN_INFO "Enabling BCM4710A0 cache workarounds.\n");
++		war_bcm4710 = 1;
 +	} else
++		war_bcm4710 = 0;
 +#endif
-+		bcm4710 = 0;
 +
  	probe_pcache();
  	setup_scache();

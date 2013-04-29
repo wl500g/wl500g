@@ -1,12 +1,14 @@
 USB: CDC WDM driver backport from 3.6.11
 
+ c0f5ecee4e741667b2493c742b60b6218d40b3aa USB: cdc-wdm: fix buffer overflow
+
 ---
  drivers/usb/class/Kconfig   |   11 
  drivers/usb/class/Makefile  |    1 
- drivers/usb/class/cdc-wdm.c | 1044 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/usb/class/cdc-wdm.c | 1061 ++++++++++++++++++++++++++++++++++++++++++++
  include/linux/usb/cdc-wdm.h |   19 
  include/linux/usb/cdc.h     |    9 
- 5 files changed, 1084 insertions(+)
+ 5 files changed, 1101 insertions(+)
  create mode 100644 drivers/usb/class/cdc-wdm.c
  create mode 100644 include/linux/usb/cdc-wdm.h
 
@@ -14,7 +16,7 @@ diff --git a/drivers/usb/class/cdc-wdm.c b/drivers/usb/class/cdc-wdm.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/usb/class/cdc-wdm.c
-@@ -0,0 +1,1044 @@
+@@ -0,0 +1,1061 @@
 +/*
 + * cdc-wdm.c
 + *
@@ -73,6 +75,7 @@ new file mode 100644
 +#define WDM_RESPONDING		7
 +#define WDM_SUSPENDING		8
 +#define WDM_RESETTING		9
++#define WDM_OVERFLOW		10
 +
 +#define WDM_MAX			16
 +
@@ -172,6 +175,7 @@ new file mode 100644
 +{
 +	struct wdm_device *desc = urb->context;
 +	int status = urb->status;
++	int length = urb->actual_length;
 +
 +	spin_lock(&desc->iuspin);
 +	clear_bit(WDM_RESPONDING, &desc->flags);
@@ -202,9 +206,17 @@ new file mode 100644
 +	}
 +
 +	desc->rerr = status;
-+	desc->reslength = urb->actual_length;
-+	memmove(desc->ubuf + desc->length, desc->inbuf, desc->reslength);
-+	desc->length += desc->reslength;
++	if (length + desc->length > desc->wMaxCommand) {
++		/* The buffer would overflow */
++		set_bit(WDM_OVERFLOW, &desc->flags);
++	} else {
++		/* we may already be in overflow */
++		if (!test_bit(WDM_OVERFLOW, &desc->flags)) {
++			memmove(desc->ubuf + desc->length, desc->inbuf, length);
++			desc->length += length;
++			desc->reslength = length;
++		}
++	}
 +skip_error:
 +	wake_up(&desc->wait);
 +
@@ -449,6 +461,11 @@ new file mode 100644
 +			rv = -ENODEV;
 +			goto err;
 +		}
++		if (test_bit(WDM_OVERFLOW, &desc->flags)) {
++			clear_bit(WDM_OVERFLOW, &desc->flags);
++			rv = -ENOBUFS;
++			goto err;
++		}
 +		i++;
 +		if (file->f_flags & O_NONBLOCK) {
 +			if (!test_bit(WDM_READ, &desc->flags)) {
@@ -492,6 +509,7 @@ new file mode 100644
 +			spin_unlock_irq(&desc->iuspin);
 +			goto retry;
 +		}
++
 +		if (!desc->reslength) { /* zero length read */
 +			dev_dbg(&desc->intf->dev, "%s: zero length - clearing WDM_READ\n", __func__);
 +			clear_bit(WDM_READ, &desc->flags);
@@ -1015,6 +1033,7 @@ new file mode 100644
 +	struct wdm_device *desc = wdm_find_device(intf);
 +	int rv;
 +
++	clear_bit(WDM_OVERFLOW, &desc->flags);
 +	clear_bit(WDM_RESETTING, &desc->flags);
 +	rv = recover_from_urb_loss(desc);
 +	mutex_unlock(&desc->wlock);

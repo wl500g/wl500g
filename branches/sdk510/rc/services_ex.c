@@ -46,11 +46,6 @@ static int umount_all_part(const char *product, int scsi_host_no);
 static struct mntent *findmntent(const char *file);
 static int stop_lltd(void);
 
-void diag_PaN(void)
-{
-   fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
-}
-
 static size_t fappend(const char *name, FILE *f)
 {
 	size_t size = 0, count;
@@ -918,7 +913,7 @@ stop_usb(void)
 	rmmod("soundcore");
 	killall("lpd");
 	killall("p910nd");
-        rmmod("usblp");
+	rmmod("usblp");
 
 	umount("/proc/bus/usb");
 
@@ -1282,7 +1277,6 @@ static int umount_all_part(const char *product, int scsi_host_no)
 	    int t_host_no;
 	    int len;
 
-#ifdef LINUX26
 	/* /sys/bus/scsi/devices/<host_no>:x:x:x/block:[sda|sdb|...] */
 	    if ((usb_dev_disc = opendir("/sys/bus/scsi/devices")))
     	    {
@@ -1357,54 +1351,6 @@ dev_found:
 		}
 		closedir(usb_dev_disc);
 	    }
-#else /* !LINUX26 */
-	/* ../scsi/host#/bus0/target0/lun# */
-	    if ((usb_dev_disc = opendir("/dev/discs")))
-    	    {
-		while ((dp = readdir(usb_dev_disc))) {
-		    if (strncmp(dp->d_name, "disc", 4) != 0)
-                    	continue;
-		    snprintf(discs_path, sizeof(discs_path), "%s/%s", "/dev/discs", dp->d_name);
-		    len = readlink(discs_path, scsi_dev_link, sizeof(scsi_dev_link) - 1);
-                    if (len < 0)
-                    	continue;
-
-		    scsi_dev_link[len] = '\0';
-		    if (strncmp(scsi_dev_link, "../scsi/host", 12))
-                    	continue;
-
-		    t_host_no = atoi(scsi_dev_link + 12);
-		    if (t_host_no != scsi_host_no)
-                    	continue;
-
-		    /* We have found a disc that is on this controller.
-            	     * Loop thru all the partitions on this disc.
-	             */
-		    if ((part_fp = fopen("/proc/partitions", "r")))
-		    {
-			while (fgets(buf, sizeof(buf) - 1, part_fp))
-			{
-			    if (sscanf(buf, " %*s %*s %*s %s", parts) == 1)
-			    {
-				if (strncmp(parts, scsi_dev_link+3, len-3) == 0
-				     && strncmp(parts + (len-3), "/part", 5) == 0)
-				{
-				    snprintf(umount_dir, sizeof(umount_dir), "%s%s", discs_path, parts + (len-3));
-				    if ((mnt = findmntent(umount_dir)))
-				    {
-					if (!umount(mnt->mnt_dir))
-					    unlink(mnt->mnt_dir);
-				    }
-				}
-			    }
-			}
-			fclose(part_fp);
-		    } /* partitions loop */
-
-		}
-		closedir(usb_dev_disc);
-            }
-#endif /* LINUX26 */
 
 	}
 	else if ((dir_to_open = opendir("/tmp/mnt")))
@@ -1785,7 +1731,7 @@ hotplug_usb(void)
 		// see http://www.usb.org/developers/defined_class
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 		/* communication device */
-		if (strncmp(interface, "255/" ,4) == 0 || // Vendor specific
+		if (strncmp(interface, "255/", 4) == 0 || // Vendor specific
 			strncmp(interface, "2/", 2) == 0) // Communications and CDC Control
 		{
 			hotplug_network_device( interface, action, product, device );
@@ -1794,15 +1740,7 @@ hotplug_usb(void)
 		/* usb storage */
 		if (strncmp(interface, "8/", 2) == 0)
 		{
-#ifdef LINUX26
 			int scsi_host_no = -2;
-#else
-			char *scsi_host = getenv("SCSI_HOST");
-			int scsi_host_no = -1;
-
-			if (scsi_host)
-				scsi_host_no = atoi(scsi_host);
-#endif /* LINUX26 */
 #if defined(__CONFIG_MODEM__)
 			hotplug_usb_modeswitch( interface, action, product, device );
 #endif

@@ -1,0 +1,49 @@
+gcc 4.6 warnings fixes from upstream
+
+diff --git a/libusb/libusbi.h b/libusb/libusbi.h
+--- a/libusb/libusbi.h
++++ b/libusb/libusbi.h
+@@ -25,6 +25,7 @@
+ 
+ #include <poll.h>
+ #include <pthread.h>
++#include <stdint.h>
+ #include <stddef.h>
+ #include <time.h>
+ 
+@@ -46,7 +47,7 @@ struct list_head {
+  * 	member - the list_head element in "type" 
+  */
+ #define list_entry(ptr, type, member) \
+-	((type *)((char *)(ptr) - (unsigned long)(&((type *)0L)->member)))
++	((type *)((uintptr_t)(ptr) - (uintptr_t)offsetof(type, member)))
+ 
+ /* Get each entry from a list
+  *	pos - A structure pointer has a "member" element
+diff --git a/libusb/os/linux_usbfs.c b/libusb/os/linux_usbfs.c
+--- a/libusb/os/linux_usbfs.c
++++ b/libusb/os/linux_usbfs.c
+@@ -367,7 +367,7 @@ static int sysfs_get_active_config(struc
+ 			"read bConfigurationValue failed ret=%d errno=%d", r, errno);
+ 		return LIBUSB_ERROR_IO;
+ 	} else if (r == 0) {
+-		usbi_err(DEVICE_CTX(dev), "device unconfigured");
++		usbi_dbg("device unconfigured");
+ 		*config = -1;
+ 		return 0;
+ 	}
+@@ -1091,8 +1091,13 @@ static int op_get_configuration(struct l
+ 		return LIBUSB_ERROR_NOT_SUPPORTED;
+ 
+ 	r = sysfs_get_active_config(handle->dev, config);
+-	if (*config == -1)
++	if (r < 0)
++		return r;
++
++	if (*config == -1) {
++		usbi_err(HANDLE_CTX(handle), "device unconfigured");
+ 		*config = 0;
++	}
+ 
+ 	return 0;
+ }

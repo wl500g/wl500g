@@ -22,12 +22,16 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <wlioctl.h>
 #include <netconf.h>
 #include <nvparse.h>
 #include "rc.h"
 #include "mtd.h"
+
+extern int router_model;
 
 #define XSTR(s) STR(s)
 #define STR(s) #s
@@ -174,11 +178,7 @@ void getsyspara(void)
 
 	get_fw_ver(productid, fwver);
 
-	// its a ugle solution for Product ID
-	if (strstr(productid, "WL500gx"))
-		nvram_set("productid", "WL500g.Deluxe");
-	else
-		nvram_set("productid", trim_r(productid));
+	nvram_set("productid", trim_r(productid));
 	nvram_set("firmver", trim_r(fwver));
 }
 
@@ -626,8 +626,22 @@ void convert_asus_values()
 #ifdef __CONFIG_USBNET__
 	else if (nvram_match("wan_proto", "usbnet")) {
 		nvram_set("wan0_pppoe_ipaddr", nvram_safe_get("wan_ipaddr"));
+		nvram_set("wan0_usbnet_subtype", nvram_safe_get("wan_usbnet_subtype"));
 		nvram_set("wan0_ifname", "wan0");
 		nvram_unset("wan0_usb_ifname");
+
+		nvram_set("wan0_modem_username", nvram_safe_get("wan_modem_username"));
+		nvram_set("wan0_modem_passwd", nvram_safe_get("wan_modem_passwd"));
+		nvram_set("wan0_modem_usbloc", nvram_safe_get("wan_modem_usbloc"));
+		nvram_set("wan0_modem_apn", nvram_safe_get("wan_modem_apn"));
+		nvram_set("wan0_modem_autodetect", nvram_safe_get("wan_modem_autodetect"));
+		nvram_set("wan0_modem_vid", nvram_safe_get("wan_modem_vid"));
+		nvram_set("wan0_modem_pid", nvram_safe_get("wan_modem_pid"));
+		nvram_set("wan0_modem_pdata", nvram_safe_get("wan_modem_pdata"));
+		nvram_set("wan0_modem_pui", nvram_safe_get("wan_modem_pui"));
+		nvram_set("wan0_usbnet_mtu", nvram_safe_get("wan_usbnet_mtu"));
+		nvram_set("wan0_modem_at_connect", nvram_safe_get("wan_modem_at_connect"));
+		nvram_set("wan0_modem_at_disconnect", nvram_safe_get("wan_modem_at_disconnect"));
 	}
 #endif
 
@@ -690,10 +704,10 @@ void convert_asus_values()
 
 	// clean some temp variables
 	nvram_set("usb_ftp_device", "");
-#if defined(MODEL_WL700G)
-	/* force mounting (boot_local and wl-hdd) */
-	nvram_set("usb_storage_device", "ide");
-#endif
+	if (router_model == MDL_WL700G) {
+		/* force mounting (boot_local and wl-hdd) */
+		nvram_set("usb_storage_device", "ide");
+	}
 	nvram_set("usb_web_device", "");
 	nvram_set("usb_audio_device", "");
 	nvram_set("usb_webdriver_x", "");
@@ -978,4 +992,32 @@ int router_totalram()
 
 	sysinfo(&si);
 	return si.totalram;
+}
+
+/* Checks existence of process in memory by pidfile
+ *  returns zero if process seems to be dead
+ */
+int
+proc_check_pid(const char *pidfile)
+{
+	FILE *fp;
+	pid_t pid;
+	char tmp[32];
+	struct stat f_st;
+
+	fp = fopen(pidfile, "r");
+	if (fp && fgets(tmp, sizeof(tmp), fp))
+	{
+		fclose(fp);
+		pid = strtoul(tmp, NULL, 0);
+		if (pid > 0)
+		{
+			memset(tmp, 0, sizeof(tmp));
+			sprintf(tmp, "/proc/%d", pid);
+			if (lstat(tmp, &f_st) == 0)
+				return S_ISDIR(f_st.st_mode);
+		}
+	}
+
+	return 0;
 }

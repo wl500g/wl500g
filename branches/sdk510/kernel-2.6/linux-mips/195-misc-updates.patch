@@ -1,6 +1,5 @@
 [MIPS] Updates from upstream
 
- 603c338bdd455952d768fc24bf2c754dd4229aed [MIPS] TLB: Fix instruction bitmasks
  12323cacca2014dcf517d1988fcdb8e44a1f497b [MIPS]: constify function pointer tables
  11327ef77f8b6104bd4a855bbe783cce84416b03 [MIPS] unexport copy_user_highpage()
  715243e6c3e8e74202eb663a8e45880ff6a1dff7 [MIPS] unexport copy_to_user_page()
@@ -15,8 +14,7 @@
  arch/mips/kernel/time.c |    2 --
  arch/mips/mm/highmem.c  |    1 -
  arch/mips/mm/init.c     |    7 -------
- arch/mips/mm/tlbex.c    |    4 ++--
- 6 files changed, 3 insertions(+), 17 deletions(-)
+ 5 files changed, 1 insertion(+), 15 deletions(-)
 
 diff --git a/arch/mips/kernel/irq.c b/arch/mips/kernel/irq.c
 --- a/arch/mips/kernel/irq.c
@@ -99,25 +97,4 @@ diff --git a/arch/mips/mm/init.c b/arch/mips/mm/init.c
  #ifdef CONFIG_HIGHMEM
  unsigned long highstart_pfn, highend_pfn;
  
-diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
---- a/arch/mips/mm/tlbex.c
-+++ b/arch/mips/mm/tlbex.c
-@@ -78,7 +78,7 @@ enum fields
- 	SET = 0x200
- };
- 
--#define OP_MASK		0x2f
-+#define OP_MASK		0x3f
- #define OP_SH		26
- #define RS_MASK		0x1f
- #define RS_SH		21
-@@ -92,7 +92,7 @@ enum fields
- #define IMM_SH		0
- #define JIMM_MASK	0x3ffffff
- #define JIMM_SH		0
--#define FUNC_MASK	0x2f
-+#define FUNC_MASK	0x3f
- #define FUNC_SH		0
- #define SET_MASK	0x7
- #define SET_SH		0
 -- 

@@ -904,13 +904,13 @@ diff -urBp a/drivers/scsi/scsi.c b/drivers/scsi/scsi.c
 -		if (!pool->slab)
 +		pool->cmd_slab = kmem_cache_create(pool->cmd_name,
 +						   sizeof(struct scsi_cmnd), 0,
-+						   pool->slab_flags, NULL, NULL);
++						   pool->slab_flags, NULL);
 +		if (!pool->cmd_slab)
 +			goto fail;
 +
 +		pool->sense_slab = kmem_cache_create(pool->sense_name,
 +						     SCSI_SENSE_BUFFERSIZE, 0,
-+						     pool->slab_flags, NULL, NULL);
++						     pool->slab_flags, NULL);
 +		if (!pool->sense_slab) {
 +			kmem_cache_destroy(pool->cmd_slab);
  			goto fail;

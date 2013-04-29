@@ -654,7 +654,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  
 -	n = idp->layers * IDR_BITS;
 -	p = idp->top;
-+	p = rcu_dereference(idp->top);
++	p = rcu_dereference_raw(idp->top);
 +	if (!p)
 +		return NULL;
 +	n = (p->layer+1) * IDR_BITS;
@@ -670,7 +670,7 @@ diff --git a/lib/idr.c b/lib/idr.c
  		n -= IDR_BITS;
 -		p = p->ary[(id >> n) & IDR_MASK];
 +		BUG_ON(n != p->layer*IDR_BITS);
-+		p = rcu_dereference(p->ary[(id >> n) & IDR_MASK]);
++		p = rcu_dereference_raw(p->ary[(id >> n) & IDR_MASK]);
  	}
  	return((void *)p);
  }
@@ -703,7 +703,7 @@ diff --git a/lib/idr.c b/lib/idr.c
 +	struct idr_layer **paa = &pa[0];
 +
 +	n = idp->layers * IDR_BITS;
-+	p = rcu_dereference(idp->top);
++	p = rcu_dereference_raw(idp->top);
 +	max = 1 << n;
 +
 +	id = 0;
@@ -711,7 +711,7 @@ diff --git a/lib/idr.c b/lib/idr.c
 +		while (n > 0 && p) {
 +			n -= IDR_BITS;
 +			*paa++ = p;
-+			p = rcu_dereference(p->ary[(id >> n) & IDR_MASK]);
++			p = rcu_dereference_raw(p->ary[(id >> n) & IDR_MASK]);
 +		}
 +
 +		if (p) {
@@ -821,7 +821,14 @@ diff --git a/lib/idr.c b/lib/idr.c
  
  	return old_p;
  }
-@@ -451,12 +685,10 @@ static void idr_cache_ctor(void * idr_la
+@@ -451,18 +685,15 @@ static void idr_cache_ctor(void * idr_la
+ }
+ EXPORT_SYMBOL(idr_replace);
+ 
+-static void idr_cache_ctor(void * idr_layer, struct kmem_cache *idr_layer_cache,
+-		unsigned long flags)
++static void idr_cache_ctor(void *idr_layer)
+ {
  	memset(idr_layer, 0, sizeof(struct idr_layer));
  }
  
@@ -833,7 +840,7 @@ diff --git a/lib/idr.c b/lib/idr.c
 -			sizeof(struct idr_layer), 0, 0, idr_cache_ctor, NULL);
 -	return 0;
 +	idr_layer_cache = kmem_cache_create("idr_layer_cache",
-+				sizeof(struct idr_layer), 0, SLAB_PANIC, idr_cache_ctor, NULL);
++				sizeof(struct idr_layer), 0, SLAB_PANIC, idr_cache_ctor);
  }
  
  /**

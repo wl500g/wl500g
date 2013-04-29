@@ -32,9 +32,6 @@ extern char *nvram_get_list(const char *name, int index);
 })
 
 
-extern int nvram_add_list_x(const char *sid, const char *name, const char *value);
-extern int nvram_del_list_x(const char *sid, const char *name, int index);
-
 /*
  * Add the value into the end an NVRAM variable list
  * @param       name    name of variable to get

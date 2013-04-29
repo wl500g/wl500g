@@ -1,11 +1,188 @@
+
+ bfd129445f23c037d9a440ebfa4109e11c220301 [SCSI] switch sdev sysfs attributes to default attributes
+ 13ba9bcbfd6741e4c01ac5a505888b7b3a6d99da [SCSI] fix scsi_is_sdev_device() after switch to default sdev attributes
+ ea312552e94883efc42cfa4651bcf964f3110564 [SCSI] sg: increase sglist_len of the sg_scatter_hold structure
+ 7c07d613d22680f1caf2bd9ee49838ec7730b9da [SCSI] sg: use idr to replace static arrays
+ 53474c042c0e1be39557474c945ad4a8e653ad46 [SCSI] sg: fix /proc/scsi/sg/devices when no SCSI devices
+ a24484f281dda11e4fc0041a51907d3564da3d7f [SCSI] sg: set class_data after success
+ d07e03610ca1f4be373f32ad5b25ac00dbdb867d [SCSI] sg: handle class_device_create failure properly
+ a3d2c2e8f5e01e185013d8f944c0a26fdc558ad8 [SCSI] ch: handle class_device_create failure properly
+ da707c54c3424b4b50d4352c2103867284ba6724 [SCSI] ch: fix device minor number management bug
  8f333991ba8479fe8a9d72aea978db415e3c2f2a [SCSI] scsi: use get_unaligned_* helpers
  e4bf25fbcc64a87d7dc1d3318ca56c28382757e2 [SCSI] scsi:hosts.c Fix warning: variable 'rval' set but not used
 
 ---
- drivers/scsi/hosts.c    |    4 ++--
- drivers/scsi/libiscsi.c |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/scsi/ch.c         |   87 +++++++++------
+ drivers/scsi/hosts.c      |    4 
+ drivers/scsi/libiscsi.c   |    2 
+ drivers/scsi/scsi_sysfs.c |  139 +++++++++---------------
+ drivers/scsi/sg.c         |  265 ++++++++++++++++++++--------------------------
+ 5 files changed, 229 insertions(+), 268 deletions(-)
 
+diff --git a/drivers/scsi/ch.c b/drivers/scsi/ch.c
+--- a/drivers/scsi/ch.c
++++ b/drivers/scsi/ch.c
+@@ -21,6 +21,7 @@
+ #include <linux/compat.h>
+ #include <linux/chio.h>			/* here are all the ioctls */
+ #include <linux/mutex.h>
++#include <linux/idr.h>
+ 
+ #include <scsi/scsi.h>
+ #include <scsi/scsi_cmnd.h>
+@@ -33,6 +34,7 @@
+ 
+ #define CH_DT_MAX       16
+ #define CH_TYPES        8
++#define CH_MAX_DEVS     128
+ 
+ MODULE_DESCRIPTION("device driver for scsi media changer devices");
+ MODULE_AUTHOR("Gerd Knorr <kraxel@bytesex.org>");
+@@ -113,9 +115,8 @@ typedef struct {
+ 	struct mutex	    lock;
+ } scsi_changer;
+ 
+-static LIST_HEAD(ch_devlist);
+-static DEFINE_SPINLOCK(ch_devlist_lock);
+-static int ch_devcount;
++static DEFINE_IDR(ch_index_idr);
++static DEFINE_SPINLOCK(ch_index_lock);
+ 
+ static struct scsi_driver ch_template =
+ {
+@@ -598,20 +599,17 @@ ch_release(struct inode *inode, struct file *file)
+ static int
+ ch_open(struct inode *inode, struct file *file)
+ {
+-	scsi_changer *tmp, *ch;
++	scsi_changer *ch;
+ 	int minor = iminor(inode);
+ 
+-	spin_lock(&ch_devlist_lock);
+-	ch = NULL;
+-	list_for_each_entry(tmp,&ch_devlist,list) {
+-		if (tmp->minor == minor)
+-			ch = tmp;
+-	}
++	spin_lock(&ch_index_lock);
++	ch = idr_find(&ch_index_idr, minor);
++
+ 	if (NULL == ch || scsi_device_get(ch->device)) {
+-		spin_unlock(&ch_devlist_lock);
++		spin_unlock(&ch_index_lock);
+ 		return -ENXIO;
+ 	}
+-	spin_unlock(&ch_devlist_lock);
++	spin_unlock(&ch_index_lock);
+ 
+ 	file->private_data = ch;
+ 	return 0;
+@@ -914,8 +912,10 @@ static int ch_probe(struct device *dev)
+ static int ch_probe(struct device *dev)
+ {
+ 	struct scsi_device *sd = to_scsi_device(dev);
++	struct class_device *class_dev;
++	int minor, ret = -ENOMEM;
+ 	scsi_changer *ch;
+-	
++
+ 	if (sd->type != TYPE_MEDIUM_CHANGER)
+ 		return -ENODEV;
+ 
+@@ -923,47 +922,63 @@ static int ch_probe(struct device *dev)
+ 	if (NULL == ch)
+ 		return -ENOMEM;
+ 
+-	ch->minor = ch_devcount;
++	if (!idr_pre_get(&ch_index_idr, GFP_KERNEL))
++		goto free_ch;
++
++	spin_lock(&ch_index_lock);
++	ret = idr_get_new(&ch_index_idr, ch, &minor);
++	spin_unlock(&ch_index_lock);
++
++	if (ret)
++		goto free_ch;
++
++	if (minor > CH_MAX_DEVS) {
++		ret = -ENODEV;
++		goto remove_idr;
++	}
++
++	ch->minor = minor;
+ 	sprintf(ch->name,"ch%d",ch->minor);
++
++	class_dev = class_device_create(ch_sysfs_class, NULL,
++					MKDEV(SCSI_CHANGER_MAJOR, ch->minor),
++					dev, "s%s", ch->name);
++	if (IS_ERR(class_dev)) {
++		printk(KERN_WARNING "ch%d: class_device_create failed\n",
++		       ch->minor);
++		ret = PTR_ERR(class_dev);
++		goto remove_idr;
++	}
++
+ 	mutex_init(&ch->lock);
+ 	ch->device = sd;
+ 	ch_readconfig(ch);
+ 	if (init)
+ 		ch_init_elem(ch);
+ 
+-	class_device_create(ch_sysfs_class, NULL,
+-			    MKDEV(SCSI_CHANGER_MAJOR,ch->minor),
+-			    dev, "s%s", ch->name);
+-
++	dev_set_drvdata(dev, ch);
+ 	sdev_printk(KERN_INFO, sd, "Attached scsi changer %s\n", ch->name);
+-	
++
+-	spin_lock(&ch_devlist_lock);
+-	list_add_tail(&ch->list,&ch_devlist);
+-	ch_devcount++;
+-	spin_unlock(&ch_devlist_lock);
+ 	return 0;
++remove_idr:
++	idr_remove(&ch_index_idr, minor);
++free_ch:
++	kfree(ch);
++	return ret;
+ }
+ 
+ static int ch_remove(struct device *dev)
+ {
+-	struct scsi_device *sd = to_scsi_device(dev);
+-	scsi_changer *tmp, *ch;
++	scsi_changer *ch = dev_get_drvdata(dev);
+ 
+-	spin_lock(&ch_devlist_lock);
+-	ch = NULL;
+-	list_for_each_entry(tmp,&ch_devlist,list) {
+-		if (tmp->device == sd)
+-			ch = tmp;
+-	}
+-	BUG_ON(NULL == ch);
+-	list_del(&ch->list);
+-	spin_unlock(&ch_devlist_lock);
++	spin_lock(&ch_index_lock);
++	idr_remove(&ch_index_idr, ch->minor);
++	spin_unlock(&ch_index_lock);
+ 
+ 	class_device_destroy(ch_sysfs_class,
+ 			     MKDEV(SCSI_CHANGER_MAJOR,ch->minor));
+ 	kfree(ch->dt);
+ 	kfree(ch);
+-	ch_devcount--;
+ 	return 0;
+ }
+ 
+@@ -1007,6 +1015,7 @@ static void __exit exit_ch_module(void)
+ 	scsi_unregister_driver(&ch_template.gendrv);
+ 	unregister_chrdev(SCSI_CHANGER_MAJOR, "ch");
+ 	class_destroy(ch_sysfs_class);
++	idr_destroy(&ch_index_idr);
+ }
+ 
+ module_init(init_ch_module);
 diff --git a/drivers/scsi/hosts.c b/drivers/scsi/hosts.c
 --- a/drivers/scsi/hosts.c
 +++ b/drivers/scsi/hosts.c
@@ -38,5 +215,667 @@ diff --git a/drivers/scsi/libiscsi.c b/drivers/scsi/libiscsi.c
 +		senselen = get_unaligned_be16(data);
  		if (datalen < senselen)
  			goto invalid_datalen;
+ 
+diff --git a/drivers/scsi/sg.c b/drivers/scsi/sg.c
+--- a/drivers/scsi/sg.c
++++ b/drivers/scsi/sg.c
+@@ -43,6 +43,7 @@ static int sg_version_num = 30534;	/* 2 digits for each component */
+ #include <linux/poll.h>
+ #include <linux/moduleparam.h>
+ #include <linux/cdev.h>
++#include <linux/idr.h>
+ #include <linux/seq_file.h>
+ #include <linux/blkdev.h>
+ #include <linux/delay.h>
+@@ -99,12 +100,11 @@ static int scatter_elem_sz_prev = SG_SCATTER_SZ;
+ #define SG_SECTOR_SZ 512
+ #define SG_SECTOR_MSK (SG_SECTOR_SZ - 1)
+ 
+-#define SG_DEV_ARR_LUMP 32	/* amount to over allocate sg_dev_arr by */
+-
+ static int sg_add(struct class_device *, struct class_interface *);
+ static void sg_remove(struct class_device *, struct class_interface *);
+ 
+-static DEFINE_RWLOCK(sg_dev_arr_lock);	/* Also used to lock
++static DEFINE_IDR(sg_index_idr);
++static DEFINE_RWLOCK(sg_index_lock);	/* Also used to lock
+ 							   file descriptor list for device */
+ 
+ static struct class_interface sg_interface = {
+@@ -114,7 +114,7 @@ static struct class_interface sg_interface = {
+ 
+ typedef struct sg_scatter_hold { /* holding area for scsi scatter gather info */
+ 	unsigned short k_use_sg; /* Count of kernel scatter-gather pieces */
+-	unsigned short sglist_len; /* size of malloc'd scatter-gather list ++ */
++	unsigned sglist_len; /* size of malloc'd scatter-gather list ++ */
+ 	unsigned bufflen;	/* Size of (aggregate) data buffer */
+ 	unsigned b_malloc_len;	/* actual len malloc'ed in buffer */
+ 	struct scatterlist *buffer;/* scatter list */
+@@ -162,6 +162,7 @@ typedef struct sg_device { /* holds the state of each scsi generic device */
+ 	struct scsi_device *device;
+ 	wait_queue_head_t o_excl_wait;	/* queue open() when O_EXCL in use */
+ 	int sg_tablesize;	/* adapter's max scatter-gather table size */
++	u32 index;		/* device index number */
+ 	Sg_fd *headfp;		/* first open fd belonging to this device */
+ 	volatile char detached;	/* 0->attached, 1->detached pending removal */
+ 	volatile char exclude;	/* opened for exclusive access */
+@@ -209,10 +210,6 @@ static Sg_device *sg_get_dev(int dev);
+ static int sg_last_dev(void);
+ #endif
+ 
+-static Sg_device **sg_dev_arr = NULL;
+-static int sg_dev_max;
+-static int sg_nr_dev;
+-
+ #define SZ_SG_HEADER sizeof(struct sg_header)
+ #define SZ_SG_IO_HDR sizeof(sg_io_hdr_t)
+ #define SZ_SG_IOVEC sizeof(sg_iovec_t)
+@@ -1331,40 +1328,35 @@ static struct class *sg_sysfs_class;
+ 
+ static int sg_sysfs_valid = 0;
+ 
+-static int sg_alloc(struct gendisk *disk, struct scsi_device *scsidp)
++static Sg_device *sg_alloc(struct gendisk *disk, struct scsi_device *scsidp)
+ {
+ 	struct request_queue *q = scsidp->request_queue;
+ 	Sg_device *sdp;
+ 	unsigned long iflags;
+-	void *old_sg_dev_arr = NULL;
+-	int k, error;
++	int error;
++	u32 k;
+ 
+ 	sdp = kzalloc(sizeof(Sg_device), GFP_KERNEL);
+ 	if (!sdp) {
+ 		printk(KERN_WARNING "kmalloc Sg_device failure\n");
+-		return -ENOMEM;
++		return ERR_PTR(-ENOMEM);
++	}
++	error = -ENOMEM;
++	if (!idr_pre_get(&sg_index_idr, GFP_KERNEL)) {
++		printk(KERN_WARNING "idr expansion Sg_device failure\n");
++		goto out;
+ 	}
+ 
+-	write_lock_irqsave(&sg_dev_arr_lock, iflags);
+-	if (unlikely(sg_nr_dev >= sg_dev_max)) {	/* try to resize */
+-		Sg_device **tmp_da;
+-		int tmp_dev_max = sg_nr_dev + SG_DEV_ARR_LUMP;
+-		write_unlock_irqrestore(&sg_dev_arr_lock, iflags);
+-
+-		tmp_da = kzalloc(tmp_dev_max * sizeof(Sg_device *), GFP_KERNEL);
+-		if (unlikely(!tmp_da))
+-			goto expand_failed;
++	write_lock_irqsave(&sg_index_lock, iflags);
++	error = idr_get_new(&sg_index_idr, sdp, &k);
++	write_unlock_irqrestore(&sg_index_lock, iflags);
+ 
+-		write_lock_irqsave(&sg_dev_arr_lock, iflags);
+-		memcpy(tmp_da, sg_dev_arr, sg_dev_max * sizeof(Sg_device *));
+-		old_sg_dev_arr = sg_dev_arr;
+-		sg_dev_arr = tmp_da;
+-		sg_dev_max = tmp_dev_max;
++	if (error) {
++		printk(KERN_WARNING "idr allocation Sg_device failure: %d\n",
++		       error);
++		goto out;
+ 	}
+ 
+-	for (k = 0; k < sg_dev_max; k++)
+-		if (!sg_dev_arr[k])
+-			break;
+ 	if (unlikely(k >= SG_MAX_DEVS))
+ 		goto overflow;
+ 
+@@ -1375,25 +1367,17 @@ static int sg_alloc(struct gendisk *disk, struct scsi_device *scsidp)
+ 	sdp->device = scsidp;
+ 	init_waitqueue_head(&sdp->o_excl_wait);
+ 	sdp->sg_tablesize = min(q->max_hw_segments, q->max_phys_segments);
++	sdp->index = k;
+ 
+-	sg_nr_dev++;
+-	sg_dev_arr[k] = sdp;
+-	write_unlock_irqrestore(&sg_dev_arr_lock, iflags);
+-	error = k;
+-
++	error = 0;
+  out:
+-	if (error < 0)
++	if (error) {
+ 		kfree(sdp);
+-	kfree(old_sg_dev_arr);
+-	return error;
+-
+- expand_failed:
+-	printk(KERN_WARNING "sg_alloc: device array cannot be resized\n");
+-	error = -ENOMEM;
+-	goto out;
++		return ERR_PTR(error);
++	}
++	return sdp;
+ 
+  overflow:
+-	write_unlock_irqrestore(&sg_dev_arr_lock, iflags);
+ 	sdev_printk(KERN_WARNING, scsidp,
+ 		    "Unable to attach sg device type=%d, minor "
+ 		    "number exceeds %d\n", scsidp->type, SG_MAX_DEVS - 1);
+@@ -1408,7 +1392,7 @@ sg_add(struct class_device *cl_dev, struct class_interface *cl_intf)
+ 	struct gendisk *disk;
+ 	Sg_device *sdp = NULL;
+ 	struct cdev * cdev = NULL;
+-	int error, k;
++	int error;
+ 	unsigned long iflags;
+ 
+ 	disk = alloc_disk(1);
+@@ -1427,15 +1411,14 @@ sg_add(struct class_device *cl_dev, struct class_interface *cl_intf)
+ 	cdev->owner = THIS_MODULE;
+ 	cdev->ops = &sg_fops;
+ 
+-	error = sg_alloc(disk, scsidp);
+-	if (error < 0) {
++	sdp = sg_alloc(disk, scsidp);
++	if (IS_ERR(sdp)) {
+ 		printk(KERN_WARNING "sg_alloc failed\n");
++		error = PTR_ERR(sdp);
+ 		goto out;
+ 	}
+-	k = error;
+-	sdp = sg_dev_arr[k];
+ 
+-	error = cdev_add(cdev, MKDEV(SCSI_GENERIC_MAJOR, k), 1);
++	error = cdev_add(cdev, MKDEV(SCSI_GENERIC_MAJOR, sdp->index), 1);
+ 	if (error)
+ 		goto cdev_add_err;
+ 
+@@ -1444,32 +1428,37 @@ sg_add(struct class_device *cl_dev, struct class_interface *cl_intf)
+ 		struct class_device * sg_class_member;
+ 
+ 		sg_class_member = class_device_create(sg_sysfs_class, NULL,
+-				MKDEV(SCSI_GENERIC_MAJOR, k), 
+-				cl_dev->dev, "%s", 
++				MKDEV(SCSI_GENERIC_MAJOR, sdp->index),
++				cl_dev->dev, "%s",
+ 				disk->disk_name);
+-		if (IS_ERR(sg_class_member))
+-			printk(KERN_WARNING "sg_add: "
+-				"class_device_create failed\n");
++		if (IS_ERR(sg_class_member)) {
++			printk(KERN_ERR "sg_add: "
++			       "class_device_create failed\n");
++			error = PTR_ERR(sg_class_member);
++			goto cdev_add_err;
++		}
+ 		class_set_devdata(sg_class_member, sdp);
+ 		error = sysfs_create_link(&scsidp->sdev_gendev.kobj, 
+ 					  &sg_class_member->kobj, "generic");
+ 		if (error)
+ 			printk(KERN_ERR "sg_add: unable to make symlink "
+-					"'generic' back to sg%d\n", k);
++					"'generic' back to sg%d\n", sdp->index);
+ 	} else
+-		printk(KERN_WARNING "sg_add: sg_sys INvalid\n");
++		printk(KERN_WARNING "sg_add: sg_sys Invalid\n");
+ 
+ 	sdev_printk(KERN_NOTICE, scsidp,
+-		    "Attached scsi generic sg%d type %d\n", k,scsidp->type);
++		    "Attached scsi generic sg%d type %d\n", sdp->index,
++		    scsidp->type);
+ 
++	class_set_devdata(cl_dev, sdp);
++
+ 	return 0;
+ 
+ cdev_add_err:
+-	write_lock_irqsave(&sg_dev_arr_lock, iflags);
+-	kfree(sg_dev_arr[k]);
+-	sg_dev_arr[k] = NULL;
+-	sg_nr_dev--;
+-	write_unlock_irqrestore(&sg_dev_arr_lock, iflags);
++	write_lock_irqsave(&sg_index_lock, iflags);
++	idr_remove(&sg_index_idr, sdp->index);
++	write_unlock_irqrestore(&sg_index_lock, iflags);
++	kfree(sdp);
+ 
+ out:
+ 	put_disk(disk);
+@@ -1482,64 +1466,56 @@ static void
+ sg_remove(struct class_device *cl_dev, struct class_interface *cl_intf)
+ {
+ 	struct scsi_device *scsidp = to_scsi_device(cl_dev->dev);
+-	Sg_device *sdp = NULL;
++	Sg_device *sdp = class_get_devdata(cl_dev);
+ 	unsigned long iflags;
+ 	Sg_fd *sfp;
+ 	Sg_fd *tsfp;
+ 	Sg_request *srp;
+ 	Sg_request *tsrp;
+-	int k, delay;
++	int delay;
+ 
+-	if (NULL == sg_dev_arr)
++	if (!sdp)
+ 		return;
++
+ 	delay = 0;
+-	write_lock_irqsave(&sg_dev_arr_lock, iflags);
+-	for (k = 0; k < sg_dev_max; k++) {
+-		sdp = sg_dev_arr[k];
+-		if ((NULL == sdp) || (sdp->device != scsidp))
+-			continue;	/* dirty but lowers nesting */
+-		if (sdp->headfp) {
+-			sdp->detached = 1;
+-			for (sfp = sdp->headfp; sfp; sfp = tsfp) {
+-				tsfp = sfp->nextfp;
+-				for (srp = sfp->headrp; srp; srp = tsrp) {
+-					tsrp = srp->nextrp;
+-					if (sfp->closed || (0 == sg_srp_done(srp, sfp)))
+-						sg_finish_rem_req(srp);
+-				}
+-				if (sfp->closed) {
+-					scsi_device_put(sdp->device);
+-					__sg_remove_sfp(sdp, sfp);
+-				} else {
+-					delay = 1;
+-					wake_up_interruptible(&sfp->read_wait);
+-					kill_fasync(&sfp->async_qp, SIGPOLL,
+-						    POLL_HUP);
+-				}
++	write_lock_irqsave(&sg_index_lock, iflags);
++	if (sdp->headfp) {
++		sdp->detached = 1;
++		for (sfp = sdp->headfp; sfp; sfp = tsfp) {
++			tsfp = sfp->nextfp;
++			for (srp = sfp->headrp; srp; srp = tsrp) {
++				tsrp = srp->nextrp;
++				if (sfp->closed || (0 == sg_srp_done(srp, sfp)))
++					sg_finish_rem_req(srp);
+ 			}
+-			SCSI_LOG_TIMEOUT(3, printk("sg_remove: dev=%d, dirty\n", k));
+-			if (NULL == sdp->headfp) {
+-				sg_dev_arr[k] = NULL;
++			if (sfp->closed) {
++				scsi_device_put(sdp->device);
++				__sg_remove_sfp(sdp, sfp);
++			} else {
++				delay = 1;
++				wake_up_interruptible(&sfp->read_wait);
++				kill_fasync(&sfp->async_qp, SIGPOLL,
++					    POLL_HUP);
+ 			}
+-		} else {	/* nothing active, simple case */
+-			SCSI_LOG_TIMEOUT(3, printk("sg_remove: dev=%d\n", k));
+-			sg_dev_arr[k] = NULL;
+ 		}
+-		sg_nr_dev--;
+-		break;
+-	}
+-	write_unlock_irqrestore(&sg_dev_arr_lock, iflags);
+-
+-	if (sdp) {
+-		sysfs_remove_link(&scsidp->sdev_gendev.kobj, "generic");
+-		class_device_destroy(sg_sysfs_class, MKDEV(SCSI_GENERIC_MAJOR, k));
+-		cdev_del(sdp->cdev);
+-		sdp->cdev = NULL;
+-		put_disk(sdp->disk);
+-		sdp->disk = NULL;
+-		if (NULL == sdp->headfp)
+-			kfree((char *) sdp);
+-	}
++		SCSI_LOG_TIMEOUT(3, printk("sg_remove: dev=%d, dirty\n", sdp->index));
++		if (NULL == sdp->headfp) {
++			idr_remove(&sg_index_idr, sdp->index);
++		}
++	} else {	/* nothing active, simple case */
++		SCSI_LOG_TIMEOUT(3, printk("sg_remove: dev=%d\n", sdp->index));
++		idr_remove(&sg_index_idr, sdp->index);
++	}
++	write_unlock_irqrestore(&sg_index_lock, iflags);
++
++	sysfs_remove_link(&scsidp->sdev_gendev.kobj, "generic");
++	class_device_destroy(sg_sysfs_class, MKDEV(SCSI_GENERIC_MAJOR, sdp->index));
++	cdev_del(sdp->cdev);
++	sdp->cdev = NULL;
++	put_disk(sdp->disk);
++	sdp->disk = NULL;
++	if (NULL == sdp->headfp)
++		kfree(sdp);
+ 
+ 	if (delay)
+ 		msleep(10);	/* dirty detach so delay device destruction */
+@@ -1609,9 +1585,7 @@ exit_sg(void)
+ 	sg_sysfs_valid = 0;
+ 	unregister_chrdev_region(MKDEV(SCSI_GENERIC_MAJOR, 0),
+ 				 SG_MAX_DEVS);
+-	kfree((char *)sg_dev_arr);
+-	sg_dev_arr = NULL;
+-	sg_dev_max = 0;
++	idr_destroy(&sg_index_idr);
+ }
+ 
+ static int
+@@ -2331,10 +2305,10 @@ sg_get_nth_sfp(Sg_device * sdp, int nth)
+ 	unsigned long iflags;
+ 	int k;
+ 
+-	read_lock_irqsave(&sg_dev_arr_lock, iflags);
++	read_lock_irqsave(&sg_index_lock, iflags);
+ 	for (k = 0, resp = sdp->headfp; resp && (k < nth);
+ 	     ++k, resp = resp->nextfp) ;
+-	read_unlock_irqrestore(&sg_dev_arr_lock, iflags);
++	read_unlock_irqrestore(&sg_index_lock, iflags);
+ 	return resp;
+ }
+ #endif
+@@ -2361,7 +2335,7 @@ sg_add_sfp(Sg_device * sdp, int dev)
+ 	sfp->cmd_q = SG_DEF_COMMAND_Q;
+ 	sfp->keep_orphan = SG_DEF_KEEP_ORPHAN;
+ 	sfp->parentdp = sdp;
+-	write_lock_irqsave(&sg_dev_arr_lock, iflags);
++	write_lock_irqsave(&sg_index_lock, iflags);
+ 	if (!sdp->headfp)
+ 		sdp->headfp = sfp;
+ 	else {			/* add to tail of existing list */
+@@ -2370,7 +2344,7 @@ sg_add_sfp(Sg_device * sdp, int dev)
+ 			pfp = pfp->nextfp;
+ 		pfp->nextfp = sfp;
+ 	}
+-	write_unlock_irqrestore(&sg_dev_arr_lock, iflags);
++	write_unlock_irqrestore(&sg_index_lock, iflags);
+ 	SCSI_LOG_TIMEOUT(3, printk("sg_add_sfp: sfp=0x%p\n", sfp));
+ 	if (unlikely(sg_big_buff != def_reserved_size))
+ 		sg_big_buff = def_reserved_size;
+@@ -2431,22 +2405,14 @@ sg_remove_sfp(Sg_device * sdp, Sg_fd * sfp)
+ 	if (0 == dirty) {
+ 		unsigned long iflags;
+ 
+-		write_lock_irqsave(&sg_dev_arr_lock, iflags);
++		write_lock_irqsave(&sg_index_lock, iflags);
+ 		__sg_remove_sfp(sdp, sfp);
+ 		if (sdp->detached && (NULL == sdp->headfp)) {
+-			int k, maxd;
+-
+-			maxd = sg_dev_max;
+-			for (k = 0; k < maxd; ++k) {
+-				if (sdp == sg_dev_arr[k])
+-					break;
+-			}
+-			if (k < maxd)
+-				sg_dev_arr[k] = NULL;
+-			kfree((char *) sdp);
++			idr_remove(&sg_index_idr, sdp->index);
++			kfree(sdp);
+ 			res = 1;
+ 		}
+-		write_unlock_irqrestore(&sg_dev_arr_lock, iflags);
++		write_unlock_irqrestore(&sg_index_lock, iflags);
+ 	} else {
+ 		/* MOD_INC's to inhibit unloading sg and associated adapter driver */
+ 		/* only bump the access_count if we actually succeeded in
+@@ -2546,16 +2512,25 @@ sg_allow_access(unsigned char opcode, char dev_type)
+ 
+ #ifdef CONFIG_SCSI_PROC_FS
+ static int
++sg_idr_max_id(int id, void *p, void *data)
++{
++	int *k = data;
++
++	if (*k < id)
++		*k = id;
++
++	return 0;
++}
++
++static int
+ sg_last_dev(void)
+ {
+-	int k;
++	int k = -1;
+ 	unsigned long iflags;
+ 
+-	read_lock_irqsave(&sg_dev_arr_lock, iflags);
+-	for (k = sg_dev_max - 1; k >= 0; --k)
+-		if (sg_dev_arr[k] && sg_dev_arr[k]->device)
+-			break;
+-	read_unlock_irqrestore(&sg_dev_arr_lock, iflags);
++	read_lock_irqsave(&sg_index_lock, iflags);
++	idr_for_each(&sg_index_idr, sg_idr_max_id, &k);
++	read_unlock_irqrestore(&sg_index_lock, iflags);
+ 	return k + 1;		/* origin 1 */
+ }
+ #endif
+@@ -2563,15 +2538,13 @@ sg_last_dev(void)
+ static Sg_device *
+ sg_get_dev(int dev)
+ {
+-	Sg_device *sdp = NULL;
++	Sg_device *sdp;
+ 	unsigned long iflags;
+ 
+-	if (sg_dev_arr && (dev >= 0)) {
+-		read_lock_irqsave(&sg_dev_arr_lock, iflags);
+-		if (dev < sg_dev_max)
+-			sdp = sg_dev_arr[dev];
+-		read_unlock_irqrestore(&sg_dev_arr_lock, iflags);
+-	}
++	read_lock_irqsave(&sg_index_lock, iflags);
++	sdp = idr_find(&sg_index_idr, dev);
++	read_unlock_irqrestore(&sg_index_lock, iflags);
++
+ 	return sdp;
+ }
+ 
+@@ -2805,8 +2778,6 @@ static void * dev_seq_start(struct seq_file *s, loff_t *pos)
+ 	if (! it)
+ 		return NULL;
+ 
+-	if (NULL == sg_dev_arr)
+-		return NULL;
+ 	it->index = *pos;
+ 	it->max = sg_last_dev();
+ 	if (it->index >= it->max)
+@@ -2942,8 +2913,8 @@ static int sg_proc_seq_show_debug(struct seq_file *s, void *v)
+ 	Sg_device *sdp;
+ 
+ 	if (it && (0 == it->index)) {
+-		seq_printf(s, "dev_max(currently)=%d max_active_device=%d "
+-			   "(origin 1)\n", sg_dev_max, (int)it->max);
++		seq_printf(s, "max_active_device=%d(origin 1)\n",
++			   (int)it->max);
+ 		seq_printf(s, " def_reserved_size=%d\n", sg_big_buff);
+ 	}
+ 	sdp = it ? sg_get_dev(it->index) : NULL;
+diff --git a/drivers/scsi/scsi_sysfs.c b/drivers/scsi/scsi_sysfs.c
+--- a/drivers/scsi/scsi_sysfs.c
++++ b/drivers/scsi/scsi_sysfs.c
+@@ -618,24 +618,31 @@ sdev_show_modalias(struct device *dev, struct device_attribute *attr, char *buf)
+ static DEVICE_ATTR(modalias, S_IRUGO, sdev_show_modalias, NULL);
+ 
+ /* Default template for device attributes.  May NOT be modified */
+-static struct device_attribute *scsi_sysfs_sdev_attrs[] = {
+-	&dev_attr_device_blocked,
+-	&dev_attr_queue_depth,
+-	&dev_attr_queue_type,
+-	&dev_attr_type,
+-	&dev_attr_scsi_level,
+-	&dev_attr_vendor,
+-	&dev_attr_model,
+-	&dev_attr_rev,
+-	&dev_attr_rescan,
+-	&dev_attr_delete,
+-	&dev_attr_state,
+-	&dev_attr_timeout,
+-	&dev_attr_iocounterbits,
+-	&dev_attr_iorequest_cnt,
+-	&dev_attr_iodone_cnt,
+-	&dev_attr_ioerr_cnt,
+-	&dev_attr_modalias,
++static struct attribute *scsi_sdev_attrs[] = {
++	&dev_attr_device_blocked.attr,
++	&dev_attr_type.attr,
++	&dev_attr_scsi_level.attr,
++	&dev_attr_vendor.attr,
++	&dev_attr_model.attr,
++	&dev_attr_rev.attr,
++	&dev_attr_rescan.attr,
++	&dev_attr_delete.attr,
++	&dev_attr_state.attr,
++	&dev_attr_timeout.attr,
++	&dev_attr_iocounterbits.attr,
++	&dev_attr_iorequest_cnt.attr,
++	&dev_attr_iodone_cnt.attr,
++	&dev_attr_ioerr_cnt.attr,
++	&dev_attr_modalias.attr,
++	NULL
++};
++
++static struct attribute_group scsi_sdev_attr_group = {
++	.attrs =	scsi_sdev_attrs,
++};
++
++static struct attribute_group *scsi_sdev_attr_groups[] = {
++	&scsi_sdev_attr_group,
+ 	NULL
+ };
+ 
+@@ -697,56 +704,6 @@ static struct device_attribute sdev_attr_queue_type_rw =
+ 	__ATTR(queue_type, S_IRUGO | S_IWUSR, show_queue_type_field,
+ 	       sdev_store_queue_type_rw);
+ 
+-static struct device_attribute *attr_changed_internally(
+-		struct Scsi_Host *shost,
+-		struct device_attribute * attr)
+-{
+-	if (!strcmp("queue_depth", attr->attr.name)
+-	    && shost->hostt->change_queue_depth)
+-		return &sdev_attr_queue_depth_rw;
+-	else if (!strcmp("queue_type", attr->attr.name)
+-	    && shost->hostt->change_queue_type)
+-		return &sdev_attr_queue_type_rw;
+-	return attr;
+-}
+-
+-
+-static struct device_attribute *attr_overridden(
+-		struct device_attribute **attrs,
+-		struct device_attribute *attr)
+-{
+-	int i;
+-
+-	if (!attrs)
+-		return NULL;
+-	for (i = 0; attrs[i]; i++)
+-		if (!strcmp(attrs[i]->attr.name, attr->attr.name))
+-			return attrs[i];
+-	return NULL;
+-}
+-
+-static int attr_add(struct device *dev, struct device_attribute *attr)
+-{
+-	struct device_attribute *base_attr;
+-
+-	/*
+-	 * Spare the caller from having to copy things it's not interested in.
+-	 */
+-	base_attr = attr_overridden(scsi_sysfs_sdev_attrs, attr);
+-	if (base_attr) {
+-		/* extend permissions */
+-		attr->attr.mode |= base_attr->attr.mode;
+-
+-		/* override null show/store with default */
+-		if (!attr->show)
+-			attr->show = base_attr->show;
+-		if (!attr->store)
+-			attr->store = base_attr->store;
+-	}
+-
+-	return device_create_file(dev, attr);
+-}
+-
+ /**
+  * scsi_sysfs_add_sdev - add scsi device to sysfs
+  * @sdev:	scsi_device to add
+@@ -778,9 +735,29 @@ int scsi_sysfs_add_sdev(struct scsi_device *sdev)
+ 
+ 	 * released by the sdev_class .release */
+ 	get_device(&sdev->sdev_gendev);
++
++	/* create queue files, which may be writable, depending on the host */
++	if (sdev->host->hostt->change_queue_depth)
++		error = device_create_file(&sdev->sdev_gendev, &sdev_attr_queue_depth_rw);
++	else
++		error = device_create_file(&sdev->sdev_gendev, &dev_attr_queue_depth);
++	if (error) {
++		__scsi_remove_device(sdev);
++		goto out;
++	}
++	if (sdev->host->hostt->change_queue_type)
++		error = device_create_file(&sdev->sdev_gendev, &sdev_attr_queue_type_rw);
++	else
++		error = device_create_file(&sdev->sdev_gendev, &dev_attr_queue_type);
++	if (error) {
++		__scsi_remove_device(sdev);
++		goto out;
++	}
++
++	/* add additional host specific attributes */
+ 	if (sdev->host->hostt->sdev_attrs) {
+ 		for (i = 0; sdev->host->hostt->sdev_attrs[i]; i++) {
+-			error = attr_add(&sdev->sdev_gendev,
++			error = device_create_file(&sdev->sdev_gendev,
+ 					sdev->host->hostt->sdev_attrs[i]);
+ 			if (error) {
+ 				__scsi_remove_device(sdev);
+@@ -798,20 +774,6 @@ int scsi_sysfs_add_sdev(struct scsi_device *sdev)
+ 			}
+ 		}
+ 	}
+-	
+-	for (i = 0; scsi_sysfs_sdev_attrs[i]; i++) {
+-		if (!attr_overridden(sdev->host->hostt->sdev_attrs,
+-					scsi_sysfs_sdev_attrs[i])) {
+-			struct device_attribute * attr = 
+-				attr_changed_internally(sdev->host, 
+-							scsi_sysfs_sdev_attrs[i]);
+-			error = device_create_file(&sdev->sdev_gendev, attr);
+-			if (error) {
+-				__scsi_remove_device(sdev);
+-				goto out;
+-			}
+-		}
+-	}
+ 
+ 	transport_add_device(&sdev->sdev_gendev);
+  out:
+@@ -998,6 +960,12 @@ int scsi_sysfs_add_host(struct Scsi_Host *shost)
+ 	return 0;
+ }
+ 
++static struct device_type scsi_dev_type = {
++	.name =		"scsi_device",
++	.release =	scsi_device_dev_release,
++	.groups =	scsi_sdev_attr_groups,
++};
++
+ void scsi_sysfs_device_initialize(struct scsi_device *sdev)
+ {
+ 	unsigned long flags;
+@@ -1006,7 +974,7 @@ void scsi_sysfs_device_initialize(struct scsi_device *sdev)
+ 
+ 	device_initialize(&sdev->sdev_gendev);
+ 	sdev->sdev_gendev.bus = &scsi_bus_type;
+-	sdev->sdev_gendev.release = scsi_device_dev_release;
++	sdev->sdev_gendev.type = &scsi_dev_type;
+ 	sprintf(sdev->sdev_gendev.bus_id,"%d:%d:%d:%d",
+ 		sdev->host->host_no, sdev->channel, sdev->id,
+ 		sdev->lun);
+@@ -1015,7 +995,7 @@ void scsi_sysfs_device_initialize(struct scsi_device *sdev)
+ 
+ int scsi_is_sdev_device(const struct device *dev)
+ {
+-	return dev->release == scsi_device_dev_release;
++	return dev->type == &scsi_dev_type;
+ }
+ EXPORT_SYMBOL(scsi_is_sdev_device);
  
 -- 

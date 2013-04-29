@@ -7,9 +7,9 @@ MIPS: Properly align the .data..init_task section.
 ---
  arch/mips/kernel/asm-offsets.c |    3 ---
  arch/mips/kernel/vmlinux.lds.S |   16 +++++++++-------
- include/asm-mips/page.h        |    3 ++-
+ include/asm-mips/page.h        |    5 +++--
  include/asm-mips/thread_info.h |    4 ++--
- 4 files changed, 13 insertions(+), 13 deletions(-)
+ 4 files changed, 14 insertions(+), 14 deletions(-)
 
 diff --git a/arch/mips/kernel/asm-offsets.c b/arch/mips/kernel/asm-offsets.c
 --- a/arch/mips/kernel/asm-offsets.c
@@ -105,7 +105,6 @@ diff --git a/include/asm-mips/page.h b/include/asm-mips/page.h
  #define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
  
  #ifndef __ASSEMBLY__
- 
 diff --git a/include/asm-mips/thread_info.h b/include/asm-mips/thread_info.h
 --- a/include/asm-mips/thread_info.h
 +++ b/include/asm-mips/thread_info.h

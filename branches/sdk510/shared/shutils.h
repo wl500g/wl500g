@@ -198,9 +198,7 @@ extern int get_fw_ver(char *productid, char *fwver);
 
 enum {
 	MDL_UNKNOWN,
-	MDL_MN700,
 	MDL_WL700G,
-	MDL_WL500GX,
 	MDL_WL550GE,
 	MDL_WL320GE,
 	MDL_WL330GE,
@@ -221,7 +219,23 @@ enum {
 	MDL_WNR3500L,
 };
 
+typedef struct {
+	int model;
+	char *mfr;
+	char *name;
+	char *prodid;
+} product_t;
+
 extern int get_model(void);
+
+enum {
+	GET_MODEL_NAME,
+	GET_MODEL_MFR,
+	GET_MODEL_FULL,
+	GET_MODEL_PRODID,
+};
+
+extern void get_model_t(char *name, size_t len, int flag);
 
 extern int nvram_get_int(const char *key);
 
