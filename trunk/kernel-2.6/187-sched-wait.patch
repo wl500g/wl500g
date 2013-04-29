@@ -1,16 +1,36 @@
+ 8d8ad9d7c4bfe79bc91b7fc419ecfb9dcdfe6a51 [NET]: Name magic constants in sock_wake_async()
+ 71e20f1873d46e138c26ce83f8fe54b7221f572f sched: affine sync wakeups
+ 9c63d9c021f375a2708ad79043d6f4dd1291a085 sched: sync wakeups preempt too
+ 6f3d09291b4982991680b61763b2541e53e2a95f sched, net: socket wakeups are sync
  777c6c5f1f6e757ae49ecca2ed72d6b1f523c007 wait: prevent exclusive waiter starvation
  4ede816ac36e027db5fe0051ad9c73f76db63772 epoll keyed wakeups: add __wake_up_locked_key() and __wake_up_sync_key()
  c0da37753695e010776ccf2200a5731e0f88a9f3 epoll keyed wakeups: introduce new *_poll() wakeup macros
+ 37e5540b3c9d838eb20f2ca8ea2eb8072271e403 epoll keyed wakeups: make sockets use keyed wakeups
  395108880efff4a4ffa1ffa554477f7f5ba6a031 epoll keyed wakeups: make eventfd use keyed wakeups
+ bf368e4e70cd4e0f880923c44e95a4273d725ab4 net: Avoid extra wakeups of threads blocked in wait_for_packet()
  78ddb08feb7d4fbe3c0a9931804c51ee58be4023 wait: don't use __wake_up_common()
  231d0aefd88e94129cb8fb84794f9bb788c6366e wait: using uninitialized member of wait queue
+ 2c6607c611cb7bf0a6750bcea34a258144e302c5 net: add POLLPRI to sock_def_readable()
 
 ---
  fs/eventfd.c         |    6 ++---
- include/linux/wait.h |   26 +++++++++++++++++++---
- kernel/sched.c       |   25 +++++++++++++++++----
+ fs/pipe.c            |    6 ++---
+ include/linux/net.h  |    7 ++++++
+ include/linux/wait.h |   32 ++++++++++++++++++++++-----
+ kernel/sched.c       |   45 ++++++++++++++++++++++++--------------
  kernel/wait.c        |   59 ++++++++++++++++++++++++++++++++++++++++++++-------
- 4 files changed, 97 insertions(+), 19 deletions(-)
+ net/atm/common.c     |    2 -
+ net/core/datagram.c  |   14 +++++++++++-
+ net/core/sock.c      |   16 +++++++------
+ net/core/stream.c    |    2 -
+ net/dccp/input.c     |    6 ++---
+ net/dccp/output.c    |    2 -
+ net/ipv4/tcp_input.c |   12 +++++-----
+ net/rxrpc/af_rxrpc.c |    2 -
+ net/sctp/socket.c    |    3 +-
+ net/socket.c         |    9 +++----
+ net/unix/af_unix.c   |   12 +++++-----
+ 17 files changed, 166 insertions(+), 69 deletions(-)
 
 diff --git a/fs/eventfd.c b/fs/eventfd.c
 --- a/fs/eventfd.c
@@ -42,6 +62,53 @@ diff --git a/fs/eventfd.c b/fs/eventfd.c
  	}
  	spin_unlock_irq(&ctx->wqh.lock);
  
+diff --git a/fs/pipe.c b/fs/pipe.c
+--- a/fs/pipe.c
++++ b/fs/pipe.c
+@@ -382,7 +382,7 @@ redo:
+ 
+ 	/* Signal writers asynchronously that there is more room. */
+ 	if (do_wakeup) {
+-		wake_up_interruptible(&pipe->wait);
++		wake_up_interruptible_sync(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 	}
+ 	if (ret > 0)
+@@ -555,7 +555,7 @@ redo2:
+ out:
+ 	mutex_unlock(&inode->i_mutex);
+ 	if (do_wakeup) {
+-		wake_up_interruptible(&pipe->wait);
++		wake_up_interruptible_sync(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 	}
+ 	if (ret > 0)
+@@ -649,7 +649,7 @@ pipe_release(struct inode *inode, int decr, int decw)
+ 	if (!pipe->readers && !pipe->writers) {
+ 		free_pipe_info(inode);
+ 	} else {
+-		wake_up_interruptible(&pipe->wait);
++		wake_up_interruptible_sync(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 	}
+diff --git a/include/linux/net.h b/include/linux/net.h
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -186,6 +186,13 @@ struct net_proto_family {
+ struct iovec;
+ struct kvec;
+ 
++enum {
++	SOCK_WAKE_IO,
++	SOCK_WAKE_WAITD,
++	SOCK_WAKE_SPACE,
++	SOCK_WAKE_URG,
++};
++
+ extern int	     sock_wake_async(struct socket *sk, int how, int band);
+ extern int	     sock_register(const struct net_proto_family *fam);
+ extern void	     sock_unregister(int family);
 diff --git a/include/linux/wait.h b/include/linux/wait.h
 --- a/include/linux/wait.h
 +++ b/include/linux/wait.h
@@ -97,7 +164,7 @@ diff --git a/include/linux/wait.h b/include/linux/wait.h
  } while (0)
  
  #define wait_event_interruptible_exclusive(wq, condition)		\
-@@ -384,6 +399,8 @@ void FASTCALL(prepare_to_wait(wait_queue
+@@ -384,16 +399,20 @@ void FASTCALL(prepare_to_wait(wait_queue
  void FASTCALL(prepare_to_wait_exclusive(wait_queue_head_t *q,
  				wait_queue_t *wait, int state));
  void FASTCALL(finish_wait(wait_queue_head_t *q, wait_queue_t *wait));
@@ -106,6 +173,20 @@ diff --git a/include/linux/wait.h b/include/linux/wait.h
  int autoremove_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
  int wake_bit_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
  
+-#define DEFINE_WAIT(name)						\
++#define DEFINE_WAIT_FUNC(name, function)				\
+ 	wait_queue_t name = {						\
+ 		.private	= current,				\
+-		.func		= autoremove_wake_function,		\
++		.func		= function,				\
+ 		.task_list	= LIST_HEAD_INIT((name).task_list),	\
+ 	}
+ 
++#define DEFINE_WAIT(name) DEFINE_WAIT_FUNC(name, autoremove_wake_function)
++
+ #define DEFINE_WAIT_BIT(name, word, bit)				\
+ 	struct wait_bit_queue name = {					\
+ 		.key = __WAIT_BIT_KEY_INITIALIZER(word, bit),		\
 @@ -410,6 +427,7 @@ int wake_bit_function(wait_queue_t *wait
  		(wait)->private = current;				\
  		(wait)->func = autoremove_wake_function;		\
@@ -117,7 +198,41 @@ diff --git a/include/linux/wait.h b/include/linux/wait.h
 diff --git a/kernel/sched.c b/kernel/sched.c
 --- a/kernel/sched.c
 +++ b/kernel/sched.c
-@@ -3741,7 +3741,7 @@ EXPORT_SYMBOL(default_wake_function);
+@@ -1484,6 +1484,12 @@ static int try_to_wake_up(struct task_st
+ 			unsigned long tl = this_load;
+ 			unsigned long tl_per_task;
+ 
++			/*
++			 * Attract cache-cold tasks on sync wakeups:
++			 */
++			if (sync && !task_hot(p, rq->clock, this_sd))
++				goto out_set_cpu;
++
+ 			tl_per_task = cpu_avg_load_per_task(this_cpu);
+ 
+ 			/*
+@@ -1543,18 +1549,8 @@ out_activate:
+ 		rq->nr_uninterruptible--;
+ 
+ 	activate_task(p, rq, cpu == this_cpu);
+-	/*
+-	 * Sync wakeups (i.e. those types of wakeups where the waker
+-	 * has indicated that it will leave the CPU in short order)
+-	 * don't trigger a preemption, if the woken up task will run on
+-	 * this cpu. (in this case the 'I will reschedule' promise of
+-	 * the waker guarantees that the freshly woken up task is going
+-	 * to be considered on this CPU.)
+-	 */
+-	if (!sync || cpu != this_cpu) {
+-		if (TASK_PREEMPTS_CURR(p, rq))
+-			resched_task(rq->curr);
+-	}
++	if (TASK_PREEMPTS_CURR(p, rq))
++		resched_task(rq->curr);
+ 	success = 1;
+ 
+ out_running:
+@@ -3741,7 +3737,7 @@ EXPORT_SYMBOL(default_wake_function);
   * zero in this (rare) case, and we handle it by continuing to scan the queue.
   */
  static void __wake_up_common(wait_queue_head_t *q, unsigned int mode,
@@ -126,7 +241,7 @@ diff --git a/kernel/sched.c b/kernel/sched.c
  {
  	struct list_head *tmp, *next;
  
-@@ -3781,11 +3781,17 @@ void fastcall __wake_up_locked(wait_queu
+@@ -3781,11 +3777,17 @@ void fastcall __wake_up_locked(wait_queu
  	__wake_up_common(q, mode, 1, 0, NULL);
  }
  
@@ -145,7 +260,7 @@ diff --git a/kernel/sched.c b/kernel/sched.c
   *
   * The sync wakeup differs that the waker knows that it will schedule
   * away soon, so while the target thread will be woken up, it will not
-@@ -3794,8 +3800,8 @@ void fastcall __wake_up_locked(wait_queu
+@@ -3794,8 +3796,8 @@ void fastcall __wake_up_locked(wait_queu
   *
   * On UP it can prevent extra preemption.
   */
@@ -156,7 +271,7 @@ diff --git a/kernel/sched.c b/kernel/sched.c
  {
  	unsigned long flags;
  	int sync = 1;
-@@ -3807,9 +3813,18 @@ __wake_up_sync(wait_queue_head_t *q, uns
+@@ -3807,9 +3809,18 @@ __wake_up_sync(wait_queue_head_t *q, uns
  		sync = 0;
  
  	spin_lock_irqsave(&q->lock, flags);
@@ -263,4 +378,284 @@ diff --git a/kernel/wait.c b/kernel/wait.c
  }
  EXPORT_SYMBOL(__wait_on_bit_lock);
  
+diff --git a/net/atm/common.c b/net/atm/common.c
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -113,7 +113,7 @@ static void vcc_write_space(struct sock *sk)
+ 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+ 			wake_up_interruptible(sk->sk_sleep);
+ 
+-		sk_wake_async(sk, 2, POLL_OUT);
++		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+ 
+ 	read_unlock(&sk->sk_callback_lock);
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -64,13 +64,25 @@ static inline int connection_based(struct sock *sk)
+ 	return sk->sk_type == SOCK_SEQPACKET || sk->sk_type == SOCK_STREAM;
+ }
+ 
++static int receiver_wake_function(wait_queue_t *wait, unsigned mode, int sync,
++				  void *key)
++{
++	unsigned long bits = (unsigned long)key;
++
++	/*
++	 * Avoid a wakeup if event not interesting for us
++	 */
++	if (bits && !(bits & (POLLIN | POLLERR)))
++		return 0;
++	return autoremove_wake_function(wait, mode, sync, key);
++}
+ /*
+  * Wait for a packet..
+  */
+ static int wait_for_packet(struct sock *sk, int *err, long *timeo_p)
+ {
+ 	int error;
+-	DEFINE_WAIT(wait);
++	DEFINE_WAIT_FUNC(wait, receiver_wake_function);
+ 
+ 	prepare_to_wait_exclusive(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1504,8 +1504,8 @@ static void sock_def_error_report(struct
+ {
+ 	read_lock(&sk->sk_callback_lock);
+ 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		wake_up_interruptible(sk->sk_sleep);
+-	sk_wake_async(sk,0,POLL_ERR);
++		wake_up_interruptible_poll(sk->sk_sleep, POLLERR);
++	sk_wake_async(sk, SOCK_WAKE_IO, POLL_ERR);
+ 	read_unlock(&sk->sk_callback_lock);
+ }
+ 
+@@ -1513,8 +1513,9 @@ static void sock_def_readable(struct soc
+ {
+ 	read_lock(&sk->sk_callback_lock);
+ 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		wake_up_interruptible(sk->sk_sleep);
+-	sk_wake_async(sk,1,POLL_IN);
++		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLIN | POLLPRI |
++						POLLRDNORM | POLLRDBAND);
++	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
+ 	read_unlock(&sk->sk_callback_lock);
+ }
+ 
+@@ -1527,11 +1528,12 @@ static void sock_def_write_space(struct 
+ 	 */
+ 	if ((atomic_read(&sk->sk_wmem_alloc) << 1) <= sk->sk_sndbuf) {
+ 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-			wake_up_interruptible(sk->sk_sleep);
++			wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT |
++						POLLWRNORM | POLLWRBAND);
+ 
+ 		/* Should agree with poll, otherwise some programs break */
+ 		if (sock_writeable(sk))
+-			sk_wake_async(sk, 2, POLL_OUT);
++			sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+ 
+ 	read_unlock(&sk->sk_callback_lock);
+@@ -1546,7 +1548,7 @@ void sk_send_sigurg(struct sock *sk)
+ {
+ 	if (sk->sk_socket && sk->sk_socket->file)
+ 		if (send_sigurg(&sk->sk_socket->file->f_owner))
+-			sk_wake_async(sk, 3, POLL_PRI);
++			sk_wake_async(sk, SOCK_WAKE_URG, POLL_PRI);
+ }
+ 
+ void sk_reset_timer(struct sock *sk, struct timer_list* timer,
+diff --git a/net/core/stream.c b/net/core/stream.c
+--- a/net/core/stream.c
++++ b/net/core/stream.c
+@@ -35,7 +35,7 @@ void sk_stream_write_space(struct sock *sk)
+ 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+ 			wake_up_interruptible(sk->sk_sleep);
+ 		if (sock->fasync_list && !(sk->sk_shutdown & SEND_SHUTDOWN))
+-			sock_wake_async(sock, 2, POLL_OUT);
++			sock_wake_async(sock, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+ }
+ 
+diff --git a/net/dccp/input.c b/net/dccp/input.c
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -37,7 +37,7 @@ static void dccp_rcv_close(struct sock *sk, struct sk_buff *skb)
+ 	dccp_send_reset(sk, DCCP_RESET_CODE_CLOSED);
+ 	dccp_fin(sk, skb);
+ 	dccp_set_state(sk, DCCP_CLOSED);
+-	sk_wake_async(sk, 1, POLL_HUP);
++	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_HUP);
+ }
+ 
+ static void dccp_rcv_closereq(struct sock *sk, struct sk_buff *skb)
+@@ -416,7 +416,7 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
+ 
+ 		if (!sock_flag(sk, SOCK_DEAD)) {
+ 			sk->sk_state_change(sk);
+-			sk_wake_async(sk, 0, POLL_OUT);
++			sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
+ 		}
+ 
+ 		if (sk->sk_write_pending || icsk->icsk_ack.pingpong ||
+@@ -624,7 +624,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		switch (old_state) {
+ 		case DCCP_PARTOPEN:
+ 			sk->sk_state_change(sk);
+-			sk_wake_async(sk, 0, POLL_OUT);
++			sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
+ 			break;
+ 		}
+ 	} else if (unlikely(dh->dccph_type == DCCP_PKT_SYNC)) {
+diff --git a/net/dccp/output.c b/net/dccp/output.c
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -170,7 +170,7 @@ void dccp_write_space(struct sock *sk)
+ 		wake_up_interruptible(sk->sk_sleep);
+ 	/* Should agree with poll, otherwise some programs break */
+ 	if (sock_writeable(sk))
+-		sk_wake_async(sk, 2, POLL_OUT);
++		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 
+ 	read_unlock(&sk->sk_callback_lock);
+ }
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3595,9 +3595,9 @@ static void tcp_fin(struct sk_buff *skb, struct sock *sk, struct tcphdr *th)
+ 		/* Do not send POLL_HUP for half duplex close. */
+ 		if (sk->sk_shutdown == SHUTDOWN_MASK ||
+ 		    sk->sk_state == TCP_CLOSE)
+-			sk_wake_async(sk, 1, POLL_HUP);
++			sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_HUP);
+ 		else
+-			sk_wake_async(sk, 1, POLL_IN);
++			sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
+ 	}
+ }
+ 
+@@ -4956,7 +4956,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 
+ 		if (!sock_flag(sk, SOCK_DEAD)) {
+ 			sk->sk_state_change(sk);
+-			sk_wake_async(sk, 0, POLL_OUT);
++			sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
+ 		}
+ 
+ 		if (sk->sk_write_pending ||
+@@ -5186,9 +5186,9 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 				 * are not waked up, because sk->sk_sleep ==
+ 				 * NULL and sk->sk_socket == NULL.
+ 				 */
+-				if (sk->sk_socket) {
+-					sk_wake_async(sk,0,POLL_OUT);
+-				}
++				if (sk->sk_socket)
++					sk_wake_async(sk,
++							SOCK_WAKE_IO, POLL_OUT);
+ 
+ 				tp->snd_una = TCP_SKB_CB(skb)->ack_seq;
+ 				tp->snd_wnd = ntohs(th->window) <<
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -65,7 +65,7 @@ static void rxrpc_write_space(struct sock *sk)
+ 	if (rxrpc_writable(sk)) {
+ 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+ 			wake_up_interruptible(sk->sk_sleep);
+-		sk_wake_async(sk, 2, POLL_OUT);
++		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+ 	read_unlock(&sk->sk_callback_lock);
+ }
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -6008,7 +6008,8 @@ static void __sctp_write_space(struct sctp_association *asoc)
+ 			 */
+ 			if (sock->fasync_list &&
+ 			    !(sk->sk_shutdown & SEND_SHUTDOWN))
+-				sock_wake_async(sock, 2, POLL_OUT);
++				sock_wake_async(sock,
++						SOCK_WAKE_SPACE, POLL_OUT);
+ 		}
+ 	}
+ }
+diff --git a/net/socket.c b/net/socket.c
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1070,20 +1070,19 @@ int sock_wake_async(struct socket *sock, int how, int band)
+ 	if (!sock || !sock->fasync_list)
+ 		return -1;
+ 	switch (how) {
+-	case 1:
+-
++	case SOCK_WAKE_WAITD:
+ 		if (test_bit(SOCK_ASYNC_WAITDATA, &sock->flags))
+ 			break;
+ 		goto call_kill;
+-	case 2:
++	case SOCK_WAKE_SPACE:
+ 		if (!test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sock->flags))
+ 			break;
+ 		/* fall through */
+-	case 0:
++	case SOCK_WAKE_IO:
+ call_kill:
+ 		__kill_fasync(sock->fasync_list, SIGIO, band);
+ 		break;
+-	case 3:
++	case SOCK_WAKE_URG:
+ 		__kill_fasync(sock->fasync_list, SIGURG, band);
+ 	}
+ 	return 0;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -307,8 +307,8 @@ static void unix_write_space(struct sock
+ 	read_lock(&sk->sk_callback_lock);
+ 	if (unix_writable(sk)) {
+ 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-			wake_up_interruptible(sk->sk_sleep);
+-		sk_wake_async(sk, 2, POLL_OUT);
++			wake_up_interruptible_sync(sk->sk_sleep);
++		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+ 	read_unlock(&sk->sk_callback_lock);
+ }
+@@ -394,7 +394,7 @@ static void unix_release_sock(struct soc
+ 			unix_state_unlock(skpair);
+ 			skpair->sk_state_change(skpair);
+ 			read_lock(&skpair->sk_callback_lock);
+-			sk_wake_async(skpair,1,POLL_HUP);
++			sk_wake_async(skpair, SOCK_WAKE_WAITD, POLL_HUP);
+ 			read_unlock(&skpair->sk_callback_lock);
+ 		}
+ 		sock_put(skpair); /* It may now die */
+@@ -1654,7 +1654,7 @@ static int unix_dgram_recvmsg(struct kio
+ 		goto out_unlock;
+ 	}
+ 
+-	wake_up_interruptible(&u->peer_wait);
++	wake_up_interruptible_sync(&u->peer_wait);
+ 
+ 	if (msg->msg_name)
+ 		unix_copy_addr(msg, skb->sk);
+@@ -1919,9 +1919,9 @@ static int unix_shutdown(struct socket *
+ 			other->sk_state_change(other);
+ 			read_lock(&other->sk_callback_lock);
+ 			if (peer_mode == SHUTDOWN_MASK)
+-				sk_wake_async(other,1,POLL_HUP);
++				sk_wake_async(other, SOCK_WAKE_WAITD, POLL_HUP);
+ 			else if (peer_mode & RCV_SHUTDOWN)
+-				sk_wake_async(other,1,POLL_IN);
++				sk_wake_async(other, SOCK_WAKE_WAITD, POLL_IN);
+ 			read_unlock(&other->sk_callback_lock);
+ 		}
+ 		if (other)
 -- 
