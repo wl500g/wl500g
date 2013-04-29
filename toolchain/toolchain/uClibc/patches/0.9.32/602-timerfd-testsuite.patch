@@ -1,0 +1,120 @@
+From 68107fe05073e9fc2bbe63d26ab43356f851ecf3
+From: Kevin Cernekee
+Date: Sat, 07 Apr 2012 20:31:29 +0000
+Subject: test/time: Add tst-timerfd
+
+Signed-off-by: Kevin Cernekee <cernekee@gmail.com>
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+
+---
+
+diff --git a/libc/sysdeps/linux/common/stubs.c b/libc/sysdeps/linux/common/stubs.c
+--- a/libc/sysdeps/linux/common/stubs.c
++++ b/libc/sysdeps/linux/common/stubs.c
+@@ -282,6 +282,18 @@ make_stub(umount2)
+ make_stub(unshare)
+ #endif
+ 
++#if !defined __NR_timerfd_create && defined __UCLIBC_LINUX_SPECIFIC__
++make_stub(timerfd_create)
++#endif
++
++#if !defined __NR_timerfd_settime && defined __UCLIBC_LINUX_SPECIFIC__
++make_stub(timerfd_settime)
++#endif
++
++#if !defined __NR_timerfd_gettime && defined __UCLIBC_LINUX_SPECIFIC__
++make_stub(timerfd_gettime)
++#endif
++
+ #ifndef __NR_utimensat
+ make_stub(futimens)
+ make_stub(utimensat)
+diff --git a/test/.gitignore b/test/.gitignore
+--- a/test/.gitignore
++++ b/test/.gitignore
+@@ -288,6 +288,7 @@ time/tst-futimens1
+ time/tst-mktime
+ time/tst-mktime3
+ time/tst-strptime2
++time/tst-timerfd
+ time/tst_wcsftime
+ tls/tst-tls[1-9]
+ tls/tst-tls1[0-8]
+diff --git a/test/time/tst-timerfd.c b/test/time/tst-timerfd.c
+new file mode 100644
+--- /dev/null
++++ b/test/time/tst-timerfd.c
+@@ -0,0 +1,71 @@
++/* vi: set sw=4 ts=4 sts=4: */
++/*
++ * timerfd test for uClibc
++ * Copyright (C) 2012 by Kevin Cernekee <cernekee@gmail.com>
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++#include <error.h>
++#include <signal.h>
++#include <stdint.h>
++#include <inttypes.h>
++#include <time.h>
++#include <sys/timerfd.h>
++#include <sys/fcntl.h>
++
++static int
++do_test(void)
++{
++	int fd, ret, result = 0;
++	struct itimerspec s;
++	uint64_t val;
++	time_t start, now;
++
++	fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
++	if (fd < 0) {
++		perror("timerfd() failed");
++		result = 1;
++	}
++	s.it_value.tv_sec = 1;
++	s.it_value.tv_nsec = 0;
++	s.it_interval.tv_sec = 0;
++	s.it_interval.tv_nsec = 0;
++	timerfd_settime(fd, 0, &s, NULL);
++	start = time(NULL);
++
++	/* this should return immediately with EAGAIN due to TFD_NONBLOCK */
++	ret = read(fd, &val, sizeof(val));
++	if (ret != -1 || errno != EAGAIN) {
++		error(0, 0, "first read() returned %d", ret);
++		result = 1;
++	}
++
++	/* let the timer expire, then check it again */
++	do {
++		now = time(NULL);
++	} while (now - start < 2);
++
++	ret = read(fd, &val, sizeof(val));
++	if (ret != sizeof(val)) {
++		error(0, 0, "second read() returned %d", ret);
++		result = 1;
++	}
++
++	/* we are expecting a single expiration, since it_interval is 0 */
++	if (val != 1) {
++		error(0, 0, "wrong number of expirations: %" PRIx64, val);
++		result = 1;
++	}
++
++	return result;
++}
++
++#define TIMEOUT 5
++#define TEST_FUNCTION do_test ()
++#include "../test-skeleton.c"
+-- 
