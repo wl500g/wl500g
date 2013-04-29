@@ -82,7 +82,7 @@ int killall(const char *program);
 int killall_tk(const char *program);
 void setenv_tz();
 time_t update_tztime(int is_resettm);
-
+int proc_check_pid(const char *pidfile);
 int wsrom_main(const char *devname, unsigned int pos, unsigned short val);
 int rsrom_main(const char *devname, unsigned int pos, int pflag);
 
@@ -98,8 +98,11 @@ void stop_dhcp6c(void);
 #endif
 
 /* ppp scripts */
+#ifdef PPPD_AUTH_UNUSED
 int authup_main(int argc, char **argv);
 int authdown_main(int argc, char **argv);
+int authfail_main(int argc, char **argv);
+#endif
 int ipup_main(int argc, char **argv);
 int ipdown_main(int argc, char **argv);
 #ifdef __CONFIG_IPV6__
@@ -107,13 +110,6 @@ int ip6up_main(int argc, char **argv);
 int ip6down_main(int argc, char **argv);
 #endif
 int ppp_ifunit(const char *ifname);
-
-/* http functions */
-int http_get(const char *server, char *buf, size_t count, off_t offset);
-int http_post(const char *server, char *buf, size_t count);
-int http_stats(const char *url);
-int http_check(const char *server, char *buf, size_t count, off_t offset);
-int proc_check_pid(const char *pidfile);
 
 /* init */
 pid_t run_shell(int timeout, int nowait);
@@ -261,12 +257,16 @@ int stop_modem_dial(const char *prefix);
 int usb_modem_check(const char *prefix);
 int hotplug_check_modem(const char *interface, const char *product, const char *device, const char *prefix);
 int lsmodem_main(int argc, char **argv);
+void modem_load_drivers();
 #endif
 
 #ifdef __CONFIG_USBNET__
 int  hotplug_usbnet_check(const char *interface, const char *product, const char *device, const char *prefix);
 void usbnet_check_and_act(char *ifname, char *action);
-void usbnet_load_drivers();
+void usbnet_load_drivers(const char *prefix);
+
+void usbnet_connect(const char *prefix, int unit, const char *ifname);
+void usbnet_disconnect(const char *prefix, int unit, const char *ifname);
 #endif
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)

@@ -3,15 +3,16 @@ skbuff: inlines backport from 2.6.32.21
  __skb_queue_head_init
  __skb_queue_before
  skb_queue_splice*
+ netdev_alloc_skb_ip_align
 
  7de6c033367ab86f39c7723392caf73325cbf286 [SKB]: __skb_append = __skb_queue_after
 
 ---
- include/linux/skbuff.h |  213 ++++++++++++++++++++++++++++++++-----------------
+ include/linux/skbuff.h |  229 +++++++++++++++++++++++++++++++++----------------
  include/net/tcp.h      |    2 
  net/core/skbuff.c      |    2 
  net/ipv4/tcp_input.c   |    2 
- 4 files changed, 144 insertions(+), 75 deletions(-)
+ 4 files changed, 160 insertions(+), 75 deletions(-)
 
 diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
 --- a/include/linux/skbuff.h
@@ -286,6 +287,29 @@ diff -uBp a/include/linux/skbuff.h b/include/linux/skbuff.h
  /* XXX: more streamlined implementation */
  
  /**
+@@ -1201,6 +1401,22 @@ static inline struct sk_buff *netdev_all
+ 	return __netdev_alloc_skb(dev, length, GFP_ATOMIC);
+ }
+ 
++static inline struct sk_buff *__netdev_alloc_skb_ip_align(struct net_device *dev,
++		unsigned int length, gfp_t gfp)
++{
++	struct sk_buff *skb = __netdev_alloc_skb(dev, length + NET_IP_ALIGN, gfp);
++
++	if (NET_IP_ALIGN && skb)
++		skb_reserve(skb, NET_IP_ALIGN);
++	return skb;
++}
++
++static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
++		unsigned int length)
++{
++	return __netdev_alloc_skb_ip_align(dev, length, GFP_ATOMIC);
++}
++
+ /**
+  *	skb_clone_writable - is the header of a clone writable
+  *	@skb: buffer to check
 diff --git a/include/net/tcp.h b/include/net/tcp.h
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h

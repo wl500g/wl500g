@@ -3,6 +3,7 @@ ipv6: convert addrconf list to hlist
  c2e21293c054817c42eb5fa9c613d2ad51954136 ipv6: convert addrconf list to hlist
  5c578aedcb21d79eeb4e9cf04ca5b276ac82614c IPv6: convert addrconf hash list to RCU
  3e81c6da39a265e11ef48f52bd15bf7ca0068c75 ipv6: Fix bug in ipv6_chk_same_addr().
+ d1f84c63a465d6ba16955930519b7f68c550cae1 ipv6: additional ref count for hash list unnecessary
  4f70ecca9c57731b4acbe5043eb22e4416bd2368 net: rcu fixes
  eedf042a63ffef050ebc015de19b52dc065e830b ipv6: fix the bug of address check
  372e6c8f1f7b2bb68f9992d2e664925c73552a1d ipv6: convert temporary address list to list macros
@@ -15,7 +16,7 @@ ipv6: convert addrconf list to hlist
  include/net/addrconf.h |   19 ---
  include/net/if_inet6.h |    7 -
  net/ipv6/addrconf.c    |  283 +++++++++++++++++++++++++------------------------
- 3 files changed, 153 insertions(+), 156 deletions(-)
+ 3 files changed, 152 insertions(+), 157 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
@@ -192,15 +193,15 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	ifa->timer.data = (unsigned long) ifa;
  	ifa->scope = scope;
  	ifa->prefix_len = pfxlen;
-@@ -599,10 +619,9 @@ ipv6_add_addr(struct inet6_dev *idev, co
+@@ -599,10 +619,8 @@ ipv6_add_addr(struct inet6_dev *idev, co
  	/* Add to big hash table */
  	hash = ipv6_addr_hash(addr);
  
 -	ifa->lst_next = inet6_addr_lst[hash];
 -	inet6_addr_lst[hash] = ifa;
-+	hlist_add_head_rcu(&ifa->addr_lst, &inet6_addr_lst[hash]);
- 	in6_ifa_hold(ifa);
+-	in6_ifa_hold(ifa);
 -	write_unlock(&addrconf_hash_lock);
++	hlist_add_head_rcu(&ifa->addr_lst, &inet6_addr_lst[hash]);
 +	spin_unlock(&addrconf_hash_lock);
  
  	write_lock(&idev->lock);
@@ -224,7 +225,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  	goto out2;
  }
  
-@@ -648,42 +666,25 @@ static void ipv6_del_addr(struct inet6_i
+@@ -648,42 +666,24 @@ static void ipv6_del_addr(struct inet6_i
  
  	struct inet6_ifaddr *ifa, **ifap;
  	struct inet6_dev *idev = ifp->idev;
@@ -249,7 +250,6 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
 -	write_unlock_bh(&addrconf_hash_lock);
 +	spin_lock_bh(&addrconf_hash_lock);
 +	hlist_del_init_rcu(&ifp->addr_lst);
-+	__in6_ifa_put(ifp);
 +	spin_unlock_bh(&addrconf_hash_lock);
  
  	write_lock_bh(&idev->lock);

@@ -47,6 +47,20 @@ diff --git a/include/asm-mips/bug.h b/include/asm-mips/bug.h
  
  #define HAVE_ARCH_BUG_ON
  
+diff --git a/include/asm-mips/cpu-features.h b/include/asm-mips/cpu-features.h
+--- a/include/asm-mips/cpu-features.h
++++ b/include/asm-mips/cpu-features.h
+@@ -14,6 +14,10 @@
+ #include <asm/cpu-info.h>
+ #include <cpu-feature-overrides.h>
+ 
++#ifndef current_cpu_type
++#define current_cpu_type()      current_cpu_data.cputype
++#endif
++
+ /*
+  * SMP assumption: Options of CPU 0 are a superset of all processors.
+  * This is true for all known MIPS systems.
 diff --git a/include/asm-mips/types.h b/include/asm-mips/types.h
 --- a/include/asm-mips/types.h
 +++ b/include/asm-mips/types.h

@@ -1,5 +1,159 @@
---- igmpproxy.orig/src/igmpproxy.h	2011-05-27 15:56:41.000000000 +0000
-+++ igmpproxy/src/igmpproxy.h	2012-06-04 17:27:01.000000000 +0000
+diff -urBp a/src/config.c b/src/config.c
+--- a/src/config.c	2013-03-17 14:59:09.000000000 +0400
++++ b/src/config.c	2013-03-17 17:37:14.000000000 +0400
+@@ -55,20 +55,20 @@ struct vifconfig {
+ };
+                  
+ // Structure to keep vif configuration
+-struct vifconfig*   vifconf;
++static struct vifconfig*   vifconf;
+ 
+ // Keeps common settings...
+ static struct Config commonConfig;
+ 
+ // Prototypes...
+-struct vifconfig *parsePhyintToken();
+-struct SubnetList *parseSubnetAddress(char *addrstr);
++static struct vifconfig *parsePhyintToken();
++static struct SubnetList *parseSubnetAddress(char *addrstr);
+ 
+ 
+ /**
+ *   Initializes common config..
+ */
+-void initCommonConfig() {
++static void initCommonConfig() {
+     commonConfig.robustnessValue = DEFAULT_ROBUSTNESS;
+     commonConfig.queryInterval = INTERVAL_QUERY;
+     commonConfig.queryResponseInterval = INTERVAL_QUERY_RESPONSE;
+@@ -218,7 +218,7 @@ void configureVifs() {
+ /**
+ *   Internal function to parse phyint config
+ */
+-struct vifconfig *parsePhyintToken() {
++static struct vifconfig *parsePhyintToken() {
+     struct vifconfig  *tmpPtr;
+     struct SubnetList **anetPtr, **agrpPtr;
+     char *token;
+@@ -340,7 +340,7 @@ struct vifconfig *parsePhyintToken() {
+ *   Parses a subnet address string on the format
+ *   a.b.c.d/n into a SubnetList entry.
+ */
+-struct SubnetList *parseSubnetAddress(char *addrstr) {
++static struct SubnetList *parseSubnetAddress(char *addrstr) {
+     struct SubnetList *tmpSubnet;
+     char        *tmpStr;
+     uint32_t      addr = 0x00000000;
+diff -urBp a/src/confread.c b/src/confread.c
+--- a/src/confread.c	2009-08-16 19:01:54.000000000 +0400
++++ b/src/confread.c	2013-03-17 17:38:29.000000000 +0400
+@@ -50,12 +50,12 @@
+   #define MAX_TOKEN_LENGTH  30     // Default max token length
+ #endif
+                                      
+-FILE            *confFilePtr;       // File handle pointer
+-char            *iBuffer;           // Inputbuffer for reading...
+-unsigned int    bufPtr;             // Buffer position pointer.
+-unsigned int    readSize;           // Number of bytes in buffer after last read...
+-char    cToken[MAX_TOKEN_LENGTH];   // Token buffer...
+-short   validToken;
++static FILE            *confFilePtr;       // File handle pointer
++static char            *iBuffer;           // Inputbuffer for reading...
++static unsigned int    bufPtr;             // Buffer position pointer.
++static unsigned int    readSize;           // Number of bytes in buffer after last read...
++static char    cToken[MAX_TOKEN_LENGTH];   // Token buffer...
++static short   validToken;
+ 
+ /**
+ *   Opens config file specified by filename.
+diff -urBp a/src/ifvc.c b/src/ifvc.c
+--- a/src/ifvc.c	2013-03-17 17:34:47.000000000 +0400
++++ b/src/ifvc.c	2013-03-17 15:33:09.000000000 +0400
+@@ -33,7 +33,7 @@
+ 
+ #include "igmpproxy.h"
+ 
+-struct IfDesc IfDescVc[ MAX_IF ], *IfDescEp = IfDescVc;
++static struct IfDesc IfDescVc[ MAX_IF ], *IfDescEp = IfDescVc;
+ 
+ /*
+ ** Builds up a vector with the interface of the machine. Calls to the other functions of 
+diff -urBp a/src/igmp.c b/src/igmp.c
+--- a/src/igmp.c	2011-10-20 19:51:17.000000000 +0400
++++ b/src/igmp.c	2013-03-17 17:47:36.000000000 +0400
+@@ -82,7 +82,7 @@ void initIgmp() {
+ /**
+ *   Finds the textual name of the supplied IGMP request.
+ */
+-char *igmpPacketKind(u_int type, u_int code) {
++static const char *igmpPacketKind(u_int type, u_int code) {
+     static char unknown[20];
+ 
+     switch (type) {
+@@ -253,7 +253,7 @@ void acceptIgmp(int recvlen) {
+  * Construct an IGMP message in the output packet buffer.  The caller may
+  * have already placed data in that buffer, of length 'datalen'.
+  */
+-void buildIgmp(uint32_t src, uint32_t dst, int type, int code, uint32_t group, int datalen) {
++static void buildIgmp(uint32_t src, uint32_t dst, int type, int code, uint32_t group, int datalen) {
+     struct ip *ip;
+     struct igmp *igmp;
+     extern int curttl;
+diff -urBp a/src/igmpproxy.c b/src/igmpproxy.c
+--- a/src/igmpproxy.c	2013-03-17 17:34:47.000000000 +0400
++++ b/src/igmpproxy.c	2013-03-17 17:42:17.000000000 +0400
+@@ -50,9 +50,9 @@ PACKAGE_STRING "\n"
+ 
+ // Local function Prototypes
+ static void signalHandler(int);
+-int     igmpProxyInit();
+-void    igmpProxyCleanUp();
+-void    igmpProxyRun();
++static int  igmpProxyInit();
++static void igmpProxyCleanUp();
++static void igmpProxyRun();
+ 
+ // Global vars...
+ static int sighandled = 0;
+@@ -156,7 +156,7 @@ int main( int ArgCn, char *ArgVc[] ) {
+ /**
+ *   Handles the initial startup of the daemon.
+ */
+-int igmpProxyInit() {
++static int igmpProxyInit() {
+     struct sigaction sa;
+     int Err;
+ 
+@@ -224,7 +224,7 @@ int igmpProxyInit() {
+ /**
+ *   Clean up all on exit...
+ */
+-void igmpProxyCleanUp() {
++static void igmpProxyCleanUp() {
+ 
+     my_log( LOG_DEBUG, 0, "clean handler called" );
+     
+@@ -237,7 +237,7 @@ void igmpProxyCleanUp() {
+ /**
+ *   Main daemon loop.
+ */
+-void igmpProxyRun() {
++static void igmpProxyRun() {
+     // Get the config.
+     //struct Config *config = getCommonConfig();
+     // Set some needed values.
+@@ -289,7 +289,7 @@ void igmpProxyRun() {
+ 
+         // log and ignore failures
+         if( Rt < 0 ) {
+-            my_log( LOG_WARNING, errno, "select() failure" );
++            if (errno != EINTR) my_log( LOG_WARNING, errno, "select() failure" );
+             continue;
+         }
+         else if( Rt > 0 ) {
+diff -urBp a/src/igmpproxy.h b/src/igmpproxy.h
+--- a/src/igmpproxy.h	2013-03-17 17:34:47.000000000 +0400
++++ b/src/igmpproxy.h	2013-03-17 17:51:55.000000000 +0400
 @@ -92,8 +92,8 @@ extern char     *send_buf;
  
  extern char     s1[];
@@ -11,8 +165,82 @@
  
  
  
---- igmpproxy.orig/src/request.c	2011-05-27 15:53:55.000000000 +0000
-+++ igmpproxy/src/request.c	2012-06-04 17:27:01.000000000 +0000
+@@ -238,8 +238,26 @@ int openUdpSocket( uint32_t PeerInAdr, u
+ 
+ /* mcgroup.c
+  */
+-int joinMcGroup( int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr );
+-int leaveMcGroup( int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr );
++extern int joinleave( int Cmd, int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr );
++/**
++*   Joins the MC group with the address 'McAdr' on the interface 'IfName'. 
++*   The join is bound to the UDP socket 'UdpSock', so if this socket is 
++*   closed the membership is dropped.
++*          
++*   @return 0 if the function succeeds, 1 if parameters are wrong or the join fails
++*/
++static inline int joinMcGroup( int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr ) {
++    return joinleave( 'j', UdpSock, IfDp, mcastaddr );
++}
++
++/**
++*   Leaves the MC group with the address 'McAdr' on the interface 'IfName'. 
++*          
++*   @return 0 if the function succeeds, 1 if parameters are wrong or the join fails
++*/
++static inline int leaveMcGroup( int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr ) {
++    return joinleave( 'l', UdpSock, IfDp, mcastaddr );
++}
+ 
+ 
+ /* rttable.c
+diff -urBp a/src/mcgroup.c b/src/mcgroup.c
+--- a/src/mcgroup.c	2009-05-13 23:43:18.000000000 +0400
++++ b/src/mcgroup.c	2013-03-17 17:45:37.000000000 +0400
+@@ -41,7 +41,7 @@
+ /**
+ *   Common function for joining or leaving a MCast group.
+ */
+-static int joinleave( int Cmd, int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr ) {
++int joinleave( int Cmd, int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr ) {
+     struct ip_mreq CtlReq;
+     const char *CmdSt = Cmd == 'j' ? "join" : "leave";
+     
+@@ -65,22 +65,3 @@ static int joinleave( int Cmd, int UdpSo
+     return 0;
+ }
+ 
+-/**
+-*   Joins the MC group with the address 'McAdr' on the interface 'IfName'. 
+-*   The join is bound to the UDP socket 'UdpSock', so if this socket is 
+-*   closed the membership is dropped.
+-*          
+-*   @return 0 if the function succeeds, 1 if parameters are wrong or the join fails
+-*/
+-int joinMcGroup( int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr ) {
+-    return joinleave( 'j', UdpSock, IfDp, mcastaddr );
+-}
+-
+-/**
+-*   Leaves the MC group with the address 'McAdr' on the interface 'IfName'. 
+-*          
+-*   @return 0 if the function succeeds, 1 if parameters are wrong or the join fails
+-*/
+-int leaveMcGroup( int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr ) {
+-    return joinleave( 'l', UdpSock, IfDp, mcastaddr );
+-}
+diff -urBp a/src/request.c b/src/request.c
+--- a/src/request.c	2013-03-17 17:34:47.000000000 +0400
++++ b/src/request.c	2013-03-17 17:49:51.000000000 +0400
+@@ -40,7 +40,7 @@
+ #include "igmpproxy.h"
+ 
+ // Prototypes...
+-void sendGroupSpecificMemberQuery(void *argument);  
++static void sendGroupSpecificMemberQuery(void *argument);  
+     
+ typedef struct {
+     uint32_t      group;
 @@ -100,7 +100,7 @@ void acceptGroupReport(uint32_t src, uin
  	my_log(LOG_INFO, 0, "The group address %s may not be requested from this interface. Ignoring.", inetFmt(group, s1));
      } else {
@@ -22,3 +250,84 @@
              sourceVif->state==IF_STATE_UPSTREAM?"the upstream interface":"a disabled interface");
      }
  
+@@ -157,7 +157,7 @@ void acceptLeaveMessage(uint32_t src, ui
+ *   Sends a group specific member report query until the 
+ *   group times out...
+ */
+-void sendGroupSpecificMemberQuery(void *argument) {
++static void sendGroupSpecificMemberQuery(void *argument) {
+     struct  Config  *conf = getCommonConfig();
+ 
+     // Cast argument to correct type...
+diff -urBp a/src/rttable.c b/src/rttable.c
+--- a/src/rttable.c	2013-03-17 17:34:47.000000000 +0400
++++ b/src/rttable.c	2013-03-17 17:51:55.000000000 +0400
+@@ -65,18 +65,18 @@ struct RouteTable {
+ static struct RouteTable   *routing_table;
+ 
+ // Prototypes
+-void logRouteTable(char *header);
+-int  internAgeRoute(struct RouteTable*  croute);
+-int internUpdateKernelRoute(struct RouteTable *route, int activate);
++static void logRouteTable(char *header);
++static int  internAgeRoute(struct RouteTable*  croute);
++static int internUpdateKernelRoute(struct RouteTable *route, int activate);
+ 
+ // Socket for sending join or leave requests.
+-int mcGroupSock = 0;
++static int mcGroupSock = 0;
+ 
+ 
+ /**
+ *   Function for retrieving the Multicast Group socket.
+ */
+-int getMcGroupSock() {
++static int getMcGroupSock() {
+     if( ! mcGroupSock ) {
+         mcGroupSock = openUdpSocket( INADDR_ANY, 0 );;
+     }
+@@ -114,7 +114,7 @@ void initRouteTable() {
+ *   Internal function to send join or leave requests for
+ *   a specified route upstream...
+ */
+-void sendJoinLeaveUpstream(struct RouteTable* route, int join) {
++static void sendJoinLeaveUpstream(struct RouteTable* route, int join) {
+     struct IfDesc*      upstrIf;
+     
+     // Get the upstream VIF...
+@@ -495,7 +495,7 @@ int lastMemberGroupAge(uint32_t group) {
+ *   Remove a specified route. Returns 1 on success,
+ *   and 0 if route was not found.
+ */
+-int removeRoute(struct RouteTable*  croute) {
++static int removeRoute(struct RouteTable*  croute) {
+     struct Config       *conf = getCommonConfig();
+     int result = 1;
+     
+@@ -550,7 +550,7 @@ int removeRoute(struct RouteTable*  crou
+ /**
+ *   Ages a specific route
+ */
+-int internAgeRoute(struct RouteTable*  croute) {
++static int internAgeRoute(struct RouteTable*  croute) {
+     struct Config *conf = getCommonConfig();
+     int result = 0;
+ 
+@@ -621,7 +621,7 @@ int internAgeRoute(struct RouteTable*  c
+ *   Updates the Kernel routing table. If activate is 1, the route
+ *   is (re-)activated. If activate is false, the route is removed.
+ */
+-int internUpdateKernelRoute(struct RouteTable *route, int activate) {
++static int internUpdateKernelRoute(struct RouteTable *route, int activate) {
+     struct   MRouteDesc     mrDesc;
+     struct   IfDesc         *Dp;
+     unsigned                Ix;
+@@ -670,7 +670,7 @@ int internUpdateKernelRoute(struct Route
+ *   Debug function that writes the routing table entries
+ *   to the log.
+ */
+-void logRouteTable(char *header) {
++static void logRouteTable(char *header) {
+         struct RouteTable*  croute = routing_table;
+         unsigned            rcount = 0;
+     

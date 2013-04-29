@@ -1,0 +1,3571 @@
+SCSI: convert struct class_device to struct device
+
+ 9c7701088a61cc0cf8a6e1c68d1e74e3cc2ee0b7 scsi: use class iteration api
+ ee959b00c335d7780136c5abda37809191fe52c3 SCSI: convert struct class_device to struct device
+ 7d15d6a4dc08dfd456d834e33ef6c1d798fb2edc [SCSI] st: fix up after class_device removal
+
+---
+ drivers/base/attribute_container.c  |   77 ++++-----
+ drivers/base/transport_class.c      |   14 -
+ drivers/scsi/ch.c                   |   13 -
+ drivers/scsi/hosts.c                |   54 +++---
+ drivers/scsi/osst.c                 |   76 +++++----
+ drivers/scsi/raid_class.c           |   73 ++++-----
+ drivers/scsi/scsi_sas_internal.h    |   24 +--
+ drivers/scsi/scsi_sysfs.c           |  126 +++++++++-------
+ drivers/scsi/scsi_transport_fc.c    |  279 +++++++++++++++++++-----------------
+ drivers/scsi/scsi_transport_iscsi.c |   93 ++++++------
+ drivers/scsi/scsi_transport_sas.c   |  155 +++++++++++---------
+ drivers/scsi/scsi_transport_spi.c   |  108 +++++++------
+ drivers/scsi/sd.c                   |   76 +++++----
+ drivers/scsi/sg.c                   |   36 ++--
+ drivers/scsi/st.c                   |   71 ++++-----
+ include/linux/attribute_container.h |   28 +--
+ include/linux/raid_class.h          |   12 -
+ include/linux/transport_class.h     |    6 
+ include/scsi/scsi_device.h          |   10 -
+ include/scsi/scsi_host.h            |    7 
+ include/scsi/scsi_transport.h       |    2 
+ include/scsi/scsi_transport_fc.h    |    6 
+ include/scsi/scsi_transport_sas.h   |   12 -
+ include/scsi/sd.h                   |    6 
+ 24 files changed, 725 insertions(+), 639 deletions(-)
+
+diff --git a/drivers/base/attribute_container.c b/drivers/base/attribute_container.c
+--- a/drivers/base/attribute_container.c
++++ b/drivers/base/attribute_container.c
+@@ -27,21 +27,21 @@
+ struct internal_container {
+ 	struct klist_node node;
+ 	struct attribute_container *cont;
+-	struct class_device classdev;
++	struct device classdev;
+ };
+ 
+ static void internal_container_klist_get(struct klist_node *n)
+ {
+ 	struct internal_container *ic =
+ 		container_of(n, struct internal_container, node);
+-	class_device_get(&ic->classdev);
++	get_device(&ic->classdev);
+ }
+ 
+ static void internal_container_klist_put(struct klist_node *n)
+ {
+ 	struct internal_container *ic =
+ 		container_of(n, struct internal_container, node);
+-	class_device_put(&ic->classdev);
++	put_device(&ic->classdev);
+ }
+ 
+ 
+@@ -53,7 +53,7 @@ static void internal_container_klist_put(struct klist_node *n)
+  * Returns the container associated with this classdev.
+  */
+ struct attribute_container *
+-attribute_container_classdev_to_container(struct class_device *classdev)
++attribute_container_classdev_to_container(struct device *classdev)
+ {
+ 	struct internal_container *ic =
+ 		container_of(classdev, struct internal_container, classdev);
+@@ -110,11 +110,11 @@ attribute_container_unregister(struct attribute_container *cont)
+ EXPORT_SYMBOL_GPL(attribute_container_unregister);
+ 
+ /* private function used as class release */
+-static void attribute_container_release(struct class_device *classdev)
++static void attribute_container_release(struct device *classdev)
+ {
+ 	struct internal_container *ic 
+ 		= container_of(classdev, struct internal_container, classdev);
+-	struct device *dev = classdev->dev;
++	struct device *dev = classdev->parent;
+ 
+ 	kfree(ic);
+ 	put_device(dev);
+@@ -129,12 +129,12 @@ static void attribute_container_release(struct class_device *classdev)
+  * This function allocates storage for the class device(s) to be
+  * attached to dev (one for each matching attribute_container).  If no
+  * fn is provided, the code will simply register the class device via
+- * class_device_add.  If a function is provided, it is expected to add
++ * device_add.  If a function is provided, it is expected to add
+  * the class device at the appropriate time.  One of the things that
+  * might be necessary is to allocate and initialise the classdev and
+  * then add it a later time.  To do this, call this routine for
+  * allocation and initialisation and then use
+- * attribute_container_device_trigger() to call class_device_add() on
++ * attribute_container_device_trigger() to call device_add() on
+  * it.  Note: after this, the class device contains a reference to dev
+  * which is not relinquished until the release of the classdev.
+  */
+@@ -142,7 +142,7 @@ void
+ attribute_container_add_device(struct device *dev,
+ 			       int (*fn)(struct attribute_container *,
+ 					 struct device *,
+-					 struct class_device *))
++					 struct device *))
+ {
+ 	struct attribute_container *cont;
+ 
+@@ -163,11 +163,11 @@ attribute_container_add_device(struct device *dev,
+ 		}
+ 
+ 		ic->cont = cont;
+-		class_device_initialize(&ic->classdev);
+-		ic->classdev.dev = get_device(dev);
++		device_initialize(&ic->classdev);
++		ic->classdev.parent = get_device(dev);
+ 		ic->classdev.class = cont->class;
+-		cont->class->release = attribute_container_release;
+-		strcpy(ic->classdev.class_id, dev->bus_id);
++		cont->class->dev_release = attribute_container_release;
++		strcpy(ic->classdev.bus_id, dev->bus_id);
+ 		if (fn)
+ 			fn(cont, dev, &ic->classdev);
+ 		else
+@@ -195,20 +195,19 @@ attribute_container_add_device(struct device *dev,
+  * @fn:	  A function to call to remove the device
+  *
+  * This routine triggers device removal.  If fn is NULL, then it is
+- * simply done via class_device_unregister (note that if something
++ * simply done via device_unregister (note that if something
+  * still has a reference to the classdev, then the memory occupied
+  * will not be freed until the classdev is released).  If you want a
+  * two phase release: remove from visibility and then delete the
+  * device, then you should use this routine with a fn that calls
+- * class_device_del() and then use
+- * attribute_container_device_trigger() to do the final put on the
+- * classdev.
++ * device_del() and then use attribute_container_device_trigger()
++ * to do the final put on the classdev.
+  */
+ void
+ attribute_container_remove_device(struct device *dev,
+ 				  void (*fn)(struct attribute_container *,
+ 					     struct device *,
+-					     struct class_device *))
++					     struct device *))
+ {
+ 	struct attribute_container *cont;
+ 
+@@ -224,14 +223,14 @@ attribute_container_remove_device(struct device *dev,
+ 			continue;
+ 
+ 		klist_for_each_entry(ic, &cont->containers, node, &iter) {
+-			if (dev != ic->classdev.dev)
++			if (dev != ic->classdev.parent)
+ 				continue;
+ 			klist_del(&ic->node);
+ 			if (fn)
+ 				fn(cont, dev, &ic->classdev);
+ 			else {
+ 				attribute_container_remove_attrs(&ic->classdev);
+-				class_device_unregister(&ic->classdev);
++				device_unregister(&ic->classdev);
+ 			}
+ 		}
+ 	}
+@@ -252,7 +251,7 @@ void
+ attribute_container_device_trigger(struct device *dev, 
+ 				   int (*fn)(struct attribute_container *,
+ 					     struct device *,
+-					     struct class_device *))
++					     struct device *))
+ {
+ 	struct attribute_container *cont;
+ 
+@@ -270,7 +269,7 @@ attribute_container_device_trigger(struct device *dev,
+ 		}
+ 
+ 		klist_for_each_entry(ic, &cont->containers, node, &iter) {
+-			if (dev == ic->classdev.dev)
++			if (dev == ic->classdev.parent)
+ 				fn(cont, dev, &ic->classdev);
+ 		}
+ 	}
+@@ -313,11 +312,11 @@ attribute_container_trigger(struct device *dev,
+  * attributes listed in the container
+  */
+ int
+-attribute_container_add_attrs(struct class_device *classdev)
++attribute_container_add_attrs(struct device *classdev)
+ {
+ 	struct attribute_container *cont =
+ 		attribute_container_classdev_to_container(classdev);
+-	struct class_device_attribute **attrs =	cont->attrs;
++	struct device_attribute **attrs = cont->attrs;
+ 	int i, error;
+ 
+ 	BUG_ON(attrs && cont->grp);
+@@ -329,7 +328,7 @@ attribute_container_add_attrs(struct class_device *classdev)
+ 		return sysfs_create_group(&classdev->kobj, cont->grp);
+ 
+ 	for (i = 0; attrs[i]; i++) {
+-		error = class_device_create_file(classdev, attrs[i]);
++		error = device_create_file(classdev, attrs[i]);
+ 		if (error)
+ 			return error;
+ 	}
+@@ -338,18 +337,18 @@ attribute_container_add_attrs(struct class_device *classdev)
+ }
+ 
+ /**
+- * attribute_container_add_class_device - same function as class_device_add
++ * attribute_container_add_class_device - same function as device_add
+  *
+  * @classdev:	the class device to add
+  *
+- * This performs essentially the same function as class_device_add except for
++ * This performs essentially the same function as device_add except for
+  * attribute containers, namely add the classdev to the system and then
+  * create the attribute files
+  */
+ int
+-attribute_container_add_class_device(struct class_device *classdev)
++attribute_container_add_class_device(struct device *classdev)
+ {
+-	int error = class_device_add(classdev);
++	int error = device_add(classdev);
+ 	if (error)
+ 		return error;
+ 	return attribute_container_add_attrs(classdev);
+@@ -364,7 +363,7 @@ attribute_container_add_class_device(struct class_device *classdev)
+ int
+ attribute_container_add_class_device_adapter(struct attribute_container *cont,
+ 					     struct device *dev,
+-					     struct class_device *classdev)
++					     struct device *classdev)
+ {
+ 	return attribute_container_add_class_device(classdev);
+ }
+@@ -376,11 +375,11 @@ attribute_container_add_class_device_adapter(struct attribute_container *cont,
+  *
+  */
+ void
+-attribute_container_remove_attrs(struct class_device *classdev)
++attribute_container_remove_attrs(struct device *classdev)
+ {
+ 	struct attribute_container *cont =
+ 		attribute_container_classdev_to_container(classdev);
+-	struct class_device_attribute **attrs =	cont->attrs;
++	struct device_attribute **attrs = cont->attrs;
+ 	int i;
+ 
+ 	if (!attrs && !cont->grp)
+@@ -392,7 +391,7 @@ attribute_container_remove_attrs(struct class_device *classdev)
+ 	}
+ 
+ 	for (i = 0; attrs[i]; i++)
+-		class_device_remove_file(classdev, attrs[i]);
++		device_remove_file(classdev, attrs[i]);
+ }
+ 
+ /**
+@@ -401,13 +400,13 @@ attribute_container_remove_attrs(struct class_device *classdev)
+  * @classdev: the class device
+  *
+  * This function simply removes all the attribute files and then calls
+- * class_device_del.
++ * device_del.
+  */
+ void
+-attribute_container_class_device_del(struct class_device *classdev)
++attribute_container_class_device_del(struct device *classdev)
+ {
+ 	attribute_container_remove_attrs(classdev);
+-	class_device_del(classdev);
++	device_del(classdev);
+ }
+ 
+ /**
+@@ -419,16 +418,16 @@ attribute_container_class_device_del(struct class_device *classdev)
+  * Looks up the device in the container's list of class devices and returns
+  * the corresponding class_device.
+  */
+-struct class_device *
++struct device *
+ attribute_container_find_class_device(struct attribute_container *cont,
+ 				      struct device *dev)
+ {
+-	struct class_device *cdev = NULL;
++	struct device *cdev = NULL;
+ 	struct internal_container *ic;
+ 	struct klist_iter iter;
+ 
+ 	klist_for_each_entry(ic, &cont->containers, node, &iter) {
+-		if (ic->classdev.dev == dev) {
++		if (ic->classdev.parent == dev) {
+ 			cdev = &ic->classdev;
+ 			/* FIXME: must exit iterator then break */
+ 			klist_iter_exit(&iter);
+diff --git a/drivers/base/transport_class.c b/drivers/base/transport_class.c
+--- a/drivers/base/transport_class.c
++++ b/drivers/base/transport_class.c
+@@ -66,7 +66,7 @@ EXPORT_SYMBOL_GPL(transport_class_unregister);
+ 
+ static int anon_transport_dummy_function(struct transport_container *tc,
+ 					 struct device *dev,
+-					 struct class_device *cdev)
++					 struct device *cdev)
+ {
+ 	/* do nothing */
+ 	return 0;
+@@ -115,7 +115,7 @@ EXPORT_SYMBOL_GPL(anon_transport_class_unregister);
+ 
+ static int transport_setup_classdev(struct attribute_container *cont,
+ 				    struct device *dev,
+-				    struct class_device *classdev)
++				    struct device *classdev)
+ {
+ 	struct transport_class *tclass = class_to_transport_class(cont->class);
+ 	struct transport_container *tcont = attribute_container_to_transport_container(cont);
+@@ -149,7 +149,7 @@ EXPORT_SYMBOL_GPL(transport_setup_device);
+ 
+ static int transport_add_class_device(struct attribute_container *cont,
+ 				      struct device *dev,
+-				      struct class_device *classdev)
++				      struct device *classdev)
+ {
+ 	int error = attribute_container_add_class_device(classdev);
+ 	struct transport_container *tcont = 
+@@ -181,7 +181,7 @@ EXPORT_SYMBOL_GPL(transport_add_device);
+ 
+ static int transport_configure(struct attribute_container *cont,
+ 			       struct device *dev,
+-			       struct class_device *cdev)
++			       struct device *cdev)
+ {
+ 	struct transport_class *tclass = class_to_transport_class(cont->class);
+ 	struct transport_container *tcont = attribute_container_to_transport_container(cont);
+@@ -212,7 +212,7 @@ EXPORT_SYMBOL_GPL(transport_configure_device);
+ 
+ static int transport_remove_classdev(struct attribute_container *cont,
+ 				     struct device *dev,
+-				     struct class_device *classdev)
++				     struct device *classdev)
+ {
+ 	struct transport_container *tcont = 
+ 		attribute_container_to_transport_container(cont);
+@@ -251,12 +251,12 @@ EXPORT_SYMBOL_GPL(transport_remove_device);
+ 
+ static void transport_destroy_classdev(struct attribute_container *cont,
+ 				      struct device *dev,
+-				      struct class_device *classdev)
++				      struct device *classdev)
+ {
+ 	struct transport_class *tclass = class_to_transport_class(cont->class);
+ 
+ 	if (tclass->remove != anon_transport_dummy_function)
+-		class_device_put(classdev);
++		put_device(classdev);
+ }
+ 
+ 
+diff --git a/drivers/scsi/ch.c b/drivers/scsi/ch.c
+--- a/drivers/scsi/ch.c
++++ b/drivers/scsi/ch.c
+@@ -913,7 +913,7 @@ static long ch_ioctl_compat(struct file 
+ static int ch_probe(struct device *dev)
+ {
+ 	struct scsi_device *sd = to_scsi_device(dev);
+-	struct class_device *class_dev;
++	struct device *class_dev;
+ 	int minor, ret = -ENOMEM;
+ 	scsi_changer *ch;
+ 
+@@ -942,11 +942,11 @@ static int ch_probe(struct device *dev)
+ 	ch->minor = minor;
+ 	sprintf(ch->name,"ch%d",ch->minor);
+ 
+-	class_dev = class_device_create(ch_sysfs_class, NULL,
+-					MKDEV(SCSI_CHANGER_MAJOR, ch->minor),
+-					dev, "s%s", ch->name);
++	class_dev = device_create(ch_sysfs_class, dev,
++				  MKDEV(SCSI_CHANGER_MAJOR,ch->minor),
++				  "s%s", ch->name);
+ 	if (IS_ERR(class_dev)) {
+-		printk(KERN_WARNING "ch%d: class_device_create failed\n",
++		printk(KERN_WARNING "ch%d: device_create failed\n",
+ 		       ch->minor);
+ 		ret = PTR_ERR(class_dev);
+ 		goto remove_idr;
+@@ -977,8 +977,7 @@ static int ch_remove(struct device *dev)
+ 	idr_remove(&ch_index_idr, ch->minor);
+ 	spin_unlock(&ch_index_lock);
+ 
+-	class_device_destroy(ch_sysfs_class,
+-			     MKDEV(SCSI_CHANGER_MAJOR,ch->minor));
++	device_destroy(ch_sysfs_class, MKDEV(SCSI_CHANGER_MAJOR,ch->minor));
+ 	kfree(ch->dt);
+ 	kfree(ch);
+ 	return 0;
+diff --git a/drivers/scsi/hosts.c b/drivers/scsi/hosts.c
+--- a/drivers/scsi/hosts.c
++++ b/drivers/scsi/hosts.c
+@@ -43,14 +43,14 @@
+ static atomic_t scsi_host_next_hn;	/* host_no for next new host */
+ 
+ 
+-static void scsi_host_cls_release(struct class_device *class_dev)
++static void scsi_host_cls_release(struct device *dev)
+ {
+-	put_device(&class_to_shost(class_dev)->shost_gendev);
++	put_device(&class_to_shost(dev)->shost_gendev);
+ }
+ 
+ static struct class shost_class = {
+ 	.name		= "scsi_host",
+-	.release	= scsi_host_cls_release,
++	.dev_release	= scsi_host_cls_release,
+ };
+ 
+ /**
+@@ -175,7 +175,7 @@ void scsi_remove_host(struct Scsi_Host *
+ 	spin_unlock_irqrestore(shost->host_lock, flags);
+ 
+ 	transport_unregister_device(&shost->shost_gendev);
+-	class_device_unregister(&shost->shost_classdev);
++	device_unregister(&shost->shost_dev);
+ 	device_del(&shost->shost_gendev);
+ }
+ EXPORT_SYMBOL(scsi_remove_host);
+@@ -216,7 +216,7 @@ int scsi_add_host(struct Scsi_Host *shos
+ 	scsi_host_set_state(shost, SHOST_RUNNING);
+ 	get_device(shost->shost_gendev.parent);
+ 
+-	error = class_device_add(&shost->shost_classdev);
++	error = device_add(&shost->shost_dev);
+ 	if (error)
+ 		goto out_del_gendev;
+ 
+@@ -227,7 +227,7 @@ int scsi_add_host(struct Scsi_Host *shos
+ 					 GFP_KERNEL);
+ 		if (shost->shost_data == NULL) {
+ 			error = -ENOMEM;
+-			goto out_del_classdev;
++			goto out_del_dev;
+ 		}
+ 	}
+ 
+@@ -254,8 +254,8 @@ int scsi_add_host(struct Scsi_Host *shos
+ 		destroy_workqueue(shost->work_q);
+  out_free_shost_data:
+ 	kfree(shost->shost_data);
+- out_del_classdev:
+-	class_device_del(&shost->shost_classdev);
++ out_del_dev:
++	device_del(&shost->shost_dev);
+  out_del_gendev:
+ 	device_del(&shost->shost_gendev);
+  out:
+@@ -386,11 +386,11 @@ struct Scsi_Host *scsi_host_alloc(struct
+ 		shost->host_no);
+ 	shost->shost_gendev.release = scsi_host_dev_release;
+ 
+-	class_device_initialize(&shost->shost_classdev);
+-	shost->shost_classdev.dev = &shost->shost_gendev;
+-	shost->shost_classdev.class = &shost_class;
+-	snprintf(shost->shost_classdev.class_id, BUS_ID_SIZE, "host%d",
+-		  shost->host_no);
++	device_initialize(&shost->shost_dev);
++	shost->shost_dev.parent = &shost->shost_gendev;
++	shost->shost_dev.class = &shost_class;
++	snprintf(shost->shost_dev.bus_id, BUS_ID_SIZE, "host%d",
++		 shost->host_no);
+ 
+ 	shost->ehandler = kthread_run(scsi_error_handler, shost,
+ 			"scsi_eh_%d", shost->host_no);
+@@ -432,6 +432,15 @@ void scsi_unregister(struct Scsi_Host *s
+ }
+ EXPORT_SYMBOL(scsi_unregister);
+ 
++static int __scsi_host_match(struct device *dev, void *data)
++{
++	struct Scsi_Host *p;
++	unsigned short *hostnum = (unsigned short *)data;
++
++	p = class_to_shost(dev);
++	return p->host_no == *hostnum;
++}
++
+ /**
+  * scsi_host_lookup - get a reference to a Scsi_Host by host no
+  *
+@@ -442,19 +451,12 @@ EXPORT_SYMBOL(scsi_unregister);
+  **/
+ struct Scsi_Host *scsi_host_lookup(unsigned short hostnum)
+ {
+-	struct class *class = &shost_class;
+-	struct class_device *cdev;
+-	struct Scsi_Host *shost = NULL, *p;
+-
+-	down(&class->sem);
+-	list_for_each_entry(cdev, &class->children, node) {
+-		p = class_to_shost(cdev);
+-		if (p->host_no == hostnum) {
+-			shost = scsi_host_get(p);
+-			break;
+-		}
+-	}
+-	up(&class->sem);
++	struct device *cdev;
++	struct Scsi_Host *shost = NULL;
++
++	cdev = class_find_device(&shost_class, &hostnum, __scsi_host_match);
++	if (cdev)
++		shost = scsi_host_get(class_to_shost(cdev));
+ 
+ 	return shost;
+ }
+diff --git a/drivers/scsi/osst.c b/drivers/scsi/osst.c
+--- a/drivers/scsi/osst.c
++++ b/drivers/scsi/osst.c
+@@ -5589,9 +5589,10 @@ static void osst_remove_sysfs_files(stru
+  * sysfs support for accessing ADR header information
+  */
+ 
+-static ssize_t osst_adr_rev_show(struct class_device *class_dev, char *buf)
++static ssize_t osst_adr_rev_show(struct device *dev,
++				 struct device_attribute *attr, char *buf)
+ {
+-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
++	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
+ 	ssize_t l = 0;
+ 
+ 	if (STp && STp->header_ok && STp->linux_media)
+@@ -5599,11 +5600,13 @@ static ssize_t osst_adr_rev_show(struct 
+ 	return l;
+ }
+ 
+-CLASS_DEVICE_ATTR(ADR_rev, S_IRUGO, osst_adr_rev_show, NULL);
++DEVICE_ATTR(ADR_rev, S_IRUGO, osst_adr_rev_show, NULL);
+ 
+-static ssize_t osst_linux_media_version_show(struct class_device *class_dev, char *buf)
++static ssize_t osst_linux_media_version_show(struct device *dev,
++					     struct device_attribute *attr,
++					     char *buf)
+ {
+-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
++	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
+ 	ssize_t l = 0;
+ 
+ 	if (STp && STp->header_ok && STp->linux_media)
+@@ -5611,11 +5614,12 @@ static ssize_t osst_linux_media_version_
+ 	return l;
+ }
+ 
+-CLASS_DEVICE_ATTR(media_version, S_IRUGO, osst_linux_media_version_show, NULL);
++DEVICE_ATTR(media_version, S_IRUGO, osst_linux_media_version_show, NULL);
+ 
+-static ssize_t osst_capacity_show(struct class_device *class_dev, char *buf)
++static ssize_t osst_capacity_show(struct device *dev,
++				  struct device_attribute *attr, char *buf)
+ {
+-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
++	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
+ 	ssize_t l = 0;
+ 
+ 	if (STp && STp->header_ok && STp->linux_media)
+@@ -5623,11 +5627,13 @@ static ssize_t osst_capacity_show(struct
+ 	return l;
+ }
+ 
+-CLASS_DEVICE_ATTR(capacity, S_IRUGO, osst_capacity_show, NULL);
++DEVICE_ATTR(capacity, S_IRUGO, osst_capacity_show, NULL);
+ 
+-static ssize_t osst_first_data_ppos_show(struct class_device *class_dev, char *buf)
++static ssize_t osst_first_data_ppos_show(struct device *dev,
++					 struct device_attribute *attr,
++					 char *buf)
+ {
+-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
++	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
+ 	ssize_t l = 0;
+ 
+ 	if (STp && STp->header_ok && STp->linux_media)
+@@ -5635,11 +5641,13 @@ static ssize_t osst_first_data_ppos_show
+ 	return l;
+ }
+ 
+-CLASS_DEVICE_ATTR(BOT_frame, S_IRUGO, osst_first_data_ppos_show, NULL);
++DEVICE_ATTR(BOT_frame, S_IRUGO, osst_first_data_ppos_show, NULL);
+ 
+-static ssize_t osst_eod_frame_ppos_show(struct class_device *class_dev, char *buf)
++static ssize_t osst_eod_frame_ppos_show(struct device *dev,
++					struct device_attribute *attr,
++					char *buf)
+ {
+-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
++	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
+ 	ssize_t l = 0;
+ 
+ 	if (STp && STp->header_ok && STp->linux_media)
+@@ -5647,11 +5655,12 @@ static ssize_t osst_eod_frame_ppos_show(
+ 	return l;
+ }
+ 
+-CLASS_DEVICE_ATTR(EOD_frame, S_IRUGO, osst_eod_frame_ppos_show, NULL);
++DEVICE_ATTR(EOD_frame, S_IRUGO, osst_eod_frame_ppos_show, NULL);
+ 
+-static ssize_t osst_filemark_cnt_show(struct class_device *class_dev, char *buf)
++static ssize_t osst_filemark_cnt_show(struct device *dev,
++				      struct device_attribute *attr, char *buf)
+ {
+-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
++	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
+ 	ssize_t l = 0;
+ 
+ 	if (STp && STp->header_ok && STp->linux_media)
+@@ -5659,7 +5668,7 @@ static ssize_t osst_filemark_cnt_show(st
+ 	return l;
+ }
+ 
+-CLASS_DEVICE_ATTR(file_count, S_IRUGO, osst_filemark_cnt_show, NULL);
++DEVICE_ATTR(file_count, S_IRUGO, osst_filemark_cnt_show, NULL);
+ 
+ static struct class *osst_sysfs_class;
+ 
+@@ -5676,44 +5685,37 @@ static int osst_sysfs_init(void)
+ 
+ static void osst_sysfs_destroy(dev_t dev)
+ {
+-	class_device_destroy(osst_sysfs_class, dev);
++	device_destroy(osst_sysfs_class, dev);
+ }
+ 
+ static int osst_sysfs_add(dev_t dev, struct device *device, struct osst_tape * STp, char * name)
+ {
+-	struct class_device *osst_class_member;
++	struct device *osst_member;
+ 	int err;
+ 
+-	osst_class_member = class_device_create(osst_sysfs_class, NULL, dev,
+-						device, "%s", name);
+-	if (IS_ERR(osst_class_member)) {
++	osst_member = device_create(osst_sysfs_class, device, dev, "%s", name);
++	if (IS_ERR(osst_member)) {
+ 		printk(KERN_WARNING "osst :W: Unable to add sysfs class member %s\n", name);
+-		return PTR_ERR(osst_class_member);
++		return PTR_ERR(osst_member);
+ 	}
+ 
+-	class_set_devdata(osst_class_member, STp);
+-	err = class_device_create_file(osst_class_member,
+-				       &class_device_attr_ADR_rev);
++	dev_set_drvdata(osst_member, STp);
++	err = device_create_file(osst_member, &dev_attr_ADR_rev);
+ 	if (err)
+ 		goto err_out;
+-	err = class_device_create_file(osst_class_member,
+-				       &class_device_attr_media_version);
++	err = device_create_file(osst_member, &dev_attr_media_version);
+ 	if (err)
+ 		goto err_out;
+-	err = class_device_create_file(osst_class_member,
+-				       &class_device_attr_capacity);
++	err = device_create_file(osst_member, &dev_attr_capacity);
+ 	if (err)
+ 		goto err_out;
+-	err = class_device_create_file(osst_class_member,
+-				       &class_device_attr_BOT_frame);
++	err = device_create_file(osst_member, &dev_attr_BOT_frame);
+ 	if (err)
+ 		goto err_out;
+-	err = class_device_create_file(osst_class_member,
+-				       &class_device_attr_EOD_frame);
++	err = device_create_file(osst_member, &dev_attr_EOD_frame);
+ 	if (err)
+ 		goto err_out;
+-	err = class_device_create_file(osst_class_member,
+-				       &class_device_attr_file_count);
++	err = device_create_file(osst_member, &dev_attr_file_count);
+ 	if (err)
+ 		goto err_out;
+ 
+diff --git a/drivers/scsi/raid_class.c b/drivers/scsi/raid_class.c
+--- a/drivers/scsi/raid_class.c
++++ b/drivers/scsi/raid_class.c
+@@ -24,15 +24,15 @@ struct raid_internal {
+ 	struct raid_template r;
+ 	struct raid_function_template *f;
+ 	/* The actual attributes */
+-	struct class_device_attribute private_attrs[RAID_NUM_ATTRS];
++	struct device_attribute private_attrs[RAID_NUM_ATTRS];
+ 	/* The array of null terminated pointers to attributes 
+ 	 * needed by scsi_sysfs.c */
+-	struct class_device_attribute *attrs[RAID_NUM_ATTRS + 1];
++	struct device_attribute *attrs[RAID_NUM_ATTRS + 1];
+ };
+ 
+ struct raid_component {
+ 	struct list_head node;
+-	struct class_device cdev;
++	struct device dev;
+ 	int num;
+ };
+ 
+@@ -50,9 +50,9 @@ struct raid_component {
+ 	tc_to_raid_internal(tc);					\
+ })
+ 
+-#define class_device_to_raid_internal(cdev) ({				\
++#define device_to_raid_internal(dev) ({				\
+ 	struct attribute_container *ac =				\
+-		attribute_container_classdev_to_container(cdev);	\
++		attribute_container_classdev_to_container(dev);	\
+ 	ac_to_raid_internal(ac);					\
+ })
+ 	
+@@ -76,33 +76,33 @@ static int raid_match(struct attribute_c
+ }
+ 
+ static int raid_setup(struct transport_container *tc, struct device *dev,
+-		       struct class_device *cdev)
++		       struct device *cdev)
+ {
+ 	struct raid_data *rd;
+ 
+-	BUG_ON(class_get_devdata(cdev));
++	BUG_ON(dev_get_drvdata(cdev));
+ 
+ 	rd = kzalloc(sizeof(*rd), GFP_KERNEL);
+ 	if (!rd)
+ 		return -ENOMEM;
+ 
+ 	INIT_LIST_HEAD(&rd->component_list);
+-	class_set_devdata(cdev, rd);
++	dev_set_drvdata(cdev, rd);
+ 		
+ 	return 0;
+ }
+ 
+ static int raid_remove(struct transport_container *tc, struct device *dev,
+-		       struct class_device *cdev)
++		       struct device *cdev)
+ {
+-	struct raid_data *rd = class_get_devdata(cdev);
++	struct raid_data *rd = dev_get_drvdata(cdev);
+ 	struct raid_component *rc, *next;
+ 	dev_printk(KERN_ERR, dev, "RAID REMOVE\n");
+-	class_set_devdata(cdev, NULL);
++	dev_set_drvdata(cdev, NULL);
+ 	list_for_each_entry_safe(rc, next, &rd->component_list, node) {
+ 		list_del(&rc->node);
+-		dev_printk(KERN_ERR, rc->cdev.dev, "RAID COMPONENT REMOVE\n");
+-		class_device_unregister(&rc->cdev);
++		dev_printk(KERN_ERR, rc->dev.parent, "RAID COMPONENT REMOVE\n");
++		device_unregister(&rc->dev);
+ 	}
+ 	dev_printk(KERN_ERR, dev, "RAID REMOVE DONE\n");
+ 	kfree(rd);
+@@ -171,9 +171,11 @@ static const char *raid_level_name(enum 
+ }
+ 
+ #define raid_attr_show_internal(attr, fmt, var, code)			\
+-static ssize_t raid_show_##attr(struct class_device *cdev, char *buf)	\
++static ssize_t raid_show_##attr(struct device *dev, 			\
++				struct device_attribute *attr, 		\
++				char *buf)				\
+ {									\
+-	struct raid_data *rd = class_get_devdata(cdev);			\
++	struct raid_data *rd = dev_get_drvdata(dev);			\
+ 	code								\
+ 	return snprintf(buf, 20, #fmt "\n", var);			\
+ }
+@@ -184,17 +186,17 @@ raid_attr_show_internal(attr, %s, name,	
+ 	code								\
+ 	name = raid_##states##_name(rd->attr);				\
+ )									\
+-static CLASS_DEVICE_ATTR(attr, S_IRUGO, raid_show_##attr, NULL)
++static DEVICE_ATTR(attr, S_IRUGO, raid_show_##attr, NULL)
+ 
+ 
+ #define raid_attr_ro_internal(attr, code)				\
+ raid_attr_show_internal(attr, %d, rd->attr, code)			\
+-static CLASS_DEVICE_ATTR(attr, S_IRUGO, raid_show_##attr, NULL)
++static DEVICE_ATTR(attr, S_IRUGO, raid_show_##attr, NULL)
+ 
+ #define ATTR_CODE(attr)							\
+-	struct raid_internal *i = class_device_to_raid_internal(cdev);	\
++	struct raid_internal *i = device_to_raid_internal(dev);		\
+ 	if (i->f->get_##attr)						\
+-		i->f->get_##attr(cdev->dev);
++		i->f->get_##attr(dev->parent);
+ 
+ #define raid_attr_ro(attr)	raid_attr_ro_internal(attr, )
+ #define raid_attr_ro_fn(attr)	raid_attr_ro_internal(attr, ATTR_CODE(attr))
+@@ -206,23 +208,23 @@ raid_attr_ro_state(level);
+ raid_attr_ro_fn(resync);
+ raid_attr_ro_state_fn(state);
+ 
+-static void raid_component_release(struct class_device *cdev)
++static void raid_component_release(struct device *dev)
+ {
+-	struct raid_component *rc = container_of(cdev, struct raid_component,
+-						 cdev);
+-	dev_printk(KERN_ERR, rc->cdev.dev, "COMPONENT RELEASE\n");
+-	put_device(rc->cdev.dev);
++	struct raid_component *rc =
++		container_of(dev, struct raid_component, dev);
++	dev_printk(KERN_ERR, rc->dev.parent, "COMPONENT RELEASE\n");
++	put_device(rc->dev.parent);
+ 	kfree(rc);
+ }
+ 
+ int raid_component_add(struct raid_template *r,struct device *raid_dev,
+ 		       struct device *component_dev)
+ {
+-	struct class_device *cdev =
++	struct device *cdev =
+ 		attribute_container_find_class_device(&r->raid_attrs.ac,
+ 						      raid_dev);
+ 	struct raid_component *rc;
+-	struct raid_data *rd = class_get_devdata(cdev);
++	struct raid_data *rd = dev_get_drvdata(cdev);
+ 	int err;
+ 
+ 	rc = kzalloc(sizeof(*rc), GFP_KERNEL);
+@@ -230,17 +232,16 @@ int raid_component_add(struct raid_templ
+ 		return -ENOMEM;
+ 
+ 	INIT_LIST_HEAD(&rc->node);
+-	class_device_initialize(&rc->cdev);
+-	rc->cdev.release = raid_component_release;
+-	rc->cdev.dev = get_device(component_dev);
++	device_initialize(&rc->dev);
++	rc->dev.release = raid_component_release;
++	rc->dev.parent = get_device(component_dev);
+ 	rc->num = rd->component_count++;
+ 
+-	snprintf(rc->cdev.class_id, sizeof(rc->cdev.class_id),
++	snprintf(rc->dev.bus_id, sizeof(rc->dev.bus_id),
+ 		 "component-%d", rc->num);
+ 	list_add_tail(&rc->node, &rd->component_list);
+-	rc->cdev.parent = cdev;
+-	rc->cdev.class = &raid_class.class;
+-	err = class_device_add(&rc->cdev);
++	rc->dev.class = &raid_class.class;
++	err = device_add(&rc->dev);
+ 	if (err)
+ 		goto err_out;
+ 
+@@ -273,9 +274,9 @@ raid_class_attach(struct raid_function_t
+ 
+ 	attribute_container_register(&i->r.raid_attrs.ac);
+ 
+-	i->attrs[count++] = &class_device_attr_level;
+-	i->attrs[count++] = &class_device_attr_resync;
+-	i->attrs[count++] = &class_device_attr_state;
++	i->attrs[count++] = &dev_attr_level;
++	i->attrs[count++] = &dev_attr_resync;
++	i->attrs[count++] = &dev_attr_state;
+ 
+ 	i->attrs[count] = NULL;
+ 	BUG_ON(count > RAID_NUM_ATTRS);
+diff --git a/drivers/scsi/scsi_sas_internal.h b/drivers/scsi/scsi_sas_internal.h
+--- a/drivers/scsi/scsi_sas_internal.h
++++ b/drivers/scsi/scsi_sas_internal.h
+@@ -13,12 +13,12 @@ struct sas_internal {
+ 	struct sas_function_template *f;
+ 	struct sas_domain_function_template *dft;
+ 
+-	struct class_device_attribute private_host_attrs[SAS_HOST_ATTRS];
+-	struct class_device_attribute private_phy_attrs[SAS_PHY_ATTRS];
+-	struct class_device_attribute private_port_attrs[SAS_PORT_ATTRS];
+-	struct class_device_attribute private_rphy_attrs[SAS_RPORT_ATTRS];
+-	struct class_device_attribute private_end_dev_attrs[SAS_END_DEV_ATTRS];
+-	struct class_device_attribute private_expander_attrs[SAS_EXPANDER_ATTRS];
++	struct device_attribute private_host_attrs[SAS_HOST_ATTRS];
++	struct device_attribute private_phy_attrs[SAS_PHY_ATTRS];
++	struct device_attribute private_port_attrs[SAS_PORT_ATTRS];
++	struct device_attribute private_rphy_attrs[SAS_RPORT_ATTRS];
++	struct device_attribute private_end_dev_attrs[SAS_END_DEV_ATTRS];
++	struct device_attribute private_expander_attrs[SAS_EXPANDER_ATTRS];
+ 
+ 	struct transport_container phy_attr_cont;
+ 	struct transport_container port_attr_cont;
+@@ -30,12 +30,12 @@ struct sas_internal {
+ 	 * The array of null terminated pointers to attributes
+ 	 * needed by scsi_sysfs.c
+ 	 */
+-	struct class_device_attribute *host_attrs[SAS_HOST_ATTRS + 1];
+-	struct class_device_attribute *phy_attrs[SAS_PHY_ATTRS + 1];
+-	struct class_device_attribute *port_attrs[SAS_PORT_ATTRS + 1];
+-	struct class_device_attribute *rphy_attrs[SAS_RPORT_ATTRS + 1];
+-	struct class_device_attribute *end_dev_attrs[SAS_END_DEV_ATTRS + 1];
+-	struct class_device_attribute *expander_attrs[SAS_EXPANDER_ATTRS + 1];
++	struct device_attribute *host_attrs[SAS_HOST_ATTRS + 1];
++	struct device_attribute *phy_attrs[SAS_PHY_ATTRS + 1];
++	struct device_attribute *port_attrs[SAS_PORT_ATTRS + 1];
++	struct device_attribute *rphy_attrs[SAS_RPORT_ATTRS + 1];
++	struct device_attribute *end_dev_attrs[SAS_END_DEV_ATTRS + 1];
++	struct device_attribute *expander_attrs[SAS_EXPANDER_ATTRS + 1];
+ };
+ #define to_sas_internal(tmpl)	container_of(tmpl, struct sas_internal, t)
+ 
+diff --git a/drivers/scsi/scsi_sysfs.c b/drivers/scsi/scsi_sysfs.c
+--- a/drivers/scsi/scsi_sysfs.c
++++ b/drivers/scsi/scsi_sysfs.c
+@@ -118,9 +118,10 @@ static int scsi_scan(struct Scsi_Host *s
+  */
+ #define shost_show_function(name, field, format_string)			\
+ static ssize_t								\
+-show_##name (struct class_device *class_dev, char *buf)			\
++show_##name (struct device *dev, struct device_attribute *attr, 	\
++	     char *buf)							\
+ {									\
+-	struct Scsi_Host *shost = class_to_shost(class_dev);		\
++	struct Scsi_Host *shost = class_to_shost(dev);			\
+ 	return snprintf (buf, 20, format_string, shost->field);		\
+ }
+ 
+@@ -130,7 +131,7 @@ show_##name (struct class_device *class_
+  */
+ #define shost_rd_attr2(name, field, format_string)			\
+ 	shost_show_function(name, field, format_string)			\
+-static CLASS_DEVICE_ATTR(name, S_IRUGO, show_##name, NULL);
++static DEVICE_ATTR(name, S_IRUGO, show_##name, NULL);
+ 
+ #define shost_rd_attr(field, format_string) \
+ shost_rd_attr2(field, field, format_string)
+@@ -139,10 +140,11 @@ shost_rd_attr2(field, field, format_stri
+  * Create the actual show/store functions and data structures.
+  */
+ 
+-static ssize_t store_scan(struct class_device *class_dev, const char *buf,
+-			  size_t count)
++static ssize_t
++store_scan(struct device *dev, struct device_attribute *attr,
++	   const char *buf, size_t count)
+ {
+-	struct Scsi_Host *shost = class_to_shost(class_dev);
++	struct Scsi_Host *shost = class_to_shost(dev);
+ 	int res;
+ 
+ 	res = scsi_scan(shost, buf);
+@@ -150,13 +152,14 @@ static ssize_t store_scan(struct class_d
+ 		res = count;
+ 	return res;
+ };
+-static CLASS_DEVICE_ATTR(scan, S_IWUSR, NULL, store_scan);
++static DEVICE_ATTR(scan, S_IWUSR, NULL, store_scan);
+ 
+ static ssize_t
+-store_shost_state(struct class_device *class_dev, const char *buf, size_t count)
++store_shost_state(struct device *dev, struct device_attribute *attr,
++		  const char *buf, size_t count)
+ {
+ 	int i;
+-	struct Scsi_Host *shost = class_to_shost(class_dev);
++	struct Scsi_Host *shost = class_to_shost(dev);
+ 	enum scsi_host_state state = 0;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(shost_states); i++) {
+@@ -176,9 +179,9 @@ store_shost_state(struct class_device *c
+ }
+ 
+ static ssize_t
+-show_shost_state(struct class_device *class_dev, char *buf)
++show_shost_state(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+-	struct Scsi_Host *shost = class_to_shost(class_dev);
++	struct Scsi_Host *shost = class_to_shost(dev);
+ 	const char *name = scsi_host_state_name(shost->shost_state);
+ 
+ 	if (!name)
+@@ -187,7 +190,9 @@ show_shost_state(struct class_device *cl
+ 	return snprintf(buf, 20, "%s\n", name);
+ }
+ 
+-static CLASS_DEVICE_ATTR(state, S_IRUGO | S_IWUSR, show_shost_state, store_shost_state);
++/* DEVICE_ATTR(state) clashes with dev_attr_state for sdev */
++struct device_attribute dev_attr_hstate =
++	__ATTR(state, S_IRUGO | S_IWUSR, show_shost_state, store_shost_state);
+ 
+ shost_rd_attr(unique_id, "%u\n");
+ shost_rd_attr(host_busy, "%hu\n");
+@@ -197,20 +202,20 @@ shost_rd_attr(sg_tablesize, "%hu\n");
+ shost_rd_attr(unchecked_isa_dma, "%d\n");
+ shost_rd_attr2(proc_name, hostt->proc_name, "%s\n");
+ 
+-static struct class_device_attribute *scsi_sysfs_shost_attrs[] = {
+-	&class_device_attr_unique_id,
+-	&class_device_attr_host_busy,
+-	&class_device_attr_cmd_per_lun,
+-	&class_device_attr_can_queue,
+-	&class_device_attr_sg_tablesize,
+-	&class_device_attr_unchecked_isa_dma,
+-	&class_device_attr_proc_name,
+-	&class_device_attr_scan,
+-	&class_device_attr_state,
++static struct device_attribute *scsi_sysfs_shost_attrs[] = {
++	&dev_attr_unique_id,
++	&dev_attr_host_busy,
++	&dev_attr_cmd_per_lun,
++	&dev_attr_can_queue,
++	&dev_attr_sg_tablesize,
++	&dev_attr_unchecked_isa_dma,
++	&dev_attr_proc_name,
++	&dev_attr_scan,
++	&dev_attr_hstate,
+ 	NULL
+ };
+ 
+-static void scsi_device_cls_release(struct class_device *class_dev)
++static void scsi_device_cls_release(struct device *class_dev)
+ {
+ 	struct scsi_device *sdev;
+ 
+@@ -264,7 +269,7 @@ static void scsi_device_dev_release(stru
+ 
+ static struct class sdev_class = {
+ 	.name		= "scsi_device",
+-	.release	= scsi_device_cls_release,
++	.dev_release	= scsi_device_cls_release,
+ };
+ 
+ /* all probing is done in the individual ->probe routines */
+@@ -375,7 +380,8 @@ void scsi_sysfs_unregister(void)
+  */
+ #define sdev_show_function(field, format_string)				\
+ static ssize_t								\
+-sdev_show_##field (struct device *dev, struct device_attribute *attr, char *buf)				\
++sdev_show_##field (struct device *dev, struct device_attribute *attr,	\
++		   char *buf)						\
+ {									\
+ 	struct scsi_device *sdev;					\
+ 	sdev = to_scsi_device(dev);					\
+@@ -399,7 +405,8 @@ static DEVICE_ATTR(field, S_IRUGO, sdev_
+ 	sdev_show_function(field, format_string)				\
+ 									\
+ static ssize_t								\
+-sdev_store_##field (struct device *dev, struct device_attribute *attr, const char *buf, size_t count)	\
++sdev_store_##field (struct device *dev, struct device_attribute *attr,	\
++		    const char *buf, size_t count)			\
+ {									\
+ 	struct scsi_device *sdev;					\
+ 	sdev = to_scsi_device(dev);					\
+@@ -419,7 +426,8 @@ static DEVICE_ATTR(field, S_IRUGO | S_IW
+ 	sdev_show_function(field, "%d\n")					\
+ 									\
+ static ssize_t								\
+-sdev_store_##field (struct device *dev, struct device_attribute *attr, const char *buf, size_t count)	\
++sdev_store_##field (struct device *dev, struct device_attribute *attr,	\
++		    const char *buf, size_t count)			\
+ {									\
+ 	int ret;							\
+ 	struct scsi_device *sdev;					\
+@@ -470,7 +478,8 @@ sdev_show_timeout (struct device *dev, s
+ }
+ 
+ static ssize_t
+-sdev_store_timeout (struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
++sdev_store_timeout (struct device *dev, struct device_attribute *attr,
++		    const char *buf, size_t count)
+ {
+ 	struct scsi_device *sdev;
+ 	int timeout;
+@@ -482,7 +491,8 @@ sdev_store_timeout (struct device *dev, 
+ static DEVICE_ATTR(timeout, S_IRUGO | S_IWUSR, sdev_show_timeout, sdev_store_timeout);
+ 
+ static ssize_t
+-store_rescan_field (struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
++store_rescan_field (struct device *dev, struct device_attribute *attr,
++		    const char *buf, size_t count)
+ {
+ 	scsi_rescan_device(dev);
+ 	return count;
+@@ -494,8 +504,9 @@ static void sdev_store_delete_callback(s
+ 	scsi_remove_device(to_scsi_device(dev));
+ }
+ 
+-static ssize_t sdev_store_delete(struct device *dev, struct device_attribute *attr, const char *buf,
+-				 size_t count)
++static ssize_t
++sdev_store_delete(struct device *dev, struct device_attribute *attr,
++		  const char *buf, size_t count)
+ {
+ 	int rc;
+ 
+@@ -510,7 +521,8 @@ static ssize_t sdev_store_delete(struct 
+ static DEVICE_ATTR(delete, S_IWUSR, NULL, sdev_store_delete);
+ 
+ static ssize_t
+-store_state_field(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
++store_state_field(struct device *dev, struct device_attribute *attr,
++		  const char *buf, size_t count)
+ {
+ 	int i;
+ 	struct scsi_device *sdev = to_scsi_device(dev);
+@@ -547,7 +559,8 @@ show_state_field(struct device *dev, str
+ static DEVICE_ATTR(state, S_IRUGO | S_IWUSR, show_state_field, store_state_field);
+ 
+ static ssize_t
+-show_queue_type_field(struct device *dev, struct device_attribute *attr, char *buf)
++show_queue_type_field(struct device *dev, struct device_attribute *attr,
++		      char *buf)
+ {
+ 	struct scsi_device *sdev = to_scsi_device(dev);
+ 	const char *name = "none";
+@@ -563,7 +576,7 @@ show_queue_type_field(struct device *dev
+ static DEVICE_ATTR(queue_type, S_IRUGO, show_queue_type_field, NULL);
+ 
+ static ssize_t
+-show_iostat_counterbits(struct device *dev, struct device_attribute *attr, char *buf)
++show_iostat_counterbits(struct device *dev, struct device_attribute *attr, 				char *buf)
+ {
+ 	return snprintf(buf, 20, "%d\n", (int)sizeof(atomic_t) * 8);
+ }
+@@ -572,7 +585,8 @@ static DEVICE_ATTR(iocounterbits, S_IRUG
+ 
+ #define show_sdev_iostat(field)						\
+ static ssize_t								\
+-show_iostat_##field(struct device *dev, struct device_attribute *attr, char *buf)			\
++show_iostat_##field(struct device *dev, struct device_attribute *attr,	\
++		    char *buf)						\
+ {									\
+ 	struct scsi_device *sdev = to_scsi_device(dev);			\
+ 	unsigned long long count = atomic_read(&sdev->field);		\
+@@ -622,8 +636,9 @@ static struct attribute_group *scsi_sdev
+ 	NULL
+ };
+ 
+-static ssize_t sdev_store_queue_depth_rw(struct device *dev, struct device_attribute *attr, const char *buf,
+-					 size_t count)
++static ssize_t
++sdev_store_queue_depth_rw(struct device *dev, struct device_attribute *attr,
++			  const char *buf, size_t count)
+ {
+ 	int depth, retval;
+ 	struct scsi_device *sdev = to_scsi_device(dev);
+@@ -648,8 +663,9 @@ static struct device_attribute sdev_attr
+ 	__ATTR(queue_depth, S_IRUGO | S_IWUSR, sdev_show_queue_depth,
+ 	       sdev_store_queue_depth_rw);
+ 
+-static ssize_t sdev_store_queue_type_rw(struct device *dev, struct device_attribute *attr, const char *buf,
+-					size_t count)
++static ssize_t
++sdev_store_queue_type_rw(struct device *dev, struct device_attribute *attr,
++			 const char *buf, size_t count)
+ {
+ 	struct scsi_device *sdev = to_scsi_device(dev);
+ 	struct scsi_host_template *sht = sdev->host->hostt;
+@@ -700,13 +716,13 @@ int scsi_sysfs_add_sdev(struct scsi_devi
+ 		printk(KERN_INFO "error 1\n");
+ 		return error;
+ 	}
+-	error = class_device_add(&sdev->sdev_classdev);
++	error = device_add(&sdev->sdev_dev);
+ 	if (error) {
+ 		printk(KERN_INFO "error 2\n");
+ 		goto clean_device;
+ 	}
+ 
+-	/* take a reference for the sdev_classdev; this is
++	/* take a reference for the sdev_dev; this is
+ 	 * released by the sdev_class .release */
+ 	get_device(&sdev->sdev_gendev);
+ 
+@@ -761,7 +777,7 @@ void __scsi_remove_device(struct scsi_de
+ 	if (scsi_device_set_state(sdev, SDEV_CANCEL) != 0)
+ 		return;
+ 
+-	class_device_unregister(&sdev->sdev_classdev);
++	device_unregister(&sdev->sdev_dev);
+ 	transport_remove_device(dev);
+ 	device_del(dev);
+ 	scsi_device_set_state(sdev, SDEV_DEL);
+@@ -855,9 +871,9 @@ int scsi_register_interface(struct class
+ EXPORT_SYMBOL(scsi_register_interface);
+ 
+ 
+-static struct class_device_attribute *class_attr_overridden(
+-		struct class_device_attribute **attrs,
+-		struct class_device_attribute *attr)
++static struct device_attribute *class_attr_overridden(
++		struct device_attribute **attrs,
++		struct device_attribute *attr)
+ {
+ 	int i;
+ 
+@@ -869,10 +885,10 @@ static struct class_device_attribute *cl
+ 	return NULL;
+ }
+ 
+-static int class_attr_add(struct class_device *classdev,
+-		struct class_device_attribute *attr)
++static int class_attr_add(struct device *classdev,
++		struct device_attribute *attr)
+ {
+-	struct class_device_attribute *base_attr;
++	struct device_attribute *base_attr;
+ 
+ 	/*
+ 	 * Spare the caller from having to copy things it's not interested in.
+@@ -889,7 +905,7 @@ static int class_attr_add(struct class_d
+ 			attr->store = base_attr->store;
+ 	}
+ 
+-	return class_device_create_file(classdev, attr);
++	return device_create_file(classdev, attr);
+ }
+ 
+ /**
+@@ -903,7 +919,7 @@ int scsi_sysfs_add_host(struct Scsi_Host
+ 
+ 	if (shost->hostt->shost_attrs) {
+ 		for (i = 0; shost->hostt->shost_attrs[i]; i++) {
+-			error = class_attr_add(&shost->shost_classdev,
++			error = class_attr_add(&shost->shost_dev,
+ 					shost->hostt->shost_attrs[i]);
+ 			if (error)
+ 				return error;
+@@ -913,7 +929,7 @@ int scsi_sysfs_add_host(struct Scsi_Host
+ 	for (i = 0; scsi_sysfs_shost_attrs[i]; i++) {
+ 		if (!class_attr_overridden(shost->hostt->shost_attrs,
+ 					scsi_sysfs_shost_attrs[i])) {
+-			error = class_device_create_file(&shost->shost_classdev,
++			error = device_create_file(&shost->shost_dev,
+ 					scsi_sysfs_shost_attrs[i]);
+ 			if (error)
+ 				return error;
+@@ -943,10 +959,10 @@ void scsi_sysfs_device_initialize(struct
+ 		sdev->host->host_no, sdev->channel, sdev->id,
+ 		sdev->lun);
+ 	
+-	class_device_initialize(&sdev->sdev_classdev);
+-	sdev->sdev_classdev.dev = &sdev->sdev_gendev;
+-	sdev->sdev_classdev.class = &sdev_class;
+-	snprintf(sdev->sdev_classdev.class_id, BUS_ID_SIZE,
++	device_initialize(&sdev->sdev_dev);
++	sdev->sdev_dev.parent = &sdev->sdev_gendev;
++	sdev->sdev_dev.class = &sdev_class;
++	snprintf(sdev->sdev_dev.bus_id, BUS_ID_SIZE,
+ 		 "%d:%d:%d:%d", sdev->host->host_no,
+ 		 sdev->channel, sdev->id, sdev->lun);
+ 	sdev->scsi_level = starget->scsi_level;
+diff --git a/drivers/scsi/scsi_transport_fc.c b/drivers/scsi/scsi_transport_fc.c
+--- a/drivers/scsi/scsi_transport_fc.c
++++ b/drivers/scsi/scsi_transport_fc.c
+@@ -42,8 +42,8 @@ static int fc_queue_work(struct Scsi_Hos
+  * Redefine so that we can have same named attributes in the
+  * sdev/starget/host objects.
+  */
+-#define FC_CLASS_DEVICE_ATTR(_prefix,_name,_mode,_show,_store)		\
+-struct class_device_attribute class_device_attr_##_prefix##_##_name = 	\
++#define FC_DEVICE_ATTR(_prefix,_name,_mode,_show,_store)		\
++struct device_attribute device_attr_##_prefix##_##_name = 	\
+ 	__ATTR(_name,_mode,_show,_store)
+ 
+ #define fc_enum_name_search(title, table_type, table)			\
+@@ -268,22 +268,22 @@ struct fc_internal {
+ 	 * part of the midlayer. As the remote port is specific to the
+ 	 * fc transport, we must provide the attribute container.
+ 	 */
+-	struct class_device_attribute private_starget_attrs[
++	struct device_attribute private_starget_attrs[
+ 							FC_STARGET_NUM_ATTRS];
+-	struct class_device_attribute *starget_attrs[FC_STARGET_NUM_ATTRS + 1];
++	struct device_attribute *starget_attrs[FC_STARGET_NUM_ATTRS + 1];
+ 
+-	struct class_device_attribute private_host_attrs[FC_HOST_NUM_ATTRS];
+-	struct class_device_attribute *host_attrs[FC_HOST_NUM_ATTRS + 1];
++	struct device_attribute private_host_attrs[FC_HOST_NUM_ATTRS];
++	struct device_attribute *host_attrs[FC_HOST_NUM_ATTRS + 1];
+ 
+ 	struct transport_container rport_attr_cont;
+-	struct class_device_attribute private_rport_attrs[FC_RPORT_NUM_ATTRS];
+-	struct class_device_attribute *rport_attrs[FC_RPORT_NUM_ATTRS + 1];
++	struct device_attribute private_rport_attrs[FC_RPORT_NUM_ATTRS];
++	struct device_attribute *rport_attrs[FC_RPORT_NUM_ATTRS + 1];
+ };
+ 
+ #define to_fc_internal(tmpl)	container_of(tmpl, struct fc_internal, t)
+ 
+ static int fc_target_setup(struct transport_container *tc, struct device *dev,
+-			   struct class_device *cdev)
++			   struct device *cdev)
+ {
+ 	struct scsi_target *starget = to_scsi_target(dev);
+ 	struct fc_rport *rport = starget_to_rport(starget);
+@@ -313,7 +313,7 @@ static DECLARE_TRANSPORT_CLASS(fc_transp
+ 			       NULL);
+ 
+ static int fc_host_setup(struct transport_container *tc, struct device *dev,
+-			 struct class_device *cdev)
++			 struct device *cdev)
+ {
+ 	struct Scsi_Host *shost = dev_to_shost(dev);
+ 	struct fc_host_attrs *fc_host = shost_to_fc_host(shost);
+@@ -604,9 +604,10 @@ static void __exit fc_transport_exit(voi
+ 
+ #define fc_rport_show_function(field, format_string, sz, cast)		\
+ static ssize_t								\
+-show_fc_rport_##field (struct class_device *cdev, char *buf)		\
++show_fc_rport_##field (struct device *dev, 				\
++		       struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct fc_rport *rport = transport_class_to_rport(cdev);	\
++	struct fc_rport *rport = transport_class_to_rport(dev);		\
+ 	struct Scsi_Host *shost = rport_to_shost(rport);		\
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
+ 	if ((i->f->get_rport_##field) &&				\
+@@ -619,11 +620,12 @@ show_fc_rport_##field (struct class_devi
+ 
+ #define fc_rport_store_function(field)					\
+ static ssize_t								\
+-store_fc_rport_##field(struct class_device *cdev, const char *buf,	\
+-			   size_t count)				\
++store_fc_rport_##field(struct device *dev,				\
++		       struct device_attribute *attr,			\
++		       const char *buf,	size_t count)			\
+ {									\
+ 	int val;							\
+-	struct fc_rport *rport = transport_class_to_rport(cdev);	\
++	struct fc_rport *rport = transport_class_to_rport(dev);		\
+ 	struct Scsi_Host *shost = rport_to_shost(rport);		\
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
+ 	char *cp;							\
+@@ -640,58 +642,60 @@ store_fc_rport_##field(struct class_devi
+ 
+ #define fc_rport_rd_attr(field, format_string, sz)			\
+ 	fc_rport_show_function(field, format_string, sz, )		\
+-static FC_CLASS_DEVICE_ATTR(rport, field, S_IRUGO,			\
++static FC_DEVICE_ATTR(rport, field, S_IRUGO,			\
+ 			 show_fc_rport_##field, NULL)
+ 
+ #define fc_rport_rd_attr_cast(field, format_string, sz, cast)		\
+ 	fc_rport_show_function(field, format_string, sz, (cast))	\
+-static FC_CLASS_DEVICE_ATTR(rport, field, S_IRUGO,			\
++static FC_DEVICE_ATTR(rport, field, S_IRUGO,			\
+ 			  show_fc_rport_##field, NULL)
+ 
+ #define fc_rport_rw_attr(field, format_string, sz)			\
+ 	fc_rport_show_function(field, format_string, sz, )		\
+ 	fc_rport_store_function(field)					\
+-static FC_CLASS_DEVICE_ATTR(rport, field, S_IRUGO | S_IWUSR,		\
++static FC_DEVICE_ATTR(rport, field, S_IRUGO | S_IWUSR,		\
+ 			show_fc_rport_##field,				\
+ 			store_fc_rport_##field)
+ 
+ 
+ #define fc_private_rport_show_function(field, format_string, sz, cast)	\
+ static ssize_t								\
+-show_fc_rport_##field (struct class_device *cdev, char *buf)		\
++show_fc_rport_##field (struct device *dev, 				\
++		       struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct fc_rport *rport = transport_class_to_rport(cdev);	\
++	struct fc_rport *rport = transport_class_to_rport(dev);		\
+ 	return snprintf(buf, sz, format_string, cast rport->field); 	\
+ }
+ 
+ #define fc_private_rport_rd_attr(field, format_string, sz)		\
+ 	fc_private_rport_show_function(field, format_string, sz, )	\
+-static FC_CLASS_DEVICE_ATTR(rport, field, S_IRUGO,			\
++static FC_DEVICE_ATTR(rport, field, S_IRUGO,			\
+ 			 show_fc_rport_##field, NULL)
+ 
+ #define fc_private_rport_rd_attr_cast(field, format_string, sz, cast)	\
+ 	fc_private_rport_show_function(field, format_string, sz, (cast)) \
+-static FC_CLASS_DEVICE_ATTR(rport, field, S_IRUGO,			\
++static FC_DEVICE_ATTR(rport, field, S_IRUGO,			\
+ 			  show_fc_rport_##field, NULL)
+ 
+ 
+ #define fc_private_rport_rd_enum_attr(title, maxlen)			\
+ static ssize_t								\
+-show_fc_rport_##title (struct class_device *cdev, char *buf)		\
++show_fc_rport_##title (struct device *dev,				\
++		       struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct fc_rport *rport = transport_class_to_rport(cdev);	\
++	struct fc_rport *rport = transport_class_to_rport(dev);		\
+ 	const char *name;						\
+ 	name = get_fc_##title##_name(rport->title);			\
+ 	if (!name)							\
+ 		return -EINVAL;						\
+ 	return snprintf(buf, maxlen, "%s\n", name);			\
+ }									\
+-static FC_CLASS_DEVICE_ATTR(rport, title, S_IRUGO,			\
++static FC_DEVICE_ATTR(rport, title, S_IRUGO,			\
+ 			show_fc_rport_##title, NULL)
+ 
+ 
+ #define SETUP_RPORT_ATTRIBUTE_RD(field)					\
+-	i->private_rport_attrs[count] = class_device_attr_rport_##field; \
++	i->private_rport_attrs[count] = device_attr_rport_##field; \
+ 	i->private_rport_attrs[count].attr.mode = S_IRUGO;		\
+ 	i->private_rport_attrs[count].store = NULL;			\
+ 	i->rport_attrs[count] = &i->private_rport_attrs[count];		\
+@@ -699,14 +703,14 @@ static FC_CLASS_DEVICE_ATTR(rport, title
+ 		count++
+ 
+ #define SETUP_PRIVATE_RPORT_ATTRIBUTE_RD(field)				\
+-	i->private_rport_attrs[count] = class_device_attr_rport_##field; \
++	i->private_rport_attrs[count] = device_attr_rport_##field; \
+ 	i->private_rport_attrs[count].attr.mode = S_IRUGO;		\
+ 	i->private_rport_attrs[count].store = NULL;			\
+ 	i->rport_attrs[count] = &i->private_rport_attrs[count];		\
+ 	count++
+ 
+ #define SETUP_RPORT_ATTRIBUTE_RW(field)					\
+-	i->private_rport_attrs[count] = class_device_attr_rport_##field; \
++	i->private_rport_attrs[count] = device_attr_rport_##field; \
+ 	if (!i->f->set_rport_##field) {					\
+ 		i->private_rport_attrs[count].attr.mode = S_IRUGO;	\
+ 		i->private_rport_attrs[count].store = NULL;		\
+@@ -717,7 +721,7 @@ static FC_CLASS_DEVICE_ATTR(rport, title
+ 
+ #define SETUP_PRIVATE_RPORT_ATTRIBUTE_RW(field)				\
+ {									\
+-	i->private_rport_attrs[count] = class_device_attr_rport_##field; \
++	i->private_rport_attrs[count] = device_attr_rport_##field; \
+ 	i->rport_attrs[count] = &i->private_rport_attrs[count];		\
+ 	count++;							\
+ }
+@@ -730,14 +734,15 @@ static FC_CLASS_DEVICE_ATTR(rport, title
+ fc_private_rport_rd_attr(maxframe_size, "%u bytes\n", 20);
+ 
+ static ssize_t
+-show_fc_rport_supported_classes (struct class_device *cdev, char *buf)
++show_fc_rport_supported_classes (struct device *dev,
++				 struct device_attribute *attr, char *buf)
+ {
+-	struct fc_rport *rport = transport_class_to_rport(cdev);
++	struct fc_rport *rport = transport_class_to_rport(dev);
+ 	if (rport->supported_classes == FC_COS_UNSPECIFIED)
+ 		return snprintf(buf, 20, "unspecified\n");
+ 	return get_fc_cos_names(rport->supported_classes, buf);
+ }
+-static FC_CLASS_DEVICE_ATTR(rport, supported_classes, S_IRUGO,
++static FC_DEVICE_ATTR(rport, supported_classes, S_IRUGO,
+ 		show_fc_rport_supported_classes, NULL);
+ 
+ /* Dynamic Remote Port Attributes */
+@@ -747,11 +752,11 @@ static FC_CLASS_DEVICE_ATTR(rport, suppo
+  */
+ fc_rport_show_function(dev_loss_tmo, "%d\n", 20, )
+ static ssize_t
+-store_fc_rport_dev_loss_tmo(struct class_device *cdev, const char *buf,
+-			   size_t count)
++store_fc_rport_dev_loss_tmo(struct device *dev, struct device_attribute *attr,
++			    const char *buf, size_t count)
+ {
+ 	int val;
+-	struct fc_rport *rport = transport_class_to_rport(cdev);
++	struct fc_rport *rport = transport_class_to_rport(dev);
+ 	struct Scsi_Host *shost = rport_to_shost(rport);
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);
+ 	char *cp;
+@@ -766,7 +771,7 @@ store_fc_rport_dev_loss_tmo(struct class
+ 	i->f->set_rport_dev_loss_tmo(rport, val);
+ 	return count;
+ }
+-static FC_CLASS_DEVICE_ATTR(rport, dev_loss_tmo, S_IRUGO | S_IWUSR,
++static FC_DEVICE_ATTR(rport, dev_loss_tmo, S_IRUGO | S_IWUSR,
+ 		show_fc_rport_dev_loss_tmo, store_fc_rport_dev_loss_tmo);
+ 
+ 
+@@ -777,9 +782,10 @@ fc_private_rport_rd_attr_cast(port_name,
+ fc_private_rport_rd_attr(port_id, "0x%06x\n", 20);
+ 
+ static ssize_t
+-show_fc_rport_roles (struct class_device *cdev, char *buf)
++show_fc_rport_roles (struct device *dev, struct device_attribute *attr,
++		     char *buf)
+ {
+-	struct fc_rport *rport = transport_class_to_rport(cdev);
++	struct fc_rport *rport = transport_class_to_rport(dev);
+ 
+ 	/* identify any roles that are port_id specific */
+ 	if ((rport->port_id != -1) &&
+@@ -805,7 +811,7 @@ show_fc_rport_roles (struct class_device
+ 		return get_fc_remote_port_roles_names(rport->roles, buf);
+ 	}
+ }
+-static FC_CLASS_DEVICE_ATTR(rport, roles, S_IRUGO,
++static FC_DEVICE_ATTR(rport, roles, S_IRUGO,
+ 		show_fc_rport_roles, NULL);
+ 
+ fc_private_rport_rd_enum_attr(port_state, FC_PORTSTATE_MAX_NAMELEN);
+@@ -815,9 +821,10 @@ fc_private_rport_rd_attr(scsi_target_id,
+  * fast_io_fail_tmo attribute
+  */
+ static ssize_t
+-show_fc_rport_fast_io_fail_tmo (struct class_device *cdev, char *buf)
++show_fc_rport_fast_io_fail_tmo (struct device *dev,
++				struct device_attribute *attr, char *buf)
+ {
+-	struct fc_rport *rport = transport_class_to_rport(cdev);
++	struct fc_rport *rport = transport_class_to_rport(dev);
+ 
+ 	if (rport->fast_io_fail_tmo == -1)
+ 		return snprintf(buf, 5, "off\n");
+@@ -825,12 +832,13 @@ show_fc_rport_fast_io_fail_tmo (struct c
+ }
+ 
+ static ssize_t
+-store_fc_rport_fast_io_fail_tmo(struct class_device *cdev, const char *buf,
+-			   size_t count)
++store_fc_rport_fast_io_fail_tmo(struct device *dev,
++				struct device_attribute *attr, const char *buf,
++				size_t count)
+ {
+ 	int val;
+ 	char *cp;
+-	struct fc_rport *rport = transport_class_to_rport(cdev);
++	struct fc_rport *rport = transport_class_to_rport(dev);
+ 
+ 	if ((rport->port_state == FC_PORTSTATE_BLOCKED) ||
+ 	    (rport->port_state == FC_PORTSTATE_DELETED) ||
+@@ -847,7 +855,7 @@ store_fc_rport_fast_io_fail_tmo(struct c
+ 	}
+ 	return count;
+ }
+-static FC_CLASS_DEVICE_ATTR(rport, fast_io_fail_tmo, S_IRUGO | S_IWUSR,
++static FC_DEVICE_ATTR(rport, fast_io_fail_tmo, S_IRUGO | S_IWUSR,
+ 	show_fc_rport_fast_io_fail_tmo, store_fc_rport_fast_io_fail_tmo);
+ 
+ 
+@@ -863,9 +871,10 @@ static FC_CLASS_DEVICE_ATTR(rport, fast_
+  */
+ #define fc_starget_show_function(field, format_string, sz, cast)	\
+ static ssize_t								\
+-show_fc_starget_##field (struct class_device *cdev, char *buf)		\
++show_fc_starget_##field (struct device *dev, 				\
++			 struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct scsi_target *starget = transport_class_to_starget(cdev);	\
++	struct scsi_target *starget = transport_class_to_starget(dev);	\
+ 	struct Scsi_Host *shost = dev_to_shost(starget->dev.parent);	\
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
+ 	struct fc_rport *rport = starget_to_rport(starget);		\
+@@ -879,16 +888,16 @@ show_fc_starget_##field (struct class_de
+ 
+ #define fc_starget_rd_attr(field, format_string, sz)			\
+ 	fc_starget_show_function(field, format_string, sz, )		\
+-static FC_CLASS_DEVICE_ATTR(starget, field, S_IRUGO,			\
++static FC_DEVICE_ATTR(starget, field, S_IRUGO,			\
+ 			 show_fc_starget_##field, NULL)
+ 
+ #define fc_starget_rd_attr_cast(field, format_string, sz, cast)		\
+ 	fc_starget_show_function(field, format_string, sz, (cast))	\
+-static FC_CLASS_DEVICE_ATTR(starget, field, S_IRUGO,			\
++static FC_DEVICE_ATTR(starget, field, S_IRUGO,			\
+ 			  show_fc_starget_##field, NULL)
+ 
+ #define SETUP_STARGET_ATTRIBUTE_RD(field)				\
+-	i->private_starget_attrs[count] = class_device_attr_starget_##field; \
++	i->private_starget_attrs[count] = device_attr_starget_##field; \
+ 	i->private_starget_attrs[count].attr.mode = S_IRUGO;		\
+ 	i->private_starget_attrs[count].store = NULL;			\
+ 	i->starget_attrs[count] = &i->private_starget_attrs[count];	\
+@@ -896,7 +905,7 @@ static FC_CLASS_DEVICE_ATTR(starget, fie
+ 		count++
+ 
+ #define SETUP_STARGET_ATTRIBUTE_RW(field)				\
+-	i->private_starget_attrs[count] = class_device_attr_starget_##field; \
++	i->private_starget_attrs[count] = device_attr_starget_##field; \
+ 	if (!i->f->set_starget_##field) {				\
+ 		i->private_starget_attrs[count].attr.mode = S_IRUGO;	\
+ 		i->private_starget_attrs[count].store = NULL;		\
+@@ -917,9 +926,10 @@ fc_starget_rd_attr(port_id, "0x%06x\n", 
+ 
+ #define fc_host_show_function(field, format_string, sz, cast)		\
+ static ssize_t								\
+-show_fc_host_##field (struct class_device *cdev, char *buf)		\
++show_fc_host_##field (struct device *dev,				\
++		      struct device_attribute *attr, char *buf)		\
+ {									\
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);	\
++	struct Scsi_Host *shost = transport_class_to_shost(dev);	\
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
+ 	if (i->f->get_host_##field)					\
+ 		i->f->get_host_##field(shost);				\
+@@ -928,11 +938,12 @@ show_fc_host_##field (struct class_devic
+ 
+ #define fc_host_store_function(field)					\
+ static ssize_t								\
+-store_fc_host_##field(struct class_device *cdev, const char *buf,	\
+-			   size_t count)				\
++store_fc_host_##field(struct device *dev, 				\
++		      struct device_attribute *attr,			\
++		      const char *buf,	size_t count)			\
+ {									\
+ 	int val;							\
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);	\
++	struct Scsi_Host *shost = transport_class_to_shost(dev);	\
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
+ 	char *cp;							\
+ 									\
+@@ -945,10 +956,11 @@ store_fc_host_##field(struct class_devic
+ 
+ #define fc_host_store_str_function(field, slen)				\
+ static ssize_t								\
+-store_fc_host_##field(struct class_device *cdev, const char *buf,	\
+-			   size_t count)				\
++store_fc_host_##field(struct device *dev,				\
++		      struct device_attribute *attr,			\
++		      const char *buf, size_t count)			\
+ {									\
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);	\
++	struct Scsi_Host *shost = transport_class_to_shost(dev);	\
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
+ 	unsigned int cnt=count;						\
+ 									\
+@@ -964,26 +976,27 @@ store_fc_host_##field(struct class_devic
+ 
+ #define fc_host_rd_attr(field, format_string, sz)			\
+ 	fc_host_show_function(field, format_string, sz, )		\
+-static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO,			\
++static FC_DEVICE_ATTR(host, field, S_IRUGO,			\
+ 			 show_fc_host_##field, NULL)
+ 
+ #define fc_host_rd_attr_cast(field, format_string, sz, cast)		\
+ 	fc_host_show_function(field, format_string, sz, (cast))		\
+-static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO,			\
++static FC_DEVICE_ATTR(host, field, S_IRUGO,			\
+ 			  show_fc_host_##field, NULL)
+ 
+ #define fc_host_rw_attr(field, format_string, sz)			\
+ 	fc_host_show_function(field, format_string, sz, )		\
+ 	fc_host_store_function(field)					\
+-static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO | S_IWUSR,		\
++static FC_DEVICE_ATTR(host, field, S_IRUGO | S_IWUSR,		\
+ 			show_fc_host_##field,				\
+ 			store_fc_host_##field)
+ 
+ #define fc_host_rd_enum_attr(title, maxlen)				\
+ static ssize_t								\
+-show_fc_host_##title (struct class_device *cdev, char *buf)		\
++show_fc_host_##title (struct device *dev,				\
++		      struct device_attribute *attr, char *buf)		\
+ {									\
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);	\
++	struct Scsi_Host *shost = transport_class_to_shost(dev);	\
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
+ 	const char *name;						\
+ 	if (i->f->get_host_##title)					\
+@@ -993,10 +1006,10 @@ show_fc_host_##title (struct class_devic
+ 		return -EINVAL;						\
+ 	return snprintf(buf, maxlen, "%s\n", name);			\
+ }									\
+-static FC_CLASS_DEVICE_ATTR(host, title, S_IRUGO, show_fc_host_##title, NULL)
++static FC_DEVICE_ATTR(host, title, S_IRUGO, show_fc_host_##title, NULL)
+ 
+ #define SETUP_HOST_ATTRIBUTE_RD(field)					\
+-	i->private_host_attrs[count] = class_device_attr_host_##field;	\
++	i->private_host_attrs[count] = device_attr_host_##field;	\
+ 	i->private_host_attrs[count].attr.mode = S_IRUGO;		\
+ 	i->private_host_attrs[count].store = NULL;			\
+ 	i->host_attrs[count] = &i->private_host_attrs[count];		\
+@@ -1004,7 +1017,7 @@ static FC_CLASS_DEVICE_ATTR(host, title,
+ 		count++
+ 
+ #define SETUP_HOST_ATTRIBUTE_RW(field)					\
+-	i->private_host_attrs[count] = class_device_attr_host_##field;	\
++	i->private_host_attrs[count] = device_attr_host_##field;	\
+ 	if (!i->f->set_host_##field) {					\
+ 		i->private_host_attrs[count].attr.mode = S_IRUGO;	\
+ 		i->private_host_attrs[count].store = NULL;		\
+@@ -1016,24 +1029,25 @@ static FC_CLASS_DEVICE_ATTR(host, title,
+ 
+ #define fc_private_host_show_function(field, format_string, sz, cast)	\
+ static ssize_t								\
+-show_fc_host_##field (struct class_device *cdev, char *buf)		\
++show_fc_host_##field (struct device *dev,				\
++		      struct device_attribute *attr, char *buf)		\
+ {									\
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);	\
++	struct Scsi_Host *shost = transport_class_to_shost(dev);	\
+ 	return snprintf(buf, sz, format_string, cast fc_host_##field(shost)); \
+ }
+ 
+ #define fc_private_host_rd_attr(field, format_string, sz)		\
+ 	fc_private_host_show_function(field, format_string, sz, )	\
+-static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO,			\
++static FC_DEVICE_ATTR(host, field, S_IRUGO,			\
+ 			 show_fc_host_##field, NULL)
+ 
+ #define fc_private_host_rd_attr_cast(field, format_string, sz, cast)	\
+ 	fc_private_host_show_function(field, format_string, sz, (cast)) \
+-static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO,			\
++static FC_DEVICE_ATTR(host, field, S_IRUGO,			\
+ 			  show_fc_host_##field, NULL)
+ 
+ #define SETUP_PRIVATE_HOST_ATTRIBUTE_RD(field)			\
+-	i->private_host_attrs[count] = class_device_attr_host_##field;	\
++	i->private_host_attrs[count] = device_attr_host_##field;	\
+ 	i->private_host_attrs[count].attr.mode = S_IRUGO;		\
+ 	i->private_host_attrs[count].store = NULL;			\
+ 	i->host_attrs[count] = &i->private_host_attrs[count];		\
+@@ -1041,7 +1055,7 @@ static FC_CLASS_DEVICE_ATTR(host, field,
+ 
+ #define SETUP_PRIVATE_HOST_ATTRIBUTE_RW(field)			\
+ {									\
+-	i->private_host_attrs[count] = class_device_attr_host_##field;	\
++	i->private_host_attrs[count] = device_attr_host_##field;	\
+ 	i->host_attrs[count] = &i->private_host_attrs[count];		\
+ 	count++;							\
+ }
+@@ -1050,38 +1064,41 @@ static FC_CLASS_DEVICE_ATTR(host, field,
+ /* Fixed Host Attributes */
+ 
+ static ssize_t
+-show_fc_host_supported_classes (struct class_device *cdev, char *buf)
++show_fc_host_supported_classes (struct device *dev,
++			        struct device_attribute *attr, char *buf)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 
+ 	if (fc_host_supported_classes(shost) == FC_COS_UNSPECIFIED)
+ 		return snprintf(buf, 20, "unspecified\n");
+ 
+ 	return get_fc_cos_names(fc_host_supported_classes(shost), buf);
+ }
+-static FC_CLASS_DEVICE_ATTR(host, supported_classes, S_IRUGO,
++static FC_DEVICE_ATTR(host, supported_classes, S_IRUGO,
+ 		show_fc_host_supported_classes, NULL);
+ 
+ static ssize_t
+-show_fc_host_supported_fc4s (struct class_device *cdev, char *buf)
++show_fc_host_supported_fc4s (struct device *dev,
++			     struct device_attribute *attr, char *buf)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 	return (ssize_t)show_fc_fc4s(buf, fc_host_supported_fc4s(shost));
+ }
+-static FC_CLASS_DEVICE_ATTR(host, supported_fc4s, S_IRUGO,
++static FC_DEVICE_ATTR(host, supported_fc4s, S_IRUGO,
+ 		show_fc_host_supported_fc4s, NULL);
+ 
+ static ssize_t
+-show_fc_host_supported_speeds (struct class_device *cdev, char *buf)
++show_fc_host_supported_speeds (struct device *dev,
++			       struct device_attribute *attr, char *buf)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 
+ 	if (fc_host_supported_speeds(shost) == FC_PORTSPEED_UNKNOWN)
+ 		return snprintf(buf, 20, "unknown\n");
+ 
+ 	return get_fc_port_speed_names(fc_host_supported_speeds(shost), buf);
+ }
+-static FC_CLASS_DEVICE_ATTR(host, supported_speeds, S_IRUGO,
++static FC_DEVICE_ATTR(host, supported_speeds, S_IRUGO,
+ 		show_fc_host_supported_speeds, NULL);
+ 
+ 
+@@ -1096,9 +1113,10 @@ fc_private_host_rd_attr(serial_number, "
+ /* Dynamic Host Attributes */
+ 
+ static ssize_t
+-show_fc_host_active_fc4s (struct class_device *cdev, char *buf)
++show_fc_host_active_fc4s (struct device *dev,
++			  struct device_attribute *attr, char *buf)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);
+ 
+ 	if (i->f->get_host_active_fc4s)
+@@ -1106,13 +1124,14 @@ show_fc_host_active_fc4s (struct class_d
+ 
+ 	return (ssize_t)show_fc_fc4s(buf, fc_host_active_fc4s(shost));
+ }
+-static FC_CLASS_DEVICE_ATTR(host, active_fc4s, S_IRUGO,
++static FC_DEVICE_ATTR(host, active_fc4s, S_IRUGO,
+ 		show_fc_host_active_fc4s, NULL);
+ 
+ static ssize_t
+-show_fc_host_speed (struct class_device *cdev, char *buf)
++show_fc_host_speed (struct device *dev,
++		    struct device_attribute *attr, char *buf)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);
+ 
+ 	if (i->f->get_host_speed)
+@@ -1123,7 +1142,7 @@ show_fc_host_speed (struct class_device 
+ 
+ 	return get_fc_port_speed_names(fc_host_speed(shost), buf);
+ }
+-static FC_CLASS_DEVICE_ATTR(host, speed, S_IRUGO,
++static FC_DEVICE_ATTR(host, speed, S_IRUGO,
+ 		show_fc_host_speed, NULL);
+ 
+ 
+@@ -1136,16 +1155,17 @@ fc_host_rd_attr(symbolic_name, "%s\n", F
+ fc_private_host_show_function(system_hostname, "%s\n",
+ 		FC_SYMBOLIC_NAME_SIZE + 1, )
+ fc_host_store_str_function(system_hostname, FC_SYMBOLIC_NAME_SIZE)
+-static FC_CLASS_DEVICE_ATTR(host, system_hostname, S_IRUGO | S_IWUSR,
++static FC_DEVICE_ATTR(host, system_hostname, S_IRUGO | S_IWUSR,
+ 		show_fc_host_system_hostname, store_fc_host_system_hostname);
+ 
+ 
+ /* Private Host Attributes */
+ 
+ static ssize_t
+-show_fc_private_host_tgtid_bind_type(struct class_device *cdev, char *buf)
++show_fc_private_host_tgtid_bind_type(struct device *dev,
++				     struct device_attribute *attr, char *buf)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 	const char *name;
+ 
+ 	name = get_fc_tgtid_bind_type_name(fc_host_tgtid_bind_type(shost));
+@@ -1158,10 +1178,10 @@ show_fc_private_host_tgtid_bind_type(str
+ 	pos = list_entry((head)->next, typeof(*pos), member)
+ 
+ static ssize_t
+-store_fc_private_host_tgtid_bind_type(struct class_device *cdev,
+-	const char *buf, size_t count)
++store_fc_private_host_tgtid_bind_type(struct device *dev,
++	struct device_attribute *attr, const char *buf, size_t count)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 	struct fc_rport *rport;
+  	enum fc_tgtid_binding_type val;
+ 	unsigned long flags;
+@@ -1186,15 +1206,15 @@ store_fc_private_host_tgtid_bind_type(st
+ 	return count;
+ }
+ 
+-static FC_CLASS_DEVICE_ATTR(host, tgtid_bind_type, S_IRUGO | S_IWUSR,
++static FC_DEVICE_ATTR(host, tgtid_bind_type, S_IRUGO | S_IWUSR,
+ 			show_fc_private_host_tgtid_bind_type,
+ 			store_fc_private_host_tgtid_bind_type);
+ 
+ static ssize_t
+-store_fc_private_host_issue_lip(struct class_device *cdev,
+-	const char *buf, size_t count)
++store_fc_private_host_issue_lip(struct device *dev,
++	struct device_attribute *attr, const char *buf, size_t count)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);
+ 	int ret;
+ 
+@@ -1207,7 +1227,7 @@ store_fc_private_host_issue_lip(struct c
+ 	return -ENOENT;
+ }
+ 
+-static FC_CLASS_DEVICE_ATTR(host, issue_lip, S_IWUSR, NULL,
++static FC_DEVICE_ATTR(host, issue_lip, S_IWUSR, NULL,
+ 			store_fc_private_host_issue_lip);
+ 
+ /*
+@@ -1216,9 +1236,9 @@ static FC_CLASS_DEVICE_ATTR(host, issue_
+ 
+ /* Show a given an attribute in the statistics group */
+ static ssize_t
+-fc_stat_show(const struct class_device *cdev, char *buf, unsigned long offset)
++fc_stat_show(const struct device *dev, char *buf, unsigned long offset)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);
+ 	struct fc_host_statistics *stats;
+ 	ssize_t ret = -ENOENT;
+@@ -1239,12 +1259,14 @@ fc_stat_show(const struct class_device *
+ 
+ /* generate a read-only statistics attribute */
+ #define fc_host_statistic(name)						\
+-static ssize_t show_fcstat_##name(struct class_device *cd, char *buf) 	\
++static ssize_t show_fcstat_##name(struct device *cd,			\
++				  struct device_attribute *attr,	\
++				  char *buf)				\
+ {									\
+ 	return fc_stat_show(cd, buf, 					\
+ 			    offsetof(struct fc_host_statistics, name));	\
+ }									\
+-static FC_CLASS_DEVICE_ATTR(host, name, S_IRUGO, show_fcstat_##name, NULL)
++static FC_DEVICE_ATTR(host, name, S_IRUGO, show_fcstat_##name, NULL)
+ 
+ fc_host_statistic(seconds_since_last_reset);
+ fc_host_statistic(tx_frames);
+@@ -1268,10 +1290,10 @@ fc_host_statistic(fcp_input_megabytes);
+ fc_host_statistic(fcp_output_megabytes);
+ 
+ static ssize_t
+-fc_reset_statistics(struct class_device *cdev, const char *buf,
+-			   size_t count)
++fc_reset_statistics(struct device *dev, struct device_attribute *attr,
++		    const char *buf, size_t count)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 	struct fc_internal *i = to_fc_internal(shost->transportt);
+ 
+ 	/* ignore any data value written to the attribute */
+@@ -1282,32 +1304,31 @@ fc_reset_statistics(struct class_device 
+ 
+ 	return -ENOENT;
+ }
+-static FC_CLASS_DEVICE_ATTR(host, reset_statistics, S_IWUSR, NULL,
++static FC_DEVICE_ATTR(host, reset_statistics, S_IWUSR, NULL,
+ 				fc_reset_statistics);
+ 
+-
+ static struct attribute *fc_statistics_attrs[] = {
+-	&class_device_attr_host_seconds_since_last_reset.attr,
+-	&class_device_attr_host_tx_frames.attr,
+-	&class_device_attr_host_tx_words.attr,
+-	&class_device_attr_host_rx_frames.attr,
+-	&class_device_attr_host_rx_words.attr,
+-	&class_device_attr_host_lip_count.attr,
+-	&class_device_attr_host_nos_count.attr,
+-	&class_device_attr_host_error_frames.attr,
+-	&class_device_attr_host_dumped_frames.attr,
+-	&class_device_attr_host_link_failure_count.attr,
+-	&class_device_attr_host_loss_of_sync_count.attr,
+-	&class_device_attr_host_loss_of_signal_count.attr,
+-	&class_device_attr_host_prim_seq_protocol_err_count.attr,
+-	&class_device_attr_host_invalid_tx_word_count.attr,
+-	&class_device_attr_host_invalid_crc_count.attr,
+-	&class_device_attr_host_fcp_input_requests.attr,
+-	&class_device_attr_host_fcp_output_requests.attr,
+-	&class_device_attr_host_fcp_control_requests.attr,
+-	&class_device_attr_host_fcp_input_megabytes.attr,
+-	&class_device_attr_host_fcp_output_megabytes.attr,
+-	&class_device_attr_host_reset_statistics.attr,
++	&device_attr_host_seconds_since_last_reset.attr,
++	&device_attr_host_tx_frames.attr,
++	&device_attr_host_tx_words.attr,
++	&device_attr_host_rx_frames.attr,
++	&device_attr_host_rx_words.attr,
++	&device_attr_host_lip_count.attr,
++	&device_attr_host_nos_count.attr,
++	&device_attr_host_error_frames.attr,
++	&device_attr_host_dumped_frames.attr,
++	&device_attr_host_link_failure_count.attr,
++	&device_attr_host_loss_of_sync_count.attr,
++	&device_attr_host_loss_of_signal_count.attr,
++	&device_attr_host_prim_seq_protocol_err_count.attr,
++	&device_attr_host_invalid_tx_word_count.attr,
++	&device_attr_host_invalid_crc_count.attr,
++	&device_attr_host_fcp_input_requests.attr,
++	&device_attr_host_fcp_output_requests.attr,
++	&device_attr_host_fcp_control_requests.attr,
++	&device_attr_host_fcp_input_megabytes.attr,
++	&device_attr_host_fcp_output_megabytes.attr,
++	&device_attr_host_reset_statistics.attr,
+ 	NULL
+ };
+ 
+diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
+--- a/drivers/scsi/scsi_transport_iscsi.c
++++ b/drivers/scsi/scsi_transport_iscsi.c
+@@ -40,13 +40,13 @@ struct iscsi_internal {
+ 	struct scsi_transport_template t;
+ 	struct iscsi_transport *iscsi_transport;
+ 	struct list_head list;
+-	struct class_device cdev;
++	struct device dev;
+ 
+-	struct class_device_attribute *host_attrs[ISCSI_HOST_ATTRS + 1];
++	struct device_attribute *host_attrs[ISCSI_HOST_ATTRS + 1];
+ 	struct transport_container conn_cont;
+-	struct class_device_attribute *conn_attrs[ISCSI_CONN_ATTRS + 1];
++	struct device_attribute *conn_attrs[ISCSI_CONN_ATTRS + 1];
+ 	struct transport_container session_cont;
+-	struct class_device_attribute *session_attrs[ISCSI_SESSION_ATTRS + 1];
++	struct device_attribute *session_attrs[ISCSI_SESSION_ATTRS + 1];
+ };
+ 
+ static atomic_t iscsi_session_nr; /* sysfs session id for next new session */
+@@ -62,12 +62,12 @@ static DEFINE_SPINLOCK(iscsi_transport_l
+ #define to_iscsi_internal(tmpl) \
+ 	container_of(tmpl, struct iscsi_internal, t)
+ 
+-#define cdev_to_iscsi_internal(_cdev) \
+-	container_of(_cdev, struct iscsi_internal, cdev)
++#define dev_to_iscsi_internal(_dev) \
++	container_of(_dev, struct iscsi_internal, dev)
+ 
+-static void iscsi_transport_release(struct class_device *cdev)
++static void iscsi_transport_release(struct device *dev)
+ {
+-	struct iscsi_internal *priv = cdev_to_iscsi_internal(cdev);
++	struct iscsi_internal *priv = dev_to_iscsi_internal(dev);
+ 	kfree(priv);
+ }
+ 
+@@ -77,25 +77,27 @@ static void iscsi_transport_release(stru
+  */
+ static struct class iscsi_transport_class = {
+ 	.name = "iscsi_transport",
+-	.release = iscsi_transport_release,
++	.dev_release = iscsi_transport_release,
+ };
+ 
+ static ssize_t
+-show_transport_handle(struct class_device *cdev, char *buf)
++show_transport_handle(struct device *dev, struct device_attribute *attr,
++		      char *buf)
+ {
+-	struct iscsi_internal *priv = cdev_to_iscsi_internal(cdev);
++	struct iscsi_internal *priv = dev_to_iscsi_internal(dev);
+ 	return sprintf(buf, "%llu\n", (unsigned long long)iscsi_handle(priv->iscsi_transport));
+ }
+-static CLASS_DEVICE_ATTR(handle, S_IRUGO, show_transport_handle, NULL);
++static DEVICE_ATTR(handle, S_IRUGO, show_transport_handle, NULL);
+ 
+ #define show_transport_attr(name, format)				\
+ static ssize_t								\
+-show_transport_##name(struct class_device *cdev, char *buf)		\
++show_transport_##name(struct device *dev, 				\
++		      struct device_attribute *attr,char *buf)		\
+ {									\
+-	struct iscsi_internal *priv = cdev_to_iscsi_internal(cdev);	\
++	struct iscsi_internal *priv = dev_to_iscsi_internal(dev);	\
+ 	return sprintf(buf, format"\n", priv->iscsi_transport->name);	\
+ }									\
+-static CLASS_DEVICE_ATTR(name, S_IRUGO, show_transport_##name, NULL);
++static DEVICE_ATTR(name, S_IRUGO, show_transport_##name, NULL);
+ 
+ show_transport_attr(caps, "0x%x");
+ show_transport_attr(max_lun, "%d");
+@@ -103,11 +105,11 @@ show_transport_attr(max_conn, "%d");
+ show_transport_attr(max_cmd_len, "%d");
+ 
+ static struct attribute *iscsi_transport_attrs[] = {
+-	&class_device_attr_handle.attr,
+-	&class_device_attr_caps.attr,
+-	&class_device_attr_max_lun.attr,
+-	&class_device_attr_max_conn.attr,
+-	&class_device_attr_max_cmd_len.attr,
++	&dev_attr_handle.attr,
++	&dev_attr_caps.attr,
++	&dev_attr_max_lun.attr,
++	&dev_attr_max_conn.attr,
++	&dev_attr_max_cmd_len.attr,
+ 	NULL,
+ };
+ 
+@@ -116,7 +118,7 @@ static struct attribute_group iscsi_tran
+ };
+ 
+ static int iscsi_setup_host(struct transport_container *tc, struct device *dev,
+-			    struct class_device *cdev)
++			    struct device *cdev)
+ {
+ 	struct Scsi_Host *shost = dev_to_shost(dev);
+ 	struct iscsi_host *ihost = shost->shost_data;
+@@ -1106,11 +1108,8 @@ iscsi_if_rx(struct sk_buff *skb)
+ 	mutex_unlock(&rx_queue_mutex);
+ }
+ 
+-#define iscsi_cdev_to_conn(_cdev) \
+-	iscsi_dev_to_conn(_cdev->dev)
+-
+ #define ISCSI_CLASS_ATTR(_prefix,_name,_mode,_show,_store)		\
+-struct class_device_attribute class_device_attr_##_prefix##_##_name =	\
++struct device_attribute dev_attr_##_prefix##_##_name =	\
+ 	__ATTR(_name,_mode,_show,_store)
+ 
+ /*
+@@ -1118,9 +1117,10 @@ struct class_device_attribute class_devi
+  */
+ #define iscsi_conn_attr_show(param)					\
+ static ssize_t								\
+-show_conn_param_##param(struct class_device *cdev, char *buf)		\
++show_conn_param_##param(struct device *dev, 				\
++			struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct iscsi_cls_conn *conn = iscsi_cdev_to_conn(cdev);		\
++	struct iscsi_cls_conn *conn = iscsi_dev_to_conn(dev->parent);	\
+ 	struct iscsi_transport *t = conn->transport;			\
+ 	return t->get_conn_param(conn, param, buf);			\
+ }
+@@ -1142,17 +1142,16 @@ iscsi_conn_attr(exp_statsn, ISCSI_PARAM_
+ iscsi_conn_attr(persistent_address, ISCSI_PARAM_PERSISTENT_ADDRESS);
+ iscsi_conn_attr(address, ISCSI_PARAM_CONN_ADDRESS);
+ 
+-#define iscsi_cdev_to_session(_cdev) \
+-	iscsi_dev_to_session(_cdev->dev)
+-
+ /*
+  * iSCSI session attrs
+  */
+ #define iscsi_session_attr_show(param)					\
+ static ssize_t								\
+-show_session_param_##param(struct class_device *cdev, char *buf)	\
++show_session_param_##param(struct device *dev,				\
++			   struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct iscsi_cls_session *session = iscsi_cdev_to_session(cdev); \
++	struct iscsi_cls_session *session = 				\
++		iscsi_dev_to_session(dev->parent);			\
+ 	struct iscsi_transport *t = session->transport;			\
+ 	return t->get_session_param(session, param, buf);		\
+ }
+@@ -1175,9 +1174,11 @@ iscsi_session_attr(tpgt, ISCSI_PARAM_TPG
+ 
+ #define iscsi_priv_session_attr_show(field, format)			\
+ static ssize_t								\
+-show_priv_session_##field(struct class_device *cdev, char *buf)		\
++show_priv_session_##field(struct device *dev, 				\
++			  struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct iscsi_cls_session *session = iscsi_cdev_to_session(cdev);\
++	struct iscsi_cls_session *session = 				\
++			iscsi_dev_to_session(dev->parent);		\
+ 	return sprintf(buf, format"\n", session->field);		\
+ }
+ 
+@@ -1189,7 +1190,7 @@ iscsi_priv_session_attr(recovery_tmo, "%
+ 
+ #define SETUP_PRIV_SESSION_RD_ATTR(field)				\
+ do {									\
+-	priv->session_attrs[count] = &class_device_attr_priv_sess_##field; \
++	priv->session_attrs[count] = &dev_attr_priv_sess_##field; \
+ 	count++;							\
+ } while (0)
+ 
+@@ -1197,7 +1198,7 @@ do {									\
+ #define SETUP_SESSION_RD_ATTR(field, param_flag)			\
+ do {									\
+ 	if (tt->param_mask & param_flag) {				\
+-		priv->session_attrs[count] = &class_device_attr_sess_##field; \
++		priv->session_attrs[count] = &dev_attr_sess_##field; \
+ 		count++;						\
+ 	}								\
+ } while (0)
+@@ -1205,7 +1206,7 @@ do {									\
+ #define SETUP_CONN_RD_ATTR(field, param_flag)				\
+ do {									\
+ 	if (tt->param_mask & param_flag) {				\
+-		priv->conn_attrs[count] = &class_device_attr_conn_##field; \
++		priv->conn_attrs[count] = &dev_attr_conn_##field; \
+ 		count++;						\
+ 	}								\
+ } while (0)
+@@ -1296,15 +1297,15 @@ iscsi_register_transport(struct iscsi_tr
+ 	priv->iscsi_transport = tt;
+ 	priv->t.user_scan = iscsi_user_scan;
+ 
+-	priv->cdev.class = &iscsi_transport_class;
+-	snprintf(priv->cdev.class_id, BUS_ID_SIZE, "%s", tt->name);
+-	err = class_device_register(&priv->cdev);
++	priv->dev.class = &iscsi_transport_class;
++	snprintf(priv->dev.bus_id, BUS_ID_SIZE, "%s", tt->name);
++	err = device_register(&priv->dev);
+ 	if (err)
+ 		goto free_priv;
+ 
+-	err = sysfs_create_group(&priv->cdev.kobj, &iscsi_transport_group);
++	err = sysfs_create_group(&priv->dev.kobj, &iscsi_transport_group);
+ 	if (err)
+-		goto unregister_cdev;
++		goto unregister_dev;
+ 
+ 	/* host parameters */
+ 	priv->t.host_attrs.ac.attrs = &priv->host_attrs[0];
+@@ -1364,8 +1365,8 @@ iscsi_register_transport(struct iscsi_tr
+ 	printk(KERN_NOTICE "iscsi: registered transport (%s)\n", tt->name);
+ 	return &priv->t;
+ 
+-unregister_cdev:
+-	class_device_unregister(&priv->cdev);
++unregister_dev:
++	device_unregister(&priv->dev);
+ free_priv:
+ 	kfree(priv);
+ 	return NULL;
+@@ -1392,8 +1393,8 @@ int iscsi_unregister_transport(struct is
+ 	transport_container_unregister(&priv->session_cont);
+ 	transport_container_unregister(&priv->t.host_attrs);
+ 
+-	sysfs_remove_group(&priv->cdev.kobj, &iscsi_transport_group);
+-	class_device_unregister(&priv->cdev);
++	sysfs_remove_group(&priv->dev.kobj, &iscsi_transport_group);
++	device_unregister(&priv->dev);
+ 	mutex_unlock(&rx_queue_mutex);
+ 
+ 	return 0;
+diff --git a/drivers/scsi/scsi_transport_sas.c b/drivers/scsi/scsi_transport_sas.c
+--- a/drivers/scsi/scsi_transport_sas.c
++++ b/drivers/scsi/scsi_transport_sas.c
+@@ -50,8 +50,8 @@ struct sas_host_attrs {
+ /*
+  * Hack to allow attributes of the same name in different objects.
+  */
+-#define SAS_CLASS_DEVICE_ATTR(_prefix,_name,_mode,_show,_store) \
+-	struct class_device_attribute class_device_attr_##_prefix##_##_name = \
++#define SAS_DEVICE_ATTR(_prefix,_name,_mode,_show,_store) \
++	struct device_attribute dev_attr_##_prefix##_##_name = \
+ 	__ATTR(_name,_mode,_show,_store)
+ 
+ 
+@@ -157,7 +157,7 @@ sas_bitfield_name_set(linkspeed, sas_lin
+  */
+ 
+ static int sas_host_setup(struct transport_container *tc, struct device *dev,
+-			  struct class_device *cdev)
++			  struct device *cdev)
+ {
+ 	struct Scsi_Host *shost = dev_to_shost(dev);
+ 	struct sas_host_attrs *sas_host = to_sas_host_attrs(shost);
+@@ -237,22 +237,24 @@ EXPORT_SYMBOL(sas_remove_host);
+ 
+ #define sas_phy_show_simple(field, name, format_string, cast)		\
+ static ssize_t								\
+-show_sas_phy_##name(struct class_device *cdev, char *buf)		\
++show_sas_phy_##name(struct device *dev, 				\
++		    struct device_attribute *attr, char *buf)		\
+ {									\
+-	struct sas_phy *phy = transport_class_to_phy(cdev);		\
++	struct sas_phy *phy = transport_class_to_phy(dev);		\
+ 									\
+ 	return snprintf(buf, 20, format_string, cast phy->field);	\
+ }
+ 
+ #define sas_phy_simple_attr(field, name, format_string, type)		\
+ 	sas_phy_show_simple(field, name, format_string, (type))	\
+-static CLASS_DEVICE_ATTR(name, S_IRUGO, show_sas_phy_##name, NULL)
++static DEVICE_ATTR(name, S_IRUGO, show_sas_phy_##name, NULL)
+ 
+ #define sas_phy_show_protocol(field, name)				\
+ static ssize_t								\
+-show_sas_phy_##name(struct class_device *cdev, char *buf)		\
++show_sas_phy_##name(struct device *dev, 				\
++		    struct device_attribute *attr, char *buf)		\
+ {									\
+-	struct sas_phy *phy = transport_class_to_phy(cdev);		\
++	struct sas_phy *phy = transport_class_to_phy(dev);		\
+ 									\
+ 	if (!phy->field)						\
+ 		return snprintf(buf, 20, "none\n");			\
+@@ -261,13 +263,14 @@ show_sas_phy_##name(struct class_device 
+ 
+ #define sas_phy_protocol_attr(field, name)				\
+ 	sas_phy_show_protocol(field, name)				\
+-static CLASS_DEVICE_ATTR(name, S_IRUGO, show_sas_phy_##name, NULL)
++static DEVICE_ATTR(name, S_IRUGO, show_sas_phy_##name, NULL)
+ 
+ #define sas_phy_show_linkspeed(field)					\
+ static ssize_t								\
+-show_sas_phy_##field(struct class_device *cdev, char *buf)		\
++show_sas_phy_##field(struct device *dev, 				\
++		     struct device_attribute *attr, char *buf)		\
+ {									\
+-	struct sas_phy *phy = transport_class_to_phy(cdev);		\
++	struct sas_phy *phy = transport_class_to_phy(dev);		\
+ 									\
+ 	return get_sas_linkspeed_names(phy->field, buf);		\
+ }
+@@ -275,10 +278,11 @@ show_sas_phy_##field(struct class_device
+ /* Fudge to tell if we're minimum or maximum */
+ #define sas_phy_store_linkspeed(field)					\
+ static ssize_t								\
+-store_sas_phy_##field(struct class_device *cdev, const char *buf,	\
+-		      size_t count)					\
++store_sas_phy_##field(struct device *dev, 				\
++		      struct device_attribute *attr, 			\
++		      const char *buf,	size_t count)			\
+ {									\
+-	struct sas_phy *phy = transport_class_to_phy(cdev);		\
++	struct sas_phy *phy = transport_class_to_phy(dev);		\
+ 	struct Scsi_Host *shost = dev_to_shost(phy->dev.parent);	\
+ 	struct sas_internal *i = to_sas_internal(shost->transportt);	\
+ 	u32 value;							\
+@@ -297,19 +301,20 @@ store_sas_phy_##field(struct class_devic
+ #define sas_phy_linkspeed_rw_attr(field)				\
+ 	sas_phy_show_linkspeed(field)					\
+ 	sas_phy_store_linkspeed(field)					\
+-static CLASS_DEVICE_ATTR(field, S_IRUGO, show_sas_phy_##field,		\
++static DEVICE_ATTR(field, S_IRUGO, show_sas_phy_##field,		\
+ 	store_sas_phy_##field)
+ 
+ #define sas_phy_linkspeed_attr(field)					\
+ 	sas_phy_show_linkspeed(field)					\
+-static CLASS_DEVICE_ATTR(field, S_IRUGO, show_sas_phy_##field, NULL)
++static DEVICE_ATTR(field, S_IRUGO, show_sas_phy_##field, NULL)
+ 
+ 
+ #define sas_phy_show_linkerror(field)					\
+ static ssize_t								\
+-show_sas_phy_##field(struct class_device *cdev, char *buf)		\
++show_sas_phy_##field(struct device *dev, 				\
++		     struct device_attribute *attr, char *buf)		\
+ {									\
+-	struct sas_phy *phy = transport_class_to_phy(cdev);		\
++	struct sas_phy *phy = transport_class_to_phy(dev);		\
+ 	struct Scsi_Host *shost = dev_to_shost(phy->dev.parent);	\
+ 	struct sas_internal *i = to_sas_internal(shost->transportt);	\
+ 	int error;							\
+@@ -322,24 +327,25 @@ show_sas_phy_##field(struct class_device
+ 
+ #define sas_phy_linkerror_attr(field)					\
+ 	sas_phy_show_linkerror(field)					\
+-static CLASS_DEVICE_ATTR(field, S_IRUGO, show_sas_phy_##field, NULL)
++static DEVICE_ATTR(field, S_IRUGO, show_sas_phy_##field, NULL)
+ 
+ 
+ static ssize_t
+-show_sas_device_type(struct class_device *cdev, char *buf)
++show_sas_device_type(struct device *dev,
++		     struct device_attribute *attr, char *buf)
+ {
+-	struct sas_phy *phy = transport_class_to_phy(cdev);
++	struct sas_phy *phy = transport_class_to_phy(dev);
+ 
+ 	if (!phy->identify.device_type)
+ 		return snprintf(buf, 20, "none\n");
+ 	return get_sas_device_type_names(phy->identify.device_type, buf);
+ }
+-static CLASS_DEVICE_ATTR(device_type, S_IRUGO, show_sas_device_type, NULL);
++static DEVICE_ATTR(device_type, S_IRUGO, show_sas_device_type, NULL);
+ 
+-static ssize_t do_sas_phy_enable(struct class_device *cdev,
++static ssize_t do_sas_phy_enable(struct device *dev,
+ 		size_t count, int enable)
+ {
+-	struct sas_phy *phy = transport_class_to_phy(cdev);
++	struct sas_phy *phy = transport_class_to_phy(dev);
+ 	struct Scsi_Host *shost = dev_to_shost(phy->dev.parent);
+ 	struct sas_internal *i = to_sas_internal(shost->transportt);
+ 	int error;
+@@ -351,18 +357,19 @@ static ssize_t do_sas_phy_enable(struct 
+ 	return count;
+ };
+ 
+-static ssize_t store_sas_phy_enable(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t
++store_sas_phy_enable(struct device *dev, struct device_attribute *attr,
++		     const char *buf, size_t count)
+ {
+ 	if (count < 1)
+ 		return -EINVAL;
+ 
+ 	switch (buf[0]) {
+ 	case '0':
+-		do_sas_phy_enable(cdev, count, 0);
++		do_sas_phy_enable(dev, count, 0);
+ 		break;
+ 	case '1':
+-		do_sas_phy_enable(cdev, count, 1);
++		do_sas_phy_enable(dev, count, 1);
+ 		break;
+ 	default:
+ 		return -EINVAL;
+@@ -371,20 +378,22 @@ static ssize_t store_sas_phy_enable(stru
+ 	return count;
+ }
+ 
+-static ssize_t show_sas_phy_enable(struct class_device *cdev, char *buf)
++static ssize_t
++show_sas_phy_enable(struct device *dev, struct device_attribute *attr,
++		    char *buf)
+ {
+-	struct sas_phy *phy = transport_class_to_phy(cdev);
++	struct sas_phy *phy = transport_class_to_phy(dev);
+ 
+ 	return snprintf(buf, 20, "%d", phy->enabled);
+ }
+ 
+-static CLASS_DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, show_sas_phy_enable,
++static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, show_sas_phy_enable,
+ 			 store_sas_phy_enable);
+ 
+-static ssize_t do_sas_phy_reset(struct class_device *cdev,
+-		size_t count, int hard_reset)
++static ssize_t
++do_sas_phy_reset(struct device *dev, size_t count, int hard_reset)
+ {
+-	struct sas_phy *phy = transport_class_to_phy(cdev);
++	struct sas_phy *phy = transport_class_to_phy(dev);
+ 	struct Scsi_Host *shost = dev_to_shost(phy->dev.parent);
+ 	struct sas_internal *i = to_sas_internal(shost->transportt);
+ 	int error;
+@@ -395,19 +404,21 @@ static ssize_t do_sas_phy_reset(struct c
+ 	return count;
+ };
+ 
+-static ssize_t store_sas_link_reset(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t
++store_sas_link_reset(struct device *dev, struct device_attribute *attr,
++		     const char *buf, size_t count)
+ {
+-	return do_sas_phy_reset(cdev, count, 0);
++	return do_sas_phy_reset(dev, count, 0);
+ }
+-static CLASS_DEVICE_ATTR(link_reset, S_IWUSR, NULL, store_sas_link_reset);
++static DEVICE_ATTR(link_reset, S_IWUSR, NULL, store_sas_link_reset);
+ 
+-static ssize_t store_sas_hard_reset(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t
++store_sas_hard_reset(struct device *dev, struct device_attribute *attr,
++		     const char *buf, size_t count)
+ {
+-	return do_sas_phy_reset(cdev, count, 1);
++	return do_sas_phy_reset(dev, count, 1);
+ }
+-static CLASS_DEVICE_ATTR(hard_reset, S_IWUSR, NULL, store_sas_hard_reset);
++static DEVICE_ATTR(hard_reset, S_IWUSR, NULL, store_sas_hard_reset);
+ 
+ sas_phy_protocol_attr(identify.initiator_port_protocols,
+ 		initiator_port_protocols);
+@@ -576,16 +587,17 @@ EXPORT_SYMBOL(scsi_is_sas_phy);
+  */
+ #define sas_port_show_simple(field, name, format_string, cast)		\
+ static ssize_t								\
+-show_sas_port_##name(struct class_device *cdev, char *buf)		\
++show_sas_port_##name(struct device *dev, 				\
++		     struct device_attribute *attr, char *buf)		\
+ {									\
+-	struct sas_port *port = transport_class_to_sas_port(cdev);	\
++	struct sas_port *port = transport_class_to_sas_port(dev);	\
+ 									\
+ 	return snprintf(buf, 20, format_string, cast port->field);	\
+ }
+ 
+ #define sas_port_simple_attr(field, name, format_string, type)		\
+ 	sas_port_show_simple(field, name, format_string, (type))	\
+-static CLASS_DEVICE_ATTR(name, S_IRUGO, show_sas_port_##name, NULL)
++static DEVICE_ATTR(name, S_IRUGO, show_sas_port_##name, NULL)
+ 
+ sas_port_simple_attr(num_phys, num_phys, "%d\n", int);
+ 
+@@ -899,23 +911,25 @@ EXPORT_SYMBOL(sas_port_mark_backlink);
+ 
+ #define sas_rphy_show_simple(field, name, format_string, cast)		\
+ static ssize_t								\
+-show_sas_rphy_##name(struct class_device *cdev, char *buf)		\
++show_sas_rphy_##name(struct device *dev, 				\
++		     struct device_attribute *attr, char *buf)		\
+ {									\
+-	struct sas_rphy *rphy = transport_class_to_rphy(cdev);	\
++	struct sas_rphy *rphy = transport_class_to_rphy(dev);		\
+ 									\
+ 	return snprintf(buf, 20, format_string, cast rphy->field);	\
+ }
+ 
+ #define sas_rphy_simple_attr(field, name, format_string, type)		\
+ 	sas_rphy_show_simple(field, name, format_string, (type))	\
+-static SAS_CLASS_DEVICE_ATTR(rphy, name, S_IRUGO, 			\
++static SAS_DEVICE_ATTR(rphy, name, S_IRUGO, 			\
+ 		show_sas_rphy_##name, NULL)
+ 
+ #define sas_rphy_show_protocol(field, name)				\
+ static ssize_t								\
+-show_sas_rphy_##name(struct class_device *cdev, char *buf)		\
++show_sas_rphy_##name(struct device *dev, 				\
++		     struct device_attribute *attr, char *buf)		\
+ {									\
+-	struct sas_rphy *rphy = transport_class_to_rphy(cdev);	\
++	struct sas_rphy *rphy = transport_class_to_rphy(dev);		\
+ 									\
+ 	if (!rphy->field)					\
+ 		return snprintf(buf, 20, "none\n");			\
+@@ -924,13 +938,14 @@ show_sas_rphy_##name(struct class_device
+ 
+ #define sas_rphy_protocol_attr(field, name)				\
+ 	sas_rphy_show_protocol(field, name)				\
+-static SAS_CLASS_DEVICE_ATTR(rphy, name, S_IRUGO,			\
++static SAS_DEVICE_ATTR(rphy, name, S_IRUGO,			\
+ 		show_sas_rphy_##name, NULL)
+ 
+ static ssize_t
+-show_sas_rphy_device_type(struct class_device *cdev, char *buf)
++show_sas_rphy_device_type(struct device *dev,
++			  struct device_attribute *attr, char *buf)
+ {
+-	struct sas_rphy *rphy = transport_class_to_rphy(cdev);
++	struct sas_rphy *rphy = transport_class_to_rphy(dev);
+ 
+ 	if (!rphy->identify.device_type)
+ 		return snprintf(buf, 20, "none\n");
+@@ -938,13 +953,14 @@ show_sas_rphy_device_type(struct class_d
+ 			rphy->identify.device_type, buf);
+ }
+ 
+-static SAS_CLASS_DEVICE_ATTR(rphy, device_type, S_IRUGO,
++static SAS_DEVICE_ATTR(rphy, device_type, S_IRUGO,
+ 		show_sas_rphy_device_type, NULL);
+ 
+ static ssize_t
+-show_sas_rphy_enclosure_identifier(struct class_device *cdev, char *buf)
++show_sas_rphy_enclosure_identifier(struct device *dev,
++				   struct device_attribute *attr, char *buf)
+ {
+-	struct sas_rphy *rphy = transport_class_to_rphy(cdev);
++	struct sas_rphy *rphy = transport_class_to_rphy(dev);
+ 	struct sas_phy *phy = dev_to_phy(rphy->dev.parent);
+ 	struct Scsi_Host *shost = dev_to_shost(phy->dev.parent);
+ 	struct sas_internal *i = to_sas_internal(shost->transportt);
+@@ -964,13 +980,14 @@ show_sas_rphy_enclosure_identifier(struc
+ 	return sprintf(buf, "0x%llx\n", (unsigned long long)identifier);
+ }
+ 
+-static SAS_CLASS_DEVICE_ATTR(rphy, enclosure_identifier, S_IRUGO,
++static SAS_DEVICE_ATTR(rphy, enclosure_identifier, S_IRUGO,
+ 		show_sas_rphy_enclosure_identifier, NULL);
+ 
+ static ssize_t
+-show_sas_rphy_bay_identifier(struct class_device *cdev, char *buf)
++show_sas_rphy_bay_identifier(struct device *dev,
++			     struct device_attribute *attr, char *buf)
+ {
+-	struct sas_rphy *rphy = transport_class_to_rphy(cdev);
++	struct sas_rphy *rphy = transport_class_to_rphy(dev);
+ 	struct sas_phy *phy = dev_to_phy(rphy->dev.parent);
+ 	struct Scsi_Host *shost = dev_to_shost(phy->dev.parent);
+ 	struct sas_internal *i = to_sas_internal(shost->transportt);
+@@ -985,7 +1002,7 @@ show_sas_rphy_bay_identifier(struct clas
+ 	return sprintf(buf, "%d\n", val);
+ }
+ 
+-static SAS_CLASS_DEVICE_ATTR(rphy, bay_identifier, S_IRUGO,
++static SAS_DEVICE_ATTR(rphy, bay_identifier, S_IRUGO,
+ 		show_sas_rphy_bay_identifier, NULL);
+ 
+ sas_rphy_protocol_attr(identify.initiator_port_protocols,
+@@ -1043,9 +1060,10 @@ static DECLARE_TRANSPORT_CLASS(sas_end_d
+ 
+ #define sas_end_dev_show_simple(field, name, format_string, cast)	\
+ static ssize_t								\
+-show_sas_end_dev_##name(struct class_device *cdev, char *buf)		\
++show_sas_end_dev_##name(struct device *dev, 				\
++			struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct sas_rphy *rphy = transport_class_to_rphy(cdev);		\
++	struct sas_rphy *rphy = transport_class_to_rphy(dev);		\
+ 	struct sas_end_device *rdev = rphy_to_end_device(rphy);		\
+ 									\
+ 	return snprintf(buf, 20, format_string, cast rdev->field);	\
+@@ -1053,7 +1071,7 @@ show_sas_end_dev_##name(struct class_dev
+ 
+ #define sas_end_dev_simple_attr(field, name, format_string, type)	\
+ 	sas_end_dev_show_simple(field, name, format_string, (type))	\
+-static SAS_CLASS_DEVICE_ATTR(end_dev, name, S_IRUGO, 			\
++static SAS_DEVICE_ATTR(end_dev, name, S_IRUGO, 			\
+ 		show_sas_end_dev_##name, NULL)
+ 
+ sas_end_dev_simple_attr(ready_led_meaning, ready_led_meaning, "%d\n", int);
+@@ -1067,9 +1085,10 @@ static DECLARE_TRANSPORT_CLASS(sas_expan
+ 
+ #define sas_expander_show_simple(field, name, format_string, cast)	\
+ static ssize_t								\
+-show_sas_expander_##name(struct class_device *cdev, char *buf)		\
++show_sas_expander_##name(struct device *dev, 				\
++			 struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct sas_rphy *rphy = transport_class_to_rphy(cdev);		\
++	struct sas_rphy *rphy = transport_class_to_rphy(dev);		\
+ 	struct sas_expander_device *edev = rphy_to_expander_device(rphy); \
+ 									\
+ 	return snprintf(buf, 20, format_string, cast edev->field);	\
+@@ -1077,7 +1096,7 @@ show_sas_expander_##name(struct class_de
+ 
+ #define sas_expander_simple_attr(field, name, format_string, type)	\
+ 	sas_expander_show_simple(field, name, format_string, (type))	\
+-static SAS_CLASS_DEVICE_ATTR(expander, name, S_IRUGO, 			\
++static SAS_DEVICE_ATTR(expander, name, S_IRUGO, 			\
+ 		show_sas_expander_##name, NULL)
+ 
+ sas_expander_simple_attr(vendor_id, vendor_id, "%s\n", char *);
+@@ -1428,14 +1447,14 @@ static int sas_user_scan(struct Scsi_Hos
+  */
+ 
+ #define SETUP_TEMPLATE(attrb, field, perm, test)			\
+-	i->private_##attrb[count] = class_device_attr_##field;		\
++	i->private_##attrb[count] = dev_attr_##field;		\
+ 	i->private_##attrb[count].attr.mode = perm;			\
+ 	i->attrb[count] = &i->private_##attrb[count];			\
+ 	if (test)							\
+ 		count++
+ 
+ #define SETUP_TEMPLATE_RW(attrb, field, perm, test, ro_test, ro_perm)	\
+-	i->private_##attrb[count] = class_device_attr_##field;		\
++	i->private_##attrb[count] = dev_attr_##field;		\
+ 	i->private_##attrb[count].attr.mode = perm;			\
+ 	if (ro_test) {							\
+ 		i->private_##attrb[count].attr.mode = ro_perm;		\
+diff --git a/drivers/scsi/scsi_transport_spi.c b/drivers/scsi/scsi_transport_spi.c
+--- a/drivers/scsi/scsi_transport_spi.c
++++ b/drivers/scsi/scsi_transport_spi.c
+@@ -165,7 +165,7 @@ static inline enum spi_signal_type spi_s
+ }
+ 
+ static int spi_host_setup(struct transport_container *tc, struct device *dev,
+-			  struct class_device *cdev)
++			  struct device *cdev)
+ {
+ 	struct Scsi_Host *shost = dev_to_shost(dev);
+ 
+@@ -201,7 +201,7 @@ static int spi_host_match(struct attribu
+ 
+ static int spi_device_configure(struct transport_container *tc,
+ 				struct device *dev,
+-				struct class_device *cdev)
++				struct device *cdev)
+ {
+ 	struct scsi_device *sdev = to_scsi_device(dev);
+ 	struct scsi_target *starget = sdev->sdev_target;
+@@ -221,7 +221,7 @@ static int spi_device_configure(struct t
+ 
+ static int spi_setup_transport_attrs(struct transport_container *tc,
+ 				     struct device *dev,
+-				     struct class_device *cdev)
++				     struct device *cdev)
+ {
+ 	struct scsi_target *starget = to_scsi_target(dev);
+ 
+@@ -250,9 +250,10 @@ static int spi_setup_transport_attrs(str
+ #define spi_transport_show_simple(field, format_string)			\
+ 									\
+ static ssize_t								\
+-show_spi_transport_##field(struct class_device *cdev, char *buf)	\
++show_spi_transport_##field(struct device *dev, 			\
++			   struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct scsi_target *starget = transport_class_to_starget(cdev);	\
++	struct scsi_target *starget = transport_class_to_starget(dev);	\
+ 	struct spi_transport_attrs *tp;					\
+ 									\
+ 	tp = (struct spi_transport_attrs *)&starget->starget_data;	\
+@@ -262,11 +263,12 @@ show_spi_transport_##field(struct class_
+ #define spi_transport_store_simple(field, format_string)		\
+ 									\
+ static ssize_t								\
+-store_spi_transport_##field(struct class_device *cdev, const char *buf, \
+-			    size_t count)				\
++store_spi_transport_##field(struct device *dev, 			\
++			    struct device_attribute *attr, 		\
++			    const char *buf, size_t count)		\
+ {									\
+ 	int val;							\
+-	struct scsi_target *starget = transport_class_to_starget(cdev);	\
++	struct scsi_target *starget = transport_class_to_starget(dev);	\
+ 	struct spi_transport_attrs *tp;					\
+ 									\
+ 	tp = (struct spi_transport_attrs *)&starget->starget_data;	\
+@@ -278,9 +280,10 @@ store_spi_transport_##field(struct class
+ #define spi_transport_show_function(field, format_string)		\
+ 									\
+ static ssize_t								\
+-show_spi_transport_##field(struct class_device *cdev, char *buf)	\
++show_spi_transport_##field(struct device *dev, 			\
++			   struct device_attribute *attr, char *buf)	\
+ {									\
+-	struct scsi_target *starget = transport_class_to_starget(cdev);	\
++	struct scsi_target *starget = transport_class_to_starget(dev);	\
+ 	struct Scsi_Host *shost = dev_to_shost(starget->dev.parent);	\
+ 	struct spi_transport_attrs *tp;					\
+ 	struct spi_internal *i = to_spi_internal(shost->transportt);	\
+@@ -292,11 +295,12 @@ show_spi_transport_##field(struct class_
+ 
+ #define spi_transport_store_function(field, format_string)		\
+ static ssize_t								\
+-store_spi_transport_##field(struct class_device *cdev, const char *buf, \
+-			    size_t count)				\
++store_spi_transport_##field(struct device *dev, 			\
++			    struct device_attribute *attr,		\
++			    const char *buf, size_t count)		\
+ {									\
+ 	int val;							\
+-	struct scsi_target *starget = transport_class_to_starget(cdev);	\
++	struct scsi_target *starget = transport_class_to_starget(dev);	\
+ 	struct Scsi_Host *shost = dev_to_shost(starget->dev.parent);	\
+ 	struct spi_internal *i = to_spi_internal(shost->transportt);	\
+ 									\
+@@ -307,11 +311,12 @@ store_spi_transport_##field(struct class
+ 
+ #define spi_transport_store_max(field, format_string)			\
+ static ssize_t								\
+-store_spi_transport_##field(struct class_device *cdev, const char *buf, \
+-			    size_t count)				\
++store_spi_transport_##field(struct device *dev, 			\
++			    struct device_attribute *attr,		\
++			    const char *buf, size_t count)		\
+ {									\
+ 	int val;							\
+-	struct scsi_target *starget = transport_class_to_starget(cdev);	\
++	struct scsi_target *starget = transport_class_to_starget(dev);	\
+ 	struct Scsi_Host *shost = dev_to_shost(starget->dev.parent);	\
+ 	struct spi_internal *i = to_spi_internal(shost->transportt);	\
+ 	struct spi_transport_attrs *tp					\
+@@ -327,24 +332,24 @@ store_spi_transport_##field(struct class
+ #define spi_transport_rd_attr(field, format_string)			\
+ 	spi_transport_show_function(field, format_string)		\
+ 	spi_transport_store_function(field, format_string)		\
+-static CLASS_DEVICE_ATTR(field, S_IRUGO | S_IWUSR,			\
+-			 show_spi_transport_##field,			\
+-			 store_spi_transport_##field);
++static DEVICE_ATTR(field, S_IRUGO,				\
++		   show_spi_transport_##field,			\
++		   store_spi_transport_##field);
+ 
+ #define spi_transport_simple_attr(field, format_string)			\
+ 	spi_transport_show_simple(field, format_string)			\
+ 	spi_transport_store_simple(field, format_string)		\
+-static CLASS_DEVICE_ATTR(field, S_IRUGO | S_IWUSR,			\
+-			 show_spi_transport_##field,			\
+-			 store_spi_transport_##field);
++static DEVICE_ATTR(field, S_IRUGO,				\
++		   show_spi_transport_##field,			\
++		   store_spi_transport_##field);
+ 
+ #define spi_transport_max_attr(field, format_string)			\
+ 	spi_transport_show_function(field, format_string)		\
+ 	spi_transport_store_max(field, format_string)			\
+ 	spi_transport_simple_attr(max_##field, format_string)		\
+-static CLASS_DEVICE_ATTR(field, S_IRUGO | S_IWUSR,			\
+-			 show_spi_transport_##field,			\
+-			 store_spi_transport_##field);
++static DEVICE_ATTR(field, S_IRUGO,				\
++		   show_spi_transport_##field,			\
++		   store_spi_transport_##field);
+ 
+ /* The Parallel SCSI Tranport Attributes: */
+ spi_transport_max_attr(offset, "%d\n");
+@@ -368,14 +373,15 @@ static int child_iter(struct device *dev
+ }
+ 
+ static ssize_t
+-store_spi_revalidate(struct class_device *cdev, const char *buf, size_t count)
++store_spi_revalidate(struct device *dev, struct device_attribute *attr,
++		     const char *buf, size_t count)
+ {
+-	struct scsi_target *starget = transport_class_to_starget(cdev);
++	struct scsi_target *starget = transport_class_to_starget(dev);
+ 
+ 	device_for_each_child(&starget->dev, NULL, child_iter);
+ 	return count;
+ }
+-static CLASS_DEVICE_ATTR(revalidate, S_IWUSR, NULL, store_spi_revalidate);
++static DEVICE_ATTR(revalidate, S_IWUSR, NULL, store_spi_revalidate);
+ 
+ /* Translate the period into ns according to the current spec
+  * for SDTR/PPR messages */
+@@ -410,7 +416,7 @@ show_spi_transport_period_helper(char *b
+ }
+ 
+ static ssize_t
+-store_spi_transport_period_helper(struct class_device *cdev, const char *buf,
++store_spi_transport_period_helper(struct device *dev, const char *buf,
+ 				  size_t count, int *periodp)
+ {
+ 	int j, picosec, period = -1;
+@@ -447,9 +453,10 @@ store_spi_transport_period_helper(struct
+ }
+ 
+ static ssize_t
+-show_spi_transport_period(struct class_device *cdev, char *buf)
++show_spi_transport_period(struct device *dev,
++			  struct device_attribute *attr, char *buf)
+ {
+-	struct scsi_target *starget = transport_class_to_starget(cdev);
++	struct scsi_target *starget = transport_class_to_starget(dev);
+ 	struct Scsi_Host *shost = dev_to_shost(starget->dev.parent);
+ 	struct spi_internal *i = to_spi_internal(shost->transportt);
+ 	struct spi_transport_attrs *tp =
+@@ -462,8 +469,8 @@ show_spi_transport_period(struct class_d
+ }
+ 
+ static ssize_t
+-store_spi_transport_period(struct class_device *cdev, const char *buf,
+-			    size_t count)
++store_spi_transport_period(struct device *cdev, struct device_attribute *attr,
++			   const char *buf, size_t count)
+ {
+ 	struct scsi_target *starget = transport_class_to_starget(cdev);
+ 	struct Scsi_Host *shost = dev_to_shost(starget->dev.parent);
+@@ -482,12 +489,13 @@ store_spi_transport_period(struct class_
+ 	return retval;
+ }
+ 
+-static CLASS_DEVICE_ATTR(period, S_IRUGO | S_IWUSR, 
+-			 show_spi_transport_period,
+-			 store_spi_transport_period);
++static DEVICE_ATTR(period, S_IRUGO,
++		   show_spi_transport_period,
++		   store_spi_transport_period);
+ 
+ static ssize_t
+-show_spi_transport_min_period(struct class_device *cdev, char *buf)
++show_spi_transport_min_period(struct device *cdev,
++			      struct device_attribute *attr, char *buf)
+ {
+ 	struct scsi_target *starget = transport_class_to_starget(cdev);
+ 	struct spi_transport_attrs *tp =
+@@ -497,8 +505,9 @@ show_spi_transport_min_period(struct cla
+ }
+ 
+ static ssize_t
+-store_spi_transport_min_period(struct class_device *cdev, const char *buf,
+-			    size_t count)
++store_spi_transport_min_period(struct device *cdev,
++			       struct device_attribute *attr,
++			       const char *buf, size_t count)
+ {
+ 	struct scsi_target *starget = transport_class_to_starget(cdev);
+ 	struct spi_transport_attrs *tp =
+@@ -509,12 +518,14 @@ store_spi_transport_min_period(struct cl
+ }
+ 
+ 
+-static CLASS_DEVICE_ATTR(min_period, S_IRUGO | S_IWUSR, 
+-			 show_spi_transport_min_period,
+-			 store_spi_transport_min_period);
++static DEVICE_ATTR(min_period, S_IRUGO,
++		   show_spi_transport_min_period,
++		   store_spi_transport_min_period);
+ 
+ 
+-static ssize_t show_spi_host_signalling(struct class_device *cdev, char *buf)
++static ssize_t show_spi_host_signalling(struct device *cdev,
++					struct device_attribute *attr,
++					char *buf)
+ {
+ 	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+ 	struct spi_internal *i = to_spi_internal(shost->transportt);
+@@ -524,10 +535,11 @@ static ssize_t show_spi_host_signalling(
+ 
+ 	return sprintf(buf, "%s\n", spi_signal_to_string(spi_signalling(shost)));
+ }
+-static ssize_t store_spi_host_signalling(struct class_device *cdev,
++static ssize_t store_spi_host_signalling(struct device *dev,
++					 struct device_attribute *attr,
+ 					 const char *buf, size_t count)
+ {
+-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
+ 	struct spi_internal *i = to_spi_internal(shost->transportt);
+ 	enum spi_signal_type type = spi_signal_to_value(buf);
+ 
+@@ -536,9 +548,9 @@ static ssize_t store_spi_host_signalling
+ 
+ 	return count;
+ }
+-static CLASS_DEVICE_ATTR(signalling, S_IRUGO | S_IWUSR,
+-			 show_spi_host_signalling,
+-			 store_spi_host_signalling);
++static DEVICE_ATTR(signalling, S_IRUGO,
++		   show_spi_host_signalling,
++		   store_spi_host_signalling);
+ 
+ #define DV_SET(x, y)			\
+ 	if(i->f->set_##x)		\
+diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
+--- a/drivers/scsi/sd.c
++++ b/drivers/scsi/sd.c
+@@ -116,11 +116,12 @@ static const char *sd_cache_types[] = {
+ 	"write back, no read (daft)"
+ };
+ 
+-static ssize_t sd_store_cache_type(struct class_device *cdev, const char *buf,
+-				   size_t count)
++static ssize_t
++sd_store_cache_type(struct device *dev, struct device_attribute *attr,
++		    const char *buf, size_t count)
+ {
+ 	int i, ct = -1, rcd, wce, sp;
+-	struct scsi_disk *sdkp = to_scsi_disk(cdev);
++	struct scsi_disk *sdkp = to_scsi_disk(dev);
+ 	struct scsi_device *sdp = sdkp->device;
+ 	char buffer[64];
+ 	char *buffer_data;
+@@ -167,10 +168,11 @@ static ssize_t sd_store_cache_type(struc
+ 	return count;
+ }
+ 
+-static ssize_t sd_store_manage_start_stop(struct class_device *cdev,
+-					  const char *buf, size_t count)
++static ssize_t
++sd_store_manage_start_stop(struct device *dev, struct device_attribute *attr,
++			   const char *buf, size_t count)
+ {
+-	struct scsi_disk *sdkp = to_scsi_disk(cdev);
++	struct scsi_disk *sdkp = to_scsi_disk(dev);
+ 	struct scsi_device *sdp = sdkp->device;
+ 
+ 	if (!capable(CAP_SYS_ADMIN))
+@@ -181,10 +183,11 @@ static ssize_t sd_store_manage_start_sto
+ 	return count;
+ }
+ 
+-static ssize_t sd_store_allow_restart(struct class_device *cdev, const char *buf,
+-				      size_t count)
++static ssize_t
++sd_store_allow_restart(struct device *dev, struct device_attribute *attr,
++		       const char *buf, size_t count)
+ {
+-	struct scsi_disk *sdkp = to_scsi_disk(cdev);
++	struct scsi_disk *sdkp = to_scsi_disk(dev);
+ 	struct scsi_device *sdp = sdkp->device;
+ 
+ 	if (!capable(CAP_SYS_ADMIN))
+@@ -198,37 +201,44 @@ static ssize_t sd_store_allow_restart(st
+ 	return count;
+ }
+ 
+-static ssize_t sd_show_cache_type(struct class_device *cdev, char *buf)
++static ssize_t
++sd_show_cache_type(struct device *dev, struct device_attribute *attr,
++		   char *buf)
+ {
+-	struct scsi_disk *sdkp = to_scsi_disk(cdev);
++	struct scsi_disk *sdkp = to_scsi_disk(dev);
+ 	int ct = sdkp->RCD + 2*sdkp->WCE;
+ 
+ 	return snprintf(buf, 40, "%s\n", sd_cache_types[ct]);
+ }
+ 
+-static ssize_t sd_show_fua(struct class_device *cdev, char *buf)
++static ssize_t
++sd_show_fua(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+-	struct scsi_disk *sdkp = to_scsi_disk(cdev);
++	struct scsi_disk *sdkp = to_scsi_disk(dev);
+ 
+ 	return snprintf(buf, 20, "%u\n", sdkp->DPOFUA);
+ }
+ 
+-static ssize_t sd_show_manage_start_stop(struct class_device *cdev, char *buf)
++static ssize_t
++sd_show_manage_start_stop(struct device *dev, struct device_attribute *attr,
++			  char *buf)
+ {
+-	struct scsi_disk *sdkp = to_scsi_disk(cdev);
++	struct scsi_disk *sdkp = to_scsi_disk(dev);
+ 	struct scsi_device *sdp = sdkp->device;
+ 
+ 	return snprintf(buf, 20, "%u\n", sdp->manage_start_stop);
+ }
+ 
+-static ssize_t sd_show_allow_restart(struct class_device *cdev, char *buf)
++static ssize_t
++sd_show_allow_restart(struct device *dev, struct device_attribute *attr,
++		      char *buf)
+ {
+-	struct scsi_disk *sdkp = to_scsi_disk(cdev);
++	struct scsi_disk *sdkp = to_scsi_disk(dev);
+ 
+ 	return snprintf(buf, 40, "%d\n", sdkp->device->allow_restart);
+ }
+ 
+-static struct class_device_attribute sd_disk_attrs[] = {
++static struct device_attribute sd_disk_attrs[] = {
+ 	__ATTR(cache_type, S_IRUGO|S_IWUSR, sd_show_cache_type,
+ 	       sd_store_cache_type),
+ 	__ATTR(FUA, S_IRUGO, sd_show_fua, NULL),
+@@ -242,8 +252,8 @@ static struct class_device_attribute sd_
+ static struct class sd_disk_class = {
+ 	.name		= "scsi_disk",
+ 	.owner		= THIS_MODULE,
+-	.release	= scsi_disk_release,
+-	.class_dev_attrs = sd_disk_attrs,
++	.dev_release	= scsi_disk_release,
++	.dev_attrs	= sd_disk_attrs,
+ };
+ 
+ static struct scsi_driver sd_template = {
+@@ -297,7 +307,7 @@ static struct scsi_disk *__scsi_disk_get
+ 	if (disk->private_data) {
+ 		sdkp = scsi_disk(disk);
+ 		if (scsi_device_get(sdkp->device) == 0)
+-			class_device_get(&sdkp->cdev);
++			get_device(&sdkp->dev);
+ 		else
+ 			sdkp = NULL;
+ 	}
+@@ -331,7 +341,7 @@ static void scsi_disk_put(struct scsi_di
+ 	struct scsi_device *sdev = sdkp->device;
+ 
+ 	mutex_lock(&sd_ref_mutex);
+-	class_device_put(&sdkp->cdev);
++	put_device(&sdkp->dev);
+ 	scsi_device_put(sdev);
+ 	mutex_unlock(&sd_ref_mutex);
+ }
+@@ -1657,12 +1667,12 @@ static int sd_probe(struct device *dev)
+ 			sdp->timeout = SD_MOD_TIMEOUT;
+ 	}
+ 
+-	class_device_initialize(&sdkp->cdev);
+-	sdkp->cdev.dev = &sdp->sdev_gendev;
+-	sdkp->cdev.class = &sd_disk_class;
+-	strncpy(sdkp->cdev.class_id, sdp->sdev_gendev.bus_id, BUS_ID_SIZE);
++	device_initialize(&sdkp->dev);
++	sdkp->dev.parent = &sdp->sdev_gendev;
++	sdkp->dev.class = &sd_disk_class;
++	strncpy(sdkp->dev.bus_id, sdp->sdev_gendev.bus_id, BUS_ID_SIZE);
+ 
+-	if (class_device_add(&sdkp->cdev))
++	if (device_add(&sdkp->dev))
+ 		goto out_free_index;
+ 
+ 	get_device(&sdp->sdev_gendev);
+@@ -1739,13 +1749,13 @@ static int sd_remove(struct device *dev)
+ {
+ 	struct scsi_disk *sdkp = dev_get_drvdata(dev);
+ 
+-	class_device_del(&sdkp->cdev);
++	device_del(&sdkp->dev);
+ 	del_gendisk(sdkp->disk);
+ 	sd_shutdown(dev);
+ 
+ 	mutex_lock(&sd_ref_mutex);
+ 	dev_set_drvdata(dev, NULL);
+-	class_device_put(&sdkp->cdev);
++	put_device(&sdkp->dev);
+ 	mutex_unlock(&sd_ref_mutex);
+ 
+ 	return 0;
+@@ -1753,16 +1763,16 @@ static int sd_remove(struct device *dev)
+ 
+ /**
+  *	scsi_disk_release - Called to free the scsi_disk structure
+- *	@cdev: pointer to embedded class device
++ *	@dev: pointer to embedded class device
+  *
+  *	sd_ref_mutex must be held entering this routine.  Because it is
+  *	called on last put, you should always use the scsi_disk_get()
+  *	scsi_disk_put() helpers which manipulate the semaphore directly
+- *	and never do a direct class_device_put().
++ *	and never do a direct put_device.
+  **/
+-static void scsi_disk_release(struct class_device *cdev)
++static void scsi_disk_release(struct device *dev)
+ {
+-	struct scsi_disk *sdkp = to_scsi_disk(cdev);
++	struct scsi_disk *sdkp = to_scsi_disk(dev);
+ 	struct gendisk *disk = sdkp->disk;
+ 	
+ 	spin_lock(&sd_index_lock);
+diff --git a/drivers/scsi/sg.c b/drivers/scsi/sg.c
+--- a/drivers/scsi/sg.c
++++ b/drivers/scsi/sg.c
+@@ -100,16 +100,16 @@ static int scatter_elem_sz_prev = SG_SCA
+ #define SG_SECTOR_SZ 512
+ #define SG_SECTOR_MSK (SG_SECTOR_SZ - 1)
+ 
+-static int sg_add(struct class_device *, struct class_interface *);
+-static void sg_remove(struct class_device *, struct class_interface *);
++static int sg_add(struct device *, struct class_interface *);
++static void sg_remove(struct device *, struct class_interface *);
+ 
+ static DEFINE_IDR(sg_index_idr);
+ static DEFINE_RWLOCK(sg_index_lock);	/* Also used to lock
+ 							   file descriptor list for device */
+ 
+ static struct class_interface sg_interface = {
+-	.add		= sg_add,
+-	.remove		= sg_remove,
++	.add_dev	= sg_add,
++	.remove_dev	= sg_remove,
+ };
+ 
+ typedef struct sg_scatter_hold { /* holding area for scsi scatter gather info */
+@@ -1386,9 +1386,9 @@ static Sg_device *sg_alloc(struct gendis
+ }
+ 
+ static int
+-sg_add(struct class_device *cl_dev, struct class_interface *cl_intf)
++sg_add(struct device *cl_dev, struct class_interface *cl_intf)
+ {
+-	struct scsi_device *scsidp = to_scsi_device(cl_dev->dev);
++	struct scsi_device *scsidp = to_scsi_device(cl_dev->parent);
+ 	struct gendisk *disk;
+ 	Sg_device *sdp = NULL;
+ 	struct cdev * cdev = NULL;
+@@ -1424,19 +1424,19 @@ sg_add(struct class_device *cl_dev, stru
+ 
+ 	sdp->cdev = cdev;
+ 	if (sg_sysfs_valid) {
+-		struct class_device * sg_class_member;
++		struct device *sg_class_member;
+ 
+-		sg_class_member = class_device_create(sg_sysfs_class, NULL,
+-				MKDEV(SCSI_GENERIC_MAJOR, sdp->index),
+-				cl_dev->dev, "%s",
+-				disk->disk_name);
++		sg_class_member = device_create(sg_sysfs_class, cl_dev->parent,
++						MKDEV(SCSI_GENERIC_MAJOR,
++						      sdp->index),
++						"%s", disk->disk_name);
+ 		if (IS_ERR(sg_class_member)) {
+ 			printk(KERN_ERR "sg_add: "
+-			       "class_device_create failed\n");
++			       "device_create failed\n");
+ 			error = PTR_ERR(sg_class_member);
+ 			goto cdev_add_err;
+ 		}
+-		class_set_devdata(sg_class_member, sdp);
++		dev_set_drvdata(sg_class_member, sdp);
+ 		error = sysfs_create_link(&scsidp->sdev_gendev.kobj, 
+ 					  &sg_class_member->kobj, "generic");
+ 		if (error)
+@@ -1449,7 +1449,7 @@ sg_add(struct class_device *cl_dev, stru
+ 		    "Attached scsi generic sg%d type %d\n", sdp->index,
+ 		    scsidp->type);
+ 
+-	class_set_devdata(cl_dev, sdp);
++	dev_set_drvdata(cl_dev, sdp);
+ 
+ 	return 0;
+ 
+@@ -1467,10 +1467,10 @@ out:
+ }
+ 
+ static void
+-sg_remove(struct class_device *cl_dev, struct class_interface *cl_intf)
++sg_remove(struct device *cl_dev, struct class_interface *cl_intf)
+ {
+-	struct scsi_device *scsidp = to_scsi_device(cl_dev->dev);
+-	Sg_device *sdp = class_get_devdata(cl_dev);
++	struct scsi_device *scsidp = to_scsi_device(cl_dev->parent);
++	Sg_device *sdp = dev_get_drvdata(cl_dev);
+ 	unsigned long iflags;
+ 	Sg_fd *sfp;
+ 	Sg_fd *tsfp;
+@@ -1513,7 +1513,7 @@ sg_remove(struct class_device *cl_dev, s
+ 	write_unlock_irqrestore(&sg_index_lock, iflags);
+ 
+ 	sysfs_remove_link(&scsidp->sdev_gendev.kobj, "generic");
+-	class_device_destroy(sg_sysfs_class, MKDEV(SCSI_GENERIC_MAJOR, sdp->index));
++	device_destroy(sg_sysfs_class, MKDEV(SCSI_GENERIC_MAJOR, sdp->index));
+ 	cdev_del(sdp->cdev);
+ 	sdp->cdev = NULL;
+ 	put_disk(sdp->disk);
+diff --git a/drivers/scsi/st.c b/drivers/scsi/st.c
+--- a/drivers/scsi/st.c
++++ b/drivers/scsi/st.c
+@@ -4080,9 +4080,9 @@ out_free_tape:
+ 			if (STm->cdevs[j]) {
+ 				if (cdev == STm->cdevs[j])
+ 					cdev = NULL;
+-				class_device_destroy(st_sysfs_class,
+-						     MKDEV(SCSI_TAPE_MAJOR,
+-							   TAPE_MINOR(i, mode, j)));
++					device_destroy(st_sysfs_class,
++						       MKDEV(SCSI_TAPE_MAJOR,
++							     TAPE_MINOR(i, mode, j)));
+ 				cdev_del(STm->cdevs[j]);
+ 			}
+ 		}
+@@ -4120,9 +4120,9 @@ static int st_remove(struct device *dev)
+ 					  "tape");
+ 			for (mode = 0; mode < ST_NBR_MODES; ++mode) {
+ 				for (j=0; j < 2; j++) {
+-					class_device_destroy(st_sysfs_class,
+-							     MKDEV(SCSI_TAPE_MAJOR,
+-								   TAPE_MINOR(i, mode, j)));
++					device_destroy(st_sysfs_class,
++						       MKDEV(SCSI_TAPE_MAJOR,
++							     TAPE_MINOR(i, mode, j)));
+ 					cdev_del(tpnt->modes[mode].cdevs[j]);
+ 					tpnt->modes[mode].cdevs[j] = NULL;
+ 				}
+@@ -4291,31 +4291,34 @@ static void do_remove_sysfs_files(void)
+ 
+ 
+ /* The sysfs simple class interface */
+-static ssize_t st_defined_show(struct class_device *class_dev, char *buf)
++static ssize_t
++st_defined_show(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+-	struct st_modedef *STm = (struct st_modedef *)class_get_devdata(class_dev);
++	struct st_modedef *STm = dev_get_drvdata(dev);
+ 	ssize_t l = 0;
+ 
+ 	l = snprintf(buf, PAGE_SIZE, "%d\n", STm->defined);
+ 	return l;
+ }
+ 
+-CLASS_DEVICE_ATTR(defined, S_IRUGO, st_defined_show, NULL);
++DEVICE_ATTR(defined, S_IRUGO, st_defined_show, NULL);
+ 
+-static ssize_t st_defblk_show(struct class_device *class_dev, char *buf)
++static ssize_t
++st_defblk_show(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+-	struct st_modedef *STm = (struct st_modedef *)class_get_devdata(class_dev);
++	struct st_modedef *STm = dev_get_drvdata(dev);
+ 	ssize_t l = 0;
+ 
+ 	l = snprintf(buf, PAGE_SIZE, "%d\n", STm->default_blksize);
+ 	return l;
+ }
+ 
+-CLASS_DEVICE_ATTR(default_blksize, S_IRUGO, st_defblk_show, NULL);
++DEVICE_ATTR(default_blksize, S_IRUGO, st_defblk_show, NULL);
+ 
+-static ssize_t st_defdensity_show(struct class_device *class_dev, char *buf)
++static ssize_t
++st_defdensity_show(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+-	struct st_modedef *STm = (struct st_modedef *)class_get_devdata(class_dev);
++	struct st_modedef *STm = dev_get_drvdata(dev);
+ 	ssize_t l = 0;
+ 	char *fmt;
+ 
+@@ -4324,24 +4327,26 @@ static ssize_t st_defdensity_show(struct
+ 	return l;
+ }
+ 
+-CLASS_DEVICE_ATTR(default_density, S_IRUGO, st_defdensity_show, NULL);
++DEVICE_ATTR(default_density, S_IRUGO, st_defdensity_show, NULL);
+ 
+-static ssize_t st_defcompression_show(struct class_device *class_dev, char *buf)
++static ssize_t
++st_defcompression_show(struct device *dev, struct device_attribute *attr,
++		       char *buf)
+ {
+-	struct st_modedef *STm = (struct st_modedef *)class_get_devdata(class_dev);
++	struct st_modedef *STm = dev_get_drvdata(dev);
+ 	ssize_t l = 0;
+ 
+ 	l = snprintf(buf, PAGE_SIZE, "%d\n", STm->default_compression - 1);
+ 	return l;
+ }
+ 
+-CLASS_DEVICE_ATTR(default_compression, S_IRUGO, st_defcompression_show, NULL);
++DEVICE_ATTR(default_compression, S_IRUGO, st_defcompression_show, NULL);
+ 
+ static int do_create_class_files(struct scsi_tape *STp, int dev_num, int mode)
+ {
+ 	int i, rew, error;
+ 	char name[10];
+-	struct class_device *st_class_member;
++	struct device *st_class_member;
+ 
+ 	for (rew=0; rew < 2; rew++) {
+ 		/* Make sure that the minor numbers corresponding to the four
+@@ -4350,29 +4355,29 @@ static int do_create_class_files(struct 
+ 		snprintf(name, 10, "%s%s%s", rew ? "n" : "",
+ 			 STp->disk->disk_name, st_formats[i]);
+ 		st_class_member =
+-			class_device_create(st_sysfs_class, NULL,
+-					    MKDEV(SCSI_TAPE_MAJOR,
+-						  TAPE_MINOR(dev_num, mode, rew)),
+-					    &STp->device->sdev_gendev, "%s", name);
++			device_create(st_sysfs_class, &STp->device->sdev_gendev,
++				      MKDEV(SCSI_TAPE_MAJOR,
++						TAPE_MINOR(dev_num, mode, rew)),
++				      "%s", name);
+ 		if (IS_ERR(st_class_member)) {
+-			printk(KERN_WARNING "st%d: class_device_create failed\n",
++			printk(KERN_WARNING "st%d: device_create failed\n",
+ 			       dev_num);
+ 			error = PTR_ERR(st_class_member);
+ 			goto out;
+ 		}
+-		class_set_devdata(st_class_member, &STp->modes[mode]);
++		dev_set_drvdata(st_class_member, &STp->modes[mode]);
+ 
+-		error = class_device_create_file(st_class_member,
+-					       &class_device_attr_defined);
++		error = device_create_file(st_class_member,
++					   &dev_attr_defined);
+ 		if (error) goto out;
+-		error = class_device_create_file(st_class_member,
+-					    &class_device_attr_default_blksize);
++		error = device_create_file(st_class_member,
++					   &dev_attr_default_blksize);
+ 		if (error) goto out;
+-		error = class_device_create_file(st_class_member,
+-					    &class_device_attr_default_density);
++		error = device_create_file(st_class_member,
++					   &dev_attr_default_density);
+ 		if (error) goto out;
+-		error = class_device_create_file(st_class_member,
+-				        &class_device_attr_default_compression);
++		error = device_create_file(st_class_member,
++					   &dev_attr_default_compression);
+ 		if (error) goto out;
+ 
+ 		if (mode == 0 && rew == 0) {
+diff --git a/include/linux/attribute_container.h b/include/linux/attribute_container.h
+--- a/include/linux/attribute_container.h
++++ b/include/linux/attribute_container.h
+@@ -1,5 +1,5 @@
+ /*
+- * class_container.h - a generic container for all classes
++ * attribute_container.h - a generic container for all classes
+  *
+  * Copyright (c) 2005 - James Bottomley <James.Bottomley@steeleye.com>
+  *
+@@ -18,7 +18,7 @@ struct attribute_container {
+ 
+ 	struct klist		containers;
+ 	struct class		*class;
+-	struct class_device_attribute **attrs;
++	struct device_attribute **attrs;
+ 	int (*match)(struct attribute_container *, struct device *);
+ #define	ATTRIBUTE_CONTAINER_NO_CLASSDEVS	0x01
+ 	unsigned long		flags;
+@@ -41,31 +41,31 @@ int __must_check attribute_container_unregister(struct attribute_container *cont
+ void attribute_container_create_device(struct device *dev,
+ 				       int (*fn)(struct attribute_container *,
+ 						 struct device *,
+-						 struct class_device *));
++						 struct device *));
+ void attribute_container_add_device(struct device *dev,
+ 				    int (*fn)(struct attribute_container *,
+ 					      struct device *,
+-					      struct class_device *));
++					      struct device *));
+ void attribute_container_remove_device(struct device *dev,
+ 				       void (*fn)(struct attribute_container *,
+ 						  struct device *,
+-						  struct class_device *));
++						  struct device *));
+ void attribute_container_device_trigger(struct device *dev, 
+ 					int (*fn)(struct attribute_container *,
+ 						  struct device *,
+-						  struct class_device *));
++						  struct device *));
+ void attribute_container_trigger(struct device *dev, 
+ 				 int (*fn)(struct attribute_container *,
+ 					   struct device *));
+-int attribute_container_add_attrs(struct class_device *classdev);
+-int attribute_container_add_class_device(struct class_device *classdev);
++int attribute_container_add_attrs(struct device *classdev);
++int attribute_container_add_class_device(struct device *classdev);
+ int attribute_container_add_class_device_adapter(struct attribute_container *cont,
+ 						 struct device *dev,
+-						 struct class_device *classdev);
+-void attribute_container_remove_attrs(struct class_device *classdev);
+-void attribute_container_class_device_del(struct class_device *classdev);
+-struct attribute_container *attribute_container_classdev_to_container(struct class_device *);
+-struct class_device *attribute_container_find_class_device(struct attribute_container *, struct device *);
+-struct class_device_attribute **attribute_container_classdev_to_attrs(const struct class_device *classdev);
++						 struct device *classdev);
++void attribute_container_remove_attrs(struct device *classdev);
++void attribute_container_class_device_del(struct device *classdev);
++struct attribute_container *attribute_container_classdev_to_container(struct device *);
++struct device *attribute_container_find_class_device(struct attribute_container *, struct device *);
++struct device_attribute **attribute_container_classdev_to_attrs(const struct device *classdev);
+ 
+ #endif
+diff --git a/include/linux/raid_class.h b/include/linux/raid_class.h
+--- a/include/linux/raid_class.h
++++ b/include/linux/raid_class.h
+@@ -53,20 +53,20 @@ struct raid_data {
+ #define DEFINE_RAID_ATTRIBUTE(type, attr)				      \
+ static inline void							      \
+ raid_set_##attr(struct raid_template *r, struct device *dev, type value) {    \
+-	struct class_device *cdev =					      \
++	struct device *device =						      \
+ 		attribute_container_find_class_device(&r->raid_attrs.ac, dev);\
+ 	struct raid_data *rd;						      \
+-	BUG_ON(!cdev);							      \
+-	rd = class_get_devdata(cdev);					      \
++	BUG_ON(!device);						      \
++	rd = dev_get_drvdata(device);					      \
+ 	rd->attr = value;						      \
+ }									      \
+ static inline type							      \
+ raid_get_##attr(struct raid_template *r, struct device *dev) {		      \
+-	struct class_device *cdev =					      \
++	struct device *device =						      \
+ 		attribute_container_find_class_device(&r->raid_attrs.ac, dev);\
+ 	struct raid_data *rd;						      \
+-	BUG_ON(!cdev);							      \
+-	rd = class_get_devdata(cdev);					      \
++	BUG_ON(!device);						      \
++	rd = dev_get_drvdata(device);					      \
+ 	return rd->attr;						      \
+ }
+ 
+diff --git a/include/linux/transport_class.h b/include/linux/transport_class.h
+--- a/include/linux/transport_class.h
++++ b/include/linux/transport_class.h
+@@ -17,11 +17,11 @@ struct transport_container;
+ struct transport_class {
+ 	struct class class;
+ 	int (*setup)(struct transport_container *, struct device *,
+-		     struct class_device *);
++		     struct device *);
+ 	int (*configure)(struct transport_container *, struct device *,
+-			 struct class_device *);
++			 struct device *);
+ 	int (*remove)(struct transport_container *, struct device *,
+-		      struct class_device *);
++		      struct device *);
+ };
+ 
+ #define DECLARE_TRANSPORT_CLASS(cls, nm, su, rm, cfg)			\
+diff --git a/include/scsi/scsi_device.h b/include/scsi/scsi_device.h
+--- a/include/scsi/scsi_device.h
++++ b/include/scsi/scsi_device.h
+@@ -156,8 +156,8 @@ struct scsi_device {
+ 
+ 	int timeout;
+ 
+-	struct device		sdev_gendev;
+-	struct class_device	sdev_classdev;
++	struct device		sdev_gendev,
++				sdev_dev;
+ 
+ 	struct execute_work	ew; /* used to get process context on put */
+ 
+@@ -167,9 +167,9 @@ struct scsi_device {
+ #define	to_scsi_device(d)	\
+ 	container_of(d, struct scsi_device, sdev_gendev)
+ #define	class_to_sdev(d)	\
+-	container_of(d, struct scsi_device, sdev_classdev)
++	container_of(d, struct scsi_device, sdev_dev)
+ #define transport_class_to_sdev(class_dev) \
+-	to_scsi_device(class_dev->dev)
++	to_scsi_device(class_dev->parent)
+ 
+ #define sdev_printk(prefix, sdev, fmt, a...)	\
+ 	dev_printk(prefix, &(sdev)->sdev_gendev, fmt, ##a)
+@@ -220,7 +220,7 @@ static inline struct scsi_target *scsi_target(struct scsi_device *sdev)
+ 	return to_scsi_target(sdev->sdev_gendev.parent);
+ }
+ #define transport_class_to_starget(class_dev) \
+-	to_scsi_target(class_dev->dev)
++	to_scsi_target(class_dev->parent)
+ 
+ #define starget_printk(prefix, starget, fmt, a...)	\
+ 	dev_printk(prefix, &(starget)->dev, fmt, ##a)
+diff --git a/include/scsi/scsi_host.h b/include/scsi/scsi_host.h
+--- a/include/scsi/scsi_host.h
++++ b/include/scsi/scsi_host.h
+@@ -470,7 +470,7 @@ struct scsi_host_template {
+ 	/*
+ 	 * Pointer to the sysfs class properties for this host, NULL terminated.
+ 	 */
+-	struct class_device_attribute **shost_attrs;
++	struct device_attribute **shost_attrs;
+ 
+ 	/*
+ 	 * Pointer to the SCSI device properties for this host, NULL terminated.
+@@ -655,8 +655,7 @@ struct Scsi_Host {
+ 	enum scsi_host_state shost_state;
+ 
+ 	/* ldm bits */
+-	struct device		shost_gendev;
+-	struct class_device	shost_classdev;
++	struct device		shost_gendev, shost_dev;
+ 
+ 	/*
+ 	 * List of hosts per template.
+@@ -683,7 +682,7 @@ struct Scsi_Host {
+ };
+ 
+ #define		class_to_shost(d)	\
+-	container_of(d, struct Scsi_Host, shost_classdev)
++	container_of(d, struct Scsi_Host, shost_dev)
+ 
+ #define shost_printk(prefix, shost, fmt, a...)	\
+ 	dev_printk(prefix, &(shost)->shost_gendev, fmt, ##a)
+diff --git a/include/scsi/scsi_transport.h b/include/scsi/scsi_transport.h
+--- a/include/scsi/scsi_transport.h
++++ b/include/scsi/scsi_transport.h
+@@ -80,7 +80,7 @@ struct scsi_transport_template {
+ };
+ 
+ #define transport_class_to_shost(tc) \
+-	dev_to_shost((tc)->dev)
++	dev_to_shost((tc)->parent)
+ 
+ 
+ /* Private area maintenance. The driver requested allocations come
+diff --git a/include/scsi/scsi_transport_fc.h b/include/scsi/scsi_transport_fc.h
+--- a/include/scsi/scsi_transport_fc.h
++++ b/include/scsi/scsi_transport_fc.h
+@@ -271,7 +271,7 @@ struct fc_rport_identifiers {
+ 
+ /* Macro for use in defining Remote Port attributes */
+ #define FC_RPORT_ATTR(_name,_mode,_show,_store)				\
+-struct class_device_attribute class_device_attr_rport_##_name = 	\
++struct device_attribute dev_attr_rport_##_name = 	\
+ 	__ATTR(_name,_mode,_show,_store)
+ 
+ 
+@@ -341,8 +341,8 @@ struct fc_rport {	/* aka fc_starget_attrs */
+ 
+ #define	dev_to_rport(d)				\
+ 	container_of(d, struct fc_rport, dev)
+-#define transport_class_to_rport(classdev)	\
+-	dev_to_rport(classdev->dev)
++#define transport_class_to_rport(dev)	\
++	dev_to_rport(dev->parent)
+ #define rport_to_shost(r)			\
+ 	dev_to_shost(r->dev.parent)
+ 
+diff --git a/include/scsi/scsi_transport_sas.h b/include/scsi/scsi_transport_sas.h
+--- a/include/scsi/scsi_transport_sas.h
++++ b/include/scsi/scsi_transport_sas.h
+@@ -80,8 +80,8 @@ struct sas_phy {
+ 
+ #define dev_to_phy(d) \
+ 	container_of((d), struct sas_phy, dev)
+-#define transport_class_to_phy(cdev) \
+-	dev_to_phy((cdev)->dev)
++#define transport_class_to_phy(dev) \
++	dev_to_phy((dev)->parent)
+ #define phy_to_shost(phy) \
+ 	dev_to_shost((phy)->dev.parent)
+ 
+@@ -96,8 +96,8 @@ struct sas_rphy {
+ 
+ #define dev_to_rphy(d) \
+ 	container_of((d), struct sas_rphy, dev)
+-#define transport_class_to_rphy(cdev) \
+-	dev_to_rphy((cdev)->dev)
++#define transport_class_to_rphy(dev) \
++	dev_to_rphy((dev)->parent)
+ #define rphy_to_shost(rphy) \
+ 	dev_to_shost((rphy)->dev.parent)
+ #define target_to_rphy(targ) \
+@@ -152,8 +152,8 @@ struct sas_port {
+ 
+ #define dev_to_sas_port(d) \
+ 	container_of((d), struct sas_port, dev)
+-#define transport_class_to_sas_port(cdev) \
+-	dev_to_sas_port((cdev)->dev)
++#define transport_class_to_sas_port(dev) \
++	dev_to_sas_port((dev)->parent)
+ 
+ struct sas_phy_linkrates {
+ 	enum sas_linkrate maximum_linkrate;
+diff --git a/include/scsi/sd.h b/include/scsi/sd.h
+--- a/include/scsi/sd.h
++++ b/include/scsi/sd.h
+@@ -34,7 +34,7 @@
+ struct scsi_disk {
+ 	struct scsi_driver *driver;	/* always &sd_template */
+ 	struct scsi_device *device;
+-	struct class_device cdev;
++	struct device	dev;
+ 	struct gendisk	*disk;
+ 	unsigned int	openers;	/* protected by BKL for now, yuck */
+ 	sector_t	capacity;	/* size in 512-byte sectors */
+@@ -46,7 +46,7 @@ struct scsi_disk {
+ 	unsigned	DPOFUA : 1;	/* state of disk DPOFUA bit */
+ 	unsigned	first_scan : 1;
+ };
+-#define to_scsi_disk(obj) container_of(obj,struct scsi_disk,cdev)
++#define to_scsi_disk(obj) container_of(obj,struct scsi_disk,dev)
+ 
+ static int  sd_revalidate_disk(struct gendisk *disk);
+ static void sd_rw_intr(struct scsi_cmnd * SCpnt);
+@@ -69,7 +69,7 @@ static int  sd_init_command(struct scsi_
+ static int  sd_issue_flush(struct device *, sector_t *);
+ static void sd_prepare_flush(request_queue_t *, struct request *);
+ static void sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer);
+-static void scsi_disk_release(struct class_device *cdev);
++static void scsi_disk_release(struct device *cdev);
+ static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
+ static void sd_print_result(struct scsi_disk *, int);
+ 
+-- 

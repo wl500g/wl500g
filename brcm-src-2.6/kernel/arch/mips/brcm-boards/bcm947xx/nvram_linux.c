@@ -827,7 +827,7 @@ dev_nvram_exit(void)
 	struct page *page, *end;
 
 	if (nvram_class) {
-		class_device_destroy(nvram_class, MKDEV(nvram_major, 0));
+		device_destroy(nvram_class, MKDEV(nvram_major, 0));
 		class_destroy(nvram_class);
 	}
 
@@ -911,7 +911,7 @@ dev_nvram_init(void)
 	}
 
 	/* Add the device nvram0 */
-	class_device_create(nvram_class, NULL, MKDEV(nvram_major, 0), NULL, "nvram");
+	device_create(nvram_class, NULL, MKDEV(nvram_major, 0), "%s", "nvram");
 
 	/* Set the SDRAM NCDL value into NVRAM if not already done */
 	if (getintvar(NULL, "sdram_ncdl") == 0) {

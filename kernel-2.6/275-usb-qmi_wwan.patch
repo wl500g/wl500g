@@ -1,10 +1,15 @@
 USB: qmi_wwan driver backport from 3.6.11
 
+ b701f16dd490d3f346724050f17d60beda094998 net: qmi_wwan: set correct altsetting for Gobi 1K devices
+ 6ff509af3869ccac69dcf8905fc75b9a76951594 net: qmi_wwan: fixup missing ethernet header (firmware bug workaround)
+ 6483bdc9d76fb98174797516a19d289eb837909e net: qmi_wwan: fixup destination address (firmware bug workaround)
+ cc6ba5fdaabea7a7b28de3ba1e0fe54d92232fe5 net: qmi_wwan: prevent duplicate mac address on link (firmware bug workaround)
+
 ---
  drivers/net/usb/Kconfig    |   22 +
  drivers/net/usb/Makefile   |    1 
- drivers/net/usb/qmi_wwan.c |  577 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 600 insertions(+)
+ drivers/net/usb/qmi_wwan.c |  659 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 682 insertions(+)
  create mode 100644 drivers/net/usb/qmi_wwan.c
 
 diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
@@ -54,7 +59,7 @@ diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/net/usb/qmi_wwan.c
-@@ -0,0 +1,577 @@
+@@ -0,0 +1,659 @@
 +/*
 + * Copyright (c) 2012  Bjørn Mork <bjorn@mork.no>
 + *
@@ -70,6 +75,7 @@ new file mode 100644
 +#include <linux/module.h>
 +#include <linux/netdevice.h>
 +#include <linux/ethtool.h>
++#include <linux/etherdevice.h>
 +#include <linux/mii.h>
 +#include <linux/usb.h>
 +
@@ -109,6 +115,86 @@ new file mode 100644
 +	struct usb_interface *control;
 +	struct usb_interface *data;
 +};
++
++/* default ethernet address used by the modem */
++static const u8 default_modem_addr[ETH_ALEN] = {0x02, 0x50, 0xf3};
++
++/* Make up an ethernet header if the packet doesn't have one.
++ *
++ * A firmware bug common among several devices cause them to send raw
++ * IP packets under some circumstances.  There is no way for the
++ * driver/host to know when this will happen.  And even when the bug
++ * hits, some packets will still arrive with an intact header.
++ *
++ * The supported devices are only capably of sending IPv4, IPv6 and
++ * ARP packets on a point-to-point link. Any packet with an ethernet
++ * header will have either our address or a broadcast/multicast
++ * address as destination.  ARP packets will always have a header.
++ *
++ * This means that this function will reliably add the appropriate
++ * header iff necessary, provided our hardware address does not start
++ * with 4 or 6.
++ *
++ * Another common firmware bug results in all packets being addressed
++ * to 00:a0:c6:00:00:00 despite the host address being different.
++ * This function will also fixup such packets.
++ */
++static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
++{
++	__be16 proto;
++
++	/* usbnet rx_complete guarantees that skb->len is at least
++	 * hard_header_len, so we can inspect the dest address without
++	 * checking skb->len
++	 */
++	switch (skb->data[0] & 0xf0) {
++	case 0x40:
++		proto = htons(ETH_P_IP);
++		break;
++	case 0x60:
++		proto = htons(ETH_P_IPV6);
++		break;
++	case 0x00:
++		if (is_multicast_ether_addr(skb->data))
++			return 1;
++		/* possibly bogus destination - rewrite just in case */
++		skb_reset_mac_header(skb);
++		goto fix_dest;
++	default:
++		/* pass along other packets without modifications */
++		return 1;
++	}
++	if (skb_headroom(skb) < ETH_HLEN)
++		return 0;
++	skb_push(skb, ETH_HLEN);
++	skb_reset_mac_header(skb);
++	eth_hdr(skb)->h_proto = proto;
++	memset(eth_hdr(skb)->h_source, 0, ETH_ALEN);
++fix_dest:
++	memcpy(eth_hdr(skb)->h_dest, dev->net->dev_addr, ETH_ALEN);
++	return 1;
++}
++
++/* very simplistic detection of IPv4 or IPv6 headers */
++static bool possibly_iphdr(const char *data)
++{
++	return (data[0] & 0xd0) == 0x40;
++}
++
++/* disallow addresses which may be confused with IP headers */
++static int qmi_wwan_mac_addr(struct net_device *dev, void *p)
++{
++	struct sockaddr *addr = p;
++
++	if (netif_running(dev))
++		return -EBUSY;
++	if (!is_valid_ether_addr(addr->sa_data))
++		return -EADDRNOTAVAIL;
++	if (possibly_iphdr(addr->sa_data))
++		return -EADDRNOTAVAIL;
++	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
++	return 0;
++}
 +
 +/* using a counter to merge subdriver requests with our own into a combined state */
 +static int qmi_wwan_manage_power(struct usbnet *dev, int on)
@@ -197,16 +283,9 @@ new file mode 100644
 +
 +	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data) < sizeof(struct qmi_wwan_state)));
 +
-+	/* control and data is shared? */
-+	if (intf->cur_altsetting->desc.bNumEndpoints == 3) {
-+		info->control = intf;
-+		info->data = intf;
-+		goto shared;
-+	}
-+
-+	/* else require a single interrupt status endpoint on control intf */
-+	if (intf->cur_altsetting->desc.bNumEndpoints != 1)
-+		goto err;
++	/* set up initial state */
++	info->control = intf;
++	info->data = intf;
 +
 +	/* and a number of CDC descriptors */
 +	while (len > 3) {
@@ -265,25 +344,14 @@ new file mode 100644
 +		buf += h->bLength;
 +	}
 +
-+	/* did we find all the required ones? */
-+	if (!(found & (1 << USB_CDC_HEADER_TYPE)) ||
-+	    !(found & (1 << USB_CDC_UNION_TYPE))) {
-+		dev_err(&intf->dev, "CDC functional descriptors missing\n");
-+		goto err;
-+	}
-+
-+	/* verify CDC Union */
-+	if (desc->bInterfaceNumber != cdc_union->bMasterInterface0) {
-+		dev_err(&intf->dev, "bogus CDC Union: master=%u\n", cdc_union->bMasterInterface0);
-+		goto err;
-+	}
-+
-+	/* need to save these for unbind */
-+	info->control = intf;
-+	info->data = usb_ifnum_to_if(dev->udev,	cdc_union->bSlaveInterface0);
-+	if (!info->data) {
-+		dev_err(&intf->dev, "bogus CDC Union: slave=%u\n", cdc_union->bSlaveInterface0);
-+		goto err;
++	/* Use separate control and data interfaces if we found a CDC Union */
++	if (cdc_union) {
++		info->data = usb_ifnum_to_if(dev->udev, cdc_union->bSlaveInterface0);
++		if (desc->bInterfaceNumber != cdc_union->bMasterInterface0 || !info->data) {
++			dev_err(&intf->dev, "bogus CDC Union: master=%u, slave=%u\n",
++				cdc_union->bMasterInterface0, cdc_union->bSlaveInterface0);
++			goto err;
++		}
 +	}
 +
 +	/* errors aren't fatal - we can live with the dynamic address */
@@ -293,17 +361,35 @@ new file mode 100644
 +	}
 +
 +	/* claim data interface and set it up */
-+	status = usb_driver_claim_interface(driver, info->data, dev);
-+	if (status < 0)
-+		goto err;
++	if (info->control != info->data) {
++		status = usb_driver_claim_interface(driver, info->data, dev);
++		if (status < 0)
++			goto err;
++	}
 +
-+shared:
 +	status = qmi_wwan_register_subdriver(dev);
 +	if (status < 0 && info->control != info->data) {
 +		usb_set_intfdata(info->data, NULL);
 +		usb_driver_release_interface(driver, info->data);
 +	}
 +
++	/* Never use the same address on both ends of the link, even
++	 * if the buggy firmware told us to.
++	 */
++	if (!compare_ether_addr(dev->net->dev_addr, default_modem_addr))
++		random_ether_addr(dev->net->dev_addr);
++
++	/* make MAC addr easily distinguishable from an IP header */
++	if (possibly_iphdr(dev->net->dev_addr)) {
++		dev->net->dev_addr[0] |= 0x02;	/* set local assignment bit */
++		dev->net->dev_addr[0] &= 0xbf;	/* clear "IP" bit */
++	}
++	dev->net->open			= usbnet_open;
++	dev->net->stop			= usbnet_stop;
++	dev->net->hard_start_xmit	= usbnet_start_xmit;
++	dev->net->tx_timeout		= usbnet_tx_timeout;
++	dev->net->change_mtu		= usbnet_change_mtu;
++	dev->net->set_mac_address	= qmi_wwan_mac_addr;
 +err:
 +	return status;
 +}
@@ -382,6 +468,7 @@ new file mode 100644
 +	.bind		= qmi_wwan_bind,
 +	.unbind		= qmi_wwan_unbind,
 +//	.manage_power	= qmi_wwan_manage_power,
++	.rx_fixup       = qmi_wwan_rx_fixup,
 +};
 +
 +#define HUAWEI_VENDOR_ID	0x12D1

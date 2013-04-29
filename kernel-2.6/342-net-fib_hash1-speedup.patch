@@ -119,22 +119,25 @@ diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
  				found++;
  			}
  		}
-@@ -772,13 +779,13 @@ struct fib_table * __init fib_hash_init(
+@@ -772,14 +779,14 @@ struct fib_table * __init fib_hash_init(
  	if (fn_hash_kmem == NULL)
  		fn_hash_kmem = kmem_cache_create("ip_fib_hash",
  						 sizeof(struct fib_node),
 -						 0, SLAB_HWCACHE_ALIGN,
+-						 NULL, NULL);
 +						 0, SLAB_PANIC,
- 						 NULL, NULL);
++						 NULL);
  
  	if (fn_alias_kmem == NULL)
  		fn_alias_kmem = kmem_cache_create("ip_fib_alias",
  						  sizeof(struct fib_alias),
 -						  0, SLAB_HWCACHE_ALIGN,
+-						  NULL, NULL);
 +						  0, SLAB_PANIC,
- 						  NULL, NULL);
++						  NULL);
  
  	tb = kmalloc(sizeof(struct fib_table) + sizeof(struct fn_hash),
+ 
 diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
 --- a/net/ipv4/fib_lookup.h
 +++ b/net/ipv4/fib_lookup.h

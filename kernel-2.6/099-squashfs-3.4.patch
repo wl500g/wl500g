@@ -2175,7 +2175,7 @@ diff -x .gitignore -Nurp linux-2.6.22/fs/squashfs/inode.c linux-2.6.22-squashfs3
 +}
 +
 +
-+static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
 +{
 +	struct squashfs_inode_info *ei = foo;
 +
@@ -2187,7 +2187,7 @@ diff -x .gitignore -Nurp linux-2.6.22/fs/squashfs/inode.c linux-2.6.22-squashfs3
 +{
 +	squashfs_inode_cachep = kmem_cache_create("squashfs_inode_cache",
 +	    sizeof(struct squashfs_inode_info), 0,
-+		SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT, init_once, NULL);
++		SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT, init_once);
 +	if (squashfs_inode_cachep == NULL)
 +		return -ENOMEM;
 +	return 0;

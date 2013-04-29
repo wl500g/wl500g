@@ -40,6 +40,8 @@
 
 {"vts_protono_x", "", 0},
 
+{"vts_sipaddr_x", "", 0},
+
 {"vts_desc_x", "", 0},
 
 {"autofw_outport_x", "", 0},
@@ -479,4 +481,8 @@
 {"wan_modem_mru","1492", 0},
 {"wan_modem_maxfail","0", 0},
 {"wan_modem_zerocd_mode","Auto",0},
+#endif
+
+#ifdef __CONFIG_USBNET__
+{"wan_usbnet_mtu","1400", 0},
 #endif

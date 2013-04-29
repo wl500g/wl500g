@@ -182,6 +182,10 @@ json_add_boolean() {
 	_json_add_generic boolean "$1" "$2"
 }
 
+json_add_double() {
+	_json_add_generic double "$1" "$2"
+}
+
 # functions read access to json variables
 
 json_load() {

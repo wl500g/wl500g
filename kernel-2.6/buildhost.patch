@@ -6,12 +6,37 @@ kbuild backports from upstream
  a8735821d198675dd326cc5847e79df79c735119 Kbuild: Disable the -Wformat-security gcc flag
  5d7d18f5bc507b60d3d8967e2739d5e6ffdd630f kbuild: make it possible for the linker to discard local symbols from vmlinux
  99657c7857fd47d6086682d4cf1194954170755a kernel hacking: move STRIP_ASM_SYMS from General
+ 8417da6f2128008c431c7d130af6cd3d9079922e kbuild: Fix passing -Wno-* options to gcc 4.4+
 
 ---
- Makefile          |   29 ++++++++++++++++++++++++++---
- lib/Kconfig.debug |    8 ++++++++
- 2 files changed, 34 insertions(+), 3 deletions(-)
+ Documentation/kbuild/makefiles.txt |   12 ++++++++++++
+ Makefile                           |   31 +++++++++++++++++++++++++++----
+ lib/Kconfig.debug                  |    8 ++++++++
+ scripts/Kbuild.include             |    5 +++++
+ 4 files changed, 52 insertions(+), 4 deletions(-)
 
+diff --git a/Documentation/kbuild/makefiles.txt b/Documentation/kbuild/makefiles.txt
+--- a/Documentation/kbuild/makefiles.txt
++++ b/Documentation/kbuild/makefiles.txt
+@@ -471,6 +471,18 @@ more details, with real examples.
+ 	In the above example, the option -falign-functions=4 is used for
+ 	gcc >= 3.00. For gcc < 3.00, -malign-functions=4 is used.
+ 
++    cc-disable-warning
++	cc-disable-warning checks if gcc supports a given warning and returns
++	the commandline switch to disable it. This special function is needed,
++	because gcc 4.4 and later accept any unknown -Wno-* option and only
++	warn about it if there is another warning in the source file.
++
++	Example:
++		KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
++
++	In the above example, -Wno-unused-but-set-variable will be added to
++	KBUILD_CFLAGS only if gcc really accepts it.
++
+     cc-version
+ 	cc-version returns a numerical version of the $(CC) compiler version.
+ 	The format is <major><minor> where both are two digits. So for example
 diff --git a/Makefile b/Makefile
 --- a/Makefile
 +++ b/Makefile
@@ -51,7 +76,8 @@ diff --git a/Makefile b/Makefile
  CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)
  
  # disable pointer signed / unsigned warnings in gcc 4.0
- CFLAGS += $(call cc-option,-Wno-pointer-sign,)
+-CFLAGS += $(call cc-option,-Wno-pointer-sign,)
++CFLAGS += $(call cc-disable-warning, pointer-sign)
  
 +# disable invalid "can't wrap" optimizations for signed / pointers
 +CFLAGS	+= $(call cc-option,-fno-strict-overflow)
@@ -96,4 +122,19 @@ diff --git a/lib/Kconfig b/lib/Kconfig
  config UNUSED_SYMBOLS
  	bool "Enable unused/obsolete exported symbols"
  	default y if X86
+diff --git a/scripts/Kbuild.include b/scripts/Kbuild.include
+--- a/scripts/Kbuild.include
++++ b/scripts/Kbuild.include
+@@ -98,6 +98,11 @@ cc-option-yn = $(call try-run,\
+ cc-option-align = $(subst -functions=0,,\
+ 	$(call cc-option,-falign-functions=0,-malign-functions=0))
+ 
++# cc-disable-warning
++# Usage: cflags-y += $(call cc-disable-warning,unused-but-set-variable)
++cc-disable-warning = $(call try-run,\
++	$(CC) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) -W$(strip $(1)) -c -xc /dev/null -o "$$TMP",-Wno-$(strip $(1)))
++
+ # cc-version
+ # Usage gcc-ver := $(call cc-version,$(CC))
+ cc-version = $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-version.sh $(CC))
 -- 

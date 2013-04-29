@@ -6,13 +6,21 @@ tcp: TSO/GSO updates from upstream
  f07d960df33c5aef8f513efce0fd201f962f94a1 tcp: avoid frag allocation for small frames
  5b35e1e6e9ca651e6b291c96d1106043c9af314a tcp: fix tcp_trim_head() to adjust segment count with skb MSS
  2e5f421211ff76c17130b4597bc06df4eeead24f tcp: frto should not set snd_cwnd to 0
+ be9164e769d57aa10b2bbe15d103edc041b9e7de [IPv4] UFO: prevent generation of chained skb destined to UFO device
+ 26cde9f7e2747b6d254b704594eed87ab959afa5 udp: Fix bogus UFO packet generation
+ 5a2ef92023506d4e9cd13617b5a46b4d0f1b6747 inet: Remove unused sk_sndmsg_* from UFO
+ c146066ab80267c3305de5dda6a4083f06df9265 ipv4: Don't use ufo handling on later transformed packets
+ f4541d60a449afd40448b06496dcd510f505928e tcp: preserve ACK clocking in TSO
 
 ---
  include/net/tcp.h     |   26 +++++++++++++++++---------
+ net/core/skbuff.c     |    3 ---
+ net/ipv4/ip_output.c  |   30 ++++++++++++------------------
  net/ipv4/tcp.c        |    9 ++++++---
  net/ipv4/tcp_input.c  |    3 ++-
- net/ipv4/tcp_output.c |    8 +++-----
- 4 files changed, 28 insertions(+), 18 deletions(-)
+ net/ipv4/tcp_output.c |   15 ++++++++-------
+ net/ipv6/ip6_output.c |    2 --
+ 7 files changed, 45 insertions(+), 43 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
 --- a/include/net/tcp.h
@@ -62,6 +70,93 @@ diff --git a/include/net/tcp.h b/include/net/tcp.h
  }
  
  static inline void tcp_minshall_update(struct tcp_sock *tp, int mss,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2434,8 +2434,6 @@ int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
+ 			return -ENOMEM;
+ 
+ 		/* initialize the next frag */
+-		sk->sk_sndmsg_page = page;
+-		sk->sk_sndmsg_off = 0;
+ 		skb_fill_page_desc(skb, frg_cnt, page, 0, 0);
+ 		skb->truesize += PAGE_SIZE;
+ 		atomic_add(PAGE_SIZE, &sk->sk_wmem_alloc);
+@@ -2455,7 +2453,6 @@ int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
+ 			return -EFAULT;
+ 
+ 		/* copy was successful so update the size parameters */
+-		sk->sk_sndmsg_off += copy;
+ 		frag->size += copy;
+ 		skb->len += copy;
+ 		skb->data_len += copy;
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -732,24 +732,15 @@ static inline int ip_ufo_append_data(struct sock *sk,
+ 
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		skb->csum = 0;
+-		sk->sk_sndmsg_off = 0;
+-	}
+ 
+-	err = skb_append_datato_frags(sk,skb, getfrag, from,
+-			       (length - transhdrlen));
+-	if (!err) {
+-		/* specify the length of each IP datagram fragment*/
++		/* specify the length of each IP datagram fragment */
+ 		skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
+ 		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+ 		__skb_queue_tail(&sk->sk_write_queue, skb);
+-
+-		return 0;
+ 	}
+-	/* There is not enough support do UFO ,
+-	 * so follow normal path
+-	 */
+-	kfree_skb(skb);
+-	return err;
++
++	return skb_append_datato_frags(sk, skb, getfrag, from,
++				       (length - transhdrlen));
+ }
+ 
+ /*
+@@ -873,10 +873,12 @@ int ip_append_data(struct sock *sk,
+ 	    !exthdrlen)
+ 		csummode = CHECKSUM_PARTIAL;
+ 
++	skb = skb_peek_tail(&sk->sk_write_queue);
++
+ 	inet->cork.length += length;
+-	if (((length > mtu) && (sk->sk_protocol == IPPROTO_UDP)) &&
+-			(rt->u.dst.dev->features & NETIF_F_UFO)) {
+-
++	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
++	    (sk->sk_protocol == IPPROTO_UDP) &&
++	    (rt->u.dst.dev->features & NETIF_F_UFO) && !rt->u.dst.header_len) {
+ 		err = ip_ufo_append_data(sk, getfrag, from, length, hh_len,
+ 					 fragheaderlen, transhdrlen, mtu,
+ 					 flags);
+@@ -892,7 +894,7 @@ int ip_append_data(struct sock *sk,
+ 	 * adding appropriate IP header.
+ 	 */
+ 
+-	if ((skb = skb_peek_tail(&sk->sk_write_queue)) == NULL)
++	if (!skb)
+ 		goto alloc_new_skb;
+ 
+ 	while (length > 0) {
+@@ -1121,7 +1123,8 @@ ssize_t	ip_append_page(struct sock *sk, struct page *page,
+ 		return -EINVAL;
+ 
+ 	inet->cork.length += size;
+-	if ((sk->sk_protocol == IPPROTO_UDP) &&
++	if ((size + skb->len > mtu) &&
++	    (sk->sk_protocol == IPPROTO_UDP) &&
+ 	    (rt->u.dst.dev->features & NETIF_F_UFO)) {
+ 		skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
+ 		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
@@ -97,7 +192,7 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -1141,11 +1141,9 @@ int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
+@@ -751,11 +751,9 @@ int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
  	sk_mem_uncharge(sk, len);
  	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
  
@@ -111,7 +206,7 @@ diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
  
  	return 0;
  }
-@@ -1223,7 +1223,7 @@ static int tcp_tso_should_defer(struct s
+@@ -1213,12 +1213,15 @@ static int tcp_tso_should_defer(struct s
  		 * frame, so if we have space for more than 3 frames
  		 * then send now.
  		 */
@@ -120,4 +215,25 @@ diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
  			goto send_now;
  	}
  
+-	/* Ok, it looks like it is advisable to defer.  */
+-	tp->tso_deferred = 1 | (jiffies<<1);
++	/* Ok, it looks like it is advisable to defer.
++	 * Do not rearm the timer if already set to not break TCP ACK clocking.
++	 */
++	if (!tp->tso_deferred)
++		tp->tso_deferred = 1 | (jiffies << 1);
+ 
+ 	return 1;
+ 
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1061,7 +1061,6 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+ 
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		skb->csum = 0;
+-		sk->sk_sndmsg_off = 0;
+ 	}
+ 
+ 	err = skb_append_datato_frags(sk,skb, getfrag, from,
 -- 

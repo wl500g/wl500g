@@ -3572,7 +3572,7 @@
 +extern const struct xattr_handler *squashfs_xattr_handlers[];
 --- linux-2.6.22.19.orig/fs/squashfs/super.c	1969-12-31 18:00:00.000000000 -0600
 +++ linux-2.6.22.19/fs/squashfs/super.c	2012-03-08 07:17:13.292719001 -0600
-@@ -0,0 +1,532 @@
+@@ -0,0 +1,517 @@
 +/*
 + * Squashfs - a compressed read only filesystem for Linux
 + *
@@ -3985,34 +3985,19 @@
 +static struct kmem_cache *squashfs_inode_cachep;
 +
 +
-+#if 0
 +static void init_once(void *foo)
 +{
 +	struct squashfs_inode_info *ei = foo;
 +
 +	inode_init_once(&ei->vfs_inode);
 +}
-+#else
-+static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
-+{
-+	struct squashfs_inode_info *ei = foo;
-+
-+	inode_init_once(&ei->vfs_inode);
-+}
-+#endif
 +
 +
 +static int __init init_inodecache(void)
 +{
-+#if 0
 +	squashfs_inode_cachep = kmem_cache_create("squashfs_inode_cache",
 +		sizeof(struct squashfs_inode_info), 0,
 +		SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT, init_once);
-+#else
-+	squashfs_inode_cachep = kmem_cache_create("squashfs_inode_cache",
-+		sizeof(struct squashfs_inode_info), 0,
-+		SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT, init_once, NULL);
-+#endif
 +
 +	return squashfs_inode_cachep ? 0 : -ENOMEM;
 +}

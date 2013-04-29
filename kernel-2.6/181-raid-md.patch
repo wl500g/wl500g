@@ -18,6 +18,23 @@ md: Updates from upstream
 diff --git a/drivers/md/bitmap.c b/drivers/md/bitmap.c
 --- a/drivers/md/bitmap.c
 +++ b/drivers/md/bitmap.c
+@@ -77,7 +77,7 @@ static unsigned char *bitmap_alloc_page(
+ #ifdef INJECT_FAULTS_1
+ 	page = NULL;
+ #else
+-	page = kmalloc(PAGE_SIZE, GFP_NOIO);
++	page = kzalloc(PAGE_SIZE, GFP_NOIO);
+ #endif
+ 	if (!page)
+ 		printk("%s: bitmap_alloc_page FAILED\n", bmname(bitmap));
+@@ -156,7 +156,6 @@ static int bitmap_checkpage(struct bitma
+ 
+ 	/* no page was in place and we have one, so install it */
+ 
+-	memset(mappage, 0, PAGE_SIZE);
+ 	bitmap->bp[page].map = mappage;
+ 	bitmap->missing_pages--;
+ out:
 @@ -1011,6 +1011,11 @@ int bitmap_daemon_work(struct bitmap *bi
  	if (time_before(jiffies, bitmap->daemon_lastrun + bitmap->daemon_sleep*HZ))
  		return 0;

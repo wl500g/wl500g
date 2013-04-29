@@ -16,6 +16,15 @@ EHCI: Updates from upstream
 diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
 --- a/drivers/usb/host/ehci-q.c
 +++ b/drivers/usb/host/ehci-q.c
+@@ -90,7 +90,7 @@ qh_update (struct ehci_hcd *ehci, struct
+ 	struct ehci_qh_hw *hw = qh->hw;
+ 
+ 	/* writes to an active overlay are unsafe */
+-	BUG_ON(qh->qh_state != QH_STATE_IDLE);
++	WARN_ON(qh->qh_state != QH_STATE_IDLE);
+ 
+ 	hw->hw_qtd_next = QTD_NEXT(ehci, qtd->qtd_dma);
+ 	hw->hw_alt_next = EHCI_LIST_END(ehci);
 @@ -111,8 +111,6 @@ qh_update (struct ehci_hcd *ehci, struct ehci_qh *qh, struct ehci_qtd *qtd)
  		}
  	}

@@ -1,0 +1,2789 @@
+ 20c2df83d25c6a95affe6157a4c9cac4cf5ffaac mm: Remove slab destructors from kmem_cache_create().
+ 698827fa9f45019df1609bb686bc51c94e127fbc Remove the deprecated "kmem_cache_t" typedef from slab.h.
+ 4ba9b9d0ba0a49d91fa6417c7510ee36f48cf957 Slab API: remove useless ctor parameter and reorder parameters
+ 51cc50685a4275c6a02653670af9f108a64e01cf SL*B: drop kmem cache argument from constructor
+
+---
+
+diff --git a/arch/i386/mm/init.c b/arch/i386/mm/init.c
+--- a/arch/i386/mm/init.c
++++ b/arch/i386/mm/init.c
+@@ -751,8 +751,7 @@ void __init pgtable_cache_init(void)
+ 					PTRS_PER_PMD*sizeof(pmd_t),
+ 					PTRS_PER_PMD*sizeof(pmd_t),
+ 					SLAB_PANIC,
+-					pmd_ctor,
+-					NULL);
++					pmd_ctor);
+ 		if (!SHARED_KERNEL_PMD) {
+ 			/* If we're in PAE mode and have a non-shared
+ 			   kernel pmd, then the pgd size must be a
+diff --git a/arch/ia64/ia32/ia32_support.c b/arch/ia64/ia32/ia32_support.c
+--- a/arch/ia64/ia32/ia32_support.c
++++ b/arch/ia64/ia32/ia32_support.c
+@@ -253,7 +253,7 @@ ia32_init (void)
+ 
+ 		partial_page_cachep = kmem_cache_create("partial_page_cache",
+ 						sizeof(struct partial_page),
+-						0, SLAB_PANIC, NULL, NULL);
++						0, SLAB_PANIC, NULL);
+ 	}
+ #endif
+ 	return 0;
+diff --git a/arch/powerpc/kernel/rtas_flash.c b/arch/powerpc/kernel/rtas_flash.c
+--- a/arch/powerpc/kernel/rtas_flash.c
++++ b/arch/powerpc/kernel/rtas_flash.c
+@@ -804,7 +804,7 @@ int __init rtas_flash_init(void)
+ 
+ 	flash_block_cache = kmem_cache_create("rtas_flash_cache",
+ 				RTAS_BLK_SIZE, RTAS_BLK_SIZE, 0,
+-				rtas_block_ctor, NULL);
++				rtas_block_ctor);
+ 	if (!flash_block_cache) {
+ 		printk(KERN_ERR "%s: failed to create block cache\n",
+ 				__FUNCTION__);
+diff --git a/arch/powerpc/mm/hugetlbpage.c b/arch/powerpc/mm/hugetlbpage.c
+--- a/arch/powerpc/mm/hugetlbpage.c
++++ b/arch/powerpc/mm/hugetlbpage.c
+@@ -542,7 +542,7 @@ static int __init hugetlbpage_init(void)
+ 					       HUGEPTE_TABLE_SIZE,
+ 					       HUGEPTE_TABLE_SIZE,
+ 					       0,
+-					       zero_ctor, NULL);
++					       zero_ctor);
+ 	if (! huge_pgtable_cache)
+ 		panic("hugetlbpage_init(): could not create hugepte cache\n");
+ 
+diff --git a/arch/powerpc/mm/init_64.c b/arch/powerpc/mm/init_64.c
+--- a/arch/powerpc/mm/init_64.c
++++ b/arch/powerpc/mm/init_64.c
+@@ -179,7 +179,6 @@ void pgtable_cache_init(void)
+ 		pgtable_cache[i] = kmem_cache_create(name,
+ 						     size, size,
+ 						     SLAB_PANIC,
+-						     zero_ctor,
+-						     NULL);
++						     zero_ctor);
+ 	}
+ }
+diff --git a/arch/powerpc/platforms/cell/spufs/inode.c b/arch/powerpc/platforms/cell/spufs/inode.c
+--- a/arch/powerpc/platforms/cell/spufs/inode.c
++++ b/arch/powerpc/platforms/cell/spufs/inode.c
+@@ -658,7 +658,7 @@ static int __init spufs_init(void)
+ 	ret = -ENOMEM;
+ 	spufs_inode_cache = kmem_cache_create("spufs_inode_cache",
+ 			sizeof(struct spufs_inode_info), 0,
+-			SLAB_HWCACHE_ALIGN, spufs_init_once, NULL);
++			SLAB_HWCACHE_ALIGN, spufs_init_once);
+ 
+ 	if (!spufs_inode_cache)
+ 		goto out;
+diff --git a/arch/sh/kernel/cpu/sh4/sq.c b/arch/sh/kernel/cpu/sh4/sq.c
+--- a/arch/sh/kernel/cpu/sh4/sq.c
++++ b/arch/sh/kernel/cpu/sh4/sq.c
+@@ -371,8 +371,7 @@ static int __init sq_api_init(void)
+ 	printk(KERN_NOTICE "sq: Registering store queue API.\n");
+ 
+ 	sq_cache = kmem_cache_create("store_queue_cache",
+-				sizeof(struct sq_mapping), 0, 0,
+-				NULL, NULL);
++				sizeof(struct sq_mapping), 0, 0, NULL);
+ 	if (unlikely(!sq_cache))
+ 		return ret;
+ 
+diff --git a/arch/sh/mm/pmb.c b/arch/sh/mm/pmb.c
+--- a/arch/sh/mm/pmb.c
++++ b/arch/sh/mm/pmb.c
+@@ -310,7 +310,7 @@ static int __init pmb_init(void)
+ 	BUG_ON(unlikely(nr_entries >= NR_PMB_ENTRIES));
+ 
+ 	pmb_cache = kmem_cache_create("pmb", sizeof(struct pmb_entry), 0,
+-				      SLAB_PANIC, pmb_cache_ctor, NULL);
++				      SLAB_PANIC, pmb_cache_ctor);
+ 
+ 	jump_to_P2();
+ 
+diff --git a/arch/sparc64/mm/tsb.c b/arch/sparc64/mm/tsb.c
+--- a/arch/sparc64/mm/tsb.c
++++ b/arch/sparc64/mm/tsb.c
+@@ -262,8 +262,7 @@ void __init pgtable_cache_init(void)
+ 
+ 		tsb_caches[i] = kmem_cache_create(name,
+ 						  size, size,
+-						  0,
+-						  NULL, NULL);
++						  0, NULL);
+ 		if (!tsb_caches[i]) {
+ 			prom_printf("Could not create %s cache\n", name);
+ 			prom_halt();
+diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
+--- a/block/ll_rw_blk.c
++++ b/block/ll_rw_blk.c
+@@ -3714,13 +3714,13 @@ int __init blk_dev_init(void)
+ 		panic("Failed to create kblockd\n");
+ 
+ 	request_cachep = kmem_cache_create("blkdev_requests",
+-			sizeof(struct request), 0, SLAB_PANIC, NULL, NULL);
++			sizeof(struct request), 0, SLAB_PANIC, NULL);
+ 
+ 	requestq_cachep = kmem_cache_create("blkdev_queue",
+-			sizeof(request_queue_t), 0, SLAB_PANIC, NULL, NULL);
++			sizeof(request_queue_t), 0, SLAB_PANIC, NULL);
+ 
+ 	iocontext_cachep = kmem_cache_create("blkdev_ioc",
+-			sizeof(struct io_context), 0, SLAB_PANIC, NULL, NULL);
++			sizeof(struct io_context), 0, SLAB_PANIC, NULL);
+ 
+ 	for_each_possible_cpu(i)
+ 		INIT_LIST_HEAD(&per_cpu(blk_cpu_done, i));
+diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
+--- a/drivers/acpi/osl.c
++++ b/drivers/acpi/osl.c
+@@ -1098,7 +1098,7 @@ void acpi_os_release_lock(acpi_spinlock 
+ acpi_status
+ acpi_os_create_cache(char *name, u16 size, u16 depth, acpi_cache_t ** cache)
+ {
+-	*cache = kmem_cache_create(name, size, 0, 0, NULL, NULL);
++	*cache = kmem_cache_create(name, size, 0, 0, NULL);
+ 	if (*cache == NULL)
+ 		return AE_ERROR;
+ 	else
+diff --git a/drivers/block/aoe/aoeblk.c b/drivers/block/aoe/aoeblk.c
+--- a/drivers/block/aoe/aoeblk.c
++++ b/drivers/block/aoe/aoeblk.c
+@@ -257,9 +257,9 @@ aoeblk_exit(void)
+ int __init
+ aoeblk_init(void)
+ {
+-	buf_pool_cache = kmem_cache_create("aoe_bufs", 
++	buf_pool_cache = kmem_cache_create("aoe_bufs",
+ 					   sizeof(struct buf),
+-					   0, 0, NULL, NULL);
++					   0, 0, NULL);
+ 	if (buf_pool_cache == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/ieee1394/eth1394.c b/drivers/ieee1394/eth1394.c
+--- a/drivers/ieee1394/eth1394.c
++++ b/drivers/ieee1394/eth1394.c
+@@ -1731,7 +1731,7 @@ static int __init ether1394_init_module(
+ 
+ 	packet_task_cache = kmem_cache_create("packet_task",
+ 					      sizeof(struct packet_task),
+-					      0, 0, NULL, NULL);
++					      0, 0, NULL);
+ 	if (!packet_task_cache)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/infiniband/core/mad.c b/drivers/infiniband/core/mad.c
+--- a/drivers/infiniband/core/mad.c
++++ b/drivers/infiniband/core/mad.c
+@@ -2966,7 +2966,6 @@ static int __init ib_mad_init_module(voi
+ 					 sizeof(struct ib_mad_private),
+ 					 0,
+ 					 SLAB_HWCACHE_ALIGN,
+-					 NULL,
+ 					 NULL);
+ 	if (!ib_mad_cache) {
+ 		printk(KERN_ERR PFX "Couldn't create ib_mad cache\n");
+diff --git a/drivers/infiniband/hw/amso1100/c2_vq.c b/drivers/infiniband/hw/amso1100/c2_vq.c
+--- a/drivers/infiniband/hw/amso1100/c2_vq.c
++++ b/drivers/infiniband/hw/amso1100/c2_vq.c
+@@ -85,7 +85,7 @@ int vq_init(struct c2_dev *c2dev)
+ 		(char) ('0' + c2dev->devnum));
+ 	c2dev->host_msg_cache =
+ 	    kmem_cache_create(c2dev->vq_cache_name, c2dev->rep_vq.msg_size, 0,
+-			      SLAB_HWCACHE_ALIGN, NULL, NULL);
++			      SLAB_HWCACHE_ALIGN, NULL);
+ 	if (c2dev->host_msg_cache == NULL) {
+ 		return -ENOMEM;
+ 	}
+diff --git a/drivers/infiniband/hw/ehca/ehca_av.c b/drivers/infiniband/hw/ehca/ehca_av.c
+--- a/drivers/infiniband/hw/ehca/ehca_av.c
++++ b/drivers/infiniband/hw/ehca/ehca_av.c
+@@ -257,7 +257,7 @@ int ehca_init_av_cache(void)
+ 	av_cache = kmem_cache_create("ehca_cache_av",
+ 				   sizeof(struct ehca_av), 0,
+ 				   SLAB_HWCACHE_ALIGN,
+-				   NULL, NULL);
++				   NULL);
+ 	if (!av_cache)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/drivers/infiniband/hw/ehca/ehca_cq.c b/drivers/infiniband/hw/ehca/ehca_cq.c
+--- a/drivers/infiniband/hw/ehca/ehca_cq.c
++++ b/drivers/infiniband/hw/ehca/ehca_cq.c
+@@ -395,7 +395,7 @@ int ehca_init_cq_cache(void)
+ 	cq_cache = kmem_cache_create("ehca_cache_cq",
+ 				     sizeof(struct ehca_cq), 0,
+ 				     SLAB_HWCACHE_ALIGN,
+-				     NULL, NULL);
++				     NULL);
+ 	if (!cq_cache)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/drivers/infiniband/hw/ehca/ehca_main.c b/drivers/infiniband/hw/ehca/ehca_main.c
+--- a/drivers/infiniband/hw/ehca/ehca_main.c
++++ b/drivers/infiniband/hw/ehca/ehca_main.c
+@@ -165,7 +165,7 @@ static int ehca_create_slab_caches(void)
+ 	ctblk_cache = kmem_cache_create("ehca_cache_ctblk",
+ 					EHCA_PAGESIZE, H_CB_ALIGNMENT,
+ 					SLAB_HWCACHE_ALIGN,
+-					NULL, NULL);
++					NULL);
+ 	if (!ctblk_cache) {
+ 		ehca_gen_err("Cannot create ctblk SLAB cache.");
+ 		ehca_cleanup_mrmw_cache();
+diff --git a/drivers/infiniband/hw/ehca/ehca_mrmw.c b/drivers/infiniband/hw/ehca/ehca_mrmw.c
+--- a/drivers/infiniband/hw/ehca/ehca_mrmw.c
++++ b/drivers/infiniband/hw/ehca/ehca_mrmw.c
+@@ -2239,13 +2239,13 @@ int ehca_init_mrmw_cache(void)
+ 	mr_cache = kmem_cache_create("ehca_cache_mr",
+ 				     sizeof(struct ehca_mr), 0,
+ 				     SLAB_HWCACHE_ALIGN,
+-				     NULL, NULL);
++				     NULL);
+ 	if (!mr_cache)
+ 		return -ENOMEM;
+ 	mw_cache = kmem_cache_create("ehca_cache_mw",
+ 				     sizeof(struct ehca_mw), 0,
+ 				     SLAB_HWCACHE_ALIGN,
+-				     NULL, NULL);
++				     NULL);
+ 	if (!mw_cache) {
+ 		kmem_cache_destroy(mr_cache);
+ 		mr_cache = NULL;
+diff --git a/drivers/infiniband/hw/ehca/ehca_pd.c b/drivers/infiniband/hw/ehca/ehca_pd.c
+--- a/drivers/infiniband/hw/ehca/ehca_pd.c
++++ b/drivers/infiniband/hw/ehca/ehca_pd.c
+@@ -100,7 +100,7 @@ int ehca_init_pd_cache(void)
+ 	pd_cache = kmem_cache_create("ehca_cache_pd",
+ 				     sizeof(struct ehca_pd), 0,
+ 				     SLAB_HWCACHE_ALIGN,
+-				     NULL, NULL);
++				     NULL);
+ 	if (!pd_cache)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/drivers/infiniband/hw/ehca/ehca_qp.c b/drivers/infiniband/hw/ehca/ehca_qp.c
+--- a/drivers/infiniband/hw/ehca/ehca_qp.c
++++ b/drivers/infiniband/hw/ehca/ehca_qp.c
+@@ -1444,7 +1444,7 @@ int ehca_init_qp_cache(void)
+ 	qp_cache = kmem_cache_create("ehca_cache_qp",
+ 				     sizeof(struct ehca_qp), 0,
+ 				     SLAB_HWCACHE_ALIGN,
+-				     NULL, NULL);
++				     NULL);
+ 	if (!qp_cache)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/drivers/infiniband/ulp/iser/iscsi_iser.c b/drivers/infiniband/ulp/iser/iscsi_iser.c
+--- a/drivers/infiniband/ulp/iser/iscsi_iser.c
++++ b/drivers/infiniband/ulp/iser/iscsi_iser.c
+@@ -625,7 +625,7 @@ static int __init iser_init(void)
+ 	ig.desc_cache = kmem_cache_create("iser_descriptors",
+ 					  sizeof (struct iser_desc),
+ 					  0, SLAB_HWCACHE_ALIGN,
+-					  NULL, NULL);
++					  NULL);
+ 	if (ig.desc_cache == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/md/raid5.c b/drivers/md/raid5.c
+--- a/drivers/md/raid5.c
++++ b/drivers/md/raid5.c
+@@ -358,7 +358,7 @@ static int grow_stripes(raid5_conf_t *co
+ 	conf->active_name = 0;
+ 	sc = kmem_cache_create(conf->cache_name[conf->active_name],
+ 			       sizeof(struct stripe_head)+(devs-1)*sizeof(struct r5dev),
+-			       0, 0, NULL, NULL);
++			       0, 0, NULL);
+ 	if (!sc)
+ 		return 1;
+ 	conf->slab_cache = sc;
+@@ -410,7 +410,7 @@ static int resize_stripes(raid5_conf_t *
+ 	/* Step 1 */
+ 	sc = kmem_cache_create(conf->cache_name[1-conf->active_name],
+ 			       sizeof(struct stripe_head)+(newsize-1)*sizeof(struct r5dev),
+-			       0, 0, NULL, NULL);
++			       0, 0, NULL);
+ 	if (!sc)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/message/i2o/i2o_block.c b/drivers/message/i2o/i2o_block.c
+--- a/drivers/message/i2o/i2o_block.c
++++ b/drivers/message/i2o/i2o_block.c
+@@ -1171,8 +1171,7 @@ static int __init i2o_block_init(void)
+ 	/* Allocate request mempool and slab */
+ 	size = sizeof(struct i2o_block_request);
+ 	i2o_blk_req_pool.slab = kmem_cache_create("i2o_block_req", size, 0,
+-						  SLAB_HWCACHE_ALIGN, NULL,
+-						  NULL);
++						  SLAB_HWCACHE_ALIGN, NULL);
+ 	if (!i2o_blk_req_pool.slab) {
+ 		osm_err("can't init request slab\n");
+ 		rc = -ENOMEM;
+diff --git a/drivers/mtd/ubi/eba.c b/drivers/mtd/ubi/eba.c
+--- a/drivers/mtd/ubi/eba.c
++++ b/drivers/mtd/ubi/eba.c
+@@ -935,8 +935,7 @@ write_error:
+  * @cache: the lock tree entry slab cache
+  * @flags: constructor flags
+  */
+-static void ltree_entry_ctor(void *obj, struct kmem_cache *cache,
+-			     unsigned long flags)
++static void ltree_entry_ctor(struct kmem_cache *cache, void *obj)
+ {
+ 	struct ltree_entry *le = obj;
+ 
+@@ -1147,7 +1146,7 @@ int ubi_eba_init_scan(struct ubi_device 
+ 	if (ubi_devices_cnt == 0) {
+ 		ltree_slab = kmem_cache_create("ubi_ltree_slab",
+ 					       sizeof(struct ltree_entry), 0,
+-					       0, &ltree_entry_ctor, NULL);
++					       0, &ltree_entry_ctor);
+ 		if (!ltree_slab)
+ 			return -ENOMEM;
+ 	}
+diff --git a/drivers/mtd/ubi/wl.c b/drivers/mtd/ubi/wl.c
+--- a/drivers/mtd/ubi/wl.c
++++ b/drivers/mtd/ubi/wl.c
+@@ -1444,7 +1444,7 @@ int ubi_wl_init_scan(struct ubi_device *
+ 	if (ubi_devices_cnt == 0) {
+ 		wl_entries_slab = kmem_cache_create("ubi_wl_entry_slab",
+ 						    sizeof(struct ubi_wl_entry),
+-						    0, 0, NULL, NULL);
++						    0, 0, NULL);
+ 		if (!wl_entries_slab)
+ 			return -ENOMEM;
+ 	}
+diff --git a/drivers/s390/block/dasd_devmap.c b/drivers/s390/block/dasd_devmap.c
+--- a/drivers/s390/block/dasd_devmap.c
++++ b/drivers/s390/block/dasd_devmap.c
+@@ -291,7 +291,7 @@ dasd_parse_keyword( char *parsestring ) 
+ 		dasd_page_cache =
+ 			kmem_cache_create("dasd_page_cache", PAGE_SIZE,
+ 					  PAGE_SIZE, SLAB_CACHE_DMA,
+-					  NULL, NULL );
++					  NULL);
+ 		if (!dasd_page_cache)
+ 			MESSAGE(KERN_WARNING, "%s", "Failed to create slab, "
+ 				"fixed buffer mode disabled.");
+diff --git a/drivers/s390/scsi/zfcp_aux.c b/drivers/s390/scsi/zfcp_aux.c
+--- a/drivers/s390/scsi/zfcp_aux.c
++++ b/drivers/s390/scsi/zfcp_aux.c
+@@ -259,21 +259,21 @@ zfcp_module_init(void)
+ 	size = sizeof(struct zfcp_fsf_req_qtcb);
+ 	align = calc_alignment(size);
+ 	zfcp_data.fsf_req_qtcb_cache =
+-		kmem_cache_create("zfcp_fsf", size, align, 0, NULL, NULL);
++		kmem_cache_create("zfcp_fsf", size, align, 0, NULL);
+ 	if (!zfcp_data.fsf_req_qtcb_cache)
+ 		goto out;
+ 
+ 	size = sizeof(struct fsf_status_read_buffer);
+ 	align = calc_alignment(size);
+ 	zfcp_data.sr_buffer_cache =
+-		kmem_cache_create("zfcp_sr", size, align, 0, NULL, NULL);
++		kmem_cache_create("zfcp_sr", size, align, 0, NULL);
+ 	if (!zfcp_data.sr_buffer_cache)
+ 		goto out_sr_cache;
+ 
+ 	size = sizeof(struct zfcp_gid_pn_data);
+ 	align = calc_alignment(size);
+ 	zfcp_data.gid_pn_cache =
+-		kmem_cache_create("zfcp_gid", size, align, 0, NULL, NULL);
++		kmem_cache_create("zfcp_gid", size, align, 0, NULL);
+ 	if (!zfcp_data.gid_pn_cache)
+ 		goto out_gid_cache;
+ 
+diff --git a/drivers/scsi/aic94xx/aic94xx_init.c b/drivers/scsi/aic94xx/aic94xx_init.c
+--- a/drivers/scsi/aic94xx/aic94xx_init.c
++++ b/drivers/scsi/aic94xx/aic94xx_init.c
+@@ -467,7 +467,7 @@ static int asd_create_global_caches(void
+ 					    sizeof(struct asd_dma_tok),
+ 					    0,
+ 					    SLAB_HWCACHE_ALIGN,
+-					    NULL, NULL);
++					    NULL);
+ 		if (!asd_dma_token_cache) {
+ 			asd_printk("couldn't create dma token cache\n");
+ 			return -ENOMEM;
+@@ -479,7 +479,7 @@ static int asd_create_global_caches(void
+ 						   sizeof(struct asd_ascb),
+ 						   0,
+ 						   SLAB_HWCACHE_ALIGN,
+-						   NULL, NULL);
++						   NULL);
+ 		if (!asd_ascb_cache) {
+ 			asd_printk("couldn't create ascb cache\n");
+ 			goto Err;
+diff --git a/drivers/scsi/libsas/sas_init.c b/drivers/scsi/libsas/sas_init.c
+--- a/drivers/scsi/libsas/sas_init.c
++++ b/drivers/scsi/libsas/sas_init.c
+@@ -292,7 +292,7 @@ EXPORT_SYMBOL_GPL(sas_domain_release_tra
+ static int __init sas_class_init(void)
+ {
+ 	sas_task_cache = kmem_cache_create("sas_task", sizeof(struct sas_task),
+-					   0, SLAB_HWCACHE_ALIGN, NULL, NULL);
++					   0, SLAB_HWCACHE_ALIGN, NULL);
+ 	if (!sas_task_cache)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/scsi/qla2xxx/qla_os.c b/drivers/scsi/qla2xxx/qla_os.c
+--- a/drivers/scsi/qla2xxx/qla_os.c
++++ b/drivers/scsi/qla2xxx/qla_os.c
+@@ -2703,7 +2703,7 @@ qla2x00_module_init(void)
+ 
+ 	/* Allocate cache for SRBs. */
+ 	srb_cachep = kmem_cache_create("qla2xxx_srbs", sizeof(srb_t), 0,
+-	    SLAB_HWCACHE_ALIGN, NULL, NULL);
++	    SLAB_HWCACHE_ALIGN, NULL);
+ 	if (srb_cachep == NULL) {
+ 		printk(KERN_ERR
+ 		    "qla2xxx: Unable to allocate SRB cache...Failing load!\n");
+diff --git a/drivers/scsi/qla4xxx/ql4_os.c b/drivers/scsi/qla4xxx/ql4_os.c
+--- a/drivers/scsi/qla4xxx/ql4_os.c
++++ b/drivers/scsi/qla4xxx/ql4_os.c
+@@ -1639,7 +1639,7 @@ static int __init qla4xxx_module_init(vo
+ 
+ 	/* Allocate cache for SRBs. */
+ 	srb_cachep = kmem_cache_create("qla4xxx_srbs", sizeof(struct srb), 0,
+-				       SLAB_HWCACHE_ALIGN, NULL, NULL);
++				       SLAB_HWCACHE_ALIGN, NULL);
+ 	if (srb_cachep == NULL) {
+ 		printk(KERN_ERR
+ 		       "%s: Unable to allocate SRB cache..."
+diff --git a/drivers/scsi/scsi_lib.c b/drivers/scsi/scsi_lib.c
+--- a/drivers/scsi/scsi_lib.c
++++ b/drivers/scsi/scsi_lib.c
+@@ -1661,7 +1661,7 @@ int __init scsi_init_queue(void)
+ 
+ 	scsi_io_context_cache = kmem_cache_create("scsi_io_context",
+ 					sizeof(struct scsi_io_context),
+-					0, 0, NULL, NULL);
++					0, 0, NULL);
+ 	if (!scsi_io_context_cache) {
+ 		printk(KERN_ERR "SCSI: can't init scsi io context cache\n");
+ 		return -ENOMEM;
+@@ -1672,7 +1672,7 @@ int __init scsi_init_queue(void)
+ 		int size = sgp->size * sizeof(struct scatterlist);
+ 
+ 		sgp->slab = kmem_cache_create(sgp->name, size, 0,
+-				SLAB_HWCACHE_ALIGN, NULL, NULL);
++				SLAB_HWCACHE_ALIGN, NULL);
+ 		if (!sgp->slab) {
+ 			printk(KERN_ERR "SCSI: can't init sg slab %s\n",
+ 					sgp->name);
+diff --git a/drivers/scsi/scsi_tgt_lib.c b/drivers/scsi/scsi_tgt_lib.c
+--- a/drivers/scsi/scsi_tgt_lib.c
++++ b/drivers/scsi/scsi_tgt_lib.c
+@@ -585,7 +585,7 @@ static int __init scsi_tgt_init(void)
+ 
+ 	scsi_tgt_cmd_cache = kmem_cache_create("scsi_tgt_cmd",
+ 					       sizeof(struct scsi_tgt_cmd),
+-					       0, 0, NULL, NULL);
++					       0, 0, NULL);
+ 	if (!scsi_tgt_cmd_cache)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/usb/host/uhci-hcd.c b/drivers/usb/host/uhci-hcd.c
+--- a/drivers/usb/host/uhci-hcd.c
++++ b/drivers/usb/host/uhci-hcd.c
+@@ -934,7 +934,7 @@ static int __init uhci_hcd_init(void)
+ 	}
+ 
+ 	uhci_up_cachep = kmem_cache_create("uhci_urb_priv",
+-		sizeof(struct urb_priv), 0, 0, NULL, NULL);
++		sizeof(struct urb_priv), 0, 0, NULL);
+ 	if (!uhci_up_cachep)
+ 		goto up_failed;
+ 
+diff --git a/drivers/usb/mon/mon_text.c b/drivers/usb/mon/mon_text.c
+--- a/drivers/usb/mon/mon_text.c
++++ b/drivers/usb/mon/mon_text.c
+@@ -84,7 +84,7 @@ struct mon_reader_text {
+ 
+ static struct dentry *mon_dir;		/* Usually /sys/kernel/debug/usbmon */
+ 
+-static void mon_text_ctor(void *, struct kmem_cache *, unsigned long);
++static void mon_text_ctor(void *);
+ 
+ struct mon_text_ptr {
+ 	int cnt, limit;
+@@ -340,7 +340,7 @@ static int mon_text_open(struct inode *i
+ 	snprintf(rp->slab_name, SLAB_NAME_SZ, "mon_text_%p", rp);
+ 	rp->e_slab = kmem_cache_create(rp->slab_name,
+ 	    sizeof(struct mon_event_text), sizeof(long), 0,
+-	    mon_text_ctor, NULL);
++	    mon_text_ctor);
+ 	if (rp->e_slab == NULL) {
+ 		rc = -ENOMEM;
+ 		goto err_slab;
+@@ -711,7 +711,7 @@ void mon_text_del(struct mon_bus *mbus)
+ /*
+  * Slab interface: constructor.
+  */
+-static void mon_text_ctor(void *mem, struct kmem_cache *slab, unsigned long sflags)
++static void mon_text_ctor(void *mem)
+ {
+ 	/*
+ 	 * Nothing to initialize. No, really!
+diff --git a/fs/adfs/super.c b/fs/adfs/super.c
+--- a/fs/adfs/super.c
++++ b/fs/adfs/super.c
+@@ -228,20 +228,20 @@ static void adfs_destroy_inode(struct in
+ 	kmem_cache_free(adfs_inode_cachep, ADFS_I(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct adfs_inode_info *ei = (struct adfs_inode_info *) foo;
+ 
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ static int init_inodecache(void)
+ {
+ 	adfs_inode_cachep = kmem_cache_create("adfs_inode_cache",
+ 					     sizeof(struct adfs_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (adfs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/affs/super.c b/fs/affs/super.c
+--- a/fs/affs/super.c
++++ b/fs/affs/super.c
+@@ -84,7 +84,7 @@ static void affs_destroy_inode(struct in
+ 	kmem_cache_free(affs_inode_cachep, AFFS_I(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct affs_inode_info *ei = (struct affs_inode_info *) foo;
+ 
+@@ -99,7 +99,7 @@ static int init_inodecache(void)
+ 					     sizeof(struct affs_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (affs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/afs/super.c b/fs/afs/super.c
+--- a/fs/afs/super.c
++++ b/fs/afs/super.c
+@@ -27,8 +27,7 @@
+ 
+ #define AFS_FS_MAGIC 0x6B414653 /* 'kAFS' */
+ 
+-static void afs_i_init_once(void *foo, struct kmem_cache *cachep,
+-			    unsigned long flags);
++static void afs_i_init_once(void *foo);
+ static int afs_get_sb(struct file_system_type *fs_type,
+ 		      int flags, const char *dev_name,
+ 		      void *data, struct vfsmount *mnt);
+@@ -89,8 +88,7 @@ int __init afs_fs_init(void)
+ 					     sizeof(struct afs_vnode),
+ 					     0,
+ 					     SLAB_HWCACHE_ALIGN,
+-					     afs_i_init_once,
+-					     NULL);
++					     afs_i_init_once);
+ 	if (!afs_inode_cachep) {
+ 		printk(KERN_NOTICE "kAFS: Failed to allocate inode cache\n");
+ 		return ret;
+@@ -447,8 +445,7 @@ static void afs_put_super(struct super_b
+ /*
+  * initialise an inode cache slab element prior to any use
+  */
+-static void afs_i_init_once(void *_vnode, struct kmem_cache *cachep,
+-			    unsigned long flags)
++static void afs_i_init_once(void *_vnode)
+ {
+ 	struct afs_vnode *vnode = _vnode;
+ 
+diff --git a/fs/befs/linuxvfs.c b/fs/befs/linuxvfs.c
+--- a/fs/befs/linuxvfs.c
++++ b/fs/befs/linuxvfs.c
+@@ -289,7 +289,7 @@ befs_destroy_inode(struct inode *inode)
+         kmem_cache_free(befs_inode_cachep, BEFS_I(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+         struct befs_inode_info *bi = (struct befs_inode_info *) foo;
+ 
+@@ -414,7 +414,7 @@ befs_read_inode(struct inode *inode)
+ }
+ 
+ /* Initialize the inode cache. Called at fs setup.
+- * 
++ *
+  * Taken from NFS implementation by Al Viro.
+  */
+ static int
+@@ -424,7 +424,7 @@ befs_init_inodecache(void)
+ 					      sizeof (struct befs_inode_info),
+ 					      0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					      init_once, NULL);
++					      init_once);
+ 	if (befs_inode_cachep == NULL) {
+ 		printk(KERN_ERR "befs_init_inodecache: "
+ 		       "Couldn't initalize inode slabcache\n");
+diff --git a/fs/bfs/inode.c b/fs/bfs/inode.c
+--- a/fs/bfs/inode.c
++++ b/fs/bfs/inode.c
+@@ -244,20 +244,20 @@ static void bfs_destroy_inode(struct ino
+ 	kmem_cache_free(bfs_inode_cachep, BFS_I(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct bfs_inode_info *bi = foo;
+ 
+ 	inode_init_once(&bi->vfs_inode);
+ }
+- 
++
+ static int init_inodecache(void)
+ {
+ 	bfs_inode_cachep = kmem_cache_create("bfs_inode_cache",
+ 					     sizeof(struct bfs_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (bfs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/bio.c b/fs/bio.c
+--- a/fs/bio.c
++++ b/fs/bio.c
+@@ -1187,7 +1187,7 @@ static void __init biovec_init_slabs(voi
+ 
+ 		size = bvs->nr_vecs * sizeof(struct bio_vec);
+ 		bvs->slab = kmem_cache_create(bvs->name, size, 0,
+-                                SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++                                SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ 	}
+ }
+ 
+diff --git a/fs/block_dev.c b/fs/block_dev.c
+--- a/fs/block_dev.c
++++ b/fs/block_dev.c
+@@ -452,7 +452,7 @@ static void bdev_destroy_inode(struct in
+ 	kmem_cache_free(bdev_cachep, bdi);
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct bdev_inode *ei = (struct bdev_inode *) foo;
+ 	struct block_device *bdev = &ei->bdev;
+@@ -516,7 +516,7 @@ void __init bdev_cache_init(void)
+ 	bdev_cachep = kmem_cache_create("bdev_cache", sizeof(struct bdev_inode),
+ 			0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
+ 				SLAB_MEM_SPREAD|SLAB_PANIC),
+-			init_once, NULL);
++			init_once);
+ 	err = register_filesystem(&bd_type);
+ 	if (err)
+ 		panic("Cannot register bdev pseudo-fs");
+diff --git a/fs/coda/inode.c b/fs/coda/inode.c
+--- a/fs/coda/inode.c
++++ b/fs/coda/inode.c
+@@ -58,19 +58,19 @@ static void coda_destroy_inode(struct in
+ 	kmem_cache_free(coda_inode_cachep, ITOC(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct coda_inode_info *ei = (struct coda_inode_info *) foo;
+ 
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ int coda_init_inodecache(void)
+ {
+ 	coda_inode_cachep = kmem_cache_create("coda_inode_cache",
+ 				sizeof(struct coda_inode_info),
+ 				0, SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD,
+-				init_once, NULL);
++				init_once);
+ 	if (coda_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/configfs/mount.c b/fs/configfs/mount.c
+--- a/fs/configfs/mount.c
++++ b/fs/configfs/mount.c
+@@ -136,7 +136,7 @@ static int __init configfs_init(void)
+ 
+ 	configfs_dir_cachep = kmem_cache_create("configfs_dir_cache",
+ 						sizeof(struct configfs_dirent),
+-						0, 0, NULL, NULL);
++						0, 0, NULL);
+ 	if (!configfs_dir_cachep)
+ 		goto out;
+ 
+diff --git a/fs/dcache.c b/fs/dcache.c
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -2160,10 +2160,10 @@ void __init vfs_caches_init(unsigned lon
+ 	mempages -= reserve;
+ 
+ 	names_cachep = kmem_cache_create("names_cache", PATH_MAX, 0,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ 
+ 	filp_cachep = kmem_cache_create("filp", sizeof(struct file), 0,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ 
+ 	dcache_init(mempages);
+ 	inode_init(mempages);
+diff --git a/fs/dcookies.c b/fs/dcookies.c
+--- a/fs/dcookies.c
++++ b/fs/dcookies.c
+@@ -205,7 +205,7 @@ static int dcookie_init(void)
+ 
+ 	dcookie_cache = kmem_cache_create("dcookie_cache",
+ 		sizeof(struct dcookie_struct),
+-		0, 0, NULL, NULL);
++		0, 0, NULL);
+ 
+ 	if (!dcookie_cache)
+ 		goto out;
+diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
+--- a/fs/dlm/lowcomms.c
++++ b/fs/dlm/lowcomms.c
+@@ -1440,7 +1440,7 @@ int dlm_lowcomms_start(void)
+ 	error = -ENOMEM;
+ 	con_cache = kmem_cache_create("dlm_conn", sizeof(struct connection),
+ 				      __alignof__(struct connection), 0,
+-				      NULL, NULL);
++				      NULL);
+ 	if (!con_cache)
+ 		goto out;
+ 
+diff --git a/fs/dlm/memory.c b/fs/dlm/memory.c
+--- a/fs/dlm/memory.c
++++ b/fs/dlm/memory.c
+@@ -23,7 +23,7 @@ int dlm_memory_init(void)
+ 	int ret = 0;
+ 
+ 	lkb_cache = kmem_cache_create("dlm_lkb", sizeof(struct dlm_lkb),
+-				__alignof__(struct dlm_lkb), 0, NULL, NULL);
++				__alignof__(struct dlm_lkb), 0, NULL);
+ 	if (!lkb_cache)
+ 		ret = -ENOMEM;
+ 	return ret;
+diff --git a/fs/dnotify.c b/fs/dnotify.c
+--- a/fs/dnotify.c
++++ b/fs/dnotify.c
+@@ -187,7 +187,7 @@ EXPORT_SYMBOL_GPL(dnotify_parent);
+ static int __init dnotify_init(void)
+ {
+ 	dn_cache = kmem_cache_create("dnotify_cache",
+-		sizeof(struct dnotify_struct), 0, SLAB_PANIC, NULL, NULL);
++		sizeof(struct dnotify_struct), 0, SLAB_PANIC, NULL);
+ 	return 0;
+ }
+ 
+diff --git a/fs/dquot.c b/fs/dquot.c
+--- a/fs/dquot.c
++++ b/fs/dquot.c
+@@ -1843,11 +1843,11 @@ static int __init dquot_init(void)
+ 
+ 	register_sysctl_table(sys_table);
+ 
+-	dquot_cachep = kmem_cache_create("dquot", 
++	dquot_cachep = kmem_cache_create("dquot",
+ 			sizeof(struct dquot), sizeof(unsigned long) * 4,
+ 			(SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
+ 				SLAB_MEM_SPREAD|SLAB_PANIC),
+-			NULL, NULL);
++			NULL);
+ 
+ 	order = 0;
+ 	dquot_hash = (struct hlist_head *)__get_free_pages(GFP_ATOMIC, order);
+diff --git a/fs/ecryptfs/main.c b/fs/ecryptfs/main.c
+--- a/fs/ecryptfs/main.c
++++ b/fs/ecryptfs/main.c
+@@ -579,7 +579,7 @@ static struct file_system_type ecryptfs_
+  * Initializes the ecryptfs_inode_info_cache when it is created
+  */
+ static void
+-inode_info_init_once(void *vptr, struct kmem_cache *cachep, unsigned long flags)
++inode_info_init_once(void *vptr)
+ {
+ 	struct ecryptfs_inode_info *ei = (struct ecryptfs_inode_info *)vptr;
+ 
+@@ -590,7 +590,7 @@ static struct ecryptfs_cache_info {
+ 	struct kmem_cache **cache;
+ 	const char *name;
+ 	size_t size;
+-	void (*ctor)(void*, struct kmem_cache *, unsigned long);
++	void (*ctor)(void *obj);
+ } ecryptfs_cache_infos[] = {
+ 	{
+ 		.cache = &ecryptfs_auth_tok_list_item_cache,
+@@ -677,7 +677,7 @@ static int ecryptfs_init_kmem_caches(voi
+ 
+ 		info = &ecryptfs_cache_infos[i];
+ 		*(info->cache) = kmem_cache_create(info->name, info->size,
+-				0, SLAB_HWCACHE_ALIGN, info->ctor, NULL);
++				0, SLAB_HWCACHE_ALIGN, info->ctor);
+ 		if (!*(info->cache)) {
+ 			ecryptfs_free_kmem_caches();
+ 			ecryptfs_printk(KERN_WARNING, "%s: "
+diff --git a/fs/efs/super.c b/fs/efs/super.c
+--- a/fs/efs/super.c
++++ b/fs/efs/super.c
+@@ -68,19 +68,19 @@ static void efs_destroy_inode(struct ino
+ 	kmem_cache_free(efs_inode_cachep, INODE_INFO(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct efs_inode_info *ei = (struct efs_inode_info *) foo;
+ 
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ static int init_inodecache(void)
+ {
+ 	efs_inode_cachep = kmem_cache_create("efs_inode_cache",
+ 				sizeof(struct efs_inode_info),
+ 				0, SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD,
+-				init_once, NULL);
++				init_once);
+ 	if (efs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -1324,12 +1324,12 @@ static int __init eventpoll_init(void)
+ 	/* Allocates slab cache used to allocate "struct epitem" items */
+ 	epi_cache = kmem_cache_create("eventpoll_epi", sizeof(struct epitem),
+ 			0, SLAB_HWCACHE_ALIGN|EPI_SLAB_DEBUG|SLAB_PANIC,
+-			NULL, NULL);
++			NULL);
+ 
+ 	/* Allocates slab cache used to allocate "struct eppoll_entry" */
+ 	pwq_cache = kmem_cache_create("eventpoll_pwq",
+ 			sizeof(struct eppoll_entry), 0,
+-			EPI_SLAB_DEBUG|SLAB_PANIC, NULL, NULL);
++			EPI_SLAB_DEBUG|SLAB_PANIC, NULL);
+ 
+ 	return 0;
+ }
+diff --git a/fs/ext2/super.c b/fs/ext2/super.c
+--- a/fs/ext2/super.c
++++ b/fs/ext2/super.c
+@@ -157,7 +157,7 @@ static void ext2_destroy_inode(struct in
+ 	kmem_cache_free(ext2_inode_cachep, EXT2_I(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct ext2_inode_info *ei = (struct ext2_inode_info *) foo;
+ 
+@@ -168,14 +168,14 @@ static void init_once(void * foo, struct
+ 	mutex_init(&ei->truncate_mutex);
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ static int init_inodecache(void)
+ {
+ 	ext2_inode_cachep = kmem_cache_create("ext2_inode_cache",
+ 					     sizeof(struct ext2_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (ext2_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/ext3/super.c b/fs/ext3/super.c
+--- a/fs/ext3/super.c
++++ b/fs/ext3/super.c
+@@ -462,7 +462,7 @@ static void ext3_destroy_inode(struct in
+ 	kmem_cache_free(ext3_inode_cachep, EXT3_I(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct ext3_inode_info *ei = (struct ext3_inode_info *) foo;
+ 
+@@ -490,7 +490,7 @@ static int init_inodecache(void)
+ 					     sizeof(struct ext3_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (ext3_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/fat/cache.c b/fs/fat/cache.c
+--- a/fs/fat/cache.c
++++ b/fs/fat/cache.c
+@@ -36,7 +36,7 @@ static inline int fat_max_cache(struct i
+ 
+ static struct kmem_cache *fat_cache_cachep;
+ 
+-static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct fat_cache *cache = (struct fat_cache *)foo;
+ 
+@@ -48,7 +48,7 @@ int __init fat_cache_init(void)
+ 	fat_cache_cachep = kmem_cache_create("fat_cache",
+ 				sizeof(struct fat_cache),
+ 				0, SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD,
+-				init_once, NULL);
++				init_once);
+ 	if (fat_cache_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/fat/inode.c b/fs/fat/inode.c
+--- a/fs/fat/inode.c
++++ b/fs/fat/inode.c
+@@ -489,7 +489,7 @@ static void fat_destroy_inode(struct ino
+ 	kmem_cache_free(fat_inode_cachep, MSDOS_I(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct msdos_inode_info *ei = (struct msdos_inode_info *)foo;
+ 
+@@ -507,7 +507,7 @@ static int __init fat_init_inodecache(vo
+ 					     sizeof(struct msdos_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (fat_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/fcntl.c b/fs/fcntl.c
+--- a/fs/fcntl.c
++++ b/fs/fcntl.c
+@@ -648,7 +648,7 @@ EXPORT_SYMBOL(kill_fasync);
+ static int __init fasync_init(void)
+ {
+ 	fasync_cache = kmem_cache_create("fasync_cache",
+-		sizeof(struct fasync_struct), 0, SLAB_PANIC, NULL, NULL);
++		sizeof(struct fasync_struct), 0, SLAB_PANIC, NULL);
+ 	return 0;
+ }
+ 
+diff --git a/fs/freevxfs/vxfs_super.c b/fs/freevxfs/vxfs_super.c
+--- a/fs/freevxfs/vxfs_super.c
++++ b/fs/freevxfs/vxfs_super.c
+@@ -263,8 +263,8 @@ vxfs_init(void)
+ 	int rv;
+ 
+ 	vxfs_inode_cachep = kmem_cache_create("vxfs_inode",
+-			sizeof(struct vxfs_inode_info), 0, 
+-			SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD, NULL, NULL);
++			sizeof(struct vxfs_inode_info), 0,
++			SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD, NULL);
+ 	if (!vxfs_inode_cachep)
+ 		return -ENOMEM;
+ 	rv = register_filesystem(&vxfs_fs_type);
+diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
+--- a/fs/fuse/dev.c
++++ b/fs/fuse/dev.c
+@@ -1063,7 +1063,7 @@ int __init fuse_dev_init(void)
+ 	int err = -ENOMEM;
+ 	fuse_req_cachep = kmem_cache_create("fuse_request",
+ 					    sizeof(struct fuse_req),
+-					    0, 0, NULL, NULL);
++					    0, 0, NULL);
+ 	if (!fuse_req_cachep)
+ 		goto out;
+ 
+diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
+--- a/fs/fuse/inode.c
++++ b/fs/fuse/inode.c
+@@ -694,8 +694,7 @@ static inline void unregister_fuseblk(vo
+ static decl_subsys(fuse, NULL, NULL);
+ static decl_subsys(connections, NULL, NULL);
+ 
+-static void fuse_inode_init_once(void *foo, struct kmem_cache *cachep,
+-				 unsigned long flags)
++static void fuse_inode_init_once(void *foo)
+ {
+ 	struct inode * inode = foo;
+ 
+@@ -717,7 +716,7 @@ static int __init fuse_fs_init(void)
+ 	fuse_inode_cachep = kmem_cache_create("fuse_inode",
+ 					      sizeof(struct fuse_inode),
+ 					      0, SLAB_HWCACHE_ALIGN,
+-					      fuse_inode_init_once, NULL);
++					      fuse_inode_init_once);
+ 	err = -ENOMEM;
+ 	if (!fuse_inode_cachep)
+ 		goto out_unreg2;
+diff --git a/fs/gfs2/main.c b/fs/gfs2/main.c
+--- a/fs/gfs2/main.c
++++ b/fs/gfs2/main.c
+@@ -24,7 +24,7 @@
+ #include "util.h"
+ #include "glock.h"
+ 
+-static void gfs2_init_inode_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
++static void gfs2_init_inode_once(void *foo)
+ {
+ 	struct gfs2_inode *ip = foo;
+ 
+@@ -34,7 +34,7 @@ static void gfs2_init_inode_once(void *f
+ 	memset(ip->i_cache, 0, sizeof(ip->i_cache));
+ }
+ 
+-static void gfs2_init_glock_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
++static void gfs2_init_glock_once(void *foo)
+ {
+ 	struct gfs2_glock *gl = foo;
+ 
+@@ -72,7 +72,7 @@ static int __init init_gfs2_fs(void)
+ 	gfs2_glock_cachep = kmem_cache_create("gfs2_glock",
+ 					      sizeof(struct gfs2_glock),
+ 					      0, 0,
+-					      gfs2_init_glock_once, NULL);
++					      gfs2_init_glock_once);
+ 	if (!gfs2_glock_cachep)
+ 		goto fail;
+ 
+@@ -80,13 +80,13 @@ static int __init init_gfs2_fs(void)
+ 					      sizeof(struct gfs2_inode),
+ 					      0,  SLAB_RECLAIM_ACCOUNT|
+ 					          SLAB_MEM_SPREAD,
+-					      gfs2_init_inode_once, NULL);
++					      gfs2_init_inode_once);
+ 	if (!gfs2_inode_cachep)
+ 		goto fail;
+ 
+ 	gfs2_bufdata_cachep = kmem_cache_create("gfs2_bufdata",
+ 						sizeof(struct gfs2_bufdata),
+-					        0, 0, NULL, NULL);
++					        0, 0, NULL);
+ 	if (!gfs2_bufdata_cachep)
+ 		goto fail;
+ 
+diff --git a/fs/hfs/super.c b/fs/hfs/super.c
+--- a/fs/hfs/super.c
++++ b/fs/hfs/super.c
+@@ -430,7 +430,7 @@ static struct file_system_type hfs_fs_ty
+ 	.fs_flags	= FS_REQUIRES_DEV,
+ };
+ 
+-static void hfs_init_once(void *p, struct kmem_cache *cachep, unsigned long flags)
++static void hfs_init_once(void *p)
+ {
+ 	struct hfs_inode_info *i = p;
+ 
+@@ -443,7 +443,7 @@ static int __init init_hfs_fs(void)
+ 
+ 	hfs_inode_cachep = kmem_cache_create("hfs_inode_cache",
+ 		sizeof(struct hfs_inode_info), 0, SLAB_HWCACHE_ALIGN,
+-		hfs_init_once, NULL);
++		hfs_init_once);
+ 	if (!hfs_inode_cachep)
+ 		return -ENOMEM;
+ 	err = register_filesystem(&hfs_fs_type);
+diff --git a/fs/hfsplus/super.c b/fs/hfsplus/super.c
+--- a/fs/hfsplus/super.c
++++ b/fs/hfsplus/super.c
+@@ -466,7 +466,7 @@ static struct file_system_type hfsplus_f
+ 	.fs_flags	= FS_REQUIRES_DEV,
+ };
+ 
+-static void hfsplus_init_once(void *p, struct kmem_cache *cachep, unsigned long flags)
++static void hfsplus_init_once(void *p)
+ {
+ 	struct hfsplus_inode_info *i = p;
+ 
+@@ -479,7 +479,7 @@ static int __init init_hfsplus_fs(void)
+ 
+ 	hfsplus_inode_cachep = kmem_cache_create("hfsplus_icache",
+ 		HFSPLUS_INODE_SIZE, 0, SLAB_HWCACHE_ALIGN,
+-		hfsplus_init_once, NULL);
++		hfsplus_init_once);
+ 	if (!hfsplus_inode_cachep)
+ 		return -ENOMEM;
+ 	err = register_filesystem(&hfsplus_fs_type);
+diff --git a/fs/hpfs/super.c b/fs/hpfs/super.c
+--- a/fs/hpfs/super.c
++++ b/fs/hpfs/super.c
+@@ -173,7 +173,7 @@ static void hpfs_destroy_inode(struct in
+ 	kmem_cache_free(hpfs_inode_cachep, hpfs_i(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct hpfs_inode_info *ei = (struct hpfs_inode_info *) foo;
+ 
+@@ -181,14 +181,14 @@ static void init_once(void * foo, struct
+ 	mutex_init(&ei->i_parent_mutex);
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ static int init_inodecache(void)
+ {
+ 	hpfs_inode_cachep = kmem_cache_create("hpfs_inode_cache",
+ 					     sizeof(struct hpfs_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (hpfs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/hugetlbfs/inode.c b/fs/hugetlbfs/inode.c
+--- a/fs/hugetlbfs/inode.c
++++ b/fs/hugetlbfs/inode.c
+@@ -552,7 +552,7 @@ static const struct address_space_operat
+ };
+ 
+ 
+-static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct hugetlbfs_inode_info *ei = (struct hugetlbfs_inode_info *)foo;
+ 
+@@ -808,7 +808,7 @@ static int __init init_hugetlbfs_fs(void
+ 
+ 	hugetlbfs_inode_cachep = kmem_cache_create("hugetlbfs_inode_cache",
+ 					sizeof(struct hugetlbfs_inode_info),
+-					0, 0, init_once, NULL);
++					0, 0, init_once);
+ 	if (hugetlbfs_inode_cachep == NULL)
+ 		goto out2;
+ 
+diff --git a/fs/inode.c b/fs/inode.c
+--- a/fs/inode.c
++++ b/fs/inode.c
+@@ -207,7 +207,7 @@ void inode_init_once(struct inode *inode
+ 
+ EXPORT_SYMBOL(inode_init_once);
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct inode * inode = (struct inode *) foo;
+ 
+@@ -1381,8 +1381,7 @@ void __init inode_init(unsigned long mem
+ 					 0,
+ 					 (SLAB_RECLAIM_ACCOUNT|SLAB_PANIC|
+ 					 SLAB_MEM_SPREAD),
+-					 init_once,
+-					 NULL);
++					 init_once);
+ 	set_shrinker(DEFAULT_SEEKS, shrink_icache_memory);
+ 
+ 	/* Hash may have been set up in inode_init_early */
+diff --git a/fs/inotify_user.c b/fs/inotify_user.c
+--- a/fs/inotify_user.c
++++ b/fs/inotify_user.c
+@@ -716,10 +716,10 @@ static int __init inotify_user_setup(voi
+ 
+ 	watch_cachep = kmem_cache_create("inotify_watch_cache",
+ 					 sizeof(struct inotify_user_watch),
+-					 0, SLAB_PANIC, NULL, NULL);
++					 0, SLAB_PANIC, NULL);
+ 	event_cachep = kmem_cache_create("inotify_event_cache",
+ 					 sizeof(struct inotify_kernel_event),
+-					 0, SLAB_PANIC, NULL, NULL);
++					 0, SLAB_PANIC, NULL);
+ 
+ 	return 0;
+ }
+diff --git a/fs/isofs/inode.c b/fs/isofs/inode.c
+--- a/fs/isofs/inode.c
++++ b/fs/isofs/inode.c
+@@ -73,7 +73,7 @@ static void isofs_destroy_inode(struct i
+ 	kmem_cache_free(isofs_inode_cachep, ISOFS_I(inode));
+ }
+ 
+-static void init_once(void *foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct iso_inode_info *ei = foo;
+ 
+@@ -86,7 +86,7 @@ static int init_inodecache(void)
+ 					     sizeof(struct iso_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (isofs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/jffs2/malloc.c b/fs/jffs2/malloc.c
+--- a/fs/jffs2/malloc.c
++++ b/fs/jffs2/malloc.c
+@@ -33,56 +33,56 @@ int __init jffs2_create_slab_caches(void
+ {
+ 	full_dnode_slab = kmem_cache_create("jffs2_full_dnode",
+ 					    sizeof(struct jffs2_full_dnode),
+-					    0, 0, NULL, NULL);
++					    0, 0, NULL);
+ 	if (!full_dnode_slab)
+ 		goto err;
+ 
+ 	raw_dirent_slab = kmem_cache_create("jffs2_raw_dirent",
+ 					    sizeof(struct jffs2_raw_dirent),
+-					    0, 0, NULL, NULL);
++					    0, 0, NULL);
+ 	if (!raw_dirent_slab)
+ 		goto err;
+ 
+ 	raw_inode_slab = kmem_cache_create("jffs2_raw_inode",
+ 					   sizeof(struct jffs2_raw_inode),
+-					   0, 0, NULL, NULL);
++					   0, 0, NULL);
+ 	if (!raw_inode_slab)
+ 		goto err;
+ 
+ 	tmp_dnode_info_slab = kmem_cache_create("jffs2_tmp_dnode",
+ 						sizeof(struct jffs2_tmp_dnode_info),
+-						0, 0, NULL, NULL);
++						0, 0, NULL);
+ 	if (!tmp_dnode_info_slab)
+ 		goto err;
+ 
+ 	raw_node_ref_slab = kmem_cache_create("jffs2_refblock",
+ 					      sizeof(struct jffs2_raw_node_ref) * (REFS_PER_BLOCK + 1),
+-					      0, 0, NULL, NULL);
++					      0, 0, NULL);
+ 	if (!raw_node_ref_slab)
+ 		goto err;
+ 
+ 	node_frag_slab = kmem_cache_create("jffs2_node_frag",
+ 					   sizeof(struct jffs2_node_frag),
+-					   0, 0, NULL, NULL);
++					   0, 0, NULL);
+ 	if (!node_frag_slab)
+ 		goto err;
+ 
+ 	inode_cache_slab = kmem_cache_create("jffs2_inode_cache",
+ 					     sizeof(struct jffs2_inode_cache),
+-					     0, 0, NULL, NULL);
++					     0, 0, NULL);
+ 	if (!inode_cache_slab)
+ 		goto err;
+ 
+ #ifdef CONFIG_JFFS2_FS_XATTR
+ 	xattr_datum_cache = kmem_cache_create("jffs2_xattr_datum",
+ 					     sizeof(struct jffs2_xattr_datum),
+-					     0, 0, NULL, NULL);
++					     0, 0, NULL);
+ 	if (!xattr_datum_cache)
+ 		goto err;
+ 
+ 	xattr_ref_cache = kmem_cache_create("jffs2_xattr_ref",
+ 					   sizeof(struct jffs2_xattr_ref),
+-					   0, 0, NULL, NULL);
++					   0, 0, NULL);
+ 	if (!xattr_ref_cache)
+ 		goto err;
+ #endif
+diff --git a/fs/jffs2/super.c b/fs/jffs2/super.c
+--- a/fs/jffs2/super.c
++++ b/fs/jffs2/super.c
+@@ -43,7 +43,7 @@ static void jffs2_destroy_inode(struct i
+ 	kmem_cache_free(jffs2_inode_cachep, JFFS2_INODE_INFO(inode));
+ }
+ 
+-static void jffs2_i_init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void jffs2_i_init_once(void *foo)
+ {
+ 	struct jffs2_inode_info *ei = (struct jffs2_inode_info *) foo;
+ 
+@@ -192,7 +192,7 @@ static int __init init_jffs2_fs(void)
+ 					     sizeof(struct jffs2_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     jffs2_i_init_once, NULL);
++					     jffs2_i_init_once);
+ 	if (!jffs2_inode_cachep) {
+ 		printk(KERN_ERR "JFFS2 error: Failed to initialise inode cache\n");
+ 		return -ENOMEM;
+diff --git a/fs/jfs/jfs_metapage.c b/fs/jfs/jfs_metapage.c
+--- a/fs/jfs/jfs_metapage.c
++++ b/fs/jfs/jfs_metapage.c
+@@ -180,7 +180,7 @@ static inline void remove_metapage(struc
+ 
+ #endif
+ 
+-static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct metapage *mp = (struct metapage *)foo;
+ 
+@@ -213,7 +213,7 @@ int __init metapage_init(void)
+ 	 * Allocate the metapage structures
+ 	 */
+ 	metapage_cache = kmem_cache_create("jfs_mp", sizeof(struct metapage),
+-					   0, 0, init_once, NULL);
++					   0, 0, init_once);
+ 	if (metapage_cache == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/jfs/super.c b/fs/jfs/super.c
+--- a/fs/jfs/super.c
++++ b/fs/jfs/super.c
+@@ -748,7 +748,7 @@ static struct file_system_type jfs_fs_ty
+ 	.fs_flags	= FS_REQUIRES_DEV,
+ };
+ 
+-static void init_once(void *foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct jfs_inode_info *jfs_ip = (struct jfs_inode_info *) foo;
+ 
+@@ -774,7 +774,7 @@ static int __init init_jfs_fs(void)
+ 	jfs_inode_cachep =
+ 	    kmem_cache_create("jfs_ip", sizeof(struct jfs_inode_info), 0,
+ 			    SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD,
+-			    init_once, NULL);
++			    init_once);
+ 	if (jfs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/locks.c b/fs/locks.c
+--- a/fs/locks.c
++++ b/fs/locks.c
+@@ -199,7 +199,7 @@ EXPORT_SYMBOL(locks_init_lock);
+  * Initialises the fields of the file lock which are invariant for
+  * free file_locks.
+  */
+-static void init_once(void *foo, struct kmem_cache *cache, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct file_lock *lock = (struct file_lock *) foo;
+ 
+@@ -2264,7 +2264,7 @@ static int __init filelock_init(void)
+ {
+ 	filelock_cache = kmem_cache_create("file_lock_cache",
+ 			sizeof(struct file_lock), 0, SLAB_PANIC,
+-			init_once, NULL);
++			init_once);
+ 	return 0;
+ }
+ 
+diff --git a/fs/mbcache.c b/fs/mbcache.c
+--- a/fs/mbcache.c
++++ b/fs/mbcache.c
+@@ -289,7 +289,7 @@ mb_cache_create(const char *name, struct
+ 			INIT_LIST_HEAD(&cache->c_indexes_hash[m][n]);
+ 	}
+ 	cache->c_entry_cache = kmem_cache_create(name, entry_size, 0,
+-		SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD, NULL, NULL);
++		SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD, NULL);
+ 	if (!cache->c_entry_cache)
+ 		goto fail;
+ 
+diff --git a/fs/minix/inode.c b/fs/minix/inode.c
+--- a/fs/minix/inode.c
++++ b/fs/minix/inode.c
+@@ -69,20 +69,20 @@ static void minix_destroy_inode(struct i
+ 	kmem_cache_free(minix_inode_cachep, minix_i(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct minix_inode_info *ei = (struct minix_inode_info *) foo;
+ 
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ static int init_inodecache(void)
+ {
+ 	minix_inode_cachep = kmem_cache_create("minix_inode_cache",
+ 					     sizeof(struct minix_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (minix_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/namespace.c b/fs/namespace.c
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -1806,7 +1806,7 @@ void __init mnt_init(unsigned long mempa
+ 	init_rwsem(&namespace_sem);
+ 
+ 	mnt_cache = kmem_cache_create("mnt_cache", sizeof(struct vfsmount),
+-			0, SLAB_HWCACHE_ALIGN | SLAB_PANIC, NULL, NULL);
++			0, SLAB_HWCACHE_ALIGN | SLAB_PANIC, NULL);
+ 
+ 	mount_hashtable = (struct list_head *)__get_free_page(GFP_ATOMIC);
+ 
+diff --git a/fs/ncpfs/inode.c b/fs/ncpfs/inode.c
+--- a/fs/ncpfs/inode.c
++++ b/fs/ncpfs/inode.c
+@@ -56,21 +56,21 @@ static void ncp_destroy_inode(struct ino
+ 	kmem_cache_free(ncp_inode_cachep, NCP_FINFO(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct ncp_inode_info *ei = (struct ncp_inode_info *) foo;
+ 
+ 	mutex_init(&ei->open_mutex);
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ static int init_inodecache(void)
+ {
+ 	ncp_inode_cachep = kmem_cache_create("ncp_inode_cache",
+ 					     sizeof(struct ncp_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (ncp_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/nfs/direct.c b/fs/nfs/direct.c
+--- a/fs/nfs/direct.c
++++ b/fs/nfs/direct.c
+@@ -867,7 +867,7 @@ int __init nfs_init_directcache(void)
+ 						sizeof(struct nfs_direct_req),
+ 						0, (SLAB_RECLAIM_ACCOUNT|
+ 							SLAB_MEM_SPREAD),
+-						NULL, NULL);
++						NULL);
+ 	if (nfs_direct_cachep == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/nfs/inode.c b/fs/nfs/inode.c
+--- a/fs/nfs/inode.c
++++ b/fs/nfs/inode.c
+@@ -1160,7 +1160,7 @@ static inline void nfs4_init_once(struct
+ #endif
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct nfs_inode *nfsi = (struct nfs_inode *) foo;
+ 
+@@ -1178,14 +1178,14 @@ static void init_once(void * foo, struct
+ 	nfsi->npages = 0;
+ 	nfs4_init_once(nfsi);
+ }
+- 
++
+ static int __init nfs_init_inodecache(void)
+ {
+ 	nfs_inode_cachep = kmem_cache_create("nfs_inode_cache",
+ 					     sizeof(struct nfs_inode),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (nfs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/nfs/pagelist.c b/fs/nfs/pagelist.c
+--- a/fs/nfs/pagelist.c
++++ b/fs/nfs/pagelist.c
+@@ -436,7 +436,7 @@ int __init nfs_init_nfspagecache(void)
+ 	nfs_page_cachep = kmem_cache_create("nfs_page",
+ 					    sizeof(struct nfs_page),
+ 					    0, SLAB_HWCACHE_ALIGN,
+-					    NULL, NULL);
++					    NULL);
+ 	if (nfs_page_cachep == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/nfs/read.c b/fs/nfs/read.c
+--- a/fs/nfs/read.c
++++ b/fs/nfs/read.c
+@@ -586,7 +586,7 @@ int __init nfs_init_readpagecache(void)
+ 	nfs_rdata_cachep = kmem_cache_create("nfs_read_data",
+ 					     sizeof(struct nfs_read_data),
+ 					     0, SLAB_HWCACHE_ALIGN,
+-					     NULL, NULL);
++					     NULL);
+ 	if (nfs_rdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/nfs/write.c b/fs/nfs/write.c
+--- a/fs/nfs/write.c
++++ b/fs/nfs/write.c
+@@ -1483,7 +1483,7 @@ int __init nfs_init_writepagecache(void)
+ 	nfs_wdata_cachep = kmem_cache_create("nfs_write_data",
+ 					     sizeof(struct nfs_write_data),
+ 					     0, SLAB_HWCACHE_ALIGN,
+-					     NULL, NULL);
++					     NULL);
+ 	if (nfs_wdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/nfsd/nfs4state.c b/fs/nfsd/nfs4state.c
+--- a/fs/nfsd/nfs4state.c
++++ b/fs/nfsd/nfs4state.c
+@@ -1027,19 +1027,19 @@ static int
+ nfsd4_init_slabs(void)
+ {
+ 	stateowner_slab = kmem_cache_create("nfsd4_stateowners",
+-			sizeof(struct nfs4_stateowner), 0, 0, NULL, NULL);
++			sizeof(struct nfs4_stateowner), 0, 0, NULL);
+ 	if (stateowner_slab == NULL)
+ 		goto out_nomem;
+ 	file_slab = kmem_cache_create("nfsd4_files",
+-			sizeof(struct nfs4_file), 0, 0, NULL, NULL);
++			sizeof(struct nfs4_file), 0, 0, NULL);
+ 	if (file_slab == NULL)
+ 		goto out_nomem;
+ 	stateid_slab = kmem_cache_create("nfsd4_stateids",
+-			sizeof(struct nfs4_stateid), 0, 0, NULL, NULL);
++			sizeof(struct nfs4_stateid), 0, 0, NULL);
+ 	if (stateid_slab == NULL)
+ 		goto out_nomem;
+ 	deleg_slab = kmem_cache_create("nfsd4_delegations",
+-			sizeof(struct nfs4_delegation), 0, 0, NULL, NULL);
++			sizeof(struct nfs4_delegation), 0, 0, NULL);
+ 	if (deleg_slab == NULL)
+ 		goto out_nomem;
+ 	return 0;
+diff --git a/fs/ntfs/super.c b/fs/ntfs/super.c
+--- a/fs/ntfs/super.c
++++ b/fs/ntfs/super.c
+@@ -3080,8 +3080,7 @@ struct kmem_cache *ntfs_inode_cache;
+ struct kmem_cache *ntfs_big_inode_cache;
+ 
+ /* Init once constructor for the inode slab cache. */
+-static void ntfs_big_inode_init_once(void *foo, struct kmem_cache *cachep,
+-		unsigned long flags)
++static void ntfs_big_inode_init_once(void *foo)
+ {
+ 	ntfs_inode *ni = (ntfs_inode *)foo;
+ 
+@@ -3143,7 +3142,7 @@ static int __init init_ntfs_fs(void)
+ 
+ 	ntfs_index_ctx_cache = kmem_cache_create(ntfs_index_ctx_cache_name,
+ 			sizeof(ntfs_index_context), 0 /* offset */,
+-			SLAB_HWCACHE_ALIGN, NULL /* ctor */, NULL /* dtor */);
++			SLAB_HWCACHE_ALIGN, NULL /* ctor */);
+ 	if (!ntfs_index_ctx_cache) {
+ 		printk(KERN_CRIT "NTFS: Failed to create %s!\n",
+ 				ntfs_index_ctx_cache_name);
+@@ -3151,7 +3150,7 @@ static int __init init_ntfs_fs(void)
+ 	}
+ 	ntfs_attr_ctx_cache = kmem_cache_create(ntfs_attr_ctx_cache_name,
+ 			sizeof(ntfs_attr_search_ctx), 0 /* offset */,
+-			SLAB_HWCACHE_ALIGN, NULL /* ctor */, NULL /* dtor */);
++			SLAB_HWCACHE_ALIGN, NULL /* ctor */);
+ 	if (!ntfs_attr_ctx_cache) {
+ 		printk(KERN_CRIT "NTFS: Failed to create %s!\n",
+ 				ntfs_attr_ctx_cache_name);
+@@ -3160,7 +3159,7 @@ static int __init init_ntfs_fs(void)
+ 
+ 	ntfs_name_cache = kmem_cache_create(ntfs_name_cache_name,
+ 			(NTFS_MAX_NAME_LEN+1) * sizeof(ntfschar), 0,
+-			SLAB_HWCACHE_ALIGN, NULL, NULL);
++			SLAB_HWCACHE_ALIGN, NULL);
+ 	if (!ntfs_name_cache) {
+ 		printk(KERN_CRIT "NTFS: Failed to create %s!\n",
+ 				ntfs_name_cache_name);
+@@ -3169,7 +3168,7 @@ static int __init init_ntfs_fs(void)
+ 
+ 	ntfs_inode_cache = kmem_cache_create(ntfs_inode_cache_name,
+ 			sizeof(ntfs_inode), 0,
+-			SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD, NULL, NULL);
++			SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD, NULL);
+ 	if (!ntfs_inode_cache) {
+ 		printk(KERN_CRIT "NTFS: Failed to create %s!\n",
+ 				ntfs_inode_cache_name);
+@@ -3179,7 +3178,7 @@ static int __init init_ntfs_fs(void)
+ 	ntfs_big_inode_cache = kmem_cache_create(ntfs_big_inode_cache_name,
+ 			sizeof(big_ntfs_inode), 0,
+ 			SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD,
+-			ntfs_big_inode_init_once, NULL);
++			ntfs_big_inode_init_once);
+ 	if (!ntfs_big_inode_cache) {
+ 		printk(KERN_CRIT "NTFS: Failed to create %s!\n",
+ 				ntfs_big_inode_cache_name);
+diff --git a/fs/ocfs2/dlm/dlmfs.c b/fs/ocfs2/dlm/dlmfs.c
+--- a/fs/ocfs2/dlm/dlmfs.c
++++ b/fs/ocfs2/dlm/dlmfs.c
+@@ -255,9 +255,7 @@ static ssize_t dlmfs_file_write(struct f
+ 	return writelen;
+ }
+ 
+-static void dlmfs_init_once(void *foo,
+-			    struct kmem_cache *cachep,
+-			    unsigned long flags)
++static void dlmfs_init_once(void *foo)
+ {
+ 	struct dlmfs_inode_private *ip =
+ 		(struct dlmfs_inode_private *) foo;
+@@ -596,7 +594,7 @@ static int __init init_dlmfs_fs(void)
+ 				sizeof(struct dlmfs_inode_private),
+ 				0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
+ 					SLAB_MEM_SPREAD),
+-				dlmfs_init_once, NULL);
++				dlmfs_init_once);
+ 	if (!dlmfs_inode_cache)
+ 		goto bail;
+ 	cleanup_inode = 1;
+diff --git a/fs/ocfs2/dlm/dlmmaster.c b/fs/ocfs2/dlm/dlmmaster.c
+--- a/fs/ocfs2/dlm/dlmmaster.c
++++ b/fs/ocfs2/dlm/dlmmaster.c
+@@ -520,7 +520,7 @@ int dlm_init_mle_cache(void)
+ 	dlm_mle_cache = kmem_cache_create("dlm_mle_cache",
+ 					  sizeof(struct dlm_master_list_entry),
+ 					  0, SLAB_HWCACHE_ALIGN,
+-					  NULL, NULL);
++					  NULL);
+ 	if (dlm_mle_cache == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/ocfs2/super.c b/fs/ocfs2/super.c
+--- a/fs/ocfs2/super.c
++++ b/fs/ocfs2/super.c
+@@ -931,9 +931,7 @@ bail:
+ 	return status;
+ }
+ 
+-static void ocfs2_inode_init_once(void *data,
+-				  struct kmem_cache *cachep,
+-				  unsigned long flags)
++static void ocfs2_inode_init_once(void *data)
+ {
+ 	struct ocfs2_inode_info *oi = data;
+ 
+@@ -969,7 +967,7 @@ static int ocfs2_initialize_mem_caches(v
+ 				       0,
+ 				       (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-				       ocfs2_inode_init_once, NULL);
++				       ocfs2_inode_init_once);
+ 	if (!ocfs2_inode_cachep)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/ocfs2/uptodate.c b/fs/ocfs2/uptodate.c
+--- a/fs/ocfs2/uptodate.c
++++ b/fs/ocfs2/uptodate.c
+@@ -548,7 +548,7 @@ int __init init_ocfs2_uptodate_cache(voi
+ {
+ 	ocfs2_uptodate_cachep = kmem_cache_create("ocfs2_uptodate",
+ 				  sizeof(struct ocfs2_meta_cache_item),
+-				  0, SLAB_HWCACHE_ALIGN, NULL, NULL);
++				  0, SLAB_HWCACHE_ALIGN, NULL);
+ 	if (!ocfs2_uptodate_cachep)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/openpromfs/inode.c b/fs/openpromfs/inode.c
+--- a/fs/openpromfs/inode.c
++++ b/fs/openpromfs/inode.c
+@@ -415,7 +415,7 @@ static struct file_system_type openprom_
+ 	.kill_sb	= kill_anon_super,
+ };
+ 
+-static void op_inode_init_once(void *data, struct kmem_cache * cachep, unsigned long flags)
++static void op_inode_init_once(void *data)
+ {
+ 	struct op_inode_info *oi = (struct op_inode_info *) data;
+ 
+@@ -431,7 +431,7 @@ static int __init init_openprom_fs(void)
+ 					    0,
+ 					    (SLAB_RECLAIM_ACCOUNT |
+ 					     SLAB_MEM_SPREAD),
+-					    op_inode_init_once, NULL);
++					    op_inode_init_once);
+ 	if (!op_inode_cachep)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/proc/inode.c b/fs/proc/inode.c
+--- a/fs/proc/inode.c
++++ b/fs/proc/inode.c
+@@ -100,20 +100,20 @@ static void proc_destroy_inode(struct in
+ 	kmem_cache_free(proc_inode_cachep, PROC_I(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct proc_inode *ei = (struct proc_inode *) foo;
+ 
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ int __init proc_init_inodecache(void)
+ {
+ 	proc_inode_cachep = kmem_cache_create("proc_inode_cache",
+ 					     sizeof(struct proc_inode),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (proc_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/qnx4/inode.c b/fs/qnx4/inode.c
+--- a/fs/qnx4/inode.c
++++ b/fs/qnx4/inode.c
+@@ -531,8 +531,7 @@ static void qnx4_destroy_inode(struct in
+ 	kmem_cache_free(qnx4_inode_cachep, qnx4_i(inode));
+ }
+ 
+-static void init_once(void *foo, struct kmem_cache * cachep,
+-		      unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct qnx4_inode_info *ei = (struct qnx4_inode_info *) foo;
+ 
+@@ -545,7 +544,7 @@ static int init_inodecache(void)
+ 					     sizeof(struct qnx4_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (qnx4_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/reiserfs/super.c b/fs/reiserfs/super.c
+--- a/fs/reiserfs/super.c
++++ b/fs/reiserfs/super.c
+@@ -507,7 +507,7 @@ static void reiserfs_destroy_inode(struc
+ 	kmem_cache_free(reiserfs_inode_cachep, REISERFS_I(inode));
+ }
+ 
+-static void init_once(void *foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct reiserfs_inode_info *ei = (struct reiserfs_inode_info *)foo;
+ 
+@@ -526,7 +526,7 @@ static int init_inodecache(void)
+ 							 reiserfs_inode_info),
+ 						  0, (SLAB_RECLAIM_ACCOUNT|
+ 							SLAB_MEM_SPREAD),
+-						  init_once, NULL);
++						  init_once);
+ 	if (reiserfs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/romfs/inode.c b/fs/romfs/inode.c
+--- a/fs/romfs/inode.c
++++ b/fs/romfs/inode.c
+@@ -566,20 +566,20 @@ static void romfs_destroy_inode(struct i
+ 	kmem_cache_free(romfs_inode_cachep, ROMFS_I(inode));
+ }
+ 
+-static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct romfs_inode_info *ei = foo;
+ 
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ static int init_inodecache(void)
+ {
+ 	romfs_inode_cachep = kmem_cache_create("romfs_inode_cache",
+ 					     sizeof(struct romfs_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (romfs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/smbfs/inode.c b/fs/smbfs/inode.c
+--- a/fs/smbfs/inode.c
++++ b/fs/smbfs/inode.c
+@@ -67,20 +67,20 @@ static void smb_destroy_inode(struct ino
+ 	kmem_cache_free(smb_inode_cachep, SMB_I(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct smb_inode_info *ei = (struct smb_inode_info *) foo;
+ 
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ static int init_inodecache(void)
+ {
+ 	smb_inode_cachep = kmem_cache_create("smb_inode_cache",
+ 					     sizeof(struct smb_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (smb_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/smbfs/request.c b/fs/smbfs/request.c
+--- a/fs/smbfs/request.c
++++ b/fs/smbfs/request.c
+@@ -40,7 +40,7 @@ int smb_init_request_cache(void)
+ 	req_cachep = kmem_cache_create("smb_request",
+ 				       sizeof(struct smb_request), 0,
+ 				       SMB_SLAB_DEBUG | SLAB_HWCACHE_ALIGN,
+-				       NULL, NULL);
++				       NULL);
+ 	if (req_cachep == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/sysfs/mount.c b/fs/sysfs/mount.c
+--- a/fs/sysfs/mount.c
++++ b/fs/sysfs/mount.c
+@@ -94,7 +94,7 @@ int __init sysfs_init(void)
+ 
+ 	sysfs_dir_cachep = kmem_cache_create("sysfs_dir_cache",
+ 					      sizeof(struct sysfs_dirent),
+-					      0, 0, NULL, NULL);
++					      0, 0, NULL);
+ 	if (!sysfs_dir_cachep)
+ 		goto out;
+ 
+diff --git a/fs/sysv/inode.c b/fs/sysv/inode.c
+--- a/fs/sysv/inode.c
++++ b/fs/sysv/inode.c
+@@ -318,7 +318,7 @@ static void sysv_destroy_inode(struct in
+ 	kmem_cache_free(sysv_inode_cachep, SYSV_I(inode));
+ }
+ 
+-static void init_once(void *p, struct kmem_cache *cachep, unsigned long flags)
++static void init_once(void *p)
+ {
+ 	struct sysv_inode_info *si = (struct sysv_inode_info *)p;
+ 
+@@ -342,7 +342,7 @@ int __init sysv_init_icache(void)
+ 	sysv_inode_cachep = kmem_cache_create("sysv_inode_cache",
+ 			sizeof(struct sysv_inode_info), 0,
+ 			SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD,
+-			init_once, NULL);
++			init_once);
+ 	if (!sysv_inode_cachep)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/ufs/super.c b/fs/ufs/super.c
+--- a/fs/ufs/super.c
++++ b/fs/ufs/super.c
+@@ -1233,20 +1233,20 @@ static void ufs_destroy_inode(struct ino
+ 	kmem_cache_free(ufs_inode_cachep, UFS_I(inode));
+ }
+ 
+-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct ufs_inode_info *ei = (struct ufs_inode_info *) foo;
+ 
+ 	inode_init_once(&ei->vfs_inode);
+ }
+- 
++
+ static int init_inodecache(void)
+ {
+ 	ufs_inode_cachep = kmem_cache_create("ufs_inode_cache",
+ 					     sizeof(struct ufs_inode_info),
+ 					     0, (SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
++					     init_once);
+ 	if (ufs_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/fs/xfs/linux-2.6/kmem.h b/fs/xfs/linux-2.6/kmem.h
+--- a/fs/xfs/linux-2.6/kmem.h
++++ b/fs/xfs/linux-2.6/kmem.h
+@@ -74,14 +74,14 @@ extern void  kmem_free(void *, size_t);
+ static inline kmem_zone_t *
+ kmem_zone_init(int size, char *zone_name)
+ {
+-	return kmem_cache_create(zone_name, size, 0, 0, NULL, NULL);
++	return kmem_cache_create(zone_name, size, 0, 0, NULL);
+ }
+ 
+ static inline kmem_zone_t *
+ kmem_zone_init_flags(int size, char *zone_name, unsigned long flags,
+-		     void (*construct)(void *, kmem_zone_t *, unsigned long))
++		     void (*construct)(void *))
+ {
+-	return kmem_cache_create(zone_name, size, 0, flags, construct, NULL);
++	return kmem_cache_create(zone_name, size, 0, flags, construct);
+ }
+ 
+ static inline void
+diff --git a/include/linux/i2o.h b/include/linux/i2o.h
+--- a/include/linux/i2o.h
++++ b/include/linux/i2o.h
+@@ -945,8 +945,7 @@ static inline int i2o_pool_alloc(struct 
+ 	strcpy(pool->name, name);
+ 
+ 	pool->slab =
+-	    kmem_cache_create(pool->name, size, 0, SLAB_HWCACHE_ALIGN, NULL,
+-			      NULL);
++	    kmem_cache_create(pool->name, size, 0, SLAB_HWCACHE_ALIGN, NULL);
+ 	if (!pool->slab)
+ 		goto free_name;
+ 
+diff --git a/include/linux/slab.h b/include/linux/slab.h
+--- a/include/linux/slab.h
++++ b/include/linux/slab.h
+@@ -14,8 +14,6 @@
+ #include <linux/gfp.h>
+ #include <linux/types.h>
+ 
+-typedef struct kmem_cache kmem_cache_t __deprecated;
+-
+ /*
+  * Flags to pass to kmem_cache_create().
+  * The ones marked DEBUG are only valid if CONFIG_SLAB_DEBUG is set.
+@@ -53,8 +51,7 @@ int slab_is_available(void);
+ 
+ struct kmem_cache *kmem_cache_create(const char *, size_t, size_t,
+ 			unsigned long,
+-			void (*)(void *, struct kmem_cache *, unsigned long),
+-			void (*)(void *, struct kmem_cache *, unsigned long));
++			void (*)(void *));
+ void kmem_cache_destroy(struct kmem_cache *);
+ int kmem_cache_shrink(struct kmem_cache *);
+ void kmem_cache_free(struct kmem_cache *, void *);
+@@ -73,7 +70,7 @@ int kmem_ptr_validate(struct kmem_cache 
+  */
+ #define KMEM_CACHE(__struct, __flags) kmem_cache_create(#__struct,\
+ 		sizeof(struct __struct), __alignof__(struct __struct),\
+-		(__flags), NULL, NULL)
++		(__flags), NULL)
+ 
+ /*
+  * The largest kmalloc size supported by the slab allocators is
+diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
+--- a/include/linux/slub_def.h
++++ b/include/linux/slub_def.h
+@@ -42,7 +42,7 @@ struct kmem_cache {
+ 	int objects;		/* Number of objects in slab */
+ 	gfp_t allocflags;	/* gfp flags to use on each alloc */
+ 	int refcount;		/* Refcount for slab cache destroy */
+-	void (*ctor)(void *, struct kmem_cache *, unsigned long);
++	void (*ctor)(void *);
+ 	int inuse;		/* Offset to metadata */
+ 	int align;		/* Alignment */
+ 	unsigned long min_partial;
+diff --git a/ipc/mqueue.c b/ipc/mqueue.c
+--- a/ipc/mqueue.c
++++ b/ipc/mqueue.c
+@@ -211,7 +211,7 @@ static int mqueue_get_sb(struct file_sys
+ 	return get_sb_single(fs_type, flags, data, mqueue_fill_super, mnt);
+ }
+ 
+-static void init_once(void *foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct mqueue_inode_info *p = (struct mqueue_inode_info *) foo;
+ 
+@@ -1255,7 +1255,7 @@ static int __init init_mqueue_fs(void)
+ 
+ 	mqueue_inode_cachep = kmem_cache_create("mqueue_inode_cache",
+ 				sizeof(struct mqueue_inode_info), 0,
+-				SLAB_HWCACHE_ALIGN, init_once, NULL);
++				SLAB_HWCACHE_ALIGN, init_once);
+ 	if (mqueue_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/kernel/fork.c b/kernel/fork.c
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -144,7 +144,7 @@ void __init fork_init(unsigned long memp
+ 	/* create a slab on which task_structs can be allocated */
+ 	task_struct_cachep =
+ 		kmem_cache_create("task_struct", sizeof(struct task_struct),
+-			ARCH_MIN_TASKALIGN, SLAB_PANIC, NULL, NULL);
++			ARCH_MIN_TASKALIGN, SLAB_PANIC, NULL);
+ #endif
+ 
+ 	/*
+@@ -1437,8 +1437,7 @@ long do_fork(unsigned long clone_flags,
+ #define ARCH_MIN_MMSTRUCT_ALIGN 0
+ #endif
+ 
+-static void sighand_ctor(void *data, struct kmem_cache *cachep,
+-			unsigned long flags)
++static void sighand_ctor(void *data)
+ {
+ 	struct sighand_struct *sighand = data;
+ 
+@@ -1451,22 +1450,22 @@ void __init proc_caches_init(void)
+ 	sighand_cachep = kmem_cache_create("sighand_cache",
+ 			sizeof(struct sighand_struct), 0,
+ 			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_DESTROY_BY_RCU,
+-			sighand_ctor, NULL);
++			sighand_ctor);
+ 	signal_cachep = kmem_cache_create("signal_cache",
+ 			sizeof(struct signal_struct), 0,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
+-	files_cachep = kmem_cache_create("files_cache", 
++			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
++	files_cachep = kmem_cache_create("files_cache",
+ 			sizeof(struct files_struct), 0,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
+-	fs_cachep = kmem_cache_create("fs_cache", 
++			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
++	fs_cachep = kmem_cache_create("fs_cache",
+ 			sizeof(struct fs_struct), 0,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ 	vm_area_cachep = kmem_cache_create("vm_area_struct",
+ 			sizeof(struct vm_area_struct), 0,
+-			SLAB_PANIC, NULL, NULL);
++			SLAB_PANIC, NULL);
+ 	mm_cachep = kmem_cache_create("mm_struct",
+ 			sizeof(struct mm_struct), ARCH_MIN_MMSTRUCT_ALIGN,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ }
+ 
+ /*
+diff --git a/kernel/posix-timers.c b/kernel/posix-timers.c
+--- a/kernel/posix-timers.c
++++ b/kernel/posix-timers.c
+@@ -241,7 +241,7 @@ static __init int init_posix_timers(void
+ 	register_posix_clock(CLOCK_MONOTONIC, &clock_monotonic);
+ 
+ 	posix_timers_cache = kmem_cache_create("posix_timers_cache",
+-					sizeof (struct k_itimer), 0, 0, NULL, NULL);
++					sizeof (struct k_itimer), 0, 0, NULL);
+ 	idr_init(&posix_timers_id);
+ 	return 0;
+ }
+diff --git a/kernel/user.c b/kernel/user.c
+--- a/kernel/user.c
++++ b/kernel/user.c
+@@ -208,7 +208,7 @@ static int __init uid_cache_init(void)
+ 	int n;
+ 
+ 	uid_cachep = kmem_cache_create("uid_cache", sizeof(struct user_struct),
+-			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ 
+ 	for(n = 0; n < UIDHASH_SZ; ++n)
+ 		INIT_LIST_HEAD(uidhash_table + n);
+diff --git a/mm/mempolicy.c b/mm/mempolicy.c
+--- a/mm/mempolicy.c
++++ b/mm/mempolicy.c
+@@ -1600,11 +1600,11 @@ void __init numa_policy_init(void)
+ {
+ 	policy_cache = kmem_cache_create("numa_policy",
+ 					 sizeof(struct mempolicy),
+-					 0, SLAB_PANIC, NULL, NULL);
++					 0, SLAB_PANIC, NULL);
+ 
+ 	sn_cache = kmem_cache_create("shared_policy_node",
+ 				     sizeof(struct sp_node),
+-				     0, SLAB_PANIC, NULL, NULL);
++				     0, SLAB_PANIC, NULL);
+ 
+ 	/* Set interleaving policy for system init. This way not all
+ 	   the data structures allocated at system boot end up in node zero. */
+diff --git a/mm/rmap.c b/mm/rmap.c
+--- a/mm/rmap.c
++++ b/mm/rmap.c
+@@ -137,8 +137,7 @@ void anon_vma_unlink(struct vm_area_stru
+ 		anon_vma_free(anon_vma);
+ }
+ 
+-static void anon_vma_ctor(void *data, struct kmem_cache *cachep,
+-			  unsigned long flags)
++static void anon_vma_ctor(void *data)
+ {
+ 	struct anon_vma *anon_vma = data;
+ 
+@@ -149,7 +148,7 @@ static void anon_vma_ctor(void *data, st
+ void __init anon_vma_init(void)
+ {
+ 	anon_vma_cachep = kmem_cache_create("anon_vma", sizeof(struct anon_vma),
+-			0, SLAB_DESTROY_BY_RCU|SLAB_PANIC, anon_vma_ctor, NULL);
++			0, SLAB_DESTROY_BY_RCU|SLAB_PANIC, anon_vma_ctor);
+ }
+ 
+ /*
+diff --git a/mm/shmem.c b/mm/shmem.c
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -2321,8 +2321,7 @@ static void shmem_destroy_inode(struct i
+ 	kmem_cache_free(shmem_inode_cachep, SHMEM_I(inode));
+ }
+ 
+-static void init_once(void *foo, struct kmem_cache *cachep,
+-		      unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct shmem_inode_info *p = (struct shmem_inode_info *) foo;
+ 
+@@ -2337,7 +2336,7 @@ static int init_inodecache(void)
+ {
+ 	shmem_inode_cachep = kmem_cache_create("shmem_inode_cache",
+ 				sizeof(struct shmem_inode_info),
+-				0, 0, init_once, NULL);
++				0, 0, init_once);
+ 	if (shmem_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/mm/slab.c b/mm/slab.c
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -404,7 +404,7 @@ struct kmem_cache {
+ 	unsigned int dflags;		/* dynamic flags */
+ 
+ 	/* constructor func */
+-	void (*ctor) (void *, struct kmem_cache *, unsigned long);
++	void (*ctor)(void *obj);
+ 
+ /* 5) cache creation/removal */
+ 	const char *name;
+@@ -1504,7 +1504,7 @@ void __init kmem_cache_init(void)
+ 					sizes[INDEX_AC].cs_size,
+ 					ARCH_KMALLOC_MINALIGN,
+ 					ARCH_KMALLOC_FLAGS|SLAB_PANIC,
+-					NULL, NULL);
++					NULL);
+ 
+ 	if (INDEX_AC != INDEX_L3) {
+ 		sizes[INDEX_L3].cs_cachep =
+@@ -1512,7 +1512,7 @@ void __init kmem_cache_init(void)
+ 				sizes[INDEX_L3].cs_size,
+ 				ARCH_KMALLOC_MINALIGN,
+ 				ARCH_KMALLOC_FLAGS|SLAB_PANIC,
+-				NULL, NULL);
++				NULL);
+ 	}
+ 
+ 	slab_early_init = 0;
+@@ -1530,7 +1530,7 @@ void __init kmem_cache_init(void)
+ 					sizes->cs_size,
+ 					ARCH_KMALLOC_MINALIGN,
+ 					ARCH_KMALLOC_FLAGS|SLAB_PANIC,
+-					NULL, NULL);
++					NULL);
+ 		}
+ #ifdef CONFIG_ZONE_DMA
+ 		sizes->cs_dmacachep = kmem_cache_create(
+@@ -1539,7 +1539,7 @@ void __init kmem_cache_init(void)
+ 					ARCH_KMALLOC_MINALIGN,
+ 					ARCH_KMALLOC_FLAGS|SLAB_CACHE_DMA|
+ 						SLAB_PANIC,
+-					NULL, NULL);
++					NULL);
+ #endif
+ 		sizes++;
+ 		names++;
+@@ -2104,12 +2104,10 @@ static int __init_refok setup_cpu_cache(
+  * @align: The required alignment for the objects.
+  * @flags: SLAB flags
+  * @ctor: A constructor for the objects.
+- * @dtor: A destructor for the objects (not implemented anymore).
+  *
+  * Returns a ptr to the cache on success, NULL on failure.
+  * Cannot be called within a int, but can be interrupted.
+- * The @ctor is run when new pages are allocated by the cache
+- * and the @dtor is run before the pages are handed back.
++ * The @ctor is run when new pages are allocated by the cache.
+  *
+  * @name must be valid until the cache is destroyed. This implies that
+  * the module calling this has to destroy the cache before getting unloaded.
+@@ -2128,9 +2126,7 @@ static int __init_refok setup_cpu_cache(
+  */
+ struct kmem_cache *
+ kmem_cache_create (const char *name, size_t size, size_t align,
+-	unsigned long flags,
+-	void (*ctor)(void*, struct kmem_cache *, unsigned long),
+-	void (*dtor)(void*, struct kmem_cache *, unsigned long))
++	unsigned long flags, void (*ctor)(void *))
+ {
+ 	size_t left_over, slab_size, ralign;
+ 	struct kmem_cache *cachep = NULL, *pc;
+@@ -2139,7 +2135,7 @@ kmem_cache_create (const char *name, siz
+ 	 * Sanity checks... these are all serious usage bugs.
+ 	 */
+ 	if (!name || in_interrupt() || (size < BYTES_PER_WORD) ||
+-	    size > KMALLOC_MAX_SIZE || dtor) {
++	    size > KMALLOC_MAX_SIZE) {
+ 		printk(KERN_ERR "%s: Early error in slab %s\n", __FUNCTION__,
+ 				name);
+ 		BUG();
+@@ -2638,8 +2634,7 @@ static void cache_init_objs(struct kmem_
+ 		 * They must also be threaded.
+ 		 */
+ 		if (cachep->ctor && !(cachep->flags & SLAB_POISON))
+-			cachep->ctor(objp + obj_offset(cachep), cachep,
+-				     0);
++			cachep->ctor(objp + obj_offset(cachep));
+ 
+ 		if (cachep->flags & SLAB_RED_ZONE) {
+ 			if (*dbg_redzone2(cachep, objp) != RED_INACTIVE)
+@@ -2655,7 +2650,7 @@ static void cache_init_objs(struct kmem_
+ 					 cachep->buffer_size / PAGE_SIZE, 0);
+ #else
+ 		if (cachep->ctor)
+-			cachep->ctor(objp, cachep, 0);
++			cachep->ctor(objp);
+ #endif
+ 		slab_bufctl(slabp)[i] = i + 1;
+ 	}
+@@ -3081,7 +3076,7 @@ static void *cache_alloc_debugcheck_afte
+ #endif
+ 	objp += obj_offset(cachep);
+ 	if (cachep->ctor && cachep->flags & SLAB_POISON)
+-		cachep->ctor(objp, cachep, 0);
++		cachep->ctor(objp);
+ #if ARCH_SLAB_MINALIGN
+ 	if ((u32)objp & (ARCH_SLAB_MINALIGN-1)) {
+ 		printk(KERN_ERR "0x%p: not aligned to ARCH_SLAB_MINALIGN=%d\n",
+diff --git a/mm/slob.c b/mm/slob.c
+--- a/mm/slob.c
++++ b/mm/slob.c
+@@ -541,13 +541,11 @@ struct kmem_cache {
+ 	unsigned int size, align;
+ 	unsigned long flags;
+ 	const char *name;
+-	void (*ctor)(void *, struct kmem_cache *, unsigned long);
++	void (*ctor)(void *);
+ };
+ 
+ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
+-	size_t align, unsigned long flags,
+-	void (*ctor)(void*, struct kmem_cache *, unsigned long),
+-	void (*dtor)(void*, struct kmem_cache *, unsigned long))
++	size_t align, unsigned long flags, void (*ctor)(void *))
+ {
+ 	struct kmem_cache *c;
+ 
+@@ -594,7 +592,7 @@ void *kmem_cache_alloc_node(struct kmem_
+ 		b = slob_new_pages(flags, get_order(c->size), node);
+ 
+ 	if (c->ctor)
+-		c->ctor(b, c, 0);
++		c->ctor(b);
+ 
+ 	return b;
+ }
+diff --git a/mm/slub.c b/mm/slub.c
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -997,7 +997,7 @@ static void setup_object(struct kmem_cac
+ {
+ 	setup_object_debug(s, page, object);
+ 	if (unlikely(s->ctor))
+-		s->ctor(object, s, 0);
++		s->ctor(object);
+ }
+ 
+ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
+@@ -2038,7 +2038,7 @@ static int calculate_sizes(struct kmem_c
+ static int kmem_cache_open(struct kmem_cache *s, gfp_t gfpflags,
+ 		const char *name, size_t size,
+ 		size_t align, unsigned long flags,
+-		void (*ctor)(void *, struct kmem_cache *, unsigned long))
++		void (*ctor)(void *))
+ {
+ 	memset(s, 0, kmem_size);
+ 	s->name = name;
+@@ -2636,7 +2636,7 @@ static int slab_unmergeable(struct kmem_
+ 
+ static struct kmem_cache *find_mergeable(size_t size,
+ 		size_t align, unsigned long flags,
+-		void (*ctor)(void *, struct kmem_cache *, unsigned long))
++		void (*ctor)(void *))
+ {
+ 	struct kmem_cache *s;
+ 
+@@ -2677,12 +2677,10 @@ static struct kmem_cache *find_mergeable
+ 
+ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
+ 		size_t align, unsigned long flags,
+-		void (*ctor)(void *, struct kmem_cache *, unsigned long),
+-		void (*dtor)(void *, struct kmem_cache *, unsigned long))
++		void (*ctor)(void *))
+ {
+ 	struct kmem_cache *s;
+ 
+-	BUG_ON(dtor);
+ 	down_write(&slub_lock);
+ 	s = find_mergeable(size, align, flags, ctor);
+ 	if (s) {
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -36,7 +36,7 @@ int __init br_fdb_init(void)
+ 	br_fdb_cache = kmem_cache_create("bridge_fdb_cache",
+ 					 sizeof(struct net_bridge_fdb_entry),
+ 					 0,
+-					 SLAB_HWCACHE_ALIGN, NULL, NULL);
++					 SLAB_HWCACHE_ALIGN, NULL);
+ 	if (!br_fdb_cache)
+ 		return -ENOMEM;
+ 
+diff --git a/net/core/flow.c b/net/core/flow.c
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -350,7 +350,7 @@ static int __init flow_cache_init(void)
+ 	flow_cachep = kmem_cache_create("flow_cache",
+ 					sizeof(struct flow_cache_entry),
+ 					0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+-					NULL, NULL);
++					NULL);
+ 	flow_hash_shift = 10;
+ 	flow_lwm = 2 * flow_hash_size;
+ 	flow_hwm = 4 * flow_hash_size;
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1347,7 +1347,7 @@ void neigh_table_init_no_netlink(struct 
+ 		tbl->kmem_cachep =
+ 			kmem_cache_create(tbl->id, tbl->entry_size, 0,
+ 					  SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+-					  NULL, NULL);
++					  NULL);
+ 	tbl->stats = alloc_percpu(struct neigh_statistics);
+ 	if (!tbl->stats)
+ 		panic("cannot create neighbour cache statistics");
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2008,13 +2008,13 @@ void __init skb_init(void)
+ 					      sizeof(struct sk_buff),
+ 					      0,
+ 					      SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+-					      NULL, NULL);
++					      NULL);
+ 	skbuff_fclone_cache = kmem_cache_create("skbuff_fclone_cache",
+ 						(2*sizeof(struct sk_buff)) +
+ 						sizeof(atomic_t),
+ 						0,
+ 						SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+-						NULL, NULL);
++						NULL);
+ }
+ 
+ /**
+diff --git a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1751,7 +1751,7 @@ int proto_register(struct proto *prot, i
+ 
+ 	if (alloc_slab) {
+ 		prot->slab = kmem_cache_create(prot->name, prot->obj_size, 0,
+-					       SLAB_HWCACHE_ALIGN, NULL, NULL);
++					       SLAB_HWCACHE_ALIGN, NULL);
+ 
+ 		if (prot->slab == NULL) {
+ 			printk(KERN_CRIT "%s: Can't create sock SLAB cache!\n",
+@@ -1769,7 +1769,7 @@ int proto_register(struct proto *prot, i
+ 			sprintf(request_sock_slab_name, mask, prot->name);
+ 			prot->rsk_prot->slab = kmem_cache_create(request_sock_slab_name,
+ 								 prot->rsk_prot->obj_size, 0,
+-								 SLAB_HWCACHE_ALIGN, NULL, NULL);
++								 SLAB_HWCACHE_ALIGN, NULL);
+ 
+ 			if (prot->rsk_prot->slab == NULL) {
+ 				printk(KERN_CRIT "%s: Can't create request sock SLAB cache!\n",
+@@ -1791,7 +1791,7 @@ int proto_register(struct proto *prot, i
+ 				kmem_cache_create(timewait_sock_slab_name,
+ 						  prot->twsk_prot->twsk_obj_size,
+ 						  0, SLAB_HWCACHE_ALIGN,
+-						  NULL, NULL);
++						  NULL);
+ 			if (prot->twsk_prot->twsk_slab == NULL)
+ 				goto out_free_timewait_sock_slab_name;
+ 		}
+diff --git a/net/dccp/ackvec.c b/net/dccp/ackvec.c
+--- a/net/dccp/ackvec.c
++++ b/net/dccp/ackvec.c
+@@ -481,14 +481,14 @@ int __init dccp_ackvec_init(void)
+ {
+ 	dccp_ackvec_slab = kmem_cache_create("dccp_ackvec",
+ 					     sizeof(struct dccp_ackvec), 0,
+-					     SLAB_HWCACHE_ALIGN, NULL, NULL);
++					     SLAB_HWCACHE_ALIGN, NULL);
+ 	if (dccp_ackvec_slab == NULL)
+ 		goto out_err;
+ 
+ 	dccp_ackvec_record_slab =
+ 			kmem_cache_create("dccp_ackvec_record",
+ 					  sizeof(struct dccp_ackvec_record),
+-					  0, SLAB_HWCACHE_ALIGN, NULL, NULL);
++					  0, SLAB_HWCACHE_ALIGN, NULL);
+ 	if (dccp_ackvec_record_slab == NULL)
+ 		goto out_destroy_slab;
+ 
+diff --git a/net/dccp/ccid.c b/net/dccp/ccid.c
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -69,7 +69,7 @@ static struct kmem_cache *ccid_kmem_cach
+ 	if (slab_name == NULL)
+ 		return NULL;
+ 	slab = kmem_cache_create(slab_name, sizeof(struct ccid) + obj_size, 0,
+-				 SLAB_HWCACHE_ALIGN, NULL, NULL);
++				 SLAB_HWCACHE_ALIGN, NULL);
+ 	if (slab == NULL)
+ 		kfree(slab_name);
+ 	return slab;
+diff --git a/net/dccp/ccids/lib/loss_interval.c b/net/dccp/ccids/lib/loss_interval.c
+--- a/net/dccp/ccids/lib/loss_interval.c
++++ b/net/dccp/ccids/lib/loss_interval.c
+@@ -33,8 +33,7 @@ struct dccp_li_hist *dccp_li_hist_new(co
+ 	sprintf(slab_name, dccp_li_hist_mask, name);
+ 	hist->dccplih_slab = kmem_cache_create(slab_name,
+ 					     sizeof(struct dccp_li_hist_entry),
+-					       0, SLAB_HWCACHE_ALIGN,
+-					       NULL, NULL);
++					       0, SLAB_HWCACHE_ALIGN, NULL);
+ 	if (hist->dccplih_slab == NULL)
+ 		goto out_free_slab_name;
+ out:
+diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -59,7 +59,7 @@ struct dccp_tx_hist *dccp_tx_hist_new(co
+ 	hist->dccptxh_slab = kmem_cache_create(slab_name,
+ 					     sizeof(struct dccp_tx_hist_entry),
+ 					       0, SLAB_HWCACHE_ALIGN,
+-					       NULL, NULL);
++					       NULL);
+ 	if (hist->dccptxh_slab == NULL)
+ 		goto out_free_slab_name;
+ out:
+@@ -148,7 +148,7 @@ struct dccp_rx_hist *dccp_rx_hist_new(co
+ 	hist->dccprxh_slab = kmem_cache_create(slab_name,
+ 					     sizeof(struct dccp_rx_hist_entry),
+ 					       0, SLAB_HWCACHE_ALIGN,
+-					       NULL, NULL);
++					       NULL);
+ 	if (hist->dccprxh_slab == NULL)
+ 		goto out_free_slab_name;
+ out:
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -1003,7 +1003,7 @@ static int __init dccp_init(void)
+ 	dccp_hashinfo.bind_bucket_cachep =
+ 		kmem_cache_create("dccp_bind_bucket",
+ 				  sizeof(struct inet_bind_bucket), 0,
+-				  SLAB_HWCACHE_ALIGN, NULL, NULL);
++				  SLAB_HWCACHE_ALIGN, NULL);
+ 	if (!dccp_hashinfo.bind_bucket_cachep)
+ 		goto out;
+ 
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -1770,7 +1770,7 @@ void __init dn_route_init(void)
+ 
+ 	dn_dst_ops.kmem_cachep =
+ 		kmem_cache_create("dn_dst_cache", sizeof(struct dn_route), 0,
+-				  SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++				  SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ 	init_timer(&dn_route_timer);
+ 	dn_route_timer.function = dn_dst_check_expire;
+ 	dn_route_timer.expires = jiffies + decnet_dst_gc_interval * HZ;
+diff --git a/net/decnet/dn_table.c b/net/decnet/dn_table.c
+--- a/net/decnet/dn_table.c
++++ b/net/decnet/dn_table.c
+@@ -881,7 +881,7 @@ void __init dn_fib_table_init(void)
+ 	dn_hash_kmem = kmem_cache_create("dn_fib_info_cache",
+ 					sizeof(struct dn_fib_info),
+ 					0, SLAB_HWCACHE_ALIGN,
+-					NULL, NULL);
++					NULL);
+ }
+ 
+ void __exit dn_fib_table_cleanup(void)
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1970,7 +1970,7 @@ struct fib_table * __init fib_hash_init(
+ 		fn_alias_kmem = kmem_cache_create("ip_fib_alias",
+ 						  sizeof(struct fib_alias),
+ 						  0, SLAB_HWCACHE_ALIGN,
+-						  NULL, NULL);
++						  NULL);
+ 
+ 	tb = kmalloc(sizeof(struct fib_table) + sizeof(struct trie),
+ 		     GFP_KERNEL);
+diff --git a/net/ipv4/ipvs/ip_vs_conn.c b/net/ipv4/ipvs/ip_vs_conn.c
+--- a/net/ipv4/ipvs/ip_vs_conn.c
++++ b/net/ipv4/ipvs/ip_vs_conn.c
+@@ -901,7 +901,7 @@ int ip_vs_conn_init(void)
+ 	/* Allocate ip_vs_conn slab cache */
+ 	ip_vs_conn_cachep = kmem_cache_create("ip_vs_conn",
+ 					      sizeof(struct ip_vs_conn), 0,
+-					      SLAB_HWCACHE_ALIGN, NULL, NULL);
++					      SLAB_HWCACHE_ALIGN, NULL);
+ 	if (!ip_vs_conn_cachep) {
+ 		vfree(ip_vs_conn_tab);
+ 		return -ENOMEM;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -3200,7 +3200,7 @@ int __init ip_rt_init(void)
+ 
+ 	ipv4_dst_ops.kmem_cachep =
+ 		kmem_cache_create("ip_dst_cache", sizeof(struct rtable), 0,
+-				  SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++				  SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ 
+ 	ipv4_dst_blackhole_ops.kmem_cachep = ipv4_dst_ops.kmem_cachep;
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2423,7 +2423,7 @@ void __init tcp_init(void)
+ 	tcp_hashinfo.bind_bucket_cachep =
+ 		kmem_cache_create("tcp_bind_bucket",
+ 				  sizeof(struct inet_bind_bucket), 0,
+-				  SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++				  SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ 
+ 	/* Size and allocate the main established and bind bucket
+ 	 * hash tables.
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -1474,7 +1474,7 @@ void __init fib6_init(void)
+ 	fib6_node_kmem = kmem_cache_create("fib6_nodes",
+ 					   sizeof(struct fib6_node),
+ 					   0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+-					   NULL, NULL);
++					   NULL);
+ 
+ 	fib6_tables_init();
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2555,7 +2555,7 @@ void __init ip6_route_init(void)
+ #endif
+ 	ip6_dst_ops.kmem_cachep =
+ 		kmem_cache_create("ip6_dst_cache", sizeof(struct rt6_info), 0,
+-				  SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++				  SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ 	ip6_dst_blackhole_ops.kmem_cachep = ip6_dst_ops.kmem_cachep;
+ 
+ 	fib6_init();
+diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
+--- a/net/ipv6/xfrm6_tunnel.c
++++ b/net/ipv6/xfrm6_tunnel.c
+@@ -84,7 +84,7 @@ static int xfrm6_tunnel_spi_init(void)
+ 	xfrm6_tunnel_spi_kmem = kmem_cache_create("xfrm6_tunnel_spi",
+ 						  sizeof(struct xfrm6_tunnel_spi),
+ 						  0, SLAB_HWCACHE_ALIGN,
+-						  NULL, NULL);
++						  NULL);
+ 	if (!xfrm6_tunnel_spi_kmem)
+ 		return -ENOMEM;
+ 
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -180,8 +180,7 @@ int nf_conntrack_register_cache(u_int32_
+ 		goto out_free_name;
+ 	}
+ 
+-	cachep = kmem_cache_create(cache_name, size, 0, 0,
+-				   NULL, NULL);
++	cachep = kmem_cache_create(cache_name, size, 0, 0, NULL);
+ 	if (!cachep) {
+ 		printk("nf_conntrack_register_cache: Can't create slab cache "
+ 		       "for the features = 0x%x\n", features);
+@@ -1258,7 +1257,7 @@ int __init nf_conntrack_init(void)
+ 
+ 	nf_conntrack_expect_cachep = kmem_cache_create("nf_conntrack_expect",
+ 					sizeof(struct nf_conntrack_expect),
+-					0, 0, NULL, NULL);
++					0, 0, NULL);
+ 	if (!nf_conntrack_expect_cachep) {
+ 		printk(KERN_ERR "Unable to create nf_expect slab cache\n");
+ 		goto err_free_conntrack_slab;
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -731,7 +731,7 @@ static int __init xt_hashlimit_init(void
+ 	err = -ENOMEM;
+ 	hashlimit_cachep = kmem_cache_create("xt_hashlimit",
+ 					    sizeof(struct dsthash_ent), 0, 0,
+-					    NULL, NULL);
++					    NULL);
+ 	if (!hashlimit_cachep) {
+ 		printk(KERN_ERR "xt_hashlimit: unable to create slab cache\n");
+ 		goto err2;
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -793,7 +793,7 @@ static int __init af_rxrpc_init(void)
+ 	ret = -ENOMEM;
+ 	rxrpc_call_jar = kmem_cache_create(
+ 		"rxrpc_call_jar", sizeof(struct rxrpc_call), 0,
+-		SLAB_HWCACHE_ALIGN, NULL, NULL);
++		SLAB_HWCACHE_ALIGN, NULL);
+ 	if (!rxrpc_call_jar) {
+ 		printk(KERN_NOTICE "RxRPC: Failed to allocate call jar\n");
+ 		goto error_call_jar;
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -980,14 +980,14 @@ SCTP_STATIC __init int sctp_init(void)
+ 	sctp_bucket_cachep = kmem_cache_create("sctp_bind_bucket",
+ 					       sizeof(struct sctp_bind_bucket),
+ 					       0, SLAB_HWCACHE_ALIGN,
+-					       NULL, NULL);
++					       NULL);
+ 	if (!sctp_bucket_cachep)
+ 		goto out;
+ 
+ 	sctp_chunk_cachep = kmem_cache_create("sctp_chunk",
+ 					       sizeof(struct sctp_chunk),
+ 					       0, SLAB_HWCACHE_ALIGN,
+-					       NULL, NULL);
++					       NULL);
+ 	if (!sctp_chunk_cachep)
+ 		goto err_chunk_cachep;
+ 
+diff --git a/net/socket.c b/net/socket.c
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -257,7 +257,7 @@ static void sock_destroy_inode(struct in
+ 			container_of(inode, struct socket_alloc, vfs_inode));
+ }
+ 
+-static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
++static void init_once(void *foo)
+ {
+ 	struct socket_alloc *ei = (struct socket_alloc *)foo;
+ 
+@@ -272,8 +272,7 @@ static int init_inodecache(void)
+ 					      (SLAB_HWCACHE_ALIGN |
+ 					       SLAB_RECLAIM_ACCOUNT |
+ 					       SLAB_MEM_SPREAD),
+-					      init_once,
+-					      NULL);
++					      init_once);
+ 	if (sock_inode_cachep == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -824,7 +824,7 @@ static struct file_system_type rpc_pipe_
+ };
+ 
+ static void
+-init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
++init_once(void *foo)
+ {
+ 	struct rpc_inode *rpci = (struct rpc_inode *) foo;
+ 
+@@ -849,7 +849,7 @@ int register_rpc_pipefs(void)
+ 				sizeof(struct rpc_inode),
+ 				0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
+ 						SLAB_MEM_SPREAD),
+-				init_once, NULL);
++				init_once);
+ 	if (!rpc_inode_cachep)
+ 		return -ENOMEM;
+ 	err = register_filesystem(&rpc_pipe_fs_type);
+diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
+--- a/net/sunrpc/sched.c
++++ b/net/sunrpc/sched.c
+@@ -1120,13 +1120,13 @@ rpc_init_mempool(void)
+ 	rpc_task_slabp = kmem_cache_create("rpc_tasks",
+ 					     sizeof(struct rpc_task),
+ 					     0, SLAB_HWCACHE_ALIGN,
+-					     NULL, NULL);
++					     NULL);
+ 	if (!rpc_task_slabp)
+ 		goto err_nomem;
+ 	rpc_buffer_slabp = kmem_cache_create("rpc_buffers",
+ 					     RPC_BUFFER_MAXSIZE,
+ 					     0, SLAB_HWCACHE_ALIGN,
+-					     NULL, NULL);
++					     NULL);
+ 	if (!rpc_buffer_slabp)
+ 		goto err_nomem;
+ 	rpc_task_mempool = mempool_create_slab_pool(RPC_TASK_POOLSIZE,
+diff --git a/net/tipc/handler.c b/net/tipc/handler.c
+--- a/net/tipc/handler.c
++++ b/net/tipc/handler.c
+@@ -97,7 +97,7 @@ int tipc_handler_start(void)
+ {
+ 	tipc_queue_item_cache =
+ 		kmem_cache_create("tipc_queue_items", sizeof(struct queue_item),
+-				  0, SLAB_HWCACHE_ALIGN, NULL, NULL);
++				  0, SLAB_HWCACHE_ALIGN, NULL);
+ 	if (!tipc_queue_item_cache)
+ 		return -ENOMEM;
+ 
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -83,5 +83,5 @@ void __init xfrm_input_init(void)
+ 	secpath_cachep = kmem_cache_create("secpath_cache",
+ 					   sizeof(struct sec_path),
+ 					   0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+-					   NULL, NULL);
++					   NULL);
+ }
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2381,7 +2381,7 @@ static void __init xfrm_policy_init(void
+ 	xfrm_dst_cache = kmem_cache_create("xfrm_dst_cache",
+ 					   sizeof(struct xfrm_dst),
+ 					   0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+-					   NULL, NULL);
++					   NULL);
+ 
+ 	hmask = 8 - 1;
+ 	sz = (hmask+1) * sizeof(struct hlist_head);
+diff --git a/security/keys/key.c b/security/keys/key.c
+--- a/security/keys/key.c
++++ b/security/keys/key.c
+@@ -1003,7 +1003,7 @@ void __init key_init(void)
+ {
+ 	/* allocate a slab in which we can store keys */
+ 	key_jar = kmem_cache_create("key_jar", sizeof(struct key),
+-			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
++			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+ 
+ 	/* add the special key types */
+ 	list_add_tail(&key_type_keyring.link, &key_types_list);
+-- 

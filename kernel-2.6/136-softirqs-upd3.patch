@@ -1,53 +1,207 @@
- c10d73671ad30f54692f7f69f0e09e75d3a8926a softirq: reduce latencies
+
+ c45248c70125cc374fdf264659643276c72801bf [SOFTIRQ]: Remove do_softirq() symbol export.
+ 464771fe4743afd00ebff65aee0983fa1aa1da4f Unexport raise_softirq_irqoff
+ 4620b49f76096fa5183eecad7d689faa898a4c82 softirq: remove initialization of static per-cpu variable
+ 48f20a9a9488c432fc86df1ff4b7f4fa895d1183 tasklets: execute tasklets in the same order they were queued
+ e5e417232e7c9ecc58a77902d2e8dd46792cd092 Fix cpu hotplug problem in softirq code
 
 ---
- kernel/softirq.c |   17 +++++++++--------
- 1 files changed, 9 insertions(+), 8 deletions(-)
+ arch/i386/kernel/irq.c   |    2 -
+ arch/x86_64/kernel/irq.c |    1 
+ kernel/softirq.c         |   77 ++++++++++++++++++++++++++++-------------------
+ 3 files changed, 47 insertions(+), 33 deletions(-)
 
+diff --git a/arch/i386/kernel/irq.c b/arch/i386/kernel/irq.c
+--- a/arch/i386/kernel/irq.c
++++ b/arch/i386/kernel/irq.c
+@@ -231,8 +231,6 @@ asmlinkage void do_softirq(void)
+ 
+ 	local_irq_restore(flags);
+ }
+-
+-EXPORT_SYMBOL(do_softirq);
+ #endif
+ 
+ /*
+diff --git a/arch/x86_64/kernel/irq.c b/arch/x86_64/kernel/irq.c
+--- a/arch/x86_64/kernel/irq.c
++++ b/arch/x86_64/kernel/irq.c
+@@ -210,4 +210,3 @@ asmlinkage void do_softirq(void)
+ 	}
+  	local_irq_restore(flags);
+ }
+-EXPORT_SYMBOL(do_softirq);
 diff --git a/kernel/softirq.c b/kernel/softirq.c
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
-@@ -195,21 +195,21 @@ void local_bh_enable_ip(unsigned long ip)
- EXPORT_SYMBOL(local_bh_enable_ip);
+@@ -238,8 +238,6 @@ asmlinkage void do_softirq(void)
+ 	local_irq_restore(flags);
+ }
+ 
+-EXPORT_SYMBOL(do_softirq);
+-
+ #endif
  
  /*
-- * We restart softirq processing MAX_SOFTIRQ_RESTART times,
-- * and we fall back to softirqd after that.
-+ * We restart softirq processing for at most 2 ms,
-+ * and if need_resched() is not set.
-  *
-- * This number has been established via experimentation.
-+ * These limits have been established via experimentation.
-  * The two things to balance is latency against fairness -
-  * we want to handle softirqs as soon as possible, but they
-  * should not be able to lock up the box.
-  */
--#define MAX_SOFTIRQ_RESTART 10
-+#define MAX_SOFTIRQ_TIME  msecs_to_jiffies(2)
+@@ -299,8 +297,6 @@ inline fastcall void raise_softirq_irqof
+ 		wakeup_softirqd();
+ }
  
- asmlinkage void __do_softirq(void)
+-EXPORT_SYMBOL(raise_softirq_irqoff);
+-
+ void fastcall raise_softirq(unsigned int nr)
  {
- 	struct softirq_action *h;
- 	__u32 pending;
--	int max_restart = MAX_SOFTIRQ_RESTART;
-+	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
- 	int cpu;
+ 	unsigned long flags;
+@@ -318,21 +314,21 @@ void open_softirq(int nr, void (*action)
+ /* Tasklets */
+ struct tasklet_head
+ {
+-	struct tasklet_struct *list;
++	struct tasklet_struct *head;
++	struct tasklet_struct **tail;
+ };
  
- 	pending = local_softirq_pending();
-@@ -264,11 +264,12 @@ restart:
+-/* Some compilers disobey section attribute on statics when not
+-   initialized -- RR */
+-static DEFINE_PER_CPU(struct tasklet_head, tasklet_vec) = { NULL };
+-static DEFINE_PER_CPU(struct tasklet_head, tasklet_hi_vec) = { NULL };
++static DEFINE_PER_CPU(struct tasklet_head, tasklet_vec);
++static DEFINE_PER_CPU(struct tasklet_head, tasklet_hi_vec);
+ 
+ void fastcall __tasklet_schedule(struct tasklet_struct *t)
+ {
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	t->next = __get_cpu_var(tasklet_vec).list;
+-	__get_cpu_var(tasklet_vec).list = t;
++	t->next = NULL;
++	*__get_cpu_var(tasklet_vec).tail = t;
++	__get_cpu_var(tasklet_vec).tail = &(t->next);
+ 	raise_softirq_irqoff(TASKLET_SOFTIRQ);
+ 	local_irq_restore(flags);
+ }
+@@ -344,8 +340,9 @@ void fastcall __tasklet_hi_schedule(stru
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	t->next = __get_cpu_var(tasklet_hi_vec).list;
+-	__get_cpu_var(tasklet_hi_vec).list = t;
++	t->next = NULL;
++	*__get_cpu_var(tasklet_hi_vec).tail = t;
++	__get_cpu_var(tasklet_hi_vec).tail = &(t->next);
+ 	raise_softirq_irqoff(HI_SOFTIRQ);
+ 	local_irq_restore(flags);
+ }
+@@ -357,8 +354,9 @@ static void tasklet_action(struct softir
+ 	struct tasklet_struct *list;
+ 
+ 	local_irq_disable();
+-	list = __get_cpu_var(tasklet_vec).list;
+-	__get_cpu_var(tasklet_vec).list = NULL;
++	list = __get_cpu_var(tasklet_vec).head;
++	__get_cpu_var(tasklet_vec).head = NULL;
++	__get_cpu_var(tasklet_vec).tail = &__get_cpu_var(tasklet_vec).head;
+ 	local_irq_enable();
+ 
+ 	while (list) {
+@@ -378,8 +376,9 @@ static void tasklet_action(struct softir
+ 		}
+ 
+ 		local_irq_disable();
+-		t->next = __get_cpu_var(tasklet_vec).list;
+-		__get_cpu_var(tasklet_vec).list = t;
++		t->next = NULL;
++		*__get_cpu_var(tasklet_vec).tail = t;
++		__get_cpu_var(tasklet_vec).tail = &(t->next);
+ 		__raise_softirq_irqoff(TASKLET_SOFTIRQ);
+ 		local_irq_enable();
+ 	}
+@@ -390,8 +389,9 @@ static void tasklet_hi_action(struct sof
+ 	struct tasklet_struct *list;
+ 
+ 	local_irq_disable();
+-	list = __get_cpu_var(tasklet_hi_vec).list;
+-	__get_cpu_var(tasklet_hi_vec).list = NULL;
++	list = __get_cpu_var(tasklet_hi_vec).head;
++	__get_cpu_var(tasklet_hi_vec).head = NULL;
++	__get_cpu_var(tasklet_hi_vec).tail = &__get_cpu_var(tasklet_hi_vec).head;
+ 	local_irq_enable();
+ 
+ 	while (list) {
+@@ -411,8 +411,9 @@ static void tasklet_hi_action(struct sof
+ 		}
+ 
+ 		local_irq_disable();
+-		t->next = __get_cpu_var(tasklet_hi_vec).list;
+-		__get_cpu_var(tasklet_hi_vec).list = t;
++		t->next = NULL;
++		*__get_cpu_var(tasklet_hi_vec).tail = t;
++		__get_cpu_var(tasklet_hi_vec).tail = &(t->next);
+ 		__raise_softirq_irqoff(HI_SOFTIRQ);
+ 		local_irq_enable();
+ 	}
+@@ -449,6 +450,15 @@ EXPORT_SYMBOL(tasklet_kill);
+ 
+ void __init softirq_init(void)
+ {
++	int cpu;
++
++	for_each_possible_cpu(cpu) {
++		per_cpu(tasklet_vec, cpu).tail =
++			&per_cpu(tasklet_vec, cpu).head;
++		per_cpu(tasklet_hi_vec, cpu).tail =
++			&per_cpu(tasklet_hi_vec, cpu).head;
++	}
++
+ 	open_softirq(TASKLET_SOFTIRQ, tasklet_action);
+ 	open_softirq(HI_SOFTIRQ, tasklet_hi_action);
+ }
+@@ -520,9 +530,12 @@ void tasklet_kill_immediate(struct taskl
+ 		return;
+ 
+ 	/* CPU is dead, so no lock needed. */
+-	for (i = &per_cpu(tasklet_vec, cpu).list; *i; i = &(*i)->next) {
++	for (i = &per_cpu(tasklet_vec, cpu).head; *i; i = &(*i)->next) {
+ 		if (*i == t) {
+ 			*i = t->next;
++			/* If this was the tail element, move the tail ptr */
++			if (*i == NULL)
++				per_cpu(tasklet_vec, cpu).tail = i;
+ 			return;
+ 		}
+ 	}
+@@ -531,20 +544,24 @@ void tasklet_kill_immediate(struct taskl
+ 
+ static void takeover_tasklets(unsigned int cpu)
+ {
+-	struct tasklet_struct **i;
+-
+ 	/* CPU is dead, so no lock needed. */
  	local_irq_disable();
  
- 	pending = local_softirq_pending();
--	if (pending && --max_restart)
--		goto restart;
-+	if (pending) {
-+		if (time_before(jiffies, end) && !need_resched())
-+			goto restart;
- 
--	if (pending)
- 		wakeup_softirqd();
+ 	/* Find end, append list for that CPU. */
+-	for (i = &__get_cpu_var(tasklet_vec).list; *i; i = &(*i)->next);
+-	*i = per_cpu(tasklet_vec, cpu).list;
+-	per_cpu(tasklet_vec, cpu).list = NULL;
++	if (&per_cpu(tasklet_vec, cpu).head != per_cpu(tasklet_vec, cpu).tail) {
++		*(__get_cpu_var(tasklet_vec).tail) = per_cpu(tasklet_vec, cpu).head;
++		__get_cpu_var(tasklet_vec).tail = per_cpu(tasklet_vec, cpu).tail;
++		per_cpu(tasklet_vec, cpu).head = NULL;
++		per_cpu(tasklet_vec, cpu).tail = &per_cpu(tasklet_vec, cpu).head;
 +	}
+ 	raise_softirq_irqoff(TASKLET_SOFTIRQ);
  
- 	trace_softirq_exit();
+-	for (i = &__get_cpu_var(tasklet_hi_vec).list; *i; i = &(*i)->next);
+-	*i = per_cpu(tasklet_hi_vec, cpu).list;
+-	per_cpu(tasklet_hi_vec, cpu).list = NULL;
++	if (&per_cpu(tasklet_hi_vec, cpu).head != per_cpu(tasklet_hi_vec, cpu).tail) {
++		*__get_cpu_var(tasklet_hi_vec).tail = per_cpu(tasklet_hi_vec, cpu).head;
++		__get_cpu_var(tasklet_hi_vec).tail = per_cpu(tasklet_hi_vec, cpu).tail;
++		per_cpu(tasklet_hi_vec, cpu).head = NULL;
++		per_cpu(tasklet_hi_vec, cpu).tail = &per_cpu(tasklet_hi_vec, cpu).head;
++	}
+ 	raise_softirq_irqoff(HI_SOFTIRQ);
  
+ 	local_irq_enable();
 -- 

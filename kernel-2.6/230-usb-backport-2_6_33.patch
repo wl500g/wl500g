@@ -841,7 +841,7 @@ diff -x'.*' -urNBp a/drivers/scsi/sd.c b/drivers/scsi/sd.c
 +static int  sd_issue_flush(struct device *, sector_t *);
 +static void sd_prepare_flush(request_queue_t *, struct request *);
 +static void sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer);
-+static void scsi_disk_release(struct class_device *cdev);
++static void scsi_disk_release(struct device *cdev);
 +static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
 +static void sd_print_result(struct scsi_disk *, int);
 +
@@ -23652,7 +23652,7 @@ diff -x'.*' -urNBp a/include/scsi/sd.h b/include/scsi/sd.h
 +++ b/include/scsi/sd.h	2010-07-27 14:22:42.000000000 +0400
 @@ -53,21 +53,10 @@ struct scsi_disk {
  };
- #define to_scsi_disk(obj) container_of(obj,struct scsi_disk,cdev)
+ #define to_scsi_disk(obj) container_of(obj,struct scsi_disk,dev)
  
 -static int  sd_revalidate_disk(struct gendisk *disk);
 -static void sd_rw_intr(struct scsi_cmnd * SCpnt);
@@ -23666,7 +23666,7 @@ diff -x'.*' -urNBp a/include/scsi/sd.h b/include/scsi/sd.h
 -static int  sd_issue_flush(struct device *, sector_t *);
 -static void sd_prepare_flush(request_queue_t *, struct request *);
 -static void sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer);
--static void scsi_disk_release(struct class_device *cdev);
+-static void scsi_disk_release(struct device *cdev);
 -static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
 -static void sd_print_result(struct scsi_disk *, int);
 +static inline struct scsi_disk *scsi_disk(struct gendisk *disk)

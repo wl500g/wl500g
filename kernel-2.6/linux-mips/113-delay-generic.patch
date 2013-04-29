@@ -1,0 +1,70 @@
+From 5210edcd527773c227465ad18e416a894966324f
+From: David Daney <david.daney@cavium.com>
+Date: Fri, 28 Sep 2012 18:34:10 +0000
+Subject: MIPS: Make __{,n,u}delay declarations match definitions and generic delay.h
+
+At some recent point arch/mips/include/asm/delay.h has started being
+included into csrc-octeon.c where the __?delay() functions are defined.
+This causes a compile failure due to conflicting declarations and
+definitions of the functions.
+
+It turns out that the generic definitions in arch/mips/lib/delay.c also
+conflict.
+
+Proposed fix: Declare the functions to take unsigned long parameters
+just like asm-generic (and x86) does.  Update __delay to agree
+(__ndelay and __udelay need no change).
+
+Bonus: Get rid of 'inline' from __delay() definition, as it is globally
+visible, and the compiler should be making this decision itself (it does
+in fact inline the function without being told to).
+
+Signed-off-by: David Daney <david.daney@cavium.com>
+Cc: linux-mips@linux-mips.org
+Patchwork: https://patchwork.linux-mips.org/patch/4354/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ arch/mips/lib/delay.c    |    6 +++++-
+ include/asm-mips/delay.h |    6 +++---
+ 2 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/include/asm-mips/delay.h b/include/asm-mips/delay.h
+--- a/include/asm-mips/delay.h
++++ b/include/asm-mips/delay.h
+@@ -13,9 +13,9 @@
+ 
+ #include <linux/param.h>
+ 
+-extern void __delay(unsigned int loops);
+-extern void __ndelay(unsigned int ns);
+-extern void __udelay(unsigned int us);
++extern void __delay(unsigned long loops);
++extern void __ndelay(unsigned long ns);
++extern void __udelay(unsigned long us);
+ 
+ #define ndelay(ns) __ndelay(ns)
+ #define udelay(us) __udelay(us)
+diff --git a/arch/mips/lib/delay.c b/arch/mips/lib/delay.c
+--- a/arch/mips/lib/delay.c
++++ b/arch/mips/lib/delay.c
+@@ -15,13 +15,17 @@
+ #include <asm/compiler.h>
+ #include <asm/war.h>
+ 
+-inline void __delay(unsigned int loops)
++void __delay(unsigned long loops)
+ {
+ 	__asm__ __volatile__ (
+ 	"	.set	noreorder				\n"
+ 	"	.align	3					\n"
+ 	"1:	bnez	%0, 1b					\n"
++#if BITS_PER_LONG == 32
+ 	"	subu	%0, 1					\n"
++#else
++	"	dsubu	%0, 1					\n"
++#endif
+ 	"	.set	reorder					\n"
+ 	: "=r" (loops)
+ 	: "0" (loops));
+-- 

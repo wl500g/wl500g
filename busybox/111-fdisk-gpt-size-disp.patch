@@ -5,7 +5,7 @@ size for the disk and partitions.  This appears to be because
 smart_ulltoa5() is expecting bytes, where gpt_list_table() is sending
 sectors.  The attached patch fixes it for me.
 
--Justin
+-Justin Maggard
 
 --- busybox-1.18.4/util-linux/fdisk_gpt.c	2011-03-28 13:30:59.000000000 +0000
 +++ busybox-1.18.4-jm/util-linux/fdisk_gpt.c	2011-03-29 01:56:45.000000000 +0000
@@ -32,7 +32,7 @@ sectors.  The attached patch fixes it for me.
 diff --git a/util-linux/fdisk.c b/util-linux/fdisk.c
 --- a/util-linux/fdisk.c
 +++ b/util-linux/fdisk.c
-@@ -423,8 +423,8 @@ static sector_t bb_BLKGETSIZE_sectors(in
+@@ -423,8 +423,8 @@ static sector_t bb_BLKGETSIZE_sectors(int fd)
  	unsigned long longsectors;
  
  	if (ioctl(fd, BLKGETSIZE64, &v64) == 0) {
@@ -43,7 +43,27 @@ diff --git a/util-linux/fdisk.c b/util-linux/fdisk.c
  		if (v64 != (sector_t)v64) {
   ret_trunc:
  			/* Not only DOS, but all other partition tables
-@@ -1939,7 +1939,7 @@ check_consistency(const struct partition
+@@ -1313,10 +1313,7 @@ get_geometry(void)
+ static void
+ get_geometry(void)
+ {
+-	int sec_fac;
+-
+ 	get_sectorsize();
+-	sec_fac = sector_size / 512;
+ #if ENABLE_FEATURE_SUN_LABEL
+ 	guess_device_type();
+ #endif
+@@ -1339,7 +1336,7 @@ get_geometry(void)
+ 	if (dos_compatible_flag)
+ 		sector_offset = g_sectors;
+ 
+-	g_cylinders = total_number_of_sectors / (g_heads * g_sectors * sec_fac);
++	g_cylinders = total_number_of_sectors / g_heads / g_sectors;
+ 	if (!g_cylinders)
+ 		g_cylinders = user_cylinders;
+ }
+@@ -1939,7 +1939,7 @@ list_disk_geometry(void)
  static void
  list_disk_geometry(void)
  {

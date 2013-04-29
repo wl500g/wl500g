@@ -1,21 +1,5 @@
-From f9c99bb8b3a1ec81af68d484a551307326c2e933
-From: Alan Stern
-Date: Tue, 2 Jun 2009 11:53:55 -0400
-Subject: [PATCH] USB: usb-serial: replace shutdown with disconnect, release
-
-This patch (as1254) splits up the shutdown method of usb_serial_driver
-into a disconnect and a release method.
-
-The problem is that the usb-serial core was calling shutdown during
-disconnect handling, but drivers didn't expect it to be called until
-after all the open file references had been closed.  The result was an
-oops when the close method tried to use memory that had been
-deallocated by shutdown.
-
-Signed-off-by: Alan Stern <stern@rowland.harvard.edu>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
+ f9c99bb8b3a1ec81af68d484a551307326c2e933 USB: usb-serial: replace shutdown with disconnect, release
+ a4720c650b68a5fe7faed2edeb0ad12645f7ae63 USB: serial: don't call release without attach
  37768adf9a1d49aeac0db1ba3dc28b3274b7b789 USB: fix mos7840 problem with minor numbers
 
 ---
@@ -47,11 +31,11 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  drivers/usb/serial/pl2303.c           |    5 --
  drivers/usb/serial/sierra.c           |    4 -
  drivers/usb/serial/ti_usb_3410_5052.c |   10 +---
- drivers/usb/serial/usb-serial.c       |   29 ++++++-------
+ drivers/usb/serial/usb-serial.c       |   33 ++++++++-------
  drivers/usb/serial/visor.c            |   13 ++----
  drivers/usb/serial/whiteheat.c        |    6 +-
- include/linux/usb/serial.h            |   12 +++--
- 32 files changed, 287 insertions(+), 196 deletions(-)
+ include/linux/usb/serial.h            |   13 ++++--
+ 32 files changed, 292 insertions(+), 196 deletions(-)
 
 diff --git a/drivers/usb/serial/aircable.c b/drivers/usb/serial/aircable.c
 --- a/drivers/usb/serial/aircable.c
@@ -1298,11 +1282,12 @@ diff --git a/drivers/usb/serial/ti_usb_3410_5052.c b/drivers/usb/serial/ti_usb_3
 diff --git a/drivers/usb/serial/usb-serial.c b/drivers/usb/serial/usb-serial.c
 --- a/drivers/usb/serial/usb-serial.c
 +++ b/drivers/usb/serial/usb-serial.c
-@@ -141,6 +141,14 @@ static void destroy_serial(struct kref *kref)
+@@ -141,6 +141,15 @@ static void destroy_serial(struct kref *kref)
  	if (serial->minor != SERIAL_TTY_NO_MINOR)
  		return_serial(serial);
  
-+	serial->type->release(serial);
++	if (serial->attached)
++		serial->type->release(serial);
 +
 +	for (i = 0; i < serial->num_ports; ++i) {
 +		port = serial->port[i];
@@ -1325,6 +1310,22 @@ diff --git a/drivers/usb/serial/usb-serial.c b/drivers/usb/serial/usb-serial.c
  		}
  	}
  
+@@ -1059,12 +1060,15 @@ int usb_serial_probe(struct usb_interface *interface,
+ 		module_put(type->driver.owner);
+ 		if (retval < 0)
+ 			goto probe_error;
++		serial->attached = 1;
+ 		if (retval > 0) {
+ 			/* quietly accept this device, but don't bind to a serial port
+ 			 * as it's about to disappear */
+ 			serial->num_ports = 0;
+ 			goto exit;
+ 		}
++	} else {
++		serial->attached = 1;
+ 	}
+ 
+ 	if (get_free_serial(serial, num_ports, &minor) == NULL) {
 @@ -1118,10 +1125,6 @@ void usb_serial_disconnect(struct usb_interface *interface)
  	serial->disconnected = 1;
  	mutex_unlock(&serial->disc_mutex);
@@ -1446,6 +1447,14 @@ diff --git a/drivers/usb/serial/whiteheat.c b/drivers/usb/serial/whiteheat.c
 diff --git a/include/linux/usb/serial.h b/include/linux/usb/serial.h
 --- a/include/linux/usb/serial.h
 +++ b/include/linux/usb/serial.h
+@@ -132,6 +132,7 @@ struct usb_serial {
+ 	struct usb_interface		*interface;
+ 	unsigned char			disconnected:1;
+ 	unsigned char			suspending:1;
++	unsigned char			attached:1;
+ 	unsigned char			minor;
+ 	unsigned char			num_ports;
+ 	unsigned char			num_port_pointers;
 @@ -194,8 +194,10 @@ static inline void usb_set_serial_data(struct usb_serial *serial, void *data)
   *	This will be called when the struct usb_serial structure is fully set
   *	set up.  Do any local initialization of the device, or any private
@@ -1480,4 +1489,3 @@ diff --git a/include/linux/usb/serial.h b/include/linux/usb/serial.h
  extern void usb_serial_generic_deregister (void);
  
 -- 
-1.7.6.5

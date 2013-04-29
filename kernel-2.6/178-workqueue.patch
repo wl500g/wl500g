@@ -4,11 +4,13 @@ workqueue: Updates from upstream
  1f1f642e2f092e37eb9038060eb0100c44f55a11 make cancel_xxx_work_sync() return a boolean
  d59b949f771eb3cbe50865c72e13e2a0a8d4d781 timer_list: add annotations to workqueue.c
  8a3e77cc212f3bc8eccc95e0d046405cf2a02764 workqueue: remove redundant function invocation
+ 1a4d9b0aa0d3c50314e57525a5e5ec2cfc48b4c8 workqueues: insert_work: use "list_head *" instead of "int tail"
+ 2355b70fd59cb5be7de2052a9edeee7afb7ff099 workqueue: avoid recursion in run_workqueue()
 
 ---
- include/linux/workqueue.h |   15 ++++++++++----
- kernel/workqueue.c        |   49 +++++++++++++++++++++++++++++-----------------
- 2 files changed, 42 insertions(+), 22 deletions(-)
+ include/linux/workqueue.h |   15 ++++--
+ kernel/workqueue.c        |  105 +++++++++++++++++++++-------------------------
+ 2 files changed, 59 insertions(+), 61 deletions(-)
 
 diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
 --- a/include/linux/workqueue.h
@@ -50,7 +52,46 @@ diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
 diff --git a/kernel/workqueue.c b/kernel/workqueue.c
 --- a/kernel/workqueue.c
 +++ b/kernel/workqueue.c
-@@ -196,7 +196,6 @@ void delayed_work_timer_fn(unsigned long
+@@ -48,8 +48,6 @@ struct cpu_workqueue_struct {
+ 
+ 	struct workqueue_struct *wq;
+ 	struct task_struct *thread;
+-
+-	int run_depth;		/* Detect run_workqueue() recursion depth */
+ } ____cacheline_aligned;
+ 
+ /*
+@@ -126,7 +124,7 @@ struct cpu_workqueue_struct *get_wq_data
+ }
+ 
+ static void insert_work(struct cpu_workqueue_struct *cwq,
+-				struct work_struct *work, int tail)
++			struct work_struct *work, struct list_head *head)
+ {
+ 	set_wq_data(work, cwq);
+ 	/*
+@@ -134,10 +132,7 @@ static void insert_work(struct cpu_workq
+ 	 * result of list_add() below, see try_to_grab_pending().
+ 	 */
+ 	smp_wmb();
+-	if (tail)
+-		list_add_tail(&work->entry, &cwq->worklist);
+-	else
+-		list_add(&work->entry, &cwq->worklist);
++	list_add_tail(&work->entry, head);
+ 	wake_up(&cwq->more_work);
+ }
+ 
+@@ -148,7 +143,7 @@ static void __queue_work(struct cpu_work
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&cwq->lock, flags);
+-	insert_work(cwq, work, 1);
++	insert_work(cwq, work, &cwq->worklist);
+ 	spin_unlock_irqrestore(&cwq->lock, flags);
+ }
+ 
+@@ -196,7 +191,6 @@ void delayed_work_timer_fn(unsigned long
  int fastcall queue_delayed_work(struct workqueue_struct *wq,
  			struct delayed_work *dwork, unsigned long delay)
  {
@@ -58,7 +99,7 @@ diff --git a/kernel/workqueue.c b/kernel/workqueue.c
  	if (delay == 0)
  		return queue_work(wq, &dwork->work);
  
-@@ -224,6 +223,8 @@ int queue_delayed_work_on(int cpu, struc
+@@ -224,6 +218,8 @@ int queue_delayed_work_on(int cpu, struc
  		BUG_ON(timer_pending(timer));
  		BUG_ON(!list_empty(&work->entry));
  
@@ -67,7 +108,84 @@ diff --git a/kernel/workqueue.c b/kernel/workqueue.c
  		/* This stores cwq for the moment, for the timer_fn */
  		set_wq_data(work, wq_per_cpu(wq, raw_smp_processor_id()));
  		timer->expires = jiffies + delay;
-@@ -403,16 +404,16 @@ void fastcall flush_workqueue(struct wor
+@@ -243,13 +239,6 @@ EXPORT_SYMBOL_GPL(queue_delayed_work_on)
+ static void run_workqueue(struct cpu_workqueue_struct *cwq)
+ {
+ 	spin_lock_irq(&cwq->lock);
+-	cwq->run_depth++;
+-	if (cwq->run_depth > 3) {
+-		/* morton gets to eat his hat */
+-		printk("%s: recursion depth exceeded: %d\n",
+-			__FUNCTION__, cwq->run_depth);
+-		dump_stack();
+-	}
+ 	while (!list_empty(&cwq->worklist)) {
+ 		struct work_struct *work = list_entry(cwq->worklist.next,
+ 						struct work_struct, entry);
+@@ -292,7 +281,6 @@ static void run_workqueue(struct cpu_wor
+ 		spin_lock_irq(&cwq->lock);
+ 		cwq->current_work = NULL;
+ 	}
+-	cwq->run_depth--;
+ 	spin_unlock_irq(&cwq->lock);
+ }
+ 
+@@ -337,41 +325,32 @@ static void wq_barrier_func(struct work_
+ }
+ 
+ static void insert_wq_barrier(struct cpu_workqueue_struct *cwq,
+-					struct wq_barrier *barr, int tail)
++			struct wq_barrier *barr, struct list_head *head)
+ {
+ 	INIT_WORK(&barr->work, wq_barrier_func);
+ 	__set_bit(WORK_STRUCT_PENDING, work_data_bits(&barr->work));
+ 
+ 	init_completion(&barr->done);
+ 
+-	insert_work(cwq, &barr->work, tail);
++	insert_work(cwq, &barr->work, head);
+ }
+ 
+ static int flush_cpu_workqueue(struct cpu_workqueue_struct *cwq)
+ {
+-	int active;
+-
+-	if (cwq->thread == current) {
+-		/*
+-		 * Probably keventd trying to flush its own queue. So simply run
+-		 * it by hand rather than deadlocking.
+-		 */
+-		run_workqueue(cwq);
+-		active = 1;
+-	} else {
+-		struct wq_barrier barr;
++	int active = 0;
++	struct wq_barrier barr;
+ 
+-		active = 0;
+-		spin_lock_irq(&cwq->lock);
+-		if (!list_empty(&cwq->worklist) || cwq->current_work != NULL) {
+-			insert_wq_barrier(cwq, &barr, 1);
+-			active = 1;
+-		}
+-		spin_unlock_irq(&cwq->lock);
++	WARN_ON(cwq->thread == current);
+ 
+-		if (active)
+-			wait_for_completion(&barr.done);
++	spin_lock_irq(&cwq->lock);
++	if (!list_empty(&cwq->worklist) || cwq->current_work != NULL) {
++		insert_wq_barrier(cwq, &barr, &cwq->worklist);
++		active = 1;
+ 	}
++	spin_unlock_irq(&cwq->lock);
++
++	if (active)
++		wait_for_completion(&barr.done);
+ 
+ 	return active;
+ }
+@@ -403,16 +382,16 @@ void fastcall flush_workqueue(struct wor
  EXPORT_SYMBOL_GPL(flush_workqueue);
  
  /*
@@ -87,7 +205,16 @@ diff --git a/kernel/workqueue.c b/kernel/workqueue.c
  
  	/*
  	 * The queueing is in progress, or it is already queued. Try to
-@@ -481,10 +482,28 @@ static void wait_on_work(struct work_str
+@@ -449,7 +428,7 @@ static void wait_on_cpu_work(struct cpu_
+ 
+ 	spin_lock_irq(&cwq->lock);
+ 	if (unlikely(cwq->current_work == work)) {
+-		insert_wq_barrier(cwq, &barr, 0);
++		insert_wq_barrier(cwq, &barr, cwq->worklist.next);
+ 		running = 1;
+ 	}
+ 	spin_unlock_irq(&cwq->lock);
+@@ -481,10 +460,28 @@ static void wait_on_work(struct work_str
  		wait_on_cpu_work(per_cpu_ptr(wq->cpu_wq, cpu), work);
  }
  
@@ -116,7 +243,7 @@ diff --git a/kernel/workqueue.c b/kernel/workqueue.c
   * cancel_work_sync() will cancel the work if it is queued. If the work's
   * callback appears to be running, cancel_work_sync() will block until it
   * has completed.
-@@ -500,31 +519,26 @@ static void wait_on_work(struct work_str
+@@ -500,31 +497,26 @@ static void wait_on_work(struct work_str
   * The caller must ensure that workqueue_struct on which this work was last
   * queued can't be destroyed before this function returns.
   */
@@ -156,7 +283,7 @@ diff --git a/kernel/workqueue.c b/kernel/workqueue.c
  
  static struct workqueue_struct *keventd_wq __read_mostly;
  
-@@ -551,7 +565,6 @@ EXPORT_SYMBOL(schedule_work);
+@@ -551,7 +543,6 @@ EXPORT_SYMBOL(schedule_work);
  int fastcall schedule_delayed_work(struct delayed_work *dwork,
  					unsigned long delay)
  {

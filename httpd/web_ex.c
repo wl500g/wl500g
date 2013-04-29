@@ -429,7 +429,7 @@ ej_select_channel(int eid, webs_t wp, int argc, char **argv)
 	int ret = 0;	
 	int i, channel, channels[32];
 
-	channel=nvram_get_int("wl_channel");
+	channel = nvram_get_int("wl_channel");
 
 	if (!wl_channels_in_country(nvram_safe_get("wl_country_code"), channels)) {
 		wl_channels_in_country_asus(nvram_safe_get("wl_country_code"), channels);
@@ -552,6 +552,20 @@ ej_uptime(int eid, webs_t wp, int argc, char **argv)
 }
 
 static int
+ej_model(int eid, webs_t wp, int argc, char **argv)
+{
+	char buf[MAX_LINE_SIZE];
+	int mode;
+
+	if (ejArgs(argc, argv, "%d", &mode) < 1)
+		mode = 0;
+
+	get_model_t(buf, sizeof(buf), mode);
+
+	return websWrite(wp, buf);
+}
+
+static int
 dump_file(webs_t wp, const char *filename)
 {
 	int  fd, n;
@@ -587,7 +601,7 @@ ej_dump(int eid, webs_t wp, int argc, char **argv)
 	}
 	dprintf("Script : %s, File: %s\n", script, file);
 
-	// run scrip first to update some status
+	// run script first to update some status
 	if (strcmp(script, "") != 0)
 		sys_script(script);
 
@@ -822,7 +836,7 @@ apply_cgi(webs_t wp, const char *url, const char *path, const char *query)
 
 			if (!strcmp(value, " Restore ")) {
 				//sys_restore(serviceId);
-			} else if(!strcmp(value, "  Save  ") ||
+			} else if(!strcmp(value, " Save ") ||
 				  !strcmp(value, " Apply ")) {
 				validate_cgi(wp, sid, TRUE);
 			} else if(!strcmp(value, "Set") ||
@@ -865,7 +879,7 @@ apply_cgi(webs_t wp, const char *url, const char *path, const char *query)
 			sys_script(script);
 		}   
 
-		if (!strcmp(value, "  Save  ")) {
+		if (!strcmp(value, " Save ")) {
 			strcpy(urlcache, next_url);
 			websRedirect(wp, next_url);
 		} else if (!strcmp(value, " Apply ")) {
@@ -880,7 +894,7 @@ apply_cgi(webs_t wp, const char *url, const char *path, const char *query)
 
 		dprintf("apply ok\n");
 		return 0;
-	}  
+	}
 
 
 
@@ -1214,7 +1228,7 @@ do_auth(char *userid, char *passwd, char *realm)
 	} else {
 		strncpy(passwd, UserPass, AUTH_MAX);
 	}
-	strncpy(realm, ProductID, AUTH_MAX);
+	get_model_t(realm, AUTH_MAX, GET_MODEL_FULL);
 }
 
 
@@ -1282,6 +1296,7 @@ do_webcam_cgi(char *url, FILE *stream)
 static int chk_fw_image(FILE *fifo, int len)
 {
 	char hdr_buf[8];
+	char prod_id[12];
 	int rd;
 #define MAX_VERSION_LEN 64
 	char version[MAX_VERSION_LEN];
@@ -1298,10 +1313,10 @@ static int chk_fw_image(FILE *fifo, int len)
 	sscanf(nvram_safe_get("HardwareVer"), "%d.%d", &hwmajor, &hwminor);
 	cprintf("Hardware : %d.%d %s\n", hwmajor, hwminor, version+4);
 
-	if (((strncmp(ProductID, version+4, strlen(ProductID))==0 &&
-		strncmp(version+4, "WL500gx", 7)!=0) || 
-		(strncmp(ProductID, "WL500g.Deluxe", 13)==0 &&
-		strncmp(version+4, "WL500gx", 7)==0))
+	memset(prod_id, ' ', sizeof(prod_id));
+	memcpy(prod_id, ProductID, strlen(ProductID));
+
+	if (memcmp(prod_id, version + 4, 12) == 0
 		&& checkVersion(version, hwmajor, hwminor))
 	{
 		cprintf("FW image ok\n");
@@ -1636,7 +1651,6 @@ do_svgfile(char *url, FILE *stream)
 	do_file(path, stream);
 }
 
-
 const struct mime_handler mime_handlers[] = {
 #ifdef USE_JSON
 	{ "**.asp", "text/html", no_cache, NULL, do_ej_ex, do_auth },
@@ -1647,6 +1661,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "**.css", "text/css", NULL, NULL, do_file, do_auth },
 	{ "**.gif", "image/gif", NULL, NULL, do_file, do_auth },
 	{ "**.jpg", "image/jpeg", NULL, NULL, do_file, do_auth },
+	{ "favicon.ico", "image/x-icon", NULL, NULL, do_file, NULL },
 	{ "**.ico", "image/x-icon", NULL, NULL, do_file, do_auth },
 	{ "**.png", "image/png", NULL, NULL, do_file, do_auth },
 	{ "**.js",  "application/x-javascript", NULL, NULL, do_file, do_auth },
@@ -1671,6 +1686,7 @@ const struct mime_handler mime_handlers[] = {
 
 
 const struct ej_handler ej_handlers[] = {
+	{ "model", ej_model},
 #ifdef USE_JSON
 	{ "nvram_get_json", ej_nvram_get_json },
 	{ "nvram_get_n_json", ej_nvram_get_n_json },

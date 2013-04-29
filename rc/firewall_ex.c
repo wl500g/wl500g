@@ -762,7 +762,9 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 #ifdef __CONFIG_MODEM__
 	 || nvram_match("wan_proto", "usbmodem")
 #endif
- 
+#ifdef __CONFIG_USBNET__
+	 || nvram_match("wan_proto", "usbnet")
+#endif
         ) {
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 	}
@@ -951,21 +953,6 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		    ":OUTPUT ACCEPT [0:0]\n"
 		    ":SECURITY - [0:0]\n"
 		    ":logaccept - [0:0]\n:logdrop - [0:0]\n");
-
-	/* SECURITY chain */
-
-#ifndef LINUX26		// xtables!
-	// sync-flood protection
-	fprintf(fp, "-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n");
-	// furtive port scanner
-	fprintf(fp, "-A SECURITY -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j RETURN\n");
-	// udp flooding
-	fprintf(fp, "-A SECURITY -p udp -m limit --limit 5/s -j RETURN\n");
-	// ping of death
-	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
-	// drop attacks!!!
-	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
-#endif //LINUX26
 
 	/* INPUT chain */
 

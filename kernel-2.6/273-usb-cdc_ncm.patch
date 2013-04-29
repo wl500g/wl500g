@@ -7,21 +7,24 @@ USB: CDC NCM host driver backport from 3.6.11
  2f62d5aa2879dc380881b2c74d042051dbb60bc8 cdc_ncm: add support FLAG_NOARP for Infineon modem platform
  56a666dcfcb46e998a1bd969fb201bf51de3c412 net: cdc_ncm: use IAD provided by the USB core
  96316c595697ae9a2a90badd6f00035f2f384773 net: cdc_ncm: add another Huawei vendor specific device
+ 1e8bbe6cd02fc300c88bd48244ce61ad9c7d1776 net: cdc_ncm, cdc_mbim: allow user to prefer NCM for backwards compatibility
+ 8f0923c17d34ac838b7f57709f87fe33f76ee219 cdc_ncm: return -ENOMEM if kzalloc fails
 
 ---
  drivers/net/usb/Kconfig     |   18 
  drivers/net/usb/Makefile    |    1 
- drivers/net/usb/cdc_ncm.c   | 1302 ++++++++++++++++++++++++++++++++++++++++++++
- include/linux/usb/cdc.h     |  201 ++++++
- include/linux/usb/cdc_ncm.h |  134 ++++
- 5 files changed, 1655 insertions(+), 1 deletion(-)
+ drivers/net/usb/cdc_ncm.c   | 1317 ++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/usb/cdc.h     |  203 ++++++
+ include/linux/usb/cdc_ncm.h |  135 ++++
+ 5 files changed, 1673 insertions(+), 1 deletion(-)
  create mode 100644 drivers/net/usb/cdc_ncm.c
+ create mode 100644 include/linux/usb/cdc_ncm.h
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -0,0 +1,1302 @@
+@@ -0,0 +1,1323 @@
 +/*
 + * cdc_ncm.c
 + *
@@ -79,6 +82,14 @@ new file mode 100644
 +#include <linux/usb/cdc_ncm.h>
 +
 +#define	DRIVER_VERSION				"14-Mar-2012"
++
++#ifdef CONFIG_USB_NET_CDC_MBIM
++static int prefer_mbim = true;
++#else
++static int prefer_mbim = false;
++#endif
++module_param(prefer_mbim, bool, S_IRUGO | S_IWUSR);
++MODULE_PARM_DESC(prefer_mbim, "Prefer MBIM setting on dual NCM/MBIM functions");
 +
 +static void cdc_ncm_txpath_bh(unsigned long param);
 +static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx);
@@ -404,8 +415,8 @@ new file mode 100644
 +	u8 iface_no;
 +
 +	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-+	if (ctx == NULL)
-+		return -ENODEV;
++	if (!ctx)
++		return -ENOMEM;
 +
 +	hrtimer_init(&ctx->tx_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 +	ctx->tx_timer.function = &cdc_ncm_tx_timer_cb;
@@ -600,9 +611,12 @@ new file mode 100644
 +}
 +EXPORT_SYMBOL_GPL(cdc_ncm_unbind);
 +
-+static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
++/* Select the MBIM altsetting iff it is preferred and available,
++ * returning the number of the corresponding data interface altsetting
++ */
++u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_interface *intf)
 +{
-+	int ret;
++	struct usb_host_interface *alt;
 +
 +	/* The MBIM spec defines a NCM compatible default altsetting,
 +	 * which we may have matched:
@@ -618,23 +632,27 @@ new file mode 100644
 +	 *   endpoint descriptors, shall be constructed according to
 +	 *   the rules given in section 6 (USB Device Model) of this
 +	 *   specification."
-+	 *
-+	 * Do not bind to such interfaces, allowing cdc_mbim to handle
-+	 * them
 +	 */
-+#ifdef CONFIG_USB_NET_CDC_MBIM
-+	if ((intf->num_altsetting == 2) &&
-+	    !usb_set_interface(dev->udev,
-+			       intf->cur_altsetting->desc.bInterfaceNumber,
-+			       CDC_NCM_COMM_ALTSETTING_MBIM)) {
-+		if (cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
-+			return -ENODEV;
-+		else
-+			usb_set_interface(dev->udev,
-+					  intf->cur_altsetting->desc.bInterfaceNumber,
-+					  CDC_NCM_COMM_ALTSETTING_NCM);
++	if (prefer_mbim && intf->num_altsetting == 2) {
++		alt = usb_altnum_to_altsetting(intf, CDC_NCM_COMM_ALTSETTING_MBIM);
++		if (alt && cdc_ncm_comm_intf_is_mbim(alt) &&
++		    !usb_set_interface(dev->udev,
++				       intf->cur_altsetting->desc.bInterfaceNumber,
++				       CDC_NCM_COMM_ALTSETTING_MBIM))
++			return CDC_NCM_DATA_ALTSETTING_MBIM;
 +	}
-+#endif
++	return CDC_NCM_DATA_ALTSETTING_NCM;
++}
++EXPORT_SYMBOL_GPL(cdc_ncm_select_altsetting);
++
++static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
++{
++	int ret;
++
++	/* MBIM backwards compatible function? */
++	cdc_ncm_select_altsetting(dev, intf);
++	if (cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
++		return -ENODEV;
 +
 +	/* NCM data altsetting is always 1 */
 +	ret = cdc_ncm_bind_common(dev, intf, 1);
@@ -1149,6 +1167,12 @@ new file mode 100644
 +		}
 +		break;
 +
++	case USB_CDC_NOTIFY_RESPONSE_AVAILABLE:
++		/* Not implemented yet */
++		dev_dbg(&dev->udev->dev, "NCM: ResponseAvailable - Value=%d, Index=%d\n",
++			le16_to_cpu(event->wValue), le16_to_cpu(event->wIndex));
++		break;
++
 +	case USB_CDC_NOTIFY_SPEED_CHANGE:
 +		if (urb->actual_length < (sizeof(*event) +
 +					sizeof(struct usb_cdc_speed_change)))
@@ -1377,22 +1401,24 @@ diff --git a/include/linux/usb/cdc.h b/include/linux/usb/cdc.h
  
  #define USB_CDC_SUBCLASS_ACM			0x02
  #define USB_CDC_SUBCLASS_ETHERNET		0x06
-@@ -12,6 +16,8 @@
+@@ -12,6 +16,9 @@
  #define USB_CDC_SUBCLASS_DMM			0x09
  #define USB_CDC_SUBCLASS_MDLM			0x0a
  #define USB_CDC_SUBCLASS_OBEX			0x0b
 +#define USB_CDC_SUBCLASS_EEM			0x0c
 +#define USB_CDC_SUBCLASS_NCM			0x0d
++#define USB_CDC_SUBCLASS_MBIM			0x0e
  
  #define USB_CDC_PROTO_NONE			0
  
-@@ -23,6 +29,10 @@
+@@ -23,6 +29,11 @@
  #define USB_CDC_ACM_PROTO_AT_CDMA		6
  #define USB_CDC_ACM_PROTO_VENDOR		0xff
  
 +#define USB_CDC_PROTO_EEM			7
 +
 +#define USB_CDC_NCM_PROTO_NTB			1
++#define USB_CDC_MBIM_PROTO_NTB			2
 +
  /*-------------------------------------------------------------------------*/
  
@@ -1623,7 +1649,7 @@ diff --git a/include/linux/usb/cdc.h b/include/linux/usb/cdc.h
 diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
 --- a/include/linux/usb/cdc_ncm.h
 +++ b/include/linux/usb/cdc_ncm.h
-@@ -0,0 +1,134 @@
+@@ -0,0 +1,135 @@
 +/*
 + * Copyright (C) ST-Ericsson 2010-2012
 + * Contact: Alexey Orishko <alexey.orishko@stericsson.com>
@@ -1753,6 +1779,7 @@ diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
 +	u16 connected;
 +};
 +
++extern u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_interface *intf);
 +extern int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_altsetting);
 +extern void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf);
 +extern struct sk_buff *cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb, __le32 sign);

@@ -4,13 +4,17 @@
  10fe7d85e2e4042f703a10bed4123f2105eadad2 [IPV4]: Remove unnecessary check for opt->is_data in ip_options_compile.
  ef722495c8867aacc1db0675a6737e5cf1e72e07 [IPV4]: Remove unused ip_options->is_data.
  22aba383ce52f8ca8740f9a74dc66b1b68138813 [IPV4]: Always pass ip_options pointer into ip_options_compile.
+ c65353daf137dd41f3ede3baf62d561fca076228 ip: ip_options_compile() resilient to NULL skb route
+ 48bdf072c3f1f8f739f76d19c74f4c79605cac46 ip_options_compile: properly handle unaligned pointer
+ fa2b04f4502d74659e4e4b1294c6d88e08ece032 net/ipv4: Timestamp option cannot overflow with prespecified addresses
+ 4660c7f498c07c43173142ea95145e9dac5a6d14 net/ipv4: Ensure that location of timestamp option is stored
 
 ---
- include/net/inet_sock.h |    3 +--
- net/ipv4/cipso_ipv4.c   |    1 -
- net/ipv4/ip_input.c     |    5 +++--
- net/ipv4/ip_options.c   |   28 ++++++++--------------------
- 4 files changed, 12 insertions(+), 25 deletions(-)
+ include/net/inet_sock.h |    3 --
+ net/ipv4/cipso_ipv4.c   |    1 
+ net/ipv4/ip_input.c     |    5 ++--
+ net/ipv4/ip_options.c   |   58 ++++++++++++++++++------------------------------
+ 4 files changed, 26 insertions(+), 41 deletions(-)
 
 diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
 --- a/include/net/inet_sock.h
@@ -59,7 +63,15 @@ diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
 diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
 --- a/net/ipv4/ip_options.c
 +++ b/net/ipv4/ip_options.c
-@@ -45,7 +45,6 @@ void ip_options_build(struct sk_buff * s
+@@ -15,6 +15,7 @@
+ #include <linux/module.h>
+ #include <linux/types.h>
+ #include <asm/uaccess.h>
++#include <asm/unaligned.h>
+ #include <linux/skbuff.h>
+ #include <linux/ip.h>
+ #include <linux/icmp.h>
+@@ -45,7 +46,6 @@ void ip_options_build(struct sk_buff * s
  	memcpy(&(IPCB(skb)->opt), opt, sizeof(struct ip_options));
  	memcpy(iph+sizeof(struct iphdr), opt->__data, opt->optlen);
  	opt = &(IPCB(skb)->opt);
@@ -67,7 +79,7 @@ diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
  
  	if (opt->srr)
  		memcpy(iph+opt->srr+iph[opt->srr+1]-4, &daddr, 4);
-@@ -95,8 +94,6 @@ int ip_options_echo(struct ip_options * 
+@@ -95,8 +95,6 @@ int ip_options_echo(struct ip_options *
  
  	memset(dopt, 0, sizeof(struct ip_options));
  
@@ -76,7 +88,7 @@ diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
  	sopt = &(IPCB(skb)->opt);
  
  	if (sopt->optlen == 0) {
-@@ -107,10 +104,7 @@ int ip_options_echo(struct ip_options * 
+@@ -107,10 +105,7 @@ int ip_options_echo(struct ip_options *
  	sptr = skb_network_header(skb);
  	dptr = dopt->__data;
  
@@ -88,7 +100,7 @@ diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
  
  	if (sopt->rr) {
  		optlen  = sptr[sopt->rr+1];
-@@ -261,19 +255,14 @@ int ip_options_compile(struct ip_options
+@@ -261,19 +256,14 @@ int ip_options_compile(struct ip_options
  	unsigned char * optptr;
  	int optlen;
  	unsigned char * pp_ptr = NULL;
@@ -115,7 +127,95 @@ diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
  
  	for (l = opt->optlen; l > 0; ) {
  		switch (*optptr) {
-@@ -526,7 +515,6 @@ static int ip_options_get_finish(struct 
+@@ -341,7 +331,7 @@ int ip_options_compile(struct ip_options
+ 					pp_ptr = optptr + 2;
+ 					goto error;
+ 				}
+-				if (skb) {
++				if (rt) {
+ 					memcpy(&optptr[optptr[2]-1], &rt->rt_spec_dst, 4);
+ 					opt->is_changed = 1;
+ 				}
+@@ -364,16 +354,15 @@ int ip_options_compile(struct ip_options
+ 				goto error;
+ 			}
+ 			if (optptr[2] <= optlen) {
+-				__be32 *timeptr = NULL;
++				unsigned char *timeptr = NULL;
+ 				if (optptr[2]+3 > optptr[1]) {
+ 					pp_ptr = optptr + 2;
+ 					goto error;
+ 				}
+ 				switch (optptr[3]&0xF) {
+ 				      case IPOPT_TS_TSONLY:
+-					opt->ts = optptr - iph;
+ 					if (skb)
+-						timeptr = (__be32*)&optptr[optptr[2]-1];
++						timeptr = &optptr[optptr[2]-1];
+ 					opt->ts_needtime = 1;
+ 					optptr[2] += 4;
+ 					break;
+@@ -382,10 +371,9 @@ int ip_options_compile(struct ip_options
+ 						pp_ptr = optptr + 2;
+ 						goto error;
+ 					}
+-					opt->ts = optptr - iph;
+-					if (skb) {
++					if (rt)  {
+ 						memcpy(&optptr[optptr[2]-1], &rt->rt_spec_dst, 4);
+-						timeptr = (__be32*)&optptr[optptr[2]+3];
++						timeptr = &optptr[optptr[2]+3];
+ 					}
+ 					opt->ts_needaddr = 1;
+ 					opt->ts_needtime = 1;
+@@ -396,14 +384,13 @@ int ip_options_compile(struct ip_options
+ 						pp_ptr = optptr + 2;
+ 						goto error;
+ 					}
+-					opt->ts = optptr - iph;
+ 					{
+ 						__be32 addr;
+ 						memcpy(&addr, &optptr[optptr[2]-1], 4);
+ 						if (inet_addr_type(addr) == RTN_UNICAST)
+ 							break;
+ 						if (skb)
+-							timeptr = (__be32*)&optptr[optptr[2]+3];
++							timeptr = &optptr[optptr[2]+3];
+ 					}
+ 					opt->ts_needtime = 1;
+ 					optptr[2] += 8;
+@@ -417,24 +404,24 @@ int ip_options_compile(struct ip_options
+ 				}
+ 				if (timeptr) {
+ 					struct timespec tv;
+-					__be32  midtime;
++					u32  midtime;
+ 					getnstimeofday(&tv);
+-					midtime = htonl((tv.tv_sec % 86400) * MSEC_PER_SEC + tv.tv_nsec / NSEC_PER_MSEC);
+-					memcpy(timeptr, &midtime, sizeof(__be32));
++					midtime = (tv.tv_sec % 86400) * MSEC_PER_SEC + tv.tv_nsec / NSEC_PER_MSEC;
++					put_unaligned_be32(midtime, timeptr);
+ 					opt->is_changed = 1;
+ 				}
+-			} else {
+-				unsigned overflow = optptr[3]>>4;
++			} else if ((optptr[3]&0xF) != IPOPT_TS_PRESPEC) {
++				unsigned int overflow = optptr[3]>>4;
+ 				if (overflow == 15) {
+ 					pp_ptr = optptr + 3;
+ 					goto error;
+ 				}
+-				opt->ts = optptr - iph;
+ 				if (skb) {
+ 					optptr[3] = (optptr[3]&0xF)|((overflow+1)<<4);
+ 					opt->is_changed = 1;
+ 				}
+ 			}
++			opt->ts = optptr - iph;
+ 			break;
+ 		      case IPOPT_RA:
+ 			if (optlen < 4) {
+@@ -523,7 +510,6 @@ static int ip_options_get_finish(struct
  	while (optlen & 3)
  		opt->__data[optlen++] = IPOPT_END;
  	opt->optlen = optlen;
@@ -123,4 +223,13 @@ diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
  	if (optlen && ip_options_compile(opt, NULL)) {
  		kfree(opt);
  		return -EINVAL;
+@@ -613,7 +599,7 @@ int ip_options_rcv_srr(struct sk_buff *s
+ 	struct rtable *rt2;
+ 	int err;
+ 
+-	if (!opt->srr)
++	if (!opt->srr || !rt)
+ 		return 0;
+ 
+ 	if (skb->pkt_type != PACKET_HOST)
 -- 

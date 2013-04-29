@@ -9716,7 +9716,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  }
  
 -static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
-+static void init_once(void *foo, struct kmem_cache * cachep, unsigned long flags)
++static void init_once(void *foo)
  {
 -	struct udf_inode_info *ei = (struct udf_inode_info *) foo;
 +	struct udf_inode_info *ei = (struct udf_inode_info *)foo;
@@ -9729,10 +9729,11 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  					     sizeof(struct udf_inode_info),
 -					     0, (SLAB_RECLAIM_ACCOUNT|
 -						SLAB_MEM_SPREAD),
+-					     init_once, NULL);
+-	if (udf_inode_cachep == NULL)
 +					     0, (SLAB_RECLAIM_ACCOUNT |
 +						 SLAB_MEM_SPREAD),
- 					     init_once, NULL);
--	if (udf_inode_cachep == NULL)
++					     init_once);
 +	if (!udf_inode_cachep)
  		return -ENOMEM;
  	return 0;

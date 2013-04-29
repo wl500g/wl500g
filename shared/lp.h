@@ -3,11 +3,7 @@
 #ifndef _LINUX_LP_H
 #define _LINUX_LP_H
 
-#ifdef LINUX26
- #define        LP_DEV(arg)            "/dev/lp"#arg
-#else
- #define        LP_DEV(arg)            "/dev/usb/lp"#arg
-#endif
+#define        LP_DEV(arg)            "/dev/lp"#arg
 
 /*
  * usr/include/linux/lp.h c.1991-1992 James Wiegand
