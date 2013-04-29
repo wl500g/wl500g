@@ -1,0 +1,174 @@
+tests: Updates from upstream
+
+ 525a5a614df776ae894596147ec136e303c048e3 test: handle !DO_C99_MATH
+ 7598eeaa1defa2884adaa890bb115c493d69cc35 test: cater for config
+ 68bfc298273d402d7c5a440f8af25264d1921133 tests: test-canon: include sys/stat.h for mkdir()
+ fe60f8005bde1d69ed539d57c479aabc9027a0dd tests: tst-futimens1: add missing mode args to open()
+
+---
+ test/math/Makefile.in     |   10 +++---
+ test/math/basic-test.c    |   71 ++++++++++++++++++++++++++++++++++------------
+ test/stdlib/test-canon.c  |    1 
+ test/time/tst-futimens1.c |    2 -
+ 4 files changed, 62 insertions(+), 22 deletions(-)
+
+diff --git a/test/math/Makefile.in b/test/math/Makefile.in
+--- a/test/math/Makefile.in
++++ b/test/math/Makefile.in
+@@ -1,14 +1,16 @@
+ # uClibc math tests
+ # Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
+ 
+-TESTS := basic-test tst-definitions test-fpucw test-float test-ifloat test-double test-idouble \
+-    rint signgam ilogb
+ # gamma (removed from TESTS, need to add "small errors are ok" machinery there)
+-ifeq ($(UCLIBC_HAS_LONG_DOUBLE_MATH),y)
+-TESTS += test-ldouble test-ildoubl compile_test c99_test
++TESTS_DISABLED := gamma
++ifeq ($(UCLIBC_HAS_LONG_DOUBLE_MATH),)
++TESTS_DISABLED += test-ldouble test-ildoubl compile_test c99_test
+ else
+ CFLAGS_basic-test := -DNO_LONG_DOUBLE
+ endif
++ifeq ($(DO_C99_MATH),)
++TESTS_DISABLED += test-float test-ifloat test-double test-idouble rint signgam ilogb
++endif
+ 
+ DODIFF_rint     := 1
+ DODIFF_signgam  := 1
+diff --git a/test/math/basic-test.c b/test/math/basic-test.c
+--- a/test/math/basic-test.c
++++ b/test/math/basic-test.c
+@@ -65,11 +65,6 @@ NAME (void)								      \
+   check (#FLOAT " !isnan (1)", !(isnan (one_var)));			      \
+   check (#FLOAT " !isnan (inf)", !(isnan (Inf_var)));			      \
+ 									      \
+-  check (#FLOAT " inf == inf", Inf_var == Inf_var);			      \
+-  check (#FLOAT " -inf == -inf", -Inf_var == -Inf_var);			      \
+-  check (#FLOAT " inf != -inf", Inf_var != -Inf_var);			      \
+-  check (#FLOAT " NaN != NaN", NaN_var != NaN_var);			      \
+-									      \
+   /*									      \
+      the same tests but this time with NAN from <bits/nan.h>		      \
+      NAN is a double const						      \
+@@ -78,7 +73,6 @@ NAME (void)								      \
+   check (#FLOAT " isnan (-NAN)", isnan (-NAN));				      \
+   check (#FLOAT " !isinf (NAN)", !(isinf (NAN)));			      \
+   check (#FLOAT " !isinf (-NAN)", !(isinf (-NAN)));			      \
+-  check (#FLOAT " NAN != NAN", NAN != NAN);				      \
+ 									      \
+   /*									      \
+      And again with the value returned by the `nan' function.		      \
+@@ -89,6 +83,48 @@ NAME (void)								      \
+   check (#FLOAT " !isinf (-NAN)", !(isinf (-NANFUNC (""))));		      \
+   check (#FLOAT " NAN != NAN", NANFUNC ("") != NANFUNC (""));		      \
+ 									      \
++  /* test if HUGE_VALx is ok */						      \
++  x1 = HUGEVAL;								      \
++  check (#FLOAT " isinf (HUGE_VALx) == +1", isinf (x1) == +1);		      \
++  x1 = - HUGEVAL;							      \
++  check (#FLOAT " isinf (-HUGE_VALx) == -1", isinf (x1) == -1);		      \
++}
++#ifndef DO_C99_MATH
++# undef TEST_FUNC
++# define TEST_FUNC(NAME, FLOAT, NANFUNC, EPSILON, HUGEVAL) \
++static void								      \
++NAME(void)								      \
++{ /* nothing */ }
++#endif
++
++#define TEST_VAL(NAME, FLOAT, NANFUNC, EPSILON, HUGEVAL) \
++static void								      \
++NAME (void)								      \
++{									      \
++  /* Variables are declared volatile to forbid some compiler		      \
++     optimizations.  */							      \
++  volatile FLOAT Inf_var, NaN_var, zero_var, one_var;			      \
++  FLOAT x1, x2;								      \
++									      \
++  zero_var = 0.0;							      \
++  one_var = 1.0;							      \
++  NaN_var = zero_var/zero_var;						      \
++  Inf_var = one_var / zero_var;						      \
++									      \
++  (void) &zero_var;							      \
++  (void) &one_var;							      \
++  (void) &NaN_var;							      \
++  (void) &Inf_var;							      \
++									      \
++									      \
++  check (#FLOAT " inf == inf", Inf_var == Inf_var);			      \
++  check (#FLOAT " -inf == -inf", -Inf_var == -Inf_var);			      \
++  check (#FLOAT " inf != -inf", Inf_var != -Inf_var);			      \
++  check (#FLOAT " NaN != NaN", NaN_var != NaN_var);			      \
++									      \
++  check (#FLOAT " NAN != NAN", NAN != NAN);				      \
++									      \
++									      \
+   /* test if EPSILON is ok */						      \
+   x1 = 1.0;								      \
+   x2 = x1 + EPSILON;							      \
+@@ -98,27 +134,28 @@ NAME (void)								      \
+   x2 = x1 - EPSILON;							      \
+   check (#FLOAT " 1 != 1-EPSILON", x1 != x2);				      \
+ 									      \
+-  /* test if HUGE_VALx is ok */						      \
+-  x1 = HUGEVAL;								      \
+-  check (#FLOAT " isinf (HUGE_VALx) == +1", isinf (x1) == +1);		      \
+-  x1 = - HUGEVAL;							      \
+-  check (#FLOAT " isinf (-HUGE_VALx) == -1", isinf (x1) == -1);		      \
+ }
+ 
+-TEST_FUNC (float_test, float, nanf, FLT_EPSILON, HUGE_VALF)
+-TEST_FUNC (double_test, double, nan, DBL_EPSILON, HUGE_VAL)
++TEST_VAL (float_test_value, float, nanf, FLT_EPSILON, HUGE_VALF)
++TEST_FUNC (float_test_call, float, nanf, FLT_EPSILON, HUGE_VALF)
++TEST_VAL (double_test_value, double, nan, DBL_EPSILON, HUGE_VAL)
++TEST_FUNC (double_test_call, double, nan, DBL_EPSILON, HUGE_VAL)
+ #ifndef NO_LONG_DOUBLE
+-TEST_FUNC (ldouble_test, long double, nanl, LDBL_EPSILON, HUGE_VALL)
++TEST_VAL (ldouble_test_value, long double, nanl, LDBL_EPSILON, HUGE_VALL)
++TEST_FUNC (ldouble_test_call, long double, nanl, LDBL_EPSILON, HUGE_VALL)
+ #endif
+ 
+ int
+ main (void)
+ {
+-  float_test ();
+-  double_test ();
++  float_test_value ();
++  float_test_call ();
++  double_test_value ();
++  double_test_call ();
+ 
+ #ifndef NO_LONG_DOUBLE
+-  ldouble_test ();
++  ldouble_test_value ();
++  ldouble_test_call ();
+ #endif
+ 
+   return errors != 0;
+diff --git a/test/stdlib/test-canon.c b/test/stdlib/test-canon.c
+--- a/test/stdlib/test-canon.c
++++ b/test/stdlib/test-canon.c
+@@ -28,6 +28,7 @@
+ #include <string.h>
+ #include <unistd.h>
+ #include <sys/param.h>
++#include <sys/stat.h>
+ 
+ /* Prototype for our test function.  */
+ extern int do_test (int argc, char *argv[]);
+diff --git a/test/time/tst-futimens1.c b/test/time/tst-futimens1.c
+--- a/test/time/tst-futimens1.c
++++ b/test/time/tst-futimens1.c
+@@ -46,7 +46,7 @@ int do_test(int argc, char **argv) {
+ 		name = tests[i].name;
+ 		if (*name != '.')
+ 			unlink(name);
+-		fd = open(name, tests[i].flags);
++		fd = open(name, tests[i].flags, 0660);
+ 		if (fd < 0)
+ 			abort();
+ 		errno = 0;
+-- 
