@@ -895,10 +895,12 @@ extern int lock_may_read(struct inode *, loff_t start, unsigned long count);
 extern int lock_may_write(struct inode *, loff_t start, unsigned long count);
 
 struct fasync_struct {
-	int	magic;
-	int	fa_fd;
-	struct	fasync_struct	*fa_next; /* singly linked list */
-	struct	file 		*fa_file;
+	spinlock_t		fa_lock;
+	int			magic;
+	int			fa_fd;
+	struct fasync_struct	*fa_next; /* singly linked list */
+	struct file		*fa_file;
+	struct rcu_head		fa_rcu;
 };
 
 #define FASYNC_MAGIC 0x4601
@@ -907,8 +909,6 @@ struct fasync_struct {
 extern int fasync_helper(int, struct file *, int, struct fasync_struct **);
 /* can be called from interrupts */
 extern void kill_fasync(struct fasync_struct **, int, int);
-/* only for net: no internal synchronization */
-extern void __kill_fasync(struct fasync_struct *, int, int);
 
 extern int __f_setown(struct file *filp, struct pid *, enum pid_type, int force);
 extern int f_setown(struct file *filp, unsigned long arg, int force);
@@ -1984,7 +1984,9 @@ extern int vfs_stat_fd(int dfd, char __user *, struct kstat *);
 extern int vfs_lstat_fd(int dfd, char __user *, struct kstat *);
 extern int vfs_fstat(unsigned int, struct kstat *);
 
-extern int vfs_ioctl(struct file *, unsigned int, unsigned int, unsigned long);
+extern long vfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+extern int do_vfs_ioctl(struct file *filp, unsigned int fd, unsigned int cmd,
+		    unsigned long arg);
 
 extern struct file_system_type *get_fs_type(const char *name);
 extern struct super_block *get_super(struct block_device *);

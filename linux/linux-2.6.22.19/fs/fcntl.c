@@ -202,7 +202,7 @@ asmlinkage long sys_dup(unsigned int fildes)
 	return ret;
 }
 
-#define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | FASYNC | O_DIRECT | O_NOATIME)
+#define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
 
 static int setfl(int fd, struct file * filp, unsigned long arg)
 {
@@ -239,18 +239,18 @@ static int setfl(int fd, struct file * filp, unsigned long arg)
 	if (error)
 		return error;
 
-	lock_kernel();
-	if ((arg ^ filp->f_flags) & FASYNC) {
-		if (filp->f_op && filp->f_op->fasync) {
-			error = filp->f_op->fasync(fd, filp, (arg & FASYNC) != 0);
-			if (error < 0)
-				goto out;
-		}
+	/*
+	 * ->fasync() is responsible for setting the FASYNC bit.
+	 */
+	if (((arg ^ filp->f_flags) & FASYNC) && filp->f_op &&
+			filp->f_op->fasync) {
+		error = filp->f_op->fasync(fd, filp, (arg & FASYNC) != 0);
+		if (error < 0)
+			goto out;
 	}
-
 	filp->f_flags = (arg & SETFL_MASK) | (filp->f_flags & ~SETFL_MASK);
+
  out:
-	unlock_kernel();
 	return error;
 }
 
@@ -561,75 +561,133 @@ int send_sigurg(struct fown_struct *fown)
 	return ret;
 }
 
-static DEFINE_RWLOCK(fasync_lock);
+static DEFINE_SPINLOCK(fasync_lock);
 static struct kmem_cache *fasync_cache __read_mostly;
 
+static void fasync_free_rcu(struct rcu_head *head)
+{
+	kmem_cache_free(fasync_cache,
+			container_of(head, struct fasync_struct, fa_rcu));
+}
+
 /*
- * fasync_helper() is used by some character device drivers (mainly mice)
- * to set up the fasync queue. It returns negative on error, 0 if it did
- * no changes and positive if it added/deleted the entry.
+ * Remove a fasync entry. If successfully removed, return
+ * positive and clear the FASYNC flag. If no entry exists,
+ * do nothing and return 0.
+ *
+ * NOTE! It is very important that the FASYNC flag always
+ * match the state "is the filp on a fasync list".
+ *
+ * We always take the 'filp->f_lock', in since fasync_lock
+ * needs to be irq-safe.
+ */
+static int fasync_remove_entry(struct file *filp, struct fasync_struct **fapp)
+{
+	struct fasync_struct *fa, **fp;
+	int result = 0;
+
+	spin_lock(&fasync_lock);
+	for (fp = fapp; (fa = *fp) != NULL; fp = &fa->fa_next) {
+		if (fa->fa_file != filp)
+			continue;
+
+		spin_lock_irq(&fa->fa_lock);
+		fa->fa_file = NULL;
+		spin_unlock_irq(&fa->fa_lock);
+
+		*fp = fa->fa_next;
+		call_rcu(&fa->fa_rcu, fasync_free_rcu);
+		filp->f_flags &= ~FASYNC;
+		result = 1;
+		break;
+	}
+	spin_unlock(&fasync_lock);
+	return result;
+}
+
+/*
+ * Add a fasync entry. Return negative on error, positive if
+ * added, and zero if did nothing but change an existing one.
+ *
+ * NOTE! It is very important that the FASYNC flag always
+ * match the state "is the filp on a fasync list".
+ */
+static int fasync_add_entry(int fd, struct file *filp, struct fasync_struct **fapp)
+{
+	struct fasync_struct *new, *fa, **fp;
+	int result = 0;
+
+	new = kmem_cache_alloc(fasync_cache, GFP_KERNEL);
+	if (!new)
+		return -ENOMEM;
+
+	spin_lock(&fasync_lock);
+	for (fp = fapp; (fa = *fp) != NULL; fp = &fa->fa_next) {
+		if (fa->fa_file != filp)
+			continue;
+
+		spin_lock_irq(&fa->fa_lock);
+		fa->fa_fd = fd;
+		spin_unlock_irq(&fa->fa_lock);
+
+		kmem_cache_free(fasync_cache, new);
+		goto out;
+	}
+
+	spin_lock_init(&new->fa_lock);
+	new->magic = FASYNC_MAGIC;
+	new->fa_file = filp;
+	new->fa_fd = fd;
+	new->fa_next = *fapp;
+	rcu_assign_pointer(*fapp, new);
+	result = 1;
+	filp->f_flags |= FASYNC;
+
+out:
+	spin_unlock(&fasync_lock);
+	return result;
+}
+
+/*
+ * fasync_helper() is used by almost all character device drivers
+ * to set up the fasync queue, and for regular files by the file
+ * lease code. It returns negative on error, 0 if it did no changes
+ * and positive if it added/deleted the entry.
  */
 int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fapp)
 {
-	struct fasync_struct *fa, **fp;
-	struct fasync_struct *new = NULL;
-	int result = 0;
-
-	if (on) {
-		new = kmem_cache_alloc(fasync_cache, GFP_KERNEL);
-		if (!new)
-			return -ENOMEM;
-	}
-	write_lock_irq(&fasync_lock);
-	for (fp = fapp; (fa = *fp) != NULL; fp = &fa->fa_next) {
-		if (fa->fa_file == filp) {
-			if(on) {
-				fa->fa_fd = fd;
-				kmem_cache_free(fasync_cache, new);
-			} else {
-				*fp = fa->fa_next;
-				kmem_cache_free(fasync_cache, fa);
-				result = 1;
-			}
-			goto out;
-		}
-	}
-
-	if (on) {
-		new->magic = FASYNC_MAGIC;
-		new->fa_file = filp;
-		new->fa_fd = fd;
-		new->fa_next = *fapp;
-		*fapp = new;
-		result = 1;
-	}
-out:
-	write_unlock_irq(&fasync_lock);
-	return result;
+	if (!on)
+		return fasync_remove_entry(filp, fapp);
+	return fasync_add_entry(fd, filp, fapp);
 }
 
 EXPORT_SYMBOL(fasync_helper);
 
-void __kill_fasync(struct fasync_struct *fa, int sig, int band)
+/*
+ * rcu_read_lock() is held
+ */
+static void kill_fasync_rcu(struct fasync_struct *fa, int sig, int band)
 {
 	while (fa) {
-		struct fown_struct * fown;
+		struct fown_struct *fown;
 		if (fa->magic != FASYNC_MAGIC) {
 			printk(KERN_ERR "kill_fasync: bad magic number in "
 			       "fasync_struct!\n");
 			return;
 		}
-		fown = &fa->fa_file->f_owner;
-		/* Don't send SIGURG to processes which have not set a
-		   queued signum: SIGURG has its own default signalling
-		   mechanism. */
-		if (!(sig == SIGURG && fown->signum == 0))
-			send_sigio(fown, fa->fa_fd, band);
-		fa = fa->fa_next;
+		spin_lock(&fa->fa_lock);
+		if (fa->fa_file) {
+			fown = &fa->fa_file->f_owner;
+			/* Don't send SIGURG to processes which have not set a
+			   queued signum: SIGURG has its own default signalling
+			   mechanism. */
+			if (!(sig == SIGURG && fown->signum == 0))
+				send_sigio(fown, fa->fa_fd, band);
+		}
+		spin_unlock(&fa->fa_lock);
+		fa = rcu_dereference(fa->fa_next);
 	}
 }
-
-EXPORT_SYMBOL(__kill_fasync);
 
 void kill_fasync(struct fasync_struct **fp, int sig, int band)
 {
@@ -637,10 +695,9 @@ void kill_fasync(struct fasync_struct **fp, int sig, int band)
 	 * the list is empty.
 	 */
 	if (*fp) {
-		read_lock(&fasync_lock);
-		/* reread *fp after obtaining the lock */
-		__kill_fasync(*fp, sig, band);
-		read_unlock(&fasync_lock);
+		rcu_read_lock();
+		kill_fasync_rcu(rcu_dereference(*fp), sig, band);
+		rcu_read_unlock();
 	}
 }
 EXPORT_SYMBOL(kill_fasync);
