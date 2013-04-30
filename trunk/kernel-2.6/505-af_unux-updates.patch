@@ -1,15 +1,115 @@
+ 131116989b5c349f9b1ab9ee083d37cc73160ac8 [AF_UNIX]: Make code static.
  6118e35a7126c1062b1a0f6737b84b4fe4d5c8d4 af_unix: remove unused struct sockaddr_un cruft
+ 3c73419c09a5ef73d56472dbfdade9e311496e9b af_unix: fix 'poll for write'/ connected DGRAM sockets
+ ec0d215f9420564fc8286dcf93d2d068bb53a07e af_unix: fix 'poll for write'/connected DGRAM sockets
  ded34e0fe8fe8c2d595bfa30626654e4b87621e0 unix: fix a race condition in unix_release()
  77238f2b942b38ab4e7f3aced44084493e4a8675 AF_UNIX: Fix deadlock on connecting to shutdown socket
 
 ---
- net/unix/af_unix.c |   11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ include/net/af_unix.h |   29 ------------
+ net/unix/af_unix.c    |  116 ++++++++++++++++++++++++++++++++++++++++++--------
+ 2 files changed, 99 insertions(+), 46 deletions(-)
 
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -12,37 +12,8 @@ extern void unix_gc(void);
+ 
+ #define UNIX_HASH_SIZE	256
+ 
+-extern struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
+-extern spinlock_t unix_table_lock;
+-
+ extern atomic_t unix_tot_inflight;
+ 
+-static inline struct sock *first_unix_socket(int *i)
+-{
+-	for (*i = 0; *i <= UNIX_HASH_SIZE; (*i)++) {
+-		if (!hlist_empty(&unix_socket_table[*i]))
+-			return __sk_head(&unix_socket_table[*i]);
+-	}
+-	return NULL;
+-}
+-
+-static inline struct sock *next_unix_socket(int *i, struct sock *s)
+-{
+-	struct sock *next = sk_next(s);
+-	/* More in this chain? */
+-	if (next)
+-		return next;
+-	/* Look for next non-empty chain. */
+-	for ((*i)++; *i <= UNIX_HASH_SIZE; (*i)++) {
+-		if (!hlist_empty(&unix_socket_table[*i]))
+-			return __sk_head(&unix_socket_table[*i]);
+-	}
+-	return NULL;
+-}
+-
+-#define forall_unix_sockets(i, s) \
+-	for (s = first_unix_socket(&(i)); s; s = next_unix_socket(&(i),(s)))
+-
+ struct unix_address {
+ 	atomic_t	refcnt;
+ 	int		len;
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
-@@ -362,7 +362,7 @@ static void unix_sock_destructor(struct sock *sk)
+@@ -118,14 +118,40 @@
+ 
+ int sysctl_unix_max_dgram_qlen __read_mostly = 10;
+ 
+-struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
+-DEFINE_SPINLOCK(unix_table_lock);
++static struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
++static DEFINE_SPINLOCK(unix_table_lock);
+ static atomic_t unix_nr_socks = ATOMIC_INIT(0);
+ 
+ #define unix_sockets_unbound	(&unix_socket_table[UNIX_HASH_SIZE])
+ 
+ #define UNIX_ABSTRACT(sk)	(unix_sk(sk)->addr->hash != UNIX_HASH_SIZE)
+ 
++static struct sock *first_unix_socket(int *i)
++{
++	for (*i = 0; *i <= UNIX_HASH_SIZE; (*i)++) {
++		if (!hlist_empty(&unix_socket_table[*i]))
++			return __sk_head(&unix_socket_table[*i]);
++	}
++	return NULL;
++}
++
++static struct sock *next_unix_socket(int *i, struct sock *s)
++{
++	struct sock *next = sk_next(s);
++	/* More in this chain? */
++	if (next)
++		return next;
++	/* Look for next non-empty chain. */
++	for ((*i)++; *i <= UNIX_HASH_SIZE; (*i)++) {
++		if (!hlist_empty(&unix_socket_table[*i]))
++			return __sk_head(&unix_socket_table[*i]);
++	}
++	return NULL;
++}
++
++#define forall_unix_sockets(i, s) \
++	for (s = first_unix_socket(&(i)); s; s = next_unix_socket(&(i),(s)))
++
+ #ifdef CONFIG_SECURITY_NETWORK
+ static void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
+ {
+@@ -170,6 +196,11 @@ static inline int unix_may_send(struct s
+ 	return (unix_peer(osk) == NULL || unix_our_peer(sk, osk));
+ }
+ 
++static inline int unix_recvq_full(struct sock const *sk)
++{
++	return skb_queue_len(&sk->sk_receive_queue) > sk->sk_max_ack_backlog;
++}
++
+ static struct sock *unix_peer_get(struct sock *s)
+ {
+ 	struct sock *peer;
+@@ -357,7 +388,7 @@ static void unix_sock_destructor(struct
  #endif
  }
  
@@ -17,8 +117,8 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 +static void unix_release_sock(struct sock *sk, int embrion)
  {
  	struct unix_sock *u = unix_sk(sk);
- 	struct path path;
-@@ -431,8 +431,6 @@ static int unix_release_sock(struct sock *sk, int embrion)
+ 	struct dentry *dentry;
+@@ -432,8 +463,6 @@ static int unix_release_sock (struct soc
  
  	if (atomic_read(&unix_tot_inflight))
  		unix_gc();		/* Garbage collect fds */
@@ -27,7 +127,34 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  }
  
  static int unix_listen(struct socket *sock, int backlog)
-@@ -649,9 +647,10 @@ static int unix_release(struct socket *sock)
+@@ -475,6 +504,8 @@ static int unix_socketpair(struct socket
+ static int unix_accept(struct socket *, struct socket *, int);
+ static int unix_getname(struct socket *, struct sockaddr *, int *, int);
+ static unsigned int unix_poll(struct file *, struct socket *, poll_table *);
++static unsigned int unix_dgram_poll(struct file *, struct socket *,
++				    poll_table *);
+ static int unix_ioctl(struct socket *, unsigned int, unsigned long);
+ static int unix_shutdown(struct socket *, int);
+ static int unix_stream_sendmsg(struct kiocb *, struct socket *,
+@@ -522,7 +553,7 @@ static const struct proto_ops unix_dgram
+ 	.socketpair =	unix_socketpair,
+ 	.accept =	sock_no_accept,
+ 	.getname =	unix_getname,
+-	.poll =		datagram_poll,
++	.poll =		unix_dgram_poll,
+ 	.ioctl =	unix_ioctl,
+ 	.listen =	sock_no_listen,
+ 	.shutdown =	unix_shutdown,
+@@ -543,7 +574,7 @@ static const struct proto_ops unix_seqpa
+ 	.socketpair =	unix_socketpair,
+ 	.accept =	unix_accept,
+ 	.getname =	unix_getname,
+-	.poll =		datagram_poll,
++	.poll =		unix_dgram_poll,
+ 	.ioctl =	unix_ioctl,
+ 	.listen =	unix_listen,
+ 	.shutdown =	unix_shutdown,
+@@ -640,9 +671,10 @@ static int unix_release(struct socket *s
  	if (!sk)
  		return 0;
  
@@ -39,16 +166,41 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  }
  
  static int unix_autobind(struct socket *sock)
-@@ -1044,6 +1044,8 @@ restart:
+@@ -969,8 +1001,7 @@ static long unix_wait_for_peer(struct so
+ 
+ 	sched = !sock_flag(other, SOCK_DEAD) &&
+ 		!(other->sk_shutdown & RCV_SHUTDOWN) &&
+-		(skb_queue_len(&other->sk_receive_queue) >
+-		 other->sk_max_ack_backlog);
++		unix_recvq_full(other);
+ 
+ 	unix_state_unlock(other);
+ 
+@@ -1042,9 +1073,10 @@ restart:
  	err = -ECONNREFUSED;
  	if (other->sk_state != TCP_LISTEN)
  		goto out_unlock;
 +	if (other->sk_shutdown & RCV_SHUTDOWN)
 +		goto out_unlock;
  
- 	if (skb_queue_len(&other->sk_receive_queue) >=
- 	    other->sk_max_ack_backlog) {
-@@ -1567,7 +1567,6 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+-	if (skb_queue_len(&other->sk_receive_queue) >
+-	    other->sk_max_ack_backlog) {
++	if (unix_recvq_full(other)) {
+ 		err = -EAGAIN;
+ 		if (!timeo)
+ 			goto out_unlock;
+@@ -1424,9 +1456,7 @@ restart:
+ 			goto out_unlock;
+ 	}
+ 
+-	if (unix_peer(other) != sk &&
+-	    (skb_queue_len(&other->sk_receive_queue) >
+-	     other->sk_max_ack_backlog)) {
++	if (unix_peer(other) != sk && unix_recvq_full(other)) {
+ 		if (!timeo) {
+ 			err = -EAGAIN;
+ 			goto out_unlock;
+@@ -1466,7 +1496,6 @@ static int unix_stream_sendmsg(struct ki
  	struct sock_iocb *siocb = kiocb_to_siocb(kiocb);
  	struct sock *sk = sock->sk;
  	struct sock *other = NULL;
@@ -56,7 +208,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  	int err,size;
  	struct sk_buff *skb;
  	int sent=0;
-@@ -1590,7 +1589,6 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+@@ -1488,7 +1517,6 @@ static int unix_stream_sendmsg(struct ki
  		err = sk->sk_state == TCP_ESTABLISHED ? -EISCONN : -EOPNOTSUPP;
  		goto out_err;
  	} else {
@@ -64,4 +216,65 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  		err = -ENOTCONN;
  		other = unix_peer(sk);
  		if (!other)
+@@ -2008,6 +2036,60 @@ static unsigned int unix_poll(struct fil
+ 	return mask;
+ }
+ 
++static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
++				    poll_table *wait)
++{
++	struct sock *sk = sock->sk, *other;
++	unsigned int mask, writable;
++
++	poll_wait(file, sk->sk_sleep, wait);
++	mask = 0;
++
++	/* exceptional events? */
++	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
++		mask |= POLLERR;
++	if (sk->sk_shutdown & RCV_SHUTDOWN)
++		mask |= POLLRDHUP;
++	if (sk->sk_shutdown == SHUTDOWN_MASK)
++		mask |= POLLHUP;
++
++	/* readable? */
++	if (!skb_queue_empty(&sk->sk_receive_queue) ||
++	    (sk->sk_shutdown & RCV_SHUTDOWN))
++		mask |= POLLIN | POLLRDNORM;
++
++	/* Connection-based need to check for termination and startup */
++	if (sk->sk_type == SOCK_SEQPACKET) {
++		if (sk->sk_state == TCP_CLOSE)
++			mask |= POLLHUP;
++		/* connection hasn't started yet? */
++		if (sk->sk_state == TCP_SYN_SENT)
++			return mask;
++	}
++
++	/* writable? */
++	writable = unix_writable(sk);
++	if (writable) {
++		other = unix_peer_get(sk);
++		if (other) {
++			if (unix_peer(other) != sk) {
++				poll_wait(file, &unix_sk(other)->peer_wait,
++					  wait);
++				if (unix_recvq_full(other))
++					writable = 0;
++			}
++
++			sock_put(other);
++		}
++	}
++
++	if (writable)
++		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
++	else
++		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
++
++	return mask;
++}
+ 
+ #ifdef CONFIG_PROC_FS
+ static struct sock *unix_seq_idx(int *iter, loff_t pos)
 -- 
