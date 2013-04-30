@@ -220,7 +220,7 @@ struct sock {
 	atomic_t		sk_drops;
 	int			sk_rcvbuf;
 
-	struct sk_filter      	*sk_filter;
+	struct sk_filter __rcu	*sk_filter;
 
 	struct socket_wq	*sk_wq;
 #ifdef CONFIG_NET_DMA
@@ -929,32 +929,27 @@ static inline int sk_filter(struct sock *sk, struct sk_buff *skb)
 	return err;
 }
 
-/**
- * 	sk_filter_rcu_free: Free a socket filter
- *	@rcu: rcu_head that contains the sk_filter to free
- */
-static inline void sk_filter_rcu_free(struct rcu_head *rcu)
-{
-	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
-	kfree(fp);
-}
+extern void sk_filter_release_rcu(struct rcu_head *rcu);
 
 /**
  *	sk_filter_release: Release a socket filter
- *	@sk: socket
  *	@fp: filter to remove
  *
  *	Remove a filter from a socket and release its resources.
  */
 
-static inline void sk_filter_release(struct sock *sk, struct sk_filter *fp)
+static inline void sk_filter_release(struct sk_filter *fp)
+{
+	if (atomic_dec_and_test(&fp->refcnt))
+		call_rcu_bh(&fp->rcu, sk_filter_release_rcu);
+}
+
+static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
 {
 	unsigned int size = sk_filter_len(fp);
 
 	atomic_sub(size, &sk->sk_omem_alloc);
-
-	if (atomic_dec_and_test(&fp->refcnt))
-		call_rcu_bh(&fp->rcu, sk_filter_rcu_free);
+	sk_filter_release(fp);
 }
 
 static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)

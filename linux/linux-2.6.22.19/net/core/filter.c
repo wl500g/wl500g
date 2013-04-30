@@ -497,6 +497,18 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
 }
 
 /**
+ * 	sk_filter_release_rcu - Release a socket filter by rcu_head
+ *	@rcu: rcu_head that contains the sk_filter to free
+ */
+void sk_filter_release_rcu(struct rcu_head *rcu)
+{
+	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
+
+	kfree(fp);
+}
+EXPORT_SYMBOL(sk_filter_release_rcu);
+
+/**
  *	sk_attach_filter - attach a socket filter
  *	@fprog: the filter program
  *	@sk: the socket to use
@@ -508,7 +520,7 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
  */
 int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
 {
-	struct sk_filter *fp;
+	struct sk_filter *fp, *old_fp;
 	unsigned int fsize = sizeof(struct sock_filter) * fprog->len;
 	int err;
 
@@ -528,20 +540,36 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
 	fp->len = fprog->len;
 
 	err = sk_chk_filter(fp->insns, fp->len);
-	if (!err) {
-		struct sk_filter *old_fp;
-
-		rcu_read_lock_bh();
-		old_fp = rcu_dereference(sk->sk_filter);
-		rcu_assign_pointer(sk->sk_filter, fp);
-		rcu_read_unlock_bh();
-		fp = old_fp;
+	if (err) {
+		sk_filter_uncharge(sk, fp);
+		return err;
 	}
 
-	if (fp)
-		sk_filter_release(sk, fp);
-	return err;
+	old_fp = rcu_dereference_protected(sk->sk_filter,
+					   sock_owned_by_user(sk));
+	rcu_assign_pointer(sk->sk_filter, fp);
+
+	if (old_fp)
+		sk_filter_uncharge(sk, old_fp);
+	return 0;
 }
+EXPORT_SYMBOL_GPL(sk_attach_filter);
+
+int sk_detach_filter(struct sock *sk)
+{
+	int ret = -ENOENT;
+	struct sk_filter *filter;
+
+	filter = rcu_dereference_protected(sk->sk_filter,
+					   sock_owned_by_user(sk));
+	if (filter) {
+		rcu_assign_pointer(sk->sk_filter, NULL);
+		sk_filter_uncharge(sk, filter);
+		ret = 0;
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(sk_detach_filter);
 
 EXPORT_SYMBOL(sk_chk_filter);
 EXPORT_SYMBOL(sk_run_filter);
