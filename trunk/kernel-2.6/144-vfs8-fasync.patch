@@ -1,0 +1,485 @@
+
+ c9845ff1df5ba007b576c26c4f1e7ca43b7c7e87 VFS: apply coding standards to fs/ioctl.c
+ deb21db7788b97a2bccdefe605433ef97f482689 VFS: swap do_ioctl and vfs_ioctl names
+ aa81a7c7120ad9a4f8b677b7c204bb12b2b0e145 VFS: factor out three helpers for FIBMAP/FIONBIO/FIOASYNC file ioctls
+ 76398425bb06b07cc3a3b1ce169c67dc9d6874ed Move FASYNC bit handling to f_op->fasync()
+ 53281b6d34d44308372d16acb7fb5327609f68b6 fasync: split 'fasync_helper()' into separate add/remove functions
+
+---
+ fs/compat_ioctl.c  |    2 
+ fs/fcntl.c         |  113 +++++++++++++++++----------
+ fs/ioctl.c         |  221 +++++++++++++++++++++++++++++------------------------
+ include/linux/fs.h |    4 
+ net/socket.c       |    5 +
+ 5 files changed, 209 insertions(+), 136 deletions(-)
+
+diff --git a/fs/compat_ioctl.c b/fs/compat_ioctl.c
+--- a/fs/compat_ioctl.c
++++ b/fs/compat_ioctl.c
+@@ -3608,7 +3608,7 @@ asmlinkage long compat_sys_ioctl(unsigne
+ 	}
+ 
+  do_ioctl:
+-	error = vfs_ioctl(filp, fd, cmd, arg);
++	error = do_vfs_ioctl(filp, fd, cmd, arg);
+  out_fput:
+ 	fput_light(filp, fput_needed);
+  out:
+diff --git a/fs/fcntl.c b/fs/fcntl.c
+--- a/fs/fcntl.c
++++ b/fs/fcntl.c
+@@ -202,7 +202,7 @@ asmlinkage long sys_dup(unsigned int fil
+ 	return ret;
+ }
+ 
+-#define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | FASYNC | O_DIRECT | O_NOATIME)
++#define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
+ 
+ static int setfl(int fd, struct file * filp, unsigned long arg)
+ {
+@@ -239,18 +239,18 @@ static int setfl(int fd, struct file * f
+ 	if (error)
+ 		return error;
+ 
+-	lock_kernel();
+-	if ((arg ^ filp->f_flags) & FASYNC) {
+-		if (filp->f_op && filp->f_op->fasync) {
+-			error = filp->f_op->fasync(fd, filp, (arg & FASYNC) != 0);
+-			if (error < 0)
+-				goto out;
+-		}
++	/*
++	 * ->fasync() is responsible for setting the FASYNC bit.
++	 */
++	if (((arg ^ filp->f_flags) & FASYNC) && filp->f_op &&
++			filp->f_op->fasync) {
++		error = filp->f_op->fasync(fd, filp, (arg & FASYNC) != 0);
++		if (error < 0)
++			goto out;
+ 	}
+-
+ 	filp->f_flags = (arg & SETFL_MASK) | (filp->f_flags & ~SETFL_MASK);
++
+  out:
+-	unlock_kernel();
+ 	return error;
+ }
+ 
+@@ -565,49 +565,86 @@ static DEFINE_RWLOCK(fasync_lock);
+ static struct kmem_cache *fasync_cache __read_mostly;
+ 
+ /*
+- * fasync_helper() is used by some character device drivers (mainly mice)
+- * to set up the fasync queue. It returns negative on error, 0 if it did
+- * no changes and positive if it added/deleted the entry.
++ * Remove a fasync entry. If successfully removed, return
++ * positive and clear the FASYNC flag. If no entry exists,
++ * do nothing and return 0.
++ *
++ * NOTE! It is very important that the FASYNC flag always
++ * match the state "is the filp on a fasync list".
++ *
++ * We always take the 'filp->f_lock', in since fasync_lock
++ * needs to be irq-safe.
+  */
+-int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fapp)
++static int fasync_remove_entry(struct file *filp, struct fasync_struct **fapp)
+ {
+ 	struct fasync_struct *fa, **fp;
+-	struct fasync_struct *new = NULL;
+ 	int result = 0;
+ 
+-	if (on) {
+-		new = kmem_cache_alloc(fasync_cache, GFP_KERNEL);
+-		if (!new)
+-			return -ENOMEM;
+-	}
+ 	write_lock_irq(&fasync_lock);
+ 	for (fp = fapp; (fa = *fp) != NULL; fp = &fa->fa_next) {
+-		if (fa->fa_file == filp) {
+-			if(on) {
+-				fa->fa_fd = fd;
+-				kmem_cache_free(fasync_cache, new);
+-			} else {
+-				*fp = fa->fa_next;
+-				kmem_cache_free(fasync_cache, fa);
+-				result = 1;
+-			}
+-			goto out;
+-		}
++		if (fa->fa_file != filp)
++			continue;
++		*fp = fa->fa_next;
++		kmem_cache_free(fasync_cache, fa);
++		filp->f_flags &= ~FASYNC;
++		result = 1;
++		break;
+ 	}
++	write_unlock_irq(&fasync_lock);
++	return result;
++}
+ 
+-	if (on) {
+-		new->magic = FASYNC_MAGIC;
+-		new->fa_file = filp;
+-		new->fa_fd = fd;
+-		new->fa_next = *fapp;
+-		*fapp = new;
+-		result = 1;
++/*
++ * Add a fasync entry. Return negative on error, positive if
++ * added, and zero if did nothing but change an existing one.
++ *
++ * NOTE! It is very important that the FASYNC flag always
++ * match the state "is the filp on a fasync list".
++ */
++static int fasync_add_entry(int fd, struct file *filp, struct fasync_struct **fapp)
++{
++	struct fasync_struct *new, *fa, **fp;
++	int result = 0;
++
++	new = kmem_cache_alloc(fasync_cache, GFP_KERNEL);
++	if (!new)
++		return -ENOMEM;
++
++	write_lock_irq(&fasync_lock);
++	for (fp = fapp; (fa = *fp) != NULL; fp = &fa->fa_next) {
++		if (fa->fa_file != filp)
++			continue;
++		fa->fa_fd = fd;
++		kmem_cache_free(fasync_cache, new);
++		goto out;
+ 	}
++
++	new->magic = FASYNC_MAGIC;
++	new->fa_file = filp;
++	new->fa_fd = fd;
++	new->fa_next = *fapp;
++	*fapp = new;
++	result = 1;
++	filp->f_flags |= FASYNC;
++
+ out:
+ 	write_unlock_irq(&fasync_lock);
+ 	return result;
+ }
+ 
++/*
++ * fasync_helper() is used by almost all character device drivers
++ * to set up the fasync queue, and for regular files by the file
++ * lease code. It returns negative on error, 0 if it did no changes
++ * and positive if it added/deleted the entry.
++ */
++int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fapp)
++{
++	if (!on)
++		return fasync_remove_entry(filp, fapp);
++	return fasync_add_entry(fd, filp, fapp);
++}
++
+ EXPORT_SYMBOL(fasync_helper);
+ 
+ void __kill_fasync(struct fasync_struct *fa, int sig, int band)
+diff --git a/fs/ioctl.c b/fs/ioctl.c
+--- a/fs/ioctl.c
++++ b/fs/ioctl.c
+@@ -13,12 +13,24 @@
+ #include <linux/security.h>
+ #include <linux/module.h>
+ #include <linux/kallsyms.h>
++#include <linux/uaccess.h>
+ 
+-#include <asm/uaccess.h>
+ #include <asm/ioctls.h>
+ 
+-static long do_ioctl(struct file *filp, unsigned int cmd,
+-		unsigned long arg)
++/**
++ * vfs_ioctl - call filesystem specific ioctl methods
++ * @filp: [in]     open file to invoke ioctl method on
++ * @cmd:  [in]     ioctl command to execute
++ * @arg:  [in/out] command-specific argument for ioctl
++ *
++ * Invokes filesystem specific ->unlocked_ioctl, if one exists; otherwise
++ * invokes * filesystem specific ->ioctl method.  If neither method exists,
++ * returns -ENOTTY.
++ *
++ * Returns 0 on success, -errno on error.
++ */
++long vfs_ioctl(struct file *filp, unsigned int cmd,
++	       unsigned long arg)
+ {
+ 	int error = -ENOTTY;
+ 	void *f;
+@@ -48,123 +60,140 @@ static long do_ioctl(struct file *filp,
+ 	return error;
+ }
+ 
++static int ioctl_fibmap(struct file *filp, int __user *p)
++{
++	struct address_space *mapping = filp->f_mapping;
++	int res, block;
++
++	/* do we support this mess? */
++	if (!mapping->a_ops->bmap)
++		return -EINVAL;
++	if (!capable(CAP_SYS_RAWIO))
++		return -EPERM;
++	res = get_user(block, p);
++	if (res)
++		return res;
++	lock_kernel();
++	res = mapping->a_ops->bmap(mapping, block);
++	unlock_kernel();
++	return put_user(res, p);
++}
++
+ static int file_ioctl(struct file *filp, unsigned int cmd,
+ 		unsigned long arg)
+ {
+-	int error;
+-	int block;
+-	struct inode * inode = filp->f_path.dentry->d_inode;
++	struct inode *inode = filp->f_path.dentry->d_inode;
+ 	int __user *p = (int __user *)arg;
+ 
+ 	switch (cmd) {
+-		case FIBMAP:
+-		{
+-			struct address_space *mapping = filp->f_mapping;
+-			int res;
+-			/* do we support this mess? */
+-			if (!mapping->a_ops->bmap)
+-				return -EINVAL;
+-			if (!capable(CAP_SYS_RAWIO))
+-				return -EPERM;
+-			if ((error = get_user(block, p)) != 0)
+-				return error;
+-
+-			lock_kernel();
+-			res = mapping->a_ops->bmap(mapping, block);
+-			unlock_kernel();
+-			return put_user(res, p);
+-		}
+-		case FIGETBSZ:
+-			return put_user(inode->i_sb->s_blocksize, p);
+-		case FIONREAD:
+-			return put_user(i_size_read(inode) - filp->f_pos, p);
++	case FIBMAP:
++		return ioctl_fibmap(filp, p);
++	case FIGETBSZ:
++		return put_user(inode->i_sb->s_blocksize, p);
++	case FIONREAD:
++		return put_user(i_size_read(inode) - filp->f_pos, p);
+ 	}
+ 
+-	return do_ioctl(filp, cmd, arg);
++	return vfs_ioctl(filp, cmd, arg);
++}
++
++static int ioctl_fionbio(struct file *filp, int __user *argp)
++{
++	unsigned int flag;
++	int on, error;
++
++	error = get_user(on, argp);
++	if (error)
++		return error;
++	flag = O_NONBLOCK;
++#ifdef __sparc__
++	/* SunOS compatibility item. */
++	if (O_NONBLOCK != O_NDELAY)
++		flag |= O_NDELAY;
++#endif
++	if (on)
++		filp->f_flags |= flag;
++	else
++		filp->f_flags &= ~flag;
++	return error;
++}
++
++static int ioctl_fioasync(unsigned int fd, struct file *filp,
++			  int __user *argp)
++{
++	unsigned int flag;
++	int on, error;
++
++	error = get_user(on, argp);
++	if (error)
++		return error;
++	flag = on ? FASYNC : 0;
++
++	/* Did FASYNC state change ? */
++	if ((flag ^ filp->f_flags) & FASYNC) {
++		if (filp->f_op && filp->f_op->fasync)
++			/* fasync() adjusts filp->f_flags */
++			error = filp->f_op->fasync(fd, filp, on);
++		else
++			error = -ENOTTY;
++	}
++	return error;
+ }
+ 
+ /*
+  * When you add any new common ioctls to the switches above and below
+  * please update compat_sys_ioctl() too.
+  *
+- * vfs_ioctl() is not for drivers and not intended to be EXPORT_SYMBOL()'d.
++ * do_vfs_ioctl() is not for drivers and not intended to be EXPORT_SYMBOL()'d.
+  * It's just a simple helper for sys_ioctl and compat_sys_ioctl.
+  */
+-int vfs_ioctl(struct file *filp, unsigned int fd, unsigned int cmd, unsigned long arg)
++int do_vfs_ioctl(struct file *filp, unsigned int fd, unsigned int cmd,
++	     unsigned long arg)
+ {
+-	unsigned int flag;
+-	int on, error = 0;
++	int error = 0;
++	int __user *argp = (int __user *)arg;
+ 
+ 	switch (cmd) {
+-		case FIOCLEX:
+-			set_close_on_exec(fd, 1);
+-			break;
+-
+-		case FIONCLEX:
+-			set_close_on_exec(fd, 0);
+-			break;
+-
+-		case FIONBIO:
+-			if ((error = get_user(on, (int __user *)arg)) != 0)
+-				break;
+-			flag = O_NONBLOCK;
+-#ifdef __sparc__
+-			/* SunOS compatibility item. */
+-			if(O_NONBLOCK != O_NDELAY)
+-				flag |= O_NDELAY;
+-#endif
+-			if (on)
+-				filp->f_flags |= flag;
+-			else
+-				filp->f_flags &= ~flag;
+-			break;
+-
+-		case FIOASYNC:
+-			if ((error = get_user(on, (int __user *)arg)) != 0)
+-				break;
+-			flag = on ? FASYNC : 0;
+-
+-			/* Did FASYNC state change ? */
+-			if ((flag ^ filp->f_flags) & FASYNC) {
+-				if (filp->f_op && filp->f_op->fasync) {
+-					lock_kernel();
+-					error = filp->f_op->fasync(fd, filp, on);
+-					unlock_kernel();
+-				}
+-				else error = -ENOTTY;
+-			}
+-			if (error != 0)
+-				break;
+-
+-			if (on)
+-				filp->f_flags |= FASYNC;
+-			else
+-				filp->f_flags &= ~FASYNC;
+-			break;
+-
+-		case FIOQSIZE:
+-			if (S_ISDIR(filp->f_path.dentry->d_inode->i_mode) ||
+-			    S_ISREG(filp->f_path.dentry->d_inode->i_mode) ||
+-			    S_ISLNK(filp->f_path.dentry->d_inode->i_mode)) {
+-				loff_t res = inode_get_bytes(filp->f_path.dentry->d_inode);
+-				error = copy_to_user((loff_t __user *)arg, &res, sizeof(res)) ? -EFAULT : 0;
+-			}
+-			else
+-				error = -ENOTTY;
+-			break;
+-		default:
+-			if (S_ISREG(filp->f_path.dentry->d_inode->i_mode))
+-				error = file_ioctl(filp, cmd, arg);
+-			else
+-				error = do_ioctl(filp, cmd, arg);
+-			break;
++	case FIOCLEX:
++		set_close_on_exec(fd, 1);
++		break;
++
++	case FIONCLEX:
++		set_close_on_exec(fd, 0);
++		break;
++
++	case FIONBIO:
++		error = ioctl_fionbio(filp, argp);
++		break;
++
++	case FIOASYNC:
++		error = ioctl_fioasync(fd, filp, argp);
++		break;
++
++	case FIOQSIZE:
++		if (S_ISDIR(filp->f_path.dentry->d_inode->i_mode) ||
++		    S_ISREG(filp->f_path.dentry->d_inode->i_mode) ||
++		    S_ISLNK(filp->f_path.dentry->d_inode->i_mode)) {
++			loff_t res =
++				inode_get_bytes(filp->f_path.dentry->d_inode);
++			error = copy_to_user((loff_t __user *)arg, &res,
++					     sizeof(res)) ? -EFAULT : 0;
++		} else
++			error = -ENOTTY;
++		break;
++	default:
++		if (S_ISREG(filp->f_path.dentry->d_inode->i_mode))
++			error = file_ioctl(filp, cmd, arg);
++		else
++			error = vfs_ioctl(filp, cmd, arg);
++		break;
+ 	}
+ 	return error;
+ }
+ 
+ asmlinkage long sys_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
+ {
+-	struct file * filp;
++	struct file *filp;
+ 	int error = -EBADF;
+ 	int fput_needed;
+ 
+@@ -176,7 +205,7 @@ asmlinkage long sys_ioctl(unsigned int f
+ 	if (error)
+ 		goto out_fput;
+ 
+-	error = vfs_ioctl(filp, fd, cmd, arg);
++	error = do_vfs_ioctl(filp, fd, cmd, arg);
+  out_fput:
+ 	fput_light(filp, fput_needed);
+  out:
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -1916,7 +1916,9 @@ extern int vfs_stat_fd(int dfd, char __u
+ extern int vfs_lstat_fd(int dfd, char __user *, struct kstat *);
+ extern int vfs_fstat(unsigned int, struct kstat *);
+ 
+-extern int vfs_ioctl(struct file *, unsigned int, unsigned int, unsigned long);
++extern long vfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
++extern int do_vfs_ioctl(struct file *filp, unsigned int fd, unsigned int cmd,
++		    unsigned long arg);
+ 
+ extern struct file_system_type *get_fs_type(const char *name);
+ extern struct super_block *get_super(struct block_device *);
+diff --git a/net/socket.c b/net/socket.c
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1026,6 +1026,11 @@ static int sock_fasync(int fd, struct fi
+ 
+ 	lock_sock(sk);
+ 
++	if (on)
++		filp->f_flags |= FASYNC;
++	else
++		filp->f_flags &= ~FASYNC;
++
+ 	prev = &(sock->fasync_list);
+ 
+ 	for (fa = *prev; fa != NULL; prev = &fa->fa_next, fa = *prev)
+-- 
