@@ -1,0 +1,196 @@
+[NET]: sk_filter updates from upstream
+
+ 55b333253d5bcafbe187b50474e40789301c53c6 [NET]: Introduce the sk_detach_filter() call
+ 309dd5fc872448e35634d510049642312ebc170d [NET]: Move the filter releasing into a separate call
+ d3904b739928edd83d117f1eb5bfa69f18d6f046 [NET]: Cleanup the error path in sk_attach_filter
+ 47e958eac280c263397582d5581e868c3227a1bd [NET]: Fix the race between sk_filter_(de|at)tach and sk_clone()
+ 9b013e05e0289c190a53d78ca029e2f21c0e4485 [NET]: Fix bug in sk_filter race cures.
+ 5ff3f073670b544a9c0547cc6fef1f7eed5762ed net: export attach/detach filter routines
+ f91ff5b9ff529be8aac2039af63b2c8ea6cd6ebe net: sk_{detach|attach}_filter() rcu fixes
+
+---
+ include/linux/filter.h |    1 
+ include/net/sock.h     |   22 ++++++------------
+ net/core/filter.c      |   59 +++++++++++++++++++++++++++++++++++++++----------
+ net/core/sock.c        |   14 +----------
+ 4 files changed, 58 insertions(+), 38 deletions(-)
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -146,6 +146,7 @@ struct sock;
+ 
+ extern unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int flen);
+ extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
++extern int sk_detach_filter(struct sock *sk);
+ extern int sk_chk_filter(struct sock_filter *filter, int flen);
+ #endif /* __KERNEL__ */
+ 
+diff --git a/include/net/sock.h b/include/net/sock.h
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -927,16 +927,6 @@ static inline int sk_filter(struct sock
+ }
+ 
+ /**
+- * 	sk_filter_rcu_free: Free a socket filter
+- *	@rcu: rcu_head that contains the sk_filter to free
+- */
+-static inline void sk_filter_rcu_free(struct rcu_head *rcu)
+-{
+-	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
+-	kfree(fp);
+-}
+-
+-/**
+  *	sk_filter_release: Release a socket filter
+  *	@sk: socket
+  *	@fp: filter to remove
+@@ -944,14 +934,18 @@ static inline void sk_filter_rcu_free(st
+  *	Remove a filter from a socket and release its resources.
+  */
+ 
+-static inline void sk_filter_release(struct sock *sk, struct sk_filter *fp)
++static inline void sk_filter_release(struct sk_filter *fp)
++{
++	if (atomic_dec_and_test(&fp->refcnt))
++		kfree(fp);
++}
++
++static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
+ {
+ 	unsigned int size = sk_filter_len(fp);
+ 
+ 	atomic_sub(size, &sk->sk_omem_alloc);
+-
+-	if (atomic_dec_and_test(&fp->refcnt))
+-		call_rcu_bh(&fp->rcu, sk_filter_rcu_free);
++	sk_filter_release(fp);
+ }
+ 
+ static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+diff --git a/net/core/filter.c b/net/core/filter.c
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -497,6 +497,25 @@ int sk_chk_filter(struct sock_filter *fi
+ }
+ 
+ /**
++ * 	sk_filter_rcu_release: Release a socket filter by rcu_head
++ *	@rcu: rcu_head that contains the sk_filter to free
++ */
++static void sk_filter_rcu_release(struct rcu_head *rcu)
++{
++	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
++
++	sk_filter_release(fp);
++}
++
++static void sk_filter_delayed_uncharge(struct sock *sk, struct sk_filter *fp)
++{
++	unsigned int size = sk_filter_len(fp);
++
++	atomic_sub(size, &sk->sk_omem_alloc);
++	call_rcu_bh(&fp->rcu, sk_filter_rcu_release);
++}
++
++/**
+  *	sk_attach_filter - attach a socket filter
+  *	@fprog: the filter program
+  *	@sk: the socket to use
+@@ -508,7 +527,7 @@ int sk_chk_filter(struct sock_filter *fi
+  */
+ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ {
+-	struct sk_filter *fp;
++	struct sk_filter *fp, *old_fp;
+ 	unsigned int fsize = sizeof(struct sock_filter) * fprog->len;
+ 	int err;
+ 
+@@ -528,20 +547,36 @@ int sk_attach_filter(struct sock_fprog *
+ 	fp->len = fprog->len;
+ 
+ 	err = sk_chk_filter(fp->insns, fp->len);
+-	if (!err) {
+-		struct sk_filter *old_fp;
+-
+-		rcu_read_lock_bh();
+-		old_fp = rcu_dereference(sk->sk_filter);
+-		rcu_assign_pointer(sk->sk_filter, fp);
+-		rcu_read_unlock_bh();
+-		fp = old_fp;
++	if (err) {
++		sk_filter_uncharge(sk, fp);
++		return err;
+ 	}
+ 
+-	if (fp)
+-		sk_filter_release(sk, fp);
+-	return err;
++	old_fp = rcu_dereference_protected(sk->sk_filter,
++					   sock_owned_by_user(sk));
++	rcu_assign_pointer(sk->sk_filter, fp);
++
++	if (old_fp)
++		sk_filter_delayed_uncharge(sk, old_fp);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(sk_attach_filter);
++
++int sk_detach_filter(struct sock *sk)
++{
++	int ret = -ENOENT;
++	struct sk_filter *filter;
++
++	filter = rcu_dereference_protected(sk->sk_filter,
++					   sock_owned_by_user(sk));
++	if (filter) {
++		rcu_assign_pointer(sk->sk_filter, NULL);
++		sk_filter_delayed_uncharge(sk, filter);
++		ret = 0;
++	}
++	return ret;
+ }
++EXPORT_SYMBOL_GPL(sk_detach_filter);
+ 
+ EXPORT_SYMBOL(sk_chk_filter);
+ EXPORT_SYMBOL(sk_run_filter);
+diff --git a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -412,7 +412,6 @@ int sock_setsockopt(struct socket *sock,
+ 		    char __user *optval, int optlen)
+ {
+ 	struct sock *sk=sock->sk;
+-	struct sk_filter *filter;
+ 	int val;
+ 	int valbool;
+ 	struct linger ling;
+@@ -637,16 +636,7 @@ set_rcvbuf:
+ 		break;
+ 
+ 	case SO_DETACH_FILTER:
+-		rcu_read_lock_bh();
+-		filter = rcu_dereference(sk->sk_filter);
+-		if (filter) {
+-			rcu_assign_pointer(sk->sk_filter, NULL);
+-			sk_filter_release(sk, filter);
+-			rcu_read_unlock_bh();
+-			break;
+-		}
+-		rcu_read_unlock_bh();
+-		ret = -ENONET;
++		ret = sk_detach_filter(sk);
+ 		break;
+ 
+ 	case SO_PASSSEC:
+@@ -938,7 +928,7 @@ static void __sk_free(struct sock *sk)
+ 
+ 	filter = rcu_dereference(sk->sk_filter);
+ 	if (filter) {
+-		sk_filter_release(sk, filter);
++		sk_filter_uncharge(sk, filter);
+ 		rcu_assign_pointer(sk->sk_filter, NULL);
+ 	}
+ 
+-- 
