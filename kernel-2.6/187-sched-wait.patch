@@ -781,11 +781,11 @@ diff --git a/net/socket.c b/net/socket.c
 -	case 0:
 +	case SOCK_WAKE_IO:
  call_kill:
- 		__kill_fasync(sock->fasync_list, SIGIO, band);
+ 		kill_fasync(&sock->fasync_list, SIGIO, band);
  		break;
 -	case 3:
 +	case SOCK_WAKE_URG:
- 		__kill_fasync(sock->fasync_list, SIGURG, band);
+ 		kill_fasync(&sock->fasync_list, SIGURG, band);
  	}
  	return 0;
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
