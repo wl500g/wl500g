@@ -11,26 +11,30 @@
  78ddb08feb7d4fbe3c0a9931804c51ee58be4023 wait: don't use __wake_up_common()
  231d0aefd88e94129cb8fb84794f9bb788c6366e wait: using uninitialized member of wait queue
  2c6607c611cb7bf0a6750bcea34a258144e302c5 net: add POLLPRI to sock_def_readable()
+ a57de0b4336e48db2811a2030bb68dba8dd09d88 net: adding memory barrier to the poll and receive callbacks
 
 ---
- fs/eventfd.c         |    6 ++---
- fs/pipe.c            |    6 ++---
- include/linux/net.h  |    7 ++++++
- include/linux/wait.h |   32 ++++++++++++++++++++++-----
- kernel/sched.c       |   45 ++++++++++++++++++++++++--------------
- kernel/wait.c        |   59 ++++++++++++++++++++++++++++++++++++++++++++-------
- net/atm/common.c     |    2 -
- net/core/datagram.c  |   14 +++++++++++-
- net/core/sock.c      |   16 +++++++------
+ fs/eventfd.c         |    6 ++--
+ fs/pipe.c            |    6 ++--
+ include/linux/net.h  |    7 +++++
+ include/linux/wait.h |   32 ++++++++++++++++++++----
+ include/net/sock.h   |   66 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ kernel/sched.c       |   45 +++++++++++++++++++++-------------
+ kernel/wait.c        |   59 ++++++++++++++++++++++++++++++++++++++++-----
+ net/atm/common.c     |    8 +++---
+ net/core/datagram.c  |   16 ++++++++++--
+ net/core/sock.c      |   24 ++++++++++--------
  net/core/stream.c    |    2 -
- net/dccp/input.c     |    6 ++---
- net/dccp/output.c    |    2 -
- net/ipv4/tcp_input.c |   12 +++++-----
- net/rxrpc/af_rxrpc.c |    2 -
+ net/dccp/input.c     |    6 ++--
+ net/dccp/output.c    |    4 +--
+ net/dccp/proto.c     |    2 -
+ net/ipv4/tcp.c       |    2 -
+ net/ipv4/tcp_input.c |   12 ++++-----
+ net/rxrpc/af_rxrpc.c |    6 ++--
  net/sctp/socket.c    |    3 +-
- net/socket.c         |    9 +++----
- net/unix/af_unix.c   |   12 +++++-----
- 17 files changed, 166 insertions(+), 69 deletions(-)
+ net/socket.c         |    9 +++---
+ net/unix/af_unix.c   |   16 ++++++------
+ 20 files changed, 247 insertions(+), 84 deletions(-)
 
 diff --git a/fs/eventfd.c b/fs/eventfd.c
 --- a/fs/eventfd.c
@@ -195,6 +199,89 @@ diff --git a/include/linux/wait.h b/include/linux/wait.h
  	} while (0)
  
  /**
+diff --git a/include/net/sock.h b/include/net/sock.h
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -54,6 +54,7 @@
+ #include <linux/security.h>
+ 
+ #include <linux/filter.h>
++#include <linux/poll.h>
+ 
+ #include <asm/atomic.h>
+ #include <net/dst.h>
+@@ -1241,6 +1242,71 @@ static inline int sk_has_allocations(const struct sock *sk)
+ 	return sk_wmem_alloc_get(sk) || sk_rmem_alloc_get(sk);
+ }
+ 
++/**
++ * sk_has_sleeper - check if there are any waiting processes
++ * @sk: socket
++ *
++ * Returns true if socket has waiting processes
++ *
++ * The purpose of the sk_has_sleeper and sock_poll_wait is to wrap the memory
++ * barrier call. They were added due to the race found within the tcp code.
++ *
++ * Consider following tcp code paths:
++ *
++ * CPU1                  CPU2
++ *
++ * sys_select            receive packet
++ *   ...                 ...
++ *   __add_wait_queue    update tp->rcv_nxt
++ *   ...                 ...
++ *   tp->rcv_nxt check   sock_def_readable
++ *   ...                 {
++ *   schedule               ...
++ *                          if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++ *                              wake_up_interruptible(sk->sk_sleep)
++ *                          ...
++ *                       }
++ *
++ * The race for tcp fires when the __add_wait_queue changes done by CPU1 stay
++ * in its cache, and so does the tp->rcv_nxt update on CPU2 side.  The CPU1
++ * could then endup calling schedule and sleep forever if there are no more
++ * data on the socket.
++ */
++static inline int sk_has_sleeper(struct sock *sk)
++{
++	/*
++	 * We need to be sure we are in sync with the
++	 * add_wait_queue modifications to the wait queue.
++	 *
++	 * This memory barrier is paired in the sock_poll_wait.
++	 */
++	smp_mb();
++	return sk->sk_sleep && waitqueue_active(sk->sk_sleep);
++}
++
++/**
++ * sock_poll_wait - place memory barrier behind the poll_wait call.
++ * @filp:           file
++ * @wait_address:   socket wait queue
++ * @p:              poll_table
++ *
++ * See the comments in the sk_has_sleeper function.
++ */
++static inline void sock_poll_wait(struct file *filp,
++		wait_queue_head_t *wait_address, poll_table *p)
++{
++	if (p && wait_address) {
++		poll_wait(filp, wait_address, p);
++		/*
++		 * We need to be sure we are in sync with the
++		 * socket flags modification.
++		 *
++		 * This memory barrier is paired in the sk_has_sleeper.
++		*/
++		smp_mb();
++	}
++}
++
+ /*
+  * 	Queue a received datagram if it will fit. Stream and sequenced
+  *	protocols can't normally use this as they need to fit buffers in
 diff --git a/kernel/sched.c b/kernel/sched.c
 --- a/kernel/sched.c
 +++ b/kernel/sched.c
@@ -381,8 +468,21 @@ diff --git a/kernel/wait.c b/kernel/wait.c
 diff --git a/net/atm/common.c b/net/atm/common.c
 --- a/net/atm/common.c
 +++ b/net/atm/common.c
-@@ -113,7 +113,7 @@ static void vcc_write_space(struct sock *sk)
- 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+@@ -92,7 +92,7 @@ static void vcc_sock_destruct(struct sock *sk)
+ static void vcc_def_wakeup(struct sock *sk)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++	if (sk_has_sleeper(sk))
+ 		wake_up(sk->sk_sleep);
+ 	read_unlock(&sk->sk_callback_lock);
+ }
+@@ -110,10 +110,10 @@ static void vcc_write_space(struct sock *sk)
+ 	read_lock(&sk->sk_callback_lock);
+ 
+ 	if (vcc_writable(sk)) {
+-		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++		if (sk_has_sleeper(sk))
  			wake_up_interruptible(sk->sk_sleep);
  
 -		sk_wake_async(sk, 2, POLL_OUT);
@@ -390,6 +490,15 @@ diff --git a/net/atm/common.c b/net/atm/common.c
  	}
  
  	read_unlock(&sk->sk_callback_lock);
+@@ -594,7 +594,7 @@ unsigned int vcc_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	struct atm_vcc *vcc;
+ 	unsigned int mask;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	mask = 0;
+ 
+ 	vcc = ATM_SD(sock);
 diff --git a/net/core/datagram.c b/net/core/datagram.c
 --- a/net/core/datagram.c
 +++ b/net/core/datagram.c
@@ -420,37 +529,61 @@ diff --git a/net/core/datagram.c b/net/core/datagram.c
  
  	prepare_to_wait_exclusive(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
  
+@@ -712,7 +712,7 @@ unsigned int datagram_poll(struct file *file, struct socket *sock,
+ 	struct sock *sk = sock->sk;
+ 	unsigned int mask;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	mask = 0;
+ 
+ 	/* exceptional events? */
 diff --git a/net/core/sock.c b/net/core/sock.c
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -1504,8 +1504,8 @@ static void sock_def_error_report(struct
+@@ -1495,7 +1495,7 @@ EXPORT_SYMBOL(sock_no_sendpage);
+ static void sock_def_wakeup(struct sock *sk)
  {
  	read_lock(&sk->sk_callback_lock);
- 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++	if (sk_has_sleeper(sk))
+ 		wake_up_interruptible_all(sk->sk_sleep);
+ 	read_unlock(&sk->sk_callback_lock);
+ }
+@@ -1504,9 +1504,9 @@ static void sock_def_error_report(struct
+ static void sock_def_error_report(struct sock *sk)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
 -		wake_up_interruptible(sk->sk_sleep);
 -	sk_wake_async(sk,0,POLL_ERR);
++	if (sk_has_sleeper(sk))
 +		wake_up_interruptible_poll(sk->sk_sleep, POLLERR);
 +	sk_wake_async(sk, SOCK_WAKE_IO, POLL_ERR);
  	read_unlock(&sk->sk_callback_lock);
  }
  
-@@ -1513,8 +1513,9 @@ static void sock_def_readable(struct soc
+@@ -1513,9 +1513,10 @@ static void sock_def_readable(struct soc
+ static void sock_def_readable(struct sock *sk, int len)
  {
  	read_lock(&sk->sk_callback_lock);
- 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
 -		wake_up_interruptible(sk->sk_sleep);
 -	sk_wake_async(sk,1,POLL_IN);
++	if (sk_has_sleeper(sk))
 +		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLIN | POLLPRI |
 +						POLLRDNORM | POLLRDBAND);
 +	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
  	read_unlock(&sk->sk_callback_lock);
  }
  
-@@ -1527,11 +1528,12 @@ static void sock_def_write_space(struct 
+@@ -1527,12 +1528,13 @@ static void sock_def_write_space(struct 
+ 	 * progress.  --DaveM
  	 */
  	if ((atomic_read(&sk->sk_wmem_alloc) << 1) <= sk->sk_sndbuf) {
- 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
 -			wake_up_interruptible(sk->sk_sleep);
++		if (sk_has_sleeper(sk))
 +			wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT |
 +						POLLWRNORM | POLLWRBAND);
  
@@ -515,7 +648,12 @@ diff --git a/net/dccp/input.c b/net/dccp/input.c
 diff --git a/net/dccp/output.c b/net/dccp/output.c
 --- a/net/dccp/output.c
 +++ b/net/dccp/output.c
-@@ -170,7 +170,7 @@ void dccp_write_space(struct sock *sk)
+@@ -170,11 +170,11 @@ void dccp_write_space(struct sock *sk)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+ 
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++	if (sk_has_sleeper(sk))
  		wake_up_interruptible(sk->sk_sleep);
  	/* Should agree with poll, otherwise some programs break */
  	if (sock_writeable(sk))
@@ -524,6 +662,30 @@ diff --git a/net/dccp/output.c b/net/dccp/output.c
  
  	read_unlock(&sk->sk_callback_lock);
  }
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -311,7 +311,7 @@ unsigned int dccp_poll(struct file *file, struct socket *sock,
+ 	unsigned int mask;
+ 	struct sock *sk = sock->sk;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	if (sk->sk_state == DCCP_LISTEN)
+ 		return inet_csk_listen_poll(sk);
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -339,7 +339,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	struct sock *sk = sock->sk;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	if (sk->sk_state == TCP_LISTEN)
+ 		return inet_csk_listen_poll(sk);
+ 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
@@ -564,15 +726,27 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
 --- a/net/rxrpc/af_rxrpc.c
 +++ b/net/rxrpc/af_rxrpc.c
-@@ -65,7 +65,7 @@ static void rxrpc_write_space(struct sock *sk)
+@@ -65,9 +65,9 @@ static void rxrpc_write_space(struct sock *sk)
+ 	_enter("%p", sk);
+ 	read_lock(&sk->sk_callback_lock);
  	if (rxrpc_writable(sk)) {
- 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++		if (sk_has_sleeper(sk))
  			wake_up_interruptible(sk->sk_sleep);
 -		sk_wake_async(sk, 2, POLL_OUT);
 +		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
  	}
  	read_unlock(&sk->sk_callback_lock);
  }
+@@ -588,7 +588,7 @@ static unsigned int rxrpc_poll(struct file *file, struct socket *sock,
+ 	unsigned int mask;
+ 	struct sock *sk = sock->sk;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	mask = 0;
+ 
+ 	/* the socket is readable if there are any messages waiting on the Rx
 diff --git a/net/sctp/socket.c b/net/sctp/socket.c
 --- a/net/sctp/socket.c
 +++ b/net/sctp/socket.c
@@ -617,12 +791,14 @@ diff --git a/net/socket.c b/net/socket.c
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
-@@ -307,8 +307,8 @@ static void unix_write_space(struct sock
+@@ -307,9 +307,9 @@ static void unix_write_space(struct sock
+ {
  	read_lock(&sk->sk_callback_lock);
  	if (unix_writable(sk)) {
- 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
 -			wake_up_interruptible(sk->sk_sleep);
 -		sk_wake_async(sk, 2, POLL_OUT);
++		if (sk_has_sleeper(sk))
 +			wake_up_interruptible_sync(sk->sk_sleep);
 +		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
  	}
@@ -658,4 +834,13 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  			read_unlock(&other->sk_callback_lock);
  		}
  		if (other)
+@@ -1985,7 +1985,7 @@ static unsigned int unix_poll(struct file *file, struct socket *sock, poll_table
+ 	struct sock *sk = sock->sk;
+ 	unsigned int mask;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	mask = 0;
+ 
+ 	/* exceptional events? */
 -- 
