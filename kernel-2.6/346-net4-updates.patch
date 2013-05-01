@@ -1,6 +1,7 @@
 [NET] Updates from upstream
 
  9d3e44425e3498eb33f25d94392b4fd0d56a5176 [SOCK]: Adds a rcu_dereference() in sk_filter
+ db543c1f973cd1d557cc32ceee76737c1e4d2898 net: skb_copy_datagram_from_iovec()
  53b125779fb0b29e5b316bf3dc7d199e6dcea567 tcpv6: fix option space offsets with md5
  800d55f146098c5ffd1914d7eef2fd4a6d558b1d ipv6: Remove some pointless conditionals before kfree_skb()
  40d44446cf10d9d118e8f0132c94e1f25ea3be97 unix: remove some pointless conditionals before kfree_skb()
@@ -11,19 +12,35 @@
  0705c6f0e2d39333645bf77cf1efb94526ff1f82 tcp: update also tcp_output with regard to RFC 5681
 
 ---
- include/net/sock.h       |    2 +-
- include/net/tcp.h        |    9 +++++++++
- net/core/neighbour.c     |    3 +--
- net/core/skbuff.c        |    3 +--
- net/ipv4/ip_sockglue.c   |   25 ++++++++++++++++---------
- net/ipv4/tcp_input.c     |    9 ++-------
- net/ipv4/tcp_output.c    |   12 +++---------
- net/ipv6/ipv6_sockglue.c |    3 +--
- net/ipv6/tcp_ipv6.c      |    8 +++-----
- net/packet/af_packet.c   |    3 +--
- net/unix/af_unix.c       |    3 +--
- 11 files changed, 39 insertions(+), 41 deletions(-)
+ include/linux/skbuff.h   |    4 ++
+ include/net/sock.h       |    2 -
+ include/net/tcp.h        |    9 ++++
+ net/core/datagram.c      |   87 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/core/neighbour.c     |    3 -
+ net/core/skbuff.c        |    3 -
+ net/ipv4/ip_sockglue.c   |   25 ++++++++-----
+ net/ipv4/tcp_input.c     |    9 +---
+ net/ipv4/tcp_output.c    |   12 +-----
+ net/ipv6/ipv6_sockglue.c |    3 -
+ net/ipv6/tcp_ipv6.c      |    8 +---
+ net/packet/af_packet.c   |    3 -
+ net/unix/af_unix.c       |    3 -
+ 13 files changed, 130 insertions(+), 41 deletions(-)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1452,6 +1452,10 @@ extern int	       skb_copy_datagram_iovec(const struct sk_buff *from,
+ extern int	       skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
+ 							int hlen,
+ 							struct iovec *iov);
++extern int	       skb_copy_datagram_from_iovec(struct sk_buff *skb,
++						    int offset,
++						    struct iovec *from,
++						    int len);
+ extern void	       skb_free_datagram(struct sock *sk, struct sk_buff *skb);
+ extern void	       skb_free_datagram_locked(struct sock *sk,
+ 						struct sk_buff *skb);
 diff --git a/include/net/sock.h b/include/net/sock.h
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
@@ -55,6 +72,103 @@ diff --git a/include/net/tcp.h b/include/net/tcp.h
  extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
  extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
  
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -339,6 +339,93 @@ fault:
+ 	return -EFAULT;
+ }
+ 
++/**
++ *	skb_copy_datagram_from_iovec - Copy a datagram from an iovec.
++ *	@skb: buffer to copy
++ *	@offset: offset in the buffer to start copying to
++ *	@from: io vector to copy to
++ *	@len: amount of data to copy to buffer from iovec
++ *
++ *	Returns 0 or -EFAULT.
++ *	Note: the iovec is modified during the copy.
++ */
++int skb_copy_datagram_from_iovec(struct sk_buff *skb, int offset,
++				 struct iovec *from, int len)
++{
++	int start = skb_headlen(skb);
++	int i, copy = start - offset;
++
++	/* Copy header. */
++	if (copy > 0) {
++		if (copy > len)
++			copy = len;
++		if (memcpy_fromiovec(skb->data + offset, from, copy))
++			goto fault;
++		if ((len -= copy) == 0)
++			return 0;
++		offset += copy;
++	}
++
++	/* Copy paged appendix. Hmm... why does this look so complicated? */
++	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++		int end;
++
++		WARN_ON(start > offset + len);
++
++		end = start + skb_shinfo(skb)->frags[i].size;
++		if ((copy = end - offset) > 0) {
++			int err;
++			u8  *vaddr;
++			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++			struct page *page = frag->page;
++
++			if (copy > len)
++				copy = len;
++			vaddr = kmap(page);
++			err = memcpy_fromiovec(vaddr + frag->page_offset +
++					       offset - start, from, copy);
++			kunmap(page);
++			if (err)
++				goto fault;
++
++			if (!(len -= copy))
++				return 0;
++			offset += copy;
++		}
++		start = end;
++	}
++
++	if (skb_shinfo(skb)->frag_list) {
++		struct sk_buff *list = skb_shinfo(skb)->frag_list;
++
++		for (; list; list = list->next) {
++			int end;
++
++			WARN_ON(start > offset + len);
++
++			end = start + list->len;
++			if ((copy = end - offset) > 0) {
++				if (copy > len)
++					copy = len;
++				if (skb_copy_datagram_from_iovec(list,
++								 offset - start,
++								 from, copy))
++					goto fault;
++				if ((len -= copy) == 0)
++					return 0;
++				offset += copy;
++			}
++			start = end;
++		}
++	}
++	if (!len)
++		return 0;
++
++fault:
++	return -EFAULT;
++}
++EXPORT_SYMBOL(skb_copy_datagram_from_iovec);
++
+ static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
+ 				      u8 __user *to, int len,
+ 				      __wsum *csump)
 diff --git a/net/core/neighbour.c b/net/core/neighbour.c
 --- a/net/core/neighbour.c
 +++ b/net/core/neighbour.c
