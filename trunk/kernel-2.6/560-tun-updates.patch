@@ -15,11 +15,12 @@
  f271b2cc78f09c93ccd00a2056d3237134bf994c tun: Fix/rewrite packet filtering logic
  e174961ca1a0b28f7abf0be47973ad57cb74e5f0 net: convert print_mac to %pM
  cfbf84fcbcda98bb91ada683a8dc8e6901a83ebd tun: Fix unicast filter overflow
+ f42157cb568c1eb02eca7df4da67553a9edae24a tun: fallback if skb_alloc() fails on big packets
 
 ---
- drivers/net/tun.c      |  459 +++++++++++++++++++++++++++++++------------------
- include/linux/if_tun.h |   72 +++----
- 2 files changed, 330 insertions(+), 201 deletions(-)
+ drivers/net/tun.c      |  525 +++++++++++++++++++++++++++++++++----------------
+ include/linux/if_tun.h |   72 ++----
+ 2 files changed, 392 insertions(+), 205 deletions(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 --- a/drivers/net/tun.c
@@ -41,7 +42,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
   *
   *  Harald Roelle <harald.roelle@ifi.lmu.de>  2004/04/20
   *    Fixes in packet dropping, queue length setting and queue wakeup.
-@@ -66,9 +62,156 @@
+@@ -66,10 +62,157 @@
  #include <asm/system.h>
  #include <asm/uaccess.h>
  
@@ -56,8 +57,8 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 +#else
 +#define DBG( a... )
 +#define DBG1( a... )
-+#endif
-+
+ #endif
+ 
 +#define FLT_EXACT_COUNT 8
 +struct tap_filter {
 +	unsigned int    count;    /* Number of addrs. Zero means disabled */
@@ -83,7 +84,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 +
 +#ifdef TUN_DEBUG
 +	int debug;
- #endif
++#endif
 +};
 +
 +/* TAP filterting */
@@ -195,9 +196,10 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 +
 +	return run_filter(filter, skb);
 +}
- 
++
  /* Network device part of the driver */
  
+ static LIST_HEAD(tun_dev_list);
 @@ -100,7 +243,12 @@ static int tun_net_xmit(struct sk_buff *
  	if (!tun->attached)
  		goto drop;
@@ -321,7 +323,74 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  
  	DBG(KERN_INFO "%s: tun_chr_poll\n", tun->dev->name);
  
-@@ -245,8 +377,11 @@ static __inline__ ssize_t tun_get_user(s
+@@ -230,6 +362,66 @@ static unsigned int tun_chr_poll(struct
+ 	return mask;
+ }
+ 
++/* prepad is the amount to reserve at front.  len is length after that.
++ * linear is a hint as to how much to copy (usually headers). */
++static struct sk_buff *tun_alloc_skb(size_t prepad, size_t len, size_t linear,
++				     gfp_t gfp)
++{
++	struct sk_buff *skb;
++	unsigned int i;
++
++	skb = alloc_skb(prepad + len, gfp|__GFP_NOWARN);
++	if (skb) {
++		skb_reserve(skb, prepad);
++		skb_put(skb, len);
++		return skb;
++	}
++
++	/* Under a page?  Don't bother with paged skb. */
++	if (prepad + len < PAGE_SIZE)
++		return NULL;
++
++	/* Start with a normal skb, and add pages. */
++	skb = alloc_skb(prepad + linear, gfp);
++	if (!skb)
++		return NULL;
++
++	skb_reserve(skb, prepad);
++	skb_put(skb, linear);
++
++	len -= linear;
++
++	for (i = 0; i < MAX_SKB_FRAGS; i++) {
++		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
++
++		f->page = alloc_page(gfp|__GFP_ZERO);
++		if (!f->page)
++			break;
++
++		f->page_offset = 0;
++		f->size = PAGE_SIZE;
++
++		skb->data_len += PAGE_SIZE;
++		skb->len += PAGE_SIZE;
++		skb->truesize += PAGE_SIZE;
++		skb_shinfo(skb)->nr_frags++;
++
++		if (len < PAGE_SIZE) {
++			len = 0;
++			break;
++		}
++		len -= PAGE_SIZE;
++	}
++
++	/* Too large, or alloc fail? */
++	if (unlikely(len)) {
++		kfree_skb(skb);
++		skb = NULL;
++	}
++
++	return skb;
++}
++
+ /* Get packet from user space buffer */
+ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv, size_t count)
+ {
+@@ -245,17 +437,18 @@ static __inline__ ssize_t tun_get_user(s
  			return -EFAULT;
  	}
  
@@ -332,9 +401,20 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 +			return -EINVAL;
 +	}
  
- 	if (!(skb = alloc_skb(len + align, GFP_KERNEL))) {
+-	if (!(skb = alloc_skb(len + align, GFP_KERNEL))) {
++	if (!(skb = tun_alloc_skb(align, len, 0/*gso.hdr_len*/, GFP_KERNEL))) {
  		tun->stats.rx_dropped++;
-@@ -263,6 +398,21 @@ static __inline__ ssize_t tun_get_user(s
+ 		return -ENOMEM;
+ 	}
+ 
+-	if (align)
+-		skb_reserve(skb, align);
+-	if (memcpy_fromiovec(skb_put(skb, len), iv, len)) {
++	if (skb_copy_datagram_from_iovec(skb, 0, iv, len)) {
+ 		tun->stats.rx_dropped++;
+ 		kfree_skb(skb);
+ 		return -EFAULT;
+@@ -263,6 +456,21 @@ static __inline__ ssize_t tun_get_user(s
  
  	switch (tun->flags & TUN_TYPE_MASK) {
  	case TUN_TUN_DEV:
@@ -356,7 +436,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  		skb_reset_mac_header(skb);
  		skb->protocol = pi.proto;
  		skb->dev = tun->dev;
-@@ -283,17 +433,6 @@ static __inline__ ssize_t tun_get_user(s
+@@ -283,17 +491,6 @@ static __inline__ ssize_t tun_get_user(s
  	return count;
  }
  
@@ -374,7 +454,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
  			      unsigned long count, loff_t pos)
  {
-@@ -304,7 +443,7 @@ static ssize_t tun_chr_aio_write(struct
+@@ -304,7 +501,7 @@ static ssize_t tun_chr_aio_write(struct
  
  	DBG(KERN_INFO "%s: tun_chr_write %ld\n", tun->dev->name, count);
  
@@ -383,7 +463,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  }
  
  /* Put packet to the user space buffer */
-@@ -354,16 +493,12 @@ static ssize_t tun_chr_aio_read(struct k
+@@ -354,16 +551,12 @@ static ssize_t tun_chr_aio_read(struct k
  
  	DBG(KERN_INFO "%s: tun_chr_read\n", tun->dev->name);
  
@@ -401,7 +481,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  		current->state = TASK_INTERRUPTIBLE;
  
  		/* Read frames from the queue */
-@@ -383,38 +518,9 @@ static ssize_t tun_chr_aio_read(struct k
+@@ -383,38 +576,9 @@ static ssize_t tun_chr_aio_read(struct k
  		}
  		netif_wake_queue(tun->dev);
  
@@ -443,7 +523,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	}
  
  	current->state = TASK_RUNNING;
-@@ -431,6 +537,7 @@ static void tun_setup(struct net_device
+@@ -431,6 +595,7 @@ static void tun_setup(struct net_device
  	init_waitqueue_head(&tun->read_wait);
  
  	tun->owner = -1;
@@ -451,7 +531,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  
  	SET_MODULE_OWNER(dev);
  	dev->open = tun_net_open;
-@@ -466,8 +573,11 @@ static int tun_set_iff(struct file *file
+@@ -466,8 +631,11 @@ static int tun_set_iff(struct file *file
  			return -EBUSY;
  
  		/* Check permissions */
@@ -465,7 +545,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  			return -EPERM;
  	}
  	else if (__dev_get_by_name(ifr->ifr_name))
-@@ -504,12 +614,7 @@ static int tun_set_iff(struct file *file
+@@ -504,12 +672,7 @@ static int tun_set_iff(struct file *file
  		tun = netdev_priv(dev);
  		tun->dev = dev;
  		tun->flags = flags;
@@ -479,7 +559,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  
  		tun_net_init(dev);
  
-@@ -530,13 +635,23 @@ static int tun_set_iff(struct file *file
+@@ -530,13 +693,23 @@ static int tun_set_iff(struct file *file
  
  	if (ifr->ifr_flags & IFF_NO_PI)
  		tun->flags |= TUN_NO_PI;
@@ -503,7 +583,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	strcpy(ifr->ifr_name, tun->dev->name);
  	return 0;
  
-@@ -546,12 +661,53 @@ static int tun_set_iff(struct file *file
+@@ -546,12 +719,53 @@ static int tun_set_iff(struct file *file
  	return err;
  }
  
@@ -557,7 +637,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  
  	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
  		if (copy_from_user(&ifr, argp, sizeof ifr))
-@@ -574,6 +730,14 @@ static int tun_chr_ioctl(struct inode *i
+@@ -574,6 +788,14 @@ static int tun_chr_ioctl(struct inode *i
  		return 0;
  	}
  
@@ -572,7 +652,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	if (!tun)
  		return -EBADFD;
  
-@@ -609,6 +773,13 @@ static int tun_chr_ioctl(struct inode *i
+@@ -609,6 +831,13 @@ static int tun_chr_ioctl(struct inode *i
  		DBG(KERN_INFO "%s: owner set to %d\n", tun->dev->name, tun->owner);
  		break;
  
@@ -586,7 +666,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	case TUNSETLINK:
  		/* Only allow setting the type when the interface is down */
  		if (tun->dev->flags & IFF_UP) {
-@@ -626,70 +797,38 @@ static int tun_chr_ioctl(struct inode *i
+@@ -626,70 +855,38 @@ static int tun_chr_ioctl(struct inode *i
  		tun->debug = arg;
  		break;
  #endif
@@ -646,10 +726,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 -					tun->dev_addr[0], tun->dev_addr[1], tun->dev_addr[2],
 -					tun->dev_addr[3], tun->dev_addr[4], tun->dev_addr[5]);
 -		}
-+		/* Set hw address */
-+		DBG(KERN_DEBUG "%s: set hw address: %pM\n",
-+			tun->dev->name, ifr.ifr_hwaddr.sa_data);
- 
+-
 -		return  ret;
 -	}
 -
@@ -663,7 +740,10 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 -				(u8)ifr.ifr_hwaddr.sa_data[2], (u8)ifr.ifr_hwaddr.sa_data[3],
 -				(u8)ifr.ifr_hwaddr.sa_data[4], (u8)ifr.ifr_hwaddr.sa_data[5]);
 -		return 0;
--
++		/* Set hw address */
++		DBG(KERN_DEBUG "%s: set hw address: %pM\n",
++			tun->dev->name, ifr.ifr_hwaddr.sa_data);
+ 
 -	case SIOCDELMULTI:
 -		/** Remove the specified group from the character device's multicast
 -		 * filter list. */
