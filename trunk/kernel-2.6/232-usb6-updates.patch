@@ -11,10 +11,12 @@ USB: Updates from upstream
  3e619d04159be54b3daa0b7036b0ce9e067f4b5d USB: EHCI: fix bug in scheduling periodic split transfers
  2f02bc8af3abb846823811af65ec6cc46a4d525d USB: report submission of active URBs
  2656a9abcf1ec8dd5fee6a75d6997a0f2fa0094e USB: EHCI: bugfix: urb->hcpriv should not be NULL
+ 1361bf4b9f9ef45e628a5b89e0fd9bedfdcb7104 usbfs: Always allow ctrl requests with USB_RECIP_ENDPOINT on the ctrl ep
 
 ---
  Documentation/usb/error-codes.txt |    2 +
  drivers/usb/core/buffer.c         |    2 -
+ drivers/usb/core/devio.c          |    2 +
  drivers/usb/core/hub.c            |    6 ++--
  drivers/usb/core/message.c        |    3 +-
  drivers/usb/core/urb.c            |    7 ++++-
@@ -22,7 +24,7 @@ USB: Updates from upstream
  drivers/usb/host/ehci-sched.c     |   23 +++++++++-------
  drivers/usb/host/ehci.h           |    8 +++--
  include/linux/usb.h               |   53 ++++++++++++++++++++++++++++++++++++++
- 9 files changed, 92 insertions(+), 26 deletions(-)
+ 10 files changed, 94 insertions(+), 26 deletions(-)
 
 diff --git a/Documentation/usb/error-codes.txt b/Documentation/usb/error-codes.txt
 --- a/Documentation/usb/error-codes.txt
@@ -48,6 +50,18 @@ diff --git a/drivers/usb/core/buffer.c b/drivers/usb/core/buffer.c
  }
  
  void hcd_buffer_free(
+diff --git a/drivers/usb/core/devio.c b/drivers/usb/core/devio.c
+--- a/drivers/usb/core/devio.c
++++ b/drivers/usb/core/devio.c
+@@ -739,6 +739,8 @@ static int check_ctrlrecip(struct dev_state *ps, unsigned int requesttype,
+ 	index &= 0xff;
+ 	switch (requesttype & USB_RECIP_MASK) {
+ 	case USB_RECIP_ENDPOINT:
++		if ((index & ~USB_DIR_IN) == 0)
++			return 0;
+ 		if ((ret = findintfep(ps->dev, index)) >= 0)
+ 			ret = checkintf(ps, ret);
+ 
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
 --- a/drivers/usb/core/hub.c
 +++ b/drivers/usb/core/hub.c
