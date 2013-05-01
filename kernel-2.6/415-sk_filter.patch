@@ -7,13 +7,9 @@
  9b013e05e0289c190a53d78ca029e2f21c0e4485 [NET]: Fix bug in sk_filter race cures.
  5ff3f073670b544a9c0547cc6fef1f7eed5762ed net: export attach/detach filter routines
  f91ff5b9ff529be8aac2039af63b2c8ea6cd6ebe net: sk_{detach|attach}_filter() rcu fixes
+ 46bcf14f44d8f31ecfdc8b6708ec15a3b33316d9 filter: fix sk_filter rcu handling
 
 ---
- include/linux/filter.h |    1 
- include/net/sock.h     |   22 ++++++------------
- net/core/filter.c      |   59 +++++++++++++++++++++++++++++++++++++++----------
- net/core/sock.c        |   14 +----------
- 4 files changed, 58 insertions(+), 38 deletions(-)
 
 diff --git a/include/linux/filter.h b/include/linux/filter.h
 --- a/include/linux/filter.h
@@ -29,10 +25,11 @@ diff --git a/include/linux/filter.h b/include/linux/filter.h
 diff --git a/include/net/sock.h b/include/net/sock.h
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -927,16 +927,6 @@ static inline int sk_filter(struct sock
+@@ -927,32 +927,27 @@ static inline int sk_filter(struct sock
+ 	return err;
  }
  
- /**
+-/**
 - * 	sk_filter_rcu_free: Free a socket filter
 - *	@rcu: rcu_head that contains the sk_filter to free
 - */
@@ -41,12 +38,13 @@ diff --git a/include/net/sock.h b/include/net/sock.h
 -	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
 -	kfree(fp);
 -}
--
--/**
++extern void sk_filter_release_rcu(struct rcu_head *rcu);
+ 
+ /**
   *	sk_filter_release: Release a socket filter
-  *	@sk: socket
+- *	@sk: socket
   *	@fp: filter to remove
-@@ -944,14 +934,18 @@ static inline void sk_filter_rcu_free(st
+  *
   *	Remove a filter from a socket and release its resources.
   */
  
@@ -54,7 +52,7 @@ diff --git a/include/net/sock.h b/include/net/sock.h
 +static inline void sk_filter_release(struct sk_filter *fp)
 +{
 +	if (atomic_dec_and_test(&fp->refcnt))
-+		kfree(fp);
++		call_rcu_bh(&fp->rcu, sk_filter_release_rcu);
 +}
 +
 +static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
@@ -72,33 +70,26 @@ diff --git a/include/net/sock.h b/include/net/sock.h
 diff --git a/net/core/filter.c b/net/core/filter.c
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -497,6 +497,25 @@ int sk_chk_filter(struct sock_filter *fi
+@@ -497,6 +497,18 @@ int sk_chk_filter(struct sock_filter *fi
  }
  
  /**
-+ * 	sk_filter_rcu_release: Release a socket filter by rcu_head
++ * 	sk_filter_release_rcu - Release a socket filter by rcu_head
 + *	@rcu: rcu_head that contains the sk_filter to free
 + */
-+static void sk_filter_rcu_release(struct rcu_head *rcu)
++void sk_filter_release_rcu(struct rcu_head *rcu)
 +{
 +	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
 +
-+	sk_filter_release(fp);
++	kfree(fp);
 +}
-+
-+static void sk_filter_delayed_uncharge(struct sock *sk, struct sk_filter *fp)
-+{
-+	unsigned int size = sk_filter_len(fp);
-+
-+	atomic_sub(size, &sk->sk_omem_alloc);
-+	call_rcu_bh(&fp->rcu, sk_filter_rcu_release);
-+}
++EXPORT_SYMBOL(sk_filter_release_rcu);
 +
 +/**
   *	sk_attach_filter - attach a socket filter
   *	@fprog: the filter program
   *	@sk: the socket to use
-@@ -508,7 +527,7 @@ int sk_chk_filter(struct sock_filter *fi
+@@ -508,7 +520,7 @@ int sk_chk_filter(struct sock_filter *fi
   */
  int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
  {
@@ -107,7 +98,7 @@ diff --git a/net/core/filter.c b/net/core/filter.c
  	unsigned int fsize = sizeof(struct sock_filter) * fprog->len;
  	int err;
  
-@@ -528,20 +547,36 @@ int sk_attach_filter(struct sock_fprog *
+@@ -528,20 +540,36 @@ int sk_attach_filter(struct sock_fprog *
  	fp->len = fprog->len;
  
  	err = sk_chk_filter(fp->insns, fp->len);
@@ -132,7 +123,7 @@ diff --git a/net/core/filter.c b/net/core/filter.c
 +	rcu_assign_pointer(sk->sk_filter, fp);
 +
 +	if (old_fp)
-+		sk_filter_delayed_uncharge(sk, old_fp);
++		sk_filter_uncharge(sk, old_fp);
 +	return 0;
 +}
 +EXPORT_SYMBOL_GPL(sk_attach_filter);
@@ -146,7 +137,7 @@ diff --git a/net/core/filter.c b/net/core/filter.c
 +					   sock_owned_by_user(sk));
 +	if (filter) {
 +		rcu_assign_pointer(sk->sk_filter, NULL);
-+		sk_filter_delayed_uncharge(sk, filter);
++		sk_filter_uncharge(sk, filter);
 +		ret = 0;
 +	}
 +	return ret;
