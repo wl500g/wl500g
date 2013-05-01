@@ -4,11 +4,13 @@
  ec0d215f9420564fc8286dcf93d2d068bb53a07e af_unix: fix 'poll for write'/connected DGRAM sockets
  ded34e0fe8fe8c2d595bfa30626654e4b87621e0 unix: fix a race condition in unix_release()
  77238f2b942b38ab4e7f3aced44084493e4a8675 AF_UNIX: Fix deadlock on connecting to shutdown socket
+ 5456f09aaf88731e16dbcea7522cb330b6846415 af_unix: fix unix_dgram_poll() behavior for EPOLLOUT event
+ 973a34aa8593dbfe84386343c694f5beecb51d8a af_unix: optimize unix_dgram_poll()
 
 ---
  include/net/af_unix.h |   29 ------------
- net/unix/af_unix.c    |  116 ++++++++++++++++++++++++++++++++++++++++++--------
- 2 files changed, 99 insertions(+), 46 deletions(-)
+ net/unix/af_unix.c    |  114 ++++++++++++++++++++++++++++++++++++++++++--------
+ 2 files changed, 97 insertions(+), 46 deletions(-)
 
 diff --git a/include/net/af_unix.h b/include/net/af_unix.h
 --- a/include/net/af_unix.h
@@ -216,7 +218,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  		err = -ENOTCONN;
  		other = unix_peer(sk);
  		if (!other)
-@@ -2008,6 +2036,60 @@ static unsigned int unix_poll(struct fil
+@@ -2008,6 +2036,58 @@ static unsigned int unix_poll(struct fil
  	return mask;
  }
  
@@ -233,13 +235,12 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 +	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
 +		mask |= POLLERR;
 +	if (sk->sk_shutdown & RCV_SHUTDOWN)
-+		mask |= POLLRDHUP;
++		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
 +	if (sk->sk_shutdown == SHUTDOWN_MASK)
 +		mask |= POLLHUP;
 +
 +	/* readable? */
-+	if (!skb_queue_empty(&sk->sk_receive_queue) ||
-+	    (sk->sk_shutdown & RCV_SHUTDOWN))
++	if (!skb_queue_empty(&sk->sk_receive_queue))
 +		mask |= POLLIN | POLLRDNORM;
 +
 +	/* Connection-based need to check for termination and startup */
@@ -251,20 +252,19 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 +			return mask;
 +	}
 +
-+	/* writable? */
-+	writable = unix_writable(sk);
-+	if (writable) {
-+		other = unix_peer_get(sk);
-+		if (other) {
-+			if (unix_peer(other) != sk) {
-+				sock_poll_wait(file, &unix_sk(other)->peer_wait,
-+					  wait);
-+				if (unix_recvq_full(other))
-+					writable = 0;
-+			}
++	/* No write status requested, avoid expensive OUT tests. */
++	if (wait && !(wait->key & (POLLWRBAND | POLLWRNORM | POLLOUT)))
++		return mask;
 +
-+			sock_put(other);
++	writable = unix_writable(sk);
++	other = unix_peer_get(sk);
++	if (other) {
++		if (unix_peer(other) != sk) {
++			sock_poll_wait(file, &unix_sk(other)->peer_wait, wait);
++			if (unix_recvq_full(other))
++				writable = 0;
 +		}
++		sock_put(other);
 +	}
 +
 +	if (writable)
