@@ -14,8 +14,7 @@ Add raw/udp drops counter for:
  net/ipv4/udp.c     |   11 +++++++----
  net/ipv6/raw.c     |   15 ++++++++-------
  net/ipv6/udp.c     |   11 +++++++----
- net/socket.c       |    3 +++
- 7 files changed, 46 insertions(+), 26 deletions(-)
+ 6 files changed, 43 insertions(+), 26 deletions(-)
 
 diff --git a/include/net/sock.h b/include/net/sock.h
 --- a/include/net/sock.h
@@ -294,22 +293,4 @@ diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
  	else
  		udp6_sock_seq_show(seq, v, ((struct udp_iter_state *)seq->private)->bucket);
  	return 0;
-diff --git a/net/socket.c b/net/socket.c
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1048,11 +1048,14 @@ static int sock_fasync(int fd, struct fi
- 		fna->fa_next = sock->fasync_list;
- 		write_lock_bh(&sk->sk_callback_lock);
- 		sock->fasync_list = fna;
-+		sock_set_flag(sk, SOCK_FASYNC);
- 		write_unlock_bh(&sk->sk_callback_lock);
- 	} else {
- 		if (fa != NULL) {
- 			write_lock_bh(&sk->sk_callback_lock);
- 			*prev = fa->fa_next;
-+			if (!sock->fasync_list)
-+				sock_reset_flag(sk, SOCK_FASYNC);
- 			write_unlock_bh(&sk->sk_callback_lock);
- 			kfree(fa);
- 		}
 -- 
