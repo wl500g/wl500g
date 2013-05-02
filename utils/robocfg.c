@@ -397,7 +397,7 @@ main(int argc, char *argv[])
 					    buf, robo535x ? 4 : 5);
 				if ((robo535x == 4) ? (buf[5] & 0x01) : (buf[3] & 0x8000) /* valid */)
 				{
-					printf("%04i  %02x:%02x:%02x:%02x:%02x:%02x  %7s  %c\n",
+					printf("%04i  %02x:%02x:%02x:%02x:%02x:%02x  %-7s  ",
 						(base_vlan | (robo535x == 4) ?
 						    (base_vlan | (buf[3] & 0xfff)) :
 						    ((buf[3] >> 5) & 0x0f) |
@@ -406,10 +406,21 @@ main(int argc, char *argv[])
 						buf[1] >> 8, buf[1] & 255,
 						buf[0] >> 8, buf[0] & 255,
 						((robo535x == 4 ?
-						    (buf[4] & 0x8000) : (buf[3] & 0x4000)) ? "STATIC" : "DYNAMIC"),
-						((robo535x == 4) ?
-						    '0'+(buf[4] & 0x0f) : ports[buf[3] & 0x0f])
+						    (buf[4] & 0x8000) : (buf[3] & 0x4000)) ? "STATIC" : "DYNAMIC")
 					);
+					if (buf[2] & 0x100) {
+						val16 = (robo535x == 4) ? (buf[4] & 0x13f) : (buf[3] & 0x7f);
+						if (val16 == 0)
+							printf("-");
+						else
+						for (j = 0; val16 >> j; j++) {
+							if (val16 & (1 << j))
+								printf("%d ", j);
+						}
+					} else
+						printf("%d", (robo535x == 4) ?
+						    buf[4] & 0x0f : ports[buf[3] & 0x0f] - '0');
+					printf("\n");
 				}
 			}
 			i++;
