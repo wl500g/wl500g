@@ -85,7 +85,7 @@ diff --git a/drivers/char/tty_io.c b/drivers/char/tty_io.c
 +void tty_write_unlock(struct tty_struct *tty)
 +{
 +	mutex_unlock(&tty->atomic_write_lock);
-+	wake_up_interruptible(&tty->write_wait);
++	wake_up_interruptible_poll(&tty->write_wait, POLLOUT);
 +}
 +
 +int tty_write_lock(struct tty_struct *tty, int ndelay)

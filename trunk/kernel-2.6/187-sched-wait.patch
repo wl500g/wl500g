@@ -7,6 +7,7 @@
  c0da37753695e010776ccf2200a5731e0f88a9f3 epoll keyed wakeups: introduce new *_poll() wakeup macros
  37e5540b3c9d838eb20f2ca8ea2eb8072271e403 epoll keyed wakeups: make sockets use keyed wakeups
  395108880efff4a4ffa1ffa554477f7f5ba6a031 epoll keyed wakeups: make eventfd use keyed wakeups
+ 4b19449db074eec86ae31a96d3cdca4aa7f138ab epoll keyed wakeups: make tty use keyed wakeups
  bf368e4e70cd4e0f880923c44e95a4273d725ab4 net: Avoid extra wakeups of threads blocked in wait_for_packet()
  78ddb08feb7d4fbe3c0a9931804c51ee58be4023 wait: don't use __wake_up_common()
  231d0aefd88e94129cb8fb84794f9bb788c6366e wait: using uninitialized member of wait queue
@@ -14,28 +15,97 @@
  a57de0b4336e48db2811a2030bb68dba8dd09d88 net: adding memory barrier to the poll and receive callbacks
 
 ---
- fs/eventfd.c         |    6 ++--
- fs/pipe.c            |    6 ++--
- include/linux/net.h  |    7 +++++
- include/linux/wait.h |   32 ++++++++++++++++++++----
- include/net/sock.h   |   66 +++++++++++++++++++++++++++++++++++++++++++++++++++
- kernel/sched.c       |   45 +++++++++++++++++++++-------------
- kernel/wait.c        |   59 ++++++++++++++++++++++++++++++++++++++++-----
- net/atm/common.c     |    8 +++---
- net/core/datagram.c  |   16 ++++++++++--
- net/core/sock.c      |   24 ++++++++++--------
- net/core/stream.c    |    2 -
- net/dccp/input.c     |    6 ++--
- net/dccp/output.c    |    4 +--
- net/dccp/proto.c     |    2 -
- net/ipv4/tcp.c       |    2 -
- net/ipv4/tcp_input.c |   12 ++++-----
- net/rxrpc/af_rxrpc.c |    6 ++--
- net/sctp/socket.c    |    3 +-
- net/socket.c         |    9 +++---
- net/unix/af_unix.c   |   16 ++++++------
- 20 files changed, 247 insertions(+), 84 deletions(-)
+ drivers/char/tty_io.c |   19 ++++++--------
+ fs/eventfd.c          |    6 ++--
+ fs/pipe.c             |    6 ++--
+ include/linux/net.h   |    7 +++++
+ include/linux/wait.h  |   32 +++++++++++++++++++-----
+ include/net/sock.h    |   66 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ kernel/sched.c        |   45 +++++++++++++++++++++-------------
+ kernel/wait.c         |   59 +++++++++++++++++++++++++++++++++++++++-----
+ net/atm/common.c      |    8 +++---
+ net/core/datagram.c   |   16 ++++++++++--
+ net/core/sock.c       |   24 +++++++++---------
+ net/core/stream.c     |    2 -
+ net/dccp/input.c      |    6 ++--
+ net/dccp/output.c     |    4 +--
+ net/dccp/proto.c      |    2 -
+ net/ipv4/tcp.c        |    2 -
+ net/ipv4/tcp_input.c  |   12 ++++-----
+ net/rxrpc/af_rxrpc.c  |    6 ++--
+ net/sctp/socket.c     |    3 +-
+ net/socket.c          |    9 +++---
+ net/unix/af_unix.c    |   16 ++++++------
+ 21 files changed, 256 insertions(+), 94 deletions(-)
 
+diff --git a/drivers/char/tty_io.c b/drivers/char/tty_io.c
+--- a/drivers/char/tty_io.c
++++ b/drivers/char/tty_io.c
+@@ -464,7 +464,7 @@ void tty_wakeup(struct tty_struct *tty)
+ 			tty_ldisc_deref(ld);
+ 		}
+ 	}
+-	wake_up_interruptible(&tty->write_wait);
++	wake_up_interruptible_poll(&tty->write_wait, POLLOUT);
+ }
+ 
+ EXPORT_SYMBOL_GPL(tty_wakeup);
+@@ -587,9 +587,8 @@ static void do_tty_hangup(struct work_struct *work)
+ 
+ 	/* FIXME: Once we trust the LDISC code better we can wait here for
+ 	   ldisc completion and fix the driver call race */
+-	   
+-	wake_up_interruptible(&tty->write_wait);
+-	wake_up_interruptible(&tty->read_wait);
++	wake_up_interruptible_poll(&tty->write_wait, POLLOUT);
++	wake_up_interruptible_poll(&tty->read_wait, POLLIN);
+ 
+ 	/*
+ 	 * Shutdown the current line discipline, and reset it to
+@@ -879,7 +879,7 @@ void stop_tty(struct tty_struct *tty)
+ 	if (tty->link && tty->link->packet) {
+ 		tty->ctrl_status &= ~TIOCPKT_START;
+ 		tty->ctrl_status |= TIOCPKT_STOP;
+-		wake_up_interruptible(&tty->link->read_wait);
++		wake_up_interruptible_poll(&tty->link->read_wait, POLLIN);
+ 	}
+ 	if (tty->driver->stop)
+ 		(tty->driver->stop)(tty);
+@@ -913,7 +913,7 @@ void start_tty(struct tty_struct *tty)
+ 	if (tty->link && tty->link->packet) {
+ 		tty->ctrl_status &= ~TIOCPKT_STOP;
+ 		tty->ctrl_status |= TIOCPKT_START;
+-		wake_up_interruptible(&tty->link->read_wait);
++		wake_up_interruptible_poll(&tty->link->read_wait, POLLIN);
+ 	}
+ 	if (tty->driver->start)
+ 		(tty->driver->start)(tty);
+@@ -1623,21 +1623,21 @@ void tty_release_dev(struct file *filp)
+ 
+ 		if (tty_closing) {
+ 			if (waitqueue_active(&tty->read_wait)) {
+-				wake_up(&tty->read_wait);
++				wake_up_poll(&tty->read_wait, POLLIN);
+ 				do_sleep++;
+ 			}
+ 			if (waitqueue_active(&tty->write_wait)) {
+-				wake_up(&tty->write_wait);
++				wake_up_poll(&tty->write_wait, POLLOUT);
+ 				do_sleep++;
+ 			}
+ 		}
+ 		if (o_tty_closing) {
+ 			if (waitqueue_active(&o_tty->read_wait)) {
+-				wake_up(&o_tty->read_wait);
++				wake_up_poll(&o_tty->read_wait, POLLIN);
+ 				do_sleep++;
+ 			}
+ 			if (waitqueue_active(&o_tty->write_wait)) {
+-				wake_up(&o_tty->write_wait);
++				wake_up_poll(&o_tty->write_wait, POLLOUT);
+ 				do_sleep++;
+ 			}
+ 		}
 diff --git a/fs/eventfd.c b/fs/eventfd.c
 --- a/fs/eventfd.c
 +++ b/fs/eventfd.c
