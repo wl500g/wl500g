@@ -4,10 +4,9 @@
  8f76d151b010980d137bfdc736d1d8f64b489165 [SCSI] fix sign extension with 1.5TB usb-storage LBD=y
  f27bac2761cab5a2e212dea602d22457a9aa6943 [SCSI] sd: update index allocation and use ida instead of idr
  4034cc68157bfa0b6622efe368488d3d3e20f4e6 [SCSI] sd: revive sd_index_lock
+ 53ad570be625045aba3ae7de8d82401364c655e1 sd: Use SCSI read/write(16) with > 32-bit LBA drives
 
 ---
- drivers/scsi/sd.c |   51 ++++++++++++++++++++++++---------------------------
- 1 file changed, 24 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
 --- a/drivers/scsi/sd.c
@@ -30,6 +29,15 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
  
  /* This semaphore is used to mediate the 0->1 reference get in the
   * face of object destruction (i.e. we can't allow a get on an
+@@ -479,7 +479,7 @@ static int sd_init_command(struct scsi_cmnd * SCpnt)
+ 
+ 	SCpnt->cmnd[1] = 0;
+ 	
+-	if (block > 0xffffffff) {
++	if (sdp->use_16_for_rw) {
+ 		SCpnt->cmnd[0] += READ_16 - READ_6;
+ 		SCpnt->cmnd[1] |= blk_fua_rq(rq) ? 0x8 : 0;
+ 		SCpnt->cmnd[2] = sizeof(block) > 4 ? (unsigned char) (block >> 56) & 0xff : 0;
 @@ -1227,8 +1228,7 @@ repeat:
  	}	
  	
@@ -67,6 +75,15 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
  	}	
  
  	/* Some devices are known to return the total number of blocks,
+@@ -1333,6 +1333,8 @@ got_data:
+ 		}
+ 	}
+ 
++	sdp->use_16_for_rw = (sdkp->capacity > 0xffffffff);
++
+ 	/* Rescale capacity to 512-byte units */
+ 	if (sector_size == 4096)
+ 		sdkp->capacity <<= 3;
 @@ -1639,18 +1628,22 @@ static int sd_probe(struct device *dev)
  	if (!gd)
  		goto out_free;
@@ -126,4 +143,15 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
  	spin_unlock(&sd_index_lock);
  
  	disk->private_data = NULL;
+diff --git a/include/scsi/scsi_device.h b/include/scsi/scsi_device.h
+--- a/include/scsi/scsi_device.h
++++ b/include/scsi/scsi_device.h
+@@ -117,6 +117,7 @@ struct scsi_device {
+ 				     * because we did a bus reset. */
+ 	unsigned use_10_for_rw:1; /* first try 10-byte read / write */
+ 	unsigned use_10_for_ms:1; /* first try 10-byte mode sense/select */
++	unsigned use_16_for_rw:1; /* Use read/write(16) over read/write(10) */
+ 	unsigned skip_ms_page_8:1;	/* do not use MODE SENSE page 0x08 */
+ 	unsigned skip_ms_page_3f:1;	/* do not use MODE SENSE page 0x3f */
+ 	unsigned use_192_bytes_for_3f:1; /* ask for 192 bytes from page 0x3f */
 -- 
