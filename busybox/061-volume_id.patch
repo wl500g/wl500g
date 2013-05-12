@@ -1,0 +1,25 @@
+From 041baf272082173fe8abf6fe8e7e4a16d26b9b88
+From: Oliver Metz <oliver.metz@gmx.de>
+Date: Wed, 08 May 2013 18:21:29 +0000
+Subject: volume_id: fix ntfs attribute search
+
+len is declared as uint32_t but le16_to_cpu macro is used
+
+Signed-off-by: Oliver Metz <oliver.metz@gmx.de>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/util-linux/volume_id/ntfs.c b/util-linux/volume_id/ntfs.c
+--- a/util-linux/volume_id/ntfs.c
++++ b/util-linux/volume_id/ntfs.c
+@@ -150,7 +150,7 @@ int FAST_FUNC volume_id_probe_ntfs(struct volume_id *id /*,uint64_t off*/)
+ 
+ 		attr = (struct file_attribute*) &buf[attr_off];
+ 		attr_type = le32_to_cpu(attr->type);
+-		attr_len = le16_to_cpu(attr->len);
++		attr_len = le32_to_cpu(attr->len);
+ 		val_off = le16_to_cpu(attr->value_offset);
+ 		val_len = le32_to_cpu(attr->value_len);
+ 		attr_off += attr_len;
+--
+cgit v0.9.1
