@@ -8,8 +8,17 @@
  5ff3f073670b544a9c0547cc6fef1f7eed5762ed net: export attach/detach filter routines
  f91ff5b9ff529be8aac2039af63b2c8ea6cd6ebe net: sk_{detach|attach}_filter() rcu fixes
  46bcf14f44d8f31ecfdc8b6708ec15a3b33316d9 filter: fix sk_filter rcu handling
+ 0d7da9ddd9a4eb7808698d04b98bf9d62d02649b net: add __rcu annotation to sk_filter
 
 ---
+ include/linux/filter.h |    1 
+ include/net/sock.h     |   25 +++++++++--------------
+ net/core/filter.c      |   52 +++++++++++++++++++++++++++++++++++++------------
+ net/core/sock.c        |   16 ++-------------
+ net/ipv4/udp.c         |    2 -
+ net/ipv6/raw.c         |    2 -
+ net/ipv6/udp.c         |    2 -
+ 7 files changed, 57 insertions(+), 43 deletions(-)
 
 diff --git a/include/linux/filter.h b/include/linux/filter.h
 --- a/include/linux/filter.h
@@ -25,6 +34,15 @@ diff --git a/include/linux/filter.h b/include/linux/filter.h
 diff --git a/include/net/sock.h b/include/net/sock.h
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
+@@ -221,7 +221,7 @@ struct sock {
+ 	atomic_t		sk_drops;
+ 	int			sk_rcvbuf;
+ 
+-	struct sk_filter      	*sk_filter;
++	struct sk_filter __rcu	*sk_filter;
+ 
+ 	wait_queue_head_t	*sk_sleep;
+ 	struct sk_buff_head	sk_async_wait_queue;
 @@ -927,32 +927,27 @@ static inline int sk_filter(struct sock
  	return err;
  }
@@ -184,4 +202,49 @@ diff --git a/net/core/sock.c b/net/core/sock.c
  		rcu_assign_pointer(sk->sk_filter, NULL);
  	}
  
+@@ -1005,7 +1005,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
+ 		sock_reset_flag(newsk, SOCK_DONE);
+ 		skb_queue_head_init(&newsk->sk_error_queue);
+ 
+-		filter = newsk->sk_filter;
++		filter = rcu_dereference_protected(newsk->sk_filter, 1);
+ 		if (filter != NULL)
+ 			sk_filter_charge(newsk, filter);
+ 
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1013,7 +1013,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	if (sk->sk_filter) {
++	if (rcu_dereference_raw(sk->sk_filter)) {
+ 		if (udp_lib_checksum_complete(skb))
+ 			goto drop;
+ 	}
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -353,7 +353,7 @@ void raw6_icmp_error(struct sk_buff *skb, int nexthdr,
+ 
+ static inline int rawv6_rcv_skb(struct sock * sk, struct sk_buff * skb)
+ {
+-	if ((raw6_sk(sk)->checksum || sk->sk_filter) &&
++	if ((raw6_sk(sk)->checksum || rcu_dereference_raw(sk->sk_filter)) &&
+ 	    skb_checksum_complete(skb)) {
+ 		atomic_inc(&sk->sk_drops);
+ 		kfree_skb(skb);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -327,7 +327,7 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	if (sk->sk_filter) {
++	if (rcu_dereference_raw(sk->sk_filter)) {
+ 		if (udp_lib_checksum_complete(skb))
+ 			goto drop;
+ 	}
 -- 
