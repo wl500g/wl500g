@@ -18,6 +18,7 @@
  573636cbafeba88f7c88832ae053dafe265bf94b net: remove superfluous call to synchronize_net()
  4cc7f68d65558f683c702d4fe3a5aac4c5227b97 net: Reexport sock_alloc_send_pskb
  cc9b17ad29ecaa20bfe426a8d4dbfb94b13ff1cc net: sock: validate data_len before allocating skb in sock_alloc_send_pskb()
+ 0e2bcaae836e535236244bfc900626ee541eb7bb sock_close() couldn't have been called with NULL inode since at least 2.1.early
 
 ---
  include/net/dst.h            |    6 +++-
@@ -51,8 +52,9 @@
  net/ipv6/af_inet6.c          |    7 ++---
  net/sched/sch_netem.c        |    9 ++++++
  net/sctp/socket.c            |    5 +--
+ net/socket.c                 |    9 ------
  net/unix/af_unix.c           |    5 +--
- 32 files changed, 159 insertions(+), 131 deletions(-)
+ 33 files changed, 159 insertions(+), 140 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
@@ -983,4 +985,23 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  		mask |= POLLIN | POLLRDNORM;
  
  	/* Connection-based need to check for termination and startup */
+diff --git a/net/socket.c b/net/socket.c
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -973,15 +973,6 @@ static int sock_mmap(struct file *file, struct vm_area_struct *vma)
+ 
+ static int sock_close(struct inode *inode, struct file *filp)
+ {
+-	/*
+-	 *      It was possible the inode is NULL we were
+-	 *      closing an unfinished socket.
+-	 */
+-
+-	if (!inode) {
+-		printk(KERN_DEBUG "sock_close: NULL inode\n");
+-		return 0;
+-	}
+ 	sock_fasync(-1, filp, 0);
+ 	sock_release(SOCKET_I(inode));
+ 	return 0;
 -- 
