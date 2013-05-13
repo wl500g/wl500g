@@ -27,9 +27,9 @@
  99405162598176e830d17ae6d4f3d9e070ad900c tun: socket filter support
 
 ---
- drivers/net/tun.c      |  795 +++++++++++++++++++++++++++++++++++--------------
+ drivers/net/tun.c      |  798 +++++++++++++++++++++++++++++++++++--------------
  include/linux/if_tun.h |   91 +++--
- 2 files changed, 625 insertions(+), 261 deletions(-)
+ 2 files changed, 628 insertions(+), 261 deletions(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 --- a/drivers/net/tun.c
@@ -98,7 +98,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 +
 +	struct tap_filter       txflt;
 +	struct socket		socket;
-+
++	struct socket_wq	wq;
 +#ifdef TUN_DEBUG
 +	int debug;
 +#endif
@@ -297,7 +297,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	if (tun->flags & TUN_FASYNC)
  		kill_fasync(&tun->fasync, SIGIO, POLL_IN);
 -	wake_up_interruptible(&tun->read_wait);
-+	wake_up_interruptible_poll(&tun->socket.wait, POLLIN |
++	wake_up_interruptible_poll(&tun->wq.wait, POLLIN |
 +				   POLLRDNORM | POLLRDBAND);
  	return 0;
  
@@ -309,18 +309,10 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 -/** Add the specified Ethernet address to this multicast filter. */
 -static void
 -add_multi(u32* filter, const u8* addr)
--{
--	int bit_nr = ether_crc(ETH_ALEN, addr) >> 26;
--	filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
--}
--
--/** Remove the specified Ethernet addres from this multicast filter. */
--static void
--del_multi(u32* filter, const u8* addr)
 +static void tun_net_mclist(struct net_device *dev)
  {
 -	int bit_nr = ether_crc(ETH_ALEN, addr) >> 26;
--	filter[bit_nr >> 5] &= ~(1 << (bit_nr & 31));
+-	filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
 +	/*
 +	 * This callback is supposed to deal with mc filter in
 +	 * _rx_ path and has nothing to do with the _tx_ path.
@@ -329,6 +321,14 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 +	return;
  }
  
+-/** Remove the specified Ethernet addres from this multicast filter. */
+-static void
+-del_multi(u32* filter, const u8* addr)
+-{
+-	int bit_nr = ether_crc(ETH_ALEN, addr) >> 26;
+-	filter[bit_nr >> 5] &= ~(1 << (bit_nr & 31));
+-}
+-
 -/** Update the list of multicast groups to which the network device belongs.
 - * This list is used to filter packets being sent from the character device to
 - * the network device. */
@@ -410,7 +410,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	DBG(KERN_INFO "%s: tun_chr_poll\n", tun->dev->name);
  
 -	poll_wait(file, &tun->read_wait, wait);
-+	poll_wait(file, &tun->socket.wait, wait);
++	poll_wait(file, &tun->wq.wait, wait);
  
 -	if (!skb_queue_empty(&tun->readq))
 +	if (!skb_queue_empty(&sk->sk_receive_queue))
@@ -578,7 +578,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 -		return -EINVAL;
 -
 -	add_wait_queue(&tun->read_wait, &wait);
-+	add_wait_queue(&tun->socket.wait, &wait);
++	add_wait_queue(&tun->wq.wait, &wait);
  	while (len) {
 -		const u8 ones[ ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 -		u8 addr[ ETH_ALEN];
@@ -637,7 +637,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  
  	current->state = TASK_RUNNING;
 -	remove_wait_queue(&tun->read_wait, &wait);
-+	remove_wait_queue(&tun->socket.wait, &wait);
++	remove_wait_queue(&tun->wq.wait, &wait);
 +
 +	return ret;
 +}
@@ -660,7 +660,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  
  	return ret;
  }
-@@ -427,10 +638,10 @@ static void tun_setup(struct net_device
+@@ -427,10 +638,10 @@ static void tun_setup(struct net_device 
  {
  	struct tun_struct *tun = netdev_priv(dev);
  
@@ -672,13 +672,14 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  
  	SET_MODULE_OWNER(dev);
  	dev->open = tun_net_open;
-@@ -454,21 +665,78 @@ static struct tun_struct *tun_get_by_nam
+@@ -454,21 +665,80 @@ static struct tun_struct *tun_get_by_nam
  	return NULL;
  }
  
 +static void tun_sock_write_space(struct sock *sk)
 +{
 +	struct tun_struct *tun;
++	wait_queue_head_t *wqueue;
 +
 +	if (!sock_writeable(sk))
 +		return;
@@ -686,8 +687,9 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 +	if (!test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags))
 +		return;
 +
-+	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-+		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT |
++	wqueue = sk_sleep(sk);
++	if (wqueue && waitqueue_active(wqueue))
++		wake_up_interruptible_sync_poll(wqueue, POLLOUT |
 +						POLLWRNORM | POLLWRBAND);
 +
 +	tun = container_of(sk, struct tun_sock, sk)->tun;
@@ -758,7 +760,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	}
  	else if (__dev_get_by_name(ifr->ifr_name))
  		return -EINVAL;
-@@ -504,25 +772,41 @@ static int tun_set_iff(struct file *file
+@@ -504,25 +774,42 @@ static int tun_set_iff(struct file *file
  		tun = netdev_priv(dev);
  		tun->dev = dev;
  		tun->flags = flags;
@@ -777,7 +779,8 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 +
 +		/* This ref count is for tun->sk. */
 +		dev_hold(dev);
-+		init_waitqueue_head(&tun->socket.wait);
++		tun->socket.wq = &tun->wq;
++		init_waitqueue_head(&tun->wq.wait);
 +		tun->socket.ops = &tun_socket_ops;
 +		sock_init_data(&tun->socket, sk);
 +		sk->sk_write_space = tun_sock_write_space;
@@ -807,7 +810,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  		list_add(&tun->list, &tun_dev_list);
  	}
  
-@@ -530,28 +814,80 @@ static int tun_set_iff(struct file *file
+@@ -530,28 +817,80 @@ static int tun_set_iff(struct file *file
  
  	if (ifr->ifr_flags & IFF_NO_PI)
  		tun->flags |= TUN_NO_PI;
@@ -890,7 +893,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  
  	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
  		if (copy_from_user(&ifr, argp, sizeof ifr))
-@@ -574,6 +910,14 @@ static int tun_chr_ioctl(struct inode *i
+@@ -574,6 +913,14 @@ static int tun_chr_ioctl(struct inode *i
  		return 0;
  	}
  
@@ -905,7 +908,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	if (!tun)
  		return -EBADFD;
  
-@@ -609,6 +953,13 @@ static int tun_chr_ioctl(struct inode *i
+@@ -609,6 +956,13 @@ static int tun_chr_ioctl(struct inode *i
  		DBG(KERN_INFO "%s: owner set to %d\n", tun->dev->name, tun->owner);
  		break;
  
@@ -919,7 +922,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	case TUNSETLINK:
  		/* Only allow setting the type when the interface is down */
  		if (tun->dev->flags & IFF_UP) {
-@@ -626,70 +977,68 @@ static int tun_chr_ioctl(struct inode *i
+@@ -626,70 +980,68 @@ static int tun_chr_ioctl(struct inode *i
  		tun->debug = arg;
  		break;
  #endif
@@ -1042,7 +1045,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  
  	default:
  		return -EINVAL;
-@@ -733,29 +1082,25 @@ static int tun_chr_close(struct inode *i
+@@ -733,29 +1085,25 @@ static int tun_chr_close(struct inode *i
  {
  	struct tun_struct *tun = file->private_data;
  
@@ -1084,7 +1087,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	return 0;
  }
  
-@@ -832,12 +1177,6 @@ static void tun_set_msglevel(struct net_
+@@ -832,12 +1180,6 @@ static void tun_set_msglevel(struct net_
  #endif
  }
  
@@ -1097,7 +1100,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  static u32 tun_get_rx_csum(struct net_device *dev)
  {
  	struct tun_struct *tun = netdev_priv(dev);
-@@ -859,7 +1198,7 @@ static const struct ethtool_ops tun_etht
+@@ -859,7 +1201,7 @@ static const struct ethtool_ops tun_etht
  	.get_drvinfo	= tun_get_drvinfo,
  	.get_msglevel	= tun_get_msglevel,
  	.set_msglevel	= tun_set_msglevel,
@@ -1106,7 +1109,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  	.get_rx_csum	= tun_get_rx_csum,
  	.set_rx_csum	= tun_set_rx_csum
  };
-@@ -892,6 +1231,22 @@ static void tun_cleanup(void)
+@@ -892,6 +1234,22 @@ static void tun_cleanup(void)
  
  }
  
