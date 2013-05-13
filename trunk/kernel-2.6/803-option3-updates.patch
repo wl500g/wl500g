@@ -1,8 +1,8 @@
 option: Updates from upstream
 
 ---
- drivers/usb/serial/option.c |  935 ++++++++++++++++++++++++++++++--------------
- 1 file changed, 650 insertions(+), 285 deletions(-)
+ drivers/usb/serial/option.c |  945 ++++++++++++++++++++++++++++++--------------
+ 1 file changed, 660 insertions(+), 285 deletions(-)
 
 diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 --- a/drivers/usb/serial/option.c
@@ -105,7 +105,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  /* MERLIN EVDO PRODUCTS */
  #define NOVATELWIRELESS_PRODUCT_V640		0x1100
  #define NOVATELWIRELESS_PRODUCT_V620		0x1110
-@@ -256,9 +189,11 @@ static int  option_resume(struct usb_ser
+@@ -256,9 +188,11 @@ static int  option_resume(struct usb_ser
  #define NOVATELWIRELESS_PRODUCT_EVDO_EMBEDDED_HIGHSPEED	0x8001
  #define NOVATELWIRELESS_PRODUCT_HSPA_EMBEDDED_FULLSPEED	0x9000
  #define NOVATELWIRELESS_PRODUCT_HSPA_EMBEDDED_HIGHSPEED	0x9001
@@ -117,7 +117,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  /* AMOI PRODUCTS */
  #define AMOI_VENDOR_ID				0x1614
-@@ -291,6 +225,9 @@ static int  option_resume(struct usb_ser
+@@ -291,6 +224,9 @@ static int  option_resume(struct usb_ser
  #define DELL_PRODUCT_5730_MINICARD_TELUS	0x8181
  #define DELL_PRODUCT_5730_MINICARD_VZW		0x8182
  
@@ -127,7 +127,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  #define KYOCERA_VENDOR_ID			0x0c88
  #define KYOCERA_PRODUCT_KPC650			0x17da
  #define KYOCERA_PRODUCT_KPC680			0x180a
-@@ -337,6 +270,10 @@ static int  option_resume(struct usb_ser
+@@ -337,6 +269,10 @@ static int  option_resume(struct usb_ser
  #define TELIT_VENDOR_ID				0x1bc7
  #define TELIT_PRODUCT_UC864E			0x1003
  #define TELIT_PRODUCT_UC864G			0x1004
@@ -138,7 +138,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  /* ZTE PRODUCTS */
  #define ZTE_VENDOR_ID				0x19d2
-@@ -347,6 +284,9 @@ static int  option_resume(struct usb_ser
+@@ -347,6 +283,9 @@ static int  option_resume(struct usb_ser
  #define ZTE_PRODUCT_AC8710			0xfff1
  #define ZTE_PRODUCT_AC2726			0xfff5
  #define ZTE_PRODUCT_AC8710T			0xffff
@@ -148,7 +148,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  #define BENQ_VENDOR_ID				0x04a5
  #define BENQ_PRODUCT_H10			0x4068
-@@ -379,6 +319,8 @@ static int  option_resume(struct usb_ser
+@@ -379,6 +318,8 @@ static int  option_resume(struct usb_ser
  /* ALCATEL PRODUCTS */
  #define ALCATEL_VENDOR_ID			0x1bbb
  #define ALCATEL_PRODUCT_X060S_X200		0x0000
@@ -157,7 +157,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  #define PIRELLI_VENDOR_ID			0x1266
  #define PIRELLI_PRODUCT_C100_1			0x1002
-@@ -421,15 +363,17 @@ static int  option_resume(struct usb_ser
+@@ -421,19 +362,22 @@ static int  option_resume(struct usb_ser
  #define HAIER_PRODUCT_CE100			0x2009
  
  /* Cinterion (formerly Siemens) products */
@@ -179,6 +179,11 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  /* Olivetti products */
  #define OLIVETTI_VENDOR_ID			0x0b3c
+ #define OLIVETTI_PRODUCT_OLICARD100		0xc000
++#define OLIVETTI_PRODUCT_OLICARD145		0xc003
+ 
+ /* Ericsson products */
+ #define ERICSSON_VENDOR_ID			0x0bdb
 @@ -445,15 +389,113 @@ static int  option_resume(struct usb_ser
  #define CELOT_PRODUCT_CT680M			0x6801
  
@@ -396,7 +401,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  static struct usb_device_id option_ids[] = {
  	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_COLT) },
  	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_RICOLA) },
-@@ -519,85 +613,132 @@ static struct usb_device_id option_ids[]
+@@ -519,85 +613,134 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_GLX) },
  	{ USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_GKE) },
  	{ USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_GLE) },
@@ -479,6 +484,8 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 -	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E353, 0xff, 0x02, 0x01) },  /* E398 3G Modem */
 -	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E353, 0xff, 0x02, 0x02) },  /* E398 3G PC UI Interface */
 -	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E353, 0xff, 0x02, 0x03) },  /* E398 3G Application Interface */
++	{ USB_DEVICE(QUANTA_VENDOR_ID, 0xea26),
++		.driver_info = (kernel_ulong_t)&net_intf3_blacklist },
 +	{ USB_DEVICE(QUANTA_VENDOR_ID, 0xea42),
 +		.driver_info = (kernel_ulong_t)&net_intf4_blacklist },
 +	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, 0x1c05, USB_CLASS_COMM, 0x02, 0xff) },
@@ -608,7 +615,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_V640) },
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_V620) },
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_V740) },
-@@ -623,6 +764,7 @@ static struct usb_device_id option_ids[]
+@@ -623,6 +766,7 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_EVDO_EMBEDDED_FULLSPEED) },
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_HSPA_EMBEDDED_FULLSPEED) },
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_EVDO_HIGHSPEED) },
@@ -616,7 +623,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_HSPA_HIGHSPEED3) },
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_HSPA_HIGHSPEED4) },
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_HSPA_HIGHSPEED5) },
-@@ -636,6 +778,9 @@ static struct usb_device_id option_ids[]
+@@ -636,6 +780,9 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_G1) },
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_G1_M) },
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_G2) },
@@ -626,7 +633,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  	{ USB_DEVICE(AMOI_VENDOR_ID, AMOI_PRODUCT_H01) },
  	{ USB_DEVICE(AMOI_VENDOR_ID, AMOI_PRODUCT_H01A) },
-@@ -659,38 +804,47 @@ static struct usb_device_id option_ids[]
+@@ -659,38 +806,47 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(DELL_VENDOR_ID, DELL_PRODUCT_5730_MINICARD_SPRINT) },	/* Dell Wireless 5730 Mobile Broadband EVDO/HSPA Mini-Card */
  	{ USB_DEVICE(DELL_VENDOR_ID, DELL_PRODUCT_5730_MINICARD_TELUS) },	/* Dell Wireless 5730 Mobile Broadband EVDO/HSPA Mini-Card */
  	{ USB_DEVICE(DELL_VENDOR_ID, DELL_PRODUCT_5730_MINICARD_VZW) }, 	/* Dell Wireless 5730 Mobile Broadband EVDO/HSPA Mini-Card */
@@ -692,7 +699,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0003, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0004, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0005, 0xff, 0xff, 0xff) },
-@@ -706,51 +860,59 @@ static struct usb_device_id option_ids[]
+@@ -706,51 +862,59 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x000f, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0010, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0011, 0xff, 0xff, 0xff) },
@@ -767,7 +774,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0064, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0065, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0066, 0xff, 0xff, 0xff) },
-@@ -765,20 +927,42 @@ static struct usb_device_id option_ids[]
+@@ -765,20 +929,42 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0083, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0086, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0087, 0xff, 0xff, 0xff) },
@@ -818,7 +825,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0142, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0143, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0144, 0xff, 0xff, 0xff) },
-@@ -794,15 +978,50 @@ static struct usb_device_id option_ids[]
+@@ -794,15 +980,50 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0154, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0155, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0156, 0xff, 0xff, 0xff) },
@@ -874,7 +881,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1057, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1058, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1059, 0xff, 0xff, 0xff) },
-@@ -918,18 +1137,24 @@ static struct usb_device_id option_ids[]
+@@ -918,18 +1139,24 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1169, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1170, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1244, 0xff, 0xff, 0xff) },
@@ -905,7 +912,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1257, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1258, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1259, 0xff, 0xff, 0xff) },
-@@ -974,21 +1199,61 @@ static struct usb_device_id option_ids[]
+@@ -974,21 +1201,61 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1298, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1299, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1300, 0xff, 0xff, 0xff) },
@@ -972,7 +979,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE(BENQ_VENDOR_ID, BENQ_PRODUCT_H10) },
  	{ USB_DEVICE(DLINK_VENDOR_ID, DLINK_PRODUCT_DWM_652) },
  	{ USB_DEVICE(ALINK_VENDOR_ID, DLINK_PRODUCT_DWM_652_U5) }, /* Yes, ALINK_VENDOR_ID */
-@@ -1006,6 +1271,16 @@ static struct usb_device_id option_ids[]
+@@ -1006,6 +1273,16 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(ALCATEL_VENDOR_ID, ALCATEL_PRODUCT_X060S_X200),
  	  .driver_info = (kernel_ulong_t)&alcatel_x200_blacklist
  	},
@@ -989,7 +996,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE(AIRPLUS_VENDOR_ID, AIRPLUS_PRODUCT_MCD650) },
  	{ USB_DEVICE(TLAYTECH_VENDOR_ID, TLAYTECH_PRODUCT_TEU800) },
  	{ USB_DEVICE(LONGCHEER_VENDOR_ID, FOUR_G_SYSTEMS_PRODUCT_W14),
-@@ -1014,26 +1289,28 @@ static struct usb_device_id option_ids[]
+@@ -1014,26 +1291,28 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(LONGCHEER_VENDOR_ID, ZOOM_PRODUCT_4597) },
  	{ USB_DEVICE(HAIER_VENDOR_ID, HAIER_PRODUCT_CE100) },
  	/* Pirelli  */
@@ -1034,7 +1041,13 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE(CINTERION_VENDOR_ID, CINTERION_PRODUCT_HC28_MDM) }, 
  	{ USB_DEVICE(CINTERION_VENDOR_ID, CINTERION_PRODUCT_HC28_MDMNET) },
  	{ USB_DEVICE(SIEMENS_VENDOR_ID, CINTERION_PRODUCT_HC25_MDM) },
-@@ -1047,7 +1324,80 @@ static struct usb_device_id option_ids[]
+@@ -1042,12 +1321,92 @@ static struct usb_device_id option_ids[]
+ 	{ USB_DEVICE(SIEMENS_VENDOR_ID, CINTERION_PRODUCT_HC28_MDMNET) },
+ 
+ 	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD100) },
++	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD145) },
+ 	{ USB_DEVICE(ERICSSON_VENDOR_ID, ERICSSON_PRODUCT_F3507G_1) },
+ 	{ USB_DEVICE(ERICSSON_VENDOR_ID, ERICSSON_PRODUCT_F3507G_2) },
  	{ USB_DEVICE(CELOT_VENDOR_ID, CELOT_PRODUCT_CT680M) }, /* CT-650 CDMA 450 1xEVDO modem */
  	{ USB_DEVICE(ONDA_VENDOR_ID, ONDA_MT825UP) }, /* ONDA MT825UP modem */
  	{ USB_DEVICE_AND_INTERFACE_INFO(SAMSUNG_VENDOR_ID, SAMSUNG_PRODUCT_GT_B3730, USB_CLASS_CDC_DATA, 0x00, 0x00) }, /* Samsung GT-B3730 LTE USB modem.*/
@@ -1113,10 +1126,16 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +	{ USB_DEVICE(TPLINK_VENDOR_ID, TPLINK_PRODUCT_MA180),
 +	  .driver_info = (kernel_ulong_t)&net_intf4_blacklist },
 +	{ USB_DEVICE(CHANGHONG_VENDOR_ID, CHANGHONG_PRODUCT_CH690) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(0x2001, 0x7d01, 0xff, 0x02, 0x01) },	/* D-Link DWM-156 (variant) */
++	{ USB_DEVICE_AND_INTERFACE_INFO(0x2001, 0x7d01, 0xff, 0x00, 0x00) },	/* D-Link DWM-156 (variant) */
++	{ USB_DEVICE_AND_INTERFACE_INFO(0x2001, 0x7d02, 0xff, 0x02, 0x01) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(0x2001, 0x7d02, 0xff, 0x00, 0x00) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(0x2001, 0x7d03, 0xff, 0x02, 0x01) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(0x2001, 0x7d03, 0xff, 0x00, 0x00) },
  	{ }, /* Reserved element for user specified VID/PID */
  	{ } /* Terminating entry */
  };
-@@ -1179,30 +1529,58 @@ static void __exit option_exit(void)
+@@ -1179,30 +1538,58 @@ static void __exit option_exit(void)
  module_init(option_init);
  module_exit(option_exit);
  
@@ -1192,7 +1211,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  		return -ENODEV;
  
  	serial->private = (void *)id->driver_info;
-@@ -1210,23 +1588,6 @@ static int option_probe(struct usb_seria
+@@ -1210,23 +1597,6 @@ static int option_probe(struct usb_seria
  	return 0;
  }
  
@@ -1216,7 +1235,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  static void option_rx_throttle(struct usb_serial_port *port)
  {
  	dbg("%s", __FUNCTION__);
-@@ -1637,12 +1998,11 @@ static int option_send_setup(struct usb_
+@@ -1637,12 +2007,11 @@ static int option_send_setup(struct usb_
  	int ifNum = serial->interface->cur_altsetting->desc.bInterfaceNumber;
  	dbg("%s", __FUNCTION__);
  
