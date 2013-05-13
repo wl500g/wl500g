@@ -342,6 +342,8 @@ static const struct dev_conf modem_ids[] = {
 	{ MODEM_DEVICE_AND_INTERFACE_NUMBER(0x106c, 0x3715, TYPE_CDMA, 0, 2) },
 	// Pantech UM185
 	{ MODEM_DEVICE_AND_INTERFACE_NUMBER(0x106c, 0x3717, TYPE_CDMA, 0, 2) },
+	// Quanta
+	{ MODEM_DEVICE_AND_INTERFACE_NUMBER(0x0408, 0xea26, TYPE_WCDMA, 2, 1) },
 	{ }
 };
 
