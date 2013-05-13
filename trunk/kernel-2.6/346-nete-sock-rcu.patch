@@ -1,0 +1,1287 @@
+net: sock_def_readable() and friends RCU conversion
+
+ 43815482370c510c569fd18edb57afcb0fa8cab6 net: sock_def_readable() and friends RCU conversion
+
+---
+ include/linux/net.h             |   14 ++++++---
+ include/net/sock.h              |   40 +++++++++++++++------------
+ include/net/tcp.h               |    2 -
+ net/atm/common.c                |   22 +++++++++------
+ net/bluetooth/af_bluetooth.c    |    6 ++--
+ net/bluetooth/bnep/core.c       |    6 ++--
+ net/bluetooth/bnep/netdev.c     |    4 +-
+ net/bluetooth/cmtp/cmtp.h       |    2 -
+ net/bluetooth/cmtp/core.c       |    4 +-
+ net/bluetooth/hidp/core.c       |   10 +++---
+ net/bluetooth/hidp/hidp.h       |    4 +-
+ net/bluetooth/l2cap.c           |    4 +-
+ net/bluetooth/rfcomm/sock.c     |    8 ++---
+ net/bluetooth/sco.c             |    4 +-
+ net/core/datagram.c             |    6 ++--
+ net/core/sock.c                 |   58 ++++++++++++++++++++++++----------------
+ net/core/stream.c               |   22 ++++++++-------
+ net/dccp/output.c               |   10 ++++--
+ net/ipv4/af_inet.c              |    6 ++--
+ net/ipv4/inet_connection_sock.c |    4 +-
+ net/ipv4/tcp.c                  |    2 -
+ net/irda/af_irda.c              |   14 ++++-----
+ net/llc/af_llc.c                |   16 ++++-------
+ net/rxrpc/af_rxrpc.c            |   12 ++++----
+ net/sctp/socket.c               |   23 ++++++++-------
+ net/socket.c                    |   47 ++++++++++++++++++++++++--------
+ net/sunrpc/svcsock.c            |   25 ++++++++++-------
+ 27 files changed, 220 insertions(+), 155 deletions(-)
+
+diff --git a/include/linux/net.h b/include/linux/net.h
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -21,6 +21,7 @@
+ #include <linux/wait.h>
+ #include <linux/socket.h>
+ #include <linux/fcntl.h>	/* For O_CLOEXEC and O_NONBLOCK */
++#include <linux/rcupdate.h>
+ #include <asm/socket.h>
+ 
+ struct poll_table_struct;
+@@ -107,6 +108,12 @@ enum sock_type {
+ 
+ #endif /* ARCH_HAS_SOCKET_TYPES */
+ 
++struct socket_wq {
++	wait_queue_head_t	wait;
++	struct fasync_struct	*fasync_list;
++	struct rcu_head		rcu;
++} ____cacheline_aligned_in_smp;
++
+ /**
+  *  struct socket - general BSD socket
+  *  @state: socket state (%SS_CONNECTED, etc)
+@@ -122,11 +129,8 @@ struct socket {
+ 	socket_state		state;
+ 	unsigned long		flags;
+ 
+-	/*
+-	 * Please keep fasync_list & wait fields in the same cache line
+-	 */
+-	struct fasync_struct	*fasync_list;
+-	wait_queue_head_t	wait;
++
++	struct socket_wq	*wq;
+ 
+ 	struct file		*file;
+ 	struct sock		*sk;
+diff --git a/include/net/sock.h b/include/net/sock.h
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -129,7 +129,7 @@ struct sock_common {
+   *	@sk_userlocks: %SO_SNDBUF and %SO_RCVBUF settings
+   *	@sk_lock:	synchronizer
+   *	@sk_rcvbuf: size of receive buffer in bytes
+-  *	@sk_sleep: sock wait queue
++  *	@sk_wq: sock wait queue and async head
+   *	@sk_dst_cache: destination cache
+   *	@sk_dst_lock: destination cache lock
+   *	@sk_policy: flow policy
+@@ -222,7 +222,7 @@ struct sock {
+ 
+ 	struct sk_filter      	*sk_filter;
+ 
+-	wait_queue_head_t	*sk_sleep;
++	struct socket_wq	*sk_wq;
+ 	struct sk_buff_head	sk_async_wait_queue;
+ 
+ #ifdef CONFIG_XFRM
+@@ -990,6 +990,11 @@ static inline void sock_put(struct sock 
+ extern int sk_receive_skb(struct sock *sk, struct sk_buff *skb,
+ 			  const int nested);
+ 
++static inline wait_queue_head_t *sk_sleep(struct sock *sk)
++{
++	return &sk->sk_wq->wait;
++}
++
+ /* Detach socket from process context.
+  * Announce socket dead, detach it from wait queue and inode.
+  * Note that parent inode held reference count on this struct sock,
+@@ -1002,14 +1007,14 @@ static inline void sock_orphan(struct so
+ 	write_lock_bh(&sk->sk_callback_lock);
+ 	sock_set_flag(sk, SOCK_DEAD);
+ 	sk->sk_socket = NULL;
+-	sk->sk_sleep  = NULL;
++	sk->sk_wq  = NULL;
+ 	write_unlock_bh(&sk->sk_callback_lock);
+ }
+ 
+ static inline void sock_graft(struct sock *sk, struct socket *parent)
+ {
+ 	write_lock_bh(&sk->sk_callback_lock);
+-	sk->sk_sleep = &parent->wait;
++	rcu_assign_pointer(sk->sk_wq, parent->wq);
+ 	parent->sk = sk;
+ 	sk->sk_socket = parent;
+ 	security_sock_graft(sk, parent);
+@@ -1128,12 +1133,12 @@ static inline int skb_copy_to_page(struc
+ }
+ 
+ /**
+- * sk_has_sleeper - check if there are any waiting processes
+- * @sk: socket
++ * wq_has_sleeper - check if there are any waiting processes
++ * @sk: struct socket_wq
+  *
+- * Returns true if socket has waiting processes
++ * Returns true if socket_wq has waiting processes
+  *
+- * The purpose of the sk_has_sleeper and sock_poll_wait is to wrap the memory
++ * The purpose of the wq_has_sleeper and sock_poll_wait is to wrap the memory
+  * barrier call. They were added due to the race found within the tcp code.
+  *
+  * Consider following tcp code paths:
+@@ -1146,9 +1151,10 @@ static inline int skb_copy_to_page(struc
+  *   ...                 ...
+  *   tp->rcv_nxt check   sock_def_readable
+  *   ...                 {
+- *   schedule               ...
+- *                          if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+- *                              wake_up_interruptible(sk->sk_sleep)
++ *   schedule               rcu_read_lock();
++ *                          wq = rcu_dereference(sk->sk_wq);
++ *                          if (wq && waitqueue_active(&wq->wait))
++ *                              wake_up_interruptible(&wq->wait)
+  *                          ...
+  *                       }
+  *
+@@ -1157,7 +1163,7 @@ static inline int skb_copy_to_page(struc
+  * could then endup calling schedule and sleep forever if there are no more
+  * data on the socket.
+  */
+-static inline int sk_has_sleeper(struct sock *sk)
++static inline bool wq_has_sleeper(struct socket_wq *wq)
+ {
+ 	/*
+ 	 * We need to be sure we are in sync with the
+@@ -1166,7 +1172,7 @@ static inline int sk_has_sleeper(struct 
+ 	 * This memory barrier is paired in the sock_poll_wait.
+ 	 */
+ 	smp_mb();
+-	return sk->sk_sleep && waitqueue_active(sk->sk_sleep);
++	return wq && waitqueue_active(&wq->wait);
+ }
+ 
+ /**
+@@ -1175,7 +1181,7 @@ static inline int sk_has_sleeper(struct 
+  * @wait_address:   socket wait queue
+  * @p:              poll_table
+  *
+- * See the comments in the sk_has_sleeper function.
++ * See the comments in the wq_has_sleeper function.
+  */
+ static inline void sock_poll_wait(struct file *filp,
+ 		wait_queue_head_t *wait_address, poll_table *p)
+@@ -1186,7 +1192,7 @@ static inline void sock_poll_wait(struct
+ 		 * We need to be sure we are in sync with the
+ 		 * socket flags modification.
+ 		 *
+-		 * This memory barrier is paired in the sk_has_sleeper.
++		 * This memory barrier is paired in the wq_has_sleeper.
+ 		*/
+ 		smp_mb();
+ 	}
+@@ -1449,11 +1455,11 @@ extern int net_msg_warn;
+ #define SOCK_SLEEP_PRE(sk) 	{ struct task_struct *tsk = current; \
+ 				DECLARE_WAITQUEUE(wait, tsk); \
+ 				tsk->state = TASK_INTERRUPTIBLE; \
+-				add_wait_queue((sk)->sk_sleep, &wait); \
++				add_wait_queue(sk_sleep(sk), &wait); \
+ 				release_sock(sk);
+ 
+ #define SOCK_SLEEP_POST(sk)	tsk->state = TASK_RUNNING; \
+-				remove_wait_queue((sk)->sk_sleep, &wait); \
++				remove_wait_queue(sk_sleep(sk), &wait); \
+ 				lock_sock(sk); \
+ 				}
+ 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -916,7 +916,7 @@ static inline int tcp_prequeue(struct so
+ 
+ 		tp->ucopy.memory = 0;
+ 	} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
+-		wake_up_interruptible_sync_poll(sk->sk_sleep,
++		wake_up_interruptible_sync_poll(sk_sleep(sk),
+ 					   POLLIN | POLLRDNORM | POLLRDBAND);
+ 		if (!inet_csk_ack_scheduled(sk))
+ 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+diff --git a/net/atm/common.c b/net/atm/common.c
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -98,10 +98,13 @@ static void vcc_sock_destruct(struct soc
+ 
+ static void vcc_def_wakeup(struct sock *sk)
+ {
+-	read_lock(&sk->sk_callback_lock);
+-	if (sk_has_sleeper(sk))
+-		wake_up(sk->sk_sleep);
+-	read_unlock(&sk->sk_callback_lock);
++	struct socket_wq *wq;
++
++	rcu_read_lock();
++	wq = rcu_dereference(sk->sk_wq);
++	if (wq_has_sleeper(wq))
++		wake_up(&wq->wait);
++	rcu_read_unlock();
+ }
+ 
+ static inline int vcc_writable(struct sock *sk)
+@@ -114,16 +117,19 @@ static inline int vcc_writable(struct so
+ 
+ static void vcc_write_space(struct sock *sk)
+ {
+-	read_lock(&sk->sk_callback_lock);
++	struct socket_wq *wq;
++
++	rcu_read_lock();
+ 
+ 	if (vcc_writable(sk)) {
+-		if (sk_has_sleeper(sk))
+-			wake_up_interruptible(sk->sk_sleep);
++		wq = rcu_dereference(sk->sk_wq);
++		if (wq_has_sleeper(wq))
++			wake_up_interruptible(&wq->wait);
+ 
+ 		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+ 
+-	read_unlock(&sk->sk_callback_lock);
++	rcu_read_unlock();
+ }
+ 
+ static struct proto vcc_proto = {
+diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
+--- a/net/bluetooth/af_bluetooth.c
++++ b/net/bluetooth/af_bluetooth.c
+@@ -251,7 +251,7 @@ unsigned int bt_sock_poll(struct file * 
+ 
+ 	BT_DBG("sock %p, sk %p", sock, sk);
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	poll_wait(file, sk_sleep(sk), wait);
+ 
+ 	if (sk->sk_state == BT_LISTEN)
+ 		return bt_accept_poll(sk);
+@@ -292,7 +292,7 @@ int bt_sock_wait_state(struct sock *sk, 
+ 
+ 	BT_DBG("sk %p", sk);
+ 
+-	add_wait_queue(sk->sk_sleep, &wait);
++	add_wait_queue(sk_sleep(sk), &wait);
+ 	while (sk->sk_state != state) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 
+@@ -315,7 +315,7 @@ int bt_sock_wait_state(struct sock *sk, 
+ 			break;
+ 	}
+ 	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(sk->sk_sleep, &wait);
++	remove_wait_queue(sk_sleep(sk), &wait);
+ 	return err;
+ }
+ EXPORT_SYMBOL(bt_sock_wait_state);
+diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+--- a/net/bluetooth/bnep/core.c
++++ b/net/bluetooth/bnep/core.c
+@@ -476,7 +476,7 @@ static int bnep_session(void *arg)
+ 	current->flags |= PF_NOFREEZE;
+ 
+ 	init_waitqueue_entry(&wait, current);
+-	add_wait_queue(sk->sk_sleep, &wait);
++	add_wait_queue(sk_sleep(sk), &wait);
+ 	while (!atomic_read(&s->killed)) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 
+@@ -498,7 +498,7 @@ static int bnep_session(void *arg)
+ 		schedule();
+ 	}
+ 	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(sk->sk_sleep, &wait);
++	remove_wait_queue(sk_sleep(sk), &wait);
+ 
+ 	/* Cleanup session */
+ 	down_write(&bnep_session_sem);
+@@ -630,7 +630,7 @@ int bnep_del_connection(struct bnep_conn
+ 
+ 		/* Kill session thread */
+ 		atomic_inc(&s->killed);
+-		wake_up_interruptible(s->sock->sk->sk_sleep);
++		wake_up_interruptible(sk_sleep(s->sock->sk));
+ 	} else
+ 		err = -ENOENT;
+ 
+diff --git a/net/bluetooth/bnep/netdev.c b/net/bluetooth/bnep/netdev.c
+--- a/net/bluetooth/bnep/netdev.c
++++ b/net/bluetooth/bnep/netdev.c
+@@ -121,7 +121,7 @@ static void bnep_net_set_mc_list(struct 
+ 	}
+ 
+ 	skb_queue_tail(&sk->sk_write_queue, skb);
+-	wake_up_interruptible(sk->sk_sleep);
++	wake_up_interruptible(sk_sleep(sk));
+ #endif
+ }
+ 
+@@ -213,7 +213,7 @@ static int bnep_net_xmit(struct sk_buff 
+ 	 */
+ 	dev->trans_start = jiffies;
+ 	skb_queue_tail(&sk->sk_write_queue, skb);
+-	wake_up_interruptible(sk->sk_sleep);
++	wake_up_interruptible(sk_sleep(sk));
+ 
+ 	if (skb_queue_len(&sk->sk_write_queue) >= BNEP_TX_QUEUE_LEN) {
+ 		BT_DBG("tx queue is full");
+diff --git a/net/bluetooth/cmtp/cmtp.h b/net/bluetooth/cmtp/cmtp.h
+--- a/net/bluetooth/cmtp/cmtp.h
++++ b/net/bluetooth/cmtp/cmtp.h
+@@ -125,7 +125,7 @@ static inline void cmtp_schedule(struct 
+ {
+ 	struct sock *sk = session->sock->sk;
+ 
+-	wake_up_interruptible(sk->sk_sleep);
++	wake_up_interruptible(sk_sleep(sk));
+ }
+ 
+ /* CMTP init defines */
+diff --git a/net/bluetooth/cmtp/core.c b/net/bluetooth/cmtp/core.c
+--- a/net/bluetooth/cmtp/core.c
++++ b/net/bluetooth/cmtp/core.c
+@@ -290,7 +290,7 @@ static int cmtp_session(void *arg)
+ 	current->flags |= PF_NOFREEZE;
+ 
+ 	init_waitqueue_entry(&wait, current);
+-	add_wait_queue(sk->sk_sleep, &wait);
++	add_wait_queue(sk_sleep(sk), &wait);
+ 	while (!atomic_read(&session->terminate)) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 
+@@ -307,7 +307,7 @@ static int cmtp_session(void *arg)
+ 		schedule();
+ 	}
+ 	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(sk->sk_sleep, &wait);
++	remove_wait_queue(sk_sleep(sk), &wait);
+ 
+ 	down_write(&cmtp_session_sem);
+ 
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -551,8 +551,8 @@ static int hidp_session(void *arg)
+ 
+ 	init_waitqueue_entry(&ctrl_wait, current);
+ 	init_waitqueue_entry(&intr_wait, current);
+-	add_wait_queue(ctrl_sk->sk_sleep, &ctrl_wait);
+-	add_wait_queue(intr_sk->sk_sleep, &intr_wait);
++	add_wait_queue(sk_sleep(ctrl_sk), &ctrl_wait);
++	add_wait_queue(sk_sleep(intr_sk), &intr_wait);
+ 	while (!atomic_read(&session->terminate)) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 
+@@ -574,8 +574,8 @@ static int hidp_session(void *arg)
+ 		schedule();
+ 	}
+ 	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(intr_sk->sk_sleep, &intr_wait);
+-	remove_wait_queue(ctrl_sk->sk_sleep, &ctrl_wait);
++	remove_wait_queue(sk_sleep(intr_sk), &intr_wait);
++	remove_wait_queue(sk_sleep(ctrl_sk), &ctrl_wait);
+ 
+ 	down_write(&hidp_session_sem);
+ 
+@@ -594,7 +594,7 @@ static int hidp_session(void *arg)
+ 
+ 	fput(session->intr_sock->file);
+ 
+-	wait_event_timeout(*(ctrl_sk->sk_sleep),
++	wait_event_timeout(*(sk_sleep(ctrl_sk)),
+ 		(ctrl_sk->sk_state == BT_CLOSED), msecs_to_jiffies(500));
+ 
+ 	fput(session->ctrl_sock->file);
+diff --git a/net/bluetooth/hidp/hidp.h b/net/bluetooth/hidp/hidp.h
+--- a/net/bluetooth/hidp/hidp.h
++++ b/net/bluetooth/hidp/hidp.h
+@@ -158,8 +158,8 @@ static inline void hidp_schedule(struct 
+ 	struct sock *ctrl_sk = session->ctrl_sock->sk;
+ 	struct sock *intr_sk = session->intr_sock->sk;
+ 
+-	wake_up_interruptible(ctrl_sk->sk_sleep);
+-	wake_up_interruptible(intr_sk->sk_sleep);
++	wake_up_interruptible(sk_sleep(ctrl_sk));
++	wake_up_interruptible(sk_sleep(intr_sk));
+ }
+ 
+ /* HIDP init defines */
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -789,7 +789,7 @@ static int l2cap_sock_accept(struct sock
+ 	BT_DBG("sk %p timeo %ld", sk, timeo);
+ 
+ 	/* Wait for an incoming connection. (wake-one). */
+-	add_wait_queue_exclusive(sk->sk_sleep, &wait);
++	add_wait_queue_exclusive(sk_sleep(sk), &wait);
+ 	while (!(nsk = bt_accept_dequeue(sk, newsock))) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 		if (!timeo) {
+@@ -812,7 +812,7 @@ static int l2cap_sock_accept(struct sock
+ 		}
+ 	}
+ 	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(sk->sk_sleep, &wait);
++	remove_wait_queue(sk_sleep(sk), &wait);
+ 
+ 	if (err)
+ 		goto done;
+diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
+--- a/net/bluetooth/rfcomm/sock.c
++++ b/net/bluetooth/rfcomm/sock.c
+@@ -496,7 +496,7 @@ static int rfcomm_sock_accept(struct soc
+ 	BT_DBG("sk %p timeo %ld", sk, timeo);
+ 
+ 	/* Wait for an incoming connection. (wake-one). */
+-	add_wait_queue_exclusive(sk->sk_sleep, &wait);
++	add_wait_queue_exclusive(sk_sleep(sk), &wait);
+ 	while (!(nsk = bt_accept_dequeue(sk, newsock))) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 		if (!timeo) {
+@@ -519,7 +519,7 @@ static int rfcomm_sock_accept(struct soc
+ 		}
+ 	}
+ 	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(sk->sk_sleep, &wait);
++	remove_wait_queue(sk_sleep(sk), &wait);
+ 
+ 	if (err)
+ 		goto done;
+@@ -608,7 +608,7 @@ static long rfcomm_sock_data_wait(struct
+ {
+ 	DECLARE_WAITQUEUE(wait, current);
+ 
+-	add_wait_queue(sk->sk_sleep, &wait);
++	add_wait_queue(sk_sleep(sk), &wait);
+ 	for (;;) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 
+@@ -627,7 +627,7 @@ static long rfcomm_sock_data_wait(struct
+ 	}
+ 
+ 	__set_current_state(TASK_RUNNING);
+-	remove_wait_queue(sk->sk_sleep, &wait);
++	remove_wait_queue(sk_sleep(sk), &wait);
+ 	return timeo;
+ }
+ 
+diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
+--- a/net/bluetooth/sco.c
++++ b/net/bluetooth/sco.c
+@@ -572,7 +572,7 @@ static int sco_sock_accept(struct socket
+ 	BT_DBG("sk %p timeo %ld", sk, timeo);
+ 
+ 	/* Wait for an incoming connection. (wake-one). */
+-	add_wait_queue_exclusive(sk->sk_sleep, &wait);
++	add_wait_queue_exclusive(sk_sleep(sk), &wait);
+ 	while (!(ch = bt_accept_dequeue(sk, newsock))) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 		if (!timeo) {
+@@ -595,7 +595,7 @@ static int sco_sock_accept(struct socket
+ 		}
+ 	}
+ 	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(sk->sk_sleep, &wait);
++	remove_wait_queue(sk_sleep(sk), &wait);
+ 
+ 	if (err)
+ 		goto done;
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -84,7 +84,7 @@ static int wait_for_packet(struct sock *
+ 	int error;
+ 	DEFINE_WAIT_FUNC(wait, receiver_wake_function);
+ 
+-	prepare_to_wait_exclusive(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++	prepare_to_wait_exclusive(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 
+ 	/* Socket errors? */
+ 	error = sock_error(sk);
+@@ -113,7 +113,7 @@ static int wait_for_packet(struct sock *
+ 	error = 0;
+ 	*timeo_p = schedule_timeout(*timeo_p);
+ out:
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	return error;
+ interrupted:
+ 	error = sock_intr_errno(*timeo_p);
+@@ -629,7 +629,7 @@ unsigned int datagram_poll(struct file *
+ 	struct sock *sk = sock->sk;
+ 	unsigned int mask;
+ 
+-	sock_poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk_sleep(sk), wait);
+ 	mask = 0;
+ 
+ 	/* exceptional events? */
+diff --git a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1032,7 +1032,7 @@ struct sock *sk_clone(const struct sock 
+ 		 */
+ 		sk_refcnt_debug_inc(newsk);
+ 		newsk->sk_socket = NULL;
+-		newsk->sk_sleep	 = NULL;
++		newsk->sk_wq = NULL;
+ 
+ 		if (newsk->sk_prot->sockets_allocated)
+ 			atomic_inc(newsk->sk_prot->sockets_allocated);
+@@ -1207,7 +1207,7 @@ static long sock_wait_for_wmem(struct so
+ 		if (signal_pending(current))
+ 			break;
+ 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf)
+ 			break;
+ 		if (sk->sk_shutdown & SEND_SHUTDOWN)
+@@ -1216,7 +1216,7 @@ static long sock_wait_for_wmem(struct so
+ 			break;
+ 		timeo = schedule_timeout(timeo);
+ 	}
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	return timeo;
+ }
+ 
+@@ -1378,11 +1378,11 @@ int sk_wait_data(struct sock *sk, long *
+ 	int rc;
+ 	DEFINE_WAIT(wait);
+ 
+-	prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 	set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+ 	rc = sk_wait_event(sk, timeo, !skb_queue_empty(&sk->sk_receive_queue));
+ 	clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	return rc;
+ }
+ 
+@@ -1491,41 +1491,53 @@ ssize_t sock_no_sendpage(struct socket *
+ 
+ static void sock_def_wakeup(struct sock *sk)
+ {
+-	read_lock(&sk->sk_callback_lock);
+-	if (sk_has_sleeper(sk))
+-		wake_up_interruptible_all(sk->sk_sleep);
+-	read_unlock(&sk->sk_callback_lock);
++	struct socket_wq *wq;
++
++	rcu_read_lock();
++	wq = rcu_dereference(sk->sk_wq);
++	if (wq_has_sleeper(wq))
++		wake_up_interruptible_all(&wq->wait);
++	rcu_read_unlock();
+ }
+ 
+ static void sock_def_error_report(struct sock *sk)
+ {
+-	read_lock(&sk->sk_callback_lock);
+-	if (sk_has_sleeper(sk))
+-		wake_up_interruptible_poll(sk->sk_sleep, POLLERR);
++	struct socket_wq *wq;
++
++	rcu_read_lock();
++	wq = rcu_dereference(sk->sk_wq);
++	if (wq_has_sleeper(wq))
++		wake_up_interruptible_poll(&wq->wait, POLLERR);
+ 	sk_wake_async(sk, SOCK_WAKE_IO, POLL_ERR);
+-	read_unlock(&sk->sk_callback_lock);
++	rcu_read_unlock();
+ }
+ 
+ static void sock_def_readable(struct sock *sk, int len)
+ {
+-	read_lock(&sk->sk_callback_lock);
+-	if (sk_has_sleeper(sk))
+-		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLIN | POLLPRI |
++	struct socket_wq *wq;
++
++	rcu_read_lock();
++	wq = rcu_dereference(sk->sk_wq);
++	if (wq_has_sleeper(wq))
++		wake_up_interruptible_sync_poll(&wq->wait, POLLIN | POLLPRI |
+ 						POLLRDNORM | POLLRDBAND);
+ 	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
+-	read_unlock(&sk->sk_callback_lock);
++	rcu_read_unlock();
+ }
+ 
+ static void sock_def_write_space(struct sock *sk)
+ {
+-	read_lock(&sk->sk_callback_lock);
++	struct socket_wq *wq;
++
++	rcu_read_lock();
+ 
+ 	/* Do not wake up a writer until he can make "significant"
+ 	 * progress.  --DaveM
+ 	 */
+ 	if ((atomic_read(&sk->sk_wmem_alloc) << 1) <= sk->sk_sndbuf) {
+-		if (sk_has_sleeper(sk))
+-			wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT |
++		wq = rcu_dereference(sk->sk_wq);
++		if (wq_has_sleeper(wq))
++			wake_up_interruptible_sync_poll(&wq->wait, POLLOUT |
+ 						POLLWRNORM | POLLWRBAND);
+ 
+ 		/* Should agree with poll, otherwise some programs break */
+@@ -1533,7 +1545,7 @@ static void sock_def_write_space(struct 
+ 			sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+ 
+-	read_unlock(&sk->sk_callback_lock);
++	rcu_read_unlock();
+ }
+ 
+ static void sock_def_destruct(struct sock *sk)
+@@ -1588,10 +1600,10 @@ void sock_init_data(struct socket *sock,
+ 
+ 	if (sock) {
+ 		sk->sk_type	=	sock->type;
+-		sk->sk_sleep	=	&sock->wait;
++		sk->sk_wq	=	sock->wq;
+ 		sock->sk	=	sk;
+ 	} else
+-		sk->sk_sleep	=	NULL;
++		sk->sk_wq	=	NULL;
+ 
+ 	rwlock_init(&sk->sk_dst_lock);
+ 	rwlock_init(&sk->sk_callback_lock);
+diff --git a/net/core/stream.c b/net/core/stream.c
+--- a/net/core/stream.c
++++ b/net/core/stream.c
+@@ -28,15 +28,19 @@
+ void sk_stream_write_space(struct sock *sk)
+ {
+ 	struct socket *sock = sk->sk_socket;
++	struct socket_wq *wq;
+ 
+ 	if (sk_stream_wspace(sk) >= sk_stream_min_wspace(sk) && sock) {
+ 		clear_bit(SOCK_NOSPACE, &sock->flags);
+ 
+-		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-			wake_up_interruptible_poll(sk->sk_sleep, POLLOUT |
++		rcu_read_lock();
++		wq = rcu_dereference(sk->sk_wq);
++		if (wq_has_sleeper(wq))
++			wake_up_interruptible_poll(&wq->wait, POLLOUT |
+ 						POLLWRNORM | POLLWRBAND);
+-		if (sock->fasync_list && !(sk->sk_shutdown & SEND_SHUTDOWN))
++		if (wq && wq->fasync_list && !(sk->sk_shutdown & SEND_SHUTDOWN))
+ 			sock_wake_async(sock, SOCK_WAKE_SPACE, POLL_OUT);
++		rcu_read_unlock();
+ 	}
+ }
+ 
+@@ -66,13 +70,13 @@ int sk_stream_wait_connect(struct sock *
+ 		if (signal_pending(tsk))
+ 			return sock_intr_errno(*timeo_p);
+ 
+-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 		sk->sk_write_pending++;
+ 		done = sk_wait_event(sk, timeo_p,
+ 				     !sk->sk_err &&
+ 				     !((1 << sk->sk_state) &
+ 				       ~(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)));
+-		finish_wait(sk->sk_sleep, &wait);
++		finish_wait(sk_sleep(sk), &wait);
+ 		sk->sk_write_pending--;
+ 	} while (!done);
+ 	return 0;
+@@ -96,13 +100,13 @@ void sk_stream_wait_close(struct sock *s
+ 		DEFINE_WAIT(wait);
+ 
+ 		do {
+-			prepare_to_wait(sk->sk_sleep, &wait,
++			prepare_to_wait(sk_sleep(sk), &wait,
+ 					TASK_INTERRUPTIBLE);
+ 			if (sk_wait_event(sk, &timeout, !sk_stream_closing(sk)))
+ 				break;
+ 		} while (!signal_pending(current) && timeout);
+ 
+-		finish_wait(sk->sk_sleep, &wait);
++		finish_wait(sk_sleep(sk), &wait);
+ 	}
+ }
+ 
+@@ -126,7 +130,7 @@ int sk_stream_wait_memory(struct sock *s
+ 	while (1) {
+ 		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
+ 
+-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 
+ 		if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
+ 			goto do_error;
+@@ -157,7 +161,7 @@ int sk_stream_wait_memory(struct sock *s
+ 		*timeo_p = current_timeo;
+ 	}
+ out:
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	return err;
+ 
+ do_error:
+diff --git a/net/dccp/output.c b/net/dccp/output.c
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -161,15 +161,17 @@ EXPORT_SYMBOL_GPL(dccp_sync_mss);
+ 
+ void dccp_write_space(struct sock *sk)
+ {
+-	read_lock(&sk->sk_callback_lock);
++	struct socket_wq *wq;
+ 
+-	if (sk_has_sleeper(sk))
+-		wake_up_interruptible(sk->sk_sleep);
++	rcu_read_lock();
++	wq = rcu_dereference(sk->sk_wq);
++	if (wq_has_sleeper(wq))
++		wake_up_interruptible(&wq->wait);
+ 	/* Should agree with poll, otherwise some programs break */
+ 	if (sock_writeable(sk))
+ 		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 
+-	read_unlock(&sk->sk_callback_lock);
++	rcu_read_unlock();
+ }
+ 
+ /**
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -512,7 +512,7 @@ static long inet_wait_for_connect(struct
+ {
+ 	DEFINE_WAIT(wait);
+ 
+-	prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 
+ 	/* Basic assumption: if someone sets sk->sk_err, he _must_
+ 	 * change state of the socket from TCP_SYN_*.
+@@ -525,9 +525,9 @@ static long inet_wait_for_connect(struct
+ 		lock_sock(sk);
+ 		if (signal_pending(current) || !timeo)
+ 			break;
+-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 	}
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	return timeo;
+ }
+ 
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -183,7 +183,7 @@ static int inet_csk_wait_for_connect(str
+ 	 * having to remove and re-insert us on the wait queue.
+ 	 */
+ 	for (;;) {
+-		prepare_to_wait_exclusive(sk->sk_sleep, &wait,
++		prepare_to_wait_exclusive(sk_sleep(sk), &wait,
+ 					  TASK_INTERRUPTIBLE);
+ 		release_sock(sk);
+ 		if (reqsk_queue_empty(&icsk->icsk_accept_queue))
+@@ -202,7 +202,7 @@ static int inet_csk_wait_for_connect(str
+ 		if (!timeo)
+ 			break;
+ 	}
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	return err;
+ }
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -377,7 +377,7 @@ unsigned int tcp_poll(struct file *file,
+ 	struct sock *sk = sock->sk;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+-	sock_poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk_sleep(sk), wait);
+ 	if (sk->sk_state == TCP_LISTEN)
+ 		return inet_csk_listen_poll(sk);
+ 
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -345,7 +345,7 @@ static void irda_flow_indication(void *i
+ 		self->tx_flow = flow;
+ 		IRDA_DEBUG(1, "%s(), IrTTP wants us to start again\n",
+ 			   __FUNCTION__);
+-		wake_up_interruptible(sk->sk_sleep);
++		wake_up_interruptible(sk_sleep(sk));
+ 		break;
+ 	default:
+ 		IRDA_DEBUG(0, "%s(), Unknown flow command!\n", __FUNCTION__);
+@@ -870,7 +870,7 @@ static int irda_accept(struct socket *so
+ 		if (flags & O_NONBLOCK)
+ 			return -EWOULDBLOCK;
+ 
+-		err = wait_event_interruptible(*(sk->sk_sleep),
++		err = wait_event_interruptible(*(sk_sleep(sk)),
+ 					skb_peek(&sk->sk_receive_queue));
+ 		if (err)
+ 			return err;
+@@ -1027,7 +1027,7 @@ static int irda_connect(struct socket *s
+ 	if (sk->sk_state != TCP_ESTABLISHED && (flags & O_NONBLOCK))
+ 		return -EINPROGRESS;
+ 
+-	if (wait_event_interruptible(*(sk->sk_sleep),
++	if (wait_event_interruptible(*(sk_sleep(sk)),
+ 				     (sk->sk_state != TCP_SYN_SENT)))
+ 		return -ERESTARTSYS;
+ 
+@@ -1263,7 +1263,7 @@ static int irda_sendmsg(struct kiocb *io
+ 
+ 	/* Check if IrTTP is wants us to slow down */
+ 
+-	if (wait_event_interruptible(*(sk->sk_sleep),
++	if (wait_event_interruptible(*(sk_sleep(sk)),
+ 	    (self->tx_flow != FLOW_STOP  ||  sk->sk_state != TCP_ESTABLISHED)))
+ 		return -ERESTARTSYS;
+ 
+@@ -1400,7 +1400,7 @@ static int irda_recvmsg_stream(struct ki
+ 			if (copied >= target)
+ 				break;
+ 
+-			prepare_to_wait_exclusive(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++			prepare_to_wait_exclusive(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 
+ 			/*
+ 			 *	POSIX 1003.1g mandates this order.
+@@ -1420,7 +1420,7 @@ static int irda_recvmsg_stream(struct ki
+ 				/* Wait process until data arrives */
+ 				schedule();
+ 
+-			finish_wait(sk->sk_sleep, &wait);
++			finish_wait(sk_sleep(sk), &wait);
+ 
+ 			if (ret)
+ 				return ret;
+@@ -1686,7 +1686,7 @@ static unsigned int irda_poll(struct fil
+ 
+ 	IRDA_DEBUG(4, "%s()\n", __FUNCTION__);
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	poll_wait(file, sk_sleep(sk), wait);
+ 	mask = 0;
+ 
+ 	/* Exceptional events? */
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -128,10 +128,8 @@ static int llc_ui_send_data(struct sock*
+ 
+ static void llc_ui_sk_init(struct socket *sock, struct sock *sk)
+ {
++	sock_graft(sk, sock);
+ 	sk->sk_type	= sock->type;
+-	sk->sk_sleep	= &sock->wait;
+-	sk->sk_socket	= sock;
+-	sock->sk	= sk;
+ 	sock->ops	= &llc_ui_ops;
+ }
+ 
+@@ -502,7 +500,7 @@ static int llc_ui_wait_for_disc(struct s
+ 	int rc = 0;
+ 
+ 	while (1) {
+-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 		if (sk_wait_event(sk, &timeout, sk->sk_state == TCP_CLOSE))
+ 			break;
+ 		rc = -ERESTARTSYS;
+@@ -513,7 +511,7 @@ static int llc_ui_wait_for_disc(struct s
+ 			break;
+ 		rc = 0;
+ 	}
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	return rc;
+ }
+ 
+@@ -522,13 +520,13 @@ static int llc_ui_wait_for_conn(struct s
+ 	DEFINE_WAIT(wait);
+ 
+ 	while (1) {
+-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 		if (sk_wait_event(sk, &timeout, sk->sk_state != TCP_SYN_SENT))
+ 			break;
+ 		if (signal_pending(current) || !timeout)
+ 			break;
+ 	}
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	return timeout;
+ }
+ 
+@@ -539,7 +537,7 @@ static int llc_ui_wait_for_busy_core(str
+ 	int rc;
+ 
+ 	while (1) {
+-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 		rc = 0;
+ 		if (sk_wait_event(sk, &timeout,
+ 				  (sk->sk_shutdown & RCV_SHUTDOWN) ||
+@@ -554,7 +552,7 @@ static int llc_ui_wait_for_busy_core(str
+ 		if (!timeout)
+ 			break;
+ 	}
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	return rc;
+ }
+ 
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -60,13 +60,15 @@ static inline int rxrpc_writable(struct 
+ static void rxrpc_write_space(struct sock *sk)
+ {
+ 	_enter("%p", sk);
+-	read_lock(&sk->sk_callback_lock);
++	rcu_read_lock();
+ 	if (rxrpc_writable(sk)) {
+-		if (sk_has_sleeper(sk))
+-			wake_up_interruptible(sk->sk_sleep);
++		struct socket_wq *wq = rcu_dereference(sk->sk_wq);
++
++		if (wq_has_sleeper(wq))
++			wake_up_interruptible(&wq->wait);
+ 		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+-	read_unlock(&sk->sk_callback_lock);
++	rcu_read_unlock();
+ }
+ 
+ /*
+@@ -586,7 +588,7 @@ static unsigned int rxrpc_poll(struct fi
+ 	unsigned int mask;
+ 	struct sock *sk = sock->sk;
+ 
+-	sock_poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk_sleep(sk), wait);
+ 	mask = 0;
+ 
+ 	/* the socket is readable if there are any messages waiting on the Rx
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -5345,7 +5345,7 @@ unsigned int sctp_poll(struct file *file
+ 	struct sctp_sock *sp = sctp_sk(sk);
+ 	unsigned int mask;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	poll_wait(file, sk_sleep(sk), wait);
+ 
+ 	/* A TCP-style listening socket becomes readable when the accept queue
+ 	 * is not empty.
+@@ -5589,7 +5589,7 @@ static int sctp_wait_for_packet(struct s
+ 	int error;
+ 	DEFINE_WAIT(wait);
+ 
+-	prepare_to_wait_exclusive(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++	prepare_to_wait_exclusive(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 
+ 	/* Socket errors? */
+ 	error = sock_error(sk);
+@@ -5626,14 +5626,14 @@ static int sctp_wait_for_packet(struct s
+ 	sctp_lock_sock(sk);
+ 
+ ready:
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	return 0;
+ 
+ interrupted:
+ 	error = sock_intr_errno(*timeo_p);
+ 
+ out:
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	*err = error;
+ 	return error;
+ }
+@@ -5707,14 +5707,15 @@ static void __sctp_write_space(struct sc
+ 			wake_up_interruptible(&asoc->wait);
+ 
+ 		if (sctp_writeable(sk)) {
+-			if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-				wake_up_interruptible(sk->sk_sleep);
++			wait_queue_head_t *wqueue = sk_sleep(sk);
++			if (wqueue && waitqueue_active(wqueue))
++				wake_up_interruptible(wqueue);
+ 
+ 			/* Note that we try to include the Async I/O support
+ 			 * here by modeling from the current TCP/UDP code.
+ 			 * We have not tested with it yet.
+ 			 */
+-			if (sock->fasync_list &&
++			if (sock->wq->fasync_list &&
+ 			    !(sk->sk_shutdown & SEND_SHUTDOWN))
+ 				sock_wake_async(sock,
+ 						SOCK_WAKE_SPACE, POLL_OUT);
+@@ -5933,7 +5934,7 @@ static int sctp_wait_for_accept(struct s
+ 
+ 
+ 	for (;;) {
+-		prepare_to_wait_exclusive(sk->sk_sleep, &wait,
++		prepare_to_wait_exclusive(sk_sleep(sk), &wait,
+ 					  TASK_INTERRUPTIBLE);
+ 
+ 		if (list_empty(&ep->asocs)) {
+@@ -5959,7 +5960,7 @@ static int sctp_wait_for_accept(struct s
+ 			break;
+ 	}
+ 
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 
+ 	return err;
+ }
+@@ -5969,7 +5970,7 @@ void sctp_wait_for_close(struct sock *sk
+ 	DEFINE_WAIT(wait);
+ 
+ 	do {
+-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 		if (list_empty(&sctp_sk(sk)->ep->asocs))
+ 			break;
+ 		sctp_release_sock(sk);
+@@ -5977,7 +5978,7 @@ void sctp_wait_for_close(struct sock *sk
+ 		sctp_lock_sock(sk);
+ 	} while (!signal_pending(current) && timeout);
+ 
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ }
+ 
+ static void sctp_sock_rfree_frag(struct sk_buff *skb)
+diff --git a/net/socket.c b/net/socket.c
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -244,9 +244,14 @@ static struct inode *sock_alloc_inode(st
+ 	ei = kmem_cache_alloc(sock_inode_cachep, GFP_KERNEL);
+ 	if (!ei)
+ 		return NULL;
+-	init_waitqueue_head(&ei->socket.wait);
++	ei->socket.wq = kmalloc(sizeof(struct socket_wq), GFP_KERNEL);
++	if (!ei->socket.wq) {
++		kmem_cache_free(sock_inode_cachep, ei);
++		return NULL;
++	}
++	init_waitqueue_head(&ei->socket.wq->wait);
++	ei->socket.wq->fasync_list = NULL;
+ 
+-	ei->socket.fasync_list = NULL;
+ 	ei->socket.state = SS_UNCONNECTED;
+ 	ei->socket.flags = 0;
+ 	ei->socket.ops = NULL;
+@@ -256,10 +261,21 @@ static struct inode *sock_alloc_inode(st
+ 	return &ei->vfs_inode;
+ }
+ 
++
++static void wq_free_rcu(struct rcu_head *head)
++{
++	struct socket_wq *wq = container_of(head, struct socket_wq, rcu);
++
++	kfree(wq);
++}
++
+ static void sock_destroy_inode(struct inode *inode)
+ {
+-	kmem_cache_free(sock_inode_cachep,
+-			container_of(inode, struct socket_alloc, vfs_inode));
++	struct socket_alloc *ei;
++
++	ei = container_of(inode, struct socket_alloc, vfs_inode);
++	call_rcu(&ei->socket.wq->rcu, wq_free_rcu);
++	kmem_cache_free(sock_inode_cachep, ei);
+ }
+ 
+ static void init_once(void *foo)
+@@ -531,7 +547,7 @@ void sock_release(struct socket *sock)
+ 		module_put(owner);
+ 	}
+ 
+-	if (sock->fasync_list)
++	if (sock->wq->fasync_list)
+ 		printk(KERN_ERR "sock_release: fasync list not empty!\n");
+ 
+ 	get_cpu_var(sockets_in_use)--;
+@@ -1010,9 +1026,9 @@ static int sock_fasync(int fd, struct fi
+ 
+ 	lock_sock(sk);
+ 
+-	fasync_helper(fd, filp, on, &sock->fasync_list);
++	fasync_helper(fd, filp, on, &sock->wq->fasync_list);
+ 
+-	if (!sock->fasync_list)
++	if (!sock->wq->fasync_list)
+ 		sock_reset_flag(sk, SOCK_FASYNC);
+ 	else
+ 		sock_set_flag(sk, SOCK_FASYNC);
+@@ -1021,12 +1037,20 @@ static int sock_fasync(int fd, struct fi
+ 	return 0;
+ }
+ 
+-/* This function may be called only under socket lock or callback_lock */
++/* This function may be called only under socket lock or callback_lock or rcu_lock */
+ 
+ int sock_wake_async(struct socket *sock, int how, int band)
+ {
+-	if (!sock || !sock->fasync_list)
++	struct socket_wq *wq;
++
++	if (!sock)
+ 		return -1;
++	rcu_read_lock();
++	wq = rcu_dereference(sock->wq);
++	if (!wq || !wq->fasync_list) {
++		rcu_read_unlock();
++		return -1;
++	}
+ 	switch (how) {
+ 	case SOCK_WAKE_WAITD:
+ 		if (test_bit(SOCK_ASYNC_WAITDATA, &sock->flags))
+@@ -1038,11 +1062,12 @@ int sock_wake_async(struct socket *sock,
+ 		/* fall through */
+ 	case SOCK_WAKE_IO:
+ call_kill:
+-		kill_fasync(&sock->fasync_list, SIGIO, band);
++		kill_fasync(&wq->fasync_list, SIGIO, band);
+ 		break;
+ 	case SOCK_WAKE_URG:
+-		kill_fasync(&sock->fasync_list, SIGURG, band);
++		kill_fasync(&wq->fasync_list, SIGURG, band);
+ 	}
++	rcu_read_unlock();
+ 	return 0;
+ }
+ 
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -693,6 +693,7 @@ static void
+ svc_udp_data_ready(struct sock *sk, int count)
+ {
+ 	struct svc_sock	*svsk = (struct svc_sock *)sk->sk_user_data;
++	wait_queue_head_t *wq = sk_sleep(sk);
+ 
+ 	if (svsk) {
+ 		dprintk("svc: socket %p(inet %p), count=%d, busy=%d\n",
+@@ -700,8 +701,8 @@ svc_udp_data_ready(struct sock *sk, int 
+ 		set_bit(SK_DATA, &svsk->sk_flags);
+ 		svc_sock_enqueue(svsk);
+ 	}
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		wake_up_interruptible(sk->sk_sleep);
++	if (wq && waitqueue_active(wq))
++		wake_up_interruptible(wq);
+ }
+ 
+ /*
+@@ -711,6 +712,7 @@ static void
+ svc_write_space(struct sock *sk)
+ {
+ 	struct svc_sock	*svsk = (struct svc_sock *)(sk->sk_user_data);
++	wait_queue_head_t *wq = sk_sleep(sk);
+ 
+ 	if (svsk) {
+ 		dprintk("svc: socket %p(inet %p), write_space busy=%d\n",
+@@ -718,10 +720,10 @@ svc_write_space(struct sock *sk)
+ 		svc_sock_enqueue(svsk);
+ 	}
+ 
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep)) {
++	if (wq && waitqueue_active(wq)) {
+ 		dprintk("RPC svc_write_space: someone sleeping on %p\n",
+ 		       svsk);
+-		wake_up_interruptible(sk->sk_sleep);
++		wake_up_interruptible(wq);
+ 	}
+ }
+ 
+@@ -923,6 +925,7 @@ static void
+ svc_tcp_listen_data_ready(struct sock *sk, int count_unused)
+ {
+ 	struct svc_sock	*svsk = (struct svc_sock *)sk->sk_user_data;
++	wait_queue_head_t *wq = sk_sleep(sk);
+ 
+ 	dprintk("svc: socket %p TCP (listen) state change %d\n",
+ 		sk, sk->sk_state);
+@@ -945,8 +948,8 @@ svc_tcp_listen_data_ready(struct sock *s
+ 			printk("svc: socket %p: no user data\n", sk);
+ 	}
+ 
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		wake_up_interruptible_all(sk->sk_sleep);
++	if (wq && waitqueue_active(wq))
++		wake_up_interruptible_all(wq);
+ }
+ 
+ /*
+@@ -956,6 +959,7 @@ static void
+ svc_tcp_state_change(struct sock *sk)
+ {
+ 	struct svc_sock	*svsk = (struct svc_sock *)sk->sk_user_data;
++	wait_queue_head_t *wq = sk_sleep(sk);
+ 
+ 	dprintk("svc: socket %p TCP (connected) state change %d (svsk %p)\n",
+ 		sk, sk->sk_state, sk->sk_user_data);
+@@ -966,14 +970,15 @@ svc_tcp_state_change(struct sock *sk)
+ 		set_bit(SK_CLOSE, &svsk->sk_flags);
+ 		svc_sock_enqueue(svsk);
+ 	}
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		wake_up_interruptible_all(sk->sk_sleep);
++	if (wq && waitqueue_active(wq))
++		wake_up_interruptible_all(wq);
+ }
+ 
+ static void
+ svc_tcp_data_ready(struct sock *sk, int count)
+ {
+ 	struct svc_sock *svsk = (struct svc_sock *)sk->sk_user_data;
++	wait_queue_head_t *wq = sk_sleep(sk);
+ 
+ 	dprintk("svc: socket %p TCP data ready (svsk %p)\n",
+ 		sk, sk->sk_user_data);
+@@ -981,8 +986,8 @@ svc_tcp_data_ready(struct sock *sk, int 
+ 		set_bit(SK_DATA, &svsk->sk_flags);
+ 		svc_sock_enqueue(svsk);
+ 	}
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		wake_up_interruptible(sk->sk_sleep);
++	if (wq && waitqueue_active(wq))
++		wake_up_interruptible(wq);
+ }
+ 
+ static inline int svc_port_is_privileged(struct sockaddr *sin)
+-- 

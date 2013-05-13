@@ -8,14 +8,14 @@
  973a34aa8593dbfe84386343c694f5beecb51d8a af_unix: optimize unix_dgram_poll()
 
 ---
- include/net/af_unix.h |   29 ------------
- net/unix/af_unix.c    |  114 ++++++++++++++++++++++++++++++++++++++++++--------
- 2 files changed, 97 insertions(+), 46 deletions(-)
+ include/net/af_unix.h |   47 +++--------------
+ net/unix/af_unix.c    |  137 +++++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 118 insertions(+), 66 deletions(-)
 
 diff --git a/include/net/af_unix.h b/include/net/af_unix.h
 --- a/include/net/af_unix.h
 +++ b/include/net/af_unix.h
-@@ -12,37 +12,8 @@ extern void unix_gc(void);
+@@ -13,37 +13,8 @@ extern void wait_for_unix_gc(void);
  
  #define UNIX_HASH_SIZE	256
  
@@ -53,6 +53,46 @@ diff --git a/include/net/af_unix.h b/include/net/af_unix.h
  struct unix_address {
  	atomic_t	refcnt;
  	int		len;
+@@ -59,7 +30,7 @@ struct unix_skb_parms {
+ #endif
+ };
+ 
+-#define UNIXCB(skb) 	(*(struct unix_skb_parms*)&((skb)->cb))
++#define UNIXCB(skb) 	(*(struct unix_skb_parms *)&((skb)->cb))
+ #define UNIXCREDS(skb)	(&UNIXCB((skb)).creds)
+ #define UNIXSID(skb)	(&UNIXCB((skb)).secid)
+ 
+@@ -74,21 +45,23 @@ struct unix_skb_parms {
+ struct unix_sock {
+ 	/* WARNING: sk has to be the first member */
+ 	struct sock		sk;
+-        struct unix_address     *addr;
+-        struct dentry		*dentry;
+-        struct vfsmount		*mnt;
++	struct unix_address     *addr;
++	struct dentry		*dentry;
++	struct vfsmount		*mnt;
+ 	struct mutex		readlock;
+-        struct sock		*peer;
+-        struct sock		*other;
++	struct sock		*peer;
++	struct sock		*other;
+ 	struct list_head	link;
+         atomic_t                inflight;
+-        spinlock_t		lock;
++	spinlock_t		lock;
+ 	unsigned int		gc_candidate : 1;
+ 	unsigned int		gc_maybe_cycle : 1;
+-        wait_queue_head_t       peer_wait;
++	struct socket_wq	peer_wq;
+ };
+ #define unix_sk(__sk) ((struct unix_sock *)__sk)
+ 
++#define peer_wait peer_wq.wait
++
+ #ifdef CONFIG_SYSCTL
+ extern int sysctl_unix_max_dgram_qlen;
+ extern void unix_sysctl_register(void);
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
@@ -111,7 +151,28 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  static struct sock *unix_peer_get(struct sock *s)
  {
  	struct sock *peer;
-@@ -357,7 +388,7 @@ static void unix_sock_destructor(struct
+@@ -304,13 +335,16 @@ static inline int unix_writable(struct s
+ 
+ static void unix_write_space(struct sock *sk)
+ {
+-	read_lock(&sk->sk_callback_lock);
++	struct socket_wq *wq;
++
++	rcu_read_lock();
+ 	if (unix_writable(sk)) {
+-		if (sk_has_sleeper(sk))
+-			wake_up_interruptible_sync(sk->sk_sleep);
++		wq = rcu_dereference(sk->sk_wq);
++		if (wq_has_sleeper(wq))
++			wake_up_interruptible_sync(&wq->wait);
+ 		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+-	read_unlock(&sk->sk_callback_lock);
++	rcu_read_unlock();
+ }
+ 
+ /* When dgram socket disconnects (or changes its peer), we clear its receive
+@@ -357,7 +391,7 @@ static void unix_sock_destructor(struct 
  #endif
  }
  
@@ -120,7 +181,17 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  {
  	struct unix_sock *u = unix_sk(sk);
  	struct dentry *dentry;
-@@ -432,8 +463,6 @@ static int unix_release_sock (struct soc
+@@ -393,9 +427,7 @@ static int unix_release_sock (struct soc
+ 				skpair->sk_err = ECONNRESET;
+ 			unix_state_unlock(skpair);
+ 			skpair->sk_state_change(skpair);
+-			read_lock(&skpair->sk_callback_lock);
+ 			sk_wake_async(skpair, SOCK_WAKE_WAITD, POLL_HUP);
+-			read_unlock(&skpair->sk_callback_lock);
+ 		}
+ 		sock_put(skpair); /* It may now die */
+ 		unix_peer(sk) = NULL;
+@@ -432,8 +464,6 @@ static int unix_release_sock (struct soc
  
  	if (atomic_read(&unix_tot_inflight))
  		unix_gc();		/* Garbage collect fds */
@@ -129,7 +200,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  }
  
  static int unix_listen(struct socket *sock, int backlog)
-@@ -475,6 +504,8 @@ static int unix_socketpair(struct socket
+@@ -475,6 +505,8 @@ static int unix_socketpair(struct socket
  static int unix_accept(struct socket *, struct socket *, int);
  static int unix_getname(struct socket *, struct sockaddr *, int *, int);
  static unsigned int unix_poll(struct file *, struct socket *, poll_table *);
@@ -138,7 +209,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  static int unix_ioctl(struct socket *, unsigned int, unsigned long);
  static int unix_shutdown(struct socket *, int);
  static int unix_stream_sendmsg(struct kiocb *, struct socket *,
-@@ -522,7 +553,7 @@ static const struct proto_ops unix_dgram
+@@ -522,7 +554,7 @@ static const struct proto_ops unix_dgram
  	.socketpair =	unix_socketpair,
  	.accept =	sock_no_accept,
  	.getname =	unix_getname,
@@ -147,7 +218,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  	.ioctl =	unix_ioctl,
  	.listen =	sock_no_listen,
  	.shutdown =	unix_shutdown,
-@@ -543,7 +574,7 @@ static const struct proto_ops unix_seqpa
+@@ -543,7 +575,7 @@ static const struct proto_ops unix_seqpa
  	.socketpair =	unix_socketpair,
  	.accept =	unix_accept,
  	.getname =	unix_getname,
@@ -156,7 +227,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  	.ioctl =	unix_ioctl,
  	.listen =	unix_listen,
  	.shutdown =	unix_shutdown,
-@@ -640,9 +671,10 @@ static int unix_release(struct socket *s
+@@ -640,9 +672,10 @@ static int unix_release(struct socket *s
  	if (!sk)
  		return 0;
  
@@ -168,7 +239,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  }
  
  static int unix_autobind(struct socket *sock)
-@@ -969,8 +1001,7 @@ static long unix_wait_for_peer(struct so
+@@ -969,8 +1002,7 @@ static long unix_wait_for_peer(struct so
  
  	sched = !sock_flag(other, SOCK_DEAD) &&
  		!(other->sk_shutdown & RCV_SHUTDOWN) &&
@@ -178,7 +249,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  
  	unix_state_unlock(other);
  
-@@ -1042,9 +1073,10 @@ restart:
+@@ -1042,9 +1074,10 @@ restart:
  	err = -ECONNREFUSED;
  	if (other->sk_state != TCP_LISTEN)
  		goto out_unlock;
@@ -191,7 +262,16 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  		err = -EAGAIN;
  		if (!timeo)
  			goto out_unlock;
-@@ -1424,9 +1456,7 @@ restart:
+@@ -1109,7 +1142,7 @@ restart:
+ 	newsk->sk_peercred.uid	= current->euid;
+ 	newsk->sk_peercred.gid	= current->egid;
+ 	newu = unix_sk(newsk);
+-	newsk->sk_sleep		= &newu->peer_wait;
++	newsk->sk_wq		= &newu->peer_wq;
+ 	otheru = unix_sk(other);
+ 
+ 	/* copy address information from listening to new sock*/
+@@ -1424,9 +1457,7 @@ restart:
  			goto out_unlock;
  	}
  
@@ -202,7 +282,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  		if (!timeo) {
  			err = -EAGAIN;
  			goto out_unlock;
-@@ -1466,7 +1496,6 @@ static int unix_stream_sendmsg(struct ki
+@@ -1466,7 +1497,6 @@ static int unix_stream_sendmsg(struct ki
  	struct sock_iocb *siocb = kiocb_to_siocb(kiocb);
  	struct sock *sk = sock->sk;
  	struct sock *other = NULL;
@@ -210,7 +290,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  	int err,size;
  	struct sk_buff *skb;
  	int sent=0;
-@@ -1488,7 +1517,6 @@ static int unix_stream_sendmsg(struct ki
+@@ -1488,7 +1518,6 @@ static int unix_stream_sendmsg(struct ki
  		err = sk->sk_state == TCP_ESTABLISHED ? -EISCONN : -EOPNOTSUPP;
  		goto out_err;
  	} else {
@@ -218,7 +298,47 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  		err = -ENOTCONN;
  		other = unix_peer(sk);
  		if (!other)
-@@ -2008,6 +2036,58 @@ static unsigned int unix_poll(struct fil
+@@ -1721,7 +1750,7 @@ static long unix_stream_data_wait(struct
+ 	unix_state_lock(sk);
+ 
+ 	for (;;) {
+-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 
+ 		if (!skb_queue_empty(&sk->sk_receive_queue) ||
+ 		    sk->sk_err ||
+@@ -1737,7 +1766,7 @@ static long unix_stream_data_wait(struct
+ 		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+ 	}
+ 
+-	finish_wait(sk->sk_sleep, &wait);
++	finish_wait(sk_sleep(sk), &wait);
+ 	unix_state_unlock(sk);
+ 	return timeo;
+ }
+@@ -1918,12 +1947,10 @@ static int unix_shutdown(struct socket *
+ 			other->sk_shutdown |= peer_mode;
+ 			unix_state_unlock(other);
+ 			other->sk_state_change(other);
+-			read_lock(&other->sk_callback_lock);
+ 			if (peer_mode == SHUTDOWN_MASK)
+ 				sk_wake_async(other, SOCK_WAKE_WAITD, POLL_HUP);
+ 			else if (peer_mode & RCV_SHUTDOWN)
+ 				sk_wake_async(other, SOCK_WAKE_WAITD, POLL_IN);
+-			read_unlock(&other->sk_callback_lock);
+ 		}
+ 		if (other)
+ 			sock_put(other);
+@@ -1979,7 +2006,7 @@ static unsigned int unix_poll(struct fil
+ 	struct sock *sk = sock->sk;
+ 	unsigned int mask;
+ 
+-	sock_poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk_sleep(sk), wait);
+ 	mask = 0;
+ 
+ 	/* exceptional events? */
+@@ -2008,6 +2035,58 @@ static unsigned int unix_poll(struct fil
  	return mask;
  }
  
@@ -228,7 +348,7 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 +	struct sock *sk = sock->sk, *other;
 +	unsigned int mask, writable;
 +
-+	sock_poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk_sleep(sk), wait);
 +	mask = 0;
 +
 +	/* exceptional events? */
