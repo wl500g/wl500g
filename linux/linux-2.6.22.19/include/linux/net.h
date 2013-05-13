@@ -21,6 +21,7 @@
 #include <linux/wait.h>
 #include <linux/socket.h>
 #include <linux/fcntl.h>	/* For O_CLOEXEC and O_NONBLOCK */
+#include <linux/rcupdate.h>
 #include <asm/socket.h>
 
 struct poll_table_struct;
@@ -107,6 +108,12 @@ enum sock_type {
 
 #endif /* ARCH_HAS_SOCKET_TYPES */
 
+struct socket_wq {
+	wait_queue_head_t	wait;
+	struct fasync_struct	*fasync_list;
+	struct rcu_head		rcu;
+} ____cacheline_aligned_in_smp;
+
 /**
  *  struct socket - general BSD socket
  *  @state: socket state (%SS_CONNECTED, etc)
@@ -122,11 +129,8 @@ struct socket {
 	socket_state		state;
 	unsigned long		flags;
 
-	/*
-	 * Please keep fasync_list & wait fields in the same cache line
-	 */
-	struct fasync_struct	*fasync_list;
-	wait_queue_head_t	wait;
+
+	struct socket_wq	*wq;
 
 	struct file		*file;
 	struct sock		*sk;

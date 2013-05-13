@@ -129,7 +129,7 @@ struct sock_common {
   *	@sk_userlocks: %SO_SNDBUF and %SO_RCVBUF settings
   *	@sk_lock:	synchronizer
   *	@sk_rcvbuf: size of receive buffer in bytes
-  *	@sk_sleep: sock wait queue
+  *	@sk_wq: sock wait queue and async head
   *	@sk_dst_cache: destination cache
   *	@sk_dst_lock: destination cache lock
   *	@sk_policy: flow policy
@@ -222,7 +222,7 @@ struct sock {
 
 	struct sk_filter      	*sk_filter;
 
-	wait_queue_head_t	*sk_sleep;
+	struct socket_wq	*sk_wq;
 #ifdef CONFIG_NET_DMA
 	struct sk_buff_head	sk_async_wait_queue;
 #endif
@@ -992,6 +992,11 @@ static inline void sock_put(struct sock *sk)
 extern int sk_receive_skb(struct sock *sk, struct sk_buff *skb,
 			  const int nested);
 
+static inline wait_queue_head_t *sk_sleep(struct sock *sk)
+{
+	return &sk->sk_wq->wait;
+}
+
 /* Detach socket from process context.
  * Announce socket dead, detach it from wait queue and inode.
  * Note that parent inode held reference count on this struct sock,
@@ -1004,14 +1009,14 @@ static inline void sock_orphan(struct sock *sk)
 	write_lock_bh(&sk->sk_callback_lock);
 	sock_set_flag(sk, SOCK_DEAD);
 	sk->sk_socket = NULL;
-	sk->sk_sleep  = NULL;
+	sk->sk_wq  = NULL;
 	write_unlock_bh(&sk->sk_callback_lock);
 }
 
 static inline void sock_graft(struct sock *sk, struct socket *parent)
 {
 	write_lock_bh(&sk->sk_callback_lock);
-	sk->sk_sleep = &parent->wait;
+	rcu_assign_pointer(sk->sk_wq, parent->wq);
 	parent->sk = sk;
 	sk->sk_socket = parent;
 	security_sock_graft(sk, parent);
@@ -1130,12 +1135,12 @@ static inline int skb_copy_to_page(struct sock *sk, char __user *from,
 }
 
 /**
- * sk_has_sleeper - check if there are any waiting processes
- * @sk: socket
+ * wq_has_sleeper - check if there are any waiting processes
+ * @sk: struct socket_wq
  *
- * Returns true if socket has waiting processes
+ * Returns true if socket_wq has waiting processes
  *
- * The purpose of the sk_has_sleeper and sock_poll_wait is to wrap the memory
+ * The purpose of the wq_has_sleeper and sock_poll_wait is to wrap the memory
  * barrier call. They were added due to the race found within the tcp code.
  *
  * Consider following tcp code paths:
@@ -1148,9 +1153,10 @@ static inline int skb_copy_to_page(struct sock *sk, char __user *from,
  *   ...                 ...
  *   tp->rcv_nxt check   sock_def_readable
  *   ...                 {
- *   schedule               ...
- *                          if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
- *                              wake_up_interruptible(sk->sk_sleep)
+ *   schedule               rcu_read_lock();
+ *                          wq = rcu_dereference(sk->sk_wq);
+ *                          if (wq && waitqueue_active(&wq->wait))
+ *                              wake_up_interruptible(&wq->wait)
  *                          ...
  *                       }
  *
@@ -1159,7 +1165,7 @@ static inline int skb_copy_to_page(struct sock *sk, char __user *from,
  * could then endup calling schedule and sleep forever if there are no more
  * data on the socket.
  */
-static inline int sk_has_sleeper(struct sock *sk)
+static inline bool wq_has_sleeper(struct socket_wq *wq)
 {
 	/*
 	 * We need to be sure we are in sync with the
@@ -1168,7 +1174,7 @@ static inline int sk_has_sleeper(struct sock *sk)
 	 * This memory barrier is paired in the sock_poll_wait.
 	 */
 	smp_mb();
-	return sk->sk_sleep && waitqueue_active(sk->sk_sleep);
+	return wq && waitqueue_active(&wq->wait);
 }
 
 /**
@@ -1177,7 +1183,7 @@ static inline int sk_has_sleeper(struct sock *sk)
  * @wait_address:   socket wait queue
  * @p:              poll_table
  *
- * See the comments in the sk_has_sleeper function.
+ * See the comments in the wq_has_sleeper function.
  */
 static inline void sock_poll_wait(struct file *filp,
 		wait_queue_head_t *wait_address, poll_table *p)
@@ -1188,7 +1194,7 @@ static inline void sock_poll_wait(struct file *filp,
 		 * We need to be sure we are in sync with the
 		 * socket flags modification.
 		 *
-		 * This memory barrier is paired in the sk_has_sleeper.
+		 * This memory barrier is paired in the wq_has_sleeper.
 		*/
 		smp_mb();
 	}
@@ -1455,11 +1461,11 @@ extern int net_msg_warn;
 #define SOCK_SLEEP_PRE(sk) 	{ struct task_struct *tsk = current; \
 				DECLARE_WAITQUEUE(wait, tsk); \
 				tsk->state = TASK_INTERRUPTIBLE; \
-				add_wait_queue((sk)->sk_sleep, &wait); \
+				add_wait_queue(sk_sleep(sk), &wait); \
 				release_sock(sk);
 
 #define SOCK_SLEEP_POST(sk)	tsk->state = TASK_RUNNING; \
-				remove_wait_queue((sk)->sk_sleep, &wait); \
+				remove_wait_queue(sk_sleep(sk), &wait); \
 				lock_sock(sk); \
 				}
 

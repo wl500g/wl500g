@@ -345,7 +345,7 @@ static void irda_flow_indication(void *instance, void *sap, LOCAL_FLOW flow)
 		self->tx_flow = flow;
 		IRDA_DEBUG(1, "%s(), IrTTP wants us to start again\n",
 			   __FUNCTION__);
-		wake_up_interruptible(sk->sk_sleep);
+		wake_up_interruptible(sk_sleep(sk));
 		break;
 	default:
 		IRDA_DEBUG(0, "%s(), Unknown flow command!\n", __FUNCTION__);
@@ -870,7 +870,7 @@ static int irda_accept(struct socket *sock, struct socket *newsock, int flags)
 		if (flags & O_NONBLOCK)
 			return -EWOULDBLOCK;
 
-		err = wait_event_interruptible(*(sk->sk_sleep),
+		err = wait_event_interruptible(*(sk_sleep(sk)),
 					skb_peek(&sk->sk_receive_queue));
 		if (err)
 			return err;
@@ -1027,7 +1027,7 @@ static int irda_connect(struct socket *sock, struct sockaddr *uaddr,
 	if (sk->sk_state != TCP_ESTABLISHED && (flags & O_NONBLOCK))
 		return -EINPROGRESS;
 
-	if (wait_event_interruptible(*(sk->sk_sleep),
+	if (wait_event_interruptible(*(sk_sleep(sk)),
 				     (sk->sk_state != TCP_SYN_SENT)))
 		return -ERESTARTSYS;
 
@@ -1263,7 +1263,7 @@ static int irda_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 	/* Check if IrTTP is wants us to slow down */
 
-	if (wait_event_interruptible(*(sk->sk_sleep),
+	if (wait_event_interruptible(*(sk_sleep(sk)),
 	    (self->tx_flow != FLOW_STOP  ||  sk->sk_state != TCP_ESTABLISHED)))
 		return -ERESTARTSYS;
 
@@ -1400,7 +1400,7 @@ static int irda_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
 			if (copied >= target)
 				break;
 
-			prepare_to_wait_exclusive(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
+			prepare_to_wait_exclusive(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
 
 			/*
 			 *	POSIX 1003.1g mandates this order.
@@ -1420,7 +1420,7 @@ static int irda_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
 				/* Wait process until data arrives */
 				schedule();
 
-			finish_wait(sk->sk_sleep, &wait);
+			finish_wait(sk_sleep(sk), &wait);
 
 			if (ret)
 				return ret;
@@ -1686,7 +1686,7 @@ static unsigned int irda_poll(struct file * file, struct socket *sock,
 
 	IRDA_DEBUG(4, "%s()\n", __FUNCTION__);
 
-	poll_wait(file, sk->sk_sleep, wait);
+	poll_wait(file, sk_sleep(sk), wait);
 	mask = 0;
 
 	/* Exceptional events? */

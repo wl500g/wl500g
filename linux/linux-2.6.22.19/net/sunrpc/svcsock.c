@@ -693,6 +693,7 @@ static void
 svc_udp_data_ready(struct sock *sk, int count)
 {
 	struct svc_sock	*svsk = (struct svc_sock *)sk->sk_user_data;
+	wait_queue_head_t *wq = sk_sleep(sk);
 
 	if (svsk) {
 		dprintk("svc: socket %p(inet %p), count=%d, busy=%d\n",
@@ -700,8 +701,8 @@ svc_udp_data_ready(struct sock *sk, int count)
 		set_bit(SK_DATA, &svsk->sk_flags);
 		svc_sock_enqueue(svsk);
 	}
-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-		wake_up_interruptible(sk->sk_sleep);
+	if (wq && waitqueue_active(wq))
+		wake_up_interruptible(wq);
 }
 
 /*
@@ -711,6 +712,7 @@ static void
 svc_write_space(struct sock *sk)
 {
 	struct svc_sock	*svsk = (struct svc_sock *)(sk->sk_user_data);
+	wait_queue_head_t *wq = sk_sleep(sk);
 
 	if (svsk) {
 		dprintk("svc: socket %p(inet %p), write_space busy=%d\n",
@@ -718,10 +720,10 @@ svc_write_space(struct sock *sk)
 		svc_sock_enqueue(svsk);
 	}
 
-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep)) {
+	if (wq && waitqueue_active(wq)) {
 		dprintk("RPC svc_write_space: someone sleeping on %p\n",
 		       svsk);
-		wake_up_interruptible(sk->sk_sleep);
+		wake_up_interruptible(wq);
 	}
 }
 
@@ -923,6 +925,7 @@ static void
 svc_tcp_listen_data_ready(struct sock *sk, int count_unused)
 {
 	struct svc_sock	*svsk = (struct svc_sock *)sk->sk_user_data;
+	wait_queue_head_t *wq = sk_sleep(sk);
 
 	dprintk("svc: socket %p TCP (listen) state change %d\n",
 		sk, sk->sk_state);
@@ -945,8 +948,8 @@ svc_tcp_listen_data_ready(struct sock *sk, int count_unused)
 			printk("svc: socket %p: no user data\n", sk);
 	}
 
-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-		wake_up_interruptible_all(sk->sk_sleep);
+	if (wq && waitqueue_active(wq))
+		wake_up_interruptible_all(wq);
 }
 
 /*
@@ -956,6 +959,7 @@ static void
 svc_tcp_state_change(struct sock *sk)
 {
 	struct svc_sock	*svsk = (struct svc_sock *)sk->sk_user_data;
+	wait_queue_head_t *wq = sk_sleep(sk);
 
 	dprintk("svc: socket %p TCP (connected) state change %d (svsk %p)\n",
 		sk, sk->sk_state, sk->sk_user_data);
@@ -966,14 +970,15 @@ svc_tcp_state_change(struct sock *sk)
 		set_bit(SK_CLOSE, &svsk->sk_flags);
 		svc_sock_enqueue(svsk);
 	}
-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-		wake_up_interruptible_all(sk->sk_sleep);
+	if (wq && waitqueue_active(wq))
+		wake_up_interruptible_all(wq);
 }
 
 static void
 svc_tcp_data_ready(struct sock *sk, int count)
 {
 	struct svc_sock *svsk = (struct svc_sock *)sk->sk_user_data;
+	wait_queue_head_t *wq = sk_sleep(sk);
 
 	dprintk("svc: socket %p TCP data ready (svsk %p)\n",
 		sk, sk->sk_user_data);
@@ -981,8 +986,8 @@ svc_tcp_data_ready(struct sock *sk, int count)
 		set_bit(SK_DATA, &svsk->sk_flags);
 		svc_sock_enqueue(svsk);
 	}
-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-		wake_up_interruptible(sk->sk_sleep);
+	if (wq && waitqueue_active(wq))
+		wake_up_interruptible(wq);
 }
 
 static inline int svc_port_is_privileged(struct sockaddr *sin)
