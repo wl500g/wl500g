@@ -12,7 +12,7 @@ diff -uBp usb-modeswitch-1.2.5/Makefile usb_modeswitch/Makefile
  PREFIX      = $(DESTDIR)/usr
 diff -uBp usb-modeswitch-1.2.5/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
 --- usb-modeswitch-1.2.5/usb_modeswitch.c	2012-11-09 01:36:43.000000000 +0300
-+++ usb_modeswitch/usb_modeswitch.c	2012-11-26 11:47:22.000000000 +0300
++++ usb_modeswitch/usb_modeswitch.c	2013-05-13 12:07:55.000000000 +0400
 @@ -54,10 +54,138 @@
  #include <ctype.h>
  #include <getopt.h>
@@ -374,6 +374,17 @@ diff -uBp usb-modeswitch-1.2.5/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  	if (ret != 0) {
  		fprintf(stderr, "Error: sending Huawei control message failed (error %d). Aborting.\n\n", ret);
  		exit(1);
+@@ -1012,8 +1160,8 @@ void switchSierraMode ()
+ 	int ret;
+ 
+ 	SHOW_PROGRESS(output,"Trying to send Sierra control message\n");
+-	ret = usb_control_msg(devh, 0x40, 0x0b, 00000001, 0, buffer, 0, 1000);
+-	if (ret == -32) {
++	ret = usb_control_msg(devh, USB_TYPE_VENDOR, 0x0b, 00000001, 0, buffer, 0, 1000);
++	if (ret == LIBUSB_ERROR_PIPE) {
+ 		SHOW_PROGRESS(output," communication with device stopped. May have switched, continue ...\n");
+ 	    return;
+ 	}
 @@ -1101,8 +1249,6 @@ int switchSonyMode ()
  	dev = 0;
  	while ( dev == 0 && i < 30 ) {
@@ -424,6 +435,15 @@ diff -uBp usb-modeswitch-1.2.5/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  }
  
  
+@@ -1324,7 +1471,7 @@ int sendMessage(char* message, int count
+ 	SHOW_PROGRESS(output,"Trying to send message %d to endpoint 0x%02x ...\n", count, MessageEndpoint);
+ 	fflush(output);
+ 	ret = write_bulk(MessageEndpoint, ByteString, message_length);
+-	if (ret == -19)
++	if (ret == LIBUSB_ERROR_NO_DEVICE)
+ 		return 1;
+ 
+ 	return 0;
 @@ -1388,24 +1535,16 @@ int checkSuccess()
  		 */
  		for (i=i; i < CheckSuccess; i++) {
@@ -451,6 +471,24 @@ diff -uBp usb-modeswitch-1.2.5/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  					printf("\nTarget device description data\n");
  					printf("-------------------------\n");
  					printf("Manufacturer: %s\n", imanufact);
+@@ -1463,7 +1602,7 @@ int write_bulk(int endpoint, char *messa
+ 	if (ret >= 0 ) {
+ 		SHOW_PROGRESS(output," OK, message successfully sent\n");
+ 	} else
+-		if (ret == -19) {
++		if (ret == LIBUSB_ERROR_NO_DEVICE) {
+ 			SHOW_PROGRESS(output," Device seems to have vanished right after sending. Good.\n");
+ 		} else
+ 			SHOW_PROGRESS(output," Sending the message returned error %d. Trying to continue\n", ret);
+@@ -1479,7 +1618,7 @@ int read_bulk(int endpoint, char *buffer
+ 	if (ret >= 0 ) {
+ 		SHOW_PROGRESS(output," OK, response successfully read (%d bytes).\n", ret);
+ 	} else
+-		if (ret == -19) {
++		if (ret == LIBUSB_ERROR_NO_DEVICE) {
+ 			SHOW_PROGRESS(output," Device seems to have vanished after reading. Good.\n");
+ 		} else
+ 			SHOW_PROGRESS(output," Response reading got error %d\n", ret);
 @@ -1503,13 +1642,14 @@ void release_usb_device(int dummy) {
  /* Iterates over busses and devices, counts the ones which match the given
   * parameters and returns the last one of them
