@@ -1,0 +1,244 @@
+ bcf67e16251c42302499499b1c50f7d35622f564 Make common helpers for seq_files that work with list_heads
+ 00c5746da9fc6a793b9d94a8001ded5929f3a773 mutex_unlock() later in seq_lseek()
+ cb510b8172602a66467f3551b4be1911f5a7c8c2 seq_file: more atomicity in traverse()
+ 521b5d0c40386f4a9805cdec7bd979fc96a86aeb teach seq_file to discard entries
+ 4cdfe84b51420c9ac95c7133da2d4c8a191094af deal with the first call of ->show() generating no output
+ 46c65b71e6122b89cd7b2bb36c1ba26d07e84fcd Make /proc/misc use seq_list_xxx helpers
+
+---
+
+diff --git a/drivers/char/misc.c b/drivers/char/misc.c
+--- a/drivers/char/misc.c
++++ b/drivers/char/misc.c
+@@ -67,25 +67,13 @@ extern int pmu_device_init(void);
+ #ifdef CONFIG_PROC_FS
+ static void *misc_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+-	struct miscdevice *p;
+-	loff_t off = 0;
+-
+ 	mutex_lock(&misc_mtx);
+-	list_for_each_entry(p, &misc_list, list) {
+-		if (*pos == off++) 
+-			return p;
+-	}
+-	return NULL;
++	return seq_list_start(&misc_list, *pos);
+ }
+ 
+ static void *misc_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct list_head *n = ((struct miscdevice *)v)->list.next;
+-
+-	++*pos;
+-
+-	return (n != &misc_list) ? list_entry(n, struct miscdevice, list)
+-		 : NULL;
++	return seq_list_next(v, &misc_list, pos);
+ }
+ 
+ static void misc_seq_stop(struct seq_file *seq, void *v)
+@@ -95,7 +83,7 @@ static void misc_seq_stop(struct seq_file *seq, void *v)
+ 
+ static int misc_seq_show(struct seq_file *seq, void *v)
+ {
+-	const struct miscdevice *p = v;
++	const struct miscdevice *p = list_entry(v, struct miscdevice, list);
+ 
+ 	seq_printf(seq, "%3i %s\n", p->minor, p->name ? p->name : "");
+ 	return 0;
+diff --git a/fs/seq_file.c b/fs/seq_file.c
+--- a/fs/seq_file.c
++++ b/fs/seq_file.c
+@@ -25,6 +25,7 @@
+  *	into the buffer.  In case of error ->start() and ->next() return
+  *	ERR_PTR(error).  In the end of sequence they return %NULL. ->show()
+  *	returns 0 in case of success and negative number in case of error.
++ *	Returning SEQ_SKIP means "discard this element and move on".
+  */
+ int seq_open(struct file *file, const struct seq_operations *op)
+ {
+@@ -107,15 +108,22 @@ ssize_t seq_read(struct file *file, char
+ 			goto Done;
+ 	}
+ 	/* we need at least one record in buffer */
++	pos = m->index;
++	p = m->op->start(m, &pos);
+ 	while (1) {
+-		pos = m->index;
+-		p = m->op->start(m, &pos);
+ 		err = PTR_ERR(p);
+ 		if (!p || IS_ERR(p))
+ 			break;
+ 		err = m->op->show(m, p);
+-		if (err)
++		if (err < 0)
+ 			break;
++		if (unlikely(err))
++			m->count = 0;
++		if (unlikely(!m->count)) {
++			p = m->op->next(m, p, &pos);
++			m->index = pos;
++			continue;
++		}
+ 		if (m->count < m->size)
+ 			goto Fill;
+ 		m->op->stop(m, p);
+@@ -125,6 +133,8 @@ ssize_t seq_read(struct file *file, char
+ 			goto Enomem;
+ 		m->count = 0;
+ 		m->version = 0;
++		pos = m->index;
++		p = m->op->start(m, &pos);
+ 	}
+ 	m->op->stop(m, p);
+ 	m->count = 0;
+@@ -140,9 +150,10 @@ Fill:
+ 			break;
+ 		}
+ 		err = m->op->show(m, p);
+-		if (err || m->count == m->size) {
++		if (m->count == m->size || err) {
+ 			m->count = offs;
+-			break;
++			if (likely(err <= 0))
++				break;
+ 		}
+ 		pos = next;
+ 	}
+@@ -177,42 +188,50 @@ EXPORT_SYMBOL(seq_read);
+ 
+ static int traverse(struct seq_file *m, loff_t offset)
+ {
+-	loff_t pos = 0;
++	loff_t pos = 0, index;
+ 	int error = 0;
+ 	void *p;
+ 
+ 	m->version = 0;
+-	m->index = 0;
++	index = 0;
+ 	m->count = m->from = 0;
+-	if (!offset)
++	if (!offset) {
++		m->index = index;
+ 		return 0;
++	}
+ 	if (!m->buf) {
+ 		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
+ 		if (!m->buf)
+ 			return -ENOMEM;
+ 	}
+-	p = m->op->start(m, &m->index);
++	p = m->op->start(m, &index);
+ 	while (p) {
+ 		error = PTR_ERR(p);
+ 		if (IS_ERR(p))
+ 			break;
+ 		error = m->op->show(m, p);
+-		if (error)
++		if (error < 0)
+ 			break;
++		if (unlikely(error)) {
++			error = 0;
++			m->count = 0;
++		}
+ 		if (m->count == m->size)
+ 			goto Eoverflow;
+ 		if (pos + m->count > offset) {
+ 			m->from = offset - pos;
+ 			m->count -= m->from;
++			m->index = index;
+ 			break;
+ 		}
+ 		pos += m->count;
+ 		m->count = 0;
+ 		if (pos == offset) {
+-			m->index++;
++			index++;
++			m->index = index;
+ 			break;
+ 		}
+-		p = m->op->next(m, p, &m->index);
++		p = m->op->next(m, p, &index);
+ 	}
+ 	m->op->stop(m, p);
+ 	return error;
+@@ -260,8 +279,8 @@ loff_t seq_lseek(struct file *file, loff
+ 				}
+ 			}
+ 	}
+-	mutex_unlock(&m->lock);
+ 	file->f_version = m->version;
++	mutex_unlock(&m->lock);
+ 	return retval;
+ }
+ EXPORT_SYMBOL(seq_lseek);
+@@ -480,3 +499,37 @@ int seq_puts(struct seq_file *m, const c
+ 	return -1;
+ }
+ EXPORT_SYMBOL(seq_puts);
++
++struct list_head *seq_list_start(struct list_head *head, loff_t pos)
++{
++	struct list_head *lh;
++
++	list_for_each(lh, head)
++		if (pos-- == 0)
++			return lh;
++
++	return NULL;
++}
++
++EXPORT_SYMBOL(seq_list_start);
++
++struct list_head *seq_list_start_head(struct list_head *head, loff_t pos)
++{
++	if (!pos)
++		return head;
++
++	return seq_list_start(head, pos - 1);
++}
++
++EXPORT_SYMBOL(seq_list_start_head);
++
++struct list_head *seq_list_next(void *v, struct list_head *head, loff_t *ppos)
++{
++	struct list_head *lh;
++
++	lh = ((struct list_head *)v)->next;
++	++*ppos;
++	return lh == head ? NULL : lh;
++}
++
++EXPORT_SYMBOL(seq_list_next);
+diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
+--- a/include/linux/seq_file.h
++++ b/include/linux/seq_file.h
+@@ -31,6 +31,8 @@ struct seq_operations {
+ 	int (*show) (struct seq_file *m, void *v);
+ };
+ 
++#define SEQ_SKIP 1
++
+ int seq_open(struct file *, const struct seq_operations *);
+ ssize_t seq_read(struct file *, char __user *, size_t, loff_t *);
+ loff_t seq_lseek(struct file *, loff_t, int);
+@@ -52,5 +54,16 @@ int seq_release_private(struct inode *, 
+ 
+ #define SEQ_START_TOKEN ((void *)1)
+ 
++/*
++ * Helpers for iteration over list_head-s in seq_files
++ */
++
++extern struct list_head *seq_list_start(struct list_head *head,
++		loff_t pos);
++extern struct list_head *seq_list_start_head(struct list_head *head,
++		loff_t pos);
++extern struct list_head *seq_list_next(void *v, struct list_head *head,
++		loff_t *ppos);
++
+ #endif
+ #endif
+-- 
