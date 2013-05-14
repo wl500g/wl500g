@@ -1,5 +1,6 @@
 module: Updates from upstream
 
+ 708f4b522371da5e6c615a49e1844195aff84cb4 Make /proc/modules use seq_list_xxx helpers
  24da1cbff9cfce50868c2dfdcda82a68ac5cb707 modules: remove modlist_lock
  256e2fdf033f5c8b5093cd817d44cea3a11a4e6f Fix Off-by-one in /sys/module/*/refcnt
  c9a3ba55bb5da03fc7d707709a7fe078fe1aa0a0 module: wait for dependent modules doing init.
@@ -23,8 +24,8 @@ module: Updates from upstream
 ---
  include/linux/module.h |   77 ++---
  init/Kconfig           |    4 
- kernel/module.c        |  700 +++++++++++++++++++++++++++++++------------------
- 3 files changed, 493 insertions(+), 288 deletions(-)
+ kernel/module.c        |  719 +++++++++++++++++++++++++++++++------------------
+ 3 files changed, 496 insertions(+), 304 deletions(-)
 
 diff --git a/include/linux/module.h b/include/linux/module.h
 --- a/include/linux/module.h
@@ -324,22 +325,7 @@ diff --git a/kernel/module.c b/kernel/module.c
 +		  GPL_ONLY, true },
 +#endif
 +	};
- 
--	/* Core kernel first. */ 
--	*owner = NULL;
--	ks = lookup_symbol(name, __start___ksymtab, __stop___ksymtab);
--	if (ks) {
--		*crc = symversion(__start___kcrctab, (ks - __start___ksymtab));
--		return ks->value;
--	}
--	if (gplok) {
--		ks = lookup_symbol(name, __start___ksymtab_gpl,
--					 __stop___ksymtab_gpl);
--		if (ks) {
--			*crc = symversion(__start___kcrctab_gpl,
--					  (ks - __start___ksymtab_gpl));
--			return ks->value;
--		}
++
 +	if (each_symbol_in_section(arr, ARRAY_SIZE(arr), NULL, fn, data))
 +		return true;
 +
@@ -368,11 +354,7 @@ diff --git a/kernel/module.c b/kernel/module.c
 +
 +		if (each_symbol_in_section(arr, ARRAY_SIZE(arr), mod, fn, data))
 +			return true;
- 	}
--	ks = lookup_symbol(name, __start___ksymtab_gpl_future,
--				 __stop___ksymtab_gpl_future);
--	if (ks) {
--		if (!gplok) {
++	}
 +	return false;
 +}
 +
@@ -387,7 +369,27 @@ diff --git a/kernel/module.c b/kernel/module.c
 +	const unsigned long *crc;
 +	unsigned long value;
 +};
-+
+ 
+-	/* Core kernel first. */ 
+-	*owner = NULL;
+-	ks = lookup_symbol(name, __start___ksymtab, __stop___ksymtab);
+-	if (ks) {
+-		*crc = symversion(__start___kcrctab, (ks - __start___ksymtab));
+-		return ks->value;
+-	}
+-	if (gplok) {
+-		ks = lookup_symbol(name, __start___ksymtab_gpl,
+-					 __stop___ksymtab_gpl);
+-		if (ks) {
+-			*crc = symversion(__start___kcrctab_gpl,
+-					  (ks - __start___ksymtab_gpl));
+-			return ks->value;
+-		}
+-	}
+-	ks = lookup_symbol(name, __start___ksymtab_gpl_future,
+-				 __stop___ksymtab_gpl_future);
+-	if (ks) {
+-		if (!gplok) {
 +static bool find_symbol_in_section(const struct symsearch *syms,
 +				   struct module *owner,
 +				   unsigned int symnum, void *data)
@@ -632,7 +634,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  }
  
  static struct module_attribute refcnt = {
-@@ -835,7 +895,7 @@ static inline void module_unload_free(st
+@@ -835,7 +894,7 @@ static inline void module_unload_free(st
  
  static inline int use_module(struct module *a, struct module *b)
  {
@@ -641,7 +643,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  }
  
  static inline void module_unload_init(struct module *mod)
-@@ -922,13 +982,10 @@ static inline int check_modstruct_versio
+@@ -922,13 +981,10 @@ static inline int check_modstruct_versio
  					  struct module *mod)
  {
  	const unsigned long *crc;
@@ -657,7 +659,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  }
  
  /* First part is kernel version, which we ignore. */
-@@ -972,8 +1029,8 @@ static unsigned long resolve_symbol(Elf_
+@@ -972,8 +1028,8 @@ static unsigned long resolve_symbol(Elf_
  	unsigned long ret;
  	const unsigned long *crc;
  
@@ -668,7 +670,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  	if (!IS_ERR_VALUE(ret)) {
  		/* use_module can fail due to OOM, or module unloading */
  		if (!check_version(sechdrs, versindex, name, mod, crc) ||
-@@ -989,6 +1046,26 @@ static unsigned long resolve_symbol(Elf_
+@@ -989,6 +1045,26 @@ static unsigned long resolve_symbol(Elf_
   * J. Corbet <corbet@lwn.net>
   */
  #ifdef CONFIG_KALLSYMS
@@ -695,7 +697,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  static ssize_t module_sect_show(struct module_attribute *mattr,
  				struct module *mod, char *buf)
  {
-@@ -999,7 +1076,7 @@ static ssize_t module_sect_show(struct m
+@@ -999,7 +1075,7 @@ static ssize_t module_sect_show(struct m
  
  static void free_sect_attrs(struct module_sect_attrs *sect_attrs)
  {
@@ -704,7 +706,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  
  	for (section = 0; section < sect_attrs->nsections; section++)
  		kfree(sect_attrs->attrs[section].name);
-@@ -1016,8 +1093,7 @@ static void add_sect_attrs(struct module
+@@ -1016,8 +1092,7 @@ static void add_sect_attrs(struct module
  	
  	/* Count loaded sections and allocate structures */
  	for (i = 0; i < nsect; i++)
@@ -714,7 +716,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  			nloaded++;
  	size[0] = ALIGN(sizeof(*sect_attrs)
  			+ nloaded * sizeof(sect_attrs->attrs[0]),
-@@ -1035,9 +1111,7 @@ static void add_sect_attrs(struct module
+@@ -1035,9 +1110,7 @@ static void add_sect_attrs(struct module
  	sattr = &sect_attrs->attrs[0];
  	gattr = &sect_attrs->grp.attrs[0];
  	for (i = 0; i < nsect; i++) {
@@ -725,7 +727,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  			continue;
  		sattr->address = sechdrs[i].sh_addr;
  		sattr->name = kstrdup(secstrings + sechdrs[i].sh_name,
-@@ -1205,6 +1279,17 @@ static void mod_kobject_remove(struct mo
+@@ -1205,6 +1278,17 @@ static void mod_kobject_remove(struct mo
  }
  
  /*
@@ -743,7 +745,7 @@ diff --git a/kernel/module.c b/kernel/module.c
   * unlink the module with the whole machine is stopped with interrupts off
   * - this defends against kallsyms not taking locks
   */
-@@ -1247,16 +1332,15 @@ static void free_module(struct module *m
+@@ -1247,16 +1331,15 @@ static void free_module(struct module *m
  void *__symbol_get(const char *symbol)
  {
  	struct module *owner;
@@ -764,7 +766,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  
  	return (void *)value;
  }
-@@ -1268,33 +1352,35 @@ EXPORT_SYMBOL_GPL(__symbol_get);
+@@ -1268,33 +1351,35 @@ EXPORT_SYMBOL_GPL(__symbol_get);
   */
  static int verify_export_symbols(struct module *mod)
  {
@@ -824,7 +826,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  }
  
  /* Change all symbols so that sh_value encodes the pointer directly. */
-@@ -1359,7 +1445,7 @@ static int simplify_symbols(Elf_Shdr *se
+@@ -1359,7 +1444,7 @@ static int simplify_symbols(Elf_Shdr *se
  }
  
  /* Update size with this section: return offset. */
@@ -833,7 +835,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  {
  	long ret;
  
-@@ -1544,13 +1630,93 @@ static char elf_type(const Elf_Sym *sym,
+@@ -1544,13 +1629,93 @@ static char elf_type(const Elf_Sym *sym,
  	return '?';
  }
  
@@ -930,7 +932,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  
  	mod->symtab = (void *)sechdrs[symindex].sh_addr;
  	mod->num_symtab = sechdrs[symindex].sh_size / sizeof(Elf_Sym);
-@@ -1560,13 +1726,46 @@ static void add_kallsyms(struct module *
+@@ -1560,13 +1725,46 @@ static void add_kallsyms(struct module *
  	for (i = 0; i < mod->num_symtab; i++)
  		mod->symtab[i].st_info
  			= elf_type(&mod->symtab[i], sechdrs, secstrings, mod);
@@ -978,7 +980,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  {
  }
  #endif /* CONFIG_KALLSYMS */
-@@ -1624,14 +1823,18 @@ static noinline struct module *load_modu
+@@ -1624,14 +1822,18 @@ static noinline struct module *load_modu
  	unsigned int gplfutureindex;
  	unsigned int gplfuturecrcindex;
  	unsigned int unwindex = 0;
@@ -997,7 +999,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  	mm_segment_t old_fs;
  
  	DEBUGP("load_module: umod=%p, len=%lu, uargs=%p\n",
-@@ -1708,13 +1911,15 @@ static noinline struct module *load_modu
+@@ -1708,13 +1910,15 @@ static noinline struct module *load_modu
  	exportindex = find_sec(hdr, sechdrs, secstrings, "__ksymtab");
  	gplindex = find_sec(hdr, sechdrs, secstrings, "__ksymtab_gpl");
  	gplfutureindex = find_sec(hdr, sechdrs, secstrings, "__ksymtab_gpl_future");
@@ -1015,7 +1017,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  	setupindex = find_sec(hdr, sechdrs, secstrings, "__param");
  	exindex = find_sec(hdr, sechdrs, secstrings, "__ex_table");
  	obsparmindex = find_sec(hdr, sechdrs, secstrings, "__obsparm");
-@@ -1728,11 +1933,6 @@ static noinline struct module *load_modu
+@@ -1728,11 +1932,6 @@ static noinline struct module *load_modu
  	/* Don't keep modinfo and version sections. */
  	sechdrs[infoindex].sh_flags &= ~(unsigned long)SHF_ALLOC;
  	sechdrs[versindex].sh_flags &= ~(unsigned long)SHF_ALLOC;
@@ -1027,7 +1029,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  	if (unwindex)
  		sechdrs[unwindex].sh_flags |= SHF_ALLOC;
  
-@@ -1762,6 +1962,13 @@ static noinline struct module *load_modu
+@@ -1762,6 +1961,13 @@ static noinline struct module *load_modu
  		goto free_hdr;
  	}
  
@@ -1041,7 +1043,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  	if (find_module(mod->name)) {
  		err = -EEXIST;
  		goto free_mod;
-@@ -1791,6 +1998,8 @@ static noinline struct module *load_modu
+@@ -1791,6 +1997,8 @@ static noinline struct module *load_modu
  	   this is done generically; there doesn't appear to be any
  	   special cases for the architectures. */
  	layout_sections(mod, hdr, sechdrs, secstrings);
@@ -1050,7 +1052,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  
  	/* Do the allocs. */
  	ptr = module_alloc(mod->core_size);
-@@ -1882,27 +2091,33 @@ static noinline struct module *load_modu
+@@ -1882,27 +2090,33 @@ static noinline struct module *load_modu
  		mod->gpl_crcs = (void *)sechdrs[gplcrcindex].sh_addr;
  	mod->num_gpl_future_syms = sechdrs[gplfutureindex].sh_size /
  					sizeof(*mod->gpl_future_syms);
@@ -1094,7 +1096,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  		printk(KERN_WARNING "%s: No versions for exported symbols."
  		       " Tainting kernel.\n", mod->name);
  		add_taint_module(mod, TAINT_FORCED_MODULE);
-@@ -1946,7 +2161,10 @@ static noinline struct module *load_modu
+@@ -1946,7 +2160,10 @@ static noinline struct module *load_modu
  	percpu_modcopy(mod->percpu, (void *)sechdrs[pcpuindex].sh_addr,
  		       sechdrs[pcpuindex].sh_size);
  
@@ -1106,7 +1108,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  
  	err = module_finalize(hdr, sechdrs, mod);
  	if (err < 0)
-@@ -1975,6 +2193,11 @@ static noinline struct module *load_modu
+@@ -1975,6 +2192,11 @@ static noinline struct module *load_modu
  		printk(KERN_WARNING "%s: Ignoring obsolete parameters\n",
  		       mod->name);
  
@@ -1118,7 +1120,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  	/* Size of section 0 is 0, so this works well if no params */
  	err = parse_args(mod->name, mod->args,
  			 (struct kernel_param *)
-@@ -1983,7 +2206,7 @@ static noinline struct module *load_modu
+@@ -1983,7 +2205,7 @@ static noinline struct module *load_modu
  			 / sizeof(struct kernel_param),
  			 NULL);
  	if (err < 0)
@@ -1127,7 +1129,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  
  	err = mod_sysfs_setup(mod, 
  			      (struct kernel_param *)
-@@ -1991,7 +2214,7 @@ static noinline struct module *load_modu
+@@ -1991,7 +2213,7 @@ static noinline struct module *load_modu
  			      sechdrs[setupindex].sh_size
  			      / sizeof(struct kernel_param));
  	if (err < 0)
@@ -1136,7 +1138,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  	add_sect_attrs(mod, hdr->e_shnum, secstrings, sechdrs);
  
  	/* Size of section 0 is 0, so this works well if no unwind info. */
-@@ -2005,7 +2228,8 @@ static noinline struct module *load_modu
+@@ -2005,7 +2227,8 @@ static noinline struct module *load_modu
  	/* Done! */
  	return mod;
  
@@ -1146,7 +1148,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  	module_arch_cleanup(mod);
   cleanup:
  	module_unload_free(mod);
-@@ -2017,6 +2241,7 @@ static noinline struct module *load_modu
+@@ -2017,6 +2240,7 @@ static noinline struct module *load_modu
  		percpu_modfree(percpu);
   free_mod:
  	kfree(args);
@@ -1154,7 +1156,7 @@ diff --git a/kernel/module.c b/kernel/module.c
   free_hdr:
  	vfree(hdr);
  	return ERR_PTR(err);
-@@ -2027,17 +2252,6 @@ static noinline struct module *load_modu
+@@ -2027,17 +2251,6 @@ static noinline struct module *load_modu
  	goto free_hdr;
  }
  
@@ -1172,7 +1174,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  /* This is where the real work happens */
  asmlinkage long
  sys_init_module(void __user *umod,
-@@ -2062,10 +2276,6 @@ sys_init_module(void __user *umod,
+@@ -2062,10 +2275,6 @@ sys_init_module(void __user *umod,
  		return PTR_ERR(mod);
  	}
  
@@ -1183,7 +1185,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  	/* Drop lock so they can recurse */
  	mutex_unlock(&module_mutex);
  
-@@ -2088,16 +2298,24 @@ sys_init_module(void __user *umod,
+@@ -2088,16 +2297,24 @@ sys_init_module(void __user *umod,
  			mutex_lock(&module_mutex);
  			free_module(mod);
  			mutex_unlock(&module_mutex);
@@ -1210,7 +1212,36 @@ diff --git a/kernel/module.c b/kernel/module.c
  	module_free(mod, mod->module_init);
  	mod->module_init = NULL;
  	mod->init_size = 0;
-@@ -2362,7 +2580,7 @@ static int m_show(struct seq_file *m, vo
+@@ -2308,26 +2525,13 @@ unsigned long module_kallsyms_lookup_nam
+ /* Called by the /proc file system to return a list of modules. */
+ static void *m_start(struct seq_file *m, loff_t *pos)
+ {
+-	struct list_head *i;
+-	loff_t n = 0;
+-
+ 	mutex_lock(&module_mutex);
+-	list_for_each(i, &modules) {
+-		if (n++ == *pos)
+-			break;
+-	}
+-	if (i == &modules)
+-		return NULL;
+-	return i;
++	return seq_list_start(&modules, *pos);
+ }
+ 
+ static void *m_next(struct seq_file *m, void *p, loff_t *pos)
+ {
+-	struct list_head *i = p;
+-	(*pos)++;
+-	if (i->next == &modules)
+-		return NULL;
+-	return i->next;
++	return seq_list_next(p, &modules, pos);
+ }
+ 
+ static void m_stop(struct seq_file *m, void *p)
+@@ -2362,7 +2566,7 @@ static int m_show(struct seq_file *m, vo
  	struct module *mod = list_entry(p, struct module, list);
  	char buf[8];
  
@@ -1219,7 +1250,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  		   mod->name, mod->init_size + mod->core_size);
  	print_unload_info(m, mod);
  
-@@ -2397,11 +2615,10 @@ const struct seq_operations modules_op =
+@@ -2397,11 +2601,10 @@ const struct seq_operations modules_op =
  /* Given an address, look for it in the module exception tables. */
  const struct exception_table_entry *search_module_extables(unsigned long addr)
  {
@@ -1232,7 +1263,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  	list_for_each_entry(mod, &modules, list) {
  		if (mod->num_exentries == 0)
  			continue;
-@@ -2412,7 +2629,7 @@ const struct exception_table_entry *sear
+@@ -2412,7 +2615,7 @@ const struct exception_table_entry *sear
  		if (e)
  			break;
  	}
@@ -1241,7 +1272,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  
  	/* Now, if we found one, we are running inside it now, hence
             we cannot unload the module, hence no refcnt needed. */
-@@ -2424,25 +2641,24 @@ const struct exception_table_entry *sear
+@@ -2424,25 +2627,24 @@ const struct exception_table_entry *sear
   */
  int is_module_address(unsigned long addr)
  {
@@ -1271,7 +1302,7 @@ diff --git a/kernel/module.c b/kernel/module.c
  struct module *__module_text_address(unsigned long addr)
  {
  	struct module *mod;
-@@ -2457,11 +2673,10 @@ struct module *__module_text_address(uns
+@@ -2457,11 +2659,10 @@ struct module *__module_text_address(uns
  struct module *module_text_address(unsigned long addr)
  {
  	struct module *mod;
