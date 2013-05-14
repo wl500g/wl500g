@@ -7,11 +7,12 @@
  5456f09aaf88731e16dbcea7522cb330b6846415 af_unix: fix unix_dgram_poll() behavior for EPOLLOUT event
  973a34aa8593dbfe84386343c694f5beecb51d8a af_unix: optimize unix_dgram_poll()
  67426b756c4d52c511c4b22b269accea171692a8 af_unix: use keyed wakeups
+ 0e82e7f6dfeec1013339612f74abc2cdd29d43d2 af_unix: If we don't care about credentials coallesce all messages
 
 ---
  include/net/af_unix.h |   47 +++-------------
- net/unix/af_unix.c    |  141 +++++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 121 insertions(+), 67 deletions(-)
+ net/unix/af_unix.c    |  143 +++++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 122 insertions(+), 68 deletions(-)
 
 diff --git a/include/net/af_unix.h b/include/net/af_unix.h
 --- a/include/net/af_unix.h
@@ -328,6 +329,15 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  	unix_state_unlock(sk);
  	return timeo;
  }
+@@ -1833,7 +1864,7 @@ again:
+ 			/* Never glue messages from different writers */
+ 			if (memcmp(UNIXCREDS(skb), &siocb->scm->creds, sizeof(siocb->scm->creds)) != 0)
+ 				break;
+-		} else {
++		} else if (test_bit(SOCK_PASSCRED, &sock->flags)) {
+ 			/* Copy credentials */
+ 			siocb->scm->creds = *UNIXCREDS(skb);
+ 			check_creds = 1;
 @@ -1918,12 +1949,10 @@ static int unix_shutdown(struct socket *
  			other->sk_shutdown |= peer_mode;
  			unix_state_unlock(other);
