@@ -1,16 +1,21 @@
 proc: Updates from upstream
 
+ b0765fb85782da9dca98482ebb1ae0d8c1a5e0f7 Make /proc/self/mounts(tats) use seq_list_xxx helpers
+ 25216b00395dfb52bfe06e4886a6ad831ede7b4b Make /proc/tty/drivers use seq_list_xxx helpers
+ b92151bab91ef906378d3e0e7128d55dd641e966 Make /proc/slabinfo use seq_list_xxx helpers
  d3d64df21d3d0de675a0d3ffa7c10514f3644b30 proc: export statistics for softirq to /proc
  9d6de12f70d2fb1487c4f482a21fed25fe74e0fd proc: use seq_puts()/seq_putc() where possible
  59a32e2ce5eb809967cac4e718bc527beca83c59 proc: speed up /proc/stat handling
 
 ---
  Documentation/filesystems/proc.txt |   26 ++++++++++++++++++++
+ fs/namespace.c                     |   16 +++---------
  fs/proc/Makefile                   |    2 -
  fs/proc/proc_misc.c                |   26 ++++++++++++++++----
- fs/proc/proc_tty.c                 |   26 ++++++++++----------
+ fs/proc/proc_tty.c                 |   41 ++++++++++++-------------------
  fs/proc/softirqs.c                 |   48 +++++++++++++++++++++++++++++++++++++
- 5 files changed, 110 insertions(+), 18 deletions(-)
+ mm/slab.c                          |   30 ++++-------------------
+ 7 files changed, 124 insertions(+), 65 deletions(-)
 
 diff --git a/Documentation/filesystems/proc.txt b/Documentation/filesystems/proc.txt
 --- a/Documentation/filesystems/proc.txt
@@ -69,6 +74,53 @@ diff --git a/Documentation/filesystems/proc.txt b/Documentation/filesystems/proc
  
  1.9 Ext4 file system parameters
  ------------------------------
+diff --git a/fs/namespace.c b/fs/namespace.c
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -320,22 +320,16 @@ EXPORT_SYMBOL(mnt_unpin);
+ static void *m_start(struct seq_file *m, loff_t *pos)
+ {
+ 	struct mnt_namespace *n = m->private;
+-	struct list_head *p;
+-	loff_t l = *pos;
+ 
+ 	down_read(&namespace_sem);
+-	list_for_each(p, &n->list)
+-		if (!l--)
+-			return list_entry(p, struct vfsmount, mnt_list);
+-	return NULL;
++	return seq_list_start(&n->list, *pos);
+ }
+ 
+ static void *m_next(struct seq_file *m, void *v, loff_t *pos)
+ {
+ 	struct mnt_namespace *n = m->private;
+-	struct list_head *p = ((struct vfsmount *)v)->mnt_list.next;
+-	(*pos)++;
+-	return p == &n->list ? NULL : list_entry(p, struct vfsmount, mnt_list);
++
++	return seq_list_next(v, &n->list, pos);
+ }
+ 
+ static void m_stop(struct seq_file *m, void *v)
+@@ -350,7 +344,7 @@ static inline void mangle(struct seq_file *m, const char *s)
+ 
+ static int show_vfsmnt(struct seq_file *m, void *v)
+ {
+-	struct vfsmount *mnt = v;
++	struct vfsmount *mnt = list_entry(v, struct vfsmount, mnt_list);
+ 	int err = 0;
+ 	static struct proc_fs_info {
+ 		int flag;
+@@ -405,7 +399,7 @@ struct seq_operations mounts_op = {
+ 
+ static int show_vfsstat(struct seq_file *m, void *v)
+ {
+-	struct vfsmount *mnt = v;
++	struct vfsmount *mnt = list_entry(v, struct vfsmount, mnt_list);
+ 	int err = 0;
+ 
+ 	/* device */
 diff --git a/fs/proc/Makefile b/fs/proc/Makefile
 --- a/fs/proc/Makefile
 +++ b/fs/proc/Makefile
@@ -200,6 +252,15 @@ diff --git a/fs/proc/proc_tty.c b/fs/proc/proc_tty.c
  		break;
  	default:
  		seq_printf(m, "type:%d.%d", p->type, p->subtype);
+@@ -69,7 +69,7 @@ static void show_tty_range(struct seq_fi
+ 
+ static int show_tty_driver(struct seq_file *m, void *v)
+ {
+-	struct tty_driver *p = v;
++	struct tty_driver *p = list_entry(v, struct tty_driver, tty_drivers);
+ 	dev_t from = MKDEV(p->major, p->minor_start);
+ 	dev_t to = from + p->num;
+ 
 @@ -77,19 +77,19 @@ static int show_tty_driver(struct seq_fi
  		/* pseudo-drivers first */
  		seq_printf(m, "%-20s /dev/%-8s ", "/dev/tty", "tty");
@@ -224,6 +285,31 @@ diff --git a/fs/proc/proc_tty.c b/fs/proc/proc_tty.c
  #endif
  	}
  
+@@ -106,22 +106,13 @@ static int show_tty_driver(struct seq_fi
+ /* iterator */
+ static void *t_start(struct seq_file *m, loff_t *pos)
+ {
+-	struct list_head *p;
+-	loff_t l = *pos;
+-
+ 	mutex_lock(&tty_mutex);
+-	list_for_each(p, &tty_drivers)
+-		if (!l--)
+-			return list_entry(p, struct tty_driver, tty_drivers);
+-	return NULL;
++	return seq_list_start(&tty_drivers, *pos);
+ }
+ 
+ static void *t_next(struct seq_file *m, void *v, loff_t *pos)
+ {
+-	struct list_head *p = ((struct tty_driver *)v)->tty_drivers.next;
+-	(*pos)++;
+-	return p==&tty_drivers ? NULL :
+-			list_entry(p, struct tty_driver, tty_drivers);
++	return seq_list_next(v, &tty_drivers, pos);
+ }
+ 
+ static void t_stop(struct seq_file *m, void *v)
 diff --git a/fs/proc/softirqs.c b/fs/proc/softirqs.c
 new file mode 100644
 --- /dev/null
@@ -277,4 +363,74 @@ new file mode 100644
 +	return 0;
 +}
 +module_init(proc_softirqs_init);
+diff --git a/mm/slab.c b/mm/slab.c
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -4157,26 +4157,17 @@ static void print_slabinfo_header(struct seq_file *m)
+ static void *s_start(struct seq_file *m, loff_t *pos)
+ {
+ 	loff_t n = *pos;
+-	struct list_head *p;
+ 
+ 	mutex_lock(&cache_chain_mutex);
+ 	if (!n)
+ 		print_slabinfo_header(m);
+-	p = cache_chain.next;
+-	while (n--) {
+-		p = p->next;
+-		if (p == &cache_chain)
+-			return NULL;
+-	}
+-	return list_entry(p, struct kmem_cache, next);
++
++	return seq_list_start(&cache_chain, *pos);
+ }
+ 
+ static void *s_next(struct seq_file *m, void *p, loff_t *pos)
+ {
+-	struct kmem_cache *cachep = p;
+-	++*pos;
+-	return cachep->next.next == &cache_chain ?
+-		NULL : list_entry(cachep->next.next, struct kmem_cache, next);
++	return seq_list_next(p, &cache_chain, pos);
+ }
+ 
+ static void s_stop(struct seq_file *m, void *p)
+@@ -4186,7 +4177,7 @@ static void s_stop(struct seq_file *m, void *p)
+ 
+ static int s_show(struct seq_file *m, void *p)
+ {
+-	struct kmem_cache *cachep = p;
++	struct kmem_cache *cachep = list_entry(p, struct kmem_cache, next);
+ 	struct slab *slabp;
+ 	unsigned long active_objs;
+ 	unsigned long num_objs;
+@@ -4355,17 +4346,8 @@ ssize_t slabinfo_write(struct file *file, const char __user * buffer,
+ 
+ static void *leaks_start(struct seq_file *m, loff_t *pos)
+ {
+-	loff_t n = *pos;
+-	struct list_head *p;
+-
+ 	mutex_lock(&cache_chain_mutex);
+-	p = cache_chain.next;
+-	while (n--) {
+-		p = p->next;
+-		if (p == &cache_chain)
+-			return NULL;
+-	}
+-	return list_entry(p, struct kmem_cache, next);
++	return seq_list_start(&cache_chain, *pos);
+ }
+ 
+ static inline int add_caller(unsigned long *n, unsigned long v)
+@@ -4430,7 +4412,7 @@ static void show_symbol(struct seq_file *m, unsigned long address)
+ 
+ static int leaks_show(struct seq_file *m, void *p)
+ {
+-	struct kmem_cache *cachep = p;
++	struct kmem_cache *cachep = list_entry(p, struct kmem_cache, next);
+ 	struct slab *slabp;
+ 	struct kmem_list3 *l3;
+ 	const char *name;
 -- 
