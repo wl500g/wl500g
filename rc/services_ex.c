@@ -1585,7 +1585,7 @@ static int mount_r(const char *mnt_dev, char *mnt_dir)
 			if (nvram_match("usb_ntfs3g_enable", "1")) {
 				flags = MS_NOATIME;
 				mkdir_if_none(mnt_dir);
-				eval("ntfs-3g", mnt_dev, mnt_dir);
+				eval("ntfs-3g", "-onoatime,big_writes", mnt_dev, mnt_dir);
 				logmessage("USB storage", "%s%s fs at %s mounted to %s", 
 					type, (flags & MS_RDONLY) ? "(ro)" : "", mnt_dev, mnt_dir);
 				return (flags & MS_RDONLY) ? MOUNT_VAL_RONLY : MOUNT_VAL_RW;
