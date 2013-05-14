@@ -3,19 +3,22 @@ proc: Updates from upstream
  b0765fb85782da9dca98482ebb1ae0d8c1a5e0f7 Make /proc/self/mounts(tats) use seq_list_xxx helpers
  25216b00395dfb52bfe06e4886a6ad831ede7b4b Make /proc/tty/drivers use seq_list_xxx helpers
  b92151bab91ef906378d3e0e7128d55dd641e966 Make /proc/slabinfo use seq_list_xxx helpers
+ 7f8ada98d9edd83d6ebd01e431e15b024a4a3dc4 Rework /proc/locks via seq_files and seq_list helpers
  d3d64df21d3d0de675a0d3ffa7c10514f3644b30 proc: export statistics for softirq to /proc
  9d6de12f70d2fb1487c4f482a21fed25fe74e0fd proc: use seq_puts()/seq_putc() where possible
  59a32e2ce5eb809967cac4e718bc527beca83c59 proc: speed up /proc/stat handling
 
 ---
- Documentation/filesystems/proc.txt |   26 ++++++++++++++++++++
- fs/namespace.c                     |   16 +++---------
- fs/proc/Makefile                   |    2 -
- fs/proc/proc_misc.c                |   26 ++++++++++++++++----
- fs/proc/proc_tty.c                 |   41 ++++++++++++-------------------
- fs/proc/softirqs.c                 |   48 +++++++++++++++++++++++++++++++++++++
- mm/slab.c                          |   30 ++++-------------------
- 7 files changed, 124 insertions(+), 65 deletions(-)
+ Documentation/filesystems/proc.txt |   26 +++++++
+ fs/locks.c                         |  122 +++++++++++++++----------------------
+ fs/namespace.c                     |   16 +---
+ fs/proc/Makefile                   |    2 
+ fs/proc/proc_misc.c                |   45 +++++++++----
+ fs/proc/proc_tty.c                 |   41 ++++--------
+ fs/proc/softirqs.c                 |   48 ++++++++++++++
+ include/linux/fs.h                 |    1 
+ mm/slab.c                          |   30 +--------
+ 9 files changed, 186 insertions(+), 145 deletions(-)
 
 diff --git a/Documentation/filesystems/proc.txt b/Documentation/filesystems/proc.txt
 --- a/Documentation/filesystems/proc.txt
@@ -74,6 +77,195 @@ diff --git a/Documentation/filesystems/proc.txt b/Documentation/filesystems/proc
  
  1.9 Ext4 file system parameters
  ------------------------------
+diff --git a/fs/locks.c b/fs/locks.c
+--- a/fs/locks.c
++++ b/fs/locks.c
+@@ -2066,134 +2066,114 @@ int vfs_cancel_lock(struct file *filp, struct file_lock *fl)
+ 
+ EXPORT_SYMBOL_GPL(vfs_cancel_lock);
+ 
+-static void lock_get_status(char* out, struct file_lock *fl, int id, char *pfx)
++#ifdef CONFIG_PROC_FS
++#include <linux/seq_file.h>
++
++static void lock_get_status(struct seq_file *f, struct file_lock *fl,
++							int id, char *pfx)
+ {
+ 	struct inode *inode = NULL;
+ 
+ 	if (fl->fl_file != NULL)
+ 		inode = fl->fl_file->f_path.dentry->d_inode;
+ 
+-	out += sprintf(out, "%d:%s ", id, pfx);
++	seq_printf(f, "%d:%s ", id, pfx);
+ 	if (IS_POSIX(fl)) {
+-		out += sprintf(out, "%6s %s ",
++		seq_printf(f, "%6s %s ",
+ 			     (fl->fl_flags & FL_ACCESS) ? "ACCESS" : "POSIX ",
+ 			     (inode == NULL) ? "*NOINODE*" :
+ 			     mandatory_lock(inode) ? "MANDATORY" : "ADVISORY ");
+ 	} else if (IS_FLOCK(fl)) {
+ 		if (fl->fl_type & LOCK_MAND) {
+-			out += sprintf(out, "FLOCK  MSNFS     ");
++			seq_printf(f, "FLOCK  MSNFS     ");
+ 		} else {
+-			out += sprintf(out, "FLOCK  ADVISORY  ");
++			seq_printf(f, "FLOCK  ADVISORY  ");
+ 		}
+ 	} else if (IS_LEASE(fl)) {
+-		out += sprintf(out, "LEASE  ");
++		seq_printf(f, "LEASE  ");
+ 		if (fl->fl_type & F_INPROGRESS)
+-			out += sprintf(out, "BREAKING  ");
++			seq_printf(f, "BREAKING  ");
+ 		else if (fl->fl_file)
+-			out += sprintf(out, "ACTIVE    ");
++			seq_printf(f, "ACTIVE    ");
+ 		else
+-			out += sprintf(out, "BREAKER   ");
++			seq_printf(f, "BREAKER   ");
+ 	} else {
+-		out += sprintf(out, "UNKNOWN UNKNOWN  ");
++		seq_printf(f, "UNKNOWN UNKNOWN  ");
+ 	}
+ 	if (fl->fl_type & LOCK_MAND) {
+-		out += sprintf(out, "%s ",
++		seq_printf(f, "%s ",
+ 			       (fl->fl_type & LOCK_READ)
+ 			       ? (fl->fl_type & LOCK_WRITE) ? "RW   " : "READ "
+ 			       : (fl->fl_type & LOCK_WRITE) ? "WRITE" : "NONE ");
+ 	} else {
+-		out += sprintf(out, "%s ",
++		seq_printf(f, "%s ",
+ 			       (fl->fl_type & F_INPROGRESS)
+ 			       ? (fl->fl_type & F_UNLCK) ? "UNLCK" : "READ "
+ 			       : (fl->fl_type & F_WRLCK) ? "WRITE" : "READ ");
+ 	}
+ 	if (inode) {
+ #ifdef WE_CAN_BREAK_LSLK_NOW
+-		out += sprintf(out, "%d %s:%ld ", fl->fl_pid,
++		seq_printf(f, "%d %s:%ld ", fl->fl_pid,
+ 				inode->i_sb->s_id, inode->i_ino);
+ #else
+ 		/* userspace relies on this representation of dev_t ;-( */
+-		out += sprintf(out, "%d %02x:%02x:%ld ", fl->fl_pid,
++		seq_printf(f, "%d %02x:%02x:%ld ", fl->fl_pid,
+ 				MAJOR(inode->i_sb->s_dev),
+ 				MINOR(inode->i_sb->s_dev), inode->i_ino);
+ #endif
+ 	} else {
+-		out += sprintf(out, "%d <none>:0 ", fl->fl_pid);
++		seq_printf(f, "%d <none>:0 ", fl->fl_pid);
+ 	}
+ 	if (IS_POSIX(fl)) {
+ 		if (fl->fl_end == OFFSET_MAX)
+-			out += sprintf(out, "%Ld EOF\n", fl->fl_start);
++			seq_printf(f, "%Ld EOF\n", fl->fl_start);
+ 		else
+-			out += sprintf(out, "%Ld %Ld\n", fl->fl_start,
+-					fl->fl_end);
++			seq_printf(f, "%Ld %Ld\n", fl->fl_start, fl->fl_end);
+ 	} else {
+-		out += sprintf(out, "0 EOF\n");
++		seq_printf(f, "0 EOF\n");
+ 	}
+ }
+ 
+-static void move_lock_status(char **p, off_t* pos, off_t offset)
++static int locks_show(struct seq_file *f, void *v)
+ {
+-	int len;
+-	len = strlen(*p);
+-	if(*pos >= offset) {
+-		/* the complete line is valid */
+-		*p += len;
+-		*pos += len;
+-		return;
+-	}
+-	if(*pos+len > offset) {
+-		/* use the second part of the line */
+-		int i = offset-*pos;
+-		memmove(*p,*p+i,len-i);
+-		*p += len-i;
+-		*pos += len;
+-		return;
+-	}
+-	/* discard the complete line */
+-	*pos += len;
+-}
++	struct file_lock *fl, *bfl;
+ 
+-/**
+- *	get_locks_status	-	reports lock usage in /proc/locks
+- *	@buffer: address in userspace to write into
+- *	@start: ?
+- *	@offset: how far we are through the buffer
+- *	@length: how much to read
+- */
++	fl = list_entry(v, struct file_lock, fl_link);
+ 
+-int get_locks_status(char *buffer, char **start, off_t offset, int length)
+-{
+-	struct file_lock *fl;
+-	char *q = buffer;
+-	off_t pos = 0;
+-	int i = 0;
++	lock_get_status(f, fl, (long)f->private, "");
+ 
+-	lock_kernel();
+-	list_for_each_entry(fl, &file_lock_list, fl_link) {
+-		struct file_lock *bfl;
++	list_for_each_entry(bfl, &fl->fl_block, fl_block)
++		lock_get_status(f, bfl, (long)f->private, " ->");
+ 
+-		lock_get_status(q, fl, ++i, "");
+-		move_lock_status(&q, &pos, offset);
++	f->private++;
++	return 0;
++}
+ 
+-		if(pos >= offset+length)
+-			goto done;
++static void *locks_start(struct seq_file *f, loff_t *pos)
++{
++	lock_kernel();
++	f->private = (void *)1;
++	return seq_list_start(&file_lock_list, *pos);
++}
+ 
+-		list_for_each_entry(bfl, &fl->fl_block, fl_block) {
+-			lock_get_status(q, bfl, i, " ->");
+-			move_lock_status(&q, &pos, offset);
++static void *locks_next(struct seq_file *f, void *v, loff_t *pos)
++{
++	return seq_list_next(v, &file_lock_list, pos);
++}
+ 
+-			if(pos >= offset+length)
+-				goto done;
+-		}
+-	}
+-done:
++static void locks_stop(struct seq_file *f, void *v)
++{
+ 	unlock_kernel();
+-	*start = buffer;
+-	if(q-buffer < length)
+-		return (q-buffer);
+-	return length;
+ }
+ 
++struct seq_operations locks_seq_operations = {
++	.start	= locks_start,
++	.next	= locks_next,
++	.stop	= locks_stop,
++	.show	= locks_show,
++};
++#endif
++
+ /**
+  *	lock_may_read - checks that the region is free of locks
+  *	@inode: the inode that is being read
 diff --git a/fs/namespace.c b/fs/namespace.c
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
@@ -136,7 +328,15 @@ diff --git a/fs/proc/Makefile b/fs/proc/Makefile
 diff --git a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
 --- a/fs/proc/proc_misc.c
 +++ b/fs/proc/proc_misc.c
-@@ -277,14 +277,14 @@ static int devinfo_show(struct seq_file
+@@ -66,7 +66,6 @@ extern int get_stram_list(char *);
+ extern int get_filesystem_list(char *);
+ extern int get_exec_domain_list(char *);
+ extern int get_dma_list(char *);
+-extern int get_locks_status (char *, char **, off_t, int);
+ 
+ static int proc_calc_metrics(char *page, char **start, off_t off,
+ 				 int count, int *eof, int len)
+@@ -277,14 +276,14 @@ static int devinfo_show(struct seq_file 
  
  	if (i < CHRDEV_MAJOR_HASH_SIZE) {
  		if (i == 0)
@@ -153,7 +353,7 @@ diff --git a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
  		blkdev_show(f, i);
  	}
  #endif
-@@ -449,6 +449,8 @@ static int show_stat(struct seq_file *p,
+@@ -449,6 +448,8 @@ static int show_stat(struct seq_file *p,
  	unsigned long jif;
  	cputime64_t user, nice, system, idle, iowait, irq, softirq, steal;
  	u64 sum = 0;
@@ -162,7 +362,7 @@ diff --git a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
  
  	user = nice = system = idle = iowait =
  		irq = softirq = steal = cputime64_zero;
-@@ -469,6 +471,13 @@ static int show_stat(struct seq_file *p,
+@@ -469,6 +470,13 @@ static int show_stat(struct seq_file *p,
  		steal = cputime64_add(steal, kstat_cpu(i).cpustat.steal);
  		for (j = 0 ; j < NR_IRQS ; j++)
  			sum += kstat_cpu(i).irqs[j];
@@ -176,7 +376,7 @@ diff --git a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
  	}
  
  	seq_printf(p, "cpu  %llu %llu %llu %llu %llu %llu %llu %llu\n",
-@@ -521,16 +530,25 @@ static int show_stat(struct seq_file *p,
+@@ -521,16 +529,25 @@ static int show_stat(struct seq_file *p,
  		nr_running(),
  		nr_iowait());
  
@@ -203,7 +403,7 @@ diff --git a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
  	/* don't ask for more than the kmalloc() max size, currently 128 KB */
  	if (size > 128 * 1024)
  		size = 128 * 1024;
-@@ -542,7 +560,7 @@ static int stat_open(struct inode *inode
+@@ -542,7 +559,7 @@ static int stat_open(struct inode *inode
  	if (!res) {
  		m = file->private_data;
  		m->buf = buf;
@@ -212,6 +412,48 @@ diff --git a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
  	} else
  		kfree(buf);
  	return res;
+@@ -612,16 +629,18 @@ static int cmdline_read_proc(char *page,
+ 	return proc_calc_metrics(page, start, off, count, eof, len);
+ }
+ 
+-static int locks_read_proc(char *page, char **start, off_t off,
+-				 int count, int *eof, void *data)
++static int locks_open(struct inode *inode, struct file *filp)
+ {
+-	int len = get_locks_status(page, start, off, count);
+-
+-	if (len < count)
+-		*eof = 1;
+-	return len;
++	return seq_open(filp, &locks_seq_operations);
+ }
+ 
++static const struct file_operations proc_locks_operations = {
++	.open		= locks_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= seq_release,
++};
++
+ static int execdomains_read_proc(char *page, char **start, off_t off,
+ 				 int count, int *eof, void *data)
+ {
+@@ -679,7 +698,6 @@ void __init proc_misc_init(void)
+ #endif
+ 		{"filesystems",	filesystems_read_proc},
+ 		{"cmdline",	cmdline_read_proc},
+-		{"locks",	locks_read_proc},
+ 		{"execdomains",	execdomains_read_proc},
+ 		{NULL,}
+ 	};
+@@ -697,6 +715,7 @@ void __init proc_misc_init(void)
+ 			entry->proc_fops = &proc_kmsg_operations;
+ 	}
+ #endif
++	create_seq_entry("locks", 0, &proc_locks_operations);
+ 	create_seq_entry("devices", 0, &proc_devinfo_operations);
+ 	create_seq_entry("cpuinfo", 0, &proc_cpuinfo_operations);
+ #ifdef CONFIG_BLOCK
 diff --git a/fs/proc/proc_tty.c b/fs/proc/proc_tty.c
 --- a/fs/proc/proc_tty.c
 +++ b/fs/proc/proc_tty.c
@@ -363,6 +605,17 @@ new file mode 100644
 +	return 0;
 +}
 +module_init(proc_softirqs_init);
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -950,6 +950,7 @@ extern int vfs_setlease(struct file *, long, struct file_lock **);
+ extern int lease_modify(struct file_lock **, int);
+ extern int lock_may_read(struct inode *, loff_t start, unsigned long count);
+ extern int lock_may_write(struct inode *, loff_t start, unsigned long count);
++extern struct seq_operations locks_seq_operations;
+ 
+ struct fasync_struct {
+ 	int	magic;
 diff --git a/mm/slab.c b/mm/slab.c
 --- a/mm/slab.c
 +++ b/mm/slab.c
