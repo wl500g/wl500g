@@ -18,6 +18,7 @@ struct seq_file {
 	size_t from;
 	size_t count;
 	loff_t index;
+	loff_t read_pos;
 	u64 version;
 	struct mutex lock;
 	const struct seq_operations *op;
@@ -30,6 +31,8 @@ struct seq_operations {
 	void * (*next) (struct seq_file *m, void *v, loff_t *pos);
 	int (*show) (struct seq_file *m, void *v);
 };
+
+#define SEQ_SKIP 1
 
 int seq_open(struct file *, const struct seq_operations *);
 ssize_t seq_read(struct file *, char __user *, size_t, loff_t *);
@@ -51,6 +54,17 @@ int seq_open_private(struct file *, const struct seq_operations *, int);
 int seq_release_private(struct inode *, struct file *);
 
 #define SEQ_START_TOKEN ((void *)1)
+
+/*
+ * Helpers for iteration over list_head-s in seq_files
+ */
+
+extern struct list_head *seq_list_start(struct list_head *head,
+		loff_t pos);
+extern struct list_head *seq_list_start_head(struct list_head *head,
+		loff_t pos);
+extern struct list_head *seq_list_next(void *v, struct list_head *head,
+		loff_t *ppos);
 
 #endif
 #endif

@@ -25,6 +25,7 @@
  *	into the buffer.  In case of error ->start() and ->next() return
  *	ERR_PTR(error).  In the end of sequence they return %NULL. ->show()
  *	returns 0 in case of success and negative number in case of error.
+ *	Returning SEQ_SKIP means "discard this element and move on".
  */
 int seq_open(struct file *file, const struct seq_operations *op)
 {
@@ -47,11 +48,77 @@ int seq_open(struct file *file, const struct seq_operations *op)
 	 */
 	file->f_version = 0;
 
-	/* SEQ files support lseek, but not pread/pwrite */
-	file->f_mode &= ~(FMODE_PREAD | FMODE_PWRITE);
+	/*
+	 * seq_files support lseek() and pread().  They do not implement
+	 * write() at all, but we clear FMODE_PWRITE here for historical
+	 * reasons.
+	 *
+	 * If a client of seq_files a) implements file.write() and b) wishes to
+	 * support pwrite() then that client will need to implement its own
+	 * file.open() which calls seq_open() and then sets FMODE_PWRITE.
+	 */
+	file->f_mode &= ~FMODE_PWRITE;
 	return 0;
 }
 EXPORT_SYMBOL(seq_open);
+
+static int traverse(struct seq_file *m, loff_t offset)
+{
+	loff_t pos = 0, index;
+	int error = 0;
+	void *p;
+
+	m->version = 0;
+	index = 0;
+	m->count = m->from = 0;
+	if (!offset) {
+		m->index = index;
+		return 0;
+	}
+	if (!m->buf) {
+		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
+		if (!m->buf)
+			return -ENOMEM;
+	}
+	p = m->op->start(m, &index);
+	while (p) {
+		error = PTR_ERR(p);
+		if (IS_ERR(p))
+			break;
+		error = m->op->show(m, p);
+		if (error < 0)
+			break;
+		if (unlikely(error)) {
+			error = 0;
+			m->count = 0;
+		}
+		if (m->count == m->size)
+			goto Eoverflow;
+		if (pos + m->count > offset) {
+			m->from = offset - pos;
+			m->count -= m->from;
+			m->index = index;
+			break;
+		}
+		pos += m->count;
+		m->count = 0;
+		if (pos == offset) {
+			index++;
+			m->index = index;
+			break;
+		}
+		p = m->op->next(m, p, &index);
+	}
+	m->op->stop(m, p);
+	m->index = index;
+	return error;
+
+Eoverflow:
+	m->op->stop(m, p);
+	kfree(m->buf);
+	m->buf = kmalloc(m->size <<= 1, GFP_KERNEL);
+	return !m->buf ? -ENOMEM : -EAGAIN;
+}
 
 /**
  *	seq_read -	->read() method for sequential files.
@@ -72,6 +139,22 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 	int err = 0;
 
 	mutex_lock(&m->lock);
+
+	/* Don't assume *ppos is where we left it */
+	if (unlikely(*ppos != m->read_pos)) {
+		m->read_pos = *ppos;
+		while ((err = traverse(m, *ppos)) == -EAGAIN)
+			;
+		if (err) {
+			/* With prejudice... */
+			m->read_pos = 0;
+			m->version = 0;
+			m->index = 0;
+			m->count = 0;
+			goto Done;
+		}
+	}
+
 	/*
 	 * seq_file->op->..m_start/m_stop/m_next may do special actions
 	 * or optimisations based on the file->f_version, so we want to
@@ -107,15 +190,22 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 			goto Done;
 	}
 	/* we need at least one record in buffer */
+	pos = m->index;
+	p = m->op->start(m, &pos);
 	while (1) {
-		pos = m->index;
-		p = m->op->start(m, &pos);
 		err = PTR_ERR(p);
 		if (!p || IS_ERR(p))
 			break;
 		err = m->op->show(m, p);
-		if (err)
+		if (err < 0)
 			break;
+		if (unlikely(err))
+			m->count = 0;
+		if (unlikely(!m->count)) {
+			p = m->op->next(m, p, &pos);
+			m->index = pos;
+			continue;
+		}
 		if (m->count < m->size)
 			goto Fill;
 		m->op->stop(m, p);
@@ -125,6 +215,8 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 			goto Enomem;
 		m->count = 0;
 		m->version = 0;
+		pos = m->index;
+		p = m->op->start(m, &pos);
 	}
 	m->op->stop(m, p);
 	m->count = 0;
@@ -140,9 +232,10 @@ Fill:
 			break;
 		}
 		err = m->op->show(m, p);
-		if (err || m->count == m->size) {
+		if (m->count == m->size || err) {
 			m->count = offs;
-			break;
+			if (likely(err <= 0))
+				break;
 		}
 		pos = next;
 	}
@@ -161,8 +254,10 @@ Fill:
 Done:
 	if (!copied)
 		copied = err;
-	else
+	else {
 		*ppos += copied;
+		m->read_pos += copied;
+	}
 	file->f_version = m->version;
 	mutex_unlock(&m->lock);
 	return copied;
@@ -174,55 +269,6 @@ Efault:
 	goto Done;
 }
 EXPORT_SYMBOL(seq_read);
-
-static int traverse(struct seq_file *m, loff_t offset)
-{
-	loff_t pos = 0;
-	int error = 0;
-	void *p;
-
-	m->version = 0;
-	m->index = 0;
-	m->count = m->from = 0;
-	if (!offset)
-		return 0;
-	if (!m->buf) {
-		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
-		if (!m->buf)
-			return -ENOMEM;
-	}
-	p = m->op->start(m, &m->index);
-	while (p) {
-		error = PTR_ERR(p);
-		if (IS_ERR(p))
-			break;
-		error = m->op->show(m, p);
-		if (error)
-			break;
-		if (m->count == m->size)
-			goto Eoverflow;
-		if (pos + m->count > offset) {
-			m->from = offset - pos;
-			m->count -= m->from;
-			break;
-		}
-		pos += m->count;
-		m->count = 0;
-		if (pos == offset) {
-			m->index++;
-			break;
-		}
-		p = m->op->next(m, p, &m->index);
-	}
-	m->op->stop(m, p);
-	return error;
-
-Eoverflow:
-	m->op->stop(m, p);
-	kfree(m->buf);
-	m->buf = kmalloc(m->size <<= 1, GFP_KERNEL);
-	return !m->buf ? -ENOMEM : -EAGAIN;
-}
 
 /**
  *	seq_lseek -	->llseek() method for sequential files.
@@ -246,22 +292,24 @@ loff_t seq_lseek(struct file *file, loff_t offset, int origin)
 			if (offset < 0)
 				break;
 			retval = offset;
-			if (offset != file->f_pos) {
+			if (offset != m->read_pos) {
 				while ((retval=traverse(m, offset)) == -EAGAIN)
 					;
 				if (retval) {
 					/* with extreme prejudice... */
 					file->f_pos = 0;
+					m->read_pos = 0;
 					m->version = 0;
 					m->index = 0;
 					m->count = 0;
 				} else {
+					m->read_pos = offset;
 					retval = file->f_pos = offset;
 				}
 			}
 	}
-	mutex_unlock(&m->lock);
 	file->f_version = m->version;
+	mutex_unlock(&m->lock);
 	return retval;
 }
 EXPORT_SYMBOL(seq_lseek);
@@ -480,3 +528,37 @@ int seq_puts(struct seq_file *m, const char *s)
 	return -1;
 }
 EXPORT_SYMBOL(seq_puts);
+
+struct list_head *seq_list_start(struct list_head *head, loff_t pos)
+{
+	struct list_head *lh;
+
+	list_for_each(lh, head)
+		if (pos-- == 0)
+			return lh;
+
+	return NULL;
+}
+
+EXPORT_SYMBOL(seq_list_start);
+
+struct list_head *seq_list_start_head(struct list_head *head, loff_t pos)
+{
+	if (!pos)
+		return head;
+
+	return seq_list_start(head, pos - 1);
+}
+
+EXPORT_SYMBOL(seq_list_start_head);
+
+struct list_head *seq_list_next(void *v, struct list_head *head, loff_t *ppos)
+{
+	struct list_head *lh;
+
+	lh = ((struct list_head *)v)->next;
+	++*ppos;
+	return lh == head ? NULL : lh;
+}
+
+EXPORT_SYMBOL(seq_list_next);
