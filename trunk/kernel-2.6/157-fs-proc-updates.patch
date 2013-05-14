@@ -4,12 +4,14 @@ proc: Updates from upstream
  25216b00395dfb52bfe06e4886a6ad831ede7b4b Make /proc/tty/drivers use seq_list_xxx helpers
  b92151bab91ef906378d3e0e7128d55dd641e966 Make /proc/slabinfo use seq_list_xxx helpers
  7f8ada98d9edd83d6ebd01e431e15b024a4a3dc4 Rework /proc/locks via seq_files and seq_list helpers
+ ad5d972cdad41ab4d6bfb95f656e508707447c95 Input: switch to using seq_list_xxx helpers
  d3d64df21d3d0de675a0d3ffa7c10514f3644b30 proc: export statistics for softirq to /proc
  9d6de12f70d2fb1487c4f482a21fed25fe74e0fd proc: use seq_puts()/seq_putc() where possible
  59a32e2ce5eb809967cac4e718bc527beca83c59 proc: speed up /proc/stat handling
 
 ---
  Documentation/filesystems/proc.txt |   26 +++++++
+ drivers/input/input.c              |   29 +-------
  fs/locks.c                         |  122 +++++++++++++++----------------------
  fs/namespace.c                     |   16 +---
  fs/proc/Makefile                   |    2 
@@ -18,7 +20,7 @@ proc: Updates from upstream
  fs/proc/softirqs.c                 |   48 ++++++++++++++
  include/linux/fs.h                 |    1 
  mm/slab.c                          |   30 +--------
- 9 files changed, 186 insertions(+), 145 deletions(-)
+ 10 files changed, 190 insertions(+), 170 deletions(-)
 
 diff --git a/Documentation/filesystems/proc.txt b/Documentation/filesystems/proc.txt
 --- a/Documentation/filesystems/proc.txt
@@ -77,6 +79,65 @@ diff --git a/Documentation/filesystems/proc.txt b/Documentation/filesystems/proc
  
  1.9 Ext4 file system parameters
  ------------------------------
+diff --git a/drivers/input/input.c b/drivers/input/input.c
+--- a/drivers/input/input.c
++++ b/drivers/input/input.c
+@@ -471,37 +471,16 @@ static unsigned int input_proc_devices_poll(struct file *file, poll_table *wait)
+ 	return 0;
+ }
+ 
+-static struct list_head *list_get_nth_element(struct list_head *list, loff_t *pos)
+-{
+-	struct list_head *node;
+-	loff_t i = 0;
+-
+-	list_for_each(node, list)
+-		if (i++ == *pos)
+-			return node;
+-
+-	return NULL;
+-}
+-
+-static struct list_head *list_get_next_element(struct list_head *list, struct list_head *element, loff_t *pos)
+-{
+-	if (element->next == list)
+-		return NULL;
+-
+-	++(*pos);
+-	return element->next;
+-}
+-
+ static void *input_devices_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	/* acquire lock here ... Yes, we do need locking, I knowi, I know... */
+ 
+-	return list_get_nth_element(&input_dev_list, pos);
++	return seq_list_start(&input_dev_list, *pos);
+ }
+ 
+ static void *input_devices_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	return list_get_next_element(&input_dev_list, v, pos);
++	return seq_list_next(v, &input_dev_list, pos);
+ }
+ 
+ static void input_devices_seq_stop(struct seq_file *seq, void *v)
+@@ -592,13 +571,13 @@ static void *input_handlers_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	/* acquire lock here ... Yes, we do need locking, I knowi, I know... */
+ 	seq->private = (void *)(unsigned long)*pos;
+-	return list_get_nth_element(&input_handler_list, pos);
++	return seq_list_start(&input_handler_list, *pos);
+ }
+ 
+ static void *input_handlers_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	seq->private = (void *)(unsigned long)(*pos + 1);
+-	return list_get_next_element(&input_handler_list, v, pos);
++	return seq_list_next(v, &input_handler_list, pos);
+ }
+ 
+ static void input_handlers_seq_stop(struct seq_file *seq, void *v)
 diff --git a/fs/locks.c b/fs/locks.c
 --- a/fs/locks.c
 +++ b/fs/locks.c
