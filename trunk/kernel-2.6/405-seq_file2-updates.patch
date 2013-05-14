@@ -4,8 +4,15 @@
  521b5d0c40386f4a9805cdec7bd979fc96a86aeb teach seq_file to discard entries
  4cdfe84b51420c9ac95c7133da2d4c8a191094af deal with the first call of ->show() generating no output
  46c65b71e6122b89cd7b2bb36c1ba26d07e84fcd Make /proc/misc use seq_list_xxx helpers
+ 33da8892a2f9e7d4b2d9a35fc80833ba2d2b1aa6 seq_file: move traverse so it can be used from seq_read
+ f01d1d546abb2f4028b5299092f529eefb01253a seq_file: fix big-enough lseek() + read()
+ 8f19d472935c83d823fa4cf02bcc0a7b9952db30 seq_file: properly cope with pread
 
 ---
+ drivers/char/misc.c      |   18 ----
+ fs/seq_file.c            |  200 +++++++++++++++++++++++++++++++++--------------
+ include/linux/seq_file.h |   14 +++
+ 3 files changed, 158 insertions(+), 74 deletions(-)
 
 diff --git a/drivers/char/misc.c b/drivers/char/misc.c
 --- a/drivers/char/misc.c
@@ -58,7 +65,111 @@ diff --git a/fs/seq_file.c b/fs/seq_file.c
   */
  int seq_open(struct file *file, const struct seq_operations *op)
  {
-@@ -107,15 +108,22 @@ ssize_t seq_read(struct file *file, char
+@@ -47,12 +48,78 @@ int seq_open(struct file *file, const st
+ 	 */
+ 	file->f_version = 0;
+ 
+-	/* SEQ files support lseek, but not pread/pwrite */
+-	file->f_mode &= ~(FMODE_PREAD | FMODE_PWRITE);
++	/*
++	 * seq_files support lseek() and pread().  They do not implement
++	 * write() at all, but we clear FMODE_PWRITE here for historical
++	 * reasons.
++	 *
++	 * If a client of seq_files a) implements file.write() and b) wishes to
++	 * support pwrite() then that client will need to implement its own
++	 * file.open() which calls seq_open() and then sets FMODE_PWRITE.
++	 */
++	file->f_mode &= ~FMODE_PWRITE;
+ 	return 0;
+ }
+ EXPORT_SYMBOL(seq_open);
+ 
++static int traverse(struct seq_file *m, loff_t offset)
++{
++	loff_t pos = 0, index;
++	int error = 0;
++	void *p;
++
++	m->version = 0;
++	index = 0;
++	m->count = m->from = 0;
++	if (!offset) {
++		m->index = index;
++		return 0;
++	}
++	if (!m->buf) {
++		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
++		if (!m->buf)
++			return -ENOMEM;
++	}
++	p = m->op->start(m, &index);
++	while (p) {
++		error = PTR_ERR(p);
++		if (IS_ERR(p))
++			break;
++		error = m->op->show(m, p);
++		if (error < 0)
++			break;
++		if (unlikely(error)) {
++			error = 0;
++			m->count = 0;
++		}
++		if (m->count == m->size)
++			goto Eoverflow;
++		if (pos + m->count > offset) {
++			m->from = offset - pos;
++			m->count -= m->from;
++			m->index = index;
++			break;
++		}
++		pos += m->count;
++		m->count = 0;
++		if (pos == offset) {
++			index++;
++			m->index = index;
++			break;
++		}
++		p = m->op->next(m, p, &index);
++	}
++	m->op->stop(m, p);
++	m->index = index;
++	return error;
++
++Eoverflow:
++	m->op->stop(m, p);
++	kfree(m->buf);
++	m->buf = kmalloc(m->size <<= 1, GFP_KERNEL);
++	return !m->buf ? -ENOMEM : -EAGAIN;
++}
++
+ /**
+  *	seq_read -	->read() method for sequential files.
+  *	@file: the file to read from
+@@ -72,6 +139,22 @@ ssize_t seq_read(struct file *file, char
+ 	int err = 0;
+ 
+ 	mutex_lock(&m->lock);
++
++	/* Don't assume *ppos is where we left it */
++	if (unlikely(*ppos != m->read_pos)) {
++		m->read_pos = *ppos;
++		while ((err = traverse(m, *ppos)) == -EAGAIN)
++			;
++		if (err) {
++			/* With prejudice... */
++			m->read_pos = 0;
++			m->version = 0;
++			m->index = 0;
++			m->count = 0;
++			goto Done;
++		}
++	}
++
+ 	/*
+ 	 * seq_file->op->..m_start/m_stop/m_next may do special actions
+ 	 * or optimisations based on the file->f_version, so we want to
+@@ -107,15 +190,22 @@ ssize_t seq_read(struct file *file, char
  			goto Done;
  	}
  	/* we need at least one record in buffer */
@@ -84,7 +195,7 @@ diff --git a/fs/seq_file.c b/fs/seq_file.c
  		if (m->count < m->size)
  			goto Fill;
  		m->op->stop(m, p);
-@@ -125,6 +133,8 @@ ssize_t seq_read(struct file *file, char
+@@ -125,6 +215,8 @@ ssize_t seq_read(struct file *file, char
  			goto Enomem;
  		m->count = 0;
  		m->version = 0;
@@ -93,7 +204,7 @@ diff --git a/fs/seq_file.c b/fs/seq_file.c
  	}
  	m->op->stop(m, p);
  	m->count = 0;
-@@ -140,9 +150,10 @@ Fill:
+@@ -140,9 +232,10 @@ Fill:
  			break;
  		}
  		err = m->op->show(m, p);
@@ -106,65 +217,92 @@ diff --git a/fs/seq_file.c b/fs/seq_file.c
  		}
  		pos = next;
  	}
-@@ -177,42 +188,50 @@ EXPORT_SYMBOL(seq_read);
- 
- static int traverse(struct seq_file *m, loff_t offset)
- {
--	loff_t pos = 0;
-+	loff_t pos = 0, index;
- 	int error = 0;
- 	void *p;
- 
- 	m->version = 0;
--	m->index = 0;
-+	index = 0;
- 	m->count = m->from = 0;
--	if (!offset)
-+	if (!offset) {
-+		m->index = index;
- 		return 0;
+@@ -161,8 +254,10 @@ Fill:
+ Done:
+ 	if (!copied)
+ 		copied = err;
+-	else
++	else {
+ 		*ppos += copied;
++		m->read_pos += copied;
 +	}
- 	if (!m->buf) {
- 		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
- 		if (!m->buf)
- 			return -ENOMEM;
- 	}
+ 	file->f_version = m->version;
+ 	mutex_unlock(&m->lock);
+ 	return copied;
+@@ -175,55 +270,6 @@ Efault:
+ }
+ EXPORT_SYMBOL(seq_read);
+ 
+-static int traverse(struct seq_file *m, loff_t offset)
+-{
+-	loff_t pos = 0;
+-	int error = 0;
+-	void *p;
+-
+-	m->version = 0;
+-	m->index = 0;
+-	m->count = m->from = 0;
+-	if (!offset)
+-		return 0;
+-	if (!m->buf) {
+-		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
+-		if (!m->buf)
+-			return -ENOMEM;
+-	}
 -	p = m->op->start(m, &m->index);
-+	p = m->op->start(m, &index);
- 	while (p) {
- 		error = PTR_ERR(p);
- 		if (IS_ERR(p))
- 			break;
- 		error = m->op->show(m, p);
+-	while (p) {
+-		error = PTR_ERR(p);
+-		if (IS_ERR(p))
+-			break;
+-		error = m->op->show(m, p);
 -		if (error)
-+		if (error < 0)
- 			break;
-+		if (unlikely(error)) {
-+			error = 0;
-+			m->count = 0;
-+		}
- 		if (m->count == m->size)
- 			goto Eoverflow;
- 		if (pos + m->count > offset) {
- 			m->from = offset - pos;
- 			m->count -= m->from;
-+			m->index = index;
- 			break;
- 		}
- 		pos += m->count;
- 		m->count = 0;
- 		if (pos == offset) {
+-			break;
+-		if (m->count == m->size)
+-			goto Eoverflow;
+-		if (pos + m->count > offset) {
+-			m->from = offset - pos;
+-			m->count -= m->from;
+-			break;
+-		}
+-		pos += m->count;
+-		m->count = 0;
+-		if (pos == offset) {
 -			m->index++;
-+			index++;
-+			m->index = index;
- 			break;
- 		}
+-			break;
+-		}
 -		p = m->op->next(m, p, &m->index);
-+		p = m->op->next(m, p, &index);
- 	}
- 	m->op->stop(m, p);
- 	return error;
-@@ -260,8 +279,8 @@ loff_t seq_lseek(struct file *file, loff
+-	}
+-	m->op->stop(m, p);
+-	return error;
+-
+-Eoverflow:
+-	m->op->stop(m, p);
+-	kfree(m->buf);
+-	m->buf = kmalloc(m->size <<= 1, GFP_KERNEL);
+-	return !m->buf ? -ENOMEM : -EAGAIN;
+-}
+-
+ /**
+  *	seq_lseek -	->llseek() method for sequential files.
+  *	@file: the file in question
+@@ -246,22 +292,24 @@ loff_t seq_lseek(struct file *file, loff
+ 			if (offset < 0)
+ 				break;
+ 			retval = offset;
+-			if (offset != file->f_pos) {
++			if (offset != m->read_pos) {
+ 				while ((retval=traverse(m, offset)) == -EAGAIN)
+ 					;
+ 				if (retval) {
+ 					/* with extreme prejudice... */
+ 					file->f_pos = 0;
++					m->read_pos = 0;
+ 					m->version = 0;
+ 					m->index = 0;
+ 					m->count = 0;
+ 				} else {
++					m->read_pos = offset;
+ 					retval = file->f_pos = offset;
  				}
  			}
  	}
@@ -174,7 +312,7 @@ diff --git a/fs/seq_file.c b/fs/seq_file.c
  	return retval;
  }
  EXPORT_SYMBOL(seq_lseek);
-@@ -480,3 +499,37 @@ int seq_puts(struct seq_file *m, const c
+@@ -480,3 +528,37 @@ int seq_puts(struct seq_file *m, const c
  	return -1;
  }
  EXPORT_SYMBOL(seq_puts);
@@ -215,7 +353,15 @@ diff --git a/fs/seq_file.c b/fs/seq_file.c
 diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
 --- a/include/linux/seq_file.h
 +++ b/include/linux/seq_file.h
-@@ -31,6 +31,8 @@ struct seq_operations {
+@@ -18,6 +18,7 @@ struct seq_file {
+ 	size_t from;
+ 	size_t count;
+ 	loff_t index;
++	loff_t read_pos;
+ 	u64 version;
+ 	struct mutex lock;
+ 	const struct seq_operations *op;
+@@ -31,6 +32,8 @@ struct seq_operations {
  	int (*show) (struct seq_file *m, void *v);
  };
  
@@ -224,7 +370,7 @@ diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
  int seq_open(struct file *, const struct seq_operations *);
  ssize_t seq_read(struct file *, char __user *, size_t, loff_t *);
  loff_t seq_lseek(struct file *, loff_t, int);
-@@ -52,5 +54,16 @@ int seq_release_private(struct inode *, 
+@@ -52,5 +55,16 @@ int seq_release_private(struct inode *, 
  
  #define SEQ_START_TOKEN ((void *)1)
  
