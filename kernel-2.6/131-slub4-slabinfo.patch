@@ -7,16 +7,14 @@ This adds a read-only /proc/slabinfo file on SLUB, that makes slabtop work.
 
 [ mingo@elte.hu: build fix. ]
 
-Cc: Andi Kleen <andi@firstfloor.org>
-Cc: Christoph Lameter <clameter@sgi.com>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 ---
- include/linux/slub_def.h |    2 +
- mm/slub.c                |  105 ++++++++++++++++++++++++++++++++++++++++------
- 2 files changed, 94 insertions(+), 13 deletions(-)
+ cf5d11317e8f2671d3115622aec76274a40f4fc2 SLUB: Drop write permission to /proc/slabinfo
+
+---
+ fs/proc/proc_misc.c      |    8 ++-
+ include/linux/slub_def.h |    2 
+ mm/slub.c                |  113 +++++++++++++++++++++++++++++++++++++++++------
+ 3 files changed, 107 insertions(+), 16 deletions(-)
 
 diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
 --- a/include/linux/slub_def.h
@@ -186,12 +184,15 @@ diff -uBp a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
  	.llseek		= seq_lseek,
  	.release	= seq_release,
  };
-@@ -698,7 +700,7 @@ void __init proc_misc_init(void)
+@@ -698,8 +700,8 @@ void __init proc_misc_init(void)
  #endif
  	create_seq_entry("stat", 0, &proc_stat_operations);
  	create_seq_entry("interrupts", 0, &proc_interrupts_operations);
 -#ifdef CONFIG_SLAB
+-	create_seq_entry("slabinfo",S_IWUSR|S_IRUGO,&proc_slabinfo_operations);
 +#if defined(CONFIG_SLAB) || defined(CONFIG_SLUB)
- 	create_seq_entry("slabinfo",S_IWUSR|S_IRUGO,&proc_slabinfo_operations);
++	create_seq_entry("slabinfo",S_IRUGO, &proc_slabinfo_operations);
  #ifdef CONFIG_DEBUG_SLAB_LEAK
  	create_seq_entry("slab_allocators", 0 ,&proc_slabstats_operations);
+ #endif
+-- 
