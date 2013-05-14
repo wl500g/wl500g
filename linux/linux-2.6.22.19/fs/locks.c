@@ -632,33 +632,6 @@ static int flock_locks_conflict(struct file_lock *caller_fl, struct file_lock *s
 	return (locks_conflict(caller_fl, sys_fl));
 }
 
-static int interruptible_sleep_on_locked(wait_queue_head_t *fl_wait, int timeout)
-{
-	int result = 0;
-	DECLARE_WAITQUEUE(wait, current);
-
-	__set_current_state(TASK_INTERRUPTIBLE);
-	add_wait_queue(fl_wait, &wait);
-	if (timeout == 0)
-		schedule();
-	else
-		result = schedule_timeout(timeout);
-	if (signal_pending(current))
-		result = -ERESTARTSYS;
-	remove_wait_queue(fl_wait, &wait);
-	__set_current_state(TASK_RUNNING);
-	return result;
-}
-
-static int locks_block_on_timeout(struct file_lock *blocker, struct file_lock *waiter, int time)
-{
-	int result;
-	locks_insert_block(blocker, waiter);
-	result = interruptible_sleep_on_locked(&waiter->fl_wait, time);
-	__locks_delete_block(waiter);
-	return result;
-}
-
 int
 posix_test_lock(struct file *filp, struct file_lock *fl)
 {
@@ -708,14 +681,13 @@ EXPORT_SYMBOL(posix_test_lock);
 static int posix_locks_deadlock(struct file_lock *caller_fl,
 				struct file_lock *block_fl)
 {
-	struct list_head *tmp;
+	struct file_lock *fl;
 	int i = 0;
 
 next_task:
 	if (posix_same_owner(caller_fl, block_fl))
 		return 1;
-	list_for_each(tmp, &blocked_list) {
-		struct file_lock *fl = list_entry(tmp, struct file_lock, fl_link);
+	list_for_each_entry(fl, &blocked_list, fl_link) {
 		if (posix_same_owner(fl, block_fl)) {
 			if (i++ > MAX_DEADLK_ITERATIONS)
 				return 0;
@@ -1131,7 +1103,7 @@ int locks_mandatory_area(int read_write, struct inode *inode,
 			 * If we've been sleeping someone might have
 			 * changed the permissions behind our back.
 			 */
-			if ((inode->i_mode & (S_ISGID | S_IXGRP)) == S_ISGID)
+			if (__mandatory_lock(inode))
 				continue;
 		}
 
@@ -1258,7 +1230,10 @@ restart:
 		if (break_time == 0)
 			break_time++;
 	}
-	error = locks_block_on_timeout(flock, new_fl, break_time);
+	locks_insert_block(flock, new_fl);
+	error = wait_event_interruptible_timeout(new_fl->fl_wait,
+						!new_fl->fl_next, break_time);
+	__locks_delete_block(new_fl);
 	if (error >= 0) {
 		if (error == 0)
 			time_out_leases(inode);
@@ -1756,9 +1731,7 @@ int fcntl_setlk(unsigned int fd, struct file *filp, unsigned int cmd,
 	/* Don't allow mandatory locks on files that may be memory mapped
 	 * and shared.
 	 */
-	if (IS_MANDLOCK(inode) &&
-	    (inode->i_mode & (S_ISGID | S_IXGRP)) == S_ISGID &&
-	    mapping_writably_mapped(filp->f_mapping)) {
+	if (mandatory_lock(inode) && mapping_writably_mapped(filp->f_mapping)) {
 		error = -EAGAIN;
 		goto out;
 	}
@@ -1886,9 +1859,7 @@ int fcntl_setlk64(unsigned int fd, struct file *filp, unsigned int cmd,
 	/* Don't allow mandatory locks on files that may be memory mapped
 	 * and shared.
 	 */
-	if (IS_MANDLOCK(inode) &&
-	    (inode->i_mode & (S_ISGID | S_IXGRP)) == S_ISGID &&
-	    mapping_writably_mapped(filp->f_mapping)) {
+	if (mandatory_lock(inode) && mapping_writably_mapped(filp->f_mapping)) {
 		error = -EAGAIN;
 		goto out;
 	}
@@ -2086,9 +2057,7 @@ static void lock_get_status(char* out, struct file_lock *fl, int id, char *pfx)
 		out += sprintf(out, "%6s %s ",
 			     (fl->fl_flags & FL_ACCESS) ? "ACCESS" : "POSIX ",
 			     (inode == NULL) ? "*NOINODE*" :
-			     (IS_MANDLOCK(inode) &&
-			      (inode->i_mode & (S_IXGRP | S_ISGID)) == S_ISGID) ?
-			     "MANDATORY" : "ADVISORY ");
+			     mandatory_lock(inode) ? "MANDATORY" : "ADVISORY ");
 	} else if (IS_FLOCK(fl)) {
 		if (fl->fl_type & LOCK_MAND) {
 			out += sprintf(out, "FLOCK  MSNFS     ");
@@ -2173,24 +2142,22 @@ static void move_lock_status(char **p, off_t* pos, off_t offset)
 
 int get_locks_status(char *buffer, char **start, off_t offset, int length)
 {
-	struct list_head *tmp;
+	struct file_lock *fl;
 	char *q = buffer;
 	off_t pos = 0;
 	int i = 0;
 
 	lock_kernel();
-	list_for_each(tmp, &file_lock_list) {
-		struct list_head *btmp;
-		struct file_lock *fl = list_entry(tmp, struct file_lock, fl_link);
+	list_for_each_entry(fl, &file_lock_list, fl_link) {
+		struct file_lock *bfl;
+
 		lock_get_status(q, fl, ++i, "");
 		move_lock_status(&q, &pos, offset);
 
 		if(pos >= offset+length)
 			goto done;
 
-		list_for_each(btmp, &fl->fl_block) {
-			struct file_lock *bfl = list_entry(btmp,
-					struct file_lock, fl_block);
+		list_for_each_entry(bfl, &fl->fl_block, fl_block) {
 			lock_get_status(q, bfl, i, " ->");
 			move_lock_status(&q, &pos, offset);
 
