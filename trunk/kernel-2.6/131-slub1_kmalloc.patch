@@ -29,6 +29,10 @@ Code size of slub.o decreases by more than 200 bytes through this patch.
 Signed-off-by: Christoph Lameter <clameter@sgi.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
+ 12ad6843dd145050231ec5a27fe326c2085f9095 SLUB: Style fix up the loop to disable small slabs
+
 ---
  mm/slub.c |   71 +++++++++++++++++++++++++++++++++++++++++++++++++++++++------
  1 files changed, 64 insertions(+), 7 deletions(-)
@@ -120,12 +124,10 @@ diff --git a/mm/slub.c b/mm/slub.c
 +	BUILD_BUG_ON(KMALLOC_MIN_SIZE > 256 ||
 +		(KMALLOC_MIN_SIZE & (KMALLOC_MIN_SIZE - 1)));
 +
-+	for (i = 8; i < KMALLOC_MIN_SIZE;i++)
++	for (i = 8; i < KMALLOC_MIN_SIZE; i += 8)
 +		size_index[(i - 1) / 8] = KMALLOC_SHIFT_LOW;
 +
  	slab_state = UP;
  
  	/* Provide the correct kmalloc names now that the caches are up */
 -- 
-1.7.0.2
-
