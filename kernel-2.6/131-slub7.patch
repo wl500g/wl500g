@@ -191,7 +191,7 @@ diff --git a/mm/slub.c b/mm/slub.c
  
 -	if (unlikely((gfpflags & __GFP_ZERO) && object))
 +	if (unlikely(gfpflags & __GFP_ZERO) && object)
- 		memset(object, 0, length);
+ 		memset(object, 0, s->objsize);
  
  	return object;
 @@ -1752,7 +1750,7 @@ static inline int calculate_order(int size)

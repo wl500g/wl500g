@@ -1,7 +1,6 @@
 Subject: [PATCH] Various slab/slub/slob allocator patches from 2.6 upstream
 
 ---
-
  include/linux/cache.h    |    4 
  include/linux/slab.h     |  148 ++++++----
  include/linux/slab_def.h |   42 +--
@@ -13,10 +12,10 @@ Subject: [PATCH] Various slab/slub/slob allocator patches from 2.6 upstream
  mm/page_alloc.c          |    2 
  mm/slab.c                |  164 +++--------
  mm/slob.c                |  649 ++++++++++++++++++++++++++++++++---------------
- mm/slub.c                |  141 +++-------
+ mm/slub.c                |  129 +++------
  mm/sparse.c              |   31 ++
  mm/util.c                |   51 ++-
- 14 files changed, 813 insertions(+), 533 deletions(-)
+ 14 files changed, 806 insertions(+), 528 deletions(-)
 
 diff --git a/include/linux/cache.h b/include/linux/cache.h
 --- a/include/linux/cache.h
@@ -1788,43 +1787,17 @@ diff --git a/mm/slub.c b/mm/slub.c
  	if (!page)
  		goto new_slab;
  
-@@ -1461,7 +1462,7 @@ debug:
-  * Otherwise we can simply pick the next object from the lockless free list.
-  */
- static void __always_inline *slab_alloc(struct kmem_cache *s,
--				gfp_t gfpflags, int node, void *addr)
-+		gfp_t gfpflags, int node, void *addr, int length)
- {
- 	struct page *page;
- 	void **object;
-@@ -1479,19 +1480,25 @@ static void __always_inline *slab_alloc(struct kmem_cache *s,
+@@ -1479,6 +1480,10 @@ static void __always_inline *slab_alloc(struct kmem_cache *s,
  		page->lockless_freelist = object[page->offset];
  	}
  	local_irq_restore(flags);
 +
 +	if (unlikely((gfpflags & __GFP_ZERO) && object))
-+		memset(object, 0, length);
++		memset(object, 0, s->objsize);
 +
  	return object;
  }
  
- void *kmem_cache_alloc(struct kmem_cache *s, gfp_t gfpflags)
- {
--	return slab_alloc(s, gfpflags, -1, __builtin_return_address(0));
-+	return slab_alloc(s, gfpflags, -1,
-+			__builtin_return_address(0), s->objsize);
- }
- EXPORT_SYMBOL(kmem_cache_alloc);
- 
- #ifdef CONFIG_NUMA
- void *kmem_cache_alloc_node(struct kmem_cache *s, gfp_t gfpflags, int node)
- {
--	return slab_alloc(s, gfpflags, node, __builtin_return_address(0));
-+	return slab_alloc(s, gfpflags, node,
-+		__builtin_return_address(0), s->objsize);
- }
- EXPORT_SYMBOL(kmem_cache_alloc_node);
- #endif
 @@ -2097,6 +2104,8 @@ void kmem_cache_destroy(struct kmem_cache *s)
  		list_del(&s->list);
  		if (kmem_cache_close(s))
@@ -1858,7 +1831,7 @@ diff --git a/mm/slub.c b/mm/slub.c
 +	if (ZERO_OR_NULL_PTR(s))
 +		return s;
 +
-+	return slab_alloc(s, flags, -1, __builtin_return_address(0), size);
++	return slab_alloc(s, flags, -1, __builtin_return_address(0));
  }
  EXPORT_SYMBOL(__kmalloc);
  
@@ -1872,7 +1845,7 @@ diff --git a/mm/slub.c b/mm/slub.c
 +	if (ZERO_OR_NULL_PTR(s))
 +		return s;
 +
-+	return slab_alloc(s, flags, node, __builtin_return_address(0), size);
++	return slab_alloc(s, flags, node, __builtin_return_address(0));
  }
  EXPORT_SYMBOL(__kmalloc_node);
  #endif
@@ -1991,7 +1964,7 @@ diff --git a/mm/slub.c b/mm/slub.c
  #ifdef CONFIG_SMP
  static void for_all_slabs(void (*func)(struct kmem_cache *, int), int cpu)
  {
-@@ -2654,10 +2615,10 @@ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, void *caller)
+@@ -2654,8 +2615,8 @@ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, void *caller)
  {
  	struct kmem_cache *s = get_slab(size, gfpflags);
  
@@ -2000,12 +1973,9 @@ diff --git a/mm/slub.c b/mm/slub.c
 +	if (unlikely(ZERO_OR_NULL_PTR(s)))
 +		return s;
  
--	return slab_alloc(s, gfpflags, -1, caller);
-+	return slab_alloc(s, gfpflags, -1, caller, size);
+ 	return slab_alloc(s, gfpflags, -1, caller);
  }
- 
- void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
-@@ -2665,10 +2626,10 @@ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
+@@ -2665,8 +2626,8 @@ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
  {
  	struct kmem_cache *s = get_slab(size, gfpflags);
  
@@ -2014,11 +1984,8 @@ diff --git a/mm/slub.c b/mm/slub.c
 +	if (unlikely(ZERO_OR_NULL_PTR(s)))
 +		return s;
  
--	return slab_alloc(s, gfpflags, node, caller);
-+	return slab_alloc(s, gfpflags, node, caller, size);
+ 	return slab_alloc(s, gfpflags, node, caller);
  }
- 
- #if defined(CONFIG_SYSFS) && defined(CONFIG_SLUB_DEBUG)
 @@ -2984,7 +2945,7 @@ static int list_locations(struct kmem_cache *s, char *buf,
  		unsigned long flags;
  		struct page *page;
@@ -2206,4 +2173,3 @@ diff --git a/mm/util.c b/mm/util.c
   * strndup_user - duplicate an existing string from user space
   *
 -- 
-1.6.5.GIT
