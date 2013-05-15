@@ -1,21 +1,155 @@
-From 57ed3eda977a215f054102b460ab0eb5d8d112e6
-From: Pekka J Enberg
-Date: Tue, 1 Jan 2008 17:23:28 +0100
-Subject: [PATCH] slub: provide /proc/slabinfo
-
-This adds a read-only /proc/slabinfo file on SLUB, that makes slabtop work.
-
-[ mingo@elte.hu: build fix. ]
-
----
+ ac07860264bd2b18834d3fa3be47032115524cea SLUB: Fix format specifier in Documentation/vm/slabinfo.c
+ f32143a2fedfa299d790ca96bff9b1d2e2d6996b Documentation/vm/slabinfo.c: clean up this code
+ 57ed3eda977a215f054102b460ab0eb5d8d112e6 slub: provide /proc/slabinfo
  cf5d11317e8f2671d3115622aec76274a40f4fc2 SLUB: Drop write permission to /proc/slabinfo
+ fe353178653b15add8626f5474842601be160281 tools, slub: Fix off-by-one buffer corruption after readlink() call
 
 ---
- fs/proc/proc_misc.c      |    8 ++-
- include/linux/slub_def.h |    2 
- mm/slub.c                |  113 +++++++++++++++++++++++++++++++++++++++++------
- 3 files changed, 107 insertions(+), 16 deletions(-)
+ Documentation/vm/slabinfo.c |   31 ++++++------
+ fs/proc/proc_misc.c         |    8 +--
+ include/linux/slub_def.h    |    2 
+ mm/slub.c                   |  113 ++++++++++++++++++++++++++++++++++++++------
+ 4 files changed, 124 insertions(+), 30 deletions(-)
 
+diff --git a/Documentation/vm/slabinfo.c b/Documentation/vm/slabinfo.c
+--- a/Documentation/vm/slabinfo.c
++++ b/Documentation/vm/slabinfo.c
+@@ -11,6 +11,7 @@
+ #include <stdlib.h>
+ #include <sys/types.h>
+ #include <dirent.h>
++#include <strings.h>
+ #include <string.h>
+ #include <unistd.h>
+ #include <stdarg.h>
+@@ -84,7 +85,7 @@ void fatal(const char *x, ...)
+ 	va_start(ap, x);
+ 	vfprintf(stderr, x, ap);
+ 	va_end(ap);
+-	exit(1);
++	exit(EXIT_FAILURE);
+ }
+ 
+ void usage(void)
+@@ -119,14 +120,14 @@ void usage(void)
+ 	);
+ }
+ 
+-unsigned long read_obj(char *name)
++unsigned long read_obj(const char *name)
+ {
+ 	FILE *f = fopen(name, "r");
+ 
+ 	if (!f)
+ 		buffer[0] = 0;
+ 	else {
+-		if (!fgets(buffer,sizeof(buffer), f))
++		if (!fgets(buffer, sizeof(buffer), f))
+ 			buffer[0] = 0;
+ 		fclose(f);
+ 		if (buffer[strlen(buffer)] == '\n')
+@@ -139,7 +140,7 @@ unsigned long read_obj(char *name)
+ /*
+  * Get the contents of an attribute
+  */
+-unsigned long get_obj(char *name)
++unsigned long get_obj(const char *name)
+ {
+ 	if (!read_obj(name))
+ 		return 0;
+@@ -147,7 +148,7 @@ unsigned long get_obj(char *name)
+ 	return atol(buffer);
+ }
+ 
+-unsigned long get_obj_and_str(char *name, char **x)
++unsigned long get_obj_and_str(const char *name, char **x)
+ {
+ 	unsigned long result = 0;
+ 	char *p;
+@@ -166,12 +167,12 @@ unsigned long get_obj_and_str(char *name
+ 	return result;
+ }
+ 
+-void set_obj(struct slabinfo *s, char *name, int n)
++void set_obj(struct slabinfo *s, const char *name, int n)
+ {
+ 	char x[100];
+ 	FILE *f;
+ 
+-	sprintf(x, "%s/%s", s->name, name);
++	snprintf(x, 100, "%s/%s", s->name, name);
+ 	f = fopen(x, "w");
+ 	if (!f)
+ 		fatal("Cannot write to %s\n", x);
+@@ -180,13 +181,13 @@ void set_obj(struct slabinfo *s, char *n
+ 	fclose(f);
+ }
+ 
+-unsigned long read_slab_obj(struct slabinfo *s, char *name)
++unsigned long read_slab_obj(struct slabinfo *s, const char *name)
+ {
+ 	char x[100];
+ 	FILE *f;
+-	int l;
++	size_t l;
+ 
+-	sprintf(x, "%s/%s", s->name, name);
++	snprintf(x, 100, "%s/%s", s->name, name);
+ 	f = fopen(x, "r");
+ 	if (!f) {
+ 		buffer[0] = 0;
+@@ -396,7 +397,7 @@ void report(struct slabinfo *s)
+ 	if (strcmp(s->name, "*") == 0)
+ 		return;
+ 
+-	printf("\nSlabcache: %-20s  Aliases: %2d Order : %2d Objects: %d\n",
++	printf("\nSlabcache: %-20s  Aliases: %2d Order : %2d Objects: %lu\n",
+ 		s->name, s->aliases, s->order, s->objects);
+ 	if (s->hwcache_align)
+ 		printf("** Hardware cacheline aligned\n");
+@@ -453,7 +454,7 @@ void slabcache(struct slabinfo *s)
+ 		return;
+ 
+ 	store_size(size_str, slab_size(s));
+-	sprintf(dist_str,"%lu/%lu/%d", s->slabs, s->partial, s->cpu_slabs);
++	snprintf(dist_str, 40, "%lu/%lu/%d", s->slabs, s->partial, s->cpu_slabs);
+ 
+ 	if (!line++)
+ 		first_line();
+@@ -1031,7 +1032,7 @@ void read_slab_dir(void)
+ 		switch (de->d_type) {
+ 		   case DT_LNK:
+ 		   	alias->name = strdup(de->d_name);
+-			count = readlink(de->d_name, buffer, sizeof(buffer));
++			count = readlink(de->d_name, buffer, sizeof(buffer)-1);
+ 
+ 			if (count < 0)
+ 				fatal("Cannot read symlink %s\n", de->d_name);
+@@ -1062,6 +1063,7 @@ void read_slab_dir(void)
+ 			slab->partial = get_obj("partial");
+ 			slab->partial = get_obj_and_str("partial", &t);
+ 			decode_numa_list(slab->numa_partial, t);
++			free(t);
+ 			slab->poison = get_obj("poison");
+ 			slab->reclaim_account = get_obj("reclaim_account");
+ 			slab->red_zone = get_obj("red_zone");
+@@ -1069,6 +1071,7 @@ void read_slab_dir(void)
+ 			slab->slab_size = get_obj("slab_size");
+ 			slab->slabs = get_obj_and_str("slabs", &t);
+ 			decode_numa_list(slab->numa, t);
++			free(t);
+ 			slab->store_user = get_obj("store_user");
+ 			slab->trace = get_obj("trace");
+ 			chdir("..");
+@@ -1148,7 +1151,7 @@ int main(int argc, char *argv[])
+ 
+ 	while ((c = getopt_long(argc, argv, "ad::efhil1noprstvzTS",
+ 						opts, NULL)) != -1)
+-	switch(c) {
++		switch (c) {
+ 		case '1':
+ 			show_single_ref = 1;
+ 			break;
 diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
 --- a/include/linux/slub_def.h
 +++ b/include/linux/slub_def.h
