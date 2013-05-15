@@ -2726,16 +2726,17 @@ diff --git a/mm/slub.c b/mm/slub.c
  	return object;
  }
  
-@@ -1595,7 +1596,9 @@ static void __always_inline slab_free(st
+@@ -1595,8 +1596,10 @@ static void __always_inline slab_free(st
  	void **object = (void *)x;
  	unsigned long flags;
  
 +	kmemleak_free_recursive(x, s->flags);
  	local_irq_save(flags);
-+	debug_check_no_locks_freed(object, s->objsize);
- 	if (likely(page == s->cpu_slab[smp_processor_id()] &&
- 						!SlabDebug(page))) {
- 		object[page->offset] = page->lockless_freelist;
+ 	c = get_cpu_slab(s, smp_processor_id());
++	debug_check_no_locks_freed(object, c->objsize);
+ 	if (likely(page == c->page && !SlabDebug(page))) {
+ 		object[c->offset] = c->freelist;
+ 		c->freelist = object;
 @@ -2344,11 +2346,13 @@ static void *kmalloc_large_node(size_t s
  {
  	struct page *page = alloc_pages_node(node, flags | __GFP_COMP,
