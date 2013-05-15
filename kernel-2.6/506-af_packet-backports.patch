@@ -1,6 +1,7 @@
 [AF_PACKET] Backports from upstream
 
  kernel.org commits
+ be85d4ad8ab69520e5ca4717c491a311c9eeae59 [AF_PACKET]: Fix minor code duplication
  bbd6ef87c544d88c30e4b762b1b61ef267a7d279 packet: support extensible, 64 bit clean mmaped ring structure
  8032b46489e50ef8f3992159abd0349b5b8e476c [AF_PACKET]: Allow multicast traffic to be caught by ORIGDEV when bonded
  2aeb0b88b3c7a0e3bef55e7ff0efffd5d971aa57 af_packet: Check return of dev_set_promiscuity/allmulti
@@ -15,10 +16,10 @@
  Documentation/networking/packet_mmap.txt |  140 ++++-
  include/linux/if_packet.h                |   44 +
  include/linux/skbuff.h                   |    3 
- net/packet/af_packet.c                   |  770 +++++++++++++++++++++++++------
- 4 files changed, 806 insertions(+), 151 deletions(-)
+ net/packet/af_packet.c                   |  786 +++++++++++++++++++++++++------
+ 4 files changed, 811 insertions(+), 162 deletions(-)
 
-diff -urBp a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
+diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
 --- a/Documentation/networking/packet_mmap.txt
 +++ b/Documentation/networking/packet_mmap.txt
 @@ -4,16 +4,18 @@
@@ -234,7 +235,7 @@ diff -urBp a/Documentation/networking/packet_mmap.txt b/Documentation/networking
  --------------------------------------------------------------------------------
  + THANKS
  --------------------------------------------------------------------------------
-diff -urBp a/include/linux/if_packet.h b/include/linux/if_packet.h
+diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
 --- a/include/linux/if_packet.h
 +++ b/include/linux/if_packet.h
 @@ -43,6 +43,11 @@ struct sockaddr_ll
@@ -307,7 +308,7 @@ diff -urBp a/include/linux/if_packet.h b/include/linux/if_packet.h
  /*
     Frame structure:
  
-diff -urBp a/include/linux/skbuff.h b/include/linux/skbuff.h
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
 @@ -144,6 +144,9 @@ struct skb_shared_info {
@@ -320,7 +321,7 @@ diff -urBp a/include/linux/skbuff.h b/include/linux/skbuff.h
  	/* must be last field, see pskb_expand_head() */
  	skb_frag_t	frags[MAX_SKB_FRAGS];
  };
-diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
 @@ -41,6 +41,7 @@
@@ -656,7 +657,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  		p_end = virt_to_page(h_end);
  		while (p_start <= p_end) {
  			flush_dcache_page(p_start);
-@@ -696,10 +827,251 @@ ring_is_full:
+@@ -695,10 +826,251 @@ ring_is_full:
  	goto drop_n_restore;
  }
  
@@ -910,7 +911,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  			  struct msghdr *msg, size_t len)
  {
  	struct sock *sk = sock->sk;
-@@ -796,6 +1171,19 @@ out:
+@@ -795,6 +1167,19 @@ out:
  	return err;
  }
  
@@ -930,7 +931,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  /*
   *	Close a PACKET socket. This is fairly simple. We immediately go
   *	to 'closed' state and remove our protocol entry in the device list.
-@@ -805,6 +1193,9 @@ static int packet_release(struct socket
+@@ -804,6 +1189,9 @@ static int packet_release(struct socket 
  {
  	struct sock *sk = sock->sk;
  	struct packet_sock *po;
@@ -940,7 +941,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  
  	if (!sk)
  		return 0;
-@@ -832,11 +1223,13 @@ static int packet_release(struct socket
+@@ -831,11 +1219,13 @@ static int packet_release(struct socket 
  	packet_flush_mclist(sk);
  
  #ifdef CONFIG_PACKET_MMAP
@@ -959,7 +960,33 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  #endif
  
  	/*
-@@ -1014,6 +1407,7 @@ static int packet_create(struct socket *
+@@ -885,20 +1275,14 @@ static int packet_do_bind(struct sock *s
+ 	if (protocol == 0)
+ 		goto out_unlock;
+ 
+-	if (dev) {
+-		if (dev->flags&IFF_UP) {
+-			dev_add_pack(&po->prot_hook);
+-			sock_hold(sk);
+-			po->running = 1;
+-		} else {
+-			sk->sk_err = ENETDOWN;
+-			if (!sock_flag(sk, SOCK_DEAD))
+-				sk->sk_error_report(sk);
+-		}
+-	} else {
++	if (!dev || (dev->flags & IFF_UP)) {
+ 		dev_add_pack(&po->prot_hook);
+ 		sock_hold(sk);
+ 		po->running = 1;
++	} else {
++		sk->sk_err = ENETDOWN;
++		if (!sock_flag(sk, SOCK_DEAD))
++			sk->sk_error_report(sk);
+ 	}
+ 
+ out_unlock:
+@@ -1013,6 +1397,7 @@ static int packet_create(struct socket *
  	 */
  
  	spin_lock_init(&po->bind_lock);
@@ -967,7 +994,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  	po->prot_hook.func = packet_rcv;
  
  	if (sock->type == SOCK_PACKET)
-@@ -1122,6 +1516,7 @@ static int packet_recvmsg(struct kiocb *
+@@ -1121,6 +1506,7 @@ static int packet_recvmsg(struct kiocb *
  		aux.tp_snaplen = skb->len;
  		aux.tp_mac = 0;
  		aux.tp_net = skb_network_offset(skb);
@@ -975,7 +1002,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  
  		put_cmsg(msg, SOL_PACKET, PACKET_AUXDATA, sizeof(aux), &aux);
  	}
-@@ -1188,7 +1583,8 @@ static int packet_getname(struct socket
+@@ -1187,7 +1573,8 @@ static int packet_getname(struct socket 
  	return 0;
  }
  
@@ -985,7 +1012,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  {
  	switch (i->type) {
  	case PACKET_MR_MULTICAST:
-@@ -1198,13 +1594,14 @@ static void packet_dev_mc(struct net_dev
+@@ -1197,13 +1584,14 @@ static void packet_dev_mc(struct net_dev
  			dev_mc_delete(dev, i->addr, i->alen, 0);
  		break;
  	case PACKET_MR_PROMISC:
@@ -1002,7 +1029,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  }
  
  static void packet_dev_mclist(struct net_device *dev, struct packet_mclist *i, int what)
-@@ -1258,7 +1655,11 @@ static int packet_mc_add(struct sock *sk
+@@ -1257,7 +1645,11 @@ static int packet_mc_add(struct sock *sk
  	i->count = 1;
  	i->next = po->mclist;
  	po->mclist = i;
@@ -1015,7 +1042,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  
  done:
  	rtnl_unlock();
-@@ -1326,7 +1727,7 @@ packet_setsockopt(struct socket *sock, i
+@@ -1325,7 +1717,7 @@ packet_setsockopt(struct socket *sock, i
  	if (level != SOL_PACKET)
  		return -ENOPROTOOPT;
  
@@ -1024,7 +1051,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  	case PACKET_ADD_MEMBERSHIP:
  	case PACKET_DROP_MEMBERSHIP:
  	{
-@@ -1350,6 +1751,7 @@ packet_setsockopt(struct socket *sock, i
+@@ -1349,6 +1741,7 @@ packet_setsockopt(struct socket *sock, i
  
  #ifdef CONFIG_PACKET_MMAP
  	case PACKET_RX_RING:
@@ -1032,7 +1059,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  	{
  		struct tpacket_req req;
  
-@@ -1357,7 +1759,7 @@ packet_setsockopt(struct socket *sock, i
+@@ -1356,7 +1749,7 @@ packet_setsockopt(struct socket *sock, i
  			return -EINVAL;
  		if (copy_from_user(&req,optval,sizeof(req)))
  			return -EFAULT;
@@ -1041,7 +1068,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  	}
  	case PACKET_COPY_THRESH:
  	{
-@@ -1371,6 +1773,51 @@ packet_setsockopt(struct socket *sock, i
+@@ -1370,6 +1763,51 @@ packet_setsockopt(struct socket *sock, i
  		pkt_sk(sk)->copy_thresh = val;
  		return 0;
  	}
@@ -1093,7 +1120,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  #endif
  	case PACKET_AUXDATA:
  	{
-@@ -1420,7 +1867,7 @@ static int packet_getsockopt(struct sock
+@@ -1419,7 +1857,7 @@ static int packet_getsockopt(struct sock
  	if (len < 0)
  		return -EINVAL;
  
@@ -1102,7 +1129,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  	case PACKET_STATISTICS:
  		if (len > sizeof(struct tpacket_stats))
  			len = sizeof(struct tpacket_stats);
-@@ -1446,6 +1893,43 @@ static int packet_getsockopt(struct sock
+@@ -1445,6 +1883,43 @@ static int packet_getsockopt(struct sock
  
  		data = &val;
  		break;
@@ -1146,7 +1173,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  	default:
  		return -ENOPROTOOPT;
  	}
-@@ -1514,7 +1998,7 @@ static int packet_ioctl(struct socket *s
+@@ -1513,7 +1988,7 @@ static int packet_ioctl(struct socket *s
  {
  	struct sock *sk = sock->sk;
  
@@ -1155,7 +1182,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  		case SIOCOUTQ:
  		{
  			int amount = sk_wmem_alloc_get(sk);
-@@ -1575,16 +2059,17 @@ static unsigned int packet_poll(struct f
+@@ -1574,16 +2049,17 @@ static unsigned int packet_poll(struct f
  	unsigned int mask = datagram_poll(file, sock, wait);
  
  	spin_lock_bh(&sk->sk_receive_queue.lock);
@@ -1180,7 +1207,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  	return mask;
  }
  
-@@ -1665,60 +2150,72 @@ out_free_pgvec:
+@@ -1664,60 +2140,72 @@ out_free_pgvec:
  	goto out;
  }
  
@@ -1286,7 +1313,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  	}
  
  	lock_sock(sk);
-@@ -1738,27 +2235,30 @@ static int packet_set_ring(struct sock *
+@@ -1737,27 +2225,30 @@ static int packet_set_ring(struct sock *
  	synchronize_net();
  
  	err = -EBUSY;
@@ -1332,7 +1359,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  
  	spin_lock(&po->bind_lock);
  	if (was_running && !po->running) {
-@@ -1777,11 +2277,13 @@ out:
+@@ -1776,11 +2267,13 @@ out:
  	return err;
  }
  
@@ -1348,7 +1375,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  	unsigned long start;
  	int err = -EINVAL;
  	int i;
-@@ -1789,26 +2291,43 @@ static int packet_mmap(struct file *file
+@@ -1788,26 +2281,43 @@ static int packet_mmap(struct file *file
  	if (vma->vm_pgoff)
  		return -EINVAL;
  
@@ -1405,7 +1432,7 @@ diff -urBp a/net/packet/af_packet.c b/net/packet/af_packet.c
  	atomic_inc(&po->mapped);
  	vma->vm_ops = &packet_mmap_ops;
  	err = 0;
-@@ -1814,7 +2333,7 @@ static int packet_mmap(struct file *file
+@@ -1813,7 +2323,7 @@ static int packet_mmap(struct file *file
  	err = 0;
  
  out:
