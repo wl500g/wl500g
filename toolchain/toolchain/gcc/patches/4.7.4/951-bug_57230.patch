@@ -1,0 +1,49 @@
+[4.7/4.8/4.9 Regression] tree-ssa-strlen incorrectly optimizes a strlen to 0
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57230
+
+--- gcc-4_8-branch/gcc/ChangeLog	2013/05/13 07:46:53	198813
++++ gcc-4_8-branch/gcc/ChangeLog	2013/05/13 07:48:39	198814
+@@ -1,6 +1,12 @@
+ 	(strset_singleop, *strsetdi_rex_1, *strsetsi_1, *strsethi_1,
+ 	*strsetqi_1): Add UNSPEC_STOS.
+ 
++2013-05-13  Jakub Jelinek  <jakub@redhat.com>
++
++	PR tree-optimization/57230
++	* tree-ssa-strlen.c (handle_char_store): Add missing integer_zerop
++	check.
++
+ 2013-05-10  Joey Ye  <joey.ye@arm.com>
+ 
+ 	Backport from mainline
+--- /dev/null
++++ gcc-4_8-branch/gcc/testsuite/gcc.dg/strlenopt-23.c	2013/05/13 07:48:39	198814
+@@ -0,0 +1,16 @@
++/* PR tree-optimization/57230 */
++/* { dg-do run } */
++/* { dg-options "-O2" } */
++
++#include <stdlib.h>
++#include <string.h>
++
++int
++main ()
++{
++  char p[] = "hello world";
++  p[0] = (char) (strlen (p) - 1);
++  if (strlen (p) != 11)
++    abort ();
++  return 0;
++}
+--- gcc-4_8-branch/gcc/tree-ssa-strlen.c	2013/05/13 07:46:53	198813
++++ gcc-4_8-branch/gcc/tree-ssa-strlen.c	2013/05/13 07:48:39	198814
+@@ -1688,7 +1688,7 @@
+ 	       its length may be decreased.  */
+ 	    adjust_last_stmt (si, stmt, false);
+ 	}
+-      else if (si != NULL)
++      else if (si != NULL && integer_zerop (gimple_assign_rhs1 (stmt)))
+ 	{
+ 	  si = unshare_strinfo (si);
+ 	  si->length = build_int_cst (size_type_node, 0);
