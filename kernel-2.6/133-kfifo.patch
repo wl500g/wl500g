@@ -1,0 +1,74 @@
+kfifo: Updates from upstream
+
+ f84d5a76c50d9752cdec64a6e536ee3901b267f6 is_power_of_2: kernel/kfifo.c
+ b33112d1cc25e658c334125d127a6ae15d5a0ad6 kernel/kfifo.c: replace conditional test with is_power_of_2()
+ f8a7c1a976a6672204c7f4f0f694f33715dfa617 kfifo: Use "const" definitions
+
+---
+ include/linux/kfifo.h |    4 ++--
+ kernel/kfifo.c        |    9 +++++----
+ 2 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/kfifo.h b/include/linux/kfifo.h
+--- a/include/linux/kfifo.h
++++ b/include/linux/kfifo.h
+@@ -38,7 +38,7 @@ extern struct kfifo *kfifo_alloc(unsigned int size, gfp_t gfp_mask,
+ 				 spinlock_t *lock);
+ extern void kfifo_free(struct kfifo *fifo);
+ extern unsigned int __kfifo_put(struct kfifo *fifo,
+-				unsigned char *buffer, unsigned int len);
++				const unsigned char *buffer, unsigned int len);
+ extern unsigned int __kfifo_get(struct kfifo *fifo,
+ 				unsigned char *buffer, unsigned int len);
+ 
+@@ -77,7 +77,7 @@ static inline void kfifo_reset(struct kfifo *fifo)
+  * bytes copied.
+  */
+ static inline unsigned int kfifo_put(struct kfifo *fifo,
+-				     unsigned char *buffer, unsigned int len)
++				const unsigned char *buffer, unsigned int len)
+ {
+ 	unsigned long flags;
+ 	unsigned int ret;
+diff --git a/kernel/kfifo.c b/kernel/kfifo.c
+--- a/kernel/kfifo.c
++++ b/kernel/kfifo.c
+@@ -24,6 +24,7 @@
+ #include <linux/slab.h>
+ #include <linux/err.h>
+ #include <linux/kfifo.h>
++#include <linux/log2.h>
+ 
+ /**
+  * kfifo_init - allocates a new FIFO using a preallocated buffer
+@@ -41,7 +42,7 @@ struct kfifo *kfifo_init(unsigned char *
+ 	struct kfifo *fifo;
+ 
+ 	/* size must be a power of 2 */
+-	BUG_ON(size & (size - 1));
++	BUG_ON(!is_power_of_2(size));
+ 
+ 	fifo = kmalloc(sizeof(struct kfifo), gfp_mask);
+ 	if (!fifo)
+@@ -71,9 +72,9 @@ struct kfifo *kfifo_alloc(unsigned int s
+ 
+ 	/*
+ 	 * round up to the next power of 2, since our 'let the indices
+-	 * wrap' tachnique works only in this case.
++	 * wrap' technique works only in this case.
+ 	 */
+-	if (size & (size - 1)) {
++	if (!is_power_of_2(size)) {
+ 		BUG_ON(size > 0x80000000);
+ 		size = roundup_pow_of_two(size);
+ 	}
+@@ -116,7 +117,7 @@ EXPORT_SYMBOL(kfifo_free);
+  * writer, you don't need extra locking to use these functions.
+  */
+ unsigned int __kfifo_put(struct kfifo *fifo,
+-			 unsigned char *buffer, unsigned int len)
++			const unsigned char *buffer, unsigned int len)
+ {
+ 	unsigned int l;
+ 
+-- 
