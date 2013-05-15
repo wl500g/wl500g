@@ -318,13 +318,11 @@ diff -uBp a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
  	.llseek		= seq_lseek,
  	.release	= seq_release,
  };
-@@ -698,8 +700,8 @@ void __init proc_misc_init(void)
- #endif
- 	create_seq_entry("stat", 0, &proc_stat_operations);
+@@ -698,6 +700,8 @@ void __init proc_misc_init(void)
  	create_seq_entry("interrupts", 0, &proc_interrupts_operations);
--#ifdef CONFIG_SLAB
--	create_seq_entry("slabinfo",S_IWUSR|S_IRUGO,&proc_slabinfo_operations);
-+#if defined(CONFIG_SLAB) || defined(CONFIG_SLUB)
+ #ifdef CONFIG_SLAB
+ 	create_seq_entry("slabinfo",S_IWUSR|S_IRUGO,&proc_slabinfo_operations);
++#elif defined(CONFIG_SLUB)
 +	create_seq_entry("slabinfo",S_IRUGO, &proc_slabinfo_operations);
  #ifdef CONFIG_DEBUG_SLAB_LEAK
  	create_seq_entry("slab_allocators", 0 ,&proc_slabstats_operations);
