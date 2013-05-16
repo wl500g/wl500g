@@ -1,6 +1,5 @@
 Subject: [PATCH] NET, Netfilter: minor optimization backports from 2.6 upstream
 From: Fedor <fedork@ubuntu.(none)>
-Date: Sun, 23 Jan 2011 23:25:24 -0500
 
  kernel.org commits
  ffaa9c100bd75c81744a2b7800a45daba53db0eb [NETFILTER]: nf_conntrack: reorder struct nf_conntrack_l4proto
@@ -12,10 +11,14 @@ Date: Sun, 23 Jan 2011 23:25:24 -0500
  f31e8d4982653b39fe312f9938be0f49dd9ab5fa netfilter: ctnetlink: fix loop in ctnetlink_get_conntrack()
  b23909695c33f53df5f1d16696b1aa5b874c1904 netfilter: nf_conntrack: fix the hash random initializing race
  9dbae7917899d78a094aceeb5062cd76efa89052 [NETFILTER]: Remove unused callbacks in nf_conntrack_l3proto
+ 90efbed18a30d78145419cdbd44f9ec152efeb16 netfilter: remove unnecessary goto statement for error recovery
 
 ---
  include/net/netfilter/nf_conntrack_l3proto.h |   11 ------
  include/net/netfilter/nf_conntrack_l4proto.h |   19 +++++-----
+ net/ipv4/netfilter/iptable_filter.c          |    9 +----
+ net/ipv4/netfilter/iptable_mangle.c          |    9 +----
+ net/ipv4/netfilter/iptable_raw.c             |    9 +----
  net/ipv4/netfilter/nf_nat_core.c             |   47 ++++++++++++---------------
  net/ipv4/netfilter/nf_nat_proto_gre.c        |    4 +-
  net/ipv4/netfilter/nf_nat_proto_icmp.c       |    4 +-
@@ -23,7 +26,7 @@ Date: Sun, 23 Jan 2011 23:25:24 -0500
  net/ipv4/netfilter/nf_nat_proto_udp.c        |    4 +-
  net/netfilter/nf_conntrack_core.c            |    3 -
  net/netfilter/nf_conntrack_netlink.c         |    3 +
- 9 files changed, 42 insertions(+), 57 deletions(-)
+ 12 files changed, 51 insertions(+), 75 deletions(-)
 
 diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
 --- a/include/net/netfilter/nf_conntrack_l3proto.h
@@ -96,6 +99,69 @@ diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilte
  
  	/* Module (if any) which this is connected to. */
  	struct module *me;
+diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
+--- a/net/ipv4/netfilter/iptable_filter.c
++++ b/net/ipv4/netfilter/iptable_filter.c
+@@ -135,14 +135,11 @@ static int __init iptable_filter_init(vo
+ 
+ 	/* Register hooks */
+ 	ret = nf_register_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
+-	if (ret < 0)
+-		goto cleanup_table;
++	if (ret < 0) {
++		ipt_unregister_table(&packet_filter);
++	}
+ 
+ 	return ret;
+-
+- cleanup_table:
+-	ipt_unregister_table(&packet_filter);
+-	return ret;
+ }
+ 
+ static void __exit iptable_filter_fini(void)
+diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
+--- a/net/ipv4/netfilter/iptable_mangle.c
++++ b/net/ipv4/netfilter/iptable_mangle.c
+@@ -176,14 +176,11 @@ static int __init iptable_mangle_init(vo
+ 
+ 	/* Register hooks */
+ 	ret = nf_register_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
+-	if (ret < 0)
+-		goto cleanup_table;
++	if (ret < 0) {
++		ipt_unregister_table(&packet_mangler);
++	}
+ 
+ 	return ret;
+-
+- cleanup_table:
+-	ipt_unregister_table(&packet_mangler);
+-	return ret;
+ }
+ 
+ static void __exit iptable_mangle_fini(void)
+diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
+--- a/net/ipv4/netfilter/iptable_raw.c
++++ b/net/ipv4/netfilter/iptable_raw.c
+@@ -101,14 +101,11 @@ static int __init iptable_raw_init(void)
+ 
+ 	/* Register hooks */
+ 	ret = nf_register_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
+-	if (ret < 0)
+-		goto cleanup_table;
++	if (ret < 0) {
++		ipt_unregister_table(&packet_raw);
++	}
+ 
+ 	return ret;
+-
+- cleanup_table:
+-	ipt_unregister_table(&packet_raw);
+-	return ret;
+ }
+ 
+ static void __exit iptable_raw_fini(void)
 diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
 --- a/net/ipv4/netfilter/nf_nat_core.c
 +++ b/net/ipv4/netfilter/nf_nat_core.c
