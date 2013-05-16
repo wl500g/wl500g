@@ -18,6 +18,7 @@ e713a21d8251a4c91772f592af46407dfb0b2e4f trivial: Fix dubious bitwise 'or' usage
 9155203a5de94278525647b16733f0c315f3b786 mm: use roundown_pow_of_two() in zone_batchsize()
 1ac0cb5d0e22d5e483f56b2bc12172dec1cf7536 mm: fix anonymous dirtying
 4e60c86bd9e5a7110ed28874d0b6592186550ae8 gcc-4.6: mm: fix unused but set warnings
+b6a9b7f6b1f21735a7456d534dc0e68e61359d2c mm: prevent mmap_cache race in find_vma()
 
 ---
  include/linux/mm.h         |    2 +-
@@ -441,6 +442,15 @@ diff --git a/mm/mmap.c b/mm/mmap.c
  			vm_flags |= VM_SHARED | VM_MAYSHARE;
  			break;
  		case MAP_PRIVATE:
+@@ -1394,7 +1394,7 @@ struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
+ 
+ 		/* Check the cache first. */
+ 		/* (Cache hit rate is typically around 35%.) */
+-		vma = mm->mmap_cache;
++		vma = ACCESS_ONCE(mm->mmap_cache);
+ 		if (!(vma && vma->vm_end > addr && vma->vm_start <= addr)) {
+ 			struct rb_node * rb_node;
+ 
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
