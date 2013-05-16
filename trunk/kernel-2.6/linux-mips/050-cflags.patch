@@ -3,11 +3,12 @@
  372a775f50347f5c1dd87752b16e5c05ea965790 [MIPS] Enable -ffunction-sections sections.
  0510617b85758b6e66f3c602ceccea1826440470 [MIPS] Fix data bus error recovery
  1a4ba061b3c93804027b4cc4c588cfad748d9fc2 MIPS: Use -mno-check-zero-division
+ 1186e4e904839955e5d2be94f50e0a363cb5651b MIPS: Avoid overoptimization by GCC.
 
 ---
- arch/mips/Makefile       |    3 ++-
- arch/mips/kernel/traps.c |    6 ++++--
- 2 files changed, 6 insertions(+), 3 deletions(-)
+ arch/mips/Makefile       |    5 ++++-
+ arch/mips/kernel/traps.c |    9 +++++----
+ 2 files changed, 9 insertions(+), 5 deletions(-)
 
 diff -urNBp a/arch/mips/kernel/traps.c b/arch/mips/kernel/traps.c
 --- a/arch/mips/kernel/traps.c	2011-02-22 03:00:00.000000000 +0300
@@ -23,6 +24,17 @@ diff -urNBp a/arch/mips/kernel/traps.c b/arch/mips/kernel/traps.c
  
  __asm__(
  "	.section	__dbe_table, \"a\"\n"
+@@ -1160,9 +1160,8 @@ unsigned long vi_handlers[64];
+ void *set_except_vector(int n, void *addr)
+ {
+ 	unsigned long handler = (unsigned long) addr;
+-	unsigned long old_handler = exception_handlers[n];
++	unsigned long old_handler = xchg(&exception_handlers[n], handler);
+ 
+-	exception_handlers[n] = handler;
+ 	if (n == 0 && cpu_has_divec) {
+ 		*(volatile u32 *)(ebase + 0x200) = 0x08000000 |
+ 		                                 (0x03ffffff & (handler >> 2));
 @@ -1578,4 +1577,6 @@ void __init trap_init(void)
  
  	flush_icache_range(ebase, ebase + 0x400);
