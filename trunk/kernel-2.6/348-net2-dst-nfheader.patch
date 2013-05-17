@@ -1,5 +1,6 @@
 [NET]: Make helper to get dst entry and "use" it
 
+ 274b3426db25b8d63cbf25475e728ce1ee6caebd [NET]: Remove unnecessary inclusion of dst.h
  03f49f345749abc08bc84b835433c94eea6e972b [NET]: Make helper to get dst entry and "use" it
  0148894223740da4818d7f4e6f92cbb5481a25b8 [IPV6]: Only set nfheader_len for top xfrm dst
  a47ed4cd8cb0709723392f5b841e9015f765d0a6 [IPV6] XFRM: Fix connected socket to use transformation.
@@ -10,6 +11,7 @@
 ---
  include/net/dst.h                |   35 ++++++++++++++++++++++++-----------
  include/net/ip6_fib.h            |   13 +++++++++++--
+ include/net/netevent.h           |    2 +-
  net/core/dst.c                   |    3 ++-
  net/decnet/dn_route.c            |   29 +++++------------------------
  net/ipv4/route.c                 |   23 ++++++-----------------
@@ -19,7 +21,7 @@
  net/ipv6/ip6_output.c            |    6 ++++--
  net/ipv6/route.c                 |   27 +++++----------------------
  net/ipv6/xfrm6_policy.c          |   27 +++++----------------------
- 11 files changed, 101 insertions(+), 117 deletions(-)
+ 12 files changed, 102 insertions(+), 118 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
@@ -121,6 +123,18 @@ diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
  };
  
  static inline struct inet6_dev *ip6_dst_idev(struct dst_entry *dst)
+diff --git a/include/net/netevent.h b/include/net/netevent.h
+--- a/include/net/netevent.h
++++ b/include/net/netevent.h
+@@ -12,7 +12,7 @@
+  */
+ #ifdef __KERNEL__
+ 
+-#include <net/dst.h>
++struct dst_entry;
+ 
+ struct netevent_redirect {
+ 	struct dst_entry *old;
 diff --git a/net/core/dst.c b/net/core/dst.c
 --- a/net/core/dst.c
 +++ b/net/core/dst.c
