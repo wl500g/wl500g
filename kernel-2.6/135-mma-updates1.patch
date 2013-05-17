@@ -2,6 +2,7 @@ mm: updates/fixes from upstream 2.6 kernel
 
 kernel.org commits
 45726cb43d11b288c58243a26010f397054222f0 mm: improve find_lock_page
+9ca908f47bc784c90e17a553ce33e756c73feac4 kcalloc: remove runtime division
 1037b83bd04e31449dc9323f1e8ddada4264ef66 MM: alloc_large_system_hash() can free some memory for non power-of-two bucketsize
 ae1276b9349a2fd9c3afb4651e25a77ac03299d9 set_page_refcounted() VM_BUG_ON fix
 a62f735cbb1a0937ab6a9196dadf752694ef0b7f MM: Fix macro argument substitution in PageHead() and PageTail()
@@ -24,17 +25,18 @@ b6a9b7f6b1f21735a7456d534dc0e68e61359d2c mm: prevent mmap_cache race in find_vma
  include/linux/mm.h         |    2 +-
  include/linux/page-flags.h |    4 ++--
  include/linux/pagemap.h    |   23 ++++++++++++-----------
+ include/linux/slab.h       |    2 +-
  include/linux/writeback.h  |    2 +-
  mm/filemap.c               |   44 +++++++++++++++++++++-----------------------
  mm/internal.h              |    2 +-
  mm/madvise.c               |    6 ++++--
  mm/memory.c                |   12 +++++++++---
  mm/mempool.c               |    3 +++
- mm/mmap.c                  |    4 ++++
+ mm/mmap.c                  |    6 +++++-
  mm/page-writeback.c        |   22 ++++++++++------------
  mm/page_alloc.c            |   19 +++++++++++++++++--
  mm/swap_state.c            |    5 ++++-
- 13 files changed, 89 insertions(+), 59 deletions(-)
+ 14 files changed, 91 insertions(+), 61 deletions(-)
 
 diff --git a/include/linux/mm.h b/include/linux/mm.h
 --- a/include/linux/mm.h
@@ -138,6 +140,18 @@ diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
  extern void remove_from_page_cache(struct page *page);
  extern void __remove_from_page_cache(struct page *page);
  
+diff --git a/include/linux/slab.h b/include/linux/slab.h
+--- a/include/linux/slab.h
++++ b/include/linux/slab.h
+@@ -180,7 +180,7 @@ size_t ksize(const void *);
+  */
+ static inline void *kcalloc(size_t n, size_t size, gfp_t flags)
+ {
+-	if (n != 0 && size > ULONG_MAX / n)
++	if (size != 0 && n > ULONG_MAX / size)
+ 		return NULL;
+ 	return __kmalloc(n * size, flags | __GFP_ZERO);
+ }
 diff --git a/include/linux/writeback.h b/include/linux/writeback.h
 --- a/include/linux/writeback.h
 +++ b/include/linux/writeback.h
