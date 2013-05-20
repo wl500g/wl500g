@@ -33,8 +33,6 @@
 #define PAGE_SIZE	(_AC(1,UL) << PAGE_SHIFT)
 #define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
 
-#ifndef __ASSEMBLY__
-
 /*
  * This gives the physical RAM offset.
  */
@@ -50,7 +48,6 @@
 #define ARCH_PFN_OFFSET		PFN_UP(PHYS_OFFSET)
 
 #include <linux/pfn.h>
-#include <asm/io.h>
 
 extern void clear_page(void * page);
 extern void copy_page(void * to, void * from);
@@ -142,8 +139,6 @@ typedef struct { unsigned long pgprot; } pgprot_t;
  */
 #define ptep_buddy(x)	((pte_t *)((unsigned long)(x) ^ sizeof(pte_t)))
 
-#endif /* !__ASSEMBLY__ */
-
 /* to align the pointer to the (next) page boundary */
 #define PAGE_ALIGN(addr)	(((addr) + PAGE_SIZE - 1) & PAGE_MASK)
 
@@ -158,6 +153,7 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define __pa(x)		((unsigned long)(x) - __pa_page_offset(x) + PHYS_OFFSET)
 #define __va(x)		((void *)((unsigned long)(x) + PAGE_OFFSET - PHYS_OFFSET))
 #define __pa_symbol(x)	__pa(RELOC_HIDE((unsigned long)(x),0))
+#include <asm/io.h>
 
 #define pfn_to_kaddr(pfn)	__va((pfn) << PAGE_SHIFT)
 

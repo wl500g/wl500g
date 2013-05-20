@@ -1,7 +1,8 @@
 #include <asm/asm-offsets.h>
-#include <asm/page.h>
 #include <asm/thread_info.h>
 #include <asm-generic/vmlinux.lds.h>
+
+#define PAGE_SIZE _PAGE_SIZE
 
 #undef mips
 #define mips mips
