@@ -8,14 +8,17 @@ kbuild backports from upstream
  5d7d18f5bc507b60d3d8967e2739d5e6ffdd630f kbuild: make it possible for the linker to discard local symbols from vmlinux
  99657c7857fd47d6086682d4cf1194954170755a kernel hacking: move STRIP_ASM_SYMS from General
  8417da6f2128008c431c7d130af6cd3d9079922e kbuild: Fix passing -Wno-* options to gcc 4.4+
+ 214541d1f30429922727040db3e2e4932ff24f46 add WEAK() for creating weak asm labels
+ 42f29a25207dc7b3051d299cc028d4b395d1328d kbuild: Don't define ALIGN and ENTRY when preprocessing linker scripts.
 
 ---
  Documentation/kbuild/makefiles.txt |   12 ++++++++++++
  Makefile                           |   31 +++++++++++++++++++++++++++----
+ include/linux/linkage.h            |    8 ++++++++
  lib/Kconfig.debug                  |    8 ++++++++
  scripts/Kbuild.include             |    5 +++++
- scripts/Makefile.build             |   16 ++++++++++++++++
- 5 files changed, 68 insertions(+), 4 deletions(-)
+ scripts/Makefile.build             |   19 ++++++++++++++++++-
+ 6 files changed, 78 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/kbuild/makefiles.txt b/Documentation/kbuild/makefiles.txt
 --- a/Documentation/kbuild/makefiles.txt
@@ -39,6 +42,31 @@ diff --git a/Documentation/kbuild/makefiles.txt b/Documentation/kbuild/makefiles
      cc-version
  	cc-version returns a numerical version of the $(CC) compiler version.
  	The format is <major><minor> where both are two digits. So for example
+diff --git a/include/linux/linkage.h b/include/linux/linkage.h
+--- a/include/linux/linkage.h
++++ b/include/linux/linkage.h
+@@ -24,6 +24,7 @@
+ 
+ #ifdef __ASSEMBLY__
+ 
++#ifndef LINKER_SCRIPT
+ #define ALIGN __ALIGN
+ #define ALIGN_STR __ALIGN_STR
+ 
+@@ -33,6 +34,13 @@
+   ALIGN; \
+   name:
+ #endif
++#endif /* LINKER_SCRIPT */
++
++#ifndef WEAK
++#define WEAK(name)	   \
++	.weak name;	   \
++	name:
++#endif
+ 
+ #define KPROBE_ENTRY(name) \
+   .pushsection .kprobes.text, "ax"; \
 diff --git a/Makefile b/Makefile
 --- a/Makefile
 +++ b/Makefile
@@ -165,4 +193,14 @@ diff --git a/scripts/Makefile.build b/scripts/Makefile.build
  # Read .config if it exist, otherwise ignore
  -include include/config/auto.conf
  
+@@ -271,7 +271,8 @@ targets += $(extra-y) $(MAKECMDGOALS) $(always)
+ # Linker scripts preprocessor (.lds.S -> .lds)
+ # ---------------------------------------------------------------------------
+ quiet_cmd_cpp_lds_S = LDS     $@
+-      cmd_cpp_lds_S = $(CPP) $(cpp_flags) -D__ASSEMBLY__ -o $@ $<
++      cmd_cpp_lds_S = $(CPP) $(cpp_flags) \
++	                     -D__ASSEMBLY__ -DLINKER_SCRIPT -o $@ $<
+ 
+ $(obj)/%.lds: $(src)/%.lds.S FORCE
+ 	$(call if_changed_dep,cpp_lds_S)
 -- 
