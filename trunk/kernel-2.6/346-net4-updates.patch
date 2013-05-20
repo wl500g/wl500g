@@ -10,6 +10,7 @@
  0c9f79be295c99ac7e4b569ca493d75fdcc19e4e ipv4: avoid undefined behavior in do_ip_setsockopt()
  3d5b99ae82f8742e3bb1f8634fd11ac36ea19ee1 TCP: update initial windows according to RFC 5681
  0705c6f0e2d39333645bf77cf1efb94526ff1f82 tcp: update also tcp_output with regard to RFC 5681
+ 339db11b219f36cf7da61b390992d95bb6b7ba2e net/llc: make opt unsigned in llc_ui_setsockopt()
 
 ---
  include/linux/skbuff.h   |    4 ++
@@ -23,9 +24,10 @@
  net/ipv4/tcp_output.c    |   12 +-----
  net/ipv6/ipv6_sockglue.c |    3 -
  net/ipv6/tcp_ipv6.c      |    8 +---
+ net/llc/af_llc.c         |    3 +
  net/packet/af_packet.c   |    3 -
  net/unix/af_unix.c       |    3 -
- 13 files changed, 130 insertions(+), 41 deletions(-)
+ 14 files changed, 132 insertions(+), 42 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
 --- a/include/linux/skbuff.h
@@ -321,6 +323,19 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
  	return 0;
  }
  
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -1024,7 +1024,8 @@ static int llc_ui_setsockopt(struct socket *sock, int level, int optname,
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	int rc = -EINVAL, opt;
++	unsigned int opt;
++	int rc = -EINVAL;
+ 
+ 	lock_sock(sk);
+ 	if (unlikely(level != SOL_LLC || optlen != sizeof(int)))
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
