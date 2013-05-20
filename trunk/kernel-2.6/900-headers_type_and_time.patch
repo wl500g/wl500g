@@ -32,9 +32,9 @@
 +# include <asm/types.h>
 +#else
 +
+ #ifndef __ASSEMBLY__
  #ifdef	__KERNEL__
  
- #define DECLARE_BITMAP(name,bits) \
 @@ -161,6 +169,8 @@ typedef unsigned long blkcnt_t;
  
  #endif /* __KERNEL_STRICT_NAMES */
