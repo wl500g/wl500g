@@ -1,5 +1,6 @@
 kbuild backports from upstream
 
+ d72e5edbf4d13adfe489e9e6114a4922891ddcb2 kbuild: avoid environment to set variables used by kbuild
  31110ebbec8688c6e9597b641101afc94e1c762a kbuild: fix make incompatibility
  94bed2a9c4ae980838003f5d32681eef794ecc28 Add -Werror-implicit-function-declaration
  003086497f07f7f1e67c0c295e261740f822b377 Build with -fno-dwarf2-cfi-asm
@@ -13,7 +14,8 @@ kbuild backports from upstream
  Makefile                           |   31 +++++++++++++++++++++++++++----
  lib/Kconfig.debug                  |    8 ++++++++
  scripts/Kbuild.include             |    5 +++++
- 4 files changed, 52 insertions(+), 4 deletions(-)
+ scripts/Makefile.build             |   16 ++++++++++++++++
+ 5 files changed, 68 insertions(+), 4 deletions(-)
 
 diff --git a/Documentation/kbuild/makefiles.txt b/Documentation/kbuild/makefiles.txt
 --- a/Documentation/kbuild/makefiles.txt
@@ -137,4 +139,30 @@ diff --git a/scripts/Kbuild.include b/scripts/Kbuild.include
  # cc-version
  # Usage gcc-ver := $(call cc-version,$(CC))
  cc-version = $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-version.sh $(CC))
+diff --git a/scripts/Makefile.build b/scripts/Makefile.build
+--- a/scripts/Makefile.build
++++ b/scripts/Makefile.build
+@@ -7,6 +7,22 @@ src := $(obj)
+ PHONY := __build
+ __build:
+ 
++# Init all relevant variables used in kbuild files so
++# 1) they have correct type
++# 2) they do not inherit any value from the environment
++obj-y :=
++obj-m :=
++lib-y :=
++lib-m :=
++always :=
++targets :=
++subdir-y :=
++subdir-m :=
++EXTRA_AFLAGS   :=
++EXTRA_CFLAGS   :=
++EXTRA_CPPFLAGS :=
++EXTRA_LDFLAGS  :=
++
+ # Read .config if it exist, otherwise ignore
+ -include include/config/auto.conf
+ 
 -- 
