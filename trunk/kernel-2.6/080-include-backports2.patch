@@ -77,3 +77,22 @@ diff --git a/include/linux/mm.h b/include/linux/mm.h
  
  	/* Information about our backing store: */
  	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
+diff --git a/include/linux/types.h b/include/linux/types.h
+--- a/include/linux/types.h
++++ b/include/linux/types.h
+@@ -1,6 +1,7 @@
+ #ifndef _LINUX_TYPES_H
+ #define _LINUX_TYPES_H
+ 
++#ifndef __ASSEMBLY__
+ #ifdef	__KERNEL__
+ 
+ #define DECLARE_BITMAP(name,bits) \
+@@ -212,6 +213,7 @@ struct ustat {
+ #endif
+ 
+ #endif	/* __KERNEL__ */
++#endif /*  __ASSEMBLY__ */
+ 
+ struct ustat {
+ 	__kernel_daddr_t	f_tfree;
