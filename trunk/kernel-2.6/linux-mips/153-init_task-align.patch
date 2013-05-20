@@ -5,25 +5,11 @@ MIPS: Properly align the .data..init_task section.
  7b1c0d26a8e272787f0f9fcc5f3e8531df3b3409 MIPS: Properly align the .data..init_task section.
 
 ---
- arch/mips/kernel/asm-offsets.c |    3 ---
  arch/mips/kernel/vmlinux.lds.S |   16 +++++++++-------
- include/asm-mips/page.h        |    5 +++--
+ include/asm-mips/page.h        |    3 ++-
  include/asm-mips/thread_info.h |    4 ++--
- 4 files changed, 14 insertions(+), 14 deletions(-)
+ 3 files changed, 13 insertions(+), 10 deletions(-)
 
-diff --git a/arch/mips/kernel/asm-offsets.c b/arch/mips/kernel/asm-offsets.c
---- a/arch/mips/kernel/asm-offsets.c
-+++ b/arch/mips/kernel/asm-offsets.c
-@@ -222,9 +222,6 @@ void output_mm_defines(void)
- 	offset("#define MM_PGD        ", struct mm_struct, pgd);
- 	offset("#define MM_CONTEXT    ", struct mm_struct, context);
- 	linefeed;
--	constant("#define _PAGE_SIZE     ", PAGE_SIZE);
--	constant("#define _PAGE_SHIFT    ", PAGE_SHIFT);
--	linefeed;
- 	constant("#define _PGD_T_SIZE    ", sizeof(pgd_t));
- 	constant("#define _PMD_T_SIZE    ", sizeof(pmd_t));
- 	constant("#define _PTE_T_SIZE    ", sizeof(pte_t));
 diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
 --- a/arch/mips/kernel/vmlinux.lds.S
 +++ b/arch/mips/kernel/vmlinux.lds.S

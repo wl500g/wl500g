@@ -1,0 +1,917 @@
+ 03b8b8e7c9c36e2d7c4bc9c63eeed872e6f01ad0 [MIPS] Extract {PGD,PMD,PTE}_ORDER into asm-offset.h
+ bf2ae2b37c06cc9fb6fc03d99617f1161939980f pageflags: standardize comment inclusion in asm-offsets.h and fix MIPS
+ bef9ae3d883ce908d8879fff0cd2c3971f5ee4b4 MIPS: Switch remaining assembler PAGE_SIZE users to <asm/asm-offsets.h>.
+ 348dd600c3db6ac6fa270e0d0c9f9380dacf8064 MIPS: Don't include <asm/page.h> unnecessarily.
+ bfc4762f2cc3bcafcc54cd066a904b7c7325bf61 MIPS: page.h: Remove now unnecessary #ifndef __ASSEMBLY__ wrapper.
+ cb8639f598051a99cacfcb26c90ecaedd2a6612c MIPS: Make virt_to_phys() work for all unmapped addresses.
+
+---
+ Kbuild                             |    6 
+ arch/mips/kernel/asm-offsets.c     |  613 ++++++++++++++++++-------------------
+ arch/mips/kernel/genex.S           |    5 
+ arch/mips/kernel/head.S            |    1 
+ arch/mips/kernel/r2300_switch.S    |    1 
+ arch/mips/kernel/r4k_switch.S      |    1 
+ arch/mips/kernel/relocate_kernel.S |    1 
+ arch/mips/kernel/vmlinux.lds.S     |    3 
+ arch/mips/mm/tlbex-fault.S         |    1 
+ include/asm-mips/io.h              |    2 
+ include/asm-mips/page.h            |    6 
+ 11 files changed, 317 insertions(+), 323 deletions(-)
+
+diff --git a/Kbuild b/Kbuild
+--- a/Kbuild
++++ b/Kbuild
+@@ -52,10 +52,10 @@ targets += arch/$(SRCARCH)/kernel/asm-offsets.s
+ 
+ # Default sed regexp - multiline due to syntax constraints
+ define sed-y
+-	"/^->/{s:^->\([^ ]*\) [\$$#]*\([^ ]*\) \(.*\):#define \1 \2 /* \3 */:; s:->::; p;}"
++	"/^->/{s:->#\(.*\):/* \1 */:; \
++	s:^->\([^ ]*\) [\$$#]*\([^ ]*\) \(.*\):#define \1 \2 /* \3 */:; \
++	s:->::; p;}"
+ endef
+-# Override default regexp for specific architectures
+-sed-$(CONFIG_MIPS) := "/^@@@/{s/^@@@//; s/ \#.*\$$//; p;}"
+ 
+ quiet_cmd_offsets = GEN     $@
+ define cmd_offsets
+diff --git a/arch/mips/kernel/asm-offsets.c b/arch/mips/kernel/asm-offsets.c
+--- a/arch/mips/kernel/asm-offsets.c
++++ b/arch/mips/kernel/asm-offsets.c
+@@ -18,249 +18,252 @@
+ #include <asm/ptrace.h>
+ #include <asm/processor.h>
+ 
+-#define text(t) __asm__("\n@@@" t)
++#define text(t) __asm__("\n->#" t)
+ #define _offset(type, member) (&(((type *)NULL)->member))
+ #define offset(string, ptr, member) \
+-	__asm__("\n@@@" string "%0" : : "i" (_offset(ptr, member)))
++	__asm__("\n->" string " %0" : : "i" (_offset(ptr, member)))
+ #define constant(string, member) \
+-	__asm__("\n@@@" string "%X0" : : "ri" (member))
++	__asm__("\n->" string " %0" : : "ri" (member))
+ #define size(string, size) \
+-	__asm__("\n@@@" string "%0" : : "i" (sizeof(size)))
++	__asm__("\n->" string " %0" : : "i" (sizeof(size)))
+ #define linefeed text("")
+ 
+ void output_ptreg_defines(void)
+ {
+-	text("/* MIPS pt_regs offsets. */");
+-	offset("#define PT_R0     ", struct pt_regs, regs[0]);
+-	offset("#define PT_R1     ", struct pt_regs, regs[1]);
+-	offset("#define PT_R2     ", struct pt_regs, regs[2]);
+-	offset("#define PT_R3     ", struct pt_regs, regs[3]);
+-	offset("#define PT_R4     ", struct pt_regs, regs[4]);
+-	offset("#define PT_R5     ", struct pt_regs, regs[5]);
+-	offset("#define PT_R6     ", struct pt_regs, regs[6]);
+-	offset("#define PT_R7     ", struct pt_regs, regs[7]);
+-	offset("#define PT_R8     ", struct pt_regs, regs[8]);
+-	offset("#define PT_R9     ", struct pt_regs, regs[9]);
+-	offset("#define PT_R10    ", struct pt_regs, regs[10]);
+-	offset("#define PT_R11    ", struct pt_regs, regs[11]);
+-	offset("#define PT_R12    ", struct pt_regs, regs[12]);
+-	offset("#define PT_R13    ", struct pt_regs, regs[13]);
+-	offset("#define PT_R14    ", struct pt_regs, regs[14]);
+-	offset("#define PT_R15    ", struct pt_regs, regs[15]);
+-	offset("#define PT_R16    ", struct pt_regs, regs[16]);
+-	offset("#define PT_R17    ", struct pt_regs, regs[17]);
+-	offset("#define PT_R18    ", struct pt_regs, regs[18]);
+-	offset("#define PT_R19    ", struct pt_regs, regs[19]);
+-	offset("#define PT_R20    ", struct pt_regs, regs[20]);
+-	offset("#define PT_R21    ", struct pt_regs, regs[21]);
+-	offset("#define PT_R22    ", struct pt_regs, regs[22]);
+-	offset("#define PT_R23    ", struct pt_regs, regs[23]);
+-	offset("#define PT_R24    ", struct pt_regs, regs[24]);
+-	offset("#define PT_R25    ", struct pt_regs, regs[25]);
+-	offset("#define PT_R26    ", struct pt_regs, regs[26]);
+-	offset("#define PT_R27    ", struct pt_regs, regs[27]);
+-	offset("#define PT_R28    ", struct pt_regs, regs[28]);
+-	offset("#define PT_R29    ", struct pt_regs, regs[29]);
+-	offset("#define PT_R30    ", struct pt_regs, regs[30]);
+-	offset("#define PT_R31    ", struct pt_regs, regs[31]);
+-	offset("#define PT_LO     ", struct pt_regs, lo);
+-	offset("#define PT_HI     ", struct pt_regs, hi);
++	text("MIPS pt_regs offsets.");
++	offset("PT_R0", struct pt_regs, regs[0]);
++	offset("PT_R1", struct pt_regs, regs[1]);
++	offset("PT_R2", struct pt_regs, regs[2]);
++	offset("PT_R3", struct pt_regs, regs[3]);
++	offset("PT_R4", struct pt_regs, regs[4]);
++	offset("PT_R5", struct pt_regs, regs[5]);
++	offset("PT_R6", struct pt_regs, regs[6]);
++	offset("PT_R7", struct pt_regs, regs[7]);
++	offset("PT_R8", struct pt_regs, regs[8]);
++	offset("PT_R9", struct pt_regs, regs[9]);
++	offset("PT_R10", struct pt_regs, regs[10]);
++	offset("PT_R11", struct pt_regs, regs[11]);
++	offset("PT_R12", struct pt_regs, regs[12]);
++	offset("PT_R13", struct pt_regs, regs[13]);
++	offset("PT_R14", struct pt_regs, regs[14]);
++	offset("PT_R15", struct pt_regs, regs[15]);
++	offset("PT_R16", struct pt_regs, regs[16]);
++	offset("PT_R17", struct pt_regs, regs[17]);
++	offset("PT_R18", struct pt_regs, regs[18]);
++	offset("PT_R19", struct pt_regs, regs[19]);
++	offset("PT_R20", struct pt_regs, regs[20]);
++	offset("PT_R21", struct pt_regs, regs[21]);
++	offset("PT_R22", struct pt_regs, regs[22]);
++	offset("PT_R23", struct pt_regs, regs[23]);
++	offset("PT_R24", struct pt_regs, regs[24]);
++	offset("PT_R25", struct pt_regs, regs[25]);
++	offset("PT_R26", struct pt_regs, regs[26]);
++	offset("PT_R27", struct pt_regs, regs[27]);
++	offset("PT_R28", struct pt_regs, regs[28]);
++	offset("PT_R29", struct pt_regs, regs[29]);
++	offset("PT_R30", struct pt_regs, regs[30]);
++	offset("PT_R31", struct pt_regs, regs[31]);
++	offset("PT_LO", struct pt_regs, lo);
++	offset("PT_HI", struct pt_regs, hi);
+ #ifdef CONFIG_CPU_HAS_SMARTMIPS
+-	offset("#define PT_ACX    ", struct pt_regs, acx);
++	offset("PT_ACX", struct pt_regs, acx);
+ #endif
+-	offset("#define PT_EPC    ", struct pt_regs, cp0_epc);
+-	offset("#define PT_BVADDR ", struct pt_regs, cp0_badvaddr);
+-	offset("#define PT_STATUS ", struct pt_regs, cp0_status);
+-	offset("#define PT_CAUSE  ", struct pt_regs, cp0_cause);
++	offset("PT_EPC", struct pt_regs, cp0_epc);
++	offset("PT_BVADDR", struct pt_regs, cp0_badvaddr);
++	offset("PT_STATUS", struct pt_regs, cp0_status);
++	offset("PT_CAUSE", struct pt_regs, cp0_cause);
+ #ifdef CONFIG_MIPS_MT_SMTC
+-	offset("#define PT_TCSTATUS  ", struct pt_regs, cp0_tcstatus);
++	offset("PT_TCSTATUS", struct pt_regs, cp0_tcstatus);
+ #endif /* CONFIG_MIPS_MT_SMTC */
+-	size("#define PT_SIZE   ", struct pt_regs);
++	size("PT_SIZE", struct pt_regs);
+ 	linefeed;
+ }
+ 
+ void output_task_defines(void)
+ {
+-	text("/* MIPS task_struct offsets. */");
+-	offset("#define TASK_STATE         ", struct task_struct, state);
+-	offset("#define TASK_THREAD_INFO   ", struct task_struct, stack);
+-	offset("#define TASK_FLAGS         ", struct task_struct, flags);
+-	offset("#define TASK_MM            ", struct task_struct, mm);
+-	offset("#define TASK_PID           ", struct task_struct, pid);
+-	size(  "#define TASK_STRUCT_SIZE   ", struct task_struct);
++	text("MIPS task_struct offsets.");
++	offset("TASK_STATE", struct task_struct, state);
++	offset("TASK_THREAD_INFO", struct task_struct, stack);
++	offset("TASK_FLAGS", struct task_struct, flags);
++	offset("TASK_MM", struct task_struct, mm);
++	offset("TASK_PID", struct task_struct, pid);
++	size(  "TASK_STRUCT_SIZE", struct task_struct);
+ 	linefeed;
+ }
+ 
+ void output_thread_info_defines(void)
+ {
+-	text("/* MIPS thread_info offsets. */");
+-	offset("#define TI_TASK            ", struct thread_info, task);
+-	offset("#define TI_EXEC_DOMAIN     ", struct thread_info, exec_domain);
+-	offset("#define TI_FLAGS           ", struct thread_info, flags);
+-	offset("#define TI_TP_VALUE	   ", struct thread_info, tp_value);
+-	offset("#define TI_CPU             ", struct thread_info, cpu);
+-	offset("#define TI_PRE_COUNT       ", struct thread_info, preempt_count);
+-	offset("#define TI_ADDR_LIMIT      ", struct thread_info, addr_limit);
+-	offset("#define TI_RESTART_BLOCK   ", struct thread_info, restart_block);
+-	offset("#define TI_REGS            ", struct thread_info, regs);
+-	constant("#define _THREAD_SIZE       ", THREAD_SIZE);
+-	constant("#define _THREAD_MASK       ", THREAD_MASK);
++	text("MIPS thread_info offsets.");
++	offset("TI_TASK", struct thread_info, task);
++	offset("TI_EXEC_DOMAIN", struct thread_info, exec_domain);
++	offset("TI_FLAGS", struct thread_info, flags);
++	offset("TI_TP_VALUE", struct thread_info, tp_value);
++	offset("TI_CPU", struct thread_info, cpu);
++	offset("TI_PRE_COUNT", struct thread_info, preempt_count);
++	offset("TI_ADDR_LIMIT", struct thread_info, addr_limit);
++	offset("TI_RESTART_BLOCK", struct thread_info, restart_block);
++	offset("TI_REGS", struct thread_info, regs);
++	constant("_THREAD_SIZE", THREAD_SIZE);
++	constant("_THREAD_MASK", THREAD_MASK);
+ 	linefeed;
+ }
+ 
+ void output_thread_defines(void)
+ {
+-	text("/* MIPS specific thread_struct offsets. */");
+-	offset("#define THREAD_REG16   ", struct task_struct, thread.reg16);
+-	offset("#define THREAD_REG17   ", struct task_struct, thread.reg17);
+-	offset("#define THREAD_REG18   ", struct task_struct, thread.reg18);
+-	offset("#define THREAD_REG19   ", struct task_struct, thread.reg19);
+-	offset("#define THREAD_REG20   ", struct task_struct, thread.reg20);
+-	offset("#define THREAD_REG21   ", struct task_struct, thread.reg21);
+-	offset("#define THREAD_REG22   ", struct task_struct, thread.reg22);
+-	offset("#define THREAD_REG23   ", struct task_struct, thread.reg23);
+-	offset("#define THREAD_REG29   ", struct task_struct, thread.reg29);
+-	offset("#define THREAD_REG30   ", struct task_struct, thread.reg30);
+-	offset("#define THREAD_REG31   ", struct task_struct, thread.reg31);
+-	offset("#define THREAD_STATUS  ", struct task_struct,
++	text("MIPS specific thread_struct offsets.");
++	offset("THREAD_REG16", struct task_struct, thread.reg16);
++	offset("THREAD_REG17", struct task_struct, thread.reg17);
++	offset("THREAD_REG18", struct task_struct, thread.reg18);
++	offset("THREAD_REG19", struct task_struct, thread.reg19);
++	offset("THREAD_REG20", struct task_struct, thread.reg20);
++	offset("THREAD_REG21", struct task_struct, thread.reg21);
++	offset("THREAD_REG22", struct task_struct, thread.reg22);
++	offset("THREAD_REG23", struct task_struct, thread.reg23);
++	offset("THREAD_REG29", struct task_struct, thread.reg29);
++	offset("THREAD_REG30", struct task_struct, thread.reg30);
++	offset("THREAD_REG31", struct task_struct, thread.reg31);
++	offset("THREAD_STATUS", struct task_struct,
+ 	       thread.cp0_status);
+-	offset("#define THREAD_FPU     ", struct task_struct, thread.fpu);
++	offset("THREAD_FPU", struct task_struct, thread.fpu);
+ 
+-	offset("#define THREAD_BVADDR  ", struct task_struct, \
++	offset("THREAD_BVADDR", struct task_struct, \
+ 	       thread.cp0_badvaddr);
+-	offset("#define THREAD_BUADDR  ", struct task_struct, \
++	offset("THREAD_BUADDR", struct task_struct, \
+ 	       thread.cp0_baduaddr);
+-	offset("#define THREAD_ECODE   ", struct task_struct, \
++	offset("THREAD_ECODE", struct task_struct, \
+ 	       thread.error_code);
+-	offset("#define THREAD_TRAPNO  ", struct task_struct, thread.trap_no);
+-	offset("#define THREAD_MFLAGS  ", struct task_struct, thread.mflags);
+-	offset("#define THREAD_TRAMP   ", struct task_struct, \
++	offset("THREAD_TRAPNO", struct task_struct, thread.trap_no);
++	offset("THREAD_TRAMP", struct task_struct, \
+ 	       thread.irix_trampoline);
+-	offset("#define THREAD_OLDCTX  ", struct task_struct, \
++	offset("THREAD_OLDCTX", struct task_struct, \
+ 	       thread.irix_oldctx);
+ 	linefeed;
+ }
+ 
+ void output_thread_fpu_defines(void)
+ {
+-	offset("#define THREAD_FPR0    ",
++	offset("THREAD_FPR0",
+ 	       struct task_struct, thread.fpu.fpr[0]);
+-	offset("#define THREAD_FPR1    ",
++	offset("THREAD_FPR1",
+ 	       struct task_struct, thread.fpu.fpr[1]);
+-	offset("#define THREAD_FPR2    ",
++	offset("THREAD_FPR2",
+ 	       struct task_struct, thread.fpu.fpr[2]);
+-	offset("#define THREAD_FPR3    ",
++	offset("THREAD_FPR3",
+ 	       struct task_struct, thread.fpu.fpr[3]);
+-	offset("#define THREAD_FPR4    ",
++	offset("THREAD_FPR4",
+ 	       struct task_struct, thread.fpu.fpr[4]);
+-	offset("#define THREAD_FPR5    ",
++	offset("THREAD_FPR5",
+ 	       struct task_struct, thread.fpu.fpr[5]);
+-	offset("#define THREAD_FPR6    ",
++	offset("THREAD_FPR6",
+ 	       struct task_struct, thread.fpu.fpr[6]);
+-	offset("#define THREAD_FPR7    ",
++	offset("THREAD_FPR7",
+ 	       struct task_struct, thread.fpu.fpr[7]);
+-	offset("#define THREAD_FPR8    ",
++	offset("THREAD_FPR8",
+ 	       struct task_struct, thread.fpu.fpr[8]);
+-	offset("#define THREAD_FPR9    ",
++	offset("THREAD_FPR9",
+ 	       struct task_struct, thread.fpu.fpr[9]);
+-	offset("#define THREAD_FPR10   ",
++	offset("THREAD_FPR10",
+ 	       struct task_struct, thread.fpu.fpr[10]);
+-	offset("#define THREAD_FPR11   ",
++	offset("THREAD_FPR11",
+ 	       struct task_struct, thread.fpu.fpr[11]);
+-	offset("#define THREAD_FPR12   ",
++	offset("THREAD_FPR12",
+ 	       struct task_struct, thread.fpu.fpr[12]);
+-	offset("#define THREAD_FPR13   ",
++	offset("THREAD_FPR13",
+ 	       struct task_struct, thread.fpu.fpr[13]);
+-	offset("#define THREAD_FPR14   ",
++	offset("THREAD_FPR14",
+ 	       struct task_struct, thread.fpu.fpr[14]);
+-	offset("#define THREAD_FPR15   ",
++	offset("THREAD_FPR15",
+ 	       struct task_struct, thread.fpu.fpr[15]);
+-	offset("#define THREAD_FPR16   ",
++	offset("THREAD_FPR16",
+ 	       struct task_struct, thread.fpu.fpr[16]);
+-	offset("#define THREAD_FPR17   ",
++	offset("THREAD_FPR17",
+ 	       struct task_struct, thread.fpu.fpr[17]);
+-	offset("#define THREAD_FPR18   ",
++	offset("THREAD_FPR18",
+ 	       struct task_struct, thread.fpu.fpr[18]);
+-	offset("#define THREAD_FPR19   ",
++	offset("THREAD_FPR19",
+ 	       struct task_struct, thread.fpu.fpr[19]);
+-	offset("#define THREAD_FPR20   ",
++	offset("THREAD_FPR20",
+ 	       struct task_struct, thread.fpu.fpr[20]);
+-	offset("#define THREAD_FPR21   ",
++	offset("THREAD_FPR21",
+ 	       struct task_struct, thread.fpu.fpr[21]);
+-	offset("#define THREAD_FPR22   ",
++	offset("THREAD_FPR22",
+ 	       struct task_struct, thread.fpu.fpr[22]);
+-	offset("#define THREAD_FPR23   ",
++	offset("THREAD_FPR23",
+ 	       struct task_struct, thread.fpu.fpr[23]);
+-	offset("#define THREAD_FPR24   ",
++	offset("THREAD_FPR24",
+ 	       struct task_struct, thread.fpu.fpr[24]);
+-	offset("#define THREAD_FPR25   ",
++	offset("THREAD_FPR25",
+ 	       struct task_struct, thread.fpu.fpr[25]);
+-	offset("#define THREAD_FPR26   ",
++	offset("THREAD_FPR26",
+ 	       struct task_struct, thread.fpu.fpr[26]);
+-	offset("#define THREAD_FPR27   ",
++	offset("THREAD_FPR27",
+ 	       struct task_struct, thread.fpu.fpr[27]);
+-	offset("#define THREAD_FPR28   ",
++	offset("THREAD_FPR28",
+ 	       struct task_struct, thread.fpu.fpr[28]);
+-	offset("#define THREAD_FPR29   ",
++	offset("THREAD_FPR29",
+ 	       struct task_struct, thread.fpu.fpr[29]);
+-	offset("#define THREAD_FPR30   ",
++	offset("THREAD_FPR30",
+ 	       struct task_struct, thread.fpu.fpr[30]);
+-	offset("#define THREAD_FPR31   ",
++	offset("THREAD_FPR31",
+ 	       struct task_struct, thread.fpu.fpr[31]);
+ 
+-	offset("#define THREAD_FCR31   ",
++	offset("THREAD_FCR31",
+ 	       struct task_struct, thread.fpu.fcr31);
+ 	linefeed;
+ }
+ 
+ void output_mm_defines(void)
+ {
+-	text("/* Size of struct page  */");
+-	size("#define STRUCT_PAGE_SIZE   ", struct page);
++	text("Size of struct page");
++	size("STRUCT_PAGE_SIZE", struct page);
+ 	linefeed;
+-	text("/* Linux mm_struct offsets. */");
+-	offset("#define MM_USERS      ", struct mm_struct, mm_users);
+-	offset("#define MM_PGD        ", struct mm_struct, pgd);
+-	offset("#define MM_CONTEXT    ", struct mm_struct, context);
+-	linefeed;
+-	constant("#define _PAGE_SIZE     ", PAGE_SIZE);
+-	constant("#define _PAGE_SHIFT    ", PAGE_SHIFT);
+-	linefeed;
+-	constant("#define _PGD_T_SIZE    ", sizeof(pgd_t));
+-	constant("#define _PMD_T_SIZE    ", sizeof(pmd_t));
+-	constant("#define _PTE_T_SIZE    ", sizeof(pte_t));
+-	linefeed;
+-	constant("#define _PGD_T_LOG2    ", PGD_T_LOG2);
+-	constant("#define _PMD_T_LOG2    ", PMD_T_LOG2);
+-	constant("#define _PTE_T_LOG2    ", PTE_T_LOG2);
+-	linefeed;
+-	constant("#define _PMD_SHIFT     ", PMD_SHIFT);
+-	constant("#define _PGDIR_SHIFT   ", PGDIR_SHIFT);
+-	linefeed;
+-	constant("#define _PTRS_PER_PGD  ", PTRS_PER_PGD);
+-	constant("#define _PTRS_PER_PMD  ", PTRS_PER_PMD);
+-	constant("#define _PTRS_PER_PTE  ", PTRS_PER_PTE);
++	text("Linux mm_struct offsets.");
++	offset("MM_USERS", struct mm_struct, mm_users);
++	offset("MM_PGD", struct mm_struct, pgd);
++	offset("MM_CONTEXT", struct mm_struct, context);
++	linefeed;
++	constant("_PAGE_SIZE", PAGE_SIZE);
++	constant("_PAGE_SHIFT", PAGE_SHIFT);
++	linefeed;
++	constant("_PGD_T_SIZE", sizeof(pgd_t));
++	constant("_PMD_T_SIZE", sizeof(pmd_t));
++	constant("_PTE_T_SIZE", sizeof(pte_t));
++	linefeed;
++	constant("_PGD_T_LOG2", PGD_T_LOG2);
++	constant("_PMD_T_LOG2", PMD_T_LOG2);
++	constant("_PTE_T_LOG2", PTE_T_LOG2);
++	linefeed;
++	constant("_PGD_ORDER", PGD_ORDER);
++	constant("_PMD_ORDER", PMD_ORDER);
++	constant("_PTE_ORDER", PTE_ORDER);
++	linefeed;
++	constant("_PMD_SHIFT", PMD_SHIFT);
++	constant("_PGDIR_SHIFT", PGDIR_SHIFT);
++	linefeed;
++	constant("_PTRS_PER_PGD", PTRS_PER_PGD);
++	constant("_PTRS_PER_PMD", PTRS_PER_PMD);
++	constant("_PTRS_PER_PTE", PTRS_PER_PTE);
+ 	linefeed;
+ }
+ 
+ #ifdef CONFIG_32BIT
+ void output_sc_defines(void)
+ {
+-	text("/* Linux sigcontext offsets. */");
+-	offset("#define SC_REGS       ", struct sigcontext, sc_regs);
+-	offset("#define SC_FPREGS     ", struct sigcontext, sc_fpregs);
+-	offset("#define SC_ACX        ", struct sigcontext, sc_acx);
+-	offset("#define SC_MDHI       ", struct sigcontext, sc_mdhi);
+-	offset("#define SC_MDLO       ", struct sigcontext, sc_mdlo);
+-	offset("#define SC_PC         ", struct sigcontext, sc_pc);
+-	offset("#define SC_FPC_CSR    ", struct sigcontext, sc_fpc_csr);
+-	offset("#define SC_FPC_EIR    ", struct sigcontext, sc_fpc_eir);
+-	offset("#define SC_HI1        ", struct sigcontext, sc_hi1);
+-	offset("#define SC_LO1        ", struct sigcontext, sc_lo1);
+-	offset("#define SC_HI2        ", struct sigcontext, sc_hi2);
+-	offset("#define SC_LO2        ", struct sigcontext, sc_lo2);
+-	offset("#define SC_HI3        ", struct sigcontext, sc_hi3);
+-	offset("#define SC_LO3        ", struct sigcontext, sc_lo3);
++	text("Linux sigcontext offsets.");
++	offset("SC_REGS", struct sigcontext, sc_regs);
++	offset("SC_FPREGS", struct sigcontext, sc_fpregs);
++	offset("SC_ACX", struct sigcontext, sc_acx);
++	offset("SC_MDHI", struct sigcontext, sc_mdhi);
++	offset("SC_MDLO", struct sigcontext, sc_mdlo);
++	offset("SC_PC", struct sigcontext, sc_pc);
++	offset("SC_FPC_CSR", struct sigcontext, sc_fpc_csr);
++	offset("SC_FPC_EIR", struct sigcontext, sc_fpc_eir);
++	offset("SC_HI1", struct sigcontext, sc_hi1);
++	offset("SC_LO1", struct sigcontext, sc_lo1);
++	offset("SC_HI2", struct sigcontext, sc_hi2);
++	offset("SC_LO2", struct sigcontext, sc_lo2);
++	offset("SC_HI3", struct sigcontext, sc_hi3);
++	offset("SC_LO3", struct sigcontext, sc_lo3);
+ 	linefeed;
+ }
+ #endif
+@@ -268,13 +271,13 @@ void output_sc_defines(void)
+ #ifdef CONFIG_64BIT
+ void output_sc_defines(void)
+ {
+-	text("/* Linux sigcontext offsets. */");
+-	offset("#define SC_REGS       ", struct sigcontext, sc_regs);
+-	offset("#define SC_FPREGS     ", struct sigcontext, sc_fpregs);
+-	offset("#define SC_MDHI       ", struct sigcontext, sc_mdhi);
+-	offset("#define SC_MDLO       ", struct sigcontext, sc_mdlo);
+-	offset("#define SC_PC         ", struct sigcontext, sc_pc);
+-	offset("#define SC_FPC_CSR    ", struct sigcontext, sc_fpc_csr);
++	text("Linux sigcontext offsets.");
++	offset("SC_REGS", struct sigcontext, sc_regs);
++	offset("SC_FPREGS", struct sigcontext, sc_fpregs);
++	offset("SC_MDHI", struct sigcontext, sc_mdhi);
++	offset("SC_MDLO", struct sigcontext, sc_mdlo);
++	offset("SC_PC", struct sigcontext, sc_pc);
++	offset("SC_FPC_CSR", struct sigcontext, sc_fpc_csr);
+ 	linefeed;
+ }
+ #endif
+@@ -282,162 +285,162 @@ void output_sc_defines(void)
+ #ifdef CONFIG_MIPS32_COMPAT
+ void output_sc32_defines(void)
+ {
+-	text("/* Linux 32-bit sigcontext offsets. */");
+-	offset("#define SC32_FPREGS     ", struct sigcontext32, sc_fpregs);
+-	offset("#define SC32_FPC_CSR    ", struct sigcontext32, sc_fpc_csr);
+-	offset("#define SC32_FPC_EIR    ", struct sigcontext32, sc_fpc_eir);
++	text("Linux 32-bit sigcontext offsets.");
++	offset("SC32_FPREGS", struct sigcontext32, sc_fpregs);
++	offset("SC32_FPC_CSR", struct sigcontext32, sc_fpc_csr);
++	offset("SC32_FPC_EIR", struct sigcontext32, sc_fpc_eir);
+ 	linefeed;
+ }
+ #endif
+ 
+ void output_signal_defined(void)
+ {
+-	text("/* Linux signal numbers. */");
+-	constant("#define _SIGHUP     ", SIGHUP);
+-	constant("#define _SIGINT     ", SIGINT);
+-	constant("#define _SIGQUIT    ", SIGQUIT);
+-	constant("#define _SIGILL     ", SIGILL);
+-	constant("#define _SIGTRAP    ", SIGTRAP);
+-	constant("#define _SIGIOT     ", SIGIOT);
+-	constant("#define _SIGABRT    ", SIGABRT);
+-	constant("#define _SIGEMT     ", SIGEMT);
+-	constant("#define _SIGFPE     ", SIGFPE);
+-	constant("#define _SIGKILL    ", SIGKILL);
+-	constant("#define _SIGBUS     ", SIGBUS);
+-	constant("#define _SIGSEGV    ", SIGSEGV);
+-	constant("#define _SIGSYS     ", SIGSYS);
+-	constant("#define _SIGPIPE    ", SIGPIPE);
+-	constant("#define _SIGALRM    ", SIGALRM);
+-	constant("#define _SIGTERM    ", SIGTERM);
+-	constant("#define _SIGUSR1    ", SIGUSR1);
+-	constant("#define _SIGUSR2    ", SIGUSR2);
+-	constant("#define _SIGCHLD    ", SIGCHLD);
+-	constant("#define _SIGPWR     ", SIGPWR);
+-	constant("#define _SIGWINCH   ", SIGWINCH);
+-	constant("#define _SIGURG     ", SIGURG);
+-	constant("#define _SIGIO      ", SIGIO);
+-	constant("#define _SIGSTOP    ", SIGSTOP);
+-	constant("#define _SIGTSTP    ", SIGTSTP);
+-	constant("#define _SIGCONT    ", SIGCONT);
+-	constant("#define _SIGTTIN    ", SIGTTIN);
+-	constant("#define _SIGTTOU    ", SIGTTOU);
+-	constant("#define _SIGVTALRM  ", SIGVTALRM);
+-	constant("#define _SIGPROF    ", SIGPROF);
+-	constant("#define _SIGXCPU    ", SIGXCPU);
+-	constant("#define _SIGXFSZ    ", SIGXFSZ);
++	text("Linux signal numbers.");
++	constant("_SIGHUP", SIGHUP);
++	constant("_SIGINT", SIGINT);
++	constant("_SIGQUIT", SIGQUIT);
++	constant("_SIGILL", SIGILL);
++	constant("_SIGTRAP", SIGTRAP);
++	constant("_SIGIOT", SIGIOT);
++	constant("_SIGABRT", SIGABRT);
++	constant("_SIGEMT", SIGEMT);
++	constant("_SIGFPE", SIGFPE);
++	constant("_SIGKILL", SIGKILL);
++	constant("_SIGBUS", SIGBUS);
++	constant("_SIGSEGV", SIGSEGV);
++	constant("_SIGSYS", SIGSYS);
++	constant("_SIGPIPE", SIGPIPE);
++	constant("_SIGALRM", SIGALRM);
++	constant("_SIGTERM", SIGTERM);
++	constant("_SIGUSR1", SIGUSR1);
++	constant("_SIGUSR2", SIGUSR2);
++	constant("_SIGCHLD", SIGCHLD);
++	constant("_SIGPWR", SIGPWR);
++	constant("_SIGWINCH", SIGWINCH);
++	constant("_SIGURG", SIGURG);
++	constant("_SIGIO", SIGIO);
++	constant("_SIGSTOP", SIGSTOP);
++	constant("_SIGTSTP", SIGTSTP);
++	constant("_SIGCONT", SIGCONT);
++	constant("_SIGTTIN", SIGTTIN);
++	constant("_SIGTTOU", SIGTTOU);
++	constant("_SIGVTALRM", SIGVTALRM);
++	constant("_SIGPROF", SIGPROF);
++	constant("_SIGXCPU", SIGXCPU);
++	constant("_SIGXFSZ", SIGXFSZ);
+ 	linefeed;
+ }
+ 
+ void output_irq_cpustat_t_defines(void)
+ {
+-	text("/* Linux irq_cpustat_t offsets. */");
+-	offset("#define IC_SOFTIRQ_PENDING ", irq_cpustat_t, __softirq_pending);
+-	size("#define IC_IRQ_CPUSTAT_T   ", irq_cpustat_t);
++	text("Linux irq_cpustat_t offsets.");
++	offset("IC_SOFTIRQ_PENDING", irq_cpustat_t, __softirq_pending);
++	size("IC_IRQ_CPUSTAT_T", irq_cpustat_t);
+ 	linefeed;
+ }
+ 
+ void output_gdbreg_defines(void)
+ {
+-	text("/* MIPS struct gdb_regs offsets. */");
+-	offset("#define GDB_FR_REG0     ", struct gdb_regs, reg0);
+-	offset("#define GDB_FR_REG1     ", struct gdb_regs, reg1);
+-	offset("#define GDB_FR_REG2     ", struct gdb_regs, reg2);
+-	offset("#define GDB_FR_REG3     ", struct gdb_regs, reg3);
+-	offset("#define GDB_FR_REG4     ", struct gdb_regs, reg4);
+-	offset("#define GDB_FR_REG5     ", struct gdb_regs, reg5);
+-	offset("#define GDB_FR_REG6     ", struct gdb_regs, reg6);
+-	offset("#define GDB_FR_REG7     ", struct gdb_regs, reg7);
+-	offset("#define GDB_FR_REG8     ", struct gdb_regs, reg8);
+-	offset("#define GDB_FR_REG9     ", struct gdb_regs, reg9);
+-	offset("#define GDB_FR_REG10    ", struct gdb_regs, reg10);
+-	offset("#define GDB_FR_REG11    ", struct gdb_regs, reg11);
+-	offset("#define GDB_FR_REG12    ", struct gdb_regs, reg12);
+-	offset("#define GDB_FR_REG13    ", struct gdb_regs, reg13);
+-	offset("#define GDB_FR_REG14    ", struct gdb_regs, reg14);
+-	offset("#define GDB_FR_REG15    ", struct gdb_regs, reg15);
+-	offset("#define GDB_FR_REG16    ", struct gdb_regs, reg16);
+-	offset("#define GDB_FR_REG17    ", struct gdb_regs, reg17);
+-	offset("#define GDB_FR_REG18    ", struct gdb_regs, reg18);
+-	offset("#define GDB_FR_REG19    ", struct gdb_regs, reg19);
+-	offset("#define GDB_FR_REG20    ", struct gdb_regs, reg20);
+-	offset("#define GDB_FR_REG21    ", struct gdb_regs, reg21);
+-	offset("#define GDB_FR_REG22    ", struct gdb_regs, reg22);
+-	offset("#define GDB_FR_REG23    ", struct gdb_regs, reg23);
+-	offset("#define GDB_FR_REG24    ", struct gdb_regs, reg24);
+-	offset("#define GDB_FR_REG25    ", struct gdb_regs, reg25);
+-	offset("#define GDB_FR_REG26    ", struct gdb_regs, reg26);
+-	offset("#define GDB_FR_REG27    ", struct gdb_regs, reg27);
+-	offset("#define GDB_FR_REG28    ", struct gdb_regs, reg28);
+-	offset("#define GDB_FR_REG29    ", struct gdb_regs, reg29);
+-	offset("#define GDB_FR_REG30    ", struct gdb_regs, reg30);
+-	offset("#define GDB_FR_REG31    ", struct gdb_regs, reg31);
+-	linefeed;
+-
+-	offset("#define GDB_FR_STATUS   ", struct gdb_regs, cp0_status);
+-	offset("#define GDB_FR_HI       ", struct gdb_regs, hi);
+-	offset("#define GDB_FR_LO       ", struct gdb_regs, lo);
++	text("MIPS struct gdb_regs offsets.");
++	offset("GDB_FR_REG0",  struct gdb_regs, reg0);
++	offset("GDB_FR_REG1",  struct gdb_regs, reg1);
++	offset("GDB_FR_REG2",  struct gdb_regs, reg2);
++	offset("GDB_FR_REG3",  struct gdb_regs, reg3);
++	offset("GDB_FR_REG4",  struct gdb_regs, reg4);
++	offset("GDB_FR_REG5",  struct gdb_regs, reg5);
++	offset("GDB_FR_REG6",  struct gdb_regs, reg6);
++	offset("GDB_FR_REG7",  struct gdb_regs, reg7);
++	offset("GDB_FR_REG8",  struct gdb_regs, reg8);
++	offset("GDB_FR_REG9",  struct gdb_regs, reg9);
++	offset("GDB_FR_REG10", struct gdb_regs, reg10);
++	offset("GDB_FR_REG11", struct gdb_regs, reg11);
++	offset("GDB_FR_REG12", struct gdb_regs, reg12);
++	offset("GDB_FR_REG13", struct gdb_regs, reg13);
++	offset("GDB_FR_REG14", struct gdb_regs, reg14);
++	offset("GDB_FR_REG15", struct gdb_regs, reg15);
++	offset("GDB_FR_REG16", struct gdb_regs, reg16);
++	offset("GDB_FR_REG17", struct gdb_regs, reg17);
++	offset("GDB_FR_REG18", struct gdb_regs, reg18);
++	offset("GDB_FR_REG19", struct gdb_regs, reg19);
++	offset("GDB_FR_REG20", struct gdb_regs, reg20);
++	offset("GDB_FR_REG21", struct gdb_regs, reg21);
++	offset("GDB_FR_REG22", struct gdb_regs, reg22);
++	offset("GDB_FR_REG23", struct gdb_regs, reg23);
++	offset("GDB_FR_REG24", struct gdb_regs, reg24);
++	offset("GDB_FR_REG25", struct gdb_regs, reg25);
++	offset("GDB_FR_REG26", struct gdb_regs, reg26);
++	offset("GDB_FR_REG27", struct gdb_regs, reg27);
++	offset("GDB_FR_REG28", struct gdb_regs, reg28);
++	offset("GDB_FR_REG29", struct gdb_regs, reg29);
++	offset("GDB_FR_REG30", struct gdb_regs, reg30);
++	offset("GDB_FR_REG31", struct gdb_regs, reg31);
++	linefeed;
++
++	offset("GDB_FR_STATUS", struct gdb_regs, cp0_status);
++	offset("GDB_FR_HI",     struct gdb_regs, hi);
++	offset("GDB_FR_LO",     struct gdb_regs, lo);
+ #ifdef CONFIG_CPU_HAS_SMARTMIPS
+-	offset("#define GDB_FR_ACX      ", struct gdb_regs, acx);
++	offset("GDB_FR_ACX",    struct gdb_regs, acx);
+ #endif
+-	offset("#define GDB_FR_BADVADDR ", struct gdb_regs, cp0_badvaddr);
+-	offset("#define GDB_FR_CAUSE    ", struct gdb_regs, cp0_cause);
+-	offset("#define GDB_FR_EPC      ", struct gdb_regs, cp0_epc);
+-	linefeed;
+-
+-	offset("#define GDB_FR_FPR0        ", struct gdb_regs, fpr0);
+-	offset("#define GDB_FR_FPR1        ", struct gdb_regs, fpr1);
+-	offset("#define GDB_FR_FPR2        ", struct gdb_regs, fpr2);
+-	offset("#define GDB_FR_FPR3        ", struct gdb_regs, fpr3);
+-	offset("#define GDB_FR_FPR4        ", struct gdb_regs, fpr4);
+-	offset("#define GDB_FR_FPR5        ", struct gdb_regs, fpr5);
+-	offset("#define GDB_FR_FPR6        ", struct gdb_regs, fpr6);
+-	offset("#define GDB_FR_FPR7        ", struct gdb_regs, fpr7);
+-	offset("#define GDB_FR_FPR8        ", struct gdb_regs, fpr8);
+-	offset("#define GDB_FR_FPR9        ", struct gdb_regs, fpr9);
+-	offset("#define GDB_FR_FPR10        ", struct gdb_regs, fpr10);
+-	offset("#define GDB_FR_FPR11        ", struct gdb_regs, fpr11);
+-	offset("#define GDB_FR_FPR12        ", struct gdb_regs, fpr12);
+-	offset("#define GDB_FR_FPR13        ", struct gdb_regs, fpr13);
+-	offset("#define GDB_FR_FPR14        ", struct gdb_regs, fpr14);
+-	offset("#define GDB_FR_FPR15        ", struct gdb_regs, fpr15);
+-	offset("#define GDB_FR_FPR16        ", struct gdb_regs, fpr16);
+-	offset("#define GDB_FR_FPR17        ", struct gdb_regs, fpr17);
+-	offset("#define GDB_FR_FPR18        ", struct gdb_regs, fpr18);
+-	offset("#define GDB_FR_FPR19        ", struct gdb_regs, fpr19);
+-	offset("#define GDB_FR_FPR20        ", struct gdb_regs, fpr20);
+-	offset("#define GDB_FR_FPR21        ", struct gdb_regs, fpr21);
+-	offset("#define GDB_FR_FPR22        ", struct gdb_regs, fpr22);
+-	offset("#define GDB_FR_FPR23        ", struct gdb_regs, fpr23);
+-	offset("#define GDB_FR_FPR24        ", struct gdb_regs, fpr24);
+-	offset("#define GDB_FR_FPR25        ", struct gdb_regs, fpr25);
+-	offset("#define GDB_FR_FPR26        ", struct gdb_regs, fpr26);
+-	offset("#define GDB_FR_FPR27        ", struct gdb_regs, fpr27);
+-	offset("#define GDB_FR_FPR28        ", struct gdb_regs, fpr28);
+-	offset("#define GDB_FR_FPR29        ", struct gdb_regs, fpr29);
+-	offset("#define GDB_FR_FPR30        ", struct gdb_regs, fpr30);
+-	offset("#define GDB_FR_FPR31        ", struct gdb_regs, fpr31);
+-	linefeed;
+-
+-	offset("#define GDB_FR_FSR          ", struct gdb_regs, cp1_fsr);
+-	offset("#define GDB_FR_FIR          ", struct gdb_regs, cp1_fir);
+-	offset("#define GDB_FR_FRP          ", struct gdb_regs, frame_ptr);
+-	offset("#define GDB_FR_DUMMY        ", struct gdb_regs, dummy);
+-
+-	offset("#define GDB_FR_CP0_INDEX    ", struct gdb_regs, cp0_index);
+-	offset("#define GDB_FR_CP0_RANDOM   ", struct gdb_regs, cp0_random);
+-	offset("#define GDB_FR_CP0_ENTRYLO0 ", struct gdb_regs, cp0_entrylo0);
+-	offset("#define GDB_FR_CP0_ENTRYLO1 ", struct gdb_regs, cp0_entrylo1);
+-	offset("#define GDB_FR_CP0_CONTEXT  ", struct gdb_regs, cp0_context);
+-	offset("#define GDB_FR_CP0_PAGEMASK ", struct gdb_regs, cp0_pagemask);
+-	offset("#define GDB_FR_CP0_WIRED    ", struct gdb_regs, cp0_wired);
+-	offset("#define GDB_FR_CP0_REG7     ", struct gdb_regs, cp0_reg7);
+-	offset("#define GDB_FR_CP0_REG8     ", struct gdb_regs, cp0_reg8);
+-	offset("#define GDB_FR_CP0_REG9     ", struct gdb_regs, cp0_reg9);
+-	offset("#define GDB_FR_CP0_ENTRYHI  ", struct gdb_regs, cp0_entryhi);
+-	offset("#define GDB_FR_CP0_REG11    ", struct gdb_regs, cp0_reg11);
+-	offset("#define GDB_FR_CP0_REG12    ", struct gdb_regs, cp0_reg12);
+-	offset("#define GDB_FR_CP0_REG13    ", struct gdb_regs, cp0_reg13);
+-	offset("#define GDB_FR_CP0_REG14    ", struct gdb_regs, cp0_reg14);
+-	offset("#define GDB_FR_CP0_PRID     ", struct gdb_regs, cp0_prid);
+-	size("#define GDB_FR_SIZE         ", struct gdb_regs);
++	offset("GDB_FR_BADVADDR", struct gdb_regs, cp0_badvaddr);
++	offset("GDB_FR_CAUSE",    struct gdb_regs, cp0_cause);
++	offset("GDB_FR_EPC",      struct gdb_regs, cp0_epc);
++	linefeed;
++
++	offset("GDB_FR_FPR0",  struct gdb_regs, fpr0);
++	offset("GDB_FR_FPR1",  struct gdb_regs, fpr1);
++	offset("GDB_FR_FPR2",  struct gdb_regs, fpr2);
++	offset("GDB_FR_FPR3",  struct gdb_regs, fpr3);
++	offset("GDB_FR_FPR4",  struct gdb_regs, fpr4);
++	offset("GDB_FR_FPR5",  struct gdb_regs, fpr5);
++	offset("GDB_FR_FPR6",  struct gdb_regs, fpr6);
++	offset("GDB_FR_FPR7",  struct gdb_regs, fpr7);
++	offset("GDB_FR_FPR8",  struct gdb_regs, fpr8);
++	offset("GDB_FR_FPR9",  struct gdb_regs, fpr9);
++	offset("GDB_FR_FPR10", struct gdb_regs, fpr10);
++	offset("GDB_FR_FPR11", struct gdb_regs, fpr11);
++	offset("GDB_FR_FPR12", struct gdb_regs, fpr12);
++	offset("GDB_FR_FPR13", struct gdb_regs, fpr13);
++	offset("GDB_FR_FPR14", struct gdb_regs, fpr14);
++	offset("GDB_FR_FPR15", struct gdb_regs, fpr15);
++	offset("GDB_FR_FPR16", struct gdb_regs, fpr16);
++	offset("GDB_FR_FPR17", struct gdb_regs, fpr17);
++	offset("GDB_FR_FPR18", struct gdb_regs, fpr18);
++	offset("GDB_FR_FPR19", struct gdb_regs, fpr19);
++	offset("GDB_FR_FPR20", struct gdb_regs, fpr20);
++	offset("GDB_FR_FPR21", struct gdb_regs, fpr21);
++	offset("GDB_FR_FPR22", struct gdb_regs, fpr22);
++	offset("GDB_FR_FPR23", struct gdb_regs, fpr23);
++	offset("GDB_FR_FPR24", struct gdb_regs, fpr24);
++	offset("GDB_FR_FPR25", struct gdb_regs, fpr25);
++	offset("GDB_FR_FPR26", struct gdb_regs, fpr26);
++	offset("GDB_FR_FPR27", struct gdb_regs, fpr27);
++	offset("GDB_FR_FPR28", struct gdb_regs, fpr28);
++	offset("GDB_FR_FPR29", struct gdb_regs, fpr29);
++	offset("GDB_FR_FPR30", struct gdb_regs, fpr30);
++	offset("GDB_FR_FPR31", struct gdb_regs, fpr31);
++	linefeed;
++
++	offset("GDB_FR_FSR",   struct gdb_regs, cp1_fsr);
++	offset("GDB_FR_FIR",   struct gdb_regs, cp1_fir);
++	offset("GDB_FR_FRP",   struct gdb_regs, frame_ptr);
++	offset("GDB_FR_DUMMY", struct gdb_regs, dummy);
++
++	offset("GDB_FR_CP0_INDEX   ", struct gdb_regs, cp0_index);
++	offset("GDB_FR_CP0_RANDOM  ", struct gdb_regs, cp0_random);
++	offset("GDB_FR_CP0_ENTRYLO0", struct gdb_regs, cp0_entrylo0);
++	offset("GDB_FR_CP0_ENTRYLO1", struct gdb_regs, cp0_entrylo1);
++	offset("GDB_FR_CP0_CONTEXT ", struct gdb_regs, cp0_context);
++	offset("GDB_FR_CP0_PAGEMASK", struct gdb_regs, cp0_pagemask);
++	offset("GDB_FR_CP0_WIRED   ", struct gdb_regs, cp0_wired);
++	offset("GDB_FR_CP0_REG7    ", struct gdb_regs, cp0_reg7);
++	offset("GDB_FR_CP0_REG8    ", struct gdb_regs, cp0_reg8);
++	offset("GDB_FR_CP0_REG9    ", struct gdb_regs, cp0_reg9);
++	offset("GDB_FR_CP0_ENTRYHI ", struct gdb_regs, cp0_entryhi);
++	offset("GDB_FR_CP0_REG11   ", struct gdb_regs, cp0_reg11);
++	offset("GDB_FR_CP0_REG12   ", struct gdb_regs, cp0_reg12);
++	offset("GDB_FR_CP0_REG13   ", struct gdb_regs, cp0_reg13);
++	offset("GDB_FR_CP0_REG14   ", struct gdb_regs, cp0_reg14);
++	offset("GDB_FR_CP0_PRID    ", struct gdb_regs, cp0_prid);
++	size("GDB_FR_SIZE", struct gdb_regs);
+ }
+diff --git a/arch/mips/kernel/genex.S b/arch/mips/kernel/genex.S
+--- a/arch/mips/kernel/genex.S
++++ b/arch/mips/kernel/genex.S
+@@ -19,7 +19,6 @@
+ #include <asm/mipsregs.h>
+ #include <asm/stackframe.h>
+ #include <asm/war.h>
+-#include <asm/page.h>
+ #include <asm/thread_info.h>
+ 
+ #define PANIC_PIC(msg)					\
+@@ -483,8 +482,8 @@ NESTED(nmi_handler, PT_SIZE, sp)
+ 	MFC0	k1, CP0_ENTRYHI
+ 	andi	k1, 0xff	/* ASID_MASK */
+ 	MFC0	k0, CP0_EPC
+-	PTR_SRL	k0, PAGE_SHIFT + 1
+-	PTR_SLL	k0, PAGE_SHIFT + 1
++	PTR_SRL	k0, _PAGE_SHIFT + 1
++	PTR_SLL	k0, _PAGE_SHIFT + 1
+ 	or	k1, k0
+ 	MTC0	k1, CP0_ENTRYHI
+ 	mtc0_tlbw_hazard
+diff --git a/arch/mips/kernel/head.S b/arch/mips/kernel/head.S
+--- a/arch/mips/kernel/head.S
++++ b/arch/mips/kernel/head.S
+@@ -21,7 +21,6 @@
+ #include <asm/asmmacro.h>
+ #include <asm/irqflags.h>
+ #include <asm/regdef.h>
+-#include <asm/page.h>
+ #include <asm/pgtable-bits.h>
+ #include <asm/mipsregs.h>
+ #include <asm/stackframe.h>
+diff --git a/arch/mips/kernel/r2300_switch.S b/arch/mips/kernel/r2300_switch.S
+--- a/arch/mips/kernel/r2300_switch.S
++++ b/arch/mips/kernel/r2300_switch.S
+@@ -15,7 +15,6 @@
+ #include <asm/fpregdef.h>
+ #include <asm/mipsregs.h>
+ #include <asm/asm-offsets.h>
+-#include <asm/page.h>
+ #include <asm/regdef.h>
+ #include <asm/stackframe.h>
+ #include <asm/thread_info.h>
+diff --git a/arch/mips/kernel/r4k_switch.S b/arch/mips/kernel/r4k_switch.S
+--- a/arch/mips/kernel/r4k_switch.S
++++ b/arch/mips/kernel/r4k_switch.S
+@@ -15,7 +15,6 @@
+ #include <asm/fpregdef.h>
+ #include <asm/mipsregs.h>
+ #include <asm/asm-offsets.h>
+-#include <asm/page.h>
+ #include <asm/pgtable-bits.h>
+ #include <asm/regdef.h>
+ #include <asm/stackframe.h>
+diff --git a/arch/mips/kernel/relocate_kernel.S b/arch/mips/kernel/relocate_kernel.S
+--- a/arch/mips/kernel/relocate_kernel.S
++++ b/arch/mips/kernel/relocate_kernel.S
+@@ -9,7 +9,6 @@
+ #include <asm/asm.h>
+ #include <asm/asmmacro.h>
+ #include <asm/regdef.h>
+-#include <asm/page.h>
+ #include <asm/mipsregs.h>
+ #include <asm/stackframe.h>
+ #include <asm/addrspace.h>
+diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
+--- a/arch/mips/kernel/vmlinux.lds.S
++++ b/arch/mips/kernel/vmlinux.lds.S
+@@ -1,7 +1,8 @@
+ #include <asm/asm-offsets.h>
+-#include <asm/page.h>
+ #include <asm/thread_info.h>
+ #include <asm-generic/vmlinux.lds.h>
+ 
++#define PAGE_SIZE _PAGE_SIZE
++
+ #undef mips
+ #define mips mips
+ OUTPUT_ARCH(mips)
+diff --git a/arch/mips/mm/tlbex-fault.S b/arch/mips/mm/tlbex-fault.S
+--- a/arch/mips/mm/tlbex-fault.S
++++ b/arch/mips/mm/tlbex-fault.S
+@@ -7,7 +7,6 @@
+  * Copyright (C) 1999 Silicon Graphics, Inc.
+  */
+ #include <asm/mipsregs.h>
+-#include <asm/page.h>
+ #include <asm/regdef.h>
+ #include <asm/stackframe.h>
+ 
+diff --git a/include/asm-mips/io.h b/include/asm-mips/io.h
+--- a/include/asm-mips/io.h
++++ b/include/asm-mips/io.h
+@@ -118,7 +118,7 @@ static inline void set_io_port_base(unsigned long base)
+  */
+ static inline unsigned long virt_to_phys(volatile const void *address)
+ {
+-	return (unsigned long)address - PAGE_OFFSET + PHYS_OFFSET;
++	return __pa(address);
+ }
+ 
+ /*
+diff --git a/include/asm-mips/page.h b/include/asm-mips/page.h
+--- a/include/asm-mips/page.h
++++ b/include/asm-mips/page.h
+@@ -33,8 +33,6 @@
+ #define PAGE_SIZE	(_AC(1,UL) << PAGE_SHIFT)
+ #define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
+ 
+-#ifndef __ASSEMBLY__
+-
+ /*
+  * This gives the physical RAM offset.
+  */
+@@ -50,7 +48,6 @@
+ #define ARCH_PFN_OFFSET		PFN_UP(PHYS_OFFSET)
+ 
+ #include <linux/pfn.h>
+-#include <asm/io.h>
+ 
+ extern void clear_page(void * page);
+ extern void copy_page(void * to, void * from);
+@@ -142,8 +139,6 @@ typedef struct { unsigned long pgprot; }
+  */
+ #define ptep_buddy(x)	((pte_t *)((unsigned long)(x) ^ sizeof(pte_t)))
+ 
+-#endif /* !__ASSEMBLY__ */
+-
+ /* to align the pointer to the (next) page boundary */
+ #define PAGE_ALIGN(addr)	(((addr) + PAGE_SIZE - 1) & PAGE_MASK)
+ 
+@@ -158,6 +153,7 @@ typedef struct { unsigned long pgprot; }
+ #define __pa(x)		((unsigned long)(x) - __pa_page_offset(x) + PHYS_OFFSET)
+ #define __va(x)		((void *)((unsigned long)(x) + PAGE_OFFSET - PHYS_OFFSET))
+ #define __pa_symbol(x)	__pa(RELOC_HIDE((unsigned long)(x),0))
++#include <asm/io.h>
+ 
+ #define pfn_to_kaddr(pfn)	__va((pfn) << PAGE_SHIFT)
+ 
+-- 
