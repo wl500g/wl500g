@@ -319,7 +319,7 @@ void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 	strncpy(s_APN, nvram_safe_get(strcat_r(prefix, "modem_apn", tmp)), sizeof(s_APN)-1);
 	s_APN[sizeof(s_APN)-1] = 0;
 
-	_eval(argv_uqmi, NULL, 0, NULL);
+	_eval(argv_uqmi, ">>/tmp/chat.log", 0, NULL);
 	dprintf("done\n");
 
 }
