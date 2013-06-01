@@ -160,6 +160,8 @@ _eval(char *const argv[], const char *path, int timeout, int *ppid)
 		setsid();
 
 		fd = open("/dev/null", O_RDWR); /* stdin */
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
 
 		/* Redirect stdout to <path> */
 		if (path) {
@@ -177,12 +179,10 @@ _eval(char *const argv[], const char *path, int timeout, int *ppid)
 				perror(path);
 			else {
 				dprintf("exec %s output to %s", argv[0], path);
-				// fd is equal STDOUT_FILENO!
+				dup2(fd, STDOUT_FILENO);
 				dup2(fd, STDERR_FILENO);
+				close(fd);
 			}
-		} else {
-			dup2(fd, STDOUT_FILENO);
-			dup2(fd, STDERR_FILENO);
 		}
 
 #ifdef DEBUG
