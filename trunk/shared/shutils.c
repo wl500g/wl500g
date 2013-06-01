@@ -176,9 +176,9 @@ _eval(char *const argv[], const char *path, int timeout, int *ppid)
 			if ((fd = open(path, flags, 0644)) < 0)
 				perror(path);
 			else {
-				dup2(fd, STDOUT_FILENO);
+				dprintf("exec %s output to %s", argv[0], path);
+				// fd is equal STDOUT_FILENO!
 				dup2(fd, STDERR_FILENO);
-				close(fd);
 			}
 		} else {
 			dup2(fd, STDOUT_FILENO);
