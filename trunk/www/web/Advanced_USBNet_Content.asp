@@ -31,7 +31,8 @@
 		inputCtrl2(frm.wan_modem_vid, flag);
 		inputCtrl2(frm.wan_modem_pid, flag);
 
-		flag = (frm.wan_usbnet_subtype.value == "user") ? 1 : 0;
+		flag = (frm.wan_usbnet_subtype.value == "user") &&
+			(get_radio_value(frm.wan_modem_autodetect)=="0")? 1 : 0;
 		inputCtrl2(frm.wan_modem_at_connect, flag);
 		inputCtrl2(frm.wan_modem_at_disconnect, flag);
 	}
@@ -234,7 +235,7 @@
 						QMI</option>
 					<option class="content_input_fd" value="ncm" <%nvram_match("wan_usbnet_subtype", "ncm","selected"); %>>
 						NCM</option>
-					<option class="content_input_fd" value="user" <%nvram_match("wan_usbnet_subtype", "at","selected"); %>>
+					<option class="content_input_fd" value="user" <%nvram_match("wan_usbnet_subtype", "user","selected"); %>>
 						User defined AT</option>
 				</select>
 			</td>
