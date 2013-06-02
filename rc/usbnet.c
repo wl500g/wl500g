@@ -29,7 +29,8 @@ void usbnet_load_drivers(const char *prefix)
 #ifdef __CONFIG_MODEM__
 	if ((subtype = nvram_get(strcat_r(prefix, "usbnet_subtype", tmp)))) {
 		modem_load_drivers();
-		if (nvram_match(strcat_r(prefix, "modem_autodetect", tmp), "1")) {
+		if (nvram_match(strcat_r(prefix, "modem_autodetect", tmp), "1") ||
+			!strcmp(subtype, "user")) {
 				insmod_cond("cdc-wdm", NULL);
 				insmod_cond("qmi_wwan", NULL);
 				insmod_cond("cdc_ncm", NULL);
