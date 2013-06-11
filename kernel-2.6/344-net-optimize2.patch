@@ -19,6 +19,7 @@
  4cc7f68d65558f683c702d4fe3a5aac4c5227b97 net: Reexport sock_alloc_send_pskb
  cc9b17ad29ecaa20bfe426a8d4dbfb94b13ff1cc net: sock: validate data_len before allocating skb in sock_alloc_send_pskb()
  0e2bcaae836e535236244bfc900626ee541eb7bb sock_close() couldn't have been called with NULL inode since at least 2.1.early
+ 70777d03466e7a8a41b0d34677454c92f4e93d89 net/core: use ntohs for skb->protocol
 
 ---
  include/net/dst.h            |    6 +++-
@@ -242,7 +243,15 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  			/* skb->nh should be correctly
  			   set by sender, so that the second statement is
  			   just protection against buggy protocols.
-@@ -1151,9 +1167,11 @@ static void dev_queue_xmit_nit(struct sk
+@@ -1146,15 +1160,18 @@ static void dev_queue_xmit_nit(struct sk
+ 				if (net_ratelimit())
+ 					printk(KERN_CRIT "protocol %04x is "
+ 					       "buggy, dev %s\n",
+-					       skb2->protocol, dev->name);
++					       ntohs(skb2->protocol),
++					       dev->name);
+ 				skb_reset_network_header(skb2);
+ 			}
  
  			skb2->transport_header = skb2->network_header;
  			skb2->pkt_type = PACKET_OUTGOING;
