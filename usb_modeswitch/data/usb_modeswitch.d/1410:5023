@@ -1,8 +1,7 @@
-# ZTE MF110 (Variant)
+# Novatel MC996D
 
-TargetVendor=  0x19d2
-TargetProduct= 0x0124
+TargetVendor= 0x1410
+TargetProduct=0x7030
 
 MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-NeedResponse=1
 

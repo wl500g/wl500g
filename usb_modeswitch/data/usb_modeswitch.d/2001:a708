@@ -1,8 +1,7 @@
-# ZTE MF110 (Variant)
+# D-Link DWM-156 (Variant)
 
-TargetVendor=  0x19d2
-TargetProduct= 0x0124
+TargetVendor=  0x2001
+TargetProduct= 0x7d03
 
 MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-NeedResponse=1
 

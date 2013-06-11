@@ -1,5 +1,5 @@
 PROG        = usb-modeswitch-data
-VERS        = 20121109
+VERS        = 20130602
 RM          = /bin/rm -f
 PREFIX      = $(DESTDIR)/usr
 ETCDIR      = $(DESTDIR)/etc
@@ -8,20 +8,24 @@ RULESDIR    = $(DESTDIR)/lib/udev/rules.d
 
 .PHONY:     clean
 
-all:
+all: 40-usb_modeswitch.rules
 
 clean:
+	$(RM) 40-usb_modeswitch.rules
 
-install: files-install db-install rules-reload
+install: all files-install db-install rules-reload
 
 install-packed: files-install db-install-packed rules-reload
 
-files-install:
+files-install: 
 	install -d $(PREFIX)/share/usb_modeswitch
 	install -d $(ETCDIR)/usb_modeswitch.d
 	install -D --mode=644 40-usb_modeswitch.rules $(RULESDIR)/40-usb_modeswitch.rules
 
-db-install:
+40-usb_modeswitch.rules:
+	./gen-rules.tcl
+
+db-install: files-install
 	install --mode=644 -t $(PREFIX)/share/usb_modeswitch ./usb_modeswitch.d/*
 
 db-install-packed:
