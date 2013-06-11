@@ -18,6 +18,9 @@
  *  along with udpxy.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define _XOPEN_SOURCE 600
+#define _BSD_SOURCE
+
 #include "osdef.h"  /* os-specific definitions */
 
 #include <sys/types.h>
