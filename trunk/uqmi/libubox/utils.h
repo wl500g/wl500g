@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <time.h>
 
 /*
@@ -150,5 +151,19 @@ void clock_gettime(int type, struct timespec *tv);
 #ifndef __packed
 #define __packed __attribute__((packed))
 #endif
+
+#ifndef BITS_PER_LONG
+#define BITS_PER_LONG (8 * sizeof(unsigned long))
+#endif
+
+static inline void bitfield_set(unsigned long *bits, int bit)
+{
+	bits[bit / BITS_PER_LONG] |= (1UL << (bit % BITS_PER_LONG));
+}
+
+static inline bool bitfield_test(unsigned long *bits, int bit)
+{
+	return !!(bits[bit / BITS_PER_LONG] & (1UL << (bit % BITS_PER_LONG)));
+}
 
 #endif

@@ -10,7 +10,7 @@ CFLAGS  += -ffunction-sections -fdata-sections
 LDFLAGS += -Wl,--gc-sections
 
 TARGET = libubox.a
-SOURCES = avl.c avl-cmp.c blob.c blobmsg.c uloop.c usock.c ustream.c ustream-fd.c vlist.c utils.c safe_list.c
+SOURCES = avl.c avl-cmp.c blob.c blobmsg.c uloop.c usock.c ustream.c ustream-fd.c vlist.c utils.c safe_list.c runqueue.c
 
 OBJS=$(SOURCES:.c=.o)
 
@@ -54,6 +54,7 @@ ustream.o: ustream.c ustream.h
 utils.o: utils.c utils.h
 vlist.o: vlist.c vlist.h
 safe_list.o: safe_list.c safe_list.h
+runqueue.o: runqueue.c runqueue.h
 
 # Headers
 avl.h: list.h list_compat.h
@@ -63,3 +64,4 @@ safe_list.h: list.h utils.h
 uloop.h: list.h
 ustream.h: uloop.h
 vlist.h: avl.h
+runqueue.h: list.h safe_list.h uloop.h

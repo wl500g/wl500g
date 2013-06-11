@@ -38,6 +38,11 @@
 #endif
 #include <sys/wait.h>
 
+struct uloop_fd_event {
+	struct uloop_fd *fd;
+	unsigned int events;
+};
+
 #define ULOOP_MAX_EVENTS 10
 
 static struct list_head timeouts = LIST_HEAD_INIT(timeouts);
@@ -47,6 +52,8 @@ static int poll_fd = -1;
 bool uloop_cancelled = false;
 bool uloop_handle_sigchld = true;
 static bool do_sigchld = false;
+
+static struct uloop_fd_event cur_fds[ULOOP_MAX_EVENTS];
 static int cur_fd, cur_nfds;
 
 #ifdef USE_KQUEUE
@@ -132,22 +139,12 @@ static int register_poll(struct uloop_fd *fd, unsigned int flags)
 	return register_kevent(fd, flags);
 }
 
-int uloop_fd_delete(struct uloop_fd *sock)
+static int __uloop_fd_delete(struct uloop_fd *fd)
 {
-	int i;
-
-	for (i = cur_fd + 1; i < cur_nfds; i++) {
-		if (events[i].udata != sock)
-			continue;
-
-		events[i].udata = NULL;
-	}
-
-	sock->registered = false;
-	return register_poll(sock, 0);
+	return register_poll(fd, 0);
 }
 
-static void uloop_run_events(int timeout)
+static int uloop_fetch_events(int timeout)
 {
 	struct timespec ts;
 	int nfds, n;
@@ -158,11 +155,12 @@ static void uloop_run_events(int timeout)
 	}
 
 	nfds = kevent(poll_fd, NULL, 0, events, ARRAY_SIZE(events), timeout >= 0 ? &ts : NULL);
-	for(n = 0; n < nfds; ++n)
-	{
+	for (n = 0; n < nfds; n++) {
+		struct uloop_fd_event *cur = &cur_fds[n];
 		struct uloop_fd *u = events[n].udata;
 		unsigned int ev = 0;
 
+		cur->fd = u;
 		if (!u)
 			continue;
 
@@ -179,19 +177,14 @@ static void uloop_run_events(int timeout)
 		if (events[n].flags & EV_EOF)
 			u->eof = true;
 		else if (!ev)
-			continue;
+			cur->fd = NULL;
 
-		if (u->cb) {
-			cur_fd = n;
-			cur_nfds = nfds;
-			u->cb(u, ev);
-			if (u->flags & ULOOP_EDGE_DEFER) {
-				u->flags &= ~ULOOP_EDGE_DEFER;
-				register_kevent(u, u->flags);
-			}
+		if (u->flags & ULOOP_EDGE_DEFER) {
+			u->flags &= ~ULOOP_EDGE_DEFER;
+			register_kevent(u, u->flags);
 		}
 	}
-	cur_nfds = 0;
+	return nfds;
 }
 
 #endif
@@ -242,43 +235,34 @@ static int register_poll(struct uloop_fd *fd, unsigned int flags)
 
 static struct epoll_event events[ULOOP_MAX_EVENTS];
 
-int uloop_fd_delete(struct uloop_fd *sock)
+static int __uloop_fd_delete(struct uloop_fd *sock)
 {
-	int i;
-
-	if (!sock->registered)
-		return 0;
-
-	for (i = cur_fd + 1; i < cur_nfds; i++) {
-		if (events[i].data.ptr != sock)
-			continue;
-
-		events[i].data.ptr = NULL;
-	}
-	sock->registered = false;
 	return epoll_ctl(poll_fd, EPOLL_CTL_DEL, sock->fd, 0);
 }
 
-static void uloop_run_events(int timeout)
+static int uloop_fetch_events(int timeout)
 {
 	int n, nfds;
 
 	nfds = epoll_wait(poll_fd, events, ARRAY_SIZE(events), timeout);
-	for(n = 0; n < nfds; ++n)
-	{
+	for (n = 0; n < nfds; ++n) {
+		struct uloop_fd_event *cur = &cur_fds[n];
 		struct uloop_fd *u = events[n].data.ptr;
 		unsigned int ev = 0;
 
+		cur->fd = u;
 		if (!u)
 			continue;
 
-		if(events[n].events & (EPOLLERR|EPOLLHUP)) {
+		if (events[n].events & (EPOLLERR|EPOLLHUP)) {
 			u->error = true;
 			uloop_fd_delete(u);
 		}
 
-		if(!(events[n].events & (EPOLLRDHUP|EPOLLIN|EPOLLOUT|EPOLLERR|EPOLLHUP)))
+		if(!(events[n].events & (EPOLLRDHUP|EPOLLIN|EPOLLOUT|EPOLLERR|EPOLLHUP))) {
+			cur->fd = NULL;
 			continue;
+		}
 
 		if(events[n].events & EPOLLRDHUP)
 			u->eof = true;
@@ -289,16 +273,41 @@ static void uloop_run_events(int timeout)
 		if(events[n].events & EPOLLOUT)
 			ev |= ULOOP_WRITE;
 
-		if(u->cb) {
-			cur_fd = n;
-			cur_nfds = nfds;
-			u->cb(u, ev);
-		}
+		cur->events = ev;
 	}
-	cur_nfds = 0;
+
+	return nfds;
 }
 
 #endif
+
+static void uloop_run_events(int timeout)
+{
+	struct uloop_fd_event *cur;
+	struct uloop_fd *fd;
+
+	if (!cur_nfds) {
+		cur_fd = 0;
+		cur_nfds = uloop_fetch_events(timeout);
+		if (cur_nfds < 0)
+			cur_nfds = 0;
+	}
+
+	while (cur_nfds > 0) {
+		cur = &cur_fds[cur_fd++];
+		cur_nfds--;
+
+		fd = cur->fd;
+		if (!fd)
+			continue;
+
+		if (!fd->cb)
+			continue;
+
+		fd->cb(fd, cur->events);
+		return;
+	}
+}
 
 int uloop_fd_add(struct uloop_fd *sock, unsigned int flags)
 {
@@ -323,6 +332,23 @@ int uloop_fd_add(struct uloop_fd *sock, unsigned int flags)
 
 out:
 	return ret;
+}
+
+int uloop_fd_delete(struct uloop_fd *fd)
+{
+	int i;
+
+	if (!fd->registered)
+		return 0;
+
+	for (i = 0; i < cur_nfds; i++) {
+		if (cur_fds[cur_fd + i].fd != fd)
+			continue;
+
+		cur_fds[cur_fd + i].fd = NULL;
+	}
+	fd->registered = false;
+	return __uloop_fd_delete(fd);
 }
 
 static int tv_diff(struct timeval *t1, struct timeval *t2)

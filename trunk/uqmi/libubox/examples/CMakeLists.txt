@@ -17,3 +17,6 @@ TARGET_LINK_LIBRARIES(blobmsg-example ubox blobmsg_json json)
 ADD_EXECUTABLE(ustream-example ustream-example.c)
 TARGET_LINK_LIBRARIES(ustream-example ubox)
 
+ADD_EXECUTABLE(runqueue-example runqueue-example.c)
+TARGET_LINK_LIBRARIES(runqueue-example ubox)
+

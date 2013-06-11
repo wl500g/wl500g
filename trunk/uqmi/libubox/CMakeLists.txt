@@ -13,13 +13,13 @@ IF(APPLE)
 ENDIF()
 
 INCLUDE(FindPkgConfig)
-PKG_CHECK_MODULES(JSONC json)
+PKG_CHECK_MODULES(JSONC json-c json)
 IF(JSONC_FOUND)
   ADD_DEFINITIONS(-DJSONC)
   INCLUDE_DIRECTORIES(${JSONC_INCLUDE_DIRS})
 ENDIF()
 
-SET(SOURCES avl.c avl-cmp.c blob.c blobmsg.c uloop.c usock.c ustream.c ustream-fd.c vlist.c utils.c safe_list.c)
+SET(SOURCES avl.c avl-cmp.c blob.c blobmsg.c uloop.c usock.c ustream.c ustream-fd.c vlist.c utils.c safe_list.c runqueue.c)
 
 ADD_LIBRARY(ubox SHARED ${SOURCES})
 
