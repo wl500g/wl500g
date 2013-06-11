@@ -1,8 +1,7 @@
-# ZTE MF110 (Variant)
+# Pantech UML290
 
-TargetVendor=  0x19d2
-TargetProduct= 0x0124
+TargetVendor=  0x106c
+TargetProduct= 0x3718
 
 MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-NeedResponse=1
 

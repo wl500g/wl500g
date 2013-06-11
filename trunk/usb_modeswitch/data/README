@@ -17,6 +17,9 @@ this version on, the rules file does not check for the class of inter-
 face 0 anymore, the check was moved to the dispatcher.
 The changes were necessary for future MBIM device support.
 
+Just do "make install". To re-generate udev rules file, type "make clean"
+and install again ("tcl" package required).
+
 
 Tasks initiated by the rules file:
 ==================================
@@ -32,8 +35,10 @@ Tasks initiated by the rules file:
 
 - loading and binding the "option" driver if the device arrives in modem
   state (not CDC/ACM) and the device ID is not yet known to the driver.
-  This action will be trigered only for modems known to the system (at
-  least switched once)
+  This action will be triggered only for modems known to the system (at
+  least switched once).
+  To prevent the default driver binding, add NoDriverLoading=1 to the
+  respective device configuration file
 
 
 Explanation about config file names:
@@ -95,7 +100,7 @@ Notes about specific devices:
   time reported, even with MS Windoze - 30 to 40 seconds. Don't be alarmed.
 
 - 0471:1210 (Philips chipset): had to be split after variants with different
-  targets and behaviour appeared. This is not properly tested yet, please
+  targets and behaviour appeared. This is not fully confirmed yet, please
   report problems.
 
 
@@ -118,4 +123,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2012-11-09, Josua Dietze
+Last revised: 2013-06-02, Josua Dietze

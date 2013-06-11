@@ -1,3 +1,13 @@
+20130602:
+    Added devices: Nokia CS-12, Alcatel-Lucent T930S, Axesstel MV241,
+    Pantech UML290, Huawei E3131 (Variant), Huawei U2800 Phone, Huawei GP02
+    (E587 Variant), KDDI (Huawei) HWD12 LTE, Novatel MC996D, Axesstel MU130,
+    ZTE MF656A, MF668A, MF669, Onda MT8205 LTE, ZTE MF680, ZTE MF196,
+    BandRich BandLuxe C508, Alcatel L100V, Explay Slim, Onda TM201 14.4
+    (TIM Italy), Onda WM301, D-Link DWM-156 (several new variants), D-Link
+    DWR-510, Mediatek MT6229, Changhong CH690, WeTelecom WM-D200; several
+    new target IDs for Sierra, Huawei and ZTE; fix for WeTelecom WM-D300;
+    included simple TCL script to regenerate rules file from configs
 20121109:
     Added devices: Nokia CS-7M-01, LG LUU-2110TI, LG VL600, LG L-03D LTE/3G,
     Option Beemo/Pantech P4200 LTE, Vodafone/Huawei K3772, Vodafone/Huawei
