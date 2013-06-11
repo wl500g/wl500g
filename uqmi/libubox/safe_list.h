@@ -30,7 +30,7 @@
 #include "utils.h"
 
 struct safe_list;
-struct safe_list_terator;
+struct safe_list_iterator;
 
 struct safe_list {
 	struct list_head list;
@@ -52,5 +52,10 @@ void safe_list_del(struct safe_list *list);
 
 #define SAFE_LIST_INIT(_name) { LIST_HEAD_INIT(_name.list), NULL }
 #define SAFE_LIST(_name)	struct safe_list _name = SAFE_LIST_INIT(_name)
+
+static inline bool safe_list_empty(struct safe_list *head)
+{
+	return list_empty(&head->list);
+}
 
 #endif

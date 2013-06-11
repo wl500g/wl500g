@@ -23,7 +23,7 @@ struct client {
 
 static void client_read_cb(struct ustream *s, int bytes)
 {
-	struct client *cl = container_of(s, struct client, s);
+	struct client *cl = container_of(s, struct client, s.stream);
 	struct ustream_buf *buf = s->r.head;
 	char *newline, *str;
 
@@ -50,7 +50,7 @@ static void client_read_cb(struct ustream *s, int bytes)
 
 static void client_close(struct ustream *s)
 {
-	struct client *cl = container_of(s, struct client, s);
+	struct client *cl = container_of(s, struct client, s.stream);
 
 	fprintf(stderr, "Connection closed\n");
 	ustream_free(s);
@@ -70,7 +70,7 @@ static void client_notify_write(struct ustream *s, int bytes)
 
 static void client_notify_state(struct ustream *s)
 {
-	struct client *cl = container_of(s, struct client, s);
+	struct client *cl = container_of(s, struct client, s.stream);
 
 	if (!s->eof)
 		return;
