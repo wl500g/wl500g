@@ -178,7 +178,6 @@ _eval(char *const argv[], const char *path, int timeout, int *ppid)
 			if ((fd = open(path, flags, 0644)) < 0)
 				perror(path);
 			else {
-				dprintf("exec %s output to %s", argv[0], path);
 				dup2(fd, STDOUT_FILENO);
 				dup2(fd, STDERR_FILENO);
 				close(fd);
@@ -190,7 +189,7 @@ _eval(char *const argv[], const char *path, int timeout, int *ppid)
 		char **ptr, tmp[1024] = "";
 		for (ptr = (char **)argv; *ptr; ptr++)
 			snprintf(tmp, sizeof(tmp), "%s%s ", tmp, *ptr);
-		dprintf("<%d> %s\n", getpid(), tmp);
+		dprintf("<%d> %s %s\n", getpid(), tmp, path ? : "");
 	}
 #endif
 		setenv("PATH", "/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin", 1);
