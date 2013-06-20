@@ -1285,7 +1285,11 @@ const char *xtables_ip6mask_to_numeric(const struct in6_addr *addrp)
 		strcat(buf, xtables_ip6addr_to_numeric(addrp));
 		return buf;
 	}
-	sprintf(buf, "/%d", l);
+	/* we don't want to see "/128" */
+	if (l == 128)
+		return "";
+	else
+		sprintf(buf, "/%d", l);
 	return buf;
 }
 
