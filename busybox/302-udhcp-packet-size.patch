@@ -52,9 +52,9 @@ Subject: Explicitly set DHCP_MAX_SIZE (option 57) for request packets, like for 
  struct client_config_t {
  	uint8_t client_mac[6];          /* Our mac address */
 +	uint16_t client_mtu;		/* Our mtu */
- 	char no_default_options;        /* Do not include default options in request */
  	IF_FEATURE_UDHCP_PORT(uint16_t port;)
  	int ifindex;                    /* Index number of the interface to use */
+ 
 --- busybox.orig/networking/udhcp/dhcpd.c	2010-09-16 23:05:35.000000000 +0000
 +++ busybox/networking/udhcp/dhcpd.c	2010-10-13 18:19:07.024347002 +0000
 @@ -357,7 +357,8 @@ int udhcpd_main(int argc UNUSED_PARAM, c

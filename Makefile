@@ -26,7 +26,7 @@ BRCM-SRC=brcm-src-2.6
 IPROUTE2=iproute2-2.6
 IPTABLES=iptables-2.6
 
-BUSYBOX=busybox-1.20.2
+BUSYBOX=busybox-1.21.1
 DROPBEAR=dropbear-2013.58
 DNSMASQ=dnsmasq-2.66
 LPRNG=LPRng-3.8.22
