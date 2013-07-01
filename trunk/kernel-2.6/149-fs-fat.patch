@@ -1,0 +1,115 @@
+fat: Updates from upstream
+
+ aac49b7543c816a6e2c1581c5b5002e6a0cef3d1 fs/fat: return f_fsid for statfs(2)
+ eeb5b4ae81f4a750355fa0c15f4fea22fdf83be1 fat: Fix stat->f_namelen
+ 30d1872d9eb3663b4cf7bdebcbf5cd465674cced fat: fix buffer overflow in vfat_create_shortname()
+
+---
+ fs/fat/inode.c           |    8 ++++++--
+ fs/vfat/namei.c          |   12 ++++++------
+ include/linux/msdos_fs.h |    3 ++-
+ 3 files changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/fs/fat/inode.c b/fs/fat/inode.c
+--- a/fs/fat/inode.c
++++ b/fs/fat/inode.c
+@@ -533,7 +533,9 @@ static int fat_remount(struct super_bloc
+ 
+ static int fat_statfs(struct dentry *dentry, struct kstatfs *buf)
+ {
+-	struct msdos_sb_info *sbi = MSDOS_SB(dentry->d_sb);
++	struct super_block *sb = dentry->d_sb;
++	struct msdos_sb_info *sbi = MSDOS_SB(sb);
++	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
+ 
+ 	/* If the count of free cluster is still unknown, counts it here. */
+ 	if (sbi->free_clusters == -1 || !sbi->free_clus_valid) {
+@@ -547,7 +549,9 @@ static int fat_statfs(struct dentry *den
+ 	buf->f_blocks = sbi->max_cluster - FAT_START_ENT;
+ 	buf->f_bfree = sbi->free_clusters;
+ 	buf->f_bavail = sbi->free_clusters;
+-	buf->f_namelen = sbi->options.isvfat ? 260 : 12;
++	buf->f_fsid.val[0] = (u32)id;
++	buf->f_fsid.val[1] = (u32)(id >> 32);
++	buf->f_namelen = sbi->options.isvfat ? FAT_LFN_LEN : 12;
+ 
+ 	return 0;
+ }
+diff --git a/fs/vfat/namei.c b/fs/vfat/namei.c
+--- a/fs/vfat/namei.c
++++ b/fs/vfat/namei.c
+@@ -280,7 +280,7 @@ static int vfat_create_shortname(struct
+ {
+ 	struct fat_mount_options *opts = &MSDOS_SB(dir->i_sb)->options;
+ 	wchar_t *ip, *ext_start, *end, *name_start;
+-	unsigned char base[9], ext[4], buf[8], *p;
++	unsigned char base[9], ext[4], buf[5], *p;
+ 	unsigned char charbuf[NLS_MAX_CHARSET_SIZE];
+ 	int chl, chi;
+ 	int sz = 0, extlen, baselen, i, numtail_baselen, numtail2_baselen;
+@@ -438,7 +438,7 @@ static int vfat_create_shortname(struct
+ 			return 0;
+ 	}
+ 
+-	i = jiffies & 0xffff;
++	i = jiffies;
+ 	sz = (jiffies >> 16) & 0x7;
+ 	if (baselen > 2) {
+ 		baselen = numtail2_baselen;
+@@ -447,7 +447,7 @@ static int vfat_create_shortname(struct
+ 	name_res[baselen + 4] = '~';
+ 	name_res[baselen + 5] = '1' + sz;
+ 	while (1) {
+-		sprintf(buf, "%04X", i);
++		snprintf(buf, sizeof(buf), "%04X", i & 0xffff);
+ 		memcpy(&name_res[baselen], buf, 4);
+ 		if (vfat_find_form(dir, name_res) < 0)
+ 			break;
+@@ -480,14 +480,14 @@ xlate_to_uni(const unsigned char *name,
+ 		 */
+ 		*outlen -= (name_len - len);
+ 
+-		if (*outlen > 255)
++		if (*outlen > FAT_LFN_LEN)
+ 			return -ENAMETOOLONG;
+ 
+ 		op = &outname[*outlen * sizeof(wchar_t)];
+ 	} else {
+ 		if (nls) {
+ 			for (i = 0, ip = name, op = outname, *outlen = 0;
+-			     i < len && *outlen <= 255;
++			     i < len && *outlen <= FAT_LFN_LEN;
+ 			     *outlen += 1)
+ 			{
+ 				if (escape && (*ip == ':')) {
+@@ -527,7 +527,7 @@ xlate_to_uni(const unsigned char *name,
+ 				return -ENAMETOOLONG;
+ 		} else {
+ 			for (i = 0, ip = name, op = outname, *outlen = 0;
+-			     i < len && *outlen <= 255;
++			     i < len && *outlen <= FAT_LFN_LEN;
+ 			     i++, *outlen += 1)
+ 			{
+ 				*op++ = *ip++;
+diff --git a/include/linux/msdos_fs.h b/include/linux/msdos_fs.h
+--- a/include/linux/msdos_fs.h
++++ b/include/linux/msdos_fs.h
+@@ -15,6 +15,7 @@
+ #define MSDOS_DPB_BITS	4		/* log2(MSDOS_DPB) */
+ #define MSDOS_DPS	(SECTOR_SIZE / sizeof(struct msdos_dir_entry))
+ #define MSDOS_DPS_BITS	4		/* log2(MSDOS_DPS) */
++#define MSDOS_LONGNAME	256		/* maximum name length */
+ #define CF_LE_W(v)	le16_to_cpu(v)
+ #define CF_LE_L(v)	le32_to_cpu(v)
+ #define CT_LE_W(v)	cpu_to_le16(v)
+@@ -47,8 +48,8 @@
+ /* Convert attribute bits and a mask to the UNIX mode. */
+ #define MSDOS_MKMODE(a, m) (m & (a & ATTR_RO ? S_IRUGO|S_IXUGO : S_IRWXUGO))
+ 
++#define FAT_LFN_LEN	255	/* maximum long name length */
+ #define MSDOS_NAME	11	/* maximum name length */
+-#define MSDOS_LONGNAME	256	/* maximum name length */
+ #define MSDOS_SLOTS	21	/* max # of slots for short and long names */
+ #define MSDOS_DOT	".          "	/* ".", padded to MSDOS_NAME chars */
+ #define MSDOS_DOTDOT	"..         "	/* "..", padded to MSDOS_NAME chars */
+-- 
