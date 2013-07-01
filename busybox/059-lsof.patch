@@ -1,0 +1,45 @@
+From 879f008a8f890f83a005d0816d259c6157121e5b
+From: Thomas De Schampheleire <thomas.de.schampheleire@gmail.com>
+Date: Fri, 21 Jun 2013 19:27:56 +0000
+Subject: lsof: correct check for symbolic link
+
+Busybox lsof used the d_type field of a 'struct dirent' to verify whether the
+entry is a symbolic link. This field, however, is not portable. On at least
+one board [1] I have seen, that field is 0, and the check fails even though
+the entry is a link.
+
+The explicit check for a symbolic link is really only needed to skip the
+default directory entries '.' and '..'. The directory /proc/<pid>/fd/
+should not contain anything else but these two and symbolic links.
+With these assumptions, this patch replaces the explicit link check with a
+basic check for '.' and '..' (and any hidden file). In the unlikely case that
+there are other file types, xmalloc_readlink() will return NULL, and we can
+skip the entry.
+
+[1] A MIPS-based board with glibc 2.9, Linux 2.6.32.27.
+
+Signed-off-by: Thomas De Schampheleire <thomas.de.schampheleire@gmail.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/procps/lsof.c b/procps/lsof.c
+index 7e0ffa4..b0156a5 100644
+--- a/procps/lsof.c
++++ b/procps/lsof.c
+@@ -61,9 +61,12 @@ int lsof_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
+ 		d_fd = opendir(name);
+ 		if (d_fd) {
+ 			while ((entry = readdir(d_fd)) != NULL) {
+-				if (entry->d_type == DT_LNK) {
+-					safe_strncpy(name + baseofs, entry->d_name, 10);
+-					fdlink = xmalloc_readlink(name);
++				/* Skip entries '.' and '..' (and any hidden file) */
++				if (entry->d_name[0] == '.')
++					continue;
++
++				safe_strncpy(name + baseofs, entry->d_name, 10);
++				if ((fdlink = xmalloc_readlink(name)) != NULL) {
+ 					printf("%d\t%s\t%s\n", proc->pid, proc->exe, fdlink);
+ 					free(fdlink);
+ 				}
+--
+cgit v0.9.1
