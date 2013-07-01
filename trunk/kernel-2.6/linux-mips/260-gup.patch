@@ -11,12 +11,14 @@ MIPS: Add fast get_user_pages
 
 Signed-off-by: Hillf Danton <dhillf@gmail.com>
 
+ 66827eb0c0738e50b7cd76815f23e41b1cd4bd8b MIPS: Fix get_user_page_fast() for mips with cache alias
+
 ---
- arch/mips/mm/Makefile      |    3 
- arch/mips/mm/gup.c         |  329 +++++++++++++++++++++++++++++++++++++++++++++
+ arch/mips/mm/Makefile      |    2 
+ arch/mips/mm/gup.c         |  332 +++++++++++++++++++++++++++++++++++++++++++++
  include/asm-mips/pgtable.h |    2 
  mm/Kconfig                 |    3 
- 4 files changed, 336 insertions(+), 1 deletion(-)
+ 4 files changed, 338 insertions(+), 1 deletion(-)
 
 --- a/arch/mips/mm/Makefile	Fri Oct 28 21:10:01 2011
 +++ b/arch/mips/mm/Makefile	Fri Oct 28 21:09:19 2011
@@ -31,7 +33,7 @@ Signed-off-by: Hillf Danton <dhillf@gmail.com>
  obj-$(CONFIG_64BIT)		+= pgtable-64.o
 --- /dev/null	Fri Oct 28 21:12:42 2011
 +++ b/arch/mips/mm/gup.c	Fri Oct 28 21:07:06 2011
-@@ -0,0 +1,331 @@
+@@ -0,0 +1,332 @@
 +/*
 + * Lockless get_user_pages_fast for MIPS
 + *
@@ -48,6 +50,7 @@ Signed-off-by: Hillf Danton <dhillf@gmail.com>
 +#include <linux/swap.h>
 +#include <linux/hugetlb.h>
 +
++#include <asm/cpu-features.h>
 +#include <asm/pgtable.h>
 +
 +static inline pte_t gup_get_pte(pte_t *ptep)
@@ -320,7 +323,7 @@ Signed-off-by: Hillf Danton <dhillf@gmail.com>
 +	len = (unsigned long) nr_pages << PAGE_SHIFT;
 +
 +	end = start + len;
-+	if (end < start)
++	if (end < start || cpu_has_dc_aliases)
 +		goto slow_irqon;
 +
 +	/* XXX: batch / limit 'nr' */
