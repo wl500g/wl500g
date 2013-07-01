@@ -20,32 +20,33 @@
  cc9b17ad29ecaa20bfe426a8d4dbfb94b13ff1cc net: sock: validate data_len before allocating skb in sock_alloc_send_pskb()
  0e2bcaae836e535236244bfc900626ee541eb7bb sock_close() couldn't have been called with NULL inode since at least 2.1.early
  70777d03466e7a8a41b0d34677454c92f4e93d89 net/core: use ntohs for skb->protocol
+ 7a91b434e2bad554b709265db7603b1aa52dd92e net: update SOCK_MIN_RCVBUF
 
 ---
- include/net/dst.h            |    6 +++-
+ include/net/dst.h            |    6 ++--
  include/net/icmp.h           |    2 -
- include/net/sock.h           |    5 +++
- include/net/tcp.h            |   30 ++++++++++++++++-------
+ include/net/sock.h           |   11 +++++++-
+ include/net/tcp.h            |   30 ++++++++++++++++-----
  net/bluetooth/af_bluetooth.c |    5 +--
  net/core/datagram.c          |    5 +--
- net/core/dev.c               |   56 +++++++++++++++++++++++++++++--------------
- net/core/sock.c              |   19 +++++++++-----
- net/ipv4/af_inet.c           |   16 +++---------
+ net/core/dev.c               |   59 +++++++++++++++++++++++++++++--------------
+ net/core/sock.c              |   19 ++++++++-----
+ net/ipv4/af_inet.c           |   16 +++--------
  net/ipv4/arp.c               |    5 +--
  net/ipv4/icmp.c              |   10 +++----
- net/ipv4/ip_options.c        |   12 ++++-----
- net/ipv4/route.c             |   16 ++++--------
+ net/ipv4/ip_options.c        |   12 ++++----
+ net/ipv4/route.c             |   16 ++++-------
  net/ipv4/tcp_bic.c           |    2 -
  net/ipv4/tcp_cong.c          |    3 --
  net/ipv4/tcp_cubic.c         |    2 -
  net/ipv4/tcp_highspeed.c     |    2 -
  net/ipv4/tcp_htcp.c          |    2 -
- net/ipv4/tcp_hybla.c         |    4 +--
+ net/ipv4/tcp_hybla.c         |    4 +-
  net/ipv4/tcp_illinois.c      |    2 -
- net/ipv4/tcp_input.c         |   26 +++++++++----------
+ net/ipv4/tcp_input.c         |   26 +++++++++---------
  net/ipv4/tcp_ipv4.c          |    9 ------
  net/ipv4/tcp_lp.c            |    5 +--
- net/ipv4/tcp_minisocks.c     |    4 +--
+ net/ipv4/tcp_minisocks.c     |    4 +-
  net/ipv4/tcp_scalable.c      |    2 -
  net/ipv4/tcp_vegas.c         |    6 ++--
  net/ipv4/tcp_veno.c          |    6 ++--
@@ -55,7 +56,7 @@
  net/sctp/socket.c            |    5 +--
  net/socket.c                 |    9 ------
  net/unix/af_unix.c           |    5 +--
- 33 files changed, 159 insertions(+), 140 deletions(-)
+ 33 files changed, 166 insertions(+), 142 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
@@ -101,6 +102,19 @@ diff --git a/include/net/sock.h b/include/net/sock.h
  extern void *sock_kmalloc(struct sock *sk, int size,
  			  gfp_t priority);
  extern void sock_kfree_s(struct sock *sk, void *mem, int size);
+@@ -1314,7 +1314,11 @@ static inline void sk_wake_async(struct sock *sk, int how, int band)
+ }
+ 
+ #define SOCK_MIN_SNDBUF 2048
+-#define SOCK_MIN_RCVBUF 256
++/*
++ * Since sk_rmem_alloc sums skb->truesize, even a small frame might need
++ * sizeof(sk_buff) + MTU + padding, unless net driver perform copybreak
++ */
++#define SOCK_MIN_RCVBUF (2048 + sizeof(struct sk_buff))
+ 
+ static inline void sk_stream_moderate_sndbuf(struct sock *sk)
+ {
 diff --git a/include/net/tcp.h b/include/net/tcp.h
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
