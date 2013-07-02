@@ -1,0 +1,45 @@
+Missed content of string copy in "_bfd_stringtab_add"
+
+ http://sourceware.org/bugzilla/show_bug.cgi?id=15657
+
+diff -u src/bfd/ChangeLog src/bfd/ChangeLog
+--- src/bfd/ChangeLog	2013/06/23 20:08:23	1.6079
++++ src/bfd/ChangeLog
+@@ -1,3 +1,8 @@
++2013-06-24  Wawa  <caojinyu@msn.com>
++
++	PR 15657
++	* hash.c (_bfd_stringtab_add): Copy the string if COPY is true.
++
+ 2012-11-13  Tristan Gingold  <gingold@adacore.com>
+ 
+ 	* configure.in: Bump version to 2.23.1
+diff -u -r1.35 -r1.36
+--- src/bfd/hash.c	2012/07/13 14:22:49	1.35
++++ src/bfd/hash.c	2013/06/24 14:28:17	1.36
+@@ -808,7 +808,8 @@
+ 
+ /* Get the index of a string in a strtab, adding it if it is not
+    already present.  If HASH is FALSE, we don't really use the hash
+-   table, and we don't eliminate duplicate strings.  */
++   table, and we don't eliminate duplicate strings.  If COPY is true
++   then store a copy of STR if creating a new entry.  */
+ 
+ bfd_size_type
+ _bfd_stringtab_add (struct bfd_strtab_hash *tab,
+@@ -834,11 +835,13 @@
+ 	entry->root.string = str;
+       else
+ 	{
++	  size_t len = strlen (str) + 1;
+ 	  char *n;
+ 
+-	  n = (char *) bfd_hash_allocate (&tab->table, strlen (str) + 1);
++	  n = (char *) bfd_hash_allocate (&tab->table, len);
+ 	  if (n == NULL)
+ 	    return (bfd_size_type) -1;
++          memcpy (n, str, len);
+ 	  entry->root.string = n;
+ 	}
+       entry->index = (bfd_size_type) -1;
+-- 
