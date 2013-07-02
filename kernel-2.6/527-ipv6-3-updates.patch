@@ -23,6 +23,7 @@
  f0396f60d7c165018c9b203fb9b89fb224835578 ipv6: fix RTPROT_RA markup of RA routes w/nexthops
  9c6eb28aca52d562f3ffbaebaa56385df9972a43 netfilter: ipv6: add IPSKB_REROUTED exclusion to NF_HOOK/POSTROUTING invocation
  f4e53e292ad0626a9d4f80cbdb6adae867d8b2bc ipv6: Don't send packet to big messages to self
+ 72b43d0898e97f588293b4a24b33c58c46633d81 inet6: prevent network storms caused by linux IPv6 routers
 
 ---
  include/linux/ipv6.h     |    5 -
@@ -33,14 +34,14 @@
  include/net/udp.h        |    1 
  net/ipv4/udp.c           |    3 
  net/ipv6/addrconf.c      |  151 ++++++++++++++++++++---------------------------
- net/ipv6/ip6_output.c    |   19 ++---
+ net/ipv6/ip6_output.c    |   22 +++---
  net/ipv6/ip6mr.c         |    4 -
  net/ipv6/ipv6_sockglue.c |   13 ++--
  net/ipv6/mcast.c         |   20 ++----
  net/ipv6/ndisc.c         |   37 ++++++-----
  net/ipv6/route.c         |   19 +++--
  net/ipv6/udp.c           |    8 +-
- 15 files changed, 169 insertions(+), 167 deletions(-)
+ 15 files changed, 172 insertions(+), 167 deletions(-)
 
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
 --- a/include/linux/ipv6.h
@@ -633,6 +634,16 @@ diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
  	skb_reset_network_header(skb);
  	skb_put(skb, sizeof(struct ipv6hdr));
  	hdr = ipv6_hdr(skb);
+@@ -411,6 +411,9 @@ int ip6_forward(struct sk_buff *skb)
+ 		goto drop;
+ 	}
+ 
++	if (skb->pkt_type != PACKET_HOST)
++		goto drop;
++
+ 	skb_forward_csum(skb);
+ 
+ 	/*
 @@ -603,7 +603,6 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
  
  static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
