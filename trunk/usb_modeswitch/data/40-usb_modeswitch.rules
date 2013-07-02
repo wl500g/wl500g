@@ -1,4 +1,4 @@
-# Part of usb-modeswitch-data, version 20130602
+# Part of usb-modeswitch-data, version 20130610
 #
 # Recommended use with USB_ModeSwitch >= 1.2.5, works with versions >= 1.0.3
 # (New style, interface class check moved to dispatcher)
@@ -7,7 +7,7 @@ ACTION!="add|change", GOTO="modeswitch_rules_end"
 
 # Adds a symlink "gsmmodem[n]" to the lowest ttyUSB port with interrupt
 # transfer; checked against a list of known modems, or else no action
-KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --symlink-name %p %s{idVendor} %s{idProduct} %E{PRODUCT}", SYMLINK="%c"
+KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --symlink-name %p %s{idVendor} %s{idProduct} %E{PRODUCT}", SYMLINK+="%c"
 
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
 

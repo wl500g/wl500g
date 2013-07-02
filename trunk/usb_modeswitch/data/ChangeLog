@@ -1,3 +1,8 @@
+20130610:
+    Fixed rules file and gen-rules script to make the symlink rule append
+    instead of replace (thanks to John Hedges)
+20130607:
+    Fixed wrong message content for Huawei U2800 (thanks to Peter Fedorow)
 20130602:
     Added devices: Nokia CS-12, Alcatel-Lucent T930S, Axesstel MV241,
     Pantech UML290, Huawei E3131 (Variant), Huawei U2800 Phone, Huawei GP02
