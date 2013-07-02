@@ -1334,7 +1334,7 @@ diff -urBp a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_ma
 -	ret = ipt_do_table(pskb, hook, in, out, &packet_mangler);
 +	ret = ipt_do_table(skb, hook, in, out, &packet_mangler);
  	/* Reroute for ANY change. */
- 	if (ret != NF_DROP && ret != NF_STOLEN && ret != NF_QUEUE) {
+ 	if (ret != NF_DROP && ret != NF_STOLEN) {
 -		iph = ip_hdr(*pskb);
 +		iph = ip_hdr(skb);
  
