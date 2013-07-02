@@ -1,0 +1,19 @@
+ f4f914b58019f0e50d521bbbadfaee260d766f95 net: ipv6 bind to device issue
+
+---
+ net/ipv6/route.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -815,7 +815,7 @@ struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
+ {
+ 	int flags = 0;
+ 
+-	if (rt6_need_strict(&fl->fl6_dst))
++	if (fl->oif || rt6_need_strict(&fl->fl6_dst))
+ 		flags |= RT6_LOOKUP_F_IFACE;
+ 
+ 	if (!ipv6_addr_any(&fl->fl6_src))
+-- 
