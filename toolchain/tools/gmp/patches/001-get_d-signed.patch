@@ -1,0 +1,32 @@
+
+# HG changeset patch
+# User Marc Glisse <marc.glisse@inria.fr>
+# Date 1370733405 -7200
+# Node ID 3883c81ed6052c86279f3f2dbd4ac7fbbbe8cbf7
+# Parent  042c4020ce940a8bd8db1ad84d8b09024af0954b
+Avoid signed overflow.
+
+diff -r 042c4020ce94 -r 3883c81ed605 ChangeLog
+--- a/ChangeLog	Wed Jun 05 16:20:59 2013 +0200
++++ b/ChangeLog	Sun Jun 09 01:16:45 2013 +0200
+@@ -1,3 +1,7 @@
++2013-06-09  Marc Glisse  <marc.glisse@inria.fr>
++
++	* mpn/generic/get_d.c (mpn_get_d): Avoid signed overflow.
++
+ 2013-05-20  Torbjorn Granlund  <tege@gmplib.org>
+ 
+ 	* Version 5.1.2 released.
+diff -r 042c4020ce94 -r 3883c81ed605 mpn/generic/get_d.c
+--- a/mpn/generic/get_d.c	Wed Jun 05 16:20:59 2013 +0200
++++ b/mpn/generic/get_d.c	Sun Jun 09 01:16:45 2013 +0200
+@@ -135,7 +135,7 @@
+      overflow.  After this exp can of course be reduced to anywhere within
+      the {up,size} region without underflow.  */
+   if (UNLIKELY ((unsigned long) (GMP_NUMB_BITS * size)
+-		> (unsigned long) (LONG_MAX - exp)))
++		> ((unsigned long) LONG_MAX - exp)))
+     {
+ #if _GMP_IEEE_FLOATS
+       goto ieee_infinity;
+
