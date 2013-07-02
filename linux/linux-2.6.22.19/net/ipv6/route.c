@@ -491,7 +491,7 @@ int rt6_route_rcv(struct net_device *dev, u8 *opt, int len,
 
 	pref = rinfo->route_pref;
 	if (pref == ICMPV6_ROUTER_PREF_INVALID)
-		pref = ICMPV6_ROUTER_PREF_MEDIUM;
+		return -EINVAL;
 
 	lifetime = ntohl(rinfo->lifetime);
 	if (lifetime == 0xffffffff) {
@@ -876,7 +876,7 @@ struct dst_entry * ip6_route_output(struct sock *sk, struct flowi *fl)
 {
 	int flags = 0;
 
-	if (rt6_need_strict(&fl->fl6_dst))
+	if (fl->oif || rt6_need_strict(&fl->fl6_dst))
 		flags |= RT6_LOOKUP_F_IFACE;
 
 	if (!ipv6_addr_any(&fl->fl6_src))
