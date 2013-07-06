@@ -1,0 +1,165 @@
+ARM: Updates from upstream
+
+ 0eaaf662b70806181b7fe2a1b165769f4e48d0f0 ldso: use .arm mode for resolver unconditionally
+ 0dc898bd036a28211417f3830cb441eb71a9dd79 arm: disable ioperm/iopl stubs
+ b80b28ee6fdf073e6baf9b893b3ecef9904a2e48 libc_arm: avoid multiple version of __aeabi_unwind_cpp_pr dummy code
+ 0a718a01bd45ad57ac6159ba93e193c38c90da24 arm: avoid 2 compiler warnings
+ 9756397b620c3880b94b9db3da96892fa952a3cf arm: use PATH_MEM in ioperm()
+
+---
+ ldso/ldso/arm/resolve.S                                                 |    2 -
+ libc/sysdeps/linux/arm/Makefile.arch                                    |    3 -
+ libc/sysdeps/linux/arm/aeabi_assert.c                                   |    2 -
+ libc/sysdeps/linux/arm/aeabi_mb_cur_max.c                               |    4 +-
+ libc/sysdeps/linux/arm/ioperm.c                                         |   19 +++-------
+ libc/sysdeps/linux/common/stubs.c                                       |    6 +++
+ libpthread/nptl/sysdeps/arm/Makefile.arch                               |    1 
+ libpthread/nptl/sysdeps/arm/aeabi_unwind_cpp_pr1.c                      |    1 
+ libpthread/nptl/sysdeps/unix/sysv/linux/arm/nptl-aeabi_unwind_cpp_pr1.c |    1 
+ libubacktrace/Makefile.in                                               |    4 --
+ 10 files changed, 18 insertions(+), 25 deletions(-)
+
+diff --git a/ldso/ldso/arm/resolve.S b/ldso/ldso/arm/resolve.S
+--- a/ldso/ldso/arm/resolve.S
++++ b/ldso/ldso/arm/resolve.S
+@@ -101,7 +101,7 @@
+ 
+  .text
+  .align 4      @ 16 byte boundary and there are 32 bytes below (arm case)
+- #if !defined(__thumb__) || defined(__thumb2__)
++#if 1 /*(!defined(__thumb__) || defined __THUMB_INTERWORK__) || defined(__thumb2__)*/
+  .arm
+  .globl _dl_linux_resolve
+  .type _dl_linux_resolve,%function
+diff --git a/libc/sysdeps/linux/arm/Makefile.arch b/libc/sysdeps/linux/arm/Makefile.arch
+--- a/libc/sysdeps/linux/arm/Makefile.arch
++++ b/libc/sysdeps/linux/arm/Makefile.arch
+@@ -46,6 +46,5 @@ ifeq ($(IS_EABI),y)
+ libc-static-y += $(ARCH_OUT)/aeabi_lcsts.o $(ARCH_OUT)/aeabi_math.o \
+ 	$(ARCH_OUT)/aeabi_sighandlers.o
+ libc-nonshared-y += $(ARCH_OUT)/aeabi_lcsts.os $(ARCH_OUT)/aeabi_math.os \
+-	$(ARCH_OUT)/aeabi_sighandlers.os
+-libc-shared-y += $(ARCH_OUT)/aeabi_unwind_cpp_pr1.os
++	$(ARCH_OUT)/aeabi_sighandlers.os $(ARCH_OUT)/aeabi_unwind_cpp_pr1.o
+ endif
+diff --git a/libc/sysdeps/linux/arm/aeabi_assert.c b/libc/sysdeps/linux/arm/aeabi_assert.c
+--- a/libc/sysdeps/linux/arm/aeabi_assert.c
++++ b/libc/sysdeps/linux/arm/aeabi_assert.c
+@@ -21,7 +21,7 @@
+ #include <stdlib.h>
+ 
+ 
+-void __aeabi_assert(const char *assertion, const char *file, unsigned int line);
++void __aeabi_assert(const char *assertion, const char *file, unsigned int line) attribute_noreturn;
+ void __aeabi_assert(const char *assertion, const char *file, unsigned int line)
+ {
+   __assert (assertion, file, line, NULL);
+diff --git a/libc/sysdeps/linux/arm/aeabi_mb_cur_max.c b/libc/sysdeps/linux/arm/aeabi_mb_cur_max.c
+--- a/libc/sysdeps/linux/arm/aeabi_mb_cur_max.c
++++ b/libc/sysdeps/linux/arm/aeabi_mb_cur_max.c
+@@ -20,8 +20,8 @@
+ #include <locale.h>
+ #include <stdlib.h>
+ 
+-int
+-__aeabi_MB_CUR_MAX (void)
++int __aeabi_MB_CUR_MAX (void);
++int __aeabi_MB_CUR_MAX (void)
+ {
+   return MB_CUR_MAX;
+ }
+diff --git a/libc/sysdeps/linux/arm/ioperm.c b/libc/sysdeps/linux/arm/ioperm.c
+--- a/libc/sysdeps/linux/arm/ioperm.c
++++ b/libc/sysdeps/linux/arm/ioperm.c
+@@ -33,21 +33,16 @@
+    the area affected (this is a kernel limitation).  So we now just
+    enable all the ports all of the time.  */
+ 
++#include <sys/io.h>
++#include <sys/mman.h>
++#include <sys/sysctl.h>
++#include <paths.h>
+ #include <errno.h>
+-#include <fcntl.h>
+-#include <stdio.h>
+ #include <ctype.h>
+-#include <stdlib.h>
++#include <stdio.h>
+ #include <string.h>
+ #include <unistd.h>
+-
+-#include <sys/types.h>
+-#include <sys/mman.h>
+-#include <sys/sysctl.h>
+-#include <sys/io.h>
+-
+-
+-
++#include <fcntl.h>
+ #include <linux/version.h>
+ 
+ #define PATH_ARM_SYSTYPE	"/etc/arm_systype"
+@@ -186,7 +181,7 @@ int ioperm (unsigned long int from, unsigned long int num, int turn_on)
+ 	if (! io.base) {
+ 	    int fd;
+ 
+-	    fd = open ("/dev/mem", O_RDWR);
++	    fd = open (_PATH_MEM, O_RDWR);
+ 	    if (fd < 0)
+ 		return -1;
+ 
+diff --git a/libc/sysdeps/linux/common/stubs.c b/libc/sysdeps/linux/common/stubs.c
+--- a/libc/sysdeps/linux/common/stubs.c
++++ b/libc/sysdeps/linux/common/stubs.c
+@@ -41,6 +41,12 @@ __attribute_used__ static int ret_enosys_stub(void)
+ # undef __NR_fork
+ #endif
+ 
++#ifdef __arm__
++/* ARM always provides funcs w/out syscalls; disable the stubs */
++# define __NR_ioperm 0
++# define __NR_iopl 0
++#endif
++
+ #ifndef __UCLIBC_HAS_LFS__
+ # undef __NR_fadvise64
+ # undef __NR_fadvise64_64
+diff --git a/libpthread/nptl/sysdeps/arm/Makefile.arch b/libpthread/nptl/sysdeps/arm/Makefile.arch
+--- a/libpthread/nptl/sysdeps/arm/Makefile.arch
++++ b/libpthread/nptl/sysdeps/arm/Makefile.arch
+@@ -7,7 +7,6 @@
+ #
+ 
+ librt_arch_SSRC = aeabi_read_tp.S thumb_atomics.S
+-librt_arch_CSRC = aeabi_unwind_cpp_pr1.c
+ 
+ CFLAGS-pt-raise.c = -DNOT_IN_libc -DIS_IN_libpthread
+ 
+diff --git a/libpthread/nptl/sysdeps/arm/aeabi_unwind_cpp_pr1.c b/libpthread/nptl/sysdeps/arm/aeabi_unwind_cpp_pr1.c
+deleted file mode 100644
+--- a/libpthread/nptl/sysdeps/arm/aeabi_unwind_cpp_pr1.c
++++ /dev/null
+@@ -1 +0,0 @@
+-#include <../../../../libc/sysdeps/linux/arm/aeabi_unwind_cpp_pr1.c>
+diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/arm/nptl-aeabi_unwind_cpp_pr1.c b/libpthread/nptl/sysdeps/unix/sysv/linux/arm/nptl-aeabi_unwind_cpp_pr1.c
+deleted file mode 100644
+--- a/libpthread/nptl/sysdeps/unix/sysv/linux/arm/nptl-aeabi_unwind_cpp_pr1.c
++++ /dev/null
+@@ -1 +0,0 @@
+-#include <aeabi_unwind_cpp_pr1.c>
+diff --git a/libubacktrace/Makefile.in b/libubacktrace/Makefile.in
+--- a/libubacktrace/Makefile.in
++++ b/libubacktrace/Makefile.in
+@@ -12,10 +12,6 @@ CFLAGS-libubacktrace := -DNOT_IN_libc -DIS_IN_libubacktrace $(SSP_ALL_CFLAGS)
+ 
+ LDFLAGS-libubacktrace.so := $(LDFLAGS) $(top_builddir)lib/libdl-$(VERSION).so
+ 
+-ifeq ($(CONFIG_ARM_EABI),y)
+-LIBGCC += $(shell $(CC) -print-file-name=libgcc_eh.a)
+-endif
+-
+ LIBS-libubacktrace.so := $(LIBS)
+ 
+ libubacktrace_FULL_NAME := libubacktrace-$(VERSION).so
+-- 
+cgit v0.9.1
