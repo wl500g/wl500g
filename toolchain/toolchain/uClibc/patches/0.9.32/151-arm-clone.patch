@@ -1,0 +1,36 @@
+From 495c425c3b10fd9e277995fa2a379ba4a62f78bf
+From: Filippo Arcidiacono <filippo.arcidiacono@st.com>
+Date: Mon, 10 Dec 2012 08:50:52 +0000
+Subject: arm: clone: restore stack pointer just after return from syscall
+
+If the syscall returns with an error the stack pointer and r4 register
+are not restored because the instruction 'ldmnefd sp!, {r4}' is executed
+after branching to '__error' label.
+This bug has been spotted out by running './utstest clone 5' from LTP
+built with -fstack-protector-all compiler flag as log below:
+
+root@cortex-a9:/usr/tests/ltp/testcases/bin# ./utstest clone 5
+stack smashing detected: ./utstest terminated()
+
+Regression introduced by commit e58798e107d652644629a1daaa95d76430808d53
+
+Signed-off-by: Filippo Arcidiacono <filippo.arcidiacono@st.com>
+Signed-off-by: Giuseppe Di Giore <giuseppe.di-giore@st.com>
+Signed-off-by: Carmelo Amoroso <carmelo.amoroso@st.com>
+---
+
+diff --git a/libc/sysdeps/linux/arm/clone.S b/libc/sysdeps/linux/arm/clone.S
+--- a/libc/sysdeps/linux/arm/clone.S
++++ b/libc/sysdeps/linux/arm/clone.S
+@@ -110,8 +110,8 @@ __clone:
+ 	ldr	r4, [sp, #12]
+ 	DO_CALL (clone)
+ 	movs	a1, a1
+-	blt	__error
+ 	ldmnefd	sp!, {r4}
++	blt	__error
+ 	IT(t, ne)
+ #if defined(__USE_BX__)
+ 	bxne	lr
+-- 
+cgit v0.9.1
