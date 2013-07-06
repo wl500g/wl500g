@@ -1,0 +1,343 @@
+
+ b91a7f431d894b7bafc5f8456f0c4f35e682caf6 cleanup fork()
+ 9ac34e396b42cb58634f22ba190a72c736a33b95 fork: do not add fork() to libpthread
+ 7e5737f1f16c7c49509f37aa499bf1daab327247 arm: workaround GCC PR target/53735 with fork()
+
+---
+ include/unistd.h                                                          |    3 ++
+ libc/sysdeps/linux/common/fork.c                                          |    1 
+ libc/sysdeps/linux/ia64/fork.S                                            |    2 -
+ libc/sysdeps/linux/xtensa/fork.c                                          |    3 --
+ libpthread/linuxthreads.old/ptfork.c                                      |    5 ----
+ libpthread/linuxthreads/ptfork.c                                          |    2 -
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/alpha/vfork.S             |    4 +--
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/arm/vfork.S               |    2 -
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/i386/vfork.S              |    2 -
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/ia64/vfork.S              |    2 -
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/m68k/vfork.S              |    2 -
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/powerpc/powerpc32/vfork.S |    2 -
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/powerpc/powerpc64/vfork.S |    4 +--
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/s390/s390-32/vfork.S      |    2 -
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/s390/s390-64/vfork.S      |    2 -
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/sh/vfork.S                |    2 -
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/sparc/sparc32/vfork.S     |    4 +--
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/sparc/sparc64/vfork.S     |    4 +--
+ libpthread/linuxthreads/sysdeps/unix/sysv/linux/x86_64/vfork.S            |    2 -
+ libpthread/nptl/sysdeps/unix/sysv/linux/fork.c                            |   12 +++++-----
+ libpthread/nptl/sysdeps/unix/sysv/linux/pt-fork.c                         |    6 ++---
+ 21 files changed, 30 insertions(+), 38 deletions(-)
+
+diff --git a/include/unistd.h b/include/unistd.h
+--- a/include/unistd.h
++++ b/include/unistd.h
+@@ -768,7 +768,10 @@ libc_hidden_proto(setresgid)
+    Return -1 for errors, 0 to the new process,
+    and the process ID of the new process to the old process.  */
+ extern __pid_t fork (void) __THROW;
++# ifdef _LIBC
++extern __typeof(fork) __libc_fork;
+ libc_hidden_proto(fork)
++# endif
+ #endif
+ 
+ #if defined __USE_BSD || defined __USE_XOPEN_EXTENDED
+diff --git a/libc/sysdeps/linux/common/fork.c b/libc/sysdeps/linux/common/fork.c
+--- a/libc/sysdeps/linux/common/fork.c
++++ b/libc/sysdeps/linux/common/fork.c
+@@ -14,7 +14,6 @@
+ 
+ #ifdef __NR_fork
+ #define __NR___libc_fork __NR_fork
+-extern __typeof(fork) __libc_fork;
+ _syscall0(pid_t, __libc_fork)
+ weak_alias(__libc_fork,fork)
+ libc_hidden_weak(fork)
+diff --git a/libc/sysdeps/linux/ia64/fork.S b/libc/sysdeps/linux/ia64/fork.S
+--- a/libc/sysdeps/linux/ia64/fork.S
++++ b/libc/sysdeps/linux/ia64/fork.S
+@@ -36,7 +36,5 @@ ENTRY(__libc_fork)
+ 	ret
+ PSEUDO_END(__libc_fork)
+ 
+-weak_alias (__libc_fork, __fork)
+-libc_hidden_def (__fork)
+ weak_alias (__libc_fork, fork)
+ libc_hidden_weak (fork)
+diff --git a/libc/sysdeps/linux/xtensa/fork.c b/libc/sysdeps/linux/xtensa/fork.c
+--- a/libc/sysdeps/linux/xtensa/fork.c
++++ b/libc/sysdeps/linux/xtensa/fork.c
+@@ -14,9 +14,6 @@
+ 
+ /* Xtensa doesn't provide a 'fork' system call, so we use 'clone'.  */
+ 
+-extern __typeof(fork) __libc_fork;
+-
+-libc_hidden_proto(fork)
+ pid_t __libc_fork(void)
+ {
+ 	return (pid_t) INLINE_SYSCALL(clone, 2, SIGCHLD, 0);
+diff --git a/libpthread/linuxthreads.old/ptfork.c b/libpthread/linuxthreads.old/ptfork.c
+--- a/libpthread/linuxthreads.old/ptfork.c
++++ b/libpthread/linuxthreads.old/ptfork.c
+@@ -93,10 +93,7 @@ void __pthread_once_fork_prepare(void);
+ void __pthread_once_fork_child(void);
+ void __pthread_once_fork_parent(void);
+ 
+-extern __typeof(fork) __libc_fork;
+-
+-pid_t __fork(void) attribute_hidden;
+-pid_t __fork(void)
++static pid_t __fork(void)
+ {
+   pid_t pid;
+   struct handler_list * prepare, * child, * parent;
+diff --git a/libpthread/linuxthreads/ptfork.c b/libpthread/linuxthreads/ptfork.c
+--- a/libpthread/linuxthreads/ptfork.c
++++ b/libpthread/linuxthreads/ptfork.c
+@@ -23,8 +23,6 @@
+ #include <bits/libc-lock.h>
+ #include "fork.h"
+ 
+-extern int __libc_fork (void);
+-
+ pid_t __pthread_fork (struct fork_block *b)
+ {
+   pid_t pid;
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/alpha/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/alpha/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/alpha/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/alpha/vfork.S
+@@ -30,7 +30,7 @@ __vfork:
+ 
+ #ifdef SHARED
+ 	ldq	t0, __libc_pthread_functions(gp) !gprel
+-	bne	t0, HIDDEN_JUMPTARGET (__fork) !samegp
++	bne	t0, HIDDEN_JUMPTARGET (fork) !samegp
+ #else
+ 	.weak	pthread_create
+ 	ldq	t0, pthread_create(gp) !literal
+@@ -50,7 +50,7 @@ $do_fork:
+ 	cfi_adjust_cfa_offset(16)
+ 	stq	ra, 0(sp)
+ 	cfi_offset(ra, -16)
+-	jsr	ra, HIDDEN_JUMPTARGET (__fork)
++	jsr	ra, HIDDEN_JUMPTARGET (fork)
+ 	ldgp	gp, 0(ra)
+ 	ldq	ra, 0(sp)
+ 	addq	sp, 16, sp
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/arm/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/arm/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/arm/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/arm/vfork.S
+@@ -40,7 +40,7 @@ ENTRY (__vfork)
+ 	ldr	r0, 1f
+ #endif
+ 	movs	r0, r0
+-	bne	HIDDEN_JUMPTARGET (__fork)
++	bne	HIDDEN_JUMPTARGET (fork)
+ 
+ 	DO_CALL (vfork, 0)
+ 	cmn	a1, #4096
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/i386/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/i386/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/i386/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/i386/vfork.S
+@@ -44,7 +44,7 @@ ENTRY (__vfork)
+ 	movl	$pthread_create, %eax
+ 	testl	%eax, %eax
+ # endif
+-	jne	HIDDEN_JUMPTARGET (__fork)
++	jne	HIDDEN_JUMPTARGET (fork)
+ 
+ 	/* Pop the return PC value into ECX.  */
+ 	popl	%ecx
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/ia64/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/ia64/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/ia64/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/ia64/vfork.S
+@@ -38,7 +38,7 @@ ENTRY(__vfork)
+ #endif
+ 	ld8 r14 = [r14];;
+ 	cmp.ne p6, p7 = 0, r14
+-(p6)	br.cond.spnt.few HIDDEN_JUMPTARGET (__fork);;
++(p6)	br.cond.spnt.few HIDDEN_JUMPTARGET (fork);;
+ 	alloc r2=ar.pfs,0,0,2,0
+ 	mov out0=CLONE_VM+CLONE_VFORK+SIGCHLD
+ 	mov out1=0		/* Standard sp value.			*/
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/m68k/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/m68k/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/m68k/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/m68k/vfork.S
+@@ -35,7 +35,7 @@ ENTRY (__vfork)
+ 	.weak	pthread_create
+ 	movel	#pthread_create, %d0
+ #endif
+-	jbne	HIDDEN_JUMPTARGET (__fork)
++	jbne	HIDDEN_JUMPTARGET (fork)
+ 
+ #ifdef __NR_vfork
+ 
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/powerpc/powerpc32/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/powerpc/powerpc32/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/powerpc/powerpc32/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/powerpc/powerpc32/vfork.S
+@@ -66,7 +66,7 @@ ENTRY (__vfork)
+ # endif
+ 
+ .Lhidden_fork:
+-	b	HIDDEN_JUMPTARGET(__fork)
++	b	HIDDEN_JUMPTARGET(fork)
+ 
+ #endif
+ 
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/powerpc/powerpc64/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/powerpc/powerpc64/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/powerpc/powerpc64/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/powerpc/powerpc64/vfork.S
+@@ -42,7 +42,7 @@ ENTRY (__vfork)
+   ld  10,.LC0@toc(2)
+   ld  10,0(10)
+   cmpwi  10,0
+-  bne-  HIDDEN_JUMPTARGET(__fork)
++  bne-  HIDDEN_JUMPTARGET(fork)
+ # else
+   .weak  pthread_create
+ 	lis  10,pthread_create@highest
+@@ -80,7 +80,7 @@ ENTRY (__vfork)
+ 
+ # ifndef SHARED
+ .Lhidden_fork:
+-	b	HIDDEN_JUMPTARGET(__fork)
++	b	HIDDEN_JUMPTARGET(fork)
+ .Lsyscall_error:
+ 	b	JUMPTARGET(__syscall_error)
+ # endif
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/s390/s390-32/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/s390/s390-32/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/s390/s390-32/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/s390/s390-32/vfork.S
+@@ -54,7 +54,7 @@ ENTRY (__vfork)
+ 	al	%r1,3f-2b(%r1)
+ 	br	%r1
+ 3:
+-	.long	HIDDEN_JUMPTARGET(__fork)-2b
++	.long	HIDDEN_JUMPTARGET(fork)-2b
+ 4:
+ #ifdef SHARED
+ 	.long	__libc_pthread_functions-0b
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/s390/s390-64/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/s390/s390-64/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/s390/s390-64/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/s390/s390-64/vfork.S
+@@ -35,7 +35,7 @@ ENTRY (__vfork)
+ 	larl	%r1,pthread_create
+ #endif
+ 	ltgr	%r1,%r1
+-	jgne	HIDDEN_JUMPTARGET(__fork)
++	jgne	HIDDEN_JUMPTARGET(fork)
+ 
+ 	/* Do vfork system call.  */
+ 	svc	SYS_ify (vfork)
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sh/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sh/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sh/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sh/vfork.S
+@@ -70,7 +70,7 @@ ENTRY (__vfork)
+ 	 nop
+ 1:
+ 	.align 2
+-.L2:	.long	HIDDEN_JUMPTARGET(__fork)-1b
++.L2:	.long	HIDDEN_JUMPTARGET(fork)-1b
+ 
+ PSEUDO_END (__vfork)
+ libc_hidden_def (__vfork)
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sparc/sparc32/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sparc/sparc32/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sparc/sparc32/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sparc/sparc32/vfork.S
+@@ -43,7 +43,7 @@ ENTRY(__vfork)
+ 	orcc	%o0, %lo(pthread_create), %o0
+ #endif
+ #if defined SHARED && !defined BROKEN_SPARC_WDISP22
+-	bne	HIDDEN_JUMPTARGET(__fork)
++	bne	HIDDEN_JUMPTARGET(fork)
+ #else
+ 	bne	1f
+ #endif
+@@ -56,7 +56,7 @@ ENTRY(__vfork)
+ 	 and	%o0, %o1, %o0
+ #if !defined SHARED || defined BROKEN_SPARC_WDISP22
+ 1:	mov	%o7, %g1
+-	call	HIDDEN_JUMPTARGET(__fork)
++	call	HIDDEN_JUMPTARGET(fork)
+ 	 mov	%g1, %o7
+ #endif
+ 	SYSCALL_ERROR_HANDLER
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sparc/sparc64/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sparc/sparc64/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sparc/sparc64/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/sparc/sparc64/vfork.S
+@@ -42,7 +42,7 @@ ENTRY(__vfork)
+ #endif
+ #if defined SHARED && !defined BROKEN_SPARC_WDISP22
+ 	cmp	%o0, 0
+-	bne	HIDDEN_JUMPTARGET(__fork)
++	bne	HIDDEN_JUMPTARGET(fork)
+ #else
+ 	brnz,pn	%o0, 1f
+ #endif
+@@ -55,7 +55,7 @@ ENTRY(__vfork)
+ 	 and	%o0, %o1, %o0
+ #if !defined SHARED || defined BROKEN_SPARC_WDISP22
+ 1:	mov	%o7, %g1
+-	call	HIDDEN_JUMPTARGET(__fork)
++	call	HIDDEN_JUMPTARGET(fork)
+ 	 mov	%g1, %o7
+ #endif
+ 	SYSCALL_ERROR_HANDLER
+diff --git a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/x86_64/vfork.S b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/x86_64/vfork.S
+--- a/libpthread/linuxthreads/sysdeps/unix/sysv/linux/x86_64/vfork.S
++++ b/libpthread/linuxthreads/sysdeps/unix/sysv/linux/x86_64/vfork.S
+@@ -34,7 +34,7 @@ ENTRY (__vfork)
+ 	movq	$pthread_create, %rax
+ 	testq	%rax, %rax
+ #endif
+-	jne	HIDDEN_JUMPTARGET (__fork)
++	jne	HIDDEN_JUMPTARGET (fork)
+ 
+ 	/* Pop the return PC value into RDI.  We need a register that
+ 	   is preserved by the syscall and that we're allowed to destroy. */
+diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/fork.c b/libpthread/nptl/sysdeps/unix/sysv/linux/fork.c
+--- a/libpthread/nptl/sysdeps/unix/sysv/linux/fork.c
++++ b/libpthread/nptl/sysdeps/unix/sysv/linux/fork.c
+@@ -58,9 +58,12 @@ fresetlockfiles (void)
+ #endif
+ }
+ 
+-extern __typeof(fork) __libc_fork;
+ pid_t
+-__libc_fork (void)
++#if defined __arm__ && defined __thumb__ && __GNUC_PREREQ (4,6) && !__GNUC_PREREQ (4,8)
++/* GCC PR target/53735 */
++attribute_optimize("O2")
++#endif
++fork (void)
+ {
+   pid_t pid;
+   struct used_handler
+@@ -223,7 +226,4 @@ __libc_fork (void)
+ 
+   return pid;
+ }
+-weak_alias(__libc_fork,__fork)
+-libc_hidden_proto(fork)
+-weak_alias(__libc_fork,fork)
+-libc_hidden_weak(fork)
++libc_hidden_def(fork)
+diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/pt-fork.c b/libpthread/nptl/sysdeps/unix/sysv/linux/pt-fork.c
+--- a/libpthread/nptl/sysdeps/unix/sysv/linux/pt-fork.c
++++ b/libpthread/nptl/sysdeps/unix/sysv/linux/pt-fork.c
+@@ -19,11 +19,11 @@
+ 
+ #include <unistd.h>
+ 
+-extern int __libc_fork (void);
+-
+-pid_t
++#if 0
++static pid_t
+ __fork (void)
+ {
+   return __libc_fork ();
+ }
+ strong_alias (__fork, fork)
++#endif
+-- 
