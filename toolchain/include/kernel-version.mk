@@ -3,7 +3,11 @@
 ifeq ($(KERNEL),2.4)
   LINUX_VERSION?=2.4.37.11
 else
+ifeq ($(CONFIG_arm),y)
+  LINUX_VERSION?=2.6.36.4
+else
   LINUX_VERSION?=2.6.22.19
+endif
 endif
 LINUX_RELEASE?=1
 

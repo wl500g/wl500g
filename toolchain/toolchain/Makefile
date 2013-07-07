@@ -32,9 +32,9 @@ $(curdir)/builddirs-compile:=. $(filter-out kernel-headers,$($(curdir)/builddirs
 $(curdir)/builddirs-install:=$($(curdir)/builddirs-compile)
 
 # builddir dependencies
-$(curdir)/uClibc/prepare:=$(curdir)/kernel-headers/prepare
+$(curdir)/uClibc/prepare:=$(curdir)/kernel-headers/install
 $(curdir)/gcc/minimal/compile:=$(curdir)/binutils/install
-$(curdir)/kernel-headers/prepare:=$(curdir)/gcc/minimal/install
+$(curdir)/kernel-headers/install:=$(curdir)/gcc/minimal/install
 $(curdir)/gcc/initial/compile:=$(curdir)/uClibc/prepare
 $(curdir)/gcc/initial/prepare:=$(curdir)/gcc/minimal/prepare
 $(curdir)/gcc/final/prepare:=$(curdir)/gcc/initial/prepare

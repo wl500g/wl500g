@@ -86,34 +86,18 @@ endif
 		-e 's,^.*CONFIG_ARM_OABI.*,CONFIG_ARM_OABI=$(if $(CONFIG_EABI_SUPPORT),n,y),g' \
 		-e 's,^.*UCLIBC_HAS_SHADOW.*,UCLIBC_HAS_SHADOW=$(if $(CONFIG_SHADOW_PASSWORDS),y,n),g' \
 		$(PKG_BUILD_DIR)/.config
-	mkdir -p $(BUILD_DIR_HOST)/uClibc_dev/usr/include
-	mkdir -p $(BUILD_DIR_HOST)/uClibc_dev/usr/lib
-	mkdir -p $(BUILD_DIR_HOST)/uClibc_dev/lib
-#	if [ ! -f $(BUILD_DIR_HOST)/uClibc_dev/usr/include/linux/version.h ] ; then \
-#		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/* $(BUILD_DIR_HOST)/uClibc_dev/usr/include/; \
-#		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/* $(TOOLCHAIN_DIR)/include/ ; \
-#		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/* $(PKG_BUILD_DIR)/include/ ; \
-#	fi;
-	if [ ! -f $(BUILD_DIR_HOST)/uClibc_dev/usr/include/linux/version.h ] ; then \
-		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/asm-$(UCLIBC_TARGET_ARCH) $(BUILD_DIR_HOST)/uClibc_dev/usr/include/; \
-		ln -sf  asm-$(UCLIBC_TARGET_ARCH) $(BUILD_DIR_HOST)/uClibc_dev/usr/include/asm; \
-		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/asm-generic $(BUILD_DIR_HOST)/uClibc_dev/usr/include/; \
-		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/linux $(BUILD_DIR_HOST)/uClibc_dev/usr/include/; \
-		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/asm-$(UCLIBC_TARGET_ARCH) $(TOOLCHAIN_DIR)/include/ ; \
-		ln -sf  asm-$(UCLIBC_TARGET_ARCH) $(TOOLCHAIN_DIR)/include/asm ; \
-		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/asm-generic $(TOOLCHAIN_DIR)/include/ ; \
-		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/linux $(TOOLCHAIN_DIR)/include/ ; \
-		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/asm-$(UCLIBC_TARGET_ARCH) $(PKG_BUILD_DIR)/include/ ; \
-		ln -sf  asm-$(UCLIBC_TARGET_ARCH) $(PKG_BUILD_DIR)/include/asm ; \
-		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/asm-generic $(PKG_BUILD_DIR)/include/ ; \
-		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/linux $(PKG_BUILD_DIR)/include/ ; \
+	mkdir -p $(BUILD_DIR_HOST)/uClibc-dev/usr/include
+	mkdir -p $(BUILD_DIR_HOST)/uClibc-dev/usr/lib
+	mkdir -p $(BUILD_DIR_HOST)/uClibc-dev/lib
+	if [ ! -f $(BUILD_DIR_HOST)/uClibc-dev/usr/include/linux/version.h ] ; then \
+		cp -pLR $(LINUX_HEADERS_DIR)/* $(BUILD_DIR_HOST)/uClibc-dev/usr/; \
 	fi;
 	$(MAKE) -C $(PKG_BUILD_DIR) oldconfig KBUILD_HAVE_NLS= HOSTCFLAGS="-DKBUILD_NO_NLS"
 	$(MAKE) -C $(PKG_BUILD_DIR)/extra/config conf KBUILD_HAVE_NLS= HOSTCFLAGS="-DKBUILD_NO_NLS"
 	PATH=$(TARGET_PATH) $(MAKE) -C $(PKG_BUILD_DIR) \
-		PREFIX=$(BUILD_DIR_HOST)/uClibc_dev/ \
+		PREFIX=$(BUILD_DIR_HOST)/uClibc-dev/ \
 		DEVEL_PREFIX=/usr/ \
-		RUNTIME_PREFIX=$(BUILD_DIR_HOST)/uClibc_dev/ \
+		RUNTIME_PREFIX=$(BUILD_DIR_HOST)/uClibc-dev/ \
 		HOSTCC="$(HOSTCC)" \
 		CC="$(TARGET_CC)" \
 		CPU_CFLAGS="$(TARGET_CFLAGS)" \
@@ -165,7 +149,7 @@ define Build/Install
 endef
 
 define Build/Clean
-	rm -rf $(PKG_BUILD_DIR) $(BUILD_DIR_HOST)/uClibc_dev
+	rm -rf $(PKG_BUILD_DIR) $(BUILD_DIR_HOST)/uClibc-dev
 endef
 
 $(eval $(call HostBuild))

@@ -34,15 +34,26 @@ include $(INCLUDE_DIR)/kernel-defaults.mk
 #LINUX_KARCH:=$(ARCH)
 
 KMAKE := $(MAKE) -C $(PKG_BUILD_DIR) \
+	HOSTCFLAGS="$(HOST_CFLAGS) -Wall -Wmissing-prototypes -Wstrict-prototypes" \
 	ARCH=$(LINUX_KARCH) \
 	KBUILD_HAVE_NLS=no \
 	CONFIG_SHELL=$(BASH)
 
 define Build/Prepare
 	$(call Kernel/Prepare/Default)
-	ln -sf linux-$(LINUX_VERSION) $(LINUX_HEADERS_DIR)
+	mkdir -p $(LINUX_HEADERS_DIR)
 	yes '' | $(KMAKE) oldconfig
+ifeq ($(KERNEL),2.4)
 	$(KMAKE) include/linux/version.h include/asm
+	mkdir $(LINUX_HEADERS_DIR)/include
+	cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux-$(LINUX_VERSION)/include/asm-$(UCLIBC_TARGET_ARCH) $(LINUX_HEADERS_DIR)/include/
+	ln -sf  asm-$(UCLIBC_TARGET_ARCH) $(LINUX_HEADERS_DIR)/include/asm
+	cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux-$(LINUX_VERSION)/include/asm-generic $(LINUX_HEADERS_DIR)/include/
+	cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux-$(LINUX_VERSION)/include/linux $(LINUX_HEADERS_DIR)/include/
+else
+	$(KMAKE) INSTALL_HDR_PATH="$(LINUX_HEADERS_DIR)" headers_install
+	find $(LINUX_HEADERS_DIR)/include \( -name .install -o -name ..install.cmd \) -delete
+endif
 endef
 
 define Build/Configure
@@ -52,6 +63,11 @@ define Build/Compile
 endef
 
 define Build/Install
+	cp -pLR $(LINUX_HEADERS_DIR)/* $(TOOLCHAIN_DIR)/
+endef
+
+define Build/Clean
+	rm -rf $(LINUX_HEADERS_DIR)
 endef
 
 $(eval $(call HostBuild))

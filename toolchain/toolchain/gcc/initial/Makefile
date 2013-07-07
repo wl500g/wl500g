@@ -4,7 +4,7 @@ include ../common.mk
 
 GCC_CONFIGURE += \
 	--with-newlib \
-	--with-sysroot=$(BUILD_DIR_HOST)/uClibc_dev/ \
+	--with-sysroot=$(BUILD_DIR_HOST)/uClibc-dev/ \
 	--enable-languages=c \
 	--disable-shared \
 	--disable-threads \

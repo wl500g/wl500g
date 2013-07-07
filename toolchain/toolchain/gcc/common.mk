@@ -84,6 +84,7 @@ GCC_CONFIGURE:= \
 		--disable-nls \
 		--disable-__cxa_atexit \
 		$(SOFT_FLOAT_CONFIG_OPTION) \
+		$(if $(CONFIG_arm),--with-arch=armv7-a --with-abi=aapcs-linux) \
 		$(call qstrip,$(CONFIG_EXTRA_GCC_CONFIG_OPTIONS)) \
 
 ifneq ($(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4)$(CONFIG_GCC_VERSION_4_5)$(CONFIG_GCC_VERSION_4_6)$(CONFIG_GCC_VERSION_4_7),)

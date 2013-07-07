@@ -22,9 +22,16 @@ config TARGET_BOARD
 	default "brcm-2.4" if LINUX_2_4
 	default "brcm-2.6" if !LINUX_2_4
 
-config mipsel
-        bool
-	default y
+choice
+	prompt "Platform"
+	default mipsel
+
+	config arm
+	bool "ARM"
+
+	config mipsel
+        bool "MIPS32"
+endchoice
 
 config ARCH
         string
