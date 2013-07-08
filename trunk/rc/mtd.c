@@ -25,7 +25,9 @@
 #include <error.h>
 #include <sys/ioctl.h>
 
-#include <linux/compiler.h>
+#ifndef __user
+#define __user	
+#endif
 #include <mtd/mtd-user.h>
 
 #include <trxhdr.h>
