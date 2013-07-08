@@ -604,6 +604,17 @@ diff --git a/include/linux/imq.h b/include/linux/imq.h
 +#define IMQ_BEHAV_EGRESS_AFTER		2
 +
 +#endif /* _IMQ_H */
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -19,6 +19,7 @@
+ header-y += xt_esp.h
+ header-y += xt_helper.h
+ header-y += xt_hashlimit.h
++header-y += xt_IMQ.h
+ header-y += xt_layer7.h
+ header-y += xt_length.h
+ header-y += xt_limit.h
 diff --git a/include/linux/netfilter/xt_IMQ.h b/include/linux/netfilter/xt_IMQ.h
 --- /dev/null
 +++ b/include/linux/netfilter/xt_IMQ.h
@@ -617,6 +628,17 @@ diff --git a/include/linux/netfilter/xt_IMQ.h b/include/linux/netfilter/xt_IMQ.h
 +
 +#endif /* _XT_IMQ_H */
 +
+diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
+--- a/include/linux/netfilter_ipv4/Kbuild
++++ b/include/linux/netfilter_ipv4/Kbuild
+@@ -15,6 +15,7 @@
+ header-y += ipt_esp.h
+ header-y += ipt_hashlimit.h
+ header-y += ipt_helper.h
++header-y += ipt_IMQ.h
+ header-y += ipt_iprange.h
+ header-y += ipt_layer7.h
+ header-y += ipt_length.h
 diff --git a/include/linux/netfilter_ipv4/ipt_IMQ.h b/include/linux/netfilter_ipv4/ipt_IMQ.h
 --- /dev/null
 +++ b/include/linux/netfilter_ipv4/ipt_IMQ.h
@@ -631,6 +653,15 @@ diff --git a/include/linux/netfilter_ipv4/ipt_IMQ.h b/include/linux/netfilter_ip
 +
 +#endif /* _IPT_IMQ_H */
 +
+diff --git a/include/linux/netfilter_ipv6/Kbuild b/include/linux/netfilter_ipv6/Kbuild
+--- a/include/linux/netfilter_ipv6/Kbuild
++++ b/include/linux/netfilter_ipv6/Kbuild
+@@ -1,4 +1,5 @@
+ header-y += ip6t_HL.h
++header-y += ip6t_IMQ.h
+ header-y += ip6t_LOG.h
+ header-y += ip6t_MARK.h
+ header-y += ip6t_REJECT.h
 diff --git a/include/linux/netfilter_ipv6/ip6t_IMQ.h b/include/linux/netfilter_ipv6/ip6t_IMQ.h
 --- /dev/null
 +++ b/include/linux/netfilter_ipv6/ip6t_IMQ.h

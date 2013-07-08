@@ -1,3 +1,14 @@
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -42,6 +42,7 @@
+ header-y += xt_string.h
+ header-y += xt_tcpmss.h
+ header-y += xt_tcpudp.h
++header-y += xt_time.h
+ header-y += xt_SECMARK.h
+ header-y += xt_CONNSECMARK.h
+ header-y += xt_TCPMSS.h
 diff -urBwNp linux-2.6.22/include/linux/netfilter/xt_time.h linux-2.6/include/linux/netfilter/xt_time.h
 --- linux-2.6.22/include/linux/netfilter/xt_time.h	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/include/linux/netfilter/xt_time.h	2010-06-29 21:48:00.000000000 +0400

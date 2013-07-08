@@ -77,3 +77,22 @@ diff --git a/include/asm-mips/types.h b/include/asm-mips/types.h
  #endif
  
  #endif
+diff --git a/include/asm-mips/Kbuild b/include/asm-mips/Kbuild
+--- a/include/asm-mips/Kbuild
++++ b/include/asm-mips/Kbuild
+@@ -1,3 +1,4 @@
+ include include/asm-generic/Kbuild.asm
+ 
+ header-y += cachectl.h sgidefs.h sysmips.h
++header-y += asm.h regdef.h
+diff --git a/include/asm-generic/Kbuild.asm b/include/asm-generic/Kbuild.asm
+--- a/include/asm-generic/Kbuild.asm
++++ b/include/asm-generic/Kbuild.asm
+@@ -26,6 +26,7 @@
+ unifdef-y += termbits.h
+ unifdef-y += termios.h
+ unifdef-y += types.h
++unifdef-y += ucontext.h
+ unifdef-y += unistd.h
+ unifdef-y += user.h
+ 

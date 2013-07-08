@@ -67,8 +67,11 @@ deleted file mode 100644
 diff --git a/include/linux/netfilter_ipv6/Kbuild b/include/linux/netfilter_ipv6/Kbuild
 --- a/include/linux/netfilter_ipv6/Kbuild
 +++ b/include/linux/netfilter_ipv6/Kbuild
-@@ -14,7 +14,6 @@ header-y += ip6t_mark.h
- header-y += ip6t_mh.h
+@@ -14,9 +14,9 @@ header-y += ip6t_mark.h
+ header-y += ip6t_limit.h
+ header-y += ip6t_mac.h
+ header-y += ip6t_mark.h
++header-y += ip6t_mh.h
  header-y += ip6t_multiport.h
  header-y += ip6t_opts.h
 -header-y += ip6t_owner.h

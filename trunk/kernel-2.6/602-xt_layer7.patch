@@ -1,4 +1,15 @@
 
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -22,6 +22,7 @@
+ header-y += xt_esp.h
+ header-y += xt_helper.h
+ header-y += xt_hashlimit.h
++header-y += xt_layer7.h
+ header-y += xt_length.h
+ header-y += xt_limit.h
+ header-y += xt_mac.h
 diff --git a/include/linux/netfilter/xt_layer7.h b/include/linux/netfilter/xt_layer7.h
 --- /dev/null
 +++ b/include/linux/netfilter/xt_layer7.h
@@ -17,6 +28,17 @@ diff --git a/include/linux/netfilter/xt_layer7.h b/include/linux/netfilter/xt_la
 +};
 +
 +#endif /* _XT_LAYER7_H */
+diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
+--- a/include/linux/netfilter_ipv4/Kbuild
++++ b/include/linux/netfilter_ipv4/Kbuild
+@@ -18,6 +18,7 @@
+ header-y += ipt_hashlimit.h
+ header-y += ipt_helper.h
+ header-y += ipt_iprange.h
++header-y += ipt_layer7.h
+ header-y += ipt_length.h
+ header-y += ipt_limit.h
+ header-y += ipt_LOG.h
 diff --git a/include/linux/netfilter_ipv4/ipt_layer7.h b/include/linux/netfilter_ipv4/ipt_layer7.h
 --- /dev/null
 +++ b/include/linux/netfilter_ipv4/ipt_layer7.h

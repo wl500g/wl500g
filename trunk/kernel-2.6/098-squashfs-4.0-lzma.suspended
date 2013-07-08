@@ -5030,6 +5030,17 @@
 +	.supported = 1
 +};
 +
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -144,6 +144,7 @@
+ header-y += sockios.h
+ header-y += som.h
+ header-y += sound.h
++header-y += squashfs_fs.h
+ header-y += taskstats.h
+ header-y += telephony.h
+ header-y += termios.h
 --- linux-2.6.22.19.orig/include/linux/squashfs_fs.h	1969-12-31 18:00:00.000000000 -0600
 +++ linux-2.6.22.19/include/linux/squashfs_fs.h	2012-03-08 07:14:48.822719001 -0600
 @@ -0,0 +1,468 @@

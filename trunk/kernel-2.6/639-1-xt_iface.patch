@@ -20,9 +20,9 @@ diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
  header-y += xt_helper.h
  header-y += xt_hashlimit.h
 +header-y += xt_iface.h
+ header-y += xt_IMQ.h
  header-y += xt_iprange.h
- header-y += xt_length.h
- header-y += xt_limit.h
+ header-y += xt_layer7.h
 diff --git a/include/linux/netfilter/xt_iface.h b/include/linux/netfilter/xt_iface.h
 new file mode 100644
 --- /dev/null

@@ -171,6 +171,24 @@ diff -urBp linux-2.6.orig/net/ipv4/netfilter/Makefile linux-2.6/net/ipv4/netfilt
 +# match and target
 +obj-$(CONFIG_IP_NF_MATCH_SET) += ipt_set.o
 +obj-$(CONFIG_IP_NF_TARGET_SET) += ipt_SET.o
+diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
+--- a/include/linux/netfilter_ipv4/Kbuild
++++ b/include/linux/netfilter_ipv4/Kbuild
+@@ -33,6 +33,7 @@
+ header-y += ipt_REJECT.h
+ header-y += ipt_SAME.h
+ header-y += ipt_sctp.h
++header-y += ipt_set.h
+ header-y += ipt_state.h
+ header-y += ipt_string.h
+ header-y += ipt_tcpmss.h
+@@ -44,4 +45,6 @@
+ header-y += ipt_ULOG.h
+ 
+ unifdef-y += ip_queue.h
++unifdef-y += ip_set.h ip_set_bitmaps.h ip_set_hashes.h
++unifdef-y += ip_set_iphash.h ip_set_ipportiphash.h ip_set_ipporthash.h ip_set_ipportnethash.h ip_set_ipmap.h ip_set_iptree.h ip_set_iptreemap.h ip_set_macipmap.h ip_set_nethash.h ip_set_portmap.h ip_set_setlist.h
+ unifdef-y += ip_tables.h
 diff -urNB linux.orig/include/linux/netfilter_ipv4/ip_set_bitmaps.h linuz/include/linux/netfilter_ipv4/ip_set_bitmaps.h
 --- linux.orig/include/linux/netfilter_ipv4/ip_set_bitmaps.h	1970-01-01 00:00:00.000000000 +0000
 +++ linuz/include/linux/netfilter_ipv4/ip_set_bitmaps.h	2009-11-10 20:46:06.000000000 +0000
