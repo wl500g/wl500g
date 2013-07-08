@@ -56,6 +56,17 @@ b169f6db40605d0907458d1ff78ceac2b194a44f netfilter: ip6table_mangle: Fix set-but
  net/netfilter/xt_statistic.c              |   31 +++-
  23 files changed, 509 insertions(+), 402 deletions(-)
 
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -34,6 +34,7 @@
+ header-y += xt_owner.h
+ header-y += xt_pkttype.h
+ header-y += xt_policy.h
++header-y += xt_quota.h
+ header-y += xt_realm.h
+ header-y += xt_recent.h
+ header-y += xt_sctp.h
 diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
 --- a/include/linux/netfilter/x_tables.h
 +++ b/include/linux/netfilter/x_tables.h

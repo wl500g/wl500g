@@ -1,14 +1,26 @@
 [NETFILTER]: Add u32 match
 
 ---
+ include/linux/netfilter/Kbuild   |    1 
  include/linux/netfilter/xt_u32.h |   40 +++++++++++
  net/netfilter/Kconfig            |   13 +++
  net/netfilter/Makefile           |    1 
  net/netfilter/xt_u32.c           |  135 +++++++++++++++++++++++++++++++++++++++
- 4 files changed, 189 insertions(+), 0 deletions(-)
+ 5 files changed, 190 insertions(+)
  create mode 100644 include/linux/netfilter/xt_u32.h
  create mode 100644 net/netfilter/xt_u32.c
 
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -47,6 +47,7 @@
+ header-y += xt_SECMARK.h
+ header-y += xt_CONNSECMARK.h
+ header-y += xt_TCPMSS.h
++header-y += xt_u32.h
+ header-y += xt_webstr.h
+ 
+ unifdef-y += nf_conntrack_common.h
 diff --git a/include/linux/netfilter/xt_u32.h b/include/linux/netfilter/xt_u32.h
 new file mode 100644
 --- /dev/null
@@ -227,4 +239,3 @@ new file mode 100644
 +MODULE_ALIAS("ipt_u32");
 +MODULE_ALIAS("ip6t_u32");
 -- 
-1.7.6.5

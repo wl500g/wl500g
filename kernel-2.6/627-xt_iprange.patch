@@ -32,13 +32,13 @@ diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
 --- a/include/linux/netfilter/Kbuild
 +++ b/include/linux/netfilter/Kbuild
 @@ -15,6 +15,7 @@ header-y += xt_DSCP.h
- header-y += xt_esp.h
  header-y += xt_helper.h
  header-y += xt_hashlimit.h
+ header-y += xt_IMQ.h
 +header-y += xt_iprange.h
+ header-y += xt_layer7.h
  header-y += xt_length.h
  header-y += xt_limit.h
- header-y += xt_mac.h
 diff --git /dev/null b/include/linux/netfilter/xt_iprange.h
 --- /dev/null
 +++ b/include/linux/netfilter/xt_iprange.h
@@ -64,13 +64,13 @@ diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/
 --- a/include/linux/netfilter_ipv4/Kbuild
 +++ b/include/linux/netfilter_ipv4/Kbuild
 @@ -15,7 +15,6 @@
- header-y += ipt_esp.h
  header-y += ipt_hashlimit.h
  header-y += ipt_helper.h
+ header-y += ipt_IMQ.h
 -header-y += ipt_iprange.h
+ header-y += ipt_layer7.h
  header-y += ipt_length.h
  header-y += ipt_limit.h
- header-y += ipt_LOG.h
 diff --git a/include/linux/netfilter_ipv4/ipt_iprange.h b/include/linux/netfilter_ipv4/ipt_iprange.h
 deleted file mode 100644
 --- a/include/linux/netfilter_ipv4/ipt_iprange.h

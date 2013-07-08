@@ -9,16 +9,28 @@ Subject: [PATCH] netfilter: ebtables: add IPv6 support, fix ebtable targets retu
  93f65158723ceb7078ee9a0fd4830c0de00f4b9e netfilter: ebtables: add IPv6 support
 
 ---
+ include/linux/netfilter_bridge/Kbuild    |    1 
  include/linux/netfilter_bridge/ebt_ip6.h |   40 ++++++++
  include/linux/netfilter_bridge/ebt_log.h |    3 
  net/bridge/netfilter/Kconfig             |    9 +
  net/bridge/netfilter/Makefile            |    1 
  net/bridge/netfilter/ebt_ip6.c           |  144 +++++++++++++++++++++++++++++++
  net/bridge/netfilter/ebt_log.c           |   65 ++++++++++---
- 6 files changed, 246 insertions(+), 16 deletions(-)
+ 7 files changed, 247 insertions(+), 16 deletions(-)
  create mode 100644 include/linux/netfilter_bridge/ebt_ip6.h
  create mode 100644 net/bridge/netfilter/ebt_ip6.c
 
+diff --git a/include/linux/netfilter_bridge/Kbuild b/include/linux/netfilter_bridge/Kbuild
+--- a/include/linux/netfilter_bridge/Kbuild
++++ b/include/linux/netfilter_bridge/Kbuild
+@@ -2,6 +2,7 @@
+ header-y += ebt_arp.h
+ header-y += ebt_arpreply.h
+ header-y += ebt_ip.h
++header-y += ebt_ip6.h
+ header-y += ebt_limit.h
+ header-y += ebt_log.h
+ header-y += ebt_mark_m.h
 diff --git a/include/linux/netfilter_bridge/ebt_ip6.h b/include/linux/netfilter_bridge/ebt_ip6.h
 new file mode 100644
 --- /dev/null
@@ -349,4 +361,3 @@ diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
  	if ((bitmask & EBT_LOG_ARP) &&
  	    ((eth_hdr(skb)->h_proto == htons(ETH_P_ARP)) ||
 -- 
-1.6.5.GIT

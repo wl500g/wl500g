@@ -1,3 +1,19 @@
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -190,6 +195,7 @@
+ unifdef-y += dccp.h
+ unifdef-y += dirent.h
+ unifdef-y += dlm.h
++unifdef-y += dnotify.h
+ unifdef-y += elfcore.h
+ unifdef-y += errno.h
+ unifdef-y += errqueue.h
+@@ -354,3 +360,4 @@
+ unifdef-y += xfrm.h
+ 
+ objhdr-y += version.h
++objhdr-y += utsrelease.h
 diff -uBp a/include/linux/if_ether.h b/include/linux/if_ether.h
 --- a/include/linux/if_ether.h
 +++ b/include/linux/if_ether.h

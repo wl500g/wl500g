@@ -2264,6 +2264,17 @@ diff -x .gitignore -Nurp linux-2.6.22/fs/squashfs/squashfs.h linux-2.6.22-squash
 +
 +#define SQSH_EXTERN static
 +
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -144,6 +144,7 @@
+ header-y += sockios.h
+ header-y += som.h
+ header-y += sound.h
++header-y += squashfs_fs.h
+ header-y += taskstats.h
+ header-y += telephony.h
+ header-y += termios.h
 diff -x .gitignore -Nurp linux-2.6.22/include/linux/squashfs_fs.h linux-2.6.22-squashfs3.4/include/linux/squashfs_fs.h
 --- linux-2.6.22/include/linux/squashfs_fs.h	1970-01-01 01:00:00.000000000 +0100
 +++ linux-2.6.22-squashfs3.4/include/linux/squashfs_fs.h	2008-08-18 17:01:29.000000000 +0100
