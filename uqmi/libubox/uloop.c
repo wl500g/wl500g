@@ -43,6 +43,14 @@ struct uloop_fd_event {
 	unsigned int events;
 };
 
+struct uloop_fd_stack {
+	struct uloop_fd_stack *next;
+	struct uloop_fd *fd;
+	unsigned int events;
+};
+
+static struct uloop_fd_stack *fd_stack = NULL;
+
 #define ULOOP_MAX_EVENTS 10
 
 static struct list_head timeouts = LIST_HEAD_INIT(timeouts);
@@ -179,8 +187,10 @@ static int uloop_fetch_events(int timeout)
 		else if (!ev)
 			cur->fd = NULL;
 
+		cur->events = ev;
 		if (u->flags & ULOOP_EDGE_DEFER) {
 			u->flags &= ~ULOOP_EDGE_DEFER;
+			u->flags |= ULOOP_EDGE_TRIGGER;
 			register_kevent(u, u->flags);
 		}
 	}
@@ -229,6 +239,7 @@ static int register_poll(struct uloop_fd *fd, unsigned int flags)
 
 	ev.data.fd = fd->fd;
 	ev.data.ptr = fd;
+	fd->flags = flags;
 
 	return epoll_ctl(poll_fd, op, fd->fd, &ev);
 }
@@ -237,6 +248,7 @@ static struct epoll_event events[ULOOP_MAX_EVENTS];
 
 static int __uloop_fd_delete(struct uloop_fd *sock)
 {
+	sock->flags = 0;
 	return epoll_ctl(poll_fd, EPOLL_CTL_DEL, sock->fd, 0);
 }
 
@@ -281,6 +293,32 @@ static int uloop_fetch_events(int timeout)
 
 #endif
 
+static bool uloop_fd_stack_event(struct uloop_fd *fd, int events)
+{
+	struct uloop_fd_stack *cur;
+
+	/*
+	 * Do not buffer events for level-triggered fds, they will keep firing.
+	 * Caller needs to take care of recursion issues.
+	 */
+	if (!(fd->flags & ULOOP_EDGE_TRIGGER))
+		return false;
+
+	for (cur = fd_stack; cur; cur = cur->next) {
+		if (cur->fd != fd)
+			continue;
+
+		if (events < 0)
+			cur->fd = NULL;
+		else
+			cur->events |= events | ULOOP_EVENT_BUFFERED;
+
+		return true;
+	}
+
+	return false;
+}
+
 static void uloop_run_events(int timeout)
 {
 	struct uloop_fd_event *cur;
@@ -294,17 +332,33 @@ static void uloop_run_events(int timeout)
 	}
 
 	while (cur_nfds > 0) {
+		struct uloop_fd_stack stack_cur;
+		unsigned int events;
+
 		cur = &cur_fds[cur_fd++];
 		cur_nfds--;
 
 		fd = cur->fd;
+		events = cur->events;
 		if (!fd)
 			continue;
 
 		if (!fd->cb)
 			continue;
 
-		fd->cb(fd, cur->events);
+		if (uloop_fd_stack_event(fd, cur->events))
+			continue;
+
+		stack_cur.next = fd_stack;
+		stack_cur.fd = fd;
+		fd_stack = &stack_cur;
+		do {
+			stack_cur.events = 0;
+			fd->cb(fd, events);
+			events = stack_cur.events & ULOOP_EVENT_MASK;
+		} while (stack_cur.fd && events);
+		fd_stack = stack_cur.next;
+
 		return;
 	}
 }
@@ -348,6 +402,7 @@ int uloop_fd_delete(struct uloop_fd *fd)
 		cur_fds[cur_fd + i].fd = NULL;
 	}
 	fd->registered = false;
+	uloop_fd_stack_event(fd, -1);
 	return __uloop_fd_delete(fd);
 }
 

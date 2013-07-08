@@ -151,11 +151,12 @@ static void add_separator(struct strbuf *s)
 
 static void blobmsg_format_string(struct strbuf *s, const char *str)
 {
-	const char *p, *last = str, *end = str + strlen(str);
+	const unsigned char *p, *last, *end;
 	char buf[8] = "\\u00";
 
+	end = (unsigned char *) str + strlen(str);
 	blobmsg_puts(s, "\"", 1);
-	for (p = str; *p; p++) {
+	for (p = (unsigned char *) str, last = p; *p; p++) {
 		char escape = '\0';
 		int len;
 
@@ -187,20 +188,20 @@ static void blobmsg_format_string(struct strbuf *s, const char *str)
 			continue;
 
 		if (p > last)
-			blobmsg_puts(s, last, p - last);
+			blobmsg_puts(s, (char *) last, p - last);
 		last = p + 1;
 		buf[1] = escape;
 
 		if (escape == 'u') {
 			sprintf(buf + 4, "%02x", (unsigned char) *p);
-			len = 4;
+			len = 6;
 		} else {
 			len = 2;
 		}
 		blobmsg_puts(s, buf, len);
 	}
 
-	blobmsg_puts(s, last, end - last);
+	blobmsg_puts(s, (char *) last, end - last);
 	blobmsg_puts(s, "\"", 1);
 }
 

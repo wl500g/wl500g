@@ -108,7 +108,8 @@ void safe_list_del(struct safe_list *list)
 	next->i = list->i;
 	list->i->head = &next->i;
 	*tail = next_i;
-	next_i->head = tail;
+	if (next_i)
+		next_i->head = tail;
 
 	list->i = NULL;
 }

@@ -311,15 +311,13 @@ void ustream_fill_read(struct ustream *s, int len)
 
 char *ustream_get_read_buf(struct ustream *s, int *buflen)
 {
-	char *data;
-	int len;
+	char *data = NULL;
+	int len = 0;
 
 	if (s->r.head) {
 		len = s->r.head->tail - s->r.head->data;
-		data = s->r.head->data;
-	} else {
-		len = 0;
-		data = NULL;
+		if (len > 0)
+			data = s->r.head->data;
 	}
 
 	if (buflen)
