@@ -1,0 +1,30 @@
+From 945353a25bbb2dbf88128c27a9169851da6ebf05
+From: Phil Oester <kernel@linuxace.com>
+Date: Thu, 20 Jun 2013 20:11:38 +0000
+Subject: ip6tables: don't print out /128
+
+Similar to how iptables does not print /32 on IPv4 addresses, ip6tables
+should not print out /128 on IPv6 addresses.
+
+Signed-off-by: Phil Oester <kernel@linuxace.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@soleta.eu>
+---
+
+diff --git a/xtables.c b/xtables.c
+--- a/xtables.c
++++ b/xtables.c
+@@ -1597,7 +1597,11 @@ const char *xtables_ip6mask_to_numeric(const struct in6_addr *addrp)
+ 		strcat(buf, xtables_ip6addr_to_numeric(addrp));
+ 		return buf;
+ 	}
+-	sprintf(buf, "/%d", l);
++	/* we don't want to see "/128" */
++	if (l == 128)
++		return "";
++	else
++		sprintf(buf, "/%d", l);
+ 	return buf;
+ }
+ 
+-- 
+cgit v0.9.2
