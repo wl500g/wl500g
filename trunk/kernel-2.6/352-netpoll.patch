@@ -1,11 +1,13 @@
  954fba0274058d27c7c07b5ea07c41b3b7477894 netpoll: fix netpoll_send_udp() bugs
 
 ---
+ net/core/netpoll.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/net/core/netpoll.c b/net/core/netpoll.c
 --- a/net/core/netpoll.c
 +++ b/net/core/netpoll.c
-@@ -362,22 +362,23 @@ EXPORT_SYMBOL(netpoll_send_skb_on_dev);
+@@ -362,22 +362,22 @@ EXPORT_SYMBOL(netpoll_send_skb_on_dev);
  
  void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
  {
@@ -22,9 +24,7 @@ diff --git a/net/core/netpoll.c b/net/core/netpoll.c
 +	ip_len = udp_len + sizeof(*iph);
 +	total_len = ip_len + LL_RESERVED_SPACE(np->dev);
  
--	skb = find_skb(np, total_len, total_len - len);
-+	skb = find_skb(np, total_len + np->dev->needed_tailroom,
-+		       total_len - len);
+ 	skb = find_skb(np, total_len, total_len - len);
  	if (!skb)
  		return;
  
