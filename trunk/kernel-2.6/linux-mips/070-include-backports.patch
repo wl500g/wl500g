@@ -84,7 +84,7 @@ diff --git a/include/asm-mips/Kbuild b/include/asm-mips/Kbuild
  include include/asm-generic/Kbuild.asm
  
  header-y += cachectl.h sgidefs.h sysmips.h
-+header-y += asm.h regdef.h
++header-y += asm.h fpregdef.h regdef.h
 diff --git a/include/asm-generic/Kbuild.asm b/include/asm-generic/Kbuild.asm
 --- a/include/asm-generic/Kbuild.asm
 +++ b/include/asm-generic/Kbuild.asm
