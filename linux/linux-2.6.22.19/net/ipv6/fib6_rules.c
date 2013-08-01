@@ -55,26 +55,33 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
 	struct rt6_info *rt = NULL;
 	struct fib6_table *table;
 	pol_lookup_t lookup = arg->lookup_ptr;
+	int err = 0;
 
 	switch (rule->action) {
 	case FR_ACT_TO_TBL:
 		break;
 	case FR_ACT_UNREACHABLE:
+		err = -ENETUNREACH;
 		rt = &ip6_null_entry;
 		goto discard_pkt;
 	default:
 	case FR_ACT_BLACKHOLE:
+		err = -EINVAL;
 		rt = &ip6_blk_hole_entry;
 		goto discard_pkt;
 	case FR_ACT_PROHIBIT:
+		err = -EACCES;
 		rt = &ip6_prohibit_entry;
 		goto discard_pkt;
 	}
 
 	table = fib6_get_table(rule->table);
-	if (table)
-		rt = lookup(table, flp, flags);
+	if (!table) {
+		err = -EAGAIN;
+		goto out;
+	}
 
+	rt = lookup(table, flp, flags);
 	if (rt != &ip6_null_entry) {
 		struct fib6_rule *r = (struct fib6_rule *)rule;
 
@@ -97,6 +104,7 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
 	}
 again:
 	dst_release(&rt->u.dst);
+	err = -EAGAIN;
 	rt = NULL;
 	goto out;
 
@@ -104,7 +112,7 @@ discard_pkt:
 	dst_hold(&rt->u.dst);
 out:
 	arg->result = rt;
-	return rt == NULL ? -EAGAIN : 0;
+	return err;
 }
 
 
