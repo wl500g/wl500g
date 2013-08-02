@@ -1,0 +1,42 @@
+bridge: Updates from upstream
+
+ 547b4e718115eea74087e28d7fa70aec619200db bridge: set priority of STP packets
+ 83401eb4990ff6af55aeed8f49681558544192e6 bridge: fix race with topology change timer
+
+---
+ net/bridge/br_stp_bpdu.c  |    2 ++
+ net/bridge/br_stp_timer.c |    2 +-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/bridge/br_stp_bpdu.c b/net/bridge/br_stp_bpdu.c
+--- a/net/bridge/br_stp_bpdu.c
++++ b/net/bridge/br_stp_bpdu.c
+@@ -16,6 +16,7 @@
+ 
+ #include <linux/etherdevice.h>
+ #include <linux/llc.h>
++#include <linux/pkt_sched.h>
+ #include <net/llc.h>
+ #include <net/llc_pdu.h>
+ 
+@@ -40,6 +41,7 @@ static void br_send_bpdu(struct net_bridge_port *p,
+ 
+ 	skb->dev = p->dev;
+ 	skb->protocol = htons(ETH_P_802_2);
++	skb->priority = TC_PRIO_CONTROL;
+ 
+ 	skb_reserve(skb, LLC_RESERVE);
+ 	memcpy(__skb_put(skb, length), data, length);
+diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
+--- a/net/bridge/br_stp_timer.c
++++ b/net/bridge/br_stp_timer.c
+@@ -107,7 +107,7 @@ static void br_tcn_timer_expired(unsigned long arg)
+ 
+ 	pr_debug("%s: tcn timer expired\n", br->dev->name);
+ 	spin_lock(&br->lock);
+-	if (br->dev->flags & IFF_UP) {
++	if (!br_is_root_bridge(br) && (br->dev->flags & IFF_UP)) {
+ 		br_transmit_tcn(br);
+ 
+ 		mod_timer(&br->tcn_timer,jiffies + br->bridge_hello_time);
+-- 
