@@ -88,9 +88,9 @@ diff --git a/include/net/sock.h b/include/net/sock.h
  
 -	wait_queue_head_t	*sk_sleep;
 +	struct socket_wq	*sk_wq;
+ #ifdef CONFIG_NET_DMA
  	struct sk_buff_head	sk_async_wait_queue;
  
- #ifdef CONFIG_XFRM
 @@ -990,6 +990,11 @@ static inline void sock_put(struct sock 
  extern int sk_receive_skb(struct sock *sk, struct sk_buff *skb,
  			  const int nested);
