@@ -392,15 +392,16 @@ int uloop_fd_delete(struct uloop_fd *fd)
 {
 	int i;
 
-	if (!fd->registered)
-		return 0;
-
 	for (i = 0; i < cur_nfds; i++) {
 		if (cur_fds[cur_fd + i].fd != fd)
 			continue;
 
 		cur_fds[cur_fd + i].fd = NULL;
 	}
+
+	if (!fd->registered)
+		return 0;
+
 	fd->registered = false;
 	uloop_fd_stack_event(fd, -1);
 	return __uloop_fd_delete(fd);
@@ -632,6 +633,7 @@ void uloop_run(void)
 
 		if (do_sigchld)
 			uloop_handle_processes();
+		uloop_gettime(&tv);
 		uloop_run_events(uloop_get_next_timeout(&tv));
 	}
 }

@@ -231,16 +231,17 @@ blob_put_u64(struct blob_buf *buf, int id, uint64_t val)
 
 #define __blob_for_each_attr(pos, attr, rem) \
 	for (pos = (void *) attr; \
-		 rem > 0 && (blob_pad_len(pos) <= rem) && \
-		 (blob_pad_len(pos) >= sizeof(struct blob_attr)); \
-		 rem -= blob_pad_len(pos), pos = blob_next(pos))
+	     rem > 0 && (blob_pad_len(pos) <= rem) && \
+	     (blob_pad_len(pos) >= sizeof(struct blob_attr)); \
+	     rem -= blob_pad_len(pos), pos = blob_next(pos))
 
 
 #define blob_for_each_attr(pos, attr, rem) \
-	for (rem = blob_len(attr), pos = blob_data(attr); \
-		 rem > 0 && (blob_pad_len(pos) <= rem) && \
-		 (blob_pad_len(pos) >= sizeof(struct blob_attr)); \
-		 rem -= blob_pad_len(pos), pos = blob_next(pos))
+	for (rem = attr ? blob_len(attr) : 0, \
+	     pos = attr ? blob_data(attr) : 0; \
+	     rem > 0 && (blob_pad_len(pos) <= rem) && \
+	     (blob_pad_len(pos) >= sizeof(struct blob_attr)); \
+	     rem -= blob_pad_len(pos), pos = blob_next(pos))
 
 
 #endif
