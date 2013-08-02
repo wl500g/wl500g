@@ -148,7 +148,7 @@ struct htb_class {
 	long tokens, ctokens;	/* current number of tokens */
 	psched_time_t t_c;	/* checkpoint time */
 
-	int prio;		/* For parent to leaf return possible here */
+	u32 prio;		/* For parent to leaf return possible here */
 	int quantum;		/* we do backup. Finally full replacement  */
 				/* of un.leaf originals should be done. */
 };
