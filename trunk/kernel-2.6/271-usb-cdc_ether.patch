@@ -4,15 +4,16 @@ cdc_ether: Updates from upstream
  f8295ec22cb0f1ee6849b862addbfa3ea9320755 qmi_wwan/cdc_ether: move Novatel 551 and E362 to qmi_wwan
  0370acd4d4d2595a11b0b0a793acb506e19b9d4c qmi_wwan/cdc_ether: add Dell Wireless 5800 (Novatel E362) USB IDs
  21851264120b0bd1f953328cb131abcfa9305bc3 cdc_ether: Identify MBM devices by GUID in MDLM descriptor
+ 1fc4c84d49558ceca04761abd3f7eb5224af75b2 cdc_ether: allow combined control and data interface
 
 ---
- drivers/net/usb/cdc_ether.c |   75 ++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 75 insertions(+)
+ drivers/net/usb/cdc_ether.c |   97 +++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 92 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
 --- a/drivers/net/usb/cdc_ether.c
 +++ b/drivers/net/usb/cdc_ether.c
-@@ -64,6 +64,11 @@ static int is_wireless_rndis(struct usb_interface_descriptor *desc)
+@@ -65,6 +65,11 @@ static int is_wireless_rndis(struct usb_
  
  #endif
  
@@ -24,7 +25,7 @@ diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
  /*
   * probes control interface, claims data interface, collects the bulk
   * endpoints, activates data interface (if needed), maybe sets MTU.
-@@ -79,6 +84,8 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+@@ -81,6 +86,8 @@ int usbnet_generic_cdc_bind(struct usbne
  	int				rndis;
  	bool				android_rndis_quirk = false;
  	struct usb_driver		*driver = driver_of(intf);
@@ -33,7 +34,18 @@ diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
  
  	if (sizeof dev->data < sizeof *info)
  		return -EDOM;
-@@ -229,6 +236,34 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+@@ -211,6 +218,10 @@ int usbnet_generic_cdc_bind(struct usbne
+ 					goto bad_desc;
+ 			}
+ 
++			/* some devices merge these - skip class check */
++			if (info->control == info->data)
++				goto next_desc;
++
+ 			/* a data interface altsetting does the real i/o */
+ 			d = &info->data->cur_altsetting->desc;
+ 			if (d->bInterfaceClass != USB_CLASS_CDC_DATA) {
+@@ -236,6 +247,34 @@ int usbnet_generic_cdc_bind(struct usbne
  			 * side link address we were given.
  			 */
  			break;
@@ -68,7 +80,47 @@ diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
  		}
  next_desc:
  		len -= buf [0];	/* bLength */
-@@ -433,6 +433,9 @@ static const struct driver_info	cdc_info
+@@ -272,19 +311,23 @@ next_desc:
+ 	/* claim data interface and set it up ... with side effects.
+ 	 * network traffic can't flow until an altsetting is enabled.
+ 	 */
+-	status = usb_driver_claim_interface(driver, info->data, dev);
+-	if (status < 0)
+-		return status;
++	if (info->data != info->control) {
++		status = usb_driver_claim_interface(driver, info->data, dev);
++		if (status < 0)
++			return status;
++	}
+ 	status = usbnet_get_endpoints(dev, info->data);
+ 	if (status < 0) {
+ 		/* ensure immediate exit from usbnet_disconnect */
+ 		usb_set_intfdata(info->data, NULL);
+-		usb_driver_release_interface(driver, info->data);
++		if (info->data != info->control)
++			usb_driver_release_interface(driver, info->data);
+ 		return status;
+ 	}
+ 
+ 	/* status endpoint: optional for CDC Ethernet, not RNDIS (or ACM) */
+-	dev->status = NULL;
++	if (info->data != info->control)
++		dev->status = NULL;
+ 	if (info->control->cur_altsetting->desc.bNumEndpoints == 1) {
+ 		struct usb_endpoint_descriptor	*desc;
+ 
+@@ -317,6 +360,10 @@ void usbnet_cdc_unbind(struct usbnet *de
+ 	struct cdc_state		*info = (void *) &dev->data;
+ 	struct usb_driver		*driver = driver_of(intf);
+ 
++	/* combined interface - nothing  to do */
++	if (info->data == info->control)
++		return;
++
+ 	/* disconnect master --> disconnect slave */
+ 	if (intf == info->control && info->data) {
+ 		/* ensure immediate exit from usbnet_disconnect */
+@@ -433,6 +480,9 @@ static const struct driver_info	cdc_info
  
  /*-------------------------------------------------------------------------*/
  
@@ -78,7 +130,7 @@ diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
  
  static const struct usb_device_id	products [] = {
  /*
-@@ -524,6 +527,34 @@ static const struct usb_device_id	produc
+@@ -524,6 +574,34 @@ static const struct usb_device_id	produc
  	.driver_info		= 0,
  },
  
@@ -113,7 +165,7 @@ diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
  /*
   * WHITELIST!!!
   *
-@@ -539,6 +570,15 @@ static const struct usb_device_id	produc
+@@ -539,6 +617,15 @@ static const struct usb_device_id	produc
  	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ETHERNET,
  			USB_CDC_PROTO_NONE),
  	.driver_info = (unsigned long) &cdc_info,
