@@ -204,9 +204,10 @@ void blobmsg_printf(struct blob_buf *buf, const char *name, const char *format, 
 /* blobmsg to json formatting */
 
 #define blobmsg_for_each_attr(pos, attr, rem) \
-	for (rem = blobmsg_data_len(attr), pos = blobmsg_data(attr); \
-		 rem > 0 && (blob_pad_len(pos) <= rem) && \
-		 (blob_pad_len(pos) >= sizeof(struct blob_attr)); \
-		 rem -= blob_pad_len(pos), pos = blob_next(pos))
+	for (rem = attr ? blobmsg_data_len(attr) : 0, \
+	     pos = attr ? blobmsg_data(attr) : 0; \
+	     rem > 0 && (blob_pad_len(pos) <= rem) && \
+	     (blob_pad_len(pos) >= sizeof(struct blob_attr)); \
+	     rem -= blob_pad_len(pos), pos = blob_next(pos))
 
 #endif
