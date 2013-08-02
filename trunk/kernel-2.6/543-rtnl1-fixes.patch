@@ -1,16 +1,14 @@
-From d36e5edf52c66e999fe137c6edf9bd4c28e0d876
-From: Fedor <fedork@ubuntu.(none)>
-Date: Sat, 30 Oct 2010 03:17:30 -0400
-Subject: [PATCH] [NET]: rtnl_unlock cleanups, fix netdev_run_todo dead-lock
 
  kernel.org commits
  1536cc0d55a2820b71daf912060fe43ec15630c2 [NET]: rtnl_unlock cleanups
  58ec3b4db9eb5a28e3aec5f407a54e28f7039c19 net: Fix netdev_run_todo dead-lock
+ e1ee3673a83cc02b6b5e43c9e647d8dd5e1c4e26 genetlink: fix usage of NLM_F_EXCL or NLM_F_REPLACE
 
 ---
- net/core/dev.c       |   27 ++++---------------
- net/core/rtnetlink.c |   10 ++-----
- 2 files changed, 9 insertions(+), 28 deletions(-)
+ net/core/dev.c          |   27 ++++++---------------------
+ net/core/rtnetlink.c    |   10 +++-------
+ net/netlink/genetlink.c |    2 +-
+ 3 files changed, 10 insertions(+), 29 deletions(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
 --- a/net/core/dev.c
@@ -108,5 +106,16 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  	} while (qlen);
  }
  
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -571,7 +571,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 	    security_netlink_recv(skb, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	if (nlh->nlmsg_flags & NLM_F_DUMP) {
++	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+ 		if (ops->dumpit == NULL)
+ 			return -EOPNOTSUPP;
+ 
 -- 
-1.6.5.GIT
