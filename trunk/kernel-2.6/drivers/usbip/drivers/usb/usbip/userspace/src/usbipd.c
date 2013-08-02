@@ -20,8 +20,8 @@
 #include "../config.h"
 #endif
 
+#define _GNU_SOURCE
 #include <errno.h>
-#include <stdbool.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <string.h>
@@ -31,15 +31,14 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <poll.h>
 
 #ifdef HAVE_LIBWRAP
 #include <tcpd.h>
 #endif
 
-#define _GNU_SOURCE
 #include <getopt.h>
 #include <signal.h>
+#include <poll.h>
 
 #include "usbip_host_driver.h"
 #include "usbip_common.h"
@@ -49,7 +48,7 @@
 #define PROGNAME "usbipd"
 #define MAXSOCKFD 20
 
-static bool is_running = true;
+#define MAIN_LOOP_TIMEOUT 10
 
 static const char usbip_version_string[] = PACKAGE_STRING;
 
@@ -311,23 +310,22 @@ static int do_accept(int listenfd)
 	return connfd;
 }
 
-static void process_request(struct pollfd *pd)
+int process_request(int listenfd)
 {
+	pid_t childpid;
 	int connfd;
 
-	if (pd->revents & (POLLERR | POLLHUP | POLLNVAL)) {
-		err("unknown condition");
-		BUG();
-	}
-
-	if (pd->revents & POLLIN) {
-		connfd = do_accept(pd->fd);
-		if (connfd < 0)
-			return;
-
+	connfd = do_accept(listenfd);
+	if (connfd < 0)
+		return -1;
+	childpid = fork();
+	if (childpid == 0) {
+		close(listenfd);
 		recv_pdu(connfd);
-		close(connfd);
+		exit(0);
 	}
+	close(connfd);
+	return 0;
 }
 
 static void log_addrinfo(struct addrinfo *ai)
@@ -344,37 +342,37 @@ static void log_addrinfo(struct addrinfo *ai)
 	info("listening on %s:%s", hbuf, sbuf);
 }
 
-static int listen_all_addrinfo(struct addrinfo *ai_head, struct pollfd sockfdlist[])
+static int listen_all_addrinfo(struct addrinfo *ai_head, int sockfdlist[])
 {
 	struct addrinfo *ai;
 	int ret, nsockfd = 0;
 
 	for (ai = ai_head; ai && nsockfd < MAXSOCKFD; ai = ai->ai_next) {
-		sockfdlist[nsockfd].fd = socket(ai->ai_family, ai->ai_socktype,
+		sockfdlist[nsockfd] = socket(ai->ai_family, ai->ai_socktype,
 					     ai->ai_protocol);
-		if (sockfdlist[nsockfd].fd < 0)
+		if (sockfdlist[nsockfd] < 0)
 			continue;
 
-		usbip_net_set_reuseaddr(sockfdlist[nsockfd].fd);
-		usbip_net_set_nodelay(sockfdlist[nsockfd].fd);
+		usbip_net_set_reuseaddr(sockfdlist[nsockfd]);
+		usbip_net_set_nodelay(sockfdlist[nsockfd]);
 
-		if (sockfdlist[nsockfd].fd >= FD_SETSIZE) {
-			close(sockfdlist[nsockfd].fd);
-			sockfdlist[nsockfd].fd = -1;
-			continue;
-		}
-
-		ret = bind(sockfdlist[nsockfd].fd, ai->ai_addr, ai->ai_addrlen);
-		if (ret < 0) {
-			close(sockfdlist[nsockfd].fd);
-			sockfdlist[nsockfd].fd = -1;
+		if (sockfdlist[nsockfd] >= FD_SETSIZE) {
+			close(sockfdlist[nsockfd]);
+			sockfdlist[nsockfd] = -1;
 			continue;
 		}
 
-		ret = listen(sockfdlist[nsockfd].fd, SOMAXCONN);
+		ret = bind(sockfdlist[nsockfd], ai->ai_addr, ai->ai_addrlen);
 		if (ret < 0) {
-			close(sockfdlist[nsockfd].fd);
-			sockfdlist[nsockfd].fd = -1;
+			close(sockfdlist[nsockfd]);
+			sockfdlist[nsockfd] = -1;
+			continue;
+		}
+
+		ret = listen(sockfdlist[nsockfd], SOMAXCONN);
+		if (ret < 0) {
+			close(sockfdlist[nsockfd]);
+			sockfdlist[nsockfd] = -1;
 			continue;
 		}
 
@@ -412,9 +410,7 @@ static struct addrinfo *do_getaddrinfo(char *host, int ai_family)
 
 static void signal_handler(int i)
 {
-	dbg("received signal: code %d", i);
-
-	is_running = false;
+	dbg("received '%s' signal", strsignal(i));
 }
 
 static void set_signal(void)
@@ -426,19 +422,22 @@ static void set_signal(void)
 	sigemptyset(&act.sa_mask);
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
+	act.sa_handler = SIG_IGN;
+	sigaction(SIGCLD, &act, NULL);
 }
 
-static int do_standalone_mode(bool daemonize)
+static int do_standalone_mode(int daemonize)
 {
 	struct addrinfo *ai_head;
-	struct pollfd sockfdlist[MAXSOCKFD];
+	int sockfdlist[MAXSOCKFD];
 	int nsockfd;
-	int i;
+	int i, terminate;
+	struct pollfd *fds;
+	struct timespec timeout;
+	sigset_t sigmask;
 
-	if (usbip_use_debug) {
-		if (usbip_names_init(USBIDS_FILE))
-			err("failed to open %s", USBIDS_FILE);
-	}
+	if (usbip_names_init(USBIDS_FILE))
+		err("failed to open %s", USBIDS_FILE);
 
 	if (usbip_host_driver_open()) {
 		err("please load " USBIP_CORE_MOD_NAME ".ko and "
@@ -449,63 +448,58 @@ static int do_standalone_mode(bool daemonize)
 	if (daemonize) {
 		if (daemon(0,0) < 0) {
 			err("daemonizing failed: %s", strerror(errno));
-			usbip_host_driver_close();
 			return -1;
 		}
-
+		umask(0);
 		usbip_use_syslog = 1;
 	}
 	set_signal();
 
 	ai_head = do_getaddrinfo(NULL, PF_UNSPEC);
-	if (!ai_head) {
-		usbip_host_driver_close();
+	if (!ai_head)
 		return -1;
-	}
 
 	info("starting " PROGNAME " (%s)", usbip_version_string);
 
 	nsockfd = listen_all_addrinfo(ai_head, sockfdlist);
 	if (nsockfd <= 0) {
 		err("failed to open a listening socket");
-		freeaddrinfo(ai_head);
-		usbip_host_driver_close();
 		return -1;
 	}
+	fds = calloc(nsockfd, sizeof(struct pollfd));
+	for (i = 0; i < nsockfd; i++) {
+		fds[i].fd = sockfdlist[i];
+		fds[i].events = POLLIN;
+	}
+	timeout.tv_sec = MAIN_LOOP_TIMEOUT;
+	timeout.tv_nsec = 0;
 
-	while (is_running)
-	{
-		int n;
+	sigfillset(&sigmask);
+	sigdelset(&sigmask, SIGTERM);
+	sigdelset(&sigmask, SIGINT);
 
-		for (i = 0; i < nsockfd; i++)
-		{
-			sockfdlist[i].events = POLLIN | POLLPRI;
-			sockfdlist[i].revents = 0;
-		}
+	terminate = 0;
+	while (!terminate) {
+		int r;
 
-		n = poll(sockfdlist, nsockfd, 1000);
-		if (n == 0)
-			continue;
-		else if (n < 0)
-		{
-			if (errno != EINTR)
-			{
-				err("poll(2) failed due to: %s", strerror(errno));
-				sleep(1);
+		r = ppoll(fds, nsockfd, &timeout, &sigmask);
+		if (r < 0) {
+			dbg("%s", strerror(errno));
+			terminate = 1;
+		} else if (r) {
+			for (i = 0; i < nsockfd; i++) {
+				if (fds[i].revents & POLLIN) {
+					dbg("read event on fd[%d]=%d",
+					    i, sockfdlist[i]);
+					process_request(sockfdlist[i]);
+				}
 			}
-			continue;
-		}
-
-		for (i = 0; i < nsockfd; i++)
-			if (sockfdlist[i].revents & (POLLIN | POLLERR | POLLHUP | POLLNVAL))
-			{
-				process_request(&sockfdlist[i]);
-			}
-
+		} else
+			dbg("heartbeat timeout on ppoll()");
 	}
 
 	info("shutting down " PROGNAME);
-
+	free(fds);
 	freeaddrinfo(ai_head);
 	usbip_host_driver_close();
 	usbip_names_free();
@@ -529,7 +523,7 @@ int main(int argc, char *argv[])
 		cmd_version
 	} cmd;
 
-	bool daemonize = false;
+	int daemonize = 0;
 	int opt, rc = -1;
 
 	usbip_use_stderr = 1;
@@ -547,7 +541,7 @@ int main(int argc, char *argv[])
 
 		switch (opt) {
 		case 'D':
-			daemonize = true;
+			daemonize = 1;
 			break;
 		case 'd':
 			usbip_use_debug = 1;
