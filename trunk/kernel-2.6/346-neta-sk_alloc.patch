@@ -90,7 +90,7 @@ diff --git a/drivers/net/pptp.c b/drivers/net/pptp.c
 diff --git a/include/net/sock.h b/include/net/sock.h
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -199,54 +199,63 @@ struct sock {
+@@ -199,54 +199,65 @@ struct sock {
  #define sk_refcnt		__sk_common.skc_refcnt
  #define sk_hash			__sk_common.skc_hash
  #define sk_prot			__sk_common.skc_prot
@@ -124,7 +124,9 @@ diff --git a/include/net/sock.h b/include/net/sock.h
 +
  	wait_queue_head_t	*sk_sleep;
 -	struct dst_entry	*sk_dst_cache;
++#ifdef CONFIG_NET_DMA
 +	struct sk_buff_head	sk_async_wait_queue;
++#endif
 +
 +#ifdef CONFIG_XFRM
  	struct xfrm_policy	*sk_policy[2];
