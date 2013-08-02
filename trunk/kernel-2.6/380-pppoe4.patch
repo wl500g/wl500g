@@ -28,6 +28,7 @@ From: David S. Miller <davem@davemloft.net>
 d6301d3dd1c287b32132dda15272a50c11e92a14 net: Increase default NET_SKB_PAD to 32.
 
 617c8c11236716dcbda877e764b7bf37c6fd8063 skb: avoid unnecessary reallocations in __skb_cow
+b1a5a34bd0b8767ea689e68f8ea513e9710b671e net: Swap ver and type in pppoe_hdr
 
 ---
  drivers/net/ppp_generic.c |   14 +----
@@ -341,7 +342,18 @@ diff --git a/include/linux/if_pppox.h b/include/linux/if_pppox.h
  	char tag_data[0];
  } __attribute ((packed));
  
-@@ -149,8 +149,8 @@ struct pppoe_hdr {
+@@ -139,17 +139,17 @@ struct pppoe_hdr {
+ 
+ struct pppoe_hdr {
+ #if defined(__LITTLE_ENDIAN_BITFIELD)
+-	__u8 ver : 4;
+ 	__u8 type : 4;
++	__u8 ver : 4;
+ #elif defined(__BIG_ENDIAN_BITFIELD)
+-	__u8 type : 4;
+ 	__u8 ver : 4;
++	__u8 type : 4;
+ #else
  #error	"Please fix <asm/byteorder.h>"
  #endif
  	__u8 code;
