@@ -807,9 +807,9 @@ function validate_ip6addr(o, v)
 	if (o.value.length===0)
 	{
 		p=document.form.ipv6_proto.value;
-		if ((v=='ipv6_lan_addr' && (p=="native" || p=="ppp" || p=="tun6in4")) ||
-		    (v=='ipv6_wan_addr' && p=="tun6in4") ||
-		    (v=='ipv6_wan_router' && p=="tun6in4"))
+		if ((v=='ipv6_lan_addr' && (p=="native" || p=="tun6in4")) ||
+		    (v=='ipv6_wan_addr' && (p=="native" || p=="tun6in4")) ||
+		    (v=='ipv6_wan_router' && (p=="tun6in4")))
 		{
 			alert("Fields can't be blank!!!");
 			o.focus();
@@ -1728,7 +1728,7 @@ function load_body()
 	}
 	else if (frm.current_page.value == "Advanced_IPv6_Content.asp")
 	{
-		change_ipv6_type(frm.ipv6_proto.value);
+		change_ipv6_type(frm.ipv6_proto.value, 1);
 		/* temporary until all options are supported */
 		window.top.pageChanged = 0;
 	}
@@ -2440,7 +2440,7 @@ function change_common(o, s, v)
 	}
 	else if (v=="ipv6_proto")
 	{
-		change_ipv6_type(o.value);
+		change_ipv6_type(o.value, 0);
 	}
 	else if (s == "FirewallConfig")
 	{
@@ -2609,18 +2609,8 @@ function change_common_radio(o, s, v, r)
 	}
 	else if (v=="wan_dnsenable_x")
 	{
-//		alert(frm.wan_dnsenable_x[0].checked);
-//		alert(frm.wan_dnsenable_x[1].checked);
-		if (r == '1')
-		{
-			inputCtrl(frm.wan_dns1_x, 0);
-			inputCtrl(frm.wan_dns2_x, 0);
-		}
-		else
-		{
-			inputCtrl(frm.wan_dns1_x, 1);
-			inputCtrl(frm.wan_dns2_x, 1);
-		}
+		inputCtrl(frm.wan_dns1_x, (r == '1') ? 0 : 1);
+		inputCtrl(frm.wan_dns2_x, (r == '1') ? 0 : 1);
 	}
 	else if (v=="fw_enable_x")
 	{
@@ -2817,15 +2807,37 @@ function change_common_radio(o, s, v, r)
 		else
 			frm.wan_proto.value="dhcp";
 	}
+	else if (v=="ipv6_wanauto_x")
+	{
+		inputCtrl(frm.ipv6_wan_addr, (r == '1') ? 0 : 1);
+		inputCtrl(frm.ipv6_wan_netsize, (r == '1') ? 0 : 1);
+		if (frm.ipv6_proto.value == "tun6rd")
+		{
+			inputCtrl(frm.ipv6_wan_router, 0);
+			inputCtrl(frm.ipv6_6rd_router, (r == '1') ? 0 : 1);
+			inputCtrl(frm.ipv6_6rd_ip4size, (r == '1') ? 0 : 1);
+		}
+		else
+		{
+			inputCtrl(frm.ipv6_wan_router, (r == '1') ? 0 : 1);
+			inputCtrl(frm.ipv6_6rd_router, 0);
+			inputCtrl(frm.ipv6_6rd_ip4size, 0);
+		}
+	}
+	else if (v=="ipv6_lanauto_x")
+	{
+		inputCtrl(frm.ipv6_lan_addr, (r == '1') ? 0 : 1);
+		inputCtrl(frm.ipv6_lan_netsize, (r == '1') ? 0 : 1);
+	}
 	else if (v=="ipv6_dnsenable_x")
 	{
 		inputCtrl(frm.ipv6_dns1_x, (r == '1') ? 0 : 1);
-//		inputCtrl(frm.ipv6_dns2_x, (r == '1') ? 0 : 1);
-//		inputCtrl(frm.ipv6_dns3_x, (r == '1') ? 0 : 1);
+		inputCtrl(frm.ipv6_dns2_x, (r == '1') ? 0 : 1);
+		inputCtrl(frm.ipv6_dns3_x, (r == '1') ? 0 : 1);
 	}
 	else if (v=="ipv6_radvd_enable")
 	{
-//		inputCtrl(frm.ipv6_radvd_dns1_x, (r == '1') ? 1 : 0);
+		inputCtrl(frm.ipv6_radvd_dns1_x, (r == '1') ? 1 : 0);
 	}
 	return true;
 }
@@ -4216,26 +4228,7 @@ function changeDHCPClient()
 	}
 }
 
-function change_ipv6_wanauto_x(enable)
-{
-	var frm = document.form;
-	var val = (!enable || frm.ipv6_wanauto_x[0].checked) ? 0 : 1;
-
-	inputCtrl(frm.ipv6_wan_addr, val);
-	inputCtrl(frm.ipv6_wan_netsize, val);
-	inputCtrl(frm.ipv6_wan_router, val);
-}
-
-function change_ipv6_lanauto_x(enable)
-{
-	var frm = document.form;
-	var val = (!enable || frm.ipv6_lanauto_x[0].checked) ? 0 : 1;
-
-	inputCtrl(frm.ipv6_lan_addr, val);
-	inputCtrl(frm.ipv6_lan_netsize, val);
-}
-
-function change_ipv6_type(v)
+function change_ipv6_type(v, init)
 {
 	var frm = document.form;
 	var enable = 1;
@@ -4243,6 +4236,7 @@ function change_ipv6_type(v)
 	var ppp = (frm.wan_proto.value == "pptp" ||
 		   frm.wan_proto.value == "l2tp" ||
 		   frm.wan_proto.value == "pppoe") ? 1 : 0;
+	var dhcp = (frm.wan_proto.value == "dhcp") ? 1 : 0;
 
 	if (v == "native")
 	{
@@ -4254,23 +4248,16 @@ function change_ipv6_type(v)
 		inputRCtrl1(frm.ipv6_lanauto_x, 0);
 		inputRCtrl2(frm.ipv6_lanauto_x, 1);
 	} else
-	if (v == "slaac")
-	{
-		inputCtrl(frm.ipv6_if_x, ppp);
-		inputRCtrl1(frm.ipv6_wanauto_x, 0);
-		inputRCtrl2(frm.ipv6_wanauto_x, 0);
-		inputRCtrl1(frm.ipv6_dnsenable_x, 0);
-		inputRCtrl2(frm.ipv6_dnsenable_x, 1);
-		inputRCtrl1(frm.ipv6_lanauto_x, 0);
-		inputRCtrl2(frm.ipv6_lanauto_x, 1);
-	} else
 	if (v == "dhcp6")
 	{
 		inputCtrl(frm.ipv6_if_x, ppp);
-		inputRCtrl1(frm.ipv6_wanauto_x, 0);
-		inputRCtrl2(frm.ipv6_wanauto_x, 0);
+		inputRCtrl1(frm.ipv6_wanauto_x, 1);
+		if (!init)
+			inputRCtrl2(frm.ipv6_wanauto_x, 0);
 		inputRCtrl1(frm.ipv6_dnsenable_x, 1);
 		inputRCtrl1(frm.ipv6_lanauto_x, 1);
+		if (!init)
+			inputRCtrl2(frm.ipv6_lanauto_x, 0);
 	} else
 	if (v == "tun6in4")
 	{
@@ -4283,13 +4270,27 @@ function change_ipv6_type(v)
 		inputRCtrl2(frm.ipv6_lanauto_x, 1);
 		tunnel = 1;
 	} else
-	if(v == "tun6to4" || v == "tun6rd")
+	if (v == "tun6to4")
 	{
 		inputCtrl(frm.ipv6_if_x, 0);
-		inputRCtrl1(frm.ipv6_wanauto_x, 1);
+		inputRCtrl1(frm.ipv6_wanauto_x, 0);
+		inputRCtrl2(frm.ipv6_wanauto_x, 0);
 		inputRCtrl1(frm.ipv6_dnsenable_x, 0);
 		inputRCtrl2(frm.ipv6_dnsenable_x, 1);
-		inputRCtrl1(frm.ipv6_lanauto_x, 1);
+		inputRCtrl1(frm.ipv6_lanauto_x, 0);
+		inputRCtrl2(frm.ipv6_lanauto_x, 0);
+		tunnel = 1;
+	} else
+	if (v == "tun6rd")
+	{
+		inputCtrl(frm.ipv6_if_x, 0);
+		inputRCtrl1(frm.ipv6_wanauto_x, dhcp);
+		if (!dhcp || !init)
+			inputRCtrl2(frm.ipv6_wanauto_x, 1);
+		inputRCtrl1(frm.ipv6_dnsenable_x, 0);
+		inputRCtrl2(frm.ipv6_dnsenable_x, 1);
+		inputRCtrl1(frm.ipv6_lanauto_x, 0);
+		inputRCtrl2(frm.ipv6_lanauto_x, 0);
 		tunnel = 1;
 	} else
 	{
@@ -4300,18 +4301,19 @@ function change_ipv6_type(v)
 		enable = 0;
 	}
 
-	change_ipv6_wanauto_x(enable);
-	change_ipv6_lanauto_x(enable);
+	val = (!enable || frm.ipv6_wanauto_x[0].checked) ? '1' : '0';
+	change_common_radio(frm.ipv6_wanauto_x, 'IPv6Config', 'ipv6_wanauto_x', val);
+
+	val = (!enable || frm.ipv6_lanauto_x[0].checked) ? '1' : '0';
+	change_common_radio(frm.ipv6_lanauto_x, 'IPv6Config', 'ipv6_lanauto_x', val);
 
 	val = (!enable || frm.ipv6_dnsenable_x[0].checked) ? '1' : '0';
 	change_common_radio(frm.ipv6_dnsenable_x, 'IPv6Config', 'ipv6_dnsenable_x', val);
 
-     	inputCtrl(frm.ipv6_sit_remote, (v == "tun6in4") ? enable : 0);
+	inputCtrl(frm.ipv6_sit_remote, (v == "tun6in4") ? enable : 0);
 	inputCtrl(frm.ipv6_sit_relay, (v == "tun6to4") ? enable : 0);
-	inputCtrl(frm.ipv6_6rd_router, (v == "tun6rd") ? enable : 0);
-	inputCtrl(frm.ipv6_6rd_ip4size, (v == "tun6rd") ? enable : 0);
-	inputCtrl(frm.ipv6_sit_mtu, tunnel);
-	inputCtrl(frm.ipv6_sit_ttl, tunnel);
+	inputCtrl(frm.ipv6_sit_mtu, enable && tunnel);
+	inputCtrl(frm.ipv6_sit_ttl, enable && tunnel);
 
 	inputRCtrl1(frm.ipv6_radvd_enable, enable);
 	val = (enable && frm.ipv6_radvd_enable[0].checked) ? '1' : '0';
