@@ -1,6 +1,7 @@
  91f5cca3d1b4341624715f6dd01ee09be9af46c4 bluetooth: uninlining
  83985319393973f280ca2a797047780a7955cf19 bluetooth: use get/put_unaligned_* helpers
  7452d24cfb91e84f9be61beda5ad68d2a56d0938 Bluetooth: Fix warning: variable 'tty' set but not used
+ 300b962e5244a1ea010df7e88595faa0085b461d Bluetooth: Fix crash in l2cap_build_cmd() with small MTU
 
 ---
  drivers/bluetooth/hci_ldisc.c |    2 --
@@ -8,7 +9,8 @@
  net/bluetooth/hci_event.c     |    9 ++++-----
  net/bluetooth/hci_sock.c      |    2 +-
  net/bluetooth/hidp/core.c     |   30 +++++++++++++++++++-----------
- 5 files changed, 28 insertions(+), 23 deletions(-)
+ net/bluetooth/l2cap.c         |    3 +++
+ 6 files changed, 31 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/bluetooth/hci_ldisc.c b/drivers/bluetooth/hci_ldisc.c
 --- a/drivers/bluetooth/hci_ldisc.c
@@ -209,4 +211,17 @@ diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
  {
  	struct hid_device *hid = session->hid;
  	struct hid_report *report;
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -1192,6 +1192,9 @@ static struct sk_buff *l2cap_build_cmd(struct l2cap_conn *conn, u8 code,
+ 
+ 	BT_DBG("conn %p, code 0x%2.2x, ident 0x%2.2x, len %d", conn, code, ident, dlen);
+ 
++	if (conn->mtu < L2CAP_HDR_SIZE + L2CAP_CMD_HDR_SIZE)
++		return NULL;
++
+ 	len = L2CAP_HDR_SIZE + L2CAP_CMD_HDR_SIZE + dlen;
+ 	count = min_t(unsigned int, conn->mtu, len);
+ 
 -- 
