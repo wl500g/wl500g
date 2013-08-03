@@ -19,6 +19,8 @@
 <input type="hidden" name="first_time" value="">
 <input type="hidden" name="action_script" value="">
 <input type="hidden" name="wan_proto" value="<% nvram_get("wan_proto"); %>">
+<input type="hidden" name="wan_ipaddr" value="<% nvram_get("wan_ipaddr"); %>">
+
 <!-- Table for the conntent page -->
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
@@ -32,9 +34,8 @@
 <td class="content_header_td">IPv6 Connection Type:
 	    </td><td class="content_input_td"><select name="ipv6_proto" class="content_input_fd" onChange="return change_common(this, 'IPv6Config', 'ipv6_proto')">
 	    <option class="content_input_fd" value="" <% nvram_match("ipv6_proto", "","selected"); %>>Disabled</option>
-	    <option class="content_input_fd" value="native" <% nvram_match("ipv6_proto", "native","selected"); %>>Static</option>
-	    <option class="content_input_fd" value="slaac" <% nvram_match("ipv6_proto", "slaac","selected"); %>>Stateless</option>
-	    <option class="content_input_fd" value="dhcp6" <% nvram_match("ipv6_proto", "dhcp6","selected"); %>>DHCPv6</option>
+	    <option class="content_input_fd" value="native" <% nvram_match("ipv6_proto", "native","selected"); %>>Static IPv6</option>
+	    <option class="content_input_fd" value="dhcp6" <% nvram_match("ipv6_proto", "dhcp6","selected"); %>>Automatic IPv6</option>
 	    <option class="content_input_fd" value="tun6in4" <% nvram_match("ipv6_proto", "tun6in4","selected"); %>>Tunnel 6in4</option>
 	    <option class="content_input_fd" value="tun6to4" <% nvram_match("ipv6_proto", "tun6to4","selected"); %>>Tunnel 6to4</option>
 	    <option class="content_input_fd" value="tun6rd" <% nvram_match("ipv6_proto", "tun6rd","selected"); %>>Tunnel 6rd</option>
@@ -49,50 +50,15 @@
 </tr>
 
 <tr class="content_section_header_tr">
-<td class="content_section_header_td" colspan="2">LAN IPv6 Setting
-            </td>
-</tr>
-<tr>
-<td class="content_header_td_less">Get IPv6 automatically?
-           </td><td class="content_input_td">
-		<input type="radio" value="1" name="ipv6_lanauto_x" class="content_input_fd" onclick="change_ipv6_lanauto_x(1);"
-			<% nvram_match("ipv6_lanauto_x", "1", "checked"); %>>Yes
-		<input type="radio" value="0" name="ipv6_lanauto_x" class="content_input_fd" onclick="change_ipv6_lanauto_x(1);"
-			<% nvram_match("ipv6_lanauto_x", "0", "checked"); %>>No</td>
-</tr>
-<tr>
-<td class="content_header_td" onMouseOver="return overlib('This is IPv6 Address of the router as seen in your local network. If not specified, only auto-configured addresses will be seen.', LEFT);" onMouseOut="return nd();">IPv6 Address:
-           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_lan_addr" value="<% nvram_get("ipv6_lan_addr"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_lan_addr')"></td>
-</tr>
-<tr>
-<td class="content_header_td" onMouseOver="return overlib('This is the number of bits that make up the host part. Most common value is 64', LEFT);" onMouseOut="return nd();">IPv6 Netsize:
-           </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_lan_netsize" value="<% nvram_get("ipv6_lan_netsize"); %>" onBlur="return validate_range(this, 1, 128)" onKeyPress="return is_number(event, this)"></td>
-</tr>
-<tr>
-<td class="content_header_td" onMouseOver="return overlib('Router advertisements allow systems in your LAN to auto-configure them for IPv6-usage', LEFT);" onMouseOut="return nd();">Advertise LAN Prefix?
-           </td><td class="content_input_td">
-		<input type="radio" value="1" name="ipv6_radvd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'IPv6Config', 'ipv6_radvd_enable', '1')"
-			<% nvram_match("ipv6_radvd_enable","1", "checked"); %>>Yes
-		<input type="radio" value="0" name="ipv6_radvd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'IPv6Config', 'ipv6_radvd_enable', '0')"
-			<% nvram_match("ipv6_radvd_enable", "0", "checked"); %>>No</td>
-</tr>
-<!-- TODO: additinal RDNSS servers
-<tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that the router contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">Advertise DNSv6 Server:
-          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_radvd_dns1_x" value="<% nvram_get("ipv6_radvd_dns1_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_radvd_dns1_x')">
-	  </td>
-</tr>-->
-
-<tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">WAN IPv6 Setting
            </td>
 </tr>
 <tr>
 <td class="content_header_td_less">Get IPv6 automatically?
            </td><td class="content_input_td">
-		<input type="radio" value="1" name="ipv6_wanauto_x" class="content_input_fd" onclick="change_ipv6_wanauto_x(1);"
+		<input type="radio" value="1" name="ipv6_wanauto_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_wanauto_x', '1')"
 			<% nvram_match("ipv6_lanauto_x", "1", "checked"); %>>Yes
-		<input type="radio" value="0" name="ipv6_wanauto_x" class="content_input_fd" onclick="change_ipv6_wanauto_x(1);"
+		<input type="radio" value="0" name="ipv6_wanauto_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_wanauto_x', '0')"
 			<% nvram_match("ipv6_lanauto_x", "0", "checked"); %>>No</td>
 </tr>
 <tr>
@@ -107,37 +73,6 @@
 <td class="content_header_td" onMouseOver="return overlib('The remote IPv6 gateway. All IPv6 traffic flowing out of the network will be directed to this host', LEFT);" onMouseOut="return nd();">IPv6 Default Gateway:
           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_router" value="<% nvram_get("ipv6_wan_router"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_wan_router')">
 	  </td>
-</tr>
-<tr class="content_section_header_tr">
-<td class="content_section_header_td" colspan="2">WAN DNSv6 Setting
-           </td>
-</tr>
-<tr>
-<td class="content_header_td_less">Get DNS Server automatically?
-           </td><td class="content_input_td">
-		<input type="radio" value="1" name="ipv6_dnsenable_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_dnsenable_x', '1')"
-			<% nvram_match("ipv6_dnsenable_x", "1", "checked"); %>>Yes
-		<input type="radio" value="0" name="ipv6_dnsenable_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_dnsenable_x', '0')"
-			<% nvram_match("ipv6_dnsenable_x", "0", "checked"); %>>No</td>
-</tr>
-<tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that the router contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNSv6 Server1:
-          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns1_x" value="<% nvram_get("ipv6_dns1_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_dns1_x')">
-	  </td>
-</tr>
-<!-- TODO: additinal DNSv6 servers
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that the router contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNSv6 Server2:
-          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns2_x" value="<% nvram_get("ipv6_dns2_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_dns2_x')">
-	  </td>
-</tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that the router contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNSv6 Server3:
-          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns3_x" value="<% nvram_get("ipv6_dns3_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_dns3_x')">
-	  </td>
-</tr>-->
-
-<tr class="content_section_header_tr">
-<td class="content_section_header_td" colspan="2">Tunnel IPv6 Setting
-           </td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The remote IPv4 endpoint for the 6in4 tunnel.', LEFT);" onMouseOut="return nd();">6in4 Remote Endpoint:
@@ -171,8 +106,66 @@
           </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_sit_ttl" value="<% nvram_get("ipv6_sit_ttl"); %>" onKeyPress="return is_number(event, this)" onBlur="validate_range(this, 1, 128)">
           </td>
 </tr>
-</table>
 
+<tr class="content_section_header_tr">
+<td class="content_section_header_td" colspan="2">WAN DNSv6 Setting
+           </td>
+</tr>
+<tr>
+<td class="content_header_td_less">Get DNS Server automatically?
+           </td><td class="content_input_td">
+		<input type="radio" value="1" name="ipv6_dnsenable_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_dnsenable_x', '1')"
+			<% nvram_match("ipv6_dnsenable_x", "1", "checked"); %>>Yes
+		<input type="radio" value="0" name="ipv6_dnsenable_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_dnsenable_x', '0')"
+			<% nvram_match("ipv6_dnsenable_x", "0", "checked"); %>>No</td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that the router contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNSv6 Server1:
+          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns1_x" value="<% nvram_get("ipv6_dns1_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_dns1_x')">
+	  </td>
+</tr>
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that the router contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNSv6 Server2:
+          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns2_x" value="<% nvram_get("ipv6_dns2_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_dns2_x')">
+	  </td>
+</tr>
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that the router contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNSv6 Server3:
+          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns3_x" value="<% nvram_get("ipv6_dns3_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_dns3_x')">
+	  </td>
+
+<tr class="content_section_header_tr">
+<td class="content_section_header_td" colspan="2">LAN IPv6 Setting
+            </td>
+</tr>
+<tr>
+<td class="content_header_td_less">Get IPv6 automatically?
+           </td><td class="content_input_td">
+		<input type="radio" value="1" name="ipv6_lanauto_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_lanauto_x', '1')"
+			<% nvram_match("ipv6_lanauto_x", "1", "checked"); %>>Yes
+		<input type="radio" value="0" name="ipv6_lanauto_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_lanauto_x', '0')"
+			<% nvram_match("ipv6_lanauto_x", "0", "checked"); %>>No</td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This is IPv6 Address of the router as seen in your local network. If not specified, only auto-configured addresses will be seen.', LEFT);" onMouseOut="return nd();">IPv6 Address:
+           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_lan_addr" value="<% nvram_get("ipv6_lan_addr"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_lan_addr')"></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This is the number of bits that make up the host part. Most common value is 64', LEFT);" onMouseOut="return nd();">IPv6 Netsize:
+           </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_lan_netsize" value="<% nvram_get("ipv6_lan_netsize"); %>" onBlur="return validate_range(this, 1, 128)" onKeyPress="return is_number(event, this)"></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Router advertisements allow systems in your LAN to auto-configure them for IPv6-usage', LEFT);" onMouseOut="return nd();">Advertise LAN Prefix?
+           </td><td class="content_input_td">
+		<input type="radio" value="1" name="ipv6_radvd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'IPv6Config', 'ipv6_radvd_enable', '1')"
+			<% nvram_match("ipv6_radvd_enable","1", "checked"); %>>Yes
+		<input type="radio" value="0" name="ipv6_radvd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'IPv6Config', 'ipv6_radvd_enable', '0')"
+			<% nvram_match("ipv6_radvd_enable", "0", "checked"); %>>No</td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS to provide to clients. You can leave it blank, then the DNS request will be processed by the router.', LEFT);" onMouseOut="return nd();">Advertise additional DNSv6 Server:
+          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_radvd_dns1_x" value="<% nvram_get("ipv6_radvd_dns1_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_radvd_dns1_x')">
+	  </td>
+
+</table>
 <% include("footer_buttons.inc"); %>
 
 </form>
