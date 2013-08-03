@@ -8,6 +8,7 @@
  973a34aa8593dbfe84386343c694f5beecb51d8a af_unix: optimize unix_dgram_poll()
  67426b756c4d52c511c4b22b269accea171692a8 af_unix: use keyed wakeups
  0e82e7f6dfeec1013339612f74abc2cdd29d43d2 af_unix: If we don't care about credentials coallesce all messages
+ b4fff5f8bf32766ecaa4af6d5c7ef7f0ffb88ed2 unix: Use FIELD_SIZEOF() in af_unix_init().
 
 ---
  include/net/af_unix.h |   47 +++-------------
@@ -419,4 +420,15 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  
  #ifdef CONFIG_PROC_FS
  static struct sock *unix_seq_idx(int *iter, loff_t pos)
+@@ -2170,9 +2201,8 @@ static struct pernet_operations unix_net_ops = {
+ static int __init af_unix_init(void)
+ {
+ 	int rc = -1;
+-	struct sk_buff *dummy_skb;
+ 
+-	BUILD_BUG_ON(sizeof(struct unix_skb_parms) > sizeof(dummy_skb->cb));
++	BUILD_BUG_ON(sizeof(struct unix_skb_parms) > FIELD_SIZEOF(struct sk_buff, cb));
+ 
+ 	rc = proto_register(&unix_proto, 1);
+ 	if (rc != 0) {
 -- 
