@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <time.h>
 #include <unistd.h>
+#include <proto/ethernet.h>
 
 #include "rc.h"
 
@@ -106,7 +107,7 @@ static int bound(const char *wan_ifname)
 		return EINVAL;
 
 	if ((value = getenv("ip"))) {
-		changed = nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value);
+		changed = !nvram_match(strcat_r(prefix, "ipaddr", tmp), trim_r(value));
 		nvram_set(strcat_r(prefix, "ipaddr", tmp), trim_r(value));
 	}
 	if ((value = getenv("subnet")))
@@ -212,7 +213,7 @@ static int renew(const char *wan_ifname)
 		return bound(wan_ifname);
 
 	if ((value = getenv("dns"))) {
-		changed = nvram_invmatch(strcat_r(prefix, "dns", tmp), trim_r(value));
+		changed = !nvram_match(strcat_r(prefix, "dns", tmp), trim_r(value));
 		nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
 	}
 	if ((value = getenv("wins")))
@@ -330,7 +331,8 @@ int start_dhcpc(const char *wan_ifname, int unit)
 	}
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_match("ipv6_proto", "tun6rd")) {
+	if (nvram_match("ipv6_proto", "tun6rd") &&
+	    nvram_get_int("ipv6_wanauto_x")) {
 		dhcp_argv[index++] = "-O212";	/* "6rd" */
 		dhcp_argv[index++] = "-O150";	/* "comcast6rd" */
 	}
@@ -353,7 +355,7 @@ static int config(const char *wan_ifname)
 		return EINVAL;
 
 	if ((value = getenv("ip"))) {
-		changed = nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value);
+		changed = !nvram_match(strcat_r(prefix, "ipaddr", tmp), trim_r(value));
 		nvram_set(strcat_r(prefix, "ipaddr", tmp), trim_r(value));
 	}
 	nvram_set(strcat_r(prefix, "netmask", tmp), "255.255.0.0");
@@ -412,15 +414,28 @@ static void stop_zcip(void)
 #ifdef __CONFIG_IPV6__
 int dhcp6c_main(int argc, char **argv)
 {
-	char *wan_ifname = safe_getenv("interface");
-	char *dns6 = getenv("new_domain_name_servers");
+	const char *wan_ifname = safe_getenv("interface");
+	char *value;
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char wanprefix[WAN_PREFIX_SZ];
+	int metric;
 
-	if (dns6) {
-//TODO: Process new DNS records and correct metric
-		update_resolvconf(wan_ifname, 2, 1);
+	if (wans_prefix(wan_ifname, wanprefix, prefix) < 0)
+		return EINVAL;
+
+	if (!nvram_invmatch("ipv6_dnsenable_x", "1") &&
+	    (value = getenv("new_domain_name_servers"))) {
+		nvram_set(strcat_r(wanprefix, "ipv6_dns", tmp), trim_r(value));
 	}
-	// notify radvd of possible change
-	killall_s("radvd", SIGHUP);
+
+	metric = nvram_get_int(strcat_r(wanprefix, "priority", tmp));
+	update_resolvconf(wan_ifname, metric, 1);
+
+#ifdef __CONFIG_RADVD__
+	/* Notify radvd of possible change */
+	if (nvram_get_int("ipv6_radvd_enable"))
+		killall_s("radvd", SIGHUP);
+#endif
 
 	return 0;
 }
@@ -429,47 +444,77 @@ int start_dhcp6c(const char *wan_ifname)
 {
 	FILE *fp;
 	pid_t pid;
-	int sla_len, ret, is_wan6_valid;
-	struct in6_addr wan6_addr;
-	char *dhcp6c_argv[] = { "/sbin/dhcp6c", "-v", "-D", "LL", (char *)wan_ifname, NULL };
+	unsigned char ea[ETHER_ADDR_LEN];
+	unsigned long iaid = 0;
+	struct {
+		uint16 type;
+		uint16 hwtype;
+	} __attribute__ ((__packed__)) duid;
+	uint16 duid_len = 0;
+	char *dhcp6c_argv[] = {
+		"/sbin/dhcp6c",
+		"-D", "LL",
+		"-v",
+		(char *)wan_ifname,
+		NULL
+	};
 
-	if (!nvram_match("ipv6_proto", "dhcp6")) return 1;
+	if (!nvram_match("ipv6_proto", "dhcp6"))
+		return 1;
 
 	stop_dhcp6c();
 
-	sla_len = 64 - nvram_get_int("ipv6_lan_netsize");
-	if (sla_len <= 0)
-		sla_len = 0;
-	else if (sla_len > 16)
-		sla_len = 16;
-	is_wan6_valid = ipv6_addr(nvram_safe_get("wan0_ipv6_addr"), &wan6_addr);
+	if (ether_atoe(nvram_safe_get("wan0_hwaddr"), ea)) {
+		/* Generate IAID from the last 7 digits of WAN MAC */
+		iaid =	((unsigned long)(ea[3] & 0x0f) << 16) |
+			((unsigned long)(ea[4]) << 8) |
+			((unsigned long)(ea[5]));
 
+		/* Generate DUID-LL */
+		duid_len = sizeof(duid) + ETHER_ADDR_LEN;
+		duid.type = htons(3);	/* DUID-LL */
+		duid.hwtype = htons(1);	/* Ethernet */
+	}
+
+	/* Create dhcp6c_duid */
+	unlink("/var/state/dhcp6c_duid");
+	if ((duid_len != 0) &&
+	    (fp = fopen("/var/state/dhcp6c_duid", "w")) != NULL) {
+		fwrite(&duid_len, sizeof(duid_len), 1, fp);
+		fwrite(&duid, sizeof(duid), 1, fp);
+		fwrite(&ea, ETHER_ADDR_LEN, 1, fp);
+		fclose(fp);
+	}
+
+	/* Create config */
 	if ((fp = fopen("/etc/dhcp6c.conf", "w")) == NULL) {
 		perror("/etc/dhcp6c.conf");
-                return 2;
-        }
-	fprintf(fp, "interface %s {\n"
-		    " send ia-pd 0;\n"
-		    "%s"
-		    " send rapid-commit;\n"		/* May cause unexpected advertise in case of server don't support rapid-commit */
-		    " request domain-name-servers;\n"
-		    " script \"/tmp/dhcp6c.script\";\n"
+		return 2;
+	}
+	fprintf(fp,
+		"interface %s {\n"
+		  "%ssend ia-pd %lu;\n"
+		  "%ssend ia-na %lu;\n"
+		    "send rapid-commit;\n"		/* May cause unexpected advertise in case of server don't support rapid-commit */
+		    "request domain-name-servers;\n"
+		    "script \"%s\";\n"
+		"};\n"
+		"id-assoc pd %lu {\n"
+		    "prefix-interface %s {\n"
+			"sla-id %lu;\n"
+			"sla-len %d;\n"
 		    "};\n"
-		    "id-assoc pd 0 {\n"
-		    " prefix-interface %s {\n"
-		    "  sla-id 0;\n"
-		    "  sla-len %d;\n"
-		    " };\n"
-		    "};\n"
-		    "id-assoc na 0 { };\n",
-		    wan_ifname,
-		    (is_wan6_valid > 0) ? "" : " send ia-na 0;\n",
-		    nvram_safe_get("lan_ifname"), sla_len
-		);
-        fclose(fp);
-	ret = _eval(dhcp6c_argv, NULL, 0, &pid);
+		"};\n"
+		"id-assoc na %lu { };\n",
+		wan_ifname,
+		nvram_get_int("ipv6_lanauto_x") ? "" : "#", iaid,
+		nvram_get_int("ipv6_wanauto_x") ? "" : "#", iaid,
+		"/tmp/dhcp6c.script",
+		iaid, nvram_safe_get("lan_ifname"), 0UL, 0,
+		iaid);
+	fclose(fp);
 
-        return ret;
+	return _eval(dhcp6c_argv, NULL, 0, &pid);
 }
 
 void stop_dhcp6c(void)

@@ -92,7 +92,7 @@ start_dns(void)
 	}
 
 	// if user want to set dns server by himself
-	if (nvram_invmatch("wan_dnsenable_x", "1"))	
+	if (nvram_invmatch("wan_dnsenable_x", "1"))
 	{
 		/* Write resolv.conf with upstream nameservers */
 		if (nvram_invmatch("wan_dns1_x",""))
@@ -100,15 +100,6 @@ start_dns(void)
 		if (nvram_invmatch("wan_dns2_x",""))
 			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
 	}
-
-#ifdef __CONFIG_IPV6__
-	// if user want to ipv6 set dns server by himself
-	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
- 	{
-		/* Write resolv.conf with upstream ipv6 nameservers */
-		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
-	}
-#endif
 
 	fclose(fp);
 
@@ -124,12 +115,14 @@ start_dns(void)
 		nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_hostname"),
 		nvram_safe_get("productid"));
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", ""))
-	{
+	if (nvram_invmatch("ipv6_proto", "")) {
 		fprintf(fp, "::1 localhost.localdomain localhost\n");
-		if (nvram_invmatch("ipv6_lan_addr", "") && nvram_invmatch("ipv6_proto", "dhcp6"))
+		if (nvram_invmatch("ipv6_proto", "tun6to4") &&
+		    nvram_invmatch("ipv6_proto", "tun6rd") &&
+		    !nvram_get_int("ipv6_lanauto_x")) {
 			fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("ipv6_lan_addr"),
 				nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
+		}
 	}
 #endif
 	if (nvram_match("dhcp_static_x","1"))
@@ -193,15 +186,6 @@ start_dns(void)
 		    "no-poll\n"
 		    "interface=%s\n", nvram_safe_get("lan_ifname"));
 
-#if 0
-#ifdef __CONFIG_IPV6__
-	/* use static ipv6 dns servers for external clients only */
-	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
-			fprintf(fp, "server=%s\n", nvram_safe_get("ipv6_dns1_x"));
-	}
-#endif
-#endif
-
 	if (nvram_invmatch("lan_domain", "")) {
 		fprintf(fp, "domain=%s\n"
 			    "expand-hosts\n", nvram_get("lan_domain"));
@@ -230,19 +214,21 @@ start_dns(void)
 	}
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", "") &&
-	    nvram_invmatch("ipv6_proto", "dhcp6")) {
-		fprintf(fp, "dhcp-range=lan,::,static,%s\n",
-			nvram_safe_get("dhcp_lease"));
+	    nvram_get_int("ipv6_radvd_enable")) {
+#ifdef __CONFIG_RADVD__
+		fprintf(fp, "dhcp-range=lan,::,static,%d\n", 600);
+#else
+//TODO: update dnsmasq and make it work
+		fprintf(fp, "dhcp-range=lan,::,constructor:%s,ra-stateless,ra-names,%d,%d\n",
+			nvram_safe_get("lan_ifname"), 64, 600);
+#endif
 		fprintf(fp, "dhcp-option=lan,option6:23,");
-		if (nvram_invmatch("ipv6_dns1_x", ""))
-			fprintf(fp, "%s,", nvram_safe_get("ipv6_dns1_x"));
-		//if (nvram_invmatch("ipv6_dns2_x", ""))
-		//	fprintf(fp, "%s,", nvram_safe_get("ipv6_dns2_x"));
-		//if (nvram_invmatch("ipv6_dns3_x", ""))
-		//	fprintf(fp, "%s,", nvram_safe_get("ipv6_dns3_x"));
+		if (nvram_invmatch("ipv6_radvd_dns1_x", ""))
+			fprintf(fp, "%s,", nvram_safe_get("ipv6_radvd_dns1_x"));
 		fprintf(fp, "[::]\n");
 		if (nvram_invmatch("lan_domain", ""))
 			fprintf(fp, "dhcp-option=lan,option6:24,%s\n", nvram_safe_get("lan_domain"));
+//TODO: update dnsmasq
 		fprintf(fp, "dhcp-option=lan,option6:32,600\n");
 	}
 #endif
@@ -273,21 +259,20 @@ int stop_dhcpd(void)
 	return 0;
 }
 
-
 #ifdef __CONFIG_RADVD__
 int
 start_radvd(void)
 {
 	FILE *fp;
-	char *radvd_argv[] = {"radvd", NULL};
 	pid_t pid;
+	char *radvd_argv[] = {"radvd", NULL};
 	struct in6_addr addr;
 	int size, ret;
 	char addrstr[INET6_ADDRSTRLEN];
 	const char *dnsstr = NULL;
 
 	if (!nvram_invmatch("ipv6_proto", "") ||
-	    !nvram_match("ipv6_radvd_enable", "1"))
+	    !nvram_get_int("ipv6_radvd_enable"))
 		return 0;
 
 	/* Create radvd.conf */
@@ -296,48 +281,25 @@ start_radvd(void)
 		return errno;
 	}
 
-	size = nvram_get_int("ipv6_lan_netsize");
-	if (size < 8 || size > 120) {
+	if (nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd") ||
+	    nvram_get_int("ipv6_lanauto_x")) {
 		size = 64;
-		nvram_set("ipv6_lan_netsize","64");
-	}
-	if (nvram_match("ipv6_proto", "dhcp6")) {
-		strcpy(addrstr, "::");
+		sprintf(addrstr, "::");
 	} else {
-		/* Convert for easy manipulation */
-		ipv6_addr(nvram_safe_get("ipv6_lan_addr"), &addr);
-		ipv6_network(&addr, size);
-
-		/* Clean and/or fill ipv6 prefix space */
-		if (nvram_match("ipv6_proto", "tun6to4"))
-		{
-			addr.s6_addr16[0] = htons(0x2002);
-			ipv6_map6rd(&addr, 16, NULL, 0);
-		} else
-		if (nvram_match("ipv6_proto", "tun6rd"))
-		{
-//TODO: implement 6RD prefix copy into wan_addr
-			struct in6_addr wan_addr;
-			int prefix_size = ipv6_addr(nvram_safe_get("wan0_ipv6_addr"), &wan_addr);
-			int addr4masklen = nvram_get_int("wan0_ipv6_ip4size");
-			ipv6_host(&addr, prefix_size);
-			ipv6_map6rd(&addr, prefix_size, NULL, addr4masklen);
-		}
-
-		/* Convert back to string representation */
+		size = ipv6_addr(nvram_safe_get("lan_ipv6_addr"), &addr);
 		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+		dnsstr = addrstr;
 	}
 
 	/* Write out to config file */
 	fprintf(fp,
-		"interface %s {"
-		    "IgnoreIfMissing on;"
-		    "AdvSendAdvert on;", nvram_safe_get("lan_ifname"));
-	if (nvram_invmatch("ipv6_proto", "dhcp6"))
-	{
-		fprintf(fp,
-		    "AdvOtherConfigFlag on;");
-	}
+		"interface %s {\n"
+		    "IgnoreIfMissing on;\n"
+		    "AdvSendAdvert on;\n"
+		    "AdvOtherConfigFlag on;\n",
+		nvram_safe_get("lan_ifname"));
+
 #ifdef BROKEN_IPV6_CONNTRACK
 	/* Advertise tunnel MTU to avoid large packet issue */
 	if (nvram_match("ipv6_proto", "tun6in4") ||
@@ -349,50 +311,20 @@ start_radvd(void)
 
 	/* Prefix */
 	fprintf(fp,
-		    "prefix %s/%d {"
-			"AdvOnLink on;"
-			"AdvAutonomous on;", addrstr, size);
-
-	if (nvram_match("ipv6_proto", "tun6to4"))
-	{
-		char *wan_ifname;
-
-		if (nvram_match("wan_proto", "pppoe") ||
-		    nvram_match("wan_proto", "pptp")  ||
-		    nvram_match("wan_proto", "l2tp"))
-			wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
-		else
-#ifdef __CONFIG_MADWIMAX__
-		if (nvram_match("wan_proto", "wimax"))
-			wan_ifname = nvram_safe_get("wan0_wimax_ifname");
-		else
-#endif
-#ifdef __CONFIG_MODEM__
-		if (nvram_match("wan_proto", "usbmodem"))
-			wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
-		else
-#endif
-		wan_ifname = nvram_safe_get("wan0_ifname");
-		fprintf(fp,
-			"Base6to4Interface %s;", wan_ifname);
-
-	}
-	fprintf(fp, "};");
+		    "prefix %s/%d {\n"
+			"AdvOnLink on;\n"
+			"AdvAutonomous on;\n"
+		    "};\n", addrstr, size);
 
 	/* RDNSS */
-	if (nvram_invmatch("ipv6_dns1_x", ""))
-		dnsstr = nvram_safe_get("ipv6_dns1_x");
-	else
-	if (nvram_invmatch("ipv6_lan_addr", "") &&
-	    nvram_invmatch("ipv6_proto", "dhcp6"))
-		dnsstr = nvram_safe_get("ipv6_lan_addr");
-	if (dnsstr && *dnsstr)
-	{
+	if (nvram_invmatch("ipv6_radvd_dns1_x", ""))
+		dnsstr = nvram_safe_get("ipv6_radvd_dns1_x");
+	if (dnsstr && *dnsstr) {
 		fprintf(fp,
-		    "RDNSS %s {};", dnsstr);
+		    "RDNSS %s {};\n", dnsstr);
 	}
 
-	fprintf(fp, "};");
+	fprintf(fp, "};\n");
 	fclose(fp);
 
 	/* Enable IPv6 forwarding */
@@ -1848,11 +1780,11 @@ stop_service_main()
 	stop_igmpproxy();
 	stop_upnp();
 	stop_snmpd();
-#ifdef __CONFIG_RADVD__
-	stop_radvd();
-#endif
 #ifdef __CONFIG_IPV6__
 	stop_dhcp6c();
+#endif
+#ifdef __CONFIG_RADVD__
+	stop_radvd();
 #endif
 	stop_dhcpd();
 	stop_dns();

@@ -148,15 +148,18 @@ ip6up_main(int argc, char **argv)
 	if ((unit = ppp_prefix(&wan_ifname, prefix)) < 0)
 		return -1;
 
-	if (nvram_invmatch(strcat_r(prefix, "ipv6_if_x", tmp), "0"))
-		return -1;
+	if (nvram_get_int(strcat_r(prefix, "ipv6_if_x", tmp)))
+		return 0;
 
 	//if ((value = getenv("LLLOCAL")))
 	//	eval("ip", "-6", "addr", "add", value, "dev", wan_ifname);
 	//if ((value = getenv("LLREMOTE")))
 	//	nvram_set(strcat_r(prefix, "ipv6_router", tmp), value);
 
-	wan6_up(wan_ifname, unit);
+	/* Start IPv6 */
+	if (nvram_match("ipv6_proto", "native") ||
+	    nvram_match("ipv6_proto", "dhcp6"))
+		wan6_up(wan_ifname, unit);
 
 	return 0;
 }
@@ -171,8 +174,8 @@ ip6down_main(int argc, char **argv)
 	if ((unit = ppp_prefix(&wan_ifname, prefix)) < 0)
 		return -1;
 
-	if (nvram_invmatch(strcat_r(prefix, "ipv6_if_x", tmp), "0"))
-		return -1;
+	if (nvram_get_int(strcat_r(prefix, "ipv6_if_x", tmp)))
+		return 0;
 
 	wan6_down(wan_ifname, unit);
 

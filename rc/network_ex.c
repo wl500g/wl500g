@@ -106,7 +106,7 @@ int start_pppd(const char *prefix)
 
 	fprintf(fp, "maxfail 0\n");
 
-      	if (nvram_invmatch(strcat_r(prefix, "dnsenable_x", tmp), "0"))
+	if (nvram_invmatch(strcat_r(prefix, "dnsenable_x", tmp), "0"))
 		fprintf(fp, "usepeerdns\n");
 
 	if (nvram_invmatch(strcat_r(prefix, "proto", tmp), "l2tp"))
@@ -133,11 +133,10 @@ int start_pppd(const char *prefix)
 
 #ifdef __CONFIG_IPV6__
 	/* Enable IPv6 and IPv6CP */
-	strcat_r(prefix, "ipv6_proto", tmp);
-	if ((nvram_match(tmp, "static") || nvram_match(tmp, "slaac") || nvram_match(tmp, "dhcp6")) &&
-	    !nvram_invmatch(strcat_r(prefix, "ipv6_if_x", tmp), "0")) {
+	if (!nvram_get_int(strcat_r(prefix, "ipv6_if_x", tmp)) &&
+	    (nvram_match("ipv6_proto", "native") ||
+	     nvram_match("ipv6_proto", "dhcp6")))
 		fprintf(fp, "+ipv6\n");
-	}
 #endif
 
 	/* user specific options */

@@ -759,29 +759,56 @@ void convert_asus_values()
 
 #ifdef __CONFIG_IPV6__
 	nvram_set("wan0_ipv6_proto", nvram_safe_get("ipv6_proto"));
-	nvram_set("wan0_ipv6_if_x", nvram_safe_get("ipv6_if_x"));
-
-	nvram_unset("lan_ipv6_addr");
-	nvram_unset("wan_ipv6_addr_t");
+	nvram_set_int("wan0_ipv6_if_x", nvram_get_int("ipv6_if_x"));
 	nvram_unset("wan0_ipv6_addr");
+	nvram_unset("wan0_ipv6_router");
 	nvram_unset("wan0_ipv6_dns");
+
+	nvram_unset("wan0_ipv6_addr_t");
+	nvram_unset("wan0_ipv6_router_t");
+	nvram_unset("lan_ipv6_addr");
+
+	if (nvram_match("ipv6_proto", "native") ||
+	    nvram_match("ipv6_proto", "tun6in4")) {
+		nvram_set_int("ipv6_wanauto_x", 0);
+		nvram_set_int("ipv6_lanauto_x", 0);
+		nvram_set_int("ipv6_dnsenable_x", 0);
+	} else
+	if (nvram_match("ipv6_proto", "tun6to4")) {
+		nvram_set_int("ipv6_wanauto_x", 1);
+		nvram_set_int("ipv6_lanauto_x", 1);
+		nvram_set_int("ipv6_dnsenable_x", 0);
+	} else
+	if (nvram_match("ipv6_proto", "tun6rd")) {
+		if (nvram_invmatch("wan_proto", "dhcp"))
+			nvram_set_int("ipv6_wanauto_x", 0);
+		nvram_set_int("ipv6_lanauto_x", 1);
+		nvram_set_int("ipv6_dnsenable_x", 0);
+	}
 
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
 		char addrstr[INET6_ADDRSTRLEN];
 
-		sprintf(addrstr, "%s/%s",
-		    nvram_safe_get("ipv6_wan_addr"),
-		    nvram_safe_get("ipv6_wan_netsize"));
-		nvram_set("wan0_ipv6_addr", addrstr);
-		nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_wan_router"));
+		if (!nvram_get_int("ipv6_wanauto_x")) {
+			sprintf(addrstr, "%s/%s",
+			    nvram_safe_get("ipv6_wan_addr"),
+			    nvram_safe_get("ipv6_wan_netsize"));
+			nvram_set("wan0_ipv6_addr", addrstr);
+			nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_wan_router"));
+		}
+		if (!nvram_get_int("ipv6_lanauto_x")) {
+			sprintf(addrstr, "%s/%s",
+			    nvram_safe_get("ipv6_lan_addr"),
+			    nvram_safe_get("ipv6_lan_netsize"));
+			nvram_set("lan_ipv6_addr", addrstr);
+		}
 		nvram_set("wan0_ipv6_remote", nvram_match("ipv6_proto", "tun6in4") ?
 		    nvram_safe_get("ipv6_sit_remote") : "any");
 		nvram_set("wan0_ipv6_relay", nvram_match("ipv6_proto", "tun6rd") ?
 		    nvram_safe_get("ipv6_6rd_router") :
 		    nvram_safe_get("ipv6_sit_relay"));
 		nvram_set("wan0_ipv6_ip4size", nvram_safe_get("ipv6_6rd_ip4size"));
-
 	} else {
 		FILE *fp;
 
