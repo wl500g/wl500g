@@ -598,21 +598,25 @@ void start_lan(void)
 #ifdef __CONFIG_IPV6__
 	/* Configure LAN IPv6 address */
 	if (nvram_invmatch("ipv6_proto", "") &&
-	    nvram_invmatch("ipv6_proto", "dhcp6") &&
 	    nvram_invmatch("ipv6_proto", "tun6to4") &&
-	    nvram_invmatch("ipv6_proto", "tun6rd"))
-	{
+	    nvram_invmatch("ipv6_proto", "tun6rd") &&
+	    !nvram_get_int("ipv6_lanauto_x")) {
 		struct in6_addr addr;
 		char addrstr[INET6_ADDRSTRLEN];
 		int size;
 
-		ipv6_addr(nvram_safe_get("ipv6_lan_addr"), &addr);
-    		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
-    		size = nvram_get_int("ipv6_lan_netsize");
-    		if (size > 0)
-    			sprintf(addrstr, "%s/%d", addrstr, size);
+		size = ipv6_addr(nvram_safe_get("lan_ipv6_addr"), &addr);
+		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+		if (size > 0)
+			sprintf(addrstr, "%s/%d", addrstr, size);
 		eval("ip", "-6", "addr", "add", addrstr, "dev", lan_ifname);
 		nvram_set("lan_ipv6_addr", addrstr);
+
+#ifdef __CONFIG_RADVD__
+		/* Notify radvd of change */
+		if (nvram_get_int("ipv6_radvd_enable"))
+			killall_s("radvd", SIGHUP);
+#endif
 	}
 #endif /* __CONFIG_IPV6__ */
 
@@ -1034,8 +1038,12 @@ void start_wan_unit(int unit)
 
 			/* Bring up WAN interface */
 			ifconfig(wan_ifname, IFUP, ipaddr, netmask);
+
 #ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
+			/* Start IPv6 on MAN */
+			if (nvram_get_int(strcat_r(prefix, "ipv6_if_x", tmp)) &&
+			    (nvram_match("ipv6_proto", "native") ||
+			     nvram_match("ipv6_proto", "dhcp6")))
 				wan6_up(wan_ifname, unit);
 #endif
 			/* start firewall */
@@ -1166,7 +1174,9 @@ void start_wan_unit(int unit)
 		case WAN_BIGPOND:
 		{
 #ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
+			/* Start IPv6 */
+			if (nvram_match("ipv6_proto", "native") ||
+			    nvram_match("ipv6_proto", "dhcp6"))
 				wan6_up(wan_ifname, -1);
 #endif
 			/* Start firewall */
@@ -1187,14 +1197,16 @@ void start_wan_unit(int unit)
 		/* Configure static IP connection. */
 		case WAN_STATIC:
 		{
-#ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
-				wan6_up(wan_ifname, -1);
-#endif
 			/* Assign static IP address to i/f */
 			ifconfig(wan_ifname, IFUP,
 				 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
 				 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
+#ifdef __CONFIG_IPV6__
+			/* Start IPv6 */
+			if (nvram_match("ipv6_proto", "native") ||
+			    nvram_match("ipv6_proto", "dhcp6"))
+				wan6_up(wan_ifname, -1);
+#endif
 			/* (Re)start pre-authenticator */
 			start_auth(prefix, 0);
 			/* We are done configuration */
@@ -1339,8 +1351,9 @@ void stop_wan_unit(int unit)
 		else
 #endif
 		/* Stop VPN connection */
-		if (strcmp(wan_proto, "pppoe") == 0 || strcmp(wan_proto, "pptp") == 0 ||
-			 strcmp(wan_proto, "l2tp") == 0)
+		if (strcmp(wan_proto, "pppoe") == 0 ||
+		    strcmp(wan_proto, "pptp") == 0 ||
+		    strcmp(wan_proto, "l2tp") == 0)
 		{
 #ifdef __CONFIG_XL2TPD__
 			killall("xl2tpd");
@@ -1359,7 +1372,8 @@ void stop_wan_unit(int unit)
 			 strcmp(wan_proto, "bigpond") == 0)
 		{
 #ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
+			if (nvram_match("ipv6_proto", "native") ||
+			    nvram_match("ipv6_proto", "dhcp6"))
 				wan6_down(wan_ifname, unit);
 #endif
 			dynamic_ip = 1;
@@ -1369,7 +1383,8 @@ void stop_wan_unit(int unit)
 		else if (strcmp(wan_proto, "static") == 0)
 		{
 #ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
+			if (nvram_match("ipv6_proto", "native") ||
+			    nvram_match("ipv6_proto", "dhcp6"))
 				wan6_down(wan_ifname, unit);
 #endif
 		}
@@ -1464,7 +1479,11 @@ int update_resolvconf(const char *ifname, int metric, int up)
 		return 0;
 
 	/* Check if auto dns enabled */
-	if (nvram_invmatch("wan_dnsenable_x", "1"))
+	if (nvram_invmatch("wan_dnsenable_x", "1")
+#ifdef __CONFIG_IPV6__
+	&& !nvram_invmatch("ipv6_proto", "")
+#endif
+	)
 		return 0;
 
 	/* Metric can be obtained directly, do we need it?
@@ -1475,20 +1494,24 @@ int update_resolvconf(const char *ifname, int metric, int up)
 		return errno;
 	}
 
-	foreach(word, (*nvram_safe_get(strcat_r(prefix, "dns", tmp)) ? nvram_safe_get(tmp) :
-		nvram_safe_get(strcat_r(prefix, "xdns", tmp))), next)
-	{
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("wan_dnsenable_x", "1")) {
+		if (nvram_invmatch("wan_dns1_x",""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));
+		if (nvram_invmatch("wan_dns2_x",""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
+	} else
+#endif
+	foreach(word, (*nvram_safe_get(strcat_r(prefix, "dns", tmp)) ?
+	    nvram_safe_get(tmp) : nvram_safe_get(strcat_r(prefix, "xdns", tmp))), next) {
 		fprintf(fp, "nameserver %s\n", word);
-		dprintf( "nameserver %s\n", word );
 	}
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", ""))
-	{
-		foreach(word, nvram_safe_get(strcat_r(prefix, "ipv6_dns", tmp)), next)
-		{
+	if (nvram_invmatch("wan_dnsenable_x", "1") ||
+	    nvram_invmatch(strcat_r(prefix, "dns", tmp), "")) {
+		foreach(word, nvram_safe_get(strcat_r(prefix, "ipv6_dns", tmp)), next) {
 			fprintf(fp, "nameserver %s\n", word);
-			dprintf( "nameserver %s\n", word );
 		}
 	}
 #endif
@@ -1647,9 +1670,11 @@ void wan_up(const char *wan_ifname)
 		add_wanx_routes(prefix, wan_ifname, 0);
 	}
 
-
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", "native") && nvram_invmatch("ipv6_proto", "dhcp6"))
+	/* Start IPv6 */
+	if (nvram_invmatch("ipv6_proto", "") &&
+	    nvram_invmatch("ipv6_proto", "native") &&
+	    nvram_invmatch("ipv6_proto", "dhcp6"))
 		wan6_up(wan_ifname, -1);
 #endif
 
@@ -1713,7 +1738,9 @@ void wan_down(const char *wan_ifname)
 	stop_auth(prefix, 1);
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", "native") && nvram_invmatch("ipv6_proto", "dhcp6"))
+	if (nvram_invmatch("ipv6_proto", "") &&
+	    nvram_invmatch("ipv6_proto", "native") &&
+	    nvram_invmatch("ipv6_proto", "dhcp6"))
 		wan6_down(wan_ifname, -1);
 #endif
 
@@ -1735,7 +1762,6 @@ void wan_down(const char *wan_ifname)
 		nvram_unset(strcat_r(prefix, "dns", tmp));
 	update_resolvconf(wan_ifname, metric, 0);
 
-
 #ifdef ASUS_EXT
 	update_wan_status(0);
 #endif
@@ -1747,8 +1773,8 @@ void wan_down(const char *wan_ifname)
 void wan6_up(const char *wan_ifname, int unit)
 {
 	char tmp[100], prefix[WAN_PREFIX_SZ];
-	const char *wan6_ifname = "six0";
-	char *wan6_ipaddr;
+	const char *wan6_ifname = wan_ifname;
+	char *wan6_ipaddr, *wan6_gateway;
 	struct in6_addr addr;
 	struct in_addr addr4;
 	char addrstr[INET6_ADDRSTRLEN];
@@ -1764,6 +1790,7 @@ void wan6_up(const char *wan_ifname, int unit)
 	if (wan_prefix(wan_ifname, prefix) < 0)
 		return;
 
+	size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &addr);
 	addr4.s_addr = ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
 
 	/* Configure tunnel 6in4 & 6to4 & 6rd */
@@ -1771,93 +1798,100 @@ void wan6_up(const char *wan_ifname, int unit)
 	    nvram_match("ipv6_proto", "tun6to4") ||
 	    nvram_match("ipv6_proto", "tun6rd"))
 	{
-		/* Instantiate tunnel */
-		eval("ip", "tunnel", "add", wan6_ifname, "mode", "sit",
-			"remote", nvram_match("ipv6_proto", "tun6in4") ? nvram_safe_get("ipv6_sit_remote") : "any",
-			"local", inet_ntoa(addr4),
-			"ttl", nvram_safe_get("ipv6_sit_ttl"));
-		/* Chage local address if any */
-		eval("ip", "tunnel", "change", wan6_ifname, "mode", "sit",
-			"local", inet_ntoa(addr4));
-		if (nvram_match("ipv6_proto", "tun6rd"))
-		{
-			char netstr[sizeof("255.255.255.255/32")] = "0.0.0.0/0";
+		char netstr[sizeof("255.255.255.255/32")] = "0.0.0.0/0";
 
-			size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &addr);
+		wan6_ifname = "six0";
+
+		if (nvram_match("ipv6_proto", "tun6in4")) {
+			sprintf(addrstr, "::/0");
+		} else
+		if (nvram_match("ipv6_proto", "tun6to4")) {
+			addr4masklen = 0;
+			size = 16;
+
+			addr.s6_addr16[0] = htons(0x2002);
 			ipv6_network(&addr, size);
 			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
 			sprintf(addrstr, "%s/%d", addrstr, size);
 
+			addr4masklen = 0;
+
+			ipv6_map6rd(&addr, size, &addr4, 0);
+			addr.s6_addr16[7] |= htons(0x0001);
+		} else
+		if (nvram_match("ipv6_proto", "tun6rd")) {
 			addr4masklen = nvram_get_int(strcat_r(prefix, "ipv6_ip4size", tmp));
-			if (addr4masklen > 0 && addr4masklen <= 32)
-			{
+			if (addr4masklen < 0 || addr4masklen > 32)
+				addr4masklen = 0;
+
+			ipv6_network(&addr, size);
+			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+			sprintf(addrstr, "%s/%d", addrstr, size);
+
+			if (addr4masklen) {
 				struct in_addr net;
 				net.s_addr = addr4.s_addr &
 				    htonl(0xffffffffUL << (32 - addr4masklen));
 				sprintf(netstr, "%s/%d", inet_ntoa(net), addr4masklen);
 			}
 
-			eval("ip", "tunnel", "6rd", "dev", wan6_ifname,
-				"6rd-prefix", addrstr,
-				"6rd-relay_prefix", netstr);
+			ipv6_map6rd(&addr, size, &addr4, addr4masklen);
+			addr.s6_addr16[7] |= htons(0x0001);
 		}
+
+		/* Instantiate tunnel */
+		eval("ip", "tunnel", "add", wan6_ifname, "mode", "sit",
+			"remote", nvram_match("ipv6_proto", "tun6in4") ? nvram_safe_get("ipv6_sit_remote") : "any",
+			"local", inet_ntoa(addr4),
+			"ttl", nvram_safe_get("ipv6_sit_ttl"));
+
+		/* Chage local address if any */
+		eval("ip", "tunnel", "change", wan6_ifname, "mode", "sit",
+			"local", inet_ntoa(addr4));
+
+		/* Setup domain */
+		eval("ip", "tunnel", "6rd", "dev", wan6_ifname,
+			"6rd-prefix", addrstr, "6rd-relay_prefix", netstr);
+
 		/* Set MTU value and enable tunnel */
 		eval("ip", "link", "set", "mtu", nvram_safe_get("ipv6_sit_mtu"), "dev", wan6_ifname, "up");
-	} else
-		wan6_ifname = wan_ifname;
-
-	/* Prepare WAN IPv6 address */
-	size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &addr);
-	if (nvram_match("ipv6_proto", "tun6to4"))
-	{
-		addr.s6_addr16[0] = htons(0x2002);
-		size = 16;
-		ipv6_map6rd(&addr, size, &addr4, 0);
-	} else
-	if (nvram_match("ipv6_proto", "tun6rd"))
-	{
-//TODO: implement 6RD prefix copy into wan_addr
-		ipv6_map6rd(&addr, size, &addr4, addr4masklen);
-	}
-	inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
-	if (size > 0)
-		sprintf(addrstr, "%s/%d", addrstr, size);
-
-	/* Check if WAN address changed */
-	wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_addr_t", tmp));
-	if (strcmp(addrstr, wan6_ipaddr) != 0)
-	{
-		/* Delete old 6to4 address and route */
-		if (*wan6_ipaddr && (
-		    nvram_match("ipv6_proto", "tun6to4") ||
-		    nvram_match("ipv6_proto", "tun6rd")))
-			eval("ip", "-6", "addr", "del", wan6_ipaddr, "dev", wan6_ifname);
-    		nvram_set(strcat_r(prefix, "ipv6_addr_t", tmp), addrstr);
 	}
 
 	/* Configure WAN IPv6 address */
-	if (nvram_match("ipv6_proto", "dhcp6"))
-		start_dhcp6c(wan6_ifname);
-	else
-		eval("ip", "-6", "addr", "add", addrstr, "dev", wan6_ifname);
-
-	/* Configure WAN IPv6 specific routes */
 	if (nvram_match("ipv6_proto", "tun6to4") ||
-	    nvram_match("ipv6_proto", "tun6rd"))
-	{
-		sprintf(addrstr, "::%s", nvram_safe_get(strcat_r(prefix, "ipv6_relay", tmp)));
-		wan6_ipaddr = addrstr;
+	    nvram_match("ipv6_proto", "tun6rd") ||
+	    !nvram_get_int("ipv6_wanauto_x")) {
+		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+		if (size > 0)
+			sprintf(addrstr, "%s/%d", addrstr, size);
 
-	} else {
-		wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_router", tmp));
-		if (*wan6_ipaddr)
-			eval("ip", "-6", "route", "add", wan6_ipaddr, "dev", wan6_ifname);
-	}
+		/* Delete old WAN IPv6 address, if changed */
+		wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_addr_t", tmp));
+		if (*wan6_ipaddr && strcmp(addrstr, wan6_ipaddr) != 0)
+			eval("ip", "-6", "addr", "del", wan6_ipaddr, "dev", wan6_ifname);
+
+		/* Configure WAN IPv6 address */
+		eval("ip", "-6", "addr", "add", addrstr, "dev", wan6_ifname);
+		nvram_set(strcat_r(prefix, "ipv6_addr_t", tmp), addrstr);
+
+		/* Configure WAN IPv6 specific routes */
+		if (nvram_match("ipv6_proto", "tun6to4") ||
+		    nvram_match("ipv6_proto", "tun6rd")) {
+			sprintf(addrstr, "::%s", nvram_safe_get(strcat_r(prefix, "ipv6_relay", tmp)));
+			wan6_gateway = addrstr;
+		} else {
+			wan6_gateway = nvram_safe_get(strcat_r(prefix, "ipv6_router", tmp));
+			if (*wan6_gateway)
+				eval("ip", "-6", "route", "add", wan6_gateway, "dev", wan6_ifname);
+		}
+	} else
+		wan6_gateway = "";
 
 	/* Configure WAN IPv6 default gateway */
-	if (*wan6_ipaddr)
-		eval("ip", "-6", "route", "add", "default", "via", wan6_ipaddr, "metric", "1");
-	else {
+	if (*wan6_gateway) {
+		eval("ip", "-6", "route", "add", "default", "via", wan6_gateway, "metric", "1");
+		nvram_set(strcat_r(prefix, "ipv6_router_t", tmp), wan6_gateway);
+	} else {
 		char name[64];
 
 		/* Enable stateless autoconfiguration */
@@ -1867,48 +1901,50 @@ void wan6_up(const char *wan_ifname, int unit)
 		fputs_ex(name, "2");
 	}
 
-	/* Reconfigure LAN IPv6 address */
-	if (nvram_match("ipv6_proto", "tun6to4") ||
-	    nvram_match("ipv6_proto", "tun6rd"))
-	{
-		char *lan6_ifname = nvram_safe_get("lan_ifname");
-		char *lan6_ipaddr = nvram_safe_get("lan_ipv6_addr");
-
-		ipv6_addr(nvram_safe_get("ipv6_lan_addr"), &addr);
-		if (nvram_match("ipv6_proto", "tun6to4"))
-		{
-			addr.s6_addr16[0] = htons(0x2002);
-			ipv6_map6rd(&addr, 16, &addr4, 0);
-    			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
-    			size = nvram_get_int("ipv6_lan_netsize");
-    		} else {
-//TODO: implement 6RD prefix copy into wan_addr
-			struct in6_addr wan6_addr;
-			size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &wan6_addr);
-			ipv6_map6rd(&addr, size, &addr4, addr4masklen);
-			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
-			size = nvram_get_int("ipv6_lan_netsize");
-		}
-		if (size > 0)
-			sprintf(addrstr, "%s/%d", addrstr, size);
-
-		/*  Check if LAN address changed */
-		if (strcmp(addrstr, lan6_ipaddr) != 0)
-		{
-			/* Delete old 6to4 address and route */
-			if (*lan6_ipaddr)
-				eval("ip", "-6", "addr", "del", lan6_ipaddr, "dev", lan6_ifname);
-			nvram_set("lan_ipv6_addr", addrstr);
-		}
-		eval("ip", "-6", "addr", "add", addrstr, "dev", lan6_ifname);
-
-		/* Notify radvd of change */
-		if (nvram_match("ipv6_radvd_enable", "1"))
-			killall_s("radvd", SIGHUP);
+	/* Add IPv6 DNS servers */
+	if (nvram_invmatch("ipv6_dnsenable_x", "1")) {
+		char dnsstr[INET6_ADDRSTRLEN*3+3] = "";
+		if (nvram_invmatch("ipv6_dns1_x", ""))
+			snprintf(dnsstr, sizeof(dnsstr), "%s%s \n", dnsstr, nvram_safe_get("ipv6_dns1_x"));
+		if (nvram_invmatch("ipv6_dns2_x", ""))
+			snprintf(dnsstr, sizeof(dnsstr), "%s%s \n", dnsstr, nvram_safe_get("ipv6_dns2_x"));
+		if (nvram_invmatch("ipv6_dns3_x", ""))
+			snprintf(dnsstr, sizeof(dnsstr), "%s%s \n", dnsstr, nvram_safe_get("ipv6_dns3_x"));
+		nvram_set(strcat_r(prefix, "ipv6_dns", tmp), dnsstr);
 	}
 
-	/* Configure IPv6 DNS servers */
-	nvram_set(strcat_r(prefix, "ipv6_dns", tmp), nvram_safe_get("ipv6_dns1_x"));
+	/* Start DHCPv6 client */
+	if (nvram_match("ipv6_proto", "dhcp6"))
+		start_dhcp6c(wan6_ifname);
+	else
+	/* (Re)configure LAN IPv6 address */
+	if (nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd")) {
+		char *lan6_ifname = nvram_safe_get("lan_ifname");
+		char *lan6_ipaddr;
+
+		size += (32 - addr4masklen);
+		if (size < 64)
+			size = 64;
+
+		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+		sprintf(addrstr, "%s/%d", addrstr, size);
+
+		/* Delete old LAN IPv6 address, if changed */
+		lan6_ipaddr = nvram_safe_get("lan_ipv6_addr");
+		if (*lan6_ipaddr && strcmp(addrstr, lan6_ipaddr) != 0)
+			eval("ip", "-6", "addr", "del", lan6_ipaddr, "dev", lan6_ifname);
+
+		/* Configure LAN IPv6 address */
+		eval("ip", "-6", "addr", "add", addrstr, "dev", lan6_ifname);
+		nvram_set("lan_ipv6_addr", addrstr);
+
+#ifdef __CONFIG_RADVD__
+		/* Notify radvd of change */
+		if (nvram_get_int("ipv6_radvd_enable"))
+			killall_s("radvd", SIGHUP);
+#endif
+	}
 }
 
 void wan6_down(const char *wan_ifname, int unit)
@@ -1939,17 +1975,14 @@ void wan6_down(const char *wan_ifname, int unit)
 	//if (nvram_match("ipv6_proto", "dhcp6"))
 		stop_dhcp6c();
 
-	/* Delete WAN IPv6 specific routes */
-	if (nvram_invmatch("ipv6_proto", "tun6to4") &&
-	    nvram_invmatch("ipv6_proto", "tun6rd"))
-	{
-		wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_router", tmp));
-		if (*wan6_ipaddr)
-			eval("ip", "-6", "route", "del", wan6_ipaddr, "dev", wan6_ifname);
-	}
-
 	/* Delete WAN IPv6 default gateway */
 	eval("ip", "-6", "route", "del", "default", "metric", "1");
+
+	/* Delete WAN IPv6 specific routes */
+	wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_router_t", tmp));
+	if (*wan6_ipaddr)
+		eval("ip", "-6", "route", "del", wan6_ipaddr, "dev", wan6_ifname);
+	nvram_unset(strcat_r(prefix, "ipv6_router_t", tmp));
 
         /* Delete WAN address */
 	wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_addr_t", tmp));
@@ -1992,9 +2025,15 @@ static void lan_up(const char *lan_ifname)
 	}
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
- 	{
- 		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+// TODO: is it still requred?
+	if (nvram_invmatch("ipv6_proto", "") &&
+	    nvram_invmatch("ipv6_dnsenable_x", "1")) {
+		if (nvram_invmatch("ipv6_dns1_x", ""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+		if (nvram_invmatch("ipv6_dns2_x", ""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns2_x"));
+		if (nvram_invmatch("ipv6_dns3_x", ""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns3_x"));
 	}
 #endif
 
@@ -2047,9 +2086,15 @@ void lan_up_ex(const char *lan_ifname)
 	}
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
- 	{
- 		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+// TODO: is it still requred?
+	if (nvram_invmatch("ipv6_proto", "") &&
+	    nvram_invmatch("ipv6_dnsenable_x", "1")) {
+		if (nvram_invmatch("ipv6_dns1_x", ""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+		if (nvram_invmatch("ipv6_dns2_x", ""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns2_x"));
+		if (nvram_invmatch("ipv6_dns3_x", ""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns3_x"));
 	}
 #endif
 

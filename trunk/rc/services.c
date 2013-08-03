@@ -525,11 +525,11 @@ stop_services(void)
 	stop_nas();
 	stop_upnp();
 	stop_snmpd();
-#ifdef __CONFIG_RADVD__
-	stop_radvd();
-#endif
 #ifdef __CONFIG_IPV6__
 	stop_dhcp6c();
+#endif
+#ifdef __CONFIG_RADVD__
+	stop_radvd();
 #endif
 	stop_dhcpd();
 	stop_dns();

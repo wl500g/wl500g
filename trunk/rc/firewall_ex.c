@@ -636,13 +636,13 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		"-A SECURITY -p udp -m limit --limit 5/s -j RETURN\n"
 	// ping of death
 		"-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
-	#ifdef __CONFIG_IPV6__
+#ifdef __CONFIG_IPV6__
 	// pass ipv6 tunnel packets
 	if (nvram_match("ipv6_proto", "tun6in4") ||
 	    nvram_match("ipv6_proto", "tun6to4") ||
 	    nvram_match("ipv6_proto", "tun6rd"))
 		fprintf(fp, "-A SECURITY -p 41 -j RETURN\n");
-	#endif
+#endif
 	// drop attacks!!!
 	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
 
@@ -719,7 +719,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 			fprintf(fp, "-A INPUT -p udp -m udp --dport 33434:33534 -j %s\n", logaccept);
 		}
 
-	#ifdef __CONFIG_IPV6__
+#ifdef __CONFIG_IPV6__
 		if (nvram_match("ipv6_proto", "tun6in4") ||
 		    nvram_match("ipv6_proto", "tun6to4") ||
 		    nvram_match("ipv6_proto", "tun6rd"))
@@ -731,7 +731,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 			}
 			fprintf(fp, "-A INPUT -p 41 -j %s\n", logaccept);
 		}
-	#endif
+#endif
 
 		if (nvram_invmatch("misc_lpr_x", "0"))
 		{
