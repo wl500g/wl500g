@@ -1,6 +1,5 @@
-diff -BurpN dnsmasq.orig/Makefile dnsmasq/Makefile
---- dnsmasq.orig/Makefile	2013-03-22 15:11:53.000000000 +0000
-+++ dnsmasq/Makefile	2013-03-24 11:20:26.899101907 +0000
+--- a/Makefile
++++ b/Makefile
 @@ -24,8 +24,8 @@ MANDIR        = $(PREFIX)/share/man
  LOCALEDIR     = $(PREFIX)/share/locale
  BUILDDIR      = $(SRC)
