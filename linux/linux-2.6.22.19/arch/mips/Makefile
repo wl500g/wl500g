@@ -81,7 +81,11 @@ endif
 cflags-y			+= -G 0 -mno-abicalls -fno-pic -pipe
 cflags-y			+= -msoft-float
 LDFLAGS_vmlinux			+= -G 0 -static -n -nostdlib
-MODFLAGS			+= -mlong-calls -fno-common
+ifdef CONFIG_64BIT
+MODFLAGS			+= -mlong-calls
+else
+MODFLAGS			+= -mno-long-calls
+endif
 
 # Always compile with debug symbols. They will be stripped by the router
 # makefile to produce the final kernel. Debug versions of kernel and brcm
