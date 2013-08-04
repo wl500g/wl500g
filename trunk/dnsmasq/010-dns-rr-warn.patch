@@ -1,27 +1,11 @@
-diff -BurpN dnsmasq.orig/src/option.c dnsmasq/src/option.c
---- dnsmasq.orig/src/option.c	2013-03-22 15:11:53.000000000 +0000
-+++ dnsmasq/src/option.c	2013-03-24 11:21:31.431101050 +0000
-@@ -3278,7 +3278,7 @@ static int one_opt(int option, char *arg
+--- a/src/option.c
++++ b/src/option.c
+@@ -3343,7 +3343,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
      case LOPT_RR: /* dns-rr */
        {
         	struct txt_record *new;
 -	size_t len;
-+	size_t len = 0;
++	size_t len = len;
  	char *data;
  	int val;
  
-@@ -3295,12 +3295,11 @@ static int one_opt(int option, char *arg
- 	  ret_err(_("bad RR record"));
- 	   	
- 	new->class = val;
--	new->len = 0;
-+	new->len = len;
- 	
--	if (data)
-+	if (data && len)
- 	  {
- 	    new->txt=opt_malloc(len);
--	    new->len = len;
- 	    memcpy(new->txt, data, len);
- 	  }
- 	
