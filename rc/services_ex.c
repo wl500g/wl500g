@@ -218,7 +218,8 @@ start_dns(void)
 #ifdef __CONFIG_RADVD__
 		fprintf(fp, "dhcp-range=lan,::,static,%d\n", 600);
 #else
-//TODO: update dnsmasq and make it work
+//TODO: too much noise for regular builds
+//		fprintf(fp, "force-fast-ra");
 		fprintf(fp, "dhcp-range=lan,::,constructor:%s,ra-stateless,ra-names,%d,%d\n",
 			nvram_safe_get("lan_ifname"), 64, 600);
 #endif
@@ -228,8 +229,6 @@ start_dns(void)
 		fprintf(fp, "[::]\n");
 		if (nvram_invmatch("lan_domain", ""))
 			fprintf(fp, "dhcp-option=lan,option6:24,%s\n", nvram_safe_get("lan_domain"));
-//TODO: update dnsmasq
-		fprintf(fp, "dhcp-option=lan,option6:32,600\n");
 	}
 #endif
 
