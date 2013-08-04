@@ -5,15 +5,16 @@ ext4: Updates from upstream 4
  29ae07b702cb77dbc24b0843f15ee8cf8a642311 ext4: Fix overflow caused by missing cast in ext4_fallocate()
  b71fc079b5d8f42b2a52743c8d2f1d35d655b1c5 ext4: fix fdatasync() for files with only i_size changes
  76495ec1d47e1c0fe0673faf9179bda6bc8ab5c2 ext4: fix undefined bit shift result in ext4_fill_flex_info
+ 8af8eecc1331dbf5e8c662022272cf667e213da5 ext4: fix overflow when counting used blocks on 32-bit architectures
 
 ---
  fs/ext4/dir.c     |   44 +++++++++++++++++++++++++-------------------
  fs/ext4/ext4.h    |    5 ++++-
  fs/ext4/extents.c |    2 +-
- fs/ext4/inode.c   |   12 ++++++++++--
+ fs/ext4/inode.c   |   16 ++++++++++++----
  fs/ext4/namei.c   |   12 +++++-------
  fs/ext4/super.c   |    2 +-
- 6 files changed, 46 insertions(+), 31 deletions(-)
+ 6 files changed, 48 insertions(+), 33 deletions(-)
 
 diff --git a/fs/ext4/dir.c b/fs/ext4/dir.c
 --- a/fs/ext4/dir.c
@@ -162,6 +163,24 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  out_brelse:
  	brelse(bh);
  	ext4_std_error(inode->i_sb, err);
+@@ -5452,7 +5452,7 @@ int ext4_getattr(struct vfsmount *mnt, struct dentry *dentry,
+ 		 struct kstat *stat)
+ {
+ 	struct inode *inode;
+-	unsigned long delalloc_blocks;
++	unsigned long long delalloc_blocks;
+ 
+ 	inode = dentry->d_inode;
+ 	generic_fillattr(inode, stat);
+@@ -5470,7 +5470,7 @@ int ext4_getattr(struct vfsmount *mnt, struct dentry *dentry,
+ 	delalloc_blocks = EXT4_I(inode)->i_reserved_data_blocks;
+ 	spin_unlock(&EXT4_I(inode)->i_block_reservation_lock);
+ 
+-	stat->blocks += (delalloc_blocks << inode->i_sb->s_blocksize_bits)>>9;
++	stat->blocks += delalloc_blocks << (inode->i_sb->s_blocksize_bits-9);
+ 	return 0;
+ }
+ 
 diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
 --- a/fs/ext4/namei.c
 +++ b/fs/ext4/namei.c
