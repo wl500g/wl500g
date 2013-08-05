@@ -1,34 +1,10 @@
-From dad9b335c6940de2746a9788eb456d09cf102f81
-From: Wang Chen
-Date: Wed, 18 Jun 2008 01:48:28 -0700
-Subject: [PATCH] netdevice: Fix promiscuity and allmulti overflow
-
-Max of promiscuity and allmulti plus positive @inc can cause overflow.
-Fox example: when allmulti=0xFFFFFFFF, any caller give dev_set_allmulti() a
-positive @inc will cause allmulti be off.
-This is not what we want, though it's rare case.
-The fix is that only negative @inc will cause allmulti or promiscuity be off
-and when any caller makes the counters touch the roof, we return error.
-
-Change of v2:
-Change void function dev_set_promiscuity/allmulti to return int.
-So callers can get the overflow error.
-Caller's fix will be done later.
-
-Change of v3:
-1. Since we return error to caller, we don't need to print KERN_ERROR,
-KERN_WARNING is enough.
-2. In dev_set_promiscuity(), if __dev_set_promiscuity() failed, we
-return at once.
-
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-Acked-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+ dad9b335c6940de2746a9788eb456d09cf102f81 netdevice: Fix promiscuity and allmulti overflow
+ 93b3cff9915322d6fa36bac0064714a7076230e4 netdevice: Fix wrong string handle in kernel command line parsing
 
 ---
- include/linux/netdevice.h |    4 +-
- net/core/dev.c            |   55 ++++++++++++++++++++++++++++++++++++--------
- 2 files changed, 47 insertions(+), 12 deletions(-)
+ include/linux/netdevice.h |    4 +--
+ net/core/dev.c            |   51 ++++++++++++++++++++++++++++++++++++----------
+ 2 files changed, 43 insertions(+), 12 deletions(-)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
 --- a/include/linux/netdevice.h
@@ -47,6 +23,24 @@ diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
 diff --git a/net/core/dev.c b/net/core/dev.c
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
+@@ -424,7 +424,7 @@ static int netdev_boot_setup_add(char *name, struct ifmap *map)
+ 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
+ 		if (s[i].name[0] == '\0' || s[i].name[0] == ' ') {
+ 			memset(s[i].name, 0, sizeof(s[i].name));
+-			strcpy(s[i].name, name);
++			strlcpy(s[i].name, name, IFNAMSIZ);
+ 			memcpy(&s[i].map, map, sizeof(s[i].map));
+ 			break;
+ 		}
+@@ -449,7 +449,7 @@ int netdev_boot_setup_check(struct net_device *dev)
+ 
+ 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
+ 		if (s[i].name[0] != '\0' && s[i].name[0] != ' ' &&
+-		    !strncmp(dev->name, s[i].name, strlen(s[i].name))) {
++		    !strcmp(dev->name, s[i].name)) {
+ 			dev->irq 	= s[i].map.irq;
+ 			dev->base_addr 	= s[i].map.base_addr;
+ 			dev->mem_start 	= s[i].map.mem_start;
 @@ -2522,15 +2522,29 @@ int netdev_set_master(struct net_device
   *	remains above zero the interface remains promiscuous. Once it hits zero
   *	the device reverts back to normal filtering operation. A negative inc
@@ -128,4 +122,3 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  
  unsigned dev_get_flags(const struct net_device *dev)
 -- 
-1.7.4.1
