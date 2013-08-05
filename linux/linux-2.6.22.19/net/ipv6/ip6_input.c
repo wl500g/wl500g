@@ -63,7 +63,7 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
 
 	if (skb->pkt_type == PACKET_OTHERHOST) {
 		kfree_skb(skb);
-		return 0;
+		return NET_RX_DROP;
 	}
 
 	rcu_read_lock();
@@ -101,6 +101,35 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
 	if (hdr->version != 6)
 		goto err;
 
+	/*
+	 * RFC4291 2.5.3
+	 * A packet received on an interface with a destination address
+	 * of loopback must be dropped.
+	 */
+	if (!(dev->flags & IFF_LOOPBACK) &&
+	    ipv6_addr_loopback(&hdr->daddr))
+		goto err;
+
+	/* RFC4291 Errata ID: 3480
+	 * Interface-Local scope spans only a single interface on a
+	 * node and is useful only for loopback transmission of
+	 * multicast.  Packets with interface-local scope received
+	 * from another node must be discarded.
+	 */
+	if (!(skb->pkt_type == PACKET_LOOPBACK ||
+	      dev->flags & IFF_LOOPBACK) &&
+	    ipv6_addr_is_multicast(&hdr->daddr) &&
+	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 1)
+		goto err;
+
+	/*
+	 * RFC4291 2.7
+	 * Multicast addresses must not be used as source addresses in IPv6
+	 * packets or appear in any Routing header.
+	 */
+	if (ipv6_addr_is_multicast(&hdr->saddr))
+		goto err;
+
 	skb->transport_header = skb->network_header + sizeof(*hdr);
 	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
 
@@ -123,7 +152,7 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
 		if (ipv6_parse_hopopts(&skb) < 0) {
 			IP6_INC_STATS_BH(idev, IPSTATS_MIB_INHDRERRORS);
 			rcu_read_unlock();
-			return 0;
+			return NET_RX_DROP;
 		}
 	}
 
@@ -135,7 +164,7 @@ err:
 drop:
 	rcu_read_unlock();
 	kfree_skb(skb);
-	return 0;
+	return NET_RX_DROP;
 }
 
 /*
