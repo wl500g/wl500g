@@ -11,6 +11,7 @@
  3d5b99ae82f8742e3bb1f8634fd11ac36ea19ee1 TCP: update initial windows according to RFC 5681
  0705c6f0e2d39333645bf77cf1efb94526ff1f82 tcp: update also tcp_output with regard to RFC 5681
  339db11b219f36cf7da61b390992d95bb6b7ba2e net/llc: make opt unsigned in llc_ui_setsockopt()
+ 3a084ddb4bf299a6e898a9a07c89f3917f0713f7 net: IP_MULTICAST_IF setsockopt now recognizes struct mreq
 
 ---
  include/linux/skbuff.h   |    4 ++
@@ -19,7 +20,7 @@
  net/core/datagram.c      |   87 +++++++++++++++++++++++++++++++++++++++++++++++
  net/core/neighbour.c     |    3 -
  net/core/skbuff.c        |    3 -
- net/ipv4/ip_sockglue.c   |   25 ++++++++-----
+ net/ipv4/ip_sockglue.c   |   37 +++++++++++++------
  net/ipv4/tcp_input.c     |    9 +---
  net/ipv4/tcp_output.c    |   12 +-----
  net/ipv6/ipv6_sockglue.c |    3 -
@@ -27,7 +28,7 @@
  net/llc/af_llc.c         |    3 +
  net/packet/af_packet.c   |    3 -
  net/unix/af_unix.c       |    3 -
- 14 files changed, 132 insertions(+), 42 deletions(-)
+ 14 files changed, 141 insertions(+), 45 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
 --- a/include/linux/skbuff.h
@@ -232,6 +233,25 @@ diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
  		if (optlen >= sizeof(int)) {
  			if (get_user(val, (int __user *) optval))
  				return -EFAULT;
+@@ -600,9 +606,15 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 				break;
+ 		} else {
+ 			memset(&mreq, 0, sizeof(mreq));
+-			if (optlen >= sizeof(struct in_addr) &&
+-			    copy_from_user(&mreq.imr_address,optval,sizeof(struct in_addr)))
+-				break;
++			if (optlen >= sizeof(struct ip_mreq)) {
++				if (copy_from_user(&mreq, optval,
++						   sizeof(struct ip_mreq)))
++					break;
++			} else if (optlen >= sizeof(struct in_addr)) {
++				if (copy_from_user(&mreq.imr_address, optval,
++						   sizeof(struct in_addr)))
++					break;
++			}
+ 		}
+ 
+ 		if (!mreq.imr_ifindex) {
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
