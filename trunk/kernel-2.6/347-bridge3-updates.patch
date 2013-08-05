@@ -2,12 +2,103 @@ bridge: Updates from upstream
 
  547b4e718115eea74087e28d7fa70aec619200db bridge: set priority of STP packets
  83401eb4990ff6af55aeed8f49681558544192e6 bridge: fix race with topology change timer
+ aa7c6e5fa08bb5014b6432a690d28748f11e93fc bridge: avoid ethtool on non running interface
+ 576eb62598f10c8c7fd75703fe89010cdcfff596 bridge: respect RFC2863 operational state
 
 ---
+ net/bridge/br_if.c        |   25 +++++++++++++------------
+ net/bridge/br_netlink.c   |    5 ++++-
+ net/bridge/br_notify.c    |    2 +-
  net/bridge/br_stp_bpdu.c  |    2 ++
+ net/bridge/br_stp_if.c    |    2 +-
  net/bridge/br_stp_timer.c |    2 +-
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ 6 files changed, 22 insertions(+), 16 deletions(-)
 
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -82,20 +82,21 @@ void br_port_carrier_check(struct net_br
+ 	struct net_device *dev = p->dev;
+ 	struct net_bridge *br = p->br;
+ 
+-	if (netif_carrier_ok(dev))
++	if (netif_running(dev) && netif_oper_up(dev))
+ 		p->path_cost = port_cost(dev);
+ 
+-	if (netif_running(br->dev)) {
+-		spin_lock_bh(&br->lock);
+-		if (netif_carrier_ok(dev)) {
+-			if (p->state == BR_STATE_DISABLED)
+-				br_stp_enable_port(p);
+-		} else {
+-			if (p->state != BR_STATE_DISABLED)
+-				br_stp_disable_port(p);
+-		}
+-		spin_unlock_bh(&br->lock);
++	if (!netif_running(br->dev))
++		return;
++
++	spin_lock_bh(&br->lock);
++	if (netif_running(dev) && netif_oper_up(dev)) {
++		if (p->state == BR_STATE_DISABLED)
++			br_stp_enable_port(p);
++	} else {
++		if (p->state != BR_STATE_DISABLED)
++			br_stp_disable_port(p);
+ 	}
++	spin_unlock_bh(&br->lock);
+ }
+ 
+ static void release_nbp(struct kobject *kobj)
+@@ -411,7 +412,7 @@ int br_add_if(struct net_bridge *br, str
+ 	br_stp_recalculate_bridge_id(br);
+ 	br_features_recompute(br);
+ 
+-	if ((dev->flags & IFF_UP) && netif_carrier_ok(dev) &&
++	if (netif_running(dev) && netif_oper_up(dev) &&
+ 	    (br->dev->flags & IFF_UP))
+ 		br_stp_enable_port(p);
+ 	spin_unlock_bh(&br->lock);
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -181,8 +181,11 @@ static int br_set_port_state(struct net_bridge_port *p, u8 state)
+ 	if (p->br->stp_enabled == BR_KERNEL_STP)
+ 		return -EBUSY;
+ 
++	/* if device is not up, change is not allowed
++	 * if link is not present, only allowable state is disabled
++	 */
+ 	if (!netif_running(dev) ||
+-	    (!netif_carrier_ok(dev) && new_state != BR_STATE_DISABLED))
++	    (!netif_oper_up(dev) && new_state != BR_STATE_DISABLED))
+ 		return -ENETDOWN;
+ 
+ 	p->state = state;
+diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
+--- a/net/bridge/br_notify.c
++++ b/net/bridge/br_notify.c
+@@ -82,7 +82,7 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
+ 		break;
+ 
+ 	case NETDEV_UP:
+-		if (netif_carrier_ok(dev) && (br->dev->flags & IFF_UP)) {
++		if (netif_running(br->dev) && netif_oper_up(dev)) {
+ 			spin_lock_bh(&br->lock);
+ 			br_stp_enable_port(p);
+ 			spin_unlock_bh(&br->lock);
+diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+--- a/net/bridge/br_stp_if.c
++++ b/net/bridge/br_stp_if.c
+@@ -54,7 +54,7 @@ void br_stp_enable_bridge(struct net_bridge *br)
+ 	br_config_bpdu_generation(br);
+ 
+ 	list_for_each_entry(p, &br->port_list, list) {
+-		if ((p->dev->flags & IFF_UP) && netif_carrier_ok(p->dev))
++		if (netif_running(p->dev) && netif_oper_up(p->dev))
+ 			br_stp_enable_port(p);
+ 
+ 	}
 diff --git a/net/bridge/br_stp_bpdu.c b/net/bridge/br_stp_bpdu.c
 --- a/net/bridge/br_stp_bpdu.c
 +++ b/net/bridge/br_stp_bpdu.c
