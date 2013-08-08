@@ -1270,7 +1270,9 @@ e2fsprogs/Makefile: e2fsprogs/Makefile.in
 	LDFLAGS="-Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --sysconfdir=/etc --enable-elf-shlibs \
 		--disable-rpath --disable-nls \
-		--disable-debugfs --disable-imager --disable-resizer --disable-uuidd
+		--disable-debugfs --disable-imager --disable-resizer \
+		--disable-defrag --disable-testio-debug --disable-uuidd \
+		ac_cv_have_decl_fgets_unlocked=yes
 
 e2fsprogs: e2fsprogs/Makefile
 	$(MAKE) -C $@
