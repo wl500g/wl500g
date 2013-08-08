@@ -1,11 +1,12 @@
  f630e43a215a3129d0c1173cae0bce6ea4855cf7 ipv6: Drop packets for loopback address from outside of the box.
  5c91face51d29f553a444d16db4ac2c6162a3cd0 ipv6: correct return on ipv6_rcv() packet drop
  c457338d7acd3823e765b684a62294cfda9d2f55 ipv6: drop packets when source address is multicast
+ 1c4a154e5253687c51123956dfcee9e9dfa8542d ipv6: don't accept node local multicast traffic from the wire
 
 ---
  include/net/ipv6.h   |    6 ++++++
- net/ipv6/ip6_input.c |   23 ++++++++++++++++++++---
- 2 files changed, 26 insertions(+), 3 deletions(-)
+ net/ipv6/ip6_input.c |   35 ++++++++++++++++++++++++++++++++---
+ 2 files changed, 38 insertions(+), 3 deletions(-)
 
 diff --git a/include/net/ipv6.h b/include/net/ipv6.h
 --- a/include/net/ipv6.h
@@ -35,7 +36,7 @@ diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
  	}
  
  	rcu_read_lock();
-@@ -102,6 +102,23 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+@@ -102,6 +102,35 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
  	if (hdr->version != 6)
  		goto err;
  
@@ -46,6 +47,18 @@ diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
 +	 */
 +	if (!(dev->flags & IFF_LOOPBACK) &&
 +	    ipv6_addr_loopback(&hdr->daddr))
++		goto err;
++
++	/* RFC4291 Errata ID: 3480
++	 * Interface-Local scope spans only a single interface on a
++	 * node and is useful only for loopback transmission of
++	 * multicast.  Packets with interface-local scope received
++	 * from another node must be discarded.
++	 */
++	if (!(skb->pkt_type == PACKET_LOOPBACK ||
++	      dev->flags & IFF_LOOPBACK) &&
++	    ipv6_addr_is_multicast(&hdr->daddr) &&
++	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 1)
 +		goto err;
 +
 +	/*
