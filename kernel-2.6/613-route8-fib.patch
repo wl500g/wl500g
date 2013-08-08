@@ -1,19 +1,11 @@
-From 0553811612a6178365f3b062c30234913b218a96
-From: Laszlo Attila Toth
-Date: Tue, 4 Dec 2007 23:28:46 -0800
-Subject: [PATCH] [IPV4]: Add inet_dev_addr_type()
-
-Address type search can be limited to an interface by
-inet_dev_addr_type function.
-
-Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+ 0553811612a6178365f3b062c30234913b218a96 [IPV4]: Add inet_dev_addr_type()
+ d94ce9b283736a876b2e6dec665c68e5e8b5d55e ipv4: 16 slots in initial fib_info hash table
 
 ---
- include/net/route.h     |    1 +
- net/ipv4/fib_frontend.c |   21 +++++++++++++++++++--
- 2 files changed, 20 insertions(+), 2 deletions(-)
+ include/net/route.h      |    1 +
+ net/ipv4/fib_frontend.c  |   21 +++++++++++++++++++--
+ net/ipv4/fib_semantics.c |    2 +-
+ 3 files changed, 21 insertions(+), 3 deletions(-)
 
 diff --git a/include/net/route.h b/include/net/route.h
 --- a/include/net/route.h
@@ -76,5 +68,16 @@ diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
  EXPORT_SYMBOL(inet_addr_type);
 +EXPORT_SYMBOL(inet_dev_addr_type);
  EXPORT_SYMBOL(ip_dev_find);
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -803,7 +803,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 		unsigned int bytes;
+ 
+ 		if (!new_size)
+-			new_size = 1;
++			new_size = 16;
+ 		bytes = new_size * sizeof(struct hlist_head *);
+ 		new_info_hash = fib_hash_alloc(bytes);
+ 		new_laddrhash = fib_hash_alloc(bytes);
 -- 
-1.7.6.5
