@@ -1,0 +1,61 @@
+From ffbad34b310ab2db6a686c85f5c0a0e52c0680c8 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Wed, 14 Aug 2013 15:53:57 +0100
+Subject: [PATCH] Set SOREUSEADDR as well as SOREUSEPORT on DHCP sockets when both available.
+
+---
+ src/dhcp.c  |    8 ++++----
+ src/dhcp6.c |    8 ++++----
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/src/dhcp.c b/src/dhcp.c
+index 333a327..b95a4ba 100644
+--- a/src/dhcp.c
++++ b/src/dhcp.c
+@@ -70,15 +70,15 @@ static int make_fd(int port)
+      support it. This handles the introduction of REUSEPORT on Linux. */
+   if (option_bool(OPT_NOWILD) || option_bool(OPT_CLEVERBIND))
+     {
+-      int rc = -1, porterr = 0;
++      int rc = 0;
+ 
+ #ifdef SO_REUSEPORT
+       if ((rc = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &oneopt, sizeof(oneopt))) == -1 && 
+-	  errno != ENOPROTOOPT)
+-	porterr = 1;
++	  errno == ENOPROTOOPT)
++	rc = 0;
+ #endif
+       
+-      if (rc == -1 && !porterr)
++      if (rc != -1)
+ 	rc = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &oneopt, sizeof(oneopt));
+       
+       if (rc == -1)
+diff --git a/src/dhcp6.c b/src/dhcp6.c
+index 17e03e5..89af7dd 100644
+--- a/src/dhcp6.c
++++ b/src/dhcp6.c
+@@ -55,15 +55,15 @@ void dhcp6_init(void)
+      support it. This handles the introduction of REUSEPORT on Linux. */
+   if (option_bool(OPT_NOWILD) || option_bool(OPT_CLEVERBIND))
+     {
+-      int rc = -1, porterr = 0;
++      int rc = 0;
+ 
+ #ifdef SO_REUSEPORT
+       if ((rc = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &oneopt, sizeof(oneopt))) == -1 &&
+-	  errno != ENOPROTOOPT)
+-	porterr = 1;
++	  errno == ENOPROTOOPT)
++	rc = 0;
+ #endif
+       
+-      if (rc == -1 && !porterr)
++      if (rc != -1)
+ 	rc = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &oneopt, sizeof(oneopt));
+       
+       if (rc == -1)
+-- 
+1.7.2.5
+
