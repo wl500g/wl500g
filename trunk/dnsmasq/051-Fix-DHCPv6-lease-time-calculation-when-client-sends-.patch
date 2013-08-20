@@ -1,7 +1,7 @@
 From cc4baaab0d11142801d0c08c7c985401a9147864 Mon Sep 17 00:00:00 2001
 From: Simon Kelley <simon@thekelleys.org.uk>
 Date: Mon, 5 Aug 2013 15:03:44 +0100
-Subject: [PATCH] Fix DHCPv6 lease time calculation when client sends VL==0 or PL==0
+Subject: [PATCH 1/9] Fix DHCPv6 lease time calculation when client sends VL==0 or PL==0
 
 ---
  src/rfc3315.c |  111 ++++++++++++++++++++++++++++++++++++++++----------------
