@@ -1191,9 +1191,7 @@ int igmp6_event_query(struct sk_buff *skb)
 		int switchback;
 		/* MLDv1 router present */
 
-		/* Translate milliseconds to jiffies */
-		max_delay = (ntohs(hdr->icmp6_maxdelay)*HZ)/1000;
-
+		max_delay = msecs_to_jiffies(ntohs(hdr->icmp6_maxdelay));
 		switchback = (idev->mc_qrv + 1) * max_delay;
 		idev->mc_v1_seen = jiffies + switchback;
 
@@ -1211,10 +1209,11 @@ int igmp6_event_query(struct sk_buff *skb)
 			return -EINVAL;
 		}
 		mlh2 = (struct mld2_query *)skb_transport_header(skb);
-		max_delay = (MLDV2_MRC(ntohs(mlh2->mrc))*HZ)/1000;
-		if (!max_delay)
-			max_delay = 1;
+
+		max_delay = max(msecs_to_jiffies(MLDV2_MRC(ntohs(mlh2->mrc))), 1UL);
+
 		idev->mc_maxdelay = max_delay;
+
 		if (mlh2->qrv)
 			idev->mc_qrv = mlh2->qrv;
 		if (group_type == IPV6_ADDR_ANY) { /* general query */
