@@ -1,7 +1,7 @@
 From ffbad34b310ab2db6a686c85f5c0a0e52c0680c8 Mon Sep 17 00:00:00 2001
 From: Simon Kelley <simon@thekelleys.org.uk>
 Date: Wed, 14 Aug 2013 15:53:57 +0100
-Subject: [PATCH] Set SOREUSEADDR as well as SOREUSEPORT on DHCP sockets when both available.
+Subject: [PATCH 3/9] Set SOREUSEADDR as well as SOREUSEPORT on DHCP sockets when both available.
 
 ---
  src/dhcp.c  |    8 ++++----

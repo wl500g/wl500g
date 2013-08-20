@@ -1,0 +1,79 @@
+From 6692a1a53f294f3043f9539a5b0453b4ccc32fd6 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Tue, 20 Aug 2013 14:41:31 +0100
+Subject: [PATCH 9/9] Fix dhcp-range sanity checking.
+
+---
+ src/option.c |   37 +++++++++++++++++++------------------
+ 1 files changed, 19 insertions(+), 18 deletions(-)
+
+diff --git a/src/option.c b/src/option.c
+index 6144a1e..b03388a 100644
+--- a/src/option.c
++++ b/src/option.c
+@@ -2401,11 +2401,9 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
+ 	  {
+ 	    new->prefix = 64; /* default */
+ 	    new->end6 = new->start6;
+-	    
+-	    /* dhcp-range=:: enables DHCP stateless on any interface */
+-	    if (IN6_IS_ADDR_UNSPECIFIED(&new->start6))
+-	      new->prefix = 0;
+-	    
++	    new->next = daemon->dhcp6;
++	    daemon->dhcp6 = new;
++
+ 	    for (leasepos = 1; leasepos < k; leasepos++)
+ 	      {
+ 		if (strcmp(a[leasepos], "static") == 0)
+@@ -2431,10 +2429,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
+ 		else  
+ 		  break;
+ 	      }
+-	    
+-	    new->next = daemon->dhcp6;
+-	    daemon->dhcp6 = new;
+-	    	     
++	   	    	     
+ 	    /* bare integer < 128 is prefix value */
+ 	    if (leasepos < k)
+ 	      {
+@@ -2446,20 +2441,26 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
+ 		  {
+ 		    new->prefix = pref;
+ 		    leasepos++;
+-		    if (new->prefix != 64)
+-		      {
+-			if ((new->flags & (CONTEXT_RA_ONLY | CONTEXT_RA_NAME | CONTEXT_RA_STATELESS)))
+-			  ret_err(_("prefix must be exactly 64 for RA subnets"));
+-			else if (new->template_interface)
+-			  ret_err(_("prefix must be exactly 64 for subnet constructors"));
+-		      }
+-		    if (new->prefix < 64)
+-		      ret_err(_("prefix must be at least 64"));
+ 		  }
+ 	      }
+ 	    
++	    if (new->prefix != 64)
++	      {
++		if ((new->flags & (CONTEXT_RA_ONLY | CONTEXT_RA_NAME | CONTEXT_RA_STATELESS)))
++		  ret_err(_("prefix length must be exactly 64 for RA subnets"));
++		else if (new->flags & CONTEXT_TEMPLATE)
++		  ret_err(_("prefix length must be exactly 64 for subnet constructors"));
++	      }
++
++	    if (new->prefix < 64)
++	      ret_err(_("prefix length must be at least 64"));
++	    
+ 	    if (!is_same_net6(&new->start6, &new->end6, new->prefix))
+ 	      ret_err(_("inconsistent DHCPv6 range"));
++
++	    /* dhcp-range=:: enables DHCP stateless on any interface */
++	    if (IN6_IS_ADDR_UNSPECIFIED(&new->start6) && !(new->flags & CONTEXT_TEMPLATE))
++	      new->prefix = 0;
+ 	    
+ 	    if (new->flags & CONTEXT_TEMPLATE)
+ 	      {
+-- 
+1.7.2.5
+

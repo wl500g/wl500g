@@ -1,0 +1,35 @@
+From a37cd7aaf550347a60a2c1f43024601978ece72a Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Tue, 20 Aug 2013 10:33:32 +0100
+Subject: [PATCH 8/9] Use tags from pxe-proxy dhcp-range statements.
+
+---
+ src/rfc2131.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/src/rfc2131.c b/src/rfc2131.c
+index c8e9d5e..cb1834b 100644
+--- a/src/rfc2131.c
++++ b/src/rfc2131.c
+@@ -848,8 +848,16 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
+ 	      
+ 	      if (tmp)
+ 		{
+-		  struct dhcp_boot *boot = find_boot(tagif_netid);
+-		
++		  struct dhcp_boot *boot;
++		  
++		  if (tmp->netid.net)
++		    {
++		      tmp->netid.next = netid;
++		      tagif_netid = run_tag_if(&tmp->netid);
++		    }
++		  
++		  boot = find_boot(tagif_netid);
++		  
+ 		  mess->yiaddr.s_addr = 0;
+ 		  if  (mess_type == DHCPDISCOVER || mess->ciaddr.s_addr == 0)
+ 		    {
+-- 
+1.7.2.5
+
