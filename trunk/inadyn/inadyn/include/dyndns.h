@@ -46,6 +46,7 @@ typedef enum
 	HE_IPV6TB,
 	HE_DYNDNS,
 	DYNSIP_DEFAULT,
+	DUCKDNS_DEFAULT,
 	LAST_DNS_SYSTEM = -1
 } DYNDNS_SYSTEM_ID;
 
@@ -166,6 +167,15 @@ typedef enum
 	"apikey=%s&"							\
 	"pass=%s&"							\
 	"tid=%s "							\
+	"HTTP/1.0\r\n"							\
+	"Host: %s\r\n"							\
+	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
+
+#define DUCKDNS_UPDATE_IP_REQUEST					\
+	"GET %s?"							\
+	"domains=%s&"							\
+	"token=%s&"							\
+	"ip=%s& "							\
 	"HTTP/1.0\r\n"							\
 	"Host: %s\r\n"							\
 	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
