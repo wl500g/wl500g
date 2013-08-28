@@ -3464,6 +3464,8 @@ function openLink(s)
 			tourl = "https://www.dnsexit.com/Direct.sv?cmd=signup";
 		else if (document.form.ddns_server_x.value == 'default@dnsomatic.com')
 			tourl = "https://www.dnsomatic.com/create/";
+		else if (document.form.ddns_server_x.value == 'default@duckdns.org')
+			tourl = "http://duckdns.org/login";
 		else if (document.form.ddns_server_x.value == 'default@dyndns.org')
 			tourl = "https://account.dyn.com/entrance/";
 		else if (document.form.ddns_server_x.value == 'default@dynsip.org')

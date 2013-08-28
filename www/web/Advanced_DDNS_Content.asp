@@ -103,6 +103,7 @@
 		<option class="content_input_fd" value="update@asus.com" <% nvram_match("ddns_server_x", "update@asus.com","selected"); %>>asus.com</option>
 		<option class="content_input_fd" value="default@dnsexit.com" <% nvram_match("ddns_server_x", "default@dnsexit.com","selected"); %>>dnsexit.com</option>
 		<option class="content_input_fd" value="default@dnsomatic.com" <% nvram_match("ddns_server_x", "default@dnsomatic.com","selected"); %>>dnsomatic.com</option>
+		<option class="content_input_fd" value="default@duckdns.org" <% nvram_match("ddns_server_x", "default@duckdns.org","selected"); %>>duckdns.org</option>
 		<option class="content_input_fd" value="default@dyndns.org" <% nvram_match("ddns_server_x", "default@dyndns.org","selected"); %>>dyndns.org</option>
 		<option class="content_input_fd" value="default@dynsip.org" <% nvram_match("ddns_server_x", "default@dynsip.org","selected"); %>>dynsip.org</option>
 		<option class="content_input_fd" value="default@easydns.com" <% nvram_match("ddns_server_x", "default@easydns.com","selected"); %>>easydns.com</option>

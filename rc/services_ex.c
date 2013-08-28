@@ -385,6 +385,7 @@ static struct ddns_service {
 	{ "default@sitelutions.com", NULL },
 	{ "default@tzo.com", "WWW.TZO.COM" },
 	{ "default@zoneedit.com", "WWW.ZONEEDIT.COM" },
+	{ "default@duckdns.org", NULL },
 	{ NULL, NULL }
 };
 
