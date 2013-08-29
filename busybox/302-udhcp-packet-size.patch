@@ -2,6 +2,15 @@ Subject: Explicitly set DHCP_MAX_SIZE (option 57) for request packets, like for 
 
 --- busybox.orig/networking/udhcp/common.h	2010-10-13 00:00:00.000000000 +0000
 +++ busybox/networking/udhcp/common.h	2010-10-13 19:10:29.684347002 +0000
+@@ -68,6 +68,8 @@ enum {
+ 	DHCP_SIZE        = sizeof(struct dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
+ };
+ 
++#define DHCP_MIN_SIZE 300
++
+ /* Let's see whether compiler understood us right */
+ struct BUG_bad_sizeof_struct_ip_udp_dhcp_packet {
+ 	char c[IP_UDP_DHCP_SIZE == 576 ? 1 : -1];
 @@ -294,7 +294,7 @@ void udhcp_sp_setup(void) FAST_FUNC;
  int udhcp_sp_fd_set(fd_set *rfds, int extra_fd) FAST_FUNC;
  int udhcp_sp_read(const fd_set *rfds) FAST_FUNC;
@@ -87,6 +96,24 @@ Subject: Explicitly set DHCP_MAX_SIZE (option 57) for request packets, like for 
  					/* Fall back to our IP on server iface */
  // this makes more sense!
  					dhcp_msg.gateway_nip = our_nip;
+--- busybox.orig/networking/udhcp/packet.c	2010-09-16 23:05:35.000000000 +0000
++++ busybox/networking/udhcp/packet.c	2010-10-13 18:19:07.024347002 +0000
+@@ -145,6 +145,7 @@ int FAST_FUNC udhcp_send_raw_packet(struct dhcp_packet *dhcp_pkt,
+ 	 * we truncate packets after end option byte.
+ 	 */
+ 	padding = DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(packet.data.options);
++	padding = MIN(DHCP_SIZE - DHCP_MIN_SIZE, padding);
+ 
+ 	packet.ip.protocol = IPPROTO_UDP;
+ 	packet.ip.saddr = source_nip;
+@@ -215,6 +216,7 @@ int FAST_FUNC udhcp_send_kernel_packet(struct dhcp_packet *dhcp_pkt,
+ 
+ 	udhcp_dump_packet(dhcp_pkt);
+ 	padding = DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(dhcp_pkt->options);
++	padding = MIN(DHCP_SIZE - DHCP_MIN_SIZE, padding);
+ 	result = safe_write(fd, dhcp_pkt, DHCP_SIZE - padding);
+ 	msg = "write";
+  ret_close:
 --- busybox.orig/networking/udhcp/socket.c	2010-09-16 23:05:35.000000000 +0000
 +++ busybox/networking/udhcp/socket.c	2010-10-13 18:19:07.024347002 +0000
 @@ -34,7 +34,7 @@
