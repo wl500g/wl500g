@@ -2,15 +2,16 @@ Subject: Explicitly set DHCP_MAX_SIZE (option 57) for request packets, like for 
 
 --- busybox.orig/networking/udhcp/common.h	2010-10-13 00:00:00.000000000 +0000
 +++ busybox/networking/udhcp/common.h	2010-10-13 19:10:29.684347002 +0000
-@@ -68,6 +68,8 @@ enum {
- 	DHCP_SIZE        = sizeof(struct dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
- };
+@@ -25,6 +25,9 @@ extern const uint8_t MAC_BCAST_ADDR[6] ALIGN2; /* six all-ones */
+ #define BOOTREQUEST             1
+ #define BOOTREPLY               2
  
-+#define DHCP_MIN_SIZE 300
++/* Minimal BOOTP message size. See RFC 1542 */
++#define DHCP_MIN_SIZE           300
 +
- /* Let's see whether compiler understood us right */
- struct BUG_bad_sizeof_struct_ip_udp_dhcp_packet {
- 	char c[IP_UDP_DHCP_SIZE == 576 ? 1 : -1];
+ //TODO: rename ciaddr/yiaddr/chaddr
+ struct dhcp_packet {
+ 	uint8_t op;      /* BOOTREQUEST or BOOTREPLY */
 @@ -294,7 +294,7 @@ void udhcp_sp_setup(void) FAST_FUNC;
  int udhcp_sp_fd_set(fd_set *rfds, int extra_fd) FAST_FUNC;
  int udhcp_sp_read(const fd_set *rfds) FAST_FUNC;
