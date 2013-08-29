@@ -8,16 +8,16 @@ diff --git a/include/dyndns.h b/include/dyndns.h
 index b8e5601..903251d 100644
 --- a/include/dyndns.h
 +++ b/include/dyndns.h
-@@ -46,6 +46,8 @@ typedef enum
- 	HE_IPV6TB,
+@@ -47,6 +47,8 @@ typedef enum
  	HE_DYNDNS,
  	DYNSIP_DEFAULT,
+ 	DUCKDNS_DEFAULT,
 +	ASUS_REGISTER,
 +	ASUS_UPDATE,
  	LAST_DNS_SYSTEM = -1
  } DYNDNS_SYSTEM_ID;
  
-@@ -169,6 +171,14 @@ typedef enum
+@@ -180,6 +182,14 @@ typedef enum
  	"Host: %s\r\n"							\
  	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
  
@@ -49,7 +49,7 @@ diff --git a/src/dyndns.c b/src/dyndns.c
 index 644c91b..d4af613 100644
 --- a/src/dyndns.c
 +++ b/src/dyndns.c
-@@ -26,6 +26,7 @@
+@@ -29,6 +29,7 @@
  #include <sys/types.h>
  #include <sys/stat.h>
  #include <time.h>
@@ -57,15 +57,15 @@ index 644c91b..d4af613 100644
  
  #include "dyndns.h"
  #include "debug_if.h"
-@@ -48,6 +49,7 @@ static int get_req_for_tzo_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt)
- static int get_req_for_sitelutions_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
+@@ -52,6 +53,7 @@ static int get_req_for_sitelutions_serve
  static int get_req_for_dnsexit_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
  static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
+ static int get_req_for_duckdns_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
 +static int get_req_for_asus_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
  
  static RC_TYPE is_dyndns_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
  static RC_TYPE is_freedns_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
-@@ -58,6 +60,8 @@ static RC_TYPE is_tzo_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_
+@@ -62,6 +64,8 @@ static RC_TYPE is_tzo_server_rsp_ok(DYN_
  static RC_TYPE is_sitelutions_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
  static RC_TYPE is_dnsexit_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
  static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
@@ -74,9 +74,9 @@ index 644c91b..d4af613 100644
  
  DYNDNS_SYSTEM_INFO dns_system_table[] =
  {
-@@ -153,6 +157,20 @@ DYNDNS_SYSTEM_INFO dns_system_table[] =
- 	  DYNDNS_MY_IP_SERVER, DYNDNS_MY_IP_SERVER_URL,
- 	  "dynsip.org", "/nic/update"}},
+@@ -164,6 +168,20 @@ DYNDNS_SYSTEM_INFO dns_system_table[] =
+ 	  "ipv4.wtfismyip.com", "/text",
+ 	  "duckdns.org", "/update"}},
  
 +	{ASUS_REGISTER,
 +	{"register@asus.com",
@@ -95,8 +95,8 @@ index 644c91b..d4af613 100644
  	{CUSTOM_HTTP_BASIC_AUTH,
  	 {"custom@http_srv_basic_auth",
  	  (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_generic_server_rsp_ok,
-@@ -368,6 +386,56 @@ static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int
- 		       p_self->info[infcnt].dyndns_server_name.name);
+@@ -482,6 +500,56 @@ static RC_TYPE do_ip_check_interface(DYN
+ 	return RC_OK;
  }
  
 +static int get_req_for_asus_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt)
@@ -152,7 +152,7 @@ index 644c91b..d4af613 100644
  static int get_req_for_ip_server(DYN_DNS_CLIENT *p_self, int infcnt)
  {
  	if (p_self == NULL)
-@@ -747,6 +815,87 @@ static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION
+@@ -861,6 +929,87 @@ static RC_TYPE is_he_ipv6_server_rsp_ok(
  		return RC_DYNDNS_RSP_NOTOK;
  }
  
