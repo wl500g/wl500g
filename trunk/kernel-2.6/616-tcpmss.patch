@@ -1,4 +1,3 @@
-From c80ceee3d8616663ec12c06153f6992f603e97a8
 From: Fedor <fedork@ubuntu.(none)>
 Date: Fri, 19 Mar 2010 23:54:48 -0400
 Subject: [PATCH] Netfilter: TCPMSS target fixes
@@ -8,10 +7,12 @@ kernel.org commits:
 37c08387fc31a0fe7a570664c93be4f1c1bc0c94 [NETFILTER]: xt_TCPMSS: consider reverse route's MTU in clamp-to-pmtu
 10a199394b8f9b4c4e0be6e14a61109a7d891b1b netfilter: xt_TCPMSS: SYN packets are allowed to contain data
 db1a75bdcc1766dc7e1fae9201ae287dcbcb6c66 netfilter: xt_TCPMSS: collapse tcpmss_reverse_mtu{4,6} into one function
+409b545ac10d9548929557a75ad86540f59a2c83 netfilter: xt_TCPMSS: Fix violation of RFC879 in absence of MSS option
+70d19f805f8c047fc0a28dec9306b3773971c8d9 netfilter: xt_TCPMSS: Fix IPv6 default MSS too
 
 ---
- net/netfilter/xt_TCPMSS.c      |   76 +++++++++++++++----
- 1 files changed, 60 insertions(+), 16 deletions(-)
+ net/netfilter/xt_TCPMSS.c |   88 +++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 72 insertions(+), 16 deletions(-)
 
 diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 --- a/net/netfilter/xt_TCPMSS.c
@@ -107,6 +108,25 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  	/*
  	 * MSS Option not found ?! add it..
  	 */
+@@ -120,6 +127,18 @@ tcpmss_mangle_packet(struct sk_buff *skb
+ 
+ 	skb_put(skb, TCPOLEN_MSS);
+ 
++	/*
++	 * IPv4: RFC 1122 states "If an MSS option is not received at
++	 * connection setup, TCP MUST assume a default send MSS of 536".
++	 * IPv6: RFC 2460 states IPv6 has a minimum MTU of 1280 and a minimum
++	 * length IPv6 header of 60, ergo the default MSS value is 1220
++	 * Since no MSS was provided, we must use the default values
++	 */
++	if (par->family == NFPROTO_IPV4)
++		newmss = min(newmss, (u16)536);
++	else
++		newmss = min(newmss, (u16)1220);
++
+ 	opt = (u_int8_t *)tcph + sizeof(struct tcphdr);
+ 	memmove(opt + TCPOLEN_MSS, opt, tcplen - sizeof(struct tcphdr));
+ 
 @@ -137,6 +149,34 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
  	return TCPOLEN_MSS;
  }
@@ -165,5 +185,3 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  	if (ret < 0)
  		return NF_DROP;
 -- 
-1.6.5.GIT
-

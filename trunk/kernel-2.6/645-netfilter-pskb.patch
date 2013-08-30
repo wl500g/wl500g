@@ -6774,7 +6774,7 @@ diff -urBp a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  					       htons(oldmss), htons(newmss), 0);
  			return 0;
  		}
-@@ -116,35 +116,31 @@ tcpmss_mangle_packet(struct sk_buff **ps
+@@ -116,47 +116,43 @@ tcpmss_mangle_packet(struct sk_buff **ps
  	/*
  	 * MSS Option not found ?! add it..
  	 */
@@ -6797,6 +6797,18 @@ diff -urBp a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  
 -	skb_put((*pskb), TCPOLEN_MSS);
 +	skb_put(skb, TCPOLEN_MSS);
+ 
+ 	/*
+ 	 * IPv4: RFC 1122 states "If an MSS option is not received at
+ 	 * connection setup, TCP MUST assume a default send MSS of 536".
+ 	 * IPv6: RFC 2460 states IPv6 has a minimum MTU of 1280 and a minimum
+ 	 * length IPv6 header of 60, ergo the default MSS value is 1220
+ 	 * Since no MSS was provided, we must use the default values
+ 	 */
+ 	if (par->family == NFPROTO_IPV4)
+ 		newmss = min(newmss, (u16)536);
+ 	else
+ 		newmss = min(newmss, (u16)1220);
  
  	opt = (u_int8_t *)tcph + sizeof(struct tcphdr);
  	memmove(opt + TCPOLEN_MSS, opt, tcplen - sizeof(struct tcphdr));

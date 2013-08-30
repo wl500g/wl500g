@@ -73,7 +73,7 @@ netfilter: xtables: move extension arguments into compound structure
  net/netfilter/xt_NOTRACK.c                |    7 -
  net/netfilter/xt_SECMARK.c                |   14 --
  net/netfilter/xt_TARPIT.c                 |   20 +--
- net/netfilter/xt_TCPMSS.c                 |   44 ++-----
+ net/netfilter/xt_TCPMSS.c                 |   47 ++------
  net/netfilter/xt_addrtype.c               |   35 ++----
  net/netfilter/xt_comment.c                |    9 -
  net/netfilter/xt_connbytes.c              |   28 +----
@@ -111,7 +111,7 @@ netfilter: xtables: move extension arguments into compound structure
  net/netfilter/xt_u32.c                    |    8 -
  net/netfilter/xt_webstr.c                 |   46 +-------
  net/sched/act_ipt.c                       |   32 ++++-
- 95 files changed, 1046 insertions(+), 1797 deletions(-)
+ 95 files changed, 1048 insertions(+), 1798 deletions(-)
 
 diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
 --- a/include/linux/netfilter/x_tables.h
@@ -5722,6 +5722,20 @@ diff --git a/net/netfilter/xt_tcpmss.c b/net/netfilter/xt_tcpmss.c
 diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 --- a/net/netfilter/xt_TCPMSS.c
 +++ b/net/netfilter/xt_TCPMSS.c
+@@ -44,11 +44,12 @@ optlen(const u_int8_t *opt, unsigned int
+ 
+ static int
+ tcpmss_mangle_packet(struct sk_buff *skb,
+-		     const struct xt_tcpmss_info *info,
++		     const struct xt_target_param *par,
+ 		     unsigned int in_mtu,
+ 		     unsigned int tcphoff,
+ 		     unsigned int minlen)
+ {
++	const struct xt_tcpmss_info *info = par->targinfo;
+ 	struct tcphdr *tcph;
+ 	unsigned int tcplen, i;
+ 	__be16 oldval;
 @@ -174,18 +174,13 @@ static u_int32_t tcpmss_reverse_mtu(cons
  }
  
@@ -5739,7 +5753,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  	int ret;
  
 -	ret = tcpmss_mangle_packet(skb, targinfo,
-+	ret = tcpmss_mangle_packet(skb, par->targinfo,
++	ret = tcpmss_mangle_packet(skb, par,
  				   tcpmss_reverse_mtu(skb, PF_INET),
  				   iph->ihl * 4,
  				   sizeof(*iph) + sizeof(struct tcphdr));
@@ -5762,7 +5776,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  	if (tcphoff < 0)
  		return NF_DROP;
 -	ret = tcpmss_mangle_packet(skb, targinfo,
-+	ret = tcpmss_mangle_packet(skb, par->targinfo,
++	ret = tcpmss_mangle_packet(skb, par,
  				   tcpmss_reverse_mtu(skb, PF_INET6),
  				   tcphoff,
  				   sizeof(*ipv6h) + sizeof(struct tcphdr));
