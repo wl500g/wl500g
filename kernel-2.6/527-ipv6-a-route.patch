@@ -1,12 +1,22 @@
  f4f914b58019f0e50d521bbbadfaee260d766f95 net: ipv6 bind to device issue
+ 3933fc952a5a5af4cf23fca94e20203251c9d825 ipv6: Ignore route option with ROUTER_PREF_INVALID
 
 ---
- net/ipv6/route.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv6/route.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
+@@ -481,7 +481,7 @@ int rt6_route_rcv(struct net_device *dev, u8 *opt, int len,
+ 
+ 	pref = rinfo->route_pref;
+ 	if (pref == ICMPV6_ROUTER_PREF_INVALID)
+-		pref = ICMPV6_ROUTER_PREF_MEDIUM;
++		return -EINVAL;
+ 
+ 	lifetime = ntohl(rinfo->lifetime);
+ 
 @@ -815,7 +815,7 @@ struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
  {
  	int flags = 0;
