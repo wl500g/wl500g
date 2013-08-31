@@ -16,7 +16,7 @@ diff --git a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
 -}
 -
 -static bool
- conntrack_mt_v2(const struct sk_buff *skb, const struct xt_match_param *par)
+ conntrack_mt_v2(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	const struct xt_conntrack_mtinfo2 *info = par->matchinfo;
 @@ -232,38 +221,25 @@ conntrack_mt_destroy(const struct xt_mat

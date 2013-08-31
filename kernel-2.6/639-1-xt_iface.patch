@@ -127,7 +127,7 @@ new file mode 100644
 +};
 +
 +static const struct net_device *iface_get(const struct xt_iface_mtinfo *info,
-+    const struct xt_match_param *par, struct net_device **put)
++    struct xt_action_param *par, struct net_device **put)
 +{
 +	if (info->flags & XT_IFACE_DEV_IN)
 +		return par->in;
@@ -150,7 +150,7 @@ new file mode 100644
 +}
 +
 +static bool xt_iface_mt(const struct sk_buff *skb,
-+    const struct xt_match_param *par)
++    struct xt_action_param *par)
 +{
 +	const struct xt_iface_mtinfo *info = par->matchinfo;
 +	struct net_device *put = NULL;

@@ -13,6 +13,7 @@ netfilter: xtables: move extension arguments into compound structure
  f5c511c67aaec323c186543856cfddab31bed1d1 netfilter: xtables: reduce holes in struct xt_target
  a5e78820966e17c2316866e00047e4e7e5480f04 netfilter: x_tables: added hook number into match extension parameter structure.
  de74c16996287250f0d947663127f80c6beebd3c netfilter: xtables: combine struct xt_match_param and xt_target_param
+ 62fc8051083a334578c3f4b3488808f210b4565f netfilter: xtables: deconstify struct xt_action_param for matches
  4f948db1915ff05e4ce0fd98e6323db6a3ec0fc0 netfilter: xtables: remove almost-unused xt_match_param.data member
 
 ---
@@ -226,7 +227,7 @@ diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tabl
 -		      int offset,
 -		      unsigned int protoff,
 -		      bool *hotdrop);
-+		      const struct xt_action_param *);
++		      struct xt_action_param *);
  
  	/* Called when user tries to insert an entry of this type. */
 -	/* Should return true or false. */
@@ -347,7 +348,7 @@ diff --git a/net/bridge/netfilter/ebt_802_3.c b/net/bridge/netfilter/ebt_802_3.c
 -ebt_802_3_mt(const struct sk_buff *skb, const struct net_device *in,
 -	     const struct net_device *out, const struct xt_match *match,
 -	     const void *data, int offset, unsigned int protoff, bool *hotdrop)
-+ebt_802_3_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++ebt_802_3_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ebt_802_3_info *info = data;
 +	const struct ebt_802_3_info *info = par->matchinfo;
@@ -625,7 +626,7 @@ diff --git a/net/bridge/netfilter/ebt_among.c b/net/bridge/netfilter/ebt_among.c
 -ebt_among_mt(const struct sk_buff *skb, const struct net_device *in,
 -	     const struct net_device *out, const struct xt_match *match,
 -	     const void *data, int offset, unsigned int protoff, bool *hotdrop)
-+ebt_among_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++ebt_among_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ebt_among_info *info = data;
 +	const struct ebt_among_info *info = par->matchinfo;
@@ -660,7 +661,7 @@ diff --git a/net/bridge/netfilter/ebt_arp.c b/net/bridge/netfilter/ebt_arp.c
 -ebt_arp_mt(const struct sk_buff *skb, const struct net_device *in,
 -	   const struct net_device *out, const struct xt_match *match,
 -	   const void *data, int offset, unsigned int protoff, bool *hotdrop)
-+ebt_arp_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++ebt_arp_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ebt_arp_info *info = data;
 +	const struct ebt_arp_info *info = par->matchinfo;
@@ -694,7 +695,7 @@ diff --git a/net/bridge/netfilter/ebt_arpreply.c b/net/bridge/netfilter/ebt_arpr
 -ebt_arpreply_tg(struct sk_buff *skb, const struct net_device *in,
 -		const struct net_device *out, unsigned int hook_nr,
 -		const struct xt_target *target, const void *data)
-+ebt_arpreply_tg(struct sk_buff *skb, const struct xt_target_param *par)
++ebt_arpreply_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ebt_arpreply_info *info = data;
 +	const struct ebt_arpreply_info *info = par->targinfo;
@@ -742,7 +743,7 @@ diff --git a/net/bridge/netfilter/ebt_dnat.c b/net/bridge/netfilter/ebt_dnat.c
 -ebt_dnat_tg(struct sk_buff *skb, const struct net_device *in,
 -	    const struct net_device *out, unsigned int hook_nr,
 -	    const struct xt_target *target, const void *data)
-+ebt_dnat_tg(struct sk_buff *skb, const struct xt_target_param *par)
++ebt_dnat_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ebt_nat_info *info = data;
 +	const struct ebt_nat_info *info = par->targinfo;
@@ -789,7 +790,7 @@ diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
 -ebt_ip6_mt(const struct sk_buff *skb, const struct net_device *in,
 -	   const struct net_device *out, const struct xt_match *match,
 -	   const void *data, int offset, unsigned int protoff, bool *hotdrop)
-+ebt_ip6_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ebt_ip6_info *info = data;
 +	const struct ebt_ip6_info *info = par->matchinfo;
@@ -823,7 +824,7 @@ diff --git a/net/bridge/netfilter/ebt_ip.c b/net/bridge/netfilter/ebt_ip.c
 -ebt_ip_mt(const struct sk_buff *skb, const struct net_device *in,
 -	  const struct net_device *out, const struct xt_match *match,
 -	  const void *data, int offset, unsigned int protoff, bool *hotdrop)
-+ebt_ip_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++ebt_ip_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ebt_ip_info *info = data;
 +	const struct ebt_ip_info *info = par->matchinfo;
@@ -857,7 +858,7 @@ diff --git a/net/bridge/netfilter/ebt_limit.c b/net/bridge/netfilter/ebt_limit.c
 -ebt_limit_mt(const struct sk_buff *skb, const struct net_device *in,
 -	     const struct net_device *out, const struct xt_match *match,
 -	     const void *data, int offset, unsigned int protoff, bool *hotdrop)
-+ebt_limit_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++ebt_limit_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	struct ebt_limit_info *info = (void *)data;
 +	struct ebt_limit_info *info = (void *)par->matchinfo;
@@ -904,7 +905,7 @@ diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
 -ebt_log_tg(struct sk_buff *skb, const struct net_device *in,
 -	   const struct net_device *out, unsigned int hooknr,
 -	   const struct xt_target *target, const void *data)
-+ebt_log_tg(struct sk_buff *skb, const struct xt_target_param *par)
++ebt_log_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ebt_log_info *info = data;
 +	const struct ebt_log_info *info = par->targinfo;
@@ -937,7 +938,7 @@ diff --git a/net/bridge/netfilter/ebt_mark.c b/net/bridge/netfilter/ebt_mark.c
 -ebt_mark_tg(struct sk_buff *skb, const struct net_device *in,
 -	    const struct net_device *out, unsigned int hook_nr,
 -	    const struct xt_target *target, const void *data)
-+ebt_mark_tg(struct sk_buff *skb, const struct xt_target_param *par)
++ebt_mark_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ebt_mark_t_info *info = data;
 +	const struct ebt_mark_t_info *info = par->targinfo;
@@ -975,7 +976,7 @@ diff --git a/net/bridge/netfilter/ebt_mark_m.c b/net/bridge/netfilter/ebt_mark_m
 -ebt_mark_mt(const struct sk_buff *skb, const struct net_device *in,
 -	    const struct net_device *out, const struct xt_match *match,
 -	    const void *data, int offset, unsigned int protoff, bool *hotdrop)
-+ebt_mark_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++ebt_mark_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ebt_mark_m_info *info = data;
 +	const struct ebt_mark_m_info *info = par->matchinfo;
@@ -1007,7 +1008,7 @@ diff --git a/net/bridge/netfilter/ebt_pkttype.c b/net/bridge/netfilter/ebt_pktty
 -	       const struct net_device *out, const struct xt_match *match,
 -	       const void *data, int offset, unsigned int protoff,
 -	       bool *hotdrop)
-+ebt_pkttype_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++ebt_pkttype_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ebt_pkttype_info *info = data;
 +	const struct ebt_pkttype_info *info = par->matchinfo;
@@ -1036,7 +1037,7 @@ diff --git a/net/bridge/netfilter/ebt_redirect.c b/net/bridge/netfilter/ebt_redi
 -ebt_redirect_tg(struct sk_buff *skb, const struct net_device *in,
 -		const struct net_device *out, unsigned int hooknr,
 -		const struct xt_target *target, const void *data)
-+ebt_redirect_tg(struct sk_buff *skb, const struct xt_target_param *par)
++ebt_redirect_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ebt_redirect_info *info = data;
 +	const struct ebt_redirect_info *info = par->targinfo;
@@ -1090,7 +1091,7 @@ diff --git a/net/bridge/netfilter/ebt_snat.c b/net/bridge/netfilter/ebt_snat.c
 -ebt_snat_tg(struct sk_buff *skb, const struct net_device *in,
 -	    const struct net_device *out, unsigned int hook_nr,
 -	    const struct xt_target *target, const void *data)
-+ebt_snat_tg(struct sk_buff *skb, const struct xt_target_param *par)
++ebt_snat_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ebt_nat_info *info = data;
 +	const struct ebt_nat_info *info = par->targinfo;
@@ -1128,7 +1129,7 @@ diff --git a/net/bridge/netfilter/ebt_stp.c b/net/bridge/netfilter/ebt_stp.c
 -ebt_stp_mt(const struct sk_buff *skb, const struct net_device *in,
 -	   const struct net_device *out, const struct xt_match *match,
 -	   const void *data, int offset, unsigned int protoff, bool *hotdrop)
-+ebt_stp_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++ebt_stp_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ebt_stp_info *info = data;
 +	const struct ebt_stp_info *info = par->matchinfo;
@@ -1164,7 +1165,7 @@ diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
 -ebt_ulog_tg(struct sk_buff *skb, const struct net_device *in,
 -	    const struct net_device *out, unsigned int hooknr,
 -	    const struct xt_target *target, const void *data)
-+ebt_ulog_tg(struct sk_buff *skb, const struct xt_target_param *par)
++ebt_ulog_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ebt_ulog_info *uloginfo = data;
 -
@@ -1195,7 +1196,7 @@ diff --git a/net/bridge/netfilter/ebt_vlan.c b/net/bridge/netfilter/ebt_vlan.c
 -ebt_vlan_mt(const struct sk_buff *skb, const struct net_device *in,
 -	    const struct net_device *out, const struct xt_match *match,
 -	    const void *data, int offset, unsigned int protoff, bool *hotdrop)
-+ebt_vlan_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++ebt_vlan_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ebt_vlan_info *info = data;
 +	const struct ebt_vlan_info *info = par->matchinfo;
@@ -1233,7 +1234,7 @@ diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
 -			       const struct xt_target *target,
 -			       const void *targinfo)
 +static unsigned int
-+arpt_error(struct sk_buff *skb, const struct xt_target_param *par)
++arpt_error(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	if (net_ratelimit())
 -		printk("arp_tables: error: '%s'\n", (char *)targinfo);
@@ -1346,7 +1347,7 @@ diff --git a/net/ipv4/netfilter/arpt_mangle.c b/net/ipv4/netfilter/arpt_mangle.c
 -       const struct net_device *in, const struct net_device *out,
 -       unsigned int hooknum, const struct xt_target *target,
 -       const void *targinfo)
-+target(struct sk_buff *skb, const struct xt_target_param *par)
++target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct arpt_mangle *mangle = targinfo;
 +	const struct arpt_mangle *mangle = par->targinfo;
@@ -1380,7 +1381,7 @@ diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
 -	  unsigned int hooknum,
 -	  const struct xt_target *target,
 -	  const void *targinfo)
-+ipt_error(struct sk_buff *skb, const struct xt_target_param *par)
++ipt_error(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	if (net_ratelimit())
 -		printk("ip_tables: error: `%s'\n", (char *)targinfo);
@@ -1674,7 +1675,7 @@ diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
 -	   int offset,
 -	   unsigned int protoff,
 -	   bool *hotdrop)
-+icmp_match(const struct sk_buff *skb, const struct xt_match_param *par)
++icmp_match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct icmphdr _icmph, *ic;
 -	const struct ipt_icmp *icmpinfo = matchinfo;
@@ -1731,7 +1732,7 @@ diff --git a/net/ipv4/netfilter/ipt_ah.c b/net/ipv4/netfilter/ipt_ah.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+static bool match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct ip_auth_hdr _ahdr, *ah;
 -	const struct ipt_ah *ahinfo = matchinfo;
@@ -1786,7 +1787,7 @@ diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTER
 -       unsigned int hooknum,
 -       const struct xt_target *target,
 -       const void *targinfo)
-+target(struct sk_buff *skb, const struct xt_target_param *par)
++target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ipt_clusterip_tgt_info *cipinfo = targinfo;
 +	const struct ipt_clusterip_tgt_info *cipinfo = par->targinfo;
@@ -1858,7 +1859,7 @@ diff --git a/net/ipv4/netfilter/ipt_ECN.c b/net/ipv4/netfilter/ipt_ECN.c
 -       unsigned int hooknum,
 -       const struct xt_target *target,
 -       const void *targinfo)
-+target(struct sk_buff *skb, const struct xt_target_param *par)
++target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ipt_ECN_info *einfo = targinfo;
 +	const struct ipt_ECN_info *einfo = par->targinfo;
@@ -1897,7 +1898,7 @@ diff --git a/net/ipv4/netfilter/ipt_LOG.c b/net/ipv4/netfilter/ipt_LOG.c
 -	       unsigned int hooknum,
 -	       const struct xt_target *target,
 -	       const void *targinfo)
-+ipt_log_target(struct sk_buff *skb, const struct xt_target_param *par)
++ipt_log_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ipt_log_info *loginfo = targinfo;
 +	const struct ipt_log_info *loginfo = par->targinfo;
@@ -1955,7 +1956,7 @@ diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUE
 -		  unsigned int hooknum,
 -		  const struct xt_target *target,
 -		  const void *targinfo)
-+masquerade_target(struct sk_buff *skb, const struct xt_target_param *par)
++masquerade_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	struct nf_conn *ct;
  	struct nf_conn_nat *nat;
@@ -2027,7 +2028,7 @@ diff --git a/net/ipv4/netfilter/ipt_NETMAP.c b/net/ipv4/netfilter/ipt_NETMAP.c
 -       unsigned int hooknum,
 -       const struct xt_target *target,
 -       const void *targinfo)
-+target(struct sk_buff *skb, const struct xt_target_param *par)
++target(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	struct nf_conn *ct;
  	enum ip_conntrack_info ctinfo;
@@ -2091,7 +2092,7 @@ diff --git a/net/ipv4/netfilter/ipt_REDIRECT.c b/net/ipv4/netfilter/ipt_REDIRECT
 -		unsigned int hooknum,
 -		const struct xt_target *target,
 -		const void *targinfo)
-+redirect_target(struct sk_buff *skb, const struct xt_target_param *par)
++redirect_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	struct nf_conn *ct;
  	enum ip_conntrack_info ctinfo;
@@ -2137,7 +2138,7 @@ diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
 -			   const struct xt_target *target,
 -			   const void *targinfo)
 +static unsigned int
-+reject(struct sk_buff *skb, const struct xt_target_param *par)
++reject(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ipt_reject_info *reject = targinfo;
 +	const struct ipt_reject_info *reject = par->targinfo;
@@ -2191,8 +2192,9 @@ diff --git a/net/ipv4/netfilter/ipt_set.c b/net/ipv4/netfilter/ipt_set.c
 -#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
  static bool
  match(const struct sk_buff *skb,
-       const struct xt_match_param *par)
+-      const struct xt_match_param *par)
 -#endif
++       struct xt_action_param *par)
  {
 -#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 -	const struct ipt_set_info_match *info = matchinfo;
@@ -2331,7 +2333,7 @@ diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
 -				    const struct xt_target *target,
 -				    const void *targinfo)
 +static unsigned int
-+ipt_ulog_target(struct sk_buff *skb, const struct xt_target_param *par)
++ipt_ulog_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	struct ipt_ulog_info *loginfo = (struct ipt_ulog_info *) targinfo;
 -
@@ -2371,7 +2373,7 @@ diff --git a/net/ipv4/netfilter/nf_nat_autofw.c b/net/ipv4/netfilter/nf_nat_auto
 -	unsigned int hooknum,
 -	const struct xt_target *target,
 -	const void *targinfo)
-+autofw_target(struct sk_buff *skb, const struct xt_target_param *par)
++autofw_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ip_autofw_info *info = targinfo;
 +	const struct ip_autofw_info *info = par->targinfo;
@@ -2409,7 +2411,7 @@ diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
 -				    const struct xt_target *target,
 -				    const void *targinfo)
 +static unsigned int
-+ipt_snat_target(struct sk_buff *skb, const struct xt_target_param *par)
++ipt_snat_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	struct nf_conn *ct;
  	enum ip_conntrack_info ctinfo;
@@ -2443,7 +2445,7 @@ diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
 -				    const struct xt_target *target,
 -				    const void *targinfo)
 +static unsigned int
-+ipt_dnat_target(struct sk_buff *skb, const struct xt_target_param *par)
++ipt_dnat_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	struct nf_conn *ct;
  	enum ip_conntrack_info ctinfo;
@@ -2511,7 +2513,7 @@ diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
 -	  unsigned int hooknum,
 -	  const struct xt_target *target,
 -	  const void *targinfo)
-+ip6t_error(struct sk_buff *skb, const struct xt_target_param *par)
++ip6t_error(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	if (net_ratelimit())
 -		printk("ip6_tables: error: `%s'\n", (char *)targinfo);
@@ -2774,7 +2776,7 @@ diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
 -	   int offset,
 -	   unsigned int protoff,
 -	   bool *hotdrop)
-+icmp6_match(const struct sk_buff *skb, const struct xt_match_param *par)
++icmp6_match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct icmp6hdr _icmp, *ic;
 -	const struct ip6t_icmp *icmpinfo = matchinfo;
@@ -2829,7 +2831,7 @@ diff --git a/net/ipv6/netfilter/ip6t_ah.c b/net/ipv6/netfilter/ip6t_ah.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+static bool match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct ip_auth_hdr *ah, _ah;
 -	const struct ip6t_ah *ahinfo = matchinfo;
@@ -2887,7 +2889,7 @@ diff --git a/net/ipv6/netfilter/ip6t_eui64.c b/net/ipv6/netfilter/ip6t_eui64.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+static bool match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	unsigned char eui64[8];
  	int i = 0;
@@ -2917,7 +2919,7 @@ diff --git a/net/ipv6/netfilter/ip6t_frag.c b/net/ipv6/netfilter/ip6t_frag.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+static bool match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct frag_hdr _frag, *fh;
 -	const struct ip6t_frag *fraginfo = matchinfo;
@@ -2976,7 +2978,7 @@ diff --git a/net/ipv6/netfilter/ip6t_hbh.c b/net/ipv6/netfilter/ip6t_hbh.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct ipv6_opt_hdr _optsh, *oh;
 -	const struct ip6t_opts *optinfo = matchinfo;
@@ -3078,7 +3080,7 @@ diff --git a/net/ipv6/netfilter/ip6t_ipv6header.c b/net/ipv6/netfilter/ip6t_ipv6
 -		 int offset,
 -		 unsigned int protoff,
 -		 bool *hotdrop)
-+ipv6header_match(const struct sk_buff *skb, const struct xt_match_param *par)
++ipv6header_match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ip6t_ipv6header_info *info = matchinfo;
 +	const struct ip6t_ipv6header_info *info = par->matchinfo;
@@ -3115,7 +3117,7 @@ diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
 -		unsigned int hooknum,
 -		const struct xt_target *target,
 -		const void *targinfo)
-+ip6t_log_target(struct sk_buff *skb, const struct xt_target_param *par)
++ip6t_log_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ip6t_log_info *loginfo = targinfo;
 +	const struct ip6t_log_info *loginfo = par->targinfo;
@@ -3160,7 +3162,7 @@ diff --git a/net/ipv6/netfilter/ip6t_mh.c b/net/ipv6/netfilter/ip6t_mh.c
 -	 int offset,
 -	 unsigned int protoff,
 -	 bool *hotdrop)
-+static bool match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct ip6_mh _mh, *mh;
 -	const struct ip6t_mh *mhinfo = matchinfo;
@@ -3222,7 +3224,7 @@ diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
 -			   const struct xt_target *target,
 -			   const void *targinfo)
 +static unsigned int
-+reject6_target(struct sk_buff *skb, const struct xt_target_param *par)
++reject6_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct ip6t_reject_info *reject = targinfo;
 +	const struct ip6t_reject_info *reject = par->targinfo;
@@ -3288,7 +3290,7 @@ diff --git a/net/ipv6/netfilter/ip6t_rt.c b/net/ipv6/netfilter/ip6t_rt.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+static bool match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct ipv6_rt_hdr _route, *rh;
 -	const struct ip6t_rt *rtinfo = matchinfo;
@@ -3450,7 +3452,7 @@ diff --git a/net/netfilter/xt_addrtype.c b/net/netfilter/xt_addrtype.c
 -	       const struct net_device *out, const struct xt_match *match,
 -	       const void *matchinfo, int offset, unsigned int protoff,
 -	       bool *hotdrop)
-+addrtype_mt_v0(const struct sk_buff *skb, const struct xt_match_param *par)
++addrtype_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_addrtype_info *info = matchinfo;
 +	const struct xt_addrtype_info *info = par->matchinfo;
@@ -3465,7 +3467,7 @@ diff --git a/net/netfilter/xt_addrtype.c b/net/netfilter/xt_addrtype.c
 -	       const struct net_device *out, const struct xt_match *match,
 -	       const void *matchinfo, int offset, unsigned int protoff,
 -	       bool *hotdrop)
-+addrtype_mt_v1(const struct sk_buff *skb, const struct xt_match_param *par)
++addrtype_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_addrtype_info_v1 *info = matchinfo;
 +	const struct xt_addrtype_info_v1 *info = par->matchinfo;
@@ -3542,7 +3544,7 @@ diff --git a/net/netfilter/xt_CLASSIFY.c b/net/netfilter/xt_CLASSIFY.c
 -       unsigned int hooknum,
 -       const struct xt_target *target,
 -       const void *targinfo)
-+target(struct sk_buff *skb, const struct xt_target_param *par)
++target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct xt_classify_target_info *clinfo = targinfo;
 +	const struct xt_classify_target_info *clinfo = par->targinfo;
@@ -3564,7 +3566,7 @@ diff --git a/net/netfilter/xt_comment.c b/net/netfilter/xt_comment.c
 -      int offset,
 -      unsigned int protooff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	/* We always match */
  	return true;
@@ -3583,7 +3585,7 @@ diff --git a/net/netfilter/xt_connbytes.c b/net/netfilter/xt_connbytes.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_connbytes_info *sinfo = matchinfo;
 +	const struct xt_connbytes_info *sinfo = par->matchinfo;
@@ -3641,7 +3643,7 @@ diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 -             const struct net_device *out, const struct xt_match *match,
 -             const void *matchinfo, int offset, unsigned int protoff,
 -             bool *hotdrop)
-+connlimit_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++connlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_connlimit_info *info = matchinfo;
 +	const struct xt_connlimit_info *info = par->matchinfo;
@@ -3741,7 +3743,7 @@ diff --git a/net/netfilter/xt_connmark.c b/net/netfilter/xt_connmark.c
 -			   const struct net_device *out, unsigned int hooknum,
 -			   const struct xt_target *target,
 -			   const void *targinfo)
-+connmark_tg(struct sk_buff *skb, const struct xt_target_param *par)
++connmark_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct xt_connmark_tginfo1 *info = targinfo;
 +	const struct xt_connmark_tginfo1 *info = par->targinfo;
@@ -3783,7 +3785,7 @@ diff --git a/net/netfilter/xt_connmark.c b/net/netfilter/xt_connmark.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+connmark_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++connmark_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_connmark_mtinfo1 *info = matchinfo;
 +	const struct xt_connmark_mtinfo1 *info = par->matchinfo;
@@ -3831,7 +3833,7 @@ diff --git a/net/netfilter/xt_CONNSECMARK.c b/net/netfilter/xt_CONNSECMARK.c
 -			   const struct xt_target *target,
 -			   const void *targinfo)
 +static unsigned int
-+target(struct sk_buff *skb, const struct xt_target_param *par)
++target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct xt_connsecmark_target_info *info = targinfo;
 +	const struct xt_connsecmark_target_info *info = par->targinfo;
@@ -3879,7 +3881,7 @@ diff --git a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
  static bool
  conntrack_mt(const struct sk_buff *skb,
 -             const struct xt_match *match, const void *matchinfo,
-+             const struct xt_match_param *par,
++             struct xt_action_param *par,
               u16 state_mask, u16 status_mask)
  {
 -	const struct xt_conntrack_mtinfo2 *info = matchinfo;
@@ -3922,7 +3924,7 @@ diff --git a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
 -             const struct net_device *out, const struct xt_match *match,
 -             const void *matchinfo, int offset, unsigned int protoff,
 -             bool *hotdrop)
-+conntrack_mt_v2(const struct sk_buff *skb, const struct xt_match_param *par)
++conntrack_mt_v2(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_conntrack_mtinfo2 *info = matchinfo;
 +	const struct xt_conntrack_mtinfo2 *info = par->matchinfo;
@@ -4009,7 +4011,7 @@ diff --git a/net/netfilter/xt_dccp.c b/net/netfilter/xt_dccp.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_dccp_info *info = matchinfo;
 +	const struct xt_dccp_info *info = par->matchinfo;
@@ -4067,7 +4069,7 @@ diff --git a/net/netfilter/xt_dscp.c b/net/netfilter/xt_dscp.c
 -		  unsigned int protoff,
 -		  bool *hotdrop)
 +static bool
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_dscp_info *info = matchinfo;
 +	const struct xt_dscp_info *info = par->matchinfo;
@@ -4085,7 +4087,7 @@ diff --git a/net/netfilter/xt_dscp.c b/net/netfilter/xt_dscp.c
 -		   unsigned int protoff,
 -		   bool *hotdrop)
 +static bool
-+match6(const struct sk_buff *skb, const struct xt_match_param *par)
++match6(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_dscp_info *info = matchinfo;
 +	const struct xt_dscp_info *info = par->matchinfo;
@@ -4118,7 +4120,7 @@ diff --git a/net/netfilter/xt_dscp.c b/net/netfilter/xt_dscp.c
 -                   const struct net_device *out, const struct xt_match *match,
 -                   const void *matchinfo, int offset, unsigned int protoff,
 -                   bool *hotdrop)
-+static bool tos_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool tos_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_tos_match_info *info = matchinfo;
 +	const struct xt_tos_match_info *info = par->matchinfo;
@@ -4142,7 +4144,7 @@ diff --git a/net/netfilter/xt_DSCP.c b/net/netfilter/xt_DSCP.c
 -			   const struct xt_target *target,
 -			   const void *targinfo)
 +static unsigned int
-+target(struct sk_buff *skb, const struct xt_target_param *par)
++target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct xt_DSCP_info *dinfo = targinfo;
 +	const struct xt_DSCP_info *dinfo = par->targinfo;
@@ -4160,7 +4162,7 @@ diff --git a/net/netfilter/xt_DSCP.c b/net/netfilter/xt_DSCP.c
 -			    const struct xt_target *target,
 -			    const void *targinfo)
 +static unsigned int
-+target6(struct sk_buff *skb, const struct xt_target_param *par)
++target6(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct xt_DSCP_info *dinfo = targinfo;
 +	const struct xt_DSCP_info *dinfo = par->targinfo;
@@ -4194,7 +4196,7 @@ diff --git a/net/netfilter/xt_DSCP.c b/net/netfilter/xt_DSCP.c
 -tos_tg(struct sk_buff *skb, const struct net_device *in,
 -       const struct net_device *out, unsigned int hooknum,
 -       const struct xt_target *target, const void *targinfo)
-+tos_tg(struct sk_buff *skb, const struct xt_target_param *par)
++tos_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct xt_tos_target_info *info = targinfo;
 +	const struct xt_tos_target_info *info = par->targinfo;
@@ -4208,7 +4210,7 @@ diff --git a/net/netfilter/xt_DSCP.c b/net/netfilter/xt_DSCP.c
 -tos_tg6(struct sk_buff *skb, const struct net_device *in,
 -        const struct net_device *out, unsigned int hooknum,
 -        const struct xt_target *target, const void *targinfo)
-+tos_tg6(struct sk_buff *skb, const struct xt_target_param *par)
++tos_tg6(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct xt_tos_target_info *info = targinfo;
 +	const struct xt_tos_target_info *info = par->targinfo;
@@ -4225,7 +4227,7 @@ diff --git a/net/netfilter/xt_ecn.c b/net/netfilter/xt_ecn.c
 -static inline bool match_tcp(const struct sk_buff *skb,
 -			    const struct xt_ecn_info *einfo,
 -			    unsigned int protoff, bool *hotdrop)
-+static inline bool match_tcp(const struct sk_buff *skb, const struct xt_match_param *par)
++static inline bool match_tcp(const struct sk_buff *skb, struct xt_action_param *par)
  {
 +    const struct xt_ecn_info *einfo = par->matchinfo;
  	struct tcphdr _tcph, *th;
@@ -4249,7 +4251,7 @@ diff --git a/net/netfilter/xt_ecn.c b/net/netfilter/xt_ecn.c
 -		 const struct net_device *in, const struct net_device *out,
 -		 const struct xt_match *match, const void *matchinfo,
 -		 int offset, unsigned int protoff, bool *hotdrop)
-+static bool ecn_mt4(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool ecn_mt4(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_ecn_info *info = matchinfo;
 +	const struct xt_ecn_info *info = par->matchinfo;
@@ -4285,7 +4287,7 @@ diff --git a/net/netfilter/xt_ecn.c b/net/netfilter/xt_ecn.c
 -		 const struct net_device *in, const struct net_device *out,
 -		 const struct xt_match *match, const void *matchinfo,
 -		 int offset, unsigned int protoff, bool *hotdrop)
-+static bool ecn_mt6(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool ecn_mt6(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_ecn_info *info = matchinfo;
 +	const struct xt_ecn_info *info = par->matchinfo;
@@ -4329,7 +4331,7 @@ diff --git a/net/netfilter/xt_esp.c b/net/netfilter/xt_esp.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+static bool match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct ip_esp_hdr _esp, *eh;
 -	const struct xt_esp *espinfo = matchinfo;
@@ -4381,7 +4383,7 @@ diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
 -             const struct net_device *out, const struct xt_match *match,
 -             const void *matchinfo, int offset, unsigned int protoff,
 -             bool *hotdrop)
-+hashlimit_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++hashlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_hashlimit_mtinfo1 *info = matchinfo;
 +	const struct xt_hashlimit_mtinfo1 *info = par->matchinfo;
@@ -4463,7 +4465,7 @@ diff --git a/net/netfilter/xt_helper.c b/net/netfilter/xt_helper.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_helper_info *info = matchinfo;
 +	const struct xt_helper_info *info = par->matchinfo;
@@ -4515,7 +4517,7 @@ diff --git a/net/netfilter/xt_hl.c b/net/netfilter/xt_hl.c
 -		  const struct net_device *in, const struct net_device *out,
 -		  const struct xt_match *match, const void *matchinfo,
 -		  int offset, unsigned int protoff, bool *hotdrop)
-+static bool ttl_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool ttl_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ipt_ttl_info *info = matchinfo;
 +	const struct ipt_ttl_info *info = par->matchinfo;
@@ -4530,7 +4532,7 @@ diff --git a/net/netfilter/xt_hl.c b/net/netfilter/xt_hl.c
 -		  const struct net_device *in, const struct net_device *out,
 -		  const struct xt_match *match, const void *matchinfo,
 -		  int offset, unsigned int protoff, bool *hotdrop)
-+static bool hl_mt6(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool hl_mt6(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct ip6t_hl_info *info = matchinfo;
 +	const struct ip6t_hl_info *info = par->matchinfo;
@@ -4548,7 +4550,7 @@ diff --git a/net/netfilter/xt_HL.c b/net/netfilter/xt_HL.c
 -       const struct net_device *in, const struct net_device *out,
 -       unsigned int hooknum, const struct xt_target *target,
 -       const void *targinfo)
-+ttl_tg(struct sk_buff *skb, const struct xt_target_param *par)
++ttl_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	struct iphdr *iph;
 -	const struct ipt_TTL_info *info = targinfo;
@@ -4564,7 +4566,7 @@ diff --git a/net/netfilter/xt_HL.c b/net/netfilter/xt_HL.c
 -       const struct net_device *in, const struct net_device *out,
 -       unsigned int hooknum, const struct xt_target *target,
 -       const void *targinfo)
-+hl_tg6(struct sk_buff *skb, const struct xt_target_param *par)
++hl_tg6(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	struct ipv6hdr *ip6h;
 -	const struct ip6t_HL_info *info = targinfo;
@@ -4618,7 +4620,7 @@ diff --git a/net/netfilter/xt_IMQ.c b/net/netfilter/xt_IMQ.c
 -			       const struct xt_target *target,
 -			       const void *targinfo)
 +static unsigned int
-+imq_target(struct sk_buff *skb, const struct xt_target_param *par)
++imq_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	struct xt_imq_info *mr = (struct xt_imq_info*)targinfo;
 +	const struct xt_imq_info *mr = par->targinfo;
@@ -4651,7 +4653,7 @@ diff --git a/net/netfilter/xt_iprange.c b/net/netfilter/xt_iprange.c
 -            const struct net_device *out, const struct xt_match *match,
 -            const void *matchinfo, int offset, unsigned int protoff,
 -            bool *hotdrop)
-+iprange_mt4(const struct sk_buff *skb, const struct xt_match_param *par)
++iprange_mt4(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_iprange_mtinfo *info = matchinfo;
 +	const struct xt_iprange_mtinfo *info = par->matchinfo;
@@ -4666,7 +4668,7 @@ diff --git a/net/netfilter/xt_iprange.c b/net/netfilter/xt_iprange.c
 -            const struct net_device *out, const struct xt_match *match,
 -            const void *matchinfo, int offset, unsigned int protoff,
 -            bool *hotdrop)
-+iprange_mt6(const struct sk_buff *skb, const struct xt_match_param *par)
++iprange_mt6(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_iprange_mtinfo *info = matchinfo;
 +	const struct xt_iprange_mtinfo *info = par->matchinfo;
@@ -4688,7 +4690,7 @@ diff --git a/net/netfilter/xt_layer7.c b/net/netfilter/xt_layer7.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+layer7_mt(const struct sk_buff *skbin, const struct xt_match_param *par)
++layer7_mt(const struct sk_buff *skbin, struct xt_action_param *par)
  {
  	/* sidestep const without getting a compiler warning... */
  	struct sk_buff * skb = (struct sk_buff *)skbin; 
@@ -4745,7 +4747,7 @@ diff --git a/net/netfilter/xt_length.c b/net/netfilter/xt_length.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_length_info *info = matchinfo;
 +	const struct xt_length_info *info = par->matchinfo;
@@ -4763,7 +4765,7 @@ diff --git a/net/netfilter/xt_length.c b/net/netfilter/xt_length.c
 -       int offset,
 -       unsigned int protoff,
 -       bool *hotdrop)
-+match6(const struct sk_buff *skb, const struct xt_match_param *par)
++match6(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_length_info *info = matchinfo;
 +	const struct xt_length_info *info = par->matchinfo;
@@ -4785,7 +4787,7 @@ diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
 -		int offset,
 -		unsigned int protoff,
 -		bool *hotdrop)
-+ipt_limit_match(const struct sk_buff *skb, const struct xt_match_param *par)
++ipt_limit_match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_rateinfo *r = (struct xt_rateinfo *)matchinfo;
 +	const struct xt_rateinfo *r = (struct xt_rateinfo *)par->matchinfo;
@@ -4837,7 +4839,7 @@ diff --git a/net/netfilter/xt_mac.c b/net/netfilter/xt_mac.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+static bool match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -    const struct xt_mac_info *info = matchinfo;
 +    const struct xt_mac_info *info = par->matchinfo;
@@ -4854,7 +4856,7 @@ diff --git a/net/netfilter/xt_mark.c b/net/netfilter/xt_mark.c
 -mark_tg(struct sk_buff *skb, const struct net_device *in,
 -		const struct net_device *out, unsigned int hooknum,
 -		const struct xt_target *target, const void *targinfo)
-+mark_tg(struct sk_buff *skb, const struct xt_target_param *par)
++mark_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct xt_mark_tginfo2 *info = targinfo;
 +	const struct xt_mark_tginfo2 *info = par->targinfo;
@@ -4867,7 +4869,7 @@ diff --git a/net/netfilter/xt_mark.c b/net/netfilter/xt_mark.c
 -mark_mt(const struct sk_buff *skb, const struct net_device *in,
 -        const struct net_device *out, const struct xt_match *match,
 -        const void *matchinfo, int offset, unsigned int protoff, bool *hotdrop)
-+mark_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++mark_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_mark_mtinfo1 *info = matchinfo;
 +	const struct xt_mark_mtinfo1 *info = par->matchinfo;
@@ -4889,7 +4891,7 @@ diff --git a/net/netfilter/xt_multiport.c b/net/netfilter/xt_multiport.c
 -	 int offset,
 -	 unsigned int protoff,
 -	 bool *hotdrop)
-+match_v1(const struct sk_buff *skb, const struct xt_match_param *par)
++match_v1(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	__be16 _ports[2], *pptr;
 -	const struct xt_multiport_v1 *multiinfo = matchinfo;
@@ -4958,7 +4960,7 @@ diff --git a/net/netfilter/xt_NFLOG.c b/net/netfilter/xt_NFLOG.c
 -	     const struct net_device *in, const struct net_device *out,
 -	     unsigned int hooknum, const struct xt_target *target,
 -	     const void *targinfo)
-+nflog_target(struct sk_buff *skb, const struct xt_target_param *par)
++nflog_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct xt_nflog_info *info = targinfo;
 +	const struct xt_nflog_info *info = par->targinfo;
@@ -5044,7 +5046,7 @@ diff --git a/net/netfilter/xt_NFQUEUE.c b/net/netfilter/xt_NFQUEUE.c
 -       unsigned int hooknum,
 -       const struct xt_target *target,
 -       const void *targinfo)
-+target(struct sk_buff *skb, const struct xt_target_param *par)
++target(struct sk_buff *skb, const struct xt_action_param *par)
  {
 -	const struct xt_NFQ_info *tinfo = targinfo;
 +	const struct xt_NFQ_info *tinfo = par->targinfo;
@@ -5064,7 +5066,7 @@ diff --git a/net/netfilter/xt_NOTRACK.c b/net/netfilter/xt_NOTRACK.c
 -       unsigned int hooknum,
 -       const struct xt_target *target,
 -       const void *targinfo)
-+target(struct sk_buff *skb, const struct xt_target_param *par)
++target(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	/* Previously seen (loopback)? Ignore. */
  	if (skb->nfct != NULL)
@@ -5079,7 +5081,7 @@ diff --git a/net/netfilter/xt_owner.c b/net/netfilter/xt_owner.c
 -         const struct net_device *out, const struct xt_match *match,
 -         const void *matchinfo, int offset, unsigned int protoff,
 -         bool *hotdrop)
-+owner_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++owner_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_owner_match_info *info = matchinfo;
 +	const struct xt_owner_match_info *info = par->matchinfo;
@@ -5101,7 +5103,7 @@ diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
 -	const struct xt_physdev_info *info = matchinfo;
@@ -5158,7 +5160,7 @@ diff --git a/net/netfilter/xt_pkttype.c b/net/netfilter/xt_pkttype.c
 -      unsigned int protoff,
 -      bool *hotdrop)
 +static bool
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_pkttype_info *info = matchinfo;
 +	const struct xt_pkttype_info *info = par->matchinfo;
@@ -5191,7 +5193,7 @@ diff --git a/net/netfilter/xt_policy.c b/net/netfilter/xt_policy.c
 -		  unsigned int protoff,
 -		  bool *hotdrop)
 +static bool
-+policy_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++policy_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_policy_info *info = matchinfo;
 +	const struct xt_policy_info *info = par->matchinfo;
@@ -5250,7 +5252,7 @@ diff --git a/net/netfilter/xt_quota.c b/net/netfilter/xt_quota.c
 -      const struct net_device *in, const struct net_device *out,
 -      const struct xt_match *match, const void *matchinfo,
 -      int offset, unsigned int protoff, bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	struct xt_quota_info *q = (void *)matchinfo;
 +	struct xt_quota_info *q = (void *)par->matchinfo;
@@ -5299,7 +5301,7 @@ diff --git a/net/netfilter/xt_realm.c b/net/netfilter/xt_realm.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_realm_info *info = matchinfo;
 +	const struct xt_realm_info *info = par->matchinfo;
@@ -5317,7 +5319,7 @@ diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
 -          const struct net_device *in, const struct net_device *out,
 -          const struct xt_match *match, const void *matchinfo,
 -          int offset, unsigned int protoff, bool *hotdrop)
-+recent_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++recent_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_recent_mtinfo *info = matchinfo;
 +	const struct xt_recent_mtinfo *info = par->matchinfo;
@@ -5399,7 +5401,7 @@ diff --git a/net/netfilter/xt_sctp.c b/net/netfilter/xt_sctp.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_sctp_info *info = matchinfo;
 +	const struct xt_sctp_info *info = par->matchinfo;
@@ -5456,7 +5458,7 @@ diff --git a/net/netfilter/xt_SECMARK.c b/net/netfilter/xt_SECMARK.c
 -			   const struct xt_target *target,
 -			   const void *targinfo)
 +static unsigned int
-+target(struct sk_buff *skb, const struct xt_target_param *par)
++target(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	u32 secmark = 0;
 -	const struct xt_secmark_target_info *info = targinfo;
@@ -5493,7 +5495,7 @@ diff --git a/net/netfilter/xt_state.c b/net/netfilter/xt_state.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_state_info *sinfo = matchinfo;
 +	const struct xt_state_info *sinfo = par->matchinfo;
@@ -5541,7 +5543,7 @@ diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
 -      const struct net_device *in, const struct net_device *out,
 -      const struct xt_match *match, const void *matchinfo,
 -      int offset, unsigned int protoff, bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_statistic_info *info = matchinfo;
 +	const struct xt_statistic_info *info = (void *)par->matchinfo;
@@ -5591,7 +5593,7 @@ diff --git a/net/netfilter/xt_string.c b/net/netfilter/xt_string.c
 -		  unsigned int protoff,
 -		  bool *hotdrop)
 +static bool
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_string_info *conf = matchinfo;
 +	const struct xt_string_info *conf = par->matchinfo;
@@ -5640,7 +5642,7 @@ diff --git a/net/netfilter/xt_TARPIT.c b/net/netfilter/xt_TARPIT.c
 -                                     const struct xt_target *target,
 -                                     const void *targinfo)
 +static unsigned int
-+xt_tarpit_target(struct sk_buff *skb, const struct xt_target_param *par)
++xt_tarpit_target(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	const struct iphdr *iph   = ip_hdr(skb);
  	struct rtable *rt         = (void *)skb->dst;
@@ -5686,7 +5688,7 @@ diff --git a/net/netfilter/xt_tcpmss.c b/net/netfilter/xt_tcpmss.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+match(const struct sk_buff *skb, const struct xt_match_param *par)
++match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_tcpmss_match_info *info = matchinfo;
 +	const struct xt_tcpmss_match_info *info = par->matchinfo;
@@ -5727,7 +5729,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  static int
  tcpmss_mangle_packet(struct sk_buff *skb,
 -		     const struct xt_tcpmss_info *info,
-+		     const struct xt_target_param *par,
++		     const struct xt_action_param *par,
  		     unsigned int in_mtu,
  		     unsigned int tcphoff,
  		     unsigned int minlen)
@@ -5746,7 +5748,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 -		  unsigned int hooknum,
 -		  const struct xt_target *target,
 -		  const void *targinfo)
-+xt_tcpmss_target4(struct sk_buff *skb, const struct xt_target_param *par)
++xt_tcpmss_target4(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	struct iphdr *iph = ip_hdr(skb);
  	__be16 newlen;
@@ -5767,7 +5769,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 -		  unsigned int hooknum,
 -		  const struct xt_target *target,
 -		  const void *targinfo)
-+xt_tcpmss_target6(struct sk_buff *skb, const struct xt_target_param *par)
++xt_tcpmss_target6(struct sk_buff *skb, const struct xt_action_param *par)
  {
  	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
  	u8 nexthdr;
@@ -5842,7 +5844,7 @@ diff --git a/net/netfilter/xt_tcpudp.c b/net/netfilter/xt_tcpudp.c
 -	  int offset,
 -	  unsigned int protoff,
 -	  bool *hotdrop)
-+static bool tcp_match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool tcp_match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct tcphdr _tcph, *th;
 -	const struct xt_tcp *tcpinfo = matchinfo;
@@ -5923,7 +5925,7 @@ diff --git a/net/netfilter/xt_tcpudp.c b/net/netfilter/xt_tcpudp.c
 -	  int offset,
 -	  unsigned int protoff,
 -	  bool *hotdrop)
-+static bool udp_match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool udp_match(const struct sk_buff *skb, struct xt_action_param *par)
  {
  	struct udphdr _udph, *uh;
 -	const struct xt_udp *udpinfo = matchinfo;
@@ -5976,7 +5978,7 @@ diff --git a/net/netfilter/xt_time.c b/net/netfilter/xt_time.c
 -                          const struct xt_match *match, const void *matchinfo,
 -                          int offset, unsigned int protoff, bool *hotdrop)
 +static bool
-+xt_time_match(const struct sk_buff *skb, const struct xt_match_param *par)
++xt_time_match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_time_info *info = matchinfo;
 +	const struct xt_time_info *info = par->matchinfo;
@@ -6009,7 +6011,7 @@ diff --git a/net/netfilter/xt_u32.c b/net/netfilter/xt_u32.c
 -		      const struct net_device *out,
 -		      const struct xt_match *match, const void *matchinfo,
 -		      int offset, unsigned int protoff, bool *hotdrop)
-+static bool u32_match(const struct sk_buff *skb, const struct xt_match_param *par)
++static bool u32_match(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_u32 *data = matchinfo;
 +	const struct xt_u32 *data = par->matchinfo;
@@ -6031,7 +6033,7 @@ diff --git a/net/netfilter/xt_webstr.c b/net/netfilter/xt_webstr.c
 -      int offset,
 -      unsigned int protoff,
 -      bool *hotdrop)
-+webstr_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++webstr_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
 -	const struct xt_webstr_info *info = matchinfo;
 +	const struct xt_webstr_info *info = par->matchinfo;
