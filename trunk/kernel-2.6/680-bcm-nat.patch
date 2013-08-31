@@ -685,7 +685,7 @@
  MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
  MODULE_DESCRIPTION("Xtables: packet mark operations");
 @@ -28,8 +32,18 @@ static unsigned int
- mark_tg(struct sk_buff *skb, const struct xt_target_param *par)
+ mark_tg(struct sk_buff *skb, struct xt_action_param *par)
  {
  	const struct xt_mark_tginfo2 *info = par->targinfo;
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
