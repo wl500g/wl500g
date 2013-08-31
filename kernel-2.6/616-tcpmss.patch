@@ -53,7 +53,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  
 +	/* This is a fragment, no TCP header is available */
 +	if (par->fragoff != 0)
-+		return XT_CONTINUE;
++		return 0;
 +
  	if (!skb_make_writable(pskb, (*pskb)->len))
  		return -1;
