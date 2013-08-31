@@ -16,6 +16,7 @@ netfilter: xtables: move extension arguments into compound structure
  62fc8051083a334578c3f4b3488808f210b4565f netfilter: xtables: deconstify struct xt_action_param for matches
  b4ba26119b06052888696491f614201817491a0d netfilter: xtables: change hotdrop pointer to direct modification
  4f948db1915ff05e4ce0fd98e6323db6a3ec0fc0 netfilter: xtables: remove almost-unused xt_match_param.data member
+ aa5fa3185791aac71c9172d4fda3e8729164b5d1 netfilter: xtables: make use of caller family rather than match family
 
 ---
  include/linux/netfilter/x_tables.h        |  139 +++++++++++++++++-------
@@ -4188,7 +4189,7 @@ diff --git a/net/netfilter/xt_dscp.c b/net/netfilter/xt_dscp.c
 +	const struct xt_tos_match_info *info = par->matchinfo;
  
 -	if (match->family == AF_INET)
-+	if (par->match->family == NFPROTO_IPV4)
++	if (par->family == NFPROTO_IPV4)
  		return ((ip_hdr(skb)->tos & info->tos_mask) ==
  		       info->tos_value) ^ !!info->invert;
  	else
@@ -4484,7 +4485,7 @@ diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
  	if (info->name[sizeof(info->name)-1] != '\0')
  		return 0;
 -	if (match->family == AF_INET) {
-+	if (par->match->family == NFPROTO_IPV4) {
++	if (par->family == NFPROTO_IPV4) {
  		if (info->cfg.srcmask > 32 || info->cfg.dstmask > 32)
  			return false;
  	} else {
@@ -4494,8 +4495,8 @@ diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
  	mutex_lock(&hashlimit_mutex);
 -	info->hinfo = htable_find_get(info->name, match->family);
 -	if (!info->hinfo && htable_create(info, match->family) != 0) {
-+	info->hinfo = htable_find_get(info->name, par->match->family);
-+	if (!info->hinfo && htable_create(info, par->match->family) != 0) {
++	info->hinfo = htable_find_get(info->name, par->family);
++	if (!info->hinfo && htable_create(info, par->family) != 0) {
  		mutex_unlock(&hashlimit_mutex);
  		return 0;
  	}
@@ -5263,10 +5264,10 @@ diff --git a/net/netfilter/xt_policy.c b/net/netfilter/xt_policy.c
  
  	if (info->flags & XT_POLICY_MATCH_IN)
 -		ret = match_policy_in(skb, info, match->family);
-+		ret = match_policy_in(skb, info, par->match->family);
++		ret = match_policy_in(skb, info, par->family);
  	else
 -		ret = match_policy_out(skb, info, match->family);
-+		ret = match_policy_out(skb, info, par->match->family);
++		ret = match_policy_out(skb, info, par->family);
  
  	if (ret < 0)
  		ret = info->flags & XT_POLICY_MATCH_NONE ? true : false;
@@ -5392,7 +5393,7 @@ diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
  	int ret = info->invert;
  
 -	if (match->family == AF_INET) {
-+	if (par->match->family == NFPROTO_IPV4) {
++	if (par->family == NFPROTO_IPV4) {
  		const struct iphdr *iph = ip_hdr(skb);
  
  		if (info->side == XT_RECENT_DEST)
@@ -5407,13 +5408,13 @@ diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
  	spin_lock_bh(&recent_lock);
  	t = recent_table_lookup(info->name);
 -	e = recent_entry_lookup(t, &addr, match->family,
-+	e = recent_entry_lookup(t, &addr, par->match->family,
++	e = recent_entry_lookup(t, &addr, par->family,
  				(info->check_set & XT_RECENT_TTL) ? ttl : 0);
  	if (e == NULL) {
  		if (!(info->check_set & XT_RECENT_SET))
  			goto out;
 -		e = recent_entry_init(t, &addr, match->family, ttl);
-+		e = recent_entry_init(t, &addr, par->match->family, ttl);
++		e = recent_entry_init(t, &addr, par->family, ttl);
  		if (e == NULL)
 -			*hotdrop = true;
 +			par->hotdrop = true;
