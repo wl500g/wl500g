@@ -9,10 +9,11 @@ kernel.org commits:
 db1a75bdcc1766dc7e1fae9201ae287dcbcb6c66 netfilter: xt_TCPMSS: collapse tcpmss_reverse_mtu{4,6} into one function
 409b545ac10d9548929557a75ad86540f59a2c83 netfilter: xt_TCPMSS: Fix violation of RFC879 in absence of MSS option
 70d19f805f8c047fc0a28dec9306b3773971c8d9 netfilter: xt_TCPMSS: Fix IPv6 default MSS too
+b396966c4688522863572927cb30aa874b3ec504 netfilter: xt_TCPMSS: Fix missing fragmentation handling
 
 ---
- net/netfilter/xt_TCPMSS.c |   88 +++++++++++++++++++++++++++++++++++++---------
- 1 file changed, 72 insertions(+), 16 deletions(-)
+ net/netfilter/xt_TCPMSS.c |   92 ++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 76 insertions(+), 16 deletions(-)
 
 diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 --- a/net/netfilter/xt_TCPMSS.c
@@ -46,6 +47,17 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  		     unsigned int tcphoff,
  		     unsigned int minlen)
  {
+@@ -48,6 +57,10 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+ 	u16 newmss;
+ 	u8 *opt;
+ 
++	/* This is a fragment, no TCP header is available */
++	if (par->fragoff != 0)
++		return XT_CONTINUE;
++
+ 	if (!skb_make_writable(pskb, (*pskb)->len))
+ 		return -1;
+ 
 @@ -56,17 +61,9 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
  	tcplen = (*pskb)->len - tcphoff;
  	tcph = (struct tcphdr *)(skb_network_header(*pskb) + tcphoff);

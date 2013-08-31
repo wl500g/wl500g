@@ -6729,8 +6729,8 @@ diff -urBp a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  		     unsigned int in_mtu,
  		     unsigned int tcphoff,
 @@ -55,22 +55,22 @@ tcpmss_mangle_packet(struct sk_buff **ps
- 	u16 newmss;
- 	u8 *opt;
+ 	if (par->fragoff != 0)
+ 		return XT_CONTINUE;
  
 -	if (!skb_make_writable(pskb, (*pskb)->len))
 +	if (!skb_make_writable(skb, skb->len))
