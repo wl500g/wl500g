@@ -51,6 +51,7 @@ ifeq ($(KERNEL),2.4)
 	cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux-$(LINUX_VERSION)/include/asm-generic $(LINUX_HEADERS_DIR)/include/
 	cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux-$(LINUX_VERSION)/include/linux $(LINUX_HEADERS_DIR)/include/
 else
+	$(KMAKE) include/linux/utsrelease.h
 	$(KMAKE) INSTALL_HDR_PATH="$(LINUX_HEADERS_DIR)" headers_install
 	find $(LINUX_HEADERS_DIR)/include \( -name .install -o -name ..install.cmd \) -delete
 endif
