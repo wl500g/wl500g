@@ -36,7 +36,7 @@
 #ifndef _EXFAT_OAL_H
 #define _EXFAT_OAL_H
 
-#include <linux/semaphore.h>
+#include <asm/semaphore.h>
 #include "exfat_config.h"
 #include <linux/version.h>
 
@@ -47,6 +47,9 @@
 /*----------------------------------------------------------------------*/
 /*  Constant & Macro Definitions (Non-Configurable)                     */
 /*----------------------------------------------------------------------*/
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
+#define DEFINE_SEMAPHORE	DECLARE_MUTEX
+#endif
 
 /*----------------------------------------------------------------------*/
 /*  Type Definitions                                                    */

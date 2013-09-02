@@ -42,7 +42,7 @@
 /*                                                                      */
 /************************************************************************/
 
-#include <linux/semaphore.h>
+#include <asm/semaphore.h>
 #include <linux/time.h>
 
 #include "exfat_config.h"

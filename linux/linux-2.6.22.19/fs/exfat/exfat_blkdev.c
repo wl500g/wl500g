@@ -73,7 +73,7 @@ s32 bdev_open(struct super_block *sb)
 	if (p_bd->opened)
 		return FFS_SUCCESS;
 
-	p_bd->sector_size      = bdev_logical_block_size(sb->s_bdev);
+	p_bd->sector_size      = bdev_hardsect_size(sb->s_bdev);
 	p_bd->sector_size_bits = ilog2(p_bd->sector_size);
 	p_bd->sector_size_mask = p_bd->sector_size - 1;
 	p_bd->num_sectors      = i_size_read(sb->s_bdev->bd_inode) >> p_bd->sector_size_bits;

@@ -796,6 +796,8 @@ config FAT_DEFAULT_IOCHARSET
 	  If unsure, you shouldn't set "utf8" here.
 	  See <file:Documentation/filesystems/vfat.txt> for more information.
 
+source "fs/exfat/Kconfig"
+
 config NTFS_FS
 	tristate "NTFS file system support"
 	select NLS
