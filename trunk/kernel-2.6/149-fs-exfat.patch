@@ -1,0 +1,172 @@
+Samsung exfat driver, community edition
+ from http://github.com/dorimanx/exfat-nofuse
+
+diff --git a/fs/Kconfig b/fs/Kconfig
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -801,6 +801,8 @@
+ 	  If unsure, you shouldn't set "utf8" here.
+ 	  See <file:Documentation/filesystems/vfat.txt> for more information.
+ 
++source "fs/exfat/Kconfig"
++
+ config NTFS_FS
+ 	tristate "NTFS file system support"
+ 	select NLS
+diff --git a/fs/Makefile b/fs/Makefile
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -79,6 +79,7 @@
+ obj-$(CONFIG_CODA_FS)		+= coda/
+ obj-$(CONFIG_MINIX_FS)		+= minix/
+ obj-$(CONFIG_FAT_FS)		+= fat/
++obj-$(CONFIG_EXFAT_FS)		+= exfat/
+ obj-$(CONFIG_MSDOS_FS)		+= msdos/
+ obj-$(CONFIG_VFAT_FS)		+= vfat/
+ obj-$(CONFIG_BFS_FS)		+= bfs/
+diff --git a/fs/exfat/exfat_blkdev.c b/fs/exfat/exfat_blkdev.c
+--- a/fs/exfat/exfat_blkdev.c
++++ b/fs/exfat/exfat_blkdev.c
+@@ -73,7 +73,7 @@ INT32 bdev_open(struct super_block *sb)
+ 
+ 	if (p_bd->opened) return(FFS_SUCCESS);
+ 
+-	p_bd->sector_size      = bdev_logical_block_size(sb->s_bdev);
++	p_bd->sector_size      = bdev_hardsect_size(sb->s_bdev);
+ 	p_bd->sector_size_bits = my_log2(p_bd->sector_size);
+ 	p_bd->sector_size_mask = p_bd->sector_size - 1;
+ 	p_bd->num_sectors      = i_size_read(sb->s_bdev->bd_inode) >> p_bd->sector_size_bits;
+diff --git a/fs/exfat/exfat_config.h b/fs/exfat/exfat_config.h
+--- a/fs/exfat/exfat_config.h
++++ b/fs/exfat/exfat_config.h
+@@ -89,7 +89,7 @@ extern "C" {
+ /*----------------------------------------------------------------------*/
+ /* Feature Config                                                       */
+ /*----------------------------------------------------------------------*/
+-#define EXFAT_CONFIG_DISCARD		1	// mount option -o discard support
++#define EXFAT_CONFIG_DISCARD		0	// mount option -o discard support
+ #define EXFAT_CONFIG_KERNEL_DEBUG	1	// kernel debug features via ioctl
+ #define EXFAT_CONFIG_DEBUG_MSG		0	// debugging message on/off
+ 
+diff --git a/fs/exfat/exfat_oal.c b/fs/exfat/exfat_oal.c
+--- a/fs/exfat/exfat_oal.c
++++ b/fs/exfat/exfat_oal.c
+@@ -42,7 +42,7 @@
+ /*                                                                      */
+ /************************************************************************/
+ 
+-#include <linux/semaphore.h>
++#include <asm/semaphore.h>
+ #include <linux/time.h>
+ 
+ #include "exfat_config.h"
+diff --git a/fs/exfat/exfat_super.c b/fs/exfat/exfat_super.c
+--- a/fs/exfat/exfat_super.c
++++ b/fs/exfat/exfat_super.c
+@@ -240,7 +240,7 @@ static struct inode *exfat_build_inode(s
+ static void exfat_detach(struct inode *inode);
+ static void exfat_attach(struct inode *inode, loff_t i_pos);
+ static inline unsigned long exfat_hash(loff_t i_pos);
+-static int exfat_write_inode(struct inode *inode, struct writeback_control *wbc);
++static int exfat_write_inode(struct inode *inode, int wait);
+ static void exfat_write_super(struct super_block *sb);
+ 
+ static void __lock_super(struct super_block *sb)
+@@ -471,13 +471,13 @@ static long exfat_generic_ioctl(struct f
+ }
+ 
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
+-static int exfat_file_fsync(struct file *filp, int datasync)
++static int exfat_file_fsync(struct file *filp, struct dentry *dentry, int datasync)
+ {
+ 	struct inode *inode = filp->f_mapping->host;
+ 	struct super_block *sb = inode->i_sb;
+ 	int res, err;
+ 
+-	res = generic_file_fsync(filp, datasync);
++	res = simple_fsync(filp, dentry, datasync);
+ 	err = FsSyncVol(sb, 1);
+ 
+ 	return res ? res : err;
+@@ -1003,9 +1003,9 @@ static int exfat_allow_set_time(struct e
+ 	mode_t allow_utime = sbi->options.allow_utime;
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
+-	if (!uid_eq(current_fsuid(), inode->i_uid))
++	if (!uid_eq(current->fsuid, inode->i_uid))
+ #else
+-	if (current_fsuid() != inode->i_uid)
++	if (current->fsuid != inode->i_uid)
+ #endif
+ 	{
+ 		if (in_group_p(inode->i_gid))
+@@ -1058,7 +1058,9 @@ static int exfat_setattr(struct dentry *
+ 	struct inode *inode = dentry->d_inode;
+ 	unsigned int ia_valid;
+ 	int error;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+ 	loff_t old_size;
++#endif
+ 
+ 	PRINTK("exfat_setattr entered\n");
+ 
+@@ -1072,9 +1072,9 @@ static int exfat_setattr(struct dentry *
+ 
+ 	ia_valid = attr->ia_valid;
+ 
+-	if ((ia_valid & (ATTR_MTIME_SET | ATTR_ATIME_SET | ATTR_TIMES_SET))
++	if ((ia_valid & (ATTR_MTIME_SET | ATTR_ATIME_SET))
+ 		&& exfat_allow_set_time(sbi, inode)) {
+-		attr->ia_valid &= ~(ATTR_MTIME_SET | ATTR_ATIME_SET | ATTR_TIMES_SET);
++		attr->ia_valid &= ~(ATTR_MTIME_SET | ATTR_ATIME_SET);
+ 	}
+ 
+ 	error = inode_change_ok(inode, attr);
+@@ -1628,7 +1628,7 @@ out:
+ 
+ static int exfat_sync_inode(struct inode *inode)
+ {
+-	return exfat_write_inode(inode, NULL);
++	return exfat_write_inode(inode, 0);
+ }
+ 
+ static struct inode *exfat_alloc_inode(struct super_block *sb) {
+@@ -1653,7 +1653,7 @@ static void exfat_destroy_inode(struct i
+ 	kmem_cache_free(exfat_inode_cachep, EXFAT_I(inode));
+ }
+ 
+-static int exfat_write_inode(struct inode *inode, struct writeback_control *wbc)
++static int exfat_write_inode(struct inode *inode, int wait)
+ {
+ 	struct super_block *sb = inode->i_sb;
+ 	struct exfat_sb_info *sbi = EXFAT_SB(sb);
+@@ -1731,14 +1735,15 @@ static void exfat_put_super(struct super
+ 
+ static void exfat_write_super(struct super_block *sb)
+ {
+-	__lock_super(sb);
++/* Requires commit ebc1ac16 "->write_super lock_super pushdown" */
++//	__lock_super(sb);
+ 
+ 	__set_sb_clean(sb);
+ 
+ 	if (!(sb->s_flags & MS_RDONLY))
+ 		FsSyncVol(sb, 1);
+ 
+-	__unlock_super(sb);
++//	__unlock_super(sb);
+ }
+ 
+ static int exfat_sync_fs(struct super_block *sb, int wait)
+@@ -1910,8 +1910,8 @@ static int parse_options(char *options,
+ 	int option;
+ 	char *iocharset;
+ 
+-	opts->fs_uid = current_uid();
+-	opts->fs_gid = current_gid();
++	opts->fs_uid = current->uid;
++	opts->fs_gid = current->gid;
+ 	opts->fs_fmask = opts->fs_dmask = current->fs->umask;
+ 	opts->allow_utime = (unsigned short) -1;
+ 	opts->codepage = exfat_default_codepage;
+-- 
