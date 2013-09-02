@@ -26,6 +26,7 @@
  f4e53e292ad0626a9d4f80cbdb6adae867d8b2bc ipv6: Don't send packet to big messages to self
  72b43d0898e97f588293b4a24b33c58c46633d81 inet6: prevent network storms caused by linux IPv6 routers
  876c7f41961dc5172b03cbf2dca65f05003f28a0 [IPv6]: Change IPv6 unspecified destination address to ::1 for raw and un-connected sockets
+ 83d7eb2979cd3390c375470225dd2d8f2009bc70 ipv6: cleanup: remove unneeded null check
 
 ---
  include/linux/ipv6.h     |    5 -
@@ -614,6 +615,16 @@ diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
  }
  
  /*
+@@ -218,8 +218,7 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
+ 			}
+ 			kfree_skb(skb);
+ 			skb = skb2;
+-			if (sk)
+-				skb_set_owner_w(skb, sk);
++			skb_set_owner_w(skb, sk);
+ 		}
+ 		if (opt->opt_flen)
+ 			ipv6_push_frag_opts(skb, opt, &proto);
 @@ -272,10 +272,8 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
  			       dst->dev, dst_output);
  	}
