@@ -1088,7 +1088,7 @@ libusb10-install:
 	$(STRIP) $(INSTALLDIR)/libusb10/usr/lib/*.so
 
 usb_modeswitch: libusb10
-	$(MAKE) -C $@ CC=$(CC) \
+	$(MAKE) -C $@ usb_modeswitch CC=$(CC) \
 	CFLAGS="-Wall -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS) \
 	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0" \
 	LDFLAGS="-Wl,--gc-sections"
