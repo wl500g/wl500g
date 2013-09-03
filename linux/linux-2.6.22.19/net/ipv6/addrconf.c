@@ -1262,6 +1262,31 @@ static bool ipv6_chk_same_addr(const struct in6_addr *addr,
 	return false;
 }
 
+int ipv6_chk_prefix(struct in6_addr *addr, struct net_device *dev)
+{
+	struct inet6_dev *idev;
+	struct inet6_ifaddr *ifa;
+	int	onlink;
+
+	onlink = 0;
+	rcu_read_lock();
+	idev = __in6_dev_get(dev);
+	if (idev) {
+		read_lock_bh(&idev->lock);
+		for (ifa = idev->addr_list; ifa; ifa = ifa->if_next) {
+			onlink = ipv6_prefix_equal(addr, &ifa->addr,
+						   ifa->prefix_len);
+			if (onlink)
+				break;
+		}
+		read_unlock_bh(&idev->lock);
+	}
+	rcu_read_unlock();
+	return onlink;
+}
+
+EXPORT_SYMBOL(ipv6_chk_prefix);
+
 struct inet6_ifaddr *ipv6_get_ifaddr(const struct in6_addr *addr,
 				     struct net_device *dev, int strict)
 {
@@ -1321,13 +1346,17 @@ int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
 
 /* Gets referenced address, destroys ifaddr */
 
-static void addrconf_dad_stop(struct inet6_ifaddr *ifp)
+static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
 {
 	if (ifp->flags&IFA_F_PERMANENT) {
 		spin_lock_bh(&ifp->lock);
 		addrconf_del_timer(ifp);
 		ifp->flags |= IFA_F_TENTATIVE;
+		if (dad_failed)
+			ifp->flags |= IFA_F_DADFAILED;
 		spin_unlock_bh(&ifp->lock);
+		if (dad_failed)
+			ipv6_ifa_notify(0, ifp);
 		in6_ifa_put(ifp);
 #ifdef CONFIG_IPV6_PRIVACY
 	} else if (ifp->flags&IFA_F_TEMPORARY) {
@@ -1354,7 +1383,7 @@ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
 		printk(KERN_INFO "%s: IPv6 duplicate address detected!\n",
 			ifp->idev->dev->name);
 
-	addrconf_dad_stop(ifp);
+	addrconf_dad_stop(ifp, 1);
 }
 
 /* Join to solicited addr multicast group. */
@@ -2392,6 +2421,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 		break;
 	case NETDEV_UP:
 	case NETDEV_CHANGE:
+		if (dev->flags & IFF_SLAVE)
+			break;
+
 		if (event == NETDEV_UP) {
 			if (!addrconf_qdisc_ok(dev)) {
 				/* device is not ready yet. */
@@ -2710,7 +2742,7 @@ static void addrconf_dad_start(struct inet6_ifaddr *ifp, u32 flags)
 	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
 	    !(ifp->flags&IFA_F_TENTATIVE) ||
 	    ifp->flags & IFA_F_NODAD) {
-		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
+		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC|IFA_F_DADFAILED);
 		spin_unlock_bh(&ifp->lock);
 		read_unlock_bh(&idev->lock);
 
@@ -2727,7 +2759,7 @@ static void addrconf_dad_start(struct inet6_ifaddr *ifp, u32 flags)
 		 * - otherwise, kill it.
 		 */
 		in6_ifa_hold(ifp);
-		addrconf_dad_stop(ifp);
+		addrconf_dad_stop(ifp, 0);
 		return;
 	}
 
@@ -2762,7 +2794,7 @@ static void addrconf_dad_timer(unsigned long data)
 		 * DAD was successful
 		 */
 
-		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
+		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC|IFA_F_DADFAILED);
 		spin_unlock_bh(&ifp->lock);
 		read_unlock(&idev->lock);
 

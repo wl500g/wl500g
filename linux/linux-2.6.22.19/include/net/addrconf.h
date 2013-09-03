@@ -65,6 +65,10 @@ extern int			ipv6_chk_addr(struct in6_addr *addr,
 #ifdef CONFIG_IPV6_MIP6
 extern int			ipv6_chk_home_addr(struct in6_addr *addr);
 #endif
+
+extern int			ipv6_chk_prefix(struct in6_addr *addr,
+						struct net_device *dev);
+
 extern struct inet6_ifaddr *	ipv6_get_ifaddr(const struct in6_addr *addr,
 						struct net_device *dev,
 						int strict);

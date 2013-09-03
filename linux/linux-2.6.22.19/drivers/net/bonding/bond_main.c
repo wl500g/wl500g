@@ -1378,17 +1378,16 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
 		goto err_free;
 	}
 
+	res = netdev_set_master(slave_dev, bond_dev);
+	if (res) {
+		dprintk("Error %d calling netdev_set_master\n", res);
+		goto err_restore_mac;
+	}
 	/* open the slave since the application closed it */
 	res = dev_open(slave_dev);
 	if (res) {
 		dprintk("Openning slave %s failed\n", slave_dev->name);
-		goto err_restore_mac;
-	}
-
-	res = netdev_set_master(slave_dev, bond_dev);
-	if (res) {
-		dprintk("Error %d calling netdev_set_master\n", res);
-		goto err_close;
+		goto err_unset_master;
 	}
 
 	new_slave->dev = slave_dev;
@@ -1401,7 +1400,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
 		 */
 		res = bond_alb_init_slave(bond, new_slave);
 		if (res) {
-			goto err_unset_master;
+			goto err_close;
 		}
 	}
 
@@ -1582,7 +1581,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
 
 	res = bond_create_slave_symlinks(bond_dev, slave_dev);
 	if (res)
-		goto err_unset_master;
+		goto err_close;
 
 	printk(KERN_INFO DRV_NAME
 	       ": %s: enslaving %s as a%s interface with a%s link.\n",
@@ -1594,11 +1593,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
 	return 0;
 
 /* Undo stages on error */
-err_unset_master:
-	netdev_set_master(slave_dev, NULL);
-
 err_close:
 	dev_close(slave_dev);
+
+err_unset_master:
+	netdev_set_master(slave_dev, NULL);
 
 err_restore_mac:
 	memcpy(addr.sa_data, new_slave->perm_hwaddr, ETH_ALEN);
