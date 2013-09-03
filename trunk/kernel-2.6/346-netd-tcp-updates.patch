@@ -9,6 +9,7 @@
  4b749440445ebcb6fad402fc762bc35af871f689 tcp: Make prior_ssthresh a u32
  96e0bf4b5193d0d97d139f99e2dd128763d55521 tcp: Discard segments that ack data not yet sent
  8aca6cb1179ed9bef9351028c8d8af852903eae2 tcp: Fix inconsistency source (CA_Open only when !tcp_left_out(tp))
+ 1ac530b3553e0b4dc1e18a32bed57cfa84cd57cb tcp: missing check ACK flag of received segment in FIN-WAIT-2 state
  64022d0b4e93ea432e95db55a72b8a1c5775f3c0 tcp: fix crashes in do_tcp_sendpages()
  aab2b4bf224ef8358d262f95b568b8ad0cecf0a0 tcp: fix double-counted receiver RTT when leaving receiver fast path
  a3374c42aa5f7237e87ff3b0622018636b0c847e tcp: fix FIONREAD/SIOCINQ
@@ -29,10 +30,10 @@
  include/net/tcp.h        |   16 ++++----
  net/ipv4/tcp.c           |   38 ++++++++-----------
  net/ipv4/tcp_input.c     |   91 ++++++++++++++++++++++++++---------------------
- net/ipv4/tcp_minisocks.c |    1 
+ net/ipv4/tcp_minisocks.c |    4 +-
  net/ipv4/tcp_output.c    |   31 +++++++---------
  net/socket.c             |    6 +--
- 11 files changed, 148 insertions(+), 120 deletions(-)
+ 11 files changed, 150 insertions(+), 121 deletions(-)
 
 diff --git a/fs/splice.c b/fs/splice.c
 --- a/fs/splice.c
@@ -664,6 +665,16 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
 --- a/net/ipv4/tcp_minisocks.c
 +++ b/net/ipv4/tcp_minisocks.c
+@@ -128,7 +128,8 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
+ 			goto kill_with_rst;
+ 
+ 		/* Dup ACK? */
+-		if (!after(TCP_SKB_CB(skb)->end_seq, tcptw->tw_rcv_nxt) ||
++		if (!th->ack ||
++		    !after(TCP_SKB_CB(skb)->end_seq, tcptw->tw_rcv_nxt) ||
+ 		    TCP_SKB_CB(skb)->end_seq == TCP_SKB_CB(skb)->seq) {
+ 			inet_twsk_put(tw);
+ 			return TCP_TW_SUCCESS;
 @@ -399,7 +399,6 @@ struct sock *tcp_create_openreq_child(st
  		newicsk->icsk_rto = TCP_TIMEOUT_INIT;
  
