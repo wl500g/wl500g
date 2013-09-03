@@ -4,8 +4,11 @@
 #include <asm/atomic.h>
 #include <asm/system.h>
 
+#include <linux/kernel.h>
+
 struct task_struct;
 
+#ifdef CONFIG_DEBUG_KERNEL
 extern int debug_locks;
 extern int debug_locks_silent;
 
@@ -19,6 +22,22 @@ static inline int __debug_locks_off(void)
  * Generic 'turn off all lock debugging' function:
  */
 extern int debug_locks_off(void);
+
+#else
+
+#define debug_locks	0
+#define debug_locks_silent	0
+
+static inline int __debug_locks_off(void)
+{
+	return 0;
+}
+
+static inline int debug_locks_off(void)
+{
+	return 0;
+}
+#endif /* CONFIG_DEBUG_KERNEL */
 
 #define DEBUG_LOCKS_WARN_ON(c)						\
 ({									\

@@ -13,7 +13,7 @@ lib-$(CONFIG_SMP) += cpumask.o
 
 lib-y	+= kobject.o kobject_uevent.o  klist.o
 
-obj-y += div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+obj-y += div64.o sort.o parser.o halfmd4.o random32.o \
 	 bust_spinlocks.o hexdump.o
 
 ifeq ($(CONFIG_DEBUG_KOBJECT),y)
@@ -21,6 +21,7 @@ CFLAGS_kobject.o += -DDEBUG
 CFLAGS_kobject_uevent.o += -DDEBUG
 endif
 
+obj-$(CONFIG_DEBUG_KERNEL) += debug_locks.o
 obj-$(CONFIG_GENERIC_IOMAP) += iomap.o
 obj-$(CONFIG_HAS_IOMEM) += iomap_copy.o devres.o
 obj-$(CONFIG_DEBUG_LOCKING_API_SELFTESTS) += locking-selftest.o

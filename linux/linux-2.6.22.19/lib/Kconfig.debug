@@ -401,8 +401,8 @@ config DEBUG_LOCKING_API_SELFTESTS
 	  mutexes and rwsems.
 
 config STACKTRACE
-	bool
-	depends on DEBUG_KERNEL
+	bool "/proc/<pid>/stack support"
+#	depends on DEBUG_KERNEL
 	depends on STACKTRACE_SUPPORT
 
 config DEBUG_KOBJECT
