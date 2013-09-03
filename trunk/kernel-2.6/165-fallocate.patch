@@ -6,6 +6,17 @@ sys_fallocate() implementation
  422efb17eee0471baf4e1876ac9e8ba4c9e7a37a [MIPS] Fix fallocate on o32 binary compat ABI
 
 ---
+ arch/mips/kernel/linux32.c     |    7 +++++
+ arch/mips/kernel/scall32-o32.S |    2 -
+ arch/mips/kernel/scall64-64.S  |    2 -
+ arch/mips/kernel/scall64-n32.S |    2 -
+ arch/mips/kernel/scall64-o32.S |    2 -
+ fs/open.c                      |   57 +++++++++++++++++++++++++++++++++++++++++
+ include/asm-mips/unistd.h      |    6 ++--
+ include/linux/falloc.h         |    6 ++++
+ include/linux/fs.h             |    2 +
+ include/linux/syscalls.h       |    1 
+ 10 files changed, 80 insertions(+), 7 deletions(-)
  create mode 100644 include/linux/falloc.h
 
 diff --git a/arch/mips/kernel/linux32.c b/arch/mips/kernel/linux32.c
@@ -84,66 +95,64 @@ diff --git a/fs/open.c b/fs/open.c
  
  int vfs_statfs(struct dentry *dentry, struct kstatfs *buf)
  {
-@@ -352,6 +353,64 @@ asmlinkage long sys_ftruncate64(unsigned int fd, loff_t length)
+@@ -352,6 +353,62 @@ asmlinkage long sys_ftruncate64(unsigned int fd, loff_t length)
  }
  #endif
  
-+asmlinkage long sys_fallocate(int fd, int mode, loff_t offset, loff_t len)
++static int do_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 +{
-+	struct file *file;
-+	struct inode *inode;
-+	long ret = -EINVAL;
++	struct inode *inode = file->f_path.dentry->d_inode;
++	long ret;
 +
 +	if (offset < 0 || len <= 0)
-+		goto out;
++		return -EINVAL;
 +
 +	/* Return error if mode is not supported */
-+	ret = -EOPNOTSUPP;
 +	if (mode && !(mode & FALLOC_FL_KEEP_SIZE))
-+		goto out;
++		return -EOPNOTSUPP;
 +
-+	ret = -EBADF;
-+	file = fget(fd);
-+	if (!file)
-+		goto out;
 +	if (!(file->f_mode & FMODE_WRITE))
-+		goto out_fput;
++		return -EBADF;
 +	/*
 +	 * Revalidate the write permissions, in case security policy has
 +	 * changed since the files were opened.
 +	 */
 +	ret = security_file_permission(file, MAY_WRITE);
 +	if (ret)
-+		goto out_fput;
++		return ret;
 +
-+	inode = file->f_path.dentry->d_inode;
-+
-+	ret = -ESPIPE;
 +	if (S_ISFIFO(inode->i_mode))
-+		goto out_fput;
++		return -ESPIPE;
 +
-+	ret = -ENODEV;
 +	/*
 +	 * Let individual file system decide if it supports preallocation
 +	 * for directories or not.
 +	 */
 +	if (!S_ISREG(inode->i_mode) && !S_ISDIR(inode->i_mode))
-+		goto out_fput;
++		return -ENODEV;
 +
-+	ret = -EFBIG;
 +	/* Check for wrap through zero too */
 +	if (((offset + len) > inode->i_sb->s_maxbytes) || ((offset + len) < 0))
-+		goto out_fput;
++		return -EFBIG;
 +
-+	if (inode->i_op && inode->i_op->fallocate)
-+		ret = inode->i_op->fallocate(inode, mode, offset, len);
-+	else
-+		ret = -EOPNOTSUPP;
++	if (!inode->i_op || !inode->i_op->fallocate)
++		return -EOPNOTSUPP;
 +
-+out_fput:
-+	fput(file);
-+out:
-+	return ret;
++	return inode->i_op->fallocate(inode, mode, offset, len);
++}
++
++asmlinkage long sys_fallocate(int fd, int mode, loff_t offset, loff_t len)
++{
++	struct file *file;
++	int error = -EBADF;
++
++	file = fget(fd);
++	if (file) {
++		error = do_fallocate(file, mode, offset, len);
++		fput(file);
++	}
++
++	return error;
 +}
 +
  /*
@@ -214,4 +223,3 @@ diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
  int kernel_execve(const char *filename, char *const argv[], char *const envp[]);
  
 -- 
-1.7.4.4
