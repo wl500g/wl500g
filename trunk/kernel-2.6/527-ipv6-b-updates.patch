@@ -1,0 +1,154 @@
+[IPV6]: Updates from upstream 2
+
+ c2edacf80e155ef54ae4774379d461b60896bc2e bonding / ipv6: no addrconf for slaves separately from master
+ 569f0c4d909c7f73de634abcdc36344cb72de36a bonding: fix enslavement error unwinds
+ cc411d0bae9c19ec85a150aeab4b08335f5751d1 ipv6: Add IFA_F_DADFAILED flag
+ e2577a065832f2c6d108de2e027891bdb2d78924 ipv6: Send netlink notification when DAD fails
+
+---
+ drivers/net/bonding/bond_main.c |   23 +++++++++++------------
+ include/linux/if_addr.h         |    1 +
+ net/ipv6/addrconf.c             |   17 ++++++++++++-----
+ 3 files changed, 24 insertions(+), 17 deletions(-)
+
+diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
+--- a/include/linux/if_addr.h
++++ b/include/linux/if_addr.h
+@@ -41,6 +41,7 @@ enum
+ 
+ #define	IFA_F_NODAD		0x02
+ #define IFA_F_OPTIMISTIC	0x04
++#define IFA_F_DADFAILED		0x08
+ #define	IFA_F_HOMEADDRESS	0x10
+ #define IFA_F_DEPRECATED	0x20
+ #define IFA_F_TENTATIVE		0x40
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1378,17 +1378,16 @@ int bond_enslave(struct net_device *bond
+ 		goto err_free;
+ 	}
+ 
+-	/* open the slave since the application closed it */
+-	res = dev_open(slave_dev);
++	res = netdev_set_master(slave_dev, bond_dev);
+ 	if (res) {
+-		dprintk("Openning slave %s failed\n", slave_dev->name);
++		dprintk("Error %d calling netdev_set_master\n", res);
+ 		goto err_restore_mac;
+ 	}
+-
+-	res = netdev_set_master(slave_dev, bond_dev);
++	/* open the slave since the application closed it */
++	res = dev_open(slave_dev);
+ 	if (res) {
+-		dprintk("Error %d calling netdev_set_master\n", res);
+-		goto err_close;
++		dprintk("Openning slave %s failed\n", slave_dev->name);
++		goto err_unset_master;
+ 	}
+ 
+ 	new_slave->dev = slave_dev;
+@@ -1401,7 +1400,7 @@ int bond_enslave(struct net_device *bond
+ 		 */
+ 		res = bond_alb_init_slave(bond, new_slave);
+ 		if (res) {
+-			goto err_unset_master;
++			goto err_close;
+ 		}
+ 	}
+ 
+@@ -1582,7 +1581,7 @@ int bond_enslave(struct net_device *bond
+ 
+ 	res = bond_create_slave_symlinks(bond_dev, slave_dev);
+ 	if (res)
+-		goto err_unset_master;
++		goto err_close;
+ 
+ 	printk(KERN_INFO DRV_NAME
+ 	       ": %s: enslaving %s as a%s interface with a%s link.\n",
+@@ -1594,12 +1593,12 @@ int bond_enslave(struct net_device *bond
+ 	return 0;
+ 
+ /* Undo stages on error */
+-err_unset_master:
+-	netdev_set_master(slave_dev, NULL);
+-
+ err_close:
+ 	dev_close(slave_dev);
+ 
++err_unset_master:
++	netdev_set_master(slave_dev, NULL);
++
+ err_restore_mac:
+ 	memcpy(addr.sa_data, new_slave->perm_hwaddr, ETH_ALEN);
+ 	addr.sa_family = slave_dev->type;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1322,13 +1322,17 @@ int ipv6_rcv_saddr_equal(const struct so
+ 
+ /* Gets referenced address, destroys ifaddr */
+ 
+-static void addrconf_dad_stop(struct inet6_ifaddr *ifp)
++static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
+ {
+ 	if (ifp->flags&IFA_F_PERMANENT) {
+ 		spin_lock_bh(&ifp->lock);
+ 		addrconf_del_timer(ifp);
+ 		ifp->flags |= IFA_F_TENTATIVE;
++		if (dad_failed)
++			ifp->flags |= IFA_F_DADFAILED;
+ 		spin_unlock_bh(&ifp->lock);
++		if (dad_failed)
++			ipv6_ifa_notify(0, ifp);
+ 		in6_ifa_put(ifp);
+ #ifdef CONFIG_IPV6_PRIVACY
+ 	} else if (ifp->flags&IFA_F_TEMPORARY) {
+@@ -1355,7 +1359,7 @@ void addrconf_dad_failure(struct inet6_i
+ 		printk(KERN_INFO "%s: IPv6 duplicate address detected!\n",
+ 			ifp->idev->dev->name);
+ 
+-	addrconf_dad_stop(ifp);
++	addrconf_dad_stop(ifp, 1);
+ }
+ 
+ /* Join to solicited addr multicast group. */
+@@ -2427,6 +2431,9 @@ static int addrconf_notify(struct notifi
+ 		break;
+ 	case NETDEV_UP:
+ 	case NETDEV_CHANGE:
++		if (dev->flags & IFF_SLAVE)
++			break;
++
+ 		if (event == NETDEV_UP) {
+ 			if (!addrconf_qdisc_ok(dev)) {
+ 				/* device is not ready yet. */
+@@ -2766,7 +2773,7 @@ static void addrconf_dad_start(struct in
+ 	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
+ 	    !(ifp->flags&IFA_F_TENTATIVE) ||
+ 	    ifp->flags & IFA_F_NODAD) {
+-		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
++		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC|IFA_F_DADFAILED);
+ 		spin_unlock_bh(&ifp->lock);
+ 		read_unlock_bh(&idev->lock);
+ 
+@@ -2783,7 +2790,7 @@ static void addrconf_dad_start(struct in
+ 		 * - otherwise, kill it.
+ 		 */
+ 		in6_ifa_hold(ifp);
+-		addrconf_dad_stop(ifp);
++		addrconf_dad_stop(ifp, 0);
+ 		return;
+ 	}
+ 
+@@ -2818,7 +2825,7 @@ static void addrconf_dad_timer(unsigned 
+ 		 * DAD was successful
+ 		 */
+ 
+-		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
++		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC|IFA_F_DADFAILED);
+ 		spin_unlock_bh(&ifp->lock);
+ 		read_unlock(&idev->lock);
+ 
+-- 
