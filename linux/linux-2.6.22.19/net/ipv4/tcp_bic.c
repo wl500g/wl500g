@@ -136,8 +136,7 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
 		ca->cnt = 1;
 }
 
-static void bictcp_cong_avoid(struct sock *sk, u32 ack,
-			      u32 in_flight, int data_acked)
+static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct bictcp *ca = inet_csk_ca(sk);
@@ -149,16 +148,7 @@ static void bictcp_cong_avoid(struct sock *sk, u32 ack,
 		tcp_slow_start(tp);
 	else {
 		bictcp_update(ca, tp->snd_cwnd);
-
-		/* In dangerous area, increase slowly.
-		 * In theory this is tp->snd_cwnd += 1 / tp->snd_cwnd
-		 */
-		if (tp->snd_cwnd_cnt >= ca->cnt) {
-			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
-				tp->snd_cwnd++;
-			tp->snd_cwnd_cnt = 0;
-		} else
-			tp->snd_cwnd_cnt++;
+		tcp_cong_avoid_ai(tp, ca->cnt);
 	}
 
 }
@@ -206,7 +196,7 @@ static void bictcp_state(struct sock *sk, u8 new_state)
 /* Track delayed acknowledgment ratio using sliding window
  * ratio = (15*ratio + sample) / 16
  */
-static void bictcp_acked(struct sock *sk, u32 cnt, ktime_t last)
+static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt)
 {
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 

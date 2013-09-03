@@ -286,6 +286,7 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
 void tcp_slow_start(struct tcp_sock *tp)
 {
 	int cnt; /* increase in packets */
+	unsigned int delta = 0;
 
 	/* RFC3465: ABC Slow start
 	 * Increase only after a full MSS of bytes is acked
@@ -312,11 +313,24 @@ void tcp_slow_start(struct tcp_sock *tp)
 	tp->snd_cwnd_cnt += cnt;
 	while (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
 		tp->snd_cwnd_cnt -= tp->snd_cwnd;
-		if (tp->snd_cwnd < tp->snd_cwnd_clamp)
-			tp->snd_cwnd++;
+		delta++;
 	}
+	tp->snd_cwnd = min(tp->snd_cwnd + delta, tp->snd_cwnd_clamp);
 }
 EXPORT_SYMBOL_GPL(tcp_slow_start);
+
+/* In theory this is tp->snd_cwnd += 1 / tp->snd_cwnd (or alternative w) */
+void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w)
+{
+	if (tp->snd_cwnd_cnt >= w) {
+		if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+			tp->snd_cwnd++;
+		tp->snd_cwnd_cnt = 0;
+	} else {
+		tp->snd_cwnd_cnt++;
+	}
+}
+EXPORT_SYMBOL_GPL(tcp_cong_avoid_ai);
 
 /*
  * TCP Reno congestion control
@@ -325,7 +339,7 @@ EXPORT_SYMBOL_GPL(tcp_slow_start);
 /* This is Jacobson's slow start and congestion avoidance.
  * SIGCOMM '88, p. 328.
  */
-void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight, int flag)
+void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 
@@ -347,13 +361,7 @@ void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight, int flag)
 				tp->snd_cwnd++;
 		}
 	} else {
-		/* In theory this is tp->snd_cwnd += 1 / tp->snd_cwnd */
-		if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
-			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
-				tp->snd_cwnd++;
-			tp->snd_cwnd_cnt = 0;
-		} else
-			tp->snd_cwnd_cnt++;
+		tcp_cong_avoid_ai(tp, tp->snd_cwnd);
 	}
 }
 EXPORT_SYMBOL_GPL(tcp_reno_cong_avoid);
