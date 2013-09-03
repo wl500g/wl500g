@@ -2,6 +2,7 @@
 
  9d3e44425e3498eb33f25d94392b4fd0d56a5176 [SOCK]: Adds a rcu_dereference() in sk_filter
  db543c1f973cd1d557cc32ceee76737c1e4d2898 net: skb_copy_datagram_from_iovec()
+ e4f8b5d4edc1edb0709531bd1a342655d5e8b98e [IPV4]: Remove IP_TOS setting privilege checks.
  53b125779fb0b29e5b316bf3dc7d199e6dcea567 tcpv6: fix option space offsets with md5
  800d55f146098c5ffd1914d7eef2fd4a6d558b1d ipv6: Remove some pointless conditionals before kfree_skb()
  40d44446cf10d9d118e8f0132c94e1f25ea3be97 unix: remove some pointless conditionals before kfree_skb()
@@ -233,6 +234,18 @@ diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
  		if (optlen >= sizeof(int)) {
  			if (get_user(val, (int __user *) optval))
  				return -EFAULT;
+@@ -539,11 +534,6 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 			val &= ~3;
+ 			val |= inet->tos & 3;
+ 		}
+-		if (IPTOS_PREC(val) >= IPTOS_PREC_CRITIC_ECP &&
+-		    !capable(CAP_NET_ADMIN)) {
+-			err = -EPERM;
+-			break;
+-		}
+ 		if (inet->tos != val) {
+ 			inet->tos = val;
+ 			sk->sk_priority = rt_tos2priority(val);
 @@ -600,9 +606,15 @@ static int do_ip_setsockopt(struct sock *sk, int level,
  				break;
  		} else {
