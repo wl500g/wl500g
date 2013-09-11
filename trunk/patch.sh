@@ -8,12 +8,13 @@ if [ $# -lt 2 ]; then
 fi
 
 dbg_output=/dev/null
-flg_test=-R; unset flg_apply; unset flg_opt
+flg_test=-R; unset flg_apply; unset flg_opt; unset flg_force
 
-while getopts drRTZ f
+while getopts dfrRTZ f
 do
 	case $f in
 	    d)	  dbg_output=patch_debug.log;;
+	    f)	  flg_force=1;;
 	    r|R)  unset flg_test; flg_apply=-R;;
 	    T|Z)  flg_opt=-Z;;
 	    \?) echo $USAGE; exit 1;;
@@ -44,11 +45,13 @@ for a in $RPATCHES; do
 	# NB! it cannot detect situation in that sequence of patches
 	#     modify same source file
 	if patch -d $DIR --dry-run -p1 -f $flg_test < $a > /dev/null ; then
-		echo $a already applied
-		break
-	else
-		FPATCHES="$a $FPATCHES"
+		if [ -z "$flg_force" ]; then
+			echo $a already applied
+			break
+		fi
+		echo $a force apply
 	fi
+	FPATCHES="$a $FPATCHES"
 done
 
 [ -z "$FPATCHES" ] && exit 0
