@@ -32,9 +32,9 @@ patch:
 	@$(PATCHER) -Z $(KERNEL_DIR) buildhost.patch
 	$(MAKE) -C $(KERNEL_DIR) mrproper
 	@echo Patching kernel...
-	@$(PATCHER) -Z $(KERNEL_DIR) $(MIPS_Kernel_Patches)
-#	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
-	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
+	@$(PATCHER) -c -Z $(KERNEL_DIR) $(MIPS_Kernel_Patches)
+#	@$(PATCHER) -c -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
+	@$(PATCHER) -c -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
 
 extra-drivers:
 	@for drv in drivers/* ; do \

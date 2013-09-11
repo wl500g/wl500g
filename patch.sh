@@ -1,20 +1,27 @@
 #!/bin/bash
 
-USAGE="Usage: $0 [-dRZ] <dir> patches to apply"
+USAGE="Usage: $0 [-cdRZ] <dir> patches to apply"
+
+#	Options:
+#		c	Enable detection of already applied patches
+#		d	Turn on debug
+#		R	Revert
+#		Z	Set timestamp
 
 if [ $# -lt 2 ]; then
 	echo $USAGE
 	exit 1
 fi
 
+smart_cont=no
 dbg_output=/dev/null
-flg_test=-R; unset flg_apply; unset flg_opt; unset flg_force
+flg_test=-R; unset flg_apply; unset flg_opt
 
-while getopts dfrRTZ f
+while getopts cdrRTZ f
 do
 	case $f in
+	    c)    smart_cont=yes;;
 	    d)	  dbg_output=patch_debug.log;;
-	    f)	  flg_force=1;;
 	    r|R)  unset flg_test; flg_apply=-R;;
 	    T|Z)  flg_opt=-Z;;
 	    \?) echo $USAGE; exit 1;;
@@ -26,17 +33,18 @@ DIR=$1
 
 shift
 
-# reverse patch order
 LC_COLLATE=C
-for a in $*; do
-	RPATCHES="$a $RPATCHES"
-done
-
 echo -n "" > $dbg_output
 
-echo "Looking for last applied patch"
+if [ "$smart_cont" = "yes" ]; then
+# reverse patch order
+    for a in $*; do
+	RPATCHES="$a $RPATCHES"
+    done
 
-for a in $RPATCHES; do
+    echo "Looking for last applied patch"
+
+    for a in $RPATCHES; do
 	if [ ! -f $a ]; then
 		echo $a missing!
 		exit 1
@@ -45,14 +53,15 @@ for a in $RPATCHES; do
 	# NB! it cannot detect situation in that sequence of patches
 	#     modify same source file
 	if patch -d $DIR --dry-run -p1 -f $flg_test < $a > /dev/null ; then
-		if [ -z "$flg_force" ]; then
-			echo $a already applied
-			break
-		fi
-		echo $a force apply
+		echo $a already applied
+		break
+	else
+		FPATCHES="$a $FPATCHES"
 	fi
-	FPATCHES="$a $FPATCHES"
-done
+    done
+else
+    FPATCHES="$*"
+fi
 
 [ -z "$FPATCHES" ] && exit 0
 
