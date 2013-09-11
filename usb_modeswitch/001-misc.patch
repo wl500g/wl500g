@@ -1,13 +1,12 @@
 --- a/usb_modeswitch.c
 +++ b/usb_modeswitch.c
-@@ -144,8 +144,8 @@ char imanufact[DESCR_MAX], iproduct[DESC
+@@ -144,7 +144,7 @@ char imanufact[DESCR_MAX], iproduct[DESC
  char MessageContent[LINE_DIM];
  char MessageContent2[LINE_DIM];
  char MessageContent3[LINE_DIM];
 -char TargetProductList[LINE_DIM];
--char DefaultProductList[4];
-+char TargetProductList[8];
-+char DefaultProductList[8];
++char TargetProductList[5];
+ char DefaultProductList[5];
  char ByteString[LINE_DIM/2];
  char buffer[BUF_SIZE];
  
