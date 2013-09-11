@@ -231,9 +231,7 @@ dropbear_Patches := $(call patches_list,dropbear)
 $(TOP)/dropbear: dropbear/$(DROPBEAR).tar.bz2
 	@rm -rf $(TOP)/$(DROPBEAR) $@
 	tar -xjf $^ -C $(TOP)
-#TODO: temporary!!!, make global changes
-#	$(PATCHER) -Z $(TOP)/$(DROPBEAR) $(dropbear_Patches)
-	$(PATCHER) -Zf $(TOP)/$(DROPBEAR) $(dropbear_Patches)
+	$(PATCHER) -Z $(TOP)/$(DROPBEAR) $(dropbear_Patches)
 	mv $(TOP)/$(DROPBEAR) $@
 
 dropbear: $(TOP)/dropbear
