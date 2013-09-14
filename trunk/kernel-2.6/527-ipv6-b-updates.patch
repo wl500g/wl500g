@@ -4,12 +4,15 @@
  569f0c4d909c7f73de634abcdc36344cb72de36a bonding: fix enslavement error unwinds
  cc411d0bae9c19ec85a150aeab4b08335f5751d1 ipv6: Add IFA_F_DADFAILED flag
  e2577a065832f2c6d108de2e027891bdb2d78924 ipv6: Send netlink notification when DAD fails
+ 61e76b178dbe7145e8d6afa84bb4ccea71918994 ICMPv6: treat dest unreachable codes 5 and 6 as EACCES, not EPROTO
 
 ---
  drivers/net/bonding/bond_main.c |   23 +++++++++++------------
+ include/linux/icmpv6.h          |    2 ++
  include/linux/if_addr.h         |    1 +
  net/ipv6/addrconf.c             |   17 ++++++++++++-----
- 3 files changed, 24 insertions(+), 17 deletions(-)
+ net/ipv6/icmp.c                 |   10 +++++++++-
+ 5 files changed, 35 insertions(+), 18 deletions(-)
 
 diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
 --- a/include/linux/if_addr.h
@@ -22,6 +25,18 @@ diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
  #define	IFA_F_HOMEADDRESS	0x10
  #define IFA_F_DEPRECATED	0x20
  #define IFA_F_TENTATIVE		0x40
+diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
+--- a/include/linux/icmpv6.h
++++ b/include/linux/icmpv6.h
+@@ -115,6 +115,8 @@ struct icmp6hdr {
+ #define ICMPV6_NOT_NEIGHBOUR		2
+ #define ICMPV6_ADDR_UNREACH		3
+ #define ICMPV6_PORT_UNREACH		4
++#define ICMPV6_POLICY_FAIL		5
++#define ICMPV6_REJECT_ROUTE		6
+ 
+ /*
+  *	Codes for Time Exceeded
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
@@ -151,4 +166,31 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  		spin_unlock_bh(&ifp->lock);
  		read_unlock(&idev->lock);
  
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -940,6 +940,14 @@ static const struct icmp6_err {
+ 		.err	= ECONNREFUSED,
+ 		.fatal	= 1,
+ 	},
++	{	/* POLICY_FAIL */
++		.err	= EACCES,
++		.fatal	= 1,
++	},
++	{	/* REJECT_ROUTE	*/
++		.err	= EACCES,
++		.fatal	= 1,
++	},
+ };
+ 
+ int icmpv6_err_convert(u8 type, u8 code, int *err)
+@@ -951,7 +959,7 @@ int icmpv6_err_convert(u8 type, u8 code, int *err)
+ 	switch (type) {
+ 	case ICMPV6_DEST_UNREACH:
+ 		fatal = 1;
+-		if (code <= ICMPV6_PORT_UNREACH) {
++		if (code < ARRAY_SIZE(tab_unreach)) {
+ 			*err  = tab_unreach[code].err;
+ 			fatal = tab_unreach[code].fatal;
+ 		}
 -- 
