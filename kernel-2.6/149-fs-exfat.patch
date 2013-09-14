@@ -88,6 +88,41 @@ diff --git a/fs/exfat/exfat_super.c b/fs/exfat/exfat_super.c
  	err = FsSyncVol(sb, 1);
  
  	return res ? res : err;
+@@ -603,7 +603,7 @@ static struct dentry *exfat_lookup(struc
+ 	UINT64 ret;
+ 	mode_t i_mode;
+ 
+-	__lock_super(sb);
++//	__lock_super(sb);
+ 	PRINTK("exfat_lookup entered\n");
+ 	err = exfat_find(dir, &dentry->d_name, &fid);
+ 	if (err) {
+@@ -638,14 +638,14 @@ static struct dentry *exfat_lookup(struc
+ 		if (!S_ISDIR(i_mode))
+ 			d_move(alias, dentry);
+ 		iput(inode);
+-		__unlock_super(sb);
++//		__unlock_super(sb);
+ 		PRINTK("exfat_lookup exited 1\n");
+ 		return alias;
+ 	} else {
+ 		dput(alias);
+ 	}
+ out:
+-	__unlock_super(sb);
++//	__unlock_super(sb);
+ 	dentry->d_time = dentry->d_parent->d_inode->i_version;
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
+ 	dentry->d_op = sb->s_root->d_op;
+@@ -663,7 +663,7 @@ out:
+ 	return dentry;
+ 
+ error:
+-	__unlock_super(sb);
++//	__unlock_super(sb);
+ 	PRINTK("exfat_lookup exited 3\n");
+ 	return ERR_PTR(err);
+ }
 @@ -1003,9 +1003,9 @@ static int exfat_allow_set_time(struct e
  	mode_t allow_utime = sbi->options.allow_utime;
  
