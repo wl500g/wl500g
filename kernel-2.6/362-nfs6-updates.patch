@@ -1,8 +1,10 @@
  259902ea951008bcbd31a49f667062ff8012ef55 Make NFS client use seq_list_xxx helpers
+ 347e2233b7667e336d9f671f1a52dfa3f0416e2c SUNRPC: Fix memory corruption issue on 32-bit highmem systems
 
 ---
- fs/nfs/client.c |   54 ++++++------------------------------------------------
- 1 file changed, 6 insertions(+), 48 deletions(-)
+ fs/nfs/client.c  |   54 ++++++------------------------------------------------
+ net/sunrpc/xdr.c |    9 ++++++---
+ 2 files changed, 12 insertions(+), 51 deletions(-)
 
 diff --git a/fs/nfs/client.c b/fs/nfs/client.c
 --- a/fs/nfs/client.c
@@ -107,4 +109,24 @@ diff --git a/fs/nfs/client.c b/fs/nfs/client.c
  		seq_puts(m, "NV SERVER   PORT DEV     FSID\n");
  		return 0;
  	}
+diff --git a/net/sunrpc/xdr.c b/net/sunrpc/xdr.c
+--- a/net/sunrpc/xdr.c
++++ b/net/sunrpc/xdr.c
+@@ -207,10 +207,13 @@ _shift_data_right_pages(struct page **pages, size_t pgto_base,
+ 		pgfrom_base -= copy;
+ 
+ 		vto = kmap_atomic(*pgto, KM_USER0);
+-		vfrom = kmap_atomic(*pgfrom, KM_USER1);
+-		memmove(vto + pgto_base, vfrom + pgfrom_base, copy);
++		if (*pgto != *pgfrom) {
++			vfrom = kmap_atomic(*pgfrom, KM_USER1);
++			memcpy(vto + pgto_base, vfrom + pgfrom_base, copy);
++			kunmap_atomic(vfrom, KM_USER1);
++		} else
++			memmove(vto + pgto_base, vto + pgfrom_base, copy);
+ 		flush_dcache_page(*pgto);
+-		kunmap_atomic(vfrom, KM_USER1);
+ 		kunmap_atomic(vto, KM_USER0);
+ 
+ 	} while ((len -= copy) != 0);
 -- 
