@@ -1,28 +1,10 @@
-From 5e2afba4ecd7931ea06e6fa116ab28e6943dbd42
-From: Paul Guo
-Date: Mon, 14 Nov 2011 19:00:54 +0800
-Subject: [PATCH] netfilter: possible unaligned packet header in ip_route_me_harder
+ 98d9ae841ad620045d653fb05764e4a899f42dbd netfilter: nf_conntrack: fix event flooding in GRE protocol tracker
+ 5e2afba4ecd7931ea06e6fa116ab28e6943dbd42 netfilter: possible unaligned packet header in ip_route_me_harder
 
-This patch tries to fix the following issue in netfilter:
-In ip_route_me_harder(), we invoke pskb_expand_head() that
-rellocates new header with additional head room which can break
-the alignment of the original packet header.
-
-In one of my NAT test case, the NIC port for internal hosts is
-configured with vlan and the port for external hosts is with
-general configuration. If we ping an external "unknown" hosts from an
-internal host, an icmp packet will be sent. We find that in
-icmp_send()->...->ip_route_me_harder()->pskb_expand_head(), hh_len=18
-and current headroom (skb_headroom(skb)) of the packet is 16. After
-calling pskb_expand_head() the packet header becomes to be unaligned
-and then our system (arch/tile) panics immediately.
-
-Signed-off-by: Paul Guo <ggang@tilera.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ net/ipv4/netfilter.c                   |    3 ++-
+ net/netfilter/nf_conntrack_proto_gre.c |    4 ++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
 --- a/net/ipv4/netfilter.c
@@ -37,5 +19,18 @@ diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
  		return -1;
  
  	return 0;
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -241,8 +241,8 @@ static int gre_packet(struct nf_conn *ct,
+ 		nf_ct_refresh_acct(ct, ctinfo, skb,
+ 				   ct->proto.gre.stream_timeout);
+ 		/* Also, more likely to be important, and not a probe. */
+-		set_bit(IPS_ASSURED_BIT, &ct->status);
+-		nf_conntrack_event_cache(IPCT_STATUS, skb);
++		if (!test_and_set_bit(IPS_ASSURED_BIT, &ct->status))
++			nf_conntrack_event_cache(IPCT_STATUS, skb);
+ 	} else
+ 		nf_ct_refresh_acct(ct, ctinfo, skb,
+ 				   ct->proto.gre.timeout);
 -- 
-1.7.7.6
