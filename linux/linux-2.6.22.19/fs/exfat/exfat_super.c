@@ -543,7 +543,7 @@ out:
 	return err;
 }
 
-static int exfat_find(struct inode *dir, struct qstr *qname,
+static int exfat_find(struct inode *dir, const struct qstr *qname,
 					  FILE_ID_T *fid)
 {
 	int err;
@@ -1805,6 +1805,8 @@ static int exfat_remount(struct super_block *sb, int *flags, char *data)
 	return 0;
 }
 
+#include "nfs.c"
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,00)
 static int exfat_show_options(struct seq_file *m, struct dentry *root)
 {
@@ -2107,6 +2109,7 @@ static int exfat_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_flags |= MS_NODIRATIME;
 	sb->s_magic = EXFAT_SUPER_MAGIC;
 	sb->s_op = &exfat_sops;
+	sb->s_export_op = &exfat_export_ops;
 
 	error = parse_options(data, silent, &debug, &sbi->options);
 	if (error)
