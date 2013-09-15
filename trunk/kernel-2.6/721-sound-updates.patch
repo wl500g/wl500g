@@ -1,16 +1,77 @@
  43df2a57b773596cd0bdd2316889ff9653121015 ALSA: usb-audio: Use kmemdup rather than duplicating its implementation
  5cd5d7c44990658df6ab49f6253c39617c53b03d ALSA: usb-audio: fix rate_list memory leak
  78fa2c4d2465d014e67d3e12d948425856587251 ALSA: core: remove unused variables.
+ b751eef1fdffca5532344285f2fad0c60d2f0158 [ALSA] Use posix clock monotonic for PCM and timer timestamps
 
 ---
+ include/sound/asound.h     |   10 ++++++++--
+ include/sound/pcm.h        |   10 ++++++++++
  sound/core/control.c       |    3 +--
  sound/core/init.c          |    3 ---
  sound/core/oss/linear.c    |    3 ---
- sound/core/pcm_native.c    |    8 --------
+ sound/core/pcm_lib.c       |    2 +-
+ sound/core/pcm_native.c    |   33 ++++++++++++++++++++-------------
  sound/core/seq/seq_queue.c |    2 --
+ sound/core/timer.c         |   16 +++++++++++++---
  sound/usb/usbaudio.c       |   10 ++++++----
- 6 files changed, 7 insertions(+), 22 deletions(-)
+ 10 files changed, 59 insertions(+), 33 deletions(-)
 
+diff --git a/include/sound/asound.h b/include/sound/asound.h
+--- a/include/sound/asound.h
++++ b/include/sound/asound.h
+@@ -138,7 +138,7 @@ enum {
+  *                                                                           *
+  *****************************************************************************/
+ 
+-#define SNDRV_PCM_VERSION		SNDRV_PROTOCOL_VERSION(2, 0, 8)
++#define SNDRV_PCM_VERSION		SNDRV_PROTOCOL_VERSION(2, 0, 9)
+ 
+ typedef unsigned long snd_pcm_uframes_t;
+ typedef signed long snd_pcm_sframes_t;
+@@ -435,9 +435,15 @@ struct snd_xfern {
+ };
+ 
+ enum {
++	SNDRV_PCM_TSTAMP_TYPE_GETTIMEOFDAY = 0,	/* gettimeofday equivalent */
++	SNDRV_PCM_TSTAMP_TYPE_MONOTONIC,	/* posix_clock_monotonic equivalent */
++	SNDRV_PCM_TSTAMP_TYPE_LAST = SNDRV_PCM_TSTAMP_TYPE_MONOTONIC,
++};
++
++enum {
+ 	SNDRV_PCM_IOCTL_PVERSION = _IOR('A', 0x00, int),
+ 	SNDRV_PCM_IOCTL_INFO = _IOR('A', 0x01, struct snd_pcm_info),
+-	SNDRV_PCM_IOCTL_TSTAMP = _IOW('A', 0x02, int),
++	SNDRV_PCM_IOCTL_TTSTAMP = _IOW('A', 0x03, int),
+ 	SNDRV_PCM_IOCTL_HW_REFINE = _IOWR('A', 0x10, struct snd_pcm_hw_params),
+ 	SNDRV_PCM_IOCTL_HW_PARAMS = _IOWR('A', 0x11, struct snd_pcm_hw_params),
+ 	SNDRV_PCM_IOCTL_HW_FREE = _IO('A', 0x12),
+diff --git a/include/sound/pcm.h b/include/sound/pcm.h
+--- a/include/sound/pcm.h
++++ b/include/sound/pcm.h
+@@ -323,6 +323,7 @@ struct snd_pcm_runtime {
+ 
+ 	/* -- timer -- */
+ 	unsigned int timer_resolution;	/* timer resolution */
++	int tstamp_type;		/* timestamp type */
+ 
+ 	/* -- DMA -- */           
+ 	unsigned char *dma_area;	/* DMA area */
+@@ -952,6 +953,15 @@ void snd_pcm_timer_resolution_change(struct snd_pcm_substream *substream);
+ void snd_pcm_timer_init(struct snd_pcm_substream *substream);
+ void snd_pcm_timer_done(struct snd_pcm_substream *substream);
+ 
++static inline void snd_pcm_gettime(struct snd_pcm_runtime *runtime,
++				   struct timespec *tv)
++{
++	if (runtime->tstamp_type == SNDRV_PCM_TSTAMP_TYPE_MONOTONIC)
++		do_posix_clock_monotonic_gettime(tv);
++	else
++		getnstimeofday(tv);
++}
++
+ /*
+  *  Memory
+  */
 diff --git a/sound/core/control.c b/sound/core/control.c
 --- a/sound/core/control.c
 +++ b/sound/core/control.c
@@ -63,9 +124,42 @@ diff --git a/sound/core/oss/linear.c b/sound/core/oss/linear.c
  	if (frames == 0)
  		return 0;
  #ifdef CONFIG_SND_DEBUG
+diff --git a/sound/core/pcm_lib.c b/sound/core/pcm_lib.c
+--- a/sound/core/pcm_lib.c
++++ b/sound/core/pcm_lib.c
+@@ -188,7 +188,7 @@ static inline snd_pcm_uframes_t snd_pcm_update_hw_ptr_pos(struct snd_pcm_substream *substream,
+ 	if (pos == SNDRV_PCM_POS_XRUN)
+ 		return pos; /* XRUN */
+ 	if (runtime->tstamp_mode & SNDRV_PCM_TSTAMP_MMAP)
+-		getnstimeofday((struct timespec *)&runtime->status->tstamp);
++		snd_pcm_gettime(runtime, (struct timespec *)&runtime->status->tstamp);
+ #ifdef CONFIG_SND_DEBUG
+ 	if (pos >= runtime->buffer_size) {
+ 
 diff --git a/sound/core/pcm_native.c b/sound/core/pcm_native.c
 --- a/sound/core/pcm_native.c
 +++ b/sound/core/pcm_native.c
+@@ -598,9 +598,9 @@ int snd_pcm_status(struct snd_pcm_substream *substream,
+ 		if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_MMAP)
+ 			status->tstamp = runtime->status->tstamp;
+ 		else
+-			getnstimeofday(&status->tstamp);
++			snd_pcm_gettime(runtime, &status->tstamp);
+ 	} else
+-		getnstimeofday(&status->tstamp);
++		snd_pcm_gettime(runtime, &status->tstamp);
+ 	status->appl_ptr = runtime->control->appl_ptr;
+ 	status->hw_ptr = runtime->status->hw_ptr;
+ 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+@@ -688,7 +688,7 @@ static void snd_pcm_trigger_tstamp(struct snd_pcm_substream *substream)
+ 	if (runtime->trigger_master == NULL)
+ 		return;
+ 	if (runtime->trigger_master == substream) {
+-		getnstimeofday(&runtime->trigger_tstamp);
++		snd_pcm_gettime(runtime, &runtime->trigger_tstamp);
+ 	} else {
+ 		snd_pcm_trigger_tstamp(runtime->trigger_master);
+ 		runtime->trigger_tstamp = runtime->trigger_master->runtime->trigger_tstamp;
 @@ -2065,7 +2063,6 @@ static int snd_pcm_open_file(struct file *file,
  {
  	struct snd_pcm_file *pcm_file;
@@ -82,6 +176,39 @@ diff --git a/sound/core/pcm_native.c b/sound/core/pcm_native.c
  		substream->file = pcm_file;
  		substream->pcm_release = pcm_release_private;
  	}
+@@ -2519,6 +2519,21 @@ static int snd_pcm_sync_ptr(struct snd_pcm_substream *substream,
+ 		return -EFAULT;
+ 	return 0;
+ }
++
++static int snd_pcm_tstamp(struct snd_pcm_substream *substream, int __user *_arg)
++{
++	struct snd_pcm_runtime *runtime = substream->runtime;
++	int arg;
++	
++	if (get_user(arg, _arg))
++		return -EFAULT;
++	if (arg < 0 || arg > SNDRV_PCM_TSTAMP_TYPE_LAST)
++		return -EINVAL;
++	runtime->tstamp_type = SNDRV_PCM_TSTAMP_TYPE_GETTIMEOFDAY;
++	if (arg == SNDRV_PCM_TSTAMP_TYPE_MONOTONIC)
++		runtime->tstamp_type = SNDRV_PCM_TSTAMP_TYPE_MONOTONIC;
++	return 0;
++}
+ 		
+ static int snd_pcm_common_ioctl1(struct file *file,
+ 				 struct snd_pcm_substream *substream,
+@@ -2531,8 +2546,8 @@ static int snd_pcm_common_ioctl1(struct file *file,
+ 		return put_user(SNDRV_PCM_VERSION, (int __user *)arg) ? -EFAULT : 0;
+ 	case SNDRV_PCM_IOCTL_INFO:
+ 		return snd_pcm_info_user(substream, arg);
+-	case SNDRV_PCM_IOCTL_TSTAMP: /* just for compatibility */
+-		return 0;
++	case SNDRV_PCM_IOCTL_TTSTAMP:
++		return snd_pcm_tstamp(substream, arg);
+ 	case SNDRV_PCM_IOCTL_HW_REFINE:
+ 		return snd_pcm_hw_refine_user(substream, arg);
+ 	case SNDRV_PCM_IOCTL_HW_PARAMS:
 @@ -3024,12 +3020,9 @@ static const struct vm_operations_struct snd_pcm_vm_ops_status =
  static int snd_pcm_mmap_status(struct snd_pcm_substream *substream, struct file *file,
  			       struct vm_area_struct *area)
@@ -125,6 +252,51 @@ diff --git a/sound/core/seq/seq_queue.c b/sound/core/seq/seq_queue.c
  	snd_seq_timer_close(queue);
  	queuefree(queue);
  	return result;
+diff --git a/sound/core/timer.c b/sound/core/timer.c
+--- a/sound/core/timer.c
++++ b/sound/core/timer.c
+@@ -44,11 +44,14 @@
+ #endif
+ 
+ static int timer_limit = DEFAULT_TIMER_LIMIT;
++static int timer_tstamp_monotonic = 1;
+ MODULE_AUTHOR("Jaroslav Kysela <perex@suse.cz>, Takashi Iwai <tiwai@suse.de>");
+ MODULE_DESCRIPTION("ALSA timer interface");
+ MODULE_LICENSE("GPL");
+ module_param(timer_limit, int, 0444);
+ MODULE_PARM_DESC(timer_limit, "Maximum global timers in system.");
++module_param(timer_tstamp_monotonic, int, 0444);
++MODULE_PARM_DESC(timer_tstamp_monotonic, "Use posix monotonic clock source for timestamps (default).");
+ 
+ struct snd_timer_user {
+ 	struct snd_timer_instance *timeri;
+@@ -381,7 +384,10 @@ static void snd_timer_notify1(struct snd_timer_instance *ti, int event)
+ 	struct snd_timer_instance *ts;
+ 	struct timespec tstamp;
+ 
+-	getnstimeofday(&tstamp);
++	if (timer_tstamp_monotonic)
++		do_posix_clock_monotonic_gettime(&tstamp);
++	else
++		getnstimeofday(&tstamp);
+ 	snd_assert(event >= SNDRV_TIMER_EVENT_START &&
+ 		   event <= SNDRV_TIMER_EVENT_PAUSE, return);
+ 	if (event == SNDRV_TIMER_EVENT_START ||
+@@ -1182,8 +1188,12 @@ static void snd_timer_user_tinterrupt(struct snd_timer_instance *timeri,
+ 		spin_unlock(&tu->qlock);
+ 		return;
+ 	}
+-	if (tu->last_resolution != resolution || ticks > 0)
+-		getnstimeofday(&tstamp);
++	if (tu->last_resolution != resolution || ticks > 0) {
++		if (timer_tstamp_monotonic)
++			do_posix_clock_monotonic_gettime(&tstamp);
++		else
++			getnstimeofday(&tstamp);
++	}
+ 	if ((tu->filter & (1 << SNDRV_TIMER_EVENT_RESOLUTION)) &&
+ 	    tu->last_resolution != resolution) {
+ 		r1.event = SNDRV_TIMER_EVENT_RESOLUTION;
 diff --git a/sound/usb/usbaudio.c b/sound/usb/usbaudio.c
 --- a/sound/usb/usbaudio.c
 +++ b/sound/usb/usbaudio.c
