@@ -55,9 +55,14 @@
  cd1a28e8457e6ebf72c48d84d4e736307e86436e lockdep: add lock_class information to lock_chain and output it
  12aac19d4ba41019a1748f49d3c5d259b1bfb26d lockdep: Simplify lockdep_chains seqfile code
  8109e1de8502421f9efff1359f2779b1adcc0724 lockdep: Simplify lockdep seqfile code
+ 53b9d87f41a3d8838210ad7cdef02d814817ce85 lock debug: sit tight when we are already in a panic
+ c8a250058656495be02c00de61e26b017c86ef00 lockdep: more robust lockdep_map init sequence
+ 9eeba6138cefc0435695463ddadb0d95e0a6bcd2 lockdep: warn about lockdep disabling after kernel taint
+ 27b19565fe4ca5b0e9d2ae98ce4b81ca728bf445 lockdep: warn about lockdep disabling after kernel taint, fix
 
 ---
  Documentation/lockstat.txt       |  135 ++
+ include/linux/debug_locks.h      |   11 
  include/linux/lockdep.h          |  169 ++
  include/linux/mutex.h            |    9 
  include/linux/rcupdate.h         |    2 
@@ -65,17 +70,19 @@
  include/linux/spinlock_api_smp.h |    2 
  include/linux/workqueue.h        |   49 
  kernel/fork.c                    |    2 
- kernel/lockdep.c                 | 2476 +++++++++++++++++++++++++--------------
+ kernel/lockdep.c                 | 2492 +++++++++++++++++++++++++--------------
  kernel/lockdep_internals.h       |   12 
  kernel/lockdep_proc.c            |  467 ++++++-
  kernel/mutex.c                   |   41 
+ kernel/panic.c                   |    9 
  kernel/rwsem.c                   |    8 
  kernel/sched.c                   |    2 
  kernel/spinlock.c                |   42 
  kernel/sysctl.c                  |   22 
  kernel/workqueue.c               |   36 
  lib/Kconfig.debug                |   13 
- 18 files changed, 2493 insertions(+), 1000 deletions(-)
+ lib/debug_locks.c                |    2 
+ 21 files changed, 2523 insertions(+), 1008 deletions(-)
 
 diff --git a/Documentation/lockstat.txt b/Documentation/lockstat.txt
 --- a/Documentation/lockstat.txt
@@ -216,6 +223,39 @@ diff --git a/Documentation/lockstat.txt b/Documentation/lockstat.txt
 +Clear the statistics:
 +
 +# echo 0 > /proc/lock_stat
+diff --git a/include/linux/debug_locks.h b/include/linux/debug_locks.h
+--- a/include/linux/debug_locks.h
++++ b/include/linux/debug_locks.h
+@@ -1,11 +1,20 @@
+ #ifndef __LINUX_DEBUG_LOCKING_H
+ #define __LINUX_DEBUG_LOCKING_H
+ 
++#include <asm/atomic.h>
++#include <asm/system.h>
++
+ struct task_struct;
+ 
+ extern int debug_locks;
+ extern int debug_locks_silent;
+ 
++
++static inline int __debug_locks_off(void)
++{
++	return xchg(&debug_locks, 0);
++}
++
+ /*
+  * Generic 'turn off all lock debugging' function:
+  */
+@@ -23,7 +32,7 @@ extern int debug_locks_off(void);
+ ({									\
+ 	int __ret = 0;							\
+ 									\
+-	if (unlikely(c)) {						\
++	if (!oops_in_progress && unlikely(c)) {				\
+ 		if (debug_locks_off() && !debug_locks_silent)		\
+ 			WARN_ON(1);					\
+ 		__ret = 1;						\
 diff --git a/include/linux/lockdep.h b/include/linux/lockdep.h
 --- a/include/linux/lockdep.h
 +++ b/include/linux/lockdep.h
@@ -3032,13 +3072,41 @@ diff --git a/kernel/lockdep.c b/kernel/lockdep.c
  
  /*
   * Initialize a lock instance's lock-class mapping info:
-@@ -1999,6 +2490,9 @@ void lockdep_init_map(struct lockdep_map
- 	lock->name = name;
- 	lock->key = key;
- 	lock->class_cache = NULL;
+@@ -2090,13 +2490,20 @@ static int mark_lock(struct task_struct *curr, struct held_lock *this,
+ void lockdep_init_map(struct lockdep_map *lock, const char *name,
+ 		      struct lock_class_key *key, int subclass)
+ {
+-	if (unlikely(!debug_locks))
++	lock->class_cache = NULL;
 +#ifdef CONFIG_LOCK_STAT
 +	lock->cpu = raw_smp_processor_id();
 +#endif
++
++	if (DEBUG_LOCKS_WARN_ON(!name)) {
++		lock->name = "NULL";
+ 		return;
++	}
++
++	lock->name = name;
+ 
+ 	if (DEBUG_LOCKS_WARN_ON(!key))
+ 		return;
+-	if (DEBUG_LOCKS_WARN_ON(!name))
+-		return;
+ 	/*
+ 	 * Sanity check, the lock-class key must be persistent:
+ 	 */
+@@ -2105,9 +2512,11 @@ void lockdep_init_map(struct lockdep_map *lock, const char *name,
+ 		DEBUG_LOCKS_WARN_ON(1);
+ 		return;
+ 	}
+-	lock->name = name;
+ 	lock->key = key;
+-	lock->class_cache = NULL;
++
++	if (unlikely(!debug_locks))
++		return;
++
  	if (subclass)
  		register_lock_class(lock, subclass, 1);
  }
@@ -4559,6 +4627,25 @@ diff --git a/kernel/mutex.c b/kernel/mutex.c
  
  /*
   * Spinlock based trylock, we take the spinlock and check whether we
+diff --git a/kernel/panic.c b/kernel/panic.c
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -213,7 +213,14 @@ unsigned long get_taint(void)
+ 
+ void add_taint(unsigned flag)
+ {
+-	debug_locks = 0; /* can't trust the integrity of the kernel anymore */
++	/*
++	 * Can't trust the integrity of the kernel anymore.
++	 * We don't call directly debug_locks_off() because the issue
++	 * is not necessarily serious enough to set oops_in_progress to 1
++	 */
++	if (__debug_locks_off())
++		printk(KERN_WARNING "Disabling lockdep due to kernel taint\n");
++
+ 	tainted |= flag;
+ }
+ EXPORT_SYMBOL(add_taint);
 diff --git a/kernel/rwsem.c b/kernel/rwsem.c
 --- a/kernel/rwsem.c
 +++ b/kernel/rwsem.c
@@ -4931,4 +5018,16 @@ diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
  config DEBUG_LOCKDEP
  	bool "Lock dependency engine debugging"
  	depends on DEBUG_KERNEL && LOCKDEP
+diff --git a/lib/debug_locks.c b/lib/debug_locks.c
+--- a/lib/debug_locks.c
++++ b/lib/debug_locks.c
+@@ -36,7 +36,7 @@ int debug_locks_silent;
+  */
+ int debug_locks_off(void)
+ {
+-	if (xchg(&debug_locks, 0)) {
++	if (__debug_locks_off()) {
+ 		if (!debug_locks_silent) {
+ 			console_verbose();
+ 
 -- 
