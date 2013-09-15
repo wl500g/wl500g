@@ -1,3 +1,42 @@
+
+1) kernel: Allow /proc/<pid>/stack without DEBUG_KERNEL
+
+2) Turn off debug_locks at all, if DEBUG_KERNEL is disabled
+
+diff --git a/include/linux/debug_locks.h b/include/linux/debug_locks.h
+--- a/include/linux/debug_locks.h
++++ b/include/linux/debug_locks.h
+@@ -6,6 +6,7 @@
+ 
+ struct task_struct;
+ 
++#ifdef CONFIG_DEBUG_KERNEL
+ extern int debug_locks;
+ extern int debug_locks_silent;
+ 
+@@ -20,6 +21,22 @@ static inline int __debug_locks_off(void
+  */
+ extern int debug_locks_off(void);
+ 
++#else
++
++#define debug_locks	0
++#define debug_locks_silent	0
++
++static inline int __debug_locks_off(void)
++{
++	return 0;
++}
++
++static inline int debug_locks_off(void)
++{
++	return 0;
++}
++#endif /* CONFIG_DEBUG_KERNEL */
++
+ /*
+  * In the debug case we carry the caller's instruction pointer into
+  * other functions, but we dont want the function argument overhead
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
@@ -12,3 +51,24 @@ diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
  	depends on STACKTRACE_SUPPORT
  
  config DEBUG_KOBJECT
+diff --git a/lib/Makefile b/lib/Makefile
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -13,7 +13,7 @@
+ 
+ lib-y	+= kobject.o kobject_uevent.o  klist.o
+ 
+-obj-y += div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
++obj-y += div64.o sort.o parser.o halfmd4.o random32.o \
+ 	 bust_spinlocks.o hexdump.o
+ 
+ ifeq ($(CONFIG_DEBUG_KOBJECT),y)
+@@ -21,6 +21,7 @@
+ CFLAGS_kobject_uevent.o += -DDEBUG
+ endif
+ 
++obj-$(CONFIG_DEBUG_KERNEL) += debug_locks.o
+ obj-$(CONFIG_GENERIC_IOMAP) += iomap.o
+ obj-$(CONFIG_HAS_IOMEM) += iomap_copy.o devres.o
+ obj-$(CONFIG_DEBUG_LOCKING_API_SELFTESTS) += locking-selftest.o
+-- 
