@@ -1,0 +1,58 @@
+[4.7 Regression] wrong code at -O1 and above
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=58246
+
+--- gcc-4_8-branch/gcc/ChangeLog	2013/09/03 12:16:28	202216
++++ gcc-4_8-branch/gcc/ChangeLog	2013/09/03 12:18:34	202217
+@@ -1,3 +1,12 @@
++2013-09-03  Richard Biener  <rguenther@suse.de>
++
++	Backport from mainline
++	2013-08-29  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/58246
++	* tree-ssa-dce.c (mark_aliased_reaching_defs_necessary_1): Properly
++	handle the dominance check inside a basic-block.
++
+ 2013-07-08  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	PR rtl-optimization/57829
+--- gcc-4_8-branch/gcc/tree-ssa-dce.c	2013/09/03 12:16:28	202216
++++ gcc-4_8-branch/gcc/tree-ssa-dce.c	2013/09/03 12:18:34	202217
+@@ -574,6 +574,11 @@
+ 		      in the references (gcc.c-torture/execute/pr42142.c).
+ 		      The simplest way is to check if the kill dominates
+ 		      the use.  */
++		   /* But when both are in the same block we cannot
++		      easily tell whether we came from a backedge
++		      unless we decide to compute stmt UIDs
++		      (see PR58246).  */
++		   && (basic_block) data != gimple_bb (def_stmt)
+ 		   && dominated_by_p (CDI_DOMINATORS, (basic_block) data,
+ 				      gimple_bb (def_stmt))
+ 		   && operand_equal_p (ref->ref, lhs, 0))
+--- /dev/null
++++ gcc-4_8-branch/gcc/testsuite/gcc.dg/torture/pr58246.c	2013/09/03 12:18:34	202217
+@@ -0,0 +1,22 @@
++/* { dg-do run } */
++/* { dg-options "-O1" } */
++
++extern void abort (void);
++
++int a, b; 
++
++int main ()
++{
++  int t[2] = {1,1};
++
++  for (a = 0; a < 2; a++)
++    {
++      b ^= t[a];
++      t[a] = t[1] = 0;
++    }
++
++  if (b != 1)
++    abort ();
++
++  return 0;
++}
