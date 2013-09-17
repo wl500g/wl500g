@@ -29,6 +29,7 @@
 #include <asm/compiler.h>
 #include <asm/cpu.h>
 #include <asm/cpu-features.h>
+#include <asm/cpu-type.h>
 #include <asm/div64.h>
 #include <asm/sections.h>
 #include <asm/time.h>

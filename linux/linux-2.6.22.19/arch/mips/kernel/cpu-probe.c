@@ -18,6 +18,7 @@
 
 #include <asm/bugs.h>
 #include <asm/cpu.h>
+#include <asm/cpu-type.h>
 #include <asm/fpu.h>
 #include <asm/mipsregs.h>
 #include <asm/system.h>
@@ -64,6 +65,7 @@ static void r4k_wait_irqoff(void)
 	local_irq_enable();
 }
 
+#ifdef CONFIG_SYS_HAS_CPU_RM7000
 /*
  * The RM7000 variant has to handle erratum 38.  The workaround is to not
  * have any pending stores when the WAIT instruction is executed.
@@ -84,7 +86,9 @@ static void rm7k_wait_irqoff(void)
 		"	.set	pop					\n");
 	local_irq_enable();
 }
+#endif /* SYS_HAS_CPU_RM7000 */
 
+#ifdef CONFIG_SOC_AU1X00
 /* The Au1xxx wait is available only if using 32khz counter or
  * external timer source, but specifically not CP0 Counter. */
 int allow_au1k_wait;
@@ -105,6 +109,7 @@ static void au1k_wait(void)
 		"	.set	mips0			\n"
 		: : "r" (au1k_wait));
 }
+#endif /* SOC_AU1X00 */
 
 static int __initdata nowait = 0;
 
@@ -126,7 +131,7 @@ void __init check_wait(void)
 		return;
 	}
 
-	switch (c->cputype) {
+	switch (current_cpu_type()) {
 	case CPU_R3081:
 	case CPU_R3081E:
 		cpu_wait = r3081_wait;
@@ -150,11 +155,11 @@ void __init check_wait(void)
  	case CPU_PR4450:
 		cpu_wait = r4k_wait;
 		break;
-
+#ifdef CONFIG_SYS_HAS_CPU_RM7000
 	case CPU_RM7000:
 		cpu_wait = rm7k_wait_irqoff;
 		break;
-
+#endif
 	case CPU_24K:
 	case CPU_34K:
 		cpu_wait = r4k_wait;
@@ -171,6 +176,7 @@ void __init check_wait(void)
 	case CPU_TX49XX:
 		cpu_wait = r4k_wait_irqoff;
 		break;
+#ifdef CONFIG_SOC_AU1X00
 	case CPU_AU1000:
 	case CPU_AU1100:
 	case CPU_AU1500:
@@ -179,6 +185,7 @@ void __init check_wait(void)
 		if (allow_au1k_wait)
 			cpu_wait = au1k_wait;
 		break;
+#endif
 	case CPU_20KC:
 		/*
 		 * WAIT on Rev1.0 has E1, E2, E3 and E16.

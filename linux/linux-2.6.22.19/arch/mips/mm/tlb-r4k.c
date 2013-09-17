@@ -13,6 +13,7 @@
 #include <linux/mm.h>
 
 #include <asm/cpu.h>
+#include <asm/cpu-type.h>
 #include <asm/bootinfo.h>
 #include <asm/mmu_context.h>
 #include <asm/pgtable.h>
@@ -455,10 +456,13 @@ void __cpuinit tlb_init(void)
 	probe_tlb(config);
 	write_c0_pagemask(PM_DEFAULT_MASK);
 	write_c0_wired(0);
-	if (current_cpu_data.cputype == CPU_R10000 ||
-	    current_cpu_data.cputype == CPU_R12000 ||
-	    current_cpu_data.cputype == CPU_R14000)
-		write_c0_framemask(0);
+	switch (current_cpu_type()) {
+		case CPU_R10000:
+		case CPU_R12000:
+		case CPU_R14000:
+			write_c0_framemask(0);
+			break;
+	}
 	temp_tlb_entry = current_cpu_data.tlbsize - 1;
 
         /* From this point on the ARC firmware is dead.  */

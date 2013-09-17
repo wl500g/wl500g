@@ -11,6 +11,7 @@
 #include <linux/oprofile.h>
 #include <linux/smp.h>
 #include <asm/cpu-info.h>
+#include <asm/cpu-type.h>
 
 #include "op_impl.h"
 
@@ -74,7 +75,7 @@ int __init oprofile_arch_init(struct oprofile_operations *ops)
 	struct op_mips_model *lmodel = NULL;
 	int res;
 
-	switch (current_cpu_data.cputype) {
+	switch (current_cpu_type()) {
 	case CPU_5KC:
 	case CPU_20KC:
 	case CPU_24K:

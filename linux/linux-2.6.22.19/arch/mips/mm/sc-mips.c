@@ -6,6 +6,7 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 
+#include <asm/cpu-type.h>
 #include <asm/mipsregs.h>
 #include <asm/bcache.h>
 #include <asm/cacheops.h>
