@@ -5,7 +5,7 @@
 
 <script language="javascript">
 function redirect() {
- setTimeout("redirect1()",30000)
+ setTimeout("redirect1()",60000)
 }
 function redirect1() {
  top.location="index.asp"

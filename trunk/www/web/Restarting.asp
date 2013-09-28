@@ -5,7 +5,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <script type="text/javascript">
 function redirect() {
- setTimeout("redirect1()", 25000)
+ setTimeout("redirect1()", 45000)
 }
 function redirect1() {
  top.location="index.asp"
@@ -29,7 +29,7 @@ function redirect1() {
         </tr>
         <tr>
           <td width="652" height="25" bgcolor="#FFFFFF" colspan="2"><font face="Arial"> 
-            <font color="#FF0000"><b>Note: It takes about 20 seconds.</b></font></font></td>
+            <font color="#FF0000"><b>Note: It takes about 45 seconds.</b></font></font></td>
         </tr>
         </tbody>
       </table>
