@@ -57,9 +57,9 @@
 <td class="content_header_td_less">Get IPv6 automatically?
            </td><td class="content_input_td">
 		<input type="radio" value="1" name="ipv6_wanauto_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_wanauto_x', '1')"
-			<% nvram_match("ipv6_lanauto_x", "1", "checked"); %>>Yes
+			<% nvram_match("ipv6_wanauto_x", "1", "checked"); %>>Yes
 		<input type="radio" value="0" name="ipv6_wanauto_x" class="content_input_fd" onclick="return change_common_radio(this, 'IPv6Config', 'ipv6_wanauto_x', '0')"
-			<% nvram_match("ipv6_lanauto_x", "0", "checked"); %>>No</td>
+			<% nvram_match("ipv6_wanauto_x", "0", "checked"); %>>No</td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IPv6 Address of the router as seen on the WAN-port. If not specified, only auto-configured addresses will be seen.', LEFT);" onMouseOut="return nd();">IPv6 Address:
