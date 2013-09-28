@@ -754,16 +754,16 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		fprintf(fp, "-A FORWARD -p udp -d 224.0.0.0/4 -j ACCEPT\n");
 
 	/* Clamp TCP MSS to PMTU of WAN interface */
-	if (nvram_match("wan_proto", "pppoe") ||
-	    nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp") 
+	if (nvram_match("wan0_proto", "pppoe") ||
+	    nvram_match("wan0_proto", "pptp") || nvram_match("wan0_proto", "l2tp") 
 #ifdef __CONFIG_MADWIMAX__
-	 || nvram_match("wan_proto", "wimax")
+	 || nvram_match("wan0_proto", "wimax")
 #endif
 #ifdef __CONFIG_MODEM__
-	 || nvram_match("wan_proto", "usbmodem")
+	 || nvram_match("wan0_proto", "usbmodem")
 #endif
 #ifdef __CONFIG_USBNET__
-	 || nvram_match("wan_proto", "usbnet")
+	 || nvram_match("wan0_proto", "usbnet")
 #endif
         ) {
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
@@ -1040,12 +1040,16 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	// Pass multicast, should it depend on mr_enable_x?
 	//if (nvram_match("mr_enable_x", "1"))
 		fprintf(fp, "-A FORWARD -s ff00::/8 -j %s\n", logaccept);
-#ifndef BROKEN_IPV6_CONNTRACK
+
 	/* Clamp TCP MSS to PMTU of WAN interface */
 	if (nvram_match("ipv6_proto", "tun6in4") ||
 	    nvram_match("ipv6_proto", "tun6to4") ||
-	    nvram_match("ipv6_proto", "tun6rd"))
+	    nvram_match("ipv6_proto", "tun6rd") ||
+	    (!nvram_get_int("ipv6_if_x") &&
+	     (nvram_match("wan0_proto", "pppoe") ||
+	      nvram_match("wan0_proto", "pptp") || nvram_match("wan0_proto", "l2tp"))))
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+#ifndef BROKEN_IPV6_CONNTRACK
 	/* Accept related connections, skip rest of checks */
 	fprintf(fp, "-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
 #endif
