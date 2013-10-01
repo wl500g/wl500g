@@ -218,8 +218,7 @@ start_dns(void)
 #ifdef __CONFIG_RADVD__
 		fprintf(fp, "dhcp-range=lan,::,static,%d\n", 600);
 #else
-//TODO: too much noise for regular builds
-//		fprintf(fp, "force-fast-ra");
+		fprintf(fp, "force-fast-ra");
 		fprintf(fp, "dhcp-range=lan,::,constructor:%s,ra-stateless,ra-names,%d,%d\n",
 			nvram_safe_get("lan_ifname"), 64, 600);
 #endif
