@@ -16,12 +16,7 @@
  /* #define HAVE_DBUS */
  /* #define HAVE_IDN */
  /* #define HAVE_CONNTRACK */
-@@ -222,10 +222,12 @@ HAVE_SOCKADDR_SA_LEN
- #if !defined(__ARCH_HAS_MMU__) && !defined(__UCLIBC_HAS_MMU__)
- #  define NO_FORK
- #endif
--#if defined(__UCLIBC_HAS_IPV6__)
-+#if defined(__UCLIBC_HAS_IPV6__) && defined(USE_IPV6)
+@@ -226,6 +227,8 @@ HAVE_SOCKADDR_SA_LEN
  #  ifndef IPV6_V6ONLY
  #    define IPV6_V6ONLY 26
  #  endif
