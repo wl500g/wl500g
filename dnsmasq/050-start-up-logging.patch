@@ -1,0 +1,28 @@
+From e4e9b342a7d6d8d8746d5d79cad9f6abb10b67a6 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Wed, 2 Oct 2013 11:00:45 +0100
+Subject: [PATCH] Cosmetic change to start-up logging of DHCPv6 configuration.
+
+---
+ src/dhcp-common.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/src/dhcp-common.c b/src/dhcp-common.c
+index 7e99fc9..1ee2042 100644
+--- a/src/dhcp-common.c
++++ b/src/dhcp-common.c
+@@ -857,6 +857,11 @@ void log_context(int family, struct dhcp_context *context)
+     }
+   
+ #ifdef HAVE_DHCP6
++  if (context->flags & CONTEXT_TEMPLATE)
++    {
++      strcpy(daemon->addrbuff, context->template_interface);
++      template = "";
++    }
+   if ((context->flags & CONTEXT_RA_NAME) && !(context->flags & CONTEXT_OLD))
+     my_syslog(MS_DHCP | LOG_INFO, _("DHCPv4-derived IPv6 names on %s%s"), daemon->addrbuff, template);
+   
+-- 
+1.7.2.5
+
