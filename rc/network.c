@@ -1904,13 +1904,14 @@ void wan6_up(const char *wan_ifname, int unit)
 	/* Add IPv6 DNS servers */
 	if (nvram_invmatch("ipv6_dnsenable_x", "1")) {
 		char dnsstr[INET6_ADDRSTRLEN*3+3] = "";
+		char *ptr = dnsstr, *end = dnsstr + sizeof(dnsstr);
 		if (nvram_invmatch("ipv6_dns1_x", ""))
-			snprintf(dnsstr, sizeof(dnsstr), "%s%s \n", dnsstr, nvram_safe_get("ipv6_dns1_x"));
+			ptr += snprintf(ptr, end-ptr, "%s ", nvram_safe_get("ipv6_dns1_x"));
 		if (nvram_invmatch("ipv6_dns2_x", ""))
-			snprintf(dnsstr, sizeof(dnsstr), "%s%s \n", dnsstr, nvram_safe_get("ipv6_dns2_x"));
+			ptr += snprintf(ptr, end-ptr, "%s ", nvram_safe_get("ipv6_dns2_x"));
 		if (nvram_invmatch("ipv6_dns3_x", ""))
-			snprintf(dnsstr, sizeof(dnsstr), "%s%s \n", dnsstr, nvram_safe_get("ipv6_dns3_x"));
-		nvram_set(strcat_r(prefix, "ipv6_dns", tmp), dnsstr);
+			ptr += snprintf(ptr, end-ptr, "%s ", nvram_safe_get("ipv6_dns3_x"));
+		nvram_set(strcat_r(prefix, "ipv6_dns", tmp), trim_r(dnsstr));
 	}
 
 	/* Start DHCPv6 client */
