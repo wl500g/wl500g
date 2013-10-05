@@ -614,7 +614,7 @@ void start_lan(void)
 
 #ifdef __CONFIG_RADVD__
 		/* Notify radvd of change */
-		if (nvram_get_int("ipv6_radvd_enable"))
+		if (nvram_get_int("ipv6_radvd_enable") == 2)
 			killall_s("radvd", SIGHUP);
 #endif
 	}
@@ -1942,7 +1942,7 @@ void wan6_up(const char *wan_ifname, int unit)
 
 #ifdef __CONFIG_RADVD__
 		/* Notify radvd of change */
-		if (nvram_get_int("ipv6_radvd_enable"))
+		if (nvram_get_int("ipv6_radvd_enable") == 2)
 			killall_s("radvd", SIGHUP);
 #endif
 	}

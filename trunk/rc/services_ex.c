@@ -216,12 +216,13 @@ start_dns(void)
 	if (nvram_invmatch("ipv6_proto", "") &&
 	    nvram_get_int("ipv6_radvd_enable")) {
 #ifdef __CONFIG_RADVD__
+	if (nvram_get_int("ipv6_radvd_enable") == 2)
 		fprintf(fp, "dhcp-range=lan,::,static,%d\n", 600);
-#else
-		fprintf(fp, "force-fast-ra\n");
-		fprintf(fp, "dhcp-range=lan,::,constructor:%s,ra-stateless,ra-names,%d,%d\n",
-			nvram_safe_get("lan_ifname"), 64, 600);
+	else
 #endif
+		fprintf(fp, "force-fast-ra\n"
+			    "dhcp-range=lan,::,constructor:%s,ra-stateless,ra-names,%d,%d\n",
+			nvram_safe_get("lan_ifname"), 64, 600);
 		fprintf(fp, "dhcp-option=lan,option6:23,");
 		if (nvram_invmatch("ipv6_radvd_dns1_x", ""))
 			fprintf(fp, "%s,", nvram_safe_get("ipv6_radvd_dns1_x"));
@@ -270,7 +271,7 @@ start_radvd(void)
 	const char *dnsstr = NULL;
 
 	if (!nvram_invmatch("ipv6_proto", "") ||
-	    !nvram_get_int("ipv6_radvd_enable"))
+	    nvram_get_int("ipv6_radvd_enable") != 2)
 		return 0;
 
 	/* Create radvd.conf */

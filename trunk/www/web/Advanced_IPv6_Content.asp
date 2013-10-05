@@ -157,6 +157,8 @@
            </td><td class="content_input_td">
 		<input type="radio" value="1" name="ipv6_radvd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'IPv6Config', 'ipv6_radvd_enable', '1')"
 			<% nvram_match("ipv6_radvd_enable","1", "checked"); %>>Yes
+		<input type="radio" value="2" name="ipv6_radvd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'IPv6Config', 'ipv6_radvd_enable', '2')"
+			<% nvram_match("ipv6_radvd_enable", "2", "checked"); %>>Legacy
 		<input type="radio" value="0" name="ipv6_radvd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'IPv6Config', 'ipv6_radvd_enable', '0')"
 			<% nvram_match("ipv6_radvd_enable", "0", "checked"); %>>No</td>
 </tr>

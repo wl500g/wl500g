@@ -67,34 +67,16 @@ function get_radio_value(o)
 
 function inputRCtrl1(o, flag)
 {
-	if (flag === 0)
-	{
-		o[0].disabled = 1;
-		o[1].disabled = 1;
-//		o.style.backgroundColor = "gray";
-	}
-	else
-	{
-		o[0].disabled = 0;
-		o[1].disabled = 0;
-//		o.style.backgroundColor = "white";
-	}
+	for (var i=0; i < o.length; i++)
+		o[i].disabled = (flag === 0) ? 1 : 0;
+//	o.style.backgroundColor = (flag === 0) "gray" : "white";
 }
 
 function inputRCtrl2(o, flag)
 {
-	if (flag === 0)
-	{
-		o[0].checked = true;
-		o[1].checked = false;
-//		o.style.backgroundColor = "gray";
-	}
-	else
-	{
-		o[0].checked = false;
-		o[1].checked = true;
-//		o.style.backgroundColor = "white";
-	}
+	for (var i=0; i < o.length; i++)
+		o[i].checked = (flag === i);
+//	o.style.backgroundColor = (flag === 0) "gray" : "white";
 }
 
 function buttonOver(o)
@@ -2837,7 +2819,7 @@ function change_common_radio(o, s, v, r)
 	}
 	else if (v=="ipv6_radvd_enable")
 	{
-		inputCtrl(frm.ipv6_radvd_dns1_x, (r == '1') ? 1 : 0);
+		inputCtrl(frm.ipv6_radvd_dns1_x, (r == '0') ? 0 : 1);
 	}
 	return true;
 }
@@ -4318,7 +4300,7 @@ function change_ipv6_type(v, init)
 	inputCtrl(frm.ipv6_sit_ttl, enable && tunnel);
 
 	inputRCtrl1(frm.ipv6_radvd_enable, enable);
-	val = (enable && frm.ipv6_radvd_enable[0].checked) ? '1' : '0';
+	val = (enable) ? get_radio_value(frm.ipv6_radvd_enable) : '0';
 	change_common_radio(frm.ipv6_radvd_enable, 'IPv6Config', 'ipv6_radvd_enable', val);
 }
 

@@ -433,7 +433,7 @@ int dhcp6c_main(int argc, char **argv)
 
 #ifdef __CONFIG_RADVD__
 	/* Notify radvd of possible change */
-	if (nvram_get_int("ipv6_radvd_enable"))
+	if (nvram_get_int("ipv6_radvd_enable") == 2)
 		killall_s("radvd", SIGHUP);
 #endif
 
