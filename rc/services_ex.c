@@ -220,8 +220,10 @@ start_dns(void)
 		fprintf(fp, "dhcp-range=lan,::,static,%d\n", 600);
 	else
 #endif
-		fprintf(fp, "force-fast-ra\n"
+		fprintf(fp, "quiet-ra\n"
+			    "ra-param=%s,%d,%d\n"
 			    "dhcp-range=lan,::,constructor:%s,ra-stateless,ra-names,%d,%d\n",
+			nvram_safe_get("lan_ifname"), 10, 600*3,
 			nvram_safe_get("lan_ifname"), 64, 600);
 		fprintf(fp, "dhcp-option=lan,option6:23,");
 		if (nvram_invmatch("ipv6_radvd_dns1_x", ""))
