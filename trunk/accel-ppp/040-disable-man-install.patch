@@ -1,0 +1,23 @@
+--- a/accel-cmd/CMakeLists.txt
++++ b/accel-cmd/CMakeLists.txt
+@@ -9,6 +9,6 @@ ADD_EXECUTABLE(accel-cmd
+ INSTALL(TARGETS accel-cmd
+ 	RUNTIME DESTINATION bin
+ )
+-INSTALL(FILES accel-cmd.1
+-	DESTINATION share/man/man1
+-)
++#INSTALL(FILES accel-cmd.1
++#	DESTINATION share/man/man1
++#)
+--- a/accel-pppd/CMakeLists.txt
++++ b/accel-pppd/CMakeLists.txt
+@@ -109,7 +109,7 @@ INSTALL(TARGETS accel-pppd
+ 	RUNTIME DESTINATION sbin
+ )
+ 
+-INSTALL(FILES accel-ppp.conf.5 DESTINATION share/man/man5)
++#INSTALL(FILES accel-ppp.conf.5 DESTINATION share/man/man5)
+ 
+ IF (NOT DEFINED CPACK_TYPE)
+ 	INSTALL(FILES accel-ppp.conf DESTINATION ${CMAKE_FIND_ROOT_PATH}/etc RENAME accel-ppp.conf.dist)

@@ -1,0 +1,327 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -57,6 +57,10 @@ if (NOT BUILD_DRIVER_ONLY)
+ 	else (CRYPTO STREQUAL OPENSSL)
+ 		message(FATAL_ERROR "unknown CRYPTO type")
+ 	endif (CRYPTO STREQUAL OPENSSL)
++
++	if (NOT DEFINED LIB_PCRE OR LIB_PCRE)
++		add_definitions(-DLIB_PCRE)
++	endif (NOT DEFINED LIB_PCRE OR LIB_PCRE)
+ 	
+ 	add_subdirectory(accel-pppd)
+ 	add_subdirectory(crypto)
+--- a/accel-pppd/CMakeLists.txt
++++ b/accel-pppd/CMakeLists.txt
+@@ -95,7 +95,11 @@ ADD_EXECUTABLE(accel-pppd
+ 	memdebug.c
+ )
+ 
+-TARGET_LINK_LIBRARIES(accel-pppd triton rt pthread ${crypto_lib} pcre)
++TARGET_LINK_LIBRARIES(accel-pppd triton rt pthread ${crypto_lib})
++if (NOT DEFINED LIB_PCRE OR LIB_PCRE)
++	TARGET_LINK_LIBRARIES(accel-pppd pcre)
++ENDIF (NOT DEFINED LIB_PCRE OR LIB_PCRE)
++
+ set_property(TARGET accel-pppd PROPERTY CMAKE_SKIP_BUILD_RPATH FALSE)
+ set_property(TARGET accel-pppd PROPERTY CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+ set_property(TARGET accel-pppd PROPERTY INSTALL_RPATH_USE_LINK_PATH FALSE)
+--- a/accel-pppd/cli/cli.c
++++ b/accel-pppd/cli/cli.c
+@@ -27,7 +27,9 @@ static const char *def_cli_prompt = "acc
+ char *conf_cli_prompt;
+ 
+ static LIST_HEAD(simple_cmd_list);
++#ifdef LIB_PCRE
+ static LIST_HEAD(regexp_cmd_list);
++#endif
+ 
+ void __export cli_register_simple_cmd(struct cli_simple_cmd_t *cmd)
+ {
+@@ -63,6 +65,7 @@ void __export cli_register_simple_cmd2(
+ 	va_end(ap);
+ }
+ 
++#ifdef LIB_PCRE
+ void __export cli_register_regexp_cmd(struct cli_regexp_cmd_t *cmd)
+ {
+ 	int err;
+@@ -107,6 +110,7 @@ void __export cli_register_regexp_cmd(st
+ 
+ 	list_add_tail(&cmd->entry, &regexp_cmd_list);
+ }
++#endif
+ 
+ int __export cli_send(void *client, const char *data)
+ {
+@@ -168,7 +172,9 @@ static int split(char *buf, char **ptr)
+ 
+ static int cli_process_help_cmd(struct cli_client_t *cln)
+ {
++#ifdef LIB_PCRE
+ 	struct cli_regexp_cmd_t *recmd = NULL;
++#endif
+ 	struct cli_simple_cmd_t *sicmd = NULL;
+ 	char *cmd = (char *)cln->cmdline;
+ 	char *items[MAX_CMD_ITEMS] = { 0 };
+@@ -188,6 +194,7 @@ static int cli_process_help_cmd(struct c
+ 		/* "help" with no argument always succeeds */
+ 		cmd_found = 1;
+ 
++#ifdef LIB_PCRE
+ 	list_for_each_entry(recmd, &regexp_cmd_list, entry) {
+ 		if (cmd[0] == '\0'
+ 		    || pcre_exec(recmd->h_re, NULL, cmd, strlen(cmd),
+@@ -197,6 +204,7 @@ static int cli_process_help_cmd(struct c
+ 				recmd->help(cmd, cln);
+ 		}
+ 	}
++#endif
+ 
+ 	nb_items = split(cmd, items);
+ 	list_for_each_entry(sicmd, &simple_cmd_list, entry) {
+@@ -222,6 +230,7 @@ static int cli_process_help_cmd(struct c
+ 	return 1;
+ }
+ 
++#ifdef LIB_PCRE
+ static int cli_process_regexp_cmd(struct cli_client_t *cln, int *err)
+ {
+ 	struct cli_regexp_cmd_t *recmd = NULL;
+@@ -243,6 +252,7 @@ static int cli_process_regexp_cmd(struct
+ 
+ 	return found;
+ }
++#endif
+ 
+ static int cli_process_simple_cmd(struct cli_client_t *cln, int *err)
+ {
+@@ -283,9 +293,13 @@ int __export cli_process_cmd(struct cli_
+ 	if (cli_process_help_cmd(cln))
+ 		return 0;
+ 
++#ifdef LIB_PCRE
+ 	found = cli_process_regexp_cmd(cln, &err);
+ 	if (found && err != CLI_CMD_OK)
+ 		goto out_found;
++#else
++	found = 0;
++#endif
+ 
+ 	found |= cli_process_simple_cmd(cln, &err);
+ 	if (found)
+--- a/accel-pppd/cli/cli.h
++++ b/accel-pppd/cli/cli.h
+@@ -1,7 +1,9 @@
+ #ifndef __CLI_H
+ #define __CLI_H
+ 
++#ifdef LIB_PCRE
+ #include <pcre.h>
++#endif
+ #include <list.h>
+ 
+ #define CLI_CMD_OK 0
+@@ -19,6 +21,7 @@ struct cli_simple_cmd_t
+ 	void (*help)(char * const *fields, int field_cnt, void *client);
+ };
+ 
++#ifdef LIB_PCRE
+ struct cli_regexp_cmd_t
+ {
+ 	struct list_head entry;
+@@ -31,6 +34,7 @@ struct cli_regexp_cmd_t
+ 	int h_options;
+ 	int (*help)(const char *cmd, void *client);
+ };
++#endif
+ 
+ struct ap_session;
+ 
+@@ -41,7 +45,9 @@ void cli_register_simple_cmd2(
+ 	int hdr_len,
+ 	...
+ 	);
++#ifdef LIB_PCRE
+ void cli_register_regexp_cmd(struct cli_regexp_cmd_t *cmd);
++#endif
+ void cli_show_ses_register(const char *name, const char *desc, void (*print)(const struct ap_session *ses, char *buf));
+ 
+ int cli_send(void *client, const char *data);
+--- a/accel-pppd/cli/show_sessions.c
++++ b/accel-pppd/cli/show_sessions.c
+@@ -65,7 +65,11 @@ static void show_ses_help(char * const *
+ 	struct column_t *col;
+ 	char buf[129];
+ 
++#ifdef LIB_PCRE
+ 	cli_send(cli, "show sessions [columns] [order <column>] [match <column> <regexp>] - shows sessions\r\n");
++#else
++	cli_send(cli, "show sessions [columns] [order <column>] - shows sessions\r\n");
++#endif
+ 	cli_send(cli, "\tcolumns:\r\n");
+ 
+ 	list_for_each_entry(col, &col_list, entry) {
+@@ -123,9 +127,11 @@ static int show_ses_exec(const char *cmd
+ 	struct column_t *match_key = NULL;
+ 	char *match_pattern = NULL;
+ 	struct column_t *order_key = NULL;
++#ifdef LIB_PCRE
+ 	pcre *re = NULL;
+ 	const char *pcre_err;
+ 	int pcre_offset;
++#endif
+ 	struct column_t *column;
+ 	struct col_t *col;
+ 	struct row_t *row;
+@@ -148,6 +154,7 @@ static int show_ses_exec(const char *cmd
+ 				cli_sendv(cli, "unknown column %s\r\n", f[i]);
+ 				return CLI_CMD_OK;
+ 			}
++#ifdef LIB_PCRE
+ 		} else if (!strcmp(f[i], "match")) {
+ 			if (i >= f_cnt - 2)
+ 				return CLI_CMD_SYNTAX;
+@@ -157,12 +164,14 @@ static int show_ses_exec(const char *cmd
+ 				return CLI_CMD_OK;
+ 			}
+ 			match_pattern = f[++i];
++#endif
+ 		} else if (!columns)
+ 			columns = f[i];
+ 		else
+ 			return CLI_CMD_SYNTAX;
+ 	}
+ 
++#ifdef LIB_PCRE
+ 	if (match_key) {
+ 		re = pcre_compile2(match_pattern, 0, NULL, &pcre_err, &pcre_offset, NULL);
+ 		if (!re) {
+@@ -170,6 +179,7 @@ static int show_ses_exec(const char *cmd
+ 			return CLI_CMD_OK;
+ 		}
+ 	}
++#endif
+ 
+ 	if (!columns) {
+ 		columns = (conf_def_columns) ? conf_def_columns : DEF_COLUMNS;
+@@ -255,12 +265,14 @@ static int show_ses_exec(const char *cmd
+ 		while(!list_empty(&t_list)) {
+ 			row = list_entry(t_list.next, typeof(*row), entry);
+ 			list_del(&row->entry);
++#ifdef LIB_PCRE
+ 			if (match_key) {
+ 				if (pcre_exec(re, NULL, row->match_key, strlen(row->match_key), 0, 0, NULL, 0) < 0) {
+ 					free_row(row);
+ 					continue;
+ 				}
+ 			}
++#endif
+ 			if (order_key)
+ 				insert_row(&r_list, row);
+ 			else
+@@ -355,8 +367,10 @@ out:
+ 		_free(col);
+ 	}
+ 
++#ifdef LIB_PCRE
+ 	if (re)
+ 		pcre_free(re);
++#endif
+ 
+ 	return CLI_CMD_OK;
+ 
+--- a/accel-pppd/cli/std_cmd.c
++++ b/accel-pppd/cli/std_cmd.c
+@@ -106,6 +106,7 @@ static void __terminate_hard(struct ap_s
+ 	ap_session_terminate(ses, TERM_NAS_REQUEST, 1);
+ }
+ 
++#ifdef LIB_PCRE
+ static int terminate_exec1(char * const *f, int f_cnt, void *cli)
+ {
+ 	struct ap_session *ses;
+@@ -134,6 +135,7 @@ static int terminate_exec1(char * const
+ 			continue;
+ 		if (pcre_exec(re, NULL, ses->username, strlen(ses->username), 0, 0, NULL, 0) < 0)
+ 			continue;
++		
+ 		if (hard)
+ 			triton_context_call(ses->ctrl->ctx, (triton_event_func)__terminate_hard, ses);
+ 		else
+@@ -145,6 +147,7 @@ static int terminate_exec1(char * const
+ 	
+ 	return CLI_CMD_OK;
+ }
++#endif
+ 
+ static int terminate_exec2(int key, char * const *f, int f_cnt, void *cli)
+ {
+@@ -206,8 +209,10 @@ static int terminate_exec(const char *cm
+ 	if (fields_cnt == 1)
+ 		return CLI_CMD_SYNTAX;
+ 	
++#ifdef LIB_PCRE
+ 	if (!strcmp(fields[1], "match") && fields_cnt > 3 && !strcmp(fields[2], "username"))
+ 		return terminate_exec1(fields, fields_cnt, client);
++#endif
+ 	else if (!strcmp(fields[1], "username"))
+ 		return terminate_exec2(0, fields, fields_cnt, client);
+ 	else if (!strcmp(fields[1], "ip"))
+@@ -244,7 +249,11 @@ static int terminate_exec(const char *cm
+ static void terminate_help(char * const *fields, int fields_cnt, void *client)
+ {
+ 	cli_send(client, "terminate if <interface> [soft|hard]- terminate session by interface name\r\n");
++#ifdef LIB_PCRE
+ 	cli_send(client, "\t[match] username <username> [soft|hard]- terminate session by username\r\n");
++#else
++	cli_send(client, "\tusername <username> [soft|hard]- terminate session by username\r\n");
++#endif
+ 	cli_send(client, "\tip <addresss> [soft|hard]- terminate session by ip address\r\n");
+ 	cli_send(client, "\tcsid <id> [soft|hard]- terminate session by calling station id\r\n");
+ 	cli_send(client, "\tsid <id> [soft|hard]- terminate session by session id\r\n");
+--- a/accel-pppd/ctrl/pppoe/pppoe.c
++++ b/accel-pppd/ctrl/pppoe/pppoe.c
+@@ -74,12 +74,14 @@ struct padi_t
+ 	uint8_t addr[ETH_ALEN];
+ };
+ 
++#ifdef LIB_PCRE
+ struct iplink_arg
+ {
+ 	pcre *re;
+ 	const char *opt;
+ 	void *cli;
+ };
++#endif
+ 
+ int conf_verbose;
+ char *conf_service_name;
+@@ -1139,6 +1141,7 @@ out_err:
+ 	return -1;
+ }
+ 
++#ifdef LIB_PCRE
+ static int __pppoe_add_interface_re(int index, int flags, const char *name, struct iplink_arg *arg)
+ {
+ 	if (pcre_exec(arg->re, NULL, name, strlen(name), 0, 0, NULL, 0) < 0)
+@@ -1180,16 +1183,19 @@ static void pppoe_add_interface_re(const
+ 	pcre_free(re);
+ 	_free(pattern);
+ }
++#endif
+ 
+ void pppoe_server_start(const char *opt, void *cli)
+ {
+ 	char name[IFNAMSIZ];
+ 	const char *ptr;
+ 
++#ifdef LIB_PCRE
+ 	if (strlen(opt) > 3 && memcmp(opt, "re:", 3) == 0) {
+ 		pppoe_add_interface_re(opt, cli);
+ 		return;
+ 	}
++#endif
+ 
+ 	ptr = strchr(opt, ',');
+ 	if (ptr) {
