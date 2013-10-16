@@ -197,6 +197,7 @@ obj-$(CONFIG_LIBJPEG) += jpeg-8b
 obj-$(CONFIG_RCAMD) += mjpg-streamer
 obj-$(CONFIG_USBIP) += usbip
 obj-$(CONFIG_LIBSYSFS) += sysfsutils
+obj-$(CONFIG_ACCEL_PPP) += accel-ppp
 obj-y += udpxy
 
 # Exclude targets for non-USB routers
@@ -538,7 +539,7 @@ endif
 	@echo "Finished building $* firmware version $(TRX_VER) ($(RELEASE))"
 	@echo
 
-MANPAGES-y := busybox/docs/BusyBox.1 \
+MANPAGES-y := busybox/docs/busybox.1 \
 	    LPRng/man/lpd.8 bridge/doc/brctl.8 dnsmasq/man/dnsmasq.8 \
 	    dropbear/dbclient.1 dropbear/dropbear.8 dropbear/dropbearkey.8 \
 	    igmpproxy/doc/igmpproxy.8 igmpproxy/doc/igmpproxy.conf.5 \
@@ -554,6 +555,7 @@ MANPAGES-$(CONFIG_INADYN) += inadyn/man/inadyn.conf.5 inadyn/man/inadyn.8
 MANPAGES-$(CONFIG_NTFS3G) += ntfs-3g/src/ntfs-3g.8
 MANPAGES-$(CONFIG_RIPD) += quagga/doc/ospfd.8 quagga/doc/ripd.8 quagga/doc/zebra.8
 MANPAGES-$(CONFIG_TCPDUMP) += tcpdump/tcpdump.1
+MANPAGES-$(CONFIG_ACCEL_PPP) += accel-ppp/accel-pppd/accel-ppp.conf.5 accel-ppp/accel-cmd/accel-cmd.1
 
 manpages-install:
 	$(MAKE) -C LPRng/man
@@ -852,6 +854,44 @@ accel-pptp-clean:
 accel-pptp-install: accel-pptp
 	install -D accel-pptp/pppd_plugin/src/.libs/pptp.so $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
+
+accel-ppp/Makefile:
+	cd accel-ppp && cmake \
+	    -DCPACK_TYPE=None \
+	    -DCMAKE_CROSSCOMPILING=TRUE \
+	    -DCMAKE_SYSTEM_NAME=Linux \
+	    -DCMAKE_SYSTEM_VERSION=1 \
+	    -DCMAKE_SYSTEM_PROCESSOR=$(PLATFORM) \
+	    -DCMAKE_BUILD_TYPE=None \
+	    -DCMAKE_C_COMPILER="$(CC)" \
+	    -DCMAKE_C_FLAGS:STRING="-DNDEBUG -Os $(EXTRACFLAGS)" \
+	    -DCMAKE_EXE_LINKER_FLAGS:STRING="-Wl,-rpath /lib" \
+	    -DCMAKE_FIND_ROOT_PATH=$(INSTALLDIR)/accel-ppp \
+	    -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+	    -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+	    -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+	    -DCMAKE_INSTALL_PREFIX=/usr \
+	    -DBUILD_DRIVER=FALSE \
+	    -DCRYPTO=INTERNAL \
+	    -DSHAPER=FALSE \
+	    -DRADIUS=FALSE \
+	    -DNETSNMP=FALSE \
+	    -DLOG_PGSQL=FALSE \
+	    -DLOG_FILE=FALSE \
+	    -DLOG_TCP=FALSE \
+	    -DLIB_SUFFIX= \
+	    -DLIB_PCRE=FALSE \
+	    .
+
+accel-ppp: accel-ppp/Makefile
+	$(MAKE) -C accel-ppp
+
+accel-ppp-clean:
+	-$(MAKE) -C accel-ppp clean
+
+accel-ppp-install: accel-ppp/Makefile
+	DESTDIR=$(INSTALLDIR)/accel-ppp \
+	    $(MAKE) -C accel-ppp install/strip
 
 dnsmasq:
 	$(MAKE) -C $@ COPTS="$(if $(CONFIG_IPV6),,-DNO_IPV6)" EXTRACFLAGS="$(EXTRACFLAGS)"

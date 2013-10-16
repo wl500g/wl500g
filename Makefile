@@ -38,6 +38,7 @@ MINIUPNPD=miniupnpd-1.8.20130730
 PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.11
 ACCEL-PPTP=accel-pptp-git-20100829
+ACCEL-PPP=accel-ppp-git-20131017
 LZMA=lzma922
 LZMA4XX=lzma457
 SQUASHFS=squashfs4.2
@@ -87,7 +88,7 @@ all: prep custom
 
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba \
 	iproute2 iptables ipset \
-	ppp rp-l2tp rp-pppoe accel-pptp xl2tpd \
+	ppp rp-l2tp rp-pppoe accel-pptp accel-ppp xl2tpd \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	bpalogin bridge inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev \
@@ -430,6 +431,18 @@ $(TOP)/accel-pptp: accel-pptp/$(ACCEL-PPTP).tar.bz2
 	touch $@
 
 accel-pptp: $(TOP)/accel-pptp
+	@true
+
+accel-ppp_Patches := $(call patches_list,accel-ppp)
+
+$(TOP)/accel-ppp: accel-ppp/$(ACCEL-PPP).tar.gz
+	@rm -rf $(TOP)/$(ACCEL-PPP) $@
+	tar -xzf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(ACCEL-PPP) $(accel-ppp_Patches)
+	mv $(TOP)/$(ACCEL-PPP) $@ && touch $@
+	touch $@
+
+accel-ppp: $(TOP)/accel-ppp
 	@true
 
 igmpproxy_Patches := $(call patches_list,igmpproxy)
