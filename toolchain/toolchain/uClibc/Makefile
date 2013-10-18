@@ -127,8 +127,6 @@ define Build/Compile
 	$(UCLIBC_MAKE) PREFIX=$(STAGING_DIR_HOST)/ install_runtime install_dev
 	$(SED) 's,UCLIBC_VERSION=.*,UCLIBC_VERSION=$(PKG_VERSION),' $(TOOLCHAIN_DIR)/info.mk
 	$(SED) 's,UCLIBC_PATCHVER=.*,UCLIBC_PATCHVER=$(PKG_EXTRAVERSION),' $(TOOLCHAIN_DIR)/info.mk
-	rm -rf $(TOOLCHAIN_DIR)/lib/libc.so
-	ln -sf libc.so.0 $(TOOLCHAIN_DIR)/lib/libc.so
 endef
 
 define Build/Install
