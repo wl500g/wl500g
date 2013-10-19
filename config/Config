@@ -166,9 +166,38 @@ config CONFIG_VENDOR
        Answer Y for vendor-specific customization.
 
 config CONFIG_PPP
-       bool "PPPoE client"
+       bool "PPP & PPPOE protocol support"
        depends on CONFIG_NAT
        default y
+
+config CONFIG_ACCEL_PPTP
+       bool "PPTP protocol support "
+       depends on CONFIG_PPP
+       default y
+
+choice
+       prompt "L2TP protocol support"
+       depends on CONFIG_PPP
+       default CONFIG_L2TP
+       optional
+
+config CONFIG_L2TP
+       bool "rp-l2tp"
+
+config CONFIG_XL2TPD
+       bool "xl2tpd"
+
+endchoice
+
+choice
+       prompt "VPN server"
+       default n
+       optional
+
+config CONFIG_ACCEL_PPP
+       bool "accel-ppp"
+
+endchoice
 
 choice
        prompt "UPnP IGD server"
@@ -227,10 +256,6 @@ config CONFIG_WSCCMD
 endmenu
 
 menu "Asus stuff"
-
-config CONFIG_ACCEL_PPTP
-	bool "Accelerated PPTP driver"
-	default y
 
 config CONFIG_PPPOERELAY
 	bool "PPPOE-relay"
@@ -341,21 +366,6 @@ config CONFIG_SNMP
        default y
        help
        SNMP is the network management protocol, usefull for monitoring network devices
-
-choice
-	prompt "L2TP protocol support"
-	default CONFIG_L2TP
-	optional
-	help
-	L2TP is the protocol used by some ISPs
-
-config CONFIG_L2TP
-       bool "rp-l2tp"
-
-config CONFIG_XL2TPD
-       bool "xl2tpd"
-
-endchoice
 
 config CONFIG_IGMPPROXY
        bool "IGMPproxy"
