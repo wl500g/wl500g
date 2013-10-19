@@ -7,11 +7,11 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gmp
-PKG_VERSION:=5.1.2
+PKG_VERSION:=5.1.3
 
 PKG_SOURCE_URL:=@GNU/gmp/
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
-PKG_MD5SUM:=7e3516128487956cd825fef01aafe4bc
+PKG_MD5SUM:=a082867cbca5e898371a97bb27b31fea
 
 include $(INCLUDE_DIR)/host-build.mk
 
