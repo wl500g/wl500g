@@ -11,9 +11,9 @@ diff -u src/bfd/ChangeLog src/bfd/ChangeLog
 +	PR 15657
 +	* hash.c (_bfd_stringtab_add): Copy the string if COPY is true.
 +
- 2012-11-13  Tristan Gingold  <gingold@adacore.com>
+ 2013-03-25  Tristan Gingold  <gingold@adacore.com>
  
- 	* configure.in: Bump version to 2.23.1
+ 	* configure.in: Bump version to 2.23.2
 diff -u -r1.35 -r1.36
 --- src/bfd/hash.c	2012/07/13 14:22:49	1.35
 +++ src/bfd/hash.c	2013/06/24 14:28:17	1.36
