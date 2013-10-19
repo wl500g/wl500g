@@ -97,7 +97,7 @@ static int power_value = 0;
 #define LED_READY_OFF	(~ready_value)
 #define LED_READY	ready_mask
 
-#define LED_CONTROL(led,flag) gpio_write(GPIO_DEV_OUT, led, flag)
+#define LED_CONTROL(led, flag) gpio_write(GPIO_DEV_OUT, led, flag)
 
 static struct itimerval itv; 
 static long sync_interval = -1; // every 30 seconds a unit
@@ -435,11 +435,11 @@ int ntp_timesync(void)
 {
 	//if (nvram_match("router_disable", "1")) return 0;
 	
-	if (sync_interval!=-1)
+	if (sync_interval != -1)
 	{
         	sync_interval--;
 
-	    	if (sync_interval==0)
+	    	if (sync_interval == 0)
 		{
 			time_t now;
 			struct tm tm;
@@ -465,7 +465,7 @@ int ntp_timesync(void)
 
 enum ACTIVE
 {
-	URLACTIVE=0,
+	URLACTIVE = 0,
 	WEBACTIVE,
 	RADIOACTIVE,
 	ACTIVEITEMS
@@ -488,20 +488,20 @@ static int timecheck_item(char *activeDate, char *activeTime)
 	tm = localtime(&now);
 	current = tm->tm_hour*60 + tm->tm_min;
 
-	active=0;
+	active = 0;
 
 	//printf("active: %s %s\n", activeDate, activeTime);
 
-	activeTimeStart=((activeTime[0]-'0')*10+(activeTime[1]-'0'))*60 + (activeTime[2]-'0')*10 + (activeTime[3]-'0');
+	activeTimeStart = ((activeTime[0]-'0')*10+(activeTime[1]-'0'))*60 + (activeTime[2]-'0')*10 + (activeTime[3]-'0');
 		
-	activeTimeEnd=((activeTime[4]-'0')*10+(activeTime[5]-'0'))*60 + (activeTime[6]-'0')*10 + (activeTime[7]-'0');
+	activeTimeEnd = ((activeTime[4]-'0')*10+(activeTime[5]-'0'))*60 + (activeTime[6]-'0')*10 + (activeTime[7]-'0');
 				
 	if (activeDate[tm->tm_wday] == '1')
 	{
 		if (activeTimeEnd<activeTimeStart)
 		{
-			if ((current>=activeTimeStart && current<=DAYEND) ||
-			   (current>=DAYSTART && current<=activeTimeEnd))
+			if ((current >= activeTimeStart && current <= DAYEND) ||
+			    (current >= DAYSTART && current <= activeTimeEnd))
 			{
 				active = 1;
 			}
@@ -512,8 +512,8 @@ static int timecheck_item(char *activeDate, char *activeTime)
 		}
 		else
 		{
-			if (current>=activeTimeStart &&
-		     	current<=activeTimeEnd)
+			if (current >= activeTimeStart &&
+			    current <= activeTimeEnd)
 			{	
 				active = 1;
 			}	
@@ -620,7 +620,7 @@ int usb_communication_device_processcheck(int wait_flag)
 	}
 	if (enable) {
 		/* Start each configured and enabled wan connection and its undelying i/f */
-		for ( unit=0; unit<MAX_NVPARSE; unit++) 
+		for (unit = 0; unit < MAX_NVPARSE; unit++) 
 		{
 			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -694,21 +694,21 @@ static void catch_sig(int sig)
 
 		if (!svcStatus[WEBACTIVE]) return;
 
-		if (extStatus[WEBACTIVE]==0)
+		if (extStatus[WEBACTIVE] == 0)
 		{
 			fp = fopen("/var/tmp/runshell", "r+");
-			if (fp!=NULL)
+			if (fp != NULL)
 			{
 				cmd_ptr = fgets(command, 256, fp);
 
-				if (cmd_ptr!=NULL) system(command);
+				if (cmd_ptr != NULL) system(command);
 			}
 			fclose(fp);
 			unlink("/tmp/runshell");
 			notice_rcamd(0);
-			extStatus[WEBACTIVE]=1;
+			extStatus[WEBACTIVE] = 1;
 		}
-		else if (svcStatus[WEBACTIVE]==1)
+		else if (svcStatus[WEBACTIVE] == 1)
 		{
 			notice_rcamd(1);
 			extStatus[WEBACTIVE] = 0;
@@ -738,7 +738,7 @@ static void sta_check(void)
 	// Get bssid
 	ret = wl_ioctl(wl_ifname, WLC_GET_BSSID, bssid, sizeof(bssid));
 
-	if (ret==0 && memcmp(bssid, "\0\0\0\0\0\0", 6))
+	if (ret == 0 && memcmp(bssid, "\0\0\0\0\0\0", 6))
 	{
 		dprintf("connected\n");
 		stacheck_interval = STACHECK_PERIOD_CONNECT;
@@ -827,7 +827,7 @@ static void watchdog(int signum)
 	if (watchdog_period) return;
 
 	time(&now);
-	//printf("now: %d\n", (long )now);
+	//printf("now: %d\n", (long) now);
 
 	/* sync time to ntp server if necessary */
 	ntp_timesync();
@@ -920,7 +920,7 @@ int watchdog_main()
 #endif
 
 	/* write pid */
-	if ((fp=fopen("/var/run/watchdog.pid", "w")) != NULL)
+	if ((fp = fopen("/var/run/watchdog.pid", "w")) != NULL)
 	{
 		fprintf(fp, "%d", getpid());
 		fclose(fp);

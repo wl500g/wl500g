@@ -260,7 +260,7 @@ int mtd_write(const char *path, const char *mtd)
 	}
 
 	/* Calculate CRC over header */
-	crc = crc32((uint8 *) &trx.flag_version,
+	crc = crc32((uint8 *)&trx.flag_version,
 		    sizeof(struct trx_header) - OFFSETOF(struct trx_header, flag_version),
 		    CRC32_INIT_VALUE);
 

@@ -52,12 +52,12 @@ sem_t * hotplug_sem = SEM_FAILED;
 
 void hotplug_sem_open()
 {
-	hotplug_sem = sem_open( "/hotplug_sem", O_CREAT | O_EXCL, S_IRWXU | S_IRWXG, 1 );
-	if ( hotplug_sem == SEM_FAILED ) {
-		hotplug_sem = sem_open( "/hotplug_sem", 0 );
+	hotplug_sem = sem_open("/hotplug_sem", O_CREAT | O_EXCL, S_IRWXU | S_IRWXG, 1);
+	if (hotplug_sem == SEM_FAILED) {
+		hotplug_sem = sem_open("/hotplug_sem", 0);
 #ifdef DEBUG
 		if (hotplug_sem == SEM_FAILED)
-			dprintf( "Semaphore error: %p, %s", hotplug_sem, strerror(errno) );
+			dprintf("Semaphore error: %p, %s", hotplug_sem, strerror(errno));
 #endif
 	}
 }
@@ -66,7 +66,7 @@ void
 hotplug_sem_close()
 {
 	if (hotplug_sem != SEM_FAILED) {
-		sem_close( hotplug_sem );
+		sem_close(hotplug_sem);
 		hotplug_sem = SEM_FAILED;
 	}
 }
@@ -74,7 +74,7 @@ hotplug_sem_close()
 void
 hotplug_sem_lock()
 {
-	if (hotplug_sem != SEM_FAILED) sem_wait( hotplug_sem );
+	if (hotplug_sem != SEM_FAILED) sem_wait(hotplug_sem);
 	else dprintf("sem_lock with empty semaphore");
 }
 
@@ -82,14 +82,14 @@ int
 hotplug_sem_trylock()
 {
 	if (hotplug_sem != SEM_FAILED)
-		return sem_trywait( hotplug_sem ) != -1;
+		return sem_trywait(hotplug_sem) != -1;
 	return 1;
 }
 
 void
 hotplug_sem_unlock()
 {
-	if (hotplug_sem != SEM_FAILED) sem_post( hotplug_sem );
+	if (hotplug_sem != SEM_FAILED) sem_post(hotplug_sem);
 }
 #else /* !RC_SEMAPHORE_ENABLED */
 void hotplug_sem_open() {}
@@ -256,7 +256,7 @@ static void add_wanx_routes(const char *prefix, const char *ifname, int metric)
 
 	/* classful static routes */
 	routes = strdup(nvram_safe_get(strcat_r(prefix, "routes", buf)));
-	for (tmp = routes; tmp && *tmp; )
+	for (tmp = routes; tmp && *tmp;)
 	{
 		ipaddr  = strsep(&tmp, "/");
 		gateway = strsep(&tmp, " ");
@@ -273,7 +273,7 @@ static void add_wanx_routes(const char *prefix, const char *ifname, int metric)
 	if (!*routes)
 		routes = nvram_safe_get(strcat_r(prefix, "routes_ms", buf));
 	routes = strdup(routes);
-	for (tmp = routes; tmp && *tmp; )
+	for (tmp = routes; tmp && *tmp;)
 	{
 		ipaddr  = strsep(&tmp, "/");
 		bits    = atoi(strsep(&tmp, " "));
@@ -771,11 +771,11 @@ void prepare_wan_unit(int unit)
 			found = 1;
 
 	if (!found) {
-		sprintf(tmp, "%s %s", nvram_safe_get("wan_ifnames"), wan_ifname );
+		sprintf(tmp, "%s %s", nvram_safe_get("wan_ifnames"), wan_ifname);
 		nvram_set("wan_ifnames", tmp);
 	}
 
-	eval("brctl", "addbr", wan_ifname, "stp", "0" );
+	eval("brctl", "addbr", wan_ifname, "stp", "0");
 	ifconfig(wan_ifname, IFUP, NULL, NULL);
 
 	usbnet_load_drivers(prefix);
@@ -968,7 +968,7 @@ void start_wan_unit(int unit)
 		if (ioctl(s, SIOCGIFFLAGS, &ifr)) {
 			close(s);
 			continue;
-		} else if (!(ifr.ifr_flags & IFF_UP) ) {
+		} else if (!(ifr.ifr_flags & IFF_UP)) {
 			/* Sync connection nvram address and i/f hardware address */
 			memset(ifr.ifr_hwaddr.sa_data, 0, ETHER_ADDR_LEN);
 
@@ -1007,7 +1007,7 @@ void start_wan_unit(int unit)
 		} /* switch (wan_proto) */
 
 #ifdef ASUS_EXT
-		//if (unit==0)
+		//if (unit == 0)
 		{
 			/* Enable Forwarding */
 			fputs_ex("/proc/sys/net/ipv4/ip_forward", "1");
@@ -1137,16 +1137,16 @@ void start_wan_unit(int unit)
 				"0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 
 			hotplug_sem_lock();
-			nvram_set( strcat_r(prefix, "prepared", tmp), "1" );
+			nvram_set(strcat_r(prefix, "prepared", tmp), "1");
 			
-			if ( nvram_match( strcat_r(prefix, "dial_enabled", tmp), "1" ) )
+			if (nvram_match(strcat_r(prefix, "dial_enabled", tmp), "1"))
 			{
 				/* launch ppp client daemon */
 				start_modem_dial(prefix);
 			} else
 			{
-				demand=0;
-				nvram_set( strcat_r(prefix, "dial_enabled", tmp), "1" );
+				demand = 0;
+				nvram_set(strcat_r(prefix, "dial_enabled", tmp), "1");
 			}
 			hotplug_sem_unlock();
 
@@ -1239,7 +1239,7 @@ void start_wan(void)
 	if (nvram_match("router_disable", "1"))
 		return;
 
-#if defined(__CONFIG_MADWIMAX__) || defined( __CONFIG_MODEM__)
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 	hotplug_sem_open();
 #endif
 
@@ -1287,7 +1287,7 @@ void start_wan(void)
 		start_wan_unit(unit);
 	}
 
-#if defined(__CONFIG_MADWIMAX__) || defined( __CONFIG_MODEM__)
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 	hotplug_sem_close();
 #endif
 
@@ -1334,7 +1334,7 @@ void stop_wan_unit(int unit)
 #endif
 #ifdef __CONFIG_MODEM__
 		/* Stop USB modem */
-		if (strcmp(wan_proto, "usbmodem") == 0 )
+		if (strcmp(wan_proto, "usbmodem") == 0)
 		{
 			nvram_unset(strcat_r(prefix, "prepared", tmp));
 			stop_modem_dial(prefix);
@@ -1344,7 +1344,7 @@ void stop_wan_unit(int unit)
 #endif
 #ifdef __CONFIG_USBNET__
 		/* Stop Ethernet over USB */
-		if (strcmp(wan_proto, "usbnet") == 0 ) {
+		if (strcmp(wan_proto, "usbnet") == 0) {
 			dynamic_ip = nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0");
 			usbnet_disconnect(prefix, unit, wan_ifname);
 		}
@@ -1496,9 +1496,9 @@ int update_resolvconf(const char *ifname, int metric, int up)
 
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("wan_dnsenable_x", "1")) {
-		if (nvram_invmatch("wan_dns1_x",""))
+		if (nvram_invmatch("wan_dns1_x", ""))
 			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));
-		if (nvram_invmatch("wan_dns2_x",""))
+		if (nvram_invmatch("wan_dns2_x", ""))
 			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
 	} else
 #endif
@@ -2365,7 +2365,7 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char str_devusb[100];
 
-	dprintf( "%s %s %s\n", interface, action, product );
+	dprintf("%s %s %s\n", interface, action, product);
 
 	int action_add = (strcmp(action, "add") == 0);
 
@@ -2378,7 +2378,7 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 	if (action_add) for (unit = 0; !found && unit < MAX_NVPARSE; unit ++)
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+		dev_vidpid = nvram_get(strcat_r(prefix, "usb_device", tmp));
 		if (dev_vidpid)
 			found = (strcmp(dev_vidpid, str_devusb) == 0);
 		if (found) dprintf("already processed\n");
@@ -2421,17 +2421,17 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 		}
 		if (found) {
 		    if (action_add) {
-			dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
-			if ( !dev_vidpid || !*dev_vidpid ||
-			     !(dev_vidpid && strncmp(dev_vidpid, "zerocd", 6 == 0) ) )
+			dev_vidpid = nvram_get(strcat_r(prefix, "usb_device", tmp));
+			if (!dev_vidpid || !*dev_vidpid ||
+			    !(dev_vidpid && strncmp(dev_vidpid, "zerocd", 6 == 0)))
 			{
-				dprintf("set: %s - %d - %s\n", prefix, wan_proto, str_devusb );
+				dprintf("set: %s - %d - %s\n", prefix, wan_proto, str_devusb);
 				switch (wan_proto) {
 #ifdef __CONFIG_MADWIMAX__
 				case WAN_WIMAX:
-					nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
+					nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb);
 #ifdef HOTPLUG_DEV_START
-					start_wimax( prefix );
+					start_wimax(prefix);
 #endif
 					break;
 #endif
@@ -2439,13 +2439,13 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 #ifdef __CONFIG_USBNET__
 				// Do nothing. Real processing by hotplug_net.
 /*				case WAN_USBNET:
-					nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
+					nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb);
 					break; */
 #endif
 
 #ifdef __CONFIG_MODEM__
 				case WAN_USBMODEM:
-					nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
+					nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb);
 #ifdef HOTPLUG_DEV_START
 					// now starts from hotplug usb-serial
 					//usb_modem_check(prefix);
@@ -2455,14 +2455,14 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 				}
 			}
 		    } else { // action remove
-			nvram_unset(strcat_r(prefix, "usb_device", tmp) );
-			nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
+			nvram_unset(strcat_r(prefix, "usb_device", tmp));
+			nvram_unset(strcat_r(prefix, "usb_device_name", tmp));
 
 			switch (wan_proto) {
 #ifdef __CONFIG_MODEM__
 			case WAN_USBMODEM:
-				nvram_unset(strcat_r(prefix, "usb_device", tmp) );
-				nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
+				nvram_unset(strcat_r(prefix, "usb_device", tmp));
+				nvram_unset(strcat_r(prefix, "usb_device_name", tmp));
 				stop_modem_dial(prefix);
 				break;
 #endif

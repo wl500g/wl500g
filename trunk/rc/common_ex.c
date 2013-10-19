@@ -55,18 +55,18 @@ char *mac_conv(const char *mac_name, int idx, char *buf)
 	char *mac, name[32];
 	int i, j;
 
-	if (idx!=-1)	
+	if (idx != -1)	
 		sprintf(name, "%s%d", mac_name, idx);
 	else sprintf(name, "%s", mac_name);
 
 	mac = nvram_safe_get(name);
 
-	j=0;
-	if (strlen(mac)!=0) 
+	j = 0;
+	if (strlen(mac) != 0) 
 	{
-		for (i=0; i<12; i++)
+		for (i = 0; i < 12; i++)
 		{		
-			if (i!=0&&i%2==0) buf[j++] = ':';
+			if (i != 0 && i%2 == 0) buf[j++] = ':';
 			buf[j++] = mac[i];
 		}
 	}
@@ -145,7 +145,7 @@ int killall_w(const char *program, unsigned sig, int wait)
 		snprintf(sigstr, sizeof(sigstr), "-%u", 0);
 		for (i = wait*CPS; !ret && i > 0; i--) {
 			usleep(1000*1000/CPS);
-			ret =_eval(killall_argv, NULL, 0, NULL);
+			ret = _eval(killall_argv, NULL, 0, NULL);
 		}
 	}
 #endif
@@ -415,7 +415,7 @@ void convert_asus_values()
 		{
 			sprintf(sbuf, "%s key %s", sbuf, nvram_safe_get("wl0_wpa_psk"));
 		}
-		else if (nvram_match("wl0_wep", "enabled") && wepidx>=1 && wepidx<=4)
+		else if (nvram_match("wl0_wep", "enabled") && wepidx >= 1 && wepidx <= 4)
 		{
 			sprintf(wepname, "wl0_key%d", wepidx);
 			sprintf(sbuf, "%s key %s", sbuf, nvram_safe_get(wepname));
@@ -461,9 +461,9 @@ void convert_asus_values()
 	if (nvram_match("wl_wdsapply_x", "1"))
 	{
 		num = nvram_get_int("wl_wdsnum_x");
-		list[0]=0;
+		list[0] = 0;
 
-		for (i=0;i<num;i++)
+		for (i = 0; i < num;i++)
 		{
 			sprintf(list, "%s %s", list, mac_conv("wl_wdslist_x", i, macbuf));
 
@@ -481,9 +481,9 @@ void convert_asus_values()
 	if (nvram_invmatch("wl_macmode", "disabled"))
 	{
 		num = nvram_get_int("wl_macnum_x");
-		list[0]=0;
+		list[0] = 0;
 
-		for (i=0;i<num;i++)
+		for (i = 0; i < num;i++)
 		{
 			sprintf(list, "%s %s", list, mac_conv("wl_maclist_x", i, macbuf));
 			
@@ -737,7 +737,7 @@ void convert_asus_values()
 	}
 
         //2005/09/22 insmod FTP module
-        if (nvram_match("usb_ftpenable_x", "1") && atoi(nvram_get("usb_ftpport_x"))!=21)
+        if (nvram_match("usb_ftpenable_x", "1") && atoi(nvram_get("usb_ftpport_x")) != 21)
         {
                 char ports[32];
 
@@ -967,7 +967,7 @@ char *pppstatus(char *buf)
    FILE *fp;
    char sline[128], *p;
 
-   if ((fp=fopen("/tmp/wanstatus.log", "r")) && fgets(sline, sizeof(sline), fp))
+   if ((fp = fopen("/tmp/wanstatus.log", "r")) && fgets(sline, sizeof(sline), fp))
    {
 	p = strstr(sline, ",");
 	strcpy(buf, p+1);

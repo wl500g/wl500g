@@ -188,7 +188,7 @@ vlan_configure(void)
         lan_vid = atoi(lan_vlan);
     else
         lan_vid = vlan_boards[board_index].lan_vlan;
-    for (i=0;i<BCM_NUM_PORTS;i++)
+    for (i = 0; i < BCM_NUM_PORTS; i++)
         lan_vids[i] = 0;
     if (wan_vid == 0 || wan_vid > VLAN_ID_MAX)
     {
@@ -460,7 +460,7 @@ vlan_configure(void)
         bcm_port_stp_set(i,BCM_PORT_STP_DISABLE);
     } else {
       /* init spanning tree state to none for all ports */
-      for (i=1;i<=BCM_MAX_PORT;i++)
+      for (i = 1; i <= BCM_MAX_PORT; i++)
         bcm_port_stp_set(i,BCM_PORT_STP_NONE);
     }
     /* add static entries to arl for wan hwaddr & lan hwaddr */

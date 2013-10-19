@@ -332,7 +332,7 @@ void sysinit(void)
 	/* /etc contents */
 	eval("cp", "-dpR", "/usr/etc", "/tmp");
 
-	/* create /etc/{passwd,group,TZ} */
+	/* create /etc/{passwd, group, TZ} */
 	make_etc();
 	
 	/* Setup console */

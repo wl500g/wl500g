@@ -68,7 +68,7 @@ static void init_wmx_variables(const char *prefix)
 	char tmp[100];
 	int t_interval = nvram_get_int("wan_wimax_interval");
 
-	if (t_interval < 20 || t_interval > 3600 ) 
+	if (t_interval < 20 || t_interval > 3600) 
 		nvram_set("wan_wimax_interval", "60");
 
 	// Timestamp of the last connection checking
@@ -164,14 +164,14 @@ int madwimax_check(const char *prefix)
 	if (pid > 0 && is_chk_con())
 	{
 		// TODO check the process state
-		//dprintf( "wmx_chk_con enabled, madwimad pid %d", pid );
+		//dprintf("wmx_chk_con enabled, madwimad pid %d", pid);
 		time_t cur_time = time(NULL);
 		time_t prev_time = wmx_chk_get_last_time(prefix);
 
 		if ((cur_time > prev_time + wmx_chk_interval()) ||
 		    (cur_time < prev_time))
 		{
-			//if( is_chk_log() ) logmessage( "[wmx_checker]", "Ping gateway\n" );
+			//if(is_chk_log()) logmessage("[wmx_checker]", "Ping gateway\n");
 			int ping_pid;
 			char s_pid[20];
 			char * wchk_argv[] = {
@@ -181,7 +181,7 @@ int madwimax_check(const char *prefix)
 				nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
 				NULL};
 
-			_eval( wchk_argv, NULL, 0, &ping_pid);
+			_eval(wchk_argv, NULL, 0, &ping_pid);
 			//prev_time = cur_time;
 			wmx_chk_set_last_time(prefix, cur_time);
 
@@ -198,7 +198,7 @@ int madwimax_check(const char *prefix)
 	if (pid == 0)
 	{
 		if (is_chk_log())
-			logmessage(nvram_safe_get("wan_proto_t"), "Restarting madwimax\n" );
+			logmessage(nvram_safe_get("wan_proto_t"), "Restarting madwimax\n");
 
 	 	// kill the udhcpc
 		kill_pidfile_s((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp), SIGUSR2);
@@ -318,7 +318,7 @@ static int madwimax_down(const char *ifname, int unit)
 
 static void update_nvram_wmx(const char *ifname, int isup)
 {
-	dprintf( "ifname: %s, is up: %d", ifname, isup );
+	dprintf("ifname: %s, is up: %d", ifname, isup);
 
 	if (is_chk_con())
 		nvram_set("wan_wimax_ping_t", "No data available");
