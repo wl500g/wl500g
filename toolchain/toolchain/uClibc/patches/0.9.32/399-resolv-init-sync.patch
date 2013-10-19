@@ -1,0 +1,36 @@
+From: Kenneth Soerensen
+Date: Wed, 10 Apr 2013 17:10:37 +0200
+Subject: [PATCH 3/3] Fix lookup with DNS search domains when res_init() is
+ used in multi-threaded application.
+
+In a multi-threaded application where res_init() was called either
+directly or implicitly, getaddrinfo() and others failed to add the
+DNS search domain to hostnames.
+
+This problem made it not possible to look up a hostname without its
+domain appended.
+
+The problem is caused by res_sync_func() overwriting the configuration
+read by __open_nameservers() immediately after it is read.
+
+The suggested solutin is to disable res_sync_func() while reading name
+server configuration in res_init().
+
+Signed-off-by: Kenneth Soerensen <kenneth.sorensen at spectralink.com>
+
+---
+ libc/inet/resolv.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/libc/inet/resolv.c b/libc/inet/resolv.c
+--- a/libc/inet/resolv.c
++++ b/libc/inet/resolv.c
+@@ -2966,6 +2966,7 @@ int res_init(void)
+ 
+ 	__UCLIBC_MUTEX_LOCK(__resolv_lock);
+ 	__close_nameservers();
++	__res_sync = NULL;
+ 	__open_nameservers();
+ 
+ 	__res_sync = res_sync_func;
+-- 
