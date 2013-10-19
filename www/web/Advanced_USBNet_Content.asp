@@ -120,7 +120,7 @@
 			</td>
 			<td class="content_input_td" nowrap>
 				<input type="checkbox" value="dhcp" name="wan_proto_x" class="content_input_fd" 
-				onchange="return change_common_radio(this, '3GConfig', 'wan_proto', '1')" <% nvram_match("wan_proto", "usbnet", "checked"); %>>
+				onchange="return change_common_radio(this, 'usbnetConfig', 'wan_proto', '1')" <% nvram_match("wan_proto", "usbnet", "checked"); %>>
 			</td>
 		</tr>
 		<tr>
@@ -175,8 +175,9 @@
 					onblur="validate_string(this)">
 			</td>
 		</tr>
+<!-- ******************* End of not realized  ********************  -->
 		<tr>
-			<td class="content_header_td" onmouseover="return overlib('That is Maximum Transmission Unit(MTU).', LEFT);"
+			<td class="content_header_td" onmouseover="return overlib('That is Maximum Transmission Unit(MTU). 0 is default value for automatic MTU detection', LEFT);"
 				onmouseout="return nd()">
 				MTU
 			</td>
@@ -186,19 +187,6 @@
 					onblur="validate_string(this)">
 			</td>
 		</tr>
-		<tr style="display:none">
-			<td class="content_header_td" onmouseover="return overlib('That is Maximum Receive Unit(MRU).', LEFT);"
-				onmouseout="return nd();">
-				MRU
-			</td>
-			<td class="content_input_td">
-				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_usbnnet_mru"
-					value="<% nvram_get("wan_usbnet_mru"); %>" onkeypress="return is_number(event, this)"
-					onblur="validate_string(this)">
-			</td>
-		</tr>
-<!-- ******************* End of not realized  ********************  -->
-
 		<tr class="content_header_tr">
 			<td class="content_section_header_td" colspan="2">
 				Custom USB device parameters

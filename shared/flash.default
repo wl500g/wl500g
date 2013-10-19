@@ -484,5 +484,5 @@
 #endif
 
 #ifdef __CONFIG_USBNET__
-{"wan_usbnet_mtu","1400", 0},
+{"wan_usbnet_mtu","0", 0},
 #endif

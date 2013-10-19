@@ -107,8 +107,9 @@ void usbnet_if_up(char *prefix, int unit, char *ifname) {
 	ifconfig(ifname, IFUP, NULL, NULL);
 	eval("brctl", "addif", wan_ifname, ifname );
 
-	eval("ifconfig", nvram_safe_get( strcat_r(prefix, "usb_ifname", tmp)),
-		"mtu", nvram_safe_get( strcat_r(prefix, "usbnet_mtu", tmp)));
+	if (nvram_get_int( strcat_r(prefix, "usbnet_mtu", tmp)))
+		eval("ifconfig", ifname,
+			"mtu", nvram_safe_get( strcat_r(prefix, "usbnet_mtu", tmp)));
 
 	//connect qmi, ncm, mbim
 	usbnet_connect(prefix, unit, ifname);
