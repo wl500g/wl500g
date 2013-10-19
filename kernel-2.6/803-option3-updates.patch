@@ -1,8 +1,8 @@
 option: Updates from upstream
 
 ---
- drivers/usb/serial/option.c |  945 ++++++++++++++++++++++++++++++--------------
- 1 file changed, 660 insertions(+), 285 deletions(-)
+ drivers/usb/serial/option.c |  947 ++++++++++++++++++++++++++++++--------------
+ 1 file changed, 662 insertions(+), 285 deletions(-)
 
 diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 --- a/drivers/usb/serial/option.c
@@ -184,7 +184,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  /* Ericsson products */
  #define ERICSSON_VENDOR_ID			0x0bdb
-@@ -445,15 +389,113 @@ static int  option_resume(struct usb_ser
+@@ -445,15 +389,114 @@ static int  option_resume(struct usb_ser
  #define CELOT_PRODUCT_CT680M			0x6801
  
  /* ONDA Communication vendor id */
@@ -287,7 +287,8 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +
 +/* Hyundai Petatel Inc. products */
 +#define PETATEL_VENDOR_ID			0x1ff4
-+#define PETATEL_PRODUCT_NP10T			0x600e
++#define PETATEL_PRODUCT_NP10T_600A		0x600a
++#define PETATEL_PRODUCT_NP10T_600E		0x600e
 +
 +/* TP-LINK Incorporated products */
 +#define TPLINK_VENDOR_ID			0x2357
@@ -1041,7 +1042,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE(CINTERION_VENDOR_ID, CINTERION_PRODUCT_HC28_MDM) }, 
  	{ USB_DEVICE(CINTERION_VENDOR_ID, CINTERION_PRODUCT_HC28_MDMNET) },
  	{ USB_DEVICE(SIEMENS_VENDOR_ID, CINTERION_PRODUCT_HC25_MDM) },
-@@ -1042,12 +1321,92 @@ static struct usb_device_id option_ids[]
+@@ -1042,12 +1321,93 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(SIEMENS_VENDOR_ID, CINTERION_PRODUCT_HC28_MDMNET) },
  
  	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD100) },
@@ -1122,7 +1123,8 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +	{ USB_DEVICE_AND_INTERFACE_INFO(MEDIATEK_VENDOR_ID, MEDIATEK_PRODUCT_DC_4COM2, 0xff, 0x02, 0x01) },
 +	{ USB_DEVICE_AND_INTERFACE_INFO(MEDIATEK_VENDOR_ID, MEDIATEK_PRODUCT_DC_4COM2, 0xff, 0x00, 0x00) },
 +	{ USB_DEVICE(CELLIENT_VENDOR_ID, CELLIENT_PRODUCT_MEN200) },
-+	{ USB_DEVICE(PETATEL_VENDOR_ID, PETATEL_PRODUCT_NP10T) },
++	{ USB_DEVICE(PETATEL_VENDOR_ID, PETATEL_PRODUCT_NP10T_600A) },
++	{ USB_DEVICE(PETATEL_VENDOR_ID, PETATEL_PRODUCT_NP10T_600E) },
 +	{ USB_DEVICE(TPLINK_VENDOR_ID, TPLINK_PRODUCT_MA180),
 +	  .driver_info = (kernel_ulong_t)&net_intf4_blacklist },
 +	{ USB_DEVICE(CHANGHONG_VENDOR_ID, CHANGHONG_PRODUCT_CH690) },
