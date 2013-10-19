@@ -166,7 +166,7 @@ static int route_manip(int cmd, const char *name, int metric,
 	if (ioctl(s, cmd, &rt) < 0)
 	{
 		ret = errno;
-		dprintf("route %s %s: %s\n", (cmd==SIOCADDRT)?"add":"del",
+		dprintf("route %s %s: %s\n", (cmd == SIOCADDRT) ? "add" : "del",
 			name, strerror(ret));
 	}
 

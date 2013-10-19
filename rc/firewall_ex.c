@@ -57,7 +57,7 @@ static char *proto_conv(char *proto_name, int idx)
 	char itemname_arr[32];
 	
 	sprintf(itemname_arr,"%s%d", proto_name, idx);
-	proto=nvram_get(itemname_arr);
+	proto = nvram_get(itemname_arr);
 		
 	if (!strncasecmp(proto, "Both", 3)) strcpy(g_buf, "both");
 	else if (!strncasecmp(proto, "TCP", 3)) strcpy(g_buf, "tcp");
@@ -73,13 +73,13 @@ static char *protoflag_conv(char *proto_name, int idx, int isFlag)
 	char itemname_arr[32];
 	
 	sprintf(itemname_arr,"%s%d", proto_name, idx);
-	proto=nvram_get(itemname_arr);
+	proto = nvram_get(itemname_arr);
 
 	strcpy(g_buf, "");
 	
 	if (!isFlag)
 	{		
-		if (strncasecmp(proto, "UDP", 3)==0) strcpy(g_buf, "udp");
+		if (strncasecmp(proto, "UDP", 3) == 0) strcpy(g_buf, "udp");
 		else strcpy(g_buf, "tcp");
 	}
 	else
@@ -99,46 +99,46 @@ static char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 	char itemname_arr[32];
 	
 	sprintf(itemname_arr,"%s%d", port_name, idx);
-	port=nvram_get(itemname_arr);
+	port = nvram_get(itemname_arr);
 
 	strcpy(g_buf, "");
 	
 	if (!strncmp(port, ">", 1)) 
 	{
 		sprintf(g_buf, "%d-65535", atoi(port+1) + 1);
-		*start=atoi(port+1);
-		*end=65535;
+		*start = atoi(port+1);
+		*end = 65535;
 	}
 	else if (!strncmp(port, "=", 1)) 
 	{
 		sprintf(g_buf, "%d-%d", atoi(port+1), atoi(port+1));
-		*start=*end=atoi(port+1);
+		*start = *end = atoi(port+1);
 	}
 	else if (!strncmp(port, "<", 1)) 
 	{
 		sprintf(g_buf, "1-%d", atoi(port+1) - 1);
-		*start=1;
-		*end=atoi(port+1);
+		*start = 1;
+		*end = atoi(port+1);
 	}
-	else if ( (strptr=strchr(port, ':')) != NULL)
+	else if ((strptr = strchr(port, ':')) != NULL)
 	{		
 		strcpy(itemname_arr, port);
 		strptr = strchr(itemname_arr, ':');
 		sprintf(g_buf, "%d-%d", atoi(itemname_arr), atoi(strptr+1));	
-		*start=atoi(itemname_arr);
-		*end=atoi(strptr+1);
+		*start = atoi(itemname_arr);
+		*end = atoi(strptr+1);
 	}
 	else if (*port)
 	{
 		sprintf(g_buf, "%d-%d", atoi(port), atoi(port));
-		*start=atoi(port);
-		*end=atoi(port);
+		*start = atoi(port);
+		*end = atoi(port);
 	}
 	else
 	{
 		g_buf[0] = 0;
-		*start=0;
-		*end=0;
+		*start = 0;
+		*end = 0;
 	}
 	
 	return(g_buf_alloc(g_buf));
@@ -163,16 +163,16 @@ static char *iprange_ex_conv(char *ip_name, int idx)
 	int mask;
 	
 	sprintf(itemname_arr,"%s%d", ip_name, idx);
-	ip=nvram_safe_get(itemname_arr);
+	ip = nvram_safe_get(itemname_arr);
 	strcpy(g_buf, "");
 	
 	// scan all ip string
-	i=j=k=0;
-	mask=32;
+	i = j = k = 0;
+	mask = 32;
 	
 	while (*(ip+i))
 	{
-		if (*(ip+i)=='*') 
+		if (*(ip+i) == '*') 
 		{
 			startip[j++] = '0';
 			// 255 is for broadcast
@@ -187,9 +187,9 @@ static char *iprange_ex_conv(char *ip_name, int idx)
 	
 	startip[j++] = 0;
 
-	if (mask==32)
+	if (mask == 32)
 		sprintf(g_buf, "%s", startip);
-	else if (mask==0)
+	else if (mask == 0)
 		strcpy(g_buf, "");
 	else sprintf(g_buf, "%s/%d", startip, mask);
 
@@ -281,17 +281,17 @@ static void timematch_conv(char *mstr, char *nv_date, char *nv_time)
 
 	if (strlen(date)!=7||strlen(time)!=8) goto no_match;
 
-	if (strncmp(date, "1111111", 7)==0 &&
-	    strncmp(time, "00002359", 8)==0) goto no_match;
+	if (strncmp(date, "1111111", 7) == 0 &&
+	    strncmp(time, "00002359", 8) == 0) goto no_match;
 	
-	i=0;
+	i = 0;
 	strncpy(timestart, time, 2);
 	i+=2;
 	timestart[i++] = ':';
 	strncpy(timestart+i, time+2, 2);
 	i+=2;
 	timestart[i]=0;
-	i=0;
+	i = 0;
 	strncpy(timestop, time+4, 2);
 	i+=2;
 	timestop[i++] = ':';
@@ -302,16 +302,16 @@ static void timematch_conv(char *mstr, char *nv_date, char *nv_time)
 	sprintf(mstr, "-m time --timestart %s --timestop %s --weekdays ",
 			timestart, timestop);
 
-	head=1;
+	head = 1;
 
-	for (i=0;i<7;i++)
+	for (i = 0; i < 7; i++)
 	{
-		if (*(date+i)=='1')
+		if (*(date+i) == '1')
 		{
 			if (head)
 			{
 			    sprintf(mstr, "%s %s", mstr, datestr[i]);
-			    head=0;
+			    head = 0;
 			}
 			else
 			{	
@@ -343,7 +343,7 @@ static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
 	int i;
 
 	/* Set wan_port0-wan_port1>lan_ipaddr:lan_port0-lan_port1,proto,enable,desc */
-	for (i=0 ; i<MAX_NVPARSE ; i++)
+	for (i = 0; i < MAX_NVPARSE; i++)
 	{
 		snprintf(name, sizeof(name), "forward_port%d", i);
 
@@ -391,18 +391,18 @@ static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
 			lan_port1 = lan_port0;
 
 		/* skip if it's disabled */
-		if ( strcmp(enable, "off") == 0 )
+		if ( strcmp(enable, "off") == 0)
 			continue;
 
 		/* -A PREROUTING -p tcp -m tcp --dport 823 -j DNAT 
 		                 --to-destination 192.168.1.88:23  */
-		if ( !strcmp(proto,"tcp") || !strcmp(proto,"both") )
+		if (!strcmp(proto,"tcp") || !strcmp(proto,"both"))
 		{
 	   		fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s "
 				  "-j DNAT --to-destination %s:%s\n"
 					, wan_port0, lan_ipaddr, lan_port0);
 		}
-		if ( !strcmp(proto,"udp") || !strcmp(proto,"both") ) {
+		if (!strcmp(proto,"udp") || !strcmp(proto,"both")) {
 	   		fprintf(fp, "-A VSERVER -p udp -m udp --dport %s "
 				  "-j DNAT --to-destination %s:%s\n"
 				  	, wan_port0, lan_ipaddr, lan_port0);
@@ -418,7 +418,7 @@ static void nat_setting(const char *wan_if, const char *wan_ip, const char *lan_
 	int i;
 	int wan_port;
 
-	if ((fp=fopen("/tmp/nat_rules", "w")) == NULL) return;
+	if ((fp = fopen("/tmp/nat_rules", "w")) == NULL) return;
 
 	fprintf(fp, "*nat\n"
 	       	":PREROUTING ACCEPT [0:0]\n"
@@ -494,17 +494,17 @@ static void nat_setting(const char *wan_if, const char *wan_ip, const char *lan_
 			else
 				snprintf(dstips, sizeof(dstips), "--to %s", dstip);
 
-			if (strcmp(proto, "tcp")==0 || strcmp(proto, "both")==0)
+			if (strcmp(proto, "tcp") == 0 || strcmp(proto, "both") == 0)
 			{
 				fprintf(fp, "-A VSERVER -p tcp -m tcp %s --dport %s -j DNAT %s\n", 
 					srcips, port, dstips);
 			}
-			if (strcmp(proto, "udp")==0 || strcmp(proto, "both")==0)
+			if (strcmp(proto, "udp") == 0 || strcmp(proto, "both") == 0)
 			{
 				fprintf(fp, "-A VSERVER -p udp -m udp %s --dport %s -j DNAT %s\n", 
 					srcips, port, dstips);
 			}
-			if (strcmp(proto, "other")==0)
+			if (strcmp(proto, "other") == 0)
 			{
 				fprintf(fp, "-A VSERVER -p %s %s -j DNAT --to %s\n",
 					protono, srcips, dstip);
@@ -590,7 +590,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
         char nvname[36], timef[256], *filterstr;
 #endif
 	
-	if ((fp=fopen("/tmp/filter_rules", "w")) == NULL) return -1;
+	if ((fp = fopen("/tmp/filter_rules", "w")) == NULL) return -1;
 
 	fprintf(fp, "*filter\n"
 		":INPUT ACCEPT [0:0]\n"
@@ -672,7 +672,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	{	
 		/* enable incoming packets from broken dhcp servers, which are sending replies
 		 * from addresses other than used for query, this could lead to lower level
-		 * of security, but it does not work otherwise (conntrack does not work) :-( 
+		 * of security, but it does not work otherwise (conntrack does not work) :-(
 		 */
 		if (nvram_match("wan0_proto", "dhcp") || nvram_match("wan0_proto", "bigpond") ||
 		    nvram_match("wan_ipaddr", "0.0.0.0"))
@@ -812,7 +812,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 			srcport = portrange_conv("filter_lw_srcport_x", i);
 			dstip = iprange_ex_conv("filter_lw_dstip_x", i);
 			dstport = portrange_conv("filter_lw_dstport_x", i);	
-			setting=filter_conv(proto, flag, srcip, srcport, dstip, dstport); 
+			setting = filter_conv(proto, flag, srcip, srcport, dstip, dstport); 
          		fprintf(fp, "-A FORWARD %s -i %s %s -j %s\n", lanwan_timematch, lan_if, setting, ftype);
 		}            
 
@@ -853,7 +853,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 			srcport = portrange_conv("filter_wl_srcport_x", i);
 			dstip = iprange_ex_conv("filter_wl_dstip_x", i);
 			dstport = portrange_conv("filter_wl_dstport_x", i);	
-			setting=filter_conv(proto, flag, srcip, srcport, dstip, dstport);
+			setting = filter_conv(proto, flag, srcip, srcport, dstip, dstport);
 
          		fprintf(fp, "-A FORWARD %s -o %s %s -j %s\n", wanlan_timematch, lan_if, setting, ftype);
 		}            
@@ -945,7 +945,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", "")) {
 	// TODO: sync-flood protection, LAN/WAN filter tables, WAN/LAN filter tables
-	if ((fp=fopen("/tmp/filter6_rules", "w")) == NULL) return -1;
+	if ((fp = fopen("/tmp/filter6_rules", "w")) == NULL) return -1;
 
 	fprintf(fp, "*filter\n"
 		    ":INPUT ACCEPT [0:0]\n"

@@ -125,7 +125,7 @@ start_firewall(void)
 		// LAN/WAN filter		
 		num = nvram_get_int("macfilter_num_x");
 
-		for (i=0;i<num;i++)
+		for (i = 0; i < num; i++)
 		{	
 			if (ether_atoe(mac_conv("macfilter_list_x", i, var), filter.match.mac.octet))
 			{
@@ -176,7 +176,7 @@ start_firewall(void)
 	for (i = 0; i < MAX_NVPARSE; i++) {
 		memset(&app, 0, sizeof(app));
 		if (get_autofw_port(i, &app) && !(app.match.flags & NETCONF_DISABLED))
-			netconf_add_fw((netconf_fw_t *) &app);
+			netconf_add_fw((netconf_fw_t *)&app);
 	}
 #endif
 

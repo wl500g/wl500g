@@ -148,7 +148,7 @@ enum EnumRd {
 #define OFDM5_CHANNEL_SEPARATION (4)
 #define CCK_CHANNEL_SEPARATION   (1)
 
-#define MHZ2IEEE_CH(mhz)        ( ( mhz - 5000  ) / 5 )
+#define MHZ2IEEE_CH(mhz)        ((mhz - 5000) / 5)
 #define FCC_OUTDOOR_FIRST_FREQ 5725
 
 /* 5 GHz table settings */
@@ -463,12 +463,12 @@ static void ParseReg(char *regDmnName, A_UINT16 *regDmnCode, char *country)
 {
     char reg[5];
         
-    if (strlen(regDmnName)>=4) // With Country Code
+    if (strlen(regDmnName) >= 4) // With Country Code
     {
     	strncpy(reg, regDmnName, 4);
     	reg[4] = 0;    	
     	sscanf(reg, "%x", regDmnCode);
-    	if (country!=NULL)
+    	if (country != NULL)
     	   strcpy(country, regDmnName+4);    	 
     }
     else
@@ -501,13 +501,13 @@ RefreshBRCountry(char *regDmnName, char *country, char *country_code)
     dprintf("Domain Code: %x\n", regDmnCode);             
     regDmnEnum = regDmnCode;
     
-    for(i=0; i<RDMAPPING_SIZE; i++)
+    for (i = 0; i < RDMAPPING_SIZE; i++)
     {
     	if (RDMapping[i][0] == regDmnCode)
     	   break;
     }
     
-    if (i==RDMAPPING_SIZE) i=0;
+    if (i == RDMAPPING_SIZE) i = 0;
     	    
     regDmnEnum = RDMapping[i][2];
     lowChannel = 1;
@@ -547,7 +547,7 @@ RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
     A_UINT16 channelSpread, searchChannel, firstChannel;
     A_UINT16 lowChannel = 24, highChannel = 220;    
     A_UINT16 maxRdChannel = 220;
-    A_UINT16 chanIdx=0;
+    A_UINT16 chanIdx = 0;
 
 
     /* Add by ChenI to translate regulatory domain code */
@@ -557,13 +557,13 @@ RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
              
     regDmnEnum = regDmnCode;
     
-    for (i=0; i<RDMAPPING_SIZE; i++)
+    for (i = 0; i < RDMAPPING_SIZE; i++)
     {
     	if (RDMapping[i][0] == regDmnCode)
     	   break;
     }
     
-    if (i==RDMAPPING_SIZE) i=0;
+    if (i == RDMAPPING_SIZE) i = 0;
     	
     regDmnEnum = RDMapping[i][2];
     lowChannel = 1;
@@ -591,12 +591,12 @@ RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
 			chanList[chanIdx++] = searchChannel;
 			chanList[chanIdx] = -1;
 						
-			if (firstChannel==0)
+			if (firstChannel == 0)
 			{
 			     firstChannel = searchChannel;
 			}   
 			
-			if (current!=999)
+			if (current != 999)
 			{
 			    if (current == searchChannel)
 			    {
@@ -612,10 +612,10 @@ RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
                 }
             }
             
-            if (current!=999)
+            if (current != 999)
             {
             	 /* Find the middle channel for default value */           	 
-            	 if (chanIdx!=0)
+            	 if (chanIdx != 0)
             	       firstChannel = chanList[chanIdx/2];
 
                  dprintf("%d\n", firstChannel);                 
@@ -643,12 +643,12 @@ void convert_country(void)
  	
     RefreshChannelList(nvram_safe_get("regulation_domain"), 999, chanList);
 
-    i=0;
+    i = 0;
 
-    *chanListStr='\0';
-    while (chanList[i]!=-1)
+    *chanListStr = '\0';
+    while (chanList[i] != -1)
     {
-         if (i==0) sprintf(chanListStr, "%d", chanList[i]);
+         if (i == 0) sprintf(chanListStr, "%d", chanList[i]);
 	 else sprintf(chanListStr, "%s %d", chanListStr, chanList[i]);
 	 i++;
 	 //printf("chan :%s\n", chanListStr);
@@ -666,32 +666,32 @@ void sync_mac(char *devname, char *mac)
 	unsigned char t;	
 	srom_rw_t *srom;
 
-	if (strlen(mac)!=17) return;
+	if (strlen(mac) != 17) return;
 
 	//printf("dev: %s, mac : %s\n", devname, mac);
 
 	s[2] = 0;
 
-	for (i=0; i<6; i++)
+	for (i = 0; i < 6; i++)
 	{
 		strncpy(s, mac+i*3, 2);
 		t = (unsigned char)strtoul(s, NULL, 16);
-		if (i%2==0) macstr[i+1] = t;
+		if (i%2 == 0) macstr[i+1] = t;
 		else macstr[i-1] = t ;
 	}
 
-	srom=buf;
-	srom->byteoff=72;
-	srom->nbytes=6;
+	srom = buf;
+	srom->byteoff = 72;
+	srom->nbytes = 6;
 	
-	if ( (result = wl_ioctl(devname, WLC_GET_SROM, buf, MAXBUF)) == 0 )
+	if ((result = wl_ioctl(devname, WLC_GET_SROM, buf, MAXBUF)) == 0)
 	{
-		for (i=0;i<6;i++)
+		for (i = 0; i < 6; i++)
 		{
 			//printf(" %x %x \n", buf[8+i], macstr[i]);
 		}
 
-		if (memcmp(macstr, buf+8, 6)!=0)
+		if (memcmp(macstr, buf+8, 6) != 0)
 		{			
 			memcpy(buf+8, macstr, 6);
 			result = wl_ioctl(devname, WLC_SET_SROM, buf, MAXBUF);				
@@ -717,12 +717,12 @@ int rsrom_main(const char *devname, unsigned int pos, int pflag)
 	unsigned short val;
 
 	srom = (srom_rw_t *)buf;
-	srom->byteoff=pos;
-	srom->nbytes=2; //sizeof(val);
+	srom->byteoff = pos;
+	srom->nbytes = 2; //sizeof(val);
 	
-	if ( (result = wl_ioctl(devname, WLC_GET_SROM, buf, MAXBUF)) == 0)
+	if ((result = wl_ioctl(devname, WLC_GET_SROM, buf, MAXBUF)) == 0)
 	{
-		oval =(unsigned short *)(buf + 8);
+		oval = (unsigned short *)(buf + 8);
 		val = (unsigned short)*oval;
 	}
 	else val = 0;
@@ -740,14 +740,14 @@ int wsrom_main(const char *devname, unsigned int pos, unsigned short val)
 	/* Usage srom [postion] [val in 2 byte] */
 	dprintf("write %s srom[%x] : %x\n", devname, pos, val);	
 	srom = (srom_rw_t *)buf;
-	srom->byteoff=pos;
-	srom->nbytes=2; //sizeof(val);
+	srom->byteoff = pos;
+	srom->nbytes = 2; //sizeof(val);
 	
-	if ( (result = wl_ioctl(devname, WLC_GET_SROM, buf, MAXBUF)) == 0)
+	if ((result = wl_ioctl(devname, WLC_GET_SROM, buf, MAXBUF)) == 0)
 	{
-		oval =(unsigned short *)(buf + 8);
+		oval = (unsigned short *)(buf + 8);
 
-		if (*oval!=val)
+		if (*oval != val)
 		{
 			memcpy(buf+8, &val, sizeof(val));
 			result = wl_ioctl(devname, WLC_SET_SROM, buf, MAXBUF);			}
@@ -762,23 +762,23 @@ int write_mac(const char *devname, const char *mac)
 	unsigned char t;	
 	srom_rw_t *srom;
 
-	if (strlen(mac)!=17) return -1;
+	if (strlen(mac) != 17) return -1;
 
 	//printf("dev: %s, mac : %s\n", devname, mac);
 
 	s[2] = 0;
 
-	for (i=0; i<6; i++)
+	for (i = 0; i < 6; i++)
 	{
 		strncpy(s, mac+i*3, 2);
 		t = (unsigned char)strtoul(s, NULL, 16);
-		if (i%2==0) macstr[i+1] = t;
+		if (i%2 == 0) macstr[i+1] = t;
 		else macstr[i-1] = t ;
 	}
 
-	srom=(srom_rw_t *)buf;
-	srom->byteoff=72;
-	srom->nbytes=6;
+	srom = (srom_rw_t *)buf;
+	srom->byteoff = 72;
+	srom->nbytes = 6;
 
 	memcpy(buf+8, macstr, 6);
 	result = wl_ioctl(devname, WLC_SET_SROM, buf, MAXBUF);
@@ -795,8 +795,8 @@ wlan_update()
 	if (nvram_match("productid", "WL500g"))
 	{
 		val = rsrom_main("eth2", 104, 0);
-		if (val==0x003c) wsrom_main("eth2", 104, 0x004c);// ver 1.6
-		else if (val==0x0035) wsrom_main("eth2", 104, 0x0046);     // ver 2.2
+		if (val == 0x003c) wsrom_main("eth2", 104, 0x004c);// ver 1.6
+		else if (val == 0x0035) wsrom_main("eth2", 104, 0x0046);     // ver 2.2
 #if 0
 		else wsrom_main("eth2", 104, 0x0046);
 #endif

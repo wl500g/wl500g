@@ -747,7 +747,7 @@ start_usb(void)
 	insmod("usblp", NULL);
 	if (!nvram_invmatch("lpr_enable", "1"))
 	{
-		char *lpd_argv[]={"lpd", NULL};
+		char *lpd_argv[] = {"lpd", NULL};
 		pid_t pid;
 
 		sleep(1);
@@ -866,15 +866,15 @@ static void start_script(void)
 	char runbuf[512];
 
 	script = nvram_safe_get("usb_ftpscript_x");
-	if (strlen(script)==0) return;
+	if (strlen(script) == 0) return;
 	sprintf(runbuf, "/tmp/harddisk/%s", script);
-	fp=fopen(runbuf, "r");
+	fp = fopen(runbuf, "r");
 	
 	if (fp)
 	{
 		fclose(fp);
 
-		//char *script_argv[]={"/tmp/harddisk/init.usb", NULL};
+		//char *script_argv[] = {"/tmp/harddisk/init.usb", NULL};
 		//_eval(script_argv, NULL, 0, &pid);
 
 		logmessage("USB storage", "start user specified script");
@@ -1289,7 +1289,7 @@ dev_found:
 	}
 	else if ((dir_to_open = opendir("/tmp/mnt")))
 	{
-		while ((dp=readdir(dir_to_open)))
+		while ((dp = readdir(dir_to_open)))
 		{
 		    if (strncmp(dp->d_name, "disc", 4) == 0)
 		    {
@@ -1336,8 +1336,8 @@ static struct mntent *findmntent(const char *file)
 {
 	struct mntent 	*mnt;
 	struct stat	st_buf;
-	dev_t		file_dev=0, file_rdev=0;
-	ino_t		file_ino=0;
+	dev_t		file_dev = 0, file_rdev = 0;
+	ino_t		file_ino = 0;
 	FILE 		*f;
 	
 	if ((f = setmntent ("/proc/mounts", "r")) == NULL)
@@ -1560,7 +1560,7 @@ int hotplug_usb_mass(const char *product)
 			eval("mount", "-a");
 		}
 		
-		while ((dp=readdir(usb_dev_disc)))
+		while ((dp = readdir(usb_dev_disc)))
 		{
 			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
 				continue;
@@ -1569,7 +1569,7 @@ int hotplug_usb_mass(const char *product)
 
 			if ((usb_dev_part = opendir(usb_disc)))
 			{
-				while ((dp_disc=readdir(usb_dev_part)))
+				while ((dp_disc = readdir(usb_dev_part)))
 				{
 					/* assume disc is the first entry */
 					int disc = !strcmp(dp_disc->d_name, "disc");
@@ -1594,7 +1594,7 @@ int hotplug_usb_mass(const char *product)
 		/* create /tmp/harddisk pointing to first partition */
 		usb_disc[0] = 0;	/* alphabetical sort minimum */
 		for (dir_to_open = opendir("/tmp/mnt");
-			dir_to_open && (dp = readdir(dir_to_open)); )
+			dir_to_open && (dp = readdir(dir_to_open));)
 		{
 			if (!strncmp(dp->d_name, "disc", 4) &&
 			    (usb_disc[0] == 0 || strcmp(dp->d_name, usb_disc) < 0))
@@ -1652,15 +1652,15 @@ hotplug_usb(void)
 	int i;
 	int isweb;
 
-	if (!(device=getenv("DEVICE"))) device="";
+	if (!(device = getenv("DEVICE"))) device = "";
 #ifdef DEBUG
-	dprintf("%s-%s-%s. Dev:%s\n",getenv("ACTION"),getenv("INTERFACE"),
+	dprintf("%s-%s-%s. Dev:%s\n", getenv("ACTION"), getenv("INTERFACE"),
 		getenv("PRODUCT"), device);
 #endif
-	if ( !(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")))
+	if (!(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")))
 		return EINVAL;
 
-	if ((product=getenv("PRODUCT")))
+	if ((product = getenv("PRODUCT")))
 	{
 		// see http://www.usb.org/developers/defined_class
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
@@ -1668,7 +1668,7 @@ hotplug_usb(void)
 		if (strncmp(interface, "255/", 4) == 0 || // Vendor specific
 			strncmp(interface, "2/", 2) == 0) // Communications and CDC Control
 		{
-			hotplug_network_device( interface, action, product, device );
+			hotplug_network_device(interface, action, product, device);
 		}
 #endif
 		/* usb storage */
@@ -1676,7 +1676,7 @@ hotplug_usb(void)
 		{
 			int scsi_host_no = -2;
 #if defined(__CONFIG_MODEM__)
-			hotplug_usb_modeswitch( interface, action, product, device );
+			hotplug_usb_modeswitch(interface, action, product, device);
 #endif
 			if (strcmp(action, "add") == 0)
 				nvram_set("usb_storage_device", product);
@@ -1685,7 +1685,7 @@ hotplug_usb(void)
 			return 0;
 		}
 
-		if (strncmp(interface, "1/1", 3)==0)
+		if (strncmp(interface, "1/1", 3) == 0)
 		{
 			// if the audio device is the same with web cam,
 			// just skip it
@@ -1694,11 +1694,11 @@ hotplug_usb(void)
 			isweb = WEB_AUDIO;
 			goto usbhandler;
 		}
-		else if (strncmp(interface, "1/", 2)==0)
+		else if (strncmp(interface, "1/", 2) == 0)
 			return 0;
 
 		/* ignore hubs */
-		if (strncmp(interface, "9/", 2)==0)
+		if (strncmp(interface, "9/", 2) == 0)
 			return 0;
 
 		i = 0;
@@ -1722,11 +1722,11 @@ hotplug_usb(void)
 usbhandler:	
 	if (!strncasecmp(action, "add", 3))
 	{		
-		if (isweb==WEB_NONE)
+		if (isweb == WEB_NONE)
 		{
 			/* old usb-storage handler */
 		}
-		else if (isweb==WEB_AUDIO)
+		else if (isweb == WEB_AUDIO)
 		{
 			if (nvram_match("usb_audio_device", ""))
 				logmessage("USB audio", "attached");
@@ -1743,11 +1743,11 @@ usbhandler:
 	}
 	else 
 	{
-		if (isweb==WEB_NONE) // Treat it as USB Storage
+		if (isweb == WEB_NONE) // Treat it as USB Storage
 		{
 			/* old usb-storage handler */
 		}
-		else if (isweb==WEB_AUDIO)
+		else if (isweb == WEB_AUDIO)
 		{
 			nvram_set("usb_audio_device", "");
 		}

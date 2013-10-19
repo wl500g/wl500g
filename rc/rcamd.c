@@ -49,7 +49,7 @@ int
 hotplug_usb_webcam(const char *product)
 {
 	char input_plugin_param[256], output_plugin_param[256], security[128], jpg_param[32];
-	char *rcamd_argv[]={"mjpg_streamer", "-b",
+	char *rcamd_argv[] = {"mjpg_streamer", "-b",
 				"-p", "/var/run/rcamd.pid",
 				"-i", input_plugin_param,
 				"-o", output_plugin_param,
@@ -97,7 +97,7 @@ hotplug_usb_webcam(const char *product)
 //	mkdir("/tmp/webcam", 0777);
 //	symlink("/var/tmp/display.jpg", "/tmp/webcam/display.jpg");
 
-	if (nvram_match("usb_webhttpcheck_x","1"))
+	if (nvram_match("usb_webhttpcheck_x", "1"))
 	{
 		snprintf(security, sizeof(security), "-c %s:%s",
 			nvram_safe_get("usb_webhttp_username"),

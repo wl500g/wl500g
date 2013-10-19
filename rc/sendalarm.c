@@ -36,9 +36,9 @@ static void filecat(FILE *fp, char *catted)
 	char line[1024];
 	size_t i;
 
-	if ((cfp=fopen(catted, "r")) == NULL) return;
+	if ((cfp = fopen(catted, "r")) == NULL) return;
 
-	while ((i=fread(line, 1, sizeof(line), cfp)))
+	while ((i = fread(line, 1, sizeof(line), cfp)))
 	{
 		//printf("write: %s\n", line);
 		fwrite(line, 1, i, fp);
@@ -64,11 +64,11 @@ static char *nslookup(const char *name, int qtype, char *ret, size_t retsize)
     		return NULL;
 	*ret = '\0';
 
-	replylen = res_query(name, C_IN, qtype, (unsigned char*)&reply, sizeof(reply));
+	replylen = res_query(name, C_IN, qtype, (unsigned char *)&reply, sizeof(reply));
 	rheader = (HEADER *)reply;
 
-	if ( (replylen <= 0) || (ntohs(rheader->rcode) != NOERROR)
-	     || (ntohs(rheader->ancount) <= 0) )
+	if ((replylen <= 0) || (ntohs(rheader->rcode) != NOERROR)
+	     || (ntohs(rheader->ancount) <= 0))
 		return NULL;
 
 	/* Parse out the Question section, and get to the following.
@@ -180,11 +180,11 @@ int sendalarm_main(int argc, char *argv[])
 		return -2;
 	}
 
-	serverip = inet_ntoa( *( struct in_addr* )(serverhost->h_addr) );
+	serverip = inet_ntoa(*(struct in_addr *)(serverhost->h_addr));
 	dprintf("send alarm to : %s\n", serverip);
 
 	// Build mail source file
-	if ((fp = fopen("/var/tmp/alarmmail", "w"))==NULL) return -1;
+	if ((fp = fopen("/var/tmp/alarmmail", "w")) == NULL) return -1;
 
 	fprintf(fp,
 		"To: %s\n"
@@ -204,11 +204,11 @@ int sendalarm_main(int argc, char *argv[])
 
 	if (nvram_match("usb_webattach_x", "1"))
 	{	
-		for (i=1;i<argc;i++)
+		for (i = 1; i < argc; i++)
 		{
 			strcpy(image, argv[i]);
 			
-			if (!(imagebase=rindex(image, '/'))) imagebase = image;
+			if (!(imagebase = rindex(image, '/'))) imagebase = image;
 			else imagebase++;
 			
 			//eval("uuencode", "-m", image, imagebase, "-f", "/var/tmp/uuencode");

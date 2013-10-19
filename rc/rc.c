@@ -46,7 +46,7 @@ static void rc_signal(int sig);
 extern struct nvram_tuple router_defaults[];
 extern int noconsole;
 
-//static int restore_defaults_g=0;
+//static int restore_defaults_g = 0;
 int router_model = MDL_UNKNOWN;
 
 
@@ -851,7 +851,7 @@ check_option(int argc, char * const argv[], int *index, const char *option) {
 
 	while ((res = getopt(argc, argv, option)) != -1) {
 		if (!found)
-			found = ((char )res == option[0]);
+			found = ((char)res == option[0]);
 	}
 	*index = optind;
 	return found;
@@ -914,31 +914,30 @@ main(int argc, char **argv)
 #endif
 #ifdef __CONFIG_MADWIMAX__
 	/* madwimax [ if-create if-up if-down if-release ] */
-	else if ( !strcmp(base, "madwimax.events" ) )
+	else if (!strcmp(base, "madwimax.events"))
 		return madwimax_main(argc, argv);
 #endif
 #ifdef __CONFIG_MODEM__
 	/* lsmodem [-s|-j]*/
-	else if ( !strcmp(base, "lsmodem" ) )
+	else if (!strcmp(base, "lsmodem"))
 		return lsmodem_main(argc, argv);
 #endif
 	/* restore default */
 	else if (!strcmp(base, "restore"))
 	{
-		if (argc==2)
+		if (argc == 2)
 		{
 			int step = atoi(argv[1]);
-			if (step>=1)
-			{
+			if (step >= 1) {
 				nvram_set("vlan_enable", "1");
 				restore_defaults();
 			}
 			/* Setup wan0 variables if necessary */
-			if (step>=2)
+			if (step >= 2)
 				set_wan0_vars();
-			if (step>=3)
+			if (step >= 3)
 				start_vlan();
-			if (step>=4)
+			if (step >= 4)
 				start_lan();
 		}
 		return 0;
