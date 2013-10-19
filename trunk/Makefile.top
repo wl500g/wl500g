@@ -855,8 +855,9 @@ accel-pptp-install: accel-pptp
 	install -D accel-pptp/pppd_plugin/src/.libs/pptp.so $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 
-accel-ppp/Makefile:
-	cd accel-ppp && cmake \
+accel-ppp/build/Makefile:
+	[ -d accel-ppp/build ] || mkdir accel-ppp/build
+	cd accel-ppp/build && cmake \
 	    -DCPACK_TYPE=None \
 	    -DCMAKE_CROSSCOMPILING=TRUE \
 	    -DCMAKE_SYSTEM_NAME=Linux \
@@ -881,17 +882,17 @@ accel-ppp/Makefile:
 	    -DLOG_TCP=FALSE \
 	    -DLIB_SUFFIX= \
 	    -DLIB_PCRE=FALSE \
-	    .
+	    ..
 
-accel-ppp: accel-ppp/Makefile
-	$(MAKE) -C accel-ppp
+accel-ppp: accel-ppp/build/Makefile
+	$(MAKE) -C accel-ppp/build
 
 accel-ppp-clean:
-	-$(MAKE) -C accel-ppp clean
+	-$(MAKE) -C accel-ppp/build clean
 
-accel-ppp-install: accel-ppp/Makefile
+accel-ppp-install: accel-ppp/build/Makefile
 	DESTDIR=$(INSTALLDIR)/accel-ppp \
-	    $(MAKE) -C accel-ppp install/strip
+	    $(MAKE) -C accel-ppp/build install/strip
 
 dnsmasq:
 	$(MAKE) -C $@ COPTS="$(if $(CONFIG_IPV6),,-DNO_IPV6)" EXTRACFLAGS="$(EXTRACFLAGS)"
