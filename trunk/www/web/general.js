@@ -2783,6 +2783,8 @@ function change_common_radio(o, s, v, r)
 		{
 			if (s=="3GConfig")
 				frm.wan_proto.value="usbmodem";
+			else if (s=="usbnetConfig")
+				frm.wan_proto.value="usbnet";
 			else
 				frm.wan_proto.value="wimax";
 		}
