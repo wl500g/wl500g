@@ -1,0 +1,36 @@
+--- a/accel-pppd/ctrl/l2tp/l2tp.c
++++ b/accel-pppd/ctrl/l2tp/l2tp.c
+@@ -3973,9 +3973,6 @@ static void load_config(void)
+ 
+ static void l2tp_init(void)
+ {
+-	if (system("modprobe -q pppol2tp || modprobe -q l2tp_ppp"))
+-		log_warn("unable to load l2tp kernel module\n");
+-
+ 	l2tp_conn = _malloc(L2TP_MAX_TID * sizeof(void *));
+ 	memset(l2tp_conn, 0, L2TP_MAX_TID * sizeof(void *));
+ 
+--- a/accel-pppd/ctrl/pppoe/pppoe.c
++++ b/accel-pppd/ctrl/pppoe/pppoe.c
+@@ -1508,9 +1508,6 @@ static void pppoe_init(void)
+ 	struct conf_sect_t *s = conf_get_section("pppoe");
+ 	struct conf_option_t *opt;
+ 
+-	if (system("modprobe -q pppoe"))
+-		log_warn("failed to load pppoe kernel module\n");
+-
+ 	conn_pool = mempool_create(sizeof(struct pppoe_conn_t));
+ 	pado_pool = mempool_create(sizeof(struct delayed_pado_t));
+ 	padi_pool = mempool_create(sizeof(struct padi_t));
+--- a/accel-pppd/ctrl/pptp/pptp.c
++++ b/accel-pppd/ctrl/pptp/pptp.c
+@@ -774,9 +774,6 @@ static void pptp_init(void)
+ 	struct sockaddr_in addr;
+ 	char *opt;
+ 
+-	if (system("modprobe -q pptp"))
+-		log_warn("failed to load pptp kernel module\n");
+-
+ 	serv.hnd.fd = socket(PF_INET, SOCK_STREAM, 0);
+   if (serv.hnd.fd < 0) {
+     log_emerg("pptp: failed to create server socket: %s\n", strerror(errno));
