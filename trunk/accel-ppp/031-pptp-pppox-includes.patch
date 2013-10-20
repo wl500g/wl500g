@@ -1,0 +1,13 @@
+--- a/accel-pppd/ctrl/pptp/pptp.c
++++ b/accel-pppd/ctrl/pptp/pptp.c
+@@ -11,7 +11,9 @@
+ #include <netinet/in.h>
+ #include <sys/socket.h>
+ 
+-#include "if_pppox.h"
++#include <linux/if.h>
++#include <linux/if_ether.h>
++#include <linux/if_pppox.h>
+ 
+ #include "events.h"
+ #include "list.h"
