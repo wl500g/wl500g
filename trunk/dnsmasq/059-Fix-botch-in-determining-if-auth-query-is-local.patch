@@ -1,0 +1,74 @@
+From 6008bdbbc101f9ed7f002272a6e9c8e8ff677902 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Mon, 21 Oct 2013 21:47:03 +0100
+Subject: [PATCH] Fix botch in determining if auth query is local.
+
+---
+ src/auth.c    |    2 +-
+ src/forward.c |   30 ++++++++++++++++--------------
+ 2 files changed, 17 insertions(+), 15 deletions(-)
+
+diff --git a/src/auth.c b/src/auth.c
+index 91b5a71..4a1075b 100644
+--- a/src/auth.c
++++ b/src/auth.c
+@@ -110,7 +110,7 @@ size_t answer_auth(struct dns_header *header, char *limit, size_t qlen, time_t n
+   
+   if (ntohs(header->qdcount) == 0 || OPCODE(header) != QUERY )
+     return 0;
+-  
++
+   /* determine end of question section (we put answers there) */
+   if (!(ansp = skip_questions(header, qlen)))
+     return 0; /* bad packet */
+diff --git a/src/forward.c b/src/forward.c
+index 623fde7..7ed8880 100644
+--- a/src/forward.c
++++ b/src/forward.c
+@@ -865,13 +865,14 @@ void receive_query(struct listener *listen, time_t now)
+ 
+ #ifdef HAVE_AUTH
+       /* find queries for zones we're authoritative for, and answer them directly */
+-      for (zone = daemon->auth_zones; zone; zone = zone->next)
+-	if (in_zone(zone, daemon->namebuff, NULL))
+-	  {
+-	    auth_dns = 1;
+-	    local_auth = 1;
+-	    break;
+-	  }
++      if (!auth_dns)
++	for (zone = daemon->auth_zones; zone; zone = zone->next)
++	  if (in_zone(zone, daemon->namebuff, NULL))
++	    {
++	      auth_dns = 1;
++	      local_auth = 1;
++	      break;
++	    }
+ #endif
+     }
+   
+@@ -973,13 +974,14 @@ unsigned char *tcp_request(int confd, time_t now,
+ 	  
+ #ifdef HAVE_AUTH
+ 	  /* find queries for zones we're authoritative for, and answer them directly */
+-	  for (zone = daemon->auth_zones; zone; zone = zone->next)
+-	    if (in_zone(zone, daemon->namebuff, NULL))
+-	      {
+-		auth_dns = 1;
+-		local_auth = 1;
+-		break;
+-	      }
++	  if (!auth_dns)
++	    for (zone = daemon->auth_zones; zone; zone = zone->next)
++	      if (in_zone(zone, daemon->namebuff, NULL))
++		{
++		  auth_dns = 1;
++		  local_auth = 1;
++		  break;
++		}
+ #endif
+ 	}
+       
+-- 
+1.7.2.5
+

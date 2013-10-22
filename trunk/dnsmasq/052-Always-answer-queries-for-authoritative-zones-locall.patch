@@ -1,7 +1,7 @@
 From b485ed97aa5726644d71d3a16ccdd058d6a8d73a Mon Sep 17 00:00:00 2001
 From: Simon Kelley <simon@thekelleys.org.uk>
 Date: Fri, 18 Oct 2013 22:00:39 +0100
-Subject: [PATCH 3/3] Always answer queries for authoritative zones locally, never forward.
+Subject: [PATCH] Always answer queries for authoritative zones locally, never forward.
 
 ---
  src/auth.c    |    2 +-
