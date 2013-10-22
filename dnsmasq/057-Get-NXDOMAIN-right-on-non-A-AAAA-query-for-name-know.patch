@@ -1,0 +1,56 @@
+From 8ab91e9f7fc0f58279537f93d78fa86c30b8a756 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Mon, 21 Oct 2013 20:50:04 +0100
+Subject: [PATCH] Get NXDOMAIN right on non-A/AAAA query for name known via interface-name.
+
+---
+ src/auth.c |   24 ++++++++++++------------
+ 1 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/src/auth.c b/src/auth.c
+index 1c1f12a..5646ca3 100644
+--- a/src/auth.c
++++ b/src/auth.c
+@@ -197,7 +197,7 @@ size_t answer_auth(struct dns_header *header, char *limit, size_t qlen, time_t n
+ 	      if (in_zone(zone, intr->name, NULL))
+ 		{	
+ 		  found = 1;
+-		  log_query(flag| F_REVERSE | F_CONFIG, intr->name, &addr, NULL);
++		  log_query(flag | F_REVERSE | F_CONFIG, intr->name, &addr, NULL);
+ 		  if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
+ 					  daemon->auth_ttl, NULL,
+ 					  T_PTR, C_IN, "d", intr->name))
+@@ -357,19 +357,19 @@ size_t answer_auth(struct dns_header *header, char *limit, size_t qlen, time_t n
+ 	 flag = F_IPV6;
+ #endif
+        
+-       if (flag)
+-	 for (intr = daemon->int_names; intr; intr = intr->next)
+-	   if (hostname_isequal(name, intr->name))
+-	     {
+-	       struct addrlist *addrlist;
+-	       
+-	       addrlist = intr->addr4;
++       for (intr = daemon->int_names; intr; intr = intr->next)
++	 if (hostname_isequal(name, intr->name))
++	   {
++	     struct addrlist *addrlist;
++	     
++	     addrlist = intr->addr4;
+ #ifdef HAVE_IPV6
+-	       if (qtype == T_AAAA)
+-		 addrlist = intr->addr6;
++	     if (qtype == T_AAAA)
++	       addrlist = intr->addr6;
+ #endif	
+-	       nxdomain = 0;
+-	       
++	     nxdomain = 0;
++	     
++	     if (flag)
+ 	       for (; addrlist; addrlist = addrlist->next)  
+ 		 if (local_query || filter_constructed_dhcp(zone, flag, &addrlist->addr))
+ 		   {
+-- 
+1.7.2.5
+

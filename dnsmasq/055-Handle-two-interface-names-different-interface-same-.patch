@@ -1,0 +1,129 @@
+From fb63dd1345b23dc8ca9e8d3f9dfa5c3614668416 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Mon, 21 Oct 2013 18:19:35 +0100
+Subject: [PATCH] Handle two interface-names, different interface, same name.
+
+---
+ src/auth.c    |   43 ++++++++++++++++++++++---------------------
+ src/rfc1035.c |   42 ++++++++++++++++++++++++++----------------
+ 2 files changed, 48 insertions(+), 37 deletions(-)
+
+diff --git a/src/auth.c b/src/auth.c
+index 52d2a68..50fb61d 100644
+--- a/src/auth.c
++++ b/src/auth.c
+@@ -357,29 +357,30 @@ size_t answer_auth(struct dns_header *header, char *limit, size_t qlen, time_t n
+ 	 flag = F_IPV6;
+ #endif
+        
+-       for (intr = daemon->int_names; intr; intr = intr->next)
+-	 if (hostname_isequal(name, intr->name))
+-	   {
+-	     struct addrlist *addrlist;
+-
+-	     addrlist = intr->addr4;
++       if (flag)
++	 for (intr = daemon->int_names; intr; intr = intr->next)
++	   if (hostname_isequal(name, intr->name))
++	     {
++	       struct addrlist *addrlist;
++	       
++	       addrlist = intr->addr4;
+ #ifdef HAVE_IPV6
+-	     if (qtype == T_AAAA)
+-	       addrlist = intr->addr6;
++	       if (qtype == T_AAAA)
++		 addrlist = intr->addr6;
+ #endif	
+-	     nxdomain = 0;
+-	
+-	     for (; addrlist; addrlist = addrlist->next)  
+-	       if (local_query || filter_constructed_dhcp(zone, flag, &addrlist->addr))
+-		 {
+-		   found = 1;
+-		   log_query(F_FORWARD | F_CONFIG | flag, name, &addrlist->addr, NULL);
+-		   if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
+-					   daemon->auth_ttl, NULL, qtype, C_IN, 
+-					   qtype == T_A ? "4" : "6", &addrlist->addr))
+-		     anscount++;
+-		 }
+-	   }
++	       nxdomain = 0;
++	       
++	       for (; addrlist; addrlist = addrlist->next)  
++		 if (local_query || filter_constructed_dhcp(zone, flag, &addrlist->addr))
++		   {
++		     found = 1;
++		     log_query(F_FORWARD | F_CONFIG | flag, name, &addrlist->addr, NULL);
++		     if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
++					     daemon->auth_ttl, NULL, qtype, C_IN, 
++					     qtype == T_A ? "4" : "6", &addrlist->addr))
++		       anscount++;
++		   }
++	     }
+        
+        for (a = daemon->cnames; a; a = a->next)
+ 	 if (hostname_isequal(name, a->alias) )
+diff --git a/src/rfc1035.c b/src/rfc1035.c
+index 573ec31..fc6d09c 100644
+--- a/src/rfc1035.c
++++ b/src/rfc1035.c
+@@ -1725,29 +1725,39 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
+ 	      if (intr)
+ 		{
+ 		  struct addrlist *addrlist;
++		  int gotit = 0;
+ 
+ 		  enumerate_interfaces(0);
+ 		  
+-		  addrlist = intr->addr4;
++		  for (intr = daemon->int_names; intr; intr = intr->next)
++		    if (hostname_isequal(name, intr->name))
++		      {
++			addrlist = intr->addr4;
+ #ifdef HAVE_IPV6
+-		  if (type == T_AAAA)
+-		    addrlist = intr->addr6;
++			if (type == T_AAAA)
++			  addrlist = intr->addr6;
+ #endif		  
+-		  ans = 1;
+-		  if (!dryrun)
+-		    {
+-		      if (!addrlist)
+-			log_query(F_FORWARD | F_CONFIG | flag | F_NEG, name, NULL, NULL);
+-		      else 
+-			for (; addrlist; addrlist = addrlist->next)
++			ans = 1;
++			if (!dryrun)
+ 			  {
+-			    log_query(F_FORWARD | F_CONFIG | flag, name, &addrlist->addr, NULL);
+-			    if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
+-						    daemon->local_ttl, NULL, type, C_IN, 
+-						    type == T_A ? "4" : "6", &addrlist->addr))
+-			      anscount++;
++			    if (addrlist)
++			      {
++				gotit = 1;
++				for (; addrlist; addrlist = addrlist->next)
++				  {
++				    log_query(F_FORWARD | F_CONFIG | flag, name, &addrlist->addr, NULL);
++				    if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
++							    daemon->local_ttl, NULL, type, C_IN, 
++							    type == T_A ? "4" : "6", &addrlist->addr))
++				      anscount++;
++				  }
++			      }
+ 			  }
+-		    }
++		      }
++		  
++		  if (!dryrun && !gotit)
++		    log_query(F_FORWARD | F_CONFIG | flag | F_NEG, name, NULL, NULL);
++		     
+ 		  continue;
+ 		}
+ 
+-- 
+1.7.2.5
+

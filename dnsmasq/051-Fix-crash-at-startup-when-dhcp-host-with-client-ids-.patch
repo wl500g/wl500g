@@ -1,7 +1,7 @@
 From 53c4c5c85942d4733f4723531c4d325235448326 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Ren=C3=A9=20van=20Dorst?= <opensource@vdorst.com>
 Date: Fri, 18 Oct 2013 13:53:05 +0100
-Subject: [PATCH 2/3] Fix crash at startup when dhcp-host with client-ids is present.
+Subject: [PATCH] Fix crash at startup when dhcp-host with client-ids is present.
 
 ---
  src/dhcp-common.c |    5 +++--
