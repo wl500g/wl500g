@@ -1,0 +1,94 @@
+--- a/accel-pppd/triton/mempool.c
++++ b/accel-pppd/triton/mempool.c
+@@ -55,8 +55,8 @@ struct _item_t
+ static LIST_HEAD(pools);
+ static spinlock_t pools_lock = SPINLOCK_INITIALIZER;
+ static spinlock_t mmap_lock = SPINLOCK_INITIALIZER;
+-static void *mmap_ptr;
+-static void *mmap_endptr;
++static void *mmap_ptr = NULL;
++static void *mmap_endptr = NULL;
+ 
+ static int mmap_grow(void);
+ static void mempool_clean(void);
+@@ -115,7 +115,7 @@ void __export *mempool_alloc(mempool_t *pool)
+ 
+ 	if (p->mmap) {
+ 		spin_lock(&mmap_lock);
+-		if (mmap_ptr + size >= mmap_endptr) {
++		if (mmap_ptr + size > mmap_endptr) {
+ 			if (mmap_grow())
+ 				return NULL;
+ 		}
+@@ -123,7 +123,7 @@ void __export *mempool_alloc(mempool_t *pool)
+ 		mmap_ptr += size;
+ 		spin_unlock(&mmap_lock);
+ 		__sync_sub_and_fetch(&triton_stat.mempool_available, size);
+-	}	else {
++	} else {
+ 		it = _malloc(size);
+ 		__sync_add_and_fetch(&triton_stat.mempool_allocated, size);
+ 	}
+@@ -173,13 +173,13 @@ void __export *mempool_alloc_md(mempool_t *pool, const char *fname, int line)
+ 
+ 	if (p->mmap) {
+ 		spin_lock(&mmap_lock);
+-		if (mmap_ptr + size >= mmap_endptr)
++		if (mmap_ptr + size > mmap_endptr)
+ 			mmap_grow();
+ 		it = (struct _item_t *)mmap_ptr;
+ 		mmap_ptr += size;
+ 		spin_unlock(&mmap_lock);
+ 		__sync_sub_and_fetch(&triton_stat.mempool_available, size);
+-	}	else {
++	} else {
+ 		it = md_malloc(size, fname, line);
+ 		__sync_add_and_fetch(&triton_stat.mempool_allocated, size);
+ 	}
+@@ -315,21 +315,15 @@ static int mmap_grow(void)
+ 	int size = sysconf(_SC_PAGE_SIZE) * (1 << PAGE_ORDER);
+ 	void *ptr;
+ 
+-	if (mmap_endptr) {
+-		ptr = mmap(mmap_endptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+-		if (ptr == MAP_FAILED)
+-			goto oom;
+-		if (ptr != mmap_endptr)
+-			mmap_ptr = ptr;
+-	} else {
+-		ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+-		if (ptr == MAP_FAILED)
+-			goto oom;
+-		mmap_ptr = ptr;
+-	}
++	if (!mmap_endptr && mmap_ptr)
++		goto oom;
+ 
++	ptr = mmap(mmap_endptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
++	if (ptr == MAP_FAILED)
++		goto oom;
++	mmap_ptr = ptr;
+ 	mmap_endptr = ptr + size;
+-		
++
+ 	__sync_add_and_fetch(&triton_stat.mempool_allocated, size);
+ 	__sync_add_and_fetch(&triton_stat.mempool_available, size);
+ 
+@@ -350,7 +344,5 @@ static void __init init(void)
+ 	};
+ 
+ 	sigaction(35, &sa, NULL);
+-
+-	mmap_grow();
+ }
+ 
+--- a/accel-pppd/triton/triton.c
++++ b/accel-pppd/triton/triton.c
+@@ -261,6 +261,7 @@ struct _triton_thread_t *create_thread()
+ 	pthread_mutex_lock(&thread->sleep_lock);
+ 	while (pthread_create(&thread->thread, &attr, (void*(*)(void*))triton_thread, thread))
+ 		sleep(1);
++	pthread_attr_destroy(&attr);
+ 
+ 	__sync_add_and_fetch(&triton_stat.thread_count, 1);
+ 	__sync_add_and_fetch(&triton_stat.thread_active, 1);
