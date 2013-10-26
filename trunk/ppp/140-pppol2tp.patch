@@ -57,7 +57,7 @@ diff -BurpN ppp.orig/pppd/plugins/pppol2tp/pppol2tp.c ppp/pppd/plugins/pppol2tp/
  	}
  
 +	getsockname(pppol2tp_fd, (struct sockaddr *)&sax, &len);
-+	sprintf(ppp_devnam,"l2tp (%s)",inet_ntoa(sax.pppol2tp.addr.sin_addr));
++	sprintf(ppp_devnam, "l2tp (%s)", inet_ntoa(sax.pppol2tp.addr.sin_addr));
 +
  	return pppol2tp_fd;
  }

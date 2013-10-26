@@ -1,0 +1,78 @@
+--- a/pppd/auth.c
++++ b/pppd/auth.c
+@@ -240,6 +240,9 @@ bool explicit_passwd = 0;	/* Set if "pas
+ char remote_name[MAXNAMELEN];	/* Peer's name for authentication */
+ 
+ static char *uafname;		/* name of most recent +ua file */
++static char *path_authup = _PATH_AUTHUP;	/* pathname of auth-up script */
++static char *path_authdown = _PATH_AUTHDOWN;	/* pathname of auth-down script */
++static char *path_authfail = _PATH_AUTHFAIL;	/* pathname of auth-fail script */
+ 
+ extern char *crypt __P((const char *, const char *));
+ 
+@@ -401,6 +404,13 @@ option_t auth_options[] = {
+       "Set telephone number(s) which are allowed to connect",
+       OPT_PRIV | OPT_A2LIST },
+ 
++    { "auth-up-script", o_string, &path_authup,
++      "Set pathname of auth-up script", OPT_PRIV },
++    { "auth-down-script", o_string, &path_authdown,
++      "Set pathname of auth-down script", OPT_PRIV },
++    { "auth-fail-script", o_string, &path_authfail,
++      "Set pathname of auth-fail script", OPT_PRIV },
++
+     { NULL }
+ };
+ 
+@@ -690,7 +700,7 @@ link_down(unit)
+ 	if (auth_script_state == s_up && auth_script_pid == 0) {
+ 	    update_link_stats(unit);
+ 	    auth_script_state = s_down;
+-	    auth_script(_PATH_AUTHDOWN, 0);
++	    auth_script(path_authdown, 0);
+ 	}
+     }
+     if (!doing_multilink) {
+@@ -822,7 +832,7 @@ network_phase(unit)
+ 	auth_state = s_up;
+ 	if (auth_script_state == s_down && auth_script_pid == 0) {
+ 	    auth_script_state = s_up;
+-	    auth_script(_PATH_AUTHUP, 0);
++	    auth_script(path_authup, 0);
+ 	}
+     }
+ 
+@@ -923,7 +933,7 @@ auth_peer_fail(unit, protocol)
+      * Authentication failure: take the link down
+      */
+     status = EXIT_PEER_AUTH_FAILED;
+-    auth_script(_PATH_AUTHFAIL, 1);
++    auth_script(path_authfail, 1);
+     lcp_close(unit, "Authentication failed");
+ }
+ 
+@@ -1002,7 +1012,7 @@ auth_withpeer_fail(unit, protocol)
+      * authentication secrets.
+      */
+     status = EXIT_AUTH_TOPEER_FAILED;
+-    auth_script(_PATH_AUTHFAIL, 1);
++    auth_script(path_authfail, 1);
+     lcp_close(unit, "Failed to authenticate ourselves to peer");
+ }
+ 
+@@ -2322,13 +2332,13 @@ auth_script_done(arg)
+     case s_up:
+ 	if (auth_state == s_down) {
+ 	    auth_script_state = s_down;
+-	    auth_script(_PATH_AUTHDOWN, 0);
++	    auth_script(path_authdown, 0);
+ 	}
+ 	break;
+     case s_down:
+ 	if (auth_state == s_up) {
+ 	    auth_script_state = s_up;
+-	    auth_script(_PATH_AUTHUP, 0);
++	    auth_script(path_authup, 0);
+ 	}
+ 	break;
+     }
