@@ -240,6 +240,7 @@ bool explicit_passwd = 0;	/* Set if "password" option supplied */
 char remote_name[MAXNAMELEN];	/* Peer's name for authentication */
 
 static char *uafname;		/* name of most recent +ua file */
+static char *path_chapfile = _PATH_CHAPFILE;	/* pathname of chap-secrets file */
 static char *path_authup = _PATH_AUTHUP;	/* pathname of auth-up script */
 static char *path_authdown = _PATH_AUTHDOWN;	/* pathname of auth-down script */
 static char *path_authfail = _PATH_AUTHFAIL;	/* pathname of auth-fail script */
@@ -403,6 +404,9 @@ option_t auth_options[] = {
     { "allow-number", o_special, (void *)set_permitted_number,
       "Set telephone number(s) which are allowed to connect",
       OPT_PRIV | OPT_A2LIST },
+
+    { "chap-secrets", o_string, &path_chapfile,
+      "Set pathname of chap-secrets file", OPT_PRIO },
 
     { "auth-up-script", o_string, &path_authup,
       "Set pathname of auth-up script", OPT_PRIV },
@@ -1661,7 +1665,7 @@ have_chap_secret(client, server, need_ip, lacks_ipp)
 	}
     }
 
-    filename = _PATH_CHAPFILE;
+    filename = path_chapfile;
     f = fopen(filename, "r");
     if (f == NULL)
 	return 0;
@@ -1756,7 +1760,7 @@ get_secret(unit, client, server, secret, secret_len, am_server)
 	    return 0;
 	}
     } else {
-	filename = _PATH_CHAPFILE;
+	filename = path_chapfile;
 	addrs = NULL;
 	secbuf[0] = 0;
 
