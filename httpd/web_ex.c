@@ -52,8 +52,11 @@
 #define GROUP_FLAG_ADD 		2
 #define GROUP_FLAG_REMOVE 	3
 
-#define IMAGE_HEADER 	"HDR0"
-#define PROFILE_HEADER 	"HDR1"
+#define IMAGE_HEADER	"HDR0"
+#define PROFILE_HEADER	"HDR1"
+#define MAX_VERSION_LEN	64
+#define MAX_PID_LEN	12
+#define MAX_HW_COUNT	4
 
 extern void readPrnID();
 
@@ -189,46 +192,33 @@ static void sys_script(const char *name)
 
 
 /* 
-*   Byte 0 : Firmware Major
-*   Byte 1 : Firmware Minor 
-*   Byte 2 : File system Major
-*   Byte 3 : File system Minor
-*   Byte 4~15 : Product ID
-*   Byte 16~31: Hardware compatible list( 4 pairs)
-*      16+x*4: Minimum Hardware Major
-*      17+x*4: Minimum Hardware Minor
-*      18+x*4: Maximum Hardware Major
-*      19+x*4: Maximum Hardware Minor
-*      x= 0~3
+*   Byte 0~15: Hardware compatible list( 4 pairs)
+*     0 + x*4: Minimum Hardware Major
+*     1 + x*4: Minimum Hardware Minor
+*     2 + x*4: Maximum Hardware Major
+*     3 + x*4: Maximum Hardware Minor
+*     x = 0~3
 */
-static char checkVersion(const char *version, unsigned char major, unsigned char minor)
+static char checkVersion(const unsigned char *clist, unsigned char major, unsigned char minor)
 {
 #define VINT(ver) (((((ver)[0])&0xff)<<8)|(((ver)[1])&0xff))        
 	int i;
 	unsigned int ver, min, max;
-	const char *clist;
 
-	clist = version+16;
-	ver = major << 8 | minor;
-
-	//dprintf("ver: %d %d %d\n", major, minor, ver);
-	i = 0;
-
-	while (VINT(clist+i) && i<16)
-	{
-		min = VINT(clist+i); 	
-		max = VINT(clist+i+2);
-
-		//dprintf("List: %x %x %x %x %x %x %x %x\n", i, ver, min, max, clist[i], clist[i+1], clist[i+2], clist[i+3]);
-
-		if (ver>=min && (max==0 || ver<=max))
-			return 1; 
-		i += 4;
-	}
-	if (i==0 || ver==0)
+	ver = (major << 8) | minor;
+	if (ver == 0)
 		return 1;
-	else
-		return 0;
+
+	for (i = 0; VINT(clist+i) && i < MAX_HW_COUNT*4; i += 4) {
+		min = VINT(clist+i);
+		max = VINT(clist+i+2);
+		//dprintf("check 0: %x <= %x <= %x\n", min, ver, max);
+
+		if (ver >= min && (max == 0 || ver <= max))
+			return 1; 
+	}
+
+	return (i == 0);
 }
 
 static void websScan(const char *str)
@@ -1296,29 +1286,32 @@ do_webcam_cgi(char *url, FILE *stream)
 static int chk_fw_image(FILE *fifo, int len)
 {
 	char hdr_buf[8];
-	char prod_id[12];
-	int rd;
-#define MAX_VERSION_LEN 64
-	char version[MAX_VERSION_LEN];
-	int hwmajor=0, hwminor=0;
+	struct version_t {
+		unsigned char ver[4];			/* Firmware version */
+		unsigned char pid[MAX_PID_LEN];		/* Product Id */
+		unsigned char hw[MAX_HW_COUNT*4];	/* Compatible hw list lo maj.min, hi maj.min */
+		unsigned char pad[0];			/* Padding up to MAX_VERSION_LEN */
+	} version;
+	int i, rd, hwmajor = 0, hwminor = 0;
 
 	fseek(fifo, 0, SEEK_SET);
 	rd = fread(hdr_buf, 1, 4, fifo);
 	if (rd != 4 || strncmp(hdr_buf, IMAGE_HEADER, 4) != 0)
 		return -1;
 
-	memset(version, 0, MAX_VERSION_LEN);
 	fseek(fifo, -MAX_VERSION_LEN, SEEK_END);
-	fread(version, 1, MAX_VERSION_LEN, fifo);
+	fread(&version, 1, sizeof(version), fifo);
+
+	/* safe strip trailing spaces */
+	for (i = 0; i < MAX_PID_LEN && version.pid[i]; i++);
+	while (i-- > 0 && version.pid[i] == 0x20)
+		version.pid[i] = 0;
+
 	sscanf(nvram_safe_get("HardwareVer"), "%d.%d", &hwmajor, &hwminor);
-	cprintf("Hardware : %d.%d %s\n", hwmajor, hwminor, version+4);
+	cprintf("Hardware : %d.%d %.12s\n", hwmajor, hwminor, version.pid);
 
-	memset(prod_id, ' ', sizeof(prod_id));
-	memcpy(prod_id, ProductID, strlen(ProductID));
-
-	if (memcmp(prod_id, version + 4, 12) == 0
-		&& checkVersion(version, hwmajor, hwminor))
-	{
+	if (strncmp(nvram_safe_get("productid"), version.pid, MAX_PID_LEN) == 0 &&
+	    checkVersion(version.hw, hwmajor, hwminor)) {
 		cprintf("FW image ok\n");
 		return 0;
 	}
