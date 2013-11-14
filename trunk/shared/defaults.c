@@ -168,7 +168,7 @@ struct nvram_tuple router_defaults[] = {
 	/* Wireless parameters */
 	{ "wl_ifname", "", 0 },			/* Interface name */
 	{ "wl_hwaddr", "", 0 },			/* MAC address */
-	{ "wl_phytype", "b", 0 },		/* Current wireless band ("a" (5 GHz), "b" (2.4 GHz), or "g" (2.4 GHz)) */
+	{ "wl_phytype", "", 0 },		/* Current wireless band ("a" (5 GHz), "b" (2.4 GHz), or "g" (2.4 GHz)) */
 	{ "wl_corerev", "", 0 },		/* Current core revision */
 	{ "wl_phytypes", "", 0 },		/* List of supported wireless bands (e.g. "ga") */
 	{ "wl_radioids", "", 0 },		/* List of radio IDs */
