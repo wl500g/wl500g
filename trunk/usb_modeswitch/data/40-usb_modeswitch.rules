@@ -1,4 +1,4 @@
-# Part of usb-modeswitch-data, version 20130807
+# Part of usb-modeswitch-data, version 20131113
 #
 # Recommended use with USB_ModeSwitch >= 1.2.5, works with versions >= 1.0.3
 # (New style, interface class check moved to dispatcher)
@@ -25,8 +25,14 @@ ACTION!="add", GOTO="modeswitch_rules_end"
 # HP LaserJet Professional P1102
 ATTR{idVendor}=="03f0", ATTR{idProduct}=="002a", RUN+="usb_modeswitch '%b/%k'"
 
+# Quanta 1KR / USB-lte 7410
+ATTR{idVendor}=="0408", ATTR{idProduct}=="ea17", RUN+="usb_modeswitch '%b/%k'"
+
 # Quanta 1K3 LTE
 ATTR{idVendor}=="0408", ATTR{idProduct}=="ea25", RUN+="usb_modeswitch '%b/%k'"
+
+# Quanta MobileGenie 4G lte
+ATTR{idVendor}=="0408", ATTR{idProduct}=="ea43", RUN+="usb_modeswitch '%b/%k'"
 
 # Yota Router (Quanta 1QDLZZZ0ST2)
 ATTR{idVendor}=="0408", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
@@ -82,16 +88,19 @@ ATTR{idVendor}=="04e8", ATTR{idProduct}=="689a", RUN+="usb_modeswitch '%b/%k'"
 # Samsung U209, Samsung U209
 ATTR{idVendor}=="04e8", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
+# AVM Fritz!Wlan USB Stick N v2
+ATTR{idVendor}=="057c", ATTR{idProduct}=="62ff", RUN+="usb_modeswitch '%b/%k'"
+
 # AVM Fritz!Wlan USB Stick N
 ATTR{idVendor}=="057c", ATTR{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
 # Axesstel Modems (w/ initial idProduct 0x0010)
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="0010", RUN+="usb_modeswitch '%b/%k'"
 
-# Prolink P2000 CDMA, Samsung SGH-Z810, older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165, Option GlobeTrotter GX0201, Celot K-300, Celot CT-680, StrongRising Modem
+# Prolink P2000 CDMA, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165, Option GlobeTrotter GX0201, Celot K-300, Celot CT-680, StrongRising device
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
-# HSDPA USB modem from dealextreme 
+# HSDPA USB modem from dealextreme
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-162-U5, Micromax MMX 300c
@@ -99,6 +108,9 @@ ATTR{idVendor}=="05c6", ATTR{idProduct}=="2001", RUN+="usb_modeswitch '%b/%k'"
 
 # AnyDATA APE-540H
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="6503", RUN+="usb_modeswitch '%b/%k'"
+
+# Alcatel-sbell ASB TL131 TD-LTE
+ATTR{idVendor}=="05c6", ATTR{idProduct}=="9024", RUN+="usb_modeswitch '%b/%k'"
 
 # Siptune LM-75 ("LinuxModem")
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
@@ -526,8 +538,20 @@ ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f03", RUN+="usb_modeswitch '%b/%k'"
 # Vodafone / Huawei K3773
 ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f11", RUN+="usb_modeswitch '%b/%k'"
 
-# Huawei K4305
+# Vodafone K4305
 ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f15", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone K5150
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f16", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone K4201
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f17", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone K4202
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f18", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone K4606
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f19", RUN+="usb_modeswitch '%b/%k'"
 
 # Huawei BM358 WiMAX
 ATTR{idVendor}=="12d1", ATTR{idProduct}=="380b", RUN+="usb_modeswitch '%b/%k'"
@@ -598,14 +622,8 @@ ATTR{idVendor}=="198f", ATTR{idProduct}=="bccd", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MU351
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0003", RUN+="usb_modeswitch '%b/%k'"
 
-# Vodafone/ZTE K3806-Z
-ATTR{idVendor}=="19d2", ATTR{idProduct}=="0013", RUN+="usb_modeswitch '%b/%k'"
-
 # ZTE AC581
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0026", RUN+="usb_modeswitch '%b/%k'"
-
-# ZTE MF637
-ATTR{idVendor}=="19d2", ATTR{idProduct}=="0031", RUN+="usb_modeswitch '%b/%k'"
 
 # Vodafone (ZTE) K2525
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0040", RUN+="usb_modeswitch '%b/%k'"
@@ -649,6 +667,9 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="0169", RUN+="usb_modeswitch '%b/%k'"
 # Onda MT8205 LTE
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0266", RUN+="usb_modeswitch '%b/%k'"
 
+# ZTE MF821D (Variant)
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="0304", RUN+="usb_modeswitch '%b/%k'"
+
 # ZTE MF821D
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0325", RUN+="usb_modeswitch '%b/%k'"
 
@@ -685,6 +706,9 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="1216", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MF190
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1224", RUN+="usb_modeswitch '%b/%k'"
 
+# ZTE MF668 (Variant), MF70
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1225", RUN+="usb_modeswitch '%b/%k'"
+
 # ZTE MF680
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1227", RUN+="usb_modeswitch '%b/%k'"
 
@@ -708,6 +732,9 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="1542", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE devices
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF60
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="2004", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE AX226 WiMax
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="bccd", RUN+="usb_modeswitch '%b/%k'"
@@ -742,6 +769,9 @@ ATTR{idVendor}=="1bbb", ATTR{idProduct}=="000f", RUN+="usb_modeswitch '%b/%k'"
 # Alcatel OT-X080C
 ATTR{idVendor}=="1bbb", ATTR{idProduct}=="00ca", RUN+="usb_modeswitch '%b/%k'"
 
+# Haier EVDO Rev. A
+ATTR{idVendor}=="1bbb", ATTR{idProduct}=="011f", RUN+="usb_modeswitch '%b/%k'"
+
 # Alcatel X200/X200L/X060S, Archos G9 3G Key
 ATTR{idVendor}=="1bbb", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
@@ -763,7 +793,7 @@ ATTR{idVendor}=="1c9e", ATTR{idProduct}=="9200", RUN+="usb_modeswitch '%b/%k'"
 # Longcheer SU9800
 ATTR{idVendor}=="1c9e", ATTR{idProduct}=="9800", RUN+="usb_modeswitch '%b/%k'"
 
-# Telewell TW-3G HSPA+
+# Telewell TW-3G HSPA+, FS01BU 3G
 ATTR{idVendor}=="1c9e", ATTR{idProduct}=="98ff", RUN+="usb_modeswitch '%b/%k'"
 
 # BSNL Capitel
