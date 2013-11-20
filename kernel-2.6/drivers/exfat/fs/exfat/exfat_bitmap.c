@@ -19,8 +19,8 @@
 /************************************************************************/
 /*                                                                      */
 /*  PROJECT : exFAT & FAT12/16/32 File System                           */
-/*  FILE    : exfat_data.h                                              */
-/*  PURPOSE : Header File for exFAT Configuable Constants               */
+/*  FILE    : exfat_global.c                                            */
+/*  PURPOSE : exFAT Miscellaneous Functions                             */
 /*                                                                      */
 /*----------------------------------------------------------------------*/
 /*  NOTES                                                               */
@@ -32,29 +32,32 @@
 /*                                                                      */
 /************************************************************************/
 
-#ifndef _EXFAT_DATA_H
-#define _EXFAT_DATA_H
-
 #include "exfat_config.h"
+#include "exfat_bitmap.h"
 
-/*======================================================================*/
-/*                                                                      */
-/*                        FFS CONFIGURATIONS                            */
-/*                  (CHANGE THIS PART IF REQUIRED)                      */
-/*                                                                      */
-/*======================================================================*/
+/*----------------------------------------------------------------------*/
+/*  Bitmap Manipulation Functions                                       */
+/*----------------------------------------------------------------------*/
 
-/* max number of root directory entries in FAT12/16 */
-/* (should be an exponential value of 2)            */
-#define MAX_DENTRY              512
+#define BITMAP_LOC(v)           ((v) >> 3)
+#define BITMAP_SHIFT(v)         ((v) & 0x07)
 
-/* cache size (in number of sectors)                */
-/* (should be an exponential value of 2)            */
-#define FAT_CACHE_SIZE          128
-#define FAT_CACHE_HASH_SIZE     64
-#define BUF_CACHE_SIZE          256
-#define BUF_CACHE_HASH_SIZE     64
+s32 exfat_bitmap_test(u8 *bitmap, int i)
+{
+	u8 data;
 
-#endif /* _EXFAT_DATA_H */
+	data = bitmap[BITMAP_LOC(i)];
+	if ((data >> BITMAP_SHIFT(i)) & 0x01)
+		return 1;
+	return 0;
+} /* end of Bitmap_test */
 
-/* end of exfat_data.h */
+void exfat_bitmap_set(u8 *bitmap, int i)
+{
+	bitmap[BITMAP_LOC(i)] |= (0x01 << BITMAP_SHIFT(i));
+} /* end of Bitmap_set */
+
+void exfat_bitmap_clear(u8 *bitmap, int i)
+{
+	bitmap[BITMAP_LOC(i)] &= ~(0x01 << BITMAP_SHIFT(i));
+} /* end of Bitmap_clear */
