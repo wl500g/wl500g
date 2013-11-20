@@ -95,11 +95,11 @@ static void dump_message(struct blob_buf *buf)
 
 	if (tb[FOO_LIST]) {
 		fprintf(stderr, "List: ");
-		dump_table(blobmsg_data(tb[FOO_LIST]), blob_len(tb[FOO_LIST]), 0, true);
+		dump_table(blobmsg_data(tb[FOO_LIST]), blobmsg_data_len(tb[FOO_LIST]), 0, true);
 	}
 	if (tb[FOO_TESTDATA]) {
 		fprintf(stderr, "Testdata: ");
-		dump_table(blobmsg_data(tb[FOO_TESTDATA]), blob_len(tb[FOO_TESTDATA]), 0, false);
+		dump_table(blobmsg_data(tb[FOO_TESTDATA]), blobmsg_data_len(tb[FOO_TESTDATA]), 0, false);
 	}
 }
 

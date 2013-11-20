@@ -28,6 +28,8 @@
 
 #include "utils.h"
 
+#define BLOB_COOKIE		0x01234567
+
 enum {
 	BLOB_ATTR_UNSPEC,
 	BLOB_ATTR_NESTED,
@@ -190,6 +192,7 @@ extern struct blob_attr *blob_put(struct blob_buf *buf, int id, const void *ptr,
 extern bool blob_check_type(const void *ptr, int len, int type);
 extern int blob_parse(struct blob_attr *attr, struct blob_attr **data, const struct blob_attr_info *info, int max);
 extern struct blob_attr *blob_memdup(struct blob_attr *attr);
+extern struct blob_attr *blob_put_raw(struct blob_buf *buf, const void *ptr, int len);
 
 static inline struct blob_attr *
 blob_put_string(struct blob_buf *buf, int id, const char *str)

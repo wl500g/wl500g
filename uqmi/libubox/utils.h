@@ -100,7 +100,10 @@ void clock_gettime(int type, struct timespec *tv);
 #define __LITTLE_ENDIAN LITTLE_ENDIAN
 #endif
 
-#define __u_bswap16(x) ({ uint16_t val = (x); ((uint16_t)(((val >> 8) & 0xffu) | ((val & 0xffu) << 8))); })
+static inline uint16_t __u_bswap16(uint16_t val)
+{
+	return ((val >> 8) & 0xffu) | ((val & 0xffu) << 8);
+}
 
 #if _GNUC_MIN_VER(4, 2)
 #define __u_bswap32(x) __builtin_bswap32(x)

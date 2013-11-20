@@ -205,6 +205,15 @@ json_get_type() {
 	eval "export -- \"$__dest=\${$__var}\"; [ -n \"\${$__var+x}\" ]"
 }
 
+json_get_keys() {
+	local __dest="$1"
+	local _tbl_cur
+
+	json_get_var _tbl_cur "$2"
+	local __var="${JSON_PREFIX}KEYS_${_tbl_cur}"
+	eval "export -- \"$__dest=\${$__var}\"; [ -n \"\${$__var+x}\" ]"
+}
+
 json_get_var() {
 	local __dest="$1"
 	local __cur
