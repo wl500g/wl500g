@@ -556,19 +556,31 @@ static void uloop_sigchld(int signo)
 	do_sigchld = true;
 }
 
-static void uloop_setup_signals(void)
+static void uloop_setup_signals(bool add)
 {
+	static struct sigaction old_sigint, old_sigchld;
 	struct sigaction s;
 
 	memset(&s, 0, sizeof(struct sigaction));
-	s.sa_handler = uloop_handle_sigint;
-	s.sa_flags = 0;
-	sigaction(SIGINT, &s, NULL);
 
-	if (uloop_handle_sigchld) {
-		s.sa_handler = uloop_sigchld;
-		sigaction(SIGCHLD, &s, NULL);
+	if (add) {
+		s.sa_handler = uloop_handle_sigint;
+		s.sa_flags = 0;
+	} else {
+		s = old_sigint;
 	}
+
+	sigaction(SIGINT, &s, &old_sigint);
+
+	if (!uloop_handle_sigchld)
+		return;
+
+	if (add)
+		s.sa_handler = uloop_sigchld;
+	else
+		s = old_sigchld;
+
+	sigaction(SIGCHLD, &s, &old_sigchld);
 }
 
 static int uloop_get_next_timeout(struct timeval *tv)
@@ -621,9 +633,16 @@ static void uloop_clear_processes(void)
 
 void uloop_run(void)
 {
+	static int recursive_calls = 0;
 	struct timeval tv;
 
-	uloop_setup_signals();
+	/*
+	 * Handlers are only updated for the first call to uloop_run() (and restored
+	 * when this call is done).
+	 */
+	if (!recursive_calls++)
+		uloop_setup_signals(true);
+
 	while(!uloop_cancelled)
 	{
 		uloop_gettime(&tv);
@@ -636,6 +655,9 @@ void uloop_run(void)
 		uloop_gettime(&tv);
 		uloop_run_events(uloop_get_next_timeout(&tv));
 	}
+
+	if (!--recursive_calls)
+		uloop_setup_signals(false);
 }
 
 void uloop_done(void)

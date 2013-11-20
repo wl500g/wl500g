@@ -94,9 +94,6 @@ void ustream_free(struct ustream *s)
 	uloop_timeout_cancel(&s->state_change);
 	ustream_free_buffers(&s->r);
 	ustream_free_buffers(&s->w);
-	s->write_error = false;
-	s->eof = false;
-	s->read_blocked = 0;
 }
 
 static void ustream_state_change_cb(struct uloop_timeout *t)
@@ -131,6 +128,16 @@ void ustream_init_defaults(struct ustream *s)
 #undef DEFAULT_SET
 
 	s->state_change.cb = ustream_state_change_cb;
+	s->write_error = false;
+	s->eof = false;
+	s->eof_write_done = false;
+	s->read_blocked = 0;
+
+	s->r.buffers = 0;
+	s->r.data_bytes = 0;
+
+	s->w.buffers = 0;
+	s->w.data_bytes = 0;
 }
 
 static bool ustream_should_move(struct ustream_buf_list *l, struct ustream_buf *buf, int len)

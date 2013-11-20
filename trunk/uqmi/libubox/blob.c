@@ -40,14 +40,14 @@ blob_init(struct blob_attr *attr, int id, unsigned int len)
 static inline struct blob_attr *
 offset_to_attr(struct blob_buf *buf, int offset)
 {
-	void *ptr = (char *)buf->buf + offset;
+	void *ptr = (char *)buf->buf + offset - BLOB_COOKIE;
 	return ptr;
 }
 
 static inline int
 attr_to_offset(struct blob_buf *buf, struct blob_attr *attr)
 {
-	return (char *)attr - (char *) buf->buf;
+	return (char *)attr - (char *) buf->buf + BLOB_COOKIE;
 }
 
 void
@@ -65,7 +65,7 @@ static struct blob_attr *
 blob_add(struct blob_buf *buf, struct blob_attr *pos, int id, int payload)
 {
 	int offset = attr_to_offset(buf, pos);
-	int required = (offset + sizeof(struct blob_attr) + payload) - buf->buflen;
+	int required = (offset - BLOB_COOKIE + sizeof(struct blob_attr) + payload) - buf->buflen;
 	struct blob_attr *attr;
 
 	if (required > 0) {
@@ -131,6 +131,20 @@ blob_new(struct blob_buf *buf, int id, int payload)
 		return NULL;
 
 	blob_set_raw_len(buf->head, blob_pad_len(buf->head) + blob_pad_len(attr));
+	return attr;
+}
+
+struct blob_attr *
+blob_put_raw(struct blob_buf *buf, const void *ptr, int len)
+{
+	struct blob_attr *attr;
+
+	if (len < sizeof(struct blob_attr) || !ptr)
+		return NULL;
+
+	attr = blob_add(buf, blob_next(buf->head), 0, len - sizeof(struct blob_attr));
+	blob_set_raw_len(buf->head, blob_pad_len(buf->head) + len);
+	memcpy(attr, ptr, len);
 	return attr;
 }
 

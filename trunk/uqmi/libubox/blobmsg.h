@@ -78,6 +78,11 @@ static inline int blobmsg_data_len(const struct blob_attr *attr)
 	return blob_len(attr) - (end - start);
 }
 
+static inline int blobmsg_len(const struct blob_attr *attr)
+{
+	return blobmsg_data_len(attr);
+}
+
 bool blobmsg_check_attr(const struct blob_attr *attr, bool name);
 bool blobmsg_check_attr_list(const struct blob_attr *attr, int type);
 int blobmsg_parse(const struct blobmsg_policy *policy, int policy_len,
