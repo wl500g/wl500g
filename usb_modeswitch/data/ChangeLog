@@ -1,3 +1,9 @@
+20131113:
+    Added devices: Quanta 1KR / USB-lte 7410, Quanta MobileGenie 4G lte,
+    AVM Fritz!Wlan USB N v2, Alcatel-sbell ASB TL131 TD-LTE, Vodafone K4305,
+    K5150, K4201, K4202 and K4606; ZTE MF821D (Variant), ZTE MF70, ZTE MF60,
+    Haier EVDO Rev. A; several cleanups and fixes. Special thanks to Lars
+    Melin for many device contributions and corrections!
 20130807:
     Added devices: Quanta 1K3 LTE (should've been in the last release),
     TP-Link MA260, Teracom LW272, Huawei E3276s-151 and E3251, Huawei K4305,
