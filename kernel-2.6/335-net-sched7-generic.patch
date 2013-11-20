@@ -1,0 +1,69 @@
+ bfaae0f04c68bafc12ec50c6922d71a90deea3e2 [NET]: fix carrier-on bug?
+ ce0e32e65f70337e0732c97499b643205fa8ea31 [NET]: Fix possible dev_deactivate race condition
+
+---
+ net/sched/sch_generic.c |   33 +++++++++++++++++++++++++++------
+ 1 file changed, 27 insertions(+), 6 deletions(-)
+
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -249,10 +249,11 @@ static void dev_watchdog_down(struct net
+ 
+ void netif_carrier_on(struct net_device *dev)
+ {
+-	if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state))
++	if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
+ 		linkwatch_fire_event(dev);
+-	if (netif_running(dev))
+-		__netdev_watchdog_up(dev);
++		if (netif_running(dev))
++			__netdev_watchdog_up(dev);
++	}
+ }
+ 
+ void netif_carrier_off(struct net_device *dev)
+@@ -551,6 +552,7 @@ void dev_deactivate(struct net_device *d
+ {
+ 	struct Qdisc *qdisc;
+ 	struct sk_buff *skb;
++	int running;
+ 
+ 	spin_lock_bh(&dev->queue_lock);
+ 	qdisc = dev->qdisc;
+@@ -566,12 +568,31 @@ void dev_deactivate(struct net_device *d
+ 
+ 	dev_watchdog_down(dev);
+ 
+-	/* Wait for outstanding dev_queue_xmit calls. */
++	/* Wait for outstanding qdisc-less dev_queue_xmit calls. */
+ 	synchronize_rcu();
+ 
+ 	/* Wait for outstanding qdisc_run calls. */
+-	while (test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
+-		yield();
++	do {
++		while (test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
++			yield();
++
++		/*
++		 * Double-check inside queue lock to ensure that all effects
++		 * of the queue run are visible when we return.
++		 */
++		spin_lock_bh(&dev->queue_lock);
++		running = test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state);
++		spin_unlock_bh(&dev->queue_lock);
++
++		/*
++		 * The running flag should never be set at this point because
++		 * we've already set dev->qdisc to noop_qdisc *inside* the same
++		 * pair of spin locks.  That is, if any qdisc_run starts after
++		 * our initial test it should see the noop_qdisc and then
++		 * clear the RUNNING bit before dropping the queue lock.  So
++		 * if it is set here then we've found a bug.
++		 */
++	} while (WARN_ON_ONCE(running));
+ }
+ 
+ void dev_init_scheduler(struct net_device *dev)
+-- 
