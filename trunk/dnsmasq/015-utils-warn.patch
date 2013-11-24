@@ -1,0 +1,11 @@
+--- dnsmasq/src/util.c	2013-11-22 11:17:37.000000000 +0000
++++ dnsmasq.new/src/util.c	2013-11-24 10:03:26.192907903 +0000
+@@ -458,7 +458,7 @@ int parse_hex(char *in, unsigned char *o
+ 		  int j, bytes = (1 + (r - in))/2;
+ 		  for (j = 0; j < bytes; j++)
+ 		    { 
+-		      char sav;
++		      char sav = sav;
+ 		      if (j < bytes - 1)
+ 			{
+ 			  sav = in[(j+1)*2];
