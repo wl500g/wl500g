@@ -1,0 +1,99 @@
+50db349 Fix compiler warning.
+3b19596 Fix compiler warnings.
+d082faf Fix compiler warning.
+99e8891 Fix compiler warning.
+
+--- a/src/forward.c
++++ b/src/forward.c
+@@ -675,8 +675,10 @@ void receive_query(struct listener *listen, time_t now)
+   struct in_addr netmask, dst_addr_4;
+   size_t m;
+   ssize_t n;
+-  int if_index = 0;
+-  int local_auth = 0, auth_dns = 0;
++  int if_index = 0, auth_dns = 0;
++#ifdef HAVE_AUTH
++  int local_auth = 0;
++#endif
+   struct iovec iov[1];
+   struct msghdr msg;
+   struct cmsghdr *cmptr;
+@@ -916,7 +918,9 @@ unsigned char *tcp_request(int confd, time_t now,
+ {
+   size_t size = 0;
+   int norebind = 0;
++#ifdef HAVE_AUTH
+   int local_auth = 0;
++#endif
+   int checking_disabled, check_subnet;
+   size_t m;
+   unsigned short qtype;
+--- a/src/network.c
++++ b/src/network.c
+@@ -252,6 +252,8 @@ static int iface_allowed(struct iface_param *param, int if_index, char *label,
+   struct iname *tmp;
+ #endif
+ 
++  (void)prefixlen;
++
+   if (!indextoname(param->fd, if_index, ifr.ifr_name) ||
+       ioctl(param->fd, SIOCGIFFLAGS, &ifr) == -1)
+     return 0;
+@@ -318,7 +320,8 @@ static int iface_allowed(struct iface_param *param, int if_index, char *label,
+ 		    {
+ 		      al->next = zone->subnet;
+ 		      zone->subnet = al;
+-		      al->prefixlen = prefixlen;al->addr.addr.addr6 = addr->in6.sin6_addr;
++		      al->prefixlen = prefixlen;
++		      al->addr.addr.addr6 = addr->in6.sin6_addr;
+ 		      al->flags = ADDRLIST_IPV6;
+ 		    }
+ 		} 
+--- a/src/option.c
++++ b/src/option.c
+@@ -3482,7 +3482,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
+     case LOPT_RR: /* dns-rr */
+       {
+        	struct txt_record *new;
+-	size_t len;
++	size_t len = len;
+ 	char *data;
+ 	int val;
+ 
+--- a/src/rfc2131.c
++++ b/src/rfc2131.c
+@@ -92,7 +92,10 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
+   struct dhcp_netid known_id, iface_id, cpewan_id;
+   struct dhcp_opt *o;
+   unsigned char pxe_uuid[17];
+-  unsigned char *oui = NULL, *serial = NULL, *class = NULL;
++  unsigned char *oui = NULL, *serial = NULL;
++#ifdef HAVE_SCRIPT
++  unsigned char *class = NULL;
++#endif
+ 
+   subnet_addr.s_addr = override.s_addr = 0;
+ 
+@@ -156,8 +159,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
+ 		  unsigned char *y = option_ptr(opt, offset + elen + 5);
+ 		  oui = option_find1(x, y, 1, 1);
+ 		  serial = option_find1(x, y, 2, 1);
+-		  class = option_find1(x, y, 3, 1);
+-		  
++#ifdef HAVE_SCRIPT
++		  class = option_find1(x, y, 3, 1);
++#endif
+ 		  /* If TR069-id is present set the tag "cpewan-id" to facilitate echoing 
+ 		     the gateway id back. Note that the device class is optional */
+ 		  if (oui && serial)
+--- a/src/util.c
++++ b/src/util.c
+@@ -458,7 +458,7 @@ int parse_hex(char *in, unsigned char *out, int maxlen,
+ 		  int j, bytes = (1 + (r - in))/2;
+ 		  for (j = 0; j < bytes; j++)
+ 		    { 
+-		      char sav;
++		      char sav = sav;
+ 		      if (j < bytes - 1)
+ 			{
+ 			  sav = in[(j+1)*2];
