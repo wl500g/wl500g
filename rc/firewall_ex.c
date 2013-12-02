@@ -33,7 +33,6 @@ static char *g_buf;
 /* Forwards */
 static int porttrigger_setting(FILE *fp, const char *lan_if);
 
-
 static void g_buf_init()
 {
 	static char *g_buf_pool = NULL;
@@ -589,63 +588,33 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 #ifdef WEBSTRFILTER
         char nvname[36], timef[256], *filterstr;
 #endif
-	
-	if ((fp = fopen("/tmp/filter_rules", "w")) == NULL) return -1;
+
+	if ((fp = fopen("/tmp/filter_rules", "w")) == NULL)
+		return -1;
 
 	fprintf(fp, "*filter\n"
-		":INPUT ACCEPT [0:0]\n"
-		":FORWARD ACCEPT [0:0]\n"
-		":OUTPUT ACCEPT [0:0]\n"
-		":MACS - [0:0]\n"
-		":SECURITY - [0:0]\n"
-		":BRUTE - [0:0]\n"
+		    ":INPUT ACCEPT [0:0]\n"
+		    ":FORWARD ACCEPT [0:0]\n"
+		    ":OUTPUT ACCEPT [0:0]\n"
+		    ":MACS - [0:0]\n"
+		    ":SECURITY - [0:0]\n"
+		    ":BRUTE - [0:0]\n"
 #ifdef __CONFIG_MINIUPNPD__
-		":UPNP - [0:0]\n"
+		    ":UPNP - [0:0]\n"
 #endif
-		":logaccept - [0:0]\n"
-		":logdrop - [0:0]\n");
+		    ":logaccept - [0:0]\n"
+		    ":logdrop - [0:0]\n");
 
-	// FILTER from LAN to WAN Source MAC
+	/* Filter from LAN to WAN Source MAC */
 	if (nvram_invmatch("macfilter_enable_x", "0") &&
-		nvram_invmatch("macfilter_enable_x", "disabled"))
-	{   		
-		int blacklist = nvram_invmatch("macfilter_enable_x", "1");
-		// LAN/WAN filter		
-		foreach_x("macfilter_num_x")
-		{	
-			g_buf_init();
-         		fprintf(fp, "-A MACS -m mac --mac-source %s -j %s\n", 
-				mac_conv("macfilter_list_x", i, line), 
-				(blacklist ? logdrop : "RETURN"));
-		} 
-		if (!blacklist)
-			fprintf(fp, "-A MACS -j %s\n", logdrop);
+	    nvram_invmatch("macfilter_enable_x", "disabled")) {
 		fprintf(fp,
 			"-A INPUT -i %s -j MACS\n"
 			"-A FORWARD -i %s -j MACS\n",
 			lan_if, lan_if);
-	} 
+	}
 
-	// Security checks
-	fprintf(fp,
-	// sync-flood protection
-		"-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n"
-	// furtive port scanner
-		"-A SECURITY -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j RETURN\n"
-	// udp flooding
-		"-A SECURITY -p udp -m limit --limit 5/s -j RETURN\n"
-	// ping of death
-		"-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
-#ifdef __CONFIG_IPV6__
-	// pass ipv6 tunnel packets
-	if (nvram_match("ipv6_proto", "tun6in4") ||
-	    nvram_match("ipv6_proto", "tun6to4") ||
-	    nvram_match("ipv6_proto", "tun6rd"))
-		fprintf(fp, "-A SECURITY -p 41 -j RETURN\n");
-#endif
-	// drop attacks!!!
-	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
-
+	/* INPUT chain */
 	/* Drop the wrong state, INVALID, packets */
 	fprintf(fp, "-A INPUT -m conntrack --ctstate INVALID -j %s\n", logdrop);
 	/* Accept related connections, skip rest of checks */
@@ -660,91 +629,90 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 			"-A INPUT -p udp -d 224.0.0.0/4 ! --dport 1900 -j %s\n",
 			 logaccept, logaccept);
 	}
+#ifdef __CONFIG_IPV6__
+	/* Pass IPv6 tunnel */
+	if (nvram_match("ipv6_proto", "tun6in4") ||
+	    nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd")) {
+		fprintf(fp, "-A INPUT -p 41 -j %s\n", logaccept);
+	}
+#endif
 	/* Check internet traffic */
-	if (nvram_match("fw_dos_x", "1"))
-	{
+	if (nvram_match("fw_dos_x", "1")) {
 		fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", wan_if);
 		if (nvram_invmatch("wan0_ifname", wan_if))
 			fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", nvram_get("wan0_ifname"));
 	}
-
-	if (nvram_match("fw_enable_x", "1"))
-	{	
-		/* enable incoming packets from broken dhcp servers, which are sending replies
+	/* Firewall between WAN and Local */
+	if (nvram_match("fw_enable_x", "1")) {
+		/* Enable incoming packets from broken dhcp servers, which are sending replies
 		 * from addresses other than used for query, this could lead to lower level
 		 * of security, but it does not work otherwise (conntrack does not work) :-(
 		 */
 		if (nvram_match("wan0_proto", "dhcp") || nvram_match("wan0_proto", "bigpond") ||
-		    nvram_match("wan_ipaddr", "0.0.0.0"))
-		{
+		    nvram_match("wan_ipaddr", "0.0.0.0")) {
 			fprintf(fp, "-A INPUT -p udp --sport 67 --dport 68 -j %s\n", logaccept);
 		}
 	#ifdef __CONFIG_CONVEX__
 		if (nvram_match("wan0_auth_x", "convex")
-		&& (nvram_match("wan0_proto", "static") || nvram_match("wan0_proto", "dhcp")))
-		{
+		&& (nvram_match("wan0_proto", "static") || nvram_match("wan0_proto", "dhcp"))) {
 			fprintf(fp, "-A INPUT -p tcp --dport 6326 -j %s\n", logaccept);
 		}
 	#endif
-
-		// Firewall between WAN and Local
-		if (nvram_match("ssh_enable", "1"))
+		/* Pass SSH */
+		if (nvram_match("ssh_enable", "1")) {
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j %s\n", nvram_safe_get("ssh_port"),
 				nvram_invmatch("recent_ssh_enable", "0") ? "BRUTE" : logaccept);
-
-		if (nvram_match("usb_ftpenable_x", "1"))
+		}
+		/* Pass FTP */
+		if (nvram_match("usb_ftpenable_x", "1")) {
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j %s\n", nvram_safe_get("usb_ftpport_x"),
 				nvram_invmatch("recent_ftp_enable", "0") ? "BRUTE" : logaccept);
-
-		if (nvram_invmatch("http_lanport", "80"))
-			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport 80 -j %s\n", nvram_safe_get("lan_ipaddr"), logaccept);
-
-		if (nvram_invmatch("udpxy_enable_x", "0") && nvram_invmatch("udpxy_wan_x", "0"))
-			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("udpxy_enable_x"), logaccept);
-
-		if (nvram_match("misc_http_x", "1"))
-		{
-            		fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n", nvram_safe_get("lan_ipaddr"), nvram_safe_get("http_lanport"), logaccept);  
 		}
-
-		if (nvram_match("usb_webenable_x", "2"))
-		{
-			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_webhttpport_x"), logaccept);
+		/* Pass Web-UI */
+		if (nvram_match("misc_http_x", "1")) {
+			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n",
+				nvram_safe_get("lan_ipaddr"), nvram_safe_get("http_lanport"), logaccept);
 		}
-
-		if (nvram_invmatch("misc_ping_x", "0"))
-		{
-			fprintf(fp, "-A INPUT -p icmp -j %s\n", logaccept);
-			// Pass udp traceroute
+		if (nvram_invmatch("http_lanport", "80")) {
+			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport 80 -j %s\n",
+				nvram_safe_get("lan_ipaddr"), logaccept);
+		}
+		/* Pass UDP-to-HTTP */
+		if (nvram_invmatch("udpxy_enable_x", "0") && nvram_invmatch("udpxy_wan_x", "0")) {
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+				nvram_safe_get("udpxy_enable_x"), logaccept);
+		}
+		/* Pass WebCAM */
+		if (nvram_match("usb_webenable_x", "2")) {
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+				nvram_safe_get("usb_webhttpport_x"), logaccept);
+		}
+		/* Pass ICMP */
+		fprintf(fp, "-A INPUT -p icmp ! --icmp-type 8 -j %s\n", logaccept);
+		if (nvram_invmatch("misc_ping_x", "0")) {
+			fprintf(fp, "-A INPUT -p icmp --icmp-type 8 -j %s\n", logaccept);
+			/* Pass udp traceroute */
 			fprintf(fp, "-A INPUT -p udp -m udp --dport 33434:33534 -j %s\n", logaccept);
 		}
-
 #ifdef __CONFIG_IPV6__
-		if (nvram_match("ipv6_proto", "tun6in4") ||
-		    nvram_match("ipv6_proto", "tun6to4") ||
-		    nvram_match("ipv6_proto", "tun6rd"))
-		{
-			if (nvram_match("ipv6_proto", "tun6in4") && !nvram_invmatch("misc_ping_x", "0")) {
-				char *sit_remote = nvram_safe_get("ipv6_sit_remote");
-				if (*sit_remote)
-					fprintf(fp, "-A INPUT -p icmp -s %s -j %s\n", sit_remote, logaccept);
-			}
-			fprintf(fp, "-A INPUT -p 41 -j %s\n", logaccept);
+		else if (nvram_match("ipv6_proto", "tun6in4")) {
+			char *sit_remote = nvram_safe_get("ipv6_sit_remote");
+			if (*sit_remote)
+				fprintf(fp, "-A INPUT -s %s -p icmp --icmp-type 8 -j %s\n", sit_remote, logaccept);
 		}
 #endif
-
-		if (nvram_invmatch("misc_lpr_x", "0"))
-		{
+		/* Pass printer */
+		if (nvram_invmatch("misc_lpr_x", "0")) {
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 515, logaccept);
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 9100, logaccept);
-
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 3838, logaccept);
 		}
-
+		/* Drop everything else */
 		fprintf(fp, "-A INPUT -j %s\n", logdrop);
 	}
 
-
+	/* FORWARD chain */
 	/* Accept the redirect, might be seen as INVALID, packets */
 	fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", lan_if, lan_if, logaccept);	
 	/* Drop the wrong state, INVALID, packets */
@@ -781,88 +749,70 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	if (nvram_match("fw_dos_x", "1"))
 		fprintf(fp, "-A FORWARD ! -i %s -m conntrack --ctstate NEW -j SECURITY\n", lan_if);
 
-	// FILTER from LAN to WAN
-	if (nvram_match("fw_lw_enable_x", "1"))
-	{   		
+	/* Filter from LAN to WAN */
+	if (nvram_match("fw_lw_enable_x", "1")) {
 		char lanwan_timematch[128];
 		char ptr[32], *icmplist;
 		const char *ftype, *dtype;
 
 		timematch_conv(lanwan_timematch, "filter_lw_date_x", "filter_lw_time_x");	   
- 
-		if (nvram_match("filter_lw_default_x", "DROP"))
-		{
+		if (nvram_match("filter_lw_default_x", "DROP")) {
 			dtype = logdrop;
 			ftype = logaccept;
-		}
-		else
-		{
+		} else {
 			dtype = logaccept;
 			ftype = logdrop;
 		}
-			
-		// LAN/WAN filter		
-		g_buf_init();
 
-       		foreach_x("filter_lw_num_x")
-       		{	               			
-            		proto = protoflag_conv("filter_lw_proto_x", i, 0);
-            		flag = protoflag_conv("filter_lw_proto_x", i, 1);
+		/* LAN/WAN filter */
+		g_buf_init();
+		foreach_x("filter_lw_num_x") {
+			proto = protoflag_conv("filter_lw_proto_x", i, 0);
+			flag = protoflag_conv("filter_lw_proto_x", i, 1);
 			srcip = iprange_ex_conv("filter_lw_srcip_x", i);
 			srcport = portrange_conv("filter_lw_srcport_x", i);
 			dstip = iprange_ex_conv("filter_lw_dstip_x", i);
-			dstport = portrange_conv("filter_lw_dstport_x", i);	
+			dstport = portrange_conv("filter_lw_dstport_x", i);
 			setting = filter_conv(proto, flag, srcip, srcport, dstip, dstport); 
-         		fprintf(fp, "-A FORWARD %s -i %s %s -j %s\n", lanwan_timematch, lan_if, setting, ftype);
-		}            
-
-       		// ICMP       	       			       			
-       		foreach(ptr, nvram_safe_get("filter_lw_icmp_x"), icmplist)
-		{	   	 		
-	        	fprintf(fp, "-A FORWARD %s -i %s -p icmp --icmp-type %s -j %s\n", lanwan_timematch, lan_if, ptr, ftype);
-	        }	
-
-		// Default
-	        fprintf(fp, "-A FORWARD -i %s -j %s\n", lan_if, dtype);
+			fprintf(fp, "-A FORWARD %s -i %s %s -j %s\n", lanwan_timematch, lan_if, setting, ftype);
+		}
+		/* ICMP filter */
+		foreach(ptr, nvram_safe_get("filter_lw_icmp_x"), icmplist) {
+			fprintf(fp, "-A FORWARD %s -i %s -p icmp --icmp-type %s -j %s\n", lanwan_timematch, lan_if, ptr, ftype);
+		}
+		/* Default */
+		fprintf(fp, "-A FORWARD -i %s -j %s\n", lan_if, dtype);
 	}
 
-	// Filter from WAN to LAN
-	if (nvram_match("fw_wl_enable_x", "1"))
-	{   		
+	/* Filter from WAN to LAN */
+	if (nvram_match("fw_wl_enable_x", "1")) {
 		char wanlan_timematch[128];
 		char ptr[32], *icmplist;
 		const char *ftype;
 
 		timematch_conv(wanlan_timematch, "filter_wl_date_x", "filter_wl_time_x");
-		g_buf_init();
-	
-		if (nvram_match("filter_wl_default_x", "DROP"))
-		{
+		if (nvram_match("filter_wl_default_x", "DROP")) {
 			ftype = logaccept;
-		}
-		else
-		{
+		} else {
 			ftype = logdrop;
 		}
-			
-       		foreach_x("filter_wl_num_x")
-       		{	               			
-            		proto = protoflag_conv("filter_wl_proto_x", i, 0);
-            		flag = protoflag_conv("filter_wl_proto_x", i, 1);
+
+		/* WAN/LAN filter */
+		g_buf_init();
+		foreach_x("filter_wl_num_x") {
+			proto = protoflag_conv("filter_wl_proto_x", i, 0);
+			flag = protoflag_conv("filter_wl_proto_x", i, 1);
 			srcip = iprange_ex_conv("filter_wl_srcip_x", i);
 			srcport = portrange_conv("filter_wl_srcport_x", i);
 			dstip = iprange_ex_conv("filter_wl_dstip_x", i);
-			dstport = portrange_conv("filter_wl_dstport_x", i);	
+			dstport = portrange_conv("filter_wl_dstport_x", i);
 			setting = filter_conv(proto, flag, srcip, srcport, dstip, dstport);
-
-         		fprintf(fp, "-A FORWARD %s -o %s %s -j %s\n", wanlan_timematch, lan_if, setting, ftype);
-		}            
-       			 
-       		// ICMP       	       			       			
-       		foreach(ptr, nvram_safe_get("filter_wl_icmp_x"), icmplist)
-		{	   	 		
-	        	fprintf(fp, "-A FORWARD %s -o %s -p icmp --icmp-type %s -j %s\n", wanlan_timematch, lan_if, ptr, ftype);
-	        }
+			fprintf(fp, "-A FORWARD %s -o %s %s -j %s\n", wanlan_timematch, lan_if, setting, ftype);
+		}
+		/* ICMP filter */
+		foreach(ptr, nvram_safe_get("filter_wl_icmp_x"), icmplist) {
+			fprintf(fp, "-A FORWARD %s -o %s -p icmp --icmp-type %s -j %s\n", wanlan_timematch, lan_if, ptr, ftype);
+		}
        	}
 
 	/* Enable Virtual Servers */
@@ -870,18 +820,49 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		nvram_match("fw_wl_enable_x", "1") ?
 		nvram_match("filter_vs_default_x", "DROP") : FALSE) ? logdrop : logaccept);
 
-	if (nvram_match("fw_wl_enable_x", "1"))
-	{   		
-		// Default
-		fprintf(fp, "-A FORWARD -o %s -j %s\n", lan_if, 
+	/* Default filter from WAN to LAN */
+	if (nvram_match("fw_wl_enable_x", "1")) {
+		fprintf(fp, "-A FORWARD -o %s -j %s\n", lan_if,
 			nvram_match("filter_wl_default_x", "DROP") ? logdrop : logaccept);
 	}
 
+	/* OUTPUT chain */
+
+	/* MACS chain */
+	/* Filter from LAN to WAN Source MAC */
+	if (nvram_invmatch("macfilter_enable_x", "0") &&
+	    nvram_invmatch("macfilter_enable_x", "disabled")) {
+		int blacklist = nvram_invmatch("macfilter_enable_x", "1");
+
+		/* LAN/WAN filter */
+		g_buf_init();
+		foreach_x("macfilter_num_x") {
+			fprintf(fp, "-A MACS -m mac --mac-source %s -j %s\n", 
+				mac_conv("macfilter_list_x", i, line), 
+				(blacklist ? logdrop : "RETURN"));
+		}
+		if (!blacklist)
+			fprintf(fp, "-A MACS -j %s\n", logdrop);
+	}
+
+	/* SECURITY chain */
+	fprintf(fp,
+	// sync-flood protection
+		"-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n"
+	// furtive port scanner
+		"-A SECURITY -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j RETURN\n"
+	// udp flooding
+		"-A SECURITY -p udp -m limit --limit 5/s -j RETURN\n"
+	// ping of death
+		"-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
+	/* Drop attacks */
+	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
+
 	/* BRUTE chain */
-	// SSH and FTP servers bruteforce protection through ipt_recent module
+	/* SSH and FTP servers bruteforce protection through ipt_recent module */
 	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
 	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0"))) {
-		// Evaluate incoming connections through white&blacklists stored in flashfs
+		/* Evaluate incoming connections through white&blacklists stored in flashfs */
 		if ((fp1 = fopen("/usr/local/etc/ssh.allow", "r")) != NULL) {
 			while (fgets(line, sizeof(line), fp1))
 				if ((sscanf(line, "%s", s) == 1) && (s[0] != '#'))
@@ -894,8 +875,8 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 					fprintf(fp, "-A BRUTE -s %s -j %s\n", s, logdrop);
 					fclose(fp1);
 		}
-		// Block annoying intruder's connection attemtps
-		// Remember, that both successful and unsuccessful attempts are counted
+		/* Block annoying intruder's connection attemtps
+		 * Remember, that both successful and unsuccessful attempts are counted */
 		fprintf(fp, "-A BRUTE -m recent --name BRUTE --update --hitcount %s --seconds %s -j %s\n",
 				nvram_safe_get("recent_hitcount"), nvram_safe_get("recent_seconds"), logdrop);
 		fprintf(fp, "-A BRUTE -m recent --name BRUTE --set -j %s\n", logaccept);
@@ -912,13 +893,11 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		  " --log-macdecode "
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
-	
+
 #ifdef WEBSTRFILTER
 	if (nvram_match("url_enable_x", "1") && nvram_invmatch("url_date_x", "0000000")) {
-
 		timematch_conv(timef, "url_date_x", "url_time_x");
-		for (i = 0; i < nvram_get_int("url_num_x"); i++)
-		{
+		for (i = 0; i < nvram_get_int("url_num_x"); i++) {
 			memset(nvname, 0, sizeof(nvname));
 			sprintf(nvname, "url_keyword_x%d", i);
 			filterstr = nvram_safe_get(nvname);
@@ -927,60 +906,68 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 			else
 			if (strncasecmp(filterstr, "https://", strlen("https://")) == 0)
 				filterstr += strlen("https://");
-			if (*filterstr)
-			{
+			if (*filterstr) {
 				fprintf(fp,
 					"-I FORWARD -p tcp %s -m webstr --url \"%s\" -j REJECT --reject-with tcp-reset\n",
 					timef, filterstr);
 			}
-                }
-        }
+		}
+	}
 #endif
 
 	fprintf(fp, "COMMIT\n\n");
-       	fclose(fp);
+	fclose(fp);
 
 	eval("iptables-restore", "/tmp/filter_rules");
 	
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", "")) {
-	// TODO: sync-flood protection, LAN/WAN filter tables, WAN/LAN filter tables
-	if ((fp = fopen("/tmp/filter6_rules", "w")) == NULL) return -1;
+	if ((fp = fopen("/tmp/filter6_rules", "w")) == NULL)
+		return -1;
 
 	fprintf(fp, "*filter\n"
 		    ":INPUT ACCEPT [0:0]\n"
 		    ":FORWARD ACCEPT [0:0]\n"
 		    ":OUTPUT ACCEPT [0:0]\n"
+		    ":MACS - [0:0]\n"
 		    ":SECURITY - [0:0]\n"
-		    ":logaccept - [0:0]\n:logdrop - [0:0]\n");
+		    ":BRUTE - [0:0]\n"
+		    ":logaccept - [0:0]\n"
+		    ":logdrop - [0:0]\n");
+
+	/* Filter from LAN to WAN Source MAC */
+	if (nvram_invmatch("macfilter_enable_x", "0") &&
+	    nvram_invmatch("macfilter_enable_x", "disabled")) {
+		fprintf(fp,
+			"-A INPUT -i %s -j MACS\n"
+			"-A FORWARD -i %s -j MACS\n",
+			lan_if, lan_if);
+	}
 
 	/* INPUT chain */
-
-	// Disable RH0 to block ping-pong of packets.
+	/* Disable RH0 to block ping-pong of packets */
 	fprintf(fp, "-A INPUT -m rt --rt-type 0 -j %s\n", logdrop);
-	if (nvram_match("ipv6_proto", "dhcp6"))
-		fprintf(fp, "-A INPUT -p udp --dport 546 -j %s\n", logaccept);
-	// Allow ICMPv6
-	fprintf(fp, "-A INPUT -p ipv6-icmp ! --icmpv6-type echo-request -j %s\n", logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
         /* Drop the wrong state, INVALID, packets */
 	fprintf(fp, "-A INPUT -m conntrack --ctstate INVALID -j %s\n", logdrop);
 	/* Accept related connections, skip rest of checks */
 	fprintf(fp, "-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
-	// From localhost and intranet, all traffic is accepted
+	/* From localhost and intranet, all traffic is accepted */
 	fprintf(fp, "-A INPUT -i lo -m conntrack --ctstate NEW -j %s\n", logaccept);
 	fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j %s\n", lan_if, logaccept);
 #else
-	fprintf(fp, "-A INPUT -i lo -j %s\n", logaccept);
-	fprintf(fp, "-A INPUT -i %s -j %s\n", lan_if, logaccept);
-	// Pass Link-Local, is it superseded by ipv6-icmp? 
+	/* From localhost and intranet, all traffic is accepted */
+	fprintf(fp, "-A INPUT -i lo -j ACCEPT\n");
+	fprintf(fp, "-A INPUT -i %s -j ACCEPT\n", lan_if);
+	/* Pass Link-Local, is it superseded by ipv6-icmp?
+	 * DANGEROUS!!! */
 	fprintf(fp, "-A INPUT -s fe80::/10 -j %s\n", logaccept);
 #endif
-	// Pass multicast, should it depend on mr_enable_x?
-	//if (nvram_match("mr_enable_x", "1"))
+	/* Pass multicast */
+	if (nvram_match("mr_enable_x", "1"))
 		fprintf(fp, "-A INPUT -s ff00::/8 -j %s\n", logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
-	// Check internet traffic
+	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1")) {
 		if (nvram_match("ipv6_proto", "tun6in4") ||
 		    nvram_match("ipv6_proto", "tun6to4") ||
@@ -991,55 +978,61 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 			fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", nvram_get("wan0_ifname"));
 	}
 #endif
-	// Firewall between WAN and Local
+	/* Firewall between WAN and Local */
 	if (nvram_match("fw_enable_x", "1")) {
-		// Pass SSH
+		/* Enable incoming packets from broken dhcp servers, which are sending replies
+		 * from addresses other than used for query, this could lead to lower level
+		 * of security, but it does not work otherwise (conntrack does not work) :-(
+		 */
+		if (nvram_match("ipv6_proto", "dhcp6")) {
+			fprintf(fp, "-A INPUT -p udp --dport 546 -j %s\n", logaccept);
+		}
+		/* Pass SSH */
 		if (nvram_match("ssh_enable", "1")) {
-#ifndef BROKEN_IPV6_CONNTRACK
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j %s\n", nvram_safe_get("ssh_port"),
-#else
-			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("ssh_port"),
-#endif
-				logaccept);
-		}
-		// Pass FTP
-		if (nvram_match("usb_ftpenable_x", "1")) {
+				nvram_invmatch("recent_ssh_enable", "0") ? "BRUTE" : logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
-			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j %s\n", nvram_safe_get("usb_ftpport_x"),
 #else
-			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_ftpport_x"),
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("ssh_port"), logaccept);
 #endif
-				logaccept);
 		}
-		// Pass Web-UI
+		/* Pass FTP */
+		if (nvram_match("usb_ftpenable_x", "1")) {
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j %s\n", nvram_safe_get("usb_ftpport_x"),
+				nvram_invmatch("recent_ftp_enable", "0") ? "BRUTE" : logaccept);
+#ifndef BROKEN_IPV6_CONNTRACK
+#else
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_ftpport_x"), logaccept);
+#endif
+		}
+		/* Pass Web-UI */
 		if (nvram_match("misc_http_x", "1")) {
 			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n",
-				nvram_safe_get("ipv6_lan_addr"),
-				nvram_safe_get("http_lanport"), logaccept);
+				nvram_safe_get("ipv6_lan_addr"), nvram_safe_get("http_lanport"), logaccept);
 		}
-		// Pass ping, echo-reply should be handled by conntrack
+		/* Pass ICMPv6 */
+		fprintf(fp, "-A INPUT -p ipv6-icmp ! --icmpv6-type 128 -j %s\n", logaccept);
 		if (nvram_invmatch("misc_ping_x", "0")) {
-			fprintf(fp, "-A INPUT -p ipv6-icmp --icmpv6-type echo-request -j %s\n", logaccept);
-			// Pass udp traceroute
+			fprintf(fp, "-A INPUT -p ipv6-icmp --icmpv6-type 128 -j %s\n", logaccept);
+			/* Pass udp traceroute */
 			fprintf(fp, "-A INPUT -p udp -m udp --dport 33434:33534 -j %s\n", logaccept);
 		}
-		// Drop everything else
+		/* Drop everything else */
 		fprintf(fp, "-A INPUT -j %s\n", logdrop);
 	}
 
 	/* FORWARD chain */
-
-	// Disable RH0 to block ping-pong of packets.
+	/* Disable RH0 to block ping-pong of packets */
 	fprintf(fp, "-A FORWARD -m rt --rt-type 0 -j %s\n", logdrop);
-	// Accept the redirect, might be seen as INVALID, packets
+	/* Accept the redirect, might be seen as INVALID, packets */
 	fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", lan_if, lan_if, logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Drop the wrong state, INVALID, packets */
 	fprintf(fp, "-A FORWARD -m conntrack --ctstate INVALID -j %s\n", logdrop);
 #endif
-	// Pass multicast, should it depend on mr_enable_x?
-	//if (nvram_match("mr_enable_x", "1"))
-		fprintf(fp, "-A FORWARD -s ff00::/8 -j %s\n", logaccept);
+	/* Pass multicast */
+	if (nvram_match("mr_enable_x", "1"))
+		fprintf(fp, "-A FORWARD -s ff00::/8 -j ACCEPT\n");
 
 	/* Clamp TCP MSS to PMTU of WAN interface */
 	if (nvram_match("ipv6_proto", "tun6in4") ||
@@ -1047,22 +1040,15 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	    nvram_match("ipv6_proto", "tun6rd") ||
 	    (!nvram_get_int("ipv6_if_x") &&
 	     (nvram_match("wan0_proto", "pppoe") ||
-	      nvram_match("wan0_proto", "pptp") || nvram_match("wan0_proto", "l2tp"))))
+	      nvram_match("wan0_proto", "pptp") || nvram_match("wan0_proto", "l2tp")))) {
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+	}
+
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Accept related connections, skip rest of checks */
 	fprintf(fp, "-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
 #endif
-	// Allow ICMPv6
-	// Should be only echo-req, dest-unreach, packet-too-big, time-exeed and parm-problem
-	fprintf(fp, "-A FORWARD -p ipv6-icmp -j %s\n", logaccept);
-#ifndef BROKEN_IPV6_CONNTRACK
-#else
-	// Pass Link-Local, is it superseded by ipv6-icmp?
-	fprintf(fp, "-A FORWARD -s fe80::/10 -j %s\n", logaccept);
-#endif
-
-        // Filter out invalid WAN->WAN connections
+	/* Filter out invalid WAN->WAN connections */
 	if (nvram_match("ipv6_proto", "tun6in4") ||
 	    nvram_match("ipv6_proto", "tun6to4") ||
 	    nvram_match("ipv6_proto", "tun6rd"))
@@ -1070,16 +1056,89 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
 	if (nvram_invmatch("wan0_ifname", wan_if))
 		fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", nvram_get("wan0_ifname"), lan_if, logdrop);
+
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1"))
 		fprintf(fp, "-A FORWARD ! -i %s -m conntrack --ctstate NEW -j SECURITY\n", lan_if);
 #endif
 
-	/* OUTPUT chain */
+	/* Filter from LAN to WAN */
+	if (nvram_match("fw_lw_enable_x", "1")) {
+		const char *dtype;
 
-	// Disable RH0 to block ping-pong of packets.
+		if (nvram_match("filter_lw_default_x", "DROP")) {
+			dtype = logdrop;
+		} else {
+			dtype = logaccept;
+		}
+
+		/* LAN/WAN filter */
+/* TODO: implement something */
+		/* ICMP filter */
+/* TODO: implement something */
+		/* Default */
+		fprintf(fp, "-A FORWARD -i %s -j %s\n", lan_if, dtype);
+	}
+
+	/* Filter from WAN to LAN */
+	if (nvram_match("fw_wl_enable_x", "1")) {
+		/* WAN/LAN filter */
+/* TODO: implement something */
+		/* ICMP filter */
+/* TODO: implement something */
+	}
+
+	/* Enable Virtual Servers */
+/* TODO: implement something */
+
+	/* Default filter from WAN to LAN */
+	if (nvram_match("fw_wl_enable_x", "1")) {
+		/* Pass ICMPv6 */
+		fprintf(fp, "-A FORWARD -o %s -p ipv6-icmp ! --icmpv6-type 128 -j %s\n", lan_if, logaccept);
+		if (nvram_invmatch("misc_ping_x", "0"))
+			fprintf(fp, "-A FORWARD -o %s -p ipv6-icmp --icmpv6-type 128 -j %s\n", lan_if, logaccept);
+		fprintf(fp, "-A FORWARD -o %s -j %s\n", lan_if,
+			nvram_match("filter_wl_default_x", "DROP") ? logdrop : logaccept);
+	}
+
+	/* OUTPUT chain */
+	/* Disable RH0 to block ping-pong of packets */
 	fprintf(fp, "-A OUTPUT -m rt --rt-type 0 -j %s\n", logdrop);
+
+	/* MACS chain */
+	/* Filter from LAN to WAN Source MAC */
+	if (nvram_invmatch("macfilter_enable_x", "0") &&
+	    nvram_invmatch("macfilter_enable_x", "disabled")) {
+		int blacklist = nvram_invmatch("macfilter_enable_x", "1");
+
+		/* LAN/WAN filter */
+		g_buf_init();
+		foreach_x("macfilter_num_x") {
+			fprintf(fp, "-A MACS -m mac --mac-source %s -j %s\n", 
+				mac_conv("macfilter_list_x", i, line), 
+				(blacklist ? logdrop : "RETURN"));
+		}
+		if (!blacklist)
+			fprintf(fp, "-A MACS -j %s\n", logdrop);
+	}
+
+	/* SECURITY chain */
+/* TODO sync-flood protection */
+
+	/* BRUTE chain */
+#ifndef BROKEN_IPV6_CONNTRACK
+	/* SSH and FTP servers bruteforce protection through ipt_recent module */
+	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
+	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0"))) {
+/* TODO: white&black lists */
+		/* Block annoying intruder's connection attemtps
+		 * Remember, that both successful and unsuccessful attempts are counted */
+		fprintf(fp, "-A BRUTE -m recent --name BRUTE --update --hitcount %s --seconds %s -j %s\n",
+				nvram_safe_get("recent_hitcount"), nvram_safe_get("recent_seconds"), logdrop);
+		fprintf(fp, "-A BRUTE -m recent --name BRUTE --set -j %s\n", logaccept);
+	}
+#endif
 
 	/* logaccept chain */
 #ifndef BROKEN_IPV6_CONNTRACK
@@ -1100,6 +1159,27 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		  " --log-macdecode "
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
+
+#ifdef WEBSTRFILTER
+	if (nvram_match("url_enable_x", "1") && nvram_invmatch("url_date_x", "0000000")) {
+		timematch_conv(timef, "url_date_x", "url_time_x");
+		for (i = 0; i < nvram_get_int("url_num_x"); i++) {
+			memset(nvname, 0, sizeof(nvname));
+			sprintf(nvname, "url_keyword_x%d", i);
+			filterstr = nvram_safe_get(nvname);
+ 			if (strncasecmp(filterstr, "http://", strlen("http://")) == 0)
+				filterstr += strlen("http://");
+			else
+			if (strncasecmp(filterstr, "https://", strlen("https://")) == 0)
+				filterstr += strlen("https://");
+			if (*filterstr) {
+				fprintf(fp,
+					"-I FORWARD -p tcp %s -m webstr --url \"%s\" -j REJECT --reject-with tcp-reset\n",
+					timef, filterstr);
+			}
+		}
+	}
+#endif
 
 	fprintf(fp, "COMMIT\n\n");
 	fclose(fp);
