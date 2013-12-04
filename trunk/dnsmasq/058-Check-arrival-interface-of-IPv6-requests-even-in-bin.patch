@@ -1,0 +1,171 @@
+From 2329bef5ba3ccd4fb3045f4e895f7b31e24b1e73 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Tue, 3 Dec 2013 13:41:16 +0000
+Subject: [PATCH 3/5] Check arrival interface of IPv6 requests, even in --bind-interfaces.
+
+---
+ CHANGELOG     |    6 ++++++
+ src/forward.c |   10 ++++++++--
+ src/network.c |   39 ++++++++++++---------------------------
+ src/tftp.c    |   12 +++++++++---
+ 4 files changed, 35 insertions(+), 32 deletions(-)
+
+diff --git a/CHANGELOG b/CHANGELOG
+index c34228b..1d02364 100644
+--- a/CHANGELOG
++++ b/CHANGELOG
+@@ -38,6 +38,12 @@ version 2.68
+ 
+ 	    Fix memory leak on re-reading /etc/hosts and friends,
+ 	    introduced in 2.67.
++
++	    Check the arrival interface of incoming DNS and TFTP
++	    requests via IPv6, even in --bind-interfaces mode. This
++	    isn't possible for IPv4 and can generate scary warnings,
++	    but as it's always possible for IPv6 (the API always
++	    exists) then we should do it always. 
+  
+ 
+ version 2.67
+diff --git a/src/forward.c b/src/forward.c
+index d967348..656e39f 100644
+--- a/src/forward.c
++++ b/src/forward.c
+@@ -697,7 +697,13 @@ void receive_query(struct listener *listen, time_t now)
+ 		 CMSG_SPACE(sizeof(struct sockaddr_dl))];
+ #endif
+   } control_u;
+-  
++#ifdef HAVE_IPV6
++   /* Can always get recvd interface for IPv6 */
++  int check_dst = !option_bool(OPT_NOWILD) || listen->family == AF_INET6;
++#else
++  int check_dst = !option_bool(OPT_NOWILD);
++#endif
++
+   /* packet buffer overwritten */
+   daemon->srv_save = NULL;
+   
+@@ -740,7 +746,7 @@ void receive_query(struct listener *listen, time_t now)
+     source_addr.in6.sin6_flowinfo = 0;
+ #endif
+ 
+-  if (!option_bool(OPT_NOWILD))
++  if (check_dst)
+     {
+       struct ifreq ifr;
+ 
+diff --git a/src/network.c b/src/network.c
+index 361abb3..3a6cad2 100644
+--- a/src/network.c
++++ b/src/network.c
+@@ -711,9 +711,9 @@ static int make_sock(union mysockaddr *addr, int type, int dienow)
+       if (listen(fd, 5) == -1)
+ 	goto err;
+     }
+-  else if (!option_bool(OPT_NOWILD))
++  else if (family == AF_INET)
+     {
+-      if (family == AF_INET)
++      if (!option_bool(OPT_NOWILD))
+ 	{
+ #if defined(HAVE_LINUX_NETWORK) 
+ 	  if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &opt, sizeof(opt)) == -1)
+@@ -724,11 +724,11 @@ static int make_sock(union mysockaddr *addr, int type, int dienow)
+ 	    goto err;
+ #endif
+ 	}
++    }
+ #ifdef HAVE_IPV6
+-      else if (!set_ipv6pktinfo(fd))
+-	goto err;
++  else if (!set_ipv6pktinfo(fd))
++    goto err;
+ #endif
+-    }
+   
+   return fd;
+ }
+@@ -961,6 +961,9 @@ void create_bound_listeners(int dienow)
+ 
+    The fix is to use --bind-dynamic, which actually checks the arrival interface too.
+    Tough if your platform doesn't support this.
++
++   Note that checking the arrival interface is supported in the standard IPv6 API and
++   always done, so we don't warn about any IPv6 addresses here.
+ */
+ 
+ void warn_bound_listeners(void)
+@@ -971,35 +974,17 @@ void warn_bound_listeners(void)
+   for (iface = daemon->interfaces; iface; iface = iface->next)
+     if (!iface->dns_auth)
+       {
+-	int warn = 0;
+ 	if (iface->addr.sa.sa_family == AF_INET)
+ 	  {
+ 	    if (!private_net(iface->addr.in.sin_addr, 1))
+ 	      {
+ 		inet_ntop(AF_INET, &iface->addr.in.sin_addr, daemon->addrbuff, ADDRSTRLEN);
+-		warn = 1;
++		iface->warned = advice = 1;
++		my_syslog(LOG_WARNING, 
++			  _("LOUD WARNING: listening on %s may accept requests via interfaces other than %s"),
++			  daemon->addrbuff, iface->name);
+ 	      }
+ 	  }
+-#ifdef HAVE_IPV6
+-	else
+-	  {
+-	    if (!IN6_IS_ADDR_LINKLOCAL(&iface->addr.in6.sin6_addr) &&
+-		!IN6_IS_ADDR_SITELOCAL(&iface->addr.in6.sin6_addr) &&
+-		!IN6_IS_ADDR_ULA(&iface->addr.in6.sin6_addr) &&
+-		!IN6_IS_ADDR_LOOPBACK(&iface->addr.in6.sin6_addr))
+-	      {
+-		inet_ntop(AF_INET6, &iface->addr.in6.sin6_addr, daemon->addrbuff, ADDRSTRLEN);
+-		warn = 1;
+-	      }
+-	  }
+-#endif
+-	if (warn)
+-	  {
+-	    iface->warned = advice = 1;
+-	    my_syslog(LOG_WARNING, 
+-		      _("LOUD WARNING: listening on %s may accept requests via interfaces other than %s"),
+-		      daemon->addrbuff, iface->name);
+-	  }
+       }
+   
+   if (advice)
+diff --git a/src/tftp.c b/src/tftp.c
+index d752e71..07b9e2e 100644
+--- a/src/tftp.c
++++ b/src/tftp.c
+@@ -60,7 +60,12 @@ void tftp_request(struct listener *listen, time_t now)
+   char *prefix = daemon->tftp_prefix;
+   struct tftp_prefix *pref;
+   struct all_addr addra;
+-
++#ifdef HAVE_IPV6
++  /* Can always get recvd interface for IPv6 */
++  int check_dest = !option_bool(OPT_NOWILD) || listen->family == AF_INET6;
++#else
++  int check_dest = !option_bool(OPT_NOWILD);
++#endif
+   union {
+     struct cmsghdr align; /* this ensures alignment */
+ #ifdef HAVE_IPV6
+@@ -91,8 +96,9 @@ void tftp_request(struct listener *listen, time_t now)
+ 
+   if ((len = recvmsg(listen->tftpfd, &msg, 0)) < 2)
+     return;
+-  
+-  if (option_bool(OPT_NOWILD))
++
++  /* Can always get recvd interface for IPv6 */
++  if (!check_dest)
+     {
+       if (listen->iface)
+ 	{
+-- 
+1.7.2.5
+
