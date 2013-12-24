@@ -1,0 +1,25 @@
+From 74e6b5201187b8955e347de270b0ae9fff963e69 Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Tue, 17 Dec 2013 21:33:53 +0000
+Subject: [PATCH 08/10] Typo in contributor name. Sorry.
+
+---
+ CHANGELOG |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/CHANGELOG b/CHANGELOG
+index cbb9420..785eea4 100644
+--- a/CHANGELOG
++++ b/CHANGELOG
+@@ -5,7 +5,7 @@ version 2.69
+ 	    valuable research on how to implement this.
+ 
+ 	    Fix infinite loop associated with some --bogus-nxdomain
+-	    configs. Thanks forgobogo for the bug report.
++	    configs. Thanks fogobogo for the bug report.
+ 
+ 
+ version 2.68
+-- 
+1.7.2.5
+
