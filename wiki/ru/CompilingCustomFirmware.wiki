@@ -25,7 +25,7 @@ mkdir -p /whatever-you-want/broadcom/src/linux
 tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.6.4-K26-r5128.tar.bz2
 ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.6.4-K26 /opt/brcm/hndtools-mipsel-uclibc
 tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.6.22.19.tar.bz2
-ln -sf linux-2.6.22.19 /whatever-you-want/broadcom/src/linux/linux-2.6
+ln -sf /whatever-you-want/broadcom/src/linux/linux-2.6.22.19 /whatever-you-want/broadcom/src/linux/linux-2.6
 }}}
   # Получение исходников прошивки
 {{{
