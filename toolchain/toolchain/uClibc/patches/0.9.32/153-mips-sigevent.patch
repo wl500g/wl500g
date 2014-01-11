@@ -1,0 +1,32 @@
+[PATCH] mips siginfo.h: add a missing function member
+
+*Vicente Olivert Riera* Vincent.Riera at imgtec.com
+/Mon Dec 9 10:41:42 UTC 2013/
+
+------------------------------------------------------------------------
+
+Add "__pid_t _tid" member which is used for some packages, like rt-test
+for instance, which fails with an error like this one:
+
+src/cyclictest/cyclictest.c:638:9: error: 'union <anonymous>' has no member named '_tid'
+
+Signed-off-by: Vicente Olivert Riera <Vincent.Riera at imgtec.com
+---
+ libc/sysdeps/linux/mips/bits/siginfo.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/libc/sysdeps/linux/mips/bits/siginfo.h b/libc/sysdeps/linux/mips/bits/siginfo.h
+--- a/libc/sysdeps/linux/mips/bits/siginfo.h
++++ b/libc/sysdeps/linux/mips/bits/siginfo.h
+@@ -281,6 +281,10 @@ typedef struct sigevent
+       {
+ 	int _pad[__SIGEV_PAD_SIZE];
+ 
++	/* When SIGEV_SIGNAL and SIGEV_THREAD_ID set, LWP ID of the
++	   thread to receive the signal.  */
++	__pid_t _tid;
++
+ 	struct
+ 	  {
+ 	    void (*_function) (sigval_t);	/* Function to start.  */
+-- 
