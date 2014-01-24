@@ -4,6 +4,7 @@ netfilter: nf_ct_sip: Updates from upstream
  274ea0e2a4cdf18110e5931b8ecbfef6353e5293 netfilter: nf_ct_sip: validate Content-Length in TCP SIP messages
  e6e4d9ed11fb1fab8b3256a3dc14d71b5e984ac4 netfilter: nf_ct_sip: fix SDP parsing in TCP SIP messages for some Cisco phones
  f22eb25cf5b1157b29ef88c793b71972efc47143 netfilter: nf_nat_sip: fix via header translation with multiple parameters
+ 9736cb3f9aa9c620965d937f4ff0261f6ac32ee1 netfilter: nf_ct_sip: don't drop packets with offsets pointing outside the packet
 
 ---
  net/ipv4/netfilter/nf_nat_sip.c  |    5 +++--
@@ -69,7 +70,7 @@ diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
  
  		msglen = origlen = end - dptr;
 +		if (msglen > datalen)
-+			return NF_DROP;
++			return NF_ACCEPT;
  
  		ret = process_sip_msg(skb, ct, dataoff, &dptr, &msglen);
  		if (ret != NF_ACCEPT)
