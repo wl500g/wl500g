@@ -14,12 +14,13 @@
  dacb397511289154a68dea1f4bd674c660161c23 usbnet: rx_submit() should return an error code.
  6509141f9c2ba74df6cc72ec35cd1865276ae3a4 usbnet: add new flag FLAG_NOARP for usb net devices
  bf414b369f158bb527f9f29174ada815f961b44c usbnet: fix tx_dropped statistics
+ 52f48d0d9aaa621ffa5e08d79da99a3f8c93b848 usbnet: fix status interrupt urb handling
 
 ---
  drivers/net/usb/asix.c   |    1 
- drivers/net/usb/usbnet.c |  211 +++++++++++++++++++++++++++++++++--------------
- drivers/net/usb/usbnet.h |   18 +++-
- 3 files changed, 168 insertions(+), 62 deletions(-)
+ drivers/net/usb/usbnet.c |  214 ++++++++++++++++++++++++++++++++---------------
+ drivers/net/usb/usbnet.h |   18 +++
+ 3 files changed, 168 insertions(+), 65 deletions(-)
 
 diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
 --- a/drivers/net/usb/asix.c
@@ -252,10 +253,13 @@ diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
  			return;
  		}
  		usb_free_urb (urb);
-@@ -525,7 +555,6 @@ static void intr_complete (struct urb *u
- 	if (!netif_running (dev->net))
- 		return;
+@@ -522,10 +552,6 @@ static void intr_complete (struct urb *u
+ 		break;
+ 	}
  
+-	if (!netif_running (dev->net))
+-		return;
+-
 -	memset(urb->transfer_buffer, 0, urb->transfer_buffer_length);
  	status = usb_submit_urb (urb, GFP_ATOMIC);
  	if (status != 0 && netif_msg_timer (dev))
