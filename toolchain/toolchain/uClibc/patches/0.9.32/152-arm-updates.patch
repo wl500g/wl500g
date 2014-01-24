@@ -5,19 +5,23 @@ ARM: Updates from upstream
  b80b28ee6fdf073e6baf9b893b3ecef9904a2e48 libc_arm: avoid multiple version of __aeabi_unwind_cpp_pr dummy code
  0a718a01bd45ad57ac6159ba93e193c38c90da24 arm: avoid 2 compiler warnings
  9756397b620c3880b94b9db3da96892fa952a3cf arm: use PATH_MEM in ioperm()
+ 09055cc18569c4c69e60af506e08b64ae06d3f9f nptl: Fix arm pt-vfork
+ f7db1709ab9785302b00e9671f9c652f4fac6851 libc: add guard for arm thumb2 asm
 
 ---
  ldso/ldso/arm/resolve.S                                                 |    2 -
  libc/sysdeps/linux/arm/Makefile.arch                                    |    3 -
  libc/sysdeps/linux/arm/aeabi_assert.c                                   |    2 -
  libc/sysdeps/linux/arm/aeabi_mb_cur_max.c                               |    4 +-
+ libc/sysdeps/linux/arm/bits/arm_asm.h                                   |    2 +
  libc/sysdeps/linux/arm/ioperm.c                                         |   19 +++-------
  libc/sysdeps/linux/common/stubs.c                                       |    6 +++
  libpthread/nptl/sysdeps/arm/Makefile.arch                               |    1 
  libpthread/nptl/sysdeps/arm/aeabi_unwind_cpp_pr1.c                      |    1 
  libpthread/nptl/sysdeps/unix/sysv/linux/arm/nptl-aeabi_unwind_cpp_pr1.c |    1 
+ libpthread/nptl/sysdeps/unix/sysv/linux/arm/pt-vfork.S                  |    2 -
  libubacktrace/Makefile.in                                               |    4 --
- 10 files changed, 18 insertions(+), 25 deletions(-)
+ 12 files changed, 21 insertions(+), 26 deletions(-)
 
 diff --git a/ldso/ldso/arm/resolve.S b/ldso/ldso/arm/resolve.S
 --- a/ldso/ldso/arm/resolve.S
@@ -68,6 +72,20 @@ diff --git a/libc/sysdeps/linux/arm/aeabi_mb_cur_max.c b/libc/sysdeps/linux/arm/
  {
    return MB_CUR_MAX;
  }
+diff --git a/libc/sysdeps/linux/arm/bits/arm_asm.h b/libc/sysdeps/linux/arm/bits/arm_asm.h
+--- a/libc/sysdeps/linux/arm/bits/arm_asm.h
++++ b/libc/sysdeps/linux/arm/bits/arm_asm.h
+@@ -3,8 +3,10 @@
+ #define _ARM_ASM_H
+ 
+ #ifdef __thumb2__
++# ifdef __ASSEMBLER__
+ .thumb
+ .syntax unified
++# endif /* __ASSEMBLER__ */
+ #define IT(t, cond) i##t cond
+ #else
+ /* XXX: This can be removed if/when we require an assembler that supports
 diff --git a/libc/sysdeps/linux/arm/ioperm.c b/libc/sysdeps/linux/arm/ioperm.c
 --- a/libc/sysdeps/linux/arm/ioperm.c
 +++ b/libc/sysdeps/linux/arm/ioperm.c
@@ -147,6 +165,15 @@ deleted file mode 100644
 +++ /dev/null
 @@ -1 +0,0 @@
 -#include <aeabi_unwind_cpp_pr1.c>
+diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/arm/pt-vfork.S b/libpthread/nptl/sysdeps/unix/sysv/linux/arm/pt-vfork.S
+--- a/libpthread/nptl/sysdeps/unix/sysv/linux/arm/pt-vfork.S
++++ b/libpthread/nptl/sysdeps/unix/sysv/linux/arm/pt-vfork.S
+@@ -34,4 +34,4 @@
+ 	cmp	r0, #0;			/* If we are the parent... */	\
+ 	strne	r3, [r2, #PID_OFFSET]	/* ... restore the saved PID.  */
+ 
+-#INCLUDE <../../../../../../../LIBC/SYSDEPS/LINUX/ARM/VFORK.S>
++#include "../../../../../../../libc/sysdeps/linux/arm/vfork.S"
 diff --git a/libubacktrace/Makefile.in b/libubacktrace/Makefile.in
 --- a/libubacktrace/Makefile.in
 +++ b/libubacktrace/Makefile.in
