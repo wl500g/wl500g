@@ -3,6 +3,8 @@ From: Jens Axboe
 Date: Tue, 26 Jan 2010 19:52:35 -0500
 Subject: [PATCH] Use splice in the sendfile() implementation - backport from 2.6.23
 
+ a3941ec101a5ec54c1e929730afeb196441a171e loop: don't increment p->offset with (size_t) -EINVAL
+
 ---
 
  Documentation/DocBook/kernel-api.tmpl |   11 
@@ -93,7 +95,7 @@ diff --git a/drivers/block/loop.c b/drivers/block/loop.c
  
  #include <asm/uaccess.h>
  
-@@ -401,50 +402,73 @@ struct lo_read_data {
+@@ -401,50 +402,72 @@ struct lo_read_data {
  };
  
  static int
@@ -108,8 +110,7 @@ diff --git a/drivers/block/loop.c b/drivers/block/loop.c
  	struct loop_device *lo = p->lo;
 +	struct page *page = buf->page;
  	sector_t IV;
-+	size_t size;
-+	int ret;
++	int size, ret;
  
 -	IV = ((sector_t) page->index << (PAGE_CACHE_SHIFT - 9))+(offset >> 9);
 +	ret = buf->ops->confirm(pipe, buf);
