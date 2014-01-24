@@ -1,14 +1,15 @@
 USB: CDC WDM driver backport from 3.6.11
 
  c0f5ecee4e741667b2493c742b60b6218d40b3aa USB: cdc-wdm: fix buffer overflow
+ 6dd433e6cf2475ce8abec1b467720858c24450eb USB: cdc-wdm: fix race between interrupt handler and tasklet
 
 ---
  drivers/usb/class/Kconfig   |   11 
  drivers/usb/class/Makefile  |    1 
- drivers/usb/class/cdc-wdm.c | 1061 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/usb/class/cdc-wdm.c | 1066 ++++++++++++++++++++++++++++++++++++++++++++
  include/linux/usb/cdc-wdm.h |   19 
  include/linux/usb/cdc.h     |    9 
- 5 files changed, 1101 insertions(+)
+ 5 files changed, 1106 insertions(+)
  create mode 100644 drivers/usb/class/cdc-wdm.c
  create mode 100644 include/linux/usb/cdc-wdm.h
 
@@ -16,7 +17,7 @@ diff --git a/drivers/usb/class/cdc-wdm.c b/drivers/usb/class/cdc-wdm.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/usb/class/cdc-wdm.c
-@@ -0,0 +1,1061 @@
+@@ -0,0 +1,1066 @@
 +/*
 + * cdc-wdm.c
 + *
@@ -227,6 +228,7 @@ new file mode 100644
 +static void wdm_int_callback(struct urb *urb)
 +{
 +	int rv = 0;
++	int responding;
 +	int status = urb->status;
 +	struct wdm_device *desc;
 +	struct usb_cdc_notification *dr;
@@ -280,8 +282,8 @@ new file mode 100644
 +
 +	spin_lock(&desc->iuspin);
 +	clear_bit(WDM_READ, &desc->flags);
-+	set_bit(WDM_RESPONDING, &desc->flags);
-+	if (!test_bit(WDM_DISCONNECTING, &desc->flags)
++	responding = test_and_set_bit(WDM_RESPONDING, &desc->flags);
++	if (!responding && !test_bit(WDM_DISCONNECTING, &desc->flags)
 +		&& !test_bit(WDM_SUSPENDING, &desc->flags)) {
 +		rv = usb_submit_urb(desc->response, GFP_ATOMIC);
 +		dev_dbg(&desc->intf->dev, "%s: usb_submit_urb %d",
@@ -681,16 +683,20 @@ new file mode 100644
 +{
 +	struct wdm_device *desc = container_of(work, struct wdm_device, rxwork);
 +	unsigned long flags;
-+	int rv;
++	int rv = 0;
++	int responding;
 +
 +	spin_lock_irqsave(&desc->iuspin, flags);
 +	if (test_bit(WDM_DISCONNECTING, &desc->flags)) {
 +		spin_unlock_irqrestore(&desc->iuspin, flags);
 +	} else {
++		responding = test_and_set_bit(WDM_RESPONDING, &desc->flags);
 +		spin_unlock_irqrestore(&desc->iuspin, flags);
-+		rv = usb_submit_urb(desc->response, GFP_KERNEL);
++		if (!responding)
++			rv = usb_submit_urb(desc->response, GFP_KERNEL);
 +		if (rv < 0 && rv != -EPERM) {
 +			spin_lock_irqsave(&desc->iuspin, flags);
++			clear_bit(WDM_RESPONDING, &desc->flags);
 +			if (!test_bit(WDM_DISCONNECTING, &desc->flags))
 +				schedule_work(&desc->rxwork);
 +			spin_unlock_irqrestore(&desc->iuspin, flags);
