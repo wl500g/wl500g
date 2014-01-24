@@ -1,0 +1,27 @@
+From 906814431bddeb2061825fa1ebad1a967b6d87a9
+From: Paul Mackerras <paulus@samba.org>
+Date: Thu, 2 Jan 2014 15:00:12 +1100
+Subject: [PATCH] pppd: Don't crash if NULL pointer passed to vslprintf for %q or %v
+
+This is to avoid crashes like that reported in
+https://bugs.launchpad.net/ubuntu/+source/ppp/+bug/1244714
+
+Signed-off-by: Paul Mackerras <paulus@samba.org>
+
+---
+ pppd/utils.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/pppd/utils.c b/pppd/utils.c
+--- a/pppd/utils.c
++++ b/pppd/utils.c
+@@ -296,6 +296,8 @@ vslprintf(buf, buflen, fmt, args)
+ 	case 'q':		/* quoted string */
+ 	    quoted = c == 'q';
+ 	    p = va_arg(args, unsigned char *);
++	    if (p == NULL)
++		    p = (unsigned char *)"<NULL>";
+ 	    if (fillch == '0' && prec >= 0) {
+ 		n = prec;
+ 	    } else {
+-- 
