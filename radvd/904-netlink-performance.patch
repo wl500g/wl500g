@@ -1,0 +1,75 @@
+From f5441324e18e2ede0ce9f129996235a385e68781
+From: Nathan Hintz <nlhintz@hotmail.com>
+Date: Sat, 7 Sep 2013 20:45:34 -0500
+Subject: [PATCH] Performance fix in netlink message processing
+
+When running 'top', I sometimes see RADVD consuming a lot of CPU (some
+times close to 50%).  I put some debug statements into RADVD, and have
+found that RADVD listens to a netlink socket, and basically reloads the
+configuration file for every netlink message it receives, regardless of
+content.  I have seen more than 60 reloads in a single second, which
+are generally triggered for Wireless Extension events for one of the
+wireless interfaces.  There currently is a patch
+(https://dev.openwrt.org/browser/packages/ipv6/radvd/patches/100-silent-netlink-config-reload.patch)
+that attempts to silence the logging of the reloads, but this is really
+just masking the problem, and poorly at that.  It seems like RADVD
+should be filtering the netlink messages down to what it cares about,
+and only then triggering the reload.
+
+---
+ netlink.c | 30 ++++++++++++++++++++++--------
+ 1 file changed, 22 insertions(+), 8 deletions(-)
+
+diff --git a/netlink.c b/netlink.c
+--- a/netlink.c
++++ b/netlink.c
+@@ -41,7 +41,10 @@ void process_netlink_msg(int sock)
+ 	struct msghdr msg = { (void *)&sa, sizeof(sa), &iov, 1, NULL, 0, 0 };
+ 	struct nlmsghdr *nh;
+ 	struct ifinfomsg * ifinfo;
++	struct rtattr *rta;
++	int rta_len;
+ 	char ifname[IF_NAMESIZE] = {""};
++	int reloaded = 0;
+ 	char * rc = 0;
+ 
+ 	len = recvmsg (sock, &msg, 0);
+@@ -59,16 +62,27 @@ void process_netlink_msg(int sock)
+ 		}
+ 
+ 		/* Continue with parsing payload. */
+-                ifinfo = NLMSG_DATA(nh);
+-                rc = if_indextoname(ifinfo->ifi_index, ifname);
+-                if (ifinfo->ifi_flags & IFF_RUNNING) {
+-                        dlog(LOG_DEBUG, 3, "%s, ifindex %d, flags is running", ifname, ifinfo->ifi_index);
++		if (nh->nlmsg_type == RTM_NEWLINK || nh->nlmsg_type == RTM_DELLINK || nh->nlmsg_type == RTM_SETLINK) {
++			ifinfo = (struct ifinfomsg *)NLMSG_DATA(nh);
++			if_indextoname(ifinfo->ifi_index, ifname);
++			rta = IFLA_RTA(NLMSG_DATA(nh));
++			rta_len = nh->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifinfomsg));
++			for (; RTA_OK(rta, rta_len); rta = RTA_NEXT(rta, rta_len)) {
++				if (rta->rta_type == IFLA_OPERSTATE || rta->rta_type == IFLA_LINKMODE) {
++					if (ifinfo->ifi_flags & IFF_RUNNING) {
++						dlog(LOG_DEBUG, 3, "%s, ifindex %d, flags is running", ifname, ifinfo->ifi_index);
++					}
++					else {
++						dlog(LOG_DEBUG, 3, "%s, ifindex %d, flags is *NOT* running", ifname, ifinfo->ifi_index);
++					}
++					if (!reloaded) {
++						config_interface();
++						kickoff_adverts();
++						reloaded = 1;
++					}
++				}
++			}
+                 }
+-                else {
+-                        dlog(LOG_DEBUG, 3, "%s, ifindex %d, flags is *NOT* running", ifname, ifinfo->ifi_index);
+-                }
+-		config_interface();
+-		kickoff_adverts();
+ 	}
+ }
+ 
+-- 
+
