@@ -1,7 +1,7 @@
-diff -urBp dropbear-0.56/options.h dropbear/options.h
---- dropbear-0.56/options.h	2013-03-21 18:29:35.000000000 +0300
-+++ dropbear/options.h	2013-03-26 17:17:29.000000000 +0300
-@@ -21,10 +21,10 @@
+diff -uBp dropbear-2013.62/options.h dropbear/options.h
+--- dropbear-2013.62/options.h	2013-12-03 16:39:15.000000000 +0300
++++ dropbear/options.h	2014-01-24 15:52:08.000000000 +0300
+@@ -21,13 +21,13 @@
  
  /* Default hostkey paths - these can be specified on the command line */
  #ifndef DSS_PRIV_FILENAME
@@ -12,9 +12,13 @@ diff -urBp dropbear-0.56/options.h dropbear/options.h
 -#define RSA_PRIV_FILENAME "/etc/dropbear/dropbear_rsa_host_key"
 +#define RSA_PRIV_FILENAME "/usr/local/etc/dropbear/dropbear_rsa_host_key"
  #endif
+ #ifndef ECDSA_PRIV_FILENAME
+-#define ECDSA_PRIV_FILENAME "/etc/dropbear/dropbear_ecdsa_host_key"
++#define ECDSA_PRIV_FILENAME "/usr/local/etc/dropbear/dropbear_ecdsa_host_key"
+ #endif
  
  /* Set NON_INETD_MODE if you require daemon functionality (ie Dropbear listens
-@@ -38,7 +38,7 @@
+@@ -41,7 +41,7 @@
   * Both of these flags can be defined at once, don't compile without at least
   * one of them. */
  #define NON_INETD_MODE
@@ -23,7 +27,7 @@ diff -urBp dropbear-0.56/options.h dropbear/options.h
  
  /* Setting this disables the fast exptmod bignum code. It saves ~5kB, but is
   * perhaps 20% slower for pubkey operations (it is probably worth experimenting
-@@ -78,10 +78,10 @@
+@@ -81,10 +81,10 @@ much traffic. */
  
  /* Enable "Netcat mode" option. This will forward standard input/output
   * to a remote TCP-forwarded connection */
@@ -36,7 +40,7 @@ diff -urBp dropbear-0.56/options.h dropbear/options.h
  
  /* Encryption - at least one required.
   * Protocol RFC requires 3DES and recommends AES128 for interoperability.
-@@ -157,7 +157,7 @@
+@@ -175,7 +175,7 @@ much traffic. */
  
  /* Whether to print the message of the day (MOTD). This doesn't add much code
   * size */
@@ -45,7 +49,7 @@ diff -urBp dropbear-0.56/options.h dropbear/options.h
  
  /* The MOTD file path */
  #ifndef MOTD_FILENAME
-@@ -240,19 +240,19 @@
+@@ -265,19 +265,19 @@ much traffic. */
  /* The command to invoke for xauth when using X11 forwarding.
   * "-q" for quiet */
  #ifndef XAUTH_COMMAND
