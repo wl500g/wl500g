@@ -1,0 +1,59 @@
+bcm47xx: add cpu_has_vint
+
+ From: Hauke Mehrtens <hauke@hauke-m.de>
+ Date: Wed, 20 Nov 2013 23:03:35 +0100
+
+This is supported by the 74K cpus
+
+---
+ arch/mips/bcm47xx/Kconfig |    1 +
+ arch/mips/bcm47xx/irq.c   |   24 ++++++++++++++++++++++++
+ 2 files changed, 25 insertions(+)
+
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -25,6 +25,7 @@ config MIPS_BRCM
+ 	select SYS_SUPPORTS_KGDB
+ 	select SYS_HAS_CPU_MIPS32_R1
+ 	select SYS_HAS_CPU_MIPS32_R2
++	select CPU_MIPSR2_IRQ_VI
+ 	select SYS_SUPPORTS_HIGHMEM
+ 	select HAVE_GET_USER_PAGES_FAST
+ 
+--- a/arch/mips/brcm-boards/bcm947xx/irq.c
++++ b/arch/mips/brcm-boards/bcm947xx/irq.c
+@@ -278,6 +278,18 @@ static struct irq_chip brcm_irq2_type = 
+ 	.end = end_brcm_irq2
+ };
+ 
++#define DEFINE_HWx_IRQDISPATCH(x)					\
++	static void bcm47xx_hw ## x ## _irqdispatch(void)		\
++	{								\
++		do_IRQ(x);						\
++	}
++DEFINE_HWx_IRQDISPATCH(2)
++DEFINE_HWx_IRQDISPATCH(3)
++DEFINE_HWx_IRQDISPATCH(4)
++DEFINE_HWx_IRQDISPATCH(5)
++DEFINE_HWx_IRQDISPATCH(6)
++DEFINE_HWx_IRQDISPATCH(7)
++
+ /*
+  * We utilize chipcommon configuration register SBFlagSt to implement a
+  * smart shared IRQ handling machenism through which only ISRs registered
+@@ -337,4 +349,14 @@ arch_init_irq(void)
+ 	for (i = 0; i < NR_IRQS; i++) {
+ 		set_irq_chip(i, (i < SBMIPS_NUMIRQS ? &brcm_irq_type : &brcm_irq2_type));
+ 	}
++
++	if (cpu_has_vint) {
++		pr_info("Setting up vectored interrupts\n");
++		set_vi_handler(2, bcm47xx_hw2_irqdispatch);
++		set_vi_handler(3, bcm47xx_hw3_irqdispatch);
++		set_vi_handler(4, bcm47xx_hw4_irqdispatch);
++		set_vi_handler(5, bcm47xx_hw5_irqdispatch);
++		set_vi_handler(6, bcm47xx_hw6_irqdispatch);
++		set_vi_handler(7, bcm47xx_hw7_irqdispatch);
++	}
+ }
+-- 
