@@ -23,7 +23,8 @@
 # them and saving in flashfs if they are absent at all.
 # IMPORTANT: This script does not change the state of flashfs!
 
-SSHD_ETC=/tmp/local/etc/dropbear
+SSHD_ETC_LOC=tmp/local/etc/dropbear
+SSHD_ETC=/$SSHD_ETC_LOC
 
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 export PATH
@@ -31,29 +32,45 @@ export PATH
 MTD="/dev/mtd/4"
 MTDBLOCK="/dev/mtd/block4"
 
-#check if the key files are in the right place
+check_keys() {
+#check if the all of key files are in the right place
 if ! [ -s $SSHD_ETC/dropbear_rsa_host_key -a \
-       -s $SSHD_ETC/dropbear_dss_host_key ]; then
+       -s $SSHD_ETC/dropbear_dss_host_key -a \
+       -s $SSHD_ETC/dropbear_ecdsa_host_key ]; then
+	return 0;
+else
+	return 1;
+fi
+}
+
+generate_key() {
+if ! [ -s $1 ]; then
+	dropbearkey -t $keytype -f $1 | /bin/grep "$keytype" > $1.pub
+fi
+}
+
+if check_keys; then
 	mkdir -p $SSHD_ETC
 	#check if the key files are stored in flashfs
 	if [ -n "$(/bin/tar -tzf $MTDBLOCK 2> /dev/null | \
-	     /bin/grep tmp/local/etc/dropbear/dropbear_[rd]s[as]_host_key)" ]; then
-		/bin/tar -C / -xzf $MTDBLOCK tmp/local/etc/dropbear tmp/local/etc/ssh.*
-	else
-		#generate new key files
-		dropbearkey -t rsa -f $SSHD_ETC/dropbear_rsa_host_key \
-		  | /bin/grep "ssh-rsa" > $SSHD_ETC/dropbear_rsa_host_key.pub
-		dropbearkey -t dss -f $SSHD_ETC/dropbear_dss_host_key \
-		  | /bin/grep "ssh-dss" > $SSHD_ETC/dropbear_dss_host_key.pub
+	     /bin/grep -E $SSHD_ETC_LOC/dropbear_\(ecdsa\|rsa\|dss\){1}_host_key)" ]; then
+		/bin/tar -C / -xzf $MTDBLOCK $SSHD_ETC_LOC tmp/local/etc/ssh.*
+	fi
+	if check_keys; then
+		#generate new keys
+		for keytype in rsa dss ecdsa; do
+			generate_key "$SSHD_ETC/dropbear_${keytype}_host_key"
+		done
 
 		#store generated keys in the flashfs for future use
-		mkdir -p /tmp/_tmp/tmp/local/etc
-		/bin/tar -C /tmp/_tmp/ -xzf $MTDBLOCK 2> /dev/null
-		cp -r $SSHD_ETC /tmp/_tmp/tmp/local/etc
-		/bin/tar -C /tmp/_tmp/ -czf /tmp/_flash.tar.gz etc tmp
+		TMP_B=/tmp/_tmp
+		mkdir -p $TMP_B/tmp/local/etc
+		/bin/tar -C $TMP_B/ -xzf $MTDBLOCK 2> /dev/null
+		cp -r $SSHD_ETC $TMP_B/tmp/local/etc
+		/bin/tar -C $TMP_B/ -czf /tmp/_flash.tar.gz etc tmp
 
 		/sbin/flash /tmp/_flash.tar.gz $MTD
-		rm -r /tmp/_tmp /tmp/_flash.tar.gz
+		rm -r $TMP_B /tmp/_flash.tar.gz
 	fi
 fi
 
