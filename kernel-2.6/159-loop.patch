@@ -1,0 +1,23 @@
+From a24eab1ed506f3e0bcbcd3f619558935549d4ace
+From: Jens Axboe <jens.axboe@oracle.com>
+Date: Fri, 11 Jan 2008 09:14:40 +0000
+Subject: loop: fix bad bio_alloc() nr_iovec request
+
+Don't allocate room for an iovec when it is not needed.
+
+Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
+---
+
+diff --git a/drivers/block/loop.c b/drivers/block/loop.c
+--- a/drivers/block/loop.c
++++ b/drivers/block/loop.c
+@@ -610,7 +610,7 @@ static int loop_thread(void *data)
+ static int loop_switch(struct loop_device *lo, struct file *file)
+ {
+ 	struct switch_request w;
+-	struct bio *bio = bio_alloc(GFP_KERNEL, 1);
++	struct bio *bio = bio_alloc(GFP_KERNEL, 0);
+ 	if (!bio)
+ 		return -ENOMEM;
+ 	init_completion(&w.wait);
+-- 
