@@ -1,5 +1,6 @@
 [NET] Updates from upstream
 
+ db0ccffed91e234cad99a35f07d5a322f410baa2 [NET] link_watch: Eliminate potential delay on wrap-around
  9d3e44425e3498eb33f25d94392b4fd0d56a5176 [SOCK]: Adds a rcu_dereference() in sk_filter
  db543c1f973cd1d557cc32ceee76737c1e4d2898 net: skb_copy_datagram_from_iovec()
  e4f8b5d4edc1edb0709531bd1a342655d5e8b98e [IPV4]: Remove IP_TOS setting privilege checks.
@@ -19,9 +20,10 @@
  include/net/sock.h       |    2 -
  include/net/tcp.h        |    9 ++++
  net/core/datagram.c      |   87 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/core/link_watch.c    |    4 +-
  net/core/neighbour.c     |    3 -
  net/core/skbuff.c        |    3 -
- net/ipv4/ip_sockglue.c   |   37 +++++++++++++------
+ net/ipv4/ip_sockglue.c   |   42 +++++++++++++---------
  net/ipv4/tcp_input.c     |    9 +---
  net/ipv4/tcp_output.c    |   12 +-----
  net/ipv6/ipv6_sockglue.c |    3 -
@@ -29,7 +31,7 @@
  net/llc/af_llc.c         |    3 +
  net/packet/af_packet.c   |    3 -
  net/unix/af_unix.c       |    3 -
- 14 files changed, 141 insertions(+), 45 deletions(-)
+ 15 files changed, 144 insertions(+), 51 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
 --- a/include/linux/skbuff.h
@@ -173,6 +175,21 @@ diff --git a/net/core/datagram.c b/net/core/datagram.c
  static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
  				      u8 __user *to, int len,
  				      __wsum *csump)
+diff --git a/net/core/link_watch.c b/net/core/link_watch.c
+--- a/net/core/link_watch.c
++++ b/net/core/link_watch.c
+@@ -101,8 +101,10 @@ static void linkwatch_schedule_work(unsigned long delay)
+ 		return;
+ 
+ 	/* If we wrap around we'll delay it by at most HZ. */
+-	if (delay > HZ)
++	if (delay > HZ) {
++		linkwatch_nextevent = jiffies;
+ 		delay = 0;
++	}
+ 
+ 	/*
+ 	 * This is true if we've scheduled it immeditately or if we don't
 diff --git a/net/core/neighbour.c b/net/core/neighbour.c
 --- a/net/core/neighbour.c
 +++ b/net/core/neighbour.c
