@@ -123,6 +123,15 @@ cc-ifversion = $(shell [ $(cc-version) $(1) $(2) ] && echo $(3))
 ld-option = $(call try-run,\
 	$(CC) $(1) -nostdlib -x c /dev/null -o "$$TMP",$(1),$(2))
 
+# ld-version
+# Usage: $(call ld-version)
+# Note this is mainly for HJ Lu's 3 number binutil versions
+ld-version = $(shell $(LD) --version | $(srctree)/scripts/ld-version.sh)
+
+# ld-ifversion
+# Usage:  $(call ld-ifversion, -ge, 22252, y)
+ld-ifversion = $(shell [ $(call ld-version) $(1) $(2) ] && echo $(3))
+
 ######
 
 ###
