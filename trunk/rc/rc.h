@@ -211,6 +211,7 @@ int restart_smbd();
 int ddns_updated_main();
 int sendalarm_main(int argc, char *argv[]);
 int service_handle(void);
+size_t fappend(const char *name, FILE *f);
 int mkdir_if_none(const char *dir);
 void diag_PaN(void);
 int wlan_update();

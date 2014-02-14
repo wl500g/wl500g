@@ -46,7 +46,7 @@ static int umount_all_part(const char *product, int scsi_host_no);
 static struct mntent *findmntent(const char *file);
 static int stop_lltd(void);
 
-static size_t fappend(const char *name, FILE *f)
+size_t fappend(const char *name, FILE *f)
 {
 	size_t size = 0, count;
 	
@@ -100,6 +100,9 @@ start_dns(void)
 		if (nvram_invmatch("wan_dns2_x",""))
 			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
 	}
+
+	/* append custom nameservers */
+	fappend("/usr/local/etc/resolv.conf", fp);
 
 	fclose(fp);
 

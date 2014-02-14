@@ -1516,6 +1516,9 @@ int update_resolvconf(const char *ifname, int metric, int up)
 	}
 #endif
 
+	/* append custom nameservers */
+	fappend("/usr/local/etc/resolv.conf", fp);
+
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
