@@ -1,7 +1,6 @@
-# Part of usb-modeswitch-data, version 20131113
+# Part of usb-modeswitch-data, version 20140129
 #
-# Recommended use with USB_ModeSwitch >= 1.2.5, works with versions >= 1.0.3
-# (New style, interface class check moved to dispatcher)
+# Works with usb_modeswitch versions >= 2.1.0 (introduction of StandardEject)
 #
 ACTION!="add|change", GOTO="modeswitch_rules_end"
 
@@ -64,7 +63,7 @@ ATTR{idVendor}=="0421", ATTR{idProduct}=="0632", RUN+="usb_modeswitch '%b/%k'"
 # Nokia CS-21M-02
 ATTR{idVendor}=="0421", ATTR{idProduct}=="0637", RUN+="usb_modeswitch '%b/%k'"
 
-# Vodafone MD950 (Wisue Technology), Vodafone MD950 (Wisue Technology), Philips (?)
+# Vodafone MD950 (Wisue Technology), Philips (?)
 ATTR{idVendor}=="0471", ATTR{idProduct}=="1210", RUN+="usb_modeswitch '%b/%k'"
 
 # Philips TalkTalk (NXP Semiconductors "Dragonfly")
@@ -85,7 +84,7 @@ ATTR{idVendor}=="04e8", ATTR{idProduct}=="680c", RUN+="usb_modeswitch '%b/%k'"
 # Samsung GT-B3730
 ATTR{idVendor}=="04e8", ATTR{idProduct}=="689a", RUN+="usb_modeswitch '%b/%k'"
 
-# Samsung U209, Samsung U209
+# Samsung U209
 ATTR{idVendor}=="04e8", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
 # AVM Fritz!Wlan USB Stick N v2
@@ -117,6 +116,9 @@ ATTR{idVendor}=="05c6", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
 # Qtronix EVDO 3G Modem (for TianYi)
 ATTR{idVendor}=="05c7", ATTR{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
+
+# ZE-3G 7.2Mbs HSPA modem
+ATTR{idVendor}=="0685", ATTR{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
 
 # InfoCert Business Key (SmartCard/Reader emulation)
 ATTR{idVendor}=="072f", ATTR{idProduct}=="100d", RUN+="usb_modeswitch '%b/%k'"
@@ -334,7 +336,7 @@ ATTR{idVendor}=="0d46", ATTR{idProduct}=="45a5", RUN+="usb_modeswitch '%b/%k'"
 # Mobile Action ("Smart Cable")
 ATTR{idVendor}=="0df7", ATTR{idProduct}=="0800", RUN+="usb_modeswitch '%b/%k'"
 
-# MediaTek MT6276M, MediaTek MT6276M
+# MediaTek MT6276M
 ATTR{idVendor}=="0e8d", ATTR{idProduct}=="0002", RUN+="usb_modeswitch '%b/%k'"
 
 # MediaTek Wimax USB Card
@@ -553,6 +555,18 @@ ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f18", RUN+="usb_modeswitch '%b/%k'"
 # Vodafone K4606
 ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f19", RUN+="usb_modeswitch '%b/%k'"
 
+# Vodafone / Huawei Kxxxx
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f1b", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone / Huawei Kxxxx
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f1c", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone / Huawei Kxxxx
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f1d", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone / Huawei Kxxxx
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f1e", RUN+="usb_modeswitch '%b/%k'"
+
 # Huawei BM358 WiMAX
 ATTR{idVendor}=="12d1", ATTR{idProduct}=="380b", RUN+="usb_modeswitch '%b/%k'"
 
@@ -631,7 +645,7 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="0040", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MF110 (Variant)
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0053", RUN+="usb_modeswitch '%b/%k'"
 
-# ZTE MF110 (Variant), ZTE MF110 (Variant)
+# ZTE MF110 (Variant)
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0083", RUN+="usb_modeswitch '%b/%k'"
 
 # Vodafone (ZTE) K4505-Z
@@ -687,6 +701,9 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="1013", RUN+="usb_modeswitch '%b/%k'"
 
 # Vodafone K5006Z (MF821)
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1017", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone K5008-z (MF823)
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1030", RUN+="usb_modeswitch '%b/%k'"
 
 # Vodafone (ZTE) K4510-Z
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1171", RUN+="usb_modeswitch '%b/%k'"

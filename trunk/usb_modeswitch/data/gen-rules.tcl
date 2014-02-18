@@ -9,7 +9,7 @@
 
 
 # Default version string
-set version "20131113"
+set version "20140129"
 
 if {[lindex $argv 0] == "--set-version" && [regexp {\d\d\d\d\d\d\d\d} [lindex $argv 1]]} {
 	set version [lindex $argv 1]
@@ -35,8 +35,7 @@ set wc [open "40-usb_modeswitch.rules" w]
 puts -nonewline $wc {# Part of usb-modeswitch-data, version }
 puts $wc $version
 puts $wc {#
-# Recommended use with USB_ModeSwitch >= 1.2.5, works with versions >= 1.0.3
-# (New style, interface class check moved to dispatcher)
+# Works with usb_modeswitch versions >= 2.1.0 (introduction of StandardEject)
 #
 ACTION!="add|change", GOTO="modeswitch_rules_end"
 

@@ -1,3 +1,10 @@
+20140129:
+    Minor bug fix in configs 19d2:0149 and 19d2:2000 (Lars Melin reported)
+20140128:
+    ATTENTION: requires usb-modeswitch version >= 2.1.0 due to new para-
+    meter StandardEject (further reducing config file size);
+    Added devices: ZTE MF823/K5008-z, ZE-3G HSPA modem, four new Huawei/
+    Vodafone devices (yet unnamed Kxxxx); thanks to Lars Melin for compiling
 20131113:
     Added devices: Quanta 1KR / USB-lte 7410, Quanta MobileGenie 4G lte,
     AVM Fritz!Wlan USB N v2, Alcatel-sbell ASB TL131 TD-LTE, Vodafone K4305,
