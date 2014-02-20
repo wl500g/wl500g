@@ -49,7 +49,8 @@ PROGRAMS = $(sbin_PROGRAMS)
 am_usbip_OBJECTS = usbip.$(OBJEXT) utils.$(OBJEXT) \
 	usbip_network.$(OBJEXT) usbip_attach.$(OBJEXT) \
 	usbip_detach.$(OBJEXT) usbip_list.$(OBJEXT) \
-	usbip_bind.$(OBJEXT) usbip_unbind.$(OBJEXT)
+	usbip_bind.$(OBJEXT) usbip_unbind.$(OBJEXT) \
+	usbip_port.$(OBJEXT)
 usbip_OBJECTS = $(am_usbip_OBJECTS)
 usbip_LDADD = $(LDADD)
 usbip_DEPENDENCIES = $(top_builddir)/libsrc/libusbip.la
@@ -213,7 +214,7 @@ AM_CFLAGS = @EXTRA_CFLAGS@ @PACKAGE_CFLAGS@
 LDADD = $(top_builddir)/libsrc/libusbip.la @PACKAGE_LIBS@
 usbip_SOURCES := usbip.c utils.c usbip_network.c \
 		 usbip_attach.c usbip_detach.c usbip_list.c \
-		 usbip_bind.c usbip_unbind.c
+		 usbip_bind.c usbip_unbind.c usbip_port.c
 
 usbipd_SOURCES := usbipd.c usbip_network.c
 all: all-am
@@ -313,6 +314,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/usbip_list.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/usbip_network.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/usbip_unbind.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/usbip_port.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/usbipd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utils.Po@am__quote@
 
