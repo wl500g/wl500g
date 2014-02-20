@@ -1,0 +1,42 @@
+From 12d2ff536e77c07e7716b26e26169376a705ebc3
+From: Reuben Hawkins <reuben.hawkins@adometry.com>
+Date: Mon, 17 Feb 2014 21:23:44 -0600
+Subject: [PATCH] send.c: Fix by Scott Shambarger for bug 1048653
+
+This code was taken off bugzilla.redhat.com.
+
+Bug 1048653 - UnicastOnly option still sends multicast RA
+
+Updated send.c to not call send_ra() from send_ra_forall() when
+dest==NULL and UnicastOnly is set.  This appears to be the only
+hole in the logic I can find, but still resets the next_multicast
+timer to avoid any poll timer issues.
+
+Tested, and it works as expected (UnicastOnly on and off).
+
+Conflicts:
+	send.c
+---
+ send.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/send.c b/send.c
+--- a/send.c
++++ b/send.c
+@@ -30,8 +30,12 @@ int send_ra_forall(struct Interface *iface, struct in6_addr *dest)
+ 	struct Clients *current;
+ 
+ 	/* If no list of clients was specified for this interface, we broadcast */
+-	if (iface->ClientList == NULL)
++	if (iface->ClientList == NULL) {
++		if (dest == NULL && iface->UnicastOnly) {
++			return 0;
++		}
+ 		return send_ra(iface, dest);
++	}
+ 
+ 	/* If clients are configured, send the advertisement to all of them via unicast */
+ 	for (current = iface->ClientList; current; current = current->next) {
+-- 
+1.8.5.1
+
