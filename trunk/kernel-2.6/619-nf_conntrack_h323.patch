@@ -5,11 +5,12 @@ netfilter: nf_conntrack_h323: Fixes from upstream
  a56b8f81580761c65e4d8d0c04ac1cb7a788bdf1 nf_conntrack_h323: fix module unload crash
  91e8db80065d655ce1b6d74cadc921671e8d5285 nf_conntrack_h323: turn some printks into DEBUGPs
  b4232a22776aa5d063f890d21ca69870dbbe431b h323: bug in parsing of ASN1 SEQOF field
+ d109e9af61a6d2fdf33dc615ab8b724a8e75a8a4 netfilter: nf_ct_h323: fix bug in rtcp natting
 
 ---
  net/netfilter/nf_conntrack_h323_asn1.c |    2 -
- net/netfilter/nf_conntrack_h323_main.c |   47 +++++++++++++++++----------------
- 2 files changed, 26 insertions(+), 23 deletions(-)
+ net/netfilter/nf_conntrack_h323_main.c |   52 +++++++++++++++++----------------
+ 2 files changed, 28 insertions(+), 26 deletions(-)
 
 diff --git a/net/netfilter/nf_conntrack_h323_asn1.c b/net/netfilter/nf_conntrack_h323_asn1.c
 --- a/net/netfilter/nf_conntrack_h323_asn1.c
@@ -37,6 +38,18 @@ diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack
  				goto clear_out;
  			}
  
+@@ -270,9 +270,8 @@ static int expect_rtp_rtcp(struct sk_buff *skb, struct nf_conn *ct,
+ 		return 0;
+ 
+ 	/* RTP port is even */
+-	port &= htons(~1);
+-	rtp_port = port;
+-	rtcp_port = htons(ntohs(port) + 1);
++	rtp_port = port & ~htons(1);
++	rtcp_port = port | htons(1);
+ 
+ 	/* Create expect for RTP */
+ 	if ((rtp_exp = nf_ct_expect_alloc(ct)) == NULL)
 @@ -599,10 +597,9 @@ static int h245_help(struct sk_buff *skb, unsigned int protoff,
  		ret = DecodeMultimediaSystemControlMessage(data, datalen,
  							   &mscm);
@@ -138,4 +151,3 @@ diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack
  }
  
 -- 
-1.7.4.4
