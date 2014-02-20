@@ -6,15 +6,18 @@ ext4: Updates from upstream 4
  b71fc079b5d8f42b2a52743c8d2f1d35d655b1c5 ext4: fix fdatasync() for files with only i_size changes
  76495ec1d47e1c0fe0673faf9179bda6bc8ab5c2 ext4: fix undefined bit shift result in ext4_fill_flex_info
  8af8eecc1331dbf5e8c662022272cf667e213da5 ext4: fix overflow when counting used blocks on 32-bit architectures
+ 6976a6f2acde2b0443cd64f1d08af90630e4ce81 ext4: don't dereference null pointer when make_indexed_dir() fails
+ c9b92530a723ac5ef8e352885a1862b18f31b2f5 ext4: make orphan functions be no-op in no-journal mode
+ 0e9a9a1ad619e7e987815d20262d36a2f95717ca ext4: avoid hang when mounting non-journal filesystems with orphan list
 
 ---
  fs/ext4/dir.c     |   44 +++++++++++++++++++++++++-------------------
  fs/ext4/ext4.h    |    5 ++++-
  fs/ext4/extents.c |    2 +-
  fs/ext4/inode.c   |   16 ++++++++++++----
- fs/ext4/namei.c   |   12 +++++-------
+ fs/ext4/namei.c   |   26 +++++++++++++-------------
  fs/ext4/super.c   |    2 +-
- 6 files changed, 48 insertions(+), 33 deletions(-)
+ 6 files changed, 56 insertions(+), 39 deletions(-)
 
 diff --git a/fs/ext4/dir.c b/fs/ext4/dir.c
 --- a/fs/ext4/dir.c
@@ -213,6 +216,26 @@ diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
  				return -EIO;
  			if (ext4_match(namelen, name, de))
  				return -EEXIST;
+@@ -1413,6 +1413,10 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
+ 	frame->at = entries;
+ 	frame->bh = bh;
+ 	bh = bh2;
++
++	ext4_handle_dirty_metadata(handle, dir, frame->bh);
++	ext4_handle_dirty_metadata(handle, dir, bh);
++
+ 	de = do_split(handle,dir, &bh, frame, &hinfo, &retval);
+ 	if (!de) {
+ 		/*
+@@ -1421,8 +1425,6 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
+ 		 * with corrupted filesystem.
+ 		 */
+ 		ext4_mark_inode_dirty(handle, dir);
+-		ext4_handle_dirty_metadata(handle, dir, frame->bh);
+-		ext4_handle_dirty_metadata(handle, dir, bh);
+ 		dx_release(frames);
+ 		return retval;
+ 	}
 @@ -1688,7 +1686,7 @@ static int ext4_delete_entry(handle_t *h
  	pde = NULL;
  	de = (struct ext4_dir_entry_2 *) bh->b_data;
@@ -231,6 +254,35 @@ diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
  			de = (struct ext4_dir_entry_2 *)(bh->b_data +
  							 sb->s_blocksize);
  			offset = (offset | (sb->s_blocksize - 1)) + 1;
+@@ -1993,7 +1993,7 @@ int ext4_orphan_add(handle_t *handle, st
+ 	struct ext4_iloc iloc;
+ 	int err = 0, rc;
+ 
+-	if (!ext4_handle_valid(handle))
++	if (!EXT4_SB(sb)->s_journal)
+ 		return 0;
+ 
+ 	mutex_lock(&EXT4_SB(sb)->s_orphan_lock);
+@@ -2074,8 +2074,8 @@ int ext4_orphan_del(handle_t *handle, st
+ 	struct ext4_iloc iloc;
+ 	int err = 0;
+ 
+-	/* ext4_handle_valid() assumes a valid handle_t pointer */
+-	if (handle && !ext4_handle_valid(handle))
++	if ((!EXT4_SB(inode->i_sb)->s_journal) &&
++	    !(EXT4_SB(inode->i_sb)->s_mount_state & EXT4_ORPHAN_FS))
+ 		return 0;
+ 
+ 	mutex_lock(&EXT4_SB(inode->i_sb)->s_orphan_lock);
+@@ -2094,7 +2094,7 @@ int ext4_orphan_del(handle_t *handle, st
+ 	 * transaction handle with which to update the orphan list on
+ 	 * disk, but we still need to remove the inode from the linked
+ 	 * list in memory. */
+-	if (sbi->s_journal && !handle)
++	if (!handle)
+ 		goto out;
+ 
+ 	err = ext4_reserve_inode_write(handle, inode, &iloc);
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
