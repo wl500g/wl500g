@@ -1,5 +1,6 @@
 [IPV6]: Updates from upstream 2
 
+ 52eeeb8481d705e61e2e9aae974e7799a93783e9 [IPV6]: Unify ip6_onlink() and ipip6_onlink(). [partial]
  c2edacf80e155ef54ae4774379d461b60896bc2e bonding / ipv6: no addrconf for slaves separately from master
  569f0c4d909c7f73de634abcdc36344cb72de36a bonding: fix enslavement error unwinds
  cc411d0bae9c19ec85a150aeab4b08335f5751d1 ipv6: Add IFA_F_DADFAILED flag
@@ -7,12 +8,14 @@
  61e76b178dbe7145e8d6afa84bb4ccea71918994 ICMPv6: treat dest unreachable codes 5 and 6 as EACCES, not EPROTO
 
 ---
- drivers/net/bonding/bond_main.c |   23 +++++++++++------------
- include/linux/icmpv6.h          |    2 ++
- include/linux/if_addr.h         |    1 +
- net/ipv6/addrconf.c             |   17 ++++++++++++-----
- net/ipv6/icmp.c                 |   10 +++++++++-
- 5 files changed, 35 insertions(+), 18 deletions(-)
+ drivers/net/bonding/bond_main.c |   23 ++++++++++-----------
+ include/linux/icmpv6.h          |    2 +
+ include/linux/if_addr.h         |    1 
+ include/net/addrconf.h          |    4 +++
+ net/ipv6/addrconf.c             |   42 +++++++++++++++++++++++++++++++++++-----
+ net/ipv6/anycast.c              |   26 ------------------------
+ net/ipv6/icmp.c                 |   10 ++++++++-
+ 7 files changed, 65 insertions(+), 43 deletions(-)
 
 diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
 --- a/include/linux/if_addr.h
@@ -37,6 +40,20 @@ diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
  
  /*
   *	Codes for Time Exceeded
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -65,6 +65,10 @@ extern int			ipv6_chk_addr(struct net *net,
+ #ifdef CONFIG_IPV6_MIP6
+ extern int			ipv6_chk_home_addr(struct in6_addr *addr);
+ #endif
++
++extern int			ipv6_chk_prefix(struct in6_addr *addr,
++						struct net_device *dev);
++
+ extern struct inet6_ifaddr *	ipv6_get_ifaddr(const struct in6_addr *addr,
+ 						struct net_device *dev,
+ 						int strict);
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
@@ -101,6 +118,38 @@ diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
+@@ -1259,6 +1259,31 @@ int ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
+ 	return ifp != NULL;
+ }
+ 
++int ipv6_chk_prefix(struct in6_addr *addr, struct net_device *dev)
++{
++	struct inet6_dev *idev;
++	struct inet6_ifaddr *ifa;
++	int	onlink;
++
++	onlink = 0;
++	rcu_read_lock();
++	idev = __in6_dev_get(dev);
++	if (idev) {
++		read_lock_bh(&idev->lock);
++		for (ifa = idev->addr_list; ifa; ifa = ifa->if_next) {
++			onlink = ipv6_prefix_equal(addr, &ifa->addr,
++						   ifa->prefix_len);
++			if (onlink)
++				break;
++		}
++		read_unlock_bh(&idev->lock);
++	}
++	rcu_read_unlock();
++	return onlink;
++}
++
++EXPORT_SYMBOL(ipv6_chk_prefix);
++
+ struct inet6_ifaddr *ipv6_get_ifaddr(const struct in6_addr *addr,
+ 				     struct net_device *dev, int strict)
+ {
 @@ -1322,13 +1322,17 @@ int ipv6_rcv_saddr_equal(const struct so
  
  /* Gets referenced address, destroys ifaddr */
@@ -166,6 +215,49 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  		spin_unlock_bh(&ifp->lock);
  		read_unlock(&idev->lock);
  
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -48,30 +48,6 @@ static int ipv6_dev_ac_dec(struct net_device *dev, struct in6_addr *addr);
+ /* Big ac list lock for all the sockets */
+ static DEFINE_RWLOCK(ipv6_sk_ac_lock);
+ 
+-static int
+-ip6_onlink(struct in6_addr *addr, struct net_device *dev)
+-{
+-	struct inet6_dev	*idev;
+-	struct inet6_ifaddr	*ifa;
+-	int	onlink;
+-
+-	onlink = 0;
+-	rcu_read_lock();
+-	idev = __in6_dev_get(dev);
+-	if (idev) {
+-		read_lock_bh(&idev->lock);
+-		for (ifa=idev->addr_list; ifa; ifa=ifa->if_next) {
+-			onlink = ipv6_prefix_equal(addr, &ifa->addr,
+-						   ifa->prefix_len);
+-			if (onlink)
+-				break;
+-		}
+-		read_unlock_bh(&idev->lock);
+-		in6_dev_put(idev);
+-	}
+-	rcu_read_unlock();
+-	return onlink;
+-}
+ 
+ /*
+  *	socket join an anycast group
+@@ -142,7 +119,7 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, struct in6_addr *addr)
+ 	 * This obviates the need for propagating anycast routes while
+ 	 * still allowing some non-router anycast participation.
+ 	 */
+-	if (!ip6_onlink(addr, dev)) {
++	if (!ipv6_chk_prefix(addr, dev)) {
+ 		if (ishost)
+ 			err = -EADDRNOTAVAIL;
+ 		if (err)
 diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
 --- a/net/ipv6/icmp.c
 +++ b/net/ipv6/icmp.c
