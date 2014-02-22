@@ -1,101 +1,80 @@
---- p910nd-0.94/p910nd.c	2009-08-27 23:00:08.902285863 +0300
-+++ p910nd/p910nd.c	2011-01-21 11:49:07.000000000 +0300
-@@ -148,6 +148,7 @@ static int lockfd = -1;
- static char *device = 0;
+--- a/p910nd.c	2014-01-16 13:04:51.000000000 +0400
++++ b/p910nd.c	2014-02-22 21:26:13.000000000 +0400
+@@ -170,6 +170,7 @@ static char *device = 0;
  static int bidir = 0;
  static char *bindaddr = 0;
+ static int log_to_stdout = 0;
 +static int timeoutparam = -1;
  
  
  /* Helper function: convert a struct sockaddr address (IPv4 and IPv6) to a string */
-@@ -186,7 +187,7 @@ uint16_t get_port(const struct sockaddr 
+@@ -208,7 +209,7 @@ uint16_t get_port(const struct sockaddr
  void usage(void)
  {
  	fprintf(stderr, "%s %s %s\n", progname, version, copyright);
--	fprintf(stderr, "Usage: %s [-f device] [-i bindaddr] [-bv] [0|1|2]\n", progname);
-+	fprintf(stderr, "Usage: %s [-f device] [-i bindaddr] [-t timeout] [-bv] [0|1|2]\n", progname);
+-	fprintf(stderr, "Usage: %s [-f device] [-i bindaddr] [-bvd] [0|1|2]\n", progname);
++	fprintf(stderr, "Usage: %s [-f device] [-i bindaddr] [-t timeout] [-bvd] [0|1|2]\n", progname);
  	exit(1);
  }
  
-@@ -354,6 +355,8 @@ int copy_stream(int fd, int lp)
+@@ -401,11 +402,15 @@ int copy_stream(int fd, int lp)
  		struct timeval now;
  		struct timeval then;
  		struct timeval timeout;
 +		struct timeval lastnetactivity;
-+		struct timeval *tv;
  		int timer = 0;
  		Buffer_t printerToNetworkBuffer;
  		initBuffer(&printerToNetworkBuffer, lp, fd, 0);
-@@ -364,10 +367,13 @@ int copy_stream(int fd, int lp)
- 		FD_ZERO(&writefds);
- 		FD_SET(lp, &readfds);
- 		FD_SET(fd, &readfds);
+ 		fd_set readfds;
+ 		fd_set writefds;
++
 +		if (timeoutparam > 0)
 +			gettimeofday(&lastnetactivity, 0);
- 		/* Finish when no longer reading fd, and no longer writing to lp. */
- 		/* Although the printer to network stream may not be finished, that does not matter. */
- 		while ((FD_ISSET(fd, &readfds)) || (FD_ISSET(lp, &writefds))) {
- 			int maxfd = lp > fd ? lp : fd;
-+			tv = NULL;
- 			if (timer) {
- 				/* Delay after reading from the printer, so the */
- 				/* return stream cannot dominate. */
-@@ -383,18 +389,22 @@ int copy_stream(int fd, int lp)
- 						timeout.tv_sec--;
- 					}
- 					FD_CLR(lp, &readfds);
-+					tv = &timeout;
- 				}
- 			}
--			if (timer) {
--				result = select(maxfd + 1, &readfds, &writefds, 0, &timeout);
--			} else {
--				result = select(maxfd + 1, &readfds, &writefds, 0, 0);
-+			if (tv == NULL && timeoutparam > 0) {
-+				timeout.tv_sec = timeoutparam;
-+				timeout.tv_usec = 0;
-+				tv =  &timeout;
- 			}
-+			result = select(maxfd + 1, &readfds, &writefds, 0, tv);
- 			if (result < 0)
- 				return (result);
- 			if (FD_ISSET(fd, &readfds)) {
- 				/* Read network data. */
+ 		/* Finish when network sent EOF. */
+ 		/* Although the printer to network stream may not be finished (does this matter?) */
+ 		while (!networkToPrinterBuffer.eof_sent && !networkToPrinterBuffer.err) {
+@@ -435,6 +440,8 @@ int copy_stream(int fd, int lp)
  				result = readBuffer(&networkToPrinterBuffer);
+ 				if (result > 0)
+ 					dolog(LOG_DEBUG,"read %d bytes from network\n",result);
 +				if (timeoutparam > 0)
 +					gettimeofday(&lastnetactivity, 0);
  			}
  			if (FD_ISSET(lp, &readfds)) {
  				/* Read printer data, but pace it more slowly. */
-@@ -420,7 +430,18 @@ int copy_stream(int fd, int lp)
- 				/* If socket write error, stop reading from printer */
- 				if (result < 0)
- 					networkToPrinterBuffer.eof = 1;
-+				if (timeoutparam > 0)
-+					gettimeofday(&lastnetactivity, 0);
+@@ -466,6 +473,8 @@ int copy_stream(int fd, int lp)
+ 					printerToNetworkBuffer.err = 0;
+ 					result = 0;
+ 					dolog(LOG_DEBUG,"network write error, discarding further printer data\n",result);
++					if (timeoutparam > 0)
++						gettimeofday(&lastnetactivity, 0);
+ 				}
+ 				else if (result > 0) {
+ 					if (printerToNetworkBuffer.outfd == -1)
+@@ -474,6 +483,13 @@ int copy_stream(int fd, int lp)
+ 						dolog(LOG_DEBUG,"wrote %d bytes to network\n",result);
+ 				}
  			}
-+
 +			if (timeoutparam > 0) {
 +				gettimeofday(&now, 0);
 +				if ((now.tv_sec - lastnetactivity.tv_sec) >= timeoutparam) {
-+					networkToPrinterBuffer.eof = 1;
++					networkToPrinterBuffer.eof_sent = 1;
 +					printerToNetworkBuffer.err = 1;
 +				}
 +			}
-+
- 			/* Prepare for next iteration. */
- 			FD_ZERO(&readfds);
- 			FD_ZERO(&writefds);
-@@ -641,7 +662,7 @@ int main(int argc, char *argv[])
+ 		}
+ 		dolog(LOG_NOTICE,
+ 		       "Finished job: %d/%d bytes sent to printer, %d/%d bytes sent to network\n",
+@@ -688,7 +704,7 @@ int main(int argc, char *argv[])
  			progname = p + 1;
  	}
  	lpnumber = '0';
--	while ((c = getopt(argc, argv, "bi:f:v")) != EOF) {
-+	while ((c = getopt(argc, argv, "bi:f:vt:")) != EOF) {
+-	while ((c = getopt(argc, argv, "bdi:f:v")) != EOF) {
++	while ((c = getopt(argc, argv, "bdi:f:vt:")) != EOF) {
  		switch (c) {
  		case 'b':
  			bidir = 1;
-@@ -655,6 +676,12 @@ int main(int argc, char *argv[])
+@@ -705,6 +721,12 @@ int main(int argc, char *argv[])
  		case 'v':
  			show_version();
  			break;

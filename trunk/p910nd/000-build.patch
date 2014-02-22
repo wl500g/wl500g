@@ -3,11 +3,11 @@ diff -uBp p910nd-0.93/p910nd.c p910nd/p910nd.c
 +++ p910nd/p910nd.c	2009-08-27 20:05:01.000000000 +0400
 @@ -167,8 +167,7 @@ int open_printer(int lpnumber)
  		device = lpname;
- 	if ((lp = open(device, bidir ? O_RDWR : O_WRONLY)) == -1) {
+ 	if ((lp = open(device, bidir ? (O_RDWR|O_NONBLOCK) : O_WRONLY)) == -1) {
  		if (errno != EBUSY)
--			syslog(LOGOPTS, "%s: %m\n", device);
--		syslog(LOGOPTS, "%s: %m, will try opening later\n", device);
-+			syslog(LOGOPTS, "%s: %m, will try opening later\n", device);
+-			dolog(LOGOPTS, "%s: %m\n", device);
+-		dolog(LOGOPTS, "%s: %m, will try opening later\n", device);
++			dolog(LOGOPTS, "%s: %m, will try opening later\n", device);
  	}
  	return (lp);
  }
