@@ -1,11 +1,13 @@
  0553811612a6178365f3b062c30234913b218a96 [IPV4]: Add inet_dev_addr_type()
  d94ce9b283736a876b2e6dec665c68e5e8b5d55e ipv4: 16 slots in initial fib_info hash table
+ 13eb2ab2d33c57ebddc57437a7d341995fc9138c net: Fix "ip rule delete table 256"
 
 ---
  include/net/route.h      |    1 +
+ net/core/fib_rules.c     |    3 ++-
  net/ipv4/fib_frontend.c  |   21 +++++++++++++++++++--
  net/ipv4/fib_semantics.c |    2 +-
- 3 files changed, 21 insertions(+), 3 deletions(-)
+ 4 files changed, 23 insertions(+), 4 deletions(-)
 
 diff --git a/include/net/route.h b/include/net/route.h
 --- a/include/net/route.h
@@ -18,6 +20,19 @@ diff --git a/include/net/route.h b/include/net/route.h
  extern void		ip_rt_multicast_event(struct in_device *);
  extern int		ip_rt_ioctl(unsigned int cmd, void __user *arg);
  extern void		ip_rt_get_source(u8 *src, struct rtable *rt);
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -380,7 +380,8 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 		if (frh->action && (frh->action != rule->action))
+ 			continue;
+ 
+-		if (frh->table && (frh_get_table(frh, tb) != rule->table))
++		if (frh_get_table(frh, tb) &&
++		    (frh_get_table(frh, tb) != rule->table))
+ 			continue;
+ 
+ 		if (tb[FRA_PRIORITY] &&
 diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
