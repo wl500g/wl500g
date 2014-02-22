@@ -213,7 +213,8 @@ start_dns(void)
 			fprintf(fp, "dhcp-option=lan,3,%s\n", nvram_safe_get("dhcp_gateway_x"));
 		if (ethers)
 			fprintf(fp, "read-ethers\n");
-		fprintf(fp, "dhcp-authoritative\n");
+		fprintf(fp, "dhcp-option=lan,252,\"\\n\"\n"
+			    "dhcp-authoritative\n");
 	}
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", "") &&
