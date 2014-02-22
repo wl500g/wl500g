@@ -203,7 +203,7 @@ diff -ur samba-2.0.10/source/include/smb.h samba/source/include/smb.h
  
 +bin/libsmb.@SHLIBEXT@: $(LIBSMB_PICOBJS) bin/.dummy
 +	@echo Linking shared library $@
-+	@$(LD) @LDSHFLAGS@ -o $@ $(LIBSMB_PICOBJS) $(LIBS)
++	@$(CC) @LDSHFLAGS@ -o $@ $(LIBSMB_PICOBJS) $(LIBS)
 +
  install: installbin installman installscripts installcp installswat
  
