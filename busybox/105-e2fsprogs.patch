@@ -201,7 +201,7 @@ diff -BurpN busybox-1.17.1/e2fsprogs/e2fsck.c busybox/e2fsprogs/e2fsck.c
  			ext2fs_mark_super_dirty(fs);
  			fs->flags &= ~EXT2_FLAG_MASTER_SB_ONLY;
  		}
-@@ -12183,11 +12180,10 @@ static void swap_filesys(e2fsck_t ctx)
+@@ -12183,8 +12180,8 @@ static void swap_filesys(e2fsck_t ctx)
   */
  
  
@@ -210,11 +210,8 @@ diff -BurpN busybox-1.17.1/e2fsprogs/e2fsck.c busybox/e2fsprogs/e2fsck.c
 +void *e2fsck_allocate_memory(e2fsck_t ctx EXT2FS_ATTR((unused)), unsigned int size,
 +			     const char *description EXT2FS_ATTR((unused)))
  {
- 	void *ret;
--	char buf[256];
- 
- 	ret = xzalloc(size);
- 	return ret;
+ 	return xzalloc(size);
+ }
 @@ -12989,7 +12985,6 @@ static errcode_t PRS(int argc, char **ar
  	}
  	memset(bar, '=', sizeof(bar)-1);
@@ -707,7 +704,7 @@ diff -BurpN busybox-1.17.1/e2fsprogs/util.c busybox/e2fsprogs/util.c
  		}
  		if (strcmp(token, "device") == 0) {
 -			*journal_device = blkid_get_devname(NULL, arg, NULL);
--			if (!journal_device) {
+-			if (!*journal_device) {
 +			*journal_device = arg;
 +			if (resolve_mount_spec(journal_device) < 0 ||
 +			    !(*journal_device)) {
