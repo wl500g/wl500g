@@ -316,7 +316,7 @@ AFLAGS_KERNEL	=
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
-CFLAGS		:= $(CFLAGS)
+CFLAGS		:= $(CFLAGS) $(EXTRA_CFLAGS)
 # Added only to final link stage of busybox binary
 CFLAGS_busybox	:= $(CFLAGS_busybox)
 CPPFLAGS	:= $(CPPFLAGS)
@@ -971,6 +971,11 @@ MRPROPER_FILES += .config .config.old include/asm .version .old_version \
 		  include/usage_compressed.h \
 		  include/applet_tables.h \
 		  include/applets.h \
+		  docs/busybox.1 \
+		  docs/BusyBox.html \
+		  docs/busybox.net/BusyBox.html \
+		  docs/busybox.pod \
+		  docs/BusyBox.txt \
 		  include/usage.h \
 		  applets/usage \
 		  .kernelrelease Module.symvers tags TAGS cscope* \

@@ -1751,9 +1751,9 @@ extern const char bb_path_wtmp_file[] ALIGN1;
 extern const char bb_busybox_exec_path[] ALIGN1;
 /* util-linux manpage says /sbin:/bin:/usr/sbin:/usr/bin,
  * but I want to save a few bytes here */
-extern const char bb_PATH_root_path[] ALIGN1; /* "PATH=/sbin:/usr/sbin:/bin:/usr/bin" */
+extern const char bb_PATH_root_path[] ALIGN1; /* "PATH=/opt/sbin:/sbin:/usr/sbin:/opt/bin:/usr/local/bin:/bin:/usr/bin" */
 #define bb_default_root_path (bb_PATH_root_path + sizeof("PATH"))
-#define bb_default_path      (bb_PATH_root_path + sizeof("PATH=/sbin:/usr/sbin"))
+#define bb_default_path      (bb_PATH_root_path + sizeof("PATH=/opt/sbin:/sbin:/usr/sbin"))
 
 extern const int const_int_0;
 extern const int const_int_1;
