@@ -2,16 +2,6 @@ Subject: Explicitly set DHCP_MAX_SIZE (option 57) for request packets, like for 
 
 --- busybox.orig/networking/udhcp/common.h	2010-10-13 00:00:00.000000000 +0000
 +++ busybox/networking/udhcp/common.h	2010-10-13 19:10:29.684347002 +0000
-@@ -25,6 +25,9 @@ extern const uint8_t MAC_BCAST_ADDR[6] ALIGN2; /* six all-ones */
- #define BOOTREQUEST             1
- #define BOOTREPLY               2
- 
-+/* Minimal BOOTP message size. See RFC 1542 */
-+#define DHCP_MIN_SIZE           300
-+
- //TODO: rename ciaddr/yiaddr/chaddr
- struct dhcp_packet {
- 	uint8_t op;      /* BOOTREQUEST or BOOTREPLY */
 @@ -294,7 +294,7 @@ void udhcp_sp_setup(void) FAST_FUNC;
  int udhcp_sp_fd_set(fd_set *rfds, int extra_fd) FAST_FUNC;
  int udhcp_sp_read(const fd_set *rfds) FAST_FUNC;
@@ -66,14 +56,13 @@ Subject: Explicitly set DHCP_MAX_SIZE (option 57) for request packets, like for 
  	int ifindex;                    /* Index number of the interface to use */
  
 --- busybox.orig/networking/udhcp/dhcpd.c	2010-09-16 23:05:35.000000000 +0000
-+++ busybox/networking/udhcp/dhcpd.c	2010-10-13 18:19:07.024347002 +0000
-@@ -357,7 +357,8 @@ int udhcpd_main(int argc UNUSED_PARAM, c
++++ busybox/networking/udhcp/dhcpd.c	2014-02-22 20:13:21.000000000 +0400
+@@ -377,7 +377,7 @@ int udhcpd_main(int argc UNUSED_PARAM, c
  	if (udhcp_read_interface(server_config.interface,
  			&server_config.ifindex,
- 			&server_config.server_nip,
+ 			(server_config.server_nip == 0 ? &server_config.server_nip : NULL),
 -			server_config.server_mac)
-+			server_config.server_mac,
-+			NULL)
++			server_config.server_mac, NULL)
  	) {
  		retval = 1;
  		goto ret;
@@ -97,24 +86,6 @@ Subject: Explicitly set DHCP_MAX_SIZE (option 57) for request packets, like for 
  					/* Fall back to our IP on server iface */
  // this makes more sense!
  					dhcp_msg.gateway_nip = our_nip;
---- busybox.orig/networking/udhcp/packet.c	2010-09-16 23:05:35.000000000 +0000
-+++ busybox/networking/udhcp/packet.c	2010-10-13 18:19:07.024347002 +0000
-@@ -145,6 +145,7 @@ int FAST_FUNC udhcp_send_raw_packet(struct dhcp_packet *dhcp_pkt,
- 	 * we truncate packets after end option byte.
- 	 */
- 	padding = DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(packet.data.options);
-+	padding = MIN(DHCP_SIZE - DHCP_MIN_SIZE, padding);
- 
- 	packet.ip.protocol = IPPROTO_UDP;
- 	packet.ip.saddr = source_nip;
-@@ -215,6 +216,7 @@ int FAST_FUNC udhcp_send_kernel_packet(struct dhcp_packet *dhcp_pkt,
- 
- 	udhcp_dump_packet(dhcp_pkt);
- 	padding = DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(dhcp_pkt->options);
-+	padding = MIN(DHCP_SIZE - DHCP_MIN_SIZE, padding);
- 	result = safe_write(fd, dhcp_pkt, DHCP_SIZE - padding);
- 	msg = "write";
-  ret_close:
 --- busybox.orig/networking/udhcp/socket.c	2010-09-16 23:05:35.000000000 +0000
 +++ busybox/networking/udhcp/socket.c	2010-10-13 18:19:07.024347002 +0000
 @@ -34,7 +34,7 @@

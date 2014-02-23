@@ -30,9 +30,9 @@ diff -BurpN busybox-1.17.1/include/applets.src.h busybox/include/applets.src.h
  IF_BLKID(APPLET(blkid, BB_DIR_SBIN, BB_SUID_DROP))
  IF_BRCTL(APPLET(brctl, BB_DIR_USR_SBIN, BB_SUID_DROP))
 +IF_HTTPD(APPLET_ODDNAME(busybox_httpd, httpd, BB_DIR_USR_SBIN, BB_SUID_DROP, httpd))
- IF_BZIP2(APPLET(bzip2, BB_DIR_USR_BIN, BB_SUID_DROP))
  IF_CAL(APPLET(cal, BB_DIR_USR_BIN, BB_SUID_DROP))
  IF_CAT(APPLET_NOFORK(cat, cat, BB_DIR_BIN, BB_SUID_DROP, cat))
+ IF_CATV(APPLET(catv, BB_DIR_BIN, BB_SUID_DROP))
 @@ -182,7 +183,6 @@ IF_HEAD(APPLET(head, BB_DIR_USR_BIN, BB
  IF_HEXDUMP(APPLET_NOEXEC(hexdump, hexdump, BB_DIR_USR_BIN, BB_SUID_DROP, hexdump))
  IF_HOSTID(APPLET_NOFORK(hostid, hostid, BB_DIR_USR_BIN, BB_SUID_DROP, hostid))
