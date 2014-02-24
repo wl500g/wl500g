@@ -1,6 +1,15 @@
 --- a/src/config.h
 +++ b/src/config.h
-@@ -133,11 +133,11 @@ RESOLVFILE
+@@ -128,7 +128,7 @@ RESOLVFILE
+    stable RTC (it uses uptime, not epoch time) and writes the DHCP leases file less often to avoid flash wear. 
+ */
+ 
+-/* #define HAVE_BROKEN_RTC */
++#define HAVE_BROKEN_RTC
+ 
+ /* The default set of options to build. Built with these options, dnsmasq
+    has no library dependencies other than libc */
+@@ -136,9 +136,9 @@ RESOLVFILE
  #define HAVE_DHCP
  #define HAVE_DHCP6 
  #define HAVE_TFTP
@@ -9,14 +18,11 @@
 -#define HAVE_IPSET 
 +/* #define HAVE_SCRIPT */
 +/* #define HAVE_AUTH */
-+/* #define HAVE_IPSET  */
- /* #define HAVE_LUASCRIPT */
--/* #define HAVE_BROKEN_RTC */
-+#define HAVE_BROKEN_RTC
- /* #define HAVE_DBUS */
- /* #define HAVE_IDN */
- /* #define HAVE_CONNTRACK */
-@@ -226,6 +227,8 @@ HAVE_SOCKADDR_SA_LEN
++/* #define HAVE_IPSET */
+ 
+ /* Build options which require external libraries.
+    
+@@ -231,6 +231,8 @@ HAVE_SOCKADDR_SA_LEN
  #  ifndef IPV6_V6ONLY
  #    define IPV6_V6ONLY 26
  #  endif
