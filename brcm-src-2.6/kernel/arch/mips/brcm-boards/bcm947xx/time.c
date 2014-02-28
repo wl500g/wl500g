@@ -43,11 +43,12 @@ extern int panic_timeout;
 static int watchdog = 0;
 
 #ifndef	CONFIG_HWSIM
+# ifdef CONFIG_DEBUG
 static u8 *mcr = NULL;
+# endif
 #endif /* CONFIG_HWSIM */
 
-void __init
-bcm947xx_time_init(void)
+void __init plat_time_init(void)
 {
 	unsigned int hz;
 
@@ -106,7 +107,7 @@ bcm947xx_timer_interrupt(int irq, void *dev_id)
 #endif	/* CONFIG_HND_BMIPS3300_PROF */
 
 	/* Generic MIPS timer code */
-	timer_interrupt(irq, dev_id);
+	ll_timer_interrupt(irq, dev_id);
 
 	/* Set the watchdog timer to reset after the specified number of ms */
 	if (watchdog > 0) {
@@ -119,9 +120,11 @@ bcm947xx_timer_interrupt(int irq, void *dev_id)
 #ifdef	CONFIG_HWSIM
 	(*((int *)0xa0000f1c))++;
 #else
+# ifdef CONFIG_DEBUG
 	/* Blink one of the LEDs in the external UART */
 	if (mcr && !(jiffies % (HZ/2)))
 		writeb(readb(mcr) ^ UART_MCR_OUT2, mcr);
+# endif
 #endif
 
 	return (IRQ_HANDLED);

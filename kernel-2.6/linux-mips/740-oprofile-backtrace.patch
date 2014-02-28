@@ -15,14 +15,12 @@ use the OProfile module on an already built kernel.
 Signed-off-by: Holger Freyther <holger@moiji-mobile.com>
 
  kernel.org commits:
- 46684734dd6a55af09c3fe799af7d74cb938684c [MIPS] unexport null_perf_irq() and make it static
  94ea09c6a8e6c5ffb59bb1d5ca10008d37544e1a MIPS: Add new unwind_stack variant
  5f307491f3a0c8551cedf5d90d660d656e0d56ec MIPS: oprofile: Add callgraph support
 
 ---
  arch/mips/kernel/Makefile            |    3 
  arch/mips/kernel/process.c           |   19 +++--
- arch/mips/kernel/time.c              |    3 
  arch/mips/kernel/user_backtrace.c    |  129 +++++++++++++++++++++++++++++++++++
  arch/mips/oprofile/Makefile          |    2 
  arch/mips/oprofile/backtrace.c       |   52 ++++++++++++++
@@ -30,7 +28,7 @@ Signed-off-by: Holger Freyther <holger@moiji-mobile.com>
  arch/mips/oprofile/op_impl.h         |    3 
  arch/mips/oprofile/op_model_mipsxx.c |    5 +
  include/asm-mips/stacktrace.h        |   14 +++
- 10 files changed, 220 insertions(+), 11 deletions(-)
+ 9 files changed, 219 insertions(+), 9 deletions(-)
 
 diff --git a/arch/mips/kernel/Makefile b/arch/mips/kernel/Makefile
 --- a/arch/mips/kernel/Makefile
@@ -86,25 +84,6 @@ diff --git a/arch/mips/kernel/process.c b/arch/mips/kernel/process.c
 +	return unwind_stack_by_address(stack_page, sp, pc, ra);
 +}
  #endif
- 
- /*
-diff --git a/arch/mips/kernel/time.c b/arch/mips/kernel/time.c
---- a/arch/mips/kernel/time.c
-+++ b/arch/mips/kernel/time.c
-@@ -236,14 +236,13 @@ irqreturn_t timer_interrupt(int irq, voi
- 	return IRQ_HANDLED;
- }
- 
--int null_perf_irq(void)
-+static int null_perf_irq(void)
- {
- 	return 0;
- }
- 
- int (*perf_irq)(void) = null_perf_irq;
- 
--EXPORT_SYMBOL(null_perf_irq);
- EXPORT_SYMBOL(perf_irq);
  
  /*
 diff --git a/arch/mips/kernel/user_backtrace.c b/arch/mips/kernel/user_backtrace.c

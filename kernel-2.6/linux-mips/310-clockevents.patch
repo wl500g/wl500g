@@ -1,0 +1,1247 @@
+[MIPS] Clockevents backports from upstream
+
+ f5ff0a280201c9cbfb6e9eb4bafdb465c2269ed3 [MIPS] Use generic NTP code for all MIPS platforms
+ 4b550488f894c899aa54dc935c8fee47bca2b7df [MIPS] Deforest the function pointer jungle in the time code.
+ 90b02340dcc6ce00bf22c48f4865915f5989e5e4 [MIPS] Switch from to_tm to rtc_time_to_tm
+ 91a2fcc88634663e9e13dcdfad0e4a860e64aeee [MIPS] Consolidate all variants of MIPS cp0 timer interrupt handlers.
+ 46684734dd6a55af09c3fe799af7d74cb938684c [MIPS] unexport null_perf_irq() and make it static
+
+---
+ arch/mips/Kconfig                         |    5 
+ arch/mips/au1000/common/irq.c             |    3 
+ arch/mips/au1000/common/setup.c           |    2 
+ arch/mips/au1000/common/time.c            |   44 ------
+ arch/mips/dec/setup.c                     |    4 
+ arch/mips/dec/time.c                      |   11 -
+ arch/mips/kernel/smtc.c                   |    2 
+ arch/mips/kernel/time.c                   |  209 ++++++++++++------------------
+ arch/mips/mips-boards/atlas/atlas_setup.c |    5 
+ arch/mips/mips-boards/generic/time.c      |  116 +---------------
+ arch/mips/mips-boards/malta/malta_setup.c |    4 
+ arch/mips/mips-boards/sead/sead_setup.c   |    3 
+ arch/mips/mips-boards/sim/sim_setup.c     |    2 
+ arch/mips/mips-boards/sim/sim_time.c      |   72 ----------
+ arch/mips/pmc-sierra/yosemite/setup.c     |    8 -
+ arch/mips/sgi-ip22/ip22-int.c             |    4 
+ arch/mips/sgi-ip22/ip22-time.c            |   16 --
+ arch/mips/sgi-ip27/ip27-timer.c           |   18 --
+ arch/mips/sibyte/bcm1480/time.c           |   13 -
+ arch/mips/sibyte/sb1250/time.c            |   13 -
+ arch/mips/sibyte/swarm/rtc_m41t81.c       |    3 
+ arch/mips/sibyte/swarm/rtc_xicor1241.c    |    3 
+ arch/mips/sibyte/swarm/setup.c            |   56 ++++++--
+ arch/mips/vr41xx/common/init.c            |    8 -
+ include/asm-mips/time.h                   |   35 +----
+ 25 files changed, 178 insertions(+), 481 deletions(-)
+
+diff --git a/arch/mips/au1000/common/irq.c b/arch/mips/au1000/common/irq.c
+--- a/arch/mips/au1000/common/irq.c
++++ b/arch/mips/au1000/common/irq.c
+@@ -67,7 +67,6 @@
+ 
+ extern void set_debug_traps(void);
+ extern irq_cpustat_t irq_stat [NR_CPUS];
+-extern void mips_timer_interrupt(void);
+ 
+ static void setup_local_irq(unsigned int irq, int type, int int_req);
+ static void end_irq(unsigned int irq_nr);
+@@ -646,7 +645,7 @@ asmlinkage void plat_irq_dispatch(void)
+ 	unsigned int pending = read_c0_status() & read_c0_cause() & ST0_IM;
+ 
+ 	if (pending & CAUSEF_IP7)
+-		mips_timer_interrupt();
++		ll_timer_interrupt(63);
+ 	else if (pending & CAUSEF_IP2)
+ 		intc0_req0_irqdispatch();
+ 	else if (pending & CAUSEF_IP3)
+diff --git a/arch/mips/au1000/common/setup.c b/arch/mips/au1000/common/setup.c
+--- a/arch/mips/au1000/common/setup.c
++++ b/arch/mips/au1000/common/setup.c
+@@ -50,7 +50,6 @@ extern void au1000_halt(void);
+ extern void au1000_power_off(void);
+ extern void au1x_time_init(void);
+ extern void au1x_timer_setup(struct irqaction *irq);
+-extern void au1xxx_time_init(void);
+ extern void set_cpuspec(void);
+ 
+ void __init plat_mem_setup(void)
+@@ -128,7 +127,6 @@ void __init plat_mem_setup(void)
+ 	_machine_restart = au1000_restart;
+ 	_machine_halt = au1000_halt;
+ 	pm_power_off = au1000_power_off;
+-	board_time_init = au1xxx_time_init;
+ 
+ 	/* IO/MEM resources. */
+ 	set_io_port_base(0);
+diff --git a/arch/mips/au1000/common/time.c b/arch/mips/au1000/common/time.c
+--- a/arch/mips/au1000/common/time.c
++++ b/arch/mips/au1000/common/time.c
+@@ -64,48 +64,8 @@ static unsigned long last_pc0, last_matc
+ 
+ static DEFINE_SPINLOCK(time_lock);
+ 
+-static inline void ack_r4ktimer(unsigned long newval)
+-{
+-	write_c0_compare(newval);
+-}
+-
+-/*
+- * There are a lot of conceptually broken versions of the MIPS timer interrupt
+- * handler floating around.  This one is rather different, but the algorithm
+- * is provably more robust.
+- */
+ unsigned long wtimer;
+ 
+-void mips_timer_interrupt(void)
+-{
+-	int irq = 63;
+-
+-	irq_enter();
+-	kstat_this_cpu.irqs[irq]++;
+-
+-	if (r4k_offset == 0)
+-		goto null;
+-
+-	do {
+-		kstat_this_cpu.irqs[irq]++;
+-		do_timer(1);
+-#ifndef CONFIG_SMP
+-		update_process_times(user_mode(get_irq_regs()));
+-#endif
+-		r4k_cur += r4k_offset;
+-		ack_r4ktimer(r4k_cur);
+-
+-	} while (((unsigned long)read_c0_count()
+-	         - r4k_cur) < 0x7fffffff);
+-
+-	irq_exit();
+-	return;
+-
+-null:
+-	ack_r4ktimer(0);
+-	irq_exit();
+-}
+-
+ #ifdef CONFIG_PM
+ irqreturn_t counter0_irq(int irq, void *dev_id)
+ {
+@@ -361,7 +321,3 @@ void __init plat_timer_setup(struct irqa
+ 
+ #endif
+ }
+-
+-void __init au1xxx_time_init(void)
+-{
+-}
+diff --git a/arch/mips/dec/setup.c b/arch/mips/dec/setup.c
+--- a/arch/mips/dec/setup.c
++++ b/arch/mips/dec/setup.c
+@@ -145,13 +145,9 @@ static void __init dec_be_init(void)
+ 	}
+ }
+ 
+-
+-extern void dec_time_init(void);
+-
+ void __init plat_mem_setup(void)
+ {
+ 	board_be_init = dec_be_init;
+-	board_time_init = dec_time_init;
+ 
+ 	wbflush_setup();
+ 
+diff --git a/arch/mips/dec/time.c b/arch/mips/dec/time.c
+--- a/arch/mips/dec/time.c
++++ b/arch/mips/dec/time.c
+@@ -36,7 +36,7 @@
+ #include <asm/dec/ioasic_addrs.h>
+ #include <asm/dec/machtype.h>
+ 
+-static unsigned long dec_rtc_get_time(void)
++unsigned long read_persistent_clock(void)
+ {
+ 	unsigned int year, mon, day, hour, min, sec, real_year;
+ 	unsigned long flags;
+@@ -75,13 +75,13 @@ static unsigned long dec_rtc_get_time(vo
+ }
+ 
+ /*
+- * In order to set the CMOS clock precisely, dec_rtc_set_mmss has to
++ * In order to set the CMOS clock precisely, rtc_mips_set_mmss has to
+  * be called 500 ms after the second nowtime has started, because when
+  * nowtime is written into the registers of the CMOS clock, it will
+  * jump to the next second precisely 500 ms later.  Check the Dallas
+  * DS1287 data sheet for details.
+  */
+-static int dec_rtc_set_mmss(unsigned long nowtime)
++int rtc_mips_set_mmss(unsigned long nowtime)
+ {
+ 	int retval = 0;
+ 	int real_seconds, real_minutes, cmos_minutes;
+@@ -161,11 +160,8 @@ static cycle_t dec_ioasic_hpt_read(void)
+ }
+ 
+ 
+-void __init dec_time_init(void)
++void __init plat_time_init(void)
+ {
+-	rtc_mips_get_time = dec_rtc_get_time;
+-	rtc_mips_set_mmss = dec_rtc_set_mmss;
+-
+ 	mips_timer_state = dec_timer_state;
+ 	mips_timer_ack = dec_timer_ack;
+ 
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -3,6 +3,7 @@ config MIPS
+ 	default y
+ 	# Horrible source of confusion.  Die, die, die ...
+ 	select EMBEDDED
++	select RTC_LIB
+ 
+ mainmenu "Linux/MIPS Kernel Configuration"
+ 
+@@ -698,6 +699,10 @@ config GENERIC_TIME
+ 	bool
+ 	default y
+ 
++config GENERIC_CMOS_UPDATE
++	bool
++	default y
++
+ config SCHED_NO_NO_OMIT_FRAME_POINTER
+ 	bool
+ 	default y
+diff --git a/arch/mips/kernel/smtc.c b/arch/mips/kernel/smtc.c
+--- a/arch/mips/kernel/smtc.c
++++ b/arch/mips/kernel/smtc.c
+@@ -831,7 +831,7 @@ void ipi_decode(struct smtc_ipi *pipi)
+ #ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
+ 		clock_hang_reported[dest_copy] = 0;
+ #endif /* CONFIG_SMTC_IDLE_HOOK_DEBUG */
+-		local_timer_interrupt(0, NULL);
++		local_timer_interrupt(0);
+ 		irq_exit();
+ 		break;
+ 	case LINUX_SMP_IPI:
+diff --git a/arch/mips/kernel/time.c b/arch/mips/kernel/time.c
+--- a/arch/mips/kernel/time.c
++++ b/arch/mips/kernel/time.c
+@@ -48,24 +48,23 @@
+  * forward reference
+  */
+ DEFINE_SPINLOCK(rtc_lock);
++EXPORT_SYMBOL(rtc_lock);
+ 
+-/*
+- * By default we provide the null RTC ops
+- */
+-static unsigned long null_rtc_get_time(void)
++int __weak rtc_mips_set_time(unsigned long sec)
+ {
+-	return mktime(2000, 1, 1, 0, 0, 0);
++	return 0;
+ }
++EXPORT_SYMBOL(rtc_mips_set_time);
+ 
+-static int null_rtc_set_time(unsigned long sec)
++int __weak rtc_mips_set_mmss(unsigned long nowtime)
+ {
+-	return 0;
++	return rtc_mips_set_time(nowtime);
+ }
+ 
+-unsigned long (*rtc_mips_get_time)(void) = null_rtc_get_time;
+-int (*rtc_mips_set_time)(unsigned long) = null_rtc_set_time;
+-int (*rtc_mips_set_mmss)(unsigned long);
+-
++int update_persistent_clock(struct timespec now)
++{
++	return rtc_mips_set_mmss(now.tv_sec);
++}
+ 
+ /* how many counter cycles in a jiffy */
+ static unsigned long cycles_per_jiffy __read_mostly;
+@@ -124,9 +123,6 @@ static void __init c0_hpt_timer_init(voi
+ int (*mips_timer_state)(void);
+ void (*mips_timer_ack)(void);
+ 
+-/* last time when xtime and rtc are sync'ed up */
+-static long last_rtc_update;
+-
+ /*
+  * local_timer_interrupt() does profiling and process accounting
+  * on a per-CPU basis.
+@@ -147,7 +143,7 @@ void local_timer_interrupt(int irq, void
+  * High-level timer interrupt service routines.  This function
+  * is set as irqaction->handler and is invoked through do_IRQ.
+  */
+-irqreturn_t timer_interrupt(int irq, void *dev_id)
++static irqreturn_t timer_interrupt(int irq, void *dev_id)
+ {
+ 	write_seqlock(&xtime_lock);
+ 
+@@ -158,23 +154,6 @@ irqreturn_t timer_interrupt(int irq, voi
+ 	 */
+ 	do_timer(1);
+ 
+-	/*
+-	 * If we have an externally synchronized Linux clock, then update
+-	 * CMOS clock accordingly every ~11 minutes. rtc_mips_set_time() has to be
+-	 * called as close as possible to 500 ms before the new second starts.
+-	 */
+-	if (ntp_synced() &&
+-	    xtime.tv_sec > last_rtc_update + 660 &&
+-	    (xtime.tv_nsec / 1000) >= 500000 - ((unsigned) TICK_SIZE) / 2 &&
+-	    (xtime.tv_nsec / 1000) <= 500000 + ((unsigned) TICK_SIZE) / 2) {
+-		if (rtc_mips_set_mmss(xtime.tv_sec) == 0) {
+-			last_rtc_update = xtime.tv_sec;
+-		} else {
+-			/* do it again in 60 s */
+-			last_rtc_update = xtime.tv_sec - 600;
+-		}
+-	}
+-
+ 	write_sequnlock(&xtime_lock);
+ 
+ 	/*
+@@ -189,14 +168,13 @@ irqreturn_t timer_interrupt(int irq, voi
+ 	return IRQ_HANDLED;
+ }
+ 
+-int null_perf_irq(void)
++static int null_perf_irq(void)
+ {
+ 	return 0;
+ }
+ 
+ int (*perf_irq)(void) = null_perf_irq;
+ 
+-EXPORT_SYMBOL(null_perf_irq);
+ EXPORT_SYMBOL(perf_irq);
+ 
+ /*
+@@ -228,55 +206,96 @@ static inline int handle_perf_irq (int r
+ 		!r2;
+ }
+ 
+-asmlinkage void ll_timer_interrupt(int irq)
++void ll_timer_interrupt(int irq, void *dev_id)
+ {
+-	int r2 = cpu_has_mips_r2;
+-
+-	irq_enter();
+-	kstat_this_cpu.irqs[irq]++;
+-
+-	if (handle_perf_irq(r2))
+-		goto out;
++	int cpu = smp_processor_id();
+ 
+-	if (r2 && ((read_c0_cause() & (1 << 30)) == 0))
+-		goto out;
++#ifdef CONFIG_MIPS_MT_SMTC
++	/*
++	 *  In an SMTC system, one Count/Compare set exists per VPE.
++	 *  Which TC within a VPE gets the interrupt is essentially
++	 *  random - we only know that it shouldn't be one with
++	 *  IXMT set. Whichever TC gets the interrupt needs to
++	 *  send special interprocessor interrupts to the other
++	 *  TCs to make sure that they schedule, etc.
++	 *
++	 *  That code is specific to the SMTC kernel, not to
++	 *  the a particular platform, so it's invoked from
++	 *  the general MIPS timer_interrupt routine.
++	 */
+ 
+-	timer_interrupt(irq, NULL);
++	/*
++	 * We could be here due to timer interrupt,
++	 * perf counter overflow, or both.
++	 */
++	(void) handle_perf_irq(1);
+ 
+-out:
+-	irq_exit();
+-}
++	if (read_c0_cause() & (1 << 30)) {
++		/*
++		 * There are things we only want to do once per tick
++		 * in an "MP" system.   One TC of each VPE will take
++		 * the actual timer interrupt.  The others will get
++		 * timer broadcast IPIs. We use whoever it is that takes
++		 * the tick on VPE 0 to run the full timer_interrupt().
++		 */
++		if (cpu_data[cpu].vpe_id == 0) {
++			timer_interrupt(irq, NULL);
++		} else {
++			write_c0_compare(read_c0_count() +
++			                 (mips_hpt_frequency/HZ));
++			local_timer_interrupt(irq, dev_id);
++		}
++		smtc_timer_broadcast(cpu_data[cpu].vpe_id);
++	}
++#else /* CONFIG_MIPS_MT_SMTC */
++	int r2 = cpu_has_mips_r2;
+ 
+-asmlinkage void ll_local_timer_interrupt(int irq)
+-{
+-	irq_enter();
+-	if (smp_processor_id() != 0)
+-		kstat_this_cpu.irqs[irq]++;
++	if (handle_perf_irq(r2))
++		return;
+ 
+-	/* we keep interrupt disabled all the time */
+-	local_timer_interrupt(irq, NULL);
++	if (r2 && ((read_c0_cause() & (1 << 30)) == 0))
++		return;
+ 
+-	irq_exit();
++	if (cpu == 0) {
++		/*
++		 * CPU 0 handles the global timer interrupt job and process
++		 * accounting resets count/compare registers to trigger next
++		 * timer int.
++		 */
++		timer_interrupt(irq, NULL);
++	} else {
++		/* Everyone else needs to reset the timer int here as
++		   ll_local_timer_interrupt doesn't */
++		/*
++		 * FIXME: need to cope with counter underflow.
++		 * More support needs to be added to kernel/time for
++		 * counter/timer interrupts on multiple CPU's
++		 */
++		write_c0_compare(read_c0_count() + (mips_hpt_frequency/HZ));
++
++		/*
++		 * Other CPUs should do profiling and process accounting
++		 */
++		local_timer_interrupt(irq, dev_id);
++	}
++#endif /* CONFIG_MIPS_MT_SMTC */
+ }
+ 
+ /*
+  * time_init() - it does the following things.
+  *
+- * 1) board_time_init() -
++ * 1) plat_time_init() -
+  * 	a) (optional) set up RTC routines,
+  *      b) (optional) calibrate and set the mips_hpt_frequency
+  *	    (only needed if you intended to use cpu counter as timer interrupt
+  *	     source)
+- * 2) setup xtime based on rtc_mips_get_time().
+- * 3) calculate a couple of cached variables for later usage
+- * 4) plat_timer_setup() -
++ * 2) calculate a couple of cached variables for later usage
++ * 3) plat_timer_setup() -
+  *	a) (optional) over-write any choices made above by time_init().
+  *	b) machine specific code should setup the timer irqaction.
+  *	c) enable the timer interrupt
+  */
+ 
+-void (*board_time_init)(void);
+-
+ unsigned int mips_hpt_frequency;
+ 
+ static struct irqaction timer_irqaction = {
+@@ -356,19 +375,13 @@ static void __init init_mips_clocksource
+ 	clocksource_register(&clocksource_mips);
+ }
+ 
+-void __init time_init(void)
++void __init __weak plat_time_init(void)
+ {
+-	if (board_time_init)
+-		board_time_init();
+-
+-	if (!rtc_mips_set_mmss)
+-		rtc_mips_set_mmss = rtc_mips_set_time;
+-
+-	xtime.tv_sec = rtc_mips_get_time();
+-	xtime.tv_nsec = 0;
++}
+ 
+-	set_normalized_timespec(&wall_to_monotonic,
+-	                        -xtime.tv_sec, -xtime.tv_nsec);
++void __init time_init(void)
++{
++	plat_time_init();
+ 
+ 	/* Choose appropriate high precision timer routines.  */
+ 	if (!cpu_has_counter && !clocksource_mips.read)
+@@ -426,53 +439,3 @@ void __init time_init(void)
+ 
+ 	init_mips_clocksource();
+ }
+-
+-#define FEBRUARY		2
+-#define STARTOFTIME		1970
+-#define SECDAY			86400L
+-#define SECYR			(SECDAY * 365)
+-#define leapyear(y)		((!((y) % 4) && ((y) % 100)) || !((y) % 400))
+-#define days_in_year(y)		(leapyear(y) ? 366 : 365)
+-#define days_in_month(m)	(month_days[(m) - 1])
+-
+-static int month_days[12] = {
+-	31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+-};
+-
+-void to_tm(unsigned long tim, struct rtc_time *tm)
+-{
+-	long hms, day, gday;
+-	int i;
+-
+-	gday = day = tim / SECDAY;
+-	hms = tim % SECDAY;
+-
+-	/* Hours, minutes, seconds are easy */
+-	tm->tm_hour = hms / 3600;
+-	tm->tm_min = (hms % 3600) / 60;
+-	tm->tm_sec = (hms % 3600) % 60;
+-
+-	/* Number of years in days */
+-	for (i = STARTOFTIME; day >= days_in_year(i); i++)
+-		day -= days_in_year(i);
+-	tm->tm_year = i;
+-
+-	/* Number of months in days left */
+-	if (leapyear(tm->tm_year))
+-		days_in_month(FEBRUARY) = 29;
+-	for (i = 1; day >= days_in_month(i); i++)
+-		day -= days_in_month(i);
+-	days_in_month(FEBRUARY) = 28;
+-	tm->tm_mon = i - 1;		/* tm_mon starts from 0 to 11 */
+-
+-	/* Days are what is left over (+1) from all that. */
+-	tm->tm_mday = day + 1;
+-
+-	/*
+-	 * Determine the day of week
+-	 */
+-	tm->tm_wday = (gday + 4) % 7;	/* 1970/1/1 was Thursday */
+-}
+-
+-EXPORT_SYMBOL(rtc_lock);
+-EXPORT_SYMBOL(to_tm);
+diff --git a/arch/mips/mips-boards/atlas/atlas_setup.c b/arch/mips/mips-boards/atlas/atlas_setup.c
+--- a/arch/mips/mips-boards/atlas/atlas_setup.c
++++ b/arch/mips/mips-boards/atlas/atlas_setup.c
+@@ -34,8 +34,6 @@
+ #include <asm/traps.h>
+ 
+ extern void mips_reboot_setup(void);
+-extern void mips_time_init(void);
+-extern unsigned long mips_rtc_get_time(void);
+ 
+ #ifdef CONFIG_KGDB
+ extern void kgdb_config(void);
+@@ -62,9 +60,6 @@ void __init plat_mem_setup(void)
+ 	kgdb_config();
+ #endif
+ 	mips_reboot_setup();
+-
+-	board_time_init = mips_time_init;
+-	rtc_mips_get_time = mips_rtc_get_time;
+ }
+ 
+ static void __init serial_init(void)
+diff --git a/arch/mips/mips-boards/generic/time.c b/arch/mips/mips-boards/generic/time.c
+--- a/arch/mips/mips-boards/generic/time.c
++++ b/arch/mips/mips-boards/generic/time.c
+@@ -68,108 +68,6 @@ static void mips_perf_dispatch(void)
+ }
+ 
+ /*
+- * Redeclare until I get around mopping the timer code insanity on MIPS.
+- */
+-extern int null_perf_irq(void);
+-
+-extern int (*perf_irq)(void);
+-
+-/*
+- * Possibly handle a performance counter interrupt.
+- * Return true if the timer interrupt should not be checked
+- */
+-static inline int handle_perf_irq (int r2)
+-{
+-	/*
+-	 * The performance counter overflow interrupt may be shared with the
+-	 * timer interrupt (cp0_perfcount_irq < 0). If it is and a
+-	 * performance counter has overflowed (perf_irq() == IRQ_HANDLED)
+-	 * and we can't reliably determine if a counter interrupt has also
+-	 * happened (!r2) then don't check for a timer interrupt.
+-	 */
+-	return (cp0_perfcount_irq < 0) &&
+-		perf_irq() == IRQ_HANDLED &&
+-		!r2;
+-}
+-
+-irqreturn_t mips_timer_interrupt(int irq, void *dev_id)
+-{
+-	int cpu = smp_processor_id();
+-
+-#ifdef CONFIG_MIPS_MT_SMTC
+-	/*
+-	 *  In an SMTC system, one Count/Compare set exists per VPE.
+-	 *  Which TC within a VPE gets the interrupt is essentially
+-	 *  random - we only know that it shouldn't be one with
+-	 *  IXMT set. Whichever TC gets the interrupt needs to
+-	 *  send special interprocessor interrupts to the other
+-	 *  TCs to make sure that they schedule, etc.
+-	 *
+-	 *  That code is specific to the SMTC kernel, not to
+-	 *  the a particular platform, so it's invoked from
+-	 *  the general MIPS timer_interrupt routine.
+-	 */
+-
+-	/*
+-	 * We could be here due to timer interrupt,
+-	 * perf counter overflow, or both.
+-	 */
+-	(void) handle_perf_irq(1);
+-
+-	if (read_c0_cause() & (1 << 30)) {
+-		/*
+-		 * There are things we only want to do once per tick
+-		 * in an "MP" system.   One TC of each VPE will take
+-		 * the actual timer interrupt.  The others will get
+-		 * timer broadcast IPIs. We use whoever it is that takes
+-		 * the tick on VPE 0 to run the full timer_interrupt().
+-		 */
+-		if (cpu_data[cpu].vpe_id == 0) {
+-			timer_interrupt(irq, NULL);
+-		} else {
+-			write_c0_compare(read_c0_count() +
+-			                 (mips_hpt_frequency/HZ));
+-			local_timer_interrupt(irq, dev_id);
+-		}
+-		smtc_timer_broadcast(cpu_data[cpu].vpe_id);
+-	}
+-#else /* CONFIG_MIPS_MT_SMTC */
+-	int r2 = cpu_has_mips_r2;
+-
+-	if (handle_perf_irq(r2))
+-		goto out;
+-
+-	if (r2 && ((read_c0_cause() & (1 << 30)) == 0))
+-		goto out;
+-
+-	if (cpu == 0) {
+-		/*
+-		 * CPU 0 handles the global timer interrupt job and process
+-		 * accounting resets count/compare registers to trigger next
+-		 * timer int.
+-		 */
+-		timer_interrupt(irq, NULL);
+-	} else {
+-		/* Everyone else needs to reset the timer int here as
+-		   ll_local_timer_interrupt doesn't */
+-		/*
+-		 * FIXME: need to cope with counter underflow.
+-		 * More support needs to be added to kernel/time for
+-		 * counter/timer interrupts on multiple CPU's
+-		 */
+-		write_c0_compare(read_c0_count() + (mips_hpt_frequency/HZ));
+-
+-		/*
+-		 * Other CPUs should do profiling and process accounting
+-		 */
+-		local_timer_interrupt(irq, dev_id);
+-	}
+-out:
+-#endif /* CONFIG_MIPS_MT_SMTC */
+-	return IRQ_HANDLED;
+-}
+-
+-/*
+  * Estimate CPU frequency.  Sets mips_hpt_frequency as a side-effect
+  */
+ static unsigned int __init estimate_cpu_frequency(void)
+@@ -224,12 +122,12 @@ static unsigned int __init estimate_cpu_
+ 	return count;
+ }
+ 
+-unsigned long __init mips_rtc_get_time(void)
++unsigned long read_persistent_clock(void)
+ {
+ 	return mc146818_get_cmos_time();
+ }
+ 
+-void __init mips_time_init(void)
++void __init plat_time_init(void)
+ {
+ 	unsigned int est_freq;
+ 
+@@ -246,7 +144,7 @@ void __init mips_time_init(void)
+ 	mips_scroll_message();
+ }
+ 
+-irqreturn_t mips_perf_interrupt(int irq, void *dev_id)
++static irqreturn_t mips_perf_interrupt(int irq, void *dev_id)
+ {
+ 	return perf_irq();
+ }
+@@ -257,8 +155,10 @@ static struct irqaction perf_irqaction =
+ 	.name = "performance",
+ };
+ 
+-void __init plat_perf_setup(struct irqaction *irq)
++void __init plat_perf_setup(void)
+ {
++	struct irqaction *irq = &perf_irqaction;
++
+ 	cp0_perfcount_irq = -1;
+ 
+ #ifdef MSC01E_INT_BASE
+@@ -297,8 +197,6 @@ void __init plat_timer_setup(struct irqa
+ 		mips_cpu_timer_irq = MIPS_CPU_IRQ_BASE + cp0_compare_irq;
+ 	}
+ 
+-	/* we are using the cpu counter for timer interrupts */
+-	irq->handler = mips_timer_interrupt;	/* we use our own handler */
+ #ifdef CONFIG_MIPS_MT_SMTC
+ 	setup_irq_smtc(mips_cpu_timer_irq, irq, 0x100 << cp0_compare_irq);
+ #else
+@@ -308,5 +206,5 @@ void __init plat_timer_setup(struct irqa
+ 	set_irq_handler(mips_cpu_timer_irq, handle_percpu_irq);
+ #endif
+ 
+-	plat_perf_setup(&perf_irqaction);
++	plat_perf_setup();
+ }
+diff --git a/arch/mips/mips-boards/malta/malta_setup.c b/arch/mips/mips-boards/malta/malta_setup.c
+--- a/arch/mips/mips-boards/malta/malta_setup.c
++++ b/arch/mips/mips-boards/malta/malta_setup.c
+@@ -36,7 +36,6 @@
+ #endif
+ 
+ extern void mips_reboot_setup(void);
+-extern void mips_time_init(void);
+ extern unsigned long mips_rtc_get_time(void);
+ 
+ #ifdef CONFIG_KGDB
+@@ -185,7 +184,4 @@ void __init plat_mem_setup(void)
+ #endif
+ #endif
+ 	mips_reboot_setup();
+-
+-	board_time_init = mips_time_init;
+-	rtc_mips_get_time = mips_rtc_get_time;
+ }
+diff --git a/arch/mips/mips-boards/sead/sead_setup.c b/arch/mips/mips-boards/sead/sead_setup.c
+--- a/arch/mips/mips-boards/sead/sead_setup.c
++++ b/arch/mips/mips-boards/sead/sead_setup.c
+@@ -34,7 +34,6 @@
+ #include <asm/time.h>
+ 
+ extern void mips_reboot_setup(void);
+-extern void mips_time_init(void);
+ 
+ static void __init serial_init(void);
+ 
+@@ -51,8 +50,6 @@ void __init plat_mem_setup(void)
+ 
+ 	serial_init ();
+ 
+-	board_time_init = mips_time_init;
+-
+ 	mips_reboot_setup();
+ }
+ 
+diff --git a/arch/mips/mips-boards/sim/sim_setup.c b/arch/mips/mips-boards/sim/sim_setup.c
+--- a/arch/mips/mips-boards/sim/sim_setup.c
++++ b/arch/mips/mips-boards/sim/sim_setup.c
+@@ -36,7 +36,6 @@
+ #include <asm/mips-boards/simint.h>
+ 
+ 
+-extern void sim_time_init(void);
+ static void __init serial_init(void);
+ unsigned int _isbonito = 0;
+ 
+@@ -54,7 +53,6 @@ void __init plat_mem_setup(void)
+ 
+ 	serial_init();
+ 
+-	board_time_init = sim_time_init;
+ 	pr_info("Linux started...\n");
+ 
+ #ifdef CONFIG_MIPS_MT_SMP
+diff --git a/arch/mips/mips-boards/sim/sim_time.c b/arch/mips/mips-boards/sim/sim_time.c
+--- a/arch/mips/mips-boards/sim/sim_time.c
++++ b/arch/mips/mips-boards/sim/sim_time.c
+@@ -25,75 +25,6 @@
+ 
+ unsigned long cpu_khz;
+ 
+-irqreturn_t sim_timer_interrupt(int irq, void *dev_id)
+-{
+-#ifdef CONFIG_SMP
+-	int cpu = smp_processor_id();
+-
+-	/*
+-	 * CPU 0 handles the global timer interrupt job
+-	 * resets count/compare registers to trigger next timer int.
+-	 */
+-#ifndef CONFIG_MIPS_MT_SMTC
+-	if (cpu == 0) {
+-		timer_interrupt(irq, dev_id);
+-	}
+-	else {
+-		/* Everyone else needs to reset the timer int here as
+-		   ll_local_timer_interrupt doesn't */
+-		/*
+-		 * FIXME: need to cope with counter underflow.
+-		 * More support needs to be added to kernel/time for
+-		 * counter/timer interrupts on multiple CPU's
+-		 */
+-		write_c0_compare (read_c0_count() + ( mips_hpt_frequency/HZ));
+-	}
+-#else /* SMTC */
+-	/*
+-	 *  In SMTC system, one Count/Compare set exists per VPE.
+-	 *  Which TC within a VPE gets the interrupt is essentially
+-	 *  random - we only know that it shouldn't be one with
+-	 *  IXMT set. Whichever TC gets the interrupt needs to
+-	 *  send special interprocessor interrupts to the other
+-	 *  TCs to make sure that they schedule, etc.
+-	 *
+-	 *  That code is specific to the SMTC kernel, not to
+-	 *  the simulation platform, so it's invoked from
+-	 *  the general MIPS timer_interrupt routine.
+-	 *
+-	 * We have a problem in that the interrupt vector code
+-	 * had to turn off the timer IM bit to avoid redundant
+-	 * entries, but we may never get to mips_cpu_irq_end
+-	 * to turn it back on again if the scheduler gets
+-	 * involved.  So we clear the pending timer here,
+-	 * and re-enable the mask...
+-	 */
+-
+-	int vpflags = dvpe();
+-	write_c0_compare (read_c0_count() - 1);
+-	clear_c0_cause(0x100 << cp0_compare_irq);
+-	set_c0_status(0x100 << cp0_compare_irq);
+-	irq_enable_hazard();
+-	evpe(vpflags);
+-
+-	if(cpu_data[cpu].vpe_id == 0) timer_interrupt(irq, dev_id);
+-	else write_c0_compare (read_c0_count() + ( mips_hpt_frequency/HZ));
+-	smtc_timer_broadcast(cpu_data[cpu].vpe_id);
+-
+-#endif /* CONFIG_MIPS_MT_SMTC */
+-
+-	/*
+-	 * every CPU should do profiling and process accounting
+-	 */
+- 	local_timer_interrupt (irq, dev_id);
+-	return IRQ_HANDLED;
+-#else
+-	return timer_interrupt (irq, dev_id);
+-#endif
+-}
+-
+-
+-
+ /*
+  * Estimate CPU frequency.  Sets mips_hpt_frequency as a side-effect
+  */
+@@ -146,7 +77,7 @@ static unsigned int __init estimate_cpu_
+ 	return count;
+ }
+ 
+-void __init sim_time_init(void)
++void __init plat_time_init(void)
+ {
+ 	unsigned int est_freq, flags;
+ 
+@@ -188,7 +119,6 @@ void __init plat_timer_setup(struct irqa
+ 	}
+ 
+ 	/* we are using the cpu counter for timer interrupts */
+-	irq->handler = sim_timer_interrupt;
+ 	setup_irq(mips_cpu_timer_irq, irq);
+ 
+ #ifdef CONFIG_SMP
+diff --git a/arch/mips/pmc-sierra/yosemite/setup.c b/arch/mips/pmc-sierra/yosemite/setup.c
+--- a/arch/mips/pmc-sierra/yosemite/setup.c
++++ b/arch/mips/pmc-sierra/yosemite/setup.c
+@@ -99,8 +99,12 @@ int m48t37y_set_time(unsigned long sec)
+ 	struct rtc_time tm;
+ 	unsigned long flags;
+ 
+-	/* convert to a more useful format -- note months count from 0 */
+-	to_tm(sec, &tm);
++	/*
++	 * Convert to a more useful format -- note months count from 0
++	 * and years from 1900
++	 */
++	rtc_time_to_tm(tim, &tm);
++	tm.tm_year += 1900;
+ 	tm.tm_mon += 1;
+ 
+ 	spin_lock_irqsave(&rtc_lock, flags);
+diff --git a/arch/mips/sgi-ip22/ip22-int.c b/arch/mips/sgi-ip22/ip22-int.c
+--- a/arch/mips/sgi-ip22/ip22-int.c
++++ b/arch/mips/sgi-ip22/ip22-int.c
+@@ -24,6 +23,7 @@
+ #include <asm/sgi/ioc.h>
+ #include <asm/sgi/hpc3.h>
+ #include <asm/sgi/ip22.h>
++#include <asm/time.h>
+ 
+ /* #define DEBUG_SGINT */
+ 
+@@ -204,7 +204,6 @@ static struct irqaction map1_cascade = {
+ #define SGI_INTERRUPTS	SGINT_LOCAL3
+ #endif
+ 
+-extern void indy_r4k_timer_interrupt(void);
+ extern void indy_8254timer_irq(void);
+ 
+ /*
+@@ -243,7 +242,7 @@ asmlinkage void plat_irq_dispatch(void)
+ 	 * First we check for r4k counter/timer IRQ.
+ 	 */
+ 	if (pending & CAUSEF_IP7)
+-		indy_r4k_timer_interrupt();
++		ll_timer_interrupt(SGI_TIMER_IRQ, NULL);
+ 	else if (pending & CAUSEF_IP2)
+ 		indy_local0_irqdispatch();
+ 	else if (pending & CAUSEF_IP3)
+diff --git a/arch/mips/sgi-ip22/ip22-time.c b/arch/mips/sgi-ip22/ip22-time.c
+--- a/arch/mips/sgi-ip22/ip22-time.c
++++ b/arch/mips/sgi-ip22/ip22-time.c
+@@ -29,7 +29,7 @@
+ #include <asm/sgi/ip22.h>
+ 
+ /*
+- * note that mktime uses month from 1 to 12 while to_tm
++ * Note that mktime uses month from 1 to 12 while rtc_time_to_tm
+  * uses 0 to 11.
+  */
+ static unsigned long indy_rtc_get_time(void)
+@@ -66,10 +66,10 @@ static int indy_rtc_set_time(unsigned lo
+ 	unsigned int save_control;
+ 	unsigned long flags;
+ 
+-	to_tm(tim, &tm);
++	rtc_time_to_tm(tim, &tm);
+ 
+ 	tm.tm_mon += 1;		/* tm_mon starts at zero */
+-	tm.tm_year -= 1940;
++	tm.tm_year -= 40;
+ 	if (tm.tm_year >= 100)
+ 		tm.tm_year -= 100;
+ 
+@@ -189,16 +189,6 @@ void indy_8254timer_irq(void)
+ 	irq_exit();
+ }
+ 
+-void indy_r4k_timer_interrupt(void)
+-{
+-	int irq = SGI_TIMER_IRQ;
+-
+-	irq_enter();
+-	kstat_this_cpu.irqs[irq]++;
+-	timer_interrupt(irq, NULL);
+-	irq_exit();
+-}
+-
+ void __init plat_timer_setup(struct irqaction *irq)
+ {
+ 	/* over-write the handler, we use our own way */
+diff --git a/arch/mips/sgi-ip27/ip27-timer.c b/arch/mips/sgi-ip27/ip27-timer.c
+--- a/arch/mips/sgi-ip27/ip27-timer.c
++++ b/arch/mips/sgi-ip27/ip27-timer.c
+@@ -40,7 +40,6 @@
+ #define TICK_SIZE (tick_nsec / 1000)
+ 
+ static unsigned long ct_cur[NR_CPUS];	/* What counter should be at next timer irq */
+-static long last_rtc_update;		/* Last time the rtc clock got updated */
+ 
+ #if 0
+ static int set_rtc_mmss(unsigned long nowtime)
+@@ -113,23 +112,6 @@ again:
+ 
+ 	update_process_times(user_mode(get_irq_regs()));
+ 
+-	/*
+-	 * If we have an externally synchronized Linux clock, then update
+-	 * RTC clock accordingly every ~11 minutes. Set_rtc_mmss() has to be
+-	 * called as close as possible to when a second starts.
+-	 */
+-	if (ntp_synced() &&
+-	    xtime.tv_sec > last_rtc_update + 660 &&
+-	    (xtime.tv_nsec / 1000) >= 500000 - ((unsigned) TICK_SIZE) / 2 &&
+-	    (xtime.tv_nsec / 1000) <= 500000 + ((unsigned) TICK_SIZE) / 2) {
+-		if (rtc_mips_set_time(xtime.tv_sec) == 0) {
+-			last_rtc_update = xtime.tv_sec;
+-		} else {
+-			last_rtc_update = xtime.tv_sec - 600;
+-			/* do it again in 60 s */
+-		}
+-	}
+-
+ 	write_sequnlock(&xtime_lock);
+ 	irq_exit();
+ }
+diff --git a/arch/mips/sibyte/bcm1480/time.c b/arch/mips/sibyte/bcm1480/time.c
+--- a/arch/mips/sibyte/bcm1480/time.c
++++ b/arch/mips/sibyte/bcm1480/time.c
+@@ -103,18 +103,7 @@ void bcm1480_timer_interrupt(void)
+ 	__raw_writeq(M_SCD_TIMER_ENABLE|M_SCD_TIMER_MODE_CONTINUOUS,
+ 	      IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_CFG)));
+ 
+-	if (cpu == 0) {
+-		/*
+-		 * CPU 0 handles the global timer interrupt job
+-		 */
+-		ll_timer_interrupt(irq);
+-	}
+-	else {
+-		/*
+-		 * other CPUs should just do profiling and process accounting
+-		 */
+-		ll_local_timer_interrupt(irq);
+-	}
++	ll_timer_interrupt(irq);
+ }
+ 
+ static cycle_t bcm1480_hpt_read(void)
+diff --git a/arch/mips/sibyte/sb1250/time.c b/arch/mips/sibyte/sb1250/time.c
+--- a/arch/mips/sibyte/sb1250/time.c
++++ b/arch/mips/sibyte/sb1250/time.c
+@@ -125,18 +125,7 @@ void sb1250_timer_interrupt(void)
+ 	____raw_writeq(M_SCD_TIMER_ENABLE | M_SCD_TIMER_MODE_CONTINUOUS,
+ 		       IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_CFG)));
+ 
+-	if (cpu == 0) {
+-		/*
+-		 * CPU 0 handles the global timer interrupt job
+-		 */
+-		ll_timer_interrupt(irq);
+-	}
+-	else {
+-		/*
+-		 * other CPUs should just do profiling and process accounting
+-		 */
+-		ll_local_timer_interrupt(irq);
+-	}
++	ll_timer_interrupt(irq);
+ }
+ 
+ /*
+diff --git a/arch/mips/sibyte/swarm/rtc_m41t81.c b/arch/mips/sibyte/swarm/rtc_m41t81.c
+--- a/arch/mips/sibyte/swarm/rtc_m41t81.c
++++ b/arch/mips/sibyte/swarm/rtc_m41t81.c
+@@ -146,7 +146,8 @@ int m41t81_set_time(unsigned long t)
+ 	struct rtc_time tm;
+ 	unsigned long flags;
+ 
+-	to_tm(t, &tm);
++	/* Note we don't care about the century */
++	rtc_time_to_tm(t, &tm);
+ 
+ 	/*
+ 	 * Note the write order matters as it ensures the correctness.
+diff --git a/arch/mips/sibyte/swarm/rtc_xicor1241.c b/arch/mips/sibyte/swarm/rtc_xicor1241.c
+--- a/arch/mips/sibyte/swarm/rtc_xicor1241.c
++++ b/arch/mips/sibyte/swarm/rtc_xicor1241.c
+@@ -115,7 +115,8 @@ int xicor_set_time(unsigned long t)
+ 	int tmp;
+ 	unsigned long flags;
+ 
+-	to_tm(t, &tm);
++	rtc_time_to_tm(t, &tm);
++	tm.tm_year += 1900;
+ 
+ 	spin_lock_irqsave(&rtc_lock, flags);
+ 	/* unlock writes to the CCR */
+diff --git a/arch/mips/sibyte/swarm/setup.c b/arch/mips/sibyte/swarm/setup.c
+--- a/arch/mips/sibyte/swarm/setup.c
++++ b/arch/mips/sibyte/swarm/setup.c
+@@ -69,7 +69,7 @@ const char *get_system_type(void)
+ 	return "SiByte " SIBYTE_BOARD_NAME;
+ }
+ 
+-void __init swarm_time_init(void)
++void __init plat_time_init(void)
+ {
+ #if defined(CONFIG_SIBYTE_SB1250) || defined(CONFIG_SIBYTE_BCM112X)
+ 	/* Setup HPT */
+@@ -104,6 +104,44 @@ int swarm_be_handler(struct pt_regs *reg
+ 	return (is_fixup ? MIPS_BE_FIXUP : MIPS_BE_FATAL);
+ }
+ 
++enum swarm_rtc_type {
++	RTC_NONE,
++	RTC_XICOR,
++	RTC_M4LT81
++};
++
++enum swarm_rtc_type swarm_rtc_type;
++
++unsigned long read_persistent_clock(void)
++{
++	switch (swarm_rtc_type) {
++	case RTC_XICOR:
++		return xicor_get_time();
++
++	case RTC_M4LT81:
++		return m41t81_get_time();
++
++	case RTC_NONE:
++	default:
++		return mktime(2000, 1, 1, 0, 0, 0);
++	}
++}
++
++int rtc_mips_set_time(unsigned long sec)
++{
++	switch (swarm_rtc_type) {
++	case RTC_XICOR:
++		return xicor_set_time(sec);
++
++	case RTC_M4LT81:
++		return m41t81_set_time(sec);
++
++	case RTC_NONE:
++	default:
++		return -1;
++	}
++}
++
+ void __init plat_mem_setup(void)
+ {
+ #if defined(CONFIG_SIBYTE_BCM1x55) || defined(CONFIG_SIBYTE_BCM1x80)
+@@ -116,20 +154,12 @@ void __init plat_mem_setup(void)
+ 
+ 	panic_timeout = 5;  /* For debug.  */
+ 
+-	board_time_init = swarm_time_init;
+ 	board_be_handler = swarm_be_handler;
+ 
+-	if (xicor_probe()) {
+-		printk("swarm setup: Xicor 1241 RTC detected.\n");
+-		rtc_mips_get_time = xicor_get_time;
+-		rtc_mips_set_time = xicor_set_time;
+-	}
+-
+-	if (m41t81_probe()) {
+-		printk("swarm setup: M41T81 RTC detected.\n");
+-		rtc_mips_get_time = m41t81_get_time;
+-		rtc_mips_set_time = m41t81_set_time;
+-	}
++	if (xicor_probe())
++		swarm_rtc_type = RTC_XICOR;
++	if (m41t81_probe())
++		swarm_rtc_type = RTC_M4LT81;
+ 
+ 	printk("This kernel optimized for "
+ #ifdef CONFIG_SIMULATION
+diff --git a/arch/mips/vr41xx/common/init.c b/arch/mips/vr41xx/common/init.c
+--- a/arch/mips/vr41xx/common/init.c
++++ b/arch/mips/vr41xx/common/init.c
+@@ -36,7 +36,7 @@ static void __init iomem_resource_init(v
+ 	iomem_resource.end = IO_MEM_RESOURCE_END;
+ }
+ 
+-static void __init setup_timer_frequency(void)
++void __init plat_time_init(void)
+ {
+ 	unsigned long tclock;
+ 
+@@ -53,16 +53,10 @@ void __init plat_timer_setup(struct irqa
+ 	setup_irq(TIMER_IRQ, irq);
+ }
+ 
+-static void __init timer_init(void)
+-{
+-	board_time_init = setup_timer_frequency;
+-}
+-
+ void __init plat_mem_setup(void)
+ {
+ 	vr41xx_calculate_clock_frequency();
+ 
+-	timer_init();
+ 	iomem_resource_init();
+ }
+ 
+diff --git a/include/asm-mips/time.h b/include/asm-mips/time.h
+--- a/include/asm-mips/time.h
++++ b/include/asm-mips/time.h
+@@ -26,15 +26,13 @@
+ extern spinlock_t rtc_lock;
+ 
+ /*
+- * RTC ops.  By default, they point to no-RTC functions.
+- *	rtc_mips_get_time - mktime(year, mon, day, hour, min, sec) in seconds.
++ * RTC ops.  By default, they point to weak no-op RTC functions.
+  *	rtc_mips_set_time - reverse the above translation and set time to RTC.
+  *	rtc_mips_set_mmss - similar to rtc_set_time, but only min and sec need
+  *			to be set.  Used by RTC sync-up.
+  */
+-extern unsigned long (*rtc_mips_get_time)(void);
+-extern int (*rtc_mips_set_time)(unsigned long);
+-extern int (*rtc_mips_set_mmss)(unsigned long);
++extern int rtc_mips_set_time(unsigned long);
++extern int rtc_mips_set_mmss(unsigned long);
+ 
+ /*
+  * Timer interrupt functions.
+@@ -51,35 +49,20 @@ extern void (*mips_timer_ack)(void);
+ extern struct clocksource clocksource_mips;
+ 
+ /*
+- * to_tm() converts system time back to (year, mon, day, hour, min, sec).
+- * It is intended to help implement rtc_set_time() functions.
+- * Copied from PPC implementation.
++ * The low-level timer interrupt routine.
+  */
+-extern void to_tm(unsigned long tim, struct rtc_time *tm);
+-
+-/*
+- * high-level timer interrupt routines.
+- */
+-extern irqreturn_t timer_interrupt(int irq, void *dev_id);
+-
+-/*
+- * the corresponding low-level timer interrupt routine.
+- */
+-extern asmlinkage void ll_timer_interrupt(int irq);
++extern void ll_timer_interrupt(int irq, void *dev_id);
+ 
+ /*
+  * profiling and process accouting is done separately in local_timer_interrupt
+  */
+ extern void local_timer_interrupt(int irq, void *dev_id);
+-extern asmlinkage void ll_local_timer_interrupt(int irq);
+ 
+ /*
+  * board specific routines required by time_init().
+- * board_time_init is defaulted to NULL and can remain so.
+- * plat_timer_setup must be setup properly in machine setup routine.
+  */
+ struct irqaction;
+-extern void (*board_time_init)(void);
++extern void plat_time_init(void);
+ extern void plat_timer_setup(struct irqaction *irq);
+ 
+ /*
+@@ -89,4 +72,10 @@ extern void plat_timer_setup(struct irqa
+  */
+ extern unsigned int mips_hpt_frequency;
+ 
++/*
++ * The performance counter IRQ on MIPS is a close relative to the timer IRQ
++ * so it lives here.
++ */
++extern int (*perf_irq)(void);
++
+ #endif /* _ASM_TIME_H */
+-- 
