@@ -67,7 +67,6 @@
 
 extern void set_debug_traps(void);
 extern irq_cpustat_t irq_stat [NR_CPUS];
-extern void mips_timer_interrupt(void);
 
 static void setup_local_irq(unsigned int irq, int type, int int_req);
 static void end_irq(unsigned int irq_nr);
@@ -646,7 +645,7 @@ asmlinkage void plat_irq_dispatch(void)
 	unsigned int pending = read_c0_status() & read_c0_cause() & ST0_IM;
 
 	if (pending & CAUSEF_IP7)
-		mips_timer_interrupt();
+		ll_timer_interrupt(63);
 	else if (pending & CAUSEF_IP2)
 		intc0_req0_irqdispatch();
 	else if (pending & CAUSEF_IP3)

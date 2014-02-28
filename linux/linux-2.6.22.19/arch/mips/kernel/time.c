@@ -49,24 +49,23 @@
  * forward reference
  */
 DEFINE_SPINLOCK(rtc_lock);
+EXPORT_SYMBOL(rtc_lock);
 
-/*
- * By default we provide the null RTC ops
- */
-static unsigned long null_rtc_get_time(void)
-{
-	return mktime(2000, 1, 1, 0, 0, 0);
-}
-
-static int null_rtc_set_time(unsigned long sec)
+int __weak rtc_mips_set_time(unsigned long sec)
 {
 	return 0;
 }
+EXPORT_SYMBOL(rtc_mips_set_time);
 
-unsigned long (*rtc_mips_get_time)(void) = null_rtc_get_time;
-int (*rtc_mips_set_time)(unsigned long) = null_rtc_set_time;
-int (*rtc_mips_set_mmss)(unsigned long);
+int __weak rtc_mips_set_mmss(unsigned long nowtime)
+{
+	return rtc_mips_set_time(nowtime);
+}
 
+int update_persistent_clock(struct timespec now)
+{
+	return rtc_mips_set_mmss(now.tv_sec);
+}
 
 /* how many counter cycles in a jiffy */
 static unsigned long cycles_per_jiffy __read_mostly;
@@ -125,9 +124,6 @@ static void __init c0_hpt_timer_init(void)
 int (*mips_timer_state)(void);
 void (*mips_timer_ack)(void);
 
-/* last time when xtime and rtc are sync'ed up */
-static long last_rtc_update;
-
 /*
  * local_timer_interrupt() does profiling and process accounting
  * on a per-CPU basis.
@@ -148,7 +144,7 @@ void local_timer_interrupt(int irq, void *dev_id)
  * High-level timer interrupt service routines.  This function
  * is set as irqaction->handler and is invoked through do_IRQ.
  */
-irqreturn_t timer_interrupt(int irq, void *dev_id)
+static irqreturn_t timer_interrupt(int irq, void *dev_id)
 {
 	write_seqlock(&xtime_lock);
 
@@ -158,23 +154,6 @@ irqreturn_t timer_interrupt(int irq, void *dev_id)
 	 * call the generic timer interrupt handling
 	 */
 	do_timer(1);
-
-	/*
-	 * If we have an externally synchronized Linux clock, then update
-	 * CMOS clock accordingly every ~11 minutes. rtc_mips_set_time() has to be
-	 * called as close as possible to 500 ms before the new second starts.
-	 */
-	if (ntp_synced() &&
-	    xtime.tv_sec > last_rtc_update + 660 &&
-	    (xtime.tv_nsec / 1000) >= 500000 - ((unsigned) TICK_SIZE) / 2 &&
-	    (xtime.tv_nsec / 1000) <= 500000 + ((unsigned) TICK_SIZE) / 2) {
-		if (rtc_mips_set_mmss(xtime.tv_sec) == 0) {
-			last_rtc_update = xtime.tv_sec;
-		} else {
-			/* do it again in 60 s */
-			last_rtc_update = xtime.tv_sec - 600;
-		}
-	}
 
 	write_sequnlock(&xtime_lock);
 
@@ -190,14 +169,13 @@ irqreturn_t timer_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-int null_perf_irq(void)
+static int null_perf_irq(void)
 {
 	return 0;
 }
 
 int (*perf_irq)(void) = null_perf_irq;
 
-EXPORT_SYMBOL(null_perf_irq);
 EXPORT_SYMBOL(perf_irq);
 
 /*
@@ -229,54 +207,95 @@ static inline int handle_perf_irq (int r2)
 		!r2;
 }
 
-asmlinkage void ll_timer_interrupt(int irq)
+void ll_timer_interrupt(int irq, void *dev_id)
 {
+	int cpu = smp_processor_id();
+
+#ifdef CONFIG_MIPS_MT_SMTC
+	/*
+	 *  In an SMTC system, one Count/Compare set exists per VPE.
+	 *  Which TC within a VPE gets the interrupt is essentially
+	 *  random - we only know that it shouldn't be one with
+	 *  IXMT set. Whichever TC gets the interrupt needs to
+	 *  send special interprocessor interrupts to the other
+	 *  TCs to make sure that they schedule, etc.
+	 *
+	 *  That code is specific to the SMTC kernel, not to
+	 *  the a particular platform, so it's invoked from
+	 *  the general MIPS timer_interrupt routine.
+	 */
+
+	/*
+	 * We could be here due to timer interrupt,
+	 * perf counter overflow, or both.
+	 */
+	(void) handle_perf_irq(1);
+
+	if (read_c0_cause() & (1 << 30)) {
+		/*
+		 * There are things we only want to do once per tick
+		 * in an "MP" system.   One TC of each VPE will take
+		 * the actual timer interrupt.  The others will get
+		 * timer broadcast IPIs. We use whoever it is that takes
+		 * the tick on VPE 0 to run the full timer_interrupt().
+		 */
+		if (cpu_data[cpu].vpe_id == 0) {
+			timer_interrupt(irq, NULL);
+		} else {
+			write_c0_compare(read_c0_count() +
+			                 (mips_hpt_frequency/HZ));
+			local_timer_interrupt(irq, dev_id);
+		}
+		smtc_timer_broadcast(cpu_data[cpu].vpe_id);
+	}
+#else /* CONFIG_MIPS_MT_SMTC */
 	int r2 = cpu_has_mips_r2;
 
-	irq_enter();
-	kstat_this_cpu.irqs[irq]++;
-
 	if (handle_perf_irq(r2))
-		goto out;
+		return;
 
 	if (r2 && ((read_c0_cause() & (1 << 30)) == 0))
-		goto out;
+		return;
 
-	timer_interrupt(irq, NULL);
+	if (cpu == 0) {
+		/*
+		 * CPU 0 handles the global timer interrupt job and process
+		 * accounting resets count/compare registers to trigger next
+		 * timer int.
+		 */
+		timer_interrupt(irq, NULL);
+	} else {
+		/* Everyone else needs to reset the timer int here as
+		   ll_local_timer_interrupt doesn't */
+		/*
+		 * FIXME: need to cope with counter underflow.
+		 * More support needs to be added to kernel/time for
+		 * counter/timer interrupts on multiple CPU's
+		 */
+		write_c0_compare(read_c0_count() + (mips_hpt_frequency/HZ));
 
-out:
-	irq_exit();
-}
-
-asmlinkage void ll_local_timer_interrupt(int irq)
-{
-	irq_enter();
-	if (smp_processor_id() != 0)
-		kstat_this_cpu.irqs[irq]++;
-
-	/* we keep interrupt disabled all the time */
-	local_timer_interrupt(irq, NULL);
-
-	irq_exit();
+		/*
+		 * Other CPUs should do profiling and process accounting
+		 */
+		local_timer_interrupt(irq, dev_id);
+	}
+#endif /* CONFIG_MIPS_MT_SMTC */
 }
 
 /*
  * time_init() - it does the following things.
  *
- * 1) board_time_init() -
+ * 1) plat_time_init() -
  * 	a) (optional) set up RTC routines,
  *      b) (optional) calibrate and set the mips_hpt_frequency
  *	    (only needed if you intended to use cpu counter as timer interrupt
  *	     source)
- * 2) setup xtime based on rtc_mips_get_time().
- * 3) calculate a couple of cached variables for later usage
- * 4) plat_timer_setup() -
+ * 2) calculate a couple of cached variables for later usage
+ * 3) plat_timer_setup() -
  *	a) (optional) over-write any choices made above by time_init().
  *	b) machine specific code should setup the timer irqaction.
  *	c) enable the timer interrupt
  */
-
-void (*board_time_init)(void);
 
 unsigned int mips_hpt_frequency;
 
@@ -357,19 +376,13 @@ static void __init init_mips_clocksource(void)
 	clocksource_register(&clocksource_mips);
 }
 
+void __init __weak plat_time_init(void)
+{
+}
+
 void __init time_init(void)
 {
-	if (board_time_init)
-		board_time_init();
-
-	if (!rtc_mips_set_mmss)
-		rtc_mips_set_mmss = rtc_mips_set_time;
-
-	xtime.tv_sec = rtc_mips_get_time();
-	xtime.tv_nsec = 0;
-
-	set_normalized_timespec(&wall_to_monotonic,
-	                        -xtime.tv_sec, -xtime.tv_nsec);
+	plat_time_init();
 
 	/* Choose appropriate high precision timer routines.  */
 	if (!cpu_has_counter && !clocksource_mips.read)
@@ -427,53 +440,3 @@ void __init time_init(void)
 
 	init_mips_clocksource();
 }
-
-#define FEBRUARY		2
-#define STARTOFTIME		1970
-#define SECDAY			86400L
-#define SECYR			(SECDAY * 365)
-#define leapyear(y)		((!((y) % 4) && ((y) % 100)) || !((y) % 400))
-#define days_in_year(y)		(leapyear(y) ? 366 : 365)
-#define days_in_month(m)	(month_days[(m) - 1])
-
-static int month_days[12] = {
-	31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
-};
-
-void to_tm(unsigned long tim, struct rtc_time *tm)
-{
-	long hms, day, gday;
-	int i;
-
-	gday = day = tim / SECDAY;
-	hms = tim % SECDAY;
-
-	/* Hours, minutes, seconds are easy */
-	tm->tm_hour = hms / 3600;
-	tm->tm_min = (hms % 3600) / 60;
-	tm->tm_sec = (hms % 3600) % 60;
-
-	/* Number of years in days */
-	for (i = STARTOFTIME; day >= days_in_year(i); i++)
-		day -= days_in_year(i);
-	tm->tm_year = i;
-
-	/* Number of months in days left */
-	if (leapyear(tm->tm_year))
-		days_in_month(FEBRUARY) = 29;
-	for (i = 1; day >= days_in_month(i); i++)
-		day -= days_in_month(i);
-	days_in_month(FEBRUARY) = 28;
-	tm->tm_mon = i - 1;		/* tm_mon starts from 0 to 11 */
-
-	/* Days are what is left over (+1) from all that. */
-	tm->tm_mday = day + 1;
-
-	/*
-	 * Determine the day of week
-	 */
-	tm->tm_wday = (gday + 4) % 7;	/* 1970/1/1 was Thursday */
-}
-
-EXPORT_SYMBOL(rtc_lock);
-EXPORT_SYMBOL(to_tm);

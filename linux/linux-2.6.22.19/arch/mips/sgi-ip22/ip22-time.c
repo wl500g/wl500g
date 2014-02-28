@@ -29,7 +29,7 @@
 #include <asm/sgi/ip22.h>
 
 /*
- * note that mktime uses month from 1 to 12 while to_tm
+ * Note that mktime uses month from 1 to 12 while rtc_time_to_tm
  * uses 0 to 11.
  */
 static unsigned long indy_rtc_get_time(void)
@@ -66,10 +66,10 @@ static int indy_rtc_set_time(unsigned long tim)
 	unsigned int save_control;
 	unsigned long flags;
 
-	to_tm(tim, &tm);
+	rtc_time_to_tm(tim, &tm);
 
 	tm.tm_mon += 1;		/* tm_mon starts at zero */
-	tm.tm_year -= 1940;
+	tm.tm_year -= 40;
 	if (tm.tm_year >= 100)
 		tm.tm_year -= 100;
 
@@ -186,16 +186,6 @@ void indy_8254timer_irq(void)
 	printk(KERN_ALERT "Oops, got 8254 interrupt.\n");
 	ArcRead(0, &c, 1, &cnt);
 	ArcEnterInteractiveMode();
-	irq_exit();
-}
-
-void indy_r4k_timer_interrupt(void)
-{
-	int irq = SGI_TIMER_IRQ;
-
-	irq_enter();
-	kstat_this_cpu.irqs[irq]++;
-	timer_interrupt(irq, NULL);
 	irq_exit();
 }
 

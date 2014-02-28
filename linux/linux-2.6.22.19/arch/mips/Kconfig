@@ -3,6 +3,7 @@ config MIPS
 	default y
 	# Horrible source of confusion.  Die, die, die ...
 	select EMBEDDED
+	select RTC_LIB
 
 mainmenu "Linux/MIPS Kernel Configuration"
 
@@ -696,6 +697,10 @@ config GENERIC_CALIBRATE_DELAY
 	default y
 
 config GENERIC_TIME
+	bool
+	default y
+
+config GENERIC_CMOS_UPDATE
 	bool
 	default y
 
