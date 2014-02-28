@@ -1,14 +1,5 @@
-From 3ba2df874ca27f075a0897210d8dce6c56646e60
-From: Bartosz Golaszewski <bartekgola@gmail.com>
-Date: Fri, 07 Feb 2014 16:14:37 +0000
-Subject: grep: properly handle grep -w "^str" in !EXTRA_COMPAT case too
-
-function                                             old     new   delta
-grep_file                                           1267    1288     +21
-
-Signed-off-by: Bartosz Golaszewski <bartekgola@gmail.com>
-Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
----
+ 3ba2df874ca27f075a0897210d8dce6c56646e60 grep: properly handle grep -w "^str" in !EXTRA_COMPAT case too
+ 83e49ade5724f5b3744660e45179461fe2a1b0f8 grep: fix -w match if first match isn't a word, but second is. Closes 4520
 
 diff --git a/findutils/grep.c b/findutils/grep.c
 --- a/findutils/grep.c
@@ -39,27 +30,57 @@ diff --git a/findutils/grep.c b/findutils/grep.c
  #else
  					re_search(&gl->compiled_regex, match_at, line_len,
  							start_pos, /*range:*/ line_len,
-@@ -415,7 +418,7 @@ static int grep_file(FILE *file)
+@@ -415,13 +418,15 @@ static int grep_file(FILE *file)
  						found = 1;
  					} else {
  						char c = ' ';
 -						if (gl->matched_range.rm_so)
-+						if (match_at > line || gl->matched_range.rm_so != 0)
++						if (match_at > line || gl->matched_range.rm_so != 0) {
  							c = match_at[gl->matched_range.rm_so - 1];
++						}
  						if (!isalnum(c) && c != '_') {
  							c = match_at[gl->matched_range.rm_eo];
-@@ -432,6 +435,7 @@ static int grep_file(FILE *file)
+-							if (!c || (!isalnum(c) && c != '_')) {
+-								found = 1;
+-							} else {
++						}
++						if (!isalnum(c) && c != '_') {
++							found = 1;
++						} else {
+ 			/*
+ 			 * Why check gl->matched_range.rm_eo?
+ 			 * Zero-length match makes -w skip the line:
+@@ -430,17 +435,17 @@ static int grep_file(FILE *file)
+ 			 * Without such check, we can loop forever.
+ 			 */
  #if !ENABLE_EXTRA_COMPAT
- 								if (gl->matched_range.rm_eo != 0) {
- 									match_at += gl->matched_range.rm_eo;
-+									match_flg |= REG_NOTBOL;
- 									goto opt_w_again;
- 								}
+-								if (gl->matched_range.rm_eo != 0) {
+-									match_at += gl->matched_range.rm_eo;
+-									goto opt_w_again;
+-								}
++							if (gl->matched_range.rm_eo != 0) {
++								match_at += gl->matched_range.rm_eo;
++								match_flg |= REG_NOTBOL;
++								goto opt_w_again;
++							}
  #else
+-								if (gl->matched_range.rm_eo > start_pos) {
+-									start_pos = gl->matched_range.rm_eo;
+-									goto opt_w_again;
+-								}
+-#endif
++							if (gl->matched_range.rm_eo > start_pos) {
++								start_pos = gl->matched_range.rm_eo;
++								goto opt_w_again;
+ 							}
++#endif
+ 						}
+ 					}
+ 				}
 diff --git a/testsuite/grep.tests b/testsuite/grep.tests
 --- a/testsuite/grep.tests
 +++ b/testsuite/grep.tests
-@@ -159,6 +159,12 @@ testing "grep -w ^ doesn't hang" \
+@@ -159,6 +159,18 @@ testing "grep -w ^ doesn't hang" \
  	"anything\n" \
  	""
  
@@ -69,8 +90,13 @@ diff --git a/testsuite/grep.tests b/testsuite/grep.tests
 +	"wordword\n" \
 +	""
 +
++testing "grep -w word match second word" \
++	"grep -w word input" \
++	"bword,word\n""wordb,word\n""bwordb,word\n" \
++	"bword,word\n""wordb,word\n""bwordb,word\n" \
++	""
++
  # testing "test name" "commands" "expected result" "file input" "stdin"
  #   file input will be file called "input"
  #   test can create a file "actual" instead of writing to stdout
---
-cgit v0.9.1
+-- 
