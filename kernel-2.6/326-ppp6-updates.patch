@@ -5,13 +5,14 @@ ppp: Updates from upstream
  739840d529eb7505d3cbfe9d468bf1440c9a8e27 ppp: fix segfaults introduced by netdev_priv changes
  1d2f8c950745f47f2937742eb886cffee439b754 ppp: remove some pointless conditionals before kfree_skb()
  96545aeb7b4457594d764af4d689a738e97f14b8 ppp: use {get,put}_unaligned_be{16,32}
+ 167bfa71844a7a7415da0fa8c75e672f3bd438c8 ppp: reuse print_hex_dump_bytes
 
 ---
- drivers/net/ppp_async.c   |   16 +++++--------
- drivers/net/ppp_deflate.c |    9 +++----
- drivers/net/ppp_generic.c |   55 +++++++++++++++++++---------------------------
- drivers/net/ppp_synctty.c |   16 ++++++-------
- 4 files changed, 42 insertions(+), 54 deletions(-)
+ drivers/net/ppp_async.c   |   16 ++++------
+ drivers/net/ppp_deflate.c |    9 ++----
+ drivers/net/ppp_generic.c |   55 +++++++++++++++---------------------
+ drivers/net/ppp_synctty.c |   69 ++++++----------------------------------------
+ 4 files changed, 44 insertions(+), 105 deletions(-)
 
 diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
 --- a/drivers/net/ppp_async.c
@@ -300,6 +301,73 @@ diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
 +	struct completion dead_cmp;
  	struct ppp_channel chan;	/* interface to generic ppp layer */
  };
+ 
+@@ -105,64 +105,15 @@ static const struct ppp_channel_ops sync_ops = {
+ };
+ 
+ /*
+- * Utility procedures to print a buffer in hex/ascii
++ * Utility procedure to print a buffer in hex/ascii
+  */
+ static void
+-ppp_print_hex (register __u8 * out, const __u8 * in, int count)
+-{
+-	register __u8 next_ch;
+-	static const char hex[] = "0123456789ABCDEF";
+-
+-	while (count-- > 0) {
+-		next_ch = *in++;
+-		*out++ = hex[(next_ch >> 4) & 0x0F];
+-		*out++ = hex[next_ch & 0x0F];
+-		++out;
+-	}
+-}
+-
+-static void
+-ppp_print_char (register __u8 * out, const __u8 * in, int count)
+-{
+-	register __u8 next_ch;
+-
+-	while (count-- > 0) {
+-		next_ch = *in++;
+-
+-		if (next_ch < 0x20 || next_ch > 0x7e)
+-			*out++ = '.';
+-		else {
+-			*out++ = next_ch;
+-			if (next_ch == '%')   /* printk/syslogd has a bug !! */
+-				*out++ = '%';
+-		}
+-	}
+-	*out = '\0';
+-}
+-
+-static void
+ ppp_print_buffer (const char *name, const __u8 *buf, int count)
+ {
+-	__u8 line[44];
+-
+ 	if (name != NULL)
+ 		printk(KERN_DEBUG "ppp_synctty: %s, count = %d\n", name, count);
+ 
+-	while (count > 8) {
+-		memset (line, 32, 44);
+-		ppp_print_hex (line, buf, 8);
+-		ppp_print_char (&line[8 * 3], buf, 8);
+-		printk(KERN_DEBUG "%s\n", line);
+-		count -= 8;
+-		buf += 8;
+-	}
+-
+-	if (count > 0) {
+-		memset (line, 32, 44);
+-		ppp_print_hex (line, buf, count);
+-		ppp_print_char (&line[8 * 3], buf, count);
+-		printk(KERN_DEBUG "%s\n", line);
+-	}
++	print_hex_dump_bytes("", DUMP_PREFIX_NONE, buf, count);
+ }
+ 
  
 @@ -195,7 +195,7 @@ static struct syncppp *sp_get(struct tty_struct *tty)
  static void sp_put(struct syncppp *ap)
