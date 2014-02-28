@@ -51,7 +51,6 @@
 #include <trxhdr.h>
 #include "bcm947xx.h"
 
-extern void bcm947xx_time_init(void);
 extern void bcm947xx_timer_setup(struct irqaction *irq);
 
 #ifdef CONFIG_KGDB
@@ -210,7 +209,6 @@ brcm_setup(void)
 	_machine_halt = bcm947xx_machine_halt;
 	pm_power_off = bcm947xx_machine_halt;
 
-	board_time_init = bcm947xx_time_init;
 }
 
 const char *

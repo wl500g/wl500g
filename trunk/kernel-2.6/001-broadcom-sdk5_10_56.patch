@@ -426,12 +426,10 @@ diff -urBwNp linux-2.6.22/arch/mips/kernel/time.c linux-2.6/arch/mips/kernel/tim
  
  #include <asm/bootinfo.h>
  #include <asm/cache.h>
-@@ -125,7 +128,38 @@ int (*mips_timer_state)(void);
- void (*mips_timer_ack)(void);
+@@ -125,6 +128,37 @@
  
- /* last time when xtime and rtc are sync'ed up */
--static long last_rtc_update;
-+static long last_rtc_update = 0;
+ int (*mips_timer_state)(void);
+ void (*mips_timer_ack)(void);
 +
 +#if defined(CONFIG_KERNPROF)
 +int prof_freq[NR_CPUS] = { [0 ... NR_CPUS - 1] = HZ };
