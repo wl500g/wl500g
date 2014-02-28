@@ -1,0 +1,88 @@
+From 1ac944007bede6d6f934831959b0e2b65c82d291
+From: Leonid Yegoshin <Leonid.Yegoshin@imgtec.com>
+Date: Thu, 7 Nov 2013 12:48:28 +0000
+Subject: [PATCH] MIPS: math-emu: Add mfhc1 & mthc1 support.
+
+This patch adds support for the mfhc1 & mthc1 instructions to the FPU
+emulator. These instructions were introduced in release 2 of the MIPS32
+& MIPS64 architectures and allow access to the most significant 32 bits
+of a 64-bit FP register.
+
+[ralf@linux-mips.org: Fix ifdef hell added by original patch.]
+
+Signed-off-by: Leonid Yegoshin <Leonid.Yegoshin@imgtec.com>
+Signed-off-by: Steven J. Hill <Steven.Hill@imgtec.com>
+Signed-off-by: Paul Burton <paul.burton@imgtec.com>
+Cc: linux-mips@linux-mips.org
+Patchwork: https://patchwork.linux-mips.org/patch/6112/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ arch/mips/include/uapi/asm/inst.h |  5 +++--
+ arch/mips/math-emu/cp1emu.c       | 24 ++++++++++++++++++++++++
+ 2 files changed, 27 insertions(+), 2 deletions(-)
+
+diff --git a/include/asm-mips/inst.h b/include/asm-mips/inst.h
+--- a/include/asm-mips/inst.h
++++ b/include/asm-mips/inst.h
+@@ -96,8 +96,9 @@ enum rt_op {
+  */
+ enum cop_op {
+ 	mfc_op        = 0x00, dmfc_op       = 0x01,
+-	cfc_op        = 0x02, mtc_op        = 0x04,
+-	dmtc_op       = 0x05, ctc_op        = 0x06,
++	cfc_op        = 0x02, mfhc_op       = 0x03,
++	mtc_op        = 0x04, dmtc_op       = 0x05,
++	ctc_op        = 0x06, mthc_op       = 0x07,
+ 	bc_op         = 0x08, cop_op        = 0x10,
+ 	copm_op       = 0x18
+ };
+diff --git a/arch/mips/math-emu/cp1emu.c b/arch/mips/math-emu/cp1emu.c
+--- a/arch/mips/math-emu/cp1emu.c
++++ b/arch/mips/math-emu/cp1emu.c
+@@ -208,6 +208,10 @@ static inline int cop1_64bit(struct pt_regs *xcp)
+ 			ctx->fpr[x & ~1] >> 32 << 32 | (u32)(si) : \
+ 			ctx->fpr[x & ~1] << 32 >> 32 | (u64)(si) << 32)
+ 
++#define SIFROMHREG(si, x)	((si) = (int)(ctx->fpr[x] >> 32))
++#define SITOHREG(si, x)		(ctx->fpr[x] = \
++				ctx->fpr[x] << 32 >> 32 | (u64)(si) << 32)
++
+ #define DIFROMREG(di, x) ((di) = ctx->fpr[x & ~(cop1_64bit(xcp) == 0)])
+ #define DITOREG(di, x)	(ctx->fpr[x & ~(cop1_64bit(xcp) == 0)] = (di))
+ 
+@@ -385,6 +389,25 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
+ 			break;
+ #endif
+ 
++		case mfhc_op:
++			if (!cpu_has_mips_r2)
++				goto sigill;
++
++			/* copregister rd -> gpr[rt] */
++			if (MIPSInst_RT(ir) != 0) {
++				SIFROMHREG(xcp->regs[MIPSInst_RT(ir)],
++					MIPSInst_RD(ir));
++			}
++			break;
++
++		case mthc_op:
++			if (!cpu_has_mips_r2)
++				goto sigill;
++
++			/* copregister rd <- gpr[rt] */
++			SITOHREG(xcp->regs[MIPSInst_RT(ir)], MIPSInst_RD(ir));
++			break;
++
+ 		case mfc_op:
+ 			/* copregister rd -> gpr[rt] */
+ 			if (MIPSInst_RT(ir) != 0) {
+@@ -583,6 +596,7 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
+ #endif
+ 
+ 	default:
++sigill:
+ 		return SIGILL;
+ 	}
+ 
+-- 
