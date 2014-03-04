@@ -1,0 +1,56 @@
+internal compiler error: in set_designator, at c-typeck.c:5771
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=42262
+
+--- trunk/gcc/ChangeLog	2013/11/29 20:13:45	205542
++++ trunk/gcc/ChangeLog	2013/11/29 21:24:14	205543
+@@ -1,3 +1,10 @@
++2013-11-29  Joseph Myers  <joseph@codesourcery.com>
++
++	PR c/42262
++	* c-typeck.c (process_init_element): Do not treat a string as
++	initializing a whole array when used with a designator for an
++	individual element.
++
+ 2013-09-11  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	PR tree-optimization/58385
+--- trunk/gcc/c-typeck.c	2013/11/29 20:13:45	205542
++++ trunk/gcc/c-typeck.c	2013/11/29 21:24:14	205543
+@@ -8504,6 +8504,7 @@
+   tree orig_value = value.value;
+   int string_flag = orig_value != 0 && TREE_CODE (orig_value) == STRING_CST;
+   bool strict_string = value.original_code == STRING_CST;
++  bool was_designated = designator_depth != 0;
+ 
+   designator_depth = 0;
+   designator_erroneous = 0;
+@@ -8512,6 +8513,7 @@
+      char x[] = {"foo"}; */
+   if (string_flag
+       && constructor_type
++      && !was_designated
+       && TREE_CODE (constructor_type) == ARRAY_TYPE
+       && INTEGRAL_TYPE_P (TREE_TYPE (constructor_type))
+       && integer_zerop (constructor_unfilled_index))
+--- /dev/null
++++ trunk/gcc/testsuite/gcc.dg/c99-init-5.c	2013/11/29 21:24:14	205543
+@@ -0,0 +1,9 @@
++/* Test for designated initializers: string constants used with
++   designator in character array should not initialize the array as a
++   whole.  */
++/* { dg-do compile } */
++/* { dg-options "-std=iso9899:1999 -pedantic-errors" } */
++
++char g[] = { [7] = "abcd" }; /* { dg-error "initial" } */
++char h[10][10] = { [1][1] = "abcd" }; /* { dg-error "initial" } */
++char i[10][10] = { [1] = "abcd" };
+--- /dev/null
++++ trunk/gcc/testsuite/gcc.dg/c99-init-6.c	2013/11/29 21:24:14	205543
+@@ -0,0 +1,6 @@
++/* Test for designated initializers: invalid uses of string constants
++   should not ICE.  PR 42262.  */
++/* { dg-do compile } */
++/* { dg-options "-std=iso9899:1999 -pedantic-errors" } */
++
++int a[] = { [0 ... 1] = "", [0] = "" }; /* { dg-error "initial" } */
