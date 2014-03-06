@@ -1,10 +1,9 @@
 config UCLIBC_VERSION
 	string
 	default ""           if UCLIBC_VERSION_SNAPSHOT
-	default "0.9.29"     if UCLIBC_VERSION_0_9_29
 	default "0.9.30"     if UCLIBC_VERSION_0_9_30
 	default "0.9.32"     if UCLIBC_VERSION_0_9_32
-	default "0.9.30"
+	default "0.9.32"
 
 config UCLIBC_EXTRA_VERSION
 	string

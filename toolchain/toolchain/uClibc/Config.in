@@ -2,17 +2,14 @@
 
 choice
 	prompt "uClibc Version"
-	default UCLIBC_VERSION_0_9_30
+	default UCLIBC_VERSION_0_9_32
 	help
 	  Select the version of uClibc you wish to use.
-	  Default is 0.9.30 .
+	  Default is 0.9.32
 
 	config UCLIBC_VERSION_SNAPSHOT
 		depends !LINUX_2_4
 		bool "uClibc snapshot"
-
-	config UCLIBC_VERSION_0_9_29
-		bool "uClibc 0.9.29"
 
 	config UCLIBC_VERSION_0_9_30
 		bool "uClibc 0.9.30"
