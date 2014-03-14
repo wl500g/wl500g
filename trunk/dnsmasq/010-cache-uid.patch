@@ -1,0 +1,25 @@
+diff --git a/src/cache.c b/src/cache.c
+index f4a24b3..40ec58d 100644
+--- a/src/cache.c
++++ b/src/cache.c
+@@ -192,10 +192,9 @@ static void cache_free(struct crec *crecp)
+ {
+   crecp->flags &= ~F_FORWARD;
+   crecp->flags &= ~F_REVERSE;
+-  crecp->uid = uid++; /* invalidate CNAMES pointing to this. */
+-
+   if (uid == -1)
+     uid++;
++  crecp->uid = uid++; /* invalidate CNAMES pointing to this. */
+ 
+   if (cache_tail)
+     cache_tail->next = crecp;
+@@ -1242,6 +1241,8 @@ void cache_add_dhcp_entry(char *host_name, int prot,
+ 	crec->ttd = ttd;
+       crec->addr.addr = *host_address;
+       crec->name.namep = host_name;
++      if (uid == -1)
++	uid++;
+       crec->uid = uid++;
+       cache_hash(crec);
+ 
