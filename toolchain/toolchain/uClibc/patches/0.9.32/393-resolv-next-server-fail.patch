@@ -1,4 +1,4 @@
-From 0100056707c0ca5c51bb0b8d88612a407be09ef1
+From e1420eca7374cd8f583e9d774c890645a205aaee
 From: Bernhard Reutner-Fischer
 Date: Tue, 14 Jun 2011 14:31:00 +0000
 Subject: resolv: try next server on SERVFAIL
@@ -17,8 +17,25 @@ required.
 
 Signed-off-by: Bernhard Reutner-Fischer <rep.dot.nop@gmail.com>
 ---
+
+From: Michel Stam <michel at reverze.net>
+Date: Thu, 27 Feb 2014 21:42:38 +0100
+Subject: [PATCH] resolv: try next server on SERVFAIL
+
+Commit e1420eca7374cd8f583e9d774c890645a205aaee fixed a bug where a
+response code should mean the next server is tried. However, it tries
+only the next search domain, and never skips to the next server. This
+fix makes sure we try the next server on SERVFAIL.
+
+Ref.: http://lists.uclibc.org/pipermail/uclibc/2014-March/048268.html
+
+Signed-off-by: Michel Stam <michel at reverze.net>
+---
+
+ libc/inet/resolv.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
 diff --git a/libc/inet/resolv.c b/libc/inet/resolv.c
-index 021d5bf..e8b7f2b 100644
 --- a/libc/inet/resolv.c
 +++ b/libc/inet/resolv.c
 @@ -1461,7 +1461,7 @@ int attribute_hidden __dns_lookup(const char *name,
@@ -30,5 +47,19 @@ index 021d5bf..e8b7f2b 100644
  			/* if possible, try next search domain */
  			if (!ends_with_dot) {
  				DPRINTF("variant:%d sdomains:%d\n", variant, sdomains);
---
-cgit v0.9.0.1-2-gef13
+@@ -1471,9 +1471,11 @@ int __dns_lookup(const char *name,
+ 				}
+ 				/* no more search domains to try */
+ 			}
+-			/* dont loop, this is "no such host" situation */
+-			h_errno = HOST_NOT_FOUND;
+-			goto fail1;
++			if (h.rcode != SERVFAIL) {
++				/* dont loop, this is "no such host" situation */
++				h_errno = HOST_NOT_FOUND;
++				goto fail1;
++			}
+ 		}
+ 		/* Insert other non-fatal errors here, which do not warrant
+ 		 * switching to next nameserver */
+-- 
