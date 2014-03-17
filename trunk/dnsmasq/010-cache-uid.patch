@@ -1,25 +1,162 @@
+From 3f7483e81684650102d8544ba1afd49be531bd54
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Sun, 16 Mar 2014 22:56:58 +0000
+Subject: [PATCH] Handle integer overflow in uid counter. Fixes rare crashes in cache code.
+
+---
+ src/cache.c   |   27 +++++++++++++++++----------
+ src/dnsmasq.h |    4 ++--
+ src/dnssec.c  |    4 ++--
+ src/rfc1035.c |    4 ++--
+ 4 files changed, 23 insertions(+), 16 deletions(-)
+
 diff --git a/src/cache.c b/src/cache.c
-index f4a24b3..40ec58d 100644
 --- a/src/cache.c
 +++ b/src/cache.c
-@@ -192,10 +192,9 @@ static void cache_free(struct crec *crecp)
+@@ -24,7 +24,6 @@ static struct crec *new_chain = NULL;
+ static int cache_inserted = 0, cache_live_freed = 0, insert_error;
+ static union bigname *big_free = NULL;
+ static int bignames_left, hash_size;
+-static int uid = 1;
+ 
+ /* type->string mapping: this is also used by the name-hash function as a mixing table. */
+ static const struct {
+@@ -73,6 +72,17 @@ static void cache_link(struct crec *crecp);
+ static void rehash(int size);
+ static void cache_hash(struct crec *crecp);
+ 
++static unsigned int next_uid(void)
++{
++  static unsigned int uid = 1;
++
++  /* uid == 0 used to indicate CNAME to interface name. */
++  if (uid == 0)
++    uid++;
++  
++  return uid++;
++}
++
+ void cache_init(void)
+ {
+   struct crec *crecp;
+@@ -88,7 +98,7 @@ void cache_init(void)
+ 	{
+ 	  cache_link(crecp);
+ 	  crecp->flags = 0;
+-	  crecp->uid = uid++;
++	  crecp->uid = next_uid();
+ 	}
+     }
+   
+@@ -192,10 +202,7 @@ static void cache_free(struct crec *crecp)
  {
    crecp->flags &= ~F_FORWARD;
    crecp->flags &= ~F_REVERSE;
 -  crecp->uid = uid++; /* invalidate CNAMES pointing to this. */
 -
-   if (uid == -1)
-     uid++;
-+  crecp->uid = uid++; /* invalidate CNAMES pointing to this. */
+-  if (uid == -1)
+-    uid++;
++  crecp->uid = next_uid(); /* invalidate CNAMES pointing to this. */
  
    if (cache_tail)
      cache_tail->next = crecp;
-@@ -1242,6 +1241,8 @@ void cache_add_dhcp_entry(char *host_name, int prot,
+@@ -256,7 +263,7 @@ char *cache_get_name(struct crec *crecp)
+ 
+ char *cache_get_cname_target(struct crec *crecp)
+ {
+-  if (crecp->addr.cname.uid != -1)
++  if (crecp->addr.cname.uid != 0)
+     return cache_get_name(crecp->addr.cname.target.cache);
+ 
+   return crecp->addr.cname.target.int_name->name;
+@@ -289,7 +296,7 @@ struct crec *cache_enumerate(int init)
+ 
+ static int is_outdated_cname_pointer(struct crec *crecp)
+ {
+-  if (!(crecp->flags & F_CNAME) || crecp->addr.cname.uid == -1)
++  if (!(crecp->flags & F_CNAME) || crecp->addr.cname.uid == 0)
+     return 0;
+   
+   /* NB. record may be reused as DS or DNSKEY, where uid is 
+@@ -1034,7 +1041,7 @@ void cache_reload(void)
+ 	  cache->flags = F_FORWARD | F_NAMEP | F_CNAME | F_IMMORTAL | F_CONFIG;
+ 	  cache->name.namep = a->alias;
+ 	  cache->addr.cname.target.int_name = intr;
+-	  cache->addr.cname.uid = -1;
++	  cache->addr.cname.uid = 0;
+ 	  cache_hash(cache);
+ 	  add_hosts_cname(cache); /* handle chains */
+ 	}
+@@ -1242,7 +1249,7 @@ void cache_add_dhcp_entry(char *host_name, int prot,
  	crec->ttd = ttd;
        crec->addr.addr = *host_address;
        crec->name.namep = host_name;
-+      if (uid == -1)
-+	uid++;
-       crec->uid = uid++;
+-      crec->uid = uid++;
++      crec->uid = next_uid();
        cache_hash(crec);
  
+       add_dhcp_cname(crec, ttd);
+diff --git a/src/dnsmasq.h b/src/dnsmasq.h
+--- a/src/dnsmasq.h
++++ b/src/dnsmasq.h
+@@ -367,7 +367,7 @@ struct crec {
+ 	struct crec *cache;
+ 	struct interface_name *int_name;
+       } target;
+-      int uid; /* -1 if union is interface-name */
++      unsigned int uid; /* 0 if union is interface-name */
+     } cname;
+     struct {
+       struct blockdata *keydata;
+@@ -388,7 +388,7 @@ struct crec {
+   } addr;
+   time_t ttd; /* time to die */
+   /* used as class if DNSKEY/DS/RRSIG, index to source for F_HOSTS */
+-  int uid; 
++  unsigned int uid; 
+   unsigned short flags;
+   union {
+     char sname[SMALLDNAME];
+diff --git a/src/dnssec.c b/src/dnssec.c
+--- a/src/dnssec.c
++++ b/src/dnssec.c
+@@ -827,7 +827,7 @@ static int validate_rrset(time_t now, struct dns_header *header, size_t plen, in
+ 	  for (; crecp; crecp = cache_find_by_name(crecp, keyname, now, F_DNSKEY))
+ 	    if (crecp->addr.key.algo == algo && 
+ 		crecp->addr.key.keytag == key_tag &&
+-		crecp->uid == class &&
++		crecp->uid == (unsigned int)class &&
+ 		verify(crecp->addr.key.keydata, crecp->addr.key.keylen, sig, sig_len, digest, hash->digest_size, algo))
+ 	      return (labels < name_labels) ? STAT_SECURE_WILDCARD : STAT_SECURE;
+ 	}
+@@ -932,7 +932,7 @@ int dnssec_validate_by_ds(time_t now, struct dns_header *header, size_t plen, ch
+ 	  
+ 	  if (recp1->addr.ds.algo == algo && 
+ 	      recp1->addr.ds.keytag == keytag &&
+-	      recp1->uid == class &&
++	      recp1->uid == (unsigned int)class &&
+ 	      (hash = hash_find(ds_digest_name(recp1->addr.ds.digest))) &&
+ 	      hash_init(hash, &ctx, &digest))
+ 	    
+diff --git a/src/rfc1035.c b/src/rfc1035.c
+--- a/src/rfc1035.c
++++ b/src/rfc1035.c
+@@ -1456,7 +1456,7 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
+ {
+   char *name = daemon->namebuff;
+   unsigned char *p, *ansp, *pheader;
+-  int qtype, qclass;
++  unsigned int qtype, qclass;
+   struct all_addr addr;
+   int nameoffset;
+   unsigned short flag;
+@@ -2016,7 +2016,7 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
+ 			    
+ 			    strcpy(name, cname_target);
+ 			    /* check if target interface_name */
+-			    if (crecp->addr.cname.uid == -1)
++			    if (crecp->addr.cname.uid == 0)
+ 			      goto intname_restart;
+ 			    else
+ 			      goto cname_restart;
+-- 
