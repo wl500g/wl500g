@@ -1,0 +1,56 @@
+From 540417a0754336251faeab48291bd4cbf9eb8780
+From: Deng-Cheng Zhu <dengcheng.zhu@imgtec.com>
+Date: Thu, 6 Mar 2014 17:05:27 -0800
+Subject: [PATCH] MIPS: math-emu: Fix prefx detection and COP1X function field definition
+
+When running applications which contain the instruction "prefx" on FPU-less
+CPUs, a message "Illegal instruction" will be seen. This instruction is
+supposed to be ignored by the FPU emulator. However, its current detection
+and function field encoding are incorrect. This patch fix the issue.
+
+Signed-off-by: Deng-Cheng Zhu <dengcheng.zhu@imgtec.com>
+Reviewed-by: Leonid Yegoshin <Leonid.Yegoshin@imgtec.com>
+Reviewed-by: Paul Burton <paul.burton@imgtec.com>
+Acked-by: David Daney <david.daney@cavium.com>
+Cc: linux-mips@linux-mips.org
+Cc: Steven.Hill@imgtec.com
+Patchwork: https://patchwork.linux-mips.org/patch/6608/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ include/asm-mips/inst.h     | 4 ++--
+ arch/mips/math-emu/cp1emu.c | 6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/include/asm-mips/inst.h b/include/asm-mips/inst.h
+--- a/include/asm-mips/inst.h
++++ b/include/asm-mips/inst.h
+@@ -163,8 +163,8 @@ enum cop1_sdw_func {
+  */
+ enum cop1x_func {
+ 	lwxc1_op     =  0x00, ldxc1_op     =  0x01,
+-	pfetch_op    =  0x07, swxc1_op     =  0x08,
+-	sdxc1_op     =  0x09, madd_s_op    =  0x20,
++	swxc1_op     =  0x08, sdxc1_op     =  0x09,
++	pfetch_op    =	0x0f, madd_s_op    =  0x20,
+ 	madd_d_op    =  0x21, madd_e_op    =  0x22,
+ 	msub_s_op    =  0x28, msub_d_op    =  0x29,
+ 	msub_e_op    =  0x2a, nmadd_s_op   =  0x30,
+diff --git a/arch/mips/math-emu/cp1emu.c b/arch/mips/math-emu/cp1emu.c
+--- a/arch/mips/math-emu/cp1emu.c
++++ b/arch/mips/math-emu/cp1emu.c
+@@ -836,10 +836,10 @@ static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
+ 		break;
+ 	}
+ 
+-	case 0x7:		/* 7 */
+-		if (MIPSInst_FUNC(ir) != pfetch_op) {
++	case 0x3:
++		if (MIPSInst_FUNC(ir) != pfetch_op)
+ 			return SIGILL;
+-		}
++
+ 		/* ignore prefx operation */
+ 		break;
+ 
+-- 
