@@ -211,6 +211,8 @@ void runqueue_task_complete(struct runqueue_task *t)
 	if (t->running)
 		t->q->running_tasks--;
 
+	uloop_timeout_cancel(&t->timeout);
+
 	safe_list_del(&t->list);
 	t->queued = false;
 	t->running = false;
