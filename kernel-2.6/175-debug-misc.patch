@@ -6,8 +6,12 @@
 diff --git a/include/linux/debug_locks.h b/include/linux/debug_locks.h
 --- a/include/linux/debug_locks.h
 +++ b/include/linux/debug_locks.h
-@@ -6,6 +6,7 @@
+@@ -6,8 +6,11 @@
+ #ifndef __LINUX_DEBUG_LOCKING_H
+ #define __LINUX_DEBUG_LOCKING_H
  
++#include <linux/kernel.h>
++
  struct task_struct;
  
 +#ifdef CONFIG_DEBUG_KERNEL
@@ -34,9 +38,9 @@ diff --git a/include/linux/debug_locks.h b/include/linux/debug_locks.h
 +}
 +#endif /* CONFIG_DEBUG_KERNEL */
 +
- /*
-  * In the debug case we carry the caller's instruction pointer into
-  * other functions, but we dont want the function argument overhead
+ #define DEBUG_LOCKS_WARN_ON(c)						\
+ ({									\
+ 	int __ret = 0;							\
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug

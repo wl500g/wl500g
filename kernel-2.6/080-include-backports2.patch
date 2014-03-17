@@ -38,6 +38,24 @@ diff --git a/include/linux/Kbuild b/include/linux/Kbuild
  
  objhdr-y += version.h
 +objhdr-y += utsrelease.h
+diff --git a/include/linux/debug_locks.h b/include/linux/debug_locks.h
+--- a/include/linux/debug_locks.h
++++ b/include/linux/debug_locks.h
+@@ -11,14 +13,6 @@ extern int debug_locks_silent;
+  */
+ extern int debug_locks_off(void);
+ 
+-/*
+- * In the debug case we carry the caller's instruction pointer into
+- * other functions, but we dont want the function argument overhead
+- * in the nondebug case - hence these macros:
+- */
+-#define _RET_IP_		(unsigned long)__builtin_return_address(0)
+-#define _THIS_IP_  ({ __label__ __here; __here: (unsigned long)&&__here; })
+-
+ #define DEBUG_LOCKS_WARN_ON(c)						\
+ ({									\
+ 	int __ret = 0;							\
 diff -uBp a/include/linux/if_ether.h b/include/linux/if_ether.h
 --- a/include/linux/if_ether.h
 +++ b/include/linux/if_ether.h
@@ -117,6 +135,17 @@ diff --git a/include/linux/mm.h b/include/linux/mm.h
  
  	/* Information about our backing store: */
  	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
+diff --git a/include/linux/percpu.h b/include/linux/percpu.h
+--- a/include/linux/percpu.h
++++ b/include/linux/percpu.h
+@@ -4,7 +4,6 @@
+ #include <linux/preempt.h>
+ #include <linux/slab.h> /* For kmalloc() */
+ #include <linux/smp.h>
+-#include <linux/string.h> /* For memset() */
+ #include <linux/cpumask.h>
+ 
+ #include <asm/percpu.h>
 diff --git a/include/linux/types.h b/include/linux/types.h
 --- a/include/linux/types.h
 +++ b/include/linux/types.h
