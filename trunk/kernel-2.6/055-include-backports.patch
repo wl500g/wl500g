@@ -360,7 +360,7 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  #define INT_MAX		((int)(~0U>>1))
  #define INT_MIN		(-INT_MAX - 1)
  #define UINT_MAX	(~0U)
-@@ -34,12 +34,37 @@ extern const char linux_proc_banner[];
+@@ -34,12 +34,40 @@ extern const char linux_proc_banner[];
  
  #define ALIGN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
  #define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
@@ -396,6 +396,9 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
 +	__x - (__x % (y));				\
 +}							\
 +)
++
++#define _RET_IP_		(unsigned long)__builtin_return_address(0)
++#define _THIS_IP_  ({ __label__ __here; __here: (unsigned long)&&__here; })
  
  /**
   * upper_32_bits - return bits 32-63 of a number
