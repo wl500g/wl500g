@@ -1,0 +1,28 @@
+From 4b31b027d11b35c4ae61a62ece8649a0f1339c87
+From: Reuben Hawkins <reubenhwk@gmail.com>
+Date: Thu, 27 Feb 2014 00:29:40 -0600
+Subject: [PATCH] reschedule iface even when send fails
+
+Not rescheduling can leave the iface as the next iface to expire
+which will peg the CPU at 100% if sending continues to fail.  This
+change logs the failure and reschedules like normal when the iface
+failes to send an ra.
+
+---
+ radvd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/radvd.c b/radvd.c
+--- a/radvd.c
++++ b/radvd.c
+@@ -464,7 +464,7 @@ void timer_handler(void *data)
+ 	dlog(LOG_DEBUG, 4, "timer_handler called for %s", iface->Name);
+ 
+ 	if (send_ra_forall(iface, NULL) != 0) {
+-		return;
++		dlog(LOG_DEBUG, 4, "send_ra_forall failed on interface %s", iface->Name);
+ 	}
+ 
+ 	next = rand_between(iface->MinRtrAdvInterval, iface->MaxRtrAdvInterval);
+-- 
+1.8.5.5
