@@ -1,4 +1,4 @@
-From 3f7483e81684650102d8544ba1afd49be531bd54
+From 3f7483e81684650102d8544ba1afd49be531bd54 Mon Sep 17 00:00:00 2001
 From: Simon Kelley <simon@thekelleys.org.uk>
 Date: Sun, 16 Mar 2014 22:56:58 +0000
 Subject: [PATCH] Handle integer overflow in uid counter. Fixes rare crashes in cache code.
@@ -11,6 +11,7 @@ Subject: [PATCH] Handle integer overflow in uid counter. Fixes rare crashes in c
  4 files changed, 23 insertions(+), 16 deletions(-)
 
 diff --git a/src/cache.c b/src/cache.c
+index f4a24b3..a7be5f1 100644
 --- a/src/cache.c
 +++ b/src/cache.c
 @@ -24,7 +24,6 @@ static struct crec *new_chain = NULL;
@@ -97,6 +98,7 @@ diff --git a/src/cache.c b/src/cache.c
  
        add_dhcp_cname(crec, ttd);
 diff --git a/src/dnsmasq.h b/src/dnsmasq.h
+index 6a0391d..e7097bd 100644
 --- a/src/dnsmasq.h
 +++ b/src/dnsmasq.h
 @@ -367,7 +367,7 @@ struct crec {
@@ -118,6 +120,7 @@ diff --git a/src/dnsmasq.h b/src/dnsmasq.h
    union {
      char sname[SMALLDNAME];
 diff --git a/src/dnssec.c b/src/dnssec.c
+index fdcc4cd..6640c46 100644
 --- a/src/dnssec.c
 +++ b/src/dnssec.c
 @@ -827,7 +827,7 @@ static int validate_rrset(time_t now, struct dns_header *header, size_t plen, in
@@ -139,6 +142,7 @@ diff --git a/src/dnssec.c b/src/dnssec.c
  	      hash_init(hash, &ctx, &digest))
  	    
 diff --git a/src/rfc1035.c b/src/rfc1035.c
+index 661ac3e..ee11ff0 100644
 --- a/src/rfc1035.c
 +++ b/src/rfc1035.c
 @@ -1456,7 +1456,7 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
@@ -160,3 +164,5 @@ diff --git a/src/rfc1035.c b/src/rfc1035.c
  			    else
  			      goto cname_restart;
 -- 
+1.7.2.5
+
