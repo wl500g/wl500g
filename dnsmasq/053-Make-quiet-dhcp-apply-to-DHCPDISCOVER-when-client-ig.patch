@@ -1,0 +1,25 @@
+From cc1a29e2502b9984e6687a74f8bcbaea1fb5c5db Mon Sep 17 00:00:00 2001
+From: Simon Kelley <simon@thekelleys.org.uk>
+Date: Thu, 20 Mar 2014 15:47:18 +0000
+Subject: [PATCH 09/10] Make --quiet-dhcp apply to DHCPDISCOVER when client ignored.
+
+---
+ src/rfc2131.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/src/rfc2131.c b/src/rfc2131.c
+index 12dd284..5c90408 100644
+--- a/src/rfc2131.c
++++ b/src/rfc2131.c
+@@ -962,6 +962,8 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
+     case DHCPDISCOVER:
+       if (ignore || have_config(config, CONFIG_DISABLE))
+ 	{
++	  if (option_bool(OPT_QUIET_DHCP))
++	    return 0;
+ 	  message = _("ignored");
+ 	  opt = NULL;
+ 	}
+-- 
+1.7.2.5
+
