@@ -9,11 +9,12 @@
  67426b756c4d52c511c4b22b269accea171692a8 af_unix: use keyed wakeups
  0e82e7f6dfeec1013339612f74abc2cdd29d43d2 af_unix: If we don't care about credentials coallesce all messages
  b4fff5f8bf32766ecaa4af6d5c7ef7f0ffb88ed2 unix: Use FIELD_SIZEOF() in af_unix_init().
+ 0a13404dd3bf4ea870e3d96270b5a382edca85c0 net: unix socket code abuses csum_partial
 
 ---
- include/net/af_unix.h |   47 +++-------------
- net/unix/af_unix.c    |  143 +++++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 122 insertions(+), 68 deletions(-)
+ include/net/af_unix.h |   47 +++------------
+ net/unix/af_unix.c    |  150 ++++++++++++++++++++++++++++++++++++++------------
+ 2 files changed, 125 insertions(+), 72 deletions(-)
 
 diff --git a/include/net/af_unix.h b/include/net/af_unix.h
 --- a/include/net/af_unix.h
@@ -142,6 +143,17 @@ diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
  #ifdef CONFIG_SECURITY_NETWORK
  static void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
  {
+@@ -152,8 +178,8 @@ static inline void unix_set_secdata(struct scm_cookie *scm, struct sk_buff *skb)
+ 
+ static inline unsigned unix_hash_fold(__wsum n)
+ {
+-	unsigned hash = (__force unsigned)n;
+-	hash ^= hash>>16;
++	unsigned hash = (__force unsigned)csum_fold(n);
++
+ 	hash ^= hash>>8;
+ 	return hash&(UNIX_HASH_SIZE-1);
+ }
 @@ -170,6 +196,11 @@ static inline int unix_may_send(struct s
  	return (unix_peer(osk) == NULL || unix_our_peer(sk, osk));
  }
