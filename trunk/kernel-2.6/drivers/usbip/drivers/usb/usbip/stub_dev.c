@@ -86,13 +86,16 @@ static ssize_t store_sockfd(struct device *dev, struct device_attribute *attr,
 	struct stub_device *sdev = dev_get_drvdata(dev);
 	int sockfd = 0;
 	struct socket *socket;
+	int rv;
 
 	if (!sdev) {
 		dev_err(dev, "sdev is null\n");
 		return -ENODEV;
 	}
 
-	sscanf(buf, "%d", &sockfd);
+	rv = sscanf(buf, "%d", &sockfd);
+	if (rv != 1)
+		return -EINVAL;
 
 	if (sockfd != -1) {
 		dev_info(dev, "stub up\n");
