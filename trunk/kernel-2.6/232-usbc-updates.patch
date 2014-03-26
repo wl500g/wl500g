@@ -1,0 +1,410 @@
+USB: Updates from upstream
+
+ 80da2e0df5af700518611b7d1cc4fc9945bcaf95 usb: Add quirk detection based on interface information
+ e387ef5c47ddeaeaa3cbdc54424cdb7a28dae2c0 usb: Add USB_QUIRK_RESET_RESUME for all Logitech UVC webcams
+ e0429362ab15c46ea4d64c3f8c9e0933e48a143a usb: Add device quirk for Logitech HD Pro Webcams C920 and C930e
+ d86db25e53fa69e3e97f3b55dd82a70689787c5d usb: Make DELAY_INIT quirk wait 100ms between Get Configuration requests
+ 81df2d594340dcb6d1a02191976be88a1ca8120c USB: allow match on bInterfaceNumber
+ fec1868e23099023bc545e199b78d99840b1abc9 USB: properly pad out usb_device_id.driver_info
+ d7c9a53f13cf4b273b220934167c7630c3362563 of: add const to struct *of_device_id.data
+
+---
+ drivers/usb/core/config.c       |    4 +
+ drivers/usb/core/driver.c       |   38 ++++++++------
+ drivers/usb/core/hub.c          |    2 
+ drivers/usb/core/message.c      |    5 +
+ drivers/usb/core/quirks.c       |  104 +++++++++++++++++++++++++++++++---------
+ drivers/usb/core/sysfs.c        |    5 +
+ drivers/usb/core/usb.h          |    4 +
+ include/linux/mod_devicetable.h |   12 +++-
+ include/linux/usb.h             |   16 ++++++
+ scripts/mod/file2alias.c        |    5 +
+ 10 files changed, 152 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/usb/core/config.c b/drivers/usb/core/config.c
+--- a/drivers/usb/core/config.c
++++ b/drivers/usb/core/config.c
+@@ -717,6 +717,10 @@ int usb_get_configuration(struct usb_device *dev)
+ 			result = -ENOMEM;
+ 			goto err;
+ 		}
++
++		if (dev->quirks & USB_QUIRK_DELAY_INIT)
++			msleep(100);
++
+ 		result = usb_get_descriptor(dev, USB_DT_CONFIG, cfgno,
+ 		    bigbuffer, length);
+ 		if (result < 0) {
+diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
+--- a/drivers/usb/core/driver.c
++++ b/drivers/usb/core/driver.c
+@@ -607,22 +607,10 @@ int usb_match_device(struct usb_device *dev, const struct usb_device_id *id)
+ }
+ 
+ /* returns 0 if no match, 1 if match */
+-int usb_match_one_id(struct usb_interface *interface,
+-		     const struct usb_device_id *id)
++int usb_match_one_id_intf(struct usb_device *dev,
++			  struct usb_host_interface *intf,
++			  const struct usb_device_id *id)
+ {
+-	struct usb_host_interface *intf;
+-	struct usb_device *dev;
+-
+-	/* proc_connectinfo in devio.c may call us with id == NULL. */
+-	if (id == NULL)
+-		return 0;
+-
+-	intf = interface->cur_altsetting;
+-	dev = interface_to_usbdev(interface);
+-
+-	if (!usb_match_device(dev, id))
+-		return 0;
+-
+ 	/* The interface class, subclass, and protocol should never be
+ 	 * checked for a match if the device class is Vendor Specific,
+ 	 * unless the match record specifies the Vendor ID. */
+@@ -652,6 +640,26 @@ int usb_match_one_id(struct usb_interface *interface,
+ 
+ 	return 1;
+ }
++
++/* returns 0 if no match, 1 if match */
++int usb_match_one_id(struct usb_interface *interface,
++		     const struct usb_device_id *id)
++{
++	struct usb_host_interface *intf;
++	struct usb_device *dev;
++
++	/* proc_connectinfo in devio.c may call us with id == NULL. */
++	if (id == NULL)
++		return 0;
++
++	intf = interface->cur_altsetting;
++	dev = interface_to_usbdev(interface);
++
++	if (!usb_match_device(dev, id))
++		return 0;
++
++	return usb_match_one_id_intf(dev, intf, id);
++}
+ EXPORT_SYMBOL_GPL(usb_match_one_id);
+ 
+ /**
+diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
+--- a/drivers/usb/core/hub.c
++++ b/drivers/usb/core/hub.c
+@@ -1611,6 +1611,8 @@ int usb_new_device(struct usb_device *udev)
+ 	udev->dev.devt = MKDEV(USB_DEVICE_MAJOR,
+ 			(((udev->bus->busnum-1) * 128) + (udev->devnum-1)));
+ 
++	usb_detect_interface_quirks(udev);
++
+ 	/* Tell the world! */
+ 	announce_device(udev);
+ 
+diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
+--- a/drivers/usb/core/message.c
++++ b/drivers/usb/core/message.c
+@@ -1559,7 +1559,7 @@ static int usb_if_uevent(struct device *dev, struct kobj_uevent_env *env)
+ 	if (add_uevent_var(envp, num_envp, &i,
+ 		   buffer, buffer_size, &length,
+ 		   "MODALIAS=usb:"
+-		   "v%04Xp%04Xd%04Xdc%02Xdsc%02Xdp%02Xic%02Xisc%02Xip%02X",
++		   "v%04Xp%04Xd%04Xdc%02Xdsc%02Xdp%02Xic%02Xisc%02Xip%02Xin%02X",
+ 		   le16_to_cpu(usb_dev->descriptor.idVendor),
+ 		   le16_to_cpu(usb_dev->descriptor.idProduct),
+ 		   le16_to_cpu(usb_dev->descriptor.bcdDevice),
+@@ -1568,7 +1568,8 @@ static int usb_if_uevent(struct device *dev, struct kobj_uevent_env *env)
+ 		   usb_dev->descriptor.bDeviceProtocol,
+ 		   alt->desc.bInterfaceClass,
+ 		   alt->desc.bInterfaceSubClass,
+-		   alt->desc.bInterfaceProtocol))
++		   alt->desc.bInterfaceProtocol,
++		   alt->desc.bInterfaceNumber))
+ 		return -ENOMEM;
+ 
+ 	return 0;
+diff --git a/drivers/usb/core/quirks.c b/drivers/usb/core/quirks.c
+--- a/drivers/usb/core/quirks.c
++++ b/drivers/usb/core/quirks.c
+@@ -15,17 +15,22 @@
+ #include <linux/usb/quirks.h>
+ #include "usb.h"
+ 
+-/* List of quirky USB devices.  Please keep this list ordered by:
++/* Lists of quirky USB devices, split in device quirks and interface quirks.
++ * Device quirks are applied at the very beginning of the enumeration process,
++ * right after reading the device descriptor. They can thus only match on device
++ * information.
++ *
++ * Interface quirks are applied after reading all the configuration descriptors.
++ * They can match on both device and interface information.
++ *
++ * Note that the DELAY_INIT and HONOR_BNUMINTERFACES quirks do not make sense as
++ * interface quirks, as they only influence the enumeration process which is run
++ * before processing the interface quirks.
++ *
++ * Please keep the lists ordered by:
+  * 	1) Vendor ID
+  * 	2) Product ID
+  * 	3) Class ID
+- *
+- * as we want specific devices to be overridden first, and only after that, any
+- * class specific quirks.
+- *
+- * Right now the logic aborts if it finds a valid device in the table, we might
+- * want to change that in the future if it turns out that a whole class of
+- * devices is broken...
+  */
+ static const struct usb_device_id usb_quirk_list[] = {
+ 	/* CBM - Flash disk */
+@@ -38,6 +43,13 @@ static const struct usb_device_id usb_qu
+ 	/* Creative SB Audigy 2 NX */
+ 	{ USB_DEVICE(0x041e, 0x3020), .driver_info = USB_QUIRK_RESET_RESUME },
+ 
++	/* Logitech HD Pro Webcams C920 and C930e */
++	{ USB_DEVICE(0x046d, 0x082d), .driver_info = USB_QUIRK_DELAY_INIT },
++	{ USB_DEVICE(0x046d, 0x0843), .driver_info = USB_QUIRK_DELAY_INIT },
++
++	/* Logitech Quickcam Pro 5000 */
++	{ USB_DEVICE(0x046d, 0x08c5), .driver_info = USB_QUIRK_RESET_RESUME },
++
+ 	/* Logitech Harmony 700-series */
+ 	{ USB_DEVICE(0x046d, 0xc122), .driver_info = USB_QUIRK_DELAY_INIT },
+ 
+@@ -88,16 +100,57 @@ static const struct usb_device_id usb_qu
+ 	{ }  /* terminating entry must be last */
+ };
+ 
+-static const struct usb_device_id *find_id(struct usb_device *udev)
++static const struct usb_device_id usb_interface_quirk_list[] = {
++	/* Logitech UVC Cameras */
++	{ USB_VENDOR_AND_INTERFACE_INFO(0x046d, USB_CLASS_VIDEO, 1, 0),
++	  .driver_info = USB_QUIRK_RESET_RESUME },
++
++	{ }  /* terminating entry must be last */
++};
++
++static bool usb_match_any_interface(struct usb_device *udev,
++				    const struct usb_device_id *id)
+ {
+-	const struct usb_device_id *id = usb_quirk_list;
++	unsigned int i;
+ 
+-	for (; id->idVendor || id->bDeviceClass || id->bInterfaceClass ||
+-			id->driver_info; id++) {
+-		if (usb_match_device(udev, id))
+-			return id;
++	for (i = 0; i < udev->descriptor.bNumConfigurations; ++i) {
++		struct usb_host_config *cfg = &udev->config[i];
++		unsigned int j;
++
++		for (j = 0; j < cfg->desc.bNumInterfaces; ++j) {
++			struct usb_interface_cache *cache;
++			struct usb_host_interface *intf;
++
++			cache = cfg->intf_cache[j];
++			if (cache->num_altsetting == 0)
++				continue;
++
++			intf = &cache->altsetting[0];
++			if (usb_match_one_id_intf(udev, intf, id))
++				return true;
++		}
+ 	}
+-	return NULL;
++
++	return false;
++}
++
++static u32 __usb_detect_quirks(struct usb_device *udev,
++			       const struct usb_device_id *id)
++{
++	u32 quirks = 0;
++
++	for (; id->match_flags; id++) {
++		if (!usb_match_device(udev, id))
++			continue;
++
++		if ((id->match_flags & USB_DEVICE_ID_MATCH_INT_INFO) &&
++		    !usb_match_any_interface(udev, id))
++			continue;
++
++		quirks |= (u32)(id->driver_info);
++	}
++
++	return quirks;
+ }
+ 
+ /*
+@@ -105,14 +158,10 @@ static const struct usb_device_id *find_
+  */
+ void usb_detect_quirks(struct usb_device *udev)
+ {
+-	const struct usb_device_id *id = usb_quirk_list;
+-
+-	id = find_id(udev);
+-	if (id)
+-		udev->quirks = (u32)(id->driver_info);
++	udev->quirks = __usb_detect_quirks(udev, usb_quirk_list);
+ 	if (udev->quirks)
+ 		dev_dbg(&udev->dev, "USB quirks for this device: %x\n",
+-				udev->quirks);
++			udev->quirks);
+ 
+ 	/* By default, disable autosuspend for all non-hubs */
+ #ifdef	CONFIG_USB_SUSPEND
+@@ -133,3 +182,16 @@ void usb_detect_quirks(struct usb_device
+ 		udev->persist_enabled = 1;
+ #endif	/* CONFIG_PM */
+ }
++
++void usb_detect_interface_quirks(struct usb_device *udev)
++{
++	u32 quirks;
++
++	quirks = __usb_detect_quirks(udev, usb_interface_quirk_list);
++	if (quirks == 0)
++		return;
++
++	dev_dbg(&udev->dev, "USB interface quirks for this device: %x\n",
++		quirks);
++	udev->quirks |= quirks;
++}
+diff --git a/drivers/usb/core/sysfs.c b/drivers/usb/core/sysfs.c
+--- a/drivers/usb/core/sysfs.c
++++ b/drivers/usb/core/sysfs.c
+@@ -840,7 +840,7 @@ static ssize_t show_modalias(struct device *dev,
+ 	alt = intf->cur_altsetting;
+ 
+ 	return sprintf(buf, "usb:v%04Xp%04Xd%04Xdc%02Xdsc%02Xdp%02X"
+-			"ic%02Xisc%02Xip%02X\n",
++			"ic%02Xisc%02Xip%02Xin%02X\n",
+ 			le16_to_cpu(udev->descriptor.idVendor),
+ 			le16_to_cpu(udev->descriptor.idProduct),
+ 			le16_to_cpu(udev->descriptor.bcdDevice),
+@@ -849,7 +849,8 @@ static ssize_t show_modalias(struct device *dev,
+ 			udev->descriptor.bDeviceProtocol,
+ 			alt->desc.bInterfaceClass,
+ 			alt->desc.bInterfaceSubClass,
+-			alt->desc.bInterfaceProtocol);
++			alt->desc.bInterfaceProtocol,
++			alt->desc.bInterfaceNumber);
+ }
+ static DEVICE_ATTR(modalias, S_IRUGO, show_modalias, NULL);
+ 
+diff --git a/drivers/usb/core/usb.h b/drivers/usb/core/usb.h
+--- a/drivers/usb/core/usb.h
++++ b/drivers/usb/core/usb.h
+@@ -26,6 +26,7 @@ extern void usb_disable_device(struct usb_device *dev, int skip_ep0);
+ 
+ extern void usb_disable_device (struct usb_device *dev, int skip_ep0);
+ extern void usb_detect_quirks(struct usb_device *udev);
++extern void usb_detect_interface_quirks(struct usb_device *udev);
+ extern int usb_remove_device(struct usb_device *udev);
+ 
+ extern int usb_get_device_descriptor(struct usb_device *dev,
+@@ -37,6 +38,9 @@ extern int usb_set_configuration(struct usb_device *dev, int configuration);
+ extern int usb_choose_configuration(struct usb_device *udev);
+ 
+ extern void usb_kick_khubd(struct usb_device *dev);
++extern int usb_match_one_id_intf(struct usb_device *dev,
++				 struct usb_host_interface *intf,
++				 const struct usb_device_id *id);
+ extern int usb_match_device(struct usb_device *dev,
+ 			    const struct usb_device_id *id);
+ extern void usb_forced_unbind_intf(struct usb_interface *intf);
+diff --git a/include/linux/mod_devicetable.h b/include/linux/mod_devicetable.h
+--- a/include/linux/mod_devicetable.h
++++ b/include/linux/mod_devicetable.h
+@@ -78,6 +78,9 @@ struct ieee1394_device_id {
+  *	of a given interface; other interfaces may support other classes.
+  * @bInterfaceSubClass: Subclass of interface; associated with bInterfaceClass.
+  * @bInterfaceProtocol: Protocol of interface; associated with bInterfaceClass.
++ * @bInterfaceNumber: Number of interface; composite devices may use
++ *	fixed interface numbers to differentiate between vendor-specific
++ *	interfaces.
+  * @driver_info: Holds information used by the driver.  Usually it holds
+  *	a pointer to a descriptor understood by the driver, or perhaps
+  *	device flags.
+@@ -115,8 +118,12 @@ struct usb_device_id {
+ 	__u8		bInterfaceSubClass;
+ 	__u8		bInterfaceProtocol;
+ 
++	/* Used for vendor-specific interface matches */
++	__u8		bInterfaceNumber;
++
+ 	/* not matched against */
+-	kernel_ulong_t	driver_info;
++	kernel_ulong_t	driver_info
++		__attribute__((aligned(sizeof(kernel_ulong_t))));
+ };
+ 
+ /* Some useful macros to use to create struct usb_device_id */
+@@ -130,6 +137,7 @@ struct usb_device_id {
+ #define USB_DEVICE_ID_MATCH_INT_CLASS		0x0080
+ #define USB_DEVICE_ID_MATCH_INT_SUBCLASS	0x0100
+ #define USB_DEVICE_ID_MATCH_INT_PROTOCOL	0x0200
++#define USB_DEVICE_ID_MATCH_INT_NUMBER		0x0400
+ 
+ /* s390 CCW devices */
+ struct ccw_device_id {
+@@ -195,7 +203,7 @@ struct of_device_id
+ 	char	type[32];
+ 	char	compatible[128];
+ #ifdef __KERNEL__
+-	void	*data;
++	const void *data;
+ #else
+ 	kernel_ulong_t data;
+ #endif
+diff --git a/include/linux/usb.h b/include/linux/usb.h
+--- a/include/linux/usb.h
++++ b/include/linux/usb.h
+@@ -777,6 +777,22 @@ static inline int usb_make_path(struct usb_device *dev, char *buf, size_t size)
+ 	.bInterfaceProtocol = (pr)
+ 
+ /**
++ * USB_DEVICE_INTERFACE_NUMBER - describe a usb device with a specific interface number
++ * @vend: the 16 bit USB Vendor ID
++ * @prod: the 16 bit USB Product ID
++ * @num: bInterfaceNumber value
++ *
++ * This macro is used to create a struct usb_device_id that matches a
++ * specific interface number of devices.
++ */
++#define USB_DEVICE_INTERFACE_NUMBER(vend, prod, num) \
++	.match_flags = USB_DEVICE_ID_MATCH_DEVICE | \
++		       USB_DEVICE_ID_MATCH_INT_NUMBER, \
++	.idVendor = (vend), \
++	.idProduct = (prod), \
++	.bInterfaceNumber = (num)
++
++/**
+  * USB_DEVICE_INFO - macro used to describe a class of usb devices
+  * @cl: bDeviceClass value
+  * @sc: bDeviceSubClass value
+diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
+--- a/scripts/mod/file2alias.c
++++ b/scripts/mod/file2alias.c
+@@ -156,7 +156,7 @@ static void device_id_check(const char *modname, const char *device_id,
+ }
+ 
+ /* USB is special because the bcdDevice can be matched against a numeric range */
+-/* Looks like "usb:vNpNdNdcNdscNdpNicNiscNipN" */
++/* Looks like "usb:vNpNdNdcNdscNdpNicNiscNipNinN" */
+ static void do_usb_entry(struct usb_device_id *id,
+ 			 unsigned int bcdDevice_initial, int bcdDevice_initial_digits,
+ 			 unsigned char range_lo, unsigned char range_hi,
+@@ -210,6 +210,9 @@ static void do_usb_entry(struct usb_device_id *id,
+ 	ADD(alias, "ip",
+ 	    id->match_flags&USB_DEVICE_ID_MATCH_INT_PROTOCOL,
+ 	    id->bInterfaceProtocol);
++	ADD(alias, "in",
++	    id->match_flags&USB_DEVICE_ID_MATCH_INT_NUMBER,
++	    id->bInterfaceNumber);
+ 
+ 	/* Always end in a wildcard, for future extension */
+ 	if (alias[strlen(alias)-1] != '*')
+-- 
