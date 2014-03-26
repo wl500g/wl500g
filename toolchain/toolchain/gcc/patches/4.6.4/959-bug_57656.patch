@@ -1,0 +1,302 @@
+[4.6/4.7 Regression] Wrong constant folding
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57656
+
+PR 57517 [4.6/4.7 Regression] internal compiler error: in eliminate_temp_copies, at tree-predcom.c:1913
+
+--- gcc-4_7-branch/gcc/ChangeLog	2014/03/18 06:29:15	208631
++++ gcc-4_7-branch/gcc/ChangeLog	2014/03/18 08:46:21	208632
+@@ -1,3 +1,30 @@
++2014-03-18  Richard Biener  <rguenther@suse.de>
++ 
++	Backport from mainline
++	2013-08-27  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/57521
++	* tree-if-conv.c (if_convertible_bb_p): Verify that at least
++	one edge is non-critical.
++	(find_phi_replacement_condition): Make sure to use a non-critical
++	edge.  Cleanup and remove old bug workarounds.
++	(bb_postdominates_preds): Remove.
++	(if_convertible_loop_p_1): Do not compute post-dominators.
++	(combine_blocks): Do not free post-dominators.
++	(main_tree_if_conversion): Likewise.
++
++	2013-09-03  Richard Biener  <rguenther@suse.de>
++
++	PR middle-end/57656
++	* fold-const.c (negate_expr_p): Fix division case.
++	(negate_expr): Likewise.
++
++	2013-11-19  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/57517
++	* tree-predcom.c (combinable_refs_p): Verify the combination
++	is always executed when the refs are.
++
+ 2013-11-29  Joseph Myers  <joseph@codesourcery.com>
+ 
+ 	PR c/42262
+--- gcc-4_7-branch/gcc/fold-const.c	2014/03/18 06:29:15	208631
++++ gcc-4_7-branch/gcc/fold-const.c	2014/03/18 08:46:21	208632
+@@ -486,11 +486,24 @@
+ 	 and actually traps on some architectures.  But if overflow is
+ 	 undefined, we can negate, because - (INT_MIN / 1) is an
+ 	 overflow.  */
+-      if (INTEGRAL_TYPE_P (TREE_TYPE (t))
+-	  && !TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (t)))
+-        break;
+-      return negate_expr_p (TREE_OPERAND (t, 1))
+-             || negate_expr_p (TREE_OPERAND (t, 0));
++      if (INTEGRAL_TYPE_P (TREE_TYPE (t)))
++	{
++	  if (!TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (t)))
++	    break;
++	  /* If overflow is undefined then we have to be careful because
++	     we ask whether it's ok to associate the negate with the
++	     division which is not ok for example for
++	     -((a - b) / c) where (-(a - b)) / c may invoke undefined
++	     overflow because of negating INT_MIN.  So do not use
++	     negate_expr_p here but open-code the two important cases.  */
++	  if (TREE_CODE (TREE_OPERAND (t, 0)) == NEGATE_EXPR
++	      || (TREE_CODE (TREE_OPERAND (t, 0)) == INTEGER_CST
++		  && may_negate_without_overflow_p (TREE_OPERAND (t, 0))))
++	    return true;
++	}
++      else if (negate_expr_p (TREE_OPERAND (t, 0)))
++	return true;
++      return negate_expr_p (TREE_OPERAND (t, 1));
+ 
+     case NOP_EXPR:
+       /* Negate -((double)float) as (double)(-float).  */
+@@ -670,16 +683,20 @@
+ 	      return fold_build2_loc (loc, TREE_CODE (t), type,
+ 				  TREE_OPERAND (t, 0), negate_expr (tem));
+ 	    }
++	  /* If overflow is undefined then we have to be careful because
++	     we ask whether it's ok to associate the negate with the
++	     division which is not ok for example for
++	     -((a - b) / c) where (-(a - b)) / c may invoke undefined
++	     overflow because of negating INT_MIN.  So do not use
++	     negate_expr_p here but open-code the two important cases.  */
+           tem = TREE_OPERAND (t, 0);
+-          if (negate_expr_p (tem))
+-	    {
+-	      if (INTEGRAL_TYPE_P (type)
+-		  && (TREE_CODE (tem) != INTEGER_CST
+-		      || tree_int_cst_equal (tem, TYPE_MIN_VALUE (type))))
+-		fold_overflow_warning (warnmsg, WARN_STRICT_OVERFLOW_MISC);
+-	      return fold_build2_loc (loc, TREE_CODE (t), type,
+-				  negate_expr (tem), TREE_OPERAND (t, 1));
+-	    }
++	  if ((INTEGRAL_TYPE_P (type)
++	       && (TREE_CODE (tem) == NEGATE_EXPR
++		   || (TREE_CODE (tem) == INTEGER_CST
++		       && may_negate_without_overflow_p (tem))))
++	      || !INTEGRAL_TYPE_P (type))
++	    return fold_build2_loc (loc, TREE_CODE (t), type,
++				    negate_expr (tem), TREE_OPERAND (t, 1));
+         }
+       break;
+ 
+--- gcc-4_7-branch/gcc/tree-if-conv.c	2014/03/18 06:29:15	208631
++++ gcc-4_7-branch/gcc/tree-if-conv.c	2014/03/18 08:46:21	208632
+@@ -758,20 +758,6 @@
+   return true;
+ }
+ 
+-/* Return true when BB post-dominates all its predecessors.  */
+-
+-static bool
+-bb_postdominates_preds (basic_block bb)
+-{
+-  unsigned i;
+-
+-  for (i = 0; i < EDGE_COUNT (bb->preds); i++)
+-    if (!dominated_by_p (CDI_POST_DOMINATORS, EDGE_PRED (bb, i)->src, bb))
+-      return false;
+-
+-  return true;
+-}
+-
+ /* Return true when BB is if-convertible.  This routine does not check
+    basic block's statements and phis.
+ 
+@@ -830,10 +816,23 @@
+ 	return false;
+       }
+ 
+-  if (EDGE_COUNT (bb->preds) == 2
+-      && bb != loop->header
+-      && !bb_postdominates_preds (bb))
+-    return false;
++  /* At least one incoming edge has to be non-critical as otherwise edge
++     predicates are not equal to basic-block predicates of the edge
++     source.  */
++  if (EDGE_COUNT (bb->preds) > 1
++      && bb != loop->header)
++    {
++      bool found = false;
++      FOR_EACH_EDGE (e, ei, bb->preds)
++	if (EDGE_COUNT (e->src->succs) == 1)
++	  found = true;
++      if (!found)
++	{
++	  if (dump_file && (dump_flags & TDF_DETAILS))
++	    fprintf (dump_file, "only critical predecessors\n");
++	  return false;
++	}
++    }
+ 
+   return true;
+ }
+@@ -1048,7 +1047,6 @@
+     return false;
+ 
+   calculate_dominance_info (CDI_DOMINATORS);
+-  calculate_dominance_info (CDI_POST_DOMINATORS);
+ 
+   /* Allow statements that can be handled during if-conversion.  */
+   ifc_bbs = get_loop_body_in_if_conv_order (loop);
+@@ -1184,8 +1182,7 @@
+    if-conversion.  */
+ 
+ static basic_block
+-find_phi_replacement_condition (struct loop *loop,
+-				basic_block bb, tree *cond,
++find_phi_replacement_condition (basic_block bb, tree *cond,
+ 				gimple_stmt_iterator *gsi)
+ {
+   edge first_edge, second_edge;
+@@ -1195,34 +1192,10 @@
+   first_edge = EDGE_PRED (bb, 0);
+   second_edge = EDGE_PRED (bb, 1);
+ 
+-  /* Use condition based on following criteria:
+-     1)
+-       S1: x = !c ? a : b;
+-
+-       S2: x = c ? b : a;
+-
+-       S2 is preferred over S1. Make 'b' first_bb and use its condition.
+-
+-     2) Do not make loop header first_bb.
+-
+-     3)
+-       S1: x = !(c == d)? a : b;
+-
+-       S21: t1 = c == d;
+-       S22: x = t1 ? b : a;
+-
+-       S3: x = (c == d) ? b : a;
+-
+-       S3 is preferred over S1 and S2*, Make 'b' first_bb and use
+-       its condition.
+-
+-     4) If  pred B is dominated by pred A then use pred B's condition.
+-        See PR23115.  */
+-
+-  /* Select condition that is not TRUTH_NOT_EXPR.  */
++  /* Prefer an edge with a not negated predicate.
++     ???  That's a very weak cost model.  */
+   tmp_cond = bb_predicate (first_edge->src);
+   gcc_assert (tmp_cond);
+-
+   if (TREE_CODE (tmp_cond) == TRUTH_NOT_EXPR)
+     {
+       edge tmp_edge;
+@@ -1232,11 +1205,9 @@
+       second_edge = tmp_edge;
+     }
+ 
+-  /* Check if FIRST_BB is loop header or not and make sure that
+-     FIRST_BB does not dominate SECOND_BB.  */
+-  if (first_edge->src == loop->header
+-      || dominated_by_p (CDI_DOMINATORS,
+-			 second_edge->src, first_edge->src))
++  /* Check if the edge we take the condition from is not critical.
++     We know that at least one non-critical edge exists.  */
++  if (EDGE_COUNT (first_edge->src->succs) > 1)
+     {
+       *cond = bb_predicate (second_edge->src);
+ 
+@@ -1311,9 +1282,6 @@
+ 	  arg_1 = gimple_phi_arg_def (phi, 1);
+ 	}
+ 
+-      gcc_checking_assert (bb == bb->loop_father->header
+-			   || bb_postdominates_preds (bb));
+-
+       /* Build new RHS using selected condition and arguments.  */
+       rhs = build3 (COND_EXPR, TREE_TYPE (res),
+ 		    unshare_expr (cond), arg_0, arg_1);
+@@ -1359,7 +1327,7 @@
+       /* BB has two predecessors.  Using predecessor's aux field, set
+ 	 appropriate condition for the PHI node replacement.  */
+       gsi = gsi_after_labels (bb);
+-      true_bb = find_phi_replacement_condition (loop, bb, &cond, &gsi);
++      true_bb = find_phi_replacement_condition (bb, &cond, &gsi);
+ 
+       while (!gsi_end_p (phi_gsi))
+ 	{
+@@ -1791,8 +1759,6 @@
+   if (changed && flag_tree_loop_if_convert_stores)
+     todo |= TODO_update_ssa_only_virtuals;
+ 
+-  free_dominance_info (CDI_POST_DOMINATORS);
+-
+   return todo;
+ }
+ 
+--- gcc-4_7-branch/gcc/tree-predcom.c	2014/03/18 06:29:15	208631
++++ gcc-4_7-branch/gcc/tree-predcom.c	2014/03/18 08:46:21	208632
+@@ -2117,7 +2117,11 @@
+ 
+   stmt = find_common_use_stmt (&name1, &name2);
+ 
+-  if (!stmt)
++  if (!stmt
++      /* A simple post-dominance check - make sure the combination
++         is executed under the same condition as the references.  */
++      || (gimple_bb (stmt) != gimple_bb (r1->stmt)
++	  && gimple_bb (stmt) != gimple_bb (r2->stmt)))
+     return false;
+ 
+   acode = gimple_assign_rhs_code (stmt);
+--- /dev/null
++++ gcc-4_7-branch/gcc/testsuite/gcc.dg/torture/pr57517.c	2014/03/18 08:46:21	208632
+@@ -0,0 +1,17 @@
++/* { dg-do compile } */
++/* { dg-options "-O3"  } */
++
++int x[1024], y[1024], z[1024], w[1024];
++void foo (void)
++{
++  int i;
++  for (i = 1; i < 1024; ++i)
++    {
++      int a = x[i];
++      int b = y[i];
++      int c = x[i-1];
++      int d = y[i-1];
++      if (w[i])
++	z[i] = (a + b) + (c + d);
++    }
++}
+--- /dev/null
++++ gcc-4_7-branch/gcc/testsuite/gcc.dg/torture/pr57656.c	2014/03/18 08:46:21	208632
+@@ -0,0 +1,13 @@
++/* { dg-do run } */
++/* { dg-options "-fstrict-overflow" } */
++
++int main (void)
++{
++  int a = -1;
++  int b = __INT_MAX__;
++  int c = 2;
++  int t = 1 - ((a - b) / c);  // t = 1 - ( __INT_MIN__ / 2 )
++  if (t != (1 - (-1 - __INT_MAX__) / 2))
++    __builtin_abort();
++  return 0;
++}
+-- 
