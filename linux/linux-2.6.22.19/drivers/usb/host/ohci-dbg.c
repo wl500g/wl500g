@@ -267,7 +267,7 @@ ohci_dump_roothub (
 	}
 }
 
-static void ohci_dump (struct ohci_hcd *controller, int verbose)
+static void ohci_dump(struct ohci_hcd *controller)
 {
 	ohci_dbg (controller, "OHCI controller state\n");
 
@@ -386,7 +386,7 @@ ohci_dump_ed (const struct ohci_hcd *ohci, const char *label,
 }
 
 #else
-static inline void ohci_dump (struct ohci_hcd *controller, int verbose) {}
+static inline void ohci_dump (struct ohci_hcd *controller) {}
 
 #undef OHCI_VERBOSE_DEBUG
 
@@ -508,17 +508,18 @@ static ssize_t fill_async_buffer(struct debug_buffer *buf)
 	struct usb_bus		*bus;
 	struct usb_hcd		*hcd;
 	struct ohci_hcd		*ohci;
-	size_t			temp;
+	size_t			temp, size;
 	unsigned long		flags;
 
 	bus = dev_get_drvdata(buf->dev);
 	hcd = bus_to_hcd(bus);
 	ohci = hcd_to_ohci(hcd);
+	size = PAGE_SIZE;
 
 	/* display control and bulk lists together, for simplicity */
 	spin_lock_irqsave (&ohci->lock, flags);
-	temp = show_list(ohci, buf->page, buf->count, ohci->ed_controltail);
-	temp += show_list(ohci, buf->page + temp, buf->count - temp,
+	temp = show_list(ohci, buf->page, size, ohci->ed_controltail);
+	temp += show_list(ohci, buf->page + temp, size - temp,
 			  ohci->ed_bulktail);
 	spin_unlock_irqrestore (&ohci->lock, flags);
 

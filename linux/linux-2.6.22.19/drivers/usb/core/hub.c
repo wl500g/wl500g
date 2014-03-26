@@ -1611,6 +1611,8 @@ int usb_new_device(struct usb_device *udev)
 	udev->dev.devt = MKDEV(USB_DEVICE_MAJOR,
 			(((udev->bus->busnum-1) * 128) + (udev->devnum-1)));
 
+	usb_detect_interface_quirks(udev);
+
 	/* Tell the world! */
 	announce_device(udev);
 

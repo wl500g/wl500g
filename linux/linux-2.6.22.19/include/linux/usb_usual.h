@@ -58,7 +58,11 @@
 	US_FLAG(CAPACITY_OK,	0x00010000)			\
 		/* READ CAPACITY response is correct */		\
 	US_FLAG(BAD_SENSE,	0x00020000)			\
-		/* Bad Sense (never more than 18 bytes) */
+		/* Bad Sense (never more than 18 bytes) */	\
+	US_FLAG(NO_READ_CAPACITY_16,	0x00080000)		\
+		/* cannot handle READ_CAPACITY_16 */		\
+	US_FLAG(BROKEN_FUA,	0x01000000)			\
+		/* Cannot handle FUA in WRITE or READ CDBs */	\
 
 #define US_FLAG(name, value)	US_FL_##name = value ,
 enum { US_DO_ALL_FLAGS };

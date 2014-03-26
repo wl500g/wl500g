@@ -968,7 +968,8 @@ UNUSUAL_DEV(  0x071b, 0x3203, 0x0000, 0x0000,
 		"RockChip",
 		"MP3",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_NO_WP_DETECT | US_FL_MAX_SECTORS_64),
+		US_FL_NO_WP_DETECT | US_FL_MAX_SECTORS_64 |
+		US_FL_NO_READ_CAPACITY_16),
 
 /* Reported by Jean-Baptiste Onofre <jb@nanthrax.net>
  * Support the following product :
@@ -2002,6 +2003,13 @@ UNUSUAL_DEV(  0x14cd, 0x6600, 0x0201, 0x0201,
 		"IDE DEVICE",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_IGNORE_RESIDUE ),
+
+/* Reported by Michael Büsch <m@bues.ch> */
+UNUSUAL_DEV(  0x152d, 0x0567, 0x0114, 0x0114,
+		"JMicron",
+		"USB to ATA/ATAPI Bridge",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_BROKEN_FUA ),
 
 /* Reported by Alexandre Oliva <oliva@lsd.ic.unicamp.br>
  * JMicron responds to USN and several other SCSI ioctls with a
