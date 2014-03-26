@@ -4,6 +4,7 @@
  10fe7d85e2e4042f703a10bed4123f2105eadad2 [IPV4]: Remove unnecessary check for opt->is_data in ip_options_compile.
  ef722495c8867aacc1db0675a6737e5cf1e72e07 [IPV4]: Remove unused ip_options->is_data.
  22aba383ce52f8ca8740f9a74dc66b1b68138813 [IPV4]: Always pass ip_options pointer into ip_options_compile.
+ 8628bd8af7c4c14f40f5183f80f5744c4e682439 ipv4: Fix IP timestamp option (IPOPT_TS_PRESPEC) handling in ip_options_echo()
  c65353daf137dd41f3ede3baf62d561fca076228 ip: ip_options_compile() resilient to NULL skb route
  48bdf072c3f1f8f739f76d19c74f4c79605cac46 ip_options_compile: properly handle unaligned pointer
  fa2b04f4502d74659e4e4b1294c6d88e08ece032 net/ipv4: Timestamp option cannot overflow with prespecified addresses
@@ -12,9 +13,9 @@
 ---
  include/net/inet_sock.h |    3 --
  net/ipv4/cipso_ipv4.c   |    1 
- net/ipv4/ip_input.c     |    5 ++--
- net/ipv4/ip_options.c   |   58 ++++++++++++++++++------------------------------
- 4 files changed, 26 insertions(+), 41 deletions(-)
+ net/ipv4/ip_input.c     |    5 ++-
+ net/ipv4/ip_options.c   |   64 ++++++++++++++++++------------------------------
+ 4 files changed, 29 insertions(+), 44 deletions(-)
 
 diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
 --- a/include/net/inet_sock.h
@@ -100,6 +101,21 @@ diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
  
  	if (sopt->rr) {
  		optlen  = sptr[sopt->rr+1];
+@@ -140,11 +140,11 @@ int ip_options_echo(struct ip_options * dopt, struct sk_buff * skb)
+ 				} else {
+ 					dopt->ts_needtime = 0;
+ 
+-					if (soffset + 8 <= optlen) {
++					if (soffset + 7 <= optlen) {
+ 						__be32 addr;
+ 
+-						memcpy(&addr, sptr+soffset-1, 4);
+-						if (inet_addr_type(addr) != RTN_LOCAL) {
++						memcpy(&addr, dptr+soffset-1, 4);
++						if (inet_addr_type(addr) != RTN_UNICAST) {
+ 							dopt->ts_needtime = 1;
+ 							soffset += 8;
+ 						}
 @@ -261,19 +256,14 @@ int ip_options_compile(struct ip_options
  	unsigned char * optptr;
  	int optlen;
