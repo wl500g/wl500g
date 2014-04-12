@@ -1,3 +1,8 @@
+20140327:
+    Plenty of Huawei and ZTE devices added, several target IDs added (thanks
+    to Lars Melin for the compilation); fix for Option GI1515 (0af0:d001) to
+    be used with usb-modeswitch >= 2.1.1; unified switching message for
+    nearly all Huawei devices
 20140129:
     Minor bug fix in configs 19d2:0149 and 19d2:2000 (Lars Melin reported)
 20140128:

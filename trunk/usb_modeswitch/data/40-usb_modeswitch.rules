@@ -1,4 +1,4 @@
-# Part of usb-modeswitch-data, version 20140129
+# Part of usb-modeswitch-data, version 20140327
 #
 # Works with usb_modeswitch versions >= 2.1.0 (introduction of StandardEject)
 #
@@ -513,6 +513,12 @@ ATTR{idVendor}=="12d1", ATTR{idProduct}=="155b", RUN+="usb_modeswitch '%b/%k'"
 # Huawei E3276s-151 and E3251
 ATTR{idVendor}=="12d1", ATTR{idProduct}=="156a", RUN+="usb_modeswitch '%b/%k'"
 
+# Huawei E3276-s150
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="157c", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei E3331
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="157d", RUN+="usb_modeswitch '%b/%k'"
+
 # Huawei U2800 Phone
 ATTR{idVendor}=="12d1", ATTR{idProduct}=="1805", RUN+="usb_modeswitch '%b/%k'"
 
@@ -531,7 +537,7 @@ ATTR{idVendor}=="12d1", ATTR{idProduct}=="1d50", RUN+="usb_modeswitch '%b/%k'"
 # Huawei ET8282, Huawei ET127
 ATTR{idVendor}=="12d1", ATTR{idProduct}=="1da1", RUN+="usb_modeswitch '%b/%k'"
 
-# Huawei E353 (3.se)
+# Huawei E353 (3.se) and others
 ATTR{idVendor}=="12d1", ATTR{idProduct}=="1f01", RUN+="usb_modeswitch '%b/%k'"
 
 # KDDI (Huawei) HWD12 LTE
@@ -684,6 +690,9 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="0266", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MF821D (Variant)
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0304", RUN+="usb_modeswitch '%b/%k'"
 
+# ZTE MF821D/MF826
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="0318", RUN+="usb_modeswitch '%b/%k'"
+
 # ZTE MF821D
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0325", RUN+="usb_modeswitch '%b/%k'"
 
@@ -717,8 +726,17 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="1179", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MF691 (T-Mobile Rocket 2.0)
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1201", RUN+="usb_modeswitch '%b/%k'"
 
-# ZTE MF192+
+# ZTE MF192 (Variant)
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1207", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF195
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1210", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF192 (Variant)
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1216", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF192 (Variant)
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1219", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE MF190
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1224", RUN+="usb_modeswitch '%b/%k'"
@@ -729,7 +747,16 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="1225", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MF680
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1227", RUN+="usb_modeswitch '%b/%k'"
 
-# ZTE MF192 (yet annother variant)
+# ZTE MFxxx
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1233", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF825A
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1238", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MFxxx
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1511", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF192 (Variant)
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1514", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE MF192 (Variant)
@@ -743,6 +770,9 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="1523", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE MF196
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1528", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF190J
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1536", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE MF190J
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1542", RUN+="usb_modeswitch '%b/%k'"
@@ -789,7 +819,7 @@ ATTR{idVendor}=="1bbb", ATTR{idProduct}=="00ca", RUN+="usb_modeswitch '%b/%k'"
 # Haier EVDO Rev. A
 ATTR{idVendor}=="1bbb", ATTR{idProduct}=="011f", RUN+="usb_modeswitch '%b/%k'"
 
-# Alcatel X200/X200L/X060S, Archos G9 3G Key
+# Alcatel X200/X200L/X060S/L100V, Archos G9 3G Key
 ATTR{idVendor}=="1bbb", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
 # Alcatel OT-X220D, L100V
