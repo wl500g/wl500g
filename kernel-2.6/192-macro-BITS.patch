@@ -7,6 +7,7 @@ Subject: [PATCH] define global BIT* macros
  93043ece030af58529e3e1367502461d265ab4e2 [PATCH] define global BIT macro
  14ed9d23aa9acd79210a92ac561a728b42a8e281 remove BITS_TO_TYPE macro
  7b19ada2ed3c1eccb9fe94d74b05e1428224663d get rid of input BIT* duplicate defines
+ ede9c697bc7513f210103fa77a9031e89726ae40 Avoid divides in BITS_TO_LONGS
 
 ---
  Documentation/input/input-programming.txt         |   15 +++---
@@ -2361,8 +2362,8 @@ diff --git a/include/linux/bitops.h b/include/linux/bitops.h
 +#define BIT(nr)			(1UL << (nr))
 +#define BIT_MASK(nr)		(1UL << ((nr) % BITS_PER_LONG))
 +#define BIT_WORD(nr)		((nr) / BITS_PER_LONG)
-+#define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
 +#define BITS_PER_BYTE		8
++#define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_BYTE * sizeof(long))
 +#endif
 +
  /*
