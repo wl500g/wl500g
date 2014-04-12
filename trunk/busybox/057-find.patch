@@ -1,0 +1,32 @@
+From 6885e49ba596239a0b0d3631fd72fc2692fbb65c
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Wed, 26 Feb 2014 14:27:10 +0000
+Subject: find: code shrink
+
+function                                             old     new   delta
+func_exec                                            306     285     -21
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/findutils/find.c b/findutils/find.c
+--- a/findutils/find.c
++++ b/findutils/find.c
+@@ -420,12 +420,10 @@ static char* subst(const char *src, unsigned count, const char* filename)
+ 	size_t flen = strlen(filename);
+ 	/* we replace each '{}' with filename: growth by strlen-2 */
+ 	buf = dst = xmalloc(strlen(src) + count*(flen-2) + 1);
+-	while ((end = strstr(src, "{}"))) {
+-		memcpy(dst, src, end - src);
+-		dst += end - src;
++	while ((end = strstr(src, "{}")) != NULL) {
++		dst = mempcpy(dst, src, end - src);
++		dst = mempcpy(dst, filename, flen);
+ 		src = end + 2;
+-		memcpy(dst, filename, flen);
+-		dst += flen;
+ 	}
+ 	strcpy(dst, src);
+ 	return buf;
+--
+cgit v0.9.1
