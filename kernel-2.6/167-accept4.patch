@@ -33,7 +33,7 @@ diff --git a/arch/mips/kernel/scall32-o32.S b/arch/mips/kernel/scall32-o32.S
  	sys	sys_timerfd_gettime	2
  	sys	sys_timerfd_settime	4
 +	sys	sys_ni_syscall		4	/* sys_signalfd4 */
-+	sys	sys_ni_syscall		2	/* 4325, sys_eventfd2 */
++	sys	sys_eventfd2		2	/* 4325 */
 +	sys	sys_ni_syscall	1	/* sys_epoll_create1 */
 +	sys	sys_ni_syscall		3	/* sys_dup3 */
 +	sys	sys_ni_syscall		2	/* sys_pipe2 */
@@ -54,7 +54,7 @@ diff --git a/arch/mips/kernel/scall64-64.S b/arch/mips/kernel/scall64-64.S
  	PTR	sys_timerfd_gettime
  	PTR	sys_timerfd_settime
 +	PTR	sys_ni_syscall		4	/* sys_signalfd4 */
-+	PTR	sys_ni_syscall		2	/* sys_eventfd2 */
++	PTR	sys_eventfd2		2
 +	PTR	sys_ni_syscall	1	/* 5285, sys_epoll_create1 */
 +	PTR	sys_ni_syscall		3	/* sys_dup3 */
 +	PTR	sys_ni_syscall		2	/* sys_pipe2 */
@@ -85,7 +85,7 @@ diff --git a/arch/mips/kernel/scall64-o32.S b/arch/mips/kernel/scall64-o32.S
  	PTR	compat_sys_timerfd_gettime
  	PTR	compat_sys_timerfd_settime
 +	PTR	sys_ni_syscall			/* sys_signalfd4 */
-+	PTR	sys_ni_syscall			/* 4325, sys_eventfd2 */
++	PTR	sys_eventfd2			/* 4325 */
 +	PTR	sys_ni_syscall			/* sys_epoll_create1 */
 +	PTR	sys_ni_syscall			/* sys_dup3 */
 +	PTR	sys_ni_syscall			/* sys_pipe2 */
@@ -121,7 +121,7 @@ diff --git a/include/asm-mips/unistd.h b/include/asm-mips/unistd.h
  #define __NR_timerfd_gettime		(__NR_Linux + 322)
  #define __NR_timerfd_settime		(__NR_Linux + 323)
 +/* #define __NR_signalfd4			(__NR_Linux + 324) */
-+/* #define __NR_eventfd2			(__NR_Linux + 325) */
++#define __NR_eventfd2				(__NR_Linux + 325)
 +/* #define __NR_epoll_create1		(__NR_Linux + 326) */
 +/* #define __NR_dup3			(__NR_Linux + 327) */
 +/* #define __NR_pipe2			(__NR_Linux + 328) */
@@ -151,7 +151,7 @@ diff --git a/include/asm-mips/unistd.h b/include/asm-mips/unistd.h
  #define __NR_timerfd_gettime		(__NR_Linux + 281)
  #define __NR_timerfd_settime		(__NR_Linux + 282)
 +/* #define __NR_signalfd4			(__NR_Linux + 283) */
-+/* #define __NR_eventfd2			(__NR_Linux + 284) */
++#define __NR_eventfd2				(__NR_Linux + 284)
 +/* #define __NR_epoll_create1		(__NR_Linux + 285) */
 +/* #define __NR_dup3			(__NR_Linux + 286) */
 +/* #define __NR_pipe2			(__NR_Linux + 287) */
