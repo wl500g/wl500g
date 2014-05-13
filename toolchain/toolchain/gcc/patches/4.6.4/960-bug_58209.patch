@@ -1,0 +1,70 @@
+[4.6/4.7 Regression] ICE in extract_range_from_binary_expr, at tree-vrp.c:2294
+
+http://gcc.gnu.org/bugzilla/show_bug.cgi?id=58209
+
+--- gcc-4_7-branch/gcc/ChangeLog	2014/05/07 15:59:37	210169
++++ gcc-4_7-branch/gcc/ChangeLog	2014/05/07 16:00:33	210170
+@@ -1,3 +1,12 @@
++2014-05-07  Jakub Jelinek  <jakub@redhat.com>
++
++	Backported from mainline
++	2013-08-23  Jakub Jelinek  <jakub@redhat.com>
++
++	PR tree-optimization/58209
++	* tree-tailcall.c (find_tail_calls): Give up for pointer result types
++	if m or a is non-NULL.
++
+ 2014-03-18  Richard Biener  <rguenther@suse.de>
+ 
+ 	Backport from mainline
+--- gcc-4_7-branch/gcc/tree-tailcall.c	2014/05/07 15:59:37	210169
++++ gcc-4_7-branch/gcc/tree-tailcall.c	2014/05/07 16:00:33	210170
+@@ -576,6 +576,11 @@ find_tail_calls (basic_block bb, struct 
+   if (!tail_recursion && (m || a))
+     return;
+ 
++  /* For pointers don't allow additions or multiplications.  */
++  if ((m || a)
++      && POINTER_TYPE_P (TREE_TYPE (DECL_RESULT (current_function_decl))))
++    return;
++
+   nw = XNEW (struct tailcall);
+ 
+   nw->call_gsi = gsi;
+--- /dev/null
++++ gcc-4_7-branch/gcc/testsuite/gcc.c-torture/execute/pr58209.c	2014/05/07 16:00:33	210170
+@@ -0,0 +1,34 @@
++/* PR tree-optimization/58209 */
++/* { dg-do compile } */
++/* { dg-options "-O2"  } */
++
++extern void abort (void);
++typedef __INTPTR_TYPE__ T;
++T buf[1024];
++
++T *
++foo (T n)
++{
++  if (n == 0)
++    return (T *) buf;
++  T s = (T) foo (n - 1);
++  return (T *) (s + sizeof (T));
++}
++
++T *
++bar (T n)
++{
++  if (n == 0)
++    return buf;
++  return foo (n - 1) + 1;
++}
++
++int
++main ()
++{
++  int i;
++  for (i = 0; i < 27; i++)
++    if (foo (i) != buf + i || bar (i) != buf + i)
++      abort ();
++  return 0;
++}
