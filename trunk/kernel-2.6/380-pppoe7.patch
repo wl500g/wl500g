@@ -1,0 +1,66 @@
+pppoe: Updates from upstream 2
+
+ 3b12bb60437eb69cd9ff58e5dee23b525d01d069 pppoe: remove unused return value from two methods.
+ 7ed8ca5b1e3311e569eabe5e847841830a3eced0 pppoe: slight optimization of addr compare
+
+---
+ drivers/net/pppoe.c |   18 +++++-------------
+ 1 file changed, 5 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -98,14 +98,12 @@
+ 
+ static inline int cmp_2_addr(struct pppoe_addr *a, struct pppoe_addr *b)
+ {
+-	return (a->sid == b->sid &&
+-		(memcmp(a->remote, b->remote, ETH_ALEN) == 0));
++	return a->sid == b->sid && ether_addr_equal(a->remote, b->remote);
+ }
+ 
+ static inline int cmp_addr(struct pppoe_addr *a, __be16 sid, char *addr)
+ {
+-	return (a->sid == sid &&
+-		(memcmp(a->remote,addr,ETH_ALEN) == 0));
++	return a->sid == sid && ether_addr_equal(a->remote, addr);
+ }
+ 
+ #if 8%PPPOE_HASH_BITS
+@@ -171,7 +171,7 @@ static int __set_item(struct pppoe_net *pn, struct pppox_sock *po)
+ 	return 0;
+ }
+ 
+-static struct pppox_sock *__delete_item(__be16 sid, char *addr, int ifindex)
++static void __delete_item(__be16 sid, char *addr, int ifindex)
+ {
+ 	int hash = hash_item(sid, addr);
+ 	struct pppox_sock *ret, **src;
+@@ -190,8 +190,6 @@ static struct pppox_sock *__delete_item(struct pppoe_net *pn, __be16 sid,
+ 		src = &ret->next;
+ 		ret = ret->next;
+ 	}
+-
+-	return ret;
+ }
+ 
+ /**********************************************************************
+@@ -224,15 +222,11 @@ static inline struct pppox_sock *get_item_by_addr(struct net *net,
+ 	return get_item(sp->sa_addr.pppoe.sid, sp->sa_addr.pppoe.remote, ifindex);
+ }
+ 
+-static inline struct pppox_sock *delete_item(__be16 sid, char *addr, int ifindex)
++static inline void delete_item(__be16 sid, char *addr, int ifindex)
+ {
+-	struct pppox_sock *ret;
+-
+ 	write_lock_bh(&pppoe_hash_lock);
+-	ret = __delete_item(sid, addr, ifindex);
++	__delete_item(sid, addr, ifindex);
+ 	write_unlock_bh(&pppoe_hash_lock);
+-
+-	return ret;
+ }
+ 
+ 
+-- 
