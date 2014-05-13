@@ -98,14 +98,12 @@ static struct ppp_channel_ops pppoe_chan_ops;
 
 static inline int cmp_2_addr(struct pppoe_addr *a, struct pppoe_addr *b)
 {
-	return (a->sid == b->sid &&
-		(memcmp(a->remote, b->remote, ETH_ALEN) == 0));
+	return a->sid == b->sid && ether_addr_equal(a->remote, b->remote);
 }
 
 static inline int cmp_addr(struct pppoe_addr *a, __be16 sid, char *addr)
 {
-	return (a->sid == sid &&
-		(memcmp(a->remote,addr,ETH_ALEN) == 0));
+	return a->sid == sid && ether_addr_equal(a->remote, addr);
 }
 
 #if 8%PPPOE_HASH_BITS
@@ -170,7 +168,7 @@ static int __set_item(struct pppox_sock *po)
 	return 0;
 }
 
-static struct pppox_sock *__delete_item(__be16 sid, char *addr, int ifindex)
+static void __delete_item(__be16 sid, char *addr, int ifindex)
 {
 	int hash = hash_item(sid, addr);
 	struct pppox_sock *ret, **src;
@@ -187,8 +185,6 @@ static struct pppox_sock *__delete_item(__be16 sid, char *addr, int ifindex)
 		src = &ret->next;
 		ret = ret->next;
 	}
-
-	return ret;
 }
 
 /**********************************************************************
@@ -223,15 +219,11 @@ static inline struct pppox_sock *get_item_by_addr(struct sockaddr_pppox *sp)
 	return get_item(sp->sa_addr.pppoe.sid, sp->sa_addr.pppoe.remote, ifindex);
 }
 
-static inline struct pppox_sock *delete_item(__be16 sid, char *addr, int ifindex)
+static inline void delete_item(__be16 sid, char *addr, int ifindex)
 {
-	struct pppox_sock *ret;
-
 	write_lock_bh(&pppoe_hash_lock);
-	ret = __delete_item(sid, addr, ifindex);
+	__delete_item(sid, addr, ifindex);
 	write_unlock_bh(&pppoe_hash_lock);
-
-	return ret;
 }
 
 
