@@ -1,31 +1,13 @@
-Add eventfd support.
-
- I whould like to share this simple patch that add the eventfd call to
- uClibc.
-
-Jean-Christian
-
-Signed-off-by: Jean-Christian de Rivaz <jc at eclis.ch>
+Add eventfd(eventfd2) support.
 
 ---
-From e118373cbb58ba5ffa5fb6670957678d5b87cdb9
-From: Khem Raj
-Date: Sun, 10 Jun 2012 16:36:23 +0000
-Subject: eventfd: Implement eventfd2 and fix eventfd
-
-eventfd: evntfd assumes to take two arguments instead it
-should be one evntfd expects two therefore implement both syscalls with
-correct parameters
-
-Thanks Eugene Rudoy for reporting it and also providing the patch
-
-Signed-off-by: Khem Raj <raj.khem@gmail.com>
+ e118373cbb58ba5ffa5fb6670957678d5b87cdb9 eventfd: Implement eventfd2 and fix eventfd
 ---
 
  libc/sysdeps/linux/common/Makefile.in   |    2 -
- libc/sysdeps/linux/common/eventfd.c     |   30 ++++++++++++++++++
- libc/sysdeps/linux/common/sys/eventfd.h |   51 ++++++++++++++++++++++++++++++++
- 3 files changed, 82 insertions(+), 1 deletion(-)
+ libc/sysdeps/linux/common/eventfd.c     |   49 ++++++++++++++++++++++++++++++
+ libc/sysdeps/linux/common/sys/eventfd.h |   52 ++++++++++++++++++++++++++++++++
+ 3 files changed, 102 insertions(+), 1 deletion(-)
  create mode 100644 libc/sysdeps/linux/common/eventfd.c
  create mode 100644 libc/sysdeps/linux/common/sys/eventfd.h
 
@@ -45,7 +27,7 @@ diff --git a/libc/sysdeps/linux/common/eventfd.c b/libc/sysdeps/linux/common/eve
 new file mode 100644
 --- /dev/null
 +++ b/libc/sysdeps/linux/common/eventfd.c
-@@ -0,0 +1,30 @@
+@@ -0,0 +1,49 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * eventfd() for uClibc
@@ -65,15 +47,34 @@ new file mode 100644
 +#if defined __NR_eventfd || defined __NR_eventfd2
 +int eventfd (int count, int flags)
 +{
++  int res;
++  INTERNAL_SYSCALL_DECL (err);
++
 +#if defined __NR_eventfd2
-+  return INLINE_SYSCALL (eventfd2, 2, count, flags);
-+#elif defined __NR_eventfd
-+  if (flags != 0) {
-+     __set_errno (EINVAL);
++  res = INTERNAL_SYSCALL (eventfd2, err, 2, count, flags);
++  if (likely(!INTERNAL_SYSCALL_ERROR_P (res, err)))
++    return res;
++
++  if (INTERNAL_SYSCALL_ERRNO (res, err) != ENOSYS) {
++    __set_errno (INTERNAL_SYSCALL_ERRNO (res, err));
 +    return -1;
 +  }
-+  return INLINE_SYSCALL (eventfd, 1, count);
 +#endif
++  /* The old system call has no flag parameter which is bad. */
++  if (flags != 0) {
++    __set_errno (EINVAL);
++    return -1;
++  }
++#if defined __NR_eventfd
++  res = INTERNAL_SYSCALL (eventfd, err, 1, count);
++  if (likely(!INTERNAL_SYSCALL_ERROR_P (res, err)))
++    return res;
++
++  __set_errno (INTERNAL_SYSCALL_ERRNO (res, err));
++#else
++  __set_errno (ENOSYS);
++#endif
++  return -1;
 +}
 +#endif
 diff --git a/libc/sysdeps/linux/common/sys/eventfd.h b/libc/sysdeps/linux/common/sys/eventfd.h
