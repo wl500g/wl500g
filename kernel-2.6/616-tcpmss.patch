@@ -10,10 +10,11 @@ db1a75bdcc1766dc7e1fae9201ae287dcbcb6c66 netfilter: xt_TCPMSS: collapse tcpmss_r
 409b545ac10d9548929557a75ad86540f59a2c83 netfilter: xt_TCPMSS: Fix violation of RFC879 in absence of MSS option
 70d19f805f8c047fc0a28dec9306b3773971c8d9 netfilter: xt_TCPMSS: Fix IPv6 default MSS too
 b396966c4688522863572927cb30aa874b3ec504 netfilter: xt_TCPMSS: Fix missing fragmentation handling
+de1389b11686f436c81d696b5a33eec2bc975665 netfilter: xt_TCPMSS: Get mtu only if clamp-mss-to-pmtu is specified
 
 ---
- net/netfilter/xt_TCPMSS.c |   92 ++++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 76 insertions(+), 16 deletions(-)
+ net/netfilter/xt_TCPMSS.c |   94 ++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 78 insertions(+), 16 deletions(-)
 
 diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 --- a/net/netfilter/xt_TCPMSS.c
@@ -39,11 +40,42 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  MODULE_ALIAS("ipt_TCPMSS");
  MODULE_ALIAS("ip6t_TCPMSS");
  
-@@ -41,6 +45,7 @@ optlen(const u_int8_t *opt, unsigned int offset)
+@@ -43,9 +43,38 @@ optlen(const u_int8_t *opt, unsigned int offset)
+ 		return opt[offset+1];
+ }
+ 
++static u_int32_t tcpmss_reverse_mtu(const struct sk_buff *skb,
++				    unsigned int family)
++{
++	struct flowi fl = {};
++	struct rtable *rt = NULL;
++	u_int32_t mtu     = ~0U;
++
++	if (family == PF_INET)
++		fl.fl4_dst = ip_hdr(skb)->saddr;
++	else
++		fl.fl6_dst = ipv6_hdr(skb)->saddr;
++
++	rcu_read_lock();
++	if (family == PF_INET)
++		ip_route_output_key(&rt, &fl);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	else
++		rt = (struct rtable *)ip6_route_output(NULL, &fl);
++#endif
++	rcu_read_unlock();
++
++	if (rt != NULL) {
++		mtu = dst_mtu(&rt->u.dst);
++		dst_release(&rt->u.dst);
++	}
++	return mtu;
++}
++
  static int
  tcpmss_mangle_packet(struct sk_buff **pskb,
  		     const struct xt_tcpmss_info *info,
-+		     unsigned int in_mtu,
++		     unsigned int family,
  		     unsigned int tcphoff,
  		     unsigned int minlen)
  {
@@ -58,7 +90,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  	if (!skb_make_writable(pskb, (*pskb)->len))
  		return -1;
  
-@@ -56,17 +61,9 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
+@@ -56,19 +61,13 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
  	tcplen = (*pskb)->len - tcphoff;
  	tcph = (struct tcphdr *)(skb_network_header(*pskb) + tcphoff);
  
@@ -77,7 +109,11 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 -	}
  
  	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
++		unsigned int in_mtu = tcpmss_reverse_mtu(skb, family);
++
  		if (dst_mtu((*pskb)->dst) <= minlen) {
+ 			if (net_ratelimit())
+ 				printk(KERN_ERR "xt_TCPMSS: "
 @@ -76,7 +73,13 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
  				       dst_mtu((*pskb)->dst));
  			return -1;
@@ -139,48 +175,13 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  	opt = (u_int8_t *)tcph + sizeof(struct tcphdr);
  	memmove(opt + TCPOLEN_MSS, opt, tcplen - sizeof(struct tcphdr));
  
-@@ -137,6 +149,34 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
- 	return TCPOLEN_MSS;
- }
- 
-+static u_int32_t tcpmss_reverse_mtu(const struct sk_buff *skb,
-+				    unsigned int family)
-+{
-+	struct flowi fl = {};
-+	struct rtable *rt = NULL;
-+	u_int32_t mtu     = ~0U;
-+
-+	if (family == PF_INET)
-+		fl.fl4_dst = ip_hdr(skb)->saddr;
-+	else
-+		fl.fl6_dst = ipv6_hdr(skb)->saddr;
-+
-+	rcu_read_lock();
-+	if (family == PF_INET)
-+		ip_route_output_key(&rt, &fl);
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	else
-+		rt = (struct rtable *)ip6_route_output(NULL, &fl);
-+#endif
-+	rcu_read_unlock();
-+
-+	if (rt != NULL) {
-+		mtu = dst_mtu(&rt->u.dst);
-+		dst_release(&rt->u.dst);
-+	}
-+	return mtu;
-+}
-+
- static unsigned int
- xt_tcpmss_target4(struct sk_buff **pskb,
- 		  const struct net_device *in,
 @@ -149,7 +189,9 @@ xt_tcpmss_target4(struct sk_buff **pskb,
  	__be16 newlen;
  	int ret;
  
 -	ret = tcpmss_mangle_packet(pskb, targinfo, iph->ihl * 4,
 +	ret = tcpmss_mangle_packet(pskb, targinfo,
-+				   tcpmss_reverse_mtu(*pskb, PF_INET),
++				   PF_INET,
 +				   iph->ihl * 4,
  				   sizeof(*iph) + sizeof(struct tcphdr));
  	if (ret < 0)
@@ -191,7 +192,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  		return NF_DROP;
 -	ret = tcpmss_mangle_packet(pskb, targinfo, tcphoff,
 +	ret = tcpmss_mangle_packet(pskb, targinfo,
-+				   tcpmss_reverse_mtu(*pskb, PF_INET6),
++				   PF_INET6,
 +				   tcphoff,
  				   sizeof(*ipv6h) + sizeof(struct tcphdr));
  	if (ret < 0)
