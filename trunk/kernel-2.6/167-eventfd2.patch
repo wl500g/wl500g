@@ -1,0 +1,168 @@
+eventfd2 syscall
+
+ b087498eb5605673b0f260a7620d91818cd72304 flag parameters: eventfd
+ e7d476dfdf0bcfed478a207aecfdc84f81efecaf flag parameters: NONBLOCK in eventfd
+ bcd0b235bf3808dec5115c381cd55568f63b85f0 eventfd: improve support for semaphore-like behavior
+
+---
+ arch/mips/kernel/scall64-n32.S |    2 +-
+ fs/eventfd.c                   |   28 +++++++++++++++++++---------
+ include/linux/eventfd.h        |   17 +++++++++++++++++
+ include/linux/syscalls.h       |    1 +
+ kernel/sys_ni.c                |    1 +
+ 5 files changed, 39 insertions(+), 10 deletions(-)
+
+diff --git a/arch/mips/kernel/scall64-n32.S b/arch/mips/kernel/scall64-n32.S
+--- a/arch/mips/kernel/scall64-n32.S
++++ b/arch/mips/kernel/scall64-n32.S
+@@ -410,7 +410,7 @@
+ 	PTR	compat_sys_timerfd_gettime	/* 6285 */
+ 	PTR	compat_sys_timerfd_settime
+ 	PTR	sys_ni_syscall			/* sys_signalfd4 */
+-	PTR	sys_ni_syscall			/* sys_eventfd2 */
++	PTR	sys_eventfd2
+ 	PTR	sys_ni_syscall			/* sys_epoll_create1 */
+ 	PTR	sys_ni_syscall			/* 6290, sys_dup3 */
+ 	PTR	sys_ni_syscall			/* sys_pipe2 */
+diff --git a/fs/eventfd.c b/fs/eventfd.c
+--- a/fs/eventfd.c
++++ b/fs/eventfd.c
+@@ -27,6 +27,7 @@ struct eventfd_ctx {
+ 	 * issue a wakeup.
+ 	 */
+ 	__u64 count;
++	unsigned int flags;
+ };
+ 
+ /*
+@@ -86,22 +87,20 @@ static ssize_t eventfd_read(struct file 
+ {
+ 	struct eventfd_ctx *ctx = file->private_data;
+ 	ssize_t res;
+-	__u64 ucnt;
++	__u64 ucnt = 0;
+ 	DECLARE_WAITQUEUE(wait, current);
+ 
+ 	if (count < sizeof(ucnt))
+ 		return -EINVAL;
+ 	spin_lock_irq(&ctx->wqh.lock);
+ 	res = -EAGAIN;
+-	ucnt = ctx->count;
+-	if (ucnt > 0)
++	if (ctx->count > 0)
+ 		res = sizeof(ucnt);
+ 	else if (!(file->f_flags & O_NONBLOCK)) {
+ 		__add_wait_queue(&ctx->wqh, &wait);
+ 		for (res = 0;;) {
+ 			set_current_state(TASK_INTERRUPTIBLE);
+ 			if (ctx->count > 0) {
+-				ucnt = ctx->count;
+ 				res = sizeof(ucnt);
+ 				break;
+ 			}
+@@ -116,8 +115,9 @@ static ssize_t eventfd_read(struct file 
+ 		__remove_wait_queue(&ctx->wqh, &wait);
+ 		__set_current_state(TASK_RUNNING);
+ 	}
+-	if (res > 0) {
+-		ctx->count = 0;
++	if (likely(res > 0)) {
++		ucnt = (ctx->flags & EFD_SEMAPHORE) ? 1 : ctx->count;
++		ctx->count -= ucnt;
+ 		if (waitqueue_active(&ctx->wqh))
+ 			wake_up_locked_poll(&ctx->wqh, POLLOUT);
+ 	}
+@@ -165,7 +165,7 @@ static ssize_t eventfd_write(struct file
+ 		__remove_wait_queue(&ctx->wqh, &wait);
+ 		__set_current_state(TASK_RUNNING);
+ 	}
+-	if (res > 0) {
++	if (likely(res > 0)) {
+ 		ctx->count += ucnt;
+ 		if (waitqueue_active(&ctx->wqh))
+ 			wake_up_locked_poll(&ctx->wqh, POLLIN);
+@@ -197,25 +197,35 @@ struct file *eventfd_fget(int fd)
+ 	return file;
+ }
+ 
+-asmlinkage long sys_eventfd(unsigned int count)
++asmlinkage long sys_eventfd2(unsigned int count, int flags)
+ {
+ 	int fd;
+ 	struct eventfd_ctx *ctx;
+ 
++	if (flags & ~EFD_FLAGS_SET)
++		return -EINVAL;
++
+ 	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
+ 	if (!ctx)
+ 		return -ENOMEM;
+ 
+ 	init_waitqueue_head(&ctx->wqh);
+ 	ctx->count = count;
++	ctx->flags = flags;
+ 
+ 	/*
+ 	 * When we call this, the initialization must be complete, since
+ 	 * anon_inode_getfd() will install the fd.
+ 	 */
+-	fd = anon_inode_getfd("[eventfd]", &eventfd_fops, ctx, 0);
++	fd = anon_inode_getfd("[eventfd]", &eventfd_fops, ctx,
++			      flags & EFD_SHARED_FCNTL_FLAGS);
+ 	if (fd < 0)
+ 		kfree(ctx);
+ 	return fd;
+ }
+ 
++asmlinkage long sys_eventfd(unsigned int count)
++{
++	return sys_eventfd2(count, 0);
++}
++
+diff --git a/include/linux/eventfd.h b/include/linux/eventfd.h
+--- a/include/linux/eventfd.h
++++ b/include/linux/eventfd.h
+@@ -13,6 +13,23 @@
+ 
+ #ifdef CONFIG_EVENTFD
+ 
++/* For O_CLOEXEC and O_NONBLOCK */
++#include <linux/fcntl.h>
++
++/*
++ * CAREFUL: Check include/asm-generic/fcntl.h when defining
++ * new flags, since they might collide with O_* ones. We want
++ * to re-use O_* flags that couldn't possibly have a meaning
++ * from eventfd, in order to leave a free define-space for
++ * shared O_* flags.
++ */
++#define EFD_SEMAPHORE (1 << 0)
++#define EFD_CLOEXEC O_CLOEXEC
++#define EFD_NONBLOCK O_NONBLOCK
++
++#define EFD_SHARED_FCNTL_FLAGS (O_CLOEXEC | O_NONBLOCK)
++#define EFD_FLAGS_SET (EFD_SHARED_FCNTL_FLAGS | EFD_SEMAPHORE)
++
+ struct file *eventfd_fget(int fd);
+ int eventfd_signal(struct file *file, int n);
+ 
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -617,6 +617,7 @@ asmlinkage long sys_timerfd_settime(int ufd, int flags,
+ 				    struct itimerspec __user *otmr);
+ asmlinkage long sys_timerfd_gettime(int ufd, struct itimerspec __user *otmr);
+ asmlinkage long sys_eventfd(unsigned int count);
++asmlinkage long sys_eventfd2(unsigned int count, int flags);
+ asmlinkage long sys_fallocate(int fd, int mode, loff_t offset, loff_t len);
+ 
+ int kernel_execve(const char *filename, char *const argv[], char *const envp[]);
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -164,3 +164,4 @@ cond_syscall(sys_timerfd_gettime);
+ cond_syscall(compat_sys_timerfd_settime);
+ cond_syscall(compat_sys_timerfd_gettime);
+ cond_syscall(sys_eventfd);
++cond_syscall(sys_eventfd2);
+-- 
