@@ -5793,7 +5793,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  tcpmss_mangle_packet(struct sk_buff *skb,
 -		     const struct xt_tcpmss_info *info,
 +		     const struct xt_action_param *par,
- 		     unsigned int in_mtu,
+ 		     unsigned int family,
  		     unsigned int tcphoff,
  		     unsigned int minlen)
  {
@@ -5819,7 +5819,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  
 -	ret = tcpmss_mangle_packet(skb, targinfo,
 +	ret = tcpmss_mangle_packet(skb, par,
- 				   tcpmss_reverse_mtu(skb, PF_INET),
+ 				   PF_INET,
  				   iph->ihl * 4,
  				   sizeof(*iph) + sizeof(struct tcphdr));
 @@ -214,12 +210,7 @@ xt_tcpmss_target4(struct sk_buff *skb,
@@ -5842,7 +5842,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  		return NF_DROP;
 -	ret = tcpmss_mangle_packet(skb, targinfo,
 +	ret = tcpmss_mangle_packet(skb, par,
- 				   tcpmss_reverse_mtu(skb, PF_INET6),
+ 				   PF_INET6,
  				   tcphoff,
  				   sizeof(*ipv6h) + sizeof(struct tcphdr));
 @@ -259,18 +250,13 @@ static inline bool find_syn_match(const

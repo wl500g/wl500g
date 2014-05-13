@@ -6726,9 +6726,9 @@ diff -urBp a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 -tcpmss_mangle_packet(struct sk_buff **pskb,
 +tcpmss_mangle_packet(struct sk_buff *skb,
  		     const struct xt_tcpmss_info *info,
- 		     unsigned int in_mtu,
+ 		     unsigned int family,
  		     unsigned int tcphoff,
-@@ -55,22 +55,22 @@ tcpmss_mangle_packet(struct sk_buff **ps
+@@ -55,24 +55,24 @@ tcpmss_mangle_packet(struct sk_buff **ps
  	if (par->fragoff != 0)
  		return 0;
  
@@ -6746,6 +6746,8 @@ diff -urBp a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  		return -1;
  
  	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
+ 		unsigned int in_mtu = tcpmss_reverse_mtu(skb, family);
+ 
 -		if (dst_mtu((*pskb)->dst) <= minlen) {
 +		if (dst_mtu(skb->dst) <= minlen) {
  			if (net_ratelimit())
@@ -6849,9 +6851,8 @@ diff -urBp a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  	int ret;
  
 -	ret = tcpmss_mangle_packet(pskb, targinfo,
--				   tcpmss_reverse_mtu(*pskb, PF_INET),
 +	ret = tcpmss_mangle_packet(skb, targinfo,
-+				   tcpmss_reverse_mtu(skb, PF_INET),
+ 				   PF_INET,
  				   iph->ihl * 4,
  				   sizeof(*iph) + sizeof(struct tcphdr));
  	if (ret < 0)
@@ -6886,9 +6887,8 @@ diff -urBp a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  	if (tcphoff < 0)
  		return NF_DROP;
 -	ret = tcpmss_mangle_packet(pskb, targinfo,
--				   tcpmss_reverse_mtu(*pskb, PF_INET6),
 +	ret = tcpmss_mangle_packet(skb, targinfo,
-+				   tcpmss_reverse_mtu(skb, PF_INET6),
+ 				   PF_INET6,
  				   tcphoff,
  				   sizeof(*ipv6h) + sizeof(struct tcphdr));
  	if (ret < 0)
