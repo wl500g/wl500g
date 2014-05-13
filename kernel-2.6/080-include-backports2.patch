@@ -56,6 +56,29 @@ diff --git a/include/linux/debug_locks.h b/include/linux/debug_locks.h
  #define DEBUG_LOCKS_WARN_ON(c)						\
  ({									\
  	int __ret = 0;							\
+diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -141,6 +141,19 @@ static inline unsigned compare_ether_addr(const u8 *addr1, const u8 *addr2)
+ 	BUILD_BUG_ON(ETH_ALEN != 6);
+ 	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
+ }
++
++/**
++ * ether_addr_equal - Compare two Ethernet addresses
++ * @addr1: Pointer to a six-byte array containing the Ethernet address
++ * @addr2: Pointer other six-byte array containing the Ethernet address
++ *
++ * Compare two ethernet addresses, returns true if equal
++ */
++static inline bool ether_addr_equal(const u8 *addr1, const u8 *addr2)
++{
++	return !compare_ether_addr(addr1, addr2);
++}
++
+ #endif	/* __KERNEL__ */
+ 
+ #endif	/* _LINUX_ETHERDEVICE_H */
 diff -uBp a/include/linux/if_ether.h b/include/linux/if_ether.h
 --- a/include/linux/if_ether.h
 +++ b/include/linux/if_ether.h
