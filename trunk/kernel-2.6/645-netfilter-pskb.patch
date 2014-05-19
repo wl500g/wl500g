@@ -6728,7 +6728,7 @@ diff -urBp a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  		     const struct xt_tcpmss_info *info,
  		     unsigned int family,
  		     unsigned int tcphoff,
-@@ -55,24 +55,24 @@ tcpmss_mangle_packet(struct sk_buff **ps
+@@ -55,27 +55,27 @@ tcpmss_mangle_packet(struct sk_buff **ps
  	if (par->fragoff != 0)
  		return 0;
  
@@ -6736,13 +6736,16 @@ diff -urBp a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 +	if (!skb_make_writable(skb, skb->len))
  		return -1;
  
--	tcplen = (*pskb)->len - tcphoff;
--	tcph = (struct tcphdr *)(skb_network_header(*pskb) + tcphoff);
-+	tcplen = skb->len - tcphoff;
-+	tcph = (struct tcphdr *)(skb_network_header(skb) + tcphoff);
+-	len = (*pskb)->len - tcphoff;
++	len = skb->len - tcphoff;
+ 	if (len < (int)sizeof(struct tcphdr))
+ 		return -1;
  
- 	/* Header cannot be larger than the packet */
- 	if (tcplen < tcph->doff*4)
+-	tcph = (struct tcphdr *)(skb_network_header(*pskb) + tcphoff);
++	tcph = (struct tcphdr *)(skb_network_header(skb) + tcphoff);
+ 	tcp_hdrlen = tcph->doff * 4;
+ 
+ 	if (len < tcp_hdrlen)
  		return -1;
  
  	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
@@ -6813,11 +6816,11 @@ diff -urBp a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  		newmss = min(newmss, (u16)1220);
  
  	opt = (u_int8_t *)tcph + sizeof(struct tcphdr);
- 	memmove(opt + TCPOLEN_MSS, opt, tcplen - sizeof(struct tcphdr));
+ 	memmove(opt + TCPOLEN_MSS, opt, len - sizeof(struct tcphdr));
  
 -	nf_proto_csum_replace2(&tcph->check, *pskb,
 +	nf_proto_csum_replace2(&tcph->check, skb,
- 			       htons(tcplen), htons(tcplen + TCPOLEN_MSS), 1);
+ 				 htons(len), htons(len + TCPOLEN_MSS), 1);
  	opt[0] = TCPOPT_MSS;
  	opt[1] = TCPOLEN_MSS;
  	opt[2] = (newmss & 0xff00) >> 8;
