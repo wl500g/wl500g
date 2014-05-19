@@ -1,20 +1,19 @@
-From: Fedor <fedork@ubuntu.(none)>
-Date: Fri, 19 Mar 2010 23:54:48 -0400
-Subject: [PATCH] Netfilter: TCPMSS target fixes
+netfilter: TCPMSS target updates
 
 kernel.org commits:
-170080645dac61816455afad807ffeb326ce79e8 [NETFILTER]: xt_TCPMSS: don't allow netfilter --setmss to increase mss
-37c08387fc31a0fe7a570664c93be4f1c1bc0c94 [NETFILTER]: xt_TCPMSS: consider reverse route's MTU in clamp-to-pmtu
-10a199394b8f9b4c4e0be6e14a61109a7d891b1b netfilter: xt_TCPMSS: SYN packets are allowed to contain data
-db1a75bdcc1766dc7e1fae9201ae287dcbcb6c66 netfilter: xt_TCPMSS: collapse tcpmss_reverse_mtu{4,6} into one function
-409b545ac10d9548929557a75ad86540f59a2c83 netfilter: xt_TCPMSS: Fix violation of RFC879 in absence of MSS option
-70d19f805f8c047fc0a28dec9306b3773971c8d9 netfilter: xt_TCPMSS: Fix IPv6 default MSS too
-b396966c4688522863572927cb30aa874b3ec504 netfilter: xt_TCPMSS: Fix missing fragmentation handling
-de1389b11686f436c81d696b5a33eec2bc975665 netfilter: xt_TCPMSS: Get mtu only if clamp-mss-to-pmtu is specified
+ 170080645dac61816455afad807ffeb326ce79e8 [NETFILTER]: xt_TCPMSS: don't allow netfilter --setmss to increase mss
+ 37c08387fc31a0fe7a570664c93be4f1c1bc0c94 [NETFILTER]: xt_TCPMSS: consider reverse route's MTU in clamp-to-pmtu
+ 10a199394b8f9b4c4e0be6e14a61109a7d891b1b netfilter: xt_TCPMSS: SYN packets are allowed to contain data
+ db1a75bdcc1766dc7e1fae9201ae287dcbcb6c66 netfilter: xt_TCPMSS: collapse tcpmss_reverse_mtu{4,6} into one function
+ 409b545ac10d9548929557a75ad86540f59a2c83 netfilter: xt_TCPMSS: Fix violation of RFC879 in absence of MSS option
+ 70d19f805f8c047fc0a28dec9306b3773971c8d9 netfilter: xt_TCPMSS: Fix IPv6 default MSS too
+ b396966c4688522863572927cb30aa874b3ec504 netfilter: xt_TCPMSS: Fix missing fragmentation handling
+ 71ffe9c77dd7a2b62207953091efa8dafec958dd netfilter: xt_TCPMSS: fix handling of malformed TCP header and options
+ de1389b11686f436c81d696b5a33eec2bc975665 netfilter: xt_TCPMSS: Get mtu only if clamp-mss-to-pmtu is specified
 
 ---
- net/netfilter/xt_TCPMSS.c |   94 ++++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 78 insertions(+), 16 deletions(-)
+ net/netfilter/xt_TCPMSS.c |  112 ++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 89 insertions(+), 23 deletions(-)
 
 diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 --- a/net/netfilter/xt_TCPMSS.c
@@ -40,7 +39,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  MODULE_ALIAS("ipt_TCPMSS");
  MODULE_ALIAS("ip6t_TCPMSS");
  
-@@ -43,9 +43,38 @@ optlen(const u_int8_t *opt, unsigned int offset)
+@@ -38,37 +42,68 @@ optlen(const u_int8_t *opt, unsigned int
  		return opt[offset+1];
  }
  
@@ -79,7 +78,11 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  		     unsigned int tcphoff,
  		     unsigned int minlen)
  {
-@@ -48,6 +57,10 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+ 	struct tcphdr *tcph;
+-	unsigned int tcplen, i;
++	int len, tcp_hdrlen;
++	unsigned int i;
+ 	__be16 oldval;
  	u16 newmss;
  	u8 *opt;
  
@@ -90,9 +93,13 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  	if (!skb_make_writable(pskb, (*pskb)->len))
  		return -1;
  
-@@ -56,19 +61,13 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
- 	tcplen = (*pskb)->len - tcphoff;
+-	tcplen = (*pskb)->len - tcphoff;
++	len = (*pskb)->len - tcphoff;
++	if (len < (int)sizeof(struct tcphdr))
++		return -1;
++
  	tcph = (struct tcphdr *)(skb_network_header(*pskb) + tcphoff);
++	tcp_hdrlen = tcph->doff * 4;
  
 -	/* Since it passed flags test in tcp match, we know it is is
 -	   not a fragment, and has data >= tcp header length.  SYN
@@ -103,8 +110,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 -		if (net_ratelimit())
 -			printk(KERN_ERR "xt_TCPMSS: bad length (%u bytes)\n",
 -			       (*pskb)->len);
-+	/* Header cannot be larger than the packet */
-+	if (tcplen < tcph->doff*4)
++	if (len < tcp_hdrlen)
  		return -1;
 -	}
  
@@ -114,7 +120,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  		if (dst_mtu((*pskb)->dst) <= minlen) {
  			if (net_ratelimit())
  				printk(KERN_ERR "xt_TCPMSS: "
-@@ -76,7 +73,13 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
+@@ -76,20 +111,28 @@ tcpmss_mangle_packet(struct sk_buff **ps
  				       dst_mtu((*pskb)->dst));
  			return -1;
  		}
@@ -129,7 +135,13 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  	} else
  		newmss = info->mss;
  
-@@ -88,8 +91,11 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
+ 	opt = (u_int8_t *)tcph;
+-	for (i = sizeof(struct tcphdr); i < tcph->doff*4; i += optlen(opt, i)) {
+-		if (opt[i] == TCPOPT_MSS && tcph->doff*4 - i >= TCPOLEN_MSS &&
+-		    opt[i+1] == TCPOLEN_MSS) {
++	for (i = sizeof(struct tcphdr); i <= tcp_hdrlen - TCPOLEN_MSS; i += optlen(opt, i)) {
++		if (opt[i] == TCPOPT_MSS && opt[i+1] == TCPOLEN_MSS) {
+ 			u_int16_t oldmss;
  
  			oldmss = (opt[i+2] << 8) | opt[i+3];
  
@@ -143,22 +155,23 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  				return 0;
  
  			opt[i+2] = (newmss & 0xff00) >> 8;
-@@ -101,6 +107,12 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
+@@ -101,6 +144,13 @@ tcpmss_mangle_packet(struct sk_buff **ps
  		}
  	}
  
 +	/* There is data after the header so the option can't be added
-+	   without moving it, and doing so may make the SYN packet
-+	   itself too large. Accept the packet unmodified instead. */
-+	if (tcplen > tcph->doff*4)
++	 * without moving it, and doing so may make the SYN packet
++	 * itself too large. Accept the packet unmodified instead.
++	 */
++	if (len > tcp_hdrlen)
 +		return 0;
 +
  	/*
  	 * MSS Option not found ?! add it..
  	 */
-@@ -120,6 +127,18 @@ tcpmss_mangle_packet(struct sk_buff *skb
+@@ -118,11 +168,23 @@ tcpmss_mangle_packet(struct sk_buff **ps
  
- 	skb_put(skb, TCPOLEN_MSS);
+ 	skb_put((*pskb), TCPOLEN_MSS);
  
 +	/*
 +	 * IPv4: RFC 1122 states "If an MSS option is not received at
@@ -173,9 +186,16 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
 +		newmss = min(newmss, (u16)1220);
 +
  	opt = (u_int8_t *)tcph + sizeof(struct tcphdr);
- 	memmove(opt + TCPOLEN_MSS, opt, tcplen - sizeof(struct tcphdr));
+-	memmove(opt + TCPOLEN_MSS, opt, tcplen - sizeof(struct tcphdr));
++	memmove(opt + TCPOLEN_MSS, opt, len - sizeof(struct tcphdr));
  
-@@ -149,7 +189,9 @@ xt_tcpmss_target4(struct sk_buff **pskb,
+ 	nf_proto_csum_replace2(&tcph->check, *pskb,
+-			       htons(tcplen), htons(tcplen + TCPOLEN_MSS), 1);
++				 htons(len), htons(len + TCPOLEN_MSS), 1);
+ 	opt[0] = TCPOPT_MSS;
+ 	opt[1] = TCPOLEN_MSS;
+ 	opt[2] = (newmss & 0xff00) >> 8;
+@@ -149,7 +211,9 @@ xt_tcpmss_target4(struct sk_buff **pskb,
  	__be16 newlen;
  	int ret;
  
@@ -186,7 +206,7 @@ diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
  				   sizeof(*iph) + sizeof(struct tcphdr));
  	if (ret < 0)
  		return NF_DROP;
-@@ -180,7 +222,9 @@ xt_tcpmss_target6(struct sk_buff **pskb,
+@@ -180,7 +244,9 @@ xt_tcpmss_target6(struct sk_buff **pskb,
  	tcphoff = ipv6_skip_exthdr(*pskb, sizeof(*ipv6h), &nexthdr);
  	if (tcphoff < 0)
  		return NF_DROP;
