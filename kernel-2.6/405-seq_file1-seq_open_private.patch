@@ -11,46 +11,50 @@
  c20932d2c9ba24838a102ac501bf7371b0fe0794 [ATALK/DECNET]: Use seq_open_private in appletalk and decnet.
  9427c4b36b8fe652df1d7c89eae678948e1f4b32 [TCP]: Move seq_ops from tcp_iter_state to tcp_seq_afinfo.
  68fcadd16c371d5e0698ba366f33a4f990ce83ce [TCP]: Place file operations directly into tcp_seq_afinfo.
+ 3ba9441bdf07370670a684e6d95dfc523476677f [UDP]: Place file operations directly into udp_seq_afinfo.
+ 4ad96d39a2d74c1b2e400b602da2594f5098fc26 [UDP]: Remove owner from udp_seq_afinfo.
+ 5f4472c5a640c9671ca5becaebdfd6e651482176 [TCP]: Remove owner from tcp_seq_afinfo.
+ 73cb88ecb950ee67906d02354f781ea293bcf895 net: make the tcp and udp file_operations for the /proc stuff const
 
 ---
- fs/seq_file.c                                         |   33 +++++++++++++
+ fs/seq_file.c                                         |   33 ++++++++++
  include/linux/seq_file.h                              |    2 
- include/net/tcp.h                                     |    5 --
- include/net/udp.h                                     |    3 -
- net/appletalk/aarp.c                                  |   21 --------
- net/decnet/af_decnet.c                                |   21 --------
- net/decnet/dn_neigh.c                                 |   20 --------
- net/decnet/dn_route.c                                 |   19 -------
- net/ipv4/arp.c                                        |   20 --------
- net/ipv4/fib_hash.c                                   |   20 --------
- net/ipv4/fib_trie.c                                   |   42 +---------------
- net/ipv4/igmp.c                                       |   38 +--------------
- net/ipv4/ipmr.c                                       |   43 +----------------
- net/ipv4/ipvs/ip_vs_ctl.c                             |   20 --------
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |   19 -------
- net/ipv4/raw.c                                        |   20 --------
- net/ipv4/route.c                                      |   19 -------
- net/ipv4/tcp_ipv4.c                                   |   45 ++++++------------
- net/ipv4/udp.c                                        |   37 ++++++--------
- net/ipv4/udplite.c                                    |    4 +
- net/ipv6/addrconf.c                                   |   20 --------
- net/ipv6/anycast.c                                    |   20 --------
- net/ipv6/ip6_flowlabel.c                              |   20 --------
- net/ipv6/mcast.c                                      |   40 +---------------
- net/ipv6/raw.c                                        |   17 ------
- net/ipv6/tcp_ipv6.c                                   |    6 +-
- net/ipv6/udp.c                                        |    4 +
- net/ipv6/udplite.c                                    |    4 +
- net/irda/irlap.c                                      |   26 +---------
- net/irda/irlmp.c                                      |   21 --------
- net/irda/irttp.c                                      |   21 --------
- net/netfilter/nf_conntrack_standalone.c               |   19 -------
- net/netfilter/nfnetlink_log.c                         |   18 -------
- net/netfilter/nfnetlink_queue.c                       |   18 -------
- net/netlink/af_netlink.c                              |   11 ----
- net/sunrpc/cache.c                                    |   12 ----
- net/unix/af_unix.c                                    |   20 --------
- 37 files changed, 144 insertions(+), 604 deletions(-)
+ include/net/tcp.h                                     |   12 +--
+ include/net/udp.h                                     |   14 ++--
+ net/appletalk/aarp.c                                  |   21 ------
+ net/decnet/af_decnet.c                                |   21 ------
+ net/decnet/dn_neigh.c                                 |   20 ------
+ net/decnet/dn_route.c                                 |   19 -----
+ net/ipv4/arp.c                                        |   20 ------
+ net/ipv4/fib_hash.c                                   |   20 ------
+ net/ipv4/fib_trie.c                                   |   42 +------------
+ net/ipv4/igmp.c                                       |   38 +----------
+ net/ipv4/ipmr.c                                       |   43 +------------
+ net/ipv4/ipvs/ip_vs_ctl.c                             |   20 ------
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |   19 -----
+ net/ipv4/raw.c                                        |   20 ------
+ net/ipv4/route.c                                      |   19 -----
+ net/ipv4/tcp_ipv4.c                                   |   50 ++++++---------
+ net/ipv4/udp.c                                        |   58 +++++++-----------
+ net/ipv4/udplite.c                                    |   17 ++++-
+ net/ipv6/addrconf.c                                   |   20 ------
+ net/ipv6/anycast.c                                    |   20 ------
+ net/ipv6/ip6_flowlabel.c                              |   20 ------
+ net/ipv6/mcast.c                                      |   40 +-----------
+ net/ipv6/raw.c                                        |   17 -----
+ net/ipv6/tcp_ipv6.c                                   |   16 +++-
+ net/ipv6/udp.c                                        |   16 +++-
+ net/ipv6/udplite.c                                    |   17 ++++-
+ net/irda/irlap.c                                      |   26 +-------
+ net/irda/irlmp.c                                      |   21 ------
+ net/irda/irttp.c                                      |   21 ------
+ net/netfilter/nf_conntrack_standalone.c               |   19 -----
+ net/netfilter/nfnetlink_log.c                         |   18 -----
+ net/netfilter/nfnetlink_queue.c                       |   18 -----
+ net/netlink/af_netlink.c                              |   11 ---
+ net/sunrpc/cache.c                                    |   12 ---
+ net/unix/af_unix.c                                    |   20 ------
+ 37 files changed, 206 insertions(+), 634 deletions(-)
 
 diff --git a/fs/seq_file.c b/fs/seq_file.c
 --- a/fs/seq_file.c
@@ -110,14 +114,22 @@ diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
 diff --git a/include/net/tcp.h b/include/net/tcp.h
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -1297,8 +1297,8 @@ struct tcp_seq_afinfo {
- 	struct module		*owner;
- 	char			*name;
- 	sa_family_t		family;
+@@ -1297,12 +1297,13 @@ struct tcp_seq_afinfo {
+ 	TCP_SEQ_STATE_TIME_WAIT,
+ };
+ 
++int tcp_seq_open(struct inode *inode, struct file *file);
++
+ struct tcp_seq_afinfo {
+-	struct module		*owner;
+-	char			*name;
+-	sa_family_t		family;
 -	int			(*seq_show) (struct seq_file *m, void *v);
 -	struct file_operations	*seq_fops;
-+	struct file_operations	seq_fops;
-+	struct seq_operations	seq_ops;
++	char				*name;
++	sa_family_t			family;
++	const struct file_operations	*seq_fops;
++	struct seq_operations		seq_ops;
  };
  
  struct tcp_iter_state {
@@ -132,13 +144,24 @@ diff --git a/include/net/tcp.h b/include/net/tcp.h
 diff --git a/include/net/udp.h b/include/net/udp.h
 --- a/include/net/udp.h
 +++ b/include/net/udp.h
-@@ -155,15 +155,14 @@ struct udp_seq_afinfo {
- 	char			*name;
- 	sa_family_t		family;
- 	struct hlist_head	*hashtable;
+@@ -155,20 +155,20 @@ struct udp_seq_afinfo {
+ #endif
+ 
+ /* /proc */
++int udp_seq_open(struct inode *inode, struct file *file);
++
+ struct udp_seq_afinfo {
+-	struct module		*owner;
+-	char			*name;
+-	sa_family_t		family;
+-	struct hlist_head	*hashtable;
 -	int 			(*seq_show) (struct seq_file *m, void *v);
- 	struct file_operations	*seq_fops;
-+	struct seq_operations	seq_ops;
+-	struct file_operations	*seq_fops;
++	char				*name;
++	sa_family_t			family;
++	struct hlist_head		*hashtable;
++	const struct file_operations	*seq_fops;
++	struct seq_operations		seq_ops;
  };
  
  struct udp_iter_state {
@@ -625,8 +648,12 @@ diff --git a/net/ipv4/route.c b/net/ipv4/route.c
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -2202,32 +2202,18 @@ static void tcp_seq_stop(struct seq_file
- static int tcp_seq_open(struct inode *inode, struct file *file)
+@@ -2202,35 +2202,22 @@ static void tcp_seq_stop(struct seq_file
+ 	}
+ }
+ 
+-static int tcp_seq_open(struct inode *inode, struct file *file)
++int tcp_seq_open(struct inode *inode, struct file *file)
  {
  	struct tcp_seq_afinfo *afinfo = PDE(inode)->data;
 -	struct seq_file *seq;
@@ -660,9 +687,10 @@ diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
 +
 +	return 0;
  }
++EXPORT_SYMBOL(tcp_seq_open);
  
  int tcp_proc_register(struct tcp_seq_afinfo *afinfo)
-@@ -2237,13 +2223,17 @@ int tcp_proc_register(struct tcp_seq_afi
+@@ -2237,11 +2223,9 @@ int tcp_proc_register(struct tcp_seq_afi
  
  	if (!afinfo)
  		return -EINVAL;
@@ -671,21 +699,12 @@ diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
 -	afinfo->seq_fops->read		= seq_read;
 -	afinfo->seq_fops->llseek	= seq_lseek;
 -	afinfo->seq_fops->release	= seq_release_private;
-+	afinfo->seq_fops.owner		= afinfo->owner;
-+	afinfo->seq_fops.open		= tcp_seq_open;
-+	afinfo->seq_fops.read		= seq_read;
-+	afinfo->seq_fops.llseek		= seq_lseek;
-+	afinfo->seq_fops.release	= seq_release_private;
-+
 +	afinfo->seq_ops.start		= tcp_seq_start;
 +	afinfo->seq_ops.next		= tcp_seq_next;
 +	afinfo->seq_ops.stop		= tcp_seq_stop;
  
--	p = proc_net_fops_create(afinfo->name, S_IRUGO, afinfo->seq_fops);
-+	p = proc_net_fops_create(afinfo->name, S_IRUGO, &afinfo->seq_fops);
+ 	p = proc_net_fops_create(afinfo->name, S_IRUGO, afinfo->seq_fops);
  	if (p)
- 		p->data = afinfo;
- 	else
 @@ -2256,7 +2246,6 @@ void tcp_proc_unregister(struct tcp_seq_
  	if (!afinfo)
  		return;
@@ -694,17 +713,26 @@ diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
  }
  
  static void get_openreq4(struct sock *sk, struct request_sock *req,
-@@ -2385,13 +2374,13 @@ out:
+@@ -2385,13 +2374,21 @@ out:
  	return 0;
  }
  
 -static struct file_operations tcp4_seq_fops;
++static const struct file_operations tcp_afinfo_seq_fops = {
++	.owner   = THIS_MODULE,
++	.open    = tcp_seq_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = seq_release_private
++};
++
  static struct tcp_seq_afinfo tcp4_seq_afinfo = {
- 	.owner		= THIS_MODULE,
+-	.owner		= THIS_MODULE,
  	.name		= "tcp",
  	.family		= AF_INET,
 -	.seq_show	= tcp4_seq_show,
 -	.seq_fops	= &tcp4_seq_fops,
++	.seq_fops	= &tcp_afinfo_seq_fops,
 +	.seq_ops	= {
 +		.show		= tcp4_seq_show,
 +	},
@@ -714,8 +742,12 @@ diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
-@@ -1543,30 +1543,17 @@ static void udp_seq_stop(struct seq_file
- static int udp_seq_open(struct inode *inode, struct file *file)
+@@ -1543,34 +1543,22 @@ static void udp_seq_stop(struct seq_file
+ 		spin_unlock_bh(&state->udp_table->hash[state->bucket].lock);
+ }
+ 
+-static int udp_seq_open(struct inode *inode, struct file *file)
++int udp_seq_open(struct inode *inode, struct file *file)
  {
  	struct udp_seq_afinfo *afinfo = PDE(inode)->data;
 -	struct seq_file *seq;
@@ -751,25 +783,57 @@ diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
 +
 +	return 0;
  }
++EXPORT_SYMBOL(udp_seq_open);
  
  /* ------------------------------------------------------------------------ */
-@@ -1583,6 +1570,10 @@ int udp_proc_register(struct udp_seq_afi
- 	afinfo->seq_fops->llseek	= seq_lseek;
- 	afinfo->seq_fops->release	= seq_release_private;
  
+@@ -1583,13 +1570,10 @@ int udp_proc_register(struct udp_seq_afi
+ 
+ 	if (!afinfo)
+ 		return -EINVAL;
+-	afinfo->seq_fops->owner		= afinfo->owner;
+-	afinfo->seq_fops->open		= udp_seq_open;
+-	afinfo->seq_fops->read		= seq_read;
+-	afinfo->seq_fops->llseek	= seq_lseek;
+-	afinfo->seq_fops->release	= seq_release_private;
+-
 +	afinfo->seq_ops.start		= udp_seq_start;
 +	afinfo->seq_ops.next		= udp_seq_next;
 +	afinfo->seq_ops.stop		= udp_seq_stop;
-+
+ 
  	p = proc_net_fops_create(afinfo->name, S_IRUGO, afinfo->seq_fops);
  	if (p)
  		p->data = afinfo;
-@@ -1641,8 +1632,10 @@ static struct udp_seq_afinfo udp4_seq_af
+@@ -1617,7 +1617,6 @@ void udp_proc_unregister(struct udp_seq_afinfo *afinfo)
+ 	if (!afinfo)
+ 		return;
+ 	proc_net_remove(afinfo->name);
+-	memset(afinfo->seq_fops, 0, sizeof(*afinfo->seq_fops));
+ }
+ 
+ /* ------------------------------------------------------------------------ */
+@@ -1641,15 +1632,23 @@ static struct udp_seq_afinfo udp4_seq_af
+ 	return 0;
+ }
+ 
++static const struct file_operations udp_afinfo_seq_fops = {
++	.owner    = THIS_MODULE,
++	.open     = udp_seq_open,
++	.read     = seq_read,
++	.llseek   = seq_lseek,
++	.release  = seq_release_private
++};
++
+ /* ------------------------------------------------------------------------ */
+-static struct file_operations udp4_seq_fops;
+ static struct udp_seq_afinfo udp4_seq_afinfo = {
+-	.owner		= THIS_MODULE,
  	.name		= "udp",
  	.family		= AF_INET,
  	.hashtable	= udp_hash,
 -	.seq_show	= udp4_seq_show,
- 	.seq_fops	= &udp4_seq_fops,
+-	.seq_fops	= &udp4_seq_fops,
++	.seq_fops	= &udp_afinfo_seq_fops,
 +	.seq_ops	= {
 +		.show		= udp4_seq_show,
 +	},
@@ -779,12 +843,28 @@ diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
 diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
 --- a/net/ipv4/udplite.c
 +++ b/net/ipv4/udplite.c
-@@ -86,8 +86,10 @@ static struct udp_seq_afinfo udplite4_se
+@@ -86,14 +86,23 @@ static struct udp_seq_afinfo udplite4_se
+ };
+ 
+ #ifdef CONFIG_PROC_FS
+-static struct file_operations udplite4_seq_fops;
++
++static const struct file_operations udplite_afinfo_seq_fops = {
++	.owner    = THIS_MODULE,
++	.open     = udp_seq_open,
++	.read     = seq_read,
++	.llseek   = seq_lseek,
++	.release  = seq_release_private
++};
++
+ static struct udp_seq_afinfo udplite4_seq_afinfo = {
+-	.owner		= THIS_MODULE,
  	.name		= "udplite",
  	.family		= AF_INET,
  	.hashtable	= udplite_hash,
 -	.seq_show	= udp4_seq_show,
- 	.seq_fops	= &udplite4_seq_fops,
+-	.seq_fops	= &udplite4_seq_fops,
++	.seq_fops	= &udplite_afinfo_seq_fops,
 +	.seq_ops	= {
 +		.show		= udp4_seq_show,
 +	},
@@ -968,17 +1048,26 @@ diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
 --- a/net/ipv6/tcp_ipv6.c	2011-03-15 15:10:02.000000000 +0300
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -2099,13 +2099,13 @@ out:
+@@ -2099,13 +2099,21 @@ out:
  	return 0;
  }
  
 -static struct file_operations tcp6_seq_fops;
++static const struct file_operations tcp6_afinfo_seq_fops = {
++	.owner   = THIS_MODULE,
++	.open    = tcp_seq_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = seq_release_private
++};
++
  static struct tcp_seq_afinfo tcp6_seq_afinfo = {
- 	.owner		= THIS_MODULE,
+-	.owner		= THIS_MODULE,
  	.name		= "tcp6",
  	.family		= AF_INET6,
 -	.seq_show	= tcp6_seq_show,
 -	.seq_fops	= &tcp6_seq_fops,
++	.seq_fops	= &tcp6_afinfo_seq_fops,
 +	.seq_ops	= {
 +		.show		= tcp6_seq_show,
 +	},
@@ -988,12 +1077,27 @@ diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c
-@@ -969,8 +969,10 @@ static struct udp_seq_afinfo udp6_seq_af
+@@ -969,14 +969,22 @@ static struct udp_seq_afinfo udp6_seq_af
+ 	return 0;
+ }
+ 
+-static struct file_operations udp6_seq_fops;
++static const struct file_operations udp6_afinfo_seq_fops = {
++	.owner    = THIS_MODULE,
++	.open     = udp_seq_open,
++	.read     = seq_read,
++	.llseek   = seq_lseek,
++	.release  = seq_release_private
++};
++
+ static struct udp_seq_afinfo udp6_seq_afinfo = {
+-	.owner		= THIS_MODULE,
  	.name		= "udp6",
  	.family		= AF_INET6,
  	.hashtable	= udp_hash,
 -	.seq_show	= udp6_seq_show,
- 	.seq_fops	= &udp6_seq_fops,
+-	.seq_fops	= &udp6_seq_fops,
++	.seq_fops	= &udp6_afinfo_seq_fops,
 +	.seq_ops	= {
 +		.show		= udp6_seq_show,
 +	},
@@ -1003,12 +1107,28 @@ diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
 diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
 --- a/net/ipv6/udplite.c
 +++ b/net/ipv6/udplite.c
-@@ -89,8 +89,10 @@ static struct udp_seq_afinfo udplite6_se
+@@ -89,14 +89,23 @@ static struct udp_seq_afinfo udplite6_se
+ }
+ 
+ #ifdef CONFIG_PROC_FS
+-static struct file_operations udplite6_seq_fops;
++
++static const struct file_operations udplite6_afinfo_seq_fops = {
++	.owner    = THIS_MODULE,
++	.open     = udp_seq_open,
++	.read     = seq_read,
++	.llseek   = seq_lseek,
++	.release  = seq_release_private
++};
++
+ static struct udp_seq_afinfo udplite6_seq_afinfo = {
+-	.owner		= THIS_MODULE,
  	.name		= "udplite6",
  	.family		= AF_INET6,
  	.hashtable	= udplite_hash,
 -	.seq_show	= udp6_seq_show,
- 	.seq_fops	= &udplite6_seq_fops,
+-	.seq_fops	= &udplite6_seq_fops,
++	.seq_fops	= &udplite6_afinfo_seq_fops,
 +	.seq_ops	= {
 +		.show		= udp6_seq_show,
 +	},
