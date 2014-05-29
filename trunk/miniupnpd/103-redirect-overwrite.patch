@@ -17,9 +17,9 @@ diff --git a/upnpredirect.c b/upnpredirect.c
  
  			syslog(LOG_INFO, "port %hu protocol %s already redirected to %s:%hu",
 @@ -255,15 +260,12 @@ upnp_redirect(unsigned short eport,
- 				eport, protocol, iaddr_old, iport_old);
- 			return -2;
- 		}
+ 		       eport, protocol);
+ 		return -2;
+ #endif /* CHECK_PORTINUSE */
 -	} else {
 -		timestamp = (leaseduration > 0) ? time(NULL) + leaseduration : 0;
 -		syslog(LOG_INFO, "redirecting port %hu to %s:%hu protocol %s for: %s",

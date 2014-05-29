@@ -74,7 +74,7 @@
 +const char * miniupnpd_nat_chain = "UPNP";
 +const char * miniupnpd_peer_chain = "UPNP-PEER";
 +const char * miniupnpd_forward_chain = "UPNP";
- #ifdef ENABLE_6FC_SERVICE
+ #ifdef ENABLE_UPNPPINHOLE
 -const char * miniupnpd_v6_filter_chain = "MINIUPNPD";
 +const char * miniupnpd_v6_filter_chain = "UPNP";
  #endif
