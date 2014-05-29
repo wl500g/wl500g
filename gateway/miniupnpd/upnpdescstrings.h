@@ -10,11 +10,11 @@
 #include "config.h"
 
 /* strings used in the root device xml description */
-#define ROOTDEV_FRIENDLYNAME		OS_NAME " router"
-#define ROOTDEV_MANUFACTURER		OS_NAME
-#define ROOTDEV_MANUFACTURERURL		OS_URL
-#define ROOTDEV_MODELNAME			OS_NAME " router"
-#define ROOTDEV_MODELDESCRIPTION	OS_NAME " router"
+#define ROOTDEV_FRIENDLYNAME		"ASUS Wireless Router"
+#define ROOTDEV_MANUFACTURER		"ASUSTek"
+#define ROOTDEV_MANUFACTURERURL		"http://www.asus.com/"
+#define ROOTDEV_MODELNAME		"Wireless Router"
+#define ROOTDEV_MODELDESCRIPTION	OS_NAME " Router"
 #define ROOTDEV_MODELURL			OS_URL
 
 #define WANDEV_FRIENDLYNAME			"WANDevice"
