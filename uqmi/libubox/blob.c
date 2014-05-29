@@ -115,10 +115,9 @@ blob_fill_pad(struct blob_attr *attr)
 void
 blob_set_raw_len(struct blob_attr *attr, unsigned int len)
 {
-	int id = blob_id(attr);
 	len &= BLOB_ATTR_LEN_MASK;
-	len |= (id << BLOB_ATTR_ID_SHIFT) & BLOB_ATTR_ID_MASK;
-	attr->id_len = cpu_to_be32(len);
+	attr->id_len &= ~cpu_to_be32(BLOB_ATTR_LEN_MASK);
+	attr->id_len |= cpu_to_be32(len);
 }
 
 struct blob_attr *
@@ -135,7 +134,7 @@ blob_new(struct blob_buf *buf, int id, int payload)
 }
 
 struct blob_attr *
-blob_put_raw(struct blob_buf *buf, const void *ptr, int len)
+blob_put_raw(struct blob_buf *buf, const void *ptr, unsigned int len)
 {
 	struct blob_attr *attr;
 
@@ -149,7 +148,7 @@ blob_put_raw(struct blob_buf *buf, const void *ptr, int len)
 }
 
 struct blob_attr *
-blob_put(struct blob_buf *buf, int id, const void *ptr, int len)
+blob_put(struct blob_buf *buf, int id, const void *ptr, unsigned int len)
 {
 	struct blob_attr *attr;
 
@@ -187,7 +186,7 @@ static const int blob_type_minlen[BLOB_ATTR_LAST] = {
 };
 
 bool
-blob_check_type(const void *ptr, int len, int type)
+blob_check_type(const void *ptr, unsigned int len, int type)
 {
 	const char *data = ptr;
 
@@ -237,7 +236,7 @@ blob_parse(struct blob_attr *attr, struct blob_attr **data, const struct blob_at
 			if (info[id].maxlen && len > info[id].maxlen)
 				continue;
 
-			if (info[id].validate && !info[id].validate(&info[id], attr))
+			if (info[id].validate && !info[id].validate(&info[id], pos))
 				continue;
 		}
 

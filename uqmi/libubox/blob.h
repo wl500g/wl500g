@@ -42,10 +42,11 @@ enum {
 	BLOB_ATTR_LAST
 };
 
-#define BLOB_ATTR_ID_MASK  0xff000000
+#define BLOB_ATTR_ID_MASK  0x7f000000
 #define BLOB_ATTR_ID_SHIFT 24
 #define BLOB_ATTR_LEN_MASK 0x00ffffff
 #define BLOB_ATTR_ALIGN    4
+#define BLOB_ATTR_EXTENDED 0x80000000
 
 struct blob_attr {
 	uint32_t id_len;
@@ -85,6 +86,12 @@ blob_id(const struct blob_attr *attr)
 	return id;
 }
 
+static inline bool
+blob_is_extended(const struct blob_attr *attr)
+{
+	return !!(attr->id_len & cpu_to_be32(BLOB_ATTR_EXTENDED));
+}
+
 /*
  * blob_len: returns the length of the attribute's payload
  */
@@ -109,7 +116,7 @@ blob_raw_len(const struct blob_attr *attr)
 static inline unsigned int
 blob_pad_len(const struct blob_attr *attr)
 {
-	int len = blob_raw_len(attr);
+	unsigned int len = blob_raw_len(attr);
 	len = (len + BLOB_ATTR_ALIGN - 1) & ~(BLOB_ATTR_ALIGN - 1);
 	return len;
 }
@@ -137,7 +144,7 @@ blob_get_u32(const struct blob_attr *attr)
 static inline uint64_t
 blob_get_u64(const struct blob_attr *attr)
 {
-	uint32_t *ptr = blob_data(attr);
+	uint32_t *ptr = (uint32_t *) blob_data(attr);
 	uint64_t tmp = ((uint64_t) be32_to_cpu(ptr[0])) << 32;
 	tmp |= be32_to_cpu(ptr[1]);
 	return tmp;
@@ -188,11 +195,11 @@ extern void blob_buf_grow(struct blob_buf *buf, int required);
 extern struct blob_attr *blob_new(struct blob_buf *buf, int id, int payload);
 extern void *blob_nest_start(struct blob_buf *buf, int id);
 extern void blob_nest_end(struct blob_buf *buf, void *cookie);
-extern struct blob_attr *blob_put(struct blob_buf *buf, int id, const void *ptr, int len);
-extern bool blob_check_type(const void *ptr, int len, int type);
+extern struct blob_attr *blob_put(struct blob_buf *buf, int id, const void *ptr, unsigned int len);
+extern bool blob_check_type(const void *ptr, unsigned int len, int type);
 extern int blob_parse(struct blob_attr *attr, struct blob_attr **data, const struct blob_attr_info *info, int max);
 extern struct blob_attr *blob_memdup(struct blob_attr *attr);
-extern struct blob_attr *blob_put_raw(struct blob_buf *buf, const void *ptr, int len);
+extern struct blob_attr *blob_put_raw(struct blob_buf *buf, const void *ptr, unsigned int len);
 
 static inline struct blob_attr *
 blob_put_string(struct blob_buf *buf, int id, const char *str)

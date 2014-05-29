@@ -46,7 +46,7 @@ struct blobmsg_policy {
 	enum blobmsg_type type;
 };
 
-static inline int blobmsg_hdrlen(int namelen)
+static inline int blobmsg_hdrlen(unsigned int namelen)
 {
 	return BLOBMSG_PADDING(sizeof(struct blobmsg_hdr) + namelen + 1);
 }
@@ -65,7 +65,12 @@ static inline int blobmsg_type(const struct blob_attr *attr)
 static inline void *blobmsg_data(const struct blob_attr *attr)
 {
 	struct blobmsg_hdr *hdr = (struct blobmsg_hdr *) blob_data(attr);
-	return (char *) hdr + blobmsg_hdrlen(be16_to_cpu(hdr->namelen));
+	char *data = (char *) blob_data(attr);
+
+	if (blob_is_extended(attr))
+		data += blobmsg_hdrlen(be16_to_cpu(hdr->namelen));
+
+	return data;
 }
 
 static inline int blobmsg_data_len(const struct blob_attr *attr)
@@ -86,12 +91,12 @@ static inline int blobmsg_len(const struct blob_attr *attr)
 bool blobmsg_check_attr(const struct blob_attr *attr, bool name);
 bool blobmsg_check_attr_list(const struct blob_attr *attr, int type);
 int blobmsg_parse(const struct blobmsg_policy *policy, int policy_len,
-                  struct blob_attr **tb, void *data, int len);
+                  struct blob_attr **tb, void *data, unsigned int len);
 int blobmsg_parse_array(const struct blobmsg_policy *policy, int policy_len,
-			struct blob_attr **tb, void *data, int len);
+			struct blob_attr **tb, void *data, unsigned int len);
 
 int blobmsg_add_field(struct blob_buf *buf, int type, const char *name,
-                      const void *data, int len);
+                      const void *data, unsigned int len);
 
 static inline int
 blobmsg_add_u8(struct blob_buf *buf, const char *name, uint8_t val)
@@ -186,7 +191,7 @@ static inline uint32_t blobmsg_get_u32(struct blob_attr *attr)
 
 static inline uint64_t blobmsg_get_u64(struct blob_attr *attr)
 {
-	uint32_t *ptr = blobmsg_data(attr);
+	uint32_t *ptr = (uint32_t *) blobmsg_data(attr);
 	uint64_t tmp = ((uint64_t) be32_to_cpu(ptr[0])) << 32;
 	tmp |= be32_to_cpu(ptr[1]);
 	return tmp;
@@ -194,11 +199,11 @@ static inline uint64_t blobmsg_get_u64(struct blob_attr *attr)
 
 static inline char *blobmsg_get_string(struct blob_attr *attr)
 {
-	return blobmsg_data(attr);
+	return (char *) blobmsg_data(attr);
 }
 
-void *blobmsg_alloc_string_buffer(struct blob_buf *buf, const char *name, int maxlen);
-void *blobmsg_realloc_string_buffer(struct blob_buf *buf, int maxlen);
+void *blobmsg_alloc_string_buffer(struct blob_buf *buf, const char *name, unsigned int maxlen);
+void *blobmsg_realloc_string_buffer(struct blob_buf *buf, unsigned int maxlen);
 void blobmsg_add_string_buffer(struct blob_buf *buf);
 
 void blobmsg_vprintf(struct blob_buf *buf, const char *name, const char *format, va_list arg);

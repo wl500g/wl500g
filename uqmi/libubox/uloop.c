@@ -174,7 +174,8 @@ static int uloop_fetch_events(int timeout)
 
 		if (events[n].flags & EV_ERROR) {
 			u->error = true;
-			uloop_fd_delete(u);
+			if (!(u->flags & ULOOP_ERROR_CB))
+				uloop_fd_delete(u);
 		}
 
 		if(events[n].filter == EVFILT_READ)
@@ -268,7 +269,8 @@ static int uloop_fetch_events(int timeout)
 
 		if (events[n].events & (EPOLLERR|EPOLLHUP)) {
 			u->error = true;
-			uloop_fd_delete(u);
+			if (!(u->flags & ULOOP_ERROR_CB))
+				uloop_fd_delete(u);
 		}
 
 		if(!(events[n].events & (EPOLLRDHUP|EPOLLIN|EPOLLOUT|EPOLLERR|EPOLLHUP))) {
@@ -383,6 +385,7 @@ int uloop_fd_add(struct uloop_fd *sock, unsigned int flags)
 
 	sock->registered = true;
 	sock->eof = false;
+	sock->error = false;
 
 out:
 	return ret;
@@ -643,6 +646,7 @@ void uloop_run(void)
 	if (!recursive_calls++)
 		uloop_setup_signals(true);
 
+	uloop_cancelled = false;
 	while(!uloop_cancelled)
 	{
 		uloop_gettime(&tv);

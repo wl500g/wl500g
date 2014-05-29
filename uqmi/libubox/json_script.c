@@ -388,15 +388,14 @@ static int json_process_expr(struct json_call *call, struct blob_attr *cur)
 	return ret;
 }
 
-static int cmd_add_string(struct json_call *call, const char *pattern)
+static int eval_string(struct json_call *call, struct blob_buf *buf, const char *name, const char *pattern)
 {
-	struct json_script_ctx *ctx = call->ctx;
 	char *dest, *next, *str;
 	int len = 0;
 	bool var = false;
 	char c = '%';
 
-	dest = blobmsg_alloc_string_buffer(&ctx->buf, NULL, 1);
+	dest = blobmsg_alloc_string_buffer(buf, name, 1);
 	next = alloca(strlen(pattern) + 1);
 	strcpy(next, pattern);
 
@@ -435,17 +434,35 @@ static int cmd_add_string(struct json_call *call, const char *pattern)
 			cur_len = end - str;
 		}
 
-		dest = blobmsg_realloc_string_buffer(&ctx->buf, cur_len + 1);
+		dest = blobmsg_realloc_string_buffer(buf, cur_len + 1);
 		memcpy(dest + len, cur, cur_len);
 		len += cur_len;
 	}
 
+	dest[len] = 0;
+	blobmsg_add_string_buffer(buf);
+
 	if (var)
 		return -1;
 
-	dest[len] = 0;
-	blobmsg_add_string_buffer(&ctx->buf);
 	return 0;
+}
+
+static int cmd_add_string(struct json_call *call, const char *pattern)
+{
+	return eval_string(call, &call->ctx->buf, NULL, pattern);
+}
+
+int json_script_eval_string(struct json_script_ctx *ctx, struct blob_attr *vars,
+			    struct blob_buf *buf, const char *name,
+			    const char *pattern)
+{
+	struct json_call call = {
+		.ctx = ctx,
+		.vars = vars,
+	};
+
+	return eval_string(&call, buf, name, pattern);
 }
 
 static int cmd_process_strings(struct json_call *call, struct blob_attr *attr)
@@ -536,10 +553,9 @@ static int json_process_cmd(struct json_call *call, struct blob_attr *block)
 	return 0;
 }
 
-void json_script_run(struct json_script_ctx *ctx, const char *name,
-		     struct blob_attr *vars)
+void json_script_run_file(struct json_script_ctx *ctx, struct json_script_file *file,
+			  struct blob_attr *vars)
 {
-	struct json_script_file *file;
 	static unsigned int _seq = 0;
 	struct json_call call = {
 		.ctx = ctx,
@@ -551,19 +567,33 @@ void json_script_run(struct json_script_ctx *ctx, const char *name,
 	if (!call.seq)
 		call.seq = ++_seq;
 
+	__json_script_run(&call, file, NULL);
+}
+
+void json_script_run(struct json_script_ctx *ctx, const char *name,
+		     struct blob_attr *vars)
+{
+	struct json_script_file *file;
+
 	file = json_script_get_file(ctx, name);
 	if (!file)
 		return;
 
-	__json_script_run(&call, file, NULL);
+	json_script_run_file(ctx, file, vars);
 }
 
-static void __json_script_file_free(struct json_script_ctx *ctx, struct json_script_file *f)
+static void __json_script_file_free(struct json_script_file *f)
 {
 	struct json_script_file *next;
 
-	for (next = f->next; f; f = next, next = f->next)
-		free(f);
+	if (!f)
+		return;
+
+	next = f->next;
+	free(f);
+
+	if (next)
+		return __json_script_file_free(next);
 }
 
 void
@@ -572,7 +602,7 @@ json_script_free(struct json_script_ctx *ctx)
 	struct json_script_file *f, *next;
 
 	avl_remove_all_elements(&ctx->files, f, avl, next)
-		__json_script_file_free(ctx, f);
+		__json_script_file_free(f);
 
 	blob_buf_free(&ctx->buf);
 }
