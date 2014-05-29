@@ -5,6 +5,9 @@
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
+#include "../config.h"
+#if defined(UPNP_STRICT) || defined(ENABLE_IPV6)
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -170,3 +173,4 @@ error:
 	return -1;
 }
 
+#endif /* UPNP_STRICT || ENABLE_IPV6 */
