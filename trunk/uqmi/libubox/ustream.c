@@ -276,7 +276,7 @@ static bool ustream_prepare_buf(struct ustream *s, struct ustream_buf_list *l, i
 
 char *ustream_reserve(struct ustream *s, int len, int *maxlen)
 {
-	struct ustream_buf *buf = s->r.head;
+	struct ustream_buf *buf;
 
 	if (!ustream_prepare_buf(s, &s->r, len)) {
 		__ustream_set_read_blocked(s, s->read_blocked | READ_BLOCKED_FULL);

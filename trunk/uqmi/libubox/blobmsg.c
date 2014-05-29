@@ -91,7 +91,7 @@ bool blobmsg_check_attr_list(const struct blob_attr *attr, int type)
 }
 
 int blobmsg_parse_array(const struct blobmsg_policy *policy, int policy_len,
-			struct blob_attr **tb, void *data, int len)
+			struct blob_attr **tb, void *data, unsigned int len)
 {
 	struct blob_attr *attr;
 	int i = 0;
@@ -118,7 +118,7 @@ int blobmsg_parse_array(const struct blobmsg_policy *policy, int policy_len,
 
 
 int blobmsg_parse(const struct blobmsg_policy *policy, int policy_len,
-                  struct blob_attr **tb, void *data, int len)
+                  struct blob_attr **tb, void *data, unsigned int len)
 {
 	struct blobmsg_hdr *hdr;
 	struct blob_attr *attr;
@@ -181,6 +181,7 @@ blobmsg_new(struct blob_buf *buf, int type, const char *name, int payload_len, v
 	if (!attr)
 		return NULL;
 
+	attr->id_len |= be32_to_cpu(BLOB_ATTR_EXTENDED);
 	hdr = blob_data(attr);
 	hdr->namelen = cpu_to_be16(namelen);
 	strcpy((char *) hdr->name, (const char *)name);
@@ -202,7 +203,7 @@ attr_to_offset(struct blob_buf *buf, struct blob_attr *attr)
 void *
 blobmsg_open_nested(struct blob_buf *buf, const char *name, bool array)
 {
-	struct blob_attr *head = buf->head;
+	struct blob_attr *head;
 	int type = array ? BLOBMSG_TYPE_ARRAY : BLOBMSG_TYPE_TABLE;
 	unsigned long offset = attr_to_offset(buf, buf->head);
 	void *data;
@@ -242,7 +243,7 @@ blobmsg_printf(struct blob_buf *buf, const char *name, const char *format, ...)
 }
 
 void *
-blobmsg_alloc_string_buffer(struct blob_buf *buf, const char *name, int maxlen)
+blobmsg_alloc_string_buffer(struct blob_buf *buf, const char *name, unsigned int maxlen)
 {
 	struct blob_attr *attr;
 	void *data_dest;
@@ -259,7 +260,7 @@ blobmsg_alloc_string_buffer(struct blob_buf *buf, const char *name, int maxlen)
 }
 
 void *
-blobmsg_realloc_string_buffer(struct blob_buf *buf, int maxlen)
+blobmsg_realloc_string_buffer(struct blob_buf *buf, unsigned int maxlen)
 {
 	struct blob_attr *attr = blob_next(buf->head);
 	int offset = attr_to_offset(buf, blob_next(buf->head)) + blob_pad_len(attr) - BLOB_COOKIE;
@@ -293,7 +294,7 @@ blobmsg_add_string_buffer(struct blob_buf *buf)
 
 int
 blobmsg_add_field(struct blob_buf *buf, int type, const char *name,
-                  const void *data, int len)
+                  const void *data, unsigned int len)
 {
 	struct blob_attr *attr;
 	void *data_dest;

@@ -53,6 +53,8 @@ typedef void (*uloop_process_handler)(struct uloop_process *c, int ret);
 #define ULOOP_EDGE_DEFER	(1 << 5)
 #endif
 
+#define ULOOP_ERROR_CB		(1 << 6)
+
 struct uloop_fd
 {
 	uloop_fd_handler cb;

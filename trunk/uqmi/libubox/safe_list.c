@@ -86,6 +86,12 @@ void safe_list_add(struct safe_list *list, struct safe_list *head)
 	list_add_tail(&list->list, &head->list);
 }
 
+void safe_list_add_first(struct safe_list *list, struct safe_list *head)
+{
+	list->i = NULL;
+	list_add(&list->list, &head->list);
+}
+
 void safe_list_del(struct safe_list *list)
 {
 	struct safe_list_iterator *i, *next_i, **tail;

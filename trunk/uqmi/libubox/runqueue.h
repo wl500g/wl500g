@@ -100,6 +100,7 @@ void runqueue_stop(struct runqueue *q);
 void runqueue_resume(struct runqueue *q);
 
 void runqueue_task_add(struct runqueue *q, struct runqueue_task *t, bool running);
+void runqueue_task_add_first(struct runqueue *q, struct runqueue_task *t, bool running);
 void runqueue_task_complete(struct runqueue_task *t);
 
 void runqueue_task_cancel(struct runqueue_task *t, int type);
