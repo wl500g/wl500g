@@ -1,0 +1,79 @@
+ldso/mips: Upstream fixes LD_DEBUG mode
+
+ 33a59d1c1b9b33bad34e627e9e09035e5e7035f3 ldso/mips: actually print results of each relocation
+ 6bf9a080b0a1b5a06db3b5ec2fb55149fa4badfa ldso/mips: Remove redundant LD_DEBUG prints
+ 161d78ab0eae69078f6c6bebd159c56be72e02c6 ldso/mips: Add remaining relocation types to the table
+---
+
+diff --git a/ldso/ldso/mips/dl-debug.h b/ldso/ldso/mips/dl-debug.h
+--- a/ldso/ldso/mips/dl-debug.h
++++ b/ldso/ldso/mips/dl-debug.h
+@@ -40,6 +40,15 @@ static const char * const _dl_reltypes_tab[] =
+ 	[25]	"R_MIPS_INSERT_A",	"R_MIPS_INSERT_B",	"R_MIPS_DELETE",
+ 	[28]	"R_MIPS_HIGHER",	"R_MIPS_HIGHEST",	"R_MIPS_CALL_HI16",
+ 	[31]	"R_MIPS_CALL_LO16",	"R_MIPS_SCN_DISP",	"R_MIPS_REL16",
+-	[34]	"R_MIPS_ADD_IMMEDIATE",	"R_MIPS_PJUMP",	"R_MIPS_RELGOT",
+-	[37]	"R_MIPS_JALR",
++	[34]	"R_MIPS_ADD_IMMEDIATE",	"R_MIPS_PJUMP",		"R_MIPS_RELGOT",
++	[37]	"R_MIPS_JALR",		"R_MIPS_TLS_DTPMOD32",	"R_MIPS_TLS_DTPREL32",
++	[40]	"R_MIPS_TLS_DTPMOD64",	"R_MIPS_TLS_DTPREL64",	"R_MIPS_TLS_GD",
++	[43]	"R_MIPS_TLS_LDM",	"R_MIPS_TLS_DTPREL_HI16",
++	[45]	"R_MIPS_TLS_DTPREL_LO16",
++	[46]	"R_MIPS_TLS_GOTTPREL",	"R_MIPS_TLS_TPREL32",	"R_MIPS_TLS_TPREL64",
++	[49]	"R_MIPS_TLS_TPREL_HI16",
++	[50]	"R_MIPS_TLS_TPREL_LO16",
++	[51]	"R_MIPS_GLOB_DAT",
++	[126]	"R_MIPS_COPY",		"R_MIPS_JUMP_SLOT",
++
+ };
+diff --git a/ldso/ldso/mips/elfinterp.c b/ldso/ldso/mips/elfinterp.c
+--- a/ldso/ldso/mips/elfinterp.c
++++ b/ldso/ldso/mips/elfinterp.c
+@@ -240,20 +240,12 @@ int _dl_parse_relocation_information(struct dyn_elf *xpnt,
+ 					case R_MIPS_TLS_DTPMOD32:
+ 						if (tls_tpnt)
+ 							*(ElfW(Word) *)reloc_addr = tls_tpnt->l_tls_modid;
+-#ifdef __SUPPORT_LD_DEBUG__
+-						_dl_dprintf(2, "TLS_DTPMOD : %s, %d, %d\n",
+-							symname, old_val, *((unsigned int *)reloc_addr));
+-#endif
+ 						break;
+ 
+ 					case R_MIPS_TLS_DTPREL64:
+ 					case R_MIPS_TLS_DTPREL32:
+ 						*(ElfW(Word) *)reloc_addr +=
+ 							TLS_DTPREL_VALUE (symbol_addr);
+-#ifdef __SUPPORT_LD_DEBUG__
+-						_dl_dprintf(2, "TLS_DTPREL : %s, %x, %x\n",
+-							symname, old_val, *((unsigned int *)reloc_addr));
+-#endif
+ 						break;
+ 
+ 					case R_MIPS_TLS_TPREL32:
+@@ -261,10 +253,6 @@ int _dl_parse_relocation_information(struct dyn_elf *xpnt,
+ 						CHECK_STATIC_TLS((struct link_map *)tls_tpnt);
+ 						*(ElfW(Word) *)reloc_addr +=
+ 							TLS_TPREL_VALUE (tls_tpnt, symbol_addr);
+-#ifdef __SUPPORT_LD_DEBUG__
+-						_dl_dprintf(2, "TLS_TPREL  : %s, %x, %x\n",
+-							symname, old_val, *((unsigned int *)reloc_addr));
+-#endif
+ 						break;
+ 				}
+ 
+@@ -315,11 +315,11 @@ int _dl_parse_relocation_information(struct dyn_elf *xpnt,
+ 			}
+ 		}
+ 
+-	}
+ #if defined (__SUPPORT_LD_DEBUG__)
+-	if (_dl_debug_reloc && _dl_debug_detail && reloc_addr)
+-		_dl_dprintf(_dl_debug_file, "\tpatched: %x ==> %x @ %x\n", old_val, *reloc_addr, reloc_addr);
++		if (_dl_debug_reloc && _dl_debug_detail && reloc_addr)
++			_dl_dprintf(_dl_debug_file, "\tpatched: %x ==> %x @ %x\n", old_val, *reloc_addr, reloc_addr);
+ #endif
++	}
+ 
+ 	return 0;
+ }
+-- 
