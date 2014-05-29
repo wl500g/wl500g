@@ -9,17 +9,22 @@
  	ifrlen = sizeof(ifr);
  
  	if(!ifname || ifname[0]=='\0')
-@@ -47,19 +49,24 @@ getifaddr(const char * ifname, char * bu
- 		return -1;
+@@ -50,21 +52,18 @@ getifaddr(const char * ifname, char * bu
+ 	if(ioctl(s, SIOCGIFFLAGS, &ifr, &ifrlen) < 0)
+ 	{
+ 		syslog(LOG_DEBUG, "ioctl(s, SIOCGIFFLAGS, ...): %m");
+-		close(s);
+-		return -1;
++		goto err;
+ 	}
+ 	if ((ifr.ifr_flags & IFF_UP) == 0)
+ 	{
+ 		syslog(LOG_DEBUG, "network interface %s is down", ifname);
+-		close(s);
+-		return -1;
++		goto err;
  	}
  	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
-+	if(ioctl(s, SIOCGIFFLAGS, &ifr) < 0)
-+	{
-+		syslog(LOG_DEBUG, "ioctl(s, SIOCGIFFLAGS, ...): %m");
-+		goto err;
-+	} else
-+	if ((ifr.ifr_flags & IFF_UP) == 0)
-+		goto err;
  	if(ioctl(s, SIOCGIFADDR, &ifr, &ifrlen) < 0)
  	{
  		syslog(LOG_ERR, "ioctl(s, SIOCGIFADDR, ...): %m");
@@ -29,16 +34,17 @@
  	}
  	ifaddr = (struct sockaddr_in *)&ifr.ifr_addr;
  	if(addr) *addr = ifaddr->sin_addr;
- 	if(!inet_ntop(AF_INET, &ifaddr->sin_addr, buf, len))
- 	{
- 		syslog(LOG_ERR, "inet_ntop(): %m");
--		close(s);
--		return -1;
-+		goto err;
+@@ -73,8 +72,7 @@ getifaddr(const char * ifname, char * bu
+ 		if(!inet_ntop(AF_INET, &ifaddr->sin_addr, buf, len))
+ 		{
+ 			syslog(LOG_ERR, "inet_ntop(): %m");
+-			close(s);
+-			return -1;
++			goto err;
+ 		}
  	}
  	if(mask)
- 	{
-@@ -67,8 +74,7 @@ getifaddr(const char * ifname, char * bu
+@@ -83,8 +81,7 @@ getifaddr(const char * ifname, char * bu
  		if(ioctl(s, SIOCGIFNETMASK, &ifr, &ifrlen) < 0)
  		{
  			syslog(LOG_ERR, "ioctl(s, SIOCGIFNETMASK, ...): %m");
@@ -48,7 +54,7 @@
  		}
  #ifdef ifr_netmask
  		*mask = ((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr;
-@@ -76,7 +82,10 @@ getifaddr(const char * ifname, char * bu
+@@ -92,7 +89,10 @@ getifaddr(const char * ifname, char * bu
  		*mask = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
  #endif
  	}
@@ -59,7 +65,7 @@
  #else /* ifndef USE_GETIFADDRS */
  	/* Works for all address families (both ip v4 and ip v6) */
  	struct ifaddrs * ifap;
-@@ -114,8 +123,8 @@ getifaddr(const char * ifname, char * bu
+@@ -133,8 +133,8 @@ getifaddr(const char * ifname, char * bu
  		}
  	}
  	freeifaddrs(ifap);
@@ -68,4 +74,4 @@
 +#endif
  }
  
- #ifdef ENABLE_IPV6
+ #ifdef ENABLE_PCP
