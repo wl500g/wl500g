@@ -18,16 +18,20 @@ static void no_cb(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *
 static void cmd_version_cb(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg)
 {
 	struct qmi_ctl_get_version_info_response res;
+	void *c;
 	char name_buf[16];
 	int i;
 
 	qmi_parse_ctl_get_version_info_response(msg, &res);
+
+	c = blobmsg_open_table(&status, NULL);
 	for (i = 0; i < res.data.service_list_n; i++) {
 		sprintf(name_buf, "service_%d", res.data.service_list[i].service);
 		blobmsg_printf(&status, name_buf, "%d,%d",
 			res.data.service_list[i].major_version,
 			res.data.service_list[i].minor_version);
 	}
+	blobmsg_close_table(&status, c);
 }
 
 static enum qmi_cmd_result
