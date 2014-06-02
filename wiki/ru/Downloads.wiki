@@ -6,7 +6,7 @@
 
  * [http://drive.google.com/folderview?id=0B0IgNylGYpqsT2NNN1NZZXNOelU#list Стабильные версии]
  * [http://code.google.com/p/wl500g/downloads/list?can=4&q=1.9.2.7-rtn Устаревшие версии]
- * [http://asus.vectormm.net/rtn/ Ночная сборки]
+ * [http://asus.vectormm.net/rtn/ Ночные сборки]
 
 == 1.9.2.7-d ==
 
