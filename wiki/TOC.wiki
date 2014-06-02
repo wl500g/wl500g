@@ -1,6 +1,7 @@
 #summary Wiki Index
   * [Welcome Home]
   * [News History of Changes]
+  * [Downloads Download]
   * !HowTo articles
     * [CompilingCustomFirmware Firmware compiling 1.9.2.7-rtn]
     * [CompilingCustomFirmware24 Firmware compiling 1.9.2.7-d]
