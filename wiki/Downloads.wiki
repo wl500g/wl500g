@@ -2,13 +2,13 @@
 
 Refer [Devices devices list] to find out what firmware version will suit your device
 
-= Current downloads =
+== Current downloads ==
 
  * [http://drive.google.com/folderview?id=0B0IgNylGYpqsT2NNN1NZZXNOelU#list 1.9.2.7-rtn firmware images]
  * [http://code.google.com/p/wl500g/downloads/list?can=3&q=1.9.2.7-d 1.9.2.7-d firmware images]
  * [http://code.google.com/p/wl500g/downloads/list Other downloads]
 
-= Deprecated downloads
+== Deprecated downloads ==
 
  * [http://code.google.com/p/wl500g/downloads/list?can=4&q=1.9.2.7-rtn 1.9.2.7-rtn images]
  * [http://code.google.com/p/wl500g/downloads/list?can=4&q=1.9.2.7-d 1.9.2.7-d images]
