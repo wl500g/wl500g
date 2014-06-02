@@ -2,15 +2,17 @@
 
 Refer [Devices devices list] to find out what firmware branch will suit your device.
 
-== Mainstream 1.9.2.7-rtn ==
+== 1.9.2.7-rtn ==
 
- * [http://drive.google.com/folderview?id=0B0IgNylGYpqsT2NNN1NZZXNOelU#list Current images]
+ * [http://drive.google.com/folderview?id=0B0IgNylGYpqsT2NNN1NZZXNOelU#list Release images]
  * [http://code.google.com/p/wl500g/downloads/list?can=4&q=1.9.2.7-rtn Deprecated images]
+ * [http://asus.vectormm.net/rtn/ Nightly builds]
 
-== Old stable 1.9.2.7-d ==
+== 1.9.2.7-d ==
 
- * [http://code.google.com/p/wl500g/downloads/list?can=3&q=1.9.2.7-d Current images]
+ * [http://code.google.com/p/wl500g/downloads/list?can=3&q=1.9.2.7-d Release images]
  * [http://code.google.com/p/wl500g/downloads/list?can=4&q=1.9.2.7-d Deprecated images]
+ * [http://asus.vectormm.net/wl/ Nightly builds]
 
 == Other downloads ==
 

@@ -2,15 +2,17 @@
 
 См. [Devices список устройств] для информации, какие ветки прошивки подходит вашему устройству.
 
-== Основная 1.9.2.7-rtn ==
+== 1.9.2.7-rtn ==
 
- * [http://drive.google.com/folderview?id=0B0IgNylGYpqsT2NNN1NZZXNOelU#list Текущие версии]
+ * [http://drive.google.com/folderview?id=0B0IgNylGYpqsT2NNN1NZZXNOelU#list Стабильные версии]
  * [http://code.google.com/p/wl500g/downloads/list?can=4&q=1.9.2.7-rtn Устаревшие версии]
+ * [http://asus.vectormm.net/rtn/ Ночная сборки]
 
-== Стабильная 1.9.2.7-d ==
+== 1.9.2.7-d ==
 
- * [http://code.google.com/p/wl500g/downloads/list?can=3&q=1.9.2.7-d Текущие версии]
+ * [http://code.google.com/p/wl500g/downloads/list?can=3&q=1.9.2.7-d Стабильные версии]
  * [http://code.google.com/p/wl500g/downloads/list?can=4&q=1.9.2.7-d Устаревшие версии]
+ * [http://asus.vectormm.net/wl/ Ночные сборки]
 
 == Прочие загрузки ==
 
