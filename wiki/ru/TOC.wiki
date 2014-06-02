@@ -1,7 +1,6 @@
 #summary Содержание Wiki
   * [Welcome Главная]
   * [News История изменений]
-  * [Downloads Скачать]
   * Статьи !HowTo
     * [CompilingCustomFirmware Сборка прошивки 1.9.2.7-rtn]
     * [CompilingCustomFirmware24 Сборка прошивки 1.9.2.7-d]

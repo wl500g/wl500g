@@ -1,4 +1,4 @@
-#summary Download
+#sidebar
 
 Refer [Devices devices list] to find out what firmware branch will suit your device.
 
