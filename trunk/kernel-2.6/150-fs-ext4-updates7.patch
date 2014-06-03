@@ -9,16 +9,39 @@ ext4: Updates from upstream 4
  6976a6f2acde2b0443cd64f1d08af90630e4ce81 ext4: don't dereference null pointer when make_indexed_dir() fails
  c9b92530a723ac5ef8e352885a1862b18f31b2f5 ext4: make orphan functions be no-op in no-journal mode
  0e9a9a1ad619e7e987815d20262d36a2f95717ca ext4: avoid hang when mounting non-journal filesystems with orphan list
+ 4113c4caa4f355b8ff8b7ff0510c29c9d00d30b3 ext4: remove deprecated oldalloc
+ e6155736ad76b2070652745f9e54cdea3f0d8567 ext4: limit group search loop for non-extent files
 
 ---
- fs/ext4/dir.c     |   44 +++++++++++++++++++++++++-------------------
- fs/ext4/ext4.h    |    5 ++++-
- fs/ext4/extents.c |    2 +-
- fs/ext4/inode.c   |   16 ++++++++++++----
- fs/ext4/namei.c   |   26 +++++++++++++-------------
- fs/ext4/super.c   |    2 +-
- 6 files changed, 56 insertions(+), 39 deletions(-)
+ Documentation/filesystems/ext4.txt |    8 --
+ fs/ext4/dir.c                      |   44 ++++++-----
+ fs/ext4/ext4.h                     |    6 +
+ fs/ext4/extents.c                  |    2 
+ fs/ext4/ialloc.c                   |  136 -------------------------------------
+ fs/ext4/inode.c                    |   16 +++-
+ fs/ext4/mballoc.c                  |    6 +
+ fs/ext4/namei.c                    |   26 +++----
+ fs/ext4/super.c                    |   10 +-
+ 9 files changed, 68 insertions(+), 186 deletions(-)
 
+diff --git a/Documentation/filesystems/ext4.txt b/Documentation/filesystems/ext4.txt
+--- a/Documentation/filesystems/ext4.txt
++++ b/Documentation/filesystems/ext4.txt
+@@ -203,14 +203,6 @@ inode_readahead_blks=n	This tuning parameter controls the maximum
+ 			table readahead algorithm will pre-read into
+ 			the buffer cache.  The default value is 32 blocks.
+ 
+-orlov		(*)	This enables the new Orlov block allocator. It is
+-			enabled by default.
+-
+-oldalloc		This disables the Orlov block allocator and enables
+-			the old block allocator.  Orlov should have better
+-			performance - we'd like to get some feedback if it's
+-			the contrary for you.
+-
+ user_xattr		Enables Extended User Attributes.  Additionally, you
+ 			need to have extended attribute support enabled in the
+ 			kernel configuration (CONFIG_EXT4_FS_XATTR).  See the
 diff --git a/fs/ext4/dir.c b/fs/ext4/dir.c
 --- a/fs/ext4/dir.c
 +++ b/fs/ext4/dir.c
@@ -96,7 +119,15 @@ diff --git a/fs/ext4/dir.c b/fs/ext4/dir.c
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
-@@ -1497,9 +1497,12 @@ extern unsigned ext4_init_block_bitmap(s
+@@ -829,7 +829,6 @@ struct ext4_inode_info {
+ /*
+  * Mount flags
+  */
+-#define EXT4_MOUNT_OLDALLOC		0x00002  /* Don't use the new Orlov allocator */
+ #define EXT4_MOUNT_GRPID		0x00004	/* Create files with directory's group */
+ #define EXT4_MOUNT_DEBUG		0x00008	/* Some debugging messages */
+ #define EXT4_MOUNT_ERRORS_CONT		0x00010	/* Continue on errors */
+@@ -1497,9 +1496,12 @@ extern unsigned ext4_init_block_bitmap(s
  		ext4_init_block_bitmap(sb, NULL, group, desc)
  
  /* dir.c */
@@ -113,7 +144,7 @@ diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
 --- a/fs/ext4/extents.c
 +++ b/fs/ext4/extents.c
-@@ -3594,7 +3594,7 @@ retry:
+@@ -3593,7 +3593,7 @@ retry:
  						blkbits) >> blkbits))
  			new_size = offset + len;
  		else
@@ -122,10 +153,170 @@ diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
  
  		ext4_falloc_update_inode(inode, mode, new_size,
  						buffer_new(&map_bh));
+diff --git a/fs/ext4/ialloc.c b/fs/ext4/ialloc.c
+--- a/fs/ext4/ialloc.c
++++ b/fs/ext4/ialloc.c
+@@ -289,118 +289,6 @@ error_return:
+ 	ext4_std_error(sb, fatal);
+ }
+ 
+-/*
+- * There are two policies for allocating an inode.  If the new inode is
+- * a directory, then a forward search is made for a block group with both
+- * free space and a low directory-to-inode ratio; if that fails, then of
+- * the groups with above-average free space, that group with the fewest
+- * directories already is chosen.
+- *
+- * For other inodes, search forward from the parent directory\'s block
+- * group to find a free inode.
+- */
+-static int find_group_dir(struct super_block *sb, struct inode *parent,
+-				ext4_group_t *best_group)
+-{
+-	ext4_group_t ngroups = ext4_get_groups_count(sb);
+-	unsigned int freei, avefreei;
+-	struct ext4_group_desc *desc, *best_desc = NULL;
+-	ext4_group_t group;
+-	int ret = -1;
+-
+-	freei = percpu_counter_read_positive(&EXT4_SB(sb)->s_freeinodes_counter);
+-	avefreei = freei / ngroups;
+-
+-	for (group = 0; group < ngroups; group++) {
+-		desc = ext4_get_group_desc(sb, group, NULL);
+-		if (!desc || !ext4_free_inodes_count(sb, desc))
+-			continue;
+-		if (ext4_free_inodes_count(sb, desc) < avefreei)
+-			continue;
+-		if (!best_desc ||
+-		    (ext4_free_blks_count(sb, desc) >
+-		     ext4_free_blks_count(sb, best_desc))) {
+-			*best_group = group;
+-			best_desc = desc;
+-			ret = 0;
+-		}
+-	}
+-	return ret;
+-}
+-
+-#define free_block_ratio 10
+-
+-static int find_group_flex(struct super_block *sb, struct inode *parent,
+-			   ext4_group_t *best_group)
+-{
+-	struct ext4_sb_info *sbi = EXT4_SB(sb);
+-	struct ext4_group_desc *desc;
+-	struct flex_groups *flex_group = sbi->s_flex_groups;
+-	ext4_group_t parent_group = EXT4_I(parent)->i_block_group;
+-	ext4_group_t parent_fbg_group = ext4_flex_group(sbi, parent_group);
+-	ext4_group_t ngroups = ext4_get_groups_count(sb);
+-	int flex_size = ext4_flex_bg_size(sbi);
+-	ext4_group_t best_flex = parent_fbg_group;
+-	int blocks_per_flex = sbi->s_blocks_per_group * flex_size;
+-	int flexbg_free_blocks;
+-	int flex_freeb_ratio;
+-	ext4_group_t n_fbg_groups;
+-	ext4_group_t i;
+-
+-	n_fbg_groups = (ngroups + flex_size - 1) >>
+-		sbi->s_log_groups_per_flex;
+-
+-find_close_to_parent:
+-	flexbg_free_blocks = atomic_read(&flex_group[best_flex].free_blocks);
+-	flex_freeb_ratio = flexbg_free_blocks * 100 / blocks_per_flex;
+-	if (atomic_read(&flex_group[best_flex].free_inodes) &&
+-	    flex_freeb_ratio > free_block_ratio)
+-		goto found_flexbg;
+-
+-	if (best_flex && best_flex == parent_fbg_group) {
+-		best_flex--;
+-		goto find_close_to_parent;
+-	}
+-
+-	for (i = 0; i < n_fbg_groups; i++) {
+-		if (i == parent_fbg_group || i == parent_fbg_group - 1)
+-			continue;
+-
+-		flexbg_free_blocks = atomic_read(&flex_group[i].free_blocks);
+-		flex_freeb_ratio = flexbg_free_blocks * 100 / blocks_per_flex;
+-
+-		if (flex_freeb_ratio > free_block_ratio &&
+-		    (atomic_read(&flex_group[i].free_inodes))) {
+-			best_flex = i;
+-			goto found_flexbg;
+-		}
+-
+-		if ((atomic_read(&flex_group[best_flex].free_inodes) == 0) ||
+-		    ((atomic_read(&flex_group[i].free_blocks) >
+-		      atomic_read(&flex_group[best_flex].free_blocks)) &&
+-		     atomic_read(&flex_group[i].free_inodes)))
+-			best_flex = i;
+-	}
+-
+-	if (!atomic_read(&flex_group[best_flex].free_inodes) ||
+-	    !atomic_read(&flex_group[best_flex].free_blocks))
+-		return -1;
+-
+-found_flexbg:
+-	for (i = best_flex * flex_size; i < ngroups &&
+-		     i < (best_flex + 1) * flex_size; i++) {
+-		desc = ext4_get_group_desc(sb, i, NULL);
+-		if (ext4_free_inodes_count(sb, desc)) {
+-			*best_group = i;
+-			goto out;
+-		}
+-	}
+-
+-	return -1;
+-out:
+-	return 0;
+-}
+-
+ struct orlov_stats {
+ 	__u32 free_inodes;
+ 	__u32 free_blocks;
+@@ -803,7 +691,6 @@ struct inode *ext4_new_inode(handle_t *h
+ 	struct inode *ret;
+ 	ext4_group_t i;
+ 	int free = 0;
+-	static int once = 1;
+ 	ext4_group_t flex_group;
+ 
+ 	/* Cannot create files in a deleted directory */
+@@ -828,26 +715,9 @@ struct inode *ext4_new_inode(handle_t *h
+ 		goto got_group;
+ 	}
+ 
+-	if (sbi->s_log_groups_per_flex && test_opt(sb, OLDALLOC)) {
+-		ret2 = find_group_flex(sb, dir, &group);
+-		if (ret2 == -1) {
+-			ret2 = find_group_other(sb, dir, &group, mode);
+-			if (ret2 == 0 && once) {
+-				once = 0;
+-				printk(KERN_NOTICE "ext4: find_group_flex "
+-				       "failed, fallback succeeded dir %lu\n",
+-				       dir->i_ino);
+-			}
+-		}
+-		goto got_group;
+-	}
+-
+-	if (S_ISDIR(mode)) {
+-		if (test_opt(sb, OLDALLOC))
+-			ret2 = find_group_dir(sb, dir, &group);
+-		else
+-			ret2 = find_group_orlov(sb, dir, &group, mode, qstr);
+-	} else
++	if (S_ISDIR(mode))
++		ret2 = find_group_orlov(sb, dir, &group, mode, qstr);
++	else
+ 		ret2 = find_group_other(sb, dir, &group, mode);
+ 
+ got_group:
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -1769,7 +1769,11 @@ static int ext4_ordered_write_end(struct file *file,
+@@ -1769,7 +1769,11 @@ static int ext4_ordered_write_end(struct
  			ext4_orphan_add(handle, inode);
  		if (ret2 < 0)
  			ret = ret2;
@@ -137,7 +328,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  	ret2 = ext4_journal_stop(handle);
  	if (!ret)
  		ret = ret2;
-@@ -5054,6 +5054,7 @@ static int ext4_do_update_inode(handle_t *handle,
+@@ -5137,6 +5141,7 @@ static int ext4_do_update_inode(handle_t
  	struct ext4_inode_info *ei = EXT4_I(inode);
  	struct buffer_head *bh = iloc->bh;
  	int err = 0, rc, block;
@@ -145,7 +336,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  
  	/* For fields not not tracking in the in-memory inode,
  	 * initialise them to zero for new inodes. */
-@@ -5104,7 +5105,10 @@ static int ext4_do_update_inode(handle_t *handle,
+@@ -5185,7 +5190,10 @@ static int ext4_do_update_inode(handle_t
  		raw_inode->i_file_acl_high =
  			cpu_to_le16(ei->i_file_acl >> 32);
  	raw_inode->i_file_acl_lo = cpu_to_le32(ei->i_file_acl);
@@ -157,7 +348,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  	if (ei->i_disksize > 0x7fffffffULL) {
  		struct super_block *sb = inode->i_sb;
  		if (!EXT4_HAS_RO_COMPAT_FEATURE(sb,
-@@ -5157,7 +5161,7 @@ static int ext4_do_update_inode(handle_t *handle,
+@@ -5236,7 +5244,7 @@ static int ext4_do_update_inode(handle_t
  		err = rc;
  	ext4_clear_inode_state(inode, EXT4_STATE_NEW);
  
@@ -166,7 +357,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  out_brelse:
  	brelse(bh);
  	ext4_std_error(inode->i_sb, err);
-@@ -5452,7 +5452,7 @@ int ext4_getattr(struct vfsmount *mnt, struct dentry *dentry,
+@@ -5450,7 +5458,7 @@ int ext4_getattr(struct vfsmount *mnt, s
  		 struct kstat *stat)
  {
  	struct inode *inode;
@@ -175,7 +366,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  
  	inode = dentry->d_inode;
  	generic_fillattr(inode, stat);
-@@ -5470,7 +5470,7 @@ int ext4_getattr(struct vfsmount *mnt, struct dentry *dentry,
+@@ -5469,7 +5477,7 @@ int ext4_getattr(struct vfsmount *mnt, s
  	delalloc_blocks = EXT4_I(inode)->i_reserved_data_blocks;
  	spin_unlock(&EXT4_I(inode)->i_block_reservation_lock);
  
@@ -184,6 +375,22 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  	return 0;
  }
  
+diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
+--- a/fs/ext4/mballoc.c
++++ b/fs/ext4/mballoc.c
+@@ -2068,7 +2068,11 @@ repeat:
+ 		group = ac->ac_g_ex.fe_group;
+ 
+ 		for (i = 0; i < ngroups; group++, i++) {
+-			if (group == ngroups)
++			/*
++			 * Artificially restricted ngroups for non-extent
++			 * files makes group > ngroups possible on first loop.
++			 */
++			if (group >= ngroups)
+ 				group = 0;
+ 
+ 			/* This now checks without needing the buddy page */
 diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
 --- a/fs/ext4/namei.c
 +++ b/fs/ext4/namei.c
@@ -216,7 +423,7 @@ diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
  				return -EIO;
  			if (ext4_match(namelen, name, de))
  				return -EEXIST;
-@@ -1413,6 +1413,10 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
+@@ -1453,6 +1451,10 @@ static int make_indexed_dir(handle_t *ha
  	frame->at = entries;
  	frame->bh = bh;
  	bh = bh2;
@@ -227,7 +434,7 @@ diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
  	de = do_split(handle,dir, &bh, frame, &hinfo, &retval);
  	if (!de) {
  		/*
-@@ -1421,8 +1425,6 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
+@@ -1461,8 +1463,6 @@ static int make_indexed_dir(handle_t *ha
  		 * with corrupted filesystem.
  		 */
  		ext4_mark_inode_dirty(handle, dir);
@@ -236,7 +443,7 @@ diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
  		dx_release(frames);
  		return retval;
  	}
-@@ -1688,7 +1686,7 @@ static int ext4_delete_entry(handle_t *h
+@@ -1688,7 +1688,7 @@ static int ext4_delete_entry(handle_t *h
  	pde = NULL;
  	de = (struct ext4_dir_entry_2 *) bh->b_data;
  	while (i < bh->b_size) {
@@ -245,7 +452,7 @@ diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
  			return -EIO;
  		if (de == de_del)  {
  			BUFFER_TRACE(bh, "get_write_access");
-@@ -1962,7 +1960,7 @@ static int empty_dir(struct inode *inode
+@@ -1962,7 +1962,7 @@ static int empty_dir(struct inode *inode
  			}
  			de = (struct ext4_dir_entry_2 *) bh->b_data;
  		}
@@ -286,7 +493,31 @@ diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
-@@ -1650,7 +1650,7 @@ static int ext4_fill_flex_info(struct super_block *sb)
+@@ -823,8 +823,6 @@ static int ext4_show_options(struct seq_
+ 		seq_puts(seq, ",nouid32");
+ 	if (test_opt(sb, DEBUG) && !(def_mount_opts & EXT4_DEFM_DEBUG))
+ 		seq_puts(seq, ",debug");
+-	if (test_opt(sb, OLDALLOC))
+-		seq_puts(seq, ",oldalloc");
+ #ifdef CONFIG_EXT4_FS_XATTR
+ 	if (test_opt(sb, XATTR_USER) &&
+ 		!(def_mount_opts & EXT4_DEFM_XATTR_USER))
+@@ -1220,10 +1218,12 @@ static int parse_options(char *options, 
+ 			set_opt(sbi->s_mount_opt, DEBUG);
+ 			break;
+ 		case Opt_oldalloc:
+-			set_opt(sbi->s_mount_opt, OLDALLOC);
++			ext4_msg(sb, KERN_WARNING,
++				 "Ignoring deprecated oldalloc option");
+ 			break;
+ 		case Opt_orlov:
+-			clear_opt(sbi->s_mount_opt, OLDALLOC);
++			ext4_msg(sb, KERN_WARNING,
++				 "Ignoring deprecated orlov option");
+ 			break;
+ #ifdef CONFIG_EXT4_FS_XATTR
+ 		case Opt_user_xattr:
+@@ -1650,7 +1650,7 @@ static int ext4_fill_flex_info(struct su
  		sbi->s_log_groups_per_flex = 0;
  		return 1;
  	}
