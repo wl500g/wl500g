@@ -1,12 +1,13 @@
  ab43ed8b7490cb387782423ecf74aeee7237e591 ipv4: raw: fix icmp_filter()
  1b05c4b50edbddbdde715c4a7350629819f6655e ipv6: raw: fix icmpv6_filter()
  96af69ea2a83d292238bdba20e4508ee967cf8cb ipv6: mip6: fix mip6_mh_filter()
+ d1c53c8e870cdedb6fc9550f41c558bab45b5219 icmpv6_filter: allow ICMPv6 messages with bodies < 4 bytes
 
 ---
  net/ipv4/raw.c  |   14 ++++++++------
  net/ipv6/mip6.c |   20 +++++++++++---------
- net/ipv6/raw.c  |   21 ++++++++++-----------
- 3 files changed, 29 insertions(+), 26 deletions(-)
+ net/ipv6/raw.c  |   26 +++++++++++++++-----------
+ 3 files changed, 34 insertions(+), 26 deletions(-)
 
 diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
 --- a/net/ipv4/raw.c
@@ -84,7 +85,16 @@ diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
 diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
 --- a/net/ipv6/raw.c
 +++ b/net/ipv6/raw.c
-@@ -107,21 +107,20 @@ found:
+@@ -63,6 +63,8 @@
+ 
+ #include <linux/seq_file.h>
+ 
++#define	ICMPV6_HDRLEN	4	/* ICMPv6 header, RFC 4443 Section 2.1 */
++
+ static struct raw_hashinfo raw_v6_hashinfo = {
+ 	.lock = __RW_LOCK_UNLOCKED(raw_v6_hashinfo.lock),
+ };
+@@ -107,21 +109,23 @@ found:
   *	0 - deliver
   *	1 - block
   */
@@ -102,8 +112,11 @@ diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
  
 -		icmph = (struct icmp6hdr *) skb->data;
 -		bit_nr = icmph->icmp6_type;
++	/* We require only the four bytes of the ICMPv6 header, not any
++	 * additional bytes of message body in "struct icmp6hdr".
++	 */
 +	hdr = skb_header_pointer(skb, skb_transport_offset(skb),
-+				 sizeof(_hdr), &_hdr);
++				 ICMPV6_HDRLEN, &_hdr);
 +	if (hdr) {
 +		const __u32 *data = &raw6_sk(sk)->filter.data[0];
 +		unsigned int type = hdr->icmp6_type;
