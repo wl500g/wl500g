@@ -2,18 +2,102 @@
  e4230108547766f4e105a62c45f3724309106f91 ext3: don't clear orphan list on ro mount with errors
  61f43e6880dee5983999fe40bf96c1cf43740b4c Ext3: add necessary check in case IO error happens
  1b7d76e9b1106f2be062f915b05d47658dd4fc63 Ext3: use unlikely to improve the efficiency of the kernel
+ fbc854027c91fa2813ae7f9de43cc0b5c1119f41 ext3: remove deprecated oldalloc
 
 ---
- fs/ext3/inode.c  |   29 ++++++++++++++++++++++-------
- fs/ext3/resize.c |    6 +++---
- fs/ext3/super.c  |    6 ++++--
- fs/ext3/xattr.c  |    2 +-
- 4 files changed, 30 insertions(+), 13 deletions(-)
+ Documentation/filesystems/ext3.txt |    8 ------
+ fs/ext3/ialloc.c                   |   45 ++-----------------------------------
+ fs/ext3/inode.c                    |   29 ++++++++++++++++++-----
+ fs/ext3/resize.c                   |    6 ++--
+ fs/ext3/super.c                    |   12 ++++-----
+ fs/ext3/xattr.c                    |    2 -
+ include/linux/ext3_fs.h            |    2 -
+ 7 files changed, 36 insertions(+), 68 deletions(-)
 
+diff --git a/Documentation/filesystems/ext3.txt b/Documentation/filesystems/ext3.txt
+--- a/Documentation/filesystems/ext3.txt
++++ b/Documentation/filesystems/ext3.txt
+@@ -73,14 +73,6 @@ nobarrier	(*)	This also requires an IO stack which can support
+ 			also be used to enable or disable barriers, for
+ 			consistency with other ext3 mount options.
+ 
+-orlov		(*)	This enables the new Orlov block allocator. It is
+-			enabled by default.
+-
+-oldalloc		This disables the Orlov block allocator and enables
+-			the old block allocator.  Orlov should have better
+-			performance - we'd like to get some feedback if it's
+-			the contrary for you.
+-
+ user_xattr		Enables Extended User Attributes.  Additionally, you
+ 			need to have extended attribute support enabled in the
+ 			kernel configuration (CONFIG_EXT3_FS_XATTR).  See the
+diff --git a/fs/ext3/ialloc.c b/fs/ext3/ialloc.c
+--- a/fs/ext3/ialloc.c
++++ b/fs/ext3/ialloc.c
+@@ -188,42 +188,6 @@ error_return:
+ }
+ 
+ /*
+- * There are two policies for allocating an inode.  If the new inode is
+- * a directory, then a forward search is made for a block group with both
+- * free space and a low directory-to-inode ratio; if that fails, then of
+- * the groups with above-average free space, that group with the fewest
+- * directories already is chosen.
+- *
+- * For other inodes, search forward from the parent directory\'s block
+- * group to find a free inode.
+- */
+-static int find_group_dir(struct super_block *sb, struct inode *parent)
+-{
+-	int ngroups = EXT3_SB(sb)->s_groups_count;
+-	unsigned int freei, avefreei;
+-	struct ext3_group_desc *desc, *best_desc = NULL;
+-	int group, best_group = -1;
+-
+-	freei = percpu_counter_read_positive(&EXT3_SB(sb)->s_freeinodes_counter);
+-	avefreei = freei / ngroups;
+-
+-	for (group = 0; group < ngroups; group++) {
+-		desc = ext3_get_group_desc (sb, group, NULL);
+-		if (!desc || !desc->bg_free_inodes_count)
+-			continue;
+-		if (le16_to_cpu(desc->bg_free_inodes_count) < avefreei)
+-			continue;
+-		if (!best_desc ||
+-		    (le16_to_cpu(desc->bg_free_blocks_count) >
+-		     le16_to_cpu(best_desc->bg_free_blocks_count))) {
+-			best_group = group;
+-			best_desc = desc;
+-		}
+-	}
+-	return best_group;
+-}
+-
+-/*
+  * Orlov's allocator for directories.
+  *
+  * We always try to spread first-level directories.
+@@ -444,12 +408,9 @@ struct inode *ext3_new_inode(handle_t *h
+ 
+ 	sbi = EXT3_SB(sb);
+ 	es = sbi->s_es;
+-	if (S_ISDIR(mode)) {
+-		if (test_opt (sb, OLDALLOC))
+-			group = find_group_dir(sb, dir);
+-		else
+-			group = find_group_orlov(sb, dir);
+-	} else
++	if (S_ISDIR(mode))
++		group = find_group_orlov(sb, dir);
++	else
+ 		group = find_group_other(sb, dir);
+ 
+ 	err = -ENOSPC;
 diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
 --- a/fs/ext3/inode.c
 +++ b/fs/ext3/inode.c
-@@ -628,6 +628,10 @@ static int ext3_alloc_branch(handle_t *handle, struct inode *inode,
+@@ -628,6 +628,10 @@ static int ext3_alloc_branch(handle_t *h
  		 * parent to disk.
  		 */
  		bh = sb_getblk(inode->i_sb, new_blocks[n-1]);
@@ -33,7 +117,7 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  		ext3_free_blocks(handle, inode, new_blocks[i], 1);
  
  	ext3_free_blocks(handle, inode, new_blocks[i], num);
-@@ -1025,7 +1025,7 @@ struct buffer_head *ext3_getblk(handle_t *handle, struct inode *inode,
+@@ -1021,7 +1025,7 @@ struct buffer_head *ext3_getblk(handle_t
  	if (!err && buffer_mapped(&dummy)) {
  		struct buffer_head *bh;
  		bh = sb_getblk(inode->i_sb, dummy.b_blocknr);
@@ -42,7 +126,7 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  			*errp = -EIO;
  			goto err;
  		}
-@@ -2633,7 +2633,7 @@ static int __ext3_get_inode_loc(struct inode *inode,
+@@ -2621,7 +2625,7 @@ static int __ext3_get_inode_loc(struct i
  		return -EIO;
  
  	bh = sb_getblk(inode->i_sb, block);
@@ -51,7 +135,7 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  		ext3_error (inode->i_sb, "ext3_get_inode_loc",
  				"unable to read inode block - "
  				"inode=%lu, block="E3FSBLK,
-@@ -2687,7 +2687,7 @@ static int __ext3_get_inode_loc(struct inode *inode,
+@@ -2675,7 +2679,7 @@ static int __ext3_get_inode_loc(struct i
  
  			bitmap_bh = sb_getblk(inode->i_sb,
  					le32_to_cpu(desc->bg_inode_bitmap));
@@ -60,7 +144,7 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  				goto make_io;
  
  			/*
-@@ -2962,6 +2962,8 @@ static int ext3_do_update_inode(handle_t *handle,
+@@ -2962,6 +2966,8 @@ static int ext3_do_update_inode(handle_t
  	struct ext3_inode_info *ei = EXT3_I(inode);
  	struct buffer_head *bh = iloc->bh;
  	int err = 0, rc, block;
@@ -69,7 +153,7 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  
  again:
  	/* we can't allow multiple procs in here at once, its a bit racey */
-@@ -2999,7 +3001,11 @@ again:
+@@ -2999,7 +3005,11 @@ again:
  		raw_inode->i_gid_high = 0;
  	}
  	raw_inode->i_links_count = cpu_to_le16(inode->i_nlink);
@@ -82,7 +166,7 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  	raw_inode->i_atime = cpu_to_le32(inode->i_atime.tv_sec);
  	raw_inode->i_ctime = cpu_to_le32(inode->i_ctime.tv_sec);
  	raw_inode->i_mtime = cpu_to_le32(inode->i_mtime.tv_sec);
-@@ -3015,8 +3021,11 @@ again:
+@@ -3015,8 +3025,11 @@ again:
  	if (!S_ISREG(inode->i_mode)) {
  		raw_inode->i_dir_acl = cpu_to_le32(ei->i_dir_acl);
  	} else {
@@ -96,7 +180,7 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  		if (ei->i_disksize > 0x7fffffffULL) {
  			struct super_block *sb = inode->i_sb;
  			if (!EXT3_HAS_RO_COMPAT_FEATURE(sb,
-@@ -3068,6 +3077,8 @@ again:
+@@ -3068,6 +3081,8 @@ again:
  	ext3_clear_inode_state(inode, EXT3_STATE_NEW);
  
  	atomic_set(&ei->i_sync_tid, handle->h_transaction->t_tid);
@@ -108,7 +192,7 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
 diff --git a/fs/ext3/resize.c b/fs/ext3/resize.c
 --- a/fs/ext3/resize.c
 +++ b/fs/ext3/resize.c
-@@ -116,7 +116,7 @@ static struct buffer_head *bclean(handle_t *handle, struct super_block *sb,
+@@ -119,7 +119,7 @@ static struct buffer_head *bclean(handle
  	int err;
  
  	bh = sb_getblk(sb, blk);
@@ -117,7 +201,7 @@ diff --git a/fs/ext3/resize.c b/fs/ext3/resize.c
  		return ERR_PTR(-EIO);
  	if ((err = ext3_journal_get_write_access(handle, bh))) {
  		brelse(bh);
-@@ -234,7 +234,7 @@ static int setup_new_group_blocks(struct super_block *sb,
+@@ -237,7 +237,7 @@ static int setup_new_group_blocks(struct
  			goto exit_bh;
  
  		gdb = sb_getblk(sb, block);
@@ -126,7 +210,7 @@ diff --git a/fs/ext3/resize.c b/fs/ext3/resize.c
  			err = -EIO;
  			goto exit_bh;
  		}
-@@ -722,7 +722,7 @@ static void update_backups(struct super_block *sb,
+@@ -699,7 +699,7 @@ static void update_backups(struct super_
  			break;
  
  		bh = sb_getblk(sb, group * bpg + blk_off);
@@ -138,7 +222,29 @@ diff --git a/fs/ext3/resize.c b/fs/ext3/resize.c
 diff --git a/fs/ext3/super.c b/fs/ext3/super.c
 --- a/fs/ext3/super.c
 +++ b/fs/ext3/super.c
-@@ -1479,10 +1479,12 @@ static void ext3_orphan_cleanup (struct super_block * sb,
+@@ -611,8 +611,6 @@ static int ext3_show_options(struct seq_
+ 		seq_puts(seq, ",nouid32");
+ 	if (test_opt(sb, DEBUG))
+ 		seq_puts(seq, ",debug");
+-	if (test_opt(sb, OLDALLOC))
+-		seq_puts(seq, ",oldalloc");
+ #ifdef CONFIG_EXT3_FS_XATTR
+ 	if (test_opt(sb, XATTR_USER))
+ 		seq_puts(seq, ",user_xattr");
+@@ -925,10 +923,10 @@ static int parse_options (char *options,
+ 			set_opt (sbi->s_mount_opt, DEBUG);
+ 			break;
+ 		case Opt_oldalloc:
+-			set_opt (sbi->s_mount_opt, OLDALLOC);
++			printk("Ignoring deprecated oldalloc option");
+ 			break;
+ 		case Opt_orlov:
+-			clear_opt (sbi->s_mount_opt, OLDALLOC);
++			printk("Ignoring deprecated orlov option");
+ 			break;
+ #ifdef CONFIG_EXT3_FS_XATTR
+ 		case Opt_user_xattr:
+@@ -1400,10 +1398,12 @@ static void ext3_orphan_cleanup (struct 
  	}
  
  	if (EXT3_SB(sb)->s_mount_state & EXT3_ERROR_FS) {
@@ -156,7 +262,7 @@ diff --git a/fs/ext3/super.c b/fs/ext3/super.c
 diff --git a/fs/ext3/xattr.c b/fs/ext3/xattr.c
 --- a/fs/ext3/xattr.c
 +++ b/fs/ext3/xattr.c
-@@ -813,7 +813,7 @@ inserted:
+@@ -815,7 +815,7 @@ inserted:
  			ea_idebug(inode, "creating block %d", block);
  
  			new_bh = sb_getblk(sb, block);
@@ -165,4 +271,16 @@ diff --git a/fs/ext3/xattr.c b/fs/ext3/xattr.c
  getblk_failed:
  				ext3_free_blocks(handle, inode, block, 1);
  				error = -EIO;
+diff --git a/include/linux/ext3_fs.h b/include/linux/ext3_fs.h
+--- a/include/linux/ext3_fs.h
++++ b/include/linux/ext3_fs.h
+@@ -381,7 +381,7 @@ struct ext3_inode {
+  * Mount flags
+  */
+ #define EXT3_MOUNT_CHECK		0x00001	/* Do mount-time checks */
+-#define EXT3_MOUNT_OLDALLOC		0x00002  /* Don't use the new Orlov allocator */
++/* EXT3_MOUNT_OLDALLOC was there */
+ #define EXT3_MOUNT_GRPID		0x00004	/* Create files with directory's group */
+ #define EXT3_MOUNT_DEBUG		0x00008	/* Some debugging messages */
+ #define EXT3_MOUNT_ERRORS_CONT		0x00010	/* Continue on errors */
 -- 
