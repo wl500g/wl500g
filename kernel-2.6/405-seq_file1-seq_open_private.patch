@@ -787,7 +787,7 @@ diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
  
  /* ------------------------------------------------------------------------ */
  
-@@ -1583,13 +1570,10 @@ int udp_proc_register(struct udp_seq_afi
+@@ -1583,12 +1570,10 @@ int udp_proc_register(struct udp_seq_afi
  
  	if (!afinfo)
  		return -EINVAL;
@@ -796,7 +796,6 @@ diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
 -	afinfo->seq_fops->read		= seq_read;
 -	afinfo->seq_fops->llseek	= seq_lseek;
 -	afinfo->seq_fops->release	= seq_release_private;
--
 +	afinfo->seq_ops.start		= udp_seq_start;
 +	afinfo->seq_ops.next		= udp_seq_next;
 +	afinfo->seq_ops.stop		= udp_seq_stop;
