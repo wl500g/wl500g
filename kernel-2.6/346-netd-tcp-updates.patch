@@ -21,20 +21,21 @@
  22b4a4f22da4b39c6f7f679fd35f3d35c91bf851 tcp: fix retransmit of partially acked frames
  16fad69cfe4adbbfa813de516757b87bcae36d93 tcp: fix skb_availroom()
  8cd6d6162d998da579d40a1ee061bf8ce1610ff8 tcp: skip cwnd moderation in TCP_CA_Open in tcp_try_to_open
+ 59ea33a68a9083ac98515e4861c00e71efdc49a1 tcp: perform DMA to userspace only if there is a task waiting for it
 
 ---
- fs/splice.c              |    5 ++
- include/linux/skbuff.h   |   20 +++++++++-
- include/linux/socket.h   |    2 -
- include/linux/tcp.h      |   55 +++++++++++++--------------
- include/net/inet_sock.h  |    3 +
- include/net/tcp.h        |   16 ++++----
- net/ipv4/tcp.c           |   38 ++++++++-----------
- net/ipv4/tcp_input.c     |   94 +++++++++++++++++++++++++++--------------------
- net/ipv4/tcp_minisocks.c |    4 +-
- net/ipv4/tcp_output.c    |   31 +++++++--------
- net/socket.c             |    6 +--
- 11 files changed, 152 insertions(+), 122 deletions(-)
+ fs/splice.c              |    5 +-
+ include/linux/skbuff.h   |   20 +++++++++
+ include/linux/socket.h   |    2 
+ include/linux/tcp.h      |   55 ++++++++++++--------------
+ include/net/inet_sock.h  |    3 -
+ include/net/tcp.h        |   16 ++++---
+ net/ipv4/tcp.c           |   38 ++++++++----------
+ net/ipv4/tcp_input.c     |   98 +++++++++++++++++++++++++++--------------------
+ net/ipv4/tcp_minisocks.c |    4 -
+ net/ipv4/tcp_output.c    |   31 ++++++--------
+ net/socket.c             |    6 +-
+ 11 files changed, 155 insertions(+), 123 deletions(-)
 
 diff --git a/fs/splice.c b/fs/splice.c
 --- a/fs/splice.c
@@ -626,6 +627,17 @@ diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  		int tcp_header_len = tp->tcp_header_len;
  
  		/* Timestamp header prediction: tcp_header_len
+@@ -4332,7 +4345,9 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 			if (tp->copied_seq == tp->rcv_nxt &&
+ 			    len - tcp_header_len <= tp->ucopy.len) {
+ #ifdef CONFIG_NET_DMA
+-				if (tcp_dma_try_early_copy(sk, skb, tcp_header_len)) {
++				if (tp->ucopy.task == current &&
++				    sock_owned_by_user(sk) &&
++				    tcp_dma_try_early_copy(sk, skb, tcp_header_len)) {
+ 					copied_early = 1;
+ 					eaten = 1;
+ 				}
 @@ -4365,6 +4378,9 @@ int tcp_rcv_established(struct sock *sk,
  				if (tcp_checksum_complete_user(sk, skb))
  					goto csum_error;
