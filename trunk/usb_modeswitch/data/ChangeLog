@@ -1,8 +1,20 @@
+20140529:
+    ATTENTION: requires usb-modeswitch version >= 2.2.0 due to new para-
+    meter HuaweiNewMode (further reducing config file size);
+    Added devices: Nexperia TM TD-SCDMA, Sunplus SU-3200U, Olivetti
+    Olicard 160 and Olicard 500, Ericsson F5521gw, Sony Ericsson EC400,
+    Huawei EC168, Huawei/Vod. W5101 Router, Huawei E3531, Huawei E3131
+    (Variant), Novatel MiFi 4082, Emobile D12LC, Emobile D21LC, Prolink
+    PCM100, Titan 3.5G, several nameless ZTE modems, several minor device
+    configuration corrections (thanks once again to Lars Melin for the
+    tedious device research and compilation!);
+    Substantial change in handling of Huawei devices - generic udev rule and
+    additional generic configuration files (as fallback for unknown models
+    or as OS-specific catch-all); see README for details
 20140327:
     Plenty of Huawei and ZTE devices added, several target IDs added (thanks
     to Lars Melin for the compilation); fix for Option GI1515 (0af0:d001) to
-    be used with usb-modeswitch >= 2.1.1; unified switching message for
-    nearly all Huawei devices
+    be used with usb-modeswitch >= 2.1.1
 20140129:
     Minor bug fix in configs 19d2:0149 and 19d2:2000 (Lars Melin reported)
 20140128:
