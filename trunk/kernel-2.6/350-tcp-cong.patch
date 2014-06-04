@@ -16,6 +16,7 @@
  17a6e9f1aa9ba07ca13a1eaf1e631e743af50cca tcp_cubic: fix clock dependency
  2ed0edf9090bf4afa2c6fc4f38575a85a80d4b20 tcp: cubic: fix overflow error in bictcp_update()
  cd6b423afd3c08b27e1fed52db828ade0addbc6b tcp: cubic: fix bug in bictcp_acked()
+ 0cda345d1b2201dd15591b163e3c92bad5191745 tcp_cubic: fix the range of delayed_ack
 
 ---
  include/net/tcp.h        |    7 -
@@ -508,7 +509,7 @@ diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
 +		ratio -= ca->delayed_ack >> ACK_RATIO_SHIFT;
 +		ratio += cnt;
 +
-+		ca->delayed_ack = min(ratio, ACK_RATIO_LIMIT);
++		ca->delayed_ack = clamp(ratio, 1U, ACK_RATIO_LIMIT);
  	}
 -}
  
