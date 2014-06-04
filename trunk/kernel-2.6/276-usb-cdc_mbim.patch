@@ -10,8 +10,8 @@ USB: cdc_mbim MBIM driver backport from 3.8.4
 ---
  drivers/net/usb/Kconfig    |   18 +
  drivers/net/usb/Makefile   |    1 
- drivers/net/usb/cdc_mbim.c |  460 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 479 insertions(+)
+ drivers/net/usb/cdc_mbim.c |  458 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 477 insertions(+)
  create mode 100644 drivers/net/usb/cdc_mbim.c
 
 diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
@@ -57,7 +57,7 @@ diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/net/usb/cdc_mbim.c
-@@ -0,0 +1,460 @@
+@@ -0,0 +1,458 @@
 +/*
 + * Copyright (c) 2012  Smith Micro Software, Inc.
 + * Copyright (c) 2012  Bjørn Mork <bjorn@mork.no>
@@ -82,8 +82,6 @@ new file mode 100644
 +#include "usbnet.h"
 +#include <linux/usb/cdc-wdm.h>
 +#include <linux/usb/cdc_ncm.h>
-+#include <net/ipv6.h>
-+#include <net/addrconf.h>
 +
 +/* driver specific data - must match cdc_ncm usage */
 +struct cdc_mbim_state {
