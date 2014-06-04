@@ -1,12 +1,17 @@
 USB: cdc_mbim MBIM driver backport from 3.8.4
 
  32b161aa88aa40a83888a995c6e2ef81140219b1 net: cdc_mbim: remove bogus sizeof()
+ c1a2e95435976cb040db1f6c0afbe4287c3d2e28 net: cdc_mbim: change the default to send ZLPs
+ 04d948a9fc7b352b05125bd3d81c565fb8840c56 net: cdc_mbim: manage_power should always set needs_remote_wakeup
+ c37ac9b22b6732c0c9dc17076ebe84e841d4eb16 net: cdc_mbim: no need to check for resume if suspend exists
+ e62416e8e4e086652cfc88b88921708964aac3b5 net: cdc_mbim: fixup error return value
+ 6b5eeb7f874b689403e52a646e485d0191ab9507 net: cdc_mbim: handle unaccelerated VLAN tagged frames
 
 ---
  drivers/net/usb/Kconfig    |   18 +
  drivers/net/usb/Makefile   |    1 
- drivers/net/usb/cdc_mbim.c |  435 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 454 insertions(+)
+ drivers/net/usb/cdc_mbim.c |  460 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 479 insertions(+)
  create mode 100644 drivers/net/usb/cdc_mbim.c
 
 diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
@@ -52,7 +57,7 @@ diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/net/usb/cdc_mbim.c
-@@ -0,0 +1,435 @@
+@@ -0,0 +1,460 @@
 +/*
 + * Copyright (c) 2012  Smith Micro Software, Inc.
 + * Copyright (c) 2012  Bjørn Mork <bjorn@mork.no>
@@ -77,6 +82,8 @@ new file mode 100644
 +#include "usbnet.h"
 +#include <linux/usb/cdc-wdm.h>
 +#include <linux/usb/cdc_ncm.h>
++#include <net/ipv6.h>
++#include <net/addrconf.h>
 +
 +/* driver specific data - must match cdc_ncm usage */
 +struct cdc_mbim_state {
@@ -98,13 +105,11 @@ new file mode 100644
 +	if ((on && atomic_add_return(1, &info->pmcount) == 1) || (!on && atomic_dec_and_test(&info->pmcount))) {
 +		/* need autopm_get/put here to ensure the usbcore sees the new value */
 +		rv = usb_autopm_get_interface(dev->intf);
-+		if (rv < 0)
-+			goto err;
 +		dev->intf->needs_remote_wakeup = on;
-+		usb_autopm_put_interface(dev->intf);
++		if (!rv)
++			usb_autopm_put_interface(dev->intf);
 +	}
-+err:
-+	return rv;
++	return 0;
 +}
 +
 +static int cdc_mbim_wdm_manage_power(struct usb_interface *intf, int status)
@@ -176,6 +181,16 @@ new file mode 100644
 +	cdc_ncm_unbind(dev, intf);
 +}
 +
++/* verify that the ethernet protocol is IPv4 or IPv6 */
++static bool is_ip_proto(__be16 proto)
++{
++	switch (proto) {
++	case htons(ETH_P_IP):
++	case htons(ETH_P_IPV6):
++		return true;
++	}
++	return false;
++}
 +
 +static struct sk_buff *cdc_mbim_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
 +{
@@ -184,6 +199,7 @@ new file mode 100644
 +	struct cdc_ncm_ctx *ctx = info->ctx;
 +	__le32 sign = cpu_to_le32(USB_CDC_MBIM_NDP16_IPS_SIGN);
 +	u16 tci = 0;
++	bool is_ip;
 +	u8 *c;
 +
 +	if (!ctx)
@@ -193,25 +209,32 @@ new file mode 100644
 +		if (skb->len <= ETH_HLEN)
 +			goto error;
 +
++		/* Some applications using e.g. packet sockets will
++		 * bypass the VLAN acceleration and create tagged
++		 * ethernet frames directly.  We primarily look for
++		 * the accelerated out-of-band tag, but fall back if
++		 * required
++		 */
++		skb_reset_mac_header(skb);
++		if (vlan_get_tag(skb, &tci) < 0 && skb->len > VLAN_ETH_HLEN &&
++		    __vlan_get_tag(skb, &tci) == 0) {
++			is_ip = is_ip_proto(vlan_eth_hdr(skb)->h_vlan_encapsulated_proto);
++			skb_pull(skb, VLAN_ETH_HLEN);
++		} else {
++			is_ip = is_ip_proto(eth_hdr(skb)->h_proto);
++			skb_pull(skb, ETH_HLEN);
++		}
++
 +		/* mapping VLANs to MBIM sessions:
 +		 *   no tag     => IPS session <0>
 +		 *   1 - 255    => IPS session <vlanid>
 +		 *   256 - 511  => DSS session <vlanid - 256>
 +		 *   512 - 4095 => unsupported, drop
 +		 */
-+		vlan_get_tag(skb, &tci);
-+
 +		switch (tci & 0x0f00) {
 +		case 0x0000: /* VLAN ID 0 - 255 */
-+			/* verify that datagram is IPv4 or IPv6 */
-+			skb_reset_mac_header(skb);
-+			switch (eth_hdr(skb)->h_proto) {
-+			case htons(ETH_P_IP):
-+			case htons(ETH_P_IPV6):
-+				break;
-+			default:
++			if (!is_ip)
 +				goto error;
-+			}
 +			c = (u8 *)&sign;
 +			c[3] = tci;
 +			break;
@@ -225,11 +248,10 @@ new file mode 100644
 +				  "unsupported tci=0x%04x\n", tci);
 +			goto error;
 +		}
-+		skb_pull(skb, ETH_HLEN);
 +	}
 +
 +	spin_lock_bh(&ctx->mtx);
-+	skb_out = cdc_ncm_fill_tx_frame(ctx, skb, sign);
++	skb_out = cdc_ncm_fill_tx_frame(dev, skb, sign);
 +	spin_unlock_bh(&ctx->mtx);
 +	return skb_out;
 +
@@ -369,15 +391,13 @@ new file mode 100644
 +
 +static int cdc_mbim_suspend(struct usb_interface *intf, pm_message_t message)
 +{
-+	int ret = 0;
++	int ret = -ENODEV;
 +	struct usbnet *dev = usb_get_intfdata(intf);
 +	struct cdc_mbim_state *info = (void *)&dev->data;
 +	struct cdc_ncm_ctx *ctx = info->ctx;
 +
-+	if (ctx == NULL) {
-+		ret = -1;
++	if (!ctx)
 +		goto error;
-+	}
 +
 +	ret = usbnet_suspend(intf, message);
 +	if (ret < 0)
@@ -405,7 +425,7 @@ new file mode 100644
 +	if (ret < 0)
 +		goto err;
 +	ret = usbnet_resume(intf);
-+	if (ret < 0 && callsub && info->subdriver->suspend)
++	if (ret < 0 && callsub)
 +		info->subdriver->suspend(intf, PMSG_SUSPEND);
 +err:
 +	return ret;
@@ -422,9 +442,18 @@ new file mode 100644
 +};
 +
 +/* MBIM and NCM devices should not need a ZLP after NTBs with
-+ * dwNtbOutMaxSize length. This driver_info is for the exceptional
-+ * devices requiring it anyway, allowing them to be supported without
-+ * forcing the performance penalty on all the sane devices.
++ * dwNtbOutMaxSize length. Nevertheless, a number of devices from
++ * different vendor IDs will fail unless we send ZLPs, forcing us
++ * to make this the default.
++ *
++ * This default may cause a performance penalty for spec conforming
++ * devices wanting to take advantage of optimizations possible without
++ * ZLPs.  A whitelist is added in an attempt to avoid this for devices
++ * known to conform to the MBIM specification.
++ *
++ * All known devices supporting NCM compatibility mode are also
++ * conforming to the NCM and MBIM specifications. For this reason, the
++ * NCM subclass entry is also in the ZLP whitelist.
 + */
 +static const struct driver_info cdc_mbim_info_zlp = {
 +	.description = "CDC MBIM",
@@ -447,12 +476,13 @@ new file mode 100644
 +	{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
 +	  .driver_info = (unsigned long)&cdc_mbim_info,
 +	},
-+	/* Sierra Wireless MC7710 need ZLPs */
-+	{ USB_DEVICE_AND_INTERFACE_INFO(0x1199, 0x68a2, USB_CLASS_COMM, USB_CDC_SUBCLASS_MBIM, USB_CDC_PROTO_NONE),
-+	  .driver_info = (unsigned long)&cdc_mbim_info_zlp,
-+	},
-+	{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_MBIM, USB_CDC_PROTO_NONE),
++	/* ZLP conformance whitelist: All Ericsson MBIM devices */
++	{ USB_VENDOR_AND_INTERFACE_INFO(0x0bdb, USB_CLASS_COMM, USB_CDC_SUBCLASS_MBIM, USB_CDC_PROTO_NONE),
 +	  .driver_info = (unsigned long)&cdc_mbim_info,
++	},
++	/* default entry */
++	{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_MBIM, USB_CDC_PROTO_NONE),
++	  .driver_info = (unsigned long)&cdc_mbim_info_zlp,
 +	},
 +	{
 +	},
