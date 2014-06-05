@@ -2,25 +2,23 @@ RTNETLINK: Use rtnl_link API for vlans
 
  0157f60c0caea24fa8347f4c0ed53297c412fce1 [RTNETLINK]: Split up rtnl_setlink
  38f7b870d4a6a5d3ec21557e849620cb7d032965 [RTNETLINK]: Link creation API
- 2d85cba2b272a5201a60966a65a4f8c0bcc0bb71 [RTNETLINK]: rtnl_link API simplification
- 0e06877c6fdbc67b1132be895f995acd1ff30135 [RTNETLINK]: rtnl_link: allow specifying initial device address
  07b5b17e157b7018d0ca40ca0d1581a23096fb45 [VLAN]: Use rtnl_link API
  3f03e387893ffa07a4d5dac96772f9db3221a185 [VLAN]: Fix potential race in vlan_cleanup_module vs vlan_ioctl_handler.
 
 ---
  include/linux/if_link.h   |   47 ++++
  include/linux/netdevice.h |    3 
- include/net/rtnetlink.h   |   58 +++++
+ include/net/rtnetlink.h   |   58 ++++++
  net/8021q/Makefile        |    2 
- net/8021q/vlan.c          |   56 ++---
+ net/8021q/vlan.c          |   29 +--
  net/8021q/vlan.h          |   10 +
- net/8021q/vlan_netlink.c  |  243 ++++++++++++++++++++++++
- net/core/rtnetlink.c      |  455 ++++++++++++++++++++++++++++++++++++++++------
- 8 files changed, 790 insertions(+), 84 deletions(-)
+ net/8021q/vlan_netlink.c  |  236 ++++++++++++++++++++++++
+ net/core/rtnetlink.c      |  440 ++++++++++++++++++++++++++++++++++++++++------
+ 8 files changed, 763 insertions(+), 62 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
+diff -urNBp a/include/linux/if_link.h b/include/linux/if_link.h
+--- a/include/linux/if_link.h	2008-02-26 02:59:40.000000000 +0300
++++ b/include/linux/if_link.h	2010-09-26 09:43:54.000000000 +0400
 @@ -76,6 +76,8 @@ enum
  #define IFLA_WEIGHT IFLA_WEIGHT
  	IFLA_OPERSTATE,
@@ -80,9 +78,9 @@ diff --git a/include/linux/if_link.h b/include/linux/if_link.h
 +};
 +
  #endif /* _LINUX_IF_LINK_H */
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
+diff -urNBp a/include/linux/netdevice.h b/include/linux/netdevice.h
+--- a/include/linux/netdevice.h	2010-09-26 04:00:00.000000000 +0400
++++ b/include/linux/netdevice.h	2010-09-26 04:00:00.000000000 +0400
 @@ -540,6 +540,9 @@ struct net_device
  	struct device		dev;
  	/* space for optional statistics and wireless sysfs groups */
@@ -93,9 +91,9 @@ diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
  };
  #define to_net_dev(d) container_of(d, struct net_device, dev)
  
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
+diff -urNBp a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+--- a/include/net/rtnetlink.h	2008-02-26 02:59:40.000000000 +0300
++++ b/include/net/rtnetlink.h	2010-09-26 09:43:48.000000000 +0400
 @@ -22,4 +22,62 @@ static inline int rtnl_msg_family(struct
  		return AF_UNSPEC;
  }
@@ -159,9 +157,9 @@ diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
 +#define MODULE_ALIAS_RTNL_LINK(kind) MODULE_ALIAS("rtnl-link-" kind)
 +
  #endif
-diff --git a/net/8021q/Makefile b/net/8021q/Makefile
---- a/net/8021q/Makefile
-+++ b/net/8021q/Makefile
+diff -urNBp a/net/8021q/Makefile b/net/8021q/Makefile
+--- a/net/8021q/Makefile	2008-02-26 02:59:40.000000000 +0300
++++ b/net/8021q/Makefile	2010-09-26 09:43:54.000000000 +0400
 @@ -4,7 +4,7 @@
  
  obj-$(CONFIG_VLAN_8021Q) += 8021q.o
@@ -171,10 +169,10 @@ diff --git a/net/8021q/Makefile b/net/8021q/Makefile
  
  ifeq ($(CONFIG_PROC_FS),y)
  8021q-objs += vlanproc.o
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -97,35 +97,22 @@ static int __init vlan_proto_init(void)
+diff -urNBp a/net/8021q/vlan.c b/net/8021q/vlan.c
+--- a/net/8021q/vlan.c	2010-09-26 09:32:28.000000000 +0400
++++ b/net/8021q/vlan.c	2010-09-26 09:43:54.000000000 +0400
+@@ -97,15 +97,22 @@ static int __init vlan_proto_init(void)
  
  	/* Register us to receive netdevice events */
  	err = register_netdevice_notifier(&vlan_notifier_block);
@@ -193,26 +191,7 @@ diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
  
 +	vlan_ioctl_set(vlan_ioctl_handler);
  	return 0;
--}
--
--/* Cleanup all vlan devices
-- * Note: devices that have been registered that but not
-- * brought up will exist but have no module ref count.
-- */
--static void __exit vlan_cleanup_devices(void)
--{
--	struct net_device *dev, *nxt;
- 
--	rtnl_lock();
--	for_each_netdev_safe(dev, nxt) {
--		if (dev->priv_flags & IFF_802_1Q_VLAN) {
--			unregister_vlan_dev(VLAN_DEV_INFO(dev)->real_dev,
--					    VLAN_DEV_INFO(dev)->vlan_id);
--
--			unregister_netdevice(dev);
--		}
--	}
--	rtnl_unlock();
++
 +err2:
 +	unregister_netdevice_notifier(&vlan_notifier_block);
 +err1:
@@ -221,8 +200,8 @@ diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
 +	return err;
  }
  
- /*
-@@ -137,12 +124,12 @@ static void __exit vlan_cleanup_module(v
+ /* Cleanup all vlan devices
+@@ -136,6 +143,7 @@ static void __exit vlan_cleanup_module(v
  	int i;
  
  	vlan_ioctl_set(NULL);
@@ -230,13 +209,7 @@ diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
  
  	/* Un-register us from receiving netdevice events */
  	unregister_netdevice_notifier(&vlan_notifier_block);
- 
- 	dev_remove_pack(&vlan_packet_type);
--	vlan_cleanup_devices();
- 
- 	/* This table must be empty if there are no module
- 	 * references left.
-@@ -306,7 +293,7 @@ static int unregister_vlan_dev(struct ne
+@@ -306,7 +314,7 @@ static int unregister_vlan_dev(struct ne
  	return ret;
  }
  
@@ -245,20 +218,7 @@ diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
  {
  	int ret;
  
-@@ -340,8 +327,10 @@ static int vlan_dev_init(struct net_devi
- 	/* TODO: maybe just assign it to be ETHERNET? */
- 	dev->type = real_dev->type;
- 
--	memcpy(dev->broadcast, real_dev->broadcast, real_dev->addr_len);
--	memcpy(dev->dev_addr, real_dev->dev_addr, real_dev->addr_len);
-+	if (is_zero_ether_addr(dev->dev_addr))
-+		memcpy(dev->dev_addr, real_dev->dev_addr, dev->addr_len);
-+	if (is_zero_ether_addr(dev->broadcast))
-+		memcpy(dev->broadcast, real_dev->broadcast, dev->addr_len);
- 	dev->addr_len = real_dev->addr_len;
- 
- 	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
-@@ -361,7 +350,7 @@ static int vlan_dev_init(struct net_devi
+@@ -361,7 +369,7 @@ static int vlan_dev_init(struct net_devi
  	return 0;
  }
  
@@ -267,16 +227,7 @@ diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
  {
  	SET_MODULE_OWNER(new_dev);
  
-@@ -388,6 +377,8 @@ static void vlan_setup(struct net_device
- 	new_dev->set_multicast_list = vlan_dev_set_multicast_list;
- 	new_dev->destructor = free_netdev;
- 	new_dev->do_ioctl = vlan_dev_ioctl;
-+
-+	memset(new_dev->broadcast, 0, ETH_ALEN);
- }
- 
- static void vlan_transfer_operstate(const struct net_device *dev, struct net_device *vlandev)
-@@ -410,7 +401,7 @@ static void vlan_transfer_operstate(cons
+@@ -410,7 +418,7 @@ static void vlan_transfer_operstate(cons
  	}
  }
  
@@ -285,7 +236,7 @@ diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
  {
  	if (real_dev->features & NETIF_F_VLAN_CHALLENGED) {
  		printk(VLAN_DBG "%s: VLANs not supported on %s.\n",
-@@ -447,7 +438,7 @@ static int vlan_check_real_dev(struct ne
+@@ -447,7 +455,7 @@ static int vlan_check_real_dev(struct ne
  	return 0;
  }
  
@@ -294,7 +245,7 @@ diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
  {
  	struct vlan_dev_info *vlan = VLAN_DEV_INFO(dev);
  	struct net_device *real_dev = vlan->real_dev;
-@@ -567,6 +558,7 @@ static int register_vlan_device(struct n
+@@ -567,6 +575,7 @@ static int register_vlan_device(struct n
  	VLAN_DEV_INFO(new_dev)->dent = NULL;
  	VLAN_DEV_INFO(new_dev)->flags = VLAN_FLAG_REORDER_HDR;
  
@@ -302,9 +253,9 @@ diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
  	err = register_vlan_dev(new_dev);
  	if (err < 0)
  		goto out_free_newdev;
-diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
---- a/net/8021q/vlan.h
-+++ b/net/8021q/vlan.h
+diff -urNBp a/net/8021q/vlan.h b/net/8021q/vlan.h
+--- a/net/8021q/vlan.h	2010-09-26 09:32:11.000000000 +0400
++++ b/net/8021q/vlan.h	2010-09-26 09:43:54.000000000 +0400
 @@ -72,4 +72,14 @@ void vlan_dev_get_realdev_name(const str
  void vlan_dev_get_vid(const struct net_device *dev, unsigned short *result);
  void vlan_dev_set_multicast_list(struct net_device *vlan_dev);
@@ -320,10 +271,10 @@ diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
 +extern struct rtnl_link_ops vlan_link_ops;
 +
  #endif /* !(__BEN_VLAN_802_1Q_INC__) */
-diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
---- /dev/null
-+++ b/net/8021q/vlan_netlink.c
-@@ -0,0 +1,243 @@
+diff -urNBp a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
+--- a/net/8021q/vlan_netlink.c	1970-01-01 03:00:00.000000000 +0300
++++ b/net/8021q/vlan_netlink.c	2010-09-26 04:00:00.000000000 +0400
+@@ -0,0 +1,236 @@
 +/*
 + *	VLAN netlink control interface
 + *
@@ -366,13 +317,6 @@ diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
 +	struct ifla_vlan_flags *flags;
 +	u16 id;
 +	int err;
-+
-+	if (tb[IFLA_ADDRESS]) {
-+		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
-+			return -EINVAL;
-+		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
-+			return -EADDRNOTAVAIL;
-+	}
 +
 +	if (!data)
 +		return -EINVAL;
@@ -567,10 +511,10 @@ diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
 +}
 +
 +MODULE_ALIAS_RTNL_LINK("vlan");
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -243,6 +243,150 @@ void rtnl_unregister_all(int protocol)
+diff -urNBp a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+--- a/net/core/rtnetlink.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/core/rtnetlink.c	2010-09-26 09:43:48.000000000 +0400
+@@ -243,6 +243,143 @@ void rtnl_unregister_all(int protocol)
  
  EXPORT_SYMBOL_GPL(rtnl_unregister_all);
  
@@ -588,9 +532,6 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
 + */
 +int __rtnl_link_register(struct rtnl_link_ops *ops)
 +{
-+	if (!ops->dellink)
-+		ops->dellink = unregister_netdevice;
-+
 +	list_add_tail(&ops->list, &link_ops);
 +	return 0;
 +}
@@ -619,16 +560,12 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
 + * __rtnl_link_unregister - Unregister rtnl_link_ops from rtnetlink.
 + * @ops: struct rtnl_link_ops * to unregister
 + *
-+ * The caller must hold the rtnl_mutex.
++ * The caller must hold the rtnl_mutex. This function should be used
++ * by drivers that unregister devices during module unloading. It must
++ * be called after unregistering the devices.
 + */
 +void __rtnl_link_unregister(struct rtnl_link_ops *ops)
 +{
-+	struct net_device *dev, *n;
-+
-+	for_each_netdev_safe(dev, n) {
-+		if (dev->rtnl_link_ops == ops)
-+			ops->dellink(dev);
-+	}
 +	list_del(&ops->list);
 +}
 +
@@ -721,7 +658,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  static const int rtm_min[RTM_NR_FAMILIES] =
  {
  	[RTM_FAM(RTM_NEWLINK)]      = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
-@@ -437,7 +581,7 @@ static void copy_rtnl_link_stats(struct 
+@@ -437,7 +574,7 @@ static void copy_rtnl_link_stats(struct
  	a->tx_compressed = b->tx_compressed;
  };
  
@@ -730,7 +667,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  {
  	return NLMSG_ALIGN(sizeof(struct ifinfomsg))
  	       + nla_total_size(IFNAMSIZ) /* IFLA_IFNAME */
-@@ -452,7 +596,8 @@ static inline size_t if_nlmsg_size(void)
+@@ -452,7 +589,8 @@ static inline size_t if_nlmsg_size(void)
  	       + nla_total_size(4) /* IFLA_LINK */
  	       + nla_total_size(4) /* IFLA_MASTER */
  	       + nla_total_size(1) /* IFLA_OPERSTATE */
@@ -740,7 +677,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  }
  
  static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
-@@ -522,6 +667,11 @@ static int rtnl_fill_ifinfo(struct sk_bu
+@@ -522,6 +660,11 @@ static int rtnl_fill_ifinfo(struct sk_bu
  		}
  	}
  
@@ -752,7 +689,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  	return nlmsg_end(skb, nlh);
  
  nla_put_failure:
-@@ -553,6 +703,8 @@ cont:
+@@ -553,6 +696,8 @@ cont:
  
  static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
  	[IFLA_IFNAME]		= { .type = NLA_STRING, .len = IFNAMSIZ-1 },
@@ -761,7 +698,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  	[IFLA_MAP]		= { .len = sizeof(struct rtnl_link_ifmap) },
  	[IFLA_MTU]		= { .type = NLA_U32 },
  	[IFLA_TXQLEN]		= { .type = NLA_U32 },
-@@ -561,44 +713,16 @@ static const struct nla_policy ifla_poli
+@@ -561,44 +706,16 @@ static const struct nla_policy ifla_poli
  	[IFLA_LINKMODE]		= { .type = NLA_U8 },
  };
  
@@ -815,7 +752,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  
  	if (tb[IFLA_MAP]) {
  		struct rtnl_link_ifmap *u_map;
-@@ -606,12 +730,12 @@ static int rtnl_setlink(struct sk_buff *
+@@ -606,12 +723,12 @@ static int rtnl_setlink(struct sk_buff *
  
  		if (!dev->set_config) {
  			err = -EOPNOTSUPP;
@@ -830,7 +767,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  		}
  
  		u_map = nla_data(tb[IFLA_MAP]);
-@@ -624,7 +748,7 @@ static int rtnl_setlink(struct sk_buff *
+@@ -624,7 +741,7 @@ static int rtnl_setlink(struct sk_buff *
  
  		err = dev->set_config(dev, &k_map);
  		if (err < 0)
@@ -839,7 +776,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  
  		modified = 1;
  	}
-@@ -635,19 +759,19 @@ static int rtnl_setlink(struct sk_buff *
+@@ -635,19 +752,19 @@ static int rtnl_setlink(struct sk_buff *
  
  		if (!dev->set_mac_address) {
  			err = -EOPNOTSUPP;
@@ -862,7 +799,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  		}
  		sa->sa_family = dev->type;
  		memcpy(sa->sa_data, nla_data(tb[IFLA_ADDRESS]),
-@@ -655,7 +779,7 @@ static int rtnl_setlink(struct sk_buff *
+@@ -655,7 +772,7 @@ static int rtnl_setlink(struct sk_buff *
  		err = dev->set_mac_address(dev, sa);
  		kfree(sa);
  		if (err)
@@ -871,7 +808,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  		send_addr_notify = 1;
  		modified = 1;
  	}
-@@ -663,7 +787,7 @@ static int rtnl_setlink(struct sk_buff *
+@@ -663,7 +780,7 @@ static int rtnl_setlink(struct sk_buff *
  	if (tb[IFLA_MTU]) {
  		err = dev_set_mtu(dev, nla_get_u32(tb[IFLA_MTU]));
  		if (err < 0)
@@ -880,7 +817,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  		modified = 1;
  	}
  
-@@ -675,7 +799,7 @@ static int rtnl_setlink(struct sk_buff *
+@@ -675,7 +792,7 @@ static int rtnl_setlink(struct sk_buff *
  	if (ifm->ifi_index > 0 && ifname[0]) {
  		err = dev_change_name(dev, ifname);
  		if (err < 0)
@@ -889,7 +826,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  		modified = 1;
  	}
  
-@@ -712,7 +836,7 @@ static int rtnl_setlink(struct sk_buff *
+@@ -712,7 +828,7 @@ static int rtnl_setlink(struct sk_buff *
  
  	err = 0;
  
@@ -898,7 +835,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  	if (err < 0 && modified && net_ratelimit())
  		printk(KERN_WARNING "A link change request failed with "
  		       "some changes comitted already. Interface %s may "
-@@ -721,12 +845,239 @@ errout_dev:
+@@ -721,12 +837,231 @@ errout_dev:
  
  	if (send_addr_notify)
  		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
@@ -912,7 +849,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
 +	int err;
 +	struct nlattr *tb[IFLA_MAX+1];
 +	char ifname[IFNAMSIZ];
-+
+ 
 +	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
 +	if (err < 0)
 +		goto errout;
@@ -935,7 +872,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
 +		err = -ENODEV;
 +		goto errout;
 +	}
- 
++
 +	if (tb[IFLA_ADDRESS] &&
 +	    nla_len(tb[IFLA_ADDRESS]) < dev->addr_len)
 +		goto errout_dev;
@@ -1077,7 +1014,8 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
 +
 +		if (ifm->ifi_index || ifm->ifi_flags || ifm->ifi_change)
 +			return -EOPNOTSUPP;
-+		if (tb[IFLA_MAP] || tb[IFLA_MASTER] || tb[IFLA_PROTINFO])
++		if (tb[IFLA_ADDRESS] || tb[IFLA_BROADCAST] || tb[IFLA_MAP] ||
++		    tb[IFLA_MASTER] || tb[IFLA_PROTINFO])
 +			return -EOPNOTSUPP;
 +
 +		if (!ops) {
@@ -1109,12 +1047,6 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
 +
 +		if (tb[IFLA_MTU])
 +			dev->mtu = nla_get_u32(tb[IFLA_MTU]);
-+		if (tb[IFLA_ADDRESS])
-+			memcpy(dev->dev_addr, nla_data(tb[IFLA_ADDRESS]),
-+			       nla_len(tb[IFLA_ADDRESS]));
-+		if (tb[IFLA_BROADCAST])
-+			memcpy(dev->broadcast, nla_data(tb[IFLA_BROADCAST]),
-+			       nla_len(tb[IFLA_BROADCAST]));
 +		if (tb[IFLA_TXQLEN])
 +			dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
 +		if (tb[IFLA_WEIGHT])
@@ -1124,10 +1056,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
 +		if (tb[IFLA_LINKMODE])
 +			dev->link_mode = nla_get_u8(tb[IFLA_LINKMODE]);
 +
-+		if (ops->newlink)
-+			err = ops->newlink(dev, tb, data);
-+		else
-+			err = register_netdevice(dev);
++		err = ops->newlink(dev, tb, data);
 +err_free:
 +		if (err < 0)
 +			free_netdev(dev);
@@ -1138,7 +1067,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
  {
  	struct ifinfomsg *ifm;
-@@ -747,7 +1098,7 @@ static int rtnl_getlink(struct sk_buff *
+@@ -747,7 +1082,7 @@ static int rtnl_getlink(struct sk_buff *
  	} else
  		return -EINVAL;
  
@@ -1147,7 +1076,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  	if (nskb == NULL) {
  		err = -ENOBUFS;
  		goto errout;
-@@ -797,7 +1148,7 @@ void rtmsg_ifinfo(int type, struct net_d
+@@ -797,7 +1132,7 @@ void rtmsg_ifinfo(int type, struct net_d
  	struct sk_buff *skb;
  	int err = -ENOBUFS;
  
@@ -1156,7 +1085,7 @@ diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
  	if (skb == NULL)
  		goto errout;
  
-@@ -952,6 +1303,8 @@ void __init rtnetlink_init(void)
+@@ -952,6 +1287,8 @@ void __init rtnetlink_init(void)
  
  	rtnl_register(PF_UNSPEC, RTM_GETLINK, rtnl_getlink, rtnl_dump_ifinfo);
  	rtnl_register(PF_UNSPEC, RTM_SETLINK, rtnl_setlink, NULL);
