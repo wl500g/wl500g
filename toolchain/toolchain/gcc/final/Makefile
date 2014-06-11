@@ -21,6 +21,11 @@ else
 	--disable-tls
 endif
 
+ifneq ($(CONFIG_INSTALL_LIBSTDCPP),)
+  GCC_CONFIGURE += \
+	--enable-libstdcxx-time=yes
+endif
+
 define Build/Configure
 	mkdir -p $(GCC_BUILD_DIR) $(TOOLCHAIN_DIR)/$(REAL_GNU_TARGET_NAME)
 	# Important!  Required for limits.h to be fixed.
