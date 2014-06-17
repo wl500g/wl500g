@@ -2,6 +2,8 @@ ipc: Updates from upstream
 
  cf7b708c8d1d7a27736771bcf4c457b332b0f818 Make access to task's nsproxy lighter
  9edff4ab1f8d82675277a04e359d0ed8bf14a7b7 ipc: sysvsem: implement sys_unshare(CLONE_SYSVSEM)
+ 6013f67fc1a4c7fa5bcab2d39c1eaa3e260c7ac1 ipc: sysvsem: force unshare(CLONE_SYSVSEM) when CLONE_NEWIPC
+ 02fdb36ae7f55db7757b623acd27a62d5000d755 ipc: sysvsem: refuse clone(CLONE_SYSVSEM|CLONE_NEWIPC)
  4daa28f6d8f5cda8ea0f55048e3c8811c384cbdd ipc/sem.c: convert undo structures to struct list_head
  2c0c29d414087f3b021059673c20a7088f5f1fff ipc/sem.c: remove unused entries from struct sem_queue
  a1193f8ec091cd8fd309cc2982abe4499f6f2b4d ipc/sem.c: convert sem_array.sem_pending to struct list_head
@@ -53,9 +55,9 @@ ipc: Updates from upstream
  ipc/util.c              |  618 ++++++++++++++++++++++++--------------
  ipc/util.h              |  116 ++++---
  kernel/exit.c           |    7 
- kernel/fork.c           |   40 --
- kernel/nsproxy.c        |   40 +-
- 15 files changed, 1346 insertions(+), 1209 deletions(-)
+ kernel/fork.c           |   45 +-
+ kernel/nsproxy.c        |   52 ++-
+ 15 files changed, 1363 insertions(+), 1209 deletions(-)
 
 diff --git a/fs/proc/base.c b/fs/proc/base.c
 --- a/fs/proc/base.c
@@ -3955,11 +3957,16 @@ diff --git a/kernel/fork.c b/kernel/fork.c
  
  	check_unshare_flags(&unshare_flags);
  
-@@ -1458,6 +1446,8 @@ asmlinkage long sys_unshare(unsigned lon
+@@ -1458,6 +1446,13 @@ asmlinkage long sys_unshare(unsigned lon
  				CLONE_NEWUTS|CLONE_NEWIPC))
  		goto bad_unshare_out;
  
-+	if (unshare_flags & CLONE_SYSVSEM)
++	/*
++	 * CLONE_NEWIPC must also detach from the undolist: after switching
++	 * to a new ipc namespace, the semaphore arrays from the old
++	 * namespace are unreachable.
++	 */
++	if (unshare_flags & (CLONE_NEWIPC|CLONE_SYSVSEM))
 +		do_sysvsem = 1;
  	if ((err = unshare_thread(unshare_flags)))
  		goto bad_unshare_out;
@@ -4030,6 +4037,25 @@ diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
  /*
   * creates a copy of "orig" with refcount 1.
   */
+@@ -115,6 +115,18 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
+ 		goto out;
+ 	}
+ 
++	/*
++	 * CLONE_NEWIPC must detach from the undolist: after switching
++	 * to a new ipc namespace, the semaphore arrays from the old
++	 * namespace are unreachable.  In clone parlance, CLONE_SYSVSEM
++	 * means share undolist with parent, so we must forbid using
++	 * it along with CLONE_NEWIPC.
++	 */
++	if ((flags & CLONE_NEWIPC) && (flags & CLONE_SYSVSEM)) {
++		err = -EINVAL;
++		goto out;
++	}
++
+ 	new_ns = create_new_namespaces(flags, tsk, tsk->fs);
+ 	if (IS_ERR(new_ns)) {
+ 		err = PTR_ERR(new_ns);
 @@ -216,6 +203,33 @@ out:
  	return err;
  }
