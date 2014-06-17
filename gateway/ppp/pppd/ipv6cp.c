@@ -1122,9 +1122,6 @@ ipv6_check_options()
 	    if (!eui64_iszero(wo->ourid))
 		wo->opt_local = 1;
 	}
-	
-	while (eui64_iszero(wo->ourid))
-	    eui64_magic(wo->ourid);
     }
 
     if (!wo->opt_remote) {
@@ -1133,11 +1130,6 @@ ipv6_check_options()
 	    if (!eui64_iszero(wo->hisid))
 		wo->opt_remote = 1;
 	}
-    }
-
-    if (demand && (eui64_iszero(wo->ourid) || eui64_iszero(wo->hisid))) {
-	option_error("local/remote LL address required for demand-dialling\n");
-	exit(EXIT_OPTION_ERROR);
     }
 }
 
@@ -1151,6 +1143,21 @@ ipv6_demand_conf(u)
     int u;
 {
     ipv6cp_options *wo = &ipv6cp_wantoptions[u];
+
+    if (eui64_iszero(wo->hisid)) {
+	/* make up an arbitrary address for the peer */
+	while (eui64_iszero(wo->hisid))
+	    eui64_magic_ne(wo->hisid, wo->ourid);
+	wo->opt_remote = 1;
+	wo->accept_remote = 1;
+    }
+    if (eui64_iszero(wo->ourid)) {
+	/* make up an arbitrary address for us */
+	while (eui64_iszero(wo->ourid))
+	    eui64_magic_ne(wo->ourid, wo->hisid);
+	wo->opt_local = 1;
+	wo->accept_local = 1;
+    }
 
     if (!sif6up(u))
 	return 0;
@@ -1225,13 +1232,17 @@ ipv6cp_up(f)
     if (demand) {
 	if (! eui64_equals(go->ourid, wo->ourid) || 
 	    ! eui64_equals(ho->hisid, wo->hisid)) {
-	    if (! eui64_equals(go->ourid, wo->ourid))
+	    ipv6cp_clear_addrs(f->unit, wo->ourid, wo->hisid);
+	    if (! eui64_equals(go->ourid, wo->ourid)) {
 		warn("Local LL address changed to %s", 
 		     llv6_ntoa(go->ourid));
-	    if (! eui64_equals(ho->hisid, wo->hisid))
+		wo->ourid = go->ourid;
+	    }
+	    if (! eui64_equals(ho->hisid, wo->hisid)) {
 		warn("Remote LL address changed to %s", 
 		     llv6_ntoa(ho->hisid));
-	    ipv6cp_clear_addrs(f->unit, go->ourid, ho->hisid);
+		wo->hisid = ho->hisid;
+	    }
 
 	    /* Set the interface to the new addresses */
 	    if (!sif6addr(f->unit, go->ourid, ho->hisid)) {
