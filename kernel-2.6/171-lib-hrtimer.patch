@@ -5,6 +5,8 @@ hrtimer: Updates from upstream
  a332d86d3c262cddd3de0bfa90e1910de60b4f95 hrtimer: add nanosleep specific restart_block member
  c70878b4e0b6cf8d2f1e46319e48e821ef4a8aba hrtimer: hook compat_sys_nanosleep up to high res timer code
  37bb6cb4097e29ffee970065b74499cbf10603a3 hrtimer: unlock hrtimer_wakeup
+ 3588a085cd52ef080bf72df772378e1ba6bb292f hrtimer: fix hrtimer_init_sleeper() users
+ 720a2592cf1b9af86f30c44e8d89348826c03372 hrtimer: more hrtimer_init_sleeper() fallout.
  c289b074b66e2e59c65aba73f40b99e797e92d2f hrtimer: don't modify restart_block->fn in restart functions
  416529374b4793ba2d2e97e736d108a2e0f3ef07 hrtimer: fix *rmtp/restarts handling in compat_sys_nanosleep()
  029a07e0311c7fef968d44b50beca53969cee40b hrtimer: use nanosleep specific restart_block fields
@@ -31,13 +33,13 @@ hrtimer: Updates from upstream
  kernel/compat.c             |   85 +++---
  kernel/futex.c              |    8 
  kernel/futex_compat.c       |    2 
- kernel/hrtimer.c            |  535 +++++++++++++++++++++++++++++---------------
+ kernel/hrtimer.c            |  537 +++++++++++++++++++++++++++++---------------
  kernel/posix-timers.c       |   12 
- kernel/rtmutex.c            |    3 
+ kernel/rtmutex.c            |    8 
  kernel/time/tick-sched.c    |   27 --
  kernel/time/timer_list.c    |    4 
  kernel/timer.c              |    3 
- 13 files changed, 518 insertions(+), 270 deletions(-)
+ 13 files changed, 524 insertions(+), 271 deletions(-)
 
 diff --git a/fs/timerfd.c b/fs/timerfd.c
 --- a/fs/timerfd.c
@@ -398,9 +400,9 @@ diff --git a/kernel/futex.c b/kernel/futex.c
  
 -			hrtimer_start(&t.timer, t.timer.expires, HRTIMER_MODE_ABS);
 +			hrtimer_start_expires(&t.timer, HRTIMER_MODE_ABS);
+ 			if (!hrtimer_active(&t.timer))
+ 				t.task = NULL;
  
- 			/*
- 			 * the timer could have already expired, in which
 @@ -1313,7 +1313,7 @@ static int futex_lock_pi(u32 __user *uad
  		to = &timeout;
  		hrtimer_init(&to->timer, CLOCK_REALTIME, HRTIMER_MODE_ABS);
@@ -1077,6 +1079,15 @@ diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
  
  		if (likely(t->task))
  			schedule();
+@@ -1265,6 +1345,8 @@ static int __sched do_nanosleep(struct hrtimer_sleeper *t, enum hrtimer_mode mod
+ 
+ 	} while (t->task && !signal_pending(current));
+ 
++	__set_current_state(TASK_RUNNING);
++
+ 	return t->task == NULL;
+ }
+ 
 @@ -1274,17 +1353,15 @@ long __sched hrtimer_nanosleep_restart(s
  	struct timespec tu;
  	ktime_t time;
@@ -1294,13 +1305,18 @@ diff --git a/kernel/posix-timers.c b/kernel/posix-timers.c
 diff --git a/kernel/rtmutex.c b/kernel/rtmutex.c
 --- a/kernel/rtmutex.c
 +++ b/kernel/rtmutex.c
-@@ -637,8 +637,7 @@ rt_mutex_slowlock(struct rt_mutex *lock,
+@@ -637,9 +637,11 @@ rt_mutex_slowlock(struct rt_mutex *lock,
+ 	set_current_state(state);
  
  	/* Setup the timer, when timeout != NULL */
- 	if (unlikely(timeout))
+-	if (unlikely(timeout))
 -		hrtimer_start(&timeout->timer, timeout->timer.expires,
 -			      HRTIMER_MODE_ABS);
++	if (unlikely(timeout)) {
 +		hrtimer_start_expires(&timeout->timer, HRTIMER_MODE_ABS);
++		if (!hrtimer_active(&timeout->timer))
++			timeout->task = NULL;
++	}
  
  	for (;;) {
  		/* Try to acquire the lock: */
