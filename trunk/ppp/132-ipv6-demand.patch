@@ -1,0 +1,35 @@
+diff --git a/pppd/ipv6cp.c b/pppd/ipv6cp.c
+--- a/pppd/ipv6cp.c
++++ b/pppd/ipv6cp.c
+@@ -1128,11 +1131,6 @@ ipv6_check_options()
+ 		wo->opt_remote = 1;
+ 	}
+     }
+-
+-    if (demand && (eui64_iszero(wo->ourid) || eui64_iszero(wo->hisid))) {
+-	option_error("local/remote LL address required for demand-dialling\n");
+-	exit(1);
+-    }
+ }
+ 
+ 
+@@ -1146,6 +1144,19 @@ ipv6_demand_conf(u)
+ {
+     ipv6cp_options *wo = &ipv6cp_wantoptions[u];
+ 
++    if (eui64_iszero(wo->hisid)) {
++	/* make up an arbitrary address for the peer */
++	while (eui64_iszero(wo->hisid))
++	    eui64_magic_ne(wo->hisid, wo->ourid);
++	wo->accept_remote = 1;
++    }
++    if (eui64_iszero(wo->ourid)) {
++	/* make up an arbitrary address for us */
++	while (eui64_iszero(wo->ourid))
++	    eui64_magic_ne(wo->ourid, wo->hisid);
++	wo->accept_local = 1;
++    }
++
+ #if defined(__linux__) || defined(SOL2) || (defined(SVR4) && (defined(SNI) || defined(__USLC__)))
+ #if defined(SOL2)
+     if (!sif6up(u))
