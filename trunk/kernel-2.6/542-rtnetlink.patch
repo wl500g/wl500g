@@ -12,11 +12,11 @@ RTNETLINK: Use rtnl_link API for vlans
  include/linux/netdevice.h |    3 
  include/net/rtnetlink.h   |   58 +++++
  net/8021q/Makefile        |    2 
- net/8021q/vlan.c          |   56 ++---
+ net/8021q/vlan.c          |   54 ++---
  net/8021q/vlan.h          |   10 +
- net/8021q/vlan_netlink.c  |  243 ++++++++++++++++++++++++
+ net/8021q/vlan_netlink.c  |  238 ++++++++++++++++++++++++
  net/core/rtnetlink.c      |  455 ++++++++++++++++++++++++++++++++++++++++------
- 8 files changed, 790 insertions(+), 84 deletions(-)
+ 8 files changed, 784 insertions(+), 83 deletions(-)
 
 diff --git a/include/linux/if_link.h b/include/linux/if_link.h
 --- a/include/linux/if_link.h
@@ -236,15 +236,6 @@ diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
  
  	/* This table must be empty if there are no module
  	 * references left.
-@@ -306,7 +293,7 @@ static int unregister_vlan_dev(struct ne
- 	return ret;
- }
- 
--static int unregister_vlan_device(struct net_device *dev)
-+int unregister_vlan_device(struct net_device *dev)
- {
- 	int ret;
- 
 @@ -340,8 +327,10 @@ static int vlan_dev_init(struct net_devi
  	/* TODO: maybe just assign it to be ETHERNET? */
  	dev->type = real_dev->type;
@@ -312,7 +303,7 @@ diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
 +int vlan_check_real_dev(struct net_device *real_dev, unsigned short vlan_id);
 +void vlan_setup(struct net_device *dev);
 +int register_vlan_dev(struct net_device *dev);
-+int unregister_vlan_device(struct net_device *dev);
++void unregister_vlan_dev(struct net_device *dev);
 +
 +int vlan_netlink_init(void);
 +void vlan_netlink_fini(void);
@@ -323,7 +314,7 @@ diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
 diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
 --- /dev/null
 +++ b/net/8021q/vlan_netlink.c
-@@ -0,0 +1,243 @@
+@@ -0,0 +1,238 @@
 +/*
 + *	VLAN netlink control interface
 + *
@@ -462,11 +453,6 @@ diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
 +	return register_vlan_dev(dev);
 +}
 +
-+static void vlan_dellink(struct net_device *dev)
-+{
-+	unregister_vlan_device(dev);
-+}
-+
 +static inline size_t vlan_qos_map_size(unsigned int n)
 +{
 +	if (n == 0)
@@ -551,7 +537,7 @@ diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
 +	.validate	= vlan_validate,
 +	.newlink	= vlan_newlink,
 +	.changelink	= vlan_changelink,
-+	.dellink	= vlan_dellink,
++	.dellink	= unregister_vlan_dev,
 +	.get_size	= vlan_get_size,
 +	.fill_info	= vlan_fill_info,
 +};
