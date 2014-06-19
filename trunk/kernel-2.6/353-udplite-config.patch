@@ -1,0 +1,790 @@
+[NET] UDP: Allow UDP-Lite to turn off at compile-time
+
+---
+ include/linux/udp.h      |    7 ++++++
+ include/net/ipv6.h       |    2 +
+ include/net/transp_v6.h  |    4 +++
+ include/net/udp.h        |   20 +++++++++++++++++++
+ include/net/udplite.h    |    5 ++++
+ net/ipv4/Kconfig         |    8 +++++++
+ net/ipv4/Makefile        |    3 +-
+ net/ipv4/af_inet.c       |    6 +++++
+ net/ipv4/proc.c          |    4 +++
+ net/ipv4/udp.c           |   48 ++++++++++++++++++++++++++++++++++-------------
+ net/ipv6/Makefile        |    3 +-
+ net/ipv6/af_inet6.c      |   20 +++++++++++++++++++
+ net/ipv6/ipv6_sockglue.c |    2 +
+ net/ipv6/proc.c          |    6 +++++
+ net/ipv6/udp.c           |   36 ++++++++++++++++++++++++++---------
+ 15 files changed, 150 insertions(+), 24 deletions(-)
+
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+	2014-05-19 14:28:20.000000000 +0400
+@@ -61,6 +61,7 @@ struct udp_sock {
+ 	 * when the socket is uncorked.
+ 	 */
+ 	__u16		 len;		/* total length of pending frames */
++#if defined(CONFIG_INET_UDPLITE)
+ 	/*
+ 	 * Fields specific to UDP-Lite.
+ 	 */
+@@ -72,6 +73,7 @@ struct udp_sock {
+ #define UDPLITE_RECV_CC  0x4		/* set via udplite setsocktopt        */
+ 	__u8		 pcflag;        /* marks socket as UDP-Lite if > 0    */
+ 	__u8		 unused[3];
++#endif
+ 	/*
+ 	 * For encapsulation sockets.
+ 	 */
+@@ -82,7 +84,12 @@ static inline struct udp_sock *udp_sk(co
+ {
+ 	return (struct udp_sock *)sk;
+ }
++
++#if defined(CONFIG_INET_UDPLITE)
+ #define IS_UDPLITE(__sk) (udp_sk(__sk)->pcflag)
++#else
++#define IS_UDPLITE(__sk) (0)
++#endif
+ 
+ #endif
+ 
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -660,8 +660,10 @@ extern int  tcp6_proc_init(void);
+ extern void tcp6_proc_exit(void);
+ extern int  udp6_proc_init(void);
+ extern void udp6_proc_exit(void);
++#if defined(CONFIG_INET_UDPLITE)
+ extern int  udplite6_proc_init(void);
+ extern void udplite6_proc_exit(void);
++#endif
+ extern int  ipv6_misc_proc_init(void);
+ extern void ipv6_misc_proc_exit(void);
+ extern int snmp6_register_dev(struct inet6_dev *idev);
+diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
+--- a/include/net/transp_v6.h
++++ b/include/net/transp_v6.h
+@@ -11,7 +11,9 @@
+ 
+ extern struct proto rawv6_prot;
+ extern struct proto udpv6_prot;
++#if defined(CONFIG_INET_UDPLITE)
+ extern struct proto udplitev6_prot;
++#endif
+ extern struct proto tcpv6_prot;
+ 
+ struct flowi;
+@@ -25,7 +27,9 @@ extern void				ipv6_destopt_init(void);
+ /* transport protocols */
+ extern void				rawv6_init(void);
+ extern void				udpv6_init(void);
++#if defined(CONFIG_INET_UDPLITE)
+ extern void 				udplitev6_init(void);
++#endif
+ extern void				tcpv6_init(void);
+ 
+ extern int				udpv6_connect(struct sock *sk,
+diff --git a/include/net/udp.h b/include/net/udp.h
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -31,6 +31,7 @@
+ #include <linux/seq_file.h>
+ #include <linux/poll.h>
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ /**
+  *	struct udp_skb_cb  -  UDP(-Lite) private variables
+  *
+@@ -49,6 +50,7 @@ struct udp_skb_cb {
+ 	__u8		partial_cov;
+ };
+ #define UDP_SKB_CB(__skb)	((struct udp_skb_cb *)((__skb)->cb))
++#endif  /* CONFIG_INET_UDPLITE */
+ 
+ extern struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ extern rwlock_t udp_hash_lock;
+@@ -72,7 +74,11 @@ struct sk_buff;
+  */
+ static inline __sum16 __udp_lib_checksum_complete(struct sk_buff *skb)
+ {
++#if defined(CONFIG_INET_UDPLITE)
+ 	return __skb_checksum_complete_head(skb, UDP_SKB_CB(skb)->cscov);
++#else
++	return __skb_checksum_complete_head(skb, skb->len);
++#endif
+ }
+ 
+ static inline int udp_lib_checksum_complete(struct sk_buff *skb)
+@@ -142,13 +148,16 @@ extern int 	udp_lib_setsockopt(struct so
+ DECLARE_SNMP_STAT(struct udp_mib, udp_statistics);
+ DECLARE_SNMP_STAT(struct udp_mib, udp_stats_in6);
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ /* UDP-Lite does not have a standardized MIB yet, so we inherit from UDP */
+ DECLARE_SNMP_STAT(struct udp_mib, udplite_statistics);
+ DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
++#endif
+ 
+ /*
+  * 	SNMP statistics for UDP and UDP-Lite
+  */
++#if defined(CONFIG_INET_UDPLITE)
+ #define UDP_INC_STATS_USER(field, is_udplite)			       do {   \
+ 	if (is_udplite) SNMP_INC_STATS_USER(udplite_statistics, field);       \
+ 	else		SNMP_INC_STATS_USER(udp_statistics, field);  }  while(0)
+@@ -162,6 +171,17 @@ DECLARE_SNMP_STAT(struct udp_mib, udplit
+ #define UDP6_INC_STATS_USER(field, is_udplite)			       do {    \
+ 	if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, field);         \
+ 	else		SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
++#else
++#define UDP_INC_STATS_USER(field, is_udplite)			       do {   \
++	SNMP_INC_STATS_USER(udp_statistics, field);  }  while(0)
++#define UDP_INC_STATS_BH(field, is_udplite) 			       do  {  \
++	SNMP_INC_STATS_BH(udp_statistics, field);    }  while(0)
++
++#define UDP6_INC_STATS_BH(field, is_udplite) 			      do  {  \
++	SNMP_INC_STATS_BH(udp_stats_in6, field);    } while(0)
++#define UDP6_INC_STATS_USER(field, is_udplite)			       do {    \
++	SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
++#endif
+ 
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ #define UDPX_INC_STATS_BH(sk, field) \
+diff --git a/include/net/udplite.h b/include/net/udplite.h
+--- a/include/net/udplite.h
++++ b/include/net/udplite.h
+@@ -10,6 +10,8 @@
+ #define UDPLITE_SEND_CSCOV   10 /* sender partial coverage (as sent)      */
+ #define UDPLITE_RECV_CSCOV   11 /* receiver partial coverage (threshold ) */
+ 
++#if defined(CONFIG_INET_UDPLITE)
++
+ extern struct proto 		udplite_prot;
+ extern struct hlist_head 	udplite_hash[UDP_HTABLE_SIZE];
+ 
+@@ -118,4 +119,7 @@ static inline __wsum udplite_csum_outgoi
+ extern void	udplite4_register(void);
+ extern int 	udplite_get_port(struct sock *sk, unsigned short snum,
+ 			int (*scmp)(const struct sock *, const struct sock *));
++
++#endif /* CONFIG_INET_UDPLITE */
++
+ #endif	/* _UDPLITE_H */
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1303,16 +1303,20 @@ static int __init init_ipv4_mibs(void)
+ 			  sizeof(struct udp_mib),
+ 			  __alignof__(struct udp_mib)) < 0)
+ 		goto err_udp_mib;
++#if defined(CONFIG_INET_UDPLITE)
+ 	if (snmp_mib_init((void **)udplite_statistics,
+ 			  sizeof(struct udp_mib),
+ 			  __alignof__(struct udp_mib)) < 0)
+ 		goto err_udplite_mib;
++#endif
+ 
+ 	tcp_mib_init();
+ 
+ 	return 0;
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ err_udplite_mib:
++#endif
+ 	snmp_mib_free((void **)udp_statistics);
+ err_udp_mib:
+ 	snmp_mib_free((void **)tcp_statistics);
+@@ -1405,8 +1409,10 @@ static int __init inet_init(void)
+ 	/* Setup TCP slab cache for open requests. */
+ 	tcp_init();
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ 	/* Add UDP-Lite (RFC 3828) */
+ 	udplite4_register();
++#endif
+ 
+ 	/*
+ 	 *	Set the ICMP layer up
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -456,6 +456,14 @@ config INET_TCP_DIAG
+ 	depends on INET_DIAG
+ 	def_tristate INET_DIAG
+ 
++config INET_UDPLITE
++	bool "UDP: UDP-Lite protocol"
++	default y
++	---help---
++	  Support for UDP-Lite protocol (RFC 3828).
++
++	  If unsure, say Y.
++
+ menuconfig TCP_CONG_ADVANCED
+ 	bool "TCP: advanced congestion control"
+ 	---help---
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -8,7 +8,7 @@ obj-y     := route.o inetpeer.o protocol
+ 	     inet_timewait_sock.o inet_connection_sock.o \
+ 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
+ 	     tcp_minisocks.o tcp_cong.o \
+-	     datagram.o raw.o udp.o udplite.o \
++	     datagram.o raw.o udp.o \
+ 	     arp.o icmp.o devinet.o af_inet.o  igmp.o \
+ 	     sysctl_net_ipv4.o fib_frontend.o fib_semantics.o \
+ 	     inet_fragment.o
+@@ -40,6 +40,7 @@ obj-$(CONFIG_IP_VS) += ipvs/
+ obj-$(CONFIG_INET_DIAG) += inet_diag.o 
+ obj-$(CONFIG_IP_ROUTE_MULTIPATH_CACHED) += multipath.o
+ obj-$(CONFIG_INET_TCP_DIAG) += tcp_diag.o
++obj-$(CONFIG_INET_UDPLITE) += udplite.o
+ obj-$(CONFIG_NET_TCPPROBE) += tcp_probe.o
+ obj-$(CONFIG_TCP_CONG_BIC) += tcp_bic.o
+ obj-$(CONFIG_TCP_CONG_CUBIC) += tcp_cubic.o
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -67,7 +67,9 @@ static int sockstat_seq_show(struct seq_
+ 		   tcp_death_row.tw_count, atomic_read(&tcp_sockets_allocated),
+ 		   atomic_read(&tcp_memory_allocated));
+ 	seq_printf(seq, "UDP: inuse %d\n", fold_prot_inuse(&udp_prot));
++#if defined(CONFIG_INET_UDPLITE)
+ 	seq_printf(seq, "UDPLITE: inuse %d\n", fold_prot_inuse(&udplite_prot));
++#endif
+ 	seq_printf(seq, "RAW: inuse %d\n", fold_prot_inuse(&raw_prot));
+ 	seq_printf(seq,  "FRAG: inuse %d memory %d\n",
+ 			ip_frag_nqueues(), ip_frag_mem());
+@@ -304,6 +306,7 @@ static int snmp_seq_show(struct seq_file
+ 			   snmp_fold_field((void **)udp_statistics,
+ 					   snmp4_udp_list[i].entry));
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ 	/* the UDP and UDP-Lite MIBs are the same */
+ 	seq_puts(seq, "\nUdpLite:");
+ 	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
+@@ -314,6 +317,7 @@ static int snmp_seq_show(struct seq_file
+ 		seq_printf(seq, " %lu",
+ 			   snmp_fold_field((void **)udplite_statistics,
+ 					   snmp4_udp_list[i].entry));
++#endif
+ 
+ 	seq_putc(seq, '\n');
+ 	return 0;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -501,10 +501,13 @@ static int udp_push_pending_frames(struc
+ 	uh->len = htons(up->len);
+ 	uh->check = 0;
+ 
+-	if (up->pcflag)  				 /*     UDP-Lite      */
++#if defined(CONFIG_INET_UDPLITE)
++	if (IS_UDPLITE(sk))  				 /*     UDP-Lite      */
+ 		csum  = udplite_csum_outgoing(sk, skb);
++	else
++#endif
+ 
+-	else if (sk->sk_no_check == UDP_CSUM_NOXMIT) {   /* UDP csum disabled */
++	     if (sk->sk_no_check == UDP_CSUM_NOXMIT) {   /* UDP csum disabled */
+ 
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 		goto send;
+@@ -544,7 +547,10 @@ int udp_sendmsg(struct kiocb *iocb, stru
+ 	__be32 daddr, faddr, saddr;
+ 	__be16 dport;
+ 	u8  tos;
+-	int err, is_udplite = up->pcflag;
++	int err;
++#if defined(CONFIG_INET_UDPLITE)
++	int is_udplite = IS_UDPLITE(sk);
++#endif
+ 	int corkreq = up->corkflag || msg->msg_flags&MSG_MORE;
+ 	int (*getfrag)(void *, char *, int, int, int, struct sk_buff *);
+ 
+@@ -700,7 +706,11 @@ back_from_confirm:
+ 
+ do_append_data:
+ 	up->len += ulen;
++#if defined(CONFIG_INET_UDPLITE)
+ 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
++#else
++	getfrag  =  ip_generic_getfrag;
++#endif
+ 	err = ip_append_data(sk, getfrag, msg->msg_iov, ulen,
+ 			sizeof(struct udphdr), &ipc, &rt,
+ 			corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags);
+@@ -843,7 +853,9 @@ int udp_recvmsg(struct kiocb *iocb, stru
+ 	unsigned int ulen, copied;
+ 	int peeked;
+ 	int err;
++#if defined(CONFIG_INET_UDPLITE)
+ 	int is_udplite = IS_UDPLITE(sk);
++#endif
+ 
+ 	/*
+ 	 *	Check any passed addresses
+@@ -873,7 +885,11 @@ try_again:
+ 	 * coverage checksum (UDP-Lite), do it before the copy.
+ 	 */
+ 
+-	if (copied < ulen || UDP_SKB_CB(skb)->partial_cov) {
++	if (copied < ulen
++#if defined(CONFIG_INET_UDPLITE)
++	     || UDP_SKB_CB(skb)->partial_cov
++#endif
++	   ) {
+ 		if (udp_lib_checksum_complete(skb))
+ 			goto csum_copy_err;
+ 	}
+@@ -988,7 +1004,7 @@ int udp_queue_rcv_skb(struct sock * sk, 
+ 			ret = (*up->encap_rcv)(sk, skb);
+ 			if (ret <= 0) {
+ 				UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS,
+-						 up->pcflag);
++						 IS_UDPLITE(sk));
+ 				return -ret;
+ 			}
+ 		}
+@@ -996,6 +1012,7 @@ int udp_queue_rcv_skb(struct sock * sk, 
+ 		/* FALLTHROUGH -- it's a UDP Packet */
+ 	}
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ 	/*
+ 	 * 	UDP-Lite specific tests, ignored on UDP sockets
+ 	 */
+@@ -1031,6 +1048,7 @@ int udp_queue_rcv_skb(struct sock * sk, 
+ 			goto drop;
+ 		}
+ 	}
++#endif  /* CONFIG_INET_UDPLITE */
+ 
+ 	if (rcu_dereference_raw(sk->sk_filter)) {
+ 		if (udp_lib_checksum_complete(skb))
+@@ -1040,7 +1058,7 @@ int udp_queue_rcv_skb(struct sock * sk, 
+ 	if ((rc = sock_queue_rcv_skb(sk,skb)) < 0) {
+ 		/* Note that an ENOMEM error is charged twice */
+ 		if (rc == -ENOMEM) {
+-			UDP_INC_STATS_BH(UDP_MIB_RCVBUFERRORS, up->pcflag);
++			UDP_INC_STATS_BH(UDP_MIB_RCVBUFERRORS, IS_UDPLITE(sk));
+ 			atomic_inc(&sk->sk_drops);
+ 		}
+ 		goto drop;
+@@ -1049,7 +1067,7 @@ int udp_queue_rcv_skb(struct sock * sk, 
+ 	return 0;
+ 
+ drop:
+-	UDP_INC_STATS_BH(UDP_MIB_INERRORS, up->pcflag);
++	UDP_INC_STATS_BH(UDP_MIB_INERRORS, IS_UDPLITE(sk));
+ 	kfree_skb(skb);
+ 	return -1;
+ }
+@@ -1107,16 +1125,17 @@ static inline int udp4_csum_init(struct 
+ 				 int proto)
+ {
+ 	const struct iphdr *iph;
+-	int err;
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ 	UDP_SKB_CB(skb)->partial_cov = 0;
+ 	UDP_SKB_CB(skb)->cscov = skb->len;
+ 
+ 	if (proto == IPPROTO_UDPLITE) {
+-		err = udplite_checksum_init(skb, uh);
++		int err = udplite_checksum_init(skb, uh);
+ 		if (err)
+ 			return err;
+ 	}
++#endif
+ 
+ 	iph = ip_hdr(skb);
+ 	if (uh->check == 0) {
+@@ -1295,13 +1314,14 @@ int udp_lib_setsockopt(struct sock *sk, 
+ 		}
+ 		break;
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ 	/*
+ 	 * 	UDP-Lite's partial checksum coverage (RFC 3828).
+ 	 */
+ 	/* The sender sets actual checksum coverage length via this option.
+ 	 * The case coverage > packet length is handled by send module. */
+ 	case UDPLITE_SEND_CSCOV:
+-		if (!up->pcflag)         /* Disable the option on UDP sockets */
++		if (!IS_UDPLITE(sk))         /* Disable the option on UDP sockets */
+ 			return -ENOPROTOOPT;
+ 		if (val != 0 && val < 8) /* Illegal coverage: use default (8) */
+ 			val = 8;
+@@ -1313,13 +1333,14 @@ int udp_lib_setsockopt(struct sock *sk, 
+ 	 * sense, this should be set to at least 8 (as done below). If zero is
+ 	 * used, this again means full checksum coverage.                     */
+ 	case UDPLITE_RECV_CSCOV:
+-		if (!up->pcflag)         /* Disable the option on UDP sockets */
++		if (!IS_UDPLITE(sk))         /* Disable the option on UDP sockets */
+ 			return -ENOPROTOOPT;
+ 		if (val != 0 && val < 8) /* Avoid silly minimal values.       */
+ 			val = 8;
+ 		up->pcrlen = val;
+ 		up->pcflag |= UDPLITE_RECV_CC;
+ 		break;
++#endif /* CONFIG_INET_UDPLITE */
+ 
+ 	default:
+ 		err = -ENOPROTOOPT;
+@@ -1372,6 +1393,7 @@ int udp_lib_getsockopt(struct sock *sk, 
+ 		val = up->encap_type;
+ 		break;
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ 	/* The following two cannot be changed on UDP sockets, the return is
+ 	 * always 0 (which corresponds to the full checksum coverage of UDP). */
+ 	case UDPLITE_SEND_CSCOV:
+@@ -1381,6 +1403,7 @@ int udp_lib_getsockopt(struct sock *sk, 
+ 	case UDPLITE_RECV_CSCOV:
+ 		val = up->pcrlen;
+ 		break;
++#endif
+ 
+ 	default:
+ 		return -ENOPROTOOPT;
+@@ -1427,7 +1450,6 @@ unsigned int udp_poll(struct file *file,
+ {
+ 	unsigned int mask = datagram_poll(file, sock, wait);
+ 	struct sock *sk = sock->sk;
+-	int 	is_lite = IS_UDPLITE(sk);
+ 
+ 	/* Check for false positives due to checksum errors */
+ 	if ( (mask & POLLRDNORM) &&
+@@ -1439,7 +1461,7 @@ unsigned int udp_poll(struct file *file,
+ 		spin_lock_bh(&rcvq->lock);
+ 		while ((skb = skb_peek(rcvq)) != NULL &&
+ 		       udp_lib_checksum_complete(skb)) {
+-			UDP_INC_STATS_BH(UDP_MIB_INERRORS, is_lite);
++			UDP_INC_STATS_BH(UDP_MIB_INERRORS, IS_UDPLITE(sk));
+ 			__skb_unlink(skb, rcvq);
+ 			kfree_skb(skb);
+ 		}
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -744,6 +744,7 @@ static int __init init_ipv6_mibs(void)
+ 	if (snmp_mib_init((void **)udp_stats_in6, sizeof (struct udp_mib),
+ 			  __alignof__(struct udp_mib)) < 0)
+ 		goto err_udp_mib;
++#if defined(CONFIG_INET_UDPLITE)
+ 	if (snmp_mib_init((void **)udplite_stats_in6, sizeof (struct udp_mib),
+ 			  __alignof__(struct udp_mib)) < 0)
+ 		goto err_udplite_mib;
+@@ -747,10 +748,13 @@ static int __init init_ipv6_mibs(void)
+ 	if (snmp_mib_init((void **)udplite_stats_in6, sizeof (struct udp_mib),
+ 			  __alignof__(struct udp_mib)) < 0)
+ 		goto err_udplite_mib;
++#endif
+ 	return 0;
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ err_udplite_mib:
+ 	snmp_mib_free((void **)udp_stats_in6);
++#endif
+ err_udp_mib:
+ 	snmp_mib_free((void **)icmpv6_statistics);
+ err_icmp_mib:
+@@ -765,7 +770,9 @@ static void cleanup_ipv6_mibs(void)
+ 	snmp_mib_free((void **)ipv6_statistics);
+ 	snmp_mib_free((void **)icmpv6_statistics);
+ 	snmp_mib_free((void **)udp_stats_in6);
++#if defined(CONFIG_INET_UDPLITE)
+ 	snmp_mib_free((void **)udplite_stats_in6);
++#endif
+ }
+ 
+ static int __init inet6_init(void)
+@@ -804,9 +811,11 @@ static int __init inet6_init(void)
+ 	if (err)
+ 		goto out_unregister_tcp_proto;
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ 	err = proto_register(&udplitev6_prot, 1);
+ 	if (err)
+ 		goto out_unregister_udp_proto;
++#endif
+ 
+ 	err = proto_register(&rawv6_prot, 1);
+ 	if (err)
+@@ -864,8 +873,10 @@ static int __init inet6_init(void)
+ 		goto proc_tcp6_fail;
+ 	if (udp6_proc_init())
+ 		goto proc_udp6_fail;
++#if defined(CONFIG_INET_UDPLITE)
+ 	if (udplite6_proc_init())
+ 		goto proc_udplite6_fail;
++#endif
+ 	if (ipv6_misc_proc_init())
+ 		goto proc_misc6_fail;
+ 
+@@ -891,7 +902,9 @@ static int __init inet6_init(void)
+ 
+ 	/* Init v6 transport protocols. */
+ 	udpv6_init();
++#if defined(CONFIG_INET_UDPLITE)
+ 	udplitev6_init();
++#endif
+ 	tcpv6_init();
+ 
+ 	ipv6_packet_init();
+@@ -909,8 +922,10 @@ proc_if6_fail:
+ proc_anycast6_fail:
+ 	ipv6_misc_proc_exit();
+ proc_misc6_fail:
++#if defined(CONFIG_INET_UDPLITE)
+ 	udplite6_proc_exit();
+ proc_udplite6_fail:
++#endif
+ 	udp6_proc_exit();
+ proc_udp6_fail:
+ 	tcp6_proc_exit();
+@@ -935,8 +950,10 @@ out_unregister_sock:
+ out_unregister_raw_proto:
+ 	proto_unregister(&rawv6_prot);
+ out_unregister_udplite_proto:
++#if defined(CONFIG_INET_UDPLITE)
+ 	proto_unregister(&udplitev6_prot);
+ out_unregister_udp_proto:
++#endif
+ 	proto_unregister(&udpv6_prot);
+ out_unregister_tcp_proto:
+ 	proto_unregister(&tcpv6_prot);
+@@ -968,7 +985,9 @@ static void __exit inet6_exit(void)
+ 	if6_proc_exit();
+ 	ac6_proc_exit();
+ 	ipv6_misc_proc_exit();
++#if defined(CONFIG_INET_UDPLITE)
+ 	udplite6_proc_exit();
++#endif
+ 	udp6_proc_exit();
+ 	tcp6_proc_exit();
+ 	raw6_proc_exit();
+@@ -982,7 +1001,9 @@ static void __exit inet6_exit(void)
+ #endif
+ 	cleanup_ipv6_mibs();
+ 	proto_unregister(&rawv6_prot);
++#if defined(CONFIG_INET_UDPLITE)
+ 	proto_unregister(&udplitev6_prot);
++#endif
+ 	proto_unregister(&udpv6_prot);
+ 	proto_unregister(&tcpv6_prot);
+ }
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -283,8 +283,10 @@ static int do_ipv6_setsockopt(struct soc
+ 			} else {
+ 				struct proto *prot = &udp_prot;
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ 				if (sk->sk_protocol == IPPROTO_UDPLITE)
+ 					prot = &udplite_prot;
++#endif
+ 				local_bh_disable();
+ 				sock_prot_dec_use(sk->sk_prot);
+ 				sock_prot_inc_use(prot);
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -5,7 +5,7 @@
+ obj-$(CONFIG_IPV6) += ipv6.o
+ 
+ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
+-		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o udplite.o \
++		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o \
+ 		raw.o protocol.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
+ 		exthdrs.o sysctl_net_ipv6.o datagram.o \
+ 		ip6_flowlabel.o inet6_connection_sock.o
+@@ -31,6 +31,7 @@ obj-$(CONFIG_INET6_XFRM_MODE_TRANSPORT) 
+ obj-$(CONFIG_INET6_XFRM_MODE_TUNNEL) += xfrm6_mode_tunnel.o
+ obj-$(CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION) += xfrm6_mode_ro.o
+ obj-$(CONFIG_INET6_XFRM_MODE_BEET) += xfrm6_mode_beet.o
++obj-$(CONFIG_INET_UDPLITE) += udplite.o
+ obj-$(CONFIG_NETFILTER)	+= netfilter/
+ 
+ obj-$(CONFIG_IPV6_SIT) += sit.o
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -49,8 +49,10 @@ static int sockstat6_seq_show(struct seq
+ 		       fold_prot_inuse(&tcpv6_prot));
+ 	seq_printf(seq, "UDP6: inuse %d\n",
+ 		       fold_prot_inuse(&udpv6_prot));
++#if defined(CONFIG_INET_UDPLITE)
+ 	seq_printf(seq, "UDPLITE6: inuse %d\n",
+ 			fold_prot_inuse(&udplitev6_prot));
++#endif
+ 	seq_printf(seq, "RAW6: inuse %d\n",
+ 		       fold_prot_inuse(&rawv6_prot));
+ 	seq_printf(seq, "FRAG6: inuse %d memory %d\n",
+@@ -135,6 +137,7 @@ static struct snmp_mib snmp6_udp6_list[]
+ 	SNMP_MIB_SENTINEL
+ };
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ static struct snmp_mib snmp6_udplite6_list[] = {
+ 	SNMP_MIB_ITEM("UdpLite6InDatagrams", UDP_MIB_INDATAGRAMS),
+ 	SNMP_MIB_ITEM("UdpLite6NoPorts", UDP_MIB_NOPORTS),
+@@ -142,6 +145,7 @@ static struct snmp_mib snmp6_udplite6_li
+ 	SNMP_MIB_ITEM("UdpLite6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
+ 	SNMP_MIB_SENTINEL
+ };
++#endif
+ 
+ static inline void
+ snmp6_seq_show_item(struct seq_file *seq, void **mib, struct snmp_mib *itemlist)
+@@ -164,7 +168,9 @@ static int snmp6_seq_show(struct seq_fil
+ 		snmp6_seq_show_item(seq, (void **)ipv6_statistics, snmp6_ipstats_list);
+ 		snmp6_seq_show_item(seq, (void **)icmpv6_statistics, snmp6_icmp6_list);
+ 		snmp6_seq_show_item(seq, (void **)udp_stats_in6, snmp6_udp6_list);
++#if defined(CONFIG_INET_UDPLITE)
+ 		snmp6_seq_show_item(seq, (void **)udplite_stats_in6, snmp6_udplite6_list);
++#endif
+ 	}
+ 	return 0;
+ }
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -140,7 +140,9 @@ int udpv6_recvmsg(struct kiocb *iocb, st
+ 	unsigned int ulen, copied;
+ 	int peeked;
+ 	int err;
++#if defined(CONFIG_INET_UDPLITE)
+ 	int is_udplite = IS_UDPLITE(sk);
++#endif
+ 	int is_udp4;
+ 
+ 	if (addr_len)
+@@ -170,7 +172,11 @@ try_again:
+ 	 * coverage checksum (UDP-Lite), do it before the copy.
+ 	 */
+ 
+-	if (copied < ulen || UDP_SKB_CB(skb)->partial_cov) {
++	if (copied < ulen
++#if defined(CONFIG_INET_UDPLITE)
++	     || UDP_SKB_CB(skb)->partial_cov
++#endif
++	   ) {
+ 		if (udp_lib_checksum_complete(skb))
+ 			goto csum_copy_err;
+ 	}
+@@ -295,12 +300,15 @@ static __inline__ void udpv6_err(struct 
+ 
+ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
+ {
++#if defined(CONFIG_INET_UDPLITE)
+ 	struct udp_sock *up = udp_sk(sk);
++#endif
+ 	int rc;
+ 
+ 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
+ 		goto drop;
+ 
++#if defined(CONFIG_INET_UDPLITE)
+ 	/*
+ 	 * UDP-Lite specific tests, ignored on UDP sockets (see net/ipv4/udp.c).
+ 	 */
+@@ -313,6 +320,7 @@ int udpv6_queue_rcv_skb(struct sock * sk
+ 			goto drop;
+ 		}
+ 	}
++#endif /* CONFIG_INET_UDPLITE */
+ 
+ 	if (rcu_dereference_raw(sk->sk_filter)) {
+ 		if (udp_lib_checksum_complete(skb))
+@@ -322,7 +330,7 @@ int udpv6_queue_rcv_skb(struct sock * sk
+ 	if ((rc = sock_queue_rcv_skb(sk,skb)) < 0) {
+ 		/* Note that an ENOMEM error is charged twice */
+ 		if (rc == -ENOMEM) {
+-			UDP6_INC_STATS_BH(UDP_MIB_RCVBUFERRORS, up->pcflag);
++			UDP6_INC_STATS_BH(UDP_MIB_RCVBUFERRORS, IS_UDPLITE(sk));
+ 			atomic_inc(&sk->sk_drops);
+ 		}
+ 		goto drop;
+@@ -330,7 +338,7 @@ int udpv6_queue_rcv_skb(struct sock * sk
+ 
+ 	return 0;
+ drop:
+-	UDP6_INC_STATS_BH(UDP_MIB_INERRORS, up->pcflag);
++	UDP6_INC_STATS_BH(UDP_MIB_INERRORS, IS_UDPLITE(sk));
+ 	kfree_skb(skb);
+ 	return -1;
+ }
+@@ -408,16 +416,16 @@ out:
+ static inline int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh,
+ 				 int proto)
+ {
+-	int err;
+-
++#if defined(CONFIG_INET_UDPLITE)
+ 	UDP_SKB_CB(skb)->partial_cov = 0;
+ 	UDP_SKB_CB(skb)->cscov = skb->len;
+ 
+ 	if (proto == IPPROTO_UDPLITE) {
+-		err = udplite_checksum_init(skb, uh);
++		int err = udplite_checksum_init(skb, uh);
+ 		if (err)
+ 			return err;
+ 	}
++#endif
+ 
+ 	if (uh->check == 0) {
+ 		/* RFC 2460 section 8.1 says that we SHOULD log
+@@ -574,9 +582,11 @@ static int udp_v6_push_pending_frames(st
+ 	uh->len = htons(up->len);
+ 	uh->check = 0;
+ 
+-	if (up->pcflag)
++#if defined(CONFIG_INET_UDPLITE)
++	if (IS_UDPLITE(sk))
+ 		csum = udplite_csum_outgoing(sk, skb);
+ 	 else
++#endif
+ 		csum = udp_csum_outgoing(sk, skb);
+ 
+ 	/* add protocol-dependent pseudo-header */
+@@ -590,7 +600,7 @@ out:
+ 	up->len = 0;
+ 	up->pending = 0;
+ 	if (!err)
+-		UDP6_INC_STATS_USER(UDP_MIB_OUTDATAGRAMS, up->pcflag);
++		UDP6_INC_STATS_USER(UDP_MIB_OUTDATAGRAMS, IS_UDPLITE(sk));
+ 	return err;
+ }
+ 
+@@ -614,7 +624,9 @@ int udpv6_sendmsg(struct kiocb *iocb, st
+ 	int corkreq = up->corkflag || msg->msg_flags&MSG_MORE;
+ 	int err;
+ 	int connected = 0;
+-	int is_udplite = up->pcflag;
++#if defined(CONFIG_INET_UDPLITE)
++	int is_udplite = IS_UDPLITE(sk);
++#endif
+ 	int (*getfrag)(void *, char *, int, int, int, struct sk_buff *);
+ 
+ 	/* destination address check */
+@@ -831,7 +843,11 @@ back_from_confirm:
+ 
+ do_append_data:
+ 	up->len += ulen;
++#if defined(CONFIG_INET_UDPLITE)
+ 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
++#else
++	getfrag  =  ip_generic_getfrag;
++#endif
+ 	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
+ 		sizeof(struct udphdr), hlimit, tclass, opt, &fl,
+ 		(struct rt6_info*)dst,
+-- 

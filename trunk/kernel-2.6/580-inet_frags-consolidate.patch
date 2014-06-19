@@ -1262,7 +1262,7 @@ diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
 +++ b/net/ipv4/Makefile
 @@ -10,7 +10,8 @@ obj-y     := route.o inetpeer.o protocol
  	     tcp_minisocks.o tcp_cong.o \
- 	     datagram.o raw.o udp.o udplite.o \
+ 	     datagram.o raw.o udp.o \
  	     arp.o icmp.o devinet.o af_inet.o  igmp.o \
 -	     sysctl_net_ipv4.o fib_frontend.o fib_semantics.o
 +	     sysctl_net_ipv4.o fib_frontend.o fib_semantics.o \
