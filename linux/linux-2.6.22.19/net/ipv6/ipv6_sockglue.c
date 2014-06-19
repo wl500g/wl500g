@@ -279,8 +279,10 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
 			} else {
 				struct proto *prot = &udp_prot;
 
+#if defined(CONFIG_INET_UDPLITE)
 				if (sk->sk_protocol == IPPROTO_UDPLITE)
 					prot = &udplite_prot;
+#endif
 				local_bh_disable();
 				sock_prot_dec_use(sk->sk_prot);
 				sock_prot_inc_use(prot);

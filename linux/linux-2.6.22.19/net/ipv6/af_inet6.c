@@ -741,13 +741,17 @@ static int __init init_ipv6_mibs(void)
 	if (snmp_mib_init((void **)udp_stats_in6, sizeof (struct udp_mib),
 			  __alignof__(struct udp_mib)) < 0)
 		goto err_udp_mib;
+#if defined(CONFIG_INET_UDPLITE)
 	if (snmp_mib_init((void **)udplite_stats_in6, sizeof (struct udp_mib),
 			  __alignof__(struct udp_mib)) < 0)
 		goto err_udplite_mib;
+#endif
 	return 0;
 
+#if defined(CONFIG_INET_UDPLITE)
 err_udplite_mib:
 	snmp_mib_free((void **)udp_stats_in6);
+#endif
 err_udp_mib:
 	snmp_mib_free((void **)icmpv6_statistics);
 err_icmp_mib:
@@ -762,7 +766,9 @@ static void cleanup_ipv6_mibs(void)
 	snmp_mib_free((void **)ipv6_statistics);
 	snmp_mib_free((void **)icmpv6_statistics);
 	snmp_mib_free((void **)udp_stats_in6);
+#if defined(CONFIG_INET_UDPLITE)
 	snmp_mib_free((void **)udplite_stats_in6);
+#endif
 }
 
 static int __init inet6_init(void)
@@ -801,9 +807,11 @@ static int __init inet6_init(void)
 	if (err)
 		goto out_unregister_tcp_proto;
 
+#if defined(CONFIG_INET_UDPLITE)
 	err = proto_register(&udplitev6_prot, 1);
 	if (err)
 		goto out_unregister_udp_proto;
+#endif
 
 	err = proto_register(&rawv6_prot, 1);
 	if (err)
@@ -858,8 +866,10 @@ static int __init inet6_init(void)
 		goto proc_tcp6_fail;
 	if (udp6_proc_init())
 		goto proc_udp6_fail;
+#if defined(CONFIG_INET_UDPLITE)
 	if (udplite6_proc_init())
 		goto proc_udplite6_fail;
+#endif
 	if (ipv6_misc_proc_init())
 		goto proc_misc6_fail;
 
@@ -885,7 +895,9 @@ static int __init inet6_init(void)
 
 	/* Init v6 transport protocols. */
 	udpv6_init();
+#if defined(CONFIG_INET_UDPLITE)
 	udplitev6_init();
+#endif
 	tcpv6_init();
 
 	ipv6_packet_init();
@@ -903,8 +915,10 @@ proc_if6_fail:
 proc_anycast6_fail:
 	ipv6_misc_proc_exit();
 proc_misc6_fail:
+#if defined(CONFIG_INET_UDPLITE)
 	udplite6_proc_exit();
 proc_udplite6_fail:
+#endif
 	udp6_proc_exit();
 proc_udp6_fail:
 	tcp6_proc_exit();
@@ -929,8 +943,10 @@ out_unregister_sock:
 out_unregister_raw_proto:
 	proto_unregister(&rawv6_prot);
 out_unregister_udplite_proto:
+#if defined(CONFIG_INET_UDPLITE)
 	proto_unregister(&udplitev6_prot);
 out_unregister_udp_proto:
+#endif
 	proto_unregister(&udpv6_prot);
 out_unregister_tcp_proto:
 	proto_unregister(&tcpv6_prot);
@@ -962,7 +978,9 @@ static void __exit inet6_exit(void)
 	if6_proc_exit();
 	ac6_proc_exit();
 	ipv6_misc_proc_exit();
+#if defined(CONFIG_INET_UDPLITE)
 	udplite6_proc_exit();
+#endif
 	udp6_proc_exit();
 	tcp6_proc_exit();
 	raw6_proc_exit();
@@ -976,7 +994,9 @@ static void __exit inet6_exit(void)
 #endif
 	cleanup_ipv6_mibs();
 	proto_unregister(&rawv6_prot);
+#if defined(CONFIG_INET_UDPLITE)
 	proto_unregister(&udplitev6_prot);
+#endif
 	proto_unregister(&udpv6_prot);
 	proto_unregister(&tcpv6_prot);
 }

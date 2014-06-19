@@ -456,6 +456,14 @@ config INET_TCP_DIAG
 	depends on INET_DIAG
 	def_tristate INET_DIAG
 
+config INET_UDPLITE
+	bool "UDP: UDP-Lite protocol"
+	default y
+	---help---
+	  Support for UDP-Lite protocol (RFC 3828).
+
+	  If unsure, say Y.
+
 menuconfig TCP_CONG_ADVANCED
 	bool "TCP: advanced congestion control"
 	---help---

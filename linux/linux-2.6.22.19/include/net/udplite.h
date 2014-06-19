@@ -10,6 +10,8 @@
 #define UDPLITE_SEND_CSCOV   10 /* sender partial coverage (as sent)      */
 #define UDPLITE_RECV_CSCOV   11 /* receiver partial coverage (threshold ) */
 
+#if defined(CONFIG_INET_UDPLITE)
+
 extern struct proto 		udplite_prot;
 extern struct hlist_head 	udplite_hash[UDP_HTABLE_SIZE];
 
@@ -118,4 +120,7 @@ static inline __wsum udplite_csum_outgoing(struct sock *sk, struct sk_buff *skb)
 extern void	udplite4_register(void);
 extern int 	udplite_get_port(struct sock *sk, unsigned short snum,
 			int (*scmp)(const struct sock *, const struct sock *));
+
+#endif /* CONFIG_INET_UDPLITE */
+
 #endif	/* _UDPLITE_H */

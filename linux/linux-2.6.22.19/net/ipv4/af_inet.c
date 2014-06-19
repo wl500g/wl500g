@@ -1298,16 +1298,20 @@ static int __init init_ipv4_mibs(void)
 			  sizeof(struct udp_mib),
 			  __alignof__(struct udp_mib)) < 0)
 		goto err_udp_mib;
+#if defined(CONFIG_INET_UDPLITE)
 	if (snmp_mib_init((void **)udplite_statistics,
 			  sizeof(struct udp_mib),
 			  __alignof__(struct udp_mib)) < 0)
 		goto err_udplite_mib;
+#endif
 
 	tcp_mib_init();
 
 	return 0;
 
+#if defined(CONFIG_INET_UDPLITE)
 err_udplite_mib:
+#endif
 	snmp_mib_free((void **)udp_statistics);
 err_udp_mib:
 	snmp_mib_free((void **)tcp_statistics);
@@ -1400,8 +1404,10 @@ static int __init inet_init(void)
 	/* Setup TCP slab cache for open requests. */
 	tcp_init();
 
+#if defined(CONFIG_INET_UDPLITE)
 	/* Add UDP-Lite (RFC 3828) */
 	udplite4_register();
+#endif
 
 	/*
 	 *	Set the ICMP layer up
