@@ -1,7 +1,17 @@
 diff --git a/pppd/ipv6cp.c b/pppd/ipv6cp.c
 --- a/pppd/ipv6cp.c
 +++ b/pppd/ipv6cp.c
-@@ -1128,11 +1131,6 @@ ipv6_check_options()
+@@ -1116,9 +1119,6 @@ ipv6_check_options()
+ 	    if (!eui64_iszero(wo->ourid))
+ 		wo->opt_local = 1;
+ 	}
+-	
+-	while (eui64_iszero(wo->ourid))
+-	    eui64_magic(wo->ourid);
+     }
+ 
+     if (!wo->opt_remote) {
+@@ -1128,11 +1128,6 @@ ipv6_check_options()
  		wo->opt_remote = 1;
  	}
      }
@@ -13,7 +23,7 @@ diff --git a/pppd/ipv6cp.c b/pppd/ipv6cp.c
  }
  
  
-@@ -1146,6 +1144,19 @@ ipv6_demand_conf(u)
+@@ -1146,6 +1141,21 @@ ipv6_demand_conf(u)
  {
      ipv6cp_options *wo = &ipv6cp_wantoptions[u];
  
@@ -21,15 +31,38 @@ diff --git a/pppd/ipv6cp.c b/pppd/ipv6cp.c
 +	/* make up an arbitrary address for the peer */
 +	while (eui64_iszero(wo->hisid))
 +	    eui64_magic_ne(wo->hisid, wo->ourid);
++	wo->opt_remote = 1;
 +	wo->accept_remote = 1;
 +    }
 +    if (eui64_iszero(wo->ourid)) {
 +	/* make up an arbitrary address for us */
 +	while (eui64_iszero(wo->ourid))
 +	    eui64_magic_ne(wo->ourid, wo->hisid);
++	wo->opt_local = 1;
 +	wo->accept_local = 1;
 +    }
 +
  #if defined(__linux__) || defined(SOL2) || (defined(SVR4) && (defined(SNI) || defined(__USLC__)))
  #if defined(SOL2)
      if (!sif6up(u))
+@@ -1226,13 +1236,17 @@ ipv6cp_up(f)
+     if (demand) {
+ 	if (! eui64_equals(go->ourid, wo->ourid) || 
+ 	    ! eui64_equals(ho->hisid, wo->hisid)) {
+-	    if (! eui64_equals(go->ourid, wo->ourid))
++	    ipv6cp_clear_addrs(f->unit, wo->ourid, wo->hisid);
++	    if (! eui64_equals(go->ourid, wo->ourid)) {
+ 		warn("Local LL address changed to %s", 
+ 		     llv6_ntoa(go->ourid));
+-	    if (! eui64_equals(ho->hisid, wo->hisid))
++		wo->ourid = go->ourid;
++	    }
++	    if (! eui64_equals(ho->hisid, wo->hisid)) {
+ 		warn("Remote LL address changed to %s", 
+ 		     llv6_ntoa(ho->hisid));
+-	    ipv6cp_clear_addrs(f->unit, go->ourid, ho->hisid);
++		wo->hisid = ho->hisid;
++	    }
+ 
+ 	    /* Set the interface to the new addresses */
+ 	    if (!sif6addr(f->unit, go->ourid, ho->hisid)) {
