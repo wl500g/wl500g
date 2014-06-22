@@ -11,8 +11,13 @@
 #include <nvparse.h>
 
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include "rc.h"
+
+#define QMI_CID_FN_TEMPLATE "/tmp/qmi/%scid"
+#define QMI_PDH_FN_TEMPLATE "/tmp/qmi/%spdh"
+#define QMI_SEARCHING_TIMEOUT 30
 
 int wait_for_dev_appearance(int vid, int pid, const char *device, const char *device_list[]);
 int wait_for_dev_with_drv(int vid, int pid, const char *device, const char *driver_list[], char **found_driver);
@@ -300,34 +305,198 @@ void usbnet_get_wdm_by_ifusb(const char *if_usb, char *wdm_name, size_t wdm_size
 
 void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 {
-	// uqmi --device=/dev/cdc-wdm0 --keep-client-id wds  --start-network internet
-	char tmp[100], s_wdm[100], *ptr, s_APN[100];
+	char tmp[100], s_wdm[20], s_cid[20], s_APN[100],
+		*ptr,
+		s_to_cid_fn[100], s_to_pdh_fn[100],
+		*s_cid_fn, *s_pdh_fn;
 
-	char *argv_uqmi[] = {
+	int i, fl;
+
+	// simple form:
+	// uqmi --device=/dev/cdc-wdm0 --keep-client-id wds  --start-network internet
+
+	// current form
+	//  cid=`uqmi -s -d "$device" --get-client-id wds`
+	//  pdh=`uqmi -s -d "$device" --set-client-id wds,"$cid" --start-network "$apn"
+	char *argv_uqmi_searching[] = {
 		"uqmi",
-		s_wdm,
-		"--keep-client-id", "wds",
+		"-d", s_wdm,
+		"--get-serving-system",
+		NULL
+	};
+	char *argv_uqmi_cid[] = {
+		"uqmi",
+		"-d", s_wdm,
+		"--get-client-id", "wds",
+		NULL
+	};
+	char *argv_uqmi_pdh[] = {
+		"uqmi",
+		"-d", s_wdm,
+		"--set-client-id", s_cid,
 		"--start-network", s_APN,
+//		"--autoconnect",
+		NULL
+	};
+	char *argv_uqmi_reset[] = {
+		"uqmi",
+		"-d", s_wdm,
+		"--set-device-operating-mode", "reset",
 		NULL
 	};
 
 	ptr = nvram_get( strcat_r(prefix, "usb_ifname", tmp));
 
-	if (!ptr) return; // it means that connect started but drivers not initialized yet
+	if (!ptr) return; // it means that connect is started but drivers not initialized yet
 
-	usbnet_get_wdm_by_ifusb(ptr, tmp, sizeof(tmp));
-	snprintf(s_wdm, sizeof(s_wdm), "--device=%s", tmp);
+	usbnet_get_wdm_by_ifusb(ptr, s_wdm, sizeof(s_wdm));
 
 	strncpy(s_APN, nvram_safe_get(strcat_r(prefix, "modem_apn", tmp)), sizeof(s_APN)-1);
 	s_APN[sizeof(s_APN)-1] = 0;
 
-	_eval(argv_uqmi, ">>/tmp/chat.log", 0, NULL);
-	dprintf("done\n");
+	// s_to_cid_fn contains a redirection char '>' for _eval
+	// s_cid_fn contains a pure file name
+	s_cid_fn = s_to_cid_fn + 1;
+	snprintf(s_to_cid_fn, sizeof(s_to_cid_fn)-1,
+		">" QMI_CID_FN_TEMPLATE,
+		prefix);
 
+	s_pdh_fn = s_to_pdh_fn + 1;
+	snprintf(s_to_pdh_fn, sizeof(s_to_pdh_fn)-1,
+		">" QMI_PDH_FN_TEMPLATE,
+		prefix);
+
+	if (exists(s_cid_fn) || exists(s_pdh_fn)) {
+		dprintf("trying to reconnect without disconnection");
+		return;
+	}
+
+	mkdir("/tmp/qmi", 0777);
+
+	// Send 'reset' command. It works only if device status is offline.
+	_eval(argv_uqmi_reset, 0, 0, NULL);
+
+	logmessage("usbnet/qmi:", "Waiting for network registration");
+	i = 0;
+	do {
+		_eval(argv_uqmi_searching, s_to_cid_fn, 0, NULL);
+		if ((ptr = file2str(s_cid_fn))) {
+			fl = (strstr(ptr, "searching") != 0);
+			free(ptr);
+
+			if (fl) printf("qmi status: %s", ptr);
+			else break;
+		}
+		sleep(5);
+		i += 5;
+	} while (i >= QMI_SEARCHING_TIMEOUT);
+
+	if (i >= QMI_SEARCHING_TIMEOUT) {
+		logmessage("usbnet/qmi", "network searching timeout reached");
+		return;
+	} else {
+		logmessage("usbnet/qmi", "Trying to connect.");
+	}
+
+	// Trying to start connection.
+	// Note: device may be already automatically connected. In this case
+	// sending '--start-network' returns 'error=No effect'
+	_eval(argv_uqmi_cid, s_to_cid_fn, 0, NULL);
+	if ((ptr = file2str(s_cid_fn))) {
+		if (strstr(ptr, "error")) {
+			logmessage("usbnet/qmi", "get-client-id result: %s", ptr);
+		}
+		snprintf(s_cid, sizeof(s_cid), "wds,%s", ptr);
+		free(ptr);
+		if ((ptr = strchr(s_cid, '\n'))) *ptr = 0;
+
+		_eval(argv_uqmi_pdh, s_to_pdh_fn, 0, NULL);
+		if ((ptr = file2str(s_pdh_fn))) {
+			if (!strstr(ptr, "handle=")) {
+				logmessage("usbnet/qmi", "start-network result: %s", ptr);
+			}
+			free(ptr);
+		}
+	}
+
+	dprintf("done\n");
 }
 
 void usbnet_qmi_disconnect(const char *prefix, int unit, const char *ifname)
 {
+
+	char tmp[100], s_wdm[20], s_cid[20], s_pdh[100],
+		*ptr,
+		s_cid_fn[100], s_pdh_fn[100];
+
+	int i;
+
+	// uqmi -d "$device" --set-client-id wds,"$cid" --stop-network "$pdh"
+	// uqmi -s -d "$device" --set-client-id wds,"$cid" --release-client-id wds
+	char *argv_uqmi_stop[] = {
+		"uqmi",
+		"-d", s_wdm,
+		"--set-client-id ", s_cid,
+		"--stop-network", s_pdh,
+//		"--autoconnect",
+		NULL
+	};
+	char *argv_uqmi_release_pdh[] = {
+		"uqmi",
+		"-d", s_wdm,
+		"--set-client-id", s_cid,
+		"--release-client-id", "wds",
+		NULL
+	};
+	char *argv_uqmi_offline[] = {
+		"uqmi",
+		"-d", s_wdm,
+		"--set-device-operating-mode", "offline",
+		NULL
+	};
+
+	ptr = nvram_get( strcat_r(prefix, "usb_ifname", tmp));
+
+	if (!ptr) return; // it means that connect is started but drivers not initialized yet
+
+	usbnet_get_wdm_by_ifusb(ptr, s_wdm, sizeof(s_wdm));
+
+	snprintf(s_cid_fn, sizeof(s_cid_fn), QMI_CID_FN_TEMPLATE, prefix);
+	snprintf(s_pdh_fn, sizeof(s_pdh_fn), QMI_PDH_FN_TEMPLATE, prefix);
+
+	if ((ptr = file2str(s_cid_fn))) {
+		snprintf(s_cid, sizeof(s_cid), "%s", ptr);
+		free(ptr);
+		if ((ptr = strchr(s_cid, '\n'))) *ptr = 0;
+
+		if ((ptr = file2str(s_pdh_fn))) {
+			snprintf(s_pdh, sizeof(s_pdh), "%s", ptr);
+			free(ptr);
+			strcpy(tmp, "handle=");
+			if ((ptr = strstr(s_pdh, tmp))) {
+				ptr += strlen(tmp);
+				for (i = 0; *ptr && (*ptr != '\n'); i++, ptr++) {
+					s_pdh[i] = *ptr;
+				}
+				s_pdh[i] = 0;
+
+				_eval(argv_uqmi_stop, 0, 0, NULL);
+				_eval(argv_uqmi_release_pdh, 0, 0, NULL);
+			} else {
+				dprintf("qmi: invalid handle '%s'", s_pdh);
+				_eval(argv_uqmi_offline, 0, 0, NULL);
+				logmessage("usbnet/qmi",
+					"device: %s switched to offline", s_wdm);
+			}
+		}
+	} else {
+		dprintf("qmi: trying to disconnect without opened handle");
+	}
+
+	unlink(s_cid_fn);
+	unlink(s_pdh_fn);
+
+	dprintf("done\n");
 }
 
 void usbnet_at_connect(const char *prefix, int unit, const char *ifname)
@@ -435,6 +604,8 @@ void usbnet_disconnect(const char *prefix, int unit, const char *ifname)
 		    !strcmp(subtype, "user")) {
 			usbnet_at_disconnect(prefix, unit, ifname);
 			sleep(1);
+		} else if (!strcmp(subtype, "qmi")) {
+			usbnet_qmi_disconnect(prefix, unit, ifname);
 		}
 	}
 #endif
