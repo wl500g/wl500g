@@ -1,0 +1,50 @@
+--- gcc-4_8-branch/gcc/ChangeLog	(revision 211027)
++++ gcc-4_8-branch/gcc/ChangeLog	(revision 211028)
+@@ -1,6 +1,14 @@
+ 	* config/arm/arm.c (arm_output_mi_thunk): Fix offset for
+ 	TARGET_THUMB1_ONLY. Add comments.
+ 
++2014-05-28  Eric Botcazou  <ebotcazou@adacore.com>
++
++	Backport from mainline
++	2014-05-27  Eric Botcazou  <ebotcazou@adacore.com>
++
++	* double-int.c (div_and_round_double) <ROUND_DIV_EXPR>: Use the proper
++	predicate to detect a negative quotient.
++
+ 2014-05-22  Richard Earnshaw  <rearnsha@arm.com>
+ 
+ 	PR target/61208
+--- gcc-4_8-branch/gcc/testsuite/gnat.dg/overflow_fixed.adb	(revision 0)
++++ gcc-4_8-branch/gcc/testsuite/gnat.dg/overflow_fixed.adb	(revision 211028)
+@@ -0,0 +1,19 @@
++-- { dg-do run }
++-- { dg-options "-gnato -O" }
++
++procedure Overflow_Fixed is
++
++  type Unsigned_8_Bit is mod 2**8;
++
++  procedure Fixed_To_Eight (Value : Duration) is
++    Item : Unsigned_8_Bit;
++  begin
++    Item := Unsigned_8_Bit(Value);
++    raise Program_Error;
++  exception
++    when Constraint_Error => null; -- expected case
++  end;
++
++begin
++  Fixed_To_Eight (-0.5);
++end;
+--- gcc-4_8-branch/gcc/double-int.c	(revision 211027)
++++ gcc-4_8-branch/gcc/double-int.c	(revision 211028)
+@@ -616,7 +616,7 @@ div_and_round_double (unsigned code, int uns,
+ 		 == (unsigned HOST_WIDE_INT) htwice)
+ 		&& (labs_den <= ltwice)))
+ 	  {
+-	    if (*hquo < 0)
++	    if (quo_neg)
+ 	      /* quo = quo - 1;  */
+ 	      add_double (*lquo, *hquo,
+ 			  (HOST_WIDE_INT) -1, (HOST_WIDE_INT) -1, lquo, hquo);

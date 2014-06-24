@@ -1,0 +1,30 @@
+[trans-mem] O3 optimization level constant propagation problem
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=61393
+
+--- gcc-4_8-branch/gcc/ipa-cp.c	(revision 211258)
++++ gcc-4_8-branch/gcc/ipa-cp.c	(revision 211259)
+@@ -447,6 +447,8 @@ determine_versionability (struct cgraph_node *node
+   else if (!opt_for_fn (node->symbol.decl, optimize)
+ 	   || !opt_for_fn (node->symbol.decl, flag_ipa_cp))
+     reason = "non-optimized function";
++  else if (node->tm_clone)
++    reason = "transactional memory clone";
+ 
+   if (reason && dump_file && !node->alias && !node->thunk.thunk_p)
+     fprintf (dump_file, "Function %s/%i is not versionable, reason: %s.\n",
+--- gcc-4_8-branch/gcc/ChangeLog	(revision 211258)
++++ gcc-4_8-branch/gcc/ChangeLog	(revision 211259)
+@@ -1,6 +1,12 @@
+ 	* config/arm/arm.c (arm_output_mi_thunk): Fix offset for
+ 	TARGET_THUMB1_ONLY. Add comments.
+ 
++2014-06-05  Martin Jambor  <mjambor@suse.cz>
++
++	PR ipa/61393
++	* ipa-cp.c (determine_versionability): Pretend that tm_clones are
++	not versionable.
++
+ 2014-06-04  Richard Biener  <rguenther@suse.de>
+ 
+ 	PR tree-optimization/61383
