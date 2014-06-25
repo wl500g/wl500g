@@ -32,11 +32,11 @@ endif
 ifeq ($(PKG_VERSION),4.4.7)
   PKG_MD5SUM:=295709feb4441b04e87dea3f1bab4281
 endif
-ifeq ($(PKG_VERSION),4.5.4)
-  PKG_MD5SUM:=27e459c2566b8209ab064570e1b378f7
-endif
 ifeq ($(PKG_VERSION),4.6.4)
   PKG_MD5SUM:=b407a3d1480c11667f293bfb1f17d1a4
+endif
+ifeq ($(PKG_VERSION),4.8.3)
+  PKG_MD5SUM:=7c60f24fab389f77af203d2516ee110f
 endif
 
 PATCH_DIR=../patches/$(PKG_VERSION)
