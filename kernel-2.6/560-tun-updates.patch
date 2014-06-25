@@ -17,6 +17,7 @@
  cfbf84fcbcda98bb91ada683a8dc8e6901a83ebd tun: Fix unicast filter overflow
  f42157cb568c1eb02eca7df4da67553a9edae24a tun: fallback if skb_alloc() fails on big packets
  33dccbb050bbe35b88ca8cf1228dcf3e4d4b3554 tun: Limit amount of queued packets per device
+ 0eca93bcf73e5939053a94f7c48f8d6fe6199e00 tun: Fix crash with non-GSO users
  c722c625dbe2758d53365c0ed7d401b0e286f2cf tun: Only wake up writers
  c40af84a6726f63e35740d26f841992e8f31f92c tun: Fix sk_sleep races when attaching/detaching
  3c8a9c63d5fd738c261bd0ceece04d9c8357ca13 tun/tap: Fix crashes if open() /dev/net/tun and then poll() it.
@@ -25,11 +26,13 @@
  bee31369ce16fc3898ec9a54161248c9eddb06bc tun: keep link (carrier) state up to date
  05c2828c72c4eabf62376adfe27bd24797621f62 tun: export underlying socket
  99405162598176e830d17ae6d4f3d9e070ad900c tun: socket filter support
+ a504b86e718a425ea4a34e2f95b5cf0545ddfd8d tun: reserves space for network in skb
+ 0110d6f22f392f976e84ab49da1b42f85b64a3c5 tun: orphan an skb on tx
 
 ---
- drivers/net/tun.c      |  798 +++++++++++++++++++++++++++++++++++--------------
+ drivers/net/tun.c      |  807 +++++++++++++++++++++++++++++++++++--------------
  include/linux/if_tun.h |   91 +++--
- 2 files changed, 628 insertions(+), 261 deletions(-)
+ 2 files changed, 635 insertions(+), 263 deletions(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 --- a/drivers/net/tun.c
@@ -283,12 +286,16 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  		if (!(tun->flags & TUN_ONE_QUEUE)) {
  			/* Normal queueing mode. */
  			/* Packet scheduler handles dropping of further packets. */
-@@ -117,14 +319,15 @@ static int tun_net_xmit(struct sk_buff *
+@@ -117,14 +319,19 @@ static int tun_net_xmit(struct sk_buff *
  		}
  	}
  
 -	/* Queue packet */
 -	skb_queue_tail(&tun->readq, skb);
++	/* Orphan the skb - required as we might hang on to it
++	 * for indefinite time. */
++	skb_orphan(skb);
++
 +	/* Enqueue packet */
 +	skb_queue_tail(&tun->socket.sk->sk_receive_queue, skb);
  	dev->trans_start = jiffies;
@@ -393,7 +400,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  
  		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
  		break;
-@@ -215,23 +402,60 @@ static void tun_net_init(struct net_devi
+@@ -215,27 +402,64 @@ static void tun_net_init(struct net_devi
  static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
  {
  	struct tun_struct *tun = file->private_data;
@@ -435,7 +442,7 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
 +	int err;
 +
 +	/* Under a page?  Don't bother with paged skb. */
-+	if (prepad + len < PAGE_SIZE)
++	if (prepad + len < PAGE_SIZE || !linear)
 +		linear = len;
 +
 +	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
@@ -459,14 +466,21 @@ diff --git a/drivers/net/tun.c b/drivers/net/tun.c
  {
  	struct tun_pi pi = { 0, __constant_htons(ETH_P_IP) };
  	struct sk_buff *skb;
-@@ -245,17 +469,20 @@ static __inline__ ssize_t tun_get_user(s
+-	size_t len = count, align = 0;
++	size_t len = count, align = NET_SKB_PAD;
+ 
+ 	if (!(tun->flags & TUN_NO_PI)) {
+ 		if ((len -= sizeof(pi)) > count)
+@@ -245,17 +469,21 @@ static __inline__ ssize_t tun_get_user(s
  			return -EFAULT;
  	}
  
 -	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV)
+-		align = NET_IP_ALIGN;
 +	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
- 		align = NET_IP_ALIGN;
-+		if (unlikely(len < ETH_HLEN))
++		align += NET_IP_ALIGN;
++		if (unlikely(len < ETH_HLEN /* ||
++			     (gso.hdr_len && gso.hdr_len < ETH_HLEN) */))
 +			return -EINVAL;
 +	}
  
