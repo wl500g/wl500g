@@ -14,16 +14,18 @@ kbuild backports from upstream
  c05190371d5ca360b75864cfcf930e8bf3addeb1 kbuild: use POSIX BRE in headers install target
  283039fb7ded6b863eacc9cfd67232297622e52d kbuild: drop support of ALTARCH for headers_*
  62284a37dcd6725921410fb75446d270cc726b4f kbuild: code refactoring in Makefile.headerinst
+ 91341d4b2c196c689acf90e9e96f28f8d5c6665f kbuild: introduce new option to enhance section mismatch analysis
+ 2c81210a26fb84c0af6aad95f6ec1d61cf276cd0 kbuild: ignore cache modifiers for generating the tags files
 
 ---
  Documentation/kbuild/makefiles.txt |   12 ++
- Makefile                           |   31 +++++-
+ Makefile                           |   37 ++++++-
  include/linux/linkage.h            |    8 +
- lib/Kconfig.debug                  |    8 +
+ lib/Kconfig.debug                  |   38 +++++++
  scripts/Kbuild.include             |    5 +
- scripts/Makefile.build             |   19 +++
+ scripts/Makefile.build             |   28 +++++
  scripts/Makefile.headersinst       |  179 +++++++++++--------------------------
- 7 files changed, 133 insertions(+), 129 deletions(-)
+ 7 files changed, 176 insertions(+), 131 deletions(-)
 
 diff --git a/Documentation/kbuild/makefiles.txt b/Documentation/kbuild/makefiles.txt
 --- a/Documentation/kbuild/makefiles.txt
@@ -75,7 +77,7 @@ diff --git a/include/linux/linkage.h b/include/linux/linkage.h
 diff --git a/Makefile b/Makefile
 --- a/Makefile
 +++ b/Makefile
-@@ -310,7 +310,10 @@ LINUXINCLUDE    := -Iinclude \
+@@ -313,7 +313,10 @@
  CPPFLAGS        := -D__KERNEL__ $(LINUXINCLUDE)
  
  CFLAGS          := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
@@ -86,8 +88,8 @@ diff --git a/Makefile b/Makefile
 +		   -fno-delete-null-pointer-checks
  AFLAGS          := -D__ASSEMBLY__
  
- 
-@@ -439,7 +439,11 @@ ifeq ($(config-targets),1)
+ # Read KERNELRELEASE from include/config/kernel.release (if it exists)
+@@ -412,7 +415,11 @@
  include $(srctree)/arch/$(ARCH)/Makefile
  export KBUILD_DEFCONFIG
  
@@ -100,7 +102,19 @@ diff --git a/Makefile b/Makefile
  	$(Q)mkdir -p include/linux include/config
  	$(Q)$(MAKE) $(build)=scripts/kconfig $@
  
-@@ -535,12 +542,25 @@ CFLAGS          += $(call cc-option, -fn
+@@ -500,6 +507,11 @@
+ CFLAGS		+= -g
+ endif
+ 
++# We trigger additional mismatches with less inlining
++ifdef CONFIG_DEBUG_SECTION_MISMATCH
++CFLAGS += $(call cc-option, -fno-inline-functions-called-once)
++endif
++
+ # Force gcc to behave correct even for buggy distributions
+ CFLAGS          += $(call cc-option, -fno-stack-protector)
+ 
+@@ -507,11 +519,24 @@
  NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
  CHECKFLAGS     += $(NOSTDINC_FLAGS)
  
@@ -113,7 +127,7 @@ diff --git a/Makefile b/Makefile
  # disable pointer signed / unsigned warnings in gcc 4.0
 -CFLAGS += $(call cc-option,-Wno-pointer-sign,)
 +CFLAGS += $(call cc-disable-warning, pointer-sign)
- 
++
 +# disable invalid "can't wrap" optimizations for signed / pointers
 +CFLAGS	+= $(call cc-option,-fno-strict-overflow)
 +
@@ -123,11 +137,18 @@ diff --git a/Makefile b/Makefile
 +ifeq ($(CONFIG_STRIP_ASM_SYMS),y)
 +LDFLAGS_vmlinux	+= -X
 +endif
-+
+ 
  # Default kernel image to build when no specific target is given.
  # KBUILD_IMAGE may be overruled on the command line or
- # set in the environment
-@@ -1493,7 +1497,10 @@ endif
+@@ -1314,6 +1339,7 @@
+ 	if $1 --version 2>&1 | grep -iq exuberant; then \
+ 	    $(all-sources) | xargs $1 -a \
+ 		-I __initdata,__exitdata,__acquires,__releases \
++		-I __read_mostly,____cacheline_aligned,____cacheline_aligned_in_smp,____cacheline_internodealigned_in_smp \
+ 		-I EXPORT_SYMBOL,EXPORT_SYMBOL_GPL \
+ 		--extra=+f --c-kinds=+px \
+ 		--regex-asm='/ENTRY\(([^)]*)\).*/\1/'; \
+@@ -1440,7 +1466,10 @@
  	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
  
  # Modules
@@ -142,7 +163,7 @@ diff --git a/Makefile b/Makefile
 diff --git a/lib/Kconfig b/lib/Kconfig
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -31,6 +31,14 @@ config MAGIC_SYSRQ
+@@ -31,6 +31,14 @@
  	  keys are documented in <file:Documentation/sysrq.txt>. Don't say Y
  	  unless you really know what this hack does.
  
@@ -157,6 +178,43 @@ diff --git a/lib/Kconfig b/lib/Kconfig
  config UNUSED_SYMBOLS
  	bool "Enable unused/obsolete exported symbols"
  	default y if X86
+@@ -71,6 +79,36 @@
+ 	  exported to $(INSTALL_HDR_PATH) (usually 'usr/include' in
+ 	  your build tree), to make sure they're suitable.
+ 
++config DEBUG_SECTION_MISMATCH
++	bool "Enable full Section mismatch analysis"
++	default n
++	help
++	  The section mismatch analysis checks if there are illegal
++	  references from one section to another section.
++	  Linux will during link or during runtime drop some sections
++	  and any use of code/data previously in these sections will
++	  most likely result in an oops.
++	  In the code functions and variables are annotated with
++	  __init, __devinit etc. (see full list in include/linux/init.h)
++	  which result in the code/data being placed in specific sections.
++	  The section mismatch anaylsis are always done after a full
++	  kernel build but enabling this options will in addition
++	  do the following:
++	  - Add the option -fno-inline-functions-called-once to gcc
++	    When inlining a function annotated __init in a non-init
++	    function we would loose the section information and thus
++	    the analysis would not catch the illegal reference.
++	    This options tell gcc to inline less but will also
++	    result in a larger kernel.
++	  - Run the section mismatch analysis for each module/built-in.o
++	    When we run the section mismatch analysis on vmlinux.o we
++	    looses valueable information about where the mismatch was
++	    introduced.
++	    Running the analysis for each module/built-in.o file
++	    will tell where the mismatch happens much closer to the
++	    source. The drawback is that we will report the same
++	    mismatch at least twice.
++
+ config DEBUG_KERNEL
+ 	bool "Kernel debugging"
+ 	help
 diff --git a/scripts/Kbuild.include b/scripts/Kbuild.include
 --- a/scripts/Kbuild.include
 +++ b/scripts/Kbuild.include
@@ -198,7 +256,18 @@ diff --git a/scripts/Makefile.build b/scripts/Makefile.build
  # Read .config if it exist, otherwise ignore
  -include include/config/auto.conf
  
-@@ -271,7 +271,8 @@ targets += $(extra-y) $(MAKECMDGOALS) $(always)
+@@ -96,6 +112,10 @@ ifneq ($(KBUILD_CHECKSRC),0)
+   endif
+ endif
+ 
++# Do section mismatch analysis for each module/built-in.o
++ifdef CONFIG_DEBUG_SECTION_MISMATCH
++  cmd_secanalysis = ; scripts/mod/modpost $@
++endif
+ 
+ # Compile C sources (.c)
+ # ---------------------------------------------------------------------------
+@@ -243,7 +263,8 @@ targets += $(extra-y) $(MAKECMDGOALS) $(
  # Linker scripts preprocessor (.lds.S -> .lds)
  # ---------------------------------------------------------------------------
  quiet_cmd_cpp_lds_S = LDS     $@
@@ -208,6 +277,25 @@ diff --git a/scripts/Makefile.build b/scripts/Makefile.build
  
  $(obj)/%.lds: $(src)/%.lds.S FORCE
  	$(call if_changed_dep,cpp_lds_S)
+@@ -261,7 +282,8 @@ ifdef builtin-target
+ quiet_cmd_link_o_target = LD      $@
+ # If the list of objects to link is empty, just create an empty built-in.o
+ cmd_link_o_target = $(if $(strip $(obj-y)),\
+-		      $(LD) $(ld_flags) -r -o $@ $(filter $(obj-y), $^),\
++		      $(LD) $(ld_flags) -r -o $@ $(filter $(obj-y), $^) \
++		      $(cmd_secanalysis),\
+ 		      rm -f $@; $(AR) rcs $@)
+ 
+ $(builtin-target): $(obj-y) FORCE
+@@ -296,7 +318,7 @@ $($(subst $(obj)/,,$(@:.o=-objs)))    \
+ $($(subst $(obj)/,,$(@:.o=-y)))), $^)
+  
+ quiet_cmd_link_multi-y = LD      $@
+-cmd_link_multi-y = $(LD) $(ld_flags) -r -o $@ $(link_multi_deps)
++cmd_link_multi-y = $(LD) $(ld_flags) -r -o $@ $(link_multi_deps) $(cmd_secanalysis)
+ 
+ quiet_cmd_link_multi-m = LD [M]  $@
+ cmd_link_multi-m = $(LD) $(ld_flags) $(LDFLAGS_MODULE) -o $@ $(link_multi_deps)
 diff --git a/scripts/Makefile.headersinst b/scripts/Makefile.headersinst
 --- a/scripts/Makefile.headersinst
 +++ b/scripts/Makefile.headersinst
