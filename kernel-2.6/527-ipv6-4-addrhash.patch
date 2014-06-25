@@ -4,6 +4,7 @@ ipv6: convert addrconf list to hlist
  5c578aedcb21d79eeb4e9cf04ca5b276ac82614c IPv6: convert addrconf hash list to RCU
  3e81c6da39a265e11ef48f52bd15bf7ca0068c75 ipv6: Fix bug in ipv6_chk_same_addr().
  d1f84c63a465d6ba16955930519b7f68c550cae1 ipv6: additional ref count for hash list unnecessary
+ 4e7e5cfe3825b4d854fc005d784a6f551b3c039f [INET6]: Reorganize struct inet6_dev to save 8 bytes
  4f70ecca9c57731b4acbe5043eb22e4416bd2368 net: rcu fixes
  eedf042a63ffef050ebc015de19b52dc065e830b ipv6: fix the bug of address check
  372e6c8f1f7b2bb68f9992d2e664925c73552a1d ipv6: convert temporary address list to list macros
@@ -14,9 +15,9 @@ ipv6: convert addrconf list to hlist
 
 ---
  include/net/addrconf.h |   19 ---
- include/net/if_inet6.h |    7 -
+ include/net/if_inet6.h |   11 +
  net/ipv6/addrconf.c    |  283 +++++++++++++++++++++++++------------------------
- 3 files changed, 152 insertions(+), 157 deletions(-)
+ 3 files changed, 154 insertions(+), 159 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
@@ -70,6 +71,20 @@ diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
  };
  
  struct ip6_sf_socklist
+@@ -166,11 +166,11 @@ struct inet6_dev
+ 	struct ifmcaddr6	*mc_list;
+ 	struct ifmcaddr6	*mc_tomb;
+ 	rwlock_t		mc_lock;
+-	unsigned long		mc_v1_seen;
+-	unsigned long		mc_maxdelay;
+ 	unsigned char		mc_qrv;
+ 	unsigned char		mc_gq_running;
+ 	unsigned char		mc_ifc_count;
++	unsigned long		mc_v1_seen;
++	unsigned long		mc_maxdelay;
+ 	struct timer_list	mc_gq_timer;	/* general query timer */
+ 	struct timer_list	mc_ifc_timer;	/* interface change timer */
+ 
 @@ -182,7 +183,7 @@ struct inet6_dev
  #ifdef CONFIG_IPV6_PRIVACY
  	u8			rndid[8];
