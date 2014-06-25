@@ -6,6 +6,7 @@
  8032b46489e50ef8f3992159abd0349b5b8e476c [AF_PACKET]: Allow multicast traffic to be caught by ORIGDEV when bonded
  2aeb0b88b3c7a0e3bef55e7ff0efffd5d971aa57 af_packet: Check return of dev_set_promiscuity/allmulti
  905db44087855e3c1709f538ecdc22fd149cadd8 packet: Avoid lock_sock in mmap handler
+ 94b059520d6c0cea852dc9a3e9033c6f123df7c1 af_packet: Avoid cache line dirtying
  8913336a7e8d56e984109a3137d6c0e3362596a4 packet: add PACKET_RESERVE sockopt
  69e3c75f4d541a6eb151b3ef91f34033cb3ad6e1 net: TX_RING and packet mmap
  b5dd884e682cae6b8c037f9d11f3b623b4cf2011 net: Fix 'Re: PACKET_TX_RING: packet size is too long'
@@ -367,7 +368,7 @@ diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
  #endif
  
  static void packet_flush_mclist(struct sock *sk);
-@@ -174,15 +194,13 @@ struct packet_sock {
+@@ -174,15 +194,12 @@ struct packet_sock {
  	struct sock		sk;
  	struct tpacket_stats	stats;
  #ifdef CONFIG_PACKET_MMAP
@@ -380,13 +381,13 @@ diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
 +	struct packet_ring_buffer	tx_ring;
  	int			copy_thresh;
  #endif
- 	struct packet_type	prot_hook;
+-	struct packet_type	prot_hook;
  	spinlock_t		bind_lock;
 +	struct mutex		pg_vec_lock;
  	unsigned int		running:1,	/* prot_hook is attached*/
  				auxdata:1,
  				origdev:1;
-@@ -191,9 +209,10 @@ struct packet_sock {
+@@ -191,10 +209,12 @@ struct packet_sock {
  	struct packet_mclist	*mclist;
  #ifdef CONFIG_PACKET_MMAP
  	atomic_t		mapped;
@@ -398,8 +399,10 @@ diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
 +	unsigned int		tp_reserve;
 +	unsigned int		tp_loss:1;
  #endif
++	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
  };
  
+ struct packet_skb_cb {
 @@ -209,15 +228,100 @@ struct packet_skb_cb {
  
  #ifdef CONFIG_PACKET_MMAP
