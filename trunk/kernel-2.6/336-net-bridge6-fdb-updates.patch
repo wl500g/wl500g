@@ -10,6 +10,15 @@ bridge: fdb updates from upstream
 diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
 --- a/net/bridge/br_fdb.c
 +++ b/net/bridge/br_fdb.c
+@@ -44,7 +44,7 @@ int __init br_fdb_init(void)
+ 	return 0;
+ }
+ 
+-void __exit br_fdb_fini(void)
++void br_fdb_fini(void)
+ {
+ 	kmem_cache_destroy(br_fdb_cache);
+ }
 @@ -121,10 +121,10 @@ void br_fdb_cleanup(unsigned long _data)
  {
  	struct net_bridge *br = (struct net_bridge *)_data;

@@ -13,8 +13,8 @@
  arch/mips/kernel/proc.c |    2 +-
  arch/mips/kernel/time.c |    2 --
  arch/mips/mm/highmem.c  |    1 -
- arch/mips/mm/init.c     |    7 -------
- 5 files changed, 1 insertion(+), 15 deletions(-)
+ arch/mips/mm/init.c     |    9 +--------
+ 5 files changed, 2 insertions(+), 16 deletions(-)
 
 diff --git a/arch/mips/kernel/irq.c b/arch/mips/kernel/irq.c
 --- a/arch/mips/kernel/irq.c
@@ -97,4 +97,13 @@ diff --git a/arch/mips/mm/init.c b/arch/mips/mm/init.c
  #ifdef CONFIG_HIGHMEM
  unsigned long highstart_pfn, highend_pfn;
  
+@@ -515,7 +515,7 @@ void free_initrd_mem(unsigned long start
+ }
+ #endif
+ 
+-void free_initmem(void)
++void __init_refok free_initmem(void)
+ {
+ 	prom_free_prom_memory();
+ 	free_init_pages("unused kernel memory",
 -- 

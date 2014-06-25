@@ -104,7 +104,7 @@ pcibios_init(void)
 	pci_scan_bus(0, &pcibios_ops, NULL);
 }
 
-char * __init
+char * __devinit
 pcibios_setup(char *str)
 {
 	if (!strncmp(str, "ban=", 4)) {
@@ -115,7 +115,7 @@ pcibios_setup(char *str)
 	return (str);
 }
 
-void __init
+void __devinit
 pcibios_fixup_bus(struct pci_bus *b)
 {
 	struct list_head *ln;
