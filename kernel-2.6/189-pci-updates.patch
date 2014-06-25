@@ -2,13 +2,13 @@
  4725e7bdb831b9d4bd4ba0b0909398ebcf0c2df9 PCI: fix up error messages for pci_bus registering
 
 ---
- drivers/pci/bus.c       |   19 +++++++++++---
+ drivers/pci/bus.c       |   19 ++++++++++---
  drivers/pci/pci-sysfs.c |    6 ++--
  drivers/pci/pci.h       |    2 -
- drivers/pci/probe.c     |   64 ++++++++++++++++++------------------------------
+ drivers/pci/probe.c     |   68 +++++++++++++++++++-----------------------------
  drivers/pci/remove.c    |    6 +---
- include/linux/pci.h     |    4 +--
- 6 files changed, 48 insertions(+), 53 deletions(-)
+ include/linux/pci.h     |    4 +-
+ 6 files changed, 50 insertions(+), 55 deletions(-)
 
 diff --git a/drivers/pci/bus.c b/drivers/pci/bus.c
 --- a/drivers/pci/bus.c
@@ -205,6 +205,24 @@ diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
  }
  
  struct pci_bus *pci_add_new_bus(struct pci_bus *parent, struct pci_dev *dev, int busnr)
+@@ -492,7 +490,7 @@ unsigned int pci_scan_child_bus(struct p
+  * them, we proceed to assigning numbers to the remaining buses in
+  * order to avoid overlaps between old and new bus numbers.
+  */
+-int pci_scan_bridge(struct pci_bus *bus, struct pci_dev * dev, int max, int pass)
++int __devinit pci_scan_bridge(struct pci_bus *bus, struct pci_dev * dev, int max, int pass)
+ {
+ 	struct pci_bus *child;
+ 	int is_cardbus = (dev->hdr_type == PCI_HEADER_TYPE_CARDBUS);
+@@ -1010,7 +1010,7 @@ int pci_scan_slot(struct pci_bus *bus, i
+ 	return nr;
+ }
+ 
+-unsigned int pci_scan_child_bus(struct pci_bus *bus)
++unsigned int __devinit pci_scan_child_bus(struct pci_bus *bus)
+ {
+ 	unsigned int devfn, pass, max = bus->secondary;
+ 	struct pci_dev *dev;
 @@ -1107,32 +1098,27 @@ struct pci_bus * pci_create_bus(struct device *parent,
  		goto dev_reg_err;
  	b->bridge = get_device(dev);
