@@ -16,16 +16,48 @@ kbuild backports from upstream
  62284a37dcd6725921410fb75446d270cc726b4f kbuild: code refactoring in Makefile.headerinst
  91341d4b2c196c689acf90e9e96f28f8d5c6665f kbuild: introduce new option to enhance section mismatch analysis
  2c81210a26fb84c0af6aad95f6ec1d61cf276cd0 kbuild: ignore cache modifiers for generating the tags files
+ ae4ac12323c0ff80528cac3269151d580e23f923 kbuild: make better section mismatch reports on i386 and mips
+ 56a974fa2d595fe6ebe433c525b8232ead539b76 kbuild: make better section mismatch reports on arm
+ 1abe02fef95366208c264635a886785d18fd38bb kbuild: suppress modpost warnings for references from the .toc section as used by powerpc
+ 1de564bbf8b630ab356571cdbd15b7d5adb1c20d kbuild: .paravirtprobe section is obsolete, so modpost doesn't need to handle it
+ b28242e7e3c08072251da6d7bc4895fbd3e58299 kbuild: ignore section mismatch warnings originating from .note section
+ 1087247b7d8f1938425906d2ac983df76c6dcc18 kbuild: refactor code in modpost to improve maintainability
+ 1d8af559f9ffd6847856f74658e501ed7ded9f01 kbuild: consolidate section checks
+ 6fc53bae3d5940f1b123afa5ad082359b1a376be kbuild: warn about references from .init.text to .exit.text
+ d3ab78560b9a244bdb2ba2ef0e53193832d311c2 kbuild: remove hardcoded apic_es7000 from modpost
+ 92cc6b0725d800dcc3b9d62b419724050e4f7872 kbuild: remove hardcoded _logo names from modpost
+ 1e29a706eef664f2c5014462d435f54a1952cc7b kbuild: whitelist references from variables named _timer to .init.text
+ 741f98fe298a73c9d47ed53703c1279a29718581 kbuild: do section mismatch check on full vmlinux
+ a5eb6a502b71ee6bf1a9768b12ff4545cb7a50fe modpost white list pattern adjustment
+ eec73e887a96b50035c92c57e01137dcbe6c5a39 Whitelist references from __dbe_table to .init
+ 8d8d8289df65cb116d2721becafb37272074f25a kbuild: do not do section mismatch checks on vmlinux in 2nd pass
+ 2f5ee619045d923de9137b6a263a99cc2428391a kbuild: rearrange a few function in modpost
+ 83cda2bb37cb8476cd84659d9698ab48553be974 kbuild: be more foregiving on init section naming
+ ad0b142772eb1f88f0e77cb63c38b0005e83c2bd kbuild: whitelist references from __dbe_table to .init
+ 4f4c4ee1b79b9102db19ff39f7cb11abddaa43e1 kbuild: Use Elfnn_Half as replacement for Elfnn_Section
+ a83710e584b8ef46fc44472ec6f0c342003416e8 kbuild: fix segfault in modpost
+ e00498258c215b46bd24f12ab3a2ed1bcb4772fe kbuild: make modpost detect unterminated device id lists
+ 6d9a89ea4b06146d29e1ffb4d6fded286fa07d29 kbuild: declare the modpost error functions as printf like
+ 58b7a68de37face98afe7c705391145795a982b5 kbuild: fix format string warnings in modpost
+ 666ab414fe14e8bbbe86a110437346128e1ec869 kbuild: fix a buffer overflow in modpost
+ df578e7d831b4d280bf7c621eafb737e78cd26eb kbuild: clean up modpost.c
+ d1f25e6658943569f2713dfde1b9d74e2f6c7243 kbuild: fix so modpost can now check any .o file
+ 9ad21c3f3ecffeb56be7b35030d7ec2f30b6fe11 kbuild: try harder to find symbol names in modpost
+ 5b24c0715fc4c71e60e9a684248cc49d62dfa900 kbuild: code refactoring in modpost
 
 ---
- Documentation/kbuild/makefiles.txt |   12 ++
- Makefile                           |   37 ++++++-
- include/linux/linkage.h            |    8 +
- lib/Kconfig.debug                  |   38 +++++++
- scripts/Kbuild.include             |    5 +
- scripts/Makefile.build             |   28 +++++
- scripts/Makefile.headersinst       |  179 +++++++++++--------------------------
- 7 files changed, 176 insertions(+), 131 deletions(-)
+ Documentation/kbuild/makefiles.txt |   12 
+ Makefile                           |   59 ++
+ include/linux/linkage.h            |    8 
+ lib/Kconfig.debug                  |   38 +
+ scripts/Kbuild.include             |    5 
+ scripts/Makefile.build             |   28 +
+ scripts/Makefile.headersinst       |  179 ++------
+ scripts/Makefile.modpost           |   21 
+ scripts/mod/file2alias.c           |   40 +
+ scripts/mod/modpost.c              |  802 +++++++++++++++++++++----------------
+ scripts/mod/modpost.h              |    9 
+ 11 files changed, 712 insertions(+), 489 deletions(-)
 
 diff --git a/Documentation/kbuild/makefiles.txt b/Documentation/kbuild/makefiles.txt
 --- a/Documentation/kbuild/makefiles.txt
@@ -77,7 +109,7 @@ diff --git a/include/linux/linkage.h b/include/linux/linkage.h
 diff --git a/Makefile b/Makefile
 --- a/Makefile
 +++ b/Makefile
-@@ -313,7 +313,10 @@
+@@ -313,7 +313,10 @@ LINUXINCLUDE    := -Iinclude \
  CPPFLAGS        := -D__KERNEL__ $(LINUXINCLUDE)
  
  CFLAGS          := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
@@ -89,7 +121,7 @@ diff --git a/Makefile b/Makefile
  AFLAGS          := -D__ASSEMBLY__
  
  # Read KERNELRELEASE from include/config/kernel.release (if it exists)
-@@ -412,7 +415,11 @@
+@@ -412,7 +415,11 @@ ifeq ($(config-targets),1)
  include $(srctree)/arch/$(ARCH)/Makefile
  export KBUILD_DEFCONFIG
  
@@ -102,7 +134,7 @@ diff --git a/Makefile b/Makefile
  	$(Q)mkdir -p include/linux include/config
  	$(Q)$(MAKE) $(build)=scripts/kconfig $@
  
-@@ -500,6 +507,11 @@
+@@ -500,6 +507,11 @@ ifdef CONFIG_DEBUG_INFO
  CFLAGS		+= -g
  endif
  
@@ -114,7 +146,7 @@ diff --git a/Makefile b/Makefile
  # Force gcc to behave correct even for buggy distributions
  CFLAGS          += $(call cc-option, -fno-stack-protector)
  
-@@ -507,11 +519,24 @@
+@@ -507,11 +519,24 @@ CFLAGS          += $(call cc-option, -fn
  NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
  CHECKFLAGS     += $(NOSTDINC_FLAGS)
  
@@ -140,7 +172,50 @@ diff --git a/Makefile b/Makefile
  
  # Default kernel image to build when no specific target is given.
  # KBUILD_IMAGE may be overruled on the command line or
-@@ -1314,6 +1339,7 @@
+@@ -611,7 +636,7 @@ quiet_cmd_vmlinux__ ?= LD      $@
+       cmd_vmlinux__ ?= $(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $@ \
+       -T $(vmlinux-lds) $(vmlinux-init)                          \
+       --start-group $(vmlinux-main) --end-group                  \
+-      $(filter-out $(vmlinux-lds) $(vmlinux-init) $(vmlinux-main) FORCE ,$^)
++      $(filter-out $(vmlinux-lds) $(vmlinux-init) $(vmlinux-main) vmlinux.o FORCE ,$^)
+ 
+ # Generate new vmlinux version
+ quiet_cmd_vmlinux_version = GEN     .version
+@@ -735,15 +760,31 @@ debug_kallsyms: .tmp_map$(last_kallsyms)
+ 
+ endif # ifdef CONFIG_KALLSYMS
+ 
++# Do modpost on a prelinked vmlinux. The finally linked vmlinux has
++# relevant sections renamed as per the linker script.
++quiet_cmd_vmlinux-modpost = LD      $@
++      cmd_vmlinux-modpost = $(LD) $(LDFLAGS) -r -o $@                          \
++	 $(vmlinux-init) --start-group $(vmlinux-main) --end-group             \
++	 $(filter-out $(vmlinux-init) $(vmlinux-main) $(vmlinux-lds) FORCE ,$^)
++define rule_vmlinux-modpost
++	:
++	+$(call cmd,vmlinux-modpost)
++	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost $@
++	$(Q)echo 'cmd_$@ := $(cmd_vmlinux-modpost)' > $(dot-target).cmd
++endef
++
+ # vmlinux image - including updated kernel symbols
+-vmlinux: $(vmlinux-lds) $(vmlinux-init) $(vmlinux-main) $(kallsyms.o) FORCE
++vmlinux: $(vmlinux-lds) $(vmlinux-init) $(vmlinux-main) $(kallsyms.o) vmlinux.o FORCE
+ ifdef CONFIG_HEADERS_CHECK
+ 	$(Q)$(MAKE) -f $(srctree)/Makefile headers_check
+ endif
++	$(call vmlinux-modpost)
+ 	$(call if_changed_rule,vmlinux__)
+-	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost $@
+ 	$(Q)rm -f .old_version
+ 
++vmlinux.o: $(vmlinux-lds) $(vmlinux-init) $(vmlinux-main) $(kallsyms.o) FORCE
++	$(call if_changed_rule,vmlinux-modpost)
++
+ # The actual objects are generated when descending, 
+ # make sure no implicit rule kicks in
+ $(sort $(vmlinux-init) $(vmlinux-main)) $(vmlinux-lds): $(vmlinux-dirs) ;
+@@ -1314,6 +1355,7 @@ define xtags
  	if $1 --version 2>&1 | grep -iq exuberant; then \
  	    $(all-sources) | xargs $1 -a \
  		-I __initdata,__exitdata,__acquires,__releases \
@@ -148,7 +223,7 @@ diff --git a/Makefile b/Makefile
  		-I EXPORT_SYMBOL,EXPORT_SYMBOL_GPL \
  		--extra=+f --c-kinds=+px \
  		--regex-asm='/ENTRY\(([^)]*)\).*/\1/'; \
-@@ -1440,7 +1466,10 @@
+@@ -1440,7 +1482,10 @@ endif
  	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
  
  # Modules
@@ -540,4 +615,1396 @@ diff --git a/scripts/Makefile.headersinst b/scripts/Makefile.headersinst
  $(subdir-y):
 -	$(Q)$(MAKE) $(hdrinst)=$(obj)/$@ dst=$(_dst)/$@ rel=../$(rel)
 +	$(Q)$(MAKE) $(hdr-inst)=$(obj)/$@ dst=$(_dst)/$@
+diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
+--- a/scripts/Makefile.modpost
++++ b/scripts/Makefile.modpost
+@@ -56,24 +56,25 @@ _modpost: $(if $(KBUILD_MODPOST_NOFINAL)
+ 
+ # Step 2), invoke modpost
+ #  Includes step 3,4
++modpost = scripts/mod/modpost                    \
++ $(if $(CONFIG_MODVERSIONS),-m)                  \
++ $(if $(CONFIG_MODULE_SRCVERSION_ALL),-a,)       \
++ $(if $(KBUILD_EXTMOD),-i,-o) $(kernelsymfile)   \
++ $(if $(KBUILD_EXTMOD),-I $(modulesymfile))      \
++ $(if $(KBUILD_EXTMOD),-o $(modulesymfile))      \
++ $(if $(KBUILD_EXTMOD)$(KBUILD_MODPOST_WARN),-w)
++
+ quiet_cmd_modpost = MODPOST $(words $(filter-out vmlinux FORCE, $^)) modules
+-      cmd_modpost = scripts/mod/modpost            \
+-        $(if $(CONFIG_MODVERSIONS),-m)             \
+-	$(if $(CONFIG_MODULE_SRCVERSION_ALL),-a,)  \
+-	$(if $(KBUILD_EXTMOD),-i,-o) $(kernelsymfile) \
+-	$(if $(KBUILD_EXTMOD),-I $(modulesymfile)) \
+-	$(if $(KBUILD_EXTMOD),-o $(modulesymfile)) \
+-	$(if $(KBUILD_EXTMOD)$(KBUILD_MODPOST_WARN),-w)
++      cmd_modpost = $(modpost) -s
+ 
+ PHONY += __modpost
+ __modpost: $(modules:.ko=.o) FORCE
+ 	$(call cmd,modpost) $(wildcard vmlinux) $(filter-out FORCE,$^)
+ 
+ quiet_cmd_kernel-mod = MODPOST $@
+-      cmd_kernel-mod = $(cmd_modpost) $(KBUILD_VMLINUX_OBJS)
++      cmd_kernel-mod = $(modpost) $@
+ 
+-PHONY += vmlinux
+-vmlinux: FORCE
++vmlinux.o: FORCE
+ 	$(call cmd,kernel-mod)
+ 
+ # Declare generated files as targets for modpost
+diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
+--- a/scripts/mod/file2alias.c
++++ b/scripts/mod/file2alias.c
+@@ -55,10 +55,14 @@ do {                                    
+  * Check that sizeof(device_id type) are consistent with size of section
+  * in .o file. If in-consistent then userspace and kernel does not agree
+  * on actual size which is a bug.
++ * Also verify that the final entry in the table is all zeros.
+  **/
+-static void device_id_size_check(const char *modname, const char *device_id,
+-				 unsigned long size, unsigned long id_size)
++static void device_id_check(const char *modname, const char *device_id,
++			    unsigned long size, unsigned long id_size,
++			    void *symval)
+ {
++	int i;
++
+ 	if (size % id_size || size < id_size) {
+ 		fatal("%s: sizeof(struct %s_device_id)=%lu is not a modulo "
+ 		      "of the size of section __mod_%s_device_table=%lu.\n"
+@@ -66,6 +70,20 @@ static void device_id_size_check(const c
+ 		      "in mod_devicetable.h\n",
+ 		      modname, device_id, id_size, device_id, size, device_id);
+ 	}
++	/* Verify last one is a terminator */
++	for (i = 0; i < id_size; i++ ) {
++		if (*(uint8_t*)(symval+size-id_size+i)) {
++			fprintf(stderr,"%s: struct %s_device_id is %lu bytes.  "
++				"The last of %lu is:\n",
++				modname, device_id, id_size, size / id_size);
++			for (i = 0; i < id_size; i++ )
++				fprintf(stderr,"0x%02x ",
++					*(uint8_t*)(symval+size-id_size+i) );
++			fprintf(stderr,"\n");
++			fatal("%s: struct %s_device_id is not terminated "
++				"with a NULL entry!\n", modname, device_id);
++		}
++	}
+ }
+ 
+ /* USB is special because the bcdDevice can be matched against a numeric range */
+@@ -168,7 +186,7 @@ static void do_usb_table(void *symval, u
+ 	unsigned int i;
+ 	const unsigned long id_size = sizeof(struct usb_device_id);
+ 
+-	device_id_size_check(mod->name, "usb", size, id_size);
++	device_id_check(mod->name, "usb", size, id_size, symval);
+ 
+ 	/* Leave last one: it's the terminator. */
+ 	size -= id_size;
+@@ -497,7 +515,7 @@ static void do_table(void *symval, unsig
+ 	char alias[500];
+ 	int (*do_entry)(const char *, void *entry, char *alias) = function;
+ 
+-	device_id_size_check(mod->name, device_id, size, id_size);
++	device_id_check(mod->name, device_id, size, id_size, symval);
+ 	/* Leave last one: it's the terminator. */
+ 	size -= id_size;
+ 
+@@ -519,14 +537,21 @@ void handle_moddevtable(struct module *m
+ 			Elf_Sym *sym, const char *symname)
+ {
+ 	void *symval;
++	char *zeros = NULL;
+ 
+ 	/* We're looking for a section relative symbol */
+ 	if (!sym->st_shndx || sym->st_shndx >= info->hdr->e_shnum)
+ 		return;
+ 
+-	symval = (void *)info->hdr
+-		+ info->sechdrs[sym->st_shndx].sh_offset
+-		+ sym->st_value;
++	/* Handle all-NULL symbols allocated into .bss */
++	if (info->sechdrs[sym->st_shndx].sh_type & SHT_NOBITS) {
++		zeros = calloc(1, sym->st_size);
++		symval = zeros;
++	} else {
++		symval = (void *)info->hdr
++			+ info->sechdrs[sym->st_shndx].sh_offset
++			+ sym->st_value;
++	}
+ 
+ 	if (sym_is(symname, "__mod_pci_device_table"))
+ 		do_table(symval, sym->st_size,
+@@ -587,6 +612,7 @@ void handle_moddevtable(struct module *m
+ 		do_table(symval, sym->st_size,
+ 			 sizeof(struct parisc_device_id), "parisc",
+ 			 do_parisc_entry, mod);
++	free(zeros);
+ }
+ 
+ /* Now add out buffered information to the generated C source */
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -2,7 +2,7 @@
+  *
+  * Copyright 2003       Kai Germaschewski
+  * Copyright 2002-2004  Rusty Russell, IBM Corporation
+- * Copyright 2006       Sam Ravnborg
++ * Copyright 2006-2008  Sam Ravnborg
+  * Based in part on module-init-tools/depmod.c,file2alias
+  *
+  * This software may be used and distributed according to the terms
+@@ -23,6 +23,8 @@ int have_vmlinux = 0;
+ static int all_versions = 0;
+ /* If we are modposting external module set to 1 */
+ static int external_module = 0;
++/* Warn about section mismatch in vmlinux if set to 1 */
++static int vmlinux_section_warnings = 1;
+ /* Only warn about unresolved symbols */
+ static int warn_unresolved = 0;
+ /* How a symbol is exported */
+@@ -31,7 +33,9 @@ enum export {
+ 	export_unused_gpl, export_gpl_future, export_unknown
+ };
+ 
+-void fatal(const char *fmt, ...)
++#define PRINTF __attribute__ ((format (printf, 1, 2)))
++
++PRINTF void fatal(const char *fmt, ...)
+ {
+ 	va_list arglist;
+ 
+@@ -44,7 +48,7 @@ void fatal(const char *fmt, ...)
+ 	exit(1);
+ }
+ 
+-void warn(const char *fmt, ...)
++PRINTF void warn(const char *fmt, ...)
+ {
+ 	va_list arglist;
+ 
+@@ -55,7 +59,7 @@ void warn(const char *fmt, ...)
+ 	va_end(arglist);
+ }
+ 
+-void merror(const char *fmt, ...)
++PRINTF void merror(const char *fmt, ...)
+ {
+ 	va_list arglist;
+ 
+@@ -70,19 +74,21 @@ static int is_vmlinux(const char *modnam
+ {
+ 	const char *myname;
+ 
+-	if ((myname = strrchr(modname, '/')))
++	myname = strrchr(modname, '/');
++	if (myname)
+ 		myname++;
+ 	else
+ 		myname = modname;
+ 
+-	return strcmp(myname, "vmlinux") == 0;
++	return (strcmp(myname, "vmlinux") == 0) ||
++	       (strcmp(myname, "vmlinux.o") == 0);
+ }
+ 
+ void *do_nofail(void *ptr, const char *expr)
+ {
+-	if (!ptr) {
++	if (!ptr)
+ 		fatal("modpost: Memory allocation failure: %s.\n", expr);
+-	}
++
+ 	return ptr;
+ }
+ 
+@@ -110,7 +115,8 @@ static struct module *new_module(char *m
+ 	p = NOFAIL(strdup(modname));
+ 
+ 	/* strip trailing .o */
+-	if ((s = strrchr(p, '.')) != NULL)
++	s = strrchr(p, '.');
++	if (s != NULL)
+ 		if (strcmp(s, ".o") == 0)
+ 			*s = '\0';
+ 
+@@ -151,7 +157,7 @@ static inline unsigned int tdb_hash(cons
+ 	unsigned   i;	/* Used to cycle through random values. */
+ 
+ 	/* Set the initial value from the key size. */
+-	for (value = 0x238F13AF * strlen(name), i=0; name[i]; i++)
++	for (value = 0x238F13AF * strlen(name), i = 0; name[i]; i++)
+ 		value = (value + (((unsigned char *)name)[i] << (i*5 % 24)));
+ 
+ 	return (1103515243 * value + 12345);
+@@ -195,7 +201,7 @@ static struct symbol *find_symbol(const 
+ 	if (name[0] == '.')
+ 		name++;
+ 
+-	for (s = symbolhash[tdb_hash(name) % SYMBOL_HASH_SIZE]; s; s=s->next) {
++	for (s = symbolhash[tdb_hash(name) % SYMBOL_HASH_SIZE]; s; s = s->next) {
+ 		if (strcmp(s->name, name) == 0)
+ 			return s;
+ 	}
+@@ -220,9 +226,10 @@ static const char *export_str(enum expor
+ 	return export_list[ex].str;
+ }
+ 
+-static enum export export_no(const char * s)
++static enum export export_no(const char *s)
+ {
+ 	int i;
++
+ 	if (!s)
+ 		return export_unknown;
+ 	for (i = 0; export_list[i].export != export_unknown; i++) {
+@@ -309,7 +316,7 @@ void *grab_file(const char *filename, un
+   * spaces in the beginning of the line is trimmed away.
+   * Return a pointer to a static buffer.
+   **/
+-char* get_next_line(unsigned long *pos, void *file, unsigned long size)
++char *get_next_line(unsigned long *pos, void *file, unsigned long size)
+ {
+ 	static char line[4096];
+ 	int skip = 1;
+@@ -317,8 +324,7 @@ char* get_next_line(unsigned long *pos, 
+ 	signed char *p = (signed char *)file + *pos;
+ 	char *s = line;
+ 
+-	for (; *pos < size ; (*pos)++)
+-	{
++	for (; *pos < size ; (*pos)++) {
+ 		if (skip && isspace(*p)) {
+ 			p++;
+ 			continue;
+@@ -374,9 +380,18 @@ static int parse_elf(struct elf_info *in
+ 	hdr->e_shstrndx = TO_NATIVE(hdr->e_shstrndx);
+ 	hdr->e_shnum    = TO_NATIVE(hdr->e_shnum);
+ 	hdr->e_machine  = TO_NATIVE(hdr->e_machine);
++	hdr->e_type     = TO_NATIVE(hdr->e_type);
+ 	sechdrs = (void *)hdr + hdr->e_shoff;
+ 	info->sechdrs = sechdrs;
+ 
++	/* Check if file offset is correct */
++	if (hdr->e_shoff > info->size) {
++		fatal("section header offset=%lu in file '%s' is bigger than "
++		      "filesize=%lu\n", (unsigned long)hdr->e_shoff,
++		      filename, info->size);
++		return 0;
++	}
++
+ 	/* Fix endianness in section headers */
+ 	for (i = 0; i < hdr->e_shnum; i++) {
+ 		sechdrs[i].sh_type   = TO_NATIVE(sechdrs[i].sh_type);
+@@ -384,6 +399,8 @@ static int parse_elf(struct elf_info *in
+ 		sechdrs[i].sh_size   = TO_NATIVE(sechdrs[i].sh_size);
+ 		sechdrs[i].sh_link   = TO_NATIVE(sechdrs[i].sh_link);
+ 		sechdrs[i].sh_name   = TO_NATIVE(sechdrs[i].sh_name);
++		sechdrs[i].sh_info   = TO_NATIVE(sechdrs[i].sh_info);
++		sechdrs[i].sh_addr   = TO_NATIVE(sechdrs[i].sh_addr);
+ 	}
+ 	/* Find symbol table. */
+ 	for (i = 1; i < hdr->e_shnum; i++) {
+@@ -392,7 +409,10 @@ static int parse_elf(struct elf_info *in
+ 		const char *secname;
+ 
+ 		if (sechdrs[i].sh_offset > info->size) {
+-			fatal("%s is truncated. sechdrs[i].sh_offset=%u > sizeof(*hrd)=%ul\n", filename, (unsigned int)sechdrs[i].sh_offset, sizeof(*hdr));
++			fatal("%s is truncated. sechdrs[i].sh_offset=%lu > "
++			      "sizeof(*hrd)=%zu\n", filename,
++			      (unsigned long)sechdrs[i].sh_offset,
++			      sizeof(*hdr));
+ 			return 0;
+ 		}
+ 		secname = secstrings + sechdrs[i].sh_name;
+@@ -419,9 +439,9 @@ static int parse_elf(struct elf_info *in
+ 		info->strtab       = (void *)hdr +
+ 			             sechdrs[sechdrs[i].sh_link].sh_offset;
+ 	}
+-	if (!info->symtab_start) {
++	if (!info->symtab_start)
+ 		fatal("%s has no symtab?\n", filename);
+-	}
++
+ 	/* Fix endianness in symbols */
+ 	for (sym = info->symtab_start; sym < info->symtab_stop; sym++) {
+ 		sym->st_shndx = TO_NATIVE(sym->st_shndx);
+@@ -490,11 +510,13 @@ static void handle_modversions(struct mo
+ #endif
+ 
+ 		if (memcmp(symname, MODULE_SYMBOL_PREFIX,
+-			   strlen(MODULE_SYMBOL_PREFIX)) == 0)
+-			mod->unres = alloc_symbol(symname +
+-						  strlen(MODULE_SYMBOL_PREFIX),
+-						  ELF_ST_BIND(sym->st_info) == STB_WEAK,
+-						  mod->unres);
++			   strlen(MODULE_SYMBOL_PREFIX)) == 0) {
++			mod->unres =
++			  alloc_symbol(symname +
++			               strlen(MODULE_SYMBOL_PREFIX),
++			               ELF_ST_BIND(sym->st_info) == STB_WEAK,
++			               mod->unres);
++		}
+ 		break;
+ 	default:
+ 		/* All exported symbols */
+@@ -563,21 +585,69 @@ static char *get_modinfo(void *modinfo, 
+  **/
+ static int strrcmp(const char *s, const char *sub)
+ {
+-        int slen, sublen;
++	int slen, sublen;
+ 
+ 	if (!s || !sub)
+ 		return 1;
+ 
+ 	slen = strlen(s);
+-        sublen = strlen(sub);
++	sublen = strlen(sub);
+ 
+ 	if ((slen == 0) || (sublen == 0))
+ 		return 1;
+ 
+-        if (sublen > slen)
+-                return 1;
++	if (sublen > slen)
++		return 1;
++
++	return memcmp(s + slen - sublen, sub, sublen);
++}
++
++/*
++ * Functions used only during module init is marked __init and is stored in
++ * a .init.text section. Likewise data is marked __initdata and stored in
++ * a .init.data section.
++ * If this section is one of these sections return 1
++ * See include/linux/init.h for the details
++ */
++static int init_section(const char *name)
++{
++	if (strcmp(name, ".init") == 0)
++		return 1;
++	if (strncmp(name, ".init.", strlen(".init.")) == 0)
++		return 1;
++	return 0;
++}
++
++/*
++ * Functions used only during module exit is marked __exit and is stored in
++ * a .exit.text section. Likewise data is marked __exitdata and stored in
++ * a .exit.data section.
++ * If this section is one of these sections return 1
++ * See include/linux/init.h for the details
++ **/
++static int exit_section(const char *name)
++{
++	if (strcmp(name, ".exit.text") == 0)
++		return 1;
++	if (strcmp(name, ".exit.data") == 0)
++		return 1;
++	return 0;
+ 
+-        return memcmp(s + slen - sublen, sub, sublen);
++}
++
++/*
++ * Data sections are named like this:
++ * .data | .data.rel | .data.rel.*
++ * Return 1 if the specified section is a data section
++ */
++static int data_section(const char *name)
++{
++	if ((strcmp(name, ".data") == 0) ||
++	    (strcmp(name, ".data.rel") == 0) ||
++	    (strncmp(name, ".data.rel.", strlen(".data.rel.")) == 0))
++		return 1;
++	else
++		return 0;
+ }
+ 
+ /**
+@@ -604,19 +674,16 @@ static int strrcmp(const char *s, const 
+  *   These functions may often be marked __init and we do not want to
+  *   warn here.
+  *   the pattern is identified by:
+- *   tosec   = .init.text | .exit.text | .init.data
+- *   fromsec = .data
+- *   atsym = *driver, *_template, *_sht, *_ops, *_probe, *probe_one, *_console
++ *   tosec   = init or exit section
++ *   fromsec = data section
++ *   atsym = *driver, *_template, *_sht, *_ops, *_probe,
++ *           *probe_one, *_console, *_timer
+  *
+  * Pattern 3:
+- *   Whitelist all references from .pci_fixup* section to .init.text
+- *   This is part of the PCI init when built-in
+- *
+- * Pattern 4:
+  *   Whitelist all refereces from .text.head to .init.data
+  *   Whitelist all refereces from .text.head to .init.text
+  *
+- * Pattern 5:
++ * Pattern 4:
+  *   Some symbols belong to init section but still it is ok to reference
+  *   these from non-init sections as these symbols don't have any memory
+  *   allocated for them and symbol address and value are same. So even
+@@ -625,42 +692,21 @@ static int strrcmp(const char *s, const 
+  *   This pattern is identified by
+  *   refsymname = __init_begin, _sinittext, _einittext
+  *
+- * Pattern 7:
+- *  Logos used in drivers/video/logo reside in __initdata but the
+- *  funtion that references them are EXPORT_SYMBOL() so cannot be
+- *  marker __init. So we whitelist them here.
+- *  The pattern is:
+- *  tosec      = .init.data
+- *  fromsec    = .text*
+- *  refsymname = logo_
+- *
+- * Pattern 8:
+- *  Symbols contained in .paravirtprobe may safely reference .init.text.
+- *  The pattern is:
+- *  tosec   = .init.text
+- *  fromsec  = .paravirtprobe
+- *
+- * Pattern 10:
+- *  ia64 has machvec table for each platform and
+- *  powerpc has a machine desc table for each platform.
+- *  It is mixture of function pointers of .init.text and .text.
+- *  fromsec  = .machvec | .machine.desc
+  **/
+ static int secref_whitelist(const char *modname, const char *tosec,
+ 			    const char *fromsec, const char *atsym,
+ 			    const char *refsymname)
+ {
+-	int f1 = 1, f2 = 1;
+ 	const char **s;
+ 	const char *pat2sym[] = {
+ 		"driver",
+ 		"_template", /* scsi uses *_template a lot */
++		"_timer",    /* arm uses ops structures named _timer a lot */
+ 		"_sht",      /* scsi also used *_sht to some extent */
+ 		"_ops",
+ 		"_probe",
+ 		"_probe_one",
+ 		"_console",
+-		"apic_es7000",
+ 		NULL
+ 	};
+ 
+@@ -677,62 +723,29 @@ static int secref_whitelist(const char *
+ 		return 1;
+ 
+ 	/* Check for pattern 1 */
+-	if (strcmp(tosec, ".init.data") != 0)
+-		f1 = 0;
+-	if (strncmp(fromsec, ".data", strlen(".data")) != 0)
+-		f1 = 0;
+-	if (strncmp(atsym, "__param", strlen("__param")) != 0)
+-		f1 = 0;
+-
+-	if (f1)
+-		return f1;
++	if ((strcmp(tosec, ".init.data") == 0) &&
++	    (strncmp(fromsec, ".data", strlen(".data")) == 0) &&
++	    (strncmp(atsym, "__param", strlen("__param")) == 0))
++		return 1;
+ 
+ 	/* Check for pattern 2 */
+-	if ((strcmp(tosec, ".init.text") != 0) &&
+-	    (strcmp(tosec, ".exit.text") != 0) &&
+-	    (strcmp(tosec, ".init.data") != 0))
+-		f2 = 0;
+-	if (strcmp(fromsec, ".data") != 0)
+-		f2 = 0;
+-
+-	for (s = pat2sym; *s; s++)
+-		if (strrcmp(atsym, *s) == 0)
+-			f1 = 1;
+-	if (f1 && f2)
+-		return 1;
++	if ((init_section(tosec) || exit_section(tosec))
++	    && data_section(fromsec))
++		for (s = pat2sym; *s; s++)
++			if (strrcmp(atsym, *s) == 0)
++				return 1;
+ 
+ 	/* Check for pattern 3 */
+-	if ((strncmp(fromsec, ".pci_fixup", strlen(".pci_fixup")) == 0) &&
+-	    (strcmp(tosec, ".init.text") == 0))
+-	return 1;
+-
+-	/* Check for pattern 4 */
+ 	if ((strcmp(fromsec, ".text.head") == 0) &&
+-		((strcmp(tosec, ".init.data") == 0) ||
+-		(strcmp(tosec, ".init.text") == 0)))
++	    ((strcmp(tosec, ".init.data") == 0) ||
++	    (strcmp(tosec, ".init.text") == 0)))
+ 	return 1;
+ 
+-	/* Check for pattern 5 */
++	/* Check for pattern 4 */
+ 	for (s = pat3refsym; *s; s++)
+ 		if (strcmp(refsymname, *s) == 0)
+ 			return 1;
+ 
+-	/* Check for pattern 7 */
+-	if ((strcmp(tosec, ".init.data") == 0) &&
+-	    (strncmp(fromsec, ".text", strlen(".text")) == 0) &&
+-	    (strncmp(refsymname, "logo_", strlen("logo_")) == 0))
+-		return 1;
+-
+-	/* Check for pattern 8 */
+-	if ((strcmp(tosec, ".init.text") == 0) &&
+-	    (strcmp(fromsec, ".paravirtprobe") == 0))
+-		return 1;
+-
+-	/* Check for pattern 10 */
+-	if ((strcmp(fromsec, ".machvec") == 0) ||
+-	    (strcmp(fromsec, ".machine.desc") == 0))
+-		return 1;
+-
+ 	return 0;
+ }
+ 
+@@ -743,20 +756,37 @@ static int secref_whitelist(const char *
+  * In other cases the symbol needs to be looked up in the symbol table
+  * based on section and address.
+  *  **/
+-static Elf_Sym *find_elf_symbol(struct elf_info *elf, Elf_Addr addr,
++static Elf_Sym *find_elf_symbol(struct elf_info *elf, Elf64_Sword addr,
+ 				Elf_Sym *relsym)
+ {
+ 	Elf_Sym *sym;
++	Elf_Sym *near = NULL;
++	Elf64_Sword distance = 20;
++	Elf64_Sword d;
+ 
+ 	if (relsym->st_name != 0)
+ 		return relsym;
+ 	for (sym = elf->symtab_start; sym < elf->symtab_stop; sym++) {
+ 		if (sym->st_shndx != relsym->st_shndx)
+ 			continue;
++		if (ELF_ST_TYPE(sym->st_info) == STT_SECTION)
++			continue;
+ 		if (sym->st_value == addr)
+ 			return sym;
++		/* Find a symbol nearby - addr are maybe negative */
++		d = sym->st_value - addr;
++		if (d < 0)
++			d = addr - sym->st_value;
++		if (d < distance) {
++			distance = d;
++			near = sym;
++		}
+ 	}
+-	return NULL;
++	/* We need a close match */
++	if (distance < 20)
++		return near;
++	else
++		return NULL;
+ }
+ 
+ static inline int is_arm_mapping_symbol(const char *str)
+@@ -791,7 +821,7 @@ static inline int is_valid_name(struct e
+  **/
+ static void find_symbols_between(struct elf_info *elf, Elf_Addr addr,
+ 				 const char *sec,
+-			         Elf_Sym **before, Elf_Sym **after)
++				 Elf_Sym **before, Elf_Sym **after)
+ {
+ 	Elf_Sym *sym;
+ 	Elf_Ehdr *hdr = elf->hdr;
+@@ -817,20 +847,15 @@ static void find_symbols_between(struct 
+ 			if ((addr - sym->st_value) < beforediff) {
+ 				beforediff = addr - sym->st_value;
+ 				*before = sym;
+-			}
+-			else if ((addr - sym->st_value) == beforediff) {
++			} else if ((addr - sym->st_value) == beforediff) {
+ 				*before = sym;
+ 			}
+-		}
+-		else
+-		{
++		} else {
+ 			if ((sym->st_value - addr) < afterdiff) {
+ 				afterdiff = sym->st_value - addr;
+ 				*after = sym;
+-			}
+-			else if ((sym->st_value - addr) == afterdiff) {
++			} else if ((sym->st_value - addr) == afterdiff)
+ 				*after = sym;
+-			}
+ 		}
+ 	}
+ }
+@@ -864,11 +889,6 @@ static void warn_sec_mismatch(const char
+ 			     elf->strtab + before->st_name, refsymname))
+ 		return;
+ 
+-	/* fromsec whitelist - without a valid 'before'
+-	 * powerpc has a GOT table in .got2 section */
+-	if (strcmp(fromsec, ".got2") == 0)
+-		return;
+-
+ 	if (before && after) {
+ 		warn("%s(%s+0x%llx): Section mismatch: reference to %s:%s "
+ 		     "(between '%s' and '%s')\n",
+@@ -887,7 +907,8 @@ static void warn_sec_mismatch(const char
+ 		     "before '%s' (at offset -0x%llx)\n",
+ 		     modname, fromsec, (unsigned long long)r.r_offset,
+ 		     secname, refsymname,
+-		     elf->strtab + after->st_name);
++		     elf->strtab + after->st_name,
++		     (unsigned long long)r.r_offset);
+ 	} else {
+ 		warn("%s(%s+0x%llx): Section mismatch: reference to %s:%s\n",
+ 		     modname, fromsec, (unsigned long long)r.r_offset,
+@@ -895,6 +916,202 @@ static void warn_sec_mismatch(const char
+ 	}
+ }
+ 
++static unsigned int *reloc_location(struct elf_info *elf,
++				    Elf_Shdr *sechdr, Elf_Rela *r)
++{
++	Elf_Shdr *sechdrs = elf->sechdrs;
++	int section = sechdr->sh_info;
++
++	return (void *)elf->hdr + sechdrs[section].sh_offset +
++		(r->r_offset - sechdrs[section].sh_addr);
++}
++
++static int addend_386_rel(struct elf_info *elf, Elf_Shdr *sechdr, Elf_Rela *r)
++{
++	unsigned int r_typ = ELF_R_TYPE(r->r_info);
++	unsigned int *location = reloc_location(elf, sechdr, r);
++
++	switch (r_typ) {
++	case R_386_32:
++		r->r_addend = TO_NATIVE(*location);
++		break;
++	case R_386_PC32:
++		r->r_addend = TO_NATIVE(*location) + 4;
++		/* For CONFIG_RELOCATABLE=y */
++		if (elf->hdr->e_type == ET_EXEC)
++			r->r_addend += r->r_offset;
++		break;
++	}
++	return 0;
++}
++
++static int addend_arm_rel(struct elf_info *elf, Elf_Shdr *sechdr, Elf_Rela *r)
++{
++	unsigned int r_typ = ELF_R_TYPE(r->r_info);
++
++	switch (r_typ) {
++	case R_ARM_ABS32:
++		/* From ARM ABI: (S + A) | T */
++		r->r_addend = (int)(long)
++		              (elf->symtab_start + ELF_R_SYM(r->r_info));
++		break;
++	case R_ARM_PC24:
++		/* From ARM ABI: ((S + A) | T) - P */
++		r->r_addend = (int)(long)(elf->hdr +
++		              sechdr->sh_offset +
++		              (r->r_offset - sechdr->sh_addr));
++		break;
++	default:
++		return 1;
++	}
++	return 0;
++}
++
++static int addend_mips_rel(struct elf_info *elf, Elf_Shdr *sechdr, Elf_Rela *r)
++{
++	unsigned int r_typ = ELF_R_TYPE(r->r_info);
++	unsigned int *location = reloc_location(elf, sechdr, r);
++	unsigned int inst;
++
++	if (r_typ == R_MIPS_HI16)
++		return 1;	/* skip this */
++	inst = TO_NATIVE(*location);
++	switch (r_typ) {
++	case R_MIPS_LO16:
++		r->r_addend = inst & 0xffff;
++		break;
++	case R_MIPS_26:
++		r->r_addend = (inst & 0x03ffffff) << 2;
++		break;
++	case R_MIPS_32:
++		r->r_addend = inst;
++		break;
++	}
++	return 0;
++}
++
++static void section_rela(const char *modname, struct elf_info *elf,
++                         Elf_Shdr *sechdr, int section(const char *),
++                         int section_ref_ok(const char *))
++{
++	Elf_Sym  *sym;
++	Elf_Rela *rela;
++	Elf_Rela r;
++	unsigned int r_sym;
++	const char *fromsec;
++	const char * tosec;
++
++	Elf_Ehdr *hdr = elf->hdr;
++	Elf_Rela *start = (void *)hdr + sechdr->sh_offset;
++	Elf_Rela *stop  = (void *)start + sechdr->sh_size;
++
++	const char *secstrings = (void *)hdr +
++				 elf->sechdrs[hdr->e_shstrndx].sh_offset;
++
++	fromsec = secstrings + sechdr->sh_name;
++	fromsec += strlen(".rela");
++	/* if from section (name) is know good then skip it */
++	if (section_ref_ok(fromsec))
++		return;
++
++	for (rela = start; rela < stop; rela++) {
++		r.r_offset = TO_NATIVE(rela->r_offset);
++#if KERNEL_ELFCLASS == ELFCLASS64
++		if (hdr->e_machine == EM_MIPS) {
++			unsigned int r_typ;
++			r_sym = ELF64_MIPS_R_SYM(rela->r_info);
++			r_sym = TO_NATIVE(r_sym);
++			r_typ = ELF64_MIPS_R_TYPE(rela->r_info);
++			r.r_info = ELF64_R_INFO(r_sym, r_typ);
++		} else {
++			r.r_info = TO_NATIVE(rela->r_info);
++			r_sym = ELF_R_SYM(r.r_info);
++		}
++#else
++		r.r_info = TO_NATIVE(rela->r_info);
++		r_sym = ELF_R_SYM(r.r_info);
++#endif
++		r.r_addend = TO_NATIVE(rela->r_addend);
++		sym = elf->symtab_start + r_sym;
++		/* Skip special sections */
++		if (sym->st_shndx >= SHN_LORESERVE)
++			continue;
++
++		tosec = secstrings +
++			elf->sechdrs[sym->st_shndx].sh_name;
++		if (section(tosec))
++			warn_sec_mismatch(modname, fromsec, elf, sym, r);
++	}
++}
++
++static void section_rel(const char *modname, struct elf_info *elf,
++                        Elf_Shdr *sechdr, int section(const char *),
++                        int section_ref_ok(const char *))
++{
++	Elf_Sym *sym;
++	Elf_Rel *rel;
++	Elf_Rela r;
++	unsigned int r_sym;
++	const char *fromsec;
++	const char * tosec;
++
++	Elf_Ehdr *hdr = elf->hdr;
++	Elf_Rel *start = (void *)hdr + sechdr->sh_offset;
++	Elf_Rel *stop  = (void *)start + sechdr->sh_size;
++
++	const char *secstrings = (void *)hdr +
++				 elf->sechdrs[hdr->e_shstrndx].sh_offset;
++
++	fromsec = secstrings + sechdr->sh_name;
++	fromsec += strlen(".rel");
++	/* if from section (name) is know good then skip it */
++	if (section_ref_ok(fromsec))
++		return;
++
++	for (rel = start; rel < stop; rel++) {
++		r.r_offset = TO_NATIVE(rel->r_offset);
++#if KERNEL_ELFCLASS == ELFCLASS64
++		if (hdr->e_machine == EM_MIPS) {
++			unsigned int r_typ;
++			r_sym = ELF64_MIPS_R_SYM(rel->r_info);
++			r_sym = TO_NATIVE(r_sym);
++			r_typ = ELF64_MIPS_R_TYPE(rel->r_info);
++			r.r_info = ELF64_R_INFO(r_sym, r_typ);
++		} else {
++			r.r_info = TO_NATIVE(rel->r_info);
++			r_sym = ELF_R_SYM(r.r_info);
++		}
++#else
++		r.r_info = TO_NATIVE(rel->r_info);
++		r_sym = ELF_R_SYM(r.r_info);
++#endif
++		r.r_addend = 0;
++		switch (hdr->e_machine) {
++		case EM_386:
++			if (addend_386_rel(elf, sechdr, &r))
++				continue;
++			break;
++		case EM_ARM:
++			if (addend_arm_rel(elf, sechdr, &r))
++				continue;
++			break;
++		case EM_MIPS:
++			if (addend_mips_rel(elf, sechdr, &r))
++				continue;
++			break;
++		}
++		sym = elf->symtab_start + r_sym;
++		/* Skip special sections */
++		if (sym->st_shndx >= SHN_LORESERVE)
++			continue;
++
++		tosec = secstrings +
++			elf->sechdrs[sym->st_shndx].sh_name;
++		if (section(tosec))
++			warn_sec_mismatch(modname, fromsec, elf, sym, r);
++	}
++}
++
+ /**
+  * A module includes a number of sections that are discarded
+  * either when loaded or when used as built-in.
+@@ -909,112 +1126,85 @@ static void warn_sec_mismatch(const char
+  **/
+ static void check_sec_ref(struct module *mod, const char *modname,
+ 			  struct elf_info *elf,
+-			  int section(const char*),
++			  int section(const char *),
+ 			  int section_ref_ok(const char *))
+ {
+ 	int i;
+-	Elf_Sym  *sym;
+ 	Elf_Ehdr *hdr = elf->hdr;
+ 	Elf_Shdr *sechdrs = elf->sechdrs;
+-	const char *secstrings = (void *)hdr +
+-				 sechdrs[hdr->e_shstrndx].sh_offset;
+ 
+ 	/* Walk through all sections */
+ 	for (i = 0; i < hdr->e_shnum; i++) {
+-		const char *name = secstrings + sechdrs[i].sh_name;
+-		const char *secname;
+-		Elf_Rela r;
+-		unsigned int r_sym;
+ 		/* We want to process only relocation sections and not .init */
+-		if (sechdrs[i].sh_type == SHT_RELA) {
+-			Elf_Rela *rela;
+-			Elf_Rela *start = (void *)hdr + sechdrs[i].sh_offset;
+-			Elf_Rela *stop  = (void*)start + sechdrs[i].sh_size;
+-			name += strlen(".rela");
+-			if (section_ref_ok(name))
+-				continue;
+-
+-			for (rela = start; rela < stop; rela++) {
+-				r.r_offset = TO_NATIVE(rela->r_offset);
+-#if KERNEL_ELFCLASS == ELFCLASS64
+-				if (hdr->e_machine == EM_MIPS) {
+-					r_sym = ELF64_MIPS_R_SYM(rela->r_info);
+-					r_sym = TO_NATIVE(r_sym);
+-				} else {
+-					r.r_info = TO_NATIVE(rela->r_info);
+-					r_sym = ELF_R_SYM(r.r_info);
+-				}
+-#else
+-				r.r_info = TO_NATIVE(rela->r_info);
+-				r_sym = ELF_R_SYM(r.r_info);
+-#endif
+-				r.r_addend = TO_NATIVE(rela->r_addend);
+-				sym = elf->symtab_start + r_sym;
+-				/* Skip special sections */
+-				if (sym->st_shndx >= SHN_LORESERVE)
+-					continue;
+-
+-				secname = secstrings +
+-					sechdrs[sym->st_shndx].sh_name;
+-				if (section(secname))
+-					warn_sec_mismatch(modname, name,
+-							  elf, sym, r);
+-			}
+-		} else if (sechdrs[i].sh_type == SHT_REL) {
+-			Elf_Rel *rel;
+-			Elf_Rel *start = (void *)hdr + sechdrs[i].sh_offset;
+-			Elf_Rel *stop  = (void*)start + sechdrs[i].sh_size;
+-			name += strlen(".rel");
+-			if (section_ref_ok(name))
+-				continue;
+-
+-			for (rel = start; rel < stop; rel++) {
+-				r.r_offset = TO_NATIVE(rel->r_offset);
+-#if KERNEL_ELFCLASS == ELFCLASS64
+-				if (hdr->e_machine == EM_MIPS) {
+-					r_sym = ELF64_MIPS_R_SYM(rel->r_info);
+-					r_sym = TO_NATIVE(r_sym);
+-				} else {
+-					r.r_info = TO_NATIVE(rel->r_info);
+-					r_sym = ELF_R_SYM(r.r_info);
+-				}
+-#else
+-				r.r_info = TO_NATIVE(rel->r_info);
+-				r_sym = ELF_R_SYM(r.r_info);
+-#endif
+-				r.r_addend = 0;
+-				sym = elf->symtab_start + r_sym;
+-				/* Skip special sections */
+-				if (sym->st_shndx >= SHN_LORESERVE)
+-					continue;
+-
+-				secname = secstrings +
+-					sechdrs[sym->st_shndx].sh_name;
+-				if (section(secname))
+-					warn_sec_mismatch(modname, name,
+-							  elf, sym, r);
+-			}
+-		}
++		if (sechdrs[i].sh_type == SHT_RELA)
++			section_rela(modname, elf, &elf->sechdrs[i],
++			             section, section_ref_ok);
++		else if (sechdrs[i].sh_type == SHT_REL)
++			section_rel(modname, elf, &elf->sechdrs[i],
++			            section, section_ref_ok);
+ 	}
+ }
+ 
+-/**
+- * Functions used only during module init is marked __init and is stored in
+- * a .init.text section. Likewise data is marked __initdata and stored in
+- * a .init.data section.
+- * If this section is one of these sections return 1
+- * See include/linux/init.h for the details
+- **/
+-static int init_section(const char *name)
++/*
++ * Identify sections from which references to either a
++ * .init or a .exit section is OK.
++ *
++ * [OPD] Keith Ownes <kaos@sgi.com> commented:
++ * For our future {in}sanity, add a comment that this is the ppc .opd
++ * section, not the ia64 .opd section.
++ * ia64 .opd should not point to discarded sections.
++ * [.rodata] like for .init.text we ignore .rodata references -same reason
++ */
++static int initexit_section_ref_ok(const char *name)
+ {
+-	if (strcmp(name, ".init") == 0)
+-		return 1;
+-	if (strncmp(name, ".init.", strlen(".init.")) == 0)
+-		return 1;
++	const char **s;
++	/* Absolute section names */
++	const char *namelist1[] = {
++		"__bug_table",	/* used by powerpc for BUG() */
++		"__ex_table",
++		".altinstructions",
++		".cranges",	/* used by sh64 */
++		".fixup",
++		".machvec",	/* ia64 + powerpc uses these */
++		".machine.desc",
++		".opd",		/* See comment [OPD] */
++		"__dbe_table",
++		".parainstructions",
++		".pdr",
++		".plt",		/* seen on ARCH=um build on x86_64. Harmless */
++		".smp_locks",
++		".stab",
++		NULL
++	};
++	/* Start of section names */
++	const char *namelist2[] = {
++		".debug",
++		".eh_frame",
++		".note",	/* ignore ELF notes - may contain anything */
++		".got",		/* powerpc - global offset table */
++		".toc",		/* powerpc - table of contents */
++		NULL
++	};
++	/* part of section name */
++	const char *namelist3 [] = {
++		".unwind",  /* Sample: IA_64.unwind.exit.text */
++		NULL
++	};
++
++	for (s = namelist1; *s; s++)
++		if (strcmp(*s, name) == 0)
++			return 1;
++	for (s = namelist2; *s; s++)
++		if (strncmp(*s, name, strlen(*s)) == 0)
++			return 1;
++	for (s = namelist3; *s; s++)
++		if (strstr(name, *s) != NULL)
++			return 1;
+ 	return 0;
+ }
+ 
+-/**
++
++/*
+  * Identify sections from which references to a .init section is OK.
+  *
+  * Unfortunately references to read only data that referenced .init
+@@ -1028,48 +1218,31 @@ static int init_section(const char *name
+  *
+  * where vgacon_startup is __init.  If you want to wade through the false
+  * positives, take out the check for rodata.
+- **/
++ */
+ static int init_section_ref_ok(const char *name)
+ {
+ 	const char **s;
+ 	/* Absolute section names */
+ 	const char *namelist1[] = {
+-		".init",
+-		".opd",   /* see comment [OPD] at exit_section_ref_ok() */
+-		".toc1",  /* used by ppc64 */
+-		".stab",
+-		".data.rel.ro", /* used by parisc64 */
+-		".parainstructions",
+-		".text.lock",
+-		"__bug_table", /* used by powerpc for BUG() */
+-		".pci_fixup_header",
+-		".pci_fixup_final",
+-		".pdr",
+-		"__param",
+-		"__ex_table",
+-		".fixup",
+-		".smp_locks",
+-		".plt",  /* seen on ARCH=um build on x86_64. Harmless */
++		"__dbe_table",		/* MIPS generate these */
+ 		"__ftr_fixup",		/* powerpc cpu feature fixup */
+ 		"__fw_ftr_fixup",	/* powerpc firmware feature fixup */
+-		".cranges",	/* used by sh64 */
++		"__param",
++		".data.rel.ro",		/* used by parisc64 */
++		".init",
++		".text.lock",
+ 		NULL
+ 	};
+ 	/* Start of section names */
+ 	const char *namelist2[] = {
+ 		".init.",
+-		".altinstructions",
+-		".eh_frame",
+-		".debug",
+-		".parainstructions",
++		".pci_fixup",
+ 		".rodata",
+ 		NULL
+ 	};
+-	/* part of section name */
+-	const char *namelist3 [] = {
+-		".unwind",  /* sample: IA_64.unwind.init.text */
+-		NULL
+-	};
++
++	if (initexit_section_ref_ok(name))
++		return 1;
+ 
+ 	for (s = namelist1; *s; s++)
+ 		if (strcmp(*s, name) == 0)
+@@ -1077,29 +1250,14 @@ static int init_section_ref_ok(const cha
+ 	for (s = namelist2; *s; s++)
+ 		if (strncmp(*s, name, strlen(*s)) == 0)
+ 			return 1;
+-	for (s = namelist3; *s; s++)
+-		if (strstr(name, *s) != NULL)
+-			return 1;
+-	if (strrcmp(name, ".init") == 0)
+-		return 1;
+-	return 0;
+-}
+ 
+-/*
+- * Functions used only during module exit is marked __exit and is stored in
+- * a .exit.text section. Likewise data is marked __exitdata and stored in
+- * a .exit.data section.
+- * If this section is one of these sections return 1
+- * See include/linux/init.h for the details
+- **/
+-static int exit_section(const char *name)
+-{
+-	if (strcmp(name, ".exit.text") == 0)
+-		return 1;
+-	if (strcmp(name, ".exit.data") == 0)
++	/* If section name ends with ".init" we allow references
++	 * as is the case with .initcallN.init, .early_param.init,
++	 * .taglist.init etc
++	 */
++	if (strrcmp(name, ".init") == 0)
+ 		return 1;
+ 	return 0;
+-
+ }
+ 
+ /*
+@@ -1104,58 +1262,25 @@ static int exit_section(const char *name
+ 
+ /*
+  * Identify sections from which references to a .exit section is OK.
+- *
+- * [OPD] Keith Ownes <kaos@sgi.com> commented:
+- * For our future {in}sanity, add a comment that this is the ppc .opd
+- * section, not the ia64 .opd section.
+- * ia64 .opd should not point to discarded sections.
+- * [.rodata] like for .init.text we ignore .rodata references -same reason
+- **/
++ */
+ static int exit_section_ref_ok(const char *name)
+ {
+ 	const char **s;
+ 	/* Absolute section names */
+ 	const char *namelist1[] = {
+-		".exit.text",
+ 		".exit.data",
+-		".init.text",
+-		".rodata",
+-		".opd", /* See comment [OPD] */
+-		".toc1",  /* used by ppc64 */
+-		".altinstructions",
+-		".pdr",
+-		"__bug_table", /* used by powerpc for BUG() */
++		".exit.text",
+ 		".exitcall.exit",
+-		".eh_frame",
+-		".parainstructions",
+-		".stab",
+-		"__ex_table",
+-		".fixup",
+-		".smp_locks",
+-		".plt",  /* seen on ARCH=um build on x86_64. Harmless */
+-		".cranges",	/* used by sh64 */
+-		NULL
+-	};
+-	/* Start of section names */
+-	const char *namelist2[] = {
+-		".debug",
+-		NULL
+-	};
+-	/* part of section name */
+-	const char *namelist3 [] = {
+-		".unwind",  /* Sample: IA_64.unwind.exit.text */
++		".rodata",
+ 		NULL
+ 	};
+ 
++	if (initexit_section_ref_ok(name))
++		return 1;
++
+ 	for (s = namelist1; *s; s++)
+ 		if (strcmp(*s, name) == 0)
+ 			return 1;
+-	for (s = namelist2; *s; s++)
+-		if (strncmp(*s, name, strlen(*s)) == 0)
+-			return 1;
+-	for (s = namelist3; *s; s++)
+-		if (strstr(name, *s) != NULL)
+-			return 1;
+ 	return 0;
+ }
+ 
+@@ -1198,8 +1323,11 @@ static void read_symbols(char *modname)
+ 		handle_modversions(mod, &info, sym, symname);
+ 		handle_moddevtable(mod, &info, sym, symname);
+ 	}
+-	check_sec_ref(mod, modname, &info, init_section, init_section_ref_ok);
+-	check_sec_ref(mod, modname, &info, exit_section, exit_section_ref_ok);
++	if (!is_vmlinux(modname) ||
++	     (is_vmlinux(modname) && vmlinux_section_warnings)) {
++		check_sec_ref(mod, modname, &info, init_section, init_section_ref_ok);
++		check_sec_ref(mod, modname, &info, exit_section, exit_section_ref_ok);
++	}
+ 
+ 	version = get_modinfo(info.modinfo, info.modinfo_len, "version");
+ 	if (version)
+@@ -1273,7 +1401,7 @@ static void check_for_gpl_usage(enum exp
+ 	}
+ }
+ 
+-static void check_for_unused(enum export exp, const char* m, const char* s)
++static void check_for_unused(enum export exp, const char *m, const char *s)
+ {
+ 	const char *e = is_vmlinux(m) ?"":".ko";
+ 
+@@ -1306,7 +1434,7 @@ static void check_exports(struct module 
+ 		if (!mod->gpl_compatible)
+ 			check_for_gpl_usage(exp->export, basename, exp->name);
+ 		check_for_unused(exp->export, basename, exp->name);
+-        }
++	}
+ }
+ 
+ /**
+@@ -1370,9 +1498,8 @@ static int add_versions(struct buffer *b
+ 	buf_printf(b, "__attribute__((section(\"__versions\"))) = {\n");
+ 
+ 	for (s = mod->unres; s; s = s->next) {
+-		if (!s->module) {
++		if (!s->module)
+ 			continue;
+-		}
+ 		if (!s->crc_valid) {
+ 			warn("\"%s\" [%s.ko] has no CRC!\n",
+ 				s->name, mod->name);
+@@ -1393,9 +1520,8 @@ static void add_depends(struct buffer *b
+ 	struct module *m;
+ 	int first = 1;
+ 
+-	for (m = modules; m; m = m->next) {
++	for (m = modules; m; m = m->next)
+ 		m->seen = is_vmlinux(m->name);
+-	}
+ 
+ 	buf_printf(b, "\n");
+ 	buf_printf(b, "static const char __module_depends[]\n");
+@@ -1411,7 +1537,8 @@ static void add_depends(struct buffer *b
+ 			continue;
+ 
+ 		s->module->seen = 1;
+-		if ((p = strrchr(s->module->name, '/')) != NULL)
++		p = strrchr(s->module->name, '/');
++		if (p)
+ 			p++;
+ 		else
+ 			p = s->module->name;
+@@ -1483,7 +1610,7 @@ static void read_dump(const char *fname,
+ 	void *file = grab_file(fname, &size);
+ 	char *line;
+ 
+-        if (!file)
++	if (!file)
+ 		/* No symbol versions, silently ignore */
+ 		return;
+ 
+@@ -1506,11 +1633,10 @@ static void read_dump(const char *fname,
+ 		crc = strtoul(line, &d, 16);
+ 		if (*symname == '\0' || *modname == '\0' || *d != '\0')
+ 			goto fail;
+-
+-		if (!(mod = find_module(modname))) {
+-			if (is_vmlinux(modname)) {
++		mod = find_module(modname);
++		if (!mod) {
++			if (is_vmlinux(modname))
+ 				have_vmlinux = 1;
+-			}
+ 			mod = new_module(NOFAIL(strdup(modname)));
+ 			mod->skip = 1;
+ 		}
+@@ -1561,35 +1687,37 @@ int main(int argc, char **argv)
+ {
+ 	struct module *mod;
+ 	struct buffer buf = { };
+-	char fname[SZ];
+ 	char *kernel_read = NULL, *module_read = NULL;
+ 	char *dump_write = NULL;
+ 	int opt;
+ 	int err;
+ 
+-	while ((opt = getopt(argc, argv, "i:I:mo:aw")) != -1) {
+-		switch(opt) {
+-			case 'i':
+-				kernel_read = optarg;
+-				break;
+-			case 'I':
+-				module_read = optarg;
+-				external_module = 1;
+-				break;
+-			case 'm':
+-				modversions = 1;
+-				break;
+-			case 'o':
+-				dump_write = optarg;
+-				break;
+-			case 'a':
+-				all_versions = 1;
+-				break;
+-			case 'w':
+-				warn_unresolved = 1;
+-				break;
+-			default:
+-				exit(1);
++	while ((opt = getopt(argc, argv, "i:I:mso:aw")) != -1) {
++		switch (opt) {
++		case 'i':
++			kernel_read = optarg;
++			break;
++		case 'I':
++			module_read = optarg;
++			external_module = 1;
++			break;
++		case 'm':
++			modversions = 1;
++			break;
++		case 'o':
++			dump_write = optarg;
++			break;
++		case 'a':
++			all_versions = 1;
++			break;
++		case 's':
++			vmlinux_section_warnings = 0;
++			break;
++		case 'w':
++			warn_unresolved = 1;
++			break;
++		default:
++			exit(1);
+ 		}
+ 	}
+ 
+@@ -1598,9 +1726,8 @@ int main(int argc, char **argv)
+ 	if (module_read)
+ 		read_dump(module_read, 0);
+ 
+-	while (optind < argc) {
++	while (optind < argc)
+ 		read_symbols(argv[optind++]);
+-	}
+ 
+ 	for (mod = modules; mod; mod = mod->next) {
+ 		if (mod->skip)
+@@ -1611,6 +1738,8 @@ int main(int argc, char **argv)
+ 	err = 0;
+ 
+ 	for (mod = modules; mod; mod = mod->next) {
++		char fname[strlen(mod->name) + 10];
++
+ 		if (mod->skip)
+ 			continue;
+ 
+diff --git a/scripts/mod/modpost.h b/scripts/mod/modpost.h
+--- a/scripts/mod/modpost.h
++++ b/scripts/mod/modpost.h
+@@ -17,7 +17,8 @@
+ #define Elf_Shdr    Elf32_Shdr
+ #define Elf_Sym     Elf32_Sym
+ #define Elf_Addr    Elf32_Addr
+-#define Elf_Section Elf32_Section
++#define Elf_Sword   Elf64_Sword
++#define Elf_Section Elf32_Half
+ #define ELF_ST_BIND ELF32_ST_BIND
+ #define ELF_ST_TYPE ELF32_ST_TYPE
+ 
+@@ -31,7 +32,8 @@
+ #define Elf_Shdr    Elf64_Shdr
+ #define Elf_Sym     Elf64_Sym
+ #define Elf_Addr    Elf64_Addr
+-#define Elf_Section Elf64_Section
++#define Elf_Sword   Elf64_Sxword
++#define Elf_Section Elf64_Half
+ #define ELF_ST_BIND ELF64_ST_BIND
+ #define ELF_ST_TYPE ELF64_ST_TYPE
+ 
+@@ -60,6 +62,9 @@ typedef union
+ #define ELF64_MIPS_R_SYM(i) \
+   ((__extension__ (_Elf64_Mips_R_Info_union)(i)).r_info_fields.r_sym)
+ 
++#define ELF64_MIPS_R_TYPE(i) \
++  ((__extension__ (_Elf64_Mips_R_Info_union)(i)).r_info_fields.r_type1)
++
+ #if KERNEL_ELFDATA != HOST_ELFDATA
+ 
+ static inline void __endian(const void *src, void *dest, unsigned int size)
 -- 
