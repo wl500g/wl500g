@@ -31,8 +31,6 @@ LINUX_DIR := $(PKG_BUILD_DIR)
 include $(INCLUDE_DIR)/host-build.mk
 include $(INCLUDE_DIR)/kernel-defaults.mk
 
-#LINUX_KARCH:=$(ARCH)
-
 KMAKE := $(MAKE) -C $(PKG_BUILD_DIR) \
 	HOSTCFLAGS="$(HOST_CFLAGS) -Wall -Wmissing-prototypes -Wstrict-prototypes" \
 	ARCH=$(LINUX_KARCH) \
@@ -45,11 +43,11 @@ define Build/Prepare
 	yes '' | $(KMAKE) oldconfig
 ifeq ($(KERNEL),2.4)
 	$(KMAKE) include/linux/version.h include/asm
-	mkdir $(LINUX_HEADERS_DIR)/include
-	cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux-$(LINUX_VERSION)/include/asm-$(UCLIBC_TARGET_ARCH) $(LINUX_HEADERS_DIR)/include/
-	ln -sf  asm-$(UCLIBC_TARGET_ARCH) $(LINUX_HEADERS_DIR)/include/asm
+	-mkdir $(LINUX_HEADERS_DIR)/include
+	cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux-$(LINUX_VERSION)/include/asm-$(LINUX_KARCH) $(LINUX_HEADERS_DIR)/include/
 	cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux-$(LINUX_VERSION)/include/asm-generic $(LINUX_HEADERS_DIR)/include/
 	cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux-$(LINUX_VERSION)/include/linux $(LINUX_HEADERS_DIR)/include/
+	ln -sf  asm-$(LINUX_KARCH) $(LINUX_HEADERS_DIR)/include/asm
 else
 	$(KMAKE) include/linux/utsrelease.h
 	$(KMAKE) INSTALL_HDR_PATH="$(LINUX_HEADERS_DIR)" headers_install

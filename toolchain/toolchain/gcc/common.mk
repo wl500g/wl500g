@@ -26,9 +26,6 @@ PKG_VERSION:=$(strip $(subst ",, $(CONFIG_GCC_VERSION)))#"))
 ifeq ($(PKG_VERSION),3.4.6)
   PKG_MD5SUM:=4a21ac777d4b5617283ce488b808da7b
 endif
-ifeq ($(PKG_VERSION),4.3.6)
-  PKG_MD5SUM:=55ddf934bc9f8d1eaff7a77e7d598a85
-endif
 ifeq ($(PKG_VERSION),4.4.7)
   PKG_MD5SUM:=295709feb4441b04e87dea3f1bab4281
 endif
@@ -87,7 +84,7 @@ GCC_CONFIGURE:= \
 		$(if $(CONFIG_arm),--with-arch=armv7-a --with-abi=aapcs-linux) \
 		$(call qstrip,$(CONFIG_EXTRA_GCC_CONFIG_OPTIONS)) \
 
-ifneq ($(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4)$(CONFIG_GCC_VERSION_4_6)$(CONFIG_GCC_VERSION_4_8),)
+ifneq ($(CONFIG_GCC_VERSION_4_4)$(CONFIG_GCC_VERSION_4_6)$(CONFIG_GCC_VERSION_4_8),)
   GCC_BUILD_TARGET_LIBGCC:=y
   GCC_CONFIGURE+= \
 		--with-gmp=$(TOPDIR)/staging_dir/host \
