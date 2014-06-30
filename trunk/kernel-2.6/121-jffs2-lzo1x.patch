@@ -80,6 +80,16 @@ diff --git a/fs/jffs2/compr.h b/fs/jffs2/compr.h
  
  #define JFFS2_RUBINMIPS_DISABLED /* RUBINs will be used only */
  #define JFFS2_DYNRUBIN_DISABLED  /*        for decompression */
+@@ -91,5 +91,9 @@
+ int jffs2_zlib_init(void);
+ void jffs2_zlib_exit(void);
+ #endif
++#ifdef CONFIG_JFFS2_LZO
++int jffs2_lzo_init(void);
++void jffs2_lzo_exit(void);
++#endif
+ 
+ #endif /* __JFFS2_COMPR_H__ */
 diff --git a/fs/jffs2/compr_lzo.c b/fs/jffs2/compr_lzo.c
 new file mode 100644
 --- /dev/null
