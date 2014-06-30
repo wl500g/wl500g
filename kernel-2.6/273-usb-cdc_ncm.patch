@@ -36,10 +36,10 @@ USB: CDC NCM host driver backport from 3.6.11
 ---
  drivers/net/usb/Kconfig     |   18 
  drivers/net/usb/Makefile    |    1 
- drivers/net/usb/cdc_ncm.c   | 1279 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/usb/cdc_ncm.c   | 1281 ++++++++++++++++++++++++++++++++++++++++++++
  include/linux/usb/cdc.h     |  216 +++++++
  include/linux/usb/cdc_ncm.h |  125 ++++
- 5 files changed, 1638 insertions(+), 1 deletion(-)
+ 5 files changed, 1640 insertions(+), 1 deletion(-)
  create mode 100644 drivers/net/usb/cdc_ncm.c
  create mode 100644 include/linux/usb/cdc_ncm.h
 
@@ -47,7 +47,7 @@ diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -0,0 +1,1279 @@
+@@ -0,0 +1,1281 @@
 +/*
 + * cdc_ncm.c
 + *
@@ -1195,11 +1195,13 @@ new file mode 100644
 +	return !ctx->connected;
 +}
 +
++#if 0
 +static int cdc_ncm_manage_power(struct usbnet *dev, int status)
 +{
 +	dev->intf->needs_remote_wakeup = status;
 +	return 0;
 +}
++#endif
 +
 +static const struct driver_info cdc_ncm_info = {
 +	.description = "CDC NCM",
