@@ -1,0 +1,56 @@
+From 5f8daefb835687e428215f90d26fdf1f0206149d
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Thu, 26 Jun 2014 14:40:28 +0000
+Subject: awk: fix handling of "if ... break ; else ..." - closes 7226
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+ editors/awk.c       |    2 ++
+ testsuite/awk.tests |   16 ++++++++++++++++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/editors/awk.c b/editors/awk.c
+--- a/editors/awk.c
++++ b/editors/awk.c
+@@ -1540,12 +1540,14 @@ static void chain_group(void)
+ 			debug_printf_parse("%s: OC_BREAK\n", __func__);
+ 			n = chain_node(OC_EXEC);
+ 			n->a.n = break_ptr;
++			chain_expr(t_info);
+ 			break;
+ 
+ 		case OC_CONTINUE:
+ 			debug_printf_parse("%s: OC_CONTINUE\n", __func__);
+ 			n = chain_node(OC_EXEC);
+ 			n->a.n = continue_ptr;
++			chain_expr(t_info);
+ 			break;
+ 
+ 		/* delete, next, nextfile, return, exit */
+diff --git a/testsuite/awk.tests b/testsuite/awk.tests
+--- a/testsuite/awk.tests
++++ b/testsuite/awk.tests
+@@ -295,6 +295,22 @@ testing "awk -e and ARGC" \
+ 	""
+ SKIP=
+ 
++# The examples are in fact not valid awk programs (break/continue
++# can only be used inside loops).
++# But we do accept them outside of loops.
++# We had a bug with misparsing "break ; else" sequence.
++# Test that *that* bug is fixed, using simplest possible scripts:
++testing "awk break" \
++	"awk -f - 2>&1; echo \$?" \
++	"0\n" \
++	"" \
++	'BEGIN { if (1) break; else a = 1 }'
++testing "awk continue" \
++	"awk -f - 2>&1; echo \$?" \
++	"0\n" \
++	"" \
++	'BEGIN { if (1) continue; else a = 1 }'
++
+ # testing "description" "command" "result" "infile" "stdin"
+ 
+ exit $FAILCOUNT
+-- 
