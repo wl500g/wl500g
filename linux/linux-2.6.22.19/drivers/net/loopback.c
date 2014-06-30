@@ -61,6 +61,7 @@
 struct pcpu_lstats {
 	unsigned long packets;
 	unsigned long bytes;
+	unsigned long drops;
 };
 static DEFINE_PER_CPU(struct pcpu_lstats, pcpu_lstats);
 
@@ -135,10 +136,11 @@ static void emulate_large_send_offload(struct sk_buff *skb)
 static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct pcpu_lstats *lb_stats;
+	int len;
 
 	skb_orphan(skb);
 
-	skb->protocol = eth_type_trans(skb,dev);
+	skb->protocol = eth_type_trans(skb, dev);
 #ifndef LOOPBACK_MUST_CHECKSUM
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 #endif
@@ -154,10 +156,13 @@ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
 #endif
 	/* it's OK to use __get_cpu_var() because BHs are off */
 	lb_stats = &__get_cpu_var(pcpu_lstats);
-	lb_stats->bytes += skb->len;
-	lb_stats->packets++;
 
-	netif_rx(skb);
+	len = skb->len;
+	if (likely(netif_rx(skb) == NET_RX_SUCCESS)) {
+		lb_stats->bytes += len;
+		lb_stats->packets++;
+	} else
+		lb_stats->drops++;
 
 	return 0;
 }
@@ -167,6 +172,7 @@ static struct net_device_stats *get_stats(struct net_device *dev)
 	struct net_device_stats *stats = &dev->stats;
 	unsigned long bytes = 0;
 	unsigned long packets = 0;
+	unsigned long drops = 0;
 	int i;
 
 	for_each_possible_cpu(i) {
@@ -175,11 +181,14 @@ static struct net_device_stats *get_stats(struct net_device *dev)
 		lb_stats = &per_cpu(pcpu_lstats, i);
 		bytes   += lb_stats->bytes;
 		packets += lb_stats->packets;
+		drops   += lb_stats->drops;
 	}
 	stats->rx_packets = packets;
 	stats->tx_packets = packets;
-	stats->rx_bytes = bytes;
-	stats->tx_bytes = bytes;
+	stats->rx_dropped = drops;
+	stats->rx_errors  = drops;
+	stats->rx_bytes   = bytes;
+	stats->tx_bytes   = bytes;
 	return stats;
 }
 
@@ -220,7 +229,7 @@ struct net_device loopback_dev = {
 				  | NETIF_F_TSO
 #endif
 				  | NETIF_F_NO_CSUM | NETIF_F_HIGHDMA
-				  | NETIF_F_LLTX,
+				  | NETIF_F_LLTX | NETIF_F_VLAN_CHALLENGED,
 	.ethtool_ops		= &loopback_ethtool_ops,
 };
 
