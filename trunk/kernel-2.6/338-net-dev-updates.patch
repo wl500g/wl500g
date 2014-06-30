@@ -4,6 +4,7 @@
  d8b2a4d21e0b37b9669b202867bfef19f68f786a [NET]: Fix race in dev_close(). (Bug 9750)
  283f2fe87e980d8af5ad8aa63751e7e3258ee05a net: speedup netdev_set_master()
  24f8b2385e03a4f4c8dac513d03b5eaa475822b9 net: increase receive packet quantum
+ 5a5990d3090b03745a9548a6f5edef02095675cf net: Avoid race between network down and sysfs
 
 ---
  net/core/dev.c |   35 ++++++++++++++++++++++-------------
@@ -125,4 +126,18 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  
  	/* And unlink it from device chain. */
  	write_lock_bh(&dev_base_lock);
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -77,7 +77,9 @@ static ssize_t netdev_store(struct device *dev, struct device_attribute *attr,
+ 	if (endp == buf)
+ 		goto err;
+ 
+-	rtnl_lock();
++	if (!rtnl_trylock())
++		return -ERESTARTSYS;
++
+ 	if (dev_isalive(net)) {
+ 		if ((ret = (*set)(net, new)) == 0)
+ 			ret = len;
 -- 
