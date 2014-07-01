@@ -6,6 +6,7 @@ scripts: Updates from upstream
  585e93ae83b80c874bf4eb50a239027cef5db4af find dynamic stack allocations in checkstack.pl
  abddaec56ebb7911bbf0578a4636a74bd7376d92 fix checkstack.pl arch detection
  1f2a144f5ab5e836b5ca8f67bd76b759fa947751 scripts: improve checkstack
+ c2e182fab04c1fb50e7dac05d0fd78d331225ad0 scripts/bloat-o-meter: use .startswith rather than fragile slicing
 
 ---
  scripts/bloat-o-meter |    7 +++++--
@@ -23,7 +24,7 @@ diff --git a/scripts/bloat-o-meter b/scripts/bloat-o-meter
 -            if "." in name: name = "static." + name.split(".")[0]
 +        if type in "tTdDbBrR":
 +            # strip generated symbols
-+            if name[:6] == "__mod_": continue
++            if name.startswith("__mod_"): continue
 +            # function names begin with '.' on 64-bit powerpc
 +            if "." in name[1:]: name = "static." + name.split(".")[0]
              sym[name] = sym.get(name, 0) + int(size, 16)
