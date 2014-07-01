@@ -1,0 +1,29 @@
+From d32fc647d7da1923a91750ae937bf9b517195c8f
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Tue, 01 Jul 2014 11:20:22 +0000
+Subject: libbb: fix bb_ask() to flush input before prompt, not after. Closes 7190
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+
+---
+ libbb/bb_askpass.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/libbb/bb_askpass.c b/libbb/bb_askpass.c
+--- a/libbb/bb_askpass.c
++++ b/libbb/bb_askpass.c
+@@ -30,9 +30,12 @@ char* FAST_FUNC bb_ask(const int fd, int timeout, const char *prompt)
+ 	struct sigaction sa, oldsa;
+ 	struct termios tio, oldtio;
+ 
++	tcflush(fd, TCIFLUSH);
++	/* Was buggy: was printing prompt *before* flushing input,
++	 * which was upsetting "expect" based scripts of some users.
++	 */
+ 	fputs(prompt, stdout);
+ 	fflush_all();
+-	tcflush(fd, TCIFLUSH);
+ 
+ 	tcgetattr(fd, &oldtio);
+ 	tio = oldtio;
+-- 
