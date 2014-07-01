@@ -12,10 +12,21 @@ random: Updates from upstream
  feee76972bcc54b2b1d1dc28bc6c16a8daa9aff8 random: eliminate redundant new_rotate variable
  6d38b827400d7c02bce391f90d044e4c57d5bc1e random: remove some prefetch logic
  993ba2114c554c1561a018e5c63a771ec8e1c469 random: simplify add_ptr logic
+ e68e5b664ecb9bccf68102557107a6b6d739a97c random: make mixing interface byte-oriented
+ adc782dae6c4c0f6fb679a48a544cfbcd79ae3dc random: simplify and rename credit_entropy_store
+ 8b76f46a2db29407fed66cf4aca19d61b3dcb3e1 drivers/char/random.c: fix a race which can lead to a bogus BUG()
+ cda796a3d572059d64f5429dfc1d00ca6fcbaf8d random: don't try to look at entropy_count outside the lock
+ 9a6f70bbed4e8b72dd340812d7c606bfd5e00b47 random: add async notification support to /dev/random
+ 417b43d4b728619e9bcc2da4fa246a6350d46667 random: align rekey_work's timer
+ 8a0a9bd4db63bc45e3017bedeafbd88d0eb84d02 random: make get_random_int() more random
+ 26a9a418237c0b06528941bca693c49c8d97edbe Avoid ICE in get_random_int() with gcc-3.4.5
+ a996996dd75a9086b12d1cb4010f26e1748993f0 random: drop weird m_time/a_time manipulation
+ cd1510cb5f892907fe1a662f90b41fb3a42954e0 random: Remove unused inode variable
+ 4015d9a865e3bcc42d88bedc8ce1551000bab664 random: Reorder struct entropy_store to remove padding on 64bits              
 
 ---
- drivers/char/random.c |  223 +++++++++++++++++++++-----------------------------
- 1 file changed, 97 insertions(+), 126 deletions(-)
+ drivers/char/random.c |  345 ++++++++++++++++++++++++--------------------------
+ 1 file changed, 166 insertions(+), 179 deletions(-)
 
 diff --git a/drivers/char/random.c b/drivers/char/random.c
 --- a/drivers/char/random.c
@@ -29,8 +40,11 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  
  /*
   * A pool of size .poolwords is stirred with a primitive polynomial
-@@ -372,15 +372,16 @@ static DECLARE_WAIT_QUEUE_HEAD(random_re
+@@ -370,17 +370,19 @@ static struct poolinfo {
+  */
+ static DECLARE_WAIT_QUEUE_HEAD(random_read_wait);
  static DECLARE_WAIT_QUEUE_HEAD(random_write_wait);
++static struct fasync_struct *fasync;
  
  #if 0
 -static int debug = 0;
@@ -54,7 +68,7 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  #else
  #define DEBUG_ENT(fmt, arg...) do {} while (0)
  #endif
-@@ -394,7 +395,7 @@ module_param(debug, bool, 0644);
+@@ -394,15 +396,15 @@ module_param(debug, bool, 0644);
  
  struct entropy_store;
  struct entropy_store {
@@ -63,8 +77,9 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  	struct poolinfo *poolinfo;
  	__u32 *pool;
  	const char *name;
-@@ -402,7 +403,7 @@ struct entropy_store {
+-	int limit;
  	struct entropy_store *pull;
++	int limit;
  
  	/* read-write data: */
 -	spinlock_t lock ____cacheline_aligned_in_smp;
@@ -72,7 +87,26 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  	unsigned add_ptr;
  	int entropy_count;
  	int input_rotate;
-@@ -453,10 +454,10 @@ static void __add_entropy_words(struct e
+@@ -438,25 +440,26 @@ static struct entropy_store nonblocking_
+ };
+ 
+ /*
+- * This function adds a byte into the entropy "pool".  It does not
++ * This function adds bytes into the entropy "pool".  It does not
+  * update the entropy estimate.  The caller should call
+- * credit_entropy_store if this is appropriate.
++ * credit_entropy_bits if this is appropriate.
+  *
+  * The pool is stirred with a primitive polynomial of the appropriate
+  * degree, and then twisted.  We twist by three bits at a time because
+  * it's cheap to do so and helps slightly in the expected case where
+  * the entropy is concentrated in the low-order bits.
+  */
+-static void __add_entropy_words(struct entropy_store *r, const __u32 *in,
+-				int nwords, __u32 out[16])
++static void mix_pool_bytes_extract(struct entropy_store *r, const void *in,
++				   int nbytes, __u8 out[64])
+ {
  	static __u32 const twist_table[8] = {
  		0x00000000, 0x3b6e20c8, 0x76dc4190, 0x4db26158,
  		0xedb88320, 0xd6d6a3e8, 0x9b64c2b0, 0xa00ae278 };
@@ -82,11 +116,12 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
 +	int input_rotate;
  	int wordmask = r->poolinfo->poolwords - 1;
 -	__u32 w, next_w;
++	const char *bytes = in;
 +	__u32 w;
  	unsigned long flags;
  
  	/* Taps are constant, so we can load them without holding r->lock.  */
-@@ -465,48 +466,41 @@ static void __add_entropy_words(struct e
+@@ -465,80 +468,79 @@ static void __add_entropy_words(struct e
  	tap3 = r->poolinfo->tap3;
  	tap4 = r->poolinfo->tap4;
  	tap5 = r->poolinfo->tap5;
@@ -98,7 +133,7 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
 -	add_ptr = r->add_ptr;
 +	i = r->add_ptr;
  
- 	while (nwords--) {
+-	while (nwords--) {
 -		w = rol32(next_w, input_rotate);
 -		if (nwords > 0)
 -			next_w = *in++;
@@ -113,7 +148,9 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
 -		if (i)
 -			new_rotate = input_rotate + 7;
 -		input_rotate = new_rotate & 31;
-+		w = rol32(*in++, input_rotate & 31);
++	/* mix one byte at a time to simplify size handling and churn faster */
++	while (nbytes--) {
++		w = rol32(*bytes++, input_rotate & 31);
 +		i = (i - 1) & wordmask;
  
  		/* XOR in the various taps */
@@ -149,22 +186,64 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
 -	}
 +	if (out)
 +		for (j = 0; j < 16; j++)
-+			out[j] = r->pool[(i - j) & wordmask];
++			((__u32 *)out)[j] = r->pool[(i - j) & wordmask];
  
  	spin_unlock_irqrestore(&r->lock, flags);
  }
-@@ -539,6 +533,10 @@ static void credit_entropy_store(struct 
- 				  nbits, r->name);
- 	}
+ 
+-static inline void add_entropy_words(struct entropy_store *r, const __u32 *in,
+-				     int nwords)
++static void mix_pool_bytes(struct entropy_store *r, const void *in, int bytes)
+ {
+-	__add_entropy_words(r, in, nwords, NULL);
++       mix_pool_bytes_extract(r, in, bytes, NULL);
+ }
+ 
+ /*
+  * Credit (or debit) the entropy store with n bits of entropy
+  */
+-static void credit_entropy_store(struct entropy_store *r, int nbits)
++static void credit_entropy_bits(struct entropy_store *r, int nbits)
+ {
+ 	unsigned long flags;
++	int entropy_count;
++
++	if (!nbits)
++		return;
+ 
+ 	spin_lock_irqsave(&r->lock, flags);
+ 
+-	if (r->entropy_count + nbits < 0) {
+-		DEBUG_ENT("negative entropy/overflow (%d+%d)\n",
+-			  r->entropy_count, nbits);
+-		r->entropy_count = 0;
+-	} else if (r->entropy_count + nbits > r->poolinfo->POOLBITS) {
+-		r->entropy_count = r->poolinfo->POOLBITS;
+-	} else {
+-		r->entropy_count += nbits;
+-		if (nbits)
+-			DEBUG_ENT("added %d entropy credits to %s\n",
+-				  nbits, r->name);
+-	}
++	DEBUG_ENT("added %d entropy credits to %s\n", nbits, r->name);
++	entropy_count = r->entropy_count;
++	entropy_count += nbits;
++	if (entropy_count < 0) {
++		DEBUG_ENT("negative entropy/overflow\n");
++		entropy_count = 0;
++	} else if (entropy_count > r->poolinfo->POOLBITS)
++		entropy_count = r->poolinfo->POOLBITS;
++	r->entropy_count = entropy_count;
  
 +	/* should we wake readers? */
-+	if (r == &input_pool && r->entropy_count >= random_read_wakeup_thresh)
++	if (r == &input_pool && entropy_count >= random_read_wakeup_thresh) {
 +		wake_up_interruptible(&random_read_wait);
-+
++		kill_fasync(&fasync, SIGIO, POLL_IN);
++	}
  	spin_unlock_irqrestore(&r->lock, flags);
  }
  
-@@ -551,7 +549,7 @@ static void credit_entropy_store(struct 
+@@ -551,7 +553,7 @@ static void credit_entropy_store(struct 
  /* There is one of these per entropy source */
  struct timer_rand_state {
  	cycles_t last_time;
@@ -173,9 +252,23 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  	unsigned dont_count_entropy:1;
  };
  
-@@ -623,10 +621,6 @@ static void add_timer_randomness(struct 
- 		credit_entropy_store(&input_pool,
- 				     min_t(int, fls(delta>>1), 11));
+@@ -586,7 +588,7 @@ static void add_timer_randomness(struct 
+ 	sample.jiffies = jiffies;
+ 	sample.cycles = get_cycles();
+ 	sample.num = num;
+-	add_entropy_words(&input_pool, (u32 *)&sample, sizeof(sample)/4);
++	mix_pool_bytes(&input_pool, &sample, sizeof(sample));
+ 
+ 	/*
+ 	 * Calculate number of bits of randomness we probably added.
+@@ -620,13 +622,9 @@ static void add_timer_randomness(struct 
+ 		 * Round down by 1 bit on general principles,
+ 		 * and limit entropy entimate to 12 bits.
+ 		 */
+-		credit_entropy_store(&input_pool,
+-				     min_t(int, fls(delta>>1), 11));
++		credit_entropy_bits(&input_pool,
++				    min_t(int, fls(delta>>1), 11));
  	}
 -
 -	if(input_pool.entropy_count >= random_read_wakeup_thresh)
@@ -184,7 +277,7 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  out:
  	preempt_enable();
  }
-@@ -679,7 +673,7 @@ EXPORT_SYMBOL(add_disk_randomness);
+@@ -679,7 +677,7 @@ EXPORT_SYMBOL(add_disk_randomness);
   *
   *********************************************************************/
  
@@ -193,18 +286,35 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  			       size_t nbytes, int min, int rsvd);
  
  /*
-@@ -706,8 +700,8 @@ static void xfer_secondary_pool(struct e
+@@ -706,10 +704,10 @@ static void xfer_secondary_pool(struct e
  			  "(%d of %d requested)\n",
  			  r->name, bytes * 8, nbytes * 8, r->entropy_count);
  
 -		bytes=extract_entropy(r->pull, tmp, bytes,
 -				      random_read_wakeup_thresh / 8, rsvd);
+-		add_entropy_words(r, tmp, (bytes + 3) / 4);
+-		credit_entropy_store(r, bytes*8);
 +		bytes = extract_entropy(r->pull, tmp, bytes,
 +					random_read_wakeup_thresh / 8, rsvd);
- 		add_entropy_words(r, tmp, (bytes + 3) / 4);
- 		credit_entropy_store(r, bytes*8);
++		mix_pool_bytes(r, tmp, bytes);
++		credit_entropy_bits(r, bytes*8);
  	}
-@@ -746,7 +740,7 @@ static size_t account(struct entropy_sto
+ }
+ 
+@@ -730,11 +728,10 @@ static size_t account(struct entropy_sto
+ {
+ 	unsigned long flags;
+ 
+-	BUG_ON(r->entropy_count > r->poolinfo->POOLBITS);
+-
+ 	/* Hold lock while accounting */
+ 	spin_lock_irqsave(&r->lock, flags);
+ 
++	BUG_ON(r->entropy_count > r->poolinfo->POOLBITS);
+ 	DEBUG_ENT("trying to extract %d bits from %s\n",
+ 		  nbytes * 8, r->name);
+ 
+@@ -746,13 +743,15 @@ static size_t account(struct entropy_sto
  		if (r->limit && nbytes + reserved >= r->entropy_count / 8)
  			nbytes = r->entropy_count/8 - reserved;
  
@@ -213,12 +323,22 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  			r->entropy_count -= nbytes*8;
  		else
  			r->entropy_count = reserved;
-@@ -766,45 +760,45 @@ static size_t account(struct entropy_sto
+ 
+-		if (r->entropy_count < random_write_wakeup_thresh)
++		if (r->entropy_count < random_write_wakeup_thresh) {
+ 			wake_up_interruptible(&random_write_wait);
++			kill_fasync(&fasync, SIGIO, POLL_OUT);
++		}
+ 	}
+ 
+ 	DEBUG_ENT("debiting %d entropy credits from %s%s\n",
+@@ -766,45 +765,46 @@ static size_t account(struct entropy_sto
  static void extract_buf(struct entropy_store *r, __u8 *out)
  {
  	int i;
 -	__u32 data[16], buf[5 + SHA_WORKSPACE_WORDS];
-+	__u32 extract[16], hash[5], workspace[SHA_WORKSPACE_WORDS];
++	__u32 hash[5], workspace[SHA_WORKSPACE_WORDS];
++	__u8 extract[64];
 +
 +	/* Generate a hash across the pool, 16 words (512 bits) at a time */
 +	sha_init(hash);
@@ -247,7 +367,7 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
 -		/* feed back portion of the resulting hash */
 -		add_entropy_words(r, &buf[i % 5], 1);
 -	}
-+	__add_entropy_words(r, hash, 5, extract);
++	mix_pool_bytes_extract(r, hash, sizeof(hash), extract);
  
  	/*
 -	 * To avoid duplicates, we atomically extract a
@@ -258,7 +378,7 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  	 */
 -	__add_entropy_words(r, &buf[i % 5], 1, data);
 -	sha_transform(buf, (__u8 *)data, buf + 5);
-+	sha_transform(hash, (__u8 *)extract, workspace);
++	sha_transform(hash, extract, workspace);
 +	memset(extract, 0, sizeof(extract));
 +	memset(workspace, 0, sizeof(workspace));
  
@@ -287,8 +407,15 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  			       size_t nbytes, int min, int reserved)
  {
  	ssize_t ret = 0, i;
-@@ -901,7 +894,7 @@ static void init_std_data(struct entropy
- 			  sizeof(*(utsname()))/4);
+@@ -896,12 +896,11 @@ static void init_std_data(struct entropy
+ 	spin_unlock_irqrestore(&r->lock, flags);
+ 
+ 	now = ktime_get_real();
+-	add_entropy_words(r, (__u32 *)&now, sizeof(now)/4);
+-	add_entropy_words(r, (__u32 *)utsname(),
+-			  sizeof(*(utsname()))/4);
++	mix_pool_bytes(r, &now, sizeof(now));
++	mix_pool_bytes(r, utsname(), sizeof(*(utsname())));
  }
  
 -static int __init rand_initialize(void)
@@ -296,7 +423,7 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  {
  	init_std_data(&input_pool);
  	init_std_data(&blocking_pool);
-@@ -942,7 +935,7 @@ void rand_initialize_disk(struct gendisk
+@@ -942,7 +941,7 @@ void rand_initialize_disk(struct gendisk
  #endif
  
  static ssize_t
@@ -305,7 +432,17 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  {
  	ssize_t n, retval = 0, count = 0;
  
-@@ -1004,8 +997,7 @@ random_read(struct file * file, char __u
+@@ -994,18 +993,11 @@ random_read(struct file * file, char __u
+ 				/* like a named pipe */
+ 	}
+ 
+-	/*
+-	 * If we gave the user some bytes, update the access time.
+-	 */
+-	if (count)
+-		file_accessed(file);
+-
+ 	return (count ? count : retval);
  }
  
  static ssize_t
@@ -315,10 +452,12 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  {
  	return extract_entropy_user(&nonblocking_pool, buf, nbytes);
  }
-@@ -1041,14 +1033,14 @@ write_pool(struct entropy_store *r, cons
+@@ -1040,18 +1032,17 @@ write_pool(struct entropy_store *r, cons
+ 		count -= bytes;
  		p += bytes;
  
- 		add_entropy_words(r, buf, (bytes + 3) / 4);
+-		add_entropy_words(r, buf, (bytes + 3) / 4);
++		mix_pool_bytes(r, buf, bytes);
 +		cond_resched();
  	}
  
@@ -332,8 +471,16 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
 +			    size_t count, loff_t *ppos)
  {
  	size_t ret;
- 	struct inode *inode = file->f_path.dentry->d_inode;
-@@ -1065,9 +1057,7 @@ random_write(struct file * file, const c
+-	struct inode *inode = file->f_path.dentry->d_inode;
+ 
+ 	ret = write_pool(&blocking_pool, buffer, count);
+ 	if (ret)
+@@ -1060,14 +1051,10 @@ random_write(struct file * file, const c
+ 	if (ret)
+ 		return ret;
+ 
+-	inode->i_mtime = current_fs_time(inode->i_sb);
+-	mark_inode_dirty(inode);
  	return (ssize_t)count;
  }
  
@@ -344,7 +491,7 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  {
  	int size, ent_count;
  	int __user *p = (int __user *)arg;
-@@ -1075,8 +1065,8 @@ random_ioctl(struct inode * inode, struc
+@@ -1075,8 +1062,8 @@ random_ioctl(struct inode * inode, struc
  
  	switch (cmd) {
  	case RNDGETENTCNT:
@@ -355,29 +502,33 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  			return -EFAULT;
  		return 0;
  	case RNDADDTOENTCNT:
-@@ -1085,12 +1075,6 @@ random_ioctl(struct inode * inode, struc
+@@ -1084,13 +1071,7 @@ random_ioctl(struct inode * inode, struc
+ 			return -EPERM;
  		if (get_user(ent_count, p))
  			return -EFAULT;
- 		credit_entropy_store(&input_pool, ent_count);
+-		credit_entropy_store(&input_pool, ent_count);
 -		/*
 -		 * Wake up waiting processes if we have enough
 -		 * entropy.
 -		 */
 -		if (input_pool.entropy_count >= random_read_wakeup_thresh)
 -			wake_up_interruptible(&random_read_wait);
++		credit_entropy_bits(&input_pool, ent_count);
  		return 0;
  	case RNDADDENTROPY:
  		if (!capable(CAP_SYS_ADMIN))
-@@ -1106,21 +1090,13 @@ random_ioctl(struct inode * inode, struc
+@@ -1105,39 +1086,45 @@ random_ioctl(struct inode * inode, struc
+ 				    size);
  		if (retval < 0)
  			return retval;
- 		credit_entropy_store(&input_pool, ent_count);
+-		credit_entropy_store(&input_pool, ent_count);
 -		/*
 -		 * Wake up waiting processes if we have enough
 -		 * entropy.
 -		 */
 -		if (input_pool.entropy_count >= random_read_wakeup_thresh)
 -			wake_up_interruptible(&random_read_wait);
++		credit_entropy_bits(&input_pool, ent_count);
  		return 0;
  	case RNDZAPENTCNT:
  	case RNDCLEARPOOL:
@@ -391,12 +542,27 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  		return 0;
  	default:
  		return -EINVAL;
-@@ -1131,13 +1107,13 @@ const struct file_operations random_fops
+ 	}
+ }
+ 
++static int random_fasync(int fd, struct file *filp, int on)
++{
++	return fasync_helper(fd, filp, on, &fasync);
++}
++
++static int random_release(struct inode *inode, struct file *filp)
++{
++	return fasync_helper(-1, filp, 0, &fasync);
++}
++
+ const struct file_operations random_fops = {
  	.read  = random_read,
  	.write = random_write,
  	.poll  = random_poll,
 -	.ioctl = random_ioctl,
 +	.unlocked_ioctl = random_ioctl,
++	.fasync = random_fasync,
++	.release = random_release,
  };
  
  const struct file_operations urandom_fops = {
@@ -404,10 +570,12 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  	.write = random_write,
 -	.ioctl = random_ioctl,
 +	.unlocked_ioctl = random_ioctl,
++	.fasync = random_fasync,
++	.release = random_release,
  };
  
  /***************************************************************
-@@ -1340,7 +1315,7 @@ ctl_table random_table[] = {
+@@ -1340,7 +1327,7 @@ ctl_table random_table[] = {
  
  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
  
@@ -416,7 +584,17 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  {
  	__u32 a = buf[0], b = buf[1], c = buf[2], d = buf[3];
  
-@@ -1488,13 +1463,13 @@ __u32 secure_tcpv6_sequence_number(__be3
+@@ -1456,7 +1443,8 @@ static void rekey_seq_generator(struct w
+ 	keyptr->count = (ip_cnt & COUNT_MASK) << HASH_BITS;
+ 	smp_wmb();
+ 	ip_cnt++;
+-	schedule_delayed_work(&rekey_work, REKEY_INTERVAL);
++	schedule_delayed_work(&rekey_work,
++			      round_jiffies_relative(REKEY_INTERVAL));
+ }
+ 
+ static inline struct keydata *get_keyptr(void)
+@@ -1488,13 +1476,13 @@ __u32 secure_tcpv6_sequence_number(__be3
  	 */
  
  	memcpy(hash, saddr, 16);
@@ -433,7 +611,7 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  
  	return seq;
  }
-@@ -1539,10 +1514,10 @@ __u32 secure_tcp_sequence_number(__be32 
+@@ -1539,10 +1527,10 @@ __u32 secure_tcp_sequence_number(__be32 
  	 *  Note that the words are placed into the starting vector, which is
  	 *  then mixed with a partial MD4 over random data.
  	 */
@@ -448,7 +626,7 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  
  	seq = half_md4_transform(hash, keyptr->secret) & HASH_MASK;
  	seq += keyptr->count;
-@@ -1556,11 +1531,8 @@ __u32 secure_tcp_sequence_number(__be32 
+@@ -1556,11 +1544,8 @@ __u32 secure_tcp_sequence_number(__be32 
  	 *	overlaps less than one time per MSL (2 minutes).
  	 *	Choosing a clock of 64 ns period is OK. (period of 274 s)
  	 */
@@ -462,8 +640,8 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  	return seq;
  }
  
-@@ -1586,14 +1558,15 @@ u32 secure_ipv4_port_ephemeral(__be32 sa
- EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
+@@ -1583,14 +1568,15 @@ u32 secure_ipv4_port_ephemeral(__be32 sa
+ }
  
  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 -u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr, __be16 dport)
@@ -480,7 +658,7 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  
  	return twothirdsMD4Transform((const __u32 *)daddr, hash);
  }
-@@ -1619,15 +1592,11 @@ u64 secure_dccp_sequence_number(__be32 s
+@@ -1616,15 +1602,11 @@ u64 secure_dccp_sequence_number(__be32 s
  	seq = half_md4_transform(hash, keyptr->secret);
  	seq |= ((u64)keyptr->count) << (32 - HASH_BITS);
  
@@ -498,4 +676,32 @@ diff --git a/drivers/char/random.c b/drivers/char/random.c
  EXPORT_SYMBOL(secure_dccp_sequence_number);
  #endif
  
+@@ -1637,15 +1619,20 @@ EXPORT_SYMBOL(secure_dccp_sequence_numbe
+  * value is not cryptographically secure but for several uses the cost of
+  * depleting entropy is too high
+  */
++DEFINE_PER_CPU(__u32 [4], get_random_int_hash);
+ unsigned int get_random_int(void)
+ {
+-	/*
+-	 * Use IP's RNG. It suits our purpose perfectly: it re-keys itself
+-	 * every second, from the entropy pool (and thus creates a limited
+-	 * drain on it), and uses halfMD4Transform within the second. We
+-	 * also mix it with jiffies and the PID:
+-	 */
+-	return secure_ip_id((__force __be32)(current->pid + jiffies));
++	struct keydata *keyptr;
++	__u32 *hash = get_cpu_var(get_random_int_hash);
++	int ret;
++
++	keyptr = get_keyptr();
++	hash[0] += current->pid + jiffies + get_cycles();
++
++	ret = half_md4_transform(hash, keyptr->secret);
++	put_cpu_var(get_random_int_hash);
++
++	return ret;
+ }
+ 
+ /*
 -- 
