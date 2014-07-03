@@ -16,10 +16,11 @@ USB: Updates from upstream
  drivers/usb/core/quirks.c       |  104 +++++++++++++++++++++++++++++++---------
  drivers/usb/core/sysfs.c        |    5 +
  drivers/usb/core/usb.h          |    4 +
- include/linux/mod_devicetable.h |   12 +++-
+ include/linux/hid.h             |    1 
+ include/linux/mod_devicetable.h |   22 +++++++-
  include/linux/usb.h             |   16 ++++++
  scripts/mod/file2alias.c        |    5 +
- 10 files changed, 152 insertions(+), 43 deletions(-)
+ 11 files changed, 163 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/usb/core/config.c b/drivers/usb/core/config.c
 --- a/drivers/usb/core/config.c
@@ -315,6 +316,17 @@ diff --git a/drivers/usb/core/usb.h b/drivers/usb/core/usb.h
  extern int usb_match_device(struct usb_device *dev,
  			    const struct usb_device_id *id);
  extern void usb_forced_unbind_intf(struct usb_interface *intf);
+diff --git a/include/linux/hid.h b/include/linux/hid.h
+--- a/include/linux/hid.h
++++ b/include/linux/hid.h
+@@ -67,6 +67,7 @@
+ #include <linux/types.h>
+ #include <linux/slab.h>
+ #include <linux/list.h>
++#include <linux/mod_devicetable.h> /* hid_device_id */
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
+ #include <linux/input.h>
 diff --git a/include/linux/mod_devicetable.h b/include/linux/mod_devicetable.h
 --- a/include/linux/mod_devicetable.h
 +++ b/include/linux/mod_devicetable.h
@@ -342,11 +354,21 @@ diff --git a/include/linux/mod_devicetable.h b/include/linux/mod_devicetable.h
  };
  
  /* Some useful macros to use to create struct usb_device_id */
-@@ -130,6 +137,7 @@ struct usb_device_id {
+@@ -130,6 +137,17 @@ struct usb_device_id {
  #define USB_DEVICE_ID_MATCH_INT_CLASS		0x0080
  #define USB_DEVICE_ID_MATCH_INT_SUBCLASS	0x0100
  #define USB_DEVICE_ID_MATCH_INT_PROTOCOL	0x0200
 +#define USB_DEVICE_ID_MATCH_INT_NUMBER		0x0400
++
++#define HID_ANY_ID				(~0)
++
++struct hid_device_id {
++	__u16 bus;
++	__u32 vendor;
++	__u32 product;
++	kernel_ulong_t driver_data
++		__attribute__((aligned(sizeof(kernel_ulong_t))));
++};
  
  /* s390 CCW devices */
  struct ccw_device_id {
