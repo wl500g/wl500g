@@ -19,12 +19,11 @@ diff -uBp a/fs/aio.c b/fs/aio.c
  #if DEBUG > 1
  #define dprintk		printk
  #else
-@@ -1787,3 +1789,54 @@
- EXPORT_SYMBOL(aio_complete);
- EXPORT_SYMBOL(aio_put_req);
- EXPORT_SYMBOL(wait_on_sync_kiocb);
-+
-+#else
+@@ -1772,6 +1774,52 @@
+ 
+ __initcall(aio_setup);
+ 
++#else /* !CONFIG_AIO */
 +
 +ssize_t fastcall wait_on_sync_kiocb(struct kiocb *iocb)
 +{
@@ -68,12 +67,11 @@ diff -uBp a/fs/aio.c b/fs/aio.c
 +{
 +	return 0;
 +}
++#endif /* CONFIG_AIO */
 +
-+EXPORT_SYMBOL(aio_complete);
-+EXPORT_SYMBOL(aio_put_req);
-+EXPORT_SYMBOL(wait_on_sync_kiocb);
-+
-+#endif
+ EXPORT_SYMBOL(aio_complete);
+ EXPORT_SYMBOL(aio_put_req);
+ EXPORT_SYMBOL(wait_on_sync_kiocb);
 diff -uBp a/init/Kconfig b/init/Kconfig
 --- a/init/Kconfig	2007-10-08 23:52:27.000000000 +0200
 +++ b/init/Kconfig	2007-10-09 00:30:08.000000000 +0200
@@ -122,7 +120,7 @@ diff --git a/kernel/sysctl.c b/kernel/sysctl.c
  		.mode		= 0644,
  		.proc_handler	= &proc_doulongvec_minmax,
  	},
-+#endif
++#endif /* CONFIG_AIO */
  #ifdef CONFIG_INOTIFY_USER
  	{
  		.ctl_name	= FS_INOTIFY,
