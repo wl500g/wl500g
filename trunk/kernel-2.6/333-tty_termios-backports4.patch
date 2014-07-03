@@ -2,11 +2,12 @@
  c72f527c104cae8e767e714574238b5550879e0c n_hdlc: honor O_NONBLOCK on write
  ec5b1157f8e819c72fc93aa6d2d5117c08cdc961 tty: enable the echoing of ^C in the N_TTY discipline
  7962fce9a052f34390b6dab9f11df1d2e48c138d tty: n_hdlc not atomic use tty->flags.
+ 361746264b5e875e9b3c6f5b844accfe629e28bb tty: n_hdlc: Drop redundant error message
 
 ---
- drivers/char/n_hdlc.c |   17 +++++++++++++----
+ drivers/char/n_hdlc.c |   21 +++++++++++++--------
  drivers/char/n_tty.c  |   15 ++++++++++++++-
- 2 files changed, 27 insertions(+), 5 deletions(-)
+ 2 files changed, 27 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/char/n_hdlc.c b/drivers/char/n_hdlc.c
 --- a/drivers/char/n_hdlc.c
@@ -57,6 +58,24 @@ diff --git a/drivers/char/n_hdlc.c b/drivers/char/n_hdlc.c
  		schedule();
  			
  		n_hdlc = tty2n_hdlc (tty);
+@@ -922,8 +922,6 @@ static char hdlc_register_ok[] __initdata =
+ 	KERN_INFO "N_HDLC line discipline registered.\n";
+ static char hdlc_register_fail[] __initdata =
+ 	KERN_ERR "error registering line discipline: %d\n";
+-static char hdlc_init_fail[] __initdata =
+-	KERN_INFO "N_HDLC: init failure %d\n";
+ 
+ static int __init n_hdlc_init(void)
+ {
+@@ -943,8 +941,6 @@ static int __init n_hdlc_init(void)
+ 	else
+ 		printk(hdlc_register_fail, status);
+ 
+-	if (status)
+-		printk(hdlc_init_fail, status);
+ 	return status;
+ 	
+ }	/* end of init_module() */
 diff --git a/drivers/char/n_tty.c b/drivers/char/n_tty.c
 --- a/drivers/char/n_tty.c
 +++ b/drivers/char/n_tty.c
