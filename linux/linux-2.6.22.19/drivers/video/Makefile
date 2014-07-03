@@ -5,7 +5,9 @@
 # Each configuration option enables a list of files.
 
 obj-$(CONFIG_VGASTATE)            += vgastate.o
+ifneq ($(CONFIG_FRAMEBUFFER_CONSOLE)$(BACKLIGHT_LCD_SUPPORT),)
 obj-y                             += fb_notify.o
+endif
 obj-$(CONFIG_FB)                  += fb.o
 fb-y                              := fbmem.o fbmon.o fbcmap.o fbsysfs.o \
                                      modedb.o fbcvt.o
@@ -13,7 +15,8 @@ fb-objs                           := $(fb-y)
 
 obj-$(CONFIG_VT)		  += console/
 obj-$(CONFIG_LOGO)		  += logo/
-obj-y				  += backlight/ display/
+obj-$(CONFIG_BACKLIGHT_LCD_SUPPORT) += backlight/
+obj-$(CONFIG_DISPLAY_SUPPORT)	  += display/
 
 obj-$(CONFIG_FB_CFB_FILLRECT)  += cfbfillrect.o
 obj-$(CONFIG_FB_CFB_COPYAREA)  += cfbcopyarea.o
