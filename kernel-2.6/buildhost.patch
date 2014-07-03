@@ -29,6 +29,8 @@ kbuild backports from upstream
  1e29a706eef664f2c5014462d435f54a1952cc7b kbuild: whitelist references from variables named _timer to .init.text
  741f98fe298a73c9d47ed53703c1279a29718581 kbuild: do section mismatch check on full vmlinux
  a5eb6a502b71ee6bf1a9768b12ff4545cb7a50fe modpost white list pattern adjustment
+ e8c84f9a5f06912c94c38961096c994da3890a2e modpost: add support for hid
+ 2b639386a2a26c84c8d26c649cf657ebd43a7bc8 modpost: HID: fix bus endianity in file2alias
  eec73e887a96b50035c92c57e01137dcbe6c5a39 Whitelist references from __dbe_table to .init
  8d8d8289df65cb116d2721becafb37272074f25a kbuild: do not do section mismatch checks on vmlinux in 2nd pass
  2f5ee619045d923de9137b6a263a99cc2428391a kbuild: rearrange a few function in modpost
@@ -66,10 +68,19 @@ kbuild backports from upstream
  2979076fbf17a0947d6eba367b0cac19c907c160 headers_install: check exit status of unifdef
  f210735fe2f17a6225432ee3d1239bcf23a8659c headers_install: fix __packed in exported kernel headers
  e0e2fa4b515cd61aabb5b32e8b816ed97dbe2490 headers_install.pl: convert to headers_install.sh
+ a680eedc6c621c75695c68198533fc3c98f4053b tags and cscope support really belongs in a shell script as they do not benefit from the make functionality.
+ 709cc372cad628846d73447edfd95ac39c8e2319 kbuild: fix make tags/cscope
+ a6ba0cb35da64d658b7a01ea4597416f8522d5e1 kbuild: fix string equality testing in tags.sh
+ 521b0c774d1350aac18f5cd35831469a4e879d72 kbuild: drop debugging leftover in tags.sh
+ 4f628248a578585472e19e4cba2c604643af8c6c kbuild: reintroduce ALLSOURCE_ARCHS support for tags/cscope
+ 953fae66d124486c9e284806429c52c5402f59ac kbuild: fix tags generation of config symbols
+ 2e6cb8b0dc602ba4aa23d1ec7e3524a7268f59d9 kbuild: remove a tag file before it is regenerated
+ f81b1be40c44b33b9706d64c117edd29e627ad12 tags: include headers before source files
+ ae63b2d7bdd9bd66b88843be0daf8e37d8f0b574 scripts/tags.sh: Ignore *.mod.c
 
 ---
  Documentation/kbuild/makefiles.txt |   12 
- Makefile                           |   67 +-
+ Makefile                           |  184 ++----
  include/linux/linkage.h            |    8 
  lib/Kconfig.debug                  |   38 +
  scripts/Kbuild.include             |    5 
@@ -79,11 +90,16 @@ kbuild backports from upstream
  scripts/hdrcheck.sh                |   10 
  scripts/headers_check.pl           |   56 +
  scripts/headers_install.sh         |   43 +
- scripts/mod/file2alias.c           |   44 +
+ scripts/mod/file2alias.c           |   63 +-
  scripts/mod/modpost.c              | 1096 ++++++++++++++++++++-----------------
  scripts/mod/modpost.h              |   10 
  scripts/mod/sumversion.c           |   12 
- 15 files changed, 1000 insertions(+), 692 deletions(-)
+ scripts/tags.sh                    |  179 ++++++
+ 16 files changed, 1205 insertions(+), 802 deletions(-)
+ create mode 100644 scripts/headers_check.pl
+ create mode 100644 scripts/headers_install.sh
+ create mode 100755 scripts/tags.sh
+ delete mode 100644 scripts/hdrcheck.sh
 
 diff --git a/Documentation/kbuild/makefiles.txt b/Documentation/kbuild/makefiles.txt
 --- a/Documentation/kbuild/makefiles.txt
@@ -156,7 +172,21 @@ diff --git a/Makefile b/Makefile
  AFLAGS          := -D__ASSEMBLY__
  
  # Read KERNELRELEASE from include/config/kernel.release (if it exists)
-@@ -412,7 +415,11 @@ ifeq ($(config-targets),1)
+@@ -336,8 +339,11 @@ export MODVERDIR := $(if $(KBUILD_EXTMOD
+ 
+ # Files to ignore in find ... statements
+ 
+-RCS_FIND_IGNORE := \( -name SCCS -o -name BitKeeper -o -name .svn -o -name CVS -o -name .pc -o -name .hg -o -name .git \) -prune -o
+-export RCS_TAR_IGNORE := --exclude SCCS --exclude BitKeeper --exclude .svn --exclude CVS --exclude .pc --exclude .hg --exclude .git
++export RCS_FIND_IGNORE := \( -name SCCS -o -name BitKeeper -o -name .svn -o    \
++			  -name CVS -o -name .pc -o -name .hg -o -name .git \) \
++			  -prune -o
++export RCS_TAR_IGNORE := --exclude SCCS --exclude BitKeeper --exclude .svn \
++			  --exclude CVS --exclude .pc --exclude .hg --exclude .git
+ 
+ # ===========================================================================
+ # Rules shared between *config targets and build targets
+@@ -412,7 +418,11 @@ ifeq ($(config-targets),1)
  include $(srctree)/arch/$(ARCH)/Makefile
  export KBUILD_DEFCONFIG
  
@@ -169,7 +199,7 @@ diff --git a/Makefile b/Makefile
  	$(Q)mkdir -p include/linux include/config
  	$(Q)$(MAKE) $(build)=scripts/kconfig $@
  
-@@ -500,6 +507,11 @@ ifdef CONFIG_DEBUG_INFO
+@@ -500,6 +510,11 @@ ifdef CONFIG_DEBUG_INFO
  CFLAGS		+= -g
  endif
  
@@ -181,7 +211,7 @@ diff --git a/Makefile b/Makefile
  # Force gcc to behave correct even for buggy distributions
  CFLAGS          += $(call cc-option, -fno-stack-protector)
  
-@@ -507,11 +519,24 @@ CFLAGS          += $(call cc-option, -fn
+@@ -507,11 +522,24 @@ CFLAGS          += $(call cc-option, -fn
  NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
  CHECKFLAGS     += $(NOSTDINC_FLAGS)
  
@@ -207,7 +237,7 @@ diff --git a/Makefile b/Makefile
  
  # Default kernel image to build when no specific target is given.
  # KBUILD_IMAGE may be overruled on the command line or
-@@ -611,7 +636,7 @@ quiet_cmd_vmlinux__ ?= LD      $@
+@@ -611,7 +639,7 @@ quiet_cmd_vmlinux__ ?= LD      $@
        cmd_vmlinux__ ?= $(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $@ \
        -T $(vmlinux-lds) $(vmlinux-init)                          \
        --start-group $(vmlinux-main) --end-group                  \
@@ -216,7 +246,7 @@ diff --git a/Makefile b/Makefile
  
  # Generate new vmlinux version
  quiet_cmd_vmlinux_version = GEN     .version
-@@ -735,15 +760,37 @@ debug_kallsyms: .tmp_map$(last_kallsyms)
+@@ -735,15 +763,37 @@ debug_kallsyms: .tmp_map$(last_kallsyms)
  
  endif # ifdef CONFIG_KALLSYMS
  
@@ -256,15 +286,128 @@ diff --git a/Makefile b/Makefile
  # The actual objects are generated when descending, 
  # make sure no implicit rule kicks in
  $(sort $(vmlinux-init) $(vmlinux-main)) $(vmlinux-lds): $(vmlinux-dirs) ;
-@@ -1314,6 +1361,7 @@ define xtags
- 	if $1 --version 2>&1 | grep -iq exuberant; then \
- 	    $(all-sources) | xargs $1 -a \
- 		-I __initdata,__exitdata,__acquires,__releases \
-+		-I __read_mostly,____cacheline_aligned,____cacheline_aligned_in_smp,____cacheline_internodealigned_in_smp \
- 		-I EXPORT_SYMBOL,EXPORT_SYMBOL_GPL \
- 		--extra=+f --c-kinds=+px \
- 		--regex-asm='/ENTRY\(([^)]*)\).*/\1/'; \
-@@ -1440,7 +1488,10 @@ endif
+@@ -1254,117 +1304,12 @@ endif # KBUILD_EXTMOD
+ 
+ # Generate tags for editors
+ # ---------------------------------------------------------------------------
++quiet_cmd_tags = GEN     $@
++      cmd_tags = $(CONFIG_SHELL) $(srctree)/scripts/tags.sh $@
+ 
+-#We want __srctree to totally vanish out when KBUILD_OUTPUT is not set
+-#(which is the most common case IMHO) to avoid unneeded clutter in the big tags file.
+-#Adding $(srctree) adds about 20M on i386 to the size of the output file!
+-
+-ifeq ($(src),$(obj))
+-__srctree =
+-else
+-__srctree = $(srctree)/
+-endif
+-
+-ifeq ($(ALLSOURCE_ARCHS),)
+-ifeq ($(ARCH),um)
+-ALLINCLUDE_ARCHS := $(ARCH) $(SUBARCH)
+-else
+-ALLINCLUDE_ARCHS := $(ARCH)
+-endif
+-else
+-#Allow user to specify only ALLSOURCE_PATHS on the command line, keeping existing behavour.
+-ALLINCLUDE_ARCHS := $(ALLSOURCE_ARCHS)
+-endif
+-
+-ALLSOURCE_ARCHS := $(ARCH)
+-
+-define find-sources
+-        ( for ARCH in $(ALLSOURCE_ARCHS) ; do \
+-	       find $(__srctree)arch/$${ARCH} $(RCS_FIND_IGNORE) \
+-	            -name $1 -print; \
+-	  done ; \
+-	  find $(__srctree)security/selinux/include $(RCS_FIND_IGNORE) \
+-	       -name $1 -print; \
+-	  find $(__srctree)include $(RCS_FIND_IGNORE) \
+-	       \( -name config -o -name 'asm-*' \) -prune \
+-	       -o -name $1 -print; \
+-	  for ARCH in $(ALLINCLUDE_ARCHS) ; do \
+-	       find $(__srctree)include/asm-$${ARCH} $(RCS_FIND_IGNORE) \
+-	            -name $1 -print; \
+-	  done ; \
+-	  find $(__srctree)include/asm-generic $(RCS_FIND_IGNORE) \
+-	       -name $1 -print; \
+-	  find $(__srctree) $(RCS_FIND_IGNORE) \
+-	       \( -name include -o -name arch \) -prune -o \
+-	       -name $1 -print; \
+-	  )
+-endef
+-
+-define all-sources
+-	$(call find-sources,'*.[chS]')
+-endef
+-define all-kconfigs
+-	$(call find-sources,'Kconfig*')
+-endef
+-define all-defconfigs
+-	$(call find-sources,'defconfig')
+-endef
+-
+-define xtags
+-	if $1 --version 2>&1 | grep -iq exuberant; then \
+-	    $(all-sources) | xargs $1 -a \
+-		-I __initdata,__exitdata,__acquires,__releases \
+-		-I EXPORT_SYMBOL,EXPORT_SYMBOL_GPL \
+-		--extra=+f --c-kinds=+px \
+-		--regex-asm='/ENTRY\(([^)]*)\).*/\1/'; \
+-	    $(all-kconfigs) | xargs $1 -a \
+-		--langdef=kconfig \
+-		--language-force=kconfig \
+-		--regex-kconfig='/^[[:blank:]]*config[[:blank:]]+([[:alnum:]_]+)/\1/'; \
+-	    $(all-defconfigs) | xargs -r $1 -a \
+-		--langdef=dotconfig \
+-		--language-force=dotconfig \
+-		--regex-dotconfig='/^#?[[:blank:]]*(CONFIG_[[:alnum:]_]+)/\1/'; \
+-	elif $1 --version 2>&1 | grep -iq emacs; then \
+-	    $(all-sources) | xargs $1 -a; \
+-	    $(all-kconfigs) | xargs $1 -a \
+-		--regex='/^[ \t]*config[ \t]+\([a-zA-Z0-9_]+\)/\1/'; \
+-	    $(all-defconfigs) | xargs -r $1 -a \
+-		--regex='/^#?[ \t]?\(CONFIG_[a-zA-Z0-9_]+\)/\1/'; \
+-	else \
+-	    $(all-sources) | xargs $1 -a; \
+-	fi
+-endef
+-
+-quiet_cmd_cscope-file = FILELST cscope.files
+-      cmd_cscope-file = (echo \-k; echo \-q; $(all-sources)) > cscope.files
+-
+-quiet_cmd_cscope = MAKE    cscope.out
+-      cmd_cscope = cscope -b
+-
+-cscope: FORCE
+-	$(call cmd,cscope-file)
+-	$(call cmd,cscope)
+-
+-quiet_cmd_TAGS = MAKE   $@
+-define cmd_TAGS
+-	rm -f $@; \
+-	$(call xtags,etags)
+-endef
+-
+-TAGS: FORCE
+-	$(call cmd,TAGS)
+-
+-quiet_cmd_tags = MAKE   $@
+-define cmd_tags
+-	rm -f $@; \
+-	$(call xtags,ctags)
+-endef
+-
+-tags: FORCE
++tags TAGS cscope: FORCE
+ 	$(call cmd,tags)
+ 
+-
+ # Scripts to check various things for consistency
+ # ---------------------------------------------------------------------------
+ 
+@@ -1440,7 +1385,10 @@ endif
  	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
  
  # Modules
@@ -915,6 +1058,28 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
  
  	/* Leave last one: it's the terminator. */
  	size -= id_size;
+@@ -206,6 +206,21 @@ static void do_usb_table(void *symval, unsigned long size,
+ 		do_usb_entry_multi(symval + i, mod);
+ }
+ 
++/* Looks like: hid:bNvNpN */
++static int do_hid_entry(const char *filename,
++			     struct hid_device_id *id, char *alias)
++{
++	id->bus = TO_NATIVE(id->bus);
++	id->vendor = TO_NATIVE(id->vendor);
++	id->product = TO_NATIVE(id->product);
++
++	sprintf(alias, "hid:b%04X", id->bus);
++	ADD(alias, "v", id->vendor != HID_ANY_ID, id->vendor);
++	ADD(alias, "p", id->product != HID_ANY_ID, id->product);
++
++	return 1;
++}
++
+ /* Looks like: ieee1394:venNmoNspNverN */
+ static int do_ieee1394_entry(const char *filename,
+ 			     struct ieee1394_device_id *id, char *alias)
 @@ -497,7 +519,7 @@ static void do_table(void *symval, unsig
  	char alias[500];
  	int (*do_entry)(const char *, void *entry, char *alias) = function;
@@ -949,6 +1114,17 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
  
  	if (sym_is(symname, "__mod_pci_device_table"))
  		do_table(symval, sym->st_size,
+@@ -745,6 +759,10 @@ void handle_moddevtable(struct module *mod, struct elf_info *info,
+ 	else if (sym_is(symname, "__mod_usb_device_table"))
+ 		/* special case to handle bcdDevice ranges */
+ 		do_usb_table(symval, sym->st_size, mod);
++	else if (sym_is(symname, "__mod_hid_device_table"))
++		do_table(symval, sym->st_size,
++			 sizeof(struct hid_device_id), "hid",
++			 do_hid_entry, mod);
+ 	else if (sym_is(symname, "__mod_ieee1394_device_table"))
+ 		do_table(symval, sym->st_size,
+ 			 sizeof(struct ieee1394_device_id), "ieee1394",
 @@ -587,6 +616,7 @@ void handle_moddevtable(struct module *m
  		do_table(symval, sym->st_size,
  			 sizeof(struct parisc_device_id), "parisc",
@@ -2478,4 +2654,188 @@ diff --git a/scripts/mod/sumversion.c b/scripts/mod/sumversion.c
  			goto release;
  	}
  
+diff --git a/scripts/tags.sh b/scripts/tags.sh
+new file mode 100755
+--- /dev/null
++++ b/scripts/tags.sh
+@@ -0,0 +1,179 @@
++#!/bin/sh
++# Generate tags or cscope files
++# Usage tags.sh <mode>
++#
++# mode may be any of: tags, TAGS, cscope
++#
++# Uses the following environment variables:
++# ARCH, SUBARCH, srctree, src, obj
++
++if [ "$KBUILD_VERBOSE" = "1" ]; then
++	set -x
++fi
++
++# RCS_FIND_IGNORE has escaped ()s -- remove them.
++ignore="$(echo "$RCS_FIND_IGNORE" | sed 's|\\||g' )"
++# tags and cscope files should also ignore MODVERSION *.mod.c files
++ignore="$ignore ( -name *.mod.c ) -prune -o"
++
++# Do not use full path is we do not use O=.. builds
++if [ "${KBUILD_SRC}" = "" ]; then
++	tree=
++else
++	tree=${srctree}/
++fi
++
++# Detect if ALLSOURCE_ARCHS is set. If not, we assume ARCH
++if [ "${ALLSOURCE_ARCHS}" = "" ]; then
++	ALLSOURCE_ARCHS=${ARCH}
++fi
++
++# find sources in arch/$ARCH
++find_arch_sources()
++{
++	for i in $archincludedir; do
++		prune="$prune -wholename $i -prune -o"
++	done
++	find ${tree}arch/$1 $ignore $prune -name "$2" -print;
++}
++
++# find sources in arch/$1/include
++find_arch_include_sources()
++{
++	include=$(find ${tree}arch/$1/ -name include -type d);
++	if [ -n "$include" ]; then
++		archincludedir="$archincludedir $include"
++		find $include $ignore -name "$2" -print;
++	fi
++}
++
++# find sources in include/
++find_include_sources()
++{
++	find ${tree}include $ignore -name config -prune -o -name "$1" -print;
++}
++
++# find sources in rest of tree
++# we could benefit from a list of dirs to search in here
++find_other_sources()
++{
++	find ${tree}* $ignore \
++	     \( -name include -o -name arch -o -name '.tmp_*' \) -prune -o \
++	       -name "$1" -print;
++}
++
++find_sources()
++{
++	find_arch_sources $1 "$2"
++}
++
++all_sources()
++{
++	find_arch_include_sources ${ARCH} '*.[chS]'
++	if [ ! -z "$archinclude" ]; then
++		find_arch_include_sources $archinclude '*.[chS]'
++	fi
++	find_include_sources '*.[chS]'
++	for arch in $ALLSOURCE_ARCHS
++	do
++		find_sources $arch '*.[chS]'
++	done
++	find_other_sources '*.[chS]'
++}
++
++all_kconfigs()
++{
++	for arch in $ALLSOURCE_ARCHS; do
++		find_sources $arch 'Kconfig*'
++	done
++	find_other_sources 'Kconfig*'
++}
++
++all_defconfigs()
++{
++	find_sources $ALLSOURCE_ARCHS "defconfig"
++}
++
++docscope()
++{
++	(echo \-k; echo \-q; all_sources) > cscope.files
++	cscope -b -f cscope.out
++}
++
++exuberant()
++{
++	all_sources | xargs $1 -a                               \
++	-I __initdata,__exitdata,__acquires,__releases          \
++	-I __read_mostly,____cacheline_aligned                  \
++	-I ____cacheline_aligned_in_smp                         \
++	-I ____cacheline_internodealigned_in_smp                \
++	-I EXPORT_SYMBOL,EXPORT_SYMBOL_GPL                      \
++	--extra=+f --c-kinds=+px                                \
++	--regex-asm='/^ENTRY\(([^)]*)\).*/\1/'
++
++	all_kconfigs | xargs $1 -a                              \
++	--langdef=kconfig --language-force=kconfig              \
++	--regex-kconfig='/^[[:blank:]]*(menu|)config[[:blank:]]+([[:alnum:]_]+)/\2/'
++
++	all_kconfigs | xargs $1 -a                              \
++	--langdef=kconfig --language-force=kconfig              \
++	--regex-kconfig='/^[[:blank:]]*(menu|)config[[:blank:]]+([[:alnum:]_]+)/CONFIG_\2/'
++
++	all_defconfigs | xargs -r $1 -a                         \
++	--langdef=dotconfig --language-force=dotconfig          \
++	--regex-dotconfig='/^#?[[:blank:]]*(CONFIG_[[:alnum:]_]+)/\1/'
++
++}
++
++emacs()
++{
++	all_sources | xargs $1 -a
++
++	all_kconfigs | xargs $1 -a                              \
++	--regex='/^[ \t]*\(\(menu\)*config\)[ \t]+\([a-zA-Z0-9_]+\)/\3/'
++
++	all_kconfigs | xargs $1 -a                              \
++	--regex='/^[ \t]*\(\(menu\)*config\)[ \t]+\([a-zA-Z0-9_]+\)/CONFIG_\3/'
++
++	all_defconfigs | xargs -r $1 -a                         \
++	--regex='/^#?[ \t]?\(CONFIG_[a-zA-Z0-9_]+\)/\1/'
++}
++
++xtags()
++{
++	if $1 --version 2>&1 | grep -iq exuberant; then
++		exuberant $1
++	elif $1 --version 2>&1 | grep -iq emacs; then
++		emacs $1
++	else
++		all_sources | xargs $1 -a
++        fi
++}
++
++
++# Support um (which uses SUBARCH)
++if [ "${ARCH}" = "um" ]; then
++	if [ "$SUBARCH" = "i386" ]; then
++		archinclude=x86
++	elif [ "$SUBARCH" = "x86_64" ]; then
++		archinclude=x86
++	else
++		archinclude=${SUBARCH}
++	fi
++fi
++
++case "$1" in
++	"cscope")
++		docscope
++		;;
++
++	"tags")
++		rm -f tags
++		xtags ctags
++		;;
++
++	"TAGS")
++		rm -f TAGS
++		xtags etags
++		;;
++esac
 -- 
