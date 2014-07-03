@@ -1,0 +1,55 @@
+Force disable unused subparts
+
+diff --git a/drivers/video/Makefile b/drivers/video/Makefile
+--- a/drivers/video/Makefile
++++ b/drivers/video/Makefile
+@@ -5,7 +5,9 @@
+ # Each configuration option enables a list of files.
+ 
+ obj-$(CONFIG_VGASTATE)            += vgastate.o
++ifneq ($(CONFIG_FRAMEBUFFER_CONSOLE)$(BACKLIGHT_LCD_SUPPORT),)
+ obj-y                             += fb_notify.o
++endif
+ obj-$(CONFIG_FB)                  += fb.o
+ fb-y                              := fbmem.o fbmon.o fbcmap.o fbsysfs.o \
+                                      modedb.o fbcvt.o
+@@ -13,7 +15,8 @@
+ 
+ obj-$(CONFIG_VT)		  += console/
+ obj-$(CONFIG_LOGO)		  += logo/
+-obj-y				  += backlight/ display/
++obj-$(CONFIG_BACKLIGHT_LCD_SUPPORT) += backlight/
++obj-$(CONFIG_DISPLAY_SUPPORT)	  += display/
+ 
+ obj-$(CONFIG_FB_CFB_FILLRECT)  += cfbfillrect.o
+ obj-$(CONFIG_FB_CFB_COPYAREA)  += cfbcopyarea.o
+diff --git a/net/ethernet/Makefile b/net/ethernet/Makefile
+--- a/net/ethernet/Makefile
++++ b/net/ethernet/Makefile
+@@ -4,4 +4,3 @@
+ 
+ obj-y					+= eth.o
+ obj-$(subst m,y,$(CONFIG_IPX))		+= pe2.o
+-obj-$(subst m,y,$(CONFIG_ATALK))	+= pe2.o
+diff --git a/sound/Makefile b/sound/Makefile
+--- a/sound/Makefile
++++ b/sound/Makefile
+@@ -5,7 +5,17 @@
+ obj-$(CONFIG_SOUND_PRIME) += sound_firmware.o
+ obj-$(CONFIG_SOUND_PRIME) += oss/
+ obj-$(CONFIG_DMASOUND) += oss/
+-obj-$(CONFIG_SND) += core/ i2c/ drivers/ isa/ pci/ ppc/ arm/ synth/ usb/ sparc/ parisc/ pcmcia/ mips/ soc/
++obj-$(CONFIG_SND) += core/ i2c/ drivers/ synth/ usb/ soc/
++ifneq ($(CONFIG_SND),)
++  obj-$(CONFIG_ISA)	 += isa/
++  obj-$(CONFIG_PCI)	 += pci/
++  obj-$(CONFIG_PCCARD)	 += pcmcia/
++  obj-$(CONFIG_ARM)	 += arm/
++  obj-$(CONFIG_MIPS)	 += mips/
++  obj-$(CONFIG_PARISC)	 += parisc/
++  obj-$(CONFIG_PPC)	 += ppc/
++  obj-$(CONFIG_SPARC)	 += sparc/
++endif
+ obj-$(CONFIG_SND_AOA) += aoa/
+ 
+ # This one must be compilable even if sound is configured out
