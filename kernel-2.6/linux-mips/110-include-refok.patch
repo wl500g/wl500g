@@ -17,8 +17,19 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 diff --git a/include/linux/init.h b/include/linux/init.h
 --- a/include/linux/init.h
 +++ b/include/linux/init.h
-@@ -67,8 +67,10 @@
+@@ -59,15 +59,19 @@
+ #define __initdata_refok          __attribute__ ((__section__ (".data.init.refok")))
  
+ #ifdef MODULE
+-#define __exit		__attribute__ ((__section__(".exit.text")))
++#define __exitused
+ #else
+-#define __exit		__attribute_used__ __attribute__ ((__section__(".exit.text")))
++#define __exitused  __used
+ #endif
+ 
++#define __exit          __attribute__ ((__section__(".exit.text"))) __exitused __cold
++
  /* For assembly routines */
  #define __INIT		.section	".init.text","ax"
 +#define __INIT_REFOK	.section	".text.init.refok","ax"
@@ -29,5 +40,3 @@ diff --git a/include/linux/init.h b/include/linux/init.h
  #ifndef __ASSEMBLY__
  /*
 -- 
-1.7.1
-
