@@ -1,7 +1,7 @@
 diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol2tp.c
 --- linux-2.6.22.orig/drivers/net/pppol2tp.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux-2.6/drivers/net/pppol2tp.c	2013-06-18 11:01:09.383960635 +0000
-@@ -0,0 +1,2719 @@
+@@ -0,0 +1,2716 @@
 +/*****************************************************************************
 + * Linux PPP over L2TP (PPPoX/PPPoL2TP) Sockets
 + *
@@ -114,16 +114,12 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +
 +/* Pre 2.6.22 kernels compatibility */
 +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-+#define udp_hdr(skb) (struct udphdr *) (skb)->h.raw
-+#define skb_network_header(skb) skb->nh.raw
-+#define skb_transport_header(skb) skb->h.raw
-+#define skb_reset_network_header(skb) (skb)->nh.raw = (skb)->data
-+#define skb_reset_transport_header(skb) (skb)->h.raw = (skb)->data
++#define udp_hdr(skb)			(struct udphdr *) (skb)->h.raw
++#define skb_network_header(skb)		skb->nh.raw
++#define skb_transport_header(skb)	skb->h.raw
++#define skb_reset_network_header(skb)	(skb)->nh.raw = (skb)->data
++#define skb_reset_transport_header(skb)	(skb)->h.raw = (skb)->data
 +#endif
-+
-+/* Timeouts are specified in milliseconds to/from userspace */
-+#define JIFFIES_TO_MS(t) ((t) * 1000 / HZ)
-+#define MS_TO_JIFFIES(j) ((j * HZ) / 1000)
 +
 +/* L2TP header constants */
 +#define L2TP_HDRFLAG_T	   0x8000
@@ -134,6 +130,13 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +
 +#define L2TP_HDR_VER_MASK  0x000F
 +#define L2TP_HDR_VER	   0x0002
++
++/* Number of bytes to build transmit L2TP headers.
++ * Unfortunately the size is different depending on whether sequence numbers
++ * are enabled.
++ */
++#define PPPOL2TP_L2TP_HDR_SIZE_SEQ		12
++#define PPPOL2TP_L2TP_HDR_SIZE_NOSEQ		8
 +
 +/* Space for IP, UDP, L2TP and PPP headers */
 +#define PPPOL2TP_HEADER_OVERHEAD	40
@@ -183,13 +186,6 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +#define ENTER_FUNCTION	 do { } while(0)
 +#define EXIT_FUNCTION	 do { } while(0)
 +#endif
-+
-+/* Number of bytes to build transmit L2TP headers.
-+ * Unfortunately the size is different depending on whether sequence numbers
-+ * are enabled.
-+ */
-+#define PPPOL2TP_L2TP_HDR_SIZE_SEQ		12
-+#define PPPOL2TP_L2TP_HDR_SIZE_NOSEQ		8
 +
 +struct pppol2tp_tunnel;
 +
@@ -365,7 +361,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +	spin_lock(&session->reorder_q.lock);
 +	skb_queue_walk_safe(&session->reorder_q, skbp, tmp) {
 +		if (PPPOL2TP_SKB_CB(skbp)->ns > ns) {
-+			__skb_insert(skb, skbp->prev, skbp, &session->reorder_q);
++			__skb_queue_before(&session->reorder_q, skbp, skb);
 +			PRINTK(session->debug, PPPOL2TP_MSG_SEQ, KERN_DEBUG,
 +			       "%s: pkt %hu, inserted before %hu, reorder_q len=%d\n",
 +			       session->name, ns, PPPOL2TP_SKB_CB(skbp)->ns,
@@ -1719,7 +1715,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +
 +/* connect() handler..	Attach a PPPoX socket to a tunnel UDP socket
 + */
-+int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
++static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
 +		     int sockaddr_len, int flags)
 +{
 +	struct sock *sk = sock->sk;
@@ -1729,7 +1725,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +	struct pppol2tp_session *session = NULL;
 +	struct pppol2tp_tunnel *tunnel;
 +	struct dst_entry *dst;
-+	int error = 0;
++	int error = -EINVAL;
 +
 +	ENTER_FUNCTION;
 +
@@ -1738,21 +1734,22 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +		ntohl(sp->pppol2tp.addr.sin_addr.s_addr), ntohs(sp->pppol2tp.addr.sin_port));
 +	lock_sock(sk);
 +
-+	error = -EINVAL;
 +	if (sp->sa_protocol != PX_PROTO_OL2TP)
 +		goto end;
 +
 +	/* Check for already bound sockets */
-+	error = -EBUSY;
-+	if (sk->sk_state & PPPOX_CONNECTED)
++	if (sk->sk_state & PPPOX_CONNECTED) {
++		error = -EBUSY;
 +		goto end;
++	}
 +
 +	/* We don't supporting rebinding anyway */
-+	if (sk->sk_user_data)
++	if (sk->sk_user_data) {
++		error = -EALREADY;
 +		goto end; /* socket is already attached */
++	}
 +
 +	/* Don't bind if s_tunnel is 0 */
-+	error = -EINVAL;
 +	if (sp->pppol2tp.s_tunnel == 0)
 +		goto end;
 +
@@ -2247,7 +2244,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +		break;
 +
 +	case PPPOL2TP_SO_REORDERTO:
-+		session->reorder_timeout = MS_TO_JIFFIES(val);
++		session->reorder_timeout = msecs_to_jiffies(val);
 +		PRINTK(session->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
 +		       "%s: set reorder_timeout=%d\n", session->name,
 +		       session->reorder_timeout);
@@ -2286,7 +2283,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +
 +	if (sk->sk_user_data == NULL) {
 +		err = -ENOTCONN;
-+		DPRINTK(-1, "setsockopt: socket %p not connected.\n", sk);
++		DPRINTK(-1, "socket %p not connected.\n", sk);
 +		goto end;
 +	}
 +
@@ -2365,7 +2362,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +		break;
 +
 +	case PPPOL2TP_SO_REORDERTO:
-+		*val = JIFFIES_TO_MS(session->reorder_timeout);
++		*val = jiffies_to_msecs(session->reorder_timeout);
 +		PRINTK(session->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
 +		       "%s: get reorder_timeout=%d\n", session->name, *val);
 +		break;
@@ -2404,7 +2401,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +
 +	if (sk->sk_user_data == NULL) {
 +		err = -ENOTCONN;
-+		DPRINTK(-1, "getsockopt: socket %p not connected.\n", sk);
++		DPRINTK(-1, "socket %p not connected.\n", sk);
 +		goto end;
 +	}
 +
@@ -2613,7 +2610,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +				   session->send_seq ? 'S' : '-',
 +				   session->lns_mode ? "LNS" : "LAC",
 +				   session->debug,
-+				   JIFFIES_TO_MS(session->reorder_timeout));
++				   jiffies_to_msecs(session->reorder_timeout));
 +			seq_printf(m, "   %hu/%hu %llu/%llu/%llu %llu/%llu/%llu\n",
 +				   session->nr, session->ns,
 +				   session->stats.tx_packets,
