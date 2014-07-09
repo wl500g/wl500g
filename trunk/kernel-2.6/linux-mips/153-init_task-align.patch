@@ -3,12 +3,17 @@ MIPS: Properly align the .data..init_task section.
  99502d94c3649c5c5e6e81e323caf422a2f1591c MIPS: make page.h constants available to assembly.
  a0b54e256d513ed99e456bea6e4e188ff92e7c46 MIPS: Use PAGE_SIZE in assembly instead of _PAGE_SIZE.
  7b1c0d26a8e272787f0f9fcc5f3e8531df3b3409 MIPS: Properly align the .data..init_task section.
+ 01ba2bdc6b639764745ff678caf3fb9e5bcd745a MIPS: consolidate init and exit sections in vmlinux.lds.h
+ 37c514e3dfc8f55145d9c6895e2838ac31859aa4 Add missing init section definitions
+ fd6c3a8dc44329d3aff9a578b5120982f63711ee initconst adjustments
 
 ---
- arch/mips/kernel/vmlinux.lds.S |   16 +++++++++-------
- include/asm-mips/page.h        |    3 ++-
- include/asm-mips/thread_info.h |    4 ++--
- 3 files changed, 13 insertions(+), 10 deletions(-)
+ arch/mips/kernel/vmlinux.lds.S    |   31 ++++++++++++++++++++-----------
+ include/asm-generic/vmlinux.lds.h |   13 +++++++++++++
+ include/asm-mips/page.h           |    3 ++-
+ include/asm-mips/thread_info.h    |    4 ++--
+ include/linux/init.h              |    5 ++++-
+ 5 files changed, 41 insertions(+), 15 deletions(-)
 
 diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
 --- a/arch/mips/kernel/vmlinux.lds.S
@@ -42,7 +47,7 @@ diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
    __nosave_end = .;
  
    . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
-@@ -100,7 +102,7 @@ SECTIONS
+@@ -100,14 +102,17 @@ SECTIONS
    _edata =  .;			/* End of data section */
  
    /* will be freed after init */
@@ -51,9 +56,30 @@ diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
    __init_begin = .;
    .init.text : {
  	_sinittext = .;
-@@ -128,16 +130,16 @@ SECTIONS
-   .exit.text : { *(.exit.text) }
-   .exit.data : { *(.exit.data) }
+-	*(.init.text)
++	INIT_TEXT
+ 	_einittext = .;
+   }
+-  .init.data : { *(.init.data) }
++  . = ALIGN(16);
++  .init.data : {
++		INIT_DATA
++  }
+   . = ALIGN(16);
+   __setup_start = .;
+   .init.setup : { *(.init.setup) }
+@@ -128,19 +130,23 @@ SECTIONS
+   SECURITY_INIT
+     /* .exit.text is discarded at runtime, not link time, to deal with
+      references from .rodata */
+-  .exit.text : { *(.exit.text) }
+-  .exit.data : { *(.exit.data) }
++	.exit.text : {
++		EXIT_TEXT
++	}
++	.exit.data : {
++		EXIT_DATA
++	}
  #if defined(CONFIG_BLK_DEV_INITRD)
 -  . = ALIGN(_PAGE_SIZE);
 +  . = ALIGN(PAGE_SIZE);
@@ -71,6 +97,36 @@ diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
    __init_end = .;
    /* freed after init ends here */
  
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -132,6 +168,12 @@
+ 		*(__ksymtab_strings)					\
+ 	}								\
+ 									\
++	/* __*init sections */						\
++	__init_rodata : AT(ADDR(__init_rodata) - LOAD_OFFSET) {		\
++		*(.init.rodata)					\
++		*(.exit.rodata)					\
++	}								\
++									\
+ 	/* Built-in module parameters. */				\
+ 	__param : AT(ADDR(__param) - LOAD_OFFSET) {			\
+ 		VMLINUX_SYMBOL(__start___param) = .;			\
+@@ -183,6 +189,13 @@
+ 		*(.kprobes.text)					\
+ 		VMLINUX_SYMBOL(__kprobes_text_end) = .;
+ 
++/* init and exit section handling */
++#define INIT_TEXT *(.init.text)
++#define INIT_DATA *(.init.data)
++#define EXIT_TEXT *(.exit.text)
++#define EXIT_DATA *(.exit.data)
++
++
+ 		/* DWARF debug sections.
+ 		Symbols in the DWARF debugging sections are relative to
+ 		the beginning of the section so we begin them at 0.  */
 diff --git a/include/asm-mips/page.h b/include/asm-mips/page.h
 --- a/include/asm-mips/page.h
 +++ b/include/asm-mips/page.h
@@ -112,4 +168,33 @@ diff --git a/include/asm-mips/thread_info.h b/include/asm-mips/thread_info.h
  #define PREEMPT_ACTIVE		0x10000000
  
  /*
+diff --git a/include/linux/init.h b/include/linux/init.h
+--- a/include/linux/init.h
++++ b/include/linux/init.h
+@@ -42,6 +42,7 @@
+    discard it in modules) */
+ #define __init		__attribute__ ((__section__ (".init.text")))
+ #define __initdata	__attribute__ ((__section__ (".init.data")))
++#define __initconst	__attribute__ ((__section__ (".init.rodata")))
+ #define __exitdata	__attribute__ ((__section__(".exit.data")))
+ #define __exit_call	__attribute_used__ __attribute__ ((__section__ (".exitcall.exit")))
+ 
+@@ -70,6 +70,7 @@
+ #define __INIT_REFOK	.section	".text.init.refok","ax"
+ #define __FINIT		.previous
+ #define __INITDATA	.section	".init.data","aw"
++#define __INITRODATA	.section	".init.data","a"
+ #define __INITDATA_REFOK .section	".data.init.refok","aw"
+ 
+ #ifndef __ASSEMBLY__
+@@ -162,7 +162,8 @@ struct obs_kernel_param {
+  * obs_kernel_param "array" too far apart in .init.setup.
+  */
+ #define __setup_param(str, unique_id, fn, early)			\
+-	static char __setup_str_##unique_id[] __initdata = str;	\
++	static const char __setup_str_##unique_id[] __initconst	\
++		__aligned(1) = str; \
+ 	static struct obs_kernel_param __setup_##unique_id	\
+ 		__attribute_used__				\
+ 		__attribute__((__section__(".init.setup")))	\
 -- 

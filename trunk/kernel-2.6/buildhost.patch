@@ -1490,7 +1490,7 @@ diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
 +
 +
 +
-+#define INIT_DATA_SECTIONS ".init.data$"
++#define INIT_DATA_SECTIONS ".init.data$", ".init.setup$", ".init.rodata$"
 +#define EXIT_DATA_SECTIONS ".exit.data$"
 +
 +#define INIT_TEXT_SECTIONS ".init.text$"
