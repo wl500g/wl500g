@@ -174,8 +174,8 @@ diff --git a/include/net/ipv6.h b/include/net/ipv6.h
  #define ICMP6_INC_STATS(idev, field)		({			\
  	struct inet6_dev *_idev = (idev);				\
 @@ -246,8 +252,8 @@ struct ipv6_txoptions *ipv6_fixup_option
- 
- extern int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb);
+ 	    idev->cnf.accept_ra;
+ }
  
 -extern int ip6_frag_nqueues;
 -extern atomic_t ip6_frag_mem;
