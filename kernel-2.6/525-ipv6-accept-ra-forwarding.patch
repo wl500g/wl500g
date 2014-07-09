@@ -1,63 +1,351 @@
 Accept RA and send RS while configured as router
 
  kernel.org commits
+ f3ee4010e84452aa133e5163e6cfabc52b194e94 [IPV6]: Define constants for link-local multicast addresses.
  65e9b62d4503849b10bedfc29bff0473760cc597 ipv6: add special mode accept_ra=2 to accept RA while configured as router
  c3bccac2fa76f1619dfe4fb7b9bee69de7f066d8 ipv6: add special mode forwarding=2 to send RS while configured as router
  9f56220fad0d13f8b0ebe7592f41fdb49874d143 ipv6: Do not use routes from locally generated RAs
  3e8b0ac3e41e3c882222a5522d5df7212438ab51 ipv6: Don't purge default router if accept_ra=2
+ ae8abfa00efb8ec550f772cbd1e1854977d06212 ipv6: Update ip-sysctl.txt documentation for recent changes to accept_ra and forwarding
+ 026359bc6eddfdc2d2e684bf0b51691649b90f33 ipv6: Send ICMPv6 RSes only when RAs are accepted
+ d6ddef9e641d1229d4ec841dc75ae703171c3e92 IPv6: Fix not join all-router mcast group when forwarding set.
+ 8b2aaedee4eaa94e816144ed54b9707b96be29f8 ipv6: Fix Smatch warning.
+ aeaf6e9d2f49d793d3eb8c1af4095cf25e061b94 ipv6: unify logic evaluating inet6_dev's accept_ra property
+ 9ba2add3cf5c103b7236f82a023c8ee05a51e4d1 ipv6: Make 'addrconf_rs_timer' send Router Solicitations (and re-arm itself) if Router Advertisements are accepted
 
 ---
- net/ipv6/addrconf.c |    3 ++-
- net/ipv6/ndisc.c    |   26 ++++++++++++++++++++++----
- net/ipv6/route.c    |    3 ++-
- 3 files changed, 26 insertions(+), 6 deletions(-)
+ Documentation/networking/ip-sysctl.txt |   30 ++++++++++++++++++++------
+ include/linux/in6.h                    |    8 +++++++
+ include/net/addrconf.h                 |   15 -------------
+ include/net/ipv6.h                     |    9 ++++++++
+ net/ipv6/addrconf.c                    |   37 +++++++++++++--------------------
+ net/ipv6/mcast.c                       |   23 +++++++-------------
+ net/ipv6/ndisc.c                       |   19 +++++++++-------
+ net/ipv6/route.c                       |    3 +-
+ 8 files changed, 76 insertions(+), 68 deletions(-)
 
-diff -BurpN linux.orig/net/ipv6/addrconf.c linux/net/ipv6/addrconf.c
---- linux.orig/net/ipv6/addrconf.c	2010-11-18 00:00:00.000000000 +0000
-+++ linux/net/ipv6/addrconf.c	2010-11-20 15:56:16.750291000 +0000
-@@ -2733,7 +2733,8 @@ static void addrconf_dad_completed(struc
- 	   start sending router solicitations.
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -850,6 +850,17 @@ conf/interface/*:
+ accept_ra - BOOLEAN
+ 	Accept Router Advertisements; autoconfigure using them.
+ 	
++	It also determines whether or not to transmit Router
++	Solicitations. If and only if the functional setting is to
++	accept Router Advertisements, Router Solicitations will be
++	transmitted.
++
++	Possible values are:
++		0 Do not accept Router Advertisements.
++		1 Accept Router Advertisements if forwarding is disabled.
++		2 Overrule forwarding behaviour. Accept Router Advertisements
++		  even if forwarding is enabled.
++
+ 	Functional default: enabled if local forwarding is disabled.
+ 			    disabled if local forwarding is enabled.
+ 
+@@ -912,28 +923,33 @@ forwarding - BOOLEAN
+ 	Note: It is recommended to have the same setting on all 
+ 	interfaces; mixed router/host scenarios are rather uncommon.
+ 
+-	FALSE:
++	Possible values are:
++		0 Forwarding disabled
++		1 Forwarding enabled
++
++	FALSE (0):
+ 
+ 	By default, Host behaviour is assumed.  This means:
+ 
+ 	1. IsRouter flag is not set in Neighbour Advertisements.
+-	2. Router Solicitations are being sent when necessary.
++	2. If accept_ra is TRUE (default), transmit Router
++	   Solicitations.
+ 	3. If accept_ra is TRUE (default), accept Router 
+ 	   Advertisements (and do autoconfiguration).
+ 	4. If accept_redirects is TRUE (default), accept Redirects.
+ 
+-	TRUE:
++	TRUE (1):
+ 
+ 	If local forwarding is enabled, Router behaviour is assumed. 
+ 	This means exactly the reverse from the above:
+ 
+ 	1. IsRouter flag is set in Neighbour Advertisements.
+-	2. Router Solicitations are not sent.
+-	3. Router Advertisements are ignored.
++	2. Router Solicitations are not sent unless accept_ra is 2.
++	3. Router Advertisements are ignored unless accept_ra is 2.
+ 	4. Redirects are ignored.
+ 
+-	Default: FALSE if global forwarding is disabled (default),
+-		 otherwise TRUE.
++	Default: 0 (disabled) if global forwarding is disabled (default),
++		 otherwise 1 (enabled).
+ 
+ hop_limit - INTEGER
+ 	Default Hop Limit to set.
+diff --git a/include/linux/in6.h b/include/linux/in6.h
+--- a/include/linux/in6.h
++++ b/include/linux/in6.h
+@@ -48,6 +48,14 @@ extern const struct in6_addr in6addr_any;
+ #define IN6ADDR_ANY_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } }
+ extern const struct in6_addr in6addr_loopback;
+ #define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
++#ifdef __KERNEL__
++extern const struct in6_addr in6addr_linklocal_allnodes;
++#define IN6ADDR_LINKLOCAL_ALLNODES_INIT	\
++		{ { { 0xff,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
++extern const struct in6_addr in6addr_linklocal_allrouters;
++#define IN6ADDR_LINKLOCAL_ALLROUTERS_INIT \
++		{ { { 0xff,2,0,0,0,0,0,0,0,0,0,0,0,0,0,2 } } }
++#endif
+ 
+ struct sockaddr_in6 {
+ 	unsigned short int	sin6_family;    /* AF_INET6 */
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -205,21 +205,6 @@ static inline void addrconf_addr_solict_mult(const struct in6_addr *addr,
+ 		      htonl(0xFF000000) | addr->s6_addr32[3]);
+ }
+ 
+-
+-static inline void ipv6_addr_all_nodes(struct in6_addr *addr)
+-{
+-	ipv6_addr_set(addr,
+-		      __constant_htonl(0xFF020000), 0, 0,
+-		      __constant_htonl(0x1));
+-}
+-
+-static inline void ipv6_addr_all_routers(struct in6_addr *addr)
+-{
+-	ipv6_addr_set(addr,
+-		      __constant_htonl(0xFF020000), 0, 0,
+-		      __constant_htonl(0x2));
+-}
+-
+ static inline int ipv6_addr_is_multicast(const struct in6_addr *addr)
+ {
+ 	return (addr->s6_addr32[0] & htonl(0xFF000000)) == htonl(0xFF000000);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -271,6 +271,15 @@ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
+ 
+ extern int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb);
+ 
++static inline bool ipv6_accept_ra(struct inet6_dev *idev)
++{
++	/* If forwarding is enabled, RA are not accepted unless the special
++	 * hybrid mode (accept_ra=2) is enabled.
++	 */
++	return idev->cnf.forwarding ? idev->cnf.accept_ra == 2 :
++	    idev->cnf.accept_ra;
++}
++
+ extern int ip6_frag_nqueues;
+ extern atomic_t ip6_frag_mem;
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -219,6 +219,8 @@ static struct ipv6_devconf ipv6_devconf_
+ /* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
+ const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
+ const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
++const struct in6_addr in6addr_linklocal_allnodes = IN6ADDR_LINKLOCAL_ALLNODES_INIT;
++const struct in6_addr in6addr_linklocal_allrouters = IN6ADDR_LINKLOCAL_ALLROUTERS_INIT;
+ 
+ /* Check if a valid qdisc is available */
+ static inline int addrconf_qdisc_ok(struct net_device *dev)
+@@ -320,7 +322,6 @@ EXPORT_SYMBOL(in6_dev_finish_destroy);
+ static struct inet6_dev * ipv6_add_dev(struct net_device *dev)
+ {
+ 	struct inet6_dev *ndev;
+-	struct in6_addr maddr;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -403,8 +404,11 @@ static struct inet6_dev * ipv6_add_dev(s
+ 	RCU_INIT_POINTER(dev->ip6_ptr, ndev);
+ 
+ 	/* Join all-node multicast group */
+-	ipv6_addr_all_nodes(&maddr);
+-	ipv6_dev_mc_inc(dev, &maddr);
++	ipv6_dev_mc_inc(dev, &in6addr_linklocal_allnodes);
++
++	/* Join all-router multicast group if forwarding is set */
++	if (ndev->cnf.forwarding && (dev->flags & IFF_MULTICAST))
++		ipv6_dev_mc_inc(dev, &in6addr_linklocal_allrouters);
+ 
+ 	return ndev;
+ }
+@@ -430,18 +434,15 @@ static void dev_forward_change(struct in
+ {
+ 	struct net_device *dev;
+ 	struct inet6_ifaddr *ifa;
+-	struct in6_addr addr;
+ 
+ 	if (!idev)
+ 		return;
+ 	dev = idev->dev;
+ 	if (dev && (dev->flags & IFF_MULTICAST)) {
+-		ipv6_addr_all_routers(&addr);
+-
+ 		if (idev->cnf.forwarding)
+-			ipv6_dev_mc_inc(dev, &addr);
++			ipv6_dev_mc_inc(dev, &in6addr_linklocal_allrouters);
+ 		else
+-			ipv6_dev_mc_dec(dev, &addr);
++			ipv6_dev_mc_dec(dev, &in6addr_linklocal_allrouters);
+ 	}
+ 	for (ifa=idev->addr_list; ifa; ifa=ifa->if_next) {
+ 		if (ifa->flags&IFA_F_TENTATIVE)
+@@ -2698,7 +2699,7 @@ static void addrconf_rs_timer(unsigned l
+ 	if (idev->dead || !(idev->if_flags & IF_READY))
+ 		goto out;
+ 
+-	if (idev->cnf.forwarding)
++	if (!ipv6_accept_ra(idev))
+ 		goto out;
+ 
+ 	/* Announcement received after solicitation was sent */
+@@ -2707,8 +2708,6 @@ static void addrconf_rs_timer(unsigned l
+ 
+ 	spin_lock(&ifp->lock);
+ 	if (ifp->probes++ < idev->cnf.rtr_solicits) {
+-		struct in6_addr all_routers;
+-
+ 		/* The wait after the last probe can be shorter */
+ 		addrconf_mod_timer(ifp, AC_RS,
+ 				   (ifp->probes == idev->cnf.rtr_solicits) ?
+@@ -2716,9 +2715,7 @@ static void addrconf_rs_timer(unsigned l
+ 				   idev->cnf.rtr_solicit_interval);
+ 		spin_unlock(&ifp->lock);
+ 
+-		ipv6_addr_all_routers(&all_routers);
+-
+-		ndisc_send_rs(idev->dev, &ifp->addr, &all_routers);
++		ndisc_send_rs(idev->dev, &ifp->addr, &in6addr_linklocal_allrouters);
+ 	} else {
+ 		spin_unlock(&ifp->lock);
+ 		/*
+@@ -2852,24 +2849,20 @@ static void addrconf_dad_completed(struc
+ 
+ 	ipv6_ifa_notify(RTM_NEWADDR, ifp);
+ 
+-	/* If added prefix is link local and forwarding is off,
+-	   start sending router solicitations.
++	/* If added prefix is link local and we are prepared to process
++	   router advertisements, start sending router solicitations.
  	 */
  
 -	if (ifp->idev->cnf.forwarding == 0 &&
-+	if ((ifp->idev->cnf.forwarding == 0 ||
-+	     ifp->idev->cnf.forwarding == 2) &&
++	if (ipv6_accept_ra(ifp->idev) &&
  	    ifp->idev->cnf.rtr_solicits > 0 &&
  	    (dev->flags&IFF_LOOPBACK) == 0 &&
  	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
-diff -BurpN linux.orig/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
---- linux.orig/net/ipv6/ndisc.c	2010-11-18 00:00:00.000000000 +0000
-+++ linux/net/ipv6/ndisc.c	2011-10-25 18:46:55.000000000 +0400
-@@ -985,6 +985,18 @@ out:
- 	in6_dev_put(idev);
- }
+-		struct in6_addr all_routers;
+-
+-		ipv6_addr_all_routers(&all_routers);
+-
+ 		/*
+ 		 *	If a host as already performed a random delay
+ 		 *	[...] as part of DAD [...] there is no need
+ 		 *	to delay again before sending the first RS
+ 		 */
+-		ndisc_send_rs(ifp->idev->dev, &ifp->addr, &all_routers);
++		ndisc_send_rs(ifp->idev->dev, &ifp->addr, &in6addr_linklocal_allrouters);
  
-+static inline int accept_ra(struct inet6_dev *in6_dev)
-+{
-+	/*
-+	 * If forwarding is enabled, RA are not accepted unless the special
-+	 * hybrid mode (accept_ra=2) is enabled.
-+	 */
-+	if (in6_dev->cnf.forwarding && in6_dev->cnf.accept_ra < 2)
-+		return 0;
-+
-+	return in6_dev->cnf.accept_ra;
-+}
-+
- static void ndisc_router_discovery(struct sk_buff *skb)
+ 		spin_lock_bh(&ifp->lock);
+ 		ifp->probes = 1;
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -1759,10 +1759,9 @@ static void igmp6_send(struct in6_addr *
+ 	struct inet6_dev *idev;
+ 	struct sk_buff *skb;
+ 	struct icmp6hdr *hdr;
+-	struct in6_addr *snd_addr;
++	const struct in6_addr *snd_addr;
+ 	struct in6_addr *addrp;
+ 	struct in6_addr addr_buf;
+-	struct in6_addr all_routers;
+ 	int err, len, payload_len, full_len;
+ 	u8 ra[8] = { IPPROTO_ICMPV6, 0,
+ 		     IPV6_TLV_ROUTERALERT, 2, 0, 0,
+@@ -1772,11 +1771,10 @@ static void igmp6_send(struct in6_addr *
+ 	IP6_INC_STATS(__in6_dev_get(dev),
+ 		      IPSTATS_MIB_OUTREQUESTS);
+ 	rcu_read_unlock();
+-	snd_addr = addr;
+-	if (type == ICMPV6_MGM_REDUCTION) {
+-		snd_addr = &all_routers;
+-		ipv6_addr_all_routers(&all_routers);
+-	}
++	if (type == ICMPV6_MGM_REDUCTION)
++		snd_addr = &in6addr_linklocal_allrouters;
++	else
++		snd_addr = addr;
+ 
+ 	len = sizeof(struct icmp6hdr) + sizeof(struct in6_addr);
+ 	payload_len = len + sizeof(ra);
+@@ -2287,24 +2285,19 @@ void ipv6_mc_init_dev(struct inet6_dev *
+ void ipv6_mc_destroy_dev(struct inet6_dev *idev)
  {
- 	struct ra_msg *ra_msg = (struct ra_msg *)skb_transport_header(skb);
-@@ -1030,8 +1042,7 @@ static void ndisc_router_discovery(struc
+ 	struct ifmcaddr6 *i;
+-	struct in6_addr maddr;
+ 
+ 	/* Deactivate timers */
+ 	ipv6_mc_down(idev);
+ 
+ 	/* Delete all-nodes address. */
+-	ipv6_addr_all_nodes(&maddr);
+-
+ 	/* We cannot call ipv6_dev_mc_dec() directly, our caller in
+ 	 * addrconf.c has NULL'd out dev->ip6_ptr so in6_dev_get() will
+ 	 * fail.
+ 	 */
+-	__ipv6_dev_mc_dec(idev, &maddr);
++	__ipv6_dev_mc_dec(idev, &in6addr_linklocal_allnodes);
+ 
+-	if (idev->cnf.forwarding) {
+-		ipv6_addr_all_routers(&maddr);
+-		__ipv6_dev_mc_dec(idev, &maddr);
+-	}
++	if (idev->cnf.forwarding)
++		__ipv6_dev_mc_dec(idev, &in6addr_linklocal_allrouters);
+ 
+ 	write_lock_bh(&idev->lock);
+ 	while ((i = idev->mc_list) != NULL) {
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -783,10 +783,7 @@ static void ndisc_recv_ns(struct sk_buff
+ 	is_router = !!(pneigh ? pneigh->flags & NTF_ROUTER : idev->cnf.forwarding);
+ 
+ 	if (dad) {
+-		struct in6_addr maddr;
+-
+-		ipv6_addr_all_nodes(&maddr);
+-		ndisc_send_na(dev, NULL, &maddr, &msg->target,
++		ndisc_send_na(dev, NULL, &in6addr_linklocal_allnodes, &msg->target,
+ 			      is_router, 0, (ifp != NULL), 1);
+ 		goto out;
+ 	}
+@@ -1033,8 +1030,7 @@ static void ndisc_router_discovery(struc
  		return;
  	}
  
 -	/* skip route and link configuration on routers */
 -	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
-+	if (!accept_ra(in6_dev))
++	if (!ipv6_accept_ra(in6_dev))
  		goto skip_linkparms;
  
  	if (in6_dev->if_flags & IF_RS_SENT) {
-@@ -1056,6 +1067,9 @@ static void ndisc_router_discovery(struc
+@@ -1059,6 +1055,9 @@ static void ndisc_router_discovery(struc
  	if (!in6_dev->cnf.accept_ra_defrtr)
  		goto skip_defrtr;
  
@@ -67,13 +355,13 @@ diff -BurpN linux.orig/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
  	lifetime = ntohs(ra_msg->icmph.icmp6_rt_lifetime);
  
  #ifdef CONFIG_IPV6_ROUTER_PREF
-@@ -1175,11 +1189,13 @@ skip_linkparms:
+@@ -1178,11 +1177,13 @@ skip_linkparms:
  			     NEIGH_UPDATE_F_ISROUTER);
  	}
  
 -	/* skip route and link configuration on routers */
 -	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
-+	if (!accept_ra(in6_dev))
++	if (!ipv6_accept_ra(in6_dev))
  		goto out;
  
  #ifdef CONFIG_IPV6_ROUTE_INFO
@@ -83,7 +371,7 @@ diff -BurpN linux.orig/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
  	if (in6_dev->cnf.accept_ra_rtr_pref && ndopts.nd_opts_ri) {
  		struct nd_opt_hdr *p;
  		for (p = ndopts.nd_opts_ri;
-@@ -1191,6 +1207,8 @@ skip_linkparms:
+@@ -1194,6 +1195,8 @@ skip_linkparms:
  				      &ipv6_hdr(skb)->saddr);
  		}
  	}
@@ -95,7 +383,7 @@ diff -BurpN linux.orig/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -1815,7 +1815,8 @@ void rt6_purge_dflt_routers(struct net *net)
+@@ -1821,7 +1821,8 @@ void rt6_purge_dflt_routers(void)
  restart:
  	read_lock_bh(&table->tb6_lock);
  	for (rt = table->tb6_root.leaf; rt; rt = rt->u.dst.rt6_next) {
