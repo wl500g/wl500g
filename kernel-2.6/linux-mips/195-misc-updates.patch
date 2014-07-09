@@ -7,14 +7,16 @@
  f366e2085f28358a5294b8cdc847a377c02eb22d [MIPS] unexport {allocate,free}_irqno
  c5b0680aa1d7a751b7dd8ebf6854e5baf0a2e54b [MIPS] unexport rtc_mips_set_time()
  a64063046026729a69ad06c94453f4ddaa562d60 [MIPS] unexport __kmap_atomic_to_page
+ b8199546a4121ae3a8dc094e658c5fabc4397925 MIPS: Discard .eh_frame sections in linker script.
 
 ---
- arch/mips/kernel/irq.c  |    4 ----
- arch/mips/kernel/proc.c |    2 +-
- arch/mips/kernel/time.c |    2 --
- arch/mips/mm/highmem.c  |    1 -
- arch/mips/mm/init.c     |    9 +--------
- 5 files changed, 2 insertions(+), 16 deletions(-)
+ arch/mips/kernel/irq.c         |    4 ----
+ arch/mips/kernel/proc.c        |    2 +-
+ arch/mips/kernel/time.c        |    2 --
+ arch/mips/kernel/vmlinux.lds.S |    1 +
+ arch/mips/mm/highmem.c         |    1 -
+ arch/mips/mm/init.c            |    9 +--------
+ 6 files changed, 3 insertions(+), 16 deletions(-)
 
 diff --git a/arch/mips/kernel/irq.c b/arch/mips/kernel/irq.c
 --- a/arch/mips/kernel/irq.c
@@ -58,6 +60,16 @@ diff --git a/arch/mips/kernel/time.c b/arch/mips/kernel/time.c
  EXPORT_SYMBOL(to_tm);
 -EXPORT_SYMBOL(rtc_mips_set_time);
 -EXPORT_SYMBOL(rtc_mips_get_time);
+diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
+--- a/arch/mips/kernel/vmlinux.lds.S
++++ b/arch/mips/kernel/vmlinux.lds.S
+@@ -179,5 +179,6 @@ SECTIONS
+ 	*(.pdr)
+ 	*(.reginfo)
+ 	*(.mdebug*)
++	*(.eh_frame)
+   }
+ 
 diff --git a/arch/mips/mm/highmem.c b/arch/mips/mm/highmem.c
 --- a/arch/mips/mm/highmem.c
 +++ b/arch/mips/mm/highmem.c
