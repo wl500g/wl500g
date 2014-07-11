@@ -2116,12 +2116,6 @@ static int inet6_addr_del(int ifindex, struct in6_addr *pfx, int plen)
 			read_unlock_bh(&idev->lock);
 
 			ipv6_del_addr(ifp);
-
-			/* If the last address is deleted administratively,
-			   disable IPv6 on this interface.
-			 */
-			if (idev->addr_list == NULL)
-				addrconf_ifdown(idev->dev, 1);
 			return 0;
 		}
 	}
@@ -2531,10 +2525,11 @@ static int addrconf_ifdown(struct net_device *dev, int how)
 {
 	struct inet6_dev *idev;
 	struct inet6_ifaddr *ifa;
+	int i;
 
 	ASSERT_RTNL();
 
-	if (dev == &loopback_dev && how == 1)
+	if ((dev->flags & IFF_LOOPBACK) && how == 1)
 		how = 0;
 
 	rt6_ifdown(dev);
@@ -2556,6 +2551,23 @@ static int addrconf_ifdown(struct net_device *dev, int how)
 		/* Step 1.5: remove snmp6 entry */
 		snmp6_unregister_dev(idev);
 
+	}
+
+	/* Step 2: clear hash table */
+	for (i = 0; i < IN6_ADDR_HSIZE; i++) {
+		struct hlist_head *h = &inet6_addr_lst[i];
+		struct hlist_node *n;
+
+		spin_lock_bh(&addrconf_hash_lock);
+	restart:
+		hlist_for_each_entry_rcu(ifa, n, h, addr_lst) {
+			if (ifa->idev == idev) {
+				hlist_del_init_rcu(&ifa->addr_lst);
+				addrconf_del_timer(ifa);
+				goto restart;
+			}
+		}
+		spin_unlock_bh(&addrconf_hash_lock);
 	}
 
 	write_lock_bh(&idev->lock);
@@ -2594,13 +2606,10 @@ static int addrconf_ifdown(struct net_device *dev, int how)
 		addrconf_del_timer(ifa);
 		write_unlock_bh(&idev->lock);
 
-		/* clear hash table */
-		spin_lock_bh(&addrconf_hash_lock);
-		hlist_del_init_rcu(&ifa->addr_lst);
-		spin_unlock_bh(&addrconf_hash_lock);
-
-		__ipv6_ifa_notify(RTM_DELADDR, ifa);
-		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
+		if (!ifa->dead) {
+			__ipv6_ifa_notify(RTM_DELADDR, ifa);
+			atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
+		}
 		in6_ifa_put(ifa);
 
 		write_lock_bh(&idev->lock);
