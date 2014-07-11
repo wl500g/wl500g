@@ -76,6 +76,10 @@ kbuild backports from upstream
  953fae66d124486c9e284806429c52c5402f59ac kbuild: fix tags generation of config symbols
  2e6cb8b0dc602ba4aa23d1ec7e3524a7268f59d9 kbuild: remove a tag file before it is regenerated
  f81b1be40c44b33b9706d64c117edd29e627ad12 tags: include headers before source files
+ 3a5dd791abef032fe57fc652c0232913c696e59b modpost: fix segfault in sym_is() with prefixed arches
+ 626596e295d477c0fefa08cd5daa7dd011b1bb2c modpost: use a table rather than a giant if/else statement.
+ e49ce14150c64b29a8dd211df785576fa19a9858 modpost: use linker section to generate table.
+ e88aa7bbbe3046a125ea1936b16bb921cc9c6349 Fix modpost failures in fedora 17
  ae63b2d7bdd9bd66b88843be0daf8e37d8f0b574 scripts/tags.sh: Ignore *.mod.c
 
 ---
@@ -90,12 +94,12 @@ kbuild backports from upstream
  scripts/hdrcheck.sh                |   10 
  scripts/headers_check.pl           |   56 +
  scripts/headers_install.sh         |   43 +
- scripts/mod/file2alias.c           |   63 +-
+ scripts/mod/file2alias.c           |  201 ++++--
  scripts/mod/modpost.c              | 1096 ++++++++++++++++++++-----------------
  scripts/mod/modpost.h              |   10 
  scripts/mod/sumversion.c           |   12 
  scripts/tags.sh                    |  179 ++++++
- 16 files changed, 1205 insertions(+), 802 deletions(-)
+ 16 files changed, 1282 insertions(+), 863 deletions(-)
  create mode 100644 scripts/headers_check.pl
  create mode 100644 scripts/headers_install.sh
  create mode 100755 scripts/tags.sh
@@ -1003,7 +1007,51 @@ diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
 diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
 --- a/scripts/mod/file2alias.c
 +++ b/scripts/mod/file2alias.c
-@@ -51,21 +51,43 @@ do {                                    
+@@ -28,6 +28,7 @@ typedef Elf64_Addr	kernel_ulong_t;
+ #endif
+ 
+ #include <ctype.h>
++#include <stdbool.h>
+ 
+ typedef uint32_t	__u32;
+ typedef uint16_t	__u16;
+@@ -38,6 +39,35 @@ typedef unsigned char	__u8;
+  * we handle those differences explicitly below */
+ #include "../../include/linux/mod_devicetable.h"
+ 
++/* This array collects all instances that use the generic do_table */
++struct devtable {
++	const char *device_id; /* name of table, __mod_<name>_device_table. */
++	unsigned long id_size;
++	void *function;
++};
++
++/* We construct a table of pointers in an ELF section (pointers generally
++ * go unpadded by gcc).  ld creates boundary syms for us. */
++extern struct devtable *__start___devtable[], *__stop___devtable[];
++#define ___cat(a,b) a ## b
++#define __cat(a,b) ___cat(a,b)
++
++#if __GNUC__ == 3 && __GNUC_MINOR__ < 3
++# define __used			__attribute__((__unused__))
++#else
++# define __used			__attribute__((__used__))
++#endif
++
++/* Add a table entry.  We test function type matches while we're here. */
++#define ADD_TO_DEVTABLE(device_id, type, function) \
++	static struct devtable __cat(devtable,__LINE__) = {	\
++		device_id + 0*sizeof((function)((const char *)NULL,	\
++						(type *)NULL,		\
++						(char *)NULL)),		\
++		sizeof(type), (function) };				\
++	static struct devtable *__attribute__((section("__devtable"))) \
++		__used __cat(devtable_ptr,__LINE__) = &__cat(devtable,__LINE__)
++
+ #define ADD(str, sep, cond, field)                              \
+ do {                                                            \
+         strcat(str, sep);                                       \
+@@ -51,21 +81,43 @@ do {                                    
                  sprintf(str + strlen(str), "*");                \
  } while(0)
  
@@ -1049,7 +1097,7 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
  }
  
  /* USB is special because the bcdDevice can be matched against a numeric range */
-@@ -168,7 +190,7 @@ static void do_usb_table(void *symval, u
+@@ -168,7 +220,7 @@ static void do_usb_table(void *symval, u
  	unsigned int i;
  	const unsigned long id_size = sizeof(struct usb_device_id);
  
@@ -1058,7 +1106,7 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
  
  	/* Leave last one: it's the terminator. */
  	size -= id_size;
-@@ -206,6 +206,21 @@ static void do_usb_table(void *symval, unsigned long size,
+@@ -177,6 +229,22 @@ static void do_usb_table(void *symval, u
  		do_usb_entry_multi(symval + i, mod);
  }
  
@@ -1076,11 +1124,125 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
 +
 +	return 1;
 +}
++ADD_TO_DEVTABLE("hid", struct hid_device_id, do_hid_entry);
 +
  /* Looks like: ieee1394:venNmoNspNverN */
  static int do_ieee1394_entry(const char *filename,
  			     struct ieee1394_device_id *id, char *alias)
-@@ -497,7 +519,7 @@ static void do_table(void *symval, unsig
+@@ -199,6 +267,7 @@ static int do_ieee1394_entry(const char 
+ 
+ 	return 1;
+ }
++ADD_TO_DEVTABLE("ieee1394", struct ieee1394_device_id, do_ieee1394_entry);
+ 
+ /* Looks like: pci:vNdNsvNsdNbcNscNiN. */
+ static int do_pci_entry(const char *filename,
+@@ -241,6 +310,7 @@ static int do_pci_entry(const char *file
+ 	ADD(alias, "i", interface_mask == 0xFF, interface);
+ 	return 1;
+ }
++ADD_TO_DEVTABLE("pci", struct pci_device_id, do_pci_entry);
+ 
+ /* looks like: "ccw:tNmNdtNdmN" */
+ static int do_ccw_entry(const char *filename,
+@@ -263,6 +333,7 @@ static int do_ccw_entry(const char *file
+ 	    id->dev_model);
+ 	return 1;
+ }
++ADD_TO_DEVTABLE("ccw", struct ccw_device_id, do_ccw_entry);
+ 
+ /* looks like: "ap:tN" */
+ static int do_ap_entry(const char *filename,
+@@ -271,6 +342,7 @@ static int do_ap_entry(const char *filen
+ 	sprintf(alias, "ap:t%02X", id->dev_type);
+ 	return 1;
+ }
++ADD_TO_DEVTABLE("ap", struct ap_device_id, do_ap_entry);
+ 
+ /* Looks like: "serio:tyNprNidNexN" */
+ static int do_serio_entry(const char *filename,
+@@ -297,6 +369,7 @@ static int do_pnp_entry(const char *file
+ 	sprintf(alias, "pnp:d%s", id->id);
+ 	return 1;
+ }
++ADD_TO_DEVTABLE("serio", struct serio_device_id, do_serio_entry);
+ 
+ /* looks like: "pnp:cCdD..." */
+ static int do_pnp_card_entry(const char *filename,
+@@ -348,8 +421,7 @@ static int do_pcmcia_entry(const char *f
+ 
+        return 1;
+ }
+-
+-
++ADD_TO_DEVTABLE("pcmcia", struct pcmcia_device_id, do_pcmcia_entry);
+ 
+ static int do_of_entry (const char *filename, struct of_device_id *of, char *alias)
+ {
+@@ -371,6 +443,7 @@ static int do_of_entry (const char *file
+ 
+     return 1;
+ }
++ADD_TO_DEVTABLE("of", struct of_device_id, do_of_entry);
+ 
+ static int do_vio_entry(const char *filename, struct vio_device_id *vio,
+ 		char *alias)
+@@ -383,6 +453,7 @@ static int do_vio_entry(const char *file
+ 
+ 	return 1;
+ }
++ADD_TO_DEVTABLE("vio", struct vio_device_id, do_vio_entry);
+ 
+ static int do_i2c_entry(const char *filename, struct i2c_device_id *i2c, char *alias)
+ {
+@@ -394,6 +467,7 @@ static int do_i2c_entry(const char *file
+ 	ADD(alias, "id", 1, i2c->id);
+ 	return 1;
+ }
++ADD_TO_DEVTABLE("i2c", struct i2c_device_id, do_i2c_entry);
+ 
+ #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+ 
+@@ -449,6 +524,7 @@ static int do_input_entry(const char *fi
+ 		do_input(alias, id->swbit, 0, INPUT_DEVICE_ID_SW_MAX);
+ 	return 1;
+ }
++ADD_TO_DEVTABLE("input", struct input_device_id, do_input_entry);
+ 
+ static int do_eisa_entry(const char *filename, struct eisa_device_id *eisa,
+ 		char *alias)
+@@ -457,6 +533,7 @@ static int do_eisa_entry(const char *fil
+ 		sprintf(alias, EISA_DEVICE_MODALIAS_FMT "*", eisa->sig);
+ 	return 1;
+ }
++ADD_TO_DEVTABLE("eisa", struct eisa_device_id, do_eisa_entry);
+ 
+ /* Looks like: parisc:tNhvNrevNsvN */
+ static int do_parisc_entry(const char *filename, struct parisc_device_id *id,
+@@ -475,16 +552,15 @@ static int do_parisc_entry(const char *f
+ 
+ 	return 1;
+ }
++ADD_TO_DEVTABLE("parisc", struct parisc_device_id, do_parisc_entry);
+ 
+-/* Ignore any prefix, eg. v850 prepends _ */
+-static inline int sym_is(const char *symbol, const char *name)
++/* Does namelen bytes of name exactly match the symbol? */
++static bool sym_is(const char *name, unsigned namelen, const char *symbol)
+ {
+-	const char *match;
++	if (namelen != strlen(symbol))
++		return false;
+ 
+-	match = strstr(symbol, name);
+-	if (!match)
+-		return 0;
+-	return match[strlen(symbol)] == '\0';
++	return memcmp(name, symbol, namelen) == 0;
+ }
+ 
+ static void do_table(void *symval, unsigned long size,
+@@ -497,7 +573,7 @@ static void do_table(void *symval, unsig
  	char alias[500];
  	int (*do_entry)(const char *, void *entry, char *alias) = function;
  
@@ -1089,11 +1251,13 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
  	/* Leave last one: it's the terminator. */
  	size -= id_size;
  
-@@ -519,14 +541,21 @@ void handle_moddevtable(struct module *m
+@@ -519,74 +595,63 @@ void handle_moddevtable(struct module *m
  			Elf_Sym *sym, const char *symname)
  {
  	void *symval;
 +	char *zeros = NULL;
++	const char *name;
++	unsigned int namelen;
  
  	/* We're looking for a section relative symbol */
  	if (!sym->st_shndx || sym->st_shndx >= info->hdr->e_shnum)
@@ -1102,6 +1266,28 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
 -	symval = (void *)info->hdr
 -		+ info->sechdrs[sym->st_shndx].sh_offset
 -		+ sym->st_value;
++	/* We're looking for an object */
++	if (ELF_ST_TYPE(sym->st_info) != STT_OBJECT)
++		return;
+ 
+-	if (sym_is(symname, "__mod_pci_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct pci_device_id), "pci",
+-			 do_pci_entry, mod);
+-	else if (sym_is(symname, "__mod_usb_device_table"))
+-		/* special case to handle bcdDevice ranges */
++	/* All our symbols are of form <prefix>__mod_XXX_device_table. */
++	name = strstr(symname, "__mod_");
++	if (!name)
++		return;
++	name += strlen("__mod_");
++	namelen = strlen(name);
++	if (namelen < strlen("_device_table"))
++		return;
++	if (strcmp(name + namelen - strlen("_device_table"), "_device_table"))
++		return;
++	namelen -= strlen("_device_table");
++
 +	/* Handle all-NULL symbols allocated into .bss */
 +	if (info->sechdrs[sym->st_shndx].sh_type & SHT_NOBITS) {
 +		zeros = calloc(1, sym->st_size);
@@ -1111,28 +1297,80 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
 +			+ info->sechdrs[sym->st_shndx].sh_offset
 +			+ sym->st_value;
 +	}
- 
- 	if (sym_is(symname, "__mod_pci_device_table"))
- 		do_table(symval, sym->st_size,
-@@ -745,6 +759,10 @@ void handle_moddevtable(struct module *mod, struct elf_info *info,
- 	else if (sym_is(symname, "__mod_usb_device_table"))
- 		/* special case to handle bcdDevice ranges */
++
++	/* First handle the "special" cases */
++	if (sym_is(name, namelen, "usb"))
  		do_usb_table(symval, sym->st_size, mod);
-+	else if (sym_is(symname, "__mod_hid_device_table"))
-+		do_table(symval, sym->st_size,
-+			 sizeof(struct hid_device_id), "hid",
-+			 do_hid_entry, mod);
- 	else if (sym_is(symname, "__mod_ieee1394_device_table"))
+-	else if (sym_is(symname, "__mod_ieee1394_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct ieee1394_device_id), "ieee1394",
+-			 do_ieee1394_entry, mod);
+-	else if (sym_is(symname, "__mod_ccw_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct ccw_device_id), "ccw",
+-			 do_ccw_entry, mod);
+-	else if (sym_is(symname, "__mod_ap_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct ap_device_id), "ap",
+-			 do_ap_entry, mod);
+-	else if (sym_is(symname, "__mod_serio_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct serio_device_id), "serio",
+-			 do_serio_entry, mod);
+-	else if (sym_is(symname, "__mod_pnp_device_table"))
++	else if (sym_is(name, namelen, "pnp"))
  		do_table(symval, sym->st_size,
- 			 sizeof(struct ieee1394_device_id), "ieee1394",
-@@ -587,6 +616,7 @@ void handle_moddevtable(struct module *m
+ 			 sizeof(struct pnp_device_id), "pnp",
+ 			 do_pnp_entry, mod);
+-	else if (sym_is(symname, "__mod_pnp_card_device_table"))
++	else if (sym_is(name, namelen, "pnp_card"))
  		do_table(symval, sym->st_size,
- 			 sizeof(struct parisc_device_id), "parisc",
- 			 do_parisc_entry, mod);
+ 			 sizeof(struct pnp_card_device_id), "pnp_card",
+ 			 do_pnp_card_entry, mod);
+-	else if (sym_is(symname, "__mod_pcmcia_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct pcmcia_device_id), "pcmcia",
+-			 do_pcmcia_entry, mod);
+-        else if (sym_is(symname, "__mod_of_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct of_device_id), "of",
+-			 do_of_entry, mod);
+-        else if (sym_is(symname, "__mod_vio_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct vio_device_id), "vio",
+-			 do_vio_entry, mod);
+-	else if (sym_is(symname, "__mod_i2c_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct i2c_device_id), "i2c",
+-			 do_i2c_entry, mod);
+-	else if (sym_is(symname, "__mod_input_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct input_device_id), "input",
+-			 do_input_entry, mod);
+-	else if (sym_is(symname, "__mod_eisa_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct eisa_device_id), "eisa",
+-			 do_eisa_entry, mod);
+-	else if (sym_is(symname, "__mod_parisc_device_table"))
+-		do_table(symval, sym->st_size,
+-			 sizeof(struct parisc_device_id), "parisc",
+-			 do_parisc_entry, mod);
++	else {
++		struct devtable **p;
++
++		for (p = __start___devtable; p < __stop___devtable; p++) {
++			if (sym_is(name, namelen, (*p)->device_id)) {
++				do_table(symval, sym->st_size, (*p)->id_size,
++					 (*p)->device_id, (*p)->function, mod);
++				break;
++			}
++		}
++	}
 +	free(zeros);
  }
  
  /* Now add out buffered information to the generated C source */
+Only in b/scripts/mod: file2alias.c.orig
 diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
 --- a/scripts/mod/modpost.c
 +++ b/scripts/mod/modpost.c

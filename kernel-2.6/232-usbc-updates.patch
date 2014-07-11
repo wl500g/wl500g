@@ -7,6 +7,9 @@ USB: Updates from upstream
  81df2d594340dcb6d1a02191976be88a1ca8120c USB: allow match on bInterfaceNumber
  fec1868e23099023bc545e199b78d99840b1abc9 USB: properly pad out usb_device_id.driver_info
  d7c9a53f13cf4b273b220934167c7630c3362563 of: add const to struct *of_device_id.data
+ afe2dab4f6d32d5650aaba42f2c7ec9c0622f4dd USB: add hex/bcd detection to usb modalias generation
+ 55f49f26821f379c451deb9fd6de8e59afb9b37e USB: handle bcd incrementation in usb modalias generation
+ 03b56329f9bb5a1cb73d7dc659d529a9a9bf3acc Modpost: fixed USB alias generation for ranges including 0x9 and 0xA
 
 ---
  drivers/usb/core/config.c       |    4 +
@@ -19,8 +22,8 @@ USB: Updates from upstream
  include/linux/hid.h             |    1 
  include/linux/mod_devicetable.h |   22 +++++++-
  include/linux/usb.h             |   16 ++++++
- scripts/mod/file2alias.c        |    5 +
- 11 files changed, 163 insertions(+), 43 deletions(-)
+ scripts/mod/file2alias.c        |  100 +++++++++++++++++++++++++++++++++-----
+ 11 files changed, 245 insertions(+), 56 deletions(-)
 
 diff --git a/drivers/usb/core/config.c b/drivers/usb/core/config.c
 --- a/drivers/usb/core/config.c
@@ -410,7 +413,7 @@ diff --git a/include/linux/usb.h b/include/linux/usb.h
 diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
 --- a/scripts/mod/file2alias.c
 +++ b/scripts/mod/file2alias.c
-@@ -156,7 +156,7 @@ static void device_id_check(const char *modname, const char *device_id,
+@@ -121,11 +121,11 @@ static void device_id_check(const char *
  }
  
  /* USB is special because the bcdDevice can be matched against a numeric range */
@@ -419,7 +422,38 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
  static void do_usb_entry(struct usb_device_id *id,
  			 unsigned int bcdDevice_initial, int bcdDevice_initial_digits,
  			 unsigned char range_lo, unsigned char range_hi,
-@@ -210,6 +210,9 @@ static void do_usb_entry(struct usb_device_id *id,
+-			 struct module *mod)
++			 unsigned char max, struct module *mod)
+ {
+ 	char alias[500];
+ 	strcpy(alias, "usb:");
+@@ -139,9 +139,22 @@ static void do_usb_entry(struct usb_devi
+ 		sprintf(alias + strlen(alias), "%0*X",
+ 			bcdDevice_initial_digits, bcdDevice_initial);
+ 	if (range_lo == range_hi)
+-		sprintf(alias + strlen(alias), "%u", range_lo);
+-	else if (range_lo > 0 || range_hi < 9)
+-		sprintf(alias + strlen(alias), "[%u-%u]", range_lo, range_hi);
++		sprintf(alias + strlen(alias), "%X", range_lo);
++	else if (range_lo > 0 || range_hi < max) {
++		if (range_lo > 0x9 || range_hi < 0xA)
++			sprintf(alias + strlen(alias),
++				"[%X-%X]",
++				range_lo,
++				range_hi);
++		else {
++			sprintf(alias + strlen(alias),
++				range_lo < 0x9 ? "[%X-9" : "[%X",
++				range_lo);
++			sprintf(alias + strlen(alias),
++				range_hi > 0xA ? "A-%X]" : "%X]",
++				range_hi);
++		}
++	}
+ 	if (bcdDevice_initial_digits < (sizeof(id->bcdDevice_lo) * 2 - 1))
+ 		strcat(alias, "*");
+ 
+@@ -162,6 +175,9 @@ static void do_usb_entry(struct usb_devi
  	ADD(alias, "ip",
  	    id->match_flags&USB_DEVICE_ID_MATCH_INT_PROTOCOL,
  	    id->bInterfaceProtocol);
@@ -429,4 +463,109 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
  
  	/* Always end in a wildcard, for future extension */
  	if (alias[strlen(alias)-1] != '*')
+@@ -170,10 +186,49 @@ static void do_usb_entry(struct usb_devi
+ 		   "MODULE_ALIAS(\"%s\");\n", alias);
+ }
+ 
++/* Handles increment/decrement of BCD formatted integers */
++/* Returns the previous value, so it works like i++ or i-- */
++static unsigned int incbcd(unsigned int *bcd,
++			   int inc,
++			   unsigned char max,
++			   size_t chars)
++{
++	unsigned int init = *bcd, i, j;
++	unsigned long long c, dec = 0;
++
++	/* If bcd is not in BCD format, just increment */
++	if (max > 0x9) {
++		*bcd += inc;
++		return init;
++	}
++
++	/* Convert BCD to Decimal */
++	for (i=0 ; i < chars ; i++) {
++		c = (*bcd >> (i << 2)) & 0xf;
++		c = c > 9 ? 9 : c; /* force to bcd just in case */
++		for (j=0 ; j < i ; j++)
++			c = c * 10;
++		dec += c;
++	}
++
++	/* Do our increment/decrement */
++	dec += inc;
++	*bcd  = 0;
++
++	/* Convert back to BCD */
++	for (i=0 ; i < chars ; i++) {
++		for (c=1,j=0 ; j < i ; j++)
++			c = c * 10;
++		c = (dec / c) % 10;
++		*bcd += c << (i << 2);
++	}
++	return init;
++}
++
+ static void do_usb_entry_multi(struct usb_device_id *id, struct module *mod)
+ {
+ 	unsigned int devlo, devhi;
+-	unsigned char chi, clo;
++	unsigned char chi, clo, max;
+ 	int ndigits;
+ 
+ 	id->match_flags = TO_NATIVE(id->match_flags);
+@@ -185,6 +240,17 @@ static void do_usb_entry_multi(struct us
+ 	devhi = id->match_flags & USB_DEVICE_ID_MATCH_DEV_HI ?
+ 		TO_NATIVE(id->bcdDevice_hi) : ~0x0U;
+ 
++	/* Figure out if this entry is in bcd or hex format */
++	max = 0x9; /* Default to decimal format */
++	for (ndigits = 0 ; ndigits < sizeof(id->bcdDevice_lo) * 2 ; ndigits++) {
++		clo = (devlo >> (ndigits << 2)) & 0xf;
++		chi = ((devhi > 0x9999 ? 0x9999 : devhi) >> (ndigits << 2)) & 0xf;
++		if (clo > max || chi > max) {
++			max = 0xf;
++			break;
++		}
++	}
++
+ 	/*
+ 	 * Some modules (visor) have empty slots as placeholder for
+ 	 * run-time specification that results in catch-all alias
+@@ -196,21 +262,27 @@ static void do_usb_entry_multi(struct us
+ 	for (ndigits = sizeof(id->bcdDevice_lo) * 2 - 1; devlo <= devhi; ndigits--) {
+ 		clo = devlo & 0xf;
+ 		chi = devhi & 0xf;
+-		if (chi > 9)	/* it's bcd not hex */
+-			chi = 9;
++		if (chi > max)	/* If we are in bcd mode, truncate if necessary */
++			chi = max;
+ 		devlo >>= 4;
+ 		devhi >>= 4;
+ 
+ 		if (devlo == devhi || !ndigits) {
+-			do_usb_entry(id, devlo, ndigits, clo, chi, mod);
++			do_usb_entry(id, devlo, ndigits, clo, chi, max, mod);
+ 			break;
+ 		}
+ 
+-		if (clo > 0)
+-			do_usb_entry(id, devlo++, ndigits, clo, 9, mod);
+-
+-		if (chi < 9)
+-			do_usb_entry(id, devhi--, ndigits, 0, chi, mod);
++		if (clo > 0x0)
++			do_usb_entry(id,
++				     incbcd(&devlo, 1, max,
++					    sizeof(id->bcdDevice_lo) * 2),
++				     ndigits, clo, max, max, mod);
++
++		if (chi < max)
++			do_usb_entry(id,
++				     incbcd(&devhi, -1, max,
++					    sizeof(id->bcdDevice_lo) * 2),
++				     ndigits, 0x0, chi, max, mod);
+ 	}
+ }
+ 
 -- 
