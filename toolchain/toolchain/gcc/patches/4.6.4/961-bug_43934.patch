@@ -1,0 +1,56 @@
+LIM should handle PHI nodes
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43934
+
+--- trunk/gcc/ChangeLog	2014/06/06 07:03:29	211301
++++ trunk/gcc/ChangeLog	2014/06/06 07:21:02	211302
+@@ -1,3 +1,8 @@
++2014-06-06  Christian Bruel  <christian.bruel@st.com>
++
++	PR tree-optimization/43934
++	* tree-ssa-loop-im.c (determine_max_movement): Add PHI def constant cost.
++
+ 2014-05-07  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backported from mainline
+--- trunk/gcc/tree-ssa-loop-im.c	2014/06/06 07:03:29	211301
++++ trunk/gcc/tree-ssa-loop-im.c	2014/06/06 07:21:02	211302
+@@ -719,8 +719,14 @@
+       FOR_EACH_PHI_ARG (use_p, stmt, iter, SSA_OP_USE)
+ 	{
+ 	  val = USE_FROM_PTR (use_p);
++
+ 	  if (TREE_CODE (val) != SSA_NAME)
+-	    continue;
++	    {
++	      /* Assign const 1 to constants.  */
++	      min_cost = MIN (min_cost, 1);
++	      total_cost += 1;
++	      continue;
++	    }
+ 	  if (!add_dependency (val, lim_data, loop, false))
+ 	    return false;
+ 	  def_data = get_lim_data (SSA_NAME_DEF_STMT (val));
+--- /dev/null
++++ trunk/gcc/testsuite/gcc.dg/tree-ssa/ssa-lim-8.c
+@@ -0,0 +1,20 @@
++/* { dg-do compile } */
++/* { dg-options "-O -fdump-tree-lim1-details" } */
++
++void bar (int);
++void foo (int n, int m)
++{
++  unsigned i;
++  for (i = 0; i < n; ++i)
++    {
++      int x;
++      if (m < 0)
++	x = 1;
++      else
++	x = m;
++      bar (x);
++    }
++}
++
++/* { dg-final { scan-tree-dump-times "Moving PHI node" 1 "lim1"  } } */
++/* { dg-final { cleanup-tree-dump "lim1" } } */
