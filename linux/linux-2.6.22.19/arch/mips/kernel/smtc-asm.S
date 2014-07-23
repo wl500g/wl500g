@@ -43,8 +43,8 @@ CAN WE PROVE THAT WE WON'T DO THIS IF INTS DISABLED??
  * to invoke the scheduler and return as appropriate.
  */
 
-#define PT_PADSLOT4 (PT_R0-8)
-#define PT_PADSLOT5 (PT_R0-4)
+#define PT_PADSLOT4 (PT_R0-16)
+#define PT_PADSLOT5 (PT_R0-12)
 
 	.text
 	.align 5
