@@ -1,0 +1,85 @@
+From 7658e8257183f062dc01f87969c140707c7e52cb
+From: Paul Mackerras <paulus@samba.org>
+Date: Fri, 1 Aug 2014 16:05:42 +1000
+Subject: [PATCH] pppd: Eliminate potential integer overflow in option parsing
+
+When we are reading in a word from an options file, we maintain a count
+of the length we have seen so far in 'len', which is an int.  When len
+exceeds MAXWORDLEN - 1 (i.e. 1023) we cease storing characters in the
+buffer but we continue to increment len.  Since len is an int, it will
+wrap around to -2147483648 after it reaches 2147483647.  At that point
+our test of (len < MAXWORDLEN-1) will succeed and we will start writing
+characters to memory again.
+
+This may enable an attacker to overwrite the heap and thereby corrupt
+security-relevant variables.  For this reason it has been assigned a
+CVE identifier, CVE-2014-3158.
+
+This fixes the bug by ceasing to increment len once it reaches MAXWORDLEN.
+
+Reported-by: Lee Campbell <leecam@google.com>
+Signed-off-by: Paul Mackerras <paulus@samba.org>
+
+---
+From b94b7fbbaa0589aa6ec5fdc733aeb9ff294d2656
+From: Paul Mackerras <paulus@samba.org>
+Date: Fri, 1 Aug 2014 17:32:15 +1000
+Subject: [PATCH] pppd: Eliminate memory leak with multiple instances of a string option
+
+This eliminates the memory leak which occurs when a user gives the
+same string option multiple times.  Although the leak is trivial under
+normal conditions, the fact that it can be triggered by the user
+means that it may be of interest to attackers, so let's plug the leak.
+
+This also means that any o_string option without OPT_STATIC set needs
+to have opt->addr pointing to a pointer which starts out NULL.  That
+is the case for all current uses of o_string.
+
+Signed-off-by: Paul Mackerras <paulus@samba.org>
+---
+
+diff --git a/pppd/options.c b/pppd/options.c
+--- a/pppd/options.c
++++ b/pppd/options.c
+@@ -776,10 +776,13 @@ process_option(opt, cmd, argv)
+ 	if (opt->flags & OPT_STATIC) {
+ 	    strlcpy((char *)(opt->addr), *argv, opt->upper_limit);
+ 	} else {
++	    char **optptr = (char **)(opt->addr);
+ 	    sv = strdup(*argv);
+ 	    if (sv == NULL)
+ 		novm("option argument");
+-	    *(char **)(opt->addr) = sv;
++	    if (*optptr)
++		free(*optptr);
++	    *optptr = sv;
+ 	}
+ 	break;
+ 
+@@ -1289,9 +1289,10 @@ getword(f, word, newlinep, filename)
+ 	    /*
+ 	     * Store the resulting character for the escape sequence.
+ 	     */
+-	    if (len < MAXWORDLEN-1)
++	    if (len < MAXWORDLEN) {
+ 		word[len] = value;
+-	    ++len;
++		++len;
++	    }
+ 
+ 	    if (!got)
+ 		c = getc(f);
+@@ -1329,9 +1330,10 @@ getword(f, word, newlinep, filename)
+ 	/*
+ 	 * An ordinary character: store it in the word and get another.
+ 	 */
+-	if (len < MAXWORDLEN-1)
++	if (len < MAXWORDLEN) {
+ 	    word[len] = c;
+-	++len;
++	    ++len;
++	}
+ 
+ 	c = getc(f);
+     }
+-- 
