@@ -3,7 +3,7 @@ config GCC_VERSION
 	default "3.4.6"     if GCC_VERSION_3_4_6
 	default "4.4.7"     if GCC_VERSION_4_4_7
 	default "4.6.4"     if GCC_VERSION_4_6_4
-	default "4.8.3"     if GCC_VERSION_4_8_3
+	default "4.8.4"     if GCC_VERSION_4_8_4
 	default "4.6.4"
 
 config GCC_VERSION_4_4
@@ -16,4 +16,4 @@ config GCC_VERSION_4_6
 
 config GCC_VERSION_4_8
         bool
-        default y       if GCC_VERSION_4_8_3
+        default y       if GCC_VERSION_4_8_4

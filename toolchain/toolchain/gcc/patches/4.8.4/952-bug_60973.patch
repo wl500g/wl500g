@@ -1,0 +1,33 @@
+Invalid propagation of a tail call in devirt pass
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60973
+
+--- gcc-4_9-branch/gcc/ChangeLog	(revision 210364)
++++ gcc-4_9-branch/gcc/ChangeLog	(revision 210365)
+@@ -1,6 +1,12 @@
+ 	PR driver/61106
+ 	* optc-gen.awk: Fix option handling for -Wunused-parameter.
+ 
++2014-05-13  Richard Biener  <rguenther@suse.de>
++
++	PR ipa/60973
++	* tree-inline.c (remap_gimple_stmt): Clear tail call flag,
++	it needs revisiting whether the call still may be tail-called.
++
+ 2014-05-13  Peter Bergner  <bergner@vnet.ibm.com>
+ 
+ 	* doc/sourcebuild.texi: (dfp_hw): Document.
+--- gcc-4_9-branch/gcc/tree-inline.c	(revision 210364)
++++ gcc-4_9-branch/gcc/tree-inline.c	(revision 210365)
+@@ -1485,6 +1485,11 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id
+       /* Create a new deep copy of the statement.  */
+       copy = gimple_copy (stmt);
+ 
++      /* Clear flags that need revisiting.  */
++      if (is_gimple_call (copy)
++	  && gimple_call_tail_p (copy))
++	gimple_call_set_tail (copy, false);
++
+       /* Remap the region numbers for __builtin_eh_{pointer,filter},
+ 	 RESX and EH_DISPATCH.  */
+       if (id->eh_map)
