@@ -62,24 +62,3 @@ diff -BurpN ppp.orig/pppd/plugins/pppol2tp/pppol2tp.c ppp/pppd/plugins/pppol2tp/
  	return pppol2tp_fd;
  }
  
-@@ -479,13 +479,13 @@ static void pppol2tp_check_options(void)
- 		snoop_send_hook = pppol2tp_lcp_snoop_send;
- 	}
- 
--	/* Hook up ip up/down hooks to send indicator to openl2tpd
--	 * that the link is up
--	 */
--	old_ip_up_hook = ip_up_hook;
--	ip_up_hook = pppol2tp_ip_up_hook;
--	old_ip_down_hook = ip_down_hook;
--	ip_down_hook = pppol2tp_ip_down_hook;
-+	/* If pppol2tp_ifname not supplied, use ip_up_hook to discover interface */
-+	if (!pppol2tp_ifname[0]) {
-+		old_ip_up_hook = ip_up_hook;
-+		ip_up_hook = pppol2tp_ip_up_hook;
-+		old_ip_down_hook = ip_down_hook;
-+		ip_down_hook = pppol2tp_ip_down_hook;
-+	}
- }
- 
- /* Called just before pppd exits.

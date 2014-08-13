@@ -1,136 +1,145 @@
-diff -urBp ppp.old/pppd/chap_ms.c ppp/pppd/chap_ms.c
---- ppp.old/pppd/chap_ms.c	2009-02-09 18:55:02.000000000 +0300
-+++ ppp/pppd/chap_ms.c	2012-10-05 19:33:32.000000000 +0400
-@@ -138,6 +138,63 @@ static char *mschap2_peer_challenge = NU
- #include <net/ppp-comp.h>
- #endif
+diff -BurpN a/pppd/chap-md5.c b/pppd/chap-md5.c
+--- a/pppd/chap-md5.c	2014-08-09 12:31:39.000000000 +0000
++++ b/pppd/chap-md5.c	2014-08-13 10:35:37.460370925 +0000
+@@ -86,8 +86,7 @@ chap_md5_verify_response(int id, char *n
  
-+/* For CHAPMS2 response cache */
-+struct chapms2_cache_entry {
-+	int id;
-+	unsigned char challenge[16];
-+	unsigned char response[MS_CHAP2_RESPONSE_LEN];
-+	unsigned char auth_response[MS_AUTH_RESPONSE_LENGTH+1];
-+};
-+
-+#define CHAPMS2_MAX_CACHE_SIZE 10
-+static struct chapms2_cache_entry
-+	chapms2_cache[CHAPMS2_MAX_CACHE_SIZE];
-+static int chapms2_cache_next = 0;
-+static int chapms2_cache_size = 0;
-+
-+static struct chapms2_cache_entry *
-+chapms2_cache_add(int id, const unsigned char *challenge,
-+		  const unsigned char *response,
-+		  const unsigned char *auth_response)
-+{
-+	struct chapms2_cache_entry *entry;
-+
-+	entry = &chapms2_cache[chapms2_cache_next];
-+	entry->id = id;
-+	memcpy(entry->challenge, challenge, 16);
-+	memcpy(entry->response, response, MS_CHAP2_RESPONSE_LEN);
-+	memcpy(entry->auth_response, auth_response, MS_AUTH_RESPONSE_LENGTH);
-+
-+	chapms2_cache_next++;
-+	if (chapms2_cache_size < chapms2_cache_next)
-+		chapms2_cache_size = chapms2_cache_next;
-+	chapms2_cache_next %= CHAPMS2_MAX_CACHE_SIZE;
-+
-+	return entry;
-+}
-+
-+static struct chapms2_cache_entry *
-+chapms2_cache_find(int id, const unsigned char *challenge,
-+		   const unsigned char *auth_response)
-+{
-+	struct chapms2_cache_entry *entry;
-+	int i;
-+
-+	for (i = 0; i < chapms2_cache_size; i++) {
-+		entry = &chapms2_cache[i];
-+		if ((id == entry->id) &&
-+		    (!challenge
-+		     || memcmp(challenge, entry->challenge, 16) == 0) &&
-+		    (!auth_response
-+		     || memcmp(auth_response, entry->auth_response,
-+		               MS_AUTH_RESPONSE_LENGTH) == 0)) {
-+			return entry;
-+		}
-+	}
-+
-+	return NULL;  /* not found */
-+}
-+
- /*
-  * Command-line options.
-  */
-@@ -325,8 +382,17 @@ chapms2_make_response(unsigned char *res
- 		      unsigned char *challenge, char *secret, int secret_len,
- 		      unsigned char *private)
+ static void
+ chap_md5_make_response(unsigned char *response, int id, char *our_name,
+-		       unsigned char *challenge, char *secret, int secret_len,
+-		       unsigned char *private)
++		       unsigned char *challenge, char *secret, int secret_len)
  {
-+	struct chapms2_cache_entry *entry;
-+
- 	challenge++;	/* skip length, should be 16 */
- 	*response++ = MS_CHAP2_RESPONSE_LEN;
-+
-+	/* Find response by id & challenge in cache */
-+	if ((entry = chapms2_cache_find(id, challenge, NULL))) {
-+		memcpy(response, entry->response, MS_CHAP2_RESPONSE_LEN);
-+		return;
-+	}
-+
- 	ChapMS2(challenge,
- #ifdef DEBUGMPPEKEY
- 		mschap2_peer_challenge,
-@@ -335,10 +401,14 @@ chapms2_make_response(unsigned char *res
- #endif
- 		our_name, secret, secret_len, response, private,
- 		MS_CHAP2_AUTHENTICATEE);
-+
-+	/* Add challenge & responses to cache */
-+	chapms2_cache_add(id, challenge, response, private);
+ 	MD5_CTX ctx;
+ 	unsigned char idbyte = id;
+diff -BurpN a/pppd/chap-new.c b/pppd/chap-new.c
+--- a/pppd/chap-new.c	2014-08-09 12:31:39.000000000 +0000
++++ b/pppd/chap-new.c	2014-08-13 11:02:52.480350856 +0000
+@@ -79,7 +79,6 @@ static struct chap_client_state {
+ 	int flags;
+ 	char *name;
+ 	struct chap_digest_type *digest;
+-	unsigned char priv[64];		/* private area for digest's use */
+ } client;
+ 
+ /*
+@@ -467,7 +466,7 @@ chap_respond(struct chap_client_state *c
+ 	p += CHAP_HDRLEN;
+ 
+ 	cs->digest->make_response(p, id, cs->name, pkt,
+-				  secret, secret_len, cs->priv);
++				  secret, secret_len);
+ 	memset(secret, 0, secret_len);
+ 
+ 	clen = *p;
+diff -BurpN a/pppd/chap-new.h b/pppd/chap-new.h
+--- a/pppd/chap-new.h	2014-08-09 12:31:39.000000000 +0000
++++ b/pppd/chap-new.h	2014-08-13 10:35:12.096372374 +0000
+@@ -103,8 +103,7 @@ struct chap_digest_type {
+ 		unsigned char *challenge, unsigned char *response,
+ 		char *message, int message_space);
+ 	void (*make_response)(unsigned char *response, int id, char *our_name,
+-		unsigned char *challenge, char *secret, int secret_len,
+-		unsigned char *priv);
++		unsigned char *challenge, char *secret, int secret_len);
+ 	int (*check_success)(int id, unsigned char *pkt, int len);
+ 	void (*handle_failure)(unsigned char *pkt, int len);
+ 
+diff -BurpN a/pppd/chap_ms.c b/pppd/chap_ms.c
+--- a/pppd/chap_ms.c	2009-02-09 15:55:02.000000000 +0000
++++ b/pppd/chap_ms.c	2014-08-13 11:15:43.132341166 +0000
+@@ -312,8 +312,7 @@ chapms2_verify_response(int id, char *na
+ 
+ static void
+ chapms_make_response(unsigned char *response, int id, char *our_name,
+-		     unsigned char *challenge, char *secret, int secret_len,
+-		     unsigned char *private)
++		     unsigned char *challenge, char *secret, int secret_len)
+ {
+ 	challenge++;	/* skip length, should be 8 */
+ 	*response++ = MS_CHAP_RESPONSE_LEN;
+@@ -330,7 +329,7 @@ struct chapms2_response_cache_entry {
+ #define CHAPMS2_MAX_RESPONSE_CACHE_SIZE 10
+ static struct chapms2_response_cache_entry
+     chapms2_response_cache[CHAPMS2_MAX_RESPONSE_CACHE_SIZE];
+-static int chapms2_response_cache_next_index = 0;
++static int chapms2_response_cache_next = 0;
+ static int chapms2_response_cache_size = 0;
+ 
+ static void
+@@ -338,39 +337,36 @@ chapms2_add_to_response_cache(int id, un
+ 			      unsigned char *response,
+ 			      unsigned char *auth_response)
+ {
+-	int i = chapms2_response_cache_next_index;
++	struct chapms2_response_cache_entry *cache_entry;
+ 
+-	chapms2_response_cache[i].id = id;
+-	memcpy(chapms2_response_cache[i].challenge, challenge, 16);
+-	memcpy(chapms2_response_cache[i].response, response,
+-	       MS_CHAP2_RESPONSE_LEN);
+-	memcpy(chapms2_response_cache[i].auth_response,
+-	       auth_response, MS_AUTH_RESPONSE_LENGTH);
+-	chapms2_response_cache_next_index =
+-		(i + 1) % CHAPMS2_MAX_RESPONSE_CACHE_SIZE;
+-	if (chapms2_response_cache_next_index > chapms2_response_cache_size)
+-		chapms2_response_cache_size = chapms2_response_cache_next_index;
+-	dbglog("added response cache entry %d", i);
++	cache_entry = &chapms2_response_cache[chapms2_response_cache_next++];
++	cache_entry->id = id;
++	memcpy(cache_entry->challenge, challenge, 16);
++	memcpy(cache_entry->response, response, MS_CHAP2_RESPONSE_LEN);
++	memcpy(cache_entry->auth_response, auth_response,
++	       MS_AUTH_RESPONSE_LENGTH);
++	if (chapms2_response_cache_next > chapms2_response_cache_size)
++		chapms2_response_cache_size = chapms2_response_cache_next;
++	chapms2_response_cache_next %= CHAPMS2_MAX_RESPONSE_CACHE_SIZE;
  }
  
- static int
--chapms2_check_success(unsigned char *msg, int len, unsigned char *private)
-+chapms2_check_success(int id, unsigned char *msg, int len,
-+		      unsigned char *private)
+-static struct chapms2_response_cache_entry*
++static struct chapms2_response_cache_entry *
+ chapms2_find_in_response_cache(int id, unsigned char *challenge,
+-		      unsigned char *auth_response)
++			       unsigned char *auth_response)
  {
- 	if ((len < MS_AUTH_RESPONSE_LENGTH + 2) ||
- 	    strncmp((char *)msg, "S=", 2) != 0) {
-@@ -349,7 +419,8 @@ chapms2_check_success(unsigned char *msg
++	struct chapms2_response_cache_entry *cache_entry;
+ 	int i;
+ 
+ 	for (i = 0; i < chapms2_response_cache_size; i++) {
+-		if (id == chapms2_response_cache[i].id
++		cache_entry = &chapms2_response_cache[i];
++		if (id == cache_entry->id
+ 		    && (!challenge
+-			|| memcmp(challenge,
+-				  chapms2_response_cache[i].challenge,
++			|| memcmp(challenge, cache_entry->challenge,
+ 				  16) == 0)
+ 		    && (!auth_response
+-			|| memcmp(auth_response,
+-				  chapms2_response_cache[i].auth_response,
++			|| memcmp(auth_response, cache_entry->auth_response,
+ 				  MS_AUTH_RESPONSE_LENGTH) == 0)) {
+-			dbglog("response found in cache (entry %d)", i);
+-			return &chapms2_response_cache[i];
++			return cache_entry;
+ 		}
+ 	}
+ 	return NULL;  /* not found */
+@@ -378,8 +374,7 @@ chapms2_find_in_response_cache(int id, u
+ 
+ static void
+ chapms2_make_response(unsigned char *response, int id, char *our_name,
+-		      unsigned char *challenge, char *secret, int secret_len,
+-		      unsigned char *private)
++		      unsigned char *challenge, char *secret, int secret_len)
+ {
+ 	const struct chapms2_response_cache_entry *cache_entry;
+ 	unsigned char auth_response[MS_AUTH_RESPONSE_LENGTH+1];
+@@ -414,7 +409,7 @@ chapms2_check_success(int id, unsigned c
  	msg += 2;
  	len -= 2;
  	if (len < MS_AUTH_RESPONSE_LENGTH
--	    || memcmp(msg, private, MS_AUTH_RESPONSE_LENGTH)) {
-+	    /* Find response by id & response in cache */
-+	    || !chapms2_cache_find(id, NULL, msg)) {
+-	    || !chapms2_find_in_response_cache(id, NULL /* challenge */, msg)) {
++	    || !chapms2_find_in_response_cache(id, NULL, msg)) {
  		/* Authenticator Response did not match expected. */
  		error("MS-CHAPv2 mutual authentication failed.");
  		return 0;
-diff -urBp ppp.old/pppd/chap-new.c ppp/pppd/chap-new.c
---- ppp.old/pppd/chap-new.c	2009-11-17 01:26:07.000000000 +0300
-+++ ppp/pppd/chap-new.c	2012-10-04 16:21:40.000000000 +0400
-@@ -498,7 +498,7 @@ chap_handle_status(struct chap_client_st
- 	if (code == CHAP_SUCCESS) {
- 		/* used for MS-CHAP v2 mutual auth, yuck */
- 		if (cs->digest->check_success != NULL) {
--			if (!(*cs->digest->check_success)(pkt, len, cs->priv))
-+			if (!(*cs->digest->check_success)(id, pkt, len, cs->priv))
- 				code = CHAP_FAILURE;
- 		} else
- 			msg = "CHAP authentication succeeded";
-diff -urBp ppp.old/pppd/chap-new.h ppp/pppd/chap-new.h
---- ppp.old/pppd/chap-new.h	2009-11-17 01:26:07.000000000 +0300
-+++ ppp/pppd/chap-new.h	2012-10-04 16:21:56.000000000 +0400
-@@ -105,7 +105,8 @@ struct chap_digest_type {
- 	void (*make_response)(unsigned char *response, int id, char *our_name,
- 		unsigned char *challenge, char *secret, int secret_len,
- 		unsigned char *priv);
--	int (*check_success)(unsigned char *pkt, int len, unsigned char *priv);
-+	int (*check_success)(int id,
-+		unsigned char *pkt, int len, unsigned char *priv);
- 	void (*handle_failure)(unsigned char *pkt, int len);
- 
- 	struct chap_digest_type *next;
