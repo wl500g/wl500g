@@ -6,11 +6,12 @@ workqueue: Updates from upstream
  8a3e77cc212f3bc8eccc95e0d046405cf2a02764 workqueue: remove redundant function invocation
  1a4d9b0aa0d3c50314e57525a5e5ec2cfc48b4c8 workqueues: insert_work: use "list_head *" instead of "int tail"
  2355b70fd59cb5be7de2052a9edeee7afb7ff099 workqueue: avoid recursion in run_workqueue()
+ 4e49627b9bc29a14b393c480e8c979e3bc922ef7 workqueues: introduce __cancel_delayed_work()
 
 ---
- include/linux/workqueue.h |   15 ++++--
+ include/linux/workqueue.h |   30 +++++++++++--
  kernel/workqueue.c        |  105 +++++++++++++++++++++-------------------------
- 2 files changed, 59 insertions(+), 61 deletions(-)
+ 2 files changed, 74 insertions(+), 61 deletions(-)
 
 diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
 --- a/include/linux/workqueue.h
@@ -24,11 +25,26 @@ diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
  
  /*
   * Kill off a pending schedule_delayed_work().  Note that the work callback
-@@ -209,14 +209,21 @@ static inline int cancel_delayed_work(st
+@@ -209,14 +209,36 @@ static inline int cancel_delayed_work(st
  	return ret;
  }
  
 -extern void cancel_rearming_delayed_work(struct delayed_work *work);
++/*
++ * Like above, but uses del_timer() instead of del_timer_sync(). This means,
++ * if it returns 0 the timer function may be running and the queueing is in
++ * progress.
++ */
++static inline int __cancel_delayed_work(struct delayed_work *work)
++{
++	int ret;
++
++	ret = del_timer(&work->timer);
++	if (ret)
++		work_clear_pending(&work->work);
++	return ret;
++}
++
 +extern int cancel_delayed_work_sync(struct delayed_work *work);
  
 -/* Obsolete. use cancel_rearming_delayed_work() */
