@@ -86,13 +86,13 @@ diff -Nru ppp-2.4.5.orig/pppd/pathnames.h ppp-2.4.5/pppd/pathnames.h
 --- ppp-2.4.5.orig/pppd/pathnames.h
 +++ ppp-2.4.5/pppd/pathnames.h
 @@ -27,6 +27,7 @@
- #define _PATH_IPPREUP	 _ROOT_PATH "/ppp/ip-pre-up"
- #define _PATH_AUTHUP	 _ROOT_PATH "/ppp/auth-up"
- #define _PATH_AUTHDOWN	 _ROOT_PATH "/ppp/auth-down"
-+#define _PATH_AUTHFAIL	 _ROOT_PATH "/ppp/auth-fail"
- #define _PATH_TTYOPT	 _ROOT_PATH "/ppp/options."
- #define _PATH_CONNERRS	 _ROOT_PATH "/var/log/ppp-connect-errors"
- #define _PATH_PEERFILES	 _ROOT_PATH "/ppp/peers/"
+ #define _PATH_IPPREUP	 _ROOT_PATH "/etc/ppp/ip-pre-up"
+ #define _PATH_AUTHUP	 _ROOT_PATH "/etc/ppp/auth-up"
+ #define _PATH_AUTHDOWN	 _ROOT_PATH "/etc/ppp/auth-down"
++#define _PATH_AUTHFAIL	 _ROOT_PATH "/etc/ppp/auth-fail"
+ #define _PATH_TTYOPT	 _ROOT_PATH "/etc/ppp/options."
+ #define _PATH_CONNERRS	 _ROOT_PATH "/etc/ppp/connect-errors"
+ #define _PATH_PEERFILES	 _ROOT_PATH "/etc/ppp/peers/"
 diff -Nru ppp-2.4.5.orig/pppd/pppd.8 ppp-2.4.5/pppd/pppd.8
 --- ppp-2.4.5.orig/pppd/pppd.8
 +++ ppp-2.4.5/pppd/pppd.8
