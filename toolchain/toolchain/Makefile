@@ -42,7 +42,8 @@ $(curdir)/uClibc/compile:=$(curdir)/gcc/initial/install
 $(curdir)/gcc/final/compile:=$(curdir)/uClibc/compile
 $(curdir)/uClibc/install:=$(curdir)/gcc/final/install
 
-$(TOOLCHAIN_DIR)/info.mk: .config
+ifneq ($(ARCH),)
+  $(TOOLCHAIN_DIR)/info.mk: .config
 	@for dir in $(TOOLCHAIN_DIR); do ( \
 		set -x; \
 		mkdir -p "$$dir"; \
@@ -51,6 +52,7 @@ $(TOOLCHAIN_DIR)/info.mk: .config
 	); done
 	@grep GCC_VERSION $@ >/dev/null 2>&1 || $(INSTALL_DATA) $(TOPDIR)/toolchain/info.mk $@
 	@touch $@
+endif
 
 # prerequisites for the individual targets
 $(curdir)/ := .config prereq

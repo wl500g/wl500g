@@ -21,7 +21,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gcc
-PKG_VERSION:=$(strip $(subst ",, $(CONFIG_GCC_VERSION)))#"))
+PKG_VERSION:=$(call qstrip,$(CONFIG_GCC_VERSION))
 
 ifeq ($(PKG_VERSION),3.4.6)
   PKG_MD5SUM:=4a21ac777d4b5617283ce488b808da7b

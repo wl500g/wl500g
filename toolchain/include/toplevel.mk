@@ -42,7 +42,7 @@ prepare-tmpinfo: FORCE
 	touch $(TOPDIR)/tmp/.build
 
 .config: ./scripts/config/conf $(if $(CONFIG_HAVE_DOT_CONFIG),,prepare-tmpinfo)
-	@+if [ \! -f .config ]; then \
+	@+if [ -f .config ] || ! grep CONFIG_HAVE_DOT_CONFIG .config >/dev/null; then \
 		[ -e defconfig ] && cp defconfig .config; \
 		$(NO_TRACE_MAKE) menuconfig $(PREP_MK); \
 	fi
