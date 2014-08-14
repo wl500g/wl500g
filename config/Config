@@ -361,6 +361,13 @@ config CONFIG_RADVD
        help
        Implements link-local advertisements of IPv6 router addresses and IPv6 routing prefixes using the Neighbor Discovery Protocol
 
+config CONFIG_ODHCP6C
+       bool "Embedded DHCPv6 Client"
+       depends on CONFIG_IPV6
+       default n
+       help
+       Minimal DHCPv6 and RA-client for use in embedded Linux systems
+
 config CONFIG_SNMP
        bool "SNMP agent support"
        default y

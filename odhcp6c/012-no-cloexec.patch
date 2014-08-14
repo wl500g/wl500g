@@ -1,0 +1,42 @@
+diff -BurpN odhcp6c.orig/src/dhcpv6.c odhcp6c/src/dhcpv6.c
+--- odhcp6c.orig/src/dhcpv6.c	2014-08-14 09:53:25.000000000 +0000
++++ odhcp6c/src/dhcpv6.c	2014-08-14 10:03:30.927285378 +0000
+@@ -114,9 +114,10 @@ int init_dhcpv6(const char *ifname, unsi
+ 	client_options = options;
+ 	dhcpv6_retx[DHCPV6_MSG_SOLICIT].max_timeo = sol_timeout;
+ 
+-	sock = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_UDP);
++	sock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+ 	if (sock < 0)
+ 		return -1;
++	fcntl(sock, F_SETFD, FD_CLOEXEC);
+ 
+ 	// Detect interface
+ 	struct ifreq ifr;
+diff -BurpN odhcp6c.orig/src/ra.c odhcp6c/src/ra.c
+--- odhcp6c.orig/src/ra.c	2014-08-13 11:30:42.000000000 +0000
++++ odhcp6c/src/ra.c	2014-08-14 10:03:30.927285378 +0000
+@@ -61,9 +61,10 @@ static void ra_send_rs(int signal __attr
+ int ra_init(const char *ifname, const struct in6_addr *ifid)
+ {
+ 	const pid_t ourpid = getpid();
+-	sock = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC, IPPROTO_ICMPV6);
++	sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+ 	if (sock < 0)
+ 		return -1;
++	fcntl(sock, F_SETFD, FD_CLOEXEC);
+ 
+ 	if_index = if_nametoindex(ifname);
+ 	if (!if_index)
+@@ -72,9 +73,10 @@ int ra_init(const char *ifname, const st
+ 	strncpy(if_name, ifname, sizeof(if_name) - 1);
+ 	lladdr = *ifid;
+ 
+-	rtnl = socket(AF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC, NETLINK_ROUTE);
++	rtnl = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+ 	if (rtnl < 0)
+ 		return -1;
++	fcntl(rtnl, F_SETFD, FD_CLOEXEC);
+ 
+ 	struct sockaddr_nl rtnl_kernel = { .nl_family = AF_NETLINK };
+ 	if (connect(rtnl, (const struct sockaddr*)&rtnl_kernel, sizeof(rtnl_kernel)) < 0)

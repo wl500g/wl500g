@@ -45,6 +45,7 @@ SQUASHFS=squashfs4.2
 NFSUTILS=nfs-utils-1.1.6
 PORTMAP=portmap_6
 RADVD=radvd-1.8.3
+ODHCP6C=odhcp6c-git-20140814
 QUAGGA=quagga-0.99.20.1
 L2TP=rp-l2tp
 XL2TPD=xl2tpd-1.3.1
@@ -87,7 +88,7 @@ all: prep custom
 	@true
 
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba \
-	iproute2 iptables ipset \
+	iproute2 iptables ipset odhcp6c \
 	ppp rp-l2tp rp-pppoe accel-pptp accel-ppp xl2tpd \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	bpalogin bridge inadyn httpd libjpeg lib LPRng \
@@ -353,6 +354,17 @@ $(TOP)/radvd: radvd/$(RADVD).tar.gz
 	mv $(TOP)/$(RADVD) $@
 
 radvd: $(TOP)/radvd
+	@true
+
+odhcp6c_Patches := $(call patches_list,odhcp6c)
+
+$(TOP)/odhcp6c: odhcp6c/$(ODHCP6C).tar.gz
+	@rm -rf $(TOP)/$(ODHCP6C) $@
+	tar -xzf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(ODHCP6C) $(odhcp6c_Patches)
+	mv $(TOP)/$(ODHCP6C) $@
+
+odhcp6c: $(TOP)/odhcp6c
 	@true
 
 quagga_Patches := $(call patches_list,quagga)
