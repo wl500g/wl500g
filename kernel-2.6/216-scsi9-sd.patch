@@ -5,8 +5,13 @@
  f27bac2761cab5a2e212dea602d22457a9aa6943 [SCSI] sd: update index allocation and use ida instead of idr
  4034cc68157bfa0b6622efe368488d3d3e20f4e6 [SCSI] sd: revive sd_index_lock
  53ad570be625045aba3ae7de8d82401364c655e1 sd: Use SCSI read/write(16) with > 32-bit LBA drives
+ 5ce524bdff367b4abda20bcfd4dafd9d30c773df scsi/sd: add a no_read_capacity_16 scsi_device flag
+ b14bf2d0c0358140041d1c1805a674376964d0e0 usb-storage/SCSI: Add broken_fua blacklist flag
 
 ---
+ drivers/scsi/sd.c          |   79 ++++++++++++++++++++++++++-------------------
+ include/scsi/scsi_device.h |    3 +
+ 2 files changed, 50 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
 --- a/drivers/scsi/sd.c
@@ -38,16 +43,42 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
  		SCpnt->cmnd[0] += READ_16 - READ_6;
  		SCpnt->cmnd[1] |= blk_fua_rq(rq) ? 0x8 : 0;
  		SCpnt->cmnd[2] = sizeof(block) > 4 ? (unsigned char) (block >> 56) & 0xff : 0;
-@@ -1227,8 +1228,7 @@ repeat:
+@@ -1183,6 +1183,10 @@ sd_read_capacity(struct scsi_disk *
+ 	retries = 3;
+ 	do {
+ 		if (longrc) {
++			if (sdp->no_read_capacity_16) {
++				longrc = 0;
++				goto repeat;
++			}
+ 			memset((void *) cmd, 0, 16);
+ 			cmd[0] = SERVICE_ACTION_IN;
+ 			cmd[1] = SAI_READ_CAPACITY_16;
+@@ -1239,11 +1243,19 @@ repeat:
  	}	
  	
  	if (!longrc) {
++		unsigned long long lba = get_unaligned_be32(&buffer[0]);
++		sector_size = get_unaligned_be32(&buffer[4]);
 -		sector_size = (buffer[4] << 24) |
 -			(buffer[5] << 16) | (buffer[6] << 8) | buffer[7];
-+		sector_size = get_unaligned_be32(&buffer[4]);
- 		if (buffer[0] == 0xff && buffer[1] == 0xff &&
- 		    buffer[2] == 0xff && buffer[3] == 0xff) {
- 			if(sizeof(sdkp->capacity) > 4) {
+-		if (buffer[0] == 0xff && buffer[1] == 0xff &&
+-		    buffer[2] == 0xff && buffer[3] == 0xff) {
+-			if(sizeof(sdkp->capacity) > 4) {
++
++		if (lba == 0xffffffff) {
++			if (sdp->no_read_capacity_16) {
++			/* Some buggy (usb cardreader) devices return an lba of
++			   0xffffffff when the want to report a size of 0 (with
++			   which they really mean no media is present) */
++				sdkp->capacity = 0;
++				goto got_data;
++			}
++
++			if (sizeof(sdkp->capacity) > 4) {
+ 				sd_printk(KERN_NOTICE, sdkp, "Very big device. "
+ 					  "Trying to use READ CAPACITY(16).\n");
+ 				longrc = 1;
 @@ -1243,22 +1243,11 @@ repeat:
  			sdkp->capacity = 0;
  			goto got_data;
@@ -56,7 +87,7 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
 -			(buffer[1] << 16) |
 -			(buffer[2] << 8) |
 -			buffer[3]);			
-+		sdkp->capacity = 1 + (sector_t)get_unaligned_be32(&buffer[0]);
++		sdkp->capacity = 1 + (sector_t )lba;
  	} else {
 -		sdkp->capacity = 1 + (((u64)buffer[0] << 56) |
 -			((u64)buffer[1] << 48) |
@@ -84,6 +115,18 @@ diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
  	/* Rescale capacity to 512-byte units */
  	if (sector_size == 4096)
  		sdkp->capacity <<= 3;
+@@ -1501,7 +1501,10 @@ sd_read_cache_type(struct scsi_disk *sdkp, unsigned char *buffer)
+ 		}
+ 
+ 		sdkp->DPOFUA = (data.device_specific & 0x10) != 0;
+-		if (sdkp->DPOFUA && !sdkp->device->use_10_for_rw) {
++		if (sdp->broken_fua) {
++			sd_printk(KERN_NOTICE, sdkp, "Disabling FUA\n");
++			sdkp->DPOFUA = 0;
++		} else if (sdkp->DPOFUA && !sdkp->device->use_10_for_rw) {
+ 			sd_printk(KERN_NOTICE, sdkp,
+ 				  "Uses READ/WRITE(6), disabling FUA\n");
+ 			sdkp->DPOFUA = 0;
 @@ -1639,18 +1628,22 @@ static int sd_probe(struct device *dev)
  	if (!gd)
  		goto out_free;
@@ -154,4 +197,13 @@ diff --git a/include/scsi/scsi_device.h b/include/scsi/scsi_device.h
  	unsigned skip_ms_page_8:1;	/* do not use MODE SENSE page 0x08 */
  	unsigned skip_ms_page_3f:1;	/* do not use MODE SENSE page 0x3f */
  	unsigned use_192_bytes_for_3f:1; /* ask for 192 bytes from page 0x3f */
+@@ -129,6 +129,8 @@ struct scsi_device {
+ 	unsigned retry_hwerror:1;	/* Retry HARDWARE_ERROR */
+ 	unsigned last_sector_bug:1;	/* do not use multisector accesses on
+ 					   SD_LAST_BUGGY_SECTORS */
++	unsigned no_read_capacity_16:1; /* Avoid READ_CAPACITY_16 cmds */
++	unsigned broken_fua:1;		/* Don't set FUA bit */
+ 
+ 	unsigned int device_blocked;	/* Device returned QUEUE_FULL. */
+ 
 -- 

@@ -10,20 +10,24 @@ USB: Updates from upstream
  afe2dab4f6d32d5650aaba42f2c7ec9c0622f4dd USB: add hex/bcd detection to usb modalias generation
  55f49f26821f379c451deb9fd6de8e59afb9b37e USB: handle bcd incrementation in usb modalias generation
  03b56329f9bb5a1cb73d7dc659d529a9a9bf3acc Modpost: fixed USB alias generation for ranges including 0x9 and 0xA
+ 00914025cc4e783d4703b4db1d47b41f389e50c8 usb-storage: add new no_read_capacity_16 quirk
 
 ---
- drivers/usb/core/config.c       |    4 +
- drivers/usb/core/driver.c       |   38 ++++++++------
- drivers/usb/core/hub.c          |    2 
- drivers/usb/core/message.c      |    5 +
- drivers/usb/core/quirks.c       |  104 +++++++++++++++++++++++++++++++---------
- drivers/usb/core/sysfs.c        |    5 +
- drivers/usb/core/usb.h          |    4 +
- include/linux/hid.h             |    1 
- include/linux/mod_devicetable.h |   22 +++++++-
- include/linux/usb.h             |   16 ++++++
- scripts/mod/file2alias.c        |  100 +++++++++++++++++++++++++++++++++-----
- 11 files changed, 245 insertions(+), 56 deletions(-)
+ drivers/usb/core/config.c          |    4 +
+ drivers/usb/core/driver.c          |   38 ++++++++-----
+ drivers/usb/core/hub.c             |    2 
+ drivers/usb/core/message.c         |    5 +
+ drivers/usb/core/quirks.c          |  104 +++++++++++++++++++++++++++++--------
+ drivers/usb/core/sysfs.c           |    5 +
+ drivers/usb/core/usb.h             |    4 +
+ drivers/usb/storage/scsiglue.c     |    9 +++
+ drivers/usb/storage/unusual_devs.h |   10 +++
+ include/linux/hid.h                |    1 
+ include/linux/mod_devicetable.h    |   22 +++++++
+ include/linux/usb.h                |   16 +++++
+ include/linux/usb_usual.h          |    6 +-
+ scripts/mod/file2alias.c           |  100 ++++++++++++++++++++++++++++++-----
+ 14 files changed, 268 insertions(+), 58 deletions(-)
 
 diff --git a/drivers/usb/core/config.c b/drivers/usb/core/config.c
 --- a/drivers/usb/core/config.c
@@ -319,6 +323,59 @@ diff --git a/drivers/usb/core/usb.h b/drivers/usb/core/usb.h
  extern int usb_match_device(struct usb_device *dev,
  			    const struct usb_device_id *id);
  extern void usb_forced_unbind_intf(struct usb_interface *intf);
+diff --git a/drivers/usb/storage/scsiglue.c b/drivers/usb/storage/scsiglue.c
+--- a/drivers/usb/storage/scsiglue.c
++++ b/drivers/usb/storage/scsiglue.c
+@@ -209,6 +209,10 @@ static int slave_configure(struct scsi_device *sdev)
+ 		if (us->fflags & US_FL_CAPACITY_HEURISTICS)
+ 			sdev->guess_capacity = 1;
+ 
++		/* Some devices cannot handle READ_CAPACITY_16 */
++		if (us->fflags & US_FL_NO_READ_CAPACITY_16)
++			sdev->no_read_capacity_16 = 1;
++
+ 		/* assume SPC3 or latter devices support sense size > 18 */
+ 		if (sdev->scsi_level > SCSI_SPC_2)
+ 			us->fflags |= US_FL_SANE_SENSE;
+@@ -256,6 +256,11 @@ static int slave_configure(struct scsi_device *sdev)
+ 					US_FL_SCM_MULT_TARG)) &&
+ 				us->protocol == US_PR_BULK)
+ 			us->use_last_sector_hacks = 1;
++
++		/* A few buggy USB-ATA bridges don't understand FUA */
++		if (us->fflags & US_FL_BROKEN_FUA)
++			sdev->broken_fua = 1;
++
+ 	} else {
+ 
+ 		/* Non-disk-type devices don't need to blacklist any pages
+diff --git a/drivers/usb/storage/unusual_devs.h b/drivers/usb/storage/unusual_devs.h
+--- a/drivers/usb/storage/unusual_devs.h
++++ b/drivers/usb/storage/unusual_devs.h
+@@ -967,7 +967,8 @@ UNUSUAL_DEV(  0x071b, 0x3203, 0x0000, 0x0000,
+ 		"RockChip",
+ 		"MP3",
+ 		US_SC_DEVICE, US_PR_DEVICE, NULL,
+-		US_FL_NO_WP_DETECT | US_FL_MAX_SECTORS_64),
++		US_FL_NO_WP_DETECT | US_FL_MAX_SECTORS_64 |
++		US_FL_NO_READ_CAPACITY_16),
+ 
+ /* Reported by Jean-Baptiste Onofre <jb@nanthrax.net>
+  * Support the following product :
+@@ -1936,6 +1936,13 @@ UNUSUAL_DEV(  0x14cd, 0x6600, 0x0201, 0x0201,
+ 		US_SC_DEVICE, US_PR_DEVICE, NULL,
+ 		US_FL_IGNORE_RESIDUE ),
+ 
++/* Reported by Michael Büsch <m@bues.ch> */
++UNUSUAL_DEV(  0x152d, 0x0567, 0x0114, 0x0114,
++		"JMicron",
++		"USB to ATA/ATAPI Bridge",
++		US_SC_DEVICE, US_PR_DEVICE, NULL,
++		US_FL_BROKEN_FUA ),
++
+ /* Reported by Alexandre Oliva <oliva@lsd.ic.unicamp.br>
+  * JMicron responds to USN and several other SCSI ioctls with a
+  * residue that causes subsequent I/O requests to fail.  */
 diff --git a/include/linux/hid.h b/include/linux/hid.h
 --- a/include/linux/hid.h
 +++ b/include/linux/hid.h
@@ -410,6 +467,22 @@ diff --git a/include/linux/usb.h b/include/linux/usb.h
   * USB_DEVICE_INFO - macro used to describe a class of usb devices
   * @cl: bDeviceClass value
   * @sc: bDeviceSubClass value
+diff --git a/include/linux/usb_usual.h b/include/linux/usb_usual.h
+--- a/include/linux/usb_usual.h
++++ b/include/linux/usb_usual.h
+@@ -60,7 +60,11 @@
+ 	US_FLAG(CAPACITY_OK,	0x00010000)			\
+ 		/* READ CAPACITY response is correct */		\
+ 	US_FLAG(BAD_SENSE,	0x00020000)			\
+-		/* Bad Sense (never more than 18 bytes) */
++		/* Bad Sense (never more than 18 bytes) */	\
++	US_FLAG(NO_READ_CAPACITY_16,	0x00080000)		\
++		/* cannot handle READ_CAPACITY_16 */		\
++	US_FLAG(BROKEN_FUA,	0x01000000)			\
++		/* Cannot handle FUA in WRITE or READ CDBs */	\
+ 
+ #define US_FLAG(name, value)	US_FL_##name = value ,
+ enum { US_DO_ALL_FLAGS };
 diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
 --- a/scripts/mod/file2alias.c
 +++ b/scripts/mod/file2alias.c
