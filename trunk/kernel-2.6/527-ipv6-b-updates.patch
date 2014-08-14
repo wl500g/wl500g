@@ -6,6 +6,7 @@
  cc411d0bae9c19ec85a150aeab4b08335f5751d1 ipv6: Add IFA_F_DADFAILED flag
  e2577a065832f2c6d108de2e027891bdb2d78924 ipv6: Send netlink notification when DAD fails
  61e76b178dbe7145e8d6afa84bb4ccea71918994 ICMPv6: treat dest unreachable codes 5 and 6 as EACCES, not EPROTO
+ 53b47106c0c2b1f42237d255ae272f0fcc3ec413 ipv6: increase maximum lifetime of flow labels
 
 ---
  drivers/net/bonding/bond_main.c |   23 ++++++++++-----------
@@ -15,7 +16,8 @@
  net/ipv6/addrconf.c             |   42 +++++++++++++++++++++++++++++++++++-----
  net/ipv6/anycast.c              |   26 ------------------------
  net/ipv6/icmp.c                 |   10 ++++++++-
- 7 files changed, 65 insertions(+), 43 deletions(-)
+ net/ipv6/ip6_flowlabel.c        |    2 -
+ 8 files changed, 66 insertions(+), 44 deletions(-)
 
 diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
 --- a/include/linux/if_addr.h
@@ -285,4 +287,16 @@ diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
  			*err  = tab_unreach[code].err;
  			fatal = tab_unreach[code].fatal;
  		}
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -41,7 +41,7 @@
+ #define FL_MIN_LINGER	6	/* Minimal linger. It is set to 6sec specified
+ 				   in old IPv6 RFC. Well, it was reasonable value.
+ 				 */
+-#define FL_MAX_LINGER	60	/* Maximal linger timeout */
++#define FL_MAX_LINGER	150	/* Maximal linger timeout */
+ 
+ /* FL hash table */
+ 
 -- 
