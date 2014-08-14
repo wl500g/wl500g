@@ -27,7 +27,7 @@ define PackageDir
 	{ \
 		$$(call progress,Collecting $(SCAN_NAME) info: $(SCAN_DIR)/$(2)) \
 		echo Source-Makefile: $(SCAN_DIR)/$(2)/Makefile; \
-		$(NO_TRACE_MAKE) --no-print-dir DUMP=1 -C $(SCAN_DIR)/$(2) $(SCAN_MAKEOPTS) 2>/dev/null || echo "ERROR: please fix $(SCAN_DIR)/$(2)/Makefile" >&2; \
+		$(NO_TRACE_MAKE) --no-print-dir -r DUMP=1 -C $(SCAN_DIR)/$(2) $(SCAN_MAKEOPTS) 2>/dev/null || { $$(call progress,ERROR: please fix $(SCAN_DIR)/$(2)/Makefile\n) rm -f $$@; }; \
 		echo; \
 	} > $$@ || true
 endef
@@ -52,7 +52,7 @@ $(TMP_DIR)/info/.files-$(SCAN_TARGET).mk: $(FILELIST)
 $(TARGET_STAMP)::
 	+( \
 		$(NO_TRACE_MAKE) $(FILELIST); \
-		MD5SUM=$$(cat $(FILELIST) | (md5sum || md5) | awk '{print $$1}'); \
+		MD5SUM=$$(cat $(FILELIST) | (md5sum || md5) 2>/dev/null | awk '{print $$1}'); \
 		[ -f "$@.$$MD5SUM" ] || { \
 			rm -f $@.*; \
 			touch $@.$$MD5SUM; \
@@ -62,7 +62,7 @@ $(TARGET_STAMP)::
 
 $(TMP_DIR)/.$(SCAN_TARGET): $(TARGET_STAMP) $(SCAN_STAMP)
 	$(call progress,Collecting $(SCAN_NAME) info: merging...)
-	cat $(FILELIST) | awk '{gsub(/\//, "_", $$0);print "$(TMP_DIR)/info/.$(SCAN_TARGET)-" $$0}' | xargs cat > $@
+	-cat $(FILELIST) | awk '{gsub(/\//, "_", $$0);print "$(TMP_DIR)/info/.$(SCAN_TARGET)-" $$0}' | xargs cat > $@ 2>/dev/null
 	$(call progress,Collecting $(SCAN_NAME) info: done)
 	echo
 
