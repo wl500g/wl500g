@@ -19,8 +19,10 @@ ifeq ("$(origin V)", "command line")
 endif
 
 ifeq ($(IS_TTY),1)
-  _Y:=\\033[33m
-  _N:=\\033[m
+  ifneq ($(strip $(NO_COLOR)),1)
+    _Y:=\\033[33m
+    _N:=\\033[m
+  endif
 endif
 
 ifneq ($(KBUILD_VERBOSE),99)
@@ -45,7 +47,7 @@ ifneq ($(KBUILD_VERBOSE),99)
       SILENT:=
     endif
     export QUIET:=1
-    SUBMAKE=cmd() { $(SILENT) $(MAKE) -s $$* || { echo "make $$*: build failed. Please re-run make with V=99 to see what's going on"; false; } } 254>&1 255>&2; cmd
+    SUBMAKE=cmd() { $(SILENT) $(MAKE) -s $$* < /dev/null || { echo "make $$*: build failed. Please re-run make with V=99 to see what's going on"; false; } } 254>&1 255>&2; cmd
   endif
 
   .SILENT: $(MAKECMDGOALS)
