@@ -1,0 +1,111 @@
+diff -BurpN odhcp6c.orig/src/dhcpv6.c odhcp6c/src/dhcpv6.c
+--- odhcp6c.orig/src/dhcpv6.c	2014-08-14 09:55:46.000000000 +0000
++++ odhcp6c/src/dhcpv6.c	2014-08-14 09:57:26.827286060 +0000
+@@ -508,7 +508,7 @@ int dhcpv6_request(enum dhcpv6_msg type)
+ 	if (timeout == 0)
+ 		return -1;
+ 
+-	syslog(LOG_NOTICE, "Starting %s transaction (timeout %llus, max rc %d)",
++	syslog(loglevel, "Starting %s transaction (timeout %llus, max rc %d)",
+ 			retx->name, (unsigned long long)timeout, retx->max_rc);
+ 
+ 	uint64_t start = odhcp6c_get_milli_time(), round_start = start, elapsed;
+@@ -548,7 +548,7 @@ int dhcpv6_request(enum dhcpv6_msg type)
+ 		// Built and send package
+ 		if (type != DHCPV6_MSG_UNKNOWN) {
+ 			if (type != DHCPV6_MSG_SOLICIT)
+-				syslog(LOG_NOTICE, "Send %s message (elapsed %llums, rc %d)",
++				syslog(loglevel, "Send %s message (elapsed %llums, rc %d)",
+ 						retx->name, (unsigned long long)elapsed, rc);
+ 			dhcpv6_send(type, trid, elapsed / 10);
+ 			rc++;
+@@ -603,7 +603,7 @@ int dhcpv6_request(enum dhcpv6_msg type)
+ 
+ 			round_start = odhcp6c_get_milli_time();
+ 			elapsed = round_start - start;
+-			syslog(LOG_NOTICE, "Got a valid reply after "
++			syslog(loglevel, "Got a valid reply after "
+ 					"%llums", (unsigned long long)elapsed);
+ 
+ 			if (retx->handler_reply)
+diff -BurpN odhcp6c.orig/src/odhcp6c.c odhcp6c/src/odhcp6c.c
+--- odhcp6c.orig/src/odhcp6c.c	2014-08-14 09:53:25.000000000 +0000
++++ odhcp6c/src/odhcp6c.c	2014-08-14 09:57:52.375283833 +0000
+@@ -76,8 +76,9 @@ int main(_unused int argc, char* const a
+ #ifdef EXT_CLIENT_FQDN
+ 	client_options | = DHCPV6_CLIENT_FQDN;
+ #endif
++	loglevel = LOG_NOTICE;
+ 
+-	while ((c = getopt(argc, argv, "S::N:V:P:FB:c:i:r:Ru:s:kt:m:hedp:fa")) != -1) {
++	while ((c = getopt(argc, argv, "S::N:V:P:FB:c:i:r:Ru:s:kt:m:hedp:fal:")) != -1) {
+ 		switch (c) {
+ 		case 'S':
+ 			allow_slaac_only = (optarg) ? atoi(optarg) : -1;
+@@ -217,6 +218,10 @@ int main(_unused int argc, char* const a
+ 			client_options &= ~DHCPV6_ACCEPT_RECONFIGURE;
+ 			break;
+ 
++		case 'l':
++			loglevel = atoi(optarg);
++			break;
++
+ 		default:
+ 			help = true;
+ 			break;
+@@ -282,7 +287,7 @@ int main(_unused int argc, char* const a
+ 		dhcpv6_set_ia_mode(ia_na_mode, ia_pd_mode);
+ 		bound = false;
+ 
+-		syslog(LOG_NOTICE, "(re)starting transaction on %s", ifname);
++		syslog(loglevel, "(re)starting transaction on %s", ifname);
+ 
+ 		signal_usr1 = signal_usr2 = false;
+ 		int mode = dhcpv6_request(DHCPV6_MSG_SOLICIT);
+@@ -312,7 +317,7 @@ int main(_unused int argc, char* const a
+ 		switch (mode) {
+ 		case DHCPV6_STATELESS:
+ 			bound = true;
+-			syslog(LOG_NOTICE, "entering stateless-mode on %s", ifname);
++			syslog(loglevel, "entering stateless-mode on %s", ifname);
+ 
+ 			while (!signal_usr2 && !signal_term) {
+ 				signal_usr1 = false;
+@@ -343,7 +348,7 @@ int main(_unused int argc, char* const a
+ 		case DHCPV6_STATEFUL:
+ 			script_call("bound");
+ 			bound = true;
+-			syslog(LOG_NOTICE, "entering stateful-mode on %s", ifname);
++			syslog(loglevel, "entering stateful-mode on %s", ifname);
+ 
+ 			while (!signal_usr2 && !signal_term) {
+ 				// Renew Cycle
+@@ -444,6 +449,7 @@ static int usage(void)
+ 	"	-d		Daemonize\n"
+ 	"	-e		Write logmessages to stderr\n"
+ 	//"	-v		Increase logging verbosity\n"
++	"	-l <level>	Set desired log level (notice)\n"
+ 	"	-h		Show this help\n\n";
+ 	write(STDERR_FILENO, buf, sizeof(buf));
+ 	return 1;
+diff -BurpN odhcp6c.orig/src/odhcp6c.h odhcp6c/src/odhcp6c.h
+--- odhcp6c.orig/src/odhcp6c.h	2014-08-13 11:30:42.000000000 +0000
++++ odhcp6c/src/odhcp6c.h	2014-08-14 09:57:26.827286060 +0000
+@@ -349,3 +349,5 @@ bool odhcp6c_update_entry_safe(enum odhc
+ 
+ void odhcp6c_expire(void);
+ uint32_t odhcp6c_elapsed(void);
++
++int loglevel;
+diff -BurpN odhcp6c.orig/src/ra.c odhcp6c/src/ra.c
+--- odhcp6c.orig/src/ra.c	2014-08-13 11:30:42.000000000 +0000
++++ odhcp6c/src/ra.c	2014-08-14 09:57:26.827286060 +0000
+@@ -208,7 +208,7 @@ bool ra_link_up(void)
+ 	} while (read > 0);
+ 
+ 	if (ret) {
+-		syslog(LOG_NOTICE, "carrier => %i event on %s", (int)!nocarrier, if_name);
++		syslog(loglevel, "carrier => %i event on %s", (int)!nocarrier, if_name);
+ 
+ 		rs_attempt = 0;
+ 		ra_send_rs(SIGALRM);

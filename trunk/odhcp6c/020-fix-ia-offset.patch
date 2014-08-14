@@ -1,0 +1,30 @@
+diff -BurpN odhcp6c.orig/src/dhcpv6.c odhcp6c/src/dhcpv6.c
+--- odhcp6c.orig/src/dhcpv6.c	2014-08-14 09:53:25.000000000 +0000
++++ odhcp6c/src/dhcpv6.c	2014-08-14 09:55:46.275284634 +0000
+@@ -699,7 +699,7 @@ static bool dhcpv6_response_is_valid(con
+ 			rcmsg = odata[0];
+ 		} else if ((otype == DHCPV6_OPT_IA_PD || otype == DHCPV6_OPT_IA_NA)) {
+ 			ia_present = true;
+-			if (olen < sizeof(struct dhcpv6_ia_hdr))
++			if (olen < -4 + sizeof(struct dhcpv6_ia_hdr))
+ 				options_valid = false;
+ 		}
+ 		else if ((otype == DHCPV6_OPT_IA_ADDR) || (otype == DHCPV6_OPT_IA_PREFIX) ||
+@@ -767,7 +767,7 @@ static int dhcpv6_handle_advert(enum dhc
+ 	dhcpv6_for_each_option(opt, end, otype, olen, odata) {
+ 		if (orig == DHCPV6_MSG_SOLICIT &&
+ 				(otype == DHCPV6_OPT_IA_PD || otype == DHCPV6_OPT_IA_NA) &&
+-				olen > sizeof(struct dhcpv6_ia_hdr)) {
++				olen > -4 + sizeof(struct dhcpv6_ia_hdr)) {
+ 			struct dhcpv6_ia_hdr *ia_hdr = (void*)(&odata[-4]);
+ 			dhcpv6_parse_ia(ia_hdr, odata + olen + sizeof(*ia_hdr));
+ 		}
+@@ -936,7 +936,7 @@ static int dhcpv6_handle_reply(enum dhcp
+ 		bool passthru = true;
+ 
+ 		if ((otype == DHCPV6_OPT_IA_PD || otype == DHCPV6_OPT_IA_NA)
+-				&& olen > sizeof(struct dhcpv6_ia_hdr)) {
++				&& olen > -4 + sizeof(struct dhcpv6_ia_hdr)) {
+ 			struct dhcpv6_ia_hdr *ia_hdr = (void*)(&odata[-4]);
+ 
+ 			// Test ID

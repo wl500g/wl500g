@@ -175,6 +175,7 @@ obj-$(CONFIG_IPROUTE2) += iproute2
 obj-$(CONFIG_IPSET) += ipset
 obj-$(CONFIG_LOADER) += loader
 obj-$(CONFIG_RADVD) += radvd
+obj-$(CONFIG_ODHCP6C) += odhcp6c
 obj-$(CONFIG_SNMP) += ucd-snmp
 obj-$(CONFIG_L2TP) += rp-l2tp
 obj-$(CONFIG_XL2TPD) += xl2tpd
@@ -655,6 +656,15 @@ radvd-install:
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
 
+odhcp6c: odhcp6c/Makefile
+	EXT_CFLAGS="-g -Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	EXT_LDFLAGS="-Wl,--gc-sections " \
+	$(MAKE) -C odhcp6c
+
+odhcp6c-install:
+	install -D odhcp6c/src/odhcp6c $(INSTALLDIR)/odhcp6c/usr/sbin/odhcp6c
+	$(STRIP) $(INSTALLDIR)/odhcp6c/usr/sbin/odhcp6c
+
 quagga/Makefile: quagga/Makefile.in
 	cd quagga && \
 	CFLAGS="-g -Os -std=gnu99 -ffunction-sections -fdata-sections -Wall $(EXTRACFLAGS)" \
@@ -719,6 +729,7 @@ bpalogin-install:
 busybox/.config: .config
 	cp -fp busybox/sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) $@
 	$(call SwitchConfParam,$@,CONFIG_FEATURE_IPV6 CONFIG_PING6 CONFIG_TRACEROUTE6,$(if $(CONFIG_IPV6),y,n))
+	$(call SwitchConfParam,$@,CONFIG_DHCP6C,$(if $(CONFIG_ODHCP6C),n,y))
 	$(call SwitchConfParam,$@,CONFIG_SENDMAIL,$(if $(CONFIG_SENDMAIL),y,n))
 	sed -i 's/CONFIG_EXTRA_CFLAGS=.*/CONFIG_EXTRA_CFLAGS="$(EXTRACFLAGS)"/' $@
 	$(MAKE) -C busybox oldconfig

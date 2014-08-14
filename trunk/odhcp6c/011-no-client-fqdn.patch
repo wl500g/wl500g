@@ -1,0 +1,90 @@
+diff -BurpN odhcp6c.orig/Makefile odhcp6c/Makefile
+--- odhcp6c.orig/Makefile	2014-08-14 09:52:34.000000000 +0000
++++ odhcp6c/Makefile	2014-08-14 09:53:49.775288458 +0000
+@@ -14,6 +14,7 @@ top ?= $(CURDIR)
+ CFLAGS += $(if $(EXT_PREFIX_CLASS),-DEXT_PREFIX_CLASS=$(EXT_PREFIX_CLASS),)
+ CFLAGS += $(if $(EXT_CER_ID),-DEXT_CER_ID=$(EXT_CER_ID),)
+ CFLAGS += $(if $(EXT_S46),-DEXT_S46=$(EXT_S46),)
++CFLAGS += $(if $(EXT_CLIENT_FQDN),-DEXT_CLIENT_FQDN,)
+ 
+ OBJS := odhcp6c.o dhcpv6.o ra.o script.o md5.o
+ HDRS := odhcp6c.h ra.h md5.h
+diff -BurpN odhcp6c.orig/src/dhcpv6.c odhcp6c/src/dhcpv6.c
+--- odhcp6c.orig/src/dhcpv6.c	2014-08-13 11:30:42.000000000 +0000
++++ odhcp6c/src/dhcpv6.c	2014-08-14 09:53:25.479288906 +0000
+@@ -229,6 +229,7 @@ void dhcpv6_set_ia_mode(enum odhcp6c_ia_
+ 
+ static void dhcpv6_send(enum dhcpv6_msg type, uint8_t trid[3], uint32_t ecs)
+ {
++#ifdef EXT_CLIENT_FQDN
+ 	// Build FQDN
+ 	char fqdn_buf[256];
+ 	gethostname(fqdn_buf, sizeof(fqdn_buf));
+@@ -243,7 +244,7 @@ static void dhcpv6_send(enum dhcpv6_msg
+ 	fqdn.type = htons(DHCPV6_OPT_FQDN);
+ 	fqdn.len = htons(fqdn_len - 4);
+ 	fqdn.flags = 0;
+-
++#endif
+ 
+ 	// Build Client ID
+ 	size_t cl_id_len;
+@@ -435,7 +436,9 @@ static void dhcpv6_send(enum dhcpv6_msg
+ 		[IOV_USER_CLASS_HDR] = {&user_class_hdr, user_class_len ? sizeof(user_class_hdr) : 0},
+ 		[IOV_USER_CLASS] = {user_class, user_class_len},
+ 		[IOV_RECONF_ACCEPT] = {&reconf_accept, sizeof(reconf_accept)},
++#ifdef EXT_CLIENT_FQDN
+ 		[IOV_FQDN] = {&fqdn, fqdn_len},
++#endif
+ 		[IOV_HDR_IA_NA] = {&hdr_ia_na, sizeof(hdr_ia_na)},
+ 		[IOV_IA_NA] = {ia_na, ia_na_len},
+ 		[IOV_IA_PD] = {ia_pd, ia_pd_len},
+@@ -461,8 +464,10 @@ static void dhcpv6_send(enum dhcpv6_msg
+ 			!(client_options & DHCPV6_ACCEPT_RECONFIGURE))
+ 		iov[IOV_RECONF_ACCEPT].iov_len = 0;
+ 
++#ifdef EXT_CLIENT_FQDN
+ 	if (!(client_options & DHCPV6_CLIENT_FQDN))
+ 		iov[IOV_FQDN].iov_len = 0;
++#endif
+ 
+ 	struct sockaddr_in6 srv = {AF_INET6, htons(DHCPV6_SERVER_PORT),
+ 		0, ALL_DHCPV6_RELAYS, ifindex};
+diff -BurpN odhcp6c.orig/src/odhcp6c.c odhcp6c/src/odhcp6c.c
+--- odhcp6c.orig/src/odhcp6c.c	2014-08-13 11:30:42.000000000 +0000
++++ odhcp6c/src/odhcp6c.c	2014-08-14 09:53:25.483288903 +0000
+@@ -71,7 +71,11 @@ int main(_unused int argc, char* const a
+ 	bool help = false, daemonize = false;
+ 	int logopt = LOG_PID;
+ 	int c;
+-	unsigned int client_options = DHCPV6_CLIENT_FQDN | DHCPV6_ACCEPT_RECONFIGURE;
++	unsigned int client_options = DHCPV6_ACCEPT_RECONFIGURE;
++
++#ifdef EXT_CLIENT_FQDN
++	client_options | = DHCPV6_CLIENT_FQDN;
++#endif
+ 
+ 	while ((c = getopt(argc, argv, "S::N:V:P:FB:c:i:r:Ru:s:kt:m:hedp:fa")) != -1) {
+ 		switch (c) {
+@@ -203,9 +207,11 @@ int main(_unused int argc, char* const a
+ 			pidfile = optarg;
+ 			break;
+ 
++#ifdef EXT_CLIENT_FQDN
+ 		case 'f':
+ 			client_options &= ~DHCPV6_CLIENT_FQDN;
+ 			break;
++#endif
+ 
+ 		case 'a':
+ 			client_options &= ~DHCPV6_ACCEPT_RECONFIGURE;
+@@ -427,7 +433,9 @@ static int usage(void)
+ 	"	-R		Do not request any options except those specified with -r\n"
+ 	"	-s <script>	Status update script (/usr/sbin/odhcp6c-update)\n"
+ 	"	-a		Don't send Accept Reconfigure option\n"
++#ifdef EXT_CLIENT_FQDN
+ 	"	-f		Don't send Client FQDN option\n"
++#endif
+ 	"	-k		Don't send a RELEASE when stopping\n"
+ 	"	-t <seconds>	Maximum timeout for DHCPv6-SOLICIT (3600)\n"
+ 	"	-m <seconds>	Minimum time between accepting updates (30)\n"
