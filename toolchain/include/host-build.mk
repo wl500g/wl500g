@@ -12,7 +12,7 @@ include $(INCLUDE_DIR)/host.mk
 include $(INCLUDE_DIR)/unpack.mk
 include $(INCLUDE_DIR)/depends.mk
 
-STAMP_PREPARED=$(PKG_BUILD_DIR)/.prepared$(if $(QUILT)$(DUMP),,$(shell $(call find_md5,${CURDIR} $(PKG_FILE_DEPEND),)))
+STAMP_PREPARED=$(PKG_BUILD_DIR)/.prepared$(if $(DUMP),,$(shell $(call find_md5,${CURDIR} $(PKG_FILE_DEPEND),)))
 STAMP_CONFIGURED:=$(PKG_BUILD_DIR)/.configured
 STAMP_BUILT:=$(PKG_BUILD_DIR)/.built
 STAMP_INSTALLED:=$(STAGING_DIR_HOST)/stamp/.$(PKG_NAME)_installed
@@ -27,7 +27,6 @@ ifneq ($(strip $(PKG_UNPACK)),)
   define Build/Prepare/Default
   	$(PKG_UNPACK)
 	$(Build/Patch)
-	$(if $(QUILT),touch $(PKG_BUILD_DIR)/.quilt_used)
   endef
 endif
 
@@ -71,7 +70,7 @@ define Build/Compile
   $(call Build/Compile/Default)
 endef
 
-ifneq ($(if $(QUILT),,$(CONFIG_AUTOREBUILD)),)
+ifneq ($(CONFIG_AUTOREBUILD),)
   define HostBuild/Autoclean
     $(call rdep,${CURDIR} $(PKG_FILE_DEPEND),$(STAMP_PREPARED))
     $(if $(if $(Build/Compile),$(filter prepare,$(MAKECMDGOALS)),1),,$(call rdep,$(PKG_BUILD_DIR),$(STAMP_BUILT)))
@@ -87,7 +86,6 @@ define Download/default
 endef
 
 define HostBuild
-  $(if $(QUILT),$(Build/Quilt))
   $(if $(strip $(PKG_SOURCE_URL)),$(call Download,default))
   $(if $(DUMP),,$(call HostBuild/Autoclean))
   

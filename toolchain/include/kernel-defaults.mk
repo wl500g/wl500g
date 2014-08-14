@@ -31,13 +31,21 @@ ifneq (,$(KERNEL_CC))
   KERNEL_MAKEOPTS += CC="$(KERNEL_CC)"
 endif
 
-# defined in quilt.mk
-Kernel/Patch:=$(Kernel/Patch/Default)
+
+define Kernel/Patch
+	if [ -d $(GENERIC_FILES_DIR) ]; then $(CP) $(GENERIC_FILES_DIR)/* $(LINUX_DIR)/; fi
+	if [ -d $(FILES_DIR) ]; then \
+		$(CP) $(FILES_DIR)/* $(LINUX_DIR)/; \
+		find $(LINUX_DIR)/ -name \*.rej | xargs rm -f; \
+	fi
+	$(call PatchDir,$(GENERIC_PATCH_DIR),generic/)
+	$(call PatchDir,$(PATCH_DIR),platform/)
+endef
+
 ifeq ($(strip $(CONFIG_EXTERNAL_KERNEL_TREE)),"")
 define Kernel/Prepare/Default
 	bzcat $(DL_DIR)/$(LINUX_SOURCE) | $(TAR) -C $(KERNEL_BUILD_DIR) $(TAR_OPTIONS)
 	$(Kernel/Patch)
-	$(if $(QUILT),touch $(LINUX_DIR)/.quilt_used)
 endef
 else
 define Kernel/Prepare/Default

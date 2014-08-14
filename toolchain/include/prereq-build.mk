@@ -20,7 +20,7 @@ $(eval $(call Require,non-root, \
 
 # Required for the toolchain
 define Require/working-make
-	$(MAKE) -v | awk '($$$$1 == "GNU") && ($$$$2 == "Make") && ($$$$3 >= "3.80") { print "ok" }' | grep ok > /dev/null
+	$(MAKE) -v | awk '($$$$1 == "GNU") && ($$$$2 == "Make") && ($$$$3 >= "3.81") { print "ok" }' | grep ok > /dev/null
 endef
 
 $(eval $(call Require,working-make, \
