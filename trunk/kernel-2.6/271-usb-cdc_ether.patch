@@ -5,10 +5,11 @@ cdc_ether: Updates from upstream
  0370acd4d4d2595a11b0b0a793acb506e19b9d4c qmi_wwan/cdc_ether: add Dell Wireless 5800 (Novatel E362) USB IDs
  21851264120b0bd1f953328cb131abcfa9305bc3 cdc_ether: Identify MBM devices by GUID in MDLM descriptor
  1fc4c84d49558ceca04761abd3f7eb5224af75b2 cdc_ether: allow combined control and data interface
+ c472ab68ad67db23c9907a27649b7dc0899b61f9 cdc-ether: clean packet filter upon probe
 
 ---
- drivers/net/usb/cdc_ether.c |   97 +++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 92 insertions(+), 5 deletions(-)
+ drivers/net/usb/cdc_ether.c |  113 ++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 108 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
 --- a/drivers/net/usb/cdc_ether.c
@@ -109,6 +110,29 @@ diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
  	if (info->control->cur_altsetting->desc.bNumEndpoints == 1) {
  		struct usb_endpoint_descriptor	*desc;
  
+@@ -298,6 +341,22 @@ next_desc:
+ 		usb_driver_release_interface(driver, info->data);
+ 		return -ENODEV;
+ 	}
++
++	/* Some devices don't initialise properly. In particular
++	 * the packet filter is not reset. There are devices that
++	 * don't do reset all the way. So the packet filter should
++	 * be set to a sane initial value.
++	 */
++	usb_control_msg(dev->udev,
++			usb_sndctrlpipe(dev->udev, 0),
++			USB_CDC_SET_ETHERNET_PACKET_FILTER,
++			USB_TYPE_CLASS | USB_RECIP_INTERFACE,
++			USB_CDC_PACKET_TYPE_ALL_MULTICAST | USB_CDC_PACKET_TYPE_DIRECTED | USB_CDC_PACKET_TYPE_BROADCAST,
++			intf->cur_altsetting->desc.bInterfaceNumber,
++			NULL,
++			0,
++			USB_CTRL_SET_TIMEOUT
++		);
+ 	return 0;
+ 
+ bad_desc:
 @@ -317,6 +360,10 @@ void usbnet_cdc_unbind(struct usbnet *de
  	struct cdc_state		*info = (void *) &dev->data;
  	struct usb_driver		*driver = driver_of(intf);
