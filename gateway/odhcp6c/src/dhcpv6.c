@@ -114,7 +114,15 @@ int init_dhcpv6(const char *ifname, unsigned int options, int sol_timeout)
 	client_options = options;
 	dhcpv6_retx[DHCPV6_MSG_SOLICIT].max_timeo = sol_timeout;
 
+#ifdef SOCK_CLOEXEC
 	sock = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_UDP);
+#else
+	sock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+	if (sock >= 0 && fcntl(sock, F_SETFD, FD_CLOEXEC) < 0) {
+		close(sock);
+		sock = -1;
+	}
+#endif
 	if (sock < 0)
 		return -1;
 

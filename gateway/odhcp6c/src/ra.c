@@ -70,7 +70,15 @@ static void ra_send_rs(int signal __attribute__((unused)));
 int ra_init(const char *ifname, const struct in6_addr *ifid)
 {
 	const pid_t ourpid = getpid();
+#ifdef SOCK_CLOEXEC
 	sock = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC, IPPROTO_ICMPV6);
+#else
+	sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+	if (sock >= 0 && fcntl(sock, F_SETFD, FD_CLOEXEC) < 0) {
+		close(sock);
+		sock = -1;
+	}
+#endif
 	if (sock < 0)
 		return -1;
 
@@ -81,7 +89,15 @@ int ra_init(const char *ifname, const struct in6_addr *ifid)
 	strncpy(if_name, ifname, sizeof(if_name) - 1);
 	lladdr = *ifid;
 
+#ifdef SOCK_CLOEXEC
 	rtnl = socket(AF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC, NETLINK_ROUTE);
+#else
+	rtnl = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+	if (rtnl >= 0 && fcntl(rtnl, F_SETFD, FD_CLOEXEC) < 0) {
+		close(rtnl);
+		rtnl = -1;
+	}
+#endif
 	if (rtnl < 0)
 		return -1;
 
