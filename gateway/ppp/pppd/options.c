@@ -789,7 +789,7 @@ process_option(opt, cmd, argv)
 	    sv = strdup(*argv);
 	    if (sv == NULL)
 		novm("option argument");
-	    if (*optptr)
+	    if (*optptr && opt->source)
 		free(*optptr);
 	    *optptr = sv;
 	}
