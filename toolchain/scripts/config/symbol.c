@@ -56,7 +56,6 @@ void sym_init(void)
 
 	sym = sym_lookup("ARCH", 0);
 	sym->type = S_STRING;
-	sym->flags |= SYMBOL_AUTO;
 	p = getenv("ARCH");
 	if (p)
 		sym_add_default(sym, p);
@@ -267,6 +266,26 @@ static struct symbol *sym_calc_choice(struct symbol *sym)
 	return NULL;
 }
 
+void sym_set_changed(struct symbol *sym)
+{
+	struct property *prop;
+
+	sym->flags |= SYMBOL_CHANGED;
+	for (prop = sym->prop; prop; prop = prop->next) {
+		if (prop->menu)
+			prop->menu->flags |= MENU_CHANGED;
+	}
+}
+
+void sym_set_all_changed(void)
+{
+	struct symbol *sym;
+	int i;
+
+	for_all_symbols(i, sym)
+		sym_set_changed(sym);
+}
+
 void sym_calc_value(struct symbol *sym)
 {
 	struct symbol_value newval, oldval;
@@ -362,11 +381,14 @@ void sym_calc_value(struct symbol *sym)
 		sym->curr.val = sym_calc_choice(sym);
 	sym_validate_range(sym);
 
-	if (memcmp(&oldval, &sym->curr, sizeof(oldval)))
+	if (memcmp(&oldval, &sym->curr, sizeof(oldval))) {
+		sym->flags &= ~SYMBOL_VALID;
 		sym_set_changed(sym);
-
-	if (modules_sym == sym)
-		modules_val = modules_sym->curr.tri;
+		if (modules_sym == sym) {
+			sym_set_all_changed();
+			modules_val = modules_sym->curr.tri;
+		}
+	}
 
 	if (sym_is_choice(sym)) {
 		int flags = sym->flags & (SYMBOL_CHANGED | SYMBOL_WRITE);
@@ -377,6 +399,9 @@ void sym_calc_value(struct symbol *sym)
 				sym_set_changed(e->right.sym);
 		}
 	}
+
+	if (sym->flags & SYMBOL_AUTO)
+		sym->flags &= ~SYMBOL_WRITE;
 }
 
 void sym_clear_all_valid(void)
@@ -389,26 +414,6 @@ void sym_clear_all_valid(void)
 	sym_change_count++;
 	if (modules_sym)
 		sym_calc_value(modules_sym);
-}
-
-void sym_set_changed(struct symbol *sym)
-{
-	struct property *prop;
-
-	sym->flags |= SYMBOL_CHANGED;
-	for (prop = sym->prop; prop; prop = prop->next) {
-		if (prop->menu)
-			prop->menu->flags |= MENU_CHANGED;
-	}
-}
-
-void sym_set_all_changed(void)
-{
-	struct symbol *sym;
-	int i;
-
-	for_all_symbols(i, sym)
-		sym_set_changed(sym);
 }
 
 bool sym_tristate_within_range(struct symbol *sym, tristate val)
@@ -462,8 +467,6 @@ bool sym_set_tristate_value(struct symbol *sym, tristate val)
 	sym->user.tri = val;
 	if (oldval != val) {
 		sym_clear_all_valid();
-		if (sym == modules_sym)
-			sym_set_all_changed();
 	}
 
 	return true;
@@ -756,6 +759,7 @@ struct symbol **sym_re_search(const char *pattern)
 				return NULL;
 			}
 		}
+		sym_calc_value(sym);
 		sym_arr[cnt++] = sym;
 	}
 	if (sym_arr)
