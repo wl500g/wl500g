@@ -1,5 +1,5 @@
 # 
-# Copyright (C) 2006-2007 OpenWrt.org
+# Copyright (C) 2006-2010 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -27,6 +27,7 @@ empty:=
 space:= $(empty) $(empty)
 merge=$(subst $(space),,$(1))
 confvar=$(call merge,$(foreach v,$(1),$(if $($(v)),y,n)))
+strip_last=$(patsubst %.$(lastword $(subst .,$(space),$(1))),%,$(1))
 
 _SINGLE=MAKEFLAGS=$(space)
 ARCH:=$(call qstrip,$(shell echo $(CONFIG_ARCH) | sed -e 's/i[3-9]86/i386/'))
@@ -58,17 +59,18 @@ STAMP_DIR_HOST=$(BUILD_DIR_HOST)/stamp
 TARGET_DIR:=$(BUILD_DIR)/root-$(BOARD)
 IPKG_STATE_DIR:=$(TARGET_DIR)/usr/lib/ipkg
 
+TARGET_PATH:=$(TOOLCHAIN_DIR)/bin:$(STAGING_DIR_HOST)/bin:$(STAGING_DIR)/host/bin:$(PATH)
+TARGET_CFLAGS:=$(TARGET_OPTIMIZATION)
+TARGET_CPPFLAGS:=-I$(STAGING_DIR)/usr/include -I$(STAGING_DIR)/include
+TARGET_LDFLAGS:=-L$(TOOLCHAIN_DIR)/lib -L$(STAGING_DIR)/usr/lib -L$(STAGING_DIR)/lib
+
 ifeq ($(CONFIG_NATIVE_TOOLCHAIN),)
   -include $(TOOLCHAIN_DIR)/info.mk
   REAL_GNU_TARGET_NAME=$(OPTIMIZE_FOR_CPU)-linux-uclibc$(if $(CONFIG_EABI_SUPPORT),gnueabi)
   GNU_TARGET_NAME=$(OPTIMIZE_FOR_CPU)-linux
   TARGET_CROSS:=$(if $(TARGET_CROSS),$(TARGET_CROSS),$(OPTIMIZE_FOR_CPU)-linux-uclibc$(if $(CONFIG_EABI_SUPPORT),gnueabi)-)
+  TARGET_CFLAGS+= -fhonour-copts
 endif
-
-TARGET_PATH:=$(TOOLCHAIN_DIR)/bin:$(STAGING_DIR_HOST)/bin:$(STAGING_DIR)/host/bin:$(PATH)
-TARGET_CFLAGS:=$(TARGET_OPTIMIZATION) -fhonour-copts
-TARGET_CPPFLAGS:=-I$(STAGING_DIR)/usr/include -I$(STAGING_DIR)/include
-TARGET_LDFLAGS:=-L$(TOOLCHAIN_DIR)/lib -L$(STAGING_DIR)/usr/lib -L$(STAGING_DIR)/lib
 
 ifeq ($(CONFIG_SOFT_FLOAT),y)
 SOFT_FLOAT_CONFIG_OPTION:=--with-float=soft
@@ -97,12 +99,14 @@ HOST_CFLAGS:=-O2 -I$(STAGING_DIR_HOST)/include
 HOST_LDFLAGS:=-L$(STAGING_DIR_HOST)/lib
 
 TARGET_CC:=$(TARGET_CROSS)gcc
+TARGET_CXX:=$(TARGET_CROSS)g++
 #STRIP:=$(STAGING_DIR_HOST)/bin/sstrip
 STRIP:=strip
 PATCH:=$(SCRIPT_DIR)/patch-kernel.sh
 #SED:=$(STAGING_DIR_HOST)/bin/sed -i -e
 SED:=sed -i -e
 CP:=cp -fpR
+LN:=ln -sf
 
 INSTALL_BIN:=install -m0755
 INSTALL_DIR:=install -d -m0755
@@ -123,7 +127,7 @@ TARGET_CONFIGURE_OPTS:= \
   NM=$(TARGET_CROSS)nm \
   CC="$(TARGET_CC)" \
   GCC="$(TARGET_CC)" \
-  CXX=$(TARGET_CROSS)g++ \
+  CXX="$(TARGET_CXX)" \
   RANLIB=$(TARGET_CROSS)ranlib \
   STRIP=$(TARGET_CROSS)strip \
   OBJCOPY=$(TARGET_CROSS)objcopy \
@@ -164,6 +168,24 @@ endef
 define shexport
 $(call shvar,$(1))=$$(call $(1))
 export $(call shvar,$(1))
+endef
+
+# Recursively copy paths into another directory, purge dangling
+# symlinks before.
+# $(1) => File glob expression
+# $(2) => Destination directory
+define file_copy
+	for src_dir in $(sort $(foreach d,$(wildcard $(1)),$(dir $(d)))); do \
+		( cd $$src_dir; find -type f -or -type d ) | \
+			( cd $(2); while :; do \
+				read FILE; \
+				[ -z "$$FILE" ] && break; \
+				[ -L "$$FILE" ] || continue; \
+				echo "Removing symlink $(2)/$$FILE"; \
+				rm -f "$$FILE"; \
+			done; ); \
+	done; \
+	$(CP) $(1) $(realpath $(2)/)/
 endef
 
 # file extension
