@@ -1,5 +1,6 @@
  3ba2df874ca27f075a0897210d8dce6c56646e60 grep: properly handle grep -w "^str" in !EXTRA_COMPAT case too
  83e49ade5724f5b3744660e45179461fe2a1b0f8 grep: fix -w match if first match isn't a word, but second is. Closes 4520
+ 34cc6c91a286411a8275d9d61aa80397fe1e5fa3 grep: fix "grep -r PATTRN SYMLINK_TO_DIR"
 
 diff --git a/findutils/grep.c b/findutils/grep.c
 --- a/findutils/grep.c
@@ -77,10 +78,19 @@ diff --git a/findutils/grep.c b/findutils/grep.c
  						}
  					}
  				}
+@@ -668,7 +668,7 @@ static int grep_dir(const char *dir)
+ 	int matched = 0;
+ 	recursive_action(dir,
+ 		/* recurse=yes */ ACTION_RECURSE |
+-		/* followLinks=no */
++		/* followLinks=command line only */ ACTION_FOLLOWLINKS_L0 |
+ 		/* depthFirst=yes */ ACTION_DEPTHFIRST,
+ 		/* fileAction= */ file_action_grep,
+ 		/* dirAction= */ NULL,
 diff --git a/testsuite/grep.tests b/testsuite/grep.tests
 --- a/testsuite/grep.tests
 +++ b/testsuite/grep.tests
-@@ -159,6 +159,18 @@ testing "grep -w ^ doesn't hang" \
+@@ -159,6 +159,38 @@ testing "grep -w ^ doesn't hang" \
  	"anything\n" \
  	""
  
@@ -95,6 +105,26 @@ diff --git a/testsuite/grep.tests b/testsuite/grep.tests
 +	"bword,word\n""wordb,word\n""bwordb,word\n" \
 +	"bword,word\n""wordb,word\n""bwordb,word\n" \
 +	""
++
++# -r on symlink to dir should recurse into dir
++mkdir -p grep.testdir/foo
++echo bar > grep.testdir/foo/file
++ln -s foo grep.testdir/symfoo
++testing "grep -r on symlink to dir" \
++	"grep -r . grep.testdir/symfoo" \
++	"grep.testdir/symfoo/file:bar\n" \
++	"" ""
++rm -Rf grep.testdir
++
++# But -r on dir/symlink_to_dir should not recurse into symlink_to_dir
++mkdir -p grep.testdir/foo
++echo bar > grep.testdir/foo/file
++ln -s foo grep.testdir/symfoo
++testing "grep -r on dir/symlink to dir" \
++	"grep -r . grep.testdir" \
++	"grep.testdir/foo/file:bar\n" \
++	"" ""
++rm -Rf grep.testdir
 +
  # testing "test name" "commands" "expected result" "file input" "stdin"
  #   file input will be file called "input"
