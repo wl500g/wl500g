@@ -31,6 +31,17 @@ libpthread/nptl/sysdeps/pthread/pt-longjmp.c:28:1: warning: 'noreturn' function 
 Signed-off-by: Carmelo Amoroso <carmelo.amoroso@st.com>
 
 ---
+From 2d9740a65a81fe050f99479c2a2f38b6a3198a8e
+From: Tony Wu
+Date: Fri, 25 Jul 2014 05:52:11 +0000
+Subject: uclibc: nptl: fix __lll_lock_wait_private multiple definition
+
+Mark non-pthread __lll_lock_wait_private weak to avoid multiple
+definition error in static link mode.
+
+Signed-off-by: Tony Wu <tung7970@gmail.com>
+Signed-off-by: Bernhard Reutner-Fischer <rep.dot.nop@gmail.com>
+---
 
 diff --git a/libc/inet/resolv.c b/libc/inet/resolv.c
 --- a/libc/inet/resolv.c
@@ -172,6 +183,32 @@ diff --git a/libpthread/nptl/sysdeps/pthread/pthread.h b/libpthread/nptl/sysdeps
  __extern_inline void
  __pthread_cleanup_routine (struct __pthread_cleanup_frame *__frame)
  {
+diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/arm/lowlevellock.c b/libpthread/nptl/sysdeps/unix/sysv/linux/arm/lowlevellock.c
+--- a/libpthread/nptl/sysdeps/unix/sysv/linux/arm/lowlevellock.c
++++ b/libpthread/nptl/sysdeps/unix/sysv/linux/arm/lowlevellock.c
+@@ -23,6 +23,9 @@
+ #include <tls.h>
+ 
+ void
++#ifndef IS_IN_libpthread
++weak_function
++#endif
+ __lll_lock_wait_private (int *futex)
+ {
+   do
+diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/lowlevellock.c b/libpthread/nptl/sysdeps/unix/sysv/linux/lowlevellock.c
+--- a/libpthread/nptl/sysdeps/unix/sysv/linux/lowlevellock.c
++++ b/libpthread/nptl/sysdeps/unix/sysv/linux/lowlevellock.c
+@@ -26,6 +26,9 @@
+ 
+ 
+ void
++#ifndef IS_IN_libpthread
++weak_function
++#endif
+ __lll_lock_wait_private (int *futex)
+ {
+   if (*futex == 2)
 diff --git a/libpthread/nptl/sysdeps/unix/sysv/linux/mq_notify.c b/libpthread/nptl/sysdeps/unix/sysv/linux/mq_notify.c
 --- a/libpthread/nptl/sysdeps/unix/sysv/linux/mq_notify.c
 +++ b/libpthread/nptl/sysdeps/unix/sysv/linux/mq_notify.c
@@ -217,5 +254,4 @@ diff --git a/libpthread/nptl/unwind.c b/libpthread/nptl/unwind.c
  __cleanup_fct_attribute __attribute ((noreturn))
  #if !defined SHARED && !defined IS_IN_libpthread
  weak_function
---
-cgit v0.9.0.1-2-gef13
+-- 
