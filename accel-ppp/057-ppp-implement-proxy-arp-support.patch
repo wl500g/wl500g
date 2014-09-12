@@ -1,0 +1,343 @@
+From ae3b0c686403f82d5e215dbeb14034f5e500216e Mon Sep 17 00:00:00 2001
+From: Vladislav Grishenko <themiron@mail.ru>
+Date: Mon, 1 Sep 2014 15:31:34 +0600
+Subject: [PATCH 07/10] ppp: implement proxy-arp support
+
+---
+ accel-pppd/accel-ppp.conf       |    4 ++
+ accel-pppd/accel-ppp.conf.5     |   12 ++++++
+ accel-pppd/ctrl/l2tp/l2tp.c     |    6 +++
+ accel-pppd/ctrl/pppoe/pppoe.c   |    6 +++
+ accel-pppd/ctrl/pptp/pptp.c     |    6 +++
+ accel-pppd/ifcfg.c              |   83 +++++++++++++++++++++++++++++++++++++++
+ accel-pppd/include/ap_session.h |    3 +
+ 7 files changed, 120 insertions(+), 0 deletions(-)
+
+diff --git a/accel-pppd/accel-ppp.conf b/accel-pppd/accel-ppp.conf
+index af10c44..aa3ce50 100644
+--- a/accel-pppd/accel-ppp.conf
++++ b/accel-pppd/accel-ppp.conf
+@@ -55,6 +55,7 @@ lcp-echo-interval=20
+ #lcp-echo-failure=3
+ lcp-echo-timeout=120
+ #unit-cache=1000
++#proxy-arp=0
+ 
+ [auth]
+ #any-login=0
+@@ -63,6 +64,7 @@ lcp-echo-timeout=120
+ [pptp]
+ verbose=1
+ #echo-interval=30
++#proxy-arp=0
+ 
+ [pppoe]
+ verbose=1
+@@ -77,6 +79,7 @@ called-sid=mac
+ #interface=eth1,padi-limit=1000
+ #sid-uppercase=0
+ interface=eth0
++#proxy-arp=0
+ 
+ [l2tp]
+ verbose=1
+@@ -93,6 +96,7 @@ verbose=1
+ #dataseq=allow
+ #reorder-timeout=0
+ #ip-pool=l2tp
++#proxy-arp=0
+ 
+ [ipoe]
+ verbose=1
+diff --git a/accel-pppd/accel-ppp.conf.5 b/accel-pppd/accel-ppp.conf.5
+index 965116f..c274793 100644
+--- a/accel-pppd/accel-ppp.conf.5
++++ b/accel-pppd/accel-ppp.conf.5
+@@ -177,6 +177,9 @@ Specifies timeout in seconds to wait for any peer activity. If this option speci
+ .BI "unit-cache=" n
+ Specifies number of interfaces to keep in cache. It means that don't destory interface after corresponding session is destoyed, instead place it to cache and use it later for new sessions repeatedly.
+ This should reduce kernel-level interface creation/deletion rate lack.
++.TP
++.BI "proxy-arp=" 0|1
++Specify whether accel-ppp should reply to arp requests on a network interface on the same subnet as the remote host.
+ .SH [ipoe]
+ .TP
+ .BI "verbose=" n
+@@ -415,6 +418,9 @@ Specifies maximum number of echo-requests may be sent without valid echo-reply,
+ Timeout waiting reply from client in seconds (default 5).
+ .TP
+ .BI "mppe=" deny|allow|prefer|require
++.TP
++.BI "proxy-arp=" 0|1
++Overrides [ppp] parameter, if set.
+ .SH [pppoe]
+ .br
+ Configuration of PPPoE module.
+@@ -471,6 +477,9 @@ Specifies whether to handle TR101 tags.
+ Specifies overall limit of PADI packets to reply in 1 second period (default 0 - unlimited). Rate of per-mac PADI packets is limited to no more than 1 packet per second.
+ .TP
+ .BI "mppe=" deny|allow|prefer|require
++.TP
++.BI "proxy-arp=" 0|1
++Overrides [ppp] parameter, if set.
+ .SH [l2tp]
+ .br
+ Configuration of L2TP module.
+@@ -558,6 +567,9 @@ reply (SCCRP). Default value is 0.
+ .BI "ppp-max-mtu=" n
+ Set the maximun MTU value that can be negociated for PPP over L2TP
+ sessions. Default value is 1420.
++.TP
++.BI "proxy-arp=" 0|1
++Overrides [ppp] parameter, if set.
+ .SH [radius]
+ .br
+ Configuration of RADIUS module.
+diff --git a/accel-pppd/ctrl/l2tp/l2tp.c b/accel-pppd/ctrl/l2tp/l2tp.c
+index 2a52d69..13f179e 100644
+--- a/accel-pppd/ctrl/l2tp/l2tp.c
++++ b/accel-pppd/ctrl/l2tp/l2tp.c
+@@ -94,6 +94,7 @@ static int conf_mppe = MPPE_UNSET;
+ static int conf_dataseq = L2TP_DATASEQ_ALLOW;
+ static int conf_reorder_timeout = 0;
+ static const char *conf_ip_pool;
++static int conf_proxyarp = 0;
+ 
+ static unsigned int stat_conn_starting;
+ static unsigned int stat_conn_active;
+@@ -1753,6 +1754,7 @@ static int l2tp_session_start_data_channel(struct l2tp_sess_t *sess)
+ 	sess->ctrl.terminate = ppp_terminate;
+ 	sess->ctrl.max_mtu = conf_ppp_max_mtu;
+ 	sess->ctrl.mppe = conf_mppe;
++	sess->ctrl.proxyarp = conf_proxyarp;
+ 
+ 	sess->ctrl.calling_station_id = _malloc(17);
+ 	if (sess->ctrl.calling_station_id == NULL) {
+@@ -4903,6 +4905,10 @@ static void load_config(void)
+ 	}
+ 
+ 	conf_ip_pool = conf_get_opt("l2tp", "ip-pool");
++
++	opt = conf_get_opt("pptp", "proxy-arp") ? : conf_get_opt("ppp", "proxy-arp");
++	if (opt && atoi(opt) >= 0)
++		conf_proxyarp = atoi(opt) > 0;
+ }
+ 
+ static void l2tp_init(void)
+diff --git a/accel-pppd/ctrl/pppoe/pppoe.c b/accel-pppd/ctrl/pppoe/pppoe.c
+index f8542a8..df0fc5d 100644
+--- a/accel-pppd/ctrl/pppoe/pppoe.c
++++ b/accel-pppd/ctrl/pppoe/pppoe.c
+@@ -92,6 +92,7 @@ int conf_sid_uppercase = 0;
+ enum {CSID_MAC, CSID_IFNAME, CSID_IFNAME_MAC};
+ static int conf_called_sid;
+ static int conf_cookie_timeout;
++static int conf_proxyarp = 0;
+ 
+ static mempool_t conn_pool;
+ static mempool_t pado_pool;
+@@ -281,6 +282,7 @@ static struct pppoe_conn_t *allocate_channel(struct pppoe_serv_t *serv, const ui
+ 	conn->ctrl.ppp = 1;
+ 	conn->ctrl.name = "pppoe";
+ 	conn->ctrl.mppe = conf_mppe;
++	conn->ctrl.proxyarp = conf_proxyarp;
+ 
+ 	if (conf_called_sid == CSID_IFNAME)
+ 		conn->ctrl.called_station_id = _strdup(serv->ifname);
+@@ -1558,6 +1560,10 @@ static void load_config(void)
+ 		else
+ 			log_error("pppoe: unknown called-sid type\n");
+ 	}
++
++	opt = conf_get_opt("pptp", "proxy-arp") ? : conf_get_opt("ppp", "proxy-arp");
++	if (opt && atoi(opt) >= 0)
++		conf_proxyarp = atoi(opt) > 0;
+ }
+ 
+ static void pppoe_init(void)
+diff --git a/accel-pppd/ctrl/pptp/pptp.c b/accel-pppd/ctrl/pptp/pptp.c
+index 19deb3d..62fac91 100644
+--- a/accel-pppd/ctrl/pptp/pptp.c
++++ b/accel-pppd/ctrl/pptp/pptp.c
+@@ -61,6 +61,7 @@ static int conf_echo_failure = 3;
+ static int conf_verbose = 0;
+ static int conf_mppe = MPPE_UNSET;
+ static const char *conf_ip_pool;
++static int conf_proxyarp = 0;
+ 
+ static mempool_t conn_pool;
+ 
+@@ -678,6 +679,7 @@ static int pptp_connect(struct triton_md_handler_t *h)
+ 		conn->ctrl.ppp = 1;
+ 		conn->ctrl.name = "pptp";
+ 		conn->ctrl.mppe = conf_mppe;
++		conn->ctrl.proxyarp = conf_proxyarp;
+ 		
+ 		conn->ctrl.calling_station_id = _malloc(17);
+ 		conn->ctrl.called_station_id = _malloc(17);
+@@ -766,6 +768,10 @@ static void load_config(void)
+ 	}
+ 
+ 	conf_ip_pool = conf_get_opt("pptp", "ip-pool");
++
++	opt = conf_get_opt("pptp", "proxy-arp") ? : conf_get_opt("ppp", "proxy-arp");
++	if (opt && atoi(opt) >= 0)
++		conf_proxyarp = atoi(opt) > 0;
+ }
+ 
+ static void pptp_init(void)
+diff --git a/accel-pppd/ifcfg.c b/accel-pppd/ifcfg.c
+index 3190873..5f7c447 100644
+--- a/accel-pppd/ifcfg.c
++++ b/accel-pppd/ifcfg.c
+@@ -9,7 +9,9 @@
+ #include <arpa/inet.h>
+ #include <sys/socket.h>
+ #include <sys/ioctl.h>
++#include <net/if_arp.h>
+ #include <linux/route.h>
++#include <ifaddrs.h>
+ #include "linux_ppp.h"
+ 
+ #include "triton.h"
+@@ -28,6 +30,52 @@ struct in6_ifreq {
+         int             ifr6_ifindex; 
+ };
+ 
++static int find_hwaddr(struct sockaddr_in *inaddr, struct sockaddr *hwaddr, char *ifname, int ifname_len)
++{
++	struct ifaddrs *ifaddr, *ifa;
++	struct ifreq ifr;
++	__u32 ipaddr, addr, mask;
++	__u32 bestmask = 0;
++	int found = 0;
++
++	if (getifaddrs(&ifaddr) < 0)
++		return -1;
++
++	memset(&ifr, 0, sizeof(ifr));
++	ipaddr = inaddr->sin_addr.s_addr;
++	for (ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
++		if (ifa->ifa_addr == NULL || ifa->ifa_addr->sa_family != AF_INET)
++			continue;
++		if ((ifa->ifa_flags ^ (IFF_UP | IFF_BROADCAST)) &
++		    (IFF_UP | IFF_BROADCAST | IFF_POINTOPOINT | IFF_LOOPBACK | IFF_NOARP))
++			continue;
++
++		addr = ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr;
++		mask = ((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr.s_addr;
++		if (((ipaddr ^ addr) & mask) != 0)
++			continue;
++
++		if (mask >= bestmask) {
++			strncpy(ifr.ifr_name, ifa->ifa_name, sizeof(ifr.ifr_name));
++			bestmask = mask;
++			found = 1;
++		}
++	}
++	freeifaddrs(ifaddr);
++
++	if (!found)
++		return 0;
++
++	if (ioctl(sock_fd, SIOCGIFHWADDR, &ifr) < 0)
++		return -1;
++
++	memcpy(hwaddr, &ifr.ifr_hwaddr, sizeof(struct sockaddr));
++	strncpy(ifname, ifr.ifr_name, ifname_len);
++	strsep(&ifname, ":");
++
++	return 1;
++}
++
+ static void devconf(struct ap_session *ses, const char *attr, const char *val)
+ {
+ 	int fd;
+@@ -63,7 +111,9 @@ static void ifup_continue(struct ap_session *ses)
+ 	struct in6_ifreq ifr6;
+ 	struct npioctl np;
+ 	struct sockaddr_in addr;
++	struct arpreq arpreq;
+ 	struct ppp_t *ppp;
++	int ret;
+ 
+ 	if (ses->stop_time)
+ 		return;
+@@ -131,6 +181,23 @@ static void ifup_continue(struct ap_session *ses)
+ 					if (ioctl(sock_fd, SIOCSIFDSTADDR, &ifr))
+ 						log_ppp_error("failed to set peer IPv4 address: %s\n", strerror(errno));
+ 				}
++
++				if (ses->ctrl->proxyarp) {
++					memset(&arpreq, 0, sizeof(arpreq));
++					arpreq.arp_flags = ATF_PERM | ATF_PUBL;
++
++					addr.sin_addr.s_addr = ses->ipv4->peer_addr;
++					memcpy(&arpreq.arp_pa, &addr, sizeof(addr));
++
++					ret = find_hwaddr(&addr, &arpreq.arp_ha, arpreq.arp_dev, sizeof(arpreq.arp_dev));
++					if (ret > 0) {
++						ret = ioctl(sock_fd, SIOCSARP, (caddr_t)&arpreq);
++						if (ret == 0)
++							ses->proxyarp = strdup(arpreq.arp_dev);
++					}
++					if (ret < 0)
++						log_ppp_error("failed to add proxy arp: %s\n", strerror(errno));
++				}
+ 			}
+ 
+ 			if (ses->ipv6) {
+@@ -205,6 +272,7 @@ void __export ap_session_ifdown(struct ap_session *ses)
+ 	struct sockaddr_in addr;
+ 	struct in6_ifreq ifr6;
+ 	struct ipv6db_addr_t *a;
++	struct arpreq arpreq;
+ 
+ 	if (ses->ctrl->dont_ifcfg || ses->ifindex == -1)
+ 		return;
+@@ -219,6 +287,21 @@ void __export ap_session_ifdown(struct ap_session *ses)
+ 		addr.sin_family = AF_INET;
+ 		memcpy(&ifr.ifr_addr,&addr,sizeof(addr));
+ 		ioctl(sock_fd, SIOCSIFADDR, &ifr);
++
++		if (ses->proxyarp) {
++			memset(&arpreq, 0, sizeof(arpreq));
++			arpreq.arp_flags = ATF_PERM | ATF_PUBL;
++
++			addr.sin_addr.s_addr = ses->ipv4->peer_addr;
++			memcpy(&arpreq.arp_pa, &addr, sizeof(addr));
++			strncpy(arpreq.arp_dev, ses->proxyarp, sizeof(arpreq.arp_dev));
++
++			free(ses->proxyarp);
++			ses->proxyarp = NULL;
++
++			if (ioctl(sock_fd, SIOCDARP, (caddr_t)&arpreq))
++				log_ppp_error("failed to delete proxy-arp: %s\n", strerror(errno));
++		}
+ 	}
+ 
+ 	if (ses->ipv6) {
+diff --git a/accel-pppd/include/ap_session.h b/accel-pppd/include/ap_session.h
+index f6d92d7..286a1e6 100644
+--- a/accel-pppd/include/ap_session.h
++++ b/accel-pppd/include/ap_session.h
+@@ -48,6 +48,7 @@ struct ap_ctrl
+ 	char *called_station_id;
+ 	int dont_ifcfg:1;
+ 	int ppp:1;
++	int proxyarp:1;
+ 	void (*started)(struct ap_session*);
+ 	void (*finished)(struct ap_session *);
+ 	void (*terminate)(struct ap_session *, int hard);
+@@ -83,6 +84,8 @@ struct ap_session
+ 
+ 	const char *comp;
+ 
++	char *proxyarp;
++
+ #ifdef USE_BACKUP
+ 	struct backup_data *backup;
+ #endif
+-- 
+1.7.2.5
+

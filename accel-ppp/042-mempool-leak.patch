@@ -2,8 +2,8 @@
 +++ b/accel-pppd/triton/mempool.c
 @@ -55,8 +55,8 @@ struct _item_t
  static LIST_HEAD(pools);
- static spinlock_t pools_lock = SPINLOCK_INITIALIZER;
- static spinlock_t mmap_lock = SPINLOCK_INITIALIZER;
+ static spinlock_t pools_lock;
+ static spinlock_t mmap_lock;
 -static void *mmap_ptr;
 -static void *mmap_endptr;
 +static void *mmap_ptr = NULL;

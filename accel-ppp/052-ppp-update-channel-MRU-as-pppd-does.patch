@@ -1,0 +1,27 @@
+From a2daaf2db350d75dbfcbb5171690e25d948d06f4 Mon Sep 17 00:00:00 2001
+From: Vladislav Grishenko <themiron@mail.ru>
+Date: Mon, 1 Sep 2014 15:05:35 +0600
+Subject: [PATCH 02/10] ppp: update channel MRU as pppd does
+
+---
+ accel-pppd/ppp/lcp_opt_mru.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/accel-pppd/ppp/lcp_opt_mru.c b/accel-pppd/ppp/lcp_opt_mru.c
+index 10dc54e..1cd04f8 100644
+--- a/accel-pppd/ppp/lcp_opt_mru.c
++++ b/accel-pppd/ppp/lcp_opt_mru.c
+@@ -123,6 +123,10 @@ static int mru_recv_conf_ack(struct ppp_lcp_t *lcp, struct lcp_option_t *opt, ui
+ 
+ 	strcpy(ifr.ifr_name, lcp->ppp->ses.ifname);
+ 
++	if (ioctl(lcp->ppp->chan_fd, PPPIOCSMRU, &mru_opt->mru) &&
++	    errno != EIO && errno != ENOTTY)
++		log_ppp_error("lcp:mru: failed to set channel MRU: %s\n", strerror(errno));
++
+ 	if (ioctl(lcp->ppp->unit_fd, PPPIOCSMRU, &mru_opt->mru))
+ 		log_ppp_error("lcp:mru: failed to set MRU: %s\n", strerror(errno));
+ 
+-- 
+1.7.2.5
+
