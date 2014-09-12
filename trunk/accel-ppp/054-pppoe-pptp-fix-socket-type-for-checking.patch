@@ -1,0 +1,39 @@
+From 8b4f372a7e48f9e3dc876089cbf30de28795b926 Mon Sep 17 00:00:00 2001
+From: Vladislav Grishenko <themiron@mail.ru>
+Date: Mon, 1 Sep 2014 15:11:44 +0600
+Subject: [PATCH 04/10] pppoe, pptp: fix socket type for checking
+
+---
+ accel-pppd/ctrl/pppoe/pppoe.c |    2 +-
+ accel-pppd/ctrl/pptp/pptp.c   |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/accel-pppd/ctrl/pppoe/pppoe.c b/accel-pppd/ctrl/pppoe/pppoe.c
+index fba6291..f8542a8 100644
+--- a/accel-pppd/ctrl/pppoe/pppoe.c
++++ b/accel-pppd/ctrl/pppoe/pppoe.c
+@@ -1566,7 +1566,7 @@ static void pppoe_init(void)
+ 	struct conf_option_t *opt;
+ 	int fd;
+ 
+-	fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OE);
++	fd = socket(AF_PPPOX, SOCK_STREAM, PX_PROTO_OE);
+ 	if (fd >= 0)
+ 		close(fd);
+ 	else if (system("modprobe -q pppoe"))
+diff --git a/accel-pppd/ctrl/pptp/pptp.c b/accel-pppd/ctrl/pptp/pptp.c
+index 92770bf..f447aa7 100644
+--- a/accel-pppd/ctrl/pptp/pptp.c
++++ b/accel-pppd/ctrl/pptp/pptp.c
+@@ -771,7 +771,7 @@ static void pptp_init(void)
+ 	char *opt;
+ 	int fd;
+ 
+-	fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_PPTP);
++	fd = socket(AF_PPPOX, SOCK_STREAM, PX_PROTO_PPTP);
+ 	if (fd >= 0)
+ 		close(fd);
+ 	else if (system("modprobe -q pptp"))
+-- 
+1.7.2.5
+

@@ -1,0 +1,30 @@
+From 3672f934d448d68136d7f35cf46fa05c8a83c764 Mon Sep 17 00:00:00 2001
+From: Vladislav Grishenko <themiron@mail.ru>
+Date: Mon, 1 Sep 2014 15:14:36 +0600
+Subject: [PATCH 05/10] pptp: don't delay control connection msg on EINTR
+
+---
+ accel-pppd/ctrl/pptp/pptp.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/accel-pppd/ctrl/pptp/pptp.c b/accel-pppd/ctrl/pptp/pptp.c
+index f447aa7..f428afc 100644
+--- a/accel-pppd/ctrl/pptp/pptp.c
++++ b/accel-pppd/ctrl/pptp/pptp.c
+@@ -116,9 +116,12 @@ static int post_msg(struct pptp_conn_t *conn, void *buf, int size)
+ 		return -1;
+ 	}
+ 
++again:
+ 	n=write(conn->hnd.fd, buf, size);
+ 	if (n < 0) {
+-		if (errno == EINTR || errno == EAGAIN)
++		if (errno == EINTR)
++			goto again;
++		else if (errno == EAGAIN)
+ 			n = 0;
+ 		else {
+ 			if (errno != EPIPE) {
+-- 
+1.7.2.5
+
