@@ -17,70 +17,72 @@ d0217ac04ca6591841e5665f518e38064f4e65bd mm: fault feedback #1
 745ad48e8cac47beec0b2f72dc3c64424bce1fec fix page release issue in filemap_fault
 a89182c76e54134081cfec6409df06731c5cb98f Fix VM_FAULT flags conversion for hugetlb
 ---
- Documentation/feature-removal-schedule.txt     |    9 +
- Documentation/filesystems/Locking    |    2 +
- arch/alpha/mm/fault.c   |   22 +-
- arch/arm/mm/fault.c |   40 +--
- arch/arm26/mm/fault.c   |   30 +-
- arch/avr32/mm/fault.c   |   23 +-
- arch/cris/mm/fault.c    |   23 +-
- arch/frv/mm/fault.c |   23 +-
- arch/i386/mm/fault.c    |   23 +-
- arch/ia64/mm/fault.c    |   26 +-
- arch/m32r/mm/fault.c    |   23 +-
- arch/m68k/mm/fault.c    |   21 +-
- arch/mips/mm/fault.c    |   23 +-
- arch/parisc/mm/fault.c  |   23 +-
- arch/powerpc/mm/fault.c |   26 +-
- arch/powerpc/platforms/cell/spufs/fault.c      |   28 +-
- arch/ppc/mm/fault.c |   23 +-
- arch/s390/lib/uaccess_pt.c     |   23 +-
- arch/s390/mm/fault.c    |   30 +-
- arch/sh/mm/fault.c  |   23 +-
- arch/sh64/mm/fault.c    |   24 +-
- arch/sparc/mm/fault.c   |   22 +-
- arch/sparc64/mm/fault.c |   24 +-
- arch/um/kernel/trap.c   |   29 +-
- arch/x86_64/mm/fault.c  |   25 +-
- arch/xtensa/mm/fault.c  |   23 +-
- fs/buffer.c         |    2 +-
- fs/gfs2/ops_address.c   |    2 +-
- fs/gfs2/ops_vm.c    |   64 ++--
- fs/inode.c          |   10 +-
- fs/ncpfs/mmap.c     |   40 ++-
- fs/ocfs2/aops.c     |    2 +-
- fs/ocfs2/mmap.c     |   30 +-
- fs/ramfs/inode.c    |    1 +
- fs/xfs/linux-2.6/xfs_file.c    |   24 +-
- include/asm-alpha/page.h       |    3 +-
- include/asm-cris/page.h |    3 +-
- include/asm-h8300/page.h       |    3 +-
- include/asm-i386/page.h |    3 +-
- include/asm-ia64/page.h |   13 +-
- include/asm-m32r/page.h |    3 +-
- include/asm-m68knommu/page.h   |    3 +-
- include/asm-s390/page.h |    3 +-
- include/asm-x86_64/page.h      |    3 +-
- include/linux/gfp.h |   16 +-
- include/linux/highmem.h |   51 +++-
- include/linux/mm.h  |   73 +++--
- ipc/shm.c           |    8 +-
- kernel/futex.c      |   21 +-
- mm/filemap.c        |  359 ++++---------------
- mm/filemap_xip.c    |   41 +--
- mm/fremap.c         |  162 ++++-----
- mm/hugetlb.c        |   17 +-
- mm/memory.c         |  338 +++++++++++--------
- mm/mempolicy.c      |    5 +-
- mm/migrate.c        |    3 +-
- mm/mmap.c           |    8 +-
- mm/nommu.c          |    5 +-
- mm/page-writeback.c |   17 +-
- mm/rmap.c           |    4 +-
- mm/shmem.c          |   91 ++----
- mm/swap_state.c     |    3 +-
- mm/truncate.c       |   15 +-
- 63 files changed, 981 insertions(+), 1079 deletions(-)
+ c0d73261f5c1355a35b8b40e871d31578ce0c044 mm/memory.c: use entry = ACCESS_ONCE(*pte) in handle_pte_fault()
+---
+ Documentation/feature-removal-schedule.txt |    9 
+ Documentation/filesystems/Locking          |    2 
+ arch/alpha/mm/fault.c                      |   22 -
+ arch/arm/mm/fault.c                        |   40 +--
+ arch/arm26/mm/fault.c                      |   30 +-
+ arch/avr32/mm/fault.c                      |   23 -
+ arch/cris/mm/fault.c                       |   23 -
+ arch/frv/mm/fault.c                        |   23 -
+ arch/i386/mm/fault.c                       |   23 -
+ arch/ia64/mm/fault.c                       |   26 +-
+ arch/m32r/mm/fault.c                       |   23 -
+ arch/m68k/mm/fault.c                       |   21 -
+ arch/mips/mm/fault.c                       |   23 -
+ arch/parisc/mm/fault.c                     |   23 -
+ arch/powerpc/mm/fault.c                    |   26 --
+ arch/powerpc/platforms/cell/spufs/fault.c  |   28 +-
+ arch/ppc/mm/fault.c                        |   23 -
+ arch/s390/lib/uaccess_pt.c                 |   23 -
+ arch/s390/mm/fault.c                       |   30 +-
+ arch/sh/mm/fault.c                         |   23 -
+ arch/sh64/mm/fault.c                       |   24 +
+ arch/sparc/mm/fault.c                      |   22 -
+ arch/sparc64/mm/fault.c                    |   24 -
+ arch/um/kernel/trap.c                      |   29 +-
+ arch/x86_64/mm/fault.c                     |   25 --
+ arch/xtensa/mm/fault.c                     |   23 -
+ fs/buffer.c                                |    2 
+ fs/gfs2/ops_address.c                      |    2 
+ fs/gfs2/ops_vm.c                           |   64 ++---
+ fs/inode.c                                 |   10 
+ fs/ncpfs/mmap.c                            |   40 +--
+ fs/ocfs2/aops.c                            |    2 
+ fs/ocfs2/mmap.c                            |   30 +-
+ fs/ramfs/inode.c                           |    1 
+ fs/xfs/linux-2.6/xfs_file.c                |   24 -
+ include/asm-alpha/page.h                   |    3 
+ include/asm-cris/page.h                    |    3 
+ include/asm-h8300/page.h                   |    3 
+ include/asm-i386/page.h                    |    3 
+ include/asm-ia64/page.h                    |   13 -
+ include/asm-m32r/page.h                    |    3 
+ include/asm-m68knommu/page.h               |    3 
+ include/asm-s390/page.h                    |    3 
+ include/asm-x86_64/page.h                  |    3 
+ include/linux/gfp.h                        |   16 +
+ include/linux/highmem.h                    |   51 +++-
+ include/linux/mm.h                         |   73 +++--
+ ipc/shm.c                                  |    8 
+ kernel/futex.c                             |   21 +
+ mm/filemap.c                               |  359 ++++++-----------------------
+ mm/filemap_xip.c                           |   41 +--
+ mm/fremap.c                                |  162 ++++++-------
+ mm/hugetlb.c                               |   17 -
+ mm/memory.c                                |  340 +++++++++++++++------------
+ mm/mempolicy.c                             |    5 
+ mm/migrate.c                               |    3 
+ mm/mmap.c                                  |    8 
+ mm/nommu.c                                 |    5 
+ mm/page-writeback.c                        |   17 -
+ mm/rmap.c                                  |    4 
+ mm/shmem.c                                 |   91 ++-----
+ mm/swap_state.c                            |    3 
+ mm/truncate.c                              |   15 +
+ 63 files changed, 982 insertions(+), 1080 deletions(-)
 
 diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
 --- a/Documentation/feature-removal-schedule.txt
@@ -3472,6 +3474,15 @@ diff --git a/mm/memory.c b/mm/memory.c
  }
  
  /*
+@@ -2550,7 +2600,7 @@ static int handle_pte_fault(struct mm_struct *mm,
+ 	pte_t entry;
+ 	spinlock_t *ptl;
+ 
+-	entry = *pte;
++	entry = ACCESS_ONCE(*pte);
+ 	if (!pte_present(entry)) {
+ 		if (pte_none(entry)) {
+ 			if (vma->vm_ops) {
 @@ -2557,10 +2608,9 @@ static inline int handle_pte_fault(struct mm_struct *mm,
  	if (!pte_present(entry)) {
  		if (pte_none(entry)) {
@@ -3885,5 +3896,3 @@ diff --git a/mm/truncate.c b/mm/truncate.c
  			if (ret == 0 && !invalidate_complete_page2(mapping, page))
  				ret = -EIO;
 -- 
-1.6.5.GIT
-
