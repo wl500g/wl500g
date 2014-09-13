@@ -11,6 +11,8 @@ USB: Updates from upstream
  55f49f26821f379c451deb9fd6de8e59afb9b37e USB: handle bcd incrementation in usb modalias generation
  03b56329f9bb5a1cb73d7dc659d529a9a9bf3acc Modpost: fixed USB alias generation for ranges including 0x9 and 0xA
  00914025cc4e783d4703b4db1d47b41f389e50c8 usb-storage: add new no_read_capacity_16 quirk
+ 256dbcd80f1ccf8abf421c1d72ba79a4e29941dd USB: OHCI: fix bugs in debug routines
+ 977dcfdc60311e7aa571cabf6f39c36dde13339e USB: OHCI: don't lose track of EDs when a controller dies
 
 ---
  drivers/usb/core/config.c          |    4 +
@@ -20,6 +22,9 @@ USB: Updates from upstream
  drivers/usb/core/quirks.c          |  104 +++++++++++++++++++++++++++++--------
  drivers/usb/core/sysfs.c           |    5 +
  drivers/usb/core/usb.h             |    4 +
+ drivers/usb/host/ohci-dbg.c        |   11 ++-
+ drivers/usb/host/ohci-hcd.c        |    8 +-
+ drivers/usb/host/ohci-q.c          |   46 ++++++++++------
  drivers/usb/storage/scsiglue.c     |    9 +++
  drivers/usb/storage/unusual_devs.h |   10 +++
  include/linux/hid.h                |    1 
@@ -27,7 +32,7 @@ USB: Updates from upstream
  include/linux/usb.h                |   16 +++++
  include/linux/usb_usual.h          |    6 +-
  scripts/mod/file2alias.c           |  100 ++++++++++++++++++++++++++++++-----
- 14 files changed, 268 insertions(+), 58 deletions(-)
+ 17 files changed, 307 insertions(+), 84 deletions(-)
 
 diff --git a/drivers/usb/core/config.c b/drivers/usb/core/config.c
 --- a/drivers/usb/core/config.c
@@ -323,6 +328,169 @@ diff --git a/drivers/usb/core/usb.h b/drivers/usb/core/usb.h
  extern int usb_match_device(struct usb_device *dev,
  			    const struct usb_device_id *id);
  extern void usb_forced_unbind_intf(struct usb_interface *intf);
+diff --git a/drivers/usb/host/ohci-dbg.c b/drivers/usb/host/ohci-dbg.c
+--- a/drivers/usb/host/ohci-dbg.c
++++ b/drivers/usb/host/ohci-dbg.c
+@@ -236,7 +236,7 @@ ohci_dump_roothub (
+ 	}
+ }
+ 
+-static void ohci_dump (struct ohci_hcd *controller, int verbose)
++static void ohci_dump(struct ohci_hcd *controller)
+ {
+ 	ohci_dbg (controller, "OHCI controller state\n");
+ 
+@@ -386,7 +386,7 @@ ohci_dump_ed (const struct ohci_hcd *ohc
+ }
+ 
+ #else
+-static inline void ohci_dump (struct ohci_hcd *controller, int verbose) {}
++static inline void ohci_dump (struct ohci_hcd *controller) {}
+ 
+ #undef OHCI_VERBOSE_DEBUG
+ 
+@@ -464,17 +464,18 @@ static ssize_t fill_async_buffer(struct debug_buffer *buf)
+ 	struct usb_bus		*bus;
+ 	struct usb_hcd		*hcd;
+ 	struct ohci_hcd		*ohci;
+-	size_t			temp;
++	size_t			temp, size;
+ 	unsigned long		flags;
+ 
+ 	bus = dev_get_drvdata(buf->dev);
+ 	hcd = bus_to_hcd(bus);
+ 	ohci = hcd_to_ohci(hcd);
++	size = PAGE_SIZE;
+ 
+ 	/* display control and bulk lists together, for simplicity */
+ 	spin_lock_irqsave (&ohci->lock, flags);
+-	temp = show_list(ohci, buf->page, buf->count, ohci->ed_controltail);
+-	temp += show_list(ohci, buf->page + temp, buf->count - temp,
++	temp = show_list(ohci, buf->page, size, ohci->ed_controltail);
++	temp += show_list(ohci, buf->page + temp, size - temp,
+ 			  ohci->ed_bulktail);
+ 	spin_unlock_irqrestore (&ohci->lock, flags);
+ 
+diff --git a/drivers/usb/host/ohci-hcd.c b/drivers/usb/host/ohci-hcd.c
+--- a/drivers/usb/host/ohci-hcd.c
++++ b/drivers/usb/host/ohci-hcd.c
+@@ -76,7 +76,7 @@ static const char	hcd_name [] = "ohci_hcd";
+ 
+ #include "ohci.h"
+ 
+-static void ohci_dump (struct ohci_hcd *ohci, int verbose);
++static void ohci_dump (struct ohci_hcd *ohci);
+ static int ohci_init (struct ohci_hcd *ohci);
+ static void ohci_stop (struct usb_hcd *hcd);
+ 
+@@ -770,7 +770,7 @@ retry:
+ 		ohci->ed_to_check = NULL;
+ 	}
+ 
+-	ohci_dump (ohci, 1);
++	ohci_dump(ohci);
+ 
+ 	return 0;
+ }
+@@ -851,7 +851,7 @@ static irqreturn_t ohci_irq (struct usb_hcd *hcd)
+ 			usb_hc_died(hcd);
+ 		}
+ 
+-		ohci_dump (ohci, 1);
++		ohci_dump(ohci);
+ 		ohci_usb_reset (ohci);
+ 	}
+ 
+@@ -951,7 +951,7 @@ static void ohci_stop (struct usb_hcd *hcd)
+ {
+ 	struct ohci_hcd		*ohci = hcd_to_ohci (hcd);
+ 
+-	ohci_dump (ohci, 1);
++	ohci_dump(ohci);
+ 
+ 	flush_scheduled_work();
+ 
+diff --git a/drivers/usb/host/ohci-q.c b/drivers/usb/host/ohci-q.c
+--- a/drivers/usb/host/ohci-q.c
++++ b/drivers/usb/host/ohci-q.c
+@@ -311,8 +311,7 @@ static void periodic_unlink (struct ohci_hcd *ohci, struct ed *ed)
+  *  - ED_OPER: when there's any request queued, the ED gets rescheduled
+  *    immediately.  HC should be working on them.
+  *
+- *  - ED_IDLE:  when there's no TD queue. there's no reason for the HC
+- *    to care about this ED; safe to disable the endpoint.
++ *  - ED_IDLE: when there's no TD queue or the HC isn't running.
+  *
+  * When finish_unlinks() runs later, after SOF interrupt, it will often
+  * complete one or more URB unlinks before making that state change.
+@@ -954,6 +953,10 @@ rescan_all:
+ 		int			completed, modified;
+ 		__hc32			*prev;
+ 
++		/* Is this ED already invisible to the hardware? */
++		if (ed->state == ED_IDLE)
++			goto ed_idle;
++
+ 		/* only take off EDs that the HC isn't using, accounting for
+ 		 * frame counter wraps and EDs with partially retired TDs
+ 		 */
+@@ -983,12 +986,20 @@ skip_ed:
+ 			}
+ 		}
+ 
++		/* ED's now officially unlinked, hc doesn't see */
++		ed->state = ED_IDLE;
++		if (quirk_zfmicro(ohci) && ed->type == PIPE_INTERRUPT)
++			ohci->eds_scheduled--;
++		ed->hwHeadP &= ~cpu_to_hc32(ohci, ED_H);
++		ed->hwNextED = 0;
++		wmb();
++		ed->hwINFO &= ~cpu_to_hc32(ohci, ED_SKIP | ED_DEQUEUE);
++ed_idle:
++
+ 		/* reentrancy:  if we drop the schedule lock, someone might
+ 		 * have modified this list.  normally it's just prepending
+ 		 * entries (which we'd ignore), but paranoia won't hurt.
+ 		 */
+-		*last = ed->ed_next;
+-		ed->ed_next = NULL;
+ 		modified = 0;
+ 
+ 		/* unlink urbs as requested, but rescan the list after
+@@ -1046,19 +1057,20 @@ rescan_this:
+ 		if (completed && !list_empty (&ed->td_list))
+ 			goto rescan_this;
+ 
+-		/* ED's now officially unlinked, hc doesn't see */
+-		ed->state = ED_IDLE;
+-		if (quirk_zfmicro(ohci) && ed->type == PIPE_INTERRUPT)
+-			ohci->eds_scheduled--;
+-		ed->hwHeadP &= ~cpu_to_hc32(ohci, ED_H);
+-		ed->hwNextED = 0;
+-		wmb ();
+-		ed->hwINFO &= ~cpu_to_hc32 (ohci, ED_SKIP | ED_DEQUEUE);
+-
+-		/* but if there's work queued, reschedule */
+-		if (!list_empty (&ed->td_list)) {
+-			if (HC_IS_RUNNING(ohci_to_hcd(ohci)->state))
+-				ed_schedule (ohci, ed);
++		/*
++		 * If no TDs are queued, take ED off the ed_rm_list.
++		 * Otherwise, if the HC is running, reschedule.
++		 * If not, leave it on the list for further dequeues.
++		 */
++		if (list_empty(&ed->td_list)) {
++			*last = ed->ed_next;
++			ed->ed_next = NULL;
++		} else if (HC_IS_RUNNING(ohci_to_hcd(ohci)->state)) {
++			*last = ed->ed_next;
++			ed->ed_next = NULL;
++			ed_schedule(ohci, ed);
++		} else {
++			last = &ed->ed_next;
+ 		}
+ 
+ 		if (modified)
 diff --git a/drivers/usb/storage/scsiglue.c b/drivers/usb/storage/scsiglue.c
 --- a/drivers/usb/storage/scsiglue.c
 +++ b/drivers/usb/storage/scsiglue.c
