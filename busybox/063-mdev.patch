@@ -1,0 +1,22 @@
+From 26a8b9f1967d910033c516462c101100e041a9b4
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Mon, 08 Sep 2014 16:19:15 +0000
+Subject: mdev: treat zero-length /dev/mdev.seq the same as "\n" one. Closes 7334
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/util-linux/mdev.c b/util-linux/mdev.c
+--- a/util-linux/mdev.c
++++ b/util-linux/mdev.c
+@@ -972,7 +972,7 @@ wait_for_seqfile(const char *seq)
+ 			break;
+ 		}
+ 		seqbuf[seqlen] = '\0';
+-		if (seqbuf[0] == '\n') {
++		if (seqbuf[0] == '\n' || seqbuf[0] == '\0') {
+ 			/* seed file: write out seq ASAP */
+ 			xwrite_str(seq_fd, seq);
+ 			xlseek(seq_fd, 0, SEEK_SET);
+-- 
+cgit v0.9.1
