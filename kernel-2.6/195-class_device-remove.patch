@@ -1384,6 +1384,30 @@ diff --git a/drivers/mtd/mtdchar.c b/drivers/mtd/mtdchar.c
  }
  
  static struct mtd_notifier notifier = {
+diff --git a/drivers/block/aoe/aoechr.c b/drivers/block/aoe/aoechr.c
+--- a/drivers/block/aoe/aoechr.c
++++ b/drivers/block/aoe/aoechr.c
+@@ -259,9 +259,9 @@ aoechr_init(void)
+ 		return PTR_ERR(aoe_class);
+ 	}
+ 	for (i = 0; i < ARRAY_SIZE(chardevs); ++i)
+-		class_device_create(aoe_class, NULL,
++		device_create(aoe_class, NULL,
+ 					MKDEV(AOE_MAJOR, chardevs[i].minor),
+-					NULL, chardevs[i].name);
++					chardevs[i].name);
+ 
+ 	return 0;
+ }
+@@ -272,7 +272,7 @@ aoechr_exit(void)
+ 	int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(chardevs); ++i)
+-		class_device_destroy(aoe_class, MKDEV(AOE_MAJOR, chardevs[i].minor));
++		device_destroy(aoe_class, MKDEV(AOE_MAJOR, chardevs[i].minor));
+ 	class_destroy(aoe_class);
+ 	unregister_chrdev(AOE_MAJOR, "aoechr");
+ }
 diff --git a/drivers/block/pktcdvd.c b/drivers/block/pktcdvd.c
 --- a/drivers/block/pktcdvd.c
 +++ b/drivers/block/pktcdvd.c
