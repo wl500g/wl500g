@@ -1,0 +1,257 @@
+linkwatch: Updates from upstream
+
+ 6fa9864b53f0680e432a2c431c2cf2055daa3a88 net: Clean up explicit ->tx_queue references in link watch.
+ e014debecd3ee3832e6476b3a9c948edfcfd1250 linkwatch: linkwatch_forget_dev() to speedup device dismantle
+ 1821f7cd65ad9ea56580b830ac79bf4c4fef59cb net: allow netif_carrier to be called safely from IRQ
+ c37e0c993055d8c4fd82202331d06e6ef9bfec4b net: linkwatch: allow vlans to get carrier changes faster
+
+---
+ include/linux/netdevice.h |    7 +-
+ include/net/sch_generic.h |    6 ++
+ net/core/dev.c            |    3 +
+ net/core/link_watch.c     |  108 ++++++++++++++++++++++++++++------------------
+ 4 files changed, 79 insertions(+), 45 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -467,7 +467,8 @@ struct net_device
+ 	/* device index hash chain */
+ 	struct hlist_node	index_hlist;
+ 
+-	struct net_device	*link_watch_next;
++	/* rtnetlink link ops */
++	const struct rtnl_link_ops *rtnl_link_ops;
+ 
+ 	/* register/unregister state machine */
+ 	enum { NETREG_UNINITIALIZED=0,
+@@ -535,8 +536,7 @@ struct net_device
+ 	/* space for optional statistics and wireless sysfs groups */
+ 	struct attribute_group  *sysfs_groups[3];
+ 
+-	/* rtnetlink link ops */
+-	const struct rtnl_link_ops *rtnl_link_ops;
++	struct list_head	link_watch_list;
+ 
+ #ifdef CONFIG_NETPOLL
+ 	struct netpoll_info	*npinfo;
+@@ -777,6 +777,7 @@ static inline void dev_hold(struct net_d
+  */
+ 
+ extern void linkwatch_fire_event(struct net_device *dev);
++extern void linkwatch_forget_dev(struct net_device *dev);
+ 
+ static inline int netif_carrier_ok(const struct net_device *dev)
+ {
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -182,6 +182,12 @@ static inline bool qdisc_all_tx_empty(const struct net_device *dev)
+ extern void tcf_destroy(struct tcf_proto *tp);
+ extern void tcf_destroy_chain(struct tcf_proto *fl);
+ 
++/* Are any of the TX qdiscs changing?  */
++static inline bool qdisc_tx_changing(struct net_device *dev)
++{
++	return (dev->qdisc != dev->qdisc_sleeping);
++}
++
+ static inline int __qdisc_enqueue_tail(struct sk_buff *skb, struct Qdisc *sch,
+ 				       struct sk_buff_head *list)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3385,6 +3385,8 @@ static void netdev_wait_allrefs(struct net_device *dev)
+ {
+ 	unsigned long rebroadcast_time, warning_time;
+ 
++	linkwatch_forget_dev(dev);
++
+ 	rebroadcast_time = warning_time = jiffies;
+ 	while (atomic_read(&dev->refcnt) != 0) {
+ 		if (time_after(jiffies, rebroadcast_time + 1 * HZ)) {
+@@ -3511,6 +3513,7 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+ 		dev->priv = netdev_priv(dev);
+ 
+ 	dev->get_stats = internal_stats;
++	INIT_LIST_HEAD(&dev->link_watch_list);
+ 	setup(dev);
+ 	strcpy(dev->name, name);
+ 	return dev;
+diff --git a/net/core/link_watch.c b/net/core/link_watch.c
+--- a/net/core/link_watch.c
++++ b/net/core/link_watch.c
+@@ -35,7 +35,7 @@ static unsigned long linkwatch_nextevent
+ static void linkwatch_event(struct work_struct *dummy);
+ static DECLARE_DELAYED_WORK(linkwatch_work, linkwatch_event);
+ 
+-static struct net_device *lweventlist;
++static LIST_HEAD(lweventlist);
+ static DEFINE_SPINLOCK(lweventlist_lock);
+ 
+ static unsigned char default_operstate(const struct net_device *dev)
+@@ -77,10 +77,15 @@ static void rfc2863_policy(struct net_de
+ }
+ 
+ 
+-static int linkwatch_urgent_event(struct net_device *dev)
++static bool linkwatch_urgent_event(struct net_device *dev)
+ {
+-	return netif_running(dev) && netif_carrier_ok(dev) &&
+-	       dev->qdisc != dev->qdisc_sleeping;
++	if (!netif_running(dev))
++		return false;
++
++	if (dev->ifindex != dev->iflink)
++		return true;
++
++	return netif_carrier_ok(dev) &&	qdisc_tx_changing(dev);
+ }
+ 
+ 
+@@ -89,8 +94,10 @@ static void linkwatch_add_event(struct n
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&lweventlist_lock, flags);
+-	dev->link_watch_next = lweventlist;
+-	lweventlist = dev;
++	if (list_empty(&dev->link_watch_list)) {
++		list_add_tail(&dev->link_watch_list, &lweventlist);
++		dev_hold(dev);
++	}
+ 	spin_unlock_irqrestore(&lweventlist_lock, flags);
+ }
+ 
+@@ -127,7 +134,7 @@ static void linkwatch_schedule_work(int 
+ 		return;
+ 
+ 	/* It's already running which is good enough. */
+-	if (!cancel_delayed_work(&linkwatch_work))
++	if (!__cancel_delayed_work(&linkwatch_work))
+ 		return;
+ 
+ 	/* Otherwise we reschedule it again for immediate exection. */
+@@ -135,9 +142,35 @@ static void linkwatch_schedule_work(int 
+ }
+ 
+ 
++static void linkwatch_do_dev(struct net_device *dev)
++{
++	/*
++	 * Make sure the above read is complete since it can be
++	 * rewritten as soon as we clear the bit below.
++	 */
++	smp_mb__before_clear_bit();
++
++	/* We are about to handle this device,
++	 * so new events can be accepted
++	 */
++	clear_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state);
++
++	rfc2863_policy(dev);
++	if (dev->flags & IFF_UP) {
++		if (netif_carrier_ok(dev))
++			dev_activate(dev);
++		else
++			dev_deactivate(dev);
++
++		netdev_state_change(dev);
++	}
++	dev_put(dev);
++}
++
+ static void __linkwatch_run_queue(int urgent_only)
+ {
+-	struct net_device *next;
++	struct net_device *dev;
++	LIST_HEAD(wrk);
+ 
+ 	/*
+ 	 * Limit the number of linkwatch events to one
+@@ -155,47 +188,40 @@ static void __linkwatch_run_queue(int ur
+ 	clear_bit(LW_URGENT, &linkwatch_flags);
+ 
+ 	spin_lock_irq(&lweventlist_lock);
+-	next = lweventlist;
+-	lweventlist = NULL;
+-	spin_unlock_irq(&lweventlist_lock);
++	list_splice_init(&lweventlist, &wrk);
+ 
+-	while (next) {
+-		struct net_device *dev = next;
++	while (!list_empty(&wrk)) {
+ 
+-		next = dev->link_watch_next;
++		dev = list_first_entry(&wrk, struct net_device, link_watch_list);
++		list_del_init(&dev->link_watch_list);
+ 
+ 		if (urgent_only && !linkwatch_urgent_event(dev)) {
+-			linkwatch_add_event(dev);
++			list_add_tail(&dev->link_watch_list, &lweventlist);
+ 			continue;
+ 		}
++		spin_unlock_irq(&lweventlist_lock);
++		linkwatch_do_dev(dev);
++		spin_lock_irq(&lweventlist_lock);
++	}
+ 
+-		/*
+-		 * Make sure the above read is complete since it can be
+-		 * rewritten as soon as we clear the bit below.
+-		 */
+-		smp_mb__before_clear_bit();
+-
+-		/* We are about to handle this device,
+-		 * so new events can be accepted
+-		 */
+-		clear_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state);
+-
+-		rfc2863_policy(dev);
+-		if (dev->flags & IFF_UP) {
+-			if (netif_carrier_ok(dev)) {
+-				WARN_ON(dev->qdisc_sleeping == &noop_qdisc);
+-				dev_activate(dev);
+-			} else
+-				dev_deactivate(dev);
++	if (!list_empty(&lweventlist))
++		linkwatch_schedule_work(0);
++	spin_unlock_irq(&lweventlist_lock);
++}
+ 
+-			netdev_state_change(dev);
+-		}
++void linkwatch_forget_dev(struct net_device *dev)
++{
++	unsigned long flags;
++	int clean = 0;
+ 
+-		dev_put(dev);
++	spin_lock_irqsave(&lweventlist_lock, flags);
++	if (!list_empty(&dev->link_watch_list)) {
++		list_del_init(&dev->link_watch_list);
++		clean = 1;
+ 	}
+-
+-	if (lweventlist)
+-		linkwatch_schedule_work(0);
++	spin_unlock_irqrestore(&lweventlist_lock, flags);
++	if (clean)
++		linkwatch_do_dev(dev);
+ }
+ 
+ 
+@@ -216,11 +242,9 @@ static void linkwatch_event(struct work_
+ 
+ void linkwatch_fire_event(struct net_device *dev)
+ {
+-	int urgent = linkwatch_urgent_event(dev);
++	bool urgent = linkwatch_urgent_event(dev);
+ 
+ 	if (!test_and_set_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state)) {
+-		dev_hold(dev);
+-
+ 		linkwatch_add_event(dev);
+ 	} else if (!urgent)
+ 		return;
+-- 
