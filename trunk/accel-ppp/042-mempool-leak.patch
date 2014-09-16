@@ -1,3 +1,5 @@
+diff --git a/accel-pppd/triton/mempool.c b/accel-pppd/triton/mempool.c
+index 4a3ec8b..ff51a80 100644
 --- a/accel-pppd/triton/mempool.c
 +++ b/accel-pppd/triton/mempool.c
 @@ -55,8 +55,8 @@ struct _item_t
@@ -74,7 +76,7 @@
  	__sync_add_and_fetch(&triton_stat.mempool_allocated, size);
  	__sync_add_and_fetch(&triton_stat.mempool_available, size);
  
-@@ -350,7 +344,5 @@ static void __init init(void)
+@@ -353,7 +347,5 @@ static void __init init(void)
  	};
  
  	sigaction(35, &sa, NULL);
@@ -82,9 +84,11 @@
 -	mmap_grow();
  }
  
+diff --git a/accel-pppd/triton/triton.c b/accel-pppd/triton/triton.c
+index cdcccdb..27434d8 100644
 --- a/accel-pppd/triton/triton.c
 +++ b/accel-pppd/triton/triton.c
-@@ -261,6 +261,7 @@ struct _triton_thread_t *create_thread()
+@@ -273,6 +273,7 @@ struct _triton_thread_t *create_thread()
  	pthread_mutex_lock(&thread->sleep_lock);
  	while (pthread_create(&thread->thread, &attr, (void*(*)(void*))triton_thread, thread))
  		sleep(1);

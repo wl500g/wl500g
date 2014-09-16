@@ -14,10 +14,10 @@ Subject: [PATCH 07/10] ppp: implement proxy-arp support
  7 files changed, 120 insertions(+), 0 deletions(-)
 
 diff --git a/accel-pppd/accel-ppp.conf b/accel-pppd/accel-ppp.conf
-index af10c44..aa3ce50 100644
+index 49d1fa9..9008a3e 100644
 --- a/accel-pppd/accel-ppp.conf
 +++ b/accel-pppd/accel-ppp.conf
-@@ -55,6 +55,7 @@ lcp-echo-interval=20
+@@ -57,6 +57,7 @@ lcp-echo-interval=20
  #lcp-echo-failure=3
  lcp-echo-timeout=120
  #unit-cache=1000
@@ -25,7 +25,7 @@ index af10c44..aa3ce50 100644
  
  [auth]
  #any-login=0
-@@ -63,6 +64,7 @@ lcp-echo-timeout=120
+@@ -65,6 +66,7 @@ lcp-echo-timeout=120
  [pptp]
  verbose=1
  #echo-interval=30
@@ -33,7 +33,7 @@ index af10c44..aa3ce50 100644
  
  [pppoe]
  verbose=1
-@@ -77,6 +79,7 @@ called-sid=mac
+@@ -79,6 +81,7 @@ called-sid=mac
  #interface=eth1,padi-limit=1000
  #sid-uppercase=0
  interface=eth0
@@ -41,7 +41,7 @@ index af10c44..aa3ce50 100644
  
  [l2tp]
  verbose=1
-@@ -93,6 +96,7 @@ verbose=1
+@@ -95,6 +98,7 @@ verbose=1
  #dataseq=allow
  #reorder-timeout=0
  #ip-pool=l2tp
@@ -50,10 +50,10 @@ index af10c44..aa3ce50 100644
  [ipoe]
  verbose=1
 diff --git a/accel-pppd/accel-ppp.conf.5 b/accel-pppd/accel-ppp.conf.5
-index 965116f..c274793 100644
+index 06a1d3f..c81bcba 100644
 --- a/accel-pppd/accel-ppp.conf.5
 +++ b/accel-pppd/accel-ppp.conf.5
-@@ -177,6 +177,9 @@ Specifies timeout in seconds to wait for any peer activity. If this option speci
+@@ -195,6 +195,9 @@ Specifies timeout in seconds to wait for any peer activity. If this option speci
  .BI "unit-cache=" n
  Specifies number of interfaces to keep in cache. It means that don't destory interface after corresponding session is destoyed, instead place it to cache and use it later for new sessions repeatedly.
  This should reduce kernel-level interface creation/deletion rate lack.
@@ -63,7 +63,7 @@ index 965116f..c274793 100644
  .SH [ipoe]
  .TP
  .BI "verbose=" n
-@@ -415,6 +418,9 @@ Specifies maximum number of echo-requests may be sent without valid echo-reply,
+@@ -433,6 +436,9 @@ Specifies maximum number of echo-requests may be sent without valid echo-reply,
  Timeout waiting reply from client in seconds (default 5).
  .TP
  .BI "mppe=" deny|allow|prefer|require
@@ -73,7 +73,7 @@ index 965116f..c274793 100644
  .SH [pppoe]
  .br
  Configuration of PPPoE module.
-@@ -471,6 +477,9 @@ Specifies whether to handle TR101 tags.
+@@ -489,6 +495,9 @@ Specifies whether to handle TR101 tags.
  Specifies overall limit of PADI packets to reply in 1 second period (default 0 - unlimited). Rate of per-mac PADI packets is limited to no more than 1 packet per second.
  .TP
  .BI "mppe=" deny|allow|prefer|require
@@ -83,7 +83,7 @@ index 965116f..c274793 100644
  .SH [l2tp]
  .br
  Configuration of L2TP module.
-@@ -558,6 +567,9 @@ reply (SCCRP). Default value is 0.
+@@ -576,6 +585,9 @@ reply (SCCRP). Default value is 0.
  .BI "ppp-max-mtu=" n
  Set the maximun MTU value that can be negociated for PPP over L2TP
  sessions. Default value is 1420.
@@ -125,10 +125,10 @@ index 2a52d69..13f179e 100644
  
  static void l2tp_init(void)
 diff --git a/accel-pppd/ctrl/pppoe/pppoe.c b/accel-pppd/ctrl/pppoe/pppoe.c
-index f8542a8..df0fc5d 100644
+index 86f995c..b37ead8 100644
 --- a/accel-pppd/ctrl/pppoe/pppoe.c
 +++ b/accel-pppd/ctrl/pppoe/pppoe.c
-@@ -92,6 +92,7 @@ int conf_sid_uppercase = 0;
+@@ -95,6 +95,7 @@ static const char *conf_ip_pool;
  enum {CSID_MAC, CSID_IFNAME, CSID_IFNAME_MAC};
  static int conf_called_sid;
  static int conf_cookie_timeout;
@@ -136,7 +136,7 @@ index f8542a8..df0fc5d 100644
  
  static mempool_t conn_pool;
  static mempool_t pado_pool;
-@@ -281,6 +282,7 @@ static struct pppoe_conn_t *allocate_channel(struct pppoe_serv_t *serv, const ui
+@@ -285,6 +286,7 @@ static struct pppoe_conn_t *allocate_channel(struct pppoe_serv_t *serv, const ui
  	conn->ctrl.ppp = 1;
  	conn->ctrl.name = "pppoe";
  	conn->ctrl.mppe = conf_mppe;
@@ -144,7 +144,7 @@ index f8542a8..df0fc5d 100644
  
  	if (conf_called_sid == CSID_IFNAME)
  		conn->ctrl.called_station_id = _strdup(serv->ifname);
-@@ -1558,6 +1560,10 @@ static void load_config(void)
+@@ -1599,6 +1601,10 @@ static void load_config(void)
  		else
  			log_error("pppoe: unknown called-sid type\n");
  	}
@@ -156,10 +156,10 @@ index f8542a8..df0fc5d 100644
  
  static void pppoe_init(void)
 diff --git a/accel-pppd/ctrl/pptp/pptp.c b/accel-pppd/ctrl/pptp/pptp.c
-index 19deb3d..62fac91 100644
+index 8ebcbc7..609e6ab 100644
 --- a/accel-pppd/ctrl/pptp/pptp.c
 +++ b/accel-pppd/ctrl/pptp/pptp.c
-@@ -61,6 +61,7 @@ static int conf_echo_failure = 3;
+@@ -63,6 +63,7 @@ static int conf_echo_failure = 3;
  static int conf_verbose = 0;
  static int conf_mppe = MPPE_UNSET;
  static const char *conf_ip_pool;
@@ -167,7 +167,7 @@ index 19deb3d..62fac91 100644
  
  static mempool_t conn_pool;
  
-@@ -678,6 +679,7 @@ static int pptp_connect(struct triton_md_handler_t *h)
+@@ -680,6 +681,7 @@ static int pptp_connect(struct triton_md_handler_t *h)
  		conn->ctrl.ppp = 1;
  		conn->ctrl.name = "pptp";
  		conn->ctrl.mppe = conf_mppe;
@@ -175,7 +175,7 @@ index 19deb3d..62fac91 100644
  		
  		conn->ctrl.calling_station_id = _malloc(17);
  		conn->ctrl.called_station_id = _malloc(17);
-@@ -766,6 +768,10 @@ static void load_config(void)
+@@ -768,6 +770,10 @@ static void load_config(void)
  	}
  
  	conf_ip_pool = conf_get_opt("pptp", "ip-pool");
@@ -187,7 +187,7 @@ index 19deb3d..62fac91 100644
  
  static void pptp_init(void)
 diff --git a/accel-pppd/ifcfg.c b/accel-pppd/ifcfg.c
-index 3190873..5f7c447 100644
+index d3a8006..f8b1436 100644
 --- a/accel-pppd/ifcfg.c
 +++ b/accel-pppd/ifcfg.c
 @@ -9,7 +9,9 @@
@@ -253,7 +253,7 @@ index 3190873..5f7c447 100644
  static void devconf(struct ap_session *ses, const char *attr, const char *val)
  {
  	int fd;
-@@ -63,7 +111,9 @@ static void ifup_continue(struct ap_session *ses)
+@@ -79,7 +127,9 @@ static void ifup_continue(struct ap_session *ses)
  	struct in6_ifreq ifr6;
  	struct npioctl np;
  	struct sockaddr_in addr;
@@ -263,7 +263,7 @@ index 3190873..5f7c447 100644
  
  	if (ses->stop_time)
  		return;
-@@ -131,6 +181,23 @@ static void ifup_continue(struct ap_session *ses)
+@@ -137,6 +187,23 @@ static void ifup_continue(struct ap_session *ses)
  					if (ioctl(sock_fd, SIOCSIFDSTADDR, &ifr))
  						log_ppp_error("failed to set peer IPv4 address: %s\n", strerror(errno));
  				}
@@ -287,7 +287,7 @@ index 3190873..5f7c447 100644
  			}
  
  			if (ses->ipv6) {
-@@ -205,6 +272,7 @@ void __export ap_session_ifdown(struct ap_session *ses)
+@@ -211,6 +278,7 @@ void __export ap_session_ifdown(struct ap_session *ses)
  	struct sockaddr_in addr;
  	struct in6_ifreq ifr6;
  	struct ipv6db_addr_t *a;
@@ -295,7 +295,7 @@ index 3190873..5f7c447 100644
  
  	if (ses->ctrl->dont_ifcfg || ses->ifindex == -1)
  		return;
-@@ -219,6 +287,21 @@ void __export ap_session_ifdown(struct ap_session *ses)
+@@ -225,6 +293,21 @@ void __export ap_session_ifdown(struct ap_session *ses)
  		addr.sin_family = AF_INET;
  		memcpy(&ifr.ifr_addr,&addr,sizeof(addr));
  		ioctl(sock_fd, SIOCSIFADDR, &ifr);
@@ -338,6 +338,3 @@ index f6d92d7..286a1e6 100644
  #ifdef USE_BACKUP
  	struct backup_data *backup;
  #endif
--- 
-1.7.2.5
-

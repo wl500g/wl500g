@@ -1,3 +1,5 @@
+diff --git a/accel-cmd/CMakeLists.txt b/accel-cmd/CMakeLists.txt
+index 4455c8d..656c2bb 100644
 --- a/accel-cmd/CMakeLists.txt
 +++ b/accel-cmd/CMakeLists.txt
 @@ -9,6 +9,6 @@ ADD_EXECUTABLE(accel-cmd
@@ -10,9 +12,11 @@
 +#INSTALL(FILES accel-cmd.1
 +#	DESTINATION share/man/man1
 +#)
+diff --git a/accel-pppd/CMakeLists.txt b/accel-pppd/CMakeLists.txt
+index d82f8d2..ff0688e 100644
 --- a/accel-pppd/CMakeLists.txt
 +++ b/accel-pppd/CMakeLists.txt
-@@ -109,7 +109,7 @@ INSTALL(TARGETS accel-pppd
+@@ -106,7 +106,7 @@ INSTALL(TARGETS accel-pppd
  	RUNTIME DESTINATION sbin
  )
  
