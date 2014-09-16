@@ -12,16 +12,17 @@ fs/partitions: backports from upstream kernel 2.6
  87038c2d5bda2418fda8b1456a0ae81cc3ff5bd8 partitions: read whole sector with EFI GPT header
  8e0cc811e0f8029a7225372fb0951fab102c012f fs/partition/msdos: fix unusable extended partition for > 512B sector
  fa039d5f6b126fbd65eefa05db2f67e44df8f121 Validate size of EFI GUID partition entries.
+ ea56505bedd03e21f497c59cece15a62b4398fc4 partitions/efi.c: replace useless kzalloc's by kmalloc's
 
 ---
  fs/fat/inode.c           |    2 +-
  fs/partitions/check.c    |   23 +++++++++++++++++++++--
- fs/partitions/efi.c      |   36 +++++++++++++++++++++++++-----------
+ fs/partitions/efi.c      |   38 ++++++++++++++++++++++++++------------
  fs/partitions/efi.h      |    8 ++++++--
  fs/partitions/msdos.c    |   38 +++++++++++++++++++++++++++++++-------
  include/linux/genhd.h    |    2 +-
  include/linux/msdos_fs.h |    8 ++++++--
- 7 files changed, 91 insertions(+), 26 deletions(-)
+ 7 files changed, 92 insertions(+), 27 deletions(-)
 
 diff --git a/fs/fat/inode.c b/fs/fat/inode.c
 --- a/fs/fat/inode.c
@@ -124,6 +125,15 @@ diff --git a/fs/partitions/efi.c b/fs/partitions/efi.c
  		if (!data)
  			break;
  		if (copied > count)
+@@ -238,7 +238,7 @@ static gpt_entry *alloc_read_gpt_entries(struct parsed_partitions *state,
+                 le32_to_cpu(gpt->sizeof_partition_entry);
+ 	if (!count)
+ 		return NULL;
+-	pte = kzalloc(count, GFP_KERNEL);
++	pte = kmalloc(count, GFP_KERNEL);
+ 	if (!pte)
+ 		return NULL;
+ 
 @@ -264,15 +269,16 @@ static gpt_header *
  alloc_read_gpt_header(struct block_device *bdev, u64 lba)
  {
@@ -134,7 +144,7 @@ diff --git a/fs/partitions/efi.c b/fs/partitions/efi.c
  		return NULL;
  
 -	gpt = kzalloc(sizeof (gpt_header), GFP_KERNEL);
-+	gpt = kzalloc(ssz, GFP_KERNEL);
++	gpt = kmalloc(ssz, GFP_KERNEL);
  	if (!gpt)
  		return NULL;
  
