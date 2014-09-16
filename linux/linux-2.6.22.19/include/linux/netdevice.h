@@ -467,7 +467,8 @@ struct net_device
 	/* device index hash chain */
 	struct hlist_node	index_hlist;
 
-	struct net_device	*link_watch_next;
+	/* rtnetlink link ops */
+	const struct rtnl_link_ops *rtnl_link_ops;
 
 	/* register/unregister state machine */
 	enum { NETREG_UNINITIALIZED=0,
@@ -535,8 +536,7 @@ struct net_device
 	/* space for optional statistics and wireless sysfs groups */
 	struct attribute_group  *sysfs_groups[3];
 
-	/* rtnetlink link ops */
-	const struct rtnl_link_ops *rtnl_link_ops;
+	struct list_head	link_watch_list;
 
 #ifdef CONFIG_NETPOLL
 	struct netpoll_info	*npinfo;
@@ -777,6 +777,7 @@ static inline void dev_hold(struct net_device *dev)
  */
 
 extern void linkwatch_fire_event(struct net_device *dev);
+extern void linkwatch_forget_dev(struct net_device *dev);
 
 static inline int netif_carrier_ok(const struct net_device *dev)
 {

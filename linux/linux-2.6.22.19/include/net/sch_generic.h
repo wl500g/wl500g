@@ -180,6 +180,12 @@ extern struct Qdisc *qdisc_create_dflt(struct net_device *dev,
 extern void tcf_destroy(struct tcf_proto *tp);
 extern void tcf_destroy_chain(struct tcf_proto *fl);
 
+/* Are any of the TX qdiscs changing?  */
+static inline bool qdisc_tx_changing(struct net_device *dev)
+{
+	return (dev->qdisc != dev->qdisc_sleeping);
+}
+
 static inline int __qdisc_enqueue_tail(struct sk_buff *skb, struct Qdisc *sch,
 				       struct sk_buff_head *list)
 {

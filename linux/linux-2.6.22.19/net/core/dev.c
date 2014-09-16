@@ -3293,6 +3293,8 @@ static void netdev_wait_allrefs(struct net_device *dev)
 {
 	unsigned long rebroadcast_time, warning_time;
 
+	linkwatch_forget_dev(dev);
+
 	rebroadcast_time = warning_time = jiffies;
 	while (atomic_read(&dev->refcnt) != 0) {
 		if (time_after(jiffies, rebroadcast_time + 1 * HZ)) {
@@ -3440,6 +3442,7 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
 		dev->priv = netdev_priv(dev);
 
 	dev->get_stats = internal_stats;
+	INIT_LIST_HEAD(&dev->link_watch_list);
 	setup(dev);
 	strcpy(dev->name, name);
 	return dev;
