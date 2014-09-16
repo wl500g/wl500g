@@ -782,6 +782,10 @@ out:
 		 * If fib6_add_1 has cleared the old leaf pointer in the
 		 * super-tree leaf node we have to find a new one for it.
 		 */
+		if (pn != fn && pn->leaf == rt) {
+			pn->leaf = NULL;
+			atomic_dec(&rt->rt6i_ref);
+		}
 		if (pn != fn && !pn->leaf && !(pn->fn_flags & RTN_RTINFO)) {
 			pn->leaf = fib6_find_prefix(pn);
 #if RT6_DEBUG >= 2
@@ -1122,9 +1126,6 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
 
 	rt->u.dst.rt6_next = NULL;
 
-	if (fn->leaf == NULL && fn->fn_flags&RTN_TL_ROOT)
-		fn->leaf = &ip6_null_entry;
-
 	/* If it was last route, expunge its radix tree node */
 	if (fn->leaf == NULL) {
 		fn->fn_flags &= ~RTN_RTINFO;
@@ -1148,7 +1149,7 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
 			fn = fn->parent;
 		}
 		/* No more references are possible at this point. */
-		if (atomic_read(&rt->rt6i_ref) != 1) BUG();
+		BUG_ON(atomic_read(&rt->rt6i_ref) != 1);
 	}
 
 	inet6_rt_notify(RTM_DELROUTE, rt, info);
