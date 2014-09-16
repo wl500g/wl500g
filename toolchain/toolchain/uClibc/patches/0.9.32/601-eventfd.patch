@@ -1,13 +1,13 @@
-Add eventfd(eventfd2) support.
+Add eventfd(eventfd2) support. Also, provide eventfd_read() and eventfd_write() glibc extensions.
 
 ---
  e118373cbb58ba5ffa5fb6670957678d5b87cdb9 eventfd: Implement eventfd2 and fix eventfd
 ---
 
  libc/sysdeps/linux/common/Makefile.in   |    2 -
- libc/sysdeps/linux/common/eventfd.c     |   49 ++++++++++++++++++++++++++++++
- libc/sysdeps/linux/common/sys/eventfd.h |   52 ++++++++++++++++++++++++++++++++
- 3 files changed, 102 insertions(+), 1 deletion(-)
+ libc/sysdeps/linux/common/eventfd.c     |   63 ++++++++++++++++++++++++++++++++
+ libc/sysdeps/linux/common/sys/eventfd.h |   58 +++++++++++++++++++++++++++++
+ 3 files changed, 122 insertions(+), 1 deletion(-)
  create mode 100644 libc/sysdeps/linux/common/eventfd.c
  create mode 100644 libc/sysdeps/linux/common/sys/eventfd.h
 
@@ -27,7 +27,7 @@ diff --git a/libc/sysdeps/linux/common/eventfd.c b/libc/sysdeps/linux/common/eve
 new file mode 100644
 --- /dev/null
 +++ b/libc/sysdeps/linux/common/eventfd.c
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,63 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * eventfd() for uClibc
@@ -38,6 +38,7 @@ new file mode 100644
 + */
 +
 +#include <errno.h>
++#include <unistd.h>
 +#include <sys/syscall.h>
 +#include <sys/eventfd.h>
 +
@@ -76,12 +77,25 @@ new file mode 100644
 +#endif
 +  return -1;
 +}
++
++int
++eventfd_read (int fd, eventfd_t *value)
++{
++  return read (fd, value, sizeof (eventfd_t)) != sizeof (eventfd_t) ? -1 : 0;
++}
++
++int
++eventfd_write (int fd, eventfd_t value)
++{
++  return write (fd, &value,
++		sizeof (eventfd_t)) != sizeof (eventfd_t) ? -1 : 0;
++}
 +#endif
 diff --git a/libc/sysdeps/linux/common/sys/eventfd.h b/libc/sysdeps/linux/common/sys/eventfd.h
 new file mode 100644
 --- /dev/null
 +++ b/libc/sysdeps/linux/common/sys/eventfd.h
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,58 @@
 +/* Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
 +   This file is part of the GNU C Library.
 +
@@ -130,6 +144,12 @@ new file mode 100644
 +/* Return file descriptor for generic event channel.  Set initial
 +   value to COUNT.  */
 +extern int eventfd (int __count, int __flags) __THROW;
++
++/* Read event counter and possibly wait for events.  */
++extern int eventfd_read (int __fd, eventfd_t *__value);
++
++/* Increment event counter.  */
++extern int eventfd_write (int __fd, eventfd_t __value);
 +
 +__END_DECLS
 +
