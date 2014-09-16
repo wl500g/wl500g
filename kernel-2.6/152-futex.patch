@@ -4,16 +4,19 @@ futex: Backport from 2.6.27.62
  42569c39917a08e8de1e8b5685463be7b74baebd futex: fixup get_futex_key() for private futexes		[2.6.29]
  9064a6787aa1d8ceaf5ba16fe1dfedb0755dc7eb linux/futex.h: place kernel types behind __KERNEL__		[2.6.32]
  f8d1e548931cfa5ea9a082e020c2a47d27e5d793 futex: Fix typo in FUTEX_WAIT/WAKE_BITSET_PRIVATE definitions	[2.6.32]
+ 1acdac104668a0834cfa267de9946fac7764d486 futex: make clock selectable for FUTEX_WAIT_BITSET
+ e8f6386c01a5699c115bdad10271a24076364c97 futex: unlock before returning -EFAULT
+ f0d71b3dcb8332f7971b5f2363632573e6d9486a futex: Prevent attaching to kernel threads
 
 ---
- include/linux/futex.h       |   25 +
+ include/linux/futex.h       |   28 +
  include/linux/thread_info.h |    1 
- kernel/futex.c              |  636 ++++++++++++++++++++++----------------------
+ kernel/futex.c              |  661 ++++++++++++++++++++++----------------------
  kernel/futex_compat.c       |   51 ++-
  kernel/rtmutex-debug.c      |    6 
  kernel/rtmutex.c            |    6 
  kernel/rtmutex_common.h     |    7 
- 7 files changed, 378 insertions(+), 354 deletions(-)
+ 7 files changed, 403 insertions(+), 357 deletions(-)
 
 diff --git a/include/linux/futex.h b/include/linux/futex.h
 --- a/include/linux/futex.h
@@ -30,7 +33,7 @@ diff --git a/include/linux/futex.h b/include/linux/futex.h
  
  /* Second argument to futex syscall */
  
-@@ -17,6 +21,8 @@ union ktime;
+@@ -17,9 +21,12 @@ union ktime;
  #define FUTEX_LOCK_PI		6
  #define FUTEX_UNLOCK_PI		7
  #define FUTEX_TRYLOCK_PI	8
@@ -38,7 +41,12 @@ diff --git a/include/linux/futex.h b/include/linux/futex.h
 +#define FUTEX_WAKE_BITSET	10
  
  #define FUTEX_PRIVATE_FLAG	128
- #define FUTEX_CMD_MASK		~FUTEX_PRIVATE_FLAG
+-#define FUTEX_CMD_MASK		~FUTEX_PRIVATE_FLAG
++#define FUTEX_CLOCK_REALTIME	256
++#define FUTEX_CMD_MASK		~(FUTEX_PRIVATE_FLAG | FUTEX_CLOCK_REALTIME)
+ 
+ #define FUTEX_WAIT_PRIVATE	(FUTEX_WAIT | FUTEX_PRIVATE_FLAG)
+ #define FUTEX_WAKE_PRIVATE	(FUTEX_WAKE | FUTEX_PRIVATE_FLAG)
 @@ -29,6 +35,8 @@ union ktime;
  #define FUTEX_LOCK_PI_PRIVATE	(FUTEX_LOCK_PI | FUTEX_PRIVATE_FLAG)
  #define FUTEX_UNLOCK_PI_PRIVATE	(FUTEX_UNLOCK_PI | FUTEX_PRIVATE_FLAG)
@@ -298,6 +306,18 @@ diff --git a/kernel/futex.c b/kernel/futex.c
  
  			atomic_inc(&pi_state->refcount);
  			*ps = pi_state;
+@@ -554,6 +604,11 @@ lookup_pi_state(u32 uval, struct futex_hash_bucket *hb,
+ 	if (IS_ERR(p))
+ 		return PTR_ERR(p);
+ 
++	if (!p->mm) {
++		put_task_struct(p);
++		return -EPERM;
++	}
++
+ 	/*
+ 	 * We need to look at the task state flags to figure out,
+ 	 * whether the task is exiting. To protect against the do_exit
 @@ -574,8 +621,6 @@ lookup_pi_state(u32 uval, struct futex_h
  static void wake_futex(struct futex_q *q)
  {
@@ -643,14 +663,19 @@ diff --git a/kernel/futex.c b/kernel/futex.c
  }
  
  /*
-@@ -1139,8 +1224,9 @@ static int fixup_pi_state_owner(u32 __us
- #define FLAGS_SHARED  1
+@@ -1139,11 +1224,13 @@ static int fixup_pi_state_owner(u32 __us
+  * In case we must use restart_block to restart a futex_wait,
+  * we encode in the 'flags' shared capability
+  */
+-#define FLAGS_SHARED  1
++#define FLAGS_SHARED		0x01
++#define FLAGS_CLOCKRT		0x02
  
  static long futex_wait_restart(struct restart_block *restart);
 +
  static int futex_wait(u32 __user *uaddr, struct rw_semaphore *fshared,
 -		      u32 val, ktime_t *abs_time)
-+		      u32 val, ktime_t *abs_time, u32 bitset)
++		      u32 val, ktime_t *abs_time, u32 bitset, int clockrt)
  {
  	struct task_struct *curr = current;
  	DECLARE_WAITQUEUE(wait, curr);
@@ -704,7 +729,14 @@ diff --git a/kernel/futex.c b/kernel/futex.c
  
  	/*
  	 * There might have been scheduling since the queue_me(), as we
-@@ -1236,6 +1323,8 @@ static int futex_wait(u32 __user *uaddr,
+@@ -1236,11 +1323,14 @@ static int futex_wait(u32 __user *uaddr,
+ 		if (!abs_time)
+ 			schedule();
+ 		else {
+-			hrtimer_init(&t.timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
++			hrtimer_init(&t.timer, clockrt ?
++				     CLOCK_REALTIME : CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
+ 			hrtimer_init_sleeper(&t, current);
  			t.timer.expires = *abs_time;
  
  			hrtimer_start(&t.timer, t.timer.expires, HRTIMER_MODE_ABS);
@@ -713,7 +745,7 @@ diff --git a/kernel/futex.c b/kernel/futex.c
  
  			/*
  			 * the timer could have already expired, in which
-@@ -1280,6 +1369,7 @@ static int futex_wait(u32 __user *uaddr,
+@@ -1280,10 +1369,13 @@ static int futex_wait(u32 __user *uaddr,
  		restart->futex.uaddr = (u32 *)uaddr;
  		restart->futex.val = val;
  		restart->futex.time = abs_time->tv64;
@@ -721,6 +753,12 @@ diff --git a/kernel/futex.c b/kernel/futex.c
  		restart->futex.flags = 0;
  
  		if (fshared)
+ 			restart->futex.flags |= FLAGS_SHARED;
++		if (clockrt)
++			restart->futex.flags |= FLAGS_CLOCKRT;
+ 		return -ERESTART_RESTARTBLOCK;
+ 	}
+ 
 @@ -1291,8 +1381,7 @@ static int futex_wait(u32 __user *uaddr,
  	queue_unlock(&q, hb);
  
@@ -731,13 +769,14 @@ diff --git a/kernel/futex.c b/kernel/futex.c
  	return ret;
  }
  
-@@ -1307,7 +1396,8 @@ static long futex_wait_restart(struct re
+@@ -1307,7 +1396,9 @@ static long futex_wait_restart(struct re
  	restart->fn = do_no_restart_syscall;
  	if (restart->futex.flags & FLAGS_SHARED)
  		fshared = &current->mm->mmap_sem;
 -	return (long)futex_wait(uaddr, fshared, restart->futex.val, &t);
 +	return (long)futex_wait(uaddr, fshared, restart->futex.val, &t,
-+				restart->futex.bitset);
++				restart->futex.bitset,
++				restart->futex.flags & FLAGS_CLOCKRT);
  }
  
  
@@ -869,8 +908,17 @@ diff --git a/kernel/futex.c b/kernel/futex.c
  		} else {
  			/*
  			 * Paranoia check. If we did not take the lock
-@@ -1524,8 +1635,7 @@ static int futex_lock_pi(u32 __user *uad
+@@ -1524,10 +1635,16 @@ static int futex_lock_pi(u32 __user *uad
+ 		}
+ 	}
  
++	/*
++	 * If fixup_pi_state_owner() faulted and was unable to handle the
++	 * fault, unlock it and return the fault to userspace.
++	 */
++	if (ret && (rt_mutex_owner(&q.pi_state->pi_mutex) == current))
++		rt_mutex_unlock(&q.pi_state->pi_mutex);
++
  	/* Unqueue and drop the lock */
  	unqueue_me_pi(&q);
 -	if (fshared)
@@ -1154,7 +1202,7 @@ diff --git a/kernel/futex.c b/kernel/futex.c
  		/*
  		 * Avoid excessively long or circular lists:
  		 */
-@@ -1995,12 +1995,16 @@ void exit_robust_list(struct task_struct
+@@ -1995,28 +1995,37 @@ void exit_robust_list(struct task_struct
  
  		cond_resched();
  	}
@@ -1168,18 +1216,24 @@ diff --git a/kernel/futex.c b/kernel/futex.c
  		u32 __user *uaddr2, u32 val2, u32 val3)
  {
 -	int ret;
-+	int ret = -ENOSYS;
++	int clockrt, ret = -ENOSYS;
  	int cmd = op & FUTEX_CMD_MASK;
  	struct rw_semaphore *fshared = NULL;
  
-@@ -2009,14 +2013,14 @@ long do_futex(u32 __user *uaddr, int op,
+ 	if (!(op & FUTEX_PRIVATE_FLAG))
+ 		fshared = &current->mm->mmap_sem;
  
++	clockrt = op & FUTEX_CLOCK_REALTIME;
++	if (clockrt && cmd != FUTEX_WAIT_BITSET)
++		return -ENOSYS;
++
++
  	switch (cmd) {
  	case FUTEX_WAIT:
 -		ret = futex_wait(uaddr, fshared, val, timeout);
 +		val3 = FUTEX_BITSET_MATCH_ANY;
 +	case FUTEX_WAIT_BITSET:
-+		ret = futex_wait(uaddr, fshared, val, timeout, val3);
++		ret = futex_wait(uaddr, fshared, val, timeout, val3, clockrt);
  		break;
  	case FUTEX_WAKE:
 -		ret = futex_wake(uaddr, fshared, val);
