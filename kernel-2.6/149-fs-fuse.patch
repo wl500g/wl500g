@@ -5,15 +5,16 @@ fuse backport from 2.6.27.59
  17e18ab6ff6ec44e95514c7346d2cbd0363ef640 fuse: add missing fuse_request_free
  e9bb09dd6c5b8ec6a971ed6251df5eba3a4c8d3c fuse: don't let fuse_req->end() put the base reference
  ac45d61357e86b9a0cf14e45e8e09dfb626970ef fuse: fix nlink after unlink
+ 126b9d4365b110c157bc4cbc32540dfa66c9c85a fuse: timeout comparison fix
 
 ---
  fs/fuse/dev.c        |  221 +++++++------
- fs/fuse/dir.c        |  589 +++++++++++++++++++++++++----------
+ fs/fuse/dir.c        |  594 ++++++++++++++++++++++++++---------
  fs/fuse/file.c       |  846 +++++++++++++++++++++++++++++++++++++++++++++------
  fs/fuse/fuse_i.h     |  142 +++++++-
  fs/fuse/inode.c      |  316 +++++++++++++++++--
  include/linux/fuse.h |   74 ++++
- 6 files changed, 1782 insertions(+), 406 deletions(-)
+ 6 files changed, 1785 insertions(+), 408 deletions(-)
 
 diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
 --- a/fs/fuse/dev.c
@@ -481,7 +482,21 @@ diff --git a/fs/fuse/dir.c b/fs/fuse/dir.c
  /*
   * Check whether the dentry is still valid
   *
-@@ -140,6 +167,7 @@ static int fuse_dentry_revalidate(struct
+@@ -140,17 +156,19 @@ u64 fuse_get_attr_version(struct fuse_co
+  */
+ static int fuse_dentry_revalidate(struct dentry *entry, struct nameidata *nd)
+ {
+-	struct inode *inode = entry->d_inode;
++	struct inode *inode;
+ 
++	inode = ACCESS_ONCE(entry->d_inode);
+ 	if (inode && is_bad_inode(inode))
+ 		return 0;
+-	else if (fuse_dentry_time(entry) < get_jiffies_64()) {
++	else if (time_before64(fuse_dentry_time(entry), get_jiffies_64())) {
+ 		int err;
+ 		struct fuse_entry_out outarg;
+ 		struct fuse_conn *fc;
  		struct fuse_req *req;
  		struct fuse_req *forget_req;
  		struct dentry *parent;
@@ -929,7 +944,7 @@ diff --git a/fs/fuse/dir.c b/fs/fuse/dir.c
 +	int err;
 +	bool r;
 +
-+	if (fi->i_time < get_jiffies_64()) {
++	if (time_before64(fi->i_time, get_jiffies_64())) {
 +		r = true;
 +		err = fuse_do_getattr(inode, stat, file);
 +	} else {
