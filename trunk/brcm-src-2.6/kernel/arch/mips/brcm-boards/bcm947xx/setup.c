@@ -115,7 +115,7 @@ bcm947xx_machine_halt(void)
 	local_irq_disable();
 	si_watchdog(sih, 0);
 	bcm947xx_reboot_handler();
-	while (1);
+	unreachable();
 }
 
 #ifdef CONFIG_SERIAL_CORE
