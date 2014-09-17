@@ -132,11 +132,6 @@ void output_thread_defines(void)
 	       thread.cp0_baduaddr);
 	offset("THREAD_ECODE", struct task_struct, \
 	       thread.error_code);
-	offset("THREAD_TRAPNO", struct task_struct, thread.trap_no);
-	offset("THREAD_TRAMP", struct task_struct, \
-	       thread.irix_trampoline);
-	offset("THREAD_OLDCTX", struct task_struct, \
-	       thread.irix_oldctx);
 	linefeed;
 }
 

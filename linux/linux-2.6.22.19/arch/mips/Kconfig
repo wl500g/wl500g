@@ -1892,10 +1892,6 @@ config BUILD_ELF64
 
 	  If unsure say Y.
 
-config BINFMT_IRIX
-	bool "Include IRIX binary compatibility"
-	depends on CPU_BIG_ENDIAN && 32BIT && BROKEN
-
 config MIPS32_COMPAT
 	bool "Kernel support for Linux/MIPS 32-bit binary compatibility"
 	depends on 64BIT

@@ -138,9 +138,6 @@ struct thread_struct {
 	unsigned long cp0_badvaddr;	/* Last user fault */
 	unsigned long cp0_baduaddr;	/* Last kernel fault accessing USEG */
 	unsigned long error_code;
-	unsigned long trap_no;
-	unsigned long irix_trampoline;  /* Wheee... */
-	unsigned long irix_oldctx;
 	struct mips_abi *abi;
 };
 
@@ -175,8 +172,7 @@ struct thread_struct {
 	/* \
 	 * Other stuff associated with the process \
 	 */ \
-	0, 0, 0, 0, \
-	0, 0 \
+	0, 0, 0, \
 }
 
 struct task_struct;
