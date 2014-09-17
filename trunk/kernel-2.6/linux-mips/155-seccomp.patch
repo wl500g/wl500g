@@ -1,0 +1,350 @@
+From 293c5bd13f124c325f74f89ad26edf5612ce7235
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Wed, 25 Jul 2007 16:19:33 +0100
+Subject: [MIPS] Fixup secure computing stuff.
+
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ arch/mips/Kconfig              |    2 +-
+ arch/mips/kernel/mips-mt.c     |    9 +++++----
+ arch/mips/kernel/process.c     |    2 +-
+ arch/mips/kernel/syscall.c     |   18 +++++++++++++-----
+ arch/mips/kernel/traps.c       |    2 +-
+ arch/mips/kernel/unaligned.c   |    2 +-
+ arch/mips/math-emu/cp1emu.c    |    2 +-
+ drivers/input/evdev.c          |    2 +-
+ include/asm-mips/elf.h         |   13 +++++++------
+ include/asm-mips/processor.h   |   21 ++++-----------------
+ include/asm-mips/seccomp.h     |   37 +++++++++++++++++++++++++++++++++++++
+ include/asm-mips/system.h      |    7 ++++---
+ include/asm-mips/thread_info.h |   12 +++++++++++-
+ 13 files changed, 87 insertions(+), 42 deletions(-)
+ create mode 100644 include/asm-mips/seccomp.h
+
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -1772,7 +1772,7 @@ config KEXEC
+ 
+ config SECCOMP
+ 	bool "Enable seccomp to safely compute untrusted bytecode"
+-	depends on PROC_FS && BROKEN
++	depends on PROC_FS
+ 	default y
+ 	help
+ 	  This kernel feature is useful for number crunching applications
+diff --git a/arch/mips/kernel/mips-mt.c b/arch/mips/kernel/mips-mt.c
+--- a/arch/mips/kernel/mips-mt.c
++++ b/arch/mips/kernel/mips-mt.c
+@@ -50,6 +50,7 @@ asmlinkage long mipsmt_sys_sched_setaffinity(pid_t pid, unsigned int len,
+ {
+ 	cpumask_t new_mask, effective_mask;
+ 	struct task_struct *p;
++	struct thread_info *ti;
+ 	int retval;
+ 
+ 	if (len < sizeof(new_mask))
+@@ -93,17 +94,17 @@ asmlinkage long mipsmt_sys_sched_setaffinity(pid_t pid, unsigned int len,
+ 	p->thread.user_cpus_allowed = new_mask;
+ 
+ 	/* Compute new global allowed CPU set if necessary */
+-	if( (p->thread.mflags & MF_FPUBOUND)
+-	&& cpus_intersects(new_mask, mt_fpu_cpumask)) {
++	ti = task_thread_info(p);
++	if (test_ti_thread_flag(ti, TIF_FPUBOUND) &&
++	    cpus_intersects(new_mask, mt_fpu_cpumask)) {
+ 		cpus_and(effective_mask, new_mask, mt_fpu_cpumask);
+ 		retval = set_cpus_allowed(p, effective_mask);
+ 	} else {
+ 		effective_mask = new_mask;
+-		p->thread.mflags &= ~MF_FPUBOUND;
++		clear_ti_thread_flag(ti, TIF_FPUBOUND);
+ 		retval = set_cpus_allowed(p, new_mask);
+ 	}
+ 
+-
+ out_unlock:
+ 	put_task_struct(p);
+ 	mutex_unlock(&sched_hotcpu_mutex);
+diff --git a/arch/mips/kernel/process.c b/arch/mips/kernel/process.c
+--- a/arch/mips/kernel/process.c
++++ b/arch/mips/kernel/process.c
+@@ -77,7 +77,7 @@ void start_thread(struct pt_regs * regs, unsigned long pc, unsigned long sp)
+ 	/* New thread loses kernel privileges. */
+ 	status = regs->cp0_status & ~(ST0_CU0|ST0_CU1|KU_MASK);
+ #ifdef CONFIG_64BIT
+-	status |= (current->thread.mflags & MF_32BIT_REGS) ? 0 : ST0_FR;
++	status |= test_thread_flag(TIF_32BIT_REGS) ? 0 : ST0_FR;
+ #endif
+ 	status |= KU_USER;
+ 	regs->cp0_status = status;
+diff --git a/arch/mips/kernel/syscall.c b/arch/mips/kernel/syscall.c
+--- a/arch/mips/kernel/syscall.c
++++ b/arch/mips/kernel/syscall.c
+@@ -281,16 +281,24 @@ asmlinkage int sys_set_thread_area(unsigned long addr)
+ 
+ asmlinkage int _sys_sysmips(int cmd, long arg1, int arg2, int arg3)
+ {
+-	int	tmp;
+-
+-	switch(cmd) {
++	switch (cmd) {
+ 	case MIPS_ATOMIC_SET:
+ 		printk(KERN_CRIT "How did I get here?\n");
+ 		return -EINVAL;
+ 
+ 	case MIPS_FIXADE:
+-		tmp = current->thread.mflags & ~3;
+-		current->thread.mflags = tmp | (arg1 & 3);
++		if (arg1 & ~3)
++			return -EINVAL;
++
++		if (arg1 & 1)
++			set_thread_flag(TIF_FIXADE);
++		else
++			clear_thread_flag(TIF_FIXADE);
++		if (arg1 & 2)
++			set_thread_flag(TIF_LOGADE);
++		else
++			clear_thread_flag(TIF_FIXADE);
++
+ 		return 0;
+ 
+ 	case FLUSH_CACHE:
+diff --git a/arch/mips/kernel/traps.c b/arch/mips/kernel/traps.c
+--- a/arch/mips/kernel/traps.c
++++ b/arch/mips/kernel/traps.c
+@@ -775,7 +775,7 @@ static void mt_ase_fp_affinity(void)
+ 						 current->thread.user_cpus_allowed,
+ 						mt_fpu_cpumask);
+ 					set_cpus_allowed(current, tmask);
+-					current->thread.mflags |= MF_FPUBOUND;
++					set_thread_flag(TIF_FPUBOUND);
+ 			 	 }
+ 				}
+ #endif /* CONFIG_MIPS_MT_FPAFF */
+diff --git a/arch/mips/kernel/unaligned.c b/arch/mips/kernel/unaligned.c
+--- a/arch/mips/kernel/unaligned.c
++++ b/arch/mips/kernel/unaligned.c
+@@ -524,7 +524,7 @@ asmlinkage void do_ade(struct pt_regs *regs)
+ 		goto sigbus;
+ 
+ 	pc = (unsigned int __user *) exception_epc(regs);
+-	if (user_mode(regs) && (current->thread.mflags & MF_FIXADE) == 0)
++	if (user_mode(regs) && !test_thread_flag(TIF_FIXADE))
+ 		goto sigbus;
+ #ifdef CONFIG_DEBUG_FS
+ 	if (unaligned_action == UNALIGNED_ACTION_SIGNAL)
+diff --git a/arch/mips/math-emu/cp1emu.c b/arch/mips/math-emu/cp1emu.c
+--- a/arch/mips/math-emu/cp1emu.c
++++ b/arch/mips/math-emu/cp1emu.c
+@@ -181,7 +181,7 @@ static inline int cop1_64bit(struct pt_r
+ #if defined(CONFIG_64BIT) && !defined(CONFIG_MIPS32_O32)
+ 	return 1;
+ #elif defined(CONFIG_64BIT) && defined(CONFIG_MIPS32_O32)
+-	return !(current->thread.mflags & MF_32BIT_REGS);
++	return !test_thread_flag(TIF_32BIT_REGS);
+ #else
+ 	return 0;
+ #endif
+diff --git a/drivers/input/evdev.c b/drivers/input/evdev.c
+--- a/drivers/input/evdev.c
++++ b/drivers/input/evdev.c
+@@ -186,7 +186,7 @@ struct input_event_compat {
+ #elif defined(CONFIG_S390)
+ #  define COMPAT_TEST test_thread_flag(TIF_31BIT)
+ #elif defined(CONFIG_MIPS)
+-#  define COMPAT_TEST (current->thread.mflags & MF_32BIT_ADDR)
++#  define COMPAT_TEST test_thread_flag(TIF_32BIT_ADDR)
+ #else
+ #  define COMPAT_TEST test_thread_flag(TIF_32BIT)
+ #endif
+diff --git a/include/asm-mips/elf.h b/include/asm-mips/elf.h
+--- a/include/asm-mips/elf.h
++++ b/include/asm-mips/elf.h
+@@ -265,7 +265,7 @@ do {									\
+ #ifdef CONFIG_MIPS32_N32
+ #define __SET_PERSONALITY32_N32()					\
+ 	do {								\
+-		current->thread.mflags |= MF_N32;			\
++		set_thread_flag(TIF_32BIT_ADDR);			\
+ 		current->thread.abi = &mips_abi_n32;			\
+ 	} while (0)
+ #else
+@@ -276,7 +276,8 @@ do {									\
+ #ifdef CONFIG_MIPS32_O32
+ #define __SET_PERSONALITY32_O32()					\
+ 	do {								\
+-		current->thread.mflags |= MF_O32;			\
++		set_thread_flag(TIF_32BIT_REGS);			\
++		set_thread_flag(TIF_32BIT_ADDR);			\
+ 		current->thread.abi = &mips_abi_32;			\
+ 	} while (0)
+ #else
+@@ -299,13 +300,13 @@ do {									\
+ 
+ #define SET_PERSONALITY(ex, ibcs2)					\
+ do {									\
+-	current->thread.mflags &= ~MF_ABI_MASK;				\
++	clear_thread_flag(TIF_32BIT_REGS);				\
++	clear_thread_flag(TIF_32BIT_ADDR);				\
++									\
+ 	if ((ex).e_ident[EI_CLASS] == ELFCLASS32)			\
+ 		__SET_PERSONALITY32(ex);				\
+-	else {								\
+-		current->thread.mflags |= MF_N64;			\
++	else								\
+ 		current->thread.abi = &mips_abi;			\
+-	}								\
+ 									\
+ 	if (ibcs2)							\
+ 		set_personality(PER_SVR4);				\
+diff --git a/include/asm-mips/processor.h b/include/asm-mips/processor.h
+--- a/include/asm-mips/processor.h
++++ b/include/asm-mips/processor.h
+@@ -62,8 +62,9 @@ extern unsigned int vced_count, vcei_count;
+  * This decides where the kernel will search for a free chunk of vm
+  * space during mmap's.
+  */
+-#define TASK_UNMAPPED_BASE	((current->thread.mflags & MF_32BIT_ADDR) ? \
+-	PAGE_ALIGN(TASK_SIZE32 / 3) : PAGE_ALIGN(TASK_SIZE / 3))
++#define TASK_UNMAPPED_BASE						\
++	(test_thread_flag(TIF_32BIT_ADDR) ?				\
++		PAGE_ALIGN(TASK_SIZE32 / 3) : PAGE_ALIGN(TASK_SIZE / 3))
+ #endif
+ 
+ #define NUM_FPU_REGS	32
+@@ -132,22 +133,11 @@ struct thread_struct {
+ 	unsigned long cp0_baduaddr;	/* Last kernel fault accessing USEG */
+ 	unsigned long error_code;
+ 	unsigned long trap_no;
+-#define MF_FIXADE	1		/* Fix address errors in software */
+-#define MF_LOGADE	2		/* Log address errors to syslog */
+-#define MF_32BIT_REGS	4		/* also implies 16/32 fprs */
+-#define MF_32BIT_ADDR	8		/* 32-bit address space (o32/n32) */
+-#define MF_FPUBOUND	0x10		/* thread bound to FPU-full CPU set */
+-	unsigned long mflags;
+ 	unsigned long irix_trampoline;  /* Wheee... */
+ 	unsigned long irix_oldctx;
+ 	struct mips_abi *abi;
+ };
+ 
+-#define MF_ABI_MASK	(MF_32BIT_REGS | MF_32BIT_ADDR)
+-#define MF_O32		(MF_32BIT_REGS | MF_32BIT_ADDR)
+-#define MF_N32		MF_32BIT_ADDR
+-#define MF_N64		0
+-
+ #ifdef CONFIG_MIPS_MT_FPAFF
+ #define FPAFF_INIT 0, INIT_CPUMASK,
+ #else
+@@ -196,10 +196,7 @@ struct thread_struct {
+ 	 * Other stuff associated with the process \
+ 	 */ \
+ 	0, 0, 0, 0, \
+-	/* \
+-	 * For now the default is to fix address errors \
+-	 */ \
+-	MF_FIXADE, 0, 0 \
++	0, 0 \
+ }
+ 
+ struct task_struct;
+diff --git a/include/asm-mips/seccomp.h b/include/asm-mips/seccomp.h
+new file mode 100644
+--- /dev/null
++++ b/include/asm-mips/seccomp.h
+@@ -0,0 +1,37 @@
++#ifndef __ASM_SECCOMP_H
++
++#include <linux/thread_info.h>
++#include <linux/unistd.h>
++
++#define __NR_seccomp_read __NR_read
++#define __NR_seccomp_write __NR_write
++#define __NR_seccomp_exit __NR_exit
++#define __NR_seccomp_sigreturn __NR_rt_sigreturn
++
++/*
++ * Kludge alert:
++ *
++ * The generic seccomp code currently allows only a single compat ABI.  Until
++ * this is fixed we priorize O32 as the compat ABI over N32.
++ */
++#ifdef CONFIG_MIPS32_O32
++
++#define TIF_32BIT TIF_32BIT_REGS
++
++#define __NR_seccomp_read_32		4003
++#define __NR_seccomp_write_32		4004
++#define __NR_seccomp_exit_32		4001
++#define __NR_seccomp_sigreturn_32	4193	/* rt_sigreturn */
++
++#elif defined(CONFIG_MIPS32_N32)
++
++#define TIF_32BIT _TIF_32BIT_ADDR
++
++#define __NR_seccomp_read_32		6000
++#define __NR_seccomp_write_32		6001
++#define __NR_seccomp_exit_32		6058
++#define __NR_seccomp_sigreturn_32	6211	/* rt_sigreturn */
++
++#endif /* CONFIG_MIPS32_O32 */
++
++#endif /* __ASM_SECCOMP_H */
+diff --git a/include/asm-mips/system.h b/include/asm-mips/system.h
+--- a/include/asm-mips/system.h
++++ b/include/asm-mips/system.h
+@@ -46,11 +46,12 @@ switch_to(prev,next,last)
+ #define switch_to(prev,next,last)					\
+ do {									\
+ 	u32 __usedfpu;							\
++	struct thread_info *__prev_ti = task_thread_info(prev);		\
+ 									\
+ 	if (cpu_has_fpu &&						\
+-	    (prev->thread.mflags & MF_FPUBOUND) &&			\
+-	     (!(KSTK_STATUS(prev) & ST0_CU1))) {			\
+-		prev->thread.mflags &= ~MF_FPUBOUND;			\
++	    test_ti_thread_flag(__prev_ti, TIF_FPUBOUND) &&		\
++	    (!(KSTK_STATUS(prev) & ST0_CU1))) {				\
++		clear_ti_thread_flag(__prev_ti, TIF_FPUBOUND);		\
+ 		prev->cpus_allowed = prev->thread.user_cpus_allowed;	\
+ 	}								\
+ 	if (cpu_has_dsp)						\
+diff --git a/include/asm-mips/thread_info.h b/include/asm-mips/thread_info.h
+--- a/include/asm-mips/thread_info.h
++++ b/include/asm-mips/thread_info.h
+@@ -46,7 +46,7 @@ struct thread_info {
+ {						\
+ 	.task		= &tsk,			\
+ 	.exec_domain	= &default_exec_domain,	\
+-	.flags		= 0,			\
++	.flags		= _TIF_FIXADE,		\
+ 	.cpu		= 0,			\
+ 	.preempt_count	= 1,			\
+ 	.addr_limit	= KERNEL_DS,		\
+@@ -119,6 +119,11 @@ register struct thread_info *__current_thread_info __asm__("$28");
+ #define TIF_POLLING_NRFLAG	17	/* true if poll_idle() is polling TIF_NEED_RESCHED */
+ #define TIF_MEMDIE		18
+ #define TIF_FREEZE		19
++#define TIF_FIXADE		20	/* Fix address errors in software */
++#define TIF_LOGADE		21	/* Log address errors to syslog */
++#define TIF_32BIT_REGS		22	/* also implies 16/32 fprs */
++#define TIF_32BIT_ADDR		23	/* 32-bit address space (o32/n32) */
++#define TIF_FPUBOUND		24	/* thread bound to FPU-full CPU set */
+ #define TIF_SYSCALL_TRACE	31	/* syscall trace active */
+ 
+ #define _TIF_SYSCALL_TRACE	(1<<TIF_SYSCALL_TRACE)
+@@ -131,6 +136,11 @@ register struct thread_info *__current_thread_info __asm__("$28");
+ #define _TIF_USEDFPU		(1<<TIF_USEDFPU)
+ #define _TIF_POLLING_NRFLAG	(1<<TIF_POLLING_NRFLAG)
+ #define _TIF_FREEZE		(1<<TIF_FREEZE)
++#define _TIF_FIXADE		(1<<TIF_FIXADE)
++#define _TIF_LOGADE		(1<<TIF_LOGADE)
++#define _TIF_32BIT_REGS		(1<<TIF_32BIT_REGS)
++#define _TIF_32BIT_ADDR		(1<<TIF_32BIT_ADDR)
++#define _TIF_FPUBOUND		(1<<TIF_FPUBOUND)
+ 
+ /* work to do on interrupt/exception return */
+ #define _TIF_WORK_MASK		(0x0000ffef & ~_TIF_SECCOMP)
+-- 
