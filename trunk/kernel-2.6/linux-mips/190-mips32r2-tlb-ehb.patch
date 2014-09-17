@@ -61,7 +61,7 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 +		 * using an ehb causes an expensive pipeline stall.
 +		 */
 +		if (cpu_has_mips_r2_exec_hazard) {
-+			switch (current_cpu_data.cputype) {
++			switch (current_cpu_type()) {
 +//			case CPU_14K:
 +			case CPU_74K:
 +//			case CPU_1074K:
@@ -76,7 +76,7 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 +		return;
 +	}
 +
- 	switch (current_cpu_data.cputype) {
+ 	switch (current_cpu_type()) {
  	case CPU_R4000PC:
  	case CPU_R4000SC:
 @@ -725,15 +749,6 @@ static __cpuinit void build_tlb_write_entry(
@@ -114,7 +114,7 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
 @@ -1671,6 +1688,7 @@ void __cpuinit build_tlb_refill_handler(
  	static int run_once = 0;
  
- 	switch (current_cpu_data.cputype) {
+ 	switch (current_cpu_type()) {
 +#ifndef CONFIG_CPU_MIPS32_R2
  	case CPU_R2000:
  	case CPU_R3000:

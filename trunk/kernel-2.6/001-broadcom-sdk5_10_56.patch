@@ -973,6 +973,22 @@ diff -urBwNp linux-2.6.22/include/asm-mips/cpu.h linux-2.6/include/asm-mips/cpu.
  
  /*
   * ISA Level encodings
+diff --git a/include/asm-mips/cpu-type.h b/include/asm-mips/cpu-type.h
+--- a/include/asm-mips/cpu-type.h
++++ b/include/asm-mips/cpu-type.h
+@@ -140,6 +140,12 @@ static inline int __pure __get_cpu_type(
+ 	case CPU_SB1:
+ 	case CPU_SB1A:
+ #endif
++#ifdef CONFIG_BCM47XX
++# if !defined(CONFIG_CPU_MIPSR2)
++	case CPU_BCM4710:
++# endif
++	case CPU_BCM3302:
++#endif
+ 		break;
+ 	default:
+ 		unreachable();
 diff -urBwNp linux-2.6.22/include/asm-mips/fixmap.h linux-2.6/include/asm-mips/fixmap.h
 --- linux-2.6.22/include/asm-mips/fixmap.h	2007-07-09 03:32:17.000000000 +0400
 +++ linux-2.6/include/asm-mips/fixmap.h	2008-12-12 06:33:24.000000000 +0300

@@ -1,0 +1,609 @@
+From 69f24d1784b631b81a54eb57c49bf46536dd2382
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Tue, 17 Sep 2013 10:25:47 +0200
+Subject: MIPS: Optimize current_cpu_type() for better code.
+
+ o Move current_cpu_type() to a separate header file
+ o #ifdefing on supported CPU types lets modern GCC know that certain
+   code in callers may be discarded ideally turning current_cpu_type() into
+   a function returning a constant.
+ o Use current_cpu_type() rather than direct access to struct cpuinfo_mips.
+
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+Cc: Steven J. Hill <Steven.Hill@imgtec.com>
+Cc: linux-mips@linux-mips.org
+Patchwork: https://patchwork.linux-mips.org/patch/5833/
+
+---
+ arch/mips/dec/prom/init.c                          |    1 
+ arch/mips/kernel/cpu-probe.c                       |   13 +
+ arch/mips/kernel/time.c                            |    1 
+ arch/mips/kernel/traps.c                           |    9 -
+ arch/mips/mm/c-r4k.c                               |   22 +-
+ arch/mips/mm/dma-default.c                         |    5 
+ arch/mips/mm/sc-mips.c                             |    1 
+ arch/mips/mm/tlb-r4k.c                             |   12 +
+ arch/mips/mm/tlbex.c                               |   11 -
+ arch/mips/oprofile/common.c                        |    3 
+ arch/mips/oprofile/op_model_mipsxx.c               |    4 
+ include/asm-mips/cpu-type.h                        |  166 +++++++++++++++++++++
+ include/asm-mips/mach-ip22/cpu-feature-overrides.h |    2 
+ include/asm-mips/mach-ip27/cpu-feature-overrides.h |    2 
+ 14 files changed, 221 insertions(+), 31 deletions(-)
+ create mode 100644 include/asm-mips/cpu-type.h
+
+diff --git a/arch/mips/dec/prom/init.c b/arch/mips/dec/prom/init.c
+--- a/arch/mips/dec/prom/init.c
++++ b/arch/mips/dec/prom/init.c
+@@ -13,6 +13,7 @@
+ 
+ #include <asm/bootinfo.h>
+ #include <asm/cpu.h>
++#include <asm/cpu-type.h>
+ #include <asm/processor.h>
+ 
+ #include <asm/dec/prom.h>
+diff --git a/include/asm-mips/cpu-type.h b/include/asm-mips/cpu-type.h
+new file mode 100644
+--- /dev/null
++++ b/include/asm-mips/cpu-type.h
+@@ -0,0 +1,166 @@
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ *
++ * Copyright (C) 2003, 2004 Ralf Baechle
++ * Copyright (C) 2004  Maciej W. Rozycki
++ */
++#ifndef __ASM_CPU_TYPE_H
++#define __ASM_CPU_TYPE_H
++
++#include <linux/smp.h>
++#include <linux/compiler.h>
++
++static inline int __pure __get_cpu_type(const int cpu_type)
++{
++	switch (cpu_type) {
++#ifdef CONFIG_SYS_HAS_CPU_MIPS32_R1
++	case CPU_4KC:
++	case CPU_PR4450:
++#endif
++
++#if defined(CONFIG_SYS_HAS_CPU_MIPS32_R1) || \
++    defined(CONFIG_SYS_HAS_CPU_MIPS32_R2)
++	case CPU_4KEC:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_MIPS32_R2
++	case CPU_4KSC:
++	case CPU_24K:
++	case CPU_34K:
++//	case CPU_1004K:
++	case CPU_74K:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_MIPS64_R1
++	case CPU_5KC:
++	case CPU_5KE:
++	case CPU_20KC:
++	case CPU_25KF:
++	case CPU_SB1:
++	case CPU_SB1A:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_MIPS64_R2
++	/*
++	 * All MIPS64 R2 processors have their own special symbols.  That is,
++	 * there currently is no pure R2 core
++	 */
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_R3000
++	case CPU_R2000:
++	case CPU_R3000:
++	case CPU_R3000A:
++	case CPU_R3041:
++	case CPU_R3051:
++	case CPU_R3052:
++	case CPU_R3081:
++	case CPU_R3081E:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_TX39XX
++	case CPU_TX3912:
++	case CPU_TX3922:
++	case CPU_TX3927:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_VR41XX
++	case CPU_VR41XX:
++	case CPU_VR4111:
++	case CPU_VR4121:
++	case CPU_VR4122:
++	case CPU_VR4131:
++	case CPU_VR4133:
++	case CPU_VR4181:
++	case CPU_VR4181A:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_R4300
++	case CPU_R4300:
++	case CPU_R4310:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_R4X00
++	case CPU_R4000PC:
++	case CPU_R4000SC:
++	case CPU_R4000MC:
++	case CPU_R4200:
++	case CPU_R4400PC:
++	case CPU_R4400SC:
++	case CPU_R4400MC:
++	case CPU_R4600:
++	case CPU_R4700:
++	case CPU_R4640:
++	case CPU_R4650:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_TX49XX
++	case CPU_TX49XX:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_R5000
++	case CPU_R5000:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_R5432
++	case CPU_R5432:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_R5500
++	case CPU_R5500:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_R6000
++	case CPU_R6000:
++	case CPU_R6000A:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_NEVADA
++	case CPU_NEVADA:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_R8000
++	case CPU_R8000:
++#endif
++
++#ifdef CONFIG_SYS_HAS_CPU_R10000
++	case CPU_R10000:
++	case CPU_R12000:
++	case CPU_R14000:
++#endif
++#ifdef CONFIG_SYS_HAS_CPU_RM7000
++	case CPU_RM7000:
++	case CPU_SR71000:
++#endif
++#ifdef CONFIG_SYS_HAS_CPU_RM9000
++	case CPU_RM9000:
++#endif
++#ifdef CONFIG_SYS_HAS_CPU_SB1
++	case CPU_SB1:
++	case CPU_SB1A:
++#endif
++		break;
++	default:
++		unreachable();
++	}
++
++	return cpu_type;
++}
++
++static inline int __pure current_cpu_type(void)
++{
++	const int cpu_type = current_cpu_data.cputype;
++
++	return __get_cpu_type(cpu_type);
++}
++
++static inline int __pure boot_cpu_type(void)
++{
++	const int cpu_type = cpu_data[0].cputype;
++
++	return __get_cpu_type(cpu_type);
++}
++
++#endif /* __ASM_CPU_TYPE_H */
+diff --git a/include/asm-mips/mach-ip22/cpu-feature-overrides.h b/include/asm-mips/mach-ip22/cpu-feature-overrides.h
+--- a/include/asm-mips/mach-ip22/cpu-feature-overrides.h
++++ b/include/asm-mips/mach-ip22/cpu-feature-overrides.h
+@@ -8,6 +8,8 @@
+ #ifndef __ASM_MACH_IP22_CPU_FEATURE_OVERRIDES_H
+ #define __ASM_MACH_IP22_CPU_FEATURE_OVERRIDES_H
+ 
++#include <asm/cpu.h>
++
+ /*
+  * IP22 with a variety of processors so we can't use defaults for everything.
+  */
+diff --git a/include/asm-mips/mach-ip27/cpu-feature-overrides.h b/include/asm-mips/mach-ip27/cpu-feature-overrides.h
+index 1d2b6ff..d6111aa 100644
+--- a/include/asm-mips/mach-ip27/cpu-feature-overrides.h
++++ b/include/asm-mips/mach-ip27/cpu-feature-overrides.h
+@@ -8,6 +8,8 @@
+ #ifndef __ASM_MACH_IP27_CPU_FEATURE_OVERRIDES_H
+ #define __ASM_MACH_IP27_CPU_FEATURE_OVERRIDES_H
+ 
++#include <asm/cpu.h>
++
+ /*
+  * IP27 only comes with R10000 family processors all using the same config
+  */
+diff --git a/arch/mips/kernel/cpu-probe.c b/arch/mips/kernel/cpu-probe.c
+--- a/arch/mips/kernel/cpu-probe.c
++++ b/arch/mips/kernel/cpu-probe.c
+@@ -20,6 +20,7 @@
+ 
+ #include <asm/bugs.h>
+ #include <asm/cpu.h>
++#include <asm/cpu-type.h>
+ #include <asm/fpu.h>
+ #include <asm/mipsregs.h>
+ #include <asm/watch.h>
+@@ -64,6 +64,7 @@ static void r4k_wait_irqoff(void)
+ 	local_irq_enable();
+ }
+ 
++#ifdef CONFIG_SYS_HAS_CPU_RM7000
+ /*
+  * The RM7000 variant has to handle erratum 38.  The workaround is to not
+  * have any pending stores when the WAIT instruction is executed.
+@@ -84,7 +85,9 @@ static void rm7k_wait_irqoff(void)
+ 		"	.set	pop					\n");
+ 	local_irq_enable();
+ }
++#endif /* SYS_HAS_CPU_RM7000 */
+ 
++#ifdef CONFIG_SOC_AU1X00
+ /* The Au1xxx wait is available only if using 32khz counter or
+  * external timer source, but specifically not CP0 Counter. */
+ int allow_au1k_wait;
+@@ -105,6 +108,7 @@ static void au1k_wait(void)
+ 		"	.set	mips0			\n"
+ 		: : "r" (au1k_wait));
+ }
++#endif /* SOC_AU1X00 */
+ 
+ static int __initdata nowait = 0;
+ 
+@@ -136,7 +137,7 @@ void __init check_wait(void)
+ 		return;
+ 	}
+ 
+-	switch (c->cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_R3081:
+ 	case CPU_R3081E:
+ 		cpu_wait = r3081_wait;
+@@ -150,11 +154,11 @@ void __init check_wait(void)
+  	case CPU_PR4450:
+ 		cpu_wait = r4k_wait;
+ 		break;
+-
++#ifdef CONFIG_SYS_HAS_CPU_RM7000
+ 	case CPU_RM7000:
+ 		cpu_wait = rm7k_wait_irqoff;
+ 		break;
+-
++#endif
+ 	case CPU_24K:
+ 	case CPU_34K:
+ 		cpu_wait = r4k_wait;
+@@ -168,6 +172,7 @@ void __init check_wait(void)
+ 	case CPU_TX49XX:
+ 		cpu_wait = r4k_wait_irqoff;
+ 		break;
++#ifdef CONFIG_SOC_AU1X00
+ 	case CPU_AU1000:
+ 	case CPU_AU1100:
+ 	case CPU_AU1500:
+@@ -176,6 +181,7 @@ void __init check_wait(void)
+ 		if (allow_au1k_wait)
+ 			cpu_wait = au1k_wait;
+ 		break;
++#endif
+ 	case CPU_20KC:
+ 		/*
+ 		 * WAIT on Rev1.0 has E1, E2, E3 and E16.
+diff --git a/arch/mips/kernel/time.c b/arch/mips/kernel/time.c
+--- a/arch/mips/kernel/time.c
++++ b/arch/mips/kernel/time.c
+@@ -24,6 +24,7 @@
+ #include <asm/branch.h>
+ #include <asm/cpu.h>
+ #include <asm/cpu-features.h>
++#include <asm/cpu-type.h>
+ #include <asm/div64.h>
+ #include <asm/sections.h>
+ #include <asm/time.h>
+diff --git a/arch/mips/kernel/traps.c b/arch/mips/kernel/traps.c
+--- a/arch/mips/kernel/traps.c
++++ b/arch/mips/kernel/traps.c
+@@ -39,6 +39,7 @@
+ 
+ #include <asm/break.h>
+ #include <asm/cpu.h>
++#include <asm/cpu-type.h>
+ #include <asm/dsp.h>
+ #include <asm/fpu.h>
+ #include <asm/fpu_emulator.h>
+@@ -560,7 +560,7 @@ static int simulate_rdhwr(struct pt_regs
+ 			regs->regs[rt] = read_c0_count();
+ 			return 0;
+ 		case 3:		/* Count register resolution */
+-			switch (current_cpu_data.cputype) {
++			switch (current_cpu_type()) {
+ 			case CPU_20KC:
+ 			case CPU_25KF:
+ 				regs->regs[rt] = 1;
+@@ -1034,7 +1034,7 @@ asmlinkage void do_reserved(struct pt_re
+  */
+ static inline void parity_protection_init(void)
+ {
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_24K:
+ 	case CPU_34K:
+ 	case CPU_5KC:
+@@ -1578,8 +1578,8 @@ void __init trap_init(void)
+ 	set_except_vector(12, handle_ov);
+ 	set_except_vector(13, handle_tr);
+ 
+-	if (current_cpu_data.cputype == CPU_R6000 ||
+-	    current_cpu_data.cputype == CPU_R6000A) {
++	if (current_cpu_type() == CPU_R6000 ||
++	    current_cpu_type() == CPU_R6000A) {
+ 		/*
+ 		 * The R6000 is the only R-series CPU that features a machine
+ 		 * check exception (similar to the R4000 cache error) and
+diff --git a/arch/mips/mm/c-r4k.c b/arch/mips/mm/c-r4k.c
+--- a/arch/mips/mm/c-r4k.c
++++ b/arch/mips/mm/c-r4k.c
+@@ -25,6 +25,7 @@
+ #include <asm/cacheops.h>
+ #include <asm/cpu.h>
+ #include <asm/cpu-features.h>
++#include <asm/cpu-type.h>
+ #include <asm/io.h>
+ #include <asm/page.h>
+ #include <asm/pgtable.h>
+@@ -355,7 +355,7 @@ static inline void local_r4k___flush_cache_all(
+ 	r4k_blast_dcache();
+ 	r4k_blast_icache();
+ 
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_R4000SC:
+ 	case CPU_R4000MC:
+ 	case CPU_R4400SC:
+@@ -407,10 +407,11 @@ static inline void local_r4k_flush_cache_mm(
+ 	 * R4000SC and R4400SC indexed S-cache ops also invalidate primary
+ 	 * caches, so we can bail out early.
+ 	 */
+-	if (current_cpu_data.cputype == CPU_R4000SC ||
+-	    current_cpu_data.cputype == CPU_R4000MC ||
+-	    current_cpu_data.cputype == CPU_R4400SC ||
+-	    current_cpu_data.cputype == CPU_R4400MC) {
++	switch (current_cpu_type()) {
++	case CPU_R4000SC:
++	case CPU_R4000MC:
++	case CPU_R4400SC:
++	case CPU_R4400MC:
+ 		r4k_blast_scache();
+ 		return;
+ 	}
+@@ -724,7 +725,7 @@ static void probe_pcache(void)
+ 	unsigned long config1;
+ 	unsigned int lsize;
+ 
+-	switch (c->cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_R4600:			/* QED style two way caches? */
+ 	case CPU_R4700:
+ 	case CPU_R5000:
+@@ -940,7 +941,7 @@ static void probe_pcache(void)
+ 	 * normally they'd suffer from aliases but magic in the hardware deals
+ 	 * with that for us so we don't need to take care ourselves.
+ 	 */
+-	switch (c->cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_20KC:
+ 	case CPU_25KF:
+ 	case CPU_SB1:
+@@ -963,7 +964,7 @@ static void probe_pcache(void)
+ 			c->dcache.flags |= MIPS_CACHE_ALIASES;
+ 	}
+ 
+-	switch (c->cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_20KC:
+ 		/*
+ 		 * Some older 20Kc chips doesn't have the 'VI' bit in
+@@ -1062,7 +1063,7 @@ static void setup_scache(void)
+ 	 * processors don't have a S-cache that would be relevant to the
+ 	 * Linux memory managment.
+ 	 */
+-	switch (c->cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_R4000SC:
+ 	case CPU_R4000MC:
+ 	case CPU_R4400SC:
+@@ -1187,7 +1188,7 @@ static void __cpuinit coherency_setup(vo
+ 	 * this bit and; some wire it to zero, others like Toshiba had the
+ 	 * silly idea of putting something else there ...
+ 	 */
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_R4000PC:
+ 	case CPU_R4000SC:
+ 	case CPU_R4000MC:
+diff --git a/arch/mips/mm/dma-default.c b/arch/mips/mm/dma-default.c
+--- a/arch/mips/mm/dma-default.c
++++ b/arch/mips/mm/dma-default.c
+@@ -18,6 +18,7 @@
+ #include <linux/highmem.h>
+ 
+ #include <asm/cache.h>
++#include <asm/cpu-type.h>
+ #include <asm/io.h>
+ 
+ #include <dma-coherence.h>
+@@ -36,8 +36,8 @@ static inline unsigned long dma_addr_to_
+ static inline int cpu_is_noncoherent_r10000(struct device *dev)
+ {
+ 	return !plat_device_is_coherent(dev) &&
+-	       (current_cpu_data.cputype == CPU_R10000 &&
+-	       current_cpu_data.cputype == CPU_R12000);
++	       (boot_cpu_type() == CPU_R10000 &&
++	       boot_cpu_type() == CPU_R12000);
+ }
+ 
+ void *dma_alloc_noncoherent(struct device *dev, size_t size,
+diff --git a/arch/mips/mm/sc-mips.c b/arch/mips/mm/sc-mips.c
+--- a/arch/mips/mm/sc-mips.c
++++ b/arch/mips/mm/sc-mips.c
+@@ -6,6 +6,7 @@
+ #include <linux/sched.h>
+ #include <linux/mm.h>
+ 
++#include <asm/cpu-type.h>
+ #include <asm/mipsregs.h>
+ #include <asm/bcache.h>
+ #include <asm/cacheops.h>
+diff --git a/arch/mips/mm/tlb-r4k.c b/arch/mips/mm/tlb-r4k.c
+--- a/arch/mips/mm/tlb-r4k.c
++++ b/arch/mips/mm/tlb-r4k.c
+@@ -16,6 +16,7 @@
+ #include <linux/module.h>
+ 
+ #include <asm/cpu.h>
++#include <asm/cpu-type.h>
+ #include <asm/bootinfo.h>
+ #include <asm/mmu_context.h>
+ #include <asm/pgtable.h>
+@@ -456,10 +456,13 @@ void __cpuinit tlb_init(void)
+ 	probe_tlb(config);
+ 	write_c0_pagemask(PM_DEFAULT_MASK);
+ 	write_c0_wired(0);
+-	if (current_cpu_data.cputype == CPU_R10000 ||
+-	    current_cpu_data.cputype == CPU_R12000 ||
+-	    current_cpu_data.cputype == CPU_R14000)
+-		write_c0_framemask(0);
++	switch (current_cpu_type()) {
++		case CPU_R10000:
++		case CPU_R12000:
++		case CPU_R14000:
++			write_c0_framemask(0);
++			break;
++	}
+ 	temp_tlb_entry = current_cpu_data.tlbsize - 1;
+ 
+         /* From this point on the ARC firmware is dead.  */
+diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
+--- a/arch/mips/mm/tlbex.c
++++ b/arch/mips/mm/tlbex.c
+@@ -30,6 +30,7 @@
+ #include <linux/string.h>
+ #include <linux/init.h>
+ 
++#include <asm/cpu-type.h>
+ #include <asm/pgtable.h>
+ #include <asm/cacheflush.h>
+ #include <asm/mmu_context.h>
+@@ -245,7 +245,7 @@ static __cpuinitdata u32 final_handler[6
+  */
+ static __cpuinit void __maybe_unused build_tlb_probe_entry(u32 **p)
+ {
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	/* Found by experiment: R4600 v2.0/R4700 needs this, too.  */
+ 	case CPU_R4600:
+ 	case CPU_R4700:
+@@ -301,7 +301,7 @@ static __cpuinit void build_tlb_write_en
+ 		return;
+ 	}
+ 
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_R4000PC:
+ 	case CPU_R4000SC:
+ 	case CPU_R4000MC:
+@@ -599,7 +599,7 @@ static __cpuinit void build_adjust_conte
+ 	unsigned int shift = 4 - (PTE_T_LOG2 + 1) + PAGE_SHIFT - 12;
+ 	unsigned int mask = (PTRS_PER_PTE / 2 - 1) << (PTE_T_LOG2 + 1);
+ 
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_VR41XX:
+ 	case CPU_VR4111:
+ 	case CPU_VR4121:
+@@ -639,7 +639,7 @@ static __cpuinit void build_get_ptep(u32
+ 	 * in a different cacheline or a load instruction, probably any
+ 	 * memory reference, is between them.
+ 	 */
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_NEVADA:
+ 		UASM_i_LW(p, ptr, 0, ptr);
+ 		GET_CONTEXT(p, tmp); /* get context reg */
+@@ -1331,7 +1331,7 @@ void __cpuinit build_tlb_refill_handler(
+ 	 */
+ 	static int run_once = 0;
+ 
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_R2000:
+ 	case CPU_R3000:
+ 	case CPU_R3000A:
+diff --git a/arch/mips/oprofile/common.c b/arch/mips/oprofile/common.c
+--- a/arch/mips/oprofile/common.c
++++ b/arch/mips/oprofile/common.c
+@@ -12,6 +12,7 @@
+ #include <linux/oprofile.h>
+ #include <linux/smp.h>
+ #include <asm/cpu-info.h>
++#include <asm/cpu-type.h>
+ 
+ #include "op_impl.h"
+ 
+@@ -75,7 +75,7 @@ int __init oprofile_arch_init(struct opr
+ 	struct op_mips_model *lmodel = NULL;
+ 	int res;
+ 
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_5KC:
+ 	case CPU_20KC:
+ 	case CPU_24K:
+diff --git a/arch/mips/oprofile/op_model_mipsxx.c b/arch/mips/oprofile/op_model_mipsxx.c
+--- a/arch/mips/oprofile/op_model_mipsxx.c
++++ b/arch/mips/oprofile/op_model_mipsxx.c
+@@ -224,7 +224,7 @@ static inline int n_counters(void)
+ {
+ 	int counters;
+ 
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_R10000:
+ 		counters = 2;
+ 		break;
+@@ -276,7 +276,7 @@ static int __init mipsxx_init(void)
+ #endif
+ 
+ 	op_model_mipsxx_ops.num_counters = counters;
+-	switch (current_cpu_data.cputype) {
++	switch (current_cpu_type()) {
+ 	case CPU_20KC:
+ 		op_model_mipsxx_ops.cpu_type = "mips/20K";
+ 		break;
+-- 
