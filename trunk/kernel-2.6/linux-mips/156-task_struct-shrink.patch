@@ -1,0 +1,202 @@
+Shrink struct thread_struct
+
+ 7281cd22973008a782860e48ed8d85d00204168c MIPS: Remove unused task_struct.trap_no field.
+ 2957c9e61ee9c37e7ebf2c8acab03e073fe942fd [MIPS] IRIX: Goodbye and thanks for all the fish
+ 90c9e79f5dc5af4ea16ad56dda8b648d21037486 MIPS: Remove leftovers from the IRIX binary compat code.
+
+---
+ arch/mips/Kconfig              |    4 ----
+ arch/mips/kernel/Makefile      |    4 ----
+ arch/mips/kernel/asm-offsets.c |    5 -----
+ include/asm-mips/inventory.h   |   24 ------------------------
+ include/asm-mips/namei.h       |   25 +++++--------------------
+ include/asm-mips/prctl.h       |   41 -----------------------------------------
+ include/asm-mips/processor.h   |    6 +-----
+ 7 files changed, 6 insertions(+), 103 deletions(-)
+ deleted file mode 100644 include/asm-mips/inventory.h
+ deleted file mode 100644 include/asm-mips/prctl.h
+
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -1924,10 +1924,6 @@ source "fs/Kconfig.binfmt"
+ 
+ 	  If unsure say Y.
+ 
+-config BINFMT_IRIX
+-	bool "Include IRIX binary compatibility"
+-	depends on CPU_BIG_ENDIAN && 32BIT && BROKEN
+-
+ config MIPS32_COMPAT
+ 	bool "Kernel support for Linux/MIPS 32-bit binary compatibility"
+ 	depends on 64BIT
+diff --git a/arch/mips/kernel/Makefile b/arch/mips/kernel/Makefile
+--- a/arch/mips/kernel/Makefile
++++ b/arch/mips/kernel/Makefile
+@@ -20,9 +20,6 @@ obj-$(CONFIG_CSRC_R4K)		+= csrc-r4k.o
+ 		   time.o topology.o traps.o unaligned.o vdso.o \
+ 		   user_backtrace.o
+ 
+-binfmt_irix-objs	:= irixelf.o irixinv.o irixioctl.o irixsig.o	\
+-			   irix5sys.o sysirix.o
+-
+ obj-$(CONFIG_STACKTRACE)	+= stacktrace.o
+ obj-$(CONFIG_MODULES)		+= mips_ksyms.o module.o
+ 
+@@ -70,7 +67,6 @@ obj-$(CONFIG_IRQ_GIC)		+= irq-gic.o
+ 
+ obj-$(CONFIG_32BIT)		+= scall32-o32.o
+ obj-$(CONFIG_64BIT)		+= scall64-64.o
+-obj-$(CONFIG_BINFMT_IRIX)	+= binfmt_irix.o
+ obj-$(CONFIG_MIPS32_COMPAT)	+= linux32.o ptrace32.o signal32.o
+ obj-$(CONFIG_MIPS32_N32)	+= binfmt_elfn32.o scall64-n32.o signal_n32.o
+ obj-$(CONFIG_MIPS32_O32)	+= binfmt_elfo32.o scall64-o32.o
+diff --git a/arch/mips/kernel/asm-offsets.c b/arch/mips/kernel/asm-offsets.c
+--- a/arch/mips/kernel/asm-offsets.c
++++ b/arch/mips/kernel/asm-offsets.c
+@@ -132,11 +132,6 @@ void output_thread_defines(void)
+ 	       thread.cp0_baduaddr);
+ 	offset("THREAD_ECODE", struct task_struct, \
+ 	       thread.error_code);
+-	offset("THREAD_TRAPNO", struct task_struct, thread.trap_no);
+-	offset("THREAD_TRAMP", struct task_struct, \
+-	       thread.irix_trampoline);
+-	offset("THREAD_OLDCTX", struct task_struct, \
+-	       thread.irix_oldctx);
+ 	linefeed;
+ }
+ 
+diff --git a/include/asm-mips/inventory.h b/include/asm-mips/inventory.h
+deleted file mode 100644
+--- a/include/asm-mips/inventory.h
++++ /dev/null
+@@ -1,24 +0,0 @@
+-/*
+- * Miguel de Icaza
+- */
+-#ifndef __ASM_INVENTORY_H
+-#define __ASM_INVENTORY_H
+-
+-#include <linux/compiler.h>
+-
+-typedef struct inventory_s {
+-	struct inventory_s *inv_next;
+-	int    inv_class;
+-	int    inv_type;
+-	int    inv_controller;
+-	int    inv_unit;
+-	int    inv_state;
+-} inventory_t;
+-
+-extern int inventory_items;
+-
+-extern void add_to_inventory (int class, int type, int controller, int unit, int state);
+-extern int dump_inventory_to_user (void __user *userbuf, int size);
+-extern int __init init_inventory(void);
+-
+-#endif /* __ASM_INVENTORY_H */
+diff --git a/include/asm-mips/namei.h b/include/asm-mips/namei.h
+--- a/include/asm-mips/namei.h
++++ b/include/asm-mips/namei.h
+@@ -1,26 +1,11 @@
+ #ifndef _ASM_NAMEI_H
+ #define _ASM_NAMEI_H
+ 
+-#include <linux/personality.h>
+-#include <linux/stddef.h>
++/*
++ * This dummy routine maybe changed to something useful
++ * for /usr/gnemul/ emulation stuff.
++ */
+ 
+-#define IRIX_EMUL	"/usr/gnemul/irix/"
+-#define RISCOS_EMUL	"/usr/gnemul/riscos/"
+-
+-static inline char *__emul_prefix(void)
+-{
+-	switch (current->personality) {
+-	case PER_IRIX32:
+-	case PER_IRIXN32:
+-	case PER_IRIX64:
+-		return IRIX_EMUL;
+-
+-	case PER_RISCOS:
+-		return RISCOS_EMUL;
+-
+-	default:
+-		return NULL;
+-	}
+-}
++#define __emul_prefix() NULL
+ 
+ #endif /* _ASM_NAMEI_H */
+diff --git a/include/asm-mips/prctl.h b/include/asm-mips/prctl.h
+deleted file mode 100644
+--- a/include/asm-mips/prctl.h
++++ /dev/null
+@@ -1,41 +0,0 @@
+-/*
+- * IRIX prctl interface
+- *
+- * The IRIX kernel maps a page at PRDA_ADDRESS with the
+- * contents of prda and fills it the bits on prda_sys.
+- */
+-
+-#ifndef __PRCTL_H__
+-#define __PRCTL_H__
+-
+-#define PRDA_ADDRESS 0x200000L
+-#define PRDA ((struct prda *) PRDA_ADDRESS)
+-
+-struct prda_sys {
+-	pid_t t_pid;
+-        u32   t_hint;
+-        u32   t_dlactseq;
+-        u32   t_fpflags;
+-        u32   t_prid;		/* processor type, $prid CP0 register */
+-        u32   t_dlendseq;
+-        u64   t_unused1[5];
+-        pid_t t_rpid;
+-        s32   t_resched;
+-        u32   t_unused[8];
+-        u32   t_cpu;		/* current/last cpu */
+-
+-	/* FIXME: The signal information, not supported by Linux now */
+-	u32   t_flags;		/* if true, then the sigprocmask is in userspace */
+-	u32   t_sigprocmask [1]; /* the sigprocmask */
+-};
+-
+-struct prda {
+-	char fill [0xe00];
+-	struct prda_sys prda_sys;
+-};
+-
+-#define t_sys           prda_sys
+-
+-ptrdiff_t prctl (int op, int v1, int v2);
+-
+-#endif
+diff --git a/include/asm-mips/processor.h b/include/asm-mips/processor.h
+--- a/include/asm-mips/processor.h
++++ b/include/asm-mips/processor.h
+@@ -159,9 +159,6 @@ struct thread_struct {
+ 	unsigned long cp0_badvaddr;	/* Last user fault */
+ 	unsigned long cp0_baduaddr;	/* Last kernel fault accessing USEG */
+ 	unsigned long error_code;
+-	unsigned long trap_no;
+-	unsigned long irix_trampoline;  /* Wheee... */
+-	unsigned long irix_oldctx;
+ 	struct mips_abi *abi;
+ };
+ 
+@@ -196,8 +193,7 @@ struct thread_struct {
+ 	/* \
+ 	 * Other stuff associated with the process \
+ 	 */ \
+-	0, 0, 0, 0, \
+-	0, 0 \
++	0, 0, 0, \
+ }
+ 
+ struct task_struct;
+-- 
