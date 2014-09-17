@@ -92,7 +92,7 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/m
 @@ -1174,6 +1188,17 @@ static void __init coherency_setup(void)
  	 * silly idea of putting something else there ...
  	 */
- 	switch (current_cpu_data.cputype) {
+ 	switch (current_cpu_type()) {
 +       case CPU_BCM3302:
 +               {
 +                       u32 cm;
@@ -113,7 +113,7 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/m
  
 +	/* Check if special workarounds are required */
 +#if defined(CONFIG_BCM47XX) && !defined(CONFIG_CPU_MIPSR2)
-+	if (current_cpu_data.cputype == CPU_BCM4710 && (current_cpu_data.processor_id & 0xff) == 0) {
++	if (current_cpu_type() == CPU_BCM4710 && (current_cpu_data.processor_id & 0xff) == 0) {
 +		printk(KERN_INFO "Enabling BCM4710A0 cache workarounds.\n");
 +		war_bcm4710 = 1;
 +	} else

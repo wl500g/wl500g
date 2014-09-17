@@ -10,12 +10,12 @@
  arch/mips/kernel/mips_ksyms.c |    6 
  arch/mips/mm/Makefile         |   35 +-
  arch/mips/mm/page-funcs.S     |   50 +++
- arch/mips/mm/page.c           |  658 ++++++++++++++++++++++++++++++++++++++++++
+ arch/mips/mm/page.c           |  659 ++++++++++++++++++++++++++++++++++++++++++
  arch/mips/mm/pg-r4k.c         |  518 ---------------------------------
  arch/mips/mm/pg-sb1.c         |  294 ------------------
  arch/mips/mm/uasm.c           |   10 
  include/asm-mips/uasm.h       |   16 -
- 8 files changed, 751 insertions(+), 836 deletions(-)
+ 8 files changed, 752 insertions(+), 836 deletions(-)
  create mode 100644 arch/mips/mm/page-funcs.S
  create mode 100644 arch/mips/mm/page.c
  delete mode 100644 arch/mips/mm/pg-r4k.c
@@ -146,7 +146,7 @@ diff --git a/arch/mips/mm/page.c b/arch/mips/mm/page.c
 new file mode 100644
 --- /dev/null
 +++ b/arch/mips/mm/page.c
-@@ -0,0 +1,658 @@
+@@ -0,0 +1,659 @@
 +/*
 + * This file is subject to the terms and conditions of the GNU General Public
 + * License.  See the file "COPYING" in the main directory of this archive
@@ -166,6 +166,7 @@ new file mode 100644
 +
 +#include <asm/bugs.h>
 +#include <asm/cacheops.h>
++#include <asm/cpu-type.h>
 +#include <asm/inst.h>
 +#include <asm/io.h>
 +#include <asm/page.h>
