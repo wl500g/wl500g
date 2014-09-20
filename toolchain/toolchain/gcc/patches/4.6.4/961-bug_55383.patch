@@ -1,0 +1,43 @@
+--Wcast-qual reports incorrect message 
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=55383
+
+--- trunk/gcc/ChangeLog	2014/03/18 19:16:52	208660
++++ trunk/gcc/ChangeLog	2014/03/18 19:58:39	208661
+@@ -1,6 +1,11 @@
+ 	* tree-tailcall.c (find_tail_calls): Give up for pointer result types
+ 	if m or a is non-NULL.
+ 
++2014-03-18  Manuel López-Ibáñez  <manu@gcc.gnu.org>
++
++	PR c/55383
++	* c-typeck.c: Use correct format string in cast-qual warning
++
+ 2014-03-18  Richard Biener  <rguenther@suse.de>
+ 
+ 	Backport from mainline
+--- trunk/gcc/c-typeck.c	2014/03/18 19:16:52	208660
++++ trunk/gcc/c-typeck.c	2014/03/18 19:58:39	208661
+@@ -4455,7 +4455,7 @@ build_c_cast (location_t loc, 
+     /* There are qualifiers present in IN_OTYPE that are not present
+        in IN_TYPE.  */
+     warning_at (loc, OPT_Wcast_qual,
+-		"cast discards %q#v qualifier from pointer target type",
++		"cast discards %qv qualifier from pointer target type",
+ 		discarded);
+ 
+   if (added || discarded)
+--- /dev/null
++++ trunk/gcc/testsuite/gcc.dg/cast-qual-4.c	2014/03/18 23:22:02	208669
+@@ -0,0 +1,11 @@
++/* PR 55383 */
++/* { dg-do compile } */
++/* { dg-options "-Wcast-qual" } */
++
++void set(void*);
++
++int foo(int argc)
++{
++  volatile double val;
++  set((void*)&val); /* { dg-warning "cast discards .volatile. qualifier" } */
++}
