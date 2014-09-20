@@ -1,0 +1,83 @@
+ ICE: internal compiler error: in extract_insn, at recog.c:2113 while building lttng-ust
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=50099
+
+--- trunk/gcc/ChangeLog	2011/09/30 09:28:38	179377
++++ trunk/gcc/ChangeLog	2011/09/30 09:36:43	179378
+@@ -1,6 +1,15 @@
+ 	* godump.c (go_output_typedef): Support printing enum values that
+ 	don't fit in a signed HOST_WIDE_INT.
+ 
++2011-09-30  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
++
++        PR target/50099
++	* config/arm/iterators.md (qhs_zextenddi_cstr): New.
++	(qhs_zextenddi_op): New.
++	* config/arm/arm.md ("zero_extend<mode>di2"): Use them.
++	* config/arm/predicates.md ("arm_extendqisi_mem_op"):
++	Distinguish between ARM and Thumb2 states.
++
+ 2011-09-30  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	PR inline-asm/50571
+--- trunk/gcc/config/arm/arm.md	2011/09/30 09:28:38	179377
++++ trunk/gcc/config/arm/arm.md	2011/09/30 09:36:43	179378
+@@ -4389,8 +4389,8 @@
+ 
+ (define_insn "zero_extend<mode>di2"
+   [(set (match_operand:DI 0 "s_register_operand" "=r")
+-        (zero_extend:DI (match_operand:QHSI 1 "<qhs_extenddi_op>"
+-					    "<qhs_extenddi_cstr>")))]
++        (zero_extend:DI (match_operand:QHSI 1 "<qhs_zextenddi_op>"
++					    "<qhs_zextenddi_cstr>")))]
+   "TARGET_32BIT <qhs_zextenddi_cond>"
+   "#"
+   [(set_attr "length" "8")
+--- trunk/gcc/config/arm/iterators.md	2011/09/30 09:28:38	179377
++++ trunk/gcc/config/arm/iterators.md	2011/09/30 09:36:43	179378
+@@ -390,10 +390,14 @@
+ (define_mode_attr qhs_zextenddi_cond [(SI "") (HI "&& arm_arch6") (QI "")])
+ (define_mode_attr qhs_sextenddi_cond [(SI "") (HI "&& arm_arch6")
+ 				      (QI "&& arm_arch6")])
+-(define_mode_attr qhs_extenddi_op [(SI "s_register_operand")
++(define_mode_attr qhs_zextenddi_op [(SI "s_register_operand")
+ 				   (HI "nonimmediate_operand")
+ 				   (QI "nonimmediate_operand")])
+-(define_mode_attr qhs_extenddi_cstr [(SI "r") (HI "rm") (QI "rm")])
++(define_mode_attr qhs_extenddi_op [(SI "s_register_operand")
++				   (HI "nonimmediate_operand")
++				   (QI "arm_reg_or_extendqisi_mem_op")])
++(define_mode_attr qhs_extenddi_cstr [(SI "r") (HI "rm") (QI "rUq")])
++(define_mode_attr qhs_zextenddi_cstr [(SI "r") (HI "rm") (QI "rm")])
+ 
+ ;;----------------------------------------------------------------------------
+ ;; Code attributes
+--- trunk/gcc/config/arm/predicates.md	2011/09/30 09:28:38	179377
++++ trunk/gcc/config/arm/predicates.md	2011/09/30 09:36:43	179378
+@@ -301,8 +301,11 @@
+ 
+ (define_special_predicate "arm_extendqisi_mem_op"
+   (and (match_operand 0 "memory_operand")
+-       (match_test "arm_legitimate_address_outer_p (mode, XEXP (op, 0),
+-						    SIGN_EXTEND, 0)")))
++       (match_test "TARGET_ARM ? arm_legitimate_address_outer_p (mode,
++                                                                 XEXP (op, 0),
++						                 SIGN_EXTEND,
++								 0)
++                               : memory_address_p (QImode, XEXP (op, 0))")))
+ 
+ (define_special_predicate "arm_reg_or_extendqisi_mem_op"
+   (ior (match_operand 0 "arm_extendqisi_mem_op")
+--- /dev/null
++++ trunk/gcc/testsuite/gcc.target/arm/pr50099.c
+@@ -0,0 +1,10 @@
++/* { dg-do compile } */
++/* { dg-options "-O2" } */
++
++long long foo (signed char * arg)
++{
++  long long temp_1;
++
++  temp_1 = arg[256]; 
++  return temp_1;
++}
