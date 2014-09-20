@@ -1,0 +1,43 @@
+typeof with casting from const to non-const does not work properly
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=45584
+
+--- trunk/gcc/ChangeLog	2014/08/19 13:52:25	214150
++++ trunk/gcc/ChangeLog	2014/08/19 14:14:15	214151
+@@ -1,3 +1,9 @@
++2014-08-19  Patrick Palka  <ppalka@gcc.gnu.org>
++
++	PR c/45584
++	* c-typeck.c (build_c_cast): Do a conversion even when the
++	TYPE_MAIN_VARIANTs are the same.
++
+ 2014-06-06  Christian Bruel  <christian.bruel@st.com>
+ 
+ 	PR tree-optimization/43934
+--- trunk/gcc/c-typeck.c	2014/08/19 13:52:25	214150
++++ trunk/gcc/c-typeck.c	2014/08/19 14:14:15	214151
+@@ -4547,6 +4547,9 @@  build_c_cast (location_t loc, tree type,
+ 	  || TREE_CODE (type) == UNION_TYPE)
+ 	pedwarn (loc, OPT_pedantic,
+ 		 "ISO C forbids casting nonscalar to the same type");
++
++      /* Convert to remove any qualifiers from VALUE's type.  */
++      value = convert (type, value);
+     }
+   else if (TREE_CODE (type) == UNION_TYPE)
+     {
+--- trunk/gcc/testsuite/gcc.dg/pr13519-1.c	2014/08/19 13:52:25	214150
++++ trunk/gcc/testsuite/gcc.dg/pr13519-1.c	2014/08/19 14:14:15	214151
+@@ -14,9 +14,9 @@
+   { __typeof__(n) a1; a1=0; }
+   { __typeof__(c) a2; a2=0; } /* { dg-error "read-only" "correct error" } */
+   { __typeof__((int)n) a3; a3=0; }
+-  { __typeof__((int)c) a4; a4=0; } /* { dg-bogus "read-only" "bogus error" { xfail *-*-* } } */
+-  { __typeof__((const int)n) a5; a5=0; } /* { dg-error "read-only" "correct error" { xfail *-*-* } } */
+-  { __typeof__((const int)c) a6; a6=0; } /* { dg-error "read-only" "correct error" } */
++  { __typeof__((int)c) a4; a4=0; } /* { dg-bogus "read-only" "bogus error" } */
++  { __typeof__((const int)n) a5; a5=0; }
++  { __typeof__((const int)c) a6; a6=0; }
+   { __typeof__(0) a7; a7=0; }
+   { __typeof__(1) a8; a8=0; }
+ 
