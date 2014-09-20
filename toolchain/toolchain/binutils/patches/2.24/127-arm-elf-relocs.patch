@@ -1,0 +1,182 @@
+From b08b9f0894e43f0bb966f3ad9094a4405ce6f570
+From: Roland McGrath <mcgrathr@google.com>
+Date: Wed, 20 Aug 2014 10:12:57 -0700
+Subject: [PATCH] Fix PR ld/17277: bogus dynamic relocs and TEXTREL for ARM PC-relative relocs
+
+bfd/
+	PR ld/17277
+	* elf32-arm.c (elf32_arm_check_relocs): Increment P->pc_count for
+	all reloc types with pc_relative set in the howto, not just for
+	R_ARM_REL32 and R_ARM_REL32_NOI.
+	(allocate_dynrelocs_for_symbol): Update comment.
+	(elf32_arm_gc_sweep_hook): For all reloc types with pc_relative
+	set in the howto, set call_reloc_p and may_need_local_target_p but
+	not may_become_dynamic_p; not only for R_ARM_REL32 and R_ARM_REL32_NOI.
+	(elf32_arm_check_relocs): Likewise.
+
+ld/testsuite/
+	PR ld/17277
+	* ld-arm/pcrel-shared.s: New file.
+	* ld-arm/pcrel-shared.rd: New file.
+	* ld-arm/arm-elf.exp (armelftests_common): Add it.
+
+(cherry picked from commit 469a34932ae4208240e98c843b01ea1f00892137)
+---
+ bfd/ChangeLog                       |   12 ++++++++++++
+ bfd/elf32-arm.c                     |   18 +++++++++---------
+ ld/testsuite/ChangeLog              |    7 +++++++
+ ld/testsuite/ld-arm/arm-elf.exp     |    4 ++++
+ ld/testsuite/ld-arm/pcrel-shared.rd |   16 ++++++++++++++++
+ ld/testsuite/ld-arm/pcrel-shared.s  |   25 +++++++++++++++++++++++++
+ 6 files changed, 73 insertions(+), 9 deletions(-)
+ create mode 100644 ld/testsuite/ld-arm/pcrel-shared.rd
+ create mode 100644 ld/testsuite/ld-arm/pcrel-shared.s
+
+diff --git a/bfd/ChangeLog b/bfd/ChangeLog
+--- a/bfd/ChangeLog
++++ b/bfd/ChangeLog
+@@ -1,3 +1,15 @@
++2014-08-20  Roland McGrath  <mcgrathr@google.com>
++
++	PR ld/17277
++	* elf32-arm.c (elf32_arm_check_relocs): Increment P->pc_count for
++	all reloc types with pc_relative set in the howto, not just for
++	R_ARM_REL32 and R_ARM_REL32_NOI.
++	(allocate_dynrelocs_for_symbol): Update comment.
++	(elf32_arm_gc_sweep_hook): For all reloc types with pc_relative
++	set in the howto, set call_reloc_p and may_need_local_target_p but
++	not may_become_dynamic_p; not only for R_ARM_REL32 and R_ARM_REL32_NOI.
++	(elf32_arm_check_relocs): Likewise.
++
+ 2014-08-18  Alan Modra  <amodra@gmail.com>
+ 
+ 	PR 17287
+diff --git a/bfd/elf32-arm.c b/bfd/elf32-arm.c
+--- a/bfd/elf32-arm.c
++++ b/bfd/elf32-arm.c
+@@ -12360,7 +12360,7 @@ elf32_arm_gc_sweep_hook (bfd *                     abfd,
+ 	      && (sec->flags & SEC_ALLOC) != 0)
+ 	    {
+ 	      if (h == NULL
+-		  && (r_type == R_ARM_REL32 || r_type == R_ARM_REL32_NOI))
++		  && elf32_arm_howto_from_type (r_type)->pc_relative)
+ 		{
+ 		  call_reloc_p = TRUE;
+ 		  may_need_local_target_p = TRUE;
+@@ -12678,7 +12678,7 @@ elf32_arm_check_relocs (bfd *abfd, struct bfd_link_info *info,
+ 		&& (sec->flags & SEC_ALLOC) != 0)
+ 	      {
+ 		if (h == NULL
+-		    && (r_type == R_ARM_REL32 || r_type == R_ARM_REL32_NOI))
++		    && elf32_arm_howto_from_type (r_type)->pc_relative)
+ 		  {
+ 		    /* In shared libraries and relocatable executables,
+ 		       we treat local relative references as calls;
+@@ -12824,7 +12824,7 @@ elf32_arm_check_relocs (bfd *abfd, struct bfd_link_info *info,
+ 	      p->pc_count = 0;
+ 	    }
+ 
+-	  if (r_type == R_ARM_REL32 || r_type == R_ARM_REL32_NOI)
++	  if (elf32_arm_howto_from_type (r_type)->pc_relative)
+ 	    p->pc_count += 1;
+ 	  p->count += 1;
+ 	}
+@@ -13405,12 +13405,12 @@ allocate_dynrelocs_for_symbol (struct elf_link_hash_entry *h, void * inf)
+ 
+   if (info->shared || htab->root.is_relocatable_executable)
+     {
+-      /* The only relocs that use pc_count are R_ARM_REL32 and
+-	 R_ARM_REL32_NOI, which will appear on something like
+-	 ".long foo - .".  We want calls to protected symbols to resolve
+-	 directly to the function rather than going via the plt.  If people
+-	 want function pointer comparisons to work as expected then they
+-	 should avoid writing assembly like ".long foo - .".  */
++      /* Relocs that use pc_count are PC-relative forms, which will appear
++	 on something like ".long foo - ." or "movw REG, foo - .".  We want
++	 calls to protected symbols to resolve directly to the function
++	 rather than going via the plt.  If people want function pointer
++	 comparisons to work as expected then they should avoid writing
++	 assembly like ".long foo - .".  */
+       if (SYMBOL_CALLS_LOCAL (info, h))
+ 	{
+ 	  struct elf_dyn_relocs **pp;
+diff --git a/ld/testsuite/ChangeLog b/ld/testsuite/ChangeLog
+--- a/ld/testsuite/ChangeLog
++++ b/ld/testsuite/ChangeLog
+@@ -1,3 +1,10 @@
++2014-08-20  Roland McGrath  <mcgrathr@google.com>
++
++	PR ld/17277
++	* ld-arm/pcrel-shared.s: New file.
++	* ld-arm/pcrel-shared.rd: New file.
++	* ld-arm/arm-elf.exp (armelftests_common): Add it.
++
+ 2014-08-18  Alan Modra  <amodra@gmail.com>
+ 
+ 	* ld-plugin/needed3.c: New file.
+diff --git a/ld/testsuite/ld-arm/arm-elf.exp b/ld/testsuite/ld-arm/arm-elf.exp
+--- a/ld/testsuite/ld-arm/arm-elf.exp
++++ b/ld/testsuite/ld-arm/arm-elf.exp
+@@ -209,6 +209,10 @@ set armelftests_common {
+     {"EABI ABI flags ld -r" "-r" "" "-mfloat-abi=soft -meabi=5" {eabi-soft-float.s}
+      {{readelf -h eabi-soft-float-r.d}}
+      "eabi-soft-float-r.o"}
++    {"PC-relative in -shared" "-shared" ""
++     "" {pcrel-shared.s}
++     {{readelf -dr pcrel-shared.rd}}
++     "pcrel-shared.so"}
+ }
+ 
+ set armelftests_nonacl {
+diff --git a/ld/testsuite/ld-arm/pcrel-shared.rd b/ld/testsuite/ld-arm/pcrel-shared.rd
+new file mode 100644
+--- /dev/null
++++ b/ld/testsuite/ld-arm/pcrel-shared.rd
+@@ -0,0 +1,16 @@
++Dynamic section at offset 0x[0-9a-f]+ contains \d+ entries:
++\s+Tag\s+Type\s+Name/Value
++\s*0x[0-9a-f]+ \(HASH\).*
++\s*0x[0-9a-f]+ \(STRTAB\).*
++\s*0x[0-9a-f]+ \(SYMTAB\).*
++\s*0x[0-9a-f]+ \(STRSZ\).*
++\s*0x[0-9a-f]+ \(SYMENT\).*
++# Specifically want *not* to see here:
++# (REL)
++# (RELSZ)
++# (RELENT)
++# (TEXTREL)
++#...
++\s*0x[0-9a-f]+ \(NULL\).*
++
++There are no relocations in this file\.
+diff --git a/ld/testsuite/ld-arm/pcrel-shared.s b/ld/testsuite/ld-arm/pcrel-shared.s
+new file mode 100644
+--- /dev/null
++++ b/ld/testsuite/ld-arm/pcrel-shared.s
+@@ -0,0 +1,25 @@
++# This tests PR ld/17277, wherein ld -shared for cross-section PC-relative
++# relocs (other than plain R_ARM_REL32, as in data) produce bogus dynamic
++# relocs and TEXTREL markers.
++
++	.syntax unified
++	.arm
++	.arch armv7-a
++
++	.text
++	.globl foo
++	.type foo,%function
++foo:	movw r0, #:lower16:symbol - 1f - 8
++	movt r0, #:upper16:symbol - 1f - 8
++1:	add r0, pc
++	@ And now a case with a local symbol.
++	movw r0, #:lower16:3f - 2f - 8
++	movt r0, #:upper16:3f - 2f - 8
++2:	add r0, pc
++	bx lr
++
++.data
++	.globl symbol
++	.hidden symbol
++symbol:	.long 23
++3:	.long 17
+-- 
