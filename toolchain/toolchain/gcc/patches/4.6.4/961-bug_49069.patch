@@ -1,0 +1,64 @@
+[4.6 Regression] ICE in gen_cstoredi4, at config/arm/arm.md:7554
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=49069
+
+--- gcc-4_7-branch/gcc/ChangeLog	2013/02/01 14:14:05	195660
++++ gcc-4_7-branch/gcc/ChangeLog	2013/02/01 14:14:11	195661
+@@ -1,6 +1,16 @@
+ 	* config/rs6000/rs6000.c (rs6000_option_override_internal): Clear
+ 	MASK_VSX from set_masks if OS_MISSING_ALTIVEC.
+ 
++2013-02-01  Jakub Jelinek  <jakub@redhat.com>
++
++	Backported from mainline
++	2013-01-23  Jakub Jelinek  <jakub@redhat.com>
++
++	PR target/49069
++	* config/arm/arm.md (cbranchdi4, cstoredi4): Use s_register_operand
++	instead of cmpdi_operand for first comparison operand.
++	Don't assert that comparison operands aren't both constants.
++
+ 2013-02-01  Eric Botcazou  <ebotcazou@adacore.com>
+ 
+ 	* fold-const.c (make_range_step) <TRUTH_NOT_EXPR>: Bail out if the
+--- gcc-4_7-branch/gcc/config/arm/arm.md	2013/02/01 14:14:05	195660
++++ gcc-4_7-branch/gcc/config/arm/arm.md	2013/02/01 14:14:11	195661
+@@ -6904,7 +6904,7 @@
+ (define_expand "cbranchdi4"
+   [(set (pc) (if_then_else
+ 	      (match_operator 0 "arm_comparison_operator"
+-	       [(match_operand:DI 1 "cmpdi_operand" "")
++	       [(match_operand:DI 1 "s_register_operand" "")
+ 	        (match_operand:DI 2 "cmpdi_operand" "")])
+ 	      (label_ref (match_operand 3 "" ""))
+ 	      (pc)))]
+@@ -6913,10 +6913,6 @@
+      rtx swap = NULL_RTX;
+      enum rtx_code code = GET_CODE (operands[0]);
+ 
+-     /* We should not have two constants.  */
+-     gcc_assert (GET_MODE (operands[1]) == DImode
+-		 || GET_MODE (operands[2]) == DImode);
+-
+     /* Flip unimplemented DImode comparisons to a form that
+        arm_gen_compare_reg can handle.  */
+      switch (code)
+@@ -7917,17 +7913,13 @@
+ (define_expand "cstoredi4"
+   [(set (match_operand:SI 0 "s_register_operand" "")
+ 	(match_operator:SI 1 "arm_comparison_operator"
+-	 [(match_operand:DI 2 "cmpdi_operand" "")
++	 [(match_operand:DI 2 "s_register_operand" "")
+ 	  (match_operand:DI 3 "cmpdi_operand" "")]))]
+   "TARGET_32BIT"
+   "{
+      rtx swap = NULL_RTX;
+      enum rtx_code code = GET_CODE (operands[1]);
+ 
+-     /* We should not have two constants.  */
+-     gcc_assert (GET_MODE (operands[2]) == DImode
+-		 || GET_MODE (operands[3]) == DImode);
+-
+     /* Flip unimplemented DImode comparisons to a form that
+        arm_gen_compare_reg can handle.  */
+      switch (code)
