@@ -1,0 +1,328 @@
+ARM upstream fixes
+
+ 97323ad11305610185a0265392cabcd37510f50e bfd/elf32-arm.c: Set st_value to zero for undefined symbols
+ 827f64ffb56038b080f630c6487bd4c5dbf83985 gas: ARM: Fix encoding of VCVTr.s32.f64 instructions
+ aacf0b33aa8a55f935be02a6f6a3b3b62f60d14b [ARM] Fix vcmp with #0.0
+---
+
+diff --git a/bfd/ChangeLog b/bfd/ChangeLog
+--- a/bfd/ChangeLog
++++ b/bfd/ChangeLog
+@@ -1,6 +1,15 @@
+ 	(lookup_symbol_in_function_table, info_hash_lookup_funcinfo):
+ 	Likewise.
+ 
++2014-03-20  Will Newton  <will.newton@linaro.org>
++
++	PR ld/16715
++	* elf32-arm.c (elf32_arm_check_relocs): Set
++	pointer_equality_needed for absolute references within
++	executable links.
++	(elf32_arm_finish_dynamic_symbol): Set st_value to zero
++	unless pointer_equality_needed is set.
++
+ 2014-02-10  H.J. Lu  <hongjiu.lu@intel.com>
+ 
+ 	PR gold/16530
+diff --git a/bfd/elf32-arm.c b/bfd/elf32-arm.c
+--- a/bfd/elf32-arm.c
++++ b/bfd/elf32-arm.c
+@@ -12800,6 +12800,11 @@ elf32_arm_check_relocs (bfd *abfd, struct bfd_link_info *info,
+ 	    /* Fall through.  */
+ 	  case R_ARM_ABS32:
+ 	  case R_ARM_ABS32_NOI:
++	    if (h != NULL && info->executable)
++	      {
++		h->pointer_equality_needed = 1;
++	      }
++	    /* Fall through.  */
+ 	  case R_ARM_REL32:
+ 	  case R_ARM_REL32_NOI:
+ 	  case R_ARM_MOVW_PREL_NC:
+@@ -14165,7 +14170,7 @@ elf32_arm_finish_dynamic_symbol (bfd * output_bfd,
+ 	     Otherwise, the PLT entry would provide a definition for
+ 	     the symbol even if the symbol wasn't defined anywhere,
+ 	     and so the symbol would never be NULL.  */
+-	  if (!h->ref_regular_nonweak)
++	  if (!h->ref_regular_nonweak || !h->pointer_equality_needed)
+ 	    sym->st_value = 0;
+ 	}
+       else if (eh->is_iplt && eh->plt.noncall_refcount != 0)
+diff --git a/gas/ChangeLog b/gas/ChangeLog
+--- a/gas/ChangeLog
++++ b/gas/ChangeLog
+@@ -1,3 +1,15 @@
++2014-08-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
++
++	* config/tc-arm.c (parse_ifimm_zero): New function.
++	(enum operand_parse_code): Add OP_RSVD_FI0 value.
++	(parse_operands): Handle OP_RSVD_FI0.
++	(asm_opcode_insns): Use RSVD_FI0 for second operand of vcmp, vcmpe.
++
++2014-01-17  Will Newton  <will.newton@linaro.org>
++
++	* config/tc-arm.c (do_vfp_nsyn_cvt_fpv8): Set OP to 1
++	for the s32.f64 flavours of VCVT.
++
+ 2013-11-18  H.J. Lu  <hongjiu.lu@intel.com>
+ 
+ 	* config/tc-i386.c (lex_got): Add a dummy "int bnd_prefix"
+diff --git a/gas/config/tc-arm.c b/gas/config/tc-arm.c
+--- a/gas/config/tc-arm.c
++++ b/gas/config/tc-arm.c
+@@ -249,6 +249,8 @@ static arm_feature_set selected_cpu = ARM_ARCH_NONE;
+ /* Must be long enough to hold any of the names in arm_cpus.  */
+ static char selected_cpu_name[16];
+ 
++extern FLONUM_TYPE generic_floating_point_number;
++
+ /* Return if no cpu was selected on command-line.  */
+ static bfd_boolean
+ no_cpu_selected (void)
+@@ -4944,6 +4946,31 @@ is_quarter_float (unsigned imm)
+   return (imm & 0x7ffff) == 0 && ((imm & 0x7e000000) ^ bs) == 0;
+ }
+ 
++
++/* Detect the presence of a floating point or integer zero constant,
++   i.e. #0.0 or #0.  */
++
++static bfd_boolean
++parse_ifimm_zero (char **in)
++{
++  int error_code;
++
++  if (!is_immediate_prefix (**in))
++    return FALSE;
++
++  ++*in;
++  error_code = atof_generic (in, ".", EXP_CHARS,
++                             &generic_floating_point_number);
++
++  if (!error_code
++      && generic_floating_point_number.sign == '+'
++      && (generic_floating_point_number.low
++          > generic_floating_point_number.leader))
++    return TRUE;
++
++  return FALSE;
++}
++
+ /* Parse an 8-bit "quarter-precision" floating point number of the form:
+    0baBbbbbbc defgh000 00000000 00000000.
+    The zero and minus-zero cases need special handling, since they can't be
+@@ -6417,6 +6444,7 @@ enum operand_parse_code
+ 
+   OP_RNDQ_I0,   /* Neon D or Q reg, or immediate zero.  */
+   OP_RVSD_I0,	/* VFP S or D reg, or immediate zero.  */
++  OP_RSVD_FI0, /* VFP S or D reg, or floating point immediate zero.  */
+   OP_RR_RNSC,   /* ARM reg or Neon scalar.  */
+   OP_RNSDQ_RNSC, /* Vector S, D or Q reg, or Neon scalar.  */
+   OP_RNDQ_RNSC, /* Neon D or Q reg, or Neon scalar.  */
+@@ -6700,6 +6728,22 @@ parse_operands (char *str, const unsigned int *pattern, bfd_boolean thumb)
+ 	  po_reg_or_goto (REG_TYPE_VFSD, try_imm0);
+ 	  break;
+ 
++	case OP_RSVD_FI0:
++	  {
++	    po_reg_or_goto (REG_TYPE_VFSD, try_ifimm0);
++	    break;
++	    try_ifimm0:
++	    if (parse_ifimm_zero (&str))
++	      inst.operands[i].imm = 0;
++	    else
++	    {
++	      inst.error
++	        = _("only floating point zero is allowed as immediate value");
++	      goto failure;
++	    }
++	  }
++	  break;
++
+ 	case OP_RR_RNSC:
+ 	  {
+ 	    po_scalar_or_goto (8, try_rr);
+@@ -14671,7 +14671,7 @@ do_vfp_nsyn_cvt_fpv8 (enum neon_cvt_flavour flavour,
+     {
+     case neon_cvt_flavour_s32_f64:
+       sz = 1;
+-      op = 0;
++      op = 1;
+       break;
+     case neon_cvt_flavour_s32_f32:
+       sz = 0;
+@@ -19543,8 +19587,8 @@ static const struct asm_opcode insns[] =
+  nCE(vnmul,     _vnmul,   3, (RVSD, RVSD, RVSD), vfp_nsyn_nmul),
+  nCE(vnmla,     _vnmla,   3, (RVSD, RVSD, RVSD), vfp_nsyn_nmul),
+  nCE(vnmls,     _vnmls,   3, (RVSD, RVSD, RVSD), vfp_nsyn_nmul),
+- nCE(vcmp,      _vcmp,    2, (RVSD, RVSD_I0),    vfp_nsyn_cmp),
+- nCE(vcmpe,     _vcmpe,   2, (RVSD, RVSD_I0),    vfp_nsyn_cmp),
++ nCE(vcmp,      _vcmp,    2, (RVSD, RSVD_FI0),    vfp_nsyn_cmp),
++ nCE(vcmpe,     _vcmpe,   2, (RVSD, RSVD_FI0),    vfp_nsyn_cmp),
+  NCE(vpush,     0,       1, (VRSDLST),          vfp_nsyn_push),
+  NCE(vpop,      0,       1, (VRSDLST),          vfp_nsyn_pop),
+  NCE(vcvtz,     0,       2, (RVSD, RVSD),       vfp_nsyn_cvtz),
+diff --git a/gas/testsuite/ChangeLog b/gas/testsuite/ChangeLog
+--- a/gas/testsuite/ChangeLog
++++ b/gas/testsuite/ChangeLog
+@@ -1,3 +1,15 @@
++2014-08-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
++
++	* gas/arm/ual-vcmp.s: New file.
++	* gas/arm/ual-vcmp.d: Likewise.
++	* gas/arm/vcmp-zero-bad.s: Likewise.
++	* gas/arm/vcmp-zero-bad.d: Likewise.
++	* gas/arm/vcmp-zero-bad.l: Likewise.
++
++2014-01-17  Will Newton  <will.newton@linaro.org>
++
++	* gas/arm/armv8-a+fp.d: Correct encoding of vcvta.s32.f64.
++
+ 2013-11-20  Yufeng Zhang  <yufeng.zhang@arm.com>
+ 
+ 	* gas/aarch64/msr.s: Add tests.
+diff --git a/gas/testsuite/gas/arm/armv8-a+fp.d b/gas/testsuite/gas/arm/armv8-a+fp.d
+--- a/gas/testsuite/gas/arm/armv8-a+fp.d
++++ b/gas/testsuite/gas/arm/armv8-a+fp.d
+@@ -32,8 +32,8 @@ Disassembly of section .text:
+ 0[0-9a-f]+ <[^>]+> fefd0ae0 	vcvtn.s32.f32	s1, s1
+ 0[0-9a-f]+ <[^>]+> febefa4f 	vcvtp.u32.f32	s30, s30
+ 0[0-9a-f]+ <[^>]+> fefffa6f 	vcvtm.u32.f32	s31, s31
+-0[0-9a-f]+ <[^>]+> febc0b40 	vcvta.u32.f64	s0, d0
+-0[0-9a-f]+ <[^>]+> fefd0b60 	vcvtn.u32.f64	s1, d16
++0[0-9a-f]+ <[^>]+> febc0bc0 	vcvta.s32.f64	s0, d0
++0[0-9a-f]+ <[^>]+> fefd0be0 	vcvtn.s32.f64	s1, d16
+ 0[0-9a-f]+ <[^>]+> febefb4f 	vcvtp.u32.f64	s30, d15
+ 0[0-9a-f]+ <[^>]+> fefffb6f 	vcvtm.u32.f64	s31, d31
+ 0[0-9a-f]+ <[^>]+> eeb60ac0 	vrintz.f32	s0, s0
+@@ -86,8 +86,8 @@ Disassembly of section .text:
+ 0[0-9a-f]+ <[^>]+> fefd 0ae0 	vcvtn.s32.f32	s1, s1
+ 0[0-9a-f]+ <[^>]+> febe fa4f 	vcvtp.u32.f32	s30, s30
+ 0[0-9a-f]+ <[^>]+> feff fa6f 	vcvtm.u32.f32	s31, s31
+-0[0-9a-f]+ <[^>]+> febc 0b40 	vcvta.u32.f64	s0, d0
+-0[0-9a-f]+ <[^>]+> fefd 0b60 	vcvtn.u32.f64	s1, d16
++0[0-9a-f]+ <[^>]+> febc 0bc0 	vcvta.s32.f64	s0, d0
++0[0-9a-f]+ <[^>]+> fefd 0be0 	vcvtn.s32.f64	s1, d16
+ 0[0-9a-f]+ <[^>]+> febe fb4f 	vcvtp.u32.f64	s30, d15
+ 0[0-9a-f]+ <[^>]+> feff fb6f 	vcvtm.u32.f64	s31, d31
+ 0[0-9a-f]+ <[^>]+> eeb6 0ac0 	vrintz.f32	s0, s0
+diff --git a/gas/testsuite/gas/arm/ual-vcmp.d b/gas/testsuite/gas/arm/ual-vcmp.d
+new file mode 100644
+--- /dev/null
++++ b/gas/testsuite/gas/arm/ual-vcmp.d
+@@ -0,0 +1,24 @@
++#objdump: -dr --prefix-addresses --show-raw-insn
++#name: UAL vcmp with 0
++#as: -mfpu=vfpv3
++
++.*: +file format .*arm.*
++
++
++Disassembly of section .text:
++0+000 <[^>]*> eeb50a40 	vcmp.f32	s0, #0.0
++0+004 <[^>]*> eef50a40 	vcmp.f32	s1, #0.0
++0+008 <[^>]*> eef51ac0 	vcmpe.f32	s3, #0.0
++0+00c <[^>]*> eeb52ac0 	vcmpe.f32	s4, #0.0
++0+010 <[^>]*> eef52a40 	vcmp.f32	s5, #0.0
++0+014 <[^>]*> eeb53a40 	vcmp.f32	s6, #0.0
++0+018 <[^>]*> eef53ac0 	vcmpe.f32	s7, #0.0
++0+01c <[^>]*> eeb54ac0 	vcmpe.f32	s8, #0.0
++0+020 <[^>]*> eeb50b40 	vcmp.f64	d0, #0.0
++0+024 <[^>]*> eeb51b40 	vcmp.f64	d1, #0.0
++0+028 <[^>]*> eeb52bc0 	vcmpe.f64	d2, #0.0
++0+02c <[^>]*> eeb53bc0 	vcmpe.f64	d3, #0.0
++0+030 <[^>]*> eeb54b40 	vcmp.f64	d4, #0.0
++0+034 <[^>]*> eeb55b40 	vcmp.f64	d5, #0.0
++0+038 <[^>]*> eeb56bc0 	vcmpe.f64	d6, #0.0
++0+03c <[^>]*> eeb57bc0 	vcmpe.f64	d7, #0.0
+diff --git a/gas/testsuite/gas/arm/ual-vcmp.s b/gas/testsuite/gas/arm/ual-vcmp.s
+new file mode 100644
+--- /dev/null
++++ b/gas/testsuite/gas/arm/ual-vcmp.s
+@@ -0,0 +1,21 @@
++.text
++.arm
++.syntax unified
++
++vcmp.f32	s0, #0.0
++vcmp.f32	s1, #0
++vcmpe.f32	s3, #0.0
++vcmpe.f32	s4, #0
++vcmp.f32	s5, #0.0e2
++vcmp.f32	s6, #0e-3
++vcmpe.f32	s7, #0.0000
++vcmpe.f32	s8, #.0
++
++vcmp.f64	d0, #0.0
++vcmp.f64	d1, #0
++vcmpe.f64	d2, #0.0
++vcmpe.f64	d3, #0
++vcmp.f64	d4, #0.0e5
++vcmp.f64	d5, #0e-2
++vcmpe.f64	d6, #0.00
++vcmpe.f64	d7, #.0
+diff --git a/gas/testsuite/gas/arm/vcmp-zero-bad.d b/gas/testsuite/gas/arm/vcmp-zero-bad.d
+new file mode 100644
+--- /dev/null
++++ b/gas/testsuite/gas/arm/vcmp-zero-bad.d
+@@ -0,0 +1,4 @@
++# name: UAL vcmp with #0.0 bad instructions.
++# as: -mfpu=vfpv3
++# source: vcmp-zero-bad.s
++# error-output: vcmp-zero-bad.l
+diff --git a/gas/testsuite/gas/arm/vcmp-zero-bad.l b/gas/testsuite/gas/arm/vcmp-zero-bad.l
+new file mode 100644
+--- /dev/null
++++ b/gas/testsuite/gas/arm/vcmp-zero-bad.l
+@@ -0,0 +1,8 @@
++[^:]*: Assembler messages:
++[^:]*:5: Error: only floating point zero is allowed as immediate value -- `vcmp.f32 s0,#0.01'
++[^:]*:6: Error: only floating point zero is allowed as immediate value -- `vcmp.f32 s1,#2'
++[^:]*:7: Error: only floating point zero is allowed as immediate value -- `vcmpe.f32 s3,5'
++[^:]*:8: Error: only floating point zero is allowed as immediate value -- `vcmpe.f32 s4,#-0.0'
++[^:]*:10: Error: only floating point zero is allowed as immediate value -- `vcmp.f64 d0,#-1'
++[^:]*:11: Error: garbage following instruction -- `vcmpe.f64 d3,#0x35'
++[^:]*:12: Error: only floating point zero is allowed as immediate value -- `vcmpe.f64 d4,0xf'
+diff --git a/gas/testsuite/gas/arm/vcmp-zero-bad.s b/gas/testsuite/gas/arm/vcmp-zero-bad.s
+new file mode 100644
+--- /dev/null
++++ b/gas/testsuite/gas/arm/vcmp-zero-bad.s
+@@ -0,0 +1,12 @@
++.text
++.arm
++.syntax unified
++
++vcmp.f32        s0, #0.01
++vcmp.f32        s1, #2
++vcmpe.f32       s3, 5
++vcmpe.f32       s4, #-0.0
++
++vcmp.f64        d0, #-1
++vcmpe.f64       d3, #0x35
++vcmpe.f64       d4, 0xf
+diff --git a/ld/testsuite/ChangeLog b/ld/testsuite/ChangeLog
+--- a/ld/testsuite/ChangeLog
++++ b/ld/testsuite/ChangeLog
+@@ -1,6 +1,10 @@
+ 	* ld-plugin/needed3.c: New file.
+ 	* ld-elf/shared.exp: Add needed3 test.
+ 
++2014-03-20  Will Newton  <will.newton@linaro.org>
++
++	* ld-arm/ifunc-14.rd: Update symbol values.
++
+ 2014-02-10  H.J. Lu  <hongjiu.lu@intel.com>
+ 
+ 	PR gold/16530
+diff --git a/ld/testsuite/ld-arm/ifunc-14.rd b/ld/testsuite/ld-arm/ifunc-14.rd
+--- a/ld/testsuite/ld-arm/ifunc-14.rd
++++ b/ld/testsuite/ld-arm/ifunc-14.rd
+@@ -8,5 +8,5 @@ Relocation section '\.rel\.dyn' at offset 0x8000 contains 4 entries:
+ 
+ Relocation section '\.rel\.plt' at offset 0x8020 contains 2 entries:
+  Offset     Info    Type            Sym\.Value  Sym\. Name
+-0001100c  ......16 R_ARM_JUMP_SLOT   00009014   f2t
+-00011010  ......16 R_ARM_JUMP_SLOT   00009020   f2
++0001100c  ......16 R_ARM_JUMP_SLOT   00000000   f2t
++00011010  ......16 R_ARM_JUMP_SLOT   00000000   f2
+-- 
