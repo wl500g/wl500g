@@ -1,0 +1,29 @@
+diff --git a/src/rfc3315.c b/src/rfc3315.c
+index 5ebf09d..c0b6888 100644
+--- a/src/rfc3315.c
++++ b/src/rfc3315.c
+@@ -691,6 +691,8 @@ static int dhcp6_no_relay(struct state *state, int msg_type, void *inbuff, size_
+ #endif
+ 
+ 	    o = build_ia(state, &t1cntr);
++	    if (address_assigned)
++		address_assigned = 2;
+ 
+ 	    for (ia_counter = 0; ia_option; ia_counter++, ia_option = opt6_find(opt6_next(ia_option, ia_end), ia_end, OPTION6_IAADDR, 24))
+ 	      {
+@@ -781,6 +783,15 @@ static int dhcp6_no_relay(struct state *state, int msg_type, void *inbuff, size_
+ 		address_assigned = 1;
+ 	      }
+ 	    
++	    /* If the server will not assign any addresses to any IAs in a
++	       subsequent Request from the client, the server MUST send an Advertise
++	       message to the client that doesn't include any IA options */
++	    if (address_assigned != 1 && *outmsgtypep == DHCP6ADVERTISE)
++	      {
++		save_counter(o);
++		continue;
++	      }
++	    
+ 	    end_ia(t1cntr, min_time, 0);
+ 	    end_opt6(o);	
+ 	  }
