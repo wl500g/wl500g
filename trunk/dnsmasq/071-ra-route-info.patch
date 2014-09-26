@@ -1,3 +1,5 @@
+diff --git a/src/radv.c b/src/radv.c
+index 3c8b162..46b4a36 100644
 --- a/src/radv.c
 +++ b/src/radv.c
 @@ -649,6 +649,22 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
