@@ -696,7 +696,7 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
  
  static int __cpuinitdata hazard_instance;
  
--static void __cpuinit uasm_bgezl_hazard(u32 **p, struct reloc **r, int instance)
+-static void uasm_bgezl_hazard(u32 **p, struct reloc **r, int instance)
 +static void __cpuinit uasm_bgezl_hazard(u32 **p, struct uasm_reloc **r, int instance)
  {
  	switch (instance) {
@@ -709,7 +709,7 @@ diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
  	}
  }
  
--static void __cpuinit uasm_bgezl_label(struct label **l, u32 **p, int instance)
+-static void uasm_bgezl_label(struct label **l, u32 **p, int instance)
 +static void __cpuinit uasm_bgezl_label(struct uasm_label **l, u32 **p, int instance)
  {
  	switch (instance) {

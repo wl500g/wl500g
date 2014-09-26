@@ -1370,7 +1370,6 @@ diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
  }
  
  /* Now add out buffered information to the generated C source */
-Only in b/scripts/mod: file2alias.c.orig
 diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
 --- a/scripts/mod/modpost.c
 +++ b/scripts/mod/modpost.c
