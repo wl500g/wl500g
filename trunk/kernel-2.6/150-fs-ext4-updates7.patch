@@ -11,6 +11,7 @@ ext4: Updates from upstream 4
  0e9a9a1ad619e7e987815d20262d36a2f95717ca ext4: avoid hang when mounting non-journal filesystems with orphan list
  4113c4caa4f355b8ff8b7ff0510c29c9d00d30b3 ext4: remove deprecated oldalloc
  e6155736ad76b2070652745f9e54cdea3f0d8567 ext4: limit group search loop for non-extent files
+ 86f0afd463215fc3e58020493482faa4ac3a4d69 ext4: fix ext4_discard_allocated_blocks() if we can't allocate the pa struct
 
 ---
  Documentation/filesystems/ext4.txt |    8 --
@@ -19,10 +20,10 @@ ext4: Updates from upstream 4
  fs/ext4/extents.c                  |    2 
  fs/ext4/ialloc.c                   |  136 -------------------------------------
  fs/ext4/inode.c                    |   16 +++-
- fs/ext4/mballoc.c                  |    6 +
+ fs/ext4/mballoc.c                  |   32 +++++++-
  fs/ext4/namei.c                    |   26 +++----
  fs/ext4/super.c                    |   10 +-
- 9 files changed, 68 insertions(+), 186 deletions(-)
+ 9 files changed, 89 insertions(+), 191 deletions(-)
 
 diff --git a/Documentation/filesystems/ext4.txt b/Documentation/filesystems/ext4.txt
 --- a/Documentation/filesystems/ext4.txt
@@ -391,6 +392,40 @@ diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
  				group = 0;
  
  			/* This now checks without needing the buddy page */
+@@ -3107,12 +3107,28 @@ static void ext4_mb_collect_stats(struct ext4_allocation_context *ac)
+ static void ext4_discard_allocated_blocks(struct ext4_allocation_context *ac)
+ {
+ 	struct ext4_prealloc_space *pa = ac->ac_pa;
+-	int len;
++	struct ext4_buddy e4b;
++	int err;
+ 
+-	if (pa && pa->pa_type == MB_INODE_PA) {
+-		len = ac->ac_b_ex.fe_len;
+-		pa->pa_free += len;
+-	}
++	if (pa == NULL) {
++		err = ext4_mb_load_buddy(ac->ac_sb, ac->ac_f_ex.fe_group, &e4b);
++		if (err) {
++			/*
++			 * This should never happen since we pin the
++			 * pages in the ext4_allocation_context so
++			 * ext4_mb_load_buddy() should never fail.
++			 */
++			WARN(1, "mb_load_buddy failed (%d)", err);
++			return;
++		}
++		ext4_lock_group(ac->ac_sb, ac->ac_f_ex.fe_group);
++		mb_free_blocks(ac->ac_inode, &e4b, ac->ac_f_ex.fe_start,
++			       ac->ac_f_ex.fe_len);
++		ext4_unlock_group(ac->ac_sb, ac->ac_f_ex.fe_group);
++		return;
++	}
++	if (pa->pa_type == MB_INODE_PA)
++		pa->pa_free += ac->ac_b_ex.fe_len;
+ 
+ }
+ 
 diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
 --- a/fs/ext4/namei.c
 +++ b/fs/ext4/namei.c
