@@ -114,17 +114,14 @@ start_dns(void)
 
 	fprintf(fp,
 		"127.0.0.1 localhost.localdomain localhost\n"
-		"%s %s my.router my.%s\n",
-		nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_hostname"),
-		nvram_safe_get("productid"));
+		"%s %s my.router\n", nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_hostname"));
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", "")) {
 		fprintf(fp, "::1 localhost.localdomain localhost\n");
 		if (nvram_invmatch("ipv6_proto", "tun6to4") &&
 		    nvram_invmatch("ipv6_proto", "tun6rd") &&
 		    !nvram_get_int("ipv6_lanauto_x")) {
-			fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("ipv6_lan_addr"),
-				nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
+			fprintf(fp, "%s %s my.router\n", nvram_safe_get("ipv6_lan_addr"), nvram_safe_get("lan_hostname"));
 		}
 	}
 #endif
@@ -192,8 +189,14 @@ start_dns(void)
 	if (nvram_invmatch("lan_domain", "")) {
 		fprintf(fp, "domain=%s\n"
 			    "expand-hosts\n", nvram_get("lan_domain"));
+		fprintf(fp, "interface-name=%s.%s,%s\n", nvram_safe_get("lan_hostname"),
+			nvram_safe_get("lan_domain"), nvram_safe_get("lan_ifname"));
 	}
-	
+	fprintf(fp, "interface-name=%s,%s\n"
+		    "interface-name=my.router,%s\n",
+		nvram_safe_get("lan_hostname"), nvram_safe_get("lan_ifname"),
+		nvram_safe_get("lan_ifname"));
+
 	fprintf(fp, "no-negcache\n"
 		    "cache-size=512\n"
 		    "dhcp-leasefile=/tmp/dnsmasq.log\n");
