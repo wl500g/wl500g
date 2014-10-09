@@ -583,7 +583,7 @@ static int ppp_ioctl(struct inode *inode, struct file *file,
 			if (file == ppp->owner)
 				ppp_shutdown_interface(ppp);
 		}
-		if (atomic_read(&file->f_count) <= 2) {
+		if (atomic_read(&file->f_count) < 2) {
 			ppp_release(inode, file);
 			err = 0;
 		} else
