@@ -1,0 +1,71 @@
+From e90e6fddc57055c4c6b57f92787fea1c065d440b
+From: Alex Smith <alex.smith@imgtec.com>
+Date: Wed, 23 Jul 2014 14:40:11 +0100
+Subject: MIPS: O32/32-bit: Fix bug which can cause incorrect system call restarts
+
+http://patchwork.linux-mips.org/patch/6565/
+
+On 32-bit/O32, pt_regs has a padding area at the beginning into which the
+syscall arguments passed via the user stack are copied. 4 arguments
+totalling 16 bytes are copied to offset 16 bytes into this area, however
+the area is only 24 bytes long. This means the last 2 arguments overwrite
+pt_regs->regs[{0,1}].
+
+If a syscall function returns an error, handle_sys stores the original
+syscall number in pt_regs->regs[0] for syscall restart. signal.c checks
+whether regs[0] is non-zero, if it is it will check whether the syscall
+return value is one of the ERESTART* codes to see if it must be
+restarted.
+
+Should a syscall be made that results in a non-zero value being copied
+off the user stack into regs[0], and then returns a positive (non-error)
+value that matches one of the ERESTART* error codes, this can be mistaken
+for requiring a syscall restart.
+
+While the possibility for this to occur has always existed, it is made
+much more likely to occur by commit 46e12c07b3b9 ("MIPS: O32 / 32-bit:
+Always copy 4 stack arguments."), since now every syscall will copy 4
+arguments and overwrite regs[0], rather than just those with 7 or 8
+arguments.
+
+Since that commit, booting Debian under a 32-bit MIPS kernel almost
+always results in a hang early in boot, due to a wait4 syscall returning
+a PID that matches one of the ERESTART* codes, which then causes an
+incorrect restart of the syscall.
+
+The problem is fixed by increasing the size of the padding area so that
+arguments copied off the stack will not overwrite pt_regs->regs[{0,1}].
+Also removed a comment in handle_sys which is no longer relevant after
+the aforementioned commit.
+
+Signed-off-by: Alex Smith <alex.smith@imgtec.com>
+Reviewed-by: Markos Chandras <markos.chandras@imgtec.com>
+
+
+diff --git a/include/asm-mips/ptrace.h b/include/asm-mips/ptrace.h
+--- a/include/asm-mips/ptrace.h
++++ b/include/asm-mips/ptrace.h
+@@ -23,7 +23,7 @@
+ struct pt_regs {
+ #ifdef CONFIG_32BIT
+ 	/* Pad bytes for argument save space on the stack. */
+-	unsigned long pad0[6];
++	unsigned long pad0[8];
+ #endif
+ 
+ 	/* Saved main processor registers. */
+diff --git a/arch/mips/kernel/smtc-asm.S b/arch/mips/kernel/smtc-asm.S
+--- a/arch/mips/kernel/smtc-asm.S
++++ b/arch/mips/kernel/smtc-asm.S
+@@ -43,8 +43,8 @@ CAN WE PROVE THAT WE WON'T DO THIS IF INTS DISABLED??
+  * to invoke the scheduler and return as appropriate.
+  */
+ 
+-#define PT_PADSLOT4 (PT_R0-8)
+-#define PT_PADSLOT5 (PT_R0-4)
++#define PT_PADSLOT4 (PT_R0-16)
++#define PT_PADSLOT5 (PT_R0-12)
+ 
+ 	.text
+ 	.align 5
+-- 
