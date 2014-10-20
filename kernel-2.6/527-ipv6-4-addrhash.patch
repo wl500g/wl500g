@@ -12,12 +12,14 @@ ipv6: convert addrconf list to hlist
  b79d1d54cf0672f764402fe4711ef5306f917bd3 ipv6: Fix result generation in ipv6_get_ifaddr().
  3a88a81d89c20be312b3b219b185bbdde24b8fb8 ipv6: user better hash for addrconf
  96d796a38e9ec9a7c04a6cda3fc15d79efebb008 ipv6: hash is calculated but not used afterwards
+ 02ea80741a25435123e8a5ca40cac6a0bcf0c9f1 ipv6: remove aca_lock spinlock from struct ifacaddr6
 
 ---
  include/net/addrconf.h |   19 ---
- include/net/if_inet6.h |   11 +
+ include/net/if_inet6.h |   12 +-
  net/ipv6/addrconf.c    |  283 +++++++++++++++++++++++++------------------------
- 3 files changed, 154 insertions(+), 159 deletions(-)
+ net/ipv6/anycast.c     |    1 
+ 4 files changed, 154 insertions(+), 161 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
@@ -71,6 +73,14 @@ diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
  };
  
  struct ip6_sf_socklist
+@@ -141,7 +141,6 @@ struct ifacaddr6 {
+ 	struct ifacaddr6	*aca_next;
+ 	int			aca_users;
+ 	atomic_t		aca_refcnt;
+-	spinlock_t		aca_lock;
+ 	unsigned long		aca_cstamp;
+ 	unsigned long		aca_tstamp;
+ };
 @@ -166,11 +166,11 @@ struct inet6_dev
  	struct ifmcaddr6	*mc_list;
  	struct ifmcaddr6	*mc_tomb;
@@ -688,4 +698,15 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  
  	del_timer(&addr_chk_timer);
  
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -235,7 +235,6 @@ static struct ifacaddr6 *aca_alloc(struct rt6_info *rt,
+ 	/* aca_tstamp should be updated upon changes */
+ 	aca->aca_cstamp = aca->aca_tstamp = jiffies;
+ 	atomic_set(&aca->aca_refcnt, 2);
+-	spin_lock_init(&aca->aca_lock);
+ 
+ 	aca->aca_next = idev->ac_list;
+ 	idev->ac_list = aca;
 -- 
