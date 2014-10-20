@@ -1,7 +1,7 @@
 diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol2tp.c
 --- linux-2.6.22.orig/drivers/net/pppol2tp.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux-2.6/drivers/net/pppol2tp.c	2013-06-18 11:01:09.383960635 +0000
-@@ -0,0 +1,2716 @@
+@@ -0,0 +1,2717 @@
 +/*****************************************************************************
 + * Linux PPP over L2TP (PPPoX/PPPoL2TP) Sockets
 + *
@@ -1801,7 +1801,8 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +	/* If PMTU discovery was enabled, use the MTU that was discovered */
 +	dst = sk_dst_get(tunnel_sock);
 +	if (dst != NULL) {
-+		u32 pmtu = dst_mtu(__sk_dst_get(tunnel_sock));
++		u32 pmtu = dst_mtu(dst);
++
 +		if (pmtu != 0) {
 +			session->mtu = session->mru = pmtu -
 +				PPPOL2TP_HEADER_OVERHEAD;
