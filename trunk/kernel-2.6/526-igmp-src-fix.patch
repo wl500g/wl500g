@@ -1,11 +1,13 @@
  685f94e6db8496399c881218018166515445a914 ipv4 : igmp : fix error handle in ip_mc_add_src()
  e05c4ad3ed874ee4f5e2c969e55d318ec654332c mcast: Fix source address selection for multicast listener report
  78d50217baf36093ab320f95bae0d6452daec85c ipv6: fix array index in ip6_mc_add_src()
+ a1889c0d2039a53ae04abb9f20c62500bd312bf3 net: adjust array index
+ 52ad353a5344f1f700c5b777175bdfa41d3cd65a igmp: fix the problem when mc leave group
 
 ---
- net/ipv4/igmp.c  |    5 +++--
+ net/ipv4/igmp.c  |   17 ++++++++++-------
  net/ipv6/mcast.c |    4 ++--
- 2 files changed, 5 insertions(+), 4 deletions(-)
+ 2 files changed, 12 insertions(+), 9 deletions(-)
 
 diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
 --- a/net/ipv4/igmp.c
@@ -19,7 +21,7 @@ diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
  			    pmc->sfcount[MCAST_EXCLUDE] !=
  			    psf->sf_count[MCAST_EXCLUDE])
  				continue;
-@@ -1716,7 +1716,8 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
+@@ -1716,9 +1716,10 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
  	if (err) {
  		int j;
  
@@ -27,8 +29,39 @@ diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
 +		if (!delta)
 +			pmc->sfcount[sfmode]--;
  		for (j=0; j<i; j++)
- 			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[j]);
+-			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[i]);
++			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[j]);
  	} else if (isexclude != (pmc->sfcount[MCAST_EXCLUDE] != 0)) {
+ #ifdef CONFIG_IP_MULTICAST
+ 		struct ip_sf_list *psf;
+@@ -1844,6 +1844,10 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
+ 
+ 	rtnl_lock();
+ 	in_dev = ip_mc_find_dev(imr);
++	if (!in_dev) {
++		ret = -ENODEV;
++		goto out;
++	}
+ 	ifindex = imr->imr_ifindex;
+ 	for (imlp = &inet->mc_list; (iml = *imlp) != NULL; imlp = &iml->next) {
+ 		if (iml->multi.imr_multiaddr.s_addr != group)
+@@ -1861,14 +1865,12 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
+ 
+ 		*imlp = iml->next;
+ 
+-		if (in_dev)
+-			ip_mc_dec_group(in_dev, group);
++		ip_mc_dec_group(in_dev, group);
+ 		rtnl_unlock();
+ 		sock_kfree_s(sk, iml, sizeof(*iml));
+ 		return 0;
+ 	}
+-	if (!in_dev)
+-		ret = -ENODEV;
++out:
+ 	rtnl_unlock();
+ 	return ret;
+ }
 diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
 --- a/net/ipv6/mcast.c
 +++ b/net/ipv6/mcast.c
