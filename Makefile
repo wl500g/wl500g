@@ -27,7 +27,7 @@ IPROUTE2=iproute2-2.6
 IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.22.1
-DROPBEAR=dropbear-2014.65
+DROPBEAR=dropbear-2014.66
 DNSMASQ=dnsmasq-2.72
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.97
