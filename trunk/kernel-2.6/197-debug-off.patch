@@ -1,0 +1,76 @@
+Turn off some debug messages
+
+diff --git a/fs/sysfs/mount.c b/fs/sysfs/mount.c
+--- a/fs/sysfs/mount.c
++++ b/fs/sysfs/mount.c
+@@ -10,7 +10,7 @@
+  * Please see Documentation/filesystems/sysfs.txt for more information.
+  */
+ 
+-#define DEBUG 
++//#define DEBUG 
+ 
+ #include <linux/fs.h>
+ #include <linux/mount.h>
+diff --git a/include/asm-mips/highmem.h b/include/asm-mips/highmem.h
+--- a/include/asm-mips/highmem.h
++++ b/include/asm-mips/highmem.h
+@@ -25,7 +25,7 @@
+ #include <asm/kmap_types.h>
+ 
+ /* undef for production */
+-#define HIGHMEM_DEBUG 1
++//#define HIGHMEM_DEBUG 1
+ 
+ /* declarations for highmem.c */
+ extern unsigned long highstart_pfn, highend_pfn;
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -23,7 +23,7 @@
+ #include <net/inet_sock.h>
+ #include <net/request_sock.h>
+ 
+-#define INET_CSK_DEBUG 1
++//#define INET_CSK_DEBUG 1
+ 
+ /* Cancel timers, when they are not required. */
+ #undef INET_CSK_CLEAR_TIMERS
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -18,8 +18,8 @@
+ #ifndef _TCP_H
+ #define _TCP_H
+ 
+-#define TCP_DEBUG 1
+-#define FASTRETRANS_DEBUG 1
++#define TCP_DEBUG 0
++#define FASTRETRANS_DEBUG 0
+ 
+ #include <linux/list.h>
+ #include <linux/tcp.h>
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -34,7 +34,7 @@
+ #include <linux/random.h>
+ #include <linux/string.h>
+ 
+-#define NEIGH_DEBUG 1
++#define NEIGH_DEBUG 0
+ 
+ #define NEIGH_PRINTK(x...) printk(x)
+ #define NEIGH_NOPRINTK(x...) do { ; } while(0)
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -291,7 +291,7 @@ static void tcp_retransmit_timer(struct 
+ 		 * connection. If the socket is an orphan, time it out,
+ 		 * we cannot allow such beasts to hang infinitely.
+ 		 */
+-#ifdef TCP_DEBUG
++#if TCP_DEBUG
+ 		if (1) {
+ 			struct inet_sock *inet = inet_sk(sk);
+ 			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer %u.%u.%u.%u:%u/%u shrinks window %u:%u. Repaired.\n",
