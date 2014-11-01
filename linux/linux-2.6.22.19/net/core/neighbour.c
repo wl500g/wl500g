@@ -34,7 +34,7 @@
 #include <linux/random.h>
 #include <linux/string.h>
 
-#define NEIGH_DEBUG 1
+#define NEIGH_DEBUG 0
 
 #define NEIGH_PRINTK(x...) printk(x)
 #define NEIGH_NOPRINTK(x...) do { ; } while(0)

@@ -291,7 +291,7 @@ static void tcp_retransmit_timer(struct sock *sk)
 		 * connection. If the socket is an orphan, time it out,
 		 * we cannot allow such beasts to hang infinitely.
 		 */
-#ifdef TCP_DEBUG
+#if TCP_DEBUG
 		if (1) {
 			struct inet_sock *inet = inet_sk(sk);
 			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer %u.%u.%u.%u:%u/%u shrinks window %u:%u. Repaired.\n",
