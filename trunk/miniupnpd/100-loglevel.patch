@@ -3,25 +3,21 @@ Reduce logging spam patches from Tomato-RT
 diff -urBp a/natpmp.c b/natpmp.c
 --- a/natpmp.c	2010-05-11 20:20:02.000000000 +0400
 +++ b/natpmp.c	2011-05-19 21:05:53.000000000 +0400
-@@ -242,7 +242,7 @@ void ProcessIncomingNATPMPPacket(int s,
- 								syslog(LOG_ERR, "failed to remove port mapping");
- 								index++;
+@@ -259,12 +259,12 @@ void ProcessIncomingNATPMPPacket(int s)
+ 						if((iport == 0) || ((iport == iport2) && (proto == proto2))) {
+ 							r = _upnp_delete_redir(eport2, proto2);
+ 							if(r < 0) {
+-								syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s",
++								syslog(LOG_DEBUG, "Failed to remove NAT-PMP mapping eport %hu, protocol %s",
+ 								       eport2, (proto2==IPPROTO_TCP)?"TCP":"UDP");
+ 								resp[3] = 2;	/* Not Authorized/Refused */
+ 								break;
  							} else {
 -								syslog(LOG_INFO, "NAT-PMP %s port %hu mapping removed",
 +								syslog(LOG_DEBUG, "NAT-PMP %s port %hu mapping removed",
  								       proto2==IPPROTO_TCP?"TCP":"UDP", eport2);
+ 								index--;
  							}
- 						} else {
-@@ -259,8 +259,7 @@ void ProcessIncomingNATPMPPacket(int s)
- 					r = _upnp_delete_redir(eport, proto);
- 					/*syslog(LOG_DEBUG, "%hu %d r=%d", eport, proto, r);*/
- 					if(r<0) {
--						syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s",
--						       eport, (proto==IPPROTO_TCP)?"TCP":"UDP");
-+						//syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s", eport, (proto==IPPROTO_TCP)?"TCP":"UDP");
- 						resp[3] = 2;	/* Not Authorized/Refused */
- 					}
- 				}
 diff -urBp a/upnphttp.c b/upnphttp.c
 --- a/upnphttp.c	2009-02-13 22:38:34.000000000 +0300
 +++ b/upnphttp.c	2011-05-19 21:05:47.000000000 +0400
