@@ -783,7 +783,7 @@ ProcessHttpQuery_upnphttp(struct upnphttp * h)
 			return;
 		}
 #endif
-		syslog(LOG_NOTICE, "%s not found, responding ERROR 404", HttpUrl);
+		syslog(LOG_INFO, "%s not found, responding ERROR 404", HttpUrl);
 		Send404(h);
 	}
 #ifdef ENABLE_EVENTS
