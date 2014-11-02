@@ -16,8 +16,6 @@ include $(TOPDIR)/include/verbose.mk
 
 TMP_DIR:=$(TOPDIR)/tmp
 
-export SHELL=/usr/bin/env bash -c '. $(TOPDIR)/include/shell.sh; eval "$$2"' --
-
 define qstrip
 $(strip $(subst ",,$(1)))
 endef
@@ -35,6 +33,7 @@ BOARD:=$(call qstrip,$(CONFIG_TARGET_BOARD))
 TARGET_OPTIMIZATION:=$(call qstrip,$(CONFIG_TARGET_OPTIMIZATION))
 GCCV:=$(call qstrip,$(CONFIG_GCC_VERSION))
 SUBDIR:=$(patsubst $(TOPDIR)/%,%,${CURDIR})
+export SHELL:=/usr/bin/env bash
 ifneq ($(CONFIG_LINUX_2_4),y)
   TGT_SUFFIX:=-K26
 endif
@@ -82,6 +81,7 @@ endif
 export PATH:=$(TARGET_PATH)
 export STAGING_DIR
 export GCC_HONOUR_COPTS:=0
+export SH_FUNC:=. $(INCLUDE_DIR)/shell.sh;
 
 PKG_CONFIG:=$(STAGING_DIR_HOST)/bin/pkg-config
 
