@@ -2426,7 +2426,7 @@ void hotplug_network_device(const char *interface, const char *action, const cha
 		    if (action_add) {
 			dev_vidpid = nvram_get(strcat_r(prefix, "usb_device", tmp));
 			if (!dev_vidpid || !*dev_vidpid ||
-			    !(dev_vidpid && strncmp(dev_vidpid, "zerocd", 6 == 0)))
+			    !(dev_vidpid && strncmp(dev_vidpid, "zerocd", 6) == 0))
 			{
 				dprintf("set: %s - %d - %s\n", prefix, wan_proto, str_devusb);
 				switch (wan_proto) {
