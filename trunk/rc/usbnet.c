@@ -16,7 +16,6 @@
 #include "rc.h"
 
 #define QMI_CID_FN_TEMPLATE "/tmp/qmi/%scid"
-#define QMI_PDH_FN_TEMPLATE "/tmp/qmi/%spdh"
 #define QMI_SEARCHING_TIMEOUT 30
 
 int wait_for_dev_appearance(int vid, int pid, const char *device, const char *device_list[]);
@@ -303,12 +302,15 @@ void usbnet_get_wdm_by_ifusb(const char *if_usb, char *wdm_name, size_t wdm_size
 	dprintf("done\n");
 }
 
+// See qmi usage in:
+// https://dev.openwrt.org/browser/trunk/package/network/utils/uqmi/files/lib/netifd/proto/qmi.sh
+
 void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 {
 	char tmp[100], s_wdm[20], s_cid[20], s_APN[100],
 		*ptr,
-		s_to_cid_fn[100], s_to_pdh_fn[100],
-		*s_cid_fn, *s_pdh_fn;
+		s_to_cid_fn[100],
+		*s_cid_fn;
 
 	int i, fl;
 
@@ -330,12 +332,18 @@ void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 		"--get-client-id", "wds",
 		NULL
 	};
-	char *argv_uqmi_pdh[] = {
+	char *argv_uqmi_connect[] = {
 		"uqmi",
 		"-d", s_wdm,
 		"--set-client-id", s_cid,
 		"--start-network", s_APN,
-//		"--autoconnect",
+		"--autoconnect",
+		NULL
+	};
+	char *argv_uqmi_802_3[] = {
+		"uqmi",
+		"-d", s_wdm,
+		"--set-data-format", "802.3",
 		NULL
 	};
 	char *argv_uqmi_reset[] = {
@@ -344,6 +352,7 @@ void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 		"--set-device-operating-mode", "reset",
 		NULL
 	};
+
 
 	ptr = nvram_get( strcat_r(prefix, "usb_ifname", tmp));
 
@@ -361,12 +370,7 @@ void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 		">" QMI_CID_FN_TEMPLATE,
 		prefix);
 
-	s_pdh_fn = s_to_pdh_fn + 1;
-	snprintf(s_to_pdh_fn, sizeof(s_to_pdh_fn)-1,
-		">" QMI_PDH_FN_TEMPLATE,
-		prefix);
-
-	if (exists(s_cid_fn) || exists(s_pdh_fn)) {
+	if (exists(s_cid_fn)) {
 		dprintf("trying to reconnect without disconnection");
 		return;
 	}
@@ -375,6 +379,8 @@ void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 
 	// Send 'reset' command. It works only if device status is offline.
 	_eval(argv_uqmi_reset, 0, 0, NULL);
+
+	_eval(argv_uqmi_802_3, 0, 0, NULL);
 
 	logmessage("usbnet/qmi:", "Waiting for network registration");
 	i = 0;
@@ -410,13 +416,7 @@ void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 		free(ptr);
 		if ((ptr = strchr(s_cid, '\n'))) *ptr = 0;
 
-		_eval(argv_uqmi_pdh, s_to_pdh_fn, 0, NULL);
-		if ((ptr = file2str(s_pdh_fn))) {
-			if (!strstr(ptr, "handle=")) {
-				logmessage("usbnet/qmi", "start-network result: %s", ptr);
-			}
-			free(ptr);
-		}
+		_eval(argv_uqmi_connect, 0, 0, NULL);
 	}
 
 	dprintf("done\n");
@@ -425,35 +425,37 @@ void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 void usbnet_qmi_disconnect(const char *prefix, int unit, const char *ifname)
 {
 
-	char tmp[100], s_wdm[20], s_cid[20], s_pdh[100],
+	char tmp[100], s_wdm[20], s_cid[20],
 		*ptr,
-		s_cid_fn[100], s_pdh_fn[100];
+		s_cid_fn[100];
 
-	int i;
-
-	// uqmi -d "$device" --set-client-id wds,"$cid" --stop-network "$pdh"
-	// uqmi -s -d "$device" --set-client-id wds,"$cid" --release-client-id wds
+	// uqmi -d "$device" --set-client-id wds,"$cid" --stop-network 0xffffffff --autoconnect
 	char *argv_uqmi_stop[] = {
 		"uqmi",
 		"-d", s_wdm,
-		"--set-client-id ", s_cid,
-		"--stop-network", s_pdh,
-//		"--autoconnect",
+		"--set-client-id", s_cid,
+		"--stop-network", "0xffffffff",
+		"--autoconnect",
 		NULL
 	};
-	char *argv_uqmi_release_pdh[] = {
+
+	// uqmi -s -d "$device" --set-client-id wds,"$cid" --release-client-id wds
+	char *argv_uqmi_release[] = {
 		"uqmi",
 		"-d", s_wdm,
 		"--set-client-id", s_cid,
 		"--release-client-id", "wds",
 		NULL
 	};
-	char *argv_uqmi_offline[] = {
-		"uqmi",
-		"-d", s_wdm,
-		"--set-device-operating-mode", "offline",
-		NULL
-	};
+
+	// Hard offline:
+	// uqmi -d "$device" --set-device-operating-mode offline
+	//char *argv_uqmi_offline[] = {
+	//	"uqmi",
+	//	"-d", s_wdm,
+	//	"--set-device-operating-mode", "offline",
+	//	NULL
+	//};
 
 	ptr = nvram_get( strcat_r(prefix, "usb_ifname", tmp));
 
@@ -462,39 +464,21 @@ void usbnet_qmi_disconnect(const char *prefix, int unit, const char *ifname)
 	usbnet_get_wdm_by_ifusb(ptr, s_wdm, sizeof(s_wdm));
 
 	snprintf(s_cid_fn, sizeof(s_cid_fn), QMI_CID_FN_TEMPLATE, prefix);
-	snprintf(s_pdh_fn, sizeof(s_pdh_fn), QMI_PDH_FN_TEMPLATE, prefix);
 
 	if ((ptr = file2str(s_cid_fn))) {
-		snprintf(s_cid, sizeof(s_cid), "%s", ptr);
+		snprintf(s_cid, sizeof(s_cid), "wds,%s", ptr);
 		free(ptr);
 		if ((ptr = strchr(s_cid, '\n'))) *ptr = 0;
 
-		if ((ptr = file2str(s_pdh_fn))) {
-			snprintf(s_pdh, sizeof(s_pdh), "%s", ptr);
-			free(ptr);
-			strcpy(tmp, "handle=");
-			if ((ptr = strstr(s_pdh, tmp))) {
-				ptr += strlen(tmp);
-				for (i = 0; *ptr && (*ptr != '\n'); i++, ptr++) {
-					s_pdh[i] = *ptr;
-				}
-				s_pdh[i] = 0;
+		dprintf("disconnect qmi with cid %s", s_cid);
 
-				_eval(argv_uqmi_stop, 0, 0, NULL);
-				_eval(argv_uqmi_release_pdh, 0, 0, NULL);
-			} else {
-				dprintf("qmi: invalid handle '%s'", s_pdh);
-				_eval(argv_uqmi_offline, 0, 0, NULL);
-				logmessage("usbnet/qmi",
-					"device: %s switched to offline", s_wdm);
-			}
-		}
+		_eval(argv_uqmi_stop, 0, 0, NULL);
+		_eval(argv_uqmi_release, 0, 0, NULL);
 	} else {
 		dprintf("qmi: trying to disconnect without opened handle");
 	}
 
 	unlink(s_cid_fn);
-	unlink(s_pdh_fn);
 
 	dprintf("done\n");
 }
