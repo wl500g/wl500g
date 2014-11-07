@@ -21,6 +21,7 @@
 
 	.macro	EX insn, reg, src
 	.set	push
+	SET_HARDFLOAT
 	.set	nomacro
 .ex\@:	\insn	\reg, \src
 	.set	pop
@@ -33,7 +34,10 @@
 	.set	mips3
 
 LEAF(_save_fp_context)
+	.set push
+	SET_HARDFLOAT
 	cfc1	t1, fcr31
+	.set	pop
 
 #ifdef CONFIG_64BIT
 	/* Store the 16 odd double precision registers */
@@ -80,6 +84,8 @@ LEAF(_save_fp_context)
 #ifdef CONFIG_MIPS32_COMPAT
 	/* Save 32-bit process floating point context */
 LEAF(_save_fp_context32)
+	.set push
+	SET_HARDFLOAT
 	cfc1	t1, fcr31
 
 	EX	sdc1 $f0, SC32_FPREGS+0(a0)
@@ -101,6 +107,7 @@ LEAF(_save_fp_context32)
 	EX	sw t1, SC32_FPC_CSR(a0)
 	cfc1	t0, $0				# implementation/version
 	EX	sw t0, SC32_FPC_EIR(a0)
+	.set pop
 
 	jr	ra
 	 li	v0, 0					# success
@@ -132,6 +139,8 @@ LEAF(_restore_fp_context)
 	EX	ldc1 $f29, SC_FPREGS+232(a0)
 	EX	ldc1 $f31, SC_FPREGS+248(a0)
 #endif
+	.set push
+	SET_HARDFLOAT
 	EX	ldc1 $f0, SC_FPREGS+0(a0)
 	EX	ldc1 $f2, SC_FPREGS+16(a0)
 	EX	ldc1 $f4, SC_FPREGS+32(a0)
@@ -149,12 +158,15 @@ LEAF(_restore_fp_context)
 	EX	ldc1 $f28, SC_FPREGS+224(a0)
 	EX	ldc1 $f30, SC_FPREGS+240(a0)
 	ctc1	t0, fcr31
+	.set pop
 	jr	ra
 	 li	v0, 0					# success
 	END(_restore_fp_context)
 
 #ifdef CONFIG_MIPS32_COMPAT
 LEAF(_restore_fp_context32)
+	.set push
+	SET_HARDFLOAT
 	/* Restore an o32 sigcontext.  */
 	EX	lw t0, SC32_FPC_CSR(a0)
 	EX	ldc1 $f0, SC32_FPREGS+0(a0)
@@ -174,6 +186,7 @@ LEAF(_restore_fp_context32)
 	EX	ldc1 $f28, SC32_FPREGS+224(a0)
 	EX	ldc1 $f30, SC32_FPREGS+240(a0)
 	ctc1	t0, fcr31
+	.set pop
 	jr	ra
 	 li	v0, 0					# success
 	END(_restore_fp_context32)
