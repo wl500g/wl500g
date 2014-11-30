@@ -72,6 +72,74 @@ cmd_dms_verify_pin2_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct
 	return QMI_CMD_REQUEST;
 }
 
+static struct qmi_dms_uim_unblock_pin_request dms_unlock_pin_req = {
+	QMI_INIT_SEQUENCE(info,
+			.pin_id = QMI_DMS_UIM_PIN_ID_PIN
+		)
+	};
+
+#define cmd_dms_set_new_pin_cb no_cb
+static enum qmi_cmd_result
+cmd_dms_set_new_pin_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	qmi_set_ptr(&dms_unlock_pin_req, info.new_pin, arg);
+	return QMI_CMD_DONE;
+}
+
+#define cmd_dms_set_puk_cb no_cb
+static enum qmi_cmd_result
+cmd_dms_set_puk_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	qmi_set_ptr(&dms_unlock_pin_req, info.puk, arg);
+	return QMI_CMD_DONE;
+}
+
+#define cmd_dms_unblock_pin1_cb no_cb
+static enum qmi_cmd_result
+cmd_dms_unblock_pin1_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	qmi_set_ptr(&dms_unlock_pin_req, info.pin_id, QMI_DMS_UIM_PIN_ID_PIN);
+
+	if (!dms_unlock_pin_req.data.info.puk || !dms_unlock_pin_req.data.info.new_pin) {
+		blobmsg_add_string(&status, "error", "Missing argument");
+		return QMI_CMD_EXIT;
+	}
+
+	qmi_set_dms_uim_unblock_pin_request(msg, &dms_unlock_pin_req);
+	return QMI_CMD_REQUEST;
+}
+
+#define cmd_dms_unblock_pin2_cb no_cb
+static enum qmi_cmd_result
+cmd_dms_unblock_pin2_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	qmi_set_ptr(&dms_unlock_pin_req, info.pin_id, QMI_DMS_UIM_PIN_ID_PIN2);
+
+	if (!dms_unlock_pin_req.data.info.puk || !dms_unlock_pin_req.data.info.new_pin) {
+		blobmsg_add_string(&status, "error", "Missing argument");
+		return QMI_CMD_EXIT;
+	}
+
+	qmi_set_dms_uim_unblock_pin_request(msg, &dms_unlock_pin_req);
+	return QMI_CMD_REQUEST;
+}
+
+static void cmd_dms_get_iccid_cb(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg)
+{
+	struct qmi_dms_uim_get_iccid_response res;
+
+	qmi_parse_dms_uim_get_iccid_response(msg, &res);
+	if (res.data.iccid)
+		blobmsg_add_string(&status, NULL, res.data.iccid);
+}
+
+static enum qmi_cmd_result
+cmd_dms_get_iccid_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	qmi_set_dms_uim_get_iccid_request(msg);
+	return QMI_CMD_REQUEST;
+}
+
 static void cmd_dms_get_imsi_cb(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg)
 {
 	struct qmi_dms_uim_get_imsi_response res;
@@ -85,6 +153,22 @@ static enum qmi_cmd_result
 cmd_dms_get_imsi_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
 {
 	qmi_set_dms_uim_get_imsi_request(msg);
+	return QMI_CMD_REQUEST;
+}
+
+static void cmd_dms_get_msisdn_cb(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg)
+{
+	struct qmi_dms_get_msisdn_response res;
+
+	qmi_parse_dms_get_msisdn_response(msg, &res);
+	if (res.data.msisdn)
+		blobmsg_add_string(&status, NULL, res.data.msisdn);
+}
+
+static enum qmi_cmd_result
+cmd_dms_get_msisdn_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	qmi_set_dms_get_msisdn_request(msg);
 	return QMI_CMD_REQUEST;
 }
 

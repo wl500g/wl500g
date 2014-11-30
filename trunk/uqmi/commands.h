@@ -6,6 +6,7 @@
 #include "commands-dms.h"
 #include "commands-nas.h"
 #include "commands-wms.h"
+#include "commands-wda.h"
 
 enum qmi_cmd_result {
 	QMI_CMD_DONE,
@@ -38,7 +39,8 @@ struct uqmi_cmd {
 	__uqmi_wds_commands, \
 	__uqmi_dms_commands, \
 	__uqmi_nas_commands, \
-	__uqmi_wms_commands
+	__uqmi_wms_commands, \
+	__uqmi_wda_commands
 
 #define __uqmi_command(_name, _optname, _arg, _option) __UQMI_COMMAND_##_name
 enum uqmi_command {

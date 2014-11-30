@@ -179,7 +179,7 @@ static void decode_udh(const unsigned char *data)
 		switch (type) {
 		case 0:
 			blobmsg_add_u32(&status, "concat_ref", (uint32_t) val[0]);
-			blobmsg_add_u32(&status, "concat_part", (uint32_t) val[2] + 1);
+			blobmsg_add_u32(&status, "concat_part", (uint32_t) val[2]);
 			blobmsg_add_u32(&status, "concat_parts", (uint32_t) val[1]);
 			break;
 		default:
