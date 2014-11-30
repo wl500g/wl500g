@@ -58,7 +58,6 @@ static struct list_head processes = LIST_HEAD_INIT(processes);
 
 static int poll_fd = -1;
 bool uloop_cancelled = false;
-bool uloop_handle_sigchld = true;
 static bool do_sigchld = false;
 
 static struct uloop_fd_event cur_fds[ULOOP_MAX_EVENTS];
@@ -559,31 +558,37 @@ static void uloop_sigchld(int signo)
 	do_sigchld = true;
 }
 
-static void uloop_setup_signals(bool add)
+static void uloop_install_handler(int signum, void (*handler)(int), struct sigaction* old, bool add)
 {
-	static struct sigaction old_sigint, old_sigchld;
 	struct sigaction s;
+	struct sigaction *act;
 
-	memset(&s, 0, sizeof(struct sigaction));
+	act = NULL;
+	sigaction(signum, NULL, &s);
 
 	if (add) {
-		s.sa_handler = uloop_handle_sigint;
-		s.sa_flags = 0;
-	} else {
-		s = old_sigint;
+		if (s.sa_handler == SIG_DFL) { /* Do not override existing custom signal handlers */
+			memcpy(old, &s, sizeof(struct sigaction));
+			s.sa_handler = handler;
+			s.sa_flags = 0;
+			act = &s;
+		}
+	}
+	else if (s.sa_handler == handler) { /* Do not restore if someone modified our handler */
+			act = old;
 	}
 
-	sigaction(SIGINT, &s, &old_sigint);
+	if (act != NULL)
+		sigaction(signum, act, NULL);
+}
 
-	if (!uloop_handle_sigchld)
-		return;
+static void uloop_setup_signals(bool add)
+{
+	static struct sigaction old_sigint, old_sigchld, old_sigterm;
 
-	if (add)
-		s.sa_handler = uloop_sigchld;
-	else
-		s = old_sigchld;
-
-	sigaction(SIGCHLD, &s, &old_sigchld);
+	uloop_install_handler(SIGINT, uloop_handle_sigint, &old_sigint, add);
+	uloop_install_handler(SIGTERM, uloop_handle_sigint, &old_sigterm, add);
+	uloop_install_handler(SIGCHLD, uloop_sigchld, &old_sigchld, add);
 }
 
 static int uloop_get_next_timeout(struct timeval *tv)

@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "usock.h"
 
@@ -99,6 +100,18 @@ static int usock_inet(int type, const char *host, const char *service, int sockt
 
 	freeaddrinfo(result);
 	return sock;
+}
+
+const char *usock_port(int port)
+{
+	static char buffer[sizeof("65535\0")];
+
+	if (port < 0 || port > 65535)
+		return NULL;
+
+	snprintf(buffer, sizeof(buffer), "%u", port);
+
+	return buffer;
 }
 
 int usock(int type, const char *host, const char *service) {

@@ -22,6 +22,8 @@ ENDIF()
 SET(SOURCES avl.c avl-cmp.c blob.c blobmsg.c uloop.c usock.c ustream.c ustream-fd.c vlist.c utils.c safe_list.c runqueue.c md5.c kvlist.c)
 
 ADD_LIBRARY(ubox SHARED ${SOURCES})
+ADD_LIBRARY(ubox-static STATIC ${SOURCES})
+SET_TARGET_PROPERTIES(ubox-static PROPERTIES OUTPUT_NAME ubox)
 
 SET(LIBS)
 CHECK_FUNCTION_EXISTS(clock_gettime HAVE_GETTIME)
@@ -36,7 +38,8 @@ FILE(GLOB headers *.h)
 INSTALL(FILES ${headers}
 	DESTINATION include/libubox
 )
-INSTALL(TARGETS ubox
+INSTALL(TARGETS ubox ubox-static
+	ARCHIVE DESTINATION lib
 	LIBRARY DESTINATION lib
 )
 
@@ -48,7 +51,7 @@ IF(EXISTS ${json})
 	TARGET_LINK_LIBRARIES(blobmsg_json ubox ${json})
 
 	ADD_EXECUTABLE(jshn jshn.c)
-	TARGET_LINK_LIBRARIES(jshn ${json})
+	TARGET_LINK_LIBRARIES(jshn blobmsg_json ${json})
 
 	ADD_LIBRARY(json_script SHARED json_script.c)
 	TARGET_LINK_LIBRARIES(json_script ubox)

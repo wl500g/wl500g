@@ -11,12 +11,12 @@ static const char *indent_str = "\t\t\t\t\t\t\t\t\t\t\t\t\t";
 	fprintf(stderr, __VA_ARGS__); \
 } while(0)
 
-static void dump_attr_data(void *data, int len, int type, int indent, int next_indent);
+static void dump_attr_data(struct blob_attr *data, int indent, int next_indent);
 
 static void
 dump_table(struct blob_attr *head, int len, int indent, bool array)
 {
-	struct blob_attr *attr, *last_attr;
+	struct blob_attr *attr;
 	struct blobmsg_hdr *hdr;
 
 	indent_printf(indent, "{\n");
@@ -24,35 +24,36 @@ dump_table(struct blob_attr *head, int len, int indent, bool array)
 		hdr = blob_data(attr);
 		if (!array)
 			indent_printf(indent + 1, "%s : ", hdr->name);
-		dump_attr_data(blobmsg_data(attr), blobmsg_data_len(attr), blob_id(attr), 0, indent + 1);
-		last_attr = attr;
+		dump_attr_data(attr, 0, indent + 1);
 	}
 	indent_printf(indent, "}\n");
 }
 
-static void dump_attr_data(void *data, int len, int type, int indent, int next_indent)
+static void dump_attr_data(struct blob_attr *data, int indent, int next_indent)
 {
+	int type = blobmsg_type(data);
 	switch(type) {
 	case BLOBMSG_TYPE_STRING:
-		indent_printf(indent, "%s\n", (char *) data);
+		indent_printf(indent, "%s\n", blobmsg_get_string(data));
 		break;
 	case BLOBMSG_TYPE_INT8:
-		indent_printf(indent, "%d\n", *(uint8_t *)data);
+		indent_printf(indent, "%d\n", blobmsg_get_u8(data));
 		break;
 	case BLOBMSG_TYPE_INT16:
-		indent_printf(indent, "%d\n", *(uint16_t *)data);
+		indent_printf(indent, "%d\n", blobmsg_get_u16(data));
 		break;
 	case BLOBMSG_TYPE_INT32:
-		indent_printf(indent, "%d\n", *(uint32_t *)data);
+		indent_printf(indent, "%d\n", blobmsg_get_u32(data));
 		break;
 	case BLOBMSG_TYPE_INT64:
-		indent_printf(indent, "%lld\n", *(uint64_t *)data);
+		indent_printf(indent, "%"PRIu64"\n", blobmsg_get_u64(data));
 		break;
 	case BLOBMSG_TYPE_TABLE:
 	case BLOBMSG_TYPE_ARRAY:
 		if (!indent)
 			indent_printf(indent, "\n");
-		dump_table(data, len, next_indent, type == BLOBMSG_TYPE_ARRAY);
+		dump_table(blobmsg_data(data), blobmsg_data_len(data),
+			   next_indent, type == BLOBMSG_TYPE_ARRAY);
 		break;
 	}
 }
@@ -129,7 +130,7 @@ int main(int argc, char **argv)
 	blobmsg_buf_init(&buf);
 	fill_message(&buf);
 	dump_message(&buf);
-	fprintf(stderr, "json: %s\n", blobmsg_format_json(buf.head, false));
+	fprintf(stderr, "json: %s\n", blobmsg_format_json(buf.head, true));
 
 	if (buf.buf)
 		free(buf.buf);
