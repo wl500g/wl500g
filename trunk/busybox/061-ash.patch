@@ -1,6 +1,7 @@
  841f8331d79c642b4268dae52c382fab2da9cddc ash: run reinit_unicode() only if makes sense
  e9ab07c211b283c0f798628858eaaef93a4893aa ash: make ${#var} unicode-aware
  07f7ea70edd0fdc7ad7da36df3f487111e14d0d1 ash: fix off-by-one in "jobs %4" handling. closes 7310
+ 08a5dab181fa4c28b7636c35021308e1e12e7b59 ash: fix handling of negative start value in ${v:start:len}
 
 diff --git a/shell/ash.c b/shell/ash.c
 --- a/shell/ash.c
@@ -37,6 +38,23 @@ diff --git a/shell/ash.c b/shell/ash.c
  			jp = jobtab + num - 1;
  			if (jp->used)
  				goto gotit;
+@@ -6411,7 +6411,15 @@ subevalvar(char *p, char *varname, int strloc, int subtype,
+ 				len = number(loc);
+ 			}
+ 		}
+-		if (pos >= orig_len) {
++		if (pos < 0) {
++			/* ${VAR:$((-n)):l} starts n chars from the end */
++			pos = orig_len + pos;
++		}
++		if ((unsigned)pos >= orig_len) {
++			/* apart from obvious ${VAR:999999:l},
++			 * covers ${VAR:$((-9999999)):l} - result is ""
++			 * (bash-compat)
++			 */
+ 			pos = 0;
+ 			len = 0;
+ 		}
 @@ -6798,7 +6814,15 @@ evalvar(char *p, int flags, struct strlist *var_str_list)
  		varunset(p, var, 0, 0);
  
