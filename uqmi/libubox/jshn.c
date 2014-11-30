@@ -27,7 +27,12 @@
 #include <getopt.h>
 #include "list.h"
 
+#include "blob.h"
+#include "blobmsg_json.h"
+
 #define MAX_VARLEN	256
+
+static struct blob_buf b = { 0 };
 
 static const char *var_prefix = "";
 static int var_prefix_len = 0;
@@ -159,7 +164,7 @@ static int jshn_parse(const char *str)
 	json_object *obj;
 
 	obj = json_tokener_parse(str);
-	if (is_error(obj) || json_object_get_type(obj) != json_type_object) {
+	if (!obj || json_object_get_type(obj) != json_type_object) {
 		fprintf(stderr, "Failed to parse message data\n");
 		return 1;
 	}
@@ -174,8 +179,8 @@ static char *get_keys(const char *prefix)
 {
 	char *keys;
 
-	keys = alloca(var_prefix_len + strlen(prefix) + sizeof("KEYS_") + 1);
-	sprintf(keys, "%sKEYS_%s", var_prefix, prefix);
+	keys = alloca(var_prefix_len + strlen(prefix) + sizeof("K_") + 1);
+	sprintf(keys, "%sK_%s", var_prefix, prefix);
 	return getenv(keys);
 }
 
@@ -183,15 +188,15 @@ static void get_var(const char *prefix, const char **name, char **var, char **ty
 {
 	char *tmpname, *varname;
 
-	tmpname = alloca(var_prefix_len + strlen(prefix) + 1 + strlen(*name) + 1 + sizeof("TYPE_"));
+	tmpname = alloca(var_prefix_len + strlen(prefix) + 1 + strlen(*name) + 1 + sizeof("T_"));
 
 	sprintf(tmpname, "%s%s_%s", var_prefix, prefix, *name);
 	*var = getenv(tmpname);
 
-	sprintf(tmpname, "%sTYPE_%s_%s", var_prefix, prefix, *name);
+	sprintf(tmpname, "%sT_%s_%s", var_prefix, prefix, *name);
 	*type = getenv(tmpname);
 
-	sprintf(tmpname, "%sNAME_%s_%s", var_prefix, prefix, *name);
+	sprintf(tmpname, "%sN_%s_%s", var_prefix, prefix, *name);
 	varname = getenv(tmpname);
 	if (varname)
 		*name = varname;
@@ -249,30 +254,37 @@ out:
 	return obj;
 }
 
-static int jshn_format(bool no_newline)
+static int jshn_format(bool no_newline, bool indent)
 {
 	json_object *obj;
+	const char *output;
 
 	obj = json_object_new_object();
-	jshn_add_objects(obj, "JSON_VAR", false);
-	fprintf(stdout, "%s%s", json_object_to_json_string(obj),
-		no_newline ? "" : "\n");
+	jshn_add_objects(obj, "J_V", false);
+	output = json_object_to_json_string(obj);
+	if (indent) {
+		blob_buf_init(&b, 0);
+		blobmsg_add_json_from_string(&b, output);
+		output = blobmsg_format_json_indent(b.head, 1, 0);
+	}
+	fprintf(stdout, "%s%s", output, no_newline ? "" : "\n");
 	json_object_put(obj);
 	return 0;
 }
 
 static int usage(const char *progname)
 {
-	fprintf(stderr, "Usage: %s [-n] -r <message>|-w\n", progname);
+	fprintf(stderr, "Usage: %s [-n] [-i] -r <message>|-w\n", progname);
 	return 2;
 }
 
 int main(int argc, char **argv)
 {
 	bool no_newline = false;
+	bool indent = false;
 	int ch;
 
-	while ((ch = getopt(argc, argv, "p:nr:w")) != -1) {
+	while ((ch = getopt(argc, argv, "p:nir:w")) != -1) {
 		switch(ch) {
 		case 'p':
 			var_prefix = optarg;
@@ -281,9 +293,12 @@ int main(int argc, char **argv)
 		case 'r':
 			return jshn_parse(optarg);
 		case 'w':
-			return jshn_format(no_newline);
+			return jshn_format(no_newline, indent);
 		case 'n':
 			no_newline = true;
+			break;
+		case 'i':
+			indent = true;
 			break;
 		default:
 			return usage(argv[0]);

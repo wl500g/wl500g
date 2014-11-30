@@ -11,8 +11,10 @@ ENDIF()
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/..)
 LINK_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/..)
 
+FIND_LIBRARY(json NAMES json-c json)
+
 ADD_EXECUTABLE(blobmsg-example blobmsg-example.c)
-TARGET_LINK_LIBRARIES(blobmsg-example ubox blobmsg_json json)
+TARGET_LINK_LIBRARIES(blobmsg-example ubox blobmsg_json  ${json})
 
 ADD_EXECUTABLE(ustream-example ustream-example.c)
 TARGET_LINK_LIBRARIES(ustream-example ubox)

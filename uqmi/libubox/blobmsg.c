@@ -62,11 +62,12 @@ bool blobmsg_check_attr(const struct blob_attr *attr, bool name)
 	return blob_check_type(data, len, blob_type[id]);
 }
 
-bool blobmsg_check_attr_list(const struct blob_attr *attr, int type)
+int blobmsg_check_array(const struct blob_attr *attr, int type)
 {
 	struct blob_attr *cur;
 	bool name;
 	int rem;
+	int size = 0;
 
 	switch (blobmsg_type(attr)) {
 	case BLOBMSG_TYPE_TABLE:
@@ -76,18 +77,25 @@ bool blobmsg_check_attr_list(const struct blob_attr *attr, int type)
 		name = false;
 		break;
 	default:
-		return false;
+		return -1;
 	}
 
 	blobmsg_for_each_attr(cur, attr, rem) {
-		if (blobmsg_type(cur) != type)
-			return false;
+		if (type != BLOBMSG_TYPE_UNSPEC && blobmsg_type(cur) != type)
+			return -1;
 
 		if (!blobmsg_check_attr(cur, name))
-			return false;
+			return -1;
+
+		size++;
 	}
 
-	return true;
+	return size;
+}
+
+bool blobmsg_check_attr_list(const struct blob_attr *attr, int type)
+{
+	return blobmsg_check_array(attr, type) >= 0;
 }
 
 int blobmsg_parse_array(const struct blobmsg_policy *policy, int policy_len,
@@ -212,6 +220,8 @@ blobmsg_open_nested(struct blob_buf *buf, const char *name, bool array)
 		name = "";
 
 	head = blobmsg_new(buf, type, name, 0, &data);
+	if (!head)
+		return NULL;
 	blob_set_raw_len(buf->head, blob_pad_len(buf->head) - blobmsg_hdrlen(strlen(name)));
 	buf->head = head;
 	return (void *)offset;
