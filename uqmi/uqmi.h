@@ -34,7 +34,8 @@ static inline void dump_packet(const char *prefix, void *ptr, int len)
     __qmi_service(QMI_SERVICE_RMTFS), \
     __qmi_service(QMI_SERVICE_CAT), \
     __qmi_service(QMI_SERVICE_RMS), \
-    __qmi_service(QMI_SERVICE_OMA)
+    __qmi_service(QMI_SERVICE_OMA), \
+    __qmi_service(QMI_SERVICE_WDA)
 
 #define __qmi_service(_n) __##_n
 enum {

@@ -137,6 +137,7 @@ cmd_ctl_set_data_format_prepare(struct qmi_dev *qmi, struct qmi_request *req, st
 #include "commands-dms.c"
 #include "commands-nas.c"
 #include "commands-wms.c"
+#include "commands-wda.c"
 
 #define __uqmi_command(_name, _optname, _arg, _type) \
 	[__UQMI_COMMAND_##_name] = { \

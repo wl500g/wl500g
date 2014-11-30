@@ -27,6 +27,9 @@
 #include "qmi-enums-wms.h"
 #include "qmi-message-wms.h"
 
+#include "qmi-enums-wda.h"
+#include "qmi-message-wda.h"
+
 #define qmi_set(_data, _field, _val) \
 	do { \
 		(_data)->set._field = 1; \

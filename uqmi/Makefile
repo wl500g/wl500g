@@ -11,7 +11,7 @@ LDFLAGS += -Wl,--gc-sections -Llibubox -Wl,-Bstatic -lubox -Wl,-Bdynamic
 TARGET = uqmi
 SOURCES = main.c dev.c commands.c qmi-message.c
 
-service_sources = $(foreach service,ctl dms nas pds wds wms,qmi-message-$(service).c)
+service_sources = $(foreach service,ctl dms nas pds wds wms wda,qmi-message-$(service).c)
 service_headers = $(service_sources:.c=.h)
 
 SOURCES += $(service_sources)
