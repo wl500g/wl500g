@@ -3,6 +3,7 @@ Shrink struct thread_struct
  7281cd22973008a782860e48ed8d85d00204168c MIPS: Remove unused task_struct.trap_no field.
  2957c9e61ee9c37e7ebf2c8acab03e073fe942fd [MIPS] IRIX: Goodbye and thanks for all the fish
  90c9e79f5dc5af4ea16ad56dda8b648d21037486 MIPS: Remove leftovers from the IRIX binary compat code.
+ 80fa8181aabeb10389c8810f97e2737eb084ce8f MIPS: Delete definition of SA_RESTORER.
 
 ---
  arch/mips/Kconfig              |    4 ----
@@ -12,7 +13,8 @@ Shrink struct thread_struct
  include/asm-mips/namei.h       |   25 +++++--------------------
  include/asm-mips/prctl.h       |   41 -----------------------------------------
  include/asm-mips/processor.h   |    6 +-----
- 7 files changed, 6 insertions(+), 103 deletions(-)
+ include/asm-mips/signal.h      |   11 ++++++-----
+ 8 files changed, 12 insertions(+), 108 deletions(-)
  deleted file mode 100644 include/asm-mips/inventory.h
  deleted file mode 100644 include/asm-mips/prctl.h
 
@@ -199,4 +201,39 @@ diff --git a/include/asm-mips/processor.h b/include/asm-mips/processor.h
  }
  
  struct task_struct;
+diff --git a/include/asm-mips/signal.h b/include/asm-mips/signal.h
+--- a/include/asm-mips/signal.h
++++ b/include/asm-mips/signal.h
+@@ -72,6 +72,12 @@ typedef unsigned long old_sigset_t;		/*
+  *
+  * SA_ONESHOT and SA_NOMASK are the historical Linux names for the Single
+  * Unix names RESETHAND and NODEFER respectively.
++ *
++ * SA_RESTORER used to be defined as 0x04000000 but only the O32 ABI ever
++ * supported its use and no libc was using it, so the entire sa-restorer
++ * functionality was removed with lmo commit 39bffc12c3580ab for 2.5.48
++ * retaining only the SA_RESTORER definition as a reminder to avoid
++ * accidental reuse of the mask bit.
+  */
+ #define SA_ONSTACK	0x08000000
+ #define SA_RESETHAND	0x80000000
+@@ -84,8 +90,6 @@ typedef unsigned long old_sigset_t;		/*
+ #define SA_NOMASK	SA_NODEFER
+ #define SA_ONESHOT	SA_RESETHAND
+ 
+-#define SA_RESTORER	0x04000000	/* Only for o32 */
+-
+ /*
+  * sigaltstack controls
+  */
+@@ -119,9 +123,6 @@ struct sigaction {
+ 
+ struct k_sigaction {
+ 	struct sigaction sa;
+-#ifdef CONFIG_BINFMT_IRIX
+-	void		(*sa_restorer)(void);
+-#endif
+ };
+ 
+ /* IRIX compatible stack_t  */
 -- 
