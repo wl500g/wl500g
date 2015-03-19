@@ -100,6 +100,7 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
 				goto again;
 			ipv6_addr_copy(&flp->fl6_src, &saddr);
 		}
+		err = rt->u.dst.error;
 		goto out;
 	}
 again:
