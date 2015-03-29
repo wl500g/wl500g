@@ -7,8 +7,8 @@
 > ASUS WL-500gP, WL-500gPv2, WL-500W, WL-500gX, WL-520gU, WL-550gE, WL-330gE, WL-320gE, WL-320gP
 
 #### Useful links ####
-  * [History of changes](wiki/News)
-  * [How to compile custom firmware](wiki/CompilingCustomFirmware)
+  * [History of changes](News)
+  * [How to compile custom firmware](CompilingCustomFirmware)
   * [AsusForum.NET -- WL500g](http://wl500g.info)
   * wl500g.info: [New oleg firmware version](http://wl500g.info/showthread.php?t=18004) thread (en)
   * wl500g.info: [Новая прошивка Олега 1.9.2.7-d/-rtn от энтузиастов](http://wl500g.info/showthread.php?t=17136&langid=3) thread (ru)
@@ -26,13 +26,13 @@
 > ASUS WL-500gP, WL-500gPv2, WL-500W, WL-500gX, WL-520gU, WL-550gE, WL-330gE, WL-320gE, WL-320gP
 
 #### Полезные ссылки ####
-  * [История изменений](wiki/News)
-  * [Самостоятельная сборка прошивки](wiki/CompilingCustomFirmware)
+  * [История изменений](News)
+  * [Самостоятельная сборка прошивки](CompilingCustomFirmware)
   * [AsusForum.NET -- WL500g](http://wl500g.info/?langid=3)
   * wl500g.info: [Новая прошивка Олега 1.9.2.7-d/-rtn от энтузиастов](http://wl500g.info/showthread.php?t=17136&langid=3) thread (ru)
   * wl500g.info: [New oleg firmware version](http://wl500g.info/showthread.php?t=18004) thread (en)
 
-Если у вас возникло желание отблагодарить нас за проделанный труд, возможно, вы могли бы [сделать нам пожертвование](wiki/Donate).
+Если у вас возникло желание отблагодарить нас за проделанный труд, возможно, вы могли бы [сделать нам пожертвование](Donate).
 
 ---
 
