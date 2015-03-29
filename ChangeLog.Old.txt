@@ -5,36 +5,36 @@
 
 2009-02-23	lly		wl500g-1.9.2.7-d8
 *******************************************************************************
-  busybox/107-top.patch			- Исправлен вывод ошибочных CPU% в top
+  busybox/107-top.patch			- РСЃРїСЂР°РІР»РµРЅ РІС‹РІРѕРґ РѕС€РёР±РѕС‡РЅС‹С… CPU% РІ top
 
 
 2009-02-22	theMIROn
 *******************************************************************************
   kernel/320-netfilter-dynamic-snat.patch - drop SNATed connections on iface down or ip renew.
-  rc/rc-usb20-disable.patch		  - Запрет usb 2.0 из web-интерфейса.
+  rc/rc-usb20-disable.patch		  - Р—Р°РїСЂРµС‚ usb 2.0 РёР· web-РёРЅС‚РµСЂС„РµР№СЃР°.
 
 
 2009-02-22	lly
 *******************************************************************************
   vsftpd 2.1.0
 
-  busybox/*				- Реорганизация патчей с нумерацией, добавлены патчи из OpenWRT.
+  busybox/*				- Р РµРѕСЂРіР°РЅРёР·Р°С†РёСЏ РїР°С‚С‡РµР№ СЃ РЅСѓРјРµСЂР°С†РёРµР№, РґРѕР±Р°РІР»РµРЅС‹ РїР°С‚С‡Рё РёР· OpenWRT.
   rc/rc-ppp-connected.patch		\
-  rc/rc-asus.patch			/ Для принудительного поднятия demand линка в start_wan() используется ping -c1 <wanX_gateway>
+  rc/rc-asus.patch			/ Р”Р»СЏ РїСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕРіРѕ РїРѕРґРЅСЏС‚РёСЏ demand Р»РёРЅРєР° РІ start_wan() РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ ping -c1 <wanX_gateway>
 
 
 2009-02-19	lly
 *******************************************************************************
-  rc/rc-asus.patch			- Фиксы из фирменной прошивки ASUS 1.9.7.7
-  vsftpd/vsftpd-2.0.7-getpwnam.patch 	- Объединен с vsftpd-2.0.7-passwd_file.patch, т.к. исправляет не оригинальный vsftpd, a этот патч.
-  kernel/017-cpuinfo.patch		- Добавлен сбор и вывод информации о расширениях MIPS ASE в /proc/cpuinfo.
+  rc/rc-asus.patch			- Р¤РёРєСЃС‹ РёР· С„РёСЂРјРµРЅРЅРѕР№ РїСЂРѕС€РёРІРєРё ASUS 1.9.7.7
+  vsftpd/vsftpd-2.0.7-getpwnam.patch 	- РћР±СЉРµРґРёРЅРµРЅ СЃ vsftpd-2.0.7-passwd_file.patch, С‚.Рє. РёСЃРїСЂР°РІР»СЏРµС‚ РЅРµ РѕСЂРёРіРёРЅР°Р»СЊРЅС‹Р№ vsftpd, a СЌС‚РѕС‚ РїР°С‚С‡.
+  kernel/017-cpuinfo.patch		- Р”РѕР±Р°РІР»РµРЅ СЃР±РѕСЂ Рё РІС‹РІРѕРґ РёРЅС„РѕСЂРјР°С†РёРё Рѕ СЂР°СЃС€РёСЂРµРЅРёСЏС… MIPS ASE РІ /proc/cpuinfo.
 
 
 2009-02-16	lly
 *******************************************************************************
-  busybox/busybox-1.13.2-killall.patch  \ Hotfix'ы с основной ветки.
+  busybox/busybox-1.13.2-killall.patch  \ Hotfix'С‹ СЃ РѕСЃРЅРѕРІРЅРѕР№ РІРµС‚РєРё.
   busybox/busybox-1.13.2-mdev.patch     /
-  dnsmasq-2.47.patch			- Добавил hotfix из mail-list'а dnsmasq.
+  dnsmasq-2.47.patch			- Р”РѕР±Р°РІРёР» hotfix РёР· mail-list'Р° dnsmasq.
 
 
 2009-02-12	theMIROn
@@ -54,7 +54,7 @@
 
 2009-02-09	lly
 *******************************************************************************
-  ppp 2.4.5-pre				- Обновил pppd до snapshot 2008-11-26 и rp-pppoe plugin 3.10.
+  ppp 2.4.5-pre				- РћР±РЅРѕРІРёР» pppd РґРѕ snapshot 2008-11-26 Рё rp-pppoe plugin 3.10.
 
 
 2009-02-08	lly
@@ -124,8 +124,8 @@
 
 2009-01-14	lly
 *******************************************************************************
-  uClibc/uClibc-0.9.29-mempcpy.patch	- хак для возможности использования __mempcpy аналогично glibc.
-  toolchain				- Импортированы патчи 170-enable-getifaddrs.patch, 190-install_tls.patch, 200-libpthread_fix.patch, 210-trunc.patch из trunk OpenWRT.
+  uClibc/uClibc-0.9.29-mempcpy.patch	- С…Р°Рє РґР»СЏ РІРѕР·РјРѕР¶РЅРѕСЃС‚Рё РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ __mempcpy Р°РЅР°Р»РѕРіРёС‡РЅРѕ glibc.
+  toolchain				- РРјРїРѕСЂС‚РёСЂРѕРІР°РЅС‹ РїР°С‚С‡Рё 170-enable-getifaddrs.patch, 190-install_tls.patch, 200-libpthread_fix.patch, 210-trunc.patch РёР· trunk OpenWRT.
 
 
 2009-01-06	theMIROn
@@ -136,51 +136,51 @@
 
 2008-12-31	lly
 *******************************************************************************
-  kernel/openwrt/brcm/014-sierra_support.patch	- Импорт патча для поддержки CDMA модема Sierra из trunk OpenWRT.
-  Makefile, config.diff			- В EXTRACFLAGS добавлены ключики "-mtune=mips32 -Wno-pointer-sign". Изменены правила для rc, lzma.
-  Makefiles5.diff			- Удалён, т.к. SENTRY5 давно заброшен.
-  Makefile.diff				- HOSTCXX=g++ т.к. некоторые gcc не умеют собирать cpp по дефолту.
-  dnsmasq-2.46.patch			- Патч из svn dnsmasq на пустые строки в /etc/ethers.
-  rc/rc-common.patch 			- В связи с увеличением количества правок в rc, патчи вынесены в отдельный каталог rc/.
-  rc/rc-ddns-watchdog.patch		- Бекпорт регулярного запуска обновления ddns в watchdog из оригинальной 1.9.7.7 от theMIROn.
+  kernel/openwrt/brcm/014-sierra_support.patch	- РРјРїРѕСЂС‚ РїР°С‚С‡Р° РґР»СЏ РїРѕРґРґРµСЂР¶РєРё CDMA РјРѕРґРµРјР° Sierra РёР· trunk OpenWRT.
+  Makefile, config.diff			- Р’ EXTRACFLAGS РґРѕР±Р°РІР»РµРЅС‹ РєР»СЋС‡РёРєРё "-mtune=mips32 -Wno-pointer-sign". РР·РјРµРЅРµРЅС‹ РїСЂР°РІРёР»Р° РґР»СЏ rc, lzma.
+  Makefiles5.diff			- РЈРґР°Р»С‘РЅ, С‚.Рє. SENTRY5 РґР°РІРЅРѕ Р·Р°Р±СЂРѕС€РµРЅ.
+  Makefile.diff				- HOSTCXX=g++ С‚.Рє. РЅРµРєРѕС‚РѕСЂС‹Рµ gcc РЅРµ СѓРјРµСЋС‚ СЃРѕР±РёСЂР°С‚СЊ cpp РїРѕ РґРµС„РѕР»С‚Сѓ.
+  dnsmasq-2.46.patch			- РџР°С‚С‡ РёР· svn dnsmasq РЅР° РїСѓСЃС‚С‹Рµ СЃС‚СЂРѕРєРё РІ /etc/ethers.
+  rc/rc-common.patch 			- Р’ СЃРІСЏР·Рё СЃ СѓРІРµР»РёС‡РµРЅРёРµРј РєРѕР»РёС‡РµСЃС‚РІР° РїСЂР°РІРѕРє РІ rc, РїР°С‚С‡Рё РІС‹РЅРµСЃРµРЅС‹ РІ РѕС‚РґРµР»СЊРЅС‹Р№ РєР°С‚Р°Р»РѕРі rc/.
+  rc/rc-ddns-watchdog.patch		- Р‘РµРєРїРѕСЂС‚ СЂРµРіСѓР»СЏСЂРЅРѕРіРѕ Р·Р°РїСѓСЃРєР° РѕР±РЅРѕРІР»РµРЅРёСЏ ddns РІ watchdog РёР· РѕСЂРёРіРёРЅР°Р»СЊРЅРѕР№ 1.9.7.7 РѕС‚ theMIROn.
 
 
 2008-12-28	lly
 *******************************************************************************
-  ez-ipupdate.diff			- Патч из Gentoo #69658 "Format string vulnerability in syslog handling". По просьбе автора theMIROn, HTTP redirect по умолчанию выключен.
-  rc.diff				- Патч от theMIROn для поддержки /etc/ddns.conf (#define DDNSCONF в services_ex.c). Еще один подход к расчистке завалов в rc.
-  patch.sh, Makefile			- Возможность передавать ключ -Z для patch и его использование.
+  ez-ipupdate.diff			- РџР°С‚С‡ РёР· Gentoo #69658 "Format string vulnerability in syslog handling". РџРѕ РїСЂРѕСЃСЊР±Рµ Р°РІС‚РѕСЂР° theMIROn, HTTP redirect РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІС‹РєР»СЋС‡РµРЅ.
+  rc.diff				- РџР°С‚С‡ РѕС‚ theMIROn РґР»СЏ РїРѕРґРґРµСЂР¶РєРё /etc/ddns.conf (#define DDNSCONF РІ services_ex.c). Р•С‰Рµ РѕРґРёРЅ РїРѕРґС…РѕРґ Рє СЂР°СЃС‡РёСЃС‚РєРµ Р·Р°РІР°Р»РѕРІ РІ rc.
+  patch.sh, Makefile			- Р’РѕР·РјРѕР¶РЅРѕСЃС‚СЊ РїРµСЂРµРґР°РІР°С‚СЊ РєР»СЋС‡ -Z РґР»СЏ patch Рё РµРіРѕ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ.
 
 
 2008-12-26	lly
 *******************************************************************************
   vsftpd-2.0.7
-  vsftpd/vsftpd-2.0.7-getpwnam.patch	- Починен бесконечный цикл в локальной реализации getpwnam(), по стандарту код ошибки не обязан быть -1.
+  vsftpd/vsftpd-2.0.7-getpwnam.patch	- РџРѕС‡РёРЅРµРЅ Р±РµСЃРєРѕРЅРµС‡РЅС‹Р№ С†РёРєР» РІ Р»РѕРєР°Р»СЊРЅРѕР№ СЂРµР°Р»РёР·Р°С†РёРё getpwnam(), РїРѕ СЃС‚Р°РЅРґР°СЂС‚Сѓ РєРѕРґ РѕС€РёР±РєРё РЅРµ РѕР±СЏР·Р°РЅ Р±С‹С‚СЊ -1.
 
 
 2008-12-25	lly
 *******************************************************************************
-  ntpclient-2007_365.patch, rc.diff	- Апгрейд на халяву не прошел - убрал линковку с librt и DEBUG, добавил старый патч от ASUS'а, а в вызовы из rc пришлось добавить "-c 1".
-  Makefile.diff				- Компилятор для хостовых утилит должен быть везде $(HOSTCC). Добавил переменную SRCMODULESDIR для сокращения путей к проинсталлированным модулям ядра.
-  busybox/busybox-1.1.3-install.patch	- Поправил неверное определение libdir в busybox/applets/install.sh при кросс-компиляции.
+  ntpclient-2007_365.patch, rc.diff	- РђРїРіСЂРµР№Рґ РЅР° С…Р°Р»СЏРІСѓ РЅРµ РїСЂРѕС€РµР» - СѓР±СЂР°Р» Р»РёРЅРєРѕРІРєСѓ СЃ librt Рё DEBUG, РґРѕР±Р°РІРёР» СЃС‚Р°СЂС‹Р№ РїР°С‚С‡ РѕС‚ ASUS'Р°, Р° РІ РІС‹Р·РѕРІС‹ РёР· rc РїСЂРёС€Р»РѕСЃСЊ РґРѕР±Р°РІРёС‚СЊ "-c 1".
+  Makefile.diff				- РљРѕРјРїРёР»СЏС‚РѕСЂ РґР»СЏ С…РѕСЃС‚РѕРІС‹С… СѓС‚РёР»РёС‚ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РІРµР·РґРµ $(HOSTCC). Р”РѕР±Р°РІРёР» РїРµСЂРµРјРµРЅРЅСѓСЋ SRCMODULESDIR РґР»СЏ СЃРѕРєСЂР°С‰РµРЅРёСЏ РїСѓС‚РµР№ Рє РїСЂРѕРёРЅСЃС‚Р°Р»Р»РёСЂРѕРІР°РЅРЅС‹Рј РјРѕРґСѓР»СЏРј СЏРґСЂР°.
+  busybox/busybox-1.1.3-install.patch	- РџРѕРїСЂР°РІРёР» РЅРµРІРµСЂРЅРѕРµ РѕРїСЂРµРґРµР»РµРЅРёРµ libdir РІ busybox/applets/install.sh РїСЂРё РєСЂРѕСЃСЃ-РєРѕРјРїРёР»СЏС†РёРё.
 
-  kernel.config				- CONFIG_MTD_CFI_B1=y для поддержки флэша в Dlink DIR320 (клон WL520GU) (+1.8Kb к ядру); CONFIG_UFS_FS=m по просьбам телезрителей.
+  kernel.config				- CONFIG_MTD_CFI_B1=y РґР»СЏ РїРѕРґРґРµСЂР¶РєРё С„Р»СЌС€Р° РІ Dlink DIR320 (РєР»РѕРЅ WL520GU) (+1.8Kb Рє СЏРґСЂСѓ); CONFIG_UFS_FS=m РїРѕ РїСЂРѕСЃСЊР±Р°Рј С‚РµР»РµР·СЂРёС‚РµР»РµР№.
 
 
 2008-12-24	lly
 *******************************************************************************
-  Makefile.diff, shared.diff, pppoe-relay.diff, portmap_4.patch, netconf.diff, bridge.diff, pptp-1.7.1.patch - Продолжил расстановку EXTRACFLAGS (-4Kb .trx).
+  Makefile.diff, shared.diff, pppoe-relay.diff, portmap_4.patch, netconf.diff, bridge.diff, pptp-1.7.1.patch - РџСЂРѕРґРѕР»Р¶РёР» СЂР°СЃСЃС‚Р°РЅРѕРІРєСѓ EXTRACFLAGS (-4Kb .trx).
 
 
 2008-12-23	lly
 *******************************************************************************
-  ntpclient-2007_365.tar.bz2		- Обновил версию ntpclient'а.
-  ez-ipupdate.diff			- Правка корректного запуска configure под новый тулчейн. Для Zoneedit новый хост - dynamic.zoneedit.com. Патч от theMIROn для поддержки HTTP/301 redirect.
+  ntpclient-2007_365.tar.bz2		- РћР±РЅРѕРІРёР» РІРµСЂСЃРёСЋ ntpclient'Р°.
+  ez-ipupdate.diff			- РџСЂР°РІРєР° РєРѕСЂСЂРµРєС‚РЅРѕРіРѕ Р·Р°РїСѓСЃРєР° configure РїРѕРґ РЅРѕРІС‹Р№ С‚СѓР»С‡РµР№РЅ. Р”Р»СЏ Zoneedit РЅРѕРІС‹Р№ С…РѕСЃС‚ - dynamic.zoneedit.com. РџР°С‚С‡ РѕС‚ theMIROn РґР»СЏ РїРѕРґРґРµСЂР¶РєРё HTTP/301 redirect.
 
-  Makefile, Makefile.diff		- Использование EXTRACFLAGS для сборки пакетов. Подправлен вызов configure.
+  Makefile, Makefile.diff		- РСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ EXTRACFLAGS РґР»СЏ СЃР±РѕСЂРєРё РїР°РєРµС‚РѕРІ. РџРѕРґРїСЂР°РІР»РµРЅ РІС‹Р·РѕРІ configure.
   rc.diff, rcamdmips.diff,		\
   config.diff, httpd.diff,		 |
-  rp-l2tp/rp-l2tp-0.4.patch,	 	 | Проставил флаг -mips32 для компиляции больших пакетов, уменьшение размера кода минимум на 5% (-21Kb .trx).
+  rp-l2tp/rp-l2tp-0.4.patch,	 	 | РџСЂРѕСЃС‚Р°РІРёР» С„Р»Р°Рі -mips32 РґР»СЏ РєРѕРјРїРёР»СЏС†РёРё Р±РѕР»СЊС€РёС… РїР°РєРµС‚РѕРІ, СѓРјРµРЅСЊС€РµРЅРёРµ СЂР°Р·РјРµСЂР° РєРѕРґР° РјРёРЅРёРјСѓРј РЅР° 5% (-21Kb .trx).
   busybox/busybox-1.1.3.config,		 |
   ppp/ppp-2.4.2.patch,			 |
   vsftpd/vsftpd-2.0.6.patch,		 |
@@ -190,111 +190,111 @@
 
 2008-12-20	lly		wl500g-1.9.2.7-d6
 *******************************************************************************
-  Makefile.diff				- Временное компромиссное решение - ядро собирается gcc 3.4.6, а всё остальное, gcc 4.1 (-4Kb .trx).
-  busybox-1.1.3-ether-wake.patch	- ether_hostton() есть в uClibc 0.9.30
+  Makefile.diff				- Р’СЂРµРјРµРЅРЅРѕРµ РєРѕРјРїСЂРѕРјРёСЃСЃРЅРѕРµ СЂРµС€РµРЅРёРµ - СЏРґСЂРѕ СЃРѕР±РёСЂР°РµС‚СЃСЏ gcc 3.4.6, Р° РІСЃС‘ РѕСЃС‚Р°Р»СЊРЅРѕРµ, gcc 4.1 (-4Kb .trx).
+  busybox-1.1.3-ether-wake.patch	- ether_hostton() РµСЃС‚СЊ РІ uClibc 0.9.30
 
 
 2008-12-19	lly
 *******************************************************************************
-  kernel/kernel-flash-partitions.patch	- Увеличение размера flashfs на всё свободное пространство для прошивок размером более 3800Kb, грануляция 64Kb.
-  kernel/kernel-squashfs.patch		- Суффикс ULL к большим константам SQUASHFS_INVALID и т.д.
+  kernel/kernel-flash-partitions.patch	- РЈРІРµР»РёС‡РµРЅРёРµ СЂР°Р·РјРµСЂР° flashfs РЅР° РІСЃС‘ СЃРІРѕР±РѕРґРЅРѕРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ РґР»СЏ РїСЂРѕС€РёРІРѕРє СЂР°Р·РјРµСЂРѕРј Р±РѕР»РµРµ 3800Kb, РіСЂР°РЅСѓР»СЏС†РёСЏ 64Kb.
+  kernel/kernel-squashfs.patch		- РЎСѓС„С„РёРєСЃ ULL Рє Р±РѕР»СЊС€РёРј РєРѕРЅСЃС‚Р°РЅС‚Р°Рј SQUASHFS_INVALID Рё С‚.Рґ.
   iptables-1.3.8.patch			\
-  LPRng.diff				 | Избавление от warning'ов.
+  LPRng.diff				 | РР·Р±Р°РІР»РµРЅРёРµ РѕС‚ warning'РѕРІ.
   rc.diff				 |
   infosvr.diff				/
 
 
 2008-12-16	lly
 *******************************************************************************
-  kernel/kernel-gcc4.patch		- Очередная попытка к миграции на gcc 4.1 (Исправление warning'ов, большой размер ядра из-за огромного finline-limit).
-  kernel/kernel-buildhost.patch		- Rollback ошибочных изменений макроса if_gcc4.
+  kernel/kernel-gcc4.patch		- РћС‡РµСЂРµРґРЅР°СЏ РїРѕРїС‹С‚РєР° Рє РјРёРіСЂР°С†РёРё РЅР° gcc 4.1 (РСЃРїСЂР°РІР»РµРЅРёРµ warning'РѕРІ, Р±РѕР»СЊС€РѕР№ СЂР°Р·РјРµСЂ СЏРґСЂР° РёР·-Р·Р° РѕРіСЂРѕРјРЅРѕРіРѕ finline-limit).
+  kernel/kernel-buildhost.patch		- Rollback РѕС€РёР±РѕС‡РЅС‹С… РёР·РјРµРЅРµРЅРёР№ РјР°РєСЂРѕСЃР° if_gcc4.
 
 
 2008-12-15	lly
 *******************************************************************************
-  kernel.config				- Выключен CONFIG_INPUT_KEYBDEV т.к. он требует включения в ядро(не модулем) CONFIG_VT, а это +2Kb (иначе вылезают unresolved handle_scancode, kbd_ledfunc, и т.д.).
+  kernel.config				- Р’С‹РєР»СЋС‡РµРЅ CONFIG_INPUT_KEYBDEV С‚.Рє. РѕРЅ С‚СЂРµР±СѓРµС‚ РІРєР»СЋС‡РµРЅРёСЏ РІ СЏРґСЂРѕ(РЅРµ РјРѕРґСѓР»РµРј) CONFIG_VT, Р° СЌС‚Рѕ +2Kb (РёРЅР°С‡Рµ РІС‹Р»РµР·Р°СЋС‚ unresolved handle_scancode, kbd_ledfunc, Рё С‚.Рґ.).
   kernel/openwrt/brcm/001-bcm47xx.patch			\
   kernel/openwrt/brcm/003-bcm47xx_cache_fixes.patch      |
-  kernel/openwrt/brcm/002-wl_fix.patch                   | Избавление от моря warning'ов.
+  kernel/openwrt/brcm/002-wl_fix.patch                   | РР·Р±Р°РІР»РµРЅРёРµ РѕС‚ РјРѕСЂСЏ warning'РѕРІ.
   kernel/openwrt/618-netfilter_multiport_backport.patch  |
   brcm-src/brcm-src-include.patch			 |
   brcm-src/brcm-src-shared.patch			/
-  kernel/openwrt/225-string_lib_useful_exports.patch	- Исключен, т.к. все необходимые экспорты уже есть в arch/mips/kernel/mips_ksyms.c
+  kernel/openwrt/225-string_lib_useful_exports.patch	- РСЃРєР»СЋС‡РµРЅ, С‚.Рє. РІСЃРµ РЅРµРѕР±С…РѕРґРёРјС‹Рµ СЌРєСЃРїРѕСЂС‚С‹ СѓР¶Рµ РµСЃС‚СЊ РІ arch/mips/kernel/mips_ksyms.c
 
 
 2008-12-14	lly
 *******************************************************************************
-  kernel/kernel-usb-acm.patch		- Условная компиляция CONFIG_USB_DEVPATH
-  kernel/kernel-usb-devpath.patch	- Добавлен патч /proc/bus/usb/devpath от Jiri Engelthaler <engy@centrum.cz> из CDMA 1.71. Но фича по умолчанию выключена - CONFIG_USB_DEVPATH=n в kernel.config
+  kernel/kernel-usb-acm.patch		- РЈСЃР»РѕРІРЅР°СЏ РєРѕРјРїРёР»СЏС†РёСЏ CONFIG_USB_DEVPATH
+  kernel/kernel-usb-devpath.patch	- Р”РѕР±Р°РІР»РµРЅ РїР°С‚С‡ /proc/bus/usb/devpath РѕС‚ Jiri Engelthaler <engy@centrum.cz> РёР· CDMA 1.71. РќРѕ С„РёС‡Р° РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІС‹РєР»СЋС‡РµРЅР° - CONFIG_USB_DEVPATH=n РІ kernel.config
 
 
 2008-12-13	lly
 *******************************************************************************
-  kernel/kernel-netfilter-extras.patch	- Добавил забытые при переезде на новый тулчейн ip_pool.h ipt_pool.h ipt_mport.h
+  kernel/kernel-netfilter-extras.patch	- Р”РѕР±Р°РІРёР» Р·Р°Р±С‹С‚С‹Рµ РїСЂРё РїРµСЂРµРµР·РґРµ РЅР° РЅРѕРІС‹Р№ С‚СѓР»С‡РµР№РЅ ip_pool.h ipt_pool.h ipt_mport.h
 
-  Правки для успешной компиляции прошивки при помощи GCC 4.1:
+  РџСЂР°РІРєРё РґР»СЏ СѓСЃРїРµС€РЅРѕР№ РєРѕРјРїРёР»СЏС†РёРё РїСЂРѕС€РёРІРєРё РїСЂРё РїРѕРјРѕС‰Рё GCC 4.1:
    netconf.diff, httpd.diff, LPRng.diff, iproute2-2.4.7-now-ss010824.patch, 
    kernel/kernel-ppp_filter.patch, kernel/kernel-squashfs.patch, kernel/kernel-buildhost.patch, 
    kernel/openwrt/113-even_more_gcc4_stuff.patch (include/asm-mips/uaccess.h: __get_user_*)
 
-  toolchain				- Попытка переезда на GCC 4.1.2, неудачна - ядро падает, откатился. (В варианте ядро и модули компилится gcc 3.4.6, всё остальное gcc 4.1.2 - работает).
+  toolchain				- РџРѕРїС‹С‚РєР° РїРµСЂРµРµР·РґР° РЅР° GCC 4.1.2, РЅРµСѓРґР°С‡РЅР° - СЏРґСЂРѕ РїР°РґР°РµС‚, РѕС‚РєР°С‚РёР»СЃСЏ. (Р’ РІР°СЂРёР°РЅС‚Рµ СЏРґСЂРѕ Рё РјРѕРґСѓР»Рё РєРѕРјРїРёР»РёС‚СЃСЏ gcc 3.4.6, РІСЃС‘ РѕСЃС‚Р°Р»СЊРЅРѕРµ gcc 4.1.2 - СЂР°Р±РѕС‚Р°РµС‚).
 
-  asustrx.tar.bz2			- Сделал include <trxhdr.h> вместо вбитых констант.
+  asustrx.tar.bz2			- РЎРґРµР»Р°Р» include <trxhdr.h> РІРјРµСЃС‚Рѕ РІР±РёС‚С‹С… РєРѕРЅСЃС‚Р°РЅС‚.
 
 
 2008-12-08	lly
 *******************************************************************************
-  kernel/kernel.config			- Включил модуль SCH_CBQ, убрал модуль ip_nat_starcraft.o, поставил CONFIG_IP_ROUTE_MULTIPATH=y  (+1.5Kb к ядру).
+  kernel/kernel.config			- Р’РєР»СЋС‡РёР» РјРѕРґСѓР»СЊ SCH_CBQ, СѓР±СЂР°Р» РјРѕРґСѓР»СЊ ip_nat_starcraft.o, РїРѕСЃС‚Р°РІРёР» CONFIG_IP_ROUTE_MULTIPATH=y  (+1.5Kb Рє СЏРґСЂСѓ).
 
 
 2008-12-06	lly		wl500g-1.9.2.7-d5
 *******************************************************************************
-  kernel/kernel-usb-hub11.patch		- Workaround для USB 1.1 устройств, подсоединенных через USB 2.0 hub. Симптом - "usb.c: unable to get device descriptor (error=-32)", оригинальный код ошибки в usb_get_descriptor() при его _втором_ вызове из usb_new_device() уже с полным размером дескриптора в 18 байт, на самом деле USB_ST_DATAOVERRUN (-EOVERFLOW) он же "Babble". 
+  kernel/kernel-usb-hub11.patch		- Workaround РґР»СЏ USB 1.1 СѓСЃС‚СЂРѕР№СЃС‚РІ, РїРѕРґСЃРѕРµРґРёРЅРµРЅРЅС‹С… С‡РµСЂРµР· USB 2.0 hub. РЎРёРјРїС‚РѕРј - "usb.c: unable to get device descriptor (error=-32)", РѕСЂРёРіРёРЅР°Р»СЊРЅС‹Р№ РєРѕРґ РѕС€РёР±РєРё РІ usb_get_descriptor() РїСЂРё РµРіРѕ _РІС‚РѕСЂРѕРј_ РІС‹Р·РѕРІРµ РёР· usb_new_device() СѓР¶Рµ СЃ РїРѕР»РЅС‹Рј СЂР°Р·РјРµСЂРѕРј РґРµСЃРєСЂРёРїС‚РѕСЂР° РІ 18 Р±Р°Р№С‚, РЅР° СЃР°РјРѕРј РґРµР»Рµ USB_ST_DATAOVERRUN (-EOVERFLOW) РѕРЅ Р¶Рµ "Babble". 
 
 
 2008-12-03	lly
 *******************************************************************************
-  kernel/kernel.config			- Включены модули: USB_ACM, NET_SCH_PRIO.
-  kernel/kernel-ftdi.patch		- Обновлен драйвер ftdi_sio.c
-  kernel/kernel-usb-acm.patch		- Добавлен патч на drivers/usb/acm.c \
-  kernel/kernel-ppp_filter.patch	- Добавлен патч ppp_filter            | от Jiri Engelthaler <engy@centrum.cz> из прошивки CDMA 1.71 c http://koppel.cz/cdmawifi
-  kernel/kernel-conntrack_clear.patch	- Добавлен патч ip_conntrack_clear   /
+  kernel/kernel.config			- Р’РєР»СЋС‡РµРЅС‹ РјРѕРґСѓР»Рё: USB_ACM, NET_SCH_PRIO.
+  kernel/kernel-ftdi.patch		- РћР±РЅРѕРІР»РµРЅ РґСЂР°Р№РІРµСЂ ftdi_sio.c
+  kernel/kernel-usb-acm.patch		- Р”РѕР±Р°РІР»РµРЅ РїР°С‚С‡ РЅР° drivers/usb/acm.c \
+  kernel/kernel-ppp_filter.patch	- Р”РѕР±Р°РІР»РµРЅ РїР°С‚С‡ ppp_filter            | РѕС‚ Jiri Engelthaler <engy@centrum.cz> РёР· РїСЂРѕС€РёРІРєРё CDMA 1.71 c http://koppel.cz/cdmawifi
+  kernel/kernel-conntrack_clear.patch	- Р”РѕР±Р°РІР»РµРЅ РїР°С‚С‡ ip_conntrack_clear   /
 
 
 2008-12-02	lly
 *******************************************************************************
   Kernel 2.4.37
 
-  kernel/openwrt/622-netfilter_ipset_porthash.patch, 623-netfilter_ip6t_reject.patch - патчи из основной ветки OpenWRT, на будущее.
-  kernel/openwrt/616-netfilter_imq.patch	- обновлен для нового ядра.
-  kernel/openwrt/619-netfilter_classify.patch	- удален, т.к. уже включен в ядро.
+  kernel/openwrt/622-netfilter_ipset_porthash.patch, 623-netfilter_ip6t_reject.patch - РїР°С‚С‡Рё РёР· РѕСЃРЅРѕРІРЅРѕР№ РІРµС‚РєРё OpenWRT, РЅР° Р±СѓРґСѓС‰РµРµ.
+  kernel/openwrt/616-netfilter_imq.patch	- РѕР±РЅРѕРІР»РµРЅ РґР»СЏ РЅРѕРІРѕРіРѕ СЏРґСЂР°.
+  kernel/openwrt/619-netfilter_classify.patch	- СѓРґР°Р»РµРЅ, С‚.Рє. СѓР¶Рµ РІРєР»СЋС‡РµРЅ РІ СЏРґСЂРѕ.
 
-  nas, wl		- Бинарники заменены на объектники nas_exe.o , wl_exe.o из SDK Broadcom 4.150.10.5 (с сайта OpenWRT) с последующей линковкой с текущей uClibc. (удалены nas-4.150.10.5.gz, nas.diff; изменены wl-4.150.10.29.tar.bz2, utils.diff, Makefile, Makefile.diff)
-  pptp-1.7.1		- Апгрейд, добавлен ключик --no-host-route запрещающий добавление host маршрута к VPN серверу (изменен pptp/pptp-1.7.1-route.patch).
+  nas, wl		- Р‘РёРЅР°СЂРЅРёРєРё Р·Р°РјРµРЅРµРЅС‹ РЅР° РѕР±СЉРµРєС‚РЅРёРєРё nas_exe.o , wl_exe.o РёР· SDK Broadcom 4.150.10.5 (СЃ СЃР°Р№С‚Р° OpenWRT) СЃ РїРѕСЃР»РµРґСѓСЋС‰РµР№ Р»РёРЅРєРѕРІРєРѕР№ СЃ С‚РµРєСѓС‰РµР№ uClibc. (СѓРґР°Р»РµРЅС‹ nas-4.150.10.5.gz, nas.diff; РёР·РјРµРЅРµРЅС‹ wl-4.150.10.29.tar.bz2, utils.diff, Makefile, Makefile.diff)
+  pptp-1.7.1		- РђРїРіСЂРµР№Рґ, РґРѕР±Р°РІР»РµРЅ РєР»СЋС‡РёРє --no-host-route Р·Р°РїСЂРµС‰Р°СЋС‰РёР№ РґРѕР±Р°РІР»РµРЅРёРµ host РјР°СЂС€СЂСѓС‚Р° Рє VPN СЃРµСЂРІРµСЂСѓ (РёР·РјРµРЅРµРЅ pptp/pptp-1.7.1-route.patch).
 
 
 2008-11-26	lly		wl500g-1.9.2.7-d4
 *******************************************************************************
-  Makefile.diff		- автоматическое определение версии ядра по include/linux/version.h
+  Makefile.diff		- Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРµ РѕРїСЂРµРґРµР»РµРЅРёРµ РІРµСЂСЃРёРё СЏРґСЂР° РїРѕ include/linux/version.h
   p910nd 0.92
 
 
 2008-11-25	lly
 *******************************************************************************
-  kernel/kernel-epoll.patch	- Имплантирован интерфейс epoll (+4Kb к ядру).
+  kernel/kernel-epoll.patch	- РРјРїР»Р°РЅС‚РёСЂРѕРІР°РЅ РёРЅС‚РµСЂС„РµР№СЃ epoll (+4Kb Рє СЏРґСЂСѓ).
 
-  toolchain			- Добавлены патчи к uClibc (202-fuse-daemon-fork.patch)
+  toolchain			- Р”РѕР±Р°РІР»РµРЅС‹ РїР°С‚С‡Рё Рє uClibc (202-fuse-daemon-fork.patch)
 
 
 2008-11-22	lly
 *******************************************************************************
-  wl 4.150.10.29 из прошивки WL500gpV2 3.0.3.5 (wl_apsta.o, brcm-src-include.patch)
+  wl 4.150.10.29 РёР· РїСЂРѕС€РёРІРєРё WL500gpV2 3.0.3.5 (wl_apsta.o, brcm-src-include.patch)
 
 
 2008-11-17	lly		wl500g-1.9.2.7-d3
 *******************************************************************************
   dnsmasq 2.46
-  dropbear 0.52 (убраны неактуальные dropbear-0.51-scp-no-mmu.patch, dropbear-0.51-missing-return.patch)
+  dropbear 0.52 (СѓР±СЂР°РЅС‹ РЅРµР°РєС‚СѓР°Р»СЊРЅС‹Рµ dropbear-0.51-scp-no-mmu.patch, dropbear-0.51-missing-return.patch)
 
 
 2008-11-11	lly
@@ -309,7 +309,7 @@
 
 2008-10-08 	lly		wl500g-1.9.2.7-d1
 *******************************************************************************
-  toolchain		- Добавлены патчи к uClibc (140-fix-endless-recursion-in-pthread.patch, 150-fix-ldso-text-realloc-segfault.patch, исправлен uClibc-0.9.29-mips-dl-debug.patch)
+  toolchain		- Р”РѕР±Р°РІР»РµРЅС‹ РїР°С‚С‡Рё Рє uClibc (140-fix-endless-recursion-in-pthread.patch, 150-fix-ldso-text-realloc-segfault.patch, РёСЃРїСЂР°РІР»РµРЅ uClibc-0.9.29-mips-dl-debug.patch)
 
   udpxy-1.0_Chipmunk-7
 
@@ -321,24 +321,24 @@
 
 2008-09-03	lly
 *******************************************************************************
-  kernel/openwrt/brcm/801-bcm4785.patch - Добавлен патч из OpenWRT (SVN Changeset 11470)
+  kernel/openwrt/brcm/801-bcm4785.patch - Р”РѕР±Р°РІР»РµРЅ РїР°С‚С‡ РёР· OpenWRT (SVN Changeset 11470)
 
 
 2008-08-25	lly		wl500g-1.9.2.7-d
 *******************************************************************************
-  Переезд на baseline 1.9.2.7-10 (www.diff, httpd.diff, rc.diff, shared.diff, others.diff, Makefile.diff, brcm-src/brcm-src-5365.patch, kernel/kernel-bcm5354.patch)
+  РџРµСЂРµРµР·Рґ РЅР° baseline 1.9.2.7-10 (www.diff, httpd.diff, rc.diff, shared.diff, others.diff, Makefile.diff, brcm-src/brcm-src-5365.patch, kernel/kernel-bcm5354.patch)
 
-  brcm-src/brcm-src-include.patch \ if defined(BCM5xxx) заменено на if defined(CONFIG_BCM5xxx)
-  brcm-src/brcm-src-shared.patch  /  для автоматического выставления в опциях ядра
+  brcm-src/brcm-src-include.patch \ if defined(BCM5xxx) Р·Р°РјРµРЅРµРЅРѕ РЅР° if defined(CONFIG_BCM5xxx)
+  brcm-src/brcm-src-shared.patch  /  РґР»СЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРіРѕ РІС‹СЃС‚Р°РІР»РµРЅРёСЏ РІ РѕРїС†РёСЏС… СЏРґСЂР°
 
-  brcm-src/brcm-src-parkid.patch уже учтено в OpenWRT патчах - выкинут.
+  brcm-src/brcm-src-parkid.patch СѓР¶Рµ СѓС‡С‚РµРЅРѕ РІ OpenWRT РїР°С‚С‡Р°С… - РІС‹РєРёРЅСѓС‚.
 
-  brcm-boards.tar.bz2	- В arch/mips/bcm947xx/compressed/Makefile добавлен hndpmu.c
+  brcm-boards.tar.bz2	- Р’ arch/mips/bcm947xx/compressed/Makefile РґРѕР±Р°РІР»РµРЅ hndpmu.c
 
   kernel/openwrt/brcm/001-bcm47xx.patch
 
-  patch.sh		- Если патч не найден, теперь вываливаемся по exit 1
-  Makefile		- Починен после разгрома 2008-07-04 (samba, зависимости lib и т.д. от .config)
+  patch.sh		- Р•СЃР»Рё РїР°С‚С‡ РЅРµ РЅР°Р№РґРµРЅ, С‚РµРїРµСЂСЊ РІС‹РІР°Р»РёРІР°РµРјСЃСЏ РїРѕ exit 1
+  Makefile		- РџРѕС‡РёРЅРµРЅ РїРѕСЃР»Рµ СЂР°Р·РіСЂРѕРјР° 2008-07-04 (samba, Р·Р°РІРёСЃРёРјРѕСЃС‚Рё lib Рё С‚.Рґ. РѕС‚ .config)
 
 
 2008-08-20	lly
@@ -353,151 +353,151 @@
 
 2008-07-08	lly
 *******************************************************************************
-  uClibc/uClibc-0.9.29-start_main.patch		- Добавлена функция-переходник __uClibc_start_main для бинарников версии uClibc старше чем 0.9.28 (т.к. nas и wl собраны под uClibc 0.9.19). Но версии старше 0.9.15 бинарно несовместимы совсем.
-  uClibc/uClibc-0.9.29-mips-dl-debug.patch	- Исправлен Segfault в _dl_reltypes() при включенном LD_DEBUG=reloc на платформе mips (дырки при инициализации массива _dl_reltypes_tab).
-  uClibc/uClibc-0.9.29-gethostent_r-failure-retval.patch	\ патчи из текущего trunk'а uClibc
+  uClibc/uClibc-0.9.29-start_main.patch		- Р”РѕР±Р°РІР»РµРЅР° С„СѓРЅРєС†РёСЏ-РїРµСЂРµС…РѕРґРЅРёРє __uClibc_start_main РґР»СЏ Р±РёРЅР°СЂРЅРёРєРѕРІ РІРµСЂСЃРёРё uClibc СЃС‚Р°СЂС€Рµ С‡РµРј 0.9.28 (С‚.Рє. nas Рё wl СЃРѕР±СЂР°РЅС‹ РїРѕРґ uClibc 0.9.19). РќРѕ РІРµСЂСЃРёРё СЃС‚Р°СЂС€Рµ 0.9.15 Р±РёРЅР°СЂРЅРѕ РЅРµСЃРѕРІРјРµСЃС‚РёРјС‹ СЃРѕРІСЃРµРј.
+  uClibc/uClibc-0.9.29-mips-dl-debug.patch	- РСЃРїСЂР°РІР»РµРЅ Segfault РІ _dl_reltypes() РїСЂРё РІРєР»СЋС‡РµРЅРЅРѕРј LD_DEBUG=reloc РЅР° РїР»Р°С‚С„РѕСЂРјРµ mips (РґС‹СЂРєРё РїСЂРё РёРЅРёС†РёР°Р»РёР·Р°С†РёРё РјР°СЃСЃРёРІР° _dl_reltypes_tab).
+  uClibc/uClibc-0.9.29-gethostent_r-failure-retval.patch	\ РїР°С‚С‡Рё РёР· С‚РµРєСѓС‰РµРіРѕ trunk'Р° uClibc
   uClibc/uClibc-0.9.29-conditional-sched_affinity.patch		/
 
 
 2008-07-04	lly
 *******************************************************************************
-  Makefile		- все патчевание переведено на использование patch.sh
-			  добавлен вызов make clean для пакетов из router/ т.к. там могут оказаться старые бинарники (например, в nvram)
+  Makefile		- РІСЃРµ РїР°С‚С‡РµРІР°РЅРёРµ РїРµСЂРµРІРµРґРµРЅРѕ РЅР° РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ patch.sh
+			  РґРѕР±Р°РІР»РµРЅ РІС‹Р·РѕРІ make clean РґР»СЏ РїР°РєРµС‚РѕРІ РёР· router/ С‚.Рє. С‚Р°Рј РјРѕРіСѓС‚ РѕРєР°Р·Р°С‚СЊСЃСЏ СЃС‚Р°СЂС‹Рµ Р±РёРЅР°СЂРЅРёРєРё (РЅР°РїСЂРёРјРµСЂ, РІ nvram)
 
-  kernel/openwrt/050-build_flags.patch	- возвращен флаг -funit-at-a-time т.к. поддерживается новым toolchain'ом
+  kernel/openwrt/050-build_flags.patch	- РІРѕР·РІСЂР°С‰РµРЅ С„Р»Р°Рі -funit-at-a-time С‚.Рє. РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ РЅРѕРІС‹Рј toolchain'РѕРј
 
-  dropbear/*.patch	- hot-fix патчи из mailing-list'а Dropbear (dropbear-0.51-charo-io.patch, dropbear-0.51-missing-return.patch, dropbear-0.51-pipe.patch, dropbear-0.51-scp-no-mmu.patch, dropbear-0.51-uninit-defect.patch)
+  dropbear/*.patch	- hot-fix РїР°С‚С‡Рё РёР· mailing-list'Р° Dropbear (dropbear-0.51-charo-io.patch, dropbear-0.51-missing-return.patch, dropbear-0.51-pipe.patch, dropbear-0.51-scp-no-mmu.patch, dropbear-0.51-uninit-defect.patch)
 
   udpxy-1.0_Chipmunk-2
 
 
 2008-07-01	lly
 *******************************************************************************
-  kernel/openwrt/		- добавлены патчи из OpenWRT SVN 2008-06-14
+  kernel/openwrt/		- РґРѕР±Р°РІР»РµРЅС‹ РїР°С‚С‡Рё РёР· OpenWRT SVN 2008-06-14
     116-bridge_ioctls.patch
     801-usb_serial_endpoint_size.patch
 
-  shared.diff		- в shutils.h включен <string.h> для прототипов strcpy(), strcat()
-  upnp.diff		- в igd.h включен <signal.h> в вариант linux
+  shared.diff		- РІ shutils.h РІРєР»СЋС‡РµРЅ <string.h> РґР»СЏ РїСЂРѕС‚РѕС‚РёРїРѕРІ strcpy(), strcat()
+  upnp.diff		- РІ igd.h РІРєР»СЋС‡РµРЅ <signal.h> РІ РІР°СЂРёР°РЅС‚ linux
 
 
 2008-06-30	lly
 *******************************************************************************
   busybox/busybox-1.1.3-e2fsck-checkinterval.patch	\
-  others.diff						 | из версии Олега -10
+  others.diff						 | РёР· РІРµСЂСЃРёРё РћР»РµРіР° -10
   udpxy 0.1-37                                          /
 
-  samba/samba-2.0.10-gcc34.patch - фикс, определение аргументов 2,3 в dbghdr() как const char *
-  kernel/openwrt/206-gcc_3.4_fixes.patch - добавлен фикс __attribute_used__ в linux/compiler.h
+  samba/samba-2.0.10-gcc34.patch - С„РёРєСЃ, РѕРїСЂРµРґРµР»РµРЅРёРµ Р°СЂРіСѓРјРµРЅС‚РѕРІ 2,3 РІ dbghdr() РєР°Рє const char *
+  kernel/openwrt/206-gcc_3.4_fixes.patch - РґРѕР±Р°РІР»РµРЅ С„РёРєСЃ __attribute_used__ РІ linux/compiler.h
 
-  loader-0.05.tar.bz2	- добавлена обработка аргументов от CFE из OpenWRT (SVN Changesets 11275, 11340)
+  loader-0.05.tar.bz2	- РґРѕР±Р°РІР»РµРЅР° РѕР±СЂР°Р±РѕС‚РєР° Р°СЂРіСѓРјРµРЅС‚РѕРІ РѕС‚ CFE РёР· OpenWRT (SVN Changesets 11275, 11340)
 
 
 2008-06-28	lly		wl500g-1.9.2.7-c
 *******************************************************************************
-  !!! Пересобран toolchain (gcc-3.4.6, binutils 2.17, uClibc 0.9.29) по шаблону OpenWRT SVN 2008-06-14
-  !!!  добавлены патчи binutils-2.17-m4710a0.patch, gcc-3.4.6-m4710a0.patch, uClibc-0.9.29-scalar_t.patch, binutils-bfd-elfxx-mips-opt.patch
+  !!! РџРµСЂРµСЃРѕР±СЂР°РЅ toolchain (gcc-3.4.6, binutils 2.17, uClibc 0.9.29) РїРѕ С€Р°Р±Р»РѕРЅСѓ OpenWRT SVN 2008-06-14
+  !!!  РґРѕР±Р°РІР»РµРЅС‹ РїР°С‚С‡Рё binutils-2.17-m4710a0.patch, gcc-3.4.6-m4710a0.patch, uClibc-0.9.29-scalar_t.patch, binutils-bfd-elfxx-mips-opt.patch
   !!!
-  !!!  P.S. binutils 2.18 не встал - сломан strip для архитектуры mips
+  !!!  P.S. binutils 2.18 РЅРµ РІСЃС‚Р°Р» - СЃР»РѕРјР°РЅ strip РґР»СЏ Р°СЂС…РёС‚РµРєС‚СѓСЂС‹ mips
 
-  uClibc 0.9.29		- Ура!!
-  lib.diff		- В список Extra-библиотек добавлена libgcc_s так как она теперь не линкуется с основной :( И ключ ADD_LIBGCC_FUNCTIONS удалён из конфига uClibc
+  uClibc 0.9.29		- РЈСЂР°!!
+  lib.diff		- Р’ СЃРїРёСЃРѕРє Extra-Р±РёР±Р»РёРѕС‚РµРє РґРѕР±Р°РІР»РµРЅР° libgcc_s С‚Р°Рє РєР°Рє РѕРЅР° С‚РµРїРµСЂСЊ РЅРµ Р»РёРЅРєСѓРµС‚СЃСЏ СЃ РѕСЃРЅРѕРІРЅРѕР№ :( Р РєР»СЋС‡ ADD_LIBGCC_FUNCTIONS СѓРґР°Р»С‘РЅ РёР· РєРѕРЅС„РёРіР° uClibc
 
   httpd.diff,		\
-  LPRng.diff,            | Исправления для совместимости с новой версией gcc 3.4 (прототипы функций)
+  LPRng.diff,            | РСЃРїСЂР°РІР»РµРЅРёСЏ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё СЃ РЅРѕРІРѕР№ РІРµСЂСЃРёРµР№ gcc 3.4 (РїСЂРѕС‚РѕС‚РёРїС‹ С„СѓРЅРєС†РёР№)
   rcamdmips.diff,        |
   rc.diff		/
   kernel/openwrt/609-netfilter_string.patch
 
-  loader-0.04.tar.bz2	- Флаг компиляции -mcpu=r4600 заменен на -mips32
+  loader-0.04.tar.bz2	- Р¤Р»Р°Рі РєРѕРјРїРёР»СЏС†РёРё -mcpu=r4600 Р·Р°РјРµРЅРµРЅ РЅР° -mips32
 
-  kernel-flash-mirrorbit.patch - пофиксена проблема скорости записи во flash в 2.4.36 (убрано отладочное сообщение об установке DQ5 во время записи)
-  kernel/kernel-brcm-src.patch - поправлен drivers/mtd/mtdblock_ro.c на совместимость с gcc 3.4
+  kernel-flash-mirrorbit.patch - РїРѕС„РёРєСЃРµРЅР° РїСЂРѕР±Р»РµРјР° СЃРєРѕСЂРѕСЃС‚Рё Р·Р°РїРёСЃРё РІРѕ flash РІ 2.4.36 (СѓР±СЂР°РЅРѕ РѕС‚Р»Р°РґРѕС‡РЅРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ РѕР± СѓСЃС‚Р°РЅРѕРІРєРµ DQ5 РІРѕ РІСЂРµРјСЏ Р·Р°РїРёСЃРё)
+  kernel/kernel-brcm-src.patch - РїРѕРїСЂР°РІР»РµРЅ drivers/mtd/mtdblock_ro.c РЅР° СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚СЊ СЃ gcc 3.4
 
 
 2008-06-15	lly
 *******************************************************************************
   Kernel 2.4.36.6
 
-  kernel/kernel-pl2303.patch - глобальная подчистка патча т.к. в ядре 2.4.36.3 сделан бэкпорт с 2.6.24.1
+  kernel/kernel-pl2303.patch - РіР»РѕР±Р°Р»СЊРЅР°СЏ РїРѕРґС‡РёСЃС‚РєР° РїР°С‚С‡Р° С‚.Рє. РІ СЏРґСЂРµ 2.4.36.3 СЃРґРµР»Р°РЅ Р±СЌРєРїРѕСЂС‚ СЃ 2.6.24.1
 
   dropbear 0.51
-  dnsmasq 2.42		- для uClibc 0.9.19 пришлось добавлять библиотечный файл prctl.c из 0.9.29 (т.к. этот вызов sysctl есть в любом ядре 2.4 - всё работает)
+  dnsmasq 2.42		- РґР»СЏ uClibc 0.9.19 РїСЂРёС€Р»РѕСЃСЊ РґРѕР±Р°РІР»СЏС‚СЊ Р±РёР±Р»РёРѕС‚РµС‡РЅС‹Р№ С„Р°Р№Р» prctl.c РёР· 0.9.29 (С‚.Рє. СЌС‚РѕС‚ РІС‹Р·РѕРІ sysctl РµСЃС‚СЊ РІ Р»СЋР±РѕРј СЏРґСЂРµ 2.4 - РІСЃС‘ СЂР°Р±РѕС‚Р°РµС‚)
 
-  utils.diff		- Обновление mii-tool
+  utils.diff		- РћР±РЅРѕРІР»РµРЅРёРµ mii-tool
 
 
 2008-03-18	lly		wl500g-1.9.2.7-b
 *******************************************************************************
-  Переезд на baseline 1.9.2.7-9 (www.diff, shared.diff, kernel/kernel-printer-undo-status.patch, kernel/kernel-gpiortc.patch, kernel/kernel-bt-2.4.31-mh1.patch)
+  РџРµСЂРµРµР·Рґ РЅР° baseline 1.9.2.7-9 (www.diff, shared.diff, kernel/kernel-printer-undo-status.patch, kernel/kernel-gpiortc.patch, kernel/kernel-bt-2.4.31-mh1.patch)
 
   Kernel 2.4.36.2
 
-  kernel/openwrt/110-netdev_random_core.patch - адаптация к последнему ядру
+  kernel/openwrt/110-netdev_random_core.patch - Р°РґР°РїС‚Р°С†РёСЏ Рє РїРѕСЃР»РµРґРЅРµРјСѓ СЏРґСЂСѓ
 
 
 2008-02-23	lly
 *******************************************************************************
   dropbear 0.50
-  dnsmasq 2.27		- в dnsmasq-2.27.patch добавлены crash fixes из 2.30 
+  dnsmasq 2.27		- РІ dnsmasq-2.27.patch РґРѕР±Р°РІР»РµРЅС‹ crash fixes РёР· 2.30 
 
-  upnp.diff		- починен метод clean
+  upnp.diff		- РїРѕС‡РёРЅРµРЅ РјРµС‚РѕРґ clean
 
-  kernel/kernel-usb-hid-bugs.patch	- вычищены устаревшие куски
+  kernel/kernel-usb-hid-bugs.patch	- РІС‹С‡РёС‰РµРЅС‹ СѓСЃС‚Р°СЂРµРІС€РёРµ РєСѓСЃРєРё
 
 
 2008-02-08	lly
 *******************************************************************************
-  others/parport	- down_interruptible(), up() стали static inline; сделана перелинковка модулей с "довеском" (ksyms.c)
-  Makefile		- почти все патчевание переведено на использование patch.sh
-  Makefile.diff		- 1) сборка ядра(modules, zImage) разбита на две фазы для диагностики ошибок сборки ядра
-			  2) починено правило igmpproxy-clean
-  config.diff		- убрал IPv6
-  busybox-1.1.3.config	- убрал IPv6, добавил CONFIG_FEATURE_CHECK_TAINTED_MODULE=y для поддержки GPLONLY модулей
-  others.diff		- копирование модулей ядра не в каталог 2.4.20, а задаваемый переменной $(LINUX_KERNEL)
-			  модули параллельного порта (parport) принтера копируются только для моделей с ieee1284 портом
+  others/parport	- down_interruptible(), up() СЃС‚Р°Р»Рё static inline; СЃРґРµР»Р°РЅР° РїРµСЂРµР»РёРЅРєРѕРІРєР° РјРѕРґСѓР»РµР№ СЃ "РґРѕРІРµСЃРєРѕРј" (ksyms.c)
+  Makefile		- РїРѕС‡С‚Рё РІСЃРµ РїР°С‚С‡РµРІР°РЅРёРµ РїРµСЂРµРІРµРґРµРЅРѕ РЅР° РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ patch.sh
+  Makefile.diff		- 1) СЃР±РѕСЂРєР° СЏРґСЂР°(modules, zImage) СЂР°Р·Р±РёС‚Р° РЅР° РґРІРµ С„Р°Р·С‹ РґР»СЏ РґРёР°РіРЅРѕСЃС‚РёРєРё РѕС€РёР±РѕРє СЃР±РѕСЂРєРё СЏРґСЂР°
+			  2) РїРѕС‡РёРЅРµРЅРѕ РїСЂР°РІРёР»Рѕ igmpproxy-clean
+  config.diff		- СѓР±СЂР°Р» IPv6
+  busybox-1.1.3.config	- СѓР±СЂР°Р» IPv6, РґРѕР±Р°РІРёР» CONFIG_FEATURE_CHECK_TAINTED_MODULE=y РґР»СЏ РїРѕРґРґРµСЂР¶РєРё GPLONLY РјРѕРґСѓР»РµР№
+  others.diff		- РєРѕРїРёСЂРѕРІР°РЅРёРµ РјРѕРґСѓР»РµР№ СЏРґСЂР° РЅРµ РІ РєР°С‚Р°Р»РѕРі 2.4.20, Р° Р·Р°РґР°РІР°РµРјС‹Р№ РїРµСЂРµРјРµРЅРЅРѕР№ $(LINUX_KERNEL)
+			  РјРѕРґСѓР»Рё РїР°СЂР°Р»Р»РµР»СЊРЅРѕРіРѕ РїРѕСЂС‚Р° (parport) РїСЂРёРЅС‚РµСЂР° РєРѕРїРёСЂСѓСЋС‚СЃСЏ С‚РѕР»СЊРєРѕ РґР»СЏ РјРѕРґРµР»РµР№ СЃ ieee1284 РїРѕСЂС‚РѕРј
 
-  kernel/kernel-printer-id-fix.patch	\ вычищены устаревшие куски
+  kernel/kernel-printer-id-fix.patch	\ РІС‹С‡РёС‰РµРЅС‹ СѓСЃС‚Р°СЂРµРІС€РёРµ РєСѓСЃРєРё
   kernel/kernel-printer-bug.patch	/
 
 
 2008-01-08	lly		wl500g-1.9.2.7-a
 *******************************************************************************
   iptables 1.3.8
-  netconf.diff		- исправления в связи с апгрейдом iptables на ветку 1.3 ( iptc_free(), конверт netconf_get_target() )
+  netconf.diff		- РёСЃРїСЂР°РІР»РµРЅРёСЏ РІ СЃРІСЏР·Рё СЃ Р°РїРіСЂРµР№РґРѕРј iptables РЅР° РІРµС‚РєСѓ 1.3 ( iptc_free(), РєРѕРЅРІРµСЂС‚ netconf_get_target() )
 
 
 2008-01-05	lly
 *******************************************************************************
-  brcm-src-include.patch	- добавлены файлики из openWRT
-  rc.diff		- починен в firewall_ex.c вывод dprintf(buf) в случае отладки
-  patch.sh		- расширена диагностика, добавлены ключи доп. логгирования (-d), реверса (-r)
+  brcm-src-include.patch	- РґРѕР±Р°РІР»РµРЅС‹ С„Р°Р№Р»РёРєРё РёР· openWRT
+  rc.diff		- РїРѕС‡РёРЅРµРЅ РІ firewall_ex.c РІС‹РІРѕРґ dprintf(buf) РІ СЃР»СѓС‡Р°Рµ РѕС‚Р»Р°РґРєРё
+  patch.sh		- СЂР°СЃС€РёСЂРµРЅР° РґРёР°РіРЅРѕСЃС‚РёРєР°, РґРѕР±Р°РІР»РµРЅС‹ РєР»СЋС‡Рё РґРѕРї. Р»РѕРіРіРёСЂРѕРІР°РЅРёСЏ (-d), СЂРµРІРµСЂСЃР° (-r)
 
- * Патчи к ядру из OpenWRT kamikadze 7.09
-  kernel/openwrt/brcm/001-bcm47xx.patch	- в init/do_mounts.c добавлена поддержка mtdblock_ro, флаг сборки заменен на -mips2, 
-  kernel/openwrt/brcm/003-bcm47xx_cache_fixes.patch - typedefs.h и sbconfig.h берутся по стандартным путям
-  kernel/openwrt/brcm/004-flash.patch - убраны лишние опции в Makefile что мешало сборке devices/mtd/*
-  kernel/openwrt/050-build_flags.patch	- адаптация к toolchain'у 3.2.3 от Broadcom (добавлен флаг -m4710a0kern, убран -funit-at-a-time)
-  kernel/openwrt/607-netfilter_connmark.patch - добавлены недостающие .h заголовки, адаптация к последнему ядру
+ * РџР°С‚С‡Рё Рє СЏРґСЂСѓ РёР· OpenWRT kamikadze 7.09
+  kernel/openwrt/brcm/001-bcm47xx.patch	- РІ init/do_mounts.c РґРѕР±Р°РІР»РµРЅР° РїРѕРґРґРµСЂР¶РєР° mtdblock_ro, С„Р»Р°Рі СЃР±РѕСЂРєРё Р·Р°РјРµРЅРµРЅ РЅР° -mips2, 
+  kernel/openwrt/brcm/003-bcm47xx_cache_fixes.patch - typedefs.h Рё sbconfig.h Р±РµСЂСѓС‚СЃСЏ РїРѕ СЃС‚Р°РЅРґР°СЂС‚РЅС‹Рј РїСѓС‚СЏРј
+  kernel/openwrt/brcm/004-flash.patch - СѓР±СЂР°РЅС‹ Р»РёС€РЅРёРµ РѕРїС†РёРё РІ Makefile С‡С‚Рѕ РјРµС€Р°Р»Рѕ СЃР±РѕСЂРєРµ devices/mtd/*
+  kernel/openwrt/050-build_flags.patch	- Р°РґР°РїС‚Р°С†РёСЏ Рє toolchain'Сѓ 3.2.3 РѕС‚ Broadcom (РґРѕР±Р°РІР»РµРЅ С„Р»Р°Рі -m4710a0kern, СѓР±СЂР°РЅ -funit-at-a-time)
+  kernel/openwrt/607-netfilter_connmark.patch - РґРѕР±Р°РІР»РµРЅС‹ РЅРµРґРѕСЃС‚Р°СЋС‰РёРµ .h Р·Р°РіРѕР»РѕРІРєРё, Р°РґР°РїС‚Р°С†РёСЏ Рє РїРѕСЃР»РµРґРЅРµРјСѓ СЏРґСЂСѓ
   kernel/openwrt/005-mtd_flashtypes.patch	\
-  kernel/openwrt/212-htb_time_fix.patch		 | адаптация к последнему ядру
+  kernel/openwrt/212-htb_time_fix.patch		 | Р°РґР°РїС‚Р°С†РёСЏ Рє РїРѕСЃР»РµРґРЅРµРјСѓ СЏРґСЂСѓ
   kernel/openwrt/228-more_usb_fixes.patch	 |
   kernel/openwrt/616-netfilter_imq.patch	/
 
- * Патчи к ядру 2.4.36:
-  brcm-boards.tar.bz2		- архив отсутствующих исходников к Broadcom'у в 2.4.36
+ * РџР°С‚С‡Рё Рє СЏРґСЂСѓ 2.4.36:
+  brcm-boards.tar.bz2		- Р°СЂС…РёРІ РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‰РёС… РёСЃС…РѕРґРЅРёРєРѕРІ Рє Broadcom'Сѓ РІ 2.4.36
 				 (arch/mips/bcm947xx, drivers/mtd/devices, drivers/mtd/maps, drivers/net/et, drivers/net/hnd, drivers/net/wl, drivers/pcmcia, scripts/cramfs)
-  kernel-netfilter-extras.patch	- переезд на новые iptables 1.3
-  kernel-brcm-src.patch		- добавлены патчи от Broadcom из 2.4.20
+  kernel-netfilter-extras.patch	- РїРµСЂРµРµР·Рґ РЅР° РЅРѕРІС‹Рµ iptables 1.3
+  kernel-brcm-src.patch		- РґРѕР±Р°РІР»РµРЅС‹ РїР°С‚С‡Рё РѕС‚ Broadcom РёР· 2.4.20
 				 ( drivers/mtd/mtdblock_ro.c, net/ipv4/ipconfig.c, drivers/pcmcia/bcm4710* )
-  kernel-printer-asus.patch	- добавлены патчи от Asus из 2.4.20
-  kernel-buildhost.patch		- определения htonl/ntohl из include/linux/byteorder/generic.h открыты для всех
-  kernel.patch			- разделен на kernel-squashfs.patch + kernel-ov51x.patch
-  kernel-lzma.patch		- переименован в kernel-squashfs-lzma.patch
-  kernel-pl2303.patch		- добавлены новые VID/PID переходников, вырезаны куски приводившие к downgrade'у до 2.4.20
-  kernel-flash-mirrorbit.patch	- переименован в kernel-flash-mirrorbit.patch и убраны устаревшие в 2.4.36 куски
+  kernel-printer-asus.patch	- РґРѕР±Р°РІР»РµРЅС‹ РїР°С‚С‡Рё РѕС‚ Asus РёР· 2.4.20
+  kernel-buildhost.patch		- РѕРїСЂРµРґРµР»РµРЅРёСЏ htonl/ntohl РёР· include/linux/byteorder/generic.h РѕС‚РєСЂС‹С‚С‹ РґР»СЏ РІСЃРµС…
+  kernel.patch			- СЂР°Р·РґРµР»РµРЅ РЅР° kernel-squashfs.patch + kernel-ov51x.patch
+  kernel-lzma.patch		- РїРµСЂРµРёРјРµРЅРѕРІР°РЅ РІ kernel-squashfs-lzma.patch
+  kernel-pl2303.patch		- РґРѕР±Р°РІР»РµРЅС‹ РЅРѕРІС‹Рµ VID/PID РїРµСЂРµС…РѕРґРЅРёРєРѕРІ, РІС‹СЂРµР·Р°РЅС‹ РєСѓСЃРєРё РїСЂРёРІРѕРґРёРІС€РёРµ Рє downgrade'Сѓ РґРѕ 2.4.20
+  kernel-flash-mirrorbit.patch	- РїРµСЂРµРёРјРµРЅРѕРІР°РЅ РІ kernel-flash-mirrorbit.patch Рё СѓР±СЂР°РЅС‹ СѓСЃС‚Р°СЂРµРІС€РёРµ РІ 2.4.36 РєСѓСЃРєРё
 
- * Удалены (включены в ядро/openWRT патчи):
+ * РЈРґР°Р»РµРЅС‹ (РІРєР»СЋС‡РµРЅС‹ РІ СЏРґСЂРѕ/openWRT РїР°С‚С‡Рё):
   kernel-2.4.20-ext3.patch
   kernel-audigy.patch
   kernel-2.4.20-ptrace.patch
