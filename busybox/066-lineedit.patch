@@ -1,0 +1,30 @@
+From d598a8d4e655b095c741f0cf73e139b3c9524da1
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Wed, 10 Dec 2014 16:22:13 +0000
+Subject: lineedit: don't fall back to simple line input if tty is in raw mode
+
+Testcase: shell command input after python ^Z should still work
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
+diff --git a/libbb/lineedit.c b/libbb/lineedit.c
+--- a/libbb/lineedit.c
++++ b/libbb/lineedit.c
+@@ -2256,9 +2256,13 @@ int FAST_FUNC read_line_input(line_input_t *st, const char *prompt, char *comman
+ 	INIT_S();
+ 
+ 	if (tcgetattr(STDIN_FILENO, &initial_settings) < 0
+-	 || !(initial_settings.c_lflag & ECHO)
++	 || (initial_settings.c_lflag & (ECHO|ICANON)) == ICANON
+ 	) {
+-		/* Happens when e.g. stty -echo was run before */
++		/* Happens when e.g. stty -echo was run before.
++		 * But if ICANON is not set, we don't come here.
++		 * (example: interactive python ^Z-backgrounded,
++		 * tty is still in "raw mode").
++		 */
+ 		parse_and_put_prompt(prompt);
+ 		/* fflush_all(); - done by parse_and_put_prompt */
+ 		if (fgets(command, maxsize, stdin) == NULL)
+-- 
