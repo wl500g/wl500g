@@ -107,7 +107,7 @@ $(TOP)/Makefile: Makefile.top
 	cp -p $^ $@
 
 prep: $(TOP) $(TOP)/Makefile
-	-svnversion -c 2>/dev/null | sed "s/.*://" > $(TOP)/.svnrev
+	-@echo "$$(( $(shell git rev-list --all --count origin/HEAD) + 1000 ))$(if $(shell git status -s -uno),M,)" > $(TOP)/.svnrev
 
 $(TOP)/config:
 	[ -d $@ ] || \
