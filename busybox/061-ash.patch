@@ -2,11 +2,14 @@
  e9ab07c211b283c0f798628858eaaef93a4893aa ash: make ${#var} unicode-aware
  07f7ea70edd0fdc7ad7da36df3f487111e14d0d1 ash: fix off-by-one in "jobs %4" handling. closes 7310
  08a5dab181fa4c28b7636c35021308e1e12e7b59 ash: fix handling of negative start value in ${v:start:len}
+ c76236fd7d980822a647914c9ff6a3fabdec2390 ash: fix a SEGV in ${#1}
+ 7e66102f762a7d80715f0c7e5925433256b78cee ash: fix a SEGV case in an invalid heredoc
+ 75a76269ba2549cb5392d7d720a4c393de01b934 ash: do not split the result of tilde expansion
 
 diff --git a/shell/ash.c b/shell/ash.c
 --- a/shell/ash.c
 +++ b/shell/ash.c
-@@ -2121,6 +2121,22 @@ lookupvar(const char *name)
+@@ -2120,6 +2120,22 @@ lookupvar(const char *name)
  	return NULL;
  }
  
@@ -29,7 +32,7 @@ diff --git a/shell/ash.c b/shell/ash.c
  /*
   * Search the environment of a builtin command.
   */
-@@ -3623,7 +3623,7 @@ getjob(const char *name, int getctl)
+@@ -3623,7 +3639,7 @@ getjob(const char *name, int getctl)
  
  	if (is_number(p)) {
  		num = atoi(p);
@@ -38,7 +41,25 @@ diff --git a/shell/ash.c b/shell/ash.c
  			jp = jobtab + num - 1;
  			if (jp->used)
  				goto gotit;
-@@ -6411,7 +6411,15 @@ subevalvar(char *p, char *varname, int strloc, int subtype,
+@@ -5767,7 +5783,6 @@ exptilde(char *startp, char *p, int flag
+ 	struct passwd *pw;
+ 	const char *home;
+ 	int quotes = flags & (EXP_FULL | EXP_CASE | EXP_REDIR);
+-	int startloc;
+ 
+ 	name = p + 1;
+ 
+@@ -5799,9 +5814,7 @@ exptilde(char *startp, char *p, int flag
+ 	if (!home || !*home)
+ 		goto lose;
+ 	*p = c;
+-	startloc = expdest - (char *)stackblock();
+ 	strtodest(home, SQSYNTAX, quotes);
+-	recordregion(startloc, expdest - (char *)stackblock(), 0);
+ 	return p;
+  lose:
+ 	*p = c;
+@@ -6387,7 +6400,15 @@ subevalvar(char *p, char *varname, int s
  				len = number(loc);
  			}
  		}
@@ -55,24 +76,22 @@ diff --git a/shell/ash.c b/shell/ash.c
  			pos = 0;
  			len = 0;
  		}
-@@ -6798,7 +6814,15 @@ evalvar(char *p, int flags, struct strlist *var_str_list)
- 		varunset(p, var, 0, 0);
- 
- 	if (subtype == VSLENGTH) {
--		cvtnum(varlen > 0 ? varlen : 0);
-+		ssize_t n = varlen;
-+		if (n > 0) {
+@@ -6714,6 +6735,14 @@ varvalue(char *name, int varflags, int f
+ 		len = strlen(p);
+ 		if (!(subtype == VSPLUS || subtype == VSLENGTH))
+ 			memtodest(p, len, syntax, quotes);
++#if ENABLE_UNICODE_SUPPORT
++		if (subtype == VSLENGTH && len > 0) {
 +			reinit_unicode_for_ash();
 +			if (unicode_status == UNICODE_ON) {
-+				const char *val = lookupvar(var);
-+				n = unicode_strlen(val);
++				len = unicode_strlen(p);
 +			}
 +		}
-+		cvtnum(n > 0 ? n : 0);
- 		goto record;
++#endif
+ 		return len;
  	}
  
-@@ -9653,16 +9677,7 @@ preadfd(void)
+@@ -9653,16 +9682,7 @@ preadfd(void)
  # if ENABLE_FEATURE_TAB_COMPLETION
  		line_input_state->path_lookup = pathval();
  # endif
@@ -90,4 +109,62 @@ diff --git a/shell/ash.c b/shell/ash.c
  		nr = read_line_input(line_input_state, cmdedit_prompt, buf, IBUFSIZ, timeout);
  		if (nr == 0) {
  			/* Ctrl+C pressed */
+@@ -10522,7 +10542,7 @@ static union node *andor(void);
+ static union node *pipeline(void);
+ static union node *parse_command(void);
+ static void parseheredoc(void);
+-static char peektoken(void);
++static char nexttoken_ends_list(void);
+ static int readtoken(void);
+ 
+ static union node *
+@@ -10532,7 +10552,7 @@ list(int nlflag)
+ 	int tok;
+ 
+ 	checkkwd = CHKNL | CHKKWD | CHKALIAS;
+-	if (nlflag == 2 && peektoken())
++	if (nlflag == 2 && nexttoken_ends_list())
+ 		return NULL;
+ 	n1 = NULL;
+ 	for (;;) {
+@@ -10574,8 +10594,15 @@ list(int nlflag)
+ 				tokpushback = 1;
+ 			}
+ 			checkkwd = CHKNL | CHKKWD | CHKALIAS;
+-			if (peektoken())
++			if (nexttoken_ends_list()) {
++				/* Testcase: "<<EOF; then <W".
++				 * It used to segfault w/o this check:
++				 */
++				if (heredoclist) {
++					raise_error_unexpected_syntax(-1);
++				}
+ 				return n1;
++			}
+ 			break;
+ 		case TEOF:
+ 			if (heredoclist)
+@@ -12012,7 +12039,7 @@ readtoken(void)
+ }
+ 
+ static char
+-peektoken(void)
++nexttoken_ends_list(void)
+ {
+ 	int t;
+ 
+diff --git a/shell/ash_test/ash-heredoc/heredoc1.right b/shell/ash_test/ash-heredoc/heredoc1.right
+new file mode 100644
+--- /dev/null
++++ b/shell/ash_test/ash-heredoc/heredoc1.right
+@@ -0,0 +1 @@
++heredoc1.tests: line 3: syntax error: unexpected "then"
+diff --git a/shell/ash_test/ash-heredoc/heredoc1.tests b/shell/ash_test/ash-heredoc/heredoc1.tests
+new file mode 100755
+--- /dev/null
++++ b/shell/ash_test/ash-heredoc/heredoc1.tests
+@@ -0,0 +1,3 @@
++# We used to SEGV on this:
++
++<<EOF; then <W
 -- 
