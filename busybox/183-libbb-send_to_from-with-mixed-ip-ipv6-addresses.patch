@@ -1,0 +1,32 @@
+libbb: send_to_from with mixed ip/ipv6 addresses
+
+When a server is recieves a datagram to an IPv4 address by an IPv6
+socket, the destination address is supplied as an in_pktinfo, not an
+in6_pktinfo. This allows that to be supplied as a source address in a
+reply.
+
+This fixes a bug in ntpd, where if the system has multiple addresses,
+queries to secondary addresses have the wrong source address in their
+response.
+
+Imu Li
+
+Ref.: http://lists.uclibc.org/pipermail/busybox/2014-September/081733.html
+
+diff --git a/libbb/udp_io.c b/libbb/udp_io.c
+--- a/libbb/udp_io.c
++++ b/libbb/udp_io.c
+@@ -70,7 +70,12 @@ send_to_from(int fd, void *buf, size_t len, int flags,
+ 	msg.msg_flags = flags;
+ 
+ 	cmsgptr = CMSG_FIRSTHDR(&msg);
+-	if (to->sa_family == AF_INET && from->sa_family == AF_INET) {
++# if ENABLE_FEATURE_IPV6
++	if ((to->sa_family == AF_INET || to->sa_family == AF_INET6)
++# else
++	if ((to->sa_family == AF_INET)
++# endif
++	    && from->sa_family == AF_INET) {
+ 		struct in_pktinfo *pktptr;
+ 		cmsgptr->cmsg_level = IPPROTO_IP;
+ 		cmsgptr->cmsg_type = IP_PKTINFO;
