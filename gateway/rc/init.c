@@ -203,11 +203,7 @@ shutdown_system(void)
 		signal(sig, SIG_DFL);
 
 	/* Disconnect pppd - need this for PPTP/L2TP to finish gracefully */
-#ifdef __CONFIG_XL2TPD__
-	killall("xl2tpd");
-#else
 	killall("l2tpd");
-#endif
 	killall("pppd");
 
 	if (exists(DEV_RTC))

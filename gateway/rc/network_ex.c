@@ -154,34 +154,6 @@ int start_pppd(const char *prefix)
 		holdoff = strtoul(nvram_safe_get(strcat_r(prefix, "pppoe_holdoff", tmp)), NULL, 10);
 		holdoff = (errno == 0) ? holdoff : 30;
 
-#ifdef __CONFIG_XL2TPD__
-		if (!(fp = fopen("/etc/xl2tpd.conf", "w"))) {
-	       	        perror(options);
-	       	        return -1;
-		}
-
-		fprintf(fp,
-			"[global]\n"
-			"access control = yes\n\n"
-			"[lac l2tp]\n"
-			"pppoptfile = %s\n"
-			"lns = %s\n"
-			"redial = yes\n"
-			"max redials = %d\n"
-			"redial timeout = %d\n"
-			"autodial = yes\n",
-			options,
-			nvram_invmatch("wan_heartbeat_x", "") ?
-				nvram_safe_get("wan_heartbeat_x") : 
-				nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp)),
-			maxfail,
-			holdoff);
-		fclose(fp);
-		
-		/* launch xl2tp */
-		ret = eval("xl2tpd");
-
-#else /* __CONFIG_XL2TPD__ */
        		mkdir("/etc/l2tp", 0755);
        		
 		if (!(fp = fopen("/etc/l2tp/l2tp.conf", "w"))) {
@@ -218,7 +190,6 @@ int start_pppd(const char *prefix)
 		
 		/* start-session */
 		ret = eval("l2tp-control", "start-session 0.0.0.0");
-#endif /* !__CONFIG_XL2TPD__ */
 		
 		/* pppd sync nodetach noaccomp nobsdcomp nodeflate */
 		/* nopcomp novj novjccomp file /tmp/ppp/options.l2tp */

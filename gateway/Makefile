@@ -178,7 +178,6 @@ obj-$(CONFIG_RADVD) += radvd
 obj-$(CONFIG_ODHCP6C) += odhcp6c
 obj-$(CONFIG_SNMP) += ucd-snmp
 obj-$(CONFIG_L2TP) += rp-l2tp
-obj-$(CONFIG_XL2TPD) += xl2tpd
 obj-$(CONFIG_IGMPPROXY) += igmpproxy
 obj-$(CONFIG_RIPD) += quagga
 obj-$(CONFIG_VSFTPD) += vsftpd
@@ -1067,14 +1066,6 @@ rp-l2tp-install:
 	install -d $(INSTALLDIR)/rp-l2tp/usr/lib/l2tp/plugins
 	install -D rp-l2tp/handlers/*.so $(INSTALLDIR)/rp-l2tp/usr/lib/l2tp/plugins
 	$(STRIP) $(INSTALLDIR)/rp-l2tp/usr/lib/l2tp/plugins/*.so
-
-xl2tpd: ppp
-	CFLAGS="-g -O2 $(EXTRACFLAGS)" \
-	$(MAKE) -C $@ xl2tpd PREFIX=/usr
-
-xl2tpd-install:
-	install -D xl2tpd/xl2tpd $(INSTALLDIR)/xl2tpd/usr/sbin/xl2tpd
-	$(STRIP) $(INSTALLDIR)/xl2tpd/usr/sbin/xl2tpd
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
 	cd igmpproxy && CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \

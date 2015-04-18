@@ -1355,11 +1355,7 @@ void stop_wan_unit(int unit)
 		    strcmp(wan_proto, "pptp") == 0 ||
 		    strcmp(wan_proto, "l2tp") == 0)
 		{
-#ifdef __CONFIG_XL2TPD__
-			killall("xl2tpd");
-#else
 			killall("l2tpd");
-#endif
 			sprintf(tmp, "/var/run/ppp%d.pid", unit);
 			kill_pidfile(tmp);
 			usleep(10000);

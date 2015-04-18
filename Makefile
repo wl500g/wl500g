@@ -48,7 +48,6 @@ RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
 QUAGGA=quagga-0.99.20.1
 L2TP=rp-l2tp
-XL2TPD=xl2tpd-1.3.1
 BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.5
@@ -89,7 +88,7 @@ all: prep custom
 
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba \
 	iproute2 iptables ipset odhcp6c \
-	ppp rp-l2tp rp-pppoe accel-pptp accel-ppp xl2tpd \
+	ppp rp-l2tp rp-pppoe accel-pptp accel-ppp \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	bpalogin bridge inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev \
@@ -407,17 +406,6 @@ $(TOP)/rp-l2tp:
 	tar -C gateway $(TAR_EXCL_VCS) -cf - $(L2TP) | tar -C $(TOP) -xf -
 
 rp-l2tp: $(TOP)/rp-l2tp
-	@true
-
-xl2tpd_Patches := $(call patches_list,xl2tpd)
-
-$(TOP)/xl2tpd: xl2tpd/$(XL2TPD).tar.gz
-	@rm -rf $(TOP)/$(XL2TPD) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(XL2TPD) $(xl2tpd_Patches)
-	mv $(TOP)/$(XL2TPD) $@
-
-xl2tpd: $(TOP)/xl2tpd
 	@true
 
 rp-pppoe_Patches := $(call patches_list,rp-pppoe)

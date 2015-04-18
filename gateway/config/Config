@@ -184,9 +184,6 @@ choice
 config CONFIG_L2TP
        bool "rp-l2tp"
 
-config CONFIG_XL2TPD
-       bool "xl2tpd"
-
 endchoice
 
 choice
