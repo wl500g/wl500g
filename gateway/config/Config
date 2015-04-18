@@ -201,10 +201,6 @@ choice
        depends on CONFIG_NAT
        default CONFIG_MINIUPNPD
 
-config CONFIG_UPNP
-       bool "BCM UPnP"
-       depends on CONFIG_NETCONF && CONFIG_NVRAM && CONFIG_SHARED
-
 config CONFIG_MINIUPNPD
        bool "MiniUPnP"
        depends on CONFIG_IPTABLES && CONFIG_NVRAM

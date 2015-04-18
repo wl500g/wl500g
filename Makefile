@@ -93,7 +93,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba \
 	bpalogin bridge inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev \
 	scsi-idle libusb usb_modeswitch wimax uqmi lltd tcpdump ntfs-3g \
-	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
+	shared miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
 	sysfsutils e2fsprogs wpa_supplicant lanauth authcli infosrv
 	@echo
 	@echo Sources prepared for compilation
@@ -629,13 +629,6 @@ libbcmcrypto:
 
 wlconf:
 	$(MAKE) -C $(BRCM-SRC) $@
-
-$(TOP)/upnp:
-	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_VCS) -cf - upnp | tar -C $(TOP) -xf -
-
-upnp: $(TOP)/upnp
-	@true
 
 miniupnpd_Patches := $(call patches_list,miniupnpd)
 

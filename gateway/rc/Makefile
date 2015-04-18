@@ -39,10 +39,6 @@ OBJS-$(CONFIG_USBNET) += usbnet.o
 OBJS-$(CONFIG_RCAMD) += rcamd.o
 
 
-ifeq ($(CONFIG_UPNP),y)
-LDFLAGS += -L$(TOP)/netconf -lnetconf
-endif
-
 vpath %.c $(SRCBASE)/rts/src
 
 all: rc

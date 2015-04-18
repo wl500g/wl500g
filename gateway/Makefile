@@ -150,7 +150,6 @@ obj-$(CONFIG_NETCONF) += netconf
 obj-$(CONFIG_NVRAM) += nvram
 obj-$(CONFIG_PPP) += ppp
 obj-$(CONFIG_UDHCPD) += udhcpd
-obj-$(CONFIG_UPNP) += upnp
 obj-$(CONFIG_MINIUPNPD) += miniupnpd
 obj-$(CONFIG_UTILS) += utils
 obj-$(CONFIG_ETC) += etc
@@ -634,7 +633,7 @@ $(LINUXDIR)/.config: .config
 
 httpd: netconf shared nvram $(EXTRA_LIBS)
 
-rc: $(if $(CONFIG_UPNP),netconf,) shared nvram $(EXTRA_LIBS)
+rc: shared nvram $(EXTRA_LIBS)
 	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 rc-install:
@@ -798,8 +797,6 @@ iptables-clean:
 
 
 netconf: iptables
-
-upnp: netconf nvram shared
 
 miniupnpd/config.h:
 	cd miniupnpd && ./genconfig.sh --leasefile --vendorcfg
