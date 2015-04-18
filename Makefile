@@ -69,7 +69,7 @@ INFOSRV=infosrv
 UCLIBC=uClibc-0.9.32
 
 # tar has --exclude parameter ?
-export TAR_EXCL_SVN := $(shell tar --exclude .svn -cf - Makefile >/dev/null 2>&1 && echo "--exclude .svn")
+export TAR_EXCL_VCS := $(shell tar --exclude-vcs -cf - Makefile >/dev/null 2>&1 && echo "--exclude-vcs")
 
 export PATCHER := $(shell pwd)/patch.sh
 
@@ -103,7 +103,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba \
 $(TOP):
 	@mkdir -p $(TOP)
 
-$(TOP)/Makefile: Makefile.top
+$(TOP)/Makefile: gateway/Makefile
 	cp -p $^ $@
 
 prep: $(TOP) $(TOP)/Makefile
@@ -111,7 +111,7 @@ prep: $(TOP) $(TOP)/Makefile
 
 $(TOP)/config:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - config | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - config | tar -C $(TOP) -xf -
 
 config: $(TOP)/config
 	@true
@@ -171,15 +171,15 @@ kernel: lzma wl brcm-shared brcm-kernel kernel-extra-drivers kernel-patch
 
 $(ROOT)/asustrx:
 	@rm -rf $@
-	tar -C . $(TAR_EXCL_SVN) -cf - asustrx | tar -C $(ROOT) -xf -
+	tar -C . $(TAR_EXCL_VCS) -cf - asustrx | tar -C $(ROOT) -xf -
 
 asustrx: $(ROOT)/asustrx
 	@true
 
 $(TOP)/loader:
 	@rm -rf $@
-	tar -C . $(TAR_EXCL_SVN) -cf - loader | tar -C $(TOP) -xf -
-#	tar -C . $(TAR_EXCL_SVN) -cf - loader-4.65 | tar -C $(TOP) -xf - --transform=s/-4.65//
+	tar -C . $(TAR_EXCL_VCS) -cf - loader | tar -C $(TOP) -xf -
+#	tar -C . $(TAR_EXCL_VCS) -cf - loader-4.65 | tar -C $(TOP) -xf - --transform=s/-4.65//
 
 loader: $(TOP)/loader
 	@true
@@ -380,14 +380,14 @@ quagga: $(TOP)/quagga
 
 $(TOP)/netconf:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - netconf | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - netconf | tar -C $(TOP) -xf -
 
 netconf: $(TOP)/netconf
 	@true
 
 $(TOP)/rc/Makefile:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - rc | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - rc | tar -C $(TOP) -xf -
 
 rc: $(TOP)/rc/Makefile
 	@true
@@ -404,7 +404,7 @@ ppp: $(TOP)/ppp
 	@true
 
 $(TOP)/rp-l2tp:
-	tar -C . $(TAR_EXCL_SVN) -cf - $(L2TP) | tar -C $(TOP) -xf -
+	tar -C gateway $(TAR_EXCL_VCS) -cf - $(L2TP) | tar -C $(TOP) -xf -
 
 rp-l2tp: $(TOP)/rp-l2tp
 	@true
@@ -483,7 +483,7 @@ inadyn_Patches := $(call patches_list,inadyn)
 
 $(TOP)/inadyn:
 	@rm -rf $@
-	tar -C inadyn $(TAR_EXCL_SVN) -cf - inadyn | tar -C $(TOP) -xf -
+	tar -C inadyn $(TAR_EXCL_VCS) -cf - inadyn | tar -C $(TOP) -xf -
 	$(PATCHER) -Z $@ $(inadyn_Patches)
 
 inadyn: $(TOP)/inadyn
@@ -491,7 +491,7 @@ inadyn: $(TOP)/inadyn
 
 $(TOP)/bpalogin:
 	@rm -rf $@
-	tar -C . $(TAR_EXCL_SVN) -cf - bpalogin | tar -C $(TOP) -xf -
+	tar -C gateway $(TAR_EXCL_VCS) -cf - bpalogin | tar -C $(TOP) -xf -
 
 bpalogin: $(TOP)/bpalogin
 	@true
@@ -516,7 +516,7 @@ libjpeg: $(TOP)/jpeg-8b
 
 $(TOP)/scsi-idle:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - scsi-idle | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - scsi-idle | tar -C $(TOP) -xf -
 
 scsi-idle: $(TOP)/scsi-idle
 	@true
@@ -541,7 +541,7 @@ $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
 	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
 	# usb_modeswitch data
-	tar -C usb_modeswitch $(TAR_EXCL_SVN) -cf - data | tar -C $(TOP)/usb_modeswitch -xf -
+	tar -C usb_modeswitch $(TAR_EXCL_VCS) -cf - data | tar -C $(TOP)/usb_modeswitch -xf -
 
 usb_modeswitch: $(TOP)/usb_modeswitch
 	@true
@@ -627,12 +627,12 @@ e2fsprogs: $(TOP)/e2fsprogs
 	@true
 
 $(TOP)/others:
-	tar -C . $(TAR_EXCL_SVN) -cf - others | tar -C $(TOP) -xf -
+	tar -C gateway $(TAR_EXCL_VCS) -cf - others | tar -C $(TOP) -xf -
 
 others: $(TOP)/others
 
 $(TOP)/lib:
-	tar -C . $(TAR_EXCL_SVN) -cf - lib | tar -C $(TOP) -xf -
+	tar -C gateway $(TAR_EXCL_VCS) -cf - lib | tar -C $(TOP) -xf -
 
 lib: $(TOP)/lib
 
@@ -644,7 +644,7 @@ wlconf:
 
 $(TOP)/upnp:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - upnp | tar -C $(TOP) -xf -
+		tar -C . $(TAR_EXCL_VCS) -cf - upnp | tar -C $(TOP) -xf -
 
 upnp: $(TOP)/upnp
 	@true
@@ -674,77 +674,77 @@ wpa_supplicant: $(TOP)/wpa_supplicant
 
 $(TOP)/lanauth:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - lanauth | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - lanauth | tar -C $(TOP) -xf -
 
 lanauth: $(TOP)/lanauth
 	@true
 
 $(TOP)/authcli:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - authcli | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - authcli | tar -C $(TOP) -xf -
 
 authcli: $(TOP)/authcli
 	@true
 
 $(TOP)/httpd:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - httpd | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - httpd | tar -C $(TOP) -xf -
 
 httpd: $(TOP)/httpd
 	@true
 
 $(TOP)/nvram:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - nvram | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - nvram | tar -C $(TOP) -xf -
 
 nvram: $(TOP)/nvram
 	@true
 
 $(TOP)/shared:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - shared | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - shared | tar -C $(TOP) -xf -
 
 shared: $(TOP)/shared
 	@true
 
 $(TOP)/utils:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - utils | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - utils | tar -C $(TOP) -xf -
 
 utils: $(TOP)/utils
 	@true
 
 $(TOP)/infosrv:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - infosrv | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - infosrv | tar -C $(TOP) -xf -
 
 infosrv: $(TOP)/infosrv
 	@true
 
 $(TOP)/cdma:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - cdma | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - cdma | tar -C $(TOP) -xf -
 
 cdma: $(TOP)/cdma
 	@true
 
 $(TOP)/uqmi:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - uqmi | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - uqmi | tar -C $(TOP) -xf -
 
 uqmi: $(TOP)/uqmi
 	@true
 
 $(TOP)/misc:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - misc | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - misc | tar -C $(TOP) -xf -
 
 misc: $(TOP)/misc
 	@true
 
 $(TOP)/www:
 	[ -d $@ ] || \
-		tar -C . $(TAR_EXCL_SVN) -cf - www | tar -C $(TOP) -xf -
+		tar -C gateway $(TAR_EXCL_VCS) -cf - www | tar -C $(TOP) -xf -
 
 www: $(TOP)/www
 	@true
