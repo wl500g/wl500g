@@ -37,7 +37,7 @@ diff --git a/arch/mips/kernel/scall32-o32.S b/arch/mips/kernel/scall32-o32.S
 +	sys	sys_ni_syscall	1	/* sys_epoll_create1 */
 +	sys	sys_ni_syscall		3	/* sys_dup3 */
 +	sys	sys_ni_syscall		2	/* sys_pipe2 */
-+	sys	sys_ni_syscall	1	/* sys_inotify_init1 */
++	sys	sys_inotify_init1	1
 +	sys	sys_ni_syscall		6	/* 4330, sys_preadv */
 +	sys	sys_ni_syscall		6	/* sys_pwritev */
 +	sys	sys_ni_syscall	4	/* sys_rt_tgsigqueueinfo */
@@ -58,7 +58,7 @@ diff --git a/arch/mips/kernel/scall64-64.S b/arch/mips/kernel/scall64-64.S
 +	PTR	sys_ni_syscall	1	/* 5285, sys_epoll_create1 */
 +	PTR	sys_ni_syscall		3	/* sys_dup3 */
 +	PTR	sys_ni_syscall		2	/* sys_pipe2 */
-+	PTR	sys_ni_syscall	1	/* sys_inotify_init1 */
++	PTR	sys_inotify_init1	1
 +	PTR	sys_ni_syscall		6	/* sys_preadv */
 +	PTR	sys_ni_syscall		6	/* 5290, sys_pwritev */
 +	PTR	sys_ni_syscall	4	/* sys_rt_tgsigqueueinfo */
@@ -89,7 +89,7 @@ diff --git a/arch/mips/kernel/scall64-o32.S b/arch/mips/kernel/scall64-o32.S
 +	PTR	sys_ni_syscall			/* sys_epoll_create1 */
 +	PTR	sys_ni_syscall			/* sys_dup3 */
 +	PTR	sys_ni_syscall			/* sys_pipe2 */
-+	PTR	sys_ni_syscall			/* sys_inotify_init1 */
++	PTR	sys_inotify_init1
 +	PTR	sys_ni_syscall			/* 4330, compat_sys_preadv */
 +	PTR	sys_ni_syscall			/* compat_sys_pwritev */
 +	PTR	sys_ni_syscall		/* compat_sys_rt_tgsigqueueinfo */
@@ -125,7 +125,7 @@ diff --git a/include/asm-mips/unistd.h b/include/asm-mips/unistd.h
 +/* #define __NR_epoll_create1		(__NR_Linux + 326) */
 +/* #define __NR_dup3			(__NR_Linux + 327) */
 +/* #define __NR_pipe2			(__NR_Linux + 328) */
-+/* #define __NR_inotify_init1		(__NR_Linux + 329) */
++#define __NR_inotify_init1		(__NR_Linux + 329)
 +/* #define __NR_preadv			(__NR_Linux + 330) */
 +/* #define __NR_pwritev			(__NR_Linux + 331) */
 +/* #define __NR_rt_tgsigqueueinfo		(__NR_Linux + 332) */
@@ -155,7 +155,7 @@ diff --git a/include/asm-mips/unistd.h b/include/asm-mips/unistd.h
 +/* #define __NR_epoll_create1		(__NR_Linux + 285) */
 +/* #define __NR_dup3			(__NR_Linux + 286) */
 +/* #define __NR_pipe2			(__NR_Linux + 287) */
-+/* #define __NR_inotify_init1		(__NR_Linux + 288) */
++#define __NR_inotify_init1		(__NR_Linux + 288)
 +/* #define __NR_preadv			(__NR_Linux + 289) */
 +/* #define __NR_pwritev			(__NR_Linux + 290) */
 +/* #define __NR_rt_tgsigqueueinfo		(__NR_Linux + 291) */

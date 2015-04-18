@@ -1,0 +1,129 @@
+Backport of inotify_init1
+
+ 4006553b06306b34054529477b06b68a1c66249b flag parameters: inotify_init
+ 510df2dd482496083e1c3b1a8c9b6afd5fa4c7d7 flag parameters: NONBLOCK in inotify_init
+
+---
+ arch/mips/kernel/scall64-n32.S |    2 +-
+ fs/inotify_user.c              |   14 +++++++++++---
+ include/asm-mips/unistd.h      |    2 +-
+ include/linux/inotify.h        |    6 ++++++
+ include/linux/syscalls.h       |    1 +
+ kernel/sys_ni.c                |    1 +
+ 6 files changed, 21 insertions(+), 5 deletions(-)
+
+diff --git a/arch/mips/kernel/scall64-n32.S b/arch/mips/kernel/scall64-n32.S
+--- a/arch/mips/kernel/scall64-n32.S
++++ b/arch/mips/kernel/scall64-n32.S
+@@ -414,7 +414,7 @@ EXPORT(sysn32_call_table)
+ 	PTR	sys_ni_syscall			/* sys_epoll_create1 */
+ 	PTR	sys_ni_syscall			/* 6290, sys_dup3 */
+ 	PTR	sys_ni_syscall			/* sys_pipe2 */
+-	PTR	sys_ni_syscall			/* sys_inotify_init1 */
++	PTR	sys_inotify_init1
+ 	PTR	sys_ni_syscall			/* sys_preadv */
+ 	PTR	sys_ni_syscall			/* sys_pwritev */
+ 	PTR	sys_ni_syscall		/* 6295, compat_sys_rt_tgsigqueueinfo */
+diff --git a/fs/inotify_user.c b/fs/inotify_user.c
+--- a/fs/inotify_user.c
++++ b/fs/inotify_user.c
+@@ -566,7 +566,7 @@ static const struct inotify_operations inotify_user_ops = {
+ 	.destroy_watch	= free_inotify_user_watch,
+ };
+ 
+-asmlinkage long sys_inotify_init(void)
++asmlinkage long sys_inotify_init1(int flags)
+ {
+ 	struct inotify_device *dev;
+ 	struct inotify_handle *ih;
+@@ -574,7 +574,10 @@ asmlinkage long sys_inotify_init(void)
+ 	struct file *filp;
+ 	int fd, ret;
+ 
+-	fd = get_unused_fd();
++	if (flags & ~(IN_CLOEXEC | IN_NONBLOCK))
++		return -EINVAL;
++
++	fd = get_unused_fd_flags(flags & O_CLOEXEC);
+ 	if (fd < 0)
+ 		return fd;
+ 
+@@ -613,7 +613,7 @@ asmlinkage long sys_inotify_init1(int flags)
+ 	filp->f_path.dentry = dget(inotify_mnt->mnt_root);
+ 	filp->f_mapping = filp->f_path.dentry->d_inode->i_mapping;
+ 	filp->f_mode = FMODE_READ;
+-	filp->f_flags = O_RDONLY;
++	filp->f_flags = O_RDONLY | (flags & O_NONBLOCK);
+ 	filp->private_data = dev;
+ 
+ 	INIT_LIST_HEAD(&dev->events);
+@@ -638,6 +641,11 @@ out_put_fd:
+ 	return ret;
+ }
+ 
++asmlinkage long sys_inotify_init(void)
++{
++	return sys_inotify_init1(0);
++}
++
+ asmlinkage long sys_inotify_add_watch(int fd, const char __user *path, u32 mask)
+ {
+ 	struct inode *inode;
+diff --git a/include/asm-mips/unistd.h b/include/asm-mips/unistd.h
+--- a/include/asm-mips/unistd.h
++++ b/include/asm-mips/unistd.h
+@@ -975,7 +975,7 @@
+ /* #define __NR_epoll_create1		(__NR_Linux + 289) */
+ /* #define __NR_dup3			(__NR_Linux + 290) */
+ /* #define __NR_pipe2			(__NR_Linux + 291) */
+-/* #define __NR_inotify_init1		(__NR_Linux + 292) */
++#define __NR_inotify_init1		(__NR_Linux + 292)
+ /* #define __NR_preadv			(__NR_Linux + 293) */
+ /* #define __NR_pwritev			(__NR_Linux + 294) */
+ /* #define __NR_rt_tgsigqueueinfo	(__NR_Linux + 295) */
+diff --git a/include/linux/inotify.h b/include/linux/inotify.h
+--- a/include/linux/inotify.h
++++ b/include/linux/inotify.h
+@@ -7,6 +7,8 @@
+ #ifndef _LINUX_INOTIFY_H
+ #define _LINUX_INOTIFY_H
+ 
++/* For O_CLOEXEC and O_NONBLOCK */
++#include <linux/fcntl.h>
+ #include <linux/types.h>
+ 
+ /*
+@@ -63,6 +65,10 @@ struct inotify_event {
+ 			 IN_MOVED_TO | IN_DELETE | IN_CREATE | IN_DELETE_SELF | \
+ 			 IN_MOVE_SELF)
+ 
++/* Flags for sys_inotify_init1.  */
++#define IN_CLOEXEC O_CLOEXEC
++#define IN_NONBLOCK O_NONBLOCK
++
+ #ifdef __KERNEL__
+ 
+ #include <linux/dcache.h>
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -547,6 +547,7 @@ asmlinkage long sys_get_mempolicy(int __user *policy,
+ 				unsigned long addr, unsigned long flags);
+ 
+ asmlinkage long sys_inotify_init(void);
++asmlinkage long sys_inotify_init1(int flags);
+ asmlinkage long sys_inotify_add_watch(int fd, const char __user *path,
+ 					u32 mask);
+ asmlinkage long sys_inotify_rm_watch(int fd, u32 wd);
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -96,6 +96,7 @@ cond_syscall(sys_keyctl);
+ cond_syscall(compat_sys_keyctl);
+ cond_syscall(compat_sys_socketcall);
+ cond_syscall(sys_inotify_init);
++cond_syscall(sys_inotify_init1);
+ cond_syscall(sys_inotify_add_watch);
+ cond_syscall(sys_inotify_rm_watch);
+ cond_syscall(sys_migrate_pages);
+-- 
