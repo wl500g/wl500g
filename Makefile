@@ -28,7 +28,6 @@ IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.22.1
 DROPBEAR=dropbear-2014.66
-DNSMASQ=dnsmasq-2.72
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.97
 SAMBA=samba-2.0.10
@@ -252,13 +251,9 @@ ucd-snmp: $(TOP)/ucd-snmp
 iproute2:
 	$(MAKE) -C $(IPROUTE2) $@
 
-dnsmasq_Patches := $(call patches_list,dnsmasq)
-
-$(TOP)/dnsmasq: dnsmasq/$(DNSMASQ).tar.gz
-	@rm -rf $(TOP)/$(DNSMASQ) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(DNSMASQ) $(dnsmasq_Patches)
-	mv $(TOP)/$(DNSMASQ) $@ && touch $@
+$(TOP)/dnsmasq:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - dnsmasq | tar -C $(TOP) -xf -
 
 dnsmasq: $(TOP)/dnsmasq
 	@true

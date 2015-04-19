@@ -903,7 +903,10 @@ accel-ppp-install: accel-ppp/build/Makefile
 	    $(MAKE) -C accel-ppp/build install/strip
 
 dnsmasq:
-	$(MAKE) -C $@ COPTS="$(if $(CONFIG_IPV6),,-DNO_IPV6)" EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C $@ \
+	    COPTS="-DHAVE_BROKEN_RTC -DNO_SCRIPT -DNO_AUTH -DNO_IPSET -DNO_LOOP $(if $(CONFIG_IPV6),,-DNO_IPV6)" \
+	    CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
+	    LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections"
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
