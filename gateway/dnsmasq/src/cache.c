@@ -265,10 +265,11 @@ char *cache_get_name(struct crec *crecp)
 
 char *cache_get_cname_target(struct crec *crecp)
 {
-  if (crecp->addr.cname.uid != SRC_INTERFACE)
-    return cache_get_name(crecp->addr.cname.target.cache);
+  if ((crecp->flags & F_CONFIG) &&
+      crecp->addr.cname.uid == SRC_INTERFACE)
+    return crecp->addr.cname.target.int_name->name;
 
-  return crecp->addr.cname.target.int_name->name;
+  return cache_get_name(crecp->addr.cname.target.cache);
 }
 
 
