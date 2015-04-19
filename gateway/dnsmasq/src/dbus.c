@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2014 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2015 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -426,7 +426,7 @@ static DBusMessage *dbus_set_bool(DBusMessage *message, int flag, char *name)
     }
   else
     {
-      my_syslog(LOG_INFO, "Disabling --$s option from D-Bus", name);
+      my_syslog(LOG_INFO, "Disabling --%s option from D-Bus", name);
       reset_option_bool(flag);
     }
 

@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2014 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2015 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -128,8 +128,8 @@ int extract_name(struct dns_header *header, size_t plen, unsigned char **pp,
 	    if (isExtract)
 	      {
 		unsigned char c = *p;
-		if (isascii(c) && !iscntrl(c) && c != '.')
-		  *cp++ = *p;
+		if (c != 0 && c != '.')
+		  *cp++ = c;
 		else
 		  return 0;
 	      }
@@ -1198,7 +1198,10 @@ unsigned int extract_request(struct dns_header *header, size_t qlen, char *name,
 size_t setup_reply(struct dns_header *header, size_t qlen,
 		struct all_addr *addrp, unsigned int flags, unsigned long ttl)
 {
-  unsigned char *p = skip_questions(header, qlen);
+  unsigned char *p;
+
+  if (!(p = skip_questions(header, qlen)))
+    return 0;
   
   /* clear authoritative and truncated flags, set QR flag */
   header->hb3 = (header->hb3 & ~(HB3_AA | HB3_TC)) | HB3_QR;
@@ -1214,7 +1217,7 @@ size_t setup_reply(struct dns_header *header, size_t qlen,
     SET_RCODE(header, NOERROR); /* empty domain */
   else if (flags == F_NXDOMAIN)
     SET_RCODE(header, NXDOMAIN);
-  else if (p && flags == F_IPV4)
+  else if (flags == F_IPV4)
     { /* we know the address */
       SET_RCODE(header, NOERROR);
       header->ancount = htons(1);
@@ -1222,7 +1225,7 @@ size_t setup_reply(struct dns_header *header, size_t qlen,
       add_resource_record(header, NULL, NULL, sizeof(struct dns_header), &p, ttl, NULL, T_A, C_IN, "4", addrp);
     }
 #ifdef HAVE_IPV6
-  else if (p && flags == F_IPV6)
+  else if (flags == F_IPV6)
     {
       SET_RCODE(header, NOERROR);
       header->ancount = htons(1);
@@ -1319,6 +1322,43 @@ int check_for_bogus_wildcard(struct dns_header *header, size_t qlen, char *name,
 		
 		return 1;
 	      }
+	}
+      
+      if (!ADD_RDLEN(header, p, qlen, rdlen))
+	return 0;
+    }
+  
+  return 0;
+}
+
+int check_for_ignored_address(struct dns_header *header, size_t qlen, struct bogus_addr *baddr)
+{
+  unsigned char *p;
+  int i, qtype, qclass, rdlen;
+  struct bogus_addr *baddrp;
+
+  /* skip over questions */
+  if (!(p = skip_questions(header, qlen)))
+    return 0; /* bad packet */
+
+  for (i = ntohs(header->ancount); i != 0; i--)
+    {
+      if (!(p = skip_name(p, header, qlen, 10)))
+	return 0; /* bad packet */
+      
+      GETSHORT(qtype, p); 
+      GETSHORT(qclass, p);
+      p += 4; /* TTL */
+      GETSHORT(rdlen, p);
+      
+      if (qclass == C_IN && qtype == T_A)
+	{
+	  if (!CHECK_LEN(header, p, qlen, INADDRSZ))
+	    return 0;
+	  
+	  for (baddrp = baddr; baddrp; baddrp = baddrp->next)
+	    if (memcmp(&baddrp->addr, p, INADDRSZ) == 0)
+	      return 1;
 	}
       
       if (!ADD_RDLEN(header, p, qlen, rdlen))
@@ -1606,7 +1646,7 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
 			      {
 				if (crecp->flags & F_NXDOMAIN)
 				  nxdomain = 1;
-				log_query(F_UPSTREAM, name, NULL, "secure no DS");	
+				log_query(F_UPSTREAM, name, NULL, "no DS");	
 			      }
 			    else if ((keydata = blockdata_retrieve(crecp->addr.ds.keydata, crecp->addr.ds.keylen, NULL)))
 			      {			     			      
@@ -1923,14 +1963,17 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
 		  for (intr = daemon->int_names; intr; intr = intr->next)
 		    if (hostname_isequal(name, intr->name))
 		      {
-			ans = 1;
-			if (!dryrun)
-			  {
-			    
-			    for (addrlist = intr->addr; addrlist; addrlist = addrlist->next)
+			for (addrlist = intr->addr; addrlist; addrlist = addrlist->next)
 #ifdef HAVE_IPV6
-			      if (((addrlist->flags & ADDRLIST_IPV6) ? T_AAAA : T_A) == type)
+			  if (((addrlist->flags & ADDRLIST_IPV6) ? T_AAAA : T_A) == type)
 #endif
+			    {
+#ifdef HAVE_IPV6
+			      if (addrlist->flags & ADDRLIST_REVONLY)
+				continue;
+#endif	
+			      ans = 1;	
+			      if (!dryrun)
 				{
 				  gotit = 1;
 				  log_query(F_FORWARD | F_CONFIG | flag, name, &addrlist->addr, NULL);
@@ -1939,7 +1982,7 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
 							  type == T_A ? "4" : "6", &addrlist->addr))
 				    anscount++;
 				}
-			  }
+			    }
 		      }
 		  
 		  if (!dryrun && !gotit)
