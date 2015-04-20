@@ -21,13 +21,13 @@
 
 /* Default hostkey paths - these can be specified on the command line */
 #ifndef DSS_PRIV_FILENAME
-#define DSS_PRIV_FILENAME "/etc/dropbear/dropbear_dss_host_key"
+#define DSS_PRIV_FILENAME "/usr/local/etc/dropbear/dropbear_dss_host_key"
 #endif
 #ifndef RSA_PRIV_FILENAME
-#define RSA_PRIV_FILENAME "/etc/dropbear/dropbear_rsa_host_key"
+#define RSA_PRIV_FILENAME "/usr/local/etc/dropbear/dropbear_rsa_host_key"
 #endif
 #ifndef ECDSA_PRIV_FILENAME
-#define ECDSA_PRIV_FILENAME "/etc/dropbear/dropbear_ecdsa_host_key"
+#define ECDSA_PRIV_FILENAME "/usr/local/etc/dropbear/dropbear_ecdsa_host_key"
 #endif
 
 /* Set NON_INETD_MODE if you require daemon functionality (ie Dropbear listens
@@ -41,7 +41,7 @@
  * Both of these flags can be defined at once, don't compile without at least
  * one of them. */
 #define NON_INETD_MODE
-#define INETD_MODE
+/*#define INETD_MODE*/
 
 /* Setting this disables the fast exptmod bignum code. It saves ~5kB, but is
  * perhaps 20% slower for pubkey operations (it is probably worth experimenting
@@ -81,10 +81,10 @@ much traffic. */
 
 /* Enable "Netcat mode" option. This will forward standard input/output
  * to a remote TCP-forwarded connection */
-#define ENABLE_CLI_NETCAT
+/*#define ENABLE_CLI_NETCAT*/
 
 /* Whether to support "-c" and "-m" flags to choose ciphers/MACs at runtime */
-#define ENABLE_USER_ALGO_LIST
+/*#define ENABLE_USER_ALGO_LIST*/
 
 /* Encryption - at least one required.
  * Protocol RFC requires 3DES and recommends AES128 for interoperability.
@@ -175,7 +175,7 @@ much traffic. */
 
 /* Whether to print the message of the day (MOTD). This doesn't add much code
  * size */
-#define DO_MOTD
+/*#define DO_MOTD*/
 
 /* The MOTD file path */
 #ifndef MOTD_FILENAME
@@ -264,19 +264,19 @@ much traffic. */
 /* The command to invoke for xauth when using X11 forwarding.
  * "-q" for quiet */
 #ifndef XAUTH_COMMAND
-#define XAUTH_COMMAND "/usr/bin/xauth -q"
+#define XAUTH_COMMAND "/opt/bin/xauth -q"
 #endif
 
 /* if you want to enable running an sftp server (such as the one included with
  * OpenSSH), set the path below. If the path isn't defined, sftp will not
  * be enabled */
 #ifndef SFTPSERVER_PATH
-#define SFTPSERVER_PATH "/usr/libexec/sftp-server"
+#define SFTPSERVER_PATH "/opt/libexec/sftp-server"
 #endif
 
 /* This is used by the scp binary when used as a client binary. If you're
  * not using the Dropbear client, you'll need to change it */
-#define _PATH_SSH_PROGRAM "/usr/bin/dbclient"
+#define _PATH_SSH_PROGRAM "/usr/bin/ssh"
 
 /* Whether to log commands executed by a client. This only logs the 
  * (single) command sent to the server, not what a user did in a 
