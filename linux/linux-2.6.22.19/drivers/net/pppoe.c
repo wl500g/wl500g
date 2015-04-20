@@ -329,6 +329,9 @@ static int pppoe_rcv_core(struct sock *sk, struct sk_buff *skb)
 	struct pppox_sock *po = pppox_sk(sk);
 	struct pppox_sock *relay_po;
 
+	if (skb->pkt_type == PACKET_OTHERHOST)
+		goto abort_kfree;
+
 	if (sk->sk_state & PPPOX_BOUND) {
 		ppp_input(&po->chan, skb);
 	} else if (sk->sk_state & PPPOX_RELAY) {
