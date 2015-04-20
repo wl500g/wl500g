@@ -27,7 +27,6 @@ IPROUTE2=iproute2-2.6
 IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.22.1
-DROPBEAR=dropbear-2014.66
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.97
 SAMBA=samba-2.0.10
@@ -226,13 +225,9 @@ $(TOP)/ntfs-3g: ntfs-3g/$(NTFS3G).tgz
 ntfs-3g: $(TOP)/ntfs-3g
 	@true
 
-dropbear_Patches := $(call patches_list,dropbear)
-
-$(TOP)/dropbear: dropbear/$(DROPBEAR).tar.bz2
-	@rm -rf $(TOP)/$(DROPBEAR) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(DROPBEAR) $(dropbear_Patches)
-	mv $(TOP)/$(DROPBEAR) $@
+$(TOP)/dropbear:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - dropbear | tar -C $(TOP) -xf -
 
 dropbear: $(TOP)/dropbear
 	@true
