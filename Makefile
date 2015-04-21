@@ -47,7 +47,6 @@ ODHCP6C=odhcp6c-git-20140814
 QUAGGA=quagga-0.99.20.1
 L2TP=rp-l2tp
 BRIDGE=bridge-utils-1.0.6
-IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.5
 UDPXY=udpxy-1.0.23-9
 LIBUSB10=libusb-1.0.8
@@ -435,13 +434,9 @@ $(TOP)/accel-ppp: accel-ppp/$(ACCEL-PPP).tar.gz
 accel-ppp: $(TOP)/accel-ppp
 	@true
 
-igmpproxy_Patches := $(call patches_list,igmpproxy)
-
-$(TOP)/igmpproxy: igmpproxy/$(IGMPPROXY).tar.gz
-	@rm -rf $(TOP)/igmpproxy
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(IGMPPROXY) $(igmpproxy_Patches)
-	mv $(TOP)/$(IGMPPROXY) $@ && touch $@
+$(TOP)/igmpproxy:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - igmpproxy | tar -C $(TOP) -xf -
 
 igmpproxy: $(TOP)/igmpproxy
 	@true
