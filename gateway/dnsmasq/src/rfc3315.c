@@ -830,6 +830,9 @@ static int dhcp6_no_relay(struct state *state, int msg_type, void *inbuff, size_
 	    put_opt6_string(_("no addresses available"));
 	    end_opt6(o1);
 
+	    /* Some clients will ask repeatedly when we're not giving
+	       out addresses because we're in stateless mode. Avoid spamming
+	       the log in that case. */
 	    for (c = state->context; c; c = c->current)
 	      if (!(c->flags & CONTEXT_RA_STATELESS))
 		{
