@@ -27,7 +27,6 @@ IPROUTE2=iproute2-2.6
 IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.22.1
-LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.97
 SAMBA=samba-2.0.10
 E2FSPROGS=e2fsprogs-1.42.8
@@ -252,13 +251,9 @@ $(TOP)/dnsmasq:
 dnsmasq: $(TOP)/dnsmasq
 	@true
 
-LPRng_Patches := $(call patches_list,LPRng)
-
-$(TOP)/LPRng: LPRng/$(LPRNG).tgz
-	@rm -rf $(TOP)/$(LPRNG) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(LPRNG) $(LPRng_Patches)
-	mv $(TOP)/$(LPRNG) $@
+$(TOP)/LPRng:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - LPRng | tar -C $(TOP) -xf -
 
 LPRng: $(TOP)/LPRng
 	@true
