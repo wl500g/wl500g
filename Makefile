@@ -57,7 +57,6 @@ UDEV=udev-113
 NTFS3G=ntfs-3g_ntfsprogs-2014.2.15AR.1
 SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
-IPSET=ipset-4.5
 INFOSRV=infosrv
 
 UCLIBC=uClibc-0.9.32
@@ -283,13 +282,9 @@ samba: $(TOP)/samba
 iptables:
 	$(MAKE) -C $(IPTABLES) $@
 
-ipset_Patches := $(call patches_list,ipset)
-
-$(TOP)/ipset: ipset/$(IPSET).tar.bz2
-	@rm -rf $(TOP)/$(IPSET) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(IPSET) $(ipset_Patches)
-	mv $(TOP)/$(IPSET) $@
+$(TOP)/ipset:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - ipset | tar -C $(TOP) -xf -
 
 ipset: $(TOP)/ipset
 	@true
