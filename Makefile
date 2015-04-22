@@ -45,7 +45,6 @@ RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
 QUAGGA=quagga-0.99.20.1
 L2TP=rp-l2tp
-BRIDGE=bridge-utils-1.0.6
 VSFTPD=vsftpd-2.3.5
 UDPXY=udpxy-1.0.23-9
 LIBUSB10=libusb-1.0.8
@@ -317,13 +316,9 @@ $(TOP)/portmap: portmap/$(PORTMAP).tar.gz
 portmap: $(TOP)/portmap
 	@true
 
-bridge_Patches := $(call patches_list,bridge-utils)
-
-$(TOP)/bridge: bridge-utils/$(BRIDGE).tar.gz
-	@rm -rf $(TOP)/$(BRIDGE) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(BRIDGE) $(bridge_Patches)
-	mv $(TOP)/$(BRIDGE) $@
+$(TOP)/bridge:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - bridge | tar -C $(TOP) -xf -
 
 bridge: $(TOP)/bridge
 	@true
