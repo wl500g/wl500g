@@ -399,6 +399,13 @@ int tcp_open( int port )
 	sinaddr.sin_port = htons( port );
 
 	fd = socket( AF_INET, SOCK_STREAM, 0 );
+#ifdef WINDOW_1
+int windowsize=1024;
+setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (char *)&windowsize, sizeof(windowsize));
+//aaaaaa=fopen("/tmp/qqqqq", "a");
+//fprintf(aaaaaa, " monitor: tcp_send\n");
+//fclose(aaaaaa);
+#endif
 	Max_open(fd);
 	err = errno;
 	if( fd < 0 ){

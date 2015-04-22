@@ -104,6 +104,13 @@ main(int argc, char *argv[])
 		FPRINTF(STDOUT, "socket: %s\n", Errormsg(errno));
 		exit(3);
 	}
+#ifdef WINDOW_1
+int windowsize=1024;
+setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char *)&windowsize, sizeof(windowsize));
+//aaaaaa=fopen("/tmp/qqqqq", "a");
+//fprintf(aaaaaa, "sserver: main\n");
+//fclose(aaaaaa);
+#endif
 	Max_open(sock);
 	/* Let the socket be reused right away */
 	(void) setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on,

@@ -157,8 +157,10 @@ int main(int argc, char *argv[], char *envp[])
 		o_flag = 1;
 		flag_count = 1;
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL1)Dump_line_list("lpstat - printer request list", &request_list);
 	if(DEBUGL1)Dump_line_list("lpstat - options", &options);
+#endif
 
 	if( r_flag ){
 		Write_fd_str(1,"scheduler is running\n");
@@ -279,8 +281,10 @@ int Read_status_info( char *host, int sock,
 	DEBUG1("Read_status_info: status_line_count %d", status_line_count );
 	buffer[0] = 0;
 	do {
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG1("Read_status_info: look_for_pr %d, in buffer already '%s'", look_for_pr, buffer );
 		if( DEBUGL2 )Dump_line_list("Read_status_info - starting list", &l );
+#endif
 		count = safestrlen(buffer);
 		n = sizeof(buffer)-count-1;
 		status = 1;
@@ -303,7 +307,9 @@ int Read_status_info( char *host, int sock,
 			Split(&l,buffer,Line_ends,0,0,0,0,0,0);
 			memmove(buffer,s,safestrlen(s)+1);
 		}
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if( DEBUGL2 )Dump_line_list("Read_status_info - status after splitting", &l );
+#endif
 		if( status ){
 			if( buffer[0] ){
 				Add_line_list(&l,buffer,0,0,0);
@@ -314,9 +320,11 @@ int Read_status_info( char *host, int sock,
 		}
 		index_list = 0;
  again:
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG2("Read_status_info: look_for_pr '%d'", look_for_pr );
 		if( DEBUGL2 )Dump_line_list("Read_status_info - starting, Printer_list",
 			&Printer_list);
+#endif
 		while( look_for_pr && index_list < l.count ){
 			s = l.list[index_list];
 			if( s == 0 || isspace(cval(s)) || !(t = strstr(s,"Printer:"))
@@ -568,6 +576,7 @@ void Get_parms(int argc, char *argv[] )
 		s = Printer_list.list[i];
 		All_printers = !safestrcasecmp(s,"all");
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL1){
 		LOGDEBUG("All_printers %d, D_flag %d, d_flag %d, r_flag %d, R_flag %d, s_flag %d, t_flag %d, l_flag %d, P_flag %d",
 			All_printers, D_flag,  d_flag, r_flag, R_flag, s_flag, t_flag, l_flag, P_flag );
@@ -581,6 +590,7 @@ void Get_parms(int argc, char *argv[] )
 		LOGDEBUG("v_flag %d, v_val '%s'", v_flag, v_val );
 		Dump_line_list("lpstat - Printer_list", &Printer_list);
 	}
+#endif
 }
 
  char *lpstat_msg =

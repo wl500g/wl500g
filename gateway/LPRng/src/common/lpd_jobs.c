@@ -45,6 +45,7 @@
 
 /**** ENDINCLUDE ****/
 
+#ifdef REMOVE
 /***************************************************************************
  * Commentary:
  * Patrick Powell Thu May 11 09:26:48 PDT 1995
@@ -193,10 +194,12 @@ int cmp_server( const void *left, const void *right, const void *p )
 	r = ((struct line_list **)right)[0];
 	tl = Find_flag_value(l,DONE_TIME,Value_sep);
 	tr = Find_flag_value(r,DONE_TIME,Value_sep);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL5)Dump_line_list("cmp_server - l",l);
 	if(DEBUGL5)Dump_line_list("cmp_server - r",r);
 	DEBUG5("cmp_server: tl %d, tr %d, cmp %d, p %d",
 		tl, tr, tl - tr, (int)(p!=0) );
+#endif
 	return( tl - tr );
 }
 
@@ -242,6 +245,7 @@ void Get_subserver_pc( char *printer, struct line_list *subserver_info, int done
 		Find_str_value(subserver_info,FORWARDING,Value_sep) );
 }
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 /***************************************************************************
  * Dump_subserver_info()
  *  dump the server information list
@@ -255,9 +259,12 @@ void Dump_subserver_info( char *title, struct line_list *l)
 		title,	l->count );
 	for( i = 0; i < l->count; ++i ){
 		SNPRINTF(buffer,sizeof(buffer))"server %d",i);
+#ifdef ORIGINAL_DEBUG //JY@1020
 		Dump_line_list_sub(buffer,(struct line_list *)l->list[i]);
+#endif
 	}
 }
+#endif
 
 /***************************************************************************
  * Get_subserver_info()
@@ -278,7 +285,9 @@ void Get_subserver_info( struct line_list *order,
 	DEBUG1("Get_subserver_info: old_order '%s', list '%s'",old_order, list);
 	Split(&server_order,old_order,File_sep,0,0,0,1,0,0);
 	Split(&server_order,     list,File_sep,0,0,0,1,0,0);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL1)Dump_line_list("Get_subserver_info - starting",&server_order);
+#endif
 
 	/* get the info of printers */
 	for( i = 0; i < server_order.count; ++i ){
@@ -299,7 +308,9 @@ void Get_subserver_info( struct line_list *order,
 	}
 	Free_line_list(&server_order);
 	Free_line_list(&server);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL1)Dump_subserver_info("Get_subserver_info - starting order",order);
+#endif
 }
 
 /***************************************************************************
@@ -321,8 +332,10 @@ char *Make_temp_copy( char *srcfile, char *destdir )
 	destfd = Make_temp_fd_in_dir(&path, destdir);
 	unlink(path);
 	if( link( srcfile, path ) == -1 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3("Make_temp_copy: link '%s' to '%s' failed, '%s'",
 			srcfile, path, Errormsg(errno) );
+#endif
 		srcfd = Checkread(srcfile, &statb );
 		if( srcfd < 0 ){
 			LOGERR(LOG_INFO)"Make_temp_copy: open '%s' failed", srcfile );
@@ -556,7 +569,9 @@ int Do_queue_jobs( char *name, int subserver )
 	}
 
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3)Dump_subserver_info("Do_queue_jobs - after setup",&servers);
+#endif
 
 	if(DEBUGL4){ int fdx; fdx = dup(0);
 		LOGDEBUG("Do_queue_jobs: after subservers next fd %d",fdx);close(fdx);};
@@ -578,7 +593,9 @@ int Do_queue_jobs( char *name, int subserver )
 		/* fix up the sort stuff */
 		Free_job(&job);
 		Get_hold_file(&job,Sort_order.list[i] );
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL3)Dump_job("Do_queue_jobs - info", &job);
+#endif
 
 		/* debug output */
 		mod = 0;
@@ -652,8 +669,10 @@ int Do_queue_jobs( char *name, int subserver )
 				}
 				Set_flag_value(sp,CHANGE,0);
 			}
+#ifdef ORIGINAL_DEBUG //JY@1020
 			if(DEBUGL1) Dump_subserver_info( "Do_queue_jobs - rescan",
 				&servers );
+#endif
 
 			/* check for changes to spool control information */
 			plp_unblock_all_signals( &oblock);
@@ -668,8 +687,10 @@ int Do_queue_jobs( char *name, int subserver )
 			}
 		}
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4) Dump_line_list("Do_queue_jobs - sort order printable",
 			&Sort_order );
+#endif
 
 		Remove_done_jobs();
 
@@ -684,8 +705,10 @@ int Do_queue_jobs( char *name, int subserver )
 		destination = use_subserver = job_to_do = -1;
 		working =  destinations = chooser_did_not_find_server = 0;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL2) Dump_subserver_info("Do_queue_jobs- checking for server",
 			&servers );
+#endif
 		for( j = 0; j < servers.count; ++j ){
 			sp = (void *)servers.list[j];
 			pid = Find_flag_value(sp,SERVER,Value_sep);
@@ -709,7 +732,9 @@ int Do_queue_jobs( char *name, int subserver )
 				Sort_order.list[job_index] );
 			Get_hold_file( &job, Sort_order.list[job_index] );
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 			if(DEBUGL4)Dump_job("Do_queue_jobs: job ",&job);
+#endif
 			if( job.info.count == 0 ) continue;
 
 			/* check to see if active */
@@ -977,14 +1002,18 @@ int Do_queue_jobs( char *name, int subserver )
 			if( chooser_did_not_find_server ){
 				setstatus(0, "chooser did not find subserver, waiting %d sec",
 					Chooser_interval_DYN );
+#ifdef ORIGINAL_DEBUG //JY@1020
 				Wait_for_subserver( Chooser_interval_DYN, &servers );
+#endif
 			} else if( working ){
 				if( servers.count > 1 ){
 					setstatus(0, "waiting for server queue process to exit" );
 				} else {
 					setstatus(0, "waiting for subserver to exit" );
 				}
+#ifdef ORIGINAL_DEBUG //JY@1020
 				Wait_for_subserver( 0, &servers );
+#endif
 			}
 			continue;
 		}
@@ -1055,13 +1084,17 @@ int Do_queue_jobs( char *name, int subserver )
 			}
 			Set_str_value(&jcopy.info,OPENNAME,0);
 			Set_str_value(&jcopy.info,HF_NAME,0);
+#ifdef ORIGINAL_DEBUG //JY@1020
 			if(DEBUGL2)Dump_job("Do_queue_jobs: subserver jcopy", &jcopy );
+#endif
 
 			fail = 0;
 			for( i = 0; i < jcopy.datafiles.count; ++i ){
 				datafile = (void *)jcopy.datafiles.list[i];
+#ifdef ORIGINAL_DEBUG //JY@1020
 				if(DEBUGL3)Dump_line_list("Do_queue_jobs - copying datafiles",
 					datafile);
+#endif
 				from = Find_str_value(datafile,TRANSFERNAME,Value_sep);
 				path = Make_temp_copy( from, sd );
 				DEBUG3("Do_queue_jobs: sd '%s', from '%s', path '%s'",
@@ -1102,7 +1135,9 @@ int Do_queue_jobs( char *name, int subserver )
 				Free_job(&jcopy);
 				continue;
 			}
+#ifdef ORIGINAL_DEBUG //JY@1020
 			if(DEBUGL2)Dump_job("Do_queue_jobs: subserver jcopy new", &jcopy );
+#endif
 
 			/* set up the new context */
 			safestrncpy(savename,Printer_DYN);
@@ -1141,9 +1176,11 @@ int Do_queue_jobs( char *name, int subserver )
 			Update_status(&job, JSUCC);
 
 			Set_str_value(sp,IDENTIFIER,id);
+#ifdef ORIGINAL_DEBUG //JY@1020
 			setstatus(&job, "transfer '%s' to subserver '%s' finished", id, pr );
 			setmessage(&job,STATE,"COPYTO %s",pr);
 			setstatus(&job, "starting subserver '%s'", pr );
+#endif
 			pid = Fork_subserver( &servers, use_subserver, 0 );
 			jobs_printed = 1;
 		} else {
@@ -1203,6 +1240,7 @@ int Do_queue_jobs( char *name, int subserver )
 	return(0);
 }
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 /***************************************************************************
  * Remote_job()
  * Send a job to a remote server.  This code is actually trickier
@@ -1257,9 +1295,13 @@ int Remote_job( struct job *job, int lpd_bounce, char *move_dest, char *id )
 	Errorcode = status = 0;
 
 	Copy_job(&jcopy,job);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL2)Dump_job("Remote_job - jcopy", &jcopy );
+#endif
 	if( lpd_bounce ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL2) Dump_job( "Remote_job - before filtering", &jcopy );
+#endif
 		tempfd = Make_temp_fd(&tempfile);
 
 		old_lp_value = safestrdup(Find_str_value( &PC_entry_line_list, "lp", Value_sep),
@@ -1327,15 +1369,19 @@ int Remote_job( struct job *job, int lpd_bounce, char *move_dest, char *id )
 				_("Remote_job: %d datafiles and only allowed %d"),
 					n, Max_datafiles_DYN );
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	setmessage(job,STATE,"SENDING OLDID=%s NEWID=%s DEST=%s@%s",
 		oldid, newid, RemotePrinter_DYN, RemoteHost_DYN );
 	if(DEBUGL3)Dump_job("Send_job - after Fix_control", &jcopy );
+#endif
 	status = Send_job( &jcopy, job, Connect_timeout_DYN, Connect_interval_DYN,
 		Max_connect_interval_DYN, Send_job_rw_timeout_DYN, 0 );
 	DEBUG1("Remote_job: %s, status '%s'", id, Link_err_str(status) );
 	buffer[0] = 0;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL2)Dump_job("Remote_job - final jcopy value", &jcopy );
+#endif
  done:
 	s = 0;
 	if( status ){
@@ -1397,6 +1443,7 @@ int Remote_job( struct job *job, int lpd_bounce, char *move_dest, char *id )
  exit:
 	return( status );
 }
+#endif
 
 /***************************************************************************
  * Local_job()
@@ -1412,7 +1459,9 @@ int Local_job( struct job *job, char *id )
 	status_fd = fd = -1;
 
 	DEBUG1("Local_job: starting %s", id );
+#ifdef ORIGINAL_DEBUG //JY@1020
 	setmessage(job,STATE,"PRINTING");
+#endif
 	Errorcode = status = 0;
 	Set_str_value(&job->info,PRSTATUS,0);
 	Set_str_value(&job->info,ERROR,0);
@@ -1424,10 +1473,12 @@ int Local_job( struct job *job, char *id )
 
 	if( Accounting_file_DYN && Local_accounting_DYN ){
 		SETSTATUS(job)"accounting at start");
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if( Accounting_start_DYN ){
 			status = Do_accounting( 0,
 				Accounting_start_DYN, job, Connect_interval_DYN );
 		}
+#endif
 
 		DEBUG1("Local_job: accounting status %s", Server_status(status) );
 		if( status ){
@@ -1496,10 +1547,12 @@ int Local_job( struct job *job, char *id )
 	Set_str_value(&job->info,PRSTATUS,Server_status(status));
 	if( Accounting_file_DYN && Local_accounting_DYN ){
 		SETSTATUS(job)"accounting at end");
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if( Accounting_end_DYN ){
 			Do_accounting( 1, Accounting_end_DYN, job,
 				Connect_interval_DYN );
 		}
+#endif
 	}
 	SETSTATUS(job)"finished '%s', status '%s'", id, Server_status(status));
 
@@ -1528,8 +1581,22 @@ int Fork_subserver( struct line_list *server_info, int use_subserver,
 	Set_flag_value(parms,SUBSERVER,use_subserver);
 	DEBUG1( "Fork_subserver: starting '%s'", pr );
 	if( use_subserver > 0 ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "+++++++++++++++++++++++++++++++++++++++++++++\n");
+fprintf(aaaaaa, "Fork_subserver: Start_worker(queue)\n");
+fprintf(aaaaaa, "+++++++++++++++++++++++++++++++++++++++++++++\n");
+fclose(aaaaaa);
+#endif
 		pid = Start_worker( "queue",parms, 0 );
 	} else {
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "+++++++++++++++++++++++++++++++++++++++++++++\n");
+fprintf(aaaaaa, "Fork_subserver: Start_worker(printer)\n");
+fprintf(aaaaaa, "+++++++++++++++++++++++++++++++++++++++++++++\n");
+fclose(aaaaaa);
+#endif
 		pid = Start_worker( "printer",parms, 0 );
 	}
 
@@ -1542,6 +1609,7 @@ int Fork_subserver( struct line_list *server_info, int use_subserver,
 	return( pid );
 }
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 /***************************************************************************
  * struct server_info *Wait_for_subserver( struct line_list *servers,
  *     int block )
@@ -1610,7 +1678,9 @@ void Wait_for_subserver( int timeout, struct line_list *servers
 				pid, Sigstr(sigval));
 			status = JABORT;
 		}
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4) Dump_subserver_info("Wait_for_subserver", servers );
+#endif
 
 		for( found = i = 0; !found && i < servers->count; ++i ){
 			sp = (void *)servers->list[i];
@@ -1651,8 +1721,10 @@ void Wait_for_subserver( int timeout, struct line_list *servers
 			FATAL(LOG_ERR)
 				_("Wait_for_subserver: Mergesort failed") );
 		}
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4) Dump_subserver_info(
 			"Wait_for_subserver: after sorting", servers );
+#endif
 	}
 	if( !done ){
 		/* we need to unblock signals and wait for event */
@@ -1667,6 +1739,7 @@ void Wait_for_subserver( int timeout, struct line_list *servers
 
 	Free_job(&job);
 }
+#endif
 
 /***************************************************************************
  * int Decode_transfer_failure( int attempt, struct job *job, int status )
@@ -1783,7 +1856,9 @@ void Update_status( struct job *job, int status )
 
 	id = Find_str_value(&job->info,IDENTIFIER,Value_sep);
 	if( !id ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL1)Dump_job("Update_status - no ID", job );
+#endif
 		return;
 	}
 
@@ -1796,13 +1871,17 @@ void Update_status( struct job *job, int status )
 			Set_decimal_value(destination,SERVER,0);
 		}
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	setmessage(job,STATE,"EXITSTATUS %s", Server_status(status));
+#endif
 
  again:
 	DEBUG1("Update_status: again - status '%s', id '%s', dest id '%s'",
 		Server_status(status), id, did );
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	setmessage(job,STATE,"PROCESSSTATUS %s", Server_status(status));
+#endif
 	switch( status ){
 		/* hold the destination stuff */
 	case JHOLD:
@@ -1817,7 +1896,9 @@ void Update_status( struct job *job, int status )
 		break;
 
 	case JSUCC:	/* successful, remove job */
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL3)Dump_job("Update_status - JSUCC start", job );
+#endif
 		if( destination ){
 			done = 0;
 			copies = Find_flag_value(&job->info,SEQUENCE,Value_sep);
@@ -1878,7 +1959,9 @@ void Update_status( struct job *job, int status )
 				}
 				if( copy >= copies ){
 					Set_flag_value(&job->info,DONE_TIME,time((void *)0));
+#ifdef ORIGINAL_DEBUG //JY@1020
 					Sendmail_to_user( status, job );
+#endif
 					setstatus( job, "%s@%s: job '%s' printed",
 						Printer_DYN, FQDNHost_FQDN, id );
 				} else {
@@ -1892,7 +1975,9 @@ void Update_status( struct job *job, int status )
 			if( hf_name ){
 				Set_flag_value(&job->info,REMOVE_TIME,time((void *)0));
 				Set_hold_file( job, 0, 0 );
+#ifdef ORIGINAL_DEBUG //JY@1020
 				if(DEBUGL3)Dump_job("Update_status - done_job", job );
+#endif
 				if( (Save_when_done_DYN || Done_jobs_DYN || Done_jobs_max_age_DYN) ){
 					setstatus( job, _("job '%s' saved"), id );
 					++Done_count;
@@ -1999,7 +2084,9 @@ void Update_status( struct job *job, int status )
 			}
 			Set_nz_flag_value(&job->info,REMOVE_TIME, time( (void *)0) );
 			Set_hold_file( job, 0, 0 );
+#ifdef ORIGINAL_DEBUG //JY@1020
 			Sendmail_to_user( status, job );
+#endif
 			if( (Save_on_error_DYN || Done_jobs_DYN || Done_jobs_max_age_DYN) ){
 				setstatus( job, _("job '%s' saved"), id );
 				++Done_count;
@@ -2041,7 +2128,9 @@ void Update_status( struct job *job, int status )
 			setstatus( job, "job '%s' error '%s'",id, strv);
 			Set_nz_flag_value(&job->info,REMOVE_TIME, time( (void *)0) );
 			Set_hold_file( job, 0, 0 );
+#ifdef ORIGINAL_DEBUG //JY@1020
 			Sendmail_to_user( status, job );
+#endif
 			if( (Save_on_error_DYN || Done_jobs_DYN || Done_jobs_max_age_DYN) ){
 				setstatus( job, _("job '%s' saved"), id );
 				++Done_count;
@@ -2085,7 +2174,9 @@ void Update_status( struct job *job, int status )
 			}
 			Set_nz_flag_value(&job->info,REMOVE_TIME, time( (void *)0) );
 			Set_hold_file( job, 0, 0 );
+#ifdef ORIGINAL_DEBUG //JY@1020
 			Sendmail_to_user( status, job );
+#endif
 			if( (Save_on_error_DYN || Done_jobs_DYN || Done_jobs_max_age_DYN) ){
 				setstatus( job, _("job '%s' saved"), id );
 				++Done_count;
@@ -2101,7 +2192,9 @@ void Update_status( struct job *job, int status )
 		}
 		break;
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3)Dump_job("Update_status: exit result", job );
+#endif
 }
 
 /***************************************************************************
@@ -2319,6 +2412,7 @@ void Service_worker( struct line_list *args )
 			plp_sleep(n);
 		}
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 
 	if( RemotePrinter_DYN ){
 		Name = "(Worker - Remote)";
@@ -2334,11 +2428,14 @@ void Service_worker( struct line_list *args )
 			RemotePrinter_DYN, RemoteHost_DYN );
 		}
 	} else {
+#endif
 		Name = "(Worker - Print)";
 		DEBUG1( "Service_worker: printing '%s'", id );
 		setproctitle( "lpd %s '%s'", Name, Printer_DYN );
 		Errorcode = Local_job( &job, id );
+#ifdef ORIGINAL_DEBUG //JY@1020
 	}
+#endif
 	cleanup(0);
 }
 
@@ -2447,15 +2544,19 @@ int Printer_open( char *lp_device, int *status_fd, struct job *job,
 					}
 					if( status < 0 ){
 						err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 						setstatus( job,
 							"lock '%s' failed - %s", lp_device, Errormsg(errno) );
+#endif
 						close( device_fd );
 						device_fd = -1;
 					}
 				}
+#ifdef ORIGINAL_DEBUG //JY@1020
 				if( isatty( device_fd ) ){
 					Do_stty( device_fd );
 				}
+#endif
 				*status_fd = device_fd;
 			}
 			break;
@@ -2475,21 +2576,27 @@ int Printer_open( char *lp_device, int *status_fd, struct job *job,
 		}
 
 		if( device_fd < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			DEBUG1( "Printer_open: open '%s' failed, max_attempts %d, attempt %d '%s'",
 				lp_device, max_attempts, attempt, Errormsg(err) );
+#endif
 			if( max_attempts && attempt <= max_attempts ){
 				n = 8;
 				if( attempt < n ) n = attempt;
 				n = interval*( 1 << n );
 				if( max_interval > 0 && n > max_interval ) n = max_interval;
+#ifdef ORIGINAL_DEBUG //JY@1020
 				setstatus( job, "cannot open '%s' - '%s', attempt %d, sleeping %d",
 						lp_device, Errormsg( err), attempt+1, n );
+#endif
 				if( n > 0 ){
 					plp_sleep(n);
 				}
 			} else {
+#ifdef ORIGINAL_DEBUG //JY@1020
 				setstatus( job, "cannot open '%s' - '%s', attempt %d",
 						lp_device, Errormsg( err), attempt+1 );
+#endif
 			}
 		}
 	}
@@ -2594,7 +2701,9 @@ void Add_banner_to_job( struct job *job )
 		Set_str_value(lp,"N","BANNER");
 		Set_str_value(lp,FORMAT,"f");
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3)Dump_job("Add_banner_to_job", job);
+#endif
 }
 
 /* change the format of the output of a filter
@@ -2661,7 +2770,9 @@ void Filter_files_in_job( struct job *job, int outfd, char *user_filter )
 	tempfd = -1;
 	for( count = 0; count < job->datafiles.count; ++count ){
 		datafile = (void *)job->datafiles.list[count];
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4)Dump_line_list("Filter_files_in_job - datafile", datafile );
+#endif
 
 		openname = Find_str_value(datafile,OPENNAME,Value_sep);
 		if( !openname ) openname = Find_str_value(datafile,TRANSFERNAME,Value_sep);
@@ -2851,7 +2962,9 @@ void Filter_files_in_job( struct job *job, int outfd, char *user_filter )
             }
         }
     }
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3)Dump_job("Filter_files_in_job", job);
+#endif
 }
 
 void Service_queue( struct line_list *args )
@@ -2895,7 +3008,9 @@ int Remove_done_jobs( void )
 		DEBUG3("Remove_done_jobs: done_jobs - job_index [%d] '%s'", job_index,
 			hold_file);
 		Get_hold_file( &job, hold_file );
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4)Dump_job("Remove_done_jobs: done_jobs - job ",&job);
+#endif
 		if( job.info.count == 0 ) continue;
 		/* get status from hold file */
 		id = Find_str_value(&job.info,IDENTIFIER,Value_sep);
@@ -2922,8 +3037,10 @@ int Remove_done_jobs( void )
 		}
 	}
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL1)Dump_line_list("Remove_done_jobs - removal candidates",&info);
 	DEBUG1( "Remove_done_jobs: checking for removal - remove_count %d", Done_jobs_DYN );
+#endif
 
 	for( info_index = 0; info_index < info.count - Done_jobs_DYN; ++info_index ){
 		char *hold_file = info.list[info_index];
@@ -2949,3 +3066,4 @@ int Remove_done_jobs( void )
 	}
 	return( removed );
 }
+#endif

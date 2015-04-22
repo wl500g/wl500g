@@ -135,8 +135,10 @@ int Send_job( struct job *job, struct job *logjob,
 
 	errno = 0;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	sock = Link_open_list( RemoteHost_DYN,
 		&real_host, connect_timeout_len, 0, Unix_socket_path_DYN );
+#endif
 
 	err = errno;
 	DEBUG4("Send_job: socket %d", sock );

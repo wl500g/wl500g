@@ -46,7 +46,9 @@ int Checkread( const char *file, struct stat *statb )
 		Max_open(fd);
 		status = -1;
 		err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3( "Checkread: cannot open '%s', %s", file, Errormsg(err) );
+#endif
 		memset( statb, 0, sizeof(struct stat) );
 	}
 
@@ -119,7 +121,9 @@ int Checkwrite( const char *file, struct stat *statb, int rw, int create,
 	umask( oldumask );
 	if( fd < 0 ){
 		status = -1;
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3( "Checkwrite: cannot open '%s', %s", file, Errormsg(err) );
+#endif
 	} else if( nodelay ){
 		/* turn off nonblocking */
 		mask = fcntl( fd, F_GETFL, 0 );

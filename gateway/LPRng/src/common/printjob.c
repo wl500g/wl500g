@@ -110,6 +110,9 @@
 
 int Print_job( int output, int status_device, struct job *job,
 	int send_job_rw_timeout, int poll_for_status, char *user_filter )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return 0; }
+#else
 {
 	char *FF_str, *leader_str, *trailer_str, *filter;
 	int i, of_stdin, of_stderr, if_error[2],
@@ -124,6 +127,13 @@ int Print_job( int output, int status_device, struct job *job,
 	struct line_list *datafile, files;
 	struct stat statb;
 
+return 0;//delete
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 1\n");
+fclose(aaaaaa);
+#endif
+
 	of_pid = -1;
 	msgbuffer[0] = 0;
 	filtermsgbuffer[0] = 0;
@@ -133,6 +143,7 @@ int Print_job( int output, int status_device, struct job *job,
 	FF_str = leader_str = trailer_str = 0;
 	files_printed = 0;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUG2( "Print_job: output fd %d", output );
 	if(DEBUGL5){
 		LOGDEBUG("Print_job: at start open fd's");
@@ -142,11 +153,16 @@ int Print_job( int output, int status_device, struct job *job,
 			}
 		}
 	}
+#endif
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL2) Dump_job( "Print_job", job );
+#endif
 	id = Find_str_value(&job->info,IDENTIFIER,Value_sep);
 	if( id == 0 ) id = Find_str_value(&job->info,TRANSFERNAME,Value_sep);
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUG2("Print_job: OF_Filter_DYN '%s'", OF_Filter_DYN );
+#endif
 
 	/* clear output buffer */
 	Init_buf(&Outbuf, &Outmax, &Outlen );
@@ -166,6 +182,11 @@ int Print_job( int output, int status_device, struct job *job,
 	 * if AlwaysBanner then get user name
 	 */
 
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2\n");
+fclose(aaaaaa);
+#endif
 
 	banner_name = Find_str_value(&job->info, BNRNAME, Value_sep );
 	if( Always_banner_DYN && banner_name == 0 ){
@@ -175,48 +196,114 @@ int Print_job( int output, int status_device, struct job *job,
 		if( banner_name == 0 ) banner_name = "ANONYMOUS";
 		Set_str_value(&job->info,BNRNAME,banner_name);
 	}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.1\n");
+fclose(aaaaaa);
+#endif
 	/* suppress header overrides everything */
 	do_banner = (!Suppress_header_DYN && banner_name);
 
 	/* now we have a banner, is it at start or end? */
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUG2("Print_job: do_banner %d, :hl=%d, :bs=%s, :be=%s, banner_name '%s'",
 			do_banner, Banner_last_DYN, Banner_start_DYN, Banner_end_DYN, banner_name );
+#endif
 	if( do_banner && !Banner_last_DYN ){
 		Print_banner( banner_name, Banner_start_DYN, job );
 	}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.2\n");
+fclose(aaaaaa);
+#endif
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUG2("Print_job: setup %d bytes '%s'", Outlen, Outbuf ); 
+#endif
 
 	msgbuffer[0] = 0;
 	/* do we need an OF filter? */
 	Set_block_io( output );
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.3\n");
+fclose(aaaaaa);
+#endif
 	if( OF_Filter_DYN ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.4\n");
+fclose(aaaaaa);
+#endif
 		if( Run_OF_filter( send_job_rw_timeout, &of_pid, &of_stdin, &of_stderr,
 			output, &Outbuf, &Outmax, &Outlen,
 			job, id, 0,
 			msgbuffer, sizeof(msgbuffer)-1 ) ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.5\n");
+fclose(aaaaaa);
+#endif
 			goto exit;
 		}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.6\n");
+fclose(aaaaaa);
+#endif
 	} else if( Outlen ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.7\n");
+fclose(aaaaaa);
+#endif
 		/* no filter - direct to device */
 		n = Write_outbuf_to_OF(job,"LP",output, Outbuf, Outlen,
 			status_device, msgbuffer, sizeof(msgbuffer)-1,
 			send_job_rw_timeout, poll_for_status, Status_file_DYN );
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.8\n");
+fclose(aaaaaa);
+#endif
 		if( n ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.9\n");
+fclose(aaaaaa);
+#endif
 			Errorcode = JFAIL;
 			SETSTATUS(job)"LP device write error '%s'", Server_status(n));
 			goto exit;
 		}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.10\n");
+fclose(aaaaaa);
+#endif
 	}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 2.11\n");
+fclose(aaaaaa);
+#endif
 	Init_buf(&Outbuf, &Outmax, &Outlen );
 
 	/* 
 	 *  print out the data files
 	 */
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 3\n");
+fclose(aaaaaa);
+#endif
 
 	for( count = 0; count < job->datafiles.count; ++count ){
 		datafile = (void *)job->datafiles.list[count];
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4)Dump_line_list("Print_job - datafile", datafile );
+#endif
 
 		Set_block_io( output );
 		transfername = Find_str_value(datafile,TRANSFERNAME,Value_sep);
@@ -258,8 +345,15 @@ int Print_job( int output, int status_device, struct job *job,
 				Value_sep);
 		}
 		if( filter == 0 ) filter = Filter_DYN;
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3("Print_job: format '%s', filter '%s'", format, filter );
+#endif
 
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 4\n");
+fclose(aaaaaa);
+#endif
 		uppercase(filter_name);
 		if( filter ){
 			s = filter;
@@ -281,7 +375,9 @@ int Print_job( int output, int status_device, struct job *job,
 		if( fd >= 0 ) close(fd); fd = -1;
 		if( !Is_server && openname == 0 ){
 			fd = 0;
+#ifdef ORIGINAL_DEBUG //JY@1020
 			DEBUG3("Print_job: taking file from STDIN" );
+#endif
 		} else if( (fd = Checkread( openname, &statb )) < 0 ){
 			Errorcode = JFAIL;
 			LOGMSG( LOG_ERR) "Print_job: job '%s', cannot open data file '%s'",
@@ -291,7 +387,9 @@ int Print_job( int output, int status_device, struct job *job,
 		SETSTATUS(job)"processing '%s', size %0.0f, format '%s', %s",
 			transfername, (double)statb.st_size, format, filter_title );
 		if( cval(format) == 'p' ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			DEBUG3("Print_job: using 'p' formatter '%s'", Pr_program_DYN );
+#endif
 			SETSTATUS(job)"format 'p' pretty printer '%s'", Pr_program_DYN);
 			if( Pr_program_DYN == 0 ){
 				SETSTATUS(job)"no 'p' format filter available" );
@@ -299,6 +397,11 @@ int Print_job( int output, int status_device, struct job *job,
 				goto end_of_job;
 			}
 			tempfd = Make_temp_fd(0);
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 5\n");
+fclose(aaaaaa);
+#endif
 			n = Filter_file( fd, tempfd, "PR_PROGRAM",
 				Pr_program_DYN, 0, job, 0, 1 );
 			if( n ){
@@ -324,17 +427,24 @@ int Print_job( int output, int status_device, struct job *job,
 			if( copies > 1 ){
 				SETSTATUS(job)"doing copy %d of %d", copy+1, copies );
 			}
+#ifdef ORIGINAL_DEBUG //JY@1020
 			if(DEBUGL5){
 				LOGDEBUG("Print_job: doing '%s' open fd's", openname);
 				for( i = 0; i < 20; ++i ) if( fstat(i,&statb) == 0 )
 					 LOGDEBUG("  fd %d (0%o)", i, statb.st_mode&S_IFMT);
 			}
+#endif
 			Init_buf(&Outbuf, &Outmax, &Outlen );
 			if( files_printed++ && (!No_FF_separator_DYN || FF_separator_DYN) && FF_str ){
 				/* FF separator -> of_fd; */
 				SETSTATUS(job)"printing '%s' FF separator ",id);
 				Put_buf_str( FF_str, &Outbuf, &Outmax, &Outlen );
 			}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 6\n");
+fclose(aaaaaa);
+#endif
 			/* do we have output for the OF device/filter ? */
 			if( Outlen > 0 ){
 				Set_block_io( output );
@@ -362,12 +472,19 @@ int Print_job( int output, int status_device, struct job *job,
 				Init_buf(&Outbuf, &Outmax, &Outlen );
 			}
 
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 7\n");
+fclose(aaaaaa);
+#endif
 			Set_block_io( output );
 			if( filter ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 				DEBUG3("Print_job: format '%s' starting filter '%s'",
 					format, filter );
 				DEBUG2("Print_job: filter_stderr_to_status_file %d, ps '%s'",
 					Filter_stderr_to_status_file_DYN, Status_file_DYN );
+#endif
 				if_error[0] = if_error[1] = -1;
 				if( Filter_stderr_to_status_file_DYN && Status_file_DYN && *Status_file_DYN ){
 					if_error[1] = Checkwrite( Status_file_DYN, &statb, O_WRONLY|O_APPEND, 0, 0 );
@@ -377,8 +494,10 @@ int Print_job( int output, int status_device, struct job *job,
 					goto end_of_job;
 				}
 				Max_open(if_error[0]); Max_open(if_error[1]);
+#ifdef ORIGINAL_DEBUG //JY@1020
 				DEBUG3("Print_job: %s fd if_error[%d,%d]", filter_title,
 					 if_error[0], if_error[1] );
+#endif
 				s = 0;
 				if( Backwards_compatible_filter_DYN ) s = BK_filter_options_DYN;
 				if( s == 0 ) s = Filter_options_DYN;
@@ -451,8 +570,10 @@ int Print_job( int output, int status_device, struct job *job,
 				}
 			} else {
 				/* we write to the output device, and then get status */
+#ifdef ORIGINAL_DEBUG //JY@1020
 				DEBUG3("Print_job: format '%s' no filter, reading from %d",
 					format, fd );
+#endif
 				Init_buf(&Outbuf, &Outmax, &Outlen );
 				while( (Outlen = read(fd,Outbuf,Outmax)) > 0 ){
 					Outbuf[Outlen] = 0;
@@ -472,9 +593,13 @@ int Print_job( int output, int status_device, struct job *job,
 				}
 				Outlen = 0;
 			}
+#ifdef ORIGINAL_DEBUG //JY@1020
 			DEBUG3("Print_job: finished copy");
+#endif
 		}
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3("Print_job: finished file");
+#endif
 	}
 
 	/* 
@@ -482,7 +607,9 @@ int Print_job( int output, int status_device, struct job *job,
 	 */
  end_of_job:
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUG3("Print_job: end of job");
+#endif
 	Init_buf(&Outbuf, &Outmax, &Outlen );
 
 	/* check for the banner at the end */
@@ -499,6 +626,11 @@ int Print_job( int output, int status_device, struct job *job,
 	/* 
 	 * Trailer_on_close_DYN -> of_fd;
 	 */ 
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 8\n");
+fclose(aaaaaa);
+#endif
 	if( trailer_str ) Put_buf_str( trailer_str, &Outbuf, &Outmax, &Outlen );
 
 	/*
@@ -529,6 +661,11 @@ int Print_job( int output, int status_device, struct job *job,
 		}
 	}
 	Init_buf(&Outbuf, &Outmax, &Outlen );
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "printjob: printjob check point 9\n");
+fclose(aaaaaa);
+#endif
 #ifdef HAVE_TCDRAIN
 	if( isatty( output ) && tcdrain( output ) == -1 ){
 		LOGERR_DIE(LOG_INFO)"Print_job: tcdrain failed");
@@ -546,6 +683,7 @@ int Print_job( int output, int status_device, struct job *job,
 	if( of_stderr != -1 ) close(of_stderr); of_stderr = -1;
 	if( tempfd != -1 ) close(tempfd); tempfd = -1;
 	if( fd != -1 ) close(fd); fd = -1;
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3){
 		LOGDEBUG("Print_job: at end open fd's");
 		for( i = 0; i < 20; ++i ){
@@ -554,8 +692,10 @@ int Print_job( int output, int status_device, struct job *job,
 			}
 		}
 	}
+#endif
 	return( Errorcode );
 }
+#endif
 
 /*
  * int Create_OF_filter( int *of_stdin, int *of_stderr )
@@ -572,12 +712,21 @@ int Run_OF_filter( int send_job_rw_timeout, int *of_pid, int *of_stdin, int *of_
 	int output, char **outbuf, int *outmax, int *outlen,
 	struct job *job, char *id, int terminate_of,
 	char *msgbuffer, int msglen )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return 0; }
+#else
 {
 	char msg[SMALLBUFFER];
 	char *s;
 	int of_error[2], of_fd[2], n, time_left;
 	struct stat statb;
 	struct line_list files;
+
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 1\n");
+fclose(aaaaaa);
+#endif
 
 	if( *of_pid < 0 ){
 		Init_line_list(&files);
@@ -595,9 +744,16 @@ int Run_OF_filter( int send_job_rw_timeout, int *of_pid, int *of_stdin, int *of_
 			LOGERR(LOG_INFO)"Run_OF_filter: pipe() failed");
 			goto exit;
 		}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 2\n");
+fclose(aaaaaa);
+#endif
 		Max_open(of_fd[0]); Max_open(of_fd[1]);
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG2("Run_OF_filter: errors_to_ps %d, ps '%s'", Filter_stderr_to_status_file_DYN,
 			Status_file_DYN );
+#endif
 		of_error[0] = of_error[1] = -1;
 		if( Filter_stderr_to_status_file_DYN && Status_file_DYN && *Status_file_DYN ){
 			of_error[1] = Checkwrite( Status_file_DYN, &statb, O_WRONLY|O_APPEND, 0, 0 );
@@ -607,31 +763,80 @@ int Run_OF_filter( int send_job_rw_timeout, int *of_pid, int *of_stdin, int *of_
 			goto exit;
 		}
 		Max_open(of_error[0]); Max_open(of_error[1]);
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3("Run_OF_filter: fd of_fd[%d,%d], of_error[%d,%d]",
 			of_fd[0], of_fd[1], of_error[0], of_error[1] );
+#endif
 
 		/* set format */
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 3.1\n");
+fclose(aaaaaa);
+#endif
 		Set_str_value(&job->info,FORMAT,"o");
 		/* set up file descriptors */
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 3.2\n");
+fclose(aaaaaa);
+#endif
 
 		s = 0;
 		if( Backwards_compatible_filter_DYN ) s = BK_of_filter_options_DYN;
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 3.3\n");
+fclose(aaaaaa);
+#endif
 		if( s == 0 ) s = OF_filter_options_DYN;
 		if( s == 0 ) s = Filter_options_DYN;
 
 		Check_max(&files,10);
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 3.4\n");
+fclose(aaaaaa);
+#endif
 		files.list[files.count++] = Cast_int_to_voidstar(of_fd[0]);	/* stdin */
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 3.5\n");
+fclose(aaaaaa);
+#endif
 		files.list[files.count++] = Cast_int_to_voidstar(output);	/* stdout */
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 3.6\n");
+fclose(aaaaaa);
+#endif
 		files.list[files.count++] = Cast_int_to_voidstar(of_error[1]);	/* stderr */
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 3.7\n");
+fclose(aaaaaa);
+#endif
 		if( (*of_pid = Make_passthrough( OF_Filter_DYN, s,&files, job, 0 ))<0){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 3.8\n");
+fclose(aaaaaa);
+#endif
 			Errorcode = JFAIL;
 			LOGERR(LOG_INFO)"Run_OF_filter: could not create OF process");
 			goto exit;
 		}
 		files.count = 0;
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 4\n");
+fclose(aaaaaa);
+#endif
 		Free_line_list(&files);
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3("Run_OF_filter: OF pid %d", *of_pid );
+#endif
 		if( of_fd[0] > 0 &&  (close( of_fd[0] ) == -1 ) ){
 			Errorcode = JFAIL;
 			LOGERR(LOG_INFO)"Run_OF_filter: X0 close(%d) failed", of_fd[0]);
@@ -644,39 +849,77 @@ int Run_OF_filter( int send_job_rw_timeout, int *of_pid, int *of_stdin, int *of_
 			goto exit;
 		}
 		of_error[1] = -1;
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3("Run_OF_filter: writing init to OF pid '%d', count %d", *of_pid, *outlen );
+#endif
 
 		*of_stderr = of_error[0];
 		*of_stdin = of_fd[1];
 	} else {
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3("Run_OF_filter: SIGCONT to to OF pid '%d'", *of_pid );
+#endif
 		kill( *of_pid, SIGCONT );
 	}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 5\n");
+fclose(aaaaaa);
+#endif
 	if( Suspend_OF_filter_DYN && !terminate_of ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 5.1\n");
+fclose(aaaaaa);
+#endif
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3("Run_OF_filter: stopping OF pid '%d'", *of_pid );
+#endif
 		Put_buf_str( Filter_stop, outbuf, outmax, outlen );
 		n = Write_outbuf_to_OF(job,"OF",*of_stdin,
 			*outbuf, *outlen,
 			*of_stderr, msgbuffer, msglen,
 			send_job_rw_timeout, 0, Status_file_DYN );
 		if( n == 0 ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 5.2\n");
+fclose(aaaaaa);
+#endif
 			n = Get_status_from_OF(job,"OF",*of_pid,
 				*of_stderr, msgbuffer, msglen,
 				send_job_rw_timeout, 1, Filter_poll_interval_DYN, Status_file_DYN );
 		}
 		if( n != JSUSP ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 5.3\n");
+fclose(aaaaaa);
+#endif
 			Errorcode = n;
 			SETSTATUS(job)"OF filter problems, error '%s'", Server_status(n));
 			goto exit;
 		}
 		SETSTATUS(job)"OF filter suspended" );
 	} else {
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 5.4\n");
+fclose(aaaaaa);
+#endif
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG3("Run_OF_filter: end OF pid '%d'", *of_pid );
+#endif
 		n = Write_outbuf_to_OF(job,"OF",*of_stdin,
 			*outbuf, *outlen,
 			*of_stderr, msgbuffer, msglen,
 			send_job_rw_timeout, 0, Status_file_DYN );
 		if( n ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 5.5\n");
+fclose(aaaaaa);
+#endif
 			Errorcode = n;
 			SETSTATUS(job)"OF filter problems, error '%s'", Server_status(n));
 			goto exit;
@@ -687,6 +930,11 @@ int Run_OF_filter( int send_job_rw_timeout, int *of_pid, int *of_stdin, int *of_
 			*of_stderr, msgbuffer, msglen,
 			send_job_rw_timeout, 0, 0, Status_file_DYN );
 		if( n ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 5.6\n");
+fclose(aaaaaa);
+#endif
 			Errorcode = n;
 			SETSTATUS(job)"OF filter problems, error '%s'", Server_status(n));
 			goto exit;
@@ -695,6 +943,11 @@ int Run_OF_filter( int send_job_rw_timeout, int *of_pid, int *of_stdin, int *of_
 		*of_stderr = -1;
 		/* now we get the exit status for the filter */
 		time_left = send_job_rw_timeout;
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 6\n");
+fclose(aaaaaa);
+#endif
 		while(1){
 			/* now we get the exit status for the filter */
 			n = Wait_for_pid( *of_pid, "OF", 0, time_left );
@@ -712,12 +965,22 @@ int Run_OF_filter( int send_job_rw_timeout, int *of_pid, int *of_stdin, int *of_
 							continue;
 						}
 					}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 7\n");
+fclose(aaaaaa);
+#endif
 				default:
 					Errorcode = n;
 					SETSTATUS(job)"%s filter exit status '%s'",
 						"OF", Server_status(n));
 					goto exit;
 			}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: check point 8\n");
+fclose(aaaaaa);
+#endif
 			SETSTATUS(job) "%s filter finished", "OF" );
 			break;
 		}
@@ -725,8 +988,14 @@ int Run_OF_filter( int send_job_rw_timeout, int *of_pid, int *of_stdin, int *of_
 	}
 	return( 0 );
  exit:
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Run_OF_filter: EXIT!\n");
+fclose(aaaaaa);
+#endif
 	return( -1 );
 }
+#endif
 
 /*
  * Print a banner
@@ -734,7 +1003,12 @@ int Run_OF_filter( int send_job_rw_timeout, int *of_pid, int *of_stdin, int *of_
  */
 
 void Print_banner( char *name, char *pgm, struct job *job )
+#ifdef ORIGINAL_DEBUG //JY@1020
 {
+#else
+{}
+#endif
+#ifdef ORIGINAL_DEBUG //JY@1020
 	char buffer[LARGEBUFFER];
 	int len, n;
 	char *bl = 0;
@@ -743,6 +1017,7 @@ void Print_banner( char *name, char *pgm, struct job *job )
 	/*
 	 * print the banner
 	 */
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3){
 		struct stat statb; int i;
 		LOGDEBUG("Print_banner: at start open fd's");
@@ -752,10 +1027,13 @@ void Print_banner( char *name, char *pgm, struct job *job )
 			}
 		}
 	}
+#endif
 	if( !pgm ) pgm = Banner_printer_DYN;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUG2( "Print_banner: name '%s', pgm '%s', sb=%d, Banner_line_DYN '%s'",
 		name, pgm, Short_banner_DYN, Banner_line_DYN );
+#endif
 
 	if( !pgm && !Short_banner_DYN ){
 		return;
@@ -788,7 +1066,9 @@ void Print_banner( char *name, char *pgm, struct job *job )
 			LOGERR_DIE(LOG_INFO)"Print_banner: Xa close(%d) failed",
 				tempfd);
 		}
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG4("Print_banner: BANNER '%s'", Outbuf+len);
+#endif
 	} else {
 		struct line_list l;
 		Init_line_list(&l);
@@ -810,6 +1090,7 @@ void Print_banner( char *name, char *pgm, struct job *job )
 		}
 	}
 }
+#endif
 
 /*
  * Write_outbuf_to_OF(
@@ -834,6 +1115,9 @@ int Write_outbuf_to_OF( struct job *job, char *title,
 	int of_fd, char *buffer, int outlen,
 	int of_error, char *msg, int msgmax,
 	int timeout, int poll_for_status, char *status_file )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return 0; }
+#else
 {
 	time_t start_time, current_time;
 	int msglen, return_status, count, elapsed, left;
@@ -920,10 +1204,12 @@ int Write_outbuf_to_OF( struct job *job, char *title,
 			of_fd, &buffer, &outlen, left );
 		DEBUG4("Write_outbuf_to_OF: return_status %d, count %d, '%s'",
 			return_status, count, msg);
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if( DEBUGL4 ){
 			char smb[32]; SNPRINTF(smb,sizeof(smb))"%s",msg);
 			logDebug("Write_outbuf_to_OF: writing '%s...'", smb );
 		}
+#endif
 		if( count > 0 ){
 			msglen += count;
 			msg[msglen] = 0;
@@ -941,6 +1227,7 @@ int Write_outbuf_to_OF( struct job *job, char *title,
 	/* read and see if there is any status coming back */
 	return( return_status );
 }
+#endif
 
 /*
  * int Get_status_from_OF( struct job *job, char *title, int of_pid,
@@ -954,6 +1241,9 @@ int Write_outbuf_to_OF( struct job *job, char *title,
 int Get_status_from_OF( struct job *job, char *title, int of_pid,
 	int of_error, char *msg, int msgmax,
 	int timeout, int suspend, int max_wait, char *status_file )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return 0; }
+#else
 {
 	time_t start_time, current_time;
 	int m, msglen, return_status, count, elapsed, left, done;
@@ -1060,8 +1350,14 @@ int Get_status_from_OF( struct job *job, char *title, int of_pid,
 			}
 		} while( count > 0 );
 	}
+#ifdef JYDEBUG//JYWeng
+fopen("/tmp/qqqqq" ,"a");
+fprintf(aaaaaa, "Get_status_from_OF: status=%d\n", return_status);
+fclose(aaaaaa);
+#endif
 	return(return_status);
 }
+#endif
 
 /****************************************************************************
  * int Wait_for_pid( int of_pid, char *name, int suspend, int timeout )
@@ -1082,6 +1378,9 @@ int Get_status_from_OF( struct job *job, char *title, int of_pid,
  ****************************************************************************/
 
 int Wait_for_pid( int of_pid, char *name, int suspend, int timeout )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return 0; }
+#else
 {
 	int pid, err, return_code;
  	plp_status_t ps_status;
@@ -1140,3 +1439,4 @@ int Wait_for_pid( int of_pid, char *name, int suspend, int timeout )
 	errno = err;
 	return( return_code );
 }
+#endif

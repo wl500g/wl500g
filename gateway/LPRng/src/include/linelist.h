@@ -240,7 +240,11 @@ void Find_pc_info( char *name,
 void Clear_var_list( struct keywords *v, int setv );
 void Set_var_list( struct keywords *keys, struct line_list *values );
 int Check_str_keyword( const char *name, int *value );
+#if defined(JYWENG20031104Config_value_conversion)
 void Config_value_conversion( struct keywords *key, const char *s );
+#else
+#define Config_value_conversion(...) NULL
+#endif
 void Expand_percent( char **var );
 void Expand_vars( void );
 void Expand_hash_values( struct line_list *hash );

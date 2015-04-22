@@ -56,6 +56,7 @@
  *   and leave it to the checkpc code to clean them up.
  */
 
+#if defined(JY20031104Scan_queue)
 int Scan_queue( struct line_list *spool_control,
 	struct line_list *sort_order, int *pprintable, int *pheld, int *pmove,
 		int only_queue_process, int *perr, int *pdone,
@@ -118,7 +119,9 @@ int Scan_queue( struct line_list *spool_control,
 		/* read the hf file and get the information */
 		Get_file_image_and_split( hf_name, 0, 0,
 			&job.info, Line_ends, 1, Value_sep,1,1,1,0);
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL5)Dump_line_list("Scan_queue: hf", &job.info );
+#endif
 		if( job.info.count == 0 ){
 			continue;
 		}
@@ -137,7 +140,9 @@ int Scan_queue( struct line_list *spool_control,
 			p, m, e, dn, only_queue_process );
 		if( sort_order ){
 			if( !only_queue_process || (p || m || e || dn) ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 				if(DEBUGL4)Dump_job("Scan_queue - before Make_sort_key",&job);
+#endif
 				Make_sort_key( &job );
 				DEBUG5("Scan_queue: sort key '%s'",job.sort_key);
 				Set_str_value(sort_order,job.sort_key,hf_name);
@@ -149,10 +154,12 @@ int Scan_queue( struct line_list *spool_control,
 	Free_job(&job);
 	Free_line_list(&directory_files);
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL5){
 		LOGDEBUG("Scan_queue: final values" );
 		Dump_line_list_sub(SORT_KEY,sort_order);
 	}
+#endif
 	if( pprintable ) *pprintable = printable;
 	if( pheld ) *pheld = held;
 	if( pmove ) *pmove = move;
@@ -162,6 +169,7 @@ int Scan_queue( struct line_list *spool_control,
 		printable, held, move, error, done );
 	return(0);
 }
+#endif
 
 /*
  * char *Get_fd_image( int fd, char *file )
@@ -194,10 +202,12 @@ char *Get_fd_image( int fd, off_t maxsize )
 		len += n;
 		s[len] = 0;
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3){
 		SNPRINTF(buffer,32)"%s",s);
 		logDebug("Get_fd_image: len %d '%s'", s?safestrlen(s):0, buffer );
 	}
+#endif
 	return(s);
 }
 
@@ -308,6 +318,7 @@ void Check_for_hold( struct job *job, struct line_list *spool_control )
  *  read the control file and hold file.
  */
 
+#if defined(JY20031104Setup_job)
 void Setup_job( struct job *job, struct line_list *spool_control,
 	const char *cf_name, const char *hf_name, int check_for_existence )
 {
@@ -371,8 +382,11 @@ void Setup_job( struct job *job, struct line_list *spool_control,
 	Make_identifier( job );
 	Check_for_hold( job, spool_control );
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3)Dump_job("Setup_job",job);
+#endif
 }
+#endif
 
 /* Get_hold_class( spool_control, job )
  *  check to see if the spool class and the job class are compatible
@@ -469,6 +483,7 @@ int Get_hold_class( struct line_list *info, struct line_list *sq )
  *
  */
 
+#if defined(JY20031104Append_Z_value)
 void Append_Z_value( struct job *job, char *s )
 {
 	char *t;
@@ -484,7 +499,9 @@ void Append_Z_value( struct job *job, char *s )
 		Set_str_value(&job->info,"Z",s);
 	}
 }
+#endif
 
+#if defined(JY20031104Setup_cf_info)
 int Setup_cf_info( struct job *job, int check_for_existence )
 {
 	char *s;
@@ -510,9 +527,11 @@ int Setup_cf_info( struct job *job, int check_for_existence )
 		DEBUG3("Setup_cf_info: control file '%s', hpformat '%d'", s, hpformat );
 		if( Get_file_image_and_split(s,0,0, &cf_line_list, Line_ends,0,0,0,0,0,0)
 			 && check_for_existence ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			DEBUG3("Setup_cf_info: missing or empty control file '%s'", s );
 			SNPRINTF(buffer,sizeof(buffer))
 				"no control file %s - %s", s, Errormsg(errno) );
+#endif
 			Set_str_value(&job->info,ERROR,buffer);
 			Set_nz_flag_value(&job->info,ERROR_TIME,time(0));
 			returnstatus = 1;
@@ -564,8 +583,10 @@ int Setup_cf_info( struct job *job, int check_for_existence )
 					DEBUG4("Setup_cf_info: '%s' - size %0.0f", file_found, size );
 					Set_double_value(datafile,SIZE,size );
 				} else {
+#ifdef ORIGINAL_DEBUG //JY@1020
 					SNPRINTF(buffer,sizeof(buffer))
 						"missing data file %s - %s", file_found, Errormsg(errno) );
+#endif
 					Set_str_value(&job->info,ERROR,buffer);
 					Set_nz_flag_value(&job->info,ERROR_TIME,time(0));
 					returnstatus = 1;
@@ -644,9 +665,12 @@ int Setup_cf_info( struct job *job, int check_for_existence )
 	if( datafile )	free(datafile); datafile=0;
 	if( names )	free(names); names=0;
 	Free_line_list( &cf_line_list );
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_job("Setup_cf_info - final",job);
+#endif
 	return(returnstatus);
 }
+#endif
 
 char *Make_hf_image( struct job *job )
 {
@@ -677,7 +701,9 @@ int Set_hold_file( struct job *job, struct line_list *perm_check, int fd )
 	status = 0;
 	outstr = 0;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_job("Set_hold_file",job);
+#endif
 	Set_str_value(&job->info,UPDATE_TIME,Time_str(0,0));
 	if( !(hf_name = Find_str_value(&job->info,HF_NAME,Value_sep)) ){
 		Errorcode = JABORT;
@@ -724,7 +750,9 @@ int Set_hold_file( struct job *job, struct line_list *perm_check, int fd )
 			if(u) free(u); u = 0;
 			if(t) free(t); t = 0;
 		}
+#ifdef ORIGINAL_DEBUG //JY@1020
 		send_to_logger(-1, -1, job,UPDATE,outstr);
+#endif
 	}
 	if( outstr ) free( outstr ); outstr = 0;
 	return( status );
@@ -762,7 +790,9 @@ void Get_spool_control( const char *file, struct line_list *info )
 	DEBUG2("Get_spool_control:  file '%s'", file );
 	Get_file_image_and_split( file, 0, 0,
 			info,Line_ends,1,Value_sep,1,1,1,0);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_line_list("Get_spool_control- info", info );
+#endif
 }
 
 /*
@@ -782,7 +812,9 @@ void Set_spool_control( struct line_list *perm_check, const char *file,
 	fd = Make_temp_fd( &tempfile );
 	DEBUG2("Set_spool_control: file '%s', tempfile '%s'",
 		file, tempfile );
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_line_list("Set_spool_control- info", info );
+#endif
 	s = Join_line_list(info,"\n");
 	if( Write_fd_str(fd, s) < 0 ){
 		Errorcode = JFAIL;
@@ -818,7 +850,9 @@ void Set_spool_control( struct line_list *perm_check, const char *file,
 		}
 		t = Join_line_list( &l, "\n");
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 		send_to_logger(-1,-1,0,QUEUE,t);
+#endif
 	}
 
 	Free_line_list(&l);
@@ -921,6 +955,7 @@ void Make_sort_key( struct job *job )
 		intval(NUMBER,&job->info,job);
 	}
 }
+#ifdef REMOVE
 
 /*
  * Set up printer
@@ -933,6 +968,7 @@ void Make_sort_key( struct job *job )
  *     and RemoteHost_DYN.
  */
 
+#if defined(JY20031104Setup_printer)
 int Setup_printer( char *prname, char *error, int errlen, int subserver )
 {
 	char *s;
@@ -969,9 +1005,11 @@ int Setup_printer( char *prname, char *error, int errlen, int subserver )
 	}
 
 	if( chdir( Spool_dir_DYN ) < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		SNPRINTF( error, errlen)
 			"printer '%s', chdir to '%s' failed '%s'",
 				name, Spool_dir_DYN, Errormsg( errno ) );
+#endif
 		status = 2;
 		goto error;
 	}
@@ -990,17 +1028,20 @@ int Setup_printer( char *prname, char *error, int errlen, int subserver )
 			Printer_DYN );
 	}
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUG1("Setup_printer: printer now '%s', spool dir '%s'",
 		Printer_DYN, Spool_dir_DYN );
 	if(DEBUGL3){
 		Dump_parms("Setup_printer - vars",Pc_var_list);
 		Dump_line_list("Setup_printer - spool control", &Spool_control );
 	}
+#endif
 
  error:
 	DEBUG3("Setup_printer: status '%d', error '%s'", status, error );
 	return( status );
 }
+#endif
 
 /**************************************************************************
  * Read_pid( int fd, char *str, int len )
@@ -1058,7 +1099,7 @@ int Write_pid( int fd, int pid, char *str )
 	}
 	return 0;
 }
-
+#endif
 /***************************************************************************
  * int Patselect( struct line_list *tokens, struct line_list *cf );
  *    check to see that the token value matches one of the following
@@ -1077,8 +1118,10 @@ int Patselect( struct line_list *token, struct line_list *cf, int starting )
 	int i, n, val;
 	char *key, *s, *end;
 	
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3)Dump_line_list("Patselect- tokens", token );
 	if(DEBUGL3)Dump_line_list("Patselect- info", cf );
+#endif
 	for( i = starting; match && i < token->count; ++i ){
 		key = token->list[i];
 		DEBUG3("Patselect: key '%s'", key );
@@ -1140,6 +1183,7 @@ int Patselect( struct line_list *token, struct line_list *cf, int starting )
  *  "dB", the 27th with "da", the 28th with "db", and so forth.
 
  ***************************************************************************/
+#if defined(JY20031104Check_format)
 int Check_format( int type, const char *name, struct job *job )
 {
 	int n, c, hpformat;
@@ -1271,6 +1315,7 @@ int Check_format( int type, const char *name, struct job *job )
 	}
 	return( msg[0] != 0 );
 }
+#endif
 
 char *Find_start(char *str, const char *key )
 {
@@ -1365,6 +1410,7 @@ char *Fix_job_number( struct job *job, int n )
  * 
  ************************************************************************/
 
+#if defined(JY20031104Make_identifier)
 char *Make_identifier( struct job *job )
 {
 	char *user, *host, *s, *id;
@@ -1389,25 +1435,34 @@ char *Make_identifier( struct job *job )
 	}
 	return(s);
 }
+#endif
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 void Dump_job( char *title, struct job *job )
 {
 	int i;
 	struct line_list *lp;
 	if( title ) LOGDEBUG( "*** Job %s *** - 0x%lx", title, Cast_ptr_to_long(job));
+#ifdef ORIGINAL_DEBUG //JY@1020
 	Dump_line_list_sub( "info",&job->info);
 	LOGDEBUG("  datafiles - count %d", job->datafiles.count );
+#endif
 	for( i = 0; i < job->datafiles.count; ++i ){
 		char buffer[SMALLBUFFER];
 		SNPRINTF(buffer,sizeof(buffer))"  datafile[%d]", i );
 		lp = (void *)job->datafiles.list[i];
+#ifdef ORIGINAL_DEBUG //JY@1020
 		Dump_line_list_sub(buffer,lp);
+#endif
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	Dump_line_list_sub( "destination",&job->destination);
+#endif
 	if( title ) LOGDEBUG( "*** end ***" );
 }
+#endif
 
-
+#if defined(JY20031104Job_printable)
 void Job_printable( struct job *job, struct line_list *spool_control,
 	int *pprintable, int *pheld, int *pmove, int *perr, int *pdone )
 {
@@ -1417,8 +1472,10 @@ void Job_printable( struct job *job, struct line_list *spool_control,
 	struct stat statb; 
 	int n, printable = 0, held = 0, move = 0, error = 0, done = 0,destination, destinations;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_job("Job_printable - job info",job);
 	if(DEBUGL4)Dump_line_list("Job_printable - spool control",spool_control);
+#endif
 
 	buffer[0] = 0;
 	if( job->info.count == 0 ){
@@ -1471,7 +1528,9 @@ void Job_printable( struct job *job, struct line_list *spool_control,
 		printable = 0;
 		for( destination = 0; destination < destinations; ++destination ){
 			Get_destination(job,destination);
+#ifdef ORIGINAL_DEBUG //JY@1020
 			if(DEBUGL4)Dump_job("Job_destination_printable - job",job);
+#endif
 			destbuffer[0] = 0;
 			if( Find_flag_value(&job->destination,ERROR_TIME,Value_sep) ){
 				SNPRINTF(destbuffer,sizeof(destbuffer)) "error" );
@@ -1524,7 +1583,9 @@ void Job_printable( struct job *job, struct line_list *spool_control,
 	DEBUG3("Job_printable: printable %d, held %d, move '%d', error '%d', done '%d', status '%s'",
 		printable, held, move, error, done, buffer );
 }
+#endif
 
+#ifdef REMOVE
 int Server_active( char *file )
 {
 	struct stat statb;
@@ -1541,6 +1602,7 @@ int Server_active( char *file )
 	DEBUG3("Server_active: file %s, serverpid %d", file, serverpid );
 	return( serverpid );
 }
+#endif
 
 /*
  * Destination Information
@@ -1567,7 +1629,9 @@ void Update_destination( struct job *job )
 	Set_str_value(&job->info,buffer,t);
 	free(s);
 	free(t);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_job("Update_destination",job);
+#endif
 }
 
 /*
@@ -1712,6 +1776,7 @@ int Trim_status_file( int status_fd, char *file, int max, int min )
  static char BSD_order[] = "HPJCLIMWT1234" ;
  static char LPRng_order[] = "HPJCLIMWT1234*" ;
 
+#if defined(JY20031104Fix_datafile_info)
 char *Fix_datafile_info( struct job *job, char *number, char *suffix,
 	char *xlate_format )
 {
@@ -1723,7 +1788,9 @@ char *Fix_datafile_info( struct job *job, char *number, char *suffix,
 	
 	Init_line_list(&outfiles);
 	transfername = dataline = Nline = jobline = 0;
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_job("Fix_datafile_info - starting", job );
+#endif
 
 	/* now we find the number of different data files */
 
@@ -1758,7 +1825,9 @@ char *Fix_datafile_info( struct job *job, char *number, char *suffix,
 	Free_line_list(&outfiles);
 	Set_decimal_value(&job->info,DATAFILE_COUNT,count);
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_job("Fix_datafile_info - after finding duplicates", job );
+#endif
 
 	jobcopies = Find_flag_value(&job->info,COPIES,Value_sep);
 	if( !jobcopies ) jobcopies = 1;
@@ -1768,7 +1837,9 @@ char *Fix_datafile_info( struct job *job, char *number, char *suffix,
 		for( linecount = 0; linecount < job->datafiles.count; ++linecount ){
 			jobline = 0;
 			lp = (void *)job->datafiles.list[linecount];
+#ifdef ORIGINAL_DEBUG //JY@1020
 			if(DEBUGL5)Dump_line_list("Fix_datafile_info - info", lp  );
+#endif
 			transfername = Find_str_value(lp,TRANSFERNAME,Value_sep);
 			Nline = Find_str_value(lp,"N",Value_sep);
 			fmt[0] = 'f';
@@ -1806,7 +1877,9 @@ char *Fix_datafile_info( struct job *job, char *number, char *suffix,
 	for( linecount = 0; linecount < job->datafiles.count; ++linecount ){
 		jobline = 0;
 		lp = (void *)job->datafiles.list[linecount];
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4)Dump_line_list("Fix_datafile_info - info", lp );
+#endif
 		transfername = Find_str_value(lp,TRANSFERNAME,Value_sep);
 		if( !Find_casekey_str_value(&outfiles,transfername,Value_sep) ){
 			jobline = safeextend4(jobline,"U",transfername,"\n",__FILE__,__LINE__);
@@ -1823,6 +1896,7 @@ char *Fix_datafile_info( struct job *job, char *number, char *suffix,
 	while( (s = safestrchr(s,'\n')) ) *s++ = '\001';
 	return(dataline);
 }
+#endif
 
 int ordercomp(  const void *left, const void *right, const void *orderp)
 {
@@ -1873,6 +1947,7 @@ int ordercomp(  const void *left, const void *right, const void *orderp)
 	{0,0}
 	};
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 void Fix_control( struct job *job, char *filter, char *xlate_format )
 {
 	char *s, *file_hostname, *number, *priority,
@@ -1884,7 +1959,9 @@ void Fix_control( struct job *job, char *filter, char *xlate_format )
 
 	Init_line_list(&controlfile);
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3) Dump_job( "Fix_control: starting", job );
+#endif
 
 	/* we set the control file with the single letter values in the
 	   hold job file
@@ -1903,7 +1980,9 @@ void Fix_control( struct job *job, char *filter, char *xlate_format )
 		}
 	}
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3) Dump_line_list( "Fix_control: control file", &controlfile );
+#endif
 
 	n = j = 0;
 	n = Find_decimal_value( &job->info,NUMBER,Value_sep);
@@ -1935,7 +2014,9 @@ void Fix_control( struct job *job, char *filter, char *xlate_format )
 		*s = 0;
 	}
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3) Dump_job( "Fix_control: before fixing", job );
+#endif
 
 	/* fix control file name */
 
@@ -2021,7 +2102,9 @@ void Fix_control( struct job *job, char *filter, char *xlate_format )
 	 * see if allowed options in file first.
 	 */
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3)Dump_line_list( "Fix_control: before sorting", &controlfile );
+#endif
 	n = Mergesort( controlfile.list,
 		controlfile.count, sizeof( char *), ordercomp, order );
 	if( n ){
@@ -2029,7 +2112,9 @@ void Fix_control( struct job *job, char *filter, char *xlate_format )
 		LOGERR_DIE(LOG_ERR) "Fix_control: Mergesort failed" );
 	}
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3) Dump_job( "Fix_control: after sorting", job );
+#endif
 	for( i = 0; i < controlfile.count; ++i ){
 		s = controlfile.list[i];
 		memmove(s+1,s+2,safestrlen(s+2)+1);
@@ -2086,6 +2171,7 @@ void Fix_control( struct job *job, char *filter, char *xlate_format )
 		close( tempfd ); tempfd = -1;
 	}
 }
+#endif
 
 /************************************************************************
  * Create_control:
@@ -2094,6 +2180,7 @@ void Fix_control( struct job *job, char *filter, char *xlate_format )
  *
  ************************************************************************/
 
+#if defined(JY20031104Create_control)
 int Create_control( struct job *job, char *error, int errlen,
 	char *xlate_format )
 {
@@ -2101,7 +2188,9 @@ int Create_control( struct job *job, char *error, int errlen,
 	int status = 0, fd, i;
 	struct stat statb;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3) Dump_job( "Create_control: before fixing", job );
+#endif
 
 	/* deal with authentication */
 
@@ -2144,9 +2233,13 @@ int Create_control( struct job *job, char *error, int errlen,
 				Free_line_list(&l);
 				DEBUG1("Create_control: match, using users '%s'", t );
 				Split(&l,t,",",0,0,0,0,0,0);
+#ifdef ORIGINAL_DEBUG //JY@1020
 				if(DEBUGL1)Dump_line_list("Create_control: before Fix_dollars", &l );
+#endif
 				Fix_dollars(&l,job,0,0);
+#ifdef ORIGINAL_DEBUG //JY@1020
 				if(DEBUGL1)Dump_line_list("Create_control: after Fix_dollars", &l );
+#endif
 				for( j = 0; j < l.count; ++j ){
 					if( !ISNULL(l.list[j]) ){
 						accounting_name = l.list[j];
@@ -2268,8 +2361,10 @@ int Create_control( struct job *job, char *error, int errlen,
 		DEBUG4("Create_control: writing to '%s'", openname );
 		if( (fd = Checkwrite(openname,&statb,0,1,0)) < 0
 			|| ftruncate(fd,0) || Write_fd_str(fd,cf) < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			SNPRINTF(error,errlen)"Write_control: cannot write '%s' - '%s'",
 				openname, Errormsg(errno) );
+#endif
 			status = 1;
 		}
 		Max_open(fd);
@@ -2280,6 +2375,7 @@ int Create_control( struct job *job, char *error, int errlen,
 
 	return( status );
 }
+#endif
 
 /*
  * Buffer management

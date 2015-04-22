@@ -88,7 +88,9 @@ int Send_request(
 	DEBUG1("Send_request: connnect_timeout %d, transfer_timeout %d",
 			connnect_timeout, transfer_timeout );
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	security = Fix_send_auth(0,&info, 0, errormsg, sizeof(errormsg) );
+#endif
 
 	DEBUG1("Send_request: security %s", security?security->name:0 );
 	if( security ){
@@ -132,8 +134,10 @@ int Send_request(
 	cmd = safeextend2(cmd,"\n", __FILE__,__LINE__ );
 	errno = 0;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	sock = Link_open_list( RemoteHost_DYN,
 		&real_host, connnect_timeout, 0, Unix_socket_path_DYN );
+#endif
 	err = errno;
 	if( sock < 0 ){
 		char *msg = "";
@@ -169,8 +173,10 @@ int Send_request(
 	}
 	/* now send the command line */
 	if( security && security->client_send ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		status = Send_auth_transfer( &sock, transfer_timeout, 0, 0,
 			errormsg, sizeof(errormsg), cmd, security, &info );
+#endif
 	} else {
 		status = Link_send( RemoteHost_DYN, &sock, transfer_timeout,
 			cmd, safestrlen(cmd), 0 );

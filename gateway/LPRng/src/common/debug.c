@@ -84,6 +84,9 @@
 */
 
 void Parse_debug (char *dbgstr, int interactive )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #if !defined(NODEBUG)
 	char *key, *convert, *end;
@@ -176,3 +179,4 @@ void Parse_debug (char *dbgstr, int interactive )
 #endif
 	/* LOGDEBUG("Parse_debug: Debug %d, DbgFlag 0x%x", Debug, DbgFlag ); */
 }
+#endif

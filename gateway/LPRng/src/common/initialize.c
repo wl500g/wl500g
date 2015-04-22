@@ -224,7 +224,9 @@ void Setup_configuration()
 	DEBUG1("Setup_configuration: Host '%s', ShortHost '%s', user '%s'",
 		FQDNHost_FQDN, ShortHost_FQDN, Logname_DYN );
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL2) Dump_parms( "Setup_configuration - final values", Pc_var_list );
+#endif
 
 	if( Is_server ){
 		DEBUG2("Setup_configuration: Printcap_path '%s'", Printcap_path_DYN );
@@ -282,6 +284,7 @@ void Setup_configuration()
 		}
 		Free_line_list( &order );
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3){
 		Dump_line_list("Setup_configuration: PC names", &PC_names_line_list );
 		Dump_line_list("Setup_configuration: PC order", &PC_order_line_list );
@@ -294,6 +297,7 @@ void Setup_configuration()
 		Dump_line_list("Setup_configuration: Raw Perms", &RawPerm_line_list );
 		Dump_line_list("Setup_configuration: Perms", &Perm_line_list );
 	}
+#endif
 }
 
 /*

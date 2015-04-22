@@ -467,3 +467,9 @@ extern int dmalloc_outfile;
 #endif
 
 #endif
+
+#define FALSE   0
+#define TRUE    1
+#define ONLINE	"On-line"
+#define printf(fmt, args...) 
+

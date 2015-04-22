@@ -11,6 +11,7 @@
 "$Id: utilities.c,v 1.57 2003/09/05 20:07:20 papowell Exp $";
 
 #include "lp.h"
+#include "lp_asus.h"
 
 #include "utilities.h"
 #include "getopt.h"
@@ -144,10 +145,22 @@ void Printlist( char **m, int fd )
 int Write_fd_len( int fd, const char *msg, int len )
 {
 	int i;
+	int busy_index = 0;//JY1110: add sock
 
 	i = len;
 	while( len > 0 && (i = write( fd, msg, len ) ) >= 0 ){
 		len -= i, msg += i;
+		if(i == 0)
+			busy_index++;//JY1110: add sock
+		else
+			busy_index=0;
+			
+		if(busy_index > 3){//JY1110: add sock
+			check_prn_status("BUSY or ERROR", clientaddr);
+		}
+		else{
+			check_prn_status("Printing", clientaddr);
+		}
 	}
 	return( (i < 0) ? -1 : 0 );
 }
@@ -444,8 +457,8 @@ int safestrcmp( const char *s1, const char *s2 )
 /* perform safe comparison, even with null pointers */
 int safestrlen( const char *s1 )
 {
-	if( s1 ) return(strlen(s1));
-	return(0);
+	if (s1 != NULL) return strlen(s1);
+	return 0;
 }
 
 
@@ -597,6 +610,9 @@ int Get_max_servers( void )
  ***************************************************************************/
 
 int Get_max_fd( void )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return 0; }
+#else
 {
 	int n = 0;	/* We need some sort of limit here */
 
@@ -632,6 +648,7 @@ int Get_max_fd( void )
 	DEBUG1("Get_max_fd: returning %d", n );
 	return( n );
 }
+#endif
 
 
 char *Brk_check_size( void )
@@ -743,6 +760,9 @@ int Set_block_io( int fd )
 int Read_write_timeout(
 	int readfd, char *inbuffer, int maxinlen, int *readlen,
 	int writefd, char **outbuffer, int *outlen, int timeout )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return 0; }
+#else
 {
 	time_t start_t, current_t;
 	int elapsed, m, err, done, retval;
@@ -814,12 +834,16 @@ int Read_write_timeout(
             FD_SET_FIX((fd_set *))&writefds,
             FD_SET_FIX((fd_set *))0, tp );
 		err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG4("Read_write_timeout: select returned %d, errno '%s'",
 			m, Errormsg(err) );
+#endif
 		if( m < 0 ){
 			if( err != EINTR ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 				LOGERR(LOG_INFO)"Read_write_timeout: select returned %d, errno '%s'",
 				m, Errormsg(err) );
+#endif
 				retval = JTIMEOUT;
 				done = 1;
 			}
@@ -864,6 +888,7 @@ int Read_write_timeout(
 	errno = err;
 	return( retval );
 }
+#endif
 
 /***************************************************************************
  * Set up alarms so LPRng doesn't hang forever during transfers.
@@ -890,6 +915,13 @@ int Read_write_timeout(
 	Alarm_timed_out = 1;
 	signal( SIGALRM, SIG_IGN );
 	errno = EINTR;
+#if 1//JY1110: timeout while writing
+/*JY1111*/
+	check_prn_status("BUSY or ERROR", clientaddr);
+	send_ack_packet(currten_sock, ACK_FAIL);//JY1120
+/**/
+exit(0);
+#endif
 #if defined(HAVE_SIGLONGJMP)
 	siglongjmp(Timeout_env,1);
 #else
@@ -1383,23 +1415,29 @@ int Set_full_group( int euid, int gid )
 			}
 			if( initgroups(user, pw->pw_gid ) == -1 ){
 				err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 				LOGERR_DIE(LOG_ERR) "Set_full_group: initgroups failed '%s'",
 					Errormsg( err ) );
+#endif
 			}
 		} else
 #endif
 #if defined(HAVE_SETGROUPS)
 			if( setgroups(0,0) == -1 ){
 				err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 				LOGERR_DIE(LOG_ERR) "Set_full_group: setgroups failed '%s'",
 					Errormsg( err ) );
+#endif
 			}
 #endif
 		status = setgid( gid );
 		if( status < 0 ){
 			err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 			LOGERR_DIE(LOG_ERR) "Set_full_group: setgid '%d' failed '%s'",
 				gid, Errormsg( err ) );
+#endif
 		}
 	}
 	return( 0 );
@@ -1490,6 +1528,9 @@ void Reset_daemonuid(void)
 #  define BLOCKS(f)    (double)f.f_bavail
 # endif
 
+#ifdef JYDEBUG1//JYWeng
+FILE *aaaaaa;
+#endif
 
 /***************************************************************************
  * Check_space() - check to see if there is enough space
@@ -1505,6 +1546,26 @@ double Space_avail( char *pathname )
 	} else {
 		space = BLOCKS(fsb) * (BLOCKSIZE(fsb)/1024.0);
 	}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "TYPE=%d\n", USE_STATFS_TYPE);
+fprintf(aaaaaa, "Space_avail: fsb_bsize=%d\n", fsb.f_bsize);
+fprintf(aaaaaa, "Space_avail: fsb_frsize=%d\n", fsb.f_frsize);
+fprintf(aaaaaa, "Space_avail: fsb_block=%d\n", fsb.f_blocks);
+fprintf(aaaaaa, "Space_avail: fsb_bfree=%d\n", fsb.f_bfree);
+fprintf(aaaaaa, "Space_avail: fsb_bavail=%d\n", fsb.f_bavail);
+fprintf(aaaaaa, "Space_avail: fsb_files=%d\n", fsb.f_files);
+fprintf(aaaaaa, "Space_avail: fsb_ffree=%d\n", fsb.f_ffree);
+fprintf(aaaaaa, "Space_avail: fsb_favail=%d\n", fsb.f_favail);
+fprintf(aaaaaa, "Space_avail: fsb_f_flag=%d\n", fsb.f_flag);
+fprintf(aaaaaa, "BLOCKS(fsb)=%f\n", BLOCKS(fsb));
+fprintf(aaaaaa, "BLOCKSIZE(fsb)=%f\n", BLOCKSIZE(fsb));
+fprintf(aaaaaa, "space=%f\n", space);
+fclose(aaaaaa);
+#endif
+#ifdef JYDEBUG//JYWeng
+space=3000.0;
+#endif
 	return(space);
 }
 

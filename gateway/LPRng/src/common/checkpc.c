@@ -217,7 +217,9 @@ int main( int argc, char *argv[], char *envp[] )
     }
 	if(Verbose)MESSAGE("Checking printcap info");
 	if( User_specified_printer ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if( DEBUGL1 ) Dump_line_list("checkpc: names", &PC_names_line_list );
+#endif
 		s = Find_str_value( &PC_names_line_list, User_specified_printer, Value_sep );
 		DEBUG1("checkpc: for SERVER %s is really %s", User_specified_printer, s );
 		if( s ){
@@ -225,7 +227,9 @@ int main( int argc, char *argv[], char *envp[] )
 			Scan_printer(&spooldirs);
 		}
 	} else {
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if( DEBUGL1 ) Dump_line_list("checkpc: all", &All_line_list );
+#endif
 		for( i = 0; i < All_line_list.count; ++i ){
 			Set_DYN(&Printer_DYN,All_line_list.list[i]);
 			Scan_printer(&spooldirs);
@@ -378,8 +382,10 @@ void Scan_printer(struct line_list *spooldirs)
 		return;
 	}
 	if( !(dir = opendir( Spool_dir_DYN )) ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		WARNMSG( "  Printer_DYN '%s' spool dir '%s' cannot be scanned '%s'",
 			Printer_DYN, Spool_dir_DYN, Errormsg(errno) );
+#endif
 		return;
 	}
 	if( (Fix || Remove) && Lpq_status_file_DYN ){
@@ -397,8 +403,10 @@ void Scan_printer(struct line_list *spooldirs)
 			continue;
 		}
 		if( stat(cf_name,&statb) == -1 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			WARNMSG( "  stat of file '%s' failed '%s'",
 				cf_name, Errormsg(errno) );
+#endif
 			continue;
 		}
 		/* do not touch symbolic links */
@@ -491,11 +499,15 @@ void Scan_printer(struct line_list *spooldirs)
 			WARNMSG( "%s: lp device not absolute  pathname '%s'",
 				Printer_DYN, s );
 		} else if( stat(s,&statb) < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			WARNMSG( "%s: cannot stat lp device '%s' - %s",
 				Printer_DYN, s, Errormsg(errno) );
+#endif
 		} else if( (fd = Checkwrite(s,&statb,0,0,1)) < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			WARNMSG( "%s: cannot open lp device '%s' - %s",
 				Printer_DYN, s, Errormsg(errno) );
+#endif
 		}
 		if( fd >= 0 ) close(fd);
 	}
@@ -568,8 +580,10 @@ void Check_executable_filter( char *id, char *filter_str )
 		}
 		if(Verbose)MESSAGE("    executable '%s'", s );
 		if( stat(s,&statb) ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			WARNMSG("cannot stat '%s' filter '%s' - %s", id,
 			s, Errormsg(errno) );
+#endif
 		} else if(!S_ISREG(statb.st_mode)) {
 			WARNMSG("'%s' filter '%s' not a file", id, s);
 		} else {
@@ -609,14 +623,18 @@ void Make_write_file( char *file, char *printer )
 	}
 
 	if( (fd = Checkwrite( s, &statb, O_RDWR, 1, 1 )) < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		WARNMSG( " ** cannot open '%s' - '%s'", s, Errormsg(errno) );
+#endif
 		if( Fix ){
 			int euid = geteuid();
 			To_euid_root();
 			fd = open( s, O_RDWR|O_CREAT, Spool_file_perms_DYN  );
 			To_euid(euid);
 			if( fd < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 				WARNMSG( " ** cannot create '%s' - '%s'", s, Errormsg(errno) );
+#endif
 			}
 			Fix_owner( s );
 		}
@@ -718,7 +736,9 @@ int Check_file( char  *path, int fix, int age, int rmflag )
 		path, fix, (long)Current_time, age );
 
 	if( stat( path, &statb ) ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(Verbose)MESSAGE( "cannot stat file '%s', %s", path, Errormsg(errno) );
+#endif
 		err = 1;
 		return( err );
 	}
@@ -753,8 +773,10 @@ int Check_file( char  *path, int fix, int age, int rmflag )
 			if( rmflag ){
 				FPRINTF( STDOUT, "removing '%s'\n", path );
 				if( unlink( path ) == -1 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 					WARNMSG( "cannot remove '%s', %s", path,
 						Errormsg(errno) );
+#endif
 				}
 			}
 		}
@@ -775,8 +797,10 @@ int Fix_create_dir( char  *path, struct stat *statb )
 				WARNMSG( "not regular file '%s'", path );
 				err = 1;
 			} else if( unlink( s ) ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 				WARNMSG( "cannot unlink file '%s', %s",
 					path, Errormsg(errno) );
+#endif
 				err = 1;
 			}
 		}
@@ -786,7 +810,9 @@ int Fix_create_dir( char  *path, struct stat *statb )
 		int euid = geteuid();
 		To_euid_root();
 		if( mkdir( path, Spool_dir_perms_DYN ) ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			WARNMSG( "mkdir '%s' failed, %s", path, Errormsg(errno) );
+#endif
 			err = 1;
 		} else {
 			err = Fix_owner( path );
@@ -810,7 +836,9 @@ int Fix_owner( char *path )
 		status = chown( path, DaemonUID, DaemonGID );
 		err = errno;
 		if( status ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			WARNMSG( "chown '%s' failed, %s", path, Errormsg(err) );
+#endif
 		}
 		errno = err;
 	}
@@ -830,8 +858,10 @@ int Fix_perms( char *path, int perms )
 	To_euid( euid );
 
 	if( status ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		WARNMSG( "chmod '%s' to 0%o failed, %s", path, perms,
 			 Errormsg(err) );
+#endif
 	}
 	errno = err;
 	return( status != 0 );
@@ -879,19 +909,25 @@ int Check_spool_dir( char *path, int owner )
 		if( stat( pathname, &statb ) == 0 && S_ISDIR( statb.st_mode )
 			&& chdir( pathname ) == -1 ){
 			if( !Fix ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 				WARNMSG( "cannot chdir to '%s' as UID %d, GRP %d - '%s'",
 					pathname, geteuid(), getegid(), Errormsg(errno) );
+#endif
 			} else {
 				Fix_perms( pathname, Spool_dir_perms_DYN );
 				if( chdir( pathname ) == -1 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 					WARNMSG( "Permission change FAILED: cannot chdir to '%s' as UID %d, GRP %d - '%s'",
 					pathname, geteuid(), getegid(), Errormsg(errno) );
+#endif
 					Fix_owner( pathname );
 					Fix_perms( pathname, Spool_dir_perms_DYN );
 				}
 				if( chdir( pathname ) == -1 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 					WARNMSG( "Owner and Permission change FAILED: cannot chdir to '%s' as UID %d, GRP %d - '%s'",
 					pathname, geteuid(), getegid(), Errormsg(errno) );
+#endif
 				}
 			}
 		}
@@ -912,7 +948,9 @@ int Check_spool_dir( char *path, int owner )
 		To_euid(euid);
 	}
 	if( stat( path, &statb ) ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		WARNMSG( "stat of '%s' failed - %s", path, Errormsg(errno) );
+#endif
 		err = 1;
 		return( err );
 	}
@@ -1033,7 +1071,9 @@ void Test_port(int ruid, int euid, char *serial_line )
 				serial_line );
 			goto test_stty;
 		} else if( fd < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			FPRINTF( STDERR, "Error opening line '%s'\n", Errormsg(err));
+#endif
 			goto test_stty;
 		} else if( !isatty( fd ) ){
 			FPRINTF( STDERR,
@@ -1051,9 +1091,11 @@ void Test_port(int ruid, int euid, char *serial_line )
 				FPRINTF( STDERR, "***** Read with Timeout successful\n" );
 			} else {
 				 if( i < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 					FPRINTF( STDERR,
 					"***** Read with Timeout FAILED!! Error '%s'\n",
 						Errormsg( err ) );
+#endif
 				} else {
 					FPRINTF( STDERR,
 						"***** Read with Timeout FAILED!! read() returned %d\n",
@@ -1092,12 +1134,16 @@ void Test_port(int ruid, int euid, char *serial_line )
 		err = errno;
 		if( Alarm_timed_out || i < 0 ){
 			if( Alarm_timed_out ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 				FPRINTF( STDERR, "LockDevice timed out - %s", Errormsg(err) );
+#endif
 			}
 			FPRINTF( STDERR,
 				"*******************************************************\n" );
+#ifdef ORIGINAL_DEBUG //JY@1020
 				FPRINTF( STDERR, "********* LockDevice failed -  %s\n",
 					Errormsg(err) );
+#endif
 				FPRINTF( STDERR, "********* Try an alternate lock routine\n" );
 			FPRINTF( STDERR,
 				"*******************************************************\n" );
@@ -1109,7 +1155,9 @@ void Test_port(int ruid, int euid, char *serial_line )
 		 * now we fork a child with tries to reopen the file and lock it
 		 */
 		if( (pid = fork()) < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			FPRINTF( STDERR, "fork failed - %s", Errormsg(errno) );
+#endif
 		} else if( pid == 0 ){
 			close(fd);
 			fd = -1;
@@ -1128,8 +1176,10 @@ void Test_port(int ruid, int euid, char *serial_line )
 				FPRINTF( STDERR, "Timeout opening line '%s'\n",
 					serial_line );
 			} else if( fd < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 				FPRINTF( STDERR, "Error opening line '%s' - %s\n",
 				serial_line, Errormsg(err));
+#endif
 			} else if( i > 0 ){
 				FPRINTF( STDERR, "Lock '%s' succeeded! wrong result\n",
 					serial_line);
@@ -1151,8 +1201,10 @@ void Test_port(int ruid, int euid, char *serial_line )
 			while(1){
 				result = plp_waitpid( -1, &status, 0 );
 				err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 				FPRINTF( STDERR, "waitpid result %d, status %d, errno '%s'\n",
 					(int)result, status, Errormsg(err) );
+#endif
 				if( result == pid ){
 					FPRINTF( STDERR, "Daughter exit status %d\n", status );
 					if( status != 0 ){
@@ -1181,7 +1233,9 @@ void Test_port(int ruid, int euid, char *serial_line )
 		FPRINTF( STDERR, "\n\n" );
 		FPRINTF( STDERR, "Checking stty functions, fd %d\n\n", fd );
 		if( (pid = fork()) < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			FPRINTF( STDERR, "fork failed - %s", Errormsg(errno) );
+#endif
 		} else if( pid == 0 ){
 			/* default for status */
 			SNPRINTF( t1, sizeof(t1)) "/tmp/t1XXX%d", getpid() );
@@ -1207,7 +1261,9 @@ void Test_port(int ruid, int euid, char *serial_line )
 			if( fd != ttyfd ){
 				i = dup2(fd, ttyfd );
 				if( i != ttyfd ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 					FPRINTF( STDERR, "dup2() failed - %s\n", Errormsg(errno) );
+#endif
 					exit(-1);
 				}
 				close( fd );
@@ -1220,6 +1276,7 @@ void Test_port(int ruid, int euid, char *serial_line )
 				cmd, fd, ttyfd );
 			i = system( cmd );
 			FPRINTF( STDERR, "\n\n" );
+#ifdef ORIGINAL_DEBUG //JY@1020
 			Stty_command_DYN = "9600 -even odd echo";
 			FPRINTF( STDERR, "Trying 'stty %s'\n", Stty_command_DYN );
 			Do_stty( ttyfd );
@@ -1239,6 +1296,7 @@ void Test_port(int ruid, int euid, char *serial_line )
 			FPRINTF( STDERR, "Trying 'stty %s'\n", Stty_command_DYN );
 			Do_stty( ttyfd );
 			SNPRINTF( stty, sizeof(stty)) sttycmd, serial_line, t2 );
+#endif
 			FPRINTF( STDERR, "Doing '%s'\n", cmd );
 			i = system( cmd );
 			FPRINTF( STDERR, "\n\n" );
@@ -1285,9 +1343,11 @@ void Test_port(int ruid, int euid, char *serial_line )
 	FPRINTF( STDERR, "Checking Lockf '%s'\n", line );
 	if( (fd = Checkwrite(line, &statb, O_RDWR, 1, 0 )) < 0) {
 		err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 		FPRINTF( STDERR,
 			"open '%s' failed: wrong result - '%s'\n",
 			line, Errormsg(errno)  );
+#endif
 		exit(1);
 	}
 	if( Do_lock( fd, 0 ) < 0 ) {
@@ -1304,9 +1364,11 @@ void Test_port(int ruid, int euid, char *serial_line )
 		close( fd );
 		if( (fd = Checkwrite(line, &statb, O_RDWR, 1, 0 )) < 0) {
 			err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 			FPRINTF( STDERR,
 				"Daughter re-open '%s' failed: wrong result - '%s'\n",
 				line, Errormsg(errno)  );
+#endif
 			exit(1);
 		}
 		if( Do_lock( fd, 0 ) < 0 ) {
@@ -1346,9 +1408,11 @@ void Test_port(int ruid, int euid, char *serial_line )
 		close( fd );
 		if( (fd = Checkwrite(line, &statb, O_RDWR, 1, 0 )) < 0) {
 			err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 			FPRINTF( STDERR,
 				"Daughter re-open '%s' failed: wrong result - '%s'\n",
 				line, Errormsg(errno)  );
+#endif
 			exit(1);
 		}
 		FPRINTF( STDERR, "Daughter blocking for lock\n" );

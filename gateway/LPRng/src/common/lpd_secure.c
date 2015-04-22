@@ -50,6 +50,7 @@
 /*************************************************************************
  * Receive_secure() - receive a secure transfer
  *************************************************************************/
+#ifdef ORIGINAL_DEBUG //JY@1020
 int Receive_secure( int *sock, char *input )
 {
 	char *printername;
@@ -252,7 +253,9 @@ int Receive_secure( int *sock, char *input )
 	cleanup(0);
 	return(0);
 }
+#endif
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 int Do_secure_work( char *jobsize, int from_server,
 	char *tempfile, struct line_list *header_info )
 {
@@ -373,7 +376,7 @@ int Do_secure_work( char *jobsize, int from_server,
 	DEBUGF(DRECV1)("Do_secure_work: returning %d", status );
 	return( status );
 }
-
+#endif
 
 /***************************************************************************
  * void Fix_auth() - get the Use_auth_DYN value for the remote printer

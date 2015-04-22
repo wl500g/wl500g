@@ -56,6 +56,9 @@
 #endif
 
 const char * Errormsg ( int err )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return NULL; }
+#else
 {
     const char *cp;
 
@@ -79,6 +82,7 @@ const char * Errormsg ( int err )
 	}
     return (cp);
 }
+#endif
 
  struct msgkind {
     int var;
@@ -96,6 +100,9 @@ const char * Errormsg ( int err )
 };
 
  static char * putlogmsg(int kind)
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return NULL; }
+#else
 {
     int i;
     static char b[32];
@@ -111,9 +118,12 @@ const char * Errormsg ( int err )
     (void) SNPRINTF (b, sizeof(b)) "<BAD LOG FLAG %d>", kind);
     return (b);
 }
-
+#endif
 
  static void use_syslog(int kind, char *msg)
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
     /* testing mode indicates that this is not being used
      * in the "real world", so don't get noisy. */
@@ -156,9 +166,12 @@ const char * Errormsg ( int err )
 # endif							/* HAVE_OPENLOG */
 #endif                          /* HAVE_SYSLOG_H */
 }
-
+#endif
 
  static void log_backend (int kind, char *log_buf)
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
     char stamp_buf[2*SMALLBUFFER];
 	int n;
@@ -224,18 +237,23 @@ const char * Errormsg ( int err )
     /* plp_unblock_all_signals ( &omask ); / **/
 	errno = err;
 }
+#endif
 
 /*****************************************************
  * Put the printer name at the start of the log buffer
  *****************************************************/
  
  static void prefix_printer( char *log_buf, int len )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 	log_buf[0] = 0;
     if( Printer_DYN ){
 		SNPRINTF( log_buf, len-4) "%s: ", Printer_DYN );
 	}
 }
+#endif
 
 /* VARARGS2 */
 #ifdef HAVE_STDARGS
@@ -243,6 +261,9 @@ const char * Errormsg ( int err )
 #else
  void logmsg(va_alist) va_dcl
 #endif
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #ifndef HAVE_STDARGS
     int kind;
@@ -269,6 +290,7 @@ const char * Errormsg ( int err )
     VA_END;
 	errno = err;
 }
+#endif
 
 /* VARARGS2 */
 #ifdef HAVE_STDARGS
@@ -276,6 +298,9 @@ const char * Errormsg ( int err )
 #else
  void fatal (va_alist) va_dcl
 #endif
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #ifndef HAVE_STDARGS
     int kind;
@@ -302,6 +327,7 @@ const char * Errormsg ( int err )
     VA_END;
     cleanup(0);
 }
+#endif
 
 /* VARARGS2 */
 #ifdef HAVE_STDARGS
@@ -309,6 +335,9 @@ const char * Errormsg ( int err )
 #else
  void logerr (va_alist) va_dcl
 #endif
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #ifndef HAVE_STDARGS
     int kind;
@@ -337,6 +366,7 @@ const char * Errormsg ( int err )
     VA_END;
     errno = err;
 }
+#endif
 
 /* VARARGS2 */
 #ifdef HAVE_STDARGS
@@ -344,6 +374,9 @@ const char * Errormsg ( int err )
 #else
  void logerr_die (va_alist) va_dcl
 #endif
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #ifndef HAVE_STDARGS
     int kind;
@@ -373,6 +406,7 @@ const char * Errormsg ( int err )
     cleanup(0);
     VA_END;
 }
+#endif
 
 /***************************************************************************
  * Diemsg( char *m1, *m2, ...)
@@ -385,6 +419,9 @@ const char * Errormsg ( int err )
 #else
  void Diemsg (va_alist) va_dcl
 #endif
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #ifndef HAVE_STDARGS
     char *msg;
@@ -416,6 +453,7 @@ const char * Errormsg ( int err )
     cleanup(0);
     VA_END;
 }
+#endif
 
 /***************************************************************************
  * Warnmsg( char *m1, *m2, ...)
@@ -428,6 +466,9 @@ const char * Errormsg ( int err )
 #else
  void Warnmsg (va_alist) va_dcl
 #endif
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #ifndef HAVE_STDARGS
     char *msg;
@@ -456,7 +497,7 @@ const char * Errormsg ( int err )
 	errno = err;
     VA_END;
 }
-
+#endif
 
 /***************************************************************************
  * Message( char *m1, *m2, ...)
@@ -469,6 +510,9 @@ const char * Errormsg ( int err )
 #else
  void Message (va_alist) va_dcl
 #endif
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #ifndef HAVE_STDARGS
     char *msg;
@@ -495,6 +539,7 @@ const char * Errormsg ( int err )
 	errno = err;
     VA_END;
 }
+#endif
 
 /* VARARGS1 */
 #ifdef HAVE_STDARGS
@@ -502,6 +547,9 @@ const char * Errormsg ( int err )
 #else
  void logDebug (va_alist) va_dcl
 #endif
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #ifndef HAVE_STDARGS
     char *msg;
@@ -527,6 +575,7 @@ const char * Errormsg ( int err )
 	errno = err;
     VA_END;
 }
+#endif
 
 /***************************************************************************
  * char *Sigstr(n)
@@ -546,7 +595,7 @@ const char * Errormsg ( int err )
 # define PAIR(X) { __string(X) , X }
 #endif
 
- struct signame signals[] = {
+static struct signame signals[] = {
 { "NO SIGNAL", 0 },
 #ifdef SIGHUP
  PAIR(SIGHUP),
@@ -660,6 +709,9 @@ const char * Errormsg ( int err )
 
 
 const char *Sigstr (int n)
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return NULL; }
+#else
 {
     static char buf[40];
 	const char *s = 0;
@@ -692,6 +744,7 @@ const char *Sigstr (int n)
 	}
     return(s);
 }
+#endif
 
 /***************************************************************************
  * Decode_status (plp_status_t *status)
@@ -699,6 +752,9 @@ const char *Sigstr (int n)
  ***************************************************************************/
 
 const char *Decode_status (plp_status_t *status)
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return NULL; }
+#else
 {
     static char msg[LINEBUFFER];
 
@@ -722,6 +778,7 @@ const char *Decode_status (plp_status_t *status)
     }
     return (msg);
 }
+#endif
 
 /***************************************************************************
  * char *Server_status( int d )
@@ -748,6 +805,9 @@ const char *Decode_status (plp_status_t *status)
 	};
 
 char *Server_status( int d )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{ return NULL; }
+#else
 {
 	char *s;
 	int i;
@@ -761,6 +821,7 @@ char *Server_status( int d )
 	}
 	return(s);
 }
+#endif
 
 /*
  * Error status on STDERR
@@ -771,6 +832,9 @@ char *Server_status( int d )
 #else
  void setstatus (va_alist) va_dcl
 #endif
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #ifndef HAVE_STDARGS
     struct job *job;
@@ -809,7 +873,7 @@ char *Server_status( int d )
 	insetstatus = 0;
 	VA_END;
 }
-
+#endif
 
 /***************************************************************************
  * void setmessage (struct job *job,char *header, char *fmt,...)
@@ -822,6 +886,9 @@ char *Server_status( int d )
 #else
  void setmessage (va_alist) va_dcl
 #endif
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 #ifndef HAVE_STDARGS
     struct job *job;
@@ -848,7 +915,7 @@ char *Server_status( int d )
 	}
 	VA_END;
 }
-
+#endif
 
 /***************************************************************************
  * send_to_logger( struct job *job, char *msg )
@@ -857,6 +924,9 @@ char *Server_status( int d )
 
  void send_to_logger( int send_to_status_fd, int send_to_mail_fd,
 	struct job *job, const char *header, char *msg_b )
+#ifndef ORIGINAL_DEBUG //JY@1020
+{}
+#else
 {
 	char *s, *t;
 	char *id, *tstr;
@@ -912,4 +982,4 @@ char *Server_status( int d )
 	}
 	Free_line_list(&l);
 }
-
+#endif

@@ -410,7 +410,9 @@ char *Add_line_list( struct line_list *l, char *str,
 			l->list[mid] = str;
 		}
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL5)Dump_line_list("Add_line_list: result", l);
+#endif
 	return( str );
 }
 
@@ -668,6 +670,7 @@ char *Join_line_list_with_quotes( struct line_list *l, char *sep )
 	return( str );
 }
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 void Dump_line_list( const char *title, struct line_list *l )
 {
 	int i;
@@ -677,7 +680,9 @@ void Dump_line_list( const char *title, struct line_list *l )
 		LOGDEBUG( "  [%2d] 0x%lx ='%s'", i, Cast_ptr_to_long(l->list[i]), l->list[i] );
 	}
 }
+#endif
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 void Dump_line_list_sub( const char *title, struct line_list *l )
 {
 	int i;
@@ -687,7 +692,7 @@ void Dump_line_list_sub( const char *title, struct line_list *l )
 		LOGDEBUG( "  [%2d] 0x%lx ='%s'", i, Cast_ptr_to_long(l->list[i]), l->list[i] );
 	}
 }
-
+#endif
 
 /*
  * Find_str_in_flat
@@ -1455,14 +1460,18 @@ void Read_file_list( int required, struct line_list *model, char *str,
 					n = end - start;
 					Check_max( model, n );
 					/* copy to end */
+#ifdef ORIGINAL_DEBUG //JY@1020
 					if(DEBUGL5)Dump_line_list("Read_file_list: include before",
 						model );
+#endif
 					memmove( &model->list[model->count], 
 						&model->list[start], n*sizeof(char *) );
 					memmove( &model->list[start], 
 						&model->list[end],(model->count-start)*sizeof(char *));
+#ifdef ORIGINAL_DEBUG //JY@1020
 					if(DEBUGL4)Dump_line_list("Read_file_list: include after",
 						model );
+#endif
 					end = model->count;
 					start = end - n;
 					DEBUG4("Read_file_list: start now '%s'",model->list[start]);
@@ -1486,7 +1495,9 @@ void Read_file_list( int required, struct line_list *model, char *str,
 		}
 	}
 	Free_line_list(&l);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL5)Dump_line_list("Read_file_list: result", model);
+#endif
 }
 
 void Read_fd_and_split( struct line_list *list, int fd,
@@ -1525,15 +1536,17 @@ void Read_file_and_split( struct line_list *list, char *file,
 	DEBUG3("Read_file_and_split: '%s', trim %d, nocomment %d",
 		file, trim, nocomment );
 	if( (fd = Checkread( file, &statb )) < 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		LOGERR_DIE(LOG_INFO)
 		"Read_file_and_split: cannot open '%s' - '%s'",
 			file, Errormsg(errno) );
+#endif
 	}
 	Read_fd_and_split( list, fd, linesep, sort, keysep, uniq,
 		trim, nocomment );
 }
 
-
+#ifdef REMOVE
 /*
  * Printcap information
  */
@@ -1575,8 +1588,10 @@ int  Build_pc_names( struct line_list *names, struct line_list *order,
 	}
 	Split(&l,str,"|",0,0,0,1,0,0);
 	if( s ) *s = c;
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_line_list("Build_pc_names- names", &l);
 	if(DEBUGL4)Dump_line_list("Build_pc_names- options", &opts);
+#endif
 	if( l.count == 0 ){
 		if(Warnings){
 			WARNMSG(
@@ -1622,9 +1637,11 @@ int  Build_pc_names( struct line_list *names, struct line_list *order,
 				l.list[0], *s );
 			}
 		} else if( ok ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			if(DEBUGL4)Dump_line_list("Build_pc_names: adding ", &l);
 			if(DEBUGL4)Dump_line_list("Build_pc_names- before names", names );
 			if(DEBUGL4)Dump_line_list("Build_pc_names- before order", order );
+#endif
 			if( !Find_exists_value( names, l.list[0], Value_sep ) ){
 				Add_line_list(order,l.list[0],0,0,0);
 			}
@@ -1722,7 +1739,9 @@ void Build_printcap_info(
 		}
 		free(keyid); keyid = 0;
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4) Dump_line_list( "Build_printcap_info- end", list );
+#endif
 	return;
 }
 
@@ -1757,19 +1776,23 @@ char *Select_pc_info( const char *id,
 		Errorcode = JABORT;
 		FATAL(LOG_ERR)"Select_pc_info: printcap tc recursion depth %d", depth );
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_line_list("Select_pc_info- names", names );
 	if(DEBUGL4)Dump_line_list("Select_pc_info- order", order );
 	if(DEBUGL4)Dump_line_list("Select_pc_info- input", input );
+#endif
 	start = 0; end = 0;
 	found = Find_str_value( names, id, Value_sep );
 	if( !found && PC_filters_line_list.count ){
 		Filterprintcap( &l, &PC_filters_line_list, id);
 		Build_printcap_info( names, order, input, &l, &Host_IP );
 		Free_line_list( &l );
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4)Dump_line_list("Select_pc_info- after filter aliases", aliases );
 		if(DEBUGL4)Dump_line_list("Select_pc_info- after filter info", info );
 		if(DEBUGL4)Dump_line_list("Select_pc_info- after filter names", names );
 		if(DEBUGL4)Dump_line_list("Select_pc_info- after filter input", input );
+#endif
 		found = Find_str_value( names, id, Value_sep );
 	}
 	/* do partial glob match  */
@@ -1810,8 +1833,10 @@ char *Select_pc_info( const char *id,
 		Find_pc_info( found, info, aliases, names, order, input, depth, 0 );
 	}
 	DEBUG1("Select_pc_info: returning '%s'", found );
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_line_list("Select_pc_info- returning aliases", aliases );
 	if(DEBUGL4)Dump_line_list("Select_pc_info- returning info", info );
+#endif
 	return( found );
 }
 
@@ -1846,7 +1871,9 @@ void Find_pc_info( char *name,
 			Add_line_list( &pc, u, 0, 0, 0 );
 		}
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_line_list("Find_pc_info- entry lines", &l );
+#endif
 	for( start = 0; start < pc.count; ++ start ){
 		u = pc.list[start];
 		c = 0;
@@ -1865,7 +1892,9 @@ void Find_pc_info( char *name,
 			}
 		}
 		/* get the tc entries */
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4)Dump_line_list("Find_pc_info- pc entry", &l );
+#endif
 		if( !Find_first_key(&l,"tc",Value_sep,&start_tc)
 			&& !Find_last_key(&l,"tc",Value_sep,&end_tc) ){
 			for( ; start_tc <= end_tc; ++start_tc ){
@@ -1880,7 +1909,9 @@ void Find_pc_info( char *name,
 				}
 			}
 		}
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4)Dump_line_list("Find_pc_info- tc", &tc );
+#endif
 		for( j = 0; j < tc.count; ++j ){
 			s = tc.list[j];
 			DEBUG4("Find_pc_info: tc entry '%s'", s );
@@ -1890,7 +1921,9 @@ void Find_pc_info( char *name,
 			}
 		}
 		Free_line_list(&tc);
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL4)Dump_line_list("Find_pc_info - adding", &l );
+#endif
 		for( i = 0; i < l.count; ++i ){
 			if( (t = l.list[i]) ){
 				Add_line_list( info, t, Value_sep, 1, 1 );
@@ -1900,6 +1933,7 @@ void Find_pc_info( char *name,
 	}
 	Free_line_list(&pc);
 }
+#endif
 
 /*
  * variable lists and initialization
@@ -1930,7 +1964,9 @@ void Clear_var_list( struct keywords *v, int setv )
 			Config_value_conversion( vars, vars->default_value );
 		}
     }
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL5)Dump_parms("Clear_var_list: after",v );
+#endif
 }
 
 /***************************************************************************
@@ -1981,6 +2017,7 @@ int Check_str_keyword( const char *name, int *value )
  * void Config_value_conversion( struct keyword *key, char *value )
  *  set the value of the variable as required
  ***************************************************************************/
+#if defined(JYWENG20031104Config_value_conversion)
 void Config_value_conversion( struct keywords *key, const char *s )
 {
 	int i = 0, c = 0, value = 0;
@@ -2041,7 +2078,7 @@ void Config_value_conversion( struct keywords *key, const char *s )
 		break;
 	}
 }
-
+#endif
 
  static struct keywords Keyletter[] = {
 	{ "P", 0, STRING_K, &Printer_DYN, 0,0,0 },
@@ -2108,15 +2145,18 @@ void Expand_vars( void )
 	void *p;
 	struct keywords *var;
 
+#ifdef REMOVE
 	/* check to see if you need to expand */
 	for( var = Pc_var_list; var->keyword; ++var ){
 		if( var->type == STRING_K && (p = var->variable) ){
 			Expand_percent(p);
 		}
 	}
+#endif
 }
 
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 /***************************************************************************
  * Expand_hash_values:
  *  expand the values of a hash
@@ -2137,6 +2177,7 @@ void Expand_hash_values( struct line_list *hash )
 		}
 	}
 }
+#endif
 
 /*
  * Set a _DYN variable
@@ -2159,16 +2200,19 @@ void Clear_config( void )
 {
 	struct line_list **l;
 
+#ifdef REMOVE
 	DEBUGF(DDB1)("Clear_config: freeing everything");
 	Remove_tempfiles();
 	Clear_tempfile_list();
     Clear_var_list( Pc_var_list, 1 );
     Clear_var_list( DYN_var_list, 1 );
 	for( l = Allocs; *l; ++l ) Free_line_list(*l);
+#endif
 }
 
 char *Find_default_var_value( void *v )
 {
+#ifdef REMOVE
 	struct keywords *k;
 	char *s;
 	for( k = Pc_var_list; (s = k->keyword); ++k ){
@@ -2180,6 +2224,7 @@ char *Find_default_var_value( void *v )
 			return( s );
 		}
 	}
+#endif
 	return(0);
 }
 
@@ -2190,6 +2235,7 @@ char *Find_default_var_value( void *v )
 
 void Get_config( int required, char *path )
 {
+#ifdef REMOVE
 	DEBUG1("Get_config: required '%d', '%s'", required, path );
 	/* void Read_file_list( int required, struct line_list *model, char *str,
 	 *  const char *linesep, int sort, const char *keysep, int uniq, int trim,
@@ -2204,6 +2250,7 @@ void Get_config( int required, char *path )
 	Set_var_list( Pc_var_list, &Config_line_list);
 	Get_local_host();
 	Expand_vars();
+#endif
 }
 
 /***************************************************************************
@@ -2213,12 +2260,14 @@ void Get_config( int required, char *path )
 
 void Reset_config( void )
 {
+#ifdef REMOVE
 	DEBUG1("Reset_config: starting");
 	Clear_var_list( Pc_var_list, 1 );
 	Free_line_list( &PC_entry_line_list );
 	Free_line_list( &PC_alias_line_list );
 	Set_var_list( Pc_var_list, &Config_line_list);
 	Expand_vars();
+#endif
 }
 
 void close_on_exec( int fd )
@@ -2235,15 +2284,42 @@ void Setup_env_for_process( struct line_list *env, struct job *job )
 	char *s, *t, *u, *name;
 	int i;
 
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Setup_env_for_process: check point 1\n");
+fclose(aaaaaa);
+#endif
 	Init_line_list(&env_names);
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Setup_env_for_process: check point 1.1\n");
+fclose(aaaaaa);
+#endif
+
+#if 1
+pw = malloc(sizeof(struct passwd));
+pw->pw_name="root";
+pw->pw_passwd="x";
+pw->pw_gecos="root";
+pw->pw_dir="/root";
+pw->pw_shell="/bin/sh";
+pw->pw_uid=0;
+pw->pw_gid=0;
+#else
 	if( (pw = getpwuid( getuid())) == 0 ){
 		LOGERR_DIE(LOG_INFO) "setup_envp: getpwuid(%d) failed", getuid());
 	}
+#endif
+
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Setup_env_for_process: check point 2\n");
+fclose(aaaaaa);
+#endif
 	Set_str_value(env,"PRINTER",Printer_DYN);
 	Set_str_value(env,"USER",pw->pw_name);
 	Set_str_value(env,"LOGNAME",pw->pw_name);
 	Set_str_value(env,"HOME",pw->pw_dir);
-	Set_str_value(env,"LOGDIR",pw->pw_dir);
 	Set_str_value(env,"PATH",Filter_path_DYN);
 	Set_str_value(env,"LD_LIBRARY_PATH",Filter_ld_path_DYN);
 	Set_str_value(env,"SHELL",Shell_DYN);
@@ -2261,6 +2337,11 @@ void Setup_env_for_process( struct line_list *env, struct job *job )
 		if(t) free(t); t = 0;
 		if(u) free(u); u = 0;
 	}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Setup_env_for_process: check point 3\n");
+fclose(aaaaaa);
+#endif
 	if( job ){
 		if( !(s = Find_str_value(&job->info,CF_OUT_IMAGE,Value_sep)) ){
 			s = Find_str_value(&job->info,OPENNAME,Value_sep);
@@ -2273,6 +2354,11 @@ void Setup_env_for_process( struct line_list *env, struct job *job )
 		Set_str_value(env, "CONTROL", s );
 	}
 
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Setup_env_for_process: check point 4\n");
+fclose(aaaaaa);
+#endif
 	if( Pass_env_DYN ){
 		Free_line_list(&env_names);
 		Split(&env_names,Pass_env_DYN,File_sep,1,Value_sep,1,1,0,0);
@@ -2283,10 +2369,18 @@ void Setup_env_for_process( struct line_list *env, struct job *job )
 			}
 		}
 	}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Setup_env_for_process: check point 5\n");
+fclose(aaaaaa);
+#endif
 	Free_line_list(&env_names);
 	Check_max(env,1);
 	env->list[env->count] = 0;
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL1)Dump_line_list("Setup_env_for_process", env );
+#endif
+	free(pw);
 }
 
 /***************************************************************************
@@ -2335,10 +2429,12 @@ void Getprintcap_pathlist( int required,
 	}
 	Free_line_list(&l);
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4){
 		Dump_line_list( "Getprintcap_pathlist - filters", filters  );
 		Dump_line_list( "Getprintcap_pathlist - info", raw  );
 	}
+#endif
 }
 
 /***************************************************************************
@@ -2349,6 +2445,7 @@ void Getprintcap_pathlist( int required,
  *    - kill off the filter process
  ***************************************************************************/
 
+#if defined(JYWENG20031104Filterprintcap)
 void Filterprintcap( struct line_list *raw, struct line_list *filters,
 	const char *str )
 {
@@ -2388,8 +2485,9 @@ void Filterprintcap( struct line_list *raw, struct line_list *filters,
 		close( outtempfd); outtempfd = -1;
 	}
 }
+#endif
 
-
+#ifdef ORIGINAL_DEBUG //JY@1020
 /***************************************************************************
  * int In_group( char* *group, char *user );
  *  returns 1 on failure, 0 on success
@@ -2482,6 +2580,7 @@ int Check_for_rg_group( char *user )
 	DEBUG3("Check_for_rg_group: result: %d", match );
 	return( match );
 }
+#endif
 
 
 /***************************************************************************
@@ -2621,7 +2720,9 @@ void Split_cmd_line( struct line_list *l, char *line )
 			s = t;
 		}
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL1){ Dump_line_list("Split_cmd_line", l ); }
+#endif
 }
 
 /***************************************************************************
@@ -2644,6 +2745,12 @@ int Make_passthrough( char *line, char *flags, struct line_list *passfd,
 	char error[SMALLBUFFER];
 	char *s;
 
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 1\n");
+fclose(aaaaaa);
+#endif
+
 	DEBUG1("Make_passthrough: cmd '%s', flags '%s'", line, flags );
 	if( job ){
 		s = Find_str_value( &job->info,QUEUENAME, Value_sep );
@@ -2657,6 +2764,11 @@ int Make_passthrough( char *line, char *flags, struct line_list *passfd,
 	}
 	Init_line_list(&cmd);
 
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 2\n");
+fclose(aaaaaa);
+#endif
 	while( isspace(cval(line)) ) ++line;
 	if( cval(line) == '|' ) ++line;
 	noopts = root = 0;
@@ -2675,7 +2787,13 @@ int Make_passthrough( char *line, char *flags, struct line_list *passfd,
 		}
 	}
 
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 3\n");
+fclose(aaaaaa);
+#endif
 	c = cval(line);
+#if defined(JYWENG20031104Fix_dollars)
 	if( strpbrk(line, "<>|;") || c == '(' ){
 		Add_line_list( &cmd, Shell_DYN, 0, 0, 0 );
 		Add_line_list( &cmd, "-c", 0, 0, 0 );
@@ -2694,37 +2812,93 @@ int Make_passthrough( char *line, char *flags, struct line_list *passfd,
 		}
 		Fix_dollars(&cmd, job, 0, flags);
 	}
+#endif
 
 	Check_max(&cmd,1);
 	cmd.list[cmd.count] = 0;
 
 	Setup_env_for_process(&env, job);
+
 	if(DEBUGL1){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		Dump_line_list("Make_passthrough - cmd",&cmd );
 		LOGDEBUG("Make_passthrough: fd count %d, root %d", passfd->count, root );
+#endif
 		for( i = 0 ; i < passfd->count; ++i ){
 			fd = Cast_ptr_to_int(passfd->list[i]);
 			LOGDEBUG("  [%d]=%d",i,fd);
 		}
+#ifdef ORIGINAL_DEBUG //JY@1020
 		Dump_line_list("Make_passthrough - env",&env );
+#endif
 	}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 4.5\n");
+fclose(aaaaaa);
+#endif
 
 	c = cmd.list[0][0];
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 5\n");
+fclose(aaaaaa);
+#endif
 	if( c != '/' ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 5.1\n");
+fclose(aaaaaa);
+#endif
 		FATAL(LOG_ERR)"Make_passthrough: bad filter - not absolute path name'%s'",
 			cmd.list[0] );
 	}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 5.2\n");
+fclose(aaaaaa);
+#endif
 	if( (pid = dofork(0)) == -1 ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 5.3\n");
+fclose(aaaaaa);
+#endif
 		LOGERR_DIE(LOG_ERR)"Make_passthrough: fork failed");
 	} else if( pid == 0 ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 5.4\n");
+fclose(aaaaaa);
+#endif
 		for( i = 0; i < passfd->count; ++i ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 5.5\n");
+fclose(aaaaaa);
+#endif
 			fd = Cast_ptr_to_int(passfd->list[i]);
 			if( fd < i  ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 5.6\n");
+fclose(aaaaaa);
+#endif
 				/* we have fd 3 -> 4, but 3 gets wiped out */
 				do{
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 5.7\n");
+fclose(aaaaaa);
+#endif
 					newfd = dup(fd);
 					Max_open(newfd);
 					if( newfd < 0 ){
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 5.8\n");
+fclose(aaaaaa);
+#endif
 						Errorcode = JABORT;
 						LOGERR_DIE(LOG_INFO)"Make_passthrough: dup failed");
 					}
@@ -2732,8 +2906,18 @@ int Make_passthrough( char *line, char *flags, struct line_list *passfd,
 						i, fd, newfd );
 					passfd->list[i] = Cast_int_to_voidstar(newfd);
 				} while( newfd < i );
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 5.9\n");
+fclose(aaaaaa);
+#endif
 			}
 		}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 6\n");
+fclose(aaaaaa);
+#endif
 		if(DEBUGL4){
 			LOGDEBUG("Make_passthrough: after fixing fd, count %d", passfd->count );
 			for( i = 0 ; i < passfd->count; ++i ){
@@ -2751,6 +2935,11 @@ int Make_passthrough( char *line, char *flags, struct line_list *passfd,
 		} else {
 			Full_user_perms();
 		}
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "Make_passthrough: check point 7\n");
+fclose(aaaaaa);
+#endif
 		for( i = 0; i < passfd->count; ++i ){
 			fd = Cast_ptr_to_int(passfd->list[i]);
 			if( dup2(fd,i) == -1 ){
@@ -2762,9 +2951,11 @@ int Make_passthrough( char *line, char *flags, struct line_list *passfd,
 		}
 		close_on_exec(passfd->count);
 		execve(cmd.list[0],cmd.list,env.list);
+#ifdef ORIGINAL_DEBUG //JY@1020
 		SNPRINTF(error,sizeof(error))
 			"Make_passthrough: pid %d, execve '%s' failed - '%s'\n", getpid(),
 			cmd.list[0], Errormsg(errno) );
+#endif
 		Write_fd_str(2,error);
 		exit(JABORT);
 	}
@@ -2851,13 +3042,17 @@ int Filter_file( int input_fd, int output_fd, char *error_header,
 		buffer[n+len] = 0;
 		while( (s = safestrchr(buffer,'\n')) ){
 			*s++ = 0;
+#ifdef ORIGINAL_DEBUG //JY@1020
 			SETSTATUS(job)"%s: %s", error_header, buffer );
+#endif
 			memmove(buffer,s,safestrlen(s)+1);
 		}
 		len = safestrlen(buffer);
 	}
 	if( buffer[0] ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		SETSTATUS(job)"%s: %s", error_header, buffer );
+#endif
 	}
 	if( (close(of_error[0]) == -1 ) ){
 		Errorcode = JFAIL;
@@ -2867,8 +3062,10 @@ int Filter_file( int input_fd, int output_fd, char *error_header,
 	of_error[0] = -1;
 	while( (n = plp_waitpid(pid,&status,0)) != pid ){
 		int err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUG1("Filter_file: waitpid(%d) returned %d, err '%s'",
 			pid, n, Errormsg(err) );
+#endif
 		if( err == EINTR ) continue; 
 		Errorcode = JABORT;
 		LOGERR_DIE(LOG_ERR) "Filter_file: waitpid(%d) failed", pid);
@@ -2882,10 +3079,12 @@ int Filter_file( int input_fd, int output_fd, char *error_header,
 	}
 	n = WEXITSTATUS(status);
 	if( n > 0 && n < 32 ) n+=(JFAIL-1);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUG1("Filter_file: final status '%s'", Server_status(n) );
 	if( verbose ){
 		SETSTATUS(job)"Filter_file: pgm '%s' exited with status '%s'", pgm, Server_status(n));
 	}
+#endif
 	return( n );
 }
 
@@ -2951,6 +3150,7 @@ void Clean_meta( char *t )
 	}
 }
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 /**********************************************************************
  * Dump_parms( char *title, struct keywords *k )
  * - dump the list of keywords and variable values given by the
@@ -2989,8 +3189,9 @@ void Dump_parms( char *title, struct keywords *k )
 	}
 	if( title ) LOGDEBUG( "*** <END> ***");
 }
+#endif
 
-
+#ifdef ORIGINAL_DEBUG //JY@1020
 /**********************************************************************
  * Dump_parms( char *title, struct keywords *k )
  * - dump the list of keywords and variable values given by the
@@ -3041,7 +3242,7 @@ void Dump_default_parms( int fd, char *title, struct keywords *k )
 	}
 	Write_fd_str(fd, "\n");
 }
-
+#endif
 
 /***************************************************************************
  *char *Fix_Z_opts( struct job *job )
@@ -3074,6 +3275,7 @@ void Remove_sequential_separators( char *start )
 	}
 }
 
+#if defined(JYWENG20031104Fix_dollars)
 void Fix_Z_opts( struct job *job )
 {
 	char *str, *s, *pattern, *start, *end;
@@ -3188,8 +3390,9 @@ void Fix_Z_opts( struct job *job )
 	DEBUG4("Fix_Z_opts: final Z '%s'", str );
 	Free_line_list(&l);
 }
+#endif
 
-
+#if defined(JYWENG20031104Fix_dollars)
 /***************************************************************************
  * void Fix_dollars( struct line_list *l, struct job *job,
  *   int nosplit, char *flags )
@@ -3217,7 +3420,9 @@ void Fix_dollars( struct line_list *l, struct job *job, int nosplit, char *flags
 	char *strv, *s, *t, *rest;
 	char buffer[SMALLBUFFER], tag[32];
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_line_list("Fix_dollars- before", l );
+#endif
 	for( count = 0; count < l->count; ++count ){
 		position = 0;
 		for( strv = l->list[count]; (s = safestrpbrk(strv+position,"$\\")); ){
@@ -3405,8 +3610,11 @@ void Fix_dollars( struct line_list *l, struct job *job, int nosplit, char *flags
 		if( s ) ++j;
 	}
 	l->count = j;
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_line_list("Fix_dollars- after", l );
+#endif
 }
+#endif
 
 /*
  * char *Make_pathname( char *dir, char *file )
@@ -3670,6 +3878,7 @@ char *Fix_str( char *str )
 	return( dupstr );
 }
 
+#if defined(JYWENG20031104Shutdown_or_close)
 /***************************************************************************
  * int Shutdown_or_close( int fd )
  * - if the file descriptor is a socket, then do a shutdown (write), return fd;
@@ -3690,7 +3899,9 @@ int Shutdown_or_close( int fd )
 	}
 	return( fd );
 }
+#endif
 
+#ifdef REMOVE
 /*
  *  Support for non-copy on write fork as for NT
  *   1. Preparation for the fork is done by calling 'Setup_lpd_call'
@@ -3766,7 +3977,7 @@ int Make_lpd_call( char *name, struct line_list *passfd, struct line_list *args 
 		return(pid);
 	}
 	Name = "LPD_CALL";
-
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL2){
 		LOGDEBUG("Make_lpd_call: lpd path '%s'", Lpd_path_DYN );
 		LOGDEBUG("Make_lpd_call: passfd count %d", passfd->count );
@@ -3775,6 +3986,7 @@ int Make_lpd_call( char *name, struct line_list *passfd, struct line_list *args 
 		}
 		Dump_line_list("Make_lpd_call - args", args );
 	}
+#endif
 	for( i = 0; i < passfd->count; ++i ){
 		fd = Cast_ptr_to_int(passfd->list[i]);
 		if( fd < i  ){
@@ -3792,6 +4004,7 @@ int Make_lpd_call( char *name, struct line_list *passfd, struct line_list *args 
 			} while( newfd < i );
 		}
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL2){
 		LOGDEBUG("Make_lpd_call: after fixing fd count %d", passfd->count);
 		for( i = 0 ; i < passfd->count; ++i ){
@@ -3799,6 +4012,7 @@ int Make_lpd_call( char *name, struct line_list *passfd, struct line_list *args 
 			LOGDEBUG("  [%d]=%d",i,fd);
 		}
 	}
+#endif
 	for( i = 0; i < passfd->count; ++i ){
 		fd = Cast_ptr_to_int(passfd->list[i]);
 		DEBUG2("Make_lpd_call: fd %d -> %d",fd, i );
@@ -3815,6 +4029,11 @@ int Make_lpd_call( char *name, struct line_list *passfd, struct line_list *args 
 	}
 	passfd->count = 0;
 	Free_line_list( passfd );
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "linelist:Make_lpd_call: b4 Do_work\n");
+fclose(aaaaaa);
+#endif
 	Do_work( name, args );
 	return(0);
 }
@@ -3836,8 +4055,17 @@ void Do_work( char *name, struct line_list *args )
 		_dmalloc_outfile_fd = Find_flag_value(args, DMALLOC_OUTFILE,Value_sep);
 	}
 #endif
+#ifdef JYDEBUG//JYWeng
+aaaaaa=fopen("/tmp/qqqqq", "a");
+fprintf(aaaaaa, "linelist: Do_work: starting...name=%s\n", name);
+fclose(aaaaaa);
+#endif
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if( !safestrcasecmp(name,"logger") ) proc = Logger;
 	else if( !safestrcasecmp(name,"all") ) proc = Service_all;
+#else
+	if( !safestrcasecmp(name,"all") ) proc = Service_all;
+#endif
 	else if( !safestrcasecmp(name,"server") ) proc = Service_connection;
 	else if( !safestrcasecmp(name,"queue") ) proc = Service_queue;
 	else if( !safestrcasecmp(name,"printer") ) proc = Service_worker;
@@ -3858,10 +4086,12 @@ int Start_worker( char *name, struct line_list *parms, int fd )
 
 	Init_line_list(&passfd);
 	Init_line_list(&args);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL1){
 		DEBUG1("Start_worker: fd %d", fd );
 		Dump_line_list("Start_worker - parms", parms );
 	}
+#endif
 	Setup_lpd_call( &passfd, &args );
 	Merge_line_list( &args, parms, Value_sep,1,1);
 	Free_line_list( parms );
@@ -3878,3 +4108,4 @@ int Start_worker( char *name, struct line_list *parms, int fd )
 	DEBUG1("Start_worker: pid %d", pid );
 	return(pid);
 }
+#endif

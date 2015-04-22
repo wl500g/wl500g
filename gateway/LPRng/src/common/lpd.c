@@ -1,1009 +1,1280 @@
-/***************************************************************************
- * LPRng - An Extended Print Spooler System
- *
- * Copyright 1988-2003, Patrick Powell, San Diego, CA
- *     papowell@lprng.com
- * See LICENSE for conditions of use.
- *
- ***************************************************************************/
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
+#include <linux/lp.h>
+#include <fcntl.h>
+#include "wlancom.h"
+#include "lp_asus.h"
+#include "syslog.h"
 
- static char *const _id =
-"$Id: lpd.c,v 1.57 2003/09/05 20:07:19 papowell Exp $";
+/*Lisa*/
+#include	<stdlib.h>
+#include	<getopt.h>
+#include	<ctype.h>
+#include	<fcntl.h>
+#include	<netdb.h>
+#include	<syslog.h>
+#include	<sys/resource.h>
+#include	<sys/stat.h>
+#include 	<sys/ioctl.h>
+#define		BASEPORT	9100
+#ifdef 		DEBUG
+#define		PRINT(...)
+#else
+#define		PRINT	printf
+#endif
+/*#define 	Raw_Printing_with_ASUS*/
+#define 	LOGOPTS		(LOG_PERROR|LOG_PID|LOG_LPR|LOG_ERR)
 
+/* 2004/09/10, added by Joey 
+ * The printer server desing 
+ * Remote Port/LPR/Raw
+ * 1. fork() for one printing job at the same time.
+ * 2. the nack is processed in parent process.
+ * 3. busyflag is used globally in parent proces
+ * 4. lptstatus.busy is used between parent and child
+ */
 
+//JY
 #include "lp.h"
-#include "child.h"
-#include "fileopen.h"
-#include "errorcodes.h"
-#include "initialize.h"
-#include "linksupport.h"
-#include "lpd_logger.h"
-#include "getqueue.h"
-#include "getopt.h"
-#include "proctitle.h"
-#include "lockfile.h"
-
-/* force local definitions */
-#undef EXTERN
-#undef DEFINE
-#undef DEFS
-
-#define EXTERN
-#define DEFINE(X) X
-#define DEFS
-
-#include "lpd.h"
-
- char* Lpd_listen_port_arg;	/* command line listent port value */
- char* Lpd_port_arg;	/* command line port value */
- char* Lpd_socket_arg; /* command line unix socket value */
-
-#if HAVE_TCPD_H
-#include <tcpd.h>
- int allow_severity = LOG_INFO;
- int deny_severity = LOG_WARNING;
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))//JY1112
 #endif
 
 
-/**** ENDINCLUDE ****/
+extern int          errno;
 
-/***************************************************************************
- * main()
- * - top level of LPD Lite.  This is a cannonical method of handling
- *   input.  Note that we assume that the LPD daemon will handle all
- *   of the dirty work associated with formatting, printing, etc.
- * 
- * 1. get the debug level from command line arguments
- * 2. set signal handlers for cleanup
- * 3. get the Host computer Name and user Name
- * 4. scan command line arguments
- * 5. check command line arguments for consistency
+
+#ifdef LPR_with_ASUS//JY1112
+#define PNT_SVR_PORT_ASUS    3838
+#endif
+#define PNT_SVR_PORT_LPR 515
+#define PRINT printf
+
+#define UCHAR unsigned char
+
+#define STATUS_FILE "/var/state/lpr_status"
+
+
+int processReq(int sockfd); //Process the request from the client side
+int closesocket(int sockfd); 
+void sig_child(int sig);    //signal handler to the dead of child process
+void sig_cleanup(int sig); 
+void sig_remove(int sig);//JY1110 
+//void checkstatus_usb_par();//JY1110
+int waitsock(int sockfd , int sec , int usec);  //wait to socket until timeout
+void reset_printer(int sec);
+DWORD RECV(int sockfd , PBYTE pRcvbuf , DWORD dwlen , DWORD timeout);
+
+int  fdPRN=0; //File descriptor of the printer port
+char busy = FALSE; //Add by Lisa
+
+
+/*
+ * logmessage
  *
- ****************************************************************************/
-
-
-int main(int argc, char *argv[], char *envp[])
-{
-	int sock = 0;		/* socket for listen */
-	int pid;			/* pid */
-	fd_set defreadfds, readfds;	/* for select() */
-	int max_socks;		/* maximum number of sockets */
-	int lockfd;	/* the lock file descriptor */
-	int err, newsock;
- 	time_t last_time;	/* time that last Start_all was done */
-	time_t server_started_time;	/* time servers were started */
-	plp_status_t status;
-	int max_servers;
-	int start_fd = 0, start_pid = 0;
-	int logger_process_pid = 0;
-	int request_pipe[2], status_pipe[2];
-	int last_fork_pid_value;
-	struct line_list args;
-	struct sockaddr sinaddr;
-	int first_scan = 1;
-	int unix_sock = 0;
-	int fd_available;
-
-	Init_line_list( &args );
-	Is_server = 1;	/* we are the LPD server */
-	Logger_fd = -1;
-
-#ifndef NODEBUG
-	Debug = 0;
-#endif
-	if(DEBUGL3){
-		int n;
-		LOGDEBUG("lpd: argc %d", argc );
-		for( n = 0; n < argc; ++n ){
-			LOGDEBUG(" [%d] '%s'", n, argv[n] );
-		}
-		LOGDEBUG("lpd: env" );
-		for( n = 0; envp[n]; ++n ){
-			LOGDEBUG(" [%d] '%s'", n, envp[n] );
-		}
-	}
-
-	/* set signal handlers */
-	(void) plp_signal(SIGHUP,  (plp_sigfunc_t)Reinit);
-	(void) plp_signal(SIGINT, cleanup_INT);
-	(void) plp_signal(SIGQUIT, cleanup_QUIT);
-	(void) plp_signal(SIGTERM, cleanup_TERM);
-	(void) signal(SIGUSR1, SIG_IGN);
-	(void) signal(SIGUSR2, SIG_IGN);
-	(void) signal(SIGCHLD, SIG_DFL);
-	(void) signal(SIGPIPE, SIG_IGN);
-
-	/*
-	the next bit of insanity is caused by the interaction of signal(2) and execve(2)
-	man signal(2):
-
-	 When a process which has installed signal handlers forks, the child pro-
-	 cess inherits the signals.  All caught signals may be reset to their de-
-	 fault action by a call to the execve(2) function; ignored signals remain
-	 ignored.
-
-
-	man execve(2):
-	 
-	 Signals set to be ignored in the calling process are set to be ignored in
-					   ^^^^^^^
-					   signal(SIGCHLD, SIG_IGN)  <- in the acroread code???
-	 
-	 the new process. Signals which are set to be caught in the calling pro-  
-	 cess image are set to default action in the new process image.  Blocked  
-	 signals remain blocked regardless of changes to the signal action.  The  
-	 signal stack is reset to be undefined (see sigaction(2) for more informa-
-	 tion).
-
-
-	^&*(*&^!!! &*())&*&*!!!  and again, I say, &*()(&*!!!
-
-	This means that if you fork/execve a child,  then you better make sure
-	that you set up its signal/mask stuff correctly.
-
-    So if somebody blocks all signals and then starts up LPD,  it will not work
-	correctly.
-
-	*/
-
-	{ plp_block_mask oblock; plp_unblock_all_signals( &oblock ); }
-
-
-	Get_parms(argc, argv);      /* scan input args */
-
-	Initialize(argc, argv, envp, 'D' );
-	DEBUG1("Get_parms: UID_root %d, OriginalRUID %d", UID_root, OriginalRUID);
-
-	if( UID_root && (OriginalRUID != ROOTUID) ){
-		FATAL(LOG_ERR) "lpd installed SETUID root and started by user %d! Possible hacker attack", OriginalRUID);
-	}
-
-	Setup_configuration();
-
-	/* get the maximum number of servers allowed */
-	max_servers = Get_max_servers();
-	if(DEBUGL1){
-		int max_file_descriptors = Get_max_fd();
-		DEBUG1( "lpd: maximum servers %d, maximum file descriptors %d ",
-			max_servers, max_file_descriptors );
-	}
-
-	if( Lockfile_DYN == 0 ){
-		LOGERR_DIE(LOG_INFO) _("No LPD lockfile specified!") );
-	}
-
-	/* chdir to the root directory */
-	if( chdir( "/" ) == -1 ){
-		Errorcode = JABORT;
-		LOGERR_DIE(LOG_ERR) "cannot chdir to /");
-	}
-	pid = Get_lpd_pid();
-#if defined(__CYGWIN__)
-	if( (pid > 0) && ( kill(pid,0) || (errno != ESRCH) )) {
-		DIEMSG( _("Another print spooler active, possibly lpd process '%d'"),
-  				pid );
-	}
-	lockfd = Lock_lpd_pid();
-	if( lockfd < 0 ){
-		DIEMSG( _("cannot open or lock lockfile - %s"), Errormsg(errno) );
-	}
-	Set_lpd_pid( lockfd );
-	close( lockfd );
-	lockfd = -1;
-#else
-	lockfd = Lock_lpd_pid();
-	if( lockfd < 0 ){
-		DIEMSG( _("Another print spooler active, possibly lpd process '%d'"),
-  				pid );
-	}
-	Set_lpd_pid( lockfd );
-#endif
-
-	{
-		char *s;
-		s = Lpd_listen_port_arg;
-		if( ISNULL(s) ) s = Lpd_listen_port_DYN;
-		if( ISNULL(s) ) s = Lpd_port_DYN;
-		if( !ISNULL(s) && safestrcasecmp( s,"off") && strtol(s,0,0) ){
-			sock = Link_listen(s);
-			DEBUG1("lpd: listening socket fd %d",sock);
-			if( sock < 0 ){
-				Errorcode = 1;
-				DIEMSG("Cannot bind to lpd port '%s'", s);
-			}
-		}
-
-		s = Lpd_socket_arg;
-		if( ISNULL(s) ) s = Unix_socket_path_DYN;
-		if( !ISNULL(s) && safestrcasecmp( s,"off") ){
-			unix_sock = Unix_link_listen(s);
-			DEBUG1("lpd: unix listening socket fd %d, path '%s'",unix_sock, s);
-			if( unix_sock < 0 ){
-				Errorcode = 1;
-				DIEMSG("Cannot bind to UNIX socket '%s'", s );
-			}
-		}
-	}
-
-	/* setting nonblocking on the listening fd
-	 * will prevent a problem with terminations of connections
-	 * before ACCEPT has completed
-	 *  1. user connects, does the 3 Way Handshake
-	 *  2. before accept() is done,  a RST packet is sent
-	 *  3. a select() will succeed, but the accept() will hang
-	 *  4. if the non-blocking mode is used, then the select will
-	 *     succeed and the accept() will fail
-	 */
-	Set_nonblock_io(sock);
-
-	/*
-	 * At this point you are the server for the LPD port
-	 * you need to fork to allow the regular user to continue
-	 * you put the child in its separate process group as well
-	 */
-	if( (pid = dofork(1)) < 0 ){
-		LOGERR_DIE(LOG_ERR) _("lpd: main() dofork failed") );
-	} else if( pid ){
-		if( Foreground_LPD ){
-			while( (pid = plp_waitpid( pid, &status, 0)) > 0 ){
-				DEBUG1( "lpd: process %d, status '%s'",
-					pid, Decode_status(&status));
-			}
-		}
-		Errorcode = 0;
-		exit(0);
-	}
-
-	/* set up the log file and standard environment - do not
-	   fool around with anything but fd 0,1,2 which should be safe
-		as we made sure that the fd 0,1,2 existed.
-    */
-
-	Setup_log( Logfile_LPD );
-
-	Name = "Waiting";
-	setproctitle( "lpd %s", Name  );
-
-	/*
-	 * Write the PID into the lockfile
-	 */
-
-#if defined(__CYGWIN__)
-	lockfd = Lock_lpd_pid();
-	if( lockfd < 0 ) {
-	   DIEMSG( "Can't open lockfile for writing" );
-	}
-	Set_lpd_pid( lockfd );
-	close( lockfd );
-	lockfd = -1;
-#else
-	Set_lpd_pid( lockfd );
-#endif
-
-
-	if( Drop_root_DYN ){
-		Full_daemon_perms();
-	}
-
-	/* establish the pipes for low level processes to use */
-	if( pipe( request_pipe ) == -1 ){
-		LOGERR_DIE(LOG_ERR) _("lpd: pipe call failed") );
-	}
-	Max_open(request_pipe[0]); Max_open(request_pipe[1]);
-	DEBUG2( "lpd: fd request_pipe(%d,%d)",request_pipe[0],request_pipe[1]);
-	Lpd_request = request_pipe[1];
-	Set_nonblock_io( Lpd_request );
-
-	Logger_fd = -1;
-	logger_process_pid = -1;
-	if( Logger_destination_DYN ){
-		if( pipe( status_pipe ) == -1 ){
-			LOGERR_DIE(LOG_ERR) _("lpd: pipe call failed") );
-		}
-		Max_open(status_pipe[0]); Max_open(status_pipe[1]);
-		Logger_fd = status_pipe[1];
-		DEBUG2( "lpd: fd status_pipe(%d,%d)",status_pipe[0],status_pipe[1]);
-		logger_process_pid = Start_logger( status_pipe[0] );
-		if( logger_process_pid < 0 ){
-			LOGERR_DIE(LOG_ERR) _("lpd: cannot start initial logger process") );
-		}
-	}
-
-	/* open a connection to logger */
-	setmessage(0,LPD,"Starting");
-
-	/*
-	 * set up the select parameters
-	 */
-
-	FD_ZERO( &defreadfds );
-	if( sock > 0 ) FD_SET( sock, &defreadfds );
-	if( unix_sock > 0 ) FD_SET( unix_sock, &defreadfds );
-	FD_SET( request_pipe[0], &defreadfds );
-
-	/*
-	 * start waiting for connections from processes
-	 */
-
-	last_time = time( (void *)0 );
- 	server_started_time = 0;
-
-	start_pid = last_fork_pid_value = Start_all(first_scan, &start_fd );
-	Fork_error( last_fork_pid_value );
-	if( start_pid > 0 ){
-		first_scan = 0;
-	}
-
-	do{
-		struct timeval timeval, *timeout;
-		time_t this_time = time( (void *)0 );
-		int elapsed_time;
-
-		/* set up the timeout values */
-
-		timeout = 0;
-		memset(&timeval, 0, sizeof(timeval));
-
-		DEBUG1("lpd: LOOP START");
-		if(DEBUGL3){ int fd; fd = dup(0); LOGDEBUG("lpd: next fd %d",fd); close(fd); };
-
-		DEBUG2( "lpd: Poll_time %d, Force_poll %d, start_pid %d, start_fd %d, Started_server %d",
-			Poll_time_DYN, Force_poll_DYN, start_pid, start_fd, Started_server );
-
-		if(DEBUGL2)Dump_line_list("lpd - Servers_line_list",&Servers_line_list );
-
-		/*
-		 * collect zombies.  If one exits, you can set last_fork_pid_value
-		 * to 0, as you may now be able to start a process
-		 */
-
-		while( (pid = plp_waitpid( -1, &status, WNOHANG)) > 0 ){
-			DEBUG1( "lpd: process %d, status '%s'",
-				pid, Decode_status(&status));
-			if( pid == logger_process_pid ){
-				/* ARGH! the logger process died */
-				logger_process_pid = -1;
-			}
-			if( pid == start_pid ){
-				start_pid = -1;
-			}
-			last_fork_pid_value = 0;
-		}
-
-		/*
-		 * if the Logger process dies, then you have real problems,
-		 * so you need to start it up.
-		 */
-		if( last_fork_pid_value >= 0 && Logger_fd > 0 && logger_process_pid <= 0 ){
-			DEBUG1( "lpd: restarting logger process");
-			last_fork_pid_value = logger_process_pid = Start_logger( status_pipe[0] );
-			Fork_error( last_fork_pid_value );
-			DEBUG1("lpd: logger_process_pid %d", logger_process_pid );
-		}
-
-		/* you really do not want to start up more proceses until you can
-		 */
-		if( last_fork_pid_value < 0 ){
-			goto waitloop;
-		}
-
-		/*
-		 * Check to see if you need to rescan the spool queues
-		 *  - you have done all of the work in the Servers_line_list
-		 *    started by the last scan
-		 *  - it is time to do a new scan
-		 */
-
-		elapsed_time = (this_time - last_time);
-		if( Poll_time_DYN > 0 && start_pid <= 0 ){
-			int doit, scanned_queue_count;
-			DEBUG1("lpd: checking for scan, start_pid %d, start_fd %d, Poll_time_DYN %d, elapsed_time %d, Started_server %d, Force_poll %d",
-				start_fd, start_pid, Poll_time_DYN, elapsed_time, Started_server, Force_poll_DYN );
-			if( elapsed_time >= Poll_time_DYN ){
-				for( scanned_queue_count = doit = 0;
-					scanned_queue_count == 0 && doit < Servers_line_list.count; ++doit ){
-					char *s = Servers_line_list.list[doit];
-					if( s && cval(s) == '.' ) ++scanned_queue_count;
-				}
-				DEBUG1( "lpd: timeout checking for scan,  scanned_queue_count %d", scanned_queue_count);
-				if( scanned_queue_count == 0
-					&& ( Started_server || Force_poll_DYN ) ){
-					last_fork_pid_value = start_pid = Start_all(first_scan, &start_fd );
-					Fork_error( last_fork_pid_value );
-					DEBUG1( "lpd: restarting poll, start_pid %d, start_fd %d", start_pid, start_fd);
-					if( start_fd > 0 ){
-						first_scan = 0;
-						Started_server = 0;
-						last_time = this_time;
-					} else {
-						/* argh! process exhaustion */
-						goto waitloop;
-					}
-				}
-			} else {
-				/* oops... need to wait longer */
-				timeout = &timeval;
-				timeval.tv_sec = Poll_time_DYN - elapsed_time;
-			}
-		}
-
-		/*
-		 * check to see if there are any spool queues that require
-		 * service. This is the case when
-		 *  - time since last startup was non-zero
-		 *  - Servers_line_list has an entry
-		 *  OR you have had a forced startup request
-		 */
-		if( Servers_line_list.count ){
-			int number_of_servers = Countpid();
-			int server_processes_started = 0;
-			int doit;
-			char *server_to_start = 0;
-			int forced_start = 0;
-			elapsed_time = this_time - server_started_time;
-			/* find the first entry WITHOUT a '.' as first character */
-			for( forced_start = doit = 0; !forced_start && doit < Servers_line_list.count; ++doit ){
-				server_to_start = Servers_line_list.list[doit];
-				if( server_to_start && cval(server_to_start) != '.' ){
-					forced_start = 1;
-					break;
-				}
-				server_to_start = 0;
-			}
-			while( (elapsed_time > Poll_start_interval_DYN || forced_start )
-				&& Servers_line_list.count > 0 && server_processes_started < Poll_servers_started_DYN
-				&& number_of_servers + server_processes_started < max_servers-4 ){
-				DEBUG1("lpd: elapsed time %d, server_started_time %d, max_servers %d, number_of_servers %d, started %d",
-					elapsed_time, server_started_time, max_servers, number_of_servers, server_processes_started );
-
-				/* find the first entry WITHOUT a '.' as first character */
-				for( forced_start = doit = 0; doit < Servers_line_list.count; ++doit ){
-					server_to_start = Servers_line_list.list[doit];
-					if( server_to_start && cval(server_to_start) != '.' ){
-						forced_start = 1;
-						break;
-					}
-					server_to_start = 0;
-				}
-				/* Ok, then settle for the first entry */
-				if( !server_to_start ){
-					doit = 0;
-					server_to_start = Servers_line_list.list[doit];
-					if( cval(server_to_start) == '.' ) ++server_to_start;
-				}
-				if( !ISNULL(server_to_start) ){
-					server_started_time = this_time;
-					DEBUG1("lpd: starting server '%s'", server_to_start );
-					Free_line_list(&args);
-					Set_str_value(&args,PRINTER,server_to_start);
-					last_fork_pid_value = pid = Start_worker( "queue",&args, 0 );
-					Fork_error( last_fork_pid_value );
-					Free_line_list(&args);
-					if( pid > 0 ){
-						Remove_line_list( &Servers_line_list, doit );
-						Started_server = 1;
-						server_started_time = this_time;
-						if( forced_start ){
-							++number_of_servers;
-						} else {
-							++server_processes_started;
-						}
-					} else {
-						/* argh! process exhaustion */
-						goto waitloop;
-					}
-				} else {
-					/* empty line... */
-					Remove_line_list( &Servers_line_list, doit );
-				}
-			}
-		}
-		/* we see if we have any work to do
-		 * and then schedule a timeout if necessary to start a process
-		 * NOTE: if the Poll_start_interval value is 0,
-		 * then we will wait until a process exits
-		 */
-		if( Servers_line_list.count > 0 && Poll_start_interval_DYN ){
-			int time_left;
-			elapsed_time = this_time - server_started_time;
-			time_left = Poll_start_interval_DYN - elapsed_time;
-			if( time_left < 0 ) time_left = 0;
-			timeout = &timeval;
-			if( timeval.tv_sec == 0 || timeval.tv_sec > time_left  ){
-				timeval.tv_sec = time_left;
-			}
-		}
-
- waitloop:
-		/*
-		 * the place where we actually do some waiting
-		 */
-
-
-		DEBUG1("lpd: Started_server %d, last_fork_pid_value %d, active servers %d, max %d",
-			Started_server, last_fork_pid_value, Countpid(), max_servers );
-		/* do not accept incoming call if no worker available */
-		readfds = defreadfds;
-		if( Countpid() >= max_servers || last_fork_pid_value < 0 ){
-			DEBUG1( "lpd: not accepting requests" );
-			if( sock > 0 ) FD_CLR( sock, &readfds );
-			if( unix_sock > 0 ) FD_CLR( unix_sock, &readfds );
-			timeval.tv_sec = 10;
-			timeout = &timeval;
-		}
-
-		max_socks = sock+1;
-		if( request_pipe[0] >= max_socks ){
-			max_socks = request_pipe[0]+1;
-		}
-		if( start_fd > 0 ){
-			FD_SET( start_fd, &readfds );
-			if( start_fd >= max_socks ){
-				max_socks = start_fd+1;
-			}
-		}
-
-		DEBUG1( "lpd: starting select timeout '%s', %d sec, max_socks %d",
-		timeout?"yes":"no", (int)(timeout?timeout->tv_sec:0), max_socks );
-		if(DEBUGL2){
-			int i;
-			for(i=0; i < max_socks; ++i ){
-				if( FD_ISSET( i, &readfds ) ){
-					LOGDEBUG( "lpd: waiting for fd %d to be readable", i );
-				}
-			}
-		}
-		Setup_waitpid_break();
-		errno = 0;
-		fd_available = select( max_socks,
-			FD_SET_FIX((fd_set *))&readfds,
-			FD_SET_FIX((fd_set *))0,
-			FD_SET_FIX((fd_set *))0, timeout );
-		err = errno;
-		Setup_waitpid();
-		if(DEBUGL1){
-			int i;
-			LOGDEBUG( "lpd: select returned %d, error '%s'",
-				fd_available, Errormsg(err) );
-			for(i=0; i < max_socks; ++i ){
-				if( FD_ISSET( i, &readfds ) ){
-					LOGDEBUG( "lpd: fd %d readable", i );
-				}
-			}
-		}
-		/* if we got a SIGHUP then we reread configuration */
-		if( Reread_config || !Use_info_cache_DYN ){
-			DEBUG1( "lpd: rereading configuration" );
-			/* we need to force the LPD logger to use new printcap information */
-			if( Reread_config ){
-				if( logger_process_pid > 0 ) kill( logger_process_pid, SIGINT );
-				setmessage(0,LPD,"Restart");
-				Reread_config = 0;
-			}
-			Setup_configuration();
-		}
-		/* mark this as a timeout */
-		if( fd_available < 0 ){
-			if( err != EINTR ){
-				errno = err;
-				LOGERR_DIE(LOG_ERR) _("lpd: select error!"));
-				break;
-			}
-			continue;
-		} else if( fd_available == 0 ){
-			DEBUG1( "lpd: signal or time out, last_fork_pid_value %d", last_fork_pid_value );
-			/* we try to fork now */
-			if( last_fork_pid_value < 0 ) last_fork_pid_value = 1;
-			continue;
-		}
-		if( sock > 0 && FD_ISSET( sock, &readfds ) ){
-#if defined(HAVE_SOCKLEN_T)
-			socklen_t len;
-#else
-			int len;
-#endif
-			len = sizeof( sinaddr );
-			newsock = accept( sock, &sinaddr, &len );
-			err = errno;
-			DEBUG1("lpd: connection fd %d", newsock );
-			if( newsock > 0 ){
-#if defined(TCPWRAPPERS)
-/*
- * libwrap/tcp_wrappers:
- * draht@suse.de, Mon Jan 28 2002
  */
+void logmessage(char *logheader, char *fmt, ...)
+{
+  va_list args;
+  char buf[512];
 
-			    struct request_info wrap_req;
+  va_start(args, fmt);
 
-			    request_init(&wrap_req, RQ_DAEMON, "lpd" , RQ_FILE, newsock, NULL);
-			    fromhost(&wrap_req);
-			    openlog("lpd", LOG_PID, LOG_LPR); /* we syslog(3) initialized, no closelog(). */
-			    if (hosts_access(&wrap_req)) {
-				/* We accept. */
-				syslog(LOG_INFO, "connection from %s", eval_client(&wrap_req));
+  vsnprintf(buf, sizeof(buf), fmt, args);
+  openlog(logheader, 0, 0);
+  syslog(0, buf);
+  closelog();
+  va_end(args);
+}
+
+
+
+int main(int argc, char **argv)
+{
+    int                 sockfd , clisockfd;
+    unsigned int        clilen;
+    int                 childpid;
+    struct sockaddr_in  serv_addr,cli_addr;
+    int err_select;//JY1113
+
+#ifdef LPR_with_ASUS//JY1112
+    int 		LPRflag = 0;
+    fd_set		rfds, afds;
+    int			nfds;
+    int			sockfd_ASUS;
+    unsigned int        clilen_ASUS;
+    int                 childpid_ASUS;
+    struct sockaddr_in  serv_addr_ASUS,cli_addr_ASUS;
+#endif
+#ifdef Raw_Printing_with_ASUS  //Lisa
+	int		netfd, fd, clientlen, one = 1;
+	struct sockaddr_in	netaddr, client;
 #endif
 
-				pid = Start_worker( "server", &args, newsock );
-				if( pid < 0 ){
-					LOGERR(LOG_INFO) _("lpd: fork() failed") );
-					Write_fd_str( newsock, "\002Server load too high\n");
-				} else {
-					DEBUG1( "lpd: listener pid %d running", pid );
-				}
-#if defined(TCPWRAPPERS)
-			    } else { /* we do not accept the connection: */
-				syslog(LOG_WARNING, "connection refused from %s", eval_client(&wrap_req));
-			    }
-/* 
- * end libwrap
- */
-#endif
-				close( newsock );
-				Free_line_list(&args);
-			} else {
-				errno = err;
-				LOGERR(LOG_INFO) _("lpd: accept on listening socket failed") );
-			}
-		}
-		if( unix_sock > 0 && FD_ISSET( unix_sock, &readfds ) ){
-#if defined(HAVE_SOCKLEN_T)
-			socklen_t len;
-#else
-			int len;
-#endif
-			len = sizeof( sinaddr );
-			newsock = accept( unix_sock, &sinaddr, &len );
-			err = errno;
-			DEBUG1("lpd: unix socket connection fd %d", newsock );
-			if( newsock > 0 ){
-#if defined(TCPWRAPPERS)
-/*
- * libwrap/tcp_wrappers:
- * draht@suse.de, Mon Jan 28 2002
- */
-
-			    struct request_info wrap_req;
-
-			    request_init(&wrap_req, RQ_DAEMON, "lpd" , RQ_FILE, newsock, NULL);
-			    fromhost(&wrap_req);
-			    openlog("lpd", LOG_PID, LOG_LPR); /* we syslog(3) initialized, no closelog(). */
-			    if (hosts_access(&wrap_req)) {
-				/* We accept. */
-				syslog(LOG_INFO, "connection from %s", eval_client(&wrap_req));
-#endif
-
-				pid = Start_worker( "server", &args, newsock );
-				if( pid < 0 ){
-					LOGERR(LOG_INFO) _("lpd: fork() failed") );
-					Write_fd_str( newsock, "\002Server load too high\n");
-				} else {
-					DEBUG1( "lpd: listener pid %d running", pid );
-				}
-#if defined(TCPWRAPPERS)
-			    } else { /* we do not accept the connection: */
-				syslog(LOG_WARNING, "connection refused from %s", eval_client(&wrap_req));
-			    }
-/* 
- * end libwrap
- */
-#endif
-
-				close( newsock );
-				Free_line_list(&args);
-			} else {
-				errno = err;
-				LOGERR(LOG_INFO) _("lpd: accept on listening socket failed") );
-			}
-		}
-		if( FD_ISSET( request_pipe[0], &readfds ) 
-			&& Read_server_status( request_pipe[0] ) == 0 ){
-			Errorcode = JABORT;
-			LOGERR_DIE(LOG_ERR) _("lpd: Lpd_request pipe EOF! cannot happen") );
-		}
-		if( start_fd > 0 && FD_ISSET( start_fd, &readfds ) ){
-			start_fd = Read_server_status( start_fd );
-		}
-	}while( 1 );
-	Free_line_list(&args);
-	cleanup(0);
-	return(0);
-}
-
-/***************************************************************************
- * Setup_log( char *logfile, int sock )
- * Purpose: to set up a standard error logging environment
- * saveme will prevent STDIN from being clobbered
- *   1.  dup 'sock' to fd 0, close sock
- *   2.  opens /dev/null on fd 1
- *   3.  If logfile is "-" or NULL, output file is alread opened
- *   4.  Open logfile; if unable to, then open /dev/null for output
- ***************************************************************************/
-void Setup_log(char *logfile )
-{
-	struct stat statb;
-
-	close(0); close(1);
-	if (open("/dev/null", O_RDONLY, 0) != 0) {
-	    LOGERR_DIE(LOG_ERR) _("Setup_log: open /dev/null failed"));
-	}
-	if (open("/dev/null", O_WRONLY, 0) != 1) {
-	    LOGERR_DIE(LOG_ERR) _("Setup_log: open /dev/null failed"));
-	}
-
-    /*
-     * open logfile; if it is "-", use STDERR; if Foreground is set, use stderr
-     */
-	if( fstat(2,&statb) == -1 && dup2(1,2) == -1 ){
-		LOGERR_DIE(LOG_ERR) _("Setup_log: dup2(%d,%d) failed"), 1, 2);
-	}
-    if( logfile == 0 ){
-		if( !Foreground_LPD && dup2(1,2) == -1 ){
-			LOGERR_DIE(LOG_ERR) _("Setup_log: dup2(%d,%d) failed"), 1, 2);
-		}
-	} else if( safestrcmp(logfile, "-") ){
-		close(2);
-		if( Checkwrite(logfile, &statb, O_WRONLY|O_APPEND, 0, 0) != 2) {
-			LOGERR_DIE(LOG_ERR) _("Setup_log: open %s failed"), logfile );
-		}
-	}
-}
-
-/***************************************************************************
- * Reinit()
- * Reinitialize the database/printcap/permissions information
- * 1. free any allocated memory
- ***************************************************************************/
-
-void Reinit(void)
-{
-	Reread_config = 1;
-	(void) plp_signal (SIGHUP,  (plp_sigfunc_t)Reinit);
-}
-
-
-/***************************************************************************
- * Get_lpd_pid() and Set_lpd_pid()
- * Get and set the LPD pid into the LPD status file
- ***************************************************************************/
-
-int Get_lpd_pid(void)
-{
-	int pid;
-	int lockfd;
-	char *path;
-	struct stat statb;
-
-	path = safestrdup3( Lockfile_DYN,".", Lpd_port_DYN, __FILE__, __LINE__ );
-	pid = -1;
-	lockfd = Checkread( path, &statb );
-	if( lockfd >= 0 ){
-		pid = Read_pid( lockfd, (char *)0, 0  ); 
-	}
-	if( path ) free(path); path = 0;
-	return(pid);
-}
-
-void Set_lpd_pid(int lockfd)
-{
-	/* we write our PID */
-	if( ftruncate( lockfd, 0 ) ){
-		LOGERR_DIE(LOG_ERR) _("lpd: Cannot truncate lock file") );
-	}
-	Server_pid = getpid();
-	DEBUG1( "lpd: writing lockfile fd %d with pid '%d'",lockfd,Server_pid );
-	Write_pid( lockfd, Server_pid, (char *)0 );
-}
-
-int Lock_lpd_pid(void)
-{
-	int lockfd;
-	char *path;
-	struct stat statb;
-	int euid = geteuid();
-
-	path = safestrdup3( Lockfile_DYN,".", Lpd_port_DYN, __FILE__, __LINE__ );
-	To_euid_root();
-	lockfd = Checkwrite( path, &statb, O_RDWR, 1, 0 );
-	if( lockfd < 0 ){
-		LOGERR_DIE(LOG_ERR) _("lpd: Cannot open lock file '%s'"), path );
-	}
-#if !defined(__CYGWIN__)
-	fchown( lockfd, DaemonUID, DaemonGID );
-	fchmod( lockfd, (statb.st_mode & ~0777) | 0644 );
-#endif
-	To_euid(euid);
-	if( Do_lock( lockfd, 0 ) < 0 ){
-		close( lockfd );
-		lockfd = -1;
-	}
-	return(lockfd);
-}
-
-int Read_server_status( int fd )
-{
-	int status, count, found, n;
-	char buffer[LINEBUFFER];
-	char *name;
-	fd_set readfds;	/* for select() */
-	struct timeval timeval;
-	struct line_list l;
-
-	buffer[0] = 0;
-	errno = 0;
-
-	DEBUG1( "Read_server_status: starting" );
-
-	Init_line_list(&l);
-	while(1){
-		FD_ZERO( &readfds );
-		FD_SET( fd, &readfds );
-		memset(&timeval,0, sizeof(timeval));
-		status = select( fd+1,
-			FD_SET_FIX((fd_set *))&readfds,
-			FD_SET_FIX((fd_set *))0,
-			FD_SET_FIX((fd_set *))0, &timeval );
-		DEBUG1( "Read_server_status: select status %d", status);
-		if( status == 0 ){
-			break;
-		} else if( status < 0 ){
-			close(fd);
-			fd = 0;
-			break;
-		}
-		status = read(fd,buffer,sizeof(buffer)-1);
-		DEBUG1( "Read_server_status: read status %d", status );
-		if( status <= 0 ){
-			close(fd);
-			fd = -1;
-			break;
-		}
-		buffer[status] = 0;
-		/* we split up read line and record information */
-		Split(&l,buffer,Whitespace,0,0,0,0,0,0);
-		if(DEBUGL1)Dump_line_list("Read_server_status - input", &l );
-		for( count = 0; count < l.count; ++count ){ 
-			name = l.list[count];
-			found = 0;
-			for( n = 0;!found && n < Servers_line_list.count; ++n ){
-				found = !safestrcasecmp( Servers_line_list.list[n], name);
-			}
-			if( !found ){
-				Add_line_list(&Servers_line_list,name,0,0,0);
-			}
-			Started_server = 1;
-		}
-	}
-	if(DEBUGL2)Dump_line_list("Read_server_status - waiting for start",
-			&Servers_line_list );
-	return(fd);
-}
-
-/***************************************************************************
- * void Get_parms(int argc, char *argv[])
- * 1. Scan the argument list and get the flags
- * 2. Check for duplicate information
- ***************************************************************************/
-
- static char *msg[] = {
-	N_("usage: %s [-FV][-D dbg][-L log][-P path][-p port][-R remote LPD TCP/IP destination port]\n"),
-	N_(" Options\n"),
-	N_(" -D dbg      - set debug level and flags\n"),
-	N_(" -F          - run in foreground, log to STDERR\n"),
-	N_(" -L logfile  - append log information to logfile\n"),
-	N_(" -V          - show version info\n"),
-	N_(" -p port     - TCP/IP listen port, 'off' disables TCP/IP listening port (lpd_listen_port)\n"),
-	N_(" -P path     - UNIX socket path, 'off' disables UNIX listening socket (unix_socket_path)\n"),
-	N_(" -R port     - remote LPD server port (lpd_port)\n"),
-	0,
-};
-
-void usage(void)
-{
-	int i;
-	char *s;
-	for( i = 0; (s = msg[i]); ++i ){
-		if( i == 0 ){
-			FPRINTF( STDERR, _(s), Name);
-		} else {
-			FPRINTF( STDERR, "%s", _(s) );
-		}
-	}
-	Parse_debug("=",-1);
-	FPRINTF( STDERR, "%s\n", Version );
-	exit(1);
-}
-
- char LPD_optstr[] 	/* LPD options */
- = "D:FL:VX:p:P:" ;
-
-void Get_parms(int argc, char *argv[] )
-{
-	int option, verbose = 0;
-
-	while ((option = Getopt (argc, argv, LPD_optstr )) != EOF){
-		switch (option) {
-		case 'D': Parse_debug(Optarg, 1); break;
-		case 'F': Foreground_LPD = 1; break;
-		case 'L': Logfile_LPD = Optarg; break;
-		case 'V': ++verbose; break;
-        case 'X': Worker_LPD = Optarg; break;
-		case 'p': Lpd_listen_port_arg = Optarg; break;
-		case 'P': Lpd_socket_arg = Optarg; break;
-		default: usage(); break;
-		}
-	}
-	if( Optind != argc ){
-		usage();
-	}
-	if( verbose ) {
-		FPRINTF( STDERR, "%s\n", Version );
-		if( verbose > 1 ) Printlist( Copyright, 1 );
-		exit(0);
-	}
-}
-
-/*
- * returns the pid of the process doing the scanning
- */
+    //Initial the server the not busy
+    lptstatus.busy = FALSE; 
  
-int Start_all( int first_scan, int *start_fd )
-{
-	struct line_list args, passfd;
-	int pid, p[2];
+    //Setup the signal handler
+    signal(SIGCLD, sig_child); 
+    signal(SIGINT, sig_cleanup); 
+    signal(SIGQUIT, sig_cleanup); 
+    signal(SIGKILL, sig_cleanup);
+    signal(SIGUSR2, sig_remove);//JY1110 
+    
+    if((sockfd = socket(AF_INET,SOCK_STREAM,0)) < 0 )
+    {
+        //perror("can't open stream socket:");
+        exit(0);
+    }
+    
+    bzero((char *)&serv_addr , sizeof(serv_addr));
+    serv_addr.sin_family        = AF_INET;
+    serv_addr.sin_addr.s_addr   = htonl(INADDR_ANY);
+    serv_addr.sin_port          = htons(PNT_SVR_PORT_LPR);
 
-	Init_line_list(&passfd);
-	Init_line_list(&args);
+    
+    if(bind(sockfd,(struct sockaddr *)&serv_addr , sizeof(serv_addr)) < 0 )
+    {
+        //perror("can't bind:");
+        exit(0);
+    }
+    /*JY1111*/
+    int windowsize=2920;
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (char *)&windowsize, sizeof(windowsize));
 
-	DEBUG1( "Start_all: first_scan %d", first_scan );
-	if( pipe(p) == -1 ){
-		LOGERR_DIE(LOG_INFO) _("Start_all: pipe failed!") );
+#if 1
+    int currentpid=getpid();
+    FILE *pidfileread;
+
+    if((pidfileread=fopen("/var/run/lpdparent.pid", "r")) == NULL)
+    {
+		pidfileread=fopen("/var/run/lpdparent.pid", "w");
+		fprintf(pidfileread, "%d", currentpid);
+		fclose(pidfileread);
+    }
+    else{
+		//printf("another lpd daemon exists!!\n");
+		fclose(pidfileread);
+               	exit(0);
+    }
+#endif    
+    listen(sockfd , 15);
+
+#ifdef Raw_Printing_with_ASUS //Lisa
+	if ((netfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP)) < 0)
+	{
+//		syslog(LOGOPTS, "socket: %m\n");
+		exit(1);
 	}
-	Max_open(p[0]); Max_open(p[1]);
-	DEBUG1( "Start_all: fd pipe(%d,%d)",p[0],p[1]);
-
-	Setup_lpd_call( &passfd, &args );
-	Set_str_value(&args,CALL,"all");
-
-	Check_max(&passfd,2);
-	Set_decimal_value(&args,INPUT,passfd.count);
-	passfd.list[passfd.count++] = Cast_int_to_voidstar(p[1]);
-	Set_decimal_value(&args,FIRST_SCAN,first_scan);
-
-	pid = Make_lpd_call( "all", &passfd, &args );
-
-	Free_line_list( &args );
-	passfd.count = 0;
-	Free_line_list(&passfd);
-	close(p[1]);
-	if( pid < 0 ){
-		close( p[0] );
-		p[0] = -1;
+	if (setsockopt(netfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0)
+	{
+//		syslog(LOGOPTS, "setsocketopt: %m\n");
+		exit(1);
 	}
-	DEBUG1("Start_all: pid %d, fd %d", pid, p[0] );
-	if( start_fd ) *start_fd = p[0];
-	return(pid);
-}
-
-plp_signal_t sigchld_handler (int signo)
-{
-	signal( SIGCHLD, SIG_DFL );
-	write(Lpd_request,"\n", 1);
-}
-
-void Setup_waitpid (void)
-{
-	signal( SIGCHLD, SIG_DFL );
-}
-
-void Setup_waitpid_break (void)
-{
-	(void) plp_signal_break(SIGCHLD, sigchld_handler);
-}
-
-void Fork_error( int last_fork_pid_value )
-{
-	DEBUG1("Fork_error: %d", last_fork_pid_value );
-	if( last_fork_pid_value < 0 ){
-		LOGMSG(LOG_CRIT)"LPD: fork failed! LPD not accepting any requests");
+	netaddr.sin_port = htons(BASEPORT);
+	netaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	memset(netaddr.sin_zero, 0, sizeof(netaddr.sin_zero));
+	if (bind(netfd, (struct sockaddr*) &netaddr, sizeof(netaddr)) < 0)
+	{
+		//syslog(LOGOPTS, "bind: %m\n");
+		exit(1);
 	}
+	if (listen(netfd, 5) < 0)
+	{
+		//syslog(LOGOPTS, "listen: %m\n");
+		exit(1);
+	}
+	//clientlen = sizeof(client);
+	//memset(&client, 0, sizeof(client));
+#endif
+
+#ifdef LPR_with_ASUS//JY1112
+	if((sockfd_ASUS = socket(AF_INET,SOCK_STREAM,0)) < 0 )
+	{
+	        //perror("can't open stream socket:");
+	        exit(0);
+	}
+    	bzero((char *)&serv_addr_ASUS , sizeof(serv_addr_ASUS));
+    	serv_addr_ASUS.sin_family        = AF_INET;
+    	serv_addr_ASUS.sin_addr.s_addr   = htonl(INADDR_ANY);
+    	serv_addr_ASUS.sin_port          = htons(PNT_SVR_PORT_ASUS);
+
+    	if(bind(sockfd_ASUS,(struct sockaddr *)&serv_addr_ASUS , sizeof(serv_addr_ASUS)) < 0 )
+    	{
+        	//perror("can't bind:");
+		exit(0);
+   	}
+
+    	setsockopt(sockfd_ASUS, SOL_SOCKET, SO_RCVBUF, (char *)&windowsize, sizeof(windowsize));
+
+    	listen(sockfd_ASUS , 15);
+    
+    	/*set the fds*/
+    	nfds=MAX(sockfd, sockfd_ASUS);
+    	FD_ZERO(&afds);
+#endif
+    
+    while(TRUE)
+    {
+	//if (busy) syslog(LOG_NOTICE, "busying %d %d\n", lptstatus.busy, busy);
+
+	if (lptstatus.busy==FALSE) 
+	{	
+		busy=FALSE;
+	}
+
+#ifdef Raw_Printing_with_ASUS //Lisa
+	FD_SET(netfd, &afds);
+#endif
+#ifdef LPR_with_ASUS//JY1112
+	FD_SET(sockfd, &afds);
+	FD_SET(sockfd_ASUS, &afds);
+	memcpy(&rfds, &afds, sizeof(rfds));
+
+	if((err_select=select(nfds+1, &rfds, (fd_set *)0, (fd_set *)0, (struct timeval *)0 )) < 0) 
+	{
+//JY1120	printf("select error on sockfd: error=%d\n", errno);
+		/**/
+//		printf("sockfd_FD_ISSET=%d\n", FD_ISSET(sockfd, &rfds));
+//JY1120		printf("sockfd_ASUS FD_ISSET=%d\n", FD_ISSET(sockfd_ASUS, &rfds));
+		/**/
+//		if(errno != 4)//JY1113: delete
+		//syslog(LOG_NOTICE, "select error %d\n", err_select);
+		continue;
+	}
+#endif
+        clilen = sizeof(cli_addr);
+
+	if(FD_ISSET(sockfd_ASUS, &rfds))
+	{
+		LPRflag = 0;
+		clisockfd   = accept(sockfd_ASUS,(struct sockaddr *)&cli_addr, &clilen);
+	}
+#ifdef LPR_with_ASUS//JY1112 
+	else if(FD_ISSET(sockfd, &rfds))
+	{
+		LPRflag = 1;
+		clisockfd   = accept(sockfd,(struct sockaddr *)&cli_addr, &clilen);
+	}
+#endif
+#ifdef Raw_Printing_with_ASUS //Lisa
+	else if(FD_ISSET(netfd, &rfds) && busy==FALSE)
+	{
+		LPRflag = 2;
+		clisockfd = accept(netfd, (struct sockaddr*) &cli_addr, &clilen);
+	}
+#endif
+	else
+        {
+		//syslog(LOG_NOTICE, "No select\n");
+		sleep(2);
+		continue;
+	}
+
+	strcpy(clientaddr , inet_ntoa(cli_addr.sin_addr));
+	
+	if(clisockfd < 0)
+        {
+	     //syslog(LOG_NOTICE, "LPD error: No clisockfd %d\n", LPRflag);
+             continue;
+        }
+
+	/* 2004/09/10 by Joey, process nack in parent for LPR and Remote Prot */	if (busy!=FALSE)
+	{
+		//syslog(LOG_NOTICE, "Printing others 1 %d %d\n", LPRflag, clisockfd);
+		if (LPRflag==0) processReq(clisockfd);
+		else if (LPRflag==1) processReq_LPR(clisockfd);
+		//syslog(LOG_NOTICE, "Printing others %d %d\n", LPRflag, clisockfd);
+		close(clisockfd);
+		// For Raw printing, don't resonse to client while busy
+		sleep(5);
+		continue;
+	}
+	
+        
+        if( (childpid = fork() ) < 0)
+        {
+        }
+        else if(childpid == 0) 
+        {
+		//syslog(LOG_NOTICE, "Printing %d\n", LPRflag);
+
+		if(LPRflag==0) processReq(clisockfd); 
+#ifdef LPR_with_ASUS//JY1114 
+		else if(LPRflag==1) processReq_LPR(clisockfd);
+#endif
+#ifdef Raw_Printing_with_ASUS //Lisa
+		else if(LPRflag == 2) processReq_Raw(clisockfd);
+#endif
+		close(sockfd);
+		close(sockfd_ASUS);
+#ifdef Raw_Printing_with_ASUS //Lisa
+		close(netfd);
+#endif
+        	exit(0);
+        }
+              
+	//syslog(0, "Printing Process %d %d %d\n", busy, lptstatus.busy, childpid);
+
+        //parents process goes on here
+        //remark PRINT("fork -- childpid %d\n",childpid);
+        
+        if(lptstatus.busy == FALSE)
+        {
+            lptstatus.busy = TRUE;
+            busy = TRUE; 
+            strcpy(lptstatus.addr , inet_ntoa(cli_addr.sin_addr));
+            lptstatus.pid = childpid;
+        }
+        close(clisockfd);
+    }
+
+}
+
+
+int processReq(int sockfd)
+{
+    
+    char                recv_buf[4]; //buffer to receive header
+    static char         waittime = 1;
+    int                 iCount;
+    struct print_buffer pbuf;
+    char                chPortOpened = FALSE;
+    
+    /***************************************/
+    /**  We reset the printer only when   **/
+    /**  user wants to cancel a job or    **/
+    /**  error occurs                     **/
+    /***************************************/
+    
+    //Process the request from cleint 
+    //return when error or job complete
+    while(TRUE)
+    {
+        LPT_CMD_PKT_HDR     *pHdrCmd  = NULL;
+        LPT_DATA_PKT_HDR    *pHdrData = NULL;
+        LPT_RES_PKT_HDR     pktRes;
+        WORD                body[1];
+        int                 rcv; //records how many bytes being received
+        char                *para_buf = NULL; //buffer to store parameter
+        
+        memset(recv_buf,0,sizeof(recv_buf));
+        iCount = sizeof(recv_buf);
+
+        if(waittime < 5)
+        {
+            waittime ++;
+        }
+
+        //Receive the complete header here
+        while( iCount > 0 )
+        {
+            rcv = RECV(sockfd , recv_buf + (4 - iCount) , iCount , 60);
+
+            if( rcv < 1)
+            {
+                //receive error
+                //PRINT("1. rcv -> %d\n",rcv);
+
+                if(rcv < 0)
+                {
+                	//perror("ERR:");             
+                }
+                
+                closesocket(sockfd);
+                if(chPortOpened == TRUE)
+                {
+                    reset_printer(10);
+                }
+                
+                return 0;
+            }
+            
+            iCount = iCount - rcv;
+        }
+
+
+        //Check Service ID
+
+        switch(recv_buf[0])
+        {
+            case NET_SERVICE_ID_LPT_EMU:
+                //PRINT("Service ID -> NET_SERVICE_ID_LPT_EMU \n");
+                break;
+            
+            default:
+                //PRINT("Service ID -> Not Supported \n");
+                closesocket(sockfd);
+                if(chPortOpened == TRUE)
+                {
+                    reset_printer(10);
+                }
+                return(0);
+                break;
+        }
+
+
+        //Check Packet Type
+
+        switch(recv_buf[1])
+        {
+            case NET_PACKET_TYPE_CMD:
+                //PRINT(">>> TYPE_CMD ");
+                pHdrCmd = (LPT_CMD_PKT_HDR *)recv_buf;
+                break;
+            
+            case NET_PACKET_TYPE_RES:
+                //We should not recevice Response Packet in Server
+                //PRINT("Packet Type -> NET_PACKET_TYPE_RES Error!!! \n");
+                closesocket(sockfd);
+                if(chPortOpened == TRUE)
+                {
+                    reset_printer(10);
+                }
+                return(0);
+                break;
+            
+            case NET_PACKET_TYPE_DATA:
+                //PRINT("$$$ TYPE_DATA ");
+                pHdrData = (LPT_DATA_PKT_HDR *)recv_buf;
+                break;
+            
+            default:
+                //PRINT("Packet Type -> Not Supported \n");
+                closesocket(sockfd);
+                if(chPortOpened == TRUE)
+                {
+                    reset_printer(10);
+                }
+                return(0);
+                break;
+        
+        }
+
+        if( pHdrCmd != NULL) 
+        {
+            //We receive command
+            
+            para_buf = NULL;
+
+            iCount = pHdrCmd->ParaLength;
+
+	    if (iCount!=0)
+	    {
+             	para_buf = malloc(pHdrCmd->ParaLength);
+            }
+
+	    //PRINT("HdrCmd Length %d\n", iCount);
+
+	    // para_buf may be NULL but this command still work
+	    // 2004/06/07 by Joey
+            if(iCount!=0 && para_buf == NULL)
+            {
+                //perror("malloc error 1:");
+                closesocket(sockfd);
+                if(chPortOpened == TRUE)
+                {
+                    reset_printer(10);
+                }
+                return(0);
+            }
+
+            while( iCount > 0 )
+            {
+                rcv = RECV(sockfd , (para_buf + (pHdrCmd->ParaLength - iCount )) , iCount , 30);
+
+                if( rcv < 1)
+                {
+                    //receive error
+                    //perror("2. RECV ERR:");             
+                    closesocket(sockfd);
+                    free(para_buf);
+                    if(chPortOpened == TRUE)
+                    {
+                        reset_printer(10);
+                    }
+                    return 0;
+                }
+                
+                iCount = iCount - rcv;
+            }
+
+
+            switch(pHdrCmd->CommandID)
+            {
+                case NET_CMD_ID_OPEN:
+                    //remark PRINT("NET_CMD_ID_OPEN\n"); 
+                                                                                                
+                    /************************************/
+                    /************************************/
+                    /*** TODO: add code here to check ***/
+                    /*** the printer status           ***/
+                    /************************************/
+                    /************************************/
+
+                    pktRes.ServiceID = NET_SERVICE_ID_LPT_EMU;
+                    pktRes.PacketType = NET_PACKET_TYPE_RES;
+                    pktRes.CommandID = NET_CMD_ID_OPEN;
+                    pktRes.ResLength = 2;
+
+                    if(busy == FALSE)
+                    {
+                        int prnstatus=0;
+		        FILE *statusFp = NULL;
+                        
+                        
+                        //remark PRINT("--------lptstatus.busy == FALSE\n"); 
+                        
+                        /* add by James Yeh to support usb printer */
+                        /* 2002/12/25 							   */
+                        
+                        //Open printer port -modified by PaN
+                        fdPRN = open_printer();
+
+                        if(fdPRN == 0)
+                        {
+                            //Failed to open printer port
+                            //PRINT("Can not open lp0 errno -> %d \n",errno);
+                            //perror("ERR:");
+    
+                            //Send header
+                            send(sockfd , (const char *)&pktRes , sizeof(pktRes) , 0);
+                            //Send body
+                            body[0] = ERR_SERVER_LPT_FAIL;
+                            send(sockfd , body , sizeof(body) , 0);
+                            free(para_buf);
+                            return(0);
+                        }
+                        
+                        ioctl(fdPRN,LPGETSTATUS,&prnstatus);
+                        
+                        if(prnstatus != 0)
+                        {
+                            //remark PRINT("prnstatus != 0\n"); 
+                            body[0] = ERR_SERVER_OCCUPIED;
+                            
+                            /*******************************************************************************/
+                            /* why we are using ERR_SERVER_OCCUPIED instead of ERR_SERVER_LPT_FAIL here ?? */
+                            /* Because ERR_SERVER_OCCUPIED will let user try again & again. Using          */
+                            /* ERR_SERVER_LPT_FAIL will fail the reques                                    */
+                            /*******************************************************************************/
+    
+                            //Send header
+                            send(sockfd , (const char *)&pktRes , sizeof(pktRes) , 0);
+                            //Send body 
+                            send(sockfd , body , sizeof(body) , 0);
+                            free(para_buf);
+                            return(0);
+                        }
+                        
+			            statusFp = fopen(STATUS_FILE , "w");
+            
+            			if(statusFp != NULL)
+            			{
+                			fprintf(statusFp,"PRN_CLIENT=\"%s\"\n",lptstatus.addr);
+                			fclose(statusFp);
+            			}
+            			else
+            			{
+                			//perror("Open status file failed: ");
+            			}
+
+                        chPortOpened = TRUE;
+                        
+                        body[0] = ERR_SUCCESS;
+                    }
+                    else
+                    {
+                        //PRINT("*********lptstatus.busy == TRUE\n");
+                        body[0] = ERR_SERVER_OCCUPIED;
+
+                        //Send header
+                        send(sockfd , (const char *)&pktRes , sizeof(pktRes) , 0);
+                        //Send body 
+                        send(sockfd , body , sizeof(body) , 0);
+                        free(para_buf);
+                        return(0);
+                    }
+
+                    //Send header
+                    send(sockfd , (const char *)&pktRes , sizeof(pktRes) , 0);
+                    //Send body 
+                    send(sockfd , body , sizeof(body) , 0);
+
+                    break;
+
+                case NET_CMD_ID_CLOSE:
+                {
+                    char bCancel = FALSE;
+                    
+                     
+                    //remark PRINT("NET_CMD_ID_CLOSE\n");
+
+                    /*****************************************************/
+                    /* Check if user normally or abnormally end this job */
+                    /*                                 James 2002/06/05  */
+                    /*****************************************************/
+                    
+                    if(pHdrCmd->ParaLength != 1) //Length should be 1 byte long
+                    {
+                        //remark PRINT("NET_CMD_ID_CLOSE length error -- %d\n",pHdrCmd->ParaLength);
+                        closesocket(sockfd);
+                        free(para_buf);
+                        if(chPortOpened == TRUE)
+                        {
+                            reset_printer(10);
+                        }
+                        return(0);
+                    }
+                    
+                    //remark PRINT("para_buf[0] - %02X\n",para_buf[0]); 
+                    
+                    if(para_buf[0] == 1)
+                    {
+                        bCancel = TRUE;
+                    }
+                    
+
+                    pktRes.ServiceID = NET_SERVICE_ID_LPT_EMU;
+                    pktRes.PacketType = NET_PACKET_TYPE_RES;
+                    pktRes.CommandID = NET_CMD_ID_CLOSE;
+                    pktRes.ResLength = 2;
+
+                
+                    //Send header
+                    send(sockfd , (const char *)&pktRes , sizeof(pktRes) , 0);
+
+                    //Send body 
+                    body[0] = ERR_SUCCESS;
+                    send(sockfd , body , sizeof(body) , 0);
+
+                    closesocket(sockfd);
+                    free(para_buf);
+                    
+                    //close printer port modified by PaN
+                    sleep(1);
+
+                    if(bCancel == TRUE)
+                    {
+                        //reset printer
+                        //PRINT("Reset Printer\n");
+                        reset_printer(10);
+                    }
+
+                    close(fdPRN); 
+
+                    return(0);                              
+                    break;
+                }//case NET_CMD_ID_CLOSE:
+                    
+                case NET_CMD_ID_READ:
+                {
+                    LPT_DATA_PKT_HDR    pktData;
+                    WORD                len;
+                    int                 res_fread = 0;
+                    PBYTE               pReadbuf;
+
+                    len = (para_buf[1] << 8) + para_buf[0];
+                    
+                    //remark PRINT("NET_CMD_ID_READ len -> %d\n",len);
+
+                    /************************************/
+                    /************************************/
+                    /*** TODO: add code here to read  ***/
+                    /*** the printer port             ***/
+                    /************************************/
+                    /************************************/
+                    
+                    pReadbuf = malloc(len + 1);
+                    
+                    if(pReadbuf == NULL)
+                    {
+                        //perror("malloc error 2:");
+                        closesocket(sockfd);
+                        free(para_buf);
+                        if(chPortOpened == TRUE)
+                        {
+                            reset_printer(10);
+                        }
+                        return(0);
+                    }
+                    
+                    pbuf.len = len;
+                    pbuf.buf = pReadbuf;
+                    //PRINT("Start Read\n");
+                    res_fread = ioctl(fdPRN,LPREADDATA,&pbuf);
+                    //PRINT("End Read\n");
+                    //PRINT("---- res_fread %d\n",res_fread);
+                    
+                    if(res_fread > 0)
+                    {
+                        len = res_fread;
+                        pReadbuf[res_fread]= 0;
+                        //PRINT("*** %s\n",pReadbuf);
+                    }
+                    else
+                    {
+                        len = 0;
+                    }
+
+                    pktData.ServiceID = NET_SERVICE_ID_LPT_EMU;
+                    pktData.PacketType = NET_PACKET_TYPE_DATA;
+                    pktData.DataLength = len; //can not exceed 0xFFFF
+
+                    /**********    Sending Header     **********/
+                    send(sockfd , (const char *)&pktData , sizeof(pktData) , 0);
+                
+                    if( len > 0)
+                    {
+                        /**********    Sending Body       **********/
+                        send(sockfd , (const char *)pReadbuf , len , 0);
+                    }
+                    free(pReadbuf);                     
+                    
+                    break;
+                }
+
+                free(para_buf);
+            }//switch(pHdrCmd->CommandID)
+        }//if( pHdrCmd != NULL) 
+
+
+        if( pHdrData != NULL) 
+        {
+            //We receive Data
+            int     res_fwrite;
+            int     res_total_fwrite;
+            int     write_len;
+            int     total_len;
+            PBYTE   write_buf;
+            int prnstatus=0;
+
+            iCount = pHdrData->DataLength;
+
+            if (iCount!=0)
+	    {
+            	para_buf = malloc(pHdrData->DataLength);
+            }
+            //remark 
+	    //PRINT("pHdrData->DataLength -- %d\n",pHdrData->DataLength);
+
+            if(iCount!=0 && para_buf == NULL)
+            {
+                //perror("malloc error 3:");
+                closesocket(sockfd);
+                if(chPortOpened == TRUE)
+                {
+                    reset_printer(10);
+                }
+                return(0);
+            }
+            
+            //PRINT("DATA HDR OK...\n");
+
+            while( iCount > 0 )
+            {
+                rcv = RECV(sockfd , (para_buf + (pHdrData->DataLength - iCount )) , iCount , 30);
+
+                if( rcv < 1)
+                {
+                    //receive error
+                    //perror("3. RECV ERR:");             
+                    closesocket(sockfd);
+                    free(para_buf);
+                    if(chPortOpened == TRUE)
+                    {
+                        reset_printer(10);
+                    }
+                    return 0;
+                }
+
+                iCount = iCount - rcv;
+            }
+
+
+            //PRINT("DATA BODY OK...\n");
+
+            pbuf.len = pHdrData->DataLength;
+            pbuf.buf = para_buf;
+            
+            write_len = 0;
+            total_len = pHdrData->DataLength;
+            write_buf = para_buf;
+            res_fwrite = 0;
+            res_total_fwrite = 0;
+            
+            //remark PRINT("total_len %d\n",total_len);
+            
+            while(total_len > 0)
+            {
+                if(total_len > 4096)
+                {
+                    pbuf.len = 4096;
+                    pbuf.buf = write_buf;
+                    res_fwrite = ioctl(fdPRN,LPWRITEDATA,&pbuf);
+
+                    if(res_fwrite != 4096)
+                    {
+                        DWORD retry = 0;
+                        
+                        ioctl(fdPRN,LPGETSTATUS,&prnstatus);
+                        
+                        //remark PRINT("prnstatus %d\n",prnstatus);
+
+                        while( ((prnstatus == 0) || (prnstatus & LP_PBUSY)) && (res_fwrite != 4096) && (retry < 3))
+                        {
+                            //remark PRINT("}}}}}}}}}}}} res_fwrite %d\n",res_fwrite);
+                            pbuf.len = 4096 - res_fwrite;
+                            pbuf.buf = &(write_buf[res_fwrite]);
+                            //usleep(500); //why we don't use usleep here ?? becuse usleep will sleep longer then we expect in iBox
+                            sleep(1);
+                            res_fwrite = res_fwrite + ioctl(fdPRN,LPWRITEDATA,&pbuf);
+                            //remark PRINT("}}}}}}}}}}}} res_fwrite %d\n",res_fwrite);
+                            ioctl(fdPRN,LPGETSTATUS,&prnstatus);
+
+                            //remark PRINT("retry %d\n",retry);
+                            retry ++;   
+                        }
+                        
+                    }
+                    
+                    res_total_fwrite = res_total_fwrite + res_fwrite;
+                    
+                    if(res_fwrite != 4096)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        total_len = total_len - 4096;
+                        if(total_len == 0)
+                        {
+                            //remark PRINT("total_len == 0 \n");
+                            break;
+                        }
+                        write_buf = &(write_buf[4096]);
+                    }
+
+                    //remark PRINT("res_total_fwrite %d -- res_fwrite %d \n",res_total_fwrite,res_fwrite);
+                    
+                }
+                else
+                {
+                    pbuf.len = total_len;
+                    pbuf.buf = write_buf;
+                    res_fwrite = ioctl(fdPRN,LPWRITEDATA,&pbuf);
+
+                    //remark PRINT("PPPPPPP res_fwrite %d\n",res_fwrite);
+                    if(res_fwrite != total_len)
+                    {
+                        DWORD retry = 0;
+
+                        ioctl(fdPRN,LPGETSTATUS,&prnstatus);
+                        //remark PRINT("prnstatus %d\n",prnstatus);
+                        
+                        while( ((prnstatus == 0) || (prnstatus & LP_PBUSY))  && (res_fwrite != total_len) && (retry < 3))
+                        {
+                            pbuf.len = total_len - res_fwrite;
+                            pbuf.buf = &(write_buf[res_fwrite]);
+                            //usleep(500); //why we don't use usleep here ?? becuse usleep will sleep longer then we expect in iBox
+                            sleep(1);
+                            res_fwrite = res_fwrite + ioctl(fdPRN,LPWRITEDATA,&pbuf);
+                            //remark PRINT("}}}}}}}}}}}} res_fwrite %d\n",res_fwrite);
+                            ioctl(fdPRN,LPGETSTATUS,&prnstatus);
+                            //remark PRINT("retry %d\n",retry);
+                            retry ++;   
+                        }
+                        
+                    }
+
+                    res_total_fwrite = res_total_fwrite + res_fwrite;
+                    //remark PRINT("res_total_fwrite %d -- res_fwrite %d \n",res_total_fwrite,res_fwrite);
+                    break;
+                }
+                
+            }
+                
+                
+            //remark PRINT("WritePrint %d - %d bytes\n",res_total_fwrite,pHdrData->DataLength);
+
+            if(res_total_fwrite != pHdrData->DataLength)
+            {
+                int tmp=0;
+                //remark PRINT("res_total_fwrite != pHdrData->DataLength \n");
+                ioctl(fdPRN,LPGETSTATUS,&prnstatus);
+                
+                //remark PRINT("prnstatus %08X \n",prnstatus);
+                
+                if((prnstatus & LP_PERRORP) == 1 ) //Printer off-line
+                {
+                    //remark PRINT("Printer off-line -- prnstatus %d\n",prnstatus);
+                    res_total_fwrite = res_total_fwrite|0x8000;
+                }
+                else
+                {
+                    //remark PRINT("Paper Empty -- prnstatus %d\n",prnstatus);
+                    res_total_fwrite = res_total_fwrite|0x4000;
+                }
+		check_prn_status("BUSY or ERROR", clientaddr);
+            }
+            else{//JY1113 add
+/*JY1113*/
+		check_prn_status("Printing", clientaddr);
+/**/
+            }
+            //remark PRINT("res_total_fwrite %08X\n",res_total_fwrite);
+
+            body[0] = res_total_fwrite;
+
+            pktRes.ServiceID = NET_SERVICE_ID_LPT_EMU;
+            pktRes.PacketType = NET_PACKET_TYPE_RES;
+            pktRes.CommandID = NET_CMD_ID_DATA_RES;
+            pktRes.ResLength = 2;
+
+            //Send header
+            send(sockfd , (const char *)&pktRes , sizeof(pktRes) , 0);
+
+            //Send body 
+            send(sockfd , body , sizeof(body) , 0);
+ 
+            free(para_buf);
+        }//if( pHdrData != NULL) 
+    }
+    //remark PRINT("Thread Over\n");
+
+    return(0);                              
+    
+}
+
+
+void sig_child(int sig)
+{
+    int childpid;
+    
+    childpid = waitpid(-1, NULL , WNOHANG);
+
+    while( childpid > 0)
+    {
+   
+	//syslog(LOG_NOTICE, "sig child: %d\n", childpid); 
+    	//remark PRINT("sig_child %d\n",childpid);
+    
+	    if( lptstatus.pid == childpid )
+    	{
+	        FILE *statusFp = NULL;
+
+        	statusFp = fopen(STATUS_FILE , "w");
+            
+        	if(statusFp != NULL)
+        	{
+            		fprintf(statusFp,"PRN_CLIENT=\"\"\n");
+            		fclose(statusFp);
+        	}
+        	else
+        	{
+            		//perror("Open status file failed: ");
+        	}
+
+
+    	    	/*** Wait 10 seconds here      ***/
+        	/*** Because some slow printer ***/
+        	/*** need some time to consume ***/
+        	/*** the data...               ***/
+        	sleep(10);
+        
+        	lptstatus.busy = FALSE;
+        	lptstatus.pid  = 0;
+		check_prn_status(ONLINE, "");
+           
+    	}
+
+    	childpid = waitpid(-1, NULL , WNOHANG);
+	}
+
+   	//remark PRINT("waitpid -- childpid%d\n",childpid); 
+    
+}
+
+void sig_cleanup(int sig)
+{
+    //remark PRINT("sig_cleanup\n");
+    exit(0);
+}
+
+//JY1110
+void sig_remove(int sig)
+{
+	if(lptstatus.pid != 0){
+		kill(lptstatus.pid, SIGKILL);
+	}
+	else
+		return;
+}
+
+
+int closesocket(int sockfd)
+{
+    //shutdown(sockfd,SHUT_RDWR);
+    return close(sockfd);
+}
+
+/************************************/
+/***  Receive the socket          ***/
+/***  with a timeout value        ***/
+/************************************/
+DWORD RECV(int sockfd , PBYTE pRcvbuf , DWORD dwlen , DWORD timeout)
+{
+
+    if( waitsock(sockfd , timeout , 0) == 0)
+    {
+        //timeout
+        PRINT("RECV timeout %d\n",timeout);
+        return -1;
+    }
+
+    return recv(sockfd , pRcvbuf  , dwlen , 0 );
+}
+
+
+int waitsock(int sockfd , int sec , int usec)
+{
+    struct timeval  tv;
+    fd_set          fdvar;
+    int             res;
+    
+    FD_ZERO(&fdvar);
+    FD_SET(sockfd, &fdvar);
+    
+    tv.tv_sec  = sec;
+    tv.tv_usec = usec; 
+    
+    res = select( sockfd + 1 , &fdvar , NULL , NULL , &tv);
+    
+    return res;
+}
+
+void reset_printer(int sec)
+{
+    sleep(sec);
+    ioctl(fdPRN,LPRESET);
+}
+
+
+/* to check use usb or parport printer */
+/* James Yeh 2002/12/25 02:13	       */
+static int check_par_usb_prn()//JY: 20031104 change to int from void
+{
+	char    is_useUsb = TRUE;
+    char    buf[1024];
+    char    *token;
+    FILE    *fp;
+
+    fp=fopen("/proc/sys/dev/parport/parport0/devices/lp/deviceid","r");
+
+    if( fp != NULL)
+    {
+        while ( fgets(buf, sizeof(buf), fp) != NULL )  
+        {
+            if(buf[0] == '\n')
+            {
+                //PRINT("skip empty line\n");
+                continue;
+            }
+    
+            if(strncmp(buf , "status: " , strlen("status: "))   == 0)
+            {
+                token= buf + strlen("status: ");
+//printf("token=%s\n", token);//JY1104                
+                if(token[0] == '0')
+                {
+                    is_useUsb = TRUE;
+//printf("USB\n");//JY1112: delete               
+                }
+                else
+                {
+                    is_useUsb = FALSE;
+//printf("PARALLEL\n");//JY1112: delete               
+                }
+                break;
+            }
+            
+        }
+        
+        fclose(fp);
+    }
+    
+	return(is_useUsb);//JY: 1104
+}
+
+/*1110test status
+void checkstatus_usb_par()
+{
+	if(fd_print <= 0 || fd_print == NULL){
+		check_prn_status("Off-line", "");
+	}
+	else {
+		check_prn_status(ONLINE, "");
+	}
+}
+*/
+
+/*JY1114: check printer status*/
+void check_prn_status(char *status_prn, char *cliadd_prn)
+{
+	STATUSFILE=fopen("/var/state/printstatus.txt", "w");
+	if(cliadd_prn == NULL)
+	{
+		fprintf(STATUSFILE, "PRINTER_USER=\"\"\n");
+	}
+	else
+	{
+		fprintf(STATUSFILE, "PRINTER_USER=\"%s\"\n", cliadd_prn);
+	}
+	fprintf(STATUSFILE, "PRINTER_STATUS=\"%s\"\n", status_prn);
+	fclose(STATUSFILE);
+	//strcpy(printerstatus, status_prn);
+}
+/*JY1114: get printer queue name for LPR*/
+int get_queue_name(char *input)
+{
+	char QueueName_got[32];
+	char *index1;
+	int rps_i=0, rps_j=0;
+	while((index1 = strrchr(input, ' ')))
+		index1[0] = 0;
+	rps_i = 0;
+	strcpy(QueueName_got, input);
+	//return(strcmp(QueueName_got, "LPRServer"));
+	//by pass queue Name Check
+	return 0;
+}
+
+/*JY1120: send ack*/
+void send_ack_packet(int *talk, int ack)
+{
+	char buffertosend[SMALLBUFFER];
+	buffertosend[0] = ack;
+	buffertosend[1] = 0;
+	//printf("send_ack_packet...\n");//JY1120: delete
+	if( write( *talk, buffertosend, strlen(buffertosend) ) < 0 ) 
+	{		
+		//printf("send_ack_packet: can not write socket...\n");
+	}
+}
+
+/*#######Lisa: Raw printing##########
+ * open printer()
+ * copy stream()
+ * ProcessReq_Raw()
+ ##################################*/
+int open_printer(void)  
+{
+        int		f;
+
+	if(check_par_usb_prn() == TRUE)
+	{		
+		if ((f=open(LP_DEV(0), O_RDWR)) < 0 ) 
+		{
+			//syslog(LOGOPTS, "%s: %m\n", device);
+		}
+	}
+	else
+	{
+		if ((f=open("/dev/lp0",O_RDWR)) < 0)
+		{
+//			syslog(LOGOPTS, "Open Parallel port error");
+		} 
+	}
+	return (f);
+}
+
+int copy_stream(int fd,int f)
+{
+	int		nread,nwrite;
+	char		buffer[8192];
+	int 		timeout=20, wait;
+	int 		busyflag=0;
+
+	//PRINT("copy_stream\n");
+	while ((nread = read(fd, buffer, sizeof(buffer))) > 0)
+	{
+		int index=0,countread;
+		
+		// nwrite=fwrite(buffer, sizeof(char), nread, f);    
+                /* Lisa:fwrite => write */
+ 		check_prn_status("Printing", clientaddr);  //Add by Lisa
+          
+		while	(index < nread )
+		{
+			countread=nread-index;
+			nwrite=write(f, &buffer[index],countread);
+
+			if (nwrite<0)
+			{					
+	     			logmessage("lpd", "write error : %d\n", errno);
+				check_prn_status("Busy or Error", clientaddr);
+				return(nread);
+			}
+#ifdef REMOVE
+			else if (nwrite==0)
+			{
+	     			syslog(LOG_NOTICE, "write error 4: %d\n", nwrite);
+				check_prn_status("Busy or Error",clientaddr);
+				busyflag=1;
+			}
+#endif
+			else if ((wait=waitsock(f,timeout,0))==0)
+			{
+	     			//logmessage("lpd", "write error %d\n", errno);
+				check_prn_status("Busy or Error",clientaddr);
+				busyflag=1;
+			}
+			else if(wait<0) 
+			{
+	     			logmessage("lpd", "can not write : %d\n", errno);
+				check_prn_status("Busy or Error",clientaddr);
+				return(nread);
+			}
+			else
+			{
+				index+=nwrite;
+
+				if (busyflag==1)
+				{
+					busyflag = 0;
+					check_prn_status("Printing",clientaddr);
+				}
+			}
+		}			                
+	}
+	//(void)fflush(f);
+        check_prn_status(ONLINE,""); //Add by Lisa
+	return (nread);
+}
+
+void processReq_Raw(int fd)
+{
+	int f1;
+
+	if (busy == FALSE)
+	{
+		if ((f1 = open_printer()) >= 0)   //modify by Lisa
+		{
+			if (copy_stream(fd, f1) < 0)
+			{
+				//syslog(0, "copy stream err\n");
+			}
+			close(f1);
+		}		
+	}
+	close(fd);
 }

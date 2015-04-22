@@ -108,6 +108,13 @@ char *argv[];
 
     /* open a TCP socket */
     sock = socket(PF_INET, SOCK_STREAM, 0);
+#ifdef WINDOW_1
+int windowsize=1024;
+setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char *)&windowsize, sizeof(windowsize));
+//aaaaaa=fopen("/tmp/qqqqq", "a");
+//fprintf(aaaaaa, "sclient: main\n");
+//fclose(aaaaaa);
+#endif
 	Max_open(sock);
     if( sock < 0 ){
 		perror("socket");

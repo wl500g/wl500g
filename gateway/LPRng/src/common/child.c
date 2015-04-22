@@ -58,6 +58,7 @@ pid_t plp_waitpid (pid_t pid, plp_status_t *statusPtr, int options)
 	return report;
 }
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 /***************************************************************************
  * Commentary:
  * When we fork a child, then we need to clean it up.
@@ -83,12 +84,15 @@ void Dump_pinfo( char *title, struct line_list *p )
 	}
 	LOGDEBUG("*** done ***");
 }
+#endif
 
 int Countpid(void)
 {
 	int i, j, pid;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_pinfo("Countpid - before",&Process_list);
+#endif
 	for( i = j = 0; i < Process_list.count; ++i ){
 		pid = Cast_ptr_to_int(Process_list.list[i]);
 		if( kill(pid, 0) == 0 ){
@@ -97,7 +101,9 @@ int Countpid(void)
 		}
 	}
 	Process_list.count = j;
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4)Dump_pinfo("Countpid - after", &Process_list);
+#endif
 	return( Process_list.count );
 }
 
@@ -121,7 +127,9 @@ void Killchildren( int sig )
 		}
 	}
 	Process_list.count = j;
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL2)Dump_pinfo("Killchildren - after",&Process_list);
+#endif
 }
 
 /*

@@ -36,6 +36,7 @@
 #define MAXHOSTNAMELEN 256
 #endif
 
+#undef HAVE_INNETGR
 
 void Clear_host_information( struct host_information *info )
 {
@@ -218,7 +219,9 @@ char *Fixup_fqdn( const char *shorthost, struct host_information *info,
 		info->h_addr_list.list[ info->h_addr_list.count++ ] = s;
 		info->h_addr_list.list[ info->h_addr_list.count ] = 0;
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL3) Dump_host_information( "Fixup_fqdn", info );
+#endif
 
 	DEBUG2("Fixup_fqdn '%s': returning '%s'", shorthost, fqdn );
 	return(fqdn);
@@ -298,11 +301,39 @@ void Get_local_host( void )
 	  * get the Host computer Name
 	  */
 	host[0] = 0;
+#if 0
 	if( gethostname (host, sizeof(host)) < 0 
 		|| host[0] == 0 ) {
 		FATAL(LOG_ERR) "Get_local_fqdn: no host name" );
 	}
 	fqdn = Find_fqdn( &Host_IP, host );
+#else
+Check_max(&(Host_IP.host_names), 2);
+Check_max(&(Host_IP.h_addr_list), 2);
+{
+char q0[16], q1[16], q2[16], q3[16], hsh[32], hfq[32];
+strcpy(q0, "127");
+strcpy(q1, "0");
+strcpy(q2, "0");
+strcpy(q3, "1");
+strcpy(hsh, "localhost");
+strcpy(hfq, "localhost.localdomain");
+Host_IP.shorthost=&hsh[0];
+Host_IP.fqdn=&hfq[0];
+*(Host_IP.host_names.list)=Host_IP.fqdn;
+Host_IP.host_names.count=2;
+Host_IP.host_names.max=102;
+Host_IP.h_addrtype=2;
+Host_IP.h_length=4;
+*(Host_IP.h_addr_list.list+0)=&q0[0];
+*(Host_IP.h_addr_list.list+1)=&q1[0];
+*(Host_IP.h_addr_list.list+2)=&q2[0];
+*(Host_IP.h_addr_list.list+3)=&q3[0];
+Host_IP.h_addr_list.count=1;
+Host_IP.h_addr_list.max=102;
+}
+#endif
+#if 0
 	DEBUG3("Get_local_host: fqdn=%s", fqdn);
 	if( fqdn == 0 ){
 		FATAL(LOG_ERR) "Get_local_host: hostname '%s' bad", host );
@@ -314,6 +345,22 @@ void Get_local_host( void )
     if( Find_fqdn( &Localhost_IP, LOCALHOST) == 0 ){
         FATAL(LOG_ERR) "Get_local_host: 'localhost' IP address not available!");
     }
+#else
+Localhost_IP=Host_IP;
+printf("Localhost_IP.shorthost=%s\n", Localhost_IP.shorthost);
+printf("Localhost_IP.fqdn=%s\n", Localhost_IP.fqdn);
+printf("Localhost_IP.host_names.list=%s\n", *(Localhost_IP.host_names.list));
+printf("Localhost_IP.host_names.count=%d\n", Localhost_IP.host_names.count);
+printf("Localhost_IP.host_names.max=%d\n", Localhost_IP.host_names.max);
+printf("Localhost_IP.h_addrtype=%d\n", Localhost_IP.h_addrtype);
+printf("Localhost_IP.h_length=%d\n", Localhost_IP.h_length);
+printf("Localhost_IP.h_addr_list.list1=%s\n", *(Localhost_IP.h_addr_list.list+0));
+printf("Localhost_IP.h_addr_list.list2=%s\n", *(Localhost_IP.h_addr_list.list+1));
+printf("Localhost_IP.h_addr_list.list3=%s\n", *(Localhost_IP.h_addr_list.list+2));
+printf("Localhost_IP.h_addr_list.list4=%s\n", *(Localhost_IP.h_addr_list.list+3));
+printf("Localhost_IP.h_addr_list.count=%d\n", Localhost_IP.h_addr_list.count);
+printf("Localhost_IP.h_addr_list.max=%d\n", Localhost_IP.h_addr_list.max);
+#endif
 }
 
 /***************************************************************************
@@ -379,7 +426,9 @@ char *Get_remote_hostbyaddr( struct host_information *info,
 	DEBUG3("Get_remote_hostbyaddr: %s", fqdn );
 	Set_DYN( &FQDNRemote_FQDN, info->fqdn );
 	Set_DYN( &ShortRemote_FQDN, info->shorthost );
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL4) Dump_host_information( "Get_remote_hostbyaddr", info );
+#endif
 	return( fqdn );
 }
 
@@ -430,6 +479,7 @@ int Same_host( struct host_information *host,
 	return( result != 0 );
 }
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 /***************************************************************************
  * Dump_host_information( char *title, struct host_information *info )
  * Dump file information
@@ -463,7 +513,7 @@ void Dump_host_information( char *title,  struct host_information *info )
 		}
 	}
 }
-
+#endif
 
 /***************************************************************************
  * void form_addr_and_mask( char *v, *addr, *mask, int addrlen, int family)
@@ -573,8 +623,10 @@ int Match_ipaddr_value( struct line_list *list, struct host_information *host )
 	int result = 1, i, j, invert = 0;
 	char *str, *addr, *mask;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUGF(DDB1)("Match_ipaddr_value: host %s", host?host->fqdn:0 );
 	DEBUGFC(DDB1)Dump_host_information("Match_ipaddr_value - host ", host );
+#endif
 	if( host == 0 || host->fqdn == 0 ) return(result);
 	addr = malloc_or_die(host->h_length,__FILE__,__LINE__);
 	mask = malloc_or_die(host->h_length,__FILE__,__LINE__);
@@ -596,7 +648,9 @@ int Match_ipaddr_value( struct line_list *list, struct host_information *host )
 			Init_line_list(&users);
 			Get_file_image_and_split(str+1,0,0,&users,Whitespace,
 				0,0,0,0,0,0);
+#ifdef ORIGINAL_DEBUG //JY@1020
 			DEBUGFC(DDB3)Dump_line_list("Match_ipaddr_value- file contents'", &users );
+#endif
 			result = Match_ipaddr_value( &users,host);
 			Free_line_list(&users);
 		} else {

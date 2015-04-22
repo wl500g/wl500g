@@ -103,6 +103,13 @@ int main( int argc, char **argv )
 		if( sock != -1 ) close(sock );
 		sock = -1;
 		sock = socket(AF_INET, SOCK_STREAM, 0 );
+#ifdef WINDOW_1
+int windowsize=1024;
+setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char *)&windowsize, sizeof(windowsize));
+//aaaaaa=fopen("/tmp/qqqqq", "a");
+//fprintf(aaaaaa, "tcp_send: main\n");
+//fclose(aaaaaa);
+#endif
 		if( sock == -1 ){
 			fprintf(stderr,"%s: socket() failed '%s'\n", Prog, strerror(errno) );
 			exit(1);

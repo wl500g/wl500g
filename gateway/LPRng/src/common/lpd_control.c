@@ -46,6 +46,7 @@
 
 int Job_control( int *sock, char *input )
 {
+#ifdef REMOVE
 	struct line_list tokens;
 	char error[LINEBUFFER];
 	int tokencount;
@@ -63,7 +64,9 @@ int Job_control( int *sock, char *input )
 
 	/* check printername for characters, underscore, digits */
 	Split(&tokens,input,Whitespace,0,0,0,0,0,0);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUGFC(DCTRL2)Dump_line_list("Job_control - input", &tokens);
+#endif
 
 	tokencount = tokens.count;
 	if( tokencount < 3 ){
@@ -197,12 +200,14 @@ int Job_control( int *sock, char *input )
 	Name = "Job_control";
 	DEBUGF(DCTRL3)( "Job_control: DONE" );
 	Free_line_list(&tokens);
+#endif
 	return(0);
 }
 
 void Do_printer_work( char *user, int action, int *sock,
 	struct line_list *tokens, char *error, int errorlen )
 {
+#ifdef REMOVE
 	int i;
 
 	DEBUGF(DCTRL3)("Do_printer_work: printer '%s', action '%s'",
@@ -226,6 +231,7 @@ void Do_printer_work( char *user, int action, int *sock,
 			Name = "Do_printer_work";
 		}
 	}
+#endif
 }
 
 /***************************************************************************
@@ -240,6 +246,7 @@ void Do_printer_work( char *user, int action, int *sock,
 void Do_queue_control( char *user, int action, int *sock,
 	struct line_list *tokens, char *error, int errorlen )
 {
+#ifdef REMOVE
 	char *start, *end;
 	pid_t serverpid;			/* server pid to kill off */
 	struct stat statb;			/* status of file */
@@ -443,7 +450,9 @@ void Do_queue_control( char *user, int action, int *sock,
 	}
 
 	Perm_check_to_list(&l, &Perm_check );
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUGFC(DCTRL2)Dump_line_list("Do_queue_control - perms", &l);
+#endif
 	if( Server_queue_name_DYN ){
 		Set_flag_value(&Spool_control,CHANGE,1);
 	}
@@ -496,7 +505,9 @@ void Do_queue_control( char *user, int action, int *sock,
 	case OP_FLUSH:		Action = _("flushed status"); break;
 	}
 	if( Action ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		setmessage( 0, ACTION, "%s", Action );
+#endif
 		SNPRINTF( line, sizeof(line)) "%s@%s: %s\n",
 			Printer_DYN, FQDNHost_FQDN, Action );
 		if( Write_fd_str( *sock, line ) < 0 ) cleanup(0);
@@ -566,6 +577,7 @@ void Do_queue_control( char *user, int action, int *sock,
  done:
 	DEBUGF(DCTRL3)( "Do_queue_control: done" );
 	Free_line_list(&l);
+#endif
 	return;
 }
 
@@ -593,17 +605,23 @@ int Do_control_file( int action, int *sock,
 	Init_line_list(&l);
 	Init_job(&job);
 	Free_line_list(&Sort_order);
+#if defined(JYWENG20031104Scan_queue)
 	if( Scan_queue( &Spool_control, &Sort_order,
 			0,0,0,0,0,0,0,0) ){
 		err = errno;
+#ifdef ORIGINAL_DEBUG //JY@1020
 		SNPRINTF(error, errorlen)
 			"Do_control_file: cannot read '%s' - '%s'",
 			Spool_dir_DYN, Errormsg(err) );
+#endif
 			return(1);
 	}
+#endif
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUGF(DCTRL4)("Do_control_file: total files %d", Sort_order.count );
 	DEBUGFC(DCTRL2)Dump_line_list("Do_control_file - tokens", tokens);
+#endif
 
 	/* scan the files to see if there is one which matches */
 
@@ -614,7 +632,9 @@ int Do_control_file( int action, int *sock,
 		 */
 		Free_job(&job);
 		Get_hold_file( &job, Sort_order.list[i] );
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUGFC(DCTRL2)Dump_job("Do_control_file - getting info",&job);
+#endif
 		identifier = Find_str_value(&job.info,IDENTIFIER,Value_sep);
 		if( identifier == 0 ) identifier = Find_str_value(&job.info,TRANSFERNAME,Value_sep);
 		if( identifier == 0 ) continue;
@@ -669,7 +689,9 @@ int Do_control_file( int action, int *sock,
 			if( update_dest ){
 				Set_flag_value(&job.destination,HOLD_TIME,time((void *)0) );
 			}
+#ifdef ORIGINAL_DEBUG //JY@1020
 			setmessage( &job, TRACE, "LPC held" );
+#endif
 			break;
 		case OP_TOPQ:
 			Set_flag_value(&job.info,HOLD_TIME,0 );
@@ -677,7 +699,9 @@ int Do_control_file( int action, int *sock,
 			if( update_dest ){
 				Set_flag_value(&job.destination,HOLD_TIME,0 );
 			}
+#ifdef ORIGINAL_DEBUG //JY@1020
 			setmessage( &job, TRACE, "LPC topq");
+#endif
 			break;
 		case OP_MOVE:
 			Set_str_value(&job.info,MOVE,option);
@@ -685,7 +709,9 @@ int Do_control_file( int action, int *sock,
 			Set_flag_value(&job.info,PRIORITY_TIME,0 );
 			Set_flag_value(&job.info,DONE_TIME,0 );
 			Set_flag_value(&job.info,REMOVE_TIME,0 );
+#ifdef ORIGINAL_DEBUG //JY@1020
 			setmessage( &job, TRACE, "LPC move" );
+#endif
 			break;
 		case OP_RELEASE:
 			Set_flag_value(&job.info,HOLD_TIME,0 );
@@ -694,7 +720,9 @@ int Do_control_file( int action, int *sock,
 				Set_flag_value(&job.destination,HOLD_TIME,0 );
 				Set_flag_value(&job.destination,ATTEMPT,0 );
 			}
+#ifdef ORIGINAL_DEBUG //JY@1020
 			setmessage( &job, TRACE, "LPC release" );
+#endif
 			break;
 		case OP_REDO:
 			Set_flag_value(&job.info,HOLD_TIME,0 );
@@ -707,7 +735,9 @@ int Do_control_file( int action, int *sock,
 				Set_flag_value(&job.destination,DONE_TIME,0 );
 				Set_flag_value(&job.destination,COPY_DONE,0 );
 			}
+#ifdef ORIGINAL_DEBUG //JY@1020
 			setmessage( &job, TRACE, "LPC redo");
+#endif
 			break;
 		}
 		if( update_dest ){
@@ -721,7 +751,9 @@ int Do_control_file( int action, int *sock,
 		/* record the last update person */
 		Perm_check_to_list(&l, &Perm_check );
 		if( Set_hold_file(&job,&l,0) ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			setmessage( &job, TRACE, "LPC failed" );
+#endif
 			SNPRINTF( msg, sizeof(msg))
 				_("%s: cannot set hold file '%s'\n"),
 				Printer_DYN, identifier );
@@ -748,6 +780,7 @@ int Do_control_file( int action, int *sock,
 int Do_control_lpq( char *user, int action,
 	struct line_list *tokens )
 {
+#ifdef REMOVE
 	char msg[LINEBUFFER];			/* message field */
 	int i = 0;
 
@@ -778,6 +811,7 @@ int Do_control_lpq( char *user, int action,
 	case OP_LPRM: Job_remove( sock,  msg ); break;
 	}
 	*/
+#endif
 	return(0);
 }
 
@@ -789,6 +823,7 @@ int Do_control_lpq( char *user, int action,
 int Do_control_status( int *sock,
 	char *error, int errorlen )
 {
+#ifdef REMOVE
 	char msg[SMALLBUFFER];			/* message field */
 	char pr[LINEBUFFER];
 	char pr_status[LINEBUFFER];
@@ -807,9 +842,11 @@ int Do_control_status( int *sock,
 	Get_spool_control( Queue_control_file_DYN, &Spool_control );
 	if( Scan_queue( &Spool_control, &Sort_order, &printable,
 			&held, &move,1,&err,&done,0,0) ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		SNPRINTF( error, errorlen)
 			"Do_control_status: cannot read '%s' - '%s'",
 			Spool_dir_DYN, Errormsg(errno) );
+#endif
 		return(1);
 	}
 	Free_line_list(&Sort_order);
@@ -870,6 +907,7 @@ int Do_control_status( int *sock,
 	trunc_str( msg );
 	safestrncat(msg,"\n");
 	if( Write_fd_str( *sock, msg ) < 0 ) cleanup(0);
+#endif
 	return( 0 );
 }
 
@@ -891,7 +929,9 @@ int Do_control_redirect( int *sock,
 	int n = 0;
 
 	/* get the spool entries */
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUGFC(DCTRL2)Dump_line_list("Do_control_redirect - tokens",tokens);
+#endif
 	switch( tokens->count ){
 	case 3:
 	case 4:
@@ -1070,6 +1110,7 @@ int Do_control_printcap( int *sock )
 	return(0);
 }
 
+#ifdef REMOVE
 int Do_control_defaultq( int *sock )
 {
 	char msg [LINEBUFFER];
@@ -1082,3 +1123,4 @@ int Do_control_defaultq( int *sock )
 
 	return(0);
 }
+#endif

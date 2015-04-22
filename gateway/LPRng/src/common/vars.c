@@ -25,7 +25,7 @@
 #include "permission.h"
 #include "printjob.h"
 /**** ENDINCLUDE ****/
-
+#ifdef REMOVE
 /***************************************************************************
 
 Commentary:
@@ -553,3 +553,4 @@ struct keywords DYN_var_list[] = {
 
 { (char *)0,0,0,0,0,0,0 }
 } ;
+#endif

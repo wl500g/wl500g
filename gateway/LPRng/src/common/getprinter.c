@@ -17,7 +17,7 @@
 #include "getqueue.h"
 #include "child.h"
 /**** ENDINCLUDE ****/
-
+#ifdef REMOVE
 /***************************************************************************
  Get_printer()
     determine the name of the printer - Printer_DYN variable
@@ -135,14 +135,18 @@ void Fix_Rm_Rp_info(char *report_conflict, int report_len )
 			}
 			Set_DYN(&Printer_DYN,s);
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 			DEBUG2("Fix_Rm_Rp_info: from printcap found '%s'", Printer_DYN );
 			if(DEBUGL2)Dump_line_list("Fix_Rm_Rp_info - PC_alias_line_list",
 				&PC_alias_line_list );
 			if(DEBUGL2)Dump_line_list("Fix_Rm_Rp_info - PC_entry_line_list",
 				&PC_entry_line_list );
+#endif
 		}
+#ifdef ORIGINAL_DEBUG //JY@1020
 		if(DEBUGL2)Dump_line_list("Fix_Rm_Rp_info - final PC_entry_line_list",
 			&PC_entry_line_list );
+#endif
 		Find_default_tags( &PC_entry_line_list, Pc_var_list, "client." );
 		Find_tags( &PC_entry_line_list, &Config_line_list, "client." );
 		Find_tags( &PC_entry_line_list, &PC_entry_line_list, "client." );
@@ -228,10 +232,12 @@ void Fix_Rm_Rp_info(char *report_conflict, int report_len )
 		Set_DYN(&Printer_DYN,s);
 		DEBUG2("Fix_Rm_Rp_info: found '%s'", Printer_DYN );
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL2)Dump_line_list("Fix_Rm_Rp_info - PC_alias_line_list",
 		&PC_alias_line_list );
 	if(DEBUGL2)Dump_line_list("Fix_Rm_Rp_info - PC_entry_line_list",
 		&PC_entry_line_list );
+#endif
 	/* now get the Server_xxx variables */
 	Find_default_tags( &PC_entry_line_list, Pc_var_list, "server." );
 	Find_tags( &PC_entry_line_list, &Config_line_list, "server." );
@@ -280,7 +286,9 @@ void Fix_Rm_Rp_info(char *report_conflict, int report_len )
 	DEBUG1("Fix_Rm_Rp_info: Printer '%s', Queue '%s', Lp '%s', Rp '%s', Rh '%s'",
 		Printer_DYN, Queue_name_DYN, Lp_device_DYN,
 		RemotePrinter_DYN, RemoteHost_DYN );
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL2)Dump_parms("Fix_Rm_Rp_info", Pc_var_list);
+#endif
 }
 
 /***************************************************************************
@@ -322,7 +330,9 @@ void Get_all_printcap_entries(void)
 			}
 		}
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL1)Dump_line_list("Get_all_printcap_entries- All_line_list", &All_line_list );
+#endif
 }
 
 void Show_formatted_info( void )
@@ -338,7 +348,9 @@ void Show_formatted_info( void )
 			"%s: '%s'",
 			Printer_DYN, error );
 	}
+#ifdef ORIGINAL_DEBUG //JY@1020
 	if(DEBUGL1)Dump_line_list("Aliases",&PC_alias_line_list);
+#endif
 	s = Join_line_list_with_sep(&PC_alias_line_list,"|");
 	if( Write_fd_str( 1, s ) < 0 ) cleanup(0);
 	if(s) free(s); s = 0;
@@ -384,3 +396,4 @@ void Show_all_printcap_entries( void )
 		Show_formatted_info();
 	}
 }
+#endif

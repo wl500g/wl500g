@@ -12,6 +12,7 @@
 
 
 #include "lp.h"
+#include "lp_asus.h"
 #include "lpd_remove.h"
 #include "getqueue.h"
 #include "getprinter.h"
@@ -50,6 +51,30 @@
 
 int Job_remove( int *sock, char *input )
 {
+printf("Job_remove\n");//JY
+#if !defined(JYWENG20031106remove)
+	if( input && *input ) ++input;//JY1114
+
+	if(get_queue_name(input))
+	{
+		printf("QueueName is not LPRServer\n");
+		send_ack_packet(sock, ACK_FAIL);//JY1120
+		return(0);
+	}
+	else
+	{
+		printf("QueueName is LPRServer\n");
+	}
+
+	if(lptstatus.pid != 0){
+		check_prn_status(ONLINE, "");
+		kill(lptstatus.pid, SIGKILL);
+	}
+	else
+		return(0);
+#endif
+
+#ifdef REMOVE
 	char error[LINEBUFFER];
 	int i;
 	char *name, *s, *user = 0;
@@ -63,7 +88,9 @@ int Job_remove( int *sock, char *input )
 	++input;
 	DEBUGF(DLPRM1)("Job_remove: input '%s'", input );
 	Split(&tokens,input,Whitespace,0,0,0,0,0,0);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUGFC(DLPRM2)Dump_line_list("Job_remove: input", &tokens );
+#endif
 
 	/* check printername for characters, underscore, digits */
 
@@ -97,11 +124,13 @@ int Job_remove( int *sock, char *input )
 		Set_DYN(&Printer_DYN, Printer_DYN );
 		Get_queue_remove( user, sock, &tokens, &done_list );
 	} else {
+/*1103
 		Get_all_printcap_entries();
 		for( i = 0; i < All_line_list.count; ++i ){
 			Set_DYN(&Printer_DYN, All_line_list.list[i]);
 			Get_queue_remove( user, sock, &tokens, &done_list );
 		}
+*/
 	}
 	goto done;
 
@@ -115,9 +144,11 @@ int Job_remove( int *sock, char *input )
 	if( user ) free(user); user = 0;
 	Free_line_list(&done_list);
 	Free_line_list(&tokens);
+#endif
 	return( 0 );
 }
 
+#ifdef REMOVE
 /***************************************************************************
  * void Get_queue_remove
  *  - find and remove the spool queue entries
@@ -140,9 +171,11 @@ void Get_queue_remove( char *user, int *sock, struct line_list *tokens,
 
 	/* set printer name and printcap variables */
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUGFC(DLPRM2)Dump_line_list("Get_queue_remove - tokens", tokens );
 	DEBUGF(DLPRM2)( "Get_queue_remove: user '%s', printer '%s'",
 		user, Printer_DYN );
+#endif
 
 	Errorcode = 0;
 
@@ -209,12 +242,16 @@ void Get_queue_remove( char *user, int *sock, struct line_list *tokens,
 
 	/* scan the files to see if there is one which matches */
 	removed = 0;
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUGFC(DLPRM3)Dump_line_list("Get_queue_remove - tokens", tokens );
+#endif
 	for( count = 0; count < Sort_order.count; ++count ){
 		Free_job(&job);
 		Get_hold_file(&job, Sort_order.list[count] );
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 		DEBUGFC(DLPRM3)Dump_job("Get_queue_remove - info",&job);
+#endif
         if( tokens->count && Patselect( tokens, &job.info, 0) ){
 			continue;
         }
@@ -255,15 +292,21 @@ void Get_queue_remove( char *user, int *sock, struct line_list *tokens,
 		SNPRINTF( msg, sizeof(msg)) _("  dequeued '%s'\n"), identifier );
 		Write_fd_str( *sock, msg );
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 		setmessage( &job, "LPRM", "start" );
+#endif
 		if( Remove_job( &job ) ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 			setmessage( &job, "LPRM", "fail" );
+#endif
 			SNPRINTF( msg, sizeof(msg))
 				_("error: could not remove '%s'"), identifier ); 
 			Write_fd_str( *sock, msg );
 			goto error;
 		}
+#ifdef ORIGINAL_DEBUG //JY@1020
 		setmessage( &job, "LPRM", "success" );
+#endif
 		if( (pid = Find_flag_value(&job.info,SERVER,Value_sep)) ){
 			DEBUGF(DLPRM4)("Get_queue_remove: active_pid %d", pid );
 			if( kill( pid, 0 ) == 0 ){
@@ -294,10 +337,13 @@ void Get_queue_remove( char *user, int *sock, struct line_list *tokens,
 		/* kill spooler process */
 		
 		pid = 0;
+#if 0//1103
 		if( (fd = Checkread( Queue_lock_file_DYN, &statb )) >= 0 ){
 			pid = Read_pid( fd, (char *)0, 0 );
 			close( fd );
 		}
+#else
+#endif
 		DEBUGF(DLPRM2)("Get_queue_status: checking server pid %d", pid );
 		/* kill active spooler */
 		if( pid > 0 ){
@@ -349,8 +395,10 @@ void Get_queue_remove( char *user, int *sock, struct line_list *tokens,
 			tokens->list[0] = user;
 			++tokens->count;
 			tokens->list[tokens->count] = 0;
+#ifdef ORIGINAL_DEBUG //JY@1020
 			fd = Send_request( 'M', REQ_REMOVE, tokens->list, Connect_timeout_DYN,
 				Send_query_rw_timeout_DYN, *sock );
+#endif
 			if( fd >= 0 ){
 				shutdown( fd, 1 );
 				while( (c = read(fd,msg,sizeof(msg))) > 0 ){
@@ -395,7 +443,9 @@ void Get_local_or_remote_remove( char *user, int *sock,
 		Get_queue_remove( user, sock, tokens, done_list );
 		return;
 	}
+/*1103
 	Fix_Rm_Rp_info(0,0);
+*/
 	/* now we look at the remote host */
 	if( Find_fqdn( &LookupHost_IP, RemoteHost_DYN )
 		&& ( !Same_host(&LookupHost_IP,&Host_IP )
@@ -411,8 +461,10 @@ void Get_local_or_remote_remove( char *user, int *sock,
 	tokens->list[0] = user;
 	++tokens->count;
 	tokens->list[tokens->count] = 0;
+#ifdef ORIGINAL_DEBUG //JY@1020
 	fd = Send_request( 'M', REQ_REMOVE, tokens->list, Connect_timeout_DYN,
 		Send_query_rw_timeout_DYN, *sock );
+#endif
 	if( fd >= 0 ){
 		shutdown( fd, 1 );
 		while( (n = read(fd,msg,sizeof(msg))) > 0 ){
@@ -449,10 +501,16 @@ int Remove_job( struct job *job )
 	char *identifier, *openname;
 	struct line_list *datafile;
 
+#ifdef ORIGINAL_DEBUG //JY@1020
 	DEBUGFC(DLPRM1)Dump_job("Remove_job",job);
+#endif
+#ifdef ORIGINAL_DEBUG //JY@1020
 	setmessage(job,STATE,"REMOVE");
+#endif
 	identifier = Find_str_value(&job->info,IDENTIFIER,Value_sep);
+#ifdef ORIGINAL_DEBUG //JY@1020
 	setmessage( job, TRACE, "remove START" );
+#endif
 	if( !identifier ){
 		identifier = Find_str_value(&job->info,TRANSFERNAME,Value_sep);
 	}
@@ -474,12 +532,19 @@ int Remove_job( struct job *job )
 	fail |= Remove_file( openname );
 
 	if( fail == 0 ){
+#ifdef ORIGINAL_DEBUG //JY@1020
 		setmessage( job, TRACE, "remove SUCCESS" );
+#endif
 	} else {
+#ifdef ORIGINAL_DEBUG //JY@1020
 		setmessage( job, TRACE, "remove FAILED" );
+#endif
 	}
 	if( Lpq_status_file_DYN ){
 		unlink(Lpq_status_file_DYN);
 	}
 	return( fail );
 }
+#endif
+
+
