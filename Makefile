@@ -451,7 +451,7 @@ inadyn_Patches := $(call patches_list,inadyn)
 
 $(TOP)/inadyn:
 	@rm -rf $@
-	tar -C inadyn $(TAR_EXCL_VCS) -cf - inadyn | tar -C $(TOP) -xf -
+	tar -C gateway $(TAR_EXCL_VCS) -cf - inadyn | tar -C $(TOP) -xf -
 	$(PATCHER) -Z $@ $(inadyn_Patches)
 
 inadyn: $(TOP)/inadyn
