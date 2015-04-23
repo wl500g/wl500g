@@ -23,7 +23,6 @@ export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 KERNEL=kernel-2.6
 BRCM-SRC=brcm-src-2.6
-IPROUTE2=iproute2-2.6
 IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.22.1
@@ -232,8 +231,12 @@ $(TOP)/ucd-snmp: ucd-snmp/$(UCDSNMP).tar.gz
 ucd-snmp: $(TOP)/ucd-snmp
 	@true
 
-iproute2:
-	$(MAKE) -C $(IPROUTE2) $@
+$(TOP)/iproute2:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - iproute2 | tar -C $(TOP) -xf -
+
+iproute2: $(TOP)/iproute2
+	@true
 
 $(TOP)/dnsmasq:
 	[ -d $@ ] || \
