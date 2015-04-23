@@ -53,7 +53,6 @@ LLTD=LLTD-PortingKit
 TCPDUMP=tcpdump-4.2.1
 LIBPCAP=libpcap-1.2.1
 UDEV=udev-113
-NTFS3G=ntfs-3g_ntfsprogs-2014.2.15AR.1
 SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
 INFOSRV=infosrv
@@ -209,13 +208,9 @@ $(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
 vsftpd: $(TOP)/vsftpd
 	@true
 
-ntfs-3g_Patches := $(call patches_list,ntfs-3g)
-
-$(TOP)/ntfs-3g: ntfs-3g/$(NTFS3G).tgz
-	@rm -rf $(TOP)/$(NTFS3G) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(NTFS3G) $(ntfs-3g_Patches)
-	mv $(TOP)/$(NTFS3G) $@
+$(TOP)/ntfs-3g:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - ntfs-3g | tar -C $(TOP) -xf -
 
 ntfs-3g: $(TOP)/ntfs-3g
 	@true
