@@ -1,4 +1,7 @@
 ## Process this file with automake to produce Makefile.in
+if !CONFIG_NFSV4
+DISABLE_NFS_V4 = -DNO_NFS_V4
+endif
 
 man8_MANS	= nfsd.man
 EXTRA_DIST	= $(man8_MANS)
@@ -11,6 +14,8 @@ nfsd_SOURCES = nfsd.c
 nfsd_LDADD = ../../support/export/libexport.a \
 	     ../../support/nfs/libnfs.a \
 	     ../../support/misc/libmisc.a
+nfsd_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
+		$(DISABLE_NFS_V4)
 
 MAINTAINERCLEANFILES = Makefile.in
 

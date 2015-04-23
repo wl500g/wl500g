@@ -109,6 +109,9 @@ main(int argc, char **argv)
 		fprintf(stderr, "invalid protocol specified\n");
 		exit(1);
 	}
+#ifdef NO_NFS_V4
+	NFSCTL_VERUNSET(versbits, 4);
+#endif
 	found_one = 0;
 	for (c = NFSD_MINVERS; c <= NFSD_MAXVERS; c++) {
 		if (NFSCTL_VERISSET(versbits, c))

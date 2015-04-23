@@ -33,6 +33,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 sbin_PROGRAMS = nfsd$(EXEEXT)
+@CONFIG_NFSV4_FALSE@DISABLE_NFS_V4 = -DNO_NFS_V4
 subdir = utils/nfsd
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -62,7 +63,7 @@ nfsd_DEPENDENCIES = ../../support/lib/libnfs.so
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/support/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
-COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nfsd_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
@@ -236,6 +237,8 @@ RPCPREFIX = rpc.
 KPREFIX = @kprefix@
 nfsd_SOURCES = nfsd.c
 nfsd_LDADD = -L../../support/lib/ -lnfs
+nfsd_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
+		$(DISABLE_NFS_V4)
 
 MAINTAINERCLEANFILES = Makefile.in
 all: all-am
