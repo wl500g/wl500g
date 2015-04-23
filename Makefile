@@ -39,7 +39,6 @@ LZMA=lzma922
 LZMA4XX=lzma457
 SQUASHFS=squashfs4.2
 NFSUTILS=nfs-utils-1.1.6
-PORTMAP=portmap_6
 RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
 QUAGGA=quagga-0.99.20.1
@@ -290,13 +289,9 @@ $(TOP)/nfs-utils:
 nfs-utils: $(TOP)/nfs-utils
 	@true
 
-portmap_Patches := $(call patches_list,portmap)
-
-$(TOP)/portmap: portmap/$(PORTMAP).tar.gz
-	@rm -rf $(TOP)/$(PORTMAP) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(PORTMAP) $(portmap_Patches)
-	mv $(TOP)/$(PORTMAP) $@
+$(TOP)/portmap:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - portmap | tar -C $(TOP) -xf -
 
 portmap: $(TOP)/portmap
 	@true
