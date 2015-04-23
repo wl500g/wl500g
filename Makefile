@@ -44,7 +44,6 @@ QUAGGA=quagga-0.99.20.1
 L2TP=rp-l2tp
 LIBUSB10=libusb-1.0.8
 USBMODESWITCH=usb-modeswitch-2.2.0
-MADWIMAX=madwimax-0.1.1
 LLTD=LLTD-PortingKit
 TCPDUMP=tcpdump-4.2.1
 LIBPCAP=libpcap-1.2.1
@@ -480,13 +479,9 @@ $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 usb_modeswitch: $(TOP)/usb_modeswitch
 	@true
 
-wimax_Patches := $(call patches_list,wimax)
-
-$(TOP)/madwimax: wimax/$(MADWIMAX).tar.gz
-	rm -rf $(TOP)/$(MADWIMAX) $@
-	tar -zxf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(MADWIMAX) $(wimax_Patches)
-	mv $(TOP)/$(MADWIMAX) $@ && touch $@
+$(TOP)/madwimax:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - madwimax | tar -C $(TOP) -xf -
 
 wimax: $(TOP)/madwimax
 	@true
