@@ -43,7 +43,6 @@ ODHCP6C=odhcp6c-git-20140814
 QUAGGA=quagga-0.99.20.1
 L2TP=rp-l2tp
 VSFTPD=vsftpd-2.3.5
-UDPXY=udpxy-1.0.23-9
 LIBUSB10=libusb-1.0.8
 USBMODESWITCH=usb-modeswitch-2.2.0
 MADWIMAX=madwimax-0.1.1
@@ -414,13 +413,9 @@ $(TOP)/igmpproxy:
 igmpproxy: $(TOP)/igmpproxy
 	@true
 
-udpxy_Patches := $(call patches_list,udpxy)
-
-$(TOP)/udpxy: udpxy/$(UDPXY).tar.gz
-	@rm -rf $(TOP)/$(UDPXY) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(UDPXY) $(udpxy_Patches)
-	mv $(TOP)/$(UDPXY) $@ && touch $@
+$(TOP)/udpxy:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - udpxy | tar -C $(TOP) -xf -
 
 udpxy: $(TOP)/udpxy
 	@true
