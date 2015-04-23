@@ -132,37 +132,19 @@ setup_listener( const char* ipaddr, int port, int* sockfd, int bklog )
 /* add or drop membership in a multicast group
  */
 int
-set_multicast( int msockfd, const struct in_addr* mifaddr,
+set_multicast( int msockfd, const struct ip_mreq* mreq,
                int opname )
 {
-    struct sockaddr_in addr;
-    a_socklen_t len = sizeof(addr);
-    struct ip_mreq mreq;
-
     int rc = 0;
     const char *opstr =
         ((IP_DROP_MEMBERSHIP == opname) ? "DROP" :
          ((IP_ADD_MEMBERSHIP == opname) ? "ADD" : ""));
     assert( opstr[0] );
 
-    assert( (msockfd > 0) && mifaddr );
-
-    (void) memset( &mreq, 0, sizeof(mreq) );
-    (void) memcpy( &mreq.imr_interface, mifaddr,
-                sizeof(struct in_addr) );
-
-    (void) memset( &addr, 0, sizeof(addr) );
-    rc = getsockname( msockfd, (struct sockaddr*)&addr, &len );
-    if( 0 != rc ) {
-        mperror( g_flog, errno, "%s: getsockname", __func__ );
-        return -1;
-    }
-
-    (void) memcpy( &mreq.imr_multiaddr, &addr.sin_addr,
-                sizeof(struct in_addr) );
+    assert( (msockfd > 0) && mreq );
 
     rc = setsockopt( msockfd, IPPROTO_IP, opname,
-                    &mreq, sizeof(mreq) );
+                    mreq, sizeof(*mreq) );
     if( 0 != rc ) {
         mperror( g_flog, errno, "%s: setsockopt MCAST option: %s",
                     __func__, opstr );
@@ -180,7 +162,7 @@ set_multicast( int msockfd, const struct in_addr* mifaddr,
  */
 int
 setup_mcast_listener( struct sockaddr_in*   sa,
-                      const struct in_addr* mifaddr,
+                      const struct ip_mreq* mreq,
                       int*                  mcastfd,
                       int                   sockbuflen )
 {
@@ -189,7 +171,7 @@ setup_mcast_listener( struct sockaddr_in*   sa,
     int buflen = sockbuflen;
     size_t rcvbuf_len = 0;
 
-    assert( sa && mifaddr && mcastfd && (sockbuflen >= 0) );
+    assert( sa && mreq && mcastfd && (sockbuflen >= 0) );
 
     TRACE( (void)tmfprintf( g_flog, "Setting up multicast listener\n") );
     rc = ERR_INTERNAL;
@@ -241,7 +223,7 @@ setup_mcast_listener( struct sockaddr_in*   sa,
             break;
         }
 
-        rc = set_multicast( sockfd, mifaddr, IP_ADD_MEMBERSHIP );
+        rc = set_multicast( sockfd, mreq, IP_ADD_MEMBERSHIP );
         if( 0 != rc )
             break;
     } while(0);
@@ -262,13 +244,13 @@ setup_mcast_listener( struct sockaddr_in*   sa,
 /* unsubscribe from multicast and close the reader socket
  */
 void
-close_mcast_listener( int msockfd, const struct in_addr* mifaddr )
+close_mcast_listener( int msockfd, const struct ip_mreq* mreq )
 {
-    assert( mifaddr );
+    assert( mreq );
 
     if( msockfd <= 0 ) return;
 
-    (void) set_multicast( msockfd, mifaddr, IP_DROP_MEMBERSHIP );
+    (void) set_multicast( msockfd, mreq, IP_DROP_MEMBERSHIP );
     (void) close( msockfd );
 
     TRACE( (void)tmfprintf( g_flog, "Mcast listener socket=[%d] closed\n",
@@ -280,14 +262,14 @@ close_mcast_listener( int msockfd, const struct in_addr* mifaddr )
 /* drop from and add into a multicast group
  */
 int
-renew_multicast( int msockfd, const struct in_addr* mifaddr )
+renew_multicast( int msockfd, const struct ip_mreq* mreq )
 {
     int rc = 0;
 
-    rc = set_multicast( msockfd, mifaddr, IP_DROP_MEMBERSHIP );
+    rc = set_multicast( msockfd, mreq, IP_DROP_MEMBERSHIP );
     if( 0 != rc ) return rc;
 
-    rc = set_multicast( msockfd, mifaddr, IP_ADD_MEMBERSHIP );
+    rc = set_multicast( msockfd, mreq, IP_ADD_MEMBERSHIP );
     return rc;
 }
 

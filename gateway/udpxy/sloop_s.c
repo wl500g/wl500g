@@ -58,7 +58,6 @@ srv_loop( const char* ipaddr, int port,
              const char* mcast_addr )
 {
     int                 rc, maxfd, err, nrdy, i;
-    struct in_addr      mcast_inaddr;
     fd_set              rset;
     struct timeval      tmout, idle_tmout, *ptmout = NULL;
     tmfd_t              *asock = NULL;
@@ -77,17 +76,11 @@ srv_loop( const char* ipaddr, int port,
         return ERR_INTERNAL;
     }
 
-    if( 1 != inet_aton(mcast_addr, &mcast_inaddr) ) {
-        mperror(g_flog, errno, "%s: inet_aton", __func__);
-        return ERR_INTERNAL;
-    }
-
     init_server_ctx( &g_srv, g_uopt.max_clients,
             (ipaddr[0] ? ipaddr : "0.0.0.0") , (uint16_t)port, mcast_addr );
 
     g_srv.rcv_tmout = (u_short)g_uopt.rcv_tmout;
     g_srv.snd_tmout = RLY_SOCK_TIMEOUT;
-    g_srv.mcast_inaddr = mcast_inaddr;
 
     /* NB: server socket is non-blocking! */
     if( 0 != (rc = setup_listener( ipaddr, port, &g_srv.lsockfd,

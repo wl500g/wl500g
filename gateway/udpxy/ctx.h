@@ -82,8 +82,6 @@ struct server_ctx
     char        listen_addr[ IPADDR_STR_SIZE ];
     uint16_t    listen_port;
     char        mcast_ifc_addr[ IPADDR_STR_SIZE ];
-    struct in_addr
-                mcast_inaddr;
 
     struct srv_request rq;  /* (current) request to process */
 

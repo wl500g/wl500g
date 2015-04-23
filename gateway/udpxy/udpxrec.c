@@ -242,14 +242,14 @@ calc_buf_settings( ssize_t* bufmsgs, size_t* sock_buflen )
 /* subscribe to the (configured) multicast channel
  */
 static int
-subscribe( int* sockfd, struct in_addr* mcast_inaddr )
+subscribe( int* sockfd, struct ip_mreq* mreq )
 {
     struct sockaddr_in sa;
     const char* ipaddr = g_recopt.rec_channel;
     size_t rcvbuf_len = 0;
     int rc = 0;
 
-    assert( sockfd && mcast_inaddr );
+    assert( sockfd && mreq );
 
     if( 1 != inet_aton( ipaddr, &sa.sin_addr ) ) {
         mperror( g_flog, errno,
@@ -261,17 +261,26 @@ subscribe( int* sockfd, struct in_addr* mcast_inaddr )
     sa.sin_family = AF_INET;
     sa.sin_port = htons( (uint16_t)g_recopt.rec_port );
 
-    if( 1 != inet_aton( g_recopt.mcast_addr, mcast_inaddr ) ) {
+    if( 1 != inet_aton( g_recopt.mcast_addr, (struct in_addr*)&mreq->imr_interface.s_addr) ) {
         mperror( g_flog, errno,
                 "%s: Invalid multicast interface: [%s]: inet_aton",
                 __func__, g_recopt.mcast_addr );
         return -1;
     }
 
+    if( 1 != inet_aton( g_recopt.rec_channel, (struct in_addr*)&mreq->imr_multiaddr.s_addr) ) {
+        mperror( g_flog, errno,
+                "%s: Invalid multicast group address: [%s]: inet_aton",
+                __func__, g_recopt.rec_channel );
+        return -1;
+    }
+
+    (void) memcpy( &sa.sin_addr, &mreq->imr_multiaddr.s_addr, sizeof(struct in_addr) );
+
     rc = calc_buf_settings( NULL, &rcvbuf_len );
     if (0 != rc) return rc;
 
-    return setup_mcast_listener( &sa, mcast_inaddr,
+    return setup_mcast_listener( &sa, mreq,
             sockfd, (g_recopt.nosync_sbuf ? 0 : rcvbuf_len) );
 }
 
@@ -282,7 +291,7 @@ static int
 record()
 {
     int rsock = -1, destfd = -1, rc = 0, wtime_sec = 0;
-    struct in_addr raddr;
+    struct ip_mreq mreq;
     struct timeval rtv;
     struct dstream_ctx ds;
     ssize_t nmsgs = 0;
@@ -314,7 +323,7 @@ record()
             break;
         }
 
-        rc = subscribe( &rsock, &raddr );
+        rc = subscribe( &rsock, &mreq );
         if( 0 != rc ) break;
 
         rtv.tv_sec = RSOCK_TIMEOUT;
@@ -429,7 +438,7 @@ record()
     free_dstream_ctx( &ds );
     if( data ) free( data );
 
-    close_mcast_listener( rsock, &raddr );
+    close_mcast_listener( rsock, &mreq );
     if( destfd >= 0 ) (void) close( destfd );
 
     if( quit )
@@ -445,7 +454,7 @@ record()
 static int
 verify_channel()
 {
-    struct in_addr mcast_inaddr;
+    struct ip_mreq mreq;
     int sockfd = -1, rc = -1;
     char buf[16];
     ssize_t nrd = -1;
@@ -453,7 +462,7 @@ verify_channel()
 
     static const time_t MSOCK_TMOUT_SEC = 2;
 
-    rc = subscribe( &sockfd, &mcast_inaddr );
+    rc = subscribe( &sockfd, &mreq );
     do {
         if( rc ) break;
 
@@ -486,7 +495,7 @@ verify_channel()
     } while(0);
 
     if( sockfd >= 0 ) {
-        close_mcast_listener( sockfd, &mcast_inaddr );
+        close_mcast_listener( sockfd, &mreq );
     }
 
     return rc;
