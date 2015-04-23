@@ -283,13 +283,9 @@ $(TOP)/ipset:
 ipset: $(TOP)/ipset
 	@true
 
-nfs-utils_Patches := $(call patches_list,nfs-utils)
-
-$(TOP)/nfs-utils: nfs-utils/$(NFSUTILS).tar.bz2
-	@rm -rf $(TOP)/$(NFSUTILS) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(NFSUTILS) $(nfs-utils_Patches)
-	mv $(TOP)/$(NFSUTILS) $@
+$(TOP)/nfs-utils:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - nfs-utils | tar -C $(TOP) -xf -
 
 nfs-utils: $(TOP)/nfs-utils
 	@true
