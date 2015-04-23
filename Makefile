@@ -510,13 +510,9 @@ $(TOP)/libpcap:
 libpcap: $(TOP)/libpcap
 	@true
 
-tcpdump_Patches := $(call patches_list,tcpdump)
-
-$(TOP)/tcpdump: tcpdump/$(TCPDUMP).tar.gz
-	rm -rf $(TOP)/$(TCPDUMP) $@
-	tar -zxf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(TCPDUMP) $(tcpdump_Patches)
-	mv $(TOP)/$(TCPDUMP) $@ && touch $@
+$(TOP)/tcpdump: 
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - tcpdump | tar -C $(TOP) -xf -
 
 tcpdump: libpcap $(TOP)/tcpdump
 	@true
