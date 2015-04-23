@@ -42,7 +42,6 @@ RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
 QUAGGA=quagga-0.99.20.1
 L2TP=rp-l2tp
-VSFTPD=vsftpd-2.3.5
 LIBUSB10=libusb-1.0.8
 USBMODESWITCH=usb-modeswitch-2.2.0
 MADWIMAX=madwimax-0.1.1
@@ -194,13 +193,9 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 busybox: $(TOP)/busybox
 	@true
 
-vsftpd_Patches := $(call patches_list,vsftpd)
-
-$(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
-	@rm -rf $(TOP)/$(VSFTPD) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(VSFTPD) $(vsftpd_Patches)
-	mv $(TOP)/$(VSFTPD) $@
+$(TOP)/vsftpd:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - vsftpd | tar -C $(TOP) -xf -
 
 vsftpd: $(TOP)/vsftpd
 	@true
