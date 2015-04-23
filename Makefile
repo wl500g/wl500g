@@ -40,7 +40,6 @@ SQUASHFS=squashfs4.2
 NFSUTILS=nfs-utils-1.1.6
 RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
-QUAGGA=quagga-0.99.20.1
 L2TP=rp-l2tp
 LIBUSB10=libusb-1.0.8
 USBMODESWITCH=usb-modeswitch-2.2.0
@@ -321,13 +320,9 @@ $(TOP)/odhcp6c: odhcp6c/$(ODHCP6C).tar.gz
 odhcp6c: $(TOP)/odhcp6c
 	@true
 
-quagga_Patches := $(call patches_list,quagga)
-
-$(TOP)/quagga: quagga/$(QUAGGA).tar.bz2
-	@rm -rf $(TOP)/$(QUAGGA) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(QUAGGA) $(quagga_Patches)
-	mv $(TOP)/$(QUAGGA) $@
+$(TOP)/quagga:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - quagga | tar -C $(TOP) -xf -
 
 quagga: $(TOP)/quagga
 	@true
