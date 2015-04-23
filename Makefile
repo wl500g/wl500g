@@ -463,11 +463,9 @@ $(TOP)/mjpg-streamer: mjpg-streamer/mjpg-streamer-r103.tar.bz2
 mjpg-streamer: $(TOP)/mjpg-streamer
 	@true
 
-libjpeg_Patches := $(call patches_list,libjpeg)
-
-$(TOP)/jpeg-8b: libjpeg/jpegsrc.v8b.tar.bz2
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $@ $(libjpeg_Patches)
+$(TOP)/jpeg-8b:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - jpeg-8b | tar -C $(TOP) -xf -
 
 libjpeg: $(TOP)/jpeg-8b
 	@true
