@@ -29,7 +29,6 @@ IPTABLES=iptables-2.6
 BUSYBOX=busybox-1.22.1
 P910ND=p910nd-0.97
 SAMBA=samba-2.0.10
-E2FSPROGS=e2fsprogs-1.42.8
 UCDSNMP=ucd-snmp-3.6.2
 MINIUPNPD=miniupnpd-1.9.20141128
 PPP=ppp-2.4.7
@@ -569,15 +568,9 @@ $(TOP)/sysfsutils: sysfsutils/$(SYSFSUTILS).tar.bz2
 sysfsutils: $(TOP)/sysfsutils
 	@true
 
-e2fsprogs_Patches := $(call patches_list,e2fsprogs)
-
-$(TOP)/e2fsprogs: e2fsprogs/$(E2FSPROGS).tar.bz2
-	@rm -rf $(TOP)/$(E2FSPROGS) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(E2FSPROGS) $(e2fsprogs_Patches)
-	cp e2fsprogs/e2fsck.conf $(TOP)/$(E2FSPROGS)/e2fsck/
-	cp e2fsprogs/mke2fs.conf $(TOP)/$(E2FSPROGS)/misc/
-	mv $(TOP)/$(E2FSPROGS) $@ && touch $@
+$(TOP)/e2fsprogs:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - e2fsprogs | tar -C $(TOP) -xf -
 
 e2fsprogs: $(TOP)/e2fsprogs
 	@true
