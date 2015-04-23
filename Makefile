@@ -503,13 +503,9 @@ $(TOP)/lltd: lltd/$(LLTD).tar.bz2
 lltd: $(TOP)/lltd
 	@true
 
-libpcap_Patches := $(call patches_list,tcpdump/libpcap)
-
-$(TOP)/libpcap: tcpdump/libpcap/$(LIBPCAP).tar.gz
-	rm -rf $(TOP)/$(LIBPCAP) $@
-	tar -zxf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(LIBPCAP) $(libpcap_Patches)
-	mv $(TOP)/$(LIBPCAP) $@ && touch $@
+$(TOP)/libpcap: 
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - libpcap | tar -C $(TOP) -xf -
 
 libpcap: $(TOP)/libpcap
 	@true
