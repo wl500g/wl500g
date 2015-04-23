@@ -26,7 +26,6 @@ BRCM-SRC=brcm-src-2.6
 IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.22.1
-P910ND=p910nd-0.97
 SAMBA=samba-2.0.10
 UCDSNMP=ucd-snmp-3.6.2
 MINIUPNPD=miniupnpd-1.9.20141128
@@ -246,11 +245,9 @@ LPRng: $(TOP)/LPRng
 
 p910nd_Patches := $(call patches_list,p910nd)
 
-$(TOP)/p910nd: p910nd/$(P910ND).tar.bz2
-	@rm -rf $(TOP)/$(P910ND) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(P910ND) $(p910nd_Patches)
-	mv $(TOP)/$(P910ND) $@ && touch $@
+$(TOP)/p910nd:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - p910nd | tar -C $(TOP) -xf -
 
 p910nd: $(TOP)/p910nd
 	@true
