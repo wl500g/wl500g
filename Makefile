@@ -41,10 +41,7 @@ RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
 L2TP=rp-l2tp
 LIBUSB10=libusb-1.0.8
-USBMODESWITCH=usb-modeswitch-2.2.0
 LLTD=LLTD-PortingKit
-TCPDUMP=tcpdump-4.2.1
-LIBPCAP=libpcap-1.2.1
 UDEV=udev-113
 SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
@@ -457,16 +454,9 @@ $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
 	$(PATCHER) -Z $(TOP)/$(LIBUSB10) $(libusb10_Patches)
 	mv $(TOP)/$(LIBUSB10) $@ && touch $@
 
-modeswitch_Patches := $(call patches_list,usb_modeswitch)
-
-$(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
-	rm -rf $(TOP)/$(USBMODESWITCH) $@
-	tar -jxf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(USBMODESWITCH) $(modeswitch_Patches)
-	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
-	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
-	# usb_modeswitch data
-	tar -C usb_modeswitch $(TAR_EXCL_VCS) -cf - data | tar -C $(TOP)/usb_modeswitch -xf -
+$(TOP)/usb_modeswitch:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - usb_modeswitch | tar -C $(TOP) -xf -
 
 usb_modeswitch: $(TOP)/usb_modeswitch
 	@true
