@@ -42,7 +42,6 @@ ODHCP6C=odhcp6c-git-20140814
 L2TP=rp-l2tp
 LIBUSB10=libusb-1.0.8
 LLTD=LLTD-PortingKit
-SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
 INFOSRV=infosrv
 
@@ -500,13 +499,9 @@ $(TOP)/udev:
 udev: $(TOP)/udev
 	@true
 
-sysfsutils_Patches := $(call patches_list,sysfsutils)
-
-$(TOP)/sysfsutils: sysfsutils/$(SYSFSUTILS).tar.bz2
-	@rm -rf $(TOP)/$(SYSFSUTILS) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(SYSFSUTILS) $(sysfsutils_Patches)
-	mv $(TOP)/$(SYSFSUTILS) $@ && touch $@
+$(TOP)/sysfsutils:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - sysfsutils | tar -C $(TOP) -xf -
 
 sysfsutils: $(TOP)/sysfsutils
 	@true
