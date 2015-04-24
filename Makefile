@@ -416,11 +416,9 @@ $(TOP)/bpalogin:
 bpalogin: $(TOP)/bpalogin
 	@true
 
-rcamd_Patches := $(call patches_list,mjpg-streamer)
-
-$(TOP)/mjpg-streamer: mjpg-streamer/mjpg-streamer-r103.tar.bz2
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/mjpg-streamer $(rcamd_Patches)
+$(TOP)/mjpg-streamer:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - mjpg-streamer | tar -C $(TOP) -xf -
 
 mjpg-streamer: $(TOP)/mjpg-streamer
 	@true
@@ -633,5 +631,4 @@ www: $(TOP)/www
 #	    $(call make_diff,-BurpN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-src www \
-	accel-pptp busybox dropbear inadyn httpd others \
-	rc mjpg-streamer libjpeg config igmpproxy iproute2 lib shared utils
+	accel-pptp busybox config
