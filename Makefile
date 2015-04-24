@@ -27,7 +27,6 @@ IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.22.1
 SAMBA=samba-2.0.10
-UCDSNMP=ucd-snmp-3.6.2
 MINIUPNPD=miniupnpd-1.9.20141128
 PPP=ppp-2.4.7
 RP-PPPOE=rp-pppoe-3.11
@@ -206,13 +205,9 @@ $(TOP)/dropbear:
 dropbear: $(TOP)/dropbear
 	@true
 
-ucd-snmp_Patches := $(call patches_list,ucd-snmp)
-
-$(TOP)/ucd-snmp: ucd-snmp/$(UCDSNMP).tar.gz
-	@rm -rf $(TOP)/$(UCDSNMP) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(UCDSNMP) $(ucd-snmp_Patches)
-	mv $(TOP)/$(UCDSNMP) $@
+$(TOP)/ucd-snmp:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - ucd-snmp | tar -C $(TOP) -xf -
 
 ucd-snmp: $(TOP)/ucd-snmp
 	@true

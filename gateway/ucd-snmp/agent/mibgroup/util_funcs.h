@@ -1,0 +1,28 @@
+/*
+ *  util_funcs.h:  utilitiy functions for extensible groups.
+ */
+#ifndef _MIBGROUP_UTIL_FUNCS_H
+#define _MIBGROUP_UTIL_FUNCS_H
+
+#include "struct.h"
+
+void Exit (int);
+int shell_command (struct extensible *);
+int exec_command (struct extensible *);
+int get_exec_output (struct extensible *);
+int get_exec_pipes (char *cmd, int *fdIn, int *fdOut, int *pid);
+WriteMethod clear_cache;
+RETSIGTYPE restart_doit (int);
+WriteMethod restart_hook;
+void print_mib_oid (oid *,int);
+void sprint_mib_oid (char *, oid *,int);
+int header_simple_table (struct variable *, oid *, int *, int, int *, WriteMethod **write_method, int);
+int header_generic (struct variable *,oid *, int *, int, int *, WriteMethod **);
+int checkmib (struct variable *, oid *, int *, int, int *, WriteMethod **write_method, int);
+char *find_field (char *, int);
+int parse_miboid (char *, oid *);
+void string_append_int (char *, int);
+void wait_on_exec (struct extensible *);
+int calculate_time_diff (struct timeval, struct timeval);
+
+#endif /* _MIBGROUP_UTIL_FUNCS_H */
