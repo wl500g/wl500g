@@ -42,7 +42,6 @@ ODHCP6C=odhcp6c-git-20140814
 L2TP=rp-l2tp
 LIBUSB10=libusb-1.0.8
 LLTD=LLTD-PortingKit
-UDEV=udev-113
 SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
 INFOSRV=infosrv
@@ -494,13 +493,9 @@ $(TOP)/tcpdump:
 tcpdump: libpcap $(TOP)/tcpdump
 	@true
 
-udev_Patches := $(call patches_list,udev)
-
-$(TOP)/udev: udev/$(UDEV).tar.bz2
-	@rm -rf $(TOP)/$(UDEV) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(UDEV) $(udev_Patches)
-	mv $(TOP)/$(UDEV) $@ && touch $@
+$(TOP)/udev:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - udev | tar -C $(TOP) -xf -
 
 udev: $(TOP)/udev
 	@true
