@@ -1,0 +1,80 @@
+Installation instructions for iptables
+======================================
+
+iptables uses the well-known configure(autotools) infrastructure.
+
+	$ ./configure
+	$ make
+	# make install
+
+
+Prerequisites
+=============
+
+	* no kernel-source required
+
+	* but obviously a compiler, glibc-devel and linux-kernel-headers
+	  (/usr/include/linux)
+
+
+Configuring and compiling
+=========================
+
+./configure [options]
+
+--prefix=
+
+	The prefix to put all installed files under. It defaults to
+	/usr/local, so the binaries will go into /usr/local/bin, sbin,
+	manpages into /usr/local/share/man, etc.
+
+--with-xtlibdir=
+
+	The path to where Xtables extensions should be installed to. It
+	defaults to ${prefix}/libexec/xtables.
+
+--enable-devel (or --disable-devel)
+
+	This option causes development files to be installed to
+	${includedir}, which is needed for building additional packages,
+	such as Xtables-addons or other 3rd-party extensions.
+
+	It is enabled by default.
+
+--enable-libipq
+
+	This option causes libipq to be installed into ${libdir} and
+	${includedir}.
+
+--enable-static
+
+	Enable building single standalone multipurpose binaries,
+	(iptables-static and ip6tables-static), which contain every
+	extension compiled-in (and does not support additional
+	extensions).
+
+--with-ksource=
+
+	Xtables does not depend on kernel headers anymore, but you can
+	optionally specify a search path to include anyway. This is
+	probably only useful for development.
+
+If you want to enable debugging, use
+
+	./configure CFLAGS="-ggdb3 -O0"
+
+(-O0 is used to turn off instruction reordering, which makes debugging
+much easier.)
+
+
+Other notes
+===========
+
+The make process will automatically build multipurpose binaries.
+These have the core (iptables), -save, -restore and -xml code
+compiled into one binary, but extensions remain as modules.
+
+If you want to build a statically linked version of the iptables binary,
+without the need for loading the plugins at runtime (e.g. for an
+embedded device or router-on-a-disk), you can use the --enable-static
+configure flag.

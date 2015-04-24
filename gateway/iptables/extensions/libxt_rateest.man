@@ -1,0 +1,55 @@
+The rate estimator can match on estimated rates as collected by the RATEEST
+target. It supports matching on absolute bps/pps values, comparing two rate
+estimators and matching on the difference between two rate estimators.
+.TP
+\fB\-\-rateest1\fP \fIname\fP
+Name of the first rate estimator.
+.TP
+\fB\-\-rateest2\fP \fIname\fP
+Name of the second rate estimator (if difference is to be calculated).
+.TP
+\fB\-\-rateest\-delta\fP
+Compare difference(s) to given rate(s)
+.TP
+\fB\-\-rateest1\-bps\fP \fIvalue\fP
+.TP
+\fB\-\-rateest2\-bps\fP \fIvalue\fP
+Compare bytes per second.
+.TP
+\fB\-\-rateest1\-pps\fP \fIvalue\fP
+.TP
+\fB\-\-rateest2\-pps\fP \fIvalue\fP
+Compare packets per second.
+.TP
+[\fB!\fP] \fB\-\-rateest\-lt\fP
+Match if rate is less than given rate/estimator.
+.TP
+[\fB!\fP] \fB\-\-rateest\-gt\fP
+Match if rate is greater than given rate/estimator.
+.TP
+[\fB!\fP] \fB\-\-rateest\-eq\fP
+Match if rate is equal to given rate/estimator.
+.PP
+Example: This is what can be used to route outgoing data connections from an
+FTP server over two lines based on the available bandwidth at the time the data
+connection was started:
+.PP
+# Estimate outgoing rates
+.PP
+iptables \-t mangle \-A POSTROUTING \-o eth0 \-j RATEEST \-\-rateest\-name eth0
+\-\-rateest\-interval 250ms \-\-rateest\-ewma 0.5s
+.PP
+iptables \-t mangle \-A POSTROUTING \-o ppp0 \-j RATEEST \-\-rateest\-name ppp0
+\-\-rateest\-interval 250ms \-\-rateest\-ewma 0.5s
+.PP
+# Mark based on available bandwidth
+.PP
+iptables \-t mangle \-A balance \-m conntrack \-\-ctstate NEW \-m helper \-\-helper ftp
+\-m rateest \-\-rateest\-delta \-\-rateest1 eth0 \-\-rateest\-bps1 2.5mbit \-\-rateest\-gt
+\-\-rateest2 ppp0 \-\-rateest\-bps2 2mbit \-j CONNMARK \-\-set\-mark 1
+.PP
+iptables \-t mangle \-A balance \-m conntrack \-\-ctstate NEW \-m helper \-\-helper ftp
+\-m rateest \-\-rateest\-delta \-\-rateest1 ppp0 \-\-rateest\-bps1 2mbit \-\-rateest\-gt
+\-\-rateest2 eth0 \-\-rateest\-bps2 2.5mbit \-j CONNMARK \-\-set\-mark 2
+.PP
+iptables \-t mangle \-A balance \-j CONNMARK \-\-restore\-mark

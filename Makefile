@@ -23,7 +23,6 @@ export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 KERNEL=kernel-2.6
 BRCM-SRC=brcm-src-2.6
-IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.22.1
 SAMBA=samba-2.0.10
@@ -254,8 +253,12 @@ $(TOP)/samba: samba/$(SAMBA).tar.bz2
 samba: $(TOP)/samba
 	@true
 
-iptables:
-	$(MAKE) -C $(IPTABLES) $@
+$(TOP)/iptables:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - iptables | tar -C $(TOP) -xf -
+
+iptables: $(TOP)/iptables
+	@true
 
 $(TOP)/ipset:
 	[ -d $@ ] || \
@@ -630,5 +633,5 @@ www: $(TOP)/www
 #	    $(call make_diff,-BurpN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-src www \
-	accel-pptp busybox dropbear inadyn httpd iptables others \
+	accel-pptp busybox dropbear inadyn httpd others \
 	rc mjpg-streamer libjpeg config igmpproxy iproute2 lib shared utils

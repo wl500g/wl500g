@@ -1,0 +1,43 @@
+This target allows to alter the MSS value of TCP SYN packets, to control
+the maximum size for that connection (usually limiting it to your
+outgoing interface's MTU minus 40 for IPv4 or 60 for IPv6, respectively).
+Of course, it can only be used
+in conjunction with
+\fB\-p tcp\fP.
+It is only valid in the
+.BR mangle
+table.
+.br
+This target is used to overcome criminally braindead ISPs or servers
+which block "ICMP Fragmentation Needed" or "ICMPv6 Packet Too Big"
+packets.  The symptoms of this
+problem are that everything works fine from your Linux
+firewall/router, but machines behind it can never exchange large
+packets:
+.PD 0
+.RS 0.1i
+.TP 0.3i
+1)
+Web browsers connect, then hang with no data received.
+.TP
+2)
+Small mail works fine, but large emails hang.
+.TP
+3)
+ssh works fine, but scp hangs after initial handshaking.
+.RE
+.PD
+Workaround: activate this option and add a rule to your firewall
+configuration like:
+.nf
+ iptables \-t mangle \-A FORWARD \-p tcp \-\-tcp\-flags SYN,RST SYN \\
+             \-j TCPMSS \-\-clamp\-mss\-to\-pmtu
+.fi
+.TP
+\fB\-\-set\-mss\fP \fIvalue\fP
+Explicitly set MSS option to specified value.
+.TP
+\fB\-\-clamp\-mss\-to\-pmtu\fP
+Automatically clamp MSS value to (path_MTU \- 40 for IPv4; \-60 for IPv6).
+.PP
+These options are mutually exclusive.

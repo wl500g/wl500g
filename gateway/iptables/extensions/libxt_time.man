@@ -1,0 +1,69 @@
+This matches if the packet arrival time/date is within a given range. All
+options are optional, but are ANDed when specified.
+.TP
+\fB\-\-datestart\fP \fIYYYY\fP[\fB\-\fP\fIMM\fP[\fB\-\fP\fIDD\fP[\fBT\fP\fIhh\fP[\fB:\fP\fImm\fP[\fB:\fP\fIss\fP]]]]]
+.TP
+\fB\-\-datestop\fP \fIYYYY\fP[\fB\-\fP\fIMM\fP[\fB\-\fP\fIDD\fP[\fBT\fP\fIhh\fP[\fB:\fP\fImm\fP[\fB:\fP\fIss\fP]]]]]
+.IP
+Only match during the given time, which must be in ISO 8601 "T" notation.
+The possible time range is 1970-01-01T00:00:00 to 2038-01-19T04:17:07.
+.IP
+If \-\-datestart or \-\-datestop are not specified, it will default to 1970-01-01
+and 2038-01-19, respectively.
+.TP
+\fB\-\-timestart\fP \fIhh\fP\fB:\fP\fImm\fP[\fB:\fP\fIss\fP]
+.TP
+\fB\-\-timestop\fP \fIhh\fP\fB:\fP\fImm\fP[\fB:\fP\fIss\fP]
+.IP
+Only match during the given daytime. The possible time range is 00:00:00 to
+23:59:59. Leading zeroes are allowed (e.g. "06:03") and correctly interpreted
+as base-10.
+.TP
+[\fB!\fR] \fB\-\-monthdays\fP \fIday\fP[\fB,\fP\fIday\fP...]
+.IP
+Only match on the given days of the month. Possible values are \fB1\fR
+to \fB31\fR. Note that specifying \fB31\fR will of course not match
+on months which do not have a 31st day; the same goes for 28- or 29-day
+February.
+.TP
+[\fB!\fR] \fB\-\-weekdays\fP \fIday\fP[\fB,\fP\fIday\fP...]
+.IP
+Only match on the given weekdays. Possible values are \fBMon\fR, \fBTue\fR,
+\fBWed\fR, \fBThu\fR, \fBFri\fR, \fBSat\fR, \fBSun\fR, or values from \fB1\fR
+to \fB7\fR, respectively. You may also use two-character variants (\fBMo\fP,
+\fBTu\fR, etc.).
+.TP
+\fB\-\-utc\fP
+.IP
+Interpret the times given for \fB\-\-datestart\fP, \fB\-\-datestop\fP,
+\fB\-\-timestart\fP and \fB\-\-timestop\fP to be UTC.
+.TP
+\fB\-\-localtz\fP
+.IP
+Interpret the times given for \fB\-\-datestart\fP, \fB\-\-datestop\fP,
+\fB\-\-timestart\fP and \fB\-\-timestop\fP to be local kernel time. (Default)
+.PP
+EXAMPLES. To match on weekends, use:
+.IP
+\-m time \-\-weekdays Sa,Su
+.PP
+Or, to match (once) on a national holiday block:
+.IP
+\-m time \-\-datestart 2007\-12\-24 \-\-datestop 2007\-12\-27
+.PP
+Since the stop time is actually inclusive, you would need the following stop
+time to not match the first second of the new day:
+.IP
+\-m time \-\-datestart 2007\-01\-01T17:00 \-\-datestop 2007\-01\-01T23:59:59
+.PP
+During lunch hour:
+.IP
+\-m time \-\-timestart 12:30 \-\-timestop 13:30
+.PP
+The fourth Friday in the month:
+.IP
+\-m time \-\-weekdays Fr \-\-monthdays 22,23,24,25,26,27,28
+.PP
+(Note that this exploits a certain mathematical property. It is not possible to
+say "fourth Thursday OR fourth Friday" in one rule. It is possible with
+multiple rules, though.)

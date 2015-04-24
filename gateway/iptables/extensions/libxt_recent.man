@@ -1,0 +1,99 @@
+Allows you to dynamically create a list of IP addresses and then match against
+that list in a few different ways.
+.PP
+For example, you can create a "badguy" list out of people attempting to connect
+to port 139 on your firewall and then DROP all future packets from them without
+considering them.
+.TP
+\fB\-\-name\fP \fIname\fP
+Specify the list to use for the commands. If no name is given then
+\fBDEFAULT\fR will be used.
+.TP
+[\fB!\fR] \fB\-\-set\fP
+This will add the source address of the packet to the list. If the source
+address is already in the list, this will update the existing entry. This will
+always return success (or failure if \fB!\fR is passed in).
+.TP
+\fB\-\-rsource\fP
+Match/save the source address of each packet in the recent list table. This
+is the default.
+.TP
+\fB\-\-rdest\fP
+Match/save the destination address of each packet in the recent list table.
+.TP
+[\fB!\fR] \fB\-\-rcheck\fP
+Check if the source address of the packet is currently in the list.
+.TP
+[\fB!\fR] \fB\-\-update\fP
+Like \fB\-\-rcheck\fP, except it will update the "last seen" timestamp if it
+matches.
+.TP
+[\fB!\fR] \fB\-\-remove\fP
+Check if the source address of the packet is currently in the list and if so
+that address will be removed from the list and the rule will return true. If
+the address is not found, false is returned.
+.TP
+[\fB!\fR] \fB\-\-seconds \fIseconds\fP
+This option must be used in conjunction with one of \fB\-\-rcheck\fP or
+\fB\-\-update\fP. When used, this will narrow the match to only happen when the
+address is in the list and was seen within the last given number of seconds.
+.TP
+[\fB!\fR] \fB\-\-hitcount \fIhits\fP
+This option must be used in conjunction with one of \fB\-\-rcheck\fP or
+\fB\-\-update\fP. When used, this will narrow the match to only happen when the
+address is in the list and packets had been received greater than or equal to
+the given value. This option may be used along with \fB\-\-seconds\fP to create
+an even narrower match requiring a certain number of hits within a specific
+time frame.
+.TP
+\fB\-\-rttl\fP
+This option may only be used in conjunction with one of \fB\-\-rcheck\fP or
+\fB\-\-update\fP. When used, this will narrow the match to only happen when the
+address is in the list and the TTL of the current packet matches that of the
+packet which hit the \fB\-\-set\fP rule. This may be useful if you have problems
+with people faking their source address in order to DoS you via this module by
+disallowing others access to your site by sending bogus packets to you.
+.PP
+Examples:
+.IP
+iptables \-A FORWARD \-m recent \-\-name badguy \-\-rcheck \-\-seconds 60 \-j DROP
+.IP
+iptables \-A FORWARD \-p tcp \-i eth0 \-\-dport 139 \-m recent \-\-name badguy \-\-set \-j DROP
+.PP
+Steve's ipt_recent website (http://snowman.net/projects/ipt_recent/) also has
+some examples of usage.
+.PP
+\fB/proc/net/xt_recent/*\fR are the current lists of addresses and information
+about each entry of each list.
+.PP
+Each file in \fB/proc/net/xt_recent/\fR can be read from to see the current
+list or written two using the following commands to modify the list:
+.TP
+\fBecho +\fR\fIaddr\fR\fB >/proc/net/xt_recent/DEFAULT\fR
+to add \fIaddr\fR to the DEFAULT list
+.TP
+\fBecho \-\fP\fIaddr\fP\fB >/proc/net/xt_recent/DEFAULT\fP
+to remove \fIaddr\fR from the DEFAULT list
+.TP
+\fBecho / >/proc/net/xt_recent/DEFAULT\fR
+to flush the DEFAULT list (remove all entries).
+.PP
+The module itself accepts parameters, defaults shown:
+.TP
+\fBip_list_tot\fR=\fI100\fR
+Number of addresses remembered per table.
+.TP
+\fBip_pkt_list_tot\fR=\fI20\fR
+Number of packets per address remembered.
+.TP
+\fBip_list_hash_size\fR=\fI0\fR
+Hash table size. 0 means to calculate it based on ip_list_tot, default: 512.
+.TP
+\fBip_list_perms\fR=\fI0644\fR
+Permissions for /proc/net/xt_recent/* files.
+.TP
+\fBip_list_uid\fR=\fI0\fR
+Numerical UID for ownership of /proc/net/xt_recent/* files.
+.TP
+\fBip_list_gid\fR=\fI0\fR
+Numerical GID for ownership of /proc/net/xt_recent/* files.
