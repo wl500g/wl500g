@@ -58,10 +58,11 @@ extern int __BUILD_BUG_ON_CONDITION_FAILED;
 
 #ifdef __APPLE__
 
-#define CLOCK_REALTIME	0
-#define CLOCK_MONOTONIC	1
+#include <mach/clock_types.h>
+#define CLOCK_REALTIME	CALENDAR_CLOCK
+#define CLOCK_MONOTONIC	SYSTEM_CLOCK
 
-void clock_gettime(int type, struct timespec *tv);
+int clock_gettime(int type, struct timespec *tv);
 
 #endif
 
@@ -157,6 +158,10 @@ static inline uint16_t __u_bswap16(uint16_t val)
 
 #ifndef __constructor
 #define __constructor __attribute__((constructor))
+#endif
+
+#ifndef __destructor
+#define __destructor __attribute__((destructor))
 #endif
 
 #ifndef __hidden

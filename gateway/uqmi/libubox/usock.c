@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netdb.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -39,13 +40,15 @@ static void usock_set_flags(int sock, unsigned int type)
 		fcntl(sock, F_SETFL, fcntl(sock, F_GETFL) | O_NONBLOCK);
 }
 
-static int usock_connect(struct sockaddr *sa, int sa_len, int family, int socktype, bool server)
+static int usock_connect(int type, struct sockaddr *sa, int sa_len, int family, int socktype, bool server)
 {
 	int sock;
 
 	sock = socket(family, socktype, 0);
 	if (sock < 0)
 		return -1;
+
+	usock_set_flags(sock, type);
 
 	if (server) {
 		const int one = 1;
@@ -63,7 +66,7 @@ static int usock_connect(struct sockaddr *sa, int sa_len, int family, int sockty
 	return -1;
 }
 
-static int usock_unix(const char *host, int socktype, bool server)
+static int usock_unix(int type, const char *host, int socktype, bool server)
 {
 	struct sockaddr_un sun = {.sun_family = AF_UNIX};
 
@@ -73,7 +76,7 @@ static int usock_unix(const char *host, int socktype, bool server)
 	}
 	strcpy(sun.sun_path, host);
 
-	return usock_connect((struct sockaddr*)&sun, sizeof(sun), AF_UNIX, socktype, server);
+	return usock_connect(type, (struct sockaddr*)&sun, sizeof(sun), AF_UNIX, socktype, server);
 }
 
 static int usock_inet(int type, const char *host, const char *service, int socktype, bool server)
@@ -93,7 +96,7 @@ static int usock_inet(int type, const char *host, const char *service, int sockt
 		return -1;
 
 	for (rp = result; rp != NULL; rp = rp->ai_next) {
-		sock = usock_connect(rp->ai_addr, rp->ai_addrlen, rp->ai_family, socktype, server);
+		sock = usock_connect(type, rp->ai_addr, rp->ai_addrlen, rp->ai_family, socktype, server);
 		if (sock >= 0)
 			break;
 	}
@@ -120,13 +123,38 @@ int usock(int type, const char *host, const char *service) {
 	int sock;
 
 	if (type & USOCK_UNIX)
-		sock = usock_unix(host, socktype, server);
+		sock = usock_unix(type, host, socktype, server);
 	else
 		sock = usock_inet(type, host, service, socktype, server);
 
 	if (sock < 0)
 		return -1;
 
-	usock_set_flags(sock, type);
 	return sock;
+}
+
+int usock_wait_ready(int fd, int msecs) {
+	struct pollfd fds[1];
+	int res;
+
+	fds[0].fd = fd;
+	fds[0].events = POLLOUT;
+
+	res = poll(fds, 1, msecs);
+	if (res < 0) {
+		return errno;
+	} else if (res == 0) {
+		return -ETIMEDOUT;
+	} else {
+		int err = 0;
+		socklen_t optlen = sizeof(err);
+
+		res = getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &optlen);
+		if (res)
+			return errno;
+		if (err)
+			return err;
+	}
+
+	return 0;
 }

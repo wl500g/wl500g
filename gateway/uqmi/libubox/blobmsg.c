@@ -262,7 +262,6 @@ blobmsg_alloc_string_buffer(struct blob_buf *buf, const char *name, unsigned int
 	if (!attr)
 		return NULL;
 
-	data_dest = blobmsg_data(attr);
 	blob_set_raw_len(buf->head, blob_pad_len(buf->head) - blob_pad_len(attr));
 	blob_set_raw_len(attr, blob_raw_len(attr) - maxlen);
 

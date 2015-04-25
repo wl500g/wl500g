@@ -333,6 +333,26 @@ char *ustream_get_read_buf(struct ustream *s, int *buflen)
 	return data;
 }
 
+int ustream_read(struct ustream *s, char *buf, int buflen)
+{
+	char *chunk;
+	int chunk_len;
+	int len = 0;
+
+	do {
+		chunk = ustream_get_read_buf(s, &chunk_len);
+		if (!chunk)
+			break;
+		if (chunk_len > buflen - len)
+			chunk_len = buflen - len;
+		memcpy(buf + len, chunk, chunk_len);
+		ustream_consume(s, chunk_len);
+		len += chunk_len;
+	} while (len < buflen);
+
+	return len;
+}
+
 static void ustream_write_error(struct ustream *s)
 {
 	if (!s->write_error)

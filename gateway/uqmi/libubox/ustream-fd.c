@@ -119,7 +119,7 @@ static bool __ustream_fd_poll(struct ustream_fd *sf, unsigned int events)
 		ustream_fd_read_pending(sf, &more);
 
 	if (events & ULOOP_WRITE) {
-		if (!ustream_write_pending(s))
+		if (ustream_write_pending(s))
 			ustream_fd_set_uloop(s, false);
 	}
 

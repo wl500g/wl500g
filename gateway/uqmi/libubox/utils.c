@@ -54,41 +54,50 @@ void *__calloc_a(size_t len, ...)
 }
 
 #ifdef __APPLE__
-#include <mach/mach_time.h>
+#include <mach/mach_host.h>		/* host_get_clock_service() */
+#include <mach/mach_port.h>		/* mach_port_deallocate() */
+#include <mach/mach_init.h>		/* mach_host_self(), mach_task_self() */
+#include <mach/clock.h>			/* clock_get_time() */
 
-static void clock_gettime_realtime(struct timespec *tv)
+static clock_serv_t clock_realtime;
+static clock_serv_t clock_monotonic;
+
+static void __constructor clock_name_init(void)
 {
-	struct timeval _tv;
+	mach_port_t host_self = mach_host_self();
 
-	gettimeofday(&_tv, NULL);
-	tv->tv_sec = _tv.tv_sec;
-	tv->tv_nsec = _tv.tv_usec * 1000;
+	host_get_clock_service(host_self, CLOCK_REALTIME, &clock_realtime);
+	host_get_clock_service(host_self, CLOCK_MONOTONIC, &clock_monotonic);
 }
 
-static void clock_gettime_monotonic(struct timespec *tv)
+static void __destructor clock_name_dealloc(void)
 {
-	mach_timebase_info_data_t info;
-	float sec;
-	uint64_t val;
+	mach_port_t self = mach_task_self();
 
-	mach_timebase_info(&info);
-
-	val = mach_absolute_time();
-	tv->tv_nsec = (val * info.numer / info.denom) % 1000000000;
-
-	sec = val;
-	sec *= info.numer;
-	sec /= info.denom;
-	sec /= 1000000000;
-	tv->tv_sec = sec;
+	mach_port_deallocate(self, clock_realtime);
+	mach_port_deallocate(self, clock_monotonic);
 }
 
-void clock_gettime(int type, struct timespec *tv)
+int clock_gettime(int type, struct timespec *tv)
 {
-	if (type == CLOCK_REALTIME)
-		return clock_gettime_realtime(tv);
-	else
-		return clock_gettime_monotonic(tv);
+	int retval = -1;
+	mach_timespec_t mts;
+
+	switch (type) {
+		case CLOCK_REALTIME:
+			retval = clock_get_time(clock_realtime, &mts);
+			break;
+		case CLOCK_MONOTONIC:
+			retval = clock_get_time(clock_monotonic, &mts);
+			break;
+		default:
+			goto out;
+	}
+
+	tv->tv_sec = mts.tv_sec;
+	tv->tv_nsec = mts.tv_nsec;
+out:
+	return retval;
 }
 
 #endif

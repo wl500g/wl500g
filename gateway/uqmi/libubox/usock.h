@@ -33,4 +33,15 @@
 const char *usock_port(int port);
 int usock(int type, const char *host, const char *service);
 
+/**
+ * Wait for a socket to become ready.
+ *
+ * This may be useful for users of USOCK_NONBLOCK to wait (with a timeout)
+ * for a socket.
+ *
+ * @param fd file descriptor of socket
+ * @param msecs timeout in microseconds
+ */
+int usock_wait_ready(int fd, int msecs);
+
 #endif /* USOCK_H_ */

@@ -16,11 +16,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <libubox/uloop.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 
+#include "uloop.h"
 #include "runqueue.h"
 
 static struct runqueue q;

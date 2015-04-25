@@ -333,12 +333,16 @@ static int handle_expr_or(struct json_call *call, struct blob_attr *expr)
 static int handle_expr_not(struct json_call *call, struct blob_attr *expr)
 {
 	struct blob_attr *tb[3];
+	int ret;
 
 	json_get_tuple(expr, tb, BLOBMSG_TYPE_ARRAY, 0);
 	if (!tb[1])
 		return -1;
 
-	return json_process_expr(call, tb[1]);
+	ret = json_process_expr(call, tb[1]);
+	if (ret < 0)
+		return ret;
+	return !ret;
 }
 
 static const struct json_handler expr[] = {
@@ -416,7 +420,7 @@ static int eval_string(struct json_call *call, struct blob_buf *buf, const char 
 		}
 
 		if (cur_var) {
-			if (next > str) {
+			if (end > str) {
 				cur = msg_find_var(call, str);
 				if (!cur)
 					continue;
@@ -434,7 +438,7 @@ static int eval_string(struct json_call *call, struct blob_buf *buf, const char 
 			cur_len = end - str;
 		}
 
-		dest = blobmsg_realloc_string_buffer(buf, cur_len + 1);
+		dest = blobmsg_realloc_string_buffer(buf, len + cur_len + 1);
 		memcpy(dest + len, cur, cur_len);
 		len += cur_len;
 	}
@@ -592,8 +596,7 @@ static void __json_script_file_free(struct json_script_file *f)
 	next = f->next;
 	free(f);
 
-	if (next)
-		return __json_script_file_free(next);
+	__json_script_file_free(next);
 }
 
 void

@@ -258,18 +258,31 @@ static int jshn_format(bool no_newline, bool indent)
 {
 	json_object *obj;
 	const char *output;
+	char *blobmsg_output = NULL;
+	int ret = -1;
 
-	obj = json_object_new_object();
+	if (!(obj = json_object_new_object()))
+		return -1;
+
 	jshn_add_objects(obj, "J_V", false);
-	output = json_object_to_json_string(obj);
+	if (!(output = json_object_to_json_string(obj)))
+		goto out;
+
 	if (indent) {
 		blob_buf_init(&b, 0);
-		blobmsg_add_json_from_string(&b, output);
-		output = blobmsg_format_json_indent(b.head, 1, 0);
+		if (!blobmsg_add_json_from_string(&b, output))
+			goto out;
+		if (!(blobmsg_output = blobmsg_format_json_indent(b.head, 1, 0)))
+			goto out;
+		output = blobmsg_output;
 	}
 	fprintf(stdout, "%s%s", output, no_newline ? "" : "\n");
+	free(blobmsg_output);
+	ret = 0;
+
+out:
 	json_object_put(obj);
-	return 0;
+	return ret;
 }
 
 static int usage(const char *progname)

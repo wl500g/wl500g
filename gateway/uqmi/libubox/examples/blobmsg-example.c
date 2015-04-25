@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "blobmsg.h"
 #include "blobmsg_json.h"
