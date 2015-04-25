@@ -34,13 +34,11 @@ ACCEL-PPP=accel-ppp-git-20140916
 LZMA=lzma922
 LZMA4XX=lzma457
 SQUASHFS=squashfs4.2
-NFSUTILS=nfs-utils-1.1.6
 RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
 L2TP=rp-l2tp
 LIBUSB10=libusb-1.0.8
 LLTD=LLTD-PortingKit
-INFOSRV=infosrv
 
 UCLIBC=uClibc-0.9.32
 
