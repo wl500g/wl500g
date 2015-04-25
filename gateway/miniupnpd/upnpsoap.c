@@ -1,7 +1,7 @@
-/* $Id: upnpsoap.c,v 1.130 2014/11/28 13:18:57 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.136 2015/03/07 15:52:30 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2014 Thomas Bernard
+ * (c) 2006-2015 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -45,17 +45,21 @@ BuildSendAndCloseSoapResp(struct upnphttp * h,
 		"</s:Body>"
 		"</s:Envelope>\r\n";
 
-	BuildHeader_upnphttp(h, 200, "OK",  sizeof(beforebody) - 1
-		+ sizeof(afterbody) - 1 + bodylen );
+	int r = BuildHeader_upnphttp(h, 200, "OK",  sizeof(beforebody) - 1
+	                             + sizeof(afterbody) - 1 + bodylen );
 
-	memcpy(h->res_buf + h->res_buflen, beforebody, sizeof(beforebody) - 1);
-	h->res_buflen += sizeof(beforebody) - 1;
+	if(r >= 0) {
+		memcpy(h->res_buf + h->res_buflen, beforebody, sizeof(beforebody) - 1);
+		h->res_buflen += sizeof(beforebody) - 1;
 
-	memcpy(h->res_buf + h->res_buflen, body, bodylen);
-	h->res_buflen += bodylen;
+		memcpy(h->res_buf + h->res_buflen, body, bodylen);
+		h->res_buflen += bodylen;
 
-	memcpy(h->res_buf + h->res_buflen, afterbody, sizeof(afterbody) - 1);
-	h->res_buflen += sizeof(afterbody) - 1;
+		memcpy(h->res_buf + h->res_buflen, afterbody, sizeof(afterbody) - 1);
+		h->res_buflen += sizeof(afterbody) - 1;
+	} else {
+		BuildResp2_upnphttp(h, 500, "Internal Server Error", NULL, 0);
+	}
 
 	SendRespAndClose_upnphttp(h);
 }
@@ -677,19 +681,24 @@ DeletePortMapping(struct upnphttp * h, const char * action)
 		"</u:DeletePortMappingResponse>";
 
 	struct NameValueParserData data;
-	const char * r_host, * ext_port, * protocol;
+	const char * ext_port, * protocol;
 	unsigned short eport;
+#ifdef UPNP_STRICT
+	const char * r_host;
+#endif /* UPNP_STRICT */
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
-	r_host = GetValueFromNameValueList(&data, "NewRemoteHost");
 	ext_port = GetValueFromNameValueList(&data, "NewExternalPort");
 	protocol = GetValueFromNameValueList(&data, "NewProtocol");
+#ifdef UPNP_STRICT
+	r_host = GetValueFromNameValueList(&data, "NewRemoteHost");
+#endif /* UPNP_STRICT */
 
 #ifdef UPNP_STRICT
 	if(!ext_port || !protocol || !r_host)
 #else
 	if(!ext_port || !protocol)
-#endif
+#endif /* UPNP_STRICT */
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
@@ -703,8 +712,8 @@ DeletePortMapping(struct upnphttp * h, const char * action)
 		SoapError(h, 726, "RemoteHostOnlySupportsWildcard");
 		return;
 	}
-#endif
-#endif
+#endif /* UPNP_STRICT */
+#endif /* SUPPORT_REMOTEHOST */
 
 	eport = (unsigned short)atoi(ext_port);
 
@@ -1031,6 +1040,7 @@ http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
 			body = realloc(body, bodyalloc);
 			if(!body)
 			{
+				syslog(LOG_CRIT, "realloc(%p, %u) FAILED", body_sav, (unsigned)bodyalloc);
 				ClearNameValueList(&data);
 				SoapError(h, 501, "ActionFailed");
 				free(body_sav);
@@ -1055,6 +1065,20 @@ http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
 	free(port_list);
 	port_list = NULL;
 
+	if((bodylen + sizeof(list_end) + 1024) > bodyalloc)
+	{
+		char * body_sav = body;
+		bodyalloc += (sizeof(list_end) + 1024);
+		body = realloc(body, bodyalloc);
+		if(!body)
+		{
+			syslog(LOG_CRIT, "realloc(%p, %u) FAILED", body_sav, (unsigned)bodyalloc);
+			ClearNameValueList(&data);
+			SoapError(h, 501, "ActionFailed");
+			free(body_sav);
+			return;
+		}
+	}
 	memcpy(body+bodylen, list_end, sizeof(list_end));
 	bodylen += (sizeof(list_end) - 1);
 	bodylen += snprintf(body+bodylen, bodyalloc-bodylen, resp_end,
@@ -1126,19 +1150,21 @@ GetDefaultConnectionService(struct upnphttp * h, const char * action)
 static void
 SetConnectionType(struct upnphttp * h, const char * action)
 {
+#ifdef UPNP_STRICT
 	const char * connection_type;
+#endif /* UPNP_STRICT */
 	struct NameValueParserData data;
 	UNUSED(action);
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
-	connection_type = GetValueFromNameValueList(&data, "NewConnectionType");
 #ifdef UPNP_STRICT
+	connection_type = GetValueFromNameValueList(&data, "NewConnectionType");
 	if(!connection_type) {
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
 		return;
 	}
-#endif
+#endif /* UPNP_STRICT */
 	/* Unconfigured, IP_Routed, IP_Bridged */
 	ClearNameValueList(&data);
 	/* always return a ReadOnly error */
@@ -1458,7 +1484,7 @@ AddPinhole(struct upnphttp * h, const char * action)
 	}
 	/* I guess it is useless to convert int_ip to literal ipv6 address */
 	/* rem_host should be converted to literal ipv6 : */
-	if(rem_host)
+	if(rem_host && (rem_host[0] != '\0'))
 	{
 		struct addrinfo *ai, *p;
 		struct addrinfo hints;
@@ -2059,7 +2085,7 @@ ExecuteSoapAction(struct upnphttp * h, const char * action, int n)
 			len = strlen(soapMethods[i].methodName);
 			if((len == methodlen) && memcmp(p, soapMethods[i].methodName, len) == 0) {
 #ifdef DEBUG
-				syslog(LOG_DEBUG, "Remote Call of SoapMethod '%s'\n",
+				syslog(LOG_DEBUG, "Remote Call of SoapMethod '%s'",
 				       soapMethods[i].methodName);
 #endif /* DEBUG */
 				soapMethods[i].methodImpl(h, soapMethods[i].methodName);
