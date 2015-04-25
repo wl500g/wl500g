@@ -40,7 +40,6 @@ ODHCP6C=odhcp6c-git-20140814
 L2TP=rp-l2tp
 LIBUSB10=libusb-1.0.8
 LLTD=LLTD-PortingKit
-WPA_SUPPLICANT=wpa_supplicant-0.6.10
 INFOSRV=infosrv
 
 UCLIBC=uClibc-0.9.32
@@ -536,14 +535,9 @@ $(TOP)/miniupnpd: miniupnpd/$(MINIUPNPD).tar.gz
 miniupnpd: $(TOP)/miniupnpd
 	@true
 
-wpa_supplicant_Patches := $(call patches_list,wpa_supplicant)
-
-$(TOP)/wpa_supplicant: wpa_supplicant/$(WPA_SUPPLICANT).tar.gz
-	rm -rf $(TOP)/$(WPA_SUPPLICANT) $@
-	tar -zxf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(WPA_SUPPLICANT) $(wpa_supplicant_Patches)
-	cp -p wpa_supplicant/wpa_supplicant.config $(TOP)/$(WPA_SUPPLICANT)/wpa_supplicant/.config
-	mv $(TOP)/$(WPA_SUPPLICANT) $@ && touch $@
+$(TOP)/wpa_supplicant:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - wpa_supplicant | tar -C $(TOP) -xf -
 
 wpa_supplicant: $(TOP)/wpa_supplicant
 	@true
