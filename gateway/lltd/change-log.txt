@@ -1,0 +1,16 @@
+Microsoft Windows Rally Development Kit -- LLTD Implementers Guide
+October 29, 2006
+
+RC1 Changes
+---
+* Rewrote QoS functionality to conform to official Windows Rally LLTD spec.
+* Normalized Quick Discovery session timeout values to be in line with what veritool expects.
+* Replaced device icons with more appropriate ones.
+* Fixed zero-generation Discover handling.
+* Fixed handling of malformed LLTD packet with invalid ToS.
+* `offset_index' now correctly incremented for TLV 0x16 (AP Association Table).
+* Added default support for management web page.  Consult get_net_flags() for more information.
+* Fixed incorrect size field returned in write_comptbl_t().  Mapping over wireless link should now work properly.
+* Included 'Component Table FAQ'.  Guidance: implement CT and map *with multiple responders present* to ensure your device provides correct component collapsing information.
+
+(c) 2006 Microsoft Corporation. All rights reserved.

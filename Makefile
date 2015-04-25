@@ -38,7 +38,6 @@ RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
 L2TP=rp-l2tp
 LIBUSB10=libusb-1.0.8
-LLTD=LLTD-PortingKit
 
 UCLIBC=uClibc-0.9.32
 
@@ -459,14 +458,9 @@ $(TOP)/madwimax:
 wimax: $(TOP)/madwimax
 	@true
 
-lltd_Patches := $(call patches_list,lltd)
-
-$(TOP)/lltd: lltd/$(LLTD).tar.bz2
-	rm -rf $(TOP)/$(LLTD) $@
-	tar -jxf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(LLTD) $(lltd_Patches)
-	tar -jxf lltd/icons.tar.bz2 -C $(TOP)/$(LLTD)
-	mv $(TOP)/$(LLTD) $@ && touch $@
+$(TOP)/lltd:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - lltd | tar -C $(TOP) -xf -
 
 lltd: $(TOP)/lltd
 	@true

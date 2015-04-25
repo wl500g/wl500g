@@ -1,0 +1,9 @@
+Known Issues - LLTD Implementers Guide and Microsoft Windows Rally Development Kit
+October 30, 2006
+Microsoft Corporation
+
+Issues:
+1. Veritool protocol verification tests 8.6 and 8.13 currently fail when run against LLTD-PK-RCzero. These failures have no known impact on LLTD functionality (topology mapping or bandwidth estimation). [Fix ETA: RC1]
+2. ARPs are not being processed by the Windows Vista mapping engine, nor in the LLTD-PK-RCzero responder implementation.  These will appear in the responder sees-list in a future version (version TBD).  
+
+(c) 2006 Microsoft Corporation. All rights reserved.
