@@ -26,7 +26,6 @@ BRCM-SRC=brcm-src-2.6
 
 BUSYBOX=busybox-1.22.1
 SAMBA=samba-2.0.10
-MINIUPNPD=miniupnpd-1.9.20141128
 PPP=ppp-2.4.7
 RP-PPPOE=rp-pppoe-3.11
 ACCEL-PPTP=accel-pptp-git-20100829
@@ -36,10 +35,7 @@ LZMA4XX=lzma457
 SQUASHFS=squashfs4.2
 RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
-L2TP=rp-l2tp
 LIBUSB10=libusb-1.0.8
-
-UCLIBC=uClibc-0.9.32
 
 # tar has --exclude parameter ?
 export TAR_EXCL_VCS := $(shell tar --exclude-vcs -cf - Makefile >/dev/null 2>&1 && echo "--exclude-vcs")
@@ -339,7 +335,7 @@ ppp: $(TOP)/ppp
 	@true
 
 $(TOP)/rp-l2tp:
-	tar -C gateway $(TAR_EXCL_VCS) -cf - $(L2TP) | tar -C $(TOP) -xf -
+	tar -C gateway $(TAR_EXCL_VCS) -cf - rp-l2tp | tar -C $(TOP) -xf -
 
 rp-l2tp: $(TOP)/rp-l2tp
 	@true
@@ -516,13 +512,9 @@ libbcmcrypto:
 wlconf:
 	$(MAKE) -C $(BRCM-SRC) $@
 
-miniupnpd_Patches := $(call patches_list,miniupnpd)
-
-$(TOP)/miniupnpd: miniupnpd/$(MINIUPNPD).tar.gz
-	rm -rf $(TOP)/$(MINIUPNPD) $@
-	tar -zxf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(MINIUPNPD) $(miniupnpd_Patches)
-	mv $(TOP)/$(MINIUPNPD) $@ && touch $@
+$(TOP)/miniupnpd:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - miniupnpd | tar -C $(TOP) -xf -
 
 miniupnpd: $(TOP)/miniupnpd
 	@true
