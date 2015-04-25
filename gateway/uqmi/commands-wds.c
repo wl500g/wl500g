@@ -31,7 +31,7 @@ cmd_wds_set_auth_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qm
 		return QMI_CMD_DONE;
 	}
 
-	blobmsg_add_string(&status, "error", "Invalid auth mode (valid: pap, chap, both, none)");
+	uqmi_add_error("Invalid auth mode (valid: pap, chap, both, none)");
 	return QMI_CMD_EXIT;
 }
 
@@ -138,7 +138,7 @@ cmd_wds_set_autoconnect_setting_prepare(struct qmi_dev *qmi, struct qmi_request 
 		return QMI_CMD_DONE;
 	}
 
-	blobmsg_add_string(&status, "error", "Invalid value (valid: disabled, enabled, paused)");
+	uqmi_add_error("Invalid value (valid: disabled, enabled, paused)");
 	return QMI_CMD_EXIT;
 }
 

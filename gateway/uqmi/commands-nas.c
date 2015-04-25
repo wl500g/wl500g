@@ -1,6 +1,10 @@
 #include "qmi-message.h"
 
 static struct qmi_nas_set_system_selection_preference_request sel_req;
+static struct	{
+	bool mcc_is_set;
+	bool mnc_is_set;
+} plmn_code_flag;
 
 #define cmd_nas_do_set_system_selection_cb no_cb
 static enum qmi_cmd_result
@@ -56,7 +60,7 @@ cmd_nas_set_network_modes_prepare(struct qmi_dev *qmi, struct qmi_request *req, 
 		}
 
 		if (!found) {
-			blobmsg_add_string(&status, "error", "Invalid network mode");
+			uqmi_add_error("Invalid network mode");
 			return QMI_CMD_EXIT;
 		}
 	}
@@ -92,12 +96,66 @@ cmd_nas_set_roaming_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct
 		pref = QMI_NAS_ROAMING_PREFERENCE_NOT_OFF;
 	else if (!strcmp(arg, "off"))
 		pref = QMI_NAS_ROAMING_PREFERENCE_OFF;
-	else {
-		blobmsg_add_string(&status, "error", "Invalid argument");
+	else
+		return uqmi_add_error("Invalid argument");
+
+	qmi_set(&sel_req, roaming_preference, pref);
+	return do_sel_network();
+}
+
+#define cmd_nas_set_mcc_cb no_cb
+static enum qmi_cmd_result
+cmd_nas_set_mcc_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	char *err;
+	int value = strtoul(arg, &err, 10);
+	if (err && *err) {
+		uqmi_add_error("Invalid MCC value");
 		return QMI_CMD_EXIT;
 	}
 
-	qmi_set(&sel_req, roaming_preference, pref);
+	sel_req.data.network_selection_preference.mcc = value;
+	plmn_code_flag.mcc_is_set = true;
+	return QMI_CMD_DONE;
+}
+
+#define cmd_nas_set_mnc_cb no_cb
+static enum qmi_cmd_result
+cmd_nas_set_mnc_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	char *err;
+	int value = strtoul(arg, &err, 10);
+	if (err && *err) {
+		uqmi_add_error("Invalid MNC value");
+		return QMI_CMD_EXIT;
+	}
+
+	sel_req.data.network_selection_preference.mnc = value;
+	plmn_code_flag.mnc_is_set = true;
+	return QMI_CMD_DONE;
+}
+
+#define cmd_nas_set_plmn_cb no_cb
+static enum qmi_cmd_result
+cmd_nas_set_plmn_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	sel_req.set.network_selection_preference = 1;
+	sel_req.data.network_selection_preference.mode = QMI_NAS_NETWORK_SELECTION_PREFERENCE_AUTOMATIC;
+
+	if (!plmn_code_flag.mcc_is_set && plmn_code_flag.mnc_is_set) {
+		uqmi_add_error("No MCC value");
+		return QMI_CMD_EXIT;
+	}
+
+	if (plmn_code_flag.mcc_is_set && sel_req.data.network_selection_preference.mcc) {
+		if (!plmn_code_flag.mnc_is_set) {
+			uqmi_add_error("No MNC value");
+			return QMI_CMD_EXIT;
+		} else {
+			sel_req.data.network_selection_preference.mode = QMI_NAS_NETWORK_SELECTION_PREFERENCE_MANUAL;
+		}
+	}
+
 	return do_sel_network();
 }
 
@@ -105,7 +163,10 @@ cmd_nas_set_roaming_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct
 static enum qmi_cmd_result
 cmd_nas_initiate_network_register_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
 {
-	static struct qmi_nas_initiate_network_register_request register_req;
+	static struct qmi_nas_initiate_network_register_request register_req = {
+		QMI_INIT(action, QMI_NAS_NETWORK_REGISTER_TYPE_AUTOMATIC)
+	};
+
 	qmi_set_nas_initiate_network_register_request(msg, &register_req);
 	return QMI_CMD_REQUEST;
 }
@@ -148,6 +209,12 @@ cmd_nas_get_signal_info_cb(struct qmi_dev *qmi, struct qmi_request *req, struct 
 		blobmsg_add_u32(&status, "rsrp", (int32_t) res.data.lte_signal_strength.rsrp);
 		blobmsg_add_u32(&status, "snr", (int32_t) res.data.lte_signal_strength.snr);
 	}
+
+	if (res.set.tdma_signal_strength) {
+		blobmsg_add_string(&status, "type", "tdma");
+		blobmsg_add_u32(&status, "signal", (int32_t) res.data.tdma_signal_strength);
+	}
+
 }
 
 static enum qmi_cmd_result

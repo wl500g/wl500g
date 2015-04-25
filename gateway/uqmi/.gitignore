@@ -1,6 +1,5 @@
 uqmi
 .*
-Makefile
 CMakeCache.txt
 CMakeFiles
 *.cmake

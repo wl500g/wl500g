@@ -27,7 +27,7 @@ cmd_wda_set_data_format_prepare(struct qmi_dev *qmi, struct qmi_request *req, st
 		return QMI_CMD_REQUEST;
 	}
 
-	blobmsg_add_string(&status, "error", "Invalid auth mode (valid: 802.3, raw-ip)");
+	uqmi_add_error("Invalid auth mode (valid: 802.3, raw-ip)");
 	return QMI_CMD_EXIT;
 }
 

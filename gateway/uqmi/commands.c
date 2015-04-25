@@ -125,7 +125,7 @@ cmd_ctl_set_data_format_prepare(struct qmi_dev *qmi, struct qmi_request *req, st
 	int mode = qmi_get_array_idx(modes, ARRAY_SIZE(modes), arg);
 
 	if (mode < 0) {
-		blobmsg_add_string(&status, "error", "Invalid mode (modes: 802.3, raw-ip)");
+		uqmi_add_error("Invalid mode (modes: 802.3, raw-ip)");
 		return QMI_CMD_EXIT;
 	}
 
@@ -201,7 +201,7 @@ static bool __uqmi_run_commands(struct qmi_dev *qmi, bool option)
 		blob_buf_init(&status, 0);
 		if (cmds[i].handler->type > QMI_SERVICE_CTL &&
 		    qmi_service_connect(qmi, cmds[i].handler->type, -1)) {
-			blobmsg_printf(&status, "error", "failed to connect to service");
+			uqmi_add_error("Failed to connect to service");
 			res = QMI_CMD_EXIT;
 		} else {
 			res = cmds[i].handler->prepare(qmi, &req, (void *) buf, cmds[i].arg);
@@ -211,7 +211,7 @@ static bool __uqmi_run_commands(struct qmi_dev *qmi, bool option)
 			qmi_request_start(qmi, &req, (void *) buf, cmds[i].handler->cb);
 			req.no_error_cb = true;
 			if (qmi_request_wait(qmi, &req)) {
-				blobmsg_add_string(&status, "error", qmi_get_error_str(req.ret));
+				uqmi_add_error(qmi_get_error_str(req.ret));
 				do_break = true;
 			}
 		} else if (res == QMI_CMD_EXIT) {
@@ -223,6 +223,12 @@ static bool __uqmi_run_commands(struct qmi_dev *qmi, bool option)
 			return false;
 	}
 	return true;
+}
+
+int uqmi_add_error(const char *msg)
+{
+	blobmsg_add_string(&status, NULL, msg);
+	return QMI_CMD_EXIT;
 }
 
 bool uqmi_run_commands(struct qmi_dev *qmi)
