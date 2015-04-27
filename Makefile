@@ -35,7 +35,6 @@ LZMA4XX=lzma457
 SQUASHFS=squashfs4.2
 RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
-LIBUSB10=libusb-1.0.8
 
 # tar has --exclude parameter ?
 export TAR_EXCL_VCS := $(shell tar --exclude-vcs -cf - Makefile >/dev/null 2>&1 && echo "--exclude-vcs")
@@ -429,16 +428,12 @@ $(TOP)/scsi-idle:
 scsi-idle: $(TOP)/scsi-idle
 	@true
 
-libusb: $(TOP)/libusb10
+$(TOP)/libusb: 
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - libusb | tar -C $(TOP) -xf -
+
+libusb: $(TOP)/libusb
 	@true
-
-libusb10_Patches := $(call patches_list,libusb)
-
-$(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
-	@rm -rf $(TOP)/$(LIBUSB10) $@
-	tar -jxf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(LIBUSB10) $(libusb10_Patches)
-	mv $(TOP)/$(LIBUSB10) $@ && touch $@
 
 $(TOP)/usb_modeswitch:
 	[ -d $@ ] || \

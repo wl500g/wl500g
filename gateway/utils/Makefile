@@ -57,10 +57,10 @@ gpio.o: gpio.c
 	$(CC) -c $(CFLAGS) -DHAVE_GETMODEL -o $@ $<
 
 hub-ctrl: hub-ctrl.o
-	$(CC) $(LDFLAGS) -o $@ -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 $<
+	$(CC) $(LDFLAGS) -o $@ -L$(TOP)/libusb/libusb/.libs -lusb-1.0 $<
 
 hub-ctrl.o: hub-ctrl.c
-	$(CC) -c $(CFLAGS) -o $@ -I$(TOP)/libusb10/libusb -I$(TOP)/libusb10/ $<
+	$(CC) -c $(CFLAGS) -o $@ -I$(TOP)/libusb/libusb -I$(TOP)/libusb10/ $<
 
 clean:
 	rm -f *.o *~ $(UTILS)

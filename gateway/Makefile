@@ -135,7 +135,7 @@ MODEL = $(firstword $(img-y))
 # always build libbcmcrypto, required by nas
 obj-y += libbcmcrypto
 obj-y += kernel busybox dnsmasq e2fsprogs
-obj-$(CONFIG_LIBUSB) += libusb10
+obj-$(CONFIG_LIBUSB) += libusb
 obj-$(CONFIG_HTTPD) += httpd www
 obj-$(CONFIG_RC) += rc
 obj-$(CONFIG_LIBBCM) += libbcm
@@ -201,7 +201,7 @@ obj-y += udpxy
 
 # Exclude targets for non-USB routers
 ifeq ($(filter RT-N10 RT-N12 RT-N12B1 RT-N12C1,$(MODEL)),$(MODEL))
-obj-y := $(filter-out LPRng e2fsprogs libusb10 madwimax p910nd mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd ntfs-3g uqmi usbip,$(obj-y))
+obj-y := $(filter-out LPRng e2fsprogs libusb madwimax p910nd mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd ntfs-3g uqmi usbip,$(obj-y))
 endif
 # Exclude more targets for non-USB routers with small flash-memory
 ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
@@ -1120,21 +1120,21 @@ udpxy-install:
 scsi-idle-install:
 	$(MAKE) -C scsi-idle DESTDIR=$(INSTALLDIR)/scsi-idle/usr/sbin/ install
 
-libusb10/Makefile: libusb10/Makefile.in
-	cd libusb10 && CFLAGS="-O2 $(EXTRACFLAGS)" \
+libusb/Makefile: libusb/Makefile.in
+	cd libusb && CFLAGS="-O2 $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr ac_cv_lib_rt_clock_gettime=no
 
-libusb10: libusb10/Makefile
+libusb: libusb/Makefile
 	$(MAKE) -C $@
 
-libusb10-install:
-	install -D libusb10/libusb/.libs/libusb-1.0.so $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so
-	$(STRIP) $(INSTALLDIR)/libusb10/usr/lib/*.so
+libusb-install:
+	install -D libusb/libusb/.libs/libusb-1.0.so $(INSTALLDIR)/libusb/usr/lib/libusb-1.0.so
+	$(STRIP) $(INSTALLDIR)/libusb/usr/lib/*.so
 
-usb_modeswitch: libusb10
+usb_modeswitch: libusb
 	$(MAKE) -C $@ usb_modeswitch CC=$(CC) \
 	CFLAGS="-Wall -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS) \
-	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0" \
+	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb-1.0" \
 	LDFLAGS="-Wl,--gc-sections"
 
 usb_modeswitch-install:
@@ -1147,11 +1147,11 @@ madwimax/Makefile: madwimax/Makefile.in
 	cd madwimax && CPPFLAGS="-ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
 	    LDFLAGS="-Wl,--gc-sections" \
 	    PKG_CONFIG=/bin/true \
-	    libusb1_CFLAGS="-I$(TOP)/libusb10/libusb" \
-	    libusb1_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0" \
+	    libusb1_CFLAGS="-I$(TOP)/libusb/libusb" \
+	    libusb1_LIBS="-L$(TOP)/libusb/libusb/.libs -lusb-1.0" \
 	$(CONFIGURE) --prefix=/usr --without-man-pages --with-script=wl500g --sysconfdir=/etc
 
-madwimax: libusb10 madwimax/Makefile
+madwimax: libusb madwimax/Makefile
 	$(MAKE) -C $@
 
 madwimax-install:
