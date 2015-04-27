@@ -151,17 +151,9 @@ $(TOP)/loader:
 loader: $(TOP)/loader
 	@true
 
-busybox_Patches := $(call patches_list,busybox)
-
-$(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
-	@rm -rf $(TOP)/$(BUSYBOX) $@
-	tar -xjf busybox/$(BUSYBOX).tar.bz2 -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(BUSYBOX) $(busybox_Patches)
-	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
-	cp -p busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
-	chmod a+x $(TOP)/$(BUSYBOX)/testsuite/*.tests
-	find $(TOP)/$(BUSYBOX)/shell/ash_test/ -name *.tests -perm 0644 -exec chmod a+x '{}' \;
-	mv $(TOP)/$(BUSYBOX) $@
+$(TOP)/busybox:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - busybox | tar -C $(TOP) -xf -
 
 busybox: $(TOP)/busybox
 	@true
