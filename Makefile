@@ -145,7 +145,7 @@ asustrx: $(ROOT)/asustrx
 
 $(TOP)/loader:
 	@rm -rf $@
-	tar -C . $(TAR_EXCL_VCS) -cf - loader | tar -C $(TOP) -xf -
+	tar -C gateway $(TAR_EXCL_VCS) -cf - loader | tar -C $(TOP) -xf -
 #	tar -C . $(TAR_EXCL_VCS) -cf - loader-4.65 | tar -C $(TOP) -xf - --transform=s/-4.65//
 
 loader: $(TOP)/loader
