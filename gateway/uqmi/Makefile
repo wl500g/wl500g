@@ -11,8 +11,11 @@ LDFLAGS += -Wl,--gc-sections -Llibubox -Wl,-Bstatic -lubox -Wl,-Bdynamic
 TARGET = uqmi
 SOURCES = main.c dev.c commands.c qmi-message.c
 
-service_sources = $(foreach service,ctl dms nas pds wds wms wda,qmi-message-$(service).c)
+service_sources = $(foreach service,ctl dms nas pds wda wds wms,qmi-message-$(service).c)
 service_headers = $(service_sources:.c=.h)
+
+command_sources = $(foreach command,dms nas wda wds wms,commands-$(command).c)
+command_headers = $(command_sources:.c=.h)
 
 SOURCES += $(service_sources)
 OBJS=$(SOURCES:.c=.o)
@@ -61,7 +64,7 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -c $<
 
 # Dependencies
-main.o: main.c uqmi.h commands.h
+main.o: main.c uqmi.h commands.h $(command_headers)
 dev.o: dev.c qmi-errors.c qmi-errors.h uqmi.h $(service_headers)
-commands.o: commands.c uqmi.h commands.h $(service_sources) $(service_headers)
+commands.o: commands.c uqmi.h commands.h $(command_sources) $(command_headers) $(service_sources) $(service_headers)
 qmi-message.o: qmi-message.c qmi-message.h $(service_headers)
