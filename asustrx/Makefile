@@ -5,3 +5,5 @@ asustrx: asustrx.c
 
 clean:
 	rm -f asustrx
+
+distclean: clean

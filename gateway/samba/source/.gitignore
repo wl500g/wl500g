@@ -4,5 +4,9 @@ config.cache
 config.h
 config.log
 config.status
+stamp-h
 cvs.log
 so_locations
+*.po
+*.po32
+bin/*.shared

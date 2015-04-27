@@ -1,0 +1,15 @@
+Makefile
+config.log
+config.status
+config.h
+stamp-h1
+/include/madwimax_version.h
+/man/madwimax.8.xml
+/man/madwimax.8
+/scripts/events/event.sh.generic
+/scripts/events/event.sh.wl500g
+/scripts/events/event.sh
+/scripts/udev/z60_madwimax.rules
+/src/.deps/
+/src/*.o
+/src/madwimax

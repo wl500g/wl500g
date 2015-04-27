@@ -1,0 +1,5 @@
+# Include prebuilt objects
+!*.o
+.map
+.symbols
+.unresolved

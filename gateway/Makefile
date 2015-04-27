@@ -1,16 +1,6 @@
 #
 # Broadcom Linux Router Makefile
 # 
-# Copyright 2004, Broadcom Corporation
-# All Rights Reserved.
-# 
-# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
-# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
-# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-#
-# $Id$
-#
 
 ifneq ($(MAKECMDGOALS),.config)
 include .config
@@ -756,6 +746,10 @@ uqmi-install:
 	$(MAKE) -C uqmi INSTALL=install INSTALLDIR="$(INSTALLDIR)/uqmi" install
 	$(STRIP) $(INSTALLDIR)/uqmi/usr/sbin/uqmi
 
+uqmi-clean:
+	$(MAKE) -C uqmi clean
+	$(MAKE) -C uqmi/libubox clean
+
 iptables/Makefile: iptables/Makefile.in
 	cd iptables && \
 	CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
@@ -1169,7 +1163,10 @@ lltd-install: lltd
 	[ ! -f lltd/icons/$(MODEL).ico ] || \
 	    install -D -m 0644 lltd/icons/$(MODEL).ico $(INSTALLDIR)/lltd/usr/share/lld2d/icon.ico
 
-wpa_supplicant:
+wpa_supplicant/wpa_supplicant/.config: wpa_supplicant/wpa_supplicant/defconfig.custom
+	cp -p $^ $@
+
+wpa_supplicant: wpa_supplicant/wpa_supplicant/.config
 	$(MAKE) -C $@/wpa_supplicant \
 	EXTRACFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
 	LDFLAGS="-Wl,--gc-sections"

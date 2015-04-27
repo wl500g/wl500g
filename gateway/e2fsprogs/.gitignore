@@ -48,6 +48,7 @@ e2fsck/tst_problem
 e2fsck/tst_refcount
 e2fsck/tst_region
 e2fsprogs.spec
+intl/libgnuintl.h
 lib/blkid/blkid.h
 lib/blkid/blkid.pc
 lib/blkid/blkid_types.h
@@ -151,6 +152,7 @@ misc/dumpe2fs
 misc/dumpe2fs.8
 misc/e2freefrag
 misc/e2freefrag.8
+misc/e2fsck.conf
 misc/e2image
 misc/e2image.8
 misc/e2initrd_helper
@@ -171,7 +173,6 @@ misc/lsattr.1
 misc/mke2fs
 misc/mke2fs.8
 misc/mke2fs.conf.5
-misc/mke2fs.conf
 misc/mklost+found
 misc/mklost+found.8
 misc/prof_err.c
@@ -192,6 +193,7 @@ resize/test_extent
 resize/test_extent.out
 tags
 TAGS
+tests/progs/crcsum
 tests/progs/test_icount
 tests/progs/test_icount_cmds.c
 tests/*.ok
@@ -202,6 +204,7 @@ tests/mke2fs.conf
 tests/test_script
 tests/test_one
 util/gen-tarball
+util/install-symlink
 util/subst
 util/subst.conf
 Meta

@@ -34,10 +34,4 @@ brcm-shared:
 brcm-kernel:
 	tar -C kernel $(TAR_EXCL_SVN) -cf - arch drivers include sound | tar -C $(KERNEL_DIR) -xf -
 
-libbcmcrypto: router/libbcmcrypto
-	tar -C router $(TAR_EXCL_SVN) -cf - $@ | tar -C $(TOP) --recursive-unlink -xf -
-
-wlconf:
-	tar -C router $(TAR_EXCL_SVN) -cf - wlconf | tar -C $(TOP) --recursive-unlink -xf -
-
-.PHONY: wl brcm-shared libbcmcrypto wlconf
+.PHONY: wl brcm-shared
