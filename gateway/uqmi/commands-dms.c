@@ -83,8 +83,10 @@ static const char *get_pin_status(int status)
 static void cmd_dms_get_pin_status_cb(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg)
 {
 	struct qmi_dms_uim_get_pin_status_response res;
+	void *c;
 
 	qmi_parse_dms_uim_get_pin_status_response(msg, &res);
+	c = blobmsg_open_table(&status, NULL);
 	if (res.set.pin1_status) {
 		blobmsg_add_string(&status, "pin1_status", get_pin_status(res.data.pin1_status.current_status));
 		blobmsg_add_u32(&status, "pin1_verify_tries", (int32_t) res.data.pin1_status.verify_retries_left);
@@ -95,6 +97,7 @@ static void cmd_dms_get_pin_status_cb(struct qmi_dev *qmi, struct qmi_request *r
 		blobmsg_add_u32(&status, "pin2_verify_tries", (int32_t) res.data.pin2_status.verify_retries_left);
 		blobmsg_add_u32(&status, "pin2_unblock_tries", (int32_t) res.data.pin2_status.unblock_retries_left);
 	}
+	blobmsg_close_table(&status, c);
 }
 
 static enum qmi_cmd_result
@@ -383,7 +386,5 @@ cmd_dms_set_operating_mode_prepare(struct qmi_dev *qmi, struct qmi_request *req,
 		return QMI_CMD_REQUEST;
 	}
 
-	uqmi_add_error("Invalid argument");
-
-	return QMI_CMD_EXIT;
+	return uqmi_add_error("Invalid argument");
 }

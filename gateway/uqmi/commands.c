@@ -174,8 +174,14 @@ static void uqmi_print_result(struct blob_attr *data)
 		case BLOBMSG_TYPE_STRING:
 			printf("%s=%s\n", blobmsg_name(cur), (char *) blobmsg_data(cur));
 			break;
+		case BLOBMSG_TYPE_INT64:
+			printf("%s=%lld\n", blobmsg_name(cur), blobmsg_get_u64(data));
+			break;
 		case BLOBMSG_TYPE_INT32:
 			printf("%s=%d\n", blobmsg_name(cur), (int32_t) blobmsg_get_u32(cur));
+			break;
+		case BLOBMSG_TYPE_INT16:
+			printf("%s=%d\n", blobmsg_name(cur), (int16_t) blobmsg_get_u16(cur));
 			break;
 		case BLOBMSG_TYPE_INT8:
 			printf("%s=%s\n", blobmsg_name(cur), blobmsg_get_u8(cur) ? "true" : "false");
