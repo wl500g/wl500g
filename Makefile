@@ -33,7 +33,6 @@ ACCEL-PPP=accel-ppp-git-20140916
 LZMA=lzma922
 LZMA4XX=lzma457
 SQUASHFS=squashfs4.2
-RADVD=radvd-1.8.3
 ODHCP6C=odhcp6c-git-20140814
 
 # tar has --exclude parameter ?
@@ -279,13 +278,9 @@ $(TOP)/bridge:
 bridge: $(TOP)/bridge
 	@true
 
-radvd_Patches := $(call patches_list,radvd)
-
-$(TOP)/radvd: radvd/$(RADVD).tar.gz
-	@rm -rf $(TOP)/$(RADVD) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(RADVD) $(radvd_Patches)
-	mv $(TOP)/$(RADVD) $@
+$(TOP)/radvd:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - radvd | tar -C $(TOP) -xf -
 
 radvd: $(TOP)/radvd
 	@true
