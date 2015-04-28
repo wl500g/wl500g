@@ -32,7 +32,6 @@ ACCEL-PPTP=accel-pptp-git-20100829
 ACCEL-PPP=accel-ppp-git-20140916
 LZMA=lzma922
 LZMA4XX=lzma457
-SQUASHFS=squashfs4.2
 ODHCP6C=odhcp6c-git-20140814
 
 # tar has --exclude parameter ?
@@ -102,17 +101,6 @@ $(ROOT)/lzma: lzma/$(LZMA).tar.bz2
 	$(PATCHER) -Z $@ $(lzma_Patches)
 
 lzma: $(ROOT)/lzma4xx $(ROOT)/lzma
-	@true
-
-squashfs_Patches := $(call patches_list,squashfs)
-
-$(TOP)/squashfs: squashfs/$(SQUASHFS).tar.gz
-	@rm -rf $(TOP)/$(SQUASHFS) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(SQUASHFS) $(squashfs_Patches)
-	mv $(TOP)/$(SQUASHFS) $@
-
-squashfs: $(TOP)/squashfs
 	@true
 
 wl:
