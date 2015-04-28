@@ -10,7 +10,12 @@ CFLAGS  += -ffunction-sections -fdata-sections
 LDFLAGS += -Wl,--gc-sections
 
 TARGET = libubox.a
-SOURCES = avl.c avl-cmp.c blob.c blobmsg.c uloop.c usock.c ustream.c ustream-fd.c vlist.c utils.c safe_list.c runqueue.c md5.c kvlist.c
+SOURCES = avl.c avl-cmp.c blob.c blobmsg.c blobmsg_std.c uloop.c usock.c ustream.c ustream-fd.c vlist.c utils.c safe_list.c runqueue.c md5.c kvlist.c
+
+ifdef $(USE_JSONC)
+SOURCES += blobmsg_json.c
+LDFLAGS += -ljson-c
+endif
 
 OBJS=$(SOURCES:.c=.o)
 
@@ -47,6 +52,8 @@ avl-cmp.o: avl-cmp.c avl-cmp.h
 avl.o: avl.c avl.h
 blob.o: blob.c blob.h
 blobmsg.o: blobmsg.c blobmsg.h
+blobmsg_json.o: blobmsg_json.c blobmsg_json.h blobmsg.h
+blobmsg_std.o: blobmsg_std.c blobmsg_std.h
 uloop.o: uloop.c uloop.h utils.h
 usock.o: usock.c usock.h
 ustream-fd.o: ustream-fd.c ustream.h
@@ -62,6 +69,8 @@ kvlist.o: kvlist.c kvlist.h
 avl.h: list.h
 blob.h: utils.h
 blobmsg.h: blob.h
+blobmsg_json.h: blobmsg.h
+blobmsg_std.h: blobmsg.h
 safe_list.h: list.h utils.h
 uloop.h: list.h
 ustream.h: uloop.h

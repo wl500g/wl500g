@@ -305,7 +305,7 @@ static void cmd_dms_get_imsi_cb(struct qmi_dev *qmi, struct qmi_request *req, st
 
 	qmi_parse_dms_uim_get_imsi_response(msg, &res);
 	if (res.data.imsi)
-		blobmsg_add_string(&status, "number", res.data.imsi);
+		blobmsg_add_string(&status, NULL, res.data.imsi);
 }
 
 static enum qmi_cmd_result

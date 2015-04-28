@@ -3,8 +3,10 @@
 #include <strings.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #include <libubox/blobmsg.h>
+#include <libubox/blobmsg_std.h>
 
 #include "uqmi.h"
 #include "commands.h"
@@ -164,30 +166,12 @@ void uqmi_add_command(char *arg, int cmd)
 	cmds[idx].arg = optarg;
 }
 
-static void uqmi_print_result(struct blob_attr *data)
+static void uqmi_print_result(const struct blob_attr *data)
 {
-	struct blob_attr *cur;
-	int rem;
+	if (!blob_len(data))
+		return;
 
-	blob_for_each_attr(cur, data, rem) {
-		switch (blobmsg_type(cur)) {
-		case BLOBMSG_TYPE_STRING:
-			printf("%s=%s\n", blobmsg_name(cur), (char *) blobmsg_data(cur));
-			break;
-		case BLOBMSG_TYPE_INT64:
-			printf("%s=%lld\n", blobmsg_name(cur), blobmsg_get_u64(data));
-			break;
-		case BLOBMSG_TYPE_INT32:
-			printf("%s=%d\n", blobmsg_name(cur), (int32_t) blobmsg_get_u32(cur));
-			break;
-		case BLOBMSG_TYPE_INT16:
-			printf("%s=%d\n", blobmsg_name(cur), (int16_t) blobmsg_get_u16(cur));
-			break;
-		case BLOBMSG_TYPE_INT8:
-			printf("%s=%s\n", blobmsg_name(cur), blobmsg_get_u8(cur) ? "true" : "false");
-			break;
-		}
-	}
+	blobmsg_format_std_indent(data, 0);
 }
 
 static bool __uqmi_run_commands(struct qmi_dev *qmi, bool option)
