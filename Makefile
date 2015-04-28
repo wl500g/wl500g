@@ -25,7 +25,6 @@ KERNEL=kernel-2.6
 BRCM-SRC=brcm-src-2.6
 
 BUSYBOX=busybox-1.22.1
-SAMBA=samba-2.0.10
 PPP=ppp-2.4.7
 RP-PPPOE=rp-pppoe-3.11
 ACCEL-PPTP=accel-pptp-git-20100829
@@ -204,14 +203,9 @@ $(TOP)/p910nd:
 p910nd: $(TOP)/p910nd
 	@true
 
-samba_Patches := $(call patches_list,samba)
-
-$(TOP)/samba: samba/$(SAMBA).tar.bz2
-	@rm -rf $(TOP)/$(SAMBA) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(SAMBA) $(samba_Patches)
-	tar -xzvf samba/$(SAMBA)-codepages.tar.gz -C $(TOP)/$(SAMBA)
-	mv $(TOP)/$(SAMBA) $@
+$(TOP)/samba:
+	[ -d $@ ] || \
+		tar -C gateway $(TAR_EXCL_VCS) -cf - samba | tar -C $(TOP) -xf -
 
 samba: $(TOP)/samba
 	@true
