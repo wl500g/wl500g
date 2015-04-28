@@ -230,7 +230,7 @@ ifeq ($(SQUASHFS3),y)
 MKSQUASHFSDIR=$(LINUXDIR)/scripts/squashfs
 MKSQUASHFS=$(MKSQUASHFSDIR)/mksquashfs-lzma
 else
-MKSQUASHFSDIR=$(TOP)/squashfs/squashfs-tools
+MKSQUASHFSDIR=$(SRCBASE)/squashfs/squashfs-tools
 MKSQUASHFS=$(MKSQUASHFSDIR)/mksquashfs
 endif
 
