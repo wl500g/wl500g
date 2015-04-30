@@ -1,6 +1,6 @@
-# $Id: Makefile.linux,v 1.89 2014/12/15 11:01:18 nanard Exp $
+# $Id: Makefile.linux,v 1.90 2015/04/26 14:43:28 nanard Exp $
 # MiniUPnP project
-# (c) 2006-2014 Thomas Bernard
+# (c) 2006-2015 Thomas Bernard
 # http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
 # Author : Thomas Bernard
 # for use with GNU Make
