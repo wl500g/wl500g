@@ -25,7 +25,6 @@ export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 KERNEL=kernel-2.6
 BRCM-SRC=brcm-src-2.6
 
-PPP=ppp-2.4.7
 RP-PPPOE=rp-pppoe-3.11
 ACCEL-PPTP=accel-pptp-git-20100829
 ACCEL-PPP=accel-ppp-git-20140916
@@ -54,14 +53,14 @@ all: prep custom
 
 subdirs=loader busybox dropbear dnsmasq p910nd iproute2 iptables ipset \
 	rp-l2tp nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
-	bpalogin bridge inadyn httpd jpeg-8b lib LPRng \
+	bpalogin bridge inadyn httpd jpeg-8b lib LPRng ppp \
 	misc netconf nvram others rc mjpg-streamer udev \
 	scsi-idle libusb usb_modeswitch madwimax uqmi lltd tcpdump libpcap \
 	miniupnpd utils www config shared cdma ntfs-3g samba \
 	sysfsutils e2fsprogs wpa_supplicant lanauth authcli infosrv \
 	wlconf libbcmcrypto 
 
-custom:	asustrx odhcp6c ppp rp-pppoe accel-pptp accel-ppp
+custom:	asustrx odhcp6c rp-pppoe accel-pptp accel-ppp
 	for dir in $(subdirs); do \
 		ln -sf $(CWD)/gateway/$${dir} $(TOP)/$${dir}; \
 	done
@@ -132,17 +131,6 @@ $(TOP)/odhcp6c: odhcp6c/$(ODHCP6C).tar.gz
 odhcp6c: $(TOP)/odhcp6c
 	@true
 
-ppp_Patches := $(call patches_list,ppp)
-
-$(TOP)/ppp: ppp/$(PPP).tar.bz2
-	@rm -rf $(TOP)/$(PPP) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(PPP) $(ppp_Patches)
-	mv $(TOP)/$(PPP) $@ && touch $@
-
-ppp: $(TOP)/ppp
-	@true
-
 rp-pppoe_Patches := $(call patches_list,rp-pppoe)
 
 $(TOP)/rp-pppoe: rp-pppoe/$(RP-PPPOE).tar.gz
@@ -160,7 +148,7 @@ $(TOP)/accel-pptp: accel-pptp/$(ACCEL-PPTP).tar.bz2
 	@rm -rf $(TOP)/$(ACCEL-PPTP) $@
 	tar -xjf $^ -C $(TOP)
 	rm -rf $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
-	ln -s $(TOP)/ppp/pppd $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
+	ln -s $(CWD)/gateway/ppp/pppd $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
 	$(PATCHER) -Z $(TOP)/$(ACCEL-PPTP) $(accel-pptp_Patches)
 	mv $(TOP)/$(ACCEL-PPTP) $@ && touch $@
 	touch $@
