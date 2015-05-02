@@ -17,21 +17,12 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-define patches_list
-    $(shell ls -1 $(1)/[0-9][0-9][0-9]-*.patch 2>/dev/null)
-endef
-
-wl:
-	tar -C . $(TAR_EXCL_SVN) -cf - wl | tar -C $(ROOT) --recursive-unlink -xf -
-	-bzip2 -d $(ROOT)/wl/linux/*.bz2
-
-brcm_Patches := $(call patches_list,.)
-
-brcm-shared:
-	tar -C . $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx et | tar -C $(ROOT) --recursive-unlink -xf -
-	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
-
 brcm-kernel:
 	tar -C kernel $(TAR_EXCL_SVN) -cf - arch drivers include sound | tar -C $(KERNEL_DIR) -xf -
 
-.PHONY: wl brcm-shared
+subdirs= bcm57xx emf et include shared wl
+
+brcm-shared:
+	for dir in $(subdirs); do \
+		ln -sf $(CWD)/$${dir} $(ROOT)/$${dir}; \
+	done

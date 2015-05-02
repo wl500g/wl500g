@@ -15,6 +15,6 @@ config.cache
 config.log
 config.status
 stamp-h1
-/gateway/mipsel-uclibc
-/gateway/www/web_tmp
-/gateway/.svnrev
+/asustrx/asustrx
+/emf/emfconf/emf
+/emf/igsconf/igs

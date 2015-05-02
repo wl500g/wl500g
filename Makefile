@@ -96,9 +96,6 @@ $(ROOT)/lzma: lzma/$(LZMA).tar.bz2
 lzma: $(ROOT)/lzma4xx $(ROOT)/lzma
 	@true
 
-wl:
-	$(MAKE) -C $(BRCM-SRC) $@
-
 brcm-shared:
 	$(MAKE) -C $(BRCM-SRC) $@
 
@@ -114,7 +111,7 @@ kernel-patch:
 kernel-extra-drivers:
 	$(MAKE) -C $(KERNEL) extra-drivers
 
-kernel: lzma wl brcm-shared brcm-kernel kernel-extra-drivers kernel-patch
+kernel: lzma brcm-shared brcm-kernel kernel-extra-drivers kernel-patch
 	$(MAKE) -C $(KERNEL) config
 
 asustrx:
@@ -173,4 +170,4 @@ clean distclean: $(TOP)/Makefile
 	$(MAKE) -C asustrx $@
 
 
-.PHONY: kernel kernel-patch kernel-extra-drivers brcm-src asustrx
+.PHONY: kernel kernel-patch kernel-extra-drivers asustrx

@@ -1,0 +1,33 @@
+# Broadcom 802.11abg Networking Device Driver Configuration file
+#
+# Copyright (C) 2009, Broadcom Corporation
+# All Rights Reserved.
+# 
+# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+#
+# $Id: wlconfig_lx_wl_high2,v 1.1.1.1 2010/11/22 08:55:27  Exp $
+#
+# src/wl/linux driver config file
+
+# get common 
+include $(WLCFGDIR)/wl_default
+include $(WLCFGDIR)/wl_hnd
+
+OSLLX=1
+
+# BMAC split
+WL_HIGH=1
+WL_LOW=0
+BCMDBUS=1
+RPC_NOCOPY=1
+
+# features
+include $(WLCFGDIR)/wlconfig_apdef
+include $(WLCFGDIR)/wlconfig_lx_wl_stadef
+
+WLLED=1
+WLPIO=0
+WLTUNEFILE=wltunable_rte_bmac_usb_high.h
