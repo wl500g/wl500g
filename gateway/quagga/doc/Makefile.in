@@ -406,7 +406,7 @@ $(srcdir)/quagga.info: quagga.texi $(srcdir)/version.texi $(quagga_TEXINFOS)
 quagga.dvi: quagga.texi $(srcdir)/version.texi $(quagga_TEXINFOS)
 quagga.html: quagga.texi $(srcdir)/version.texi $(quagga_TEXINFOS)
 $(srcdir)/version.texi:  $(srcdir)/stamp-vti
-$(srcdir)/stamp-vti: quagga.texi $(top_srcdir)/configure
+$(srcdir)/stamp-vti: quagga.texi
 	@(dir=.; test -f ./quagga.texi || dir=$(srcdir); \
 	set `$(SHELL) $(srcdir)/mdate-sh $$dir/quagga.texi`; \
 	echo "@set UPDATED $$1 $$2 $$3"; \

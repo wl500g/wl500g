@@ -173,6 +173,7 @@ misc/lsattr.1
 misc/mke2fs
 misc/mke2fs.8
 misc/mke2fs.conf.5
+misc/mke2fs.conf
 misc/mklost+found
 misc/mklost+found.8
 misc/prof_err.c

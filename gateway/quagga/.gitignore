@@ -23,6 +23,8 @@ m4/*.m4
 !m4/ax_sys_weak_alias.m4
 /doc/defines.texi
 /doc/*.info*
+/lib/route_types.h
+/lib/memtypes.h
 /pkgsrc/*.sh
 /redhat/quagga.spec
 /ospfd/ospfd
