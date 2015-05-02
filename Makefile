@@ -29,7 +29,6 @@ RP-PPPOE=rp-pppoe-3.11
 ACCEL-PPTP=accel-pptp-git-20100829
 ACCEL-PPP=accel-ppp-git-20140916
 LZMA=lzma922
-LZMA4XX=lzma457
 ODHCP6C=odhcp6c-git-20140814
 
 # tar has --exclude parameter ?
@@ -79,13 +78,6 @@ $(TOP)/Makefile: $(TOP)
 prep: $(TOP)/Makefile
 	-@echo "$$(( $(shell git rev-list --all --count origin/HEAD) + 1000 ))$(if $(shell git status -s -uno),M,)" > $(TOP)/.svnrev
 
-lzma4xx_Patches := $(call patches_list,lzma,457-)
-
-$(ROOT)/lzma4xx: lzma/$(LZMA4XX).tbz2
-	@rm -rf $@ && mkdir -p $@
-	tar -C $@ -xjf $<
-	$(PATCHER) -Z $@ $(lzma4xx_Patches)
-
 lzma_Patches := $(call patches_list,lzma,922-)
 
 $(ROOT)/lzma: lzma/$(LZMA).tar.bz2
@@ -93,8 +85,10 @@ $(ROOT)/lzma: lzma/$(LZMA).tar.bz2
 	tar -C $@ -xjf $<
 	$(PATCHER) -Z $@ $(lzma_Patches)
 
-lzma: $(ROOT)/lzma4xx $(ROOT)/lzma
-	@true
+lzma: $(ROOT)/lzma
+	for dir in lzma4xx; do \
+		ln -sf $(CWD)/$${dir} $(ROOT)/$${dir}; \
+	done
 
 brcm-shared:
 	$(MAKE) -C $(BRCM-SRC) $@
