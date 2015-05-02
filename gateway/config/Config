@@ -112,7 +112,7 @@ config CONFIG_BRIDGE
 
 config CONFIG_HTTPD
        bool "Web server"
-       depends on CONFIG_NVRAM && CONFIG_SHARED && CONFIG_NETCONF
+       depends on CONFIG_NVRAM && CONFIG_SHARED
        default y
        help
        Answer Y for basic web configuration support.
@@ -122,14 +122,6 @@ config CONFIG_NAT
        default y
        help
        Answer Y to configure this box as a NAT box.
-
-config CONFIG_NETCONF
-       bool "Firewall configuration"
-       depends on CONFIG_IPTABLES && CONFIG_NAT
-       default y
-       help
-       netconf provides minimal functionality to configure a basic
-       NAT firewall. Required by "rc" daemon.
 
 config CONFIG_IPTABLES
 	bool "Iptables"

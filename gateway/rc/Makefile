@@ -32,7 +32,7 @@ OBJS-y := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
 
 #CFLAGS += -DBROKEN_IPV6_CONNTRACK
 
-OBJS-$(CONFIG_NETCONF) += firewall_ex.o
+OBJS-$(CONFIG_NAT) += firewall_ex.o
 OBJS-$(CONFIG_MADWIMAX) += wimax.o
 OBJS-$(CONFIG_MODEM) += usbmodem.o
 OBJS-$(CONFIG_USBNET) += usbnet.o

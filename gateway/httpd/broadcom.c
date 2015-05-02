@@ -268,92 +268,81 @@ exit:
 int
 ej_nat_table(int eid, webs_t wp, int argc, char **argv)
 {
-	int needlen = 0, listlen, i, ret = 0;
-	netconf_nat_t *nat_list = NULL;
+	int ret = 0;
+	netconf_nat_t nat_list;
+	netconf_fw_t *fw;
 	char line[256], tstr[32];
 
 	ret += websWrite(wp, "Source          Destination     Proto.  Port range  Redirect to     Local port\n");
 	/*                   "255.255.255.255 255.255.255.255 ALL     65535:65535 255.255.255.255 65535:65535" */
 
-	netconf_get_nat(NULL, &needlen);
-	if (needlen <= 0)
+	if (netconf_get_nat(&nat_list) != 0)
 		return ret;
 
-	nat_list = (netconf_nat_t *) malloc(needlen);
-	if (nat_list == NULL)
-		return ret;
+	netconf_list_for_each(fw, (netconf_fw_t *)&nat_list) {
+		const netconf_nat_t *nat = (netconf_nat_t *)fw;
+		//dprintf("%d %d %d\n", nat->target,
+	        //		nat->match.ipproto,
+		//		nat->match.dst.ipaddr.s_addr);	
+		if (nat->target == NETCONF_DNAT)	{
+			/* Source */
+			if (nat->match.src.ipaddr.s_addr == 0)
+				sprintf(line, "%-15s", "ALL");
+			else
+				sprintf(line, "%-15s", inet_ntoa(nat->match.src.ipaddr));
 
-	memset(nat_list, 0, needlen);
-	listlen = needlen;
-	if (netconf_get_nat(nat_list, &listlen) == 0 && needlen == listlen)
-	{
-		listlen = needlen/sizeof(netconf_nat_t);
-		for (i = 0; i < listlen; i++)
-		{
-			//dprintf("%d %d %d\n", nat_list[i].target,
-		        //		nat_list[i].match.ipproto,
-			//		nat_list[i].match.dst.ipaddr.s_addr);	
-			if (nat_list[i].target == NETCONF_DNAT)
+			/* Destination */
+			if (nat->match.dst.ipaddr.s_addr == 0)
+				sprintf(line, "%s %-15s", line, "ALL");
+			else
+				sprintf(line, "%s %-15s", line, inet_ntoa(nat->match.dst.ipaddr));
+
+                            /* Proto. */
+			if (ntohs(nat->match.dst.ports[0]) == 0)
+				sprintf(line, "%s %-7s", line, "ALL");
+			else if (nat->match.ipproto == IPPROTO_TCP)
+				sprintf(line, "%s %-7s", line, "TCP");
+			else if (nat->match.ipproto == IPPROTO_UDP)
+				sprintf(line, "%s %-7s", line, "UDP");
+			else
+				sprintf(line, "%s %-7d", line, nat->match.ipproto);
+
+			/* Port range */
+			if (nat->match.dst.ports[0] == nat->match.dst.ports[1])
 			{
-				/* Source */
-				if (nat_list[i].match.src.ipaddr.s_addr == 0)
-					sprintf(line, "%-15s", "ALL");
+				if (ntohs(nat->match.dst.ports[0]) == 0)
+					sprintf(line, "%s %-11s", line, "ALL");
 				else
-					sprintf(line, "%-15s", inet_ntoa(nat_list[i].match.src.ipaddr));
-
-				/* Destination */
-				if (nat_list[i].match.dst.ipaddr.s_addr == 0)
-					sprintf(line, "%s %-15s", line, "ALL");
-				else
-					sprintf(line, "%s %-15s", line, inet_ntoa(nat_list[i].match.dst.ipaddr));
-
-                                    /* Proto. */
-				if (ntohs(nat_list[i].match.dst.ports[0]) == 0)
-					sprintf(line, "%s %-7s", line, "ALL");
-				else if (nat_list[i].match.ipproto == IPPROTO_TCP)
-					sprintf(line, "%s %-7s", line, "TCP");
-				else if (nat_list[i].match.ipproto == IPPROTO_UDP)
-					sprintf(line, "%s %-7s", line, "UDP");
-				else
-					sprintf(line, "%s %-7d", line, nat_list[i].match.ipproto);
-
-				/* Port range */
-				if (nat_list[i].match.dst.ports[0] == nat_list[i].match.dst.ports[1])
-				{
-					if (ntohs(nat_list[i].match.dst.ports[0]) == 0)
-						sprintf(line, "%s %-11s", line, "ALL");
-					else
-						sprintf(line, "%s %-11d", line, ntohs(nat_list[i].match.dst.ports[0]));
-				} else {
-					sprintf(tstr, "%d:%d",
-						ntohs(nat_list[i].match.dst.ports[0]),
-						ntohs(nat_list[i].match.dst.ports[1]));
-					sprintf(line, "%s %-11s", line, tstr);
-				}
-
-				/* Redirect to */
-				sprintf(line, "%s %-15s", line, inet_ntoa(nat_list[i].ipaddr));
-
-				/* Local port */
-				if (nat_list[i].ports[0] == nat_list[i].ports[1])
-				{
-					if (ntohs(nat_list[i].ports[0]) == 0)
-						sprintf(line, "%s %-11s", line, "ALL");
-					else
-						sprintf(line, "%s %-11d", line, ntohs(nat_list[i].ports[0]));
-				} else {
-					sprintf(tstr, "%d:%d",
-						ntohs(nat_list[i].ports[0]),
-						ntohs(nat_list[i].ports[1]));
-					sprintf(line, "%s %-11s", line, tstr);
-				}
-
-				sprintf(line, "%s\n", line);
-				ret += websWrite(wp, line);
+					sprintf(line, "%s %-11d", line, ntohs(nat->match.dst.ports[0]));
+			} else {
+				sprintf(tstr, "%d:%d",
+					ntohs(nat->match.dst.ports[0]),
+					ntohs(nat->match.dst.ports[1]));
+				sprintf(line, "%s %-11s", line, tstr);
 			}
-	    	}
+
+			/* Redirect to */
+			sprintf(line, "%s %-15s", line, inet_ntoa(nat->ipaddr));
+
+			/* Local port */
+			if (nat->ports[0] == nat->ports[1])
+			{
+				if (ntohs(nat->ports[0]) == 0)
+					sprintf(line, "%s %-11s", line, "ALL");
+				else
+					sprintf(line, "%s %-11d", line, ntohs(nat->ports[0]));
+			} else {
+				sprintf(tstr, "%d:%d",
+					ntohs(nat->ports[0]),
+					ntohs(nat->ports[1]));
+				sprintf(line, "%s %-11s", line, tstr);
+			}
+
+			sprintf(line, "%s\n", line);
+			ret += websWrite(wp, line);
+		}
 	}
-	free(nat_list);
+	netconf_list_free((netconf_fw_t *)&nat_list);
 
 	return ret;
 }

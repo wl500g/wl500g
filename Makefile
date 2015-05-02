@@ -54,7 +54,7 @@ all: prep custom
 subdirs=loader busybox dropbear dnsmasq p910nd iproute2 iptables ipset \
 	rp-l2tp nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	bpalogin bridge inadyn httpd jpeg-8b lib LPRng ppp \
-	misc netconf nvram others rc mjpg-streamer udev \
+	misc nvram others rc mjpg-streamer udev \
 	scsi-idle libusb usb_modeswitch madwimax uqmi lltd tcpdump libpcap \
 	miniupnpd utils www config shared cdma ntfs-3g samba \
 	sysfsutils e2fsprogs wpa_supplicant lanauth authcli infosrv \

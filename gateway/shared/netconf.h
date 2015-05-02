@@ -201,102 +201,12 @@ typedef struct _netconf_app_t {
 	} \
 } while (0)
 
-/* 
- * Functions that work on arrays take a pointer to the array byte
- * length. If the length is zero, the function will set the length to
- * the number of bytes that must be provided to fulfill the
- * request. If the length is non-zero, then the array will be
- * constructed until the buffer length is exhausted or the request is
- * fulfilled.
- */
 
 /*
- * Add a firewall entry
- * @param	fw	firewall entry
- * @return	0 on success and errno on failure
- */
-extern int netconf_add_fw(netconf_fw_t *fw);
-
-/*
- * Delete a firewall entry
- * @param	fw	firewall entry
- * @return	0 on success and errno on failure
- */
-extern int netconf_del_fw(netconf_fw_t *fw);
-
-/*
- * Get a list of the current firewall entries
- * @param	fw_list		list of firewall entries
- * @return	0 on success and errno on failure
- */
-extern int netconf_get_fw(netconf_fw_t *fw_list);
-
-/*
- * See if a given firewall entry already exists
- * @param	nat	NAT entry to look for
- * @return	whether NAT entry exists
- */
-extern bool netconf_fw_exists(netconf_fw_t *fw);
-
-/*
- * Reset the firewall to a sane state
- * @return 0 on success and errno on failure */
-extern int netconf_reset_fw(void);
-
-/*
- * Add a NAT entry or list of NAT entries
- * @param	nat_list	NAT entry or list of NAT entries
- * @return	0 on success and errno on failure
- */
-extern int netconf_add_nat(netconf_nat_t *nat_list);
-
-/*
- * Delete a NAT entry or list of NAT entries
- * @param	nat_list	NAT entry or list of NAT entries
- * @return	0 on success and errno on failure
- */
-extern int netconf_del_nat(netconf_nat_t *nat_list);
-
-/*
- * Get an array of the current NAT entries
- * @param	nat_array	array of NAT entries
- * @param	space		Pointer to size of nat_array in bytes
+ * Get a list of the current NAT entries
+ * @param	nat_array	list of NAT entries
  * @return 0 on success and errno on failure
  */
-extern int netconf_get_nat(netconf_nat_t *nat_array, int *space);
-
-/*
- * Add a filter entry or list of filter entries
- * @param	filter_list	filter entry or list of filter entries
- * @return	0 on success and errno on failure
- */
-extern int netconf_add_filter(netconf_filter_t *filter_list);
-
-/*
- * Delete a filter entry or list of filter entries
- * @param	filter_list	filter entry or list of filter entries
- * @return	0 on success and errno on failure
- */
-extern int netconf_del_filter(netconf_filter_t *filter_list);
-
-/*
- * Get an array of the current filter entries
- * @param	filter_array	array of filter entries
- * @param	space		Pointer to size of filter_array in bytes
- * @return 0 on success and errno on failure
- */
-extern int netconf_get_filter(netconf_filter_t *filter_array, int *space);
-
-/*
- * Clamp TCP MSS value to PMTU of interface (for masquerading through PPPoE)
- * @return      0 on success and errno on failure
- */
-extern int netconf_clamp_mss_to_pmtu(void);
-
-/*
- * get NAT chain name taking in account
- * wildcard DNAT (virtual servers)
- */
-extern const char *get_nat_chain_name(const netconf_fw_t *fw);
+extern int netconf_get_nat(netconf_nat_t *nat_list);
 
 #endif /* _netconf_h_ */

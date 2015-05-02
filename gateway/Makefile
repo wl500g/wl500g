@@ -136,7 +136,6 @@ obj-$(CONFIG_WLCONF) += wlconf
 obj-$(CONFIG_BRIDGE) += bridge
 obj-$(CONFIG_IPTABLES) += iptables
 obj-$(CONFIG_LIBIPT) += iptables
-obj-$(CONFIG_NETCONF) += netconf
 obj-$(CONFIG_NVRAM) += nvram
 obj-$(CONFIG_PPP) += ppp
 obj-$(CONFIG_UDHCPD) += udhcpd
@@ -621,7 +620,7 @@ $(LINUXDIR)/.config: .config
 # Overrides
 #
 
-httpd: netconf shared nvram $(EXTRA_LIBS)
+httpd: shared nvram $(EXTRA_LIBS)
 
 rc: shared nvram $(EXTRA_LIBS)
 	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
@@ -770,9 +769,8 @@ ifeq ($(CONFIG_IPTABLES),y)
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/iptables
 	ln -sf iptables $(INSTALLDIR)/iptables/usr/sbin/iptables-restore
 	ln -sf iptables $(INSTALLDIR)/iptables/usr/sbin/iptables-save
-	install -D iptables/.libs/libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so.2.0.0
-	ln -sf libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so.2
-	ln -sf libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so
+	install -D iptables/.libs/libxtables.so $(INSTALLDIR)/iptables/usr/lib/libxtables.so
+	install -D iptables/libiptc/.libs/libiptc.so $(INSTALLDIR)/iptables/usr/lib/libiptc.so
 ifeq ($(CONFIG_IPV6),y)
 	install iptables/extensions/libip6t_*.so $(INSTALLDIR)/iptables/usr/libexec/xtables
 	install iptables/.libs/ip6tables-multi $(INSTALLDIR)/iptables/usr/sbin/ip6tables
@@ -780,7 +778,7 @@ ifeq ($(CONFIG_IPV6),y)
 	ln -sf ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables-restore
 	ln -sf ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables-save
 endif
-	$(STRIP) $(INSTALLDIR)/iptables/usr/libexec/xtables/libip*.so $(INSTALLDIR)/iptables/usr/libexec/xtables/libxt*.so
+	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/lib*.so $(INSTALLDIR)/iptables/usr/libexec/xtables/libip*.so $(INSTALLDIR)/iptables/usr/libexec/xtables/libxt*.so
 else
 	# So that generic rule does not take precedence
 	@true
@@ -790,16 +788,14 @@ iptables-clean:
 	-$(MAKE) -C iptables KERNEL_DIR=$(LINUXDIR) clean
 
 
-netconf: iptables
-
 miniupnpd/config.h:
 	cd miniupnpd && ./genconfig.sh --leasefile --vendorcfg
 
-miniupnpd: iptables netconf miniupnpd/config.h
+miniupnpd: iptables miniupnpd/config.h
 	$(MAKE) -C $@ -f Makefile.linux \
 	    EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    IPTABLESPATH=$(TOP)/iptables ARCH=$(PLATFORM) \
-	    $(if $(CONFIG_NETCONF),LDFLAGS="-L$(TOP)/netconf -lnetconf",LDFLAGS="-liptc") \
+	    LDFLAGS="-L$(TOP)/iptables/libiptc/.libs/ -liptc" \
 	    miniupnpd
 
 miniupnpd-install:

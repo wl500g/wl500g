@@ -224,7 +224,7 @@ int wpacli_main(int argc, char **argv);
 #endif
 
 /* firewall */
-#ifdef __CONFIG_NETCONF__
+#ifdef __CONFIG_NAT__
 int start_firewall(void);
 int start_firewall2(const char *ifname);
 int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if, const char *lan_ip);

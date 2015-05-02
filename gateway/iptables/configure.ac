@@ -49,7 +49,6 @@ AC_ARG_WITH([pkgconfigdir], AS_HELP_STRING([--with-pkgconfigdir=PATH],
 
 AC_CHECK_HEADER([linux/dccp.h])
 
-blacklist_modules="";
 if test "$ac_cv_header_linux_dccp_h" != "yes"; then
 	blacklist_modules="$blacklist_modules dccp";
 fi;
