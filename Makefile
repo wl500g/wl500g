@@ -73,19 +73,12 @@ $(TOP)/Makefile: $(TOP)
 prep: $(TOP)/Makefile
 	-@echo "$$(( $(shell git rev-list --all --count origin/HEAD) + 1000 ))$(if $(shell git status -s -uno),M,)" > $(TOP)/.svnrev
 
-lzma:
-	for dir in lzma4xx lzma; do \
+rsubdirs=linux lzma4xx lzma bcm57xx emf et include rts shared wl
+
+kernel:
+	for dir in $(rsubdirs); do \
 		ln -sfT $(CWD)/$${dir} $(ROOT)/$${dir}; \
 	done
-
-brcm-shared:
-	$(MAKE) -C $(BRCM-SRC) $@
-
-brcm-kernel:
-	$(MAKE) -C $(BRCM-SRC) $@
-
-kernel: lzma brcm-shared brcm-kernel
-	ln -sf $(CWD)/linux $(ROOT)/linux
 	$(MAKE) -C $(KERNEL) config
 
 asustrx:
