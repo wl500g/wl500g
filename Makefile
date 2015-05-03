@@ -84,10 +84,7 @@ brcm-shared:
 brcm-kernel:
 	$(MAKE) -C $(BRCM-SRC) $@
 
-kernel-extra-drivers:
-	$(MAKE) -C $(KERNEL) extra-drivers
-
-kernel: lzma brcm-shared brcm-kernel kernel-extra-drivers
+kernel: lzma brcm-shared brcm-kernel
 	ln -sf $(CWD)/linux $(ROOT)/linux
 	$(MAKE) -C $(KERNEL) config
 

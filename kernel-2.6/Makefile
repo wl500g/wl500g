@@ -33,14 +33,6 @@ patch:
 #	@$(PATCHER) -c -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
 	@$(PATCHER) -c -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
 
-extra-drivers:
-	@for drv in drivers/* ; do \
-	    if [ -d $$drv ]; then \
-		tar -C $$drv $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR) -xf - ; \
-		echo " DRV `basename $$drv`"; \
-	    fi; \
-	done;
-
 config:
 	cp kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
