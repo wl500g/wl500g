@@ -84,16 +84,11 @@ brcm-shared:
 brcm-kernel:
 	$(MAKE) -C $(BRCM-SRC) $@
 
-kernel-mrproper:
-	$(MAKE) -C $(KERNEL) mrproper
-
-kernel-patch:
-	$(MAKE) -C $(KERNEL) patch
-
 kernel-extra-drivers:
 	$(MAKE) -C $(KERNEL) extra-drivers
 
-kernel: lzma brcm-shared brcm-kernel kernel-extra-drivers kernel-patch
+kernel: lzma brcm-shared brcm-kernel kernel-extra-drivers
+	ln -sf $(CWD)/linux $(ROOT)/linux
 	$(MAKE) -C $(KERNEL) config
 
 asustrx:
