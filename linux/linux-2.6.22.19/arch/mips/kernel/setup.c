@@ -80,7 +80,7 @@ static struct resource data_resource = { .name = "Kernel data", };
 void __init add_memory_region(phys_t start, phys_t size, long type)
 {
 	int x = boot_mem_map.nr_map;
-	struct boot_mem_map_entry *prev = boot_mem_map.map + x - 1;
+	int i;
 
 	/* Sanity check */
 	if (start + size < start) {
@@ -89,15 +89,29 @@ void __init add_memory_region(phys_t start, phys_t size, long type)
 	}
 
 	/*
-	 * Try to merge with previous entry if any.  This is far less than
-	 * perfect but is sufficient for most real world cases.
+	 * Try to merge with existing entry, if any.
 	 */
-	if (x && prev->addr + prev->size == start && prev->type == type) {
-		prev->size += size;
+	for (i = 0; i < boot_mem_map.nr_map; i++) {
+		struct boot_mem_map_entry *entry = boot_mem_map.map + i;
+		unsigned long top;
+
+		if (entry->type != type)
+			continue;
+
+		if (start + size < entry->addr)
+			continue;			/* no overlap */
+
+		if (entry->addr + entry->size < start)
+			continue;			/* no overlap */
+
+		top = max(entry->addr + entry->size, start + size);
+		entry->addr = min(entry->addr, start);
+		entry->size = top - entry->addr;
+
 		return;
 	}
 
-	if (x == BOOT_MEM_MAP_MAX) {
+	if (boot_mem_map.nr_map == BOOT_MEM_MAP_MAX) {
 		printk("Ooops! Too many entries in the memory map!\n");
 		return;
 	}
@@ -330,6 +344,7 @@ static void __init bootmem_init(void)
 	/*
 	 * Determine low and high memory ranges
 	 */
+	max_pfn = max_low_pfn;
 	if (max_low_pfn > PFN_DOWN(HIGHMEM_START)) {
 #ifdef CONFIG_HIGHMEM
 		highstart_pfn = PFN_DOWN(HIGHMEM_START);

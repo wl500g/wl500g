@@ -12,6 +12,7 @@
 #ifndef _ASM_SYSTEM_H
 #define _ASM_SYSTEM_H
 
+#include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/irqflags.h>
 
@@ -26,7 +27,7 @@
  * switch_to(n) should switch tasks to task nr n, first
  * checking that n isn't the current task, in which case it does nothing.
  */
-extern asmlinkage void *resume(void *last, void *next, void *next_ti);
+extern asmlinkage void *resume(void *last, void *next, void *next_ti, u32 __usedfpu);
 
 struct task_struct;
 
@@ -46,6 +47,8 @@ struct task_struct;
 
 #define switch_to(prev,next,last)					\
 do {									\
+	u32 __usedfpu;							\
+									\
 	if (cpu_has_fpu &&						\
 	    (prev->thread.mflags & MF_FPUBOUND) &&			\
 	     (!(KSTK_STATUS(prev) & ST0_CU1))) {			\
@@ -55,15 +58,19 @@ do {									\
 	if (cpu_has_dsp)						\
 		__save_dsp(prev);					\
 	next->thread.emulated_fp = 0;					\
-	(last) = resume(prev, next, task_thread_info(next));		\
+	__usedfpu = test_and_clear_tsk_thread_flag(prev, TIF_USEDFPU);	\
+	(last) = resume(prev, next, task_thread_info(next), __usedfpu);	\
 } while(0)
 
 #else
 #define switch_to(prev,next,last)					\
 do {									\
+	u32 __usedfpu;							\
+									\
 	if (cpu_has_dsp)						\
 		__save_dsp(prev);					\
-	(last) = resume(prev, next, task_thread_info(next));		\
+	__usedfpu = test_and_clear_tsk_thread_flag(prev, TIF_USEDFPU);	\
+	(last) = resume(prev, next, task_thread_info(next), __usedfpu);	\
 } while (0)
 #endif
 
@@ -188,10 +195,6 @@ extern __u64 __xchg_u64_unsupported_on_32bit_kernels(volatile __u64 * m, __u64 v
 #define __xchg_u64 __xchg_u64_unsupported_on_32bit_kernels
 #endif
 
-/* This function doesn't exist, so you'll get a linker error
-   if something tries to do an invalid xchg().  */
-extern void __xchg_called_with_bad_pointer(void);
-
 static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int size)
 {
 	switch (size) {
@@ -200,11 +203,17 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int siz
 	case 8:
 		return __xchg_u64(ptr, x);
 	}
-	__xchg_called_with_bad_pointer();
+
 	return x;
 }
 
-#define xchg(ptr,x) ((__typeof__(*(ptr)))__xchg((unsigned long)(x),(ptr),sizeof(*(ptr))))
+#define xchg(ptr, x)							\
+({									\
+	BUILD_BUG_ON(sizeof(*(ptr)) & ~0xc);				\
+									\
+	((__typeof__(*(ptr)))						\
+		__xchg((unsigned long)(x), (ptr), sizeof(*(ptr))));	\
+})
 
 #define __HAVE_ARCH_CMPXCHG 1
 

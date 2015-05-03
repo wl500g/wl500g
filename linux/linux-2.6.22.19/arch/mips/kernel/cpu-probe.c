@@ -45,18 +45,7 @@ static void r39xx_wait(void)
 	local_irq_enable();
 }
 
-/*
- * There is a race when WAIT instruction executed with interrupt
- * enabled.
- * But it is implementation-dependent wheter the pipelie restarts when
- * a non-enabled interrupt is requested.
- */
-static void r4k_wait(void)
-{
-	__asm__("	.set	mips3			\n"
-		"	wait				\n"
-		"	.set	mips0			\n");
-}
+extern void r4k_wait(void);
 
 /*
  * This variant is preferable as it allows testing need_resched and going to
@@ -128,7 +117,7 @@ static int __init wait_disable(char *s)
 
 __setup("nowait", wait_disable);
 
-static inline void check_wait(void)
+void __init check_wait(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 
@@ -212,7 +201,6 @@ static inline void check_wait(void)
 
 void __init check_bugs32(void)
 {
-	check_wait();
 }
 
 /*
@@ -309,6 +297,9 @@ static inline void cpu_probe_legacy(struct cpuinfo_mips *c)
 		c->tlbsize = 48;
 		break;
 	case PRID_IMP_VR41XX:
+		c->isa_level = MIPS_CPU_ISA_III;
+		c->options = R4K_OPTS;
+		c->tlbsize = 32;
 		switch (c->processor_id & 0xf0) {
 		case PRID_REV_VR4111:
 			c->cputype = CPU_VR4111;
@@ -325,17 +316,16 @@ static inline void cpu_probe_legacy(struct cpuinfo_mips *c)
 		case PRID_REV_VR4130:
 			if ((c->processor_id & 0xf) < 0x4)
 				c->cputype = CPU_VR4131;
-			else
+			else {
 				c->cputype = CPU_VR4133;
+				c->options |= MIPS_CPU_LLSC;
+			}
 			break;
 		default:
 			printk(KERN_INFO "Unexpected CPU of NEC VR4100 series\n");
 			c->cputype = CPU_VR41XX;
 			break;
 		}
-		c->isa_level = MIPS_CPU_ISA_III;
-		c->options = R4K_OPTS;
-		c->tlbsize = 32;
 		break;
 	case PRID_IMP_R4300:
 		c->cputype = CPU_R4300;
@@ -512,7 +502,7 @@ static inline void cpu_probe_legacy(struct cpuinfo_mips *c)
 	}
 }
 
-static char unknown_isa[] __initdata = KERN_ERR \
+static char unknown_isa[] __cpuinitdata = KERN_ERR \
 	"Unsupported ISA type, c0.config0: %d.";
 
 static inline unsigned int decode_config0(struct cpuinfo_mips *c)
@@ -618,7 +608,7 @@ static inline unsigned int decode_config3(struct cpuinfo_mips *c)
 	return config3 & MIPS_CONF_M;
 }
 
-static void __init decode_configs(struct cpuinfo_mips *c)
+static void __cpuinit decode_configs(struct cpuinfo_mips *c)
 {
 	/* MIPS32 or MIPS64 compliant CPU.  */
 	c->options = MIPS_CPU_4KEX | MIPS_CPU_4K_CACHE | MIPS_CPU_COUNTER |
@@ -758,7 +748,7 @@ static inline void cpu_probe_philips(struct cpuinfo_mips *c)
 }
 
 
-__init void cpu_probe(void)
+__cpuinit void cpu_probe(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 
@@ -807,7 +797,7 @@ __init void cpu_probe(void)
 		c->srsets = 1;
 }
 
-__init void cpu_report(void)
+__cpuinit void cpu_report(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 

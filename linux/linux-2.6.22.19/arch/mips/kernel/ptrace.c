@@ -161,6 +161,7 @@ int ptrace_setfpregs (struct task_struct *child, __u32 __user *data)
 		__get_user (fregs[i], i + (__u64 __user *) data);
 
 	__get_user (child->thread.fpu.fcr31, data + 64);
+	child->thread.fpu.fcr31 &= ~FPU_CSR_ALL_X;
 
 	/* FIR may not be written.  */
 
@@ -246,7 +247,7 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 		case FPC_EIR: {	/* implementation / version register */
 			unsigned int flags;
 #ifdef CONFIG_MIPS_MT_SMTC
-			unsigned int irqflags;
+			unsigned long irqflags;
 			unsigned int mtflags;
 #endif /* CONFIG_MIPS_MT_SMTC */
 
@@ -372,7 +373,7 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 			break;
 #endif
 		case FPC_CSR:
-			child->thread.fpu.fcr31 = data;
+			child->thread.fpu.fcr31 = data & ~FPU_CSR_ALL_X;
 			break;
 		case DSP_BASE ... DSP_BASE + 5: {
 			dspreg_t *dregs;
@@ -483,11 +484,12 @@ static inline int audit_arch(void)
 asmlinkage void do_syscall_trace(struct pt_regs *regs, int entryexit)
 {
 	/* do the secure computing check first */
-	secure_computing(regs->orig_eax);
+	if (!entryexit)
+		secure_computing(regs->regs[2]);
 
 	if (unlikely(current->audit_context) && entryexit)
-		audit_syscall_exit(AUDITSC_RESULT(regs->regs[2]),
-		                   regs->regs[2]);
+		audit_syscall_exit(AUDITSC_RESULT(regs->regs[7]),
+		                   -regs->regs[2]);
 
 	if (!(current->ptrace & PT_PTRACED))
 		goto out;
@@ -515,7 +517,7 @@ out:
 	   more than a placebo.  */
 
 	if (unlikely(current->audit_context) && !entryexit)
-		audit_syscall_entry(audit_arch(), regs->orig_eax,
-		                    regs->regs[4], regs->regs[5],
-		                    regs->regs[6], regs->regs[7]);
+		audit_syscall_entry(audit_arch(), regs->regs[2],
+				    regs->regs[4], regs->regs[5],
+				    regs->regs[6], regs->regs[7]);
 }

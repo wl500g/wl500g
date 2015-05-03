@@ -1778,6 +1778,7 @@ struct cpu_spec {
 	char		*cpu_name;
 	unsigned char	cpu_od;		/* Set Config[OD] */
 	unsigned char	cpu_bclk;	/* Enable BCLK switching */
+	unsigned char	cpu_pll_wo;	/* sys_cpupll reg. write-only */
 };
 
 extern struct cpu_spec		cpu_specs[];

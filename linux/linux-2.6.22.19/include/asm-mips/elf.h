@@ -232,7 +232,7 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
  */
 #ifdef __MIPSEB__
 #define ELF_DATA	ELFDATA2MSB
-#elif __MIPSEL__
+#elif defined(__MIPSEL__)
 #define ELF_DATA	ELFDATA2LSB
 #endif
 #define ELF_ARCH	EM_MIPS
@@ -253,7 +253,8 @@ extern struct mips_abi mips_abi_n32;
 do {									\
 	if (ibcs2)							\
 		set_personality(PER_SVR4);				\
-	set_personality(PER_LINUX);					\
+	if (personality(current->personality) != PER_LINUX)		\
+		set_personality(PER_LINUX);				\
 									\
 	current->thread.abi = &mips_abi;				\
 } while (0)
@@ -309,21 +310,30 @@ do {									\
 									\
 	if (ibcs2)							\
 		set_personality(PER_SVR4);				\
-	else if (current->personality != PER_LINUX32)			\
-		set_personality(PER_LINUX);				\
+	else {								\
+		unsigned int p = personality(current->personality);	\
+									\
+		if (p != PER_LINUX32 && p != PER_LINUX)			\
+			set_personality(PER_LINUX);			\
+	}								\
 } while (0)
 
 #endif /* CONFIG_64BIT */
 
+struct pt_regs;
 struct task_struct;
 
 extern void elf_dump_regs(elf_greg_t *, struct pt_regs *regs);
 extern int dump_task_regs (struct task_struct *, elf_gregset_t *);
 extern int dump_task_fpu(struct task_struct *, elf_fpregset_t *);
 
+#ifndef ELF_CORE_COPY_REGS
 #define ELF_CORE_COPY_REGS(elf_regs, regs)			\
 	elf_dump_regs((elf_greg_t *)&(elf_regs), regs);
+#endif
+#ifndef ELF_CORE_COPY_TASK_REGS
 #define ELF_CORE_COPY_TASK_REGS(tsk, elf_regs) dump_task_regs(tsk, elf_regs)
+#endif
 #define ELF_CORE_COPY_FPREGS(tsk, elf_fpregs)			\
 	dump_task_fpu(tsk, elf_fpregs)
 

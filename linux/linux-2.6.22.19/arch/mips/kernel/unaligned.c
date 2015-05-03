@@ -99,7 +99,6 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 	unsigned long value;
 	unsigned int res;
 
-	regs->regs[0] = 0;
 	*regptr=NULL;
 
 	/*
@@ -471,19 +470,19 @@ fault:
 		return 1;
 
 	die_if_kernel ("Unhandled kernel unaligned access", regs);
-	send_sig(SIGSEGV, current, 1);
+	force_sig(SIGSEGV, current);
 
 	return 0;
 
 sigbus:
 	die_if_kernel("Unhandled kernel unaligned access", regs);
-	send_sig(SIGBUS, current, 1);
+	force_sig(SIGBUS, current);
 
 	return 0;
 
 sigill:
 	die_if_kernel("Unhandled kernel unaligned access or invalid instruction", regs);
-	send_sig(SIGILL, current, 1);
+	force_sig(SIGILL, current);
 
 	return 0;
 }
@@ -491,20 +490,8 @@ sigill:
 asmlinkage void do_ade(struct pt_regs *regs)
 {
 	unsigned long *regptr, newval;
-	extern int do_dsemulret(struct pt_regs *);
 	unsigned int __user *pc;
 	mm_segment_t seg;
-
-	/*
-	 * Address errors may be deliberately induced by the FPU emulator to
-	 * retake control of the CPU after executing the instruction in the
-	 * delay slot of an emulated branch.
-	 */
-	/* Terminate if exception was recognized as a delay slot return */
-	if (do_dsemulret(regs))
-		return;
-
-	/* Otherwise handle as normal */
 
 	/*
 	 * Did we catch a fault trying to load an instruction?

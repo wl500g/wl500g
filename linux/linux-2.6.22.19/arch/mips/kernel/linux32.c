@@ -363,7 +363,7 @@ sys32_ipc (u32 call, int first, int second, int third, u32 ptr, u32 fifth)
 		err = compat_sys_shmctl(first, second, compat_ptr(ptr));
 		break;
 	default:
-		err = -EINVAL;
+		err = -ENOSYS;
 		break;
 	}
 
@@ -475,14 +475,15 @@ asmlinkage long sys32_newuname(struct new_utsname __user * name)
 
 asmlinkage int sys32_personality(unsigned long personality)
 {
+	unsigned int p = personality & 0xffffffff;
 	int ret;
-	personality &= 0xffffffff;
+
 	if (personality(current->personality) == PER_LINUX32 &&
-	    personality == PER_LINUX)
-		personality = PER_LINUX32;
-	ret = sys_personality(personality);
-	if (ret == PER_LINUX32)
-		ret = PER_LINUX;
+	    personality(p) == PER_LINUX)
+		p = (p & ~PER_MASK) | PER_LINUX32;
+	ret = sys_personality(p);
+	if (ret != -1 && personality(ret) == PER_LINUX32)
+		ret = (ret & ~PER_MASK) | PER_LINUX;
 	return ret;
 }
 
@@ -585,4 +586,20 @@ _sys32_clone(nabi_no_regargs struct pt_regs regs)
 	child_tidptr = (int __user *) __dummy4;
 	return do_fork(clone_flags, newsp, &regs, 0,
 	               parent_tidptr, child_tidptr);
+}
+
+asmlinkage long sys32_lookup_dcookie(u32 a0, u32 a1, char __user *buf,
+	size_t len)
+{
+	return sys_lookup_dcookie(merge_64(a0, a1), buf, len);
+}
+
+extern asmlinkage long compat_sys_futex(u32 __user *uaddr, int op, u32 val,
+	struct compat_timespec __user *utime, u32 __user *uaddr2, u32 val3);
+
+asmlinkage long sys32_futex(u32 __user *uaddr, long op, long val,
+	struct compat_timespec __user *utime, u32 __user *uaddr2, long val3)
+{
+	return compat_sys_futex(uaddr, (int) op, (u32) val, utime,
+				uaddr2, (u32) val3);
 }

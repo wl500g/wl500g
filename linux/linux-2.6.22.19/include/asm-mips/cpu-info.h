@@ -41,8 +41,6 @@ struct cache_desc {
 #define MIPS_CACHE_PINDEX	0x00000020	/* Physically indexed cache */
 
 struct cpuinfo_mips {
-	unsigned long		udelay_val;
-	unsigned long		asid_cache;
 #if defined(CONFIG_SGI_IP27)
 //	cpuid_t		p_cpuid;	/* PROM assigned cpuid */
 	cnodeid_t	p_nodeid;	/* my node ID in compact-id-space */
@@ -57,12 +55,14 @@ struct cpuinfo_mips {
 	unsigned long		prof_multiplier;
 	unsigned long		prof_counter;
 #endif
+	unsigned long		asid_cache;
 
 	/*
 	 * Capability and feature descriptor structure for MIPS CPU
 	 */
 	unsigned long		options;
 	unsigned long		ases;
+	unsigned int		udelay_val;
 	unsigned int		processor_id;
 	unsigned int		fpu_id;
 	unsigned int		cputype;

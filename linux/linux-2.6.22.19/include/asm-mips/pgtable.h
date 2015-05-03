@@ -79,6 +79,9 @@ extern void paging_init(void);
 #define pmd_page(pmd)		(pfn_to_page(pmd_phys(pmd) >> PAGE_SHIFT))
 #define pmd_page_vaddr(pmd)	pmd_val(pmd)
 
+extern void set_pte_at(struct mm_struct *mm, unsigned long addr, pte_t *ptep,
+	pte_t pteval);
+
 #if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
 
 #define pte_none(pte)		(!(((pte).pte_low | (pte).pte_high) & ~_PAGE_GLOBAL))
@@ -103,7 +106,6 @@ static inline void set_pte(pte_t *ptep, pte_t pte)
 		}
 	}
 }
-#define set_pte_at(mm,addr,ptep,pteval) set_pte(ptep,pteval)
 
 static inline void pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
 {
@@ -140,7 +142,6 @@ static inline void set_pte(pte_t *ptep, pte_t pteval)
 	}
 #endif
 }
-#define set_pte_at(mm,addr,ptep,pteval) set_pte(ptep,pteval)
 
 static inline void pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
 {
@@ -168,9 +169,9 @@ static inline void pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *pt
 #define set_pud(pudptr, pudval) do { *(pudptr) = (pudval); } while(0)
 #endif
 
-#define PGD_T_LOG2	ffz(~sizeof(pgd_t))
-#define PMD_T_LOG2	ffz(~sizeof(pmd_t))
-#define PTE_T_LOG2	ffz(~sizeof(pte_t))
+#define PGD_T_LOG2	(__builtin_ffs(sizeof(pgd_t)) - 1)
+#define PMD_T_LOG2	(__builtin_ffs(sizeof(pmd_t)) - 1)
+#define PTE_T_LOG2	(__builtin_ffs(sizeof(pte_t)) - 1)
 
 extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 
@@ -247,9 +248,10 @@ static inline pte_t pte_mkdirty(pte_t pte)
 static inline pte_t pte_mkyoung(pte_t pte)
 {
 	pte.pte_low |= _PAGE_ACCESSED;
-	if (pte.pte_low & _PAGE_READ)
+	if (pte.pte_low & _PAGE_READ) {
 		pte.pte_low  |= _PAGE_SILENT_READ;
 		pte.pte_high |= _PAGE_SILENT_READ;
+	}
 	return pte;
 }
 #else
@@ -358,14 +360,11 @@ static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 
 extern void __update_tlb(struct vm_area_struct *vma, unsigned long address,
 	pte_t pte);
-extern void __update_cache(struct vm_area_struct *vma, unsigned long address,
-	pte_t pte);
 
 static inline void update_mmu_cache(struct vm_area_struct *vma,
 	unsigned long address, pte_t pte)
 {
 	__update_tlb(vma, address, pte);
-	__update_cache(vma, address, pte);
 }
 
 #define kern_addr_valid(addr)	(1)

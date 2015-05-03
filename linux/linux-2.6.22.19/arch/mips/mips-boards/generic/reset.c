@@ -31,12 +31,6 @@
 #include <asm/mips-boards/atlas.h>
 #endif
 
-static void mips_machine_restart(char *command);
-static void mips_machine_halt(void);
-#if defined(CONFIG_MIPS_ATLAS)
-static void atlas_machine_power_off(void);
-#endif
-
 static void mips_machine_restart(char *command)
 {
 	unsigned int __iomem *softres_reg =

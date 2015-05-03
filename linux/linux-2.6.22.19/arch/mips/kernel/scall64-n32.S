@@ -65,8 +65,9 @@ NESTED(handle_sysn32, PT_SIZE, sp)
 	sd	t0, PT_R7(sp)		# set error flag
 	beqz	t0, 1f
 
+	ld	t1, PT_R2(sp)		# syscall number
 	dnegu	v0			# error
-	sd	v0, PT_R0(sp)		# set flag for syscall restarting
+	sd	t1, PT_R0(sp)		# save it for syscall restarting
 1:	sd	v0, PT_R2(sp)		# result
 
 	local_irq_disable		# make sure need_resched and
@@ -106,8 +107,9 @@ n32_syscall_trace_entry:
 	sd	t0, PT_R7(sp)		# set error flag
 	beqz	t0, 1f
 
+	ld	t1, PT_R2(sp)		# syscall number
 	dnegu	v0			# error
-	sd	v0, PT_R0(sp)		# set flag for syscall restarting
+	sd	t1, PT_R0(sp)		# save it for syscall restarting
 1:	sd	v0, PT_R2(sp)		# result
 
 	j	syscall_exit
@@ -314,16 +316,16 @@ EXPORT(sysn32_call_table)
 	PTR	sys_fremovexattr
 	PTR	sys_tkill
 	PTR	sys_ni_syscall
-	PTR	compat_sys_futex
+	PTR	sys32_futex
 	PTR	compat_sys_sched_setaffinity	/* 6195 */
 	PTR	compat_sys_sched_getaffinity
 	PTR	sys_cacheflush
 	PTR	sys_cachectl
 	PTR	sys_sysmips
-	PTR	sys_io_setup			/* 6200 */
+	PTR	compat_sys_io_setup			/* 6200 */
 	PTR	sys_io_destroy
-	PTR	sys_io_getevents
-	PTR	sys_io_submit
+	PTR	compat_sys_io_getevents
+	PTR	compat_sys_io_submit
 	PTR	sys_io_cancel
 	PTR	sys_exit_group			/* 6205 */
 	PTR	sys_lookup_dcookie
@@ -385,12 +387,12 @@ EXPORT(sysn32_call_table)
 	PTR	sys_fchmodat
 	PTR	sys_faccessat
 	PTR	compat_sys_pselect6
-	PTR	sys_ppoll			/* 6265 */
+	PTR	compat_sys_ppoll		/* 6265 */
 	PTR	sys_unshare
 	PTR	sys_splice
 	PTR	sys_sync_file_range
 	PTR	sys_tee
-	PTR	sys_vmsplice			/* 6270 */
+	PTR	compat_sys_vmsplice		/* 6270 */
 	PTR	sys_move_pages
 	PTR	compat_sys_set_robust_list
 	PTR	compat_sys_get_robust_list
@@ -400,7 +402,24 @@ EXPORT(sysn32_call_table)
 	PTR	sys_ioprio_set
 	PTR	sys_ioprio_get
 	PTR	compat_sys_utimensat
-	PTR	compat_sys_signalfd		/* 5280 */
+	PTR	compat_sys_signalfd		/* 6280 */
 	PTR	compat_sys_timerfd
 	PTR	sys_eventfd
+	PTR	sys_ni_syscall			/* sys_fallocate */
+	PTR	sys_ni_syscall			/* sys_timerfd_create */
+	PTR	sys_ni_syscall		/* 6285, compat_sys_timerfd_gettime */
+	PTR	sys_ni_syscall			/* compat_sys_timerfd_settime */
+	PTR	sys_ni_syscall			/* sys_signalfd4 */
+	PTR	sys_ni_syscall			/* sys_eventfd2 */
+	PTR	sys_ni_syscall			/* sys_epoll_create1 */
+	PTR	sys_ni_syscall			/* 6290, sys_dup3 */
+	PTR	sys_ni_syscall			/* sys_pipe2 */
+	PTR	sys_ni_syscall			/* sys_inotify_init1 */
+	PTR	sys_ni_syscall			/* sys_preadv */
+	PTR	sys_ni_syscall			/* sys_pwritev */
+	PTR	sys_ni_syscall		/* 6295, compat_sys_rt_tgsigqueueinfo */
+	PTR	sys_ni_syscall			/* sys_perf_counter_open */
+	PTR	sys_ni_syscall			/* sys_accept4 */
+	PTR     sys_ni_syscall
+	PTR     sys_getdents64
 	.size	sysn32_call_table,.-sysn32_call_table

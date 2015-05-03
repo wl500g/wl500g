@@ -266,6 +266,9 @@ asmlinkage long compat_sys_signalfd(int ufd,
                                 compat_size_t sigsetsize);
 asmlinkage long compat_sys_timerfd(int ufd, int clockid, int flags,
 				const struct compat_itimerspec __user *utmr);
+asmlinkage long compat_sys_futex(u32 __user *uaddr, int op, u32 val,
+		struct compat_timespec __user *utime, u32 __user *uaddr2,
+		u32 val3);
 
 #endif /* CONFIG_COMPAT */
 #endif /* _LINUX_COMPAT_H */

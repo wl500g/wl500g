@@ -69,7 +69,7 @@ unsigned int ipi_timer_latch[NR_CPUS];
 
 #define IPIBUF_PER_CPU 4
 
-static struct smtc_ipi_q IPIQ[NR_CPUS];
+struct smtc_ipi_q IPIQ[NR_CPUS];
 static struct smtc_ipi_q freeIPIq;
 
 
@@ -175,7 +175,7 @@ int vpemask[2][8] = {
 	{0, 0, 0, 0, 0, 0, 0, 1}
 };
 int tcnoprog[NR_CPUS];
-static atomic_t idle_hook_initialized = {0};
+static atomic_t idle_hook_initialized = ATOMIC_INIT(0);
 static int clock_hang_reported[NR_CPUS];
 
 #endif /* CONFIG_SMTC_IDLE_HOOK_DEBUG */
@@ -420,11 +420,8 @@ void mipsmt_prepare_cpus(void)
 	smtc_configure_tlb();
 
 	for (tc = 0, vpe = 0 ; (vpe < nvpe) && (tc < ntc) ; vpe++) {
-		/*
-		 * Set the MVP bits.
-		 */
-		settc(tc);
-		write_vpe_c0_vpeconf0(read_vpe_c0_vpeconf0() | VPECONF0_MVP);
+		if (tcpervpe[vpe] == 0)
+			continue;
 		if (vpe != 0)
 			printk(", ");
 		printk("VPE %d: TC", vpe);
@@ -451,6 +448,12 @@ void mipsmt_prepare_cpus(void)
 			slop--;
 		}
 		if (vpe != 0) {
+			/*
+			 * Allow this VPE to control others.
+			 */
+			write_vpe_c0_vpeconf0(read_vpe_c0_vpeconf0() |
+					      VPECONF0_MVP);
+
 			/*
 			 * Clear any stale software interrupts from VPE's Cause
 			 */
@@ -543,7 +546,7 @@ void mipsmt_prepare_cpus(void)
 void smtc_boot_secondary(int cpu, struct task_struct *idle)
 {
 	extern u32 kernelsp[NR_CPUS];
-	long flags;
+	unsigned long flags;
 	int mtflags;
 
 	LOCK_MT_PRA();
@@ -686,7 +689,7 @@ void smtc_send_ipi(int cpu, int type, unsigned int action)
 {
 	int tcstatus;
 	struct smtc_ipi *pipi;
-	long flags;
+	unsigned long flags;
 	int mtflags;
 
 	if (cpu == smp_processor_id()) {
@@ -908,7 +911,7 @@ static irqreturn_t ipi_interrupt(int irq, void *dev_idm)
 	struct smtc_ipi *pipi;
 	unsigned long tcstatus;
 	int sent;
-	long flags;
+	unsigned long flags;
 	unsigned int mtflags;
 	unsigned int vpflags;
 

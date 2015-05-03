@@ -99,7 +99,9 @@ static int apply_r_mips_32_rela(struct module *me, u32 *location, Elf_Addr v)
 static int apply_r_mips_26_rel(struct module *me, u32 *location, Elf_Addr v)
 {
 	if (v % 4) {
-		printk(KERN_ERR "module %s: dangerous relocation\n", me->name);
+		printk(KERN_ERR
+		       "module %s: dangerous R_MIPS_26 REL relocation\n",
+		       me->name);
 		return -ENOEXEC;
 	}
 
@@ -119,7 +121,9 @@ static int apply_r_mips_26_rel(struct module *me, u32 *location, Elf_Addr v)
 static int apply_r_mips_26_rela(struct module *me, u32 *location, Elf_Addr v)
 {
 	if (v % 4) {
-		printk(KERN_ERR "module %s: dangerous relocation\n", me->name);
+		printk(KERN_ERR
+		       "module %s: dangerous R_MIPS_26 RELArelocation\n",
+		       me->name);
 		return -ENOEXEC;
 	}
 
@@ -164,17 +168,27 @@ static int apply_r_mips_hi16_rela(struct module *me, u32 *location, Elf_Addr v)
 	return 0;
 }
 
+static void free_relocation_chain(struct mips_hi16 *l)
+{
+	struct mips_hi16 *next;
+
+	while (l) {
+		next = l->next;
+		kfree(l);
+		l = next;
+	}
+}
+
 static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
 {
 	unsigned long insnlo = *location;
+	struct mips_hi16 *l;
 	Elf_Addr val, vallo;
 
 	/* Sign extend the addend we extract from the lo insn.  */
 	vallo = ((insnlo & 0xffff) ^ 0x8000) - 0x8000;
 
 	if (mips_hi16_list != NULL) {
-		struct mips_hi16 *l;
-
 		l = mips_hi16_list;
 		while (l != NULL) {
 			struct mips_hi16 *next;
@@ -223,7 +237,11 @@ static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
 	return 0;
 
 out_danger:
-	printk(KERN_ERR "module %s: dangerous " "relocation\n", me->name);
+	free_relocation_chain(l);
+	mips_hi16_list = NULL;
+
+	printk(KERN_ERR
+	       "module %s: dangerous R_MIPS_LO16 REL relocation\n", me->name);
 
 	return -ENOEXEC;
 }
@@ -316,6 +334,19 @@ int apply_relocate(Elf_Shdr *sechdrs, const char *strtab,
 		res = reloc_handlers_rel[ELF_MIPS_R_TYPE(rel[i])](me, location, v);
 		if (res)
 			return res;
+	}
+
+	/*
+	 * Normally the hi16 list should be deallocated at this point.  A
+	 * malformed binary however could contain a series of R_MIPS_HI16
+	 * relocations not followed by a R_MIPS_LO16 relocation.  In that
+	 * case, free up the list and return an error.
+	 */
+	if (mips_hi16_list) {
+		free_relocation_chain(mips_hi16_list);
+		mips_hi16_list = NULL;
+
+		return -ENOEXEC;
 	}
 
 	return 0;

@@ -42,7 +42,7 @@ static int pvc_proc_read_line(char *page, char **start,
         char *origpage = page;
 	int lineno = *(int *)data;
 
-	if (lineno < 0 || lineno > PVC_NLINES) {
+	if (lineno < 0 || lineno >= PVC_NLINES) {
 		printk("proc_read_line: invalid lineno %d\n", lineno);
 		return 0;
 	}
@@ -60,7 +60,7 @@ static int pvc_proc_write_line(struct file *file, const char *buffer,
         int origcount = count;
 	int lineno = *(int *)data;
 
-	if (lineno < 0 || lineno > PVC_NLINES) {
+	if (lineno < 0 || lineno >= PVC_NLINES) {
 		printk("proc_write_line: invalid lineno %d\n", lineno);
 		return origcount;
 	}

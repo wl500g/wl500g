@@ -341,12 +341,12 @@ static struct irq_chip bridge_irq_type = {
 	.unmask		= enable_bridge_irq,
 };
 
-void __devinit register_bridge_irq(unsigned int irq)
+void register_bridge_irq(unsigned int irq)
 {
 	set_irq_chip_and_handler(irq, &bridge_irq_type, handle_level_irq);
 }
 
-int __devinit request_bridge_irq(struct bridge_controller *bc)
+int request_bridge_irq(struct bridge_controller *bc)
 {
 	int irq = allocate_irqno();
 	int swlevel, cpu;

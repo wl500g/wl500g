@@ -47,7 +47,6 @@ static DEFINE_SPINLOCK(mips_irq_lock);
 static inline int mips_pcibios_iack(void)
 {
 	int irq;
-        u32 dummy;
 
 	/*
 	 * Determine highest priority pending interrupt by performing
@@ -74,10 +73,10 @@ static inline int mips_pcibios_iack(void)
 		BONITO_PCIMAP_CFG = 0x20000;
 
 		/* Flush Bonito register block */
-		dummy = BONITO_PCIMAP_CFG;
+		(void) BONITO_PCIMAP_CFG;
 		iob();    /* sync */
 
-		irq = readl((u32 *)_pcictrl_bonito_pcicfg);
+		irq = __raw_readl((u32 *)_pcictrl_bonito_pcicfg);
 		iob();    /* sync */
 		irq &= 0xff;
 		BONITO_PCIMAP_CFG = 0;
@@ -252,14 +251,17 @@ asmlinkage void plat_irq_dispatch(void)
 	unsigned int pending = read_c0_cause() & read_c0_status() & ST0_IM;
 	int irq;
 
+	if (unlikely(!pending)) {
+		spurious_interrupt();
+		return;
+	}
+
 	irq = irq_ffs(pending);
 
 	if (irq == MIPSCPU_INT_I8259A)
 		malta_hw0_irqdispatch();
-	else if (irq >= 0)
-		do_IRQ(MIPS_CPU_IRQ_BASE + irq);
 	else
-		spurious_interrupt();
+		do_IRQ(MIPS_CPU_IRQ_BASE + irq);
 }
 
 static struct irqaction i8259irq = {
