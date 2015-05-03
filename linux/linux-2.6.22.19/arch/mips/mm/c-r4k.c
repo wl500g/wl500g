@@ -358,20 +358,23 @@ static void r4k___flush_cache_all(void)
 static inline void local_r4k_flush_cache_range(void * args)
 {
 	struct vm_area_struct *vma = args;
+	int exec = vma->vm_flags & VM_EXEC;
 
 	if (!(cpu_context(smp_processor_id(), vma->vm_mm)))
 		return;
 
 	r4k_blast_dcache();
+	if (exec)
+		r4k_blast_icache();
 }
 
 static void r4k_flush_cache_range(struct vm_area_struct *vma,
 	unsigned long start, unsigned long end)
 {
-	if (!cpu_has_dc_aliases)
-		return;
+	int exec = vma->vm_flags & VM_EXEC;
 
-	r4k_on_each_cpu(local_r4k_flush_cache_range, vma, 1, 1);
+	if (cpu_has_dc_aliases || (exec && !cpu_has_ic_fills_f_dc))
+		r4k_on_each_cpu(local_r4k_flush_cache_range, vma, 1, 1);
 }
 
 static inline void local_r4k_flush_cache_mm(void * args)

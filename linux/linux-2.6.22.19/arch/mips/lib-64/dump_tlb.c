@@ -32,7 +32,7 @@ static inline const char *msk2str(unsigned int mask)
 #endif
 	}
 
-	return "unknown";
+	return "";
 }
 
 #define BARRIER()					\

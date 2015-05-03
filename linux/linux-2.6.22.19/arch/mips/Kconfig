@@ -450,8 +450,7 @@ config SGI_IP27
 	  here.
 
 config SGI_IP32
-	bool "SGI IP32 (O2) (EXPERIMENTAL)"
-	depends on EXPERIMENTAL
+	bool "SGI IP32 (O2)"
 	select ARC
 	select ARC32
 	select BOOT_ELF32
@@ -841,13 +840,8 @@ config MIPS_TX3927
 config MIPS_RM9122
 	bool
 	select SERIAL_RM9000
-	select GPI_RM9000
-	select WDT_RM9000
 
 config PCI_MARVELL
-	bool
-
-config SERIAL_RM9000
 	bool
 
 config PNX8550
@@ -873,12 +867,6 @@ config EMMA2RH
 	default y
 
 config SERIAL_RM9000
-	bool
-
-config GPI_RM9000
-	bool
-
-config WDT_RM9000
 	bool
 
 #
@@ -1362,7 +1350,6 @@ config MIPS_MT_SMP
 	depends on SYS_SUPPORTS_MULTITHREADING
 	select CPU_MIPSR2_IRQ_VI
 	select CPU_MIPSR2_IRQ_EI
-	select CPU_MIPSR2_SRS
 	select MIPS_MT
 	select NR_CPUS_DEFAULT_2
 	select SMP
@@ -1378,7 +1365,6 @@ config MIPS_MT_SMTC
 	depends on SYS_SUPPORTS_MULTITHREADING
 	select CPU_MIPSR2_IRQ_VI
 	select CPU_MIPSR2_IRQ_EI
-	select CPU_MIPSR2_SRS
 	select MIPS_MT
 	select NR_CPUS_DEFAULT_8
 	select SMP
@@ -1392,7 +1378,6 @@ config MIPS_VPE_LOADER
 	depends on SYS_SUPPORTS_MULTITHREADING
 	select CPU_MIPSR2_IRQ_VI
 	select CPU_MIPSR2_IRQ_EI
-	select CPU_MIPSR2_SRS
 	select MIPS_MT
 	help
 	  Includes a loader for loading an elf relocatable object
@@ -1424,6 +1409,19 @@ config MIPS_MT_SMTC_INSTANT_REPLAY
 	  processing, which adds runtime overhead (hence the option to turn
 	  it off), but ensures that IPIs are handled promptly even under
 	  heavy I/O interrupt load.
+
+config MIPS_MT_SMTC_IM_BACKSTOP
+	bool "Use per-TC register bits as backstop for inhibited IM bits"
+	depends on MIPS_MT_SMTC
+	default y
+	help
+	  To support multiple TC microthreads acting as "CPUs" within
+	  a VPE, VPE-wide interrupt mask bits must be specially manipulated
+	  during interrupt handling. To support legacy drivers and interrupt
+	  controller management code, SMTC has a "backstop" to track and
+	  if necessary restore the interrupt mask. This has some performance
+	  impact on interrupt service overhead. Disable it only if you know
+	  what you are doing.
 
 config MIPS_VPE_LOADER_TOM
 	bool "Load VPE program into memory hidden from linux"
@@ -1498,12 +1496,6 @@ config CPU_MIPSR2_IRQ_VI
 # Extended interrupt mode is an R2 feature
 #
 config CPU_MIPSR2_IRQ_EI
-	bool
-
-#
-# Shadow registers are an R2 feature
-#
-config CPU_MIPSR2_SRS
 	bool
 
 config CPU_HAS_SYNC
@@ -1669,7 +1661,7 @@ choice
 	 Allows the configuration of the timer frequency.
 
 	config HZ_48
-		bool "48 HZ" if SYS_SUPPORTS_48HZ
+		bool "48 HZ" if SYS_SUPPORTS_48HZ || SYS_SUPPORTS_ARBIT_HZ
 
 	config HZ_100
 		bool "100 HZ" if SYS_SUPPORTS_100HZ || SYS_SUPPORTS_ARBIT_HZ

@@ -146,7 +146,7 @@ NESTED(handle_int, PT_SIZE, sp)
 	and	k0, ST0_IEP
 	bnez	k0, 1f
 
-	mfc0	k0, EP0_EPC
+	mfc0	k0, CP0_EPC
 	.set	noreorder
 	j	k0
 	rfe
@@ -243,9 +243,11 @@ NESTED(except_vec_vi_handler, 0, sp)
 	 */
 	mfc0	t1, CP0_STATUS
 	and	t0, a0, t1
+#ifdef CONFIG_MIPS_MT_SMTC_IM_BACKSTOP
 	mfc0	t2, CP0_TCCONTEXT
 	or	t0, t0, t2
 	mtc0	t0, CP0_TCCONTEXT
+#endif /* CONFIG_MIPS_MT_SMTC_IM_BACKSTOP */
 	xor	t1, t1, t0
 	mtc0	t1, CP0_STATUS
 	_ehb

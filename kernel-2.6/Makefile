@@ -28,8 +28,6 @@ OPENWRT_Kernel_Patches:=$(call patches_list,openwrt)
 OUR_Kernel_Patches:=$(call patches_list,.)
 
 patch:
-	@echo Preparing kernel ...
-	$(MAKE) -C $(KERNEL_DIR) mrproper
 	@echo Patching kernel...
 	@$(PATCHER) -c -Z $(KERNEL_DIR) $(MIPS_Kernel_Patches)
 #	@$(PATCHER) -c -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
