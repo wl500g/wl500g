@@ -24,6 +24,7 @@
 
 #ifdef __ASSEMBLY__
 
+#ifndef LINKER_SCRIPT
 #define ALIGN __ALIGN
 #define ALIGN_STR __ALIGN_STR
 
@@ -32,6 +33,13 @@
   .globl name; \
   ALIGN; \
   name:
+#endif
+#endif /* LINKER_SCRIPT */
+
+#ifndef WEAK
+#define WEAK(name)	   \
+	.weak name;	   \
+	name:
 #endif
 
 #define KPROBE_ENTRY(name) \

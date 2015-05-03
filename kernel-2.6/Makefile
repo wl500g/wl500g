@@ -29,7 +29,6 @@ OUR_Kernel_Patches:=$(call patches_list,.)
 
 patch:
 	@echo Preparing kernel ...
-	@$(PATCHER) -c -Z $(KERNEL_DIR) buildhost.patch
 	$(MAKE) -C $(KERNEL_DIR) mrproper
 	@echo Patching kernel...
 	@$(PATCHER) -c -Z $(KERNEL_DIR) $(MIPS_Kernel_Patches)
