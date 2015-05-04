@@ -22,8 +22,6 @@ export TOP := $(ROOT)/gateway
 export CWD := $(shell pwd)
 
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
-KERNEL=kernel-2.6
-BRCM-SRC=brcm-src-2.6
 
 ACCEL-PPTP=accel-pptp-git-20100829
 ACCEL-PPP=accel-ppp-git-20140916
@@ -38,12 +36,6 @@ define patches_list
     $(shell ls -1 $(1)/$(2)[0-9][0-9][0-9]-*.patch 2>/dev/null)
 endef
 
-DIFF := LC_ALL=C TZ=UTC0 diff
-
-define make_diff
-    (cd $(ROOT) && $(DIFF) $(1) -x'*.o' -x'*.orig' $(2)/$(4) $(3)/$(4) | grep -v "^Files .* differ$$" | grep -v ^Binary.*differ$$) > $(4).diff
-    diffstat $(4).diff
-endef
 
 all: prep custom
 	@true
@@ -57,8 +49,13 @@ subdirs=loader busybox dropbear dnsmasq p910nd iproute2 iptables ipset \
 	sysfsutils e2fsprogs wpa_supplicant lanauth authcli infosrv \
 	wlconf libbcmcrypto 
 
-custom:	asustrx odhcp6c accel-pptp accel-ppp $(subdirs)
-	$(MAKE) -C $(KERNEL) version
+rsubdirs=linux asustrx lzma4xx lzma bcm57xx emf et include rts shared wl
+
+custom:	odhcp6c accel-pptp accel-ppp $(subdirs)
+	for dir in $(rsubdirs); do \
+		ln -sfT $(CWD)/$${dir} $(ROOT)/$${dir}; \
+	done
+	$(MAKE) -C $(KERNEL_DIR) include/linux/version.h
 	$(MAKE) -C $(TOP) .config
 	@echo
 	@echo Sources prepared for compilation
@@ -73,16 +70,6 @@ $(TOP)/Makefile: $(TOP)
 prep: $(TOP)/Makefile
 	-@echo "$$(( $(shell git rev-list --all --count origin/HEAD) + 1000 ))$(if $(shell git status -s -uno),M,)" > $(TOP)/.svnrev
 
-rsubdirs=linux lzma4xx lzma bcm57xx emf et include rts shared wl
-
-kernel:
-	for dir in $(rsubdirs); do \
-		ln -sfT $(CWD)/$${dir} $(ROOT)/$${dir}; \
-	done
-	$(MAKE) -C $(KERNEL) config
-
-asustrx:
-	ln -sfT $(CWD)/$@ $(ROOT)/asustrx
 
 odhcp6c_Patches := $(call patches_list,odhcp6c)
 
@@ -128,4 +115,4 @@ clean distclean: $(TOP)/Makefile
 	$(MAKE) -C $(TOP) $@
 	$(MAKE) -C asustrx $@
 
-.PHONY: kernel kernel-patch kernel-extra-drivers asustrx lzma $(subdirs)
+.PHONY: asustrx lzma $(subdirs)
