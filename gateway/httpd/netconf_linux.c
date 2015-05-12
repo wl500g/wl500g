@@ -34,8 +34,9 @@
 /* iptables definitions */
 #include <libiptc/libiptc.h>
 #include <iptables.h>
-#include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ip_nat_rule.h>
+#include <linux/netfilter/xt_time.h>
+#include <linux/netfilter/nf_conntrack_common.h>
+#include <net/netfilter/nf_nat.h>
 #define ETH_ALEN ETHER_ADDR_LEN
 #include <linux/netfilter/xt_conntrack.h>
 #include <linux/netfilter_ipv4/ipt_mac.h>
@@ -298,8 +299,8 @@ netconf_get_nat(netconf_nat_t *nat_list)
 				target = (struct ipt_entry_target *) ((int) entry + entry->target_offset);
 
 				/* Get NAT target information */
-				struct ip_nat_multi_range *mr = (struct ip_nat_multi_range *) &target->data[0];
-				struct ip_nat_range *range = (struct ip_nat_range *) &mr->range[0];
+				struct nf_nat_multi_range *mr = (struct nf_nat_multi_range *) &target->data[0];
+				struct nf_nat_range *range = (struct nf_nat_range *) &mr->range[0];
 			
 				/* Get mapped IP address */
 				nat->ipaddr.s_addr = range->min_ip;
