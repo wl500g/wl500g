@@ -14,6 +14,7 @@ autom4te.cache
 config.cache
 config.log
 config.status
+config.status.lineno
 stamp-h1
 /asustrx/asustrx
 /emf/emfconf/emf
