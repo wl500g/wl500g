@@ -8,3 +8,7 @@ scripts/pppoe-setup
 scripts/pppoe-start
 scripts/pppoe-stop
 src/config.h
+src/pppoe
+src/pppoe-relay
+src/pppoe-server
+src/pppoe-sniff
