@@ -620,7 +620,7 @@ $(LINUXDIR)/.config: .config
 # Overrides
 #
 
-httpd: shared nvram $(EXTRA_LIBS)
+httpd: shared nvram iptables $(EXTRA_LIBS)
 
 rc: shared nvram $(EXTRA_LIBS)
 	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
