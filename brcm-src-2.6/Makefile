@@ -25,6 +25,6 @@ subdirs=bcm57xx emf et include shared wl
 brcm-shared: $(subdirs)
 
 $(subdirs):
-	ln -sf $(CWD)/$@ $(ROOT)/$@
+	ln -sfT $(CWD)/$@ $(ROOT)/$@
 
 .PHONY: $(subdirs)

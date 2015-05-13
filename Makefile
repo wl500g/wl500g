@@ -68,14 +68,14 @@ $(TOP):
 	@mkdir -p $(TOP)
 
 $(TOP)/Makefile: $(TOP)
-	ln -sf $(CWD)/gateway/Makefile $@
+	ln -sfT $(CWD)/gateway/Makefile $@
 
 prep: $(TOP)/Makefile
 	-@echo "$$(( $(shell git rev-list --all --count origin/HEAD) + 1000 ))$(if $(shell git status -s -uno),M,)" > $(TOP)/.svnrev
 
 lzma:
 	for dir in lzma4xx lzma; do \
-		ln -sf $(CWD)/$${dir} $(ROOT)/$${dir}; \
+		ln -sfT $(CWD)/$${dir} $(ROOT)/$${dir}; \
 	done
 
 brcm-shared:
@@ -97,7 +97,7 @@ kernel: lzma brcm-shared brcm-kernel kernel-extra-drivers kernel-patch
 	$(MAKE) -C $(KERNEL) config
 
 asustrx:
-	ln -sf $(CWD)/$@ $(ROOT)/asustrx
+	ln -sfT $(CWD)/$@ $(ROOT)/asustrx
 
 odhcp6c_Patches := $(call patches_list,odhcp6c)
 
@@ -137,7 +137,7 @@ accel-ppp: $(TOP)/accel-ppp
 	@true
 
 $(subdirs):
-	ln -sf $(CWD)/gateway/$@ $(TOP)/$@
+	ln -sfT $(CWD)/gateway/$@ $(TOP)/$@
 
 clean distclean: $(TOP)/Makefile
 	$(MAKE) -C $(TOP) $@
