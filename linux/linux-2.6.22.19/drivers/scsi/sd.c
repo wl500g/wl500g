@@ -941,6 +941,7 @@ static void sd_rw_intr(struct scsi_cmnd * SCpnt)
  	unsigned int good_bytes = result ? 0 : xfer_size;
  	u64 start_lba = SCpnt->request->sector;
 	u64 end_lba = SCpnt->request->sector + (xfer_size / 512);
+	u64 factor = SCpnt->device->sector_size / 512;
  	u64 bad_lba;
 	struct scsi_sense_hdr sshdr;
 	int sense_valid = 0;
@@ -979,16 +980,9 @@ static void sd_rw_intr(struct scsi_cmnd * SCpnt)
 			goto out;
 		if (xfer_size <= SCpnt->device->sector_size)
 			goto out;
-		if (SCpnt->device->sector_size < 512) {
-			/* only legitimate sector_size here is 256 */
-			start_lba <<= 1;
-			end_lba <<= 1;
-		} else {
-			/* be careful ... don't want any overflows */
-			u64 factor = SCpnt->device->sector_size / 512;
-			do_div(start_lba, factor);
-			do_div(end_lba, factor);
-		}
+		/* be careful ... don't want any overflows */
+		do_div(start_lba, factor);
+		do_div(end_lba, factor);
 
 		if (bad_lba < start_lba  || bad_lba >= end_lba)
 			/* the bad lba was reported incorrectly, we have
@@ -1305,8 +1299,7 @@ got_data:
 	if (sector_size != 512 &&
 	    sector_size != 1024 &&
 	    sector_size != 2048 &&
-	    sector_size != 4096 &&
-	    sector_size != 256) {
+	    sector_size != 4096) {
 		sd_printk(KERN_NOTICE, sdkp, "Unsupported sector size %d.\n",
 			  sector_size);
 		/*
@@ -1357,8 +1350,6 @@ got_data:
 		sdkp->capacity <<= 2;
 	else if (sector_size == 1024)
 		sdkp->capacity <<= 1;
-	else if (sector_size == 256)
-		sdkp->capacity >>= 1;
 
 	sdkp->device->sector_size = sector_size;
 }
