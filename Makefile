@@ -143,4 +143,4 @@ clean distclean: $(TOP)/Makefile
 	$(MAKE) -C $(TOP) $@
 	$(MAKE) -C asustrx $@
 
-.PHONY: kernel kernel-patch kernel-extra-drivers asustrx $(subdirs)
+.PHONY: kernel kernel-patch kernel-extra-drivers asustrx lzma $(subdirs)
