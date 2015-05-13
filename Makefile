@@ -25,7 +25,6 @@ export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 KERNEL=kernel-2.6
 BRCM-SRC=brcm-src-2.6
 
-RP-PPPOE=rp-pppoe-3.11
 ACCEL-PPTP=accel-pptp-git-20100829
 ACCEL-PPP=accel-ppp-git-20140916
 ODHCP6C=odhcp6c-git-20140814
@@ -51,14 +50,14 @@ all: prep custom
 
 subdirs=loader busybox dropbear dnsmasq p910nd iproute2 iptables ipset \
 	rp-l2tp nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
-	bpalogin bridge inadyn httpd jpeg-8b lib LPRng ppp \
+	bpalogin bridge inadyn httpd jpeg-8b lib LPRng ppp rp-pppoe \
 	misc nvram others rc mjpg-streamer udev \
 	scsi-idle libusb usb_modeswitch madwimax uqmi lltd tcpdump libpcap \
 	miniupnpd utils www config shared cdma ntfs-3g samba \
 	sysfsutils e2fsprogs wpa_supplicant lanauth authcli infosrv \
 	wlconf libbcmcrypto 
 
-custom:	asustrx odhcp6c rp-pppoe accel-pptp accel-ppp
+custom:	asustrx odhcp6c accel-pptp accel-ppp
 	for dir in $(subdirs); do \
 		ln -sf $(CWD)/gateway/$${dir} $(TOP)/$${dir}; \
 	done
@@ -112,17 +111,6 @@ $(TOP)/odhcp6c: odhcp6c/$(ODHCP6C).tar.gz
 	mv $(TOP)/$(ODHCP6C) $@
 
 odhcp6c: $(TOP)/odhcp6c
-	@true
-
-rp-pppoe_Patches := $(call patches_list,rp-pppoe)
-
-$(TOP)/rp-pppoe: rp-pppoe/$(RP-PPPOE).tar.gz
-	@rm -rf $(TOP)/$(RP-PPPOE) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(RP-PPPOE) $(rp-pppoe_Patches)
-	mv $(TOP)/$(RP-PPPOE) $@ && touch $@
-
-rp-pppoe: $(TOP)/rp-pppoe
 	@true
 
 accel-pptp_Patches := $(call patches_list,accel-pptp)
