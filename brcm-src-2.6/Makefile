@@ -20,9 +20,11 @@
 brcm-kernel:
 	tar -C kernel $(TAR_EXCL_SVN) -cf - arch drivers include sound | tar -C $(KERNEL_DIR) -xf -
 
-subdirs= bcm57xx emf et include shared wl
+subdirs=bcm57xx emf et include shared wl
 
-brcm-shared:
-	for dir in $(subdirs); do \
-		ln -sf $(CWD)/$${dir} $(ROOT)/$${dir}; \
-	done
+brcm-shared: $(subdirs)
+
+$(subdirs):
+	ln -sf $(CWD)/$@ $(ROOT)/$@
+
+.PHONY: $(subdirs)

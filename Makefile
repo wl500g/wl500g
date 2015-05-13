@@ -57,10 +57,7 @@ subdirs=loader busybox dropbear dnsmasq p910nd iproute2 iptables ipset \
 	sysfsutils e2fsprogs wpa_supplicant lanauth authcli infosrv \
 	wlconf libbcmcrypto 
 
-custom:	asustrx odhcp6c accel-pptp accel-ppp
-	for dir in $(subdirs); do \
-		ln -sf $(CWD)/gateway/$${dir} $(TOP)/$${dir}; \
-	done
+custom:	asustrx odhcp6c accel-pptp accel-ppp $(subdirs)
 	$(MAKE) -C $(KERNEL) version
 	$(MAKE) -C $(TOP) .config
 	@echo
@@ -139,9 +136,11 @@ $(TOP)/accel-ppp: accel-ppp/$(ACCEL-PPP).tar.gz
 accel-ppp: $(TOP)/accel-ppp
 	@true
 
+$(subdirs):
+	ln -sf $(CWD)/gateway/$@ $(TOP)/$@
+
 clean distclean: $(TOP)/Makefile
 	$(MAKE) -C $(TOP) $@
 	$(MAKE) -C asustrx $@
 
-
-.PHONY: kernel kernel-patch kernel-extra-drivers asustrx
+.PHONY: kernel kernel-patch kernel-extra-drivers asustrx $(subdirs)
