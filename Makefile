@@ -68,7 +68,7 @@ $(TOP)/Makefile: $(TOP)
 	ln -sfT $(CWD)/gateway/Makefile $@
 
 prep: $(TOP)/Makefile
-	-@echo "$$(( $(shell git rev-list --all --count origin/HEAD) + 1000 ))$(if $(shell git status -s -uno),M,)" > $(TOP)/.svnrev
+	-@echo "$(shell git rev-list --all --count origin/HEAD)$(if $(shell git status -s -uno),M,)" > $(TOP)/.svnrev
 
 
 odhcp6c_Patches := $(call patches_list,odhcp6c)
