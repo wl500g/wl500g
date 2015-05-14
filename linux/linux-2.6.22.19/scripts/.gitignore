@@ -6,3 +6,5 @@ kallsyms
 pnmtologo
 bin2c
 unifdef
+/squashfs/mksquashfs-lzma
+/squashfs/unsquashfs-lzma
