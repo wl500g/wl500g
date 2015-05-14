@@ -310,6 +310,9 @@ PPPOEDisconnectDevice(void)
 {
     struct sockaddr_pppox sp;
 
+    if (conn->sessionSocket < 0)
+	goto ERROR;
+
     sp.sa_family = AF_PPPOX;
     sp.sa_protocol = PX_PROTO_OE;
     sp.sa_addr.pppoe.sid = 0;
@@ -322,6 +325,8 @@ PPPOEDisconnectDevice(void)
     }
     close(conn->sessionSocket);
     conn->sessionSocket = -1;
+
+ERROR:
     /* Send PADT to reset the session unresponsive at buggy nas */
     sendPADT(conn, NULL);
     if (!existingSession) {
