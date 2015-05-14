@@ -382,16 +382,17 @@ void usbnet_qmi_connect(const char *prefix, int unit, const char *ifname)
 
 	_eval(argv_uqmi_802_3, 0, 0, NULL);
 
-	logmessage("usbnet/qmi:", "Waiting for network registration");
+	logmessage("usbnet/qmi", "Waiting for network registration");
 	i = 0;
 	do {
 		_eval(argv_uqmi_searching, s_to_cid_fn, 0, NULL);
-		if ((ptr = file2str(s_cid_fn))) {
-			fl = (strstr(ptr, "searching") != 0);
+		ptr = file2str(s_cid_fn);
+		if (ptr != NULL) {
+			fl = (strstr(ptr, "searching") == NULL);
+			dprintf("qmi status: %s", ptr);
 			free(ptr);
-
-			if (fl) printf("qmi status: %s", ptr);
-			else break;
+			if (fl)
+				break;
 		}
 		sleep(5);
 		i += 5;
