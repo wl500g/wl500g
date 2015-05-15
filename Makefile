@@ -23,7 +23,6 @@ export CWD := $(shell pwd)
 
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 
-ACCEL-PPTP=accel-pptp-git-20100829
 ACCEL-PPP=accel-ppp-git-20140916
 ODHCP6C=odhcp6c-git-20140814
 
@@ -42,7 +41,7 @@ all: prep custom
 
 subdirs=loader busybox dropbear dnsmasq p910nd iproute2 iptables ipset \
 	rp-l2tp nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
-	bpalogin bridge inadyn httpd jpeg-8b lib LPRng ppp rp-pppoe \
+	bpalogin bridge inadyn httpd jpeg-8b lib LPRng ppp rp-pppoe accel-pptp \
 	misc nvram others rc mjpg-streamer udev \
 	scsi-idle libusb usb_modeswitch madwimax uqmi lltd tcpdump libpcap \
 	miniupnpd utils www config shared cdma ntfs-3g samba \
@@ -51,7 +50,7 @@ subdirs=loader busybox dropbear dnsmasq p910nd iproute2 iptables ipset \
 
 rsubdirs=linux asustrx lzma4xx lzma bcm57xx emf et include rts shared wl
 
-custom:	odhcp6c accel-pptp accel-ppp $(subdirs)
+custom:	odhcp6c accel-ppp $(subdirs)
 	for dir in $(rsubdirs); do \
 		ln -sfT $(CWD)/$${dir} $(ROOT)/$${dir}; \
 	done
@@ -80,20 +79,6 @@ $(TOP)/odhcp6c: odhcp6c/$(ODHCP6C).tar.gz
 	mv $(TOP)/$(ODHCP6C) $@
 
 odhcp6c: $(TOP)/odhcp6c
-	@true
-
-accel-pptp_Patches := $(call patches_list,accel-pptp)
-
-$(TOP)/accel-pptp: accel-pptp/$(ACCEL-PPTP).tar.bz2
-	@rm -rf $(TOP)/$(ACCEL-PPTP) $@
-	tar -xjf $^ -C $(TOP)
-	rm -rf $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
-	ln -s $(CWD)/gateway/ppp/pppd $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
-	$(PATCHER) -Z $(TOP)/$(ACCEL-PPTP) $(accel-pptp_Patches)
-	mv $(TOP)/$(ACCEL-PPTP) $@ && touch $@
-	touch $@
-
-accel-pptp: $(TOP)/accel-pptp
 	@true
 
 accel-ppp_Patches := $(call patches_list,accel-ppp)
