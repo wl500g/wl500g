@@ -19488,7 +19488,7 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
-CFLAGS="${CFLAGS} -I. -I${header} -I${pppd}/.."
+CFLAGS="${CFLAGS} -I. -I${pppd}/.. -idirafter${header}"
 
 echo '==============================================================================='
 

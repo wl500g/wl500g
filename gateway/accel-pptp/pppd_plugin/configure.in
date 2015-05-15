@@ -64,7 +64,7 @@ pppd_ver=$(cat ${pppd}/patchlevel.h | grep 'VERSION' | awk '{gsub(/"/,"",$3);pri
 AC_MSG_RESULT(found ($pppd_ver at ${pppd}))
 AC_DEFINE_UNQUOTED(PPPD_VERSION,"${pppd_ver}")
 
-CFLAGS="${CFLAGS} -I. -I${header} -I${pppd}/.."
+CFLAGS="${CFLAGS} -I. -I${pppd}/.. -idirafter${header}"
 
 echo '==============================================================================='
 
