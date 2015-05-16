@@ -12,9 +12,7 @@
 # $Id$
 #
 
-ifneq ($(MAKECMDGOALS),clean)
-include $(TOP)/.config
-endif
+-include $(TOP)/.config
 
 CFLAGS	+= -s -O2 $(GLOBAL_OPTIONS) $(EXTRACFLAGS)
 CFLAGS	+= -I. -I$(SRCBASE)/include -I../httpd -Wall

@@ -79,5 +79,5 @@ decompress.lds: decompress.lds.in Makefile
 
 mrproper: clean
 
-clean:
+clean distclean:
 	rm -f loader.gz loader decompress loader.lds decompress.lds *.o *.image piggy

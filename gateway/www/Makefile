@@ -25,5 +25,5 @@ install:
 	install -d $(INSTALLDIR)/www/graph
 	install -m 644 web_tmp/graph/* $(INSTALLDIR)/www/graph
 
-clean:
+clean distclean:
 	rm -rf web_tmp

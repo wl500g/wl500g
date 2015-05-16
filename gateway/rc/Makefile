@@ -12,9 +12,7 @@
 # $Id$
 #
 
-ifneq ($(MAKECMDGOALS),clean)
-include $(TOP)/.config
-endif
+-include $(TOP)/.config
 
 CFLAGS	+= -Wall -O2 $(GLOBAL_OPTIONS) $(EXTRACFLAGS)
 CFLAGS	+= -ffunction-sections -fdata-sections
@@ -43,7 +41,7 @@ vpath %.c $(SRCBASE)/rts/src
 
 all: rc
 
-clean:
+clean distclean:
 	rm -f *.o rc
 
 install: all

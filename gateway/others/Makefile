@@ -1,9 +1,5 @@
 
-ifneq ($(MAKECMDGOALS),clean)
- ifneq ($(wildcard $(TOP)/.config),)
-  include $(TOP)/.config
- endif
-endif
+-include $(TOP)/.config
 
 all :
 	rm -rf $(INSTALLDIR)

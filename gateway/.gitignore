@@ -1,6 +1,7 @@
 /mipsel-uclibc
 /.config
 /.config.old
-/.condig.tmp
+/.config.tmp
+/.config.cmd
 /.svnrev
 wlconf/wlconf

@@ -31,9 +31,9 @@ install: all
 	$(INSTALL) -D $(TARGET) $(INSTALLDIR)/$(PREFIX)/lib/$(TARGET)
 .PHONY : install
 
-clean:
-	rm $(OBJS) $(TARGET)
-.PHONY : clean
+clean distclean:
+	@rm -f $(OBJS) $(TARGET)
+.PHONY : clean distclean
 
 # The main all target
 all: $(TARGET)

@@ -25,9 +25,11 @@ m4/*.m4
 /doc/*.info*
 /lib/route_types.h
 /lib/memtypes.h
+/lib/version.h
 /pkgsrc/*.sh
 /redhat/quagga.spec
 /ospfd/ospfd
 /ripd/ripd
 /zebra/testzebra
 /zebra/zebra
+/vtysh/extract.pl

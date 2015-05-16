@@ -29,7 +29,7 @@ install: all
 	install -D --mode=0750 nvram $(INSTALLDIR)/usr/sbin/nvram
 	$(STRIP) $(INSTALLDIR)/usr/sbin/nvram
 
-clean:
+clean distclean:
 	rm -f *.o *.a *.so nvram
 
 libnvram.so: nvram_linux.o

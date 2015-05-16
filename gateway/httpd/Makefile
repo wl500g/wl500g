@@ -6,9 +6,7 @@
 # $Id: Makefile,v 1.3 2004/01/05 05:39:17 Cheni_Shen Exp $
 #
 
-ifneq ($(MAKECMDGOALS),clean)
-include $(TOP)/.config
-endif
+-include $(TOP)/.config
 
 CFLAGS	+= -Wall -O2 $(GLOBAL_OPTIONS) $(EXTRACFLAGS) -DFLASH_EMULATOR -DLinux
 CFLAGS	+= -ffunction-sections -fdata-sections
@@ -28,7 +26,7 @@ endif
 
 all: httpd
 
-clean:
+clean distclean:
 	rm -f *.o *~ httpd
 
 install: all

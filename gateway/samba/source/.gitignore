@@ -9,4 +9,4 @@ cvs.log
 so_locations
 *.po
 *.po32
-bin/*.shared
+bin/

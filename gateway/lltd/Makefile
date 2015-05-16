@@ -1,8 +1,6 @@
 VPATH = src
 
-ifneq ($(MAKECMDGOALS),clean)
-include $(TOP)/.config
-endif
+-include $(TOP)/.config
 
 CFLAGS += -I. -I$(TOP)/shared -I$(SRCBASE)/include
 #CFLAGS += -g -D__DEBUG__

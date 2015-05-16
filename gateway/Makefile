@@ -2,9 +2,7 @@
 # Broadcom Linux Router Makefile
 # 
 
-ifneq ($(MAKECMDGOALS),.config)
-include .config
-endif
+-include .config
 
 RELEASE=1.9.2.7-rtn
 
@@ -21,9 +19,10 @@ HWH1=2.99
 #
 
 # Source bases
-export PLATFORM LINUXDIR LIBDIR USRLIBDIR
 export TOP := $(shell pwd)
 export SRCBASE := $(shell (cd $(TOP)/.. && pwd -P))
+LINUXDIR ?= $(SRCBASE)/linux/linux-2.6
+export PLATFORM LINUXDIR LIBDIR USRLIBDIR
 
 #
 # Cross-compile environment variables
@@ -45,7 +44,7 @@ export CONFIGURE := ./configure --host=mipsel-linux --build=$(BUILD)
 else ifeq ($(PLATFORM),mipsel-uclibc)
 export CROSS_COMPILE := mipsel-uclibc-
 export CONFIGURE := ./configure --host=mipsel-linux --build=$(BUILD)
-else ifneq ($(MAKECMDGOALS),.config)
+else ifneq ($(MAKECMDGOALS),config)
 $(error Unsupported platform $(PLATFORM))
 endif
 export CONFIGURE := CONFIG_SITE=no-such-file $(CONFIGURE)
@@ -61,7 +60,7 @@ ifneq ($(TOOLCHAIN),)
 ifeq ($(findstring =$(TOOLCHAIN)/bin:,=$(PATH)),)
 export PATH := $(TOOLCHAIN)/bin:$(PATH)
 endif
-else ifneq ($(MAKECMDGOALS),.config)
+else ifneq ($(MAKECMDGOALS),config)
 $(error Can't find toolchain $(TOOLCHAINDIR))
 endif
 
@@ -126,7 +125,7 @@ MODEL = $(firstword $(img-y))
 obj-y += libbcmcrypto
 obj-y += kernel busybox dnsmasq e2fsprogs
 obj-$(CONFIG_LIBUSB) += libusb
-obj-$(CONFIG_HTTPD) += httpd www
+obj-$(CONFIG_HTTPD) += httpd
 obj-$(CONFIG_RC) += rc
 obj-$(CONFIG_LIBBCM) += libbcm
 obj-$(CONFIG_SHARED) += shared
@@ -212,6 +211,7 @@ netfilter_external_modules += ip_set$(ko) \
 endif
 
 obj-clean := $(foreach obj,$(obj-y) $(obj-n),$(obj)-clean)
+obj-distclean := $(foreach obj,$(obj-y) $(obj-n) $(obj-),$(obj)-distclean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 
 # defaults
@@ -234,10 +234,13 @@ MKSQUASHFSDIR=$(TOP)/squashfs/squashfs-tools
 MKSQUASHFS=$(MKSQUASHFSDIR)/mksquashfs
 endif
 
-SVNREVISION:=$(shell cat $(TOP)/.svnrev 2>/dev/null)
-ifneq (0,$(words $(SVNREVISION)))
-  RELEASE:=$(RELEASE)-r$(firstword $(SVNREVISION))
-endif
+define svnrevision
+$(shell git rev-list --all --count origin/HEAD 2>/dev/null)$(if $(shell git status -s -uno 2>/dev/null),M,)
+endef
+define revision
+$(if $(2),$(1)-r$(2),$(1))
+endef
+RELEASE:=$(call revision,$(RELEASE),$(call svnrevision))
 
 # $1 - config name, $2 - params list to change, $3 - new param value (y/n/m)
 define SwitchConfParam
@@ -281,10 +284,9 @@ clean: $(obj-clean) config-clean lzma-clean mksquashfs-clean
 mrproper: clean
 	rm -f .config $(LINUXDIR)/.config
 
-distclean:
-	for subdir in $(obj-y); do \
-		$(MAKE) -C $$subdir distclean; \
-	done
+distclean: $(obj-distclean) lzma-distclean mksquashfs-distclean
+	rm -rf $(TARGETDIR)
+	$(MAKE) -C config clean
 
 lzma $(LZMADIR)/lzma:
 	$(MAKE) -C $(LZMADIR) -f makefile.gcc
@@ -339,6 +341,10 @@ kernel: $(LINUXDIR)/.stamp-$(MIPSREV) $(LINUXDIR)/.config
 
 kernel-clean:
 	-$(MAKE) -C $(LINUXDIR) clean
+	@-rm -f $(LINUXDIR)/.stamp-*
+
+kernel-distclean:
+	-$(MAKE) -C $(LINUXDIR) distclean
 	@-rm -f $(LINUXDIR)/.stamp-*
 
 kernel-install: kernel $(PLATFORMDIR)/vmlinuz
@@ -482,9 +488,9 @@ install: package-$(MODEL)
 
 package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs
 	# TO DO: implement config.js and remove this
-	$(MAKE) www-clean
-	$(MAKE) www MODEL=$(MODEL)
-	$(MAKE) www-install
+	$(MAKE) -C www clean
+	$(MAKE) -C www MODEL=$(MODEL)
+	$(MAKE) -C www install
 	# Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
 	echo $(RELEASE) > $(TARGETDIR)/.version
@@ -494,7 +500,7 @@ package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.con
 	# Optimize crypto library
 	$(MAKE) -C libbcmcrypto optimize
 	# Install (and possibly optimize) C library
-	$(MAKE) lib-install
+	$(MAKE) -C lib install
 	# Install Addons, if any
 	@-( if [ -d $(SRCBASE)/router/Addon ]; then \
 	    ( cp -dupR $(SRCBASE)/router/Addon/* $(TARGETDIR) ) \
@@ -573,17 +579,16 @@ manpages: manpages-install
 #
 # Configuration rules
 #
-
-conf mconf:
+config/conf:
 	$(MAKE) -C config
-	@./config/$@ ./config/Config
+
+conf mconf: config/conf
+	@./config/$@ config/Config
 	# Also configure kernel
 	$(MAKE) k$@
 
-oldconf: .config
-	$(MAKE) -C config
-	@./config/conf -o ./config/Config
-	$(MAKE) shared-clean rc-clean httpd-clean
+oldconf: .config config/conf shared-clean rc-clean httpd-clean
+	@./config/conf -o config/Config
 	# Also configure kernel
 	$(MAKE) k$@
 
@@ -596,20 +601,20 @@ kmconf:
 koldconf: $(LINUXDIR)/.config
 	@true
 
-$(LINUXDIR)/include/linux/version.h: $(LINUXDIR)/.config
+$(LINUXDIR)/include/linux/version.h:
 	$(MAKE) -C $(LINUXDIR) include/linux/version.h
+
+$(LINUXDIR)/include/linux/autoconf.h: $(LINUXDIR)/.config
 	$(MAKE) -C $(LINUXDIR) include/linux/autoconf.h
 
 # Convenience
-config: conf
-
 menuconfig: mconf
 
 oldconfig: oldconf
 
 # Default configurations
-.config:
-	cp config/defconfig $@
+config: $(LINUXDIR)/include/linux/version.h
+	cp config/defconfig .$@
 	$(MAKE) oldconfig
 
 $(LINUXDIR)/.config: .config
@@ -622,6 +627,11 @@ $(LINUXDIR)/.config: .config
 
 httpd: shared nvram iptables $(EXTRA_LIBS)
 
+shared: shared/bcmconfig.h
+
+shared/bcmconfig.h: .config config/conf
+	@./config/conf -s config/Config
+
 rc: shared nvram $(EXTRA_LIBS)
 	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
@@ -629,7 +639,7 @@ rc-install:
 	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 www-%:
-	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www MODEL=$(MODEL)
+	$(MAKE) -C www $* MODEL=$(MODEL)
 
 radvd/Makefile: radvd/Makefile.in
 	cd radvd && CFLAGS="-g -Os" \
@@ -745,9 +755,11 @@ uqmi-install:
 	$(MAKE) -C uqmi INSTALL=install INSTALLDIR="$(INSTALLDIR)/uqmi" install
 	$(STRIP) $(INSTALLDIR)/uqmi/usr/sbin/uqmi
 
+uqmi-distclean: uqmi-clean
+
 uqmi-clean:
-	$(MAKE) -C uqmi clean
-	$(MAKE) -C uqmi/libubox clean
+	-$(MAKE) -C uqmi clean
+	-$(MAKE) -C uqmi/libubox clean
 
 iptables/Makefile: iptables/Makefile.in
 	cd iptables && \
@@ -805,6 +817,8 @@ miniupnpd-install:
 miniupnpd-clean:
 	-$(MAKE) -C miniupnpd -f Makefile.linux clean
 
+miniupnpd-distclean: miniupnpd-clean
+
 wlconf: nvram shared
 
 ppp/Makefile: ppp/linux/Makefile.top
@@ -812,6 +826,9 @@ ppp/Makefile: ppp/linux/Makefile.top
 
 ppp: ppp/Makefile
 	$(MAKE) -C $@ MFLAGS="$(if $(CONFIG_IPV6),HAVE_INET6=y,) EXTRACFLAGS=\"$(EXTRACFLAGS)\" EXTRA_LDFLAGS=\"-Wl,-rpath /lib\""
+
+ppp-distclean:
+	$(MAKE) -C ppp clean
 
 ppp-install: ppp
 	install -D ppp/pppd/pppd $(INSTALLDIR)/ppp/usr/sbin/pppd
@@ -829,6 +846,9 @@ rp-pppoe/src/Makefile: rp-pppoe/src/Makefile.in
 rp-pppoe: ppp rp-pppoe/src/Makefile
 	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so
 
+rp-pppoe-distclean:
+	-$(MAKE) -C rp-pppoe/src distclean
+
 rp-pppoe-clean:
 	-$(MAKE) -C rp-pppoe/src clean
 
@@ -844,6 +864,9 @@ accel-pptp: ppp accel-pptp/pppd_plugin/Makefile
 accel-pptp/pppd_plugin/Makefile: accel-pptp/pppd_plugin/Makefile.in $(LINUXDIR)/include/linux/version.h
 	cd accel-pptp/pppd_plugin && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
 	    $(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/ppp
+
+accel-pptp-distclean:
+	-$(MAKE) -C accel-pptp/pppd_plugin distclean
 
 accel-pptp-clean:
 	-$(MAKE) -C accel-pptp/pppd_plugin clean
@@ -897,6 +920,9 @@ dnsmasq:
 	    COPTS="-DHAVE_BROKEN_RTC -DNO_SCRIPT -DNO_AUTH -DNO_IPSET -DNO_LOOP -DNO_INOTIFY $(if $(CONFIG_IPV6),,-DNO_IPV6)" \
 	    CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
 	    LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections"
+
+dnsmasq-distclean:
+	$(MAKE) -C dnsmasq clean
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
@@ -974,6 +1000,9 @@ samba-install:
 	$(STRIP) $(INSTALLDIR)/samba/usr/bin/smbpasswd
 	$(STRIP) $(INSTALLDIR)/samba/usr/lib/libsmb.so
 
+samba-distclean:
+	-$(MAKE) -C samba/source distclean
+
 samba-clean:
 	-$(MAKE) -C samba/source clean
 
@@ -1000,12 +1029,18 @@ nfs-utils-install:
 portmap: portmap/Makefile
 	$(MAKE) -C $@  EXTRACFLAGS="$(EXTRACFLAGS)" NO_TCP_WRAPPER=y RPCUSER=rpc
 
+portmap-distclean:
+	$(MAKE) -C portmap clean
+
 portmap-install:
 	install -D portmap/portmap $(INSTALLDIR)/portmap/usr/sbin/portmap
 	$(STRIP) $(INSTALLDIR)/portmap/usr/sbin/portmap
 
 iproute2: $(LINUXDIR)/include/linux/version.h
 	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="-Os $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
+
+iproute2-distclean:
+	-$(MAKE) -C iproute2 clean
 
 iproute2-install:
 	install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip
@@ -1017,6 +1052,9 @@ ipset_make_Opts=KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os -Wall -ffunction-sections
 
 ipset: $(LINUXDIR)/include/linux/version.h
 	$(MAKE) -C $@ $(ipset_make_Opts) binaries
+
+ipset-distclean:
+	-$(MAKE) -C ipset clean
 
 ipset-install:
 	$(MAKE) -C ipset $(ipset_make_Opts) DESTDIR=$(INSTALLDIR)/ipset \
@@ -1074,6 +1112,9 @@ igmpproxy-install:
 
 vsftpd:
 	$(MAKE) -C $@ LDFLAGS="-Wl,-rpath /lib"
+
+vsftpd-distclean:
+	$(MAKE) -C vsftpd clean
 
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
@@ -1172,12 +1213,16 @@ wpa_supplicant-install: wpa_supplicant
 	install -D wpa_supplicant/wpa_supplicant/wpa_cli $(INSTALLDIR)/wpa_supplicant/usr/sbin/wpa_cli
 	$(STRIP) $(INSTALLDIR)/wpa_supplicant/usr/sbin/*
 
+wpa_supplicant-distclean: wpa_supplicant-clean
+
 wpa_supplicant-clean:
 	-$(MAKE) -C wpa_supplicant/wpa_supplicant clean
 
 udev:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    PROGRAMS=udevtrigger LIBUDEV="" udevtrigger
+
+udev-distclean: udev-clean
 
 udev-install:
 	install -d $(TARGETDIR)
@@ -1186,11 +1231,21 @@ udev-install:
 emf:
 	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
+emf-distclean: emf-clean
+
+emf-clean:
+	$(MAKE) -C $(SRCBASE)/emf/emfconf clean
+
 emf-install:
 	$(MAKE) -C $(SRCBASE)/emf/emfconf INSTALLDIR=$(INSTALLDIR) install
 
 igs:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
+
+igs-distclean: igs-clean
+
+igs-clean:
+	$(MAKE) -C $(SRCBASE)/emf/igsconf clean
 
 igs-install:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
@@ -1204,6 +1259,8 @@ mjpg-streamer: jpeg-8b
 mjpg-streamer-install:
 	$(MAKE) -C mjpg-streamer/mjpg-streamer DESTDIR=$(INSTALLDIR)/mjpg-streamer/usr install
 	$(STRIP) $(INSTALLDIR)/mjpg-streamer/usr/bin/mjpg_streamer $(INSTALLDIR)/mjpg-streamer/usr/lib/mjpg-streamer/*.so
+
+mjpg-streamer-distclean: mjpg-streamer-clean
 
 mjpg-streamer-clean:
 	-$(MAKE) -C mjpg-streamer/mjpg-streamer clean
@@ -1342,11 +1399,8 @@ e2fsprogs-install:
 image-%:
 	$(MAKE) package-$* MODEL="$*"
 
-images-%:
-	$(MAKE) image-$*
-
 $(img-y) $(img-n): dummy
-	$(MAKE) images-$@
+	$(MAKE) image-$@
 
 images: $(img-y)
 
@@ -1359,6 +1413,9 @@ images: $(img-y)
 
 %-clean:
 	-[ ! -d $* ] || $(MAKE) -C $* clean
+
+%-distclean:
+	-[ ! -d $* ] || $(MAKE) -C $* distclean
 
 %-install:
 	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*

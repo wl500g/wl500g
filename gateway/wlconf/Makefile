@@ -22,7 +22,7 @@ OBJS := wlconf.o
 
 all: wlconf
 
-clean:
+clean distclean:
 	rm -f *.o wlconf
 
 install: all

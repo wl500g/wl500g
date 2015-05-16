@@ -267,7 +267,7 @@ pptp.la: $(pptp_la_OBJECTS) $(pptp_la_DEPENDENCIES)
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 
-distclean-compile:
+distclean-compile: mostlyclean-compile
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dirutil.Plo@am__quote@
@@ -307,8 +307,9 @@ mostlyclean-libtool:
 clean-libtool:
 	-rm -rf .libs _libs
 
-distclean-libtool:
+distclean-libtool: clean-libtool mostlyclean-libtool
 	-rm -f libtool
+
 uninstall-info-am:
 install-man8: $(man8_MANS) $(man_MANS)
 	@$(NORMAL_INSTALL)
@@ -462,12 +463,12 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-clean: clean-am
+clean: clean-generic clean-libLTLIBRARIES clean-libtool
 
 clean-am: clean-generic clean-libLTLIBRARIES clean-libtool \
 	mostlyclean-am
 
-distclean: distclean-am
+distclean: distclean-compile distclean-generic distclean-libtool distclean-tags
 	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \

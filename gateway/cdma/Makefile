@@ -8,4 +8,4 @@ all:
 install:
 	cp -r files/* $(INSTALLDIR)/cdma
 
-clean:
+clean distclean:

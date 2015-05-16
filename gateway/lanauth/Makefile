@@ -11,8 +11,8 @@ lanauth: lanauth.o md5.o rmd160.o
 %.o: %.c
 	$(CC) $(CFLAGS) -c $<
 
-clean:
-	rm *.o lanauth
+clean distclean:
+	@rm -f *.o lanauth
 
 install: lanauth
 	install -D lanauth $(INSTALLDIR)/usr/sbin/lanauth

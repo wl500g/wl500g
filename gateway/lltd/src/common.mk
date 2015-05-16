@@ -1,7 +1,7 @@
 # Before including this in a build directory
 # define OS_LAYER and CC, CFLAGS, etc.
 
-.PHONY: clean all depend
+.PHONY: clean distclean all depend
 
 # Files for the Daemon and the Test-Tool
 DCFILES = $(OS_LAYER) main.c event.c util.c packetio.c band.c \
@@ -16,7 +16,7 @@ TOBJFILES = $(patsubst %c,%o,$(TCFILES))
 # Note we do not define all here; that happens where included
 # depending in which targets to build
 
-clean:
+clean distclean:
 	rm -f -- .depend *~ lld2d lld2test $(DOBJFILES) $(TOBJFILES)
 
 lld2d: $(DOBJFILES)

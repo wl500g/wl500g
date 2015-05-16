@@ -30,9 +30,9 @@ install: all
 	$(INSTALL) -D $(TARGET) $(INSTALLDIR)/$(PREFIX)/sbin/$(TARGET)
 .PHONY : install
 
-clean:
+clean distclean:
 	@rm -f $(OBJS) $(TARGET) $(service_sources) $(service_headers) qmi-errors.c
-.PHONY : clean
+.PHONY : clean distclean
 
 # The main all target
 all: gen-errors gen-headers $(TARGET)

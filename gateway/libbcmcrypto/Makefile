@@ -12,7 +12,7 @@
 # $Id: Makefile,v 1.4 2007/12/13 23:22:58 Exp $
 #
 
-include $(TOP)/.config
+-include $(TOP)/.config
 
 CFLAGS	+= -fPIC -Wsign-compare -I. -I../httpd -I$(SRCBASE)/include -Wall
 #CFLAGS	+= -g -DDEBUG
@@ -41,7 +41,7 @@ install: all
 	install -m 755 libbcmcrypto.so $(INSTALLDIR)/usr/lib/libbcmcrypto.so
 	$(STRIP) $(INSTALLDIR)/usr/lib/libbcmcrypto.so
 
-clean:
+clean distclean:
 	rm -f *.o *.so *.a $(MAP) $(UNR) $(SYM)
 
 libbcmcrypto.so: $(OBJS)

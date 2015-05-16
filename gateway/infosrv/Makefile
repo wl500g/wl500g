@@ -22,8 +22,8 @@ $(PACKAGE): $(PACKAGE).o $(OBJS)
 %.o: %.c
 	$(CC) $(CCFLAGS) -c $<
 
-clean:
-	rm *.o $(PACKAGE)
+clean distclean:
+	@rm -f *.o $(PACKAGE)
 
 install: all
 	install -d $(INSTALLDIR)/usr/sbin

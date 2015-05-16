@@ -62,7 +62,7 @@ hub-ctrl: hub-ctrl.o
 hub-ctrl.o: hub-ctrl.c
 	$(CC) -c $(CFLAGS) -o $@ -I$(TOP)/libusb/libusb -I$(TOP)/libusb10/ $<
 
-clean:
+clean distclean:
 	rm -f *.o *~ $(UTILS)
 
 install: all

@@ -13,7 +13,7 @@ authcli: authcli.o $(LIBS)
 %.o: %.c
 	$(CC) $(CCFLAGS) -c $<
 
-clean:
+clean distclean:
 	rm -f *.o authcli
 
 install: authcli

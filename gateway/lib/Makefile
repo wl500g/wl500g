@@ -12,7 +12,7 @@
 # $Id$
 #
 
-include $(TOP)/.config
+-include $(TOP)/.config
 
 # Extra libraries
 lib-$(CONFIG_LIBCRYPT) += libcrypt
@@ -123,5 +123,5 @@ install: $(wildcard $(foreach lib,$(LINKER) $(lib-y),$(LIBDIR)/$(lib) $(LIBDIR)/
 	install $^ $(TARGETDIR)/lib/
 	$(STRIP) $(TARGETDIR)/lib/*.so.*
 
-clean:
+clean distclean:
 	rm -f $(LIBC) $(MAP) .symbols
