@@ -1362,6 +1362,12 @@ usbip-install: sysfsutils-install
 	$(MAKE) -C $(USBIPDIR)/src install DESTDIR=$(INSTALLDIR)/usbip
 	$(STRIP) $(INSTALLDIR)/usbip/usr/lib/libusbip.so.0 $(INSTALLDIR)/usbip/usr/sbin/*
 
+usbip-distclean:
+	-$(MAKE) -C $(USBIPDIR) distclean
+
+usbip-clean:
+	-$(MAKE) -C $(USBIPDIR) clean
+
 e2fsprogs/Makefile: e2fsprogs/Makefile.in
 	cd e2fsprogs && \
 	CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
