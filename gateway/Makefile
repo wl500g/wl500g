@@ -286,7 +286,7 @@ mrproper: clean
 
 distclean: $(obj-distclean) lzma-distclean mksquashfs-distclean
 	-rm -rf $(TARGETDIR)
-	-$(MAKE) config-clean
+	-$(MAKE) -C config clean
 
 lzma $(LZMADIR)/lzma:
 	$(MAKE) -C $(LZMADIR) -f makefile.gcc
@@ -496,7 +496,7 @@ package-%: $(filter-out lib-install,$(obj-install)) www-install $(LINUXDIR)/.con
 	# Optimize crypto library
 	$(MAKE) -C libbcmcrypto optimize
 	# Install (and possibly optimize) C library
-	$(MAKE) lib-install
+	$(MAKE) -C lib install
 	# Install Addons, if any
 	@-( if [ -d $(SRCBASE)/router/Addon ]; then \
 	    ( cp -dupR $(SRCBASE)/router/Addon/* $(TARGETDIR) ) \
@@ -636,7 +636,7 @@ rc-install:
 
 www-install:
 	# TO DO: implement config.js and remove this
-	$(MAKE) www-clean
+	$(MAKE) -C www clean
 	$(MAKE) -C www MODEL=$(MODEL)
 	$(MAKE) -C www install INSTALLDIR=$(INSTALLDIR)/www
 
@@ -755,6 +755,7 @@ uqmi-install:
 	$(STRIP) $(INSTALLDIR)/uqmi/usr/sbin/uqmi
 
 uqmi-distclean: uqmi-clean
+	@true
 
 uqmi-clean:
 	-$(MAKE) -C uqmi clean
@@ -816,13 +817,13 @@ miniupnpd-install:
 miniupnpd-clean:
 	-$(MAKE) -C miniupnpd -f Makefile.linux clean
 
-miniupnpd-distclean:
-	-$(MAKE) miniupnpd-clean
+miniupnpd-distclean: miniupnpd-clean
+	@true
 
 wlconf: nvram shared
 
-wlconf-distclean:
-	-$(MAKE) wlconf-clean
+wlconf-distclean: wlconf-clean
+	@true
 
 ppp/Makefile: ppp/linux/Makefile.top
 	cd ppp && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
@@ -924,8 +925,8 @@ dnsmasq:
 	    CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
 	    LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections"
 
-dnsmasq-distclean:
-	-$(MAKE) dnsmasq-clean
+dnsmasq-distclean: dnsmasq-clean
+	@true
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
@@ -1032,8 +1033,8 @@ nfs-utils-install:
 portmap: portmap/Makefile
 	$(MAKE) -C $@  EXTRACFLAGS="$(EXTRACFLAGS)" NO_TCP_WRAPPER=y RPCUSER=rpc
 
-portmap-distclean:
-	-$(MAKE) portmap-clean
+portmap-distclean: portmap-clean
+	@true
 
 portmap-install:
 	install -D portmap/portmap $(INSTALLDIR)/portmap/usr/sbin/portmap
@@ -1042,8 +1043,8 @@ portmap-install:
 iproute2: $(LINUXDIR)/include/linux/version.h
 	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="-Os $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
-iproute2-distclean:
-	-$(MAKE) iproute2-clean
+iproute2-distclean: iproute2-clean
+	@true
 
 iproute2-install:
 	install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip
@@ -1056,8 +1057,8 @@ ipset_make_Opts=KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os -Wall -ffunction-sections
 ipset: $(LINUXDIR)/include/linux/version.h
 	$(MAKE) -C $@ $(ipset_make_Opts) binaries
 
-ipset-distclean:
-	-$(MAKE) ipset-clean
+ipset-distclean: ipset-clean
+	@true
 
 ipset-install:
 	$(MAKE) -C ipset $(ipset_make_Opts) DESTDIR=$(INSTALLDIR)/ipset \
@@ -1119,8 +1120,8 @@ igmpproxy-install:
 vsftpd:
 	$(MAKE) -C $@ LDFLAGS="-Wl,-rpath /lib"
 
-vsftpd-distclean:
-	-$(MAKE) vsftpd-clean
+vsftpd-distclean: vsftpd-clean
+	@true
 
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
@@ -1219,8 +1220,8 @@ wpa_supplicant-install: wpa_supplicant
 	install -D wpa_supplicant/wpa_supplicant/wpa_cli $(INSTALLDIR)/wpa_supplicant/usr/sbin/wpa_cli
 	$(STRIP) $(INSTALLDIR)/wpa_supplicant/usr/sbin/*
 
-wpa_supplicant-distclean:
-	-$(MAKE) wpa_supplicant-clean
+wpa_supplicant-distclean: wpa_supplicant-clean
+	@true
 
 wpa_supplicant-clean:
 	-$(MAKE) -C wpa_supplicant/wpa_supplicant clean
@@ -1229,8 +1230,8 @@ udev:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    PROGRAMS=udevtrigger LIBUDEV="" udevtrigger
 
-udev-distclean:
-	-$(MAKE) udev-clean
+udev-distclean: udev-clean
+	@true
 
 udev-install:
 	install -d $(TARGETDIR)
@@ -1239,8 +1240,8 @@ udev-install:
 emf:
 	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
-emf-distclean:
-	-$(MAKE) emf-clean
+emf-distclean: emf-clean
+	@true
 
 emf-clean:
 	-$(MAKE) -C $(SRCBASE)/emf/emfconf clean
@@ -1251,8 +1252,8 @@ emf-install:
 igs:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
-igs-distclean:
-	-$(MAKE) igs-clean
+igs-distclean: igs-clean
+	@true
 
 igs-clean:
 	-$(MAKE) -C $(SRCBASE)/emf/igsconf clean
@@ -1270,8 +1271,8 @@ mjpg-streamer-install:
 	$(MAKE) -C mjpg-streamer/mjpg-streamer DESTDIR=$(INSTALLDIR)/mjpg-streamer/usr install
 	$(STRIP) $(INSTALLDIR)/mjpg-streamer/usr/bin/mjpg_streamer $(INSTALLDIR)/mjpg-streamer/usr/lib/mjpg-streamer/*.so
 
-mjpg-streamer-distclean:
-	-$(MAKE) mjpg-streamer-clean
+mjpg-streamer-distclean: mjpg-streamer-clean
+	@true
 
 mjpg-streamer-clean:
 	-$(MAKE) -C mjpg-streamer/mjpg-streamer clean
