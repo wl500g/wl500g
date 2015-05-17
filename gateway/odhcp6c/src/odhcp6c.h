@@ -24,12 +24,12 @@
 #define ND_OPT_RECURSIVE_DNS 25
 #define ND_OPT_DNSSL 31
 
-#define DHCPV6_SOL_MAX_RT 3600
+#define DHCPV6_SOL_MAX_RT 120
 #define DHCPV6_REQ_MAX_RT 30
 #define DHCPV6_CNF_MAX_RT 4
 #define DHCPV6_REN_MAX_RT 600
 #define DHCPV6_REB_MAX_RT 600
-#define DHCPV6_INF_MAX_RT 3600
+#define DHCPV6_INF_MAX_RT 120
 
 #define DEFAULT_MIN_UPDATE_INTERVAL 30
 
@@ -65,25 +65,19 @@ enum dhcvp6_opt {
 	DHCPV6_OPT_PD_EXCLUDE = 67,
 	DHCPV6_OPT_SOL_MAX_RT = 82,
 	DHCPV6_OPT_INF_MAX_RT = 83,
-#ifdef EXT_PREFIX_CLASS
-	/* draft-bhandari-dhc-class-based-prefix, not yet standardized */
-	DHCPV6_OPT_PREFIX_CLASS = EXT_PREFIX_CLASS,
-#endif
 #ifdef EXT_CER_ID
 	/* draft-donley-dhc-cer-id-option-03 */
 	DHCPV6_OPT_CER_ID = EXT_CER_ID,
 #endif
-#ifdef EXT_S46
-	/* draft-ietf-softwire-map-dhcp-07 */
-	DHCPV6_OPT_S46_RULE = EXT_S46,
-	DHCPV6_OPT_S46_BR = EXT_S46 + 1,
-	DHCPV6_OPT_S46_DMR = EXT_S46 + 2,
-	DHCPV6_OPT_S46_V4V6BIND = EXT_S46 + 3,
-	DHCPV6_OPT_S46_PORTPARAMS = EXT_S46 + 4,
-	DHCPV6_OPT_S46_CONT_MAPE = EXT_S46 + 5,
-	DHCPV6_OPT_S46_CONT_MAPT = EXT_S46 + 6,
-	DHCPV6_OPT_S46_CONT_LW = EXT_S46 + 7,
-#endif
+	/* draft-ietf-softwire-map-dhcp-08 */
+	DHCPV6_OPT_S46_RULE = 89,
+	DHCPV6_OPT_S46_BR = 90,
+	DHCPV6_OPT_S46_DMR = 91,
+	DHCPV6_OPT_S46_V4V6BIND = 92,
+	DHCPV6_OPT_S46_PORTPARAMS = 93,
+	DHCPV6_OPT_S46_CONT_MAPE = 94,
+	DHCPV6_OPT_S46_CONT_MAPT = 95,
+	DHCPV6_OPT_S46_CONT_LW = 96,
 };
 
 enum dhcpv6_opt_npt {
@@ -125,7 +119,7 @@ enum dhcpv6_config {
 };
 
 typedef int(reply_handler)(enum dhcpv6_msg orig, const int rc,
-		const void *opt, const void *end);
+		const void *opt, const void *end, const struct sockaddr_in6 *from);
 
 // retransmission strategy
 struct dhcpv6_retx {
@@ -190,9 +184,6 @@ struct dhcpv6_auth_reconfigure {
 struct dhcpv6_cer_id {
 	uint16_t type;
 	uint16_t len;
-	uint16_t reserved;
-	uint16_t auth_type;
-	uint8_t auth[16];
 	struct in6_addr addr;
 } _packed;
 
@@ -248,6 +239,7 @@ enum odhcp6c_state {
 	STATE_CLIENT_ID,
 	STATE_SERVER_ID,
 	STATE_SERVER_CAND,
+	STATE_SERVER_ADDR,
 	STATE_ORO,
 	STATE_DNS,
 	STATE_SEARCH,
@@ -263,6 +255,7 @@ enum odhcp6c_state {
 	STATE_RA_ROUTE,
 	STATE_RA_PREFIX,
 	STATE_RA_DNS,
+	STATE_RA_SEARCH,
 	STATE_AFTR_NAME,
 	STATE_VENDORCLASS,
 	STATE_USERCLASS,
@@ -297,15 +290,16 @@ enum odhcp6c_ia_mode {
 
 struct odhcp6c_entry {
 	struct in6_addr router;
-	uint16_t length;
+	uint8_t auxlen;
+	uint8_t length;
 	int16_t priority;
 	struct in6_addr target;
 	uint32_t valid;
 	uint32_t preferred;
 	uint32_t t1;
 	uint32_t t2;
-	uint16_t class;
 	uint32_t iaid;
+	uint8_t auxtarget[];
 };
 
 struct odhcp6c_request_prefix {
@@ -314,7 +308,7 @@ struct odhcp6c_request_prefix {
 };
 
 int init_dhcpv6(const char *ifname, unsigned int client_options, int sol_timeout);
-void dhcpv6_set_ia_mode(enum odhcp6c_ia_mode na, enum odhcp6c_ia_mode pd);
+int dhcpv6_set_ia_mode(enum odhcp6c_ia_mode na, enum odhcp6c_ia_mode pd);
 int dhcpv6_request(enum dhcpv6_msg type);
 int dhcpv6_poll_reconfigure(void);
 int dhcpv6_promote_server_cand(void);
@@ -323,14 +317,18 @@ int init_rtnetlink(void);
 int set_rtnetlink_addr(int ifindex, const struct in6_addr *addr,
 		uint32_t pref, uint32_t valid);
 
+int ra_conf_hoplimit(int newvalue);
+int ra_conf_mtu(int newvalue);
+int ra_conf_reachable(int newvalue);
+int ra_conf_retransmit(int newvalue);
+
 int script_init(const char *path, const char *ifname);
 ssize_t script_unhexlify(uint8_t *dst, size_t len, const char *src);
 void script_call(const char *status);
-void script_delay_call(const char *status, int timeout);
 
 bool odhcp6c_signal_process(void);
 uint64_t odhcp6c_get_milli_time(void);
-void odhcp6c_random(void *buf, size_t len);
+int odhcp6c_random(void *buf, size_t len);
 bool odhcp6c_is_bound(void);
 
 // State manipulation
@@ -343,9 +341,7 @@ void* odhcp6c_move_state(enum odhcp6c_state state, size_t *len);
 void* odhcp6c_get_state(enum odhcp6c_state state, size_t *len);
 
 // Entry manipulation
-struct odhcp6c_entry* odhcp6c_find_entry(enum odhcp6c_state state, const struct odhcp6c_entry *new);
-bool odhcp6c_update_entry(enum odhcp6c_state state, struct odhcp6c_entry *new);
-bool odhcp6c_update_entry_safe(enum odhcp6c_state state, struct odhcp6c_entry *new, uint32_t safe);
+bool odhcp6c_update_entry(enum odhcp6c_state state, struct odhcp6c_entry *new, uint32_t safe, bool filterexcess);
 
 void odhcp6c_expire(void);
 uint32_t odhcp6c_elapsed(void);
