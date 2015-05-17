@@ -830,7 +830,7 @@ ppp: ppp/Makefile
 	$(MAKE) -C $@ MFLAGS="$(if $(CONFIG_IPV6),HAVE_INET6=y,) EXTRACFLAGS=\"$(EXTRACFLAGS)\" EXTRA_LDFLAGS=\"-Wl,-rpath /lib\""
 
 ppp-distclean:
-	$(MAKE) -C ppp clean
+	-$(MAKE) -C ppp dist-clean
 
 ppp-install: ppp
 	install -D ppp/pppd/pppd $(INSTALLDIR)/ppp/usr/sbin/pppd
