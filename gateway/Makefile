@@ -821,6 +821,9 @@ miniupnpd-distclean: miniupnpd-clean
 
 wlconf: nvram shared
 
+wlconf-distclean:
+	-$(MAKE) wlconf-clean
+
 ppp/Makefile: ppp/linux/Makefile.top
 	cd ppp && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
 
@@ -1231,10 +1234,11 @@ udev-install:
 emf:
 	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
-emf-distclean: emf-clean
+emf-distclean:
+	-$(MAKE) emf-clean
 
 emf-clean:
-	$(MAKE) -C $(SRCBASE)/emf/emfconf clean
+	-$(MAKE) -C $(SRCBASE)/emf/emfconf clean
 
 emf-install:
 	$(MAKE) -C $(SRCBASE)/emf/emfconf INSTALLDIR=$(INSTALLDIR) install
@@ -1242,10 +1246,11 @@ emf-install:
 igs:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
-igs-distclean: igs-clean
+igs-distclean:
+	-$(MAKE) igs-clean
 
 igs-clean:
-	$(MAKE) -C $(SRCBASE)/emf/igsconf clean
+	-$(MAKE) -C $(SRCBASE)/emf/igsconf clean
 
 igs-install:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install

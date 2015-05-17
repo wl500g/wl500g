@@ -31,6 +31,6 @@ install: all
 	install -d $(INSTALLDIR)/igs/usr/sbin
 	install -m 755 igs $(INSTALLDIR)/igs/usr/sbin
 
-.PHONY:	clean distclean
-clean distclean:
+.PHONY:	clean
+clean:
 	-rm -f *.o *~ core igs

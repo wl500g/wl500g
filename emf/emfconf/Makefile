@@ -31,6 +31,6 @@ install: all
 	install -d $(INSTALLDIR)/emf/usr/sbin
 	install -m 755 emf $(INSTALLDIR)/emf/usr/sbin
 
-.PHONY:	clean distclean
-clean distclean:
+.PHONY:	clean
+clean:
 	-rm -f *.o *~ core emf
