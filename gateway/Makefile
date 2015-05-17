@@ -278,15 +278,15 @@ FlashMaxSize = \
 all: $(obj-y) 
 
 clean: $(obj-clean) config-clean lzma-clean mksquashfs-clean
-	rm -rf $(TARGETDIR)
-	rm -f $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
+	-rm -rf $(TARGETDIR)
+	-rm -f $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 
 mrproper: clean
-	rm -f .config $(LINUXDIR)/.config
+	-rm -f .config $(LINUXDIR)/.config
 
 distclean: $(obj-distclean) lzma-distclean mksquashfs-distclean
-	rm -rf $(TARGETDIR)
-	$(MAKE) -C config clean
+	-rm -rf $(TARGETDIR)
+	-$(MAKE) config-clean
 
 lzma $(LZMADIR)/lzma:
 	$(MAKE) -C $(LZMADIR) -f makefile.gcc
@@ -496,7 +496,7 @@ package-%: $(filter-out lib-install,$(obj-install)) www-install $(LINUXDIR)/.con
 	# Optimize crypto library
 	$(MAKE) -C libbcmcrypto optimize
 	# Install (and possibly optimize) C library
-	$(MAKE) -C lib install
+	$(MAKE) lib-install
 	# Install Addons, if any
 	@-( if [ -d $(SRCBASE)/router/Addon ]; then \
 	    ( cp -dupR $(SRCBASE)/router/Addon/* $(TARGETDIR) ) \
@@ -610,7 +610,7 @@ oldconfig: oldconf
 
 # Default configurations
 config: $(LINUXDIR)/include/linux/version.h
-	cp config/defconfig .$@
+	cp config/defconfig .config
 	$(MAKE) oldconfig
 
 $(LINUXDIR)/.config: .config
@@ -636,7 +636,7 @@ rc-install:
 
 www-install:
 	# TO DO: implement config.js and remove this
-	$(MAKE) -C www clean
+	$(MAKE) www-clean
 	$(MAKE) -C www MODEL=$(MODEL)
 	$(MAKE) -C www install INSTALLDIR=$(INSTALLDIR)/www
 
@@ -816,7 +816,8 @@ miniupnpd-install:
 miniupnpd-clean:
 	-$(MAKE) -C miniupnpd -f Makefile.linux clean
 
-miniupnpd-distclean: miniupnpd-clean
+miniupnpd-distclean:
+	-$(MAKE) miniupnpd-clean
 
 wlconf: nvram shared
 
@@ -924,7 +925,7 @@ dnsmasq:
 	    LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections"
 
 dnsmasq-distclean:
-	$(MAKE) -C dnsmasq clean
+	-$(MAKE) dnsmasq-clean
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
@@ -1032,7 +1033,7 @@ portmap: portmap/Makefile
 	$(MAKE) -C $@  EXTRACFLAGS="$(EXTRACFLAGS)" NO_TCP_WRAPPER=y RPCUSER=rpc
 
 portmap-distclean:
-	$(MAKE) -C portmap clean
+	-$(MAKE) portmap-clean
 
 portmap-install:
 	install -D portmap/portmap $(INSTALLDIR)/portmap/usr/sbin/portmap
@@ -1042,7 +1043,7 @@ iproute2: $(LINUXDIR)/include/linux/version.h
 	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="-Os $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 iproute2-distclean:
-	-$(MAKE) -C iproute2 clean
+	-$(MAKE) iproute2-clean
 
 iproute2-install:
 	install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip
@@ -1056,7 +1057,7 @@ ipset: $(LINUXDIR)/include/linux/version.h
 	$(MAKE) -C $@ $(ipset_make_Opts) binaries
 
 ipset-distclean:
-	-$(MAKE) -C ipset clean
+	-$(MAKE) ipset-clean
 
 ipset-install:
 	$(MAKE) -C ipset $(ipset_make_Opts) DESTDIR=$(INSTALLDIR)/ipset \
@@ -1119,7 +1120,7 @@ vsftpd:
 	$(MAKE) -C $@ LDFLAGS="-Wl,-rpath /lib"
 
 vsftpd-distclean:
-	$(MAKE) -C vsftpd clean
+	-$(MAKE) vsftpd-clean
 
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
@@ -1218,7 +1219,8 @@ wpa_supplicant-install: wpa_supplicant
 	install -D wpa_supplicant/wpa_supplicant/wpa_cli $(INSTALLDIR)/wpa_supplicant/usr/sbin/wpa_cli
 	$(STRIP) $(INSTALLDIR)/wpa_supplicant/usr/sbin/*
 
-wpa_supplicant-distclean: wpa_supplicant-clean
+wpa_supplicant-distclean:
+	-$(MAKE) wpa_supplicant-clean
 
 wpa_supplicant-clean:
 	-$(MAKE) -C wpa_supplicant/wpa_supplicant clean
@@ -1227,7 +1229,8 @@ udev:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    PROGRAMS=udevtrigger LIBUDEV="" udevtrigger
 
-udev-distclean: udev-clean
+udev-distclean:
+	-$(MAKE) udev-clean
 
 udev-install:
 	install -d $(TARGETDIR)
@@ -1267,7 +1270,8 @@ mjpg-streamer-install:
 	$(MAKE) -C mjpg-streamer/mjpg-streamer DESTDIR=$(INSTALLDIR)/mjpg-streamer/usr install
 	$(STRIP) $(INSTALLDIR)/mjpg-streamer/usr/bin/mjpg_streamer $(INSTALLDIR)/mjpg-streamer/usr/lib/mjpg-streamer/*.so
 
-mjpg-streamer-distclean: mjpg-streamer-clean
+mjpg-streamer-distclean:
+	-$(MAKE) mjpg-streamer-clean
 
 mjpg-streamer-clean:
 	-$(MAKE) -C mjpg-streamer/mjpg-streamer clean
