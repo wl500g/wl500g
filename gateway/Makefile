@@ -237,10 +237,10 @@ endif
 define svnrevision
 $(shell git rev-list --all --count origin/HEAD 2>/dev/null)$(if $(shell git status -s -uno 2>/dev/null),M,)
 endef
-define revision
-$(if $(2),$(1)-r$(2),$(1))
+define gitrevision
+$(shell git log -1 --all --format=format:"%h" origin/HEAD 2>/dev/null)
 endef
-RELEASE:=$(call revision,$(RELEASE),$(call svnrevision))
+RELEASE:=$(RELEASE)-r$(call svnrevision)
 
 # $1 - config name, $2 - params list to change, $3 - new param value (y/n/m)
 define SwitchConfParam
@@ -486,14 +486,10 @@ modules_install: .config
 install: package-$(MODEL)
 	@true
 
-package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs
-	# TO DO: implement config.js and remove this
-	$(MAKE) -C www clean
-	$(MAKE) -C www MODEL=$(MODEL)
-	$(MAKE) -C www install
+package-%: $(filter-out lib-install,$(obj-install)) www-install $(LINUXDIR)/.config mksquashfs
 	# Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
-	echo $(RELEASE) > $(TARGETDIR)/.version
+	echo "$(RELEASE) ($(call gitrevision))" > $(TARGETDIR)/.version
 	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) $(INSTALLDIR)/www ; do \
 	    (cd $${dir} && tar cpf - .) | (cd $(TARGETDIR) && tar xpf -) \
 	done
@@ -638,8 +634,11 @@ rc: shared nvram $(EXTRA_LIBS)
 rc-install:
 	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
-www-%:
-	$(MAKE) -C www $* MODEL=$(MODEL)
+www-install:
+	# TO DO: implement config.js and remove this
+	$(MAKE) -C www clean
+	$(MAKE) -C www MODEL=$(MODEL)
+	$(MAKE) -C www install INSTALLDIR=$(INSTALLDIR)/www
 
 radvd/Makefile: radvd/Makefile.in
 	cd radvd && CFLAGS="-g -Os" \
