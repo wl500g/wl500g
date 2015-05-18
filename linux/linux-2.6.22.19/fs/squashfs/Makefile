@@ -4,10 +4,14 @@
 
 obj-$(CONFIG_SQUASHFS) += squashfs.o
 
-LZMADIR = ../../../../lzma4xx/C/Compress/Lzma
+LZMADIR := ../../../../lzma4xx/C/Compress/Lzma
+LZMA_OBJS := $(addprefix $(LZMADIR)/, LzmaDecode.o)
 
 squashfs-objs := inode.o
 squashfs-objs += uncomp.o
-squashfs-objs += $(addprefix $(LZMADIR)/, LzmaDecode.o)
+squashfs-objs += $(LZMA_OBJS)
 
 EXTRA_CFLAGS = -I$(src)/$(LZMADIR)
+
+clean_cmds := $(foreach f,$(LZMA_OBJS),$(dir $(f)).$(notdir $(f)).cmd)
+clean-files := $(LZMA_OBJS) $(clean_cmds)

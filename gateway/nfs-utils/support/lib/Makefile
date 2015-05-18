@@ -10,14 +10,16 @@ EXPOBJS = ../export/mount_clnt.o ../export/mount_xdr.o ../export/client.o ../exp
 	  ../export/nfsctl.o ../export/rmtab.o ../export/xtab.o
 MSCOBJS = ../misc/from_local.o ../misc/mountpoint.o
 
-all install::	$(LIBS) libnfs.so
+TARGET = libnfs.so
+
+all install::	$(LIBS) $(TARGET)
 	@:
 
 clean distclean::
-	rm -f $(LIBS)
+	@rm -f $(LIBS) $(TARGET)
 
 lib%.a:
 	ln -sf ../$*/$@ .
 
-libnfs.so: $(NFSOBJS) $(EXPOBJS) $(MSCOBJS)
+$(TARGET): $(NFSOBJS) $(EXPOBJS) $(MSCOBJS)
 	$(CC) -shared -nostdlib -fPIC -o $@ $^

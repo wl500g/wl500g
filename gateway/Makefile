@@ -277,22 +277,31 @@ FlashMaxSize = \
 
 all: $(obj-y) 
 
-clean: $(obj-clean) config-clean lzma-clean mksquashfs-clean
+clean: $(obj-clean) config-clean lzma-clean lzma4xx-clean mksquashfs-clean
 	-rm -rf $(TARGETDIR)
 	-rm -f $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 
 mrproper: clean
 	-rm -f .config $(LINUXDIR)/.config
 
-distclean: $(obj-distclean) lzma-distclean mksquashfs-distclean
+distclean: $(obj-distclean) lzma-distclean lzma4xx-distclean mksquashfs-distclean
 	-rm -rf $(TARGETDIR)
 	-$(MAKE) -C config clean
 
 lzma $(LZMADIR)/lzma:
 	$(MAKE) -C $(LZMADIR) -f makefile.gcc
 
+lzma-distclean: lzma-clean
+	@true
+
 lzma-clean:
 	-$(MAKE) -C $(LZMADIR) -f makefile.gcc clean
+
+lzma4xx-distclean: lzma4xx-clean
+	@true
+
+lzma4xx-clean:
+	-$(MAKE) -C $(LZMA4LIB) clean
 
 loader:
 	$(MAKE) -C $@ LZMAPATH=$(LZMA4SDK)/C/Compress/Lzma

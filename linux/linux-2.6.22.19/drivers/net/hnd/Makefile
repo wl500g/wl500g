@@ -64,7 +64,7 @@ hnd-objs := $(addprefix $(PREFIX), $(HND_OBJS))
 
 obj-$(CONFIG_HND) := hnd.o shared_ksyms.o
 
-clean-files := $(hnd-objs) shared_ksyms.c
+clean-files := $(SHARED)/*.o $(SHARED)/.*.o.cmd shared_ksyms.c
 
 quiet_cmd_shared_ksyms = GEN     $@
       cmd_shared_ksyms = sh -e $< $(EXP_OBJS) > $@
