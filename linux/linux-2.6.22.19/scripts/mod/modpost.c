@@ -16,9 +16,9 @@
 #include "../../include/linux/license.h"
 
 /* Are we using CONFIG_MODVERSIONS? */
-int modversions = 0;
+static int modversions = 0;
 /* Warn about undefined symbols? (do so if we have vmlinux) */
-int have_vmlinux = 0;
+static int have_vmlinux = 0;
 /* Is CONFIG_MODULE_SRCVERSION_ALL set? */
 static int all_versions = 0;
 /* If we are modposting external module set to 1 */
@@ -209,7 +209,7 @@ static struct symbol *find_symbol(const char *name)
 	return NULL;
 }
 
-static struct {
+static const struct {
 	const char *str;
 	enum export export;
 } export_list[] = {
@@ -688,7 +688,7 @@ int match(const char *sym, const char * const pat[])
 }
 
 /* sections that we do not want to do full section mismatch check on */
-static const char *section_white_list[] =
+static const char *const section_white_list[] =
 	{ ".debug*", ".stab*", ".note*", ".got*", ".toc*", NULL };
 
 /*
@@ -741,17 +741,17 @@ static int check_section(const char *modname, const char *sec)
 #define TEXT_SECTIONS ".text$"
 
 /* init data sections */
-static const char *init_data_sections[] = { INIT_DATA_SECTIONS, NULL };
+static const char *const init_data_sections[] = { INIT_DATA_SECTIONS, NULL };
 
 /* all init sections */
-static const char *init_sections[] = { INIT_SECTIONS, NULL };
+static const char *const init_sections[] = { INIT_SECTIONS, NULL };
 
 /* All init and exit sections (code + data) */
-static const char *init_exit_sections[] =
+static const char *const init_exit_sections[] =
 	{INIT_SECTIONS, EXIT_SECTIONS, NULL };
 
 /* data section */
-static const char *data_sections[] = { DATA_SECTIONS, NULL };
+static const char *const data_sections[] = { DATA_SECTIONS, NULL };
 
 /* sections that may refer to an init/exit section with no warning */
 static const char *initref_sections[] =
@@ -777,8 +777,8 @@ static const char *symbol_white_list[] =
 	NULL
 };
 
-static const char *head_sections[] = { ".head.text*", NULL };
-static const char *linker_symbols[] =
+static const char *const head_sections[] = { ".head.text*", NULL };
+static const char *const linker_symbols[] =
 	{ "__init_begin", "_sinittext", "_einittext", NULL };
 
 struct sectioncheck {
@@ -786,7 +786,7 @@ struct sectioncheck {
 	const char *tosec[20];
 };
 
-const struct sectioncheck sectioncheck[] = {
+static const struct sectioncheck sectioncheck[] = {
 /* Do not reference init/exit code/data from
  * normal code and data
  */
@@ -1608,8 +1608,10 @@ static void read_dump(const char *fname, unsigned int kernel)
 		s->preloaded = 1;
 		sym_update_crc(symname, mod, crc, export_no(export));
 	}
+	release_file(file, size);
 	return;
 fail:
+	release_file(file, size);
 	fatal("parse error in symbol dump file\n");
 }
 
@@ -1725,7 +1727,7 @@ int main(int argc, char **argv)
 	err = 0;
 
 	for (mod = modules; mod; mod = mod->next) {
-		char fname[strlen(mod->name) + 10];
+		char fname[PATH_MAX];
 
 		if (mod->skip)
 			continue;
