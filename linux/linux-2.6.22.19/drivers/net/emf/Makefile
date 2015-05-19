@@ -12,14 +12,13 @@
 # $Id: Makefile,v 1.3 2008/08/13 20:20:16 Exp $
 #
 
-EMFSRCDIR := ../../../../../emf/emf
-EMFDIR := ../../../../../emf
+EMFDIR    := ../../../../../emf
+EMFSRCDIR := $(EMFDIR)/emf
 
 EMF_OBJS := $(EMFSRCDIR)/emfc.o $(EMFSRCDIR)/emf_linux.o
 
 # Search for sources under src/emf/emf
 ifneq ($(wildcard $(src)/$(EMFSRCDIR)),)
-	EXTRA_CFLAGS += -I$(EMFDIR)/emf -I$(EMFDIR)/igs
 	EXTRA_CFLAGS += -I../../include/emf/emf -I../../include/emf/igs
 	emf-objs := $(EMF_OBJS)
 else
