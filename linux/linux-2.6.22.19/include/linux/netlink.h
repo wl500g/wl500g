@@ -212,12 +212,13 @@ int netlink_sendskb(struct sock *sk, struct sk_buff *skb);
 
 struct netlink_callback
 {
-	struct sk_buff	*skb;
-	struct nlmsghdr	*nlh;
-	int		(*dump)(struct sk_buff * skb, struct netlink_callback *cb);
-	int		(*done)(struct netlink_callback *cb);
-	int		family;
-	long		args[5];
+	struct sk_buff		*skb;
+	const struct nlmsghdr	*nlh;
+	int			(*dump)(struct sk_buff * skb,
+					struct netlink_callback *cb);
+	int			(*done)(struct netlink_callback *cb);
+	int			family;
+	long			args[5];
 };
 
 struct netlink_notify
@@ -238,7 +239,7 @@ __nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
 	NLMSG_NEW(skb, pid, seq, type, len, 0)
 
 extern int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
-			      struct nlmsghdr *nlh,
+			      const struct nlmsghdr *nlh,
 			      int (*dump)(struct sk_buff *skb, struct netlink_callback*),
 			      int (*done)(struct netlink_callback*));
 
