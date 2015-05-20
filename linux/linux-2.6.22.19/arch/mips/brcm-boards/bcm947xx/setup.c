@@ -34,7 +34,7 @@
 #include <linux/ext2_fs.h>
 #include <linux/romfs_fs.h>
 #include <linux/cramfs_fs.h>
-#include "../fs/squashfs/squashfs_fs.h"
+#include "../fs/squashfs3/squashfs_fs.h"
 #endif
 
 #include <typedefs.h>

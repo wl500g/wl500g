@@ -9,7 +9,7 @@
 #include <linux/string.h>
 
 #include "do_mounts.h"
-#include "../fs/squashfs/squashfs_fs.h"
+#include "../fs/squashfs3/squashfs_fs.h"
 
 #define BUILD_CRAMDISK
 
