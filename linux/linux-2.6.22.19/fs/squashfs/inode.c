@@ -21,12 +21,9 @@
  * inode.c
  */
 
-#include <linux/squashfs_fs.h>
 #include <linux/module.h>
 #include <linux/zlib.h>
 #include <linux/fs.h>
-#include <linux/squashfs_fs_sb.h>
-#include <linux/squashfs_fs_i.h>
 #include <linux/buffer_head.h>
 #include <linux/vfs.h>
 #include <linux/vmalloc.h>
@@ -35,6 +32,9 @@
 #include <linux/sched.h>
 #include <linux/exportfs.h>
 
+#include "squashfs_fs.h"
+#include "squashfs_fs_sb.h"
+#include "squashfs_fs_i.h"
 #include "squashfs.h"
 #include "sqlzma.h"
 

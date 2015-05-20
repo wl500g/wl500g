@@ -1,9 +1,7 @@
-INCLUDEDIR = ../../include/linux
-
 Sqlzma = ../../fs/squashfs
 LzmaDec = $(LZMAPATH)/../../../../C/Compress/Lzma
 
-CFLAGS := -Wall -Wno-unused-variable -I. -idirafter$(INCLUDEDIR) -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -O2
+CFLAGS := -Wall -Wno-unused-variable -I. -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -O2
 ifdef UseDebugFlags
 DebugFlags = -g -O0 -UNDEBUG
 endif

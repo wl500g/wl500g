@@ -5,11 +5,11 @@
 #include <linux/ext2_fs.h>
 #include <linux/romfs_fs.h>
 #include <linux/cramfs_fs.h>
-#include <linux/squashfs_fs.h>
 #include <linux/initrd.h>
 #include <linux/string.h>
 
 #include "do_mounts.h"
+#include "../fs/squashfs/squashfs_fs.h"
 
 #define BUILD_CRAMDISK
 
