@@ -330,7 +330,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 		}
 #endif
 
-#if defined(CONFIG_SQUASHFS)
+#if defined(CONFIG_SQUASHFS3)
 		/* squashfs is at block zero too */
 		if (u.squashfs->s_magic == SQUASHFS_MAGIC ||
 		    u.squashfs->s_magic == SQUASHFS_MAGIC_LZMA) {

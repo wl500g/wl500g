@@ -2,11 +2,12 @@
 # Makefile for the linux squashfs routines.
 #
 
-obj-$(CONFIG_SQUASHFS) += squashfs.o
+obj-$(CONFIG_SQUASHFS3) += squashfs3.o
 
 LZMADIR := ../../../../lzma4xx/C/Compress/Lzma
 LZMA_OBJS := $(addprefix $(LZMADIR)/, LzmaDecode.o)
 
+squashfs3-objs := squashfs.o
 squashfs-objs := inode.o
 squashfs-objs += uncomp.o
 squashfs-objs += $(LZMA_OBJS)
