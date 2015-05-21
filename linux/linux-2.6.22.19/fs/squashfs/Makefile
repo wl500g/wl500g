@@ -11,9 +11,9 @@ squashfs-$(CONFIG_SQUASHFS_XZ) += xz_wrapper.o
 squashfs-$(CONFIG_SQUASHFS_ZLIB) += zlib_wrapper.o
 squashfs-$(CONFIG_SQUASHFS_LZMA) += lzma_wrapper.o LzmaDec.o
 
-LzmaDec := $(src)/../../../../lzma/C
-CFLAGS_lzma_wrapper.o += -I$(LzmaDec)
-CFLAGS_LzmaDec.o += -I$(LzmaDec) -idirafterinclude/linux 
-$(obj)/LzmaDec.o: $(LzmaDec)/LzmaDec.c FORCE
+LZMADIR := $(src)/../../../../lzma/C
+CFLAGS_lzma_wrapper.o += -I$(LZMADIR)
+CFLAGS_LzmaDec.o += -I$(LZMADIR) -idirafterinclude/linux 
+$(obj)/LzmaDec.o: $(LZMADIR)/LzmaDec.c FORCE
 	$(call cmd,force_checksrc)
 	$(call if_changed_rule,cc_o_c)
