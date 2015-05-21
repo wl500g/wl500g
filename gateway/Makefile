@@ -102,7 +102,7 @@ ifeq ($(LINUX_KERNEL),)
 LINUX_KERNEL=$(call kver,utsrelease.h)
 endif
 export MODULESDIR := $(TARGETDIR)/lib/modules/$(LINUX_KERNEL)
-SRCMODULESDIR := $(PLATFORMDIR)/modules/lib/modules/*/kernel
+SRCMODULESDIR := $(PLATFORMDIR)/modules/lib/modules/$(LINUX_KERNEL)/kernel
 
 #
 # Configuration
@@ -363,7 +363,7 @@ kernel-install: kernel $(PLATFORMDIR)/vmlinuz
 	     INSTALL_MOD_STRIP="--strip-debug -x -R .comment -R .pdr -R .mdebug.abi32 -R .note.gnu.build-id -R .gnu.attributes -R .reginfo" ; \
 	    $(TOP)/busybox/examples/depmod.pl -b $(PLATFORMDIR)/modules/lib/modules/$(LINUX_KERNEL)/ -F $(LINUXDIR)/System.map; \
 	fi )
-	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
+	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build $(PLATFORMDIR)/modules/lib/modules/*/source
 
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install modules_install-usb
 	install -t $(MODULESDIR) \
