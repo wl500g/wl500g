@@ -1471,7 +1471,7 @@ struct file_buffer *get_fragment(struct fragment *fragment)
 			read_bytes(fd, start_block, size, data);
 		}
 
-		sbuf[Src].buf = data;
+		sbuf[Src].buf = (void *)data;
 		res = sqlzma_un(&un, sbuf + Src, sbuf + Dst);
 		if (res)
 			BAD_ERROR("%s:%d: res %d\n", __func__, __LINE__, res);

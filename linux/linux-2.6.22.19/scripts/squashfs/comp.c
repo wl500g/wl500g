@@ -11,6 +11,9 @@
 #include <zlib.h>
 #include "sqlzma.h"
 
+int compress_lzma(Bytef *dest, uLongf *destLen,
+	const Bytef *source, uLong sourceLen, int level);
+
 int sqlzma_cm(struct sqlzma_opts *opts, z_stream *stream)
 {
 	int err;
