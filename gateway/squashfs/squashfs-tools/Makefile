@@ -15,7 +15,7 @@
 # Obviously, you must select at least one of the available gzip, lzma, lzo
 # compression types.
 #
-#GZIP_SUPPORT = 1
+GZIP_SUPPORT = 1
 
 ########### Building XZ support #############
 #
@@ -58,8 +58,8 @@
 # and uncomment the LZMA_SUPPORT line below.
 #
 #LZMA_XZ_SUPPORT = 1
-LZMA_SUPPORT = 1
-LZMA_DIR = ../../../lzma9
+#LZMA_SUPPORT = 1
+#LZMA_DIR = ../../../../LZMA/lzma465
 
 ######## Specifying default compression ########
 #
@@ -67,7 +67,7 @@ LZMA_DIR = ../../../lzma9
 # in Mksquashfs.  Obviously the compression algorithm must have been
 # selected to be built
 #
-COMP_DEFAULT = lzma
+COMP_DEFAULT = gzip
 
 ###############################################
 #  Extended attribute (XATTRs) build options  #
@@ -86,7 +86,7 @@ XATTR_SUPPORT = 1
 #
 # If unselected, Mksquashfs/Unsquashfs won't store and extract xattrs by
 # default.  Users can enable xattrs by using the -xattrs option.
-#XATTR_DEFAULT = 1
+XATTR_DEFAULT = 1
 
 
 ###############################################
