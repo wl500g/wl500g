@@ -8,9 +8,9 @@ LZMADIR := ../../../../lzma4xx/C/Compress/Lzma
 LZMA_OBJS := $(addprefix $(LZMADIR)/, LzmaDecode.o)
 
 squashfs3-objs := squashfs.o
-squashfs-objs := inode.o
-squashfs-objs += uncomp.o
-squashfs-objs += $(LZMA_OBJS)
+squashfs3-objs := inode.o
+squashfs3-objs += uncomp.o
+squashfs3-objs += $(LZMA_OBJS)
 
 EXTRA_CFLAGS = -I$(src)/$(LZMADIR)
 
