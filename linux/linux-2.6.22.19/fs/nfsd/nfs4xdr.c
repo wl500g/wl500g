@@ -1299,9 +1299,9 @@ static char *nfsd4_path(struct svc_rqst *rqstp, struct svc_export *exp, __be32 *
 	*stat = exp_pseudoroot(rqstp, &tmp_fh);
 	if (*stat)
 		return NULL;
-	rootpath = tmp_fh.fh_export->ex_path;
+	rootpath = tmp_fh.fh_export->ex_pathname;
 
-	path = exp->ex_path;
+	path = exp->ex_pathname;
 
 	if (strncmp(path, rootpath, strlen(rootpath))) {
 		printk("nfsd: fs_locations failed;"
@@ -1450,7 +1450,7 @@ nfsd4_encode_fattr(struct svc_fh *fhp, struct svc_export *exp,
 			goto out;
 	}
 
-	err = vfs_getattr(exp->ex_mnt, dentry, &stat);
+	err = vfs_getattr(exp->ex_path.mnt, dentry, &stat);
 	if (err)
 		goto out_nfserr;
 	if ((bmval0 & (FATTR4_WORD0_FILES_FREE | FATTR4_WORD0_FILES_TOTAL |

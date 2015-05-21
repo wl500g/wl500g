@@ -495,8 +495,7 @@ static void nfs_free_open_context(struct kref *kref)
 		nfs4_close_state(&ctx->path, ctx->state, ctx->mode);
 	if (ctx->cred != NULL)
 		put_rpccred(ctx->cred);
-	dput(ctx->path.dentry);
-	mntput(ctx->path.mnt);
+	path_put(&ctx->path);
 	kfree(ctx);
 }
 

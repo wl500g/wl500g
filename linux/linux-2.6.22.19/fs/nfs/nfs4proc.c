@@ -302,8 +302,7 @@ static void nfs4_opendata_free(struct kref *kref)
 		nfs4_put_open_state(p->state);
 	nfs4_put_state_owner(p->owner);
 	dput(p->dir);
-	dput(p->path.dentry);
-	mntput(p->path.mnt);
+	path_put(&p->path);
 	kfree(p);
 }
 
@@ -1224,8 +1223,7 @@ static void nfs4_free_closedata(void *data)
 	nfs4_put_open_state(calldata->state);
 	nfs_free_seqid(calldata->arg.seqid);
 	nfs4_put_state_owner(sp);
-	dput(calldata->path.dentry);
-	mntput(calldata->path.mnt);
+	path_put(&calldata->path);
 	kfree(calldata);
 }
 
@@ -1389,7 +1387,7 @@ struct dentry *
 nfs4_atomic_open(struct inode *dir, struct dentry *dentry, struct nameidata *nd)
 {
 	struct path path = {
-		.mnt = nd->mnt,
+		.mnt = nd->path.mnt,
 		.dentry = dentry,
 	};
 	struct iattr attr;
@@ -1428,7 +1426,7 @@ int
 nfs4_open_revalidate(struct inode *dir, struct dentry *dentry, int openflags, struct nameidata *nd)
 {
 	struct path path = {
-		.mnt = nd->mnt,
+		.mnt = nd->path.mnt,
 		.dentry = dentry,
 	};
 	struct rpc_cred *cred;
@@ -1871,7 +1869,7 @@ nfs4_proc_create(struct inode *dir, struct dentry *dentry, struct iattr *sattr,
                  int flags, struct nameidata *nd)
 {
 	struct path path = {
-		.mnt = nd->mnt,
+		.mnt = nd->path.mnt,
 		.dentry = dentry,
 	};
 	struct nfs4_state *state;

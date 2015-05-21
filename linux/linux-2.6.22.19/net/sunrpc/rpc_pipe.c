@@ -462,14 +462,14 @@ rpc_lookup_parent(char *path, struct nameidata *nd)
 {
 	if (path[0] == '\0')
 		return -ENOENT;
-	nd->mnt = rpc_get_mount();
-	if (IS_ERR(nd->mnt)) {
+	nd->path.mnt = rpc_get_mount();
+	if (IS_ERR(nd->path.mnt)) {
 		printk(KERN_WARNING "%s: %s failed to mount "
 			       "pseudofilesystem \n", __FILE__, __FUNCTION__);
-		return PTR_ERR(nd->mnt);
+		return PTR_ERR(nd->path.mnt);
 	}
-	mntget(nd->mnt);
-	nd->dentry = dget(rpc_mount->mnt_root);
+	mntget(nd->path.mnt);
+	nd->path.dentry = dget(rpc_mount->mnt_root);
 	nd->last_type = LAST_ROOT;
 	nd->flags = LOOKUP_PARENT;
 	nd->depth = 0;
@@ -486,7 +486,7 @@ rpc_lookup_parent(char *path, struct nameidata *nd)
 static void
 rpc_release_path(struct nameidata *nd)
 {
-	path_release(nd);
+	path_put(&nd->path);
 	rpc_put_mount();
 }
 
@@ -659,7 +659,8 @@ rpc_lookup_negative(char *path, struct nameidata *nd)
 
 	if ((error = rpc_lookup_parent(path, nd)) != 0)
 		return ERR_PTR(error);
-	dentry = rpc_lookup_create(nd->dentry, nd->last.name, nd->last.len, 1);
+	dentry = rpc_lookup_create(nd->path.dentry, nd->last.name, nd->last.len,
+				   1);
 	if (IS_ERR(dentry))
 		rpc_release_path(nd);
 	return dentry;
@@ -677,7 +678,7 @@ rpc_mkdir(char *path, struct rpc_clnt *rpc_client)
 	dentry = rpc_lookup_negative(path, &nd);
 	if (IS_ERR(dentry))
 		return dentry;
-	dir = nd.dentry->d_inode;
+	dir = nd.path.dentry->d_inode;
 	if ((error = __rpc_mkdir(dir, dentry)) != 0)
 		goto err_dput;
 	RPC_I(dentry->d_inode)->private = rpc_client;

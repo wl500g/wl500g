@@ -243,7 +243,7 @@ encode_post_op_attr(struct svc_rqst *rqstp, __be32 *p, struct svc_fh *fhp)
 	        int err;
 		struct kstat stat;
 
-		err = vfs_getattr(fhp->fh_export->ex_mnt, dentry, &stat);
+		err = vfs_getattr(fhp->fh_export->ex_path.mnt, dentry, &stat);
 		if (!err) {
 			*p++ = xdr_one;		/* attributes follow */
 			return encode_fattr3(rqstp, p, fhp, &stat);

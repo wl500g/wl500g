@@ -167,8 +167,8 @@ static struct audit_parent *audit_init_parent(struct nameidata *ndp)
 	inotify_init_watch(&parent->wdata);
 	/* grab a ref so inotify watch hangs around until we take audit_filter_mutex */
 	get_inotify_watch(&parent->wdata);
-	wd = inotify_add_watch(audit_ih, &parent->wdata, ndp->dentry->d_inode,
-			       AUDIT_IN_WATCH);
+	wd = inotify_add_watch(audit_ih, &parent->wdata,
+			       ndp->path.dentry->d_inode, AUDIT_IN_WATCH);
 	if (wd < 0) {
 		audit_free_parent(&parent->wdata);
 		return ERR_PTR(wd);
@@ -1116,11 +1116,11 @@ static int audit_get_nd(char *path, struct nameidata **ndp,
 static void audit_put_nd(struct nameidata *ndp, struct nameidata *ndw)
 {
 	if (ndp) {
-		path_release(ndp);
+		path_put(&ndp->path);
 		kfree(ndp);
 	}
 	if (ndw) {
-		path_release(ndw);
+		path_put(&ndw->path);
 		kfree(ndw);
 	}
 }
@@ -1169,8 +1169,8 @@ static int audit_add_watch(struct audit_krule *krule, struct nameidata *ndp,
 
 	/* update watch filter fields */
 	if (ndw) {
-		watch->dev = ndw->dentry->d_inode->i_sb->s_dev;
-		watch->ino = ndw->dentry->d_inode->i_ino;
+		watch->dev = ndw->path.dentry->d_inode->i_sb->s_dev;
+		watch->ino = ndw->path.dentry->d_inode->i_ino;
 	}
 
 	/* The audit_filter_mutex must not be held during inotify calls because
@@ -1180,7 +1180,8 @@ static int audit_add_watch(struct audit_krule *krule, struct nameidata *ndp,
 	 */
 	mutex_unlock(&audit_filter_mutex);
 
-	if (inotify_find_watch(audit_ih, ndp->dentry->d_inode, &i_watch) < 0) {
+	if (inotify_find_watch(audit_ih, ndp->path.dentry->d_inode,
+			       &i_watch) < 0) {
 		parent = audit_init_parent(ndp);
 		if (IS_ERR(parent)) {
 			/* caller expects mutex locked */

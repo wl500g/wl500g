@@ -61,6 +61,7 @@ struct vfsmount {
 	atomic_t mnt_count;
 	int mnt_expiry_mark;		/* true if marked for expiry */
 	int mnt_pinned;
+	int mnt_ghosts;
 };
 
 static inline struct vfsmount *mntget(struct vfsmount *mnt)
@@ -94,11 +95,11 @@ extern struct vfsmount *vfs_kern_mount(struct file_system_type *type,
 
 struct nameidata;
 
-extern int do_add_mount(struct vfsmount *newmnt, struct nameidata *nd,
+struct path;
+extern int do_add_mount(struct vfsmount *newmnt, struct path *path,
 			int mnt_flags, struct list_head *fslist);
 
 extern void mark_mounts_for_expiry(struct list_head *mounts);
-extern void shrink_submounts(struct vfsmount *mountpoint, struct list_head *mounts);
 
 extern spinlock_t vfsmount_lock;
 extern dev_t name_to_dev_t(char *name);

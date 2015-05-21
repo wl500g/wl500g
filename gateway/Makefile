@@ -361,7 +361,7 @@ kernel-install: kernel $(PLATFORMDIR)/vmlinuz
 	if [ "$${CONFIG_MODULES}" = "y" ] ; then \
 	    $(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules \
 	     INSTALL_MOD_STRIP="--strip-debug -x -R .comment -R .pdr -R .mdebug.abi32 -R .note.gnu.build-id -R .gnu.attributes -R .reginfo" ; \
-	    $(TOP)/busybox/examples/depmod.pl -b $(PLATFORMDIR)/modules/lib/modules/* -F $(LINUXDIR)/System.map; \
+	    $(TOP)/busybox/examples/depmod.pl -b $(PLATFORMDIR)/modules/lib/modules/$(LINUX_KERNEL)/ -F $(LINUXDIR)/System.map; \
 	fi )
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
 
@@ -576,7 +576,7 @@ ifeq ($(CONFIG_RADVD),y)
 endif
 
 modules: kernel-install
-	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE)-$(subst .stamp-,,$(notdir $(wildcard $(LINUXDIR)/.stamp-*))).tgz .
+	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE)-$(subst .stamp-,,$(notdir $(wildcard $(LINUXDIR)/.stamp-*))).tgz lib/modules/$(LINUX_KERNEL)/
 
 manpages: manpages-install
 	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE).tgz .
