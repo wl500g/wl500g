@@ -1,4 +1,4 @@
-Sqlzma = ../../fs/squashfs
+Sqlzma = ../../fs/squashfs3
 LzmaDec = $(LZMAPATH)/../../../../C/Compress/Lzma
 
 CFLAGS := -Wall -Wno-unused-variable -I. -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -O2
