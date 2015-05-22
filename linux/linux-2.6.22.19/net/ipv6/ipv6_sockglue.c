@@ -179,7 +179,7 @@ int ip6_ra_control(struct sock *sk, int sel, void (*destructor)(struct sock *))
 
 	/* RA packet may be delivered ONLY to IPPROTO_RAW socket */
 	if (sk->sk_type != SOCK_RAW || inet_sk(sk)->num != IPPROTO_RAW)
-		return -EINVAL;
+		return -ENOPROTOOPT;
 
 	new_ra = (sel>=0) ? kmalloc(sizeof(*new_ra), GFP_KERNEL) : NULL;
 
@@ -556,7 +556,7 @@ done:
 
 	case IPV6_MULTICAST_HOPS:
 		if (sk->sk_type == SOCK_STREAM)
-			goto e_inval;
+			break;
 		if (val > 255 || val < -1)
 			goto e_inval;
 		np->mcast_hops = val;
@@ -570,7 +570,7 @@ done:
 
 	case IPV6_MULTICAST_IF:
 		if (sk->sk_type == SOCK_STREAM)
-			goto e_inval;
+			break;
 
 		if (val) {
 			if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != val)
@@ -589,6 +589,9 @@ done:
 	{
 		struct ipv6_mreq mreq;
 
+		if (optlen < sizeof(struct ipv6_mreq))
+			goto e_inval;
+
 		retv = -EFAULT;
 		if (copy_from_user(&mreq, optval, sizeof(struct ipv6_mreq)))
 			break;
@@ -604,7 +607,7 @@ done:
 	{
 		struct ipv6_mreq mreq;
 
-		if (optlen != sizeof(struct ipv6_mreq))
+		if (optlen < sizeof(struct ipv6_mreq))
 			goto e_inval;
 
 		retv = -EFAULT;
@@ -622,6 +625,9 @@ done:
 	{
 		struct group_req greq;
 		struct sockaddr_in6 *psin6;
+
+		if (optlen < sizeof(struct group_req))
+			goto e_inval;
 
 		retv = -EFAULT;
 		if (copy_from_user(&greq, optval, sizeof(struct group_req)))
@@ -647,7 +653,7 @@ done:
 		struct group_source_req greqs;
 		int omode, add;
 
-		if (optlen != sizeof(struct group_source_req))
+		if (optlen < sizeof(struct group_source_req))
 			goto e_inval;
 		if (copy_from_user(&greqs, optval, sizeof(greqs))) {
 			retv = -EFAULT;
@@ -857,7 +863,7 @@ static int ipv6_getsockopt_sticky(struct sock *sk, struct ipv6_txoptions *opt,
 	len = min_t(unsigned int, len, ipv6_optlen(hdr));
 	if (copy_to_user(optval, hdr, len))
 		return -EFAULT;
-	return ipv6_optlen(hdr);
+	return len;
 }
 
 static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
@@ -877,7 +883,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
 		if (sk->sk_protocol != IPPROTO_UDP &&
 		    sk->sk_protocol != IPPROTO_UDPLITE &&
 		    sk->sk_protocol != IPPROTO_TCP)
-			return -EINVAL;
+			return -ENOPROTOOPT;
 		if (sk->sk_state != TCP_ESTABLISHED)
 			return -ENOTCONN;
 		val = sk->sk_family;
@@ -1004,6 +1010,9 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
 		len = ipv6_getsockopt_sticky(sk, np->opt,
 					     optname, optval, len);
 		release_sock(sk);
+		/* check if ipv6_getsockopt_sticky() returns err code */
+		if (len < 0)
+			return len;
 		return put_user(len, optlen);
 	}
 
