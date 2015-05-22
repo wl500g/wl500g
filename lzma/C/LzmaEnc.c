@@ -1,5 +1,7 @@
 /* LzmaEnc.c -- LZMA Encoder
-2011-01-27 : Igor Pavlov : Public domain */
+2014-12-29 : Igor Pavlov : Public domain */
+
+#include "Precomp.h"
 
 #include <string.h>
 
@@ -18,7 +20,7 @@
 #endif
 
 #ifdef SHOW_STAT
-static int ttt = 0;
+static unsigned g_STAT_OFFSET = 0;
 #endif
 
 #define kBlockSizeMax ((1 << LZMA_NUM_BLOCK_SIZE_BITS) - 1)
@@ -46,7 +48,7 @@ void LzmaEncProps_Init(CLzmaEncProps *p)
 {
   p->level = 5;
   p->dictSize = p->mc = 0;
-  p->reduceSize = (UInt32)(Int32)-1;
+  p->reduceSize = (UInt64)(Int64)-1;
   p->lc = p->lp = p->pb = p->algo = p->fb = p->btMode = p->numHashBytes = p->numThreads = -1;
   p->writeEndMark = 0;
 }
@@ -60,10 +62,10 @@ void LzmaEncProps_Normalize(CLzmaEncProps *p)
   if (p->dictSize > p->reduceSize)
   {
     unsigned i;
-    for (i = 15; i <= 30; i++)
+    for (i = 11; i <= 30; i++)
     {
-      if (p->reduceSize <= ((UInt32)2 << i)) { p->dictSize = ((UInt32)2 << i); break; }
-      if (p->reduceSize <= ((UInt32)3 << i)) { p->dictSize = ((UInt32)3 << i); break; }
+      if ((UInt32)p->reduceSize <= ((UInt32)2 << i)) { p->dictSize = ((UInt32)2 << i); break; }
+      if ((UInt32)p->reduceSize <= ((UInt32)3 << i)) { p->dictSize = ((UInt32)3 << i); break; }
     }
   }
   if (p->lc < 0) p->lc = 3;
@@ -516,7 +518,7 @@ static void RangeEnc_FlushStream(CRangeEnc *p)
 
 static void MY_FAST_CALL RangeEnc_ShiftLow(CRangeEnc *p)
 {
-  if ((UInt32)p->low < (UInt32)0xFF000000 || (int)(p->low >> 32) != 0)
+  if ((UInt32)p->low < (UInt32)0xFF000000 || (unsigned)(p->low >> 32) != 0)
   {
     Byte temp = p->cache;
     do
@@ -542,7 +544,7 @@ static void RangeEnc_FlushData(CRangeEnc *p)
     RangeEnc_ShiftLow(p);
 }
 
-static void RangeEnc_EncodeDirectBits(CRangeEnc *p, UInt32 value, int numBits)
+static void RangeEnc_EncodeDirectBits(CRangeEnc *p, UInt32 value, unsigned numBits)
 {
   do
   {
@@ -811,9 +813,10 @@ static void LenEnc_Encode2(CLenPriceEnc *p, CRangeEnc *rc, UInt32 symbol, UInt32
 static void MovePos(CLzmaEnc *p, UInt32 num)
 {
   #ifdef SHOW_STAT
-  ttt += num;
+  g_STAT_OFFSET += num;
   printf("\n MovePos %d", num);
   #endif
+  
   if (num != 0)
   {
     p->additionalOffset += num;
@@ -826,15 +829,17 @@ static UInt32 ReadMatchDistances(CLzmaEnc *p, UInt32 *numDistancePairsRes)
   UInt32 lenRes = 0, numPairs;
   p->numAvail = p->matchFinder.GetNumAvailableBytes(p->matchFinderObj);
   numPairs = p->matchFinder.GetMatches(p->matchFinderObj, p->matches);
+  
   #ifdef SHOW_STAT
-  printf("\n i = %d numPairs = %d    ", ttt, numPairs / 2);
-  ttt++;
+  printf("\n i = %d numPairs = %d    ", g_STAT_OFFSET, numPairs / 2);
+  g_STAT_OFFSET++;
   {
     UInt32 i;
     for (i = 0; i < numPairs; i += 2)
       printf("%2d %6d   | ", p->matches[i], p->matches[i + 1]);
   }
   #endif
+  
   if (numPairs > 0)
   {
     lenRes = p->matches[numPairs - 2];
@@ -1905,12 +1910,10 @@ static SRes LzmaEnc_CodeOneBlock(CLzmaEnc *p, Bool useLimits, UInt32 maxPackSize
 static SRes LzmaEnc_Alloc(CLzmaEnc *p, UInt32 keepWindowSize, ISzAlloc *alloc, ISzAlloc *allocBig)
 {
   UInt32 beforeSize = kNumOpts;
-  Bool btMode;
   if (!RangeEnc_Alloc(&p->rc, alloc))
     return SZ_ERROR_MEM;
-  btMode = (p->matchFinderBase.btMode != 0);
   #ifndef _7ZIP_ST
-  p->mtMode = (p->multiThread && !p->fastMode && btMode);
+  p->mtMode = (p->multiThread && !p->fastMode && (p->matchFinderBase.btMode != 0));
   #endif
 
   {
@@ -2165,9 +2168,8 @@ static SRes LzmaEnc_Encode2(CLzmaEnc *p, ICompressProgress *progress)
 
   #ifndef _7ZIP_ST
   Byte allocaDummy[0x300];
-  int i = 0;
-  for (i = 0; i < 16; i++)
-    allocaDummy[i] = (Byte)i;
+  allocaDummy[0] = 0;
+  allocaDummy[1] = allocaDummy[0];
   #endif
 
   for (;;)

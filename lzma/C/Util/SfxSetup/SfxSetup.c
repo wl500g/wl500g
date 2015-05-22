@@ -1,5 +1,7 @@
 /* SfxSetup.c - 7z SFX Setup
-2010-12-13 : Igor Pavlov : Public domain */
+2014-12-07 : Igor Pavlov : Public domain */
+
+#include "Precomp.h"
 
 #ifndef UNICODE
 #define UNICODE
@@ -19,28 +21,28 @@
 #include "../../7zFile.h"
 #include "../../CpuArch.h"
 
-#define k_EXE_ExtIndex 1
+#define k_EXE_ExtIndex 2
 
 static const char *kExts[] =
 {
-  "bat",
-  "cmd",
-  "exe",
-  "inf",
-  "msi",
+    "bat"
+  , "cmd"
+  , "exe"
+  , "inf"
+  , "msi"
   #ifdef UNDER_CE
-  "cab",
+  , "cab"
   #endif
-  "html",
-  "htm"
+  , "html"
+  , "htm"
 };
 
 static const char *kNames[] =
 {
-  "setup",
-  "install",
-  "run",
-  "start"
+    "setup"
+  , "install"
+  , "run"
+  , "start"
 };
 
 static unsigned FindExt(const wchar_t *s, unsigned *extLen)
@@ -188,7 +190,7 @@ static WRes RemoveDirWithSubItems(WCHAR *path)
       wcscpy(path + len, fd.cFileName);
       if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
       {
-        wcscat(path, L"\\");
+        wcscat(path, WSTRING_PATH_SEPARATOR);
         res = RemoveDirWithSubItems(path);
       }
       else
@@ -238,6 +240,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   ISzAlloc allocTempImp;
   WCHAR sfxPath[MAX_PATH + 2];
   WCHAR path[MAX_PATH * 3 + 2];
+  #ifndef UNDER_CE
+  WCHAR workCurDir[MAX_PATH + 32];
+  #endif
   size_t pathLen;
   DWORD winRes;
   const wchar_t *cmdLineParams;
@@ -292,6 +297,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
       return 1;
     pathLen = wcslen(path);
     d = (GetTickCount() << 12) ^ (GetCurrentThreadId() << 14) ^ GetCurrentProcessId();
+    
     for (i = 0;; i++, d += GetTickCount())
     {
       if (i >= 100)
@@ -318,7 +324,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         continue;
       if (CreateDirectoryW(path, NULL))
       {
-        wcscat(path, L"\\");
+        wcscat(path, WSTRING_PATH_SEPARATOR);
         pathLen = wcslen(path);
         break;
       }
@@ -328,6 +334,10 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         break;
       }
     }
+    
+    #ifndef UNDER_CE
+    wcscpy(workCurDir, path);
+    #endif
     if (res != SZ_OK)
       errorMessage = "Can't create temp folder";
   }
@@ -367,6 +377,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   {
     res = SzArEx_Open(&db, &lookStream.s, &allocImp, &allocTempImp);
   }
+  
   if (res == SZ_OK)
   {
     UInt32 executeFileIndex = (UInt32)(Int32)-1;
@@ -376,11 +387,10 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     Byte *outBuffer = 0; /* it must be 0 before first call for each new archive. */
     size_t outBufferSize = 0;  /* it can have any value before first call (if outBuffer = 0) */
     
-    for (i = 0; i < db.db.NumFiles; i++)
+    for (i = 0; i < db.NumFiles; i++)
     {
       size_t offset = 0;
       size_t outSizeProcessed = 0;
-      const CSzFileItem *f = db.db.Files + i;
       size_t len;
       WCHAR *temp;
       len = SzArEx_GetFileNameUtf16(&db, i, NULL);
@@ -418,7 +428,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
           }
         }
 
-        if (f->IsDir)
+        if (SzArEx_IsDir(&db, i))
         {
           MyCreateDir(path);
           continue;
@@ -453,6 +463,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             break;
           }
         }
+  
         processedSize = outSizeProcessed;
         if (File_Write(&outFile, outBuffer + offset, &processedSize) != 0 || processedSize != outSizeProcessed)
         {
@@ -461,11 +472,12 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         }
         
         #ifdef USE_WINDOWS_FILE
-        if (f->MTimeDefined)
+        if (SzBitWithVals_Check(&db.MTime, i))
         {
+          const CNtfsFileTime *t = db.MTime.Vals + i;
           FILETIME mTime;
-          mTime.dwLowDateTime = f->MTime.Low;
-          mTime.dwHighDateTime = f->MTime.High;
+          mTime.dwLowDateTime = t->Low;
+          mTime.dwHighDateTime = t->High;
           SetFileTime(outFile.handle, NULL, NULL, &mTime);
         }
         #endif
@@ -481,8 +493,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
           }
         }
         #ifdef USE_WINDOWS_FILE
-        if (f->AttribDefined)
-          SetFileAttributesW(path, f->Attrib);
+        if (SzBitWithVals_Check(&db.Attribs, i))
+          SetFileAttributesW(path, db.Attribs.Vals[i]);
         #endif
       }
     }
@@ -513,6 +525,18 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   if (res == SZ_OK)
   {
     HANDLE hProcess = 0;
+    
+    #ifndef UNDER_CE
+    WCHAR oldCurDir[MAX_PATH + 2];
+    oldCurDir[0] = 0;
+    {
+      DWORD needLen = GetCurrentDirectory(MAX_PATH + 1, oldCurDir);
+      if (needLen == 0 || needLen > MAX_PATH)
+        oldCurDir[0] = 0;
+      SetCurrentDirectory(workCurDir);
+    }
+    #endif
+    
     if (useShellExecute)
     {
       SHELLEXECUTEINFO ei;
@@ -556,11 +580,16 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         hProcess = pi.hProcess;
       }
     }
+    
     if (hProcess != 0)
     {
       WaitForSingleObject(hProcess, INFINITE);
       CloseHandle(hProcess);
     }
+    
+    #ifndef UNDER_CE
+    SetCurrentDirectory(oldCurDir);
+    #endif
   }
 
   path[pathLen] = L'\0';

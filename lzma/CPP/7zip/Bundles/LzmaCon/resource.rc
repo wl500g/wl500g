@@ -1,0 +1,3 @@
+#include "../../../../C/7zVersion.rc"
+
+MY_VERSION_INFO_APP("LZMA", "lzma")
