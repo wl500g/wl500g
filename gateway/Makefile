@@ -310,8 +310,11 @@ lzma4xx-clean:
 	-$(MAKE) -C $(LZMA4LIB) clean
 
 loader:
+ifneq ($(LZMA4SDK),)
 	$(MAKE) -C $@ LZMAPATH=$(LZMA4SDK)/C/Compress/Lzma LZMA4xx=y
-#	$(MAKE) -C $@ LZMAPATH=$(SRCBASE)/lzma/C
+else
+	$(MAKE) -C $@ LZMAPATH=$(LZMASDK)/C
+endif
 
 mksquashfs $(MKSQUASHFS):
 ifeq ($(SQUASHFS3),y)
