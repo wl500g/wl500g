@@ -4,7 +4,7 @@
 
 -include .config
 
-RELEASE=1.9.2.7-rtn
+RELNAME=1.9.2.7-rtn
 
 #
 # asus trx trailer
@@ -240,7 +240,12 @@ endef
 define gitrevision
 $(shell git log -1 --all --format=format:"%h" origin/HEAD 2>/dev/null)
 endef
-RELEASE:=$(RELEASE)-r$(call svnrevision)
+
+ifneq ($(WL500G_BUILD),1)
+# export once
+export WL500G_BUILD := 1
+export RELEASE := $(RELNAME)-r$(call svnrevision)-$(call gitrevision)
+endif
 
 # $1 - config name, $2 - params list to change, $3 - new param value (y/n/m)
 define SwitchConfParam
@@ -275,7 +280,8 @@ FlashMaxSize = \
 # Basic rules
 #
 
-all: $(obj-y) 
+all: $(obj-y)
+	@true
 
 clean: $(obj-clean) config-clean lzma-clean lzma4xx-clean mksquashfs-clean
 	-rm -rf $(TARGETDIR)
@@ -500,7 +506,7 @@ install: package-$(MODEL)
 package-%: $(filter-out lib-install,$(obj-install)) www-install $(LINUXDIR)/.config mksquashfs
 	# Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
-	echo "$(RELEASE) ($(call gitrevision))" > $(TARGETDIR)/.version
+	echo "$(RELEASE)" > $(TARGETDIR)/.version
 	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) $(INSTALLDIR)/www ; do \
 	    (cd $${dir} && tar cpf - .) | (cd $(TARGETDIR) && tar xpf -) \
 	done
@@ -537,7 +543,7 @@ else
 		$(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 endif
 	@echo
-	@echo "Finished building $* firmware version $(TRX_VER) ($(RELEASE))"
+	@echo "Finished building $* firmware version $(RELEASE)"
 	@echo
 
 MANPAGES-y := busybox/docs/busybox.1 \
