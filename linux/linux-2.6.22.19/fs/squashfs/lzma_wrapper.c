@@ -31,7 +31,6 @@
 #include "squashfs.h"
 #include "decompressor.h"
 
-#include "Types.h"
 #include "LzmaDec.h"
 
 #if 0
