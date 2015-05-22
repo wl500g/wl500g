@@ -17,6 +17,7 @@
 #   Cleaned up, modified for lzma support, removed from kernel
 #
 # 2009-10-05 - Upgrade to lzma SDK 4.57 by Leonid Lisovskiy
+# 2012-03-05 - Upgrade to lzma SDK 4.65/9.xx by Vladislav Grishenko
 #
 
 TEXT_START	:= 0x80001000
@@ -29,7 +30,12 @@ CFLAGS		= -D__KERNEL__ -Wall -Wstrict-prototypes -Wno-trigraphs -O2 \
 		  -ffunction-sections -pipe -Wa,--trap \
 		  -mabi=32 -march=mips32 -Wa,-32 -Wa,-march=mips32 -Wa,-mips32
 
-CFLAGS		+= -DLOADADDR=$(TEXT_START) -D_LZMA_IN_CB
+CFLAGS		+= -DLOADADDR=$(TEXT_START)
+ifneq ($(LZMA4xx),)
+CFLAGS		+= -D_LZMA_IN_CB
+else
+CFLAGS		+= -D_LZMA_SIZE_OPT
+endif
 
 ASFLAGS		= $(CFLAGS) -D__ASSEMBLY__ -DBZ_TEXT_START=$(BZ_TEXT_START)
 
@@ -37,7 +43,11 @@ SEDFLAGS	:= s/BZ_TEXT_START/$(BZ_TEXT_START)/;s/TEXT_START/$(TEXT_START)/
 
 OBJECTS		:= head.o data.o
 
-COBJECTS	:= decompress.o LzmaDecode.o
+ifneq ($(LZMA4xx),)
+COBJECTS	:= decompress.4xx.o LzmaDecode.o
+else
+COBJECTS	:= decompress.o LzmaDec.o memcpy.o
+endif
 
 CFLAGS		+= -I$(LZMAPATH) -I$(SRCBASE)/include
 vpath %.c $(LZMAPATH)
