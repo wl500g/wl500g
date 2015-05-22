@@ -114,7 +114,7 @@ do_resize:
 
 	print_title(dialog, title, width);
 
-	print_button(dialog, " Exit ", height - 2, width / 2 - 4, TRUE);
+	print_button(dialog, gettext(" Exit "), height - 2, width / 2 - 4, TRUE);
 	wnoutrefresh(dialog);
 	getyx(dialog, cur_y, cur_x);	/* Save cursor position */
 
@@ -320,6 +320,7 @@ static void print_page(WINDOW * win, int height, int width)
  */
 static void print_line(WINDOW * win, int row, int width)
 {
+	int y, x;
 	char *line;
 
 	line = get_line();
@@ -328,10 +329,10 @@ static void print_line(WINDOW * win, int row, int width)
 	waddch(win, ' ');
 	waddnstr(win, line, MIN(strlen(line), width - 2));
 
+	getyx(win, y, x);
 	/* Clear 'residue' of previous line */
 #if OLD_NCURSES
 	{
-		int x = getcurx(win);
 		int i;
 		for (i = 0; i < width - x; i++)
 			waddch(win, ' ');

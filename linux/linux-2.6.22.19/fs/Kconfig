@@ -1422,7 +1422,6 @@ config CRAMFS
 choice
 	prompt "SquashFS"
 	default SQUASHFS3
-	optional
 
 source "fs/squashfs/Kconfig"
 source "fs/squashfs3/Kconfig"
