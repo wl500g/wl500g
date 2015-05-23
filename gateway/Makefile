@@ -234,17 +234,18 @@ MKSQUASHFSDIR=$(TOP)/squashfs/squashfs-tools
 MKSQUASHFS=$(MKSQUASHFSDIR)/mksquashfs
 endif
 
-define svnrevision
-$(shell git rev-list --all --count origin/HEAD 2>/dev/null)$(if $(shell git status -s -uno 2>/dev/null),M,)
+define lastsvntag
+$(subst -, ,$(shell git describe --tags --match="r[0-9][0-9][0-9][0-9]*" --dirty=-M 2>/dev/null))
 endef
-define gitrevision
-$(shell git log -1 --all --format=format:"%h" origin/HEAD 2>/dev/null)
+# $1 - describe output in form: "rXXXX count hash M"
+define svnrevision
+r$(shell echo $$(( $(subst r,,$(firstword $(1))) + $(word 2,$(1)) )) )$(word 4,$(1))-$(word 3,$(1))
 endef
 
 ifneq ($(WL500G_BUILD),1)
 # export once
 export WL500G_BUILD := 1
-export RELEASE := $(RELNAME)-r$(call svnrevision)-$(call gitrevision)
+export RELEASE := $(RELNAME)-$(call svnrevision,$(call lastsvntag))
 endif
 
 # $1 - config name, $2 - params list to change, $3 - new param value (y/n/m)
