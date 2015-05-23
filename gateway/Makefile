@@ -638,7 +638,7 @@ $(LINUXDIR)/.config: .config Makefile
 	cp $(LINUXDIR)/arch/mips/defconfig-bcm947xx $@
 	$(call SwitchConfParam,$@,CONFIG_IPV6,$(if $(CONFIG_IPV6),y,n))
 	$(call SwitchConfParam,$@,CONFIG_SQUASHFS3,$(if $(SQUASHFS3),y,n))
-	$(call SwitchConfParam,$@,CONFIG_SQUASHFS,$(if $(SQUASHFS3),n,y))
+	$(call SwitchConfParam,$@,CONFIG_SQUASHFS4,$(if $(SQUASHFS3),n,y))
 	$(call SwitchConfParam,$@,CONFIG_SQUASHFS_LZMA,$(if $(SQUASHFS3),n,y))
 
 #

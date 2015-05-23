@@ -2,7 +2,7 @@
 # Makefile for the linux squashfs routines.
 #
 
-obj-$(CONFIG_SQUASHFS3) += squashfs3.o
+obj-$(CONFIG_SQUASHFS) += squashfs3.o
 squashfs3-objs := inode.o
 squashfs3-objs += uncomp.o
 squashfs3-objs += LzmaDecode.o
