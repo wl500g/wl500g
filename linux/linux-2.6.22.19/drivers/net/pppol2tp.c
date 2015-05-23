@@ -2440,7 +2440,7 @@ static int pppol2tp_proc_show(struct seq_file *m, void *v);
 
 static struct proc_dir_entry *pppol2tp_proc;
 
-static struct seq_operations pppol2tp_proc_ops = {
+static const struct seq_operations pppol2tp_proc_ops = {
 	.start		= pppol2tp_proc_start,
 	.next		= pppol2tp_proc_next,
 	.stop		= pppol2tp_proc_stop,

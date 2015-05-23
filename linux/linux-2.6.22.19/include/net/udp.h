@@ -203,7 +203,7 @@ struct udp_seq_afinfo {
 	sa_family_t			family;
 	struct hlist_head		*hashtable;
 	const struct file_operations	*seq_fops;
-	struct seq_operations		seq_ops;
+	struct seq_operations	seq_ops;
 };
 
 struct udp_iter_state {

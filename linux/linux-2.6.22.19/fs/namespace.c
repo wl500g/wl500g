@@ -392,7 +392,7 @@ static int show_vfsmnt(struct seq_file *m, void *v)
 	return err;
 }
 
-struct seq_operations mounts_op = {
+const struct seq_operations mounts_op = {
 	.start	= m_start,
 	.next	= m_next,
 	.stop	= m_stop,
@@ -431,7 +431,7 @@ static int show_vfsstat(struct seq_file *m, void *v)
 	return err;
 }
 
-struct seq_operations mountstats_op = {
+const struct seq_operations mountstats_op = {
 	.start	= m_start,
 	.next	= m_next,
 	.stop	= m_stop,

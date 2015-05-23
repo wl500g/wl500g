@@ -2145,7 +2145,7 @@ static void locks_stop(struct seq_file *f, void *v)
 	unlock_kernel();
 }
 
-struct seq_operations locks_seq_operations = {
+const struct seq_operations locks_seq_operations = {
 	.start	= locks_start,
 	.next	= locks_next,
 	.stop	= locks_stop,

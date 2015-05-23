@@ -1399,7 +1399,7 @@ struct tcp_seq_afinfo {
 	char				*name;
 	sa_family_t			family;
 	const struct file_operations	*seq_fops;
-	struct seq_operations		seq_ops;
+	struct seq_operations	seq_ops;
 };
 
 struct tcp_iter_state {

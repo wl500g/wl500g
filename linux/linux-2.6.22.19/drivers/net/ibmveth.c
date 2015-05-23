@@ -1153,7 +1153,7 @@ static int ibmveth_seq_show(struct seq_file *seq, void *v)
 
 	return 0;
 }
-static struct seq_operations ibmveth_seq_ops = {
+static const struct seq_operations ibmveth_seq_ops = {
 	.start = ibmveth_seq_start,
 	.next  = ibmveth_seq_next,
 	.stop  = ibmveth_seq_stop,

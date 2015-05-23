@@ -494,14 +494,14 @@ static void m_stop(struct seq_file *m, void *v)
 		put_task_struct(priv->task);
 }
 
-static struct seq_operations proc_pid_maps_op = {
+static const struct seq_operations proc_pid_maps_op = {
 	.start	= m_start,
 	.next	= m_next,
 	.stop	= m_stop,
 	.show	= show_map
 };
 
-static struct seq_operations proc_pid_smaps_op = {
+static const struct seq_operations proc_pid_smaps_op = {
 	.start	= m_start,
 	.next	= m_next,
 	.stop	= m_stop,
@@ -509,7 +509,7 @@ static struct seq_operations proc_pid_smaps_op = {
 };
 
 static int do_maps_open(struct inode *inode, struct file *file,
-			struct seq_operations *ops)
+			const struct seq_operations *ops)
 {
 	struct proc_maps_private *priv;
 	int ret = -ENOMEM;
@@ -553,7 +553,7 @@ static int show_numa_map_checked(struct seq_file *m, void *v)
 	return show_numa_map(m, v);
 }
 
-static struct seq_operations proc_pid_numa_maps_op = {
+static const struct seq_operations proc_pid_numa_maps_op = {
         .start  = m_start,
         .next   = m_next,
         .stop   = m_stop,

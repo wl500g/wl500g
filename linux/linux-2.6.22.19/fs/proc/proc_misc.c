@@ -218,7 +218,7 @@ static int meminfo_read_proc(char *page, char **start, off_t off,
 #undef K
 }
 
-extern struct seq_operations fragmentation_op;
+extern const struct seq_operations fragmentation_op;
 static int fragmentation_open(struct inode *inode, struct file *file)
 {
 	(void)inode;
@@ -232,7 +232,7 @@ static const struct file_operations fragmentation_file_operations = {
 	.release	= seq_release,
 };
 
-extern struct seq_operations zoneinfo_op;
+extern const struct seq_operations zoneinfo_op;
 static int zoneinfo_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &zoneinfo_op);
@@ -257,7 +257,7 @@ static int version_read_proc(char *page, char **start, off_t off,
 	return proc_calc_metrics(page, start, off, count, eof, len);
 }
 
-extern struct seq_operations cpuinfo_op;
+extern const struct seq_operations cpuinfo_op;
 static int cpuinfo_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &cpuinfo_op);
@@ -310,7 +310,7 @@ static void devinfo_stop(struct seq_file *f, void *v)
 	/* Nothing to do */
 }
 
-static struct seq_operations devinfo_ops = {
+static const struct seq_operations devinfo_ops = {
 	.start = devinfo_start,
 	.next  = devinfo_next,
 	.stop  = devinfo_stop,
@@ -329,7 +329,7 @@ static const struct file_operations proc_devinfo_operations = {
 	.release	= seq_release,
 };
 
-extern struct seq_operations vmstat_op;
+extern const struct seq_operations vmstat_op;
 static int vmstat_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &vmstat_op);
@@ -360,7 +360,7 @@ static int stram_read_proc(char *page, char **start, off_t off,
 #endif
 
 #ifdef CONFIG_BLOCK
-extern struct seq_operations partitions_op;
+extern const struct seq_operations partitions_op;
 static int partitions_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &partitions_op);
@@ -372,7 +372,7 @@ static const struct file_operations proc_partitions_operations = {
 	.release	= seq_release,
 };
 
-extern struct seq_operations diskstats_op;
+extern const struct seq_operations diskstats_op;
 static int diskstats_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &diskstats_op);
@@ -386,7 +386,7 @@ static const struct file_operations proc_diskstats_operations = {
 #endif
 
 #ifdef CONFIG_MODULES
-extern struct seq_operations modules_op;
+extern const struct seq_operations modules_op;
 static int modules_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &modules_op);
@@ -415,7 +415,7 @@ static const struct file_operations proc_slabinfo_operations = {
 };
 
 #ifdef CONFIG_DEBUG_SLAB_LEAK
-extern struct seq_operations slabstats_op;
+extern const struct seq_operations slabstats_op;
 static int slabstats_open(struct inode *inode, struct file *file)
 {
 	unsigned long *n = kzalloc(PAGE_SIZE, GFP_KERNEL);
@@ -594,7 +594,7 @@ static void int_seq_stop(struct seq_file *f, void *v)
 
 
 extern int show_interrupts(struct seq_file *f, void *v); /* In arch code */
-static struct seq_operations int_seq_ops = {
+static const struct seq_operations int_seq_ops = {
 	.start = int_seq_start,
 	.next  = int_seq_next,
 	.stop  = int_seq_stop,

@@ -265,7 +265,7 @@ static int rsb_seq_show(struct seq_file *file, void *iter_ptr)
 	return 0;
 }
 
-static struct seq_operations rsb_seq_ops = {
+static const struct seq_operations rsb_seq_ops = {
 	.start = rsb_seq_start,
 	.next  = rsb_seq_next,
 	.stop  = rsb_seq_stop,
