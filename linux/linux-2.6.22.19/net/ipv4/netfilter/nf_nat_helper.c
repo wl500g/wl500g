@@ -172,7 +172,7 @@ int __nf_nat_mangle_tcp_packet(struct sk_buff *skb,
 			       unsigned int rep_len, bool adjust)
 {
 	struct rtable *rt = (struct rtable *)skb->dst;
-	struct iphdr *iph;
+	const struct iphdr *iph;
 	struct tcphdr *tcph;
 	int oldlen, datalen;
 

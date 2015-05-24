@@ -79,7 +79,7 @@ static void raw_v6_unhash(struct sock *sk)
 
 
 static struct sock *__raw_v6_lookup(struct sock *sk, unsigned short num,
-		struct in6_addr *loc_addr, struct in6_addr *rmt_addr, int dif)
+		const struct in6_addr *loc_addr, const struct in6_addr *rmt_addr, int dif)
 {
 	struct hlist_node *node;
 	int is_multicast = ipv6_addr_is_multicast(loc_addr);
@@ -142,8 +142,8 @@ static int icmpv6_filter(const struct sock *sk, const struct sk_buff *skb)
  */
 static int ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
 {
-	struct in6_addr *saddr;
-	struct in6_addr *daddr;
+	const struct in6_addr *saddr;
+	const struct in6_addr *daddr;
 	struct sock *sk;
 	int delivered = 0;
 	__u8 hash;
@@ -333,7 +333,7 @@ void raw6_icmp_error(struct sk_buff *skb, int nexthdr,
 {
 	struct sock *sk;
 	int hash;
-	struct in6_addr *saddr, *daddr;
+	const struct in6_addr *saddr, *daddr;
 
 	hash = nexthdr & (RAW_HTABLE_SIZE - 1);
 
@@ -1185,7 +1185,7 @@ struct proto rawv6_prot = {
 static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
 {
 	struct ipv6_pinfo *np = inet6_sk(sp);
-	struct in6_addr *dest, *src;
+	const struct in6_addr *dest, *src;
 	__u16 destp, srcp;
 
 	dest  = &np->daddr;

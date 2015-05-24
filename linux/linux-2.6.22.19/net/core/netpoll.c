@@ -282,8 +282,8 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
 	int total_len, ip_len, udp_len;
 	struct sk_buff *skb;
 	struct udphdr *udph;
-	struct iphdr *iph;
-	struct ethhdr *eth;
+	const struct iphdr *iph;
+	const struct ethhdr *eth;
 
 	udp_len = len + sizeof(*udph);
 	ip_len = udp_len + sizeof(*iph);
@@ -437,8 +437,8 @@ static void arp_reply(struct sk_buff *skb)
 int __netpoll_rx(struct sk_buff *skb)
 {
 	int proto, len, ulen;
-	struct iphdr *iph;
-	struct udphdr *uh;
+	const struct iphdr *iph;
+	const struct udphdr *uh;
 	struct netpoll_info *npi = skb->dev->npinfo;
 	struct netpoll *np = npi->rx_np;
 
@@ -462,7 +462,7 @@ int __netpoll_rx(struct sk_buff *skb)
 	if (skb_shared(skb))
 		goto out;
 
-	iph = (struct iphdr *)skb->data;
+	iph = (const struct iphdr *)skb->data;
 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
 		goto out;
 	if (iph->ihl < 5 || iph->version != 4)

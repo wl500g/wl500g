@@ -306,9 +306,9 @@ struct ipv6_pinfo {
 	struct in6_addr 	rcv_saddr;
 	struct in6_addr		daddr;
 	struct in6_pktinfo	sticky_pktinfo;
-	struct in6_addr		*daddr_cache;
+	const struct in6_addr		*daddr_cache;
 #ifdef CONFIG_IPV6_SUBTREES
-	struct in6_addr		*saddr_cache;
+	const struct in6_addr		*saddr_cache;
 #endif
 
 	__be32			flow_label;
@@ -454,13 +454,13 @@ static inline struct inet6_timewait_sock *inet6_twsk(const struct sock *sk)
 					      inet_twsk(sk)->tw_ipv6_offset);
 }
 
-static inline struct in6_addr *__inet6_rcv_saddr(const struct sock *sk)
+static inline const struct in6_addr *__inet6_rcv_saddr(const struct sock *sk)
 {
 	return likely(sk->sk_state != TCP_TIME_WAIT) ?
 		&inet6_sk(sk)->rcv_saddr : &inet6_twsk(sk)->tw_v6_rcv_saddr;
 }
 
-static inline struct in6_addr *inet6_rcv_saddr(const struct sock *sk)
+static inline const struct in6_addr *inet6_rcv_saddr(const struct sock *sk)
 {
 	return sk->sk_family == AF_INET6 ? __inet6_rcv_saddr(sk) : NULL;
 }

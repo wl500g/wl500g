@@ -132,7 +132,7 @@ static struct mip6_report_rate_limiter mip6_report_rl = {
 
 static int mip6_destopt_input(struct xfrm_state *x, struct sk_buff *skb)
 {
-	struct ipv6hdr *iph = ipv6_hdr(skb);
+	const struct ipv6hdr *iph = ipv6_hdr(skb);
 	struct ipv6_destopt_hdr *destopt = (struct ipv6_destopt_hdr *)skb->data;
 
 	if (!ipv6_addr_equal(&iph->saddr, (struct in6_addr *)x->coaddr) &&
@@ -182,8 +182,8 @@ static int mip6_destopt_output(struct xfrm_state *x, struct sk_buff *skb)
 }
 
 static inline int mip6_report_rl_allow(struct timeval *stamp,
-				       struct in6_addr *dst,
-				       struct in6_addr *src, int iif)
+				       const struct in6_addr *dst,
+				       const struct in6_addr *src, int iif)
 {
 	int allow = 0;
 
@@ -351,8 +351,8 @@ static int mip6_rthdr_input(struct xfrm_state *x, struct sk_buff *skb)
 	struct ipv6hdr *iph = ipv6_hdr(skb);
 	struct rt2_hdr *rt2 = (struct rt2_hdr *)skb->data;
 
-	if (!ipv6_addr_equal(&iph->daddr, (struct in6_addr *)x->coaddr) &&
-	    !ipv6_addr_any((struct in6_addr *)x->coaddr))
+	if (!ipv6_addr_equal(&iph->daddr, (const struct in6_addr *)x->coaddr) &&
+	    !ipv6_addr_any((const struct in6_addr *)x->coaddr))
 		return -ENOENT;
 
 	return rt2->rt_hdr.nexthdr;

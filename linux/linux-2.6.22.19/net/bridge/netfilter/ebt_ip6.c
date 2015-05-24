@@ -37,7 +37,7 @@ static bool
 ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct ebt_ip6_info *info = par->matchinfo;
-	struct ipv6hdr *ih6;
+	const struct ipv6hdr *ih6;
 	struct ipv6hdr _ip6h;
 	const union pkthdr *pptr;
 	union pkthdr _pkthdr;

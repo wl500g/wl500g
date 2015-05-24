@@ -195,7 +195,7 @@ struct inet6_dev
 
 extern struct ipv6_devconf ipv6_devconf;
 
-static inline void ipv6_eth_mc_map(struct in6_addr *addr, char *buf)
+static inline void ipv6_eth_mc_map(const struct in6_addr *addr, char *buf)
 {
 	/*
 	 *	+-------+-------+-------+-------+-------+-------+
@@ -209,7 +209,7 @@ static inline void ipv6_eth_mc_map(struct in6_addr *addr, char *buf)
 	memcpy(buf + 2, &addr->s6_addr32[3], sizeof(__u32));
 }
 
-static inline void ipv6_tr_mc_map(struct in6_addr *addr, char *buf)
+static inline void ipv6_tr_mc_map(const struct in6_addr *addr, char *buf)
 {
 	/* All nodes FF01::1, FF02::1, FF02::1:FFxx:xxxx */
 
@@ -268,7 +268,7 @@ static inline void ipv6_arcnet_mc_map(const struct in6_addr *addr, char *buf)
 	buf[0] = 0x00;
 }
 
-static inline void ipv6_ib_mc_map(struct in6_addr *addr, char *buf)
+static inline void ipv6_ib_mc_map(const struct in6_addr *addr, char *buf)
 {
 	buf[0]  = 0;		/* Reserved */
 	buf[1]  = 0xff;		/* Multicast QPN */

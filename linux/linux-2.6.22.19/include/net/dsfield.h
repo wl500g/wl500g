@@ -18,7 +18,7 @@ static inline __u8 ipv4_get_dsfield(struct iphdr *iph)
 }
 
 
-static inline __u8 ipv6_get_dsfield(struct ipv6hdr *ipv6h)
+static inline __u8 ipv6_get_dsfield(const struct ipv6hdr *ipv6h)
 {
 	return ntohs(*(__be16 *) ipv6h) >> 4;
 }

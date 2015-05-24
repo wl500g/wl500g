@@ -1509,7 +1509,7 @@ static inline unsigned short guess_mtu(unsigned short old_mtu)
 	return 68;
 }
 
-unsigned short ip_rt_frag_needed(struct iphdr *iph, unsigned short new_mtu,
+unsigned short ip_rt_frag_needed(const struct iphdr *iph, unsigned short new_mtu,
 				 struct net_device *dev)
 {
 	int i, k;

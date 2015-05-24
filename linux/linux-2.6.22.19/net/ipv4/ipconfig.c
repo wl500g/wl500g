@@ -830,7 +830,7 @@ static void __init ic_do_bootp_ext(u8 *ext)
 static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
 {
 	struct bootp_pkt *b;
-	struct iphdr *h;
+	const struct iphdr *h;
 	struct ic_device *d;
 	int len, ext_len;
 

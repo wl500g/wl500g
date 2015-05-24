@@ -23,7 +23,7 @@
  */
 static int xfrm4_transport_output(struct xfrm_state *x, struct sk_buff *skb)
 {
-	struct iphdr *iph = ip_hdr(skb);
+	const struct iphdr *iph = ip_hdr(skb);
 	int ihl = iph->ihl * 4;
 
 	skb->transport_header = skb->network_header + ihl;

@@ -1223,7 +1223,7 @@ static int ipv6_count_addresses(struct inet6_dev *idev)
 	return cnt;
 }
 
-int ipv6_chk_addr(struct in6_addr *addr, struct net_device *dev, int strict)
+int ipv6_chk_addr(const struct in6_addr *addr, struct net_device *dev, int strict)
 {
 	struct inet6_ifaddr *ifp;
 	struct hlist_node *node;
@@ -1262,7 +1262,7 @@ static bool ipv6_chk_same_addr(const struct in6_addr *addr,
 	return false;
 }
 
-int ipv6_chk_prefix(struct in6_addr *addr, struct net_device *dev)
+int ipv6_chk_prefix(const struct in6_addr *addr, struct net_device *dev)
 {
 	struct inet6_dev *idev;
 	struct inet6_ifaddr *ifa;
@@ -1388,7 +1388,7 @@ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
 
 /* Join to solicited addr multicast group. */
 
-void addrconf_join_solict(struct net_device *dev, struct in6_addr *addr)
+void addrconf_join_solict(struct net_device *dev, const struct in6_addr *addr)
 {
 	struct in6_addr maddr;
 
@@ -1399,7 +1399,7 @@ void addrconf_join_solict(struct net_device *dev, struct in6_addr *addr)
 	ipv6_dev_mc_inc(dev, &maddr);
 }
 
-void addrconf_leave_solict(struct inet6_dev *idev, struct in6_addr *addr)
+void addrconf_leave_solict(struct inet6_dev *idev, const struct in6_addr *addr)
 {
 	struct in6_addr maddr;
 

@@ -314,7 +314,7 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
 static int br_nf_pre_routing_finish(struct sk_buff *skb)
 {
 	struct net_device *dev = skb->dev;
-	struct iphdr *iph = ip_hdr(skb);
+	const struct iphdr *iph = ip_hdr(skb);
 	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
 	int err;
 
@@ -474,7 +474,7 @@ static unsigned int br_nf_pre_routing_ipv6(unsigned int hook,
 					   const struct net_device *out,
 					   int (*okfn)(struct sk_buff *))
 {
-	struct ipv6hdr *hdr;
+	const struct ipv6hdr *hdr;
 	u32 pkt_len;
 
 	if (skb->len < sizeof(struct ipv6hdr))
@@ -525,7 +525,7 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
 				      const struct net_device *out,
 				      int (*okfn)(struct sk_buff *))
 {
-	struct iphdr *iph;
+	const struct iphdr *iph;
 	__u32 len = nf_bridge_encap_header_len(skb);
 
 	if (unlikely(!pskb_may_pull(skb, len)))

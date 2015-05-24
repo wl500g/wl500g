@@ -139,7 +139,7 @@ EXPORT_SYMBOL_GPL(inet6_csk_addr2sockaddr);
 
 static inline
 void __inet6_csk_dst_store(struct sock *sk, struct dst_entry *dst,
-			   struct in6_addr *daddr, struct in6_addr *saddr)
+			   const struct in6_addr *daddr, const struct in6_addr *saddr)
 {
 	__ip6_dst_store(sk, dst, daddr, saddr);
 

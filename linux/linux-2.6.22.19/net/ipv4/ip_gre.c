@@ -315,7 +315,7 @@ static void ipgre_err(struct sk_buff *skb, u32 info)
    by themself???
  */
 
-	struct iphdr *iph = (struct iphdr*)skb->data;
+	const struct iphdr *iph = (struct iphdr*)skb->data;
 	__be16	     *p = (__be16*)(skb->data+(iph->ihl<<2));
 	int grehlen = (iph->ihl<<2) + 4;
 	const int type = icmp_hdr(skb)->type;
@@ -383,8 +383,8 @@ out:
 	read_unlock(&ipgre_lock);
 	return;
 #else
-	struct iphdr *iph = (struct iphdr*)dp;
-	struct iphdr *eiph;
+	const struct iphdr *iph = (struct iphdr*)dp;
+	const struct iphdr *eiph;
 	__be16	     *p = (__be16*)(dp+(iph->ihl<<2));
 	const int type = icmp_hdr(skb)->type;
 	const int code = icmp_hdr(skb)->code;
@@ -414,7 +414,7 @@ out:
 	}
 	if (len < grehlen + sizeof(struct iphdr))
 		return;
-	eiph = (struct iphdr*)(dp + grehlen);
+	eiph = (const struct iphdr*)(dp + grehlen);
 
 	switch (type) {
 	default:
@@ -669,7 +669,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct ip_tunnel *tunnel = netdev_priv(dev);
 	struct net_device_stats *stats = &tunnel->stat;
 	struct iphdr  *old_iph = ip_hdr(skb);
-	struct iphdr  *tiph;
+	const struct iphdr  *tiph;
 	u8     tos;
 	__be16 df;
 	struct rtable *rt;     			/* Route to the other host */
@@ -1145,7 +1145,7 @@ static int ipgre_tunnel_init(struct net_device *dev)
 {
 	struct net_device *tdev = NULL;
 	struct ip_tunnel *tunnel;
-	struct iphdr *iph;
+	const struct iphdr *iph;
 	int hlen = LL_MAX_HEADER;
 	int mtu = ETH_DATA_LEN;
 	int addend = sizeof(struct iphdr) + 4;

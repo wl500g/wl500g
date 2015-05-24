@@ -651,7 +651,7 @@ xfrm_addr_any(xfrm_address_t *addr, unsigned short family)
 	case AF_INET:
 		return addr->a4 == 0;
 	case AF_INET6:
-		return ipv6_addr_any((struct in6_addr *)&addr->a6);
+		return ipv6_addr_any((const struct in6_addr *)&addr->a6);
 	}
 	return 0;
 }
@@ -666,8 +666,8 @@ __xfrm4_state_addr_cmp(struct xfrm_tmpl *tmpl, struct xfrm_state *x)
 static inline int
 __xfrm6_state_addr_cmp(struct xfrm_tmpl *tmpl, struct xfrm_state *x)
 {
-	return	(!ipv6_addr_any((struct in6_addr*)&tmpl->saddr) &&
-		 ipv6_addr_cmp((struct in6_addr *)&tmpl->saddr, (struct in6_addr*)&x->props.saddr));
+	return	(!ipv6_addr_any((const struct in6_addr*)&tmpl->saddr) &&
+		 ipv6_addr_cmp((const struct in6_addr *)&tmpl->saddr, (const struct in6_addr*)&x->props.saddr));
 }
 
 static inline int
@@ -807,10 +807,10 @@ static __inline__ int
 __xfrm6_state_addr_check(struct xfrm_state *x,
 			 xfrm_address_t *daddr, xfrm_address_t *saddr)
 {
-	if (!ipv6_addr_cmp((struct in6_addr *)daddr, (struct in6_addr *)&x->id.daddr) &&
-	    (!ipv6_addr_cmp((struct in6_addr *)saddr, (struct in6_addr *)&x->props.saddr)|| 
-	     ipv6_addr_any((struct in6_addr *)saddr) || 
-	     ipv6_addr_any((struct in6_addr *)&x->props.saddr)))
+	if (!ipv6_addr_cmp((const struct in6_addr *)daddr, (const struct in6_addr *)&x->id.daddr) &&
+	    (!ipv6_addr_cmp((const struct in6_addr *)saddr, (const struct in6_addr *)&x->props.saddr)|| 
+	     ipv6_addr_any((const struct in6_addr *)saddr) || 
+	     ipv6_addr_any((const struct in6_addr *)&x->props.saddr)))
 		return 1;
 	return 0;
 }
@@ -1079,8 +1079,8 @@ static inline int xfrm_addr_cmp(xfrm_address_t *a, xfrm_address_t *b,
 	case AF_INET:
 		return (__force __u32)a->a4 - (__force __u32)b->a4;
 	case AF_INET6:
-		return ipv6_addr_cmp((struct in6_addr *)a,
-				     (struct in6_addr *)b);
+		return ipv6_addr_cmp((const struct in6_addr *)a,
+				     (const struct in6_addr *)b);
 	}
 }
 

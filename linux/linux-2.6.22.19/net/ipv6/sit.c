@@ -295,7 +295,7 @@ out:
 #else
 	struct iphdr *iph = (struct iphdr*)dp;
 	int hlen = iph->ihl<<2;
-	struct ipv6hdr *iph6;
+	const struct ipv6hdr *iph6;
 	const int type = icmp_hdr(skb)->type;
 	const int code = icmp_hdr(skb)->code;
 	int rel_type = 0;
@@ -428,7 +428,7 @@ out:
  * comes from 6rd / 6to4 (RFC 3056) addr space.
  */
 static inline
-__be32 try_6rd(struct in6_addr *v6dst, struct ip_tunnel *tunnel)
+__be32 try_6rd(const struct in6_addr *v6dst, struct ip_tunnel *tunnel)
 {
 	__be32 dst = 0;
 
@@ -471,7 +471,7 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct ip_tunnel *tunnel = netdev_priv(dev);
 	struct net_device_stats *stats = &tunnel->stat;
 	struct iphdr  *tiph = &tunnel->parms.iph;
-	struct ipv6hdr *iph6 = ipv6_hdr(skb);
+	const struct ipv6hdr *iph6 = ipv6_hdr(skb);
 	u8     tos = tunnel->parms.iph.tos;
 	__be16 df = tiph->frag_off;
 	struct rtable *rt;     			/* Route to the other host */

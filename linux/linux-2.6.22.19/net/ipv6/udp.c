@@ -59,8 +59,8 @@ static inline int udp_v6_get_port(struct sock *sk, unsigned short snum)
 	return udp_get_port(sk, snum, ipv6_rcv_saddr_equal);
 }
 
-static struct sock *__udp6_lib_lookup(struct in6_addr *saddr, __be16 sport,
-				      struct in6_addr *daddr, __be16 dport,
+static struct sock *__udp6_lib_lookup(const struct in6_addr *saddr, __be16 sport,
+				      const struct in6_addr *daddr, __be16 dport,
 				      int dif, struct hlist_head udptable[])
 {
 	struct sock *sk, *result = NULL;
@@ -258,8 +258,8 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 {
 	struct ipv6_pinfo *np;
 	struct ipv6hdr *hdr = (struct ipv6hdr*)skb->data;
-	struct in6_addr *saddr = &hdr->saddr;
-	struct in6_addr *daddr = &hdr->daddr;
+	const struct in6_addr *saddr = &hdr->saddr;
+	const struct in6_addr *daddr = &hdr->daddr;
 	struct udphdr *uh = (struct udphdr*)(skb->data+offset);
 	struct sock *sk;
 	int err;
@@ -346,8 +346,8 @@ drop:
 }
 
 static struct sock *udp_v6_mcast_next(struct sock *sk,
-				      __be16 loc_port, struct in6_addr *loc_addr,
-				      __be16 rmt_port, struct in6_addr *rmt_addr,
+				      __be16 loc_port, const struct in6_addr *loc_addr,
+				      __be16 rmt_port, const struct in6_addr *rmt_addr,
 				      int dif)
 {
 	struct hlist_node *node;
@@ -386,8 +386,8 @@ static struct sock *udp_v6_mcast_next(struct sock *sk,
  * Note: called only from the BH handler context,
  * so we don't need to lock the hashes.
  */
-static int __udp6_lib_mcast_deliver(struct sk_buff *skb, struct in6_addr *saddr,
-			   struct in6_addr *daddr, struct hlist_head udptable[])
+static int __udp6_lib_mcast_deliver(struct sk_buff *skb, const struct in6_addr *saddr,
+			   const struct in6_addr *daddr, struct hlist_head udptable[])
 {
 	struct sock *sk, *sk2;
 	const struct udphdr *uh = udp_hdr(skb);
@@ -455,7 +455,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
 	struct sock *sk;
 	struct udphdr *uh;
 	struct net_device *dev = skb->dev;
-	struct in6_addr *saddr, *daddr;
+	const struct in6_addr *saddr, *daddr;
 	u32 ulen = 0;
 
 	if (!pskb_may_pull(skb, sizeof(struct udphdr)))
@@ -970,7 +970,7 @@ static void udp6_sock_seq_show(struct seq_file *seq, struct sock *sp, int bucket
 {
 	struct inet_sock *inet = inet_sk(sp);
 	struct ipv6_pinfo *np = inet6_sk(sp);
-	struct in6_addr *dest, *src;
+	const struct in6_addr *dest, *src;
 	__u16 destp, srcp;
 
 	dest  = &np->daddr;

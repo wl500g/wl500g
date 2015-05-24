@@ -16,7 +16,7 @@
 static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
 {
 	int err;
-	struct iphdr *top_iph;
+	const struct iphdr *top_iph;
 	struct ip_esp_hdr *esph;
 	struct crypto_blkcipher *tfm;
 	struct blkcipher_desc desc;
@@ -148,7 +148,7 @@ error:
  */
 static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
 {
-	struct iphdr *iph;
+	const struct iphdr *iph;
 	struct ip_esp_hdr *esph;
 	struct esp_data *esp = x->data;
 	struct crypto_blkcipher *tfm = esp->conf.tfm;

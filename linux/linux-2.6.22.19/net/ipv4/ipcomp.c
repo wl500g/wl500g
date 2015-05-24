@@ -76,7 +76,7 @@ out:
 static int ipcomp_input(struct xfrm_state *x, struct sk_buff *skb)
 {
 	int err = -ENOMEM;
-	struct iphdr *iph;
+	const struct iphdr *iph;
 	struct ip_comp_hdr *ipch;
 
 	if (skb_linearize_cow(skb))
@@ -133,7 +133,7 @@ static int ipcomp_output(struct xfrm_state *x, struct sk_buff *skb)
 	struct ip_comp_hdr *ipch;
 	struct ipcomp_data *ipcd = x->data;
 	int hdr_len = 0;
-	struct iphdr *iph = ip_hdr(skb);
+	const struct iphdr *iph = ip_hdr(skb);
 
 	iph->tot_len = htons(skb->len);
 	hdr_len = iph->ihl * 4;
@@ -171,7 +171,7 @@ out_ok:
 static void ipcomp4_err(struct sk_buff *skb, u32 info)
 {
 	__be32 spi;
-	struct iphdr *iph = (struct iphdr *)skb->data;
+	const struct iphdr *iph = (const struct iphdr *)skb->data;
 	struct ip_comp_hdr *ipch = (struct ip_comp_hdr *)(skb->data+(iph->ihl<<2));
 	struct xfrm_state *x;
 

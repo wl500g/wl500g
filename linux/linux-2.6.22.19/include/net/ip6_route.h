@@ -66,13 +66,6 @@ extern int			ip6_rt_addr_add(struct in6_addr *addr,
 extern int			ip6_rt_addr_del(struct in6_addr *addr,
 						struct net_device *dev);
 
-extern void			rt6_sndmsg(int type, struct in6_addr *dst,
-					   struct in6_addr *src,
-					   struct in6_addr *gw,
-					   struct net_device *dev, 
-					   int dstlen, int srclen,
-					   int metric, __u32 flags);
-
 extern struct rt6_info		*rt6_lookup(const struct in6_addr *daddr,
 					    const struct in6_addr *saddr,
 					    int oif, int flags);
@@ -94,9 +87,9 @@ extern int			ip6_dst_hoplimit(struct dst_entry *dst);
  *	support functions for ND
  *
  */
-extern struct rt6_info *	rt6_get_dflt_router(struct in6_addr *addr,
+extern struct rt6_info *	rt6_get_dflt_router(const struct in6_addr *addr,
 						    struct net_device *dev);
-extern struct rt6_info *	rt6_add_dflt_router(struct in6_addr *gwaddr,
+extern struct rt6_info *	rt6_add_dflt_router(const struct in6_addr *gwaddr,
 						    struct net_device *dev,
 						    unsigned int pref);
 
@@ -104,17 +97,17 @@ extern void			rt6_purge_dflt_routers(void);
 
 extern int			rt6_route_rcv(struct net_device *dev,
 					      u8 *opt, int len,
-					      struct in6_addr *gwaddr);
+					      const struct in6_addr *gwaddr);
 
-extern void			rt6_redirect(struct in6_addr *dest,
-					     struct in6_addr *src,
-					     struct in6_addr *saddr,
+extern void			rt6_redirect(const struct in6_addr *dest,
+					     const struct in6_addr *src,
+					     const struct in6_addr *saddr,
 					     struct neighbour *neigh,
 					     u8 *lladdr,
 					     int on_link);
 
-extern void			rt6_pmtu_discovery(struct in6_addr *daddr,
-						   struct in6_addr *saddr,
+extern void			rt6_pmtu_discovery(const struct in6_addr *daddr,
+						   const struct in6_addr *saddr,
 						   struct net_device *dev,
 						   u32 pmtu);
 
@@ -136,7 +129,7 @@ extern rwlock_t rt6_lock;
  *	Store a destination cache entry in a socket
  */
 static inline void __ip6_dst_store(struct sock *sk, struct dst_entry *dst,
-				   struct in6_addr *daddr, struct in6_addr *saddr)
+				   const struct in6_addr *daddr, const struct in6_addr *saddr)
 {
 	struct ipv6_pinfo *np = inet6_sk(sk);
 	struct rt6_info *rt = (struct rt6_info *) dst;
@@ -150,7 +143,7 @@ static inline void __ip6_dst_store(struct sock *sk, struct dst_entry *dst,
 }
 
 static inline void ip6_dst_store(struct sock *sk, struct dst_entry *dst,
-				 struct in6_addr *daddr, struct in6_addr *saddr)
+				 const struct in6_addr *daddr, const struct in6_addr *saddr)
 {
 	write_lock(&sk->sk_dst_lock);
 	__ip6_dst_store(sk, dst, daddr, saddr);

@@ -135,7 +135,7 @@ static inline void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
  **/
 
 static struct ip6_tnl *
-ip6_tnl_lookup(struct in6_addr *remote, struct in6_addr *local)
+ip6_tnl_lookup(const struct in6_addr *remote, const struct in6_addr *local)
 {
 	unsigned int hash = HASH(remote, local);
 	struct ip6_tnl *t;
@@ -166,8 +166,8 @@ ip6_tnl_lookup(struct in6_addr *remote, struct in6_addr *local)
 static struct ip6_tnl **
 ip6_tnl_bucket(struct ip6_tnl_parm *p)
 {
-	struct in6_addr *remote = &p->raddr;
-	struct in6_addr *local = &p->laddr;
+	const struct in6_addr *remote = &p->raddr;
+	const struct in6_addr *local = &p->laddr;
 	unsigned h = 0;
 	int prio = 0;
 
@@ -280,8 +280,8 @@ failed:
 
 static struct ip6_tnl *ip6_tnl_locate(struct ip6_tnl_parm *p, int create)
 {
-	struct in6_addr *remote = &p->raddr;
-	struct in6_addr *local = &p->laddr;
+	const struct in6_addr *remote = &p->raddr;
+	const struct in6_addr *local = &p->laddr;
 	struct ip6_tnl *t;
 
 	for (t = *ip6_tnl_bucket(p); t; t = t->next) {

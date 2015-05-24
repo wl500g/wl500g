@@ -59,14 +59,14 @@ extern int			addrconf_add_ifaddr(void __user *arg);
 extern int			addrconf_del_ifaddr(void __user *arg);
 extern int			addrconf_set_dstaddr(void __user *arg);
 
-extern int			ipv6_chk_addr(struct in6_addr *addr,
+extern int			ipv6_chk_addr(const struct in6_addr *addr,
 					      struct net_device *dev,
 					      int strict);
 #ifdef CONFIG_IPV6_MIP6
-extern int			ipv6_chk_home_addr(struct in6_addr *addr);
+extern int			ipv6_chk_home_addr(const struct in6_addr *addr);
 #endif
 
-extern int			ipv6_chk_prefix(struct in6_addr *addr,
+extern int			ipv6_chk_prefix(const struct in6_addr *addr,
 						struct net_device *dev);
 
 extern struct inet6_ifaddr *	ipv6_get_ifaddr(const struct in6_addr *addr,
@@ -81,9 +81,9 @@ extern int			ipv6_get_lladdr(struct net_device *dev,
 extern int			ipv6_rcv_saddr_equal(const struct sock *sk, 
 						      const struct sock *sk2);
 extern void			addrconf_join_solict(struct net_device *dev,
-					struct in6_addr *addr);
+					const struct in6_addr *addr);
 extern void			addrconf_leave_solict(struct inet6_dev *idev,
-					struct in6_addr *addr);
+					const struct in6_addr *addr);
 
 /*
  *	multicast prototypes (mcast.c)
@@ -116,14 +116,14 @@ extern void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len);
 /*
  *	anycast prototypes (anycast.c)
  */
-extern int ipv6_sock_ac_join(struct sock *sk,int ifindex,struct in6_addr *addr);
-extern int ipv6_sock_ac_drop(struct sock *sk,int ifindex,struct in6_addr *addr);
+extern int ipv6_sock_ac_join(struct sock *sk,int ifindex,const struct in6_addr *addr);
+extern int ipv6_sock_ac_drop(struct sock *sk,int ifindex,const struct in6_addr *addr);
 extern void ipv6_sock_ac_close(struct sock *sk);
-extern int inet6_ac_check(struct sock *sk, struct in6_addr *addr, int ifindex);
+extern int inet6_ac_check(struct sock *sk, const struct in6_addr *addr, int ifindex);
 
-extern int ipv6_dev_ac_inc(struct net_device *dev, struct in6_addr *addr);
-extern int __ipv6_dev_ac_dec(struct inet6_dev *idev, struct in6_addr *addr);
-extern int ipv6_chk_acast_addr(struct net_device *dev, struct in6_addr *addr);
+extern int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr);
+extern int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr);
+extern int ipv6_chk_acast_addr(struct net_device *dev, const struct in6_addr *addr);
 
 
 /* Device notifier */

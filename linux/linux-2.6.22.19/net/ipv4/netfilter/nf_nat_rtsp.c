@@ -78,8 +78,8 @@ MODULE_PARM_DESC(destaction, "Action for destination parameter (auto/strip/none)
 static void
 get_skb_tcpdata(struct sk_buff* skb, char** pptcpdata, uint* ptcpdatalen)
 {
-    struct iphdr*   iph  = ip_hdr(skb);
-    struct tcphdr*  tcph = (void *)iph + ip_hdrlen(skb);
+    const struct iphdr*   iph  = ip_hdr(skb);
+    const struct tcphdr*  tcph = (void *)iph + ip_hdrlen(skb);
 
     *pptcpdata = (char*)tcph +  tcph->doff*4;
     *ptcpdatalen = ((char*)skb_transport_header(skb) + skb->len) - *pptcpdata;

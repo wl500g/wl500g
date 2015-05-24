@@ -172,7 +172,7 @@ int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
 {
 	struct udp_sock *up = udp_sk(sk);
 	struct udphdr *uh;
-	struct iphdr *iph;
+	const struct iphdr *iph;
 	int iphlen, len;
 	int ret;
 
