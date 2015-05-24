@@ -306,7 +306,7 @@ static void cpuset_diput(struct dentry *dentry, struct inode *inode)
 	iput(inode);
 }
 
-static struct dentry_operations cpuset_dops = {
+static const struct dentry_operations cpuset_dops = {
 	.d_iput = cpuset_diput,
 };
 

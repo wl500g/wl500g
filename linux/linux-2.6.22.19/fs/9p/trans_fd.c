@@ -181,7 +181,7 @@ static int v9fs_socket_open(struct v9fs_session_info *v9ses,
 	int fd, ret;
 
 	csocket->sk->sk_allocation = GFP_NOIO;
-	if ((fd = sock_map_fd(csocket)) < 0) {
+	if ((fd = sock_map_fd(csocket, 0)) < 0) {
 		eprintk(KERN_ERR, "v9fs_socket_open: failed to map fd\n");
 		ret = fd;
 	      release_csocket:

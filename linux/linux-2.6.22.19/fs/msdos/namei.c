@@ -155,7 +155,7 @@ static int msdos_find(struct inode *dir, const unsigned char *name, int len,
  * that the existing dentry can be used. The msdos fs routines will
  * return ENOENT or EINVAL as appropriate.
  */
-static int msdos_hash(struct dentry *dentry, struct qstr *qstr)
+static int msdos_hash(const struct dentry *dentry, struct qstr *qstr)
 {
 	struct fat_mount_options *options = &MSDOS_SB(dentry->d_sb)->options;
 	unsigned char msdos_name[MSDOS_NAME];
@@ -171,7 +171,7 @@ static int msdos_hash(struct dentry *dentry, struct qstr *qstr)
  * Compare two msdos names. If either of the names are invalid,
  * we fall back to doing the standard name comparison.
  */
-static int msdos_cmp(struct dentry *dentry, struct qstr *a, struct qstr *b)
+static int msdos_cmp(const struct dentry *dentry, struct qstr *a, const struct qstr *b)
 {
 	struct fat_mount_options *options = &MSDOS_SB(dentry->d_sb)->options;
 	unsigned char a_msdos_name[MSDOS_NAME], b_msdos_name[MSDOS_NAME];
@@ -194,7 +194,7 @@ old_compare:
 	goto out;
 }
 
-static struct dentry_operations msdos_dentry_operations = {
+static const struct dentry_operations msdos_dentry_operations = {
 	.d_hash		= msdos_hash,
 	.d_compare	= msdos_cmp,
 };

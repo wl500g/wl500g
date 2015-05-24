@@ -41,7 +41,7 @@ int hostfs_d_delete(struct dentry *dentry)
 	return 1;
 }
 
-struct dentry_operations hostfs_dentry_ops = {
+const struct dentry_operations hostfs_dentry_ops = {
 	.d_delete		= hostfs_d_delete,
 };
 

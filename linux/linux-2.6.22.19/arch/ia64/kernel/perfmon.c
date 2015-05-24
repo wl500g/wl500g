@@ -2176,12 +2176,12 @@ static const struct file_operations pfm_file_ops = {
 };
 
 static int
-pfmfs_delete_dentry(struct dentry *dentry)
+pfmfs_delete_dentry(const struct dentry *dentry)
 {
 	return 1;
 }
 
-static struct dentry_operations pfmfs_dentry_operations = {
+static const struct dentry_operations pfmfs_dentry_operations = {
 	.d_delete = pfmfs_delete_dentry,
 };
 

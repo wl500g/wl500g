@@ -320,7 +320,7 @@ int hfsplus_asc2uni(struct super_block *sb, struct hfsplus_unistr *ustr,
  * Composed unicode characters are decomposed and case-folding is performed
  * if the appropriate bits are (un)set on the superblock.
  */
-int hfsplus_hash_dentry(struct dentry *dentry, struct qstr *str)
+int hfsplus_hash_dentry(const struct dentry *dentry, struct qstr *str)
 {
 	struct super_block *sb = dentry->d_sb;
 	const char *astr;
@@ -363,7 +363,7 @@ int hfsplus_hash_dentry(struct dentry *dentry, struct qstr *str)
  * Composed unicode characters are decomposed and case-folding is performed
  * if the appropriate bits are (un)set on the superblock.
  */
-int hfsplus_compare_dentry(struct dentry *dentry, struct qstr *s1, struct qstr *s2)
+int hfsplus_compare_dentry(const struct dentry *dentry, struct qstr *s1, const struct qstr *s2)
 {
 	struct super_block *sb = dentry->d_sb;
 	int casefold, decompose, size;

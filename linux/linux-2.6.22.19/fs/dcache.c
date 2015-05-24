@@ -1086,7 +1086,7 @@ struct dentry * d_alloc_root(struct inode * root_inode)
 	return res;
 }
 
-static inline struct hlist_head *d_hash(struct dentry *parent,
+static inline struct hlist_head *d_hash(const struct dentry *parent,
 					unsigned long hash)
 {
 	hash += ((unsigned long) parent ^ GOLDEN_RATIO_PRIME) / L1_CACHE_BYTES;
@@ -1358,7 +1358,7 @@ err_out:
  * directory using the seqlockt_t rename_lock.
  */
 
-struct dentry * d_lookup(struct dentry * parent, struct qstr * name)
+struct dentry * d_lookup(const struct dentry *parent, const struct qstr *name)
 {
 	struct dentry * dentry = NULL;
 	unsigned long seq;
@@ -1372,7 +1372,7 @@ struct dentry * d_lookup(struct dentry * parent, struct qstr * name)
 	return dentry;
 }
 
-struct dentry * __d_lookup(struct dentry * parent, struct qstr * name)
+struct dentry * __d_lookup(const struct dentry *parent, const struct qstr *name)
 {
 	unsigned int len = name->len;
 	unsigned int hash = name->hash;
@@ -1980,7 +1980,7 @@ Elong:
  *
  * "buflen" should be positive. Caller holds the dcache_lock.
  */
-char *d_path(struct path *path, char *buf, int buflen)
+char *d_path(const struct path *path, char *buf, int buflen)
 {
 	char *res;
 	struct path root;

@@ -390,7 +390,7 @@ drop_lower_inodes:
 	unionfs_read_unlock(dentry->d_sb);
 }
 
-struct dentry_operations unionfs_dops = {
+const struct dentry_operations unionfs_dops = {
 	.d_revalidate	= unionfs_d_revalidate,
 	.d_release	= unionfs_d_release,
 	.d_iput		= unionfs_d_iput,

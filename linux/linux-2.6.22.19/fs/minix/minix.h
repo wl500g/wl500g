@@ -82,7 +82,7 @@ extern const struct inode_operations minix_file_inode_operations;
 extern const struct inode_operations minix_dir_inode_operations;
 extern const struct file_operations minix_file_operations;
 extern const struct file_operations minix_dir_operations;
-extern struct dentry_operations minix_dentry_operations;
+extern const struct dentry_operations minix_dentry_operations;
 
 static inline struct minix_sb_info *minix_sb(struct super_block *sb)
 {

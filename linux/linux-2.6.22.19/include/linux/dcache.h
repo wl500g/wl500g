@@ -105,7 +105,7 @@ struct dentry {
 	struct list_head d_subdirs;	/* our children */
 	struct list_head d_alias;	/* inode alias list */
 	unsigned long d_time;		/* used by d_revalidate */
-	struct dentry_operations *d_op;
+	const struct dentry_operations *d_op;
 	struct super_block *d_sb;	/* The root of the dentry tree */
 	void *d_fsdata;			/* fs-specific data */
 #ifdef CONFIG_PROFILING
@@ -129,8 +129,8 @@ enum dentry_d_lock_class
 
 struct dentry_operations {
 	int (*d_revalidate)(struct dentry *, struct nameidata *);
-	int (*d_hash) (struct dentry *, struct qstr *);
-	int (*d_compare) (struct dentry *, struct qstr *, struct qstr *);
+	int (*d_hash) (const struct dentry *, struct qstr *);
+	int (*d_compare) (const struct dentry *, struct qstr *, const struct qstr *);
 	int (*d_delete)(struct dentry *);
 	void (*d_release)(struct dentry *);
 	void (*d_iput)(struct dentry *, struct inode *);
@@ -289,8 +289,8 @@ static inline struct dentry *d_add_unique(struct dentry *entry, struct inode *in
 extern void d_move(struct dentry *, struct dentry *);
 
 /* appendix may either be NULL or be used for transname suffixes */
-extern struct dentry * d_lookup(struct dentry *, struct qstr *);
-extern struct dentry * __d_lookup(struct dentry *, struct qstr *);
+extern struct dentry * d_lookup(const struct dentry *, const struct qstr *);
+extern struct dentry * __d_lookup(const struct dentry *, const struct qstr *);
 extern struct dentry * d_hash_and_lookup(struct dentry *, struct qstr *);
 
 /* validate "insecure" dentry pointer */
@@ -301,7 +301,7 @@ extern int d_validate(struct dentry *, struct dentry *);
  */
 extern char *dynamic_dname(struct dentry *, char *, int, const char *, ...);
 
-extern char *d_path(struct path *, char *, int);
+extern char *d_path(const struct path *, char *, int);
 
 /* Allocation counts.. */
 

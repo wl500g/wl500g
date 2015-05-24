@@ -386,7 +386,7 @@ int seq_printf(struct seq_file *m, const char *f, ...)
 }
 EXPORT_SYMBOL(seq_printf);
 
-int seq_path(struct seq_file *m, struct path *path, char *esc)
+int seq_path(struct seq_file *m, const struct path *path, const char *esc)
 {
 	if (m->count < m->size) {
 		char *s = m->buf + m->count;

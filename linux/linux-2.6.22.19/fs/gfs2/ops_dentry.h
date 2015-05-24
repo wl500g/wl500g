@@ -12,6 +12,6 @@
 
 #include <linux/dcache.h>
 
-extern struct dentry_operations gfs2_dops;
+extern const struct dentry_operations gfs2_dops;
 
 #endif /* __OPS_DENTRY_DOT_H__ */

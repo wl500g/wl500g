@@ -591,12 +591,12 @@ cifs_d_revalidate(struct dentry *direntry, struct nameidata *nd)
 	return rc;
 }     */
 
-struct dentry_operations cifs_dentry_ops = {
+const struct dentry_operations cifs_dentry_ops = {
 	.d_revalidate = cifs_d_revalidate,
 /* d_delete:       cifs_d_delete,      */ /* not needed except for debugging */
 };
 
-static int cifs_ci_hash(struct dentry *dentry, struct qstr *q)
+static int cifs_ci_hash(const struct dentry *dentry, struct qstr *q)
 {
 	struct nls_table *codepage = CIFS_SB(dentry->d_inode->i_sb)->local_nls;
 	unsigned long hash;
@@ -611,8 +611,8 @@ static int cifs_ci_hash(struct dentry *dentry, struct qstr *q)
 	return 0;
 }
 
-static int cifs_ci_compare(struct dentry *dentry, struct qstr *a,
-			   struct qstr *b)
+static int cifs_ci_compare(const struct dentry *dentry, struct qstr *a,
+			   const struct qstr *b)
 {
 	struct nls_table *codepage = CIFS_SB(dentry->d_inode->i_sb)->local_nls;
 
@@ -629,7 +629,7 @@ static int cifs_ci_compare(struct dentry *dentry, struct qstr *a,
 	return 1;
 }
 
-struct dentry_operations cifs_ci_dentry_ops = {
+const struct dentry_operations cifs_ci_dentry_ops = {
 	.d_revalidate = cifs_d_revalidate,
 	.d_hash = cifs_ci_hash,
 	.d_compare = cifs_ci_compare,

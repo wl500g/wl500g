@@ -273,11 +273,11 @@ smb_dir_open(struct inode *dir, struct file *file)
  * Dentry operations routines
  */
 static int smb_lookup_validate(struct dentry *, struct nameidata *);
-static int smb_hash_dentry(struct dentry *, struct qstr *);
-static int smb_compare_dentry(struct dentry *, struct qstr *, struct qstr *);
+static int smb_hash_dentry(const struct dentry *, struct qstr *);
+static int smb_compare_dentry(const struct dentry *, struct qstr *, const struct qstr *);
 static int smb_delete_dentry(struct dentry *);
 
-static struct dentry_operations smbfs_dentry_operations =
+static const struct dentry_operations smbfs_dentry_operations =
 {
 	.d_revalidate	= smb_lookup_validate,
 	.d_hash		= smb_hash_dentry,
@@ -285,7 +285,7 @@ static struct dentry_operations smbfs_dentry_operations =
 	.d_delete	= smb_delete_dentry,
 };
 
-static struct dentry_operations smbfs_dentry_operations_case =
+static const struct dentry_operations smbfs_dentry_operations_case =
 {
 	.d_revalidate	= smb_lookup_validate,
 	.d_delete	= smb_delete_dentry,
@@ -332,7 +332,7 @@ smb_lookup_validate(struct dentry * dentry, struct nameidata *nd)
 }
 
 static int 
-smb_hash_dentry(struct dentry *dir, struct qstr *this)
+smb_hash_dentry(const struct dentry *dir, struct qstr *this)
 {
 	unsigned long hash;
 	int i;
@@ -346,7 +346,7 @@ smb_hash_dentry(struct dentry *dir, struct qstr *this)
 }
 
 static int
-smb_compare_dentry(struct dentry *dir, struct qstr *a, struct qstr *b)
+smb_compare_dentry(const struct dentry *dir, struct qstr *a, const struct qstr *b)
 {
 	int i, result = 1;
 

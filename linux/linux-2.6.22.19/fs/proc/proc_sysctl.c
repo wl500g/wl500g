@@ -7,7 +7,7 @@
 #include <linux/security.h>
 #include "internal.h"
 
-static struct dentry_operations proc_sys_dentry_operations;
+static const struct dentry_operations proc_sys_dentry_operations;
 static const struct file_operations proc_sys_file_operations;
 static struct inode_operations proc_sys_inode_operations;
 
@@ -458,7 +458,7 @@ static int proc_sys_revalidate(struct dentry *dentry, struct nameidata *nd)
 	return !!table;
 }
 
-static struct dentry_operations proc_sys_dentry_operations = {
+static const struct dentry_operations proc_sys_dentry_operations = {
 	.d_revalidate	= proc_sys_revalidate,
 };
 

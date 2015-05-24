@@ -39,7 +39,7 @@
 #define DO 0
 #define UNDO 1
 
-extern struct dentry_operations gfs2_dops;
+extern const struct dentry_operations gfs2_dops;
 
 static struct gfs2_sbd *init_sbd(struct super_block *sb)
 {

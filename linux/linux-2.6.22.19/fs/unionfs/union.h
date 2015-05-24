@@ -74,7 +74,7 @@ extern struct inode_operations unionfs_main_iops;
 extern struct inode_operations unionfs_dir_iops;
 extern struct inode_operations unionfs_symlink_iops;
 extern struct super_operations unionfs_sops;
-extern struct dentry_operations unionfs_dops;
+extern const struct dentry_operations unionfs_dops;
 extern struct address_space_operations unionfs_aops, unionfs_dummy_aops;
 extern struct vm_operations_struct unionfs_vm_ops;
 

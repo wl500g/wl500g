@@ -75,11 +75,11 @@ const struct inode_operations ncp_dir_inode_operations =
  * Dentry operations routines
  */
 static int ncp_lookup_validate(struct dentry *, struct nameidata *);
-static int ncp_hash_dentry(struct dentry *, struct qstr *);
-static int ncp_compare_dentry (struct dentry *, struct qstr *, struct qstr *);
+static int ncp_hash_dentry(const struct dentry *, struct qstr *);
+static int ncp_compare_dentry (const struct dentry *, struct qstr *, const struct qstr *);
 static int ncp_delete_dentry(struct dentry *);
 
-static struct dentry_operations ncp_dentry_operations =
+static const struct dentry_operations ncp_dentry_operations =
 {
 	.d_revalidate	= ncp_lookup_validate,
 	.d_hash		= ncp_hash_dentry,
@@ -87,7 +87,7 @@ static struct dentry_operations ncp_dentry_operations =
 	.d_delete	= ncp_delete_dentry,
 };
 
-struct dentry_operations ncp_root_dentry_operations =
+const struct dentry_operations ncp_root_dentry_operations =
 {
 	.d_hash		= ncp_hash_dentry,
 	.d_compare	= ncp_compare_dentry,
@@ -100,7 +100,7 @@ struct dentry_operations ncp_root_dentry_operations =
  * is case-sensitive.
  */
 static int 
-ncp_hash_dentry(struct dentry *dentry, struct qstr *this)
+ncp_hash_dentry(const struct dentry *dentry, struct qstr *this)
 {
 	struct nls_table *t;
 	unsigned long hash;
@@ -119,7 +119,7 @@ ncp_hash_dentry(struct dentry *dentry, struct qstr *this)
 }
 
 static int
-ncp_compare_dentry(struct dentry *dentry, struct qstr *a, struct qstr *b)
+ncp_compare_dentry(const struct dentry *dentry, struct qstr *a, const struct qstr *b)
 {
 	if (a->len != b->len)
 		return 1;

@@ -47,7 +47,7 @@ static int vfat_revalidate(struct dentry *dentry, struct nameidata *nd)
 }
 
 /* returns the length of a struct qstr, ignoring trailing dots */
-static unsigned int vfat_striptail_len(struct qstr *qstr)
+static unsigned int vfat_striptail_len(const struct qstr *qstr)
 {
 	unsigned int len = qstr->len;
 
@@ -62,7 +62,7 @@ static unsigned int vfat_striptail_len(struct qstr *qstr)
  * that the existing dentry can be used. The vfat fs routines will
  * return ENOENT or EINVAL as appropriate.
  */
-static int vfat_hash(struct dentry *dentry, struct qstr *qstr)
+static int vfat_hash(const struct dentry *dentry, struct qstr *qstr)
 {
 	qstr->hash = full_name_hash(qstr->name, vfat_striptail_len(qstr));
 	return 0;
@@ -74,7 +74,7 @@ static int vfat_hash(struct dentry *dentry, struct qstr *qstr)
  * that the existing dentry can be used. The vfat fs routines will
  * return ENOENT or EINVAL as appropriate.
  */
-static int vfat_hashi(struct dentry *dentry, struct qstr *qstr)
+static int vfat_hashi(const struct dentry *dentry, struct qstr *qstr)
 {
 	struct nls_table *t = MSDOS_SB(dentry->d_inode->i_sb)->nls_io;
 	const unsigned char *name;
@@ -95,7 +95,7 @@ static int vfat_hashi(struct dentry *dentry, struct qstr *qstr)
 /*
  * Case insensitive compare of two vfat names.
  */
-static int vfat_cmpi(struct dentry *dentry, struct qstr *a, struct qstr *b)
+static int vfat_cmpi(const struct dentry *dentry, struct qstr *a, const struct qstr *b)
 {
 	struct nls_table *t = MSDOS_SB(dentry->d_inode->i_sb)->nls_io;
 	unsigned int alen, blen;
@@ -113,7 +113,7 @@ static int vfat_cmpi(struct dentry *dentry, struct qstr *a, struct qstr *b)
 /*
  * Case sensitive compare of two vfat names.
  */
-static int vfat_cmp(struct dentry *dentry, struct qstr *a, struct qstr *b)
+static int vfat_cmp(const struct dentry *dentry, struct qstr *a, const struct qstr *b)
 {
 	unsigned int alen, blen;
 
@@ -127,7 +127,7 @@ static int vfat_cmp(struct dentry *dentry, struct qstr *a, struct qstr *b)
 	return 1;
 }
 
-static struct dentry_operations vfat_dentry_ops[4] = {
+static const struct dentry_operations vfat_dentry_ops[4] = {
 	{
 		.d_hash		= vfat_hashi,
 		.d_compare	= vfat_cmpi,

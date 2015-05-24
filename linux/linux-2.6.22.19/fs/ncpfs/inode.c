@@ -98,7 +98,7 @@ static const struct super_operations ncp_sops =
 	.remount_fs	= ncp_remount,
 };
 
-extern struct dentry_operations ncp_root_dentry_operations;
+extern const struct dentry_operations ncp_root_dentry_operations;
 #if defined(CONFIG_NCPFS_EXTRAS) || defined(CONFIG_NCPFS_NFS_NS)
 extern const struct address_space_operations ncp_symlink_aops;
 extern int ncp_symlink(struct inode*, struct dentry*, const char*);

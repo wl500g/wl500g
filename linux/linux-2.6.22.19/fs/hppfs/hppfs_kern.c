@@ -103,7 +103,7 @@ static char *dentry_name(struct dentry *dentry, int extra)
 	return(name);
 }
 
-struct dentry_operations hppfs_dentry_ops = {
+const struct dentry_operations hppfs_dentry_ops = {
 };
 
 static int file_removed(struct dentry *dentry, const char *file)
