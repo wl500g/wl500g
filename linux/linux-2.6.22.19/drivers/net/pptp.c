@@ -824,7 +824,7 @@ static int pptp_ppp_ioctl(struct ppp_channel *chan, unsigned int cmd,
 }
 
 
-static struct pppox_proto pppox_pptp_proto = {
+static const struct pppox_proto pppox_pptp_proto = {
     .create	= pptp_create,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,15)
     .owner	= THIS_MODULE,

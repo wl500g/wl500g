@@ -128,7 +128,7 @@ static inline char * task_name(struct task_struct *p, char * buf)
  * you can test for combinations of others with
  * simple bit tests.
  */
-static const char *task_state_array[] = {
+static const char * const task_state_array[] = {
 	"R (running)",		/*  0 */
 	"S (sleeping)",		/*  1 */
 	"D (disk sleep)",	/*  2 */
@@ -147,7 +147,7 @@ static inline const char * get_task_state(struct task_struct *tsk)
 					    TASK_TRACED)) |
 			(tsk->exit_state & (EXIT_ZOMBIE |
 					    EXIT_DEAD));
-	const char **p = &task_state_array[0];
+	const char * const *p = &task_state_array[0];
 
 	while (state) {
 		p++;

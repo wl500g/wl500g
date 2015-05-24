@@ -36,7 +36,7 @@ struct basic_filter
 	struct list_head	link;
 };
 
-static struct tcf_ext_map basic_ext_map = {
+static const struct tcf_ext_map basic_ext_map = {
 	.action = TCA_BASIC_ACT,
 	.police = TCA_BASIC_POLICE
 };

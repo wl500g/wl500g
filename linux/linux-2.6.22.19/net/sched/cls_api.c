@@ -477,10 +477,9 @@ tcf_exts_destroy(struct tcf_proto *tp, struct tcf_exts *exts)
 }
 
 
-int
-tcf_exts_validate(struct tcf_proto *tp, struct rtattr **tb,
+int tcf_exts_validate(struct tcf_proto *tp, struct rtattr **tb,
 		  struct rtattr *rate_tlv, struct tcf_exts *exts,
-		  struct tcf_ext_map *map)
+		  const struct tcf_ext_map *map)
 {
 	memset(exts, 0, sizeof(*exts));
 
@@ -526,8 +525,7 @@ tcf_exts_validate(struct tcf_proto *tp, struct rtattr **tb,
 	return 0;
 }
 
-void
-tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
+void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
 		struct tcf_exts *src)
 {
 #ifdef CONFIG_NET_CLS_ACT
@@ -551,9 +549,8 @@ tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
 #endif
 }
 
-int
-tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts,
-	      struct tcf_ext_map *map)
+int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts,
+	      const struct tcf_ext_map *map)
 {
 #ifdef CONFIG_NET_CLS_ACT
 	if (map->action && exts->action) {
@@ -593,9 +590,8 @@ rtattr_failure: __attribute__ ((unused))
 	return -1;
 }
 
-int
-tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts,
-		    struct tcf_ext_map *map)
+int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts,
+		    const struct tcf_ext_map *map)
 {
 #ifdef CONFIG_NET_CLS_ACT
 	if (exts->action)

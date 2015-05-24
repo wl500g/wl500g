@@ -1095,7 +1095,7 @@ static const struct proto_ops pppoe_ops = {
     .ioctl		= pppox_ioctl,
 };
 
-static struct pppox_proto pppoe_proto = {
+static const struct pppox_proto pppoe_proto = {
     .create	= pppoe_create,
     .ioctl	= pppoe_ioctl,
     .owner	= THIS_MODULE,

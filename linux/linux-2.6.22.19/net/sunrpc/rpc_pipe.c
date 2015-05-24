@@ -114,7 +114,7 @@ static void
 rpc_close_pipes(struct inode *inode)
 {
 	struct rpc_inode *rpci = RPC_I(inode);
-	struct rpc_pipe_ops *ops;
+	const struct rpc_pipe_ops *ops;
 
 	mutex_lock(&inode->i_mutex);
 	ops = rpci->ops;
@@ -721,7 +721,7 @@ rpc_rmdir(struct dentry *dentry)
 }
 
 struct dentry *
-rpc_mkpipe(struct dentry *parent, const char *name, void *private, struct rpc_pipe_ops *ops, int flags)
+rpc_mkpipe(struct dentry *parent, const char *name, void *private, const struct rpc_pipe_ops *ops, int flags)
 {
 	struct dentry *dentry;
 	struct inode *dir, *inode;
