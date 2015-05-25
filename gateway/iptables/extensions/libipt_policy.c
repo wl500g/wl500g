@@ -14,12 +14,6 @@
 
 #include <linux/netfilter/xt_policy.h>
 
-/*
- * HACK: global pointer to current matchinfo for making
- * final checks and adjustments in final_check.
- */
-static struct xt_policy_info *policy_info;
-
 static void policy_help(void)
 {
 	printf(
@@ -262,7 +256,6 @@ static int policy_parse(int c, int invert, unsigned int *flags,
 		return 0;
 	}
 
-	policy_info = info;
 	return 1;
 }
 
@@ -280,9 +273,9 @@ static int policy6_parse(int c, char **argv, int invert, unsigned int *flags,
 	       NFPROTO_IPV6);
 }
 
-static void policy_check(unsigned int flags)
+static void policy_check(struct xt_fcheck_call *cb)
 {
-	struct xt_policy_info *info = policy_info;
+	struct xt_policy_info *info = (void *)cb->data;
 	struct xt_policy_elem *e;
 	int i;
 
@@ -486,7 +479,7 @@ static struct xtables_match policy_mt_reg = {
 	.userspacesize	= XT_ALIGN(sizeof(struct xt_policy_info)),
 	.help		= policy_help,
 	.parse		= policy4_parse,
-	.final_check	= policy_check,
+	.x6_fcheck	= policy_check,
 	.print		= policy4_print,
 	.save		= policy4_save,
 	.extra_opts	= policy_opts,
@@ -500,7 +493,7 @@ static struct xtables_match policy_mt6_reg = {
 	.userspacesize	= XT_ALIGN(sizeof(struct xt_policy_info)),
 	.help		= policy_help,
 	.parse		= policy6_parse,
-	.final_check	= policy_check,
+	.x6_fcheck	= policy_check,
 	.print		= policy6_print,
 	.save		= policy6_save,
 	.extra_opts	= policy_opts,

@@ -18,10 +18,6 @@ static int socket_mt_parse(int c, char **argv, int invert, unsigned int *flags,
 	return 0;
 }
 
-static void socket_mt_check(unsigned int flags)
-{
-}
-
 static struct xtables_match socket_mt_reg = {
 	.name	       = "socket",
 	.version       = XTABLES_VERSION,
@@ -29,7 +25,6 @@ static struct xtables_match socket_mt_reg = {
 	.size	       = XT_ALIGN(0),
 	.userspacesize = XT_ALIGN(0),
 	.parse	       = socket_mt_parse,
-	.final_check   = socket_mt_check,
 	.help	       = socket_mt_help,
 };
 

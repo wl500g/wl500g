@@ -1823,11 +1823,10 @@ int do_command(int argc, char *argv[], char **table, struct iptc_handle **handle
 		        "the use of DROP is therefore inhibited.\n\n");
 
 	for (matchp = matches; matchp; matchp = matchp->next)
-		if (matchp->match->final_check != NULL)
-			matchp->match->final_check(matchp->match->mflags);
+		xtables_option_mfcall(matchp->match);
 
 	if (target != NULL && target->final_check != NULL)
-		target->final_check(target->tflags);
+		xtables_option_tfcall(target);
 
 	/* Fix me: must put inverse options checking here --MN */
 

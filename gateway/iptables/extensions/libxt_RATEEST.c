@@ -10,7 +10,6 @@
 #include <linux/netfilter/xt_RATEEST.h>
 
 /* hack to pass raw values to final_check */
-static struct xt_rateest_target_info *RATEEST_info;
 static unsigned int interval;
 static unsigned int ewma_log;
 
@@ -94,8 +93,6 @@ RATEEST_parse(int c, char **argv, int invert, unsigned int *flags,
 {
 	struct xt_rateest_target_info *info = (void *)(*target)->data;
 
-	RATEEST_info = info;
-
 	switch (c) {
 	case RATEEST_OPT_NAME:
 		if (*flags & (1 << c))
@@ -138,15 +135,15 @@ RATEEST_parse(int c, char **argv, int invert, unsigned int *flags,
 }
 
 static void
-RATEEST_final_check(unsigned int flags)
+RATEEST_final_check(struct xt_fcheck_call *cb)
 {
-	struct xt_rateest_target_info *info = RATEEST_info;
+	struct xt_rateest_target_info *info = (void *)cb->data;
 
-	if (!(flags & (1 << RATEEST_OPT_NAME)))
+	if (!(cb->xflags & (1 << RATEEST_OPT_NAME)))
 		xtables_error(PARAMETER_PROBLEM, "RATEEST: no name specified");
-	if (!(flags & (1 << RATEEST_OPT_INTERVAL)))
+	if (!(cb->xflags & (1 << RATEEST_OPT_INTERVAL)))
 		xtables_error(PARAMETER_PROBLEM, "RATEEST: no interval specified");
-	if (!(flags & (1 << RATEEST_OPT_EWMALOG)))
+	if (!(cb->xflags & (1 << RATEEST_OPT_EWMALOG)))
 		xtables_error(PARAMETER_PROBLEM, "RATEEST: no ewmalog specified");
 
 	for (info->interval = 0; info->interval <= 5; info->interval++) {
@@ -210,7 +207,7 @@ static struct xtables_target rateest_tg_reg = {
 	.help		= RATEEST_help,
 	.init		= RATEEST_init,
 	.parse		= RATEEST_parse,
-	.final_check	= RATEEST_final_check,
+	.x6_fcheck	= RATEEST_final_check,
 	.print		= RATEEST_print,
 	.save		= RATEEST_save,
 	.extra_opts	= RATEEST_opts,

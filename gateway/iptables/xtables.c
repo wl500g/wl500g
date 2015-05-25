@@ -1561,3 +1561,40 @@ xtables_parse_protocol(const char *s)
 
 	return proto;
 }
+
+
+/**
+ * Dispatch arguments to the appropriate final_check function, based upon the
+ * extension's choice of API.
+ */
+void xtables_option_tfcall(struct xtables_target *t)
+{
+	if (t->x6_fcheck != NULL) {
+		struct xt_fcheck_call cb;
+
+		cb.ext_name = t->name;
+		cb.data     = t->t->data;
+		cb.xflags   = t->tflags;
+		t->x6_fcheck(&cb);
+	} else if (t->final_check != NULL) {
+		t->final_check(t->tflags);
+	}
+}
+
+/**
+ * Dispatch arguments to the appropriate final_check function, based upon the
+ * extension's choice of API.
+ */
+void xtables_option_mfcall(struct xtables_match *m)
+{
+	if (m->x6_fcheck != NULL) {
+		struct xt_fcheck_call cb;
+
+		cb.ext_name = m->name;
+		cb.data     = m->m->data;
+		cb.xflags   = m->mflags;
+		m->x6_fcheck(&cb);
+	} else if (m->final_check != NULL) {
+		m->final_check(m->mflags);
+	}
+}

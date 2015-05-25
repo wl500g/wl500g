@@ -34,6 +34,17 @@
 
 struct in_addr;
 
+/**
+ * @ext_name:	name of extension currently being processed
+ * @data:	per-extension data block
+ * @xflags:	options of the extension that have been used
+ */
+struct xt_fcheck_call {
+	const char *ext_name;
+	void *data;
+	unsigned int xflags;
+};
+
 /* Include file for additions: new matches and targets. */
 struct xtables_match
 {
@@ -73,6 +84,7 @@ struct xtables_match
 
 	/* Final check; exit if not ok. */
 	void (*final_check)(unsigned int flags);
+	void (*x6_fcheck)(struct xt_fcheck_call *);
 
 	/* Prints out the match iff non-NULL: put space at end */
 	/* ip is struct ipt_ip * for example */
@@ -135,6 +147,7 @@ struct xtables_target
 
 	/* Final check; exit if not ok. */
 	void (*final_check)(unsigned int flags);
+	void (*x6_fcheck)(struct xt_fcheck_call *);
 
 	/* Prints out the target iff non-NULL: put space at end */
 	void (*print)(const void *ip,
@@ -263,6 +276,9 @@ extern const char *xtables_ip6addr_to_anyname(const struct in6_addr *);
 extern const char *xtables_ip6mask_to_numeric(const struct in6_addr *);
 extern void xtables_ip6parse_any(const char *, struct in6_addr **,
 	struct in6_addr *, unsigned int *);
+
+extern void xtables_option_tfcall(struct xtables_target *);
+extern void xtables_option_mfcall(struct xtables_match *);
 
 /**
  * Print the specified value to standard output, quoting dangerous

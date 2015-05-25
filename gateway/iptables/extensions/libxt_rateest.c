@@ -7,9 +7,6 @@
 #include <xtables.h>
 #include <linux/netfilter/xt_rateest.h>
 
-/* Ugly hack to pass info to final_check function. We should fix the API */
-static struct xt_rateest_match_info *rateest_info;
-
 static void rateest_help(void)
 {
 	printf(
@@ -113,8 +110,6 @@ rateest_parse(int c, char **argv, int invert, unsigned int *flags,
 {
 	struct xt_rateest_match_info *info = (void *)(*match)->data;
 	unsigned int val;
-
-	rateest_info = info;
 
 	switch (c) {
 	case OPT_RATEEST1:
@@ -305,9 +300,9 @@ rateest_parse(int c, char **argv, int invert, unsigned int *flags,
 }
 
 static void
-rateest_final_check(unsigned int flags)
+rateest_final_check(struct xt_fcheck_call *cb)
 {
-	struct xt_rateest_match_info *info = rateest_info;
+	struct xt_rateest_match_info *info = (void *)cb->data;
 
 	if (info == NULL)
 		xtables_error(PARAMETER_PROBLEM, "rateest match: "
@@ -438,7 +433,7 @@ static struct xtables_match rateest_mt_reg = {
 	.userspacesize	= XT_ALIGN(offsetof(struct xt_rateest_match_info, est1)),
 	.help		= rateest_help,
 	.parse		= rateest_parse,
-	.final_check	= rateest_final_check,
+	.x6_fcheck	= rateest_final_check,
 	.print		= rateest_print,
 	.save		= rateest_save,
 	.extra_opts	= rateest_opts,

@@ -28,13 +28,6 @@ static const struct option statistic_opts[] = {
 	{ .name = NULL }
 };
 
-static struct xt_statistic_info *global_info;
-
-static void statistic_mt_init(struct xt_entry_match *match)
-{
-	global_info = (void *)match->data;
-}
-
 static int
 statistic_parse(int c, char **argv, int invert, unsigned int *flags,
                 const void *entry, struct xt_entry_match **match)
@@ -95,33 +88,33 @@ statistic_parse(int c, char **argv, int invert, unsigned int *flags,
 	return 1;
 }
 
-static void statistic_check(unsigned int flags)
+static void statistic_check(struct xt_fcheck_call *cb)
 {
-	if (!(flags & 0x1))
+	struct xt_statistic_info *info = (void *)cb->data;
+
+	if (!(cb->xflags & 0x1))
 		xtables_error(PARAMETER_PROBLEM, "no mode specified");
-	if ((flags & 0x2) && (flags & (0x4 | 0x8)))
+	if ((cb->xflags & 0x2) && (cb->xflags & (0x4 | 0x8)))
 		xtables_error(PARAMETER_PROBLEM,
 			   "both nth and random parameters given");
-	if (flags & 0x2 && global_info->mode != XT_STATISTIC_MODE_RANDOM)
+	if (cb->xflags & 0x2 && info->mode != XT_STATISTIC_MODE_RANDOM)
 		xtables_error(PARAMETER_PROBLEM,
 			   "--probability can only be used in random mode");
-	if (flags & 0x4 && global_info->mode != XT_STATISTIC_MODE_NTH)
+	if (cb->xflags & 0x4 && info->mode != XT_STATISTIC_MODE_NTH)
 		xtables_error(PARAMETER_PROBLEM,
 			   "--every can only be used in nth mode");
-	if (flags & 0x8 && global_info->mode != XT_STATISTIC_MODE_NTH)
+	if (cb->xflags & 0x8 && info->mode != XT_STATISTIC_MODE_NTH)
 		xtables_error(PARAMETER_PROBLEM,
 			   "--packet can only be used in nth mode");
-	if ((flags & 0x8) && !(flags & 0x4))
+	if ((cb->xflags & 0x8) && !(cb->xflags & 0x4))
 		xtables_error(PARAMETER_PROBLEM,
 			   "--packet can only be used with --every");
 	/* at this point, info->u.nth.every have been decreased. */
-	if (global_info->u.nth.packet > global_info->u.nth.every)
+	if (info->u.nth.packet > info->u.nth.every)
 		xtables_error(PARAMETER_PROBLEM,
 			  "the --packet p must be 0 <= p <= n-1");
 
-
-	global_info->u.nth.count = global_info->u.nth.every -
-	                           global_info->u.nth.packet;
+	info->u.nth.count = info->u.nth.every - info->u.nth.packet;
 }
 
 static void print_match(const struct xt_statistic_info *info, char *prefix)
@@ -165,10 +158,9 @@ static struct xtables_match statistic_match = {
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_statistic_info)),
 	.userspacesize	= offsetof(struct xt_statistic_info, u.nth.count),
-	.init		= statistic_mt_init,
 	.help		= statistic_help,
 	.parse		= statistic_parse,
-	.final_check	= statistic_check,
+	.x6_fcheck	= statistic_check,
 	.print		= statistic_print,
 	.save		= statistic_save,
 	.extra_opts	= statistic_opts,

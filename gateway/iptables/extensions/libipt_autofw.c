@@ -127,11 +127,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	}
 }
 
-/* Final check; don't care. */
-static void final_check(unsigned int flags)
-{
-}
-
 /* Prints out the targinfo. */
 static void
 print(const void *ip,
@@ -177,12 +172,11 @@ struct xtables_target autofw = {
 	.family		=     NFPROTO_IPV4,
 	.size		=     XT_ALIGN(sizeof(struct ip_autofw_info)),
 	.userspacesize	=     XT_ALIGN(sizeof(struct ip_autofw_info)),
-	.help		=     &help,
-	.init		=     &init,
-	.parse		=     &parse,
-	.final_check	=     &final_check,
-	.print		=     &print,
-	.save		=     &save,
+	.help		=     help,
+	.init		=     init,
+	.parse		=     parse,
+	.print		=     print,
+	.save		=     save,
 	.extra_opts	=     opts
 };
 

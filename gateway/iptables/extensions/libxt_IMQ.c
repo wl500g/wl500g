@@ -54,11 +54,6 @@ IMQ_parse(int c, char **argv, int invert, unsigned int *flags,
 	return 1;
 }
 
-static void
-IMQ_check(unsigned int flags)
-{
-}
-
 /* Prints out the targinfo. */
 static void
 IMQ_print(const void *ip,
@@ -85,12 +80,11 @@ static struct xtables_target imq = {
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_imq_info)),
 	.userspacesize	= XT_ALIGN(sizeof(struct xt_imq_info)),
-	.help		= &IMQ_help,
-	.init		= &IMQ_init,
-	.parse		= &IMQ_parse,
-	.final_check	= &IMQ_check,
-	.print		= &IMQ_print,
-	.save		= &IMQ_save,
+	.help		= IMQ_help,
+	.init		= IMQ_init,
+	.parse		= IMQ_parse,
+	.print		= IMQ_print,
+	.save		= IMQ_save,
 	.extra_opts	= IMQ_opts
 };
 

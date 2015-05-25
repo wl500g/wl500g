@@ -28,10 +28,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	return 0;
 }
 
-static void final_check(unsigned int flags)
-{
-}
-
 static void
 print(const void *ip,
       const struct ipt_entry_target *target,
@@ -50,12 +46,11 @@ struct xtables_target tarpit = {
 	.version	=     XTABLES_VERSION,
 	.size		=     XT_ALIGN(0),
 	.userspacesize	=     XT_ALIGN(0),
-	.help		=     &help,
-	.init		=     &init,
-	.parse		=     &parse,
-	.final_check	=     &final_check,
-	.print		=     &print,
-	.save		=     &save,
+	.help		=     help,
+	.init		=     init,
+	.parse		=     parse,
+	.print		=     print,
+	.save		=     save,
 	.extra_opts	=     opts
 };
 
