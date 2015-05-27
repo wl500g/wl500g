@@ -38,7 +38,7 @@ static void prop_warn(struct property *prop, const char *fmt, ...)
 	va_end(ap);
 }
 
-void menu_init(void)
+void _menu_init(void)
 {
 	current_entry = current_menu = &rootmenu;
 	last_entry_ptr = &rootmenu.list;
@@ -58,6 +58,8 @@ void menu_add_entry(struct symbol *sym)
 	*last_entry_ptr = menu;
 	last_entry_ptr = &menu->next;
 	current_entry = menu;
+	if (sym)
+		menu_add_symbol(P_SYMBOL, sym, NULL);
 }
 
 void menu_end_entry(void)
@@ -197,7 +199,7 @@ static void sym_check_prop(struct symbol *sym)
 			if ((sym->type == S_STRING || sym->type == S_INT || sym->type == S_HEX) &&
 			    prop->expr->type != E_SYMBOL)
 				prop_warn(prop,
-				    "default for config symbol '%'"
+				    "default for config symbol '%s'"
 				    " must be a single symbol", sym->name);
 			break;
 		case P_SELECT:
@@ -318,6 +320,8 @@ void menu_finalize(struct menu *parent)
 			parent->next = last_menu->next;
 			last_menu->next = NULL;
 		}
+
+		sym->dir_dep.expr = parent->dep;
 	}
 	for (menu = parent->list; menu; menu = menu->next) {
 		if (sym && sym_is_choice(sym) &&
@@ -388,6 +392,13 @@ void menu_finalize(struct menu *parent)
 				expr_alloc_and(parent->prompt->visible.expr,
 					expr_alloc_symbol(&symbol_mod)));
 	}
+}
+
+bool menu_has_prompt(struct menu *menu)
+{
+	if (!menu->prompt)
+		return false;
+	return true;
 }
 
 bool menu_is_visible(struct menu *menu)
@@ -495,9 +506,19 @@ void get_symbol_str(struct gstr *r, struct symbol *sym)
 	bool hit;
 	struct property *prop;
 
-	if (sym && sym->name)
+	if (sym && sym->name) {
 		str_printf(r, "Symbol: %s [=%s]\n", sym->name,
 			   sym_get_string_value(sym));
+		str_printf(r, "Type  : %s\n", sym_type_name(sym->type));
+		if (sym->type == S_INT || sym->type == S_HEX) {
+			prop = sym_get_range_prop(sym);
+			if (prop) {
+				str_printf(r, "Range : ");
+				expr_gstr_print(prop->expr, r);
+				str_append(r, "\n");
+			}
+		}
+	}
 	for_all_prompts(sym, prop)
 		get_prompt_str(r, prop);
 	hit = false;
@@ -518,6 +539,20 @@ void get_symbol_str(struct gstr *r, struct symbol *sym)
 	}
 	str_append(r, "\n\n");
 }
+
+struct gstr get_relations_str(struct symbol **sym_arr)
+{
+	struct symbol *sym;
+	struct gstr res = str_new();
+	int i;
+
+	for (i = 0; sym_arr && (sym = sym_arr[i]); i++)
+		get_symbol_str(&res, sym);
+	if (!i)
+		str_append(&res, _("No matches found.\n"));
+	return res;
+}
+
 
 void menu_get_ext_help(struct menu *menu, struct gstr *help)
 {

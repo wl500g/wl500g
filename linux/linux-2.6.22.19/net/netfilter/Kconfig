@@ -308,9 +308,8 @@ config NETFILTER_XT_TARGET_CLASSIFY
 
 config NETFILTER_XT_TARGET_CONNMARK
 	tristate  '"CONNMARK" target support'
-	depends on NETFILTER_XTABLES
-	depends on IP_NF_MANGLE || IP6_NF_MANGLE
 	depends on NF_CONNTRACK
+	depends on NETFILTER_ADVANCED
 	select NETFILTER_XT_CONNMARK
 	help
 	  This is a backwards-compat option for the user's convenience
@@ -518,8 +517,8 @@ config NETFILTER_XT_MATCH_CONNLIMIT
 
 config NETFILTER_XT_MATCH_CONNMARK
 	tristate  '"connmark" connection mark match support'
-	depends on NETFILTER_XTABLES
 	depends on NF_CONNTRACK
+	depends on NETFILTER_ADVANCED
 	select NETFILTER_XT_CONNMARK
 	help
 	  This is a backwards-compat option for the user's convenience
