@@ -263,11 +263,18 @@ static struct symbol *sym_calc_choice(struct symbol *sym)
 	struct symbol *def_sym;
 	struct property *prop;
 	struct expr *e;
+	int flags;
 
 	/* first calculate all choice values' visibilities */
+	flags = sym->flags;
 	prop = sym_get_choice_prop(sym);
-	expr_list_for_each_sym(prop->expr, e, def_sym)
+	expr_list_for_each_sym(prop->expr, e, def_sym) {
 		sym_calc_visibility(def_sym);
+		if (def_sym->visible != no)
+			flags &= def_sym->flags;
+	}
+
+	sym->flags &= flags | ~SYMBOL_DEF_USER;
 
 	/* is the user choice visible? */
 	def_sym = sym->def[S_DEF_USER].val;
@@ -690,7 +697,7 @@ const char *sym_get_string_default(struct symbol *sym)
 		switch (sym->type) {
 		case S_BOOLEAN:
 		case S_TRISTATE:
-			/* The visibility imay limit the value from yes => mod */
+			/* The visibility may limit the value from yes => mod */
 			val = EXPR_AND(expr_calc_value(prop->expr), prop->visible.tri);
 			break;
 		default:
@@ -842,6 +849,55 @@ struct symbol *sym_find(const char *name)
 	}
 
 	return symbol;
+}
+
+/*
+ * Expand symbol's names embedded in the string given in argument. Symbols'
+ * name to be expanded shall be prefixed by a '$'. Unknown symbol expands to
+ * the empty string.
+ */
+const char *sym_expand_string_value(const char *in)
+{
+	const char *src;
+	char *res;
+	size_t reslen;
+
+	reslen = strlen(in) + 1;
+	res = malloc(reslen);
+	res[0] = '\0';
+
+	while ((src = strchr(in, '$'))) {
+		char *p, name[SYMBOL_MAXLENGTH];
+		const char *symval = "";
+		struct symbol *sym;
+		size_t newlen;
+
+		strncat(res, in, src - in);
+		src++;
+
+		p = name;
+		while (isalnum(*src) || *src == '_')
+			*p++ = *src++;
+		*p = '\0';
+
+		sym = sym_find(name);
+		if (sym != NULL) {
+			sym_calc_value(sym);
+			symval = sym_get_string_value(sym);
+		}
+
+		newlen = strlen(res) + strlen(symval) + strlen(src) + 1;
+		if (newlen > reslen) {
+			reslen = newlen;
+			res = realloc(res, reslen);
+		}
+
+		strcat(res, symval);
+		in = src;
+	}
+	strcat(res, in);
+
+	return res;
 }
 
 struct symbol **sym_re_search(const char *pattern)

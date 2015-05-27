@@ -257,7 +257,7 @@ void init_left_tree(void)
 
 	gtk_tree_view_set_model(view, model1);
 	gtk_tree_view_set_headers_visible(view, TRUE);
-	gtk_tree_view_set_rules_hint(view, FALSE);
+	gtk_tree_view_set_rules_hint(view, TRUE);
 
 	column = gtk_tree_view_column_new();
 	gtk_tree_view_append_column(view, column);
@@ -302,7 +302,7 @@ void init_right_tree(void)
 
 	gtk_tree_view_set_model(view, model2);
 	gtk_tree_view_set_headers_visible(view, TRUE);
-	gtk_tree_view_set_rules_hint(view, FALSE);
+	gtk_tree_view_set_rules_hint(view, TRUE);
 
 	column = gtk_tree_view_column_new();
 	gtk_tree_view_append_column(view, column);
@@ -672,8 +672,7 @@ void on_introduction1_activate(GtkMenuItem * menuitem, gpointer user_data)
 {
 	GtkWidget *dialog;
 	const gchar *intro_text = _(
-	    "Welcome to gkc, the GTK+ graphical kernel configuration tool\n"
-	    "for Linux.\n"
+	    "Welcome to gkc, the GTK+ graphical configuration tool\n"
 	    "For each option, a blank box indicates the feature is disabled, a\n"
 	    "check indicates it is enabled, and a dot indicates that it is to\n"
 	    "be compiled as a module.  Clicking on the box will cycle through the three states.\n"
@@ -761,7 +760,6 @@ void on_load_clicked(GtkButton * button, gpointer user_data)
 void on_single_clicked(GtkButton * button, gpointer user_data)
 {
 	view_mode = SINGLE_VIEW;
-	gtk_paned_set_position(GTK_PANED(hpaned), 0);
 	gtk_widget_hide(tree1_w);
 	current = &rootmenu;
 	display_tree_part();
@@ -787,7 +785,6 @@ void on_split_clicked(GtkButton * button, gpointer user_data)
 void on_full_clicked(GtkButton * button, gpointer user_data)
 {
 	view_mode = FULL_VIEW;
-	gtk_paned_set_position(GTK_PANED(hpaned), 0);
 	gtk_widget_hide(tree1_w);
 	if (tree2)
 		gtk_tree_store_clear(tree2);
@@ -1449,6 +1446,12 @@ static void display_tree(struct menu *menu)
                 if (((menu != &rootmenu) && !(menu->flags & MENU_ROOT))
 		    || (view_mode == FULL_VIEW)
 		    || (view_mode == SPLIT_VIEW))*/
+
+		/* Change paned position if the view is not in 'split mode' */
+		if (view_mode == SINGLE_VIEW || view_mode == FULL_VIEW) {
+			gtk_paned_set_position(GTK_PANED(hpaned), 0);
+		}
+
 		if (((view_mode == SINGLE_VIEW) && (menu->flags & MENU_ROOT))
 		    || (view_mode == FULL_VIEW)
 		    || (view_mode == SPLIT_VIEW)) {
@@ -1532,12 +1535,6 @@ int main(int ac, char *av[])
 	else
 		glade_file = g_strconcat(g_get_current_dir(), "/", av[0], ".glade", NULL);
 
-	/* Load the interface and connect signals */
-	init_main_window(glade_file);
-	init_tree_model();
-	init_left_tree();
-	init_right_tree();
-
 	/* Conf stuffs */
 	if (ac > 1 && av[1][0] == '-') {
 		switch (av[1][1]) {
@@ -1556,6 +1553,12 @@ int main(int ac, char *av[])
 	conf_parse(name);
 	fixup_rootmenu(&rootmenu);
 	conf_read(NULL);
+
+	/* Load the interface and connect signals */
+	init_main_window(glade_file);
+	init_tree_model();
+	init_left_tree();
+	init_right_tree();
 
 	switch (view_mode) {
 	case SINGLE_VIEW:

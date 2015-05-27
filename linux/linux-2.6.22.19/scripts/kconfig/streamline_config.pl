@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-# Copywrite 2005-2009 - Steven Rostedt
+# Copyright 2005-2009 - Steven Rostedt
 # Licensed under the terms of the GNU GPL License version 2
 #
 #  It's simple enough to figure out how this works.
@@ -42,6 +42,8 @@
 #    mv config_strip .config
 #    make oldconfig
 #
+use strict;
+
 my $config = ".config";
 
 my $uname = `uname -r`;
@@ -123,7 +125,6 @@ my %selects;
 my %prompts;
 my %objects;
 my $var;
-my $cont = 0;
 my $iflevel = 0;
 my @ifdeps;
 
@@ -137,9 +138,35 @@ sub read_kconfig {
     my $config;
     my @kconfigs;
 
-    open(KIN, "$ksource/$kconfig") || die "Can't open $kconfig";
+    my $cont = 0;
+    my $line;
+
+    my $source = "$ksource/$kconfig";
+    my $last_source = "";
+
+    # Check for any environment variables used
+    while ($source =~ /\$(\w+)/ && $last_source ne $source) {
+	my $env = $1;
+	$last_source = $source;
+	$source =~ s/\$$env/$ENV{$env}/;
+    }
+
+    open(KIN, "$source") || die "Can't open $kconfig";
     while (<KIN>) {
 	chomp;
+
+	# Make sure that lines ending with \ continue
+	if ($cont) {
+	    $_ = $line . " " . $_;
+	}
+
+	if (s/\\$//) {
+	    $cont = 1;
+	    $line = $_;
+	    next;
+	}
+
+	$cont = 0;
 
 	# collect any Kconfig sources
 	if (/^source\s*"(.*)"/) {
@@ -147,9 +174,9 @@ sub read_kconfig {
 	}
 
 	# configs found
-	if (/^\s*config\s+(\S+)\s*$/) {
+	if (/^\s*(menu)?config\s+(\S+)\s*$/) {
 	    $state = "NEW";
-	    $config = $1;
+	    $config = $2;
 
 	    for (my $i = 0; $i < $iflevel; $i++) {
 		if ($i) {
@@ -178,7 +205,7 @@ sub read_kconfig {
 	# configs without prompts must be selected
 	} elsif ($state ne "NONE" && /^\s*tristate\s\S/) {
 	    # note if the config has a prompt
-	    $prompt{$config} = 1;
+	    $prompts{$config} = 1;
 
 	# Check for if statements
 	} elsif (/^if\s+(.*\S)\s*$/) {
@@ -215,31 +242,61 @@ if ($kconfig) {
     read_kconfig($kconfig);
 }
 
+sub convert_vars {
+    my ($line, %vars) = @_;
+
+    my $process = "";
+
+    while ($line =~ s/^(.*?)(\$\((.*?)\))//) {
+	my $start = $1;
+	my $variable = $2;
+	my $var = $3;
+
+	if (defined($vars{$var})) {
+	    $process .= $start . $vars{$var};
+	} else {
+	    $process .= $start . $variable;
+	}
+    }
+
+    $process .= $line;
+
+    return $process;
+}
+
 # Read all Makefiles to map the configs to the objects
 foreach my $makefile (@makefiles) {
 
+    my $line = "";
+    my %make_vars;
+
     open(MIN,$makefile) || die "Can't open $makefile";
     while (<MIN>) {
+	# if this line ends with a backslash, continue
+	chomp;
+	if (/^(.*)\\$/) {
+	    $line .= $1;
+	    next;
+	}
+
+	$line .= $_;
+	$_ = $line;
+	$line = "";
+
 	my $objs;
 
-	# is this a line after a line with a backslash?
-	if ($cont && /(\S.*)$/) {
-	    $objs = $1;
-	}
-	$cont = 0;
+	$_ = convert_vars($_, %make_vars);
 
 	# collect objects after obj-$(CONFIG_FOO_BAR)
 	if (/obj-\$\((CONFIG_[^\)]*)\)\s*[+:]?=\s*(.*)/) {
 	    $var = $1;
 	    $objs = $2;
+
+	# check if variables are set
+	} elsif (/^\s*(\S+)\s*[:]?=\s*(.*\S)/) {
+	    $make_vars{$1} = $2;
 	}
 	if (defined($objs)) {
-	    # test if the line ends with a backslash
-	    if ($objs =~ m,(.*)\\$,) {
-		$objs = $1;
-		$cont = 1;
-	    }
-
 	    foreach my $obj (split /\s+/,$objs) {
 		$obj =~ s/-/_/g;
 		if ($obj =~ /(.*)\.o$/) {
@@ -281,7 +338,7 @@ if (defined($lsmod_file)) {
     # see what modules are loaded on this system
     my $lsmod;
 
-    foreach $dir ( ("/sbin", "/bin", "/usr/sbin", "/usr/bin") ) {
+    foreach my $dir ( ("/sbin", "/bin", "/usr/sbin", "/usr/bin") ) {
 	if ( -x "$dir/lsmod" ) {
 	    $lsmod = "$dir/lsmod";
 	    last;
@@ -363,7 +420,7 @@ while ($repeat) {
 	    parse_config_dep_select $depends{$config};
 	}
 
-	if (defined($prompt{$config}) || !defined($selects{$config})) {
+	if (defined($prompts{$config}) || !defined($selects{$config})) {
 	    next;
 	}
 
