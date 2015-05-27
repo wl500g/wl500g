@@ -41,6 +41,13 @@ const char *conf_get_configname(void)
 	return name ? name : ".config";
 }
 
+const char *conf_get_autoconfig_name(void)
+{
+	char *name = getenv("KCONFIG_AUTOCONFIG");
+
+	return name ? name : "include/config/auto.conf";
+}
+
 static char *conf_expand_value(const char *in)
 {
 	struct symbol *sym;
@@ -553,17 +560,16 @@ int conf_write(const char *name)
 	return 0;
 }
 
-int conf_split_config(void)
+static int conf_split_config(void)
 {
-	char *name, path[128];
+	const char *name;
+	char path[128];
 	char *s, *d, c;
 	struct symbol *sym;
 	struct stat sb;
 	int res, i, fd;
 
-	name = getenv("KCONFIG_AUTOCONFIG");
-	if (!name)
-		name = "include/config/auto.conf";
+	name = conf_get_autoconfig_name();
 	conf_read_simple(name, S_DEF_AUTO);
 
 	if (chdir("include/config"))
@@ -670,7 +676,7 @@ int conf_write_autoconf(void)
 {
 	struct symbol *sym;
 	const char *str;
-	char *name;
+	const char *name;
 	FILE *out, *out_h;
 	time_t now;
 	int i, l;
@@ -773,9 +779,7 @@ int conf_write_autoconf(void)
 		name = "include/linux/autoconf.h";
 	if (rename(".tmpconfig.h", name))
 		return 1;
-	name = getenv("KCONFIG_AUTOCONFIG");
-	if (!name)
-		name = "include/config/auto.conf";
+	name = conf_get_autoconfig_name();
 	/*
 	 * This must be the last step, kbuild has a dependency on auto.conf
 	 * and this marks the successful completion of the previous steps.
@@ -843,7 +847,7 @@ void conf_set_all_new_symbols(enum conf_def_mode mode)
 			default:
 				continue;
 			}
-			if (!sym_is_choice(sym) || mode != def_random)
+			if (!(sym_is_choice(sym) && mode == def_random))
 				sym->flags |= SYMBOL_DEF_USER;
 			break;
 		default:
@@ -856,28 +860,49 @@ void conf_set_all_new_symbols(enum conf_def_mode mode)
 
 	if (mode != def_random)
 		return;
-
+	/*
+	 * We have different type of choice blocks.
+	 * If curr.tri equal to mod then we can select several
+	 * choice symbols in one block.
+	 * In this case we do nothing.
+	 * If curr.tri equal yes then only one symbol can be
+	 * selected in a choice block and we set it to yes,
+	 * and the rest to no.
+	 */
 	for_all_symbols(i, csym) {
 		if (sym_has_value(csym) || !sym_is_choice(csym))
 			continue;
 
 		sym_calc_value(csym);
+
+		if (csym->curr.tri != yes)
+			continue;
+
 		prop = sym_get_choice_prop(csym);
-		def = -1;
-		while (1) {
-			cnt = 0;
-			expr_list_for_each_sym(prop->expr, e, sym) {
-				if (sym->visible == no)
-					continue;
-				if (def == cnt++) {
-					csym->def[S_DEF_USER].val = sym;
-					break;
-				}
+
+		/* count entries in choice block */
+		cnt = 0;
+		expr_list_for_each_sym(prop->expr, e, sym)
+			cnt++;
+
+		/*
+		 * find a random value and set it to yes,
+		 * set the rest to no so we have only one set
+		 */
+		def = (rand() % cnt);
+
+		cnt = 0;
+		expr_list_for_each_sym(prop->expr, e, sym) {
+			if (def == cnt++) {
+				sym->def[S_DEF_USER].tri = yes;
+				csym->def[S_DEF_USER].val = sym;
 			}
-			if (def >= 0 || cnt < 2)
-				break;
-			def = (rand() % cnt) + 1;
+			else {
+				sym->def[S_DEF_USER].tri = no;
+			}
 		}
 		csym->flags |= SYMBOL_DEF_USER;
+		/* clear VALID to get value calculated */
+		csym->flags &= ~(SYMBOL_VALID);
 	}
 }
