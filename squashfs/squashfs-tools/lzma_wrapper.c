@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <LzmaEnc.h>
 #include <LzmaLib.h>
 
 #include "squashfs_fs.h"
@@ -37,17 +38,48 @@ static int fb = 32;
 static int lc = 3;
 static int lp = 0;
 static int pb = 2;
+static int mf = 4;
+
+
+static void *lzma_alloc(void *p, size_t size)
+{
+	return size ? malloc(size) : NULL;
+}
+
+static void lzma_free(void *p, void *address)
+{
+	free(address);
+}
+
+static ISzAlloc alloc_ops = {
+	lzma_alloc,
+	lzma_free
+};
+
 
 static int lzma_compress(void *strm, void *dest, void *src, int size, int block_size,
 		int *error)
 {
+	CLzmaEncProps props;
 	unsigned char *d = dest;
 	size_t props_size = LZMA_PROPS_SIZE,
 		outlen = block_size - LZMA_HEADER_SIZE;
 	int res;
 
-	res = LzmaCompress(dest + LZMA_HEADER_SIZE, &outlen, src, size, dest,
-		&props_size, 5, block_size, lc, lp, pb, fb, 1);
+	LzmaEncProps_Init(&props);
+	props.level = 5;
+	props.dictSize = block_size;
+	props.lc = lc;
+	props.lp = lp;
+	props.pb = pb;
+	props.fb = fb;
+	props.algo = 1;
+	props.btMode = (mf > 0) ? 1 : 0;
+	props.numHashBytes = mf;
+	props.numThreads = 1;
+
+	res = LzmaEncode(dest + LZMA_HEADER_SIZE, &outlen, src, size, &props, dest,
+		&props_size, 0, NULL, &alloc_ops, &alloc_ops);
 	
 	if(res == SZ_ERROR_OUTPUT_EOF) {
 		/*
@@ -119,25 +151,34 @@ static int lzma_options(char *argv[], int argc)
 	}
 
 	arg = strtoul(argv[1], &end, 10);
-	if (end && *end)
-		goto error;
 
 	if (strcmp(argv[0], "-Xfb") == 0) {
-		if (arg < 5 || arg > 273)
+		if (!end || *end || arg < 5 || arg > 273)
 			goto error;
 		fb = arg;
 	} else if (strcmp(argv[0], "-Xlc") == 0) {
-		if (arg < 0 || arg > 8)
+		if (!end || *end || arg < 0 || arg > 8)
 			goto error;
 		lc = arg;
 	} else if (strcmp(argv[0], "-Xlp") == 0) {
-		if (arg < 0 || arg > 4)
+		if (!end || *end || arg < 0 || arg > 4)
 			goto error;
 		lp = arg;
 	} else if (strcmp(argv[0], "-Xpb") == 0) {
-		if (arg < 0 || arg > 4)
+		if (!end || *end || arg < 0 || arg > 4)
 			goto error;
 		pb = arg;
+	} else if (strcmp(argv[0], "-Xmf") == 0) {
+		if (strcmp(argv[1], "hc4") == 0)
+			mf = 0;
+		else if (strcmp(argv[1], "bt1") == 0)
+			mf = 1;
+		else if (strcmp(argv[1], "bt2") == 0)
+			mf = 2;
+		else if (strcmp(argv[1], "bt4") == 0)
+			mf = 4;
+		else
+			goto error;
 	} else
 		return -1;
 
@@ -152,11 +193,14 @@ error:
 void lzma_usage()
 {
 	fprintf(stderr,
-		"\t  -fb{N}: set number of fast bytes - [5, 273], default: %d\n"
-		"\t  -Xlc<N>: set number of literal context bits - [0, 8], default: %d\n"
-		"\t  -Xlp<N>: set number of literal pos bits - [0, 4], default: %d\n"
-		"\t  -Xpb<N>: set number of pos bits - [0, 4], default: %d\n",
-		fb, lc, lp, pb);
+		"\t  -Xfb <N>:  set number of fast bytes - [5, 273], default: %d\n"
+		"\t  -Xlc <N>:  set number of literal context bits - [0, 8], default: %d\n"
+		"\t  -Xlp <N>:  set number of literal pos bits - [0, 4], default: %d\n"
+		"\t  -Xpb <N>:  set number of pos bits - [0, 4], default: %d\n"
+		"\t  -Xmf <id>: set match finder - [bt1, bt2, bt4, hc4], default: %s\n",
+		fb, lc, lp, pb,
+		(mf == 1) ? "bt1" : (mf == 2) ? "bt2" : (mf == 4) ? "bt4" :
+		(mf == 0) ? "hc4" : "");
 }
 
 
