@@ -533,7 +533,7 @@ ifeq ($(SQUASHFS3),y)
 else
 	$(MKSQUASHFS) $(TARGETDIR) $(PLATFORMDIR)/target.cramfs \
 		-all-root -noappend -nopad -pf $(TOP)/misc/rootprep.files \
-		-comp lzma -Xlc 0 -Xlp 2 -Xpb 2 -Xfb 128
+		-comp lzma -Xlc 0 -Xlp 2 -Xpb 2 -Xfb 128 -Xmf bt2
 endif
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
