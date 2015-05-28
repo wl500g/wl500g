@@ -313,6 +313,7 @@ int squashfs_read_inode(struct inode *inode, long long ino)
 		squashfs_i(inode)->start = block;
 		squashfs_i(inode)->offset = offset;
 
+#ifdef CONFIG_SQUASHFS_XATTR
 		if (type == SQUASHFS_LSYMLINK_TYPE) {
 			__le32 xattr;
 
@@ -326,6 +327,7 @@ int squashfs_read_inode(struct inode *inode, long long ino)
 				goto failed_read;
 			xattr_id = le32_to_cpu(xattr);
 		}
+#endif /* CONFIG_SQUASHFS_XATTR */
 
 		TRACE("Symbolic link inode %x:%x, start_block %llx, offset "
 				"%x\n", SQUASHFS_INODE_BLK(ino), offset,
@@ -435,6 +437,7 @@ int squashfs_read_inode(struct inode *inode, long long ino)
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_SQUASHFS_XATTR
 	if (xattr_id != SQUASHFS_INVALID_XATTR && msblk->xattr_id_table) {
 		err = squashfs_xattr_lookup(sb, xattr_id,
 					&squashfs_i(inode)->xattr_count,
@@ -446,6 +449,7 @@ int squashfs_read_inode(struct inode *inode, long long ino)
 				+ 1;
 	} else
 		squashfs_i(inode)->xattr_count = 0;
+#endif /* CONFIG_SQUASHFS_XATTR */
 
 	return 0;
 

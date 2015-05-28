@@ -26,9 +26,11 @@
 struct squashfs_inode_info {
 	u64		start;
 	int		offset;
+#ifdef CONFIG_SQUASHFS_XATTR
 	u64		xattr;
 	unsigned int	xattr_size;
 	int		xattr_count;
+#endif
 	union {
 		struct {
 			u64		fragment_block;
