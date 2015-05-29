@@ -28,7 +28,7 @@
 /************************************************************************/
 /*                                                                      */
 /*  PROJECT : exFAT & FAT12/16/32 File System                           */
-/*  FILE    : exfat.c                                                   */
+/*  FILE    : exfat_core.c                                              */
 /*  PURPOSE : exFAT File Manager                                        */
 /*                                                                      */
 /*----------------------------------------------------------------------*/
@@ -1171,7 +1171,7 @@ s32 ffsGetStat(struct inode *inode, DIR_ENTRY_T *info)
 	/* XXX this is very bad for exfat cuz name is already included in es.
 	 API should be revised */
 	p_fs->fs_func->get_uni_name_from_ext_entry(sb, &(fid->dir), fid->entry, uni_name.name);
-	if (*(uni_name.name) == 0x0)
+	if (*(uni_name.name) == 0x0 && p_fs->vol_type != EXFAT)
 		get_uni_name_from_dos_entry(sb, (DOS_DENTRY_T *) ep, &uni_name, 0x1);
 	nls_uniname_to_cstring(sb, info->Name, &uni_name);
 
@@ -1556,7 +1556,7 @@ s32 ffsReadDir(struct inode *inode, DIR_ENTRY_T *dir_entry)
 
 			*(uni_name.name) = 0x0;
 			p_fs->fs_func->get_uni_name_from_ext_entry(sb, &dir, dentry, uni_name.name);
-			if (*(uni_name.name) == 0x0)
+			if (*(uni_name.name) == 0x0 && p_fs->vol_type != EXFAT)
 				get_uni_name_from_dos_entry(sb, (DOS_DENTRY_T *) ep, &uni_name, 0x1);
 			nls_uniname_to_cstring(sb, dir_entry->Name, &uni_name);
 			buf_unlock(sb, sector);
@@ -2681,7 +2681,7 @@ void exfat_set_entry_flag(DENTRY_T *p_entry, u8 flags)
 u32 fat_get_entry_clu0(DENTRY_T *p_entry)
 {
 	DOS_DENTRY_T *ep = (DOS_DENTRY_T *) p_entry;
-	return (GET32_A(ep->start_clu_hi) << 16) | GET16_A(ep->start_clu_lo);
+	return ((u32) GET16_A(ep->start_clu_hi) << 16) | GET16_A(ep->start_clu_lo);
 } /* end of fat_get_entry_clu0 */
 
 u32 exfat_get_entry_clu0(DENTRY_T *p_entry)
@@ -5112,5 +5112,3 @@ s32 multi_sector_write(struct super_block *sb, u32 sec, struct buffer_head *bh, 
 
 	return ret;
 } /* end of multi_sector_write */
-
-/* end of exfat_core.c */
