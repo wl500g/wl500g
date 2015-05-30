@@ -171,10 +171,10 @@ static int lzma_options(char *argv[], int argc)
 	} else if (strcmp(argv[0], "-Xmf") == 0) {
 		if (strcmp(argv[1], "hc4") == 0)
 			mf = 0;
-		else if (strcmp(argv[1], "bt1") == 0)
-			mf = 1;
 		else if (strcmp(argv[1], "bt2") == 0)
 			mf = 2;
+		else if (strcmp(argv[1], "bt3") == 0)
+			mf = 3;
 		else if (strcmp(argv[1], "bt4") == 0)
 			mf = 4;
 		else
@@ -197,9 +197,9 @@ void lzma_usage()
 		"\t  -Xlc <N>:  set number of literal context bits - [0, 8], default: %d\n"
 		"\t  -Xlp <N>:  set number of literal pos bits - [0, 4], default: %d\n"
 		"\t  -Xpb <N>:  set number of pos bits - [0, 4], default: %d\n"
-		"\t  -Xmf <id>: set match finder - [bt1, bt2, bt4, hc4], default: %s\n",
+		"\t  -Xmf <id>: set match finder - [bt2, bt3, bt4, hc4], default: %s\n",
 		fb, lc, lp, pb,
-		(mf == 1) ? "bt1" : (mf == 2) ? "bt2" : (mf == 4) ? "bt4" :
+		(mf == 2) ? "bt2" : (mf == 3) ? "bt3" : (mf == 4) ? "bt4" :
 		(mf == 0) ? "hc4" : "");
 }
 
