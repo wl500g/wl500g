@@ -1,9 +1,9 @@
-#ifndef XZ_WRAPPER_H
-#define XZ_WRAPPER_H
+#ifndef LZO_WRAPPER_H
+#define LZO_WRAPPER_H
 /*
  * Squashfs
  *
- * Copyright (c) 2010
+ * Copyright (c) 2013
  * Phillip Lougher <phillip@squashfs.org.uk>
  *
  * This program is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * xz_wrapper.h
+ * lzo_wrapper.h
  *
  */
 
@@ -36,36 +36,43 @@
 extern unsigned int inswap_le32(unsigned int);
 
 #define SQUASHFS_INSWAP_COMP_OPTS(s) { \
-	(s)->dictionary_size = inswap_le32((s)->dictionary_size); \
-	(s)->flags = inswap_le32((s)->flags); \
+	(s)->algorithm = inswap_le32((s)->algorithm); \
+	(s)->compression_level = inswap_le32((s)->compression_level); \
 }
 #else
 #define SQUASHFS_INSWAP_COMP_OPTS(s)
 #endif
 
-#define MEMLIMIT (32 * 1024 * 1024)
+/* Define the compression flags recognised. */
+#define SQUASHFS_LZO1X_1	0
+#define SQUASHFS_LZO1X_1_11	1
+#define SQUASHFS_LZO1X_1_12	2
+#define SQUASHFS_LZO1X_1_15	3
+#define SQUASHFS_LZO1X_999	4
 
-struct bcj {
-	char	 	*name;
-	lzma_vli	id;
-	int		selected;
+/* Default compression level used by SQUASHFS_LZO1X_999 */
+#define SQUASHFS_LZO1X_999_COMP_DEFAULT	8
+
+struct lzo_comp_opts {
+	int algorithm;
+	int compression_level;
 };
 
-struct filter {
-	void		*buffer;
-	lzma_filter	filter[3];
-	size_t		length;
+struct lzo_algorithm {
+	char *name;
+	int size;
+	int (*compress) (const lzo_bytep, lzo_uint, lzo_bytep, lzo_uintp,
+		lzo_voidp);
 };
 
-struct xz_stream {
-	struct filter	*filter;
-	int		filters;
-	int		dictionary_size;
-	lzma_options_lzma opt;
+struct lzo_stream {
+	void *workspace;
+	void *buffer;
 };
 
-struct comp_opts {
-	int dictionary_size;
-	int flags;
-};
+#define LZO_MAX_EXPANSION(size)	(size + (size / 16) + 64 + 3)
+
+int lzo1x_999_wrapper(const lzo_bytep, lzo_uint, lzo_bytep, lzo_uintp,
+		lzo_voidp);
+
 #endif

@@ -1,10 +1,10 @@
-#ifndef SORT_H 
-#define SORT_H
-
+#ifndef PROGRESSBAR_H
+#define PROGRESSBAR_H
 /*
- * Squashfs
+ * Create a squashfs filesystem.  This is a highly compressed read only
+ * filesystem.
  *
- * Copyright (c) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2013
+ * Copyright (c) 2012, 2013, 2014
  * Phillip Lougher <phillip@squashfs.org.uk>
  *
  * This program is free software; you can redistribute it and/or
@@ -21,17 +21,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * sort.h
+ * progressbar.h
  */
 
-struct priority_entry {
-	struct dir_ent *dir;
-	struct priority_entry *next;
-};
-
-extern int read_sort_file(char *, int, char *[]);
-extern void sort_files_and_write(struct dir_info *);
-extern void generate_file_priorities(struct dir_info *, int priority,
-	struct stat *);
-extern struct  priority_entry *priority_list[65536];
+extern void inc_progress_bar();
+extern void dec_progress_bar(int count);
+extern void progress_bar_size(int count);
+extern void enable_progress_bar();
+extern void disable_progress_bar();
+extern void init_progress_bar();
+extern void set_progressbar_state(int);
 #endif

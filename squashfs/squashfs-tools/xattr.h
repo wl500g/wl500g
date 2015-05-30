@@ -1,9 +1,11 @@
+#ifndef XATTR_H
+#define XATTR_H
 /*
  * Create a squashfs filesystem.  This is a highly compressed read only
  * filesystem.
  *
- * Copyright (c) 2010
- * Phillip Lougher <phillip@lougher.demon.co.uk>
+ * Copyright (c) 2010, 2012, 2013, 2014
+ * Phillip Lougher <phillip@squashfs.org.uk>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -67,12 +69,13 @@ extern int generate_xattrs(int, struct xattr_list *);
 extern int get_xattrs(int, struct squashfs_super_block *);
 extern int read_xattrs(void *);
 extern long long write_xattrs();
-extern int save_xattrs();
+extern void save_xattrs();
 extern void restore_xattrs();
 extern unsigned int xattr_bytes, total_xattr_bytes;
 extern void write_xattr(char *, unsigned int);
 extern int read_xattrs_from_disk(int, struct squashfs_super_block *);
-extern struct xattr_list *get_xattr(int, unsigned int *);
+extern struct xattr_list *get_xattr(int, unsigned int *, int);
+extern void free_xattr(struct xattr_list *, int);
 #else
 static inline int get_xattrs(int fd, struct squashfs_super_block *sBlk)
 {
@@ -97,9 +100,8 @@ static inline long long write_xattrs()
 }
 
 
-static inline int save_xattrs()
+static inline void save_xattrs()
 {
-	return 1;
 }
 
 
@@ -124,7 +126,7 @@ static inline int read_xattrs_from_disk(int fd, struct squashfs_super_block *sBl
 }
 
 
-static inline struct xattr_list *get_xattr(int i, unsigned int *count)
+static inline struct xattr_list *get_xattr(int i, unsigned int *count, int j)
 {
 	return NULL;
 }
@@ -145,4 +147,4 @@ static inline struct xattr_list *get_xattr(int i, unsigned int *count)
 #define XOPT_STR " (unsupported)"
 #define XATTR_DEF 1
 #endif
-
+#endif

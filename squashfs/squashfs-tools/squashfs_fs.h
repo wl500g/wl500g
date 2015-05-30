@@ -3,8 +3,9 @@
 /*
  * Squashfs
  *
- * Copyright (c) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
- * Phillip Lougher <phillip@lougher.demon.co.uk>
+ * Copyright (c) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2012,
+ * 2013, 2014
+ * Phillip Lougher <phillip@squashfs.org.uk>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -36,9 +37,9 @@
 
 /* default size of data blocks */
 #define SQUASHFS_FILE_SIZE		131072
-#define SQUASHFS_FILE_LOG		17
 
 #define SQUASHFS_FILE_MAX_SIZE		1048576
+#define SQUASHFS_FILE_MAX_LOG		20
 
 /* Max number of uids and gids */
 #define SQUASHFS_IDS			65536
@@ -162,7 +163,8 @@
 #define SQUASHFS_MODE(a)		((a) & 0xfff)
 
 /* fragment and fragment table defines */
-#define SQUASHFS_FRAGMENT_BYTES(A)	((A) * sizeof(struct squashfs_fragment_entry))
+#define SQUASHFS_FRAGMENT_BYTES(A)	((A) * \
+					sizeof(struct squashfs_fragment_entry))
 
 #define SQUASHFS_FRAGMENT_INDEX(A)	(SQUASHFS_FRAGMENT_BYTES(A) / \
 					SQUASHFS_METADATA_SIZE)
@@ -274,11 +276,12 @@ typedef long long		squashfs_inode;
 #define LZMA_COMPRESSION	2
 #define LZO_COMPRESSION		3
 #define XZ_COMPRESSION		4
+#define LZ4_COMPRESSION		5
 
 struct squashfs_super_block {
 	unsigned int		s_magic;
 	unsigned int		inodes;
-	unsigned int		mkfs_time /* time of filesystem creation */;
+	int			mkfs_time /* time of filesystem creation */;
 	unsigned int		block_size;
 	unsigned int		fragments;
 	unsigned short		compression;
@@ -309,7 +312,7 @@ struct squashfs_base_inode_header {
 	unsigned short		mode;
 	unsigned short		uid;
 	unsigned short		guid;
-	unsigned int		mtime;
+	int			mtime;
 	unsigned int 		inode_number;
 };
 
@@ -318,7 +321,7 @@ struct squashfs_ipc_inode_header {
 	unsigned short		mode;
 	unsigned short		uid;
 	unsigned short		guid;
-	unsigned int		mtime;
+	int			mtime;
 	unsigned int 		inode_number;
 	unsigned int		nlink;
 };
@@ -328,7 +331,7 @@ struct squashfs_lipc_inode_header {
 	unsigned short		mode;
 	unsigned short		uid;
 	unsigned short		guid;
-	unsigned int		mtime;
+	int			mtime;
 	unsigned int 		inode_number;
 	unsigned int		nlink;
 	unsigned int		xattr;
@@ -339,7 +342,7 @@ struct squashfs_dev_inode_header {
 	unsigned short		mode;
 	unsigned short		uid;
 	unsigned short		guid;
-	unsigned int		mtime;
+	int			mtime;
 	unsigned int 		inode_number;
 	unsigned int		nlink;
 	unsigned int		rdev;
@@ -350,7 +353,7 @@ struct squashfs_ldev_inode_header {
 	unsigned short		mode;
 	unsigned short		uid;
 	unsigned short		guid;
-	unsigned int		mtime;
+	int			mtime;
 	unsigned int 		inode_number;
 	unsigned int		nlink;
 	unsigned int		rdev;
@@ -362,7 +365,7 @@ struct squashfs_symlink_inode_header {
 	unsigned short		mode;
 	unsigned short		uid;
 	unsigned short		guid;
-	unsigned int		mtime;
+	int			mtime;
 	unsigned int 		inode_number;
 	unsigned int		nlink;
 	unsigned int		symlink_size;
@@ -374,7 +377,7 @@ struct squashfs_reg_inode_header {
 	unsigned short		mode;
 	unsigned short		uid;
 	unsigned short		guid;
-	unsigned int		mtime;
+	int			mtime;
 	unsigned int 		inode_number;
 	unsigned int		start_block;
 	unsigned int		fragment;
@@ -388,7 +391,7 @@ struct squashfs_lreg_inode_header {
 	unsigned short		mode;
 	unsigned short		uid;
 	unsigned short		guid;
-	unsigned int		mtime;
+	int			mtime;
 	unsigned int 		inode_number;
 	squashfs_block		start_block;
 	long long		file_size;
@@ -405,7 +408,7 @@ struct squashfs_dir_inode_header {
 	unsigned short		mode;
 	unsigned short		uid;
 	unsigned short		guid;
-	unsigned int		mtime;
+	int			mtime;
 	unsigned int 		inode_number;
 	unsigned int		start_block;
 	unsigned int		nlink;
@@ -419,7 +422,7 @@ struct squashfs_ldir_inode_header {
 	unsigned short		mode;
 	unsigned short		uid;
 	unsigned short		guid;
-	unsigned int		mtime;
+	int			mtime;
 	unsigned int 		inode_number;
 	unsigned int		nlink;
 	unsigned int		file_size;
@@ -467,12 +470,10 @@ struct squashfs_fragment_entry {
 struct squashfs_xattr_entry {
 	unsigned short		type;
 	unsigned short		size;
-	char			data[0];
 };
 
 struct squashfs_xattr_val {
 	unsigned int		vsize;
-	char			value[0];
 };
 
 struct squashfs_xattr_id {

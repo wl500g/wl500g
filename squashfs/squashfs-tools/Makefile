@@ -40,6 +40,20 @@ GZIP_SUPPORT = 1
 #LZO_SUPPORT = 1
 #LZO_DIR = /usr/local
 
+
+########### Building LZ4 support #############
+#
+# Yann Collet's LZ4 tools are supported
+# LZ4 homepage: http://fastcompression.blogspot.com/p/lz4.html
+# LZ4 source repository: http://code.google.com/p/lz4
+#
+# To build configure the tools using cmake to build shared libraries,
+# install and uncomment
+# the LZ4_SUPPORT line below.
+#
+#LZ4_SUPPORT = 1
+
+
 ########### Building LZMA support #############
 #
 # LZMA1 compression.
@@ -96,10 +110,12 @@ XATTR_DEFAULT = 1
 INCLUDEDIR = -I.
 INSTALL_DIR = /usr/local/bin
 
-MKSQUASHFS_OBJS = mksquashfs.o read_fs.o sort.o swap.o pseudo.o compressor.o
+MKSQUASHFS_OBJS = mksquashfs.o read_fs.o action.o swap.o pseudo.o compressor.o \
+	sort.o progressbar.o read_file.o info.o restore.o process_fragments.o \
+	caches-queues-lists.o
 
 UNSQUASHFS_OBJS = unsquashfs.o unsquash-1.o unsquash-2.o unsquash-3.o \
-	unsquash-4.o swap.o compressor.o
+	unsquash-4.o swap.o compressor.o unsquashfs_info.o
 
 CFLAGS ?= -O2
 CFLAGS += $(EXTRA_CFLAGS) $(INCLUDEDIR) -D_FILE_OFFSET_BITS=64 \
@@ -153,6 +169,14 @@ LIBS += $(LZO_LIBDIR) -llzo2
 COMPRESSORS += lzo
 endif
 
+ifeq ($(LZ4_SUPPORT),1)
+CFLAGS += -DLZ4_SUPPORT
+MKSQUASHFS_OBJS += lz4_wrapper.o
+UNSQUASHFS_OBJS += lz4_wrapper.o
+LIBS += -llz4
+COMPRESSORS += lz4
+endif
+
 ifeq ($(XATTR_SUPPORT),1)
 ifeq ($(XATTR_DEFAULT),1)
 CFLAGS += -DXATTR_SUPPORT -DXATTR_DEFAULT
@@ -185,14 +209,16 @@ endif
 # At least one compressor must have been selected
 #
 ifndef COMPRESSORS
-$(error "No compressor selected! Select one or more of GZIP, LZMA, XZ or LZO!")
+$(error "No compressor selected! Select one or more of GZIP, LZMA, XZ, LZO or \
+	LZ4!")
 endif
 
 #
 # COMP_DEFAULT must be a selected compressor
 #
 ifeq (, $(findstring $(COMP_DEFAULT), $(COMPRESSORS)))
-$(error "COMP_DEFAULT isn't selected to be built!")
+$(error "COMP_DEFAULT is set to ${COMP_DEFAULT}, which  isn't selected to be \
+	built!")
 endif
 
 .PHONY: all
@@ -201,33 +227,53 @@ all: mksquashfs unsquashfs
 mksquashfs: $(MKSQUASHFS_OBJS)
 	$(CC) $(LDFLAGS) $(EXTRA_LDFLAGS) $(MKSQUASHFS_OBJS) $(LIBS) -o $@
 
-mksquashfs.o: mksquashfs.c squashfs_fs.h mksquashfs.h sort.h squashfs_swap.h \
-	xattr.h pseudo.h compressor.h
+mksquashfs.o: Makefile mksquashfs.c squashfs_fs.h squashfs_swap.h mksquashfs.h \
+	sort.h pseudo.h compressor.h xattr.h action.h error.h progressbar.h \
+	info.h caches-queues-lists.h read_fs.h restore.h process_fragments.h 
 
-read_fs.o: read_fs.c squashfs_fs.h read_fs.h squashfs_swap.h compressor.h \
-	xattr.h
+read_fs.o: read_fs.c squashfs_fs.h squashfs_swap.h compressor.h xattr.h \
+	error.h mksquashfs.h
 
-sort.o: sort.c squashfs_fs.h sort.h mksquashfs.h
+sort.o: sort.c squashfs_fs.h mksquashfs.h sort.h error.h progressbar.h
 
 swap.o: swap.c
 
-pseudo.o: pseudo.c pseudo.h
+pseudo.o: pseudo.c pseudo.h error.h progressbar.h
 
-compressor.o: compressor.c compressor.h squashfs_fs.h
+compressor.o: Makefile compressor.c compressor.h squashfs_fs.h
 
-xattr.o: xattr.c xattr.h squashfs_fs.h squashfs_swap.h mksquashfs.h
+xattr.o: xattr.c squashfs_fs.h squashfs_swap.h mksquashfs.h xattr.h error.h \
+	progressbar.h
 
-read_xattrs.o: read_xattrs.c xattr.h squashfs_fs.h squashfs_swap.h read_fs.h
+read_xattrs.o: read_xattrs.c squashfs_fs.h squashfs_swap.h xattr.h error.h
 
-gzip_wrapper.o: gzip_wrapper.c compressor.h squashfs_fs.h
+action.o: action.c squashfs_fs.h mksquashfs.h action.h error.h
+
+progressbar.o: progressbar.c error.h
+
+read_file.o: read_file.c error.h
+
+info.o: info.c squashfs_fs.h mksquashfs.h error.h progressbar.h \
+	caches-queues-lists.h
+
+restore.o: restore.c caches-queues-lists.h squashfs_fs.h mksquashfs.h error.h \
+	progressbar.h info.h
+
+process_fragments.o: process_fragments.c process_fragments.h
+
+caches-queues-lists.o: caches-queues-lists.c error.h caches-queues-lists.h
+
+gzip_wrapper.o: gzip_wrapper.c squashfs_fs.h gzip_wrapper.h compressor.h
 
 lzma_wrapper.o: lzma_wrapper.c compressor.h squashfs_fs.h
 
 lzma_xz_wrapper.o: lzma_xz_wrapper.c compressor.h squashfs_fs.h
 
-lzo_wrapper.o: lzo_wrapper.c compressor.h squashfs_fs.h
+lzo_wrapper.o: lzo_wrapper.c squashfs_fs.h lzo_wrapper.h compressor.h
 
-xz_wrapper.o: xz_wrapper.c compressor.h squashfs_fs.h
+lz4_wrapper.o: lz4_wrapper.c squashfs_fs.h lz4_wrapper.h compressor.h
+
+xz_wrapper.o: xz_wrapper.c squashfs_fs.h xz_wrapper.h compressor.h
 
 unsquashfs: $(UNSQUASHFS_OBJS)
 	$(CC) $(LDFLAGS) $(EXTRA_LDFLAGS) $(UNSQUASHFS_OBJS) $(LIBS) -o $@
@@ -246,6 +292,7 @@ unsquash-4.o: unsquashfs.h unsquash-4.c squashfs_fs.h squashfs_swap.h \
 
 unsquashfs_xattr.o: unsquashfs_xattr.c unsquashfs.h squashfs_fs.h xattr.h
 
+unsquashfs_info.o: unsquashfs.h squashfs_fs.h
 
 .PHONY: clean
 clean:

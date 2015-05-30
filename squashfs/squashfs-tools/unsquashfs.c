@@ -2,8 +2,9 @@
  * Unsquash a squashfs filesystem.  This is a highly compressed read only
  * filesystem.
  *
- * Copyright (c) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
- * Phillip Lougher <phillip@lougher.demon.co.uk>
+ * Copyright (c) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
+ * 2012, 2013, 2014
+ * Phillip Lougher <phillip@squashfs.org.uk>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -25,16 +26,21 @@
 #include "unsquashfs.h"
 #include "squashfs_swap.h"
 #include "squashfs_compat.h"
-#include "read_fs.h"
 #include "compressor.h"
 #include "xattr.h"
+#include "unsquashfs_info.h"
+#include "stdarg.h"
 
 #include <sys/sysinfo.h>
 #include <sys/types.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <limits.h>
+#include <ctype.h>
 
 struct cache *fragment_cache, *data_cache;
-struct queue *to_reader, *to_deflate, *to_writer, *from_writer;
-pthread_t *thread, *deflator_thread;
+struct queue *to_reader, *to_inflate, *to_writer, *from_writer;
+pthread_t *thread, *inflator_thread;
 pthread_mutex_t	fragment_mutex;
 
 /* user options that control parallelisation */
@@ -63,12 +69,12 @@ int root_process;
 int columns;
 int rotate = 0;
 pthread_mutex_t	screen_mutex;
-pthread_cond_t progress_wait;
 int progress = TRUE, progress_enabled = FALSE;
 unsigned int total_blocks = 0, total_files = 0, total_inodes = 0;
 unsigned int cur_blocks = 0;
 int inode_number = 1;
 int no_xattrs = XATTR_DEF;
+int user_xattrs = FALSE;
 
 int lookup_type[] = {
 	0,
@@ -114,7 +120,13 @@ struct test table[] = {
 };
 
 void progress_bar(long long current, long long max, int columns);
-void update_progress_bar();
+
+#define MAX_LINE 16384
+
+void prep_exit()
+{
+}
+
 
 void sigwinch_handler()
 {
@@ -136,12 +148,34 @@ void sigalrm_handler()
 }
 
 
+int add_overflow(int a, int b)
+{
+	return (INT_MAX - a) < b;
+}
+
+
+int shift_overflow(int a, int shift)
+{
+	return (INT_MAX >> shift) < a;
+}
+
+ 
+int multiply_overflow(int a, int multiplier)
+{
+	return (INT_MAX / multiplier) < a;
+}
+
+
 struct queue *queue_init(int size)
 {
 	struct queue *queue = malloc(sizeof(struct queue));
 
 	if(queue == NULL)
 		EXIT_UNSQUASH("Out of memory in queue_init\n");
+
+	if(add_overflow(size, 1) ||
+				multiply_overflow(size + 1, sizeof(void *)))
+		EXIT_UNSQUASH("Size too large in queue_init\n");
 
 	queue->data = malloc(sizeof(void *) * (size + 1));
 	if(queue->data == NULL)
@@ -187,6 +221,21 @@ void *queue_get(struct queue *queue)
 	pthread_mutex_unlock(&queue->mutex);
 
 	return data;
+}
+
+
+void dump_queue(struct queue *queue)
+{
+	pthread_mutex_lock(&queue->mutex);
+
+	printf("Max size %d, size %d%s\n", queue->size - 1,  
+		queue->readp <= queue->writep ? queue->writep - queue->readp :
+			queue->size - queue->readp + queue->writep,
+		queue->readp == queue->writep ? " (EMPTY)" :
+			((queue->writep + 1) % queue->size) == queue->readp ?
+			" (FULL)" : "");
+
+	pthread_mutex_unlock(&queue->mutex);
 }
 
 
@@ -236,7 +285,7 @@ void insert_free_list(struct cache *cache, struct cache_entry *entry)
 /* Called with the cache mutex held */
 void remove_free_list(struct cache *cache, struct cache_entry *entry)
 {
-	if(entry->free_prev == NULL && entry->free_next == NULL)
+	if(entry->free_prev == NULL || entry->free_next == NULL)
 		/* not in free list */
 		return;
 	else if(entry->free_prev == entry && entry->free_next == entry) {
@@ -264,6 +313,7 @@ struct cache *cache_init(int buffer_size, int max_buffers)
 	cache->max_buffers = max_buffers;
 	cache->buffer_size = buffer_size;
 	cache->count = 0;
+	cache->used = 0;
 	cache->free_list = NULL;
 	memset(cache->hash_table, 0, sizeof(struct cache_entry *) * 65536);
 	cache->wait_free = FALSE;
@@ -280,7 +330,7 @@ struct cache_entry *cache_get(struct cache *cache, long long block, int size)
 {
 	/*
 	 * Get a block out of the cache.  If the block isn't in the cache
- 	 * it is added and queued to the reader() and deflate() threads for
+ 	 * it is added and queued to the reader() and inflate() threads for
  	 * reading off disk and decompression.  The cache grows until max_blocks
  	 * is reached, once this occurs existing discarded blocks on the free
  	 * list are reused
@@ -296,11 +346,14 @@ struct cache_entry *cache_get(struct cache *cache, long long block, int size)
 
 	if(entry) {
 		/*
- 		 * found the block in the cache, increment used count and
- 		 * if necessary remove from free list so it won't disappear
+ 		 * found the block in the cache.  If the block is currently unused
+		 * remove it from the free list and increment cache used count.
  		 */
+		if(entry->used == 0) {
+			cache->used ++;
+			remove_free_list(cache, entry);
+		}
 		entry->used ++;
-		remove_free_list(cache, entry);
 		pthread_mutex_unlock(&cache->mutex);
 	} else {
 		/*
@@ -333,7 +386,11 @@ struct cache_entry *cache_get(struct cache *cache, long long block, int size)
 		}
 
 		/*
-		 * initialise block and insert into the hash table
+		 * Initialise block and insert into the hash table.
+		 * Increment used which tracks how many buffers in the
+		 * cache are actively in use (the other blocks, count - used,
+		 * are in the cache and available for lookup, but can also be
+		 * re-used).
 		 */
 		entry->block = block;
 		entry->size = size;
@@ -341,6 +398,7 @@ struct cache_entry *cache_get(struct cache *cache, long long block, int size)
 		entry->error = FALSE;
 		entry->pending = TRUE;
 		insert_hash_table(cache, entry);
+		cache->used ++;
 
 		/*
 		 * queue to read thread to read and ultimately (via the
@@ -410,6 +468,7 @@ void cache_block_put(struct cache_entry *entry)
 	entry->used --;
 	if(entry->used == 0) {
 		insert_free_list(entry->cache, entry);
+		entry->cache->used --;
 
 		/*
 		 * if the wait_free flag is set, one or more threads may be
@@ -422,6 +481,18 @@ void cache_block_put(struct cache_entry *entry)
 	}
 
 	pthread_mutex_unlock(&entry->cache->mutex);
+}
+
+
+void dump_cache(struct cache *cache)
+{
+	pthread_mutex_lock(&cache->mutex);
+
+	printf("Max buffers %d, Current size %d, Used %d,  %s\n",
+		cache->max_buffers, cache->count, cache->used,
+		cache->free_list ?  "Free buffers" : "No free buffers");
+
+	pthread_mutex_unlock(&cache->mutex);
 }
 
 
@@ -443,7 +514,8 @@ char *modestr(char *str, int mode)
 #define TOTALCHARS  25
 int print_filename(char *pathname, struct inode *inode)
 {
-	char str[11], dummy[100], dummy2[100], *userstr, *groupstr;
+	char str[11], dummy[12], dummy2[12]; /* overflow safe */
+	char *userstr, *groupstr;
 	int padchars;
 	struct passwd *user;
 	struct group *group;
@@ -456,15 +528,29 @@ int print_filename(char *pathname, struct inode *inode)
 
 	user = getpwuid(inode->uid);
 	if(user == NULL) {
-		sprintf(dummy, "%d", inode->uid);
-		userstr = dummy;
+		int res = snprintf(dummy, 12, "%d", inode->uid);
+		if(res < 0)
+			EXIT_UNSQUASH("snprintf failed in print_filename()\n");
+		else if(res >= 12)
+			/* unsigned int shouldn't ever need more than 11 bytes
+			 * (including terminating '\0') to print in base 10 */
+			userstr = "*";
+		else
+			userstr = dummy;
 	} else
 		userstr = user->pw_name;
 		 
 	group = getgrgid(inode->gid);
 	if(group == NULL) {
-		sprintf(dummy2, "%d", inode->gid);
-		groupstr = dummy2;
+		int res = snprintf(dummy2, 12, "%d", inode->gid);
+		if(res < 0)
+			EXIT_UNSQUASH("snprintf failed in print_filename()\n");
+		else if(res >= 12)
+			/* unsigned int shouldn't ever need more than 11 bytes
+			 * (including terminating '\0') to print in base 10 */
+			groupstr = "*";
+		else
+			groupstr = dummy2;
 	} else
 		groupstr = group->gr_name;
 
@@ -570,10 +656,12 @@ int read_fs_bytes(int fd, long long byte, int bytes, void *buff)
 }
 
 
-int read_block(int fd, long long start, long long *next, void *block)
+int read_block(int fd, long long start, long long *next, int expected,
+								void *block)
 {
 	unsigned short c_byte;
-	int offset = 2;
+	int offset = 2, res, compressed;
+	int outlen = expected ? expected : SQUASHFS_METADATA_SIZE;
 	
 	if(swap) {
 		if(read_fs_bytes(fd, start, 2, &c_byte) == FALSE)
@@ -589,33 +677,52 @@ int read_block(int fd, long long start, long long *next, void *block)
 
 	if(SQUASHFS_CHECK_DATA(sBlk.s.flags))
 		offset = 3;
-	if(SQUASHFS_COMPRESSED(c_byte)) {
-		char buffer[SQUASHFS_METADATA_SIZE];
-		int error, res;
 
-		c_byte = SQUASHFS_COMPRESSED_SIZE(c_byte);
-		if(read_fs_bytes(fd, start + offset, c_byte, buffer) == FALSE)
+	compressed = SQUASHFS_COMPRESSED(c_byte);
+	c_byte = SQUASHFS_COMPRESSED_SIZE(c_byte);
+
+	/*
+	 * The block size should not be larger than
+	 * the uncompressed size (or max uncompressed size if
+	 * expected is 0)
+	 */
+	if(c_byte > outlen)
+		return 0;
+
+	if(compressed) {
+		char buffer[c_byte];
+		int error;
+
+		res = read_fs_bytes(fd, start + offset, c_byte, buffer);
+		if(res == FALSE)
 			goto failed;
 
 		res = compressor_uncompress(comp, block, buffer, c_byte,
-			SQUASHFS_METADATA_SIZE, &error);
+			outlen, &error);
 
 		if(res == -1) {
 			ERROR("%s uncompress failed with error code %d\n",
 				comp->name, error);
 			goto failed;
 		}
-		if(next)
-			*next = start + offset + c_byte;
-		return res;
 	} else {
-		c_byte = SQUASHFS_COMPRESSED_SIZE(c_byte);
-		if(read_fs_bytes(fd, start + offset, c_byte, block) == FALSE)
+		res = read_fs_bytes(fd, start + offset, c_byte, block);
+		if(res == FALSE)
 			goto failed;
-		if(next)
-			*next = start + offset + c_byte;
-		return c_byte;
+		res = c_byte;
 	}
+
+	if(next)
+		*next = start + offset + c_byte;
+
+	/*
+	 * if expected, then check the (uncompressed) return data
+	 * is of the expected size
+	 */
+	if(expected && expected != res)
+		return 0;
+	else
+		return res;
 
 failed:
 	ERROR("read_block: failed to read block @0x%llx\n", start);
@@ -660,29 +767,52 @@ failed:
 }
 
 
-void uncompress_inode_table(long long start, long long end)
+int read_inode_table(long long start, long long end)
 {
 	int size = 0, bytes = 0, res;
 
-	TRACE("uncompress_inode_table: start %lld, end %lld\n", start, end);
+	TRACE("read_inode_table: start %lld, end %lld\n", start, end);
+
 	while(start < end) {
 		if(size - bytes < SQUASHFS_METADATA_SIZE) {
 			inode_table = realloc(inode_table, size +=
 				SQUASHFS_METADATA_SIZE);
-			if(inode_table == NULL)
-				EXIT_UNSQUASH("Out of memory in "
-					"uncompress_inode_table");
+			if(inode_table == NULL) {
+				ERROR("Out of memory in read_inode_table");
+				goto failed;
+			}
 		}
-		TRACE("uncompress_inode_table: reading block 0x%llx\n", start);
+
 		add_entry(inode_table_hash, start, bytes);
-		res = read_block(fd, start, &start, inode_table + bytes);
+
+		res = read_block(fd, start, &start, 0, inode_table + bytes);
 		if(res == 0) {
-			free(inode_table);
-			EXIT_UNSQUASH("uncompress_inode_table: failed to read "
-				"block \n");
+			ERROR("read_inode_table: failed to read block\n");
+			goto failed;
 		}
 		bytes += res;
+
+		/*
+		 * If this is not the last metadata block in the inode table
+		 * then it should be SQUASHFS_METADATA_SIZE in size.
+		 * Note, we can't use expected in read_block() above for this
+		 * because we don't know if this is the last block until
+		 * after reading.
+		 */
+		if(start != end && res != SQUASHFS_METADATA_SIZE) {
+			ERROR("read_inode_table: metadata block should be %d "
+				"bytes in length, it is %d bytes\n",
+				SQUASHFS_METADATA_SIZE, res);
+			
+			goto failed;
+		}
 	}
+
+	return TRUE;
+
+failed:
+	free(inode_table);
+	return FALSE;
 }
 
 
@@ -784,18 +914,94 @@ failure:
 }
 
 
+pthread_mutex_t open_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t open_empty = PTHREAD_COND_INITIALIZER;
+int open_unlimited, open_count;
+#define OPEN_FILE_MARGIN 10
+
+
+void open_init(int count)
+{
+	open_count = count;
+	open_unlimited = count == -1;
+}
+
+
+int open_wait(char *pathname, int flags, mode_t mode)
+{
+	if (!open_unlimited) {
+		pthread_mutex_lock(&open_mutex);
+		while (open_count == 0)
+			pthread_cond_wait(&open_empty, &open_mutex);
+		open_count --;
+		pthread_mutex_unlock(&open_mutex);
+	}
+
+	return open(pathname, flags, mode);
+}
+
+
+void close_wake(int fd)
+{
+	close(fd);
+
+	if (!open_unlimited) {
+		pthread_mutex_lock(&open_mutex);
+		open_count ++;
+		pthread_cond_signal(&open_empty);
+		pthread_mutex_unlock(&open_mutex);
+	}
+}
+
+
+void queue_file(char *pathname, int file_fd, struct inode *inode)
+{
+	struct squashfs_file *file = malloc(sizeof(struct squashfs_file));
+	if(file == NULL)
+		EXIT_UNSQUASH("queue_file: unable to malloc file\n");
+
+	file->fd = file_fd;
+	file->file_size = inode->data;
+	file->mode = inode->mode;
+	file->gid = inode->gid;
+	file->uid = inode->uid;
+	file->time = inode->time;
+	file->pathname = strdup(pathname);
+	file->blocks = inode->blocks + (inode->frag_bytes > 0);
+	file->sparse = inode->sparse;
+	file->xattr = inode->xattr;
+	queue_put(to_writer, file);
+}
+
+
+void queue_dir(char *pathname, struct dir *dir)
+{
+	struct squashfs_file *file = malloc(sizeof(struct squashfs_file));
+	if(file == NULL)
+		EXIT_UNSQUASH("queue_dir: unable to malloc file\n");
+
+	file->fd = -1;
+	file->mode = dir->mode;
+	file->gid = dir->guid;
+	file->uid = dir->uid;
+	file->time = dir->mtime;
+	file->pathname = strdup(pathname);
+	file->xattr = dir->xattr;
+	queue_put(to_writer, file);
+}
+
+
 int write_file(struct inode *inode, char *pathname)
 {
 	unsigned int file_fd, i;
 	unsigned int *block_list;
 	int file_end = inode->data / block_size;
 	long long start = inode->start;
-	struct squashfs_file *file;
 
 	TRACE("write_file: regular file, blocks %d\n", inode->blocks);
 
-	file_fd = open(pathname, O_CREAT | O_WRONLY | (force ? O_TRUNC : 0),
-		(mode_t) inode->mode & 0777);
+	file_fd = open_wait(pathname, O_CREAT | O_WRONLY |
+		(force ? O_TRUNC : 0), (mode_t) inode->mode & 0777);
 	if(file_fd == -1) {
 		ERROR("write_file: failed to create file %s, because %s\n",
 			pathname, strerror(errno));
@@ -808,26 +1014,12 @@ int write_file(struct inode *inode, char *pathname)
 
 	s_ops.read_block_list(block_list, inode->block_ptr, inode->blocks);
 
-	file = malloc(sizeof(struct squashfs_file));
-	if(file == NULL)
-		EXIT_UNSQUASH("write_file: unable to malloc file\n");
-
 	/*
 	 * the writer thread is queued a squashfs_file structure describing the
- 	 * file.  If the file has one or more blocks or a fragments they are
+ 	 * file.  If the file has one or more blocks or a fragment they are
  	 * queued separately (references to blocks in the cache).
  	 */
-	file->fd = file_fd;
-	file->file_size = inode->data;
-	file->mode = inode->mode;
-	file->gid = inode->gid;
-	file->uid = inode->uid;
-	file->time = inode->time;
-	file->pathname = strdup(pathname);
-	file->blocks = inode->blocks + (inode->frag_bytes > 0);
-	file->sparse = inode->sparse;
-	file->xattr = inode->xattr;
-	queue_put(to_writer, file);
+	queue_file(pathname, file_fd, inode);
 
 	for(i = 0; i < inode->blocks; i++) {
 		int c_byte = SQUASHFS_COMPRESSED_SIZE_BLOCK(block_list[i]);
@@ -838,7 +1030,7 @@ int write_file(struct inode *inode, char *pathname)
 		block->offset = 0;
 		block->size = i == file_end ? inode->data & (block_size - 1) :
 			block_size;
-		if(block_list[i] == 0) /* sparse file */
+		if(block_list[i] == 0) /* sparse block */
 			block->buffer = NULL;
 		else {
 			block->buffer = cache_get(data_cache, start,
@@ -985,29 +1177,53 @@ int create_inode(char *pathname, struct inode *i)
 }
 
 
-void uncompress_directory_table(long long start, long long end)
+int read_directory_table(long long start, long long end)
 {
 	int bytes = 0, size = 0, res;
 
-	TRACE("uncompress_directory_table: start %lld, end %lld\n", start, end);
+	TRACE("read_directory_table: start %lld, end %lld\n", start, end);
 
 	while(start < end) {
 		if(size - bytes < SQUASHFS_METADATA_SIZE) {
 			directory_table = realloc(directory_table, size +=
 				SQUASHFS_METADATA_SIZE);
-			if(directory_table == NULL)
-				EXIT_UNSQUASH("Out of memory in "
-					"uncompress_directory_table\n");
+			if(directory_table == NULL) {
+				ERROR("Out of memory in "
+						"read_directory_table\n");
+				goto failed;
+			}
 		}
-		TRACE("uncompress_directory_table: reading block 0x%llx\n",
-				start);
+
 		add_entry(directory_table_hash, start, bytes);
-		res = read_block(fd, start, &start, directory_table + bytes);
-		if(res == 0)
-			EXIT_UNSQUASH("uncompress_directory_table: failed to "
-				"read block\n");
+
+		res = read_block(fd, start, &start, 0, directory_table + bytes);
+		if(res == 0) {
+			ERROR("read_directory_table: failed to read block\n");
+			goto failed;
+		}
+
 		bytes += res;
+
+		/*
+		 * If this is not the last metadata block in the directory table
+		 * then it should be SQUASHFS_METADATA_SIZE in size.
+		 * Note, we can't use expected in read_block() above for this
+		 * because we don't know if this is the last block until
+		 * after reading.
+		 */
+		if(start != end && res != SQUASHFS_METADATA_SIZE) {
+			ERROR("read_directory_table: metadata block "
+				"should be %d bytes in length, it is %d "
+				"bytes\n", SQUASHFS_METADATA_SIZE, res);
+			goto failed;
+		}
 	}
+
+	return TRUE;
+
+failed:
+	free(directory_table);
+	return FALSE;
 }
 
 
@@ -1034,15 +1250,21 @@ void squashfs_closedir(struct dir *dir)
 }
 
 
-char *get_component(char *target, char *targname)
+char *get_component(char *target, char **targname)
 {
+	char *start;
+
 	while(*target == '/')
 		target ++;
 
-	while(*target != '/' && *target!= '\0')
-		*targname ++ = *target ++;
+	start = target;
+	while(*target != '/' && *target != '\0')
+		target ++;
 
-	*targname = '\0';
+	*targname = strndup(start, target - start);
+
+	while(*target == '/')
+		target ++;
 
 	return target;
 }
@@ -1068,12 +1290,12 @@ void free_path(struct pathname *paths)
 
 struct pathname *add_path(struct pathname *paths, char *target, char *alltarget)
 {
-	char targname[1024];
+	char *targname;
 	int i, error;
 
 	TRACE("add_path: adding \"%s\" extract file\n", target);
 
-	target = get_component(target, targname);
+	target = get_component(target, &targname);
 
 	if(paths == NULL) {
 		paths = malloc(sizeof(struct pathname));
@@ -1097,7 +1319,7 @@ struct pathname *add_path(struct pathname *paths, char *target, char *alltarget)
 			sizeof(struct path_entry));
 		if(paths->name == NULL)
 			EXIT_UNSQUASH("Out of memory in add_path\n");	
-		paths->name[i].name = strdup(targname);
+		paths->name[i].name = targname;
 		paths->name[i].paths = NULL;
 		if(use_regex) {
 			paths->name[i].preg = malloc(sizeof(regex_t));
@@ -1106,7 +1328,7 @@ struct pathname *add_path(struct pathname *paths, char *target, char *alltarget)
 			error = regcomp(paths->name[i].preg, targname,
 				REG_EXTENDED|REG_NOSUB);
 			if(error) {
-				char str[1024];
+				char str[1024]; /* overflow safe */
 
 				regerror(error, paths->name[i].preg, str, 1024);
 				EXIT_UNSQUASH("invalid regex %s in export %s, "
@@ -1130,6 +1352,8 @@ struct pathname *add_path(struct pathname *paths, char *target, char *alltarget)
 		/*
 		 * existing matching entry
 		 */
+		free(targname);
+
 		if(paths->name[i].paths == NULL) {
 			/*
 			 * No sub-directory which means this is the leaf
@@ -1254,13 +1478,18 @@ void pre_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 	struct pathnames *paths)
 {
 	unsigned int type;
-	char *name, pathname[1024];
+	char *name;
 	struct pathnames *new;
 	struct inode *i;
 	struct dir *dir = s_ops.squashfs_opendir(start_block, offset, &i);
 
+	if(dir == NULL)
+		return;
+
 	while(squashfs_readdir(dir, &name, &start_block, &offset, &type)) {
 		struct inode *i;
+		char *pathname;
+		int res;
 
 		TRACE("pre_scan: name %s, start_block %d, offset %d, type %d\n",
 			name, start_block, offset, type);
@@ -1268,7 +1497,9 @@ void pre_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 		if(!matches(paths, name, &new))
 			continue;
 
-		strcat(strcat(strcpy(pathname, parent_name), "/"), name);
+		res = asprintf(&pathname, "%s/%s", parent_name, name);
+		if(res == -1)
+			EXIT_UNSQUASH("asprintf failed in dir_scan\n");
 
 		if(type == SQUASHFS_DIR_TYPE)
 			pre_scan(parent_name, start_block, offset, new);
@@ -1288,6 +1519,7 @@ void pre_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 		}
 
 		free_subdir(new);
+		free(pathname);
 	}
 
 	squashfs_closedir(dir);
@@ -1298,23 +1530,57 @@ void dir_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 	struct pathnames *paths)
 {
 	unsigned int type;
-	char *name, pathname[1024];
+	char *name;
 	struct pathnames *new;
 	struct inode *i;
 	struct dir *dir = s_ops.squashfs_opendir(start_block, offset, &i);
 
-	if(lsonly || info)
-		print_filename(parent_name, i);
-
-	if(!lsonly && mkdir(parent_name, (mode_t) dir->mode) == -1 &&
-			(!force || errno != EEXIST)) {
-		ERROR("dir_scan: failed to make directory %s, because %s\n",
-			parent_name, strerror(errno));
-		squashfs_closedir(dir);
+	if(dir == NULL) {
+		ERROR("dir_scan: failed to read directory %s, skipping\n",
+			parent_name);
 		return;
 	}
 
+	if(lsonly || info)
+		print_filename(parent_name, i);
+
+	if(!lsonly) {
+		/*
+		 * Make directory with default User rwx permissions rather than
+		 * the permissions from the filesystem, as these may not have
+		 * write/execute permission.  These are fixed up later in
+		 * set_attributes().
+		 */
+		int res = mkdir(parent_name, S_IRUSR|S_IWUSR|S_IXUSR);
+		if(res == -1) {
+			/*
+			 * Skip directory if mkdir fails, unless we're
+			 * forcing and the error is -EEXIST
+			 */
+			if(!force || errno != EEXIST) {
+				ERROR("dir_scan: failed to make directory %s, "
+					"because %s\n", parent_name,
+					strerror(errno));
+				squashfs_closedir(dir);
+				return;
+			} 
+
+			/*
+			 * Try to change permissions of existing directory so
+			 * that we can write to it
+			 */
+			res = chmod(parent_name, S_IRUSR|S_IWUSR|S_IXUSR);
+			if (res == -1)
+				ERROR("dir_scan: failed to change permissions "
+					"for directory %s, because %s\n",
+					parent_name, strerror(errno));
+		}
+	}
+
 	while(squashfs_readdir(dir, &name, &start_block, &offset, &type)) {
+		char *pathname;
+		int res;
+
 		TRACE("dir_scan: name %s, start_block %d, offset %d, type %d\n",
 			name, start_block, offset, type);
 
@@ -1322,32 +1588,35 @@ void dir_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 		if(!matches(paths, name, &new))
 			continue;
 
-		strcat(strcat(strcpy(pathname, parent_name), "/"), name);
+		res = asprintf(&pathname, "%s/%s", parent_name, name);
+		if(res == -1)
+			EXIT_UNSQUASH("asprintf failed in dir_scan\n");
 
-		if(type == SQUASHFS_DIR_TYPE)
+		if(type == SQUASHFS_DIR_TYPE) {
 			dir_scan(pathname, start_block, offset, new);
-		else if(new == NULL) {
+			free(pathname);
+		} else if(new == NULL) {
+			update_info(pathname);
+
 			i = s_ops.read_inode(start_block, offset);
 
 			if(lsonly || info)
 				print_filename(pathname, i);
 
-			if(!lsonly) {
+			if(!lsonly)
 				create_inode(pathname, i);
-				update_progress_bar();
-				}
 
 			if(i->type == SQUASHFS_SYMLINK_TYPE ||
 					i->type == SQUASHFS_LSYMLINK_TYPE)
 				free(i->symlink);
-		}
+		} else
+			free(pathname);
 
 		free_subdir(new);
 	}
 
 	if(!lsonly)
-		set_attributes(parent_name, dir->mode, dir->uid, dir->guid,
-			dir->mtime, dir->xattr, force);
+		queue_dir(parent_name, dir);
 
 	squashfs_closedir(dir);
 	dir_count ++;
@@ -1375,8 +1644,22 @@ void squashfs_stat(char *source)
 		sBlk.s.bytes_used / 1024.0, sBlk.s.bytes_used /
 		(1024.0 * 1024.0));
 
-	if(sBlk.s.s_major == 4)
+	if(sBlk.s.s_major == 4) {
 		printf("Compression %s\n", comp->name);
+
+		if(SQUASHFS_COMP_OPTS(sBlk.s.flags)) {
+			char buffer[SQUASHFS_METADATA_SIZE] __attribute__ ((aligned));
+			int bytes;
+
+			bytes = read_block(fd, sizeof(sBlk.s), NULL, 0, buffer);
+			if(bytes == 0) {
+				ERROR("Failed to read compressor options\n");
+				return;
+			}
+
+			compressor_display_options(comp, buffer, bytes);
+		}
+	}
 
 	printf("Block size %d\n", sBlk.s.block_size);
 	printf("Filesystem is %sexportable via NFS\n",
@@ -1393,7 +1676,7 @@ void squashfs_stat(char *source)
 			printf("Fragments are %scompressed\n",
 				SQUASHFS_UNCOMPRESSED_FRAGMENTS(sBlk.s.flags) ?
 				"un" : "");
-			printf("Always_use_fragments option is %sspecified\n",
+			printf("Always-use-fragments option is %sspecified\n",
 				SQUASHFS_ALWAYS_FRAGMENTS(sBlk.s.flags) ? "" :
 				"not ");
 		}
@@ -1435,6 +1718,14 @@ void squashfs_stat(char *source)
 	TRACE("sBlk.s.directory_table_start 0x%llx\n",
 		sBlk.s.directory_table_start);
 
+	if(sBlk.s.s_major > 1)
+		TRACE("sBlk.s.fragment_table_start 0x%llx\n\n",
+			sBlk.s.fragment_table_start);
+
+	if(sBlk.s.s_major > 2)
+		TRACE("sBlk.s.lookup_table_start 0x%llx\n\n",
+			sBlk.s.lookup_table_start);
+
 	if(sBlk.s.s_major == 4) {
 		TRACE("sBlk.s.id_table_start 0x%llx\n", sBlk.s.id_table_start);
 		TRACE("sBlk.s.xattr_id_table_start 0x%llx\n",
@@ -1443,10 +1734,42 @@ void squashfs_stat(char *source)
 		TRACE("sBlk.uid_start 0x%llx\n", sBlk.uid_start);
 		TRACE("sBlk.guid_start 0x%llx\n", sBlk.guid_start);
 	}
+}
 
-	if(sBlk.s.s_major > 1)
-		TRACE("sBlk.s.fragment_table_start 0x%llx\n\n",
-			sBlk.s.fragment_table_start);
+
+int check_compression(struct compressor *comp)
+{
+	int res, bytes = 0;
+	char buffer[SQUASHFS_METADATA_SIZE] __attribute__ ((aligned));
+
+	if(!comp->supported) {
+		ERROR("Filesystem uses %s compression, this is "
+			"unsupported by this version\n", comp->name);
+		ERROR("Decompressors available:\n");
+		display_compressors("", "");
+		return 0;
+	}
+
+	/*
+	 * Read compression options from disk if present, and pass to
+	 * the compressor to ensure we know how to decompress a filesystem
+	 * compressed with these compression options.
+	 *
+	 * Note, even if there is no compression options we still call the
+	 * compressor because some compression options may be mandatory
+	 * for some compressors.
+	 */
+	if(SQUASHFS_COMP_OPTS(sBlk.s.flags)) {
+		bytes = read_block(fd, sizeof(sBlk.s), NULL, 0, buffer);
+		if(bytes == 0) {
+			ERROR("Failed to read compressor options\n");
+			return 0;
+		}
+	}
+
+	res = compressor_check_options(comp, sBlk.s.block_size, buffer, bytes);
+
+	return res != -1;
 }
 
 
@@ -1581,15 +1904,54 @@ failed_mount:
 struct pathname *process_extract_files(struct pathname *path, char *filename)
 {
 	FILE *fd;
-	char name[16384];
+	char buffer[MAX_LINE + 1]; /* overflow safe */
+	char *name;
 
 	fd = fopen(filename, "r");
 	if(fd == NULL)
-		EXIT_UNSQUASH("Could not open %s, because %s\n", filename,
-			strerror(errno));
+		EXIT_UNSQUASH("Failed to open extract file \"%s\" because %s\n",
+			filename, strerror(errno));
 
-	while(fscanf(fd, "%16384[^\n]\n", name) != EOF)
+	while(fgets(name = buffer, MAX_LINE + 1, fd) != NULL) {
+		int len = strlen(name);
+
+		if(len == MAX_LINE && name[len - 1] != '\n')
+			/* line too large */
+			EXIT_UNSQUASH("Line too long when reading "
+				"extract file \"%s\", larger than %d "
+				"bytes\n", filename, MAX_LINE);
+
+		/*
+		 * Remove '\n' terminator if it exists (the last line
+		 * in the file may not be '\n' terminated)
+		 */
+		if(len && name[len - 1] == '\n')
+			name[len - 1] = '\0';
+
+		/* Skip any leading whitespace */
+		while(isspace(*name))
+			name ++;
+
+		/* if comment line, skip */
+		if(*name == '#')
+			continue;
+
+		/* check for initial backslash, to accommodate
+		 * filenames with leading space or leading # character
+		 */
+		if(*name == '\\')
+			name ++;
+
+		/* if line is now empty after skipping characters, skip it */
+		if(*name == '\0')
+			continue;
+
 		path = add_path(path, name, name);
+	}
+
+	if(ferror(fd))
+		EXIT_UNSQUASH("Reading extract file \"%s\" failed because %s\n",
+			filename, strerror(errno));
 
 	fclose(fd);
 	return path;
@@ -1610,10 +1972,10 @@ void *reader(void *arg)
 
 		if(res && SQUASHFS_COMPRESSED_BLOCK(entry->size))
 			/*
-			 * queue successfully read block to the deflate
+			 * queue successfully read block to the inflate
 			 * thread(s) for further processing
  			 */
-			queue_put(to_deflate, entry);
+			queue_put(to_inflate, entry);
 		else
 			/*
 			 * block has either been successfully read and is
@@ -1643,6 +2005,13 @@ void *writer(void *arg)
 
 		if(file == NULL) {
 			queue_put(from_writer, NULL);
+			continue;
+		} else if(file->fd == -1) {
+			/* write attributes for directory file->pathname */
+			set_attributes(file->pathname, file->mode, file->uid,
+				file->gid, file->time, file->xattr, TRUE);
+			free(file->pathname);
+			free(file);
 			continue;
 		}
 
@@ -1707,7 +2076,7 @@ void *writer(void *arg)
 			}
 		}
 
-		close(file_fd);
+		close_wake(file_fd);
 		if(failed == FALSE)
 			set_attributes(file->pathname, file->mode, file->uid,
 				file->gid, file->time, file->xattr, force);
@@ -1725,12 +2094,12 @@ void *writer(void *arg)
 /*
  * decompress thread.  This decompresses buffers queued by the read thread
  */
-void *deflator(void *arg)
+void *inflator(void *arg)
 {
 	char tmp[block_size];
 
 	while(1) {
-		struct cache_entry *entry = queue_get(to_deflate);
+		struct cache_entry *entry = queue_get(to_inflate);
 		int error, res;
 
 		res = compressor_uncompress(comp, tmp, entry->data,
@@ -1755,8 +2124,7 @@ void *deflator(void *arg)
 
 void *progress_thread(void *arg)
 {
-	struct timeval timeval;
-	struct timespec timespec;
+	struct timespec requested_time, remaining;
 	struct itimerval itimerval;
 	struct winsize winsize;
 
@@ -1776,37 +2144,49 @@ void *progress_thread(void *arg)
 	itimerval.it_interval.tv_usec = 250000;
 	setitimer(ITIMER_REAL, &itimerval, NULL);
 
-	pthread_cond_init(&progress_wait, NULL);
+	requested_time.tv_sec = 0;
+	requested_time.tv_nsec = 250000000;
 
-	pthread_mutex_lock(&screen_mutex);
 	while(1) {
-		gettimeofday(&timeval, NULL);
-		timespec.tv_sec = timeval.tv_sec;
-		if(timeval.tv_usec + 250000 > 999999)
-			timespec.tv_sec++;
-		timespec.tv_nsec = ((timeval.tv_usec + 250000) % 1000000) *
-			1000;
-		pthread_cond_timedwait(&progress_wait, &screen_mutex,
-			&timespec);
-		if(progress_enabled)
+		int res = nanosleep(&requested_time, &remaining);
+
+		if(res == -1 && errno != EINTR)
+			EXIT_UNSQUASH("nanosleep failed in progress thread\n");
+
+		if(progress_enabled) {
+			pthread_mutex_lock(&screen_mutex);
 			progress_bar(sym_count + dev_count +
 				fifo_count + cur_blocks, total_inodes -
 				total_files + total_blocks, columns);
+			pthread_mutex_unlock(&screen_mutex);
+		}
 	}
 }
 
 
 void initialise_threads(int fragment_buffer_size, int data_buffer_size)
 {
-	int i;
+	struct rlimit rlim;
+	int i, max_files, res;
 	sigset_t sigmask, old_mask;
-	int all_buffers_size = fragment_buffer_size + data_buffer_size;
 
+	/* block SIGQUIT and SIGHUP, these are handled by the info thread */
+	sigemptyset(&sigmask);
+	sigaddset(&sigmask, SIGQUIT);
+	sigaddset(&sigmask, SIGHUP);
+	if(pthread_sigmask(SIG_BLOCK, &sigmask, NULL) == -1)
+		EXIT_UNSQUASH("Failed to set signal mask in initialise_threads"
+			"\n");
+
+	/*
+	 * temporarily block these signals so the created sub-threads will
+	 * ignore them, ensuring the main thread handles them
+	 */
 	sigemptyset(&sigmask);
 	sigaddset(&sigmask, SIGINT);
-	sigaddset(&sigmask, SIGQUIT);
-	if(sigprocmask(SIG_BLOCK, &sigmask, &old_mask) == -1)
-		EXIT_UNSQUASH("Failed to set signal mask in intialise_threads"
+	sigaddset(&sigmask, SIGTERM);
+	if(pthread_sigmask(SIG_BLOCK, &sigmask, &old_mask) == -1)
+		EXIT_UNSQUASH("Failed to set signal mask in initialise_threads"
 			"\n");
 
 	if(processors == -1) {
@@ -1831,24 +2211,122 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size)
 #endif
 	}
 
+	if(add_overflow(processors, 3) ||
+			multiply_overflow(processors + 3, sizeof(pthread_t)))
+		EXIT_UNSQUASH("Processors too large\n");
+
 	thread = malloc((3 + processors) * sizeof(pthread_t));
 	if(thread == NULL)
 		EXIT_UNSQUASH("Out of memory allocating thread descriptors\n");
-	deflator_thread = &thread[3];
+	inflator_thread = &thread[3];
 
-	to_reader = queue_init(all_buffers_size);
-	to_deflate = queue_init(all_buffers_size);
-	to_writer = queue_init(1000);
+	/*
+	 * dimensioning the to_reader and to_inflate queues.  The size of
+	 * these queues is directly related to the amount of block
+	 * read-ahead possible.  To_reader queues block read requests to
+	 * the reader thread and to_inflate queues block decompression
+	 * requests to the inflate thread(s) (once the block has been read by
+	 * the reader thread).  The amount of read-ahead is determined by
+	 * the combined size of the data_block and fragment caches which
+	 * determine the total number of blocks which can be "in flight"
+	 * at any one time (either being read or being decompressed)
+	 *
+	 * The maximum file open limit, however, affects the read-ahead
+	 * possible, in that for normal sizes of the fragment and data block
+	 * caches, where the incoming files have few data blocks or one fragment
+	 * only, the file open limit is likely to be reached before the
+	 * caches are full.  This means the worst case sizing of the combined
+	 * sizes of the caches is unlikely to ever be necessary.  However, is is
+	 * obvious read-ahead up to the data block cache size is always possible
+	 * irrespective of the file open limit, because a single file could
+	 * contain that number of blocks.
+	 *
+	 * Choosing the size as "file open limit + data block cache size" seems
+	 * to be a reasonable estimate.  We can reasonably assume the maximum
+	 * likely read-ahead possible is data block cache size + one fragment
+	 * per open file.
+	 *
+	 * dimensioning the to_writer queue.  The size of this queue is
+	 * directly related to the amount of block read-ahead possible.
+	 * However, unlike the to_reader and to_inflate queues, this is
+	 * complicated by the fact the to_writer queue not only contains
+	 * entries for fragments and data_blocks but it also contains
+	 * file entries, one per open file in the read-ahead.
+	 *
+	 * Choosing the size as "2 * (file open limit) +
+	 * data block cache size" seems to be a reasonable estimate.
+	 * We can reasonably assume the maximum likely read-ahead possible
+	 * is data block cache size + one fragment per open file, and then
+	 * we will have a file_entry for each open file.
+	 */
+	res = getrlimit(RLIMIT_NOFILE, &rlim);
+	if (res == -1) {
+		ERROR("failed to get open file limit!  Defaulting to 1\n");
+		rlim.rlim_cur = 1;
+	}
+
+	if (rlim.rlim_cur != RLIM_INFINITY) {
+		/*
+		 * leave OPEN_FILE_MARGIN free (rlim_cur includes fds used by
+		 * stdin, stdout, stderr and filesystem fd
+		 */
+		if (rlim.rlim_cur <= OPEN_FILE_MARGIN)
+			/* no margin, use minimum possible */
+			max_files = 1;
+		else
+			max_files = rlim.rlim_cur - OPEN_FILE_MARGIN;
+	} else
+		max_files = -1;
+
+	/* set amount of available files for use by open_wait and close_wake */
+	open_init(max_files);
+
+	/*
+	 * allocate to_reader, to_inflate and to_writer queues.  Set based on
+	 * open file limit and cache size, unless open file limit is unlimited,
+	 * in which case set purely based on cache limits
+	 *
+	 * In doing so, check that the user supplied values do not overflow
+	 * a signed int
+	 */
+	if (max_files != -1) {
+		if(add_overflow(data_buffer_size, max_files) ||
+				add_overflow(data_buffer_size, max_files * 2))
+			EXIT_UNSQUASH("Data queue size is too large\n");
+
+		to_reader = queue_init(max_files + data_buffer_size);
+		to_inflate = queue_init(max_files + data_buffer_size);
+		to_writer = queue_init(max_files * 2 + data_buffer_size);
+	} else {
+		int all_buffers_size;
+
+		if(add_overflow(fragment_buffer_size, data_buffer_size))
+			EXIT_UNSQUASH("Data and fragment queues combined are"
+							" too large\n");
+
+		all_buffers_size = fragment_buffer_size + data_buffer_size;
+
+		if(add_overflow(all_buffers_size, all_buffers_size))
+			EXIT_UNSQUASH("Data and fragment queues combined are"
+							" too large\n");
+
+		to_reader = queue_init(all_buffers_size);
+		to_inflate = queue_init(all_buffers_size);
+		to_writer = queue_init(all_buffers_size * 2);
+	}
+
 	from_writer = queue_init(1);
+
 	fragment_cache = cache_init(block_size, fragment_buffer_size);
 	data_cache = cache_init(block_size, data_buffer_size);
 	pthread_create(&thread[0], NULL, reader, NULL);
 	pthread_create(&thread[1], NULL, writer, NULL);
 	pthread_create(&thread[2], NULL, progress_thread, NULL);
+	init_info();
 	pthread_mutex_init(&fragment_mutex, NULL);
 
 	for(i = 0; i < processors; i++) {
-		if(pthread_create(&deflator_thread[i], NULL, deflator, NULL) !=
+		if(pthread_create(&inflator_thread[i], NULL, inflator, NULL) !=
 				 0)
 			EXIT_UNSQUASH("Failed to create thread\n");
 	}
@@ -1856,8 +2334,8 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size)
 	printf("Parallel unsquashfs: Using %d processor%s\n", processors,
 			processors == 1 ? "" : "s");
 
-	if(sigprocmask(SIG_SETMASK, &old_mask, NULL) == -1)
-		EXIT_UNSQUASH("Failed to set signal mask in intialise_threads"
+	if(pthread_sigmask(SIG_SETMASK, &old_mask, NULL) == -1)
+		EXIT_UNSQUASH("Failed to set signal mask in initialise_threads"
 			"\n");
 }
 
@@ -1865,7 +2343,7 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size)
 void enable_progress_bar()
 {
 	pthread_mutex_lock(&screen_mutex);
-	progress_enabled = TRUE;
+	progress_enabled = progress;
 	pthread_mutex_unlock(&screen_mutex);
 }
 
@@ -1873,18 +2351,48 @@ void enable_progress_bar()
 void disable_progress_bar()
 {
 	pthread_mutex_lock(&screen_mutex);
+	if(progress_enabled) {
+		progress_bar(sym_count + dev_count + fifo_count + cur_blocks,
+			total_inodes - total_files + total_blocks, columns);
+		printf("\n");
+	}
 	progress_enabled = FALSE;
 	pthread_mutex_unlock(&screen_mutex);
 }
 
 
-void update_progress_bar()
+void progressbar_error(char *fmt, ...)
 {
+	va_list ap;
+
 	pthread_mutex_lock(&screen_mutex);
-	pthread_cond_signal(&progress_wait);
+
+	if(progress_enabled)
+		fprintf(stderr, "\n");
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+
 	pthread_mutex_unlock(&screen_mutex);
 }
 
+
+void progressbar_info(char *fmt, ...)
+{
+	va_list ap;
+
+	pthread_mutex_lock(&screen_mutex);
+
+	if(progress_enabled)
+		printf("\n");
+
+	va_start(ap, fmt);
+	vprintf(fmt, ap);
+	va_end(ap);
+
+	pthread_mutex_unlock(&screen_mutex);
+}
 
 void progress_bar(long long current, long long max, int columns)
 {
@@ -1936,10 +2444,42 @@ void progress_bar(long long current, long long max, int columns)
 }
 
 
+int parse_number(char *arg, int *res)
+{
+	char *b;
+	long number = strtol(arg, &b, 10);
+
+	/* check for trailing junk after number */
+	if(*b != '\0')
+		return 0;
+
+	/*
+	 * check for strtol underflow or overflow in conversion.
+	 * Note: strtol can validly return LONG_MIN and LONG_MAX
+	 * if the user entered these values, but, additional code
+	 * to distinguish this scenario is unnecessary, because for
+	 * our purposes LONG_MIN and LONG_MAX are too large anyway
+	 */
+	if(number == LONG_MIN || number == LONG_MAX)
+		return 0;
+
+	/* reject negative numbers as invalid */
+	if(number < 0)
+		return 0;
+
+	/* check if long result will overflow signed int */
+	if(number > INT_MAX)
+		return 0;
+
+	*res = number;
+	return 1;
+}
+
+
 #define VERSION() \
-	printf("unsquashfs version 4.2 (2011/02/28)\n");\
-	printf("copyright (C) 2011 Phillip Lougher "\
-		"<phillip@lougher.demon.co.uk>\n\n");\
+	printf("unsquashfs version 4.3 (2014/05/12)\n");\
+	printf("copyright (C) 2014 Phillip Lougher "\
+		"<phillip@squashfs.org.uk>\n\n");\
     	printf("This program is free software; you can redistribute it and/or"\
 		"\n");\
 	printf("modify it under the terms of the GNU General Public License"\
@@ -1961,9 +2501,9 @@ int main(int argc, char *argv[])
 	int n;
 	struct pathnames *paths = NULL;
 	struct pathname *path = NULL;
+	long long directory_table_end;
 	int fragment_buffer_size = FRAGMENT_BUFFER_DEFAULT;
 	int data_buffer_size = DATA_BUFFER_DEFAULT;
-	char *b;
 
 	pthread_mutex_init(&screen_mutex, NULL);
 	root_process = geteuid() == 0;
@@ -1992,7 +2532,11 @@ int main(int argc, char *argv[])
 		else if(strcmp(argv[i], "-xattrs") == 0 ||
 				strcmp(argv[i], "-x") == 0)
 			no_xattrs = FALSE;
-		else if(strcmp(argv[i], "-dest") == 0 ||
+		else if(strcmp(argv[i], "-user-xattrs") == 0 ||
+				strcmp(argv[i], "-u") == 0) {
+			user_xattrs = TRUE;
+			no_xattrs = FALSE;
+		} else if(strcmp(argv[i], "-dest") == 0 ||
 				strcmp(argv[i], "-d") == 0) {
 			if(++i == argc) {
 				fprintf(stderr, "%s: -dest missing filename\n",
@@ -2003,8 +2547,8 @@ int main(int argc, char *argv[])
 		} else if(strcmp(argv[i], "-processors") == 0 ||
 				strcmp(argv[i], "-p") == 0) {
 			if((++i == argc) || 
-					(processors = strtol(argv[i], &b, 10),
-					*b != '\0')) {
+					!parse_number(argv[i],
+						&processors)) {
 				ERROR("%s: -processors missing or invalid "
 					"processor number\n", argv[0]);
 				exit(1);
@@ -2017,8 +2561,8 @@ int main(int argc, char *argv[])
 		} else if(strcmp(argv[i], "-data-queue") == 0 ||
 					 strcmp(argv[i], "-da") == 0) {
 			if((++i == argc) ||
-					(data_buffer_size = strtol(argv[i], &b,
-					 10), *b != '\0')) {
+					!parse_number(argv[i],
+						&data_buffer_size)) {
 				ERROR("%s: -data-queue missing or invalid "
 					"queue size\n", argv[0]);
 				exit(1);
@@ -2031,8 +2575,8 @@ int main(int argc, char *argv[])
 		} else if(strcmp(argv[i], "-frag-queue") == 0 ||
 					strcmp(argv[i], "-fr") == 0) {
 			if((++i == argc) ||
-					(fragment_buffer_size = strtol(argv[i],
-					 &b, 10), *b != '\0')) {
+					!parse_number(argv[i],
+						&fragment_buffer_size)) {
 				ERROR("%s: -frag-queue missing or invalid "
 					"queue size\n", argv[0]);
 				exit(1);
@@ -2075,6 +2619,11 @@ int main(int argc, char *argv[])
 		progress = FALSE;
 
 #ifdef SQUASHFS_TRACE
+	/*
+	 * Disable progress bar if full debug tracing is enabled.
+	 * The progress bar in this case just gets in the way of the
+	 * debug trace output
+	 */
 	progress = FALSE;
 #endif
 
@@ -2093,6 +2642,9 @@ options:
 				NOXOPT_STR"\n");
 			ERROR("\t-x[attrs]\t\textract xattrs in file system"
 				XOPT_STR "\n");
+			ERROR("\t-u[ser-xattrs]\t\tonly extract user xattrs in "
+				"file system.\n\t\t\t\tEnables extracting "
+				"xattrs\n");
 			ERROR("\t-p[rocessors] <number>\tuse <number> "
 				"processors.  By default will use\n");
 			ERROR("\t\t\t\tnumber of processors available\n");
@@ -2145,19 +2697,46 @@ options:
 		exit(0);
 	}
 
-	if(!comp->supported) {
-		ERROR("Filesystem uses %s compression, this is "
-			"unsupported by this version\n", comp->name);
-		ERROR("Decompressors available:\n");
-		display_compressors("", "");
+	if(!check_compression(comp))
 		exit(1);
-	}
 
 	block_size = sBlk.s.block_size;
 	block_log = sBlk.s.block_log;
 
-	fragment_buffer_size <<= 20 - block_log;
-	data_buffer_size <<= 20 - block_log;
+	/*
+	 * Sanity check block size and block log.
+	 *
+	 * Check they're within correct limits
+	 */
+	if(block_size > SQUASHFS_FILE_MAX_SIZE ||
+					block_log > SQUASHFS_FILE_MAX_LOG)
+		EXIT_UNSQUASH("Block size or block_log too large."
+			"  File system is corrupt.\n");
+
+	/*
+	 * Check block_size and block_log match
+	 */
+	if(block_size != (1 << block_log))
+		EXIT_UNSQUASH("Block size and block_log do not match."
+			"  File system is corrupt.\n");
+
+	/*
+	 * convert from queue size in Mbytes to queue size in
+	 * blocks.
+	 *
+	 * In doing so, check that the user supplied values do not
+	 * overflow a signed int
+	 */
+	if(shift_overflow(fragment_buffer_size, 20 - block_log))
+		EXIT_UNSQUASH("Fragment queue size is too large\n");
+	else
+		fragment_buffer_size <<= 20 - block_log;
+
+	if(shift_overflow(data_buffer_size, 20 - block_log))
+		EXIT_UNSQUASH("Data queue size is too large\n");
+	else
+		data_buffer_size <<= 20 - block_log;
+
 	initialise_threads(fragment_buffer_size, data_buffer_size);
 
 	fragment_data = malloc(block_size);
@@ -2181,14 +2760,16 @@ options:
 	if(s_ops.read_uids_guids() == FALSE)
 		EXIT_UNSQUASH("failed to uid/gid table\n");
 
-	if(s_ops.read_fragment_table() == FALSE)
+	if(s_ops.read_fragment_table(&directory_table_end) == FALSE)
 		EXIT_UNSQUASH("failed to read fragment table\n");
 
-	uncompress_inode_table(sBlk.s.inode_table_start,
-		sBlk.s.directory_table_start);
+	if(read_inode_table(sBlk.s.inode_table_start,
+				sBlk.s.directory_table_start) == FALSE)
+		EXIT_UNSQUASH("failed to read inode table\n");
 
-	uncompress_directory_table(sBlk.s.directory_table_start,
-		sBlk.s.fragment_table_start);
+	if(read_directory_table(sBlk.s.directory_table_start,
+				directory_table_end) == FALSE)
+		EXIT_UNSQUASH("failed to read directory table\n");
 
 	if(no_xattrs)
 		sBlk.s.xattr_id_table_start = SQUASHFS_INVALID_BLK;
@@ -2210,8 +2791,7 @@ options:
 	printf("%d inodes (%d blocks) to write\n\n", total_inodes,
 		total_inodes - total_files + total_blocks);
 
-	if(progress)
-		enable_progress_bar();
+	enable_progress_bar();
 
 	dir_scan(dest, SQUASHFS_INODE_BLK(sBlk.s.root_inode),
 		SQUASHFS_INODE_OFFSET(sBlk.s.root_inode), paths);
@@ -2219,11 +2799,7 @@ options:
 	queue_put(to_writer, NULL);
 	queue_get(from_writer);
 
-	if(progress) {
-		disable_progress_bar();
-		progress_bar(sym_count + dev_count + fifo_count + cur_blocks,
-			total_inodes - total_files + total_blocks, columns);
-	}
+	disable_progress_bar();
 
 	if(!lsonly) {
 		printf("\n");

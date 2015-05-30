@@ -2,8 +2,8 @@
  * Unsquash a squashfs filesystem.  This is a highly compressed read only
  * filesystem.
  *
- * Copyright (c) 2009, 2010
- * Phillip Lougher <phillip@lougher.demon.co.uk>
+ * Copyright (c) 2009, 2010, 2011, 2012
+ * Phillip Lougher <phillip@squashfs.org.uk>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -46,9 +46,10 @@ void read_block_list_1(unsigned int *block_list, char *block_ptr, int blocks)
 }
 
 
-int read_fragment_table_1()
+int read_fragment_table_1(long long *directory_table_end)
 {
 	TRACE("read_fragment_table\n");
+	*directory_table_end = sBlk.s.fragment_table_start;
 	return TRUE;
 }
 
@@ -217,14 +218,6 @@ struct dir *squashfs_opendir_1(unsigned int block_start, unsigned int offset,
 		block_start, offset);
 
 	*i = s_ops.read_inode(block_start, offset);
-	start = sBlk.s.directory_table_start + (*i)->start;
-	bytes = lookup_entry(directory_table_hash, start);
-	if(bytes == -1)
-		EXIT_UNSQUASH("squashfs_opendir: directory block %d not "
-			"found!\n", block_start);
-
-	bytes += (*i)->offset;
-	size = (*i)->data + bytes;
 
 	dir = malloc(sizeof(struct dir));
 	if(dir == NULL)
@@ -239,6 +232,24 @@ struct dir *squashfs_opendir_1(unsigned int block_start, unsigned int offset,
 	dir->xattr = (*i)->xattr;
 	dir->dirs = NULL;
 
+	if ((*i)->data == 0)
+		/*
+		 * if the directory is empty, skip the unnecessary
+		 * lookup_entry, this fixes the corner case with
+		 * completely empty filesystems where lookup_entry correctly
+		 * returning -1 is incorrectly treated as an error
+		 */
+		return dir;
+		
+	start = sBlk.s.directory_table_start + (*i)->start;
+	bytes = lookup_entry(directory_table_hash, start);
+	if(bytes == -1)
+		EXIT_UNSQUASH("squashfs_opendir: directory block %d not "
+			"found!\n", block_start);
+
+	bytes += (*i)->offset;
+	size = (*i)->data + bytes;
+
 	while(bytes < size) {			
 		if(swap) {
 			squashfs_dir_header_2 sdirh;
@@ -252,6 +263,10 @@ struct dir *squashfs_opendir_1(unsigned int block_start, unsigned int offset,
 			"%d, %d directory entries\n", bytes, dir_count);
 		bytes += sizeof(dirh);
 
+		/* dir_count should never be larger than 256 */
+		if(dir_count > 256)
+			goto corrupted;
+
 		while(dir_count--) {
 			if(swap) {
 				squashfs_dir_entry_2 sdire;
@@ -262,6 +277,10 @@ struct dir *squashfs_opendir_1(unsigned int block_start, unsigned int offset,
 				memcpy(dire, directory_table + bytes,
 					sizeof(*dire));
 			bytes += sizeof(*dire);
+
+			/* size should never be larger than SQUASHFS_NAME_LEN */
+			if(dire->size > SQUASHFS_NAME_LEN)
+				goto corrupted;
 
 			memcpy(dire->name, directory_table + bytes,
 				dire->size + 1);
@@ -288,6 +307,11 @@ struct dir *squashfs_opendir_1(unsigned int block_start, unsigned int offset,
 	}
 
 	return dir;
+
+corrupted:
+	free(dir->dirs);
+	free(dir);
+	return NULL;
 }
 
 
