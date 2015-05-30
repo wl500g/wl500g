@@ -40,9 +40,8 @@
 #include "LzmaDec.h"
 #include "trxhdr.h"
 
-#define BUFSIZE			((unsigned)1 << 15)
-
 #define BCM4710_FLASH		0x1fc00000	/* Flash */
+#define WSIZE			0x8000		/* Power of two */
 
 #define KSEG0			0x80000000
 #define KSEG1			0xa0000000
@@ -105,11 +104,9 @@ static size_t read_bytes(unsigned char *buffer, size_t size)
 	} else
 		source += byteoffset;
 
-	if (size >= 4 - byteoffset) {
+	if (size > 4 - byteoffset)
 		size = 4 - byteoffset;
-		offset = 0;
-	} else
-		offset = byteoffset + size;
+	offset += size;
 
 	byteoffset = size;
 	while (byteoffset) {
@@ -150,7 +147,7 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 
 	/* compressed kernel is in the partition 1 */
 	data += ((struct trx_header *)data)->offsets[1];
-	offset = 0;
+	offset = (unsigned int)data;
 
 	/* read lzma header */
 	read_data(workspace, LZMA_PROPS_SIZE + 8);
@@ -167,12 +164,12 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 
 	state.dic = (unsigned char *)LOADADDR;
 	state.dicBufSize = osize;
-	state.probs = (CLzmaProb *)(workspace + BUFSIZE);
+	state.probs = (CLzmaProb *)(workspace + WSIZE);
 
 	/* decompress kernel */
 	LzmaDec_Init(&state);
 	do {
-		i = read_data(workspace, BUFSIZE - offset);
+		i = read_data(workspace, WSIZE - (offset & (WSIZE - 1)));
 		if (LzmaDec_DecodeToDic(&state, osize, workspace, &i,
 		    LZMA_FINISH_ANY, &status) != SZ_OK) {
 			/* something went wrong */
