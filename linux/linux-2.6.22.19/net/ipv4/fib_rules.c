@@ -104,16 +104,6 @@ errout:
 }
 
 
-void fib_select_default(const struct flowi *flp, struct fib_result *res)
-{
-	if (res->r && res->r->action == FR_ACT_TO_TBL &&
-	    FIB_RES_GW(*res) && FIB_RES_NH(*res).nh_scope == RT_SCOPE_LINK) {
-		struct fib_table *tb;
-		if ((tb = fib_get_table(res->r->table)) != NULL)
-			tb->tb_select_default(tb, flp, res);
-	}
-}
-
 static int fib4_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
 {
 	struct fib4_rule *r = (struct fib4_rule *) rule;
@@ -311,8 +301,18 @@ static int __init fib_default_rules_init(void)
 	return 0;
 }
 
-void __init fib4_rules_init(void)
+int __init fib4_rules_init()
 {
-	BUG_ON(fib_default_rules_init());
+	int err;
+
 	fib_rules_register(&fib4_rules_ops);
+	err = fib_default_rules_init();
+	if (err < 0)
+		goto fail;
+	return 0;
+
+fail:
+	/* also cleans all rules already added */
+	fib_rules_unregister(&fib4_rules_ops);
+	return err;
 }

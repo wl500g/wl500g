@@ -287,7 +287,7 @@ static int dccp_v6_send_response(struct sock *sk, struct request_sock *req,
 							 &ireq6->loc_addr,
 							 &ireq6->rmt_addr);
 		ipv6_addr_copy(&fl.fl6_dst, &ireq6->rmt_addr);
-		err = ip6_xmit(sk, skb, &fl, opt, 0);
+		err = ip6_xmit(sk, skb, &fl, opt);
 		err = net_xmit_eval(err);
 	}
 
@@ -364,7 +364,7 @@ static void dccp_v6_ctl_send_reset(struct sock *sk, struct sk_buff *rxskb)
 	/* sk = NULL, but it is safe for now. RST socket required. */
 	if (!ip6_dst_lookup(NULL, &skb->dst, &fl)) {
 		if (xfrm_lookup(&skb->dst, &fl, NULL, 0) >= 0) {
-			ip6_xmit(dccp_v6_ctl_socket->sk, skb, &fl, NULL, 0);
+			ip6_xmit(dccp_v6_ctl_socket->sk, skb, &fl, NULL);
 			DCCP_INC_STATS_BH(DCCP_MIB_OUTSEGS);
 			DCCP_INC_STATS_BH(DCCP_MIB_OUTRSTS);
 			return;
