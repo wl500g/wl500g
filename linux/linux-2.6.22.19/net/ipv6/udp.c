@@ -247,10 +247,8 @@ csum_copy_err:
 			UDP6_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
 	}
 
-	if (noblock)
-		return -EAGAIN;
-
-	/* starting over for a new packet */
+	/* starting over for a new packet, but check if we need to yield */
+	cond_resched();
 	msg->msg_flags &= ~MSG_TRUNC;
 	goto try_again;
 }
