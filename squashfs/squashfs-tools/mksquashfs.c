@@ -2612,7 +2612,7 @@ int write_file_blocks_dup(squashfs_inode *inode, struct dir_ent *dir_ent,
 	int block, thresh;
 	long long read_size = read_buffer->file_size;
 	long long file_bytes, dup_start, start;
-	struct fragment *fragment;
+	struct fragment *fragment = fragment;
 	struct file_info *dupl_ptr;
 	int blocks = (read_size + block_size - 1) >> block_log;
 	unsigned int *block_list, *block_listp;
