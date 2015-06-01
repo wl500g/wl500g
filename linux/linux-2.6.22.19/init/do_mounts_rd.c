@@ -9,11 +9,7 @@
 #include <linux/string.h>
 
 #include "do_mounts.h"
-#if defined(CONFIG_SQUASHFS3)
-#include "../fs/squashfs3/squashfs_fs.h"
-#else
 #include "../fs/squashfs/squashfs_fs.h"
-#endif
 
 #define BUILD_CRAMDISK
 
@@ -109,19 +105,6 @@ identify_ramdisk_image(int fd, int start_block)
 		goto done;
 	}
 
-#if defined(CONFIG_SQUASHFS3)
-	/* squashfs is at block zero too */
-	if (squashfsb->s_magic == SQUASHFS_MAGIC) {
-		printk(KERN_NOTICE
-		       "RAMDISK: squashfs filesystem found at block %d\n",
-		       start_block);
-		if (squashfsb->s_major < 3)
-			nblocks = (squashfsb->bytes_used_2+BLOCK_SIZE-1)>>BLOCK_SIZE_BITS;
-		else
-			nblocks = (squashfsb->bytes_used+BLOCK_SIZE-1)>>BLOCK_SIZE_BITS;
-		goto done;
-	}
-#else
 	/* squashfs is at block zero too */
 	if (le32_to_cpu(squashfsb->s_magic) == SQUASHFS_MAGIC) {
 		printk(KERN_NOTICE
@@ -131,7 +114,6 @@ identify_ramdisk_image(int fd, int start_block)
 			 >> BLOCK_SIZE_BITS;
 		goto done;
 	}
-#endif
 
 	/*
 	 * Read block 1 to test for minix and ext2 superblock

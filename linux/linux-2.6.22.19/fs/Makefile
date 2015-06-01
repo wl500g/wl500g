@@ -73,12 +73,7 @@ obj-$(CONFIG_JBD)		+= jbd/
 obj-$(CONFIG_JBD2)		+= jbd2/
 obj-$(CONFIG_EXT2_FS)		+= ext2/
 obj-$(CONFIG_CRAMFS)		+= cramfs/
-ifneq ($(CONFIG_SQUASHFS4),)
 obj-$(CONFIG_SQUASHFS)		+= squashfs/
-endif
-ifneq ($(CONFIG_SQUASHFS3),)
-obj-$(CONFIG_SQUASHFS)		+= squashfs3/
-endif
 obj-$(CONFIG_RAMFS)		+= ramfs/
 obj-$(CONFIG_HUGETLBFS)		+= hugetlbfs/
 obj-$(CONFIG_CODA_FS)		+= coda/

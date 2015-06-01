@@ -22,4 +22,4 @@ subdir-$(CONFIG_MODVERSIONS) += genksyms
 subdir-y                     += mod
 
 # Let clean descend into subdirs
-subdir-	+= basic kconfig package squashfs
+subdir-	+= basic kconfig package

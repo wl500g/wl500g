@@ -223,16 +223,9 @@ LZMADIR=$(LZMASDK)/CPP/7zip/Bundles/LzmaCon
 
 # legacy, to remove in future
 LZMA4SDK=$(SRCBASE)/lzma4xx
-LZMA4LIB=$(LZMA4SDK)/CPP/7zip/Compress/LZMA_Lib
-SQUASHFS3=n
 
-ifeq ($(SQUASHFS3),y)
-MKSQUASHFSDIR=$(LINUXDIR)/scripts/squashfs
-MKSQUASHFS=$(MKSQUASHFSDIR)/mksquashfs-lzma
-else
 MKSQUASHFSDIR=$(SRCBASE)/squashfs/squashfs-tools
 MKSQUASHFS=$(MKSQUASHFSDIR)/mksquashfs
-endif
 
 define lastsvntag
 $(subst -, ,$(shell git describe --tags --match="r[0-9][0-9][0-9][0-9]*" --dirty=-M 2>/dev/null))
@@ -284,14 +277,14 @@ FlashMaxSize = \
 all: $(obj-y)
 	@true
 
-clean: $(obj-clean) config-clean lzma-clean lzma4xx-clean mksquashfs-clean
+clean: $(obj-clean) config-clean lzma-clean mksquashfs-clean
 	-rm -rf $(TARGETDIR)
 	-rm -f $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 
 mrproper: clean
 	-rm -f .config $(LINUXDIR)/.config
 
-distclean: $(obj-distclean) lzma-distclean lzma4xx-distclean mksquashfs-distclean
+distclean: $(obj-distclean) lzma-distclean mksquashfs-distclean
 	-rm -rf $(TARGETDIR)
 	-$(MAKE) -C config clean
 
@@ -304,12 +297,6 @@ lzma-distclean: lzma-clean
 lzma-clean:
 	-$(MAKE) -C $(LZMADIR) -f makefile.gcc clean
 
-lzma4xx-distclean: lzma4xx-clean
-	@true
-
-lzma4xx-clean:
-	-$(MAKE) -C $(LZMA4LIB) clean
-
 loader:
 ifneq ($(LZMA4SDK),)
 	$(MAKE) -C $@ LZMAPATH=$(LZMA4SDK)/C/Compress/Lzma LZMA4xx=y
@@ -318,23 +305,14 @@ else
 endif
 
 mksquashfs $(MKSQUASHFS):
-ifeq ($(SQUASHFS3),y)
-	$(MAKE) -C $(LZMA4LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
-	$(MAKE) -C $(MKSQUASHFSDIR) \
-		LZMAPATH=$(LZMA4LIB) CC=$(HOSTCC) CXX=$(HOSTCXX)
-else
 	$(MAKE) -C $(MKSQUASHFSDIR) CC=$(HOSTCC) CXX=$(HOSTCXX) \
 		GZIP_SUPPORT= LZO_SUPPORT= LZ4_SUPPORT= XZ_SUPPORT= LZMA_XZ_SUPPORT= \
 		LZMA_SUPPORT=1 LZMA_DIR=$(LZMASDK) COMP_DEFAULT=lzma \
 		XATTR_SUPPORT= \
 		EXTRA_CFLAGS="-O3 -D_7ZIP_ST"
-endif
 
 mksquashfs-clean:
-	-$(MAKE) -C $(MKSQUASHFSDIR) clean LZMA_DIR=.
-ifeq ($(SQUASHFS3),y)
-	-$(MAKE) -C $(LZMA4LIB) clean
-endif
+	-$(MAKE) -C $(MKSQUASHFSDIR) clean
 
 $(PLATFORMDIR):
 	install -d $@
@@ -528,14 +506,9 @@ package-%: $(filter-out lib-install,$(obj-install)) www-install $(LINUXDIR)/.con
 	# Prepare filesystem
 	cd $(TARGETDIR) && $(TOP)/misc/rootprep.sh
         # Make rootfs image
-ifeq ($(SQUASHFS3),y)
-	$(MKSQUASHFS) $(TARGETDIR) $(PLATFORMDIR)/target.cramfs \
-		-all-root -noappend -nopad -pf $(TOP)/misc/rootprep.files
-else
 	$(MKSQUASHFS) $(TARGETDIR) $(PLATFORMDIR)/target.cramfs \
 		-all-root -noappend -nopad -pf $(TOP)/misc/rootprep.files \
 		-comp lzma -Xlc 0 -Xlp 2 -Xpb 2 -Xfb 128 -Xmf bt2
-endif
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
 ifeq ($(CONFIG_LOADER),y)

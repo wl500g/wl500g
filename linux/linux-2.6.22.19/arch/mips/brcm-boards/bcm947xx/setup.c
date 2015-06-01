@@ -34,11 +34,7 @@
 #include <linux/ext2_fs.h>
 #include <linux/romfs_fs.h>
 #include <linux/cramfs_fs.h>
-#if defined(CONFIG_SQUASHFS3)
-#include "../fs/squashfs3/squashfs_fs.h"
-#else
 #include "../fs/squashfs/squashfs_fs.h"
-#endif
 #endif
 
 #include <typedefs.h>
@@ -334,16 +330,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 		}
 #endif
 
-#if defined(CONFIG_SQUASHFS3)
-		/* squashfs is at block zero too */
-		if (u.squashfs->s_magic == SQUASHFS_MAGIC ||
-		    u.squashfs->s_magic == SQUASHFS_MAGIC_LZMA) {
-			printk(KERN_NOTICE
-			       "%s: squashfs filesystem found at block %d\n",
-			       mtd->name, off >> BLOCK_SIZE_BITS);
-			goto done;
-		}
-#elif defined(CONFIG_SQUASHFS)
+#if defined(CONFIG_SQUASHFS)
 		/* squashfs is at block zero too */
 		if (le32_to_cpu(u.squashfs->s_magic) == SQUASHFS_MAGIC) {
 			printk(KERN_NOTICE
