@@ -222,7 +222,7 @@ LZMASDK=$(SRCBASE)/lzma
 LZMADIR=$(LZMASDK)/CPP/7zip/Bundles/LzmaCon
 
 # legacy, to remove in future
-LZMA4SDK=$(SRCBASE)/lzma4xx
+#LZMA4SDK=$(SRCBASE)/lzma4xx
 
 MKSQUASHFSDIR=$(SRCBASE)/squashfs/squashfs-tools
 MKSQUASHFS=$(MKSQUASHFSDIR)/mksquashfs
