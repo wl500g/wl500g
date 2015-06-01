@@ -296,7 +296,7 @@ unsquashfs_info.o: unsquashfs.h squashfs_fs.h
 
 .PHONY: clean
 clean:
-	-rm -f *.o mksquashfs unsquashfs
+	-rm -f *.o mksquashfs unsquashfs $(LZMA_OBJS)
 
 .PHONY: install
 install: mksquashfs unsquashfs

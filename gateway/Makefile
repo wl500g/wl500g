@@ -312,7 +312,8 @@ mksquashfs $(MKSQUASHFS):
 		EXTRA_CFLAGS="-O3 -D_7ZIP_ST"
 
 mksquashfs-clean:
-	-$(MAKE) -C $(MKSQUASHFSDIR) clean
+	-$(MAKE) -C $(MKSQUASHFSDIR) clean \
+		LZMA_SUPPORT=1 LZMA_DIR=$(LZMASDK)
 
 $(PLATFORMDIR):
 	install -d $@
