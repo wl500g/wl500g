@@ -419,11 +419,7 @@ static int parse_dirs_option(struct super_block *sb, struct unionfs_dentry_info
 out:
 	if (err) {
 		for (i = 0; i < branches; i++)
-			if (lower_root_info->lower_paths[i].dentry) {
-				dput(lower_root_info->lower_paths[i].dentry);
-				/* initialize: can't use unionfs_mntput here */
-				mntput(lower_root_info->lower_paths[i].mnt);
-			}
+			path_put(&lower_root_info->lower_paths[i]);
 
 		kfree(lower_root_info->lower_paths);
 		kfree(UNIONFS_SB(sb)->data);
@@ -515,17 +511,8 @@ out_error:
 	if (lower_root_info && lower_root_info->lower_paths) {
 		for (bindex = lower_root_info->bstart;
 		     bindex >= 0 && bindex <= lower_root_info->bend;
-		     bindex++) {
-			struct dentry *d;
-			struct vfsmount *m;
-
-			d = lower_root_info->lower_paths[bindex].dentry;
-			m = lower_root_info->lower_paths[bindex].mnt;
-
-			dput(d);
-			/* initializing: can't use unionfs_mntput here */
-			mntput(m);
-		}
+		     bindex++)
+			path_put(&lower_root_info->lower_paths[bindex]);
 	}
 
 	kfree(lower_root_info->lower_paths);
@@ -684,16 +671,10 @@ out_dput:
 		for (bindex = lower_root_info->bstart;
 		     bindex <= lower_root_info->bend; bindex++) {
 			struct dentry *d;
-			struct vfsmount *m;
-
 			d = lower_root_info->lower_paths[bindex].dentry;
-			m = lower_root_info->lower_paths[bindex].mnt;
-
-			dput(d);
-			/* initializing: can't use unionfs_mntput here */
-			mntput(m);
 			/* drop refs we took earlier */
 			atomic_dec(&d->d_sb->s_active);
+			path_put(&lower_root_info->lower_paths[bindex]);
 		}
 		kfree(lower_root_info->lower_paths);
 		kfree(lower_root_info);

@@ -316,6 +316,11 @@ static int unionfs_d_revalidate(struct dentry *dentry,
 	parent = unionfs_lock_parent(dentry, UNIONFS_DMUTEX_PARENT);
 	unionfs_lock_dentry(dentry, UNIONFS_DMUTEX_CHILD);
 
+	if (!unionfs_lower_dentry(dentry)) {
+		err = 0;
+		goto out;
+	}
+
 	valid = __unionfs_d_revalidate(dentry, parent, false);
 	if (valid) {
 		unionfs_postcopyup_setmnt(dentry);
@@ -324,6 +329,7 @@ static int unionfs_d_revalidate(struct dentry *dentry,
 		d_drop(dentry);
 		err = valid;
 	}
+out:
 	unionfs_unlock_dentry(dentry);
 	unionfs_unlock_parent(dentry, parent);
 	unionfs_read_unlock(dentry->d_sb);
