@@ -203,6 +203,7 @@ static struct xt_match xt_tcpudp_match[] __read_mostly = {
 		.proto		= IPPROTO_UDP,
 		.me		= THIS_MODULE,
 	},
+#if defined(CONFIG_INET_UDPLITE)
 	{
 		.name		= "udplite",
 		.family		= AF_INET,
@@ -221,6 +222,7 @@ static struct xt_match xt_tcpudp_match[] __read_mostly = {
 		.proto		= IPPROTO_UDPLITE,
 		.me		= THIS_MODULE,
 	},
+#endif
 };
 
 static int __init xt_tcpudp_init(void)
