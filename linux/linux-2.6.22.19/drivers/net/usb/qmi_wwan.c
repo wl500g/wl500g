@@ -17,7 +17,7 @@
 #include <linux/mii.h>
 #include <linux/usb.h>
 
-#include "usbnet.h"
+#include <linux/usb/usbnet.h>
 #include <linux/usb/cdc.h>
 #include <linux/usb/cdc-wdm.h>
 

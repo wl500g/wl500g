@@ -31,7 +31,7 @@
 
 #include <asm/unaligned.h>
 
-#include "usbnet.h"
+#include <linux/usb/usbnet.h>
 
 
 /*

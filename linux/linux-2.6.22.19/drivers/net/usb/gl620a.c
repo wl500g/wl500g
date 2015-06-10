@@ -30,7 +30,7 @@
 #include <linux/mii.h>
 #include <linux/usb.h>
 
-#include "usbnet.h"
+#include <linux/usb/usbnet.h>
 
 
 /*

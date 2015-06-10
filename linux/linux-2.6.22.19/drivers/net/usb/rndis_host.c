@@ -26,7 +26,7 @@
 #include <linux/usb.h>
 #include <linux/usb/cdc.h>
 
-#include "usbnet.h"
+#include <linux/usb/usbnet.h>
 
 
 /*

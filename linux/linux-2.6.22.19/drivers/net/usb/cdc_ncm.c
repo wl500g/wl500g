@@ -50,7 +50,7 @@
 #include <linux/hrtimer.h>
 #include <asm/uaccess.h>
 
-#include "usbnet.h"
+#include <linux/usb/usbnet.h>
 #include <linux/usb/cdc.h>
 #include <linux/usb/cdc_ncm.h>
 

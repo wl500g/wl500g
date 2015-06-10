@@ -32,7 +32,7 @@
 #include <linux/netdevice.h>
 #include <linux/usb.h>
 
-#include "usbnet.h"
+#include <linux/usb/usbnet.h>
 
 /* requests */
 #define MCS7830_RD_BMREQ	(USB_DIR_IN  | USB_TYPE_VENDOR | \

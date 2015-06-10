@@ -19,7 +19,7 @@
 #include <linux/usb.h>
 #include <linux/usb/cdc.h>
 
-#include "usbnet.h"
+#include <linux/usb/usbnet.h>
 #include <linux/usb/cdc-wdm.h>
 #include <linux/usb/cdc_ncm.h>
 

@@ -21,7 +21,7 @@
 #include <linux/usb.h>
 #include <linux/crc32.h>
 
-#include "usbnet.h"
+#include <linux/usb/usbnet.h>
 
 /* datasheet:
  http://www.davicom.com.tw/big5/download/Data%20Sheet/DM9601-DS-P01-930914.pdf
