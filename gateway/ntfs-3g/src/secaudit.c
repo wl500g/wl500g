@@ -1,7 +1,7 @@
 /*
  *		 Display and audit security attributes in an NTFS volume
  *
- * Copyright (c) 2007-2013 Jean-Pierre Andre
+ * Copyright (c) 2007-2015 Jean-Pierre Andre
  * 
  *	Options :
  *		-a auditing security data
@@ -206,6 +206,21 @@
  *
  *  Sep 2013, version 1.4.1
  *     - silenced an aliasing warning by gcc >= 4.8
+ *
+ *  May 2014, version 1.4.2
+ *     - decoded GENERIC_ALL permissions
+ *     - decoded more "well-known" and generic SIDs
+ *     - showed Windows ownership in verbose situations
+ *     - fixed apparent const violations
+ *
+ *  Dec 2014, version 1.4.3
+ *     - fixed displaying "UserMapping" as a file name
+ *
+ *  Mar 2015, version 1.4.5
+ *     - adapted to new NTFS ACLs when owner is same as group
+ *
+ *  May 2015, version 1.4.6
+ *     - made to load shared library based on generic name
  */
 
 /*
@@ -229,7 +244,7 @@
  *		General parameters which may have to be adapted to needs
  */
 
-#define AUDT_VERSION "1.4.1"
+#define AUDT_VERSION "1.4.6"
 
 #define GET_FILE_SECURITY "ntfs_get_file_security"
 #define SET_FILE_SECURITY "ntfs_set_file_security"
@@ -422,6 +437,8 @@ type_leave_file_security ntfs_leave_file_security;
 #endif /* USESTUBS | defined(STSC) */
 #endif /* WIN32 */
 
+#define ACCOUNTSIZE 256  /* maximum size of an account name */
+
 /*
  *		Prototypes for local functions
  */
@@ -452,6 +469,7 @@ BOOL guess_dir(const char*);
 void showsid(const char*, int, const char*, int);
 void showusid(const char*, int);
 void showgsid(const char*, int);
+void showownership(const char*);
 void showheader(const char*, int);
 void showace(const char*, int, int, int);
 void showacl(const char*, int, int, int);
@@ -1447,6 +1465,26 @@ void showsid(const char *attr, int off, const char *prefix, int level)
 				break;
 			case 5 :
 				switch (first) {
+				case 1 :
+					known = TRUE;
+					printf("%*cDialup SID\n",-level,marker);
+					break;
+				case 2 :
+					known = TRUE;
+					printf("%*cNetwork SID\n",-level,marker);
+					break;
+				case 3 :
+					known = TRUE;
+					printf("%*cBatch SID\n",-level,marker);
+					break;
+				case 4 :
+					known = TRUE;
+					printf("%*cInteractive SID\n",-level,marker);
+					break;
+				case 6 :
+					known = TRUE;
+					printf("%*cService SID\n",-level,marker);
+					break;
 				case 7 :
 					known = TRUE;
 					printf("%*cAnonymous logon SID\n",-level,marker);
@@ -1501,8 +1539,13 @@ void showsid(const char *attr, int off, const char *prefix, int level)
 			case 5 :
 				if (first == 21) {
 					known = TRUE;
-					switch (last)
-						{
+					switch (last) {
+						case 500 :
+							printf("%*cSystem admin SID\n",-level,marker);
+							break;
+						case 501 :
+							printf("%*cGuest SID\n",-level,marker);
+							break;
 						case 512 :
 							printf("%*cLocal admins SID\n",-level,marker);
 							break;
@@ -1564,6 +1607,74 @@ void showgsid(const char *attr, int level)
 	printf("Group SID\n");
 	off = get4l(attr,8);
 	showsid(attr,off,"G:",level+4);
+}
+
+void showownership(const char *attr)
+{
+#ifdef WIN32
+	char account[ACCOUNTSIZE];
+	BIGSID sidcopy;
+	SID_NAME_USE use;
+	unsigned long accountsz;
+	unsigned long domainsz;
+#endif
+	enum { SHOWOWN, SHOWGRP, SHOWINT } shown;
+	const char *sid;
+	const char *prefix;
+	u64 auth;
+	int cnt;
+	int off;
+	int i;
+
+	for (shown=SHOWOWN; shown<=SHOWINT; shown++) {
+		switch (shown) {
+		case SHOWOWN :
+			off = get4l(attr,4);
+			sid = &attr[off];
+			prefix = "Windows owner";
+			break;
+		case SHOWGRP :
+			off = get4l(attr,8);
+			sid = &attr[off];
+			prefix = "Windows group";
+			break;
+#if OWNERFROMACL
+		case SHOWINT :
+			off = get4l(attr,4);
+			prefix = "Interpreted owner";
+			sid = (const char*)ntfs_acl_owner((const char*)attr);
+			if (ntfs_same_sid((const SID*)sid,
+						(const SID*)&attr[off]))
+				sid = (const char*)NULL;
+			break;
+#endif
+		default :
+			sid = (const char*)NULL;
+			prefix = (const char*)NULL;
+			break;
+		}
+		if (sid) {
+			cnt = sid[1] & 255;
+			auth = get6h(sid,2);
+			if (opt_b)
+				printf("# %s S-%d-",prefix,sid[0] & 255);
+			else
+				printf("%s S-%d-",prefix,sid[0] & 255);
+			printf("%llu",auth);
+			for (i=0; i<cnt; i++)
+				printf("-%lu",get4l(sid,8+4*i));
+#ifdef WIN32
+			memcpy(sidcopy,sid,ntfs_sid_size((const SID*)sid));
+			accountsz = ACCOUNTSIZE;
+			domainsz = ACCOUNTSIZE;
+			if (LookupAccountSidA((const char*)NULL, sidcopy,
+					account, &accountsz,
+					(char*)NULL, &domainsz, &use))
+				printf(" (%s)", account);
+#endif
+			printf("\n");
+		}
+	}
 }
 
 void showheader(const char *attr, int level)
@@ -2297,7 +2408,7 @@ int local_build_mapping(struct MAPPING *mapping[], const char *usermap_path)
 #ifdef WIN32
 /* TODO : check whether the device can store acls */
 		strcpy(mapfile,"x:\\" MAPDIR "\\" MAPFILE);
-		if (((le16*)usermap_path)[1] == ':')
+		if (((const le16*)usermap_path)[1] == ':')
   			mapfile[0] = usermap_path[0];
 		else {
 			GetModuleFileName(NULL, currpath, 261);
@@ -2520,6 +2631,7 @@ void showhex(FILE *fd)
 			showgsid(attr,4);
 			showdacl(attr,isdir,4);
 			showsacl(attr,isdir,4);
+			showownership(attr);
 			mode = linux_permissions(attr,isdir);
 			printf("Interpreted Unix mode 0%03o\n",mode);
 #if POSIXACLS
@@ -2644,8 +2756,9 @@ BOOL applyattr(const char *fullname, const char *attr,
 				}
 			}
 		}
+		/* const missing from stupid prototype */
 		bad = !SetFileSecurityW((LPCWSTR)fullname,
-			selection, (char*)curattr);
+			selection, (PSECURITY_DESCRIPTOR)(LONG_PTR)curattr);
 		if (bad)
 			switch (GetLastError()) {
 			case 1307 :
@@ -2654,9 +2767,12 @@ BOOL applyattr(const char *fullname, const char *attr,
 				printname(stdout,fullname);
 				printf(", retrying with no owner or SACL setting\n");
 				warnings++;
+				/* const missing from stupid prototype */
 				bad = !SetFileSecurityW((LPCWSTR)fullname,
 					selection & ~OWNER_SECURITY_INFORMATION
-					& ~SACL_SECURITY_INFORMATION, (char*)curattr);
+					& ~SACL_SECURITY_INFORMATION,
+					(PSECURITY_DESCRIPTOR)
+							(LONG_PTR)curattr);
 				break;
 			default :
 				break;
@@ -2770,6 +2886,7 @@ BOOL restore(FILE *fd)
 				showdacl(attr,isdir,4);
 				showsacl(attr,isdir,4);
 				mode = linux_permissions(attr,isdir);
+				showownership(attr);
 				printf("Interpreted Unix mode 0%03o\n",mode);
 			}
 			pos = 0;
@@ -3621,14 +3738,14 @@ void basictest(int kind, BOOL isdir, const SID *owner, const SID *group)
 		24064, 28160,
 		24064, 28160,
 		24064, 28160,
-		25416, 29512
+		24904, 29000
 	} ;
 	u32 expecthash[] = {
 		0x8f80865b, 0x7bc7960,
 		0x8fd9ecfe, 0xddd4db0,
 		0xa8b07400, 0xa189c20,
 		0xc5689a00, 0xb6c09000,
-		0x94bfb419, 0xa4311791
+		0xb040e509, 0x4f4db7f7
 	} ;
 #if POSIXACLS
 	struct POSIX_SECURITY *pxdesc;
@@ -3770,7 +3887,8 @@ void basictest(int kind, BOOL isdir, const SID *owner, const SID *group)
 		(unsigned long)count,(unsigned long)acecount,
 		(unsigned long)acecount/count,acecount*100L/count%100L);
 	if (acecount != expectcnt[kind]) {
-		printf("** Error : expected ACE count %lu\n",
+		printf("** Error : ACE count %lu instead of %lu\n",
+			(unsigned long)acecount,
 			(unsigned long)expectcnt[kind]);
 		errors++;
 	}
@@ -3784,7 +3902,8 @@ void basictest(int kind, BOOL isdir, const SID *owner, const SID *group)
 		(unsigned long)pxcount,(unsigned long)pxacecount,
 		(unsigned long)pxacecount/pxcount,pxacecount*100L/pxcount%100L);
 	if (pxacecount != expectcnt[kind]) {
-		printf("** Error : expected ACE count %lu\n",
+		printf("** Error : ACE count %lu instead of %lu\n",
+			(unsigned long)pxacecount,
 			(unsigned long)expectcnt[kind]);
 		errors++;
 	}
@@ -4726,9 +4845,9 @@ BOOL proposal(const char *name, const char *attr)
 			printf("# and gid of the Linux owner and group of ");
 			printname(stdout,name);
 			printf(", then\n");
-			printf("# insert the modified lines into .NTFS-3G/Usermapping, with .NTFS-3G\n");
+			printf("# insert the modified lines into .NTFS-3G/UserMapping, with .NTFS-3G\n");
 		} else
-			printf("# Insert the above lines into .NTFS-3G/Usermapping, with .NTFS-3G\n");
+			printf("# Insert the above lines into .NTFS-3G/UserMapping, with .NTFS-3G\n");
 #ifdef WIN32
 		printf("# being a directory of the root of the NTFS file system.\n");
 
@@ -4942,9 +5061,11 @@ void showfull(const char *fullname, BOOL isdir)
 				uid = linux_owner(attr);
 				gid = linux_group(attr);
 				if (opt_b) {
+				        showownership(attr);
 					printf("# Interpreted Unix owner %d, group %d, mode 0%03o\n",
 						(int)uid,(int)gid,mode);
 				} else {
+				        showownership(attr);
 					printf("Interpreted Unix owner %d, group %d, mode 0%03o\n",
 						(int)uid,(int)gid,mode);
 				}
@@ -5288,9 +5409,11 @@ void showfull(const char *fullname, BOOL isdir)
 				uid = linux_owner(attr);
 				gid = linux_group(attr);
 				if (opt_b) {
+				        showownership(attr);
 					printf("# Interpreted Unix owner %d, group %d, mode 0%03o\n",
 						(int)uid,(int)gid,mode);
 				} else {
+				        showownership(attr);
 					printf("Interpreted Unix owner %d, group %d, mode 0%03o\n",
 						(int)uid,(int)gid,mode);
 				}
@@ -5498,6 +5621,7 @@ BOOL showmounted(const char *fullname)
 					showdacl(attr,isdir,level);
 					showsacl(attr,isdir,level);
 				}
+			        showownership(attr);
 				if (mapped) {
 					uid = linux_owner(attr);
 					gid = linux_group(attr);
@@ -6164,6 +6288,7 @@ int audit_sds(BOOL second)
 						showgsid(&attr[20],0);
 						showdacl(&attr[20],isdir,0);
 						showsacl(&attr[20],isdir,0);
+						showownership(&attr[20]);
 						mode = linux_permissions(
 						    &attr[20],isdir);
 						printf("Interpreted Unix mode 0%03o\n",mode);
@@ -7158,9 +7283,15 @@ void dumpalloc(const char *txt)
 	if (firstalloc) {
 		printf("alloc table at %s\n",txt);
 		for (q=firstalloc; q; q=q->next)
+#ifdef __x86_64__
+			printf("%08llx : %u bytes at %08llx allocated at %s line %d\n",
+				(long long)q,(unsigned int)q->size,
+				(long long)q->alloc,q->file,q->line);
+#else
 			printf("%08lx : %u bytes at %08lx allocated at %s line %d\n",
 				(long)q,(unsigned int)q->size,
 				(long)q->alloc,q->file,q->line);
+#endif
 	}
 }
 
@@ -7250,7 +7381,13 @@ BOOL chkisalloc(void *p, const char *file, int line)
 	} else
 		q = (struct CHKALLOC*)NULL;
 	if (!p || !q) {
-		printf("error in %s %d : 0x%lx not allocated\n",file,line,(long)p);
+#ifdef __x86_64__
+		printf("error in %s %d : 0x%llx not allocated\n",file,line,
+					(long long)p);
+#else
+		printf("error in %s %d : 0x%lx not allocated\n",file,line,
+					(long)p);
+#endif
 	}
 	return (p && q);
 }

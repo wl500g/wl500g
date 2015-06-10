@@ -4,7 +4,7 @@
  * Copyright (c) 2005-2007 Yura Pakhuchiy
  * Copyright (c) 2005 Yuval Fledel
  * Copyright (c) 2006-2009 Szabolcs Szakacsits
- * Copyright (c) 2007-2014 Jean-Pierre Andre
+ * Copyright (c) 2007-2015 Jean-Pierre Andre
  * Copyright (c) 2009 Erik Larsson
  *
  * This file is originated from the Linux-NTFS project.
@@ -79,9 +79,16 @@
 
 #if defined(__APPLE__) || defined(__DARWIN__)
 #include <sys/dirent.h>
-#endif /* defined(__APPLE__) || defined(__DARWIN__) */
+#elif defined(__sun) && defined (__SVR4)
+#include <sys/param.h>
+#endif /* defined(__APPLE__) || defined(__DARWIN__), ... */
+
+#ifdef HAVE_LINUX_FS_H
+#include <linux/fs.h>
+#endif
 
 #include "compat.h"
+#include "bitmap.h"
 #include "attrib.h"
 #include "inode.h"
 #include "volume.h"
@@ -97,6 +104,7 @@
 #include "logging.h"
 #include "xattrs.h"
 #include "misc.h"
+#include "ioctl.h"
 
 #include "ntfs-3g_common.h"
 
@@ -116,20 +124,24 @@
 #error "Incompatible options KERNELACLS and KERNELPERMS"
 #endif
 
-#if CACHEING & (KERNELACLS | !KERNELPERMS)
-#warning "Fuse cacheing is only usable with basic permissions checked by kernel"
-#endif
-
 #if !CACHEING
 #define ATTR_TIMEOUT 0.0
 #define ENTRY_TIMEOUT 0.0
 #else
+#if defined(__sun) && defined (__SVR4)
+#define ATTR_TIMEOUT 10.0
+#define ENTRY_TIMEOUT 10.0
+#else /* defined(__sun) && defined (__SVR4) */
 	/*
 	 * FUSE cacheing is only usable with basic permissions
 	 * checked by the kernel with external fuse >= 2.8
 	 */
+#if KERNELACLS | !KERNELPERMS
+#warning "Fuse cacheing is only usable with basic permissions checked by kernel"
+#endif
 #define ATTR_TIMEOUT (ctx->vol->secure_flags & (1 << SECURITY_DEFAULT) ? 1.0 : 0.0)
 #define ENTRY_TIMEOUT (ctx->vol->secure_flags & (1 << SECURITY_DEFAULT) ? 1.0 : 0.0)
+#endif /* defined(__sun) && defined (__SVR4) */
 #endif
 #define GHOSTLTH 40 /* max length of a ghost file name - see ghostformat */
 
@@ -162,6 +174,7 @@ typedef struct fill_item {
 typedef struct fill_context {
 	struct fill_item *first;
 	struct fill_item *last;
+	off_t off;
 	fuse_req_t req;
 	fuse_ino_t ino;
 	BOOL filled;
@@ -214,7 +227,7 @@ static const char *usage_msg =
 "\n"
 "Copyright (C) 2005-2007 Yura Pakhuchiy\n"
 "Copyright (C) 2006-2009 Szabolcs Szakacsits\n"
-"Copyright (C) 2007-2014 Jean-Pierre Andre\n"
+"Copyright (C) 2007-2015 Jean-Pierre Andre\n"
 "Copyright (C) 2009 Erik Larsson\n"
 "\n"
 "Usage:    %s [-o option[,...]] <device|image_file> <mount_point>\n"
@@ -501,8 +514,6 @@ static void ntfs_macfuse_getxtimes(fuse_req_t req, fuse_ino_t ino,
 
 #endif /* defined(__APPLE__) || defined(__DARWIN__) */
 
-#if defined(FUSE_CAP_DONT_MASK) || defined(FUSE_CAP_BIG_WRITES) \
-		|| (defined(__APPLE__) || defined(__DARWIN__))
 static void ntfs_init(void *userdata __attribute__((unused)),
 			struct fuse_conn_info *conn)
 {
@@ -519,8 +530,10 @@ static void ntfs_init(void *userdata __attribute__((unused)),
 			>= SAFE_CAPACITY_FOR_BIG_WRITES))
 		conn->want |= FUSE_CAP_BIG_WRITES;
 #endif
+#ifdef FUSE_CAP_IOCTL_DIR
+	conn->want |= FUSE_CAP_IOCTL_DIR;
+#endif /* defined(FUSE_CAP_IOCTL_DIR) */
 }
-#endif /* defined(FUSE_CAP_DONT_MASK) || (defined(__APPLE__) || defined(__DARWIN__)) */
 
 static int ntfs_fuse_getstat(struct SECURITY_CONTEXT *scx,
 				ntfs_inode *ni, struct stat *stbuf)
@@ -957,13 +970,31 @@ static int ntfs_fuse_filler(ntfs_fuse_fill_context_t *fill_ctx,
 			memset(filename + MAXNAMLEN, 0, filenamelen - MAXNAMLEN);
 			ntfs_log_debug("   after: '%s'\n", filename);
 		}
-#endif /* defined(__APPLE__) || defined(__DARWIN__) */
+#elif defined(__sun) && defined (__SVR4)
+		/*
+		 * Returning file names larger than MAXNAMELEN (256) bytes
+		 * causes Solaris/Illumos to return an I/O error from the system
+		 * call.
+		 * However we also need space for a terminating NULL, or user
+		 * space tools will bug out since they expect a NULL terminator.
+		 * Effectively the maximum length of a file name is MAXNAMELEN -
+		 * 1 (255).
+		 */
+		if (filenamelen > (MAXNAMELEN - 1)) {
+			ntfs_log_debug("Truncating %d byte filename to %d "
+				"bytes.\n", filenamelen, MAXNAMELEN - 1);
+			ntfs_log_debug("  before: '%s'\n", filename);
+			memset(&filename[MAXNAMELEN - 1], 0,
+				filenamelen - (MAXNAMELEN - 1));
+			ntfs_log_debug("   after: '%s'\n", filename);
+		}
+#endif /* defined(__APPLE__) || defined(__DARWIN__), ... */
 	
 		current = fill_ctx->last;
 		sz = fuse_add_direntry(fill_ctx->req,
 				&current->buf[current->off],
 				current->bufsize - current->off,
-				filename, &st, current->off);
+				filename, &st, current->off + fill_ctx->off);
 		if (!sz || ((current->off + sz) > current->bufsize)) {
 			newone = (ntfs_fuse_fill_item_t*)ntfs_malloc
 				(sizeof(ntfs_fuse_fill_item_t)
@@ -974,11 +1005,12 @@ static int ntfs_fuse_filler(ntfs_fuse_fill_context_t *fill_ctx,
 				newone->next = (ntfs_fuse_fill_item_t*)NULL;
 				current->next = newone;
 				fill_ctx->last = newone;
+				fill_ctx->off += current->off;
 				current = newone;
 				sz = fuse_add_direntry(fill_ctx->req,
 					current->buf,
 					current->bufsize - current->off,
-					filename, &st, current->off);
+					filename, &st, fill_ctx->off);
 				if (!sz) {
 					errno = EIO;
 					ntfs_log_error("Could not add a"
@@ -1035,6 +1067,7 @@ static void ntfs_fuse_opendir(fuse_req_t req, fuse_ino_t ino,
 					= (ntfs_fuse_fill_item_t*)NULL;
 				fill->filled = FALSE;
 				fill->ino = ino;
+				fill->off = 0;
 			}
 			fi->fh = (long)fill;
 		}
@@ -1082,6 +1115,16 @@ static void ntfs_fuse_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
 	fill = (ntfs_fuse_fill_context_t*)(long)fi->fh;
 	if (fill && (fill->ino == ino)) {
+		if (fill->filled && !off) {
+			/* Rewinding : make sure to clear existing results */   
+			current = fill->first;
+			while (current) {
+				current = current->next;
+				free(fill->first);
+				fill->first = current;
+			}
+			fill->filled = FALSE;
+		}
 		if (!fill->filled) {
 				/* initial call : build the full list */
 			first = (ntfs_fuse_fill_item_t*)ntfs_malloc
@@ -1093,6 +1136,7 @@ static void ntfs_fuse_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 				fill->req = req;
 				fill->first = first;
 				fill->last = first;
+				fill->off = 0;
 				ni = ntfs_inode_open(ctx->vol,INODE(ino));
 				if (!ni)
 					err = -errno;
@@ -1349,15 +1393,17 @@ static int ntfs_fuse_chmod(struct SECURITY_CONTEXT *scx, fuse_ino_t ino,
 	int res = 0;
 	ntfs_inode *ni;
 
-	  /* return unsupported if no user mapping has been defined */
-	if (!scx->mapping[MAPUSERS] && !ctx->silent) {
+	  /* Unsupported if inherit or no user mapping has been defined */
+	if ((!scx->mapping[MAPUSERS] || ctx->inherit)
+	    && !ctx->silent) {
 		res = -EOPNOTSUPP;
 	} else {
 		ni = ntfs_inode_open(ctx->vol, INODE(ino));
 		if (!ni)
 			res = -errno;
 		else {
-			if (scx->mapping[MAPUSERS]) {
+			/* ignore if Windows inheritance is forced */
+			if (scx->mapping[MAPUSERS] && !ctx->inherit) {
 				if (ntfs_set_mode(scx, ni, mode))
 					res = -errno;
 				else {
@@ -1386,7 +1432,8 @@ static int ntfs_fuse_chown(struct SECURITY_CONTEXT *scx, fuse_ino_t ino,
 	ntfs_inode *ni;
 	int res;
 
-	if (!scx->mapping[MAPUSERS]
+	  /* Unsupported if inherit or no user mapping has been defined */
+	if ((!scx->mapping[MAPUSERS] || ctx->inherit)
 			&& !ctx->silent
 			&& ((uid != ctx->uid) || (gid != ctx->gid)))
 		res = -EOPNOTSUPP;
@@ -1396,7 +1443,9 @@ static int ntfs_fuse_chown(struct SECURITY_CONTEXT *scx, fuse_ino_t ino,
 		if (!ni)
 			res = -errno;
 		else {
+			/* ignore if Windows inheritance is forced */
 			if (scx->mapping[MAPUSERS]
+			  && !ctx->inherit
 			  && (((int)uid != -1) || ((int)gid != -1))) {
 				if (ntfs_set_owner(scx, ni, uid, gid))
 					res = -errno;
@@ -1425,7 +1474,8 @@ static int ntfs_fuse_chownmod(struct SECURITY_CONTEXT *scx, fuse_ino_t ino,
 	ntfs_inode *ni;
 	int res;
 
-	if (!scx->mapping[MAPUSERS]
+	  /* Unsupported if inherit or no user mapping has been defined */
+	if ((!scx->mapping[MAPUSERS] || ctx->inherit)
 			&& !ctx->silent
 			&& ((uid != ctx->uid) || (gid != ctx->gid)))
 		res = -EOPNOTSUPP;
@@ -1435,7 +1485,8 @@ static int ntfs_fuse_chownmod(struct SECURITY_CONTEXT *scx, fuse_ino_t ino,
 		if (!ni)
 			res = -errno;
 		else {
-			if (scx->mapping[MAPUSERS]) {
+			/* ignore if Windows inheritance is forced */
+			if (scx->mapping[MAPUSERS] && !ctx->inherit) {
 				if (ntfs_set_ownmod(scx, ni, uid, gid, mode))
 					res = -errno;
 				else {
@@ -2781,6 +2832,50 @@ static void ntfs_fuse_fsync(fuse_req_t req,
 		fuse_reply_err(req, 0);
 }
 
+#if defined(FUSE_INTERNAL) || (FUSE_VERSION >= 28)
+static void ntfs_fuse_ioctl(fuse_req_t req __attribute__((unused)),
+			fuse_ino_t ino __attribute__((unused)),
+			int cmd, void *arg,
+			struct fuse_file_info *fi __attribute__((unused)),
+			unsigned flags, const void *data,
+			size_t in_bufsz, size_t out_bufsz)
+{
+	ntfs_inode *ni;
+	char *buf = (char*)NULL;
+	int bufsz;
+	int ret = 0;
+
+	if (flags & FUSE_IOCTL_COMPAT) {
+		ret = -ENOSYS;
+	} else {
+		ni = ntfs_inode_open(ctx->vol, INODE(ino));
+		if (!ni) {
+			ret = -errno;
+			goto fail;
+		}
+		bufsz = (in_bufsz > out_bufsz ? in_bufsz : out_bufsz);
+		if (bufsz) {
+			buf = ntfs_malloc(bufsz);
+			if (!buf) {
+				ret = ENOMEM;
+				goto fail;
+			}
+			memcpy(buf, data, in_bufsz);
+		}
+		ret = ntfs_ioctl(ni, cmd, arg, flags, buf);
+		if (ntfs_inode_close (ni))
+			set_fuse_error(&ret);
+	}
+	if (ret)
+fail :
+		fuse_reply_err(req, -ret);
+	else
+		fuse_reply_ioctl(req, 0, buf, out_bufsz);
+	if (buf)
+		free(buf);
+}
+#endif /* defined(FUSE_INTERNAL) || (FUSE_VERSION >= 28) */
+
 static void ntfs_fuse_bmap(fuse_req_t req, fuse_ino_t ino, size_t blocksize,
 		      uint64_t vidx)
 {
@@ -2872,14 +2967,20 @@ static ntfs_inode *ntfs_check_access_xattr(fuse_req_t req,
 		 || (attr == XATTR_POSIX_DEF);
 	/*
 	 * When accessing Posix ACL, return unsupported if ACL
-	 * were disabled or no user mapping has been defined.
+	 * were disabled or no user mapping has been defined,
+	 * or trying to change a Windows-inherited ACL.
 	 * However no error will be returned to getfacl
 	 */
-	if ((!ntfs_fuse_fill_security_context(req, security)
+	if (((!ntfs_fuse_fill_security_context(req, security)
 		|| (ctx->secure_flags
 		    & ((1 << SECURITY_DEFAULT) | (1 << SECURITY_RAW))))
+		|| !(ctx->secure_flags & (1 << SECURITY_ACL))
+		|| (setting && ctx->inherit))
 	    && foracl) {
-		errno = EOPNOTSUPP;
+		if (ctx->silent)
+			errno = 0;
+		else
+			errno = EOPNOTSUPP;
 	} else {
 			/*
 			 * parent directory must be executable, and
@@ -3107,7 +3208,6 @@ static void ntfs_fuse_getxattr(fuse_req_t req, fuse_ino_t ino, const char *name,
 					set_fuse_error(&res);
 			} else
 				res = -errno;
-		}
 #else
 			/*
 			 * Standard access control has been done by fuse/kernel
@@ -3129,9 +3229,9 @@ static void ntfs_fuse_getxattr(fuse_req_t req, fuse_ino_t ino, const char *name,
 					set_fuse_error(&res);
 			} else
 				res = -errno;
+#endif
 		} else
 			res = -errno;
-#endif
 		if (res < 0)
 			fuse_reply_err(req, -res);
 		else
@@ -3726,6 +3826,9 @@ static struct fuse_lowlevel_ops ntfs_3g_ops = {
 	.fsyncdir	= ntfs_fuse_fsync,
 	.bmap		= ntfs_fuse_bmap,
 	.destroy	= ntfs_fuse_destroy2,
+#if defined(FUSE_INTERNAL) || (FUSE_VERSION >= 28)
+	.ioctl		= ntfs_fuse_ioctl,
+#endif /* defined(FUSE_INTERNAL) || (FUSE_VERSION >= 28) */
 #if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	.access 	= ntfs_fuse_access,
 #endif
@@ -3740,10 +3843,7 @@ static struct fuse_lowlevel_ops ntfs_3g_ops = {
 	.getxtimes	= ntfs_macfuse_getxtimes,
 	.setattr_x	= ntfs_macfuse_setattr_x,
 #endif /* defined(__APPLE__) || defined(__DARWIN__) */
-#if defined(FUSE_CAP_DONT_MASK) || defined(FUSE_CAP_BIG_WRITES) \
-		|| (defined(__APPLE__) || defined(__DARWIN__))
 	.init		= ntfs_init
-#endif
 };
 
 static int ntfs_fuse_init(void)
@@ -4200,6 +4300,7 @@ int main(int argc, char *argv[])
 	if (!ntfs_build_mapping(&ctx->security,ctx->usermap_path,
 		(ctx->vol->secure_flags
 			& ((1 << SECURITY_DEFAULT) | (1 << SECURITY_ACL)))
+		&& !ctx->inherit
 		&& !(ctx->vol->secure_flags & (1 << SECURITY_WANTED)))) {
 #if POSIXACLS
 		/* use basic permissions if requested */
@@ -4232,6 +4333,7 @@ int main(int argc, char *argv[])
 		}
 		permissions_mode = "User mapping built";
 #endif /* POSIXACLS */
+		ctx->dmask = ctx->fmask = 0;
 	} else {
 		ctx->security.uid = ctx->uid;
 		ctx->security.gid = ctx->gid;
