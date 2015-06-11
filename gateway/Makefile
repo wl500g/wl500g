@@ -221,9 +221,6 @@ GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM -DASUS_EXT
 LZMASDK=$(SRCBASE)/lzma
 LZMADIR=$(LZMASDK)/CPP/7zip/Bundles/LzmaCon
 
-# legacy, to remove in future
-#LZMA4SDK=$(SRCBASE)/lzma4xx
-
 MKSQUASHFSDIR=$(SRCBASE)/squashfs/squashfs-tools
 MKSQUASHFS=$(MKSQUASHFSDIR)/mksquashfs
 
@@ -298,11 +295,7 @@ lzma-clean:
 	-$(MAKE) -C $(LZMADIR) -f makefile.gcc clean
 
 loader:
-ifneq ($(LZMA4SDK),)
-	$(MAKE) -C $@ LZMAPATH=$(LZMA4SDK)/C/Compress/Lzma LZMA4xx=y
-else
 	$(MAKE) -C $@ LZMAPATH=$(LZMASDK)/C
-endif
 
 mksquashfs $(MKSQUASHFS):
 	$(MAKE) -C $(MKSQUASHFSDIR) CC=$(HOSTCC) CXX=$(HOSTCXX) \

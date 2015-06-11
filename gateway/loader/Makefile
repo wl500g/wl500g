@@ -30,12 +30,7 @@ CFLAGS		= -D__KERNEL__ -Wall -Wstrict-prototypes -Wno-trigraphs -O2 \
 		  -ffunction-sections -pipe -Wa,--trap \
 		  -mabi=32 -march=mips32 -Wa,-32 -Wa,-march=mips32 -Wa,-mips32
 
-CFLAGS		+= -DLOADADDR=$(TEXT_START)
-ifneq ($(LZMA4xx),)
-CFLAGS		+= -D_LZMA_IN_CB
-else
-CFLAGS		+= -D_LZMA_SIZE_OPT
-endif
+CFLAGS		+= -DLOADADDR=$(TEXT_START) -I$(SRCBASE)/include
 
 ASFLAGS		= $(CFLAGS) -D__ASSEMBLY__ -DBZ_TEXT_START=$(BZ_TEXT_START)
 
@@ -43,14 +38,17 @@ SEDFLAGS	:= s/BZ_TEXT_START/$(BZ_TEXT_START)/;s/TEXT_START/$(TEXT_START)/
 
 OBJECTS		:= head.o data.o
 
-ifneq ($(LZMA4xx),)
-COBJECTS	:= decompress.4xx.o LzmaDecode.o
-else
-COBJECTS	:= decompress.o LzmaDec.o memcpy.o
-endif
+ifneq ($(LZMAPATH),)
+CFLAGS		+= -D_LZMA_SIZE_OPT -I$(LZMAPATH)
 
-CFLAGS		+= -I$(LZMAPATH) -I$(SRCBASE)/include
+COBJECTS	:= decompress.o LzmaDec.o memcpy.o
+
 vpath %.c $(LZMAPATH)
+else
+CFLAGS		+= -D_LZMA_IN_CB -I.
+
+COBJECTS	:= decompress.4xx.o LzmaDecode.o
+endif
 
 all: loader.gz
 
