@@ -97,9 +97,9 @@ export TARGETDIR := $(PLATFORMDIR)/target
 # Determine kernel version
 kver=$(subst ",,$(word 3, $(shell grep -s "UTS_RELEASE" $(LINUXDIR)/include/linux/$(1))))
 
-LINUX_KERNEL=$(call kver,version.h)
-ifeq ($(LINUX_KERNEL),)
 LINUX_KERNEL=$(call kver,utsrelease.h)
+ifeq ($(LINUX_KERNEL),)
+LINUX_KERNEL=$(call kver,version.h)
 endif
 export MODULESDIR := $(TARGETDIR)/lib/modules/$(LINUX_KERNEL)
 SRCMODULESDIR := $(PLATFORMDIR)/modules/lib/modules/$(LINUX_KERNEL)/kernel
