@@ -510,7 +510,7 @@ static void __kprobes do_trap(int trapnr, int signr, char *str, int vm86,
 }
 
 #define DO_ERROR(trapnr, signr, str, name) \
-fastcall void do_##name(struct pt_regs * regs, long error_code) \
+void do_##name(struct pt_regs * regs, long error_code) \
 { \
 	if (notify_die(DIE_TRAP, str, regs, error_code, trapnr, signr) \
 						== NOTIFY_STOP) \
@@ -519,7 +519,7 @@ fastcall void do_##name(struct pt_regs * regs, long error_code) \
 }
 
 #define DO_ERROR_INFO(trapnr, signr, str, name, sicode, siaddr, irq) \
-fastcall void do_##name(struct pt_regs * regs, long error_code) \
+void do_##name(struct pt_regs * regs, long error_code) \
 { \
 	siginfo_t info; \
 	if (irq) \
@@ -535,7 +535,7 @@ fastcall void do_##name(struct pt_regs * regs, long error_code) \
 }
 
 #define DO_VM86_ERROR(trapnr, signr, str, name) \
-fastcall void do_##name(struct pt_regs * regs, long error_code) \
+void do_##name(struct pt_regs * regs, long error_code) \
 { \
 	if (notify_die(DIE_TRAP, str, regs, error_code, trapnr, signr) \
 						== NOTIFY_STOP) \
@@ -544,7 +544,7 @@ fastcall void do_##name(struct pt_regs * regs, long error_code) \
 }
 
 #define DO_VM86_ERROR_INFO(trapnr, signr, str, name, sicode, siaddr) \
-fastcall void do_##name(struct pt_regs * regs, long error_code) \
+void do_##name(struct pt_regs * regs, long error_code) \
 { \
 	siginfo_t info; \
 	info.si_signo = signr; \
@@ -571,7 +571,7 @@ DO_ERROR(12, SIGBUS,  "stack segment", stack_segment)
 DO_ERROR_INFO(17, SIGBUS, "alignment check", alignment_check, BUS_ADRALN, 0, 0)
 DO_ERROR_INFO(32, SIGSEGV, "iret exception", iret_error, ILL_BADSTK, 0, 1)
 
-fastcall void __kprobes do_general_protection(struct pt_regs * regs,
+void __kprobes do_general_protection(struct pt_regs * regs,
 					      long error_code)
 {
 	int cpu = get_cpu();
@@ -755,7 +755,7 @@ static __kprobes void default_do_nmi(struct pt_regs * regs)
 	reassert_nmi();
 }
 
-fastcall __kprobes void do_nmi(struct pt_regs * regs, long error_code)
+__kprobes void do_nmi(struct pt_regs * regs, long error_code)
 {
 	int cpu;
 
@@ -771,7 +771,7 @@ fastcall __kprobes void do_nmi(struct pt_regs * regs, long error_code)
 }
 
 #ifdef CONFIG_KPROBES
-fastcall void __kprobes do_int3(struct pt_regs *regs, long error_code)
+void __kprobes do_int3(struct pt_regs *regs, long error_code)
 {
 	if (notify_die(DIE_INT3, "int3", regs, error_code, 3, SIGTRAP)
 			== NOTIFY_STOP)
@@ -805,7 +805,7 @@ fastcall void __kprobes do_int3(struct pt_regs *regs, long error_code)
  * find every occurrence of the TF bit that could be saved away even
  * by user code)
  */
-fastcall void __kprobes do_debug(struct pt_regs * regs, long error_code)
+void __kprobes do_debug(struct pt_regs * regs, long error_code)
 {
 	unsigned int condition;
 	struct task_struct *tsk = current;
@@ -929,7 +929,7 @@ void math_error(void __user *eip)
 	force_sig_info(SIGFPE, &info, task);
 }
 
-fastcall void do_coprocessor_error(struct pt_regs * regs, long error_code)
+void do_coprocessor_error(struct pt_regs * regs, long error_code)
 {
 	ignore_fpu_irq = 1;
 	math_error((void __user *)regs->eip);
@@ -983,7 +983,7 @@ static void simd_math_error(void __user *eip)
 	force_sig_info(SIGFPE, &info, task);
 }
 
-fastcall void do_simd_coprocessor_error(struct pt_regs * regs,
+void do_simd_coprocessor_error(struct pt_regs * regs,
 					  long error_code)
 {
 	if (cpu_has_xmm) {
@@ -1007,7 +1007,7 @@ fastcall void do_simd_coprocessor_error(struct pt_regs * regs,
 	}
 }
 
-fastcall void do_spurious_interrupt_bug(struct pt_regs * regs,
+void do_spurious_interrupt_bug(struct pt_regs * regs,
 					  long error_code)
 {
 #if 0
@@ -1016,7 +1016,7 @@ fastcall void do_spurious_interrupt_bug(struct pt_regs * regs,
 #endif
 }
 
-fastcall unsigned long patch_espfix_desc(unsigned long uesp,
+unsigned long patch_espfix_desc(unsigned long uesp,
 					  unsigned long kesp)
 {
 	struct desc_struct *gdt = __get_cpu_var(gdt_page).gdt;

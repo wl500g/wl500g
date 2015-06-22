@@ -48,19 +48,19 @@ extern void generic_apic_probe(void);
 #define setup_secondary_clock setup_secondary_APIC_clock
 #endif
 
-static __inline fastcall void native_apic_write(unsigned long reg,
+static __inline void native_apic_write(unsigned long reg,
 						unsigned long v)
 {
 	*((volatile unsigned long *)(APIC_BASE+reg)) = v;
 }
 
-static __inline fastcall void native_apic_write_atomic(unsigned long reg,
+static __inline void native_apic_write_atomic(unsigned long reg,
 						       unsigned long v)
 {
 	xchg((volatile unsigned long *)(APIC_BASE+reg), v);
 }
 
-static __inline fastcall unsigned long native_apic_read(unsigned long reg)
+static __inline unsigned long native_apic_read(unsigned long reg)
 {
 	return *((volatile unsigned long *)(APIC_BASE+reg));
 }

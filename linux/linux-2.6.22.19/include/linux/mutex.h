@@ -112,7 +112,7 @@ extern void __mutex_init(struct mutex *lock, const char *name,
  *
  * Returns 1 if the mutex is locked, 0 if unlocked.
  */
-static inline int fastcall mutex_is_locked(struct mutex *lock)
+static inline int mutex_is_locked(struct mutex *lock)
 {
 	return atomic_read(&lock->count) != 1;
 }
@@ -132,9 +132,9 @@ extern int __must_check mutex_lock_killable_nested(struct mutex *lock,
 #define mutex_lock_interruptible(lock) mutex_lock_interruptible_nested(lock, 0)
 #define mutex_lock_killable(lock) mutex_lock_killable_nested(lock, 0)
 #else
-extern void fastcall mutex_lock(struct mutex *lock);
-extern int __must_check fastcall mutex_lock_interruptible(struct mutex *lock);
-extern int __must_check fastcall mutex_lock_killable(struct mutex *lock);
+extern void mutex_lock(struct mutex *lock);
+extern int __must_check mutex_lock_interruptible(struct mutex *lock);
+extern int __must_check mutex_lock_killable(struct mutex *lock);
 
 # define mutex_lock_nested(lock, subclass) mutex_lock(lock)
 # define mutex_lock_interruptible_nested(lock, subclass) mutex_lock_interruptible(lock)
@@ -147,8 +147,8 @@ extern int __must_check fastcall mutex_lock_killable(struct mutex *lock);
  *
  * Returns 1 if the mutex has been acquired successfully, and 0 on contention.
  */
-extern int fastcall mutex_trylock(struct mutex *lock);
-extern void fastcall mutex_unlock(struct mutex *lock);
+extern int mutex_trylock(struct mutex *lock);
+extern void mutex_unlock(struct mutex *lock);
 
 /**
  * atomic_dec_and_mutex_lock - return holding mutex if we dec to 0

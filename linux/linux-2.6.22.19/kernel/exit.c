@@ -455,7 +455,7 @@ struct files_struct *get_files_struct(struct task_struct *task)
 	return files;
 }
 
-void fastcall put_files_struct(struct files_struct *files)
+void put_files_struct(struct files_struct *files)
 {
 	struct fdtable *fdt;
 
@@ -843,7 +843,7 @@ static void exit_notify(struct task_struct *tsk)
 		release_task(tsk);
 }
 
-fastcall NORET_TYPE void do_exit(long code)
+NORET_TYPE void do_exit(long code)
 {
 	struct task_struct *tsk = current;
 	int group_dead;

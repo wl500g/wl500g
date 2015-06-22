@@ -66,10 +66,10 @@ static inline struct pid *get_pid(struct pid *pid)
 	return pid;
 }
 
-extern void FASTCALL(put_pid(struct pid *pid));
-extern struct task_struct *FASTCALL(pid_task(struct pid *pid, enum pid_type));
-extern struct task_struct *FASTCALL(get_pid_task(struct pid *pid,
-						enum pid_type));
+extern void put_pid(struct pid *pid);
+extern struct task_struct *pid_task(struct pid *pid, enum pid_type);
+extern struct task_struct *get_pid_task(struct pid *pid,
+					enum pid_type);
 
 extern struct pid *get_task_pid(struct task_struct *task, enum pid_type type);
 
@@ -77,17 +77,17 @@ extern struct pid *get_task_pid(struct task_struct *task, enum pid_type type);
  * attach_pid() and detach_pid() must be called with the tasklist_lock
  * write-held.
  */
-extern int FASTCALL(attach_pid(struct task_struct *task,
-				enum pid_type type, struct pid *pid));
-extern void FASTCALL(detach_pid(struct task_struct *task, enum pid_type));
-extern void FASTCALL(transfer_pid(struct task_struct *old,
-				  struct task_struct *new, enum pid_type));
+extern int attach_pid(struct task_struct *task,
+			enum pid_type type, struct pid *pid);
+extern void detach_pid(struct task_struct *task, enum pid_type);
+extern void transfer_pid(struct task_struct *old,
+			  struct task_struct *new, enum pid_type);
 
 /*
  * look up a PID in the hash table. Must be called with the tasklist_lock
  * or rcu_read_lock() held.
  */
-extern struct pid *FASTCALL(find_pid(int nr));
+extern struct pid *find_pid(int nr);
 
 /*
  * Lookup a PID in the hash table, and return with it's count elevated.
@@ -96,7 +96,7 @@ extern struct pid *find_get_pid(int nr);
 extern struct pid *find_ge_pid(int nr);
 
 extern struct pid *alloc_pid(void);
-extern void FASTCALL(free_pid(struct pid *pid));
+extern void free_pid(struct pid *pid);
 
 static inline pid_t pid_nr(struct pid *pid)
 {

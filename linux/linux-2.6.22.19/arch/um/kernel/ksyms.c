@@ -92,10 +92,10 @@ EXPORT_SYMBOL(do_settimeofday);
 
 /* required for SMP */
 
-extern void FASTCALL( __write_lock_failed(rwlock_t *rw));
+extern void __write_lock_failed(rwlock_t *rw);
 EXPORT_SYMBOL(__write_lock_failed);
 
-extern void FASTCALL( __read_lock_failed(rwlock_t *rw));
+extern void __read_lock_failed(rwlock_t *rw);
 EXPORT_SYMBOL(__read_lock_failed);
 
 #endif

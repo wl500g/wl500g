@@ -1561,14 +1561,14 @@ out:
 	return success;
 }
 
-int fastcall wake_up_process(struct task_struct *p)
+int wake_up_process(struct task_struct *p)
 {
 	return try_to_wake_up(p, TASK_STOPPED | TASK_TRACED |
 				 TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE, 0);
 }
 EXPORT_SYMBOL(wake_up_process);
 
-int fastcall wake_up_state(struct task_struct *p, unsigned int state)
+int wake_up_state(struct task_struct *p, unsigned int state)
 {
 	return try_to_wake_up(p, state, 0);
 }
@@ -1578,7 +1578,7 @@ static void task_running_tick(struct rq *rq, struct task_struct *p);
  * Perform scheduler related setup for a newly forked process p.
  * p is forked by current.
  */
-void fastcall sched_fork(struct task_struct *p, int clone_flags)
+void sched_fork(struct task_struct *p, int clone_flags)
 {
 	int cpu = get_cpu();
 
@@ -1647,7 +1647,7 @@ void fastcall sched_fork(struct task_struct *p, int clone_flags)
  * that must be done for every newly created context, then puts the task
  * on the runqueue and wakes it.
  */
-void fastcall wake_up_new_task(struct task_struct *p, unsigned long clone_flags)
+void wake_up_new_task(struct task_struct *p, unsigned long clone_flags)
 {
 	struct rq *rq, *this_rq;
 	unsigned long flags;
@@ -1731,7 +1731,7 @@ void fastcall wake_up_new_task(struct task_struct *p, unsigned long clone_flags)
  * artificially, because any timeslice recovered here
  * was given away by the parent in the first place.)
  */
-void fastcall sched_exit(struct task_struct *p)
+void sched_exit(struct task_struct *p)
 {
 	unsigned long flags;
 	struct rq *rq;
@@ -3394,7 +3394,7 @@ void scheduler_tick(void)
 
 #if defined(CONFIG_PREEMPT) && defined(CONFIG_DEBUG_PREEMPT)
 
-void fastcall add_preempt_count(int val)
+void add_preempt_count(int val)
 {
 	/*
 	 * Underflow?
@@ -3410,7 +3410,7 @@ void fastcall add_preempt_count(int val)
 }
 EXPORT_SYMBOL(add_preempt_count);
 
-void fastcall sub_preempt_count(int val)
+void sub_preempt_count(int val)
 {
 	/*
 	 * Underflow?
@@ -3758,7 +3758,7 @@ static void __wake_up_common(wait_queue_head_t *q, unsigned int mode,
  * @nr_exclusive: how many wake-one or wake-many threads to wake up
  * @key: is directly passed to the wakeup function
  */
-void fastcall __wake_up(wait_queue_head_t *q, unsigned int mode,
+void __wake_up(wait_queue_head_t *q, unsigned int mode,
 			int nr_exclusive, void *key)
 {
 	unsigned long flags;
@@ -3772,7 +3772,7 @@ EXPORT_SYMBOL(__wake_up);
 /*
  * Same as __wake_up but called with the spinlock in wait_queue_head_t held.
  */
-void fastcall __wake_up_locked(wait_queue_head_t *q, unsigned int mode)
+void __wake_up_locked(wait_queue_head_t *q, unsigned int mode)
 {
 	__wake_up_common(q, mode, 1, 0, NULL);
 }
@@ -3823,7 +3823,7 @@ void __wake_up_sync(wait_queue_head_t *q, unsigned int mode, int nr_exclusive)
 }
 EXPORT_SYMBOL_GPL(__wake_up_sync);	/* For internal use only */
 
-void fastcall complete(struct completion *x)
+void complete(struct completion *x)
 {
 	unsigned long flags;
 
@@ -3835,7 +3835,7 @@ void fastcall complete(struct completion *x)
 }
 EXPORT_SYMBOL(complete);
 
-void fastcall complete_all(struct completion *x)
+void complete_all(struct completion *x)
 {
 	unsigned long flags;
 
@@ -3847,7 +3847,7 @@ void fastcall complete_all(struct completion *x)
 }
 EXPORT_SYMBOL(complete_all);
 
-void fastcall __sched wait_for_completion(struct completion *x)
+void __sched wait_for_completion(struct completion *x)
 {
 	might_sleep();
 
@@ -3870,7 +3870,7 @@ void fastcall __sched wait_for_completion(struct completion *x)
 }
 EXPORT_SYMBOL(wait_for_completion);
 
-unsigned long fastcall __sched
+unsigned long __sched
 wait_for_completion_timeout(struct completion *x, unsigned long timeout)
 {
 	might_sleep();
@@ -3900,7 +3900,7 @@ out:
 }
 EXPORT_SYMBOL(wait_for_completion_timeout);
 
-int fastcall __sched wait_for_completion_interruptible(struct completion *x)
+int __sched wait_for_completion_interruptible(struct completion *x)
 {
 	int ret = 0;
 
@@ -3933,7 +3933,7 @@ out:
 }
 EXPORT_SYMBOL(wait_for_completion_interruptible);
 
-unsigned long fastcall __sched
+unsigned long __sched
 wait_for_completion_interruptible_timeout(struct completion *x,
 					  unsigned long timeout)
 {
@@ -3981,7 +3981,7 @@ EXPORT_SYMBOL(wait_for_completion_interruptible_timeout);
  *	enables us to avoid waiting if the resource the completion
  *	is protecting is not available.
  */
-bool fastcall try_wait_for_completion(struct completion *x)
+bool try_wait_for_completion(struct completion *x)
 {
 	int ret = 1;
 
@@ -4003,7 +4003,7 @@ EXPORT_SYMBOL(try_wait_for_completion);
  *		 1 if there are no waiters.
  *
  */
-bool fastcall completion_done(struct completion *x)
+bool completion_done(struct completion *x)
 {
 	int ret = 1;
 
@@ -4031,7 +4031,7 @@ EXPORT_SYMBOL(completion_done);
 	__remove_wait_queue(q, &wait);			\
 	spin_unlock_irqrestore(&q->lock, flags);
 
-void fastcall __sched interruptible_sleep_on(wait_queue_head_t *q)
+void __sched interruptible_sleep_on(wait_queue_head_t *q)
 {
 	SLEEP_ON_VAR
 
@@ -4043,7 +4043,7 @@ void fastcall __sched interruptible_sleep_on(wait_queue_head_t *q)
 }
 EXPORT_SYMBOL(interruptible_sleep_on);
 
-long fastcall __sched
+long __sched
 interruptible_sleep_on_timeout(wait_queue_head_t *q, long timeout)
 {
 	SLEEP_ON_VAR
@@ -4058,7 +4058,7 @@ interruptible_sleep_on_timeout(wait_queue_head_t *q, long timeout)
 }
 EXPORT_SYMBOL(interruptible_sleep_on_timeout);
 
-void fastcall __sched sleep_on(wait_queue_head_t *q)
+void __sched sleep_on(wait_queue_head_t *q)
 {
 	SLEEP_ON_VAR
 
@@ -4070,7 +4070,7 @@ void fastcall __sched sleep_on(wait_queue_head_t *q)
 }
 EXPORT_SYMBOL(sleep_on);
 
-long fastcall __sched sleep_on_timeout(wait_queue_head_t *q, long timeout)
+long __sched sleep_on_timeout(wait_queue_head_t *q, long timeout)
 {
 	SLEEP_ON_VAR
 
