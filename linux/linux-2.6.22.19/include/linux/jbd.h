@@ -16,6 +16,7 @@
 #ifndef _LINUX_JBD_H
 #define _LINUX_JBD_H
 
+#include <linux/types.h>
 /* Allow this file to be included directly into e2fsprogs */
 #ifndef __KERNEL__
 #include "jfs_compat.h"
@@ -23,7 +24,6 @@
 #define jfs_debug jbd_debug
 #else
 
-#include <linux/types.h>
 #include <linux/buffer_head.h>
 #include <linux/journal-head.h>
 #include <linux/stddef.h>
@@ -1040,8 +1040,6 @@ static inline void journal_abort_handle(handle_t *handle)
 	handle->h_aborted = 1;
 }
 
-#endif /* __KERNEL__   */
-
 /* Comparison functions for transaction IDs: perform comparisons using
  * modulo arithmetic so that they work over sequence number wraps. */
 
@@ -1089,8 +1087,6 @@ static inline int jbd_space_needed(journal_t *journal)
 #define BJ_Types	9
 
 extern int jbd_blocks_per_page(struct inode *inode);
-
-#ifdef __KERNEL__
 
 #define buffer_trace_init(bh)	do {} while (0)
 #define print_buffer_fields(bh)	do {} while (0)

@@ -15,6 +15,9 @@
  * interface.
  */
 
+#include <linux/dlm.h>
+#include <linux/types.h>
+
 #define DLM_USER_LVB_LEN	32
 
 /* Version of the device interface */

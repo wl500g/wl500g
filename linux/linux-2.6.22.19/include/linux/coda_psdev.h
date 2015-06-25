@@ -6,6 +6,7 @@
 #define CODA_PSDEV_MAJOR 67
 #define MAX_CODADEVS  5	   /* how many do we allow */
 
+#ifdef __KERNEL__
 struct kstatfs;
 
 struct coda_sb_info
@@ -72,10 +73,17 @@ int coda_downcall(int opcode, union outputArgs *out, struct super_block *sb);
 int venus_fsync(struct super_block *sb, struct CodaFid *fid);
 int venus_statfs(struct dentry *dentry, struct kstatfs *sfs);
 
-
-/* messages between coda filesystem in kernel and Venus */
 extern int coda_hard;
 extern unsigned long coda_timeout;
+
+/*
+ * Statistics
+ */
+
+extern struct venus_comm coda_comms[];
+#endif /* __KERNEL__ */
+
+/* messages between coda filesystem in kernel and Venus */
 struct upc_req {
 	struct list_head    uc_chain;
 	caddr_t	            uc_data;
@@ -93,11 +101,5 @@ struct upc_req {
 #define REQ_WRITE  0x4
 #define REQ_ABORT  0x8
 
-
-/*
- * Statistics
- */
-
-extern struct venus_comm coda_comms[];
 
 #endif

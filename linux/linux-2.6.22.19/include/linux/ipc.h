@@ -2,8 +2,6 @@
 #define _LINUX_IPC_H
 
 #include <linux/types.h>
-#include <linux/idr.h>
-#include <linux/rwsem.h>
 
 #define IPC_PRIVATE ((__kernel_key_t) 0)  
 
@@ -54,6 +52,8 @@ struct ipc_perm
 #ifdef __KERNEL__
 
 #include <linux/kref.h>
+#include <linux/idr.h>
+#include <linux/spinlock.h>
 
 #define IPCMNI 32768  /* <= MAX_INT limit for ipc arrays (including sysctl changes) */
 

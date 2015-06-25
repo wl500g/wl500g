@@ -8,7 +8,7 @@
  *       notice.
  */
 
-#include <asm/types.h>
+#include <linux/types.h>
 #include <linux/ioctl.h>
 
 #define KVM_API_VERSION 12

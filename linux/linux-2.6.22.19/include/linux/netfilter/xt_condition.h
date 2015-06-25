@@ -1,6 +1,8 @@
 #ifndef _XT_CONDITION_H
 #define _XT_CONDITION_H
 
+#include <linux/types.h>
+
 enum {
 	CONDITION_NAME_LEN = 31,
 };

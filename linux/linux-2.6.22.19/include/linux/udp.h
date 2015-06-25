@@ -45,8 +45,6 @@ static inline struct udphdr *udp_hdr(const struct sk_buff *skb)
 #define UDP_ENCAP_L2TPINUDP	3 /* rfc2661 */
 
 #ifdef __KERNEL__
-#include <linux/types.h>
-
 #include <net/inet_sock.h>
 #define UDP_HTABLE_SIZE		128
 

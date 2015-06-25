@@ -2,8 +2,6 @@
 #define _HIDDEV_H
 
 /*
- * $Id: hiddev.h,v 1.2 2001/04/26 11:26:09 vojtech Exp $
- *
  *  Copyright (c) 1999-2000 Vojtech Pavlik
  *
  *  Sponsored by SuSE
@@ -28,6 +26,8 @@
  * e-mail - mail your message to <vojtech@suse.cz>, or by paper mail:
  * Vojtech Pavlik, Ucitelska 1576, Prague 8, 182 00 Czech Republic
  */
+
+#include <linux/types.h>
 
 /*
  * The event structure itself

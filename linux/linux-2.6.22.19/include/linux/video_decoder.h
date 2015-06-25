@@ -3,6 +3,8 @@
 
 #define HAVE_VIDEO_DECODER 1
 
+#include <linux/types.h>
+
 struct video_decoder_capability { /* this name is too long */
 	__u32	flags;
 #define	VIDEO_DECODER_PAL	1	/* can decode PAL signal */

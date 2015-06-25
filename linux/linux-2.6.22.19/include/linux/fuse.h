@@ -19,7 +19,7 @@
  *  - add file flags field to fuse_read_in and fuse_write_in
  */
 
-#include <asm/types.h>
+#include <linux/types.h>
 #include <linux/major.h>
 
 /** Version number of this interface */

@@ -1,6 +1,8 @@
 #ifndef __LINUX_SHAPER_H
 #define __LINUX_SHAPER_H
 
+#include <linux/types.h>
+
 #ifdef __KERNEL__
 
 #define SHAPER_QLEN	10

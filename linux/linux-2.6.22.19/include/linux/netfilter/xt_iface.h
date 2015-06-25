@@ -1,6 +1,8 @@
 #ifndef _LINUX_NETFILTER_XT_IFACE_H
 #define _LINUX_NETFILTER_XT_IFACE_H 1
 
+#include <linux/types.h>
+
 enum {
 	XT_IFACE_UP          = 1 << 0,
 	XT_IFACE_BROADCAST   = 1 << 1,

@@ -8,6 +8,7 @@
 #ifndef _LINUX_SIGNALFD_H
 #define _LINUX_SIGNALFD_H
 
+#include <linux/types.h>
 
 struct signalfd_siginfo {
 	__u32 signo;

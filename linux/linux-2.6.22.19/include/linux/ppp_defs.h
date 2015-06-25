@@ -42,6 +42,8 @@
 #ifndef _PPP_DEFS_H_
 #define _PPP_DEFS_H_
 
+#include <linux/types.h>
+
 /*
  * The basic PPP frame.
  */

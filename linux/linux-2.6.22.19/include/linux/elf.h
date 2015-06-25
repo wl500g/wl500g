@@ -371,6 +371,7 @@ typedef struct elf64_note {
   Elf64_Word n_type;	/* Content type */
 } Elf64_Nhdr;
 
+#ifdef __KERNEL__
 #if ELF_CLASS == ELFCLASS32
 
 extern Elf32_Dyn _DYNAMIC [];
@@ -396,5 +397,6 @@ static inline void arch_write_notes(struct file *file) { }
 #define ELF_CORE_EXTRA_NOTES_SIZE arch_notes_size()
 #define ELF_CORE_WRITE_EXTRA_NOTES arch_write_notes(file)
 #endif /* ARCH_HAVE_EXTRA_ELF_NOTES */
+#endif /* __KERNEL__ */
 
 #endif /* _LINUX_ELF_H */

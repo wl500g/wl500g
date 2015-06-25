@@ -10,6 +10,7 @@
 #ifndef _LINUX_QNX4_FS_H
 #define _LINUX_QNX4_FS_H
 
+#include <linux/types.h>
 #include <linux/qnxtypes.h>
 #include <linux/magic.h>
 

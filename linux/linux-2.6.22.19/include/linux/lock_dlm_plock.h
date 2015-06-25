@@ -9,6 +9,8 @@
 #ifndef __LOCK_DLM_PLOCK_DOT_H__
 #define __LOCK_DLM_PLOCK_DOT_H__
 
+#include <linux/types.h>
+
 #define GDLM_PLOCK_MISC_NAME		"lock_dlm_plock"
 
 #define GDLM_PLOCK_VERSION_MAJOR	1
