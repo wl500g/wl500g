@@ -1,7 +1,7 @@
 /*
  * lanauth client
  * (c) visir
- * (c) 2009 theMIROn
+ * (c) 2009 Vladislav Grishenko <themiron@mail.ru>
  * "THE BEER-WARE LICENSE" (Revision 43):
  * <visir@telenet.ru> wrote this file.  As long as you retain this notice you
  * can do whatever you want with this stuff. If we meet some day, and you think
@@ -53,7 +53,7 @@ static void opensock();		/* connect to server */
 static void auth1();			/* generate response for v1 protocol */
 static void auth2();			/* generate response for v2 protocol */
 static void sigusr(int sig);		/* change access level */
-static int tmread(char *buf, int size, int timeout);	/* read with timeout */
+static int tmread(unsigned char *buf, int size, int timeout);	/* read with timeout */
 
 static void usage() {
 	printf("Usage: lanauth [-i] [-v 1|2] [-b localip] [-n] [-g gid] [-u uid] [-s gateip] [-l accesslevel] -p password\n");
@@ -201,7 +201,7 @@ static void sigusr(int sig) {
 
 static void opensock() {
 	struct sockaddr_in sin;
-	int len;
+	socklen_t len;
 	while (1) {
 		/* create socket */
 		if ((sock = socket(PF_INET, SOCK_STREAM, 0)) == -1)
@@ -244,7 +244,7 @@ static void opensock() {
 	syslog(LOG_NOTICE, "connected, gateway %s, local ip %s", gateip, localip);
 }
 
-static int tmread(char *buf, int size, int timeout) {
+static int tmread(unsigned char *buf, int size, int timeout) {
 	fd_set fds;
 	struct timeval tv;
 
@@ -287,11 +287,11 @@ static void auth1() {
 	hash_state ctx;
 	md5_init(&ctx);
 	md5_process(&ctx, challenge+1, challenge[0]);
-	md5_process(&ctx, localip, strlen(localip));
+	md5_process(&ctx, (unsigned char *)localip, strlen(localip));
 	level += '0';
-	md5_process(&ctx, &level, 1);
+	md5_process(&ctx, (unsigned char *)&level, 1);
 	level -= '0';
-	md5_process(&ctx, pass, strlen(pass));
+	md5_process(&ctx, (unsigned char *)pass, strlen(pass));
 	md5_done(&ctx, digest);
 }
 
@@ -303,6 +303,6 @@ static void auth2() {
 	digest[1] = 2 + rand() % 230;
 	rmd160_init(&ctx);
 	rmd160_process(&ctx, challenge+1, challenge[0]);
-	rmd160_process(&ctx, pass, strlen(pass));
+	rmd160_process(&ctx, (unsigned char *)pass, strlen(pass));
 	rmd160_done(&ctx, digest+digest[1]);
 }
