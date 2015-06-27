@@ -13,6 +13,7 @@
 
 #ifdef __GNUC__
 
+#ifdef __KERNEL__
 #ifdef CONFIG_CPU_MIPSR2
 
 static __inline__ __attribute_const__ __u16 ___arch__swab16(__u16 x)
@@ -54,8 +55,8 @@ static __inline__ __attribute_const__ __u64 ___arch__swab64(__u64 x)
 #define __arch__swab64(x)	___arch__swab64(x)
 
 #endif /* CONFIG_CPU_MIPS64_R2 */
-
 #endif /* CONFIG_CPU_MIPSR2 */
+#endif /* __KERNEL__ */
 
 #if !defined(__STRICT_ANSI__) || defined(__KERNEL__)
 #  define __BYTEORDER_HAS_U64__
