@@ -1507,7 +1507,7 @@ int sendMessage(char* message, int count)
 
 int checkSuccess()
 {
-	int ret, i;
+	int ret, i=0;
 	int newTargetCount, success=0;
 
 	SHOW_PROGRESS(output,"\nCheck for mode switch (max. %d times, once per second) ...\n", CheckSuccess);
@@ -1827,7 +1827,7 @@ int find_first_bulk_endpoint(int direction)
 
 int get_current_configuration()
 {
-	int ret, cfg=0;
+	int ret=0, cfg=0;
 	SHOW_PROGRESS(output,"Get the current device configuration ...\n");
 	if (active_config == NULL)
 		ret = libusb_get_active_config_descriptor(dev, &active_config);
