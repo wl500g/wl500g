@@ -1149,7 +1149,7 @@ scsi-idle-install:
 
 libusb/Makefile: libusb/Makefile.in
 	cd libusb && CFLAGS="-O2 $(EXTRACFLAGS)" \
-	$(CONFIGURE) --prefix=/usr ac_cv_lib_rt_clock_gettime=no
+	$(CONFIGURE) --prefix=/usr --enable-maintainer-mode=yes ac_cv_lib_rt_clock_gettime=no
 
 libusb: libusb/Makefile
 	$(MAKE) -C $@
