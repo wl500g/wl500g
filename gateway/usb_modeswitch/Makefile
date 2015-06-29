@@ -13,7 +13,7 @@ UDEVDIR     = $(DESTDIR)/lib/udev
 SBINDIR     = $(PREFIX)/sbin
 MANDIR      = $(PREFIX)/share/man/man1
 VPATH       = jimtcl
-HOST_TCL   := $(shell cd jim && ./autosetup/find-tclsh)
+HOST_TCL   ?= $(shell cd jim && ./autosetup/find-tclsh)
 ifeq (,$(findstring jimsh0,$(HOST_TCL)))
 TCL        ?= $(HOST_TCL)
 else
