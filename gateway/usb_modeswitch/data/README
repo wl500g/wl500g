@@ -100,6 +100,7 @@ DriverIDPath=<path to attribute>
 				on-the-fly, this is the file node to use.
 				Example: "/sys/bus/usb-serial/drivers/option1/new_id"
 
+See also complete parameter explanation in REFERENCE.
 
 
 Notes about specific devices:
@@ -109,8 +110,6 @@ Notes about specific devices:
   generic config files for these devices (Linux/Android) as fall-back or
   as OS-specific mode control. This was suggested and approved by the
   manufacturer
-
-- 1004:607f (LG KP500): switching message derived from report but untested
 
 - 1266:1000 (Royaltek Q110): switching method very likely but unconfirmed
 
@@ -145,4 +144,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2014-05-29, Josua Dietze
+Last revised: 2015-06-27, Josua Dietze
