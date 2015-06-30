@@ -599,7 +599,7 @@ static __inline__ int dn_queue_skb(struct sock *sk, struct sk_buff *skb, int sig
 	read_lock(&sk->sk_callback_lock);
 	if (!sock_flag(sk, SOCK_DEAD)) {
 		struct socket *sock = sk->sk_socket;
-		wake_up_interruptible(sk->sk_sleep);
+		wake_up_interruptible(sk_sleep(sk));
 		if (sock && sock->fasync_list &&
 		    !test_bit(SOCK_ASYNC_WAITDATA, &sock->flags))
 			__kill_fasync(sock->fasync_list, sig,

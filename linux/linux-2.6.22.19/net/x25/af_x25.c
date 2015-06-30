@@ -548,13 +548,11 @@ static struct sock *x25_make_new(struct sock *osk)
 	x25 = x25_sk(sk);
 
 	sk->sk_type        = osk->sk_type;
-	sk->sk_socket      = osk->sk_socket;
 	sk->sk_priority    = osk->sk_priority;
 	sk->sk_protocol    = osk->sk_protocol;
 	sk->sk_rcvbuf      = osk->sk_rcvbuf;
 	sk->sk_sndbuf      = osk->sk_sndbuf;
 	sk->sk_state       = TCP_ESTABLISHED;
-	sk->sk_sleep       = osk->sk_sleep;
 	sk->sk_backlog_rcv = osk->sk_backlog_rcv;
 	sock_copy_flags(sk, osk);
 
@@ -636,7 +634,7 @@ static int x25_wait_for_connection_establishment(struct sock *sk)
 	DECLARE_WAITQUEUE(wait, current);
 	int rc;
 
-	add_wait_queue_exclusive(sk->sk_sleep, &wait);
+	add_wait_queue_exclusive(sk_sleep(sk), &wait);
 	for (;;) {
 		__set_current_state(TASK_INTERRUPTIBLE);
 		rc = -ERESTARTSYS;
@@ -656,7 +654,7 @@ static int x25_wait_for_connection_establishment(struct sock *sk)
 			break;
 	}
 	__set_current_state(TASK_RUNNING);
-	remove_wait_queue(sk->sk_sleep, &wait);
+	remove_wait_queue(sk_sleep(sk), &wait);
 	return rc;
 }
 
@@ -754,7 +752,7 @@ static int x25_wait_for_data(struct sock *sk, long timeout)
 	DECLARE_WAITQUEUE(wait, current);
 	int rc = 0;
 
-	add_wait_queue_exclusive(sk->sk_sleep, &wait);
+	add_wait_queue_exclusive(sk_sleep(sk), &wait);
 	for (;;) {
 		__set_current_state(TASK_INTERRUPTIBLE);
 		if (sk->sk_shutdown & RCV_SHUTDOWN)
@@ -774,7 +772,7 @@ static int x25_wait_for_data(struct sock *sk, long timeout)
 			break;
 	}
 	__set_current_state(TASK_RUNNING);
-	remove_wait_queue(sk->sk_sleep, &wait);
+	remove_wait_queue(sk_sleep(sk), &wait);
 	return rc;
 }
 
@@ -801,14 +799,12 @@ static int x25_accept(struct socket *sock, struct socket *newsock, int flags)
 	if (!skb->sk)
 		goto out2;
 	newsk		 = skb->sk;
-	newsk->sk_socket = newsock;
-	newsk->sk_sleep  = &newsock->wait;
+	sock_graft(newsk, newsock);
 
 	/* Now attach up the new socket */
 	skb->sk = NULL;
 	kfree_skb(skb);
 	sk->sk_ack_backlog--;
-	newsock->sk    = newsk;
 	newsock->state = SS_CONNECTED;
 	rc = 0;
 out2:

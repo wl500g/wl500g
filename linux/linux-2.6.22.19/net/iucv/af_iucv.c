@@ -328,7 +328,7 @@ int iucv_sock_wait_state(struct sock *sk, int state, int state2,
 	DECLARE_WAITQUEUE(wait, current);
 	int err = 0;
 
-	add_wait_queue(sk->sk_sleep, &wait);
+	add_wait_queue(sk_sleep(sk), &wait);
 	while (sk->sk_state != state && sk->sk_state != state2) {
 		set_current_state(TASK_INTERRUPTIBLE);
 
@@ -351,7 +351,7 @@ int iucv_sock_wait_state(struct sock *sk, int state, int state2,
 			break;
 	}
 	set_current_state(TASK_RUNNING);
-	remove_wait_queue(sk->sk_sleep, &wait);
+	remove_wait_queue(sk_sleep(sk), &wait);
 	return err;
 }
 
@@ -537,7 +537,7 @@ static int iucv_sock_accept(struct socket *sock, struct socket *newsock,
 	timeo = sock_rcvtimeo(sk, flags & O_NONBLOCK);
 
 	/* Wait for an incoming connection */
-	add_wait_queue_exclusive(sk->sk_sleep, &wait);
+	add_wait_queue_exclusive(sk_sleep(sk), &wait);
 	while (!(nsk = iucv_accept_dequeue(sk, newsock))) {
 		set_current_state(TASK_INTERRUPTIBLE);
 		if (!timeo) {
@@ -561,7 +561,7 @@ static int iucv_sock_accept(struct socket *sock, struct socket *newsock,
 	}
 
 	set_current_state(TASK_RUNNING);
-	remove_wait_queue(sk->sk_sleep, &wait);
+	remove_wait_queue(sk_sleep(sk), &wait);
 
 	if (err)
 		goto done;
@@ -748,7 +748,7 @@ unsigned int iucv_sock_poll(struct file *file, struct socket *sock,
 	struct sock *sk = sock->sk;
 	unsigned int mask = 0;
 
-	poll_wait(file, sk->sk_sleep, wait);
+	poll_wait(file, sk_sleep(sk), wait);
 
 	if (sk->sk_state == IUCV_LISTEN)
 		return iucv_accept_poll(sk);

@@ -186,7 +186,7 @@ static int dccp_wait_for_ccid(struct sock *sk, struct sk_buff *skb)
 	int rc;
 
 	while (1) {
-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
+		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
 
 		if (sk->sk_err)
 			goto do_error;
@@ -205,7 +205,7 @@ static int dccp_wait_for_ccid(struct sock *sk, struct sk_buff *skb)
 		sk->sk_write_pending--;
 	}
 out:
-	finish_wait(sk->sk_sleep, &wait);
+	finish_wait(sk_sleep(sk), &wait);
 	return rc;
 
 do_error:

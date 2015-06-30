@@ -209,7 +209,7 @@ static int bnep_net_xmit(struct sk_buff *skb, struct net_device *dev)
 	/*
 	 * We cannot send L2CAP packets from here as we are potentially in a bh.
 	 * So we have to queue them and wake up session thread which is sleeping
-	 * on the sk->sk_sleep.
+	 * on the sk_sleep(sk).
 	 */
 	dev->trans_start = jiffies;
 	skb_queue_tail(&sk->sk_write_queue, skb);

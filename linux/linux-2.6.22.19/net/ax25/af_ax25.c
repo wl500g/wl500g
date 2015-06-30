@@ -878,13 +878,11 @@ struct sock *ax25_make_new(struct sock *osk, struct ax25_dev *ax25_dev)
 
 	sk->sk_destruct = ax25_free_sock;
 	sk->sk_type     = osk->sk_type;
-	sk->sk_socket   = osk->sk_socket;
 	sk->sk_priority = osk->sk_priority;
 	sk->sk_protocol = osk->sk_protocol;
 	sk->sk_rcvbuf   = osk->sk_rcvbuf;
 	sk->sk_sndbuf   = osk->sk_sndbuf;
 	sk->sk_state    = TCP_ESTABLISHED;
-	sk->sk_sleep    = osk->sk_sleep;
 	sock_copy_flags(sk, osk);
 
 	oax25 = sk_to_ax25(osk);
@@ -1262,7 +1260,7 @@ static int __must_check ax25_connect(struct socket *sock,
 		DEFINE_WAIT(wait);
 
 		for (;;) {
-			prepare_to_wait(sk->sk_sleep, &wait,
+			prepare_to_wait(sk_sleep(sk), &wait,
 			                TASK_INTERRUPTIBLE);
 			if (sk->sk_state != TCP_SYN_SENT)
 				break;
@@ -1275,7 +1273,7 @@ static int __must_check ax25_connect(struct socket *sock,
 			err = -ERESTARTSYS;
 			break;
 		}
-		finish_wait(sk->sk_sleep, &wait);
+		finish_wait(sk_sleep(sk), &wait);
 
 		if (err)
 			goto out_release;
@@ -1327,7 +1325,7 @@ static int ax25_accept(struct socket *sock, struct socket *newsock, int flags)
 	 *	hooked into the SABM we saved
 	 */
 	for (;;) {
-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
+		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
 		skb = skb_dequeue(&sk->sk_receive_queue);
 		if (skb)
 			break;
@@ -1345,19 +1343,17 @@ static int ax25_accept(struct socket *sock, struct socket *newsock, int flags)
 		err = -ERESTARTSYS;
 		break;
 	}
-	finish_wait(sk->sk_sleep, &wait);
+	finish_wait(sk_sleep(sk), &wait);
 
 	if (err)
 		goto out;
 
 	newsk		 = skb->sk;
-	newsk->sk_socket = newsock;
-	newsk->sk_sleep	 = &newsock->wait;
+	sock_graft(newsk, newsock);
 
 	/* Now attach up the new socket */
 	kfree_skb(skb);
 	sk->sk_ack_backlog--;
-	newsock->sk    = newsk;
 	newsock->state = SS_CONNECTED;
 
 out:
