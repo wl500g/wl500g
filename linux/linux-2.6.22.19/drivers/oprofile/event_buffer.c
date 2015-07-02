@@ -28,7 +28,7 @@ DEFINE_MUTEX(buffer_mutex);
  
 static unsigned long buffer_opened;
 static DECLARE_WAIT_QUEUE_HEAD(buffer_wait);
-static unsigned long * event_buffer;
+static unsigned long *event_buffer;
 static unsigned long buffer_size;
 static unsigned long buffer_watershed;
 static size_t buffer_pos;
@@ -96,14 +96,14 @@ void free_event_buffer(void)
 }
 
  
-static int event_buffer_open(struct inode * inode, struct file * file)
+static int event_buffer_open(struct inode *inode, struct file *file)
 {
 	int err = -EPERM;
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
-	if (test_and_set_bit(0, &buffer_opened))
+	if (test_and_set_bit_lock(0, &buffer_opened))
 		return -EBUSY;
 
 	/* Register as a user of dcookies
@@ -127,25 +127,25 @@ static int event_buffer_open(struct inode * inode, struct file * file)
 fail:
 	dcookie_unregister(file->private_data);
 out:
-	clear_bit(0, &buffer_opened);
+	__clear_bit_unlock(0, &buffer_opened);
 	return err;
 }
 
 
-static int event_buffer_release(struct inode * inode, struct file * file)
+static int event_buffer_release(struct inode *inode, struct file *file)
 {
 	oprofile_stop();
 	oprofile_shutdown();
 	dcookie_unregister(file->private_data);
 	buffer_pos = 0;
 	atomic_set(&buffer_ready, 0);
-	clear_bit(0, &buffer_opened);
+	__clear_bit_unlock(0, &buffer_opened);
 	return 0;
 }
 
 
-static ssize_t event_buffer_read(struct file * file, char __user * buf,
-				 size_t count, loff_t * offset)
+static ssize_t event_buffer_read(struct file *file, char __user *buf,
+				 size_t count, loff_t *offset)
 {
 	int retval = -EINVAL;
 	size_t const max = buffer_size * sizeof(unsigned long);

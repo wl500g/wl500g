@@ -13,18 +13,22 @@
 #include "event_buffer.h"
 #include "oprofile_stats.h"
 #include "oprof.h"
- 
-unsigned long fs_buffer_size = 131072;
-unsigned long fs_cpu_buffer_size = 8192;
-unsigned long fs_buffer_watershed = 32768; /* FIXME: tune */
 
-static ssize_t depth_read(struct file * file, char __user * buf, size_t count, loff_t * offset)
+#define FS_BUFFER_SIZE_DEFAULT		131072
+#define FS_CPU_BUFFER_SIZE_DEFAULT	8192
+#define FS_BUFFER_WATERSHED_DEFAULT	32768	/* FIXME: tune */
+
+unsigned long fs_buffer_size;
+unsigned long fs_cpu_buffer_size;
+unsigned long fs_buffer_watershed;
+
+static ssize_t depth_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
 	return oprofilefs_ulong_to_user(backtrace_depth, buf, count, offset);
 }
 
 
-static ssize_t depth_write(struct file * file, char const __user * buf, size_t count, loff_t * offset)
+static ssize_t depth_write(struct file *file, char const __user *buf, size_t count, loff_t *offset)
 {
 	unsigned long val;
 	int retval;
@@ -50,7 +54,7 @@ static const struct file_operations depth_fops = {
 };
 
  
-static ssize_t pointer_size_read(struct file * file, char __user * buf, size_t count, loff_t * offset)
+static ssize_t pointer_size_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
 	return oprofilefs_ulong_to_user(sizeof(void *), buf, count, offset);
 }
@@ -61,7 +65,7 @@ static const struct file_operations pointer_size_fops = {
 };
 
 
-static ssize_t cpu_type_read(struct file * file, char __user * buf, size_t count, loff_t * offset)
+static ssize_t cpu_type_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
 	return oprofilefs_str_to_user(oprofile_ops.cpu_type, buf, count, offset);
 }
@@ -72,13 +76,13 @@ static const struct file_operations cpu_type_fops = {
 };
  
  
-static ssize_t enable_read(struct file * file, char __user * buf, size_t count, loff_t * offset)
+static ssize_t enable_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
 	return oprofilefs_ulong_to_user(oprofile_started, buf, count, offset);
 }
 
 
-static ssize_t enable_write(struct file * file, char const __user * buf, size_t count, loff_t * offset)
+static ssize_t enable_write(struct file *file, char const __user *buf, size_t count, loff_t *offset)
 {
 	unsigned long val;
 	int retval;
@@ -107,7 +111,7 @@ static const struct file_operations enable_fops = {
 };
 
 
-static ssize_t dump_write(struct file * file, char const __user * buf, size_t count, loff_t * offset)
+static ssize_t dump_write(struct file *file, char const __user *buf, size_t count, loff_t *offset)
 {
 	wake_up_buffer_waiter();
 	return count;
@@ -118,8 +122,13 @@ static const struct file_operations dump_fops = {
 	.write		= dump_write,
 };
  
-void oprofile_create_files(struct super_block * sb, struct dentry * root)
+void oprofile_create_files(struct super_block *sb, struct dentry *root)
 {
+	/* reinitialize default values */
+	fs_buffer_size =	FS_BUFFER_SIZE_DEFAULT;
+	fs_cpu_buffer_size =	FS_CPU_BUFFER_SIZE_DEFAULT;
+	fs_buffer_watershed =	FS_BUFFER_WATERSHED_DEFAULT;
+
 	oprofilefs_create_file(sb, root, "enable", &enable_fops);
 	oprofilefs_create_file_perm(sb, root, "dump", &dump_fops, 0666);
 	oprofilefs_create_file(sb, root, "buffer", &event_buffer_fops);

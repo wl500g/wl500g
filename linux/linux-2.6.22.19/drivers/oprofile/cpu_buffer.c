@@ -27,7 +27,7 @@
 #include "buffer_sync.h"
 #include "oprof.h"
 
-struct oprofile_cpu_buffer cpu_buffer[NR_CPUS] __cacheline_aligned;
+DEFINE_PER_CPU(struct oprofile_cpu_buffer, cpu_buffer);
 
 static void wq_sync_buffer(struct work_struct *work);
 
@@ -37,9 +37,11 @@ static int work_enabled;
 void free_cpu_buffers(void)
 {
 	int i;
- 
-	for_each_online_cpu(i)
-		vfree(cpu_buffer[i].buffer);
+
+	for_each_possible_cpu(i) {
+		vfree(per_cpu(cpu_buffer, i).buffer);
+		per_cpu(cpu_buffer, i).buffer = NULL;
+	}
 }
 
 int alloc_cpu_buffers(void)
@@ -49,7 +51,7 @@ int alloc_cpu_buffers(void)
 	unsigned long buffer_size = fs_cpu_buffer_size;
  
 	for_each_online_cpu(i) {
-		struct oprofile_cpu_buffer * b = &cpu_buffer[i];
+		struct oprofile_cpu_buffer *b = &per_cpu(cpu_buffer, i);
  
 		b->buffer = vmalloc_node(sizeof(struct op_sample) * buffer_size,
 			cpu_to_node(i));
@@ -82,8 +84,8 @@ void start_cpu_work(void)
 
 	work_enabled = 1;
 
-	for_each_online_cpu(i) {
-		struct oprofile_cpu_buffer * b = &cpu_buffer[i];
+	for_each_possible_cpu(i) {
+		struct oprofile_cpu_buffer *b = &per_cpu(cpu_buffer, i);
 
 		/*
 		 * Spread the work by 1 jiffy per cpu so they dont all
@@ -100,27 +102,26 @@ void end_cpu_work(void)
 	work_enabled = 0;
 
 	for_each_online_cpu(i) {
-		struct oprofile_cpu_buffer * b = &cpu_buffer[i];
+		struct oprofile_cpu_buffer *b = &per_cpu(cpu_buffer, i);
 
 		cancel_delayed_work(&b->work);
 	}
-
-	flush_scheduled_work();
 }
 
 /* Resets the cpu buffer to a sane state. */
-void cpu_buffer_reset(struct oprofile_cpu_buffer * cpu_buf)
+void cpu_buffer_reset(struct oprofile_cpu_buffer *cpu_buf)
 {
-	/* reset these to invalid values; the next sample
-	 * collected will populate the buffer with proper
-	 * values to initialize the buffer
+	/*
+	 * reset these to invalid values; the next sample collected
+	 * will populate the buffer with proper values to initialize
+	 * the buffer
 	 */
 	cpu_buf->last_is_kernel = -1;
 	cpu_buf->last_task = NULL;
 }
 
 /* compute number of available slots in cpu_buffer queue */
-static unsigned long nr_available_slots(struct oprofile_cpu_buffer const * b)
+static unsigned long nr_available_slots(struct oprofile_cpu_buffer const *b)
 {
 	unsigned long head = b->head_pos;
 	unsigned long tail = b->tail_pos;
@@ -131,12 +132,14 @@ static unsigned long nr_available_slots(struct oprofile_cpu_buffer const * b)
 	return tail + (b->buffer_size - head) - 1;
 }
 
-static void increment_head(struct oprofile_cpu_buffer * b)
+static void increment_head(struct oprofile_cpu_buffer *b)
 {
 	unsigned long new_head = b->head_pos + 1;
 
-	/* Ensure anything written to the slot before we
-	 * increment is visible */
+	/*
+	 * Ensure anything written to the slot before we increment is
+	 * visible
+	 */
 	wmb();
 
 	if (new_head < b->buffer_size)
@@ -146,17 +149,17 @@ static void increment_head(struct oprofile_cpu_buffer * b)
 }
 
 static inline void
-add_sample(struct oprofile_cpu_buffer * cpu_buf,
+add_sample(struct oprofile_cpu_buffer *cpu_buf,
            unsigned long pc, unsigned long event)
 {
-	struct op_sample * entry = &cpu_buf->buffer[cpu_buf->head_pos];
+	struct op_sample *entry = &cpu_buf->buffer[cpu_buf->head_pos];
 	entry->eip = pc;
 	entry->event = event;
 	increment_head(cpu_buf);
 }
 
 static inline void
-add_code(struct oprofile_cpu_buffer * buffer, unsigned long value)
+add_code(struct oprofile_cpu_buffer *buffer, unsigned long value)
 {
 	add_sample(buffer, ESCAPE_CODE, value);
 }
@@ -170,10 +173,10 @@ add_code(struct oprofile_cpu_buffer * buffer, unsigned long value)
  * pc. We tag this in the buffer by generating kernel enter/exit
  * events whenever is_kernel changes
  */
-static int log_sample(struct oprofile_cpu_buffer * cpu_buf, unsigned long pc,
+static int log_sample(struct oprofile_cpu_buffer *cpu_buf, unsigned long pc,
 		      int is_kernel, unsigned long event)
 {
-	struct task_struct * task;
+	struct task_struct *task;
 
 	cpu_buf->sample_received++;
 
@@ -219,7 +222,7 @@ static int oprofile_begin_trace(struct oprofile_cpu_buffer * cpu_buf)
 	return 1;
 }
 
-static void oprofile_end_trace(struct oprofile_cpu_buffer * cpu_buf)
+static void oprofile_end_trace(struct oprofile_cpu_buffer *cpu_buf)
 {
 	cpu_buf->tracing = 0;
 }
@@ -227,7 +230,7 @@ static void oprofile_end_trace(struct oprofile_cpu_buffer * cpu_buf)
 void oprofile_add_ext_sample(unsigned long pc, struct pt_regs * const regs,
 				unsigned long event, int is_kernel)
 {
-	struct oprofile_cpu_buffer * cpu_buf = &cpu_buffer[smp_processor_id()];
+	struct oprofile_cpu_buffer *cpu_buf = &__get_cpu_var(cpu_buffer);
 
 	if (!backtrace_depth) {
 		log_sample(cpu_buf, pc, is_kernel, event);
@@ -237,8 +240,10 @@ void oprofile_add_ext_sample(unsigned long pc, struct pt_regs * const regs,
 	if (!oprofile_begin_trace(cpu_buf))
 		return;
 
-	/* if log_sample() fail we can't backtrace since we lost the source
-	 * of this event */
+	/*
+	 * if log_sample() fail we can't backtrace since we lost the
+	 * source of this event
+	 */
 	if (log_sample(cpu_buf, pc, is_kernel, event))
 		oprofile_ops.backtrace(regs, backtrace_depth);
 	oprofile_end_trace(cpu_buf);
@@ -254,13 +259,13 @@ void oprofile_add_sample(struct pt_regs * const regs, unsigned long event)
 
 void oprofile_add_pc(unsigned long pc, int is_kernel, unsigned long event)
 {
-	struct oprofile_cpu_buffer * cpu_buf = &cpu_buffer[smp_processor_id()];
+	struct oprofile_cpu_buffer *cpu_buf = &__get_cpu_var(cpu_buffer);
 	log_sample(cpu_buf, pc, is_kernel, event);
 }
 
 void oprofile_add_trace(unsigned long pc)
 {
-	struct oprofile_cpu_buffer * cpu_buf = &cpu_buffer[smp_processor_id()];
+	struct oprofile_cpu_buffer *cpu_buf = &__get_cpu_var(cpu_buffer);
 
 	if (!cpu_buf->tracing)
 		return;
@@ -271,8 +276,10 @@ void oprofile_add_trace(unsigned long pc)
 		return;
 	}
 
-	/* broken frame can give an eip with the same value as an escape code,
-	 * abort the trace if we get it */
+	/*
+	 * broken frame can give an eip with the same value as an
+	 * escape code, abort the trace if we get it
+	 */
 	if (pc == ESCAPE_CODE) {
 		cpu_buf->tracing = 0;
 		cpu_buf->backtrace_aborted++;
@@ -291,11 +298,16 @@ void oprofile_add_trace(unsigned long pc)
  */
 static void wq_sync_buffer(struct work_struct *work)
 {
-	struct oprofile_cpu_buffer * b =
+	struct oprofile_cpu_buffer *b =
 		container_of(work, struct oprofile_cpu_buffer, work.work);
 	if (b->cpu != smp_processor_id()) {
-		printk("WQ on CPU%d, prefer CPU%d\n",
+		printk(KERN_DEBUG "WQ on CPU%d, prefer CPU%d\n",
 		       smp_processor_id(), b->cpu);
+
+		if (!cpu_online(b->cpu)) {
+			cancel_delayed_work(&b->work);
+			return;
+		}
 	}
 	sync_buffer(b->cpu);
 
