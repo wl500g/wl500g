@@ -292,31 +292,17 @@ static ctl_table rtc_table[] = {
 	{ .ctl_name = 0 }
 };
 
-static ctl_table rtc_root[] = {
-	{
-		.ctl_name	= CTL_UNNUMBERED,
-		.procname	= "rtc",
-		.mode		= 0555,
-		.child		= rtc_table,
-	},
-	{ .ctl_name = 0 }
-};
-
-static ctl_table dev_root[] = {
-	{
-		.ctl_name	= CTL_DEV,
-		.procname	= "dev",
-		.mode		= 0555,
-		.child		= rtc_root,
-	},
-	{ .ctl_name = 0 }
+static const struct ctl_path rtc_path[] = {
+	{ .procname = "dev", .ctl_name = CTL_DEV, },
+	{ .procname = "rtc", .ctl_name = 0, },
+	{ }
 };
 
 static struct ctl_table_header *sysctl_header;
 
 static int __init init_sysctl(void)
 {
-    sysctl_header = register_sysctl_table(dev_root);
+    sysctl_header = register_sysctl_paths(rtc_path, rtc_table);
     return 0;
 }
 

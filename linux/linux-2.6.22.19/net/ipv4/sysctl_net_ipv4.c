@@ -44,6 +44,7 @@ static int proc_tcp_congestion_control(ctl_table *ctl, int write,
 	return ret;
 }
 
+#ifdef CONFIG_SYSCTL_SYSCALL
 static int sysctl_tcp_congestion_control(ctl_table *table,
 					 void __user *oldval,
 					 size_t __user *oldlenp,
@@ -62,6 +63,9 @@ static int sysctl_tcp_congestion_control(ctl_table *table,
 		ret = tcp_set_default_congestion_control(val);
 	return ret;
 }
+#else
+#define sysctl_tcp_congestion_control	NULL
+#endif
 
 static int proc_tcp_available_congestion_control(ctl_table *ctl,
 						 int write,

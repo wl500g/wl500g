@@ -713,26 +713,10 @@ static ctl_table hpet_table[] = {
 	{.ctl_name = 0}
 };
 
-static ctl_table hpet_root[] = {
-	{
-	 .ctl_name = CTL_UNNUMBERED,
-	 .procname = "hpet",
-	 .maxlen = 0,
-	 .mode = 0555,
-	 .child = hpet_table,
-	 },
-	{.ctl_name = 0}
-};
-
-static ctl_table dev_root[] = {
-	{
-	 .ctl_name = CTL_DEV,
-	 .procname = "dev",
-	 .maxlen = 0,
-	 .mode = 0555,
-	 .child = hpet_root,
-	 },
-	{.ctl_name = 0}
+static const struct ctl_path hpet_path[] = {
+	{ .procname = "dev", .ctl_name = CTL_DEV, },
+	{ .procname = "hpet", .ctl_name = 0, },
+	{ }
 };
 
 static struct ctl_table_header *sysctl_header;
@@ -1018,7 +1002,7 @@ static int __init hpet_init(void)
 	if (result < 0)
 		return -ENODEV;
 
-	sysctl_header = register_sysctl_table(dev_root);
+	sysctl_header = register_sysctl_paths(hpet_path, hpet_table);
 
 	result = acpi_bus_register_driver(&hpet_acpi_driver);
 	if (result < 0) {

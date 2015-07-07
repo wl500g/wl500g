@@ -28,7 +28,7 @@ static struct ctl_table ipx_table[] = {
 	{ 0 },
 };
 
-static struct ctl_path ipx_path[] = {
+static const struct ctl_path ipx_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "ipx", .ctl_name = NET_IPX, },
 	{ }

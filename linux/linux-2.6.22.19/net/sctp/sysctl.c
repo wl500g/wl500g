@@ -229,7 +229,7 @@ static ctl_table sctp_table[] = {
 	{ .ctl_name = 0 }
 };
 
-static struct ctl_path sctp_path[] = {
+static const struct ctl_path sctp_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "sctp", .ctl_name = NET_SCTP, },
 	{ }

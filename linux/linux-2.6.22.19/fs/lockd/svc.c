@@ -413,24 +413,10 @@ static ctl_table nlm_sysctls[] = {
 	{ .ctl_name = 0 }
 };
 
-static ctl_table nlm_sysctl_dir[] = {
-	{
-		.ctl_name	= CTL_UNNUMBERED,
-		.procname	= "nfs",
-		.mode		= 0555,
-		.child		= nlm_sysctls,
-	},
-	{ .ctl_name = 0 }
-};
-
-static ctl_table nlm_sysctl_root[] = {
-	{
-		.ctl_name	= CTL_FS,
-		.procname	= "fs",
-		.mode		= 0555,
-		.child		= nlm_sysctl_dir,
-	},
-	{ .ctl_name = 0 }
+static const struct ctl_path nlm_path[] = {
+	{ .procname = "fs", .ctl_name = CTL_FS, },
+	{ .procname = "nfs", .ctl_name = 0, },
+	{ }
 };
 
 /*
@@ -506,7 +492,7 @@ module_param(nsm_use_hostnames, bool, 0644);
 
 static int __init init_nlm(void)
 {
-	nlm_sysctl_table = register_sysctl_table(nlm_sysctl_root);
+	nlm_sysctl_table = register_sysctl_paths(nlm_path, nlm_sysctls);
 	return nlm_sysctl_table ? 0 : -ENOMEM;
 }
 

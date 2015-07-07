@@ -125,26 +125,10 @@ static ctl_table raid_table[] = {
 	{ .ctl_name = 0 }
 };
 
-static ctl_table raid_dir_table[] = {
-	{
-		.ctl_name	= DEV_RAID,
-		.procname	= "raid",
-		.maxlen		= 0,
-		.mode		= S_IRUGO|S_IXUGO,
-		.child		= raid_table,
-	},
-	{ .ctl_name = 0 }
-};
-
-static ctl_table raid_root_table[] = {
-	{
-		.ctl_name	= CTL_DEV,
-		.procname	= "dev",
-		.maxlen		= 0,
-		.mode		= 0555,
-		.child		= raid_dir_table,
-	},
-	{ .ctl_name = 0 }
+static const struct ctl_path raid_path[] = {
+	{ .procname = "dev", .ctl_name = CTL_DEV, },
+	{ .procname = "raid", .ctl_name = DEV_RAID, },
+	{ }
 };
 
 static struct block_device_operations md_fops;
@@ -5738,7 +5722,7 @@ static int __init md_init(void)
 			    md_probe, NULL, NULL);
 
 	register_reboot_notifier(&md_notifier);
-	raid_table_header = register_sysctl_table(raid_root_table);
+	raid_table_header = register_sysctl_paths(raid_path, raid_table);
 
 	md_geninit();
 	return (0);

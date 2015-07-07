@@ -1829,24 +1829,10 @@ static ctl_table fs_dqstats_table[] = {
 	{ .ctl_name = 0 },
 };
 
-static ctl_table fs_table[] = {
-	{
-		.ctl_name	= FS_DQSTATS,
-		.procname	= "quota",
-		.mode		= 0555,
-		.child		= fs_dqstats_table,
-	},
-	{ .ctl_name = 0 },
-};
-
-static ctl_table sys_table[] = {
-	{
-		.ctl_name	= CTL_FS,
-		.procname	= "fs",
-		.mode		= 0555,
-		.child		= fs_table,
-	},
-	{ .ctl_name = 0 },
+static const struct ctl_path dq_path[] = {
+	{ .procname = "fs", .ctl_name = CTL_FS, },
+	{ .procname = "quota", .ctl_name = FS_DQSTATS, },
+	{ }
 };
 
 static int __init dquot_init(void)
@@ -1856,7 +1842,7 @@ static int __init dquot_init(void)
 
 	printk(KERN_NOTICE "VFS: Disk quotas %s\n", __DQUOT_VERSION__);
 
-	register_sysctl_table(sys_table);
+	register_sysctl_paths(dq_path, fs_dqstats_table);
 
 	dquot_cachep = kmem_cache_create("dquot",
 			sizeof(struct dquot), sizeof(unsigned long) * 4,

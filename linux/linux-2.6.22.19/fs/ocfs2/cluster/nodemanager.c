@@ -64,28 +64,10 @@ static ctl_table ocfs2_mod_table[] = {
 	{ .ctl_name = 0}
 };
 
-static ctl_table ocfs2_kern_table[] = {
-	{
-		.ctl_name	= FS_OCFS2,
-		.procname	= "ocfs2",
-		.data		= NULL,
-		.maxlen		= 0,
-		.mode		= 0555,
-		.child		= ocfs2_mod_table
-	},
-	{ .ctl_name = 0}
-};
-
-static ctl_table ocfs2_root_table[] = {
-	{
-		.ctl_name	= CTL_FS,
-		.procname	= "fs",
-		.data		= NULL,
-		.maxlen		= 0,
-		.mode		= 0555,
-		.child		= ocfs2_kern_table
-	},
-	{ .ctl_name = 0 }
+static const struct ctl_path ocfs2_path[] = {
+	{ .procname = "fs", .ctl_name = CTL_FS, },
+	{ .procname = "ocfs2", .ctl_name = FS_OCFS2, },
+	{ }
 };
 
 static struct ctl_table_header *ocfs2_table_header = NULL;
@@ -921,7 +903,7 @@ static int __init init_o2nm(void)
 	o2hb_init();
 	o2net_init();
 
-	ocfs2_table_header = register_sysctl_table(ocfs2_root_table);
+	ocfs2_table_header = register_sysctl_paths(ocfs2_path, ocfs2_mod_table);
 	if (!ocfs2_table_header) {
 		printk(KERN_ERR "nodemanager: unable to register sysctl\n");
 		ret = -ENOMEM; /* or something. */

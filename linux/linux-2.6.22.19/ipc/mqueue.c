@@ -1221,23 +1221,10 @@ static ctl_table mq_sysctls[] = {
 	{ .ctl_name = 0 }
 };
 
-static ctl_table mq_sysctl_dir[] = {
-	{
-		.procname	= "mqueue",
-		.mode		= 0555,
-		.child		= mq_sysctls,
-	},
-	{ .ctl_name = 0 }
-};
-
-static ctl_table mq_sysctl_root[] = {
-	{
-		.ctl_name	= CTL_FS,
-		.procname	= "fs",
-		.mode		= 0555,
-		.child		= mq_sysctl_dir,
-	},
-	{ .ctl_name = 0 }
+static const struct ctl_path mq_path[] = {
+	{ .procname = "fs", .ctl_name = CTL_FS, },
+	{ .procname = "mqueue", .ctl_name = 0, },
+	{ }
 };
 
 static int __init init_mqueue_fs(void)
@@ -1251,7 +1238,7 @@ static int __init init_mqueue_fs(void)
 		return -ENOMEM;
 
 	/* ignore failues - they are not fatal */
-	mq_sysctl_table = register_sysctl_table(mq_sysctl_root);
+	mq_sysctl_table = register_sysctl_paths(mq_path, mq_sysctls);
 
 	error = register_filesystem(&mqueue_fs_type);
 	if (error)

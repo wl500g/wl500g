@@ -138,7 +138,7 @@ static ctl_table rose_table[] = {
 	{ .ctl_name = 0 }
 };
 
-static struct ctl_path rose_path[] = {
+static const struct ctl_path rose_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "rose", .ctl_name = NET_ROSE, },
 	{ }

@@ -21,19 +21,9 @@ static ctl_table scsi_table[] = {
 	{ }
 };
 
-static ctl_table scsi_dir_table[] = {
-	{ .ctl_name	= DEV_SCSI,
-	  .procname	= "scsi",
-	  .mode		= 0555,
-	  .child	= scsi_table },
-	{ }
-};
-
-static ctl_table scsi_root_table[] = {
-	{ .ctl_name	= CTL_DEV,
-	  .procname	= "dev",
-	  .mode		= 0555,
-	  .child	= scsi_dir_table },
+static const struct ctl_path scsi_path[] = {
+	{ .procname = "dev", .ctl_name = CTL_DEV, },
+	{ .procname = "scsi", .ctl_name = DEV_SCSI, },
 	{ }
 };
 
@@ -41,7 +31,7 @@ static struct ctl_table_header *scsi_table_header;
 
 int __init scsi_init_sysctl(void)
 {
-	scsi_table_header = register_sysctl_table(scsi_root_table);
+	scsi_table_header = register_sysctl_paths(scsi_path, scsi_table);
 	if (!scsi_table_header)
 		return -ENOMEM;
 	return 0;

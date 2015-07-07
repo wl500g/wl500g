@@ -92,7 +92,7 @@ static struct ctl_table llc_table[] = {
 	{ 0 },
 };
 
-static struct ctl_path llc_path[] = {
+static const struct ctl_path llc_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "llc", .ctl_name = NET_LLC, },
 	{ }

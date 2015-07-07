@@ -234,7 +234,7 @@ static ctl_table irda_table[] = {
 	{ .ctl_name = 0 }
 };
 
-static struct ctl_path irda_path[] = {
+static const struct ctl_path irda_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "irda", .ctl_name = NET_IRDA, },
 	{ }

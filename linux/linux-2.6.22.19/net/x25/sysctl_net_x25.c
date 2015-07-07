@@ -84,7 +84,7 @@ static struct ctl_table x25_table[] = {
 	{ 0, },
 };
 
-static struct ctl_path x25_path[] = {
+static const struct ctl_path x25_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "x25", .ctl_name = NET_X25, },
 	{ }

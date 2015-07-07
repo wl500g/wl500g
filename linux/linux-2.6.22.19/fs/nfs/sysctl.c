@@ -61,29 +61,15 @@ static ctl_table nfs_cb_sysctls[] = {
 	{ .ctl_name = 0 }
 };
 
-static ctl_table nfs_cb_sysctl_dir[] = {
-	{
-		.ctl_name = CTL_UNNUMBERED,
-		.procname = "nfs",
-		.mode = 0555,
-		.child = nfs_cb_sysctls,
-	},
-	{ .ctl_name = 0 }
-};
-
-static ctl_table nfs_cb_sysctl_root[] = {
-	{
-		.ctl_name = CTL_FS,
-		.procname = "fs",
-		.mode = 0555,
-		.child = nfs_cb_sysctl_dir,
-	},
-	{ .ctl_name = 0 }
+static const struct ctl_path nfs_cb_path[] = {
+	{ .procname = "fs", .ctl_name = CTL_FS, },
+	{ .procname = "nfs", .ctl_name = 0, },
+	{ }
 };
 
 int nfs_register_sysctl(void)
 {
-	nfs_callback_sysctl_table = register_sysctl_table(nfs_cb_sysctl_root);
+	nfs_callback_sysctl_table = register_sysctl_paths(nfs_cb_path, nfs_cb_sysctls);
 	if (nfs_callback_sysctl_table == NULL)
 		return -ENOMEM;
 	return 0;

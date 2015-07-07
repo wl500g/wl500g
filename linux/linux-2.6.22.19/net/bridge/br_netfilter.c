@@ -959,7 +959,7 @@ static ctl_table brnf_table[] = {
 	{ .ctl_name = 0 }
 };
 
-static struct ctl_path brnf_path[] = {
+static const struct ctl_path brnf_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "bridge", .ctl_name = NET_BRIDGE, },
 	{ }

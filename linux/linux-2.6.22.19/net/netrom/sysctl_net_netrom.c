@@ -170,7 +170,7 @@ static ctl_table nr_table[] = {
 	{ .ctl_name = 0 }
 };
 
-static struct ctl_path nr_path[] = {
+static const struct ctl_path nr_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "netrom", .ctl_name = NET_NETROM, },
 	{ }

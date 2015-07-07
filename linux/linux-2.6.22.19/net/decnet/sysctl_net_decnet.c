@@ -468,7 +468,7 @@ static ctl_table dn_table[] = {
 	{0}
 };
 
-static struct ctl_path dn_path[] = {
+static const struct ctl_path dn_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "decnet", .ctl_name = NET_DECNET, },
 	{ }

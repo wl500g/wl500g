@@ -26,7 +26,7 @@ static ctl_table unix_table[] = {
 	{ .ctl_name = 0 }
 };
 
-static struct ctl_path unix_path[] = {
+static const struct ctl_path unix_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "unix", .ctl_name = NET_UNIX, },
 	{ },

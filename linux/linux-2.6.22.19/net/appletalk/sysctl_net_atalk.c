@@ -49,7 +49,7 @@ static struct ctl_table atalk_table[] = {
 	{ 0 },
 };
 
-static struct ctl_path atalk_path[] = {
+static const struct ctl_path atalk_path[] = {
 	{ .procname = "net", .ctl_name = CTL_NET, },
 	{ .procname = "appletalk", .ctl_name = NET_ATALK, },
 	{ }

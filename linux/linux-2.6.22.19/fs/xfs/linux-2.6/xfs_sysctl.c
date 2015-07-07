@@ -238,30 +238,16 @@ static ctl_table xfs_table[] = {
 	{}
 };
 
-static ctl_table xfs_dir_table[] = {
-	{
-		.ctl_name	= FS_XFS,
-		.procname	= "xfs",
-		.mode		= 0555,
-		.child		= xfs_table
-	},
-	{}
-};
-
-static ctl_table xfs_root_table[] = {
-	{
-		.ctl_name	= CTL_FS,
-		.procname	= "fs",
-		.mode		= 0555,
-		.child		= xfs_dir_table
-	},
-	{}
+static const struct ctl_path xfs_path[] = {
+	{ .procname = "fs", .ctl_name = CTL_FS, },
+	{ .procname = "xfs", .ctl_name = FS_XFS, },
+	{ }
 };
 
 int
 xfs_sysctl_register(void)
 {
-	xfs_table_header = register_sysctl_table(xfs_root_table);
+	xfs_table_header = register_sysctl_paths(xfs_path, xfs_table);
 	if (!xfs_table_header)
 		return -ENOMEM;
 	return 0;
