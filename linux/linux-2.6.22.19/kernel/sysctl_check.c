@@ -665,7 +665,6 @@ static const struct trans_ctl_table trans_net_netfilter_table[] = {
 	{ NET_NF_CONNTRACK_FRAG6_LOW_THRESH,		"nf_conntrack_frag6_low_thresh" },
 	{ NET_NF_CONNTRACK_FRAG6_HIGH_THRESH,		"nf_conntrack_frag6_high_thresh" },
 	{ NET_NF_CONNTRACK_CHECKSUM,			"nf_conntrack_checksum" },
-	{ NET_NF_CONNTRACK_FASTNAT,			"nf_conntrack_fastnat" },
 
 	{}
 };

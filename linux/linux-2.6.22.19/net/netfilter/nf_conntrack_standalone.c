@@ -361,7 +361,6 @@ static ctl_table nf_ct_sysctl_table[] = {
 	},
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 	{
-		.ctl_name	= NET_NF_CONNTRACK_FASTNAT,
 		.procname	= "nf_conntrack_fastnat",
 		.data		= &nf_conntrack_fastnat,
 		.maxlen		= sizeof(int),
@@ -370,7 +369,6 @@ static ctl_table nf_ct_sysctl_table[] = {
 	},
 #if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
 	{
-		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "nf_conntrack_fastnat_http",
 		.data		= &nf_conntrack_fastnat_http,
 		.maxlen		= sizeof(int),
