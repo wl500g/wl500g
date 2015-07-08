@@ -2657,8 +2657,6 @@ source "drivers/net/wan/Kconfig"
 
 source "drivers/atm/Kconfig"
 
-source "drivers/s390/net/Kconfig"
-
 config ISERIES_VETH
 	tristate "iSeries Virtual Ethernet driver support"
 	depends on PPC_ISERIES

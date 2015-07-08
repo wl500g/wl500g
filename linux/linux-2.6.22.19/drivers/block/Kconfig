@@ -441,8 +441,6 @@ config ATA_OVER_ETH
 	This driver provides Support for ATA over Ethernet block
 	devices like the Coraid EtherDrive (R) Storage Blade.
 
-source "drivers/s390/block/Kconfig"
-
 endmenu
 
 endif
