@@ -42,6 +42,7 @@
 #define HAVE_WIRELESS
 
 #ifdef HAVE_WIRELESS
+#include <linux/version.h>
   /* for get access-point address (BSSID) and infrastructure mode */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0))
 # include <linux/if.h>
