@@ -12,6 +12,7 @@ UPSDIR      = $(ETCDIR)/init
 UDEVDIR     = $(DESTDIR)/lib/udev
 SBINDIR     = $(PREFIX)/sbin
 MANDIR      = $(PREFIX)/share/man/man1
+ifeq ($(findstring $(MAKECMDGOALS),clean distclean),)
 VPATH       = jimtcl
 HOST_TCL   ?= $(shell cd jim && ./autosetup/find-tclsh)
 ifeq (,$(findstring jimsh0,$(HOST_TCL)))
@@ -21,6 +22,7 @@ TCL        ?= /usr/bin/tclsh
 endif
 JIM_CONFIGURE_OPTS = --disable-lineedit \
 	--with-out-jim-ext="stdlib posix load signal syslog" --prefix=/usr
+endif
 
 .PHONY: clean install install-common uninstall \
 	script shared static \
