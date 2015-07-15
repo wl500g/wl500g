@@ -1,5 +1,5 @@
 PROG        = usb_modeswitch
-VERS        = 2.2.2
+VERS        = 2.2.5
 CC          ?= gcc
 CFLAGS      += -Wall
 LIBS        = `pkg-config --libs --cflags libusb-1.0`

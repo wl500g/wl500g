@@ -9,7 +9,7 @@
 # the mode switching program with the matching parameter
 # file from /usr/share/usb_modeswitch
 #
-# Part of usb-modeswitch-2.2.2 package
+# Part of usb-modeswitch-2.2.5 package
 # (C) Josua Dietze 2009-2015
 
 set arg0 [lindex $argv 0]
@@ -298,6 +298,7 @@ foreach mconfig $configList {
 			set report "ok:busdev"
 			break
 		}
+		UnbindDriver $devdir $ifdir
 		# Now we are actually switching
 		if $flags(logging) {
 			Log "Command to be run:\nusb_modeswitch -W -D $configParam $busParam $devParam -v $usb(idVendor) -p $usb(idProduct) -f \$flags(config)"
@@ -321,7 +322,10 @@ foreach mconfig $configList {
 # done by usb_modeswitch and logged via syslog OR bus/dev
 # parameter were used; then we do check for success HERE
 
-#Log "Result from core tool: $report"
+if {$config(Configuration) != ""} {
+	set ifdir [regsub {(\d):\d+\.0} $ifdir "\\1:$config(Configuration).0"]
+}
+
 if [regexp {ok:busdev} $report] {
 	if [CheckSuccess $devdir] {
 		Log "Mode switching was successful, found $usb(idVendor):$usb(idProduct) ($usb(manufacturer): $usb(product))"
@@ -1159,6 +1163,16 @@ if {$config(PantechMode) == 1} {
 		return 1
 	}
 } else {return 0}
+
+}
+
+proc UnbindDriver {devdir ifdir} {
+
+set att $devdir/$ifdir/driver/unbind
+if [file exists $att] {
+	Log "Unbinding driver"
+	exec echo -n "$ifdir" > $att
+}
 
 }
 

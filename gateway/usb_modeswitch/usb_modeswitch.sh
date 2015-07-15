@@ -1,5 +1,5 @@
 #!/bin/sh
-# part of usb_modeswitch 2.2.2
+# part of usb_modeswitch 2.2.5
 device_in()
 {
 	if [ ! -e /var/lib/usb_modeswitch/$1 ]; then
@@ -73,7 +73,6 @@ case "$1" in
 		exit 0
 		;;
 esac
-exec 1<&- 2<&- 5<&- 7<&-
 (
 IFS='/' read -r p1 p2 <<EOF
 $1
