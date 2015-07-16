@@ -410,7 +410,4 @@ void script_call(const char *status)
 		execv(argv[0], argv);
 		_exit(128);
 	}
-
-	// Delete lost prefixes and user opts
-	odhcp6c_clear_state(STATE_CUSTOM_OPTS);
 }
