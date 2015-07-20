@@ -79,6 +79,8 @@ pci_find_next_bus(const struct pci_bus *from)
 	return b;
 }
 
+#ifdef CONFIG_PCI_LEGACY
+
 /**
  * pci_find_slot - locate PCI device from a given PCI slot
  * @bus: number of PCI bus on which desired PCI device resides
@@ -102,6 +104,8 @@ pci_find_slot(unsigned int bus, unsigned int devfn)
 	}
 	return NULL;
 }
+
+#endif /* CONFIG_PCI_LEGACY */
 
 /**
  * pci_get_slot - locate PCI device for a given PCI slot
@@ -139,11 +143,13 @@ struct pci_dev * pci_get_slot(struct pci_bus *bus, unsigned int devfn)
 }
 
 /**
- * pci_get_bus_and_slot - locate PCI device from a given PCI slot
+ * pci_get_bus_and_slot - locate PCI device from a given PCI bus & slot
  * @bus: number of PCI bus on which desired PCI device resides
  * @devfn: encodes number of PCI slot in which the desired PCI
  * device resides and the logical device number within that slot
  * in case of multi-function devices.
+ *
+ * Note: the bus/slot search is limited to PCI domain (segment) 0.
  *
  * Given a PCI bus and slot/function number, the desired PCI device
  * is located in system global list of PCI devices.  If the device
@@ -157,12 +163,14 @@ struct pci_dev * pci_get_bus_and_slot(unsigned int bus, unsigned int devfn)
 	struct pci_dev *dev = NULL;
 
 	while ((dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev)) != NULL) {
-		if (dev->bus->number == bus && dev->devfn == devfn)
+		if (pci_domain_nr(dev->bus) == 0 &&
+		   (dev->bus->number == bus && dev->devfn == devfn))
 			return dev;
 	}
 	return NULL;
 }
 
+#ifdef CONFIG_PCI_LEGACY
 /**
  * pci_find_subsys - begin or continue searching for a PCI device by vendor/subvendor/device/subdevice id
  * @vendor: PCI vendor id to match, or %PCI_ANY_ID to match all vendor ids
@@ -199,7 +207,7 @@ static struct pci_dev * pci_find_subsys(unsigned int vendor,
 	 * can cause some machines to crash.  So here we detect and flag that
 	 * situation and bail out early.
 	 */
-	if (unlikely(list_empty(&pci_devices)))
+	if (unlikely(no_pci_devices()))
 		return NULL;
 	down_read(&pci_bus_sem);
 	n = from ? from->global_list.next : pci_devices.next;
@@ -241,6 +249,7 @@ pci_find_device(unsigned int vendor, unsigned int device, const struct pci_dev *
 {
 	return pci_find_subsys(vendor, device, PCI_ANY_ID, PCI_ANY_ID, from);
 }
+#endif /* CONFIG_PCI_LEGACY */
 
 /**
  * pci_get_subsys - begin or continue searching for a PCI device by vendor/subvendor/device/subdevice id
@@ -274,7 +283,7 @@ pci_get_subsys(unsigned int vendor, unsigned int device,
 	 * can cause some machines to crash.  So here we detect and flag that
 	 * situation and bail out early.
 	 */
-	if (unlikely(list_empty(&pci_devices)))
+	if (unlikely(no_pci_devices()))
 		return NULL;
 	down_read(&pci_bus_sem);
 	n = from ? from->global_list.next : pci_devices.next;
@@ -431,8 +440,11 @@ int pci_dev_present(const struct pci_device_id *ids)
 EXPORT_SYMBOL(pci_dev_present);
 EXPORT_SYMBOL(pci_find_present);
 
+#ifdef CONFIG_PCI_LEGACY
 EXPORT_SYMBOL(pci_find_device);
 EXPORT_SYMBOL(pci_find_slot);
+#endif /* CONFIG_PCI_LEGACY */
+
 /* For boot time work */
 EXPORT_SYMBOL(pci_find_bus);
 EXPORT_SYMBOL(pci_find_next_bus);
