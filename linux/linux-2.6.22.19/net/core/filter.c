@@ -27,6 +27,7 @@
 #include <linux/if_packet.h>
 #include <net/ip.h>
 #include <net/protocol.h>
+#include <net/netlink.h>
 #include <linux/skbuff.h>
 #include <net/sock.h>
 #include <linux/errno.h>
@@ -302,6 +303,44 @@ load_b:
 		case SKF_AD_IFINDEX:
 			A = skb->dev->ifindex;
 			continue;
+		case SKF_AD_MARK:
+			A = skb->mark;
+			continue;
+		case SKF_AD_NLATTR: {
+			struct nlattr *nla;
+
+			if (skb_is_nonlinear(skb))
+				return 0;
+			if (A > skb->len - sizeof(struct nlattr))
+				return 0;
+
+			nla = nla_find((struct nlattr *)&skb->data[A],
+				       skb->len - A, X);
+			if (nla)
+				A = (void *)nla - (void *)skb->data;
+			else
+				A = 0;
+			continue;
+		}
+		case SKF_AD_NLATTR_NEST: {
+			struct nlattr *nla;
+
+			if (skb_is_nonlinear(skb))
+				return 0;
+			if (A > skb->len - sizeof(struct nlattr))
+				return 0;
+
+			nla = (struct nlattr *)&skb->data[A];
+			if (nla->nla_len > A - skb->len)
+				return 0;
+
+			nla = nla_find_nested(nla, X);
+			if (nla)
+				A = (void *)nla - (void *)skb->data;
+			else
+				A = 0;
+			continue;
+		}
 		default:
 			return 0;
 		}
