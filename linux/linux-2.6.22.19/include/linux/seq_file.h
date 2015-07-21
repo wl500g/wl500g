@@ -51,6 +51,8 @@ int single_release(struct inode *, struct file *);
 void *__seq_open_private(struct file *, const struct seq_operations *, int);
 int seq_open_private(struct file *, const struct seq_operations *, int);
 int seq_release_private(struct inode *, struct file *);
+int seq_put_decimal_ull(struct seq_file *m, char delimiter,
+			unsigned long long num);
 
 #define SEQ_START_TOKEN ((void *)1)
 
