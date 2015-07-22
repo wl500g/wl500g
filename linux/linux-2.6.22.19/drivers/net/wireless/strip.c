@@ -403,8 +403,6 @@ static const StringDescriptor CommandString[] = {
      (S)->battery_voltage.c[0]  && \
      memcmp(&(S)->true_dev_addr, zero_address.c, sizeof(zero_address)))
 
-static const char hextable[16] = "0123456789ABCDEF";
-
 static const MetricomAddress zero_address;
 static const MetricomAddress broadcast_address =
     { {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF} };
@@ -1286,13 +1284,13 @@ static __u8 *add_checksum(__u8 * buffer, __u8 * end)
 	__u8 *p = buffer;
 	while (p < end)
 		sum += *p++;
-	end[3] = hextable[sum & 0xF];
+	end[3] = hex_asc_upper[sum & 0xF];
 	sum >>= 4;
-	end[2] = hextable[sum & 0xF];
+	end[2] = hex_asc_upper[sum & 0xF];
 	sum >>= 4;
-	end[1] = hextable[sum & 0xF];
+	end[1] = hex_asc_upper[sum & 0xF];
 	sum >>= 4;
-	end[0] = hextable[sum & 0xF];
+	end[0] = hex_asc_upper[sum & 0xF];
 	return (end + 4);
 }
 
@@ -1373,15 +1371,15 @@ static unsigned char *strip_make_packet(unsigned char *buffer,
 
 	*ptr++ = 0x0D;
 	*ptr++ = '*';
-	*ptr++ = hextable[haddr.c[2] >> 4];
-	*ptr++ = hextable[haddr.c[2] & 0xF];
-	*ptr++ = hextable[haddr.c[3] >> 4];
-	*ptr++ = hextable[haddr.c[3] & 0xF];
+	*ptr++ = hex_asc_upper[haddr.c[2] >> 4];
+	*ptr++ = hex_asc_upper[haddr.c[2] & 0xF];
+	*ptr++ = hex_asc_upper[haddr.c[3] >> 4];
+	*ptr++ = hex_asc_upper[haddr.c[3] & 0xF];
 	*ptr++ = '-';
-	*ptr++ = hextable[haddr.c[4] >> 4];
-	*ptr++ = hextable[haddr.c[4] & 0xF];
-	*ptr++ = hextable[haddr.c[5] >> 4];
-	*ptr++ = hextable[haddr.c[5] & 0xF];
+	*ptr++ = hex_asc_upper[haddr.c[4] >> 4];
+	*ptr++ = hex_asc_upper[haddr.c[4] & 0xF];
+	*ptr++ = hex_asc_upper[haddr.c[5] >> 4];
+	*ptr++ = hex_asc_upper[haddr.c[5] & 0xF];
 	*ptr++ = '*';
 	*ptr++ = key.c[0];
 	*ptr++ = key.c[1];

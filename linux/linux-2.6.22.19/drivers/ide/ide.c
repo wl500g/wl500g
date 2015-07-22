@@ -1241,7 +1241,6 @@ static int __init stridx (const char *s, char c)
 static int __init match_parm (char *s, const char *keywords[], int vals[], int max_vals)
 {
 	static const char *decimal = "0123456789";
-	static const char *hex = "0123456789abcdef";
 	int i, n;
 
 	if (*s++ == '=') {
@@ -1266,7 +1265,7 @@ static int __init match_parm (char *s, const char *keywords[], int vals[], int m
 			while ((i = stridx(decimal, *++s)) >= 0)
 				vals[n] = (vals[n] * 10) + i;
 			if (*s == 'x' && !vals[n]) {
-				while ((i = stridx(hex, *++s)) >= 0)
+				while ((i = stridx(hex_asc, *++s)) >= 0)
 					vals[n] = (vals[n] * 0x10) + i;
 			}
 			if (++n == max_vals)

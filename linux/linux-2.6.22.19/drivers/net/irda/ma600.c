@@ -54,9 +54,6 @@
 	        func}
 #endif
 
-/* convert hex value to ascii hex */
-static const char hexTbl[] = "0123456789ABCDEF";
-
 
 static void ma600_open(dongle_t *self, struct qos_info *qos);
 static void ma600_close(dongle_t *self);
@@ -243,10 +240,10 @@ static int ma600_change_speed(struct irda_task *task)
 			/* if control byte != echo, I don't know what to do */
 			printk(KERN_WARNING "%s() control byte written != read!\n", __FUNCTION__);
 			printk(KERN_WARNING "control byte = 0x%c%c\n", 
-			       hexTbl[(byte>>4)&0x0f], hexTbl[byte&0x0f]);
+			       hex_asc_upper[(byte>>4)&0x0f], hex_asc_upper[byte&0x0f]);
 			printk(KERN_WARNING "byte echo = 0x%c%c\n", 
-			       hexTbl[(byte_echo>>4) & 0x0f], 
-			       hexTbl[byte_echo & 0x0f]);
+			       hex_asc_upper[(byte_echo>>4) & 0x0f], 
+			       hex_asc_upper[byte_echo & 0x0f]);
 		#ifndef NDEBUG
 		} else {
 			IRDA_DEBUG(2, "%s() control byte write read OK\n", __FUNCTION__);

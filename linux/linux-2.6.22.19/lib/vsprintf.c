@@ -409,9 +409,6 @@ struct printf_spec {
 static char *number(char *buf, char *end, unsigned long long num,
 			struct printf_spec spec)
 {
-	/* we are called with base 8, 10 or 16, only, thus don't need "G..."  */
-	static const char digits[16] = "0123456789ABCDEF"; /* "GHIJKLMNOPQRSTUVWXYZ"; */
-
 	/* put_dec requires 2-byte alignment of the buffer. */
 	char tmp[3 * sizeof(num)] __aligned(2);
 	char sign;
@@ -447,7 +444,7 @@ static char *number(char *buf, char *end, unsigned long long num,
 	/* generate full string in tmp[], in reverse order */
 	i = 0;
 	if (num < spec.base)
-		tmp[i++] = digits[num] | locase;
+		tmp[i++] = hex_asc_upper[num] | locase;
 	else if (spec.base != 10) { /* 8 or 16 */
 		int mask = spec.base - 1;
 		int shift = 3;
@@ -455,7 +452,7 @@ static char *number(char *buf, char *end, unsigned long long num,
 		if (spec.base == 16)
 			shift = 4;
 		do {
-			tmp[i++] = (digits[((unsigned char)num) & mask] | locase);
+			tmp[i++] = (hex_asc_upper[((unsigned char)num) & mask] | locase);
 			num >>= shift;
 		} while (num);
 	} else { /* base 10 */
@@ -558,7 +555,7 @@ static char *mac_address_string(char *buf, char *end, u8 *addr,
 	int i;
 
 	for (i = 0; i < 6; i++) {
-		p = pack_hex_byte(p, addr[i]);
+		p = hex_byte_pack(p, addr[i]);
 		if (!(spec.flags & SPECIAL) && i != 5)
 			*p++ = ':';
 	}

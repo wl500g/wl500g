@@ -14,6 +14,8 @@
 
 const char hex_asc[] = "0123456789abcdef";
 EXPORT_SYMBOL(hex_asc);
+const char hex_asc_upper[] = "0123456789ABCDEF";
+EXPORT_SYMBOL(hex_asc_upper);
 
 /**
  * hex_dump_to_buffer - convert a blob of data to "hex ASCII" in memory

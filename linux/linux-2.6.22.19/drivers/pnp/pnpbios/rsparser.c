@@ -472,14 +472,12 @@ pnpbios_parse_resource_option_data(unsigned char * p, unsigned char * end, struc
  * Compatible Device IDs
  */
 
-#define HEX(id,a) hex[((id)>>a) & 15]
+#define HEX(id,a) hex_asc[((id)>>a) & 15]
 #define CHAR(id,a) (0x40 + (((id)>>a) & 31))
 //
 
 void pnpid32_to_pnpid(u32 id, char *str)
 {
-	const char *hex = "0123456789abcdef";
-
 	id = be32_to_cpu(id);
 	str[0] = CHAR(id, 26);
 	str[1] = CHAR(id, 21);

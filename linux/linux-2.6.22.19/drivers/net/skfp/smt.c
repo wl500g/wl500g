@@ -1730,7 +1730,6 @@ void fddi_send_antc(struct s_smc *smc, struct fddi_addr *dest)
 #endif
 
 #ifdef	DEBUG
-#define hextoasc(x)	"0123456789abcdef"[x]
 
 char *addr_to_string(struct fddi_addr *addr)
 {
@@ -1738,8 +1737,7 @@ char *addr_to_string(struct fddi_addr *addr)
 	static char	string[6*3] = "****" ;
 
 	for (i = 0 ; i < 6 ; i++) {
-		string[i*3] = hextoasc((addr->a[i]>>4)&0xf) ;
-		string[i*3+1] = hextoasc((addr->a[i])&0xf) ;
+		hex_byte_pack(&string[i*3], addr->a[i]);
 		string[i*3+2] = ':' ;
 	}
 	string[5*3+2] = 0 ;

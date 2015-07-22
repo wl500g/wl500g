@@ -22,6 +22,7 @@
 #include <linux/buffer_head.h>
 #include <linux/compat.h>
 #include <asm/uaccess.h>
+#include <linux/kernel.h>
 
 static inline loff_t fat_make_i_pos(struct super_block *sb,
 				    struct buffer_head *bh,
@@ -127,29 +128,24 @@ static inline int fat_get_entry(struct inode *dir, loff_t *pos,
 static int uni16_to_x8(unsigned char *ascii, wchar_t *uni, int len,
 		       int uni_xlate, struct nls_table *nls)
 {
-	wchar_t *ip, ec;
-	unsigned char *op, nc;
+	const wchar_t *ip;
+	wchar_t ec;
+	unsigned char *op;
 	int charlen;
-	int k;
 
 	ip = uni;
 	op = ascii;
 
 	while (*ip && ((len - NLS_MAX_CHARSET_SIZE) > 0)) {
 		ec = *ip++;
-		if ( (charlen = nls->uni2char(ec, op, NLS_MAX_CHARSET_SIZE)) > 0) {
+		if ((charlen = nls->uni2char(ec, op, NLS_MAX_CHARSET_SIZE)) > 0) {
 			op += charlen;
 			len -= charlen;
 		} else {
 			if (uni_xlate == 1) {
-				*op = ':';
-				for (k = 4; k > 0; k--) {
-					nc = ec & 0xF;
-					op[k] = nc > 9	? nc + ('a' - 10)
-							: nc + '0';
-					ec >>= 4;
-				}
-				op += 5;
+				*op++ = ':';
+				op = hex_byte_pack(op, ec >> 8);
+				op = hex_byte_pack(op, ec);
 				len -= 5;
 			} else {
 				*op++ = '?';
