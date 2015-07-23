@@ -1,4 +1,4 @@
-/* $Id: upnpsoap.c,v 1.136 2015/03/07 15:52:30 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.137 2015/07/09 12:28:11 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2015 Thomas Bernard
@@ -274,6 +274,7 @@ GetExternalIPAddress(struct upnphttp * h, const char * action)
 	if(use_ext_ip_addr)
 	{
 		strncpy(ext_ip_addr, use_ext_ip_addr, INET_ADDRSTRLEN);
+		ext_ip_addr[INET_ADDRSTRLEN - 1] = '\0';
 	}
 	else if(getifaddr(ext_if_name, ext_ip_addr, INET_ADDRSTRLEN, NULL, NULL) < 0)
 	{
@@ -815,6 +816,7 @@ DeletePortMappingRange(struct upnphttp * h, const char * action)
 	{
 		SoapError(h, 730, "PortMappingNotFound");
 		ClearNameValueList(&data);
+		free(port_list);
 		return;
 	}
 
