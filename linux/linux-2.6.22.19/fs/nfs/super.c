@@ -1051,8 +1051,8 @@ static int nfs_try_mount(struct nfs_parsed_mount_data *args,
 	return status;
 
 out_err:
-	dfprintk(MOUNT, "NFS: unable to contact server on host "
-		 NIPQUAD_FMT "\n", NIPQUAD(sin.sin_addr.s_addr));
+	dfprintk(MOUNT, "NFS: unable to contact server on host %pI4\n",
+		 &sin.sin_addr.s_addr);
 	return status;
 }
 

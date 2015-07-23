@@ -462,7 +462,7 @@ nfs4_cb_null(struct rpc_task *task, void *dummy)
 		goto out;
 	}
 	atomic_set(&cb->cb_set, 1);
-	dprintk("NFSD: callback set to client %u.%u.%u.%u\n", NIPQUAD(addr));
+	dprintk("NFSD: callback set to client %pI4\n", &addr);
 out:
 	put_nfs4_client(clp);
 }

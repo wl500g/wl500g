@@ -345,11 +345,11 @@ static int udp_app_conn_bind(struct ip_vs_conn *cp)
 				break;
 			spin_unlock(&udp_app_lock);
 
-			IP_VS_DBG(9, "%s: Binding conn %u.%u.%u.%u:%u->"
-				  "%u.%u.%u.%u:%u to app %s on port %u\n",
+			IP_VS_DBG(9, "%s: Binding conn %pI4:%u->"
+				  "%pI4:%u to app %s on port %u\n",
 				  __FUNCTION__,
-				  NIPQUAD(cp->caddr), ntohs(cp->cport),
-				  NIPQUAD(cp->vaddr), ntohs(cp->vport),
+				  &cp->caddr, ntohs(cp->cport),
+				  &cp->vaddr, ntohs(cp->vport),
 				  inc->name, ntohs(inc->port));
 			cp->app = inc;
 			if (inc->init_conn)

@@ -262,8 +262,8 @@ static struct nfs_client *nfs_get_client(const char *hostname,
 	struct nfs_client *clp, *new = NULL;
 	int error;
 
-	dprintk("--> nfs_get_client(%s,"NIPQUAD_FMT":%d,%d)\n",
-		hostname ?: "", NIPQUAD(addr->sin_addr),
+	dprintk("--> nfs_get_client(%s,%pI4:%u,%d)\n",
+		hostname ?: "", &addr->sin_addr,
 		addr->sin_port, nfsversion);
 
 	/* see if the client already exists */

@@ -95,11 +95,11 @@ struct nf_conntrack_tuple
 
 #ifdef __KERNEL__
 
-#define NF_CT_DUMP_TUPLE(tp)						    \
-DEBUGP("tuple %p: %u %u " NIP6_FMT " %hu -> " NIP6_FMT " %hu\n",	    \
-	(tp), (tp)->src.l3num, (tp)->dst.protonum,			    \
-	NIP6(*(struct in6_addr *)(tp)->src.u3.all), ntohs((tp)->src.u.all), \
-	NIP6(*(struct in6_addr *)(tp)->dst.u3.all), ntohs((tp)->dst.u.all))
+#define NF_CT_DUMP_TUPLE(tp)						\
+DEBUGP("tuple %p: %u %u %pI6 %hu -> %pI6 %hu\n",			\
+	(tp), (tp)->src.l3num, (tp)->dst.protonum,			\
+	(tp)->src.u3.all, ntohs((tp)->src.u.all),			\
+	(tp)->dst.u3.all, ntohs((tp)->dst.u.all))
 
 /* If we're the first tuple, it's the original dir. */
 #define NF_CT_DIRECTION(h)						\

@@ -221,11 +221,10 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
 	/* Mask saddr with the netmask to adjust template granularity */
 	snet = iph->saddr & svc->netmask;
 
-	IP_VS_DBG(6, "p-schedule: src %u.%u.%u.%u:%u dest %u.%u.%u.%u:%u "
-		  "mnet %u.%u.%u.%u\n",
-		  NIPQUAD(iph->saddr), ntohs(ports[0]),
-		  NIPQUAD(iph->daddr), ntohs(ports[1]),
-		  NIPQUAD(snet));
+	IP_VS_DBG(6, "p-schedule: src %pI4:%u dest %pI4:%u mnet %pI4\n",
+		  &iph->saddr, ntohs(ports[0]),
+		  &iph->daddr, ntohs(ports[1]),
+		  &snet);
 
 	/*
 	 * As far as we know, FTP is a very complicated network protocol, and
@@ -425,12 +424,12 @@ ip_vs_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
 	if (cp == NULL)
 		return NULL;
 
-	IP_VS_DBG(6, "Schedule fwd:%c c:%u.%u.%u.%u:%u v:%u.%u.%u.%u:%u "
-		  "d:%u.%u.%u.%u:%u conn->flags:%X conn->refcnt:%d\n",
+	IP_VS_DBG(6, "Schedule fwd:%c c:%pI4:%u v:%pI4:%u "
+		  "d:%pI4:%u conn->flags:%X conn->refcnt:%d\n",
 		  ip_vs_fwd_tag(cp),
-		  NIPQUAD(cp->caddr), ntohs(cp->cport),
-		  NIPQUAD(cp->vaddr), ntohs(cp->vport),
-		  NIPQUAD(cp->daddr), ntohs(cp->dport),
+		  &cp->caddr, ntohs(cp->cport),
+		  &cp->vaddr, ntohs(cp->vport),
+		  &cp->daddr, ntohs(cp->dport),
 		  cp->flags, atomic_read(&cp->refcnt));
 
 	ip_vs_conn_stats(cp, svc);
@@ -630,9 +629,9 @@ static int ip_vs_out_icmp(struct sk_buff **pskb, int *related)
 	if (ic == NULL)
 		return NF_DROP;
 
-	IP_VS_DBG(12, "Outgoing ICMP (%d,%d) %u.%u.%u.%u->%u.%u.%u.%u\n",
+	IP_VS_DBG(12, "Outgoing ICMP (%d,%d) %pI4->%pI4\n",
 		  ic->type, ntohs(icmp_id(ic)),
-		  NIPQUAD(iph->saddr), NIPQUAD(iph->daddr));
+		  &iph->saddr, &iph->daddr);
 
 	/*
 	 * Work through seeing if this is for us.
@@ -682,8 +681,8 @@ static int ip_vs_out_icmp(struct sk_buff **pskb, int *related)
 	/* Ensure the checksum is correct */
 	if (!skb_csum_unnecessary(skb) && ip_vs_checksum_complete(skb, ihl)) {
 		/* Failed checksum! */
-		IP_VS_DBG(1, "Forward ICMP: failed checksum from %d.%d.%d.%d!\n",
-			  NIPQUAD(iph->saddr));
+		IP_VS_DBG(1, "Forward ICMP: failed checksum from %pI4!\n",
+			  &iph->saddr);
 		goto out;
 	}
 
@@ -869,9 +868,9 @@ ip_vs_in_icmp(struct sk_buff **pskb, int *related, unsigned int hooknum)
 	if (ic == NULL)
 		return NF_DROP;
 
-	IP_VS_DBG(12, "Incoming ICMP (%d,%d) %u.%u.%u.%u->%u.%u.%u.%u\n",
+	IP_VS_DBG(12, "Incoming ICMP (%d,%d) %pI4->%pI4\n",
 		  ic->type, ntohs(icmp_id(ic)),
-		  NIPQUAD(iph->saddr), NIPQUAD(iph->daddr));
+		  &iph->saddr, &iph->daddr);
 
 	/*
 	 * Work through seeing if this is for us.
@@ -916,8 +915,8 @@ ip_vs_in_icmp(struct sk_buff **pskb, int *related, unsigned int hooknum)
 	/* Ensure the checksum is correct */
 	if (!skb_csum_unnecessary(skb) && ip_vs_checksum_complete(skb, ihl)) {
 		/* Failed checksum! */
-		IP_VS_DBG(1, "Incoming ICMP: failed checksum from %d.%d.%d.%d!\n",
-			  NIPQUAD(iph->saddr));
+		IP_VS_DBG(1, "Incoming ICMP: failed checksum from %pI4!\n",
+			  &iph->saddr);
 		goto out;
 	}
 
@@ -956,10 +955,10 @@ ip_vs_in(unsigned int hooknum, struct sk_buff **pskb,
 	 */
 	if (unlikely(skb->pkt_type != PACKET_HOST
 		     || skb->dev == &loopback_dev || skb->sk)) {
-		IP_VS_DBG(12, "packet type=%d proto=%d daddr=%d.%d.%d.%d ignored\n",
+		IP_VS_DBG(12, "packet type=%d proto=%d daddr=%pI4 ignored\n",
 			  skb->pkt_type,
 			  ip_hdr(skb)->protocol,
-			  NIPQUAD(ip_hdr(skb)->daddr));
+			  &ip_hdr(skb)->daddr);
 		return NF_ACCEPT;
 	}
 

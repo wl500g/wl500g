@@ -2313,8 +2313,8 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
 		__be32 prf = htonl(MASK_PFX(tn->key, tn->pos));
 
 		seq_indent(seq, iter->depth-1);
-		seq_printf(seq, "  +-- %d.%d.%d.%d/%d %d %d %d\n",
-			   NIPQUAD(prf), tn->pos, tn->bits, tn->full_children,
+		seq_printf(seq, "  +-- %pI4/%d %d %d %d\n",
+			   &prf, tn->pos, tn->bits, tn->full_children,
 			   tn->empty_children);
 
 	} else {
@@ -2323,7 +2323,7 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
 		__be32 val = htonl(l->key);
 
 		seq_indent(seq, iter->depth);
-		seq_printf(seq, "  |-- %d.%d.%d.%d\n", NIPQUAD(val));
+		seq_printf(seq, "  |-- %pI4\n", &val);
 		for (i = 32; i >= 0; i--) {
 			struct leaf_info *li = find_leaf_info(l, i);
 			if (li) {

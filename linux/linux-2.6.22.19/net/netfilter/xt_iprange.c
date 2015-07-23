@@ -27,12 +27,11 @@ iprange_mt4(const struct sk_buff *skb, struct xt_action_param *par)
 		m |= ntohl(iph->saddr) > ntohl(info->src_max.ip);
 		m ^= !!(info->flags & IPRANGE_SRC_INV);
 		if (m) {
-			pr_debug("src IP " NIPQUAD_FMT " NOT in range %s"
-			         NIPQUAD_FMT "-" NIPQUAD_FMT "\n",
-			         NIPQUAD(iph->saddr),
-			         (info->flags & IPRANGE_SRC_INV) ? "(INV) " : "",
-			         NIPQUAD(info->src_min.ip),
-			         NIPQUAD(info->src_max.ip));
+			pr_debug("src IP %pI4 NOT in range %s%pI4-%pI4\n",
+				 &iph->saddr,
+				 info->flags & IPRANGE_SRC_INV ? "(INV) " : "",
+				 &info->src_min.ip,
+				 &info->src_max.ip);
 			return 0;
 		}
 	}
@@ -41,12 +40,11 @@ iprange_mt4(const struct sk_buff *skb, struct xt_action_param *par)
 		m |= ntohl(iph->daddr) > ntohl(info->dst_max.ip);
 		m ^= !!(info->flags & IPRANGE_DST_INV);
 		if (m) {
-			pr_debug("dst IP " NIPQUAD_FMT " NOT in range %s"
-			         NIPQUAD_FMT "-" NIPQUAD_FMT "\n",
-			         NIPQUAD(iph->daddr),
+			pr_debug("dst IP %pI4 NOT in range %s%pI4-%pI4\n",
+			         &iph->daddr,
 			         (info->flags & IPRANGE_DST_INV) ? "(INV) " : "",
-			         NIPQUAD(info->dst_min.ip),
-			         NIPQUAD(info->dst_max.ip));
+			         &info->dst_min.ip,
+			         &info->dst_max.ip);
 			return 0;
 		}
 	}
@@ -78,11 +76,11 @@ iprange_mt6(const struct sk_buff *skb, struct xt_action_param *par)
 		m |= iprange_ipv6_lt(&info->src_max.in6, &iph->saddr);
 		m ^= !!(info->flags & IPRANGE_SRC_INV);
 		if (m) {
-			pr_debug("src IP " NIP6_FMT " NOT in range %s" NIP6_FMT "-" NIP6_FMT "\n",
-				 NIP6(iph->saddr),
+			pr_debug("src IP %pI6 NOT in range %s%pI6-%pI6\n",
+				 &iph->saddr,
 				 (info->flags & IPRANGE_SRC_INV) ? "(INV) " : "",
-				 NIP6(info->src_min.in6),
-				 NIP6(info->src_max.in6));
+				 &info->src_min.in6,
+				 &info->src_max.in6);
 			return 0;
 		}
 	}
@@ -91,11 +89,11 @@ iprange_mt6(const struct sk_buff *skb, struct xt_action_param *par)
 		m |= iprange_ipv6_lt(&info->dst_max.in6, &iph->daddr);
 		m ^= !!(info->flags & IPRANGE_DST_INV);
 		if (m) {
-			pr_debug("dst IP " NIP6_FMT " NOT in range %s" NIP6_FMT "-" NIP6_FMT "\n",
-				 NIP6(iph->daddr),
+			pr_debug("dst IP %pI6 NOT in range %s%pI6-%pI6\n",
+				 &iph->daddr,
 				 (info->flags & IPRANGE_DST_INV) ? "(INV) " : "",
-				 NIP6(info->dst_min.in6),
-				 NIP6(info->dst_max.in6));
+				 &info->dst_min.in6,
+				 &info->dst_max.in6);
 			return 0;
 		}
 	}

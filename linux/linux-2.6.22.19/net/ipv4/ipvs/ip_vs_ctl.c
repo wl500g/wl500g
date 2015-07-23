@@ -450,9 +450,9 @@ ip_vs_service_get(__u32 fwmark, __u16 protocol, __be32 vaddr, __be16 vport)
   out:
 	read_unlock(&__ip_vs_svc_lock);
 
-	IP_VS_DBG(9, "lookup service: fwm %u %s %u.%u.%u.%u:%u %s\n",
+	IP_VS_DBG(9, "lookup service: fwm %u %s %pI4:%u %s\n",
 		  fwmark, ip_vs_proto_name(protocol),
-		  NIPQUAD(vaddr), ntohs(vport),
+		  &vaddr, ntohs(vport),
 		  svc?"hit":"not hit");
 
 	return svc;
@@ -599,10 +599,10 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, __be32 daddr, __be16 dport)
 	 * Find the destination in trash
 	 */
 	list_for_each_entry_safe(dest, nxt, &ip_vs_dest_trash, n_list) {
-		IP_VS_DBG(3, "Destination %u/%u.%u.%u.%u:%u still in trash, "
+		IP_VS_DBG(3, "Destination %u/%pI4:%u still in trash, "
 			  "dest->refcnt=%d\n",
 			  dest->vfwmark,
-			  NIPQUAD(dest->addr), ntohs(dest->port),
+			  &dest->addr, ntohs(dest->port),
 			  atomic_read(&dest->refcnt));
 		if (dest->addr == daddr &&
 		    dest->port == dport &&
@@ -619,10 +619,10 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, __be32 daddr, __be16 dport)
 		 * Try to purge the destination from trash if not referenced
 		 */
 		if (atomic_read(&dest->refcnt) == 1) {
-			IP_VS_DBG(3, "Removing destination %u/%u.%u.%u.%u:%u "
+			IP_VS_DBG(3, "Removing destination %u/%pI4:%u "
 				  "from trash\n",
 				  dest->vfwmark,
-				  NIPQUAD(dest->addr), ntohs(dest->port));
+				  &dest->addr, ntohs(dest->port));
 			list_del(&dest->n_list);
 			ip_vs_dst_reset(dest);
 			__ip_vs_unbind_svc(dest);
@@ -805,12 +805,12 @@ ip_vs_add_dest(struct ip_vs_service *svc, struct ip_vs_dest_user *udest)
 	 */
 	dest = ip_vs_trash_get_dest(svc, daddr, dport);
 	if (dest != NULL) {
-		IP_VS_DBG(3, "Get destination %u.%u.%u.%u:%u from trash, "
-			  "dest->refcnt=%d, service %u/%u.%u.%u.%u:%u\n",
-			  NIPQUAD(daddr), ntohs(dport),
+		IP_VS_DBG(3, "Get destination %pI4:%u from trash, "
+			  "dest->refcnt=%d, service %u/%pI4:%u\n",
+			  &daddr, ntohs(dport),
 			  atomic_read(&dest->refcnt),
 			  dest->vfwmark,
-			  NIPQUAD(dest->vaddr),
+			  &dest->vaddr,
 			  ntohs(dest->vport));
 		__ip_vs_update_dest(svc, dest, udest);
 
@@ -951,9 +951,9 @@ static void __ip_vs_del_dest(struct ip_vs_dest *dest)
 		atomic_dec(&dest->svc->refcnt);
 		kfree(dest);
 	} else {
-		IP_VS_DBG(3, "Moving dest %u.%u.%u.%u:%u into trash, "
+		IP_VS_DBG(3, "Moving dest %pI4:%u into trash, "
 			  "dest->refcnt=%d\n",
-			  NIPQUAD(dest->addr), ntohs(dest->port),
+			  &dest->addr, ntohs(dest->port),
 			  atomic_read(&dest->refcnt));
 		list_add(&dest->n_list, &ip_vs_dest_trash);
 		atomic_inc(&dest->refcnt);
@@ -1945,8 +1945,8 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
 
 	/* Check for valid protocol: TCP or UDP, even for fwmark!=0 */
 	if (usvc->protocol!=IPPROTO_TCP && usvc->protocol!=IPPROTO_UDP) {
-		IP_VS_ERR("set_ctl: invalid protocol: %d %d.%d.%d.%d:%d %s\n",
-			  usvc->protocol, NIPQUAD(usvc->addr),
+		IP_VS_ERR("set_ctl: invalid protocol: %d %pI4:%u %s\n",
+			  usvc->protocol, &usvc->addr,
 			  ntohs(usvc->port), usvc->sched_name);
 		ret = -EFAULT;
 		goto out_unlock;

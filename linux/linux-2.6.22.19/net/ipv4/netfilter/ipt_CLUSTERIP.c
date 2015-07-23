@@ -185,7 +185,7 @@ clusterip_config_init(struct ipt_clusterip_tgt_info *i, __be32 ip,
 		char buffer[16];
 
 		/* create proc dir entry */
-		sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(ip));
+		sprintf(buffer, "%pI4", &ip);
 		c->pde = create_proc_entry(buffer, S_IWUSR|S_IRUSR,
 					   clusterip_procdir);
 		if (!c->pde) {
@@ -407,7 +407,7 @@ static bool checkentry(const struct xt_tgchk_param *par)
 	} else {
 		/* Case C: This is a completely new clusterip config */
 		if (!(cipinfo->flags & CLUSTERIP_FLAG_NEW)) {
-			printk(KERN_WARNING "CLUSTERIP: no config found for %u.%u.%u.%u, need 'new'\n", NIPQUAD(e->ip.dst.s_addr));
+			printk(KERN_WARNING "CLUSTERIP: no config found for %pI4, need 'new'\n", &e->ip.dst.s_addr);
 			return false;
 		} else {
 			struct net_device *dev;
@@ -495,9 +495,8 @@ static void arp_print(struct arp_payload *payload)
 	}
 	hbuffer[--k]='\0';
 
-	printk("src %u.%u.%u.%u@%s, dst %u.%u.%u.%u\n",
-		NIPQUAD(payload->src_ip), hbuffer,
-		NIPQUAD(payload->dst_ip));
+	printk("src %pI4@%s, dst %pI4\n",
+		&payload->src_ip, hbuffer, &payload->dst_ip);
 }
 #endif
 

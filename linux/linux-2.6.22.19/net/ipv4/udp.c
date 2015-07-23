@@ -1229,13 +1229,13 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
 	return 0;
 
 short_packet:
-	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: short packet: From %u.%u.%u.%u:%u %d/%d to %u.%u.%u.%u:%u\n",
+	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: short packet: From %pI4:%u %d/%d to %pI4:%u\n",
 		       proto == IPPROTO_UDPLITE ? "-Lite" : "",
-		       NIPQUAD(saddr),
+		       &saddr,
 		       ntohs(uh->source),
 		       ulen,
 		       skb->len,
-		       NIPQUAD(daddr),
+		       &daddr,
 		       ntohs(uh->dest));
 	goto drop;
 
@@ -1244,11 +1244,11 @@ csum_error:
 	 * RFC1122: OK.  Discards the bad packet silently (as far as
 	 * the network is concerned, anyway) as per 4.1.3.4 (MUST).
 	 */
-	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: bad checksum. From %d.%d.%d.%d:%d to %d.%d.%d.%d:%d ulen %d\n",
+	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: bad checksum. From %pI4:%u to %pI4:%u ulen %d\n",
 		       proto == IPPROTO_UDPLITE ? "-Lite" : "",
-		       NIPQUAD(saddr),
+		       &saddr,
 		       ntohs(uh->source),
-		       NIPQUAD(daddr),
+		       &daddr,
 		       ntohs(uh->dest),
 		       ulen);
 drop:

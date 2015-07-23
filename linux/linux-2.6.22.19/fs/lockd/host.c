@@ -53,10 +53,10 @@ nlm_lookup_host(int server, const struct sockaddr_in *sin,
 	struct nsm_handle *nsm = NULL;
 	int		hash;
 
-	dprintk("lockd: nlm_lookup_host("NIPQUAD_FMT"->"NIPQUAD_FMT
+	dprintk("lockd: nlm_lookup_host(%pI4->%pI4"
 			", p=%d, v=%d, my role=%s, name=%.*s)\n",
-			NIPQUAD(ssin->sin_addr.s_addr),
-			NIPQUAD(sin->sin_addr.s_addr), proto, version,
+			&ssin->sin_addr.s_addr,
+			&sin->sin_addr.s_addr, proto, version,
 			server? "server" : "client",
 			hostname_len,
 			hostname? hostname : "<none>");
@@ -207,9 +207,9 @@ nlm_bind_host(struct nlm_host *host)
 {
 	struct rpc_clnt	*clnt;
 
-	dprintk("lockd: nlm_bind_host("NIPQUAD_FMT"->"NIPQUAD_FMT")\n",
-			NIPQUAD(host->h_saddr.sin_addr),
-			NIPQUAD(host->h_addr.sin_addr));
+	dprintk("lockd: nlm_bind_host(%pI4->%pI4)\n",
+			&host->h_saddr.sin_addr,
+			&host->h_addr.sin_addr);
 
 	/* Lock host handle */
 	mutex_lock(&host->h_mutex);
@@ -315,8 +315,8 @@ void nlm_host_rebooted(const struct sockaddr_in *sin,
 	struct nsm_handle *nsm;
 	struct nlm_host	*host;
 
-	dprintk("lockd: nlm_host_rebooted(%s, %u.%u.%u.%u)\n",
-			hostname, NIPQUAD(sin->sin_addr));
+	dprintk("lockd: nlm_host_rebooted(%s, %pI4)\n",
+			hostname, &sin->sin_addr);
 
 	/* Find the NSM handle for this peer */
 	if (!(nsm = __nsm_find(sin, hostname, hostname_len, 0)))

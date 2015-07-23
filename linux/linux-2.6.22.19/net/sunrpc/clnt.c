@@ -254,8 +254,8 @@ struct rpc_clnt *rpc_create(struct rpc_create_args *args)
 	if (args->servername == NULL) {
 		struct sockaddr_in *addr =
 					(struct sockaddr_in *) &args->address;
-		snprintf(servername, sizeof(servername), NIPQUAD_FMT,
-			NIPQUAD(addr->sin_addr.s_addr));
+		snprintf(servername, sizeof(servername), "%pI4",
+			&addr->sin_addr.s_addr);
 		args->servername = servername;
 	}
 

@@ -295,7 +295,7 @@ pack_ip_cidr(ip_set_ip_t ip, unsigned char cidr)
 
 	addr = htonl(ip & (0xFFFFFFFF << (32 - (cidr))));
 #ifdef __KERNEL__
-	DP("ip:%u.%u.%u.%u/%u", NIPQUAD(addr), cidr);
+	DP("ip:%pI4/%u", &addr, cidr);
 #endif
 	n = cidr / 8;
 	t = cidr % 8;	
@@ -303,8 +303,8 @@ pack_ip_cidr(ip_set_ip_t ip, unsigned char cidr)
 	*a = *a /(1 << (8 - t)) + shifts[t];
 #ifdef __KERNEL__
 	DP("n: %u, t: %u, a: %u", n, t, *a);
-	DP("ip:%u.%u.%u.%u/%u, %u.%u.%u.%u",
-	   HIPQUAD(ip), cidr, NIPQUAD(addr));
+	DP("ip:%u.%u.%u.%u/%u, %pI4",
+	   HIPQUAD(ip), cidr, &addr);
 #endif
 
 	return ntohl(addr);

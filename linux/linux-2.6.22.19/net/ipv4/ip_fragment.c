@@ -592,9 +592,8 @@ out_nomem:
 	goto out_fail;
 out_oversize:
 	if (net_ratelimit())
-		printk(KERN_INFO
-			"Oversized IP packet from %d.%d.%d.%d.\n",
-			NIPQUAD(qp->saddr));
+		printk(KERN_INFO "Oversized IP packet from %pI4.\n",
+			&qp->saddr);
 out_fail:
 	IP_INC_STATS_BH(IPSTATS_MIB_REASMFAILS);
 	return err;

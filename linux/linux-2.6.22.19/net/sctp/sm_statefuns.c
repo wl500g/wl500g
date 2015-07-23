@@ -1019,18 +1019,16 @@ sctp_disposition_t sctp_sf_backbeat_8_3(const struct sctp_endpoint *ep,
 	if (unlikely(!link)) {
 		if (from_addr.sa.sa_family == AF_INET6) {
 			printk(KERN_WARNING
-			       "%s association %p could not find address "
-			       NIP6_FMT "\n",
+			       "%s association %p could not find address %pI6\n",
 			       __FUNCTION__,
 			       asoc,
-			       NIP6(from_addr.v6.sin6_addr));
+			       &from_addr.v6.sin6_addr);
 		} else {
 			printk(KERN_WARNING
-			       "%s association %p could not find address "
-			       NIPQUAD_FMT "\n",
+			       "%s association %p could not find address %pI4\n",
 			       __FUNCTION__,
 			       asoc,
-			       NIPQUAD(from_addr.v4.sin_addr.s_addr));
+			       &from_addr.v4.sin_addr.s_addr);
 		}
 		return SCTP_DISPOSITION_DISCARD;
 	}

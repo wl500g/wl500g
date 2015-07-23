@@ -171,9 +171,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
 					   &start, &end) != 1)
 			return 1;
 
-		IP_VS_DBG(7, "PASV response (%u.%u.%u.%u:%d) -> "
-			  "%u.%u.%u.%u:%d detected\n",
-			  NIPQUAD(from), ntohs(port), NIPQUAD(cp->caddr), 0);
+		IP_VS_DBG(7, "PASV response (%pI4:%u) -> %pI4:%u detected\n",
+			  &from, ntohs(port), &cp->caddr, 0);
 
 		/*
 		 * Now update or create an connection entry for it
@@ -199,8 +198,14 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
 		 */
 		from = n_cp->vaddr;
 		port = n_cp->vport;
-		sprintf(buf,"%d,%d,%d,%d,%d,%d", NIPQUAD(from),
-			(ntohs(port)>>8)&255, ntohs(port)&255);
+		snprintf(buf, sizeof(buf), "%u,%u,%u,%u,%u,%u",
+			 ((unsigned char *)&from)[0],
+			 ((unsigned char *)&from)[1],
+			 ((unsigned char *)&from)[2],
+			 ((unsigned char *)&from)[3],
+			 ntohs(port) >> 8,
+			 ntohs(port) & 0xFF);
+
 		buf_len = strlen(buf);
 
 		/*
@@ -296,8 +301,7 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
 				   &start, &end) != 1)
 		return 1;
 
-	IP_VS_DBG(7, "PORT %u.%u.%u.%u:%d detected\n",
-		  NIPQUAD(to), ntohs(port));
+	IP_VS_DBG(7, "PORT %pI4:%u detected\n", &to, ntohs(port));
 
 	/* Passive mode off */
 	cp->app_data = NULL;
@@ -305,9 +309,9 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
 	/*
 	 * Now update or create a connection entry for it
 	 */
-	IP_VS_DBG(7, "protocol %s %u.%u.%u.%u:%d %u.%u.%u.%u:%d\n",
+	IP_VS_DBG(7, "protocol %s %pI4:%d %pI4:%u\n",
 		  ip_vs_proto_name(iph->protocol),
-		  NIPQUAD(to), ntohs(port), NIPQUAD(cp->vaddr), 0);
+		  &to, ntohs(port), &cp->vaddr, 0);
 
 	n_cp = ip_vs_conn_in_get(iph->protocol,
 				 to, port,

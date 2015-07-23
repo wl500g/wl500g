@@ -129,14 +129,14 @@ static char *__svc_print_addr(struct sockaddr *addr, char *buf, size_t len)
 {
 	switch (addr->sa_family) {
 	case AF_INET:
-		snprintf(buf, len, "%u.%u.%u.%u, port=%u",
-			NIPQUAD(((struct sockaddr_in *) addr)->sin_addr),
+		snprintf(buf, len, "%pI4, port=%u",
+			&((struct sockaddr_in *) addr)->sin_addr,
 			htons(((struct sockaddr_in *) addr)->sin_port));
 		break;
 
 	case AF_INET6:
-		snprintf(buf, len, "%x:%x:%x:%x:%x:%x:%x:%x, port=%u",
-			NIP6(((struct sockaddr_in6 *) addr)->sin6_addr),
+		snprintf(buf, len, "%pI6, port=%u",
+			&((struct sockaddr_in6 *) addr)->sin6_addr,
 			htons(((struct sockaddr_in6 *) addr)->sin6_port));
 		break;
 
@@ -579,10 +579,10 @@ static int one_sock_name(char *buf, struct svc_sock *svsk)
 
 	switch(svsk->sk_sk->sk_family) {
 	case AF_INET:
-		len = sprintf(buf, "ipv4 %s %u.%u.%u.%u %d\n",
+		len = sprintf(buf, "ipv4 %s %pI4 %d\n",
 			      svsk->sk_sk->sk_protocol==IPPROTO_UDP?
 			      "udp" : "tcp",
-			      NIPQUAD(inet_sk(svsk->sk_sk)->rcv_saddr),
+			      &inet_sk(svsk->sk_sk)->rcv_saddr,
 			      inet_sk(svsk->sk_sk)->num);
 		break;
 	default:

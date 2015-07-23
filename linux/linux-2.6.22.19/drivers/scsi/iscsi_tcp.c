@@ -2054,11 +2054,10 @@ iscsi_tcp_conn_get_param(struct iscsi_cls_conn *cls_conn,
 		sk = tcp_conn->sock->sk;
 		if (sk->sk_family == PF_INET) {
 			inet = inet_sk(sk);
-			len = sprintf(buf, NIPQUAD_FMT "\n",
-				      NIPQUAD(inet->daddr));
+			len = sprintf(buf, "%pI4\n", &inet->daddr);
 		} else {
 			np = inet6_sk(sk);
-			len = sprintf(buf, NIP6_FMT "\n", NIP6(np->daddr));
+			len = sprintf(buf, "%pI6\n", &np->daddr);
 		}
 		mutex_unlock(&conn->xmitmutex);
 		break;

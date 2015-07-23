@@ -777,23 +777,23 @@ static inline void ip_vs_control_del(struct ip_vs_conn *cp)
 	struct ip_vs_conn *ctl_cp = cp->control;
 	if (!ctl_cp) {
 		IP_VS_ERR("request control DEL for uncontrolled: "
-			  "%d.%d.%d.%d:%d to %d.%d.%d.%d:%d\n",
-			  NIPQUAD(cp->caddr),ntohs(cp->cport),
-			  NIPQUAD(cp->vaddr),ntohs(cp->vport));
+			  "%pI4 to %pI4\n",
+			  &cp->caddr,ntohs(cp->cport),
+			  &cp->vaddr,ntohs(cp->vport));
 		return;
 	}
 
 	IP_VS_DBG(7, "DELeting control for: "
-		  "cp.dst=%d.%d.%d.%d:%d ctl_cp.dst=%d.%d.%d.%d:%d\n",
-		  NIPQUAD(cp->caddr),ntohs(cp->cport),
-		  NIPQUAD(ctl_cp->caddr),ntohs(ctl_cp->cport));
+		  "cp.dst=%pI4:%d ctl_cp.dst=%pI4:%d\n",
+		  &cp->caddr,ntohs(cp->cport),
+		  &ctl_cp->caddr,ntohs(ctl_cp->cport));
 
 	cp->control = NULL;
 	if (atomic_read(&ctl_cp->n_control) == 0) {
 		IP_VS_ERR("BUG control DEL with n=0 : "
-			  "%d.%d.%d.%d:%d to %d.%d.%d.%d:%d\n",
-			  NIPQUAD(cp->caddr),ntohs(cp->cport),
-			  NIPQUAD(cp->vaddr),ntohs(cp->vport));
+			  "%pI4:%d to %pI4:%d\n",
+			  &cp->caddr,ntohs(cp->cport),
+			  &cp->vaddr,ntohs(cp->vport));
 		return;
 	}
 	atomic_dec(&ctl_cp->n_control);
@@ -804,16 +804,16 @@ ip_vs_control_add(struct ip_vs_conn *cp, struct ip_vs_conn *ctl_cp)
 {
 	if (cp->control) {
 		IP_VS_ERR("request control ADD for already controlled: "
-			  "%d.%d.%d.%d:%d to %d.%d.%d.%d:%d\n",
-			  NIPQUAD(cp->caddr),ntohs(cp->cport),
-			  NIPQUAD(cp->vaddr),ntohs(cp->vport));
+			  "%pI4:%d to %pI4:%d\n",
+			  &cp->caddr,ntohs(cp->cport),
+			  &cp->vaddr,ntohs(cp->vport));
 		ip_vs_control_del(cp);
 	}
 
 	IP_VS_DBG(7, "ADDing control for: "
-		  "cp.dst=%d.%d.%d.%d:%d ctl_cp.dst=%d.%d.%d.%d:%d\n",
-		  NIPQUAD(cp->caddr),ntohs(cp->cport),
-		  NIPQUAD(ctl_cp->caddr),ntohs(ctl_cp->cport));
+		  "cp.dst=%pI4:%d ctl_cp.dst=%pI4:%d\n",
+		  &cp->caddr,ntohs(cp->cport),
+		  &ctl_cp->caddr,ntohs(ctl_cp->cport));
 
 	cp->control = ctl_cp;
 	atomic_inc(&ctl_cp->n_control);

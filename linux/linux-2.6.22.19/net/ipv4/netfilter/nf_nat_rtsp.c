@@ -146,8 +146,8 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
     t = &exp->tuple;
     t->dst.u3.ip = newip;
 
-    extaddrlen = extip ? sprintf(szextaddr, "%u.%u.%u.%u", NIPQUAD(extip))
-                       : sprintf(szextaddr, "%u.%u.%u.%u", NIPQUAD(newip));
+    extaddrlen = extip ? sprintf(szextaddr, "%pI4", &extip)
+                       : sprintf(szextaddr, "%pI4", &newip);
     DEBUGP("stunaddr=%s (%s)\n", szextaddr, (extip?"forced":"auto"));
 
     rbuf1len = rbufalen = 0;
@@ -448,8 +448,8 @@ static void expected(struct nf_conn* ct, struct nf_conntrack_expect *exp)
     //code from 2.4 : newip = (HOOK2MANIP(hooknum) == IP_NAT_MANIP_SRC) ? newsrcip : newdstip;
     newip = newdstip;
 
-    DEBUGP("newsrcip=%u.%u.%u.%u, newdstip=%u.%u.%u.%u, newip=%u.%u.%u.%u\n",
-           NIPQUAD(newsrcip), NIPQUAD(newdstip), NIPQUAD(newip));
+    pr_debug("newsrcip=%pI4, newdstip=%pI4, newip=%pI4\n",
+           &newsrcip, &newdstip, &newip);
 
     mr.rangesize = 1;
     // We don't want to manip the per-protocol, just the IPs. 

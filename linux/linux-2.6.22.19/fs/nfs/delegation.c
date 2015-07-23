@@ -145,8 +145,8 @@ int nfs_inode_set_delegation(struct inode *inode, struct rpc_cred *cred, struct 
 		if (memcmp(&delegation->stateid, &nfsi->delegation->stateid,
 					sizeof(delegation->stateid)) != 0 ||
 				delegation->type != nfsi->delegation->type) {
-			printk("%s: server %u.%u.%u.%u, handed out a duplicate delegation!\n",
-					__FUNCTION__, NIPQUAD(clp->cl_addr.sin_addr));
+			printk("%s: server %pI4, handed out a duplicate delegation!\n",
+					__FUNCTION__, &clp->cl_addr.sin_addr);
 			status = -EIO;
 		}
 	}
@@ -302,8 +302,8 @@ void nfs_expire_all_delegations(struct nfs_client *clp)
 	__module_get(THIS_MODULE);
 	atomic_inc(&clp->cl_count);
 	task = kthread_run(nfs_do_expire_all_delegations, clp,
-			"%u.%u.%u.%u-delegreturn",
-			NIPQUAD(clp->cl_addr.sin_addr));
+			"%pI4-delegreturn",
+			&clp->cl_addr.sin_addr);
 	if (!IS_ERR(task))
 		return;
 	nfs_put_client(clp);

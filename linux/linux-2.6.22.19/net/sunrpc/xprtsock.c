@@ -267,8 +267,7 @@ static void xs_format_peer_addresses(struct rpc_xprt *xprt)
 
 	buf = kzalloc(20, GFP_KERNEL);
 	if (buf) {
-		snprintf(buf, 20, "%u.%u.%u.%u",
-				NIPQUAD(addr->sin_addr.s_addr));
+		snprintf(buf, 20, "%pI4", &addr->sin_addr.s_addr);
 	}
 	xprt->address_strings[RPC_DISPLAY_ADDR] = buf;
 
@@ -286,9 +285,8 @@ static void xs_format_peer_addresses(struct rpc_xprt *xprt)
 
 	buf = kzalloc(48, GFP_KERNEL);
 	if (buf) {
-		snprintf(buf, 48, "addr=%u.%u.%u.%u port=%u proto=%s",
-			NIPQUAD(addr->sin_addr.s_addr),
-			ntohs(addr->sin_port),
+		snprintf(buf, 48, "addr=%pI4 port=%u proto=%s",
+			&addr->sin_addr.s_addr,	ntohs(addr->sin_port),
 			xprt->prot == IPPROTO_UDP ? "udp" : "tcp");
 	}
 	xprt->address_strings[RPC_DISPLAY_ALL] = buf;
@@ -1178,8 +1176,8 @@ static int xs_bind(struct sock_xprt *transport, struct socket *sock)
 		else
 			port--;
 	} while (err == -EADDRINUSE && port != transport->port);
-	dprintk("RPC:       xs_bind "NIPQUAD_FMT":%u: %s (%d)\n",
-		NIPQUAD(myaddr.sin_addr), port, err ? "failed" : "ok", err);
+	dprintk("RPC:       xs_bind %pI4:%u: %s (%d)\n",
+		&myaddr.sin_addr, port, err ? "failed" : "ok", err);
 	return err;
 }
 

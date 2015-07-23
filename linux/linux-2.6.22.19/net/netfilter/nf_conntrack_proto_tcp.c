@@ -545,10 +545,10 @@ static int tcp_in_window(struct nf_conn *ct,
 	sack -= receiver_offset;
 
 	DEBUGP("tcp_in_window: START\n");
-	DEBUGP("tcp_in_window: src=%u.%u.%u.%u:%hu dst=%u.%u.%u.%u:%hu "
+	DEBUGP("tcp_in_window: src=%pI4:%hu dst=%pI4:%hu "
 	       "seq=%u ack=%u+(%d) sack=%u+(%d) win=%u end=%u\n",
-		NIPQUAD(iph->saddr), ntohs(tcph->source),
-		NIPQUAD(iph->daddr), ntohs(tcph->dest),
+		&iph->saddr, ntohs(tcph->source),
+		&iph->daddr, ntohs(tcph->dest),
 		seq, ack, receiver_offset, sack, receiver_offset, win, end);
 	DEBUGP("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
 	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
@@ -631,10 +631,10 @@ static int tcp_in_window(struct nf_conn *ct,
 		 */
 		seq = end = sender->td_end;
 
-	DEBUGP("tcp_in_window: src=%u.%u.%u.%u:%hu dst=%u.%u.%u.%u:%hu "
+	DEBUGP("tcp_in_window: src=%pI4:%hu dst=%pI4:%hu "
 	       "seq=%u ack=%u+(%d) sack=%u+(%d) win=%u end=%u\n",
-		NIPQUAD(iph->saddr), ntohs(tcph->source),
-		NIPQUAD(iph->daddr), ntohs(tcph->dest),
+		&iph->saddr, ntohs(tcph->source),
+		&iph->daddr, ntohs(tcph->dest),
 		seq, ack, receiver_offset, sack, receiver_offset, win, end);
 	DEBUGP("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
 	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
@@ -1007,10 +1007,10 @@ static int tcp_packet(struct nf_conn *conntrack,
 	conntrack->proto.tcp.last_index = index;
 	conntrack->proto.tcp.last_dir = dir;
 
-	DEBUGP("tcp_conntracks: src=%u.%u.%u.%u:%hu dst=%u.%u.%u.%u:%hu "
+	DEBUGP("tcp_conntracks: src=%pI4:%hu dst=%pI4:%hu "
 	       "syn=%i ack=%i fin=%i rst=%i old=%i new=%i\n",
-		NIPQUAD(iph->saddr), ntohs(th->source),
-		NIPQUAD(iph->daddr), ntohs(th->dest),
+		&iph->saddr, ntohs(th->source),
+		&iph->daddr, ntohs(th->dest),
 		(th->syn ? 1 : 0), (th->ack ? 1 : 0),
 		(th->fin ? 1 : 0), (th->rst ? 1 : 0),
 		old_state, new_state);

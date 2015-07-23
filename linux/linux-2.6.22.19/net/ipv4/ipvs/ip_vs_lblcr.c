@@ -212,9 +212,9 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
 	}
 	read_unlock(&set->lock);
 
-	IP_VS_DBG(6, "ip_vs_dest_set_min: server %d.%d.%d.%d:%d "
+	IP_VS_DBG(6, "ip_vs_dest_set_min: server %pI4:%u "
 		  "activeconns %d refcnt %d weight %d overhead %d\n",
-		  NIPQUAD(least->addr), ntohs(least->port),
+		  &least->addr, ntohs(least->port),
 		  atomic_read(&least->activeconns),
 		  atomic_read(&least->refcnt),
 		  atomic_read(&least->weight), loh);
@@ -261,9 +261,9 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
 	}
 	read_unlock(&set->lock);
 
-	IP_VS_DBG(6, "ip_vs_dest_set_max: server %d.%d.%d.%d:%d "
+	IP_VS_DBG(6, "ip_vs_dest_set_max: server %pI4:%u "
 		  "activeconns %d refcnt %d weight %d overhead %d\n",
-		  NIPQUAD(most->addr), ntohs(most->port),
+		  &most->addr, ntohs(most->port),
 		  atomic_read(&most->activeconns),
 		  atomic_read(&most->refcnt),
 		  atomic_read(&most->weight), moh);
@@ -546,15 +546,14 @@ ip_vs_lblcr_getinfo(char *buffer, char **start, off_t offset, int length)
 			char tbuf[16];
 			struct ip_vs_dest_list *d;
 
-			sprintf(tbuf, "%u.%u.%u.%u", NIPQUAD(en->addr));
+			sprintf(tbuf, "%pI4", &en->addr);
 			size = sprintf(buffer+len, "%8lu %-16s ",
 				       now-en->lastuse, tbuf);
 
 			read_lock(&en->set.lock);
 			for (d=en->set.list; d!=NULL; d=d->next) {
 				size += sprintf(buffer+len+size,
-						"%u.%u.%u.%u ",
-						NIPQUAD(d->dest->addr));
+						"%pI4 ", &d->dest->addr);
 			}
 			read_unlock(&en->set.lock);
 			size += sprintf(buffer+len+size, "\n");
@@ -704,9 +703,9 @@ __ip_vs_wlc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
 		}
 	}
 
-	IP_VS_DBG(6, "LBLCR: server %d.%d.%d.%d:%d "
+	IP_VS_DBG(6, "LBLCR: server %pI4:%u "
 		  "activeconns %d refcnt %d weight %d overhead %d\n",
-		  NIPQUAD(least->addr), ntohs(least->port),
+		  &least->addr, ntohs(least->port),
 		  atomic_read(&least->activeconns),
 		  atomic_read(&least->refcnt),
 		  atomic_read(&least->weight), loh);
@@ -783,11 +782,8 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
 	}
 	en->lastuse = jiffies;
 
-	IP_VS_DBG(6, "LBLCR: destination IP address %u.%u.%u.%u "
-		  "--> server %u.%u.%u.%u:%d\n",
-		  NIPQUAD(en->addr),
-		  NIPQUAD(dest->addr),
-		  ntohs(dest->port));
+	IP_VS_DBG(6, "LBLCR: destination IP address %pI4 --> server %pI4:%u\n",
+		  &en->addr, &dest->addr, ntohs(dest->port));
 
 	return dest;
 }

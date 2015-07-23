@@ -1916,9 +1916,9 @@ static void DBGUNDO(struct sock *sk, const char *msg)
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct inet_sock *inet = inet_sk(sk);
 
-	printk(KERN_DEBUG "Undo %s %u.%u.%u.%u/%u c%u l%u ss%u/%u p%u\n",
+	printk(KERN_DEBUG "Undo %s %pI4/%u c%u l%u ss%u/%u p%u\n",
 	       msg,
-	       NIPQUAD(inet->daddr), ntohs(inet->dport),
+	       &inet->daddr, ntohs(inet->dport),
 	       tp->snd_cwnd, tcp_left_out(tp),
 	       tp->snd_ssthresh, tp->prior_ssthresh,
 	       tp->packets_out);

@@ -162,7 +162,7 @@ xdr_encode_common(struct rpc_rqst *rqstp, __be32 *p, struct nsm_args *argp)
 	if (nsm_use_hostnames) {
 		name = argp->mon_name;
 	} else {
-		sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(argp->addr));
+		sprintf(buffer, "%pI4", &argp->addr);
 		name = buffer;
 	}
 	if (!(p = xdr_encode_string(p, name))

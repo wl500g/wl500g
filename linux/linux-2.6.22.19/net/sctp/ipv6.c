@@ -208,10 +208,9 @@ static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport)
 		ipv6_addr_copy(&fl.fl6_dst, rt0->addr);
 	}
 
-	SCTP_DEBUG_PRINTK("%s: skb:%p, len:%d, "
-			  "src:" NIP6_FMT " dst:" NIP6_FMT "\n",
+	SCTP_DEBUG_PRINTK("%s: skb:%p, len:%d, src:%pI6 dst:%pI6\n",
 			  __FUNCTION__, skb, skb->len,
-			  NIP6(fl.fl6_src), NIP6(fl.fl6_dst));
+			  &fl.fl6_src, &fl.fl6_dst);
 
 	SCTP_INC_STATS(SCTP_MIB_OUTSCTPPACKS);
 
@@ -237,23 +236,19 @@ static struct dst_entry *sctp_v6_get_dst(struct sctp_association *asoc,
 		fl.oif = daddr->v6.sin6_scope_id;
 
 
-	SCTP_DEBUG_PRINTK("%s: DST=" NIP6_FMT " ",
-			  __FUNCTION__, NIP6(fl.fl6_dst));
+	SCTP_DEBUG_PRINTK("%s: DST=%pI6 ", __FUNCTION__, &fl.fl6_dst);
 
 	if (saddr) {
 		ipv6_addr_copy(&fl.fl6_src, &saddr->v6.sin6_addr);
-		SCTP_DEBUG_PRINTK(
-			"SRC=" NIP6_FMT " - ",
-			NIP6(fl.fl6_src));
+		SCTP_DEBUG_PRINTK("SRC=%pI6 - ", &fl.fl6_src);
 	}
 
 	dst = ip6_route_output(NULL, &fl);
 	if (!dst->error) {
 		struct rt6_info *rt;
 		rt = (struct rt6_info *)dst;
-		SCTP_DEBUG_PRINTK(
-			"rt6_dst:" NIP6_FMT " rt6_src:" NIP6_FMT "\n",
-			NIP6(rt->rt6i_dst.addr), NIP6(rt->rt6i_src.addr));
+		SCTP_DEBUG_PRINTK("rt6_dst:%pI6 rt6_src:%pI6\n",
+			&rt->rt6i_dst.addr, &rt->rt6i_src.addr);
 		return dst;
 	}
 	SCTP_DEBUG_PRINTK("NO ROUTE\n");
@@ -300,15 +295,14 @@ static void sctp_v6_get_saddr(struct sctp_association *asoc,
 	__u8 matchlen = 0;
 	__u8 bmatchlen;
 
-	SCTP_DEBUG_PRINTK("%s: asoc:%p dst:%p "
-			  "daddr:" NIP6_FMT " ",
-			  __FUNCTION__, asoc, dst, NIP6(daddr->v6.sin6_addr));
+	SCTP_DEBUG_PRINTK("%s: asoc:%p dst:%p daddr:%pI6 ",
+			  __FUNCTION__, asoc, dst, &daddr->v6.sin6_addr);
 
 	if (!asoc) {
 		ipv6_dev_get_saddr(dst ? ip6_dst_idev(dst)->dev : NULL,
 				   &daddr->v6.sin6_addr, &saddr->v6.sin6_addr);
-		SCTP_DEBUG_PRINTK("saddr from ipv6_get_saddr: " NIP6_FMT "\n",
-				  NIP6(saddr->v6.sin6_addr));
+		SCTP_DEBUG_PRINTK("saddr from ipv6_get_saddr: %pI6\n",
+				  &saddr->v6.sin6_addr);
 		return;
 	}
 
@@ -336,12 +330,11 @@ static void sctp_v6_get_saddr(struct sctp_association *asoc,
 
 	if (baddr) {
 		memcpy(saddr, baddr, sizeof(union sctp_addr));
-		SCTP_DEBUG_PRINTK("saddr: " NIP6_FMT "\n",
-				  NIP6(saddr->v6.sin6_addr));
+		SCTP_DEBUG_PRINTK("saddr: %pI6\n", &saddr->v6.sin6_addr);
 	} else {
 		printk(KERN_ERR "%s: asoc:%p Could not find a valid source "
-		       "address for the dest:" NIP6_FMT "\n",
-		       __FUNCTION__, asoc, NIP6(daddr->v6.sin6_addr));
+		       "address for the dest:%pI6\n",
+		       __FUNCTION__, asoc, &daddr->v6.sin6_addr);
 	}
 
 	sctp_read_unlock(addr_lock);
@@ -706,7 +699,7 @@ static int sctp_v6_is_ce(const struct sk_buff *skb)
 /* Dump the v6 addr to the seq file. */
 static void sctp_v6_seq_dump_addr(struct seq_file *seq, union sctp_addr *addr)
 {
-	seq_printf(seq, NIP6_FMT " ", NIP6(addr->v6.sin6_addr));
+	seq_printf(seq, "%pI6 ", &addr->v6.sin6_addr);
 }
 
 /* Initialize a PF_INET6 socket msg_name. */

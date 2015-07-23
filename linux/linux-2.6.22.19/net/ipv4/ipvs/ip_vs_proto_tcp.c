@@ -424,16 +424,16 @@ set_tcp_state(struct ip_vs_protocol *pp, struct ip_vs_conn *cp,
 	if (new_state != cp->state) {
 		struct ip_vs_dest *dest = cp->dest;
 
-		IP_VS_DBG(8, "%s %s [%c%c%c%c] %u.%u.%u.%u:%d->"
-			  "%u.%u.%u.%u:%d state: %s->%s conn->refcnt:%d\n",
+		IP_VS_DBG(8, "%s %s [%c%c%c%c] %pI4:%u->"
+			  "%pI4:%u state: %s->%s conn->refcnt:%d\n",
 			  pp->name,
 			  (state_off==TCP_DIR_OUTPUT)?"output ":"input ",
 			  th->syn? 'S' : '.',
 			  th->fin? 'F' : '.',
 			  th->ack? 'A' : '.',
 			  th->rst? 'R' : '.',
-			  NIPQUAD(cp->daddr), ntohs(cp->dport),
-			  NIPQUAD(cp->caddr), ntohs(cp->cport),
+			  &cp->daddr, ntohs(cp->dport),
+			  &cp->caddr, ntohs(cp->cport),
 			  tcp_state_name(cp->state),
 			  tcp_state_name(new_state),
 			  atomic_read(&cp->refcnt));
@@ -551,11 +551,11 @@ tcp_app_conn_bind(struct ip_vs_conn *cp)
 				break;
 			spin_unlock(&tcp_app_lock);
 
-			IP_VS_DBG(9, "%s: Binding conn %u.%u.%u.%u:%u->"
-				  "%u.%u.%u.%u:%u to app %s on port %u\n",
+			IP_VS_DBG(9, "%s: Binding conn %pI4:%u->"
+				  "%pI4:%u to app %s on port %u\n",
 				  __FUNCTION__,
-				  NIPQUAD(cp->caddr), ntohs(cp->cport),
-				  NIPQUAD(cp->vaddr), ntohs(cp->vport),
+				  &cp->caddr, ntohs(cp->cport),
+				  &cp->vaddr, ntohs(cp->vport),
 				  inc->name, ntohs(inc->port));
 			cp->app = inc;
 			if (inc->init_conn)

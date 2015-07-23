@@ -2228,9 +2228,8 @@ void xfrm_audit_log(uid_t auid, u32 sid, int type, int result,
 				saddr.s_addr = x->props.saddr.a4;
 				daddr.s_addr = x->id.daddr.a4;
 			}
-			audit_log_format(audit_buf,
-					 " src=%u.%u.%u.%u dst=%u.%u.%u.%u",
-					 NIPQUAD(saddr), NIPQUAD(daddr));
+			audit_log_format(audit_buf, " src=%pI4 dst=%pI4",
+					 &saddr, &daddr);
 		}
 			break;
 	case AF_INET6:
@@ -2248,8 +2247,8 @@ void xfrm_audit_log(uid_t auid, u32 sid, int type, int result,
 					sizeof(struct in6_addr));
 			}
 			audit_log_format(audit_buf,
-					 " src=" NIP6_FMT " dst=" NIP6_FMT,
-					 NIP6(saddr6), NIP6(daddr6));
+					 " src=%pI6 dst=%pI6",
+					 &saddr6, &daddr6);
 		}
 		break;
 	}

@@ -99,7 +99,9 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 		struct nf_conn *ct, enum ip_conntrack_info ctinfo)
 {
 	unsigned int dataoff;
-	struct tcphdr _tcph, *th;
+	const struct iphdr *iph;
+	const struct tcphdr *th;
+	struct tcphdr _tcph;
 	char *data, *data_limit, *ib_ptr;
 	int dir = CTINFO2DIR(ctinfo);
 	struct nf_conntrack_expect *exp;
@@ -148,9 +150,10 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 		data += 5;
 		/* we have at least (19+MINMATCHLEN)-5 bytes valid data left */
 
-		DEBUGP("DCC found in master %u.%u.%u.%u:%u %u.%u.%u.%u:%u...\n",
-			NIPQUAD(iph->saddr), ntohs(th->source),
-			NIPQUAD(iph->daddr), ntohs(th->dest));
+		iph = ip_hdr(skb);
+		pr_debug("DCC found in master %pI4:%u %pI4:%u\n",
+			 &iph->saddr, ntohs(th->source),
+			 &iph->daddr, ntohs(th->dest));
 
 		for (i = 0; i < ARRAY_SIZE(dccprotos); i++) {
 			if (memcmp(data, dccprotos[i], strlen(dccprotos[i]))) {
@@ -168,8 +171,8 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 				DEBUGP("unable to parse dcc command\n");
 				continue;
 			}
-			DEBUGP("DCC bound ip/port: %u.%u.%u.%u:%u\n",
-				HIPQUAD(dcc_ip), dcc_port);
+			pr_debug("DCC bound ip/port: %pI4:%u\n",
+				&dcc_ip, dcc_port);
 
 			/* dcc_ip can be the internal OR external (NAT'ed) IP */
 			tuple = &ct->tuplehash[dir].tuple;
@@ -177,10 +180,9 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 			    tuple->dst.u3.ip != htonl(dcc_ip)) {
 				if (net_ratelimit())
 					printk(KERN_WARNING
-						"Forged DCC command from "
-						"%u.%u.%u.%u: %u.%u.%u.%u:%u\n",
-						NIPQUAD(tuple->src.u3.ip),
-						HIPQUAD(dcc_ip), dcc_port);
+						"Forged DCC command from %pI4: %pI4:%u\n",
+						&tuple->src.u3.ip,
+						&dcc_ip, dcc_port);
 				continue;
 			}
 

@@ -223,10 +223,10 @@ struct ip_vs_conn *ip_vs_conn_in_get
 	if (!cp && atomic_read(&ip_vs_conn_no_cport_cnt))
 		cp = __ip_vs_conn_in_get(protocol, s_addr, 0, d_addr, d_port);
 
-	IP_VS_DBG(9, "lookup/in %s %u.%u.%u.%u:%d->%u.%u.%u.%u:%d %s\n",
+	IP_VS_DBG(9, "lookup/in %s %pI4:%u->%pI4:%u %s\n",
 		  ip_vs_proto_name(protocol),
-		  NIPQUAD(s_addr), ntohs(s_port),
-		  NIPQUAD(d_addr), ntohs(d_port),
+		  &s_addr, ntohs(s_port),
+		  &d_addr, ntohs(d_port),
 		  cp?"hit":"not hit");
 
 	return cp;
@@ -258,10 +258,10 @@ struct ip_vs_conn *ip_vs_ct_in_get
   out:
 	ct_read_unlock(hash);
 
-	IP_VS_DBG(9, "template lookup/in %s %u.%u.%u.%u:%d->%u.%u.%u.%u:%d %s\n",
+	IP_VS_DBG(9, "template lookup/in %s %pI4:%u->%pI4:%u %s\n",
 		  ip_vs_proto_name(protocol),
-		  NIPQUAD(s_addr), ntohs(s_port),
-		  NIPQUAD(d_addr), ntohs(d_port),
+		  &s_addr, ntohs(s_port),
+		  &d_addr, ntohs(d_port),
 		  cp?"hit":"not hit");
 
 	return cp;
@@ -299,10 +299,10 @@ struct ip_vs_conn *ip_vs_conn_out_get
 
 	ct_read_unlock(hash);
 
-	IP_VS_DBG(9, "lookup/out %s %u.%u.%u.%u:%d->%u.%u.%u.%u:%d %s\n",
+	IP_VS_DBG(9, "lookup/out %s %pI4:%u->%pI4:%u %s\n",
 		  ip_vs_proto_name(protocol),
-		  NIPQUAD(s_addr), ntohs(s_port),
-		  NIPQUAD(d_addr), ntohs(d_port),
+		  &s_addr, ntohs(s_port),
+		  &d_addr, ntohs(d_port),
 		  ret?"hit":"not hit");
 
 	return ret;
@@ -395,13 +395,13 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
 	cp->flags |= atomic_read(&dest->conn_flags);
 	cp->dest = dest;
 
-	IP_VS_DBG(7, "Bind-dest %s c:%u.%u.%u.%u:%d v:%u.%u.%u.%u:%d "
-		  "d:%u.%u.%u.%u:%d fwd:%c s:%u conn->flags:%X conn->refcnt:%d "
+	IP_VS_DBG(7, "Bind-dest %s c:%pI4:%u v:%pI4:%u "
+		  "d:%pI4:%u fwd:%c s:%u conn->flags:%X conn->refcnt:%d "
 		  "dest->refcnt:%d\n",
 		  ip_vs_proto_name(cp->protocol),
-		  NIPQUAD(cp->caddr), ntohs(cp->cport),
-		  NIPQUAD(cp->vaddr), ntohs(cp->vport),
-		  NIPQUAD(cp->daddr), ntohs(cp->dport),
+		  &cp->caddr, ntohs(cp->cport),
+		  &cp->vaddr, ntohs(cp->vport),
+		  &cp->daddr, ntohs(cp->dport),
 		  ip_vs_fwd_tag(cp), cp->state,
 		  cp->flags, atomic_read(&cp->refcnt),
 		  atomic_read(&dest->refcnt));
@@ -435,13 +435,13 @@ static inline void ip_vs_unbind_dest(struct ip_vs_conn *cp)
 	if (!dest)
 		return;
 
-	IP_VS_DBG(7, "Unbind-dest %s c:%u.%u.%u.%u:%d v:%u.%u.%u.%u:%d "
-		  "d:%u.%u.%u.%u:%d fwd:%c s:%u conn->flags:%X conn->refcnt:%d "
+	IP_VS_DBG(7, "Unbind-dest %s c:%pI4:%u v:%pI4:%u "
+		  "d:%pI4:%u fwd:%c s:%u conn->flags:%X conn->refcnt:%d "
 		  "dest->refcnt:%d\n",
 		  ip_vs_proto_name(cp->protocol),
-		  NIPQUAD(cp->caddr), ntohs(cp->cport),
-		  NIPQUAD(cp->vaddr), ntohs(cp->vport),
-		  NIPQUAD(cp->daddr), ntohs(cp->dport),
+		  &cp->caddr, ntohs(cp->cport),
+		  &cp->vaddr, ntohs(cp->vport),
+		  &cp->daddr, ntohs(cp->dport),
 		  ip_vs_fwd_tag(cp), cp->state,
 		  cp->flags, atomic_read(&cp->refcnt),
 		  atomic_read(&dest->refcnt));
@@ -498,12 +498,12 @@ int ip_vs_check_template(struct ip_vs_conn *ct)
 	    (sysctl_ip_vs_expire_quiescent_template &&
 	     (atomic_read(&dest->weight) == 0))) {
 		IP_VS_DBG(9, "check_template: dest not available for "
-			  "protocol %s s:%u.%u.%u.%u:%d v:%u.%u.%u.%u:%d "
-			  "-> d:%u.%u.%u.%u:%d\n",
+			  "protocol %s s:%pI4:%u v:%pI4:%u "
+			  "-> d:%pI4:%u\n",
 			  ip_vs_proto_name(ct->protocol),
-			  NIPQUAD(ct->caddr), ntohs(ct->cport),
-			  NIPQUAD(ct->vaddr), ntohs(ct->vport),
-			  NIPQUAD(ct->daddr), ntohs(ct->dport));
+			  &ct->caddr, ntohs(ct->cport),
+			  &ct->vaddr, ntohs(ct->vport),
+			  &ct->daddr, ntohs(ct->dport));
 
 		/*
 		 * Invalidate the connection template

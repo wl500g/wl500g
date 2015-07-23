@@ -69,11 +69,10 @@ ah_conn_in_get(const struct sk_buff *skb,
 		 * service, so our conn_schedule hook should return NF_ACCEPT
 		 */
 		IP_VS_DBG(12, "Unknown ISAKMP entry for outin packet "
-			  "%s%s %u.%u.%u.%u->%u.%u.%u.%u\n",
+			  "%s%s %pI4->%pI4\n",
 			  inverse ? "ICMP+" : "",
 			  pp->name,
-			  NIPQUAD(iph->saddr),
-			  NIPQUAD(iph->daddr));
+			  &iph->saddr, &iph->daddr);
 	}
 
 	return cp;
@@ -102,11 +101,10 @@ ah_conn_out_get(const struct sk_buff *skb, struct ip_vs_protocol *pp,
 
 	if (!cp) {
 		IP_VS_DBG(12, "Unknown ISAKMP entry for inout packet "
-			  "%s%s %u.%u.%u.%u->%u.%u.%u.%u\n",
+			  "%s%s %pI4->%pI4\n",
 			  inverse ? "ICMP+" : "",
 			  pp->name,
-			  NIPQUAD(iph->saddr),
-			  NIPQUAD(iph->daddr));
+			  &iph->saddr, &iph->daddr);
 	}
 
 	return cp;
@@ -137,9 +135,8 @@ ah_debug_packet(struct ip_vs_protocol *pp, const struct sk_buff *skb,
 	if (ih == NULL)
 		sprintf(buf, "%s TRUNCATED", pp->name);
 	else
-		sprintf(buf, "%s %u.%u.%u.%u->%u.%u.%u.%u",
-			pp->name, NIPQUAD(ih->saddr),
-			NIPQUAD(ih->daddr));
+		sprintf(buf, "%s %pI4->%pI4",
+			pp->name, &ih->saddr, &ih->daddr);
 
 	printk(KERN_DEBUG "IPVS: %s: %s\n", msg, buf);
 }

@@ -2480,14 +2480,13 @@ static int rt6_info_route(struct rt6_info *rt, void *p_arg)
 		return 0;
 
 	arg->len += sprintf(arg->buffer + arg->len,
-			    NIP6_SEQFMT " %02x ",
-			    NIP6(rt->rt6i_dst.addr),
+			    "%pi6 %02x ", &rt->rt6i_dst.addr,
 			    rt->rt6i_dst.plen);
 
 #ifdef CONFIG_IPV6_SUBTREES
 	arg->len += sprintf(arg->buffer + arg->len,
-			    NIP6_SEQFMT " %02x ",
-			    NIP6(rt->rt6i_src.addr),
+			    "%pi6 %02x ",
+			    &rt->rt6i_src.addr,
 			    rt->rt6i_src.plen);
 #else
 	arg->len += sprintf(arg->buffer + arg->len,
@@ -2496,8 +2495,8 @@ static int rt6_info_route(struct rt6_info *rt, void *p_arg)
 
 	if (rt->rt6i_nexthop) {
 		arg->len += sprintf(arg->buffer + arg->len,
-				    NIP6_SEQFMT,
-				    NIP6(*((struct in6_addr *)rt->rt6i_nexthop->primary_key)));
+				    "%pi6",
+				    rt->rt6i_nexthop->primary_key);
 	} else {
 		arg->len += sprintf(arg->buffer + arg->len,
 				    "00000000000000000000000000000000");

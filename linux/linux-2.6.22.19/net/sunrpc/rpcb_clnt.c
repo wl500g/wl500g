@@ -279,10 +279,10 @@ int rpcb_getport_sync(struct sockaddr_in *sin, __u32 prog,
 	char hostname[40];
 	int status;
 
-	dprintk("RPC:       %s(" NIPQUAD_FMT ", %u, %u, %d)\n",
-		__FUNCTION__, NIPQUAD(sin->sin_addr.s_addr), prog, vers, prot);
+	dprintk("RPC:       %s(%pI4, %u, %u, %d)\n",
+		__FUNCTION__, &sin->sin_addr.s_addr, prog, vers, prot);
 
-	sprintf(hostname, NIPQUAD_FMT, NIPQUAD(sin->sin_addr.s_addr));
+	sprintf(hostname, "%pI4", &sin->sin_addr.s_addr);
 	rpcb_clnt = rpcb_create(hostname, (struct sockaddr *)sin, prot, 2, 0);
 	if (IS_ERR(rpcb_clnt))
 		return PTR_ERR(rpcb_clnt);
