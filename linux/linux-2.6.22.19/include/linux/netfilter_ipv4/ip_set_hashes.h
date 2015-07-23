@@ -303,8 +303,7 @@ pack_ip_cidr(ip_set_ip_t ip, unsigned char cidr)
 	*a = *a /(1 << (8 - t)) + shifts[t];
 #ifdef __KERNEL__
 	DP("n: %u, t: %u, a: %u", n, t, *a);
-	DP("ip:%u.%u.%u.%u/%u, %pI4",
-	   HIPQUAD(ip), cidr, &addr);
+	DP("ip:%pI4h/%u, %pI4", &ip, cidr, &addr);
 #endif
 
 	return ntohl(addr);

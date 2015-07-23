@@ -31,7 +31,7 @@ macipmap_utest(struct ip_set *set, const void *data, u_int32_t size)
 	if (req->ip < map->first_ip || req->ip > map->last_ip)
 		return -ERANGE;
 
-	DP("set: %s, ip:%u.%u.%u.%u", set->name, HIPQUAD(req->ip));		
+	DP("set: %s, ip: %pI4h", set->name, &req->ip);
 	if (table[req->ip - map->first_ip].match) {
 		return (memcmp(req->ethernet,
 			       &table[req->ip - map->first_ip].ethernet,
@@ -55,7 +55,7 @@ macipmap_ktest(struct ip_set *set,
 	if (ip < map->first_ip || ip > map->last_ip)
 		return 0;
 
-	DP("set: %s, ip:%u.%u.%u.%u", set->name, HIPQUAD(ip));
+	DP("set: %s, ip: %pI4h", set->name, &ip);
 	if (table[ip - map->first_ip].match) {
 		/* Is mac pointer valid?
 		 * If so, compare... */
@@ -82,7 +82,7 @@ macipmap_add(struct ip_set *set,
 	if (table[ip - map->first_ip].match)
 		return -EEXIST;
 
-	DP("set: %s, ip: %u.%u.%u.%u", set->name, HIPQUAD(ip));
+	DP("set: %s, ip: %pI4h", set->name, &ip);
 	memcpy(&table[ip - map->first_ip].ethernet, ethernet, ETH_ALEN);
 	table[ip - map->first_ip].match = IPSET_MACIP_ISSET;
 	return 0;
@@ -108,7 +108,7 @@ macipmap_del(struct ip_set *set, ip_set_ip_t ip)
 		return -EEXIST;
 
 	table[ip - map->first_ip].match = 0;
-	DP("set: %s, ip: %u.%u.%u.%u", set->name, HIPQUAD(ip));
+	DP("set: %s, ip: %pI4h", set->name, &ip);
 	return 0;
 }
 

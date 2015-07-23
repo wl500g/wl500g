@@ -34,7 +34,7 @@ iphash_id(struct ip_set *set, ip_set_ip_t ip)
 
 
 	ip &= map->netmask;	
-	DP("set: %s, ip:%u.%u.%u.%u", set->name, HIPQUAD(ip));
+	DP("set: %s, ip: %pI4h", set->name, &ip);
 	for (i = 0; i < map->probes; i++) {
 		id = jhash_ip(map, i, ip) % map->hashsize;
 		DP("hash key: %u", id);

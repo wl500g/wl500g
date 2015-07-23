@@ -33,7 +33,7 @@ ipmap_test(const struct ip_set *set, ip_set_ip_t ip)
 	if (ip < map->first_ip || ip > map->last_ip)
 		return -ERANGE;
 
-	DP("set: %s, ip:%u.%u.%u.%u", set->name, HIPQUAD(ip));
+	DP("set: %s, ip: %pI4h", set->name, &ip);
 	return !!test_bit(ip_to_id(map, ip), map->members);
 }
 
@@ -50,7 +50,7 @@ ipmap_add(struct ip_set *set, ip_set_ip_t ip)
 	if (ip < map->first_ip || ip > map->last_ip)
 		return -ERANGE;
 
-	DP("set: %s, ip:%u.%u.%u.%u", set->name, HIPQUAD(ip));
+	DP("set: %s, ip: %pI4h", set->name, &ip);
 	if (test_and_set_bit(ip_to_id(map, ip), map->members))
 		return -EEXIST;
 
@@ -68,7 +68,7 @@ ipmap_del(struct ip_set *set, ip_set_ip_t ip)
 	if (ip < map->first_ip || ip > map->last_ip)
 		return -ERANGE;
 
-	DP("set: %s, ip:%u.%u.%u.%u", set->name, HIPQUAD(ip));
+	DP("set: %s, ip: %pI4h", set->name, &ip);
 	if (!test_and_clear_bit(ip_to_id(map, ip), map->members))
 		return -EEXIST;
 	
