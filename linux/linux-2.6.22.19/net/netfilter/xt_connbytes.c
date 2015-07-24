@@ -16,7 +16,7 @@ MODULE_DESCRIPTION("iptables match for matching number of pkts/bytes per connect
 MODULE_ALIAS("ipt_connbytes");
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+connbytes_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_connbytes_info *sinfo = par->matchinfo;
 	struct nf_conn *ct;
@@ -88,7 +88,7 @@ match(const struct sk_buff *skb, struct xt_action_param *par)
 		return what < sinfo->count.to || what > sinfo->count.from;
 }
 
-static bool check(const struct xt_mtchk_param *par)
+static bool connbytes_mt_check(const struct xt_mtchk_param *par)
 {
 	const struct xt_connbytes_info *sinfo = par->matchinfo;
 
@@ -120,8 +120,8 @@ static struct xt_match xt_connbytes_match __read_mostly = {
 	.name		= "connbytes",
 	.revision   = 0,
 	.family		= NFPROTO_UNSPEC,
-	.checkentry	= check,
-	.match		= match,
+	.checkentry	= connbytes_mt_check,
+	.match		= connbytes_mt,
 	.destroy	= destroy,
 	.matchsize	= sizeof(struct xt_connbytes_info),
 	.me		= THIS_MODULE

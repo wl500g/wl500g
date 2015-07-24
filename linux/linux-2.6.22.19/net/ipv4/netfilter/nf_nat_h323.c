@@ -21,12 +21,6 @@
 #include <net/netfilter/nf_conntrack_expect.h>
 #include <linux/netfilter/nf_conntrack_h323.h>
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 /****************************************************************************/
 static int set_addr(struct sk_buff *skb,
 		    unsigned char **data, int dataoff,
@@ -607,8 +601,6 @@ static int __init init(void)
 	RCU_INIT_POINTER(nat_h245_hook, nat_h245);
 	RCU_INIT_POINTER(nat_callforwarding_hook, nat_callforwarding);
 	RCU_INIT_POINTER(nat_q931_hook, nat_q931);
-
-	DEBUGP("nf_nat_h323: init success\n");
 	return 0;
 }
 

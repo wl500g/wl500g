@@ -27,23 +27,17 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
 MODULE_DESCRIPTION("iptables MASQUERADE target module");
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 /* FIXME: Multiple targets. --RR */
 static bool masquerade_check(const struct xt_tgchk_param *par)
 {
 	const struct nf_nat_multi_range_compat *mr = par->targinfo;
 
 	if (mr->range[0].flags & IP_NAT_RANGE_MAP_IPS) {
-		DEBUGP("masquerade_check: bad MAP_IPS.\n");
+		pr_debug("masquerade_check: bad MAP_IPS.\n");
 		return false;
 	}
 	if (mr->rangesize != 1) {
-		DEBUGP("masquerade_check: bad rangesize %u.\n", mr->rangesize);
+		pr_debug("masquerade_check: bad rangesize %u\n", mr->rangesize);
 		return false;
 	}
 	return true;

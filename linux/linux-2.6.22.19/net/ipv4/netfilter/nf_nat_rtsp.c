@@ -46,11 +46,6 @@
 #include <linux/netfilter_mime.h>
 
 #define INFOP(fmt, args...) printk(KERN_INFO "%s: %s: " fmt, __FILE__, __FUNCTION__ , ## args)
-#if 0 
-#define DEBUGP(fmt, args...) printk(KERN_DEBUG "%s: %s: " fmt, __FILE__, __FUNCTION__ , ## args)
-#else
-#define DEBUGP(fmt, args...)
-#endif
 
 #define MAX_PORTS       8
 #define DSTACT_AUTO     0
@@ -148,7 +143,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
 
     extaddrlen = extip ? sprintf(szextaddr, "%pI4", &extip)
                        : sprintf(szextaddr, "%pI4", &newip);
-    DEBUGP("stunaddr=%s (%s)\n", szextaddr, (extip?"forced":"auto"));
+    pr_debug("stunaddr=%s (%s)\n", szextaddr, (extip?"forced":"auto"));
 
     rbuf1len = rbufalen = 0;
     switch (prtspexp->pbtype)
@@ -159,7 +154,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
             t->dst.u.udp.port = htons(loport);
             if (nf_conntrack_expect_related(exp) == 0)
             {
-                DEBUGP("using port %hu\n", loport);
+                pr_debug("using port %hu\n", loport);
                 break;
             }
         }
@@ -176,7 +171,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
             if (nf_conntrack_expect_related(exp) == 0)
             {
                 hiport = loport + 1; //~exp->mask.dst.u.udp.port;
-                DEBUGP("using ports %hu-%hu\n", loport, hiport);
+                pr_debug("using ports %hu-%hu\n", loport, hiport);
                 break;
             }
         }
@@ -192,7 +187,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
             t->dst.u.udp.port = htons(loport);
             if (nf_conntrack_expect_related(exp) == 0)
             {
-                DEBUGP("using port %hu (1 of 2)\n", loport);
+                pr_debug("using port %hu (1 of 2)\n", loport);
                 break;
             }
         }
@@ -201,7 +196,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
             t->dst.u.udp.port = htons(hiport);
             if (nf_conntrack_expect_related(exp) == 0)
             {
-                DEBUGP("using port %hu (2 of 2)\n", hiport);
+                pr_debug("using port %hu (2 of 2)\n", hiport);
                 break;
             }
         }
@@ -308,7 +303,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
                 origlen += numlen;
                 if (port != prtspexp->loport)
                 {
-                    DEBUGP("multiple ports found, port %hu ignored\n", port);
+                    pr_debug("multiple ports found, port %hu ignored\n", port);
                 }
                 else
                 {
@@ -375,7 +370,7 @@ help_out(struct sk_buff *skb, enum ip_conntrack_info ctinfo,
     hdrsoff = matchoff;//exp->seq - ntohl(tcph->seq);
     hdrslen = matchlen;
     off = hdrsoff;
-    DEBUGP("NAT rtsp help_out\n");
+    pr_debug("NAT rtsp help_out\n");
 
     while (nf_mime_nextline(ptcp, hdrsoff+hdrslen, &off, &lineoff, &linelen))
     {
@@ -388,15 +383,15 @@ help_out(struct sk_buff *skb, enum ip_conntrack_info ctinfo,
             INFOP("!! overrun !!");
             break;
         }
-        DEBUGP("hdr: len=%u, %.*s", linelen, (int)linelen, ptcp+lineoff);
+        pr_debug("hdr: len=%u, %.*s", linelen, (int)linelen, ptcp+lineoff);
 
         if (nf_strncasecmp(ptcp+lineoff, "Transport:", 10) == 0)
         {
             uint oldtcplen = tcplen;
-	    DEBUGP("hdr: Transport\n");
+	    pr_debug("hdr: Transport\n");
             if (!rtsp_mangle_tran(ctinfo, exp, prtspexp, skb, lineoff, linelen))
             {
-		DEBUGP("hdr: Transport mangle failed");
+		pr_debug("hdr: Transport mangle failed");
                 break;
             }
             get_skb_tcpdata(skb, &ptcp, &tcplen);
@@ -404,7 +399,7 @@ help_out(struct sk_buff *skb, enum ip_conntrack_info ctinfo,
             off -= (oldtcplen-tcplen);
             lineoff -= (oldtcplen-tcplen);
             linelen -= (oldtcplen-tcplen);
-            DEBUGP("rep: len=%u, %.*s", linelen, (int)linelen, ptcp+lineoff);
+            pr_debug("rep: len=%u, %.*s", linelen, (int)linelen, ptcp+lineoff);
         }
     }
 
@@ -425,7 +420,7 @@ help(struct sk_buff *skb, enum ip_conntrack_info ctinfo,
         rc = help_out(skb, ctinfo, matchoff, matchlen, prtspexp, exp);
         break;
     case IP_CT_DIR_REPLY:
-	DEBUGP("unmangle ! %u\n", ctinfo);
+	pr_debug("unmangle ! %u\n", ctinfo);
     	/* XXX: unmangle */
 	rc = NF_ACCEPT;
         break;

@@ -29,7 +29,7 @@ MODULE_ALIAS("ip6t_statistic");
 static DEFINE_SPINLOCK(nth_lock);
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+statistic_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_statistic_info *info = (void *)par->matchinfo;
 	bool ret = info->flags & XT_STATISTIC_INVERT;
@@ -52,7 +52,7 @@ match(const struct sk_buff *skb, struct xt_action_param *par)
 	return ret;
 }
 
-static bool checkentry(const struct xt_mtchk_param *par)
+static bool statistic_mt_check(const struct xt_mtchk_param *par)
 {
 	struct xt_statistic_info *info = par->matchinfo;
 
@@ -81,8 +81,8 @@ static struct xt_match xt_statistic_match __read_mostly = {
 	.name		= "statistic",
 	.revision   = 0,
 	.family		= NFPROTO_UNSPEC,
-	.match		= match,
-	.checkentry	= checkentry,
+	.match		= statistic_mt,
+	.checkentry	= statistic_mt_check,
 	.destroy	= statistic_mt_destroy,
 	.matchsize	= sizeof(struct xt_statistic_info),
 	.me		= THIS_MODULE,

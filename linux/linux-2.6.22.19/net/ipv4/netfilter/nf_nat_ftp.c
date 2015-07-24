@@ -25,12 +25,6 @@ MODULE_AUTHOR("Rusty Russell <rusty@rustcorp.com.au>");
 MODULE_DESCRIPTION("ftp NAT helper");
 MODULE_ALIAS("ip_nat_ftp");
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 /* FIXME: Time out? --RR */
 
 static int nf_nat_ftp_fmt_cmd(enum nf_ct_ftp_type type,
@@ -72,7 +66,7 @@ static unsigned int nf_nat_ftp(struct sk_buff *skb,
 	char buffer[sizeof("|1|255.255.255.255|65535|")];
 	unsigned int buflen;
 
-	DEBUGP("FTP_NAT: type %i, off %u len %u\n", type, matchoff, matchlen);
+	pr_debug("FTP_NAT: type %i, off %u len %u\n", type, matchoff, matchlen);
 
 	/* Connection will come from wherever this packet goes, hence !dir */
 	newip = ct->tuplehash[!dir].tuple.dst.u3.ip;

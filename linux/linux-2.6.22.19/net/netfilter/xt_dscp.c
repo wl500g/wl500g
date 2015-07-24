@@ -25,7 +25,7 @@ MODULE_ALIAS("ipt_tos");
 MODULE_ALIAS("ip6t_tos");
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+dscp_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_dscp_info *info = par->matchinfo;
 	u_int8_t dscp = ipv4_get_dsfield(ip_hdr(skb)) >> XT_DSCP_SHIFT;
@@ -34,7 +34,7 @@ match(const struct sk_buff *skb, struct xt_action_param *par)
 }
 
 static bool
-match6(const struct sk_buff *skb, struct xt_action_param *par)
+dscp_mt6(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_dscp_info *info = par->matchinfo;
 	u_int8_t dscp = ipv6_get_dsfield(ipv6_hdr(skb)) >> XT_DSCP_SHIFT;
@@ -42,7 +42,7 @@ match6(const struct sk_buff *skb, struct xt_action_param *par)
 	return (dscp == info->dscp) ^ !!info->invert;
 }
 
-static bool checkentry(const struct xt_mtchk_param *par)
+static bool dscp_mt_check(const struct xt_mtchk_param *par)
 {
 	const struct xt_dscp_info *info = par->matchinfo;
 
@@ -70,16 +70,16 @@ static struct xt_match xt_dscp_match[] __read_mostly = {
 	{
 		.name		= "dscp",
 		.family		= AF_INET,
-		.checkentry	= checkentry,
-		.match		= match,
+		.checkentry	= dscp_mt_check,
+		.match		= dscp_mt,
 		.matchsize	= sizeof(struct xt_dscp_info),
 		.me		= THIS_MODULE,
 	},
 	{
 		.name		= "dscp",
 		.family		= AF_INET6,
-		.checkentry	= checkentry,
-		.match		= match6,
+		.checkentry	= dscp_mt_check,
+		.match		= dscp_mt6,
 		.matchsize	= sizeof(struct xt_dscp_info),
 		.me		= THIS_MODULE,
 	},

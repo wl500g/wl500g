@@ -24,12 +24,6 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(fmt, a...)
-#endif
-
 static inline char dash2underscore(char c)
 {
 	if (c == '-')
@@ -57,18 +51,18 @@ static int parse_one(char *param,
 	/* Find parameter */
 	for (i = 0; i < num_params; i++) {
 		if (parameq(param, params[i].name)) {
-			DEBUGP("They are equal!  Calling %p\n",
+			pr_debug("They are equal!  Calling %p\n",
 			       params[i].set);
 			return params[i].set(val, &params[i]);
 		}
 	}
 
 	if (handle_unknown) {
-		DEBUGP("Unknown argument: calling %p\n", handle_unknown);
+		pr_debug("Unknown argument: calling %p\n", handle_unknown);
 		return handle_unknown(param, val);
 	}
 
-	DEBUGP("Unknown argument `%s'\n", param);
+	pr_debug("Unknown argument `%s'\n", param);
 	return -ENOENT;
 }
 
@@ -135,7 +129,7 @@ int parse_args(const char *name,
 {
 	char *param, *val;
 
-	DEBUGP("Parsing ARGS: %s\n", args);
+	pr_debug("Parsing ARGS: %s\n", args);
 
 	/* Chew leading spaces */
 	while (*args == ' ')
@@ -591,7 +585,7 @@ static void __init param_sysfs_builtin(void)
 
 		dot = strchr(kp->name, '.');
 		if (!dot) {
-			DEBUGP("couldn't find period in first %d characters "
+			pr_debug("couldn't find period in first %d characters "
 			       "of %s\n", MODULE_NAME_LEN, kp->name);
 			continue;
 		}

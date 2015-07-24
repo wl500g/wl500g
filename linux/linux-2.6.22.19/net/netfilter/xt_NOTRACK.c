@@ -11,7 +11,7 @@ MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_NOTRACK");
 
 static unsigned int
-target(struct sk_buff *skb, const struct xt_action_param *par)
+notrack_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	/* Previously seen (loopback)? Ignore. */
 	if (skb->nfct != NULL)
@@ -31,7 +31,7 @@ target(struct sk_buff *skb, const struct xt_action_param *par)
 static struct xt_target xt_notrack_target __read_mostly = {
 	.name		= "NOTRACK",
 	.family		= NFPROTO_UNSPEC,
-	.target		= target,
+	.target		= notrack_tg,
 	.table		= "raw",
 	.me		= THIS_MODULE,
 };

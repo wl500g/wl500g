@@ -22,7 +22,7 @@ MODULE_ALIAS("ipt_string");
 MODULE_ALIAS("ip6t_string");
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+string_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_string_info *conf = par->matchinfo;
 	struct ts_state state;
@@ -38,7 +38,7 @@ match(const struct sk_buff *skb, struct xt_action_param *par)
 
 #define STRING_TEXT_PRIV(m) ((struct xt_string_info *) m)
 
-static bool checkentry(const struct xt_mtchk_param *par)
+static bool string_mt_check(const struct xt_mtchk_param *par)
 {
 	struct xt_string_info *conf = par->matchinfo;
 	struct ts_config *ts_conf;
@@ -75,8 +75,8 @@ static struct xt_match xt_string_match __read_mostly = {
 	.name 		= "string",
 	.revision	= 1,
 	.family		= NFPROTO_UNSPEC,
-	.checkentry	= checkentry,
-	.match 		= match,
+	.checkentry	= string_mt_check,
+	.match 		= string_mt,
 	.destroy 	= destroy,
 	.matchsize	= sizeof(struct xt_string_info),
 	.me 		= THIS_MODULE

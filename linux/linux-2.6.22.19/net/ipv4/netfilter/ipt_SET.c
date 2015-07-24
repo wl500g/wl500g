@@ -20,7 +20,7 @@
 #include <linux/netfilter_ipv4/ipt_set.h>
 
 static unsigned int
-target(struct sk_buff *skb,
+set_tg(struct sk_buff *skb,
        const struct xt_target_param *par)
 {
 	const struct ipt_set_info_target *info = par->targinfo;
@@ -39,7 +39,7 @@ target(struct sk_buff *skb,
 }
 
 static bool
-checkentry(const struct xt_tgchk_param *par)
+set_tg_check(const struct xt_tgchk_param *par)
 {
 	const struct ipt_set_info_target *info = par->targinfo;
 	ip_set_id_t index;
@@ -83,9 +83,9 @@ static void destroy(const struct xt_tgdtor_param *par)
 static struct xt_target SET_target = {
 	.name 		= "SET",
 	.family		= AF_INET,
-	.target 	= target,
+	.target 	= set_tg,
 	.targetsize	= sizeof(struct ipt_set_info_target),
-	.checkentry 	= checkentry,
+	.checkentry 	= set_tg_check,
 	.destroy 	= destroy,
 	.me 		= THIS_MODULE
 };

@@ -49,12 +49,6 @@
 
 extern int module_sysfs_initialized;
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(fmt , a...)
-#endif
-
 #ifndef ARCH_SHF_SMALL
 #define ARCH_SHF_SMALL 0
 #endif
@@ -319,7 +313,7 @@ static unsigned long find_symbol(const char *name,
 		return fsa.value;
 	}
 
-	DEBUGP("Failed to find symbol %s\n", name);
+	pr_debug("Failed to find symbol %s\n", name);
 	return -ENOENT;
 }
 
@@ -585,11 +579,11 @@ static int already_uses(struct module *a, struct module *b)
 
 	list_for_each_entry(use, &b->modules_which_use_me, list) {
 		if (use->module_which_uses == a) {
-			DEBUGP("%s uses %s!\n", a->name, b->name);
+			pr_debug("%s uses %s!\n", a->name, b->name);
 			return 1;
 		}
 	}
-	DEBUGP("%s does not use %s!\n", a->name, b->name);
+	pr_debug("%s does not use %s!\n", a->name, b->name);
 	return 0;
 }
 
@@ -614,7 +608,7 @@ static int use_module(struct module *a, struct module *b)
 	if (err)
 		return 0;
 
-	DEBUGP("Allocating new usage for %s.\n", a->name);
+	pr_debug("Allocating new usage for %s.\n", a->name);
 	use = kmalloc(sizeof(*use), GFP_ATOMIC);
 	if (!use) {
 		printk("%s: out of memory loading\n", a->name);
@@ -638,7 +632,7 @@ static void module_unload_free(struct module *mod)
 
 		list_for_each_entry(use, &i->modules_which_use_me, list) {
 			if (use->module_which_uses == mod) {
-				DEBUGP("%s unusing %s\n", mod->name, i->name);
+				pr_debug("%s unusing %s\n", mod->name, i->name);
 				module_put(i);
 				list_del(&use->list);
 				kfree(use);
@@ -720,7 +714,7 @@ static void wait_for_zero_refcount(struct module *mod)
 	/* Since we might sleep for some time, drop the semaphore first */
 	mutex_unlock(&module_mutex);
 	for (;;) {
-		DEBUGP("Looking at refcount...\n");
+		pr_debug("Looking at refcount...\n");
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		if (module_refcount(mod) == 0)
 			break;
@@ -763,7 +757,7 @@ sys_delete_module(const char __user *name_user, unsigned int flags)
 	if (mod->state != MODULE_STATE_LIVE) {
 		/* FIXME: if (force), slam module count and wake up
                    waiter --RR */
-		DEBUGP("%s already dying\n", mod->name);
+		pr_debug("%s already dying\n", mod->name);
 		ret = -EBUSY;
 		goto out;
 	}
@@ -964,7 +958,7 @@ static int check_version(Elf_Shdr *sechdrs,
 			return 1;
 		printk("%s: disagrees about version of symbol %s\n",
 		       mod->name, symname);
-		DEBUGP("Found checksum %lX vs module %lX\n",
+		pr_debug("Found checksum %lX vs module %lX\n",
 		       *crc, versions[i].crc);
 		return 0;
 	}
@@ -1400,7 +1394,7 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 		case SHN_COMMON:
 			/* We compiled with -fno-common.  These are not
 			   supposed to happen.  */
-			DEBUGP("Common symbol: %s\n", strtab + sym[i].st_name);
+			pr_debug("Common symbol: %s\n", strtab + sym[i].st_name);
 			printk("%s: please compile with -fno-common\n",
 			       mod->name);
 			ret = -ENOEXEC;
@@ -1408,7 +1402,7 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 
 		case SHN_ABS:
 			/* Don't need to do anything */
-			DEBUGP("Absolute symbol: 0x%08lx\n",
+			pr_debug("Absolute symbol: 0x%08lx\n",
 			       (long)sym[i].st_value);
 			break;
 
@@ -1476,7 +1470,7 @@ static void layout_sections(struct module *mod,
 	for (i = 0; i < hdr->e_shnum; i++)
 		sechdrs[i].sh_entsize = ~0UL;
 
-	DEBUGP("Core section allocation order:\n");
+	pr_debug("Core section allocation order:\n");
 	for (m = 0; m < ARRAY_SIZE(masks); ++m) {
 		for (i = 0; i < hdr->e_shnum; ++i) {
 			Elf_Shdr *s = &sechdrs[i];
@@ -1488,13 +1482,13 @@ static void layout_sections(struct module *mod,
 				       ".init", 5) == 0)
 				continue;
 			s->sh_entsize = get_offset(&mod->core_size, s);
-			DEBUGP("\t%s\n", secstrings + s->sh_name);
+			pr_debug("\t%s\n", secstrings + s->sh_name);
 		}
 		if (m == 0)
 			mod->core_text_size = mod->core_size;
 	}
 
-	DEBUGP("Init section allocation order:\n");
+	pr_debug("Init section allocation order:\n");
 	for (m = 0; m < ARRAY_SIZE(masks); ++m) {
 		for (i = 0; i < hdr->e_shnum; ++i) {
 			Elf_Shdr *s = &sechdrs[i];
@@ -1507,7 +1501,7 @@ static void layout_sections(struct module *mod,
 				continue;
 			s->sh_entsize = (get_offset(&mod->init_size, s)
 					 | INIT_OFFSET_MASK);
-			DEBUGP("\t%s\n", secstrings + s->sh_name);
+			pr_debug("\t%s\n", secstrings + s->sh_name);
 		}
 		if (m == 0)
 			mod->init_text_size = mod->init_size;
@@ -1670,7 +1664,7 @@ static unsigned long layout_symtab(struct module *mod,
 	symsect->sh_flags |= SHF_ALLOC;
 	symsect->sh_entsize = get_offset(&mod->init_size, symsect)
 					 | INIT_OFFSET_MASK;
-	DEBUGP("\t%s\n", secstrings + symsect->sh_name);
+	pr_debug("\t%s\n", secstrings + symsect->sh_name);
 
 	src = (void *)hdr + symsect->sh_offset;
 	nsrc = symsect->sh_size / sizeof(*src);
@@ -1694,7 +1688,7 @@ static unsigned long layout_symtab(struct module *mod,
 	strsect->sh_flags |= SHF_ALLOC;
 	strsect->sh_entsize = get_offset(&mod->init_size, strsect)
 					 | INIT_OFFSET_MASK;
-	DEBUGP("\t%s\n", secstrings + strsect->sh_name);
+	pr_debug("\t%s\n", secstrings + strsect->sh_name);
 
 	/* Append room for core symbols' strings at end of core part. */
 	*pstroffs = mod->core_size;
@@ -1840,7 +1834,7 @@ static noinline struct module *load_module(void __user *umod,
 
 	mm_segment_t old_fs;
 
-	DEBUGP("load_module: umod=%p, len=%lu, uargs=%p\n",
+	pr_debug("load_module: umod=%p, len=%lu, uargs=%p\n",
 	       umod, len, uargs);
 	if (len < sizeof(*hdr))
 		return ERR_PTR(-ENOEXEC);
@@ -2035,7 +2029,7 @@ static noinline struct module *load_module(void __user *umod,
 	mod->module_init = ptr;
 
 	/* Transfer each section which specifies SHF_ALLOC */
-	DEBUGP("final section addresses:\n");
+	pr_debug("final section addresses:\n");
 	for (i = 0; i < hdr->e_shnum; i++) {
 		void *dest;
 
@@ -2053,7 +2047,7 @@ static noinline struct module *load_module(void __user *umod,
 			       sechdrs[i].sh_size);
 		/* Update sh_addr to point to copy in image. */
 		sechdrs[i].sh_addr = (unsigned long)dest;
-		DEBUGP("\t0x%lx %s\n", sechdrs[i].sh_addr, secstrings + sechdrs[i].sh_name);
+		pr_debug("\t0x%lx %s\n", (long)sechdrs[i].sh_addr, secstrings + sechdrs[i].sh_name);
 	}
 	/* Module has been moved. */
 	mod = (void *)sechdrs[modindex].sh_addr;

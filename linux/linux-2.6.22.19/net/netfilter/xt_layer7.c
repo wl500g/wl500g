@@ -562,7 +562,7 @@ layer7_mt(const struct sk_buff *skbin, struct xt_action_param *par)
 	return (pattern_result ^ info->invert);
 }
 
-static bool check(const struct xt_mtchk_param *par)
+static bool layer7_mt_check(const struct xt_mtchk_param *par)
 {
 	// load nf_conntrack_ipv4
         if (nf_ct_l3proto_try_module_get(par->family) < 0) {
@@ -582,7 +582,7 @@ static struct xt_match xt_layer7_match[] = {
 {
 	.name		= "layer7",
 	.family		= AF_INET,
-	.checkentry	= check,
+	.checkentry	= layer7_mt_check,
 	.match		= layer7_mt,
 	.destroy	= destroy,
 	.matchsize	= sizeof(struct xt_layer7_info),

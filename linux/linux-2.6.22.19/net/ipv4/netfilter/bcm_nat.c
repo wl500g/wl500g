@@ -25,8 +25,6 @@
 #include <linux/netfilter/nf_conntrack_common.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 
-#define DEBUGP(format, args...)
-
 typedef int (*bcmNatHitHook)(struct sk_buff *skb);
 typedef int (*bcmNatBindHook)(struct nf_conn *ct,
 	enum ip_conntrack_info ctinfo,

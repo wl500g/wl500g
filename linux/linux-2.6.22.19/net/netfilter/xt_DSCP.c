@@ -28,7 +28,7 @@ MODULE_ALIAS("ipt_TOS");
 MODULE_ALIAS("ip6t_TOS");
 
 static unsigned int
-target(struct sk_buff *skb, const struct xt_action_param *par)
+dscp_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct xt_DSCP_info *dinfo = par->targinfo;
 	u_int8_t dscp = ipv4_get_dsfield(ip_hdr(skb)) >> XT_DSCP_SHIFT;
@@ -45,7 +45,7 @@ target(struct sk_buff *skb, const struct xt_action_param *par)
 }
 
 static unsigned int
-target6(struct sk_buff *skb, const struct xt_action_param *par)
+dscp_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct xt_DSCP_info *dinfo = par->targinfo;
 	u_int8_t dscp = ipv6_get_dsfield(ipv6_hdr(skb)) >> XT_DSCP_SHIFT;
@@ -60,7 +60,7 @@ target6(struct sk_buff *skb, const struct xt_action_param *par)
 	return XT_CONTINUE;
 }
 
-static bool checkentry(const struct xt_tgchk_param *par)
+static bool dscp_tg_check(const struct xt_tgchk_param *par)
 {
 	const struct xt_DSCP_info *info = par->targinfo;
 
@@ -115,8 +115,8 @@ static struct xt_target xt_dscp_target[] __read_mostly = {
 	{
 		.name		= "DSCP",
 		.family		= AF_INET,
-		.checkentry	= checkentry,
-		.target		= target,
+		.checkentry	= dscp_tg_check,
+		.target		= dscp_tg,
 		.targetsize	= sizeof(struct xt_DSCP_info),
 		.table		= "mangle",
 		.me		= THIS_MODULE,
@@ -124,8 +124,8 @@ static struct xt_target xt_dscp_target[] __read_mostly = {
 	{
 		.name		= "DSCP",
 		.family		= AF_INET6,
-		.checkentry	= checkentry,
-		.target		= target6,
+		.checkentry	= dscp_tg_check,
+		.target		= dscp_tg6,
 		.targetsize	= sizeof(struct xt_DSCP_info),
 		.table		= "mangle",
 		.me		= THIS_MODULE,

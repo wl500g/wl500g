@@ -21,7 +21,7 @@ MODULE_ALIAS("ipt_state");
 MODULE_ALIAS("ip6t_state");
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+state_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_state_info *sinfo = par->matchinfo;
 	enum ip_conntrack_info ctinfo;
@@ -39,7 +39,7 @@ match(const struct sk_buff *skb, struct xt_action_param *par)
 	return (sinfo->statemask & statebit);
 }
 
-static bool check(const struct xt_mtchk_param *par)
+static bool state_mt_check(const struct xt_mtchk_param *par)
 {
 	if (nf_ct_l3proto_try_module_get(par->family) < 0) {
 		printk(KERN_WARNING "can't load conntrack support for "
@@ -58,8 +58,8 @@ static struct xt_match xt_state_match __read_mostly = {
 	.name		= "state",
 	.revision   = 0,
 	.family		= NFPROTO_UNSPEC,
-	.checkentry	= check,
-	.match		= match,
+	.checkentry	= state_mt_check,
+	.match		= state_mt,
 	.destroy	= destroy,
 	.matchsize	= sizeof(struct xt_state_info),
 	.me		= THIS_MODULE,

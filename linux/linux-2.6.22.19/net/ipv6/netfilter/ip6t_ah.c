@@ -23,21 +23,16 @@ MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("IPv6 AH match");
 MODULE_AUTHOR("Andras Kis-Szabo <kisza@sch.bme.hu>");
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 /* Returns 1 if the spi is matched by the range, 0 otherwise */
 static inline bool
 spi_match(u_int32_t min, u_int32_t max, u_int32_t spi, bool invert)
 {
 	bool r;
-	DEBUGP("ah spi_match:%c 0x%x <= 0x%x <= 0x%x",invert? '!':' ',
-	       min,spi,max);
+
+	pr_debug("ah spi_match:%c 0x%x <= 0x%x <= 0x%x",
+		 invert ? '!' : ' ', min, spi, max);
 	r = (spi >= min && spi <= max) ^ invert;
-	DEBUGP(" result %s\n",r? "PASS\n" : "FAILED\n");
+	pr_debug(" result %s\n", r ? "PASS" : "FAILED");
 	return r;
 }
 
@@ -64,22 +59,22 @@ static bool match(const struct sk_buff *skb, struct xt_action_param *par)
 
 	hdrlen = (ah->hdrlen + 2) << 2;
 
-	DEBUGP("IPv6 AH LEN %u %u ", hdrlen, ah->hdrlen);
-	DEBUGP("RES %04X ", ah->reserved);
-	DEBUGP("SPI %u %08X\n", ntohl(ah->spi), ntohl(ah->spi));
+	pr_debug("IPv6 AH LEN %u %u ", hdrlen, ah->hdrlen);
+	pr_debug("RES %04X ", ah->reserved);
+	pr_debug("SPI %u %08X\n", ntohl(ah->spi), ntohl(ah->spi));
 
-	DEBUGP("IPv6 AH spi %02X ",
-	       (spi_match(ahinfo->spis[0], ahinfo->spis[1],
-			  ntohl(ah->spi),
-			  !!(ahinfo->invflags & IP6T_AH_INV_SPI))));
-	DEBUGP("len %02X %04X %02X ",
-	       ahinfo->hdrlen, hdrlen,
-	       (!ahinfo->hdrlen ||
-		(ahinfo->hdrlen == hdrlen) ^
-		!!(ahinfo->invflags & IP6T_AH_INV_LEN)));
-	DEBUGP("res %02X %04X %02X\n",
-	       ahinfo->hdrres, ah->reserved,
-	       !(ahinfo->hdrres && ah->reserved));
+	pr_debug("IPv6 AH spi %02X ",
+		 spi_match(ahinfo->spis[0], ahinfo->spis[1],
+			   ntohl(ah->spi),
+			   !!(ahinfo->invflags & IP6T_AH_INV_SPI)));
+	pr_debug("len %02X %04X %02X ",
+		 ahinfo->hdrlen, hdrlen,
+		 (!ahinfo->hdrlen ||
+		  (ahinfo->hdrlen == hdrlen) ^
+		  !!(ahinfo->invflags & IP6T_AH_INV_LEN)));
+	pr_debug("res %02X %04X %02X\n",
+		 ahinfo->hdrres, ah->reserved,
+		 !(ahinfo->hdrres && ah->reserved));
 
 	return (ah != NULL)
 	       &&
@@ -99,7 +94,7 @@ static bool checkentry(const struct xt_mtchk_param *par)
 	const struct ip6t_ah *ahinfo = par->matchinfo;
 
 	if (ahinfo->invflags & ~IP6T_AH_INV_MASK) {
-		DEBUGP("ip6t_ah: unknown flags %X\n", ahinfo->invflags);
+		pr_debug("ip6t_ah: unknown flags %X\n", ahinfo->invflags);
 		return false;
 	}
 	return true;

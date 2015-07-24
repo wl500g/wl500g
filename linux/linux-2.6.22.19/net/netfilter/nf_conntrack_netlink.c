@@ -530,7 +530,7 @@ ctnetlink_parse_tuple_proto(struct nfattr *attr,
 
 static inline int
 ctnetlink_parse_tuple(struct nfattr *cda[], struct nf_conntrack_tuple *tuple,
-		      enum ctattr_tuple type, u_int8_t l3num)
+		      enum ctattr_type type, u_int8_t l3num)
 {
 	struct nfattr *tb[CTA_TUPLE_MAX];
 	int err;
@@ -576,6 +576,7 @@ static int nfnetlink_parse_nat_proto(struct nfattr *attr,
 {
 	struct nfattr *tb[CTA_PROTONAT_MAX];
 	const struct nf_nat_protocol *npt;
+	int err = 0;
 
 	nfattr_parse_nested(tb, CTA_PROTONAT_MAX, attr);
 

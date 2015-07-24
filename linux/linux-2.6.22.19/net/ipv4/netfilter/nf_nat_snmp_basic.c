@@ -1226,7 +1226,7 @@ static int snmp_translate(struct nf_conn *ct,
 
 /* We don't actually set up expectations, just adjust internal IP
  * addresses if this is being NATted */
-static int help(struct sk_buff *skb, unsigned int protoff,
+static int snmp_help(struct sk_buff *skb, unsigned int protoff,
 		struct nf_conn *ct,
 		enum ip_conntrack_info ctinfo)
 {
@@ -1274,7 +1274,7 @@ static const struct nf_conntrack_expect_policy snmp_exp_policy = {
 
 static struct nf_conntrack_helper snmp_helper __read_mostly = {
 	.me			= THIS_MODULE,
-	.help			= help,
+	.help			= snmp_help,
 	.expect_policy		= &snmp_exp_policy,
 	.name			= "snmp",
 	.tuple.src.l3num	= AF_INET,
@@ -1287,7 +1287,7 @@ static struct nf_conntrack_helper snmp_helper __read_mostly = {
 
 static struct nf_conntrack_helper snmp_trap_helper __read_mostly = {
 	.me			= THIS_MODULE,
-	.help			= help,
+	.help			= snmp_help,
 	.expect_policy		= &snmp_exp_policy,
 	.name			= "snmp_trap",
 	.tuple.src.l3num	= AF_INET,

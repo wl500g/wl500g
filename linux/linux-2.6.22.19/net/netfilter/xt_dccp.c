@@ -92,7 +92,7 @@ match_option(u_int8_t option, const struct sk_buff *skb, unsigned int protoff,
 }
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+dccp_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_dccp_info *info = par->matchinfo;
 	struct dccp_hdr _dh, *dh;
@@ -119,7 +119,7 @@ match(const struct sk_buff *skb, struct xt_action_param *par)
 			   XT_DCCP_OPTION, info->flags, info->invflags);
 }
 
-static bool checkentry(const struct xt_mtchk_param *par)
+static bool dccp_mt_check(const struct xt_mtchk_param *par)
 {
 	const struct xt_dccp_info *info = par->matchinfo;
 
@@ -132,8 +132,8 @@ static struct xt_match xt_dccp_match[] __read_mostly = {
 	{
 		.name 		= "dccp",
 		.family		= AF_INET,
-		.checkentry	= checkentry,
-		.match		= match,
+		.checkentry	= dccp_mt_check,
+		.match		= dccp_mt,
 		.matchsize	= sizeof(struct xt_dccp_info),
 		.proto		= IPPROTO_DCCP,
 		.me 		= THIS_MODULE,
@@ -141,8 +141,8 @@ static struct xt_match xt_dccp_match[] __read_mostly = {
 	{
 		.name 		= "dccp",
 		.family		= AF_INET6,
-		.checkentry	= checkentry,
-		.match		= match,
+		.checkentry	= dccp_mt_check,
+		.match		= dccp_mt,
 		.matchsize	= sizeof(struct xt_dccp_info),
 		.proto		= IPPROTO_DCCP,
 		.me 		= THIS_MODULE,

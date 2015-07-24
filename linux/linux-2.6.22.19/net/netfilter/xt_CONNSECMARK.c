@@ -62,7 +62,7 @@ static void secmark_restore(struct sk_buff *skb)
 }
 
 static unsigned int
-target(struct sk_buff *skb, const struct xt_action_param *par)
+csecmark_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct xt_connsecmark_target_info *info = par->targinfo;
 
@@ -82,7 +82,7 @@ target(struct sk_buff *skb, const struct xt_action_param *par)
 	return XT_CONTINUE;
 }
 
-static bool checkentry(const struct xt_tgchk_param *par)
+static bool csecmark_tg_check(const struct xt_tgchk_param *par)
 {
 	const struct xt_connsecmark_target_info *info = par->targinfo;
 
@@ -112,9 +112,9 @@ static void destroy(const struct xt_tgdtor_param *par)
 static struct xt_target xt_connsecmark_target __read_mostly = {
 	.name		= "CONNSECMARK",
 	.family		= NFPROTO_UNSPEC,
-	.checkentry	= checkentry,
+	.checkentry	= csecmark_tg_check,
 	.destroy	= destroy,
-	.target		= target,
+	.target		= csecmark_tg,
 	.targetsize	= sizeof(struct xt_connsecmark_target_info),
 	.table		= "mangle",
 	.me		= THIS_MODULE,

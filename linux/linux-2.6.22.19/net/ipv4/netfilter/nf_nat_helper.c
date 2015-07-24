@@ -26,13 +26,9 @@
 #include <net/netfilter/nf_nat_core.h>
 #include <net/netfilter/nf_nat_helper.h>
 
-#if 0
-#define DEBUGP printk
-#define DUMP_OFFSET(x)	printk("offset_before=%d, offset_after=%d, correction_pos=%u\n", x->offset_before, x->offset_after, x->correction_pos);
-#else
-#define DEBUGP(format, args...)
-#define DUMP_OFFSET(x)
-#endif
+#define DUMP_OFFSET(x) \
+	pr_debug("offset_before=%d, offset_after=%d, correction_pos=%u\n", \
+		 x->offset_before, x->offset_after, x->correction_pos);
 
 static DEFINE_SPINLOCK(nf_nat_seqofs_lock);
 
@@ -117,14 +113,12 @@ static void mangle_contents(struct sk_buff *skb,
 
 	/* update skb info */
 	if (rep_len > match_len) {
-		DEBUGP("nf_nat_mangle_packet: Extending packet by "
-		       "%u from %u bytes\n", rep_len - match_len,
-		       skb->len);
+		pr_debug("nf_nat_mangle_packet: Extending packet by "
+			 "%u from %u bytes\n", rep_len - match_len, skb->len);
 		skb_put(skb, rep_len - match_len);
 	} else {
-		DEBUGP("nf_nat_mangle_packet: Shrinking packet from "
-		       "%u from %u bytes\n", match_len - rep_len,
-		       skb->len);
+		pr_debug("nf_nat_mangle_packet: Shrinking packet from "
+			 "%u from %u bytes\n", match_len - rep_len, skb->len);
 		__skb_trim(skb, skb->len + rep_len - match_len);
 	}
 
@@ -327,9 +321,9 @@ sack_adjust(struct sk_buff *skb,
 			new_end_seq = htonl(ntohl(sack->end_seq)
 				      - natseq->offset_before);
 
-		DEBUGP("sack_adjust: start_seq: %d->%d, end_seq: %d->%d\n",
-			ntohl(sack->start_seq), new_start_seq,
-			ntohl(sack->end_seq), new_end_seq);
+		pr_debug("sack_adjust: start_seq: %d->%d, end_seq: %d->%d\n",
+			 ntohl(sack->start_seq), new_start_seq,
+			 ntohl(sack->end_seq), new_end_seq);
 
 		nf_proto_csum_replace4(&tcph->check, skb,
 				       sack->start_seq, new_start_seq, 0);
@@ -426,9 +420,9 @@ nf_nat_seq_adjust(struct sk_buff *skb,
 	nf_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, 0);
 	nf_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq, newack, 0);
 
-	DEBUGP("Adjusting sequence number from %u->%u, ack from %u->%u\n",
-		ntohl(tcph->seq), ntohl(newseq), ntohl(tcph->ack_seq),
-		ntohl(newack));
+	pr_debug("Adjusting sequence number from %u->%u, ack from %u->%u\n",
+		 ntohl(tcph->seq), ntohl(newseq), ntohl(tcph->ack_seq),
+		 ntohl(newack));
 
 	tcph->seq = newseq;
 	tcph->ack_seq = newack;

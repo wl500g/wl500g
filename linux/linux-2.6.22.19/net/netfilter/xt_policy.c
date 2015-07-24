@@ -127,7 +127,7 @@ policy_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	return ret;
 }
 
-static bool checkentry(const struct xt_mtchk_param *par)
+static bool policy_mt_check(const struct xt_mtchk_param *par)
 {
 	const struct xt_policy_info *info = par->matchinfo;
 
@@ -160,16 +160,16 @@ static struct xt_match xt_policy_match[] __read_mostly = {
 	{
 		.name		= "policy",
 		.family		= AF_INET,
-		.checkentry 	= checkentry,
-		.match		= match,
+		.checkentry 	= policy_mt_check,
+		.match		= policy_mt,
 		.matchsize	= sizeof(struct xt_policy_info),
 		.me		= THIS_MODULE,
 	},
 	{
 		.name		= "policy",
 		.family		= AF_INET6,
-		.checkentry	= checkentry,
-		.match		= match,
+		.checkentry	= policy_mt_check,
+		.match		= policy_mt,
 		.matchsize	= sizeof(struct xt_policy_info),
 		.me		= THIS_MODULE,
 	},

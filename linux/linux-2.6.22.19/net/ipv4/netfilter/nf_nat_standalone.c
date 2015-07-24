@@ -26,12 +26,6 @@
 #include <net/netfilter/nf_nat_helper.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 #ifdef CONFIG_XFRM
 static void nat_decode_session(struct sk_buff *skb, struct flowi *fl)
 {
@@ -148,9 +142,9 @@ nf_nat_fn(unsigned int hooknum,
 				return ret;
 			}
 		} else
-			DEBUGP("Already setup manip %s for ct %p\n",
-			       maniptype == IP_NAT_MANIP_SRC ? "SRC" : "DST",
-			       ct);
+			pr_debug("Already setup manip %s for ct %p\n",
+				 maniptype == IP_NAT_MANIP_SRC ? "SRC" : "DST",
+				 ct);
 		break;
 
 	default:
@@ -264,7 +258,7 @@ nf_nat_adjust(unsigned int hooknum,
 
 	ct = nf_ct_get(skb, &ctinfo);
 	if (ct && test_bit(IPS_SEQ_ADJUST_BIT, &ct->status)) {
-		DEBUGP("nf_nat_standalone: adjusting sequence number\n");
+		pr_debug("nf_nat_standalone: adjusting sequence number\n");
 		if (!nf_nat_seq_adjust(skb, ct, ctinfo))
 			return NF_DROP;
 	}

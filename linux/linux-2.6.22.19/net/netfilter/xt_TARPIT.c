@@ -47,12 +47,6 @@ struct in_device;
 #include <linux/random.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 /* Stolen from ip_finish_output2 */
 static int ip_direct_send(struct sk_buff *skb)
 {

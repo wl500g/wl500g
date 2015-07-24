@@ -31,12 +31,6 @@
 #include <net/netfilter/nf_conntrack_helper.h>
 #include <net/netfilter/nf_conntrack_l3proto.h>
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 static DEFINE_RWLOCK(nf_nat_lock);
 
 static struct nf_conntrack_l3proto *l3proto __read_mostly;
@@ -260,7 +254,7 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
 	if (maniptype == IP_NAT_MANIP_SRC &&
 	    !(range->flags & IP_NAT_RANGE_PROTO_RANDOM)) {
 		if (find_appropriate_src(orig_tuple, tuple, range)) {
-			DEBUGP("get_unique_tuple: Found current src map\n");
+			pr_debug("get_unique_tuple: Found current src map\n");
 			if (!nf_nat_used_tuple(tuple, ct))
 				return;
 		}
@@ -484,8 +478,9 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 			return 0;
 	}
 
-	DEBUGP("icmp_reply_translation: translating error %p manp %u dir %s\n",
-	       skb, manip, dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
+	pr_debug("icmp_reply_translation: translating error %p manip %u "
+		 "dir %s\n", skb, manip,
+		 dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
 
 	/* Change inner back to look like incoming packet.  We do the
 	   opposite manip on this hook to normal, because it might not

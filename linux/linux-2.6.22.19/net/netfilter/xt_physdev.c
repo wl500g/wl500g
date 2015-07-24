@@ -22,7 +22,7 @@ MODULE_ALIAS("ipt_physdev");
 MODULE_ALIAS("ip6t_physdev");
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+physdev_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
 	const struct xt_physdev_info *info = par->matchinfo;
@@ -83,7 +83,7 @@ match_outdev:
 	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
 }
 
-static bool checkentry(const struct xt_mtchk_param *par)
+static bool physdev_mt_check(const struct xt_mtchk_param *par)
 {
 	const struct xt_physdev_info *info = par->matchinfo;
 
@@ -108,8 +108,8 @@ static struct xt_match xt_physdev_match __read_mostly = {
 	.name		= "physdev",
 	.revision   = 0,
 	.family		= NFPROTO_UNSPEC,
-	.checkentry	= checkentry,
-	.match		= match,
+	.checkentry	= physdev_mt_check,
+	.match		= physdev_mt,
 	.matchsize	= sizeof(struct xt_physdev_info),
 	.me		= THIS_MODULE,
 };

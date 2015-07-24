@@ -36,13 +36,6 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Harald Welte <laforge@gnumonks.org>");
 MODULE_DESCRIPTION("Netfilter NAT protocol helper module for GRE");
 
-#if 0
-#define DEBUGP(format, args...) printk(KERN_DEBUG "%s:%s: " format, __FILE__, \
-				       __FUNCTION__, ## args)
-#else
-#define DEBUGP(x, args...)
-#endif
-
 /* generate unique tuple ... */
 static bool
 gre_unique_tuple(struct nf_conntrack_tuple *tuple,
@@ -65,7 +58,7 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
 		keyptr = &tuple->dst.u.gre.key;
 
 	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED)) {
-		DEBUGP("%p: NATing GRE PPTP\n", conntrack);
+		pr_debug("%p: NATing GRE PPTP\n", conntrack);
 		min = 1;
 		range_size = 0xffff;
 	} else {
@@ -73,7 +66,7 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
 		range_size = ntohs(range->max.gre.key) - min + 1;
 	}
 
-	DEBUGP("min = %u, range_size = %u\n", min, range_size);
+	pr_debug("min = %u, range_size = %u\n", min, range_size);
 
 	for (i = 0; ; ++key) {
 		*keyptr = htons(min + key % range_size);
@@ -81,7 +74,7 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
 			return true;
 	}
 
-	DEBUGP("%p: no NAT mapping\n", conntrack);
+	pr_debug("%p: no NAT mapping\n", conntrack);
 	return false;
 }
 
@@ -114,11 +107,11 @@ gre_manip_pkt(struct sk_buff *skb, unsigned int iphdroff,
 		 * Try to behave like "nf_nat_proto_unknown" */
 		break;
 	case GRE_VERSION_PPTP:
-		DEBUGP("call_id -> 0x%04x\n", ntohs(tuple->dst.u.gre.key));
+		pr_debug("call_id -> 0x%04x\n", ntohs(tuple->dst.u.gre.key));
 		pgreh->call_id = tuple->dst.u.gre.key;
 		break;
 	default:
-		DEBUGP("can't nat unknown GRE version\n");
+		pr_debug("can't nat unknown GRE version\n");
 		return false;
 	}
 	return true;

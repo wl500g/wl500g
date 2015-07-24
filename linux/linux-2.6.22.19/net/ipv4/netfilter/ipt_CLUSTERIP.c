@@ -30,14 +30,6 @@
 
 #define CLUSTERIP_VERSION "0.8"
 
-#define DEBUG_CLUSTERIP
-
-#ifdef DEBUG_CLUSTERIP
-#define DEBUGP	printk
-#else
-#define DEBUGP
-#endif
-
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
 MODULE_DESCRIPTION("iptables target for CLUSTERIP");
@@ -299,7 +291,7 @@ clusterip_responsible(struct clusterip_config *config, u_int32_t hash)
  ***********************************************************************/
 
 static unsigned int
-target(struct sk_buff *skb, const struct xt_action_param *par)
+clusterip_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct ipt_clusterip_tgt_info *cipinfo = par->targinfo;
 	struct nf_conn *ct;
@@ -348,15 +340,15 @@ target(struct sk_buff *skb, const struct xt_action_param *par)
 			break;
 	}
 
-#ifdef DEBUG_CLUSTERP
+#ifdef DEBUG
 	DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
 #endif
-	DEBUGP("hash=%u ct_hash=%u ", hash, ct->mark);
+	pr_debug("hash=%u ct_hash=%u ", hash, ct->mark);
 	if (!clusterip_responsible(cipinfo->config, hash)) {
-		DEBUGP("not responsible\n");
+		pr_debug("not responsible\n");
 		return NF_DROP;
 	}
-	DEBUGP("responsible\n");
+	pr_debug("responsible\n");
 
 	/* despite being received via linklayer multicast, this is
 	 * actually a unicast IP packet. TCP doesn't like PACKET_MULTICAST */
@@ -365,7 +357,7 @@ target(struct sk_buff *skb, const struct xt_action_param *par)
 	return XT_CONTINUE;
 }
 
-static bool checkentry(const struct xt_tgchk_param *par)
+static bool clusterip_tg_check(const struct xt_tgchk_param *par)
 {
 	struct ipt_clusterip_tgt_info *cipinfo = par->targinfo;
 	const struct ipt_entry *e = par->entryinfo;
@@ -461,9 +453,9 @@ static void destroy(const struct xt_tgdtor_param *par)
 static struct xt_target clusterip_tgt __read_mostly = {
 	.name		= "CLUSTERIP",
 	.family		= AF_INET,
-	.target		= target,
+	.target		= clusterip_tg,
 	.targetsize	= sizeof(struct ipt_clusterip_tgt_info),
-	.checkentry	= checkentry,
+	.checkentry	= clusterip_tg_check,
 	.destroy	= destroy,
 	.me		= THIS_MODULE
 };
@@ -481,7 +473,7 @@ struct arp_payload {
 	__be32 dst_ip;
 } __attribute__ ((packed));
 
-#ifdef CLUSTERIP_DEBUG
+#ifdef DEBUG
 static void arp_print(struct arp_payload *payload)
 {
 #define HBUFFERLEN 30
@@ -535,8 +527,9 @@ arp_mangle(unsigned int hook,
 	 * this wouldn't work, since we didn't subscribe the mcast group on
 	 * other interfaces */
 	if (c->dev != out) {
-		DEBUGP("CLUSTERIP: not mangling arp reply on different "
-		       "interface: cip'%s'-skb'%s'\n", c->dev->name, out->name);
+		pr_debug("CLUSTERIP: not mangling arp reply on different "
+			 "interface: cip'%s'-skb'%s'\n",
+			 c->dev->name, out->name);
 		clusterip_config_put(c);
 		return NF_ACCEPT;
 	}
@@ -544,8 +537,8 @@ arp_mangle(unsigned int hook,
 	/* mangle reply hardware address */
 	memcpy(payload->src_hw, c->clustermac, arp->ar_hln);
 
-#ifdef CLUSTERIP_DEBUG
-	DEBUGP(KERN_DEBUG "CLUSTERIP mangled arp reply: ");
+#ifdef DEBUG
+	pr_debug(KERN_DEBUG "CLUSTERIP mangled arp reply: ");
 	arp_print(payload);
 #endif
 

@@ -30,12 +30,6 @@
 
 #undef DEBUG
 
-#ifdef DEBUG
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 struct sel_netif
 {
 	struct list_head list;
@@ -91,13 +85,13 @@ static void sel_netif_free(struct rcu_head *p)
 {
 	struct sel_netif *netif = container_of(p, struct sel_netif, rcu_head);
 
-	DEBUGP("%s: %s\n", __FUNCTION__, netif->nsec.dev->name);
+	pr_debug("%s: %s\n", __FUNCTION__, netif->nsec.dev->name);
 	kfree(netif);
 }
 
 static void sel_netif_destroy(struct sel_netif *netif)
 {
-	DEBUGP("%s: %s\n", __FUNCTION__, netif->nsec.dev->name);
+	pr_debug("%s: %s\n", __FUNCTION__, netif->nsec.dev->name);
 
 	list_del_rcu(&netif->list);
 	sel_netif_total--;
@@ -151,7 +145,7 @@ static struct sel_netif *sel_netif_lookup(struct net_device *dev)
 
 	netif = new;
 	
-	DEBUGP("new: ifindex=%u name=%s if_sid=%u msg_sid=%u\n", dev->ifindex, dev->name,
+	pr_debug("new: ifindex=%u name=%s if_sid=%u msg_sid=%u\n", dev->ifindex, dev->name,
 	        nsec->if_sid, nsec->msg_sid);
 out:
 	return netif;

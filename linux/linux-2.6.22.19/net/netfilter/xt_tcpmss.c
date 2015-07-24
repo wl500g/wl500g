@@ -24,7 +24,7 @@ MODULE_DESCRIPTION("iptables TCP MSS match module");
 MODULE_ALIAS("ipt_tcpmss");
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+tcpmss_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_tcpmss_match_info *info = par->matchinfo;
 	struct tcphdr _tcph, *th;
@@ -78,7 +78,7 @@ static struct xt_match xt_tcpmss_match[] __read_mostly = {
 	{
 		.name		= "tcpmss",
 		.family		= AF_INET,
-		.match		= match,
+		.match		= tcpmss_mt,
 		.matchsize	= sizeof(struct xt_tcpmss_match_info),
 		.proto		= IPPROTO_TCP,
 		.me		= THIS_MODULE,
@@ -86,7 +86,7 @@ static struct xt_match xt_tcpmss_match[] __read_mostly = {
 	{
 		.name		= "tcpmss",
 		.family		= AF_INET6,
-		.match		= match,
+		.match		= tcpmss_mt,
 		.matchsize	= sizeof(struct xt_tcpmss_match_info),
 		.proto		= IPPROTO_TCP,
 		.me		= THIS_MODULE,

@@ -8,7 +8,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/udp.h>
@@ -26,12 +26,6 @@ MODULE_DESCRIPTION("x_tables multiple port match module");
 MODULE_ALIAS("ipt_multiport");
 MODULE_ALIAS("ip6t_multiport");
 
-#if 0
-#define duprintf(format, args...) printk(format , ## args)
-#else
-#define duprintf(format, args...)
-#endif
-
 static inline int
 ports_match_v1(const struct xt_multiport_v1 *minfo,
 	       u_int16_t src, u_int16_t dst)
@@ -45,7 +39,7 @@ ports_match_v1(const struct xt_multiport_v1 *minfo,
 		if (minfo->pflags[i]) {
 			/* range port matching */
 			e = minfo->ports[++i];
-			duprintf("src or dst matches with %d-%d?\n", s, e);
+			pr_debug("src or dst matches with %d-%d?\n", s, e);
 
 			if (minfo->flags == XT_MULTIPORT_SOURCE
 			    && src >= s && src <= e)
@@ -59,7 +53,7 @@ ports_match_v1(const struct xt_multiport_v1 *minfo,
 				return 1 ^ minfo->invert;
 		} else {
 			/* exact port matching */
-			duprintf("src or dst matches with %d?\n", s);
+			pr_debug("src or dst matches with %d?\n", s);
 
 			if (minfo->flags == XT_MULTIPORT_SOURCE
 			    && src == s)
@@ -90,7 +84,7 @@ match_v1(const struct sk_buff *skb, struct xt_action_param *par)
 		/* We've been asked to examine this packet, and we
 		 * can't.  Hence, no choice but to drop.
 		 */
-		duprintf("xt_multiport: Dropping evil offset=0 tinygram.\n");
+		pr_debug("Dropping evil offset=0 tinygram.\n");
 		par->hotdrop = true;
 		return 0;
 	}

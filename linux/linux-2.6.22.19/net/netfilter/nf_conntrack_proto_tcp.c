@@ -27,13 +27,6 @@
 #include <net/netfilter/nf_conntrack_l4proto.h>
 #include <net/netfilter/nf_conntrack_ecache.h>
 
-#if 0
-#define DEBUGP printk
-#define DEBUGP_VARS
-#else
-#define DEBUGP(format, args...)
-#endif
-
 /* Protects conntrack->proto.tcp */
 static DEFINE_RWLOCK(tcp_lock);
 
@@ -524,6 +517,7 @@ static int tcp_in_window(struct nf_conn *ct,
 {
 	struct ip_ct_tcp_state *sender = &state->seen[dir];
 	struct ip_ct_tcp_state *receiver = &state->seen[!dir];
+	struct nf_conntrack_tuple *tuple = &ct->tuplehash[dir].tuple;
 	__u32 seq, ack, sack, end, win, swin;
 	s16 receiver_offset;
 	int res;
@@ -544,18 +538,17 @@ static int tcp_in_window(struct nf_conn *ct,
 	ack -= receiver_offset;
 	sack -= receiver_offset;
 
-	DEBUGP("tcp_in_window: START\n");
-	DEBUGP("tcp_in_window: src=%pI4:%hu dst=%pI4:%hu "
-	       "seq=%u ack=%u+(%d) sack=%u+(%d) win=%u end=%u\n",
-		&iph->saddr, ntohs(tcph->source),
-		&iph->daddr, ntohs(tcph->dest),
-		seq, ack, receiver_offset, sack, receiver_offset, win, end);
-	DEBUGP("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
-	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
-		sender->td_end, sender->td_maxend, sender->td_maxwin,
-		sender->td_scale,
-		receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
-		receiver->td_scale);
+	pr_debug("tcp_in_window: START\n");
+	pr_debug("tcp_in_window: ");
+	NF_CT_DUMP_TUPLE(tuple);
+	pr_debug("seq=%u ack=%u+(%d) sack=%u+(%d) win=%u end=%u\n",
+		 seq, ack, receiver_offset, sack, receiver_offset, win, end);
+	pr_debug("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
+		 "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
+		 sender->td_end, sender->td_maxend, sender->td_maxwin,
+		 sender->td_scale,
+		 receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
+		 receiver->td_scale);
 
 	if (sender->td_maxwin == 0) {
 		/*
@@ -631,23 +624,22 @@ static int tcp_in_window(struct nf_conn *ct,
 		 */
 		seq = end = sender->td_end;
 
-	DEBUGP("tcp_in_window: src=%pI4:%hu dst=%pI4:%hu "
-	       "seq=%u ack=%u+(%d) sack=%u+(%d) win=%u end=%u\n",
-		&iph->saddr, ntohs(tcph->source),
-		&iph->daddr, ntohs(tcph->dest),
-		seq, ack, receiver_offset, sack, receiver_offset, win, end);
-	DEBUGP("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
-	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
-		sender->td_end, sender->td_maxend, sender->td_maxwin,
-		sender->td_scale,
-		receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
-		receiver->td_scale);
+	pr_debug("tcp_in_window: ");
+	NF_CT_DUMP_TUPLE(tuple);
+	pr_debug("seq=%u ack=%u+(%d) sack=%u+(%d) win=%u end=%u\n",
+		 seq, ack, receiver_offset, sack, receiver_offset, win, end);
+	pr_debug("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
+		 "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
+		 sender->td_end, sender->td_maxend, sender->td_maxwin,
+		 sender->td_scale,
+		 receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
+		 receiver->td_scale);
 
-	DEBUGP("tcp_in_window: I=%i II=%i III=%i IV=%i\n",
-		before(seq, sender->td_maxend + 1),
-		after(end, sender->td_end - receiver->td_maxwin - 1),
-		before(sack, receiver->td_end + 1),
-		after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1));
+	pr_debug("tcp_in_window: I=%i II=%i III=%i IV=%i\n",
+		 before(seq, sender->td_maxend + 1),
+		 after(end, sender->td_end - receiver->td_maxwin - 1),
+		 before(sack, receiver->td_end + 1),
+		 after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1));
 
 	if (before(seq, sender->td_maxend + 1) &&
 	    after(end, sender->td_end - receiver->td_maxwin - 1) &&
@@ -728,10 +720,10 @@ static int tcp_in_window(struct nf_conn *ct,
 			: "SEQ is over the upper bound (over the window of the receiver)");
 	}
 
-	DEBUGP("tcp_in_window: res=%i sender end=%u maxend=%u maxwin=%u "
-	       "receiver end=%u maxend=%u maxwin=%u\n",
-		res, sender->td_end, sender->td_maxend, sender->td_maxwin,
-		receiver->td_end, receiver->td_maxend, receiver->td_maxwin);
+	pr_debug("tcp_in_window: res=%i sender end=%u maxend=%u maxwin=%u "
+		 "receiver end=%u maxend=%u maxwin=%u\n",
+		 res, sender->td_end, sender->td_maxend, sender->td_maxwin,
+		 receiver->td_end, receiver->td_maxend, receiver->td_maxwin);
 
 	return res;
 }
@@ -827,6 +819,7 @@ static int tcp_packet(struct nf_conn *conntrack,
 		      int pf,
 		      unsigned int hooknum)
 {
+	struct nf_conntrack_tuple *tuple;
 	enum tcp_conntrack new_state, old_state;
 	enum ip_conntrack_dir dir;
 	struct tcphdr *th, _tcph;
@@ -841,6 +834,7 @@ static int tcp_packet(struct nf_conn *conntrack,
 	dir = CTINFO2DIR(ctinfo);
 	index = get_conntrack_index(th);
 	new_state = tcp_conntracks[dir][index][old_state];
+	tuple = &conntrack->tuplehash[dir].tuple;
 
 	switch (new_state) {
 	case TCP_CONNTRACK_SYN_SENT:
@@ -955,9 +949,8 @@ static int tcp_packet(struct nf_conn *conntrack,
 		return NF_ACCEPT;
 	case TCP_CONNTRACK_MAX:
 		/* Invalid packet */
-		DEBUGP("nf_ct_tcp: Invalid dir=%i index=%u ostate=%u\n",
-		       dir, get_conntrack_index(th),
-		       old_state);
+		pr_debug("nf_ct_tcp: Invalid dir=%i index=%u ostate=%u\n",
+			 dir, get_conntrack_index(th), old_state);
 		write_unlock_bh(&tcp_lock);
 		if (LOG_INVALID(IPPROTO_TCP))
 			nf_log_packet(pf, 0, skb, NULL, NULL, NULL,
@@ -1007,13 +1000,12 @@ static int tcp_packet(struct nf_conn *conntrack,
 	conntrack->proto.tcp.last_index = index;
 	conntrack->proto.tcp.last_dir = dir;
 
-	DEBUGP("tcp_conntracks: src=%pI4:%hu dst=%pI4:%hu "
-	       "syn=%i ack=%i fin=%i rst=%i old=%i new=%i\n",
-		&iph->saddr, ntohs(th->source),
-		&iph->daddr, ntohs(th->dest),
-		(th->syn ? 1 : 0), (th->ack ? 1 : 0),
-		(th->fin ? 1 : 0), (th->rst ? 1 : 0),
-		old_state, new_state);
+	pr_debug("tcp_conntracks: ");
+	NF_CT_DUMP_TUPLE(tuple);
+	pr_debug("syn=%i ack=%i fin=%i rst=%i old=%i new=%i\n",
+		 (th->syn ? 1 : 0), (th->ack ? 1 : 0),
+		 (th->fin ? 1 : 0), (th->rst ? 1 : 0),
+		 old_state, new_state);
 
 	conntrack->proto.tcp.state = new_state;
 	if (old_state != new_state
@@ -1068,10 +1060,8 @@ static int tcp_new(struct nf_conn *conntrack,
 {
 	enum tcp_conntrack new_state;
 	struct tcphdr *th, _tcph;
-#ifdef DEBUGP_VARS
 	struct ip_ct_tcp_state *sender = &conntrack->proto.tcp.seen[0];
 	struct ip_ct_tcp_state *receiver = &conntrack->proto.tcp.seen[1];
-#endif
 
 	th = skb_header_pointer(skb, dataoff, sizeof(_tcph), &_tcph);
 	BUG_ON(th == NULL);
@@ -1083,7 +1073,7 @@ static int tcp_new(struct nf_conn *conntrack,
 
 	/* Invalid: delete conntrack */
 	if (new_state >= TCP_CONNTRACK_MAX) {
-		DEBUGP("nf_ct_tcp: invalid new deleting.\n");
+		pr_debug("nf_ct_tcp: invalid new deleting.\n");
 		return 0;
 	}
 
@@ -1136,12 +1126,12 @@ static int tcp_new(struct nf_conn *conntrack,
 	conntrack->proto.tcp.state = TCP_CONNTRACK_NONE;
 	conntrack->proto.tcp.last_index = TCP_NONE_SET;
 
-	DEBUGP("tcp_new: sender end=%u maxend=%u maxwin=%u scale=%i "
-	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
-		sender->td_end, sender->td_maxend, sender->td_maxwin,
-		sender->td_scale,
-		receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
-		receiver->td_scale);
+	pr_debug("tcp_new: sender end=%u maxend=%u maxwin=%u scale=%i "
+		 "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
+		 sender->td_end, sender->td_maxend, sender->td_maxwin,
+		 sender->td_scale,
+		 receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
+		 receiver->td_scale);
 	return 1;
 }
 

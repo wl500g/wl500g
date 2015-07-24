@@ -31,12 +31,6 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
 MODULE_DESCRIPTION("iptables REJECT target module");
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 /* Send RST reply */
 static void send_reset(struct sk_buff *oldskb, int hook)
 {
@@ -140,7 +134,7 @@ static inline void send_unreach(struct sk_buff *skb_in, int code)
 }
 
 static unsigned int
-reject(struct sk_buff *skb, const struct xt_action_param *par)
+reject_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct ipt_reject_info *reject = par->targinfo;
 
@@ -179,19 +173,19 @@ reject(struct sk_buff *skb, const struct xt_action_param *par)
 	return NF_DROP;
 }
 
-static bool check(const struct xt_tgchk_param *par)
+static bool reject_check(const struct xt_tgchk_param *par)
 {
 	const struct ipt_reject_info *rejinfo = par->targinfo;
 	const struct ipt_entry *e = par->entryinfo;
 
 	if (rejinfo->with == IPT_ICMP_ECHOREPLY) {
-		printk("REJECT: ECHOREPLY no longer supported.\n");
+		printk("ipt_REJECT: ECHOREPLY no longer supported.\n");
 		return false;
 	} else if (rejinfo->with == IPT_TCP_RESET) {
 		/* Must specify that it's a TCP packet */
 		if (e->ip.proto != IPPROTO_TCP
 		    || (e->ip.invflags & XT_INV_PROTO)) {
-			DEBUGP("REJECT: TCP_RESET invalid for non-tcp\n");
+			printk("ipt_REJECT: TCP_RESET invalid for non-tcp\n");
 			return false;
 		}
 	}
@@ -201,12 +195,12 @@ static bool check(const struct xt_tgchk_param *par)
 static struct xt_target ipt_reject_reg __read_mostly = {
 	.name		= "REJECT",
 	.family		= AF_INET,
-	.target		= reject,
+	.target		= reject_target,
 	.targetsize	= sizeof(struct ipt_reject_info),
 	.table		= "filter",
 	.hooks		= (1 << NF_IP_LOCAL_IN) | (1 << NF_IP_FORWARD) |
 			  (1 << NF_IP_LOCAL_OUT),
-	.checkentry	= check,
+	.checkentry	= reject_check,
 	.me		= THIS_MODULE,
 };
 

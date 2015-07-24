@@ -29,7 +29,7 @@ MODULE_ALIAS("ip6t_SECMARK");
 static u8 mode;
 
 static unsigned int
-target(struct sk_buff *skb, const struct xt_action_param *par)
+secmark_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	u32 secmark = 0;
 	const struct xt_secmark_target_info *info = par->targinfo;
@@ -110,8 +110,8 @@ static struct xt_target xt_secmark_target __read_mostly = {
 	.revision   = 0,
 	.family		= NFPROTO_UNSPEC,
 	.table		= "mangle",
-	.checkentry	= checkentry,
-	.target		= target,
+	.checkentry	= secmark_tg_check,
+	.target		= secmark_tg,
 	.targetsize	= sizeof(struct xt_secmark_target_info),
 	.me		= THIS_MODULE,
 };

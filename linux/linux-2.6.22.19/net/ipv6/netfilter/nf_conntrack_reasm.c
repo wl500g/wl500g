@@ -45,12 +45,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 #define NF_CT_FRAG6_HIGH_THRESH 262144 /* == 256*1024 */
 #define NF_CT_FRAG6_LOW_THRESH 196608  /* == 192*1024 */
 #define NF_CT_FRAG6_TIMEOUT IPV6_FRAG_TIMEOUT
@@ -173,7 +167,7 @@ fq_find(__be32 id, struct in6_addr *src, struct in6_addr *dst)
 	return container_of(q, struct nf_ct_frag6_queue, q);
 
 oom:
-	DEBUGP("Can't alloc new queue\n");
+	pr_debug("Can't alloc new queue\n");
 	return NULL;
 }
 
@@ -185,7 +179,7 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
 	int offset, end;
 
 	if (fq->q.last_in & INET_FRAG_COMPLETE) {
-		DEBUGP("Allready completed\n");
+		pr_debug("Allready completed\n");
 		goto err;
 	}
 
@@ -194,7 +188,7 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
 			((u8 *)(fhdr + 1) - (u8 *)(ipv6_hdr(skb) + 1)));
 
 	if ((unsigned int)end > IPV6_MAXPLEN) {
-		DEBUGP("offset is too large.\n");
+		pr_debug("offset is too large.\n");
 		return -1;
 	}
 
@@ -212,7 +206,7 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
 		 */
 		if (end < fq->q.len ||
 		    ((fq->q.last_in & INET_FRAG_LAST_IN) && end != fq->q.len)) {
-			DEBUGP("already received last fragment\n");
+			pr_debug("already received last fragment\n");
 			goto err;
 		}
 		fq->q.last_in |= INET_FRAG_LAST_IN;
@@ -225,13 +219,13 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
 			/* RFC2460 says always send parameter problem in
 			 * this case. -DaveM
 			 */
-			DEBUGP("the end of this fragment is not rounded to 8 bytes.\n");
+			pr_debug("the end of this fragment is not rounded to 8 bytes.\n");
 			return -1;
 		}
 		if (end > fq->q.len) {
 			/* Some bits beyond end -> corruption. */
 			if (fq->q.last_in & INET_FRAG_LAST_IN) {
-				DEBUGP("last packet already reached.\n");
+				pr_debug("last packet already reached.\n");
 				goto err;
 			}
 			fq->q.len = end;
@@ -243,11 +237,11 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
 
 	/* Point into the IP datagram 'data' part. */
 	if (!pskb_pull(skb, (u8 *) (fhdr + 1) - skb->data)) {
-		DEBUGP("queue: message is too short.\n");
+		pr_debug("queue: message is too short.\n");
 		goto err;
 	}
 	if (pskb_trim_rcsum(skb, end - offset)) {
-		DEBUGP("Can't trim\n");
+		pr_debug("Can't trim\n");
 		goto err;
 	}
 
@@ -278,11 +272,11 @@ found:
 		if (i > 0) {
 			offset += i;
 			if (end <= offset) {
-				DEBUGP("overlap\n");
+				pr_debug("overlap\n");
 				goto err;
 			}
 			if (!pskb_pull(skb, i)) {
-				DEBUGP("Can't pull\n");
+				pr_debug("Can't pull\n");
 				goto err;
 			}
 			if (skb->ip_summed != CHECKSUM_UNNECESSARY)
@@ -301,7 +295,7 @@ found:
 			/* Eat head of the next overlapped fragment
 			 * and leave the loop. The next ones cannot overlap.
 			 */
-			DEBUGP("Eat head of the overlapped parts.: %d", i);
+			pr_debug("Eat head of the overlapped parts.: %d", i);
 			if (!pskb_pull(next, i))
 				goto err;
 
@@ -386,13 +380,13 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
 		       sizeof(struct ipv6hdr) + fq->q.len -
 		       sizeof(struct frag_hdr));
 	if (payload_len > IPV6_MAXPLEN) {
-		DEBUGP("payload len is too large.\n");
+		pr_debug("payload len is too large.\n");
 		goto out_oversize;
 	}
 
 	/* Head of list must not be cloned. */
 	if (skb_cloned(head) && pskb_expand_head(head, 0, 0, GFP_ATOMIC)) {
-		DEBUGP("skb is cloned but can't expand head");
+		pr_debug("skb is cloned but can't expand head");
 		goto out_oom;
 	}
 
@@ -404,7 +398,7 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
 		int i, plen = 0;
 
 		if ((clone = alloc_skb(0, GFP_ATOMIC)) == NULL) {
-			DEBUGP("Can't alloc skb\n");
+			pr_debug("Can't alloc skb\n");
 			goto out_oom;
 		}
 		clone->next = head->next;
@@ -519,11 +513,11 @@ find_prev_fhdr(struct sk_buff *skb, u8 *prevhdrp, int *prevhoff, int *fhoff)
 			return -1;
 		}
 		if (nexthdr == NEXTHDR_NONE) {
-			DEBUGP("next header is none\n");
+			pr_debug("next header is none\n");
 			return -1;
 		}
 		if (len < (int)sizeof(struct ipv6_opt_hdr)) {
-			DEBUGP("too short\n");
+			pr_debug("too short\n");
 			return -1;
 		}
 		if (skb_copy_bits(skb, start, &hdr, sizeof(hdr)))
@@ -564,7 +558,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
 
 	/* Jumbo payload inhibits frag. header */
 	if (ipv6_hdr(skb)->payload_len == 0) {
-		DEBUGP("payload len = 0\n");
+		pr_debug("payload len = 0\n");
 		return skb;
 	}
 
@@ -573,14 +567,14 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
 
 	clone = skb_clone(skb, GFP_ATOMIC);
 	if (clone == NULL) {
-		DEBUGP("Can't clone skb\n");
+		pr_debug("Can't clone skb\n");
 		return skb;
 	}
 
 	NFCT_FRAG6_CB(clone)->orig = skb;
 
 	if (!pskb_may_pull(clone, fhoff + sizeof(*fhdr))) {
-		DEBUGP("message is too short.\n");
+		pr_debug("message is too short.\n");
 		goto ret_orig;
 	}
 
@@ -593,7 +587,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
 
 	fq = fq_find(fhdr->identification, &hdr->saddr, &hdr->daddr);
 	if (fq == NULL) {
-		DEBUGP("Can't find and can't create new queue\n");
+		pr_debug("Can't find and can't create new queue\n");
 		goto ret_orig;
 	}
 
@@ -601,7 +595,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
 
 	if (nf_ct_frag6_queue(fq, clone, fhdr, nhoff) < 0) {
 		spin_unlock_bh(&fq->q.lock);
-		DEBUGP("Can't insert skb to queue\n");
+		pr_debug("Can't insert skb to queue\n");
 		fq_put(fq);
 		goto ret_orig;
 	}
@@ -610,7 +604,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
 	    fq->q.meat == fq->q.len) {
 		ret_skb = nf_ct_frag6_reasm(fq, dev);
 		if (ret_skb == NULL)
-			DEBUGP("Can't reassemble fragmented packets\n");
+			pr_debug("Can't reassemble fragmented packets\n");
 	}
 	spin_unlock_bh(&fq->q.lock);
 

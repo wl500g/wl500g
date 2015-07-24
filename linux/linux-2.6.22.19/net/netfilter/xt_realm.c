@@ -22,7 +22,7 @@ MODULE_DESCRIPTION("X_tables realm match");
 MODULE_ALIAS("ipt_realm");
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+realm_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_realm_info *info = par->matchinfo;
 	struct dst_entry *dst = skb->dst;
@@ -32,7 +32,7 @@ match(const struct sk_buff *skb, struct xt_action_param *par)
 
 static struct xt_match realm_match __read_mostly = {
 	.name		= "realm",
-	.match		= match,
+	.match		= realm_mt,
 	.matchsize	= sizeof(struct xt_realm_info),
 	.hooks		= (1 << NF_IP_POST_ROUTING) | (1 << NF_IP_FORWARD) |
 			  (1 << NF_IP_LOCAL_OUT) | (1 << NF_IP_LOCAL_IN),

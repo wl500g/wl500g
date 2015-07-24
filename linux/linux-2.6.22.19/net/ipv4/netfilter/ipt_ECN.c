@@ -77,7 +77,7 @@ set_ect_tcp(struct sk_buff *skb, const struct ipt_ECN_info *einfo)
 }
 
 static unsigned int
-target(struct sk_buff *skb, const struct xt_action_param *par)
+ecn_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct ipt_ECN_info *einfo = par->targinfo;
 
@@ -93,7 +93,7 @@ target(struct sk_buff *skb, const struct xt_action_param *par)
 	return XT_CONTINUE;
 }
 
-static bool checkentry(const struct xt_tgchk_param *par)
+static bool ecn_tg_check(const struct xt_tgchk_param *par)
 {
 	const struct ipt_ECN_info *einfo = par->targinfo;
 	const struct ipt_entry *e = par->entryinfo;
@@ -120,10 +120,10 @@ static bool checkentry(const struct xt_tgchk_param *par)
 static struct xt_target ipt_ecn_reg __read_mostly = {
 	.name		= "ECN",
 	.family		= AF_INET,
-	.target		= target,
+	.target		= ecn_tg,
 	.targetsize	= sizeof(struct ipt_ECN_info),
 	.table		= "mangle",
-	.checkentry	= checkentry,
+	.checkentry	= ecn_tg_check,
 	.me		= THIS_MODULE,
 };
 

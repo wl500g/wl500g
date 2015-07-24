@@ -21,7 +21,7 @@ MODULE_ALIAS("ipt_length");
 MODULE_ALIAS("ip6t_length");
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+length_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_length_info *info = par->matchinfo;
 	u_int16_t pktlen = ntohs(ip_hdr(skb)->tot_len);
@@ -30,7 +30,7 @@ match(const struct sk_buff *skb, struct xt_action_param *par)
 }
 
 static bool
-match6(const struct sk_buff *skb, struct xt_action_param *par)
+length_mt6(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_length_info *info = par->matchinfo;
 	const u_int16_t pktlen = (ntohs(ipv6_hdr(skb)->payload_len) +
@@ -43,14 +43,14 @@ static struct xt_match xt_length_match[] __read_mostly = {
 	{
 		.name		= "length",
 		.family		= AF_INET,
-		.match		= match,
+		.match		= length_mt,
 		.matchsize	= sizeof(struct xt_length_info),
 		.me		= THIS_MODULE,
 	},
 	{
 		.name		= "length",
 		.family		= AF_INET6,
-		.match		= match6,
+		.match		= length_mt6,
 		.matchsize	= sizeof(struct xt_length_info),
 		.me		= THIS_MODULE,
 	},

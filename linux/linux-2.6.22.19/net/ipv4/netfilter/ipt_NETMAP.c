@@ -18,34 +18,27 @@
 #include <linux/netfilter/x_tables.h>
 #include <net/netfilter/nf_nat_rule.h>
 
-#define MODULENAME "NETMAP"
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Svenning Soerensen <svenning@post5.tele.dk>");
 MODULE_DESCRIPTION("iptables 1:1 NAT mapping of IP networks target");
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
-static bool check(const struct xt_tgchk_param *par)
+static bool netmap_tg_check(const struct xt_tgchk_param *par)
 {
 	const struct nf_nat_multi_range_compat *mr = par->targinfo;
 
 	if (!(mr->range[0].flags & IP_NAT_RANGE_MAP_IPS)) {
-		DEBUGP(MODULENAME":check: bad MAP_IPS.\n");
+		pr_debug("NETMAP:check: bad MAP_IPS.\n");
 		return false;
 	}
 	if (mr->rangesize != 1) {
-		DEBUGP(MODULENAME":check: bad rangesize %u.\n", mr->rangesize);
+		pr_debug("NETMAP:check: bad rangesize %u.\n", mr->rangesize);
 		return false;
 	}
 	return true;
 }
 
 static unsigned int
-target(struct sk_buff *skb, const struct xt_action_param *par)
+netmap_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
@@ -77,14 +70,14 @@ target(struct sk_buff *skb, const struct xt_action_param *par)
 }
 
 static struct xt_target target_module __read_mostly = {
-	.name 		= MODULENAME,
+	.name 		= "NETMAP",
 	.family		= AF_INET,
-	.target 	= target,
+	.target 	= netmap_tg,
 	.targetsize	= sizeof(struct nf_nat_multi_range_compat),
 	.table		= "nat",
 	.hooks		= (1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_POST_ROUTING) |
 			  (1 << NF_IP_LOCAL_OUT),
-	.checkentry 	= check,
+	.checkentry 	= netmap_tg_check,
 	.me 		= THIS_MODULE
 };
 

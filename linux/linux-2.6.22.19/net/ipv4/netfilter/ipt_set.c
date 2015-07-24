@@ -30,7 +30,7 @@ match_set(const struct ipt_set_info *info,
 }
 
 static bool
-match(const struct sk_buff *skb,
+set_mt(const struct sk_buff *skb,
        struct xt_action_param *par)
 {
 	const struct ipt_set_info_match *info = par->matchinfo;
@@ -41,7 +41,7 @@ match(const struct sk_buff *skb,
 }
 
 static bool
-checkentry(const struct xt_mtchk_param *par)
+set_mt_check(const struct xt_mtchk_param *par)
 {
 	struct ipt_set_info_match *info = par->matchinfo;
 	ip_set_id_t index;
@@ -71,10 +71,10 @@ static void destroy(const struct xt_mtdtor_param *par)
 static struct xt_match set_match = {
 	.name		= "set",
 	.family		= AF_INET,
-	.match		= &match,
+	.match		= set_mt,
 	.matchsize	= sizeof(struct ipt_set_info_match),
-	.checkentry	= &checkentry,
-	.destroy	= &destroy,
+	.checkentry	= set_mt_check,
+	.destroy	= destroy,
 	.me		= THIS_MODULE
 };
 

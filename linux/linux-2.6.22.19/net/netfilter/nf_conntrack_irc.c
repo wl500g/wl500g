@@ -12,6 +12,7 @@
 #include <linux/moduleparam.h>
 #include <linux/skbuff.h>
 #include <linux/in.h>
+#include <linux/ip.h>
 #include <linux/tcp.h>
 #include <linux/netfilter.h>
 
@@ -54,13 +55,6 @@ static const char *dccprotos[] = {
 };
 
 #define MINMATCHLEN	5
-
-#if 0
-#define DEBUGP(format, args...) printk(KERN_DEBUG "%s:%s:" format, \
-				       __FILE__, __FUNCTION__ , ## args)
-#else
-#define DEBUGP(format, args...)
-#endif
 
 /* tries to get the ip_addr and port out of a dcc command
  * return value: -1 on failure, 0 on success
@@ -161,14 +155,14 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 				continue;
 			}
 			data += strlen(dccprotos[i]);
-			DEBUGP("DCC %s detected\n", dccprotos[i]);
+			pr_debug("DCC %s detected\n", dccprotos[i]);
 
 			/* we have at least
 			 * (19+MINMATCHLEN)-5-dccprotos[i].matchlen bytes valid
 			 * data left (== 14/13 bytes) */
 			if (parse_dcc((char *)data, data_limit, &dcc_ip,
 				       &dcc_port, &addr_beg_p, &addr_end_p)) {
-				DEBUGP("unable to parse dcc command\n");
+				pr_debug("unable to parse dcc command\n");
 				continue;
 			}
 			pr_debug("DCC bound ip/port: %pI4:%u\n",

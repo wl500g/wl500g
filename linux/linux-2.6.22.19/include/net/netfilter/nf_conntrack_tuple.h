@@ -96,7 +96,7 @@ struct nf_conntrack_tuple
 #ifdef __KERNEL__
 
 #define NF_CT_DUMP_TUPLE(tp)						\
-DEBUGP("tuple %p: %u %u %pI6 %hu -> %pI6 %hu\n",			\
+pr_debug("tuple %p: %u %u %pI6 %hu -> %pI6 %hu\n",			\
 	(tp), (tp)->src.l3num, (tp)->dst.protonum,			\
 	(tp)->src.u3.all, ntohs((tp)->src.u.all),			\
 	(tp)->dst.u3.all, ntohs((tp)->dst.u.all))

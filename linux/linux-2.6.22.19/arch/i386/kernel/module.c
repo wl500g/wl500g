@@ -23,12 +23,6 @@
 #include <linux/kernel.h>
 #include <linux/bug.h>
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(fmt...)
-#endif
-
 void *module_alloc(unsigned long size)
 {
 	if (size == 0)
@@ -63,7 +57,7 @@ int apply_relocate(Elf32_Shdr *sechdrs,
 	Elf32_Sym *sym;
 	uint32_t *location;
 
-	DEBUGP("Applying relocate section %u to %u\n", relsec,
+	pr_debug("Applying relocate section %u to %u\n", relsec,
 	       sechdrs[relsec].sh_info);
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
 		/* This is where to make the change */

@@ -24,7 +24,7 @@ MODULE_ALIAS("ip6t_NFQUEUE");
 MODULE_ALIAS("arpt_NFQUEUE");
 
 static unsigned int
-target(struct sk_buff *skb, const struct xt_action_param *par)
+nfqueue_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct xt_NFQ_info *tinfo = par->targinfo;
 
@@ -35,21 +35,21 @@ static struct xt_target xt_nfqueue_target[] __read_mostly = {
 	{
 		.name		= "NFQUEUE",
 		.family		= AF_INET,
-		.target		= target,
+		.target		= nfqueue_tg,
 		.targetsize	= sizeof(struct xt_NFQ_info),
 		.me		= THIS_MODULE,
 	},
 	{
 		.name		= "NFQUEUE",
 		.family		= AF_INET6,
-		.target		= target,
+		.target		= nfqueue_tg,
 		.targetsize	= sizeof(struct xt_NFQ_info),
 		.me		= THIS_MODULE,
 	},
 	{
 		.name		= "NFQUEUE",
 		.family		= NF_ARP,
-		.target		= target,
+		.target		= nfqueue_tg,
 		.targetsize	= sizeof(struct xt_NFQ_info),
 		.me		= THIS_MODULE,
 	},

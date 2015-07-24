@@ -25,12 +25,6 @@
 #include <net/netfilter/nf_conntrack_helper.h>
 #include <linux/netfilter/nf_conntrack_sip.h>
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Christian Hentschel <chentschel@arnet.com.ar>");
 MODULE_DESCRIPTION("SIP connection tracking helper");
@@ -224,7 +218,7 @@ static int epaddr_len(const struct nf_conn *ct, const char *dptr,
 	const char *aux = dptr;
 
 	if (!parse_addr(ct, dptr, &dptr, &addr, limit)) {
-		DEBUGP("ip: %s parse failed.!\n", dptr);
+		pr_debug("ip: %s parse failed.!\n", dptr);
 		return 0;
 	}
 
@@ -1595,7 +1589,7 @@ static int __init nf_conntrack_sip_init(void)
 				sprintf(tmpname, "sip-%u", i);
 			sip[i][j].name = tmpname;
 
-			DEBUGP("port #%u: %u\n", i, ports[i]);
+			pr_debug("port #%u: %u\n", i, ports[i]);
 
 			ret = nf_conntrack_helper_register(&sip[i][j]);
 			if (ret) {

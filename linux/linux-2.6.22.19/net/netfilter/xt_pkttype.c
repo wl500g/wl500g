@@ -23,7 +23,7 @@ MODULE_ALIAS("ipt_pkttype");
 MODULE_ALIAS("ip6t_pkttype");
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+pkttype_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_pkttype_info *info = par->matchinfo;
 	u_int8_t type;
@@ -46,7 +46,7 @@ static struct xt_match xt_pkttype_match __read_mostly = {
 	.name		= "pkttype",
 	.revision   = 0,
 	.family		= NFPROTO_UNSPEC,
-	.match		= match,
+	.match		= pkttype_mt,
 	.matchsize	= sizeof(struct xt_pkttype_info),
 	.me		= THIS_MODULE,
 };

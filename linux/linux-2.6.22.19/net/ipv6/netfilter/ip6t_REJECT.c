@@ -34,12 +34,6 @@ MODULE_AUTHOR("Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>");
 MODULE_DESCRIPTION("IP6 tables REJECT target module");
 MODULE_LICENSE("GPL");
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 /* Send RST reply */
 static void send_reset(struct sk_buff *oldskb)
 {
@@ -56,7 +50,7 @@ static void send_reset(struct sk_buff *oldskb)
 
 	if ((!(ipv6_addr_type(&oip6h->saddr) & IPV6_ADDR_UNICAST)) ||
 	    (!(ipv6_addr_type(&oip6h->daddr) & IPV6_ADDR_UNICAST))) {
-		DEBUGP("ip6t_REJECT: addr is not unicast.\n");
+		pr_debug("ip6t_REJECT: addr is not unicast.\n");
 		return;
 	}
 
@@ -64,7 +58,7 @@ static void send_reset(struct sk_buff *oldskb)
 	tcphoff = ipv6_skip_exthdr(oldskb, ((u8*)(oip6h+1) - oldskb->data), &proto);
 
 	if ((tcphoff < 0) || (tcphoff > oldskb->len)) {
-		DEBUGP("ip6t_REJECT: Can't get TCP header.\n");
+		pr_debug("ip6t_REJECT: Can't get TCP header.\n");
 		return;
 	}
 
@@ -72,8 +66,9 @@ static void send_reset(struct sk_buff *oldskb)
 
 	/* IP header checks: fragment, too short. */
 	if ((proto != IPPROTO_TCP) || (otcplen < sizeof(struct tcphdr))) {
-		DEBUGP("ip6t_REJECT: proto(%d) != IPPROTO_TCP, or too short. otcplen = %d\n",
-			proto, otcplen);
+		pr_debug("ip6t_REJECT: proto(%d) != IPPROTO_TCP, "
+			 "or too short. otcplen = %d\n",
+			 proto, otcplen);
 		return;
 	}
 
@@ -82,14 +77,14 @@ static void send_reset(struct sk_buff *oldskb)
 
 	/* No RST for RST. */
 	if (otcph.rst) {
-		DEBUGP("ip6t_REJECT: RST is set\n");
+		pr_debug("ip6t_REJECT: RST is set\n");
 		return;
 	}
 
 	/* Check checksum. */
 	if (csum_ipv6_magic(&oip6h->saddr, &oip6h->daddr, otcplen, IPPROTO_TCP,
 			    skb_checksum(oldskb, tcphoff, otcplen, 0))) {
-		DEBUGP("ip6t_REJECT: TCP checksum is invalid\n");
+		pr_debug("ip6t_REJECT: TCP checksum is invalid\n");
 		return;
 	}
 
@@ -184,7 +179,7 @@ reject6_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct ip6t_reject_info *reject = par->targinfo;
 
-	DEBUGP(KERN_DEBUG "%s: medium point\n", __FUNCTION__);
+	pr_debug("%s: medium point\n", __FUNCTION__);
 	/* WARNING: This code causes reentry within ip6tables.
 	   This means that the ip6tables jump stack is now crap.  We
 	   must return an absolute verdict. --RR */
@@ -219,7 +214,7 @@ reject6_target(struct sk_buff *skb, const struct xt_action_param *par)
 	return NF_DROP;
 }
 
-static bool check(const struct xt_tgchk_param *par)
+static bool reject6_check(const struct xt_tgchk_param *par)
 {
 	const struct ip6t_reject_info *rejinfo = par->targinfo;
 	const struct ip6t_entry *e = par->entryinfo;
@@ -231,7 +226,7 @@ static bool check(const struct xt_tgchk_param *par)
 		/* Must specify that it's a TCP packet */
 		if (e->ipv6.proto != IPPROTO_TCP
 		    || (e->ipv6.invflags & XT_INV_PROTO)) {
-			DEBUGP("ip6t_REJECT: TCP_RESET illegal for non-tcp\n");
+			printk("ip6t_REJECT: TCP_RESET illegal for non-tcp\n");
 			return false;
 		}
 	}
@@ -246,7 +241,7 @@ static struct xt_target ip6t_reject_reg __read_mostly = {
 	.table		= "filter",
 	.hooks		= (1 << NF_IP6_LOCAL_IN) | (1 << NF_IP6_FORWARD) |
 			  (1 << NF_IP6_LOCAL_OUT),
-	.checkentry	= check,
+	.checkentry	= reject6_check,
 	.me		= THIS_MODULE
 };
 

@@ -34,8 +34,6 @@
 
 static DEFINE_SPINLOCK(nf_nat_autofw_lock);
 
-#define DEBUGP(format, args...)
-
 static int
 autofw_help(struct sk_buff *skb,
 	unsigned int protoff,
@@ -59,7 +57,7 @@ autofw_expect(struct nf_conn *ct, struct nf_conntrack_expect *exp)
 
 	/* expect has been removed from expect list, but expect isn't free yet. */
 	help = nfct_help(exp_ct);
-	DEBUGP("autofw_nat_expected: got ");
+	pr_debug("autofw_nat_expected: got ");
 	NF_CT_DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
 
 	spin_lock_bh(&nf_nat_autofw_lock);
@@ -214,7 +212,7 @@ autofw_check(const struct xt_tgchk_param *par)
 	const struct ip_autofw_info *info = par->targinfo;
 
 	if (info->proto != IPPROTO_TCP && info->proto != IPPROTO_UDP) {
-		DEBUGP("autofw_check: bad proto %d.\n", info->proto);
+		pr_debug("autofw_check: bad proto %d.\n", info->proto);
 		return false;
 	}
 

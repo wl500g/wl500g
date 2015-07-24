@@ -26,7 +26,7 @@ MODULE_DESCRIPTION("iptables qdisc classification target module");
 MODULE_ALIAS("ipt_CLASSIFY");
 
 static unsigned int
-target(struct sk_buff *skb, const struct xt_action_param *par)
+classify_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct xt_classify_target_info *clinfo = par->targinfo;
 
@@ -41,7 +41,7 @@ static struct xt_target xt_classify_target __read_mostly = {
 	.table		= "mangle",
 	.hooks		= (1 << NF_IP_LOCAL_OUT) | (1 << NF_IP_FORWARD) |
 			  (1 << NF_IP_POST_ROUTING),
-	.target 	= target,
+	.target 	= classify_tg,
 	.targetsize	= sizeof(struct xt_classify_target_info),
 	.me 		= THIS_MODULE,
 };

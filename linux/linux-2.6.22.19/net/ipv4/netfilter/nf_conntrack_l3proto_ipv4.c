@@ -24,12 +24,6 @@
 #include <net/netfilter/nf_conntrack_core.h>
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 static int ipv4_pkt_to_tuple(const struct sk_buff *skb, unsigned int nhoff,
 			     struct nf_conntrack_tuple *tuple)
 {
@@ -332,13 +326,13 @@ getorigdst(struct sock *sk, int optval, void __user *user, int *len)
 
 	/* We only do TCP at the moment: is there a better way? */
 	if (strcmp(sk->sk_prot->name, "TCP")) {
-		DEBUGP("SO_ORIGINAL_DST: Not a TCP socket\n");
+		pr_debug("SO_ORIGINAL_DST: Not a TCP socket\n");
 		return -ENOPROTOOPT;
 	}
 
 	if ((unsigned int) *len < sizeof(struct sockaddr_in)) {
-		DEBUGP("SO_ORIGINAL_DST: len %u not %u\n",
-		       *len, sizeof(struct sockaddr_in));
+		pr_debug("SO_ORIGINAL_DST: len %d not %Zu\n",
+			 *len, sizeof(struct sockaddr_in));
 		return -EINVAL;
 	}
 

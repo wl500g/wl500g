@@ -30,8 +30,6 @@
 #include <asm/page.h>
 #include <asm/pgtable.h>
 
-#define DEBUGP(fmt...) 
-
 #ifndef CONFIG_UML
 void module_free(struct module *mod, void *module_region)
 {
@@ -77,7 +75,7 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 	void *loc;
 	u64 val; 
 
-	DEBUGP("Applying relocate section %u to %u\n", relsec,
+	pr_debug("Applying relocate section %u to %u\n", relsec,
 	       sechdrs[relsec].sh_info);
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
 		/* This is where to make the change */
@@ -89,7 +87,7 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 		sym = (Elf64_Sym *)sechdrs[symindex].sh_addr
 			+ ELF64_R_SYM(rel[i].r_info);
 
-	        DEBUGP("type %d st_value %Lx r_addend %Lx loc %Lx\n",
+	        pr_debug("type %d st_value %Lx r_addend %Lx loc %Lx\n",
 		       (int)ELF64_R_TYPE(rel[i].r_info), 
 		       sym->st_value, rel[i].r_addend, (u64)loc);
 

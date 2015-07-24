@@ -403,7 +403,7 @@ match_ret:
 	return (found ^ info->invert);
 }
 
-static bool checkentry(const struct xt_mtchk_param *par)
+static bool webstr_mt_check(const struct xt_mtchk_param *par)
 {
 	const struct xt_webstr_info *info = par->matchinfo;
 #if 0
@@ -442,7 +442,7 @@ static struct xt_match xt_webstr_match = {
 	.name		= "webstr",
 	.family		= NFPROTO_UNSPEC,
 	.match		= webstr_mt,
-	.checkentry	= checkentry,
+	.checkentry	= webstr_mt_check,
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 	.destroy	= destroy,
 #endif

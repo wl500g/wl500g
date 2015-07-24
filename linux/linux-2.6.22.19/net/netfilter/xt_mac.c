@@ -24,7 +24,7 @@ MODULE_DESCRIPTION("iptables mac matching module");
 MODULE_ALIAS("ipt_mac");
 MODULE_ALIAS("ip6t_mac");
 
-static bool match(const struct sk_buff *skb, struct xt_action_param *par)
+static bool mac_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
     const struct xt_mac_info *info = par->matchinfo;
 
@@ -40,7 +40,7 @@ static struct xt_match xt_mac_match __read_mostly = {
 	.name		= "mac",
 	.revision   = 0,
 	.family		= NFPROTO_UNSPEC,
-	.match		= match,
+	.match		= mac_mt,
 	.matchsize	= sizeof(struct xt_mac_info),
 	.hooks		= (1 << NF_IP_PRE_ROUTING) |
 			  (1 << NF_IP_LOCAL_IN) |

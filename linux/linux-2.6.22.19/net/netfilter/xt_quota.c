@@ -22,7 +22,7 @@ MODULE_ALIAS("ip6t_quota");
 static DEFINE_SPINLOCK(quota_lock);
 
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+quota_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	struct xt_quota_info *q = (void *)par->matchinfo;
 	struct xt_quota_priv *priv = q->master;
@@ -43,7 +43,7 @@ match(const struct sk_buff *skb, struct xt_action_param *par)
 	return ret;
 }
 
-static bool checkentry(const struct xt_mtchk_param *par)
+static bool quota_mt_check(const struct xt_mtchk_param *par)
 {
 	struct xt_quota_info *q = par->matchinfo;
 
@@ -69,8 +69,8 @@ static struct xt_match xt_quota_match __read_mostly = {
 	.name		= "quota",
 	.revision   = 0,
 	.family		= NFPROTO_UNSPEC,
-	.match		= match,
-	.checkentry	= checkentry,
+	.match		= quota_mt,
+	.checkentry	= quota_mt_check,
 	.destroy	= quota_mt_destroy,
 	.matchsize	= sizeof(struct xt_quota_info),
 	.me		= THIS_MODULE

@@ -44,12 +44,6 @@
 
 #define NF_CONNTRACK_VERSION	"0.5.0"
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 DEFINE_RWLOCK(nf_conntrack_lock);
 EXPORT_SYMBOL_GPL(nf_conntrack_lock);
 
@@ -165,11 +159,11 @@ int nf_conntrack_register_cache(u_int32_t features, const char *name,
 	char *cache_name;
 	struct kmem_cache *cachep;
 
-	DEBUGP("nf_conntrack_register_cache: features=0x%x, name=%s, size=%d\n",
+	pr_debug("nf_conntrack_register_cache: features=0x%x, name=%s, size=%d\n",
 	       features, name, size);
 
 	if (features < NF_CT_F_BASIC || features >= NF_CT_F_NUM) {
-		DEBUGP("nf_conntrack_register_cache: invalid features.: 0x%x\n",
+		pr_debug("nf_conntrack_register_cache: invalid features.: 0x%x\n",
 			features);
 		return -EINVAL;
 	}
@@ -179,11 +173,11 @@ int nf_conntrack_register_cache(u_int32_t features, const char *name,
 	write_lock_bh(&nf_ct_cache_lock);
 	/* e.g: multiple helpers are loaded */
 	if (nf_ct_cache[features].use > 0) {
-		DEBUGP("nf_conntrack_register_cache: already resisterd.\n");
+		pr_debug("nf_conntrack_register_cache: already resisterd.\n");
 		if ((!strncmp(nf_ct_cache[features].name, name,
 			      NF_CT_FEATURES_NAMELEN))
 		    && nf_ct_cache[features].size == size) {
-			DEBUGP("nf_conntrack_register_cache: reusing.\n");
+			pr_debug("nf_conntrack_register_cache: reusing.\n");
 			nf_ct_cache[features].use++;
 			ret = 0;
 		} else
@@ -201,7 +195,7 @@ int nf_conntrack_register_cache(u_int32_t features, const char *name,
 	 */
 	cache_name = kmalloc(sizeof(char)*NF_CT_FEATURES_NAMELEN, GFP_ATOMIC);
 	if (cache_name == NULL) {
-		DEBUGP("nf_conntrack_register_cache: can't alloc cache_name\n");
+		pr_debug("nf_conntrack_register_cache: can't alloc cache_name\n");
 		ret = -ENOMEM;
 		goto out_up_mutex;
 	}
@@ -248,7 +242,7 @@ void nf_conntrack_unregister_cache(u_int32_t features)
 	 * This assures that kmem_cache_create() isn't called before destroying
 	 * slab cache.
 	 */
-	DEBUGP("nf_conntrack_unregister_cache: 0x%04x\n", features);
+	pr_debug("nf_conntrack_unregister_cache: 0x%04x\n", features);
 	mutex_lock(&nf_ct_cache_mutex);
 
 	write_lock_bh(&nf_ct_cache_lock);
@@ -364,7 +358,7 @@ EXPORT_SYMBOL(bcm_nf_ct_invert_tuple);
 static void
 clean_from_lists(struct nf_conn *ct)
 {
-	DEBUGP("clean_from_lists(%p)\n", ct);
+	pr_debug("clean_from_lists(%p)\n", ct);
 	hlist_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnode);
 	hlist_del(&ct->tuplehash[IP_CT_DIR_REPLY].hnode);
 
@@ -379,7 +373,7 @@ destroy_conntrack(struct nf_conntrack *nfct)
 	struct nf_conntrack_l4proto *l4proto;
 	typeof(nf_conntrack_destroyed) destroyed;
 
-	DEBUGP("destroy_conntrack(%p)\n", ct);
+	pr_debug("destroy_conntrack(%p)\n", ct);
 	NF_CT_ASSERT(atomic_read(&nfct->use) == 0);
 	NF_CT_ASSERT(!timer_pending(&ct->timeout));
 
@@ -425,7 +419,7 @@ destroy_conntrack(struct nf_conntrack *nfct)
 	if (ct->master)
 		nf_ct_put(ct->master);
 
-	DEBUGP("destroy_conntrack: returning ct=%p to slab\n", ct);
+	pr_debug("destroy_conntrack: returning ct=%p to slab\n", ct);
 	nf_conntrack_free(ct);
 }
 
@@ -546,7 +540,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
 	/* No external references means noone else could have
 	   confirmed us. */
 	NF_CT_ASSERT(!nf_ct_is_confirmed(ct));
-	DEBUGP("Confirming conntrack %p\n", ct);
+	pr_debug("Confirming conntrack %p\n", ct);
 
 	write_lock_bh(&nf_conntrack_lock);
 
@@ -721,19 +715,19 @@ __nf_conntrack_alloc(const struct nf_conntrack_tuple *orig,
 		features |= NF_CT_F_HELP;
 	read_unlock_bh(&nf_conntrack_lock);
 
-	DEBUGP("nf_conntrack_alloc: features=0x%x\n", features);
+	pr_debug("nf_conntrack_alloc: features=0x%x\n", features);
 
 	read_lock_bh(&nf_ct_cache_lock);
 
 	if (unlikely(!nf_ct_cache[features].use)) {
-		DEBUGP("nf_conntrack_alloc: not supported features = 0x%x\n",
+		pr_debug("nf_conntrack_alloc: not supported features = 0x%x\n",
 			features);
 		goto out;
 	}
 
 	conntrack = kmem_cache_zalloc(nf_ct_cache[features].cachep, GFP_ATOMIC);
 	if (conntrack == NULL) {
-		DEBUGP("nf_conntrack_alloc: Can't alloc conntrack from cache\n");
+		pr_debug("nf_conntrack_alloc: Can't alloc conntrack from cache\n");
 		goto out;
 	}
 
@@ -772,7 +766,7 @@ void nf_conntrack_free(struct nf_conn *conntrack)
 {
 	u_int32_t features = conntrack->features;
 	NF_CT_ASSERT(features >= NF_CT_F_BASIC && features < NF_CT_F_NUM);
-	DEBUGP("nf_conntrack_free: features = 0x%x, conntrack=%p\n", features,
+	pr_debug("nf_conntrack_free: features = 0x%x, conntrack=%p\n", features,
 	       conntrack);
 	kmem_cache_free(nf_ct_cache[features].cachep, conntrack);
 	atomic_dec(&nf_conntrack_count);
@@ -795,7 +789,7 @@ init_conntrack(const struct nf_conntrack_tuple *tuple,
 	u_int32_t features = 0;
 
 	if (!nf_ct_invert_tuple(&repl_tuple, tuple, l3proto, l4proto)) {
-		DEBUGP("Can't invert tuple.\n");
+		pr_debug("Can't invert tuple.\n");
 		return NULL;
 	}
 
@@ -807,13 +801,13 @@ init_conntrack(const struct nf_conntrack_tuple *tuple,
 
 	conntrack = __nf_conntrack_alloc(tuple, &repl_tuple, l3proto, features);
 	if (conntrack == NULL || IS_ERR(conntrack)) {
-		DEBUGP("Can't allocate conntrack.\n");
+		pr_debug("Can't allocate conntrack.\n");
 		return (struct nf_conntrack_tuple_hash *)conntrack;
 	}
 
 	if (!l4proto->new(conntrack, skb, dataoff)) {
 		nf_conntrack_free(conntrack);
-		DEBUGP("init conntrack: can't track with proto module\n");
+		pr_debug("init conntrack: can't track with proto module\n");
 		return NULL;
 	}
 
@@ -822,7 +816,7 @@ init_conntrack(const struct nf_conntrack_tuple *tuple,
 
 	help = nfct_help(conntrack);
 	if (exp) {
-		DEBUGP("conntrack: expectation arrives ct=%p exp=%p\n",
+		pr_debug("conntrack: expectation arrives ct=%p exp=%p\n",
 			conntrack, exp);
 		/* Welcome, Mr. Bond.  We've been expecting you... */
 		__set_bit(IPS_EXPECTED_BIT, &conntrack->status);
@@ -879,7 +873,7 @@ resolve_normal_ct(struct sk_buff *skb,
 	if (!nf_ct_get_tuple(skb, skb_network_offset(skb),
 			     dataoff, l3num, protonum, &tuple, l3proto,
 			     l4proto)) {
-		DEBUGP("resolve_normal_ct: Can't get tuple\n");
+		pr_debug("resolve_normal_ct: Can't get tuple\n");
 		return NULL;
 	}
 
@@ -902,13 +896,14 @@ resolve_normal_ct(struct sk_buff *skb,
 	} else {
 		/* Once we've had two way comms, always ESTABLISHED. */
 		if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
-			DEBUGP("nf_conntrack_in: normal packet for %p\n", ct);
+			pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
 			*ctinfo = IP_CT_ESTABLISHED;
 		} else if (test_bit(IPS_EXPECTED_BIT, &ct->status)) {
-			DEBUGP("nf_conntrack_in: related packet for %p\n", ct);
+			pr_debug("nf_conntrack_in: related packet for %p\n",
+				 ct);
 			*ctinfo = IP_CT_RELATED;
 		} else {
-			DEBUGP("nf_conntrack_in: new packet for %p\n", ct);
+			pr_debug("nf_conntrack_in: new packet for %p\n", ct);
 			*ctinfo = IP_CT_NEW;
 		}
 		*set_reply = 0;
@@ -949,7 +944,7 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
 	ret = l3proto->get_l4proto(skb, skb_network_offset(skb),
 				   &dataoff, &protonum);
 	if (ret <= 0) {
-		DEBUGP("not prepared to track yet or error occured\n");
+		pr_debug("not prepared to track yet or error occured\n");
 		NF_CT_STAT_INC_ATOMIC(error);
 		NF_CT_STAT_INC_ATOMIC(invalid);
 		return -ret;
@@ -1000,7 +995,7 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
 	if (ret <= 0) {
 		/* Invalid: inverse of the return code tells
 		 * the netfilter core what to do */
-		DEBUGP("nf_conntrack_in: Can't track with proto module\n");
+		pr_debug("nf_conntrack_in: Can't track with proto module\n");
 		nf_conntrack_put(skb->nfct);
 		skb->nfct = NULL;
 		NF_CT_STAT_INC_ATOMIC(invalid);
@@ -1099,7 +1094,7 @@ void nf_conntrack_alter_reply(struct nf_conn *ct,
 	/* Should be unconfirmed, so not in hash table yet */
 	NF_CT_ASSERT(!nf_ct_is_confirmed(ct));
 
-	DEBUGP("Altering reply tuple of %p to ", ct);
+	pr_debug("Altering reply tuple of %p to ", ct);
 	NF_CT_DUMP_TUPLE(newreply);
 
 	ct->tuplehash[IP_CT_DIR_REPLY].tuple = *newreply;

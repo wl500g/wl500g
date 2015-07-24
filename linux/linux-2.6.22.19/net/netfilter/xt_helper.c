@@ -22,14 +22,8 @@ MODULE_DESCRIPTION("iptables helper match module");
 MODULE_ALIAS("ipt_helper");
 MODULE_ALIAS("ip6t_helper");
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 static bool
-match(const struct sk_buff *skb, struct xt_action_param *par)
+helper_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_helper_info *info = par->matchinfo;
 	struct nf_conn *ct;
@@ -39,25 +33,25 @@ match(const struct sk_buff *skb, struct xt_action_param *par)
 
 	ct = nf_ct_get((struct sk_buff *)skb, &ctinfo);
 	if (!ct) {
-		DEBUGP("xt_helper: Eek! invalid conntrack?\n");
+		pr_debug("xt_helper: Eek! invalid conntrack?\n");
 		return ret;
 	}
 
 	if (!ct->master) {
-		DEBUGP("xt_helper: conntrack %p has no master\n", ct);
+		pr_debug("xt_helper: conntrack %p has no master\n", ct);
 		return ret;
 	}
 
 	read_lock_bh(&nf_conntrack_lock);
 	master_help = nfct_help(ct->master);
 	if (!master_help || !master_help->helper) {
-		DEBUGP("xt_helper: master ct %p has no helper\n",
-			exp->expectant);
+		pr_debug("xt_helper: master ct %p has no helper\n",
+			ct->master);
 		goto out_unlock;
 	}
 
-	DEBUGP("master's name = %s , info->name = %s\n",
-		ct->master->helper->name, info->name);
+	pr_debug("master's name = %s , info->name = %s\n",
+		master_help->helper->name, info->name);
 
 	if (info->name[0] == '\0')
 		ret = !ret;
@@ -69,7 +63,7 @@ out_unlock:
 	return ret;
 }
 
-static bool check(const struct xt_mtchk_param *par)
+static bool helper_mt_check(const struct xt_mtchk_param *par)
 {
 	struct xt_helper_info *info = par->matchinfo;
 
@@ -91,8 +85,8 @@ static struct xt_match xt_helper_match __read_mostly = {
 	.name		= "helper",
 	.revision   = 0,
 	.family		= NFPROTO_UNSPEC,
-	.checkentry	= check,
-	.match		= match,
+	.checkentry	= helper_mt_check,
+	.match		= helper_mt,
 	.destroy	= destroy,
 	.matchsize	= sizeof(struct xt_helper_info),
 	.me		= THIS_MODULE,
