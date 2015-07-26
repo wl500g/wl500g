@@ -1107,7 +1107,7 @@ igmpproxy-install:
 	$(STRIP) $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
 
 vsftpd:
-	$(MAKE) -C $@ LDFLAGS="-Wl,-rpath /lib"
+	$(MAKE) -C $@ LDFLAGS="-Wl,-rpath /lib -Wl,-z,relro -Wl,-z,now"
 
 vsftpd-distclean: vsftpd-clean
 	@true

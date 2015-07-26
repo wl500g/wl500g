@@ -3,9 +3,10 @@
 INSTALL	=	install
 IFLAGS  = -idirafter dummyinc
 #CFLAGS = -g
-CFLAGS	=	-O2 -fPIE -fstack-protector --param=ssp-buffer-size=4 \
+CFLAGS	= -O2 \
 	-Wall -W -Wshadow -Werror -Wformat-security $(EXTRACFLAGS) \
 	-D_FORTIFY_SOURCE=2 \
+	#-fPIE -fstack-protector --param=ssp-buffer-size=4 \
 	#-pedantic -Wconversion
 
 LIBS	=	-lcrypt #`./vsf_findlibs.sh`
