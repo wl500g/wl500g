@@ -1136,7 +1136,8 @@ static void __cpuinit setup_scache(void)
 	c->options |= MIPS_CPU_INCLUSIVE_CACHES;
 }
 
-void au1x00_fixup_config_od(void)
+#ifdef CONFIG_SOC_AU1X00
+static void au1x00_fixup_config_od(void)
 {
 	/*
 	 * c0_config.od (bit 19) was write only (and read as 0)
@@ -1160,6 +1161,7 @@ void au1x00_fixup_config_od(void)
 		break;
 	}
 }
+#endif
 
 #if defined(CONFIG_BCM47XX) || defined(CONFIG_BCM5365)
 static void __cpuinit _change_cachability(u32 cm)

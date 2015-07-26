@@ -32,6 +32,7 @@
  */
 void (*cpu_wait)(void) = NULL;
 
+#ifdef CONFIG_SYS_HAS_CPU_R3000
 static void r3081_wait(void)
 {
 	unsigned long cfg = read_c0_conf();
@@ -45,6 +46,7 @@ static void r39xx_wait(void)
 		write_c0_conf(read_c0_conf() | TX39_CONF_HALT);
 	local_irq_enable();
 }
+#endif /* CONFIG_SYS_HAS_CPU_R3000 */
 
 extern void r4k_wait(void);
 
@@ -132,6 +134,7 @@ void __init check_wait(void)
 	}
 
 	switch (current_cpu_type()) {
+#ifdef CONFIG_SYS_HAS_CPU_R3000
 	case CPU_R3081:
 	case CPU_R3081E:
 		cpu_wait = r3081_wait;
@@ -139,6 +142,7 @@ void __init check_wait(void)
 	case CPU_TX3927:
 		cpu_wait = r39xx_wait;
 		break;
+#endif
 	case CPU_R4200:
 /*	case CPU_R4300: */
 	case CPU_R4600:

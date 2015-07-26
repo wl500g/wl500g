@@ -610,17 +610,18 @@ core-$(CONFIG_TOSHIBA_RBTX4938) += arch/mips/tx4938/toshiba_rbtx4938/
 core-$(CONFIG_TOSHIBA_RBTX4938) += arch/mips/tx4938/common/
 load-$(CONFIG_TOSHIBA_RBTX4938) += 0xffffffff80100000
 
-cflags-y			+= -Iinclude/asm-mips/mach-generic
-drivers-$(CONFIG_PCI)		+= arch/mips/pci/
-
 #
 # Broadcom BCM947XX variants
 #
-core-$(CONFIG_BCM947XX) += arch/mips/brcm-boards/generic/ arch/mips/brcm-boards/bcm947xx/
-load-$(CONFIG_BCM947XX) := 0xffffffff80001000
+core-$(CONFIG_BCM947XX)		+= arch/mips/brcm-boards/generic/ arch/mips/brcm-boards/bcm947xx/
+cflags-$(CONFIG_BCM947XX)	+= -Iinclude/asm-mips/mach-bcm47xx
+load-$(CONFIG_BCM947XX)		:= 0xffffffff80001000
 ifdef CONFIG_BCM947XX
 zImage: vmlinux
 endif
+
+cflags-y			+= -Iinclude/asm-mips/mach-generic
+drivers-$(CONFIG_PCI)		+= arch/mips/pci/
 
 ifdef CONFIG_32BIT
 ifdef CONFIG_CPU_LITTLE_ENDIAN
