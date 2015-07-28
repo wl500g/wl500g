@@ -492,7 +492,7 @@ more details, with real examples.
 	Example:
 		#arch/i386/Makefile
 		cflags-y += $(shell \
-		if [ $(call cc-version) -ge 0300 ] ; then \
+		if [ $(cc-version) -ge 0300 ] ; then \
 			echo "-mregparm=3"; fi ;)
 
 	In the above example, -mregparm=3 is only used for gcc version greater

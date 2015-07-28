@@ -12,7 +12,6 @@
 # for "archclean" cleaning up for this architecture.
 #
 
-cflags-y := $(call cc-option, -mno-check-zero-division)
 
 #
 # Select the object file format to substitute into the linker script.
@@ -45,6 +44,8 @@ endif
 ifdef CONFIG_CROSSCOMPILE
 CROSS_COMPILE		:= $(tool-prefix)
 endif
+
+cflags-y := $(call cc-option, -mno-check-zero-division)
 
 ifdef CONFIG_32BIT
 ld-emul			= $(32bit-emul)
@@ -638,7 +639,7 @@ CFLAGS		+= $(cflags-y)
 LDFLAGS			+= -m $(ld-emul)
 
 ifdef CONFIG_MIPS
-CHECKFLAGS += $(shell $(CC) $(CFLAGS) -dM -E -xc /dev/null | \
+CHECKFLAGS += $(shell $(CC) $(CFLAGS) -dM -E -x c /dev/null | \
 	egrep -vw '__GNUC_(|MINOR_|PATCHLEVEL_)_' | \
 	sed -e "s/^\#define /-D'/" -e "s/ /'='/" -e "s/$$/'/")
 ifdef CONFIG_64BIT

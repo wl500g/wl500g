@@ -2,7 +2,7 @@
 # Kernel configuration targets
 # These targets are used from top-level makefile
 
-PHONY += oldconfig xconfig gconfig menuconfig config silentoldconfig update-po-config \
+PHONY += xconfig gconfig menuconfig config silentoldconfig update-po-config \
 	localmodconfig localyesconfig
 
 Kconfig := arch/$(ARCH)/Kconfig
@@ -21,9 +21,6 @@ config: $(obj)/conf
 
 nconfig: $(obj)/nconf
 	$< $(Kconfig)
-
-oldconfig: $(obj)/conf
-	$< --$@ $(Kconfig)
 
 silentoldconfig: $(obj)/conf
 	$< --$@ $(Kconfig)
@@ -77,7 +74,6 @@ update-po-config: $(obj)/kxgettext $(obj)/gconf.glade.h
 	    --directory=$(srctree) --directory=$(objtree)           \
 	    --output $(obj)/config.pot
 	$(Q)sed -i s/CHARSET/UTF-8/ $(obj)/config.pot
-	$(Q)ln -fs Kconfig.x86 arch/um/Kconfig
 	$(Q)(for i in `ls $(srctree)/arch/*/Kconfig`;    \
 	    do                                           \
 		echo "  GEN $$i";                        \
@@ -86,18 +82,19 @@ update-po-config: $(obj)/kxgettext $(obj)/gconf.glade.h
 	    done )
 	$(Q)msguniq --sort-by-file --to-code=UTF-8 $(obj)/config.pot \
 	    --output $(obj)/linux.pot
-	$(Q)rm -f $(srctree)/arch/um/Kconfig
 	$(Q)rm -f $(obj)/config.pot
 
-PHONY += allnoconfig allyesconfig allmodconfig alldefconfig randconfig
+# These targets map 1:1 to the commandline options of 'conf'
+simple-targets := oldconfig allnoconfig allyesconfig allmodconfig \
+	alldefconfig randconfig listnewconfig olddefconfig
+PHONY += $(simple-targets)
 
-allnoconfig allyesconfig allmodconfig alldefconfig randconfig: $(obj)/conf
+$(simple-targets): $(obj)/conf
 	$< --$@ $(Kconfig)
 
-PHONY += listnewconfig oldnoconfig savedefconfig defconfig
+PHONY += oldnoconfig savedefconfig defconfig
 
-listnewconfig oldnoconfig: $(obj)/conf
-	$< --$@ $(Kconfig)
+oldnoconfig: olddefconfig
 
 savedefconfig: $(obj)/conf
 	$< --$@=defconfig $(Kconfig)
