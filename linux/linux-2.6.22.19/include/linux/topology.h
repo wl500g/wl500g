@@ -203,4 +203,9 @@
 #endif
 #endif /* CONFIG_NUMA */
 
+/* Returns the number of the current Node. */
+#ifndef numa_node_id
+#define numa_node_id()		(cpu_to_node(raw_smp_processor_id()))
+#endif
+
 #endif /* _LINUX_TOPOLOGY_H */

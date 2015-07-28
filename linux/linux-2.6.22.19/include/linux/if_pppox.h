@@ -37,7 +37,6 @@
 #include <linux/if.h>
 #include <linux/netdevice.h>
 #include <linux/in.h>
-#include <asm/semaphore.h>
 #include <linux/ppp_channel.h>
 #include <linux/workqueue.h>
 #endif /* __KERNEL__ */

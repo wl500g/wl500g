@@ -54,6 +54,7 @@ struct ipc_perm
 #include <linux/kref.h>
 #include <linux/idr.h>
 #include <linux/spinlock.h>
+#include <linux/rwsem.h>
 
 #define IPCMNI 32768  /* <= MAX_INT limit for ipc arrays (including sysctl changes) */
 

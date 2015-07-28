@@ -150,7 +150,6 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define __pa(x)		((unsigned long)(x) - __pa_page_offset(x) + PHYS_OFFSET)
 #define __va(x)		((void *)((unsigned long)(x) + PAGE_OFFSET - PHYS_OFFSET))
 #define __pa_symbol(x)	__pa(RELOC_HIDE((unsigned long)(x),0))
-#include <asm/io.h>
 
 #define pfn_to_kaddr(pfn)	__va((pfn) << PAGE_SHIFT)
 

@@ -56,7 +56,6 @@ struct sched_param {
 #include <linux/nodemask.h>
 
 #include <asm/system.h>
-#include <asm/semaphore.h>
 #include <asm/page.h>
 #include <asm/ptrace.h>
 #include <asm/mmu.h>
