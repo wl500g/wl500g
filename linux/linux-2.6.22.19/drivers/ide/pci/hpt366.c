@@ -737,7 +737,7 @@ static int hpt366_config_drive_xfer_rate(ide_drive_t *drive)
  * This is specific to the HPT366 UDMA chipset
  * by HighPoint|Triones Technologies, Inc.
  */
-static int hpt366_ide_dma_lostirq(ide_drive_t *drive)
+static void hpt366_dma_lost_irq(ide_drive_t *drive)
 {
 	struct pci_dev *dev = HWIF(drive)->pci_dev;
 	u8 mcr1 = 0, mcr3 = 0, scr1 = 0;
@@ -749,7 +749,7 @@ static int hpt366_ide_dma_lostirq(ide_drive_t *drive)
 		drive->name, __FUNCTION__, mcr1, mcr3, scr1);
 	if (scr1 & 0x10)
 		pci_write_config_byte(dev, 0x5a, scr1 & ~0x10);
-	return __ide_dma_lostirq(drive);
+	ide_dma_lost_irq(drive);
 }
 
 static void hpt370_clear_engine(ide_drive_t *drive)
@@ -799,10 +799,10 @@ static int hpt370_ide_dma_end(ide_drive_t *drive)
 	return __ide_dma_end(drive);
 }
 
-static int hpt370_ide_dma_timeout(ide_drive_t *drive)
+static void hpt370_dma_timeout(ide_drive_t *drive)
 {
 	hpt370_irq_timeout(drive);
-	return __ide_dma_timeout(drive);
+	ide_dma_timeout(drive);
 }
 
 /* returns 1 if DMA IRQ issued, 0 otherwise */
@@ -1353,9 +1353,9 @@ static void __devinit init_hwif_hpt366(ide_hwif_t *hwif)
 	} else if (chip_type >= HPT370) {
 		hwif->dma_start 	= &hpt370_ide_dma_start;
 		hwif->ide_dma_end	= &hpt370_ide_dma_end;
-		hwif->ide_dma_timeout	= &hpt370_ide_dma_timeout;
+		hwif->dma_timeout	= &hpt370_dma_timeout;
 	} else
-		hwif->ide_dma_lostirq	= &hpt366_ide_dma_lostirq;
+		hwif->dma_lost_irq	= &hpt366_dma_lost_irq;
 
 	if (!noautodma)
 		hwif->autodma = 1;
