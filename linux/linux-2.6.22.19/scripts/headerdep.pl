@@ -23,11 +23,12 @@ my $opt_graph;
 	graph	=> \$opt_graph,
 );
 
-push @opt_include, 'include';
+my $def_include = 'include';
+push @opt_include, $def_include unless grep { $_ eq $def_include } @opt_include;
 my %deps = ();
 my %linenos = ();
 
-my @headers = grep { strip($_) } @ARGV;
+my @headers = map { strip($_) } @ARGV;
 
 parse_all(@headers);
 
@@ -68,7 +69,7 @@ sub strip {
 		return $stripped if $stripped ne $filename;
 	}
 
-	return $filename;
+	return;
 }
 
 # Search for the file name in the list of include paths
