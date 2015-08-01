@@ -990,16 +990,20 @@ int restart_ftpd()
 		"passwd_file=%s\n",
 		vsftpd_users, vsftpd_passwd);
 
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "")) {
+		fprintf(fp,
+		"listen_ipv6=yes\n"
+		"listen=no\n");
+	} else
+#endif
+	fprintf(fp, "listen=yes\n");
+
 	fprintf(fp,
-		"listen%s=yes\n"
 		"listen_port=%s\n"
 		"background=yes\n"
 		"max_clients=%s\n"
 		"idle_session_timeout=%s\n",
-#ifdef __CONFIG_IPV6__
-		nvram_invmatch("ipv6_proto", "") ? "_ipv6" :
-#endif
-		"",
 		nvram_safe_default_get("usb_ftpport_x"),
 		nvram_get("usb_ftpmax_x") ? : "0",
 		nvram_get("usb_ftpstaytimeout_x") ? : "300");
