@@ -89,6 +89,7 @@ struct globals {
 	struct sockaddr iface_sockaddr;
 	struct ether_addr our_ethaddr;
 	uint32_t localnet_ip;
+	int verbose;
 } FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { } while (0)
@@ -176,7 +177,8 @@ static int run(char *argv[3], const char *param, uint32_t nip)
 		xsetenv("ip", addr);
 		fmt -= 3;
 	}
-	bb_info_msg(fmt, argv[2], argv[0], addr);
+	if (G.verbose)
+		bb_info_msg(fmt, argv[2], argv[0], addr);
 
 	status = spawn_and_wait(argv + 1);
 	if (status < 0) {
@@ -215,14 +217,12 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 		uint32_t chosen_nip;
 		int conflicts;
 		int timeout_ms; // must be signed
-		int verbose;
 	} L;
 #define null_ethaddr (L.null_ethaddr)
 #define ifr          (L.ifr         )
 #define chosen_nip   (L.chosen_nip  )
 #define conflicts    (L.conflicts   )
 #define timeout_ms   (L.timeout_ms  )
-#define verbose      (L.verbose     )
 
 	memset(&L, 0, sizeof(L));
 	INIT_G();
@@ -232,7 +232,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 	// Parse commandline: prog [options] ifname script
 	// exactly 2 args; -v accumulates and implies -f
 	opt_complementary = "=2:vv:vf";
-	opts = getopt32(argv, "fqr:l:v", &r_opt, &l_opt, &verbose);
+	opts = getopt32(argv, "fqr:l:v", &r_opt, &l_opt, &G.verbose);
 #if !BB_MMU
 	// on NOMMU reexec early (or else we will rerun things twice)
 	if (!FOREGROUND)
@@ -317,7 +317,8 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 #if BB_MMU
 		bb_daemonize(0 /*was: DAEMON_CHDIR_ROOT*/);
 #endif
-		bb_info_msg("start, interface %s", argv_intf);
+		if (G.verbose)
+			bb_info_msg("start, interface %s", argv_intf);
 	}
 
 	// Run the dynamic address negotiation protocol,
