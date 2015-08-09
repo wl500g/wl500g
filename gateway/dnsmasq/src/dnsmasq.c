@@ -1025,7 +1025,7 @@ int main (int argc, char **argv)
 #endif
 
 #  ifdef HAVE_SCRIPT
-      if (daemon->helperfd != -1 && poll_check(daemon->helperfd, POLLIN))
+      if (daemon->helperfd != -1 && poll_check(daemon->helperfd, POLLOUT))
 	helper_write();
 #  endif
 #endif
@@ -1320,6 +1320,15 @@ static void async_event(int pipe, time_t now)
 	
 	if (daemon->lease_stream)
 	  fclose(daemon->lease_stream);
+
+#ifdef HAVE_DNSSEC
+	/* update timestamp file on TERM if time is considered valid */
+	if (daemon->back_to_the_future)
+	  {
+	     if (utime(daemon->timestamp_file, NULL) == -1)
+		my_syslog(LOG_ERR, _("failed to update mtime on %s: %s"), daemon->timestamp_file, strerror(errno));
+	  }
+#endif
 
 	if (daemon->runfile)
 	  unlink(daemon->runfile);

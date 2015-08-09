@@ -117,6 +117,7 @@ typedef unsigned long long u64;
 #include <sys/uio.h>
 #include <syslog.h>
 #include <dirent.h>
+#include <utime.h>
 #ifndef HAVE_LINUX_NETWORK
 #  include <net/if_dl.h>
 #endif
@@ -540,6 +541,13 @@ struct iname {
   struct iname *next;
 };
 
+/* subnet parameters from command line */
+struct mysubnet {
+  union mysockaddr addr;
+  int addr_used;
+  int mask;
+};
+
 /* resolv-file parms from command-line */
 struct resolvc {
   struct resolvc *next;
@@ -934,9 +942,9 @@ extern struct daemon {
   struct auth_zone *auth_zones;
   struct interface_name *int_names;
   char *mxtarget;
-  int addr4_netmask;
-  int addr6_netmask;
-  char *lease_file; 
+  struct mysubnet *add_subnet4;
+  struct mysubnet *add_subnet6;
+  char *lease_file;
   char *username, *groupname, *scriptuser;
   char *luascript;
   char *authserver, *hostmaster;
@@ -992,6 +1000,7 @@ extern struct daemon {
 #endif
 #ifdef HAVE_DNSSEC
   struct ds_config *ds;
+  int back_to_the_future;
   char *timestamp_file;
 #endif
 
