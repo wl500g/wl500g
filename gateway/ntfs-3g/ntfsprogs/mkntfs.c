@@ -6,7 +6,7 @@
  * Copyright (c) 2002-2006 Szabolcs Szakacsits
  * Copyright (c) 2005      Erik Sornes
  * Copyright (c) 2007      Yura Pakhuchiy
- * Copyright (c) 2010-2014 Jean-Pierre Andre
+ * Copyright (c) 2010      Jean-Pierre Andre
  *
  * This utility will create an NTFS 1.2 or 3.1 volume on a user
  * specified (block) device.
@@ -287,7 +287,7 @@ static void mkntfs_version(void)
 	ntfs_log_info("Copyright (c) 2002-2006 Szabolcs Szakacsits\n");
 	ntfs_log_info("Copyright (c) 2005      Erik Sornes\n");
 	ntfs_log_info("Copyright (c) 2007      Yura Pakhuchiy\n");
-	ntfs_log_info("Copyright (c) 2010-2014 Jean-Pierre Andre\n");
+	ntfs_log_info("Copyright (c) 2010-2012 Jean-Pierre Andre\n");
 	ntfs_log_info("\n%s\n%s%s\n", ntfs_gpl, ntfs_bugs, ntfs_home);
 }
 
@@ -590,7 +590,7 @@ static void mkntfs_init_options(struct mkntfs_options *opts2)
 /**
  * mkntfs_parse_options
  */
-static int mkntfs_parse_options(int argc, char *argv[], struct mkntfs_options *opts2)
+static BOOL mkntfs_parse_options(int argc, char *argv[], struct mkntfs_options *opts2)
 {
 	static const char *sopt = "-c:CfFhH:IlL:np:qQs:S:TUvVz:";
 	static const struct option lopt[] = {
@@ -620,7 +620,6 @@ static int mkntfs_parse_options(int argc, char *argv[], struct mkntfs_options *o
 
 	int c = -1;
 	int lic = 0;
-	int help = 0;
 	int err = 0;
 	int ver = 0;
 
@@ -662,7 +661,7 @@ static int mkntfs_parse_options(int argc, char *argv[], struct mkntfs_options *o
 				err++;
 			break;
 		case 'h':
-			help++;	/* display help */
+			err++;	/* display help */
 			break;
 		case 'I':
 			opts2->disable_indexing = TRUE;
@@ -746,7 +745,7 @@ static int mkntfs_parse_options(int argc, char *argv[], struct mkntfs_options *o
 		}
 	}
 
-	if (!err && !help && !ver && !lic) {
+	if (!err && !ver && !lic) {
 		if (opts2->dev_name == NULL) {
 			if (argc > 1)
 				ntfs_log_error("You must specify a device.\n");
@@ -758,11 +757,10 @@ static int mkntfs_parse_options(int argc, char *argv[], struct mkntfs_options *o
 		mkntfs_version();
 	if (lic)
 		mkntfs_license();
-	if (err || help)
+	if (err)
 		mkntfs_usage();
 
-		/* tri-state 0 : done, 1 : error, -1 : proceed */
-	return (err ? 1 : (help || ver || lic ? 0 : -1));
+	return (!err && !ver && !lic);
 }
 
 
@@ -3635,12 +3633,10 @@ static BOOL mkntfs_override_vol_params(ntfs_volume *vol)
 			opts.part_start_sect = 0;
 			winboot = FALSE;
 		} else if (opts.part_start_sect >> 32) {
-			ntfs_log_warning("The partition start sector was not "
-				"specified for %s and the automatically "
-				"determined value is too large (%lld). "
-				"It has been set to 0.\n",
-				vol->dev->d_name,
-				(long long)opts.part_start_sect);
+			ntfs_log_warning("The partition start sector specified "
+				"for %s and the automatically determined value "
+				"is too large.  It has been set to 0.\n",
+				vol->dev->d_name);
 			opts.part_start_sect = 0;
 			winboot = FALSE;
 		}
@@ -5172,11 +5168,10 @@ int main(int argc, char *argv[])
 
 	mkntfs_init_options(&opts);			/* Set up the options */
 
-			/* Read the command line options */
-	result = mkntfs_parse_options(argc, argv, &opts);
+	if (!mkntfs_parse_options(argc, argv, &opts))	/* Read the command line options */
+		goto done;
 
-	if (result < 0)
-		result = mkntfs_redirect(&opts);
-
+	result = mkntfs_redirect(&opts);
+done:
 	return result;
 }

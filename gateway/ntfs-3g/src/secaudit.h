@@ -56,13 +56,8 @@
 #else
 #define USESTUBS 0 /* direct calls to API, based on following definitions */
 #define ENVNTFS3G "NTFS3G"
-#if defined(__SVR4)
-#define LIBFILE64 "/usr/lib/amd64/libntfs-3g.so.861"
-#define LIBFILE "/usr/lib/libntfs-3g.so.861"
-#else
-#define LIBFILE64 "/lib64/libntfs-3g.so.861"
-#define LIBFILE "/lib/libntfs-3g.so.861"
-#endif
+#define LIBFILE64 "/lib64/libntfs-3g.so.851"
+#define LIBFILE "/lib/libntfs-3g.so.851"
 #endif
 
 #define MAPDIR ".NTFS-3G"
@@ -566,14 +561,12 @@ enum {
           /* flags tested for meaning exec, write or read */
 	  /* tests for write allow for interpretation of a sticky bit */
 
-#define FILE_GREAD (FILE_READ_DATA | GENERIC_READ | GENERIC_ALL)
-#define FILE_GWRITE (FILE_WRITE_DATA | FILE_APPEND_DATA | GENERIC_WRITE \
-			| GENERIC_ALL)
-#define FILE_GEXEC (FILE_EXECUTE | GENERIC_EXECUTE | GENERIC_ALL)
-#define DIR_GREAD (FILE_LIST_DIRECTORY | GENERIC_READ | GENERIC_ALL)
-#define DIR_GWRITE (FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY | GENERIC_WRITE \
-			| GENERIC_ALL)
-#define DIR_GEXEC (FILE_TRAVERSE | GENERIC_EXECUTE | GENERIC_ALL)
+#define FILE_GREAD (FILE_READ_DATA | GENERIC_READ)
+#define FILE_GWRITE (FILE_WRITE_DATA | FILE_APPEND_DATA | GENERIC_WRITE)
+#define FILE_GEXEC (FILE_EXECUTE | GENERIC_EXECUTE)
+#define DIR_GREAD (FILE_LIST_DIRECTORY | GENERIC_READ)
+#define DIR_GWRITE (FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY | GENERIC_WRITE)
+#define DIR_GEXEC (FILE_TRAVERSE | GENERIC_EXECUTE)
 
 	/* standard owner (and administrator) rights */
 

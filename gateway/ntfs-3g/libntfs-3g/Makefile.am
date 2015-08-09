@@ -31,7 +31,6 @@ libntfs_3g_la_SOURCES =	\
 	efs.c 		\
 	index.c 	\
 	inode.c 	\
-	ioctl.c 	\
 	lcnalloc.c 	\
 	logfile.c 	\
 	logging.c 	\

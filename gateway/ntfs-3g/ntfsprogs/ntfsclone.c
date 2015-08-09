@@ -61,9 +61,6 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef HAVE_SYS_MOUNT_H
-#include <sys/mount.h>
-#endif
 
 /*
  * FIXME: ntfsclone do bad things about endians handling. Fix it and remove
@@ -350,7 +347,7 @@ static void perr_exit(const char *fmt, ...)
 
 
 __attribute__((noreturn))
-static void usage(int ret)
+static void usage(void)
 {
 	fprintf(stderr, "\nUsage: %s [OPTIONS] SOURCE\n"
 		"    Efficiently clone NTFS to a sparse file, image, device or standard output.\n"
@@ -378,7 +375,7 @@ static void usage(int ret)
 		"    and --restore-image is used then read the image from the standard input.\n"
 		"\n", EXEC_NAME);
 	fprintf(stderr, "%s%s", ntfs_bugs, ntfs_home);
-	exit(ret);
+	exit(1);
 }
 
 /**
@@ -393,7 +390,7 @@ static void version(void)
 		   "Copyright (c) 2004-2006 Anton Altaparmakov\n"
 		   "Copyright (c) 2010-2014 Jean-Pierre Andre\n\n");
 	fprintf(stderr, "%s\n%s%s", ntfs_gpl, ntfs_bugs, ntfs_home);
-	exit(0);
+	exit(1);
 }
 
 static void parse_options(int argc, char **argv)
@@ -429,7 +426,7 @@ static void parse_options(int argc, char **argv)
 		switch (c) {
 		case 1:	/* A non-option argument */
 			if (opt.volume)
-				usage(1);
+				usage();
 			opt.volume = argv[optind-1];
 			break;
 		case 'd':
@@ -442,9 +439,8 @@ static void parse_options(int argc, char **argv)
 			opt.force++;
 			break;
 		case 'h':
-			usage(0);
 		case '?':
-			usage(1);
+			usage();
 		case 'i':	/* not proposed as a short option */
 			opt.new_serial |= 1;
 			break;
@@ -461,7 +457,7 @@ static void parse_options(int argc, char **argv)
 			opt.overwrite++;
 		case 'o':
 			if (opt.output)
-				usage(1);
+				usage();
 			opt.output = optarg;
 			break;
 		case 'r':
@@ -484,13 +480,13 @@ static void parse_options(int argc, char **argv)
 			break;
 		default:
 			err_printf("Unknown option '%s'.\n", argv[optind-1]);
-			usage(1);
+			usage();
 		}
 	}
 
 	if (!opt.no_action && (opt.output == NULL)) {
 		err_printf("You must specify an output file.\n");
-		usage(1);
+		usage();
 	}
 
 	if (!opt.no_action && (strcmp(opt.output, "-") == 0))
@@ -498,12 +494,12 @@ static void parse_options(int argc, char **argv)
 
 	if (opt.volume == NULL) {
 		err_printf("You must specify a device file.\n");
-		usage(1);
+		usage();
 	}
 
 	if (!opt.restore_image && !strcmp(opt.volume, "-")) {
 		err_printf("Only special images can be read from standard input\n");
-		usage(1);
+		usage();
 	}
 
 	if (opt.metadata && opt.save_image) {

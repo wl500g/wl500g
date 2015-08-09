@@ -102,9 +102,6 @@
 /* Define to 1 if you have the <linux/fd.h> header file. */
 #undef HAVE_LINUX_FD_H
 
-/* Define to 1 if you have the <linux/fs.h> header file. */
-#undef HAVE_LINUX_FS_H
-
 /* Define to 1 if you have the <linux/hdreg.h> header file. */
 #undef HAVE_LINUX_HDREG_H
 
@@ -321,6 +318,9 @@
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #undef LT_OBJDIR
+
+/* Define to 1 if your C compiler doesn't accept -c and -o together. */
+#undef NO_MINUS_C_MINUS_O
 
 /* Don't use default IO ops */
 #undef NO_NTFS_DEVICE_DEFAULT_IO_OPS

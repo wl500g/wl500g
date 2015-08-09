@@ -83,7 +83,7 @@ static void version(void)
 	ntfs_log_info("    2002      Matthew J. Fanto\n");
 	ntfs_log_info("    2002-2005 Anton Altaparmakov\n");
 	ntfs_log_info("    2002-2003 Richard Russon\n");
-	ntfs_log_info("    2012-2014 Jean-Pierre Andre\n");
+	ntfs_log_info("    2012      Jean-Pierre Andre\n");
 	ntfs_log_info("\n%s\n%s%s\n", ntfs_gpl, ntfs_bugs, ntfs_home);
 }
 
@@ -156,6 +156,12 @@ static int parse_options(int argc, char *argv[])
 			opts.force++;
 			break;
 		case 'h':
+		case '?':
+			if (strncmp (argv[optind-1], "--log-", 6) == 0) {
+				if (!ntfs_log_parse_option (argv[optind-1]))
+					err++;
+				break;
+			}
 			help++;
 			break;
 		case 'I' :	/* not proposed as a short option letter */
@@ -189,13 +195,6 @@ static int parse_options(int argc, char *argv[])
 		case 'V':
 			ver++;
 			break;
-		case '?':
-			if (strncmp (argv[optind-1], "--log-", 6) == 0) {
-				if (!ntfs_log_parse_option (argv[optind-1]))
-					err++;
-				break;
-			}
-			/* fall through */
 		default:
 			ntfs_log_error("Unknown option '%s'.\n", argv[optind-1]);
 			err++;
@@ -231,8 +230,7 @@ static int parse_options(int argc, char *argv[])
 	if (help || err)
 		usage();
 
-		/* tri-state 0 : done, 1 : error, -1 : proceed */
-	return (err ? 1 : (help || ver ? 0 : -1));
+	return (!err && !help && !ver);
 }
 
 static int change_serial(ntfs_volume *vol, u64 sector, le64 serial_number,
@@ -415,11 +413,9 @@ int main(int argc, char **argv)
 
 	ntfs_log_set_handler(ntfs_log_handler_outerr);
 
-	result = parse_options(argc, argv);
-	if (result >= 0)
-		return (result);
+	if (!parse_options(argc, argv))
+		return 1;
 
-	result = 0;
 	utils_set_locale();
 
 	if ((opts.label || opts.new_serial)
@@ -457,7 +453,6 @@ int main(int argc, char **argv)
 unmount :
 	ntfs_umount(vol, FALSE);
 abort :
-		/* "result" may be a negative reply of a library function */
-	return (result ? 1 : 0);
+	return result;
 }
 

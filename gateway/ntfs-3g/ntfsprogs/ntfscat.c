@@ -216,6 +216,12 @@ static int parse_options(int argc, char **argv)
 			opts.force++;
 			break;
 		case 'h':
+		case '?':
+			if (strncmp (argv[optind-1], "--log-", 6) == 0) {
+				if (!ntfs_log_parse_option (argv[optind-1]))
+					err++;
+				break;
+			}
 			help++;
 			break;
 		case 'i':
@@ -251,13 +257,6 @@ static int parse_options(int argc, char **argv)
 		case 'r':
 			opts.raw = TRUE;
 			break;
-		case '?':
-			if (strncmp (argv[optind-1], "--log-", 6) == 0) {
-				if (!ntfs_log_parse_option (argv[optind-1]))
-					err++;
-				break;
-			}
-			/* fall through */
 		default:
 			ntfs_log_error("Unknown option '%s'.\n", argv[optind-1]);
 			err++;
@@ -301,8 +300,7 @@ static int parse_options(int argc, char **argv)
 	if (help || err)
 		usage();
 
-		/* tri-state 0 : done, 1 : error, -1 : proceed */
-	return (err ? 1 : (help || ver ? 0 : -1));
+	return (!err && !help && !ver);
 }
 
 /**
@@ -403,14 +401,12 @@ int main(int argc, char *argv[])
 	ntfs_volume *vol;
 	ntfs_inode *inode;
 	ATTR_TYPES attr;
-	int res;
 	int result = 1;
 
 	ntfs_log_set_handler(ntfs_log_handler_stderr);
 
-	res = parse_options(argc, argv);
-	if (res >= 0)
-		return (res);
+	if (!parse_options(argc, argv))
+		return 1;
 
 	utils_set_locale();
 
@@ -423,21 +419,8 @@ int main(int argc, char *argv[])
 
 	if (opts.inode != -1)
 		inode = ntfs_inode_open(vol, opts.inode);
-	else {
-#ifdef HAVE_WINDOWS_H
-		char *unix_name;
-
-		unix_name = ntfs_utils_unix_path(opts.file);
-		if (unix_name) {
-			inode = ntfs_pathname_to_inode(vol, NULL,
-					unix_name);
-			free(unix_name);
-		} else
-			inode = (ntfs_inode*)NULL;
-#else
+	else
 		inode = ntfs_pathname_to_inode(vol, NULL, opts.file);
-#endif
-	}
 
 	if (!inode) {
 		ntfs_log_perror("ERROR: Couldn't open inode");

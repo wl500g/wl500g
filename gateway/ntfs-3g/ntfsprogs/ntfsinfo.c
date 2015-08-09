@@ -8,7 +8,7 @@
  * Copyright (c) 2004-2005 Yuval Fledel
  * Copyright (c) 2004-2007 Yura Pakhuchiy
  * Copyright (c)      2005 Cristian Klein
- * Copyright (c) 2011-2014 Jean-Pierre Andre
+ * Copyright (c) 2011-2012 Jean-Pierre Andre
  *
  * This utility will dump a file's attributes.
  *
@@ -119,7 +119,7 @@ static void version(void)
 	printf("    2003      Leonard Norrgård\n");
 	printf("    2004-2005 Yuval Fledel\n");
 	printf("    2004-2007 Yura Pakhuchiy\n");
-	printf("    2011-2014 Jean-Pierre Andre\n");
+	printf("    2011-2012 Jean-Pierre Andre\n");
 	printf("\n%s\n%s%s\n", ntfs_gpl, ntfs_bugs, ntfs_home);
 }
 
@@ -304,8 +304,7 @@ static int parse_options(int argc, char *argv[])
 	if (help || err)
 		usage();
 
-		/* tri-state 0 : done, 1 : error, -1 : proceed */
-	return (err ? 1 : (help || ver ? 0 : -1));
+	return (!err && !help && !ver);
 }
 
 
@@ -2347,17 +2346,15 @@ static void ntfs_dump_file_attributes(ntfs_inode *inode)
 int main(int argc, char **argv)
 {
 	ntfs_volume *vol;
-	int res;
 
 	setlinebuf(stdout);
 
 	ntfs_log_set_handler(ntfs_log_handler_outerr);
 
-	res = parse_options(argc, argv);
-	if (res > 0)
+	if (!parse_options(argc, argv)) {
 		printf("Failed to parse command line options\n");
-	if (res >= 0)
-		exit(res);
+		exit(1);
+	}
 
 	utils_set_locale();
 
@@ -2379,20 +2376,8 @@ int main(int argc, char **argv)
 		ntfs_inode *inode;
 		/* obtain the inode */
 		if (opts.filename) {
-#ifdef HAVE_WINDOWS_H
-			char *unix_name;
-
-			unix_name = ntfs_utils_unix_path(opts.filename);
-			if (unix_name) {
-				inode = ntfs_pathname_to_inode(vol, NULL,
-						unix_name);
-				free(unix_name);
-			} else
-				inode = (ntfs_inode*)NULL;
-#else
 			inode = ntfs_pathname_to_inode(vol, NULL,
 					opts.filename);
-#endif
 		} else {
 			inode = ntfs_inode_open(vol, MK_MREF(opts.inode, 0));
 		}

@@ -7,8 +7,8 @@
 
 Name:		ntfs-3g
 Summary:	Linux NTFS userspace driver
-Version:	2015.3.14AR.1
-Release:	1.fc21
+Version:	2014.2.15AR.1
+Release:	1.fc19
 License:	GPLv2+
 Group:		System Environment/Base
 Source0:	http://jp-andre.pagesperso-orange.fr/%{name}_ntfsprogs-%{version}%{?subver}.tgz
@@ -155,7 +155,7 @@ rm -rf %{buildroot}%{_defaultdocdir}/%{name}/README
 %exclude %{_mandir}/man8/ntfs-3g*
 
 %changelog
-* Mon Jun  1 2015 Jean-Pierre Andre 2015.3.14AR.1
+* Mon Apr  7 2014 Jean-Pierre Andre 2014.2.15AR.1
 - adapted to advanced ntfs-3g and basic ntfsprogs
 
 * Tue May 28 2013 Tom Callaway <spot@fedoraproject.org> - 2:2013.1.13-5

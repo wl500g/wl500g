@@ -47,7 +47,6 @@ struct options {
 	int	 pagefile;	/* Wipe pagefile (swap space) */
 	int	 tails;		/* Wipe file tails */
 	int	 unused;	/* Wipe unused clusters */
-	int	 unused_fast;	/* Wipe unused clusters (fast) */
 	int	 undel;		/* Wipe undelete data */
 };
 
