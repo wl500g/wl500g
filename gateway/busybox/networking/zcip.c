@@ -30,10 +30,14 @@
 //usage:     "\n	-f		Run in foreground"
 //usage:     "\n	-q		Quit after obtaining address"
 //usage:     "\n	-r 169.254.x.x	Request this address first"
+//usage:     "\n	-p FILE		Create pidfile"
 //usage:     "\n	-v		Verbose"
 //usage:     "\n"
 //usage:     "\nWith no -q, runs continuously monitoring for ARP conflicts,"
 //usage:     "\nexits only on I/O errors (link down etc)"
+
+/* Override ENABLE_FEATURE_PIDFILE */
+#define WANT_PIDFILE 1
 
 #include "libbb.h"
 #include <netinet/ether.h>
@@ -88,11 +92,13 @@ struct globals {
 	struct sockaddr saddr;
 	struct ether_addr eth_addr;
 	int verbose;
+	char *pidfile;
 } FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define saddr    (G.saddr   )
 #define eth_addr (G.eth_addr)
 #define verbose  (G.verbose )
+#define pidfile  (G.pidfile )
 #define INIT_G() do { } while (0)
 
 
@@ -192,6 +198,12 @@ static ALWAYS_INLINE unsigned random_delay_ms(unsigned secs)
 	return rand() % (secs * 1000);
 }
 
+static void zcip_shutdown(int sig UNUSED_PARAM)
+{
+	remove_pidfile(pidfile);
+	exit(EXIT_SUCCESS);
+}
+
 /**
  * main program
  */
@@ -232,7 +244,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 	// parse commandline: prog [options] ifname script
 	// exactly 2 args; -v accumulates and implies -f
 	opt_complementary = "=2:vv:vf";
-	opts = getopt32(argv, "fqr:v", &r_opt, &verbose);
+	opts = getopt32(argv, "fqr:p:v", &r_opt, &pidfile, &verbose);
 #if !BB_MMU
 	// on NOMMU reexec early (or else we will rerun things twice)
 	if (!FOREGROUND)
@@ -311,6 +323,9 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 			bb_info_msg("start, interface %s", argv_intf);
 	}
 
+	write_pidfile(pidfile);
+	bb_signals(BB_FATAL_SIGS, zcip_shutdown);
+
 	// run the dynamic address negotiation protocol,
 	// restarting after address conflicts:
 	//  - start with some address we want to try
@@ -355,7 +370,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 
 		default:
 			//bb_perror_msg("poll"); - done in safe_poll
-			return EXIT_FAILURE;
+			goto die;
 
 		// timeout
 		case 0:
@@ -422,8 +437,10 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 
 					// NOTE: all other exit paths
 					// should deconfig ...
-					if (QUIT)
-						return EXIT_SUCCESS;
+					if (QUIT) {
+						xfunc_error_retval = EXIT_SUCCESS;
+						goto die;
+					}
 				}
 				break;
 			case DEFEND:
@@ -468,14 +485,15 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 					if (ready) {
 						run(argv, "deconfig", &ip);
 					}
-					return EXIT_FAILURE;
+					goto die;
 				}
 				continue;
 			}
 
 			// read ARP packet
 			if (safe_read(sock_fd, &p, sizeof(p)) < 0) {
-				bb_perror_msg_and_die(bb_msg_read_error);
+				bb_perror_msg(bb_msg_read_error);
+				goto die;
 			}
 			if (p.eth.ether_type != htons(ETHERTYPE_ARP))
 				continue;
@@ -576,5 +594,10 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 			break; // case 1 (packets arriving)
 		} // switch poll
 	} // while (1)
+
+die:
+	remove_pidfile(pidfile);
+	xfunc_die();
+
 #undef argv_intf
 }
