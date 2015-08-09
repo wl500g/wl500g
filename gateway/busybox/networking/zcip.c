@@ -87,10 +87,12 @@ enum {
 struct globals {
 	struct sockaddr saddr;
 	struct ether_addr eth_addr;
+	int verbose;
 } FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define saddr    (G.saddr   )
 #define eth_addr (G.eth_addr)
+#define verbose  (G.verbose )
 #define INIT_G() do { } while (0)
 
 
@@ -169,7 +171,8 @@ static int run(char *argv[3], const char *param, struct in_addr *ip)
 		xsetenv("ip", addr);
 		fmt -= 3;
 	}
-	bb_info_msg(fmt, argv[2], argv[0], addr);
+	if (verbose)
+		bb_info_msg(fmt, argv[2], argv[0], addr);
 
 	status = spawn_and_wait(argv + 1);
 	if (status < 0) {
@@ -210,7 +213,6 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 		unsigned nprobes;
 		unsigned nclaims;
 		int ready;
-		int verbose;
 	} L;
 #define null_ip    (L.null_ip   )
 #define null_addr  (L.null_addr )
@@ -221,7 +223,6 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 #define nprobes    (L.nprobes   )
 #define nclaims    (L.nclaims   )
 #define ready      (L.ready     )
-#define verbose    (L.verbose   )
 
 	memset(&L, 0, sizeof(L));
 	INIT_G();
@@ -306,7 +307,8 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 #if BB_MMU
 		bb_daemonize(0 /*was: DAEMON_CHDIR_ROOT*/);
 #endif
-		bb_info_msg("start, interface %s", argv_intf);
+		if (verbose)
+			bb_info_msg("start, interface %s", argv_intf);
 	}
 
 	// run the dynamic address negotiation protocol,
