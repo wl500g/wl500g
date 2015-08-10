@@ -89,8 +89,7 @@ int wpacli_main(int argc, char **argv)
 	    strncmp(argv[2], "EAP-SUCCESS", sizeof("EAP-SUCCESS")) == 0)
 	{
 		/* Renew DHCP lease */
-		snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
-		kill_pidfile_s(tmp, SIGUSR1);
+		renew_dhcpc(unit);
 	}
 
 	logmessage("auth client", "%s", argv[2]);

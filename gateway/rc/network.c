@@ -1386,10 +1386,7 @@ void stop_wan_unit(int unit)
 		}
 
 		if (dynamic_ip != 0) {
-			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
-			kill_pidfile_s(tmp, SIGUSR2);
-			usleep(10000);
-			kill_pidfile(tmp);
+			stop_dhcpc(unit);
 		} else {
 			wan_down(wan_ifname);
 		}

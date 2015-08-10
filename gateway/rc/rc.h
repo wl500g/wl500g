@@ -88,9 +88,13 @@ int rsrom_main(const char *devname, unsigned int pos, int pflag);
 
 /* dhcp/zcip scripts */
 int udhcpc_main(int argc, char **argv);
-int start_dhcpc(const char *wan_ifname, int unit);
 int udhcpc_ex_main(int argc, char **argv);
+int start_dhcpc(const char *wan_ifname, int unit);
+void stop_dhcpc(int unit);
+void renew_dhcpc(int unit);
 int zcip_main(int argc, char **argv);
+int start_zcip(const char *wan_ifname, int unit);
+void stop_zcip(int unit);
 #ifdef __CONFIG_IPV6__
 int dhcp6c_main(int argc, char **argv);
 int start_dhcp6c(const char *wan_ifname);

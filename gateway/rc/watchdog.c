@@ -787,8 +787,7 @@ static void link_check(void)
 		if (strcmp(wan_proto, "dhcp") == 0 ||
 		    strcmp(wan_proto, "bigpond") == 0)
 		{
-			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
-			kill_pidfile_s(tmp, SIGUSR1);
+			renew_dhcpc(unit);
 		}
 	}
 

@@ -29,10 +29,6 @@
 
 static char udhcpstate[12];
 
-static int start_zcip(const char *wan_ifname);
-static void stop_zcip(void);
-
-
 static int expires(const char *wan_ifname, unsigned int in)
 {
 	time_t now;
@@ -98,13 +94,14 @@ static int bound(const char *wan_ifname)
 	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char wanprefix[WAN_PREFIX_SZ];
 	char route[sizeof("255.255.255.255/255")];
-	int changed = 0;
+	int unit, changed = 0;
 	int gateway = 0;
 
-	stop_zcip();
-
-	if (wans_prefix(wan_ifname, wanprefix, prefix) < 0)
+	unit = wans_prefix(wan_ifname, wanprefix, prefix);
+	if (unit < 0)
 		return EINVAL;
+
+	stop_zcip(unit);
 
 	if ((value = getenv("ip"))) {
 		changed = !nvram_match(strcat_r(prefix, "ipaddr", tmp), trim_r(value));
@@ -200,17 +197,18 @@ static int renew(const char *wan_ifname)
 	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char wanprefix[WAN_PREFIX_SZ];
 	int metric;
-	int changed = 0;
+	int unit, changed = 0;
 
-	stop_zcip();
-
-	if (wans_prefix(wan_ifname, wanprefix, prefix) < 0)
+	unit = wans_prefix(wan_ifname, wanprefix, prefix);
+	if (unit < 0)
 		return EINVAL;
 
 	if (!(value = getenv("subnet")) || nvram_invmatch(strcat_r(prefix, "netmask", tmp), trim_r(value)))
 		return bound(wan_ifname);
 	if (!(value = getenv("router")) || nvram_invmatch(strcat_r(prefix, "gateway", tmp), trim_r(value)))
 		return bound(wan_ifname);
+
+	stop_zcip(unit);
 
 	if ((value = getenv("dns"))) {
 		changed = !nvram_match(strcat_r(prefix, "dns", tmp), trim_r(value));
@@ -254,24 +252,26 @@ static int renew(const char *wan_ifname)
 
 static int leasefail(const char *wan_ifname)
 {
-	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char prefix[WAN_PREFIX_SZ];
+	char pid[sizeof("/var/run/zcipXXXXXXXXXX.pid")];
+	int unit;
 
-	if (wanx_prefix(wan_ifname, prefix) < 0)
+	unit = wanx_prefix(wan_ifname, prefix);
+	if (unit < 0)
 		return EINVAL;
 
-	if ((ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp))) &
-	     ip_addr(nvram_safe_get(strcat_r(prefix, "netmask", tmp)))) ==
-	     ip_addr("169.254.0.0"))
+	snprintf(pid, sizeof(pid), "/var/run/zcip%d.pid", unit);
+	if (kill_pidfile_s(pid, 0) == 0)
 		return 0;
 
-	return start_zcip(wan_ifname);
+	return start_zcip(wan_ifname, unit);
 }
 
 int udhcpc_main(int argc, char **argv)
 {
 	const char *wan_ifname;
 
-	if (argc<2 || !argv[1])
+	if (argc < 2 || !argv[1])
 		return EINVAL;
 
 	wan_ifname = safe_getenv("interface");
@@ -285,8 +285,7 @@ int udhcpc_main(int argc, char **argv)
 		return renew(wan_ifname);
 	else if (!strcmp(argv[1], "leasefail"))
 		return leasefail(wan_ifname);
-	/* nak */
-	else
+	else /* if (!strcmp(argv[1], "nak")) */
 		return 0;
 }
 
@@ -341,7 +340,28 @@ int start_dhcpc(const char *wan_ifname, int unit)
 	dhcp_argv[index++] = "-vvS";
 #endif
 
+	stop_zcip(unit);
+
 	return _eval(dhcp_argv, NULL, 0, NULL);
+}
+
+void stop_dhcpc(int unit)
+{
+	char pid[sizeof("/var/run/udhcpcXXXXXXXXXX.pid")];
+
+	stop_zcip(unit);
+
+	snprintf(pid, sizeof(pid), "/var/run/udhcpc%d.pid", unit);
+	kill_pidfile_s(pid, SIGUSR2);
+	kill_pidfile_s(pid, SIGTERM);
+}
+
+void renew_dhcpc(int unit)
+{
+	char pid[sizeof("/var/run/udhcpcXXXXXXXXXX.pid")];
+
+	snprintf(pid, sizeof(pid), "/var/run/udhcpc%d.pid", unit);
+	kill_pidfile_s(pid, SIGUSR1);
 }
 
 static int config(const char *wan_ifname)
@@ -384,7 +404,7 @@ int zcip_main(int argc, char **argv)
 {
 	const char *wan_ifname;
 
-	if (argc<2 || !argv[1])
+	if (argc < 2 || !argv[1])
 		return EINVAL;
 
 	wan_ifname = safe_getenv("interface");
@@ -398,17 +418,26 @@ int zcip_main(int argc, char **argv)
 	else return 0;
 }
 
-static int start_zcip(const char *wan_ifname)
+int start_zcip(const char *wan_ifname, int unit)
 {
-	char *zcip_argv[] = { "/sbin/zcip", "-q", (char *)wan_ifname, "/tmp/zcip.script", NULL };
+	char pid[sizeof("/var/run/zcipXXXXXXXXXX.pid")];
+	char *zcip_argv[] = {
+		"/sbin/zcip",
+		"-p", (snprintf(pid, sizeof(pid), "/var/run/zcip%d.pid", unit), pid),
+		(char *)wan_ifname,
+		"/tmp/zcip.script",
+		NULL
+	};
 
 	return _eval(zcip_argv, NULL, 0, NULL);
 }
 
-static void stop_zcip(void)
+void stop_zcip(int unit)
 {
-	killall_s("zcip.script", SIGTERM);
-	killall("zcip");
+	char pid[sizeof("/var/run/zcipXXXXXXXXXX.pid")];
+
+	snprintf(pid, sizeof(pid), "/var/run/zcip%d.pid", unit);
+	kill_pidfile_s(pid, SIGTERM);
 }
 
 #ifdef __CONFIG_IPV6__

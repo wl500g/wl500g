@@ -200,10 +200,7 @@ int madwimax_check(const char *prefix)
 		if (is_chk_log())
 			logmessage(nvram_safe_get("wan_proto_t"), "Restarting madwimax\n");
 
-	 	// kill the udhcpc
-		kill_pidfile_s((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp), SIGUSR2);
-		kill_pidfile((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp));
-
+		stop_dhcpc(unit);
 		start_wimax(prefix);
 	}
 	return 0;
@@ -299,16 +296,12 @@ static int madwimax_up(const char *ifname, int unit)
 //if-down
 static int madwimax_down(const char *ifname, int unit)
 {
-	char tmp[100];
-
 	wan_down(ifname);
 	update_nvram_wmx(ifname, 0);
 
 	preset_wan_routes(ifname);
 
-	// kill the udhcpc
-	kill_pidfile_s((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp), SIGUSR2);
-	kill_pidfile((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp));
+	stop_dhcpc(unit);
 
 	logmessage(nvram_safe_get("wan_proto_t"), "Disconnected");
 	wanmessage("Disconnected");
