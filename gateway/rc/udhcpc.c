@@ -353,6 +353,7 @@ void stop_dhcpc(int unit)
 
 	snprintf(pid, sizeof(pid), "/var/run/udhcpc%d.pid", unit);
 	kill_pidfile_s(pid, SIGUSR2);
+	usleep(10000);
 	kill_pidfile_s(pid, SIGTERM);
 }
 
