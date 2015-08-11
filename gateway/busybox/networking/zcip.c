@@ -91,14 +91,14 @@ enum {
 struct globals {
 	struct sockaddr saddr;
 	struct ether_addr eth_addr;
-	int verbose;
 	char *pidfile;
+	int verbose;
 } FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define saddr    (G.saddr   )
 #define eth_addr (G.eth_addr)
-#define verbose  (G.verbose )
 #define pidfile  (G.pidfile )
+#define verbose  (G.verbose )
 #define INIT_G() do { } while (0)
 
 
@@ -114,6 +114,15 @@ static uint32_t pick(void)
 		tmp = rand() & IN_CLASSB_HOST;
 	} while (tmp > (IN_CLASSB_HOST - 0x0200));
 	return htonl((LINKLOCAL_ADDR + 0x0100) + tmp);
+}
+
+static void cleanup(int code) NORETURN;
+static void cleanup(int code)
+{
+	remove_pidfile(pidfile);
+	if (code > EXIT_FAILURE)
+		kill_myself_with_sig(code);
+	exit(code);
 }
 
 /**
@@ -154,7 +163,10 @@ static void arp(
 	// Thus we sendto() to saddr. I wonder which sockaddr
 	// (from bind() or from sendto()?) kernel actually uses
 	// to determine iface to emit the packet from...
-	xsendto(sock_fd, &p, sizeof(p), &saddr, sizeof(saddr));
+	if (sendto(sock_fd, &p, sizeof(p), 0, &saddr, sizeof(saddr)) < 0) {
+		bb_perror_msg("sendto");
+		cleanup(EXIT_FAILURE);
+	}
 #undef source_eth
 }
 
@@ -196,12 +208,6 @@ static int run(char *argv[3], const char *param, struct in_addr *ip)
 static ALWAYS_INLINE unsigned random_delay_ms(unsigned secs)
 {
 	return rand() % (secs * 1000);
-}
-
-static void zcip_shutdown(int sig UNUSED_PARAM)
-{
-	remove_pidfile(pidfile);
-	exit(EXIT_SUCCESS);
 }
 
 /**
@@ -324,7 +330,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 	}
 
 	write_pidfile(pidfile);
-	bb_signals(BB_FATAL_SIGS, zcip_shutdown);
+	bb_signals(BB_FATAL_SIGS, cleanup);
 
 	// run the dynamic address negotiation protocol,
 	// restarting after address conflicts:
@@ -370,7 +376,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 
 		default:
 			//bb_perror_msg("poll"); - done in safe_poll
-			goto die;
+			cleanup(EXIT_FAILURE);
 
 		// timeout
 		case 0:
@@ -437,10 +443,8 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 
 					// NOTE: all other exit paths
 					// should deconfig ...
-					if (QUIT) {
-						xfunc_error_retval = EXIT_SUCCESS;
-						goto die;
-					}
+					if (QUIT)
+						cleanup(EXIT_SUCCESS);
 				}
 				break;
 			case DEFEND:
@@ -485,7 +489,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 					if (ready) {
 						run(argv, "deconfig", &ip);
 					}
-					goto die;
+					cleanup(EXIT_FAILURE);
 				}
 				continue;
 			}
@@ -493,7 +497,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 			// read ARP packet
 			if (safe_read(sock_fd, &p, sizeof(p)) < 0) {
 				bb_perror_msg(bb_msg_read_error);
-				goto die;
+				cleanup(EXIT_FAILURE);
 			}
 			if (p.eth.ether_type != htons(ETHERTYPE_ARP))
 				continue;
@@ -594,10 +598,5 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 			break; // case 1 (packets arriving)
 		} // switch poll
 	} // while (1)
-
-die:
-	remove_pidfile(pidfile);
-	xfunc_die();
-
 #undef argv_intf
 }
