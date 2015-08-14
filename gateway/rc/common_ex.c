@@ -560,18 +560,6 @@ void convert_asus_values()
 			ip_addr(nvram_safe_get("wan_netmask")) ?
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_pppoe_gateway", nvram_get("wan_gateway"));
-
-		/* load kernel modules, if any */
-		insmod("pppox", NULL);
-		if (nvram_match("wan_proto", "pppoe")) {
-			insmod("pppoe", NULL);
-		} else
-		if (nvram_match("wan_proto", "pptp")) {
-			insmod("pptp", NULL);
-		} else
-		if (nvram_match("wan_proto", "l2tp")) {
-			insmod("pppol2tp", NULL);
-		}
 	}
 #ifdef __CONFIG_MADWIMAX__
 	else if (nvram_match("wan_proto", "wimax"))

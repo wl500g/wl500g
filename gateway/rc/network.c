@@ -743,14 +743,15 @@ int wan_proto(const char *prefix)
 	return _wan_proto(prefix, tmp);
 }
 
-#if defined(__CONFIG_USBNET__)
 void prepare_wan_unit(int unit)
 {
 	char tmp[100], prefix[WAN_PREFIX_SZ];
+#if defined(__CONFIG_USBNET__)
 	char wan_ifname[10];
-	int wan_proto;
 	char name[80], *next;
 	int found = 0;
+#endif
+	int wan_proto;
 
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -758,31 +759,45 @@ void prepare_wan_unit(int unit)
 
 	dprintf("unit: %d, proto: %d\n", unit, wan_proto);
 
-	if (wan_proto != WAN_USBNET)
-		return;
+	switch (wan_proto) {
+	case WAN_PPPOE:
+		insmod_cond("pppox", NULL);
+		insmod_cond("pppoe", NULL);
+		break;
+	case WAN_PPTP:
+		insmod_cond("pppox", NULL);
+		insmod_cond("pptp", NULL);
+		break;
+	case WAN_L2TP:
+		insmod_cond("pppox", NULL);
+		insmod_cond("pppol2tp", NULL);
+		break;
+#if defined(__CONFIG_USBNET__)
+	case WAN_USBNET:
+		snprintf(wan_ifname, sizeof(wan_ifname), "wan%d", unit);
 
-	snprintf(wan_ifname, sizeof(wan_ifname), "wan%d", unit);
+		nvram_set(strcat_r(prefix, "ifname", tmp), wan_ifname);
+		nvram_set(strcat_r(prefix, "ifnames", tmp), wan_ifname);
 
-	nvram_set(strcat_r(prefix, "ifname", tmp), wan_ifname);
-	nvram_set(strcat_r(prefix, "ifnames", tmp), wan_ifname);
+		foreach(name, nvram_safe_get("wan_ifnames"), next)
+			if (!strcmp(wan_ifname, name))
+				found = 1;
 
-	foreach(name, nvram_safe_get("wan_ifnames"), next)
-		if (!strcmp(wan_ifname, name))
-			found = 1;
+		if (!found) {
+			sprintf(tmp, "%s %s", nvram_safe_get("wan_ifnames"), wan_ifname);
+			nvram_set("wan_ifnames", tmp);
+		}
 
-	if (!found) {
-		sprintf(tmp, "%s %s", nvram_safe_get("wan_ifnames"), wan_ifname);
-		nvram_set("wan_ifnames", tmp);
+		eval("brctl", "addbr", wan_ifname, "stp", "0");
+		ifconfig(wan_ifname, IFUP, NULL, NULL);
+
+		usbnet_load_drivers(prefix);
+		break;
 	}
-
-	eval("brctl", "addbr", wan_ifname, "stp", "0");
-	ifconfig(wan_ifname, IFUP, NULL, NULL);
-
-	usbnet_load_drivers(prefix);
+#endif
 
 	dprintf("done\n");
 }
-#endif
 
 int wan_prefix(const char *wan_ifname, char *prefix)
 {
