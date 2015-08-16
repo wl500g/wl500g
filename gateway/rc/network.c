@@ -311,9 +311,8 @@ static int del_routes(const char *prefix, const char *var, const char *ifname)
 		if (!gateway || !metric)
 			continue;
 
-		/* TODO: use gateway from prefix? */
-		if (ip_addr(gateway) == INADDR_ANY) 
-			gateway = nvram_safe_get("wan0_xgateway");
+		if (ip_addr(gateway) == INADDR_ANY)
+			gateway = nvram_safe_get(strcat_r(prefix, "xgateway", tmp));
 
 		dprintf("=> ");
 		route_del(ifname, atoi(metric) + 1, ipaddr, gateway, netmask);
