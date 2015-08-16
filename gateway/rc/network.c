@@ -1773,6 +1773,10 @@ void wan_down(const char *wan_ifname)
 			gateway = NULL;
 		dprintf("=> ");
 		route_del(wan_ifname, metric, "0.0.0.0", gateway, "0.0.0.0");
+		if (gateway) {
+			dprintf("=> ");
+			route_del(wan_ifname, metric, gateway, "0.0.0.0", "255.255.255.255");
+		}
 	}
 
 	/* Remove interface dependent static routes */
