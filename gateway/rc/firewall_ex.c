@@ -410,10 +410,13 @@ static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
 }
 #endif /* !__CONFIG_MINIUPNPD__ */
 
-static void nat_setting(const char *wan_if, const char *wan_ip, const char *lan_if, const char *lan_ip, const char *logaccept, const char *logdrop)
+static void nat_setting(const char *wan_if, const char *wan_ip,
+			const char *lan_if, const char *lan_ip,
+			const char *man_if, const char *man_ip,
+			const char *logaccept, const char *logdrop)
 {
 	FILE *fp;
-        char lan_class[32];
+	char lan_class[32];
 	int i;
 	int wan_port;
 
@@ -436,9 +439,8 @@ static void nat_setting(const char *wan_if, const char *wan_ip, const char *lan_
 	/* VSERVER chain */
 	if (ip_addr(wan_ip))
 		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", wan_ip);
-
-	if (nvram_invmatch("wan0_ifname", wan_if) && ip_addr(nvram_safe_get("wan0_xipaddr")))
-   		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", nvram_get("wan0_xipaddr"));
+	if (man_if && man_ip && ip_addr(man_ip))
+		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", man_ip);
       
    	if (nvram_match("misc_http_x", "1"))
 	{
@@ -533,12 +535,11 @@ static void nat_setting(const char *wan_if, const char *wan_ip, const char *lan_
 	if (nvram_match("wan_nat_x", "1"))
 	{
 		if (ip_addr(wan_ip))
-   			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", wan_if, wan_ip);
+			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", wan_if, wan_ip);
 
-   		/* masquerade physical WAN port connection */
-		if (nvram_invmatch("wan0_ifname", wan_if) && ip_addr(nvram_safe_get("wan0_xipaddr")))
-			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", 
-	   			nvram_get("wan0_ifname"), nvram_get("wan0_xipaddr"));
+		/* masquerade physical WAN port connection */
+		if (man_if && man_ip && ip_addr(man_ip))
+			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", man_if, man_ip);
 
 		/* masquerade VSERVER from LAN port connection */
 		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
@@ -578,6 +579,7 @@ static void nat_setting(const char *wan_if, const char *wan_ip, const char *lan_
  */
 static int filter_setting(const char *wan_if, const char *wan_ip,
 			const char *lan_if, const char *lan_ip,
+			const char *man_if, const char *man_ip,
 			const char *logaccept, const char *logdrop)
 {
 	FILE *fp, *fp1;
@@ -644,8 +646,8 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1")) {
 		fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", wan_if);
-		if (nvram_invmatch("wan0_ifname", wan_if))
-			fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", nvram_get("wan0_ifname"));
+		if (man_if)
+			fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", man_if);
 	}
 	/* Firewall between WAN and Local */
 	if (nvram_match("fw_enable_x", "1")) {
@@ -748,8 +750,8 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 
 	/* Filter out invalid WAN->WAN connections */
 	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
-	if (nvram_invmatch("wan0_ifname", wan_if))
-		fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", nvram_get("wan0_ifname"), lan_if, logdrop);
+	if (man_if)
+		fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", man_if, lan_if, logdrop);
 
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1"))
@@ -980,8 +982,8 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		    nvram_match("ipv6_proto", "tun6rd"))
 			fprintf(fp, "-A INPUT -i six0 -m conntrack --ctstate NEW -j SECURITY\n");
 		fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", wan_if);
-		if (nvram_invmatch("wan0_ifname", wan_if))
-			fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", nvram_get("wan0_ifname"));
+		if (man_if)
+			fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", man_if);
 	}
 #endif
 	/* Firewall between WAN and Local */
@@ -1073,8 +1075,8 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	    nvram_match("ipv6_proto", "tun6rd"))
 		fprintf(fp, "-A FORWARD -o six0 ! -i %s -j %s\n", lan_if, logdrop);
 	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
-	if (nvram_invmatch("wan0_ifname", wan_if))
-		fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", nvram_get("wan0_ifname"), lan_if, logdrop);
+	if (man_if)
+		fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", man_if, lan_if, logdrop);
 
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Check internet traffic */
@@ -1293,10 +1295,21 @@ int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if
 {
 	DIR *dir;
 	struct dirent *file;
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char name[NAME_MAX];
 	char logaccept[32], logdrop[32];
+	char *man_if, *man_ip;
 	char *mcast_ifname = nvram_get("wan0_ifname");
-	
+
+	if (wans_prefix(wan_if, prefix, tmp) < 0)
+		return -1;
+
+	man_if = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
+	if (*man_if && strcmp(wan_if, man_if) != 0)
+		man_ip = nvram_safe_get(strcat_r(prefix, "xipaddr", tmp));
+	else
+		man_ip = man_if = NULL;
+
 	/* mcast needs rp filter to be turned off only for non default iface */
 	if (!(nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")) ||
 	 	strcmp(wan_if, mcast_ifname) == 0) mcast_ifname = NULL;
@@ -1317,7 +1330,6 @@ int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if
 	}
 	closedir(dir);
 
-
 	/* Determine the log type */
 	if (nvram_match("fw_log_x", "accept") || nvram_match("fw_log_x", "both"))
 		strcpy(logaccept, "logaccept");
@@ -1328,10 +1340,10 @@ int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if
 	else strcpy(logdrop, "DROP");
 		
 	/* nat setting */
-	nat_setting(wan_if, wan_ip, lan_if, lan_ip, logaccept, logdrop);
+	nat_setting(wan_if, wan_ip, lan_if, lan_ip, man_if, man_ip, logaccept, logdrop);
 
 	/* Filter setting */
-	filter_setting(wan_if, wan_ip, lan_if, lan_ip, logaccept, logdrop);
+	filter_setting(wan_if, wan_ip, lan_if, lan_ip, man_if, man_ip, logaccept, logdrop);
 
 	if (nvram_invmatch("misc_conntrack_x", "")) {
 		fputs_ex("/proc/sys/net/netfilter/nf_conntrack_max",
@@ -1343,11 +1355,7 @@ int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if
 
 	fputs_ex("/proc/sys/net/ipv4/ip_forward", "1");
 
-	if (nvram_invmatch("wan0_ifname", wan_if))
-		eval("/usr/local/sbin/post-firewall", wan_if, wan_ip, lan_if, lan_ip, 
-			nvram_get("wan0_ifname"), nvram_get("wan0_xipaddr"));
-	else
-		eval("/usr/local/sbin/post-firewall", wan_if, wan_ip, lan_if, lan_ip);
+	eval("/usr/local/sbin/post-firewall", wan_if, wan_ip, lan_if, lan_ip, man_if, man_ip);
 
 	return 0;
 }
