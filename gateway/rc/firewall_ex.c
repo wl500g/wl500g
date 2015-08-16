@@ -1299,7 +1299,7 @@ int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if
 	char name[NAME_MAX];
 	char logaccept[32], logdrop[32];
 	char *man_if, *man_ip;
-	char *mcast_ifname = nvram_get("wan0_ifname");
+	char *mcast_ifname;
 
 	if (wans_prefix(wan_if, prefix, tmp) < 0)
 		return -1;
@@ -1311,8 +1311,8 @@ int start_firewall_ex(const char *wan_if, const char *wan_ip, const char *lan_if
 		man_ip = man_if = NULL;
 
 	/* mcast needs rp filter to be turned off only for non default iface */
-	if (!(nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")) ||
-	 	strcmp(wan_if, mcast_ifname) == 0) mcast_ifname = NULL;
+	mcast_ifname = ((nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0"))) ?
+		man_if : NULL;
 	
 	/* Block obviously spoofed IP addresses */
 	if (!(dir = opendir("/proc/sys/net/ipv4/conf")))

@@ -354,22 +354,19 @@ static void start_igmpproxy(const char *wan_ifname)
 	if (!nvram_match("mr_enable_x", "1"))
 		return;
 
-	if (!exists(igmpproxy_conf))
-	{
-		if ((fp = fopen(igmpproxy_conf, "w")) == NULL) {
-			perror(igmpproxy_conf);
-			return;
-		}
-		fprintf(fp, "# automagically generated\n"
-			"quickleave\n\n"
-			"phyint %s upstream\n"
-			"\taltnet %s\n\n"
-			"phyint %s downstream ratelimit 0\n\n", 
-			wan_ifname, 
-			nvram_get("mr_altnet_x") ? : "0.0.0.0/0", 
-			nvram_safe_default_get("lan_ifname"));
-		fclose(fp);
+	if ((fp = fopen(igmpproxy_conf, "w")) == NULL) {
+		perror(igmpproxy_conf);
+		return;
 	}
+	fprintf(fp, "# automagically generated\n"
+		"quickleave\n\n"
+		"phyint %s upstream\n"
+		"\taltnet %s\n\n"
+		"phyint %s downstream ratelimit 0\n\n", 
+		wan_ifname, 
+		nvram_get("mr_altnet_x") ? : "0.0.0.0/0", 
+		nvram_safe_default_get("lan_ifname"));
+	fclose(fp);
 
 	killall_w("igmpproxy", 0, 1);
 	eval("/usr/sbin/igmpproxy", igmpproxy_conf);
