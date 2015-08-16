@@ -1608,6 +1608,11 @@ void wan_up(const char *wan_ifname)
 
 		update_resolvconf(wan_ifname, metric);
 
+#ifdef ASUS_EXT
+		if (nvram_get_int("ddns_realip_x") == 2)
+			start_ddns(wan_ifname, 0);
+#endif
+
 		return;
 	}
 
@@ -1708,7 +1713,8 @@ void wan_up(const char *wan_ifname)
 	start_auth(prefix, 1);
 
 #ifdef ASUS_EXT
-	start_ddns(0);
+	if (nvram_get_int("ddns_realip_x") != 2)
+		start_ddns(wan_ifname, 0);
 	//stop_upnp();
 	start_upnp();
 #endif /* ASUS_EXT */

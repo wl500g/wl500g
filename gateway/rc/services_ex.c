@@ -389,11 +389,10 @@ static struct ddns_service {
 };
 
 int 
-start_ddns(int type)
+start_ddns(const char *wan_ifname, int type)
 {
 	FILE *fp;
 	char word[32], *next;
-	char *wan_ifname;
 	char *ddns_argv[] = {
 	    "/usr/sbin/inadyn",
 	    "--background",
@@ -443,32 +442,12 @@ start_ddns(int type)
 	} else
 		strcpy(services, service->name);
 
-	wan_ifname = nvram_safe_get("wan0_ifname");
-	switch (_wan_proto("wan0_", word)) {
-	case WAN_PPPOE:
-	case WAN_PPTP:
-	case WAN_L2TP:
-		if (!nvram_match("ddns_realip_x", "2"))
-			wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
-		break;
-#ifdef __CONFIG_MADWIMAX__
-	case WAN_WIMAX:
-		wan_ifname = nvram_safe_get("wan0_wimax_ifname");
-		break;
-#endif
-#ifdef __CONFIG_MODEM__
-	case WAN_USBMODEM:
-		wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
-		break;
-#endif
-	}
-
 	if (!(fp = fopen("/etc/ddns.conf", "w"))) {
 		perror("/etc/ddns.conf");
 		return errno;
 	}
 
-	if (nvram_invmatch("ddns_realip_x", "0"))
+	if (nvram_get_int("ddns_realip_x") && wan_ifname && *wan_ifname)
 		fprintf(fp, "iface %s\n", wan_ifname);
 
 	foreach (word, services, next) {

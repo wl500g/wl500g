@@ -1022,7 +1022,7 @@ main(int argc, char **argv)
 		int type = 0;
 		if (argc >= 2)
 			type = atoi(argv[1]);
-		return start_ddns(type);
+		return start_ddns(NULL, type);
 	}
 	/* send alarm */
 	else if (!strcmp(base, "sendalarm")) {

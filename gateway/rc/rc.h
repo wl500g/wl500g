@@ -198,7 +198,7 @@ int start_dns(void);
 int stop_dns(void);
 int start_upnp(void);
 int stop_upnp(void);
-int start_ddns(int type);
+int start_ddns(const char *wan_ifname, int type);
 int stop_ddns(void);
 int start_ntpc(void);
 int stop_ntpc(void);
