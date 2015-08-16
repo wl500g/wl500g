@@ -584,13 +584,14 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char *proto, *flag, *srcip, *srcport, *dstip, *dstport;
 	char *setting, line[256], s[64];
-	int i;
+	int wan_proto, i;
 #ifdef WEBSTRFILTER
         char nvname[36], timef[256], *filterstr;
 #endif
 
 	if (wans_prefix(wan_if, prefix, tmp) < 0)
 		return -1;
+	wan_proto = _wan_proto(prefix, tmp);
 
 	if ((fp = fopen("/tmp/filter_rules", "w")) == NULL)
 		return -1;
@@ -652,16 +653,16 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		 * from addresses other than used for query, this could lead to lower level
 		 * of security, but it does not work otherwise (conntrack does not work) :-(
 		 */
-		if (nvram_match("wan0_proto", "dhcp") || nvram_match("wan0_proto", "bigpond") ||
+		if (wan_proto == WAN_DHCP || wan_proto == WAN_BIGPOND ||
 		    nvram_get_int(strcat_r(prefix, "dhcpenable_x", tmp))) {
 			fprintf(fp, "-A INPUT -p udp --sport 67 --dport 68 -j %s\n", logaccept);
 		}
-	#ifdef __CONFIG_CONVEX__
-		if (nvram_match("wan0_auth_x", "convex")
-		&& (nvram_match("wan0_proto", "static") || nvram_match("wan0_proto", "dhcp"))) {
+#ifdef __CONFIG_CONVEX__
+		if (nvram_match(strcat_r(prefix, "auth_x", tmp), "convex") &&
+		    (wan_proto == WAN_STATIC || wan_proto == WAN_DHCP)) {
 			fprintf(fp, "-A INPUT -p tcp --dport 6326 -j %s\n", logaccept);
 		}
-	#endif
+#endif
 		/* Pass SSH */
 		if (nvram_match("ssh_enable", "1")) {
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j %s\n", nvram_safe_get("ssh_port"),
@@ -725,19 +726,21 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		fprintf(fp, "-A FORWARD -p udp -d 224.0.0.0/4 -j ACCEPT\n");
 
 	/* Clamp TCP MSS to PMTU of WAN interface */
-	if (nvram_match("wan0_proto", "pppoe") ||
-	    nvram_match("wan0_proto", "pptp") || nvram_match("wan0_proto", "l2tp") 
+	switch (wan_proto) {
+	case WAN_PPPOE:
+	case WAN_PPTP:
+	case WAN_L2TP:
 #ifdef __CONFIG_MADWIMAX__
-	 || nvram_match("wan0_proto", "wimax")
+	case WAN_WIMAX:
 #endif
 #ifdef __CONFIG_MODEM__
-	 || nvram_match("wan0_proto", "usbmodem")
+	case WAN_USBMODEM:
 #endif
 #ifdef __CONFIG_USBNET__
-	 || nvram_match("wan0_proto", "usbnet")
+	case WAN_USBNET:
 #endif
-        ) {
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+		break;
 	}
 
 	/* Accept related connections, skip rest of checks */
@@ -1040,11 +1043,24 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	/* Clamp TCP MSS to PMTU of WAN interface */
 	if (nvram_match("ipv6_proto", "tun6in4") ||
 	    nvram_match("ipv6_proto", "tun6to4") ||
-	    nvram_match("ipv6_proto", "tun6rd") ||
-	    (!nvram_get_int("ipv6_if_x") &&
-	     (nvram_match("wan0_proto", "pppoe") ||
-	      nvram_match("wan0_proto", "pptp") || nvram_match("wan0_proto", "l2tp")))) {
+	    nvram_match("ipv6_proto", "tun6rd"))
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+	else switch (wan_proto) {
+	case WAN_PPPOE:
+	case WAN_PPTP:
+	case WAN_L2TP:
+#ifdef __CONFIG_MADWIMAX__
+	case WAN_WIMAX:
+#endif
+#ifdef __CONFIG_MODEM__
+	case WAN_USBMODEM:
+#endif
+#ifdef __CONFIG_USBNET__
+	case WAN_USBNET:
+#endif
+		if (!nvram_get_int("ipv6_if_x"))
+			fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+		break;
 	}
 
 #ifndef BROKEN_IPV6_CONNTRACK
