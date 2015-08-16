@@ -490,6 +490,7 @@ int start_dhcp6c(const char *wan_ifname)
 		uint16 hwtype;
 	} __attribute__ ((__packed__)) duid;
 	uint16 duid_len = 0;
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char *dhcp6c_argv[] = {
 		"/sbin/dhcp6c",
 		"-D", "LL",
@@ -501,9 +502,12 @@ int start_dhcp6c(const char *wan_ifname)
 	if (!nvram_match("ipv6_proto", "dhcp6"))
 		return 1;
 
+	if (wans_prefix(wan_ifname, prefix, tmp) < 0)
+		return 1;
+
 	stop_dhcp6c();
 
-	if (ether_atoe(nvram_safe_get("wan0_hwaddr"), ea)) {
+	if (ether_atoe(nvram_safe_get(strcat_r(prefix, "hwaddr", tmp)), ea)) {
 		/* Generate IAID from the last 7 digits of WAN MAC */
 		iaid =	((unsigned long)(ea[3] & 0x0f) << 16) |
 			((unsigned long)(ea[4]) << 8) |
