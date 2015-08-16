@@ -1325,9 +1325,9 @@ void start_wan(void)
 	/* Start each configured and enabled wan connection and its undelying i/f */
 	for (unit = 0; unit < MAX_NVPARSE; unit ++)
 	{
-#ifdef ASUS_EXT // Only multiple pppoe is allowed 
-		if (unit>0 && nvram_invmatch("wan_proto", "pppoe")) break;
-#endif
+/* TODO: allow multiple WANs */
+		if (unit > 0)
+			break;
 		start_wan_unit(unit);
 	}
 
