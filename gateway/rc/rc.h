@@ -49,6 +49,14 @@ enum {
 	WAN_USBNET,
 };
 
+enum {
+	WAN_STATUS_STOPPED = 0,
+	WAN_STATUS_INIT,
+	WAN_STATUS_CONNECTING,
+	WAN_STATUS_CONNECTED,
+	WAN_STATUS_DISCONNECTED,
+};
+
 #define WAN_PREFIX_SZ	sizeof("wanXXXXXXXXXX_")
 
 /* common */
@@ -65,7 +73,8 @@ int router_totalram();
 void logmessage(const char *logheader, const char *fmt, ...);
 void wanmessage(const char *fmt, ...);
 void update_lan_status(int isup);
-void update_wan_status(int isup);
+void update_wan_status(int unit, int status);
+void prepare_wan_unit(int unit);
 char *pppstatus(char *buf);
 void convert_asus_values();
 void convert_country();
@@ -153,6 +162,7 @@ int wans_prefix(const char *ifname, char *prefix, char *xprefix);
 int wan_valid(const char *ifname);
 int _wan_proto(const char *prefix, char *buffer);
 int wan_proto(const char *prefix);
+const char *wan_name(int proto);
 
 int hotplug_net(void);
 int wan_primary_ifunit(void);

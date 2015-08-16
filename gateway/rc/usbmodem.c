@@ -551,15 +551,15 @@ int start_modem_dial(const char *prefix)
 	};
 
 	if (nvram_match(strcat_r(prefix, "dial_enabled", tmp), "1") &&
-		nvram_match(strcat_r(prefix, "prepared", tmp), "1") &&
-		nvram_get(strcat_r(prefix, "usb_device", tmp))) {
+	    nvram_match(strcat_r(prefix, "prepared", tmp), "1") &&
+	    nvram_get(strcat_r(prefix, "usb_device", tmp))) {
 		dprintf("%s\n", sfn);
 
 		if (nvram_match(strcat_r(prefix, "proto", tmp), "usbmodem")) {
 			nvram_set(strcat_r(prefix, "ifname", tmp) , nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)));
 			nvram_set(strcat_r(prefix, "dnsenable_x", tmp), "1");
 		}
-		nvram_set("wan_status_t", "Connecting...");
+
 		ret = _eval(dial_argv, NULL, 0, &pid);
 		if (pid) {
 			sprintf(tmp, MODEM_DIAL_PIDFILE, prefix);

@@ -24,6 +24,9 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include <wlioctl.h>
 #include <netconf.h>
@@ -505,24 +508,12 @@ void convert_asus_values()
 		nvram_set("lan_proto", "dhcp");
 	else nvram_set("lan_proto", "static");
 
-
 	nvram_set("wan0_proto", nvram_safe_get("wan_proto"));
 	nvram_set("wan0_ipaddr", nvram_safe_get("wan_ipaddr"));
 	nvram_set("wan0_netmask", nvram_safe_get("wan_netmask"));
 	nvram_set("wan0_gateway", nvram_safe_get("wan_gateway"));
 
-	nvram_set("wan0_xipaddr", nvram_safe_get("wan_ipaddr"));
-	nvram_set("wan0_xnetmask",
-		ip_addr(nvram_safe_get("wan_ipaddr")) &&
-		ip_addr(nvram_safe_get("wan_netmask")) ?
-			nvram_get("wan_netmask") : NULL);
-	nvram_set("wan0_xgateway", nvram_get("wan_gateway"));
-
-	nvram_set("wan_ipaddr_t", "");
-	nvram_set("wan_netmask_t", "");
-	nvram_set("wan_gateway_t", "");
-	nvram_set("wan_dns_t", "");
-	nvram_set("wan_status_t", "Disconnected");
+	update_wan_status(0, WAN_STATUS_DISCONNECTED);
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__) || defined (__CONFIG_USBNET__)
 	char tmp[100], prefix[WAN_PREFIX_SZ];
@@ -649,8 +640,8 @@ void convert_asus_values()
 	}
 
 	nvram_set("wan0_dnsenable_x", nvram_safe_get("wan_dnsenable_x"));
-	nvram_unset("wan0_dns");
-	nvram_unset("wan0_xdns");
+	nvram_set("wan0_dns1_x", nvram_safe_get("wan_dns1_x"));
+	nvram_set("wan0_dns2_x", nvram_safe_get("wan_dns2_x"));
 
 	nvram_set("wan0_auth_x", nvram_safe_get("wan_auth_x"));
 	nvram_set("wan0_auth_username", nvram_safe_get("wan_pppoe_username"));
@@ -867,51 +858,124 @@ void update_lan_status(int isup)
 	}
 }
 
-
-void update_wan_status(int isup)
+void update_wan_status(int unit, int status)
 {
-	int proto;
-	char tmp[36];
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char buf[100], *value;
+	int wan_proto;
 
-	proto = _wan_proto("wan_", tmp);
-	if (proto == WAN_STATIC) nvram_set("wan_proto_t", "Static");
-	else if (proto == WAN_DHCP) nvram_set("wan_proto_t", "Automatic IP");
-	else if (proto == WAN_PPPOE) nvram_set("wan_proto_t", "PPPoE");
-	else if (proto == WAN_PPTP) nvram_set("wan_proto_t", "PPTP");
-	else if (proto == WAN_L2TP) nvram_set("wan_proto_t", "L2TP");
-	else if (proto == WAN_BIGPOND) nvram_set("wan_proto_t", "BigPond");
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	wan_proto = _wan_proto(prefix, tmp);
+
+	switch (status) {
+	case WAN_STATUS_INIT:
+		switch (wan_proto) {
+		case WAN_STATIC:
+			nvram_set_int(strcat_r(prefix, "dhcpenable_x", tmp), 0);
+			nvram_set_int(strcat_r(prefix, "dnsenable_x", tmp), 0);
+			break;
+		case WAN_DHCP:
+		case WAN_BIGPOND:
+			nvram_set_int(strcat_r(prefix, "dhcpenable_x", tmp), 1);
+			break;
+		case WAN_PPPOE:
+		case WAN_PPTP:
+		case WAN_L2TP:
+#ifdef __CONFIG_USBNET__
+		case WAN_USBNET:
+#endif
+			nvram_set(strcat_r(prefix, "ipaddr", tmp),
+				nvram_safe_get(strcat_r(prefix, "pppoe_ipaddr", buf)));
+			nvram_set(strcat_r(prefix, "netmask", tmp),
+				nvram_get(strcat_r(prefix, "pppoe_netmask", buf)));
+			nvram_set(strcat_r(prefix, "gateway", tmp),
+				nvram_get(strcat_r(prefix, "pppoe_gateway", buf)));
+			nvram_set_int(strcat_r(prefix, "dhcpenable_x", tmp),
+				!ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", buf))));
+			break;
 #ifdef __CONFIG_MADWIMAX__
-	else if (proto == WAN_WIMAX) nvram_set("wan_proto_t", "WiMAX");
+		case WAN_WIMAX:
+			nvram_set(strcat_r(prefix, "ipaddr", tmp),
+				nvram_safe_get(strcat_r(prefix, "wimax_ipaddr", buf)));
+			nvram_set(strcat_r(prefix, "netmask", tmp),
+				nvram_get(strcat_r(prefix, "wimax_netmask", buf)));
+			nvram_set(strcat_r(prefix, "gateway", tmp),
+				nvram_get(strcat_r(prefix, "wimax_gateway", buf)));
+			nvram_set_int(strcat_r(prefix, "dhcpenable_x", tmp),
+				!ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", buf))));
+			break;
 #endif
 #ifdef __CONFIG_MODEM__
-	else if (proto == WAN_USBMODEM) nvram_set("wan_proto_t", "USB Modem");
+		case WAN_USBMODEM:
+			nvram_set(strcat_r(prefix, "ipaddr", tmp),
+				nvram_safe_get(strcat_r(prefix, "modem_ipaddr", buf)));
+			nvram_set(strcat_r(prefix, "netmask", tmp),
+				nvram_get(strcat_r(prefix, "modem_netmask", buf)));
+			nvram_set(strcat_r(prefix, "gateway", tmp),
+				nvram_get(strcat_r(prefix, "modem_gateway", buf)));
+			nvram_set_int(strcat_r(prefix, "dhcpenable_x", tmp),
+				!ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", buf))));
+			break;
 #endif
-#ifdef __CONFIG_USBNET__
-	else if (proto == WAN_USBNET) nvram_set("wan_proto_t", "USB Ethernet");
-#endif
+		}
 
-	if (!isup) {
+		if (nvram_get_int(strcat_r(prefix, "dhcpenable_x", tmp))) {
+			nvram_set(strcat_r(prefix, "ipaddr", tmp), "0.0.0.0");
+			nvram_unset(strcat_r(prefix, "netmask", tmp));
+			nvram_unset(strcat_r(prefix, "gateway", tmp));
+		}
+		nvram_set(strcat_r(prefix, "xipaddr", tmp),
+			nvram_safe_get(strcat_r(prefix, "ipaddr", buf)));
+		nvram_set(strcat_r(prefix, "xnetmask", tmp),
+			nvram_get(strcat_r(prefix, "netmask", buf)));
+		nvram_set(strcat_r(prefix, "xgateway", tmp),
+			nvram_get(strcat_r(prefix, "gateway", buf)));
+
+		strcpy(buf, "");
+		if (!nvram_get_int(strcat_r(prefix, "dnsenable_x", tmp))) {
+			value = nvram_safe_get(strcat_r(prefix, "dns1_x", tmp));
+			if (*value && inet_addr(value) != INADDR_ANY)
+				sprintf(buf, "%s", value);
+			value = nvram_safe_get(strcat_r(prefix, "dns2_x", tmp));
+			if (*value && inet_addr(value) != INADDR_ANY)
+				sprintf(buf + strlen(buf), "%s%s", *buf ? " " : "", value);
+		}
+		nvram_set(strcat_r(prefix, "dns", tmp), buf);
+		nvram_set(strcat_r(prefix, "xdns", tmp), buf);
+
+		nvram_set("wan_proto_t", wan_name(wan_proto));
+		nvram_set("wan_ipaddr_t", "");
+		nvram_set("wan_netmask_t", "");
+		nvram_set("wan_gateway_t", "");
+		nvram_set("wan_dns_t", "");
+		nvram_set("wan_ifname_t", "");
+		nvram_set("wan_status_t", "");
+		break;
+
+	case WAN_STATUS_CONNECTING:
+		nvram_set("wan_status_t", "Connecting...");
+		break;
+
+	case WAN_STATUS_CONNECTED:
+		nvram_set("wan_ipaddr_t", nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
+		nvram_set("wan_netmask_t", nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
+		nvram_set("wan_gateway_t", nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
+		nvram_set("wan_dns_t", nvram_safe_get(strcat_r(prefix, "dns", tmp)));
+		nvram_set("wan_status_t", "Connected");
+		break;
+
+	case WAN_STATUS_DISCONNECTED:
 		nvram_set("wan_ipaddr_t", "");
 		nvram_set("wan_netmask_t", "");
 		nvram_set("wan_gateway_t", "");
 		nvram_set("wan_dns_t", "");
 		nvram_set("wan_ifname_t", "");
 		nvram_set("wan_status_t", "Disconnected");
-	} else {
-		nvram_set("wan_ipaddr_t", nvram_safe_get("wan0_ipaddr"));
-		nvram_set("wan_netmask_t", nvram_safe_get("wan0_netmask"));
-		nvram_set("wan_gateway_t", nvram_safe_get("wan0_gateway"));
+		break;
 
-		if (nvram_invmatch("wan_dnsenable_x", "1")) {
-			tmp[0] = '\0';
-			if (nvram_invmatch("wan_dns1_x",""))
-				snprintf(tmp, sizeof(tmp), "%s", nvram_safe_get("wan_dns1_x"));
-			if (nvram_invmatch("wan_dns2_x",""))
-				snprintf(tmp, sizeof(tmp), "%s %s", tmp, nvram_safe_get("wan_dns2_x"));
-			nvram_set("wan_dns_t", tmp);
-		} else
-			nvram_set("wan_dns_t", nvram_safe_get("wan0_dns"));
-		nvram_set("wan_status_t", "Connected");
+	case WAN_STATUS_STOPPED:
+		nvram_set("wan_status_t", "Stopped");
+		break;
 	}
 }
 

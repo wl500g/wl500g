@@ -743,6 +743,39 @@ int wan_proto(const char *prefix)
 	return _wan_proto(prefix, tmp);
 }
 
+const char *wan_name(int proto)
+{
+	const static struct {
+		int proto;
+		const char *name;
+	} names[] = {
+		{ WAN_STATIC, "Static" },
+		{ WAN_DHCP, "Automatic IP" },
+		{ WAN_PPPOE, "PPPoE" },
+		{ WAN_PPTP, "PPTP" },
+		{ WAN_L2TP, "L2TP" },
+		{ WAN_BIGPOND, "BigPond" },
+#ifdef __CONFIG_MADWIMAX__
+		{ WAN_WIMAX, "WiMAX" },
+#endif
+#ifdef __CONFIG_MODEM__
+		{ WAN_USBMODEM, "USB Modem" },
+#endif
+#ifdef __CONFIG_USBNET__
+		{ WAN_USBNET, "USB Ethernet" },
+#endif
+		{ -1, NULL }
+	};
+	int i;
+
+	for (i = 0; names[i].name; i++) {
+		if (names[i].proto == proto)
+			return names[i].name;
+	}
+
+	return "";
+}
+
 void prepare_wan_unit(int unit)
 {
 	char tmp[100], prefix[WAN_PREFIX_SZ];
@@ -917,38 +950,36 @@ int wan_valid(const char *ifname)
 
 void start_wan_unit(int unit)
 {
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char *wan_ifname;
 	int wan_proto;
-	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char eabuf[32];
 	int s;
 	struct ifreq ifr;
 
-#ifdef ASUS_EXT
-	update_wan_status(0);
-#endif
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+	/* make sure the connection exists and is enabled */ 
+	wan_proto = _wan_proto(prefix, tmp);
+	if (wan_proto < 0)
+		goto error;
+
+	prepare_wan_unit(unit);
+
+	wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
+	if (!wan_ifname)
+		goto error;
+
+	/* disable the connection if the i/f is not in wan_ifnames */
+	if (!wan_valid(wan_ifname)) {
+		nvram_set(strcat_r(prefix, "proto", tmp), "disabled");
+		goto error;
+	}
+
+	update_wan_status(unit, WAN_STATUS_INIT);
+	update_wan_status(unit, WAN_STATUS_CONNECTING);
 
 	do {
-		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-
-		/* make sure the connection exists and is enabled */ 
-		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
-		if (!wan_ifname)
-			continue;
-
-		wan_proto = _wan_proto(prefix, tmp);
-		if (wan_proto < 0)
-			continue;
-#ifdef DEBUG
-		dprintf("%s %s\n\n\n\n\n",
-			wan_ifname, nvram_safe_get(strcat_r(prefix, "proto", tmp)));
-#endif
-		/* disable the connection if the i/f is not in wan_ifnames */
-		if (!wan_valid(wan_ifname)) {
-			nvram_set(strcat_r(prefix, "proto", tmp), "disabled");
-			continue;
-		}
-
 		switch (wan_proto) {
 		/* proto which doesn't need ethernet */
 #if defined(__CONFIG_MADWIMAX__)
@@ -961,7 +992,7 @@ void start_wan_unit(int unit)
 		{
 		/* Set i/f hardware address before bringing it up */
 		if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
-			continue;
+			goto error;
 
 		strncpy(ifr.ifr_name, wan_ifname, IFNAMSIZ);
 
@@ -970,7 +1001,7 @@ void start_wan_unit(int unit)
 		   we need to make it down for synchronizing hwaddr. */
 		if (ioctl(s, SIOCGIFHWADDR, &ifr)) {
 			close(s);
-			continue;
+			goto error;
 		}
 
 		ether_atoe(nvram_safe_get(strcat_r(prefix, "hwaddr", tmp)), eabuf);
@@ -982,7 +1013,7 @@ void start_wan_unit(int unit)
 		/* Configure i/f only once, specially for wireless i/f shared by multiple connections */
 		if (ioctl(s, SIOCGIFFLAGS, &ifr)) {
 			close(s);
-			continue;
+			goto error;
 		} else if (!(ifr.ifr_flags & IFF_UP)) {
 			/* Sync connection nvram address and i/f hardware address */
 			memset(ifr.ifr_hwaddr.sa_data, 0, ETHER_ADDR_LEN);
@@ -992,7 +1023,7 @@ void start_wan_unit(int unit)
 			    !memcmp(ifr.ifr_hwaddr.sa_data, "\0\0\0\0\0\0", ETHER_ADDR_LEN)) {
 				if (ioctl(s, SIOCGIFHWADDR, &ifr)) {
 					close(s);
-					continue;
+					goto error;
 				}
 				nvram_set(strcat_r(prefix, "hwaddr", tmp), ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
 			} else {
@@ -1043,8 +1074,6 @@ void start_wan_unit(int unit)
 		case WAN_PPTP:
 		case WAN_L2TP:
 		{
-			char *ipaddr = nvram_get(strcat_r(prefix, "pppoe_ipaddr", tmp));
-			char *netmask = nvram_get(strcat_r(prefix, "pppoe_netmask", tmp));
 			int demand = nvram_get_int(strcat_r(prefix, "pppoe_idletime", tmp)) &&
 				wan_proto != WAN_L2TP /* L2TP does not support idling */;
 
@@ -1052,7 +1081,9 @@ void start_wan_unit(int unit)
 			nvram_set(strcat_r(prefix, "pppoe_demand", tmp), demand ? "1" : "0");
 
 			/* Bring up WAN interface */
-			ifconfig(wan_ifname, IFUP, ipaddr, netmask);
+			ifconfig(wan_ifname, IFUP,
+				 nvram_get(strcat_r(prefix, "xipaddr", tmp)),
+				 nvram_get(strcat_r(prefix, "xnetmask", tmp)));
 
 #ifdef __CONFIG_IPV6__
 			/* Start IPv6 on MAN */
@@ -1066,7 +1097,7 @@ void start_wan_unit(int unit)
 				"0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 
 			/* launch dhcp client and wait for lease forawhile */
-			if (ipaddr && ip_addr(ipaddr) == INADDR_ANY) {
+			if (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0")) {
 				/* Start dhcp daemon */
 				start_dhcpc(wan_ifname, unit);
 			} else {
@@ -1200,8 +1231,6 @@ void start_wan_unit(int unit)
 			start_auth(prefix, 0);
 			/* Start dhcp daemon */
 			start_dhcpc(wan_ifname, unit);
-			/* Update wan information for null DNS server */
-			update_wan_status(1);
 #ifdef ASUS_EXT
 			wanmessage("Can not get IP from server");
 			nvram_set("wan_ifname_t", wan_ifname);
@@ -1243,6 +1272,11 @@ void start_wan_unit(int unit)
 			nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
 	} while (0);
 
+	dprintf("done\n");
+	return;
+
+error:
+	update_wan_status(unit, WAN_STATUS_STOPPED);
 	dprintf("done\n");
 }
 
@@ -1296,9 +1330,6 @@ void start_wan(void)
 #ifdef ASUS_EXT // Only multiple pppoe is allowed 
 		if (unit>0 && nvram_invmatch("wan_proto", "pppoe")) break;
 #endif
-#if defined(__CONFIG_USBNET__)
-		prepare_wan_unit(unit);
-#endif
 		start_wan_unit(unit);
 	}
 
@@ -1311,21 +1342,21 @@ void start_wan(void)
 
 void stop_wan_unit(int unit)
 {
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char *wan_ifname;
 	char *wan_proto;
-	char tmp[100], prefix[WAN_PREFIX_SZ];
 	int dynamic_ip = 0;
 
 	do {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 		/* make sure the connection exists and is enabled */ 
-		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
-		if (!wan_ifname)
-			continue;
-
 		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
 		if (!wan_proto || !strcmp(wan_proto, "disabled"))
+			continue;
+
+		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
+		if (!wan_ifname)
 			continue;
 
 		if (unit == wan_primary_ifunit())
@@ -1336,7 +1367,6 @@ void stop_wan_unit(int unit)
 
 		/* Stop authenticator */
 		stop_auth(prefix, 0);
-
 
 #ifdef __CONFIG_MADWIMAX__
 		/* Stop WiMAX connection */
@@ -1408,9 +1438,7 @@ void stop_wan_unit(int unit)
 
 	} while (0);
 
-#ifdef ASUS_EXT
-	update_wan_status(0);
-#endif
+	update_wan_status(unit, WAN_STATUS_DISCONNECTED);
 
 	dprintf("done\n");
 }
@@ -1689,6 +1717,12 @@ void wan_up(const char *wan_ifname)
 		wan6_up(wan_ifname, -1);
 #endif
 
+	update_wan_status(unit, WAN_STATUS_CONNECTED);
+
+#ifdef ASUS_EXT
+	start_firewall_ex(wan_ifname, nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), "br0", nvram_safe_get("lan_ipaddr"));
+#endif
+
 	/* Add dns servers to resolv.conf */
 	update_resolvconf(wan_ifname, metric, 1);
 
@@ -1699,9 +1733,6 @@ void wan_up(const char *wan_ifname)
 	start_auth(prefix, 1);
 
 #ifdef ASUS_EXT
-	update_wan_status(1);
-	start_firewall_ex(wan_ifname, nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), "br0", nvram_safe_get("lan_ipaddr"));
-
 	start_ddns(0);
 	//stop_upnp();
 	start_upnp();
@@ -1773,9 +1804,7 @@ void wan_down(const char *wan_ifname)
 		nvram_unset(strcat_r(prefix, "dns", tmp));
 	update_resolvconf(wan_ifname, metric, 0);
 
-#ifdef ASUS_EXT
-	update_wan_status(0);
-#endif
+	update_wan_status(unit, WAN_STATUS_DISCONNECTED);
 
 	dprintf("done\n");
 }

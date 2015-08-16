@@ -238,7 +238,7 @@ static int renew(const char *wan_ifname)
 	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "l2tp") &&
 	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "pptp") &&
 	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "pppoe"))
-		update_wan_status(1);
+		update_wan_status(unit, WAN_STATUS_CONNECTED);
 
 	//logmessage("dhcp client", "%s IP : %s from %s", 
 	//		udhcpstate, 
