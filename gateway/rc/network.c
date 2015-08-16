@@ -1427,6 +1427,8 @@ void stop_wan_unit(int unit)
 			wan_down(wan_ifname);
 		}
 
+		/* Deconfigure interface */
+		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 	} while (0);
 
 	update_wan_status(unit, WAN_STATUS_DISCONNECTED);
