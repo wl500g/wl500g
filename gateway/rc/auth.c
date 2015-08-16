@@ -112,8 +112,6 @@ static int start_lanauth(const char *prefix, int restart)
 	    /*	"-v", protocol,	   */
 	    /*	"-l", acces level, */
 		"-p", nvram_safe_get(strcat_r(prefix, "auth_passwd", tmp)),
-		nvram_invmatch("wan_heartbeat_x", "") ? "-s" : NULL,
-		nvram_safe_get("wan_heartbeat_x"),
    		NULL
 	};
 
@@ -157,8 +155,7 @@ static int start_authcli(const char *prefix, int restart)
 		"area=%s\r\n"
 		"user=%s\r\n"
 		"key=%s\r\n",
-		nvram_invmatch("wan_heartbeat_x", "") ?
-		    nvram_safe_get("wan_heartbeat_x") : "convex",
+		"convex",
 		nvram_safe_get(strcat_r(prefix, "auth_username", tmp)),
 		nvram_safe_get(strcat_r(prefix, "auth_passwd", tmp)));
 	fclose(fp);

@@ -60,12 +60,12 @@ int start_pppd(const char *prefix)
 		nvram_safe_get(strcat_r(prefix, "pppoe_passwd", tmp)));
 
 	if (nvram_match(strcat_r(prefix, "proto", tmp), "pptp")) {
+		char *heartbeat = nvram_safe_get(strcat_r(prefix, "heartbeat_x", tmp));
 		fprintf(fp,
 			"plugin pptp.so\n"
 			"pptp_server %s\n",
-   			nvram_invmatch("wan_heartbeat_x", "") ?
-   			nvram_safe_get("wan_heartbeat_x") : 
-   			nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))); 
+			*heartbeat ? heartbeat :
+				nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))); 
 		/* see KB Q189595 -- historyless & mtu */
 		fprintf(fp, "nomppe-stateful %s mtu 1400\n",
 			nvram_safe_get(strcat_r(prefix, "pptp_options_x", tmp)));
@@ -147,6 +147,7 @@ int start_pppd(const char *prefix)
 
 	if (nvram_match(strcat_r(prefix, "proto", tmp), "l2tp")) 
 	{
+		char *heartbeat = nvram_safe_get(strcat_r(prefix, "heartbeat_x", tmp));
 		int maxfail, holdoff;
 
 		maxfail = strtoul(nvram_safe_get(strcat_r(prefix, "pppoe_maxfail", tmp)), NULL, 10);
@@ -175,8 +176,7 @@ int start_pppd(const char *prefix)
 			"holdoff %d\n"
 			"section cmd\n\n",
 			options,
-			nvram_invmatch("wan_heartbeat_x", "") ?
-   				nvram_safe_get("wan_heartbeat_x") : 
+			*heartbeat ? heartbeat :
    				nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp)),
 			maxfail,
 			holdoff);

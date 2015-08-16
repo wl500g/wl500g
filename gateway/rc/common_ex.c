@@ -625,6 +625,7 @@ void convert_asus_values()
 #endif
 
 	nvram_set("wan0_hostname", nvram_safe_get("wan_hostname"));
+	nvram_set("wan0_heartbeat_x", nvram_safe_get("wan_heartbeat_x"));
 
 	if (nvram_invmatch("wan_hwaddr_x", ""))
 	{
