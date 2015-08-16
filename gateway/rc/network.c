@@ -1097,7 +1097,7 @@ void start_wan_unit(int unit)
 				"0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 
 			/* launch dhcp client and wait for lease forawhile */
-			if (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0")) {
+			if (nvram_get_int(strcat_r(prefix, "dhcpenable_x", tmp))) {
 				/* Start dhcp daemon */
 				start_dhcpc(wan_ifname, unit);
 			} else {
@@ -1151,8 +1151,8 @@ void start_wan_unit(int unit)
 			//	continue;
 
 			/* override wan_proto */
-			wan_proto = nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp),
-				"0.0.0.0") ? WAN_DHCP : WAN_STATIC;
+			wan_proto = nvram_get_int(strcat_r(prefix, "dhcpenable_x", tmp)) ?
+				WAN_DHCP : WAN_STATIC;
 			/* fall through to dhcp/static, firewall2 */
 
 			usbnet_connect(prefix, unit, wan_ifname);
@@ -1345,7 +1345,6 @@ void stop_wan_unit(int unit)
 	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char *wan_ifname;
 	char *wan_proto;
-	int dynamic_ip = 0;
 
 	do {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
@@ -1390,7 +1389,6 @@ void stop_wan_unit(int unit)
 #ifdef __CONFIG_USBNET__
 		/* Stop Ethernet over USB */
 		if (strcmp(wan_proto, "usbnet") == 0) {
-			dynamic_ip = nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0");
 			usbnet_disconnect(prefix, unit, wan_ifname);
 		}
 		else
@@ -1404,8 +1402,6 @@ void stop_wan_unit(int unit)
 			sprintf(tmp, "/var/run/ppp%d.pid", unit);
 			kill_pidfile(tmp);
 			usleep(10000);
-
-			dynamic_ip = nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0");
 		}
 
 		/* Stop DHCP connection */
@@ -1417,7 +1413,6 @@ void stop_wan_unit(int unit)
 			    nvram_match("ipv6_proto", "dhcp6"))
 				wan6_down(wan_ifname, unit);
 #endif
-			dynamic_ip = 1;
 		}
 
 		/* Stop Static */
@@ -1430,7 +1425,7 @@ void stop_wan_unit(int unit)
 #endif
 		}
 
-		if (dynamic_ip != 0) {
+		if (nvram_get_int(strcat_r(prefix, "dhcpenable_x", tmp))) {
 			stop_dhcpc(unit);
 		} else {
 			wan_down(wan_ifname);

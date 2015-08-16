@@ -268,8 +268,7 @@ static int madwimax_up(const char *ifname, int unit)
 
 	wmx_chk_set_last_time(prefix, time(NULL));
 
-	if (nvram_match(strcat_r(prefix, "wimax_ipaddr", tmp), "0.0.0.0"))
-	{
+	if (nvram_get_int(strcat_r(prefix, "dhcpenable_x", tmp))) {
 		/* Start firewall */
 		start_firewall_ex(ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 		/* Start dhcp daemon */

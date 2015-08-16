@@ -580,14 +580,17 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 			const char *lan_if, const char *lan_ip,
 			const char *logaccept, const char *logdrop)
 {
-
 	FILE *fp, *fp1;
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char *proto, *flag, *srcip, *srcport, *dstip, *dstport;
 	char *setting, line[256], s[64];
 	int i;
 #ifdef WEBSTRFILTER
         char nvname[36], timef[256], *filterstr;
 #endif
+
+	if (wans_prefix(wan_if, prefix, tmp) < 0)
+		return -1;
 
 	if ((fp = fopen("/tmp/filter_rules", "w")) == NULL)
 		return -1;
@@ -650,7 +653,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		 * of security, but it does not work otherwise (conntrack does not work) :-(
 		 */
 		if (nvram_match("wan0_proto", "dhcp") || nvram_match("wan0_proto", "bigpond") ||
-		    nvram_match("wan_ipaddr", "0.0.0.0")) {
+		    nvram_get_int(strcat_r(prefix, "dhcpenable_x", tmp))) {
 			fprintf(fp, "-A INPUT -p udp --sport 67 --dport 68 -j %s\n", logaccept);
 		}
 	#ifdef __CONFIG_CONVEX__
