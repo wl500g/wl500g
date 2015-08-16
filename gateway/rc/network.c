@@ -808,12 +808,14 @@ void prepare_wan_unit(int unit)
 		nvram_set(strcat_r(prefix, "ifname", tmp), wan_ifname);
 		nvram_set(strcat_r(prefix, "ifnames", tmp), wan_ifname);
 
-		foreach(name, nvram_safe_get("wan_ifnames"), next)
-			if (!strcmp(wan_ifname, name))
+		foreach(name, nvram_safe_get("wan_ifnames"), next) {
+			if (strcmp(wan_ifname, name) == 0) {
 				found = 1;
-
+				break;
+			}
+		}
 		if (!found) {
-			sprintf(tmp, "%s %s", nvram_safe_get("wan_ifnames"), wan_ifname);
+			snprintf(tmp, sizeof(tmp), "%s %s", nvram_safe_get("wan_ifnames"), wan_ifname);
 			nvram_set("wan_ifnames", tmp);
 		}
 
