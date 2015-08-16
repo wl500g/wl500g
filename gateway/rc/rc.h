@@ -166,6 +166,7 @@ const char *wan_name(int proto);
 
 int hotplug_net(void);
 int wan_primary_ifunit(void);
+char *wan_primary_ifname(void);
 int start_bpalogin(void);
 int stop_bpalogin(void);
 void start_qos(char *wan_ipaddr);
@@ -196,7 +197,7 @@ int start_pppd(const char *prefix);
 int start_pppoe_relay(char *wan_if);
 int start_dns(void);
 int stop_dns(void);
-int start_upnp(void);
+int start_upnp(const char *wan_ifname);
 int stop_upnp(void);
 int start_ddns(const char *wan_ifname, int type);
 int stop_ddns(void);

@@ -453,7 +453,7 @@ int ntp_timesync(void)
 				logmessage("ntp client", "Synchronizing time with %s...", nvram_safe_get("ntp_server0"));
 
 				//stop_upnp();
-				//start_upnp();
+				//start_upnp(NULL);
 			}
 			else sync_interval = 6;		/* Once per 60s */
 

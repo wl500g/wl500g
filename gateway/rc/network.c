@@ -1040,7 +1040,7 @@ void start_wan_unit(int unit)
 		close(s);
 
 #ifdef ASUS_EXT
-		if (nvram_match(strcat_r(prefix, "primary", tmp), "1")) {
+		if (nvram_get_int(strcat_r(prefix, "primary", tmp))) {
 			setup_ethernet(wan_ifname);
 			start_pppoe_relay(wan_ifname);
 		}
@@ -1602,16 +1602,16 @@ void wan_up(const char *wan_ifname)
 			}
 		}
 
-		/* start multicast router */
-		if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
-			start_igmpproxy(wan_ifname);
-
 		update_resolvconf(wan_ifname, metric);
 
+		if (nvram_get_int(strcat_r(prefix, "primary", tmp))) {
+			/* start multicast router */
+			start_igmpproxy(wan_ifname);
 #ifdef ASUS_EXT
-		if (nvram_get_int("ddns_realip_x") == 2)
-			start_ddns(wan_ifname, 0);
+			if (nvram_get_int("ddns_realip_x") == 2)
+				start_ddns(wan_ifname, 0);
 #endif
+		}
 
 		return;
 	}
@@ -1621,9 +1621,7 @@ void wan_up(const char *wan_ifname)
 		gateway = NULL;
 
 	/* Set default route to gateway if specified */
-	if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
-	{
-
+	if (nvram_get_int(strcat_r(prefix, "primary", tmp))) {
 		switch (wan_proto) {
 		case WAN_DHCP:
 		case WAN_BIGPOND:
@@ -1712,32 +1710,33 @@ void wan_up(const char *wan_ifname)
 	/* (Re)start post-authenticator */
 	start_auth(prefix, 1);
 
-#ifdef ASUS_EXT
-	if (nvram_get_int("ddns_realip_x") != 2)
-		start_ddns(wan_ifname, 0);
-	//stop_upnp();
-	start_upnp();
-#endif /* ASUS_EXT */
-	
 #ifdef QOS
 	// start qos related 
 	start_qos(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
 #endif
 
-	/* Start multicast router */
-	switch (wan_proto) {
-	case WAN_DHCP:
-	case WAN_BIGPOND:
-	case WAN_STATIC:
+	if (nvram_get_int(strcat_r(prefix, "primary", tmp))) {
+		/* start multicast router */
+		switch (wan_proto) {
+		case WAN_DHCP:
+		case WAN_BIGPOND:
+		case WAN_STATIC:
 #ifdef __CONFIG_MADWIMAX__
-	case WAN_WIMAX:
+		case WAN_WIMAX:
 #endif
 #ifdef __CONFIG_USBNET__
-	case WAN_USBNET:
+		case WAN_USBNET:
 #endif
-		if (!nvram_match(strcat_r(prefix, "primary", tmp), "1"))
+			start_igmpproxy(wan_ifname);
 			break;
-		start_igmpproxy(wan_ifname);
+		}
+#ifdef ASUS_EXT
+		//stop_upnp();
+		start_upnp(wan_ifname);
+
+		if (nvram_get_int("ddns_realip_x") != 2)
+			start_ddns(wan_ifname, 0);
+#endif /* ASUS_EXT */
 	}
 
 	dprintf("done\n");
@@ -1768,7 +1767,7 @@ void wan_down(const char *wan_ifname)
 #endif
 
 	/* Remove default route to gateway if specified */
-	if (nvram_match(strcat_r(prefix, "primary", tmp), "1")) {
+	if (nvram_get_int(strcat_r(prefix, "primary", tmp))) {
 		char *gateway = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
 
 		if (ip_addr(gateway) == INADDR_ANY)
@@ -2308,8 +2307,7 @@ int preset_wan_routes(const char *wan_ifname)
 		return -1;
 
 	/* Set default route to gateway if specified */
-	if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
-	{
+	if (nvram_get_int(strcat_r(prefix, "primary", tmp))) {
 		dprintf("=> ");
 		route_add(wan_ifname, 0, "0.0.0.0", "0.0.0.0", "0.0.0.0");
 	}
@@ -2321,17 +2319,45 @@ int preset_wan_routes(const char *wan_ifname)
 
 int wan_primary_ifunit(void)
 {
+	char tmp[100], prefix[WAN_PREFIX_SZ];
 	int unit;
-	
-	for (unit = 0; unit < MAX_NVPARSE; unit ++) {
-		char tmp[100], prefix[WAN_PREFIX_SZ];
 
+	for (unit = 0; unit < MAX_NVPARSE; unit ++) {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-		if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
+		if (nvram_get_int(strcat_r(prefix, "primary", tmp)))
 			return unit;
 	}
 
 	return 0;
+}
+
+char *wan_primary_ifname(void)
+{
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char *wan_ifname;
+
+	snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
+
+	switch (_wan_proto(prefix, tmp)) {
+	case WAN_PPPOE:
+	case WAN_PPTP:
+	case WAN_L2TP:
+#ifdef __CONFIG_MODEM__
+	case WAN_USBMODEM:
+#endif
+		wan_ifname = nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp));
+		break;
+#ifdef __CONFIG_MADWIMAX__
+	case WAN_WIMAX:
+		wan_ifname = nvram_safe_get(strcat_r(prefix, "wimax_ifname", tmp));
+		break;
+#endif
+	default:
+		wan_ifname = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
+		break;
+	}
+
+	return wan_ifname;
 }
 
 // return 0 if failed

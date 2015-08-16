@@ -267,15 +267,13 @@ static int stop_httpd(void)
 	return ret;
 }
 
-int start_upnp(void)
+int start_upnp(const char *wan_ifname)
 {
-	const char *wan_ifname;
 	int ret;
-	char var[100], prefix[WAN_PREFIX_SZ];
 #ifdef __CONFIG_MINIUPNPD__
 	FILE *fp;
 	const char *lan_addr, *lan_mask, *lan_url;
-	char lan_class[32];
+	char var[100], lan_class[32];
 	uint8_t lan_mac[16];
 	char name[32], friendly_name[64];
 #endif
@@ -283,30 +281,15 @@ int start_upnp(void)
 	if (!nvram_invmatch("upnp_enable", "0") || nvram_match("router_disable", "1"))
 		return 0;
 
-#ifdef __CONFIG_MINIUPNPD__
-	ret = killall_s("miniupnpd", SIGUSR1);
-#else
-	ret = killall_s("upnp", SIGUSR1);
-#endif
-	if (ret != 0)
-	{
-		snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
-		switch (_wan_proto(prefix, var)) {
-		case WAN_PPPOE:
-		case WAN_PPTP:
-		case WAN_L2TP:
-			wan_ifname = nvram_safe_get(strcat_r(prefix, "pppoe_ifname", var));
-			break;
-#ifdef __CONFIG_MADWIMAX__
-		case WAN_WIMAX:
-			wan_ifname = nvram_safe_get(strcat_r(prefix, "wimax_ifname", var));
-			break;
-#endif
-		default:
-			wan_ifname = nvram_safe_get(strcat_r(prefix, "ifname", var));
-			break;
-		}
+	if (wan_ifname == NULL)
+		wan_ifname = wan_primary_ifname();
 
+#ifdef __CONFIG_MINIUPNPD__
+	killall_w("miniupnpd", 0, 1);
+#else
+	killall_w("upnp", 0, 1);
+#endif
+	{
 #ifdef __CONFIG_MINIUPNPD__
 		lan_addr = nvram_safe_get("lan_ipaddr");
 		lan_mask = nvram_safe_get("lan_netmask");
@@ -504,7 +487,7 @@ start_services(void)
 	start_radvd();
 #endif
 	start_snmpd();
-	start_upnp();
+	start_upnp(NULL);
 	start_lltd();
 #ifdef ASUS_EXT
 	start_usb();

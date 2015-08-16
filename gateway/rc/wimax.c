@@ -244,8 +244,7 @@ static int madwimax_release(const char *ifname, int unit)
 
 	//snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-	//if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
-	//{
+	//if (nvram_get_int(strcat_r(prefix, "primary", tmp))) {
 	//	stop_wan();
 	//}
 
