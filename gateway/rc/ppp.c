@@ -65,10 +65,9 @@ int
 ipup_main(int argc, char **argv)
 {
 	FILE *fp;
-	char *wan_ifname;
-	char *value;
-	char buf[256];
 	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char buf[100], *value;
+	char *wan_ifname;
 
 	if (ppp_prefix(&wan_ifname, prefix) < 0)
 		return -1;
@@ -95,10 +94,18 @@ ipup_main(int argc, char **argv)
 		nvram_set(strcat_r(prefix, "gateway", tmp), value);
 
 	strcpy(buf, "");
-	if (getenv("DNS1"))
-		sprintf(buf, "%s", getenv("DNS1"));
-	if (getenv("DNS2"))
-		sprintf(buf + strlen(buf), "%s%s", strlen(buf) ? " " : "", getenv("DNS2"));
+	if ((value = getenv("DNS1")))
+		sprintf(buf, "%s", value);
+	if ((value = getenv("DNS2")))
+		sprintf(buf + strlen(buf), "%s%s", *buf ? " " : "", value);
+	if (strlen(buf) == 0 && !nvram_get_int(strcat_r(prefix, "dnsenable_x", tmp))) {
+		value = nvram_safe_get(strcat_r(prefix, "dns1_x", tmp));
+		if (*value && inet_addr(value) != INADDR_ANY)
+			sprintf(buf, "%s", value);
+		value = nvram_safe_get(strcat_r(prefix, "dns2_x", tmp));
+		if (*value && inet_addr(value) != INADDR_ANY)
+			sprintf(buf + strlen(buf), "%s%s", *buf ? " " : "", value);
+	}
 	nvram_set(strcat_r(prefix, "dns", tmp), buf);
 
 	wan_up(wan_ifname);
@@ -116,13 +123,16 @@ ipup_main(int argc, char **argv)
 int
 ipdown_main(int argc, char **argv)
 {
-	char *wan_ifname;
 	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char *wan_ifname;
 
 	if (ppp_prefix(&wan_ifname, prefix) < 0)
 		return -1;
 
 	umask(022);
+
+	/* leave as is if no dns servers left for demand to work */
+	nvram_unset(strcat_r(prefix, "dns", tmp));
 
 	wan_down(wan_ifname);
 

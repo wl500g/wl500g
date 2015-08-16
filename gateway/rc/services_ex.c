@@ -91,16 +91,6 @@ start_dns(void)
 		return errno;
 	}
 
-	// if user want to set dns server by himself
-	if (nvram_invmatch("wan_dnsenable_x", "1"))
-	{
-		/* Write resolv.conf with upstream nameservers */
-		if (nvram_invmatch("wan_dns1_x",""))
-			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));
-		if (nvram_invmatch("wan_dns2_x",""))
-			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
-	}
-
 	/* append custom nameservers */
 	fappend("/usr/local/etc/resolv.conf", fp);
 

@@ -175,7 +175,7 @@ int write_mac(const char *devname, const char *mac);
 int bpa_connect_main(int argc, char **argv);
 int bpa_disconnect_main(int argc, char **argv);
 void stop_igmpproxy(void);
-int update_resolvconf(const char *ifname, int metric, int up);
+int update_resolvconf(const char *ifname, int metric);
 #ifdef __CONFIG_BCMWL5__
 extern void start_wl(void);
 #else

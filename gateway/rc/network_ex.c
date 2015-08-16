@@ -106,7 +106,7 @@ int start_pppd(const char *prefix)
 
 	fprintf(fp, "maxfail 0\n");
 
-	if (nvram_invmatch(strcat_r(prefix, "dnsenable_x", tmp), "0"))
+	if (nvram_get_int(strcat_r(prefix, "dnsenable_x", tmp)))
 		fprintf(fp, "usepeerdns\n");
 
 	if (nvram_invmatch(strcat_r(prefix, "proto", tmp), "l2tp"))

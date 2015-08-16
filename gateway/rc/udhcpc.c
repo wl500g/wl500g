@@ -113,8 +113,12 @@ static int bound(const char *wan_ifname)
 		gateway = 1;
 		nvram_set(strcat_r(prefix, "gateway", tmp), trim_r(value));
 	}
-	if ((value = getenv("dns")))
-		nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
+	if (nvram_get_int(strcat_r(wanprefix, "dnsenable_x", tmp))) {
+		if ((value = getenv("dns")) && nvram_get_int(strcat_r(wanprefix, "dnsenable_x", tmp)))
+			nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
+		if ((value = getenv("domain")))
+			nvram_set(strcat_r(prefix, "domain", tmp), trim_r(value));
+	}
 	if ((value = getenv("wins")))
 		nvram_set(strcat_r(prefix, "wins", tmp), trim_r(value));
 
@@ -139,8 +143,6 @@ static int bound(const char *wan_ifname)
 	if ((value = getenv("hostname")))
 		sethostname(trim_r(value), strlen(value) + 1);
 #endif
-	if ((value = getenv("domain")))
-		nvram_set(strcat_r(prefix, "domain", tmp), trim_r(value));
 	if ((value = getenv("lease"))) {
 		nvram_set(strcat_r(prefix, "lease", tmp), trim_r(value));
 		expires(wan_ifname, atoi(value));
@@ -210,9 +212,15 @@ static int renew(const char *wan_ifname)
 
 	stop_zcip(unit);
 
-	if ((value = getenv("dns"))) {
-		changed = !nvram_match(strcat_r(prefix, "dns", tmp), trim_r(value));
-		nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
+	if (nvram_get_int(strcat_r(wanprefix, "dnsenable_x", tmp))) {
+		if ((value = getenv("dns"))) {
+			changed += !nvram_match(strcat_r(prefix, "dns", tmp), trim_r(value));
+			nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
+		}
+		if ((value = getenv("domain"))) {
+			changed += !nvram_match(strcat_r(prefix, "domain", tmp), trim_r(value));
+			nvram_set(strcat_r(prefix, "domain", tmp), trim_r(value));
+		}
 	}
 	if ((value = getenv("wins")))
 		nvram_set(strcat_r(prefix, "wins", tmp), trim_r(value));
@@ -222,8 +230,6 @@ static int renew(const char *wan_ifname)
 		sethostname(trim_r(value), strlen(value) + 1);
 #endif
 
-	if ((value = getenv("domain")))
-		nvram_set(strcat_r(prefix, "domain", tmp), trim_r(value));
 	if ((value = getenv("lease"))) {
 		nvram_set(strcat_r(prefix, "lease", tmp), trim_r(value));
 		expires(wan_ifname, atoi(value));
@@ -231,7 +237,7 @@ static int renew(const char *wan_ifname)
 
 	if (changed) {
 		metric = nvram_get_int(strcat_r(wanprefix, "priority", tmp));
-		update_resolvconf(wan_ifname, metric, 1);
+		update_resolvconf(wan_ifname, metric);
 	}
 
 	if (changed &&
@@ -381,7 +387,10 @@ static int config(const char *wan_ifname)
 	}
 	nvram_set(strcat_r(prefix, "netmask", tmp), "255.255.0.0");
 	nvram_set(strcat_r(prefix, "gateway", tmp), "");
-	nvram_set(strcat_r(prefix, "dns", tmp), "");
+	if (nvram_get_int(strcat_r(wanprefix, "dnsenable_x", tmp))) {
+		nvram_set(strcat_r(prefix, "dns", tmp), "");
+		nvram_set(strcat_r(prefix, "domain", tmp), "");
+	}
 
 	if (changed &&
 	    nvram_invmatch(strcat_r(wanprefix, "proto", tmp), "l2tp") &&
@@ -459,7 +468,7 @@ int dhcp6c_main(int argc, char **argv)
 	}
 
 	metric = nvram_get_int(strcat_r(wanprefix, "priority", tmp));
-	update_resolvconf(wan_ifname, metric, 1);
+	update_resolvconf(wan_ifname, metric);
 
 #ifdef __CONFIG_RADVD__
 	/* Notify radvd of possible change */

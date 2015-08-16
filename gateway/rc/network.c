@@ -1500,7 +1500,7 @@ void stop_wan(void)
 }
 
 /* TODO: Incompatible with multiwan yet */
-int update_resolvconf(const char *ifname, int metric, int up)
+int update_resolvconf(const char *ifname, int metric)
 {
 	FILE *fp;
 	char word[100], *next;
@@ -1509,17 +1509,9 @@ int update_resolvconf(const char *ifname, int metric, int up)
 
 	/* Figure out nvram variable name prefix for this i/f */
 	unit = wans_prefix(ifname, prefix, tmp);
-	dprintf("%s unit %d prefix %s metric %d up %d\n",
-		ifname, unit, prefix, metric, up);
+	dprintf("%s unit %d prefix %s metric %d\n",
+		ifname, unit, prefix, metric);
 	if (unit < 0)
-		return 0;
-
-	/* Check if auto dns enabled */
-	if (nvram_invmatch("wan_dnsenable_x", "1")
-#ifdef __CONFIG_IPV6__
-	&& !nvram_invmatch("ipv6_proto", "")
-#endif
-	)
 		return 0;
 
 	/* Metric can be obtained directly, do we need it?
@@ -1530,21 +1522,13 @@ int update_resolvconf(const char *ifname, int metric, int up)
 		return errno;
 	}
 
-#ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("wan_dnsenable_x", "1")) {
-		if (nvram_invmatch("wan_dns1_x", ""))
-			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));
-		if (nvram_invmatch("wan_dns2_x", ""))
-			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
-	} else
-#endif
 	foreach(word, (*nvram_safe_get(strcat_r(prefix, "dns", tmp)) ?
 	    nvram_safe_get(tmp) : nvram_safe_get(strcat_r(prefix, "xdns", tmp))), next) {
 		fprintf(fp, "nameserver %s\n", word);
 	}
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("wan_dnsenable_x", "1") ||
+	if (nvram_invmatch("ipv6_proto", "") &&
 	    nvram_invmatch(strcat_r(prefix, "dns", tmp), "")) {
 		foreach(word, nvram_safe_get(strcat_r(prefix, "ipv6_dns", tmp)), next) {
 			fprintf(fp, "nameserver %s\n", word);
@@ -1615,7 +1599,7 @@ void wan_up(const char *wan_ifname)
 			route_add(wan_ifname, 2, "0.0.0.0", gateway, "0.0.0.0");
 
 			/* ... and to dns servers as well for demand ppp to work */
-			if (nvram_match("wan_dnsenable_x", "1"))
+			if (nvram_get_int(strcat_r(prefix, "dnsenable_x", tmp)))
 				foreach(word, nvram_safe_get(strcat_r(xprefix, "dns", tmp)), next) 
 			{
 				if ((inet_addr(word) != inet_addr(gateway)) &&
@@ -1631,7 +1615,7 @@ void wan_up(const char *wan_ifname)
 		if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
 			start_igmpproxy(wan_ifname);
 
-		update_resolvconf(wan_ifname, metric, 1);
+		update_resolvconf(wan_ifname, metric);
 
 		return;
 	}
@@ -1724,7 +1708,7 @@ void wan_up(const char *wan_ifname)
 #endif
 
 	/* Add dns servers to resolv.conf */
-	update_resolvconf(wan_ifname, metric, 1);
+	update_resolvconf(wan_ifname, metric);
 
 	/* Sync time */
 	//start_ntpc();
@@ -1800,9 +1784,7 @@ void wan_down(const char *wan_ifname)
 	del_wan_routes(wan_ifname);
 
 	/* Update resolv.conf -- leave as is if no dns servers left for demand to work */
-	if (*nvram_safe_get(strcat_r(prefix, "xdns", tmp)))
-		nvram_unset(strcat_r(prefix, "dns", tmp));
-	update_resolvconf(wan_ifname, metric, 0);
+	update_resolvconf(wan_ifname, metric);
 
 	update_wan_status(unit, WAN_STATUS_DISCONNECTED);
 
