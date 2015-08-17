@@ -423,6 +423,9 @@ If the \fBactive\-filter\fR
 option is given, data packets which are rejected by the specified
 activity filter also count as the link being idle.
 .TP
+.B ifname \fIname
+Sets the ppp interface name for outbound connections.
+.TP
 .B ipcp\-accept\-local
 With this option, pppd will accept the peer's idea of our local IP
 address, even if the local IP address was specified in an option.
@@ -649,6 +652,11 @@ network control protocol comes up).
 .B maxfail \fIn
 Terminate after \fIn\fR consecutive failed connection attempts.  A
 value of 0 means no limit.  The default value is 10.
+.TP
+.B minunit \fInum
+Sets the minimal ppp unit number. Same as \fIunit\fR, but always selects
+equal or bigger unit number (for a ppp0 or ppp1 etc interface name)
+for outbound connections.
 .TP
 .B modem
 Use the modem control lines.  This option is the default.  With this
@@ -1102,12 +1110,6 @@ invoked by pppd.  When specified by a privileged source, the variable
 \fIname\fR cannot be set by options contained in an unprivileged
 source.  See also the \fIset\fR option and the environment described
 in \fISCRIPTS\fR.
-.TP
-.B minunit \fInum
-Such as unit, but always select bigger interface
-.TP
-.B minunit \fInum
-PPP interface minimal unit number. Such as unit, but always select bigger interface
 .TP
 .B updetach
 With this option, pppd will detach from its controlling terminal once
