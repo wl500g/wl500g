@@ -590,7 +590,7 @@ int stop_modem_dial(const char *prefix)
 	kill_pidfile(tmp);
 	unlink(tmp);
 
-	sprintf(tmp, "/var/run/ppp%d.pid", unit);
+	sprintf(tmp, "/var/run/ppp-wan%d.pid", unit);
 	dprintf("kill %s\n", tmp);
 	kill_pidfile(tmp);
 	//		nvram_set("wan0_dial_enabled", "0");

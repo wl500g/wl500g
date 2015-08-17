@@ -160,6 +160,7 @@ maxfail $maxfail
 nodetach
 persist
 unit $iface
+linkname wan$iface
 novj nobsdcomp novjccomp" > "${peers_path}${wan_pref}pppd"
 # nopcomp noaccomp
 
@@ -197,7 +198,7 @@ echo -e "#!/bin/sh
 pingaddr=\"8.8.8.8\"
 for i in \$(seq 4); do
 	usleep 500000
-	ping -I ppp$iface -c 1 \$pingaddr >> $log_name
+	ping -I \$(nvram get wan${iface}_pppoe_ifname) -c 1 \$pingaddr >> $log_name
 	usleep 500000
 done" > "${peers_path}${wan_pref}ping.sh"
 	

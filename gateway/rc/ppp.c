@@ -26,6 +26,8 @@
 #include <errno.h>
 #include <ctype.h>
 
+#include <netconf.h>
+#include <nvparse.h>
 #include "rc.h"
 
 /*
@@ -33,27 +35,38 @@
 */
 int ppp_ifunit(const char *ifname)
 {
-	if (strncmp(ifname, "ppp", 3))
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	int unit;
+
+	for (unit = 0; unit < MAX_NVPARSE; unit ++) {
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		if (nvram_match(strcat_r(prefix, "pppoe_ifname", tmp), ifname))
+			return unit;
+	}
+
+	return -1;
+}
+
+static int
+ppp_linkunit(char *linkname)
+{
+	if (strncmp(linkname, "wan", 3))
 		return -1;
-	if (!isdigit(ifname[3]))
+	if (!isdigit(linkname[3]))
 		return -1;
-	return atoi(&ifname[3]);
+	return atoi(&linkname[3]);
 }
 
 static int ppp_prefix(char **wan_ifname, char *prefix)
 {
-	char tmp[100];
 	int unit;
 
 	*wan_ifname = safe_getenv("IFNAME");
 
-	if ((unit = ppp_ifunit(*wan_ifname)) < 0)
+	if ((unit = ppp_linkunit(safe_getenv("LINKNAME"))) < 0)
 		return -1;
 
 	sprintf(prefix, "wan%d_", unit);
-
-	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
-		return -2;
 
 	return unit;
 }
@@ -143,6 +156,24 @@ ipdown_main(int argc, char **argv)
 	logmessage(nvram_safe_get("wan_proto_t"), "Disconnected");
 	wanmessage(pppstatus(tmp));
 
+	return 0;
+}
+
+/*
+ * Called before link comes up
+ */
+int
+ippreup_main(int argc, char **argv)
+{
+	char tmp[100], prefix[WAN_PREFIX_SZ];
+	char *wan_ifname;
+
+	if (ppp_prefix(&wan_ifname, prefix) < 0)
+		return -1;
+
+	nvram_set(strcat_r(prefix, "pppoe_ifname", tmp), wan_ifname);
+
+	dprintf("done\n");
 	return 0;
 }
 

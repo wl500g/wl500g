@@ -885,6 +885,8 @@ main(int argc, char **argv)
 		return ipup_main(argc, argv);
 	else if (!strcmp(base, "ip-down"))
 		return ipdown_main(argc, argv);
+	else if (!strcmp(base, "ip-pre-up"))
+		return ippreup_main(argc, argv);
 #ifdef __CONFIG_IPV6__
 	else if (!strcmp(base, "ipv6-up"))
 		return ip6up_main(argc, argv);

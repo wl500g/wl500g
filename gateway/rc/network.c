@@ -1304,6 +1304,7 @@ void start_wan(void)
 #endif
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
 	symlink("/sbin/rc", "/tmp/ppp/ip-down");
+	symlink("/sbin/rc", "/tmp/ppp/ip-pre-up");
 #ifdef __CONFIG_IPV6__
 	symlink("/sbin/rc", "/tmp/ppp/ipv6-up");
 	symlink("/sbin/rc", "/tmp/ppp/ipv6-down");
@@ -1397,7 +1398,7 @@ void stop_wan_unit(int unit)
 		    strcmp(wan_proto, "l2tp") == 0)
 		{
 			killall("l2tpd");
-			sprintf(tmp, "/var/run/ppp%d.pid", unit);
+			sprintf(tmp, "/var/run/ppp-wan%d.pid", unit);
 			kill_pidfile(tmp);
 			usleep(10000);
 		}
@@ -1451,6 +1452,7 @@ void stop_wan(void)
 #endif
 	killall("ip-up");
 	killall("ip-down");
+	killall("ip-pre-up");
 #ifdef __CONFIG_IPV6__
 	killall("ipv6-up");
 	killall("ipv6-down");
@@ -1484,6 +1486,7 @@ void stop_wan(void)
 #endif
 	unlink("/tmp/ppp/ip-up");
 	unlink("/tmp/ppp/ip-down");
+	unlink("/tmp/ppp/ip-pre-up");
 #ifdef PPPD_AUTH_UNUSED
 	unlink("/tmp/ppp/auth-up");
 	unlink("/tmp/ppp/auth-down");

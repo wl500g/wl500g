@@ -130,6 +130,13 @@ int start_pppd(const char *prefix)
 		"lcp-echo-failure 6\n");
 
 	fprintf(fp, "unit %d\n", unit);
+	fprintf(fp, "linkname wan%d\n", unit);
+
+	/* permanent ppp name, disable for the moment
+	snprintf(wan_ifname, sizeof(wan_ifname), "ppp%02d", unit);
+	fprintf(fp, "ifname %s\n", wan_ifname);
+	nvram_set(strcat_r(prefix, "pppoe_ifname", tmp), wan_ifname);
+	*/
 
 #ifdef __CONFIG_IPV6__
 	/* Enable IPv6 and IPv6CP */

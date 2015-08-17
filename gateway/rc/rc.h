@@ -118,6 +118,7 @@ int authfail_main(int argc, char **argv);
 #endif
 int ipup_main(int argc, char **argv);
 int ipdown_main(int argc, char **argv);
+int ippreup_main(int argc, char **argv);
 #ifdef __CONFIG_IPV6__
 int ip6up_main(int argc, char **argv);
 int ip6down_main(int argc, char **argv);
