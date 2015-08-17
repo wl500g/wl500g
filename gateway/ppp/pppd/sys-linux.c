@@ -2266,6 +2266,24 @@ int sifvjcomp (int u, int vjcomp, int cidcomp, int maxcid)
 
 /********************************************************************
  *
+ * sifname - Config the interface name.
+ */
+int sifname (int unit, char *newname)
+{
+    struct ifreq ifr;
+
+    memset (&ifr, '\0', sizeof (ifr));
+    strlcpy(ifr.ifr_name, ifname, sizeof (ifr.ifr_name));
+    strlcpy(ifr.ifr_newname, newname, sizeof (ifr.ifr_name));
+    if (ioctl(sock_fd, SIOCSIFNAME, (caddr_t) &ifr) < 0) {
+	error("Couldn't set interface name %s: %m", newname);
+	return 0;
+    }
+    return 1;
+}
+
+/********************************************************************
+ *
  * sifup - Config the interface up and enable IP packets to pass.
  */
 
