@@ -35,7 +35,7 @@ MODULE_DESCRIPTION("IP6 tables REJECT target module");
 MODULE_LICENSE("GPL");
 
 /* Send RST reply */
-static void send_reset(struct sk_buff *oldskb)
+static void send_reset(struct sk_buff *oldskb, int hook)
 {
 	struct sk_buff *nskb;
 	struct tcphdr otcph, *tcph;
@@ -82,9 +82,8 @@ static void send_reset(struct sk_buff *oldskb)
 	}
 
 	/* Check checksum. */
-	if (csum_ipv6_magic(&oip6h->saddr, &oip6h->daddr, otcplen, IPPROTO_TCP,
-			    skb_checksum(oldskb, tcphoff, otcplen, 0))) {
-		pr_debug("ip6t_REJECT: TCP checksum is invalid\n");
+	if (nf_ip6_checksum(oldskb, hook, tcphoff, IPPROTO_TCP)) {
+		pr_debug("TCP checksum is invalid\n");
 		return;
 	}
 
@@ -128,6 +127,7 @@ static void send_reset(struct sk_buff *oldskb)
 	ipv6_addr_copy(&ip6h->saddr, &oip6h->daddr);
 	ipv6_addr_copy(&ip6h->daddr, &oip6h->saddr);
 
+	skb_reset_transport_header(nskb);
 	tcph = (struct tcphdr *)skb_put(nskb, sizeof(struct tcphdr));
 	/* Truncate to length (no data) */
 	tcph->doff = sizeof(struct tcphdr)/4;
@@ -179,7 +179,6 @@ reject6_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct ip6t_reject_info *reject = par->targinfo;
 
-	pr_debug("%s: medium point\n", __FUNCTION__);
 	/* WARNING: This code causes reentry within ip6tables.
 	   This means that the ip6tables jump stack is now crap.  We
 	   must return an absolute verdict. --RR */
@@ -203,11 +202,7 @@ reject6_target(struct sk_buff *skb, const struct xt_action_param *par)
 		/* Do nothing */
 		break;
 	case IP6T_TCP_RESET:
-		send_reset(skb);
-		break;
-	default:
-		if (net_ratelimit())
-			printk(KERN_WARNING "ip6t_REJECT: case %u not handled yet\n", reject->with);
+		send_reset(skb, par->hooknum);
 		break;
 	}
 
