@@ -568,8 +568,9 @@ no_need_xmit:
 	usb_hcd_unlink_urb_from_ep(hcd, urb);
 no_need_unlink:
 	spin_unlock(&the_controller->lock);
-	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, urb->status);
-
+	if (!ret)
+		usb_hcd_giveback_urb(vhci_to_hcd(the_controller),
+				     urb, urb->status);
 	return ret;
 }
 
@@ -633,7 +634,7 @@ static int vhci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 		/* URB was never linked! or will be soon given back by
 		 * vhci_rx. */
 		spin_unlock(&the_controller->lock);
-		return 0;
+		return -EIDRM;
 	}
 
 	{
