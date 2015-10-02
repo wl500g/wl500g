@@ -1574,7 +1574,7 @@ void wan_up(const char *wan_ifname)
 		/* setup static wan routes via physical device */
 		add_routes(prefix, "mroute", wan_ifname);
 		/* and one supplied via DHCP */
-		add_wanx_routes(xprefix, wan_ifname, 0); /* why not 2 ? */
+		add_wanx_routes(xprefix, wan_ifname, 1);
 
 		gateway = nvram_safe_get(strcat_r(xprefix, "gateway", tmp));
 
