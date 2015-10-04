@@ -173,11 +173,15 @@ typedef enum
 	"Host: %s\r\n"							\
 	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
 
+/*
+ * For API documentation we currently only have this
+ *     https://www.duckdns.org/install.jsp#linux-cron
+ */
 #define DUCKDNS_UPDATE_IP_REQUEST					\
 	"GET %s?"							\
 	"domains=%s&"							\
 	"token=%s&"							\
-	"ip=%s& "							\
+	"ip=%s "							\
 	"HTTP/1.0\r\n"							\
 	"Host: %s\r\n"							\
 	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
