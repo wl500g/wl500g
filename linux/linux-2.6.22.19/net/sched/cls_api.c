@@ -209,7 +209,7 @@ replay:
 		err = -ENOBUFS;
 		if ((tp = kzalloc(sizeof(*tp), GFP_KERNEL)) == NULL)
 			goto errout;
-		err = -EINVAL;
+		err = -ENOENT;
 		tp_ops = tcf_proto_lookup_ops(tca[TCA_KIND-1]);
 		if (tp_ops == NULL) {
 #ifdef CONFIG_KMOD
