@@ -30,14 +30,10 @@
 //usage:     "\n	-f		Run in foreground"
 //usage:     "\n	-q		Quit after obtaining address"
 //usage:     "\n	-r 169.254.x.x	Request this address first"
-//usage:     "\n	-p FILE		Create pidfile"
 //usage:     "\n	-v		Verbose"
 //usage:     "\n"
 //usage:     "\nWith no -q, runs continuously monitoring for ARP conflicts,"
 //usage:     "\nexits only on I/O errors (link down etc)"
-
-/* Override ENABLE_FEATURE_PIDFILE */
-#define WANT_PIDFILE 1
 
 #include "libbb.h"
 #include <netinet/ether.h>
@@ -91,14 +87,10 @@ enum {
 struct globals {
 	struct sockaddr saddr;
 	struct ether_addr eth_addr;
-	char *pidfile;
-	int verbose;
 } FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define saddr    (G.saddr   )
 #define eth_addr (G.eth_addr)
-#define pidfile  (G.pidfile )
-#define verbose  (G.verbose )
 #define INIT_G() do { } while (0)
 
 
@@ -114,15 +106,6 @@ static uint32_t pick(void)
 		tmp = rand() & IN_CLASSB_HOST;
 	} while (tmp > (IN_CLASSB_HOST - 0x0200));
 	return htonl((LINKLOCAL_ADDR + 0x0100) + tmp);
-}
-
-static void cleanup(int code) NORETURN;
-static void cleanup(int code)
-{
-	remove_pidfile(pidfile);
-	if (code > EXIT_FAILURE)
-		kill_myself_with_sig(code);
-	exit(code);
 }
 
 /**
@@ -163,10 +146,7 @@ static void arp(
 	// Thus we sendto() to saddr. I wonder which sockaddr
 	// (from bind() or from sendto()?) kernel actually uses
 	// to determine iface to emit the packet from...
-	if (sendto(sock_fd, &p, sizeof(p), 0, &saddr, sizeof(saddr)) < 0) {
-		bb_perror_msg("sendto");
-		cleanup(EXIT_FAILURE);
-	}
+	xsendto(sock_fd, &p, sizeof(p), &saddr, sizeof(saddr));
 #undef source_eth
 }
 
@@ -189,8 +169,7 @@ static int run(char *argv[3], const char *param, struct in_addr *ip)
 		xsetenv("ip", addr);
 		fmt -= 3;
 	}
-	if (verbose)
-		bb_info_msg(fmt, argv[2], argv[0], addr);
+	bb_info_msg(fmt, argv[2], argv[0], addr);
 
 	status = spawn_and_wait(argv + 1);
 	if (status < 0) {
@@ -231,6 +210,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 		unsigned nprobes;
 		unsigned nclaims;
 		int ready;
+		int verbose;
 	} L;
 #define null_ip    (L.null_ip   )
 #define null_addr  (L.null_addr )
@@ -241,6 +221,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 #define nprobes    (L.nprobes   )
 #define nclaims    (L.nclaims   )
 #define ready      (L.ready     )
+#define verbose    (L.verbose   )
 
 	memset(&L, 0, sizeof(L));
 	INIT_G();
@@ -250,7 +231,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 	// parse commandline: prog [options] ifname script
 	// exactly 2 args; -v accumulates and implies -f
 	opt_complementary = "=2:vv:vf";
-	opts = getopt32(argv, "fqr:p:v", &r_opt, &pidfile, &verbose);
+	opts = getopt32(argv, "fqr:v", &r_opt, &verbose);
 #if !BB_MMU
 	// on NOMMU reexec early (or else we will rerun things twice)
 	if (!FOREGROUND)
@@ -325,12 +306,8 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 #if BB_MMU
 		bb_daemonize(0 /*was: DAEMON_CHDIR_ROOT*/);
 #endif
-		if (verbose)
-			bb_info_msg("start, interface %s", argv_intf);
+		bb_info_msg("start, interface %s", argv_intf);
 	}
-
-	write_pidfile(pidfile);
-	bb_signals(BB_FATAL_SIGS, cleanup);
 
 	// run the dynamic address negotiation protocol,
 	// restarting after address conflicts:
@@ -376,7 +353,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 
 		default:
 			//bb_perror_msg("poll"); - done in safe_poll
-			cleanup(EXIT_FAILURE);
+			return EXIT_FAILURE;
 
 		// timeout
 		case 0:
@@ -444,7 +421,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 					// NOTE: all other exit paths
 					// should deconfig ...
 					if (QUIT)
-						cleanup(EXIT_SUCCESS);
+						return EXIT_SUCCESS;
 				}
 				break;
 			case DEFEND:
@@ -489,15 +466,14 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 					if (ready) {
 						run(argv, "deconfig", &ip);
 					}
-					cleanup(EXIT_FAILURE);
+					return EXIT_FAILURE;
 				}
 				continue;
 			}
 
 			// read ARP packet
 			if (safe_read(sock_fd, &p, sizeof(p)) < 0) {
-				bb_perror_msg(bb_msg_read_error);
-				cleanup(EXIT_FAILURE);
+				bb_perror_msg_and_die(bb_msg_read_error);
 			}
 			if (p.eth.ether_type != htons(ETHERTYPE_ARP))
 				continue;
