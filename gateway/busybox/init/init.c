@@ -538,11 +538,7 @@ static struct init_action *mark_terminated(pid_t pid)
 	struct init_action *a;
 
 	if (pid > 0) {
-		update_utmp(pid, DEAD_PROCESS,
-				/*tty_name:*/ NULL,
-				/*username:*/ NULL,
-				/*hostname:*/ NULL
-		);
+		update_utmp_DEAD_PROCESS(pid);
 		for (a = init_action_list; a; a = a->next) {
 			if (a->pid == pid) {
 				a->pid = 0;
@@ -822,7 +818,7 @@ static void halt_reboot_pwoff(int sig)
 
 /* Handler for QUIT - exec "restart" action,
  * else (no such action defined) do nothing */
-static void restart_handler(int sig UNUSED_PARAM)
+static void exec_restart_action(void)
 {
 	struct init_action *a;
 
@@ -975,6 +971,20 @@ static int check_delayed_sigs(void)
 #endif
 		if (sig == SIGINT)
 			run_actions(CTRLALTDEL);
+		if (sig == SIGQUIT) {
+			exec_restart_action();
+			/* returns only if no restart action defined */
+		}
+		if ((1 << sig) & (0
+#ifdef SIGPWR
+		    + (1 << SIGPWR)
+#endif
+		    + (1 << SIGUSR1)
+		    + (1 << SIGUSR2)
+		    + (1 << SIGTERM)
+		)) {
+			halt_reboot_pwoff(sig);
+		}
 	}
 }
 
@@ -1004,6 +1014,11 @@ void handle_sigsegv(int sig, siginfo_t *info, void *ucontext)
 	for (;;) sleep(9999);
 }
 #endif
+
+static void sleep_much(void)
+{
+        sleep(30 * 24*60*60);
+}
 
 int init_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int init_main(int argc UNUSED_PARAM, char **argv)
@@ -1041,12 +1056,12 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 
 	/* If, say, xmalloc would ever die, we don't want to oops kernel
 	 * by exiting.
-	 * NB: we set die_sleep *after* PID 1 check and bb_show_usage.
+	 * NB: we set die_func *after* PID 1 check and bb_show_usage.
 	 * Otherwise, for example, "init u" ("please rexec yourself"
 	 * command for sysvinit) will show help text (which isn't too bad),
 	 * *and sleep forever* (which is bad!)
 	 */
-	die_sleep = 30 * 24*60*60;
+	die_func = sleep_much;
 
 	/* Figure out where the default console should be */
 	console_init();
@@ -1070,7 +1085,7 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 
 #if 0
 /* It's 2013, does anyone really still depend on this? */
-/* If you do, consider adding swapon to sysinot actions then! */
+/* If you do, consider adding swapon to sysinit actions then! */
 /* struct sysinfo is linux-specific */
 # ifdef __linux__
 	/* Make sure there is enough memory to do something useful. */
@@ -1134,14 +1149,6 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 	if (!DEBUG_INIT) {
 		struct sigaction sa;
 
-		bb_signals(0
-			+ (1 << SIGPWR)  /* halt */
-			+ (1 << SIGUSR1) /* halt */
-			+ (1 << SIGTERM) /* reboot */
-			+ (1 << SIGUSR2) /* poweroff */
-			, halt_reboot_pwoff);
-		signal(SIGQUIT, restart_handler); /* re-exec another init */
-
 		/* Stop handler must allow only SIGCONT inside itself */
 		memset(&sa, 0, sizeof(sa));
 		sigfillset(&sa.sa_mask);
@@ -1156,17 +1163,23 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 		 */
 		sigaction_set(SIGSTOP, &sa); /* pause */
 
-		/* SIGINT (Ctrl-Alt-Del) must interrupt wait(),
+		/* These signals must interrupt wait(),
 		 * setting handler without SA_RESTART flag.
 		 */
-		bb_signals_recursive_norestart((1 << SIGINT), record_signo);
+		bb_signals_recursive_norestart(0
+			+ (1 << SIGINT)  /* Ctrl-Alt-Del */
+			+ (1 << SIGQUIT) /* re-exec another init */
+#ifdef SIGPWR
+			+ (1 << SIGPWR)  /* halt */
+#endif
+			+ (1 << SIGUSR1) /* halt */
+			+ (1 << SIGTERM) /* reboot */
+			+ (1 << SIGUSR2) /* poweroff */
+#if ENABLE_FEATURE_USE_INITTAB
+			+ (1 << SIGHUP)  /* reread /etc/inittab */
+#endif
+			, record_signo);
 	}
-
-	/* Set up "reread /etc/inittab" handler.
-	 * Handler is set up without SA_RESTART, it will interrupt syscalls.
-	 */
-	if (!DEBUG_INIT && ENABLE_FEATURE_USE_INITTAB)
-		bb_signals_recursive_norestart((1 << SIGHUP), record_signo);
 
 	/* Now run everything that needs to be run */
 	/* First run the sysinit command */

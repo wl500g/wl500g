@@ -280,17 +280,19 @@ static void unzip_extract(zip_header_t *zip_header, int dst_fd)
 			bb_copyfd_exact_size(zip_fd, dst_fd, size);
 	} else {
 		/* Method 8 - inflate */
-		transformer_aux_data_t aux;
-		init_transformer_aux_data(&aux);
-		aux.bytes_in = zip_header->formatted.cmpsize;
-		if (inflate_unzip(&aux, zip_fd, dst_fd) < 0)
+		transformer_state_t xstate;
+		init_transformer_state(&xstate);
+		xstate.bytes_in = zip_header->formatted.cmpsize;
+		xstate.src_fd = zip_fd;
+		xstate.dst_fd = dst_fd;
+		if (inflate_unzip(&xstate) < 0)
 			bb_error_msg_and_die("inflate error");
 		/* Validate decompression - crc */
-		if (zip_header->formatted.crc32 != (aux.crc32 ^ 0xffffffffL)) {
+		if (zip_header->formatted.crc32 != (xstate.crc32 ^ 0xffffffffL)) {
 			bb_error_msg_and_die("crc error");
 		}
 		/* Validate decompression - size */
-		if (zip_header->formatted.ucmpsize != aux.bytes_out) {
+		if (zip_header->formatted.ucmpsize != xstate.bytes_out) {
 			/* Don't die. Who knows, maybe len calculation
 			 * was botched somewhere. After all, crc matched! */
 			bb_error_msg("bad length");
@@ -594,14 +596,17 @@ int unzip_main(int argc, char **argv)
 		/* Skip extra header bytes */
 		unzip_skip(zip_header.formatted.extra_len);
 
+		/* Guard against "/abspath", "/../" and similar attacks */
+		overlapping_strcpy(dst_fn, strip_unsafe_prefix(dst_fn));
+
 		/* Filter zip entries */
 		if (find_list_entry(zreject, dst_fn)
 		 || (zaccept && !find_list_entry(zaccept, dst_fn))
 		) { /* Skip entry */
 			i = 'n';
-
-		} else { /* Extract entry */
-			if (listing) { /* List entry */
+		} else {
+			if (listing) {
+				/* List entry */
 				unsigned dostime = zip_header.formatted.modtime | (zip_header.formatted.moddate << 16);
 				if (!verbose) {
 					//      "  Length     Date   Time    Name\n"
@@ -637,9 +642,11 @@ int unzip_main(int argc, char **argv)
 					total_size += zip_header.formatted.cmpsize;
 				}
 				i = 'n';
-			} else if (dst_fd == STDOUT_FILENO) { /* Extracting to STDOUT */
+			} else if (dst_fd == STDOUT_FILENO) {
+				/* Extracting to STDOUT */
 				i = -1;
-			} else if (last_char_is(dst_fn, '/')) { /* Extract directory */
+			} else if (last_char_is(dst_fn, '/')) {
+				/* Extract directory */
 				if (stat(dst_fn, &stat_buf) == -1) {
 					if (errno != ENOENT) {
 						bb_perror_msg_and_die("can't stat '%s'", dst_fn);
@@ -653,22 +660,26 @@ int unzip_main(int argc, char **argv)
 					}
 				} else {
 					if (!S_ISDIR(stat_buf.st_mode)) {
-						bb_error_msg_and_die("'%s' exists but is not directory", dst_fn);
+						bb_error_msg_and_die("'%s' exists but is not a %s",
+							dst_fn, "directory");
 					}
 				}
 				i = 'n';
-
-			} else {  /* Extract file */
+			} else {
+				/* Extract file */
  check_file:
-				if (stat(dst_fn, &stat_buf) == -1) { /* File does not exist */
+				if (stat(dst_fn, &stat_buf) == -1) {
+					/* File does not exist */
 					if (errno != ENOENT) {
 						bb_perror_msg_and_die("can't stat '%s'", dst_fn);
 					}
 					i = 'y';
-				} else { /* File already exists */
+				} else {
+					/* File already exists */
 					if (overwrite == O_NEVER) {
 						i = 'n';
-					} else if (S_ISREG(stat_buf.st_mode)) { /* File is regular file */
+					} else if (S_ISREG(stat_buf.st_mode)) {
+						/* File is regular file */
 						if (overwrite == O_ALWAYS) {
 							i = 'y';
 						} else {
@@ -676,8 +687,10 @@ int unzip_main(int argc, char **argv)
 							my_fgets80(key_buf);
 							i = key_buf[0];
 						}
-					} else { /* File is not regular file */
-						bb_error_msg_and_die("'%s' exists but is not regular file", dst_fn);
+					} else {
+						/* File is not regular file */
+						bb_error_msg_and_die("'%s' exists but is not a %s",
+							dst_fn, "regular file");
 					}
 				}
 			}

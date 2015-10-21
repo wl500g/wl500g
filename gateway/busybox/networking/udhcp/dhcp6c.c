@@ -167,8 +167,7 @@ int dhcp6c_main(int argc UNUSED_PARAM, char **argv)
 
 	csock = sock6_init(NULL, xstr(DH6PORT_DOWNSTREAM));
 	setsockopt_bindtodevice(csock, client6_config.dhcp6c_if.ifname);
-	if (setsockopt(csock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &const_int_1,
-			sizeof(const_int_1)) < 0) {
+	if (setsockopt_1(csock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP) < 0) {
 		bb_perror_msg_and_die("setsockopt(IPV6_MULTICAST_LOOP)");
 	}
 

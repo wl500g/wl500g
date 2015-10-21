@@ -76,6 +76,9 @@
 # define UNUSED_PARAM_RESULT
 #endif
 
+/* used by unit test machinery to run registration functions before calling main() */
+#define INIT_FUNC __attribute__ ((constructor))
+
 /* -fwhole-program makes all symbols local. The attribute externally_visible
  * forces a symbol global.  */
 #if __GNUC_PREREQ(4,1)
@@ -214,6 +217,7 @@ typedef uint64_t bb__aliased_uint64_t FIX_ALIASING;
  * a lvalue. This makes it more likely to not swap them by mistake
  */
 #if defined(i386) || defined(__x86_64__) || defined(__powerpc__)
+# define BB_UNALIGNED_MEMACCESS_OK 1
 # define move_from_unaligned_int(v, intp)  ((v) = *(bb__aliased_int*)(intp))
 # define move_from_unaligned_long(v, longp) ((v) = *(bb__aliased_long*)(longp))
 # define move_from_unaligned16(v, u16p) ((v) = *(bb__aliased_uint16_t*)(u16p))
@@ -222,6 +226,7 @@ typedef uint64_t bb__aliased_uint64_t FIX_ALIASING;
 # define move_to_unaligned32(u32p, v)   (*(bb__aliased_uint32_t*)(u32p) = (v))
 /* #elif ... - add your favorite arch today! */
 #else
+# define BB_UNALIGNED_MEMACCESS_OK 0
 /* performs reasonably well (gcc usually inlines memcpy here) */
 # define move_from_unaligned_int(v, intp) (memcpy(&(v), (intp), sizeof(int)))
 # define move_from_unaligned_long(v, longp) (memcpy(&(v), (longp), sizeof(long)))
@@ -363,16 +368,19 @@ typedef unsigned smalluint;
 #define HAVE_DPRINTF 1
 #define HAVE_MEMRCHR 1
 #define HAVE_MKDTEMP 1
+#define HAVE_TTYNAME_R 1
 #define HAVE_PTSNAME_R 1
 #define HAVE_SETBIT 1
 #define HAVE_SIGHANDLER_T 1
 #define HAVE_STPCPY 1
+#define HAVE_MEMPCPY 1
 #define HAVE_STRCASESTR 1
 #define HAVE_STRCHRNUL 1
 #define HAVE_STRSEP 1
 #define HAVE_STRSIGNAL 1
 #define HAVE_STRVERSCMP 1
 #define HAVE_VASPRINTF 1
+#define HAVE_USLEEP 1
 #define HAVE_UNLOCKED_STDIO 1
 #define HAVE_UNLOCKED_LINE_OPS 1
 #define HAVE_GETLINE 1
@@ -381,12 +389,15 @@ typedef unsigned smalluint;
 #define HAVE_NET_ETHERNET_H 1
 #define HAVE_SYS_STATFS_H 1
 
-#if defined(__UCLIBC__) && UCLIBC_VERSION < KERNEL_VERSION(0, 9, 30)
-# undef HAVE_STRVERSCMP
-#endif
-
-#if defined(__dietlibc__)
-# undef HAVE_STRCHRNUL
+#if defined(__UCLIBC__)
+# if UCLIBC_VERSION < KERNEL_VERSION(0, 9, 32)
+#  undef HAVE_STRVERSCMP
+# endif
+# if UCLIBC_VERSION >= KERNEL_VERSION(0, 9, 30)
+#  ifndef __UCLIBC_SUSV3_LEGACY__
+#   undef HAVE_USLEEP
+#  endif
+# endif
 #endif
 
 #if defined(__WATCOMC__)
@@ -419,7 +430,7 @@ typedef unsigned smalluint;
 /* These BSD-derived OSes share many similarities */
 #if (defined __digital__ && defined __unix__) \
  || defined __APPLE__ \
- || defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
+ || defined __OpenBSD__ || defined __NetBSD__
 # undef HAVE_CLEARENV
 # undef HAVE_FDATASYNC
 # undef HAVE_GETLINE
@@ -434,8 +445,30 @@ typedef unsigned smalluint;
 # undef HAVE_UNLOCKED_LINE_OPS
 #endif
 
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__dietlibc__)
 # undef HAVE_STRCHRNUL
+#endif
+
+#if defined(__APPLE__)
+# undef HAVE_STRCHRNUL
+#endif
+
+#if defined(__FreeBSD__)
+/* users say mempcpy is not present in FreeBSD 9.x */
+# undef HAVE_MEMPCPY
+# undef HAVE_CLEARENV
+# undef HAVE_FDATASYNC
+# undef HAVE_MNTENT_H
+# undef HAVE_PTSNAME_R
+# undef HAVE_SYS_STATFS_H
+# undef HAVE_SIGHANDLER_T
+# undef HAVE_STRVERSCMP
+# undef HAVE_XTABS
+# undef HAVE_UNLOCKED_LINE_OPS
+# include <osreldate.h>
+# if __FreeBSD_version < 1000029
+#  undef HAVE_STRCHRNUL /* FreeBSD added strchrnul() between 1000028 and 1000029 */
+# endif
 #endif
 
 #if defined(__NetBSD__)
@@ -447,9 +480,17 @@ typedef unsigned smalluint;
 #endif
 
 #if defined(ANDROID) || defined(__ANDROID__)
-# undef HAVE_DPRINTF
-# undef HAVE_GETLINE
-# undef HAVE_STPCPY
+# if __ANDROID_API__ < 8
+#  undef HAVE_DPRINTF
+# else
+#  define dprintf fdprintf
+# endif
+# if __ANDROID_API__ < 21
+#  undef HAVE_TTYNAME_R
+#  undef HAVE_GETLINE
+#  undef HAVE_STPCPY
+# endif
+# undef HAVE_MEMPCPY
 # undef HAVE_STRCHRNUL
 # undef HAVE_STRVERSCMP
 # undef HAVE_UNLOCKED_LINE_OPS
@@ -473,6 +514,11 @@ extern void *memrchr(const void *s, int c, size_t n) FAST_FUNC;
 extern char *mkdtemp(char *template) FAST_FUNC;
 #endif
 
+#ifndef HAVE_TTYNAME_R
+#define ttyname_r bb_ttyname_r
+extern int ttyname_r(int fd, char *buf, size_t buflen);
+#endif
+
 #ifndef HAVE_SETBIT
 # define setbit(a, b)  ((a)[(b) >> 3] |= 1 << ((b) & 7))
 # define clrbit(a, b)  ((a)[(b) >> 3] &= ~(1 << ((b) & 7)))
@@ -484,6 +530,18 @@ typedef void (*sighandler_t)(int);
 
 #ifndef HAVE_STPCPY
 extern char *stpcpy(char *p, const char *to_add) FAST_FUNC;
+#endif
+
+#ifndef HAVE_MEMPCPY
+#include <string.h>
+/* In case we are wrong about !HAVE_MEMPCPY, and toolchain _does_ have
+ * mempcpy(), avoid colliding with it:
+ */
+#define mempcpy bb__mempcpy
+static ALWAYS_INLINE void *mempcpy(void *dest, const void *src, size_t len)
+{
+	return memcpy(dest, src, len) + len;
+}
 #endif
 
 #ifndef HAVE_STRCASESTR
@@ -501,6 +559,10 @@ extern char *strsep(char **stringp, const char *delim) FAST_FUNC;
 #ifndef HAVE_STRSIGNAL
 /* Not exactly the same: instead of "Stopped" it shows "STOP" etc */
 # define strsignal(sig) get_signame(sig)
+#endif
+
+#ifndef HAVE_USLEEP
+extern int usleep(unsigned) FAST_FUNC;
 #endif
 
 #ifndef HAVE_VASPRINTF

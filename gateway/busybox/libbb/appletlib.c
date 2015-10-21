@@ -130,7 +130,7 @@ void FAST_FUNC bb_show_usage(void)
 			full_write2_str(applet_name);
 			full_write2_str(" ");
 			full_write2_str(p);
-			full_write2_str("\n\n");
+			full_write2_str("\n");
 		}
 		if (ENABLE_FEATURE_CLEAN_UP)
 			dealloc_usage_messages((char*)usage_string);
@@ -184,8 +184,7 @@ void lbb_prepare(const char *applet
 #endif
 	applet_name = applet;
 
-	/* Set locale for everybody except 'init' */
-	if (ENABLE_LOCALE_SUPPORT && getpid() != 1)
+	if (ENABLE_LOCALE_SUPPORT)
 		setlocale(LC_ALL, "");
 
 #if ENABLE_FEATURE_INDIVIDUAL
@@ -194,7 +193,7 @@ void lbb_prepare(const char *applet
 	if (argv[1]
 	 && !argv[2]
 	 && strcmp(argv[1], "--help") == 0
-	 && strncmp(applet, "busybox", 7) != 0
+	 && !is_prefixed_with(applet, "busybox")
 	) {
 		/* Special case. POSIX says "test --help"
 		 * should be no different from e.g. "test --foo".  */
@@ -458,7 +457,6 @@ static void parse_config_file(void)
 			errmsg = "keyword outside section";
 			goto pe_label;
 		}
-
 	} /* while (1) */
 
  pe_label:
@@ -606,7 +604,11 @@ static void install_links(const char *busybox, int use_symbolic_links,
 	}
 }
 # else
-#  define install_links(x,y,z) ((void)0)
+static void install_links(const char *busybox UNUSED_PARAM,
+		int use_symbolic_links UNUSED_PARAM,
+		char *custom_install_dir UNUSED_PARAM)
+{
+}
 # endif
 
 /* If we were called as "busybox..." */
@@ -628,7 +630,7 @@ static int busybox_main(char **argv)
 		full_write2_str(bb_banner); /* reuse const string */
 		full_write2_str(" multi-call binary.\n"); /* reuse */
 		full_write2_str(
-			"BusyBox is copyrighted by many authors between 1998-2012.\n"
+			"BusyBox is copyrighted by many authors between 1998-2015.\n"
 			"Licensed under GPLv2. See source distribution for detailed\n"
 			"copyright notices.\n"
 			"\n"
@@ -670,7 +672,7 @@ static int busybox_main(char **argv)
 		return 0;
 	}
 
-	if (strncmp(argv[1], "--list", 6) == 0) {
+	if (is_prefixed_with(argv[1], "--list")) {
 		unsigned i = 0;
 		const char *a = applet_names;
 		dup2(1, 2);
@@ -732,7 +734,8 @@ static int busybox_main(char **argv)
 	/*bb_error_msg_and_die("applet not found"); - sucks in printf */
 	full_write2_str(applet_name);
 	full_write2_str(": applet not found\n");
-	xfunc_die();
+	/* POSIX: "If a command is not found, the exit status shall be 127" */
+	exit(127);
 }
 
 void FAST_FUNC run_applet_no_and_exit(int applet_no, char **argv)
@@ -744,14 +747,26 @@ void FAST_FUNC run_applet_no_and_exit(int applet_no, char **argv)
 
 	/* Reinit some shared global data */
 	xfunc_error_retval = EXIT_FAILURE;
-
 	applet_name = APPLET_NAME(applet_no);
-	if (argc == 2 && strcmp(argv[1], "--help") == 0) {
-		/* Special case. POSIX says "test --help"
-		 * should be no different from e.g. "test --foo".  */
-//TODO: just compare applet_no with APPLET_NO_test
-		if (!ENABLE_TEST || strcmp(applet_name, "test") != 0) {
-			/* If you want "foo --help" to return 0: */
+
+	/* Special case. POSIX says "test --help"
+	 * should be no different from e.g. "test --foo".
+	 * Thus for "test", we skip --help check.
+	 * "true" and "false" are also special.
+	 */
+	if (1
+#if defined APPLET_NO_test
+	 && applet_no != APPLET_NO_test
+#endif
+#if defined APPLET_NO_true
+	 && applet_no != APPLET_NO_true
+#endif
+#if defined APPLET_NO_false
+	 && applet_no != APPLET_NO_false
+#endif
+	) {
+		if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+			/* Make "foo --help" exit with 0: */
 			xfunc_error_retval = 0;
 			bb_show_usage();
 		}
@@ -766,7 +781,7 @@ void FAST_FUNC run_applet_and_exit(const char *name, char **argv)
 	int applet = find_applet_by_name(name);
 	if (applet >= 0)
 		run_applet_no_and_exit(applet, argv);
-	if (strncmp(name, "busybox", 7) == 0)
+	if (is_prefixed_with(name, "busybox"))
 		exit(busybox_main(argv));
 }
 
@@ -805,7 +820,7 @@ int main(int argc UNUSED_PARAM, char **argv)
 
 #if defined(SINGLE_APPLET_MAIN)
 	/* Only one applet is selected in .config */
-	if (argv[1] && strncmp(argv[0], "busybox", 7) == 0) {
+	if (argv[1] && is_prefixed_with(argv[0], "busybox")) {
 		/* "busybox <applet> <params>" should still work as expected */
 		argv++;
 	}
@@ -827,6 +842,7 @@ int main(int argc UNUSED_PARAM, char **argv)
 	/*bb_error_msg_and_die("applet not found"); - sucks in printf */
 	full_write2_str(applet_name);
 	full_write2_str(": applet not found\n");
-	xfunc_die();
+	/* POSIX: "If a command is not found, the exit status shall be 127" */
+	exit(127);
 #endif
 }

@@ -63,6 +63,7 @@ const struct dhcp_optflag dhcp_optflags[] = {
 	{ OPTION_U8                               , 0x85 }, /* DHCP_VLAN_PRIORITY */
 #endif
 	{ OPTION_STRING                           , 0xd1 }, /* DHCP_PXE_CONF_FILE */
+	{ OPTION_STRING                           , 0xd2 }, /* DHCP_PXE_PATH_PREFIX */
 #if ENABLE_FEATURE_UDHCP_RFC5969
 	{ OPTION_6RD                              , 0x96 }, /* DHCP_COMCAST_6RD   */
 	{ OPTION_6RD                              , 0xd4 }, /* DHCP_6RD           */
@@ -133,6 +134,7 @@ const char dhcp_option_strings[] ALIGN1 =
 	"vlanpriority" "\0"/* DHCP_VLAN_PRIORITY  */
 #endif
 	"pxeconffile" "\0" /* DHCP_PXE_CONF_FILE  */
+	"pxepathprefix" "\0" /* DHCP_PXE_PATH_PREFIX  */
 #if ENABLE_FEATURE_UDHCP_RFC5969
 	"ip6rd" "\0"       /* DHCP_COMCAST_6RD    */
 	"ip6rd" "\0"       /* DHCP_6RD            */

@@ -152,6 +152,7 @@ enum {
 //#define DHCP_VLAN_ID          0x84 /* 802.1P VLAN ID */
 //#define DHCP_VLAN_PRIORITY    0x85 /* 802.1Q VLAN priority */
 //#define DHCP_PXE_CONF_FILE    0xd1 /* RFC 5071 Configuration File */
+//#define DHCP_PXE_PATH_PREFIX  0xd2 /* RFC 5071 Configuration File */
 //#define DHCP_MS_STATIC_ROUTES 0xf9 /* Microsoft's pre-RFC 3442 code for 0x79? */
 //#define DHCP_6RD              0xd4 /* RFC 5969 6RD option */
 //#define DHCP_COMCAST_6RD      0x96 /* Comcast ISP RFC 5969 compatible 6RD option */
@@ -314,7 +315,8 @@ int arpping(uint32_t test_nip,
 		const uint8_t *safe_mac,
 		uint32_t from_ip,
 		uint8_t *from_mac,
-		const char *interface) FAST_FUNC;
+		const char *interface,
+		unsigned timeo) FAST_FUNC;
 
 /* note: ip is a pointer to an IPv6 in network order, possibly misaliged */
 int sprint_nip6(char *dest, /*const char *pre,*/ const uint8_t *ip) FAST_FUNC;

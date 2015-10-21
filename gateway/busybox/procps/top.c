@@ -550,7 +550,6 @@ static void parse_meminfo(unsigned long meminfo[MI_MAX])
 	fclose(f);
 }
 
-
 static unsigned long display_header(int scr_width, int *lines_rem_p)
 {
 	char scrbuf[100]; /* [80] was a bit too low on 8Gb ram box */
@@ -893,16 +892,11 @@ enum {
 #if ENABLE_FEATURE_USE_TERMIOS
 static unsigned handle_input(unsigned scan_mask, unsigned interval)
 {
-	struct pollfd pfd[1];
-
 	if (option_mask32 & OPT_EOF) {
 		/* EOF on stdin ("top </dev/null") */
 		sleep(interval);
 		return scan_mask;
 	}
-
-	pfd[0].fd = 0;
-	pfd[0].events = POLLIN;
 
 	while (1) {
 		int32_t c;

@@ -374,7 +374,7 @@ static void print_it(const char *masterformat,
 {
 	/* Create a working copy of the format string */
 	char *format = xstrdup(masterformat);
-	/* Add 2 to accomodate our conversion of the stat '%s' format string
+	/* Add 2 to accommodate our conversion of the stat '%s' format string
 	 * to the printf '%llu' one.  */
 	char *dest = xmalloc(strlen(format) + 2 + 1);
 	char *b;
@@ -655,7 +655,7 @@ static bool do_stat(const char *filename, const char *format)
 		);
 # if ENABLE_SELINUX
 		if (option_mask32 & OPT_SELINUX)
-			printf(" %lc\n", *scontext);
+			printf(" %s\n", scontext);
 		else
 			bb_putchar('\n');
 # endif
@@ -700,7 +700,8 @@ static bool do_stat(const char *filename, const char *format)
 		       (unsigned long) statbuf.st_gid,
 		       (gw_ent != NULL) ? gw_ent->gr_name : "UNKNOWN");
 # if ENABLE_SELINUX
-		printf("   S_Context: %lc\n", *scontext);
+		if (option_mask32 & OPT_SELINUX)
+			printf("   S_Context: %s\n", scontext);
 # endif
 		printf("Access: %s\n", human_time(statbuf.st_atime));
 		printf("Modify: %s\n", human_time(statbuf.st_mtime));

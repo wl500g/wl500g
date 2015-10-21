@@ -55,14 +55,12 @@ int sock6_init(const char *boundaddr, const char *port)
 	if (sock < 0) {
 		bb_perror_msg_and_die("socket");
 	}
-	if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &const_int_1,
-			sizeof(const_int_1)) < 0) {
+	if (setsockopt_SOL_SOCKET_1(sock, SO_REUSEPORT) < 0) {
 		bb_perror_msg_and_die("setsockopt(SO_REUSEPORT)");
 	}
 	socket_want_pktinfo(sock);
 #ifdef IPV6_V6ONLY
-	if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, &const_int_1,
-			sizeof(const_int_1)) < 0) {
+	if (setsockopt_1(sock, IPPROTO_IPV6, IPV6_V6ONLY) < 0) {
 		bb_perror_msg_and_die("setsockopt(IPV6_V6ONLY)");
 	}
 #endif

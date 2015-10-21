@@ -118,7 +118,7 @@ static void *d6_copy_option(uint8_t *option, uint8_t *option_end, unsigned code)
 	uint8_t *opt = d6_find_option(option, option_end, code);
 	if (!opt)
 		return opt;
-	return memcpy(xmalloc(opt[3] + 4), opt, opt[3] + 4);
+	return xmemdup(opt, opt[3] + 4);
 }
 
 static void *d6_store_blob(void *dst, const void *src, unsigned len)
@@ -711,7 +711,7 @@ static int d6_raw_socket(int ifindex)
 		/* jump to L3 if udp dport is CLIENT_PORT6, else to L4 */
 		BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, 68, 0, 1),
 		/* L3: accept packet */
-		BPF_STMT(BPF_RET|BPF_K, 0xffffffff),
+		BPF_STMT(BPF_RET|BPF_K, 0x7fffffff),
 		/* L4: discard packet */
 		BPF_STMT(BPF_RET|BPF_K, 0),
 	};

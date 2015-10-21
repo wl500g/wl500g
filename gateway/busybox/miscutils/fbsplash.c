@@ -353,7 +353,7 @@ static void fb_drawimage(void)
 	if (LONE_DASH(G.image_filename)) {
 		theme_file = stdin;
 	} else {
-		int fd = open_zipped(G.image_filename);
+		int fd = open_zipped(G.image_filename, /*fail_if_not_compressed:*/ 0);
 		if (fd < 0)
 			bb_simple_perror_msg_and_die(G.image_filename);
 		theme_file = xfdopen_for_read(fd);
@@ -516,7 +516,7 @@ int fbsplash_main(int argc UNUSED_PARAM, char **argv)
 	// handle a case when we have many buffered lines
 	// already in the pipe
 	while ((num_buf = xmalloc_fgetline(fp)) != NULL) {
-		if (strncmp(num_buf, "exit", 4) == 0) {
+		if (is_prefixed_with(num_buf, "exit")) {
 			DEBUG_MESSAGE("exit");
 			break;
 		}

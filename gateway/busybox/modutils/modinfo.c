@@ -34,14 +34,14 @@ struct modinfo_env {
 	int tags;
 };
 
-static int display(const char *data, const char *pattern, int flag)
+static void display(const char *data, const char *pattern, int flag)
 {
 	if (flag) {
 		int n = printf("%s:", pattern);
 		while (n++ < 16)
 			bb_putchar(' ');
 	}
-	return printf("%s%c", data, (option_mask32 & OPT_0) ? '\0' : '\n');
+	printf("%s%c", data, (option_mask32 & OPT_0) ? '\0' : '\n');
 }
 
 static void modinfo(const char *path, const char *version,
@@ -62,7 +62,7 @@ static void modinfo(const char *path, const char *version,
 		"firmware",
 	};
 	size_t len;
-	int j, length;
+	int j;
 	char *ptr, *the_module;
 	const char *field = env->field;
 	int tags = env->tags;
@@ -94,17 +94,20 @@ static void modinfo(const char *path, const char *version,
 		pattern = field;
 		if ((1<<j) & OPT_TAGS)
 			pattern = shortcuts[j];
-		length = strlen(pattern);
 		ptr = the_module;
 		while (1) {
+			char *after_pattern;
+
 			ptr = memchr(ptr, *pattern, len - (ptr - (char*)the_module));
 			if (ptr == NULL) /* no occurance left, done */
 				break;
-			if (strncmp(ptr, pattern, length) == 0 && ptr[length] == '=') {
+			after_pattern = is_prefixed_with(ptr, pattern);
+			if (after_pattern && *after_pattern == '=') {
 				/* field prefixes are 0x80 or 0x00 */
-				if ((ptr[-1] & 0x7F) == '\0') {
-					ptr += length + 1;
-					ptr += display(ptr, pattern, (1<<j) != tags);
+				if ((ptr[-1] & 0x7F) == 0x00) {
+					ptr = after_pattern + 1;
+					display(ptr, pattern, (1<<j) != tags);
+					ptr += strlen(ptr);
 				}
 			}
 			++ptr;
@@ -153,7 +156,7 @@ int modinfo_main(int argc UNUSED_PARAM, char **argv)
 		if (colon == NULL)
 			continue;
 		*colon = '\0';
-		filename2modname(tokens[0], name);
+		filename2modname(bb_basename(tokens[0]), name);
 		for (i = 0; argv[i]; i++) {
 			if (fnmatch(argv[i], name, 0) == 0) {
 				modinfo(tokens[0], uts.release, &env);

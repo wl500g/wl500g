@@ -712,7 +712,7 @@ bpalogin-install:
 	$(STRIP) $(INSTALLDIR)/bpalogin/usr/sbin/bpalogin
 
 busybox/.config: .config
-	cp -fp busybox/sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) $@
+	cp -fp busybox/configs/$(CONFIG_BUSYBOX_CONFIG) $@
 	$(call SwitchConfParam,$@,CONFIG_FEATURE_IPV6 CONFIG_PING6 CONFIG_TRACEROUTE6,$(if $(CONFIG_IPV6),y,n))
 	$(call SwitchConfParam,$@,CONFIG_DHCP6C,$(if $(CONFIG_ODHCP6C),n,y))
 	$(call SwitchConfParam,$@,CONFIG_SENDMAIL,$(if $(CONFIG_SENDMAIL),y,n))

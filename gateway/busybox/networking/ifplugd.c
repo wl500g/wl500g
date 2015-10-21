@@ -38,7 +38,17 @@
 #include <linux/mii.h>
 #include <linux/ethtool.h>
 #ifdef HAVE_NET_ETHERNET_H
-# include <net/ethernet.h>
+/* musl breakage:
+ * In file included from /usr/include/net/ethernet.h:10,
+ *                  from networking/ifplugd.c:41:
+ * /usr/include/netinet/if_ether.h:96: error: redefinition of 'struct ethhdr'
+ *
+ * Build succeeds without it on musl. Commented it out.
+ * If on your system you need it, consider removing <linux/ethtool.h>
+ * and copy-pasting its definitions here (<linux/ethtool.h> is what pulls in
+ * conflicting definition of struct ethhdr on musl).
+ */
+/* # include <net/ethernet.h> */
 #endif
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
@@ -47,6 +57,10 @@
 
 #define __user
 #include <linux/wireless.h>
+
+#ifndef ETH_ALEN
+# define ETH_ALEN  6
+#endif
 
 /*
 From initial port to busybox, removed most of the redundancy by
@@ -288,8 +302,6 @@ static const struct {
 	{ "wireless extension", &detect_link_wlan    },
 	{ "IFF_RUNNING"       , &detect_link_iff     },
 };
-
-
 
 static const char *strstatus(int status)
 {
@@ -652,7 +664,6 @@ int ifplugd_main(int argc UNUSED_PARAM, char **argv)
 	delay_time = 0;
 	while (1) {
 		int iface_status_old;
-		int iface_exists_old;
 
 		switch (bb_got_signal) {
 		case SIGINT:
@@ -678,12 +689,12 @@ int ifplugd_main(int argc UNUSED_PARAM, char **argv)
 			goto exiting;
 		}
 
-		iface_status_old = iface_status;
-		iface_exists_old = G.iface_exists;
-
 		if ((opts & FLAG_MONITOR)
 		 && (netlink_pollfd[0].revents & POLLIN)
 		) {
+			int iface_exists_old;
+
+			iface_exists_old = G.iface_exists;
 			G.iface_exists = check_existence_through_netlink();
 			if (G.iface_exists < 0) /* error */
 				goto exiting;
@@ -696,6 +707,7 @@ int ifplugd_main(int argc UNUSED_PARAM, char **argv)
 		}
 
 		/* note: if !G.iface_exists, returns DOWN */
+		iface_status_old = iface_status;
 		iface_status = detect_link();
 		if (iface_status == IFSTATUS_ERR) {
 			if (!(opts & FLAG_MONITOR))
@@ -709,7 +721,7 @@ int ifplugd_main(int argc UNUSED_PARAM, char **argv)
 
 			if (delay_time) {
 				/* link restored its old status before
-				 * we run script. don't run the script: */
+				 * we ran script. don't run the script: */
 				delay_time = 0;
 			} else {
 				delay_time = monotonic_sec();
@@ -717,15 +729,19 @@ int ifplugd_main(int argc UNUSED_PARAM, char **argv)
 					delay_time += G.delay_up;
 				if (iface_status == IFSTATUS_DOWN)
 					delay_time += G.delay_down;
-				if (delay_time == 0)
-					delay_time++;
+#if 0  /* if you are back in 1970... */
+				if (delay_time == 0) {
+					sleep(1);
+					delay_time = 1;
+				}
+#endif
 			}
 		}
 
 		if (delay_time && (int)(monotonic_sec() - delay_time) >= 0) {
-			delay_time = 0;
 			if (run_script(iface_status_str) != 0)
 				goto exiting;
+			delay_time = 0;
 		}
 	} /* while (1) */
 
