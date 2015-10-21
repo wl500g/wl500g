@@ -31,6 +31,7 @@
 //usage:     "\n	-q		Quit after obtaining address"
 //usage:     "\n	-r 169.254.x.x	Request this address first"
 //usage:     "\n	-l x.x.0.0	Use this range instead of 169.254"
+//usage:     "\n	-p FILE		Create pidfile"
 //usage:     "\n	-v		Verbose"
 //usage:     "\n"
 //usage:     "\n$LOGGING=none		Suppress logging"
@@ -38,6 +39,9 @@
 //usage:     "\n"
 //usage:     "\nWith no -q, runs continuously monitoring for ARP conflicts,"
 //usage:     "\nexits only on I/O errors (link down etc)"
+
+/* Override ENABLE_FEATURE_PIDFILE */
+#define WANT_PIDFILE 1
 
 #include "libbb.h"
 #include <netinet/ether.h>
@@ -89,6 +93,7 @@ struct globals {
 	struct sockaddr iface_sockaddr;
 	struct ether_addr our_ethaddr;
 	uint32_t localnet_ip;
+	char *pidfile;
 	int verbose;
 } FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
@@ -114,6 +119,15 @@ static const char *nip_to_a(uint32_t nip)
 	struct in_addr in;
 	in.s_addr = nip;
 	return inet_ntoa(in);
+}
+
+static void cleanup(int code) NORETURN;
+static void cleanup(int code)
+{
+	remove_pidfile(G.pidfile);
+	if (code > EXIT_FAILURE)
+		kill_myself_with_sig(code);
+	exit(code);
 }
 
 /**
@@ -154,7 +168,10 @@ static void send_arp_request(
 	// Thus we sendto() to G.iface_sockaddr. I wonder which sockaddr
 	// (from bind() or from sendto()?) kernel actually uses
 	// to determine iface to emit the packet from...
-	xsendto(sock_fd, &p, sizeof(p), &G.iface_sockaddr, sizeof(G.iface_sockaddr));
+	if (sendto(sock_fd, &p, sizeof(p), 0, &G.iface_sockaddr, sizeof(G.iface_sockaddr)) < 0) {
+		bb_perror_msg("sendto");
+		cleanup(EXIT_FAILURE);
+	}
 #undef source_eth
 }
 
@@ -232,7 +249,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 	// Parse commandline: prog [options] ifname script
 	// exactly 2 args; -v accumulates and implies -f
 	opt_complementary = "=2:vv:vf";
-	opts = getopt32(argv, "fqr:l:v", &r_opt, &l_opt, &G.verbose);
+	opts = getopt32(argv, "fqr:l:p:v", &r_opt, &l_opt, &G.pidfile, &G.verbose);
 #if !BB_MMU
 	// on NOMMU reexec early (or else we will rerun things twice)
 	if (!FOREGROUND)
@@ -321,6 +338,9 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 			bb_info_msg("start, interface %s", argv_intf);
 	}
 
+	write_pidfile(G.pidfile);
+	bb_signals(BB_FATAL_SIGS, cleanup);
+
 	// Run the dynamic address negotiation protocol,
 	// restarting after address conflicts:
 	//  - start with some address we want to try
@@ -371,7 +391,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 		n = safe_poll(fds, 1, timeout_ms);
 		if (n < 0) {
 			//bb_perror_msg("poll"); - done in safe_poll
-			return EXIT_FAILURE;
+			cleanup(EXIT_FAILURE);
 		}
 		if (n == 0) { // timed out?
 			VDBG("state:%d\n", state);
@@ -409,7 +429,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 				run(argv, "config", chosen_nip);
 				// NOTE: all other exit paths should deconfig...
 				if (QUIT)
-					return EXIT_SUCCESS;
+					cleanup(EXIT_SUCCESS);
 				// fall through: switch to MONITOR
 			default:
 			// case DEFEND:
@@ -443,14 +463,15 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 					// Only if we are in MONITOR or DEFEND
 					run(argv, "deconfig", chosen_nip);
 				}
-				return EXIT_FAILURE;
+				cleanup(EXIT_FAILURE);
 			}
 			continue;
 		}
 
 		// Read ARP packet
 		if (safe_read(sock_fd, &p, sizeof(p)) < 0) {
-			bb_perror_msg_and_die(bb_msg_read_error);
+			bb_perror_msg(bb_msg_read_error);
+			cleanup(EXIT_FAILURE);
 		}
 
 		if (p.eth.ether_type != htons(ETHERTYPE_ARP))
