@@ -261,8 +261,7 @@ void dhcp6_vbuf_copy(struct dhcp6_vbuf *dst, struct dhcp6_vbuf *src)
 	if (dst->dv_len == 0)
 		return;
 
-	dst->dv_buf = xmalloc(dst->dv_len);
-	memcpy(dst->dv_buf, src->dv_buf, dst->dv_len);
+	dst->dv_buf = xmemdup(src->dv_buf, dst->dv_len);
 }
 
 void dhcp6_vbuf_free(struct dhcp6_vbuf *vbuf)
@@ -909,9 +908,8 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 			break;
 
 		case D6_OPT_RELAY_MSG:
-			optinfo->relaymsg_msg = xmalloc(optlen);
+			optinfo->relaymsg_msg = xmemdup(cp, optlen);
 			optinfo->relaymsg_len = optlen;
-			memcpy(optinfo->relaymsg_msg, cp, optlen);
 			break;
 
 #if ENABLE_FEATURE_DHCP6_AUTH
@@ -987,9 +985,8 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 			break;
 
 		case D6_OPT_INTERFACE_ID:
-			optinfo->ifidopt_id = xmalloc(optlen);
+			optinfo->ifidopt_id = xmemdup(cp, optlen);
 			optinfo->ifidopt_len = optlen;
-			memcpy(optinfo->ifidopt_id, cp, optlen);
 			break;
 
 		case D6_OPT_SIP_SERVER_D:

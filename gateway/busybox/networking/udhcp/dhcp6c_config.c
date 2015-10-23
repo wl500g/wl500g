@@ -529,9 +529,7 @@ static char* FAST_FUNC qstrdup(char *qstr)
 	if (qstr[0] != '"' || len < 2 || qstr[len - 1] != '"')
 		return NULL;
 
-	dst = xmalloc(len);
-
-	memcpy(dst, qstr + 1, len - 1);
+	dst = xmemdup(qstr + 1, len - 1);
 	dst[len - 2] = '\0';
 
 	return dst;
