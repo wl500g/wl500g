@@ -346,7 +346,7 @@
 #define __NR_timerfd_settime		(__NR_Linux + 323)
 /* #define __NR_signalfd4			(__NR_Linux + 324) */
 #define __NR_eventfd2				(__NR_Linux + 325)
-/* #define __NR_epoll_create1		(__NR_Linux + 326) */
+#define __NR_epoll_create1		(__NR_Linux + 326)
 /* #define __NR_dup3			(__NR_Linux + 327) */
 /* #define __NR_pipe2			(__NR_Linux + 328) */
 #define __NR_inotify_init1		(__NR_Linux + 329)
@@ -657,7 +657,7 @@
 #define __NR_timerfd_settime		(__NR_Linux + 282)
 /* #define __NR_signalfd4			(__NR_Linux + 283) */
 #define __NR_eventfd2				(__NR_Linux + 284)
-/* #define __NR_epoll_create1		(__NR_Linux + 285) */
+#define __NR_epoll_create1		(__NR_Linux + 285)
 /* #define __NR_dup3			(__NR_Linux + 286) */
 /* #define __NR_pipe2			(__NR_Linux + 287) */
 #define __NR_inotify_init1		(__NR_Linux + 288)
@@ -971,8 +971,8 @@
 #define __NR_timerfd_gettime		(__NR_Linux + 285)
 #define __NR_timerfd_settime		(__NR_Linux + 286)
 /* #define __NR_signalfd4		(__NR_Linux + 287) */
-/* #define __NR_eventfd2		(__NR_Linux + 288) */
-/* #define __NR_epoll_create1		(__NR_Linux + 289) */
+#define __NR_eventfd2			(__NR_Linux + 288)
+#define __NR_epoll_create1		(__NR_Linux + 289)
 /* #define __NR_dup3			(__NR_Linux + 290) */
 /* #define __NR_pipe2			(__NR_Linux + 291) */
 #define __NR_inotify_init1		(__NR_Linux + 292)

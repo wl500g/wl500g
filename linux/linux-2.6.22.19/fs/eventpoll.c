@@ -1170,22 +1170,19 @@ check_events:
 }
 
 /*
- * It opens an eventpoll file descriptor. The "size" parameter is there
- * for historical reasons, when epoll was using an hash instead of an
- * RB tree. With the current implementation, the "size" parameter is ignored
- * (besides sanity checks).
+ * Open an eventpoll file descriptor.
  */
-asmlinkage long sys_epoll_create(int size)
+asmlinkage long sys_epoll_create1(int flags)
 {
 	int error;
 	struct eventpoll *ep = NULL;
 
-	/*
-	 * Sanity check on the size parameter, and create the internal data
-	 * structure ( "struct eventpoll" ).
-	 */
-	if (size <= 0)
+	if (flags & ~EPOLL_CLOEXEC)
 		return -EINVAL;
+
+	/*
+	 * Create the internal data structure ( "struct eventpoll" ).
+	 */
 	error = ep_alloc(&ep);
 	if (error < 0)
 		return error;
@@ -1194,11 +1191,20 @@ asmlinkage long sys_epoll_create(int size)
 	 * Creates all the items needed to setup an eventpoll file. That is,
 	 * a file structure and a free file descriptor.
 	 */
-	error = anon_inode_getfd("[eventpoll]", &eventpoll_fops, ep, 0);
+	error = anon_inode_getfd("[eventpoll]", &eventpoll_fops, ep,
+			      flags & O_CLOEXEC);
 	if (error < 0)
 		ep_free(ep);
 
 	return error;
+}
+
+asmlinkage long sys_epoll_create(int size)
+{
+	if (size <= 0)
+		return -EINVAL;
+
+	return sys_epoll_create1(0);
 }
 
 /*

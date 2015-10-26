@@ -484,7 +484,7 @@ sys_call_table:
 	PTR	sys_timerfd_settime
 	PTR	sys_ni_syscall		4	/* sys_signalfd4 */
 	PTR	sys_eventfd2		2
-	PTR	sys_ni_syscall	1	/* 5285, sys_epoll_create1 */
+	PTR	sys_epoll_create1	1	/* 5285 */
 	PTR	sys_ni_syscall		3	/* sys_dup3 */
 	PTR	sys_ni_syscall		2	/* sys_pipe2 */
 	PTR	sys_inotify_init1	1

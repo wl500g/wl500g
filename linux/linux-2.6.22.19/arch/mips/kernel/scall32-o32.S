@@ -675,7 +675,7 @@ einval:	li	v0, -ENOSYS
 	sys	sys_timerfd_settime	4
 	sys	sys_ni_syscall		4	/* sys_signalfd4 */
 	sys	sys_eventfd2		2	/* 4325 */
-	sys	sys_ni_syscall	1	/* sys_epoll_create1 */
+	sys	sys_epoll_create1	1
 	sys	sys_ni_syscall		3	/* sys_dup3 */
 	sys	sys_ni_syscall		2	/* sys_pipe2 */
 	sys	sys_inotify_init1	1
