@@ -256,7 +256,7 @@ create_elf_tables(struct linux_binprm *bprm, struct elfhdr *exec,
 			return -EFAULT;
 		len = strnlen_user((void __user *)p, PAGE_SIZE*MAX_ARG_PAGES);
 		if (!len || len > PAGE_SIZE*MAX_ARG_PAGES)
-			return 0;
+			return -EINVAL;
 		p += len;
 	}
 	if (__put_user(0, argv))
@@ -268,7 +268,7 @@ create_elf_tables(struct linux_binprm *bprm, struct elfhdr *exec,
 			return -EFAULT;
 		len = strnlen_user((void __user *)p, PAGE_SIZE*MAX_ARG_PAGES);
 		if (!len || len > PAGE_SIZE*MAX_ARG_PAGES)
-			return 0;
+			return -EINVAL;
 		p += len;
 	}
 	if (__put_user(0, envp))
@@ -680,17 +680,17 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 			if (file_permission(interpreter, MAY_READ) < 0)
 				bprm->interp_flags |= BINPRM_FLAGS_ENFORCE_NONDUMP;
 
-			retval = kernel_read(interpreter, 0, bprm->buf,
-					     BINPRM_BUF_SIZE);
-			if (retval != BINPRM_BUF_SIZE) {
+			/* Get the exec headers */
+			retval = kernel_read(interpreter, 0,
+					     (void *)&loc->interp_elf_ex,
+					     sizeof(loc->interp_elf_ex));
+			if (retval != sizeof(loc->interp_elf_ex)) {
 				if (retval >= 0)
 					retval = -EIO;
 				goto out_free_dentry;
 			}
 
-			/* Get the exec headers */
-			loc->interp_ex = *((struct exec *)bprm->buf);
-			loc->interp_elf_ex = *((struct elfhdr *)bprm->buf);
+			loc->interp_ex = *((struct exec *)&loc->interp_elf_ex);
 			break;
 		}
 		elf_ppnt++;
