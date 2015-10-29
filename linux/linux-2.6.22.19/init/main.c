@@ -649,7 +649,7 @@ asmlinkage void __init start_kernel(void)
 	rest_init();
 }
 
-static int __initdata initcall_debug;
+static int initcall_debug;
 
 static int __init initcall_debug_setup(char *str)
 {
@@ -665,19 +665,19 @@ static int do_one_initcall_debug(initcall_t fn)
 	ktime_t t0, t1, delta;
 	int ret;
 
-	print_fn_descriptor_symbol("calling  %s\n", fn);
+	printk("calling  %pF\n", fn);
 	t0 = ktime_get();
 	ret = fn();
 	t1 = ktime_get();
 	delta = ktime_sub(t1, t0);
-	print_fn_descriptor_symbol("initcall %s", fn);
-	printk(" returned %d after %Ld msecs\n", ret,
-		(unsigned long long) delta.tv64 >> 20);
+	printk("initcall %pF returned %d after %Ld msecs\n",
+		fn, ret,
+		(unsigned long long) ktime_to_ns(delta) >> 20);
 
 	return ret;
 }
 
-static void __init do_one_initcall(initcall_t fn)
+int do_one_initcall(initcall_t fn)
 {
 	int count = preempt_count();
 	int result;
@@ -701,9 +701,10 @@ static void __init do_one_initcall(initcall_t fn)
 		local_irq_enable();
 	}
 	if (msgbuf[0]) {
-		print_fn_descriptor_symbol(KERN_WARNING "initcall %s", fn);
-		printk(" returned with %s\n", msgbuf);
+		printk("initcall %pF returned with %s\n", fn, msgbuf);
 	}
+
+	return result;
 }
 
 
