@@ -66,6 +66,12 @@ core
 /busybox.links
 /runtest-tempdir-links
 /testsuite/echo-ne
+/shell/ash_test/ash
+/shell/ash_test/printenv
+/shell/ash_test/recho
+/shell/ash_test/zecho
+/shell/ash_test/*/*.xx
+/shell/ash_test/*.tests.fail
 
 #
 # cscope output
