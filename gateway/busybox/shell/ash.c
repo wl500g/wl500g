@@ -5409,7 +5409,7 @@ popredir(int drop, int restore)
 	struct redirtab *rp;
 	int i;
 
-	if (--g_nullredirs >= 0)
+	if (--g_nullredirs >= 0 || redirlist == NULL)
 		return;
 	INT_OFF;
 	rp = redirlist;
@@ -7812,14 +7812,15 @@ findkwd(const char *s)
  * Locate and print what a word is...
  */
 static int
-describe_command(char *command, int describe_command_verbose)
+describe_command(char *command, const char *path, int describe_command_verbose)
 {
 	struct cmdentry entry;
 	struct tblentry *cmdp;
 #if ENABLE_ASH_ALIAS
 	const struct alias *ap;
 #endif
-	const char *path = pathval();
+
+	path = path ? path : pathval();
 
 	if (describe_command_verbose) {
 		out1str(command);
@@ -7919,7 +7920,7 @@ typecmd(int argc UNUSED_PARAM, char **argv)
 		verbose = 0;
 	}
 	while (argv[i]) {
-		err |= describe_command(argv[i++], verbose);
+		err |= describe_command(argv[i++], NULL, verbose);
 	}
 	return err;
 }
@@ -7933,6 +7934,7 @@ commandcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 		VERIFY_BRIEF = 1,
 		VERIFY_VERBOSE = 2,
 	} verify = 0;
+	const char *path = NULL;
 
 	while ((c = nextopt("pvV")) != '\0')
 		if (c == 'V')
@@ -7943,9 +7945,11 @@ commandcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 		else if (c != 'p')
 			abort();
 #endif
+		else
+			path = bb_default_path;
 	/* Mimic bash: just "command -v" doesn't complain, it's a nop */
 	if (verify && (*argptr != NULL)) {
-		return describe_command(*argptr, verify - VERIFY_BRIEF);
+		return describe_command(*argptr, path, verify - VERIFY_BRIEF);
 	}
 
 	return 0;
@@ -8878,14 +8882,15 @@ parse_command_args(char **argv, const char **path)
 	for (;;) {
 		cp = *++argv;
 		if (!cp)
-			return 0;
+			return NULL;
 		if (*cp++ != '-')
 			break;
 		c = *cp++;
 		if (!c)
 			break;
 		if (c == '-' && !*cp) {
-			argv++;
+			if (!*++argv)
+				return NULL;
 			break;
 		}
 		do {
@@ -8895,7 +8900,7 @@ parse_command_args(char **argv, const char **path)
 				break;
 			default:
 				/* run 'typecmd' for other options */
-				return 0;
+				return NULL;
 			}
 			c = *cp++;
 		} while (c);
@@ -9424,7 +9429,7 @@ evalcommand(union node *cmd, int flags)
 		if (evalbltin(cmdentry.u.cmd, argc, argv)) {
 			int exit_status;
 			int i = exception_type;
-			if (i == EXEXIT)
+			if (i == EXEXIT || i == EXEXEC)
 				goto raise;
 			exit_status = 2;
 			if (i == EXINT)
@@ -10516,7 +10521,7 @@ static union node *andor(void);
 static union node *pipeline(void);
 static union node *parse_command(void);
 static void parseheredoc(void);
-static char nexttoken_ends_list(void);
+static int peektoken(void);
 static int readtoken(void);
 
 static union node *
@@ -10525,11 +10530,27 @@ list(int nlflag)
 	union node *n1, *n2, *n3;
 	int tok;
 
-	checkkwd = CHKNL | CHKKWD | CHKALIAS;
-	if (nlflag == 2 && nexttoken_ends_list())
-		return NULL;
 	n1 = NULL;
 	for (;;) {
+		switch (peektoken()) {
+		case TNL:
+			if (!(nlflag & 1))
+				break;
+			parseheredoc();
+			return n1;
+
+		case TEOF:
+			if (!n1 && (nlflag & 1))
+				n1 = NODE_EOF;
+			parseheredoc();
+			return n1;
+		}
+
+		checkkwd = CHKNL | CHKKWD | CHKALIAS;
+		if (nlflag == 2 && tokname_array[peektoken()][0])
+			return n1;
+		nlflag |= 2;
+
 		n2 = andor();
 		tok = readtoken();
 		if (tok == TBACKGND) {
@@ -10555,37 +10576,15 @@ list(int nlflag)
 			n1 = n3;
 		}
 		switch (tok) {
+		case TNL:
+		case TEOF:
+			tokpushback = 1;
+			/* fall through */
 		case TBACKGND:
 		case TSEMI:
-			tok = readtoken();
-			/* fall through */
-		case TNL:
-			if (tok == TNL) {
-				parseheredoc();
-				if (nlflag == 1)
-					return n1;
-			} else {
-				tokpushback = 1;
-			}
-			checkkwd = CHKNL | CHKKWD | CHKALIAS;
-			if (nexttoken_ends_list()) {
-				/* Testcase: "<<EOF; then <W".
-				 * It used to segfault w/o this check:
-				 */
-				if (heredoclist) {
-					raise_error_unexpected_syntax(-1);
-				}
-				return n1;
-			}
 			break;
-		case TEOF:
-			if (heredoclist)
-				parseheredoc();
-			else
-				pungetc();              /* push back EOF on input */
-			return n1;
 		default:
-			if (nlflag == 1)
+			if ((nlflag & 1))
 				raise_error_unexpected_syntax(-1);
 			tokpushback = 1;
 			return n1;
@@ -10959,10 +10958,8 @@ parse_command(void)
 		/*n2->narg.next = NULL; - stzalloc did it */
 		n2->narg.text = wordtext;
 		n2->narg.backquote = backquotelist;
-		do {
-			checkkwd = CHKKWD | CHKALIAS;
-		} while (readtoken() == TNL);
-		if (lasttoken != TIN)
+		checkkwd = CHKNL | CHKKWD | CHKALIAS;
+		if (readtoken() != TIN)
 			raise_error_unexpected_syntax(TIN);
 		cpp = &n1->ncase.cases;
  next_case:
@@ -11893,6 +11890,7 @@ static int
 readtoken(void)
 {
 	int t;
+	int kwd = checkkwd;
 #if DEBUG
 	smallint alreadyseen = tokpushback;
 #endif
@@ -11906,7 +11904,7 @@ readtoken(void)
 	/*
 	 * eat newlines
 	 */
-	if (checkkwd & CHKNL) {
+	if (kwd & CHKNL) {
 		while (t == TNL) {
 			parseheredoc();
 			t = xxreadtoken();
@@ -11920,7 +11918,7 @@ readtoken(void)
 	/*
 	 * check for keywords
 	 */
-	if (checkkwd & CHKKWD) {
+	if (kwd & CHKKWD) {
 		const char *const *pp;
 
 		pp = findkwd(wordtext);
@@ -11954,14 +11952,14 @@ readtoken(void)
 	return t;
 }
 
-static char
-nexttoken_ends_list(void)
+static int
+peektoken(void)
 {
 	int t;
 
 	t = readtoken();
 	tokpushback = 1;
-	return tokname_array[t][0];
+	return t;
 }
 
 /*
@@ -11971,18 +11969,12 @@ nexttoken_ends_list(void)
 static union node *
 parsecmd(int interact)
 {
-	int t;
-
 	tokpushback = 0;
+	checkkwd = 0;
+	heredoclist = 0;
 	doprompt = interact;
 	setprompt_if(doprompt, doprompt);
 	needprompt = 0;
-	t = readtoken();
-	if (t == TEOF)
-		return NODE_EOF;
-	if (t == TNL)
-		return NULL;
-	tokpushback = 1;
 	return list(1);
 }
 
