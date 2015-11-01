@@ -2,13 +2,28 @@
 
 TOPDIR=$PWD
 
+CC=$CROSS-gcc
+
+# Self-test requires following features enabled:
+# CONFIG_ASH_BUILTIN_ECHO=y
+# CONFIG_ASH_BUILTIN_PRINTF=y
+# CONFIG_ASH_BUILTIN_TEST=y
+# CONFIG_ASH_CMDCMD=y
+# CONFIG_DIFF=y
+# CONFIG_GREP=y
+# CONFIG_HEAD=y
+# CONFIG_HEXDUMP=y
+# CONFIG_KILL=y
+# CONFIG_SLEEP=y
+# CONFIG_FEATURE_FLOAT_SLEEP=y
+
 test -x ash || {
     echo "No ./ash - creating a link to ../../busybox"
     ln -s ../../busybox ash
 }
-test -x printenv || gcc -O2 -o printenv printenv.c || exit $?
-test -x recho    || gcc -O2 -o recho    recho.c    || exit $?
-test -x zecho    || gcc -O2 -o zecho    zecho.c    || exit $?
+test -x printenv || $CC -O2 -o printenv printenv.c || exit $?
+test -x recho    || $CC -O2 -o recho    recho.c    || exit $?
+test -x zecho    || $CC -O2 -o zecho    zecho.c    || exit $?
 
 PATH="$PWD:$PATH" # for ash and recho/zecho/printenv
 export PATH

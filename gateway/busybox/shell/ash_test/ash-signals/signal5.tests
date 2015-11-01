@@ -9,6 +9,7 @@ stub 3 &
 stub 2 &
 sleep 1
 until { echo "Waiting"; wait; } do
-    echo "Wait exit code: $?"
+    v=$( kill -l $(($? - 128)) )
+    echo "Wait exit code: $v"
 done
 echo "Wait returned 0"

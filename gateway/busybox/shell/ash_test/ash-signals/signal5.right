@@ -3,10 +3,10 @@ Sleeping
 Waiting
 2 sec passed, sending USR1 to parent
 USR1 received
-Wait exit code: 138
+Wait exit code: USR1
 Waiting
 3 sec passed, sending USR1 to parent
 USR1 received
-Wait exit code: 138
+Wait exit code: USR1
 Waiting
 Wait returned 0
