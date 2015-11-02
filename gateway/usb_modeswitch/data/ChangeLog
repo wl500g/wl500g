@@ -1,3 +1,10 @@
+20151101:
+    Added devices: Huawei ME909u-521 [12d1:1573], Huawei E327s-150 (Variant)
+    [12d1:1597], Huawei E3531s-2, E3131 (Variant) [12d1:15ce], Huawei E3131
+    (Variant) [12d1:15d0], Huawei E3531 (Variant) [12d1:15d2], Novatel U620L
+    [1410:9020], Novatel U620L [1410:9022], ZTE MF820s, MF832s [19d2:0198],
+    ZTE MF195E [19d2:1580]; some new target IDs added to existing device
+    configs; small correction of Makefile to fix Debian bug #803603
 20150627:
     ATTENTION: recommended use with usb-modeswitch program package version
     >= 2.2.2 due to extended parameter PantechMode (affects 2 devices, see

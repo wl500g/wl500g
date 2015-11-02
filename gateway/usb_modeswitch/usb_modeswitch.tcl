@@ -9,7 +9,7 @@
 # the mode switching program with the matching parameter
 # file from /usr/share/usb_modeswitch
 #
-# Part of usb-modeswitch-2.2.5 package
+# Part of usb-modeswitch-2.2.6 package
 # (C) Josua Dietze 2009-2015
 
 set arg0 [lindex $argv 0]
@@ -109,10 +109,7 @@ if {[string length [lindex $argList 0]] == 0} {
 		SafeExit
 	} else {
 		if {![regexp {(.*?):} [lindex $argList 1] d dev_top]} {
-			if [regexp {([0-9]+-[0-9]+\.?[0-9]*.*)} [lindex $argList 1] d dev_top] {
-				# new udev rules file, got to check class of first interface
-				set ifChk 1
-			} else {
+			if {![regexp {([0-9]+-[0-9]+\.?[0-9]*.*)} [lindex $argList 1] d dev_top]} {
 				Log "Could not determine device dir from udev values! Exit"
 				SafeExit
 			}
@@ -131,20 +128,14 @@ if {![file isdirectory $devdir]} {
 Log "Use top device dir $devdir"
 
 set iface 0
-if $ifChk {
-	Log "Check class of first interface ..."
-	set config(class) [IfClass 0]
-	if {$iface < 0} {
-		Log " No access to interface 0. Exit"
-		SafeExit
-	}
-	Log " Interface class is $config(class)."
-	if {$config(class) == "08" || $config(class) == "03"} {
-	} else {
-		Log "No install mode found. Aborting"
-		exit
-	}
+Log "Check class of first interface ..."
+set config(class) [IfClass 0]
+if {$config(class) < 0} {
+	Log " No access to interface 0. Exit"
+	SafeExit
 }
+Log " Interface 0 class is $config(class)."
+
 set ifdir [file tail [IfDir $iface]]
 regexp {:([0-9]+\.[0-9]+)$} $ifdir d iface
 
