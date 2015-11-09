@@ -304,11 +304,12 @@ static int proc_pid_wchan(struct task_struct *task, char *buffer)
 
 #define MAX_STACK_TRACE_DEPTH	64
 
-static int proc_pid_stack(struct task_struct *task, char *buffer)
+static int proc_pid_stack(struct seq_file *m, struct pid *pid,
+			  struct task_struct *task)
 {
 	struct stack_trace trace;
 	unsigned long *entries;
-	int i, len;
+	int i;
 
 	entries = kmalloc(MAX_STACK_TRACE_DEPTH * sizeof(*entries), GFP_KERNEL);
 	if (!entries)
@@ -320,15 +321,13 @@ static int proc_pid_stack(struct task_struct *task, char *buffer)
 	trace.skip		= 0;
 	save_stack_trace_tsk(task, &trace);
 
-	for (i = 0, len = 0; i < trace.nr_entries; i++) {
-		len += snprintf(buffer+len, PAGE_SIZE-len, "[<%p>] %pS\n",
+	for (i = 0; i < trace.nr_entries; i++) {
+		seq_printf(m, "[<%p>] %pS\n",
 			   (void *)entries[i], (void *)entries[i]);
-		if (len >= PAGE_SIZE)
-			break;
 	}
 	kfree(entries);
 
-	return len;
+	return 0;
 }
 #endif
 
@@ -2046,10 +2045,10 @@ static const struct pid_entry tgid_base_stuff[] = {
 	DIR("fdinfo",     S_IRUSR|S_IXUSR, fdinfo),
 	INF("environ",    S_IRUSR, pid_environ),
 	INF("auxv",       S_IRUSR, pid_auxv),
-	INF("status",     S_IRUGO, pid_status),
+	ONE("status",     S_IRUGO, pid_status),
 	INF("cmdline",    S_IRUGO, pid_cmdline),
-	INF("stat",       S_IRUGO, tgid_stat),
-	INF("statm",      S_IRUGO, pid_statm),
+	ONE("stat",       S_IRUGO, tgid_stat),
+	ONE("statm",      S_IRUGO, pid_statm),
 	REG("maps",       S_IRUGO, maps),
 #ifdef CONFIG_NUMA
 	REG("numa_maps",  S_IRUGO, numa_maps),
@@ -2074,7 +2073,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 	INF("wchan",      S_IRUGO, pid_wchan),
 #endif
 #ifdef CONFIG_STACKTRACE
-	INF("stack",      S_IRUSR, pid_stack),
+	ONE("stack",      S_IRUSR, pid_stack),
 #endif
 #ifdef CONFIG_SCHEDSTATS
 	INF("schedstat",  S_IRUGO, pid_schedstat),
@@ -2333,10 +2332,10 @@ static const struct pid_entry tid_base_stuff[] = {
 	DIR("fdinfo",    S_IRUSR|S_IXUSR, fdinfo),
 	INF("environ",   S_IRUSR, pid_environ),
 	INF("auxv",      S_IRUSR, pid_auxv),
-	INF("status",    S_IRUGO, pid_status),
+	ONE("status",    S_IRUGO, pid_status),
 	INF("cmdline",   S_IRUGO, pid_cmdline),
-	INF("stat",      S_IRUGO, tid_stat),
-	INF("statm",     S_IRUGO, pid_statm),
+	ONE("stat",      S_IRUGO, tid_stat),
+	ONE("statm",     S_IRUGO, pid_statm),
 	REG("maps",      S_IRUGO, maps),
 #ifdef CONFIG_NUMA
 	REG("numa_maps", S_IRUGO, numa_maps),
@@ -2360,7 +2359,7 @@ static const struct pid_entry tid_base_stuff[] = {
 	INF("wchan",     S_IRUGO, pid_wchan),
 #endif
 #ifdef CONFIG_STACKTRACE
-	INF("stack",      S_IRUSR, pid_stack),
+	ONE("stack",      S_IRUSR, pid_stack),
 #endif
 #ifdef CONFIG_SCHEDSTATS
 	INF("schedstat", S_IRUGO, pid_schedstat),
