@@ -7,13 +7,25 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/sort.h>
-#include <linux/slab.h>
+
+static int alignment_ok(const void *base, int align)
+{
+	return /* IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) || */
+		((unsigned long)base & (align - 1)) == 0;
+}
 
 static void u32_swap(void *a, void *b, int size)
 {
 	u32 t = *(u32 *)a;
 	*(u32 *)a = *(u32 *)b;
 	*(u32 *)b = t;
+}
+
+static void u64_swap(void *a, void *b, int size)
+{
+	u64 t = *(u64 *)a;
+	*(u64 *)a = *(u64 *)b;
+	*(u64 *)b = t;
 }
 
 static void generic_swap(void *a, void *b, int size)
@@ -51,8 +63,14 @@ void sort(void *base, size_t num, size_t size,
 	/* pre-scale counters for performance */
 	int i = (num/2 - 1) * size, n = num * size, c, r;
 
-	if (!swap_func)
-		swap_func = (size == 4 ? u32_swap : generic_swap);
+	if (!swap_func) {
+		if (size == 4 && alignment_ok(base, 4))
+			swap_func = u32_swap;
+		else if (size == 8 && alignment_ok(base, 8))
+			swap_func = u64_swap;
+		else
+			swap_func = generic_swap;
+	}
 
 	/* heapify */
 	for ( ; i >= 0; i -= size) {
@@ -67,7 +85,7 @@ void sort(void *base, size_t num, size_t size,
 	}
 
 	/* sort */
-	for (i = n - size; i >= 0; i -= size) {
+	for (i = n - size; i > 0; i -= size) {
 		swap_func(base, base + i, size);
 		for (r = 0; r * 2 + size < i; r = c) {
 			c = r * 2 + size;
@@ -83,6 +101,7 @@ void sort(void *base, size_t num, size_t size,
 EXPORT_SYMBOL(sort);
 
 #if 0
+#include <linux/slab.h>
 /* a simple boot-time regression test */
 
 int cmpint(const void *a, const void *b)
