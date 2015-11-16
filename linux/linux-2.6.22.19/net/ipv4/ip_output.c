@@ -114,18 +114,6 @@ int ip_local_out(struct sk_buff *skb)
 }
 EXPORT_SYMBOL_GPL(ip_local_out);
 
-/* dev_loopback_xmit for use with netfilter. */
-static int ip_dev_loopback_xmit(struct sk_buff *newskb)
-{
-	skb_reset_mac_header(newskb);
-	__skb_pull(newskb, skb_network_offset(newskb));
-	newskb->pkt_type = PACKET_LOOPBACK;
-	newskb->ip_summed = CHECKSUM_UNNECESSARY;
-	WARN_ON(!newskb->dst);
-	netif_rx(newskb);
-	return 0;
-}
-
 static inline int ip_select_ttl(struct inet_sock *inet, struct dst_entry *dst)
 {
 	int ttl = inet->uc_ttl;
@@ -273,7 +261,7 @@ int ip_mc_output(struct sk_buff *skb)
 			if (newskb)
 				NF_HOOK(PF_INET, NF_IP_POST_ROUTING, newskb, NULL,
 					newskb->dev,
-					ip_dev_loopback_xmit);
+					dev_loopback_xmit);
 		}
 
 		/* Multicasts with ttl 0 must not go beyond the host */
@@ -288,7 +276,7 @@ int ip_mc_output(struct sk_buff *skb)
 		struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
 		if (newskb)
 			NF_HOOK(PF_INET, NF_IP_POST_ROUTING, newskb, NULL,
-				newskb->dev, ip_dev_loopback_xmit);
+				newskb->dev, dev_loopback_xmit);
 	}
 
 	return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, skb->dev,
