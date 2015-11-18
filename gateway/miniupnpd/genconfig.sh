@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.81 2015/07/16 15:00:21 nanard Exp $
+# $Id: genconfig.sh,v 1.84 2015/10/26 16:51:31 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2015 Thomas Bernard
@@ -40,9 +40,7 @@ CONFIGFILE=`mktemp tmp.config.h.XXXXXXXXXX`
 CONFIGFILE_FINAL="config.h"
 CONFIGMACRO="CONFIG_H_INCLUDED"
 
-# version reported in XML descriptions
-#UPNP_VERSION=20070827
-UPNP_VERSION=`date +"%Y%m%d"`
+MINIUPNPD_DATE=`date +"%Y%m%d"`
 # Facility to syslog
 LOG_MINIUPNPD="LOG_DAEMON"
 
@@ -95,8 +93,26 @@ echo "" >> ${CONFIGFILE}
 echo "#include <inttypes.h>" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 echo "#define MINIUPNPD_VERSION \"`cat VERSION`\"" >> ${CONFIGFILE}
+echo "#define MINIUPNPD_DATE	\"$MINIUPNPD_DATE\"" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
-echo "#define UPNP_VERSION	\"$UPNP_VERSION\"" >> ${CONFIGFILE}
+
+cat >> ${CONFIGFILE} <<EOF
+#ifndef XSTR
+#define XSTR(s) STR(s)
+#define STR(s) #s
+#endif /* XSTR */
+EOF
+
+echo "" >> ${CONFIGFILE}
+cat >> ${CONFIGFILE} <<EOF
+/* UPnP version reported in XML descriptions
+ * 1.0 / 1.1 / 2.0 depending on which UDA (UPnP Device Architecture) Version */
+#define UPNP_VERSION_MAJOR	2
+#define UPNP_VERSION_MINOR	0
+#define UPNP_VERSION_MAJOR_STR	XSTR(UPNP_VERSION_MAJOR)
+#define UPNP_VERSION_MINOR_STR	XSTR(UPNP_VERSION_MINOR)
+EOF
+echo "" >> ${CONFIGFILE}
 
 # OS Specific stuff
 case $OS_NAME in
@@ -130,6 +146,7 @@ case $OS_NAME in
 		if [ $VER -ge 700049 ]; then
 			echo "#define PFRULE_INOUT_COUNTS" >> ${CONFIGFILE}
 		fi
+		HAVE_IP_MREQN=1
 		# new way to see which one to use PF or IPF.
 		# see http://miniupnp.tuxfamily.org/forum/viewtopic.php?p=957
 		if [ -f /etc/rc.subr ] && [ -f /etc/rc.conf ] ; then
@@ -218,6 +235,10 @@ case $OS_NAME in
 		KERNVERC=`echo $OS_VERSION | awk -F. '{print $3}'`
 		KERNVERD=`echo $OS_VERSION | awk -F. '{print $4}'`
 		#echo "$KERNVERA.$KERNVERB.$KERNVERC.$KERNVERD"
+		# from the 2.4 version, struct ip_mreqn instead of struct ip_mreq
+		if [ \( $KERNVERA -ge 3 \) -o \( $KERNVERA -eq 2 -a $KERNVERB -ge 4 \) ]; then
+			HAVE_IP_MREQN=1
+		fi
 		# Debian GNU/Linux special case
 		if [ -f /etc/debian_version ]; then
 			OS_NAME=Debian
@@ -447,6 +468,11 @@ else
 fi
 echo "" >> ${CONFIGFILE}
 
+if [ -n "$HAVE_IP_MREQN" ]; then
+	echo "#define HAVE_IP_MREQN" >> ${CONFIGFILE}
+	echo "" >> ${CONFIGFILE}
+fi
+
 echo "/* Enable the support of IGD v2 specification." >> ${CONFIGFILE}
 echo " * This is not fully tested yet and can cause incompatibilities with some" >> ${CONFIGFILE}
 echo " * control points, so enable with care. */" >> ${CONFIGFILE}
@@ -538,6 +564,14 @@ cat >> ${CONFIGFILE} <<EOF
 /* Uncomment the following line if your device does not have a proper clock
  * BOOTID.UPNP.ORG can be set with command line */
 #define USE_TIME_AS_BOOTID
+
+EOF
+
+cat >> ${CONFIGFILE} <<EOF
+/* maximum lenght of SSDP packets we are generating
+ * (reception is done in a 1500byte buffer) */
+#define SSDP_PACKET_MAX_LEN 1024
+
 EOF
 
 echo "#endif /* ${CONFIGMACRO} */" >> ${CONFIGFILE}

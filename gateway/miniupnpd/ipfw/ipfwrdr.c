@@ -1,4 +1,4 @@
-/* $Id: ipfwrdr.c,v 1.13 2012/03/05 20:36:19 nanard Exp $ */
+/* $Id: ipfwrdr.c,v 1.14 2015/09/17 12:38:02 nanard Exp $ */
 /*
  * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -9,6 +9,7 @@
  */
 
 #include "../config.h"
+#include "../macros.h"
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -327,6 +328,13 @@ int add_filter_rule2(
 	int proto,
 	const char * desc)
 {
+	UNUSED(ifname);
+	UNUSED(rhost);
+	UNUSED(iaddr);
+	UNUSED(eport);
+	UNUSED(iport);
+	UNUSED(proto);
+	UNUSED(desc);
 	return 0; /* nothing to do, always success */
 }
 
@@ -335,6 +343,9 @@ int delete_filter_rule(
 	unsigned short eport,
 	int proto)
 {
+	UNUSED(ifname);
+	UNUSED(eport);
+	UNUSED(proto);
 	return 0; /* nothing to do, always success */
 }
 
