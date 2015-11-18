@@ -121,13 +121,16 @@ static const char *nip_to_a(uint32_t nip)
 	return inet_ntoa(in);
 }
 
-static void cleanup(int code) NORETURN;
-static void cleanup(int code)
+static void cleanup()
 {
 	remove_pidfile(G.pidfile);
-	if (code > EXIT_FAILURE)
-		kill_myself_with_sig(code);
-	exit(code);
+}
+
+static void term_handler(int sig) NORETURN;
+static void term_handler(int sig)
+{
+	cleanup();
+	kill_myself_with_sig(sig);
 }
 
 /**
@@ -168,10 +171,7 @@ static void send_arp_request(
 	// Thus we sendto() to G.iface_sockaddr. I wonder which sockaddr
 	// (from bind() or from sendto()?) kernel actually uses
 	// to determine iface to emit the packet from...
-	if (sendto(sock_fd, &p, sizeof(p), 0, &G.iface_sockaddr, sizeof(G.iface_sockaddr)) < 0) {
-		bb_perror_msg("sendto");
-		cleanup(EXIT_FAILURE);
-	}
+	xsendto(sock_fd, &p, sizeof(p), &G.iface_sockaddr, sizeof(G.iface_sockaddr));
 #undef source_eth
 }
 
@@ -339,7 +339,8 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 	}
 
 	write_pidfile(G.pidfile);
-	bb_signals(BB_FATAL_SIGS, cleanup);
+	die_func = cleanup;
+	bb_signals(BB_FATAL_SIGS, term_handler);
 
 	// Run the dynamic address negotiation protocol,
 	// restarting after address conflicts:
@@ -391,7 +392,7 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 		n = safe_poll(fds, 1, timeout_ms);
 		if (n < 0) {
 			//bb_perror_msg("poll"); - done in safe_poll
-			cleanup(EXIT_FAILURE);
+			xfunc_die();
 		}
 		if (n == 0) { // timed out?
 			VDBG("state:%d\n", state);
@@ -428,8 +429,10 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 				// FIXME update filters
 				run(argv, "config", chosen_nip);
 				// NOTE: all other exit paths should deconfig...
-				if (QUIT)
-					cleanup(EXIT_SUCCESS);
+				if (QUIT) {
+					xfunc_error_retval = EXIT_SUCCESS;
+					xfunc_die();
+				}
 				// fall through: switch to MONITOR
 			default:
 			// case DEFEND:
@@ -463,15 +466,14 @@ int zcip_main(int argc UNUSED_PARAM, char **argv)
 					// Only if we are in MONITOR or DEFEND
 					run(argv, "deconfig", chosen_nip);
 				}
-				cleanup(EXIT_FAILURE);
+				xfunc_die();
 			}
 			continue;
 		}
 
 		// Read ARP packet
 		if (safe_read(sock_fd, &p, sizeof(p)) < 0) {
-			bb_perror_msg(bb_msg_read_error);
-			cleanup(EXIT_FAILURE);
+			bb_perror_msg_and_die(bb_msg_read_error);
 		}
 
 		if (p.eth.ether_type != htons(ETHERTYPE_ARP))
