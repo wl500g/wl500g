@@ -124,7 +124,7 @@
  *   datapoints after the step.
  */
 
-#define INITIAL_SAMPLES    2    /* how many samples do we want for init */
+#define INITIAL_SAMPLES    1    /* how many samples do we want for init */
 #define BAD_DELAY_GROWTH   4    /* drop packet if its delay grew by more than this */
 
 #define RETRY_INTERVAL    32    /* on send/recv error, retry in N secs (need to be power of 2) */
@@ -2253,9 +2253,8 @@ int ntpd_main(int argc UNUSED_PARAM, char **argv)
 	 * fewer packets to it and more to other peers.
 	 * NB2: sync usually happens using INITIAL_SAMPLES packets,
 	 * since last reply does not come back instantaneously.
-	 * NB3: sync by single answer if exit after sync requested.
 	 */
-	cnt = G.peer_cnt * ((option_mask32 & OPT_q) ? 1 : (INITIAL_SAMPLES + 1));
+	cnt = G.peer_cnt * (INITIAL_SAMPLES + 1);
 
 	write_pidfile(CONFIG_PID_FILE_PATH "/ntpd.pid");
 
