@@ -3823,6 +3823,15 @@ void __wake_up_sync(wait_queue_head_t *q, unsigned int mode, int nr_exclusive)
 }
 EXPORT_SYMBOL_GPL(__wake_up_sync);	/* For internal use only */
 
+/**
+ * complete: - signals a single thread waiting on this completion
+ * @x:  holds the state of this particular completion
+ *
+ * This will wake up a single thread waiting on this completion. Threads will be
+ * awakened in the same order in which they were queued.
+ *
+ * See also complete_all(), wait_for_completion() and related routines.
+ */
 void complete(struct completion *x)
 {
 	unsigned long flags;
@@ -3835,6 +3844,12 @@ void complete(struct completion *x)
 }
 EXPORT_SYMBOL(complete);
 
+/**
+ * complete_all: - signals all threads waiting on this completion
+ * @x:  holds the state of this particular completion
+ *
+ * This will wake up all threads waiting on this particular completion event.
+ */
 void complete_all(struct completion *x)
 {
 	unsigned long flags;
@@ -3847,127 +3862,79 @@ void complete_all(struct completion *x)
 }
 EXPORT_SYMBOL(complete_all);
 
-void __sched wait_for_completion(struct completion *x)
+static inline long __sched
+do_wait_for_common(struct completion *x, long timeout, int state)
 {
-	might_sleep();
-
-	spin_lock_irq(&x->wait.lock);
 	if (!x->done) {
 		DECLARE_WAITQUEUE(wait, current);
 
 		wait.flags |= WQ_FLAG_EXCLUSIVE;
 		__add_wait_queue_tail(&x->wait, &wait);
 		do {
-			__set_current_state(TASK_UNINTERRUPTIBLE);
+			if ((state == TASK_INTERRUPTIBLE &&
+			     signal_pending(current)) ||
+			    (state == TASK_KILLABLE &&
+			     fatal_signal_pending(current))) {
+				__remove_wait_queue(&x->wait, &wait);
+				return -ERESTARTSYS;
+			}
+			__set_current_state(state);
 			spin_unlock_irq(&x->wait.lock);
-			schedule();
+			timeout = schedule_timeout(timeout);
 			spin_lock_irq(&x->wait.lock);
+			if (!timeout) {
+				__remove_wait_queue(&x->wait, &wait);
+				return timeout;
+			}
 		} while (!x->done);
 		__remove_wait_queue(&x->wait, &wait);
 	}
 	x->done--;
+	return timeout;
+}
+
+static long __sched
+wait_for_common(struct completion *x, long timeout, int state)
+{
+	might_sleep();
+
+	spin_lock_irq(&x->wait.lock);
+	timeout = do_wait_for_common(x, timeout, state);
 	spin_unlock_irq(&x->wait.lock);
+	return timeout;
+}
+
+/**
+ * wait_for_completion: - waits for completion of a task
+ * @x:  holds the state of this particular completion
+ *
+ * This waits to be signaled for completion of a specific task. It is NOT
+ * interruptible and there is no timeout.
+ *
+ * See also similar routines (i.e. wait_for_completion_timeout()) with timeout
+ * and interrupt capability. Also see complete().
+ */
+void __sched wait_for_completion(struct completion *x)
+{
+	wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_UNINTERRUPTIBLE);
 }
 EXPORT_SYMBOL(wait_for_completion);
 
+/**
+ * wait_for_completion_timeout: - waits for completion of a task (w/timeout)
+ * @x:  holds the state of this particular completion
+ * @timeout:  timeout value in jiffies
+ *
+ * This waits for either a completion of a specific task to be signaled or for a
+ * specified timeout to expire. The timeout is in jiffies. It is not
+ * interruptible.
+ */
 unsigned long __sched
 wait_for_completion_timeout(struct completion *x, unsigned long timeout)
 {
-	might_sleep();
-
-	spin_lock_irq(&x->wait.lock);
-	if (!x->done) {
-		DECLARE_WAITQUEUE(wait, current);
-
-		wait.flags |= WQ_FLAG_EXCLUSIVE;
-		__add_wait_queue_tail(&x->wait, &wait);
-		do {
-			__set_current_state(TASK_UNINTERRUPTIBLE);
-			spin_unlock_irq(&x->wait.lock);
-			timeout = schedule_timeout(timeout);
-			spin_lock_irq(&x->wait.lock);
-			if (!timeout) {
-				__remove_wait_queue(&x->wait, &wait);
-				goto out;
-			}
-		} while (!x->done);
-		__remove_wait_queue(&x->wait, &wait);
-	}
-	x->done--;
-out:
-	spin_unlock_irq(&x->wait.lock);
-	return timeout;
+	return wait_for_common(x, timeout, TASK_UNINTERRUPTIBLE);
 }
 EXPORT_SYMBOL(wait_for_completion_timeout);
-
-int __sched wait_for_completion_interruptible(struct completion *x)
-{
-	int ret = 0;
-
-	might_sleep();
-
-	spin_lock_irq(&x->wait.lock);
-	if (!x->done) {
-		DECLARE_WAITQUEUE(wait, current);
-
-		wait.flags |= WQ_FLAG_EXCLUSIVE;
-		__add_wait_queue_tail(&x->wait, &wait);
-		do {
-			if (signal_pending(current)) {
-				ret = -ERESTARTSYS;
-				__remove_wait_queue(&x->wait, &wait);
-				goto out;
-			}
-			__set_current_state(TASK_INTERRUPTIBLE);
-			spin_unlock_irq(&x->wait.lock);
-			schedule();
-			spin_lock_irq(&x->wait.lock);
-		} while (!x->done);
-		__remove_wait_queue(&x->wait, &wait);
-	}
-	x->done--;
-out:
-	spin_unlock_irq(&x->wait.lock);
-
-	return ret;
-}
-EXPORT_SYMBOL(wait_for_completion_interruptible);
-
-unsigned long __sched
-wait_for_completion_interruptible_timeout(struct completion *x,
-					  unsigned long timeout)
-{
-	might_sleep();
-
-	spin_lock_irq(&x->wait.lock);
-	if (!x->done) {
-		DECLARE_WAITQUEUE(wait, current);
-
-		wait.flags |= WQ_FLAG_EXCLUSIVE;
-		__add_wait_queue_tail(&x->wait, &wait);
-		do {
-			if (signal_pending(current)) {
-				timeout = -ERESTARTSYS;
-				__remove_wait_queue(&x->wait, &wait);
-				goto out;
-			}
-			__set_current_state(TASK_INTERRUPTIBLE);
-			spin_unlock_irq(&x->wait.lock);
-			timeout = schedule_timeout(timeout);
-			spin_lock_irq(&x->wait.lock);
-			if (!timeout) {
-				__remove_wait_queue(&x->wait, &wait);
-				goto out;
-			}
-		} while (!x->done);
-		__remove_wait_queue(&x->wait, &wait);
-	}
-	x->done--;
-out:
-	spin_unlock_irq(&x->wait.lock);
-	return timeout;
-}
-EXPORT_SYMBOL(wait_for_completion_interruptible_timeout);
 
 /**
  *	try_wait_for_completion - try to decrement a completion without blocking
@@ -4015,74 +3982,98 @@ bool completion_done(struct completion *x)
 }
 EXPORT_SYMBOL(completion_done);
 
+/**
+ * wait_for_completion_interruptible: - waits for completion of a task (w/intr)
+ * @x:  holds the state of this particular completion
+ *
+ * This waits for completion of a specific task to be signaled. It is
+ * interruptible.
+ */
+int __sched wait_for_completion_interruptible(struct completion *x)
+{
+	long t = wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_INTERRUPTIBLE);
+	if (t == -ERESTARTSYS)
+		return t;
+	return 0;
+}
+EXPORT_SYMBOL(wait_for_completion_interruptible);
 
-#define	SLEEP_ON_VAR					\
-	unsigned long flags;				\
-	wait_queue_t wait;				\
+/**
+ * wait_for_completion_interruptible_timeout: - waits for completion (w/(to,intr))
+ * @x:  holds the state of this particular completion
+ * @timeout:  timeout value in jiffies
+ *
+ * This waits for either a completion of a specific task to be signaled or for a
+ * specified timeout to expire. It is interruptible. The timeout is in jiffies.
+ */
+unsigned long __sched
+wait_for_completion_interruptible_timeout(struct completion *x,
+					  unsigned long timeout)
+{
+	return wait_for_common(x, timeout, TASK_INTERRUPTIBLE);
+}
+EXPORT_SYMBOL(wait_for_completion_interruptible_timeout);
+
+/**
+ * wait_for_completion_killable: - waits for completion of a task (killable)
+ * @x:  holds the state of this particular completion
+ *
+ * This waits to be signaled for completion of a specific task. It can be
+ * interrupted by a kill signal.
+ */
+int __sched wait_for_completion_killable(struct completion *x)
+{
+	long t = wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_KILLABLE);
+	if (t == -ERESTARTSYS)
+		return t;
+	return 0;
+}
+EXPORT_SYMBOL(wait_for_completion_killable);
+
+static long __sched
+sleep_on_common(wait_queue_head_t *q, int state, long timeout)
+{
+	unsigned long flags;
+	wait_queue_t wait;
+
 	init_waitqueue_entry(&wait, current);
 
-#define SLEEP_ON_HEAD					\
-	spin_lock_irqsave(&q->lock,flags);		\
-	__add_wait_queue(q, &wait);			\
-	spin_unlock(&q->lock);
+	__set_current_state(state);
 
-#define	SLEEP_ON_TAIL					\
-	spin_lock_irq(&q->lock);			\
-	__remove_wait_queue(q, &wait);			\
+	spin_lock_irqsave(&q->lock, flags);
+	__add_wait_queue(q, &wait);
+	spin_unlock(&q->lock);
+	timeout = schedule_timeout(timeout);
+	spin_lock_irq(&q->lock);
+	__remove_wait_queue(q, &wait);
 	spin_unlock_irqrestore(&q->lock, flags);
+
+	return timeout;
+}
 
 void __sched interruptible_sleep_on(wait_queue_head_t *q)
 {
-	SLEEP_ON_VAR
-
-	current->state = TASK_INTERRUPTIBLE;
-
-	SLEEP_ON_HEAD
-	schedule();
-	SLEEP_ON_TAIL
+	sleep_on_common(q, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
 }
 EXPORT_SYMBOL(interruptible_sleep_on);
 
 long __sched
 interruptible_sleep_on_timeout(wait_queue_head_t *q, long timeout)
 {
-	SLEEP_ON_VAR
-
-	current->state = TASK_INTERRUPTIBLE;
-
-	SLEEP_ON_HEAD
-	timeout = schedule_timeout(timeout);
-	SLEEP_ON_TAIL
-
-	return timeout;
+	return sleep_on_common(q, TASK_INTERRUPTIBLE, timeout);
 }
 EXPORT_SYMBOL(interruptible_sleep_on_timeout);
 
 void __sched sleep_on(wait_queue_head_t *q)
 {
-	SLEEP_ON_VAR
-
-	current->state = TASK_UNINTERRUPTIBLE;
-
-	SLEEP_ON_HEAD
-	schedule();
-	SLEEP_ON_TAIL
+	sleep_on_common(q, TASK_UNINTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
 }
 EXPORT_SYMBOL(sleep_on);
 
 long __sched sleep_on_timeout(wait_queue_head_t *q, long timeout)
 {
-	SLEEP_ON_VAR
-
-	current->state = TASK_UNINTERRUPTIBLE;
-
-	SLEEP_ON_HEAD
-	timeout = schedule_timeout(timeout);
-	SLEEP_ON_TAIL
-
-	return timeout;
+	return sleep_on_common(q, TASK_UNINTERRUPTIBLE, timeout);
 }
-
 EXPORT_SYMBOL(sleep_on_timeout);
 
 #ifdef CONFIG_RT_MUTEXES
