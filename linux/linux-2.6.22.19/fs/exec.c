@@ -1439,7 +1439,6 @@ static int coredump_wait(int exit_code)
 	struct task_struct *tsk = current;
 	struct mm_struct *mm = tsk->mm;
 	struct completion startup_done;
-	struct completion *vfork_done;
 	int core_waiters;
 
 	init_completion(&mm->core_done);
@@ -1456,11 +1455,8 @@ static int coredump_wait(int exit_code)
 	 * Make sure nobody is waiting for us to release the VM,
 	 * otherwise we can deadlock when we wait on each other
 	 */
-	vfork_done = tsk->vfork_done;
-	if (vfork_done) {
-		tsk->vfork_done = NULL;
-		complete(vfork_done);
-	}
+	if (tsk->vfork_done)
+		complete_vfork_done(tsk);
 
 	if (core_waiters)
 		wait_for_completion(&startup_done);
