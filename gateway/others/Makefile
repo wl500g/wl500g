@@ -17,7 +17,11 @@ install: all
 	install -m 644 protocols $(INSTALLDIR)/usr/etc
 	install -m 644 rpc $(INSTALLDIR)/usr/etc
 	install -m 644 profile $(INSTALLDIR)/usr/etc
-	install -m 644 ipkg.conf $(INSTALLDIR)/usr/etc
+ifeq ($(filter RT-N%,$(MODEL)),$(MODEL))
+	install -m 644 ipkg.conf.entware-ng $(INSTALLDIR)/usr/etc/ipkg.conf
+else
+	install -m 644 ipkg.conf.entware $(INSTALLDIR)/usr/etc/ipkg.conf
+endif
 	install -m 644 mdev.conf $(INSTALLDIR)/usr/etc
 
 	ln -sf /var/tmp/display.jpg $(INSTALLDIR)/www/display.jpg

@@ -1,0 +1,3 @@
+src entware-ng http://entware.zyxmon.org/binaries/mipsel
+
+dest root /
