@@ -34,7 +34,7 @@ struct x8664_pda boot_cpu_pda[NR_CPUS] __cacheline_aligned;
 
 struct desc_ptr idt_descr = { 256 * 16 - 1, (unsigned long) idt_table };
 
-char boot_cpu_stack[IRQSTACKSIZE] __attribute__((section(".bss.page_aligned")));
+char boot_cpu_stack[IRQSTACKSIZE] __page_aligned_bss;
 
 unsigned long __supported_pte_mask __read_mostly = ~0UL;
 static int do_not_nx __cpuinitdata = 0;
@@ -148,7 +148,7 @@ void pda_init(int cpu)
 } 
 
 char boot_exception_stacks[(N_EXCEPTION_STACKS - 1) * EXCEPTION_STKSZ + DEBUG_STKSZ]
-__attribute__((section(".bss.page_aligned")));
+ __page_aligned_bss;
 
 extern asmlinkage void ignore_sysret(void);
 

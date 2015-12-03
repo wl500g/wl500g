@@ -1,6 +1,7 @@
 #ifndef _LINUX_LINKAGE_H
 #define _LINUX_LINKAGE_H
 
+#include <linux/compiler.h>
 #include <asm/linkage.h>
 
 #ifdef __cplusplus
@@ -12,6 +13,18 @@
 #ifndef asmlinkage
 #define asmlinkage CPP_ASMLINKAGE
 #endif
+
+#define __page_aligned_data	__section(.data.page_aligned) __aligned(PAGE_SIZE)
+#define __page_aligned_bss	__section(.bss.page_aligned) __aligned(PAGE_SIZE)
+
+/*
+ * For assembly routines.
+ *
+ * Note when using these that you must specify the appropriate
+ * alignment directives yourself
+ */
+#define __PAGE_ALIGNED_DATA	.section ".data.page_aligned", "aw"
+#define __PAGE_ALIGNED_BSS	.section ".bss.page_aligned", "aw"
 
 #ifndef prevent_tail_call
 # define prevent_tail_call(ret) do { } while (0)
