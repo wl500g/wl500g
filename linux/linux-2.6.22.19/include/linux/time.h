@@ -99,20 +99,16 @@ static inline struct timespec timespec_sub(struct timespec lhs,
 
 extern struct timespec xtime;
 extern struct timespec wall_to_monotonic;
-extern seqlock_t xtime_lock __attribute__((weak));
+extern seqlock_t xtime_lock;
 
 extern unsigned long read_persistent_clock(void);
 void timekeeping_init(void);
 
-static inline unsigned long get_seconds(void)
-{
-	return xtime.tv_sec;
-}
-
+unsigned long get_seconds(void);
 struct timespec current_kernel_time(void);
 
 #define CURRENT_TIME		(current_kernel_time())
-#define CURRENT_TIME_SEC	((struct timespec) { xtime.tv_sec, 0 })
+#define CURRENT_TIME_SEC	((struct timespec) { get_seconds(), 0 })
 
 extern void do_gettimeofday(struct timeval *tv);
 extern int do_settimeofday(struct timespec *tv);

@@ -24,9 +24,7 @@
  * This read-write spinlock protects us from races in SMP while
  * playing with xtime and avenrun.
  */
-__attribute__((weak)) __cacheline_aligned_in_smp DEFINE_SEQLOCK(xtime_lock);
-
-EXPORT_SYMBOL(xtime_lock);
+__cacheline_aligned_in_smp DEFINE_SEQLOCK(xtime_lock);
 
 
 /*
@@ -40,8 +38,12 @@ EXPORT_SYMBOL(xtime_lock);
 struct timespec xtime __attribute__ ((aligned (16)));
 struct timespec wall_to_monotonic __attribute__ ((aligned (16)));
 
-EXPORT_SYMBOL(xtime);
-
+static struct timespec xtime_cache __attribute__ ((aligned (16)));
+static inline void update_xtime_cache(u64 nsec)
+{
+	xtime_cache = xtime;
+	timespec_add_ns(&xtime_cache, nsec);
+}
 
 static struct clocksource *clock; /* pointer to current clocksource */
 
@@ -188,7 +190,8 @@ static void change_clocksource(void)
 
 	clock->error = 0;
 	clock->xtime_nsec = 0;
-	clocksource_calculate_interval(clock, NTP_INTERVAL_LENGTH);
+	clocksource_calculate_interval(clock,
+		(unsigned long)(current_tick_length()>>TICK_LENGTH_SHIFT));
 
 	tick_clock_notify();
 
@@ -244,7 +247,8 @@ void __init timekeeping_init(void)
 	ntp_clear();
 
 	clock = clocksource_get_next();
-	clocksource_calculate_interval(clock, NTP_INTERVAL_LENGTH);
+	clocksource_calculate_interval(clock,
+		(unsigned long)(current_tick_length()>>TICK_LENGTH_SHIFT));
 	clock->cycle_last = clocksource_read(clock);
 
 	xtime.tv_sec = sec;
@@ -303,9 +307,10 @@ static int timekeeping_suspend(struct sys_device *dev, pm_message_t state)
 {
 	unsigned long flags;
 
+	timekeeping_suspend_time = read_persistent_clock();
+
 	write_seqlock_irqsave(&xtime_lock, flags);
 	timekeeping_suspended = 1;
-	timekeeping_suspend_time = read_persistent_clock();
 	write_sequnlock_irqrestore(&xtime_lock, flags);
 
 	clockevents_notify(CLOCK_EVT_NOTIFY_SUSPEND, NULL);
@@ -472,7 +477,31 @@ void update_wall_time(void)
 	xtime.tv_nsec = (s64)clock->xtime_nsec >> clock->shift;
 	clock->xtime_nsec -= (s64)xtime.tv_nsec << clock->shift;
 
+	update_xtime_cache(cyc2ns(clock, offset));
+
 	/* check to see if there is a new clocksource to use */
 	change_clocksource();
 	update_vsyscall(&xtime, clock);
 }
+
+unsigned long get_seconds(void)
+{
+	return xtime_cache.tv_sec;
+}
+EXPORT_SYMBOL(get_seconds);
+
+
+struct timespec current_kernel_time(void)
+{
+	struct timespec now;
+	unsigned long seq;
+
+	do {
+		seq = read_seqbegin(&xtime_lock);
+
+		now = xtime_cache;
+	} while (read_seqretry(&xtime_lock, seq));
+
+	return now;
+}
+EXPORT_SYMBOL(current_kernel_time);
