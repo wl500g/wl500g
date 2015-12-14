@@ -548,6 +548,9 @@ static int pptp_bind(struct socket *sock, struct sockaddr *uservaddr, int sockad
 	struct pptp_opt *opt = &po->proto.pptp;
 	int error = 0;
 
+	if (sockaddr_len < sizeof(struct sockaddr_pppox))
+		return -EINVAL;
+
 #ifdef DEBUG	
 	if (log_level>=1)
 		printk(KERN_INFO"PPTP: bind: addr=%X call_id=%i\n", sp->sa_addr.pptp.sin_addr.s_addr,
@@ -577,6 +580,9 @@ static int pptp_connect(struct socket *sock, struct sockaddr *uservaddr,
 	struct pptp_opt *opt = &po->proto.pptp;
 	struct rtable *rt;     			/* Route to the other host */
 	int error = 0;
+
+	if (sockaddr_len < sizeof(struct sockaddr_pppox))
+		return -EINVAL;
 
 	if (sp->sa_protocol != PX_PROTO_PPTP)
 		return -EINVAL;
