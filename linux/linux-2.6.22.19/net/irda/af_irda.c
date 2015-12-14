@@ -1064,6 +1064,9 @@ static int irda_create(struct socket *sock, int protocol)
 
 	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
 
+	if (protocol < 0 || protocol > SK_PROTOCOL_MAX)
+		return -EINVAL;
+
 	/* Check for valid socket type */
 	switch (sock->type) {
 	case SOCK_STREAM:     /* For TTP connections with SAR disabled */

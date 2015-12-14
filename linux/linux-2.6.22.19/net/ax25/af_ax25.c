@@ -783,6 +783,9 @@ static int ax25_create(struct socket *sock, int protocol)
 	struct sock *sk;
 	ax25_cb *ax25;
 
+	if (protocol < 0 || protocol > SK_PROTOCOL_MAX)
+		return -EINVAL;
+
 	switch (sock->type) {
 	case SOCK_DGRAM:
 		if (protocol == 0 || protocol == PF_AX25)

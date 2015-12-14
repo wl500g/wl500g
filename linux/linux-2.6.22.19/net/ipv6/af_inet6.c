@@ -120,6 +120,9 @@ static int inet6_create(struct socket *sock, int protocol)
 		if (sock->type != SOCK_RAW && sock->type != SOCK_DGRAM)
 			build_ehash_secret();
 
+	if (protocol < 0 || protocol >= IPPROTO_MAX)
+		return -EINVAL;
+
 	/* Look for the requested type/protocol pair. */
 	answer = NULL;
 lookup_protocol:

@@ -678,6 +678,9 @@ static int dn_create(struct socket *sock, int protocol)
 {
 	struct sock *sk;
 
+	if (protocol < 0 || protocol > SK_PROTOCOL_MAX)
+		return -EINVAL;
+
 	switch(sock->type) {
 		case SOCK_SEQPACKET:
 			if (protocol != DNPROTO_NSP)
