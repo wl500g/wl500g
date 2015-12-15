@@ -34,8 +34,10 @@
 #define cpu_has_pindexed_dcache		0
 #define cpu_icache_snoops_remote_store	0
 
-/* cpu_has_mips32r1 */
-/* cpu_has_mips32r2 */
+#define cpu_has_mips32r1		1
+#if defined(CONFIG_CPU_MIPS32_R2)
+#define cpu_has_mips32r2		1
+#endif
 #define cpu_has_mips64r1		0
 #define cpu_has_mips64r2		0
 
