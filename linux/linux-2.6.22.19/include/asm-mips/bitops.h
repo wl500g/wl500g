@@ -530,6 +530,8 @@ static inline void __clear_bit_unlock(unsigned long nr, volatile unsigned long *
 	__clear_bit(nr, addr);
 }
 
+#if defined(CONFIG_CPU_MIPS32) || defined(CONFIG_CPU_MIPS64)
+
 /*
  * Return the bit position (0..63) of the most significant 1 bit in a word
  * Returns -1 if no 1 bit exists
@@ -599,8 +601,6 @@ static inline int fls64(__u64 word)
 #else
 #include <asm-generic/bitops/fls64.h>
 #endif
-
-#if defined(CONFIG_CPU_MIPS32) || defined(CONFIG_CPU_MIPS64)
 
 /*
  * ffs - find first bit set.
