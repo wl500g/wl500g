@@ -16,6 +16,8 @@ extern "C" {
 extern char *strndup_user(const char __user *, long);
 extern void *memdup_user(const void __user *, size_t);
 
+extern int strtobool(const char *s, bool *res);
+
 /*
  * Include machine specific inline routines
  */

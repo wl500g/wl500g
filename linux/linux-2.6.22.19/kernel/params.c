@@ -222,19 +222,19 @@ int param_get_charp(char *buffer, struct kernel_param *kp)
 
 int param_set_bool(const char *val, struct kernel_param *kp)
 {
+	bool v;
+	int ret;
+
 	/* No equals means "set"... */
 	if (!val) val = "1";
 
 	/* One of =[yYnN01] */
-	switch (val[0]) {
-	case 'y': case 'Y': case '1':
-		*(int *)kp->arg = 1;
-		return 0;
-	case 'n': case 'N': case '0':
-		*(int *)kp->arg = 0;
-		return 0;
-	}
-	return -EINVAL;
+	ret = strtobool(val, &v);
+	if (ret)
+		return ret;
+
+	*(int *)kp->arg = v;
+	return 0;
 }
 
 int param_get_bool(char *buffer, struct kernel_param *kp)
@@ -251,13 +251,13 @@ int param_set_invbool(const char *val, struct kernel_param *kp)
 	dummy.arg = &boolval;
 	ret = param_set_bool(val, &dummy);
 	if (ret == 0)
-		*(int *)kp->arg = !boolval;
+		*(bool *)kp->arg = !boolval;
 	return ret;
 }
 
 int param_get_invbool(char *buffer, struct kernel_param *kp)
 {
-	return sprintf(buffer, "%c", (*(int *)kp->arg) ? 'N' : 'Y');
+	return sprintf(buffer, "%c", (*(bool *)kp->arg) ? 'N' : 'Y');
 }
 
 /* We break the rule and mangle the string. */
