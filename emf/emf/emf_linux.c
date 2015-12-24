@@ -310,11 +310,20 @@ emf_sendup(emf_info_t *emfi, struct sk_buff *skb)
 
 	/* Send the buffer as if the packet is being sent by bridge */
 	skb->dev = emfi->br_dev;
-	skb->pkt_type = PACKET_HOST;
+	switch (skb->pkt_type) {
+	case PACKET_MULTICAST:
+	case PACKET_BROADCAST:
+	case PACKET_HOST:
+		break;
+	case PACKET_OTHERHOST:
+	default:
+		skb->pkt_type = PACKET_HOST;
+		break;
+	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22)
-	skb_reset_mac_header(skb);
+	skb_set_mac_header(skb, -ETH_HLEN);
 #else
-	skb->mac.raw = skb->data;
+	skb->mac.raw = skb->data - ETH_HLEN;
 #endif
 
 	netif_rx(skb);
