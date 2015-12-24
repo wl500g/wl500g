@@ -16,6 +16,8 @@
 #include <stdbool.h>
 #include <netinet/in.h>
 
+#include "stubs.h"
+
 #define _unused __attribute__((unused))
 #define _packed __attribute__((packed))
 
@@ -324,7 +326,7 @@ int ra_conf_retransmit(int newvalue);
 
 int script_init(const char *path, const char *ifname);
 ssize_t script_unhexlify(uint8_t *dst, size_t len, const char *src);
-void script_call(const char *status);
+void script_call(const char *status, int delay, bool resume);
 
 bool odhcp6c_signal_process(void);
 uint64_t odhcp6c_get_milli_time(void);
