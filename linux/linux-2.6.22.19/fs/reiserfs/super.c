@@ -1011,13 +1011,12 @@ static int reiserfs_parse_options(struct super_block *s, char *options,	/* strin
 					return 0;
 				}
 				REISERFS_SB(s)->s_qf_names[qtype] =
-				    kmalloc(strlen(arg) + 1, GFP_KERNEL);
+				    kstrdup(arg, GFP_KERNEL);
 				if (!REISERFS_SB(s)->s_qf_names[qtype]) {
 					reiserfs_warning(s,
 							 "reiserfs_parse_options: not enough memory for storing quotafile name.");
 					return 0;
 				}
-				strcpy(REISERFS_SB(s)->s_qf_names[qtype], arg);
 				*mount_options |= 1 << REISERFS_QUOTA;
 			} else {
 				kfree(REISERFS_SB(s)->s_qf_names[qtype]);
