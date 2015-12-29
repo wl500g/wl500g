@@ -294,7 +294,7 @@ static void tcp_retransmit_timer(struct sock *sk)
 #if TCP_DEBUG
 		if (1) {
 			struct inet_sock *inet = inet_sk(sk);
-			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer %pI4:%u/%u shrinks window %u:%u. Repaired.\n",
+			net_dbg_ratelimited("TCP: Treason uncloaked! Peer %pI4:%u/%u shrinks window %u:%u. Repaired.\n",
 			       &inet->daddr, ntohs(inet->dport),
 			       inet->num, tp->snd_una, tp->snd_nxt);
 		}

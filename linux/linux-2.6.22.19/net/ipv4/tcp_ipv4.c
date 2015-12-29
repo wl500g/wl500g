@@ -1088,7 +1088,7 @@ static int tcp_v4_inbound_md5_hash(struct sock *sk, struct sk_buff *skb)
 		return 0;
 
 	if (hash_expected && !hash_location) {
-		LIMIT_NETDEBUG(KERN_INFO "MD5 Hash expected but NOT found "
+		net_dbg_ratelimited("MD5 Hash expected but NOT found "
 			       "(%pI4, %d)->(%pI4, %d)\n",
 			       &iph->saddr, ntohs(th->source),
 			       &iph->daddr, ntohs(th->dest));
@@ -1096,7 +1096,7 @@ static int tcp_v4_inbound_md5_hash(struct sock *sk, struct sk_buff *skb)
 	}
 
 	if (!hash_expected && hash_location) {
-		LIMIT_NETDEBUG(KERN_INFO "MD5 Hash NOT expected but found "
+		net_dbg_ratelimited("MD5 Hash NOT expected but found "
 			       "(%pI4, %d)->(%pI4, %d)\n",
 			       &iph->saddr, ntohs(th->source),
 			       &iph->daddr, ntohs(th->dest));
@@ -1263,7 +1263,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 			 * to destinations, already remembered
 			 * to the moment of synflood.
 			 */
-			LIMIT_NETDEBUG(KERN_DEBUG "TCP: drop open request from %pI4/%u\n",
+			net_dbg_ratelimited("TCP: drop open request from %pI4/%u\n",
 				       &saddr, ntohs(tcp_hdr(skb)->source));
 			dst_release(dst);
 			goto drop_and_free;

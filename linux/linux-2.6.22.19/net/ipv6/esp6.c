@@ -219,7 +219,8 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
 
 		padlen = nexthdr[0];
 		if (padlen+2 >= elen) {
-			LIMIT_NETDEBUG(KERN_WARNING "ipsec esp packet is garbage padlen=%d, elen=%d\n", padlen+2, elen);
+			net_dbg_ratelimited("ipsec esp packet is garbage padlen=%d, elen=%d\n",
+					    padlen+2, elen);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -336,12 +337,12 @@ static int esp6_init_state(struct xfrm_state *x)
 		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
 		BUG_ON(!aalg_desc);
 
-		if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
+		if (aalg_desc->uinfo.auth.icv_fullbits / 8 !=
 		    crypto_hash_digestsize(hash)) {
-			NETDEBUG(KERN_INFO "ESP: %s digestsize %u != %hu\n",
-				 x->aalg->alg_name,
-				 crypto_hash_digestsize(hash),
-				 aalg_desc->uinfo.auth.icv_fullbits/8);
+			pr_info("ESP: %s digestsize %u != %hu\n",
+				x->aalg->alg_name,
+				crypto_hash_digestsize(hash),
+				aalg_desc->uinfo.auth.icv_fullbits / 8);
 			goto error;
 		}
 

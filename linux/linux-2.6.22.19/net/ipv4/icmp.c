@@ -634,7 +634,7 @@ static void icmp_unreach(struct sk_buff *skb)
 			break;
 		case ICMP_FRAG_NEEDED:
 			if (ipv4_config.no_pmtu_disc) {
-				LIMIT_NETDEBUG(KERN_INFO "ICMP: %pI4: fragmentation needed and DF set.\n",
+				net_dbg_ratelimited("%pI4: fragmentation needed and DF set.\n",
 					       &iph->daddr);
 			} else {
 				info = ip_rt_frag_needed(iph,
@@ -645,7 +645,7 @@ static void icmp_unreach(struct sk_buff *skb)
 			}
 			break;
 		case ICMP_SR_FAILED:
-			LIMIT_NETDEBUG(KERN_INFO "ICMP: %pI4: Source Route Failed.\n",
+			net_dbg_ratelimited("%pI4: Source Route Failed.\n",
 				       &iph->daddr);
 			break;
 		default:

@@ -27,6 +27,8 @@ extern int sysctl_xfrm_larval_drop;
 extern u32 sysctl_xfrm_acq_expires;
 #endif
 
+static int net_msg_warn;	/* Unused, but still a sysctl */
+
 static struct ctl_table net_core_table[] = {
 #ifdef CONFIG_NET
 	{

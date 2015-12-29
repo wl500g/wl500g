@@ -33,9 +33,6 @@
 
 int net_msg_cost __read_mostly = 5*HZ;
 int net_msg_burst __read_mostly = 10;
-int net_msg_warn __read_mostly = 1;
-EXPORT_SYMBOL(net_msg_warn);
-
 /*
  * All net warning printk()s should be guarded by this function.
  */

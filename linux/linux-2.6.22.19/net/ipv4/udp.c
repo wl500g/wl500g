@@ -691,7 +691,7 @@ back_from_confirm:
 		/* ... which is an evident application bug. --ANK */
 		release_sock(sk);
 
-		LIMIT_NETDEBUG(KERN_DEBUG "udp cork app bug 2\n");
+		net_dbg_ratelimited("udp cork app bug 2\n");
 		err = -EINVAL;
 		goto out;
 	}
@@ -773,7 +773,7 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
 	if (unlikely(!up->pending)) {
 		release_sock(sk);
 
-		LIMIT_NETDEBUG(KERN_DEBUG "udp cork app bug 3\n");
+		net_dbg_ratelimited("udp cork app bug 3\n");
 		return -EINVAL;
 	}
 
@@ -1031,7 +1031,7 @@ int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 		 * provided by the application."
 		 */
 		if (up->pcrlen == 0) {          /* full coverage was set  */
-			LIMIT_NETDEBUG(KERN_WARNING "UDPLITE: partial coverage "
+			net_dbg_ratelimited("UDPLITE: partial coverage "
 				"%d while full coverage %d requested\n",
 				UDP_SKB_CB(skb)->cscov, skb->len);
 			goto drop;
@@ -1043,8 +1043,7 @@ int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 		 * Therefore the above ...()->partial_cov statement is essential.
 		 */
 		if (UDP_SKB_CB(skb)->cscov  <  up->pcrlen) {
-			LIMIT_NETDEBUG(KERN_WARNING
-				"UDPLITE: coverage %d too small, need min %d\n",
+			net_dbg_ratelimited("UDPLITE: coverage %d too small, need min %d\n",
 				UDP_SKB_CB(skb)->cscov, up->pcrlen);
 			goto drop;
 		}
@@ -1229,7 +1228,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
 	return 0;
 
 short_packet:
-	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: short packet: From %pI4:%u %d/%d to %pI4:%u\n",
+	net_dbg_ratelimited("UDP%s: short packet: From %pI4:%u %d/%d to %pI4:%u\n",
 		       proto == IPPROTO_UDPLITE ? "-Lite" : "",
 		       &saddr,
 		       ntohs(uh->source),
@@ -1244,7 +1243,7 @@ csum_error:
 	 * RFC1122: OK.  Discards the bad packet silently (as far as
 	 * the network is concerned, anyway) as per 4.1.3.4 (MUST).
 	 */
-	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: bad checksum. From %pI4:%u to %pI4:%u ulen %d\n",
+	net_dbg_ratelimited("UDP%s: bad checksum. From %pI4:%u to %pI4:%u ulen %d\n",
 		       proto == IPPROTO_UDPLITE ? "-Lite" : "",
 		       &saddr,
 		       ntohs(uh->source),

@@ -353,7 +353,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
 		 * socket up.  We've got bigger problems than
 		 * non-graceful socket closings.
 		 */
-		LIMIT_NETDEBUG(KERN_INFO "TCP: time wait bucket table overflow\n");
+		net_info_ratelimited("TCP: time wait bucket table overflow\n");
 	}
 
 	tcp_update_metrics(sk);
