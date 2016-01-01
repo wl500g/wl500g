@@ -22,6 +22,6 @@ AC_CHECK_FUNCS(select socket strcspn strerror)
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, connect)
 
-AC_PATH_PROG(CHKCONFIG, chkconfig, , $PATH:/sbin:/usr/sbin:/usr/local/sbin)
-AC_PATH_PROG(SED, sed, , $PATH:/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin)
+AC_PATH_PROG(CHKCONFIG, chkconfig, chkconfig)
+AC_PATH_PROG(SED, sed, sed)
 AC_OUTPUT(Makefile)
