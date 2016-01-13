@@ -1161,8 +1161,8 @@ libusb-install:
 usb_modeswitch: libusb
 	$(MAKE) -C $@ usb_modeswitch CC=$(CC) \
 	CFLAGS="-Wall -Os -ffunction-sections -fdata-sections $(EXTRACFLAGS) \
-	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb-1.0" \
-	LDFLAGS="-Wl,--gc-sections" \
+	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs" \
+	LDFLAGS="-Wl,--gc-sections" LIBS="-lusb-1.0" \
 	HOST_TCL=/bin/false
 
 usb_modeswitch-install:

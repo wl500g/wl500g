@@ -4,12 +4,14 @@
 #
 # <date> should be in the form YYYYMMDD
 #
+# Config files are expected to be in subfolder "usb_modeswitch.d"
+#
 # A config file is expected to have one comment line containing
 # a model name or other concise device specifications
 
 
 # Default version string
-set version "20151101"
+set version "20160112"
 
 # Devices excluded from Huawei catch-all rule
 set x_huaweiList {12d1:1573}
