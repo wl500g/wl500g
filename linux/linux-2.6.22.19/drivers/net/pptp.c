@@ -150,24 +150,27 @@ static int lookup_chan_dst(u16 call_id, __be32 d_addr)
 	return i < MAX_CALLID;
 }
 
-static int add_chan(struct pppox_sock *sock)
+static int add_chan(struct pppox_sock *sock,
+		    struct pptp_addr *sa)
 {
 	static int call_id;
 
 	spin_lock(&chan_lock);
-	if (!sock->proto.pptp.src_addr.call_id)	{
+	if (!sa->call_id)	{
 		call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, call_id + 1);
 		if (call_id == MAX_CALLID) {
 			call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, 1);
 			if (call_id == MAX_CALLID)
 				goto out_err;
 		}
-		sock->proto.pptp.src_addr.call_id = call_id;
-	} else if (test_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap))
+		sa->call_id = call_id;
+	} else if (test_bit(sa->call_id, callid_bitmap)) {
 		goto out_err;
+	}
 
-	set_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap);
-	rcu_assign_pointer(callid_sock[sock->proto.pptp.src_addr.call_id], sock);
+	sock->proto.pptp.src_addr = *sa;
+	set_bit(sa->call_id, callid_bitmap);
+	rcu_assign_pointer(callid_sock[sa->call_id], sock);
 	spin_unlock(&chan_lock);
 
 	return 0;
@@ -546,7 +549,6 @@ static int pptp_bind(struct socket *sock, struct sockaddr *uservaddr, int sockad
 	struct sock *sk = sock->sk;
 	struct sockaddr_pppox *sp = (struct sockaddr_pppox *) uservaddr;
 	struct pppox_sock *po = pppox_sk(sk);
-	struct pptp_opt *opt = &po->proto.pptp;
 	int error = 0;
 
 	if (sockaddr_len < sizeof(struct sockaddr_pppox))
@@ -559,15 +561,27 @@ static int pptp_bind(struct socket *sock, struct sockaddr *uservaddr, int sockad
 #endif
 	lock_sock(sk);
 
-	opt->src_addr = sp->sa_addr.pptp;
-	if (add_chan(po))
+	if (sk->sk_state & PPPOX_DEAD) {
+		error = -EALREADY;
+		goto out;
+	}
+
+	if (sk->sk_state & PPPOX_BOUND) {
 		error = -EBUSY;
+		goto out;
+	}
+
+	if (add_chan(po, &sp->sa_addr.pptp))
+		error = -EBUSY;
+	else
+		sk->sk_state |= PPPOX_BOUND;
 
 #ifdef DEBUG
 	if (log_level>=1)
 		printk(KERN_INFO"PPTP: using call_id %i\n", opt->src_addr.call_id);
 #endif
 
+out:
 	release_sock(sk);
 	return error;
 }
@@ -654,7 +668,7 @@ static int pptp_connect(struct socket *sock, struct sockaddr *uservaddr,
 	}
 
 	opt->dst_addr = sp->sa_addr.pptp;
-	SK_STATE(sk) = PPPOX_CONNECTED;
+	sk->sk_state |= PPPOX_CONNECTED;
 
  end:
 	release_sock(sk);
