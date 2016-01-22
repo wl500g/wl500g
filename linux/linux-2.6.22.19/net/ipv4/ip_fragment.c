@@ -606,6 +606,7 @@ int ip_defrag(struct sk_buff *skb, u32 user)
 	struct ipq *qp;
 
 	IP_INC_STATS_BH(IPSTATS_MIB_REASMREQDS);
+	skb_orphan(skb);
 
 	/* Start by cleaning up the memory. */
 	if (atomic_read(&ip4_frags.mem) > ip4_frags_ctl.high_thresh)
