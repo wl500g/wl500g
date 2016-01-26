@@ -106,8 +106,8 @@ int send_from(int fd, int nowild, char *packet, size_t len,
   return 1;
 }
           
-static unsigned int search_servers(time_t now, struct all_addr **addrpp, 
-				     unsigned int qtype, char *qdomain, int *type, char **domain, int *norebind)
+static unsigned int search_servers(time_t now, struct all_addr **addrpp, unsigned int qtype,
+				   char *qdomain, int *type, char **domain, int *norebind)
 			      
 {
   /* If the query ends in the domain in one of our servers, set
@@ -151,7 +151,7 @@ static unsigned int search_servers(time_t now, struct all_addr **addrpp,
 	    hostname_isequal(matchstart, serv->domain) &&
 	    (domainlen == 0 || namelen == domainlen || *(matchstart-1) == '.' ))
 	  {
-	    if (serv->flags & SERV_NO_REBIND)	
+	    if ((serv->flags & SERV_NO_REBIND) && norebind)	
 	      *norebind = 1;
 	    else
 	      {
@@ -175,7 +175,7 @@ static unsigned int search_servers(time_t now, struct all_addr **addrpp,
 		
 		if (domainlen >= matchlen)
 		  {
-		    *type = serv->flags & (SERV_HAS_DOMAIN | SERV_USE_RESOLV | SERV_NO_REBIND);
+		    *type = serv->flags & (SERV_HAS_DOMAIN | SERV_USE_RESOLV | SERV_NO_REBIND | SERV_DO_DNSSEC);
 		    *domain = serv->domain;
 		    matchlen = domainlen;
 		    if (serv->flags & SERV_NO_ADDR)
@@ -233,12 +233,13 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
 			 struct frec *forward, int ad_reqd, int do_bit)
 {
   char *domain = NULL;
-  int type = 0, norebind = 0;
+  int type = SERV_DO_DNSSEC, norebind = 0;
   struct all_addr *addrp = NULL;
   unsigned int flags = 0;
   struct server *start = NULL;
 #ifdef HAVE_DNSSEC
   void *hash = hash_questions(header, plen, daemon->namebuff);
+  int do_dnssec = 0;
 #else
   unsigned int crc = questions_crc(header, plen, daemon->namebuff);
   void *hash = &crc;
@@ -248,9 +249,7 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
  (void)do_bit;
 
   /* may be no servers available. */
-  if (!daemon->servers)
-    forward = NULL;
-  else if (forward || (hash && (forward = lookup_frec_by_sender(ntohs(header->id), udpaddr, hash))))
+  if (forward || (hash && (forward = lookup_frec_by_sender(ntohs(header->id), udpaddr, hash))))
     {
       /* If we didn't get an answer advertising a maximal packet in EDNS,
 	 fall back to 1280, which should work everywhere on IPv6.
@@ -315,6 +314,10 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
 	  daemon->last_server = NULL;
 	}
       type = forward->sentto->flags & SERV_TYPE;
+#ifdef HAVE_DNSSEC
+      do_dnssec = forward->sentto->flags & SERV_DO_DNSSEC;
+#endif
+
       if (!(start = forward->sentto->next))
 	start = daemon->servers; /* at end of list, recycle */
       header->id = htons(forward->new_id);
@@ -324,9 +327,14 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
       if (gotname)
 	flags = search_servers(now, &addrp, gotname, daemon->namebuff, &type, &domain, &norebind);
       
-      if (!flags && !(forward = get_new_frec(now, NULL, 0)))
-	/* table full - server failure. */
-	flags = F_NEG;
+#ifdef HAVE_DNSSEC
+      do_dnssec = type & SERV_DO_DNSSEC;
+#endif
+      type &= ~SERV_DO_DNSSEC;      
+
+      if (daemon->servers && !flags)
+	forward = get_new_frec(now, NULL, 0);
+      /* table full - flags == 0, return REFUSED */
       
       if (forward)
 	{
@@ -406,7 +414,7 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
 	}
       
 #ifdef HAVE_DNSSEC
-      if (option_bool(OPT_DNSSEC_VALID))
+      if (option_bool(OPT_DNSSEC_VALID) && do_dnssec)
 	{
 	  size_t new = add_do_bit(header, plen, ((unsigned char *) header) + PACKETSZ);
 	 
@@ -634,7 +642,7 @@ static size_t process_reply(struct dns_header *header, time_t now, struct server
     return resize_packet(header, n, pheader, plen);
   
   /* Complain loudly if the upstream server is non-recursive. */
-  if (!(header->hb4 & HB4_RA) && RCODE(header) == NOERROR && ntohs(header->ancount) == 0 &&
+  if (!(header->hb4 & HB4_RA) && RCODE(header) == NOERROR &&
       server && !(server->flags & SERV_WARNED_RECURSIVE))
     {
       prettyprint_addr(&server->addr, daemon->namebuff);
@@ -800,9 +808,9 @@ void reply_query(int fd, int family, time_t now)
 	    {
 	      header->hb3 &= ~(HB3_QR | HB3_AA | HB3_TC);
 	      header->hb4 &= ~(HB4_RA | HB4_RCODE | HB4_CD | HB4_AD);
-	      if (forward->flags |= FREC_CHECKING_DISABLED)
+	      if (forward->flags & FREC_CHECKING_DISABLED)
 		header->hb4 |= HB4_CD;
-	      if (forward->flags |= FREC_AD_QUESTION)
+	      if (forward->flags & FREC_AD_QUESTION)
 		header->hb4 |= HB4_AD;
 	      if (forward->flags & FREC_DO_QUESTION)
 		add_do_bit(header, nn,  (unsigned char *)pheader + plen);
@@ -845,7 +853,7 @@ void reply_query(int fd, int family, time_t now)
      we get a good reply from another server. Kill it when we've
      had replies from all to avoid filling the forwarding table when
      everything is broken */
-  if (forward->forwardall == 0 || --forward->forwardall == 1 || RCODE(header) != SERVFAIL)
+  if (forward->forwardall == 0 || --forward->forwardall == 1 || RCODE(header) != REFUSED)
     {
       int check_rebind = 0, no_cache_dnssec = 0, cache_secure = 0, bogusanswer = 0;
 
@@ -858,7 +866,8 @@ void reply_query(int fd, int family, time_t now)
 	no_cache_dnssec = 1;
       
 #ifdef HAVE_DNSSEC
-      if (server && option_bool(OPT_DNSSEC_VALID) && !(forward->flags & FREC_CHECKING_DISABLED))
+      if (server && (server->flags & SERV_DO_DNSSEC) && 
+	  option_bool(OPT_DNSSEC_VALID) && !(forward->flags & FREC_CHECKING_DISABLED))
 	{
 	  int status = 0;
 
@@ -912,12 +921,48 @@ void reply_query(int fd, int family, time_t now)
 		    status = STAT_ABANDONED;
 		  else
 		    {
-		      int fd;
+		      int fd, type = SERV_DO_DNSSEC;
 		      struct frec *next = new->next;
+		      char *domain;
+		      
 		      *new = *forward; /* copy everything, then overwrite */
 		      new->next = next;
 		      new->blocking_query = NULL;
+
+		      /* Find server to forward to. This will normally be the 
+			 same as for the original query, but may be another if
+			 servers for domains are involved. */		      
+		      if (search_servers(now, NULL, F_QUERY, daemon->keyname, &type, &domain, NULL) == 0)
+			{
+			  struct server *start = server, *new_server = NULL;
+			   type &= ~SERV_DO_DNSSEC;
+			   
+			   while (1)
+			     {
+			       if (type == (start->flags & SERV_TYPE) &&
+				   (type != SERV_HAS_DOMAIN || hostname_isequal(domain, start->domain)) &&
+				   !(start->flags & (SERV_LITERAL_ADDRESS | SERV_LOOP)))
+				 {
+				   new_server = start;
+				   if (server == start)
+				     {
+				       new_server = NULL;
+				       break;
+				     }
+				 }
+			       
+			       if (!(start = start->next))
+				 start = daemon->servers;
+			       if (start == server)
+				 break;
+			     }
+			
+			   if (new_server)
+			     server = new_server;
+			}
+
 		      new->sentto = server;
+
 		      new->rfd4 = NULL;
 #ifdef HAVE_IPV6
 		      new->rfd6 = NULL;
@@ -971,6 +1016,15 @@ void reply_query(int fd, int family, time_t now)
 		      
 		      if (fd != -1)
 			{
+#ifdef HAVE_CONNTRACK
+			  /* Copy connection mark of incoming query to outgoing connection. */
+			  if (option_bool(OPT_CONNTRACK))
+			    {
+			      unsigned int mark;
+			      if (get_incoming_mark(&orig->source, &orig->dest, 0, &mark))
+				setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(unsigned int));
+			    }
+#endif
 			  while (retry_send(sendto(fd, (char *)header, nn, 0, 
 						   &server->addr.sa, 
 						   sa_len(&server->addr)))); 
@@ -1033,7 +1087,7 @@ void reply_query(int fd, int family, time_t now)
       else
 	header->hb4 &= ~HB4_CD;
       
-      if ((nn = process_reply(header, now, server, (size_t)n, check_rebind, no_cache_dnssec, cache_secure, bogusanswer, 
+      if ((nn = process_reply(header, now, forward->sentto, (size_t)n, check_rebind, no_cache_dnssec, cache_secure, bogusanswer, 
 			      forward->flags & FREC_AD_QUESTION, forward->flags & FREC_DO_QUESTION, 
 			      forward->flags & FREC_ADDED_PHEADER, forward->flags & FREC_HAS_SUBNET, &forward->source)))
 	{
@@ -1394,20 +1448,24 @@ void receive_query(struct listener *listen, time_t now)
 }
 
 #ifdef HAVE_DNSSEC
+/* Recurse up the key heirarchy */
 static int tcp_key_recurse(time_t now, int status, struct dns_header *header, size_t n, 
-			   int class, char *name, char *keyname, struct server *server, int *keycount)
+			   int class, char *name, char *keyname, struct server *server, 
+			   int have_mark, unsigned int mark, int *keycount)
 {
-  /* Recurse up the key heirarchy */
   int new_status;
   unsigned char *packet = NULL;
-  size_t m; 
   unsigned char *payload = NULL;
   struct dns_header *new_header = NULL;
   u16 *length = NULL;
-  unsigned char c1, c2;
 
   while (1)
     {
+      int type = SERV_DO_DNSSEC;
+      char *domain;
+      size_t m; 
+      unsigned char c1, c2;
+            
       /* limit the amount of work we do, to avoid cycling forever on loops in the DNS */
       if (--(*keycount) == 0)
 	new_status = STAT_ABANDONED;
@@ -1441,6 +1499,67 @@ static int tcp_key_recurse(time_t now, int status, struct dns_header *header, si
 				new_status == STAT_NEED_KEY ? T_DNSKEY : T_DS, &server->addr, server->edns_pktsz);
       
       *length = htons(m);
+
+      /* Find server to forward to. This will normally be the 
+	 same as for the original query, but may be another if
+	 servers for domains are involved. */		      
+      if (search_servers(now, NULL, F_QUERY, keyname, &type, &domain, NULL) == 0)
+	{
+	  struct server *start = server, *new_server = NULL;
+	  type &= ~SERV_DO_DNSSEC;
+			   
+	  while (1)
+	    {
+	      if (type == (start->flags & SERV_TYPE) &&
+		  (type != SERV_HAS_DOMAIN || hostname_isequal(domain, start->domain)) &&
+		  !(start->flags & (SERV_LITERAL_ADDRESS | SERV_LOOP)))
+		{
+		  new_server = start;
+		  if (server == start)
+		    {
+		      new_server = NULL;
+		      break;
+		    }
+		}
+			       
+	      if (!(start = start->next))
+		start = daemon->servers;
+	      if (start == server)
+		break;
+	    }
+       
+
+	  if (new_server)
+	    {
+	      server = new_server;
+	      /* may need to make new connection. */
+	      if (server->tcpfd == -1)
+		{
+		  if ((server->tcpfd = socket(server->addr.sa.sa_family, SOCK_STREAM, 0)) == -1)
+		    {
+		      new_status = STAT_ABANDONED;
+		      break;
+		    }
+
+#ifdef HAVE_CONNTRACK
+		  /* Copy connection mark of incoming query to outgoing connection. */
+		  if (have_mark)
+		    setsockopt(server->tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(unsigned int));
+#endif	
+			  
+		  if (!local_bind(server->tcpfd,  &server->source_addr, server->interface, 1) ||
+		      connect(server->tcpfd, &server->addr.sa, sa_len(&server->addr)) == -1)
+		    {
+		      close(server->tcpfd);
+		      server->tcpfd = -1;
+		      new_status = STAT_ABANDONED;
+		      break;
+		    }
+
+		}
+	    }
+	}
+
       
       if (!read_write(server->tcpfd, packet, m + sizeof(u16), 0) ||
 	  !read_write(server->tcpfd, &c1, 1, 1) ||
@@ -1453,7 +1572,7 @@ static int tcp_key_recurse(time_t now, int status, struct dns_header *header, si
 
       m = (c1 << 8) | c2;
       
-      new_status = tcp_key_recurse(now, new_status, new_header, m, class, name, keyname, server, keycount);
+      new_status = tcp_key_recurse(now, new_status, new_header, m, class, name, keyname, server, have_mark, mark, keycount);
       
       if (new_status != STAT_OK)
 	break;
@@ -1497,10 +1616,31 @@ unsigned char *tcp_request(int confd, time_t now,
   socklen_t peer_len = sizeof(union mysockaddr);
   int query_count = 0;
   unsigned char *pheader;
+  unsigned int mark = 0;
+  int have_mark = 0;
+
+  (void)mark;
+  (void)have_mark;
 
   if (getpeername(confd, (struct sockaddr *)&peer_addr, &peer_len) == -1)
     return packet;
-  
+
+#ifdef HAVE_CONNTRACK
+  /* Get connection mark of incoming query to set on outgoing connections. */
+  if (option_bool(OPT_CONNTRACK))
+    {
+      struct all_addr local;
+#ifdef HAVE_IPV6		      
+      if (local_addr->sa.sa_family == AF_INET6)
+	local.addr.addr6 = local_addr->in6.sin6_addr;
+      else
+#endif
+	local.addr.addr4 = local_addr->in.sin_addr;
+      
+      have_mark = get_incoming_mark(&peer_addr, &local, 1, &mark);
+    }
+#endif	
+
   /* We can be configured to only accept queries from at-most-one-hop-away addresses. */
   if (option_bool(OPT_LOCAL_SERVICE))
     {
@@ -1626,7 +1766,7 @@ unsigned char *tcp_request(int confd, time_t now,
 	    {
 	      unsigned int flags = 0;
 	      struct all_addr *addrp = NULL;
-	      int type = 0;
+	      int type = SERV_DO_DNSSEC;
 	      char *domain = NULL;
 	      size_t new_size = add_edns0_config(header, size, ((unsigned char *) header) + 65536, &peer_addr, now, &check_subnet);
 
@@ -1638,6 +1778,8 @@ unsigned char *tcp_request(int confd, time_t now,
 	      
 	      if (gotname)
 		flags = search_servers(now, &addrp, gotname, daemon->namebuff, &type, &domain, &norebind);
+	      
+	      type &= ~SERV_DO_DNSSEC;
 	      
 	      if (type != 0  || option_bool(OPT_ORDER) || !daemon->last_server)
 		last_server = daemon->servers;
@@ -1685,20 +1827,8 @@ unsigned char *tcp_request(int confd, time_t now,
 			  
 #ifdef HAVE_CONNTRACK
 			  /* Copy connection mark of incoming query to outgoing connection. */
-			  if (option_bool(OPT_CONNTRACK))
-			    {
-			      unsigned int mark;
-			      struct all_addr local;
-#ifdef HAVE_IPV6		      
-			      if (local_addr->sa.sa_family == AF_INET6)
-				local.addr.addr6 = local_addr->in6.sin6_addr;
-			      else
-#endif
-				local.addr.addr4 = local_addr->in.sin_addr;
-			      
-			      if (get_incoming_mark(&peer_addr, &local, 1, &mark))
-				setsockopt(last_server->tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(unsigned int));
-			    }
+			  if (have_mark)
+			    setsockopt(last_server->tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(unsigned int));
 #endif	
 		      
 			  if ((!local_bind(last_server->tcpfd,  &last_server->source_addr, last_server->interface, 1) ||
@@ -1710,7 +1840,7 @@ unsigned char *tcp_request(int confd, time_t now,
 			    }
 			  
 #ifdef HAVE_DNSSEC
-			  if (option_bool(OPT_DNSSEC_VALID))
+			  if (option_bool(OPT_DNSSEC_VALID) && (last_server->flags & SERV_DO_DNSSEC))
 			    {
 			      new_size = add_do_bit(header, size, ((unsigned char *) header) + 65536);
 			      
@@ -1756,10 +1886,11 @@ unsigned char *tcp_request(int confd, time_t now,
 #endif 
 
 #ifdef HAVE_DNSSEC
-		      if (option_bool(OPT_DNSSEC_VALID) && !checking_disabled)
+		      if (option_bool(OPT_DNSSEC_VALID) && !checking_disabled && (last_server->flags & SERV_DO_DNSSEC))
 			{
 			  int keycount = DNSSEC_WORK; /* Limit to number of DNSSEC questions, to catch loops and avoid filling cache. */
-			  int status = tcp_key_recurse(now, STAT_OK, header, m, 0, daemon->namebuff, daemon->keyname, last_server, &keycount);
+			  int status = tcp_key_recurse(now, STAT_OK, header, m, 0, daemon->namebuff, daemon->keyname, 
+						       last_server, have_mark, mark, &keycount);
 			  char *result, *domain = "result";
 			  
 			  if (status == STAT_ABANDONED)

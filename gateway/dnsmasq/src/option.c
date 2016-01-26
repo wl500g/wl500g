@@ -154,7 +154,9 @@ struct myoption {
 #define LOPT_HOST_INOTIFY  342
 #define LOPT_DNSSEC_STAMP  343
 #define LOPT_TFTP_NO_FAIL  344
-#define LOPT_DNS_CLIENT_ID 355
+#define LOPT_MAXPORT       345
+#define LOPT_CPE_ID        346
+#define LOPT_SCRIPT_ARP    347
 
 #ifdef HAVE_GETOPT_LONG
 static const struct option opts[] =  
@@ -271,6 +273,7 @@ static const struct myoption opts[] =
     { "dhcp-alternate-port", 2, 0, LOPT_ALTPORT },
     { "dhcp-scriptuser", 1, 0, LOPT_SCRIPTUSR },
     { "min-port", 1, 0, LOPT_MINPORT },
+    { "max-port", 1, 0, LOPT_MAXPORT },
     { "dhcp-fqdn", 0, 0, LOPT_DHCP_FQDN },
     { "cname", 1, 0, LOPT_CNAME },
     { "pxe-prompt", 1, 0, LOPT_PXE_PROMT },
@@ -280,9 +283,9 @@ static const struct myoption opts[] =
     { "dhcp-proxy", 2, 0, LOPT_PROXY },
     { "dhcp-generate-names", 2, 0, LOPT_GEN_NAMES },
     { "rebind-localhost-ok", 0, 0,  LOPT_LOC_REBND },
-    { "add-mac", 0, 0, LOPT_ADD_MAC },
+    { "add-mac", 2, 0, LOPT_ADD_MAC },
     { "add-subnet", 2, 0, LOPT_ADD_SBNET },
-    { "add-dns-client", 2, 0 , LOPT_DNS_CLIENT_ID },
+    { "add-cpe-id", 1, 0 , LOPT_CPE_ID },
     { "proxy-dnssec", 0, 0, LOPT_DNSSEC },
     { "dhcp-sequential-ip", 0, 0,  LOPT_INCR_ADDR },
     { "conntrack", 0, 0, LOPT_CONNTRACK },
@@ -315,6 +318,7 @@ static const struct myoption opts[] =
     { "quiet-dhcp6", 0, 0, LOPT_QUIET_DHCP6 },
     { "quiet-ra", 0, 0, LOPT_QUIET_RA },
     { "dns-loop-detect", 0, 0, LOPT_LOOP_DETECT },
+    { "script-arp", 0, 0, LOPT_SCRIPT_ARP },
     { NULL, 0, 0, 0 }
   };
 
@@ -412,6 +416,7 @@ static struct {
   { '6', ARG_ONE, "<path>", gettext_noop("Shell script to run on DHCP lease creation and destruction."), NULL },
   { LOPT_LUASCRIPT, ARG_DUP, "path", gettext_noop("Lua script to run on DHCP lease creation and destruction."), NULL },
   { LOPT_SCRIPTUSR, ARG_ONE, "<username>", gettext_noop("Run lease-change scripts as this user."), NULL },
+  { LOPT_SCRIPT_ARP, OPT_SCRIPT_ARP, NULL, gettext_noop("Call dhcp-script with changes to local ARP table."), NULL },
   { '7', ARG_DUP, "<path>", gettext_noop("Read configuration from all the files in this directory."), NULL },
   { '8', ARG_ONE, "<facilty>|<file>", gettext_noop("Log to this syslog facility or file. (defaults to DAEMON)"), NULL },
   { '9', OPT_LEASE_RO, NULL, gettext_noop("Do not use leasefile."), NULL },
@@ -438,6 +443,7 @@ static struct {
   { LOPT_ALTPORT, ARG_ONE, "[=<ports>]", gettext_noop("Use alternative ports for DHCP."), NULL },
   { LOPT_NAPTR, ARG_DUP, "<name>,<naptr>", gettext_noop("Specify NAPTR DNS record."), NULL },
   { LOPT_MINPORT, ARG_ONE, "<port>", gettext_noop("Specify lowest port available for DNS query transmission."), NULL },
+  { LOPT_MAXPORT, ARG_ONE, "<port>", gettext_noop("Specify highest port available for DNS query transmission."), NULL },
   { LOPT_DHCP_FQDN, OPT_DHCP_FQDN, NULL, gettext_noop("Use only fully qualified domain names for DHCP clients."), NULL },
   { LOPT_GEN_NAMES, ARG_DUP, "[=tag:<tag>]", gettext_noop("Generate hostnames based on MAC address for nameless clients."), NULL},
   { LOPT_PROXY, ARG_DUP, "[=<ipaddr>]...", gettext_noop("Use these DHCP relays as full proxies."), NULL },
@@ -446,9 +452,9 @@ static struct {
   { LOPT_PXE_PROMT, ARG_DUP, "<prompt>,[<timeout>]", gettext_noop("Prompt to send to PXE clients."), NULL },
   { LOPT_PXE_SERV, ARG_DUP, "<service>", gettext_noop("Boot service for PXE menu."), NULL },
   { LOPT_TEST, 0, NULL, gettext_noop("Check configuration syntax."), NULL },
-  { LOPT_ADD_MAC, OPT_ADD_MAC, NULL, gettext_noop("Add requestor's MAC address to forwarded DNS queries."), NULL },
+  { LOPT_ADD_MAC, ARG_DUP, "[=base64]", gettext_noop("Add requestor's MAC address to forwarded DNS queries."), NULL },
   { LOPT_ADD_SBNET, ARG_ONE, "<v4 pref>[,<v6 pref>]", gettext_noop("Add specified IP subnet to forwarded DNS queries."), NULL },
-  { LOPT_DNS_CLIENT_ID, ARG_ONE, "<proxyname>", gettext_noop("Add client identification to forwarded DNS queries."), NULL },
+   { LOPT_CPE_ID, ARG_ONE, "<text>", gettext_noop("Add client identification to forwarded DNS queries."), NULL },
   { LOPT_DNSSEC, OPT_DNSSEC_PROXY, NULL, gettext_noop("Proxy DNSSEC validation results from upstream nameservers."), NULL },
   { LOPT_INCR_ADDR, OPT_CONSEC_ADDR, NULL, gettext_noop("Attempt to allocate sequential IP addresses to DHCP clients."), NULL },
   { LOPT_CONNTRACK, OPT_CONNTRACK, NULL, gettext_noop("Copy connection-track mark from queries to upstream connections."), NULL },
@@ -2153,10 +2159,22 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	}
       break;
       
-    case LOPT_DNS_CLIENT_ID: /* --add-dns-client */
-       set_option_bool(OPT_DNS_CLIENT);
-       if (arg)
+    case LOPT_CPE_ID: /* --add-dns-client */
+      if (arg)
 	daemon->dns_client_id = opt_string_alloc(arg);
+      break;
+
+    case LOPT_ADD_MAC:
+      if (!arg)
+	set_option_bool(OPT_ADD_MAC);
+      else
+	{
+	  unhide_metas(arg);
+	  if (strcmp(arg, "base64") == 0)
+	    set_option_bool(OPT_MAC_B64);
+	  else
+	    ret_err(gen_err);
+	}
       break;
 
     case 'u':  /* --user */
@@ -2509,6 +2527,11 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
     
     case LOPT_MINPORT:  /* --min-port */
       if (!atoi_check16(arg, &daemon->min_port))
+	ret_err(gen_err);
+      break;
+
+    case LOPT_MAXPORT:  /* --max-port */
+      if (!atoi_check16(arg, &daemon->max_port))
 	ret_err(gen_err);
       break;
 
@@ -4462,6 +4485,7 @@ void read_opts(int argc, char **argv, char *compile_opts)
   daemon->soa_refresh = SOA_REFRESH;
   daemon->soa_retry = SOA_RETRY;
   daemon->soa_expiry = SOA_EXPIRY;
+  daemon->max_port = MAX_PORT;
 
   add_txt("version.bind", "dnsmasq-" VERSION, 0 );
   add_txt("authors.bind", "Simon Kelley", 0);

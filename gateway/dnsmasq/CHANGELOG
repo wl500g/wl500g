@@ -18,6 +18,33 @@ version 2.76
 	    that the same name is empty. Thanks to Edwin Török for
 	    the patch.
 
+	    Fix failure to correctly calculate cache-size when 
+	    reading a hosts-file fails. Thanks to André Glüpker 
+	    for the patch.
+
+	    Fix wrong answer to simple name query when --domain-needed
+	    set, but no upstream servers configured. Dnsmasq returned
+	    REFUSED, in this case, when it should be the same as when
+	    upstream servers are configured - NOERROR. Thanks to 
+	    Allain Legacy for spotting the problem.
+
+	    Return REFUSED when running out of forwarding table slots,
+	    not SERVFAIL.
+
+            Add --max-port configuration. Thanks to Hans Dedecker for
+	    the patch.
+
+	    Add --script-arp and two new functions for the dhcp-script.
+	    These are "arp" and "arp-old" which announce the arrival and
+	    removal of entries in the ARP or nieghbour tables.
+
+	    Extend --add-mac to allow a new encoding of the MAC address 
+	    as base64, by configurting --add-mac=base64
+
+	    Add --add-cpe-id option.
+
+	
+	    
 	
 version 2.75
             Fix reversion on 2.74 which caused 100% CPU use when a 
