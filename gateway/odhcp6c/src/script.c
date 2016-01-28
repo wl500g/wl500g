@@ -353,13 +353,15 @@ static void s46_to_env(enum odhcp6c_state state, const uint8_t *data, size_t len
 void script_call(const char *status, int delay, bool resume)
 {
 	time_t now = odhcp6c_get_milli_time() / 1000;
+	bool running_script = false;
 
 	if (running) {
 		kill(running, SIGTERM);
 		delay -= now - started;
+		running_script = true;
 	}
 
-	if (resume || !action[0])
+	if (resume || !running_script || !action[0])
 		strncpy(action, status, sizeof(action) - 1);
 
 	pid_t pid = fork();
