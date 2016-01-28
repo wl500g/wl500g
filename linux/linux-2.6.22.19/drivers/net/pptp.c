@@ -135,45 +135,46 @@ static int lookup_chan_dst(u16 call_id, __be32 d_addr)
 	int i;
 
 	rcu_read_lock();
-	for(i = find_next_bit(callid_bitmap, MAX_CALLID, 1); i < MAX_CALLID; 
-	                i = find_next_bit(callid_bitmap, MAX_CALLID, i + 1)) {
-	    sock = rcu_dereference(callid_sock[i]);
+	for (i = find_next_bit(callid_bitmap, MAX_CALLID, 1); i < MAX_CALLID;
+	     i = find_next_bit(callid_bitmap, MAX_CALLID, i + 1)) {
+		sock = rcu_dereference(callid_sock[i]);
 		if (!sock)
 			continue;
-	    opt = &sock->proto.pptp;
-	    if (opt->dst_addr.call_id == call_id && opt->dst_addr.sin_addr.s_addr == d_addr)
+		opt = &sock->proto.pptp;
+		if (opt->dst_addr.call_id == call_id &&
+			  opt->dst_addr.sin_addr.s_addr == d_addr)
 			break;
 	}
 	rcu_read_unlock();
 
-	return i<MAX_CALLID;
+	return i < MAX_CALLID;
 }
 
 static int add_chan(struct pppox_sock *sock)
 {
-	static int call_id = 0;
-	int res = -1;
+	static int call_id;
 
 	spin_lock(&chan_lock);
+	if (!sock->proto.pptp.src_addr.call_id)	{
+		call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, call_id + 1);
+		if (call_id == MAX_CALLID) {
+			call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, 1);
+			if (call_id == MAX_CALLID)
+				goto out_err;
+		}
+		sock->proto.pptp.src_addr.call_id = call_id;
+	} else if (test_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap))
+		goto out_err;
 
-	if (!sock->proto.pptp.src_addr.call_id)
-	{
-	    call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, call_id+1);
-	    if (call_id == MAX_CALLID)
-				call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, 1);
-	    sock->proto.pptp.src_addr.call_id = call_id;
-	}
-	else if (test_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap))
-		goto exit;
-	
-	rcu_assign_pointer(callid_sock[sock->proto.pptp.src_addr.call_id], sock);
 	set_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap);
-	res=0;
-
-exit:	
+	rcu_assign_pointer(callid_sock[sock->proto.pptp.src_addr.call_id], sock);
 	spin_unlock(&chan_lock);
 
-	return res;
+	return 0;
+
+out_err:
+	spin_unlock(&chan_lock);
+	return -1;
 }
 
 static void del_chan(struct pppox_sock *sock)
