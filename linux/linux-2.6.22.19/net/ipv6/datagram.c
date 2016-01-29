@@ -156,6 +156,9 @@ ipv4_connected:
 	fl.fl_ip_dport = inet->dport;
 	fl.fl_ip_sport = inet->sport;
 
+	if (!fl.oif)
+		fl.oif = np->sticky_pktinfo.ipi6_ifindex;
+
 	if (!fl.oif && (addr_type&IPV6_ADDR_MULTICAST))
 		fl.oif = np->mcast_oif;
 
