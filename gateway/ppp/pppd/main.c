@@ -749,8 +749,8 @@ set_ifunit(iskey)
 {
     slprintf(ifname, sizeof(ifname), "%s%d", PPP_DRV_NAME, ifunit);
     script_setenv("IFUNIT", ifname, iskey);
-    if (req_ifname[0] && sifname(ifunit, req_ifname))
-	slprintf(ifname, sizeof(ifname), "%s", req_ifname);
+    if (req_ifname[0])
+	sifname(ifunit, req_ifname);
     info("Using interface %s", ifname);
     script_setenv("IFNAME", ifname, 0);
     if (iskey) {

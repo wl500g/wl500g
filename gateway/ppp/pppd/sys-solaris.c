@@ -1765,7 +1765,7 @@ sifvjcomp(u, vjcomp, xcidcomp, xmaxcid)
 int
 sifname (u, newname)
     int u;
-    char *newname;
+    const char *newname;
 {
     error("Couldn't set interface name %s: %s", newname, "Unsupported");
     return 0;
