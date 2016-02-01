@@ -57,8 +57,6 @@
 extern char** environ;
 
 char pppd_version[] = VERSION;
-extern int new_style_driver;
-
 
 char *pptp_server = NULL;
 char *pptp_client = NULL;
@@ -363,10 +361,14 @@ static int get_call_id(int sock, pid_t gre, pid_t pppd,
 
 void plugin_init(void)
 {
-    /*if (!ppp_available() && !new_style_driver)
-    {
-				fatal("Linux kernel does not support PPP -- are you running 2.4.x?");
-    }*/
+#if defined(__linux__)
+	extern int new_style_driver;	/* From sys-linux.c */
+	if (!ppp_available() && !new_style_driver)
+		fatal("Kernel doesn't support ppp_generic - "
+		    "needed for PPTP");
+#else
+	fatal("No PPTP support on this OS");
+#endif
 
     add_options(Options);
 
