@@ -195,7 +195,7 @@ if [ -d "$ksrc" ]; then
     mkmkf $ksrc/Makedefs$compiletype Makedefs.com
     for dir in pppd pppstats chat pppdump pppd/plugins pppd/plugins/rp-pppoe \
 	       pppd/plugins/radius pppd/plugins/pppoatm \
-	       pppd/plugins/pppol2tp; do
+	       pppd/plugins/pppol2tp pppd/plugins/pptp; do
 	mkmkf $dir/Makefile.$makext $dir/Makefile
     done
     if [ -f $ksrc/Makefile.$makext$archvariant ]; then

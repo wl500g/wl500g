@@ -38,17 +38,17 @@
 #include <sys/wait.h>
 #include <sys/ioctl.h>
 
-#include "pppd/pppd.h"
-#include "pppd/fsm.h"
-#include "pppd/lcp.h"
-#include "pppd/ipcp.h"
-#include "pppd/ccp.h"
-#include "pppd/pathnames.h"
+#include <pppd/pppd.h>
+#include <pppd/fsm.h>
+#include <pppd/lcp.h>
+#include <pppd/ipcp.h>
+#include <pppd/ccp.h>
+#include <pppd/pathnames.h>
 
 #include "pptp_callmgr.h"
 #include <net/if.h>
 #include <net/ethernet.h>
-#include "if_pppox.h"
+#include <linux/if_pppox.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,7 +57,7 @@
 
 extern char** environ;
 
-char pppd_version[] = PPPD_VERSION;
+char pppd_version[] = VERSION;
 extern int new_style_driver;
 
 
@@ -335,8 +335,8 @@ void plugin_init(void)
 
     add_options(Options);
 
-    info("PPTP plugin version %s compiled for pppd-%s, linux-%s",
-	 VERSION, PPPD_VERSION,KERNELVERSION);
+    info("PPTP plugin version %s compiled for pppd-%s",
+	 PLUGINVERSION, VERSION);
 
     the_channel = &pptp_channel;
     modem = 0;
