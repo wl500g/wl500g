@@ -64,8 +64,8 @@ char *pptp_phone = NULL;
 int pptp_sock=-1;
 int pptp_timeout=100000;
 struct in_addr localbind = { INADDR_NONE };
-struct rtentry rt;
 
+static struct rtentry rt;
 static int callmgr_sock;
 static int pptp_fd;
 int call_ID;
@@ -99,6 +99,7 @@ static int pptp_connect(void);
 //static void pptp_send_config(int mtu,u_int32_t asyncmap,int pcomp,int accomp);
 //static void pptp_recv_config(int mru,u_int32_t asyncmap,int pcomp,int accomp);
 static void pptp_disconnect(void);
+static void pptp_cleanup(void);
 
 struct channel pptp_channel = {
     options: Options,
@@ -111,7 +112,7 @@ struct channel pptp_channel = {
     //send_config: &pptp_send_config,
     //recv_config: &pptp_recv_config,
     close: NULL,
-    cleanup: NULL
+    cleanup: pptp_cleanup
 };
 
 static int pptp_start_server(void)
@@ -141,8 +142,8 @@ static int pptp_start_client(void)
 	}
 	dst_addr.sa_addr.pptp.sin_addr=*(struct in_addr*)hostinfo->h_addr;
 
- 	memset(&rt, 0, sizeof(rt));
- 	route_add(dst_addr.sa_addr.pptp.sin_addr, &rt);
+	route_del(&rt);
+	route_add(dst_addr.sa_addr.pptp.sin_addr, &rt);
 
 	{
 		int sock;
@@ -156,7 +157,7 @@ static int pptp_start_client(void)
 		{
 			close(sock);
 			error("PPTP: connect failed (%s)\n",strerror(errno));
-			return -1;
+			goto error;
 		}
 		getsockname(sock,(struct sockaddr*)&addr,&len);
 		src_addr.sa_addr.pptp.sin_addr=addr.sin_addr;
@@ -179,13 +180,13 @@ static int pptp_start_client(void)
 	if (pptp_fd<0)
 	{
 		error("PPTP: failed to create PPTP socket (%s)\n",strerror(errno));
-		return -1;
+		goto error;
 	}
 	if (bind(pptp_fd,(struct sockaddr*)&src_addr,sizeof(src_addr)))
 	{
 		close(pptp_fd);
 		error("PPTP: failed to bind PPTP socket (%s)\n",strerror(errno));
-		return -1;
+		goto error;
 	}
 	len=sizeof(src_addr);
 	getsockname(pptp_fd,(struct sockaddr*)&src_addr,&len);
@@ -202,7 +203,7 @@ static int pptp_start_client(void)
 		if (callmgr_sock < 0)
 		{
 			close(pptp_fd);
-			return -1;
+			goto error;
 		}
 	/* Exchange PIDs, get call ID */
 	} while (get_call_id(callmgr_sock, getpid(), getpid(), &dst_addr.sa_addr.pptp.call_id) < 0);
@@ -212,12 +213,16 @@ static int pptp_start_client(void)
 		close(callmgr_sock);
 		close(pptp_fd);
 		error("PPTP: failed to connect PPTP socket (%s)\n",strerror(errno));
-		return -1;
+		goto error;
 	}
 
 	sprintf(ppp_devnam,"pptp (%s)", inet_ntoa(dst_addr.sa_addr.pptp.sin_addr));
 
 	return pptp_fd;
+
+error:
+	route_del(&rt);
+	return -1;
 }
 static int pptp_connect(void)
 {
@@ -235,7 +240,11 @@ static void pptp_disconnect(void)
 {
 	if (pptp_server) close(callmgr_sock);
 	close(pptp_fd);
-	//route_del(&rt); // don't delete, as otherwise it would try to use pppX in demand mode
+}
+
+static void pptp_cleanup(void)
+{
+	if (pptp_server) route_del(&rt);
 }
 
 static int open_callmgr(int call_id,struct in_addr inetaddr, char *phonenr,int window)
@@ -377,6 +386,7 @@ void plugin_init(void)
 
     the_channel = &pptp_channel;
     modem = 0;
+    memset(&rt, 0, sizeof(rt));
 }
 
 /* Route manipulation */
