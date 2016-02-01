@@ -829,6 +829,7 @@ ppp-install: ppp
 	install -D ppp/chat/chat $(INSTALLDIR)/ppp/usr/sbin/chat
 	$(STRIP) $(INSTALLDIR)/ppp/usr/sbin/chat
 	install -D ppp/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/ppp/usr/lib/pppd/pppol2tp.so
+	install -D ppp/pppd/plugins/pptp/pptp.so $(INSTALLDIR)/ppp/usr/lib/pppd/pptp.so
 	$(STRIP) $(INSTALLDIR)/ppp/usr/lib/pppd/*.so
 
 rp-pppoe/src/Makefile: rp-pppoe/src/Makefile.in
