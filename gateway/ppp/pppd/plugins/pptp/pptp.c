@@ -99,7 +99,7 @@ static int pptp_connect(void);
 //static void pptp_send_config(int mtu,u_int32_t asyncmap,int pcomp,int accomp);
 //static void pptp_recv_config(int mru,u_int32_t asyncmap,int pcomp,int accomp);
 static void pptp_disconnect(void);
-static void pptp_cleanup(void);
+static void pptp_cleanup(void *opaque, int arg);
 
 struct channel pptp_channel = {
     options: Options,
@@ -112,7 +112,7 @@ struct channel pptp_channel = {
     //send_config: &pptp_send_config,
     //recv_config: &pptp_recv_config,
     close: NULL,
-    cleanup: pptp_cleanup
+    cleanup: NULL
 };
 
 static int pptp_start_server(void)
@@ -242,7 +242,7 @@ static void pptp_disconnect(void)
 	close(pptp_fd);
 }
 
-static void pptp_cleanup(void)
+static void pptp_cleanup(void *opaque, int arg)
 {
 	if (pptp_server) route_del(&rt);
 }
@@ -387,6 +387,8 @@ void plugin_init(void)
     the_channel = &pptp_channel;
     modem = 0;
     memset(&rt, 0, sizeof(rt));
+
+    add_notifier(&exitnotify, pptp_cleanup, NULL);
 }
 
 /* Route manipulation */
