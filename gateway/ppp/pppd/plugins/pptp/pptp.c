@@ -18,11 +18,6 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
@@ -45,11 +40,9 @@
 #include <pppd/ccp.h>
 #include <pppd/pathnames.h>
 
-#include "pptp_callmgr.h"
 #include <net/if.h>
 #include <net/ethernet.h>
 #include <linux/if_pppox.h>
-#include "inststr.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,6 +50,9 @@
 #include <net/route.h>
 #include <features.h>
 #include <resolv.h>
+
+#include "pptp_callmgr.h"
+#include "inststr.h"
 
 extern char** environ;
 
