@@ -1,6 +1,6 @@
 #CC	= gcc
 COPTS	= -O2 -g
-CFLAGS	= $(COPTS) -I. -I../.. -I$(LINUXDIR)/include -fPIC $(EXTRACFLAGS)
+CFLAGS	= $(COPTS) -I. -I../.. -idirafter$(LINUXDIR)/include -fPIC $(EXTRACFLAGS)
 LDFLAGS	= -shared
 INSTALL	= install
 
