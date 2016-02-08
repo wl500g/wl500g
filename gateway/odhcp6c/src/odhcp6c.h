@@ -20,6 +20,7 @@
 
 #define _unused __attribute__((unused))
 #define _packed __attribute__((packed))
+#define _aligned(n) __attribute__((aligned(n)))
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -303,6 +304,14 @@ struct odhcp6c_entry {
 	uint32_t iaid;
 	uint8_t auxtarget[];
 };
+
+// Include padding after auxtarget to align the next entry
+#define odhcp6c_entry_size(entry) \
+	(sizeof(struct odhcp6c_entry) +	(((entry)->auxlen + 3) & ~3))
+
+#define odhcp6c_next_entry(entry) \
+	((struct odhcp6c_entry *)((uint8_t *)(entry) + odhcp6c_entry_size(entry)))
+
 
 struct odhcp6c_request_prefix {
 	uint32_t iaid;

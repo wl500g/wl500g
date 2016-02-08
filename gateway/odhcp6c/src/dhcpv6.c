@@ -109,6 +109,14 @@ static uint8_t reconf_key[16];
 static unsigned int client_options = 0;
 
 
+static uint32_t ntohl_unaligned(const uint8_t *data)
+{
+	uint32_t buf;
+
+	memcpy(&buf, data, sizeof(buf));
+	return ntohl(buf);
+}
+
 int init_dhcpv6(const char *ifname, unsigned int options, int sol_timeout)
 {
 	client_options = options;
@@ -581,11 +589,15 @@ int dhcpv6_request(enum dhcpv6_msg type)
 		// Receive rounds
 		for (; len < 0 && (round_start < round_end);
 				round_start = odhcp6c_get_milli_time()) {
-			uint8_t buf[1536], cmsg_buf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+			uint8_t buf[1536];
+			union {
+				struct cmsghdr hdr;
+				uint8_t buf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+			} cmsg_buf;
 			struct iovec iov = {buf, sizeof(buf)};
 			struct sockaddr_in6 addr;
 			struct msghdr msg = {.msg_name = &addr, .msg_namelen = sizeof(addr),
-					.msg_iov = &iov, .msg_iovlen = 1, .msg_control = cmsg_buf,
+					.msg_iov = &iov, .msg_iovlen = 1, .msg_control = cmsg_buf.buf,
 					.msg_controllen = sizeof(cmsg_buf)};
 			struct in6_pktinfo *pktinfo = NULL;
 
@@ -696,7 +708,8 @@ static bool dhcpv6_response_is_valid(const void *buf, ssize_t len,
 				continue;
 
 			md5_ctx_t md5;
-			uint8_t serverhash[16], secretbytes[64], hash[16];
+			uint8_t serverhash[16], secretbytes[64];
+			uint32_t hash[4];
 			memcpy(serverhash, r->key, sizeof(serverhash));
 			memset(r->key, 0, sizeof(r->key));
 
@@ -808,12 +821,12 @@ static int dhcpv6_handle_advert(enum dhcpv6_msg orig, const int rc,
 		} else if (otype == DHCPV6_OPT_RECONF_ACCEPT) {
 			cand.wants_reconfigure = true;
 		} else if (otype == DHCPV6_OPT_SOL_MAX_RT && olen == 4) {
-			uint32_t sol_max_rt = ntohl(*((uint32_t *)odata));
+			uint32_t sol_max_rt = ntohl_unaligned(odata);
 			if (sol_max_rt >= DHCPV6_SOL_MAX_RT_MIN &&
 					sol_max_rt <= DHCPV6_SOL_MAX_RT_MAX)
 				cand.sol_max_rt = sol_max_rt;
 		} else if (otype == DHCPV6_OPT_INF_MAX_RT && olen == 4) {
-			uint32_t inf_max_rt = ntohl(*((uint32_t *)odata));
+			uint32_t inf_max_rt = ntohl_unaligned(odata);
 			if (inf_max_rt >= DHCPV6_INF_MAX_RT_MIN &&
 					inf_max_rt <= DHCPV6_INF_MAX_RT_MAX)
 				cand.inf_max_rt = inf_max_rt;
@@ -1031,7 +1044,7 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 			} else if (otype == DHCPV6_OPT_SIP_SERVER_D) {
 				odhcp6c_add_state(STATE_SIP_FQDN, odata, olen);
 			} else if (otype == DHCPV6_OPT_INFO_REFRESH && olen >= 4) {
-				refresh = ntohl(*((uint32_t*)odata));
+				refresh = ntohl_unaligned(odata);
 				passthru = false;
 			} else if (otype == DHCPV6_OPT_AUTH) {
 				if (olen == -4 + sizeof(struct dhcpv6_auth_reconfigure)) {
@@ -1048,13 +1061,13 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 					odhcp6c_add_state(STATE_AFTR_NAME, odata, olen);
 				passthru = false;
 			} else if (otype == DHCPV6_OPT_SOL_MAX_RT && olen == 4) {
-				uint32_t sol_max_rt = ntohl(*((uint32_t *)odata));
+				uint32_t sol_max_rt = ntohl_unaligned(odata);
 				if (sol_max_rt >= DHCPV6_SOL_MAX_RT_MIN &&
 						sol_max_rt <= DHCPV6_SOL_MAX_RT_MAX)
 					dhcpv6_retx[DHCPV6_MSG_SOLICIT].max_timeo = sol_max_rt;
 				passthru = false;
 			} else if (otype == DHCPV6_OPT_INF_MAX_RT && olen == 4) {
-				uint32_t inf_max_rt = ntohl(*((uint32_t *)odata));
+				uint32_t inf_max_rt = ntohl_unaligned(odata);
 				if (inf_max_rt >= DHCPV6_INF_MAX_RT_MIN &&
 						inf_max_rt <= DHCPV6_INF_MAX_RT_MAX)
 					dhcpv6_retx[DHCPV6_MSG_INFO_REQ].max_timeo = inf_max_rt;

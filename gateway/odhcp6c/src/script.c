@@ -220,8 +220,9 @@ static void search_to_env(const char *name, const uint8_t *start, size_t len)
 	*c++ = '=';
 
 	for (struct odhcp6c_entry *e = (struct odhcp6c_entry*)start;
-				(uint8_t*)e < &start[len] && &e->auxtarget[e->auxlen] <= &start[len];
-				e = (struct odhcp6c_entry*)(&e->auxtarget[e->auxlen])) {
+				(uint8_t*)e < &start[len] &&
+				(uint8_t*)odhcp6c_next_entry(e) <= &start[len];
+				e = odhcp6c_next_entry(e)) {
 		c = mempcpy(c, e->auxtarget, e->auxlen);
 		*c++ = ' ';
 	}

@@ -570,8 +570,9 @@ static struct odhcp6c_entry* odhcp6c_find_entry(enum odhcp6c_state state, const 
 	uint8_t *start = odhcp6c_get_state(state, &len);
 
 	for (struct odhcp6c_entry *c = (struct odhcp6c_entry*)start;
-			(uint8_t*)c < &start[len] && &c->auxtarget[c->auxlen] <= &start[len];
-			c = (struct odhcp6c_entry*)(&c->auxtarget[c->auxlen]))
+			(uint8_t*)c < &start[len] &&
+			(uint8_t*)odhcp6c_next_entry(c) <= &start[len];
+			c = odhcp6c_next_entry(c))
 		if (!memcmp(c, new, cmplen) && !memcmp(c->auxtarget, new->auxtarget, new->auxlen))
 			return c;
 
@@ -604,10 +605,10 @@ bool odhcp6c_update_entry(enum odhcp6c_state state, struct odhcp6c_entry *new,
 			x->t2 = new->t2;
 			x->iaid = new->iaid;
 		} else {
-			odhcp6c_add_state(state, new, sizeof(*new) + new->auxlen);
+			odhcp6c_add_state(state, new, odhcp6c_entry_size(new));
 		}
 	} else if (x) {
-		odhcp6c_remove_state(state, ((uint8_t*)x) - start, sizeof(*x) + x->auxlen);
+		odhcp6c_remove_state(state, ((uint8_t*)x) - start, odhcp6c_entry_size(x));
 	}
 	return true;
 }
@@ -618,7 +619,8 @@ static void odhcp6c_expire_list(enum odhcp6c_state state, uint32_t elapsed)
 	size_t len;
 	uint8_t *start = odhcp6c_get_state(state, &len);
 	for (struct odhcp6c_entry *c = (struct odhcp6c_entry*)start;
-			(uint8_t*)c < &start[len] && &c->auxtarget[c->auxlen] <= &start[len];
+			(uint8_t*)c < &start[len] &&
+			(uint8_t*)odhcp6c_next_entry(c) <= &start[len];
 			) {
 		if (c->t1 < elapsed)
 			c->t1 = 0;
@@ -641,10 +643,10 @@ static void odhcp6c_expire_list(enum odhcp6c_state state, uint32_t elapsed)
 			c->valid -= elapsed;
 
 		if (!c->valid) {
-			odhcp6c_remove_state(state, ((uint8_t*)c) - start, sizeof(*c) + c->auxlen);
+			odhcp6c_remove_state(state, ((uint8_t*)c) - start, odhcp6c_entry_size(c));
 			start = odhcp6c_get_state(state, &len);
 		} else {
-			c = (struct odhcp6c_entry*)(&c->auxtarget[c->auxlen]);
+			c = odhcp6c_next_entry(c);
 		}
 	}
 }
