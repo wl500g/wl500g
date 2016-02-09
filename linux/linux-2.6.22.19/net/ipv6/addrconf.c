@@ -2635,10 +2635,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
 		addrconf_del_timer(ifa);
 		write_unlock_bh(&idev->lock);
 
-		if (!ifa->dead) {
-			__ipv6_ifa_notify(RTM_DELADDR, ifa);
-			atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
-		}
+		__ipv6_ifa_notify(RTM_DELADDR, ifa);
+		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
 		in6_ifa_put(ifa);
 
 		write_lock_bh(&idev->lock);
