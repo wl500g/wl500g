@@ -345,6 +345,7 @@ pipe_read(struct kiocb *iocb, const struct iovec *_iov,
 			void *addr;
 			size_t chars = buf->len, remaining;
 			int error, atomic;
+			int offset;
 
 			if (chars > total_len)
 				chars = total_len;
@@ -358,9 +359,10 @@ pipe_read(struct kiocb *iocb, const struct iovec *_iov,
 
 			atomic = !iov_fault_in_pages_write(iov, chars);
 			remaining = chars;
+			offset = buf->offset;
 redo:
 			addr = ops->map(pipe, buf, atomic);
-			error = pipe_iov_copy_to_user(iov, addr, &buf->offset,
+			error = pipe_iov_copy_to_user(iov, addr, &offset,
 						      &remaining, atomic);
 			ops->unmap(pipe, buf, addr);
 			if (unlikely(error)) {
@@ -376,6 +378,7 @@ redo:
 				break;
 			}
 			ret += chars;
+			buf->offset += chars;
 			buf->len -= chars;
 			if (!buf->len) {
 				buf->ops = NULL;
