@@ -282,7 +282,7 @@ mrproper: clean
 	-rm -f .config $(LINUXDIR)/.config
 
 distclean: $(obj-distclean) lzma-distclean mksquashfs-distclean
-	-rm -rf $(TARGETDIR)
+	-rm -rf $(TARGETDIR) $(INSTALLDIR) $(PLATFORMDIR)/modules
 	-$(MAKE) -C config clean
 
 lzma $(LZMADIR)/lzma:
