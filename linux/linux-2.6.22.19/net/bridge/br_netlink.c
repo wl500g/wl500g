@@ -68,7 +68,8 @@ static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *por
 	if (event == RTM_NEWLINK)
 		NLA_PUT_U8(skb, IFLA_PROTINFO, port->state);
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 
 nla_put_failure:
 	nlmsg_cancel(skb, nlh);

@@ -2323,7 +2323,8 @@ static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
 			       expires, rt->u.dst.error) < 0)
 		goto nla_put_failure;
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 
 nla_put_failure:
 	nlmsg_cancel(skb, nlh);

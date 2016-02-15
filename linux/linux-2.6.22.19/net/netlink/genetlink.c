@@ -588,7 +588,8 @@ static int ctrl_fill_info(struct genl_family *family, u32 pid, u32 seq,
 		nla_nest_end(skb, nla_grps);
 	}
 
-	return genlmsg_end(skb, hdr);
+	genlmsg_end(skb, hdr);
+	return 0;
 
 nla_put_failure:
 	return genlmsg_cancel(skb, hdr);
@@ -624,7 +625,8 @@ static int ctrl_fill_mcgrp_info(struct genl_multicast_group *grp, u32 pid,
 	nla_nest_end(skb, nest);
 	nla_nest_end(skb, nla_grps);
 
-	return genlmsg_end(skb, hdr);
+	genlmsg_end(skb, hdr);
+	return 0;
 
 nla_put_failure:
 	return genlmsg_cancel(skb, hdr);

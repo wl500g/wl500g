@@ -3360,7 +3360,8 @@ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
 		return -EMSGSIZE;
 	}
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 }
 
 static int inet6_fill_ifmcaddr(struct sk_buff *skb, struct ifmcaddr6 *ifmca,
@@ -3385,7 +3386,8 @@ static int inet6_fill_ifmcaddr(struct sk_buff *skb, struct ifmcaddr6 *ifmca,
 		return -EMSGSIZE;
 	}
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 }
 
 static int inet6_fill_ifacaddr(struct sk_buff *skb, struct ifacaddr6 *ifaca,
@@ -3410,7 +3412,8 @@ static int inet6_fill_ifacaddr(struct sk_buff *skb, struct ifacaddr6 *ifaca,
 		return -EMSGSIZE;
 	}
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 }
 
 enum addr_type_t
@@ -3455,7 +3458,7 @@ static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
 				if ((err = inet6_fill_ifaddr(skb, ifa,
 				    NETLINK_CB(cb->skb).pid,
 				    cb->nlh->nlmsg_seq, RTM_NEWADDR,
-				    NLM_F_MULTI)) <= 0)
+				    NLM_F_MULTI)) < 0)
 					goto done;
 			}
 			break;
@@ -3468,7 +3471,7 @@ static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
 				if ((err = inet6_fill_ifmcaddr(skb, ifmca,
 				    NETLINK_CB(cb->skb).pid,
 				    cb->nlh->nlmsg_seq, RTM_GETMULTICAST,
-				    NLM_F_MULTI)) <= 0)
+				    NLM_F_MULTI)) < 0)
 					goto done;
 			}
 			break;
@@ -3481,7 +3484,7 @@ static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
 				if ((err = inet6_fill_ifacaddr(skb, ifaca,
 				    NETLINK_CB(cb->skb).pid,
 				    cb->nlh->nlmsg_seq, RTM_GETANYCAST,
-				    NLM_F_MULTI)) <= 0)
+				    NLM_F_MULTI)) < 0)
 					goto done;
 			}
 			break;
@@ -3494,7 +3497,7 @@ cont:
 		idx++;
 	}
 done:
-	if (err <= 0) {
+	if (err < 0) {
 		read_unlock_bh(&idev->lock);
 		in6_dev_put(idev);
 	}
@@ -3745,7 +3748,8 @@ static int inet6_fill_ifinfo(struct sk_buff *skb, struct inet6_dev *idev,
 	snmp6_fill_stats(nla_data(nla), idev, IFLA_INET6_ICMP6STATS, nla_len(nla));
 
 	nla_nest_end(skb, protoinfo);
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 
 nla_put_failure:
 	nlmsg_cancel(skb, nlh);
@@ -3769,7 +3773,7 @@ static int inet6_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
 		err = inet6_fill_ifinfo(skb, idev, NETLINK_CB(cb->skb).pid,
 				cb->nlh->nlmsg_seq, RTM_NEWLINK, NLM_F_MULTI);
 		in6_dev_put(idev);
-		if (err <= 0)
+		if (err < 0)
 			break;
 cont:
 		idx++;
@@ -3841,7 +3845,8 @@ static int inet6_fill_prefix(struct sk_buff *skb, struct inet6_dev *idev,
 	ci.valid_time = ntohl(pinfo->valid);
 	NLA_PUT(skb, PREFIX_CACHEINFO, sizeof(ci), &ci);
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 
 nla_put_failure:
 	nlmsg_cancel(skb, nlh);

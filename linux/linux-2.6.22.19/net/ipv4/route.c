@@ -2909,7 +2909,8 @@ static int rt_fill_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
 			       expires, error) < 0)
 		goto nla_put_failure;
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 
 nla_put_failure:
 	nlmsg_cancel(skb, nlh);
@@ -2994,7 +2995,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void 
 
 	err = rt_fill_info(skb, NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
 				RTM_NEWROUTE, 0, 0);
-	if (err <= 0)
+	if (err < 0)
 		goto errout_free;
 
 	err = rtnl_unicast(skb, NETLINK_CB(in_skb).pid);
@@ -3029,7 +3030,7 @@ int ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb)
 			skb->dst = dst_clone(&rt->u.dst);
 			if (rt_fill_info(skb, NETLINK_CB(cb->skb).pid,
 					 cb->nlh->nlmsg_seq, RTM_NEWROUTE,
-					 1, NLM_F_MULTI) <= 0) {
+					 1, NLM_F_MULTI) < 0) {
 				dst_release(xchg(&skb->dst, NULL));
 				rcu_read_unlock_bh();
 				goto done;

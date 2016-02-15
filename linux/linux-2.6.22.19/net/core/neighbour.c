@@ -1717,7 +1717,8 @@ static int neightbl_fill_info(struct sk_buff *skb, struct neigh_table *tbl,
 		goto nla_put_failure;
 
 	read_unlock_bh(&tbl->lock);
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 
 nla_put_failure:
 	read_unlock_bh(&tbl->lock);
@@ -1750,7 +1751,8 @@ static int neightbl_fill_param_info(struct sk_buff *skb,
 		goto errout;
 
 	read_unlock_bh(&tbl->lock);
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 errout:
 	read_unlock_bh(&tbl->lock);
 	nlmsg_cancel(skb, nlh);
@@ -1937,7 +1939,7 @@ static int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
 
 		if (neightbl_fill_info(skb, tbl, NETLINK_CB(cb->skb).pid,
 				       cb->nlh->nlmsg_seq, RTM_NEWNEIGHTBL,
-				       NLM_F_MULTI) <= 0)
+				       NLM_F_MULTI) < 0)
 			break;
 
 		for (nidx = 0, p = tbl->parms.next; p; p = p->next, nidx++) {
@@ -1948,7 +1950,7 @@ static int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
 						     NETLINK_CB(cb->skb).pid,
 						     cb->nlh->nlmsg_seq,
 						     RTM_NEWNEIGHTBL,
-						     NLM_F_MULTI) <= 0)
+						     NLM_F_MULTI) < 0)
 				goto out;
 		}
 
@@ -2001,7 +2003,8 @@ static int neigh_fill_info(struct sk_buff *skb, struct neighbour *neigh,
 	NLA_PUT_U32(skb, NDA_PROBES, atomic_read(&neigh->probes));
 	NLA_PUT(skb, NDA_CACHEINFO, sizeof(ci), &ci);
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 
 nla_put_failure:
 	nlmsg_cancel(skb, nlh);
@@ -2028,7 +2031,7 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
 			if (neigh_fill_info(skb, n, NETLINK_CB(cb->skb).pid,
 					    cb->nlh->nlmsg_seq,
 					    RTM_NEWNEIGH,
-					    NLM_F_MULTI) <= 0) {
+					    NLM_F_MULTI) < 0) {
 				read_unlock_bh(&tbl->lock);
 				rc = -1;
 				goto out;

@@ -699,7 +699,8 @@ static int build_spdinfo(struct sk_buff *skb, u32 pid, u32 seq, u32 flags)
 	NLA_PUT(skb, XFRMA_SPD_INFO, sizeof(spc), &spc);
 	NLA_PUT(skb, XFRMA_SPD_HINFO, sizeof(sph), &sph);
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 
 nla_put_failure:
 	nlmsg_cancel(skb, nlh);
@@ -749,7 +750,8 @@ static int build_sadinfo(struct sk_buff *skb, u32 pid, u32 seq, u32 flags)
 	NLA_PUT_U32(skb, XFRMA_SAD_CNT, si.sadcnt);
 	NLA_PUT(skb, XFRMA_SAD_HINFO, sizeof(sh), &sh);
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 
 nla_put_failure:
 	nlmsg_cancel(skb, nlh);

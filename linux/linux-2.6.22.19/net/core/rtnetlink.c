@@ -673,7 +673,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
 			goto nla_put_failure;
 	}
 
-	return nlmsg_end(skb, nlh);
+	nlmsg_end(skb, nlh);
+	return 0;
 
 nla_put_failure:
 	nlmsg_cancel(skb, nlh);
@@ -692,7 +693,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
 			goto cont;
 		if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
 				     NETLINK_CB(cb->skb).pid,
-				     cb->nlh->nlmsg_seq, 0, NLM_F_MULTI) <= 0)
+				     cb->nlh->nlmsg_seq, 0, NLM_F_MULTI) < 0)
 			break;
 cont:
 		idx++;
