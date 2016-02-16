@@ -1,4 +1,23 @@
-$Id: Changelog.txt,v 1.415 2015/12/16 10:21:48 nanard Exp $
+$Id: Changelog.txt,v 1.422 2016/02/16 12:15:02 nanard Exp $
+
+2016/02/16:
+  minor changes to follow UDA 1.1 more closely.
+  more argument checking in Soap methods.
+
+2016/02/12:
+  return error 729 - ConflictWithOtherMechanisms if IGD v2 is enabled.
+  add iptc_init() check in iptcrdr.c/init_redirect()
+  add update_portmapping() / update_portmapping_desc_timestamp() functions
+
+2016/02/11:
+  use Linux libuuid uuid_generate() / BSD uuid_create() API
+
+2016/01/28:
+  renamed iptables chain MINIUPNPD-PCP-PEER to MINIUPNPD-POSTROUTING
+  implemented "IGD2 Port Triggering" with netfilter/iptables
+
+2016/01/18:
+  fix pcpserver.c CreatePCPMap_FW() : check pinhole before adding
 
 2015/12/16:
   improve syslog message for incoming HTTP requests
