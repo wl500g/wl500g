@@ -854,8 +854,8 @@ void hotplug_usb_modeswitch(const char *interface, const char *action, const cha
 	int i = 0;
 	char sFileName[128];
 	char sPath[128] = "";
-	char sVid[0x0F] = "";
-	char sPid[0x0F] = "";
+	char sVid[16] = "";
+	char sPid[16] = "";
 
 #define CNT_VE_STR 2
 	char *sMaList[] = {

@@ -701,9 +701,10 @@ static void catch_sig(int sig)
 			{
 				cmd_ptr = fgets(command, 256, fp);
 
-				if (cmd_ptr != NULL) system(command);
+				if (cmd_ptr != NULL)
+					system(command);
+				fclose(fp);
 			}
-			fclose(fp);
 			unlink("/tmp/runshell");
 			notice_rcamd(0);
 			extStatus[WEBACTIVE] = 1;

@@ -652,8 +652,7 @@ void convert_asus_values()
 
 	if (nvram_match("wan_nat_x", "0") && nvram_match("wan_route_x", "IP_Bridged"))
 	{
-		sprintf(ifnames, "%s", nvram_safe_get("lan_ifnames"));
-		sprintf(ifnames, "%s %s", ifnames, nvram_safe_get("wan_ifname"));
+		sprintf(ifnames, "%s %s", nvram_safe_get("lan_ifnames"), nvram_safe_get("wan_ifname"));
 		nvram_set("router_disable", "1");
 		nvram_set("vlan_enable", "0");
 	}
