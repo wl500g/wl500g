@@ -84,13 +84,14 @@ void
 l2tp_set_errmsg(char const *fmt, ...)
 {
     va_list ap;
+
     va_start(ap, fmt);
     vsnprintf(errmsg, MAX_ERRMSG_LEN, fmt, ap);
-    va_end(ap);
     errmsg[MAX_ERRMSG_LEN-1] = 0;
     fprintf(stderr, "Error: %s\n", errmsg);
     
     vsyslog(LOG_ERR, fmt, ap);
+    va_end(ap);
 }
 
 /**********************************************************************
