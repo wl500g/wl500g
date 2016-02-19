@@ -830,11 +830,11 @@ get_ipv6addr(void *data)
 #else
     netinet6 = g_procnetinet6;
 #endif
-    if (netinet6 <= 0)
+    if (netinet6 == NULL)
 	return TLV_GET_FAILED;
 
     if (interface == NULL) interface = dflt_if;
-    while (fscanf(netinet6, "%4s%4s%4s%4s%4s%4s%4s%4s %08x %02x %02x %02x %20s\n",
+    while (fscanf(netinet6, "%4s%4s%4s%4s%4s%4s%4s%4s %08x %02x %02x %02x %19s\n",
 	addr6p[0], addr6p[1], addr6p[2], addr6p[3], addr6p[4],
 	addr6p[5], addr6p[6], addr6p[7], &if_idx, &plen, &scope,
 	&dad_status, devname) != EOF)
@@ -1177,7 +1177,7 @@ get_accesspt_assns(void *data)
 	    if (errno != EOPNOTSUPP)
     		warn("get_accesspt_assns: get authe_sta_list faild: %s\n",
     		    strerror(errno));
-	    if (auth) xfree(auth);
+	    xfree(auth);
 
 	    return TLV_GET_FAILED;
 	}
@@ -1203,7 +1203,7 @@ get_accesspt_assns(void *data)
 	assns->assn_cnt = auth->count;
 	assns->collection_time = now;
 
-	if (auth) xfree(auth);
+	xfree(auth);
     }
 
     return TLV_GET_SUCCEEDED;
