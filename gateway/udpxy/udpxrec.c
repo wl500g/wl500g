@@ -319,8 +319,7 @@ record()
         if( NULL == data ) {
             mperror(g_flog, errno, "%s: cannot allocate [%ld] bytes",
                     __func__, (long)g_recopt.bufsize );
-            rc = ERR_INTERNAL;
-            break;
+            return ERR_INTERNAL;
         }
 
         rc = subscribe( &rsock, &mreq );
@@ -353,7 +352,7 @@ record()
         }
 
         rc = calc_buf_settings( &nmsgs, NULL );
-        if (0 != rc) return -1;
+        if (0 != rc) break;
 
         if( nmsgs < (ssize_t)1 ) {
             (void) tmfprintf( g_flog, "Buffer for inbound data is too small [%ld] bytes; "
@@ -367,7 +366,10 @@ record()
                         "[%d] messages\n", nmsgs ) );
 
         rc = init_dstream_ctx( &ds, CMD_UDP, NULL, nmsgs );
-        if( 0 != rc ) return -1;
+        if( 0 != rc ) {
+		free( data );
+		return -1;
+	}
 
         (void) set_nice( g_recopt.nice_incr, g_flog );
 
@@ -436,7 +438,7 @@ record()
                     (u_long)n_total, g_recopt.dstfile, rc, g_alarm, (long)quit ) );
 
     free_dstream_ctx( &ds );
-    if( data ) free( data );
+    free( data );
 
     close_mcast_listener( rsock, &mreq );
     if( destfd >= 0 ) (void) close( destfd );

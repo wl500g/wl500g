@@ -70,11 +70,6 @@ srv_loop( const char* ipaddr, int port,
 
     (void)tmfprintf( g_flog, "Server is starting up, max clients = [%u]\n",
                         g_uopt.max_clients );
-    asock = calloc (max_nasock, sizeof(*asock));
-    if (!asock) {
-        mperror (g_flog, ENOMEM, "%s: calloc", __func__);
-        return ERR_INTERNAL;
-    }
 
     init_server_ctx( &g_srv, g_uopt.max_clients,
             (ipaddr[0] ? ipaddr : "0.0.0.0") , (uint16_t)port, mcast_addr );
@@ -86,6 +81,12 @@ srv_loop( const char* ipaddr, int port,
     if( 0 != (rc = setup_listener( ipaddr, port, &g_srv.lsockfd,
             g_uopt.lq_backlog )) ) {
         return rc;
+    }
+
+    asock = calloc (max_nasock, sizeof(*asock));
+    if (!asock) {
+        mperror (g_flog, ENOMEM, "%s: calloc", __func__);
+        return ERR_INTERNAL;
     }
 
     sigemptyset (&bset);
