@@ -78,8 +78,8 @@ static int readconfig(void)
 	    if ((p = strchr(buf, '='))) {
 		strncpy(MKEY, p+1, sizeof(MKEY)-1);
 		MKEY[sizeof(MKEY)-1] = '\0';
-		for (i=0; i<(sizeof(MKEY)-1) && MKEY[i]; i++) {
-		      NKEY[i] = AHEX(MKEY[i*2])*16 + AHEX(MKEY[i*2+1]);
+		for (i=0; i<(sizeof(MKEY)-1) && MKEY[i]; i += 2) {
+		      NKEY[i>>1] = (AHEX(MKEY[i])<<4) + AHEX(MKEY[i+1]);
 		}
 	    }
 	} else
