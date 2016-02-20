@@ -468,23 +468,22 @@ pipe_write(struct kiocb *iocb, const struct iovec *_iov,
 		int offset = buf->offset + buf->len;
 
 		if (ops->can_merge && offset + chars <= PAGE_SIZE) {
-			int error, atomic = 1;
+			int atomic = 1;
 			void *addr;
 			size_t remaining = chars;
 
-			error = ops->confirm(pipe, buf);
-			if (error)
+			ret = ops->confirm(pipe, buf);
+			if (ret)
 				goto out;
 
 			iov_fault_in_pages_read(iov, chars);
 redo1:
 			addr = ops->map(pipe, buf, atomic);
-			error = pipe_iov_copy_from_user(addr, &offset, iov,
+			ret = pipe_iov_copy_from_user(addr, &offset, iov,
 							&remaining, atomic);
 			ops->unmap(pipe, buf, addr);
-			ret = error;
 			do_wakeup = 1;
-			if (error) {
+			if (ret) {
 				if (atomic) {
 					atomic = 0;
 					goto redo1;
