@@ -1781,6 +1781,8 @@ int main(int ac, char** av)
 
 	configSettings->endGroup();
 	delete configSettings;
+	delete v;
+	delete configApp;
 
 	return 0;
 }
