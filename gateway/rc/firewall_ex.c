@@ -622,12 +622,12 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 
 	/* INPUT chain */
 	/* Drop the wrong state, INVALID, packets */
-	fprintf(fp, "-A INPUT -m conntrack --ctstate INVALID -j %s\n", logdrop);
+	fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n", logdrop);
 	/* Accept related connections, skip rest of checks */
-	fprintf(fp, "-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
+	fprintf(fp, "-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
 	/* From localhost and intranet, all traffic is accepted */
-	fprintf(fp, "-A INPUT -i lo -m conntrack --ctstate NEW -j %s\n", logaccept);
-	fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j %s\n", lan_if, logaccept);
+	fprintf(fp, "-A INPUT -i lo -m state --state NEW -j %s\n", logaccept);
+	fprintf(fp, "-A INPUT -i %s -m state --state NEW -j %s\n", lan_if, logaccept);
 	/* Pass multicast */
 	if (nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")) {
 		fprintf(fp,
@@ -645,9 +645,9 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 #endif
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1")) {
-		fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", wan_if);
+		fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", wan_if);
 		if (man_if)
-			fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", man_if);
+			fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", man_if);
 	}
 	/* Firewall between WAN and Local */
 	if (nvram_match("fw_enable_x", "1")) {
@@ -722,7 +722,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	/* Accept the redirect, might be seen as INVALID, packets */
 	fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", lan_if, lan_if, logaccept);	
 	/* Drop the wrong state, INVALID, packets */
-	fprintf(fp, "-A FORWARD -m conntrack --ctstate INVALID -j %s\n", logdrop);
+	fprintf(fp, "-A FORWARD -m state --state INVALID -j %s\n", logdrop);
 	/* Pass multicast */
 	if (nvram_match("mr_enable_x", "1"))
 		fprintf(fp, "-A FORWARD -p udp -d 224.0.0.0/4 -j ACCEPT\n");
@@ -746,7 +746,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	}
 
 	/* Accept related connections, skip rest of checks */
-	fprintf(fp, "-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
+	fprintf(fp, "-A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
 
 	/* Filter out invalid WAN->WAN connections */
 	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
@@ -755,7 +755,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1"))
-		fprintf(fp, "-A FORWARD ! -i %s -m conntrack --ctstate NEW -j SECURITY\n", lan_if);
+		fprintf(fp, "-A FORWARD ! -i %s -m state --state NEW -j SECURITY\n", lan_if);
 
 	/* Filter from LAN to WAN */
 	if (nvram_match("fw_lw_enable_x", "1")) {
@@ -891,13 +891,13 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	}
 
 	/* logaccept chain */
-	fprintf(fp, "-A logaccept -m conntrack --ctstate NEW -j LOG --log-prefix \"ACCEPT \" "
+	fprintf(fp, "-A logaccept -m state --state NEW -j LOG --log-prefix \"ACCEPT \" "
 		  " --log-macdecode "
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logaccept -j ACCEPT\n");
 
 	/* logdrop chain */
-	fprintf(fp,"-A logdrop -m conntrack --ctstate NEW -j LOG --log-prefix \"DROP \" "
+	fprintf(fp,"-A logdrop -m state --state NEW -j LOG --log-prefix \"DROP \" "
 		  " --log-macdecode "
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
@@ -957,12 +957,12 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	fprintf(fp, "-A INPUT -m rt --rt-type 0 -j %s\n", logdrop);
 #ifndef BROKEN_IPV6_CONNTRACK
         /* Drop the wrong state, INVALID, packets */
-	fprintf(fp, "-A INPUT -m conntrack --ctstate INVALID -j %s\n", logdrop);
+	fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n", logdrop);
 	/* Accept related connections, skip rest of checks */
-	fprintf(fp, "-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
+	fprintf(fp, "-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
 	/* From localhost and intranet, all traffic is accepted */
-	fprintf(fp, "-A INPUT -i lo -m conntrack --ctstate NEW -j %s\n", logaccept);
-	fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j %s\n", lan_if, logaccept);
+	fprintf(fp, "-A INPUT -i lo -m state --state NEW -j %s\n", logaccept);
+	fprintf(fp, "-A INPUT -i %s -m state --state NEW -j %s\n", lan_if, logaccept);
 #else
 	/* From localhost and intranet, all traffic is accepted */
 	fprintf(fp, "-A INPUT -i lo -j ACCEPT\n");
@@ -980,10 +980,10 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 		if (nvram_match("ipv6_proto", "tun6in4") ||
 		    nvram_match("ipv6_proto", "tun6to4") ||
 		    nvram_match("ipv6_proto", "tun6rd"))
-			fprintf(fp, "-A INPUT -i six0 -m conntrack --ctstate NEW -j SECURITY\n");
-		fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", wan_if);
+			fprintf(fp, "-A INPUT -i six0 -m state --state NEW -j SECURITY\n");
+		fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", wan_if);
 		if (man_if)
-			fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", man_if);
+			fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", man_if);
 	}
 #endif
 	/* Firewall between WAN and Local */
@@ -1036,7 +1036,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 	fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", lan_if, lan_if, logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Drop the wrong state, INVALID, packets */
-	fprintf(fp, "-A FORWARD -m conntrack --ctstate INVALID -j %s\n", logdrop);
+	fprintf(fp, "-A FORWARD -m state --state INVALID -j %s\n", logdrop);
 #endif
 	/* Pass multicast */
 	if (nvram_match("mr_enable_x", "1"))
@@ -1067,7 +1067,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Accept related connections, skip rest of checks */
-	fprintf(fp, "-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
+	fprintf(fp, "-A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
 #endif
 	/* Filter out invalid WAN->WAN connections */
 	if (nvram_match("ipv6_proto", "tun6in4") ||
@@ -1081,7 +1081,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1"))
-		fprintf(fp, "-A FORWARD ! -i %s -m conntrack --ctstate NEW -j SECURITY\n", lan_if);
+		fprintf(fp, "-A FORWARD ! -i %s -m state --state NEW -j SECURITY\n", lan_if);
 #endif
 
 	/* Filter from LAN to WAN */
@@ -1163,7 +1163,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 
 	/* logaccept chain */
 #ifndef BROKEN_IPV6_CONNTRACK
-	fprintf(fp, "-A logaccept -m conntrack --ctstate NEW -j LOG --log-prefix \"ACCEPT \" "
+	fprintf(fp, "-A logaccept -m state --state NEW -j LOG --log-prefix \"ACCEPT \" "
 #else
 	fprintf(fp, "-A logaccept -j LOG --log-prefix \"ACCEPT \" "
 #endif
@@ -1173,7 +1173,7 @@ static int filter_setting(const char *wan_if, const char *wan_ip,
 
 	/* logdrop chain */
 #ifndef BROKEN_IPV6_CONNTRACK
-	fprintf(fp,"-A logdrop -m conntrack --ctstate NEW -j LOG --log-prefix \"DROP \" "
+	fprintf(fp,"-A logdrop -m state --state NEW -j LOG --log-prefix \"DROP \" "
 #else
 	fprintf(fp,"-A logdrop -j LOG --log-prefix \"DROP \" "
 #endif
