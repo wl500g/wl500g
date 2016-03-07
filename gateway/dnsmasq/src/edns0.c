@@ -96,7 +96,7 @@ unsigned char *find_pseudoheader(struct dns_header *header, size_t plen, size_t 
 }
  
 size_t add_pseudoheader(struct dns_header *header, size_t plen, unsigned char *limit, 
-			unsigned short udp_sz, int optno, unsigned char *opt, size_t optlen, int set_do)
+			unsigned short udp_sz, int optno, unsigned char *opt, size_t optlen, int set_do, int replace)
 { 
   unsigned char *lenp, *datap, *p, *udp_len, *buff = NULL;
   int rdlen = 0, is_sign, is_last;
@@ -120,7 +120,7 @@ size_t add_pseudoheader(struct dns_header *header, size_t plen, unsigned char *l
 
       if (set_do)
 	{
-	  p -=2;
+	  p -= 2;
 	  flags |= 0x8000;
 	  PUTSHORT(flags, p);
 	}
@@ -136,13 +136,36 @@ size_t add_pseudoheader(struct dns_header *header, size_t plen, unsigned char *l
 	return plen;
       	  
       /* check if option already there */
-      for (i = 0; i + 4 < rdlen; i += len + 4)
+      for (i = 0; i + 4 < rdlen;)
 	{
 	  GETSHORT(code, p);
 	  GETSHORT(len, p);
+	  
+	  /* malformed option, delete the whole OPT RR and start again. */
+	  if (i + len > rdlen)
+	    {
+	      rdlen = 0;
+	      is_last = 0;
+	      break;
+	    }
+	  
 	  if (code == optno)
-	    return plen;
-	  p += len;
+	    {
+	      if (!replace)
+		return plen;
+
+	      /* delete option if we're to replace it. */
+	      p -= 4;
+	      rdlen -= len + 4;
+	      memcpy(p, p+len+4, rdlen - i);
+	      PUTSHORT(rdlen, lenp);
+	      lenp -= 2;
+	    }
+	  else
+	    {
+	      p += len;
+	      i += len + 4;
+	    }
 	}
 
       /* If we're going to extend the RR, it has to be the last RR in the packet */
@@ -203,7 +226,7 @@ size_t add_pseudoheader(struct dns_header *header, size_t plen, unsigned char *l
 
 size_t add_do_bit(struct dns_header *header, size_t plen, unsigned char *limit)
 {
-  return add_pseudoheader(header, plen, (unsigned char *)limit, PACKETSZ, 0, NULL, 0, 1);
+  return add_pseudoheader(header, plen, (unsigned char *)limit, PACKETSZ, 0, NULL, 0, 1, 0);
 }
 
 static unsigned char char64(unsigned char c)
@@ -223,14 +246,19 @@ static size_t add_dns_client(struct dns_header *header, size_t plen, unsigned ch
 {
   int maclen;
   unsigned char mac[DHCP_CHADDR_MAX];
-  char encode[8]; /* handle 6 byte MACs */
+  char encode[18]; /* handle 6 byte MACs */
 
   if ((maclen = find_mac(l3, mac, 1, now)) == 6)
     {
-      encoder(mac, encode);
-      encoder(mac+3, encode+4);
-      
-      plen = add_pseudoheader(header, plen, limit, PACKETSZ, EDNS0_OPTION_NOMDEVICEID, (unsigned char *)encode, 8, 0); 
+      if (option_bool(OPT_MAC_HEX))
+	print_mac(encode, mac, maclen);
+      else
+	{
+	  encoder(mac, encode);
+	  encoder(mac+3, encode+4);
+	  encode[8] = 0;
+	}
+      plen = add_pseudoheader(header, plen, limit, PACKETSZ, EDNS0_OPTION_NOMDEVICEID, (unsigned char *)encode, strlen(encode), 0, 1); 
     }
 
   return plen; 
@@ -243,7 +271,7 @@ static size_t add_mac(struct dns_header *header, size_t plen, unsigned char *lim
   unsigned char mac[DHCP_CHADDR_MAX];
 
   if ((maclen = find_mac(l3, mac, 1, now)) != 0)
-    plen = add_pseudoheader(header, plen, limit, PACKETSZ, EDNS0_OPTION_MAC, mac, maclen, 0); 
+    plen = add_pseudoheader(header, plen, limit, PACKETSZ, EDNS0_OPTION_MAC, mac, maclen, 0, 0); 
     
   return plen; 
 }
@@ -276,8 +304,11 @@ static size_t calc_subnet_opt(struct subnet_opt *opt, union mysockaddr *source)
   void *addrp;
   int sa_family = source->sa.sa_family;
 
+  opt->source_netmask = 0;
+  opt->scope_netmask = 0;
+
 #ifdef HAVE_IPV6
-  if (source->sa.sa_family == AF_INET6)
+  if (source->sa.sa_family == AF_INET6 && daemon->add_subnet6)
     {
       opt->source_netmask = daemon->add_subnet6->mask;
       if (daemon->add_subnet6->addr_used) 
@@ -288,8 +319,9 @@ static size_t calc_subnet_opt(struct subnet_opt *opt, union mysockaddr *source)
       else 
 	addrp = &source->in6.sin6_addr;
     }
-  else
 #endif
+
+  if (source->sa.sa_family == AF_INET && daemon->add_subnet4)
     {
       opt->source_netmask = daemon->add_subnet4->mask;
       if (daemon->add_subnet4->addr_used)
@@ -297,26 +329,26 @@ static size_t calc_subnet_opt(struct subnet_opt *opt, union mysockaddr *source)
 	  sa_family = daemon->add_subnet4->addr.sa.sa_family;
 	  addrp = get_addrp(&daemon->add_subnet4->addr, sa_family);
 	} 
-      else 
-	addrp = &source->in.sin_addr;
+	else 
+	  addrp = &source->in.sin_addr;
     }
   
-  opt->scope_netmask = 0;
+#ifdef HAVE_IPV6
+  opt->family = htons(sa_family == AF_INET6 ? 2 : 1);
+#else
+  opt->family = htons(1);
+#endif
+  
   len = 0;
   
   if (opt->source_netmask != 0)
     {
-#ifdef HAVE_IPV6
-      opt->family = htons(sa_family == AF_INET6 ? 2 : 1);
-#else
-      opt->family = htons(1);
-#endif
       len = ((opt->source_netmask - 1) >> 3) + 1;
       memcpy(opt->addr, addrp, len);
       if (opt->source_netmask & 7)
 	opt->addr[len-1] &= 0xff << (8 - (opt->source_netmask & 7));
     }
-
+  
   return len + 4;
 }
  
@@ -328,7 +360,7 @@ static size_t add_source_addr(struct dns_header *header, size_t plen, unsigned c
   struct subnet_opt opt;
   
   len = calc_subnet_opt(&opt, source);
-  return add_pseudoheader(header, plen, (unsigned char *)limit, PACKETSZ, EDNS0_OPTION_CLIENT_SUBNET, (unsigned char *)&opt, len, 0);
+  return add_pseudoheader(header, plen, (unsigned char *)limit, PACKETSZ, EDNS0_OPTION_CLIENT_SUBNET, (unsigned char *)&opt, len, 0, 0);
 }
 
 int check_source(struct dns_header *header, size_t plen, unsigned char *pseudoheader, union mysockaddr *peer)
@@ -377,12 +409,12 @@ size_t add_edns0_config(struct dns_header *header, size_t plen, unsigned char *l
   if (option_bool(OPT_ADD_MAC))
     plen  = add_mac(header, plen, limit, source, now);
   
-  if (option_bool(OPT_MAC_B64))
+  if (option_bool(OPT_MAC_B64) || option_bool(OPT_MAC_HEX))
     plen = add_dns_client(header, plen, limit, source, now);
 
   if (daemon->dns_client_id)
     plen = add_pseudoheader(header, plen, limit, PACKETSZ, EDNS0_OPTION_NOMCPEID, 
-			    (unsigned char *)daemon->dns_client_id, strlen(daemon->dns_client_id), 0);
+			    (unsigned char *)daemon->dns_client_id, strlen(daemon->dns_client_id), 0, 1);
   
   if (option_bool(OPT_CLIENT_SUBNET))
     {

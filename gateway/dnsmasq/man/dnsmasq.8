@@ -60,13 +60,16 @@ in the same way as for DHCP-derived names. Note that this does not
 apply to domain names in cnames, PTR records, TXT records etc.
 .TP
 .B \-T, --local-ttl=<time>
-When replying with information from /etc/hosts or the DHCP leases
+When replying with information from /etc/hosts or configuration or the DHCP leases
 file dnsmasq by default sets the time-to-live field to zero, meaning
 that the requester should not itself cache the information. This is
 the correct thing to do in almost all situations. This option allows a
 time-to-live (in seconds) to be given for these replies. This will
 reduce the load on the server at the expense of clients using stale
 data under some circumstances.
+.TP
+.B --dhcp-ttl=<time>
+As for --local-ttl, but affects only replies with information from DHCP leases. If both are given, --dhcp-ttl applies for DHCP information, and --local-ttl for others. Setting this to zero eliminates the effect of --local-ttl for DHCP.
 .TP
 .B --neg-ttl=<time>
 Negative replies from upstream servers normally contain time-to-live
@@ -529,7 +532,7 @@ zone files: the port, weight and priority numbers are in a different
 order. More than one SRV record for a given service/domain is allowed,
 all that match are returned.
 .TP
-.B --host-record=<name>[,<name>....],[<IPv4-address>],[<IPv6-address>]
+.B --host-record=<name>[,<name>....],[<IPv4-address>],[<IPv6-address>][,<TTL>]
 Add A, AAAA and PTR records to the DNS. This adds one or more names to
 the DNS with associated IPv4 (A) and IPv6 (AAAA) records. A name may
 appear in more than one 
@@ -546,6 +549,10 @@ is in effect. Short and long names may appear in the same
 .B host-record,
 eg. 
 .B --host-record=laptop,laptop.thekelleys.org,192.168.0.1,1234::100
+
+If the time-to-live is given, it overrides the default, which is zero
+or the value of --local-ttl. The value is a positive integer and gives 
+the time-to-live in seconds.
 .TP
 .B \-Y, --txt-record=<name>[[,<text>],<text>]
 Return a TXT DNS record. The value of TXT record is a set of strings,
@@ -559,7 +566,7 @@ Return a PTR DNS record.
 .B --naptr-record=<name>,<order>,<preference>,<flags>,<service>,<regexp>[,<replacement>]
 Return an NAPTR DNS record, as specified in RFC3403.
 .TP
-.B --cname=<cname>,<target>
+.B --cname=<cname>,<target>[,<TTL>]
 Return a CNAME record which indicates that <cname> is really
 <target>. There are significant limitations on the target; it must be a
 DNS name which is known to dnsmasq from /etc/hosts (or additional
@@ -568,6 +575,10 @@ hosts files), from DHCP, from --interface-name or from another
 If the target does not satisfy this
 criteria, the whole cname is ignored. The cname must be unique, but it
 is permissable to have more than one cname pointing to the same target.
+
+If the time-to-live is given, it overrides the default, which is zero
+or the value of -local-ttl. The value is a positive integer and gives 
+the time-to-live in seconds.
 .TP
 .B --dns-rr=<name>,<RR-number>,[<hex data>]
 Return an arbitrary DNS Resource Record. The number is the type of the
@@ -604,7 +615,7 @@ configured a zero is added in front of the label. ::1 becomes 0--1.
 The address range can be of the form
 <ip address>,<ip address> or <ip address>/<netmask>
 .TP
-.B --add-mac[=base64]
+.B --add-mac[=base64|text]
 Add the MAC address of the requestor to DNS queries which are
 forwarded upstream. This may be used to DNS filtering by the upstream
 server. The MAC address can only be added if the requestor is on the same
@@ -613,7 +624,7 @@ is not yet standardised, so this should be considered
 experimental. Also note that exposing MAC addresses in this way may
 have security and privacy implications. The warning about caching
 given for --add-subnet applies to --add-mac too. An alternative encoding of the 
-MAC, as base64, is enabled by adding the "base64" parameter.
+MAC, as base64, is enabled by adding the "base64" parameter and a human-readable encoding of hex-and-colons is enabled by added the "text" parameter.
 .TP
 .B --add-cpe-id=<string>
 Add a arbitrary identifying string to o DNS queries which are
@@ -772,7 +783,7 @@ compiled in and the kernel must have conntrack support
 included and configured. This option cannot be combined with
 --query-port. 
 .TP
-.B \-F, --dhcp-range=[tag:<tag>[,tag:<tag>],][set:<tag>,]<start-addr>[,<end-addr>][,<mode>][,<netmask>[,<broadcast>]][,<lease time>]
+.B \-F, --dhcp-range=[tag:<tag>[,tag:<tag>],][set:<tag>,]<start-addr>[,<end-addr>|<mode>][,<netmask>[,<broadcast>]][,<lease time>]
 .TP
 .B \-F, --dhcp-range=[tag:<tag>[,tag:<tag>],][set:<tag>,]<start-IPv6addr>[,<end-IPv6addr>|constructor:<interface>][,<mode>][,<prefix-len>][,<lease time>]
 
@@ -1798,6 +1809,10 @@ descriptors, serving different files simultaneously to n clients will
 require about (2*n) + 10 descriptors. If 
 .B --tftp-port-range
 is given, that can affect the number of concurrent connections.
+.TP
+.B --tftp-mtu=<mtu size>
+Use size as the ceiling of the MTU supported by the intervening network when 
+negotiating TFTP blocksize, overriding the MTU setting of the local interface  if it is larger.
 .TP
 .B --tftp-no-blocksize
 Stop the TFTP server from negotiating the "blocksize" option with a

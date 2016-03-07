@@ -1167,11 +1167,23 @@ int add_resource_record(struct dns_header *header, char *limit, int *truncp, int
 static unsigned long crec_ttl(struct crec *crecp, time_t now)
 {
   /* Return 0 ttl for DHCP entries, which might change
-     before the lease expires. */
+     before the lease expires, unless configured otherwise. */
 
-  if  (crecp->flags & (F_IMMORTAL | F_DHCP))
-    return daemon->local_ttl;
+  if (crecp->flags & F_DHCP)
+    {
+      int conf_ttl = daemon->use_dhcp_ttl ? daemon->dhcp_ttl : daemon->local_ttl;
+      
+      /* Apply ceiling of actual lease length to configured TTL. */
+      if (!(crecp->flags & F_IMMORTAL) && (crecp->ttd - now) < conf_ttl)
+	return crecp->ttd - now;
+      
+      return conf_ttl;
+    }	  
   
+  /* Immortal entries other than DHCP are local, and hold TTL in TTD field. */
+  if (crecp->flags & F_IMMORTAL)
+    return crecp->ttd;
+
   /* Return the Max TTL value if it is lower then the actual TTL */
   if (daemon->max_ttl == 0 || ((unsigned)(crecp->ttd - now) < daemon->max_ttl))
     return crecp->ttd - now;
@@ -1835,7 +1847,7 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
   
   /* Advertise our packet size limit in our reply */
   if (have_pseudoheader)
-    len = add_pseudoheader(header, len, (unsigned char *)limit, daemon->edns_pktsz, 0, NULL, 0, do_bit);
+    len = add_pseudoheader(header, len, (unsigned char *)limit, daemon->edns_pktsz, 0, NULL, 0, do_bit, 0);
   
   if (ad_reqd && sec_data)
     header->hb4 |= HB4_AD;

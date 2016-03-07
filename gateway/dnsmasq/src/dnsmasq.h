@@ -237,7 +237,8 @@ struct event_desc {
 #define OPT_TFTP_NO_FAIL   52
 #define OPT_SCRIPT_ARP     53
 #define OPT_MAC_B64        54
-#define OPT_LAST           55
+#define OPT_MAC_HEX        55
+#define OPT_LAST           56
 
 /* extra flags for my_syslog, we use a couple of facilities since they are known 
    not to occupy the same bits as priorities, no matter how syslog.h is set up. */
@@ -307,6 +308,7 @@ struct ptr_record {
 };
 
 struct cname {
+  int ttl;
   char *alias, *target;
   struct cname *next;
 }; 
@@ -343,6 +345,7 @@ struct auth_zone {
 
 
 struct host_record {
+  int ttl;
   struct name_list {
     char *name;
     struct name_list *next;
@@ -952,7 +955,7 @@ extern struct daemon {
   int max_logs;  /* queue limit */
   int cachesize, ftabsize;
   int port, query_port, min_port, max_port;
-  unsigned long local_ttl, neg_ttl, max_ttl, min_cache_ttl, max_cache_ttl, auth_ttl;
+  unsigned long local_ttl, neg_ttl, max_ttl, min_cache_ttl, max_cache_ttl, auth_ttl, dhcp_ttl, use_dhcp_ttl;
   char *dns_client_id;
   struct hostsfile *addn_hosts;
   struct dhcp_context *dhcp, *dhcp6;
@@ -972,7 +975,7 @@ extern struct daemon {
   struct dhcp_netid_list *dhcp_ignore, *dhcp_ignore_names, *dhcp_gen_names; 
   struct dhcp_netid_list *force_broadcast, *bootp_dynamic;
   struct hostsfile *dhcp_hosts_file, *dhcp_opts_file, *dynamic_dirs;
-  int dhcp_max, tftp_max;
+  int dhcp_max, tftp_max, tftp_mtu;
   int dhcp_server_port, dhcp_client_port;
   int start_tftp_port, end_tftp_port; 
   unsigned int min_leasetime;
@@ -1520,7 +1523,7 @@ int expand_workspace(unsigned char ***wkspc, int *szp, int new);
 unsigned char *find_pseudoheader(struct dns_header *header, size_t plen,
 				   size_t *len, unsigned char **p, int *is_sign, int *is_last);
 size_t add_pseudoheader(struct dns_header *header, size_t plen, unsigned char *limit, 
-			unsigned short udp_sz, int optno, unsigned char *opt, size_t optlen, int set_do);
+			unsigned short udp_sz, int optno, unsigned char *opt, size_t optlen, int set_do, int replace);
 size_t add_do_bit(struct dns_header *header, size_t plen, unsigned char *limit);
 size_t add_edns0_config(struct dns_header *header, size_t plen, unsigned char *limit, 
 			union mysockaddr *source, time_t now, int *check_subnet);
