@@ -213,6 +213,14 @@ extern unsigned long thread_saved_pc(struct task_struct *tsk);
  */
 extern void start_thread(struct pt_regs * regs, unsigned long pc, unsigned long sp);
 
+static inline void flush_thread(void)
+{
+}
+
+static inline void exit_thread(void)
+{
+}
+
 unsigned long get_wchan(struct task_struct *p);
 
 #define __KSTK_TOS(tsk) ((unsigned long)task_stack_page(tsk) + \

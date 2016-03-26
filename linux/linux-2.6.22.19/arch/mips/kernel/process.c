@@ -87,14 +87,6 @@ void start_thread(struct pt_regs * regs, unsigned long pc, unsigned long sp)
 	current_thread_info()->addr_limit = USER_DS;
 }
 
-void exit_thread(void)
-{
-}
-
-void flush_thread(void)
-{
-}
-
 int copy_thread(unsigned long clone_flags, unsigned long usp,
 	unsigned long unused, struct task_struct *p, struct pt_regs *regs)
 {
