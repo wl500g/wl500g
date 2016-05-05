@@ -208,7 +208,9 @@ static int proc_pid_environ(struct task_struct *task, char * buffer)
 {
 	int res = 0;
 	struct mm_struct *mm = get_task_mm(task);
-	if (mm) {
+
+	/* Ensure the process spawned far enough to have an environment. */
+	if (mm && mm->env_end) {
 		unsigned int len;
 
 		res = -ESRCH;
