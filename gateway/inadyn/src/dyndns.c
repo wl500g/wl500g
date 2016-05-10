@@ -51,7 +51,6 @@ static int get_req_for_easydns_server(DYN_DNS_CLIENT *p_self, int infcnt, int al
 static int get_req_for_tzo_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
 static int get_req_for_sitelutions_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
 static int get_req_for_dnsexit_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
-static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
 static int get_req_for_duckdns_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
 static int get_req_for_asus_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt);
 
@@ -63,7 +62,6 @@ static RC_TYPE is_easydns_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION
 static RC_TYPE is_tzo_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
 static RC_TYPE is_sitelutions_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
 static RC_TYPE is_dnsexit_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
-static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
 static RC_TYPE is_asus_server_register_rsp_ok( DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
 static RC_TYPE is_asus_server_update_rsp_ok( DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infcnt);
 
@@ -141,10 +139,10 @@ DYNDNS_SYSTEM_INFO dns_system_table[] =
 
 	{HE_IPV6TB,
 	 {"ipv6tb@he.net",
-	  (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_he_ipv6_server_rsp_ok,
-	  (DNS_SYSTEM_REQUEST_FUNC) get_req_for_he_ipv6tb_server,
+	  (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_dyndns_server_rsp_ok,
+	  (DNS_SYSTEM_REQUEST_FUNC) get_req_for_dyndns_server,
 	  "checkip.dns.he.net", "/",
-	  "ipv4.tunnelbroker.net", "/ipv4_end.php"}},
+	  "ipv4.tunnelbroker.net", "/nic/update"}},
 
 	{HE_DYNDNS,
 	 {"dyndns@he.net",
@@ -370,31 +368,6 @@ static int get_req_for_dnsexit_server(DYN_DNS_CLIENT *p_self, int infcnt, int al
 		       p_self->info[infcnt].credentials.my_password,
 		       p_self->info[infcnt].alias_info[alcnt].names.name,
 		       p_self->info[infcnt].my_ip_address.name,
-		       p_self->info[infcnt].dyndns_server_name.name);
-}
-
-static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt)
-{
-	unsigned char digestbuf[MD5_DIGEST_BYTES];
-	char digeststr[MD5_DIGEST_BYTES*2+1];
-	int i;
-
-	if (p_self == NULL)
-	{
-		/* 0 == "No characters written" */
-		return 0;
-	}
-
-	md5_buffer(p_self->info[infcnt].credentials.my_password,
-		   strlen(p_self->info[infcnt].credentials.my_password), digestbuf);
-	for (i = 0; i < MD5_DIGEST_BYTES; i++)
-		sprintf(&digeststr[i*2], "%02x", digestbuf[i]);
-	return sprintf(p_self->p_req_buffer, HE_IPV6TB_UPDATE_IP_REQUEST,
-		       p_self->info[infcnt].dyndns_server_url,
-		       p_self->info[infcnt].my_ip_address.name,
-		       p_self->info[infcnt].credentials.my_username,
-		       digeststr,
-		       p_self->info[infcnt].alias_info[alcnt].names.name,
 		       p_self->info[infcnt].dyndns_server_name.name);
 }
 
@@ -909,24 +882,6 @@ static RC_TYPE is_dnsexit_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION
 		default:
 			return RC_DYNDNS_RSP_NOTOK;
 	}
-}
-
-/* HE ipv6 tunnelbroker specific response validator.
-   own IP address and 'already in use' are the good answers.
-*/
-static RC_TYPE is_he_ipv6_server_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infnr)
-{
-	char *p_rsp = p_tr->p_rsp_body;
-
-	RC_TYPE rc;
-	if ((rc = is_http_status_code_ok(p_tr->status)) != RC_OK)
-		return rc;
-
-	if (strstr(p_rsp, p_self->info[infnr].my_ip_address.name) != NULL ||
-		strstr(p_rsp, "already") != NULL)
-		return RC_OK;
-	else
-		return RC_DYNDNS_RSP_NOTOK;
 }
 
 static RC_TYPE is_asus_server_register_rsp_ok(DYN_DNS_CLIENT *p_self, HTTP_TRANSACTION *p_tr, int infnr)
