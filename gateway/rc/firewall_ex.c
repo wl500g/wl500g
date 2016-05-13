@@ -429,6 +429,7 @@ static void nat_setting(const char *wan_if, const char *wan_ip,
 	  	":VSERVER - [0:0]\n"
 #ifdef __CONFIG_MINIUPNPD__
 		":UPNP - [0:0]\n"
+		":UPNP-POSTROUTING - [0:0]\n"
 #endif
 	);
 
