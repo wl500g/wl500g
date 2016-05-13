@@ -452,17 +452,6 @@ static void nat_setting(const char *wan_if, const char *wan_ip,
 			wan_port, lan_ip, nvram_safe_get("http_lanport"));
 	}
 
-   	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("upnp_enable", "0"))
-   	{
-#ifdef __CONFIG_MINIUPNPD__
-		/* Call UPNP chain */
-		fprintf(fp, "-A VSERVER -j UPNP\n");
-#else
-		// upnp port forward
-        	write_upnp_forward(fp, wan_if, wan_ip, lan_if, lan_ip, lan_class, logaccept, logdrop);
-#endif
-	}
-
 	// Port forwarding or Virtual Server
    	if (nvram_match("wan_nat_x", "1") && nvram_match("vts_enable_x", "1"))
    	{     		
@@ -512,6 +501,17 @@ static void nat_setting(const char *wan_if, const char *wan_ip,
 					protono, srcips, dstip);
 			}
 		}
+	}
+
+	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("upnp_enable", "0"))
+	{
+#ifdef __CONFIG_MINIUPNPD__
+		/* Call UPNP chain */
+		fprintf(fp, "-A VSERVER -j UPNP\n");
+#else
+		// upnp port forward
+        	write_upnp_forward(fp, wan_if, wan_ip, lan_if, lan_ip, lan_class, logaccept, logdrop);
+#endif
 	}
 
    	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("sp_battle_ips", "0") && ip_addr(wan_ip))
