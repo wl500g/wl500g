@@ -789,7 +789,7 @@ iptables-clean:
 	-$(MAKE) -C iptables KERNEL_DIR=$(LINUXDIR) clean
 
 
-miniupnpd/config.h:
+miniupnpd/config.h: miniupnpd/genconfig.sh
 	cd miniupnpd && ./genconfig.sh --leasefile --vendorcfg
 
 miniupnpd: iptables miniupnpd/config.h
@@ -807,7 +807,7 @@ miniupnpd-clean:
 	-$(MAKE) -C miniupnpd -f Makefile.linux clean
 
 miniupnpd-distclean: miniupnpd-clean
-	@true
+	-rm -f miniupnpd/config.h
 
 wlconf: nvram shared
 
