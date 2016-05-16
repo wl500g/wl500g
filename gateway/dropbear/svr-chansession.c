@@ -923,7 +923,6 @@ static void execchild(void *user_data) {
 	/* We can only change uid/gid as root ... */
 	userid = getuid();
 	if (userid == 0) {
-
 		if ((setgid(ses.authstate.pw_gid) < 0) ||
 			(initgroups(ses.authstate.pw_name, 
 						ses.authstate.pw_gid) < 0)) {
@@ -932,6 +931,7 @@ static void execchild(void *user_data) {
 		if (setuid(ses.authstate.pw_uid) < 0) {
 			dropbear_exit("Error changing user");
 		}
+		userid = ses.authstate.pw_uid;
 	} else {
 		/* ... but if the daemon is the same uid as the requested uid, we don't
 		 * need to */
