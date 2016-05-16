@@ -1,4 +1,4 @@
-# $Id: Makefile.linux,v 1.93 2016/02/12 14:28:01 nanard Exp $
+# $Id: Makefile.linux,v 1.94 2016/04/18 09:06:42 nanard Exp $
 # MiniUPnP project
 # (c) 2006-2015 Thomas Bernard
 # http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -61,11 +61,14 @@ PCFILE_FOUND := 1
 ifeq (${PCFILE_FOUND},0)
 
 IPTABLESVERSION := $(shell $(PKG_CONFIG) --modversion libiptc)
-IPTABLESVERSION1 := $(shell echo $(IPTABLESVERSION) | cut -d. -f1 )
-IPTABLESVERSION2 := $(shell echo $(IPTABLESVERSION) | cut -d. -f2 )
-IPTABLESVERSION3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
+IPTVER1 := $(shell echo $(IPTABLESVERSION) | cut -d. -f1 )
+IPTVER2 := $(shell echo $(IPTABLESVERSION) | cut -d. -f2 )
+IPTVER3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
 # test if iptables version >= 1.4.3
-TEST := $(shell [ \( \( $(IPTABLESVERSION1) -ge 1 \) -a \( $(IPTABLESVERSION2) -ge 4 \) \) -a \( $(IPTABLESVERSION3) -ge 3 \) ] && echo 1 )
+TEST := $(shell [ $(IPTVER1) -gt 1 ] || \
+	[ \( $(IPTVER1) -eq 1 \) -a \
+	  \( \( $(IPTVER2) -gt 4 \) -o \
+	     \( \( $(IPTVER2) -eq 4 \) -a \( $(IPTVER3) -ge 3 \) \) \) ] && echo 1 )
 ifeq ($(TEST), 1)
 CPPFLAGS += -DIPTABLES_143
 endif
@@ -81,11 +84,14 @@ CPPFLAGS := $(CPPFLAGS) -I$(IPTABLESPATH)/include/
 LDFLAGS := $(LDFLAFGS) -L$(IPTABLESPATH)/libiptc/
 # get iptables version and set IPTABLES_143 macro if needed
 IPTABLESVERSION := $(shell grep "\#define VERSION" $(IPTABLESPATH)/config.h | tr -d \" |cut -d" " -f3 )
-IPTABLESVERSION1 := $(shell echo $(IPTABLESVERSION) | cut -d. -f1 )
-IPTABLESVERSION2 := $(shell echo $(IPTABLESVERSION) | cut -d. -f2 )
-IPTABLESVERSION3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
+IPTVER1 := $(shell echo $(IPTABLESVERSION) | cut -d. -f1 )
+IPTVER2 := $(shell echo $(IPTABLESVERSION) | cut -d. -f2 )
+IPTVER3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
 # test if iptables version >= 1.4.3
-TEST := $(shell [ \( \( $(IPTABLESVERSION1) -ge 1 \) -a \( $(IPTABLESVERSION2) -ge 4 \) \) -a \( $(IPTABLESVERSION3) -ge 3 \) ] && echo 1 )
+TEST := $(shell [ $(IPTVER1) -gt 1 ] || \
+	[ \( $(IPTVER1) -eq 1 \) -a \
+	  \( \( $(IPTVER2) -gt 4 \) -o \
+	     \( \( $(IPTVER2) -eq 4 \) -a \( $(IPTVER3) -ge 3 \) \) \) ] && echo 1 )
 ifeq ($(TEST), 1)
 CPPFLAGS := $(CPPFLAGS) -DIPTABLES_143
 else # ifeq ($(TEST), 1)
