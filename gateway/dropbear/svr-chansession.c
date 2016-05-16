@@ -893,6 +893,7 @@ static void addchildpid(struct ChanSess *chansess, pid_t pid) {
 static void execchild(void *user_data) {
 	struct ChanSess *chansess = user_data;
 	char *usershell = NULL;
+	uid_t userid;
 
 	/* with uClinux we'll have vfork()ed, so don't want to overwrite the
 	 * hostkey. can't think of a workaround to clear it */
@@ -920,7 +921,8 @@ static void execchild(void *user_data) {
 #endif /* DEBUG_VALGRIND */
 
 	/* We can only change uid/gid as root ... */
-	if (getuid() == 0) {
+	userid = getuid();
+	if (userid == 0) {
 
 		if ((setgid(ses.authstate.pw_gid) < 0) ||
 			(initgroups(ses.authstate.pw_name, 
@@ -938,7 +940,7 @@ static void execchild(void *user_data) {
 		 * usernames with the same uid, but differing groups, then the
 		 * differing groups won't be set (as with initgroups()). The solution
 		 * is for the sysadmin not to give out the UID twice */
-		if (getuid() != ses.authstate.pw_uid) {
+		if (userid != ses.authstate.pw_uid) {
 			dropbear_exit("Couldn't	change user as non-root");
 		}
 	}
@@ -948,7 +950,7 @@ static void execchild(void *user_data) {
 	addnewvar("LOGNAME", ses.authstate.pw_name);
 	addnewvar("HOME", ses.authstate.pw_dir);
 	addnewvar("SHELL", get_user_shell());
-	addnewvar("PATH", DEFAULT_PATH);
+	addnewvar("PATH", (userid == 0) ? DEFAULT_ROOT_PATH : DEFAULT_PATH);
 	if (chansess->term != NULL) {
 		addnewvar("TERM", chansess->term);
 	}
