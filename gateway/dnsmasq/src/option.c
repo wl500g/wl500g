@@ -402,7 +402,7 @@ static struct {
   { 'v', 0, NULL, gettext_noop("Display dnsmasq version and copyright information."), NULL },
   { 'V', ARG_DUP, "<ipaddr>,<ipaddr>,<netmask>", gettext_noop("Translate IPv4 addresses from upstream servers."), NULL },
   { 'W', ARG_DUP, "<name>,<target>,...", gettext_noop("Specify a SRV record."), NULL },
-  { 'w', 0, NULL, gettext_noop("Display this message. Use --help dhcp for known DHCP options."), NULL },
+  { 'w', 0, NULL, gettext_noop("Display this message. Use --help dhcp or --help dhcp6 for known DHCP options."), NULL },
   { 'x', ARG_ONE, "<path>", gettext_noop("Specify path of PID file (defaults to %s)."), RUNFILE },
   { 'X', ARG_ONE, "<integer>", gettext_noop("Specify maximum number of DHCP leases (defaults to %s)."), "&" },
   { 'y', OPT_LOCALISE, NULL, gettext_noop("Answer DNS queries based on the interface a query was sent to."), NULL },
@@ -1199,7 +1199,8 @@ static int parse_dhcp_opt(char *errstr, char *arg, int flags)
 	      cp = comma;
 	      comma = split(cp);
 	      slash = split_chr(cp, '/');
-	      inet_pton(AF_INET, cp, &in);
+	      if (!inet_pton(AF_INET, cp, &in))
+		ret_err(_("bad IPv4 address"));
 	      if (!slash)
 		{
 		  memcpy(op, &in, INADDRSZ);
@@ -3297,7 +3298,8 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
        {
 	 struct pxe_service *new = opt_malloc(sizeof(struct pxe_service));
 	 char *CSA[] = { "x86PC", "PC98", "IA64_EFI", "Alpha", "Arc_x86", "Intel_Lean_Client",
-			 "IA32_EFI", "BC_EFI", "Xscale_EFI", "x86-64_EFI", NULL };  
+			 "IA32_EFI", "x86-64_EFI", "Xscale_EFI", "BC_EFI",
+			 "ARM32_EFI", "ARM64_EFI", NULL };  
 	 static int boottype = 32768;
 	 
 	 new->netid = NULL;
@@ -3658,8 +3660,8 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	    (!(inet_pton(AF_INET, a[1], &new->out) > 0)))
 	  option = '?';
 	
-	if (k == 3)
-	  inet_pton(AF_INET, a[2], &new->mask);
+	if (k == 3 && !inet_pton(AF_INET, a[2], &new->mask))
+	  option = '?';
 	
 	if (dash && 
 	    (!(inet_pton(AF_INET, dash, &new->end) > 0) ||
@@ -3799,7 +3801,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
     case LOPT_RR: /* dns-rr */
       {
        	struct txt_record *new;
-	size_t len = len;
+	size_t len = 0;
 	char *data;
 	int val;
 
@@ -4611,21 +4613,17 @@ void read_opts(int argc, char **argv, char *compile_opts)
     {
       struct server *tmp;
       for (tmp = daemon->servers; tmp; tmp = tmp->next)
-	{
-	  tmp->edns_pktsz = daemon->edns_pktsz;
-	 
-	  if (!(tmp->flags & SERV_HAS_SOURCE))
-	    {
-	      if (tmp->source_addr.sa.sa_family == AF_INET)
-		tmp->source_addr.in.sin_port = htons(daemon->query_port);
+	if (!(tmp->flags & SERV_HAS_SOURCE))
+	  {
+	    if (tmp->source_addr.sa.sa_family == AF_INET)
+	      tmp->source_addr.in.sin_port = htons(daemon->query_port);
 #ifdef HAVE_IPV6
-	      else if (tmp->source_addr.sa.sa_family == AF_INET6)
-		tmp->source_addr.in6.sin6_port = htons(daemon->query_port);
+	    else if (tmp->source_addr.sa.sa_family == AF_INET6)
+	      tmp->source_addr.in6.sin6_port = htons(daemon->query_port);
 #endif 
-	    }
-	} 
-    }
-
+	  }
+    } 
+  
   if (daemon->host_records)
     {
       struct host_record *hr;

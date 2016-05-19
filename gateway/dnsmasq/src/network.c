@@ -532,13 +532,14 @@ static int iface_allowed_v4(struct in_addr local, int if_index, char *label,
 {
   union mysockaddr addr;
   int prefix, bit;
+ 
+  (void)broadcast; /* warning */
 
   memset(&addr, 0, sizeof(addr));
 #ifdef HAVE_SOCKADDR_SA_LEN
   addr.in.sin_len = sizeof(addr.in);
 #endif
   addr.in.sin_family = AF_INET;
-  addr.in.sin_addr = broadcast; /* warning */
   addr.in.sin_addr = local;
   addr.in.sin_port = htons(daemon->port);
 
@@ -809,10 +810,11 @@ int tcp_interface(int fd, int af)
   int opt = 1;
   struct cmsghdr *cmptr;
   struct msghdr msg;
+  socklen_t len;
   
-  /* use mshdr do that the CMSDG_* macros are available */
+  /* use mshdr so that the CMSDG_* macros are available */
   msg.msg_control = daemon->packet;
-  msg.msg_controllen = daemon->packet_buff_sz;
+  msg.msg_controllen = len = daemon->packet_buff_sz;
   
   /* we overwrote the buffer... */
   daemon->srv_save = NULL;
@@ -820,18 +822,21 @@ int tcp_interface(int fd, int af)
   if (af == AF_INET)
     {
       if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &opt, sizeof(opt)) != -1 &&
-	  getsockopt(fd, IPPROTO_IP, IP_PKTOPTIONS, msg.msg_control, (socklen_t *)&msg.msg_controllen) != -1)
-	for (cmptr = CMSG_FIRSTHDR(&msg); cmptr; cmptr = CMSG_NXTHDR(&msg, cmptr))
-	  if (cmptr->cmsg_level == IPPROTO_IP && cmptr->cmsg_type == IP_PKTINFO)
-            {
-              union {
-                unsigned char *c;
-                struct in_pktinfo *p;
-              } p;
-	      
-	      p.c = CMSG_DATA(cmptr);
-	      if_index = p.p->ipi_ifindex;
-	    }
+	  getsockopt(fd, IPPROTO_IP, IP_PKTOPTIONS, msg.msg_control, &len) != -1)
+	{
+	  msg.msg_controllen = len;
+	  for (cmptr = CMSG_FIRSTHDR(&msg); cmptr; cmptr = CMSG_NXTHDR(&msg, cmptr))
+	    if (cmptr->cmsg_level == IPPROTO_IP && cmptr->cmsg_type == IP_PKTINFO)
+	      {
+		union {
+		  unsigned char *c;
+		  struct in_pktinfo *p;
+		} p;
+		
+		p.c = CMSG_DATA(cmptr);
+		if_index = p.p->ipi_ifindex;
+	      }
+	}
     }
 #ifdef HAVE_IPV6
   else
@@ -849,9 +854,10 @@ int tcp_interface(int fd, int af)
 #endif
 
       if (set_ipv6pktinfo(fd) &&
-	  getsockopt(fd, IPPROTO_IPV6, PKTOPTIONS, msg.msg_control, (socklen_t *)&msg.msg_controllen) != -1)
+	  getsockopt(fd, IPPROTO_IPV6, PKTOPTIONS, msg.msg_control, &len) != -1)
 	{
-          for (cmptr = CMSG_FIRSTHDR(&msg); cmptr; cmptr = CMSG_NXTHDR(&msg, cmptr))
+          msg.msg_controllen = len;
+	  for (cmptr = CMSG_FIRSTHDR(&msg); cmptr; cmptr = CMSG_NXTHDR(&msg, cmptr))
             if (cmptr->cmsg_level == IPPROTO_IPV6 && cmptr->cmsg_type == daemon->v6pktinfo)
               {
                 union {
@@ -1403,7 +1409,6 @@ void add_update_server(int flags,
       serv->domain = domain_str;
       serv->next = next;
       serv->queries = serv->failed_queries = 0;
-      serv->edns_pktsz = daemon->edns_pktsz;
 #ifdef HAVE_LOOP
       serv->uid = rand32();
 #endif      
@@ -1424,7 +1429,7 @@ void check_servers(void)
 {
   struct irec *iface;
   struct server *serv;
-  int port = 0;
+  int port = 0, count;
 
   /* interface may be new since startup */
   if (!option_bool(OPT_NOWILD))
@@ -1437,10 +1442,14 @@ void check_servers(void)
     serv->flags |= SERV_DO_DNSSEC;
 #endif
 
-  for (serv = daemon->servers; serv; serv = serv->next)
+  for (count = 0, serv = daemon->servers; serv; serv = serv->next)
     {
       if (!(serv->flags & (SERV_LITERAL_ADDRESS | SERV_NO_ADDR | SERV_USE_RESOLV | SERV_NO_REBIND)))
 	{
+	  /* Init edns_pktsz for newly created server records. */
+	  if (serv->edns_pktsz == 0)
+	    serv->edns_pktsz = daemon->edns_pktsz;
+	  
 #ifdef HAVE_DNSSEC
 	  if (option_bool(OPT_DNSSEC_VALID))
 	    { 
@@ -1500,6 +1509,9 @@ void check_servers(void)
       
       if (!(serv->flags & SERV_NO_REBIND) && !(serv->flags & SERV_LITERAL_ADDRESS))
 	{
+	  if (++count > SERVERS_LOGGED)
+	    continue;
+	  
 	  if (serv->flags & (SERV_HAS_DOMAIN | SERV_FOR_NODOTS | SERV_USE_RESOLV))
 	    {
 	      char *s1, *s2, *s3 = "";
@@ -1531,6 +1543,9 @@ void check_servers(void)
 	    my_syslog(LOG_INFO, _("using nameserver %s#%d"), daemon->namebuff, port); 
 	}
     }
+  
+  if (count - 1 > SERVERS_LOGGED)
+    my_syslog(LOG_INFO, _("using %d more nameservers"), count - SERVERS_LOGGED - 1);
 
   cleanup_servers();
 }
