@@ -575,7 +575,7 @@ asmlinkage long sys32_fallocate(int fd, int mode, unsigned offset_a2,
 }
 
 save_static_function(sys32_clone);
-__attribute_used__ noinline static int
+__used noinline static int
 _sys32_clone(nabi_no_regargs struct pt_regs regs)
 {
 	unsigned long clone_flags;

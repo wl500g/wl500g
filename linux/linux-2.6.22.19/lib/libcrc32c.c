@@ -65,7 +65,7 @@ EXPORT_SYMBOL(crc32c_le);
  * loop below with crc32 and vary the POLY if we don't find value in terms
  * of space and maintainability in keeping the two modules separate.
  */
-u32 __attribute_pure__
+u32 __pure
 crc32c_le(u32 crc, unsigned char const *p, size_t len)
 {
 	int i;
@@ -159,7 +159,7 @@ static const u32 crc32c_table[256] = {
  * crc using table.
  */
 
-u32 __attribute_pure__
+u32 __pure
 crc32c_le(u32 crc, unsigned char const *data, size_t length)
 {
 	while (length--)
@@ -174,7 +174,7 @@ crc32c_le(u32 crc, unsigned char const *data, size_t length)
 EXPORT_SYMBOL(crc32c_be);
 
 #if CRC_BE_BITS == 1
-u32 __attribute_pure__
+u32 __pure
 crc32c_be(u32 crc, unsigned char const *p, size_t len)
 {
 	int i;
