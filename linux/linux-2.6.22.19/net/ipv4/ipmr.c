@@ -479,9 +479,11 @@ static struct mfc_cache *ipmr_cache_find(__be32 origin, __be32 mcastgrp)
 static struct mfc_cache *ipmr_cache_alloc(void)
 {
 	struct mfc_cache *c=kmem_cache_zalloc(mrt_cachep, GFP_KERNEL);
-	if (c==NULL)
-		return NULL;
-	c->mfc_un.res.minvif = MAXVIFS;
+
+	if (c) {
+		c->mfc_un.res.last_assert = jiffies - MFC_ASSERT_THRESH - 1;
+ 		c->mfc_un.res.minvif = MAXVIFS;
+	}
 	return c;
 }
 
