@@ -1358,7 +1358,7 @@ static void set_restore(char *argv0)
 		}
 		case 'A': {
 			if (name == NULL
-			    || strncmp(name, ptr, sizeof(name)) != 0)
+			    || strncmp(name, ptr, IP_SET_MAXNAMELEN) != 0)
 			        exit_error(PARAMETER_PROBLEM,
 			        	   "Add IP to set %s in line %u without "
 					   "preceding corresponding create set line\n",
