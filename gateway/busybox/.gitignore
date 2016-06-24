@@ -51,7 +51,6 @@ Config.in
 *~
 *.orig
 *.rej
-/*.patch
 
 #
 # debugging stuff
