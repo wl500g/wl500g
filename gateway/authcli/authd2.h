@@ -45,9 +45,9 @@ struct message {
 		int limit;
 	} auth;
 	// byte access
-	unsigned char byte[1];
+	unsigned char byte[3*4];
 	// dword access
-	unsigned dword[1];
+	unsigned dword[3];
     };
 };
 
