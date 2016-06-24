@@ -10,6 +10,9 @@ LIBS=globals.o sha1.o
 authcli: authcli.o $(LIBS)
 	$(CC) $(CCFLAGS) $(LDFLAGS) authcli.o -o authcli $(LIBS)
 
+authcli.o: authd2.h
+globals.o: globals.h
+
 %.o: %.c
 	$(CC) $(CCFLAGS) -c $<
 
