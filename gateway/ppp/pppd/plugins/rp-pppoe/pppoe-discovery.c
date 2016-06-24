@@ -47,6 +47,9 @@
 #include <net/if_arp.h>
 #endif
 
+/* We must provide replacement for pppd diagnostic functions */
+#define error(msg)	rp_fatal(msg)
+
 char *xstrdup(const char *s);
 void usage(void);
 
