@@ -121,7 +121,7 @@ static const char *nip_to_a(uint32_t nip)
 	return inet_ntoa(in);
 }
 
-static void cleanup()
+static void cleanup(void)
 {
 	remove_pidfile(G.pidfile);
 }
