@@ -1160,11 +1160,12 @@ static int read_event(int fd, struct event_desc *evp, char **msg)
   *msg = NULL;
   
   if (evp->msg_sz != 0 && 
-      (buf = malloc(evp->msg_sz + 1)) &&
-      read_write(fd, (unsigned char *)buf, evp->msg_sz, 1))
+      (buf = calloc(1, evp->msg_sz + 1)))
     {
-      buf[evp->msg_sz] = 0;
-      *msg = buf;
+      if (read_write(fd, (unsigned char *)buf, evp->msg_sz, 1))
+	*msg = buf;
+      else
+	free(buf);
     }
 
   return 1;
