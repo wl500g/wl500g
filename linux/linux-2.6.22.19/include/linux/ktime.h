@@ -279,6 +279,12 @@ static inline s64 ktime_to_us(const ktime_t kt)
 	return (s64) tv.tv_sec * USEC_PER_SEC + tv.tv_usec;
 }
 
+static inline s64 ktime_to_ms(const ktime_t kt)
+{
+	struct timeval tv = ktime_to_timeval(kt);
+	return (s64) tv.tv_sec * MSEC_PER_SEC + tv.tv_usec / USEC_PER_MSEC;
+}
+
 static inline s64 ktime_us_delta(const ktime_t later, const ktime_t earlier)
 {
 	return ktime_to_us(ktime_sub(later, earlier));
