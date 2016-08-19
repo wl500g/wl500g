@@ -522,6 +522,12 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun,
 	if (tun->flags & TUN_NOCHECKSUM)
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
 
+	/* wl500g: hack socket accounting away, better way is backporting:
+	 * 9a279bc net: Partially allow skb destructors to be used on receive path
+	 * d55d87f net: Move rx skb_orphan call to where needed
+	 * and some else, because above is not enough */
+	skb_orphan(skb);
+
 	netif_rx_ni(skb);
 
 	tun->stats.rx_packets++;
