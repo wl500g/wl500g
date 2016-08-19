@@ -192,8 +192,9 @@ start_dns(void)
 		    "dhcp-leasefile=/tmp/dnsmasq.log\n");
 	if (nvram_match("lan_proto", "dhcp")) {
 		fprintf(fp,
-			"dhcp-range=lan,%s,%s,%s\n",
+			"dhcp-range=lan,%s,%s,%s,%s\n",
 			nvram_safe_get("dhcp_start"), nvram_safe_get("dhcp_end"),
+			nvram_safe_get("lan_netmask"),
 			nvram_safe_get("dhcp_lease"));
 		if (nvram_invmatch("dhcp_dns1_x",""))
 			fprintf(fp, "dhcp-option=lan,6,%s,0.0.0.0\n", nvram_safe_get("dhcp_dns1_x"));
