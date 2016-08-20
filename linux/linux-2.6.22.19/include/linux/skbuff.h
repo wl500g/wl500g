@@ -1644,8 +1644,14 @@ extern int	       skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
 							struct iovec *iov);
 extern int	       skb_copy_datagram_from_iovec(struct sk_buff *skb,
 						    int offset,
-						    struct iovec *from,
+						    const struct iovec *from,
+						    int from_offset,
 						    int len);
+extern int	       skb_copy_datagram_const_iovec(const struct sk_buff *from,
+						     int offset,
+						     const struct iovec *to,
+						     int to_offset,
+						     int size);
 extern void	       skb_free_datagram(struct sock *sk, struct sk_buff *skb);
 extern void	       skb_free_datagram_locked(struct sock *sk,
 						struct sk_buff *skb);
