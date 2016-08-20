@@ -1009,7 +1009,7 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
 	if (nat &&
 	    nf_conntrack_fastnat && bcm_nat_bind_hook &&
 	    (hooknum == NF_IP_PRE_ROUTING /*|| hooknum == NF_IP_FORWARD*/) &&
-	    (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_ESTABLISHED + IP_CT_IS_REPLY) &&
+	    (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_ESTABLISHED_REPLY) &&
 	    (protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
 		struct nf_conn_help *help = nfct_help(ct);
 		struct nf_conntrack_tuple *t1, *t2;
