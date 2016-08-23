@@ -1888,7 +1888,7 @@ static int pppol2tp_getname(struct socket *sock, struct sockaddr *uaddr,
 	ENTER_FUNCTION;
 
 	error = -ENOTCONN;
-	if (sock->sk->sk_state != PPPOX_CONNECTED)
+	if (!(sock->sk->sk_state & PPPOX_CONNECTED))
 		goto end;
 
 	SOCK_2_SESSION(sock->sk, session, error, -EBADF, end, 0);
