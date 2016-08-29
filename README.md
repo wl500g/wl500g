@@ -7,6 +7,7 @@
 > ASUS WL-500gP, WL-500gPv2, WL-500W, WL-500gX, WL-520gU, WL-550gE, WL-330gE, WL-320gE, WL-320gP
 
 #### Useful links ####
+  * [Downloads](../../wiki/Downloads)
   * [History of changes](../../wiki/News)
   * [How to compile custom firmware](../../wiki/CompilingCustomFirmware)
   * [AsusForum.NET -- WL500g](http://wl500g.info)
@@ -26,6 +27,7 @@
 > ASUS WL-500gP, WL-500gPv2, WL-500W, WL-500gX, WL-520gU, WL-550gE, WL-330gE, WL-320gE, WL-320gP
 
 #### Полезные ссылки ####
+  * [Скачать](../../wiki/Downloads)
   * [История изменений](../../wiki/News)
   * [Самостоятельная сборка прошивки](../../wiki/CompilingCustomFirmware)
   * [AsusForum.NET -- WL500g](http://wl500g.info/?langid=3)
