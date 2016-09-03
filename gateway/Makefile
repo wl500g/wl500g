@@ -229,7 +229,7 @@ $(subst -, ,$(shell git describe --tags --match="r[0-9][0-9][0-9][0-9]*" --dirty
 endef
 # $1 - describe output in form: "rXXXX count hash M"
 define svnrevision
-r$(shell echo $$(( $(subst r,,$(firstword $(1))) + $(word 2,$(1)) )) )$(word 4,$(1))-$(word 3,$(1))
+r$(shell echo $$(( $(subst r,,$(firstword $(1))) + $(word 2,$(1)) )) )$(if $(word 3,$(1)),$(word 4,$(1))-$(word 3,$(1)),)
 endef
 
 ifneq ($(WL500G_BUILD),1)
