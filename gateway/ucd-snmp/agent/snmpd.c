@@ -674,7 +674,7 @@ main(int argc, char *argv[])
 int
 open_port (u_short dest_port)
 {
-    int sd, lindex;
+    int sd, lindex, on = 1;
     struct sockaddr_in	me;
         
         for(lindex = 0; lindex < sdlen; lindex++)
@@ -690,6 +690,9 @@ open_port (u_short dest_port)
 	    perror("socket");
 	    return -1;
 	}
+#ifdef IP_PKTINFO
+	setsockopt(sd, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on));
+#endif
 	me.sin_family = AF_INET;
 	me.sin_addr.s_addr = INADDR_ANY;
 	/* already in network byte order (I think) */
@@ -804,17 +807,54 @@ receive(int sdv[])
 int
 snmp_read_packet(int sd)
 {
-    struct sockaddr_in	from;
-    int length, out_length, fromlength;
+    struct sockaddr_in from;
+    int length, out_length;
     u_char  packet[1500], outpacket[1500];
 #ifdef USE_LIBWRAP
     char *addr_string;
 #endif
-    fromlength = sizeof from;
+#ifndef IP_PKTINFO
+    int fromlength = sizeof from;
     length = recvfrom(sd, (char *) packet, 1500, 0, (struct sockaddr *)&from,
 		      &fromlength);
     if (length == -1)
 	perror("recvfrom");
+#else
+    char cmsg[CMSG_SPACE(sizeof(struct in_pktinfo))];
+    struct cmsghdr *cmsgptr;
+    struct msghdr msg;
+    struct iovec iov[1];
+    struct in_pktinfo *pktptr;
+
+    struct sockaddr_in to;
+
+    iov[0].iov_base = packet;
+    iov[0].iov_len = sizeof(packet);
+
+    memset(&msg, 0, sizeof(msg));
+    msg.msg_name = (struct sockaddr *)&from;
+    msg.msg_namelen = sizeof(from);
+    msg.msg_iov = iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = cmsg;
+    msg.msg_controllen = sizeof(cmsg);
+
+    length = recvmsg(sd, &msg, 0);
+    if (length < 0)
+	perror("recvmsg");
+
+    memset(&to, 0, sizeof(to));
+    for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr;
+	 cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
+	if (cmsgptr->cmsg_level == IPPROTO_IP &&
+	    cmsgptr->cmsg_type == IP_PKTINFO) {
+		pktptr = (struct in_pktinfo *)(CMSG_DATA(cmsgptr));
+		to.sin_family = AF_INET;
+		memcpy(&to.sin_addr, &pktptr->ipi_addr, sizeof(to.sin_addr));
+		break;
+	    }
+	}
+#endif
 
 #ifdef USE_LIBWRAP
 	addr_string = inet_ntoa(from.sin_addr);
@@ -874,11 +914,41 @@ snmp_read_packet(int sd)
 #ifdef USING_MIBII_SNMP_MIB_MODULE       
 	snmp_outpkts++;
 #endif
+#ifndef IP_PKTINFO
 	if (sendto(sd, (char *)outpacket, out_length, 0,
 		   (struct sockaddr *)&from, sizeof(from)) < 0){
 	    perror("sendto");
 	    return 0;
 	}
+#else
+	iov[0].iov_base = outpacket;
+	iov[0].iov_len = out_length;
+
+	memset(&cmsg, 0, sizeof(cmsg));
+
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_name = (struct sockaddr *)&from;
+	msg.msg_namelen = sizeof(from);
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = cmsg;
+	msg.msg_controllen = sizeof(cmsg);
+
+	cmsgptr = CMSG_FIRSTHDR(&msg);
+	if (to.sin_family == AF_INET) {
+	    cmsgptr->cmsg_level = IPPROTO_IP;
+	    cmsgptr->cmsg_type = IP_PKTINFO;
+	    cmsgptr->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+	    pktptr = (struct in_pktinfo *)(CMSG_DATA(cmsgptr));
+	    memcpy(&pktptr->ipi_spec_dst, &to.sin_addr, sizeof(to.sin_addr));
+	}
+	msg.msg_controllen = cmsgptr->cmsg_len;
+
+	if (sendmsg(sd, &msg, 0) < 0) {
+	    perror("sendmsg");
+	    return 0;
+	}
+#endif
 
     }
     return 1;
