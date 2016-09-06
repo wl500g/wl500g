@@ -815,10 +815,14 @@ snmp_read_packet(int sd)
 #endif
 #ifndef IP_PKTINFO
     int fromlength = sizeof from;
-    length = recvfrom(sd, (char *) packet, 1500, 0, (struct sockaddr *)&from,
-		      &fromlength);
-    if (length == -1)
+    do {
+	length = recvfrom(sd, (char *) packet, 1500, 0, (struct sockaddr *)&from,
+			  &fromlength);
+    } while (length < 0 && errno == EINTR);
+    if (length < 0) {
 	perror("recvfrom");
+	return 0;
+    }
 #else
     char cmsg[CMSG_SPACE(sizeof(struct in_pktinfo))];
     struct cmsghdr *cmsgptr;
@@ -839,9 +843,13 @@ snmp_read_packet(int sd)
     msg.msg_control = cmsg;
     msg.msg_controllen = sizeof(cmsg);
 
-    length = recvmsg(sd, &msg, 0);
-    if (length < 0)
+    do {
+	length = recvmsg(sd, &msg, 0);
+    } while (length < 0 && errno == EINTR);
+    if (length < 0) {
 	perror("recvmsg");
+	return 0;
+    }
 
     memset(&to, 0, sizeof(to));
     for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr;
@@ -915,8 +923,11 @@ snmp_read_packet(int sd)
 	snmp_outpkts++;
 #endif
 #ifndef IP_PKTINFO
-	if (sendto(sd, (char *)outpacket, out_length, 0,
-		   (struct sockaddr *)&from, sizeof(from)) < 0){
+	do {
+	    length = sendto(sd, (char *)outpacket, out_length, 0,
+			    (struct sockaddr *)&from, sizeof(from));
+	} while (length < 0 && errno == EINTR);
+	if (length < 0) {
 	    perror("sendto");
 	    return 0;
 	}
@@ -944,7 +955,10 @@ snmp_read_packet(int sd)
 	}
 	msg.msg_controllen = cmsgptr->cmsg_len;
 
-	if (sendmsg(sd, &msg, 0) < 0) {
+	do {
+	    length = sendmsg(sd, &msg, 0);
+	} while (length < 0 && errno == EINTR);
+	if (length < 0) {
 	    perror("sendmsg");
 	    return 0;
 	}
