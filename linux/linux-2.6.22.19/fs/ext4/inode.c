@@ -2201,6 +2201,8 @@ static void ext4_da_block_invalidatepages(struct mpage_da_data *mpd)
 
 			BUG_ON(!PageLocked(page));
 			BUG_ON(PageWriteback(page));
+			if (page_mapped(page))
+				clear_page_dirty_for_io(page);
 			block_invalidatepage(page, 0);
 			ClearPageUptodate(page);
 			unlock_page(page);
