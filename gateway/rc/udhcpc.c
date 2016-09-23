@@ -29,6 +29,26 @@
 
 static char udhcpstate[12];
 
+#ifdef __CONFIG_IPV6__
+struct duid {
+	uint16_t type;
+	uint16_t hwtype;
+	unsigned char ea[ETHER_ADDR_LEN];
+} __attribute__ ((__packed__));
+
+/* Generate DUID-LL */
+int get_duid(struct duid *duid)
+{
+	if (!duid || !ether_atoe(nvram_safe_get("lan_hwaddr"), duid->ea))
+		return 0;
+
+	duid->type = htons(3);		/* DUID-LL */
+	duid->hwtype = htons(1);	/* Ethernet */
+
+	return ETHER_ADDR_LEN;
+}
+#endif
+
 static int expires(const char *wan_ifname, unsigned int in)
 {
 	time_t now;
@@ -486,13 +506,8 @@ int start_dhcp6c(const char *wan_ifname)
 {
 	FILE *fp;
 	pid_t pid;
-	unsigned char ea[ETHER_ADDR_LEN];
-	unsigned long iaid = 0;
-	struct {
-		uint16 type;
-		uint16 hwtype;
-	} __attribute__ ((__packed__)) duid;
-	uint16 duid_len = 0;
+	unsigned long iaid;
+	struct duid duid;
 	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char *dhcp6c_argv[] = {
 		"/sbin/dhcp6c",
@@ -510,25 +525,17 @@ int start_dhcp6c(const char *wan_ifname)
 
 	stop_dhcp6c();
 
-	if (ether_atoe(nvram_safe_get(strcat_r(prefix, "hwaddr", tmp)), ea)) {
-		/* Generate IAID from the last 7 digits of WAN MAC */
-		iaid =	((unsigned long)(ea[3] & 0x0f) << 16) |
-			((unsigned long)(ea[4]) << 8) |
-			((unsigned long)(ea[5]));
-
-		/* Generate DUID-LL */
-		duid_len = sizeof(duid) + ETHER_ADDR_LEN;
-		duid.type = htons(3);	/* DUID-LL */
-		duid.hwtype = htons(1);	/* Ethernet */
-	}
+	/* Generate IAID from the last 7 digits of WAN MAC */
+	iaid = ether_atoe(nvram_safe_get(strcat_r(prefix, "hwaddr", tmp)), duid.ea) ?
+		((unsigned long)(duid.ea[3] & 0x0f) << 16) |
+		((unsigned long)(duid.ea[4]) << 8) |
+		((unsigned long)(duid.ea[5])) : 1;
 
 	/* Create dhcp6c_duid */
 	unlink("/var/state/dhcp6c_duid");
-	if ((duid_len != 0) &&
+	if (get_duid(&duid) &&
 	    (fp = fopen("/var/state/dhcp6c_duid", "w")) != NULL) {
-		fwrite(&duid_len, sizeof(duid_len), 1, fp);
 		fwrite(&duid, sizeof(duid), 1, fp);
-		fwrite(&ea, ETHER_ADDR_LEN, 1, fp);
 		fclose(fp);
 	}
 
@@ -554,10 +561,10 @@ int start_dhcp6c(const char *wan_ifname)
 		"id-assoc na %lu { };\n",
 		wan_ifname,
 		nvram_get_int("ipv6_lanauto_x") ? "" : "#", iaid,
-		nvram_get_int("ipv6_wanauto_x") ? "" : "#", iaid,
+		nvram_get_int("ipv6_wanauto_x") ? "" : "#", /* wan iaid */ 1UL,
 		"/tmp/dhcp6c.script",
 		iaid, nvram_safe_get("lan_ifname"), 0UL, 0,
-		iaid);
+		/* wan iaid */ 1UL);
 	fclose(fp);
 
 	return _eval(dhcp6c_argv, NULL, 0, &pid);
