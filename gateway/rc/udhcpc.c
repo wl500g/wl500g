@@ -457,18 +457,21 @@ int dhcp6c_main(int argc, char **argv)
 	char *value;
 	char tmp[100], prefix[WAN_PREFIX_SZ];
 	char wanprefix[WAN_PREFIX_SZ];
-	int metric;
+	int metric, changed = 0;
 
 	if (wans_prefix(wan_ifname, wanprefix, prefix) < 0)
 		return EINVAL;
 
 	if (!nvram_invmatch("ipv6_dnsenable_x", "1") &&
 	    (value = getenv("new_domain_name_servers"))) {
+		changed = !nvram_match(strcat_r(wanprefix, "ipv6_dns", tmp), trim_r(value));
 		nvram_set(strcat_r(wanprefix, "ipv6_dns", tmp), trim_r(value));
 	}
 
-	metric = nvram_get_int(strcat_r(wanprefix, "priority", tmp));
-	update_resolvconf(wan_ifname, metric);
+	if (changed) {
+		metric = nvram_get_int(strcat_r(wanprefix, "priority", tmp));
+		update_resolvconf(wan_ifname, metric);
+	}
 
 #ifdef __CONFIG_RADVD__
 	/* Notify radvd of possible change */
