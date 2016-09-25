@@ -220,7 +220,8 @@ struct pimreghdr
 extern int pim_rcv_v1(struct sk_buff *);
 
 struct rtmsg;
-extern int ipmr_get_route(struct sk_buff *skb, struct rtmsg *rtm, int nowait);
+extern int ipmr_get_route(struct sk_buff *skb, struct rtmsg *rtm, int nowait,
+			  u32 portid);
 #endif
 
 #endif

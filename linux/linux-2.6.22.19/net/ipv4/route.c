@@ -2888,7 +2888,7 @@ static int rt_fill_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
 
 		if (MULTICAST(dst) && !LOCAL_MCAST(dst) &&
 		    IPV4_DEVCONF_ALL(MC_FORWARDING)) {
-			int err = ipmr_get_route(skb, r, nowait);
+			int err = ipmr_get_route(skb, r, nowait, pid);
 			if (err <= 0) {
 				if (!nowait) {
 					if (err == 0)

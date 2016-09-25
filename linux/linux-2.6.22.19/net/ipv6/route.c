@@ -2286,7 +2286,7 @@ static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
 	if (iif) {
 #ifdef CONFIG_IPV6_MROUTE
 		if (ipv6_addr_is_multicast(&rt->rt6i_dst.addr)) {
-			int err = ip6mr_get_route(skb, rtm, nowait);
+			int err = ip6mr_get_route(skb, rtm, nowait, pid);
 			if (err <= 0) {
 				if (!nowait) {
 					if (err == 0)

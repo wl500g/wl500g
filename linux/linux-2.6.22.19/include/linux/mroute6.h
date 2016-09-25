@@ -195,7 +195,8 @@ struct mfc6_cache
 
 #ifdef __KERNEL__
 struct rtmsg;
-extern int ip6mr_get_route(struct sk_buff *skb, struct rtmsg *rtm, int nowait);
+extern int ip6mr_get_route(struct sk_buff *skb, struct rtmsg *rtm, int nowait,
+			   u32 portid);
 
 #ifdef CONFIG_IPV6_MROUTE
 extern struct sock *mroute6_socket;
