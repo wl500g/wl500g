@@ -535,6 +535,8 @@ int start_dhcp6c(const char *wan_ifname)
 	unlink("/var/state/dhcp6c_duid");
 	if (get_duid(&duid) &&
 	    (fp = fopen("/var/state/dhcp6c_duid", "w")) != NULL) {
+		uint16 duid_len = sizeof(duid);
+		fwrite(&duid_len, sizeof(duid_len), 1, fp);
 		fwrite(&duid, sizeof(duid), 1, fp);
 		fclose(fp);
 	}
