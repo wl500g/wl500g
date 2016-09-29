@@ -1931,7 +1931,8 @@ void wan6_up(const char *wan_ifname, int unit)
 	}
 
 	/* Add IPv6 DNS servers */
-	if (nvram_invmatch("ipv6_dnsenable_x", "1")) {
+	if (nvram_invmatch("ipv6_dnsenable_x", "1") &&
+	    nvram_invmatch("ipv6_proto", "dhcp6")) {
 		char dnsstr[INET6_ADDRSTRLEN*3+3] = "";
 		char *ptr = dnsstr, *end = dnsstr + sizeof(dnsstr);
 		if (nvram_invmatch("ipv6_dns1_x", ""))

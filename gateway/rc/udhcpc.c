@@ -557,7 +557,7 @@ static int bound6(const char *wan_ifname, int bound)
 	char wanprefix[WAN_PREFIX_SZ];
 	char *lan_ifname = nvram_safe_get("lan_ifname");
 	char addrstr[INET6_ADDRSTRLEN];
-	char word[100], *next;
+	char word[INET6_ADDRSTRLEN*3+3], *next;
 	char *value, *valid = NULL, *preferred = NULL;
 	int wanaddr_changed = 0, lanaddr_changed = 0, dns_changed = 0;
 
@@ -628,13 +628,22 @@ static int bound6(const char *wan_ifname, int bound)
 		}
 	}
 
-	if (!nvram_invmatch("ipv6_dnsenable_x", "1")) {
+	if (nvram_invmatch("ipv6_dnsenable_x", "1")) {
+		char *ptr = word, *end = word + sizeof(word);
+		if (nvram_invmatch("ipv6_dns1_x", ""))
+			ptr += snprintf(ptr, end-ptr, "%s ", nvram_safe_get("ipv6_dns1_x"));
+		if (nvram_invmatch("ipv6_dns2_x", ""))
+			ptr += snprintf(ptr, end-ptr, "%s ", nvram_safe_get("ipv6_dns2_x"));
+		if (nvram_invmatch("ipv6_dns3_x", ""))
+			ptr += snprintf(ptr, end-ptr, "%s ", nvram_safe_get("ipv6_dns3_x"));
+		value = trim_r(word);
+	} else {
 		value = safe_getenv("RDNSS");
 		if (*value == '\0')
 			value = safe_getenv("RA_DNS");
-		dns_changed = !nvram_match(strcat_r(wanprefix, "ipv6_dns", tmp), value);
-		nvram_set(strcat_r(wanprefix, "ipv6_dns", tmp), value);
 	}
+	dns_changed = !nvram_match(strcat_r(wanprefix, "ipv6_dns", tmp), value);
+	nvram_set(strcat_r(wanprefix, "ipv6_dns", tmp), value);
 
 	if (dns_changed) {
 		int metric = nvram_get_int(strcat_r(wanprefix, "priority", tmp));
