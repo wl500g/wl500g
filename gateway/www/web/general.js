@@ -4238,12 +4238,13 @@ function change_ipv6_type(v, init)
 	{
 		inputCtrl(frm.ipv6_if_x, ppp);
 		inputRCtrl1(frm.ipv6_wanauto_x, 1);
-		if (!init)
-			inputRCtrl2(frm.ipv6_wanauto_x, 0);
 		inputRCtrl1(frm.ipv6_dnsenable_x, 1);
 		inputRCtrl1(frm.ipv6_lanauto_x, 1);
-		if (!init)
+		if (!init) {
+			inputRCtrl2(frm.ipv6_wanauto_x, 0);
+			inputRCtrl2(frm.ipv6_dnsenable_x, 0);
 			inputRCtrl2(frm.ipv6_lanauto_x, 0);
+		}
 	} else
 	if (v == "tun6in4")
 	{
