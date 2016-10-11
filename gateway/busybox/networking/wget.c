@@ -1091,7 +1091,8 @@ static void download_one_url(const char *url)
 		 * even after child closes its copy of the fd.
 		 * This helps:
 		 */
-		shutdown(fileno(sfp), SHUT_WR);
+		if (target.protocol == P_HTTPS)
+			shutdown(fileno(sfp), SHUT_WR);
 
 		/*
 		 * Retrieve HTTP response line and check for "200" status code.
