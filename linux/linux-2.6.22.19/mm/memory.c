@@ -897,6 +897,23 @@ unsigned long zap_page_range(struct vm_area_struct *vma, unsigned long address,
 	return end;
 }
 
+static inline bool can_follow_write_pte(pte_t pte, struct page *page,
+					unsigned int flags)
+{
+	if (pte_write(pte))
+		return true;
+
+	/*
+	 * Make sure that we are really following CoWed page. We do not really
+	 * have to care about exclusiveness of the page because we only want
+	 * to ensure that once COWed page hasn't disappeared in the meantime.
+	 */
+	if ((flags & FOLL_FORCE) && (flags & FOLL_COW))
+		return page && PageAnon(page);
+
+	return false;
+}
+
 /*
  * Do a quick page-table lookup for a single page.
  */
@@ -943,9 +960,11 @@ struct page *follow_page(struct vm_area_struct *vma, unsigned long address,
 	pte = *ptep;
 	if (!pte_present(pte))
 		goto unlock;
-	if ((flags & FOLL_WRITE) && !pte_write(pte))
-		goto unlock;
 	page = vm_normal_page(vma, address, pte);
+	if ((flags & FOLL_WRITE) && !can_follow_write_pte(pte, page, flags)) {
+		page = NULL;
+		goto unlock;
+	}
 	if (unlikely(!page))
 		goto unlock;
 
@@ -1050,6 +1069,10 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 		foll_flags = FOLL_TOUCH;
 		if (pages)
 			foll_flags |= FOLL_GET;
+		if (write)
+			foll_flags |= FOLL_WRITE;
+		if (force)
+			foll_flags |= FOLL_FORCE;
 		if (!write && !(vma->vm_flags & VM_LOCKED) &&
 		    (!vma->vm_ops || (!vma->vm_ops->nopage &&
 					!vma->vm_ops->fault)))
@@ -1065,9 +1088,6 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 			 */
 			if (unlikely(test_tsk_thread_flag(tsk, TIF_MEMDIE)))
 				return -ENOMEM;
-
-			if (write)
-				foll_flags |= FOLL_WRITE;
 
 			cond_resched();
 			while (!(page = follow_page(vma, start, foll_flags))) {
@@ -1090,17 +1110,13 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 				 * The VM_FAULT_WRITE bit tells us that
 				 * do_wp_page has broken COW when necessary,
 				 * even if maybe_mkwrite decided not to set
-				 * pte_write. We can thus safely do subsequent
-				 * page lookups as if they were reads. But only
-				 * do so when looping for pte_write is futile:
-				 * in some cases userspace may also be wanting
-				 * to write to the gotten user page, which a
-				 * read fault here might prevent (a readonly
-				 * page might get reCOWed by userspace write).
+				 * pte_write. We cannot simply drop FOLL_WRITE
+				 * here because the COWed page might be gone by
+				 * the time we do the subsequent page lookups.
 				 */
 				if ((ret & VM_FAULT_WRITE) &&
 				    !(vma->vm_flags & VM_WRITE))
-					foll_flags &= ~FOLL_WRITE;
+					foll_flags |= FOLL_COW;
 
 				cond_resched();
 			}
