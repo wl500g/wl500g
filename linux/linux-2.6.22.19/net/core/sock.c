@@ -1009,6 +1009,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
 		}
 
 		newsk->sk_err	   = 0;
+		newsk->sk_err_soft = 0;
 		newsk->sk_priority = 0;
 		atomic_set(&newsk->sk_refcnt, 2);
 
