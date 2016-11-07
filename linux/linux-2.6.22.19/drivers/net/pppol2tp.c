@@ -638,7 +638,7 @@ static int pppol2tp_recv_core(struct sock *sock, struct sk_buff *skb)
 			PRINTK(session->debug, PPPOL2TP_MSG_SEQ, KERN_INFO,
 			       "%s: requested to enable seq numbers by LNS\n",
 			       session->name);
-			session->send_seq = -1;
+			session->send_seq = 1;
 		}
 
 		/* Store L2TP info in the skb */
@@ -2198,7 +2198,7 @@ static int pppol2tp_session_setsockopt(struct sock *sk,
 			err = -EINVAL;
 			break;
 		}
-		session->recv_seq = val ? -1 : 0;
+		session->recv_seq = !!val;
 		PRINTK(session->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
 		       "%s: set recv_seq=%d\n", session->name,
 		       session->recv_seq);
@@ -2209,7 +2209,7 @@ static int pppol2tp_session_setsockopt(struct sock *sk,
 			err = -EINVAL;
 			break;
 		}
-		session->send_seq = val ? -1 : 0;
+		session->send_seq = !!val;
 		{
 			/* FIXME: is it safe to change the ppp channel's
 			 * hdrlen on the fly?
@@ -2230,7 +2230,7 @@ static int pppol2tp_session_setsockopt(struct sock *sk,
 			err = -EINVAL;
 			break;
 		}
-		session->lns_mode = val ? -1 : 0;
+		session->lns_mode = !!val;
 		PRINTK(session->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
 		       "%s: set lns_mode=%d\n", session->name,
 		       session->lns_mode);
