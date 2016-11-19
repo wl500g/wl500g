@@ -16,6 +16,10 @@
 #ifndef _STUBS_H
 #define _STUBS_H 1
 
+extern int dn_comp(const char *src, uint8_t *dst, int length, 
+	uint8_t __attribute__((unused)) **dnptrs,
+	uint8_t __attribute__((unused)) **lastdnptr);
+
 extern int fflags(int sock, int flags);
 
 #endif
