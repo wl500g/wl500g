@@ -1281,9 +1281,12 @@ int ip6_route_add(struct fib6_config *cfg)
 			   It is very good, but in some (rare!) circumstances
 			   (SIT, PtP, NBMA NOARP links) it is handy to allow
 			   some exceptions. --ANK
+			   We allow IPv4-mapped nexthops to support RFC4798-type
+			   addressing
 			 */
 			err = -EINVAL;
-			if (!(gwa_type&IPV6_ADDR_UNICAST))
+			if (!(gwa_type & (IPV6_ADDR_UNICAST |
+					  IPV6_ADDR_MAPPED)))
 				goto out;
 
 			grt = rt6_lookup(gw_addr, NULL, cfg->fc_ifindex, 1);
