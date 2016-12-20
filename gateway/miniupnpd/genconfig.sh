@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.90 2016/02/11 10:35:12 nanard Exp $
+# $Id: genconfig.sh,v 1.91 2016/10/07 09:06:04 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2016 Thomas Bernard
@@ -238,6 +238,12 @@ case $OS_NAME in
 			FW=pf
 		fi
 		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
+		# PFRULE_INOUT_COUNTS should be set for DragonFly > 2.8
+		# version detection is not yet added to this script.
+		echo "#define PFRULE_INOUT_COUNTS" >> ${CONFIGFILE}
+		# net.inet6.ip6.v6only has been on by default for many years
+		# and this sysctl node has been removed
+		V6SOCKETS_ARE_V6ONLY=1
 		OS_URL=http://www.dragonflybsd.org/
 		;;
 	SunOS)
