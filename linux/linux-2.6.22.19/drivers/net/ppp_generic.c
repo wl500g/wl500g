@@ -66,6 +66,12 @@
 #define MPHDRLEN_SSN	4	/* ditto with short sequence numbers */
 #define MIN_FRAG_SIZE	64
 
+#define LCP_ECHO_DEBUG
+#define LCP_CONF_ACK	2	/* PPP LCP configure acknowledge */
+#define LCP_ECHO_REQ	9	/* PPP LCP echo request */
+#define LCP_ECHO_REPLY	10	/* PPP LCP echo reply */
+#define LCP_OPT_MAGIC	5	/* magic number */
+
 /*
  * An instance of /dev/ppp can be associated with either a ppp
  * interface unit or a ppp channel.  In both cases, file->private_data
@@ -165,6 +171,7 @@ struct channel {
 	u8		had_frag;	/* >= 1 fragments have been sent */
 	u32		lastseq;	/* MP: last sequence # received */
 #endif /* CONFIG_PPP_MULTILINK */
+	__be32		magic;		/* channel magic number */
 };
 
 /*
@@ -1493,6 +1500,66 @@ ppp_input(struct ppp_channel *chan, struct sk_buff *skb)
 	}
 
 	proto = PPP_PROTO(skb);
+	if (proto == PPP_LCP && pskb_may_pull(skb, 6)) {
+		unsigned char *opt, *lcp = skb->data + 2;
+		u16 len = (lcp[2] << 8) + lcp[3];
+		__be32 magic;
+
+		if (len < 4 || !pskb_may_pull(skb, 2 + len))
+			goto queue;
+		switch (lcp[0]) {
+		case LCP_CONF_ACK:
+			if (pch->magic == 0)
+				get_random_bytes(&pch->magic, sizeof(pch->magic));
+			len -= 4;
+			opt = lcp + 4;
+			while (len >= 2 && (int)opt[1] <= len) {
+				if (opt[0] == LCP_OPT_MAGIC &&
+				    opt[1] >= 2 + sizeof(pch->magic)) {
+					memcpy(&pch->magic, opt + 2, sizeof(pch->magic));
+#ifdef LCP_ECHO_DEBUG
+					if (pch->ppp == 0 || pch->ppp->debug & 1) {
+						printk(KERN_DEBUG "PPP: recv "
+						       "[LCP ConfAck id=0x%d <magic 0x%x>]\n",
+						       lcp[1], be32_to_cpu(pch->magic));
+					}
+#endif
+					break;
+				}
+				len -= opt[1];
+				opt += opt[1];
+			}
+			break;
+		case LCP_ECHO_REQ:
+			if (len < 4 + sizeof(magic))
+				break;
+			memcpy(&magic, lcp + 4, sizeof(magic));
+#ifdef LCP_ECHO_DEBUG
+			if (pch->ppp == 0 || pch->ppp->debug & 1) {
+				printk(KERN_DEBUG "PPP: recv [LCP EchoReq "
+				       "id=0x%d <magic 0x%x>]\n", lcp[1],
+				       be32_to_cpu(magic));
+			}
+#endif
+			if (magic == pch->magic)
+				break;
+			lcp[0] = LCP_ECHO_REPLY;
+			memcpy(lcp + 4, &pch->magic, sizeof(pch->magic));
+			spin_lock_bh(&pch->downl);
+			if (!pch->chan->ops->start_xmit(pch->chan, skb))
+				skb_queue_head(&pch->file.xq, skb);
+#ifdef LCP_ECHO_DEBUG
+			else if (pch->ppp == 0 || pch->ppp->debug & 1) {
+				printk(KERN_DEBUG "PPP: sent [LCP EchoRep "
+				       "id=0x%d <magic 0x%x>]\n", lcp[1],
+				       be32_to_cpu(pch->magic));
+			}
+#endif
+			spin_unlock_bh(&pch->downl);
+			goto done;
+		}
+	}
+queue:
 	if (pch->ppp == 0 || proto >= 0xc000 || proto == PPP_CCPFRAG) {
 		/* put it on the channel queue */
 		skb_queue_tail(&pch->file.rq, skb);
