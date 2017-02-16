@@ -465,7 +465,8 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 				return 1;
 
 			/* FIXME: do congestion control initialization */
-			goto discard;
+			kfree_skb(skb);
+			return 0;
 		}
 		if (dh->dccph_type == DCCP_PKT_RESET)
 			goto discard;
