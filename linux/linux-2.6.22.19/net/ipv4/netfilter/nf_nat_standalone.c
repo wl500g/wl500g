@@ -342,7 +342,7 @@ static int __init nf_nat_standalone_init(void)
 	}
 #ifdef CONFIG_XFRM
 	BUG_ON(ip_nat_decode_session != NULL);
-	ip_nat_decode_session = nat_decode_session;
+	rcu_assign_pointer(ip_nat_decode_session, nat_decode_session);
 #endif
 	ret = nf_nat_rule_init();
 	if (ret < 0) {
@@ -361,7 +361,7 @@ static int __init nf_nat_standalone_init(void)
 	nf_nat_rule_cleanup();
  cleanup_decode_session:
 #ifdef CONFIG_XFRM
-	ip_nat_decode_session = NULL;
+	rcu_assign_pointer(ip_nat_decode_session, NULL);
 	synchronize_net();
 #endif
 	nf_conntrack_unregister_cache(NF_CT_F_NAT|NF_CT_F_HELP);
@@ -376,7 +376,7 @@ static void __exit nf_nat_standalone_fini(void)
 	nf_nat_rule_cleanup();
 	nf_nat_module_is_loaded = 0;
 #ifdef CONFIG_XFRM
-	ip_nat_decode_session = NULL;
+	rcu_assign_pointer(ip_nat_decode_session, NULL);
 	synchronize_net();
 #endif
 	/* Conntrack caches are unregistered in nf_conntrack_cleanup */
