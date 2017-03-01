@@ -585,6 +585,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
 	if (atomic_read(&nf_frags.mem) > nf_frags_ctl.high_thresh)
 		nf_ct_frag6_evictor();
 
+	skb_orphan(skb);
 	fq = fq_find(fhdr->identification, &hdr->saddr, &hdr->daddr);
 	if (fq == NULL) {
 		pr_debug("Can't find and can't create new queue\n");
