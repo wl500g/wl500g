@@ -143,10 +143,13 @@ void unix_inflight(struct file *fp)
 void unix_notinflight(struct file *fp)
 {
 	struct sock *s = unix_get_socket(fp);
-	if(s) {
+	if (s) {
 		struct unix_sock *u = unix_sk(s);
 		spin_lock(&unix_gc_lock);
+
+		BUG_ON(!atomic_long_read(&u->inflight));
 		BUG_ON(list_empty(&u->link));
+
 		if (atomic_dec_and_test(&u->inflight))
 			list_del_init(&u->link);
 		atomic_dec(&unix_tot_inflight);
@@ -355,6 +358,14 @@ void unix_gc(void)
 	}
 	list_del(&cursor);
 
+	/* Now gc_candidates contains only garbage.  Restore original
+	 * inflight counters for these as well, and remove the skbuffs
+	 * which are creating the cycle(s).
+	 */
+	skb_queue_head_init(&hitlist);
+	list_for_each_entry(u, &gc_candidates, link)
+		scan_children(&u->sk, inc_inflight, &hitlist);
+
 	/*
 	 * not_cycle_list contains those sockets which do not make up a
 	 * cycle.  Restore these to the inflight list.
@@ -364,15 +375,6 @@ void unix_gc(void)
 		u->gc_candidate = 0;
 		list_move_tail(&u->link, &gc_inflight_list);
 	}
-
-	/*
-	 * Now gc_candidates contains only garbage.  Restore original
-	 * inflight counters for these as well, and remove the skbuffs
-	 * which are creating the cycle(s).
-	 */
-	skb_queue_head_init(&hitlist);
-	list_for_each_entry(u, &gc_candidates, link)
-		scan_children(&u->sk, inc_inflight, &hitlist);
 
 	spin_unlock(&unix_gc_lock);
 
