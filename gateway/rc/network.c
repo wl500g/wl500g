@@ -359,10 +359,11 @@ static void start_igmpproxy(const char *wan_ifname)
 		return;
 	}
 	fprintf(fp, "# automagically generated\n"
-		"quickleave\n\n"
+		"%s"
 		"phyint %s upstream\n"
 		"\taltnet %s\n\n"
 		"phyint %s downstream ratelimit 0\n\n", 
+		nvram_get_int("mr_qleave_x") ? "quickleave\n\n" : "",
 		wan_ifname, 
 		nvram_get("mr_altnet_x") ? : "0.0.0.0/0", 
 		nvram_safe_default_get("lan_ifname"));
