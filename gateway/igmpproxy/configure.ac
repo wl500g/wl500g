@@ -26,6 +26,12 @@ AC_CHECK_MEMBERS([struct sockaddr_in.sin_len], [], [], [[
 #include <netinet/in.h>
 ]])
 
+AC_CHECK_DECL([CLOCK_MONOTONIC], [
+	AC_SEARCH_LIBS([clock_gettime], [rt], [
+		AC_DEFINE([HAVE_CLOCK_MONOTONIC], [1], [Define to 1 if clock_gettime supports CLOCK_MONOTONIC.])
+	])
+], [], [[#include <time.h>]])
+
 AC_CONFIG_FILES([
 	Makefile
 	doc/Makefile

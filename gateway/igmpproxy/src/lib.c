@@ -144,5 +144,28 @@ uint16_t inetChksum(uint16_t *addr, int len) {
     return(answer);
 }
 
+/*
+ * Return current time value, monotonic if possible
+ */ 
+int gettimeval(struct timeval *tv)
+{
+#ifdef HAVE_CLOCK_MONOTONIC
+	struct timespec tp;
+	int ret = -1;
+
+	if (tv == NULL) {
+		errno = EFAULT;
+		return -1;
+	}
+	if (clock_gettime(CLOCK_MONOTONIC, &tp) < 0)
+		return -1;
+
+	tv->tv_sec = tp.tv_sec;
+	tv->tv_usec = tp.tv_nsec / 1000;
+	return 0;
+#else
+	return gettimeofday(tv, NULL);
+#endif
+}
 
 

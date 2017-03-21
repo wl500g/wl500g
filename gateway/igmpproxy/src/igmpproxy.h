@@ -44,6 +44,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <time.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -219,6 +220,7 @@ char   *fmtInAdr( char *St, struct in_addr InAdr );
 char   *inetFmt(uint32_t addr, char *s);
 char   *inetFmts(uint32_t addr, uint32_t mask, char *s);
 uint16_t inetChksum(uint16_t *addr, int len);
+int gettimeval(struct timeval *tv);
 
 /* kern.c
  */

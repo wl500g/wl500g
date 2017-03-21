@@ -251,7 +251,7 @@ static void igmpProxyRun() {
 
     // Initialize timer vars
     difftime.tv_usec = 0;
-    gettimeofday(&curtime, NULL);
+    gettimeval(&curtime);
     lasttime = curtime;
 
     // First thing we send a membership query in downstream VIF's...
@@ -314,14 +314,14 @@ static void igmpProxyRun() {
             /*
              * If the select timed out, then there's no other
              * activity to account for and we don't need to
-             * call gettimeofday.
+             * call gettimeval.
              */
             if (Rt == 0) {
                 curtime.tv_sec = lasttime.tv_sec + secs;
                 curtime.tv_usec = lasttime.tv_usec;
                 Rt = -1; /* don't do this next time through the loop */
             } else {
-                gettimeofday(&curtime, NULL);
+                gettimeval(&curtime);
             }
             difftime.tv_sec = curtime.tv_sec - lasttime.tv_sec;
             difftime.tv_usec += curtime.tv_usec - lasttime.tv_usec;
