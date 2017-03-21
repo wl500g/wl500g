@@ -1,5 +1,10 @@
+.deps/
+autom4te.cache/
 Makefile
 config.h
+config.cache
+config.log
+config.status
 doc/igmpproxy.8
 doc/igmpproxy.conf.5
 src/os.h
