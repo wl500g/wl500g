@@ -1098,7 +1098,7 @@ igmpproxy: igmpproxy/src/Makefile
 	$(MAKE) -C igmpproxy/src
 
 igmpproxy-distclean:
-	-$(MAKE) -C igmpproxy/src distclean
+	-$(MAKE) -C igmpproxy distclean
 
 igmpproxy-clean:
 	-$(MAKE) -C igmpproxy/src clean
