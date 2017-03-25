@@ -151,7 +151,6 @@ int gettimeval(struct timeval *tv)
 {
 #ifdef HAVE_CLOCK_MONOTONIC
 	struct timespec tp;
-	int ret = -1;
 
 	if (tv == NULL) {
 		errno = EFAULT;
