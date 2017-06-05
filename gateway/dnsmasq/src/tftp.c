@@ -382,7 +382,7 @@ void tftp_request(struct listener *listen, time_t now)
 	  if (prefix[strlen(prefix)-1] != '/')
 	    strncat(daemon->namebuff, "/", (MAXDNAME-1) - strlen(daemon->namebuff));
 
-	  if (option_bool(OPT_TFTP_APREF))
+	  if (option_bool(OPT_TFTP_APREF_IP))
 	    {
 	      size_t oldlen = strlen(daemon->namebuff);
 	      struct stat statbuf;
@@ -394,7 +394,40 @@ void tftp_request(struct listener *listen, time_t now)
 	      if (stat(daemon->namebuff, &statbuf) == -1 || !S_ISDIR(statbuf.st_mode))
 		daemon->namebuff[oldlen] = 0;
 	    }
-		
+	  
+	  if (option_bool(OPT_TFTP_APREF_MAC))
+	    {
+	      unsigned char *macaddr = NULL;
+	      unsigned char macbuf[DHCP_CHADDR_MAX];
+	      
+#ifdef HAVE_DHCP
+	      if (daemon->dhcp && peer.sa.sa_family == AF_INET)
+	        {
+		  /* Check if the client IP is in our lease database */
+		  struct dhcp_lease *lease = lease_find_by_addr(peer.in.sin_addr);
+		  if (lease && lease->hwaddr_type == ARPHRD_ETHER && lease->hwaddr_len == ETHER_ADDR_LEN)
+		    macaddr = lease->hwaddr;
+		}
+#endif
+	      
+	      /* If no luck, try to find in ARP table. This only works if client is in same (V)LAN */
+	      if (!macaddr && find_mac(&peer, macbuf, 1, now) > 0)
+		macaddr = macbuf;
+	      
+	      if (macaddr)
+	        {
+		  size_t oldlen = strlen(daemon->namebuff);
+		  struct stat statbuf;
+
+		  snprintf(daemon->namebuff + oldlen, (MAXDNAME-1) - oldlen, "%.2x-%.2x-%.2x-%.2x-%.2x-%.2x/",
+			   macaddr[0], macaddr[1], macaddr[2], macaddr[3], macaddr[4], macaddr[5]);
+		  
+		  /* remove unique-directory if it doesn't exist */
+		  if (stat(daemon->namebuff, &statbuf) == -1 || !S_ISDIR(statbuf.st_mode))
+		    daemon->namebuff[oldlen] = 0;
+		}
+	    }
+	  
 	  /* Absolute pathnames OK if they match prefix */
 	  if (filename[0] == '/')
 	    {
@@ -407,7 +440,7 @@ void tftp_request(struct listener *listen, time_t now)
       else if (filename[0] == '/')
 	daemon->namebuff[0] = 0;
       strncat(daemon->namebuff, filename, (MAXDNAME-1) - strlen(daemon->namebuff));
-
+      
       /* check permissions and open file */
       if ((transfer->file = check_tftp_fileperm(&len, prefix)))
 	{
@@ -470,7 +503,7 @@ static struct tftp_file *check_tftp_fileperm(ssize_t *len, char *prefix)
   else if (option_bool(OPT_TFTP_SECURE) && uid != statbuf.st_uid)
     goto perm;
       
-  /* If we're doing many tranfers from the same file, only 
+  /* If we're doing many transfers from the same file, only 
      open it once this saves lots of file descriptors 
      when mass-booting a big cluster, for instance. 
      Be conservative and only share when inode and name match
@@ -662,8 +695,9 @@ static ssize_t tftp_err(int err, char *packet, char *message, char *file)
   ssize_t len, ret = 4;
   char *errstr = strerror(errno);
   
+  memset(packet, 0, daemon->packet_buff_sz);
   sanitise(file);
-
+  
   mess->op = htons(OP_ERR);
   mess->err = htons(err);
   len = snprintf(mess->message, MAXMESSAGE,  message, file, errstr);
@@ -684,6 +718,8 @@ static ssize_t tftp_err_oops(char *packet, char *file)
 /* return -1 for error, zero for done. */
 static ssize_t get_block(char *packet, struct tftp_transfer *transfer)
 {
+  memset(packet, 0, daemon->packet_buff_sz);
+  
   if (transfer->block == 0)
     {
       /* send OACK */

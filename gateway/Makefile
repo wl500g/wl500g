@@ -911,7 +911,7 @@ accel-ppp-install: accel-ppp/build/Makefile
 
 dnsmasq:
 	$(MAKE) -C $@ \
-	    COPTS="-DHAVE_BROKEN_RTC -DNO_SCRIPT -DNO_AUTH -DNO_LOOP -DNO_INOTIFY $(if $(CONFIG_IPV6),,-DNO_IPV6) $(if $(CONFIG_IPSET),,-DNO_IPSET)"
+	    COPTS="-DHAVE_BROKEN_RTC -DNO_ID -DNO_SCRIPT -DNO_AUTH -DNO_INOTIFY $(if $(CONFIG_IPV6),,-DNO_IPV6) $(if $(CONFIG_IPSET),,-DNO_IPSET)"
 	    CFLAGS="-Os -ffunction-sections -fdata-sections $(EXTRACFLAGS)" \
 	    LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections"
 

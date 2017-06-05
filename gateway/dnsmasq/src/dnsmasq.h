@@ -117,7 +117,6 @@ typedef unsigned long long u64;
 #include <sys/uio.h>
 #include <syslog.h>
 #include <dirent.h>
-#include <utime.h>
 #ifndef HAVE_LINUX_NETWORK
 #  include <net/if_dl.h>
 #endif
@@ -125,7 +124,7 @@ typedef unsigned long long u64;
 #if defined(HAVE_LINUX_NETWORK)
 #include <linux/capability.h>
 /* There doesn't seem to be a universally-available 
-   userpace header for these. */
+   userspace header for these. */
 extern int capset(cap_user_header_t header, cap_user_data_t data);
 extern int capget(cap_user_header_t header, cap_user_data_t data);
 #define LINUX_CAPABILITY_VERSION_1  0x19980330
@@ -145,30 +144,31 @@ struct event_desc {
   int event, data, msg_sz;
 };
 
-#define EVENT_RELOAD    1
-#define EVENT_DUMP      2
-#define EVENT_ALARM     3
-#define EVENT_TERM      4
-#define EVENT_CHILD     5
-#define EVENT_REOPEN    6
-#define EVENT_EXITED    7
-#define EVENT_KILLED    8
-#define EVENT_EXEC_ERR  9
-#define EVENT_PIPE_ERR  10
-#define EVENT_USER_ERR  11
-#define EVENT_CAP_ERR   12
-#define EVENT_PIDFILE   13
-#define EVENT_HUSER_ERR 14
-#define EVENT_GROUP_ERR 15
-#define EVENT_DIE       16
-#define EVENT_LOG_ERR   17
-#define EVENT_FORK_ERR  18
-#define EVENT_LUA_ERR   19
-#define EVENT_TFTP_ERR  20
-#define EVENT_INIT      21
-#define EVENT_NEWADDR   22
-#define EVENT_NEWROUTE  23
-#define EVENT_TIME_ERR  24
+#define EVENT_RELOAD     1
+#define EVENT_DUMP       2
+#define EVENT_ALARM      3
+#define EVENT_TERM       4
+#define EVENT_CHILD      5
+#define EVENT_REOPEN     6
+#define EVENT_EXITED     7
+#define EVENT_KILLED     8
+#define EVENT_EXEC_ERR   9
+#define EVENT_PIPE_ERR   10
+#define EVENT_USER_ERR   11
+#define EVENT_CAP_ERR    12
+#define EVENT_PIDFILE    13
+#define EVENT_HUSER_ERR  14
+#define EVENT_GROUP_ERR  15
+#define EVENT_DIE        16
+#define EVENT_LOG_ERR    17
+#define EVENT_FORK_ERR   18
+#define EVENT_LUA_ERR    19
+#define EVENT_TFTP_ERR   20
+#define EVENT_INIT       21
+#define EVENT_NEWADDR    22
+#define EVENT_NEWROUTE   23
+#define EVENT_TIME_ERR   24
+#define EVENT_SCRIPT_LOG 25
 
 /* Exit codes. */
 #define EC_GOOD        0
@@ -211,7 +211,7 @@ struct event_desc {
 #define OPT_TFTP_SECURE    26
 #define OPT_TFTP_NOBLOCK   27
 #define OPT_LOG_OPTS       28
-#define OPT_TFTP_APREF     29
+#define OPT_TFTP_APREF_IP  29
 #define OPT_NO_OVERRIDE    30
 #define OPT_NO_REBIND      31
 #define OPT_ADD_MAC        32
@@ -238,12 +238,14 @@ struct event_desc {
 #define OPT_SCRIPT_ARP     53
 #define OPT_MAC_B64        54
 #define OPT_MAC_HEX        55
-#define OPT_LAST           56
+#define OPT_TFTP_APREF_MAC 56
+#define OPT_LAST           57
 
 /* extra flags for my_syslog, we use a couple of facilities since they are known 
    not to occupy the same bits as priorities, no matter how syslog.h is set up. */
-#define MS_TFTP LOG_USER
-#define MS_DHCP LOG_DAEMON 
+#define MS_TFTP   LOG_USER
+#define MS_DHCP   LOG_DAEMON
+#define MS_SCRIPT LOG_MAIL
 
 struct all_addr {
   union {
@@ -286,6 +288,7 @@ struct naptr {
   struct naptr *next;
 };
 
+#ifndef NO_ID
 #define TXT_STAT_CACHESIZE     1
 #define TXT_STAT_INSERTS       2
 #define TXT_STAT_EVICTIONS     3
@@ -293,6 +296,7 @@ struct naptr {
 #define TXT_STAT_HITS          5
 #define TXT_STAT_AUTH          6
 #define TXT_STAT_SERVERS       7
+#endif
 
 struct txt_record {
   char *name;
@@ -308,9 +312,9 @@ struct ptr_record {
 };
 
 struct cname {
-  int ttl;
+  int ttl, flag;
   char *alias, *target;
-  struct cname *next;
+  struct cname *next, *targetp;
 }; 
 
 struct ds_config {
@@ -340,6 +344,7 @@ struct auth_zone {
     struct auth_name_list *next;
   } *interface_names;
   struct addrlist *subnet;
+  struct addrlist *exclude;
   struct auth_zone *next;
 };
 
@@ -482,11 +487,13 @@ union mysockaddr {
 #define SERV_FROM_FILE      4096  /* read from --servers-file */
 #define SERV_LOOP           8192  /* server causes forwarding loop */
 #define SERV_DO_DNSSEC     16384  /* Validate DNSSEC when using this server */
+#define SERV_GOT_TCP       32768  /* Got some data from the TCP connection */
 
 struct serverfd {
   int fd;
   union mysockaddr source_addr;
   char interface[IF_NAMESIZE+1];
+  unsigned int ifindex, used;
   struct serverfd *next;
 };
 
@@ -517,7 +524,7 @@ struct ipsets {
 struct irec {
   union mysockaddr addr;
   struct in_addr netmask; /* only valid for IPv4 */
-  int tftp_ok, dhcp_ok, mtu, done, warned, dad, dns_auth, index, multicast_done, found;
+  int tftp_ok, dhcp_ok, mtu, done, warned, dad, dns_auth, index, multicast_done, found, label;
   char *name; 
   struct irec *next;
 };
@@ -699,6 +706,12 @@ struct tag_if {
   struct tag_if *next;
 };
 
+struct delay_config {
+  int delay;
+  struct dhcp_netid *netid;
+  struct delay_config *next;
+};
+
 struct hwaddr_config {
   int hwaddr_len, hwaddr_type;
   unsigned char hwaddr[DHCP_CHADDR_MAX];
@@ -785,7 +798,7 @@ struct pxe_service {
 #define MATCH_REMOTE     4
 #define MATCH_SUBSCRIBER 5
 
-/* vendorclass, userclass, remote-id or cicuit-id */
+/* vendorclass, userclass, remote-id or circuit-id */
 struct dhcp_vendor {
   int len, match_type;
   unsigned int enterprise;
@@ -827,7 +840,8 @@ struct prefix_class {
 
 struct ra_interface {
   char *name;
-  int interval, lifetime, prio;
+  char *mtu_name;
+  int interval, lifetime, prio, mtu;
   struct ra_interface *next;
 };
 
@@ -969,6 +983,7 @@ extern struct daemon {
   struct tag_if *tag_if; 
   struct addr_list *override_relays;
   struct dhcp_relay *relay4, *relay6;
+  struct delay_config *delay_conf;
   int override;
   int enable_pxe;
   int doing_ra, doing_dhcp6;
@@ -992,6 +1007,7 @@ extern struct daemon {
 #endif
 #ifdef HAVE_DNSSEC
   struct ds_config *ds;
+  int dnssec_no_time_check;
   int back_to_the_future;
   char *timestamp_file;
 #endif
@@ -1078,7 +1094,9 @@ void cache_add_dhcp_entry(char *host_name, int prot, struct all_addr *host_addre
 struct in_addr a_record_from_hosts(char *name, time_t now);
 void cache_unhash_dhcp(void);
 void dump_cache(time_t now);
+#ifndef NO_ID
 int cache_make_stat(struct txt_record *t);
+#endif
 char *cache_get_name(struct crec *crecp);
 char *cache_get_cname_target(struct crec *crecp);
 struct crec *cache_enumerate(int init);
@@ -1244,6 +1262,7 @@ int enumerate_interfaces(int reset);
 void create_wildcard_listeners(void);
 void create_bound_listeners(int die);
 void warn_bound_listeners(void);
+void warn_wild_labels(void);
 void warn_int_names(void);
 int is_dad_listeners(void);
 int iface_check(int family, struct all_addr *addr, char *name, int *auth_dns);
@@ -1272,9 +1291,11 @@ struct dhcp_context *address_available(struct dhcp_context *context,
 struct dhcp_context *narrow_context(struct dhcp_context *context, 
 				    struct in_addr taddr,
 				    struct dhcp_netid *netids);
+struct ping_result *do_icmp_ping(time_t now, struct in_addr addr,
+				 unsigned int hash, int loopback);
 int address_allocate(struct dhcp_context *context,
 		     struct in_addr *addrp, unsigned char *hwaddr, int hw_len,
-		     struct dhcp_netid *netids, time_t now);
+		     struct dhcp_netid *netids, time_t now, int loopback);
 void dhcp_read_ethers(void);
 struct dhcp_config *config_find_by_address(struct dhcp_config *configs, struct in_addr addr);
 char *host_from_dns(struct in_addr addr);
@@ -1323,7 +1344,8 @@ void lease_add_extradata(struct dhcp_lease *lease, unsigned char *data,
 /* rfc2131.c */
 #ifdef HAVE_DHCP
 size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
-		  size_t sz, time_t now, int unicast_dest, int *is_inform, int pxe_fd, struct in_addr fallback);
+		  size_t sz, time_t now, int unicast_dest, int loopback,
+		  int *is_inform, int pxe_fd, struct in_addr fallback, time_t recvtime);
 unsigned char *extended_hwaddr(int hwtype, int hwlen, unsigned char *hwaddr, 
 			       int clid_len, unsigned char *clid, int *len_out);
 #endif
@@ -1332,6 +1354,7 @@ unsigned char *extended_hwaddr(int hwtype, int hwlen, unsigned char *hwaddr,
 #ifdef HAVE_DHCP
 int make_icmp_sock(void);
 int icmp_ping(struct in_addr addr);
+int delay_dhcp(time_t start, int sec, int fd, uint32_t addr, unsigned short id);
 #endif
 void queue_event(int event);
 void send_alarm(time_t event, time_t now);
@@ -1470,6 +1493,7 @@ void log_relay(int family, struct dhcp_relay *relay);
 /* outpacket.c */
 #ifdef HAVE_DHCP6
 void end_opt6(int container);
+void reset_counter(void);
 int save_counter(int newval);
 void *expand(size_t headroom);
 int new_opt6(int opt);
@@ -1485,7 +1509,7 @@ void put_opt6_string(char *s);
 void ra_init(time_t now);
 void icmp6_packet(time_t now);
 time_t periodic_ra(time_t now);
-void ra_start_unsolicted(time_t now, struct dhcp_context *context);
+void ra_start_unsolicited(time_t now, struct dhcp_context *context);
 #endif
 
 /* slaac.c */ 
